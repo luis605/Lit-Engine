@@ -1,0 +1,145 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<!-- Created with Inkscape (http://www.inkscape.org/) -->
+
+<svg
+   width="210mm"
+   height="297mm"
+   viewBox="0 0 210 297"
+   version="1.1"
+   id="svg5"
+   inkscape:version="1.1.2 (0a00cf5339, 2022-02-04)"
+   sodipodi:docname="v1.svg"
+   xmlns:inkscape="http://www.inkscape.org/namespaces/inkscape"
+   xmlns:sodipodi="http://sodipodi.sourceforge.net/DTD/sodipodi-0.dtd"
+   xmlns="http://www.w3.org/2000/svg"
+   xmlns:svg="http://www.w3.org/2000/svg">
+  <sodipodi:namedview
+     id="namedview7"
+     pagecolor="#505050"
+     bordercolor="#ffffff"
+     borderopacity="1"
+     inkscape:pageshadow="0"
+     inkscape:pageopacity="0"
+     inkscape:pagecheckerboard="1"
+     inkscape:document-units="mm"
+     showgrid="false"
+     inkscape:zoom="0.72782688"
+     inkscape:cx="396.38547"
+     inkscape:cy="671.86307"
+     inkscape:window-width="1920"
+     inkscape:window-height="1009"
+     inkscape:window-x="0"
+     inkscape:window-y="0"
+     inkscape:window-maximized="1"
+     inkscape:current-layer="layer1" />
+  <defs
+     id="defs2" />
+  <g
+     inkscape:label="Camada 1"
+     inkscape:groupmode="layer"
+     id="layer1">
+    <rect
+       style="fill:#b3b3b3;stroke-width:0.264583"
+       id="rect846"
+       width="174.46367"
+       height="249.02939"
+       x="22.37583"
+       y="41.893002" />
+    <rect
+       style="fill:#4d4d4d;stroke-width:0.264583"
+       id="rect2932"
+       width="129.17946"
+       height="34.538219"
+       x="44.31266"
+       y="57.313736"
+       ry="11.504962" />
+    <text
+       xml:space="preserve"
+       style="font-style:normal;font-weight:normal;font-size:10.5833px;line-height:1.25;font-family:sans-serif;fill:#000000;fill-opacity:1;stroke:none;stroke-width:0.264583"
+       x="61.966068"
+       y="77.836136"
+       id="text2192"><tspan
+         sodipodi:role="line"
+         id="tspan2190"
+         style="stroke-width:0.264583"
+         x="61.966068"
+         y="77.836136">Add Entity Menu</tspan></text>
+    <text
+       xml:space="preserve"
+       style="font-style:normal;font-weight:normal;font-size:9.87778px;line-height:1.25;font-family:sans-serif;fill:#000000;fill-opacity:1;stroke:none;stroke-width:0.264583"
+       x="39.113949"
+       y="125.17474"
+       id="text5152"><tspan
+         sodipodi:role="line"
+         id="tspan5150"
+         style="font-size:9.87778px;stroke-width:0.264583"
+         x="39.113949"
+         y="125.17474">Model: </tspan></text>
+    <rect
+       style="fill:#999999;stroke-width:0.316544"
+       id="rect6166"
+       width="93.626945"
+       height="15.426444"
+       x="77.513466"
+       y="114.50897"
+       ry="6.0750446" />
+    <text
+       xml:space="preserve"
+       style="font-style:normal;font-weight:normal;font-size:9.87778px;line-height:1.25;font-family:sans-serif;fill:#000000;fill-opacity:1;stroke:none;stroke-width:0.264583"
+       x="30.118107"
+       y="148.53859"
+       id="text5152-3"><tspan
+         sodipodi:role="line"
+         id="tspan5150-6"
+         style="font-size:9.87778px;stroke-width:0.264583"
+         x="30.118107"
+         y="148.53859">Position:</tspan></text>
+    <rect
+       style="fill:#999999;stroke-width:0.316544"
+       id="rect6166-7"
+       width="93.626945"
+       height="15.426444"
+       x="77.513466"
+       y="137.8728"
+       ry="6.0750446" />
+    <text
+       xml:space="preserve"
+       style="font-style:normal;font-weight:normal;font-size:9.87778px;line-height:1.25;font-family:sans-serif;fill:#000000;fill-opacity:1;stroke:none;stroke-width:0.264583"
+       x="42.168243"
+       y="170.53761"
+       id="text5152-5"><tspan
+         sodipodi:role="line"
+         id="tspan5150-3"
+         style="font-size:9.87778px;stroke-width:0.264583"
+         x="42.168243"
+         y="170.53761">Scale: </tspan></text>
+    <rect
+       style="fill:#999999;stroke-width:0.316544"
+       id="rect6166-5"
+       width="93.626945"
+       height="15.426444"
+       x="77.392754"
+       y="159.87184"
+       ry="6.0750446" />
+    <text
+       xml:space="preserve"
+       style="font-style:normal;font-weight:normal;font-size:9.87778px;line-height:1.25;font-family:sans-serif;fill:#000000;fill-opacity:1;stroke:none;stroke-width:0.264583"
+       x="41.639072"
+       y="191.78481"
+       id="text5152-6"><tspan
+         sodipodi:role="line"
+         id="tspan5150-2"
+         style="font-size:9.87778px;stroke-width:0.264583"
+         x="41.639072"
+         y="191.78481">Color:</tspan></text>
+    <rect
+       style="fill:#d40000;stroke-width:0.804288"
+       id="rect6166-9"
+       width="93.626945"
+       height="99.591179"
+       x="77.392754"
+       y="181.11903"
+       ry="13.379447"
+       rx="11.338171" />
+  </g>
+</svg>
