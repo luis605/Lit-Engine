@@ -1,20 +1,33 @@
-entity.name = str(entity.x)
-print("Entity name:", entity.name, "\n")
+import collisions_module
+import camera_module
+
+entity.name = str(entity.position.x)
 
 if (IsKeyDown(KeyboardKey.KEY_A)):
-    entity.z += 1
+    entity.position.z += 1
 
 if (IsKeyDown(KeyboardKey.KEY_D)):
-    entity.z -= 1
+    entity.position.z -= 1
 
 if (IsKeyDown(KeyboardKey.KEY_W)):
-    entity.x -= 1
+    entity.position.x -= 1
 
 if (IsKeyDown(KeyboardKey.KEY_S)):
-    entity.x += 1
+    entity.position.x += 1
 
 if (IsKeyDown(KeyboardKey.KEY_E)):
-    entity.y += 1
+    entity.scale.y += 1
 
 if (IsKeyDown(KeyboardKey.KEY_R)):
-    entity.y -= 1
+    entity.scale.y -= 1
+
+if (IsKeyDown(KeyboardKey.KEY_W) and IsKeyDown(KeyboardKey.KEY_LEFT_SHIFT)):
+    entity.position.x -= 6
+
+
+camera.position = collisions_module.Vector3(entity.position.x - 10, entity.position.y + 2, entity.position.z)
+camera.target = collisions_module.Vector3(entity.position.x, entity.position.y, entity.position.z)
+
+if (raycast(collisions_module.Vector3(-10, -6, -6), collisions_module.Vector3(1, 0, 0), True)):
+    print("you lose")
+#    entity.visible = False

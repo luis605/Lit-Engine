@@ -8,7 +8,7 @@ void AssetsExplorer(string code);
 
 
 
-void AssetsExplorer(string code)
+void AssetsExplorer()
 {
     
 
@@ -20,6 +20,10 @@ void AssetsExplorer(string code)
     ImGui::Begin("Right Window", NULL);
     ImGui::SetNextWindowPos(ImVec2(0,1), ImGuiCond_Once);
     ImGui::SetNextWindowSize(ImVec2(200,200), ImGuiCond_Once);
+
+    // Widgets Style
+    ImGui::PushStyleVar(ImGuiStyleVar_FrameBorderSize, 0);
+    ImGui::PushStyleVar(ImGuiStyleVar_FrameRounding, 5); // set rounding to 5 pixels
 
     if ((dir = opendir(dir_path.c_str())) != NULL) {
         while ((ent = readdir(dir)) != NULL) {
@@ -49,6 +53,14 @@ void AssetsExplorer(string code)
                 }
                 else if (file_extension == ".cpp" || file_extension == ".c++" || file_extension == ".cxx" || file_extension == ".hpp" || file_extension == ".cc" || file_extension == ".h" || file_extension == ".hh" || file_extension == ".hxx") {
                     FileTextureItem item = {file, cpp_texture};
+                    files_texture_struct.push_back(item);
+                }
+                else if (file_extension == ".py") {
+                    FileTextureItem item = {file, python_texture};
+                    files_texture_struct.push_back(item);
+                }
+                else if (file_extension == ".fbx" || file_extension == ".obj" || file_extension == ".gltf" || file_extension == ".ply" || file_extension == ".mtl") {
+                    FileTextureItem item = {file, model_texture};
                     files_texture_struct.push_back(item);
                 }
                 else
@@ -112,26 +124,16 @@ void AssetsExplorer(string code)
             // Set payload to carry the index of our item (could be anything)
             ImGui::SetDragDropPayload("DND_DEMO_CELL", &i, sizeof(int));
 
+            ImGui::Image((void*)(intptr_t)(ImTextureID)&files_texture_struct[i].texture, ImVec2(64, 64));
+
             ImGui::EndDragDropSource();
         }
 
-
-
-        // Check if the button was double clicked
-        if (ImGui::IsMouseDoubleClicked(button))
+        if (button)
         {
-                // Handle double click
-                std::cout << "OPENING FILE" << std::endl;
-                std::ifstream file_content (dir_path + "/" + files_texture_struct[i].name.c_str());
-                if ( file_content.is_open() ) {
-                    code.reserve(100000);
-                    file_content >> code;
-                    //std::cout << code;
-                    code.resize(100000);
-                    }
-                else std::cout << "FILE NOT FOUND" << std::endl << dir_path + "/" + files_texture_struct[i].name.c_str() << std::endl;
-                
+            code = read_file_to_string(dir_path + "/" + files_texture_struct[i].name.c_str());
         }
+
 
         ImGui::Text(files_texture_struct[i].name.c_str());
 
@@ -139,7 +141,7 @@ void AssetsExplorer(string code)
         ImGui::NextColumn();
     }
 
-    ImGui::PopStyleVar();
+    ImGui::PopStyleVar(3);
     ImGui::End();
 
 }

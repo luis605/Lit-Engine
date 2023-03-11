@@ -12,6 +12,8 @@ Texture2D folder_texture;
 Texture2D image_texture;
 Texture2D cpp_texture;
 Texture2D empty_texture;
+Texture2D python_texture;
+Texture2D model_texture;
 
 struct FolderTextureItem {
     std::string name;

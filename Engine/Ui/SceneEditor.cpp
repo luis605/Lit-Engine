@@ -9,103 +9,15 @@
 
 
 
-/* Scene Camera */
+struct GizmoArrow {
+    Model model;
+    Vector3 position;
+    Vector3 rotation;
+    string drag_directions;
 
-// Physics
-bool do_physics = false;
-
-// Textures
-RenderTexture2D renderTexture;
-Texture2D texture;
-Rectangle rectangle = { screenWidth*.2, screenHeight*.2, texture.width, texture.height };
-
-// Camera
-Camera3D scene_camera;
-float lerp_factor = 0.5f;
-float movementSpeed = 0.5f;
-
-bool dragging = false;
-
-Vector2 mousePosition;
-Vector2 mousePositionPrev = GetMousePosition();
-Vector3 front;
-// ImGui Window Info
-float windowWidth;
-float windowHeight;
-float windowX;
-float windowY;
-
-// Gizmo - Position
-Model gizmo_arrow_up;
-Model gizmo_arrow_down;
-Model gizmo_arrow_right;
-Model gizmo_arrow_left;
-Model gizmo_arrow_forward;
-Model gizmo_arrow_backward;
-
-Vector3 gizmo_arrow_up_position;
-Vector3 gizmo_arrow_down_position;
-Vector3 gizmo_arrow_right_position;
-Vector3 gizmo_arrow_left_position;
-Vector3 gizmo_arrow_forward_position;
-Vector3 gizmo_arrow_backward_position;
-
-Vector3 gizmo_arrow_up_rotation;
-Vector3 gizmo_arrow_down_rotation;
-Vector3 gizmo_arrow_right_rotation;
-Vector3 gizmo_arrow_left_rotation;
-Vector3 gizmo_arrow_forward_rotation;
-Vector3 gizmo_arrow_backward_rotation;
-
-string up_down = "up-down";
-string right_left = "up-down";
-string forward_backward = "up-down";
-
-string gizmo_arrow_up_drag_direction = up_down;
-string gizmo_arrow_down_drag_direction = up_down;
-string gizmo_arrow_right_drag_direction = right_left;
-string gizmo_arrow_left_drag_direction = right_left;
-string gizmo_arrow_forward_drag_direction = forward_backward;
-string gizmo_arrow_backward_drag_direction = forward_backward;
-
-
-Model gizmo_arrows[] = {
-    gizmo_arrow_up,
-    gizmo_arrow_down,
-    gizmo_arrow_right,
-    gizmo_arrow_left,
-    gizmo_arrow_forward,
-    gizmo_arrow_backward,
 };
 
-Vector3 gizmo_arrows_position[] = {
-    gizmo_arrow_up_position,
-    gizmo_arrow_down_position,
-    gizmo_arrow_right_position,
-    gizmo_arrow_left_position,
-    gizmo_arrow_forward_position,
-    gizmo_arrow_backward_position
-};
-
-Vector3 gizmo_arrows_rotation[] = {
-    gizmo_arrow_up_rotation,
-    gizmo_arrow_down_rotation,
-    gizmo_arrow_right_rotation,
-    gizmo_arrow_left_rotation,
-    gizmo_arrow_forward_rotation,
-    gizmo_arrow_backward_rotation
-};
-
-string gizmo_arrows_drag_directions[] = {
-    gizmo_arrow_up_drag_direction,
-    gizmo_arrow_down_drag_direction,
-    gizmo_arrow_right_drag_direction,
-    gizmo_arrow_left_drag_direction,
-    gizmo_arrow_forward_drag_direction,
-    gizmo_arrow_backward_drag_direction
-};
-
-
+GizmoArrow gizmo_arrow[5];
 
 
 
@@ -331,9 +243,6 @@ bool IsMouseInRectangle(Vector2 mousePos, Rectangle rectangle)
 
 
 
-float GetExtremeValue(const Vector3& a) {
-    return std::max(std::max(std::abs(a.x), std::abs(a.y)), std::abs(a.z));
-}
 
 
 bool IsMouseHoveringModel(Model model, Camera camera, Vector3 position, Vector3 rotation)
@@ -388,38 +297,38 @@ bool isHoveringGizmo;
 void Gizmo()
 {
     // Gizmo Arrow Up
-    gizmo_arrows_position[0] = {entity_in_inspector->position.x, entity_in_inspector->position.y + 6, entity_in_inspector->position.z};
-    gizmo_arrows_rotation[0] = {0, 0, 0};
+    gizmo_arrow[0].position = {entity_in_inspector->position.x, entity_in_inspector->position.y + 6, entity_in_inspector->position.z};
+    gizmo_arrow[0].rotation = {0, 0, 0};
 
     // Gizmo Arrow Down
-    gizmo_arrows_position[1] = {entity_in_inspector->position.x, entity_in_inspector->position.y - 6, entity_in_inspector->position.z};
-    gizmo_arrows_rotation[1] = {180, 0, 0};
+    gizmo_arrow[1].position = {entity_in_inspector->position.x, entity_in_inspector->position.y - 6, entity_in_inspector->position.z};
+    gizmo_arrow[1].rotation = {180, 0, 0};
 
     // Gizmo Arrow Right
-    gizmo_arrows_position[2] = {entity_in_inspector->position.x, entity_in_inspector->position.y, entity_in_inspector->position.z + 6};
-    gizmo_arrows_rotation[2] = {90, 0, 0};
+    gizmo_arrow[2].position = {entity_in_inspector->position.x, entity_in_inspector->position.y, entity_in_inspector->position.z + 6};
+    gizmo_arrow[2].rotation = {90, 0, 0};
 
     // Gizmo Arrow Left
-    gizmo_arrows_position[3] = {entity_in_inspector->position.x, entity_in_inspector->position.y, entity_in_inspector->position.z - 6};
-    gizmo_arrows_rotation[3] = {-90, 0, 0};
+    gizmo_arrow[3].position = {entity_in_inspector->position.x, entity_in_inspector->position.y, entity_in_inspector->position.z - 6};
+    gizmo_arrow[3].rotation = {-90, 0, 0};
 
     // Gizmo Arrow Forward
-    gizmo_arrows_position[4] = {entity_in_inspector->position.x + 6, entity_in_inspector->position.y, entity_in_inspector->position.z};
-    gizmo_arrows_rotation[4] = {0, 0, -90};
+    gizmo_arrow[4].position = {entity_in_inspector->position.x + 6, entity_in_inspector->position.y, entity_in_inspector->position.z};
+    gizmo_arrow[4].rotation = {0, 0, -90};
 
     // Gizmo Arrow Backward
-    gizmo_arrows_position[5] = {entity_in_inspector->position.x - 6, entity_in_inspector->position.y, entity_in_inspector->position.z};
-    gizmo_arrows_rotation[5] = {0, 0, 90};
+    gizmo_arrow[4].position = {entity_in_inspector->position.x - 6, entity_in_inspector->position.y, entity_in_inspector->position.z};
+    gizmo_arrow[4].rotation = {0, 0, 90};
 
 
     // Position Update
-    for (int arrow_i = 0; arrow_i < size(gizmo_arrows); arrow_i++)
+    for (int arrow_i = 0; arrow_i < sizeof(gizmo_arrow) / sizeof(gizmo_arrow[0]); arrow_i++)
     {
         Color color1;
 
         if (!dragging_gizmo)
         {
-            isHoveringGizmo = IsMouseHoveringModel(gizmo_arrows[arrow_i], scene_camera, gizmo_arrows_position[arrow_i], gizmo_arrows_rotation[arrow_i]);
+            isHoveringGizmo = IsMouseHoveringModel(gizmo_arrow[arrow_i].model, scene_camera, gizmo_arrow[arrow_i].position, gizmo_arrow[arrow_i].rotation);
             
             if (isHoveringGizmo)
             {
@@ -428,7 +337,7 @@ void Gizmo()
             }
             else
             {
-                color1 = RED;
+                color1 = { 255, 0, 0, 100 };
                 gizmo_arrow_selected == -1;
             }
         }
@@ -454,19 +363,19 @@ void Gizmo()
                 if ( gizmo_arrow_selected == 0 || gizmo_arrow_selected == 1 )
                 {
                     float delta_y = (mouse_drag_end.y - mouse_drag_start.y) * gizmo_drag_sensitivity_factor;
-                    gizmo_arrow_up_position.y -= delta_y;
+                    gizmo_arrow[arrow_i].position.y -= delta_y;
                 }
 
                 else if ( gizmo_arrow_selected == 2 || gizmo_arrow_selected == 3 )
                 {
                     float delta_z = ((mouse_drag_end.x - mouse_drag_start.x) + (mouse_drag_end.y - mouse_drag_start.y)) * gizmo_drag_sensitivity_factor;
-                    gizmo_arrow_up_position.z -= delta_z;
+                    gizmo_arrow[arrow_i].position.z -= delta_z;
                 }
                 
                 else if ( gizmo_arrow_selected == 4 || gizmo_arrow_selected == 5 )
                 {
                     float delta_x = (mouse_drag_end.x - mouse_drag_start.x) * gizmo_drag_sensitivity_factor;
-                    gizmo_arrow_up_position.x += delta_x;
+                    gizmo_arrow[arrow_i].position.x += delta_x;
                 }
 
                 // Update drag start position
@@ -475,18 +384,19 @@ void Gizmo()
         }
         else dragging_gizmo = false;
 
-        float extreme_rotation = GetExtremeValue(gizmo_arrows_rotation[arrow_i]);
-        DrawModelEx(gizmo_arrows[arrow_i], gizmo_arrows_position[arrow_i], gizmo_arrows_rotation[arrow_i], extreme_rotation, {1,1,1}, color1);
+        float extreme_rotation = GetExtremeValue(gizmo_arrow[arrow_i].rotation);
+        DrawModelEx(gizmo_arrow[arrow_i].model, gizmo_arrow[arrow_i].position, gizmo_arrow[arrow_i].rotation, extreme_rotation, {1,1,1}, color1);
+
     }
     
-    entity_in_inspector->position.x = gizmo_arrow_up_position.x-entity_in_inspector->scale.x*6;
-    entity_in_inspector->position.y = gizmo_arrow_up_position.y-entity_in_inspector->scale.y*6;
-    entity_in_inspector->position.z = gizmo_arrow_up_position.z-entity_in_inspector->scale.z*6;
+    entity_in_inspector->position.x = gizmo_arrow[0].position.x;
+    entity_in_inspector->position.y = gizmo_arrow[0].position.y - entity_in_inspector->scale.y*6;
+    entity_in_inspector->position.z = gizmo_arrow[0].position.z;
 
 
 
 
-
+/*/
     // Gizmo Arrow Left
     gizmo_taurus_position[0] = {entity_in_inspector->position.x, entity_in_inspector->position.y, entity_in_inspector->position.z};
     gizmo_taurus_rotation[0] = {-90, 0, 0};
@@ -568,6 +478,7 @@ void Gizmo()
         float extreme_rotation = GetExtremeValue(gizmo_taurus_rotation[taurus_i]);
         DrawModelEx(gizmo_taurus[taurus_i], gizmo_taurus_position[taurus_i], gizmo_taurus_rotation[taurus_i], extreme_rotation, {1,1,1}, color2);
     }
+    */
     
 
 

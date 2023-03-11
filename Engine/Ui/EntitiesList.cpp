@@ -3,57 +3,6 @@
 
 
 
-// Variables
-bool in_game_preview = false;
-
-
-Entity& EntitiesList();
-Entity *entity_in_inspector = &Entity();
-
-Texture2D run_texture;
-Texture2D pause_texture;
-
-int listViewExScrollIndex = 0;
-int listViewExActive = 0;
-int listViewExFocus = 0;
-std::vector<char*> listViewExList;
-bool canAddEntity = false;
-
-
-std::vector<std::string> entityNames;
-
-
-char name[256] = { 0 };
-
-float scale = 1;
-ImVec4 color = ImVec4(1.0f, 0.0f, 0.0f, 1.0f);
-
-bool showNextTime = true;
-bool create = false;
-
-
-
-void EntitiesListRun()
-{
-
-    // Entities List
-    ImGui::Begin("Entities List Window", NULL);
-
-    if (!entities_list_pregame.empty())
-    {
-        entity_in_inspector = &EntitiesList();
-    }
-    else
-    {
-        EntitiesList();
-        entity_in_inspector = &Entity();
-    }
-    
-    
-    ImGui::End();
-
-}
-
 
 void updateListViewExList(vector<Entity>& entities) {
     // Clear the current values of listViewExList
@@ -188,8 +137,8 @@ int ImGuiListViewEx(std::vector<std::string>& items, int& focus, int& scroll, in
         if (i == active) ImGui::PushStyleColor(ImGuiCol_Button, ImVec4(0.3f, 0.3f, 0.3f, 0.9f)); // dark gray
         
         int old_active = active;
-        std::string button_name = items[i] + "##" + std::to_string(i);
-        if (ImGui::Button(button_name.c_str(), ImVec2(120,40))) {
+        std::string entity_in_inspector_script_path = items[i] + "##" + std::to_string(i);
+        if (ImGui::Button(entity_in_inspector_script_path.c_str(), ImVec2(120,40))) {
             focus = i;
             active = i;
         }
@@ -225,7 +174,7 @@ int ImGuiListViewEx(std::vector<std::string>& items, int& focus, int& scroll, in
 
 
 // Widgets
-Entity& EntitiesList()
+void EntitiesList()
 {
 /* 
     struct sigaction sa;
@@ -272,6 +221,7 @@ Entity& EntitiesList()
     {
         std::cout << "Running Game" << std::endl;
         entities_list.assign(entities_list_pregame.begin(), entities_list_pregame.end()); // Copy the engine's list of entities to the ingame entities list
+        InitGameCamera();
         in_game_preview = true;
     }
 
@@ -286,8 +236,10 @@ Entity& EntitiesList()
     
     ImGui::PopStyleVar();
 
+
+    if (!entities_list_pregame.empty()) entity_in_inspector = &entities_list_pregame[listViewExActive];
+    else entity_in_inspector = &Entity();
     
-    
-    return entities_list_pregame[listViewExActive];
+
 }
 

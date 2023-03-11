@@ -1,9 +1,4 @@
-#include "string"
-#include <sstream>
-#include <vector>
-
-using namespace std;
-using std::vector;
+#include "../include_all.h"
 
 std::string colorToString(const Color& color) {
   std::stringstream ss;
@@ -140,13 +135,41 @@ PYBIND11_EMBEDDED_MODULE(input_module, m) {
 
 
 
+
+
+
+
+
+bool raycast(Vector3 origin, Vector3 direction, bool debug);
+
+PYBIND11_EMBEDDED_MODULE(collisions_module, m) {
+    py::class_<Vector3>(m, "Vector3")
+        .def(py::init<float, float, float>())
+        .def_readwrite("x", &Vector3::x)
+        .def_readwrite("y", &Vector3::y)
+        .def_readwrite("z", &Vector3::z);
+    
+    m.def("raycast", &raycast, py::arg("origin"), py::arg("direction"), py::arg("debug")=false);
+}
+
+
+
+PYBIND11_EMBEDDED_MODULE(camera_module, m) {
+    py::class_<Camera3D>(m, "Camera3D")
+        .def(py::init<int, float, float, float>())
+        .def_readwrite("position", &Camera3D::position)
+        .def_readwrite("target", &Camera3D::target)
+        .def_readwrite("up", &Camera3D::up)
+        .def_readwrite("fovy", &Camera3D::fovy)
+        .def_readwrite("projection", &Camera3D::projection);
+}
+
+
+
+
 py::scoped_interpreter guard{}; // Start interpreter
 
 
-
-
-
-class Entity;
 
 std::vector<Entity> entities_list_pregame;
 
@@ -157,26 +180,24 @@ bool EntityRunScriptFirstTime = true;
 /* Entity */
 class Entity {
 public:
-  string name = "Entity";
-  int x = 0;
-  int y = 0;
-  int z = 0;
-  Vector3 position;
-  Color color;
-  float size = 1;
-  Vector3 rotation;
-  Vector3 scale = { 1, 1, 1 };
-  string script = "";
+    string name = "Entity";
+    Vector3 position = { 0, 0, 0 };
+    Color color;
+    float size = 1;
+    Vector3 rotation;
+    Vector3 scale = { 1, 1, 1 };
+    string script = "";
+    Model model;
 
-  // Create a model object
-  Model model;
+    bool collider = true;
+    bool visible = true;
 
 
-  Entity(Color color = { 255, 255, 255, 255 }, Vector3 rotation = { 0, 0, 0 }, Vector3 scale = { 1, 1, 1 }, string name = "entity", int x = 0, int y = 0, int z = 0, Vector3 position = {0, 0, 0}, string script = "")
-    : color(color), size(size), rotation(rotation), scale(scale), name(name), x(x), y(y), z(z), position(position), script(script)
-   {
+    Entity(Color color = { 255, 255, 255, 255 }, Vector3 rotation = { 0, 0, 0 }, Vector3 scale = { 1, 1, 1 }, string name = "entity", Vector3 position = {0, 0, 0}, string script = "")
+    : color(color), size(size), rotation(rotation), scale(scale), name(name), position(position), script(script)
+    {
     // initializeModel();
-   }
+    }
 
 
     void remove() {
@@ -213,7 +234,7 @@ public:
     }
 
     // Load a model from a file and set its material properties
-    void loadModel(const char* filename, const char* textureFilename) {
+    void loadModel(const char* filename, const char* textureFilename = NULL) {
         model = LoadModel(filename);
     }
 
@@ -246,30 +267,47 @@ public:
 
     void runScript()
     {
+        if (script.empty()) return;
+
+
         if (EntityRunScriptFirstTime)
         {
             py::module entity_module("entity_module");
             py::class_<Entity>(entity_module, "Entity")
                 .def(py::init<>())
                 .def_readwrite("name", &Entity::name)
-                .def_readwrite("x", &Entity::x)
-                .def_readwrite("y", &Entity::y)
-                .def_readwrite("z", &Entity::z)
-                .def_readwrite("size", &Entity::size)
-                .def_readwrite("script", &Entity::script);
+                .def_readwrite("position", &Entity::position)
+                .def_readwrite("scale", &Entity::scale)
+                .def_readwrite("rotation", &Entity::rotation)
+                .def_readwrite("color", &Entity::color)
+                .def_readwrite("visible", &Entity::visible)
+                .def_readwrite("collider", &Entity::collider);
+                
+                
 
 
             EntityRunScriptFirstTime = false;
         }
 
 
+
         py::object entity_obj = py::cast(this);
         py::module input_module = py::module::import("input_module");
+        py::module collisions_module = py::module::import("collisions_module");
+        py::module camera_module = py::module::import("camera_module");
 
+        if (IsKeyDown(KEY_B))
+        {
+            camera.position.x += .1;
+        }
         auto locals = py::dict("entity"_a=entity_obj,
                             "IsMouseButtonPressed"_a=input_module.attr("IsMouseButtonPressed"),
                             "IsKeyDown"_a=input_module.attr("IsKeyDown"),
-                            "KeyboardKey"_a=input_module.attr("KeyboardKey"));
+                            "KeyboardKey"_a=input_module.attr("KeyboardKey"),
+                            "raycast"_a=collisions_module.attr("raycast"),
+                            "camera"_a=py::cast(&camera));
+
+
 
         try {
             std::string script_content = read_file_to_string(script);
@@ -287,10 +325,12 @@ public:
         {
             initializeModel();
         }
-        position = {x, y, z};
-        model.transform = MatrixScale(scale.x, scale.y, scale.z);
-        DrawModel(model, {position.x, position.y, position.z}, 1.0f, color);
         
+        model.transform = MatrixScale(scale.x, scale.y, scale.z);
+        if (visible)
+        {
+            DrawModel(model, {position.x, position.y, position.z}, 1.0f, color);
+        }     
     }
 
 
@@ -298,4 +338,57 @@ public:
 
 
 
+float GetExtremeValue(const Vector3& a) {
+    return std::max(std::max(std::abs(a.x), std::abs(a.y)), std::abs(a.z));
+}
 
+
+bool raycast(Vector3 origin, Vector3 direction, bool debug)
+{
+    Ray ray;
+    ray.position = origin;
+    ray.direction = direction;
+
+    if (debug)
+    {
+        DrawRay(ray, RED);
+    }
+
+    Entity entity;
+    for (int index = 0; index < entities_list.size(); index++)
+    {
+        entity = entities_list[index];
+
+        if (!entity.collider)
+        {
+            continue;
+        }   
+
+        float extreme_rotation = GetExtremeValue(entity.rotation);
+
+        Matrix matScale = MatrixScale(entity.scale.x, entity.scale.y, entity.scale.z);
+        Matrix matRotation = MatrixRotate(entity.rotation, extreme_rotation*DEG2RAD);
+        Matrix matTranslation = MatrixTranslate(entity.position.x, entity.position.y, entity.position.z);
+
+        Matrix modelMatrix = MatrixMultiply(MatrixMultiply(matScale, matRotation), matTranslation);
+
+        Vector2 pos = { GetMousePosition().x - windowX, GetMousePosition().y - windowY };
+        Vector2 realPos = { pos.x * GetScreenWidth()/rectangle.width, pos.y * GetScreenHeight()/rectangle.height };        
+
+        RayCollision meshHitInfo = { 0 };
+
+
+        for (int mesh_i = 0; mesh_i < entity.model.meshCount; mesh_i++)
+        {
+            meshHitInfo = GetRayCollisionMesh(ray, entity.model.meshes[mesh_i], modelMatrix);
+            if (meshHitInfo.hit)
+            {
+                return true;
+            }
+        }
+
+        if (meshHitInfo.hit) return true;
+    }
+
+    return false;
+}

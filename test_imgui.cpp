@@ -8,7 +8,6 @@ static ImTextureID icon_texture;
 
 
 
-
 int LitEngine()
 {
 
@@ -19,7 +18,7 @@ int LitEngine()
 
     SetConfigFlags(FLAG_MSAA_4X_HINT | FLAG_VSYNC_HINT | FLAG_WINDOW_RESIZABLE);
     InitWindow(screenWidth1, screenHeight1, "Lit Engine");
-    SetTargetFPS(144);
+    SetTargetFPS(100000);
     rlImGuiSetup(true);
 
     SetTraceLogLevel(LOG_WARNING);
@@ -27,23 +26,26 @@ int LitEngine()
     folder_texture = LoadTexture("assets/images/gray_folder.png");
     image_texture = LoadTexture("assets/images/image_file_type.png");
     cpp_texture = LoadTexture("assets/images/cpp_file_type.png");
+    python_texture = LoadTexture("assets/images/python_file_type.png");
+    model_texture = LoadTexture("assets/images/model_file_type.png");
     empty_texture = LoadTexture("assets/images/empty_file_file_type.png");
     run_texture = LoadTexture("assets/images/run_game.png");
     pause_texture = LoadTexture("assets/images/pause_game.png");
+    save_texture = LoadTexture("assets/images/save_file.png");
     
-    std::string code;
+
     code.resize(100000);
 
 
-    for (int index = 0; index <  sizeof(gizmo_arrows) / sizeof(gizmo_arrows[0]); index++)
+    for (int index = 0; index < sizeof(gizmo_arrow) / sizeof(gizmo_arrow[0]); index++)
     {
-        gizmo_arrows[index] = LoadModel("assets/models/gizmo/arrow.obj");;
+        gizmo_arrow[index].model = LoadModel("assets/models/gizmo/arrow.obj");
     }
     
 
     for (int index = 0; index <  sizeof(gizmo_taurus) / sizeof(gizmo_taurus[0]); index++)
     {
-        gizmo_taurus[index] = LoadModel("assets/models/gizmo/taurus.obj");;
+        gizmo_taurus[index] = LoadModel("assets/models/gizmo/taurus.obj");
     }
     
 
@@ -52,6 +54,7 @@ int LitEngine()
     ImGuiIO& io = ImGui::GetIO(); (void)io;
 
     io.ConfigFlags |= ImGuiConfigFlags_DockingEnable;      // Enable Docking
+    
 
     InitEditorCamera();
     // Main game loop
@@ -67,18 +70,23 @@ int LitEngine()
 
 
 
-        ImGui::DockSpaceOverViewport(ImGui::GetMainViewport());
 
+
+        ImGui::DockSpaceOverViewport(ImGui::GetMainViewport());
+        SetStyleGray(&ImGui::GetStyle());
+
+        MenuBar();
 
         // Assets Explorer
-        AssetsExplorer(code);
+        AssetsExplorer();
 
         // Code Editor
-        CodeEditor(code);
+        CodeEditor();
 
         // Entities List
-        EntitiesListRun();
-        
+        ImGui::Begin("Entities List Window", NULL);
+        EntitiesList();
+        ImGui::End();        
 
 
 
@@ -96,6 +104,7 @@ int LitEngine()
 
         AddEntity();
 
+
         
 
 
@@ -107,6 +116,7 @@ int LitEngine()
         EndDrawing();
     }
 
+    std::cout << "Exiting..." << std::endl;
 
 
     rlImGuiShutdown();
