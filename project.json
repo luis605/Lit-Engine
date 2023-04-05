@@ -1,0 +1,44 @@
+[
+    {
+        "color": {
+            "a": 255,
+            "b": 73,
+            "g": 179,
+            "r": 79
+        },
+        "model_path": "game/models/test.obj",
+        "name": "player",
+        "position": {
+            "x": 0.0,
+            "y": 0.0,
+            "z": 0.0
+        },
+        "scale": {
+            "x": 1.0,
+            "y": 1.0,
+            "z": 1.0
+        },
+        "script_path": "game/hi.py"
+    },
+    {
+        "color": {
+            "a": 255,
+            "b": 179,
+            "g": 148,
+            "r": 73
+        },
+        "model_path": "game/models/cube.obj",
+        "name": "ground",
+        "position": {
+            "x": 0.0,
+            "y": -4.199997901916504,
+            "z": 0.0
+        },
+        "scale": {
+            "x": 50.0,
+            "y": 1.0,
+            "z": 50.0
+        },
+        "script_path": ""
+    }
+]
