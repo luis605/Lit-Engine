@@ -89,10 +89,7 @@ int last_entity_index = 0;
 string code;
 string code_editor_script_path;
 
-ImVec4 colorKeyword = ImVec4(0.9f, 0.5f, 0.0f, 1.0f);
-ImVec4 colorVariable = ImVec4(0.0f, 0.7f, 1.0f, 1.0f);
-ImVec4 colorString = ImVec4(0.2f, 0.8f, 0.2f, 1.0f);
-ImVec4 colorComment = ImVec4(0.5f, 0.5f, 0.5f, 1.0f);
+TextEditor editor;
 
 
 

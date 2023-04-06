@@ -26,7 +26,10 @@ void CodeEditor()
         }
         
     }
-    ImGui::InputTextMultiline("##Code", code.c_str(), code.size()+100000, ImVec2(size.x, size.y-76));
+
+    editor.Render("TextEditor");
+    code = editor.GetText();
+
 
     ImGui::End();
 }

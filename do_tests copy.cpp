@@ -59,7 +59,7 @@ public:
 
 
             a++;
-//            child->update();
+            child->update();
         }
     }
 
@@ -107,6 +107,16 @@ void DebugWindow()
     {
         Entity child = Entity();
         mainEntity.addChild(child);
+
+    }
+
+    bool button2 = ImGui::Button("Add Child entity to child");
+    if (button2)
+    {
+        Entity child = Entity();
+        child.color = YELLOW;
+        child.scale = {2,2,2};
+        mainEntity.children[0]->addChild(child);
 
     }
     ImGui::End();

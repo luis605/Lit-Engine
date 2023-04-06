@@ -33,6 +33,7 @@ int LitEngine()
     save_texture = LoadTexture("assets/images/save_file.png");
     
     code.resize(100000);
+	auto lang = TextEditor::LanguageDefinition::CPlusPlus();
 
 
     for (int index = 0; index < sizeof(gizmo_arrow) / sizeof(gizmo_arrow[0]); index++)

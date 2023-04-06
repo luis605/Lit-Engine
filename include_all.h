@@ -12,6 +12,8 @@
 #include "imgui/imgui.h"
 #include "imgui/imgui_internal.h"
 #include "include/rlImGui.h"
+#include "ImGuiColorTextEdit/TextEditor.h"
+
 #include <stdio.h>
 #include <iostream>
 #include <dirent.h>

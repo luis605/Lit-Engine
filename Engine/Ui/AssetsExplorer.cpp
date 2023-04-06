@@ -154,6 +154,7 @@ void AssetsExplorer()
         if (file_button)
         {
             code = read_file_to_string(dir_path + "/" + files_texture_struct[i].name.c_str());
+            editor.SetText(code);
             code_editor_script_path = dir_path + "/" + files_texture_struct[i].name.c_str();
         }
         ImGui::Text(files_texture_struct[i].name.c_str());
