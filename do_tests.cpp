@@ -1,53 +1,36 @@
-#include "raylib.h"
-#include "imgui/imgui.h"
-#include "imgui/imgui_internal.h"
-#include "include/rlImGui.h"
-#include "ImGuiColorTextEdit/TextEditor.h"
 #include <iostream>
 #include <string>
+#include <pybind11/pybind11.h>
+#include <pybind11/embed.h>
+#include <tbb/tbb.h>
 
-int main(void)
-{
-    // Initialization
-    const int screenWidth = 800;
-    const int screenHeight = 450;
+namespace py = pybind11;
 
-    InitWindow(screenWidth, screenHeight, "TextEditor with raylib");
-    rlImGuiSetup(true);
-    // Initialize the TextEditor state
-	TextEditor editor;
-	auto lang = TextEditor::LanguageDefinition::CPlusPlus();
-
-    // Main game loop
-    while (!WindowShouldClose())
-    {
-        // Start ImGui frame
-        rlImGuiBegin();
-
-        BeginDrawing();
-        ClearBackground(GRAY);
-
-        // Draw the text editor
-        ImGui::SetNextWindowPos(ImVec2(0, 0));
-        ImGui::SetNextWindowSize(ImVec2(screenWidth, screenHeight));
-        ImGui::Begin("Text Editor");
-        editor.Render("TextEditor");
-
-        std::string text = editor.GetText();
-        std::cout << text.c_str() << std::endl;
-        
-        ImGui::End();
-
-        // End ImGui frame
-        rlImGuiEnd();
-
-        // Draw
-        EndDrawing();
+int main() {
+    py::scoped_interpreter guard{}; // Initialize Python interpreter
+    
+    // Define the Python script as a string
+    std::string script = "import time\nfor i in range(10):\n    time.sleep(5)\n    print('Hi')";
+    
+    // Define a lambda function that executes the script
+    auto execute_script = [&script]() {
+        py::exec(script);
+    };
+    
+    // Create a TBB task group
+    tbb::task_group tg;
+    
+    // Submit the script execution task to TBB
+    tg.run(execute_script);
+    
+    // Continue executing C++ code
+    for (int i = 0; i < 10; i++) {
+        std::cout << "Hello" << std::endl;
+        std::this_thread::sleep_for(std::chrono::seconds(1));
     }
-
-    // De-Initialization
-    rlImGuiShutdown();
-    CloseWindow();
-
+    
+    // Wait for the script execution task to complete
+    tg.wait();
+    
     return 0;
 }

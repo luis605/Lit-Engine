@@ -42,6 +42,10 @@
 #include <unistd.h>
 #include <typeinfo>
 #include <thread>
+#include <tbb/tbb.h>
+#include <functional>
+#include <future>
+
 /* Physx */
 //#include "PxPhysicsAPI.h"
 

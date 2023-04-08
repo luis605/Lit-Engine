@@ -16,7 +16,6 @@ void InitGameCamera()
     camera.projection = CAMERA_PERSPECTIVE;
 }
 
-vector<thread> scripts_thread_vector;
 
 void RunGame()
 {
@@ -40,26 +39,18 @@ void RunGame()
         entity.draw();
         if (first_time_gameplay)
         {
-            // Acquire the GIL before starting the thread
-            py::gil_scoped_acquire acquire;
             
-            thread scriptRunnerThread(&Entity::runScript, entity);
-            scripts_thread_vector.push_back(move(scriptRunnerThread));
+            entity.runScript();
         }
     }
 
-    if (first_time_gameplay)
-    {
-        for (auto& t : scripts_thread_vector) {
-            if (t.joinable()) {
-                t.detach();
-            }
-        }
-    }
 
 
 
     first_time_gameplay = false;
+
+
+
     // for (const Entity& entity : entities_list)
     // {
 

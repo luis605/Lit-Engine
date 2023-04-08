@@ -304,9 +304,7 @@ public:
     {
         if (script.empty()) return;
 
-        py::gil_scoped_release release;
         py::gil_scoped_acquire acquire;
-
         py::module entity_module("entity_module");
         py::class_<Entity>(entity_module, "Entity")
             .def(py::init<>())
@@ -323,12 +321,6 @@ public:
         py::module collisions_module = py::module::import("collisions_module");
         py::module camera_module = py::module::import("camera_module");
 
-        if (IsKeyDown(KEY_B))
-        {
-            camera.position.x += .1;
-        }
-
-
         auto locals = py::dict("entity"_a=entity_obj,
                             "IsMouseButtonPressed"_a=input_module.attr("IsMouseButtonPressed"),
                             "IsKeyDown"_a=input_module.attr("IsKeyDown"),
@@ -338,74 +330,32 @@ public:
 
 
 
-        try {
-            pybind11::gil_scoped_acquire acquire;
+        try
+        {
             string script_content = read_file_to_string(script);
-            while (true)
-            {
-                py::exec(script_content, py::globals(), locals);
 
-            }
-            pybind11::gil_scoped_release release;
+            py::gil_scoped_acquire acquire;
+
+            auto execute_script = [&script_content, &locals]() {
+                py::exec(script_content, py::globals(), locals);
+            };
+
+            // Create a TBB task group
+            tbb::task_group tg;
+
+            tg.run(execute_script);
+
+            // Wait for all the tasks to complete
+            tg.wait();
+
+
         } catch (const py::error_already_set& e) {
             py::print(e.what());
         }
 
+        py::gil_scoped_release release1;
+
     }
-
-
-        // py::module entity_module("entity_module");
-        // py::class_<Entity>(entity_module, "Entity")
-        //     .def(py::init<>())
-        //     .def_readwrite("name", &Entity::name)
-        //     .def_readwrite("position", &Entity::position)
-        //     .def_readwrite("scale", &Entity::scale)
-        //     .def_readwrite("rotation", &Entity::rotation)
-        //     .def_readwrite("color", &Entity::color)
-        //     .def_readwrite("visible", &Entity::visible)
-        //     .def_readwrite("collider", &Entity::collider);
-        
-
-
-        // py::object entity_obj = py::cast(this);
-
-        // cout << "pass here 4.1" << endl;
-        // py::module input_module = py::module::import("input_module");
-        // cout << "pass here 4.2" << endl;
-        // py::module collisions_module = py::module::import("collisions_module");
-        // cout << "pass here 4.3" << endl;
-        // py::module camera_module = py::module::import("camera_module");
-        // cout << "pass here 4.4" << endl;
-
-        // if (IsKeyDown(KEY_B))
-        // {
-        //     camera.position.x += .1;
-        // }
-
-        // auto locals = py::dict("entity"_a=entity_obj,
-        //                     "IsMouseButtonPressed"_a=input_module.attr("IsMouseButtonPressed"),
-        //                     "IsKeyDown"_a=input_module.attr("IsKeyDown"),
-        //                     "KeyboardKey"_a=input_module.attr("KeyboardKey"),
-        //                     "raycast"_a=collisions_module.attr("raycast"),
-        //                     "camera"_a=py::cast(&camera));
-
-        // cout << "pass here 5" << endl;
-
-
-        // try {
-        //     pybind11::gil_scoped_acquire acquire;
-        //     string script_content = read_file_to_string(script);
-        //     while (true)
-        //     {
-        //         py::exec(script_content, py::globals(), locals);
-        //     }
-        //     pybind11::gil_scoped_release release;
-        // } catch (const py::error_already_set& e) {
-        //     py::print(e.what());
-        // }
-        // cout << "pass here 6" << endl;
-
-    // }
 
 
     // Draw the model
@@ -418,7 +368,8 @@ public:
         update();
         
         model.transform = MatrixScale(scale.x, scale.y, scale.z);
-        DrawModel(model, {position.x, position.y, position.z}, 1.0f, color);
+        if (visible)
+            DrawModel(model, {position.x, position.y, position.z}, 1.0f, color);
     }
 
 

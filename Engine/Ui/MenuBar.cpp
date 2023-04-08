@@ -24,6 +24,10 @@ void Appearance()
     {
         SetStyleGray(&ImGui::GetStyle());
     }
+    else if (theme_custom)
+    {
+        createNewThemeWindow_open = true;
+    }
 
     ImGui::End();
 }
@@ -75,4 +79,5 @@ void MenuBar()
 
     // Load preferences windows
     if (appearance_window_enabled) Appearance();
+    CreateNewTheme();
 }

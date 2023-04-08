@@ -150,3 +150,8 @@ pybind11::object export_camera()
 
 bool first_time_gameplay = true;
 
+
+
+/* Themes */
+// Create theme
+bool createNewThemeWindow_open = false;

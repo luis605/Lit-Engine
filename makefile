@@ -29,7 +29,7 @@ imgui/*.o: imgui/*.cpp
 
 build: $(IMGUI_OBJECTS)
 	@echo "Building Demo"
-	@ccache g++ -g -flto test_imgui.cpp include/rlImGui.cpp ImGuiColorTextEdit/TextEditor.cpp $(IMGUI_OBJECTS) -std=c++17 -I/usr/include/python3.11/ -lpython3.11 -fPIC `python3.11 -m pybind11 --includes` -I./include -I./ImGuiColorTextEdit -I/usr/local/lib -I./include/nlohmann -lboost_filesystem -O3 -lraylib -Iimgui -pthread -o lit_engine.out -fpermissive -w -Wall
+	@ccache g++ -g -flto test_imgui.cpp include/rlImGui.cpp ImGuiColorTextEdit/TextEditor.cpp $(IMGUI_OBJECTS) -std=c++17 -I/usr/include/python3.11/ -lpython3.11 -fPIC `python3.11 -m pybind11 --includes` -I./include -I./ImGuiColorTextEdit -I/usr/local/lib -I./include/nlohmann -lboost_filesystem -O3 -lraylib -Iimgui -pthread -DNDEBUG -march=native -O0 -o lit_engine.out -ltbb -fpermissive -w -Wall
 
 run:
 	@echo "Running Lit Engine"
@@ -50,7 +50,7 @@ bdb: build debug
 
 do_tests: $(IMGUI_OBJECTS)
 	@echo "Building Tests"
-	@ccache g++ -g -flto do_tests.cpp include/rlImGui.cpp ImGuiColorTextEdit/TextEditor.cpp $(IMGUI_OBJECTS) -std=c++17 -I./include -I./ImGuiColorTextEdit -O3 -lraylib -Iimgui -pthread -o do_tests.out -fpermissive -w -Wall
+	@ccache g++ -g -flto -std=c++20 -O3 -DNDEBUG -march=native do_tests.cpp -I/usr/include/python3.11/ -lpython3.11 -fPIC `python3.11 -m pybind11 --includes` -o do_tests.out -ltbb -ltbb -lpthread -fpermissive -w -Wall
 	@echo "Running Tests"
 	@./do_tests.out
 

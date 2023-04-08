@@ -151,6 +151,93 @@ void AddLight()
     }
 }
 
+
+
+/* Pseudocode
+
+
+for index in objectNames.size()  // AKA items
+{
+
+
+        auto recursiveChild = [](int i, int children_index, int old_active, bool button_clicked, int focus, int active, int parent_button_x)
+        {
+            for (int index = 0; index < entity.children.size(); index++)
+            {
+                children_index = index + 1;
+
+                
+                ImDrawList* draw_list = ImGui::GetWindowDrawList();
+
+                ImGui::Spacing();
+                ImGui::Indent(30);
+
+
+                string ChildButtonName;
+                ChildButtonName.append(ICON_FA_CUBE " ");
+                ChildButtonName += entity.name;
+                ChildButtonName.append("##Children_");
+                ChildButtonName.append(to_string(i));
+                const char* result = ChildButtonName.c_str();
+
+                if (ImGui::Button(result, ImVec2(120,40)))
+                {
+                    std::cout << "Child clicked" << std::endl;
+                }
+
+                ImGui::Unindent(30);
+            }
+        };
+
+
+    if entities_list_pregame.size > index //Means it is an Entity and a parent object
+    {
+        bool parent_button = ImGui::Button(entities_list_pregame[index].name + "##" + index)
+        if (parent_button)
+            std::cout << "button clicked" << std::endl;
+        
+        if (!entities_list_pregame[index].children.empty())
+        {
+            recursiveChild();
+        }
+    }
+
+
+
+
+
+
+
+
+
+
+}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+*/
+
+
+
+
+
+
 int ImGuiListViewEx(vector<string>& items, int& focus, int& scroll, int& active) {
     ImGui::SetNextWindowSize(ImVec2(400, 200)); // set the container size
 
@@ -170,10 +257,10 @@ int ImGuiListViewEx(vector<string>& items, int& focus, int& scroll, int& active)
 
 
     // Buttons
-    for (int i = 0; i < items.size(); i++)
+    for (int index = 0; index < items.size(); index++)
     {
         int old_active = active;
-        int children_index = i;
+        int children_index = index;
 
         bool button_clicked = false;
 
@@ -181,11 +268,86 @@ int ImGuiListViewEx(vector<string>& items, int& focus, int& scroll, int& active)
 
 
 
+
+
         /*
         Mixed lights and entities names (items), so if items.size() is greater than entities_list_pregame.size(), when we do entities_list_pregame[i] will get segfault (because it will be out of bounds).
         Easy fix: divide entities_list_pregame and lighs_list_pregame in 2 (if-else) conditions and draw the buttons seperately  
         */
-       
+        std::function<void(Entity&, int, int, int, bool, int, int, int)> recursiveChild = [&](Entity& entity, int index, int children_index, int old_active, bool button_clicked, int focus, int active, int parent_button_x)
+        {
+            children_index = index + 1;
+
+
+            ImDrawList* draw_list = ImGui::GetWindowDrawList();
+
+            ImGui::Spacing();
+            ImGui::Indent(30);
+
+
+            string ChildButtonName;
+            ChildButtonName += ICON_FA_CUBE;
+            ChildButtonName += " ";
+            ChildButtonName += entity.name;
+            ChildButtonName.append("##Children_");
+            ChildButtonName.append(to_string(index));
+            const char* result = ChildButtonName.c_str();
+
+            if ((children_index == old_active) && old_child_selected) ImGui::PushStyleColor(ImGuiCol_Button, ImVec4(0.3f, 0.3f, 0.3f, 0.9f)); // dark gray
+
+            if (ImGui::Button(result, ImVec2(120,40)))
+            {
+                std::cout << "Child button clicked" << std::endl;
+                child_selected  = true;
+                parent_selected = false;
+                button_clicked  = true;
+                focus           = children_index;
+                active          = children_index;
+                selected_gameObject_type = "entity";
+            }
+
+            if ((children_index == old_active) && old_child_selected) ImGui::PopStyleColor();
+            
+            for (int index = 0; index < entity.children.size(); index++)
+            {
+                recursiveChild(*entity.children[children_index+1], children_index, children_index, old_active, button_clicked, focus, active, parent_button_x);
+            }
+
+            ImGui::Unindent(30);
+
+        };
+
+
+        if (entities_list_pregame.size() > index) // Means it is an Entity and a parent object
+        {
+            string parent_button_name = ICON_FA_CUBE " " + entities_list_pregame[index].name + "##" + to_string(index);
+
+            if ((index == old_active) && old_parent_selected) ImGui::PushStyleColor(ImGuiCol_Button, ImVec4(0.3f, 0.3f, 0.3f, 0.9f)); // dark gray
+
+            bool parent_button = ImGui::Button(parent_button_name.c_str());
+            if (parent_button)
+            {
+                std::cout << "Parent button clicked" << std::endl;
+                parent_selected = true;
+                child_selected  = false;
+                button_clicked  = true;
+                focus           = index;
+                active          = index;
+                selected_gameObject_type = "entity";
+
+            }            
+
+            if ((index == old_active) && old_parent_selected) ImGui::PopStyleColor();
+
+            if (!entities_list_pregame[index].children.empty())
+            {
+                recursiveChild(*entities_list_pregame[index].children[0], index, children_index, old_active, button_clicked, focus, active, parent_button_x);
+            }
+        }
+
+    }
+
+    /* 
         if (i < entities_list_pregame.size())
         {
             if (!entities_list_pregame[i].isChildren)
@@ -243,14 +405,16 @@ int ImGuiListViewEx(vector<string>& items, int& focus, int& scroll, int& active)
 
                 old_active = active;
             }
-        }
+        };
 
 
 
 
         if (entities_list_pregame.size() <= i) break;
 
-        if (!entities_list_pregame[i].children.empty())
+
+
+        auto recursiveChild = [](int i, int children_index, int old_active, bool button_clicked, int focus, int active, int parent_button_x)
         {
             for (int index = 0; index < entities_list_pregame[i].children.size(); index++)
             {
@@ -276,7 +440,8 @@ int ImGuiListViewEx(vector<string>& items, int& focus, int& scroll, int& active)
                 if (entities_list_pregame[children_index].name.size() > 10000)
                 {
                     ChildButtonName += "GOT ERROR";
-                } else 
+                }
+                else 
                 {
                     ChildButtonName += entities_list_pregame[children_index].name;
                 }
@@ -303,7 +468,6 @@ int ImGuiListViewEx(vector<string>& items, int& focus, int& scroll, int& active)
                 ImGui::Unindent(30);
                 
 
-                /* Vertical Line */
                 float last_button_height = ImGui::GetItemRectSize().y;
 
                 ImVec2 point_1 = ImVec2(parent_button_x, 10);
@@ -312,14 +476,12 @@ int ImGuiListViewEx(vector<string>& items, int& focus, int& scroll, int& active)
                 point_2.x = point_1.x;
                 point_2.y = ImGui::GetCursorScreenPos().y - last_button_height/2;
                 
-                /* Horizontal Line */
                 ImVec2 point_3 = ImVec2(ImGui::GetCursorScreenPos().x, point_2.y);
                 ImVec2 point_4;
                 
                 point_4.x = ImGui::GetItemRectMax().x - ImGui::GetItemRectSize().x;
                 point_4.y = ImGui::GetCursorScreenPos().y - last_button_height/2;
 
-                /* Draw the lines */
                 draw_list->AddLine(point_1, point_2, ImColor(255, 255, 0), 2.0f);
                 draw_list->AddLine(point_3, point_4, ImColor(255, 255, 0), 2.0f);
 
@@ -331,15 +493,15 @@ int ImGuiListViewEx(vector<string>& items, int& focus, int& scroll, int& active)
                 old_active = children_index;
             }
 
+        };
+
+
+        if (!entities_list_pregame[i].children.empty())
+        {
+            recursiveChild(i, children_index, old_active, button_clicked, focus, active, parent_button_x);
         }
-
-
-
-
-        
-
-
-    }
+        */
+    
 
     ImGui::PopStyleVar(3);
     ImGui::PopItemWidth();
