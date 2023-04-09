@@ -6,7 +6,6 @@
 #include <vector>
 #include <string>
 #include <dirent.h>
-#include "../../include/raylib.h"
 
 Texture2D folder_texture;
 Texture2D image_texture;
@@ -34,7 +33,7 @@ struct stat st;
 vector<string> files;
 vector<string> folders;
 
-string dir_path = "game";
+string dir_path = "project/game";
 
 
 #endif // ASSETSEXPLORER_H
