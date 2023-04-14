@@ -18,15 +18,8 @@ endef
 
 export LD_LIBRARY_PATH=./physx-include:$LD_LIBRARY_PATH
 
-CXXFLAGS = -g -flto -std=c++17 -O0 -fpermissive -w -Wall 
-SRC_FILES = test_imgui.cpp include/rlImGui.cpp ImGuiColorTextEdit/TextEditor.cpp
-INCLUDE_DIRS = -I./include -I./ImGuiColorTextEdit -I/usr/local/lib -L/usr/lib/x86_64-linux-gnu/ -L/usr/local/lib -I./include/nlohmann -Iimgui -L/usr/lib/x86_64-linux-gnu -I/usr/include/python3.11/
-LIB_FLAGS = -lboost_filesystem -lraylib -pthread -lpython3.11 -fPIC `python3.11 -m pybind11 --includes` -ltbb
-
-
 IMGUI_OBJECTS = $(patsubst %.cpp, %.o, $(wildcard imgui/*.cpp))
 LDLIBS=-lBulletDynamics -lBulletCollision -lLinearMath -lraylib
-
 
 imgui/*.o: imgui/*.cpp
 	@echo "Building Dear ImGUI"
@@ -36,13 +29,7 @@ imgui/*.o: imgui/*.cpp
 
 build: $(IMGUI_OBJECTS)
 	@echo "Building Demo"
-	@ccache g++  $(CXXFLAGS) $(SRC_FILES) $(IMGUI_OBJECTS) $(INCLUDE_DIRS) $(LIB_FLAGS) $(DEPENDENCIES) -o lit_engine.out 
-
-#
-#build: $(IMGUI_OBJECTS)
-#	@echo "Building Demo"
-#	@ccache g++ -g -flto test_imgui.cpp include/rlImGui.cpp ImGuiColorTextEdit/TextEditor.cpp dependencies/LuaAutoC/lautoc.c $(IMGUI_OBJECTS) -std=c++17 -I./dependencies/LuaAutoC -I/usr/include/python3.11/ -lpython3.11 -fPIC `python3.11 -m pybind11 --includes` -I./include -I./ImGuiColorTextEdit -I/usr/include/lua5.3 -I/usr/local/lib -I./include/nlohmann -I/usr/include/luabind -llua5.3 -lluabind -lboost_filesystem -O3 -lraylib -Iimgui -pthread -DNDEBUG -march=native -O0 -o lit_engine.out -ltbb -fpermissive -w -Wall
-#
+	@ccache g++ -g -flto test_imgui.cpp include/rlImGui.cpp ImGuiColorTextEdit/TextEditor.cpp $(IMGUI_OBJECTS) -std=c++17 -I/usr/include/python3.11/ -lpython3.11 -fPIC `python3.11 -m pybind11 --includes` -I./include -I./ImGuiColorTextEdit -I/usr/local/lib -I./include/nlohmann -lboost_filesystem -O3 -lraylib -Iimgui -pthread -DNDEBUG -march=native -O0 -o lit_engine.out -ltbb -fpermissive -w -Wall
 
 run:
 	@echo "Running Lit Engine"
@@ -67,9 +54,7 @@ do_tests: $(IMGUI_OBJECTS)
 	@echo "Running Tests"
 	@./do_tests.out
 
-do_testsv2:
-	g++ -I/usr/include/bsd/ testing.cpp -o do_tests.out
-	./tests.out
+
 
 physics_demo:
 	@echo "Building Demo"

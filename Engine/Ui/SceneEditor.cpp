@@ -426,7 +426,7 @@ int EditorCamera(void)
     int entity_index = 0;
     for (Entity& entity : entities_list_pregame)
     {
-        entity.draw();
+        entity.render();
         entity.setShader(shader);
 
         if (IsMouseButtonDown(MOUSE_LEFT_BUTTON))

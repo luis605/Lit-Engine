@@ -17,6 +17,9 @@ void InitGameCamera()
 }
 
 
+vector<thread> scripts_thread_vector;
+
+
 void RunGame()
 {
 
@@ -24,6 +27,8 @@ void RunGame()
     rectangle.height = sceneEditorWindowHeight;
 
 
+
+    mtx.lock();
 
     BeginTextureMode(renderTexture);
     BeginMode3D(camera);
@@ -33,19 +38,27 @@ void RunGame()
     float cameraPos[3] = { camera.position.x, camera.position.y, camera.position.z };
     SetShaderValue(shader, shader.locs[SHADER_LOC_VECTOR_VIEW], cameraPos, SHADER_UNIFORM_VEC3);
 
-
     for (const Entity& entity : entities_list)
     {
-        entity.draw();
+        entity.render();
         if (first_time_gameplay)
         {
+            // Acquire the GIL before starting the thread
+            py::gil_scoped_acquire acquire;
             
-            entity.runScript();
+            thread scriptRunnerThread(&Entity::runScript, entity);
+            scripts_thread_vector.push_back(move(scriptRunnerThread));
         }
     }
 
-
-
+    if (first_time_gameplay)
+    {
+        for (auto& t : scripts_thread_vector) {
+            if (t.joinable()) {
+                t.detach();
+            }
+        }
+    }
 
     first_time_gameplay = false;
 
@@ -76,9 +89,9 @@ void RunGame()
     EndMode3D();
     EndTextureMode();
 
-
     DrawTextureOnRectangle(&texture, rectangle);
 
+    mtx.unlock();
 
 }
 

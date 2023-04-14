@@ -32,8 +32,8 @@ string read_file_to_string(const string& filename) {
 
 
 PYBIND11_EMBEDDED_MODULE(input_module, m) {
-    m.def("IsMouseButtonPressed", &IsMouseButtonPressed);
-    m.def("IsKeyDown", &IsKeyDown);
+    m.def("IsMouseButtonPressed", &IsMouseButtonPressed, py::call_guard<py::gil_scoped_release>());
+    m.def("IsKeyDown", &IsKeyDown, py::call_guard<py::gil_scoped_release>());
 
     // Expose the KeyboardKey enum to Python
     py::enum_<KeyboardKey>(m, "KeyboardKey")
@@ -140,11 +140,11 @@ bool raycast(Vector3 origin, Vector3 direction, bool debug);
 PYBIND11_EMBEDDED_MODULE(collisions_module, m) {
     py::class_<Vector3>(m, "Vector3")
         .def(py::init<float, float, float>())
-        .def_readwrite("x", &Vector3::x)
-        .def_readwrite("y", &Vector3::y)
-        .def_readwrite("z", &Vector3::z);
+        .def_readwrite("x", &Vector3::x, py::call_guard<py::gil_scoped_release>())
+        .def_readwrite("y", &Vector3::y, py::call_guard<py::gil_scoped_release>())
+        .def_readwrite("z", &Vector3::z, py::call_guard<py::gil_scoped_release>());
     
-    m.def("raycast", &raycast, py::arg("origin"), py::arg("direction"), py::arg("debug")=false);
+    m.def("raycast", &raycast, py::arg("origin"), py::arg("direction"), py::arg("debug")=false, py::call_guard<py::gil_scoped_release>());
 }
 
 
@@ -152,11 +152,11 @@ PYBIND11_EMBEDDED_MODULE(collisions_module, m) {
 PYBIND11_EMBEDDED_MODULE(camera_module, m) {
     py::class_<Camera3D>(m, "Camera3D")
         .def(py::init<int, float, float, float>())
-        .def_readwrite("position", &Camera3D::position)
-        .def_readwrite("target", &Camera3D::target)
-        .def_readwrite("up", &Camera3D::up)
-        .def_readwrite("fovy", &Camera3D::fovy)
-        .def_readwrite("projection", &Camera3D::projection);
+        .def_readwrite("position", &Camera3D::position, py::call_guard<py::gil_scoped_release>())
+        .def_readwrite("target", &Camera3D::target, py::call_guard<py::gil_scoped_release>())
+        .def_readwrite("up", &Camera3D::up, py::call_guard<py::gil_scoped_release>())
+        .def_readwrite("fovy", &Camera3D::fovy, py::call_guard<py::gil_scoped_release>())
+        .def_readwrite("projection", &Camera3D::projection, py::call_guard<py::gil_scoped_release>());
 }
 
 
@@ -175,6 +175,10 @@ bool EntityRunScriptFirstTime = true;
 
 
 
+mutex mtx;
+atomic<bool> flag[2] = {false, false};
+atomic<int> turn = 0;
+int shared_resource = 0;
 /* Entity */
 class Entity {
 public:
@@ -201,9 +205,12 @@ public:
 
     vector<Entity*> children;
 
+
+
     Entity(Color color = { 255, 255, 255, 255 }, Vector3 scale = { 1, 1, 1 }, Vector3 rotation = { 0, 0, 0 }, string name = "entity", Vector3 position = {0, 0, 0}, string script = "")
         : color(color), scale(scale), rotation(rotation), name(name), position(position), script(script)
     {
+        
         initialized = true;
     }
 
@@ -226,7 +233,7 @@ public:
         for (Entity* child : children)
         {
             child->position = Vector3Add(this->position, child->relative_position);
-            child->draw();
+            child->render();
 
 
             a++;
@@ -300,26 +307,42 @@ public:
     }
 
 
+
     void runScript()
     {
         if (script.empty()) return;
 
+        int id = 1;
+
+        flag[id] = true;
+        turn = 1 - id;
+
+
+        mtx.lock();
+        py::gil_scoped_release release;
         py::gil_scoped_acquire acquire;
+
         py::module entity_module("entity_module");
         py::class_<Entity>(entity_module, "Entity")
             .def(py::init<>())
-            .def_readwrite("name", &Entity::name)
-            .def_readwrite("position", &Entity::position)
-            .def_readwrite("scale", &Entity::scale)
-            .def_readwrite("rotation", &Entity::rotation)
-            .def_readwrite("color", &Entity::color)
-            .def_readwrite("visible", &Entity::visible)
-            .def_readwrite("collider", &Entity::collider);
+            .def_readwrite("name", &Entity::name, py::call_guard<py::gil_scoped_release>())
+            .def_readwrite("position", &Entity::position, py::call_guard<py::gil_scoped_release>())
+            .def_readwrite("scale", &Entity::scale, py::call_guard<py::gil_scoped_release>())
+            .def_readwrite("rotation", &Entity::rotation, py::call_guard<py::gil_scoped_release>())
+            .def_readwrite("color", &Entity::color, py::call_guard<py::gil_scoped_release>())
+            .def_readwrite("visible", &Entity::visible, py::call_guard<py::gil_scoped_release>())
+            .def_readwrite("collider", &Entity::collider, py::call_guard<py::gil_scoped_release>());
 
         py::object entity_obj = py::cast(this);
         py::module input_module = py::module::import("input_module");
         py::module collisions_module = py::module::import("collisions_module");
         py::module camera_module = py::module::import("camera_module");
+
+        if (IsKeyDown(KEY_B))
+        {
+            camera.position.x += .1;
+        }
+
 
         auto locals = py::dict("entity"_a=entity_obj,
                             "IsMouseButtonPressed"_a=input_module.attr("IsMouseButtonPressed"),
@@ -329,47 +352,39 @@ public:
                             "camera"_a=py::cast(&camera));
 
 
-
-        try
-        {
+        mtx.unlock();
+        try {
+            pybind11::gil_scoped_acquire acquire;
             string script_content = read_file_to_string(script);
-
-            py::gil_scoped_acquire acquire;
-
-            auto execute_script = [&script_content, &locals]() {
+            while (true)
+            {
+                while (flag[1 - id] && turn == 1 - id) {}
                 py::exec(script_content, py::globals(), locals);
-            };
-
-            // Create a TBB task group
-            tbb::task_group tg;
-
-            tg.run(execute_script);
-
-            // Wait for all the tasks to complete
-            tg.wait();
-
-
+                flag[id] = false;
+            }
+            pybind11::gil_scoped_release release;
         } catch (const py::error_already_set& e) {
             py::print(e.what());
         }
 
-        py::gil_scoped_release release1;
-
     }
 
-
     // Draw the model
-    void draw() {
+    void render() {
         if (!hasModel())
         {
             initializeModel();
         }
 
+
         update();
-        
+
+
         model.transform = MatrixScale(scale.x, scale.y, scale.z);
         if (visible)
             DrawModel(model, {position.x, position.y, position.z}, 1.0f, color);
+
+
     }
 
 
@@ -378,6 +393,8 @@ public:
 
     
 
+py::module entity_module("entity_module");
+
 
 
 float GetExtremeValue(const Vector3& a) {
@@ -385,8 +402,18 @@ float GetExtremeValue(const Vector3& a) {
 }
 
 
+mutex entities_list_mutex;
+
 bool raycast(Vector3 origin, Vector3 direction, bool debug)
 {
+    int id = 0;
+
+    flag[id] = true;
+    turn = 1 - id;
+
+    while (flag[1 - id] && turn == 1 - id) {}
+
+    pybind11::gil_scoped_acquire acquire;
     Ray ray;
     ray.position = origin;
     ray.direction = direction;
@@ -397,6 +424,9 @@ bool raycast(Vector3 origin, Vector3 direction, bool debug)
     }
 
     Entity entity;
+    // Lock access to entities_list
+    std::lock_guard<std::mutex> lock_entities_list_mutex(entities_list_mutex);
+
     for (int index = 0; index < entities_list.size(); index++)
     {
         entity = entities_list[index];
@@ -425,12 +455,13 @@ bool raycast(Vector3 origin, Vector3 direction, bool debug)
             meshHitInfo = GetRayCollisionMesh(ray, entity.model.meshes[mesh_i], modelMatrix);
             if (meshHitInfo.hit)
             {
+                flag[id] = false;
                 return true;
             }
         }
-
-        if (meshHitInfo.hit) return true;
     }
+    flag[id] = false;
 
+    pybind11::gil_scoped_release release;
     return false;
 }

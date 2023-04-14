@@ -1,36 +1,62 @@
 #include <iostream>
-#include <string>
-#include <pybind11/pybind11.h>
+#include <future>
 #include <pybind11/embed.h>
-#include <tbb/tbb.h>
 
 namespace py = pybind11;
 
-int main() {
-    py::scoped_interpreter guard{}; // Initialize Python interpreter
-    
-    // Define the Python script as a string
-    std::string script = "import time\nfor i in range(10):\n    time.sleep(5)\n    print('Hi')";
-    
-    // Define a lambda function that executes the script
-    auto execute_script = [&script]() {
-        py::exec(script);
-    };
-    
-    // Create a TBB task group
-    tbb::task_group tg;
-    
-    // Submit the script execution task to TBB
-    tg.run(execute_script);
-    
-    // Continue executing C++ code
-    for (int i = 0; i < 10; i++) {
-        std::cout << "Hello" << std::endl;
-        std::this_thread::sleep_for(std::chrono::seconds(1));
+bool loop1 = true;
+bool loop2 = true;
+
+void myFunction(int x) {
+    std::cout << "myFunction called with " << x << std::endl;
+    loop1 = false;
+}
+
+void loop() {
+    while (true) {
+        std::cout << "Loop 1=============" << std::endl;
     }
-    
-    // Wait for the script execution task to complete
-    tg.wait();
-    
+}
+
+void loop2Task() {
+    while (loop2) {
+        std::cout << "Loop 2####################" << std::endl;
+    }
+}
+
+class Script {
+public:
+    Script(const std::string& script) : script_(script) {}
+
+    void run() {
+
+        while (true) {
+            auto future = std::async(std::launch::async, [this]() {
+                py::exec(script_);
+            });
+
+            future.wait();
+        }
+    }
+
+private:
+    std::string script_;
+};
+
+int main() {
+    py::scoped_interpreter interpreter{};
+
+    Script script(R"(
+        while True:
+            print("Sleeping...")
+    )");
+
+    std::future<void> future = std::async(std::launch::async, &Script::run, &script);
+    // std::future<void> future1 = std::async(std::launch::async, myFunction, 42);
+    // std::future<void> future2 = std::async(std::launch::async, loop);
+    // std::future<void> future3 = std::async(std::launch::async, loop2Task);
+
+    script.run(); // Call the run function to execute the Python script
+
     return 0;
 }

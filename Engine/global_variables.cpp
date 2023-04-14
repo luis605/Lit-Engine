@@ -138,11 +138,11 @@ pybind11::object export_camera()
     pybind11::module m("raylib_camera");
     pybind11::class_<Camera3D>(m, "Camera3D")
         .def(pybind11::init<>())
-        .def_readwrite("position", &Camera3D::position)
-        .def_readwrite("target", &Camera3D::target)
-        .def_readwrite("up", &Camera3D::up)
-        .def_readwrite("fovy", &Camera3D::fovy)
-        .def_readwrite("projection", &Camera3D::projection);
+        .def_readwrite("position", &Camera3D::position, py::call_guard<py::gil_scoped_release>())
+        .def_readwrite("target", &Camera3D::target, py::call_guard<py::gil_scoped_release>())
+        .def_readwrite("up", &Camera3D::up, py::call_guard<py::gil_scoped_release>())
+        .def_readwrite("fovy", &Camera3D::fovy, py::call_guard<py::gil_scoped_release>())
+        .def_readwrite("projection", &Camera3D::projection, py::call_guard<py::gil_scoped_release>());
     pybind11::object camera_obj = pybind11::cast(camera);
     camera_obj.attr("__class__") = m.attr("Camera3D");
     return camera_obj;
