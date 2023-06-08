@@ -4,10 +4,7 @@
 #include "include/raylib.h"
 #include "include/raymath.h"
 #include "include/rcamera.h"
-
-
-#define RLIGHTS_IMPLEMENTATION
-#include "include/rlights.h"
+#include "include/rlgl.h"
 
 #include "imgui/imgui.h"
 #include "imgui/imgui_internal.h"
@@ -42,10 +39,9 @@
 #include <unistd.h>
 #include <typeinfo>
 #include <thread>
-#include <tbb/tbb.h>
 #include <functional>
 #include <future>
-#include <mutex>
+
 /* Physx */
 //#include "PxPhysicsAPI.h"
 
@@ -58,6 +54,9 @@ namespace filesys = boost::filesystem;
 
 namespace py = pybind11;
 using namespace py::literals;
+
+/* Lighting */
+#include "Engine/Lighting/lights.h"
 
 /* Globals */
 #include "globals.h"
@@ -74,6 +73,7 @@ using namespace py::literals;
 #include "Engine/Ui/Styles.cpp"
 #include "Engine/Engine.cpp"
 #include "Engine/SaveLoad.cpp"
+#include "Engine/Core.cpp"
 #include "Engine/Ui/CodeEditor.cpp"
 #include "Engine/Ui/EntitiesList.cpp"
 #include "Engine/Ui/SceneEditor.cpp"

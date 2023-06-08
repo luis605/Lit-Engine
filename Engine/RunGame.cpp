@@ -26,24 +26,16 @@ void RunGame()
     rectangle.width = sceneEditorWindowWidth;
     rectangle.height = sceneEditorWindowHeight;
 
-
-
-    mtx.lock();
-
     BeginTextureMode(renderTexture);
     BeginMode3D(camera);
 
     ClearBackground(GRAY);
-
-    float cameraPos[3] = { camera.position.x, camera.position.y, camera.position.z };
-    SetShaderValue(shader, shader.locs[SHADER_LOC_VECTOR_VIEW], cameraPos, SHADER_UNIFORM_VEC3);
 
     for (const Entity& entity : entities_list)
     {
         entity.render();
         if (first_time_gameplay)
         {
-            // Acquire the GIL before starting the thread
             py::gil_scoped_acquire acquire;
             
             thread scriptRunnerThread(&Entity::runScript, entity);
@@ -53,46 +45,18 @@ void RunGame()
 
     if (first_time_gameplay)
     {
-        for (auto& t : scripts_thread_vector) {
-            if (t.joinable()) {
-                t.detach();
-            }
+        for (auto& script_thread : scripts_thread_vector) {
+            if (script_thread.joinable())
+                script_thread.detach();
         }
     }
 
     first_time_gameplay = false;
 
-
-
-    // for (const Entity& entity : entities_list)
-    // {
-
-    //         cout << "pass here 1" << endl;
-    //         pybind11::gil_scoped_release release;
-    //         thread scriptRunnerThread(&Entity::runScript, entity);
-    //         cout << "pass here 2" << endl;
-    //         scriptRunnerThread.join();
-    //         cout << "pass here 3" << endl;
-
-    //         pybind11::gil_scoped_acquire acquire;
-    //     }
-
-    //     first_time_gameplay = false;
-
-    //     entity.draw();
-    //     entity.setShader(shader);    
-    // }
-
-    first_time_gameplay = false;
-
-    // End 3D rendering
     EndMode3D();
     EndTextureMode();
 
     DrawTextureOnRectangle(&texture, rectangle);
-
-    mtx.unlock();
-
 }
 
 

@@ -30,6 +30,17 @@ string read_file_to_string(const string& filename) {
 }
 
 
+void AddLight()
+{
+    if (canAddLight)
+    {
+        cout << "AddLight" << endl;
+        Light light_create = NewLight((Vector3){ -2, 1, -2 }, RED);
+        lights_list_pregame.push_back(light_create);
+        canAddLight = false;
+    }
+}
+
 
 PYBIND11_EMBEDDED_MODULE(input_module, m) {
     m.def("IsMouseButtonPressed", &IsMouseButtonPressed, py::call_guard<py::gil_scoped_release>());
@@ -135,7 +146,7 @@ PYBIND11_EMBEDDED_MODULE(input_module, m) {
 
 
 
-bool raycast(Vector3 origin, Vector3 direction, bool debug);
+bool raycast(Vector3 origin, Vector3 direction, bool debug, Entity ignore[] = {});
 
 PYBIND11_EMBEDDED_MODULE(collisions_module, m) {
     py::class_<Vector3>(m, "Vector3")
@@ -144,7 +155,7 @@ PYBIND11_EMBEDDED_MODULE(collisions_module, m) {
         .def_readwrite("y", &Vector3::y, py::call_guard<py::gil_scoped_release>())
         .def_readwrite("z", &Vector3::z, py::call_guard<py::gil_scoped_release>());
     
-    m.def("raycast", &raycast, py::arg("origin"), py::arg("direction"), py::arg("debug")=false, py::call_guard<py::gil_scoped_release>());
+    m.def("raycast", &raycast, py::arg("origin"), py::arg("direction"), py::arg("debug")=false, py::arg("ignore")={}, py::call_guard<py::gil_scoped_release>());
 }
 
 
@@ -175,11 +186,11 @@ bool EntityRunScriptFirstTime = true;
 
 
 
-mutex mtx;
 atomic<bool> flag[2] = {false, false};
 atomic<int> turn = 0;
 int shared_resource = 0;
-/* Entity */
+
+
 class Entity {
 public:
     bool initialized = false;
@@ -191,7 +202,7 @@ public:
     Vector3 scale = { 1, 1, 1 };
 
     Vector3 relative_position = { 0, 0, 0 };
-    Vector3 relative_rotation;
+    Vector3 relative_rotation = { 0, 0, 0 };
     Vector3 relative_scale = { 1, 1, 1 };
 
     string script = "";
@@ -202,6 +213,8 @@ public:
     bool visible = true;
     bool isChildren = false;
     bool isParent = false;
+
+    string id = "";
 
     vector<Entity*> children;
 
@@ -221,23 +234,15 @@ public:
         children.push_back(newChild);
     }
 
-
-
-
-
-
-    void update()
+    void update_children()
     {
         if (children.empty()) return;
-        int a = 0;
         for (Entity* child : children)
         {
             child->position = Vector3Add(this->position, child->relative_position);
             child->render();
 
-
-            a++;
-            child->update();
+            child->update_children();
         }
     }
 
@@ -245,7 +250,7 @@ public:
     void remove() {
         entities_list_pregame.erase(remove_if(entities_list_pregame.begin(), entities_list_pregame.end(),
         [this](const Entity& entity) {
-        return entity.getName() == this->name;
+        return entity.id == this->id;
         }),
         entities_list_pregame.end());
     }
@@ -266,16 +271,11 @@ public:
         scale = newScale;
     }
 
-    // Initialize the model with a cube mesh
-    void initializeModel() {
-        // Create a mesh for a cube
+    void initializeDefaultModel() {
         Mesh mesh = GenMeshCube(scale.x, scale.y, scale.z);
-
-        // Create a model from the mesh
         model = LoadModelFromMesh(mesh);
     }
 
-    // Load a model from a file and set its material properties
     void loadModel(const char* filename, const char* textureFilename = NULL) {
         model = LoadModel(filename);
     }
@@ -290,15 +290,9 @@ public:
     {
 
         if (model.meshCount > 0)
-        {
-            // model has been initialized with data
             return true;
-        }
         else
-        {
-            // model has not been initialized with data
             return false;
-        }
     }
 
     void setShader(Shader shader)
@@ -318,7 +312,6 @@ public:
         turn = 1 - id;
 
 
-        mtx.lock();
         py::gil_scoped_release release;
         py::gil_scoped_acquire acquire;
 
@@ -343,16 +336,13 @@ public:
             camera.position.x += .1;
         }
 
+        py::dict locals = &py::dict("entity"_a = entity_obj,
+                               "IsMouseButtonPressed"_a = input_module.attr("IsMouseButtonPressed"),
+                               "IsKeyDown"_a = input_module.attr("IsKeyDown"),
+                               "KeyboardKey"_a = input_module.attr("KeyboardKey"),
+                               "raycast"_a = collisions_module.attr("raycast"),
+                               "camera"_a = py::cast(&camera));
 
-        auto locals = py::dict("entity"_a=entity_obj,
-                            "IsMouseButtonPressed"_a=input_module.attr("IsMouseButtonPressed"),
-                            "IsKeyDown"_a=input_module.attr("IsKeyDown"),
-                            "KeyboardKey"_a=input_module.attr("KeyboardKey"),
-                            "raycast"_a=collisions_module.attr("raycast"),
-                            "camera"_a=py::cast(&camera));
-
-
-        mtx.unlock();
         try {
             pybind11::gil_scoped_acquire acquire;
             string script_content = read_file_to_string(script);
@@ -369,26 +359,16 @@ public:
 
     }
 
-    // Draw the model
     void render() {
         if (!hasModel())
-        {
-            initializeModel();
-        }
+            initializeDefaultModel();
 
-
-        update();
-
+        update_children();
 
         model.transform = MatrixScale(scale.x, scale.y, scale.z);
         if (visible)
             DrawModel(model, {position.x, position.y, position.z}, 1.0f, color);
-
-
     }
-
-
-
 };
 
     
@@ -398,13 +378,15 @@ py::module entity_module("entity_module");
 
 
 float GetExtremeValue(const Vector3& a) {
-    return max(max(abs(a.x), abs(a.y)), abs(a.z));
+    const float absX = abs(a.x);
+    const float absY = abs(a.y);
+    const float absZ = abs(a.z);
+
+    return max(max(absX, absY), absZ);
 }
 
 
-mutex entities_list_mutex;
-
-bool raycast(Vector3 origin, Vector3 direction, bool debug)
+bool raycast(Vector3 origin, Vector3 direction, bool debug, Entity ignore[] = {})
 {
     int id = 0;
 
@@ -424,8 +406,6 @@ bool raycast(Vector3 origin, Vector3 direction, bool debug)
     }
 
     Entity entity;
-    // Lock access to entities_list
-    std::lock_guard<std::mutex> lock_entities_list_mutex(entities_list_mutex);
 
     for (int index = 0; index < entities_list.size(); index++)
     {

@@ -310,12 +310,12 @@ void Gizmo()
     gizmo_arrow[4].rotation = {0, 0, -90};
 
     // Gizmo Arrow Backward
-    gizmo_arrow[4].position = {object_in_inspector_position->x - 6, object_in_inspector_position->y, object_in_inspector_position->z};
-    gizmo_arrow[4].rotation = {0, 0, 90};
+    gizmo_arrow[5].position = {object_in_inspector_position->x - 6, object_in_inspector_position->y, object_in_inspector_position->z};
+    gizmo_arrow[5].rotation = {0, 0, 90};
 
 
     // Position Update
-    for (int arrow_i = 0; arrow_i < sizeof(gizmo_arrow) / sizeof(gizmo_arrow[0]); arrow_i++)
+    for (int arrow_i = 0; arrow_i < (sizeof(gizmo_arrow) / sizeof(gizmo_arrow[0])); arrow_i++)
     {
         Color color1;
 
@@ -420,14 +420,14 @@ int EditorCamera(void)
 
     ClearBackground(GRAY);
 
-    float cameraPos[3] = { scene_camera.position.x, scene_camera.position.y, scene_camera.position.z };
-    SetShaderValue(shader, shader.locs[SHADER_LOC_VECTOR_VIEW], cameraPos, SHADER_UNIFORM_VEC3);
+    // float cameraPos[3] = { scene_camera.position.x, scene_camera.position.y, scene_camera.position.z };
+    // SetShaderValue(shader, shader.locs[SHADER_LOC_VECTOR_VIEW], cameraPos, SHADER_UNIFORM_VEC3);
     
     int entity_index = 0;
     for (Entity& entity : entities_list_pregame)
     {
         entity.render();
-        entity.setShader(shader);
+        // entity.setShader(shader);
 
         if (IsMouseButtonDown(MOUSE_LEFT_BUTTON))
         {
@@ -460,12 +460,6 @@ int EditorCamera(void)
     }
 
 
-    if (canAddLight)
-    {
-        Light light_create = CreateLight(LIGHT_POINT, (Vector3){ -2, 1, -2 }, Vector3Zero(), RED, shader);
-        lights_list_pregame.push_back(light_create);
-        canAddLight = false;
-    }
 
     // End 3D rendering
     EndMode3D();

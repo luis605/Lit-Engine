@@ -1,0 +1,3 @@
+void CleanUp() {
+    UnloadShader(shader);
+}

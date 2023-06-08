@@ -11,8 +11,7 @@ variant<Entity*, Light*> object_in_inspector;
 vector<Entity> entities_list_pregame;
 vector<Light> lights_list_pregame;
 
-Light lights[MAX_LIGHTS];
-
+Entity *selected_entity;
 
 
 /* Shaders */
@@ -40,7 +39,7 @@ char name[256] = { 0 };
 float scale = 1;
 ImVec4 color = ImVec4(1.0f, 0.0f, 0.0f, 1.0f);
 
-bool IsChildren = false;
+bool is_create_entity_a_child = false;
 
 bool showNextTime = true;
 bool create = false;
@@ -54,28 +53,22 @@ bool old_child_selected = false;
 char* selected_gameObject_type = "";
 
 /* Inspector */
-// Entity Properties
 string entity_name = "";
 Vector3 entity_scale = {1, 1, 1};
 Vector3 entity_position = {0, 0, 0};
 Vector3 entity_rotation = {0, 0, 0};
 Color entity_color = RED;
 
-// Entity Color for ImGui
 ImVec4 entity_colorImGui = { 0, 0, 0, 0 };
 
-// Entity Inspector State
 bool changeEntity_colorPopup = false;
 bool setentity_color = false;
-
-// Entity Script Path and Index in Inspector
-string entity_in_inspector_script_path;
-int entity_in_inspector_script_path_index;
+string selected_entity_script_path;
+int selected_entity_script_path_index;
 
 // Entity Model Path and Index in Inspector
 char modelPathBuffer[512] = {0};
-string entity_in_inspector_model_path;
-int entity_in_inspector_model_path_index;
+int selected_entity_model_path_index;
 
 // Physics Properties
 bool do_physics = false;

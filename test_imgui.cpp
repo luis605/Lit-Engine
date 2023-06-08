@@ -43,17 +43,13 @@ int LitEngine()
     }
     
 
-    for (int index = 0; index <  sizeof(gizmo_taurus) / sizeof(gizmo_taurus[0]); index++)
+    for (int index = 0; index < (sizeof(gizmo_taurus) / sizeof(gizmo_taurus[0])); index++)
     {
         gizmo_taurus[index] = LoadModel("assets/models/gizmo/taurus.obj");
     }
     
-    shader = LoadShader("game/shaders/lighting_vertex.glsl", "game/shaders/lighting_fragment.glsl");
-    shader.locs[SHADER_LOC_VECTOR_VIEW] = GetShaderLocation(shader, "viewPos");
-
-    int ambientLoc = GetShaderLocation(shader, "ambient");
-    float ambient_light[4] = { 0.1f, 0.1f, 0.1f, 1.0f };
-    SetShaderValue(shader, ambientLoc, ambient_light, SHADER_UNIFORM_VEC4);
+    // shader = LoadShader("Engine/Lighting/shaders/lighting_vertex.glsl", "Engine/Lighting/shaders/lighting_fragment.glsl");
+    // shader.locs[SHADER_LOC_VECTOR_VIEW] = GetShaderLocation(shader, "viewPos");
 
 
 
@@ -69,18 +65,23 @@ int LitEngine()
     SetStyleGray(&ImGui::GetStyle());
 
     InitEditorCamera();
+
+    InitializeUBO();
+
+    // shader = LoadShader("Engine/Lighting/shaders/lighting_vertex.glsl", "Engine/Lighting/shaders/lighting_fragment.glsl");
+
+//    int lightsLocation = GetShaderLocation(shader, "lights");
+//    SetShaderValueV(shader, lightsLocation, &lights[0], SHADER_UNIFORM_FLOAT, 3 * lights.size());
+
+
     // Main game loop
     while (!WindowShouldClose())
     {
-
         BeginDrawing();
         ClearBackground(DARKGRAY);
 
         // start the GUI
         rlImGuiBegin();
-
-
-
 
 
 
@@ -126,7 +127,7 @@ int LitEngine()
     }
 
     std::cout << "Exiting..." << std::endl;
-
+    CleanUp();
     rlImGuiShutdown();
     CloseWindow(); 
     return 0;

@@ -37,50 +37,54 @@ bool operator==(const Entity& e, const Entity* ptr) {
 }
 
 
-void AddEntity(void)
+void AddEntity()
 {
-    // Define the layout of the popup
     const int POPUP_WIDTH = 600;
     const int POPUP_HEIGHT = 650;
 
-    // Calculate the position of the popup
     int popupX = GetScreenWidth() / 4.5;
     int popupY = (GetScreenHeight() - POPUP_HEIGHT) / 6;
 
-    if (create) {
-        // Conversion imgui color to raylib color
-        Color entity_color_raylib = (Color){ (unsigned char)(color.x*255), (unsigned char)(color.y*255), (unsigned char)(color.z*255), (unsigned char)(color.w*255) };
+    if (create)
+    {
+        Color entity_color_raylib = {
+            static_cast<unsigned char>(color.x * 255),
+            static_cast<unsigned char>(color.y * 255),
+            static_cast<unsigned char>(color.z * 255),
+            static_cast<unsigned char>(color.w * 255)
+        };
 
-        // Create Entity
-        Entity entity_create = Entity();
+        Entity entity_create;
         entity_create.setColor(entity_color_raylib);
-        entity_create.setScale(Vector3 { scale, scale, scale, });
+        entity_create.setScale(Vector3{scale, scale, scale});
         entity_create.setName(name);
-        entity_create.isChildren = IsChildren;
+        entity_create.isChildren = is_create_entity_a_child;
         entity_create.setModel("assets/models/tree.obj");
 
-        if (!IsChildren)
+        if (!entities_list_pregame.empty())
+        {
+            string id = to_string(stoi(entities_list_pregame.back().id) + 1);
+            entity_create.id = id;
+        }
+        else
+            entity_create.id = "0";
+
+        if (!is_create_entity_a_child)
             entities_list_pregame.push_back(entity_create);
         else
         {
             std::cout << "Adding child entities..." << std::endl;
             entities_list_pregame.back().addChild(entity_create);
         }
-        // else if (holds_alternative<Entity*>(object_in_inspector))
-        // {
-        //     Entity *entity_in_inspector = get<Entity*>(object_in_inspector); 
-        //     entity_in_inspector->addChild(entities_list_pregame.back());
-        // }
-        
-        int last_index = entities_list_pregame.size() - 1;
-        listViewExActive = last_index;
 
-        old_child_selected = IsChildren;
-        old_parent_selected = !IsChildren;
+        int last_entity_index = entities_list_pregame.size() - 1;
+        listViewExActive = last_entity_index;
+
+        old_child_selected = is_create_entity_a_child;
+        old_parent_selected = !is_create_entity_a_child;
 
         create = false;
         canAddEntity = false;
-        
     }
     else if (canAddEntity)
     {
@@ -115,7 +119,7 @@ void AddEntity(void)
         ImGui::ColorEdit4(" ", (float*)&color, ImGuiColorEditFlags_NoInputs);
 
         /* Is Children */
-        ImGui::Checkbox("Is Children: ", &IsChildren);
+        ImGui::Checkbox("Is Children: ", &is_create_entity_a_child);
 
         /* Create BTN */
         ImGui::PushStyleColor(ImGuiCol_Button, ImVec4(0.14, 0.37, 0.15, 1.0f));
@@ -140,16 +144,7 @@ void AddEntity(void)
 
 
 
-void AddLight()
-{
-    if (canAddLight)
-    {
-        cout << "AddLight" << endl;
-        Light light_create = CreateLight(LIGHT_POINT, (Vector3){ -2, 1, -2 }, Vector3Zero(), RED, shader);
-        lights_list_pregame.push_back(light_create);
-        canAddLight = false;
-    }
-}
+
 
 
 
@@ -173,12 +168,12 @@ for index in objectNames.size()  // AKA items
                 ImGui::Indent(30);
 
 
-                string ChildButtonName;
-                ChildButtonName.append(ICON_FA_CUBE " ");
-                ChildButtonName += entity.name;
-                ChildButtonName.append("##Children_");
-                ChildButtonName.append(to_string(i));
-                const char* result = ChildButtonName.c_str();
+                string child_button_name;
+                child_button_name.append(ICON_FA_CUBE " ");
+                child_button_name += entity.name;
+                child_button_name.append("##Children_");
+                child_button_name.append(to_string(i));
+                const char* result = child_button_name.c_str();
 
                 if (ImGui::Button(result, ImVec2(120,40)))
                 {
@@ -235,6 +230,48 @@ for index in objectNames.size()  // AKA items
 
 
 
+void DrawEntityTree(Entity& entity, int active, int& index) {
+    ImGuiTreeNodeFlags nodeFlags = ImGuiTreeNodeFlags_OpenOnArrow | ImGuiTreeNodeFlags_OpenOnDoubleClick;
+    if (selected_entity == &entity) {
+        nodeFlags |= ImGuiTreeNodeFlags_Selected;
+    }
+
+    bool isNodeOpen = ImGui::TreeNodeEx((void*)&entity, nodeFlags, entity.name.c_str());
+
+    if (ImGui::IsItemClicked()) {
+        selected_entity = &entity;
+        active = index;
+        selected_gameObject_type = "entity";
+    }
+
+    if (isNodeOpen) {
+        for (int childIndex = 0; childIndex < entity.children.size(); childIndex++) {
+            index++; // Increment the index for each child entity
+            Entity* child = entity.children[childIndex];
+            DrawEntityTree(*child, active, index);
+        }
+        ImGui::TreePop();
+    }
+}
+
+
+
+int AmountOfEntities(const std::vector<Entity>& entities, int current_amount)
+{
+    for (const Entity& entity : entities)
+    {
+        current_amount++;
+        if (!entity.children.empty())
+        {
+            for (int index = 0; index < entity.children.size(); index++)
+                current_amount = AmountOfEntities({*entity.children[index]}, current_amount);
+        }
+    }
+    return current_amount;
+}
+
+
+
 
 
 
@@ -254,253 +291,17 @@ int ImGuiListViewEx(vector<string>& items, int& focus, int& scroll, int& active)
     ImGui::PushStyleVar(ImGuiStyleVar_ItemSpacing, ImVec2(0,10));
     ImGui::PushStyleVar(ImGuiStyleVar_ItemInnerSpacing, ImVec2(10,10));
 
+    int currentAmount = 0;
+    int amountOfEntities = AmountOfEntities(entities_list_pregame, currentAmount);
+    int index = 0;
 
-
-    // Buttons
-    for (int index = 0; index < items.size(); index++)
-    {
-        int old_active = active;
-        int children_index = index;
-
-        bool button_clicked = false;
-
-        float parent_button_x = 20;
-
-
-
-
-
-        /*
-        Mixed lights and entities names (items), so if items.size() is greater than entities_list_pregame.size(), when we do entities_list_pregame[i] will get segfault (because it will be out of bounds).
-        Easy fix: divide entities_list_pregame and lighs_list_pregame in 2 (if-else) conditions and draw the buttons seperately  
-        */
-        std::function<void(Entity&, int, int, int, bool, int, int, int)> recursiveChild = [&](Entity& entity, int index, int children_index, int old_active, bool button_clicked, int focus, int active, int parent_button_x)
-        {
-            children_index = index + 1;
-
-
-            ImDrawList* draw_list = ImGui::GetWindowDrawList();
-
-            ImGui::Spacing();
-            ImGui::Indent(30);
-
-
-            string ChildButtonName;
-            ChildButtonName += ICON_FA_CUBE;
-            ChildButtonName += " ";
-            ChildButtonName += entity.name;
-            ChildButtonName.append("##Children_");
-            ChildButtonName.append(to_string(index));
-            const char* result = ChildButtonName.c_str();
-
-            if ((children_index == old_active) && old_child_selected) ImGui::PushStyleColor(ImGuiCol_Button, ImVec4(0.3f, 0.3f, 0.3f, 0.9f)); // dark gray
-
-            if (ImGui::Button(result, ImVec2(120,40)))
-            {
-                std::cout << "Child button clicked" << std::endl;
-                child_selected  = true;
-                parent_selected = false;
-                button_clicked  = true;
-                focus           = children_index;
-                active          = children_index;
-                selected_gameObject_type = "entity";
-            }
-
-            if ((children_index == old_active) && old_child_selected) ImGui::PopStyleColor();
-            
-            for (int index = 0; index < entity.children.size(); index++)
-            {
-                recursiveChild(*entity.children[children_index+1], children_index, children_index, old_active, button_clicked, focus, active, parent_button_x);
-            }
-
-            ImGui::Unindent(30);
-
-        };
-
-
-        if (entities_list_pregame.size() > index) // Means it is an Entity and a parent object
-        {
-            string parent_button_name = ICON_FA_CUBE " " + entities_list_pregame[index].name + "##" + to_string(index);
-
-            if ((index == old_active) && old_parent_selected) ImGui::PushStyleColor(ImGuiCol_Button, ImVec4(0.3f, 0.3f, 0.3f, 0.9f)); // dark gray
-
-            bool parent_button = ImGui::Button(parent_button_name.c_str());
-            if (parent_button)
-            {
-                std::cout << "Parent button clicked" << std::endl;
-                parent_selected = true;
-                child_selected  = false;
-                button_clicked  = true;
-                focus           = index;
-                active          = index;
-                selected_gameObject_type = "entity";
-
-            }            
-
-            if ((index == old_active) && old_parent_selected) ImGui::PopStyleColor();
-
-            if (!entities_list_pregame[index].children.empty())
-            {
-                recursiveChild(*entities_list_pregame[index].children[0], index, children_index, old_active, button_clicked, focus, active, parent_button_x);
-            }
-        }
-
+    for (Entity& entity : entities_list_pregame) {
+        DrawEntityTree(entity, active, index);
     }
 
-    /* 
-        if (i < entities_list_pregame.size())
-        {
-            if (!entities_list_pregame[i].isChildren)
-            {
-                if ((i == old_active) && old_parent_selected) ImGui::PushStyleColor(ImGuiCol_Button, ImVec4(0.3f, 0.3f, 0.3f, 0.9f)); // dark gray
-
-                ImGui::Indent(10);
-
-                    string ListViewExButtonName = ICON_FA_CUBE " " + items[i] + "##" + to_string(i);
-
-                    if (ImGui::Button(ListViewExButtonName.c_str(), ImVec2(120,40))) {
-                        parent_selected = true;
-                        child_selected  = false;
-                        button_clicked  = true;
-                        focus           = i;
-                        active          = i;
-                        selected_gameObject_type = "entity";
-                    }
-
-                ImGui::Unindent(10);
-
-                if ((i == old_active) && old_parent_selected) ImGui::PopStyleColor();
-                button_clicked      = false;
-                old_parent_selected = parent_selected;
-                old_child_selected  = child_selected;
-
-                old_active = active;
-            }
-        }
-        else
-        {
-            if (!lights_list_pregame[i].isChildren)
-            {
-                if ((i == old_active) && old_parent_selected) ImGui::PushStyleColor(ImGuiCol_Button, ImVec4(0.3f, 0.3f, 0.3f, 0.9f)); // dark gray
-
-                ImGui::Indent(10);
-
-                    string ListViewExButtonName = ICON_FA_LIGHTBULB " " + items[i] + "##" + to_string(i);
-
-                    if (ImGui::Button(ListViewExButtonName.c_str(), ImVec2(120,40))) {
-                        parent_selected = true;
-                        child_selected  = false;
-                        button_clicked  = true;
-                        focus           = i;
-                        active          = i;
-                        selected_gameObject_type = "light";
-                    }
-
-                ImGui::Unindent(10);
-
-                if ((i == old_active) && old_parent_selected) ImGui::PopStyleColor();
-                button_clicked      = false;
-                old_parent_selected = parent_selected;
-                old_child_selected  = child_selected;
-
-                old_active = active;
-            }
-        };
+    
 
 
-
-
-        if (entities_list_pregame.size() <= i) break;
-
-
-
-        auto recursiveChild = [](int i, int children_index, int old_active, bool button_clicked, int focus, int active, int parent_button_x)
-        {
-            for (int index = 0; index < entities_list_pregame[i].children.size(); index++)
-            {
-                children_index = index + 1;
-
-                if (children_index < 0 || children_index >= entities_list_pregame.size()) {
-                    children_index--;
-                    // cout << "Invalid children index." << endl;
-                    if (children_index < 0 || children_index >= entities_list_pregame.size()) continue;
-                }
-
-
-                if ((children_index == old_active) && old_child_selected) ImGui::PushStyleColor(ImGuiCol_Button, ImVec4(0.3f, 0.3f, 0.3f, 0.9f)); // dark gray
-                
-                ImDrawList* draw_list = ImGui::GetWindowDrawList();
-
-                ImGui::Spacing();
-                ImGui::Indent(30);
-
-
-                string ChildButtonName;
-                ChildButtonName.append(ICON_FA_CUBE " ");
-                if (entities_list_pregame[children_index].name.size() > 10000)
-                {
-                    ChildButtonName += "GOT ERROR";
-                }
-                else 
-                {
-                    ChildButtonName += entities_list_pregame[children_index].name;
-                }
-                ChildButtonName.append("##Children_");
-                ChildButtonName.append(to_string(i));
-                const char* result = ChildButtonName.c_str();
-
-
-                if (ImGui::Button(result, ImVec2(120,40)))
-                {
-                    child_selected  = true;
-                    parent_selected = false;
-                    button_clicked  = true;
-                    focus           = children_index;
-                    active          = children_index;
-                }
-
-                if (entities_list_pregame[children_index].isParent)
-                {
-                    parent_button_x = ImGui::GetCursorPos().x;
-                }
-
-
-                ImGui::Unindent(30);
-                
-
-                float last_button_height = ImGui::GetItemRectSize().y;
-
-                ImVec2 point_1 = ImVec2(parent_button_x, 10);
-                ImVec2 point_2;
-                
-                point_2.x = point_1.x;
-                point_2.y = ImGui::GetCursorScreenPos().y - last_button_height/2;
-                
-                ImVec2 point_3 = ImVec2(ImGui::GetCursorScreenPos().x, point_2.y);
-                ImVec2 point_4;
-                
-                point_4.x = ImGui::GetItemRectMax().x - ImGui::GetItemRectSize().x;
-                point_4.y = ImGui::GetCursorScreenPos().y - last_button_height/2;
-
-                draw_list->AddLine(point_1, point_2, ImColor(255, 255, 0), 2.0f);
-                draw_list->AddLine(point_3, point_4, ImColor(255, 255, 0), 2.0f);
-
-                if ((children_index == old_active) && old_child_selected) ImGui::PopStyleColor();
-                button_clicked      = false;
-                old_parent_selected = parent_selected;
-                old_child_selected  = child_selected;
-
-                old_active = children_index;
-            }
-
-        };
-
-
-        if (!entities_list_pregame[i].children.empty())
-        {
-            recursiveChild(i, children_index, old_active, button_clicked, focus, active, parent_button_x);
-        }
-        */
     
 
     ImGui::PopStyleVar(3);
@@ -512,9 +313,9 @@ int ImGuiListViewEx(vector<string>& items, int& focus, int& scroll, int& active)
 
     ImGui::EndChild();
     return active;
+
+
 }
-
-
 
 
 
