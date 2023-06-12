@@ -1,6 +1,6 @@
 #include "../../include_all.h"
 
-bool appearance_window_enabled = true;
+bool appearance_window_enabled = false;
 
 
 void Appearance()

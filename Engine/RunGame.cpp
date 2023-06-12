@@ -31,17 +31,21 @@ void RunGame()
 
     ClearBackground(GRAY);
 
-    for (const Entity& entity : entities_list)
+    for (Entity& entity : entities_list)
     {
         entity.render();
         if (first_time_gameplay)
         {
             py::gil_scoped_acquire acquire;
-            
-            thread scriptRunnerThread(&Entity::runScript, entity);
-            scripts_thread_vector.push_back(move(scriptRunnerThread));
+
+            std::thread scriptRunnerThread([&entity]() {
+                entity.runScript(std::ref(entity));
+            });
+
+            scripts_thread_vector.push_back(std::move(scriptRunnerThread));
         }
     }
+
 
     if (first_time_gameplay)
     {
@@ -56,7 +60,7 @@ void RunGame()
     EndMode3D();
     EndTextureMode();
 
-    DrawTextureOnRectangle(&texture, rectangle);
+    DrawTextureOnRectangle(&texture);
 }
 
 

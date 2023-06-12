@@ -211,7 +211,7 @@ public:
 
     bool collider = true;
     bool visible = true;
-    bool isChildren = false;
+    bool isChild = false;
     bool isParent = false;
 
     string id = "";
@@ -248,6 +248,13 @@ public:
 
 
     void remove() {
+
+        for (Entity* child : children) {
+            delete child;
+        }
+        children.clear();
+
+
         entities_list_pregame.erase(remove_if(entities_list_pregame.begin(), entities_list_pregame.end(),
         [this](const Entity& entity) {
         return entity.id == this->id;
@@ -302,7 +309,7 @@ public:
 
 
 
-    void runScript()
+    void runScript(std::reference_wrapper<Entity> entityRef)
     {
         if (script.empty()) return;
 
@@ -310,8 +317,7 @@ public:
 
         flag[id] = true;
         turn = 1 - id;
-
-
+        
         py::gil_scoped_release release;
         py::gil_scoped_acquire acquire;
 
@@ -326,17 +332,16 @@ public:
             .def_readwrite("visible", &Entity::visible, py::call_guard<py::gil_scoped_release>())
             .def_readwrite("collider", &Entity::collider, py::call_guard<py::gil_scoped_release>());
 
-        py::object entity_obj = py::cast(this);
+        Entity& this_entity = entityRef.get();
+
+        py::object entity_obj = py::cast(&this_entity);
         py::module input_module = py::module::import("input_module");
         py::module collisions_module = py::module::import("collisions_module");
         py::module camera_module = py::module::import("camera_module");
 
-        if (IsKeyDown(KEY_B))
-        {
-            camera.position.x += .1;
-        }
 
-        py::dict locals = &py::dict("entity"_a = entity_obj,
+
+        py::dict locals = py::dict("entity"_a = entity_obj,
                                "IsMouseButtonPressed"_a = input_module.attr("IsMouseButtonPressed"),
                                "IsKeyDown"_a = input_module.attr("IsKeyDown"),
                                "KeyboardKey"_a = input_module.attr("KeyboardKey"),
@@ -351,6 +356,11 @@ public:
                 while (flag[1 - id] && turn == 1 - id) {}
                 py::exec(script_content, py::globals(), locals);
                 flag[id] = false;
+
+                if (IsKeyDown(KEY_B))
+                {
+                    camera.position.x += .1;
+                }
             }
             pybind11::gil_scoped_release release;
         } catch (const py::error_already_set& e) {

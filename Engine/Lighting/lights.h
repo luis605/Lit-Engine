@@ -29,7 +29,7 @@ typedef struct Light
     int colorLoc;
     int attenuationLoc;
 
-    bool isChildren;
+    bool isChild;
 
     string name;
 };

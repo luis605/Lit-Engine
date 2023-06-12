@@ -58,7 +58,7 @@ void AddEntity()
         entity_create.setColor(entity_color_raylib);
         entity_create.setScale(Vector3{scale, scale, scale});
         entity_create.setName(name);
-        entity_create.isChildren = is_create_entity_a_child;
+        entity_create.isChild = is_create_entity_a_child;
         entity_create.setModel("assets/models/tree.obj");
 
         if (!entities_list_pregame.empty())
@@ -79,9 +79,6 @@ void AddEntity()
 
         int last_entity_index = entities_list_pregame.size() - 1;
         listViewExActive = last_entity_index;
-
-        old_child_selected = is_create_entity_a_child;
-        old_parent_selected = !is_create_entity_a_child;
 
         create = false;
         canAddEntity = false;
@@ -148,85 +145,8 @@ void AddEntity()
 
 
 
-/* Pseudocode
 
 
-for index in objectNames.size()  // AKA items
-{
-
-
-        auto recursiveChild = [](int i, int children_index, int old_active, bool button_clicked, int focus, int active, int parent_button_x)
-        {
-            for (int index = 0; index < entity.children.size(); index++)
-            {
-                children_index = index + 1;
-
-                
-                ImDrawList* draw_list = ImGui::GetWindowDrawList();
-
-                ImGui::Spacing();
-                ImGui::Indent(30);
-
-
-                string child_button_name;
-                child_button_name.append(ICON_FA_CUBE " ");
-                child_button_name += entity.name;
-                child_button_name.append("##Children_");
-                child_button_name.append(to_string(i));
-                const char* result = child_button_name.c_str();
-
-                if (ImGui::Button(result, ImVec2(120,40)))
-                {
-                    std::cout << "Child clicked" << std::endl;
-                }
-
-                ImGui::Unindent(30);
-            }
-        };
-
-
-    if entities_list_pregame.size > index //Means it is an Entity and a parent object
-    {
-        bool parent_button = ImGui::Button(entities_list_pregame[index].name + "##" + index)
-        if (parent_button)
-            std::cout << "button clicked" << std::endl;
-        
-        if (!entities_list_pregame[index].children.empty())
-        {
-            recursiveChild();
-        }
-    }
-
-
-
-
-
-
-
-
-
-
-}
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-*/
 
 
 
@@ -236,17 +156,22 @@ void DrawEntityTree(Entity& entity, int active, int& index) {
         nodeFlags |= ImGuiTreeNodeFlags_Selected;
     }
 
+    ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(0.85f, 0.85f, 0.85f, 1.0f));  // Custom text color
+    ImGui::PushStyleVar(ImGuiStyleVar_FrameRounding, 5.0f);  // Rounded corners for the frame
     bool isNodeOpen = ImGui::TreeNodeEx((void*)&entity, nodeFlags, entity.name.c_str());
-
+    ImGui::PopStyleVar();  // Restore the default frame rounding
+    ImGui::PopStyleColor();  // Restore the default text color
     if (ImGui::IsItemClicked()) {
         selected_entity = &entity;
         active = index;
         selected_gameObject_type = "entity";
+        object_in_inspector = &entity;
+        std::cout << "index: " << index << std::endl;
     }
 
     if (isNodeOpen) {
         for (int childIndex = 0; childIndex < entity.children.size(); childIndex++) {
-            index++; // Increment the index for each child entity
+            index++;
             Entity* child = entity.children[childIndex];
             DrawEntityTree(*child, active, index);
         }
@@ -398,10 +323,10 @@ void EntitiesList()
     ImGui::PopStyleVar();
 
     if (!entities_list_pregame.empty() || !lights_list_pregame.empty()) {
-        if (selected_gameObject_type == "entity")
-            object_in_inspector = &entities_list_pregame[listViewExActive];
-        else
-            object_in_inspector = &lights_list_pregame[listViewExActive];
+        // if (selected_gameObject_type == "entity")
+        //     object_in_inspector = &entities_list_pregame[listViewExActive];
+        // else
+        //     object_in_inspector = &lights_list_pregame[listViewExActive];
     } else {
         static Entity default_entity;
         object_in_inspector = &default_entity;

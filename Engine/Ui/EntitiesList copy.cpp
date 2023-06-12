@@ -58,7 +58,7 @@ void AddEntity()
         entity_create.setColor(entity_color_raylib);
         entity_create.setScale(Vector3{scale, scale, scale});
         entity_create.setName(name);
-        entity_create.isChildren = is_create_entity_a_child;
+        entity_create.isChild = is_create_entity_a_child;
         entity_create.setModel("assets/models/tree.obj");
 
         if (!entities_list_pregame.empty())
@@ -341,7 +341,7 @@ int ImGuiListViewEx(vector<string>& items, int& focus, int& scroll, int& active)
     /* 
         if (i < entities_list_pregame.size())
         {
-            if (!entities_list_pregame[i].isChildren)
+            if (!entities_list_pregame[i].isChild)
             {
                 if ((i == old_active) && old_parent_selected) ImGui::PushStyleColor(ImGuiCol_Button, ImVec4(0.3f, 0.3f, 0.3f, 0.9f)); // dark gray
 
@@ -370,7 +370,7 @@ int ImGuiListViewEx(vector<string>& items, int& focus, int& scroll, int& active)
         }
         else
         {
-            if (!lights_list_pregame[i].isChildren)
+            if (!lights_list_pregame[i].isChild)
             {
                 if ((i == old_active) && old_parent_selected) ImGui::PushStyleColor(ImGuiCol_Button, ImVec4(0.3f, 0.3f, 0.3f, 0.9f)); // dark gray
 

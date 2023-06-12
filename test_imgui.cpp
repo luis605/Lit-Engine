@@ -37,13 +37,13 @@ int LitEngine()
 	auto lang = TextEditor::LanguageDefinition::CPlusPlus();
 
 
-    for (int index = 0; index < sizeof(gizmo_arrow) / sizeof(gizmo_arrow[0]); index++)
+    for (int index = 0; index < sizeof(gizmo_arrow) / sizeof(gizmo_arrow[0]) + 1; index++)
     {
         gizmo_arrow[index].model = LoadModel("assets/models/gizmo/arrow.obj");
     }
     
 
-    for (int index = 0; index < (sizeof(gizmo_taurus) / sizeof(gizmo_taurus[0])); index++)
+    for (int index = 0; index < (sizeof(gizmo_taurus) / sizeof(gizmo_taurus[0])) + 1; index++)
     {
         gizmo_taurus[index] = LoadModel("assets/models/gizmo/taurus.obj");
     }

@@ -8,7 +8,11 @@ git clone --recurse-submodules -j8 https://luis605@github.com/luis605/Unnamed-Ga
 ```
 and paste this password:
 
-`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`
+`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`
+
+# Building Dependencies
+First you will need to install all commands needed to build this project, to do that run `./install.sh`
+Run this commands to build all dependencies: `./build_dependencies.sh`
 
 # Building the Engine
 Once you have cloned the repository, you can build the engine. To do this, follow these steps:

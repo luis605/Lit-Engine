@@ -3,10 +3,12 @@
 
 void EntityInspector()
 {
+    ImVec2 window_size = ImGui::GetWindowSize();
+
     selected_entity = get<Entity*>(object_in_inspector);
 
     entity_position = selected_entity->position;
-    if (selected_entity->isChildren)
+    if (selected_entity->isChild)
         entity_position = selected_entity->relative_position;
 
     entity_scale = selected_entity->scale;
@@ -18,15 +20,30 @@ void EntityInspector()
         entity_color.a / 255.0f
     );
 
-    ImVec2 window_size = ImGui::GetWindowSize();
-    string entity_name = "None";
+    string entity_name;
+
     if (!entities_list_pregame.empty()) {
         entity_name = selected_entity->name;
     }
 
-    stringstream title;
-    title << "Inspecting '" << entity_name << "'";
-    ImGui::Text(title.str().c_str());
+    ImGui::Text("Inspecting '");
+    ImGui::SameLine();
+
+    float textWidth = ImGui::CalcTextSize(entity_name.c_str()).x + 10.0f;
+    textWidth = std::max(textWidth, 100.0f);
+    ImGui::SetNextItemWidth(textWidth);
+
+    char inputBuffer[selected_entity->name.size() + 255];
+    strcpy(inputBuffer, entity_name.c_str());
+
+    if (ImGui::InputText("##Title Part 2", inputBuffer, sizeof(inputBuffer)))
+        selected_entity->name = inputBuffer;
+
+
+
+    ImGui::SameLine();
+    ImGui::Text("'");
+
 
     ImGui::BeginChild("MainContent", window_size);
 
@@ -79,21 +96,15 @@ void EntityInspector()
     selected_entity->scale = entity_scale;
 
     ImGui::Text("Position:");
-
     ImGui::InputFloat("X##PositionX", &entity_position.x);
     ImGui::InputFloat("Y##PositionY", &entity_position.y);
     ImGui::PushStyleVar(ImGuiStyleVar_ItemSpacing, ImVec2(0, 40));
     ImGui::InputFloat("Z##PositionZ", &entity_position.z);
     ImGui::PopStyleVar();
-    if (selected_entity->isChildren)
-    {
+    if (selected_entity->isChild)
         selected_entity->relative_position = entity_position;
-    }
     else
-    {
         selected_entity->position = entity_position;
-    }
-
 
     ImGui::Text("Color: ");
     ImGui::ColorEdit4("##Changeentity_color", (float*)&entity_colorImGui, ImGuiColorEditFlags_NoInputs);
@@ -109,10 +120,11 @@ void EntityInspector()
 
 
     ImGui::Text("Scripts: ");
-    string name = string("Drop Script Here: ") + selected_entity_script_path;
+    string name = string("Drop Script Here: ");
     ImGui::Text(name.c_str());
     ImGui::SameLine();
-    if (ImGui::Button("##Drag'n Drop", ImVec2(200,25)))
+    string script_button_text = selected_entity_script_path + "##Drag'nDropScriptPath";
+    if (ImGui::Button(script_button_text.c_str(), ImVec2(200,25)))
     {
     }
 
@@ -151,12 +163,12 @@ void EntityInspector()
 
 void LightInspector()
 {
-    ImGui::Text("Light Inspector##Title");
+    ImGui::Text("Light Inspector ##Title");
 }
 
 void Inspector()
 {
-    if (holds_alternative<Entity*>(object_in_inspector))
+    if (selected_gameObject_type == "entity")
         EntityInspector();
     else
         LightInspector();

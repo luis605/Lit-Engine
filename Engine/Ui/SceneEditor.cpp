@@ -99,35 +99,58 @@ void InitEditorCamera()
 }
 
 
-
-void DrawTextureOnRectangle(const Texture *texture, Rectangle rectangle)
+float GetImGuiWindowTitleHeight()
 {
-    // Get Rectangle Proprieties
-    Vector2 position = { rectangle.x*2, rectangle.y*1.8 };
-    Vector2 size = { rectangle.width, rectangle.height };
-    float rotation = 0.0f;
+    ImGuiStyle& style = ImGui::GetStyle();
+    return ImGui::GetTextLineHeight() + style.FramePadding.y * 2.0f;
+}
 
-    // Update ImGui Window Properties
-    ImVec2 childSize = ImGui::GetContentRegionAvail();
-    sceneEditorWindowWidth = childSize.x;
-    sceneEditorWindowHeight = childSize.y;
-
+void CalculateTextureRect(const Texture* texture, Rectangle& rectangle)
+{
     ImVec2 windowPos = ImGui::GetWindowPos();
-    sceneEditorWindowX = windowPos.x;
-    sceneEditorWindowY = windowPos.y;
+    ImVec2 windowSize = ImGui::GetWindowSize();
 
-    rectangle.x = sceneEditorWindowX;
-    rectangle.y = sceneEditorWindowY;
-    
-    // Rotate Texture in Y-Axis
-    glm::mat4 matrix;
-    matrix = glm::scale(matrix, glm::vec3(-1.0f, 1.0f, 1.0f));
+    float targetWidth = windowSize.x;
+    float targetHeight = windowSize.y;
 
-    DrawTextureEx(*texture, (Vector2){0,0}, 0, 1.0f, WHITE);
-    DrawTexturePro(*texture, (Rectangle){0, 0, texture->width, texture->height}, (Rectangle){0, 0, 0, 0}, (Vector2){0, 0}, 0.0f, WHITE);
-    
-    // Draw Texture
-    ImGui::Image((ImTextureID)texture, ImVec2(sceneEditorWindowWidth, sceneEditorWindowHeight), ImVec2(0,1), ImVec2(1,0));
+    float offsetX = windowPos.x;
+    float offsetY = windowPos.y;
+
+    float textureAspectRatio = (float)texture->width / (float)texture->height;
+    float imguiWindowAspectRatio = targetWidth / targetHeight;
+    float scale = 1.0f;
+
+    if (textureAspectRatio > imguiWindowAspectRatio)
+        scale = targetWidth / (float)texture->width;
+    else
+        scale = targetHeight / (float)texture->height;
+
+    float scaledWidth = scale * (float)texture->width;
+    float scaledHeight = scale * (float)texture->height - GetImGuiWindowTitleHeight() * 2;
+
+    rectangle.width = scaledWidth;
+    rectangle.height = scaledHeight;
+
+    rectangle.x = windowPos.x;
+    rectangle.y = windowPos.y + GetImGuiWindowTitleHeight();
+
+    offsetX += (targetWidth - scaledWidth) * 0.5f;
+    offsetY += (targetHeight - scaledHeight) * 0.5f;
+}
+
+void DrawTextureOnRectangle(const Texture* texture)
+{
+    CalculateTextureRect(texture, rectangle);
+
+    ImGui::Image((ImTextureID)texture, ImVec2(rectangle.width, rectangle.height), ImVec2(0,1), ImVec2(1,0));
+    DrawTexturePro(
+        *texture,
+        Rectangle{ 0, 0, (float)texture->width, (float)texture->height },
+        Rectangle{ rectangle.x, rectangle.y, rectangle.width, rectangle.height },
+        Vector2{ 0, 0 },
+        0.0f,
+        WHITE
+    );
 }
 
 
@@ -249,23 +272,30 @@ bool IsMouseHoveringModel(Model model, Camera camera, Vector3 position, Vector3 
     Matrix matTranslation = MatrixTranslate(x, y, z);
     Matrix modelMatrix = MatrixMultiply(MatrixMultiply(matScale, matRotation), matTranslation);
 
-    if (IsMouseInRectangle(GetMousePosition(), rectangle))
+
+    // if (IsMouseInRectangle(GetMousePosition(), rectangle))
+    // {
+
+
+    Ray ray = { 0 };
+
+    Vector2 pos = { GetMousePosition().x - rectangle.x, GetMousePosition().y - rectangle.y };
+    Vector2 realPos = { pos.x * GetScreenWidth()/rectangle.width, pos.y * GetScreenHeight()/rectangle.height };        
+    ray = GetMouseRay(realPos, camera);
+    RayCollision meshHitInfo = { 0 };
+
+    for (int mesh_i = 0; mesh_i < model.meshCount; mesh_i++)
     {
-        Ray ray = { 0 };
-
-        Vector2 pos = { GetMousePosition().x - sceneEditorWindowX, GetMousePosition().y - sceneEditorWindowY };
-        Vector2 realPos = { pos.x * GetScreenWidth()/rectangle.width, pos.y * GetScreenHeight()/rectangle.height };        
-        ray = GetMouseRay(realPos, camera);
-        RayCollision meshHitInfo = { 0 };
-
-        for (int mesh_i = 0; mesh_i < model.meshCount; mesh_i++)
-        {
-            meshHitInfo = GetRayCollisionMesh(ray, model.meshes[mesh_i], modelMatrix);
-            if (meshHitInfo.hit)
-                return true;
-        }
+        meshHitInfo = GetRayCollisionMesh(ray, model.meshes[mesh_i], modelMatrix);
+        if (meshHitInfo.hit)
+            return true;
     }
-    
+    //}
+    // else
+    // {
+    //     std::cout << "Rectangle x/y: " << rectangle.x << "/" << rectangle.y << std::endl;
+    //     std::cout << "Rectangle width/height: " << rectangle.width << "/" << rectangle.height << std::endl;
+    // }
     return false;
 }
 
@@ -284,11 +314,9 @@ void Gizmo()
     }, object_in_inspector);
 
 
-    bool *object_in_inspector_isChildren = visit([](auto& obj) {
-        return &obj->isChildren;
+    bool *object_in_inspector_isChild = visit([](auto& obj) {
+        return (bool*)obj->isChild;
     }, object_in_inspector);
-
-
     // Gizmo Arrow Up
     gizmo_arrow[0].position = {object_in_inspector_position->x, object_in_inspector_position->y + 6, object_in_inspector_position->z};
     gizmo_arrow[0].rotation = {0, 0, 0};
@@ -314,8 +342,7 @@ void Gizmo()
     gizmo_arrow[5].rotation = {0, 0, 90};
 
 
-    // Position Update
-    for (int arrow_i = 0; arrow_i < (sizeof(gizmo_arrow) / sizeof(gizmo_arrow[0])); arrow_i++)
+    for (int arrow_i = 0; arrow_i < (sizeof(gizmo_arrow) / sizeof(gizmo_arrow[0])) + 1; arrow_i++)
     {
         Color color1;
 
@@ -387,18 +414,29 @@ void Gizmo()
     float y_axis_arrows_center_pos = (gizmo_arrow[0].position.y + gizmo_arrow[1].position.y) / 2.0f;
 
 
-    object_in_inspector_position->x = gizmo_arrow[0].position.x;
-    object_in_inspector_position->y = y_axis_arrows_center_pos;
-    object_in_inspector_position->z = gizmo_arrow[0].position.z;
-    
 
-    if (object_in_inspector_isChildren)
+    if ((bool)object_in_inspector_isChild)
     {   
         object_in_inspector_relative_position->x = gizmo_arrow[0].position.x;
         object_in_inspector_relative_position->y = y_axis_arrows_center_pos;
         object_in_inspector_relative_position->z = gizmo_arrow[0].position.z;
-    }
 
+        object_in_inspector_position->x = gizmo_arrow[0].position.x;
+        object_in_inspector_position->y = y_axis_arrows_center_pos;
+        object_in_inspector_position->z = gizmo_arrow[0].position.z;
+
+    }
+    else
+    {
+        object_in_inspector_position->x = gizmo_arrow[0].position.x;
+        object_in_inspector_position->y = y_axis_arrows_center_pos;
+        object_in_inspector_position->z = gizmo_arrow[0].position.z;
+
+        object_in_inspector_relative_position->x = 0;
+        object_in_inspector_relative_position->y = 0;
+        object_in_inspector_relative_position->z = 0;
+
+    }
 
 }
 
@@ -411,8 +449,6 @@ int EditorCamera(void)
     }
 
     EditorCameraMovement();
-    rectangle.width = sceneEditorWindowWidth;
-    rectangle.height = sceneEditorWindowHeight;
 
 
     BeginTextureMode(renderTexture);
@@ -436,17 +472,31 @@ int EditorCamera(void)
             {
                 listViewExActive = entity_index;
                 object_in_inspector = &entity;
-            }
+                selected_gameObject_type = "entity";
 
+            }
+            // else
+            // {
+            //     selected_gameObject_type = "NotAnObject";
+            //     object_in_inspector = std::variant<Entity*, Light*>();
+            // }
+                
             for (Entity* child : entity.children)
             {
                 isEntitySelected = IsMouseHoveringModel(child->model, scene_camera, child->position, child->rotation);
                 if (isEntitySelected)
                 {
                     object_in_inspector = child;
+                    selected_gameObject_type = "entity";
                 }
+                // else
+                // {
+                //     selected_gameObject_type = "NotAnObject";
+                //     object_in_inspector = std::variant<Entity*, Light*>();
+                // }
             }
             
+
         }
 
         entity_index++;
@@ -466,7 +516,7 @@ int EditorCamera(void)
     EndTextureMode();
 
 
-    DrawTextureOnRectangle(&texture, rectangle);
+    DrawTextureOnRectangle(&texture);
 
     return 0;
 }
