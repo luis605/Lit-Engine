@@ -7,6 +7,7 @@
 
 
 vector<Entity> entities_list;
+vector<thread> scripts_thread_vector;
 
 
 #endif // RUNGAME_H

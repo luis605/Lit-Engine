@@ -17,7 +17,6 @@ void InitGameCamera()
 }
 
 
-vector<thread> scripts_thread_vector;
 
 
 void RunGame()

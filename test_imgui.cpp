@@ -32,6 +32,8 @@ int LitEngine()
     run_texture = LoadTexture("assets/images/run_game.png");
     pause_texture = LoadTexture("assets/images/pause_game.png");
     save_texture = LoadTexture("assets/images/save_file.png");
+    hot_reload_texture = LoadTexture("assets/images/hot_reload.png");
+
     
     code.resize(100000);
 	auto lang = TextEditor::LanguageDefinition::CPlusPlus();

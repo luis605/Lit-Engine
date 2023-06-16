@@ -191,6 +191,19 @@ atomic<int> turn = 0;
 int shared_resource = 0;
 
 
+bool vector3Equal(const Vector3& a, const Vector3& b)
+{
+    return (a.x == b.x) && (a.y == b.y) && (a.z == b.z);
+}
+
+bool vector3NotEqual(const Vector3& a, const Vector3& b)
+{
+    return !vector3Equal(a, b);
+}
+
+
+
+
 class Entity {
 public:
     bool initialized = false;
@@ -213,10 +226,14 @@ public:
     bool visible = true;
     bool isChild = false;
     bool isParent = false;
+    bool running = false;
 
     string id = "";
 
+    Entity* parent;
     vector<Entity*> children;
+
+
 
 
 
@@ -231,6 +248,8 @@ public:
     void addChild(Entity& child) {
         Entity* newChild = new Entity(child);
         newChild->relative_position = Vector3Subtract(newChild->position, this->position);
+        newChild->parent = selected_entity;
+        printf("Parent x position: %f", newChild->parent->position.x);
         children.push_back(newChild);
     }
 
@@ -239,10 +258,13 @@ public:
         if (children.empty()) return;
         for (Entity* child : children)
         {
-            child->position = Vector3Add(this->position, child->relative_position);
             child->render();
+            if (child == selected_entity) return;
+
+            child->position = Vector3Add(this->position, child->relative_position);
 
             child->update_children();
+
         }
     }
 
@@ -312,7 +334,7 @@ public:
     void runScript(std::reference_wrapper<Entity> entityRef)
     {
         if (script.empty()) return;
-
+        running = true;
         int id = 1;
 
         flag[id] = true;
@@ -351,7 +373,7 @@ public:
         try {
             pybind11::gil_scoped_acquire acquire;
             string script_content = read_file_to_string(script);
-            while (true)
+            while (running)
             {
                 while (flag[1 - id] && turn == 1 - id) {}
                 py::exec(script_content, py::globals(), locals);

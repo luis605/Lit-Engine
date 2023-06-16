@@ -300,6 +300,20 @@ bool IsMouseHoveringModel(Model model, Camera camera, Vector3 position, Vector3 
 }
 
 
+bool isVectorPositive(const Vector3& vector) {
+    return (vector.x > 0 && vector.y > 0 && vector.z > 0);
+}
+
+bool isVectorNegative(const Vector3& vector) {
+    return (vector.x < 0 && vector.y < 0 && vector.z < 0);
+}
+
+
+bool isVectorNeutral(const Vector3& vector) {
+    return (vector.x == 0 && vector.y == 0 && vector.z == 0);
+}
+
+
 
 void Gizmo()
 {
@@ -317,6 +331,8 @@ void Gizmo()
     bool *object_in_inspector_isChild = visit([](auto& obj) {
         return (bool*)obj->isChild;
     }, object_in_inspector);
+
+    std::variant<Entity*, Light*> *original_object_in_inspector = &object_in_inspector;
     // Gizmo Arrow Up
     gizmo_arrow[0].position = {object_in_inspector_position->x, object_in_inspector_position->y + 6, object_in_inspector_position->z};
     gizmo_arrow[0].rotation = {0, 0, 0};
@@ -417,25 +433,23 @@ void Gizmo()
 
     if ((bool)object_in_inspector_isChild)
     {   
-        object_in_inspector_relative_position->x = gizmo_arrow[0].position.x;
-        object_in_inspector_relative_position->y = y_axis_arrows_center_pos;
-        object_in_inspector_relative_position->z = gizmo_arrow[0].position.z;
 
         object_in_inspector_position->x = gizmo_arrow[0].position.x;
         object_in_inspector_position->y = y_axis_arrows_center_pos;
         object_in_inspector_position->z = gizmo_arrow[0].position.z;
 
+        // I need to get the correct relative position of the child that does not glitch between positive and negative.
+        
+        selected_entity->relative_position = Vector3Subtract(selected_entity->position, selected_entity->parent->position);
+
+        std::cout << "Parent Position: " << selected_entity->parent->position.x << ", " << selected_entity->parent->position.y << ", " << selected_entity->parent->position.z << "\n";
+        std::cout << "Child Relative Position: " << selected_entity->relative_position.x << ", " << selected_entity->relative_position.y << ", " << selected_entity->relative_position.z << "\n";
     }
     else
     {
         object_in_inspector_position->x = gizmo_arrow[0].position.x;
         object_in_inspector_position->y = y_axis_arrows_center_pos;
         object_in_inspector_position->z = gizmo_arrow[0].position.z;
-
-        object_in_inspector_relative_position->x = 0;
-        object_in_inspector_relative_position->y = 0;
-        object_in_inspector_relative_position->z = 0;
-
     }
 
 }

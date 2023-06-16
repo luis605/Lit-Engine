@@ -32,6 +32,7 @@ typedef struct Light
     bool isChild;
 
     string name;
+    string id = "";
 };
 
 vector<Light> lights;
