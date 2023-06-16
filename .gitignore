@@ -1,1 +1,5 @@
 .vscode
+*.out
+*.ini
+*.o
+raylib
