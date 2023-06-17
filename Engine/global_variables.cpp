@@ -14,9 +14,6 @@ vector<Light> lights_list_pregame;
 Entity *selected_entity;
 
 
-/* Shaders */
-Shader shader;
-
 
 /* Entities List */
 bool in_game_preview = false;

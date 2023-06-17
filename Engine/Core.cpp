@@ -32,6 +32,4 @@ void CleanUp() {
     for (Entity &entity : entities_list)
         entity.remove();
 
-    py::finalize_interpreter();
-
 }

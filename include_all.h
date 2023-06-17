@@ -11,6 +11,8 @@
 #include "include/rlImGui.h"
 #include "ImGuiColorTextEdit/TextEditor.h"
 
+#include "dependencies/include/glad/glad.h"
+
 #include <stdio.h>
 #include <iostream>
 #include <dirent.h>
@@ -74,6 +76,7 @@ using namespace py::literals;
 #include "Engine/Engine.cpp"
 #include "Engine/SaveLoad.cpp"
 #include "Engine/Core.cpp"
+#include "Engine/Lighting/InitLighting.cpp"
 #include "Engine/Ui/CodeEditor.cpp"
 #include "Engine/Ui/EntitiesList.cpp"
 #include "Engine/Ui/SceneEditor.cpp"

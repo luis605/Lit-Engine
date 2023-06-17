@@ -68,10 +68,9 @@ int LitEngine()
 
     InitEditorCamera();
 
-    InitializeUBO();
 
-    // shader = LoadShader("Engine/Lighting/shaders/lighting_vertex.glsl", "Engine/Lighting/shaders/lighting_fragment.glsl");
-
+    shader = LoadShader("Engine/Lighting/shaders/lighting_vertex.glsl", "Engine/Lighting/shaders/lighting_fragment.glsl");
+    InitLighting();
 //    int lightsLocation = GetShaderLocation(shader, "lights");
 //    SetShaderValueV(shader, lightsLocation, &lights[0], SHADER_UNIFORM_FLOAT, 3 * lights.size());
 

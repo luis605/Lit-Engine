@@ -146,7 +146,8 @@ PYBIND11_EMBEDDED_MODULE(input_module, m) {
 
 
 
-bool raycast(Vector3 origin, Vector3 direction, bool debug, Entity ignore[] = {});
+bool raycast(Vector3 origin, Vector3 direction, bool debug=false, std::vector<Entity> ignore = {});
+
 
 PYBIND11_EMBEDDED_MODULE(collisions_module, m) {
     py::class_<Vector3>(m, "Vector3")
@@ -154,9 +155,10 @@ PYBIND11_EMBEDDED_MODULE(collisions_module, m) {
         .def_readwrite("x", &Vector3::x, py::call_guard<py::gil_scoped_release>())
         .def_readwrite("y", &Vector3::y, py::call_guard<py::gil_scoped_release>())
         .def_readwrite("z", &Vector3::z, py::call_guard<py::gil_scoped_release>());
-    
-    m.def("raycast", &raycast, py::arg("origin"), py::arg("direction"), py::arg("debug")=false, py::arg("ignore")={}, py::call_guard<py::gil_scoped_release>());
+
+    m.def("raycast", &raycast, py::arg("origin"), py::arg("direction"), py::arg("debug") = false, py::arg("ignore") = std::vector<Entity>(), py::call_guard<py::gil_scoped_release>());
 }
+
 
 
 
@@ -313,6 +315,7 @@ public:
     void setModel(char* modelPath)
     {
         model = LoadModel(modelPath);
+        model.materials[0].shader = shader;
     }
 
     bool hasModel()
@@ -391,6 +394,9 @@ public:
 
     }
 
+
+
+
     void render() {
         if (!hasModel())
             initializeDefaultModel();
@@ -399,8 +405,12 @@ public:
 
         model.transform = MatrixScale(scale.x, scale.y, scale.z);
         if (visible)
+        {
             DrawModel(model, {position.x, position.y, position.z}, 1.0f, color);
+        }
     }
+
+
 };
 
     
@@ -418,8 +428,8 @@ float GetExtremeValue(const Vector3& a) {
 }
 
 
-bool raycast(Vector3 origin, Vector3 direction, bool debug, Entity ignore[] = {})
-{
+bool raycast(Vector3 origin, Vector3 direction, bool debug=false, std::vector<Entity> ignore = {}){
+ 
     int id = 0;
 
     flag[id] = true;

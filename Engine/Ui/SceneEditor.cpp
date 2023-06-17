@@ -470,14 +470,13 @@ int EditorCamera(void)
 
     ClearBackground(GRAY);
 
-    // float cameraPos[3] = { scene_camera.position.x, scene_camera.position.y, scene_camera.position.z };
-    // SetShaderValue(shader, shader.locs[SHADER_LOC_VECTOR_VIEW], cameraPos, SHADER_UNIFORM_VEC3);
+    float cameraPos[3] = { scene_camera.position.x, scene_camera.position.y, scene_camera.position.z };
+    SetShaderValue(shader, shader.locs[SHADER_LOC_VECTOR_VIEW], cameraPos, SHADER_UNIFORM_VEC3);
     
     int entity_index = 0;
     for (Entity& entity : entities_list_pregame)
     {
         entity.render();
-        // entity.setShader(shader);
 
         if (IsMouseButtonDown(MOUSE_LEFT_BUTTON))
         {

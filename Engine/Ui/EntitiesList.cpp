@@ -60,6 +60,7 @@ void AddEntity()
         entity_create.setName(name);
         entity_create.isChild = is_create_entity_a_child;
         entity_create.setModel("assets/models/tree.obj");
+        entity_create.setShader(shader);
 
         if (!entities_list_pregame.empty())
         {
@@ -294,6 +295,8 @@ void EntitiesList()
     if (add_light)
     {
         canAddLight = true;
+        NewLight({4, 4, 4}, WHITE);
+        UpdateLightsBuffer();
     }
 
 

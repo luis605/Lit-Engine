@@ -81,7 +81,7 @@ void EntityInspector()
             selected_entity_model_path_index = 0;
             selected_entity->model_path = selected_entity->model_path;
 
-            selected_entity->loadModel(selected_entity->model_path.c_str());
+            selected_entity->setModel(selected_entity->model_path.c_str());
         }
         ImGui::EndDragDropTarget();
     }
