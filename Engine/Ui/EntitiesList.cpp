@@ -13,7 +13,7 @@ void updateListViewExList(vector<Entity>& entities, vector<Light>& lights) {
             name = entities[index].name;
             listViewExListTypes.push_back("entity");
         } else {
-            name = lights[index - entities.size()].name;
+            name = lights_info[index - entities.size()].name;
             listViewExListTypes.push_back("light");
         }
         objectNames.push_back(name);
@@ -182,6 +182,33 @@ void DrawEntityTree(Entity& entity, int active, int& index) {
 
 
 
+
+void DrawLightTree(Light& light, AdditionalLightInfo& light_info, int active, int& index) {
+    ImGuiTreeNodeFlags nodeFlags = ImGuiTreeNodeFlags_OpenOnArrow | ImGuiTreeNodeFlags_OpenOnDoubleClick;
+    if (selected_light == &light) {
+        nodeFlags |= ImGuiTreeNodeFlags_Selected;
+    }
+
+    ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(0.85f, 0.85f, 0.85f, 1.0f));  // Custom text color
+    ImGui::PushStyleVar(ImGuiStyleVar_FrameRounding, 5.0f);  // Rounded corners for the frame
+    bool isNodeOpen = ImGui::TreeNodeEx((void*)&light, nodeFlags, light_info.name.c_str());
+    ImGui::PopStyleVar();  // Restore the default frame rounding
+    ImGui::PopStyleColor();  // Restore the default text color
+    if (ImGui::IsItemClicked()) {
+        selected_light = &light;
+        active = index;
+        selected_gameObject_type = "light";
+        object_in_inspector = &light;
+        std::cout << "index: " << index << std::endl;
+    }
+
+    if (isNodeOpen) {
+        ImGui::TreePop();
+    }
+}
+
+
+
 int AmountOfEntities(const std::vector<Entity>& entities, int current_amount)
 {
     for (const Entity& entity : entities)
@@ -224,6 +251,13 @@ int ImGuiListViewEx(vector<string>& items, int& focus, int& scroll, int& active)
     for (Entity& entity : entities_list_pregame) {
         DrawEntityTree(entity, active, index);
     }
+    
+    int lights_index = 0;
+    for (Light& light : lights) {
+        DrawLightTree(light, lights_info[lights_index], active, index);
+        lights_index++;
+    }
+    
 
     
 

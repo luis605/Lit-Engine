@@ -12,6 +12,7 @@ vector<Entity> entities_list_pregame;
 vector<Light> lights_list_pregame;
 
 Entity *selected_entity;
+Light *selected_light;
 
 
 
@@ -50,27 +51,26 @@ bool old_child_selected = false;
 char* selected_gameObject_type = "";
 
 /* Inspector */
-string entity_name = "";
-Vector3 entity_scale = {1, 1, 1};
-Vector3 entity_position = {0, 0, 0};
-Vector3 entity_rotation = {0, 0, 0};
-Color entity_color = RED;
+string selected_entity_name = "";
+Vector3 selected_entity_scale = {1, 1, 1};
+Vector3 selected_entity_position = {0, 0, 0};
+Vector3 selected_entity_relative_position = {0, 0, 0};
+Vector3 selected_entity_rotation = {0, 0, 0};
+Color selected_entity_color = RED;
+bool selected_entity_isChild = false;
 
-ImVec4 entity_colorImGui = { 0, 0, 0, 0 };
+ImVec4 selected_entity_colorImGui = { 0, 0, 0, 0 };
 
 bool changeEntity_colorPopup = false;
 bool setentity_color = false;
 string selected_entity_script_path;
 int selected_entity_script_path_index;
 
-// Entity Model Path and Index in Inspector
 char modelPathBuffer[512] = {0};
 int selected_entity_model_path_index;
 
-// Physics Properties
 bool do_physics = false;
 
-// Others
 int last_entity_index = 0;
 
 

@@ -7,23 +7,23 @@ void EntityInspector()
 
     selected_entity = get<Entity*>(object_in_inspector);
 
-    entity_position = selected_entity->position;
+    selected_entity_position = selected_entity->position;
     if (selected_entity->isChild)
-        entity_position = selected_entity->relative_position;
+        selected_entity_position = selected_entity->relative_position;
 
-    entity_scale = selected_entity->scale;
-    entity_color = selected_entity->color;
+    selected_entity_scale = selected_entity->scale;
+    selected_entity_color = selected_entity->color;
     ImVec4 entity_colorImGui = ImVec4(
-        entity_color.r / 255.0f,
-        entity_color.g / 255.0f,
-        entity_color.b / 255.0f,
-        entity_color.a / 255.0f
+        selected_entity_color.r / 255.0f,
+        selected_entity_color.g / 255.0f,
+        selected_entity_color.b / 255.0f,
+        selected_entity_color.a / 255.0f
     );
 
     string entity_name;
 
     if (!entities_list_pregame.empty()) {
-        entity_name = selected_entity->name;
+        selected_entity_name = selected_entity->name;
     }
 
     ImGui::Text("Inspecting '");
@@ -88,23 +88,23 @@ void EntityInspector()
     ImGui::PopStyleVar();
 
     ImGui::Text("Scale:");
-    ImGui::InputFloat("X##ScaleX", &entity_scale.x);
-    ImGui::InputFloat("Y##ScaleY", &entity_scale.y);
+    ImGui::InputFloat("X##ScaleX", &selected_entity_scale.x);
+    ImGui::InputFloat("Y##ScaleY", &selected_entity_scale.y);
     ImGui::PushStyleVar(ImGuiStyleVar_ItemSpacing, ImVec2(0, 40));
-    ImGui::InputFloat("Z##ScaleZ", &entity_scale.z);
+    ImGui::InputFloat("Z##ScaleZ", &selected_entity_scale.z);
     ImGui::PopStyleVar();
-    selected_entity->scale = entity_scale;
+    selected_entity->scale = selected_entity_scale;
 
     ImGui::Text("Position:");
-    ImGui::InputFloat("X##PositionX", &entity_position.x);
-    ImGui::InputFloat("Y##PositionY", &entity_position.y);
+    ImGui::InputFloat("X##PositionX", &selected_entity_position.x);
+    ImGui::InputFloat("Y##PositionY", &selected_entity_position.y);
     ImGui::PushStyleVar(ImGuiStyleVar_ItemSpacing, ImVec2(0, 40));
-    ImGui::InputFloat("Z##PositionZ", &entity_position.z);
+    ImGui::InputFloat("Z##PositionZ", &selected_entity_position.z);
     ImGui::PopStyleVar();
     if (selected_entity->isChild)
-        selected_entity->relative_position = entity_position;
+        selected_entity->relative_position = selected_entity_position;
     else
-        selected_entity->position = entity_position;
+        selected_entity->position = selected_entity_position;
 
     ImGui::Text("Color: ");
     ImGui::ColorEdit4("##Changeentity_color", (float*)&entity_colorImGui, ImGuiColorEditFlags_NoInputs);
@@ -163,14 +163,38 @@ void EntityInspector()
 
 void LightInspector()
 {
-    ImGui::Text("Light Inspector ##Title");
+    ImGui::Text("Light Inspector");
+    
+    if (std::holds_alternative<Light*>(object_in_inspector)) {
+        selected_light = std::get<Light*>(object_in_inspector);
+
+        ImVec4 light_colorImGui = ImVec4(
+            selected_light->color.r / 255.0f,
+            selected_light->color.g / 255.0f,
+            selected_light->color.b / 255.0f,
+            selected_light->color.a / 255.0f
+        );
+
+        ImGui::Text("Color: ");
+        ImGui::ColorEdit4("##Changeentity_color", (float*)&light_colorImGui, ImGuiColorEditFlags_NoInputs);
+        glm::vec4 light_color = (glm::vec4){
+            (unsigned char)(light_colorImGui.x*255),
+            (unsigned char)(light_colorImGui.y*255),
+            (unsigned char)(light_colorImGui.z*255),
+            (unsigned char)(light_colorImGui.w*255)
+        };
+
+        selected_light->color = light_color;
+    }
+
+    UpdateLightsBuffer();
 }
 
 void Inspector()
 {
     if (selected_gameObject_type == "entity")
         EntityInspector();
-    else
+    else if (selected_gameObject_type == "light")
         LightInspector();
 }
 

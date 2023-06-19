@@ -15,57 +15,75 @@ typedef enum
     LIGHT_POINT
 } LightType;
 
-typedef struct
+typedef struct Light
 {
     int type;
     bool enabled;
-    Vector3 position;
-    Vector3 relative_position;
-    Vector3 target;
-    Color color;
+    alignas(16) glm::vec3 position;
+    alignas(16) glm::vec3 relative_position;
+    alignas(16) glm::vec3 target;
+    alignas(16) glm::vec4 color;
     float attenuation;
-
-    // Shader locations
-    int enabledLoc;
-    int typeLoc;
-    int positionLoc;
-    int targetLoc;
-    int colorLoc;
-    int attenuationLoc;
-
     bool isChild;
+};
 
-    std::string name;
-    std::string id = "";
-} Light;
+typedef struct AdditionalLightInfo
+{
+    string name;
+    string id;
+};
 
 vector<Light> lights;
+vector<AdditionalLightInfo> lights_info;
 
 Light NewLight(const Vector3 position, const Color color)
 {
+    glm::vec3 lights_position = glm::vec3(position.x, position.y, position.z);
+    glm::vec4 lights_color = glm::vec4(color.r/255, color.g/255, color.b/255, color.a/255);
+
     Light light;
-    light.position = position;
-    light.color = color;
-    std::cout << "Color: " << static_cast<int>(light.color.r) << ", " << static_cast<int>(light.color.g) << ", " << static_cast<int>(light.color.b) << ", " << static_cast<int>(light.color.a) << std::endl;
+    light.position = lights_position;
+    light.color = lights_color;
     lights.push_back(light);
-    std::cout << "light added" << std::endl;
+
+
+    AdditionalLightInfo info;
+    info.name = "Light";
+
+    lights_info.push_back(info);
+
     return lights.back();
 }
 
 
-float3 vectorToFloat3(Vector3 vector)
-{
-    return {vector.x, vector.y, vector.z};
-}
 
 void UpdateLightsBuffer()
 {
+    if (lights.empty())
+        return;
+
+    std::cout << "Colors: " << lights[0].color.r << " " << lights[0].color.g << " " << lights[0].color.b << " " << lights[0].color.a << std::endl;
     glBindBuffer(GL_SHADER_STORAGE_BUFFER, lightsBuffer);
-    glBufferData(GL_SHADER_STORAGE_BUFFER, sizeof(Light) * lights.size(), lights.data(), GL_DYNAMIC_DRAW);
-    
-    std::cout << lights[0].color.a;
+
+    // Resize the buffer if the size has changed
+    size_t bufferSize = sizeof(Light) * lights.size();
+    GLsizeiptr currentBufferSize;
+    glGetBufferParameteri64v(GL_SHADER_STORAGE_BUFFER, GL_BUFFER_SIZE, &currentBufferSize);
+    if (bufferSize != static_cast<size_t>(currentBufferSize))
+    {
+        glBufferData(GL_SHADER_STORAGE_BUFFER, bufferSize, nullptr, GL_DYNAMIC_DRAW);
+    }
+
+    // Update the buffer data
+    glBufferSubData(GL_SHADER_STORAGE_BUFFER, 0, bufferSize, lights.data());
+    glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 0, lightsBuffer);  // Bind the SSBO to binding point 0
+
     int lightsCount = lights.size();
+    std::cout << lightsCount << std::endl;
     SetShaderValue(shader, GetShaderLocation(shader, "lightsCount"), &lightsCount, SHADER_UNIFORM_INT);
 }
+
+
+
 
 #endif

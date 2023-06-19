@@ -318,43 +318,44 @@ bool isVectorNeutral(const Vector3& vector) {
 void Gizmo()
 {
 
-    Vector3 *object_in_inspector_position = visit([](auto& obj) {
-        return &obj->position;
-    }, object_in_inspector);
+    if (std::holds_alternative<Entity*>(object_in_inspector)) {
+        Entity* entity = std::get<Entity*>(object_in_inspector);
+        selected_entity_position = entity->position;
+        selected_entity_relative_position = entity->relative_position;
+        selected_entity_isChild = entity->isChild;
+    }
 
 
-    Vector3 *object_in_inspector_relative_position = visit([](auto& obj) {
-        return &obj->relative_position;
-    }, object_in_inspector);
+    if (std::holds_alternative<Light*>(object_in_inspector)) {
+        Light* light = std::get<Light*>(object_in_inspector);
+        glm::vec3* selected_entity_position = &light->position;
+        glm::vec3* object_in_inspector_relative_position = &light->relative_position;
+        bool* object_in_inspector_isChild = &light->isChild;
+    }
 
 
-    bool *object_in_inspector_isChild = visit([](auto& obj) {
-        return (bool*)obj->isChild;
-    }, object_in_inspector);
-
-    std::variant<Entity*, Light*> *original_object_in_inspector = &object_in_inspector;
     // Gizmo Arrow Up
-    gizmo_arrow[0].position = {object_in_inspector_position->x, object_in_inspector_position->y + 6, object_in_inspector_position->z};
+    gizmo_arrow[0].position = {selected_entity_position.x, selected_entity_position.y + 6, selected_entity_position.z};
     gizmo_arrow[0].rotation = {0, 0, 0};
 
     // Gizmo Arrow Down
-    gizmo_arrow[1].position = {object_in_inspector_position->x, object_in_inspector_position->y - 6, object_in_inspector_position->z};
+    gizmo_arrow[1].position = {selected_entity_position.x, selected_entity_position.y - 6, selected_entity_position.z};
     gizmo_arrow[1].rotation = {180, 0, 0};
 
     // Gizmo Arrow Right
-    gizmo_arrow[2].position = {object_in_inspector_position->x, object_in_inspector_position->y, object_in_inspector_position->z + 6};
+    gizmo_arrow[2].position = {selected_entity_position.x, selected_entity_position.y, selected_entity_position.z + 6};
     gizmo_arrow[2].rotation = {90, 0, 0};
 
     // Gizmo Arrow Left
-    gizmo_arrow[3].position = {object_in_inspector_position->x, object_in_inspector_position->y, object_in_inspector_position->z - 6};
+    gizmo_arrow[3].position = {selected_entity_position.x, selected_entity_position.y, selected_entity_position.z - 6};
     gizmo_arrow[3].rotation = {-90, 0, 0};
 
     // Gizmo Arrow Forward
-    gizmo_arrow[4].position = {object_in_inspector_position->x + 6, object_in_inspector_position->y, object_in_inspector_position->z};
+    gizmo_arrow[4].position = {selected_entity_position.x + 6, selected_entity_position.y, selected_entity_position.z};
     gizmo_arrow[4].rotation = {0, 0, -90};
 
     // Gizmo Arrow Backward
-    gizmo_arrow[5].position = {object_in_inspector_position->x - 6, object_in_inspector_position->y, object_in_inspector_position->z};
+    gizmo_arrow[5].position = {selected_entity_position.x - 6, selected_entity_position.y, selected_entity_position.z};
     gizmo_arrow[5].rotation = {0, 0, 90};
 
 
@@ -431,25 +432,20 @@ void Gizmo()
 
 
 
-    if ((bool)object_in_inspector_isChild)
+    if ((bool)selected_entity_isChild)
     {   
 
-        object_in_inspector_position->x = gizmo_arrow[0].position.x;
-        object_in_inspector_position->y = y_axis_arrows_center_pos;
-        object_in_inspector_position->z = gizmo_arrow[0].position.z;
+        selected_entity_position.x = gizmo_arrow[0].position.x;
+        selected_entity_position.y = y_axis_arrows_center_pos;
+        selected_entity_position.z = gizmo_arrow[0].position.z;
 
-        // I need to get the correct relative position of the child that does not glitch between positive and negative.
-        
         selected_entity->relative_position = Vector3Subtract(selected_entity->position, selected_entity->parent->position);
-
-        std::cout << "Parent Position: " << selected_entity->parent->position.x << ", " << selected_entity->parent->position.y << ", " << selected_entity->parent->position.z << "\n";
-        std::cout << "Child Relative Position: " << selected_entity->relative_position.x << ", " << selected_entity->relative_position.y << ", " << selected_entity->relative_position.z << "\n";
     }
     else
     {
-        object_in_inspector_position->x = gizmo_arrow[0].position.x;
-        object_in_inspector_position->y = y_axis_arrows_center_pos;
-        object_in_inspector_position->z = gizmo_arrow[0].position.z;
+        selected_entity_position.x = gizmo_arrow[0].position.x;
+        selected_entity_position.y = y_axis_arrows_center_pos;
+        selected_entity_position.z = gizmo_arrow[0].position.z;
     }
 
 }
