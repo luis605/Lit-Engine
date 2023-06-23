@@ -1,7 +1,5 @@
 #include "../include_all.h"
 
-using json = nlohmann::json; // define a shortcut for the nlohmann::json type
-
 namespace nlohmann {
     template<>
     struct adl_serializer<Color> {
@@ -18,8 +16,6 @@ namespace nlohmann {
     };
 }
 
-
-
 namespace nlohmann {
     template<>
     struct adl_serializer<Vector3> {
@@ -35,41 +31,42 @@ namespace nlohmann {
     };
 }
 
+void SaveEntity(json& json_data, const Entity& entity) {
+    json j;
+    j["color"] = entity.color;
+    j["name"] = entity.name;
+    j["scale"] = entity.scale;
+    j["position"] = entity.position;
+    j["relative_position"] = entity.relative_position;
+    j["model_path"] = entity.model_path;
+    j["script_path"] = entity.script;
 
-
-
-
-
-
-
-
-
-int SaveProject()
-{
-   
-
-    // create a JSON object and add each object in the vector to it
-    json json_data;
-    for (const auto& obj : entities_list_pregame) {
-        //json model_data = ModelToString(obj.model);
-
-        json j;
-        j["color"] = obj.color;
-        j["name"] = obj.name;
-        j["scale"] = obj.scale;
-        j["position"] = obj.position;
-        j["model_path"] = obj.model_path;
-        j["script_path"] = obj.script;
-        json_data.emplace_back(j);
+    if (!entity.children.empty()) {
+        json children_data;
+        for (const Entity* child : entity.children) {
+            json child_json;
+            SaveEntity(child_json, *child);
+            children_data.emplace_back(child_json);
+        }
+        j["children"] = children_data;
     }
 
-    ofstream outfile("project.json");
+    json_data.emplace_back(j);
+}
+
+int SaveProject() {
+    json json_data;
+    for (const auto& entity : entities_list_pregame) {
+        SaveEntity(json_data, entity);
+    }
+
+    std::ofstream outfile("project.json");
     if (!outfile.is_open()) {
-        cerr << "Error: Failed to open project file." << endl;
+        std::cerr << "Error: Failed to open project file." << std::endl;
         return 1;
     }
-    outfile << setw(4) << json_data; // indent the JSON for readability
 
+    outfile << std::setw(4) << json_data;
     outfile.close();
 
     return 0;
@@ -78,31 +75,79 @@ int SaveProject()
 
 
 
-void LoadProject() {
-    ifstream infile("project.json");
+
+
+void LoadEntity(const json& entity_json, Entity& entity) {
+    entity.setColor(Color{
+        entity_json["color"]["r"].get<int>(),
+        entity_json["color"]["g"].get<int>(),
+        entity_json["color"]["b"].get<int>(),
+        entity_json["color"]["a"].get<int>()
+    });
+    
+    entity.setName(entity_json["name"].get<std::string>());
+
+    Vector3 scale{
+        entity_json["scale"]["x"].get<float>(),
+        entity_json["scale"]["y"].get<float>(),
+        entity_json["scale"]["z"].get<float>()
+    };
+    entity.setScale(scale);
+
+    Vector3 position{
+        entity_json["position"]["x"].get<float>(),
+        entity_json["position"]["y"].get<float>(),
+        entity_json["position"]["z"].get<float>()
+    };
+    entity.position = position;
+
+    Vector3 relative_position{
+        entity_json["relative_position"]["x"].get<float>(),
+        entity_json["relative_position"]["y"].get<float>(),
+        entity_json["relative_position"]["z"].get<float>()
+    };
+    entity.relative_position = relative_position;
+
+    entity.setModel(entity_json["model_path"].get<std::string>().c_str());
+    entity.script = entity_json["script_path"].get<std::string>();
+
+    if (entity_json.contains("children")) {
+        const json& children_data = entity_json["children"];
+        if (children_data.is_array() && !children_data.empty()) {
+            for (const auto& child_json : children_data[0]) {
+                Entity* child = new Entity();
+                LoadEntity(child_json, *child);
+                entity.children.push_back(child);
+            }
+        }
+    }
+}
+
+
+int LoadProject() {
+    std::ifstream infile("project.json");
     if (!infile.is_open()) {
-        cerr << "Error: Failed to open input file." << endl;
+        std::cerr << "Error: Failed to open project file." << std::endl;
         return 1;
     }
 
     json json_data;
-    infile >> json_data; // read the JSON data from the file
+    infile >> json_data;
 
     infile.close();
 
+    entities_list_pregame.clear();  // Clear the vector before loading new entities
 
-    // iterate over the JSON array and deserialize each object to an Entity
-    for (const auto& j : json_data) {
-        Entity entity;
-        entity.setColor(j["color"]);
-        entity.setName(j["name"]);
-        entity.setScale(j["scale"]);
-        entity.position = j["position"];
-        entity.model = LoadModel(string(j["model_path"]).c_str());
-        entity.script = string(j["script_path"]);
-        
-
-
-        entities_list_pregame.push_back(entity);
+    try {
+        for (const auto& entity_json : json_data) {
+            Entity entity;
+            LoadEntity(entity_json, entity);
+            entities_list_pregame.push_back(entity);
+        }
+    } catch (const json::type_error& e) {
+        std::cerr << "JSON type error: " << e.what() << std::endl;
+        return 1;
     }
+
+    return 0;
 }

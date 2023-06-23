@@ -314,6 +314,7 @@ public:
 
     void setModel(char* modelPath)
     {
+        model_path = modelPath;
         model = LoadModel(modelPath);
         model.materials[0].shader = shader;
     }
