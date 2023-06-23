@@ -16,4 +16,7 @@ void InitLighting()
     // Set the lightsCount uniform
     int lightsCount = lights.size();
     glUniform1i(GetShaderLocation(shader, "lightsCount"), lightsCount);
+
+
+
 }

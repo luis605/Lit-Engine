@@ -5,6 +5,7 @@
 #include "include/raymath.h"
 #include "include/rcamera.h"
 #include "include/rlgl.h"
+#include "include/custom.h"
 
 #include "imgui/imgui.h"
 #include "imgui/imgui_internal.h"
@@ -12,6 +13,9 @@
 #include "ImGuiColorTextEdit/TextEditor.h"
 
 #include "dependencies/include/glad/glad.h"
+
+// #include <PxPhysicsAPI.h>
+// #include <PxConfig.h>
 
 #include <stdio.h>
 #include <iostream>
@@ -57,6 +61,8 @@ namespace filesys = boost::filesystem;
 namespace py = pybind11;
 using namespace py::literals;
 
+// using namespace physx;
+
 /* Lighting */
 #include "Engine/Lighting/lights.h"
 
@@ -71,6 +77,7 @@ using namespace py::literals;
 #include "Engine/Ui/AssetsExplorer.h"
 
 /* Sources */
+// #include "Engine/Physics/InitPhysx.cpp"
 #include "Engine/Ui/UiScripts.cpp"
 #include "Engine/Ui/Styles.cpp"
 #include "Engine/Engine.cpp"

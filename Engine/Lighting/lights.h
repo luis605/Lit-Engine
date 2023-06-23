@@ -5,9 +5,16 @@
 #ifndef LIGHTS_H
 #define LIGHTS_H
 
-Shader shader;
+Texture2D light_texture;
 
+int shadowMapWidth = 1024;  // Width of the shadow map texture
+int shadowMapHeight = 1024; // Height of the shadow map texture
+
+
+Shader shader;
 GLuint lightsBuffer;
+
+unsigned int depthMapFBO;
 
 typedef enum
 {
@@ -23,7 +30,9 @@ typedef struct Light
     alignas(16) glm::vec3 relative_position;
     alignas(16) glm::vec3 target;
     alignas(16) glm::vec4 color;
-    float attenuation;
+    float attenuation = 0.0001;
+    float intensity = 0.5;
+    float specularStrength = 0.5;
     bool isChild;
 };
 
@@ -62,7 +71,6 @@ void UpdateLightsBuffer()
     if (lights.empty())
         return;
 
-    std::cout << "Colors: " << lights[0].color.r << " " << lights[0].color.g << " " << lights[0].color.b << " " << lights[0].color.a << std::endl;
     glBindBuffer(GL_SHADER_STORAGE_BUFFER, lightsBuffer);
 
     // Resize the buffer if the size has changed
@@ -79,8 +87,18 @@ void UpdateLightsBuffer()
     glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 0, lightsBuffer);  // Bind the SSBO to binding point 0
 
     int lightsCount = lights.size();
-    std::cout << lightsCount << std::endl;
     SetShaderValue(shader, GetShaderLocation(shader, "lightsCount"), &lightsCount, SHADER_UNIFORM_INT);
+
+
+
+
+
+
+
+
+
+
+
 }
 
 

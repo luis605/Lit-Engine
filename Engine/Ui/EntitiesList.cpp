@@ -157,11 +157,14 @@ void DrawEntityTree(Entity& entity, int active, int& index) {
         nodeFlags |= ImGuiTreeNodeFlags_Selected;
     }
 
-    ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(0.85f, 0.85f, 0.85f, 1.0f));  // Custom text color
-    ImGui::PushStyleVar(ImGuiStyleVar_FrameRounding, 5.0f);  // Rounded corners for the frame
-    bool isNodeOpen = ImGui::TreeNodeEx((void*)&entity, nodeFlags, entity.name.c_str());
-    ImGui::PopStyleVar();  // Restore the default frame rounding
-    ImGui::PopStyleColor();  // Restore the default text color
+    const char icon[] = ICON_FA_CUBE;
+    const char space[] = " ";
+
+    std::string entity_name = std::string(icon) + space + entity.name;
+
+    ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(0.85f, 0.85f, 0.85f, 1.0f));
+    bool isNodeOpen = ImGui::TreeNodeEx((void*)&entity, nodeFlags, entity_name.c_str());
+    ImGui::PopStyleColor();
     if (ImGui::IsItemClicked()) {
         selected_entity = &entity;
         active = index;
@@ -189,11 +192,15 @@ void DrawLightTree(Light& light, AdditionalLightInfo& light_info, int active, in
         nodeFlags |= ImGuiTreeNodeFlags_Selected;
     }
 
-    ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(0.85f, 0.85f, 0.85f, 1.0f));  // Custom text color
-    ImGui::PushStyleVar(ImGuiStyleVar_FrameRounding, 5.0f);  // Rounded corners for the frame
-    bool isNodeOpen = ImGui::TreeNodeEx((void*)&light, nodeFlags, light_info.name.c_str());
-    ImGui::PopStyleVar();  // Restore the default frame rounding
-    ImGui::PopStyleColor();  // Restore the default text color
+    const char icon[] = ICON_FA_LIGHTBULB;
+    const char space[] = " ";
+    
+    std::string light_name = std::string(icon) + space + light_info.name;
+
+
+    ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(0.85f, 0.85f, 0.85f, 1.0f));
+    bool isNodeOpen = ImGui::TreeNodeEx((void*)&light, nodeFlags, light_name.c_str());
+    ImGui::PopStyleColor();
     if (ImGui::IsItemClicked()) {
         selected_light = &light;
         active = index;
