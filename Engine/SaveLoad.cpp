@@ -136,7 +136,7 @@ int LoadProject() {
 
     infile.close();
 
-    entities_list_pregame.clear();  // Clear the vector before loading new entities
+    entities_list_pregame.clear();
 
     try {
         for (const auto& entity_json : json_data) {
