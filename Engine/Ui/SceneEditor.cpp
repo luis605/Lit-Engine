@@ -82,11 +82,9 @@ float gizmo_drag_sensitivity_factor = 0.1f;
 
 void InitEditorCamera()
 {
-    // Set Textures
     renderTexture = LoadRenderTexture( GetScreenWidth(), GetScreenHeight() );
     texture = renderTexture.texture;
 
-    // Camera Proprieties
     scene_camera.position = { 50.0f, 0.0f, 0.0f };
     scene_camera.target = { 0.0f, 0.0f, 0.0f };
     scene_camera.up = { 0.0f, 1.0f, 0.0f };
@@ -172,7 +170,7 @@ float mousePositionXLast = 0;
 
 void EditorCameraMovement(void)
 {
-    // Camera Position Change
+    // Update Camera Position
     front = Vector3Subtract(scene_camera.target, scene_camera.position);
     front = Vector3Normalize(front);
 
@@ -207,7 +205,6 @@ void EditorCameraMovement(void)
         scene_camera.target = Vector3Subtract(scene_camera.target, movement);
     }
 
-    // Update Camera Target along with Camera
     scene_camera.target = Vector3Add(scene_camera.position, forward);
 
     // Camera Rotation

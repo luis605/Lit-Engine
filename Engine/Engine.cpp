@@ -46,7 +46,6 @@ PYBIND11_EMBEDDED_MODULE(input_module, m) {
     m.def("IsMouseButtonPressed", &IsMouseButtonPressed, py::call_guard<py::gil_scoped_release>());
     m.def("IsKeyDown", &IsKeyDown, py::call_guard<py::gil_scoped_release>());
 
-    // Expose the KeyboardKey enum to Python
     py::enum_<KeyboardKey>(m, "KeyboardKey")
         .value("KEY_NULL", KEY_NULL)
         .value("KEY_APOSTROPHE", KEY_APOSTROPHE)
