@@ -28,37 +28,31 @@ endef
 
 
 
-export LD_LIBRARY_PATH=./physx-include:$LD_LIBRARY_PATH
 
-CXXFLAGS = -g -pipe -std=c++17 -O0 -fpermissive -w -Wall 
+CXXFLAGS = -g -pipe -std=c++17 -O0 -fpermissive -w -Wall -DNDEBUG
 SRC_FILES = test_imgui.cpp include/rlImGui.cpp ImGuiColorTextEdit/TextEditor.cpp
-INCLUDE_DIRS = -I./include -I./ImGuiColorTextEdit -I/usr/local/lib -L/usr/lib/x86_64-linux-gnu/ -L/usr/local/lib -I./include/nlohmann -Iimgui -L/usr/lib/x86_64-linux-gnu -I/usr/include/python3.11/
-LIB_FLAGS = -lboost_filesystem -lraylib -pthread -lpython3.11 -fPIC `python3.11 -m pybind11 --includes` -ldl
-
+INCLUDE_DIRS = -I./include -I./ImGuiColorTextEdit -I/usr/local/lib -L/usr/lib/x86_64-linux-gnu/ -L/usr/local/lib -I./include/nlohmann -I./imgui
+LIB_FLAGS = -L./include -lboost_filesystem -lraylib -pthread -lpython3.11 -fPIC `python3.11 -m pybind11 --includes` -ldl -lPhysX_static_64 -lPhysXCommon_static_64 -lPhysXFoundation_static_64
+OTHER_FILES = ./include/libPhysX_static_64.a ./include/libPhysXCommon_static_64.a ./include/libPhysXFoundation_static_64.a
 
 IMGUI_OBJECTS = $(patsubst %.cpp, %.o, $(wildcard imgui/*.cpp))
-LDLIBS=-lBulletDynamics -lBulletCollision -lLinearMath -lraylib
-
 
 imgui/*.o: imgui/*.cpp
 	@echo "Building Dear ImGUI"
 	g++ -std=c++17 -O3 -DIMGUI_IMPL_OPENGL_LOADER_GLAD -c $< -o $@
-
-
 
 run:
 	@echo "Running Lit Engine"
 	@$(call echo_success, $(subst $(newline),\n,$$BANNER_TEXT))
 	@./lit_engine.out
 
-
-
 build: $(IMGUI_OBJECTS)
 	@$(call echo_success, "Building Demo")
-	@g++ $(CXXFLAGS) $(SRC_FILES) $(IMGUI_OBJECTS) $(INCLUDE_DIRS) $(LIB_FLAGS) $(DEPENDENCIES) -o lit_engine.out
+	@ccache g++ $(CXXFLAGS) $(SRC_FILES) $(INCLUDE_DIRS) $(IMGUI_OBJECTS) $(LIB_FLAGS) -o lit_engine.out $(OTHER_FILES)
+
 
 brun:
-	@make --no-print-directory build -j12
+	@make --no-print-directory build -j24
 	@make --no-print-directory run
 
 debug:

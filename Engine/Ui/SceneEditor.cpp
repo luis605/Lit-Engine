@@ -273,10 +273,6 @@ bool IsMouseHoveringModel(Model model, Camera camera, Vector3 position, Vector3 
     Matrix modelMatrix = MatrixMultiply(MatrixMultiply(matScale, matRotation), matTranslation);
 
 
-    // if (IsMouseInRectangle(GetMousePosition(), rectangle))
-    // {
-
-
     Ray ray = { 0 };
 
     Vector2 pos = { GetMousePosition().x - rectangle.x, GetMousePosition().y - rectangle.y };
@@ -290,12 +286,7 @@ bool IsMouseHoveringModel(Model model, Camera camera, Vector3 position, Vector3 
         if (meshHitInfo.hit)
             return true;
     }
-    //}
-    // else
-    // {
-    //     std::cout << "Rectangle x/y: " << rectangle.x << "/" << rectangle.y << std::endl;
-    //     std::cout << "Rectangle width/height: " << rectangle.width << "/" << rectangle.height << std::endl;
-    // }
+
     return false;
 }
 
@@ -317,45 +308,35 @@ bool isVectorNeutral(const Vector3& vector) {
 
 void Gizmo()
 {
+    Vector3 selected_object_position;
 
-    if (std::holds_alternative<Entity*>(object_in_inspector)) {
-        Entity* entity = std::get<Entity*>(object_in_inspector);
-        selected_entity_position = entity->position;
-        selected_entity_relative_position = entity->relative_position;
-        selected_entity_isChild = entity->isChild;
-    }
-
-
-    if (std::holds_alternative<Light*>(object_in_inspector)) {
-        Light* light = std::get<Light*>(object_in_inspector);
-        glm::vec3* selected_entity_position = &light->position;
-        glm::vec3* object_in_inspector_relative_position = &light->relative_position;
-        bool* object_in_inspector_isChild = &light->isChild;
-    }
-
+    if (selected_gameObject_type == "entity")
+        selected_object_position = selected_entity->position;
+    else if (selected_gameObject_type == "light")
+        selected_object_position = {selected_light->position.x, selected_light->position.y, selected_light->position.z};
 
     // Gizmo Arrow Up
-    gizmo_arrow[0].position = {selected_entity_position.x, selected_entity_position.y + 6, selected_entity_position.z};
+    gizmo_arrow[0].position = {selected_object_position.x, selected_object_position.y + 6, selected_object_position.z};
     gizmo_arrow[0].rotation = {0, 0, 0};
 
     // Gizmo Arrow Down
-    gizmo_arrow[1].position = {selected_entity_position.x, selected_entity_position.y - 6, selected_entity_position.z};
+    gizmo_arrow[1].position = {selected_object_position.x, selected_object_position.y - 6, selected_object_position.z};
     gizmo_arrow[1].rotation = {180, 0, 0};
 
     // Gizmo Arrow Right
-    gizmo_arrow[2].position = {selected_entity_position.x, selected_entity_position.y, selected_entity_position.z + 6};
+    gizmo_arrow[2].position = {selected_object_position.x, selected_object_position.y, selected_object_position.z + 6};
     gizmo_arrow[2].rotation = {90, 0, 0};
 
     // Gizmo Arrow Left
-    gizmo_arrow[3].position = {selected_entity_position.x, selected_entity_position.y, selected_entity_position.z - 6};
+    gizmo_arrow[3].position = {selected_object_position.x, selected_object_position.y, selected_object_position.z - 6};
     gizmo_arrow[3].rotation = {-90, 0, 0};
 
     // Gizmo Arrow Forward
-    gizmo_arrow[4].position = {selected_entity_position.x + 6, selected_entity_position.y, selected_entity_position.z};
+    gizmo_arrow[4].position = {selected_object_position.x + 6, selected_object_position.y, selected_object_position.z};
     gizmo_arrow[4].rotation = {0, 0, -90};
 
     // Gizmo Arrow Backward
-    gizmo_arrow[5].position = {selected_entity_position.x - 6, selected_entity_position.y, selected_entity_position.z};
+    gizmo_arrow[5].position = {selected_object_position.x - 6, selected_object_position.y, selected_object_position.z};
     gizmo_arrow[5].rotation = {0, 0, 90};
 
 
@@ -425,30 +406,125 @@ void Gizmo()
 
         float extreme_rotation = GetExtremeValue(gizmo_arrow[arrow_i].rotation);
         DrawModelEx(gizmo_arrow[arrow_i].model, gizmo_arrow[arrow_i].position, gizmo_arrow[arrow_i].rotation, extreme_rotation, {1,1,1}, color1);
-
     }
 
     float y_axis_arrows_center_pos = (gizmo_arrow[0].position.y + gizmo_arrow[1].position.y) / 2.0f;
 
 
 
-    if ((bool)selected_entity_isChild)
-    {   
-
-        selected_entity_position.x = gizmo_arrow[0].position.x;
-        selected_entity_position.y = y_axis_arrows_center_pos;
-        selected_entity_position.z = gizmo_arrow[0].position.z;
-
-        selected_entity->relative_position = Vector3Subtract(selected_entity->position, selected_entity->parent->position);
-    }
-    else
+    if (selected_gameObject_type == "entity")
     {
-        selected_entity_position.x = gizmo_arrow[0].position.x;
-        selected_entity_position.y = y_axis_arrows_center_pos;
-        selected_entity_position.z = gizmo_arrow[0].position.z;
+        selected_entity->position = {
+            gizmo_arrow[0].position.x,
+            y_axis_arrows_center_pos,
+            gizmo_arrow[0].position.z
+        };
+        
+        if ((bool)selected_entity->isChild)
+        {
+            selected_entity->relative_position = Vector3Subtract(selected_entity->position, selected_entity->parent->position);
+        }
+    }
+    else if (selected_gameObject_type == "light")
+    {
+        selected_light->position.x = gizmo_arrow[0].position.x;
+        selected_light->position.y = y_axis_arrows_center_pos;
+        selected_light->position.z = gizmo_arrow[0].position.z;
     }
 
 }
+
+
+void ProcessCameraControls()
+{
+    if (IsKeyPressed(KEY_F))
+    {
+        if (selected_gameObject_type == "entity")
+        {
+            scene_camera.target = selected_entity->position;
+            scene_camera.position = {
+                selected_entity->position.x + 10,
+                selected_entity->position.y + 2,
+                selected_entity->position.z
+            };
+            
+        }
+    }
+}
+
+void ProcessSelection()
+{
+    if ((selected_gameObject_type == "entity") ||
+        (selected_gameObject_type == "light"))
+    {
+        Gizmo();
+    }
+}
+
+void RenderScene()
+{
+    BeginTextureMode(renderTexture);
+    BeginMode3D(scene_camera);
+
+    ClearBackground(GRAY);
+
+    float cameraPos[3] = { scene_camera.position.x, scene_camera.position.y, scene_camera.position.z };
+    SetShaderValue(shader, shader.locs[SHADER_LOC_VECTOR_VIEW], cameraPos, SHADER_UNIFORM_VEC3);
+
+    for (Light& light : lights)
+    {
+        Model light_model = LoadModelFromMesh(GenMeshPlane(10, 10, 1, 1));
+        light_model.materials[0].maps[MATERIAL_MAP_DIFFUSE].texture = light_texture;
+
+        float rotation = DrawBillboardRotation(scene_camera, light_texture, { light.position.x, light.position.y, light.position.z }, 1.0f, WHITE);
+        
+        if (IsMouseButtonDown(MOUSE_LEFT_BUTTON))
+        {
+            bool isLightSelected = IsMouseHoveringModel(light_model, scene_camera, { light.position.x, light.position.y, light.position.z }, { 0, rotation, 0 } );
+            if (isLightSelected)
+            {
+                object_in_inspector = &light;
+                selected_gameObject_type = "light";
+            }
+        }
+    }
+
+
+    for (Entity& entity : entities_list_pregame)
+    {
+
+
+        entity.render();
+
+        if (IsMouseButtonDown(MOUSE_LEFT_BUTTON) && !dragging_gizmo)
+        {
+            bool isEntitySelected = IsMouseHoveringModel(entity.model, scene_camera, entity.position, entity.rotation);
+            if (isEntitySelected)
+            {
+                object_in_inspector = &entity;
+                selected_gameObject_type = "entity";
+            }
+
+            for (Entity* child : entity.children)
+            {
+                isEntitySelected = IsMouseHoveringModel(child->model, scene_camera, child->position, child->rotation);
+                if (isEntitySelected)
+                {
+                    object_in_inspector = child;
+                    selected_gameObject_type = "entity";
+                }
+            }
+        }
+    }
+
+    ProcessSelection();
+
+    EndMode3D();
+    EndTextureMode();
+
+    DrawTextureOnRectangle(&texture);
+}
+
 
 int EditorCamera(void)
 {
@@ -459,73 +535,11 @@ int EditorCamera(void)
     }
 
     EditorCameraMovement();
+    RenderScene();
+    ProcessCameraControls();
 
-
-    BeginTextureMode(renderTexture);
-    BeginMode3D(scene_camera);
-
-    ClearBackground(GRAY);
-
-    float cameraPos[3] = { scene_camera.position.x, scene_camera.position.y, scene_camera.position.z };
-    SetShaderValue(shader, shader.locs[SHADER_LOC_VECTOR_VIEW], cameraPos, SHADER_UNIFORM_VEC3);
     
-    int entity_index = 0;
-    for (Entity& entity : entities_list_pregame)
-    {
-        entity.render();
 
-        if (IsMouseButtonDown(MOUSE_LEFT_BUTTON))
-        {
-            bool isEntitySelected = IsMouseHoveringModel(entity.model, scene_camera, entity.position, entity.rotation);
-            if (isEntitySelected)
-            {
-                listViewExActive = entity_index;
-                object_in_inspector = &entity;
-                selected_gameObject_type = "entity";
-
-            }
-            // else
-            // {
-            //     selected_gameObject_type = "NotAnObject";
-            //     object_in_inspector = std::variant<Entity*, Light*>();
-            // }
-                
-            for (Entity* child : entity.children)
-            {
-                isEntitySelected = IsMouseHoveringModel(child->model, scene_camera, child->position, child->rotation);
-                if (isEntitySelected)
-                {
-                    object_in_inspector = child;
-                    selected_gameObject_type = "entity";
-                }
-                // else
-                // {
-                //     selected_gameObject_type = "NotAnObject";
-                //     object_in_inspector = std::variant<Entity*, Light*>();
-                // }
-            }
-            
-
-        }
-
-        entity_index++;
-    }
-
-
-    if ((selected_gameObject_type == "entity") ||
-        (selected_gameObject_type == "light"))
-    {
-        Gizmo();
-    }
-
-
-
-    // End 3D rendering
-    EndMode3D();
-    EndTextureMode();
-
-
-    DrawTextureOnRectangle(&texture);
 
     return 0;
 }

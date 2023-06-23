@@ -86,6 +86,7 @@ string showFileExplorer(const char* folderPath, nlohmann::json_abi_v3_11_2::json
                 std::ofstream file(folderPath + std::string("/") + fileName + std::string(".theme"));
                 file << fileContent.dump(4) << std::endl;
                 file.close();
+                ImGui::End();
                 return "";
             }
         }
@@ -110,9 +111,6 @@ string showFileExplorer(const char* folderPath, nlohmann::json_abi_v3_11_2::json
     }
     return "";
 }
-
-#include <fstream>
-
 
 
 ImGuiCol_ theme_create_selected_option = ImGuiCol_Text;
@@ -230,21 +228,33 @@ void SetStyleHighContrast(ImGuiStyle* dst)
 
 }
 
+ImVec4 rgbaToImguiColor(int red, int green, int blue, int alpha) {
+    ImVec4 normalizedRGBA;
+    
+    normalizedRGBA.x = red / 255.0f;
+    normalizedRGBA.y = green / 255.0f;
+    normalizedRGBA.z = blue / 255.0f;
+    normalizedRGBA.w = alpha / 255.0f;
+    
+    return normalizedRGBA;
+}
 
 void SetStyleGray(ImGuiStyle* dst)
 {
     ImGuiStyle* style = dst ? dst : &ImGui::GetStyle();
     ImVec4* colors = style->Colors;
 
-    style->FrameRounding = 2.0f;
+    style->FrameRounding = 4.0f;
+    style->GrabRounding = 5.0f;
+
     style->FrameBorderSize = 1.0f;
     
     colors[ImGuiCol_Text] = ImVec4(0.95f, 0.95f, 0.95f, 1.00f);
     colors[ImGuiCol_FrameBg] = ImVec4(0.4f, 0.4f, 0.4f, 1.0f);
+    colors[ImGuiCol_WindowBg] = rgbaToImguiColor(18, 18, 18, 255);
     colors[ImGuiCol_Button] = ImVec4(0.30f, 0.30f, 0.30f, 1.00f);
     colors[ImGuiCol_ButtonHovered] = ImVec4(0.50f, 0.50f, 0.50f, 1.00f);
     colors[ImGuiCol_DragDropTarget] = ImVec4(0.60f, 0.60f, 0.60f, 1.00f);
     colors[ImGuiCol_Border] = ImVec4(0.20f, 0.20f, 0.20f, 1.00f);
-
 
 }

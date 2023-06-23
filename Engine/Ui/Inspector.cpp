@@ -169,22 +169,23 @@ void LightInspector()
         selected_light = std::get<Light*>(object_in_inspector);
 
         ImVec4 light_colorImGui = ImVec4(
-            selected_light->color.r / 255.0f,
-            selected_light->color.g / 255.0f,
-            selected_light->color.b / 255.0f,
-            selected_light->color.a / 255.0f
+            selected_light->color.r,
+            selected_light->color.g,
+            selected_light->color.b,
+            selected_light->color.a
         );
 
         ImGui::Text("Color: ");
-        ImGui::ColorEdit4("##Changeentity_color", (float*)&light_colorImGui, ImGuiColorEditFlags_NoInputs);
+        ImGui::ColorEdit4("##Change_Light_Color", (float*)&light_colorImGui, ImGuiColorEditFlags_NoInputs);
         glm::vec4 light_color = (glm::vec4){
-            (unsigned char)(light_colorImGui.x*255),
-            (unsigned char)(light_colorImGui.y*255),
-            (unsigned char)(light_colorImGui.z*255),
-            (unsigned char)(light_colorImGui.w*255)
+            (unsigned char)(light_colorImGui.x),
+            (unsigned char)(light_colorImGui.y),
+            (unsigned char)(light_colorImGui.z),
+            (unsigned char)(light_colorImGui.w)
         };
-
         selected_light->color = light_color;
+    
+    
     }
 
     UpdateLightsBuffer();

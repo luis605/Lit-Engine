@@ -33,7 +33,7 @@ int LitEngine()
     pause_texture = LoadTexture("assets/images/pause_game.png");
     save_texture = LoadTexture("assets/images/save_file.png");
     hot_reload_texture = LoadTexture("assets/images/hot_reload.png");
-
+    light_texture = LoadTexture("assets/images/light_bulb.png");
     
     code.resize(100000);
 	auto lang = TextEditor::LanguageDefinition::CPlusPlus();
@@ -50,80 +50,55 @@ int LitEngine()
         gizmo_taurus[index] = LoadModel("assets/models/gizmo/taurus.obj");
     }
     
-    // shader = LoadShader("Engine/Lighting/shaders/lighting_vertex.glsl", "Engine/Lighting/shaders/lighting_fragment.glsl");
-    // shader.locs[SHADER_LOC_VECTOR_VIEW] = GetShaderLocation(shader, "viewPos");
-
-
-
-
-
-
-    // Init Docking
     ImGui::CreateContext();
     ImGuiIO& io = ImGui::GetIO(); (void)io;
-
-    io.ConfigFlags |= ImGuiConfigFlags_DockingEnable;      // Enable Docking
+    io.ConfigFlags |= ImGuiConfigFlags_DockingEnable;
     
     SetStyleGray(&ImGui::GetStyle());
 
     InitEditorCamera();
 
-
     shader = LoadShader("Engine/Lighting/shaders/lighting_vertex.glsl", "Engine/Lighting/shaders/lighting_fragment.glsl");
     InitLighting();
-//    int lightsLocation = GetShaderLocation(shader, "lights");
-//    SetShaderValueV(shader, lightsLocation, &lights[0], SHADER_UNIFORM_FLOAT, 3 * lights.size());
 
+    selected_entity = &Entity();
+    selected_light = &Light();
 
-    // Main game loop
+    // InitPhysx();
+
     while (!WindowShouldClose())
     {
         BeginDrawing();
-        ClearBackground(DARKGRAY);
 
-        // start the GUI
-        rlImGuiBegin();
+            ClearBackground(DARKGRAY);
 
+            rlImGuiBegin();
+            ImGui::DockSpaceOverViewport(ImGui::GetMainViewport());
 
+            MenuBar();
 
-        ImGui::DockSpaceOverViewport(ImGui::GetMainViewport());
+            AssetsExplorer();
 
-        MenuBar();
+            CodeEditor();
 
-        // Assets Explorer
-        AssetsExplorer();
+            ImGui::Begin("Entities List Window", NULL);
+            EntitiesList();
+            ImGui::End();        
 
-        // Code Editor
-        CodeEditor();
+            ImGui::Begin("Inspector Window", NULL);
+            Inspector();
+            ImGui::End();
 
-        // Entities List
-        ImGui::Begin("Entities List Window", NULL);
-        EntitiesList();
-        ImGui::End();        
+            ImGui::Begin("Scene Editor Window", NULL);
+            int editor_camera = EditorCamera();
+            ImGui::End();
 
+            AddEntity();
+            
+            rlImGuiEnd();
 
+            DrawFPS(screenWidth1*.9, screenHeight1*.1);
 
-        // Inspector
-        ImGui::Begin("Inspector Window", NULL);
-        Inspector();
-        ImGui::End();
-
-        // Scene Editor
-        ImGui::Begin("Scene Editor Window", NULL);
-        int editor_camera = EditorCamera();
-        ImGui::End();
-
-
-
-        AddEntity();
-        
-
-
-        // end ImGui
-        rlImGuiEnd();
-
-        DrawFPS(screenWidth1*.9, screenHeight1*.1);
-        // Finish drawing
         EndDrawing();
     }
 
@@ -131,13 +106,12 @@ int LitEngine()
     CleanUp();
     rlImGuiShutdown();
     CloseWindow(); 
-    return 0;
 
+    return 0;
 }
 
 int main()
 {
-    // Child process
     LitEngine();
     return 0;
 }
