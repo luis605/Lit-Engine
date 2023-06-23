@@ -2,4 +2,7 @@
 *.out
 *.ini
 *.o
+*.ini
 raylib
+physx_bin
+physx_include

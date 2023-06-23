@@ -47,6 +47,7 @@
 #include <thread>
 #include <functional>
 #include <future>
+#include <iomanip>
 
 /* Physx */
 //#include "PxPhysicsAPI.h"
@@ -60,6 +61,8 @@ namespace filesys = boost::filesystem;
 
 namespace py = pybind11;
 using namespace py::literals;
+
+using json = nlohmann::json;
 
 // using namespace physx;
 

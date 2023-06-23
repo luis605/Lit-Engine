@@ -1,14 +1,49 @@
 [
     {
+        "children": [
+            [
+                {
+                    "color": {
+                        "a": 255,
+                        "b": 0,
+                        "g": 0,
+                        "r": 255
+                    },
+                    "model_path": "assets/models/tree.obj",
+                    "name": "Entity Name",
+                    "position": {
+                        "x": 0.0,
+                        "y": 0.0,
+                        "z": -3.799999475479126
+                    },
+                    "relative_position": {
+                        "x": 0.0,
+                        "y": 0.0,
+                        "z": -3.799999475479126
+                    },
+                    "scale": {
+                        "x": 1.0,
+                        "y": 1.0,
+                        "z": 1.0
+                    },
+                    "script_path": ""
+                }
+            ]
+        ],
         "color": {
             "a": 255,
             "b": 0,
             "g": 0,
             "r": 255
         },
-        "model_path": "",
+        "model_path": "assets/models/tree.obj",
         "name": "Entity Name",
         "position": {
+            "x": 0.0,
+            "y": 0.0,
+            "z": 5.0
+        },
+        "relative_position": {
             "x": 0.0,
             "y": 0.0,
             "z": 0.0
