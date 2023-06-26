@@ -3,9 +3,7 @@
 /* Undeclared Classes */
 class Entity;
 
-
 /* Not specific */
-
 variant<Entity*, Light*> object_in_inspector;
 
 vector<Entity> entities_list_pregame;
@@ -14,6 +12,7 @@ vector<Light> lights_list_pregame;
 Entity *selected_entity;
 Light *selected_light;
 
+char* selected_game_object_type = "";
 
 
 /* Entities List */
@@ -42,13 +41,6 @@ bool is_create_entity_a_child = false;
 bool showNextTime = true;
 bool create = false;
 
-bool parent_selected = false;
-bool old_parent_selected = false;
-
-bool child_selected = false;
-bool old_child_selected = false;
-
-char* selected_gameObject_type = "";
 
 /* Inspector */
 string selected_entity_name = "";
@@ -57,52 +49,31 @@ Vector3 selected_entity_position = {0, 0, 0};
 Vector3 selected_entity_relative_position = {0, 0, 0};
 Vector3 selected_entity_rotation = {0, 0, 0};
 Color selected_entity_color = RED;
-bool selected_entity_isChild = false;
-
 ImVec4 selected_entity_colorImGui = { 0, 0, 0, 0 };
-
-bool changeEntity_colorPopup = false;
-bool setentity_color = false;
 string selected_entity_script_path;
 int selected_entity_script_path_index;
-
-char modelPathBuffer[512] = {0};
 int selected_entity_model_path_index;
-
 bool do_physics = false;
-
-int last_entity_index = 0;
-
-
 
 /* Code Editor [IDE] */
 string code;
 string code_editor_script_path;
-
 TextEditor editor;
 
-
-
-
 /* Scene Editor */
-
-// Textures
 RenderTexture2D renderTexture;
 Texture2D texture;
 Rectangle rectangle = { screenWidth*.2, screenHeight*.2, texture.width, texture.height };
 
-// Camera
 Camera3D scene_camera;
 float lerp_factor = 0.5f;
 float movementSpeed = 0.5f;
 Vector3 front;
 
-// Gizmo -> Position Arrows
 bool dragging = false;
 bool dragging_gizmo = false;
 Vector2 mouse_drag_start = { 0, 0 };
 
-// Gizmo -> Rotation Taurus
 int gizmo_arrow_selected;
 int gizmo_taurus_selected;
 bool isHoveringGizmo;

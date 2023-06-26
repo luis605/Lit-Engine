@@ -131,7 +131,7 @@ void EntityInspector()
     string name = string("Drop Script Here: ");
     ImGui::Text(name.c_str());
     ImGui::SameLine();
-    string script_button_text = selected_entity_script_path + "##Drag'nDropScriptPath";
+    string script_button_text = selected_entity->script + "##Drag'nDropScriptPath";
     if (ImGui::Button(script_button_text.c_str(), ImVec2(200,25)))
     {
     }
@@ -201,9 +201,9 @@ void LightInspector()
 
 void Inspector()
 {
-    if (selected_gameObject_type == "entity")
+    if (selected_game_object_type == "entity")
         EntityInspector();
-    else if (selected_gameObject_type == "light")
+    else if (selected_game_object_type == "light")
         LightInspector();
 }
 

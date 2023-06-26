@@ -307,9 +307,9 @@ void Gizmo()
 {
     Vector3 selected_object_position;
 
-    if (selected_gameObject_type == "entity")
+    if (selected_game_object_type == "entity")
         selected_object_position = selected_entity->position;
-    else if (selected_gameObject_type == "light")
+    else if (selected_game_object_type == "light")
         selected_object_position = {selected_light->position.x, selected_light->position.y, selected_light->position.z};
 
     // Gizmo Arrow Up
@@ -409,7 +409,7 @@ void Gizmo()
 
 
 
-    if (selected_gameObject_type == "entity")
+    if (selected_game_object_type == "entity")
     {
         selected_entity->position = {
             gizmo_arrow[0].position.x,
@@ -422,7 +422,7 @@ void Gizmo()
             selected_entity->relative_position = Vector3Subtract(selected_entity->position, selected_entity->parent->position);
         }
     }
-    else if (selected_gameObject_type == "light")
+    else if (selected_game_object_type == "light")
     {
         selected_light->position.x = gizmo_arrow[0].position.x;
         selected_light->position.y = y_axis_arrows_center_pos;
@@ -436,7 +436,7 @@ void ProcessCameraControls()
 {
     if (IsKeyPressed(KEY_F))
     {
-        if (selected_gameObject_type == "entity")
+        if (selected_game_object_type == "entity")
         {
             scene_camera.target = selected_entity->position;
             scene_camera.position = {
@@ -451,8 +451,8 @@ void ProcessCameraControls()
 
 void ProcessSelection()
 {
-    if ((selected_gameObject_type == "entity") ||
-        (selected_gameObject_type == "light"))
+    if ((selected_game_object_type == "entity") ||
+        (selected_game_object_type == "light"))
     {
         Gizmo();
     }
@@ -481,7 +481,7 @@ void RenderScene()
             if (isLightSelected)
             {
                 object_in_inspector = &light;
-                selected_gameObject_type = "light";
+                selected_game_object_type = "light";
             }
         }
     }
@@ -499,7 +499,7 @@ void RenderScene()
             if (isEntitySelected)
             {
                 object_in_inspector = &entity;
-                selected_gameObject_type = "entity";
+                selected_game_object_type = "entity";
             }
 
             for (Entity* child : entity.children)
@@ -508,7 +508,7 @@ void RenderScene()
                 if (isEntitySelected)
                 {
                     object_in_inspector = child;
-                    selected_gameObject_type = "entity";
+                    selected_game_object_type = "entity";
                 }
             }
         }
