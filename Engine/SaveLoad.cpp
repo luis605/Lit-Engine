@@ -40,6 +40,7 @@ void SaveEntity(json& json_data, const Entity& entity) {
     j["relative_position"] = entity.relative_position;
     j["model_path"] = entity.model_path;
     j["script_path"] = entity.script;
+    j["id"] = entity.id;
 
     if (!entity.children.empty()) {
         json children_data;
@@ -110,7 +111,8 @@ void LoadEntity(const json& entity_json, Entity& entity) {
 
     entity.setModel(entity_json["model_path"].get<std::string>().c_str());
     entity.script = entity_json["script_path"].get<std::string>();
-
+    entity.id = entity_json["id"].get<std::string>();
+    
     if (entity_json.contains("children")) {
         const json& children_data = entity_json["children"];
         if (children_data.is_array() && !children_data.empty()) {

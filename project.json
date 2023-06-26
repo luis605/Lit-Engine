@@ -1,47 +1,18 @@
 [
     {
-        "children": [
-            [
-                {
-                    "color": {
-                        "a": 255,
-                        "b": 0,
-                        "g": 0,
-                        "r": 255
-                    },
-                    "model_path": "assets/models/tree.obj",
-                    "name": "Entity Name",
-                    "position": {
-                        "x": 0.0,
-                        "y": 0.0,
-                        "z": -3.799999475479126
-                    },
-                    "relative_position": {
-                        "x": 0.0,
-                        "y": 0.0,
-                        "z": -3.799999475479126
-                    },
-                    "scale": {
-                        "x": 1.0,
-                        "y": 1.0,
-                        "z": 1.0
-                    },
-                    "script_path": ""
-                }
-            ]
-        ],
         "color": {
             "a": 255,
             "b": 0,
             "g": 0,
             "r": 255
         },
+        "id": "0",
         "model_path": "assets/models/tree.obj",
-        "name": "Entity Name",
+        "name": "tree",
         "position": {
             "x": 0.0,
             "y": 0.0,
-            "z": 5.0
+            "z": 0.0
         },
         "relative_position": {
             "x": 0.0,
@@ -54,5 +25,59 @@
             "z": 1.0
         },
         "script_path": ""
+    },
+    {
+        "color": {
+            "a": 255,
+            "b": 255,
+            "g": 255,
+            "r": 255
+        },
+        "id": "1",
+        "model_path": "project/game/models/cube.obj",
+        "name": "floor",
+        "position": {
+            "x": 0.0,
+            "y": -0.09999990463256836,
+            "z": 0.0
+        },
+        "relative_position": {
+            "x": 0.0,
+            "y": 0.0,
+            "z": 0.0
+        },
+        "scale": {
+            "x": 100.0,
+            "y": 0.10000000149011612,
+            "z": 100.0
+        },
+        "script_path": ""
+    },
+    {
+        "color": {
+            "a": 255,
+            "b": 0,
+            "g": 225,
+            "r": 255
+        },
+        "id": "2",
+        "model_path": "project/game/models/test.obj",
+        "name": "player",
+        "position": {
+            "x": 10.90000057220459,
+            "y": 0.0,
+            "z": 0.0
+        },
+        "relative_position": {
+            "x": 0.0,
+            "y": 0.0,
+            "z": 0.0
+        },
+        "scale": {
+            "x": 1.0,
+            "y": 1.0,
+            "z": 1.0
+        },
+        "script_path": "project/game/models/../hi.py"
     }
 ]

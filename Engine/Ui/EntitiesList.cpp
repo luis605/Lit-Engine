@@ -74,8 +74,13 @@ void AddEntity()
             entities_list_pregame.push_back(entity_create);
         else
         {
-            std::cout << "Adding child entities..." << std::endl;
-            entities_list_pregame.back().addChild(entity_create);
+            if (selected_gameObject_type == "entity")
+            {
+                if (selected_entity->isChild)
+                    selected_entity->addChild(entity_create);
+                else
+                    entities_list_pregame.back().addChild(entity_create);
+            }
         }
 
         int last_entity_index = entities_list_pregame.size() - 1;
@@ -151,9 +156,11 @@ void AddEntity()
 
 
 
-void DrawEntityTree(Entity& entity, int active, int& index) {
-    ImGuiTreeNodeFlags nodeFlags = ImGuiTreeNodeFlags_OpenOnArrow | ImGuiTreeNodeFlags_OpenOnDoubleClick;
-    if (selected_entity == &entity) {
+void DrawEntityTree(Entity& entity, int active, int& index, int depth = 0) {
+
+    ImGuiTreeNodeFlags nodeFlags = ImGuiTreeNodeFlags_OpenOnArrow | ImGuiTreeNodeFlags_OpenOnDoubleClick | ImGuiTreeNodeFlags_SpanAvailWidth;
+    
+    if (selected_entity == &entity && selected_gameObject_type == "entity") {
         nodeFlags |= ImGuiTreeNodeFlags_Selected;
     }
 
@@ -177,7 +184,7 @@ void DrawEntityTree(Entity& entity, int active, int& index) {
         for (int childIndex = 0; childIndex < entity.children.size(); childIndex++) {
             index++;
             Entity* child = entity.children[childIndex];
-            DrawEntityTree(*child, active, index);
+            DrawEntityTree(*child, active, index, depth + 1);  // Increase depth by 1 for child nodes
         }
         ImGui::TreePop();
     }
@@ -188,7 +195,7 @@ void DrawEntityTree(Entity& entity, int active, int& index) {
 
 void DrawLightTree(Light& light, AdditionalLightInfo& light_info, int active, int& index) {
     ImGuiTreeNodeFlags nodeFlags = ImGuiTreeNodeFlags_OpenOnArrow | ImGuiTreeNodeFlags_OpenOnDoubleClick;
-    if (selected_light == &light) {
+    if (selected_light == &light && selected_gameObject_type == "light") {
         nodeFlags |= ImGuiTreeNodeFlags_Selected;
     }
 

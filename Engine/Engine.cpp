@@ -161,6 +161,7 @@ PYBIND11_EMBEDDED_MODULE(collisions_module, m) {
 
 
 
+
 PYBIND11_EMBEDDED_MODULE(camera_module, m) {
     py::class_<Camera3D>(m, "Camera3D")
         .def(py::init<int, float, float, float>())
@@ -173,6 +174,25 @@ PYBIND11_EMBEDDED_MODULE(camera_module, m) {
 
 
 
+
+class Time {
+public:
+    float dt;
+
+    void update() {
+        dt = GetFrameTime();
+    }
+};
+
+
+PYBIND11_EMBEDDED_MODULE(time_module, m) {
+    py::class_<Time>(m, "Time")
+        .def(py::init<>())
+        .def_readwrite("dt", &Time::dt);
+}
+
+
+Time time_instance;
 
 py::scoped_interpreter guard{}; // Start interpreter
 
@@ -190,19 +210,7 @@ bool EntityRunScriptFirstTime = true;
 atomic<bool> flag[2] = {false, false};
 atomic<int> turn = 0;
 int shared_resource = 0;
-
-
-bool vector3Equal(const Vector3& a, const Vector3& b)
-{
-    return (a.x == b.x) && (a.y == b.y) && (a.z == b.z);
-}
-
-bool vector3NotEqual(const Vector3& a, const Vector3& b)
-{
-    return !vector3Equal(a, b);
-}
-
-
+bool Entity_already_registered = false;
 
 
 class Entity {
@@ -346,32 +354,41 @@ public:
         py::gil_scoped_release release;
         py::gil_scoped_acquire acquire;
 
-        py::module entity_module("entity_module");
-        py::class_<Entity>(entity_module, "Entity")
-            .def(py::init<>())
-            .def_readwrite("name", &Entity::name, py::call_guard<py::gil_scoped_release>())
-            .def_readwrite("position", &Entity::position, py::call_guard<py::gil_scoped_release>())
-            .def_readwrite("scale", &Entity::scale, py::call_guard<py::gil_scoped_release>())
-            .def_readwrite("rotation", &Entity::rotation, py::call_guard<py::gil_scoped_release>())
-            .def_readwrite("color", &Entity::color, py::call_guard<py::gil_scoped_release>())
-            .def_readwrite("visible", &Entity::visible, py::call_guard<py::gil_scoped_release>())
-            .def_readwrite("collider", &Entity::collider, py::call_guard<py::gil_scoped_release>());
-
+        if (!Entity_already_registered)
+        {
+            Entity_already_registered = true;
+            py::module entity_module("entity_module");
+            py::class_<Entity>(entity_module, "Entity")
+                .def(py::init<>())
+                .def_readwrite("name", &Entity::name, py::call_guard<py::gil_scoped_release>())
+                .def_readwrite("position", &Entity::position, py::call_guard<py::gil_scoped_release>())
+                .def_readwrite("scale", &Entity::scale, py::call_guard<py::gil_scoped_release>())
+                .def_readwrite("rotation", &Entity::rotation, py::call_guard<py::gil_scoped_release>())
+                .def_readwrite("color", &Entity::color, py::call_guard<py::gil_scoped_release>())
+                .def_readwrite("visible", &Entity::visible, py::call_guard<py::gil_scoped_release>())
+                .def_readwrite("collider", &Entity::collider, py::call_guard<py::gil_scoped_release>());
+        }
         Entity& this_entity = entityRef.get();
 
         py::object entity_obj = py::cast(&this_entity);
         py::module input_module = py::module::import("input_module");
         py::module collisions_module = py::module::import("collisions_module");
         py::module camera_module = py::module::import("camera_module");
+        py::module time_module = py::module::import("time_module");
+        
 
 
+        py::dict locals = py::dict(
+            "entity"_a = entity_obj,
+            "IsMouseButtonPressed"_a = input_module.attr("IsMouseButtonPressed"),
+            "IsKeyDown"_a = input_module.attr("IsKeyDown"),
+            "KeyboardKey"_a = input_module.attr("KeyboardKey"),
+            "raycast"_a = collisions_module.attr("raycast"),
+            "Vector3"_a = collisions_module.attr("Vector3"),
+            "time"_a = py::cast(&time_instance),
+            "camera"_a = py::cast(&camera)
+        );
 
-        py::dict locals = py::dict("entity"_a = entity_obj,
-                               "IsMouseButtonPressed"_a = input_module.attr("IsMouseButtonPressed"),
-                               "IsKeyDown"_a = input_module.attr("IsKeyDown"),
-                               "KeyboardKey"_a = input_module.attr("KeyboardKey"),
-                               "raycast"_a = collisions_module.attr("raycast"),
-                               "camera"_a = py::cast(&camera));
 
         try {
             pybind11::gil_scoped_acquire acquire;
