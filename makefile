@@ -34,18 +34,18 @@ SRC_FILES = test_imgui.cpp ImGuiColorTextEdit/TextEditor.cpp
 INCLUDE_DIRS = -I./include -I./ImGuiColorTextEdit -I/usr/local/lib -L/usr/lib/x86_64-linux-gnu/ -L/usr/local/lib -I./include/nlohmann -I./imgui
 LIB_FLAGS = -L./include -lboost_filesystem -lraylib -pthread -lpython3.11 -fPIC `python3.11 -m pybind11 --includes` -ldl
 
-IMGUI_OBJECTS = $(patsubst %.cpp, %.o, $(wildcard include/*.cpp))
+IMGUI_OBJECTS = $(patsubst imgui/%.cpp, imgui/%.o, $(wildcard imgui/*.cpp))
 
-imgui/*.o: imgui/*.cpp
+imgui/%.o: imgui/%.cpp
 	@echo "Building Dear ImGUI"
 	g++ -std=c++17 -O3 -DIMGUI_IMPL_OPENGL_LOADER_GLAD -c $< -o $@
 
+INCLUDE_OBJECTS = $(patsubst include/%.cpp, include/%.o, $(wildcard include/*.cpp))
 
-INCLUDE_OBJECTS = $(patsubst %.cpp, %.o, $(wildcard imgui/*.cpp))
-
-include/*.o: include/*.cpp
+include/%.o: include/%.cpp
 	@echo "Building Include Files"
 	g++ -std=c++17 -O3 -c $< -o $@
+
 
 run:
 	@echo "Running Lit Engine"

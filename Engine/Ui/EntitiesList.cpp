@@ -74,7 +74,7 @@ void AddEntity()
             entities_list_pregame.push_back(entity_create);
         else
         {
-            if (selected_gameObject_type == "entity")
+            if (selected_game_object_type == "entity")
             {
                 if (selected_entity->isChild)
                     selected_entity->addChild(entity_create);
@@ -160,7 +160,7 @@ void DrawEntityTree(Entity& entity, int active, int& index, int depth = 0) {
 
     ImGuiTreeNodeFlags nodeFlags = ImGuiTreeNodeFlags_OpenOnArrow | ImGuiTreeNodeFlags_OpenOnDoubleClick | ImGuiTreeNodeFlags_SpanAvailWidth;
     
-    if (selected_entity == &entity && selected_gameObject_type == "entity") {
+    if (selected_entity == &entity && selected_game_object_type == "entity") {
         nodeFlags |= ImGuiTreeNodeFlags_Selected;
     }
 
@@ -175,7 +175,7 @@ void DrawEntityTree(Entity& entity, int active, int& index, int depth = 0) {
     if (ImGui::IsItemClicked()) {
         selected_entity = &entity;
         active = index;
-        selected_gameObject_type = "entity";
+        selected_game_object_type = "entity";
         object_in_inspector = &entity;
         std::cout << "index: " << index << std::endl;
     }
@@ -195,7 +195,7 @@ void DrawEntityTree(Entity& entity, int active, int& index, int depth = 0) {
 
 void DrawLightTree(Light& light, AdditionalLightInfo& light_info, int active, int& index) {
     ImGuiTreeNodeFlags nodeFlags = ImGuiTreeNodeFlags_OpenOnArrow | ImGuiTreeNodeFlags_OpenOnDoubleClick;
-    if (selected_light == &light && selected_gameObject_type == "light") {
+    if (selected_light == &light && selected_game_object_type == "light") {
         nodeFlags |= ImGuiTreeNodeFlags_Selected;
     }
 
@@ -211,7 +211,7 @@ void DrawLightTree(Light& light, AdditionalLightInfo& light_info, int active, in
     if (ImGui::IsItemClicked()) {
         selected_light = &light;
         active = index;
-        selected_gameObject_type = "light";
+        selected_game_object_type = "light";
         object_in_inspector = &light;
         std::cout << "index: " << index << std::endl;
     }
@@ -374,7 +374,7 @@ void EntitiesList()
     ImGui::PopStyleVar();
 
     if (!entities_list_pregame.empty() || !lights_list_pregame.empty()) {
-        // if (selected_gameObject_type == "entity")
+        // if (selected_game_object_type == "entity")
         //     object_in_inspector = &entities_list_pregame[listViewExActive];
         // else
         //     object_in_inspector = &lights_list_pregame[listViewExActive];
