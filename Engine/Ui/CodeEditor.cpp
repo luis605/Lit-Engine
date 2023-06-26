@@ -37,19 +37,19 @@ void CodeEditor()
 
     if (hot_reload)
     {
-        // Increment the click count and update the click timer
         clickCount++;
         clickTimer = ImGui::GetTime();
 
-        // Check for single click after a delay of 0.3 seconds
         if (clickCount == 1)
         {
-            std::cout << "Performing action for a single click" << std::endl;
             clickCount = 1;
         }
         else if (clickCount == 2)
         {
-            std::cout << "Performing action for a double click" << std::endl;
+            first_time_gameplay = true;
+            for (Entity& entity : entities_list)
+                entity.running = false;
+                
             clickCount = 0;
         }
     }

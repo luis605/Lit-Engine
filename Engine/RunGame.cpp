@@ -18,10 +18,13 @@ void InitGameCamera()
 
 
 
+void UpdateInGameGlobals()
+{
+    time_instance.update();
+}
 
 void RunGame()
 {
-
     rectangle.width = sceneEditorWindowWidth;
     rectangle.height = sceneEditorWindowHeight;
 
@@ -30,6 +33,8 @@ void RunGame()
 
     ClearBackground(GRAY);
 
+    UpdateInGameGlobals();
+    
     for (Entity& entity : entities_list)
     {
         entity.render();

@@ -22,8 +22,16 @@ void EntityInspector()
 
     string entity_name;
 
+
+        
     if (!entities_list_pregame.empty()) {
-        selected_entity_name = selected_entity->name;
+        try {
+            selected_entity_name = selected_entity->name;
+        }
+        catch (std::bad_alloc)
+        {
+            return;
+        }
     }
 
     ImGui::Text("Inspecting '");
