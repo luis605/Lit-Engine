@@ -341,7 +341,7 @@ void Gizmo()
     {
         Color color1;
 
-        if (!dragging_gizmo)
+        if (!dragging_gizmo && ImGui::IsWindowHovered())
         {
             isHoveringGizmo = IsMouseHoveringModel(gizmo_arrow[arrow_i].model, scene_camera, gizmo_arrow[arrow_i].position, gizmo_arrow[arrow_i].rotation);
             

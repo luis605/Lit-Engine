@@ -94,6 +94,10 @@ void SaveLight(json& json_data, const Light& light, int light_index) {
     j["relative_position"] = light.relative_position;
     j["target"] = light.target;
     j["direction"] = light.direction;
+    j["intensity"] = light.intensity;
+    j["cutOff"] = light.cutOff;
+    j["specularStrength"] = light.specularStrength;
+    j["attenuation"] = light.attenuation;
     j["id"] = lights_info.at(light_index).id;
 
 
@@ -222,6 +226,10 @@ void LoadLight(const json& light_json, Light& light, AdditionalLightInfo light_i
     
     light_info.id = light_json["id"].get<std::string>();
 
+    light.intensity          = light_json["intensity"].get<float>();
+    light.cutOff             = light_json["cutOff"].get<float>();
+    light.specularStrength   = light_json["specularStrength"].get<float>();
+    light.attenuation        = light_json["attenuation"].get<float>();
 
 
 }

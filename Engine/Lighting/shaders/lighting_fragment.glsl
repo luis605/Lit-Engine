@@ -15,6 +15,8 @@ uniform vec3 viewPos;
 
 #define LIGHT_DIRECTIONAL 0
 #define LIGHT_POINT 1
+#define LIGHT_SPOT 2
+
 
 struct Light
 {
@@ -27,6 +29,7 @@ struct Light
     float attenuation;
     float intensity;
     float specularStrength;
+    float cutOff;
     bool isChild;
     vec3 direction;
 };
@@ -41,7 +44,8 @@ uniform int lightsCount;  // Passed from CPU
 
 // Output fragment color
 out vec4 finalColor;
-
+out vec3 fragLightDir;
+out vec3 fragViewDir;
 
 
 
@@ -73,9 +77,7 @@ void main() {
             float diffuse = diffuseStrength * max(dot(norm, fragLightDir), 0.0);
             
             result += vec3(colDiffuse.x*diffuse, colDiffuse.y*diffuse, colDiffuse.z*colDiffuse);
-        }
-
-        else if (light.type == LIGHT_POINT && light.enabled) {
+        } else if (light.type == LIGHT_POINT && light.enabled) {
             // Calculate the direction from the fragment position to the light position
             lightDir = normalize(light.position - fragPosition);
             
@@ -98,6 +100,26 @@ void main() {
             
             // Add the specular component to the final result
             result += specular;
+        }
+        else if (light.type == LIGHT_SPOT && light.enabled)
+        {
+            vec3 fragLightDir = normalize(-light.direction);
+
+            fragViewDir = normalize(viewPos - fragPosition);
+
+            vec3 lightDir = normalize(fragLightDir);
+            vec3 viewDir = normalize(fragViewDir);
+            
+            float distance = length(fragLightDir);
+            float attenuation = light.attenuation;
+            
+            float spotAngle = dot(-lightDir, normalize(light.direction));
+            float spotFactor = 100;
+            
+            float diffuseStrength = 0.7;
+            float diffuse = max(dot(norm, lightDir), 0.0);
+            
+            result += vec3(diffuse * diffuseStrength * light.color * colDiffuse * attenuation * spotFactor);
         }
     }
 
