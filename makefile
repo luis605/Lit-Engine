@@ -30,21 +30,15 @@ endef
 
 
 CXXFLAGS = -g -pipe -std=c++17 -O0 -fpermissive -w -Wall -DNDEBUG
-SRC_FILES = test_imgui.cpp ImGuiColorTextEdit/TextEditor.cpp
-INCLUDE_DIRS = -I./include -I./ImGuiColorTextEdit -I/usr/local/lib -L/usr/lib/x86_64-linux-gnu/ -L/usr/local/lib -I./include/nlohmann -I./imgui
-LIB_FLAGS = -L./include -lboost_filesystem -lraylib -pthread -lpython3.11 -fPIC `python3.11 -m pybind11 --includes` -ldl
+SRC_FILES = test_imgui.cpp ImGuiColorTextEdit/TextEditor.cpp include/rlImGui.cpp
+INCLUDE_DIRS = -I./include -I./ImGuiColorTextEdit -I/usr/local/lib -L/usr/lib/x86_64-linux-gnu/ -L/usr/local/lib -I./include/nlohmann -I./imgui -I./physx_include -L./physx_lib
+LIB_FLAGS = -L./include -lboost_filesystem -lraylib -pthread -lpython3.11 -fPIC `python3.11 -m pybind11 --includes` -ldl -lPhysX_static_64 -lPhysXCommon_static_64 -lPhysXCooking_static_64 -lPhysXExtensions_static_64 -lPhysXFoundation_static_64 -lPhysXPvdSDK_static_64 -lPhysXVehicle2_static_64 -lPhysXVehicle_static_64 -lSnippetRender_static_64 -lSnippetUtils_static_64 -lPhysXGpu_64 -lcuda -lcudart -lnvrtc -lcublas -lcudadevrt
 
 IMGUI_OBJECTS = $(patsubst imgui/%.cpp, imgui/%.o, $(wildcard imgui/*.cpp))
 
 imgui/%.o: imgui/%.cpp
 	@echo "Building Dear ImGUI"
 	g++ -std=c++17 -O3 -DIMGUI_IMPL_OPENGL_LOADER_GLAD -c $< -o $@
-
-INCLUDE_OBJECTS = $(patsubst include/%.cpp, include/%.o, $(wildcard include/*.cpp))
-
-include/%.o: include/%.cpp
-	@echo "Building Include Files"
-	g++ -std=c++17 -O3 -c $< -o $@
 
 
 run:
@@ -54,7 +48,7 @@ run:
 
 build: $(IMGUI_OBJECTS)
 	@$(call echo_success, "Building Demo")
-	@ccache g++ $(CXXFLAGS) $(SRC_FILES) $(INCLUDE_DIRS) $(IMGUI_OBJECTS) $(INCLUDE_OBJECTS) $(LIB_FLAGS) -o lit_engine.out
+	@ccache g++ $(CXXFLAGS) $(SRC_FILES) $(INCLUDE_DIRS) $(IMGUI_OBJECTS) $(LIB_FLAGS) -o lit_engine.out
 
 
 brun:

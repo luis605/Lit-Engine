@@ -48,10 +48,9 @@
 #include <functional>
 #include <future>
 #include <iomanip>
-
+#include <unordered_map>
 
 /* Physx */
-//#include "PxPhysicsAPI.h"
 
 
 /* NameSpaces */
@@ -75,8 +74,9 @@ using json = nlohmann::json;
 #include "Engine/global_variables.cpp"
 #include "Engine/functions.cpp"
 
+#include "Engine/Engine.cpp"
+
 /* Headers */
-#include "Engine/Engine.h"
 #include "Engine/RunGame.h"
 #include "Engine/Ui/AssetsExplorer.h"
 
@@ -84,9 +84,7 @@ using json = nlohmann::json;
 // #include "Engine/Physics/InitPhysx.cpp"
 #include "Engine/Ui/UiScripts.cpp"
 #include "Engine/Ui/Styles.cpp"
-#include "Engine/Engine.cpp"
 #include "Engine/SaveLoad.cpp"
-#include "Engine/Core.cpp"
 #include "Engine/Lighting/InitLighting.cpp"
 #include "Engine/Ui/CodeEditor.cpp"
 #include "Engine/Ui/EntitiesList.cpp"
@@ -95,6 +93,8 @@ using json = nlohmann::json;
 #include "Engine/Ui/Inspector.cpp"
 #include "Engine/Ui/AssetsExplorer.cpp"
 #include "Engine/Ui/MenuBar.cpp"
+#include "Engine/Core.cpp"
+
 
 
 using namespace std;

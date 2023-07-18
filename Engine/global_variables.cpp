@@ -1,19 +1,12 @@
 #include "../include_all.h"
 
-/* Undeclared Classes */
-class Entity;
 
 /* Not specific */
-variant<Entity*, Light*> object_in_inspector;
-
-vector<Entity> entities_list_pregame;
-vector<Light> lights_list_pregame;
-
-Entity *selected_entity;
-Light *selected_light;
-
 char* selected_game_object_type = "";
 
+// Core
+int windowWidth = 1900;
+int windowHeight = 900;
 
 /* Entities List */
 bool in_game_preview = false;
@@ -51,10 +44,12 @@ Vector3 selected_entity_rotation = {0, 0, 0};
 Color selected_entity_color = RED;
 ImVec4 selected_entity_colorImGui = { 0, 0, 0, 0 };
 string selected_entity_script_path;
+Texture2D entity_texture;
 int selected_entity_script_path_index;
 int selected_entity_model_path_index;
 bool do_physics = false;
 
+bool show_texture = false;
 /* Code Editor [IDE] */
 string code;
 string code_editor_script_path;

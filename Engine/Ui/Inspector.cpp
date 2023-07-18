@@ -72,12 +72,10 @@ void EntityInspector()
     ImGui::Text("Drop Model Here: ");
     ImGui::SameLine();
     if (ImGui::Button(model_path_title.c_str(), ImVec2(200,25)));
-    
-
 
     if (ImGui::BeginDragDropTarget())
     {
-        if (const ImGuiPayload* payload = ImGui::AcceptDragDropPayload("DND_DEMO_CELL"))
+        if (const ImGuiPayload* payload = ImGui::AcceptDragDropPayload("MODEL_PAYLOAD"))
         {
             IM_ASSERT(payload->DataSize == sizeof(int));
             int payload_n = *(const int*)payload->Data;
@@ -114,10 +112,39 @@ void EntityInspector()
     else
         selected_entity->position = selected_entity_position;
 
+    ImGui::Text("Materials: ");
+
     ImGui::Text("Color: ");
+    ImGui::PushStyleVar(ImGuiStyleVar_ItemSpacing, ImVec2(0, 40));
     ImGui::ColorEdit4("##Changeentity_color", (float*)&entity_colorImGui, ImGuiColorEditFlags_NoInputs);
+    ImGui::PopStyleVar();
     Color entity_color = (Color){ (unsigned char)(entity_colorImGui.x*255), (unsigned char)(entity_colorImGui.y*255), (unsigned char)(entity_colorImGui.z*255), (unsigned char)(color.w*255) };
     selected_entity->color = entity_color;
+
+    ImGui::Text("Texture: ");
+    if (ImGui::ImageButton((ImTextureID)&entity_texture, ImVec2(64, 64)))
+    {
+        show_texture = !show_texture;
+    }
+
+    if (ImGui::BeginDragDropTarget())
+    {
+        if (const ImGuiPayload* payload = ImGui::AcceptDragDropPayload("TEXTURE_PAYLOAD"))
+        {
+            IM_ASSERT(payload->DataSize == sizeof(int));
+            int payload_n = *(const int*)payload->Data;
+
+            string path = dir_path.c_str();
+            path += "/" + files_texture_struct[payload_n].name;
+
+            entity_texture = LoadTexture(path.c_str());
+            selected_entity->texture = entity_texture;
+            selected_entity->model.materials[0].maps[MATERIAL_MAP_DIFFUSE].texture = entity_texture;
+            selected_entity->texture_path = path;
+        }
+        ImGui::EndDragDropTarget();
+    }
+
 
     ImGui::Text("Physics: ");
     ImGui::Text("Do Physics ");
@@ -140,7 +167,7 @@ void EntityInspector()
     if (ImGui::BeginDragDropTarget())
     {
         // Check if a drag and drop operation has been accepted
-        if (const ImGuiPayload* payload = ImGui::AcceptDragDropPayload("DND_DEMO_CELL"))
+        if (const ImGuiPayload* payload = ImGui::AcceptDragDropPayload("SCRIPT_PAYLOAD"))
         {
             IM_ASSERT(payload->DataSize == sizeof(int));
             int payload_n = *(const int*)payload->Data;
@@ -199,12 +226,26 @@ void LightInspector()
     UpdateLightsBuffer();
 }
 
+
+void ShowTexture()
+{
+    if (!show_texture)
+        return;
+    
+    ImGui::SetNextWindowSize(ImVec2(entity_texture.width, entity_texture.height));
+    ImGui::Begin("Texture Previewer");
+    ImGui::Image((ImTextureID)&entity_texture, ImVec2(entity_texture.width, entity_texture.height));
+    ImGui::End();
+}
+
 void Inspector()
 {
     if (selected_game_object_type == "entity")
         EntityInspector();
     else if (selected_game_object_type == "light")
         LightInspector();
+
+    ShowTexture();
 }
 
 

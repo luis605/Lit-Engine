@@ -19,13 +19,13 @@ unsigned int depthMapFBO;
 typedef enum
 {
     LIGHT_DIRECTIONAL = 0,
-    LIGHT_POINT
+    LIGHT_POINT = 1
 } LightType;
 
 typedef struct Light
 {
-    int type;
-    bool enabled;
+    int type = LIGHT_DIRECTIONAL;
+    bool enabled = true;
     alignas(16) glm::vec3 position;
     alignas(16) glm::vec3 relative_position;
     alignas(16) glm::vec3 target;
@@ -34,6 +34,7 @@ typedef struct Light
     float intensity = 0.5;
     float specularStrength = 0.5;
     bool isChild;
+    alignas(16) glm::vec3 direction = {0, 0, 1};
 };
 
 typedef struct AdditionalLightInfo
@@ -88,16 +89,6 @@ void UpdateLightsBuffer()
 
     int lightsCount = lights.size();
     SetShaderValue(shader, GetShaderLocation(shader, "lightsCount"), &lightsCount, SHADER_UNIFORM_INT);
-
-
-
-
-
-
-
-
-
-
 
 }
 

@@ -24,8 +24,7 @@
             "y": 0.10000000149011612,
             "z": 45.0
         },
-        "script_path": "",
-        "type": "entity"
+        "script_path": ""
     },
     {
         "color": {
@@ -52,8 +51,7 @@
             "y": 1.0,
             "z": 1.0
         },
-        "script_path": "",
-        "type": "entity"
+        "script_path": ""
     },
     {
         "color": {
@@ -80,8 +78,7 @@
             "y": 1.0,
             "z": 1.0
         },
-        "script_path": "project/game/hi.py",
-        "type": "entity"
+        "script_path": "project/game/hi.py"
     },
     {
         "color": {
@@ -108,38 +105,6 @@
             "y": 3.0,
             "z": 2.0
         },
-        "script_path": "",
-        "type": "entity"
-    },
-    {
-        "color": {
-            "a": 1.0,
-            "b": 1.0,
-            "g": 1.0,
-            "r": 1.0
-        },
-        "direction": {
-            "x": 0.0,
-            "y": 0.0,
-            "z": 1.0
-        },
-        "id": "",
-        "name": "Light",
-        "position": {
-            "x": 4.0,
-            "y": 4.0,
-            "z": 4.0
-        },
-        "relative_position": {
-            "x": -7.613543478006832e+37,
-            "y": 0.0,
-            "z": 2.2865772290328494e+18
-        },
-        "target": {
-            "x": -8.009771867779675e+30,
-            "y": 4.5912142885138307e-41,
-            "z": 2.2865659590386647e+18
-        },
-        "type": "light"
+        "script_path": ""
     }
 ]

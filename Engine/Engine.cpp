@@ -1,4 +1,5 @@
 #include "../include_all.h"
+#include "Engine.hpp"
 
 string colorToString(const Color& color) {
   stringstream ss;
@@ -145,7 +146,7 @@ PYBIND11_EMBEDDED_MODULE(input_module, m) {
 
 
 
-bool raycast(Vector3 origin, Vector3 direction, bool debug=false, std::vector<Entity> ignore = {});
+HitInfo raycast(Vector3 origin, Vector3 direction, bool debug=false, std::vector<Entity> ignore = {});
 
 
 PYBIND11_EMBEDDED_MODULE(collisions_module, m) {
@@ -155,8 +156,19 @@ PYBIND11_EMBEDDED_MODULE(collisions_module, m) {
         .def_readwrite("y", &Vector3::y, py::call_guard<py::gil_scoped_release>())
         .def_readwrite("z", &Vector3::z, py::call_guard<py::gil_scoped_release>());
 
+    py::class_<HitInfo>(m, "HitInfo")
+        .def(py::init<>())
+        .def_readwrite("hit", &HitInfo::hit)
+        .def_readwrite("worldPoint", &HitInfo::worldPoint, py::call_guard<py::gil_scoped_release>())
+        .def_readwrite("relativePoint", &HitInfo::relativePoint, py::call_guard<py::gil_scoped_release>())
+        .def_readwrite("worldNormal", &HitInfo::worldNormal, py::call_guard<py::gil_scoped_release>())
+        .def_readwrite("distance", &HitInfo::distance)
+        .def_readwrite("hitColor", &HitInfo::hitColor)
+        .def_readwrite("entity", &HitInfo::entity, py::call_guard<py::gil_scoped_release>());
+
     m.def("raycast", &raycast, py::arg("origin"), py::arg("direction"), py::arg("debug") = false, py::arg("ignore") = std::vector<Entity>(), py::call_guard<py::gil_scoped_release>());
 }
+
 
 
 
@@ -230,6 +242,9 @@ public:
     string script = "";
     string model_path = "";
     Model model;
+
+    std::filesystem::path texture_path;
+    Texture2D texture;
 
     bool collider = true;
     bool visible = true;
@@ -324,6 +339,10 @@ public:
         model_path = modelPath;
         model = LoadModel(modelPath);
         model.materials[0].shader = shader;
+        if (IsTextureReady(this->texture))
+        {
+            model.materials[0].maps[MATERIAL_MAP_DIFFUSE].texture = texture;
+        }
     }
 
     bool hasModel()
@@ -378,7 +397,7 @@ public:
         
 
 
-        py::dict locals = py::dict(
+        thread_local py::dict locals = py::dict(
             "entity"_a = entity_obj,
             "IsMouseButtonPressed"_a = input_module.attr("IsMouseButtonPressed"),
             "IsKeyDown"_a = input_module.attr("IsKeyDown"),
@@ -390,10 +409,11 @@ public:
         );
 
 
+
         try {
             pybind11::gil_scoped_acquire acquire;
             string script_content = read_file_to_string(script);
-            while (running)
+            while (true)
             {
                 while (flag[1 - id] && turn == 1 - id) {}
                 py::exec(script_content, py::globals(), locals);
@@ -445,16 +465,20 @@ float GetExtremeValue(const Vector3& a) {
 }
 
 
-bool raycast(Vector3 origin, Vector3 direction, bool debug=false, std::vector<Entity> ignore = {}){
- 
+HitInfo raycast(Vector3 origin, Vector3 direction, bool debug=false, std::vector<Entity> ignore = {}){
+
     int id = 0;
 
     flag[id] = true;
     turn = 1 - id;
 
-    while (flag[1 - id] && turn == 1 - id) {}
+    // while (flag[1 - id] && turn == 1 - id) {}
 
     pybind11::gil_scoped_acquire acquire;
+
+    HitInfo _hitInfo;
+    _hitInfo.hit = false;
+
     Ray ray;
     ray.position = origin;
     ray.direction = direction;
@@ -495,12 +519,18 @@ bool raycast(Vector3 origin, Vector3 direction, bool debug=false, std::vector<En
             if (meshHitInfo.hit)
             {
                 flag[id] = false;
-                return true;
+                _hitInfo.hit = true;
+                _hitInfo.distance = meshHitInfo.distance;
+                _hitInfo.entity = &entity;
+                _hitInfo.worldPoint = meshHitInfo.point;
+                _hitInfo.worldNormal = meshHitInfo.normal;
+                _hitInfo.hitColor = entity.color;
+                return _hitInfo;
             }
         }
     }
     flag[id] = false;
 
     pybind11::gil_scoped_release release;
-    return false;
+    return _hitInfo;
 }
