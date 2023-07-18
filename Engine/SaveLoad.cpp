@@ -6,7 +6,7 @@ namespace nlohmann {
         static void to_json(json& j, const Color& color) {
             j = json{{"r", color.r}, {"g", color.g}, {"b", color.b}, {"a", color.a}};
         }
-        
+
         static void from_json(const json& j, Color& color) {
             color.r = j["r"];
             color.g = j["g"];
@@ -14,9 +14,21 @@ namespace nlohmann {
             color.a = j["a"];
         }
     };
-}
 
-namespace nlohmann {
+    template<>
+    struct adl_serializer<glm::vec4> {
+        static void to_json(json& j, const glm::vec4& vec) {
+            j = json{{"r", vec.r}, {"g", vec.g}, {"b", vec.b}, {"a", vec.a}};
+        }
+
+        static void from_json(const json& j, glm::vec4& vec) {
+            vec.r = j["r"];
+            vec.g = j["g"];
+            vec.b = j["b"];
+            vec.a = j["a"];
+        }
+    };
+
     template<>
     struct adl_serializer<Vector3> {
         static void to_json(json& j, const Vector3& vec) {
@@ -29,10 +41,26 @@ namespace nlohmann {
             vec.z = j["z"];
         }
     };
+
+
+    template<>
+    struct adl_serializer<glm::vec3> {
+        static void to_json(json& j, const glm::vec3& vec) {
+            j = json{{"x", vec.x}, {"y", vec.y}, {"z", vec.z}};
+        }
+        
+        static void from_json(const json& j, Vector3& vec) {
+            vec.x = j["x"];
+            vec.y = j["y"];
+            vec.z = j["z"];
+        }
+    };
+
 }
 
 void SaveEntity(json& json_data, const Entity& entity) {
     json j;
+    j["type"] = "entity";
     j["color"] = entity.color;
     j["name"] = entity.name;
     j["scale"] = entity.scale;
@@ -55,10 +83,33 @@ void SaveEntity(json& json_data, const Entity& entity) {
     json_data.emplace_back(j);
 }
 
+
+
+void SaveLight(json& json_data, const Light& light, int light_index) {
+    json j;
+    j["type"] = "light";
+    j["color"] = light.color;
+    j["name"] = lights_info.at(light_index).name;
+    j["position"] = light.position;
+    j["relative_position"] = light.relative_position;
+    j["target"] = light.target;
+    j["direction"] = light.direction;
+    j["id"] = lights_info.at(light_index).id;
+
+
+    json_data.emplace_back(j);
+}
+
 int SaveProject() {
     json json_data;
     for (const auto& entity : entities_list_pregame) {
         SaveEntity(json_data, entity);
+    }
+
+    int light_index = 0;
+    for (const auto& light : lights) {
+        SaveLight(json_data, light, light_index);
+        light_index++;
     }
 
     std::ofstream outfile("project.json");
@@ -126,6 +177,56 @@ void LoadEntity(const json& entity_json, Entity& entity) {
 }
 
 
+
+void LoadLight(const json& light_json, Light& light, AdditionalLightInfo light_info) {
+    light.color = (glm::vec4{
+        light_json["color"]["r"].get<int>(),
+        light_json["color"]["g"].get<int>(),
+        light_json["color"]["b"].get<int>(),
+        light_json["color"]["a"].get<int>()
+    });
+    
+    light_info.name = (light_json["name"].get<std::string>());
+
+    glm::vec3 position{
+        light_json["position"]["x"].get<float>(),
+        light_json["position"]["y"].get<float>(),
+        light_json["position"]["z"].get<float>()
+    };
+
+    light.position = position;
+
+    glm::vec3 relative_position{
+        light_json["relative_position"]["x"].get<float>(),
+        light_json["relative_position"]["y"].get<float>(),
+        light_json["relative_position"]["z"].get<float>()
+    };
+
+    light.relative_position = relative_position;
+
+    glm::vec3 target{
+        light_json["target"]["x"].get<float>(),
+        light_json["target"]["y"].get<float>(),
+        light_json["target"]["z"].get<float>()
+    };
+
+    light.target = target;
+    
+    glm::vec3 direction{
+        light_json["direction"]["x"].get<float>(),
+        light_json["direction"]["y"].get<float>(),
+        light_json["direction"]["z"].get<float>()
+    };
+
+    light.direction = direction;
+    
+    light_info.id = light_json["id"].get<std::string>();
+
+
+
+}
+
+
 int LoadProject() {
     std::ifstream infile("project.json");
     if (!infile.is_open()) {
@@ -142,14 +243,26 @@ int LoadProject() {
 
     try {
         for (const auto& entity_json : json_data) {
-            Entity entity;
-            LoadEntity(entity_json, entity);
-            entities_list_pregame.push_back(entity);
+            string type = entity_json["type"].get<std::string>();
+            if (type == "entity") {
+                Entity entity;
+                LoadEntity(entity_json, entity);
+                entities_list_pregame.push_back(entity);
+            }
+            else if (type == "light") {
+                Light light;
+                AdditionalLightInfo light_info;
+                LoadLight(entity_json, light, light_info);
+                lights_info.push_back(light_info);
+                lights.push_back(light);
+            }
         }
     } catch (const json::type_error& e) {
         std::cerr << "JSON type error: " << e.what() << std::endl;
         return 1;
     }
 
+    UpdateLightsBuffer();
+    
     return 0;
 }

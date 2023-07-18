@@ -23,6 +23,7 @@ vector<FolderTextureItem> folders_texture_struct;
 struct FileTextureItem {
     string name;
     Texture2D texture;
+    string path;
 };
 vector<FileTextureItem> files_texture_struct;
 
@@ -33,7 +34,15 @@ struct stat st;
 vector<string> files;
 vector<string> folders;
 
-string dir_path = "project/game";
+std::filesystem::path dir_path = "project/game";
+float padding = 10.0f;
+float thumbnailSize = 128.0f;
+float cellSize = thumbnailSize + padding;
 
+ImVec2 AssetsExplorer_window_size = {cellSize, cellSize};
+
+
+
+Camera3D model_previewer_camera = { 0 };
 
 #endif // ASSETSEXPLORER_H

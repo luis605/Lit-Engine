@@ -1,5 +1,6 @@
-velocity = 0.5
+velocity = 2
 entity.name = str(entity.position.x)
+
 
 if (IsKeyDown(KeyboardKey.KEY_A)):
     entity.position.z += velocity * time.dt
@@ -28,9 +29,22 @@ if IsKeyDown(KeyboardKey.KEY_LEFT_SHIFT):
 else:
 	velocity = 0.5
 
-print(time.dt)
+if IsKeyDown(KeyboardKey.KEY_P):
+	camera.target.x += velocity * time.dt
+elif IsKeyDown(KeyboardKey.KEY_O):
+	camera.target.x -= velocity * time.dt
+
 camera.position = Vector3(entity.position.x - 10, entity.position.y + 2, entity.position.z)
 camera.target = Vector3(entity.position.x, entity.position.y, entity.position.z)
+
+if raycast(entity.position, Vector3(0, 1, 0), ignore=[entity]).hit:
+	print("COLLIDED")
+
+
+
+
+
+
 
 
 

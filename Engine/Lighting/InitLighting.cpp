@@ -1,6 +1,13 @@
 #include "../../include_all.h"
 
 
+
+void SetupShadowMapping()
+{
+
+}
+
+
 void InitLighting()
 {
     Vector4 ambientLight = {0.2f, 0.2f, 0.2f, 1.0f};
@@ -17,6 +24,6 @@ void InitLighting()
     int lightsCount = lights.size();
     glUniform1i(GetShaderLocation(shader, "lightsCount"), lightsCount);
 
-
-
+    // Setup shadow mapping
+    SetupShadowMapping();
 }
