@@ -45,29 +45,6 @@ out vec4 finalColor;
 
 
 
-vec3 directionalLight(vec3 normalizedNormal, vec3 position, vec3 lightPos, vec3 viewPosition, vec3 color, float shadow)
-{
-    vec3 lightColor = vec3(1.0);
-    // Ambient
-    vec3 ambient = lightColor * 0.15 * color;
-    
-    vec3 lightDirection = normalize(lightPos - position);
-    vec3 viewDirection = normalize(viewPosition - position);
-    vec3 halfwayDirection = normalize(lightDirection + viewDirection);
-    
-    // Diffuse
-    float diffuseIntensity = max(dot(normalizedNormal, lightDirection), 0.0);
-    vec3 diffuse = diffuseIntensity * lightColor * color;
-    
-    // Specular
-    float specularStrength = 0.85;
-    float specularIntensity = pow(max(dot(normalizedNormal, halfwayDirection), 0.0), 32.0);
-    vec3 specular = specularStrength * specularIntensity * lightColor;
-    
-    // Combine the components and apply shadow
-    vec3 result = ambient + (diffuse + specular) * (1.0 - shadow);
-    return result;
-}
 
 void main() {
     // Normalize the surface normal
@@ -91,10 +68,11 @@ void main() {
         Light light = lights[i];
         
         if (light.type == LIGHT_DIRECTIONAL && light.enabled) {
-            // Calculate the light position by adding the light direction to the light position
-            vec3 lightPos = light.position + light.direction;
+            float diffuseStrength = 0.7;
+            vec3 fragLightDir = normalize(-light.direction);
+            float diffuse = diffuseStrength * max(dot(norm, fragLightDir), 0.0);
             
-            result += directionalLight(norm, fragPosition, lightPos, viewPos, colDiffuse.rgb, 0.2);
+            result += vec3(colDiffuse.x*diffuse, colDiffuse.y*diffuse, colDiffuse.z*colDiffuse);
         }
 
         else if (light.type == LIGHT_POINT && light.enabled) {
