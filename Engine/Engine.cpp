@@ -395,6 +395,7 @@ public:
         py::module camera_module = py::module::import("camera_module");
         py::module time_module = py::module::import("time_module");
         
+        
 
 
         thread_local py::dict locals = py::dict(
@@ -410,25 +411,45 @@ public:
 
 
 
+
         try {
             pybind11::gil_scoped_acquire acquire;
             string script_content = read_file_to_string(script);
-            while (true)
-            {
-                while (flag[1 - id] && turn == 1 - id) {}
-                py::exec(script_content, py::globals(), locals);
-                flag[id] = false;
 
-                if (IsKeyDown(KEY_B))
-                {
-                    camera.position.x += .1;
-                }
+            // Create a new Python module
+            py::module module("__main__");
+
+            // Populate the module with the items from the 'locals' dictionary
+            for (auto item : locals) {
+                module.attr(item.first) = item.second;
             }
-            pybind11::gil_scoped_release release;
+
+            // Execute the script once to initialize variables and define the update function
+            py::eval<py::eval_statements>(script_content, module.attr("__dict__"));
+
+            // Check if the 'update' function exists in the script
+            if (module.attr("__dict__").contains("update")) {
+                // Retrieve the 'update' function from the module
+                py::object update_func = module.attr("update");
+
+                // Main loop
+                while (running) {
+                    while (flag[1 - id] && turn == 1 - id) {}
+
+                    // Call the 'update' function in the script with the module as the context
+                    update_func(); // Correct way to call the Python function directly with the module as the context
+
+                    flag[id] = false;
+                }
+            } else {
+                std::cout << "The 'update' function is not defined in the script.\n";
+                return 1;
+            }
+
+            py::gil_scoped_release release;
         } catch (const py::error_already_set& e) {
             py::print(e.what());
         }
-
     }
 
 

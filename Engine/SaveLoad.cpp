@@ -230,8 +230,6 @@ void LoadLight(const json& light_json, Light& light, AdditionalLightInfo light_i
     light.cutOff             = light_json["cutOff"].get<float>();
     light.specularStrength   = light_json["specularStrength"].get<float>();
     light.attenuation        = light_json["attenuation"].get<float>();
-
-
 }
 
 
