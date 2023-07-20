@@ -30,7 +30,7 @@ endef
 
 
 CXXFLAGS = -g -pipe -std=c++17 -O0 -fpermissive -w -Wall -DNDEBUG
-SRC_FILES = test_imgui.cpp ImGuiColorTextEdit/TextEditor.cpp include/rlImGui.cpp
+SRC_FILES = main.cpp ImGuiColorTextEdit/TextEditor.cpp include/rlImGui.cpp
 INCLUDE_DIRS = -I./include -I./ImGuiColorTextEdit -I/usr/local/lib -L/usr/lib/x86_64-linux-gnu/ -L/usr/local/lib -I./include/nlohmann -I./imgui -I./physx_include -L./physx_lib
 LIB_FLAGS = -L./include -lboost_filesystem -lraylib -pthread -lpython3.11 -fPIC `python3.11 -m pybind11 --includes` -ldl -lPhysX_static_64 -lPhysXCommon_static_64 -lPhysXCooking_static_64 -lPhysXExtensions_static_64 -lPhysXFoundation_static_64 -lPhysXPvdSDK_static_64 -lPhysXVehicle2_static_64 -lPhysXVehicle_static_64 -lSnippetRender_static_64 -lSnippetUtils_static_64 -lPhysXGpu_64 -lcuda -lcudart -lnvrtc -lcublas -lcudadevrt
 

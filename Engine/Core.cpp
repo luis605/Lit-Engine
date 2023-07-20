@@ -43,7 +43,12 @@ void Startup() {
     save_texture = LoadTexture("assets/images/save_file.png");
     hot_reload_texture = LoadTexture("assets/images/hot_reload.png");
     light_texture = LoadTexture("assets/images/light_bulb.png");
+    window_icon_texture = LoadImage("assets/images/window_icon.png");
+
+    ImageFormat(&window_icon_texture, PIXELFORMAT_UNCOMPRESSED_R8G8B8A8);
+    SetWindowIcon(window_icon_texture);
     
+
     // Code Editor
     code.resize(100000);
 	auto lang = TextEditor::LanguageDefinition::CPlusPlus();
@@ -116,6 +121,7 @@ void CleanUp() {
 
 
     UnloadShader(shader);
+    UnloadImage(window_icon_texture);
 
 
     in_game_preview = false;

@@ -8,6 +8,8 @@ char* selected_game_object_type = "";
 int windowWidth = 1900;
 int windowHeight = 900;
 
+static Image window_icon_texture;
+
 /* Entities List */
 bool in_game_preview = false;
 
