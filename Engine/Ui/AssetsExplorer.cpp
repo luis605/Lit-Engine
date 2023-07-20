@@ -2,9 +2,6 @@ void AssetsExplorer(string code);
 
 #include "../../include_all.h"
 
-
-std::unordered_map<string, Texture2D> models_icons;
-
 Texture2D RenderModelPreview(const char* modelFile) {
     Model model = LoadModel(modelFile);
 
