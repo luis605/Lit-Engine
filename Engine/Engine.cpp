@@ -3,8 +3,14 @@
 
 string colorToString(const Color& color) {
   stringstream ss;
-  ss << "(" << color.r << ", " << color.g << ", " << color.b << ", " << color.a << ")";
+  ss << "(" << (int)color.r << ", " << (int)color.g << ", " << (int)color.b << ", " << (int)color.a << ")";
   return ss.str();
+}
+
+
+void printColor(const Color& color) {
+  string color_text = colorToString(color);
+  std::cout << color_text.c_str() << std::endl;
 }
 
 
@@ -170,6 +176,17 @@ PYBIND11_EMBEDDED_MODULE(collisions_module, m) {
 }
 
 
+PYBIND11_EMBEDDED_MODULE(color_module, m) {
+    py::class_<Color>(m, "Color")
+        .def(py::init<float, float, float, float>())
+        .def_readwrite("r", &Color::r, py::call_guard<py::gil_scoped_release>())
+        .def_readwrite("g", &Color::g, py::call_guard<py::gil_scoped_release>())
+        .def_readwrite("b", &Color::b, py::call_guard<py::gil_scoped_release>())
+        .def_readwrite("a", &Color::a, py::call_guard<py::gil_scoped_release>())
+        .def("print", [](const Color& color) {
+            printColor(color);
+        });
+}
 
 
 
@@ -215,14 +232,13 @@ py::scoped_interpreter guard{}; // Start interpreter
 
 
 
+
+
+
 bool EntityRunScriptFirstTime = true;
-
-
-
-atomic<bool> flag[2] = {false, false};
-atomic<int> turn = 0;
-int shared_resource = 0;
 bool Entity_already_registered = false;
+
+std::mutex script_mutex;
 
 
 class Entity {
@@ -252,7 +268,7 @@ public:
     bool isParent = false;
     bool running = false;
 
-    string id = "";
+    int id = "";
 
     Entity* parent;
     vector<Entity*> children;
@@ -263,9 +279,12 @@ public:
 
     Entity(Color color = { 255, 255, 255, 255 }, Vector3 scale = { 1, 1, 1 }, Vector3 rotation = { 0, 0, 0 }, string name = "entity", Vector3 position = {0, 0, 0}, string script = "")
         : color(color), scale(scale), rotation(rotation), name(name), position(position), script(script)
-    {
-        
+    {   
         initialized = true;
+    }
+
+    bool operator==(const Entity& other) const {
+        return this->id == other.id;
     }
 
 
@@ -359,16 +378,11 @@ public:
         model.materials[0].shader = shader;
     }
 
-
-
     void runScript(std::reference_wrapper<Entity> entityRef)
     {
         if (script.empty()) return;
         running = true;
-        int id = 1;
-
-        flag[id] = true;
-        turn = 1 - id;
+        std::lock_guard<std::mutex> lock(script_mutex);
         
         py::gil_scoped_release release;
         py::gil_scoped_acquire acquire;
@@ -385,6 +399,7 @@ public:
                 .def_readwrite("rotation", &Entity::rotation, py::call_guard<py::gil_scoped_release>())
                 .def_readwrite("color", &Entity::color, py::call_guard<py::gil_scoped_release>())
                 .def_readwrite("visible", &Entity::visible, py::call_guard<py::gil_scoped_release>())
+                .def_readwrite("id", &Entity::id, py::call_guard<py::gil_scoped_release>())
                 .def_readwrite("collider", &Entity::collider, py::call_guard<py::gil_scoped_release>());
         }
         Entity& this_entity = entityRef.get();
@@ -394,9 +409,8 @@ public:
         py::module collisions_module = py::module::import("collisions_module");
         py::module camera_module = py::module::import("camera_module");
         py::module time_module = py::module::import("time_module");
+        py::module color_module = py::module::import("color_module");
         
-        
-
 
         thread_local py::dict locals = py::dict(
             "entity"_a = entity_obj,
@@ -405,41 +419,32 @@ public:
             "KeyboardKey"_a = input_module.attr("KeyboardKey"),
             "raycast"_a = collisions_module.attr("raycast"),
             "Vector3"_a = collisions_module.attr("Vector3"),
+            "Color"_a = color_module.attr("Color"),
             "time"_a = py::cast(&time_instance),
             "camera"_a = py::cast(&camera)
         );
-
-
 
 
         try {
             pybind11::gil_scoped_acquire acquire;
             string script_content = read_file_to_string(script);
 
-            // Create a new Python module
             py::module module("__main__");
 
-            // Populate the module with the items from the 'locals' dictionary
             for (auto item : locals) {
                 module.attr(item.first) = item.second;
             }
 
-            // Execute the script once to initialize variables and define the update function
             py::eval<py::eval_statements>(script_content, module.attr("__dict__"));
 
-            // Check if the 'update' function exists in the script
+
             if (module.attr("__dict__").contains("update")) {
-                // Retrieve the 'update' function from the module
                 py::object update_func = module.attr("update");
 
-                // Main loop
+                script_mutex.unlock();
+
                 while (running) {
-                    while (flag[1 - id] && turn == 1 - id) {}
-
-                    // Call the 'update' function in the script with the module as the context
-                    update_func(); // Correct way to call the Python function directly with the module as the context
-
-                    flag[id] = false;
+                    update_func();
                 }
             } else {
                 std::cout << "The 'update' function is not defined in the script.\n";
@@ -463,12 +468,8 @@ public:
 
         model.transform = MatrixScale(scale.x, scale.y, scale.z);
         if (visible)
-        {
             DrawModel(model, {position.x, position.y, position.z}, 1.0f, color);
-        }
     }
-
-
 };
 
     
@@ -486,15 +487,9 @@ float GetExtremeValue(const Vector3& a) {
 }
 
 
-HitInfo raycast(Vector3 origin, Vector3 direction, bool debug=false, std::vector<Entity> ignore = {}){
-
-    int id = 0;
-
-    flag[id] = true;
-    turn = 1 - id;
-
-    // while (flag[1 - id] && turn == 1 - id) {}
-
+HitInfo raycast(Vector3 origin, Vector3 direction, bool debug=false, std::vector<Entity> ignore = {})
+{
+    std::lock_guard<std::mutex> lock(script_mutex);
     pybind11::gil_scoped_acquire acquire;
 
     HitInfo _hitInfo;
@@ -505,9 +500,8 @@ HitInfo raycast(Vector3 origin, Vector3 direction, bool debug=false, std::vector
     ray.direction = direction;
 
     if (debug)
-    {
         DrawRay(ray, RED);
-    }
+
 
     Entity entity;
 
@@ -515,10 +509,11 @@ HitInfo raycast(Vector3 origin, Vector3 direction, bool debug=false, std::vector
     {
         entity = entities_list[index];
 
-        if (!entity.collider)
-        {
+        if (std::find(ignore.begin(), ignore.end(), entity) != ignore.end())
             continue;
-        }   
+
+        if (!entity.collider)
+            continue;
 
         float extreme_rotation = GetExtremeValue(entity.rotation);
 
@@ -539,19 +534,19 @@ HitInfo raycast(Vector3 origin, Vector3 direction, bool debug=false, std::vector
             meshHitInfo = GetRayCollisionMesh(ray, entity.model.meshes[mesh_i], modelMatrix);
             if (meshHitInfo.hit)
             {
-                flag[id] = false;
                 _hitInfo.hit = true;
                 _hitInfo.distance = meshHitInfo.distance;
                 _hitInfo.entity = &entity;
                 _hitInfo.worldPoint = meshHitInfo.point;
                 _hitInfo.worldNormal = meshHitInfo.normal;
-                _hitInfo.hitColor = entity.color;
+               _hitInfo.hitColor = entity.color;
+
                 return _hitInfo;
             }
         }
     }
-    flag[id] = false;
 
     pybind11::gil_scoped_release release;
+    
     return _hitInfo;
 }

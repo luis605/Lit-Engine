@@ -166,7 +166,7 @@ void LoadEntity(const json& entity_json, Entity& entity) {
 
     entity.setModel(entity_json["model_path"].get<std::string>().c_str());
     entity.script = entity_json["script_path"].get<std::string>();
-    entity.id = entity_json["id"].get<std::string>();
+    entity.id = entity_json["id"].get<int>();
     
     if (entity_json.contains("children")) {
         const json& children_data = entity_json["children"];
@@ -224,7 +224,7 @@ void LoadLight(const json& light_json, Light& light, AdditionalLightInfo light_i
 
     light.direction = direction;
     
-    light_info.id = light_json["id"].get<std::string>();
+    light_info.id = light_json["id"].get<int>();
 
     light.intensity          = light_json["intensity"].get<float>();
     light.cutOff             = light_json["cutOff"].get<float>();
