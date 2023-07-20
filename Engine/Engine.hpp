@@ -7,6 +7,7 @@ class Entity;
 
 string colorToString(const Color& color);
 
+typedef struct Light;
 
 variant<Entity*, Light*> object_in_inspector;
 

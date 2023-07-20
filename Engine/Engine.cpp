@@ -1,5 +1,4 @@
 #include "../include_all.h"
-#include "Engine.hpp"
 
 string colorToString(const Color& color) {
   stringstream ss;
@@ -262,6 +261,9 @@ public:
     std::filesystem::path texture_path;
     Texture2D texture;
 
+    std::filesystem::path normal_texture_path;
+    Texture2D normal_texture;
+
     bool collider = true;
     bool visible = true;
     bool isChild = false;
@@ -272,9 +274,6 @@ public:
 
     Entity* parent;
     vector<Entity*> children;
-
-
-
 
 
     Entity(Color color = { 255, 255, 255, 255 }, Vector3 scale = { 1, 1, 1 }, Vector3 rotation = { 0, 0, 0 }, string name = "entity", Vector3 position = {0, 0, 0}, string script = "")

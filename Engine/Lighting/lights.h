@@ -37,12 +37,21 @@ typedef struct Light
     float cutOff = 10;
     bool isChild;
     alignas(16) glm::vec3 direction = {0, 0, 1};
+    int id;
+
+    bool operator==(const Light& other) const {
+        return (int)this->id == (int)other.id;
+    }
 };
 
 typedef struct AdditionalLightInfo
 {
     string name;
-    string id;
+    int id;
+
+    bool operator==(const Light& other) const {
+        return (int)this->id == (int)other.id;
+    }
 };
 
 vector<Light> lights;
@@ -56,11 +65,13 @@ Light NewLight(const Vector3 position, const Color color)
     Light light;
     light.position = lights_position;
     light.color = lights_color;
+    light.id = lights.size() + entities_list_pregame.size() + 1;
     lights.push_back(light);
 
 
     AdditionalLightInfo info;
     info.name = "Light";
+    info.id = light.id;
 
     lights_info.push_back(info);
 
@@ -69,9 +80,9 @@ Light NewLight(const Vector3 position, const Color color)
 
 
 
-void UpdateLightsBuffer()
+void UpdateLightsBuffer(bool force = false)
 {
-    if (lights.empty())
+    if (lights.empty() && !force)
         return;
 
     glBindBuffer(GL_SHADER_STORAGE_BUFFER, lightsBuffer);
