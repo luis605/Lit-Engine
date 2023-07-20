@@ -27,6 +27,8 @@ struct FileTextureItem {
 };
 vector<FileTextureItem> files_texture_struct;
 
+std::unordered_map<string, Texture2D> models_icons;
+
 DIR *dir;
 struct dirent *ent;
 struct stat st;

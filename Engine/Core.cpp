@@ -119,11 +119,6 @@ void CleanUp() {
     rlImGuiShutdown();
     CloseWindow(); 
 
-
-    UnloadShader(shader);
-    UnloadImage(window_icon_texture);
-
-
     in_game_preview = false;
 
     first_time_gameplay = false;
@@ -141,4 +136,13 @@ void CleanUp() {
     for (Entity &entity : entities_list)
         entity.remove();
 
+//    UnloadShader(shader);
+    UnloadImage(window_icon_texture);
+
+
+    for (auto it = models_icons.begin(); it != models_icons.end(); ++it) {
+        UnloadTexture(it->second);
+    }
+
+    models_icons.clear();
 }
