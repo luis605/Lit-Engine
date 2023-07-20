@@ -27,12 +27,18 @@ void EntityInspector()
     if (!entities_list_pregame.empty()) {
         try {
             selected_entity_name = selected_entity->name;
-        }
-        catch (std::bad_alloc)
-        {
+        } catch (std::bad_alloc) {
             return;
         }
     }
+
+    if (IsKeyPressed(KEY_DELETE))
+    {
+        entities_list_pregame.erase(std::remove(entities_list_pregame.begin(), entities_list_pregame.end(), *selected_entity), entities_list_pregame.end());
+        return;
+    }
+
+
 
     ImGui::Text("Inspecting '");
     ImGui::SameLine();
@@ -93,56 +99,90 @@ void EntityInspector()
     }
     ImGui::PopStyleVar();
 
-    ImGui::Text("Scale:");
-    ImGui::InputFloat("X##ScaleX", &selected_entity_scale.x);
-    ImGui::InputFloat("Y##ScaleY", &selected_entity_scale.y);
-    ImGui::PushStyleVar(ImGuiStyleVar_ItemSpacing, ImVec2(0, 40));
-    ImGui::InputFloat("Z##ScaleZ", &selected_entity_scale.z);
-    ImGui::PopStyleVar();
-    selected_entity->scale = selected_entity_scale;
-
-    ImGui::Text("Position:");
-    ImGui::InputFloat("X##PositionX", &selected_entity_position.x);
-    ImGui::InputFloat("Y##PositionY", &selected_entity_position.y);
-    ImGui::PushStyleVar(ImGuiStyleVar_ItemSpacing, ImVec2(0, 40));
-    ImGui::InputFloat("Z##PositionZ", &selected_entity_position.z);
-    ImGui::PopStyleVar();
-    if (selected_entity->isChild)
-        selected_entity->relative_position = selected_entity_position;
-    else
-        selected_entity->position = selected_entity_position;
-
-    ImGui::Text("Materials: ");
-
-    ImGui::Text("Color: ");
-    ImGui::PushStyleVar(ImGuiStyleVar_ItemSpacing, ImVec2(0, 40));
-    ImGui::ColorEdit4("##Changeentity_color", (float*)&entity_colorImGui, ImGuiColorEditFlags_NoInputs);
-    ImGui::PopStyleVar();
-    Color entity_color = (Color){ (unsigned char)(entity_colorImGui.x*255), (unsigned char)(entity_colorImGui.y*255), (unsigned char)(entity_colorImGui.z*255), (unsigned char)(color.w*255) };
-    selected_entity->color = entity_color;
-
-    ImGui::Text("Texture: ");
-    if (ImGui::ImageButton((ImTextureID)&entity_texture, ImVec2(64, 64)))
+    if (ImGui::CollapsingHeader("Entity Properties"))
     {
-        show_texture = !show_texture;
+        ImGui::Text("Scale:");
+        ImGui::InputFloat("X##ScaleX", &selected_entity_scale.x);
+        ImGui::InputFloat("Y##ScaleY", &selected_entity_scale.y);
+        ImGui::PushStyleVar(ImGuiStyleVar_ItemSpacing, ImVec2(0, 40));
+        ImGui::InputFloat("Z##ScaleZ", &selected_entity_scale.z);
+        ImGui::PopStyleVar();
+        selected_entity->scale = selected_entity_scale;
+
+        ImGui::Text("Position:");
+        ImGui::InputFloat("X##PositionX", &selected_entity_position.x);
+        ImGui::InputFloat("Y##PositionY", &selected_entity_position.y);
+        ImGui::PushStyleVar(ImGuiStyleVar_ItemSpacing, ImVec2(0, 40));
+        ImGui::InputFloat("Z##PositionZ", &selected_entity_position.z);
+        ImGui::PopStyleVar();
+        if (selected_entity->isChild)
+            selected_entity->relative_position = selected_entity_position;
+        else
+            selected_entity->position = selected_entity_position;
     }
 
-    if (ImGui::BeginDragDropTarget())
+    if (ImGui::CollapsingHeader("Materials"))
     {
-        if (const ImGuiPayload* payload = ImGui::AcceptDragDropPayload("TEXTURE_PAYLOAD"))
+        ImGui::Text("Color: ");
+        ImGui::PushStyleVar(ImGuiStyleVar_ItemSpacing, ImVec2(0, 40));
+        ImGui::ColorEdit4("##Changeentity_color", (float*)&entity_colorImGui, ImGuiColorEditFlags_NoInputs);
+        ImGui::PopStyleVar();
+        Color entity_color = (Color){ (unsigned char)(entity_colorImGui.x*255), (unsigned char)(entity_colorImGui.y*255), (unsigned char)(entity_colorImGui.z*255), (unsigned char)(color.w*255) };
+        selected_entity->color = entity_color;
+
+        ImGui::Text("Texture: ");
+        ImGui::PushStyleVar(ImGuiStyleVar_ItemSpacing, ImVec2(0, 40));
+
+        if (ImGui::ImageButton((ImTextureID)&entity_texture, ImVec2(64, 64)))
         {
-            IM_ASSERT(payload->DataSize == sizeof(int));
-            int payload_n = *(const int*)payload->Data;
-
-            string path = dir_path.c_str();
-            path += "/" + files_texture_struct[payload_n].name;
-
-            entity_texture = LoadTexture(path.c_str());
-            selected_entity->texture = entity_texture;
-            selected_entity->model.materials[0].maps[MATERIAL_MAP_DIFFUSE].texture = entity_texture;
-            selected_entity->texture_path = path;
+            show_texture = !show_texture;
         }
-        ImGui::EndDragDropTarget();
+
+        ImGui::PopStyleVar();
+
+        if (ImGui::BeginDragDropTarget())
+        {
+            if (const ImGuiPayload* payload = ImGui::AcceptDragDropPayload("TEXTURE_PAYLOAD"))
+            {
+                IM_ASSERT(payload->DataSize == sizeof(int));
+                int payload_n = *(const int*)payload->Data;
+
+                string path = dir_path.c_str();
+                path += "/" + files_texture_struct[payload_n].name;
+
+                entity_texture = LoadTexture(path.c_str());
+                selected_entity->texture = entity_texture;
+                selected_entity->model.materials[0].maps[MATERIAL_MAP_DIFFUSE].texture = entity_texture;
+                selected_entity->texture_path = path;
+            }
+            ImGui::EndDragDropTarget();
+        }
+
+
+
+        ImGui::Text("Normal Map Texture: ");
+        if (ImGui::ImageButton((ImTextureID)&selected_entity->normal_texture, ImVec2(64, 64)))
+        {
+            show_texture = !show_normal_texture;
+        }
+
+        if (ImGui::BeginDragDropTarget())
+        {
+            if (const ImGuiPayload* payload = ImGui::AcceptDragDropPayload("TEXTURE_PAYLOAD"))
+            {
+                IM_ASSERT(payload->DataSize == sizeof(int));
+                int payload_n = *(const int*)payload->Data;
+
+                string path = dir_path.c_str();
+                path += "/" + files_texture_struct[payload_n].name;
+
+                selected_entity->normal_texture = LoadTexture(path.c_str());
+                selected_entity->model.materials[0].maps[MATERIAL_MAP_NORMAL].texture = selected_entity->normal_texture;
+                selected_entity->normal_texture_path = path;
+            }
+            ImGui::EndDragDropTarget();
+        }
+
     }
 
 
@@ -203,6 +243,16 @@ void LightInspector()
     if (std::holds_alternative<Light*>(object_in_inspector)) {
         selected_light = std::get<Light*>(object_in_inspector);
     }
+
+
+    if (IsKeyPressed(KEY_DELETE))
+    {
+        lights.erase(std::remove(lights.begin(), lights.end(), *selected_light), lights.end());
+        lights_info.erase(std::remove(lights_info.begin(), lights_info.end(), *selected_light), lights_info.end());
+        UpdateLightsBuffer(true);
+        return;
+    }
+
     ImVec4 light_colorImGui = ImVec4(
         selected_light->color.r,
         selected_light->color.g,
@@ -218,6 +268,7 @@ void LightInspector()
         (unsigned char)(light_colorImGui.z),
         (unsigned char)(light_colorImGui.w)
     };
+
     selected_light->color = light_color;
 
     // Light Type
@@ -289,21 +340,28 @@ void LightInspector()
         }
     }
 
-
-
     UpdateLightsBuffer();
 }
 
 
 void ShowTexture()
 {
-    if (!show_texture)
-        return;
-    
-    ImGui::SetNextWindowSize(ImVec2(entity_texture.width, entity_texture.height));
-    ImGui::Begin("Texture Previewer");
-    ImGui::Image((ImTextureID)&entity_texture, ImVec2(entity_texture.width, entity_texture.height));
-    ImGui::End();
+    if (show_texture)
+    {
+        ImGui::SetNextWindowSize(ImVec2(entity_texture.width, entity_texture.height));
+        ImGui::Begin("Texture Previewer");
+        ImGui::Image((ImTextureID)&entity_texture, ImVec2(entity_texture.width, entity_texture.height));
+        ImGui::End();
+    }
+
+    if (show_normal_texture)
+    {
+        ImGui::SetNextWindowSize(ImVec2(selected_entity->normal_texture.width, selected_entity->normal_texture.height));
+        ImGui::Begin("Normal Texture Previewer");
+        ImGui::Image((ImTextureID)&selected_entity->normal_texture, ImVec2(selected_entity->normal_texture.width, selected_entity->normal_texture.height));
+        ImGui::End();
+    }
+
 }
 
 void Inspector()

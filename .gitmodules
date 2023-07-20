@@ -1,6 +1,9 @@
 [submodule "raylib"]
 	path = raylib
 	url = https://github.com/raysan5/raylib.git
+[submodule "ImGuiColorTextEdit"]
+	path = ImGuiColorTextEdit
+	url = https://github.com/BalazsJako/ImGuiColorTextEdit
 [submodule "ImNodes"]
 	path = ImNodes
-	url = https://github.com/rokups/ImNodes.git
+	url = https://github.com/luis605/ImNodes.git

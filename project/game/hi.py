@@ -1,4 +1,4 @@
-velocity = 2
+velocity = 40
 entity.name = str(entity.position.x)
 
 
@@ -45,6 +45,9 @@ def update():
 	hit_info = raycast(entity.position, Vector3(0, 1, 0), debug=False, ignore=[entity])
 	if hit_info.hit:
 		hit_info.entity.color.print()
+
+
+
 
 
 

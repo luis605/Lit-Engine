@@ -68,7 +68,8 @@ using json = nlohmann::json;
 
 // using namespace physx;
 
-/* Lighting */
+/* Game Objects */
+#include "Engine/Engine.hpp"
 #include "Engine/Lighting/lights.h"
 
 /* Globals */
