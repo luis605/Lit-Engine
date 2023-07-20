@@ -6,7 +6,7 @@
             "g": 162,
             "r": 125
         },
-        "id": "0",
+        "id": 0,
         "model_path": "project/game/models/cube.obj",
         "name": "floor",
         "position": {
@@ -34,7 +34,7 @@
             "g": 189,
             "r": 61
         },
-        "id": "1",
+        "id": 1,
         "model_path": "assets/models/tree.obj",
         "name": "tree",
         "position": {
@@ -62,7 +62,7 @@
             "g": 72,
             "r": 189
         },
-        "id": "2",
+        "id": 2,
         "model_path": "project/game/models/test.obj",
         "name": "player",
         "position": {
@@ -90,7 +90,7 @@
             "g": 22,
             "r": 0
         },
-        "id": "3",
+        "id": 3,
         "model_path": "project/game/models/cube.obj",
         "name": "box",
         "position": {
@@ -125,7 +125,7 @@
             "y": 0.0,
             "z": 1.0
         },
-        "id": "",
+        "id": 4,
         "intensity": 1.3930000066757202,
         "name": "",
         "position": {

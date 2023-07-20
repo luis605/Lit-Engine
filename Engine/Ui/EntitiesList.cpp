@@ -64,7 +64,7 @@ void AddEntity()
 
         if (!entities_list_pregame.empty())
         {
-            string id = to_string(stoi(entities_list_pregame.back().id) + 1);
+            int id = entities_list_pregame.back().id + 1;
             entity_create.id = id;
         }
         else
