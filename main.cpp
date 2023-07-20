@@ -1,13 +1,5 @@
 #include "include_all.h"
 
-
-static ImTextureID icon_texture;
-
-
-
-
-
-
 int LitEngine()
 {
     Startup();
