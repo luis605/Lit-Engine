@@ -8,8 +8,8 @@
 void Startup()
 {
     // Raylib
-    SetTargetFPS(10000);
     SetTraceLogLevel(LOG_WARNING);
+    SetTargetFPS(10000);
     SetExitKey(KEY_NULL);
 
     // Window
@@ -29,7 +29,10 @@ void Startup()
     rlImGuiSetup(true);
 
     ImGui::CreateContext();
+    
+
     ImGuiIO& io = ImGui::GetIO();
+
     io.ConfigFlags |= ImGuiConfigFlags_DockingEnable;
     
     SetStyleGray(&ImGui::GetStyle());
@@ -38,32 +41,36 @@ void Startup()
     style.WindowMinSize.x = 370.0f;
 
 
+    {
 
-    // ImFontConfig fontConfig;
-    // fontConfig.FontDataOwnedByAtlas = false;
+        std::string fontPath = GetWorkingDirectory();
+        fontPath += "/assets/fonts/";
 
-    // std::string fontPath = GetWorkingDirectory();
-    // fontPath += "/assets/fonts/Poppins-Regular.ttf";
-    // std::cout << fontPath << std::endl;
+        float fontSize = 18.0f * ImGui::GetIO().FontGlobalScale;
 
-    // ImFont* robotoFont = io.Fonts->AddFontFromFileTTF(fontPath.c_str(), 20.0f, &fontConfig);
-    // io.FontDefault = robotoFont;
-    // io.Fonts->Build();
-    
+        ImFont* defaultFont = io.Fonts->Fonts[0];
+        s_Fonts["ImGui Default"] = defaultFont;
+        s_Fonts["Default"] = io.Fonts->AddFontFromFileTTF((fontPath + "NotoSans-Medium.ttf").c_str(), fontSize);
+        s_Fonts["Bold"] = io.Fonts->AddFontFromFileTTF((fontPath + "NotoSans-Bold.ttf").c_str(), fontSize + 4);
+        s_Fonts["Italic"] = io.Fonts->AddFontFromFileTTF((fontPath + "NotoSans-Italic.ttf").c_str(), fontSize);
+        s_Fonts["FontAwesome"] = io.Fonts->AddFontFromFileTTF((fontPath + "fontawesome-webfont.ttf").c_str(), fontSize);
 
+        io.FontDefault = defaultFont;
+        rlImGuiReloadFonts();
+    }
 
     // Textures
-    folder_texture = LoadTexture("assets/images/folder.png");
-    image_texture = LoadTexture("assets/images/image_file_type.png");
-    cpp_texture = LoadTexture("assets/images/cpp_file_type.png");
-    python_texture = LoadTexture("assets/images/python_file_type.png");
-    model_texture = LoadTexture("assets/images/model_file_type.png");
-    empty_texture = LoadTexture("assets/images/empty_file_file_type.png");
-    run_texture = LoadTexture("assets/images/run_game.png");
-    pause_texture = LoadTexture("assets/images/pause_game.png");
-    save_texture = LoadTexture("assets/images/save_file.png");
-    hot_reload_texture = LoadTexture("assets/images/hot_reload.png");
-    light_texture = LoadTexture("assets/images/light_bulb.png");
+    folder_texture      = LoadTexture("assets/images/folder.png");
+    image_texture       = LoadTexture("assets/images/image_file_type.png");
+    cpp_texture         = LoadTexture("assets/images/cpp_file_type.png");
+    python_texture      = LoadTexture("assets/images/python_file_type.png");
+    model_texture       = LoadTexture("assets/images/model_file_type.png");
+    empty_texture       = LoadTexture("assets/images/empty_file_file_type.png");
+    run_texture         = LoadTexture("assets/images/run_game.png");
+    pause_texture       = LoadTexture("assets/images/pause_game.png");
+    save_texture        = LoadTexture("assets/images/save_file.png");
+    hot_reload_texture  = LoadTexture("assets/images/hot_reload.png");
+    light_texture       = LoadTexture("assets/images/light_bulb.png");
     window_icon_texture = LoadTexture("assets/images/window_icon.png");
 
     window_icon_image = LoadImage("assets/images/window_icon.png");
@@ -101,8 +108,6 @@ void EngineMainLoop()
 {
     while ((!exitWindow) && (!WindowShouldClose()))
     {
-
-
         BeginDrawing();
 
             ClearBackground(DARKGRAY);
@@ -112,10 +117,7 @@ void EngineMainLoop()
             const ImGuiViewport* viewport = ImGui::GetMainViewport();
             ImGui::DockSpaceOverViewport(viewport);
 
-            glEnable(GL_BLEND);
-            glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
-            glBlendEquation(GL_FUNC_ADD);
-
+            ImGui::PushFont(s_Fonts["Default"]);
 
             MenuBar();
 
@@ -136,6 +138,8 @@ void EngineMainLoop()
             ImGui::End();
 
             AddEntity();
+
+            ImGui::PopFont();
             
             rlImGuiEnd();
 
@@ -201,7 +205,7 @@ Vector2 GetGlobalMousePosition()
 
 void DraggableWindow()
 {
-    bool isTitleBarHovered = ImGui::IsWindowHovered() && ImGui::IsWindowFocused();
+    bool isTitleBarHovered = ImGui::IsItemHovered() && ImGui::IsWindowFocused();
 
     if (isTitleBarHovered && ImGui::IsMouseDown(ImGuiMouseButton_Left)) {
         isDragging = true;

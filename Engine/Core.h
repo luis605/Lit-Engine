@@ -10,7 +10,6 @@ void ToggleMaximization();
 void ExitWindowRequested();
 
 
-
 int windowWidth = 1900;
 int windowHeight = 900;
 int windowX = 0;
@@ -28,5 +27,9 @@ bool isWindowMaximized = false;
 
 bool exitWindowRequested = false;
 bool exitWindow = false;
+
+
+static std::unordered_map<std::string, ImFont*> s_Fonts;
+
 
 #endif // CORE_H
