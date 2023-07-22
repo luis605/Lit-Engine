@@ -154,7 +154,6 @@ void MenuBar()
         }
 
         ImGui::PopFont();
-
         ImGui::PushFont(s_Fonts["Default"]);
 
         ImGui::PopStyleColor(4);
