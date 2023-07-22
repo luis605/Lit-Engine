@@ -5,6 +5,15 @@
 #define MIN(a, b) ((a)<(b)? (a) : (b))
 
 
+TextureCubemap GenTextureCubemap(Shader shader, Texture2D panorama, int size, int format);
+
+TextureCubemap GenTextureCubemap(Shader shader, Texture2D panorama, int size, int format) {
+    // Your implementation code goes here
+    // ...
+    // Make sure to return an appropriate TextureCubemap object
+    // For example, return a default-constructed TextureCubemap if you don't have the actual implementation yet
+}
+
 void Startup()
 {
     // Raylib
@@ -99,6 +108,11 @@ void Startup()
     // Shaders
     shader = LoadShader("Engine/Lighting/shaders/lighting_vertex.glsl", "Engine/Lighting/shaders/lighting_fragment.glsl");
     InitLighting();
+
+
+    //Skybox
+
+
 
     // Physics
     // InitPhysx();
@@ -200,7 +214,7 @@ Vector2 GetGlobalMousePosition()
 
 void DraggableWindow()
 {
-    bool isTitleBarHovered = ImGui::IsItemHovered() && ImGui::IsWindowFocused();
+    bool isTitleBarHovered = ImGui::IsItemHovered();
 
     if (isTitleBarHovered && ImGui::IsMouseDown(ImGuiMouseButton_Left)) {
         isDragging = true;

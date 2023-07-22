@@ -1,16 +1,6 @@
 #include "../include_all.h"
 
-string colorToString(const Color& color) {
-  stringstream ss;
-  ss << "(" << (int)color.r << ", " << (int)color.g << ", " << (int)color.b << ", " << (int)color.a << ")";
-  return ss.str();
-}
 
-
-void printColor(const Color& color) {
-  string color_text = colorToString(color);
-  std::cout << color_text.c_str() << std::endl;
-}
 
 
 
