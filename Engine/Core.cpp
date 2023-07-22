@@ -162,12 +162,7 @@ void CleanUp()
         entity.running = false;
 
 
-    for (auto& script_thread : scripts_thread_vector) {
-        if (script_thread.joinable())
-            script_thread.join();
-    }
-
-    scripts_thread_vector.clear();
+    CleanScriptThreads();
 
     for (Entity &entity : entities_list)
         entity.remove();
