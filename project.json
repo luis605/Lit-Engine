@@ -2,18 +2,48 @@
     {
         "color": {
             "a": 255,
-            "b": 107,
-            "g": 161,
-            "r": 208
+            "b": 255,
+            "g": 255,
+            "r": 255
         },
-        "id": 0,
-        "model_path": "project/game/models/plane.obj",
+        "id": 232289071,
+        "model_path": "project/game/pbr/terrain/source/Rock_Terrain_SF.obj",
+        "name": "terrain",
+        "normal_texture_path": "",
+        "position": {
+            "x": 0.0,
+            "y": 0.0,
+            "z": 0.0
+        },
+        "relative_position": {
+            "x": 0.0,
+            "y": 0.0,
+            "z": 0.0
+        },
+        "scale": {
+            "x": 1.0,
+            "y": 1.0,
+            "z": 1.0
+        },
+        "script_path": "",
+        "texture_path": "project/game/pbr/terrain/source/Rock_Terrain.png",
+        "type": "entity"
+    },
+    {
+        "color": {
+            "a": 255,
+            "b": 29,
+            "g": 127,
+            "r": 213
+        },
+        "id": 232289072,
+        "model_path": "project/game/models/cube.obj",
         "name": "floor",
         "normal_texture_path": "",
         "position": {
-            "x": 0.0,
+            "x": -0.10000001639127731,
             "y": 0.0,
-            "z": 1.0
+            "z": 0.0
         },
         "relative_position": {
             "x": 0.0,
@@ -21,9 +51,9 @@
             "z": 0.0
         },
         "scale": {
-            "x": 45.0,
+            "x": 100.0,
             "y": 0.10000000149011612,
-            "z": 45.0
+            "z": 100.0
         },
         "script_path": "",
         "texture_path": "project/game/pbr/textures/brick_wall_02_disp_4k.png",
@@ -32,78 +62,18 @@
     {
         "color": {
             "a": 255,
-            "b": 0,
-            "g": 189,
-            "r": 61
-        },
-        "id": 1,
-        "model_path": "assets/models/tree.obj",
-        "name": "tree",
-        "normal_texture_path": "",
-        "position": {
-            "x": 0.0,
-            "y": 0.0,
-            "z": 0.0
-        },
-        "relative_position": {
-            "x": 0.0,
-            "y": 0.0,
-            "z": 0.0
-        },
-        "scale": {
-            "x": 1.0,
-            "y": 1.0,
-            "z": 1.0
-        },
-        "script_path": "",
-        "texture_path": "",
-        "type": "entity"
-    },
-    {
-        "color": {
-            "a": 255,
-            "b": 0,
-            "g": 72,
-            "r": 189
-        },
-        "id": 2,
-        "model_path": "project/game/models/test.obj",
-        "name": "player",
-        "normal_texture_path": "",
-        "position": {
-            "x": 9.40000057220459,
-            "y": 1.4000005722045898,
-            "z": 10.600000381469727
-        },
-        "relative_position": {
-            "x": 0.0,
-            "y": 0.0,
-            "z": 0.0
-        },
-        "scale": {
-            "x": 1.0,
-            "y": 1.0,
-            "z": 1.0
-        },
-        "script_path": "project/game/hi.py",
-        "texture_path": "project/game/pbr/textures/brick_wall_02_disp_4k.png",
-        "type": "entity"
-    },
-    {
-        "color": {
-            "a": 255,
-            "b": 255,
-            "g": 22,
+            "b": 248,
+            "g": 208,
             "r": 0
         },
-        "id": 3,
+        "id": 232289073,
         "model_path": "project/game/models/cube.obj",
-        "name": "box",
+        "name": "sky",
         "normal_texture_path": "",
         "position": {
-            "x": 0.0,
-            "y": 2.399998664855957,
-            "z": 4.899999141693115
+            "x": -60.800018310546875,
+            "y": 4.500000953674316,
+            "z": 0.0
         },
         "relative_position": {
             "x": 0.0,
@@ -111,81 +81,46 @@
             "z": 0.0
         },
         "scale": {
-            "x": 2.0,
-            "y": 3.0,
-            "z": 2.0
+            "x": 0.10000000149011612,
+            "y": 100.0,
+            "z": 100.0
         },
         "script_path": "",
         "texture_path": "",
         "type": "entity"
     },
     {
-        "attenuation": 0.0,
+        "attenuation": 9.999999747378752e-05,
         "color": {
             "a": 1.0,
-            "b": 0.0,
-            "g": 0.0,
+            "b": 1.0,
+            "g": 1.0,
             "r": 1.0
         },
         "cutOff": 10.0,
         "direction": {
-            "x": -0.28600001335144043,
+            "x": 0.0,
             "y": 0.0,
             "z": 1.0
         },
-        "id": 0,
-        "intensity": 1.2999999523162842,
-        "name": "",
+        "id": 2,
+        "intensity": 0.5,
+        "name": "Light",
         "position": {
             "x": 4.0,
             "y": 4.0,
             "z": 4.0
         },
         "relative_position": {
-            "x": -334659.0,
-            "y": 4.591354418360263e-41,
-            "z": 9.068714534540795e+28
+            "x": -9.433494740007538e+37,
+            "y": 4.5914945482066956e-41,
+            "z": 1.2205307367469236e-30
         },
         "specularStrength": 0.5,
         "target": {
-            "x": -7.613543478006832e+37,
-            "y": 0.0,
-            "z": 7.932078701045934e+28
-        },
-        "type": "light"
-    },
-    {
-        "attenuation": 9.999999747378752e-05,
-        "color": {
-            "a": 1.0,
-            "b": 0.0,
-            "g": 1.0,
-            "r": 1.0
-        },
-        "cutOff": 10.0,
-        "direction": {
-            "x": 0.30399999022483826,
-            "y": -0.41999998688697815,
-            "z": 0.15199999511241913
-        },
-        "id": 6,
-        "intensity": 0.5,
-        "name": "Light",
-        "position": {
-            "x": 4.0,
-            "y": 4.0,
-            "z": -6.499999523162842
-        },
-        "relative_position": {
-            "x": -5.8050351121982716e+28,
-            "y": 4.591354418360263e-41,
-            "z": 7.754687481100985e-22
-        },
-        "specularStrength": 0.5,
-        "target": {
-            "x": 9.62863678509083e-22,
-            "y": 3.071926493492864e-41,
-            "z": 697.0
+            "x": 0.0,
+            "y": 1.401298464324817e-45,
+            "z": 744.0
         },
         "type": "light"
     }

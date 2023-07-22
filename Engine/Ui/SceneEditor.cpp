@@ -362,7 +362,7 @@ void Gizmo()
             gizmo_arrow_selected == -1;
         }
 
-        if (IsMouseButtonDown(MOUSE_LEFT_BUTTON))
+        if (ImGui::IsWindowHovered() && IsMouseButtonDown(MOUSE_LEFT_BUTTON))
         {
             if (isHoveringGizmo)
             {
@@ -513,6 +513,7 @@ void RenderScene()
             }
         }
     }
+
 
     ProcessSelection();
 
