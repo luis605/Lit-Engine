@@ -2,10 +2,18 @@ velocity = 40
 entity.name = str(entity.position.x)
 
 
+total_duration = 8.0  # Total duration for interpolation in seconds
+elapsed_time = 0.0001
 
 def update():
-	global velocity
+	global velocity, elapsed_time, total_duration
 
+	if elapsed_time <= total_duration:
+		t = elapsed_time / total_duration
+		entity.position.x = lerp(entity.position.x, 50, time.dt*8)
+
+		elapsed_time += time.dt
+		print(elapsed_time)
 
 	if (IsKeyDown(KeyboardKey.KEY_W)):
 	    entity.position.x -= velocity * time.dt
@@ -45,6 +53,22 @@ def update():
 	hit_info = raycast(entity.position, Vector3(0, 1, 0), debug=False, ignore=[entity])
 	if hit_info.hit:
 		hit_info.entity.color.print()
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 

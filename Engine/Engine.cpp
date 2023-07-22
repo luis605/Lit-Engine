@@ -203,24 +203,6 @@ PYBIND11_EMBEDDED_MODULE(camera_module, m) {
 
 
 
-class Time {
-public:
-    float dt;
-
-    void update() {
-        dt = GetFrameTime();
-    }
-};
-
-
-PYBIND11_EMBEDDED_MODULE(time_module, m) {
-    py::class_<Time>(m, "Time")
-        .def(py::init<>())
-        .def_readwrite("dt", &Time::dt);
-}
-
-
-Time time_instance;
 
 py::scoped_interpreter guard{}; // Start interpreter
 
@@ -411,6 +393,7 @@ public:
         py::module camera_module = py::module::import("camera_module");
         py::module time_module = py::module::import("time_module");
         py::module color_module = py::module::import("color_module");
+        py::module math_module = py::module::import("math_module");
         
 
         thread_local py::dict locals = py::dict(
@@ -422,6 +405,7 @@ public:
             "Vector3"_a = collisions_module.attr("Vector3"),
             "Color"_a = color_module.attr("Color"),
             "time"_a = py::cast(&time_instance),
+            "lerp"_a = math_module.attr("lerp"),
             "camera"_a = py::cast(&camera)
         );
 
@@ -443,9 +427,19 @@ public:
                 py::object update_func = module.attr("update");
 
                 script_mutex.unlock();
-
+                
+                /*
+                We only want to call the update function every frame, but because the runScript()
+                is being called in a new thread the update_func may be called more than once per
+                frame. This solution will fix it.
+                */
+                float last_frame_count = 0;
                 while (running) {
-                    update_func();
+                    if (time_instance.dt - last_frame_count != 0) {
+                        locals["time"] = py::cast(&time_instance);
+                        update_func();
+                        last_frame_count = time_instance.dt;
+                    }
                 }
             } else {
                 std::cout << "The 'update' function is not defined in the script.\n";

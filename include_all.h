@@ -85,6 +85,7 @@ using json = nlohmann::json;
 #include "Engine/global_variables.cpp"
 #include "Engine/functions.h"
 
+#include "Engine/Scripting/functions.cpp"
 #include "Engine/Engine.cpp"
 
 /* Headers */

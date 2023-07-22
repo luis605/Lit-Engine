@@ -91,7 +91,6 @@ void MenuBar()
 
     if (ImGui::BeginMainMenuBar())
     {
-        DraggableWindow();
 
 
         ImVec2 imageSize = ImVec2(40, 40);
@@ -108,15 +107,19 @@ void MenuBar()
         DrawMenus();
 
         {
+            ImGui::PushFont(s_Fonts["Bold"]);
+
         	ImVec2 currentCursorPos = ImGui::GetCursorPos();
 			ImVec2 textSize = ImGui::CalcTextSize("Lit Engine");
 			ImGui::SetCursorPos(ImVec2(
                 ImGui::GetWindowWidth() * 0.5f - textSize.x * 0.5f,
-                centeredHeight
+                centeredHeight - textSize.y * 0.5f
                 ));
 
 			ImGui::Text("Lit Engine");
 			ImGui::SetCursorPos(currentCursorPos);
+
+            ImGui::PopFont();
         }
 
         ImGui::SetCursorPosX(ImGui::GetWindowSize().x - 35);
@@ -128,21 +131,21 @@ void MenuBar()
 
         ImGui::GetStyle().FramePadding.y = originalFramePaddingY;
 
-
         if (ImGui::Button("x", ImVec2(30, 30)) || (IsKeyDown(KEY_LEFT_ALT) && IsKeyDown(KEY_F4)))
         {
             exitWindowRequested = true;
-            std::cout << "Are you sure you want to quit? (y/n)" << std::endl;
         }
 
+        ImGui::PopFont();
+        ImGui::PushFont(s_Fonts["ImGui Default"]);
 
         ImGui::SetCursorPosX(ImGui::GetWindowSize().x - 35 * 2);
 
-        if (ImGui::Button(ICON_FA_WINDOW_MAXIMIZE, ImVec2(30, 30)))
-        {
+        if (ImGui::Button(ICON_FA_WINDOW_MAXIMIZE, ImVec2(30, 30))) {
             ToggleMaximization();
         }
 
+        
         ImGui::SetCursorPosX(ImGui::GetWindowSize().x - 35 * 3);
 
         if (ImGui::Button(ICON_FA_WINDOW_MINIMIZE, ImVec2(30, 30)))
@@ -150,8 +153,16 @@ void MenuBar()
             MinimizeWindow();
         }
 
+        ImGui::PopFont();
+
+        ImGui::PushFont(s_Fonts["Default"]);
 
         ImGui::PopStyleColor(4);
+
+        ImGui::SetCursorPosX(imageSize.x + imagePos.x + ImGui::CalcTextSize("File   Edit   Preferences").x + 40);
+        ImGui::InvisibleButton("EMPTY", ImVec2(ImGui::GetWindowSize().x - 35 * 3 - ImGui::GetCursorPosX(), 40));
+        DraggableWindow();
+
 
         ImGui::EndMainMenuBar();
     }
@@ -160,7 +171,6 @@ void MenuBar()
 
     ImGui::GetStyle().FramePadding.y = originalFramePaddingY;
 
-    // Load preferences windows
     if (appearance_window_enabled) Appearance();
     CreateNewTheme();
 

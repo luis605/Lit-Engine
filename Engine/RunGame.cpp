@@ -18,10 +18,7 @@ void InitGameCamera()
 
 
 
-void UpdateInGameGlobals()
-{
-    time_instance.update();
-}
+
 
 
 void RenderAndRunEntity(Entity& entity)

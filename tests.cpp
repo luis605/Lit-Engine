@@ -7,51 +7,21 @@
 #include <string>
 #include <iostream>
 
+
 using namespace std;
 
 
 int main() {
-    InitWindow(500, 500, "Example");
+    SetTraceLogLevel(LOG_WARNING);
+    InitWindow(800, 600, "raylib [core] example - basic window");
+    Texture2D texture = LoadTexture("logo1.png");
 
-    // ImGui
-    rlImGuiSetup(true);
-
-    ImGui::CreateContext();
-    ImGuiIO& io = ImGui::GetIO();
-
-    ImFontConfig* fontConfig = new ImFontConfig();
-    fontConfig->FontDataOwnedByAtlas = false;
-
-    std::string fontPath = GetWorkingDirectory();
-    fontPath += "/assets/fonts/Poppins-Regular.ttf";
-    std::cout << fontPath << std::endl;
-
-    ImFont* robotoFont = io.Fonts->AddFontFromFileTTF(fontPath.c_str(), 20.0f, fontConfig);
-    if (!robotoFont) {
-        std::cout << "Font loading failed!" << std::endl;
-    }
-    else {
-        std::cout << "Font loaded successfully." << std::endl;
-    }
-
-    io.FontDefault = robotoFont;
-    io.Fonts->Build();
-
-
-
-    while (!WindowShouldClose()) {
-        BeginDrawing();
-
-            ClearBackground(DARKGRAY);
-
-            rlImGuiBegin();
-
-            ImGui::Begin("Test");
-            ImGui::Text("Hello, world!");
-            ImGui::End();
-
-            rlImGuiEnd();
-
-        EndDrawing();
-    }
+    std::cout << "Texture Format: " << texture.format << std::endl;
+    std::cout << "Texture Width: " << texture.width << std::endl;
+    std::cout << "Texture Height: " << texture.height << std::endl;
+    std::cout << "Texture ID: " << texture.id << std::endl;
+    std::cout << "Texture Mipmaps: " << texture.mipmaps << std::endl;
+    
+    
+    CloseWindow();
 }
