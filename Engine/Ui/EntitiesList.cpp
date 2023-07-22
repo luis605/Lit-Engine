@@ -262,6 +262,9 @@ int ImGuiListViewEx(vector<string>& items, int& focus, int& scroll, int& active)
     int amountOfEntities = AmountOfEntities(entities_list_pregame, currentAmount);
     int index = 0;
 
+    ImGui::PopFont();
+    ImGui::PushFont(s_Fonts["ImGui Default"]);
+
     for (Entity& entity : entities_list_pregame) {
         DrawEntityTree(entity, active, index);
     }
@@ -272,6 +275,9 @@ int ImGuiListViewEx(vector<string>& items, int& focus, int& scroll, int& active)
         lights_index++;
     }
     
+    ImGui::PopFont();
+    ImGui::PushFont(s_Fonts["Default"]);
+
 
     
 

@@ -91,6 +91,7 @@ using json = nlohmann::json;
 /* Headers */
 #include "Engine/RunGame.h"
 #include "Engine/Ui/AssetsExplorer.h"
+#include "Engine/Core.h"
 
 /* Sources */
 // #include "Engine/Physics/InitPhysx.cpp"
