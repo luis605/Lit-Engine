@@ -4,5 +4,5 @@
 *.o
 *.ini
 raylib
-physx_bin
-physx_include
+include/ray*
+include/utils.h

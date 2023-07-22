@@ -60,7 +60,7 @@ string showFileExplorer(const char* folderPath, nlohmann::json_abi_v3_11_2::json
         // Show file explorer window
         show_file_explorer = true;
         
-        ImGui::Begin("File Explorer", &show_file_explorer);
+        ImGui::Begin("File Explorer", &show_file_explorer, ImGuiConfigFlags_ViewportsEnable);
 
         // Display the folder path
         ImGui::Text("Folder: %s", folderPath);

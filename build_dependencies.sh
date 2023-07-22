@@ -6,10 +6,14 @@ cmake --build .
 sudo make install
 
 cd ../..
-sudo apt-get install libglfw3-dev libgl1-mesa-dev
-export CMAKE_PREFIX_PATH="/usr/include/GL"
-cd ImNodes
-mkdir build
-cd build
-cmake ..
-make
+
+cp raylib/build/raylib/include/raylib.h include/
+cp raylib/build/raylib/include/raymath.h include/
+cp raylib/build/raylib/include/rlgl.h include/
+cp raylib/src/rcamera.h include/
+cp raylib/src/utils.h include/
+
+cp ImNodes/ImNodes.h include/
+cp ImNodes/ImNodesEz.h include/
+
+make build_dependencies

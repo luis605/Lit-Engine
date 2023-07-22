@@ -183,7 +183,12 @@ void EntityInspector()
             ImGui::EndDragDropTarget();
         }
 
+        if (ImGui::Button("View Material in Nodes Editor"))
+            show_material_in_nodes_editor = !show_material_in_nodes_editor;
+            
+
     }
+
 
 
     ImGui::Text("Physics: ");
@@ -372,6 +377,7 @@ void Inspector()
         LightInspector();
 
     ShowTexture();
+    MaterialsNodeEditor();
 }
 
 

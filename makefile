@@ -30,9 +30,9 @@ endef
 
 
 CXXFLAGS = -g -pipe -std=c++17 -O0 -fpermissive -w -Wall -DNDEBUG
-SRC_FILES = main.cpp ImGuiColorTextEdit/TextEditor.cpp include/rlImGui.cpp
-INCLUDE_DIRS = -I./include -I./ImGuiColorTextEdit -I/usr/local/lib -L/usr/lib/x86_64-linux-gnu/ -L/usr/local/lib -I./include/nlohmann -I./imgui -I./physx_include -L./physx_lib
-LIB_FLAGS = -L./include -lboost_filesystem -lraylib -pthread -lpython3.11 -fPIC `python3.11 -m pybind11 --includes` -ldl -lPhysX_static_64 -lPhysXCommon_static_64 -lPhysXCooking_static_64 -lPhysXExtensions_static_64 -lPhysXFoundation_static_64 -lPhysXPvdSDK_static_64 -lPhysXVehicle2_static_64 -lPhysXVehicle_static_64 -lSnippetRender_static_64 -lSnippetUtils_static_64 -lPhysXGpu_64 -lcuda -lcudart -lnvrtc -lcublas -lcudadevrt
+SRC_FILES = main.cpp ImGuiColorTextEdit/TextEditor.o include/rlImGui.o ImNodes/ImNodes.o ImNodes/ImNodesEz.o
+INCLUDE_DIRS = -I./include -I./ImGuiColorTextEdit -I/usr/local/lib -L/usr/lib/x86_64-linux-gnu/ -L/usr/local/lib -I./include/nlohmann -I./imgui
+LIB_FLAGS = -L./include -lboost_filesystem -lraylib -pthread -lpython3.11 -fPIC `python3.11 -m pybind11 --includes` -ldl
 
 IMGUI_OBJECTS = $(patsubst imgui/%.cpp, imgui/%.o, $(wildcard imgui/*.cpp))
 
@@ -45,6 +45,7 @@ run:
 	@echo "Running Lit Engine"
 	@$(call echo_success, $(subst $(newline),\n,$$BANNER_TEXT))
 	@./lit_engine.out
+
 
 build: $(IMGUI_OBJECTS)
 	@$(call echo_success, "Building Demo")
@@ -64,21 +65,17 @@ debug:
 
 bdb: build debug
 
-do_tests: $(IMGUI_OBJECTS)
-	@echo "Building Tests"
-	@ccache g++ -g -flto -std=c++20 -O3 -DNDEBUG -march=native do_tests.cpp -I/usr/include/python3.11/ -lpython3.11 -fPIC `python3.11 -m pybind11 --includes` -o do_tests.out -ltbb -ltbb -lpthread -fpermissive -w -Wall
-	@echo "Running Tests"
-	@./do_tests.out
-
-do_testsv2:
-	g++ -I/usr/include/bsd/ testing.cpp -o do_tests.out
+tests:
+	@ccache g++ $(CXXFLAGS) tests.cpp include/rlImGui.o $(INCLUDE_DIRS) $(IMGUI_OBJECTS) $(LIB_FLAGS) -o tests.out
 	./tests.out
 
-physics_demo:
-	@echo "Building Demo"
-	@ccache g++ -flto physics.cpp -std=c++17 -I./include -I./bullet3 $(LDLIBS) -O3 -lraylib -o physics_demo.out -fpermissive -w
-	@echo "Running Physics Demo"
-	@./physics_demo.out
+build_dependencies: $(IMGUI_OBJECTS)
+	@$(call echo_success, "Building Dependencies")
+	@g++ -c $(IMGUI_OBJECTS) -I./imgui -O3 ImNodes/ImNodes.cpp -o ImNodes/ImNodes.o
+	@g++ -c $(IMGUI_OBJECTS) -I./imgui -O3 ImNodes/ImNodesEz.cpp -o ImNodes/ImNodesEz.o
+	@g++ -c $(IMGUI_OBJECTS) -I./imgui -O3 include/rlImGui.cpp -o include/rlImGui.o
+	@g++ -c $(IMGUI_OBJECTS) -I./imgui -O3 ImGuiColorTextEdit/TextEditor.cpp -o ImGuiColorTextEdit/TextEditor.o
+
 
 
 clean:
