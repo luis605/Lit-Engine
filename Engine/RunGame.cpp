@@ -23,6 +23,25 @@ void UpdateInGameGlobals()
     time_instance.update();
 }
 
+
+void RenderAndRunEntity(Entity& entity)
+{
+    entity.render();
+
+    if (first_time_gameplay && !entity.script.empty())
+    {
+        py::gil_scoped_acquire acquire;
+
+        std::thread scriptRunnerThread([&entity]() {
+            entity.runScript(std::ref(entity));
+        });
+
+        scripts_thread_vector.push_back(std::move(scriptRunnerThread));
+    }
+}
+
+
+
 void RunGame()
 {
     rectangle.width = sceneEditorWindowWidth;
@@ -37,17 +56,7 @@ void RunGame()
     
     for (Entity& entity : entities_list)
     {
-        entity.render();
-        if (first_time_gameplay)
-        {
-            py::gil_scoped_acquire acquire;
-
-            std::thread scriptRunnerThread([&entity]() {
-                entity.runScript(std::ref(entity));
-            });
-
-            scripts_thread_vector.push_back(std::move(scriptRunnerThread));
-        }
+        RenderAndRunEntity(entity);
     }
 
 

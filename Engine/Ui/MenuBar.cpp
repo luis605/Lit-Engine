@@ -32,52 +32,138 @@ void Appearance()
     ImGui::End();
 }
 
+
+
+bool isDraggingWindow = false;
+Vector2 offset = { 0.0f, 0.0f };
+
+
+void DrawMenus()
+{
+    if (ImGui::BeginMenu("File"))
+    {
+        if (ImGui::MenuItem("Save", "Ctrl+S"))
+        {
+            cout << "Saving Project..." << endl;
+            SaveProject();
+        }
+
+        if (ImGui::MenuItem("Save as", "Ctrl+Shift+S"))
+        {
+            cout << "Saving Project as..." << endl;
+        }
+
+        if (ImGui::MenuItem("Open", "Ctrl+O"))
+        {
+            cout << "Opening Project..." << endl;
+            LoadProject();
+        }
+
+        ImGui::EndMenu();
+    }
+
+    if (ImGui::BeginMenu("Edit"))
+    {
+        // Add menu items for "Edit" menu here
+        ImGui::EndMenu();
+    }
+
+    if (ImGui::BeginMenu("Preferences"))
+    {
+        if (ImGui::MenuItem("Appearance", "Ctrl+Shift+D"))
+        {
+            appearance_window_enabled = true;
+        }
+        
+        ImGui::EndMenu();
+    }
+}
+
 void MenuBar()
 {
+    float originalFramePaddingY = ImGui::GetStyle().FramePadding.y;
+    ImVec2 windowPadding = ImGui::GetCurrentWindow()->WindowPadding;
+
+    ImGui::GetStyle().FramePadding.y = 19.0f;
+
+    float titleBarHeight = ImGui::GetFrameHeight();
+    float titlebarVerticalOffset = isWindowMaximized ? -6.0f : 0.0f;
+
     if (ImGui::BeginMainMenuBar())
     {
-        if (ImGui::BeginMenu("File"))
-        {
-            if (ImGui::MenuItem("Save", "Ctrl+S"))
-            {
-                cout << "Saving Project..." << endl;
-                SaveProject();
-            }
+        DraggableWindow();
 
-            if (ImGui::MenuItem("Save as", "Ctrl+Shift+S"))
-            {
-                cout << "Saving Project as..." << endl;
-            }
 
-            if (ImGui::MenuItem("Open", "Ctrl+O"))
-            {
-                cout << "Opening Project..." << endl;
-                LoadProject();
-            }
+        ImVec2 imageSize = ImVec2(40, 40);
+        ImVec2 windowSize = ImGui::GetWindowSize();
+        float titleBarHeight = ImGui::GetFrameHeight();
+        float centeredHeight = (titleBarHeight - imageSize.y) * 0.5f;
+        ImVec2 imagePos = ImVec2(centeredHeight + 10, centeredHeight);
 
-            ImGui::EndMenu();
-        }
-        
-        if (ImGui::BeginMenu("Edit"))
+        ImGui::SetCursorPos(imagePos);
+        ImGui::Image((ImTextureID)&window_icon_texture, imageSize);
+
+        ImGui::SetCursorPosX(ImGui::GetCursorPosX() + 20);
+
+        DrawMenus();
+
         {
-            // Add menu items for "Edit" menu here
-            ImGui::EndMenu();
+        	ImVec2 currentCursorPos = ImGui::GetCursorPos();
+			ImVec2 textSize = ImGui::CalcTextSize("Lit Engine");
+			ImGui::SetCursorPos(ImVec2(
+                ImGui::GetWindowWidth() * 0.5f - textSize.x * 0.5f,
+                centeredHeight
+                ));
+
+			ImGui::Text("Lit Engine");
+			ImGui::SetCursorPos(currentCursorPos);
         }
+
+        ImGui::SetCursorPosX(ImGui::GetWindowSize().x - 35);
         
-        if (ImGui::BeginMenu("Preferences"))
+        ImGui::PushStyleColor(ImGuiCol_Button, ImVec4(0, 0, 0, 0));
+        ImGui::PushStyleColor(ImGuiCol_ButtonHovered, ImVec4(0, 0, 0, 0));
+        ImGui::PushStyleColor(ImGuiCol_ButtonActive, ImVec4(.3, .3, .3, .3));
+        ImGui::PushStyleColor(ImGuiCol_Border, ImVec4(0, 0, 0, 0));
+
+        ImGui::GetStyle().FramePadding.y = originalFramePaddingY;
+
+
+        if (ImGui::Button("x", ImVec2(30, 30)) || (IsKeyDown(KEY_LEFT_ALT) && IsKeyDown(KEY_F4)))
         {
-            if (ImGui::MenuItem("Appearance", "Ctrl+Shift+D"))
-            {
-                appearance_window_enabled = true;
-            }
-            
-            ImGui::EndMenu();
+            exitWindowRequested = true;
+            std::cout << "Are you sure you want to quit? (y/n)" << std::endl;
         }
-        
+
+
+        ImGui::SetCursorPosX(ImGui::GetWindowSize().x - 35 * 2);
+
+        if (ImGui::Button(ICON_FA_WINDOW_MAXIMIZE, ImVec2(30, 30)))
+        {
+            ToggleMaximization();
+        }
+
+        ImGui::SetCursorPosX(ImGui::GetWindowSize().x - 35 * 3);
+
+        if (ImGui::Button(ICON_FA_WINDOW_MINIMIZE, ImVec2(30, 30)))
+        {
+            MinimizeWindow();
+        }
+
+
+        ImGui::PopStyleColor(4);
+
         ImGui::EndMainMenuBar();
     }
+
+
+
+    ImGui::GetStyle().FramePadding.y = originalFramePaddingY;
 
     // Load preferences windows
     if (appearance_window_enabled) Appearance();
     CreateNewTheme();
+
+    if (exitWindowRequested)
+        ExitWindowRequested();
 }

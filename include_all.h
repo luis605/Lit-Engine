@@ -1,6 +1,10 @@
 #ifndef INCLUDE_ALL_H_
 #define INCLUDE_ALL_H_
 
+#ifndef IMGUI_DEFINE_MATH_OPERATORS
+#   define IMGUI_DEFINE_MATH_OPERATORS
+#endif
+
 #include "include/raylib.h"
 #include "include/raymath.h"
 #include "include/rcamera.h"
@@ -13,6 +17,10 @@
 #include "ImGuiColorTextEdit/TextEditor.h"
 
 #include "dependencies/include/glad/glad.h"
+
+
+#include "include/ImNodes.h"
+#include "include/ImNodesEz.h"
 
 // #include <PxPhysicsAPI.h>
 // #include <PxConfig.h>
@@ -49,8 +57,8 @@
 #include <future>
 #include <iomanip>
 #include <unordered_map>
+#include <map>
 #include <shared_mutex>
-
 
 /* Physx */
 
@@ -75,7 +83,7 @@ using json = nlohmann::json;
 /* Globals */
 #include "globals.h"
 #include "Engine/global_variables.cpp"
-#include "Engine/functions.cpp"
+#include "Engine/functions.h"
 
 #include "Engine/Engine.cpp"
 
@@ -93,10 +101,11 @@ using json = nlohmann::json;
 #include "Engine/Ui/EntitiesList.cpp"
 #include "Engine/Ui/SceneEditor.cpp"
 #include "Engine/RunGame.cpp"
+#include "Engine/Ui/MaterialsNodeEditor.cpp"
 #include "Engine/Ui/Inspector.cpp"
 #include "Engine/Ui/AssetsExplorer.cpp"
-#include "Engine/Ui/MenuBar.cpp"
 #include "Engine/Core.cpp"
+#include "Engine/Ui/MenuBar.cpp"
 
 
 

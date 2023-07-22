@@ -319,11 +319,13 @@ public:
         children.clear();
 
 
-        entities_list_pregame.erase(remove_if(entities_list_pregame.begin(), entities_list_pregame.end(),
-        [this](const Entity& entity) {
-        return entity.id == this->id;
-        }),
-        entities_list_pregame.end());
+        entities_list_pregame.erase(
+            std::remove_if(entities_list_pregame.begin(), entities_list_pregame.end(),
+                [this](const Entity& entity) {
+                    return entity.id == this->id;
+                }),
+            entities_list_pregame.end());
+
     }
 
     void setColor(Color newColor) {
