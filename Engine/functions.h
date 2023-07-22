@@ -11,7 +11,7 @@ void Inspector();
 void CleanUp();
 void AddLight();
 void MenuBar();
-
+void CleanScriptThreads();
 
 
 #endif // FUNCS_H

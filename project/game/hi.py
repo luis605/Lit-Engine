@@ -1,46 +1,37 @@
-velocity = 40
+velocity = 2
 entity.name = str(entity.position.x)
 
 
-total_duration = 8.0  # Total duration for interpolation in seconds
+total_duration = 8.0 
 elapsed_time = 0.0001
 
+target_position  = Vector3(0,0,0)
 def update():
 	global velocity, elapsed_time, total_duration
 
-	if elapsed_time <= total_duration:
-		t = elapsed_time / total_duration
-		entity.position.x = lerp(entity.position.x, 50, time.dt*8)
-
-		elapsed_time += time.dt
-		print(elapsed_time)
+	entity.position = lerp(entity.position, target_position, time.dt)
 
 	if (IsKeyDown(KeyboardKey.KEY_W)):
-	    entity.position.x -= velocity * time.dt
-	    print("Forward")
+	    target_position.x -= velocity * time.dt
+	    
 	
 	if (IsKeyDown(KeyboardKey.KEY_S)):
-	    entity.position.x += velocity * time.dt
+	    target_position.x += velocity * time.dt
 	    print("Backwards")
 	    
 	if (IsKeyDown(KeyboardKey.KEY_A)):
-	    entity.position.z += velocity * time.dt
+	    target_position.z += velocity * time.dt
 	    print("Left")
 	
 	if (IsKeyDown(KeyboardKey.KEY_D)):
-	    entity.position.z -= velocity * time.dt
+	    target_position.z -= velocity * time.dt
 	    print("Right")
 		
-	if (IsKeyDown(KeyboardKey.KEY_E)):
-	    entity.scale.y += velocity * time.dt
-	
-	if (IsKeyDown(KeyboardKey.KEY_R)):
-	    entity.scale.y -= velocity * time.dt
 	
 	if IsKeyDown(KeyboardKey.KEY_LEFT_SHIFT):
-	   velocity = 6
+	   velocity = 10
 	else:
-		velocity = 0.5
+		velocity = 5
 	
 	if IsKeyDown(KeyboardKey.KEY_P):
 		camera.target.x += velocity * time.dt
@@ -53,6 +44,12 @@ def update():
 	hit_info = raycast(entity.position, Vector3(0, 1, 0), debug=False, ignore=[entity])
 	if hit_info.hit:
 		hit_info.entity.color.print()
+
+
+
+
+
+
 
 
 

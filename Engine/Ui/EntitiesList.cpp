@@ -367,6 +367,8 @@ void EntitiesList()
     {
         cout << "Stopping Game" << endl;
         in_game_preview = false;
+        first_time_gameplay = true;
+        CleanScriptThreads();
 
     }
 
