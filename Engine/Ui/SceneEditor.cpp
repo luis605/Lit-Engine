@@ -257,7 +257,7 @@ bool IsMouseInRectangle(Vector2 mousePos, Rectangle rectangle)
 
 
 
-bool IsMouseHoveringModel(Model model, Camera camera, Vector3 position, Vector3 rotation)
+bool IsMouseHoveringModel(Model model, Camera camera, Vector3 position, Vector3 rotation, Entity* entity = nullptr, bool bypass_optimization = false)
 {
     float x = position.x;
     float y = position.y;
@@ -275,13 +275,24 @@ bool IsMouseHoveringModel(Model model, Camera camera, Vector3 position, Vector3 
     Vector2 pos = { GetMousePosition().x - rectangle.x, GetMousePosition().y - rectangle.y };
     Vector2 realPos = { pos.x * GetScreenWidth()/rectangle.width, pos.y * GetScreenHeight()/rectangle.height };        
     ray = GetMouseRay(realPos, camera);
+
     RayCollision meshHitInfo = { 0 };
 
     for (int mesh_i = 0; mesh_i < model.meshCount; mesh_i++)
     {
-        meshHitInfo = GetRayCollisionMesh(ray, model.meshes[mesh_i], modelMatrix);
-        if (meshHitInfo.hit)
-            return true;
+        BoundingBox bounds = { 0 };
+
+        if (entity == nullptr)
+            bounds = GetMeshBoundingBox(model.meshes[mesh_i]);
+        else
+            bounds = entity->bounds;
+
+        if (bypass_optimization || GetRayCollisionBox(GetMouseRay(GetMousePosition(), scene_camera),  bounds).hit)
+        {
+            meshHitInfo = GetRayCollisionMesh(ray, model.meshes[mesh_i], modelMatrix);
+            if (meshHitInfo.hit)
+                return true;
+        }
     }
 
     return false;
@@ -343,7 +354,7 @@ void Gizmo()
 
         if (!dragging_gizmo && ImGui::IsWindowHovered())
         {
-            isHoveringGizmo = IsMouseHoveringModel(gizmo_arrow[arrow_i].model, scene_camera, gizmo_arrow[arrow_i].position, gizmo_arrow[arrow_i].rotation);
+            isHoveringGizmo = IsMouseHoveringModel(gizmo_arrow[arrow_i].model, scene_camera, gizmo_arrow[arrow_i].position, gizmo_arrow[arrow_i].rotation, nullptr, true);
             
             if (isHoveringGizmo)
             {
@@ -463,10 +474,13 @@ void RenderScene()
     BeginTextureMode(renderTexture);
     BeginMode3D(scene_camera);
 
+    
     ClearBackground(GRAY);
 
     float cameraPos[3] = { scene_camera.position.x, scene_camera.position.y, scene_camera.position.z };
     SetShaderValue(shader, shader.locs[SHADER_LOC_VECTOR_VIEW], cameraPos, SHADER_UNIFORM_VEC3);
+
+    ProcessSelection();
 
     for (Light& light : lights)
     {
@@ -475,7 +489,7 @@ void RenderScene()
 
         float rotation = DrawBillboardRotation(scene_camera, light_texture, { light.position.x, light.position.y, light.position.z }, 1.0f, WHITE);
         
-        if (IsMouseButtonDown(MOUSE_LEFT_BUTTON) && !dragging_gizmo)
+        if (IsMouseButtonDown(MOUSE_LEFT_BUTTON) && ImGui::IsWindowHovered() && !dragging_gizmo)
         {
             bool isLightSelected = IsMouseHoveringModel(light_model, scene_camera, { light.position.x, light.position.y, light.position.z }, { 0, rotation, 0 } );
             if (isLightSelected)
@@ -493,9 +507,9 @@ void RenderScene()
 
         entity.render();
 
-        if (IsMouseButtonDown(MOUSE_LEFT_BUTTON) && !dragging_gizmo)
+        if (IsMouseButtonDown(MOUSE_LEFT_BUTTON) && ImGui::IsWindowHovered() && !dragging_gizmo)
         {
-            bool isEntitySelected = IsMouseHoveringModel(entity.model, scene_camera, entity.position, entity.rotation);
+            bool isEntitySelected = IsMouseHoveringModel(entity.model, scene_camera, entity.position, entity.rotation, &entity);
             if (isEntitySelected)
             {
                 object_in_inspector = &entity;
@@ -515,7 +529,6 @@ void RenderScene()
     }
 
 
-    ProcessSelection();
 
     EndMode3D();
     EndTextureMode();

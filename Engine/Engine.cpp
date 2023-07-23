@@ -77,6 +77,9 @@ public:
     string model_path = "";
     Model model;
 
+    BoundingBox bounds;
+
+
     std::filesystem::path texture_path;
     Texture2D texture;
 
@@ -182,6 +185,8 @@ public:
         {
             model.materials[0].maps[MATERIAL_MAP_DIFFUSE].texture = texture;
         }
+
+        bounds = GetMeshBoundingBox(model.meshes[0]);
     }
 
     bool hasModel()
@@ -198,7 +203,7 @@ public:
         model.materials[0].shader = shader;
     }
 
-    void runScript(std::reference_wrapper<Entity> entityRef)
+    void runScript(std::reference_wrapper<Entity> entityRef, Camera3D* rendering_camera)
     {
         if (script.empty()) return;
         running = true;
@@ -232,6 +237,8 @@ public:
         py::module color_module = py::module::import("color_module");
         py::module math_module = py::module::import("math_module");
         
+        rendering_camera->position.x = 100;
+        std::cout << "Camera position: " << camera.position.x << std::endl;
 
         thread_local py::dict locals = py::dict(
             "entity"_a = entity_obj,
@@ -243,13 +250,14 @@ public:
             "Color"_a = color_module.attr("Color"),
             "time"_a = py::cast(&time_instance),
             "lerp"_a = math_module.attr("lerp"),
-            "camera"_a = py::cast(&camera)
+            "camera"_a = py::cast(rendering_camera)
         );
 
 
         try {
             pybind11::gil_scoped_acquire acquire;
             string script_content = read_file_to_string(script);
+            
 
             py::module module("__main__");
 
@@ -263,6 +271,7 @@ public:
             if (module.attr("__dict__").contains("update")) {
                 py::object update_func = module.attr("update");
 
+
                 script_mutex.unlock();
                 
                 /*
@@ -270,6 +279,7 @@ public:
                 is being called in a new thread the update_func may be called more than once per
                 frame. This solution will fix it.
                 */
+
                 float last_frame_count = 0;
                 while (running) {
                     if (time_instance.dt - last_frame_count != 0) {

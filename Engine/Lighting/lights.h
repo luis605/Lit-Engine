@@ -80,7 +80,7 @@ Light NewLight(const Vector3 position, const Color color)
 
 
 
-void UpdateLightsBuffer(bool force = false)
+void UpdateLightsBuffer(bool force=false, vector<Light> lights = lights)
 {
     if (lights.empty() && !force)
         return;

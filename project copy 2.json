@@ -1,0 +1,217 @@
+[
+    {
+        "color": {
+            "a": 255,
+            "b": 255,
+            "g": 255,
+            "r": 255
+        },
+        "id": 232289071,
+        "model_path": "project/game/pbr/terrain/source/Rock_Terrain_SF.obj",
+        "name": "terrain",
+        "normal_texture_path": "",
+        "position": {
+            "x": 0.0,
+            "y": 0.0,
+            "z": 0.0
+        },
+        "relative_position": {
+            "x": 0.0,
+            "y": 0.0,
+            "z": 0.0
+        },
+        "scale": {
+            "x": 3.0,
+            "y": 2.0,
+            "z": 3.0
+        },
+        "script_path": "",
+        "texture_path": "project/game/pbr/terrain/source/Rock_Terrain.png",
+        "type": "entity"
+    },
+    {
+        "color": {
+            "a": 255,
+            "b": 29,
+            "g": 127,
+            "r": 213
+        },
+        "id": 232289072,
+        "model_path": "project/game/models/cube.obj",
+        "name": "floor",
+        "normal_texture_path": "",
+        "position": {
+            "x": -0.10000001639127731,
+            "y": 0.0,
+            "z": 0.0
+        },
+        "relative_position": {
+            "x": 0.0,
+            "y": 0.0,
+            "z": 0.0
+        },
+        "scale": {
+            "x": 100.0,
+            "y": 0.10000000149011612,
+            "z": 100.0
+        },
+        "script_path": "project/game/hello.py",
+        "texture_path": "project/game/pbr/textures/brick_wall_02_disp_4k.png",
+        "type": "entity"
+    },
+    {
+        "color": {
+            "a": 255,
+            "b": 208,
+            "g": 208,
+            "r": 208
+        },
+        "id": 232289073,
+        "model_path": "project/game/models/cube.obj",
+        "name": "sky",
+        "normal_texture_path": "",
+        "position": {
+            "x": -60.800018310546875,
+            "y": 4.500000953674316,
+            "z": 0.0
+        },
+        "relative_position": {
+            "x": 0.0,
+            "y": 0.0,
+            "z": 0.0
+        },
+        "scale": {
+            "x": 0.10000000149011612,
+            "y": 100.0,
+            "z": 100.0
+        },
+        "script_path": "",
+        "texture_path": "",
+        "type": "entity"
+    },
+    {
+        "color": {
+            "a": 255,
+            "b": 61,
+            "g": 191,
+            "r": 71
+        },
+        "id": 232289074,
+        "model_path": "assets/models/tree.obj",
+        "name": "tree",
+        "normal_texture_path": "",
+        "position": {
+            "x": 10.200000762939453,
+            "y": 2.90000057220459,
+            "z": -2.799999475479126
+        },
+        "relative_position": {
+            "x": 0.0,
+            "y": 0.0,
+            "z": 0.0
+        },
+        "scale": {
+            "x": 1.0,
+            "y": 1.0,
+            "z": 1.0
+        },
+        "script_path": "",
+        "texture_path": "",
+        "type": "entity"
+    },
+    {
+        "color": {
+            "a": 255,
+            "b": 68,
+            "g": 163,
+            "r": 51
+        },
+        "id": 232289075,
+        "model_path": "assets/models/tree.obj",
+        "name": "tree2",
+        "normal_texture_path": "",
+        "position": {
+            "x": 0.0,
+            "y": 3.5000038146972656,
+            "z": 14.400008201599121
+        },
+        "relative_position": {
+            "x": 0.0,
+            "y": 0.0,
+            "z": 0.0
+        },
+        "scale": {
+            "x": 1.0,
+            "y": 1.0,
+            "z": 1.0
+        },
+        "script_path": "",
+        "texture_path": "",
+        "type": "entity"
+    },
+    {
+        "color": {
+            "a": 255,
+            "b": 76,
+            "g": 167,
+            "r": 77
+        },
+        "id": 232289076,
+        "model_path": "assets/models/tree.obj",
+        "name": "tree3",
+        "normal_texture_path": "",
+        "position": {
+            "x": 12.199999809265137,
+            "y": 3.3000011444091797,
+            "z": 8.500000953674316
+        },
+        "relative_position": {
+            "x": 0.0,
+            "y": 0.0,
+            "z": 0.0
+        },
+        "scale": {
+            "x": 1.0,
+            "y": 1.0,
+            "z": 1.0
+        },
+        "script_path": "",
+        "texture_path": "",
+        "type": "entity"
+    },
+    {
+        "attenuation": 9.999999747378752e-05,
+        "color": {
+            "a": 1.0,
+            "b": 1.0,
+            "g": 1.0,
+            "r": 1.0
+        },
+        "cutOff": 10.0,
+        "direction": {
+            "x": 0.0,
+            "y": 0.0,
+            "z": 1.0
+        },
+        "id": -13421773,
+        "intensity": 0.5,
+        "name": "",
+        "position": {
+            "x": 4.0,
+            "y": 4.0,
+            "z": 4.0
+        },
+        "relative_position": {
+            "x": -9.433494740007538e+37,
+            "y": 4.5914945482066956e-41,
+            "z": 1.2205307367469236e-30
+        },
+        "specularStrength": 0.5,
+        "target": {
+            "x": 0.0,
+            "y": 1.401298464324817e-45,
+            "z": 744.0
+        },
+        "type": "light"
+    }
+]

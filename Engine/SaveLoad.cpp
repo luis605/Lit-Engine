@@ -245,7 +245,7 @@ void LoadLight(const json& light_json, Light& light, AdditionalLightInfo light_i
 }
 
 
-int LoadProject() {
+int LoadProject(vector<Entity>& entities_vector, vector<Light>& lights_vector, vector<AdditionalLightInfo>& lights_info_vector) {
     std::ifstream infile("project.json");
     if (!infile.is_open()) {
         std::cerr << "Error: Failed to open project file." << std::endl;
@@ -257,7 +257,7 @@ int LoadProject() {
 
     infile.close();
 
-    entities_list_pregame.clear();
+    entities_vector.clear();
 
     try {
         for (const auto& entity_json : json_data) {
@@ -265,14 +265,14 @@ int LoadProject() {
             if (type == "entity") {
                 Entity entity;
                 LoadEntity(entity_json, entity);
-                entities_list_pregame.push_back(entity);
+                entities_vector.push_back(entity);
             }
             else if (type == "light") {
                 Light light;
                 AdditionalLightInfo light_info;
                 LoadLight(entity_json, light, light_info);
-                lights_info.push_back(light_info);
-                lights.push_back(light);
+                lights_info_vector.push_back(light_info);
+                lights_vector.push_back(light);
             }
         }
     } catch (const json::type_error& e) {
@@ -280,7 +280,7 @@ int LoadProject() {
         return 1;
     }
 
-    UpdateLightsBuffer();
+    UpdateLightsBuffer(false, lights_vector);
     
     return 0;
 }

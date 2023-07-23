@@ -1,17 +1,17 @@
 #include "../include_all.h"
 #include "../globals.h"
+#include "RunGame.h"
 
 
 
-
-void CleanScriptThreads()
+void CleanScriptThreads(vector<std::thread>& script_threads)
 {
-    for (auto& script_thread : scripts_thread_vector) {
+    for (auto& script_thread : script_threads) {
         if (script_thread.joinable())
             script_thread.join();
     }
 
-    scripts_thread_vector.clear();
+    script_threads.clear();
 }
 
 void InitGameCamera()
@@ -32,19 +32,20 @@ void InitGameCamera()
 
 
 
-void RenderAndRunEntity(Entity& entity)
+void RenderAndRunEntity(Entity& entity, vector<std::thread>& scripts_threads, bool first_time_flag = first_time_gameplay, Camera3D* rendering_camera = &camera)
 {
     entity.render();
 
-    if (first_time_gameplay && !entity.script.empty())
+    if (first_time_flag && !entity.script.empty())
     {
         py::gil_scoped_acquire acquire;
 
-        std::thread scriptRunnerThread([&entity]() {
-            entity.runScript(std::ref(entity));
+        std::thread scriptRunnerThread([&entity, rendering_camera]() {
+            entity.runScript(std::ref(entity), rendering_camera);
         });
 
-        scripts_thread_vector.push_back(std::move(scriptRunnerThread));
+
+        scripts_threads.push_back(std::move(scriptRunnerThread));
     }
 }
 
@@ -61,10 +62,10 @@ void RunGame()
     ClearBackground(GRAY);
 
     UpdateInGameGlobals();
-    
+
     for (Entity& entity : entities_list)
     {
-        RenderAndRunEntity(entity);
+        RenderAndRunEntity(entity, scripts_thread_vector);
     }
 
 
