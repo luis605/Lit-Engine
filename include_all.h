@@ -103,6 +103,7 @@ using json = nlohmann::json;
 #include "Engine/Ui/EntitiesList.cpp"
 #include "Engine/Ui/SceneEditor.cpp"
 #include "Engine/RunGame.cpp"
+#include "Engine/PreviewProject.cpp"
 #include "Engine/Ui/MaterialsNodeEditor.cpp"
 #include "Engine/Ui/Inspector.cpp"
 #include "Engine/Ui/AssetsExplorer.cpp"

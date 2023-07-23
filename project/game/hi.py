@@ -1,7 +1,7 @@
 velocity = 2
 entity.name = str(entity.position.x)
 can_move_forward = True
-
+print("GAME")
 total_duration = 8.0 
 elapsed_time = 0.0001
 
@@ -50,6 +50,7 @@ def update():
 			can_move_forward = True
 	else:
 		can_move_forward = True
+
 
 
 

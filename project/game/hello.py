@@ -1,12 +1,8 @@
-import collisions_module
-import camera_module
 
-entity.name = str(entity.position.x)
+camera.position = Vector3(21.3926, 3.60758, 0.993856)
+camera.target = Vector3(-24.658, 23.0785, 0.533333)
 
 
-if (raycast(collisions_module.Vector3(entity.position.x-2, entity.position.y, entity.position.z), collisions_module.Vector3(1, 0, 0), True)):
-    print("you lose")
-    entity.visible = False
 
 
 

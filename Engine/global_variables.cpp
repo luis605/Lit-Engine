@@ -2,6 +2,9 @@
 
 
 
+int pipe_fds[2];
+int pipe_fds_entities[2];
+int pipe_fds_lights[2];
 
 
 /* Not specific */

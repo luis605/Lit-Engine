@@ -11,7 +11,7 @@ void Inspector();
 void CleanUp();
 void AddLight();
 void MenuBar();
-void CleanScriptThreads();
+void CleanScriptThreads(vector<std::thread>& script_threads);
 
 
 #endif // FUNCS_H

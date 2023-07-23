@@ -40,7 +40,7 @@ Vector2 offset = { 0.0f, 0.0f };
 
 void DrawMenus()
 {
-    if (ImGui::BeginMenu("File"))
+    if (ImGui::BeginMenu("Project"))
     {
         if (ImGui::MenuItem("Save", "Ctrl+S"))
         {
@@ -56,7 +56,30 @@ void DrawMenus()
         if (ImGui::MenuItem("Open", "Ctrl+O"))
         {
             cout << "Opening Project..." << endl;
-            LoadProject();
+            LoadProject(entities_list_pregame, lights, lights_info);
+        }
+
+    
+        if (ImGui::MenuItem("Preview", "Ctrl+P"))
+        {
+            // Can Preview Project
+            close(pipe_fds[0]);
+            can_previewProject = true;
+            ssize_t bytes_written = write(pipe_fds[1], &can_previewProject, sizeof(bool));
+            if (bytes_written != sizeof(bool)) {
+                std::cerr << "Error writing to the pipe." << std::endl;
+            }
+            close(pipe_fds[1]);
+
+            // Pass entities_list_pregame to Preview
+            close(pipe_fds_entities[0]);
+
+            for (Entity entity : entities_list_pregame) {
+                write(pipe_fds_entities[1], &entity, sizeof(Entity));
+            }
+
+            close(pipe_fds_entities[1]);
+
         }
 
         ImGui::EndMenu();

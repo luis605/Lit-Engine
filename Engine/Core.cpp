@@ -176,7 +176,7 @@ void CleanUp()
         entity.running = false;
 
 
-    CleanScriptThreads();
+    CleanScriptThreads(scripts_thread_vector);
 
     for (Entity &entity : entities_list)
         entity.remove();

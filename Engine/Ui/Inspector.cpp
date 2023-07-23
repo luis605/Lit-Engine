@@ -74,11 +74,11 @@ void EntityInspector()
 
     ImGui::Text("Model Path:");
     ImGui::PushStyleVar(ImGuiStyleVar_ItemSpacing, ImVec2(0, 40));
-    string model_path_title = selected_entity->model_path + "##Drag'nDropModelPath";
     ImGui::Text("Drop Model Here: ");
     ImGui::SameLine();
-    if (ImGui::Button(model_path_title.c_str(), ImVec2(200,25)));
 
+    if (ImGui::Button((selected_entity->model_path + "##Drag'nDropModelPath").c_str(), ImVec2(200, 25)));
+    
     if (ImGui::BeginDragDropTarget())
     {
         if (const ImGuiPayload* payload = ImGui::AcceptDragDropPayload("MODEL_PAYLOAD"))
@@ -194,14 +194,13 @@ void EntityInspector()
     ImGui::Text("Physics: ");
     ImGui::Text("Do Physics ");
     ImGui::SameLine();
-    ImGui::Checkbox("##", &do_physics);
+    ImGui::Checkbox("##doPhysics", &do_physics);
 
 
 
 
     ImGui::Text("Scripts: ");
-    string name = string("Drop Script Here: ");
-    ImGui::Text(name.c_str());
+    ImGui::Text("Drop Script Here: ");
     ImGui::SameLine();
     string script_button_text = selected_entity->script + "##Drag'nDropScriptPath";
     if (ImGui::Button(script_button_text.c_str(), ImVec2(200,25)))
