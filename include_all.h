@@ -11,16 +11,17 @@
 #include "include/rlgl.h"
 #include "include/custom.h"
 
-#include "imgui/imgui.h"
-#include "imgui/imgui_internal.h"
-#include "include/rlImGui.h"
-#include "ImGuiColorTextEdit/TextEditor.h"
+#ifndef GAME_SHIPPING
+    #include "imgui/imgui.h"
+    #include "imgui/imgui_internal.h"
+    #include "include/rlImGui.h"
+    #include "ImGuiColorTextEdit/TextEditor.h"
+
+    #include "include/ImNodes.h"
+    #include "include/ImNodesEz.h"
+#endif
 
 #include "dependencies/include/glad/glad.h"
-
-
-#include "include/ImNodes.h"
-#include "include/ImNodesEz.h"
 
 // #include <PxPhysicsAPI.h>
 // #include <PxConfig.h>
@@ -47,7 +48,13 @@
 #include <pybind11/stl.h>
 #include <sstream>
 #include <regex>
-#include <json.hpp>
+
+#ifndef GAME_SHIPPING
+    #include <json.hpp>
+#else
+    #include "include/nlohmann/json.hpp"
+#endif
+
 #include <IconsFontAwesome.h>
 #include <execinfo.h>
 #include <unistd.h>
@@ -58,7 +65,6 @@
 #include <iomanip>
 #include <unordered_map>
 #include <map>
-#include <shared_mutex>
 
 /* Physx */
 
@@ -90,27 +96,41 @@ using json = nlohmann::json;
 
 /* Headers */
 #include "Engine/RunGame.h"
-#include "Engine/Ui/AssetsExplorer.h"
-#include "Engine/Core.h"
+
+#ifndef GAME_SHIPPING
+    #include "Engine/Ui/AssetsExplorer.h"
+    #include "Engine/Core.h"
+#endif
 
 /* Sources */
 // #include "Engine/Physics/InitPhysx.cpp"
-#include "Engine/Ui/UiScripts.cpp"
-#include "Engine/Ui/Styles.cpp"
+#ifndef GAME_SHIPPING
+    #include "Engine/Ui/UiScripts.cpp"
+    #include "Engine/Ui/Styles.cpp"
+#endif
+
 #include "Engine/SaveLoad.cpp"
 #include "Engine/Lighting/InitLighting.cpp"
-#include "Engine/Ui/CodeEditor.cpp"
-#include "Engine/Ui/EntitiesList.cpp"
-#include "Engine/Ui/SceneEditor.cpp"
+
+#ifndef GAME_SHIPPING
+    #include "Engine/Ui/CodeEditor.cpp"
+    #include "Engine/Ui/EntitiesList.cpp"
+    #include "Engine/Ui/SceneEditor.cpp"
+#endif
+
 #include "Engine/RunGame.cpp"
-#include "Engine/PreviewProject.cpp"
-#include "Engine/Ui/MaterialsNodeEditor.cpp"
-#include "Engine/Ui/Inspector.cpp"
-#include "Engine/Ui/AssetsExplorer.cpp"
-#include "Engine/Core.cpp"
-#include "Engine/Ui/MenuBar.cpp"
 
+#ifndef GAME_SHIPPING
+    #include "Engine/PreviewProject.cpp"
+    #include "Engine/Ui/MaterialsNodeEditor.cpp"
+    #include "Engine/Ui/Inspector.cpp"
+    #include "Engine/Ui/AssetsExplorer.cpp"
+    #include "Engine/Core.cpp"
+    #include "Engine/Ui/MenuBar.cpp"
+#endif
 
+/* Game Builder */
+#include "GameBuilder/builder.cpp"
 
 using namespace std;
 

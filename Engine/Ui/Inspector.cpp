@@ -133,7 +133,7 @@ void EntityInspector()
         ImGui::Text("Texture: ");
         ImGui::PushStyleVar(ImGuiStyleVar_ItemSpacing, ImVec2(0, 40));
 
-        if (ImGui::ImageButton((ImTextureID)&entity_texture, ImVec2(64, 64)))
+        if (ImGui::ImageButton((ImTextureID)&selected_entity->texture, ImVec2(64, 64)))
         {
             show_texture = !show_texture;
         }

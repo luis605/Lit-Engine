@@ -110,6 +110,10 @@ std::vector<MyNode*> nodes;
 struct EntityMaterial
 {
     Color color;
+    Texture2D texture;
+    std::filesystem::path texture_path;
+    Texture2D normal_texture;
+    std::filesystem::path normal_texture_path;
 };
 
 EntityMaterial entity_material;
@@ -118,6 +122,16 @@ EntityMaterial entity_material;
 void SetMaterial()
 {
     selected_entity->color = entity_material.color;
+
+    Texture2D entity_texture = entity_material.texture;
+    selected_entity->texture = entity_texture;
+    selected_entity->model.materials[0].maps[MATERIAL_MAP_DIFFUSE].texture = entity_texture;
+    selected_entity->texture_path = entity_material.texture_path.string();
+
+    selected_entity->normal_texture = entity_material.normal_texture;
+    selected_entity->model.materials[0].maps[MATERIAL_MAP_NORMAL].texture = selected_entity->normal_texture;
+    selected_entity->normal_texture_path = entity_material.normal_texture_path.string();
+
 }
 
 
@@ -163,10 +177,46 @@ void MaterialsNodeEditor()
                         if (outputSlot.title == "Texture")
                         {
                             ImGui::ImageButton((ImTextureID)&selected_entity->texture, ImVec2(100, 100));
+
+                            if (ImGui::BeginDragDropTarget())
+                            {
+                                if (const ImGuiPayload* payload = ImGui::AcceptDragDropPayload("TEXTURE_PAYLOAD"))
+                                {
+                                    IM_ASSERT(payload->DataSize == sizeof(int));
+                                    int payload_n = *(const int*)payload->Data;
+
+                                    string path = dir_path.c_str();
+                                    path += "/" + files_texture_struct[payload_n].name;
+
+                                    entity_material.texture = LoadTexture(path.c_str());
+                                    entity_material.texture_path = path;
+
+                                }
+                                ImGui::EndDragDropTarget();
+                            }
+
                         }
                         else if (outputSlot.title == "Normal Map")
                         {
                             ImGui::ImageButton((ImTextureID)&selected_entity->normal_texture, ImVec2(100, 100));
+
+                            if (ImGui::BeginDragDropTarget())
+                            {
+                                if (const ImGuiPayload* payload = ImGui::AcceptDragDropPayload("TEXTURE_PAYLOAD"))
+                                {
+                                    IM_ASSERT(payload->DataSize == sizeof(int));
+                                    int payload_n = *(const int*)payload->Data;
+
+                                    string path = dir_path.c_str();
+                                    path += "/" + files_texture_struct[payload_n].name;
+
+                                    entity_material.normal_texture_path = path;
+                                    entity_material.normal_texture = LoadTexture(path.c_str());
+
+
+                                }
+                                ImGui::EndDragDropTarget();
+                            }
                         }
                     }
                 }

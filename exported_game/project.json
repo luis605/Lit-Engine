@@ -1,0 +1,132 @@
+[
+    {
+        "color": {
+            "a": 255,
+            "b": 58,
+            "g": 120,
+            "r": 126
+        },
+        "id": 566080335,
+        "model_path": "assets/models/tree.obj",
+        "name": "tree 1",
+        "normal_texture_path": "",
+        "position": {
+            "x": 0.0,
+            "y": 19.199993133544922,
+            "z": 0.0
+        },
+        "relative_position": {
+            "x": 0.0,
+            "y": 0.0,
+            "z": 0.0
+        },
+        "scale": {
+            "x": 2.0,
+            "y": 2.0,
+            "z": 2.0
+        },
+        "script_path": "",
+        "texture_path": "",
+        "type": "entity"
+    },
+    {
+        "color": {
+            "a": 255,
+            "b": 112,
+            "g": 152,
+            "r": 179
+        },
+        "id": 566080336,
+        "model_path": "project/game/pbr/terrain/source/Rock_Terrain_SF.obj",
+        "name": "terrain",
+        "normal_texture_path": "",
+        "position": {
+            "x": 0.0,
+            "y": 0.0,
+            "z": 0.0
+        },
+        "relative_position": {
+            "x": 0.0,
+            "y": 0.0,
+            "z": 0.0
+        },
+        "scale": {
+            "x": 10.0,
+            "y": 10.0,
+            "z": 10.0
+        },
+        "script_path": "",
+        "texture_path": "project/game/pbr/terrain/source/Rock_Terrain.png",
+        "type": "entity"
+    },
+    {
+        "attenuation": 9.999999747378752e-05,
+        "color": {
+            "a": 1.0,
+            "b": 1.0,
+            "g": 1.0,
+            "r": 1.0
+        },
+        "cutOff": 10.0,
+        "direction": {
+            "x": 0.0,
+            "y": 0.0,
+            "z": 1.0
+        },
+        "id": 2,
+        "intensity": 0.5,
+        "name": "Light",
+        "position": {
+            "x": 4.0,
+            "y": 4.0,
+            "z": 4.0
+        },
+        "relative_position": {
+            "x": 6.260052740165914e+19,
+            "y": 4.5914945482066956e-41,
+            "z": 1.1610072365295485e-18
+        },
+        "specularStrength": 0.5,
+        "target": {
+            "x": 0.0,
+            "y": 1.401298464324817e-45,
+            "z": 744.0
+        },
+        "type": "light"
+    },
+    {
+        "attenuation": 9.999999747378752e-05,
+        "color": {
+            "a": 1.0,
+            "b": 1.0,
+            "g": 1.0,
+            "r": 1.0
+        },
+        "cutOff": 10.0,
+        "direction": {
+            "x": -0.32100000977516174,
+            "y": -0.7059999704360962,
+            "z": 0.04500000178813934
+        },
+        "id": 4,
+        "intensity": 0.5,
+        "name": "Light",
+        "position": {
+            "x": 4.0,
+            "y": 4.0,
+            "z": 4.0
+        },
+        "relative_position": {
+            "x": 6.260052740165914e+19,
+            "y": 4.5914945482066956e-41,
+            "z": 1.1610072365295485e-18
+        },
+        "specularStrength": 0.5,
+        "target": {
+            "x": 0.0,
+            "y": 2.802596928649634e-45,
+            "z": 744.0
+        },
+        "type": "light"
+    }
+]

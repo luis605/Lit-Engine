@@ -1,6 +1,6 @@
+camera.position = Vector3(4.79699, 26.4474, 2.83182)
+camera.target = Vector3(0.514408, 24.9476, -46.9619)
 
-camera.position = Vector3(21.3926, 3.60758, 0.993856)
-camera.target = Vector3(-24.658, 23.0785, 0.533333)
 
 
 

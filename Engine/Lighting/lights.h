@@ -1,20 +1,34 @@
-#include "../../include_all.h"
+#ifndef GAME_SHIPPING
+    #include "../include_all.h"
+#endif
+
 #include <string>
 #include <iostream>
 
 #ifndef LIGHTS_H
 #define LIGHTS_H
 
+struct NonOpaqueUniforms {
+    Vector4 colDiffuse;   // Entity Color
+    Vector4 ambientLight;
+    Vector3 viewPos;
+    int lightsCount;
+};
+
+NonOpaqueUniforms nonOpaqueUniforms;
+
+
 Texture2D light_texture;
 
 int shadowMapWidth = 1024;  // Width of the shadow map texture
 int shadowMapHeight = 1024; // Height of the shadow map texture
 
+unsigned int depthMapFBO;
 
 Shader shader;
 GLuint lightsBuffer;
 
-unsigned int depthMapFBO;
+bool canAddLight = false;
 
 typedef enum
 {
@@ -106,6 +120,15 @@ void UpdateLightsBuffer(bool force=false, vector<Light> lights = lights)
 }
 
 
-
+void AddLight()
+{
+    if (canAddLight)
+    {
+        cout << "AddLight" << endl;
+        Light light_create = NewLight((Vector3){ -2, 1, -2 }, RED);
+        lights_list_pregame.push_back(light_create);
+        canAddLight = false;
+    }
+}
 
 #endif

@@ -47,19 +47,19 @@ out vec4 finalColor;
 out vec3 fragLightDir;
 out vec3 fragViewDir;
 
-
-
+uniform sampler2D normalMap;
 
 void main() {
     // Normalize the surface normal
-    vec3 norm = normalize(fragNormal);
+    vec3 normalMapValue = texture(normalMap, fragTexCoord).xyz * 2.0 - 1.0;
+    vec3 norm = normalize(normalMapValue);//vec3 norm = normalize(fragNormal);
     vec3 lightDir;
     float diff;
     float spec;
     
-    // Calculate the view direction from the fragment position to the viewer position
+
     vec3 viewDir = normalize(viewPos - fragPosition);
-    vec3 reflectDir = reflect(-viewDir, norm); // Calculate the reflection direction
+    vec3 reflectDir = reflect(-viewDir, norm);
     
     vec3 diffuse;
     vec3 specular;
