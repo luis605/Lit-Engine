@@ -303,22 +303,6 @@ int ImGuiListViewEx(vector<string>& items, int& focus, int& scroll, int& active)
 // Widgets
 void EntitiesList()
 {
-
-    ImGui::Text("Mouse Position: (%g, %g)", ImGui::GetMousePos().x, ImGui::GetMousePos().y);
-
-/* 
-    struct sigaction sa;
-
-    memset(&sa, 0, sizeof(struct sigaction));
-    sigemptyset(&sa.sa_mask);
-    sa.sa_sigaction = segfault_sigaction;
-    sa.sa_flags   = SA_SIGINFO;
-
-    sigaction(SIGSEGV, &sa, NULL);
- */
-
-
-
     updateListViewExList(entities_list_pregame, lights_list_pregame);
 
     // Translate the rectangles coordinates to ImGui coordinates
@@ -358,6 +342,11 @@ void EntitiesList()
     ImGui::PopStyleVar();
 
 
+    ImGui::PushStyleColor(ImGuiCol_Button, ImVec4(0.3f, 0.3f, 0.3f, 0.0f));
+    ImGui::PushStyleColor(ImGuiCol_ButtonHovered, ImVec4(0.3f, 0.3f, 0.3f, 0.0f));
+    ImGui::PushStyleColor(ImGuiCol_ButtonActive, ImVec4(0.3f, 0.3f, 0.3f, 0.0f));
+    ImGui::PushStyleColor(ImGuiCol_Border, ImVec4(0.3f, 0.3f, 0.3f, 0.0f));
+
     ImGui::PushStyleVar(ImGuiStyleVar_FramePadding, ImVec2(0,0));
     if (ImGui::ImageButton((ImTextureID)&run_texture, ImVec2(60, 60)))
     {
@@ -377,6 +366,8 @@ void EntitiesList()
         CleanScriptThreads(scripts_thread_vector);
 
     }
+
+    ImGui::PopStyleColor(4);
 
     
     ImGui::PopStyleVar();
