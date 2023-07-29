@@ -1,4 +1,6 @@
-#include "../include_all.h"
+#ifndef GAME_SHIPPING
+    #include "../include_all.h"
+#endif
 
 namespace nlohmann {
     template<>
@@ -101,6 +103,7 @@ void SaveLight(json& json_data, const Light& light, int light_index) {
     j["specularStrength"] = light.specularStrength;
     j["attenuation"] = light.attenuation;
     j["id"] = lights_info.at(light_index).id;
+    j["light_type"] = lights.at(light_index).type;
 
 
     json_data.emplace_back(j);
@@ -242,6 +245,8 @@ void LoadLight(const json& light_json, Light& light, AdditionalLightInfo light_i
     light.cutOff             = light_json["cutOff"].get<float>();
     light.specularStrength   = light_json["specularStrength"].get<float>();
     light.attenuation        = light_json["attenuation"].get<float>();
+
+    light.type               = (LightType)light_json["light_type"].get<int>();
 }
 
 
@@ -258,7 +263,9 @@ int LoadProject(vector<Entity>& entities_vector, vector<Light>& lights_vector, v
     infile.close();
 
     entities_vector.clear();
-
+    lights_vector.clear();
+    lights_info_vector.clear();
+    
     try {
         for (const auto& entity_json : json_data) {
             string type = entity_json["type"].get<std::string>();

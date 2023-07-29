@@ -5,29 +5,29 @@ bool appearance_window_enabled = false;
 
 void Appearance()
 {
-
     ImGui::Begin("Appearance", &appearance_window_enabled);
 
-
+    float button_width = ImGui::CalcTextSize("High Contrast").x + 30;
+    float button_height = 30;
+    ImVec2 ButtonSize = ImVec2(button_width, button_height);
 
     ImGui::Text("Themes: ");
-    bool theme_blue = ImGui::Button("Blue");
-    bool theme_high_contrast = ImGui::Button("High Contrast");
-    bool theme_gray = ImGui::Button("Gray");
-    bool theme_custom = ImGui::Button("Custom");
+    bool theme_blue = ImGui::Button("Blue", ButtonSize);
+    bool theme_light = ImGui::Button("Light", ButtonSize);
+    bool theme_high_contrast = ImGui::Button("High Contrast", ButtonSize);
+    bool theme_gray = ImGui::Button("Gray", ButtonSize);
+    bool theme_custom = ImGui::Button("Custom", ButtonSize);
 
-    if (theme_high_contrast)
-    {
+    if (theme_blue)
+        ImGui::StyleColorsDark();
+    else if (theme_light)
+        ImGui::StyleColorsLight();
+    else if (theme_high_contrast)
         SetStyleHighContrast(&ImGui::GetStyle());
-    }
     else if (theme_gray)
-    {
         SetStyleGray(&ImGui::GetStyle());
-    }
     else if (theme_custom)
-    {
         createNewThemeWindow_open = true;
-    }
 
     ImGui::End();
 }
@@ -82,6 +82,11 @@ void DrawMenus()
 
         }
 
+        if (ImGui::MenuItem("Export"))
+        {
+            BuildProject();
+        }
+
         ImGui::EndMenu();
     }
 
@@ -114,8 +119,6 @@ void MenuBar()
 
     if (ImGui::BeginMainMenuBar())
     {
-
-
         ImVec2 imageSize = ImVec2(40, 40);
         ImVec2 windowSize = ImGui::GetWindowSize();
         float titleBarHeight = ImGui::GetFrameHeight();

@@ -1,8 +1,9 @@
 #ifndef FUNCS_H
 #define FUNCS_H
 
-#include "../include_all.h"
-
+#ifndef GAME_SHIPPING
+    #include "../include_all.h"
+#endif
 
 
 void InitGameCamera();
@@ -12,6 +13,6 @@ void CleanUp();
 void AddLight();
 void MenuBar();
 void CleanScriptThreads(vector<std::thread>& script_threads);
-
+void BuildProject();
 
 #endif // FUNCS_H

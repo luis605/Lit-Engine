@@ -1,4 +1,4 @@
-#version 460 core
+#version 330
 
 // Input vertex attributes
 in vec3 vertexPosition;
@@ -16,6 +16,8 @@ out vec3 fragPosition;
 out vec2 fragTexCoord;
 out vec4 fragColor;
 out vec3 fragNormal;
+
+// NOTE: Add here your custom variables
 
 void main()
 {

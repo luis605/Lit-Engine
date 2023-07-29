@@ -1,4 +1,7 @@
-#include "../include_all.h"
+#ifndef GAME_SHIPPING
+    #include "../include_all.h"
+#endif
+
 #include "../globals.h"
 #include "RunGame.h"
 
@@ -50,7 +53,7 @@ void RenderAndRunEntity(Entity& entity, vector<std::thread>& scripts_threads, bo
 }
 
 
-
+#ifndef GAME_SHIPPING
 void RunGame()
 {
     rectangle.width = sceneEditorWindowWidth;
@@ -84,7 +87,7 @@ void RunGame()
 
     DrawTextureOnRectangle(&texture);
 }
-
+#endif
 
 
 

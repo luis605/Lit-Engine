@@ -1,5 +1,6 @@
-#include "../include_all.h"
-
+#ifndef GAME_SHIPPING
+    #include "../include_all.h"
+#endif
 
 
 
@@ -24,22 +25,6 @@ string read_file_to_string(const string& filename) {
     buffer << file.rdbuf();
     return buffer.str();
 }
-
-
-void AddLight()
-{
-    if (canAddLight)
-    {
-        cout << "AddLight" << endl;
-        Light light_create = NewLight((Vector3){ -2, 1, -2 }, RED);
-        lights_list_pregame.push_back(light_create);
-        canAddLight = false;
-    }
-}
-
-
-
-
 
 py::scoped_interpreter guard{}; // Start interpreter
 
@@ -123,7 +108,9 @@ public:
         for (Entity* child : children)
         {
             child->render();
-            if (child == selected_entity) return;
+            #ifndef GAME_SHIPPING
+                if (child == selected_entity) return;
+            #endif
 
             child->position = Vector3Add(this->position, child->relative_position);
 
@@ -309,8 +296,12 @@ public:
         update_children();
 
         model.transform = MatrixScale(scale.x, scale.y, scale.z);
+
         if (visible)
+        {
+            SetShaderValueTexture(shader, GetShaderLocation(shader, "normalMap"), normal_texture);
             DrawModel(model, {position.x, position.y, position.z}, 1.0f, color);
+        }
     }
 };
 
@@ -327,6 +318,8 @@ float GetExtremeValue(const Vector3& a) {
 
     return max(max(absX, absY), absZ);
 }
+
+
 
 
 HitInfo raycast(Vector3 origin, Vector3 direction, bool debug=false, std::vector<Entity> ignore = {})
@@ -364,12 +357,7 @@ HitInfo raycast(Vector3 origin, Vector3 direction, bool debug=false, std::vector
         Matrix matTranslation = MatrixTranslate(entity.position.x, entity.position.y, entity.position.z);
 
         Matrix modelMatrix = MatrixMultiply(MatrixMultiply(matScale, matRotation), matTranslation);
-
-        Vector2 pos = { GetMousePosition().x - sceneEditorWindowX, GetMousePosition().y - sceneEditorWindowY };
-        Vector2 realPos = { pos.x * GetScreenWidth()/rectangle.width, pos.y * GetScreenHeight()/rectangle.height };        
-
         RayCollision meshHitInfo = { 0 };
-
 
         for (int mesh_i = 0; mesh_i < entity.model.meshCount; mesh_i++)
         {

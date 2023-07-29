@@ -1,0 +1,20 @@
+{
+    "options": [
+        {
+            "color": "ff00ffda",
+            "index": "Text"
+        },
+        {
+            "color": "ff0000ff",
+            "index": "FrameBg"
+        },
+        {
+            "color": "ffff5300",
+            "index": "TitleBg"
+        },
+        {
+            "color": "ffff00b4",
+            "index": "FrameBgHovered"
+        }
+    ]
+}
