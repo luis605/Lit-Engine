@@ -94,39 +94,39 @@ using json = nlohmann::json;
 #include "Engine/Scripting/functions.cpp"
 #include "Engine/Engine.cpp"
 
-/* Headers */
 #include "Engine/RunGame.h"
 
+/* Editor */
 #ifndef GAME_SHIPPING
-    #include "Engine/Ui/AssetsExplorer.h"
+    #include "Engine/Editor/AssetsExplorer/AssetsExplorer.h"
     #include "Engine/Core.h"
 #endif
 
 /* Sources */
 // #include "Engine/Physics/InitPhysx.cpp"
 #ifndef GAME_SHIPPING
-    #include "Engine/Ui/UiScripts.cpp"
-    #include "Engine/Ui/Styles.cpp"
+    #include "Engine/Editor/UiScripts/UiScripts.cpp"
+    #include "Engine/Editor/Styles/Styles.cpp"
 #endif
 
 #include "Engine/SaveLoad.cpp"
 #include "Engine/Lighting/InitLighting.cpp"
 
 #ifndef GAME_SHIPPING
-    #include "Engine/Ui/CodeEditor.cpp"
-    #include "Engine/Ui/EntitiesList.cpp"
-    #include "Engine/Ui/SceneEditor.cpp"
+    #include "Engine/Editor/CodeEditor/CodeEditor.cpp"
+    #include "Engine/Editor/EntitiesList/EntitiesList.cpp"
+    #include "Engine/Editor/SceneEditor/SceneEditor.cpp"
 #endif
 
 #include "Engine/RunGame.cpp"
 
 #ifndef GAME_SHIPPING
     #include "Engine/PreviewProject.cpp"
-    #include "Engine/Ui/MaterialsNodeEditor.cpp"
-    #include "Engine/Ui/Inspector.cpp"
-    #include "Engine/Ui/AssetsExplorer.cpp"
+    #include "Engine/Editor/MaterialsNodeEditor/MaterialsNodeEditor.cpp"
+    #include "Engine/Editor/Inspector/Inspector.cpp"
+    #include "Engine/Editor/AssetsExplorer/AssetsExplorer.cpp"
     #include "Engine/Core.cpp"
-    #include "Engine/Ui/MenuBar.cpp"
+    #include "Engine/Editor/MenuBar/MenuBar.cpp"
 #endif
 
 /* Game Builder */

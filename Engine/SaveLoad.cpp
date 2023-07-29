@@ -172,7 +172,6 @@ void LoadEntity(const json& entity_json, Entity& entity) {
     entity.setModel(entity_json["model_path"].get<std::string>().c_str());
     entity.script = entity_json["script_path"].get<std::string>();
     entity.id = entity_json["id"].get<int>();
-    entity.normal_texture_path = entity_json["normal_texture_path"].get<std::string>();
 
     entity.texture_path = entity_json["texture_path"].get<std::string>();
     if (!entity.texture_path.empty())
@@ -182,6 +181,16 @@ void LoadEntity(const json& entity_json, Entity& entity) {
     {
         entity.model.materials[0].maps[MATERIAL_MAP_DIFFUSE].texture = entity.texture;
     }
+
+    entity.normal_texture_path = entity_json["normal_texture_path"].get<std::string>();
+    if (!entity.normal_texture_path.empty())
+        entity.normal_texture = LoadTexture(entity.normal_texture_path.c_str());
+    
+    if (IsTextureReady(entity.texture))
+    {
+        entity.model.materials[0].maps[MATERIAL_MAP_NORMAL].texture = entity.normal_texture;
+    }
+
 
     if (entity_json.contains("children")) {
         const json& children_data = entity_json["children"];
