@@ -1,87 +1,11 @@
-#include "../../include_all.h"
+#pragma once
+#include "../../../include_all.h"
 #include "MaterialsNodeEditor.h"
+#include "Nodes.cpp"
 
 
 
 
-struct Connection
-{
-    /// `id` that was passed to BeginNode() of input node.
-    void* InputNode = nullptr;
-    /// Descriptor of input slot.
-    const char* InputSlot = nullptr;
-    /// `id` that was passed to BeginNode() of output node.
-    void* OutputNode = nullptr;
-    /// Descriptor of output slot.
-    const char* OutputSlot = nullptr;
-
-    bool operator==(const Connection& other) const
-    {
-        return InputNode == other.InputNode &&
-               InputSlot == other.InputSlot &&
-               OutputNode == other.OutputNode &&
-               OutputSlot == other.OutputSlot;
-    }
-
-    bool operator!=(const Connection& other) const
-    {
-        return !operator ==(other);
-    }
-};
-
-enum NodeSlotTypes
-{
-    NodeSlotColor = 1,   // ID can not be 0
-    NodeSlotTexture = 2,
-    NodeSlotNormalTexture = 3,
-};
-
-/// A structure holding node state.
-struct MyNode
-{
-    /// Title which will be displayed at the center-top of the node.
-    const char* Title = nullptr;
-    /// Flag indicating that node is selected by the user.
-    bool Selected = false;
-    /// Node position on the canvas.
-    ImVec2 Pos{};
-    /// List of node connections.
-    std::vector<Connection> Connections{};
-    /// A list of input slots current node has.
-    std::vector<ImNodes::Ez::SlotInfo> InputSlots{};
-    /// A list of output slots current node has.
-    std::vector<ImNodes::Ez::SlotInfo> OutputSlots{};
-
-    ImVec4 ColorValue = {
-        static_cast<float>(selected_entity->color.r) / 255.0f,
-        static_cast<float>(selected_entity->color.g) / 255.0f,
-        static_cast<float>(selected_entity->color.b) / 255.0f,
-        static_cast<float>(selected_entity->color.a) / 255.0f
-    };
-
-
-    explicit MyNode(const char* title,
-        const std::vector<ImNodes::Ez::SlotInfo>&& input_slots,
-        const std::vector<ImNodes::Ez::SlotInfo>&& output_slots)
-    {
-        Title = title;
-        InputSlots = input_slots;
-        OutputSlots = output_slots;
-    }
-
-    /// Deletes connection from this node.
-    void DeleteConnection(const Connection& connection)
-    {
-        for (auto it = Connections.begin(); it != Connections.end(); ++it)
-        {
-            if (connection == *it)
-            {
-                Connections.erase(it);
-                break;
-            }
-        }
-    }
-};
 
 std::map<std::string, MyNode*(*)()> available_nodes{
     {"Color", []() -> MyNode* {
@@ -89,11 +13,16 @@ std::map<std::string, MyNode*(*)()> available_nodes{
             {"Color", NodeSlotColor} 
         });
     }},
-    {"Texture", []() -> MyNode* {
-        return new MyNode("Texture", {},
+    {"Diffuse Texture", []() -> MyNode* {
+        return new MyNode("Diffuse Texture", {},
         {
-            {"Texture", NodeSlotTexture},
-            {"Normal Map", NodeSlotNormalTexture},
+            {"Diffuse Texture", NodeSlotTexture},
+        });
+    }},
+    {"Normal Map Texture", []() -> MyNode* {
+        return new MyNode("Normal Map Texture", {},
+        {
+            {"Normal Map Texture", NodeSlotNormalTexture},
         });
     }},
     {"Material", []() -> MyNode* {
@@ -107,16 +36,6 @@ std::map<std::string, MyNode*(*)()> available_nodes{
 std::vector<MyNode*> nodes;
 
 
-struct EntityMaterial
-{
-    Color color;
-    Texture2D texture;
-    std::filesystem::path texture_path;
-    Texture2D normal_texture;
-    std::filesystem::path normal_texture_path;
-};
-
-EntityMaterial entity_material;
 
 
 void SetMaterial()
@@ -149,92 +68,22 @@ void MaterialsNodeEditor()
 
         ImNodes::Ez::BeginCanvas();
 
-        bool can_apply_material = false;
+        can_apply_material = false;
 
         for (auto it = nodes.begin(); it != nodes.end();)
         {
             MyNode* node = *it;
 
-            // Start rendering node
             if (ImNodes::Ez::BeginNode(node, node->Title, &node->Pos, &node->Selected))
             {
                 ImNodes::Ez::InputSlots(node->InputSlots.data(), node->InputSlots.size());
 
-                if (node->Title == "Color")
-                {
-                    ImGui::SetNextItemWidth(300);
-                    ImGui::ColorEdit4("Color Picker", (float*)&node->ColorValue);
-                }
 
 
-                if (node->Title == "Texture")
-                {
-                    // Get the initial cursor position
-                    ImVec2 initialCursorPos = ImGui::GetCursorPos();
-
-                    for (const ImNodes::Ez::SlotInfo& outputSlot : node->OutputSlots)
-                    {
-                        if (outputSlot.title == "Texture")
-                        {
-                            ImGui::ImageButton((ImTextureID)&selected_entity->texture, ImVec2(100, 100));
-
-                            if (ImGui::BeginDragDropTarget())
-                            {
-                                if (const ImGuiPayload* payload = ImGui::AcceptDragDropPayload("TEXTURE_PAYLOAD"))
-                                {
-                                    IM_ASSERT(payload->DataSize == sizeof(int));
-                                    int payload_n = *(const int*)payload->Data;
-
-                                    string path = dir_path.c_str();
-                                    path += "/" + files_texture_struct[payload_n].name;
-
-                                    entity_material.texture = LoadTexture(path.c_str());
-                                    entity_material.texture_path = path;
-
-                                }
-                                ImGui::EndDragDropTarget();
-                            }
-
-                        }
-                        else if (outputSlot.title == "Normal Map")
-                        {
-                            ImGui::ImageButton((ImTextureID)&selected_entity->normal_texture, ImVec2(100, 100));
-
-                            if (ImGui::BeginDragDropTarget())
-                            {
-                                if (const ImGuiPayload* payload = ImGui::AcceptDragDropPayload("TEXTURE_PAYLOAD"))
-                                {
-                                    IM_ASSERT(payload->DataSize == sizeof(int));
-                                    int payload_n = *(const int*)payload->Data;
-
-                                    string path = dir_path.c_str();
-                                    path += "/" + files_texture_struct[payload_n].name;
-
-                                    entity_material.normal_texture_path = path;
-                                    entity_material.normal_texture = LoadTexture(path.c_str());
-
-
-                                }
-                                ImGui::EndDragDropTarget();
-                            }
-                        }
-                    }
-                }
-
-
-                if (node->Title == "Material")
-                {
-                    can_apply_material = true;
-                    for (const Connection& connection : node->Connections)
-                    {
-                        if (connection.InputSlot == "Color")
-                        {
-                            ImVec4 colorValue = ((MyNode*)(connection.OutputNode))->ColorValue;
-                            ImGui::ColorButton("Connected Color", colorValue, ImGuiColorEditFlags_NoPicker | ImGuiColorEditFlags_NoTooltip);
-                            entity_material.color = { colorValue.x * 255, colorValue.y * 255, colorValue.z * 255, colorValue.w * 255 };
-                        }
-                    }
-                }
+                ColorNode(node);
+                TextureNode(node);
+                NormalMapTextureNode(node);
+                MaterialNode(node);
 
                 // Render output nodes first (order is important)
                 ImNodes::Ez::OutputSlots(node->OutputSlots.data(), node->OutputSlots.size());
