@@ -1,5 +1,5 @@
-#include "../../include_all.h"
-
+#include "../../../include_all.h"
+#include "Gizmo/Gizmo.cpp"
 
 #if defined(PLATFORM_DESKTOP)
     #define GLSL_VERSION            330
@@ -8,77 +8,6 @@
 #endif
 
 
-
-struct GizmoArrow {
-    Model model;
-    Vector3 position;
-    Vector3 rotation;
-    string drag_directions;
-
-};
-
-GizmoArrow gizmo_arrow[5];
-
-
-
-// Gizmo - Rotation
-Model gizmo_taurus_up;
-Model gizmo_taurus_down;
-Model gizmo_taurus_right;
-Model gizmo_taurus_left;
-Model gizmo_taurus_forward;
-Model gizmo_taurus_backward;
-
-Vector3 gizmo_taurus_up_position;
-Vector3 gizmo_taurus_down_position;
-Vector3 gizmo_taurus_right_position;
-Vector3 gizmo_taurus_left_position;
-Vector3 gizmo_taurus_forward_position;
-Vector3 gizmo_taurus_backward_position;
-
-Vector3 gizmo_taurus_up_rotation;
-Vector3 gizmo_taurus_down_rotation;
-Vector3 gizmo_taurus_right_rotation;
-Vector3 gizmo_taurus_left_rotation;
-Vector3 gizmo_taurus_forward_rotation;
-Vector3 gizmo_taurus_backward_rotation;
-
-string rotation_x_axis = "x-axis";
-string rotation_y_axis = "y-axis";
-string rotation_z_axis = "z-axis";
-
-string gizmo_taurus_up_drag_direction = rotation_x_axis;
-string gizmo_taurus_left_drag_direction = rotation_y_axis;
-string gizmo_taurus_backward_drag_direction = rotation_z_axis;
-
-
-Model gizmo_taurus[] = {
-    gizmo_taurus_up,
-    gizmo_taurus_down,
-    gizmo_taurus_right,
-};
-
-Vector3 gizmo_taurus_position[] = {
-    gizmo_taurus_up_position,
-    gizmo_taurus_down_position,
-    gizmo_taurus_right_position,
-};
-
-Vector3 gizmo_taurus_rotation[] = {
-    gizmo_taurus_up_rotation,
-    gizmo_taurus_down_rotation,
-    gizmo_taurus_right_rotation,
-};
-
-string gizmo_taurus_drag_directions[] = {
-    gizmo_taurus_up_drag_direction,
-    gizmo_taurus_left_drag_direction,
-    gizmo_taurus_backward_drag_direction,
-};
-
-
-
-float gizmo_drag_sensitivity_factor = 0.1f;
 
 void InitEditorCamera()
 {
@@ -109,7 +38,7 @@ void CalculateTextureRect(const Texture* texture, Rectangle& rectangle)
     ImVec2 windowSize = ImGui::GetWindowSize();
 
     float targetWidth = windowSize.x;
-    float targetHeight = windowSize.y;
+    float targetHeight = windowSize.y + GetImGuiWindowTitleHeight();
 
     float offsetX = windowPos.x;
     float offsetY = windowPos.y;
@@ -264,16 +193,19 @@ bool IsMouseHoveringModel(Model model, Camera camera, Vector3 position, Vector3 
     float z = position.z;
     float extreme_rotation = GetExtremeValue(rotation);
 
-    Matrix matScale = MatrixScale(1, 1, 1);
+    Matrix matScale = MatrixScale(model.transform.m0, model.transform.m5, model.transform.m10);
     Matrix matRotation = MatrixRotate(rotation, extreme_rotation*DEG2RAD);
     Matrix matTranslation = MatrixTranslate(x, y, z);
     Matrix modelMatrix = MatrixMultiply(MatrixMultiply(matScale, matRotation), matTranslation);
 
-
     Ray ray = { 0 };
 
-    Vector2 pos = { GetMousePosition().x - rectangle.x, GetMousePosition().y - rectangle.y };
-    Vector2 realPos = { pos.x * GetScreenWidth()/rectangle.width, pos.y * GetScreenHeight()/rectangle.height };        
+    ImGuiStyle& style = ImGui::GetStyle();
+    ImVec2 windowPadding = style.WindowPadding;
+
+    Vector2 pos = { GetMousePosition().x - rectangle.x + windowPadding.x, GetMousePosition().y - rectangle.y + windowPadding.y };
+    Vector2 realPos = { pos.x * GetScreenWidth() / rectangle.width, pos.y * GetScreenHeight() / rectangle.height }; 
+    
     ray = GetMouseRay(realPos, camera);
 
     RayCollision meshHitInfo = { 0 };
@@ -314,133 +246,6 @@ bool isVectorNeutral(const Vector3& vector) {
 
 
 
-void Gizmo()
-{
-    Vector3 selected_object_position;
-
-    if (selected_game_object_type == "entity")
-        selected_object_position = selected_entity->position;
-    else if (selected_game_object_type == "light")
-        selected_object_position = {selected_light->position.x, selected_light->position.y, selected_light->position.z};
-
-    // Gizmo Arrow Up
-    gizmo_arrow[0].position = {selected_object_position.x, selected_object_position.y + 6, selected_object_position.z};
-    gizmo_arrow[0].rotation = {0, 0, 0};
-
-    // Gizmo Arrow Down
-    gizmo_arrow[1].position = {selected_object_position.x, selected_object_position.y - 6, selected_object_position.z};
-    gizmo_arrow[1].rotation = {180, 0, 0};
-
-    // Gizmo Arrow Right
-    gizmo_arrow[2].position = {selected_object_position.x, selected_object_position.y, selected_object_position.z + 6};
-    gizmo_arrow[2].rotation = {90, 0, 0};
-
-    // Gizmo Arrow Left
-    gizmo_arrow[3].position = {selected_object_position.x, selected_object_position.y, selected_object_position.z - 6};
-    gizmo_arrow[3].rotation = {-90, 0, 0};
-
-    // Gizmo Arrow Forward
-    gizmo_arrow[4].position = {selected_object_position.x + 6, selected_object_position.y, selected_object_position.z};
-    gizmo_arrow[4].rotation = {0, 0, -90};
-
-    // Gizmo Arrow Backward
-    gizmo_arrow[5].position = {selected_object_position.x - 6, selected_object_position.y, selected_object_position.z};
-    gizmo_arrow[5].rotation = {0, 0, 90};
-
-
-    for (int arrow_i = 0; arrow_i < (sizeof(gizmo_arrow) / sizeof(gizmo_arrow[0])) + 1; arrow_i++)
-    {
-        Color color1;
-
-        if (!dragging_gizmo && ImGui::IsWindowHovered())
-        {
-            isHoveringGizmo = IsMouseHoveringModel(gizmo_arrow[arrow_i].model, scene_camera, gizmo_arrow[arrow_i].position, gizmo_arrow[arrow_i].rotation, nullptr, true);
-            
-            if (isHoveringGizmo)
-            {
-                color1 = GREEN;
-                gizmo_arrow_selected = arrow_i;
-            }
-            else
-            {
-                color1 = { 255, 0, 0, 100 };
-                gizmo_arrow_selected == -1;
-            }
-        }
-        else
-        {
-            color1 = RED;
-            gizmo_arrow_selected == -1;
-        }
-
-        if (ImGui::IsWindowHovered() && IsMouseButtonDown(MOUSE_LEFT_BUTTON))
-        {
-            if (isHoveringGizmo)
-            {
-                if (!dragging_gizmo)
-                {
-                    mouse_drag_start = GetMousePosition();
-                    dragging_gizmo = true;
-                }
-            }
-            if (dragging_gizmo)
-            {
-                Vector2 mouse_drag_end = GetMousePosition();
-                if ( gizmo_arrow_selected == 0 || gizmo_arrow_selected == 1 )
-                {
-                    float delta_y = (mouse_drag_end.y - mouse_drag_start.y) * gizmo_drag_sensitivity_factor;
-                    
-                    gizmo_arrow[0].position.y -= delta_y;
-                    gizmo_arrow[1].position.y -= delta_y;
-                    
-                }
-
-                else if ( gizmo_arrow_selected == 2 || gizmo_arrow_selected == 3 )
-                {
-                    float delta_z = ((mouse_drag_end.x - mouse_drag_start.x) + (mouse_drag_end.y - mouse_drag_start.y)) * gizmo_drag_sensitivity_factor;
-                    gizmo_arrow[arrow_i].position.z -= delta_z;
-                }
-                
-                else if ( gizmo_arrow_selected == 4 || gizmo_arrow_selected == 5 )
-                {
-                    float delta_x = (mouse_drag_end.x - mouse_drag_start.x) * gizmo_drag_sensitivity_factor;
-                    gizmo_arrow[arrow_i].position.x += delta_x;
-                }
-
-                mouse_drag_start = mouse_drag_end;
-            }
-        }
-        else dragging_gizmo = false;
-
-        float extreme_rotation = GetExtremeValue(gizmo_arrow[arrow_i].rotation);
-        DrawModelEx(gizmo_arrow[arrow_i].model, gizmo_arrow[arrow_i].position, gizmo_arrow[arrow_i].rotation, extreme_rotation, {1,1,1}, color1);
-    }
-
-    float y_axis_arrows_center_pos = (gizmo_arrow[0].position.y + gizmo_arrow[1].position.y) / 2.0f;
-
-
-
-    if (selected_game_object_type == "entity")
-    {
-        selected_entity->position = {
-            gizmo_arrow[0].position.x,
-            y_axis_arrows_center_pos,
-            gizmo_arrow[0].position.z
-        };
-        
-        if ((bool)selected_entity->isChild)
-        {
-            selected_entity->relative_position = Vector3Subtract(selected_entity->position, selected_entity->parent->position);
-        }
-    }
-    else if (selected_game_object_type == "light")
-    {
-        selected_light->position.x = gizmo_arrow[0].position.x;
-        selected_light->position.y = y_axis_arrows_center_pos;
-        selected_light->position.z = gizmo_arrow[0].position.z;
-    }
-
-}
 
 
 void ProcessCameraControls()
@@ -465,7 +270,9 @@ void ProcessSelection()
     if ((selected_game_object_type == "entity") ||
         (selected_game_object_type == "light"))
     {
-        Gizmo();
+        GizmoPosition();
+        GizmoRotation();
+
     }
 }
 
@@ -489,7 +296,7 @@ void RenderScene()
 
         float rotation = DrawBillboardRotation(scene_camera, light_texture, { light.position.x, light.position.y, light.position.z }, 1.0f, WHITE);
         
-        if (IsMouseButtonDown(MOUSE_LEFT_BUTTON) && ImGui::IsWindowHovered() && !dragging_gizmo)
+        if (IsMouseButtonDown(MOUSE_LEFT_BUTTON) && ImGui::IsWindowHovered() && !dragging_gizmo && !dragging_gizmo_rotation)
         {
             bool isLightSelected = IsMouseHoveringModel(light_model, scene_camera, { light.position.x, light.position.y, light.position.z }, { 0, rotation, 0 } );
             if (isLightSelected)
@@ -507,7 +314,7 @@ void RenderScene()
 
         entity.render();
 
-        if (IsMouseButtonDown(MOUSE_LEFT_BUTTON) && ImGui::IsWindowHovered() && !dragging_gizmo)
+        if (IsMouseButtonDown(MOUSE_LEFT_BUTTON) && ImGui::IsWindowHovered() && !dragging_gizmo && !dragging_gizmo_rotation)
         {
             bool isEntitySelected = IsMouseHoveringModel(entity.model, scene_camera, entity.position, entity.rotation, &entity);
             if (isEntitySelected)
@@ -536,18 +343,49 @@ void RenderScene()
     DrawTextureOnRectangle(&texture);
 }
 
+void DropEntity()
+{
+    ImVec2 windowPos = ImGui::GetWindowPos();
+    ImVec2 windowSize = ImGui::GetWindowSize();
+
+    ImRect dropTargetArea(windowPos, ImVec2(windowPos.x + windowSize.x, windowPos.y + windowSize.y));
+    ImGuiID windowID = ImGui::GetID(ImGui::GetCurrentWindow()->Name);
+   
+    if (ImGui::BeginDragDropTargetCustom(dropTargetArea, windowID))
+    {
+        if (const ImGuiPayload* payload = ImGui::AcceptDragDropPayload("MODEL_PAYLOAD"))
+        {
+            IM_ASSERT(payload->DataSize == sizeof(int));
+            int payload_n = *(const int*)payload->Data;
+
+            string path = dir_path.c_str();
+            path += "/" + files_texture_struct[payload_n].name;
+
+            AddEntity(true, false, path.c_str());
+        }
+        ImGui::EndDragDropTarget();
+    }
+}
+
 
 int EditorCamera(void)
 {
+    if (ImGui::IsWindowHovered() && !dragging_gizmo && !dragging_gizmo_rotation && !in_game_preview)
+        DropEntity();
+
+    if ((ImGui::IsWindowHovered() || ImGui::IsWindowFocused()) && !dragging_gizmo && !dragging_gizmo_rotation && !in_game_preview)
+    {
+        EditorCameraMovement();
+        ProcessCameraControls();
+    }
+
     if (in_game_preview)
     {
         RunGame();
         return 0;
     }
 
-    EditorCameraMovement();
     RenderScene();
-    ProcessCameraControls();
 
     
 

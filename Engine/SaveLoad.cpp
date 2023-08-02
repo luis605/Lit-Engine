@@ -72,6 +72,7 @@ void SaveEntity(json& json_data, const Entity& entity) {
     j["script_path"] = entity.script;
     j["texture_path"] = entity.texture_path;
     j["normal_texture_path"] = entity.normal_texture_path;
+    j["roughness_texture_path"] = entity.roughness_texture_path;
     j["id"] = entity.id;
 
     if (!entity.children.empty()) {
@@ -173,23 +174,28 @@ void LoadEntity(const json& entity_json, Entity& entity) {
     entity.script = entity_json["script_path"].get<std::string>();
     entity.id = entity_json["id"].get<int>();
 
+
+    // Textures
     entity.texture_path = entity_json["texture_path"].get<std::string>();
     if (!entity.texture_path.empty())
-        entity.texture = LoadTexture(entity.texture_path.c_str());
-    
-    if (IsTextureReady(entity.texture))
     {
-        entity.model.materials[0].maps[MATERIAL_MAP_DIFFUSE].texture = entity.texture;
+        entity.texture = LoadTexture(entity.texture_path.c_str());
     }
 
     entity.normal_texture_path = entity_json["normal_texture_path"].get<std::string>();
     if (!entity.normal_texture_path.empty())
-        entity.normal_texture = LoadTexture(entity.normal_texture_path.c_str());
-    
-    if (IsTextureReady(entity.texture))
     {
-        entity.model.materials[0].maps[MATERIAL_MAP_NORMAL].texture = entity.normal_texture;
+        entity.normal_texture = LoadTexture(entity.normal_texture_path.c_str());
     }
+
+    entity.roughness_texture_path = entity_json["roughness_texture_path"].get<std::string>();
+    if (!entity.roughness_texture_path.empty())
+    {
+        entity.roughness_texture = LoadTexture(entity.roughness_texture_path.c_str());
+    }
+
+    entity.ReloadTextures();
+
 
 
     if (entity_json.contains("children")) {

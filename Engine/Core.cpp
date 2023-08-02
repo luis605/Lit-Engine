@@ -88,12 +88,8 @@ void Startup()
     auto lang = TextEditor::LanguageDefinition::CPlusPlus();
 
     // Gizmo
-    for (int index = 0; index < sizeof(gizmo_arrow) / sizeof(gizmo_arrow[0]) + 1; index++)
-        gizmo_arrow[index].model = LoadModel("assets/models/gizmo/arrow.obj");
-
-    for (int index = 0; index < (sizeof(gizmo_taurus) / sizeof(gizmo_taurus[0])) + 1; index++)
-        gizmo_taurus[index] = LoadModel("assets/models/gizmo/taurus.obj");
-
+    InitGizmo();
+    
     // Editor Camera
     InitEditorCamera();
 
@@ -131,7 +127,7 @@ void EngineMainLoop()
 
         CodeEditor();
 
-        ImGui::Begin("Entities List Window", NULL);
+        ImGui::Begin("Scene Objects List Window", NULL);
         EntitiesList();
         ImGui::End();
 
@@ -139,9 +135,11 @@ void EngineMainLoop()
         Inspector();
         ImGui::End();
 
+        ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(0.0f, 0.0f));
         ImGui::Begin("Scene Editor Window", NULL);
         int editor_camera = EditorCamera();
         ImGui::End();
+        ImGui::PopStyleVar();
 
         AddEntity();
 
@@ -159,6 +157,7 @@ void CleanUp()
 {
 
     std::cout << "Exiting..." << std::endl;
+    kill(-pid, SIGTERM);
 
     in_game_preview = false;
 
@@ -191,6 +190,9 @@ void CleanUp()
         UnloadTexture(it->second);
     }
     models_icons.clear();
+
+    lights.clear();
+    lights_info.clear();
 
     rlImGuiShutdown();
     CloseWindow();

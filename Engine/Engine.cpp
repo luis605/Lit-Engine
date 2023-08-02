@@ -4,6 +4,14 @@
 
 
 
+float GetExtremeValue(const Vector3& a) {
+    const float absX = abs(a.x);
+    const float absY = abs(a.y);
+    const float absZ = abs(a.z);
+
+    return max(max(absX, absY), absZ);
+}
+
 
 string getFileExtension(string filePath)
 {
@@ -51,7 +59,7 @@ public:
     Color color;
     float size = 1;
     Vector3 position = { 0, 0, 0 };
-    Vector3 rotation;
+    Vector3 rotation = { 0, 0, 0 };
     Vector3 scale = { 1, 1, 1 };
 
     Vector3 relative_position = { 0, 0, 0 };
@@ -71,13 +79,16 @@ public:
     std::filesystem::path normal_texture_path;
     Texture2D normal_texture;
 
+    std::filesystem::path roughness_texture_path;
+    Texture2D roughness_texture;
+
     bool collider = true;
     bool visible = true;
     bool isChild = false;
     bool isParent = false;
     bool running = false;
 
-    int id = "";
+    int id = 0;
 
     Entity* parent;
     vector<Entity*> children;
@@ -162,18 +173,34 @@ public:
         model = LoadModel(filename);
     }
 
-
-    void setModel(char* modelPath)
+    void ReloadTextures()
     {
-        model_path = modelPath;
-        model = LoadModel(modelPath);
-        model.materials[0].shader = shader;
         if (IsTextureReady(this->texture))
         {
             model.materials[0].maps[MATERIAL_MAP_DIFFUSE].texture = texture;
         }
 
+        if (IsTextureReady(this->normal_texture))
+        {
+            model.materials[0].maps[MATERIAL_MAP_NORMAL].texture = normal_texture;
+        }
+
+        if (IsTextureReady(this->roughness_texture))
+        {
+            model.materials[0].maps[MATERIAL_MAP_ROUGHNESS].texture = roughness_texture;
+        }
+    }
+
+    void setModel(const char* modelPath)
+    {
+        model_path = modelPath;
+        model = LoadModel(modelPath);
+        model.materials[0].shader = shader;
+
         bounds = GetMeshBoundingBox(model.meshes[0]);
+
+        ReloadTextures();
+
     }
 
     bool hasModel()
@@ -295,12 +322,20 @@ public:
 
         update_children();
 
-        model.transform = MatrixScale(scale.x, scale.y, scale.z);
+        // model.transform = MatrixScale(scale.x, scale.y, scale.z);
 
         if (visible)
         {
-            SetShaderValueTexture(shader, GetShaderLocation(shader, "normalMap"), normal_texture);
-            DrawModel(model, {position.x, position.y, position.z}, 1.0f, color);
+            bool has_normal_map = IsTextureReady(this->normal_texture);
+            has_normal_map = true;
+            SetShaderValue(shader, GetShaderLocation(shader, "normalMapInit"), &has_normal_map, SHADER_UNIFORM_INT);
+            
+            bool has_roughness_map = IsTextureReady(this->roughness_texture);
+            has_roughness_map = false;
+            SetShaderValue(shader, GetShaderLocation(shader, "roughnessMapInit"), &has_roughness_map, SHADER_UNIFORM_INT);
+
+            DrawModelEx(model, position, rotation, GetExtremeValue(rotation), scale, color);
+
         }
     }
 };
@@ -311,13 +346,6 @@ py::module entity_module("entity_module");
 
 
 
-float GetExtremeValue(const Vector3& a) {
-    const float absX = abs(a.x);
-    const float absY = abs(a.y);
-    const float absZ = abs(a.z);
-
-    return max(max(absX, absY), absZ);
-}
 
 
 

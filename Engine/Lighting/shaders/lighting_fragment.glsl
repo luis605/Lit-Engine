@@ -12,7 +12,15 @@ uniform vec4 colDiffuse; // Entity Color
 uniform vec4 ambientLight;
 uniform vec3 viewPos;
 
+// pbr
+uniform bool normalMapInit;
+uniform sampler2D texture2;
 
+uniform bool roughnessMapInit;
+uniform sampler2D texture3;
+
+
+// Lights
 #define LIGHT_DIRECTIONAL 0
 #define LIGHT_POINT 1
 #define LIGHT_SPOT 2
@@ -47,12 +55,25 @@ out vec4 finalColor;
 out vec3 fragLightDir;
 out vec3 fragViewDir;
 
-uniform sampler2D normalMap;
 
 void main() {
     // Normalize the surface normal
-    vec3 normalMapValue = texture(normalMap, fragTexCoord).xyz * 2.0 - 1.0;
-    vec3 norm = normalize(normalMapValue);//vec3 norm = normalize(fragNormal);
+    vec3 norm;
+    if (false)
+    {
+        vec3 normal = texture(texture2, fragTexCoord).xyz * 2.0 - 1.0;
+        norm = normalize(normal);
+    }
+    else
+        norm = normalize(fragNormal);
+
+    // float roughness;
+    // if (true)
+    //     roughness = texture(texture3, fragTexCoord).r;
+    // else
+    //     roughness = 0.1;
+
+
     vec3 lightDir;
     float diff;
     float spec;
@@ -66,7 +87,11 @@ void main() {
     vec3 result = colDiffuse.rgb / 2.0 - ambientLight.rgb * 0.5;
     result += ambientLight.rgb * 0.2;
     
-    vec4 texColor = texture(texture0, fragTexCoord);
+    vec4 texColor;
+    if (true)
+        texColor = texture(texture0, fragTexCoord);
+    else
+        texColor = colDiffuse;
 
     for (int i = 0; i < lightsCount; i++) {
         Light light = lights[i];
@@ -124,10 +149,18 @@ void main() {
     }
 
     vec4 blendedColor = vec4(result, 1.0) * texColor;
-    
+
+    // if (roughnessMapInit)
+    // {
+    //     float roughnessIntensity = 1.0 - roughness; // Invert roughness value to make roughness=0 fully reflective
+    //     blendedColor.rgb *= roughnessIntensity;
+    // }
+
+
     // Apply gamma correction
     blendedColor.rgb = pow(blendedColor.rgb, vec3(1.0 / 2.2));
 
     // Assign the final color
     finalColor = blendedColor;
+
 }

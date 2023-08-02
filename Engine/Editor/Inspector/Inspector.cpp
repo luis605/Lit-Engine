@@ -77,8 +77,11 @@ void EntityInspector()
     ImGui::Text("Drop Model Here: ");
     ImGui::SameLine();
 
-    if (ImGui::Button((selected_entity->model_path + "##Drag'nDropModelPath").c_str(), ImVec2(200, 25)));
-    
+    if (ImGui::Button(
+        ("##Drag'nDropModelPath"),
+        ImVec2(200, 25)
+        ));
+
     if (ImGui::BeginDragDropTarget())
     {
         if (const ImGuiPayload* payload = ImGui::AcceptDragDropPayload("MODEL_PAYLOAD"))
@@ -127,10 +130,10 @@ void EntityInspector()
         ImGui::PushStyleVar(ImGuiStyleVar_ItemSpacing, ImVec2(0, 40));
         ImGui::ColorEdit4("##Changeentity_color", (float*)&entity_colorImGui, ImGuiColorEditFlags_NoInputs);
         ImGui::PopStyleVar();
-        Color entity_color = (Color){ (unsigned char)(entity_colorImGui.x*255), (unsigned char)(entity_colorImGui.y*255), (unsigned char)(entity_colorImGui.z*255), (unsigned char)(color.w*255) };
+        Color entity_color = (Color){ (unsigned char)(entity_colorImGui.x*255), (unsigned char)(entity_colorImGui.y*255), (unsigned char)(entity_colorImGui.z*255), (unsigned char)(entity_colorImGui.w*255) };
         selected_entity->color = entity_color;
 
-        ImGui::Text("Texture: ");
+        ImGui::Text("Diffuse Texture: ");
         ImGui::PushStyleVar(ImGuiStyleVar_ItemSpacing, ImVec2(0, 40));
 
         if (ImGui::ImageButton((ImTextureID)&selected_entity->texture, ImVec2(64, 64)))
@@ -150,9 +153,7 @@ void EntityInspector()
                 string path = dir_path.c_str();
                 path += "/" + files_texture_struct[payload_n].name;
 
-                entity_texture = LoadTexture(path.c_str());
-                selected_entity->texture = entity_texture;
-                selected_entity->model.materials[0].maps[MATERIAL_MAP_DIFFUSE].texture = entity_texture;
+                selected_entity->texture = LoadTexture(path.c_str());
                 selected_entity->texture_path = path;
             }
             ImGui::EndDragDropTarget();
@@ -177,14 +178,39 @@ void EntityInspector()
                 path += "/" + files_texture_struct[payload_n].name;
 
                 selected_entity->normal_texture = LoadTexture(path.c_str());
-                selected_entity->model.materials[0].maps[MATERIAL_MAP_NORMAL].texture = selected_entity->normal_texture;
                 selected_entity->normal_texture_path = path;
+            }
+            ImGui::EndDragDropTarget();
+        }
+
+
+
+        ImGui::Text("RoughnessMap Texture: ");
+        if (ImGui::ImageButton((ImTextureID)&selected_entity->roughness_texture, ImVec2(64, 64)))
+        {
+            //show_texture = !show_normal_texture;
+        }
+
+        if (ImGui::BeginDragDropTarget())
+        {
+            if (const ImGuiPayload* payload = ImGui::AcceptDragDropPayload("TEXTURE_PAYLOAD"))
+            {
+                IM_ASSERT(payload->DataSize == sizeof(int));
+                int payload_n = *(const int*)payload->Data;
+
+                string path = dir_path.c_str();
+                path += "/" + files_texture_struct[payload_n].name;
+
+                selected_entity->roughness_texture = LoadTexture(path.c_str());
+                selected_entity->roughness_texture_path = path;
             }
             ImGui::EndDragDropTarget();
         }
 
         if (ImGui::Button("View Material in Nodes Editor"))
             show_material_in_nodes_editor = !show_material_in_nodes_editor;
+
+        selected_entity->ReloadTextures();
             
 
     }

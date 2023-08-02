@@ -21,7 +21,7 @@ int main()
     }
 
 
-    pid_t pid = fork();
+    pid = fork();
     if (pid < 0) {
         std::cerr << "Failed to start Lit Engine - Fork failed." << std::endl;
     } else if (pid == 0) {
