@@ -1,7 +1,7 @@
 #ifndef MATERIAL_H
 #define MATERIAL_H
 
-bool show_material_in_nodes_editor = true;
+bool show_material_in_nodes_editor = false;
 bool can_apply_material = false;
 
 struct Connection
