@@ -4,7 +4,7 @@ A game engine with the speed and portability of cpp made with raylib.
 # Cloning the Repository
 To clone the repository, run the following command in your terminal or command prompt:
 ```cpp
-git clone --recurse-submodules -j8 https://luis605@github.com/luis605/Unnamed-Game-Engine
+git clone --recurse-submodules -j8 https://luis605@github.com/luis605/Lit-Engine
 ```
 and paste this password:
 
