@@ -4,18 +4,26 @@
 #define MAX(a, b) ((a) > (b) ? (a) : (b))
 #define MIN(a, b) ((a) < (b) ? (a) : (b))
 
-TextureCubemap GenTextureCubemap(Shader shader, Texture2D panorama, int size, int format);
-
-TextureCubemap GenTextureCubemap(Shader shader, Texture2D panorama, int size, int format)
+void segfault_sigaction(int signal, siginfo_t *si, void *arg)
 {
-    // Your implementation code goes here
-    // ...
-    // Make sure to return an appropriate TextureCubemap object
-    // For example, return a default-constructed TextureCubemap if you don't have the actual implementation yet
+    printf("Safe exit enabled by segfault at address %p\n", si->si_addr);
+    kill(-pid, SIGTERM);
+    exit(0);
 }
 
 void Startup()
 {
+    // Core - Safety
+    struct sigaction sa;
+
+    memset(&sa, 0, sizeof(struct sigaction));
+    sigemptyset(&sa.sa_mask);
+    sa.sa_sigaction = segfault_sigaction;
+    sa.sa_flags   = SA_SIGINFO;
+
+    sigaction(SIGSEGV, &sa, NULL);
+
+
     // Raylib
     SetTraceLogLevel(LOG_WARNING);
     SetTargetFPS(10000);
