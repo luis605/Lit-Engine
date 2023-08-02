@@ -8,14 +8,6 @@
 #ifndef LIGHTS_H
 #define LIGHTS_H
 
-struct NonOpaqueUniforms {
-    Vector4 colDiffuse;   // Entity Color
-    Vector4 ambientLight;
-    Vector3 viewPos;
-    int lightsCount;
-};
-
-NonOpaqueUniforms nonOpaqueUniforms;
 
 
 Texture2D light_texture;
@@ -29,6 +21,17 @@ Shader shader;
 GLuint lightsBuffer;
 
 bool canAddLight = false;
+
+
+
+struct pbrFlags {
+    bool normalMapInit;
+    bool roughnessMapInit;
+    bool diffuseMapInit;
+};
+
+pbrFlags pbr_flags;
+
 
 typedef enum
 {

@@ -37,7 +37,11 @@ bool operator==(const Entity& e, const Entity* ptr) {
 }
 
 
-void AddEntity()
+void AddEntity(
+    bool create_immediatly = false,
+    bool is_create_entity_a_child = false,
+    const char* model_path = "assets/models/tree.obj"
+)
 {
     const int POPUP_WIDTH = 600;
     const int POPUP_HEIGHT = 650;
@@ -45,21 +49,21 @@ void AddEntity()
     int popupX = GetScreenWidth() / 4.5;
     int popupY = (GetScreenHeight() - POPUP_HEIGHT) / 6;
 
-    if (create)
+    if (create || create_immediatly)
     {
         Color entity_color_raylib = {
-            static_cast<unsigned char>(color.x * 255),
-            static_cast<unsigned char>(color.y * 255),
-            static_cast<unsigned char>(color.z * 255),
-            static_cast<unsigned char>(color.w * 255)
+            static_cast<unsigned char>(entity_create_color.x * 255),
+            static_cast<unsigned char>(entity_create_color.y * 255),
+            static_cast<unsigned char>(entity_create_color.z * 255),
+            static_cast<unsigned char>(entity_create_color.w * 255)
         };
 
         Entity entity_create;
         entity_create.setColor(entity_color_raylib);
-        entity_create.setScale(Vector3{scale, scale, scale});
+        entity_create.setScale(Vector3{entity_create_scale, entity_create_scale, entity_create_scale});
         entity_create.setName(name);
         entity_create.isChild = is_create_entity_a_child;
-        entity_create.setModel("assets/models/tree.obj");
+        entity_create.setModel(model_path);
         entity_create.setShader(shader);
 
         if (!entities_list_pregame.empty())
@@ -82,6 +86,8 @@ void AddEntity()
                     entities_list_pregame.back().addChild(entity_create);
             }
         }
+
+        selected_entity = &entity_create;
 
         int last_entity_index = entities_list_pregame.size() - 1;
         listViewExActive = last_entity_index;
@@ -111,7 +117,7 @@ void AddEntity()
         /* Scale Slider */
         ImGui::Text("Scale: ");
         ImGui::SameLine();
-        ImGui::SliderFloat(" ", &scale, 0.1f, 100.0f);
+        ImGui::SliderFloat(" ", &entity_create_scale, 0.1f, 100.0f);
 
         /* Name Input */
         ImGui::InputText("##text_input_box", name, sizeof(name));
@@ -119,7 +125,7 @@ void AddEntity()
         /* Color Picker */
         ImGui::Text("Color: ");
         ImGui::SameLine();
-        ImGui::ColorEdit4(" ", (float*)&color, ImGuiColorEditFlags_NoInputs);
+        ImGui::ColorEdit4(" ", (float*)&entity_create_color, ImGuiColorEditFlags_NoInputs);
 
         /* Is Children */
         ImGui::Checkbox("Is Children: ", &is_create_entity_a_child);

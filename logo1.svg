@@ -1,0 +1,116 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<!-- Created with Inkscape (http://www.inkscape.org/) -->
+
+<svg
+   width="210mm"
+   height="210mm"
+   viewBox="0 0 210 210"
+   version="1.1"
+   id="svg5"
+   inkscape:version="1.1.2 (0a00cf5339, 2022-02-04)"
+   sodipodi:docname="logo1.svg"
+   inkscape:export-filename="/home/lixt/Desktop/projects/Lit Engine - engine/main/docs/images/logo1.png"
+   inkscape:export-xdpi="96"
+   inkscape:export-ydpi="96"
+   xmlns:inkscape="http://www.inkscape.org/namespaces/inkscape"
+   xmlns:sodipodi="http://sodipodi.sourceforge.net/DTD/sodipodi-0.dtd"
+   xmlns="http://www.w3.org/2000/svg"
+   xmlns:svg="http://www.w3.org/2000/svg">
+  <sodipodi:namedview
+     id="namedview7"
+     pagecolor="#ffffff"
+     bordercolor="#111111"
+     borderopacity="1"
+     inkscape:pageshadow="0"
+     inkscape:pageopacity="0"
+     inkscape:pagecheckerboard="1"
+     inkscape:document-units="mm"
+     showgrid="false"
+     height="210mm"
+     inkscape:zoom="0.72693603"
+     inkscape:cx="394.11996"
+     inkscape:cy="341.84576"
+     inkscape:window-width="1920"
+     inkscape:window-height="1008"
+     inkscape:window-x="0"
+     inkscape:window-y="0"
+     inkscape:window-maximized="1"
+     inkscape:current-layer="layer1" />
+  <defs
+     id="defs2" />
+  <g
+     inkscape:label="Camada 1"
+     inkscape:groupmode="layer"
+     id="layer1">
+    <ellipse
+       style="fill:#071815;stroke-width:0.264583"
+       id="path846"
+       cx="105.41982"
+       cy="105.57609"
+       rx="104.64158"
+       ry="104.68455" />
+    <ellipse
+       style="fill:#071815;stroke-width:0.264583"
+       id="ellipse937"
+       cx="105.41982"
+       cy="105.57609"
+       rx="104.64158"
+       ry="104.68455" />
+    <circle
+       style="fill:#333333;stroke-width:0.240155"
+       id="ellipse937-3"
+       cx="105.3288"
+       cy="106.43914"
+       r="95" />
+    <circle
+       style="fill:#333333;stroke-width:0.240155"
+       id="circle1059"
+       cx="105.3288"
+       cy="106.43914"
+       r="95" />
+    <circle
+       style="fill:#000000;stroke-width:0.0442391"
+       id="circle1059-6"
+       cx="103.72175"
+       cy="102.26669"
+       r="17.5" />
+    <rect
+       style="fill:#1a1a1a;stroke-width:0.167057"
+       id="rect1159"
+       width="100.33187"
+       height="26.258265"
+       x="-110.54913"
+       y="90.953514"
+       ry="13.129132"
+       transform="rotate(-90)" />
+    <rect
+       style="fill:#1a1a1a;stroke-width:0.175738"
+       id="rect1159-7"
+       width="105.21548"
+       height="27.709473"
+       x="134.10645"
+       y="22.842428"
+       ry="13.854736"
+       transform="matrix(0.86329055,0.50470728,-0.49530745,0.86871775,0,0)" />
+    <rect
+       style="fill:#1a1a1a;stroke-width:0.174074"
+       id="rect1159-7-5"
+       width="103.39406"
+       height="27.665993"
+       x="-48.704269"
+       y="-156.37801"
+       ry="13.832996"
+       transform="matrix(-0.85615826,0.51671369,-0.48347069,-0.87536055,0,0)" />
+  </g>
+  <g
+     inkscape:groupmode="layer"
+     id="layer2"
+     inkscape:label="Camada 2">
+    <circle
+       style="fill:#000000;stroke-width:0.0442391"
+       id="circle1059-6-3"
+       cx="104.12016"
+       cy="103.08038"
+       r="17.5" />
+  </g>
+</svg>

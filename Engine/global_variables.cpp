@@ -1,7 +1,7 @@
 #include "../include_all.h"
 
 
-
+pid_t pid;
 int pipe_fds[2];
 int pipe_fds_entities[2];
 int pipe_fds_lights[2];
@@ -27,8 +27,8 @@ int pipe_fds_lights[2];
     vector<string> objectNames;
     char name[256] = { 0 };
 
-    float scale = 1;
-    ImVec4 color = ImVec4(1.0f, 0.0f, 0.0f, 1.0f);
+    float entity_create_scale = 1;
+    ImVec4 entity_create_color = ImVec4(1.0f, 1.0f, 1.0f, 1.0f);
 
     bool is_create_entity_a_child = false;
 
@@ -51,8 +51,10 @@ int pipe_fds_lights[2];
     float movementSpeed = 0.5f;
     Vector3 front;
 
+
     bool dragging = false;
     bool dragging_gizmo = false;
+    bool dragging_gizmo_rotation = false;
     Vector2 mouse_drag_start = { 0, 0 };
 
     int gizmo_arrow_selected;
@@ -62,6 +64,7 @@ int pipe_fds_lights[2];
     // Gizmo -> Mouse Position
     Vector2 mousePosition;
     Vector2 mousePositionPrev = GetMousePosition();
+
 
     // ImGui Window Info
     float sceneEditorWindowWidth;
