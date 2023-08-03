@@ -129,7 +129,8 @@ void GizmoPosition()
         
         if ((bool)selected_entity->isChild)
         {
-            selected_entity->relative_position = Vector3Subtract(selected_entity->position, selected_entity->parent->position);
+            if (selected_entity->parent != nullptr)
+                selected_entity->relative_position = Vector3Subtract(selected_entity->position, selected_entity->parent->position);
         }
     }
     else if (selected_game_object_type == "light")

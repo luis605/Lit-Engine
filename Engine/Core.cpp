@@ -170,9 +170,10 @@ void CleanUp()
     std::cout << "Exiting..." << std::endl;
     kill(-pid, SIGTERM);
 
-    in_game_preview = false;
 
+    in_game_preview = false;
     first_time_gameplay = false;
+
     for (Entity &entity : entities_list)
         entity.running = false;
 

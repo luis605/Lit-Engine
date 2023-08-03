@@ -94,7 +94,7 @@ public:
 
     int id = 0;
 
-    Entity* parent;
+    Entity* parent = nullptr;
     vector<Entity*> children;
 
 
