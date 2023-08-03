@@ -112,11 +112,12 @@ void main() {
         Light light = lights[i];
         
         if (light.type == LIGHT_DIRECTIONAL && light.enabled) {
-            float diffuseStrength = 0.7;
+            float diffuseStrength = light.intensity * surface_material.DiffuseIntensity;
             vec3 fragLightDir = normalize(-light.direction);
             float diffuse = diffuseStrength * max(dot(norm, fragLightDir), 0.0);
             
             result += vec3(colDiffuse.x*diffuse, colDiffuse.y*diffuse, colDiffuse.z*colDiffuse);
+            result += vec3(light.color);
         } else if (light.type == LIGHT_POINT && light.enabled) {
             lightDir = normalize(light.position - fragPosition);
             
@@ -124,7 +125,7 @@ void main() {
             float attenuation = 1.0 / (1.0 + light.attenuation * distance * distance);
             
             diff = max(dot(norm, lightDir), 0.0);
-            diffuse = light.intensity * diff * attenuation * (light.color.rgb + vec3(colDiffuse.x, colDiffuse.y, colDiffuse.z)) / 2.0;
+            diffuse = light.intensity * surface_material.DiffuseIntensity * diff * attenuation * (light.color.rgb + vec3(colDiffuse.x, colDiffuse.y, colDiffuse.z)) / 2.0;
             
             result += diffuse;
             

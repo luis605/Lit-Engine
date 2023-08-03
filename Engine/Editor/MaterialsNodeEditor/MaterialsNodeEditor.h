@@ -34,17 +34,29 @@ enum NodeSlotTypes
     NodeSlotColor = 1,   // ID can not be 0
     NodeSlotTexture = 2,
     NodeSlotNormalTexture = 3,
+    NodeSlotSurfaceMaterial = 4,
 };
 
 
 
 struct EntityMaterial
 {
+    // Colors
     Color color;
+
+    // Textures
     Texture2D texture;
     std::filesystem::path texture_path;
     Texture2D normal_texture;
     std::filesystem::path normal_texture_path;
+    
+    // Surface Material
+    float shininess = 0.5f;
+    float SpecularIntensity = 0.5f;
+    float Roughness = 0.5f;
+    float DiffuseIntensity = 0.5f;
+    alignas(16) glm::vec3 SpecularTint = { 1.0f, 0.2f, 0.1f };
+
 };
 
 EntityMaterial entity_material;
