@@ -21,6 +21,20 @@ struct GizmoTaurus {
 };
 GizmoTaurus gizmo_taurus[2];
 
+
+
+struct GizmoCube {
+    Model model;
+    Vector3 position;
+    Vector3 rotation;
+    string drag_directions;
+
+};
+GizmoCube gizmo_cube[5];
+
+int gizmo_cube_selected = -1;
+bool dragging_gizmo_scale = false;
+
 float gizmo_drag_sensitivity_factor = 0.1f;
 
 
