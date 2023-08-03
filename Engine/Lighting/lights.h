@@ -20,6 +20,8 @@ unsigned int depthMapFBO;
 Shader shader;
 GLuint lightsBuffer;
 
+GLuint surface_material_ubo;
+
 bool canAddLight = false;
 
 
@@ -59,6 +61,16 @@ typedef struct Light
     bool operator==(const Light& other) const {
         return (int)this->id == (int)other.id;
     }
+};
+
+
+typedef struct SurfaceMaterial
+{
+    float shininess = 0.5f;
+    float SpecularIntensity = 0.5f;
+    float Roughness = 0.5f;
+    float DiffuseIntensity = 0.5f;
+    alignas(16) glm::vec3 SpecularTint = { 1.0f, 0.2f, 0.1f };
 };
 
 typedef struct AdditionalLightInfo

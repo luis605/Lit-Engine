@@ -48,7 +48,22 @@ layout(std430, binding = 0) buffer LightsBuffer
     Light lights[];
 };
 
-uniform int lightsCount;  // Passed from CPU
+uniform int lightsCount;
+
+// Materials
+struct SurfaceMaterial
+{
+    float shininess;
+    float SpecularIntensity;
+    float Roughness;
+    float DiffuseIntensity;
+    vec3 SpecularTint;
+};
+
+layout(std140) uniform MaterialBlock {
+    SurfaceMaterial surface_material;
+};
+
 
 // Output fragment color
 out vec4 finalColor;
@@ -103,27 +118,22 @@ void main() {
             
             result += vec3(colDiffuse.x*diffuse, colDiffuse.y*diffuse, colDiffuse.z*colDiffuse);
         } else if (light.type == LIGHT_POINT && light.enabled) {
-            // Calculate the direction from the fragment position to the light position
             lightDir = normalize(light.position - fragPosition);
             
             float distance = length(light.position - fragPosition);
             float attenuation = 1.0 / (1.0 + light.attenuation * distance * distance);
             
-            // Calculate the diffuse component
             diff = max(dot(norm, lightDir), 0.0);
             diffuse = light.intensity * diff * attenuation * (light.color.rgb + vec3(colDiffuse.x, colDiffuse.y, colDiffuse.z)) / 2.0;
             
-            // Add the diffuse component to the final result
             result += diffuse;
             
-            // Calculate the reflection direction from the light direction and the surface normal
             reflectDir = reflect(-lightDir, norm);
             
-            // Calculate the specular component
             spec = pow(max(dot(viewDir, reflectDir), 0.0), 64.0);
-            specular = light.specularStrength * spec * attenuation * light.color.rgb;
+            specular = light.specularStrength * surface_material.SpecularIntensity * spec * attenuation * light.color.rgb;
+            specular *= surface_material.SpecularTint;
             
-            // Add the specular component to the final result
             result += specular;
         }
         else if (light.type == LIGHT_SPOT && light.enabled)

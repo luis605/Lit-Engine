@@ -294,6 +294,7 @@ void RenderScene()
     ClearBackground(GRAY);
 
     DrawSkybox();
+    DrawGrid(40, 1.0f);
 
     float cameraPos[3] = { scene_camera.position.x, scene_camera.position.y, scene_camera.position.z };
     SetShaderValue(shader, shader.locs[SHADER_LOC_VECTOR_VIEW], cameraPos, SHADER_UNIFORM_VEC3);

@@ -82,6 +82,10 @@ public:
     std::filesystem::path roughness_texture_path;
     Texture2D roughness_texture;
 
+
+    SurfaceMaterial surface_material;
+
+
     bool collider = true;
     bool visible = true;
     bool isChild = false;
@@ -326,6 +330,23 @@ public:
 
         if (visible)
         {
+
+            glGenBuffers(1, &surface_material_ubo);
+            glBindBuffer(GL_UNIFORM_BUFFER, surface_material_ubo);
+            glBufferData(GL_UNIFORM_BUFFER, sizeof(SurfaceMaterial), &this->surface_material, GL_DYNAMIC_DRAW);
+            glBindBuffer(GL_UNIFORM_BUFFER, 0);
+
+            // Bind the buffer to a specific binding point (for example, binding point 0)
+            GLuint bindingPoint = 0;
+            glBindBufferBase(GL_UNIFORM_BUFFER, bindingPoint, surface_material_ubo);
+
+
+            // Update the uniform buffer data
+            glBindBuffer(GL_UNIFORM_BUFFER, surface_material_ubo);
+            glBufferSubData(GL_UNIFORM_BUFFER, 0, sizeof(SurfaceMaterial), &this->surface_material);
+            glBindBuffer(GL_UNIFORM_BUFFER, 0);
+
+
             bool has_normal_map = IsTextureReady(this->normal_texture);
             has_normal_map = true;
             SetShaderValue(shader, GetShaderLocation(shader, "normalMapInit"), &has_normal_map, SHADER_UNIFORM_INT);
