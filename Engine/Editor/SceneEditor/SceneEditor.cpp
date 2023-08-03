@@ -1,4 +1,5 @@
 #include "../../../include_all.h"
+#include "SceneEditor.h"
 #include "Gizmo/Gizmo.cpp"
 
 #if defined(PLATFORM_DESKTOP)
@@ -105,36 +106,47 @@ void EditorCameraMovement(void)
 
     Vector3 forward = Vector3Subtract(scene_camera.target, scene_camera.position);
     Vector3 right = Vector3CrossProduct(front, scene_camera.up);
+    Vector3 normalized_right = Vector3Normalize(right);
+    Vector3 DeltaTimeVec3 = { GetFrameTime(), GetFrameTime(), GetFrameTime() };
 
     if (IsKeyDown(KEY_W))
     {
         Vector3 movement = Vector3Scale(front, movementSpeed);
-        scene_camera.position = Vector3Add(scene_camera.position, movement);
-        scene_camera.target = Vector3Add(scene_camera.target, movement);
+        scene_camera.position = Vector3Add(scene_camera.position, Vector3Multiply(movement, DeltaTimeVec3));
+        scene_camera.target = Vector3Add(scene_camera.target, Vector3Multiply(movement, DeltaTimeVec3));
     }
 
     if (IsKeyDown(KEY_S))
     {
         Vector3 movement = Vector3Scale(front, movementSpeed);
-        scene_camera.position = Vector3Subtract(scene_camera.position, movement);
-        scene_camera.target = Vector3Subtract(scene_camera.target, movement);
+        scene_camera.position = Vector3Subtract(scene_camera.position, Vector3Multiply(movement, DeltaTimeVec3));
+        scene_camera.target = Vector3Subtract(scene_camera.target, Vector3Multiply(movement, DeltaTimeVec3));
     }
 
     if (IsKeyDown(KEY_A))
     {
-        Vector3 movement = Vector3Scale(right, -movementSpeed);
-        scene_camera.position = Vector3Add(scene_camera.position, movement);
-        scene_camera.target = Vector3Add(scene_camera.target, movement);
+        Vector3 movement = Vector3Scale(normalized_right, -movementSpeed);
+        scene_camera.position = Vector3Add(scene_camera.position, Vector3Multiply(movement, DeltaTimeVec3));
+        scene_camera.target = Vector3Add(scene_camera.target, Vector3Multiply(movement, DeltaTimeVec3));
     }
 
     if (IsKeyDown(KEY_D))
     {
-        Vector3 movement = Vector3Scale(right, -movementSpeed);
-        scene_camera.position = Vector3Subtract(scene_camera.position, movement);
-        scene_camera.target = Vector3Subtract(scene_camera.target, movement);
+        Vector3 movement = Vector3Scale(normalized_right, -movementSpeed);
+        scene_camera.position = Vector3Subtract(scene_camera.position, Vector3Multiply(movement, DeltaTimeVec3));
+        scene_camera.target = Vector3Subtract(scene_camera.target, Vector3Multiply(movement, DeltaTimeVec3));
     }
 
     scene_camera.target = Vector3Add(scene_camera.position, forward);
+
+
+    if (IsKeyDown(KEY_LEFT_SHIFT))
+        movementSpeed = fastCameraSpeed;
+    else if (IsKeyDown(KEY_LEFT_CONTROL))
+        movementSpeed = slowCameraSpeed;
+    else
+        movementSpeed = defaultCameraSpeed;
+
 
     // Camera Rotation
     static Vector2 lastMousePosition = { 0 };
@@ -154,9 +166,6 @@ void EditorCameraMovement(void)
     {
         lastMousePosition = GetMousePosition();
     }
-
-
-
 }
 
 

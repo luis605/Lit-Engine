@@ -46,10 +46,6 @@ int pipe_fds_lights[2];
     Texture2D texture;
     Rectangle rectangle = { screenWidth*.2, screenHeight*.2, texture.width, texture.height };
 
-    Camera3D scene_camera;
-    float lerp_factor = 0.5f;
-    float movementSpeed = 0.5f;
-    Vector3 front;
 
 
     bool dragging = false;
