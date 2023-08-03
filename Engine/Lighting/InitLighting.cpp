@@ -26,4 +26,8 @@ void InitLighting()
 
     // Setup shadow mapping
     SetupShadowMapping();
+
+
+
+
 }
