@@ -49,7 +49,7 @@ int pipe_fds_lights[2];
 
 
     bool dragging = false;
-    bool dragging_gizmo = false;
+    bool dragging_gizmo_position = false;
     bool dragging_gizmo_rotation = false;
     Vector2 mouse_drag_start = { 0, 0 };
 

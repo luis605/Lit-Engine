@@ -214,6 +214,7 @@ bool IsMouseHoveringModel(Model model, Camera camera, Vector3 position, Vector3 
 
     Vector2 pos = { GetMousePosition().x - rectangle.x + windowPadding.x, GetMousePosition().y - rectangle.y + windowPadding.y };
     Vector2 realPos = { pos.x * GetScreenWidth() / rectangle.width, pos.y * GetScreenHeight() / rectangle.height }; 
+
     
     ray = GetMouseRay(realPos, camera);
 
@@ -281,6 +282,7 @@ void ProcessSelection()
     {
         GizmoPosition();
         GizmoRotation();
+        GizmoScale();
 
     }
 }
@@ -308,7 +310,7 @@ void RenderScene()
 
         float rotation = DrawBillboardRotation(scene_camera, light_texture, { light.position.x, light.position.y, light.position.z }, 1.0f, WHITE);
         
-        if (IsMouseButtonDown(MOUSE_LEFT_BUTTON) && ImGui::IsWindowHovered() && !dragging_gizmo && !dragging_gizmo_rotation)
+        if (IsMouseButtonDown(MOUSE_LEFT_BUTTON) && ImGui::IsWindowHovered() && !dragging_gizmo_position && !dragging_gizmo_rotation)
         {
             bool isLightSelected = IsMouseHoveringModel(light_model, scene_camera, { light.position.x, light.position.y, light.position.z }, { 0, rotation, 0 } );
             if (isLightSelected)
@@ -326,7 +328,7 @@ void RenderScene()
 
         entity.render();
 
-        if (IsMouseButtonDown(MOUSE_LEFT_BUTTON) && ImGui::IsWindowHovered() && !dragging_gizmo && !dragging_gizmo_rotation)
+        if (IsMouseButtonDown(MOUSE_LEFT_BUTTON) && ImGui::IsWindowHovered() && !dragging_gizmo_position && !dragging_gizmo_rotation)
         {
             bool isEntitySelected = IsMouseHoveringModel(entity.model, scene_camera, entity.position, entity.rotation, &entity);
             if (isEntitySelected)
@@ -382,10 +384,10 @@ void DropEntity()
 
 int EditorCamera(void)
 {
-    if (ImGui::IsWindowHovered() && !dragging_gizmo && !dragging_gizmo_rotation && !in_game_preview)
+    if (ImGui::IsWindowHovered() && !dragging_gizmo_position && !dragging_gizmo_rotation && !in_game_preview)
         DropEntity();
 
-    if ((ImGui::IsWindowHovered() || ImGui::IsWindowFocused()) && !dragging_gizmo && !dragging_gizmo_rotation && !in_game_preview)
+    if ((ImGui::IsWindowHovered() || ImGui::IsWindowFocused()) && !dragging_gizmo_position && !dragging_gizmo_rotation && !in_game_preview)
     {
         EditorCameraMovement();
         ProcessCameraControls();
