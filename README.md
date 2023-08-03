@@ -1,4 +1,4 @@
-# Unnamed-Game-Engine
+# Lit-Engine
 A game engine with the speed and portability of cpp made with raylib.
 
 # Cloning the Repository
