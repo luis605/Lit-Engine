@@ -37,6 +37,9 @@ void Startup()
     glEnable(GL_CULL_FACE);
     glCullFace(GL_BACK);
 
+    // Skybox
+    InitSkybox();
+
     // Python
     Py_Initialize();
 
