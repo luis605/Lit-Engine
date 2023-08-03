@@ -260,37 +260,42 @@ void ToggleMaximization()
 
 void ExitWindowRequested()
 {
-    const ImVec2 windowSize(200, 70);
+    const ImVec2 windowSize(260, 65);
     const ImVec2 windowPos((GetScreenWidth() - windowSize.x) * 0.5f, (GetScreenHeight() - windowSize.y) / 2.0f);
 
-    ImGuiWindowFlags flags = ImGuiWindowFlags_NoCollapse | ImGuiWindowFlags_NoResize | ImGuiWindowFlags_NoDocking;
+    ImGuiWindowFlags flags = ImGuiWindowFlags_NoCollapse | ImGuiWindowFlags_NoDocking | ImGuiWindowFlags_Modal | ImGuiWindowFlags_NoResize;
 
     ImGui::SetNextWindowPos(windowPos);
-    ImGui::SetNextWindowSize({200, 70});
+    ImGui::SetNextWindowSize({200, 90});
 
-    ImGui::Begin("Do you want to quit?", nullptr, flags);
-
-    ImGui::Separator();
-
-    ImVec2 buttonSize = ImVec2(100, 30);
-
-    const float posX = (windowSize.x - ImGui::CalcTextSize("Yes").x) * 0.5f;
-    ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(1, 0, 0, 1));
-    if (ImGui::Button("Yes", buttonSize))
-    {
-        exitWindow = true;
-        std::cout << "QUITING\n";
+    if (true) {
+        ImGui::OpenPopup("Do you want to quit?");
     }
-    ImGui::PopStyleColor();
+    
+    if (ImGui::BeginPopupModal("Do you want to quit?")){
 
-    ImGui::SameLine();
+        ImGui::Separator();
 
-    const float posX2 = (posX + ImGui::CalcTextSize("Yes").x) + 20;
-    ImGui::SetCursorPosX(posX2);
-    if (ImGui::Button("No", buttonSize))
-    {
-        exitWindowRequested = false;
+        ImVec2 buttonSize = ImVec2(100, 30);
+
+        const float posX = (windowSize.x - ImGui::CalcTextSize("Yes").x) * 0.5f;
+        ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(1, 0, 0, 1));
+        if (ImGui::Button("Yes", buttonSize))
+        {
+            exitWindow = true;
+            std::cout << "QUITING\n";
+        }
+        ImGui::PopStyleColor();
+
+        ImGui::SameLine();
+
+        const float posX2 = (posX + ImGui::CalcTextSize("Yes").x) + 20;
+        ImGui::SetCursorPosX(posX2);
+        if (ImGui::Button("No", buttonSize))
+        {
+            exitWindowRequested = false;
+        }
+
+        ImGui::EndPopup();
     }
-
-    ImGui::End();
 }

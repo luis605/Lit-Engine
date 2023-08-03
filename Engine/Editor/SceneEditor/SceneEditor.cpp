@@ -382,14 +382,40 @@ void DropEntity()
 }
 
 
+
+enum class ObjectType
+{
+    None,
+    Cube,
+    Sphere,
+    // Add more object types here
+};
+
+
+bool showObjectTypePopup = false;
+
+void ProcessObjectControls()
+{
+    if ((IsKeyDown(KEY_LEFT_SHIFT) || IsKeyDown(KEY_RIGHT_SHIFT)) && IsKeyDown(KEY_A))
+    {
+        ImGui::OpenPopup("Add Object");
+        showObjectTypePopup = true;
+    }
+
+
+
+}
+
 int EditorCamera(void)
 {
     if (ImGui::IsWindowHovered() && !dragging_gizmo_position && !dragging_gizmo_rotation && !in_game_preview)
+    {
         DropEntity();
-
+    }
     if ((ImGui::IsWindowHovered() || ImGui::IsWindowFocused()) && !dragging_gizmo_position && !dragging_gizmo_rotation && !in_game_preview)
     {
-        EditorCameraMovement();
+        if (!showObjectTypePopup)
+            EditorCameraMovement();
         ProcessCameraControls();
     }
 
@@ -401,7 +427,32 @@ int EditorCamera(void)
 
     RenderScene();
 
-    
+    if (ImGui::IsWindowHovered() && !dragging_gizmo_position && !dragging_gizmo_rotation && !in_game_preview)
+        ProcessObjectControls();
+
+
+    if (ImGui::IsWindowHovered() && showObjectTypePopup)
+        ImGui::OpenPopup("popup");
+
+    if (ImGui::BeginPopup("popup"))
+    {
+        ImGui::Text("Add Object");
+        ImGui::Separator();
+
+        if (ImGui::BeginMenu("Entity"))
+        {
+            if (ImGui::MenuItem("Cube"))
+            {
+                AddEntity(true, false, "assets/models/prefabs/cube.obj");
+                showObjectTypePopup = false;
+            }
+            ImGui::EndMenu();
+        }
+
+        ImGui::EndPopup();
+    }
+
+
 
 
     return 0;
