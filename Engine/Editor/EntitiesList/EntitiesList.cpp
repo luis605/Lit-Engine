@@ -323,7 +323,6 @@ void EntitiesList()
     if (ImGui::IsWindowFocused(windowName) && IsKeyDown(KEY_ESCAPE))
         should_change_object_name = false;
 
-    std::cout << should_change_object_name << std::endl;
 
     updateListViewExList(entities_list_pregame, lights_list_pregame);
     ImGuiListViewEx(objectNames, listViewExFocus, listViewExScrollIndex, listViewExActive);
