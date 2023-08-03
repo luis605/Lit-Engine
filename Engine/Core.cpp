@@ -119,8 +119,11 @@ void Startup()
 
 void EngineMainLoop()
 {
-    while ((!exitWindow) && (!WindowShouldClose()))
+    while ((!exitWindow))
     {
+        if (WindowShouldClose()) {
+            exitWindowRequested = true;
+        }
         BeginDrawing();
 
         ClearBackground(DARKGRAY);
@@ -138,9 +141,7 @@ void EngineMainLoop()
 
         CodeEditor();
 
-        ImGui::Begin("Scene Objects List Window", NULL);
         EntitiesList();
-        ImGui::End();
 
         ImGui::Begin("Inspector Window", NULL);
         Inspector();
