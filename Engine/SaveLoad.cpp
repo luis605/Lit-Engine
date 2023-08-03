@@ -31,6 +31,8 @@ namespace nlohmann {
         }
     };
 
+
+
     template<>
     struct adl_serializer<Vector3> {
         static void to_json(json& j, const Vector3& vec) {
@@ -50,14 +52,35 @@ namespace nlohmann {
         static void to_json(json& j, const glm::vec3& vec) {
             j = json{{"x", vec.x}, {"y", vec.y}, {"z", vec.z}};
         }
-        
-        static void from_json(const json& j, Vector3& vec) {
+
+        static void from_json(const json& j, glm::vec3& vec) {
             vec.x = j["x"];
             vec.y = j["y"];
             vec.z = j["z"];
         }
     };
 
+
+    template<>
+    struct nlohmann::adl_serializer<SurfaceMaterial> {
+        static void to_json(json& j, const SurfaceMaterial& material) {
+            j = json{
+                { "shininess", material.shininess },
+                { "SpecularIntensity", material.SpecularIntensity },
+                { "Roughness", material.Roughness },
+                { "DiffuseIntensity", material.DiffuseIntensity },
+                { "SpecularTint", material.SpecularTint }
+            };
+        }
+
+        static void from_json(const json& j, SurfaceMaterial& material) {
+            j.at("shininess").get_to(material.shininess);
+            j.at("SpecularIntensity").get_to(material.SpecularIntensity);
+            j.at("Roughness").get_to(material.Roughness);
+            j.at("DiffuseIntensity").get_to(material.DiffuseIntensity);
+            j.at("SpecularTint").get_to(material.SpecularTint);
+        }
+    };
 }
 
 void SaveEntity(json& json_data, const Entity& entity) {
@@ -74,6 +97,7 @@ void SaveEntity(json& json_data, const Entity& entity) {
     j["normal_texture_path"] = entity.normal_texture_path;
     j["roughness_texture_path"] = entity.roughness_texture_path;
     j["id"] = entity.id;
+    j["surface_material"] = entity.surface_material;
 
     if (!entity.children.empty()) {
         json children_data;
@@ -174,6 +198,18 @@ void LoadEntity(const json& entity_json, Entity& entity) {
     entity.script = entity_json["script_path"].get<std::string>();
     entity.id = entity_json["id"].get<int>();
 
+    // Materials
+    entity.surface_material.shininess = entity_json["surface_material"]["shininess"].get<float>();
+    entity.surface_material.SpecularIntensity = entity_json["surface_material"]["SpecularIntensity"].get<float>();
+    entity.surface_material.Roughness = entity_json["surface_material"]["Roughness"].get<float>();
+    entity.surface_material.DiffuseIntensity = entity_json["surface_material"]["DiffuseIntensity"].get<float>();
+
+    glm::vec3 SpecularTintValue;
+    const json& SpecularTintJson = entity_json["surface_material"]["SpecularTint"];
+    SpecularTintValue.x = SpecularTintJson["x"].get<float>();
+    SpecularTintValue.y = SpecularTintJson["y"].get<float>();
+    SpecularTintValue.z = SpecularTintJson["z"].get<float>();
+    entity.surface_material.SpecularTint = SpecularTintValue;
 
     // Textures
     entity.texture_path = entity_json["texture_path"].get<std::string>();

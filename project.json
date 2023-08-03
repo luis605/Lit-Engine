@@ -6,9 +6,9 @@
             "g": 255,
             "r": 255
         },
-        "id": -1814027424,
-        "model_path": "project/game/models/plane.obj",
-        "name": "",
+        "id": -1956862784,
+        "model_path": "project/game/models/cube.obj",
+        "name": "Entity Name",
         "normal_texture_path": "",
         "position": {
             "x": 0.0,
@@ -27,7 +27,18 @@
             "z": 1.0
         },
         "script_path": "",
-        "texture_path": "project/game/logo1.png",
+        "surface_material": {
+            "DiffuseIntensity": 0.5,
+            "Roughness": 0.5,
+            "SpecularIntensity": 0.5,
+            "SpecularTint": {
+                "x": 1.0,
+                "y": 0.20000000298023224,
+                "z": 0.10000000149011612
+            },
+            "shininess": 0.5
+        },
+        "texture_path": "",
         "type": "entity"
     },
     {
@@ -54,9 +65,9 @@
             "z": 4.0
         },
         "relative_position": {
-            "x": 1.959974179044366e-05,
-            "y": 4.5914945482066956e-41,
-            "z": -5.194438364144447e-27
+            "x": -4.515398018167982e-20,
+            "y": 4.591634678053128e-41,
+            "z": -3.8953758080211497e-32
         },
         "specularStrength": 0.5,
         "target": {
