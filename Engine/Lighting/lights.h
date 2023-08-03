@@ -55,7 +55,7 @@ typedef struct Light
     float specularStrength = 0.5;
     float cutOff = 10;
     bool isChild;
-    alignas(16) glm::vec3 direction = {0, 0, 1};
+    alignas(16) glm::vec3 direction = {0.4, 0.4, -0.4};
     int id;
 
     bool operator==(const Light& other) const {
@@ -70,7 +70,7 @@ typedef struct SurfaceMaterial
     float SpecularIntensity = 0.5f;
     float Roughness = 0.5f;
     float DiffuseIntensity = 0.5f;
-    alignas(16) glm::vec3 SpecularTint = { 1.0f, 0.2f, 0.1f };
+    alignas(16) glm::vec3 SpecularTint = { 1.0f, 1.0f, 1.0f };
 };
 
 typedef struct AdditionalLightInfo

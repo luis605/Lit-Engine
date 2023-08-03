@@ -9,7 +9,7 @@ struct GizmoArrow {
     string drag_directions;
 
 };
-GizmoArrow gizmo_arrow[5];
+GizmoArrow gizmo_arrow[5+1]; // +1 solved one arrow not drawing. probably memory corruption in the last arrow index...
 
 
 struct GizmoTaurus {

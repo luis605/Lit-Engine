@@ -1,4 +1,5 @@
 #include "Gizmo.h"
+#include "../../../../include_all.h"
 
 void InitGizmo()
 {
@@ -43,8 +44,7 @@ void GizmoPosition()
     gizmo_arrow[5].position = {selected_object_position.x - 6, selected_object_position.y, selected_object_position.z};
     gizmo_arrow[5].rotation = {0, 0, 90};
 
-
-    for (int arrow_i = 0; arrow_i < (sizeof(gizmo_arrow) / sizeof(gizmo_arrow[0])) + 1; arrow_i++)
+    for (int arrow_i = 0; arrow_i < (sizeof(gizmo_arrow) / sizeof(gizmo_arrow[0])); arrow_i++)
     {
         Color color1;
 
@@ -109,6 +109,7 @@ void GizmoPosition()
         else dragging_gizmo = false;
 
         float extreme_rotation = GetExtremeValue(gizmo_arrow[arrow_i].rotation);
+
         DrawModelEx(gizmo_arrow[arrow_i].model, gizmo_arrow[arrow_i].position, gizmo_arrow[arrow_i].rotation, extreme_rotation, {1,1,1}, color1);
     }
 
