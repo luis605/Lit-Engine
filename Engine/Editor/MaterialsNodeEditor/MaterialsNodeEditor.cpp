@@ -25,10 +25,16 @@ std::map<std::string, MyNode*(*)()> available_nodes{
             {"Normal Map Texture", NodeSlotNormalTexture},
         });
     }},
+    {"Surface Material", []() -> MyNode* {
+        return new MyNode("Surface Material", {}, {
+            {"Output", NodeSlotSurfaceMaterial},
+        });
+    }},
     {"Material", []() -> MyNode* {
         return new MyNode("Material", {
             {"Color", NodeSlotColor},
-            {"Texture", NodeSlotTexture}
+            {"Texture", NodeSlotTexture},
+            {"Surface Material", NodeSlotSurfaceMaterial}
         }, {});
     }},
 
@@ -40,17 +46,31 @@ std::vector<MyNode*> nodes;
 
 void SetMaterial()
 {
+    // Color
     selected_entity->color = entity_material.color;
 
-    Texture2D entity_texture = entity_material.texture;
-    selected_entity->texture = entity_texture;
-    selected_entity->model.materials[0].maps[MATERIAL_MAP_DIFFUSE].texture = entity_texture;
-    selected_entity->texture_path = entity_material.texture_path.string();
+    // Textures
+    if (IsTextureReady(entity_material.texture))
+    {
+        Texture2D entity_texture = entity_material.texture;
+        selected_entity->texture = entity_texture;
+        selected_entity->model.materials[0].maps[MATERIAL_MAP_DIFFUSE].texture = entity_texture;
+        selected_entity->texture_path = entity_material.texture_path.string();
+    }
 
-    selected_entity->normal_texture = entity_material.normal_texture;
-    selected_entity->model.materials[0].maps[MATERIAL_MAP_NORMAL].texture = selected_entity->normal_texture;
-    selected_entity->normal_texture_path = entity_material.normal_texture_path.string();
-
+    if (IsTextureReady(entity_material.normal_texture))
+    {
+        selected_entity->normal_texture = entity_material.normal_texture;
+        selected_entity->model.materials[0].maps[MATERIAL_MAP_NORMAL].texture = selected_entity->normal_texture;
+        selected_entity->normal_texture_path = entity_material.normal_texture_path.string();
+    }
+    
+    // Surface Material
+    selected_entity->surface_material.shininess = entity_material.shininess;
+    selected_entity->surface_material.SpecularIntensity = entity_material.SpecularIntensity;
+    selected_entity->surface_material.Roughness = entity_material.Roughness;
+    selected_entity->surface_material.DiffuseIntensity = entity_material.DiffuseIntensity;
+    selected_entity->surface_material.SpecularTint = entity_material.SpecularTint;
 }
 
 
@@ -83,6 +103,7 @@ void MaterialsNodeEditor()
                 ColorNode(node);
                 TextureNode(node);
                 NormalMapTextureNode(node);
+                SurfaceMaterialNode(node);
                 MaterialNode(node);
 
                 // Render output nodes first (order is important)

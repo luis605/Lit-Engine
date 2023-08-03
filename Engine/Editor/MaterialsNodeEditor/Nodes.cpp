@@ -1,8 +1,10 @@
 #pragma once
 #include "MaterialsNodeEditor.h"
+#include "../../../include_all.h"
 
 int TextureNode(MyNode* node);
 int ColorNode(MyNode* node);
+int SurfaceMaterialNode(MyNode* node);
 int MaterialNode(MyNode* node);
 
 int TextureNode(MyNode* node)
@@ -80,6 +82,38 @@ int ColorNode(MyNode* node)
     {
         ImGui::SetNextItemWidth(300);
         ImGui::ColorEdit4("Color Picker", (float*)&node->ColorValue);
+    }
+}
+
+int SurfaceMaterialNode(MyNode* node)
+{
+    if (node->Title != "Surface Material")
+        return;
+
+    for (const ImNodes::Ez::SlotInfo& outputSlot : node->OutputSlots)
+    {
+
+        ImGui::Text("Shininess");
+        ImGui::SameLine();
+        ImGui::SliderFloat("##Shininess", &entity_material.shininess, 0.0f, 100.0f);
+        
+        ImGui::Text("Specular Intensity");
+        ImGui::SameLine();
+        ImGui::SliderFloat("##SpecularIntensity", &entity_material.SpecularIntensity, 0.0f, 100.0f);
+        
+        ImGui::Text("Roughness");
+        ImGui::SameLine();
+        ImGui::SliderFloat("##Roughness", &entity_material.Roughness, 0.0f, 100.0f);
+        
+        ImGui::Text("Diffuse Intensity");
+        ImGui::SameLine();
+        ImGui::SliderFloat("##DiffuseIntensity", &entity_material.DiffuseIntensity, 0.0f, 100.0f);
+    
+        ImGui::Text("Specular Tint");
+        ImGui::SameLine();
+        ImVec4 specular_tint = {entity_material.SpecularTint.x, entity_material.SpecularTint.y, entity_material.SpecularTint.z, 1};
+        ImGui::ColorEdit4("Color Picker", (float*)&specular_tint, ImGuiColorEditFlags_NoInputs);
+        entity_material.SpecularTint = { specular_tint.x, specular_tint.y, specular_tint.z};
     }
 }
 
