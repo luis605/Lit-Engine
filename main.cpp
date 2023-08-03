@@ -31,7 +31,6 @@ int main()
     } else {
         std::cout << "This is the parent process." << std::endl;
         LitEngine();
-        kill(-pid, SIGTERM);
     }
 
     return 0;

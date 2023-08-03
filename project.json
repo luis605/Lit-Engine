@@ -6,8 +6,50 @@
             "g": 255,
             "r": 255
         },
-        "id": 1153742016,
+        "id": 1948505280,
         "model_path": "project/game/models/cube.obj",
+        "name": "",
+        "normal_texture_path": "",
+        "position": {
+            "x": 0.0,
+            "y": 0.0,
+            "z": 3.59999942779541
+        },
+        "relative_position": {
+            "x": 0.0,
+            "y": 0.0,
+            "z": 0.0
+        },
+        "roughness_texture_path": "",
+        "scale": {
+            "x": 1.0,
+            "y": 1.0,
+            "z": 1.0
+        },
+        "script_path": "",
+        "surface_material": {
+            "DiffuseIntensity": 0.5,
+            "Roughness": 0.5,
+            "SpecularIntensity": 0.5,
+            "SpecularTint": {
+                "x": 1.0,
+                "y": 1.0,
+                "z": 1.0
+            },
+            "shininess": 0.5
+        },
+        "texture_path": "",
+        "type": "entity"
+    },
+    {
+        "color": {
+            "a": 255,
+            "b": 255,
+            "g": 255,
+            "r": 255
+        },
+        "id": 1948505281,
+        "model_path": "project/game/models/tree.obj",
         "name": "",
         "normal_texture_path": "",
         "position": {
@@ -26,17 +68,17 @@
             "y": 1.0,
             "z": 1.0
         },
-        "script_path": "",
+        "script_path": "project/game/hi.py",
         "surface_material": {
-            "DiffuseIntensity": 2.5369999408721924,
+            "DiffuseIntensity": 0.5,
             "Roughness": 0.5,
-            "SpecularIntensity": 3.0929999351501465,
+            "SpecularIntensity": 0.5,
             "SpecularTint": {
-                "x": 0.10000002384185791,
+                "x": 1.0,
                 "y": 1.0,
-                "z": 0.8019304275512695
+                "z": 1.0
             },
-            "shininess": 1.2410000562667847
+            "shininess": 0.5
         },
         "texture_path": "",
         "type": "entity"
@@ -51,11 +93,11 @@
         },
         "cutOff": 10.0,
         "direction": {
-            "x": 0.0,
-            "y": 0.0,
-            "z": 1.0
+            "x": 0.4000000059604645,
+            "y": 0.4000000059604645,
+            "z": -0.4000000059604645
         },
-        "id": 2,
+        "id": 3,
         "intensity": 0.5,
         "light_type": 1,
         "name": "Light",
@@ -65,14 +107,14 @@
             "z": 4.0
         },
         "relative_position": {
-            "x": 176067620896768.0,
-            "y": 4.591634678053128e-41,
-            "z": 1426.3726806640625
+            "x": 0.0585898756980896,
+            "y": 4.5912142885138307e-41,
+            "z": 4.609800981953688e+31
         },
         "specularStrength": 0.5,
         "target": {
             "x": 0.0,
-            "y": 1.401298464324817e-45,
+            "y": 2.802596928649634e-45,
             "z": 722.0
         },
         "type": "light"

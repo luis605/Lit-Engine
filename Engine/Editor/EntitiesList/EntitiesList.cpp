@@ -39,7 +39,7 @@ bool operator==(const Entity& e, const Entity* ptr) {
 
 void AddEntity(
     bool create_immediatly = false,
-    bool is_create_entity_a_child = false,
+    bool is_create_entity_a_child = is_create_entity_a_child,
     const char* model_path = "assets/models/tree.obj"
 )
 {
@@ -93,6 +93,7 @@ void AddEntity(
         listViewExActive = last_entity_index;
 
         create = false;
+        is_create_entity_a_child = false;
         canAddEntity = false;
     }
     else if (canAddEntity)
