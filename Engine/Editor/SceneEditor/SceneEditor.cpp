@@ -401,34 +401,22 @@ void ProcessObjectControls()
         ImGui::OpenPopup("Add Object");
         showObjectTypePopup = true;
     }
-
-
-
 }
 
-int EditorCamera(void)
+void ObjectsPopup()
 {
-    if (ImGui::IsWindowHovered() && !dragging_gizmo_position && !dragging_gizmo_rotation && !in_game_preview)
-    {
-        DropEntity();
-    }
-    if ((ImGui::IsWindowHovered() || ImGui::IsWindowFocused()) && !dragging_gizmo_position && !dragging_gizmo_rotation && !in_game_preview)
-    {
-        if (!showObjectTypePopup)
-            EditorCameraMovement();
-        ProcessCameraControls();
-    }
 
-    if (in_game_preview)
-    {
-        RunGame();
-        return 0;
-    }
-
-    RenderScene();
-
-    if (ImGui::IsWindowHovered() && !dragging_gizmo_position && !dragging_gizmo_rotation && !in_game_preview)
-        ProcessObjectControls();
+    ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(10, 10));
+    ImGui::PushStyleVar(ImGuiStyleVar_ItemSpacing, ImVec2(10, 5));
+    ImGui::PushStyleVar(ImGuiStyleVar_FramePadding, ImVec2(5, 5));
+    ImGui::PushStyleVar(ImGuiStyleVar_WindowRounding, 5.0f);
+    ImGui::PushStyleVar(ImGuiStyleVar_PopupRounding, 5.0f);
+    ImGui::PushStyleVar(ImGuiStyleVar_PopupBorderSize, 1.0f);
+    ImGui::PushStyleColor(ImGuiCol_WindowBg, ImVec4(0.2f, 0.2f, 0.2f, 0.9f));
+    ImGui::PushStyleColor(ImGuiCol_Border, ImVec4(0.8f, 0.8f, 0.8f, 0.5f));
+    ImGui::PushStyleColor(ImGuiCol_Header, ImVec4(0.3f, 0.3f, 0.3f, 0.8f));
+    ImGui::PushStyleColor(ImGuiCol_HeaderHovered, ImVec4(0.4f, 0.4f, 0.4f, 0.8f));
+    ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(1.0f, 1.0f, 1.0f, 1.0f));
 
 
     if (ImGui::IsWindowHovered() && showObjectTypePopup)
@@ -437,7 +425,8 @@ int EditorCamera(void)
 
     if (ImGui::BeginPopup("popup"))
     {
-        ImGui::Text("Add Object");
+        ImGui::Text("Add an Object");
+        
         ImGui::Separator();
 
         if (ImGui::BeginMenu("Entity"))
@@ -481,13 +470,73 @@ int EditorCamera(void)
             ImGui::EndMenu();
         }
 
+        ImGui::Separator();
+
+        if (ImGui::BeginMenu("Light"))
+        {
+            if (ImGui::MenuItem("Point Light"))
+            {
+                NewLight({4, 5, 3}, WHITE, LIGHT_POINT);
+                showObjectTypePopup = false;
+            }
+
+            if (ImGui::MenuItem("Directional Light"))
+            {
+                NewLight({4, 5, 3}, WHITE, LIGHT_DIRECTIONAL);
+                showObjectTypePopup = false;
+            }
+
+            if (ImGui::MenuItem("Spot Light"))
+            {
+                NewLight({4, 5, 3}, WHITE, LIGHT_SPOT);
+                showObjectTypePopup = false;
+            }
+
+
+            ImGui::EndMenu();
+        }
+
         ImGui::EndPopup();
     }
 
     if (ImGui::IsMouseClicked(0) && !ImGui::IsWindowHovered(ImGuiHoveredFlags_AnyWindow))
         showObjectTypePopup = false;
 
+    ImGui::PopStyleVar(6);
+    ImGui::PopStyleColor(5);
 
+}
+
+
+
+
+
+int EditorCamera(void)
+{
+    if (ImGui::IsWindowHovered() && !dragging_gizmo_position && !dragging_gizmo_rotation && !in_game_preview)
+    {
+        DropEntity();
+    }
+    if ((ImGui::IsWindowHovered() || ImGui::IsWindowFocused()) && !dragging_gizmo_position && !dragging_gizmo_rotation && !in_game_preview)
+    {
+        if (!showObjectTypePopup)
+            EditorCameraMovement();
+        ProcessCameraControls();
+    }
+
+    if (in_game_preview)
+    {
+        RunGame();
+        return 0;
+    }
+
+    RenderScene();
+
+    if (ImGui::IsWindowHovered() && !dragging_gizmo_position && !dragging_gizmo_rotation && !in_game_preview)
+        ProcessObjectControls();
+
+
+    ObjectsPopup();
 
     return 0;
 }
