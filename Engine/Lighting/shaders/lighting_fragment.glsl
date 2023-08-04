@@ -115,9 +115,10 @@ void main() {
             float diffuseStrength = light.intensity * surface_material.DiffuseIntensity;
             vec3 fragLightDir = normalize(-light.direction);
             float diffuse = diffuseStrength * max(dot(norm, fragLightDir), 0.0);
-            
-            result += vec3(colDiffuse.x*diffuse, colDiffuse.y*diffuse, colDiffuse.z*colDiffuse);
-            result += vec3(light.color);
+            vec3 colDiffuse = colDiffuse.rgb * light.color.rgb;
+            result += colDiffuse * diffuse;
+
+
         } else if (light.type == LIGHT_POINT && light.enabled) {
             lightDir = normalize(light.position - fragPosition);
             
