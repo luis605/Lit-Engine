@@ -1,3 +1,4 @@
+cd ..
 cd raylib
 mkdir build
 cd build
