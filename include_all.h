@@ -96,6 +96,11 @@ using json = nlohmann::json;
 
 #include "Engine/RunGame.h"
 
+/* GUI */
+#include "Engine/GUI/Tooltip/Tooltip.cpp"
+#include "Engine/GUI/Text/Text.cpp"
+#include "Engine/GUI/Button/Button.cpp"
+
 /* Editor */
 #ifndef GAME_SHIPPING
     #include "Engine/Editor/AssetsExplorer/AssetsExplorer.h"

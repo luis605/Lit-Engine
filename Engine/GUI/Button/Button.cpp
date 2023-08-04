@@ -1,102 +1,5 @@
-#include "raylib.h"
-
-#include "rlgl.h"
-#include "raymath.h"
-#include <string>
-#include <vector>
-#include <algorithm>
-#include <iostream>
-#include <sstream>
-
-
-// Text
-struct Text
-{
-    std::string text;
-    Vector3 position;
-    int fontSize                = 20;
-    float spacing               = 4;
-    Color color;
-    Color backgroundColor       = {0,0,0,0};
-    float backgroundRoundiness  = 0;
-    float padding               = 25;
-};
-
-std::vector<Text> textElements;
-
-Text& AddText(const char* text, Vector3 position, int fontSize, Color color)
-{
-    textElements.emplace_back();
-    Text& element = textElements.back();
-    element.text = text;
-    element.position = position;
-    element.fontSize = fontSize;
-    element.color = color;
-    return element;
-}
-
-
-void DrawTextElement(Text element)
-{
-    int lineHeight = element.fontSize + element.spacing;
-    Vector3 currentPosition = element.position;
-
-    std::istringstream ss(element.text);
-    std::string line;
-    int textWidth = 0; // To calculate the width of the text
-    int numLines = 0;  // To count the number of lines
-
-    // Get the maximum width of all lines in the text
-    while (std::getline(ss, line, '\n'))
-    {
-        int lineWidth = MeasureText(line.c_str(), element.fontSize);
-        textWidth = std::max(textWidth, lineWidth);
-        numLines++;
-    }
-
-    // Draw the background if the color alpha is greater than 0
-    if (element.backgroundColor.a > 0)
-    {
-        // Calculate the size of the background rectangle to cover the whole text
-        int textHeight = numLines * (lineHeight + element.spacing);
-        int bgWidth = textWidth + 2 * element.backgroundRoundiness + element.padding;
-        int bgHeight = textHeight + 2 * element.backgroundRoundiness + element.padding;
-
-        // Calculate the position of the background rectangle
-        Vector3 bgPosition = { currentPosition.x - element.backgroundRoundiness - element.padding / 2, currentPosition.y - element.backgroundRoundiness - element.padding / 2, currentPosition.z };
-        // Draw the rounded rectangle
-        DrawRectangleRounded({bgPosition.x, bgPosition.y, bgWidth, bgHeight}, element.backgroundRoundiness/10, 30, element.backgroundColor);
-    }
-
-    // Reset the stream for text rendering
-    ss.clear();
-    ss.seekg(0);
-
-    // Draw each line of the text
-    while (std::getline(ss, line, '\n'))
-    {
-        DrawText(line.c_str(), (int)currentPosition.x, (int)currentPosition.y, element.fontSize, element.color);
-        currentPosition.y += lineHeight;
-    }
-}
-
-
-void DrawTextElements()
-{
-    std::sort(textElements.begin(), textElements.end(), [](const Text& a, const Text& b)
-    {
-        return a.position.z < b.position.z;
-    });
-
-    for (const auto& element : textElements)
-    {
-        DrawTextElement(element);
-    }
-}
-
-
-
-// Lerp Colors
+#include "../../../include_all.h"
+#include "Button.h"
 
 Color LerpColor(Color startColor, Color endColor, float t)
 {
@@ -108,32 +11,10 @@ Color LerpColor(Color startColor, Color endColor, float t)
     return { r, g, b, a };
 }
 
-
-
-// Tooltip
-
-class Tooltip {
-public:
-    std::string text;
-    Vector2 position;
-    Vector2 size;
-    Color backgroundColor = DARKGRAY;
-    Color textColor = WHITE;
-    Font font = GetFontDefault();
-
-    void Draw() {
-        DrawRectangleRounded({ position.x, position.y, size.x, size.y }, 0.5f, 10, backgroundColor);
-        DrawText(text.c_str(), static_cast<int>(position.x) + 5, static_cast<int>(position.y) + 5, font.baseSize, textColor);
-    }
-};
-
-
-
-// Buttons
 class LitButton {
 public:
-    Vector3 position;
-    Vector2 size;
+    Vector3 position = { 0, 0, 0 };
+    Vector2 size = { 600, 450 };
     Color color = LIGHTGRAY;
     Color pressedColor = DARKGRAY;
     Color hoverColor = GRAY;
@@ -174,7 +55,7 @@ private:
     Color btnColor = color;
 
 public:
-    LitButton(Vector3 position = {0,0,0}, Vector2 size={100, 50}, Color color = LIGHTGRAY, Color pressedColor = DARKGRAY, Color hoverColor = GRAY, Text text = Text())
+    LitButton(Vector3 position = { 0, 0, 1 }, Vector2 size = { 600, 450 }, Color color = LIGHTGRAY, Color pressedColor = DARKGRAY, Color hoverColor = GRAY, Text text = Text())
         : position(position), size(size), color(color), pressedColor(pressedColor), hoverColor(hoverColor), text(text),
         isPressed(false), isHovered(false), isDisabled(isDisabled), bounds({ position.x, position.y, size.x, size.y }), onClick(nullptr), wasMousePressed(false),
         transitioningHover(false), transitioningUnhover(false), tooltip(), clickSound(LoadSound("click.wav")) // Initialize the tooltip and sound
@@ -303,11 +184,6 @@ public:
     }
 };
 
-std::vector<LitButton> lit_buttons;
-
-
-
-
 LitButton& AddButton(const char* button_text, Vector3 position, Vector2 size)
 {
     lit_buttons.emplace_back();
@@ -323,72 +199,7 @@ void DrawButtons()
 
     for (const auto& button : lit_buttons)
     {
+        std::cout << button.text.text << std::endl;
         button.Draw();
     }
-}
-
-
-std::string displayText = "Hi there. Thank you so much for using Lit Engine!\nThis is an example of a multiline text element.\nIt's a great way to display text in your game.\nYou can also use a custom font and color.\nHave fun!";
-Text *MyTextElement = &AddText(displayText.c_str(), { 100, 100, 1 }, 20, BLUE);
-int text_index = 0;
-void OnButtonClick() {
-    text_index++;
-    if (text_index == 1)
-    {
-        displayText = "You can display text dynamically.\nYou can also use a custom font and color.\n\nWAIT??? IS THIS TEXT BIGGER?\nWell, yes. I changed the fontSize!";
-        MyTextElement->text = displayText;
-        MyTextElement->fontSize = 30;
-        MyTextElement->color = RED;
-    }
-    else if (text_index == 2)
-    {
-        displayText = "You can also add\na background to your text,\neven rounded!";
-        MyTextElement->text = displayText;
-        MyTextElement->fontSize = 35;
-        MyTextElement->color = GRAY;
-        MyTextElement->backgroundColor = DARKGRAY;
-        MyTextElement->backgroundRoundiness = 5;
-        MyTextElement->position.x -= 40;
-    }
-}
-
-int main(void)
-{
-    const int screenWidth = 800;
-    const int screenHeight = 450;
-
-    InitWindow(screenWidth, screenHeight, "GUI");
-    InitAudioDevice();
-
-    // AddText("FRONT", { 100, 100, 1 }, 40, GREEN);
-    // AddText("ABOVE", { 100, 100, 2 }, 40, YELLOW);
-    // AddText("BOTTOM", { 100, 100, 0 }, 20, RED);
-
-
-    // Vector3 buttonPosition = { 0, 0, 1 };
-    // Vector2 buttonSize = { 200, 50 };
-    // LitButton button = LitButton(buttonPosition, buttonSize);
-    // button.SetOnClickCallback(OnButtonClick);
-    // button.SetText("Click me!");
-    // button.SetTooltip("This is a tooltip!");
-
-    AddButton("Hello World!", { 100, 100, 1 }, { 200, 50 });
-
-    while (!WindowShouldClose())
-    {
-        BeginDrawing();
-
-            ClearBackground(RAYWHITE);
-
-            DrawTextElements();
-            DrawButtons();
-            
-        EndDrawing();
-    }
-
-
-    CloseWindow();
-    CloseAudioDevice();
- 
-    return 0;
 }

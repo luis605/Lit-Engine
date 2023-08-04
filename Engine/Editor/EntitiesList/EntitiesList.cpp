@@ -32,126 +32,6 @@ void updateListViewExList(vector<Entity>& entities, vector<Light>& lights) {
 
 
 
-bool operator==(const Entity& e, const Entity* ptr) {
-    return &e == ptr;
-}
-
-
-void AddEntity(
-    bool create_immediatly = false,
-    bool is_create_entity_a_child = is_create_entity_a_child,
-    const char* model_path = "assets/models/tree.obj",
-    Model model = Model()
-)
-{
-    const int POPUP_WIDTH = 600;
-    const int POPUP_HEIGHT = 650;
-
-    int popupX = GetScreenWidth() / 4.5;
-    int popupY = (GetScreenHeight() - POPUP_HEIGHT) / 6;
-
-    if (create || create_immediatly)
-    {
-        Color entity_color_raylib = {
-            static_cast<unsigned char>(entity_create_color.x * 255),
-            static_cast<unsigned char>(entity_create_color.y * 255),
-            static_cast<unsigned char>(entity_create_color.z * 255),
-            static_cast<unsigned char>(entity_create_color.w * 255)
-        };
-
-        Entity entity_create;
-        entity_create.setColor(entity_color_raylib);
-        entity_create.setScale(Vector3{entity_create_scale, entity_create_scale, entity_create_scale});
-        entity_create.setName(name);
-        entity_create.isChild = is_create_entity_a_child;
-        entity_create.setModel(model_path, model);
-        entity_create.setShader(shader);
-
-        if (!entities_list_pregame.empty())
-        {
-            int id = entities_list_pregame.back().id + 1;
-            entity_create.id = id;
-        }
-        else
-            entity_create.id = "0";
-
-        if (!is_create_entity_a_child)
-            entities_list_pregame.push_back(entity_create);
-        else
-        {
-            if (selected_game_object_type == "entity")
-            {
-                if (selected_entity->isChild)
-                    selected_entity->addChild(entity_create);
-                else
-                    entities_list_pregame.back().addChild(entity_create);
-            }
-        }
-
-        selected_entity = &entity_create;
-
-        int last_entity_index = entities_list_pregame.size() - 1;
-        listViewExActive = last_entity_index;
-
-        create = false;
-        is_create_entity_a_child = false;
-        canAddEntity = false;
-    }
-    else if (canAddEntity)
-    {
-        ImGui::PushStyleColor(ImGuiCol_WindowBg, ImVec4(0.6f, 0.6f, 0.6f, 0.6f)); // light gray
-
-        ImGui::Begin("Entities");
-
-        ImVec2 size = ImGui::GetContentRegionAvail();
-
-        ImGui::PushStyleVar(ImGuiStyleVar_FrameRounding, 50.0f);
-        ImGui::PushStyleColor(ImGuiCol_Button, ImVec4(0.2f, 0.2f, 0.2f, 1.0f));
-        ImGui::PushStyleColor(ImGuiCol_ButtonHovered, ImVec4(0.2f, 0.2f, 0.2f, 1.0f));
-        ImGui::PushStyleColor(ImGuiCol_ButtonActive, ImVec4(0.2f, 0.2f, 0.2f, 1.0f));
-
-        ImGui::SetCursorPosX(size.x / 2 - 250);
-        ImGui::SetCursorPosY(size.y / 4);
-        ImGui::Button("Entity Add Menu", ImVec2(500,100));
-
-        ImGui::PopStyleColor(4);
-
-        /* Scale Slider */
-        ImGui::Text("Scale: ");
-        ImGui::SameLine();
-        ImGui::SliderFloat(" ", &entity_create_scale, 0.1f, 100.0f);
-
-        /* Name Input */
-        ImGui::InputText("##text_input_box", name, sizeof(name));
-        
-        /* Color Picker */
-        ImGui::Text("Color: ");
-        ImGui::SameLine();
-        ImGui::ColorEdit4(" ", (float*)&entity_create_color, ImGuiColorEditFlags_NoInputs);
-
-        /* Is Children */
-        ImGui::Checkbox("Is Children: ", &is_create_entity_a_child);
-
-        /* Create BTN */
-        ImGui::PushStyleColor(ImGuiCol_Button, ImVec4(0.14, 0.37, 0.15, 1.0f));
-        ImGui::PushStyleColor(ImGuiCol_ButtonHovered, ImVec4(0.18, 0.48, 0.19, 1.0f));
-        ImGui::PushStyleColor(ImGuiCol_ButtonActive, ImVec4(0.5f, 0.5f, 0.5f, 1.0f));
-
-        ImGui::SetCursorPosX(size.x / 2);
-        ImGui::SetCursorPosY(size.y / 1.1);
-        bool create_entity_btn = ImGui::Button("Create", ImVec2(200,50));
-        if (create_entity_btn)
-        {
-            canAddEntity = false;
-            create = true;
-        }
-
-        ImGui::PopStyleColor(3);
-        ImGui::PopStyleVar();
-
-        ImGui::End();
-    }
-}
 
 
 
@@ -318,7 +198,7 @@ void EntitiesList()
     const char* windowName = "Scene Objects List Window";
     ImGui::Begin(windowName, NULL);
 
-    if (ImGui::IsWindowFocused(windowName) && IsKeyDown(KEY_F2))
+    if ((ImGui::IsWindowFocused() || ImGui::IsWindowHovered()) && IsKeyDown(KEY_F2))
         should_change_object_name = true;
 
     if (ImGui::IsWindowFocused(windowName) && IsKeyDown(KEY_ESCAPE))

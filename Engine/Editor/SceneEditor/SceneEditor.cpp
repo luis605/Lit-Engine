@@ -287,6 +287,8 @@ void ProcessSelection()
     }
 }
 
+
+
 void RenderScene()
 {
     BeginTextureMode(renderTexture);
@@ -300,6 +302,7 @@ void RenderScene()
 
     float cameraPos[3] = { scene_camera.position.x, scene_camera.position.y, scene_camera.position.z };
     SetShaderValue(shader, shader.locs[SHADER_LOC_VECTOR_VIEW], cameraPos, SHADER_UNIFORM_VEC3);
+
 
     ProcessSelection();
 
@@ -324,8 +327,6 @@ void RenderScene()
 
     for (Entity& entity : entities_list_pregame)
     {
-
-
         entity.render();
 
         if (IsMouseButtonDown(MOUSE_LEFT_BUTTON) && ImGui::IsWindowHovered() && !dragging_gizmo_position && !dragging_gizmo_rotation)
@@ -349,11 +350,11 @@ void RenderScene()
         }
     }
 
-
-
     EndMode3D();
+    DrawTextElements();
+    DrawButtons();
+    
     EndTextureMode();
-
     DrawTextureOnRectangle(&texture);
 }
 
@@ -402,6 +403,8 @@ void ProcessObjectControls()
         showObjectTypePopup = true;
     }
 }
+
+
 
 void ObjectsPopup()
 {
@@ -496,6 +499,30 @@ void ObjectsPopup()
             ImGui::EndMenu();
         }
 
+
+        ImGui::Separator();
+
+        if (ImGui::BeginMenu("GUI"))
+        {
+            if (ImGui::MenuItem("Text"))
+            {
+                Text *MyTextElement = &AddText("Default Text", { 100, 100, 1 }, 20, BLUE);
+                showObjectTypePopup = false;
+            }
+
+            if (ImGui::MenuItem("Button"))
+            {
+                AddButton("Default Text", { 300, 300, 1 }, {600, 600});
+                showObjectTypePopup = false;
+            }
+
+
+
+            ImGui::EndMenu();
+        }
+
+
+
         ImGui::EndPopup();
     }
 
@@ -537,6 +564,8 @@ int EditorCamera(void)
 
 
     ObjectsPopup();
+
+    
 
     return 0;
 }
