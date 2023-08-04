@@ -195,10 +195,15 @@ public:
         }
     }
 
-    void setModel(const char* modelPath)
+    void setModel(const char* modelPath = "", Model entity_model = Model())
     {
         model_path = modelPath;
-        model = LoadModel(modelPath);
+    
+        if (modelPath == "")
+            model = entity_model;
+        else
+            model = LoadModel(modelPath);
+    
         model.materials[0].shader = shader;
 
         bounds = GetMeshBoundingBox(model.meshes[0]);

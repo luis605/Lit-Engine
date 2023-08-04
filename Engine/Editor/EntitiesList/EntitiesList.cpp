@@ -40,7 +40,8 @@ bool operator==(const Entity& e, const Entity* ptr) {
 void AddEntity(
     bool create_immediatly = false,
     bool is_create_entity_a_child = is_create_entity_a_child,
-    const char* model_path = "assets/models/tree.obj"
+    const char* model_path = "assets/models/tree.obj",
+    Model model = Model()
 )
 {
     const int POPUP_WIDTH = 600;
@@ -63,7 +64,7 @@ void AddEntity(
         entity_create.setScale(Vector3{entity_create_scale, entity_create_scale, entity_create_scale});
         entity_create.setName(name);
         entity_create.isChild = is_create_entity_a_child;
-        entity_create.setModel(model_path);
+        entity_create.setModel(model_path, model);
         entity_create.setShader(shader);
 
         if (!entities_list_pregame.empty())

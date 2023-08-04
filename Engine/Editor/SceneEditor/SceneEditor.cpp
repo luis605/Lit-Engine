@@ -434,6 +434,7 @@ int EditorCamera(void)
     if (ImGui::IsWindowHovered() && showObjectTypePopup)
         ImGui::OpenPopup("popup");
 
+
     if (ImGui::BeginPopup("popup"))
     {
         ImGui::Text("Add Object");
@@ -443,15 +444,48 @@ int EditorCamera(void)
         {
             if (ImGui::MenuItem("Cube"))
             {
-                AddEntity(true, false, "assets/models/prefabs/cube.obj");
+                AddEntity(true, false, "", LoadModelFromMesh(GenMeshCube(1, 1, 1)));
                 showObjectTypePopup = false;
             }
+
+            if (ImGui::MenuItem("Cone"))
+            {
+                AddEntity(true, false, "", LoadModelFromMesh(GenMeshCone(1, 1, 30)));
+                showObjectTypePopup = false;
+            }
+
+            if (ImGui::MenuItem("Cylinder"))
+            {
+                AddEntity(true, false, "", LoadModelFromMesh(GenMeshCylinder(1, 2, 30)));
+                showObjectTypePopup = false;
+            }
+
+            if (ImGui::MenuItem("Plane"))
+            {
+                AddEntity(true, false, "", LoadModelFromMesh(GenMeshPlane(1, 1, 1, 1)));
+                showObjectTypePopup = false;
+            }
+
+            if (ImGui::MenuItem("Sphere"))
+            {
+                AddEntity(true, false, "", LoadModelFromMesh(GenMeshSphere(1, 30, 30)));
+                showObjectTypePopup = false;
+            }
+
+            if (ImGui::MenuItem("Torus"))
+            {
+                AddEntity(true, false, "", LoadModelFromMesh(GenMeshTorus(1, 1, 30, 30)));
+                showObjectTypePopup = false;
+            }
+
             ImGui::EndMenu();
         }
 
         ImGui::EndPopup();
     }
 
+    if (ImGui::IsMouseClicked(0) && !ImGui::IsWindowHovered(ImGuiHoveredFlags_AnyWindow))
+        showObjectTypePopup = false;
 
 
 
