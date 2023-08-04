@@ -8,6 +8,24 @@
 #ifndef LIGHTS_H
 #define LIGHTS_H
 
+typedef struct Light;
+
+typedef enum
+{
+    LIGHT_DIRECTIONAL = 0,
+    LIGHT_POINT = 1,
+    LIGHT_SPOT = 2
+} LightType;
+
+
+typedef struct SurfaceMaterial;
+typedef struct AdditionalLightInfo;
+
+vector<Light> lights;
+vector<AdditionalLightInfo> lights_info;
+
+void UpdateLightsBuffer(bool force=false, vector<Light> lights = lights);
+Light NewLight(const Vector3 position, const Color color, int type = LIGHT_POINT);
 
 
 Texture2D light_texture;
@@ -34,13 +52,6 @@ struct pbrFlags {
 
 pbrFlags pbr_flags;
 
-
-typedef enum
-{
-    LIGHT_DIRECTIONAL = 0,
-    LIGHT_POINT = 1,
-    LIGHT_SPOT = 2
-} LightType;
 
 typedef struct Light
 {
@@ -83,15 +94,14 @@ typedef struct AdditionalLightInfo
     }
 };
 
-vector<Light> lights;
-vector<AdditionalLightInfo> lights_info;
 
-Light NewLight(const Vector3 position, const Color color)
+Light NewLight(const Vector3 position, const Color color, int type = LIGHT_POINT)
 {
     glm::vec3 lights_position = glm::vec3(position.x, position.y, position.z);
     glm::vec4 lights_color = glm::vec4(color.r/255, color.g/255, color.b/255, color.a/255);
 
     Light light;
+    light.type = type;
     light.position = lights_position;
     light.color = lights_color;
     light.id = lights.size() + entities_list_pregame.size() + 1;
@@ -103,6 +113,8 @@ Light NewLight(const Vector3 position, const Color color)
     info.id = light.id;
 
     lights_info.push_back(info);
+
+    UpdateLightsBuffer();
 
     return lights.back();
 }
