@@ -83,18 +83,18 @@ using json = nlohmann::json;
 // using namespace physx;
 
 /* Game Objects */
-#include "Engine/Engine.hpp"
+#include "Engine/Core/Engine.hpp"
 #include "Engine/Lighting/lights.h"
 
 /* Globals */
 #include "globals.h"
-#include "Engine/global_variables.cpp"
-#include "Engine/functions.h"
+#include "Engine/Core/global_variables.cpp"
+#include "Engine/Core/functions.h"
 
 #include "Engine/Scripting/functions.cpp"
-#include "Engine/Engine.cpp"
+#include "Engine/Core/Engine.cpp"
 
-#include "Engine/RunGame.h"
+#include "Engine/Core/RunGame.h"
 
 /* GUI */
 #include "Engine/GUI/Tooltip/Tooltip.cpp"
@@ -104,7 +104,7 @@ using json = nlohmann::json;
 /* Editor */
 #ifndef GAME_SHIPPING
     #include "Engine/Editor/AssetsExplorer/AssetsExplorer.h"
-    #include "Engine/Core.h"
+    #include "Engine/Core/Core.h"
 #endif
 
 /* Sources */
@@ -114,7 +114,7 @@ using json = nlohmann::json;
     #include "Engine/Editor/Styles/Styles.cpp"
 #endif
 
-#include "Engine/SaveLoad.cpp"
+#include "Engine/Core/SaveLoad.cpp"
 #include "Engine/Lighting/InitLighting.cpp"
 #include "Engine/Lighting/skybox.cpp"
 
@@ -125,14 +125,14 @@ using json = nlohmann::json;
     #include "Engine/Editor/SceneEditor/SceneEditor.cpp"
 #endif
 
-#include "Engine/RunGame.cpp"
+#include "Engine/Core/RunGame.cpp"
 
 #ifndef GAME_SHIPPING
-    #include "Engine/PreviewProject.cpp"
+    #include "Engine/Core/PreviewProject.cpp"
     #include "Engine/Editor/MaterialsNodeEditor/MaterialsNodeEditor.cpp"
     #include "Engine/Editor/Inspector/Inspector.cpp"
     #include "Engine/Editor/AssetsExplorer/AssetsExplorer.cpp"
-    #include "Engine/Core.cpp"
+    #include "Engine/Core/Core.cpp"
     #include "Engine/Editor/MenuBar/MenuBar.cpp"
 #endif
 

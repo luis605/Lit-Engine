@@ -41,11 +41,6 @@ py::scoped_interpreter guard{}; // Start interpreter
 
 
 
-
-
-
-
-
 bool EntityRunScriptFirstTime = true;
 bool Entity_already_registered = false;
 
