@@ -365,14 +365,17 @@ int main(void)
     // AddText("BOTTOM", { 100, 100, 0 }, 20, RED);
 
 
-    // Vector3 buttonPosition = { 0, 0, 1 };
-    // Vector2 buttonSize = { 200, 50 };
-    // LitButton button = LitButton(buttonPosition, buttonSize);
-    // button.SetOnClickCallback(OnButtonClick);
-    // button.SetText("Click me!");
-    // button.SetTooltip("This is a tooltip!");
+    Vector3 buttonPosition = { 0, 0, 1 };
+    Vector2 buttonSize = { 200, 50 };
+    LitButton button = LitButton(buttonPosition, buttonSize);
+    button.SetOnClickCallback(OnButtonClick);
+    button.SetText("Click me!");
+    button.SetTooltip("This is a tooltip!");
 
-    AddButton("Hello World!", { 100, 100, 1 }, { 200, 50 });
+    lit_buttons.push_back(button);
+    // LitButton button = AddButton("Click me!", { 100, 100, 1 }, { 200, 50 });
+    // button.SetOnClickCallback(OnButtonClick);
+    // button.SetTooltip("This is a tooltip!");
 
     while (!WindowShouldClose())
     {
