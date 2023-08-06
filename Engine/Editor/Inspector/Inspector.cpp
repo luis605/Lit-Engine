@@ -24,12 +24,16 @@ void EntityInspector()
 
 
         
-    if (!entities_list_pregame.empty()) {
+    if (!entities_list_pregame.empty() && selected_entity == nullptr && selected_entity && !selected_entity->name.empty()) {
         try {
             selected_entity_name = selected_entity->name;
         } catch (std::bad_alloc) {
             return;
         }
+    }
+    else
+    {
+        selected_entity_name = "Unnamed Entity";
     }
 
     if (IsKeyPressed(KEY_DELETE))
@@ -47,8 +51,15 @@ void EntityInspector()
     textWidth = std::max(textWidth, 100.0f);
     ImGui::SetNextItemWidth(textWidth);
 
-    char inputBuffer[selected_entity->name.size() + 255];
-    strcpy(inputBuffer, entity_name.c_str());
+    int name_size = 0;
+    
+    if (selected_entity->name.empty())
+        name_size = 10;
+    else
+        name_size = selected_entity->name.size();
+    
+    char inputBuffer[name_size + 255];
+    strcpy(inputBuffer, selected_entity_name.c_str());
 
     if (ImGui::InputText("##Title Part 2", inputBuffer, sizeof(inputBuffer)))
         selected_entity->name = inputBuffer;
@@ -155,6 +166,8 @@ void EntityInspector()
 
                 selected_entity->texture = LoadTexture(path.c_str());
                 selected_entity->texture_path = path;
+
+                selected_entity->ReloadTextures();
             }
             ImGui::EndDragDropTarget();
         }
@@ -179,6 +192,8 @@ void EntityInspector()
 
                 selected_entity->normal_texture = LoadTexture(path.c_str());
                 selected_entity->normal_texture_path = path;
+
+                selected_entity->ReloadTextures();
             }
             ImGui::EndDragDropTarget();
         }
@@ -203,6 +218,9 @@ void EntityInspector()
 
                 selected_entity->roughness_texture = LoadTexture(path.c_str());
                 selected_entity->roughness_texture_path = path;
+
+                selected_entity->ReloadTextures();
+
             }
             ImGui::EndDragDropTarget();
         }
@@ -210,7 +228,7 @@ void EntityInspector()
         if (ImGui::Button("View Material in Nodes Editor"))
             show_material_in_nodes_editor = !show_material_in_nodes_editor;
 
-        selected_entity->ReloadTextures();
+        
             
 
     }

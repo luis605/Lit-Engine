@@ -512,7 +512,7 @@ void ObjectsPopup()
 
             if (ImGui::MenuItem("Button"))
             {
-                AddButton("Default Text", { 300, 300, 1 }, {600, 600});
+                AddButton("Default Text", { 100, 150, 1 }, {200, 50});
                 showObjectTypePopup = false;
             }
 
