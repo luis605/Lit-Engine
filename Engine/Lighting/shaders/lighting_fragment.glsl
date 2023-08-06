@@ -7,12 +7,14 @@ in vec2 fragTexCoord;
 in vec3 fragNormal;
 
 // Input uniform values
-uniform sampler2D texture0;
 uniform vec4 colDiffuse; // Entity Color
 uniform vec4 ambientLight;
 uniform vec3 viewPos;
 
 // pbr
+uniform bool diffuseMapInit;
+uniform sampler2D texture0;
+
 uniform bool normalMapInit;
 uniform sampler2D texture2;
 
@@ -102,11 +104,12 @@ void main() {
     vec3 result = colDiffuse.rgb / 2.0 - ambientLight.rgb * 0.5;
     result += ambientLight.rgb * 0.2;
     
-    vec4 texColor;
-    if (true)
-        texColor = texture(texture0, fragTexCoord);
-    else
-        texColor = colDiffuse;
+    vec4 texelColor = texture2D(texture0, fragTexCoord);
+    // vec4 texColor;
+    // if (diffuseMapInit)
+    //     texColor = texture(texture0, fragTexCoord);
+    // else
+    //     texColor = colDiffuse;
 
     for (int i = 0; i < lightsCount; i++) {
         Light light = lights[i];
@@ -160,7 +163,7 @@ void main() {
         }
     }
 
-    vec4 blendedColor = vec4(result, 1.0) * texColor;
+    vec4 blendedColor = vec4(result, 1.0) * texelColor; //* texColor;
 
     // if (roughnessMapInit)
     // {

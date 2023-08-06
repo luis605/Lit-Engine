@@ -58,8 +58,8 @@ private:
 public:
     LitButton(Vector3 position = {0, 0, 1}, Vector2 size = {600, 450}, Color color = LIGHTGRAY, Color pressedColor = DARKGRAY, Color hoverColor = GRAY, Text text = Text())
         : position(position), size(size), color(color), pressedColor(pressedColor), hoverColor(hoverColor), text(text),
-          isPressed(false), isHovered(false), isDisabled(isDisabled), renderTexturePos({rectangle.x, rectangle.y}), bounds({position.x, position.y, size.x, size.y}), onClick(nullptr), wasMousePressed(false),
-          transitioningHover(false), transitioningUnhover(false), tooltip(), clickSound(LoadSound("click.wav"))
+          isPressed(false), isHovered(false), isDisabled(isDisabled), renderTexturePos({rectangle.x, rectangle.y}), bounds({position.x, position.y, size.x, size.y}),
+          onClick(nullptr), wasMousePressed(false), transitioningHover(false), transitioningUnhover(false), tooltip(), clickSound(LoadSound("click.wav"))
     {
     }
 
@@ -105,7 +105,9 @@ public:
         float divideX = GetScreenWidth() / ImGui::GetWindowSize().x;
         float divideY = GetScreenHeight() / ImGui::GetWindowSize().y;
 
-        isHovered = CheckCollisionPointRec(renderTextureMousePos, {bounds.x, bounds.y, bounds.width/divideX, bounds.height/divideY});
+        Vector2 position = {bounds.x - ImGui::GetFrameHeight(), bounds.y};
+
+        isHovered = CheckCollisionPointRec(renderTextureMousePos, {position.x, position.y, bounds.width/divideX, bounds.height/divideY});
         bool isMousePressed = IsMouseButtonDown(MOUSE_LEFT_BUTTON);
 
         if (isDisabled)
@@ -217,14 +219,16 @@ public:
     }
 };
 
-LitButton &AddButton(const char *button_text, Vector3 position, Vector2 size)
+
+
+LitButton &AddButton(const char* button_text, Vector3 position, Vector2 size, float text_size = 20)
 {
-    lit_buttons.emplace_back();
-    LitButton &button = lit_buttons.back();
-    button.text.text = button_text;
-    button.position = position;
-    button.size = size;
-    return button;
+    LitButton button = LitButton(position, size);
+    button.SetText(button_text, text_size);
+    button.SetTooltip("This is a tooltip!");
+    
+
+    lit_buttons.push_back(button);
 }
 
 void DrawButtons()

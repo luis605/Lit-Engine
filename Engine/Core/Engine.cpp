@@ -175,10 +175,8 @@ public:
     void ReloadTextures()
     {
         if (IsTextureReady(this->texture))
-        {
             model.materials[0].maps[MATERIAL_MAP_DIFFUSE].texture = texture;
-        }
-
+        
         if (IsTextureReady(this->normal_texture))
         {
             model.materials[0].maps[MATERIAL_MAP_NORMAL].texture = normal_texture;
@@ -203,13 +201,11 @@ public:
 
         bounds = GetMeshBoundingBox(model.meshes[0]);
 
-        ReloadTextures();
-
+        //ReloadTextures();
     }
 
     bool hasModel()
     {
-
         if (model.meshCount > 0)
             return true;
         else
@@ -331,29 +327,33 @@ public:
         if (visible)
         {
 
-            glGenBuffers(1, &surface_material_ubo);
-            glBindBuffer(GL_UNIFORM_BUFFER, surface_material_ubo);
-            glBufferData(GL_UNIFORM_BUFFER, sizeof(SurfaceMaterial), &this->surface_material, GL_DYNAMIC_DRAW);
-            glBindBuffer(GL_UNIFORM_BUFFER, 0);
+            // ReloadTextures();
 
-            // Bind the buffer to a specific binding point (for example, binding point 0)
-            GLuint bindingPoint = 0;
-            glBindBufferBase(GL_UNIFORM_BUFFER, bindingPoint, surface_material_ubo);
+            // glGenBuffers(1, &surface_material_ubo);
+            // glBindBuffer(GL_UNIFORM_BUFFER, surface_material_ubo);
+            // glBufferData(GL_UNIFORM_BUFFER, sizeof(SurfaceMaterial), &this->surface_material, GL_DYNAMIC_DRAW);
+            // glBindBuffer(GL_UNIFORM_BUFFER, 0);
 
-
-            // Update the uniform buffer data
-            glBindBuffer(GL_UNIFORM_BUFFER, surface_material_ubo);
-            glBufferSubData(GL_UNIFORM_BUFFER, 0, sizeof(SurfaceMaterial), &this->surface_material);
-            glBindBuffer(GL_UNIFORM_BUFFER, 0);
+            // // Bind the buffer to a specific binding point (for example, binding point 0)
+            // GLuint bindingPoint = 0;
+            // glBindBufferBase(GL_UNIFORM_BUFFER, bindingPoint, surface_material_ubo);
 
 
-            bool has_normal_map = IsTextureReady(this->normal_texture);
-            has_normal_map = true;
-            SetShaderValue(shader, GetShaderLocation(shader, "normalMapInit"), &has_normal_map, SHADER_UNIFORM_INT);
+            // // Update the uniform buffer data
+            // glBindBuffer(GL_UNIFORM_BUFFER, surface_material_ubo);
+            // glBufferSubData(GL_UNIFORM_BUFFER, 0, sizeof(SurfaceMaterial), &this->surface_material);
+            // glBindBuffer(GL_UNIFORM_BUFFER, 0);
+
+            // bool has_diffuse_map = IsTextureReady(this->texture);
+            // SetShaderValue(shader, GetShaderLocation(shader, "diffuseMapInit"), &has_diffuse_map, SHADER_UNIFORM_INT);
+
+            // bool has_normal_map = IsTextureReady(this->normal_texture);
+            // has_normal_map = true;
+            // SetShaderValue(shader, GetShaderLocation(shader, "normalMapInit"), &has_normal_map, SHADER_UNIFORM_INT);
             
-            bool has_roughness_map = IsTextureReady(this->roughness_texture);
-            has_roughness_map = false;
-            SetShaderValue(shader, GetShaderLocation(shader, "roughnessMapInit"), &has_roughness_map, SHADER_UNIFORM_INT);
+            // bool has_roughness_map = IsTextureReady(this->roughness_texture);
+            // has_roughness_map = false;
+            // SetShaderValue(shader, GetShaderLocation(shader, "roughnessMapInit"), &has_roughness_map, SHADER_UNIFORM_INT);
 
             DrawModelEx(model, position, rotation, GetExtremeValue(rotation), scale, color);
 
