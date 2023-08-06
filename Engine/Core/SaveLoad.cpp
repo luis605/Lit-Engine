@@ -235,7 +235,7 @@ void LoadEntity(const json& entity_json, Entity& entity) {
     }
 
 
-
+    entity.setShader(shader);
 
 
     if (entity_json.contains("children")) {

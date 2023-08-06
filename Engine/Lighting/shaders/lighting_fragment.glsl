@@ -3,6 +3,7 @@
 // Input vertex attributes (from vertex shader)
 in vec3 fragPosition;
 in vec2 fragTexCoord;
+uniform sampler2D texture0;
 //in vec4 fragColor;
 in vec3 fragNormal;
 
@@ -12,9 +13,6 @@ uniform vec4 ambientLight;
 uniform vec3 viewPos;
 
 // pbr
-uniform bool diffuseMapInit;
-uniform sampler2D texture0;
-
 uniform bool normalMapInit;
 uniform sampler2D texture2;
 
@@ -104,8 +102,7 @@ void main() {
     vec3 result = colDiffuse.rgb / 2.0 - ambientLight.rgb * 0.5;
     result += ambientLight.rgb * 0.2;
     
-    vec4 texelColor = texture2D(texture0, fragTexCoord);
-    // vec4 texColor;
+    vec4 texColor = texture(texture0, fragTexCoord);
     // if (diffuseMapInit)
     //     texColor = texture(texture0, fragTexCoord);
     // else
@@ -163,7 +160,7 @@ void main() {
         }
     }
 
-    vec4 blendedColor = vec4(result, 1.0) * texelColor; //* texColor;
+    vec4 blendedColor = vec4(result, 1.0) * texColor;
 
     // if (roughnessMapInit)
     // {
