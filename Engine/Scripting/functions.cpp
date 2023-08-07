@@ -132,7 +132,8 @@ PYBIND11_EMBEDDED_MODULE(input_module, m) {
         .value("KEY_RIGHT_CONTROL", KEY_RIGHT_CONTROL)
         .value("KEY_RIGHT_ALT", KEY_RIGHT_ALT)
         .value("KEY_RIGHT_SUPER", KEY_RIGHT_SUPER)
-        .value("KEY_KB_MENU", KEY_KB_MENU);
+        .value("KEY_KB_MENU", KEY_KB_MENU)
+        .value("KEY_SPACE", KEY_SPACE);
 }
 
 
