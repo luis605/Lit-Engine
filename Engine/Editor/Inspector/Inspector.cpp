@@ -129,10 +129,22 @@ void EntityInspector()
         ImGui::PushStyleVar(ImGuiStyleVar_ItemSpacing, ImVec2(0, 40));
         ImGui::InputFloat("Z##PositionZ", &selected_entity_position.z);
         ImGui::PopStyleVar();
+
         if (selected_entity->isChild)
             selected_entity->relative_position = selected_entity_position;
         else
             selected_entity->position = selected_entity_position;
+
+
+        ImGui::Text("Rotation:");
+        ImGui::SliderFloat("X##RotationX", &selected_entity->rotation.x, -360.0f, 360.0f);
+        ImGui::SliderFloat("Y##RotationY", &selected_entity->rotation.y, -360.0f, 360.0f);
+        ImGui::PushStyleVar(ImGuiStyleVar_ItemSpacing, ImVec2(0, 40));
+        ImGui::SliderFloat("Z##RotationZ", &selected_entity->rotation.z, -360.0f, 360.0f);
+        ImGui::PopStyleVar();
+
+
+
     }
 
     if (ImGui::CollapsingHeader("Materials"))
