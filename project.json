@@ -47,6 +47,230 @@
         "type": "entity"
     },
     {
+        "color": {
+            "a": 255,
+            "b": 255,
+            "g": 255,
+            "r": 255
+        },
+        "id": -1348661036,
+        "model_path": "project/game/models/cube.obj",
+        "name": "floor",
+        "normal_texture_path": "",
+        "position": {
+            "x": 0.0,
+            "y": 0.0,
+            "z": 0.0
+        },
+        "relative_position": {
+            "x": 0.0,
+            "y": 0.0,
+            "z": 0.0
+        },
+        "rotation": {
+            "x": 0.0,
+            "y": 0.0,
+            "z": 0.0
+        },
+        "roughness_texture_path": "",
+        "scale": {
+            "x": 10.0,
+            "y": 0.10000000149011612,
+            "z": 10.0
+        },
+        "script_path": "",
+        "surface_material": {
+            "DiffuseIntensity": 0.5,
+            "Roughness": 0.5,
+            "SpecularIntensity": 0.5,
+            "SpecularTint": {
+                "x": 1.0,
+                "y": 1.0,
+                "z": 1.0
+            },
+            "shininess": 0.5
+        },
+        "texture_path": "",
+        "type": "entity"
+    },
+    {
+        "color": {
+            "a": 255,
+            "b": 255,
+            "g": 255,
+            "r": 255
+        },
+        "id": -1348661035,
+        "model_path": "project/game/models/cube.obj",
+        "name": "highPlace",
+        "normal_texture_path": "",
+        "position": {
+            "x": 0.0,
+            "y": 6.0,
+            "z": 7.399998664855957
+        },
+        "relative_position": {
+            "x": 0.0,
+            "y": 0.0,
+            "z": 0.0
+        },
+        "rotation": {
+            "x": 0.0,
+            "y": 0.0,
+            "z": 0.0
+        },
+        "roughness_texture_path": "",
+        "scale": {
+            "x": 10.0,
+            "y": 6.0,
+            "z": 1.0
+        },
+        "script_path": "",
+        "surface_material": {
+            "DiffuseIntensity": 0.5,
+            "Roughness": 0.5,
+            "SpecularIntensity": 0.5,
+            "SpecularTint": {
+                "x": 1.0,
+                "y": 1.0,
+                "z": 1.0
+            },
+            "shininess": 0.5
+        },
+        "texture_path": "",
+        "type": "entity"
+    },
+    {
+        "color": {
+            "a": 255,
+            "b": 255,
+            "g": 255,
+            "r": 255
+        },
+        "id": -1348661034,
+        "model_path": "project/game/models/cube.obj",
+        "name": "high place",
+        "normal_texture_path": "",
+        "position": {
+            "x": 0.0,
+            "y": 11.0,
+            "z": 3.5
+        },
+        "relative_position": {
+            "x": 0.0,
+            "y": 0.0,
+            "z": 0.0
+        },
+        "rotation": {
+            "x": 0.0,
+            "y": 0.0,
+            "z": 0.0
+        },
+        "roughness_texture_path": "",
+        "scale": {
+            "x": 10.0,
+            "y": 1.0,
+            "z": 3.0
+        },
+        "script_path": "",
+        "surface_material": {
+            "DiffuseIntensity": 0.5,
+            "Roughness": 0.5,
+            "SpecularIntensity": 0.5,
+            "SpecularTint": {
+                "x": 1.0,
+                "y": 1.0,
+                "z": 1.0
+            },
+            "shininess": 0.5
+        },
+        "texture_path": "",
+        "type": "entity"
+    },
+    {
+        "color": {
+            "a": 255,
+            "b": 0,
+            "g": 90,
+            "r": 255
+        },
+        "id": -1348661033,
+        "model_path": "project/game/models/test.obj",
+        "name": "player",
+        "normal_texture_path": "",
+        "position": {
+            "x": 0.0,
+            "y": 18.399999618530273,
+            "z": 2.90000057220459
+        },
+        "relative_position": {
+            "x": 0.0,
+            "y": 0.0,
+            "z": 0.0
+        },
+        "rotation": {
+            "x": 0.0,
+            "y": 0.0,
+            "z": 0.0
+        },
+        "roughness_texture_path": "",
+        "scale": {
+            "x": 1.0,
+            "y": 1.0,
+            "z": 1.0
+        },
+        "script_path": "project/game/coins collector.py",
+        "surface_material": {
+            "DiffuseIntensity": 0.5,
+            "Roughness": 0.5,
+            "SpecularIntensity": 0.5,
+            "SpecularTint": {
+                "x": 1.0,
+                "y": 1.0,
+                "z": 1.0
+            },
+            "shininess": 0.5
+        },
+        "texture_path": "",
+        "type": "entity"
+    },
+    {
+        "attenuation": 0.004999999888241291,
+        "color": {
+            "a": 1.0,
+            "b": 0.0,
+            "g": 0.0,
+            "r": 1.0
+        },
+        "cutOff": 10.0,
+        "direction": {
+            "x": 0.4000000059604645,
+            "y": 0.4000000059604645,
+            "z": -0.4000000059604645
+        },
+        "id": 5,
+        "intensity": 1.3930000066757202,
+        "light_type": 1,
+        "name": "",
+        "position": {
+            "x": -14.000000953674316,
+            "y": 4.0,
+            "z": -9.900001525878906
+        },
+        "relative_position": {
+            "x": 0,
+            "y": 0,
+            "z": 0
+        },
+        "specularStrength": 0.5,
+        "target": {
+            "x": 0.0,
+            "y": 2.802596928649634e-45,
+            "z": 722.0
+        },
+        "type": "light"
+    },
+    {
         "attenuation": 9.999999747378752e-05,
         "color": {
             "a": 1.0,
@@ -65,42 +289,6 @@
         "light_type": 1,
         "name": "",
         "position": {
-            "x": -6.100025177001953,
-            "y": 4.0,
-            "z": 4.0
-        },
-        "relative_position": {
-            "x": 0,
-            "y": 0,
-            "z": 0
-        },
-        "specularStrength": 0.5,
-        "target": {
-            "x": 0.0,
-            "y": 1.401298464324817e-45,
-            "z": 722.0
-        },
-        "type": "light"
-    },
-    {
-        "attenuation": 9.999999747378752e-05,
-        "color": {
-            "a": 1.0,
-            "b": 1.0,
-            "g": 1.0,
-            "r": 1.0
-        },
-        "cutOff": 10.0,
-        "direction": {
-            "x": 0.10700000077486038,
-            "y": -0.7770000100135803,
-            "z": -1.0
-        },
-        "id": 5,
-        "intensity": 0.5,
-        "light_type": 0,
-        "name": "",
-        "position": {
             "x": 4.0,
             "y": 4.0,
             "z": 4.0
@@ -113,7 +301,7 @@
         "specularStrength": 0.5,
         "target": {
             "x": 0.0,
-            "y": 1.401298464324817e-45,
+            "y": 2.802596928649634e-45,
             "z": 722.0
         },
         "type": "light"
