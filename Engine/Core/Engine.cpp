@@ -68,6 +68,7 @@ public:
     BoundingBox bounds;
 
 
+
     std::filesystem::path texture_path;
     Texture2D texture;
 
@@ -332,6 +333,9 @@ public:
 
             bool normalMapInit = IsTextureReady(this->normal_texture);
             glUniform1i(glGetUniformLocation((GLuint)shader.id, "normalMapInit"), normalMapInit);
+
+            bool roughnessMapInit = IsTextureReady(this->roughness_texture);
+            glUniform1i(glGetUniformLocation((GLuint)shader.id, "roughnessMapInit"), roughnessMapInit);
 
             DrawModelEx(model, position, rotation, GetExtremeValue(rotation), scale, color);
 

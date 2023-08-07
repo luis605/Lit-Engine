@@ -87,6 +87,13 @@ void main() {
         norm = normalize(fragNormal);
 
 
+
+    // float roughness;
+    // if (roughnessMapInit)
+    //     roughness = texture(texture3, fragTexCoord).r;
+    // else
+    //     roughness = 0.1;
+
     vec3 lightDir;
     float diff;
     float spec;

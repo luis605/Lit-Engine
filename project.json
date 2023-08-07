@@ -8,23 +8,28 @@
         },
         "id": -1348661037,
         "model_path": "project/game/models/plane.obj",
-        "name": "",
+        "name": "wall",
         "normal_texture_path": "project/game/textures/brick_wall_02_nor_gl_4k.png",
         "position": {
             "x": 0.0,
-            "y": 0.0,
-            "z": 0.0
+            "y": 4.0,
+            "z": -8.0
         },
         "relative_position": {
             "x": 0.0,
             "y": 0.0,
             "z": 0.0
         },
+        "rotation": {
+            "x": 90.0,
+            "y": 0.7850000262260437,
+            "z": 0.0
+        },
         "roughness_texture_path": "",
         "scale": {
-            "x": 30.0,
+            "x": 4.0,
             "y": 1.0,
-            "z": 30.0
+            "z": 4.0
         },
         "script_path": "",
         "surface_material": {
@@ -38,7 +43,7 @@
             },
             "shininess": 0.5
         },
-        "texture_path": "",
+        "texture_path": "project/game/textures/brick_wall_02_diff_4k.png",
         "type": "entity"
     },
     {
@@ -60,7 +65,43 @@
         "light_type": 1,
         "name": "",
         "position": {
-            "x": 8.399982452392578,
+            "x": -6.100025177001953,
+            "y": 4.0,
+            "z": 4.0
+        },
+        "relative_position": {
+            "x": 0,
+            "y": 0,
+            "z": 0
+        },
+        "specularStrength": 0.5,
+        "target": {
+            "x": 0.0,
+            "y": 1.401298464324817e-45,
+            "z": 722.0
+        },
+        "type": "light"
+    },
+    {
+        "attenuation": 9.999999747378752e-05,
+        "color": {
+            "a": 1.0,
+            "b": 1.0,
+            "g": 1.0,
+            "r": 1.0
+        },
+        "cutOff": 10.0,
+        "direction": {
+            "x": 0.10700000077486038,
+            "y": -0.7770000100135803,
+            "z": -1.0
+        },
+        "id": 5,
+        "intensity": 0.5,
+        "light_type": 0,
+        "name": "",
+        "position": {
+            "x": 4.0,
             "y": 4.0,
             "z": 4.0
         },

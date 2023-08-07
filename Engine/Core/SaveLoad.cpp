@@ -90,6 +90,7 @@ void SaveEntity(json& json_data, const Entity& entity) {
     j["name"] = entity.name;
     j["scale"] = entity.scale;
     j["position"] = entity.position;
+    j["rotation"] = entity.rotation;
     j["relative_position"] = entity.relative_position;
     j["model_path"] = entity.model_path;
     j["script_path"] = entity.script;
@@ -195,6 +196,13 @@ void LoadEntity(const json& entity_json, Entity& entity) {
         entity_json["position"]["z"].get<float>()
     };
     entity.position = position;
+
+    Vector3 rotation{
+        entity_json["rotation"]["x"].get<float>(),
+        entity_json["rotation"]["y"].get<float>(),
+        entity_json["rotation"]["z"].get<float>()
+    };
+    entity.rotation = rotation;
 
     Vector3 relative_position{
         entity_json["relative_position"]["x"].get<float>(),
