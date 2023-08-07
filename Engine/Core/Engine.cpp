@@ -326,33 +326,36 @@ public:
         if (visible)
         {
 
-            glGenBuffers(1, &surface_material_ubo);
-            glBindBuffer(GL_UNIFORM_BUFFER, surface_material_ubo);
-            glBufferData(GL_UNIFORM_BUFFER, sizeof(SurfaceMaterial), &this->surface_material, GL_DYNAMIC_DRAW);
-            glBindBuffer(GL_UNIFORM_BUFFER, 0);
+            PassSurfaceMaterials();
 
-            // Bind the buffer to a specific binding point (for example, binding point 0)
-            GLuint bindingPoint = 0;
-            glBindBufferBase(GL_UNIFORM_BUFFER, bindingPoint, surface_material_ubo);
+            glUseProgram((GLuint)shader.id);
 
-
-            // Update the uniform buffer data
-            glBindBuffer(GL_UNIFORM_BUFFER, surface_material_ubo);
-            glBufferSubData(GL_UNIFORM_BUFFER, 0, sizeof(SurfaceMaterial), &this->surface_material);
-            glBindBuffer(GL_UNIFORM_BUFFER, 0);
-
-
-            bool has_normal_map = IsTextureReady(this->normal_texture);
-            has_normal_map = true;
-            SetShaderValue(shader, GetShaderLocation(shader, "normalMapInit"), &has_normal_map, SHADER_UNIFORM_INT);
-            
-            bool has_roughness_map = IsTextureReady(this->roughness_texture);
-            has_roughness_map = false;
-            SetShaderValue(shader, GetShaderLocation(shader, "roughnessMapInit"), &has_roughness_map, SHADER_UNIFORM_INT);
+            bool normalMapInit = IsTextureReady(this->normal_texture);
+            glUniform1i(glGetUniformLocation((GLuint)shader.id, "normalMapInit"), normalMapInit);
 
             DrawModelEx(model, position, rotation, GetExtremeValue(rotation), scale, color);
 
         }
+    }
+
+private:
+    void PassSurfaceMaterials()
+    {
+        glGenBuffers(1, &surface_material_ubo);
+        glBindBuffer(GL_UNIFORM_BUFFER, surface_material_ubo);
+        glBufferData(GL_UNIFORM_BUFFER, sizeof(SurfaceMaterial), &this->surface_material, GL_DYNAMIC_DRAW);
+        glBindBuffer(GL_UNIFORM_BUFFER, 0);
+
+        // Bind the buffer to a specific binding point (for example, binding point 0)
+        GLuint bindingPoint = 0;
+        glBindBufferBase(GL_UNIFORM_BUFFER, bindingPoint, surface_material_ubo);
+
+
+        // Update the uniform buffer data
+        glBindBuffer(GL_UNIFORM_BUFFER, surface_material_ubo);
+        glBufferSubData(GL_UNIFORM_BUFFER, 0, sizeof(SurfaceMaterial), &this->surface_material);
+        glBindBuffer(GL_UNIFORM_BUFFER, 0);
+
     }
 };
 
@@ -361,126 +364,126 @@ bool operator==(const Entity& e, const Entity* ptr) {
     return &e == ptr;
 }
 
-
-void AddEntity(
-    bool create_immediatly = false,
-    bool is_create_entity_a_child = is_create_entity_a_child,
-    const char* model_path = "assets/models/tree.obj",
-    Model model = Model()
-)
-{
-    const int POPUP_WIDTH = 600;
-    const int POPUP_HEIGHT = 650;
-
-    int popupX = GetScreenWidth() / 4.5;
-    int popupY = (GetScreenHeight() - POPUP_HEIGHT) / 6;
-
-    if (create || create_immediatly)
+#ifndef GAME_SHIPPING
+    void AddEntity(
+        bool create_immediatly = false,
+        bool is_create_entity_a_child = is_create_entity_a_child,
+        const char* model_path = "assets/models/tree.obj",
+        Model model = Model()
+    )
     {
-        Color entity_color_raylib = {
-            static_cast<unsigned char>(entity_create_color.x * 255),
-            static_cast<unsigned char>(entity_create_color.y * 255),
-            static_cast<unsigned char>(entity_create_color.z * 255),
-            static_cast<unsigned char>(entity_create_color.w * 255)
-        };
+        const int POPUP_WIDTH = 600;
+        const int POPUP_HEIGHT = 650;
 
-        Entity entity_create;
-        entity_create.setColor(entity_color_raylib);
-        entity_create.setScale(Vector3{entity_create_scale, entity_create_scale, entity_create_scale});
-        entity_create.setName(name);
-        entity_create.isChild = is_create_entity_a_child;
-        entity_create.setModel(model_path, model);
-        entity_create.setShader(shader);
+        int popupX = GetScreenWidth() / 4.5;
+        int popupY = (GetScreenHeight() - POPUP_HEIGHT) / 6;
 
-        if (!entities_list_pregame.empty())
+        if (create || create_immediatly)
         {
-            int id = entities_list_pregame.back().id + 1;
-            entity_create.id = id;
-        }
-        else
-            entity_create.id = "0";
+            Color entity_color_raylib = {
+                static_cast<unsigned char>(entity_create_color.x * 255),
+                static_cast<unsigned char>(entity_create_color.y * 255),
+                static_cast<unsigned char>(entity_create_color.z * 255),
+                static_cast<unsigned char>(entity_create_color.w * 255)
+            };
 
-        if (!is_create_entity_a_child)
-        {
-            entities_list_pregame.reserve(1);
-            entities_list_pregame.emplace_back(entity_create);
-        }
-        else
-        {
-            if (selected_game_object_type == "entity")
+            Entity entity_create;
+            entity_create.setColor(entity_color_raylib);
+            entity_create.setScale(Vector3{entity_create_scale, entity_create_scale, entity_create_scale});
+            entity_create.setName(name);
+            entity_create.isChild = is_create_entity_a_child;
+            entity_create.setModel(model_path, model);
+            entity_create.setShader(shader);
+
+            if (!entities_list_pregame.empty())
             {
-                if (selected_entity->isChild)
-                    selected_entity->addChild(entity_create);
-                else
-                    entities_list_pregame.back().addChild(entity_create);
+                int id = entities_list_pregame.back().id + 1;
+                entity_create.id = id;
             }
-        }
+            else
+                entity_create.id = "0";
 
-        selected_entity = &entity_create;
+            if (!is_create_entity_a_child)
+            {
+                entities_list_pregame.reserve(1);
+                entities_list_pregame.emplace_back(entity_create);
+            }
+            else
+            {
+                if (selected_game_object_type == "entity")
+                {
+                    if (selected_entity->isChild)
+                        selected_entity->addChild(entity_create);
+                    else
+                        entities_list_pregame.back().addChild(entity_create);
+                }
+            }
 
-        int last_entity_index = entities_list_pregame.size() - 1;
-        listViewExActive = last_entity_index;
+            selected_entity = &entity_create;
 
-        create = false;
-        is_create_entity_a_child = false;
-        canAddEntity = false;
-    }
-    else if (canAddEntity)
-    {
-        ImGui::PushStyleColor(ImGuiCol_WindowBg, ImVec4(0.6f, 0.6f, 0.6f, 0.6f)); // light gray
+            int last_entity_index = entities_list_pregame.size() - 1;
+            listViewExActive = last_entity_index;
 
-        ImGui::Begin("Entities");
-
-        ImVec2 size = ImGui::GetContentRegionAvail();
-
-        ImGui::PushStyleVar(ImGuiStyleVar_FrameRounding, 50.0f);
-        ImGui::PushStyleColor(ImGuiCol_Button, ImVec4(0.2f, 0.2f, 0.2f, 1.0f));
-        ImGui::PushStyleColor(ImGuiCol_ButtonHovered, ImVec4(0.2f, 0.2f, 0.2f, 1.0f));
-        ImGui::PushStyleColor(ImGuiCol_ButtonActive, ImVec4(0.2f, 0.2f, 0.2f, 1.0f));
-
-        ImGui::SetCursorPosX(size.x / 2 - 250);
-        ImGui::SetCursorPosY(size.y / 4);
-        ImGui::Button("Entity Add Menu", ImVec2(500,100));
-
-        ImGui::PopStyleColor(4);
-
-        /* Scale Slider */
-        ImGui::Text("Scale: ");
-        ImGui::SameLine();
-        ImGui::SliderFloat(" ", &entity_create_scale, 0.1f, 100.0f);
-
-        /* Name Input */
-        ImGui::InputText("##text_input_box", name, sizeof(name));
-        
-        /* Color Picker */
-        ImGui::Text("Color: ");
-        ImGui::SameLine();
-        ImGui::ColorEdit4(" ", (float*)&entity_create_color, ImGuiColorEditFlags_NoInputs);
-
-        /* Is Children */
-        ImGui::Checkbox("Is Children: ", &is_create_entity_a_child);
-
-        /* Create BTN */
-        ImGui::PushStyleColor(ImGuiCol_Button, ImVec4(0.14, 0.37, 0.15, 1.0f));
-        ImGui::PushStyleColor(ImGuiCol_ButtonHovered, ImVec4(0.18, 0.48, 0.19, 1.0f));
-        ImGui::PushStyleColor(ImGuiCol_ButtonActive, ImVec4(0.5f, 0.5f, 0.5f, 1.0f));
-
-        ImGui::SetCursorPosX(size.x / 2);
-        ImGui::SetCursorPosY(size.y / 1.1);
-        bool create_entity_btn = ImGui::Button("Create", ImVec2(200,50));
-        if (create_entity_btn)
-        {
+            create = false;
+            is_create_entity_a_child = false;
             canAddEntity = false;
-            create = true;
         }
+        else if (canAddEntity)
+        {
+            ImGui::PushStyleColor(ImGuiCol_WindowBg, ImVec4(0.6f, 0.6f, 0.6f, 0.6f)); // light gray
 
-        ImGui::PopStyleColor(3);
-        ImGui::PopStyleVar();
+            ImGui::Begin("Entities");
 
-        ImGui::End();
+            ImVec2 size = ImGui::GetContentRegionAvail();
+
+            ImGui::PushStyleVar(ImGuiStyleVar_FrameRounding, 50.0f);
+            ImGui::PushStyleColor(ImGuiCol_Button, ImVec4(0.2f, 0.2f, 0.2f, 1.0f));
+            ImGui::PushStyleColor(ImGuiCol_ButtonHovered, ImVec4(0.2f, 0.2f, 0.2f, 1.0f));
+            ImGui::PushStyleColor(ImGuiCol_ButtonActive, ImVec4(0.2f, 0.2f, 0.2f, 1.0f));
+
+            ImGui::SetCursorPosX(size.x / 2 - 250);
+            ImGui::SetCursorPosY(size.y / 4);
+            ImGui::Button("Entity Add Menu", ImVec2(500,100));
+
+            ImGui::PopStyleColor(4);
+
+            /* Scale Slider */
+            ImGui::Text("Scale: ");
+            ImGui::SameLine();
+            ImGui::SliderFloat(" ", &entity_create_scale, 0.1f, 100.0f);
+
+            /* Name Input */
+            ImGui::InputText("##text_input_box", name, sizeof(name));
+            
+            /* Color Picker */
+            ImGui::Text("Color: ");
+            ImGui::SameLine();
+            ImGui::ColorEdit4(" ", (float*)&entity_create_color, ImGuiColorEditFlags_NoInputs);
+
+            /* Is Children */
+            ImGui::Checkbox("Is Children: ", &is_create_entity_a_child);
+
+            /* Create BTN */
+            ImGui::PushStyleColor(ImGuiCol_Button, ImVec4(0.14, 0.37, 0.15, 1.0f));
+            ImGui::PushStyleColor(ImGuiCol_ButtonHovered, ImVec4(0.18, 0.48, 0.19, 1.0f));
+            ImGui::PushStyleColor(ImGuiCol_ButtonActive, ImVec4(0.5f, 0.5f, 0.5f, 1.0f));
+
+            ImGui::SetCursorPosX(size.x / 2);
+            ImGui::SetCursorPosY(size.y / 1.1);
+            bool create_entity_btn = ImGui::Button("Create", ImVec2(200,50));
+            if (create_entity_btn)
+            {
+                canAddEntity = false;
+                create = true;
+            }
+
+            ImGui::PopStyleColor(3);
+            ImGui::PopStyleVar();
+
+            ImGui::End();
+        }
     }
-}
-
+#endif
     
 
 py::module entity_module("entity_module");

@@ -3,7 +3,6 @@
 // Input vertex attributes (from vertex shader)
 in vec3 fragPosition;
 in vec2 fragTexCoord;
-uniform sampler2D texture0;
 //in vec4 fragColor;
 in vec3 fragNormal;
 
@@ -13,6 +12,8 @@ uniform vec4 ambientLight;
 uniform vec3 viewPos;
 
 // pbr
+uniform sampler2D texture0;
+
 uniform bool normalMapInit;
 uniform sampler2D texture2;
 
@@ -71,22 +72,19 @@ out vec3 fragLightDir;
 out vec3 fragViewDir;
 
 
+
 void main() {
-    // Normalize the surface normal
+    // Check if the normal map texture exists
+    
+
     vec3 norm;
-    if (false)
+    if (normalMapInit)
     {
         vec3 normal = texture(texture2, fragTexCoord).xyz * 2.0 - 1.0;
         norm = normalize(normal);
     }
     else
         norm = normalize(fragNormal);
-
-    // float roughness;
-    // if (true)
-    //     roughness = texture(texture3, fragTexCoord).r;
-    // else
-    //     roughness = 0.1;
 
 
     vec3 lightDir;
@@ -101,12 +99,15 @@ void main() {
     vec3 specular;
     vec3 result = colDiffuse.rgb / 2.0 - ambientLight.rgb * 0.5;
     result += ambientLight.rgb * 0.2;
+
+    float shadow = 0;
     
     vec4 texColor = texture(texture0, fragTexCoord);
     // if (diffuseMapInit)
     //     texColor = texture(texture0, fragTexCoord);
     // else
     //     texColor = colDiffuse;
+
 
     for (int i = 0; i < lightsCount; i++) {
         Light light = lights[i];
@@ -119,25 +120,27 @@ void main() {
             result += colDiffuse * diffuse;
 
 
-        } else if (light.type == LIGHT_POINT && light.enabled) {
+        }
+        else if (light.type == LIGHT_POINT && light.enabled) {
             lightDir = normalize(light.position - fragPosition);
             
             float distance = length(light.position - fragPosition);
             float attenuation = 1.0 / (1.0 + light.attenuation * distance * distance);
-            
+
             diff = max(dot(norm, lightDir), 0.0);
             diffuse = light.intensity * surface_material.DiffuseIntensity * diff * attenuation * (light.color.rgb + vec3(colDiffuse.x, colDiffuse.y, colDiffuse.z)) / 2.0;
-            
-            result += diffuse;
             
             reflectDir = reflect(-lightDir, norm);
             
             spec = pow(max(dot(viewDir, reflectDir), 0.0), 64.0);
             specular = light.specularStrength * surface_material.SpecularIntensity * spec * attenuation * light.color.rgb;
             specular *= surface_material.SpecularTint;
-            
-            result += specular;
+
+            // Apply soft shadows
+            result += diffuse;
+            result += specular;            
         }
+
         else if (light.type == LIGHT_SPOT && light.enabled)
         {
             vec3 fragLightDir = normalize(-light.direction);

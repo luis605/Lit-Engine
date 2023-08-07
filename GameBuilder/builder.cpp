@@ -13,7 +13,9 @@ void BuildProject()
         std::cout << "Directory already exists." << std::endl;
     }
 
-    const char* compileCommand = "cp project.json exported_game && cp -r project/ exported_game && cd GameBuilder && make build";
+    const char* compileCommand = R"""(
+    cp project.json exported_game && cp -r project/ exported_game && cd GameBuilder && make build 'STRING1="$$(cat ../Engine/Lighting/shaders/lighting_vertex.glsl)"' 'STRING2="$$(cat ../Engine/Lighting/shaders/lighting_fragment.glsl)"' 
+    )""";
 
     int result = system(compileCommand);
 
@@ -21,7 +23,7 @@ void BuildProject()
         std::cout << "Game Sucessfully Exported" << std::endl;
         return 0;
     } else {
-        std::cout << "Game NOT Exported due to errors!" << std::endl;
+        std::cout << "ERROR: Game Could Not Be Exported due to errors while building the executable!" << std::endl;
         return 1;
     }
 }

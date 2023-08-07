@@ -120,7 +120,16 @@ void SaveLight(json& json_data, const Light& light, int light_index) {
     j["color"] = light.color;
     j["name"] = lights_info.at(light_index).name;
     j["position"] = light.position;
-    j["relative_position"] = light.relative_position;
+    
+    if (light.isChild)
+        j["relative_position"] = light.relative_position;
+    else
+    {
+        j["relative_position"]["x"] = 0;
+        j["relative_position"]["y"] = 0;
+        j["relative_position"]["z"] = 0;
+    }
+    
     j["target"] = light.target;
     j["direction"] = light.direction;
     j["intensity"] = light.intensity;

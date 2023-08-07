@@ -43,16 +43,6 @@ GLuint surface_material_ubo;
 bool canAddLight = false;
 
 
-
-struct pbrFlags {
-    bool normalMapInit;
-    bool roughnessMapInit;
-    bool diffuseMapInit;
-};
-
-pbrFlags pbr_flags;
-
-
 typedef struct Light
 {
     int type = LIGHT_POINT;
