@@ -373,7 +373,8 @@ bool operator==(const Entity& e, const Entity* ptr) {
         bool create_immediatly = false,
         bool is_create_entity_a_child = is_create_entity_a_child,
         const char* model_path = "assets/models/tree.obj",
-        Model model = Model()
+        Model model = Model(),
+        string name = "Unnamed Entity"
     )
     {
         const int POPUP_WIDTH = 600;
@@ -457,7 +458,7 @@ bool operator==(const Entity& e, const Entity* ptr) {
             ImGui::SliderFloat(" ", &entity_create_scale, 0.1f, 100.0f);
 
             /* Name Input */
-            ImGui::InputText("##text_input_box", name, sizeof(name));
+            ImGui::InputText("##text_input_box", name.c_str(), sizeof(name));
             
             /* Color Picker */
             ImGui::Text("Color: ");
