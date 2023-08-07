@@ -21,8 +21,17 @@ Camera3D inGame_Camera = { 0 };
 
 void InitWindow()
 {
+    SetTraceLogLevel(LOG_WARNING);
     InitWindow(WindowWidth, WindowHeight, gameTitle.c_str());
-    shader = LoadShader("../Engine/Lighting/shaders/lighting_vertex.glsl", "../Engine/Lighting/shaders/lighting_fragment.glsl");
+    
+    const char* vertexShader = std::getenv("STRING1");
+    const char* fragmentShader = std::getenv("STRING2");
+
+    std::cout << "VERTEX: " << vertexShader << std::endl;
+    std::cout << "FRAGMENT: " << fragmentShader << std::endl;
+
+    shader = LoadShaderFromMemory(vertexShader, fragmentShader);
+
     InitLighting();
     SetTargetFPS(60);
     LoadProject(entities_list, lights, lights_info);

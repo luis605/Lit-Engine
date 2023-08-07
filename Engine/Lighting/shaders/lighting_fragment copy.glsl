@@ -3,6 +3,7 @@
 // Input vertex attributes (from vertex shader)
 in vec3 fragPosition;
 in vec2 fragTexCoord;
+uniform sampler2D texture0;
 //in vec4 fragColor;
 in vec3 fragNormal;
 
@@ -12,8 +13,6 @@ uniform vec4 ambientLight;
 uniform vec3 viewPos;
 
 // pbr
-uniform sampler2D texture0;
-
 uniform bool normalMapInit;
 uniform sampler2D texture2;
 
@@ -73,18 +72,31 @@ out vec3 fragViewDir;
 
 
 
-void main() {
-    // Check if the normal map texture exists
-    
+float getSoftShadow(vec3 frag_pos, vec3 lightPos) {
+    float shadow = 0.0;
 
+    return shadow;
+}
+
+
+
+
+void main() {
+    // Normalize the surface normal
     vec3 norm;
-    if (normalMapInit)
+    if (false)
     {
         vec3 normal = texture(texture2, fragTexCoord).xyz * 2.0 - 1.0;
         norm = normalize(normal);
     }
     else
         norm = normalize(fragNormal);
+
+    // float roughness;
+    // if (true)
+    //     roughness = texture(texture3, fragTexCoord).r;
+    // else
+    //     roughness = 0.1;
 
 
     vec3 lightDir;
@@ -108,7 +120,6 @@ void main() {
     // else
     //     texColor = colDiffuse;
 
-
     for (int i = 0; i < lightsCount; i++) {
         Light light = lights[i];
         
@@ -126,6 +137,9 @@ void main() {
             
             float distance = length(light.position - fragPosition);
             float attenuation = 1.0 / (1.0 + light.attenuation * distance * distance);
+            
+            // Calculate soft shadow value for the point light
+            float shadow = getSoftShadow(fragPosition, normalize(light.position - fragPosition));
 
             diff = max(dot(norm, lightDir), 0.0);
             diffuse = light.intensity * surface_material.DiffuseIntensity * diff * attenuation * (light.color.rgb + vec3(colDiffuse.x, colDiffuse.y, colDiffuse.z)) / 2.0;
@@ -137,8 +151,8 @@ void main() {
             specular *= surface_material.SpecularTint;
 
             // Apply soft shadows
-            result += diffuse;
-            result += specular;            
+            result += diffuse * shadow;
+            result += specular * shadow;            
         }
 
         else if (light.type == LIGHT_SPOT && light.enabled)

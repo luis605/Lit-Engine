@@ -56,12 +56,24 @@ private:
     Vector2 renderTexturePos;
 
 public:
+    // Constructor for non-shipping mode
+#ifndef GAME_SHIPPING
     LitButton(Vector3 position = {0, 0, 1}, Vector2 size = {600, 450}, Color color = LIGHTGRAY, Color pressedColor = DARKGRAY, Color hoverColor = GRAY, Text text = Text())
         : position(position), size(size), color(color), pressedColor(pressedColor), hoverColor(hoverColor), text(text),
-          isPressed(false), isHovered(false), isDisabled(isDisabled), renderTexturePos({rectangle.x, rectangle.y}), bounds({position.x, position.y, size.x, size.y}),
+          isPressed(false), isHovered(false), isDisabled(isDisabled), bounds({position.x, position.y, size.x, size.y}),
+          onClick(nullptr), wasMousePressed(false), transitioningHover(false), transitioningUnhover(false), tooltip(), clickSound(LoadSound("click.wav")), renderTexturePos({rectangle.x, rectangle.y})
+    {
+    }
+
+// Constructor for shipping mode
+#else
+    LitButton(Vector3 position = {0, 0, 1}, Vector2 size = {600, 450}, Color color = LIGHTGRAY, Color pressedColor = DARKGRAY, Color hoverColor = GRAY, Text text = Text())
+        : position(position), size(size), color(color), pressedColor(pressedColor), hoverColor(hoverColor), text(text),
+          isPressed(false), isHovered(false), isDisabled(isDisabled), bounds({position.x, position.y, size.x, size.y}),
           onClick(nullptr), wasMousePressed(false), transitioningHover(false), transitioningUnhover(false), tooltip(), clickSound(LoadSound("click.wav"))
     {
     }
+#endif
 
     void SetText(const char *button_text, float fontSize = 20, Color color = BLACK)
     {
@@ -96,6 +108,8 @@ public:
 
     void Update()
     {
+
+#ifndef GAME_SHIPPING
         Vector2 mainMousePos = GetMousePosition();
         Vector2 renderTexturePos = {rectangle.x, rectangle.y};
         Vector2 renderTextureSize = {rectangle.width, rectangle.height};
@@ -108,6 +122,9 @@ public:
         Vector2 position = {bounds.x - ImGui::GetFrameHeight(), bounds.y};
 
         isHovered = CheckCollisionPointRec(renderTextureMousePos, {position.x, position.y, bounds.width/divideX, bounds.height/divideY});
+#else
+        isHovered = CheckCollisionPointRec(GetMousePosition(), bounds);
+#endif
         bool isMousePressed = IsMouseButtonDown(MOUSE_LEFT_BUTTON);
 
         if (isDisabled)

@@ -246,8 +246,8 @@ void EntityInspector()
     ImGui::Text("Scripts: ");
     ImGui::Text("Drop Script Here: ");
     ImGui::SameLine();
-    string script_button_text = selected_entity->script + "##Drag'nDropScriptPath";
-    if (ImGui::Button(script_button_text.c_str(), ImVec2(200,25)))
+
+    if (ImGui::Button("##Drag'nDropScriptPath", ImVec2(200,25)))
     {
     }
 
