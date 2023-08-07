@@ -376,7 +376,12 @@ void DropEntity()
             string path = dir_path.c_str();
             path += "/" + files_texture_struct[payload_n].name;
 
-            AddEntity(true, false, path.c_str());
+            size_t lastDotIndex = path.find_last_of('.');
+
+            // Extract the substring after the last dot
+            std::string entity_name = path.substr(0, lastDotIndex);
+            
+            AddEntity(true, false, path.c_str(), Model(), entity_name);
         }
         ImGui::EndDragDropTarget();
     }
