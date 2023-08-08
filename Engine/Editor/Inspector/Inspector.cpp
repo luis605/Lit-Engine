@@ -126,7 +126,7 @@ void EntityInspector()
         }
         else
         {
-            if (selected_entity->isDynamic)
+            if (selected_entity->isDynamic && selected_entity->calc_physics)
                 selected_entity->applyForce(selected_entity_position);
             else
                 selected_entity->position = selected_entity_position;

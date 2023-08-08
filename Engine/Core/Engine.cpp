@@ -107,6 +107,7 @@ private:
     btCollisionShape* dynamicBoxShape = nullptr;
     btDefaultMotionState* boxMotionState = nullptr;
     btRigidBody* boxRigidBody = nullptr;
+    Vector3 backupPosition = position;
 
 public:
     Entity(Color color = { 255, 255, 255, 255 }, Vector3 scale = { 1, 1, 1 }, Vector3 rotation = { 0, 0, 0 }, string name = "entity",
@@ -339,47 +340,6 @@ public:
 
 
 
-    void createStaticBox(float x, float y, float z) {
-        if (isDynamic) return;
-
-        if (!staticBoxShape) {
-            staticBoxShape = new btBoxShape(btVector3(x, y, z));
-        }
-        else return;
-
-        if (dynamicBoxShape) {
-            dynamicsWorld->removeRigidBody(boxRigidBody);
-            delete boxRigidBody;
-            delete boxMotionState;
-            delete dynamicBoxShape;
-            isDynamic = false;
-        }
-
-        btDefaultMotionState* boxMotionState = new btDefaultMotionState(btTransform(btQuaternion(0, 0, 0, 1), btVector3(position.x, position.y, position.z)));
-        btRigidBody::btRigidBodyConstructionInfo boxRigidBodyCI(0, boxMotionState, staticBoxShape, btVector3(0, 0, 0));
-        boxRigidBody = new btRigidBody(boxRigidBodyCI);
-        dynamicsWorld->addRigidBody(boxRigidBody);
-    }
-
-
-    void createDynamicBox(float x, float y, float z) {
-        if (!isDynamic) {
-            dynamicsWorld->removeRigidBody(boxRigidBody);
-            delete boxRigidBody;
-            delete boxMotionState;
-            delete staticBoxShape;
-            isDynamic = true;
-        }
-
-        dynamicBoxShape = new btBoxShape(btVector3(x, y, z));
-        btDefaultMotionState* boxMotionState = new btDefaultMotionState(btTransform(btQuaternion(0, 0, 0, 1), btVector3(position.x, position.y, position.z)));
-        btScalar btMass = mass;
-        btVector3 boxInertia = btVector3(inertia.x, inertia.y, inertia.z);
-        dynamicBoxShape->calculateLocalInertia(btMass, boxInertia);
-        btRigidBody::btRigidBodyConstructionInfo boxRigidBodyCI(btMass, boxMotionState, dynamicBoxShape, boxInertia);
-        boxRigidBody = new btRigidBody(boxRigidBodyCI);
-        dynamicsWorld->addRigidBody(boxRigidBody);
-    }
 
 
     void calcPhysicsPosition() {
@@ -388,6 +348,7 @@ public:
             boxRigidBody->getMotionState()->getWorldTransform(trans);
             btVector3 pos = trans.getOrigin();
             position = { pos.x(), pos.y(), pos.z() };
+            backupPosition = position; // Update backupPosition
         }
     }
 
@@ -426,13 +387,50 @@ public:
         boxRigidBody->setMassProps(btMass, boxInertia);
     }
 
+
+
+    void createStaticBox(float x, float y, float z) {
+        if (isDynamic) return;
+
+        if (!staticBoxShape) {
+            staticBoxShape = new btBoxShape(btVector3(x, y, z));
+        }
+        else return;
+
+        if (dynamicBoxShape) {
+            dynamicsWorld->removeRigidBody(boxRigidBody);
+        }
+
+        btDefaultMotionState* boxMotionState = new btDefaultMotionState(btTransform(btQuaternion(0, 0, 0, 1), btVector3(position.x, position.y, position.z)));
+        btRigidBody::btRigidBodyConstructionInfo boxRigidBodyCI(0, boxMotionState, staticBoxShape, btVector3(0, 0, 0));
+        boxRigidBody = new btRigidBody(boxRigidBodyCI);
+        dynamicsWorld->addRigidBody(boxRigidBody);
+    }
+
+
+    void createDynamicBox(float x, float y, float z) {
+        if (!isDynamic) {
+            dynamicsWorld->removeRigidBody(boxRigidBody);
+        }
+
+        dynamicBoxShape = new btBoxShape(btVector3(x, y, z));
+        btDefaultMotionState* boxMotionState = new btDefaultMotionState(btTransform(btQuaternion(0, 0, 0, 1), btVector3(position.x, position.y, position.z)));
+        btScalar btMass = mass;
+        btVector3 boxInertia = btVector3(inertia.x, inertia.y, inertia.z);
+        dynamicBoxShape->calculateLocalInertia(btMass, boxInertia);
+        btRigidBody::btRigidBodyConstructionInfo boxRigidBodyCI(btMass, boxMotionState, dynamicBoxShape, boxInertia);
+        boxRigidBody = new btRigidBody(boxRigidBodyCI);
+        dynamicsWorld->addRigidBody(boxRigidBody);
+    }
+
+
+
+
     void render() {
         if (!hasModel())
             initializeDefaultModel();
 
         update_children();
-
-        // model.transform = MatrixScale(scale.x, scale.y, scale.z);
 
         if (calc_physics)
         {
@@ -440,13 +438,11 @@ public:
             createStaticBox(scale.x, scale.y, scale.z);
         }
         else
+        {
             setPhysicsPosition(position);
+        }
 
         updateMass();
-
-
-
-
 
         if (visible)
         {
