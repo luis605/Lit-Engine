@@ -7,7 +7,7 @@ can_move_right = True
 
 trigger_distance = 1.5
 gravity = 9.8  # You can adjust the gravity value for different falling speeds.
-can_fall = True  # Initialize to True to allow the entity to fall from the start.
+can_fall = False  # Initialize to True to allow the entity to fall from the start.
 
 print("GAME")
 total_duration = 8.0 

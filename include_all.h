@@ -134,12 +134,11 @@ using json = nlohmann::json;
     #include "Engine/Editor/AssetsExplorer/AssetsExplorer.cpp"
     #include "Engine/Core/Core.cpp"
     #include "Engine/Editor/MenuBar/MenuBar.cpp"
+
+    /* Game Builder */
+    #include "GameBuilder/builder.cpp"
+
 #endif
-
-/* Game Builder */
-#include "GameBuilder/builder.cpp"
-
-using namespace std;
 
 
 #endif
