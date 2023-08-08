@@ -51,7 +51,7 @@ void EntityInspector()
     else
         name_size = selected_entity->name.size();
     
-    char inputBuffer[name_size + 255];
+    char inputBuffer[255];
     strcpy(inputBuffer, selected_entity_name.c_str());
 
     if (ImGui::InputText("##Title Part 2", inputBuffer, sizeof(inputBuffer)))
@@ -245,7 +245,15 @@ void EntityInspector()
         ImGui::Text("Is Dynamic ");
         ImGui::SameLine();
         ImGui::PushStyleVar(ImGuiStyleVar_ItemSpacing, ImVec2(0, 40));
-        ImGui::Checkbox("##doPhysics", &selected_entity->isDynamic);
+        if (ImGui::Checkbox("##doPhysics", &selected_entity->isDynamic))
+        {
+            if (selected_entity->isDynamic)
+                selected_entity->makePhysicsDynamic();
+
+            else if (!selected_entity->isDynamic)
+                selected_entity->makePhysicsStatic();
+
+        }
         ImGui::PopStyleVar();
 
         ImGui::Text("Mass: ");

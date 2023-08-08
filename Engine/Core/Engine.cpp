@@ -45,8 +45,6 @@ bool EntityRunScriptFirstTime = true;
 bool Entity_already_registered = false;
 
 std::mutex script_mutex;
-
-
 class Entity {
 public:
     bool initialized = false;
@@ -389,31 +387,40 @@ public:
 
 
 
+
     void createStaticBox(float x, float y, float z) {
-        if (isDynamic) return;
-
-        if (!staticBoxShape) {
+        if (!isDynamic && staticBoxShape == nullptr) {
             staticBoxShape = new btBoxShape(btVector3(x, y, z));
-        }
-        else return;
 
-        if (dynamicBoxShape) {
-            dynamicsWorld->removeRigidBody(boxRigidBody);
-        }
+            // Remove any existing dynamic shape and rigid body
+            if (dynamicBoxShape) {
+                dynamicsWorld->removeRigidBody(boxRigidBody);
 
-        btDefaultMotionState* boxMotionState = new btDefaultMotionState(btTransform(btQuaternion(0, 0, 0, 1), btVector3(position.x, position.y, position.z)));
-        btRigidBody::btRigidBodyConstructionInfo boxRigidBodyCI(0, boxMotionState, staticBoxShape, btVector3(0, 0, 0));
-        boxRigidBody = new btRigidBody(boxRigidBodyCI);
-        dynamicsWorld->addRigidBody(boxRigidBody);
+                dynamicBoxShape = nullptr;
+                boxRigidBody = nullptr;
+                boxMotionState = nullptr;
+                isDynamic = false;
+            }
+
+            // Create the static rigid body
+            btDefaultMotionState* boxMotionState = new btDefaultMotionState(
+                btTransform(btQuaternion(0, 0, 0, 1), btVector3(position.x, position.y, position.z))
+            );
+            btRigidBody::btRigidBodyConstructionInfo boxRigidBodyCI(0, boxMotionState, staticBoxShape, btVector3(0, 0, 0));
+            boxRigidBody = new btRigidBody(boxRigidBodyCI);
+            dynamicsWorld->addRigidBody(boxRigidBody);
+        }
     }
 
 
     void createDynamicBox(float x, float y, float z) {
-        if (!isDynamic) {
-            dynamicsWorld->removeRigidBody(boxRigidBody);
-        }
+        if (!isDynamic) return;
 
         dynamicBoxShape = new btBoxShape(btVector3(x, y, z));
+
+        if (staticBoxShape) 
+            dynamicsWorld->removeRigidBody(boxRigidBody);
+
         btDefaultMotionState* boxMotionState = new btDefaultMotionState(btTransform(btQuaternion(0, 0, 0, 1), btVector3(position.x, position.y, position.z)));
         btScalar btMass = mass;
         btVector3 boxInertia = btVector3(inertia.x, inertia.y, inertia.z);
@@ -423,6 +430,17 @@ public:
         dynamicsWorld->addRigidBody(boxRigidBody);
     }
 
+
+    void makePhysicsDynamic() {
+        isDynamic = true;
+        createDynamicBox(scale.x, scale.y, scale.z);
+    }
+
+    void makePhysicsStatic() {
+        isDynamic = false;
+        createStaticBox(scale.x, scale.y, scale.z);
+    }
+    
 
 
 
@@ -435,7 +453,8 @@ public:
         if (calc_physics)
         {
             calcPhysicsPosition();
-            createStaticBox(scale.x, scale.y, scale.z);
+            if (!isDynamic)
+                makePhysicsStatic();
         }
         else
         {
@@ -482,6 +501,7 @@ private:
 
     }
 };
+
 
 
 bool operator==(const Entity& e, const Entity* ptr) {
