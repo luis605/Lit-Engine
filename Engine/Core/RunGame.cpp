@@ -37,6 +37,7 @@ void InitGameCamera()
 
 void RenderAndRunEntity(Entity& entity, vector<std::thread>& scripts_threads, bool first_time_flag = first_time_gameplay, Camera3D* rendering_camera = &camera)
 {
+    entity.calc_physics = true;
     entity.render();
 
     if (first_time_flag && !entity.script.empty())
@@ -63,6 +64,8 @@ void RunGame()
     BeginMode3D(camera);
 
     ClearBackground(GRAY);
+
+    dynamicsWorld->stepSimulation(1.0f / 60.0f);
 
     UpdateInGameGlobals();
 

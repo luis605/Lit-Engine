@@ -7,6 +7,7 @@
             "r": 255
         },
         "id": -1348661037,
+        "is_dynamic": true,
         "model_path": "project/game/models/plane.obj",
         "name": "wall",
         "normal_texture_path": "project/game/textures/brick_wall_02_nor_gl_4k.png",
@@ -54,12 +55,13 @@
             "r": 255
         },
         "id": -1348661036,
+        "is_dynamic": false,
         "model_path": "project/game/models/cube.obj",
         "name": "floor",
-        "normal_texture_path": "",
+        "normal_texture_path": "project/game/textures/brick_wall_02_nor_gl_4k.png",
         "position": {
             "x": 0.0,
-            "y": 0.0,
+            "y": -2.499998092651367,
             "z": 0.0
         },
         "relative_position": {
@@ -74,9 +76,9 @@
         },
         "roughness_texture_path": "",
         "scale": {
-            "x": 10.0,
-            "y": 0.10000000149011612,
-            "z": 10.0
+            "x": 100.0,
+            "y": 1.0,
+            "z": 100.0
         },
         "script_path": "",
         "surface_material": {
@@ -101,6 +103,7 @@
             "r": 255
         },
         "id": -1348661035,
+        "is_dynamic": true,
         "model_path": "project/game/models/cube.obj",
         "name": "highPlace",
         "normal_texture_path": "",
@@ -148,6 +151,7 @@
             "r": 255
         },
         "id": -1348661034,
+        "is_dynamic": true,
         "model_path": "project/game/models/cube.obj",
         "name": "high place",
         "normal_texture_path": "",
@@ -188,53 +192,6 @@
         "type": "entity"
     },
     {
-        "color": {
-            "a": 255,
-            "b": 0,
-            "g": 90,
-            "r": 255
-        },
-        "id": -1348661033,
-        "model_path": "project/game/models/test.obj",
-        "name": "player",
-        "normal_texture_path": "",
-        "position": {
-            "x": 0.0,
-            "y": 18.399999618530273,
-            "z": 2.90000057220459
-        },
-        "relative_position": {
-            "x": 0.0,
-            "y": 0.0,
-            "z": 0.0
-        },
-        "rotation": {
-            "x": 0.0,
-            "y": 0.0,
-            "z": 0.0
-        },
-        "roughness_texture_path": "",
-        "scale": {
-            "x": 1.0,
-            "y": 1.0,
-            "z": 1.0
-        },
-        "script_path": "project/game/coins collector.py",
-        "surface_material": {
-            "DiffuseIntensity": 0.5,
-            "Roughness": 0.5,
-            "SpecularIntensity": 0.5,
-            "SpecularTint": {
-                "x": 1.0,
-                "y": 1.0,
-                "z": 1.0
-            },
-            "shininess": 0.5
-        },
-        "texture_path": "",
-        "type": "entity"
-    },
-    {
         "attenuation": 0.004999999888241291,
         "color": {
             "a": 1.0,
@@ -248,14 +205,14 @@
             "y": 0.4000000059604645,
             "z": -0.4000000059604645
         },
-        "id": 5,
+        "id": 3,
         "intensity": 1.3930000066757202,
         "light_type": 1,
         "name": "",
         "position": {
             "x": -14.000000953674316,
             "y": 4.0,
-            "z": -9.900001525878906
+            "z": -1.3999996185302734
         },
         "relative_position": {
             "x": 0,
@@ -284,7 +241,7 @@
             "y": 0.4000000059604645,
             "z": -0.4000000059604645
         },
-        "id": 5,
+        "id": 3,
         "intensity": 0.5,
         "light_type": 1,
         "name": "",

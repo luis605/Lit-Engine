@@ -327,6 +327,7 @@ void RenderScene()
 
     for (Entity& entity : entities_list_pregame)
     {
+        entity.calc_physics = false;
         entity.render();
 
         if (IsMouseButtonDown(MOUSE_LEFT_BUTTON) && ImGui::IsWindowHovered() && !dragging_gizmo_position && !dragging_gizmo_rotation)
@@ -555,6 +556,26 @@ int EditorCamera(void)
             EditorCameraMovement();
         ProcessCameraControls();
     }
+
+    if (ImGui::IsWindowFocused())
+    {
+        if (IsKeyPressed(KEY_DELETE))
+        {
+            if (selected_game_object_type == "entity")
+                entities_list_pregame.erase(std::remove(entities_list_pregame.begin(), entities_list_pregame.end(), *selected_entity), entities_list_pregame.end());
+            else if (selected_game_object_type == "light")
+            {
+                if (IsKeyPressed(KEY_DELETE))
+                {
+                    lights.erase(std::remove(lights.begin(), lights.end(), *selected_light), lights.end());
+                    lights_info.erase(std::remove(lights_info.begin(), lights_info.end(), *selected_light), lights_info.end());
+                    UpdateLightsBuffer(true);
+                    return;
+                }
+            }
+        }        
+    }
+
 
     if (in_game_preview)
     {

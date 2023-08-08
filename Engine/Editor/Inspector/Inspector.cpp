@@ -36,13 +36,6 @@ void EntityInspector()
         selected_entity_name = "Unnamed Entity";
     }
 
-    if (IsKeyPressed(KEY_DELETE))
-    {
-        entities_list_pregame.erase(std::remove(entities_list_pregame.begin(), entities_list_pregame.end(), *selected_entity), entities_list_pregame.end());
-        return;
-    }
-
-
 
     ImGui::Text("Inspecting '");
     ImGui::SameLine();
@@ -75,10 +68,6 @@ void EntityInspector()
 
     ImGui::PushStyleColor(ImGuiCol_Button, ImVec4(1.0f, 0.0f, 0.0f, 1.0f));
     ImGui::PushStyleVar(ImGuiStyleVar_ItemSpacing, ImVec2(0, 40));
-    if (ImGui::Button("DELETE"))
-    {
-        selected_entity->remove();
-    }
     ImGui::PopStyleColor();
     ImGui::PopStyleVar();
 
@@ -130,11 +119,18 @@ void EntityInspector()
         ImGui::InputFloat("Z##PositionZ", &selected_entity_position.z);
         ImGui::PopStyleVar();
 
-        if (selected_entity->isChild)
-            selected_entity->relative_position = selected_entity_position;
-        else
-            selected_entity->position = selected_entity_position;
 
+        if (selected_entity->isChild)
+        {
+            selected_entity->relative_position = selected_entity_position;
+        }
+        else
+        {
+            if (selected_entity->isDynamic)
+                selected_entity->applyForce(selected_entity_position);
+            else
+                selected_entity->position = selected_entity_position;
+        }
 
         ImGui::Text("Rotation:");
         ImGui::SliderFloat("X##RotationX", &selected_entity->rotation.x, -360.0f, 360.0f);
@@ -142,9 +138,6 @@ void EntityInspector()
         ImGui::PushStyleVar(ImGuiStyleVar_ItemSpacing, ImVec2(0, 40));
         ImGui::SliderFloat("Z##RotationZ", &selected_entity->rotation.z, -360.0f, 360.0f);
         ImGui::PopStyleVar();
-
-
-
     }
 
     if (ImGui::CollapsingHeader("Materials"))
@@ -247,11 +240,18 @@ void EntityInspector()
 
 
 
-    ImGui::Text("Physics: ");
-    ImGui::Text("Do Physics ");
-    ImGui::SameLine();
-    ImGui::Checkbox("##doPhysics", &do_physics);
+    if (ImGui::CollapsingHeader("Physics"))
+    {
+        ImGui::Text("Is Dynamic ");
+        ImGui::SameLine();
+        ImGui::PushStyleVar(ImGuiStyleVar_ItemSpacing, ImVec2(0, 40));
+        ImGui::Checkbox("##doPhysics", &selected_entity->isDynamic);
+        ImGui::PopStyleVar();
 
+        ImGui::Text("Mass: ");
+        ImGui::SameLine();
+        ImGui::SliderFloat("##Mass", &selected_entity->mass, 0.0f, 1000.0f);
+    }
 
 
 
@@ -302,15 +302,6 @@ void LightInspector()
     
     if (std::holds_alternative<Light*>(object_in_inspector)) {
         selected_light = std::get<Light*>(object_in_inspector);
-    }
-
-
-    if (IsKeyPressed(KEY_DELETE))
-    {
-        lights.erase(std::remove(lights.begin(), lights.end(), *selected_light), lights.end());
-        lights_info.erase(std::remove(lights_info.begin(), lights_info.end(), *selected_light), lights_info.end());
-        UpdateLightsBuffer(true);
-        return;
     }
 
     ImVec4 light_colorImGui = ImVec4(

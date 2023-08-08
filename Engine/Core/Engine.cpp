@@ -87,6 +87,13 @@ public:
     bool isChild = false;
     bool isParent = false;
     bool running = false;
+    bool calc_physics = false;
+    bool isDynamic = true;
+
+    float mass = 1;
+    Vector3 inertia = {0, 0, 0};
+
+
 
     int id = 0;
 
@@ -94,7 +101,16 @@ public:
     vector<Entity*> children;
 
 
-    Entity(Color color = { 255, 255, 255, 255 }, Vector3 scale = { 1, 1, 1 }, Vector3 rotation = { 0, 0, 0 }, string name = "entity", Vector3 position = {0, 0, 0}, string script = "")
+private:
+    // Add these variables for Bullet Physics integration
+    btCollisionShape* staticBoxShape = nullptr;
+    btCollisionShape* dynamicBoxShape = nullptr;
+    btDefaultMotionState* boxMotionState = nullptr;
+    btRigidBody* boxRigidBody = nullptr;
+
+public:
+    Entity(Color color = { 255, 255, 255, 255 }, Vector3 scale = { 1, 1, 1 }, Vector3 rotation = { 0, 0, 0 }, string name = "entity",
+    Vector3 position = {0, 0, 0}, string script = "")
         : color(color), scale(scale), rotation(rotation), name(name), position(position), script(script)
     {   
         initialized = true;
@@ -201,6 +217,12 @@ public:
         model.materials[0].shader = shader;
 
         bounds = GetMeshBoundingBox(model.meshes[0]);
+
+        if (isDynamic) {
+            createDynamicBox(scale.x, scale.y, scale.z);
+        } else {
+            createStaticBox(scale.x, scale.y, scale.z);
+        }
     }
 
     bool hasModel()
@@ -316,6 +338,94 @@ public:
 
 
 
+
+    void createStaticBox(float x, float y, float z) {
+        if (isDynamic) return;
+
+        if (!staticBoxShape) {
+            staticBoxShape = new btBoxShape(btVector3(x, y, z));
+        }
+        else return;
+
+        if (dynamicBoxShape) {
+            dynamicsWorld->removeRigidBody(boxRigidBody);
+            delete boxRigidBody;
+            delete boxMotionState;
+            delete dynamicBoxShape;
+            isDynamic = false;
+        }
+
+        btDefaultMotionState* boxMotionState = new btDefaultMotionState(btTransform(btQuaternion(0, 0, 0, 1), btVector3(position.x, position.y, position.z)));
+        btRigidBody::btRigidBodyConstructionInfo boxRigidBodyCI(0, boxMotionState, staticBoxShape, btVector3(0, 0, 0));
+        boxRigidBody = new btRigidBody(boxRigidBodyCI);
+        dynamicsWorld->addRigidBody(boxRigidBody);
+    }
+
+
+    void createDynamicBox(float x, float y, float z) {
+        if (!isDynamic) {
+            dynamicsWorld->removeRigidBody(boxRigidBody);
+            delete boxRigidBody;
+            delete boxMotionState;
+            delete staticBoxShape;
+            isDynamic = true;
+        }
+
+        dynamicBoxShape = new btBoxShape(btVector3(x, y, z));
+        btDefaultMotionState* boxMotionState = new btDefaultMotionState(btTransform(btQuaternion(0, 0, 0, 1), btVector3(position.x, position.y, position.z)));
+        btScalar btMass = mass;
+        btVector3 boxInertia = btVector3(inertia.x, inertia.y, inertia.z);
+        dynamicBoxShape->calculateLocalInertia(btMass, boxInertia);
+        btRigidBody::btRigidBodyConstructionInfo boxRigidBodyCI(btMass, boxMotionState, dynamicBoxShape, boxInertia);
+        boxRigidBody = new btRigidBody(boxRigidBodyCI);
+        dynamicsWorld->addRigidBody(boxRigidBody);
+    }
+
+
+    void calcPhysicsPosition() {
+        if (isDynamic && boxRigidBody) {
+            btTransform trans;
+            boxRigidBody->getMotionState()->getWorldTransform(trans);
+            btVector3 pos = trans.getOrigin();
+            position = { pos.x(), pos.y(), pos.z() };
+        }
+    }
+
+    void setPhysicsPosition(Vector3& position) {
+        if (isDynamic && boxRigidBody) {
+            btVector3 btNewPosition(position.x, position.y, position.z);
+            btTransform trans = boxRigidBody->getCenterOfMassTransform();
+            trans.setOrigin(btNewPosition);
+            boxRigidBody->setCenterOfMassTransform(trans);
+        }
+    }
+    
+
+
+    void applyForce(const Vector3& force) {
+        if (boxRigidBody && isDynamic) {
+            btVector3 btForce(force.x, force.y, force.z);
+            boxRigidBody->applyCentralForce(btForce);
+        }
+    }
+
+    void applyImpulse(const Vector3& impulse) {
+        if (boxRigidBody && isDynamic) {
+            btVector3 btImpulse(impulse.x, impulse.y, impulse.z);
+            boxRigidBody->applyCentralImpulse(btImpulse);
+        }
+    }
+
+    void updateMass()
+    {
+        if (!isDynamic) return;
+
+        btScalar btMass = mass;
+        btVector3 boxInertia = btVector3(inertia.x, inertia.y, inertia.z);
+        dynamicBoxShape->calculateLocalInertia(btMass, boxInertia);
+        boxRigidBody->setMassProps(btMass, boxInertia);
+    }
+
     void render() {
         if (!hasModel())
             initializeDefaultModel();
@@ -323,6 +433,20 @@ public:
         update_children();
 
         // model.transform = MatrixScale(scale.x, scale.y, scale.z);
+
+        if (calc_physics)
+        {
+            calcPhysicsPosition();
+            createStaticBox(scale.x, scale.y, scale.z);
+        }
+        else
+            setPhysicsPosition(position);
+
+        updateMass();
+
+
+
+
 
         if (visible)
         {
