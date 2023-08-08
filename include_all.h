@@ -23,8 +23,16 @@
 
 #include "dependencies/include/glad/glad.h"
 
-// #include <PxPhysicsAPI.h>
-// #include <PxConfig.h>
+
+#include "include/bullet3/src/BulletCollision/BroadphaseCollision/btBroadphaseProxy.h"
+
+#include "include/bullet3/src/BulletCollision/CollisionShapes/btCollisionShape.h"
+#include "include/bullet3/src/BulletCollision/CollisionShapes/btConvexPolyhedron.h"
+#include "include/bullet3/src/BulletCollision/CollisionShapes/btShapeHull.h"
+
+#include "include/bullet3/src/LinearMath/btVector3.h"
+#include "include/bullet3/src/btBulletDynamicsCommon.h"
+
 
 #include <stdio.h>
 #include <iostream>
@@ -80,7 +88,9 @@ using namespace py::literals;
 
 using json = nlohmann::json;
 
-// using namespace physx;
+
+// Physics
+#include "Engine/Physics/InitPhysx.cpp"
 
 /* Game Objects */
 #include "Engine/Core/Engine.hpp"
@@ -108,7 +118,6 @@ using json = nlohmann::json;
 #endif
 
 /* Sources */
-// #include "Engine/Physics/InitPhysx.cpp"
 #ifndef GAME_SHIPPING
     #include "Engine/Editor/UiScripts/UiScripts.cpp"
     #include "Engine/Editor/Styles/Styles.cpp"

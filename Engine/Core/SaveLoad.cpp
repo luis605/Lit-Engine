@@ -99,6 +99,8 @@ void SaveEntity(json& json_data, const Entity& entity) {
     j["roughness_texture_path"] = entity.roughness_texture_path;
     j["id"] = entity.id;
     j["surface_material"] = entity.surface_material;
+    j["is_dynamic"] = entity.isDynamic;
+    j["mass"] = entity.mass;
 
     if (!entity.children.empty()) {
         json children_data;
@@ -240,6 +242,7 @@ void LoadEntity(const json& entity_json, Entity& entity) {
     entity.normal_texture_path = entity_json["normal_texture_path"].get<std::string>();
     if (!entity.normal_texture_path.empty())
     {
+        std::cout << "SET TEXTURE NORMAL\n";
         entity.normal_texture = LoadTexture(entity.normal_texture_path.c_str());
         entity.ReloadTextures();
     }
@@ -253,6 +256,8 @@ void LoadEntity(const json& entity_json, Entity& entity) {
 
 
     entity.setShader(shader);
+    entity.isDynamic = entity_json["is_dynamic"].get<bool>();
+    //entity.mass = entity_json["mass"].get<float>();
 
 
     if (entity_json.contains("children")) {
