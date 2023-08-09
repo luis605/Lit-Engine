@@ -46,7 +46,7 @@ def update():
     entity.position = lerp(entity.position, target_position, time.dt / 0.18)
 
     # Update camera position and target
-    camera.position = Vector3(target_position.x + 10, target_position.y + 1, target_position.z)
+    camera.position = Vector3(entity.position.x + 10, entity.position.y + 1, entity.position.z)
     camera.target = Vector3(entity.position.x, entity.position.y, entity.position.z)
 
     # Front Raycast
@@ -99,6 +99,7 @@ def update():
             can_fall = False
     else:
         can_fall = True
+
 
 
 
