@@ -474,10 +474,10 @@ public:
 
             glUseProgram((GLuint)shader.id);
 
-            bool normalMapInit = IsTextureReady(this->normal_texture);
+            bool normalMapInit = !normal_texture_path.empty();
             glUniform1i(glGetUniformLocation((GLuint)shader.id, "normalMapInit"), normalMapInit);
 
-            bool roughnessMapInit = IsTextureReady(this->roughness_texture);
+            bool roughnessMapInit = !roughness_texture_path.empty();
             glUniform1i(glGetUniformLocation((GLuint)shader.id, "roughnessMapInit"), roughnessMapInit);
 
             DrawModelEx(model, position, rotation, GetExtremeValue(rotation), scale, color);

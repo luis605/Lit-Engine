@@ -80,19 +80,19 @@ void main() {
     vec3 norm;
     if (normalMapInit)
     {
-        vec3 normal = texture(texture2, fragTexCoord).xyz * 2.0 - 1.0;
-        norm = normalize(normal);
+        vec3 normal = texture(texture2, fragTexCoord).rgb;
+        norm = normalize(normal * 2.0 - 1.0);
     }
     else
         norm = normalize(fragNormal);
 
 
 
-    // float roughness;
-    // if (roughnessMapInit)
-    //     roughness = texture(texture3, fragTexCoord).r;
-    // else
-    //     roughness = 0.1;
+    float roughness;
+    if (roughnessMapInit)
+        roughness = texture(texture3, fragTexCoord).r;
+    else
+        roughness = 0.1;
 
     vec3 lightDir;
     float diff;
@@ -172,11 +172,11 @@ void main() {
 
     vec4 blendedColor = vec4(result, 1.0) * texColor;
 
-    // if (roughnessMapInit)
-    // {
-    //     float roughnessIntensity = 1.0 - roughness; // Invert roughness value to make roughness=0 fully reflective
-    //     blendedColor.rgb *= roughnessIntensity;
-    // }
+    if (roughnessMapInit)
+    {
+        float roughnessIntensity = 1.0 - roughness; // Invert roughness value to make roughness=0 fully reflective
+        blendedColor.rgb *= roughnessIntensity;
+    }
 
 
     // Apply gamma correction
