@@ -260,7 +260,9 @@ public:
                 .def_readwrite("color", &Entity::color, py::call_guard<py::gil_scoped_release>())
                 .def_readwrite("visible", &Entity::visible, py::call_guard<py::gil_scoped_release>())
                 .def_readwrite("id", &Entity::id, py::call_guard<py::gil_scoped_release>())
-                .def_readwrite("collider", &Entity::collider, py::call_guard<py::gil_scoped_release>());
+                .def_readwrite("collider", &Entity::collider, py::call_guard<py::gil_scoped_release>())
+                .def("applyForce", &this->applyForce, py::call_guard<py::gil_scoped_release>())
+                .def("applyImpulse", &this->applyImpulse, py::call_guard<py::gil_scoped_release>());
         }
         Entity& this_entity = entityRef.get();
 
@@ -463,6 +465,8 @@ public:
 
         updateMass();
 
+        
+        
         if (visible)
         {
 
