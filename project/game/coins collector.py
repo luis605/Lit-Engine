@@ -28,22 +28,19 @@ def update():
     
     # Move horizontally based on keyboard input
     if IsKeyDown(KeyboardKey.KEY_W) and can_move_forward:
-        target_position.x -= velocity * time.dt
+        entity.applyImpulse(Vector3(-velocity * time.dt, 0, 0))
     if IsKeyDown(KeyboardKey.KEY_S) and can_move_back:
-        target_position.x += velocity * time.dt
+        entity.applyImpulse(Vector3(velocity * time.dt, 0, 0))
     if IsKeyDown(KeyboardKey.KEY_A) and can_move_left:
-        target_position.z += velocity * time.dt
+        entity.applyImpulse(Vector3(0, 0, velocity * time.dt))
     if IsKeyDown(KeyboardKey.KEY_D) and can_move_right:
-        target_position.z -= velocity * time.dt
+        entity.applyImpulse(Vector3(0, 0, -velocity * time.dt))
 
     # Jumping behavior (example: press spacebar to jump)
     if IsKeyDown(KeyboardKey.KEY_SPACE) and not can_fall:
         # Add a vertical velocity to simulate jumping
-        target_position.y += 5  # Adjust the value for the desired jump height
-        can_fall = True  # Allow the entity to fall again after jumping
+        entity.applyImpulse(Vector3(0, 5, 0))  # Adjust the value for the desired jump height
 
-    if can_fall:
-        target_position.y -= gravity * time.dt
 
     # Update the entity's position using lerp function
     entity.position = lerp(entity.position, target_position, time.dt / 0.18)
@@ -92,7 +89,7 @@ def update():
     else:
         can_move_right = True
 
-    # Down Raycast
+
     down_raycast = raycast(Vector3(target_position.x, target_position.y - 0.5, target_position.z), Vector3(0, -1, 0), debug=False, ignore=[])
     if down_raycast.hit:
         # Compare the distance with the entity's height instead of trigger_distance
@@ -102,3 +99,8 @@ def update():
             can_fall = False
     else:
         can_fall = True
+
+
+
+
+

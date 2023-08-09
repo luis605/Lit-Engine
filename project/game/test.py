@@ -1,8 +1,5 @@
-
-last_timestamp = 0
-
 def update():
-	print(time.dt)
+	entity.applyImpulse(-1,0,0)
 
 
 
