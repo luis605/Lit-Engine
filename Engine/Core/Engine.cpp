@@ -463,7 +463,7 @@ public:
             setPhysicsPosition(position);
         }
 
-        updateMass();
+//        updateMass();
 
         
         

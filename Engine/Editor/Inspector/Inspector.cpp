@@ -322,10 +322,10 @@ void LightInspector()
     ImGui::Text("Color: ");
     ImGui::ColorEdit4("##Change_Light_Color", (float*)&light_colorImGui, ImGuiColorEditFlags_NoInputs);
     glm::vec4 light_color = (glm::vec4){
-        (unsigned char)(light_colorImGui.x),
-        (unsigned char)(light_colorImGui.y),
-        (unsigned char)(light_colorImGui.z),
-        (unsigned char)(light_colorImGui.w)
+        (float)(light_colorImGui.x),
+        (float)(light_colorImGui.y),
+        (float)(light_colorImGui.z),
+        (float)(light_colorImGui.w)
     };
 
     selected_light->color = light_color;

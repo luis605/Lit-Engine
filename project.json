@@ -6,16 +6,16 @@
             "g": 255,
             "r": 255
         },
-        "id": -1348661037,
+        "id": -1348661036,
         "is_dynamic": false,
         "mass": 1.0,
         "model_path": "project/game/models/plane.obj",
-        "name": "wall",
+        "name": "floor",
         "normal_texture_path": "project/game/textures/brick_wall_02_nor_gl_4k.png",
         "position": {
             "x": 0.0,
-            "y": 4.0,
-            "z": -8.0
+            "y": 0.0,
+            "z": 0.0
         },
         "relative_position": {
             "x": 0.0,
@@ -23,15 +23,15 @@
             "z": 0.0
         },
         "rotation": {
-            "x": 90.0,
-            "y": 0.7850000262260437,
+            "x": 0.0,
+            "y": 0.0,
             "z": 0.0
         },
         "roughness_texture_path": "",
         "scale": {
-            "x": 4.0,
+            "x": 30.0,
             "y": 1.0,
-            "z": 4.0
+            "z": 30.0
         },
         "script_path": "",
         "surface_material": {
@@ -46,55 +46,6 @@
             "shininess": 0.5
         },
         "texture_path": "project/game/textures/brick_wall_02_diff_4k.png",
-        "type": "entity"
-    },
-    {
-        "color": {
-            "a": 255,
-            "b": 255,
-            "g": 255,
-            "r": 255
-        },
-        "id": -1348661036,
-        "is_dynamic": false,
-        "mass": 1.0,
-        "model_path": "project/game/models/cube.obj",
-        "name": "floor",
-        "normal_texture_path": "project/game/textures/brick_wall_02_nor_gl_4k.png",
-        "position": {
-            "x": 0.0,
-            "y": -2.499998092651367,
-            "z": 0.0
-        },
-        "relative_position": {
-            "x": 0.0,
-            "y": 0.0,
-            "z": 0.0
-        },
-        "rotation": {
-            "x": 0.0,
-            "y": 0.0,
-            "z": 0.0
-        },
-        "roughness_texture_path": "",
-        "scale": {
-            "x": 100.0,
-            "y": 1.0,
-            "z": 100.0
-        },
-        "script_path": "",
-        "surface_material": {
-            "DiffuseIntensity": 0.5,
-            "Roughness": 0.5,
-            "SpecularIntensity": 0.5,
-            "SpecularTint": {
-                "x": 1.0,
-                "y": 1.0,
-                "z": 1.0
-            },
-            "shininess": 0.5
-        },
-        "texture_path": "",
         "type": "entity"
     },
     {
@@ -133,15 +84,15 @@
         },
         "script_path": "",
         "surface_material": {
-            "DiffuseIntensity": 0.5,
-            "Roughness": 0.5,
-            "SpecularIntensity": 0.5,
+            "DiffuseIntensity": 0.5550000071525574,
+            "Roughness": 0.0,
+            "SpecularIntensity": 0.0,
             "SpecularTint": {
                 "x": 1.0,
                 "y": 1.0,
                 "z": 1.0
             },
-            "shininess": 0.5
+            "shininess": 0.0
         },
         "texture_path": "",
         "type": "entity"
@@ -209,7 +160,7 @@
         "name": "project/game/models/test",
         "normal_texture_path": "",
         "position": {
-            "x": -0.20000000298023224,
+            "x": -0.6000000238418579,
             "y": 16.800006866455078,
             "z": 4.09999942779541
         },
@@ -248,22 +199,22 @@
         "attenuation": 0.004999999888241291,
         "color": {
             "a": 1.0,
-            "b": 0.0,
-            "g": 0.0,
+            "b": 0.22779923677444458,
+            "g": 0.9791296720504761,
             "r": 1.0
         },
         "cutOff": 10.0,
         "direction": {
-            "x": 0.4000000059604645,
-            "y": 0.4000000059604645,
-            "z": -0.4000000059604645
+            "x": -0.4729999899864197,
+            "y": 0.22300000488758087,
+            "z": -0.19499999284744263
         },
         "id": 4,
         "intensity": 1.3930000066757202,
-        "light_type": 1,
+        "light_type": 0,
         "name": "",
         "position": {
-            "x": -14.000000953674316,
+            "x": -62.399993896484375,
             "y": 4.0,
             "z": -1.3999996185302734
         },
@@ -295,12 +246,12 @@
             "z": -0.4000000059604645
         },
         "id": 4,
-        "intensity": 0.5,
+        "intensity": 1.8389999866485596,
         "light_type": 1,
         "name": "",
         "position": {
             "x": 4.0,
-            "y": 4.0,
+            "y": 9.800006866455078,
             "z": 4.0
         },
         "relative_position": {

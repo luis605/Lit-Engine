@@ -1,5 +1,7 @@
 #include "raylib.h"
 
+#include "include/par_shapes.h"
+
 #include "rlgl.h"
 #include "raymath.h"
 #include <string>
@@ -8,14 +10,52 @@
 #include <iostream>
 #include <sstream>
 
-#include "include/bullet3/src/btBulletDynamicsCommon.h"
+
+
+
+
+Mesh SimplifyMesh(Mesh mes32h)
+{
+    Mesh mesh = { 0 };
+    
+
+    mesh.vertices = (float *)RL_MALLOC(8*sizeof(float));
+    mesh.texcoords = (float *)RL_MALLOC(8*sizeof(float));
+    mesh.normals = (float *)RL_MALLOC(8*sizeof(float));
+
+    mesh.vertexCount = 8;
+    mesh.triangleCount = 8/2;
+
+
+    for (int k = 0; k < mesh.vertexCount; k++)
+    {
+        mesh.vertices[k*3] = cubeMesh->points[cubeMesh->triangles[k]*3];
+        mesh.vertices[k*3 + 1] = cubeMesh->points[cubeMesh->triangles[k]*3 + 1];
+        mesh.vertices[k*3 + 2] = cubeMesh->points[cubeMesh->triangles[k]*3 + 2];
+
+        mesh.normals[k*3] = cubeMesh->normals[cubeMesh->triangles[k]*3];
+        
+        mesh.texcoords[k*2] = cubeMesh->tcoords[cubeMesh->triangles[k]*2];
+        mesh.texcoords[k*2 + 1] = cubeMesh->tcoords[cubeMesh->triangles[k]*2 + 1];
+    }
+
+    par_shapes_free_mesh(cubeMesh);
+
+    // Upload vertex data to GPU (static mesh)
+    UploadMesh(&mesh, false);
+
+
+    return mesh;
+}
+
+
 
 int main()
 {
     // Initialization
     const int screenWidth = 800;
     const int screenHeight = 450;
-    InitWindow(screenWidth, screenHeight, "Bullet3 with Raylib Example");
+    InitWindow(screenWidth, screenHeight, "Dynamic LoD - Implementation");
 
     // Setup camera
     Camera3D camera = { 0 };
@@ -25,39 +65,20 @@ int main()
     camera.fovy = 45.0f;
     camera.projection = CAMERA_PERSPECTIVE;
     
-    // Physics world setup
-    btBroadphaseInterface* broadphase = new btDbvtBroadphase();
-    btDefaultCollisionConfiguration* collisionConfiguration = new btDefaultCollisionConfiguration();
-    btCollisionDispatcher* dispatcher = new btCollisionDispatcher(collisionConfiguration);
-    btSequentialImpulseConstraintSolver* solver = new btSequentialImpulseConstraintSolver();
-    btDiscreteDynamicsWorld* dynamicsWorld = new btDiscreteDynamicsWorld(dispatcher, broadphase, solver, collisionConfiguration);
-    dynamicsWorld->setGravity(btVector3(0, -9.81, 0)); // Set gravity
-
-    // Create ground plane
-    btCollisionShape* groundShape = new btStaticPlaneShape(btVector3(0, 1, 0), 0);
-    btDefaultMotionState* groundMotionState = new btDefaultMotionState();
-    btRigidBody::btRigidBodyConstructionInfo groundRigidBodyCI(0, groundMotionState, groundShape, btVector3(0, 0, 0));
-    btRigidBody* groundRigidBody = new btRigidBody(groundRigidBodyCI);
-    dynamicsWorld->addRigidBody(groundRigidBody);
-
-    // Create cube
-    btCollisionShape* boxShape = new btBoxShape(btVector3(1, 1, 1));
-    btDefaultMotionState* boxMotionState = new btDefaultMotionState(btTransform(btQuaternion(0, 0, 0, 1), btVector3(0, 10, 0)));
-    btScalar mass = 1.0f;
-    btVector3 boxInertia(0, 0, 0);
-    boxShape->calculateLocalInertia(mass, boxInertia);
-    btRigidBody::btRigidBodyConstructionInfo boxRigidBodyCI(mass, boxMotionState, boxShape, boxInertia);
-    btRigidBody* boxRigidBody = new btRigidBody(boxRigidBodyCI);
-    dynamicsWorld->addRigidBody(boxRigidBody);
-
     SetTargetFPS(60);
 
+    Mesh mesh = GenMeshSphere(2, 100, 100);
+
+    Mesh mesh2 = SimplifyMesh(mesh);
+
+    Model model = LoadModelFromMesh(mesh2);
+
+    DisableCursor();
+    
     // Main game loop
     while (!WindowShouldClose())
     {
         UpdateCamera(&camera, CAMERA_FREE);
-        // Update
-        dynamicsWorld->stepSimulation(1.0f / 60.0f);
 
         // Draw
         BeginDrawing();
@@ -66,14 +87,7 @@ int main()
         // 3D drawing
         BeginMode3D(camera);
 
-        // Draw ground plane
-        DrawPlane((Vector3){ 0, 0, 0 }, (Vector2){ 100, 100 }, LIGHTGRAY);
-
-        // Draw cube
-        btTransform trans;
-        boxRigidBody->getMotionState()->getWorldTransform(trans);
-        Vector3 position = { trans.getOrigin().getX(), trans.getOrigin().getY(), trans.getOrigin().getZ() };
-        DrawCube(position, 2, 2, 2, RED);
+        DrawModel(model, (Vector3){ 0, 0, 0 }, 1.0f, BLACK);
 
         EndMode3D();
 
@@ -81,11 +95,6 @@ int main()
     }
 
     // Cleanup
-    delete dynamicsWorld;
-    delete solver;
-    delete collisionConfiguration;
-    delete dispatcher;
-    delete broadphase;
 
     CloseWindow();
 
