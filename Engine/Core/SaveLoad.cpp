@@ -257,8 +257,8 @@ void LoadEntity(const json& entity_json, Entity& entity) {
 
     entity.setShader(shader);
     entity.isDynamic = entity_json["is_dynamic"].get<bool>();
-    //entity.mass = entity_json["mass"].get<float>();
-
+    entity.mass = entity_json["mass"].get<float>();
+    
 
     if (entity_json.contains("children")) {
         const json& children_data = entity_json["children"];
