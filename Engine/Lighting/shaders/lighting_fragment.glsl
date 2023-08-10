@@ -74,16 +74,11 @@ out vec3 fragViewDir;
 
 
 void main() {
-    // Check if the normal map texture exists
-    
-
     vec3 norm;
-    if (normalMapInit)
-    {
+    if (normalMapInit) {
         vec3 normal = texture(texture2, fragTexCoord).rgb;
         norm = normalize(normal * 2.0 - 1.0);
-    }
-    else
+    } else
         norm = normalize(fragNormal);
 
 
@@ -93,6 +88,9 @@ void main() {
         roughness = texture(texture3, fragTexCoord).r;
     else
         roughness = 0.1;
+
+
+    float shadow = 1.0;
 
     vec3 lightDir;
     float diff;
@@ -106,8 +104,6 @@ void main() {
     vec3 specular;
     vec3 result = colDiffuse.rgb / 2.0 - ambientLight.rgb * 0.5;
     result += ambientLight.rgb * 0.2;
-
-    float shadow = 0;
     
     vec4 texColor = texture(texture0, fragTexCoord);
     // if (diffuseMapInit)
@@ -143,7 +139,9 @@ void main() {
             specular = light.specularStrength * surface_material.SpecularIntensity * spec * attenuation * light.color.rgb;
             specular *= surface_material.SpecularTint;
 
+            
             // Apply soft shadows
+            
             result += diffuse;
             result += specular;            
         }

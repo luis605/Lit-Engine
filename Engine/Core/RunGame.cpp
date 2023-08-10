@@ -51,12 +51,17 @@ void RenderAndRunEntity(Entity& entity, vector<std::thread>& scripts_threads, bo
 
         scripts_threads.push_back(std::move(scriptRunnerThread));
     }
+
+    entity.render();
+
+
 }
 
 
 #ifndef GAME_SHIPPING
 void RunGame()
 {
+
     rectangle.width = sceneEditorWindowWidth;
     rectangle.height = sceneEditorWindowHeight;
 
@@ -84,6 +89,11 @@ void RunGame()
     }
 
     first_time_gameplay = false;
+
+
+
+
+
 
     EndMode3D();
     EndTextureMode();
