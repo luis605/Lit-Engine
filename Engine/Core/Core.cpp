@@ -1,6 +1,11 @@
 #include "../include_all.h"
 #include "Core.h"
 
+#define STRESS_TEST false
+#if STRESS_TEST
+    #include "stressTest.cpp"
+#endif
+
 #define MAX(a, b) ((a) > (b) ? (a) : (b))
 #define MIN(a, b) ((a) < (b) ? (a) : (b))
 
@@ -114,10 +119,14 @@ void Startup()
     shader = LoadShader("Engine/Lighting/shaders/lighting_vertex.glsl", "Engine/Lighting/shaders/lighting_fragment.glsl");
     InitLighting();
 
-    // Skybox
+    #if STRESS_TEST
+    for (int index = 0; index < 5000; index++)
+    {
+        std::cout << index << std::endl;
+        InitStressTest();
+    }
 
-    // Physics
-    // InitPhysx();
+    #endif
 }
 
 void EngineMainLoop()

@@ -344,13 +344,21 @@ public:
 
     void calcPhysicsPosition() {
         if (isDynamic && boxRigidBody) {
-            btTransform trans;
-            boxRigidBody->getMotionState()->getWorldTransform(trans);
-            btVector3 pos = trans.getOrigin();
-            position = { pos.x(), pos.y(), pos.z() };
-            backupPosition = position; // Update backupPosition
+            // Get the motion state of the rigid body
+            btDefaultMotionState* motionState = static_cast<btDefaultMotionState*>(boxRigidBody->getMotionState());
+
+            if (motionState) {
+                // Get the world transform from the motion state
+                btTransform trans;
+                motionState->getWorldTransform(trans);
+                
+                btVector3 pos = trans.getOrigin();
+                position = { pos.x(), pos.y(), pos.z() };
+                backupPosition = position; // Update backupPosition
+            }
         }
     }
+
 
     void setPhysicsPosition(Vector3& position) {
         if (isDynamic && boxRigidBody) {
@@ -423,14 +431,29 @@ public:
         if (staticBoxShape) 
             dynamicsWorld->removeRigidBody(boxRigidBody);
 
-        btDefaultMotionState* boxMotionState = new btDefaultMotionState(btTransform(btQuaternion(0, 0, 0, 1), btVector3(position.x, position.y, position.z)));
+        btDefaultMotionState* boxMotionState = new btDefaultMotionState(
+            btTransform(btQuaternion(0, 0, 0, 1), btVector3(position.x, position.y, position.z))
+        );
         btScalar btMass = mass;
         btVector3 boxInertia = btVector3(inertia.x, inertia.y, inertia.z);
         dynamicBoxShape->calculateLocalInertia(btMass, boxInertia);
-        btRigidBody::btRigidBodyConstructionInfo boxRigidBodyCI(btMass, boxMotionState, dynamicBoxShape, boxInertia);
+
+        // Create the rigid body construction info
+        btRigidBody::btRigidBodyConstructionInfo boxRigidBodyCI(
+            btMass, boxMotionState, dynamicBoxShape, boxInertia
+        );
+
+        // Set up Verlet integration properties
+        boxRigidBodyCI.m_additionalDamping = true;
+        boxRigidBodyCI.m_additionalAngularDampingFactor = 0.1f;
+        boxRigidBodyCI.m_additionalAngularDampingThresholdSqr = 0.01f;
+
+        // Create the rigid body with Verlet integration
         boxRigidBody = new btRigidBody(boxRigidBodyCI);
         dynamicsWorld->addRigidBody(boxRigidBody);
     }
+
+
 
 
     void makePhysicsDynamic() {
@@ -463,7 +486,7 @@ public:
             setPhysicsPosition(position);
         }
 
-//        updateMass();
+       updateMass();
 
         
         
@@ -505,7 +528,6 @@ private:
 
     }
 };
-
 
 
 bool operator==(const Entity& e, const Entity* ptr) {

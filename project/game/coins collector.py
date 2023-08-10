@@ -22,6 +22,7 @@ target_position = Vector3(
 step = 0
 
 def update():
+    print(entity.position.x, ", ", entity.position.y, ", ", entity.position.z)
     global velocity, elapsed_time, total_duration, can_move_forward, can_move_back, can_move_left, can_move_right, can_fall, gravity, step
 
     # Check if the entity is grounded before moving horizontally
@@ -37,7 +38,7 @@ def update():
         entity.applyImpulse(Vector3(0, 0, -velocity * time.dt))
 
     # Jumping behavior (example: press spacebar to jump)
-    if IsKeyDown(KeyboardKey.KEY_SPACE) and not can_fall:
+    if IsKeyDown(KeyboardKey.KEY_SPACE):
         # Add a vertical velocity to simulate jumping
         entity.applyImpulse(Vector3(0, 5, 0))  # Adjust the value for the desired jump height
 
@@ -46,8 +47,8 @@ def update():
     entity.position = lerp(entity.position, target_position, time.dt / 0.18)
 
     # Update camera position and target
-    camera.position = Vector3(entity.position.x + 10, entity.position.y + 1, entity.position.z)
-    camera.target = Vector3(entity.position.x, entity.position.y, entity.position.z)
+    camera.position = Vector3(round(entity.position.x + 10), round(entity.position.y + 1), round(entity.position.z))
+    camera.target = Vector3(round(entity.position.x), round(entity.position.y), round(entity.position.z))
 
     # Front Raycast
     front_raycast = raycast(target_position, Vector3(1, 0, 0), debug=False, ignore=[entity])
@@ -99,6 +100,8 @@ def update():
             can_fall = False
     else:
         can_fall = True
+
+
 
 
 
