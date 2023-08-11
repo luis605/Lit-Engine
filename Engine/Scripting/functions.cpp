@@ -28,21 +28,60 @@ Vector3 lerp_Vector3(Vector3 start, Vector3 end, float t) {
 }
 
 PYBIND11_EMBEDDED_MODULE(math_module, m) {
+    py::class_<Vector3>(m, "Vector3")
+        .def(py::init<float, float, float>())
+        .def_readwrite("x", &Vector3::x, py::call_guard<py::gil_scoped_release>())
+        .def_readwrite("y", &Vector3::y, py::call_guard<py::gil_scoped_release>())
+        .def_readwrite("z", &Vector3::z, py::call_guard<py::gil_scoped_release>());
+
+    py::class_<Vector2>(m, "Vector2")
+        .def(py::init<float, float>())
+        .def_readwrite("x", &Vector2::x, py::call_guard<py::gil_scoped_release>())
+        .def_readwrite("y", &Vector2::y, py::call_guard<py::gil_scoped_release>());
+
+    m.def("Vector3Add", &Vector3Add, py::call_guard<py::gil_scoped_release>());
+    m.def("Vector3Subtract", &Vector3Subtract, py::call_guard<py::gil_scoped_release>());
+    m.def("Vector3Multiply", &Vector3Multiply, py::call_guard<py::gil_scoped_release>());
+    m.def("Vector3Divide", &Vector3Divide, py::call_guard<py::gil_scoped_release>());
+    m.def("Vector3Scale", &Vector3Scale, py::call_guard<py::gil_scoped_release>());
+    m.def("Vector3CrossProduct", &Vector3CrossProduct, py::call_guard<py::gil_scoped_release>());
     m.def("lerp", static_cast<float(*)(float, float, float)>(&lerp<float>), "Lerp function for float and double types");
     m.def("lerp", static_cast<int(*)(int, int, float)>(&lerp_int), "Lerp function for integer types");
     m.def("lerp", &lerp_Vector3, "Lerp function for Vector3 type");
 }
 
 
+struct LitCamera : Camera3D {
+    Vector3 front;
+
+    // Constructor with default values
+    LitCamera(Vector3 _position = Vector3{}, Vector3 _target = Vector3{},
+              Vector3 _up = Vector3{}, float _fovy = 0.0f, int _projection = 0)
+        : Camera3D{_position, _target, _up, _fovy, _projection},
+          front{Vector3Subtract(_target, _position)} {}
+};
 
 
 
+Vector2 GetMouseMovement()
+{
+    static Vector2 lastMousePosition = { 0 };
 
+    Vector2 mousePosition = GetMousePosition();
+    Vector2 mouseMove = { mousePosition.x - lastMousePosition.x, mousePosition.y - lastMousePosition.y };
+
+    lastMousePosition = mousePosition;
+    
+    return mouseMove;
+}
 
 
 PYBIND11_EMBEDDED_MODULE(input_module, m) {
     m.def("IsMouseButtonPressed", &IsMouseButtonPressed, py::call_guard<py::gil_scoped_release>());
     m.def("IsKeyDown", &IsKeyDown, py::call_guard<py::gil_scoped_release>());
+    m.def("IsKeyUp", &IsKeyUp, py::call_guard<py::gil_scoped_release>());
+    m.def("GetMousePosition", &GetMousePosition, py::call_guard<py::gil_scoped_release>());
+    m.def("GetMouseMovement", &GetMouseMovement, py::call_guard<py::gil_scoped_release>());
 
     py::enum_<KeyboardKey>(m, "KeyboardKey")
         .value("KEY_NULL", KEY_NULL)
@@ -148,12 +187,6 @@ HitInfo raycast(Vector3 origin, Vector3 direction, bool debug=false, std::vector
 
 
 PYBIND11_EMBEDDED_MODULE(collisions_module, m) {
-    py::class_<Vector3>(m, "Vector3")
-        .def(py::init<float, float, float>())
-        .def_readwrite("x", &Vector3::x, py::call_guard<py::gil_scoped_release>())
-        .def_readwrite("y", &Vector3::y, py::call_guard<py::gil_scoped_release>())
-        .def_readwrite("z", &Vector3::z, py::call_guard<py::gil_scoped_release>());
-
     py::class_<HitInfo>(m, "HitInfo")
         .def(py::init<>())
         .def_readwrite("hit", &HitInfo::hit)
@@ -196,9 +229,10 @@ PYBIND11_EMBEDDED_MODULE(color_module, m) {
 
 
 PYBIND11_EMBEDDED_MODULE(camera_module, m) {
-    py::class_<Camera3D>(m, "Camera3D")
-        .def(py::init<int, float, float, float>())
+    py::class_<LitCamera>(m, "LitCamera")
+        .def(py::init<Vector3, Vector3, Vector3, float, float>())
         .def_readwrite("position", &Camera3D::position, py::call_guard<py::gil_scoped_release>())
+        .def_readwrite("front", &LitCamera::front, py::call_guard<py::gil_scoped_release>())
         .def_readwrite("target", &Camera3D::target, py::call_guard<py::gil_scoped_release>())
         .def_readwrite("up", &Camera3D::up, py::call_guard<py::gil_scoped_release>())
         .def_readwrite("fovy", &Camera3D::fovy, py::call_guard<py::gil_scoped_release>())

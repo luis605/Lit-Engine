@@ -1,4 +1,6 @@
-velocity = 10
+import math
+
+velocity = 10.0
 entity.name = str(entity.position.x)
 can_move_forward = True
 can_move_back = True
@@ -6,8 +8,8 @@ can_move_left = True
 can_move_right = True
 
 trigger_distance = 1.5
-gravity = 9.8  # You can adjust the gravity value for different falling speeds.
-can_fall = True  # Initialize to True to allow the entity to fall from the start.
+gravity = 9.8
+can_fall = True
 
 print("GAME")
 total_duration = 8.0 
@@ -21,34 +23,58 @@ target_position = Vector3(
 
 step = 0
 
-def update():
-    print(entity.position.x, ", ", entity.position.y, ", ", entity.position.z)
-    global velocity, elapsed_time, total_duration, can_move_forward, can_move_back, can_move_left, can_move_right, can_fall, gravity, step
+yaw = 0.0
+pitch = 0.0
 
-    # Check if the entity is grounded before moving horizontally
+def update():
+    global velocity, elapsed_time, total_duration, can_move_forward, can_move_back, can_move_left, can_move_right, can_fall, gravity, step, yaw, pitch
     
-    # Move horizontally based on keyboard input
+
+    camera_direction = camera.front
+    camera_direction.y = 0  # Keep movement in the horizontal plane
+
+    DeltaTimeVec3 = Vector3(time.dt, time.dt, time.dt)
+
     if IsKeyDown(KeyboardKey.KEY_W) and can_move_forward:
-        entity.applyImpulse(Vector3(-velocity * time.dt, 0, 0))
+        print("Forward")
+        entity.applyImpulse(camera_direction)
+
     if IsKeyDown(KeyboardKey.KEY_S) and can_move_back:
-        entity.applyImpulse(Vector3(velocity * time.dt, 0, 0))
-    if IsKeyDown(KeyboardKey.KEY_A) and can_move_left:
-        entity.applyImpulse(Vector3(0, 0, velocity * time.dt))
-    if IsKeyDown(KeyboardKey.KEY_D) and can_move_right:
-        entity.applyImpulse(Vector3(0, 0, -velocity * time.dt))
+        print("Back")
+        entity.applyImpulse(Vector3Subtract(Vector3(0,0,0), camera_direction))
+
+    if (IsKeyDown(KeyboardKey.KEY_A) and can_move_left):
+        right = Vector3CrossProduct(camera_direction, camera.up)
+        entity.applyImpulse(Vector3Subtract(Vector3(0,0,0), right))
+
+
+    if (IsKeyDown(KeyboardKey.KEY_D) and can_move_right):
+        right = Vector3CrossProduct(camera_direction, camera.up)
+        entity.applyImpulse(right)
+
 
     # Jumping behavior (example: press spacebar to jump)
     if IsKeyDown(KeyboardKey.KEY_SPACE):
-        # Add a vertical velocity to simulate jumping
-        entity.applyImpulse(Vector3(0, 5, 0))  # Adjust the value for the desired jump height
-
+        entity.applyImpulse(Vector3(0, 0.5, 0))  # Adjust the value for the desired jump height
 
     # Update the entity's position using lerp function
     entity.position = lerp(entity.position, target_position, time.dt / 0.18)
 
-    # Update camera position and target
-    camera.position = Vector3(round(entity.position.x + 10), round(entity.position.y + 1), round(entity.position.z))
-    camera.target = Vector3(round(entity.position.x), round(entity.position.y), round(entity.position.z))
+    # Camera controls
+    camera.position = Vector3(entity.position.x, entity.position.y, entity.position.z)
+    camera.target = Vector3(entity.position.x + 0.1, entity.position.y, entity.position.z)
+
+    # Mouse rotation
+    sensitivity = 0.3
+    yaw -= GetMouseMovement().x * sensitivity
+    pitch += GetMouseMovement().y * sensitivity
+    camera.target = Vector3(entity.position.x, entity.position.y, entity.position.z)
+    camera.target.x += math.sin(math.radians(yaw))
+    camera.target.y += pitch
+    camera.target.z += math.cos(math.radians(yaw))
+    camera.up = Vector3(0, 1, 0)
+
+
 
     # Front Raycast
     front_raycast = raycast(target_position, Vector3(1, 0, 0), debug=False, ignore=[entity])
@@ -100,6 +126,12 @@ def update():
             can_fall = False
     else:
         can_fall = True
+
+
+
+
+
+
 
 
 

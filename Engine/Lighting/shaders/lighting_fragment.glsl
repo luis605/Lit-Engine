@@ -20,6 +20,7 @@ uniform sampler2D texture2;
 uniform bool roughnessMapInit;
 uniform sampler2D texture3;
 
+uniform sampler2D texture4;
 
 // Lights
 #define LIGHT_DIRECTIONAL 0
@@ -81,7 +82,7 @@ void main() {
     } else
         norm = normalize(fragNormal);
 
-
+    float ao = texture(texture4, fragTexCoord).r;
 
     float roughness;
     if (roughnessMapInit)
@@ -104,12 +105,10 @@ void main() {
     vec3 specular;
     vec3 result = colDiffuse.rgb / 2.0 - ambientLight.rgb * 0.5;
     result += ambientLight.rgb * 0.2;
-    
+    vec3 ambient = vec3(0);
+
     vec4 texColor = texture(texture0, fragTexCoord);
-    // if (diffuseMapInit)
-    //     texColor = texture(texture0, fragTexCoord);
-    // else
-    //     texColor = colDiffuse;
+
 
 
     for (int i = 0; i < lightsCount; i++) {
@@ -168,6 +167,7 @@ void main() {
         }
     }
 
+    result *= ao;
     vec4 blendedColor = vec4(result, 1.0) * texColor;
 
     if (roughnessMapInit)
@@ -175,6 +175,8 @@ void main() {
         float roughnessIntensity = 1.0 - roughness; // Invert roughness value to make roughness=0 fully reflective
         blendedColor.rgb *= roughnessIntensity;
     }
+
+
 
 
     // Apply gamma correction

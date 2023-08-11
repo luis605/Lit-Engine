@@ -17,6 +17,7 @@ void BuildProject();
 bool IsMouseHoveringModel(Model model, Camera camera, Vector3 position, Vector3 rotation, Entity* entity = nullptr, bool bypass_optimization = false);
 float GetExtremeValue(const Vector3& a);
 
+struct LitCamera;
 
 
 #endif // FUNCS_H
