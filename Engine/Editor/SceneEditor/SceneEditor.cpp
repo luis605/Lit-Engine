@@ -82,17 +82,6 @@ void DrawTextureOnRectangle(const Texture* texture)
 }
 
 
-Vector2 GetMouseMove()
-{
-    static Vector2 lastMousePosition = { 0 };
-
-    Vector2 mousePosition = GetMousePosition();
-    Vector2 mouseMove = { mousePosition.x - lastMousePosition.x, mousePosition.y - lastMousePosition.y };
-
-    lastMousePosition = mousePosition;
-    
-    return mouseMove;
-}
 
 
 bool is_mouse_pressed = false;

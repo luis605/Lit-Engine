@@ -99,10 +99,10 @@ using json = nlohmann::json;
 
 /* Globals */
 #include "globals.h"
-#include "Engine/Core/global_variables.cpp"
 #include "Engine/Core/functions.h"
-
 #include "Engine/Scripting/functions.cpp"
+#include "Engine/Core/global_variables.cpp"
+
 #include "Engine/Core/Engine.cpp"
 
 #include "Engine/Core/RunGame.h"

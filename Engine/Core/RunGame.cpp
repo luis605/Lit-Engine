@@ -35,7 +35,7 @@ void InitGameCamera()
 
 
 
-void RenderAndRunEntity(Entity& entity, vector<std::thread>& scripts_threads, bool first_time_flag = first_time_gameplay, Camera3D* rendering_camera = &camera)
+void RenderAndRunEntity(Entity& entity, vector<std::thread>& scripts_threads, bool first_time_flag = first_time_gameplay, LitCamera* rendering_camera = &camera)
 {
     entity.calc_physics = true;
     entity.render();

@@ -76,6 +76,9 @@ public:
     std::filesystem::path roughness_texture_path;
     Texture2D roughness_texture;
 
+    std::filesystem::path ao_texture_path;
+    Texture2D ao_texture;
+
 
     SurfaceMaterial surface_material;
 
@@ -190,17 +193,22 @@ public:
 
     void ReloadTextures()
     {
-        if (IsTextureReady(this->texture))
+        if (!texture_path.empty())
             model.materials[0].maps[MATERIAL_MAP_DIFFUSE].texture = texture;
         
-        if (IsTextureReady(this->normal_texture))
+        if (!normal_texture_path.empty())
         {
             model.materials[0].maps[MATERIAL_MAP_NORMAL].texture = normal_texture;
         }
 
-        if (IsTextureReady(this->roughness_texture))
+        if (!roughness_texture_path.empty())
         {
             model.materials[0].maps[MATERIAL_MAP_ROUGHNESS].texture = roughness_texture;
+        }
+
+        if (!ao_texture_path.empty())
+        {
+            model.materials[0].maps[MATERIAL_MAP_OCCLUSION].texture = ao_texture;
         }
     }
 
@@ -222,6 +230,8 @@ public:
         } else {
             createStaticBox(scale.x, scale.y, scale.z);
         }
+
+        ReloadTextures();
     }
 
     bool hasModel()
@@ -238,7 +248,7 @@ public:
         model.materials[0].shader = shader;
     }
 
-    void runScript(std::reference_wrapper<Entity> entityRef, Camera3D* rendering_camera)
+    void runScript(std::reference_wrapper<Entity> entityRef, LitCamera* rendering_camera)
     {
         if (script.empty()) return;
         running = true;
@@ -277,18 +287,31 @@ public:
         rendering_camera->position.x = 100;
         std::cout << "Camera position: " << camera.position.x << std::endl;
 
+
         thread_local py::dict locals = py::dict(
             "entity"_a = entity_obj,
             "IsMouseButtonPressed"_a = input_module.attr("IsMouseButtonPressed"),
             "IsKeyDown"_a = input_module.attr("IsKeyDown"),
+            "IsKeyUp"_a = input_module.attr("IsKeyUp"),
+            "GetMouseMovement"_a = input_module.attr("GetMouseMovement"),
             "KeyboardKey"_a = input_module.attr("KeyboardKey"),
             "raycast"_a = collisions_module.attr("raycast"),
-            "Vector3"_a = collisions_module.attr("Vector3"),
+            "Vector3"_a = math_module.attr("Vector3"),
+            "Vector2"_a = math_module.attr("Vector2"),
+            "Vector3Add"_a = math_module.attr("Vector3Add"),
+            "Vector3Subtract"_a = math_module.attr("Vector3Subtract"),
+            "Vector3Multiply"_a = math_module.attr("Vector3Multiply"),
+            "Vector3Divide"_a = math_module.attr("Vector3Divide"),
+            "Vector3Scale"_a = math_module.attr("Vector3Scale"),
+            "Vector3CrossProduct"_a = math_module.attr("Vector3CrossProduct"),
             "Color"_a = color_module.attr("Color"),
             "time"_a = py::cast(&time_instance),
             "lerp"_a = math_module.attr("lerp"),
             "camera"_a = py::cast(rendering_camera)
         );
+
+
+
 
 
         try {
@@ -319,6 +342,7 @@ public:
 
                 float last_frame_count = 0;
                 while (running) {
+                    rendering_camera->front = Vector3Subtract(rendering_camera->target, rendering_camera->position);
                     if (time_instance.dt - last_frame_count != 0) {
                         locals["time"] = py::cast(&time_instance);
                         update_func();
@@ -373,6 +397,7 @@ public:
 
     void applyForce(const Vector3& force) {
         if (boxRigidBody && isDynamic) {
+            boxRigidBody->setActivationState(ACTIVE_TAG);
             btVector3 btForce(force.x, force.y, force.z);
             boxRigidBody->applyCentralForce(btForce);
         }
@@ -380,6 +405,7 @@ public:
 
     void applyImpulse(const Vector3& impulse) {
         if (boxRigidBody && isDynamic) {
+            boxRigidBody->setActivationState(ACTIVE_TAG);
             btVector3 btImpulse(impulse.x, impulse.y, impulse.z);
             boxRigidBody->applyCentralImpulse(btImpulse);
         }

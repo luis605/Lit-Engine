@@ -72,20 +72,21 @@ int pipe_fds_lights[2];
 
 
 /* RunGame */
-Camera3D camera;
+LitCamera camera;
 
 pybind11::object export_camera()
 {
     pybind11::module m("raylib_camera");
-    pybind11::class_<Camera3D>(m, "Camera3D")
+    pybind11::class_<LitCamera>(m, "LitCamera")
         .def(pybind11::init<>())
-        .def_readwrite("position", &Camera3D::position, py::call_guard<py::gil_scoped_release>())
-        .def_readwrite("target", &Camera3D::target, py::call_guard<py::gil_scoped_release>())
-        .def_readwrite("up", &Camera3D::up, py::call_guard<py::gil_scoped_release>())
-        .def_readwrite("fovy", &Camera3D::fovy, py::call_guard<py::gil_scoped_release>())
-        .def_readwrite("projection", &Camera3D::projection, py::call_guard<py::gil_scoped_release>());
+        .def_readwrite("position", &LitCamera::position, py::call_guard<py::gil_scoped_release>())
+        .def_readwrite("front", &LitCamera::front, py::call_guard<py::gil_scoped_release>())
+        .def_readwrite("target", &LitCamera::target, py::call_guard<py::gil_scoped_release>())
+        .def_readwrite("up", &LitCamera::up, py::call_guard<py::gil_scoped_release>())
+        .def_readwrite("fovy", &LitCamera::fovy, py::call_guard<py::gil_scoped_release>())
+        .def_readwrite("projection", &LitCamera::projection, py::call_guard<py::gil_scoped_release>());
     pybind11::object camera_obj = pybind11::cast(camera);
-    camera_obj.attr("__class__") = m.attr("Camera3D");
+    camera_obj.attr("__class__") = m.attr("LitCamera");
     return camera_obj;
 }
 

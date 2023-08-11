@@ -1,100 +1,99 @@
 #include "raylib.h"
 
-#include "include/par_shapes.h"
-
-#include "rlgl.h"
-#include "raymath.h"
-#include <string>
-#include <vector>
-#include <algorithm>
-#include <iostream>
-#include <sstream>
+#define BSPLINE_LINE_DIVISIONS 100
 
 
 
+struct DraggablePoint {
+    Vector2 position;
+    bool isDragging;
+};
 
 
-Mesh SimplifyMesh(Mesh mes32h)
+
+static void DrawLineBSpline(Vector2 p1, Vector2 p2, Vector2 p3, Vector2 p4, float thick, Color color)
 {
-    Mesh mesh = { 0 };
-    
+    float a[4] = { 0 };
+    float b[4] = { 0 };
 
-    mesh.vertices = (float *)RL_MALLOC(8*sizeof(float));
-    mesh.texcoords = (float *)RL_MALLOC(8*sizeof(float));
-    mesh.normals = (float *)RL_MALLOC(8*sizeof(float));
+    a[0] = (-p1.x + 3*p2.x - 3*p3.x + p4.x)/6.0f;
+    a[1] = (3*p1.x - 6*p2.x + 3*p3.x)/6.0f;
+    a[2] = (-3*p1.x + 3*p3.x)/6.0f;
+    a[3] = (p1.x + 4*p2.x + p3.x)/6.0f;
+    b[0] = (-p1.y + 3*p2.y - 3*p3.y + p4.y)/6.0f;
+    b[1] = (3*p1.y - 6*p2.y + 3*p3.y)/6.0f;
+    b[2] = (-3*p1.y + 3*p3.y)/6.0f;
+    b[3] = (p1.y + 4*p2.y + p3.y)/6.0f;
 
-    mesh.vertexCount = 8;
-    mesh.triangleCount = 8/2;
+    Vector2 currentPoint = { 0 };
+    Vector2 nextPoint = { 0 };
+    currentPoint.x = a[3];
+    currentPoint.y = b[3];
 
-
-    for (int k = 0; k < mesh.vertexCount; k++)
+    float t = 0.0f;
+    for (int i = 1; i < BSPLINE_LINE_DIVISIONS; i++)
     {
-        mesh.vertices[k*3] = cubeMesh->points[cubeMesh->triangles[k]*3];
-        mesh.vertices[k*3 + 1] = cubeMesh->points[cubeMesh->triangles[k]*3 + 1];
-        mesh.vertices[k*3 + 2] = cubeMesh->points[cubeMesh->triangles[k]*3 + 2];
+        t = ((float)i)/((float)BSPLINE_LINE_DIVISIONS);
 
-        mesh.normals[k*3] = cubeMesh->normals[cubeMesh->triangles[k]*3];
-        
-        mesh.texcoords[k*2] = cubeMesh->tcoords[cubeMesh->triangles[k]*2];
-        mesh.texcoords[k*2 + 1] = cubeMesh->tcoords[cubeMesh->triangles[k]*2 + 1];
+        nextPoint.x = a[3] + t*(a[2] + t*(a[1] + t*a[0]));
+        nextPoint.y = b[3] + t*(b[2] + t*(b[1] + t*b[0]));
+
+        DrawLineEx(currentPoint, nextPoint, 10, color);
+
+        currentPoint = nextPoint;
     }
-
-    par_shapes_free_mesh(cubeMesh);
-
-    // Upload vertex data to GPU (static mesh)
-    UploadMesh(&mesh, false);
-
-
-    return mesh;
 }
-
-
 
 int main()
 {
-    // Initialization
     const int screenWidth = 800;
-    const int screenHeight = 450;
-    InitWindow(screenWidth, screenHeight, "Dynamic LoD - Implementation");
+    const int screenHeight = 600;
 
-    // Setup camera
-    Camera3D camera = { 0 };
-    camera.position = (Vector3){ 10.0f, 10.0f, 10.0f };
-    camera.target = (Vector3){ 0.0f, 0.0f, 0.0f };
-    camera.up = (Vector3){ 0.0f, 1.0f, 0.0f };
-    camera.fovy = 45.0f;
-    camera.projection = CAMERA_PERSPECTIVE;
+    InitWindow(screenWidth, screenHeight, "B-Spline Example");
+    
+    DraggablePoint points[] = {
+        { { 100, 300 }, false },
+        { { 200, 100 }, false },
+        { { 400, 500 }, false },
+        { { 600, 300 }, false }
+    };
     
     SetTargetFPS(60);
 
-    Mesh mesh = GenMeshSphere(2, 100, 100);
-
-    Mesh mesh2 = SimplifyMesh(mesh);
-
-    Model model = LoadModelFromMesh(mesh2);
-
-    DisableCursor();
-    
-    // Main game loop
     while (!WindowShouldClose())
     {
-        UpdateCamera(&camera, CAMERA_FREE);
+        for (int i = 0; i < 4; i++)
+        {
+            if (IsMouseButtonPressed(MOUSE_LEFT_BUTTON) && CheckCollisionPointCircle(GetMousePosition(), points[i].position, 5))
+            {
+                points[i].isDragging = true;
+            }
+            if (IsMouseButtonReleased(MOUSE_LEFT_BUTTON))
+            {
+                points[i].isDragging = false;
+            }
+            if (points[i].isDragging)
+            {
+                points[i].position = GetMousePosition();
+            }
+        }
 
-        // Draw
         BeginDrawing();
+
         ClearBackground(RAYWHITE);
 
-        // 3D drawing
-        BeginMode3D(camera);
-
-        DrawModel(model, (Vector3){ 0, 0, 0 }, 1.0f, BLACK);
-
-        EndMode3D();
+        for (int i = 0; i < 3; i++)
+        {
+            DrawCircleV(points[i].position, 5, RED);
+            DrawLineV(points[i].position, points[i + 1].position, DARKGRAY);
+        }
+        DrawCircleV(points[3].position, 5, RED);
+        
+        // Draw B-spline curve
+        DrawLineBSpline(points[0].position, points[1].position, points[2].position, points[3].position, 2, BLUE);
 
         EndDrawing();
     }
-
-    // Cleanup
 
     CloseWindow();
 
