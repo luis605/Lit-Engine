@@ -34,7 +34,6 @@
 #include "include/bullet3/src/LinearMath/btVector3.h"
 #include "include/bullet3/src/btBulletDynamicsCommon.h"
 
-
 #include <stdio.h>
 #include <iostream>
 #include <dirent.h>

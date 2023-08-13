@@ -257,6 +257,11 @@ void LoadEntity(const json& entity_json, Entity& entity) {
 
     entity.setShader(shader);
     entity.isDynamic = entity_json["is_dynamic"].get<bool>();
+    if (entity.isDynamic)
+        entity.makePhysicsDynamic();
+    else
+        entity.makePhysicsStatic();
+        
     entity.mass = entity_json["mass"].get<float>();
     
 

@@ -28,7 +28,6 @@ pitch = 0.0
 
 def update():
     global velocity, elapsed_time, total_duration, can_move_forward, can_move_back, can_move_left, can_move_right, can_fall, gravity, step, yaw, pitch
-    
 
     camera_direction = camera.front
     camera_direction.y = 0  # Keep movement in the horizontal plane
@@ -43,22 +42,23 @@ def update():
         print("Back")
         entity.applyImpulse(Vector3Subtract(Vector3(0,0,0), camera_direction))
 
-    if (IsKeyDown(KeyboardKey.KEY_A) and can_move_left):
+    if IsKeyDown(KeyboardKey.KEY_A):
+        print("Left")
         right = Vector3CrossProduct(camera_direction, camera.up)
         entity.applyImpulse(Vector3Subtract(Vector3(0,0,0), right))
 
 
     if (IsKeyDown(KeyboardKey.KEY_D) and can_move_right):
+        print("Right")
         right = Vector3CrossProduct(camera_direction, camera.up)
         entity.applyImpulse(right)
 
-
+    entity.print_position()
     # Jumping behavior (example: press spacebar to jump)
     if IsKeyDown(KeyboardKey.KEY_SPACE):
         entity.applyImpulse(Vector3(0, 0.5, 0))  # Adjust the value for the desired jump height
 
-    # Update the entity's position using lerp function
-    entity.position = lerp(entity.position, target_position, time.dt / 0.18)
+
 
     # Camera controls
     camera.position = Vector3(entity.position.x, entity.position.y, entity.position.z)
@@ -126,6 +126,10 @@ def update():
             can_fall = False
     else:
         can_fall = True
+
+
+
+
 
 
 

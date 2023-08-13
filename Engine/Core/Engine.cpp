@@ -89,7 +89,7 @@ public:
     bool isParent = false;
     bool running = false;
     bool calc_physics = false;
-    bool isDynamic = true;
+    bool isDynamic = false;
 
     float mass = 1;
     Vector3 inertia = {0, 0, 0};
@@ -271,6 +271,7 @@ public:
                 .def_readwrite("visible", &Entity::visible, py::call_guard<py::gil_scoped_release>())
                 .def_readwrite("id", &Entity::id, py::call_guard<py::gil_scoped_release>())
                 .def_readwrite("collider", &Entity::collider, py::call_guard<py::gil_scoped_release>())
+                .def("print_position", &this->print_position, py::call_guard<py::gil_scoped_release>())
                 .def("applyForce", &this->applyForce, py::call_guard<py::gil_scoped_release>())
                 .def("applyImpulse", &this->applyImpulse, py::call_guard<py::gil_scoped_release>());
         }
@@ -367,19 +368,14 @@ public:
 
 
     void calcPhysicsPosition() {
-        if (isDynamic && boxRigidBody) {
-            // Get the motion state of the rigid body
-            btDefaultMotionState* motionState = static_cast<btDefaultMotionState*>(boxRigidBody->getMotionState());
-
-            if (motionState) {
-                // Get the world transform from the motion state
-                btTransform trans;
-                motionState->getWorldTransform(trans);
-                
-                btVector3 pos = trans.getOrigin();
-                position = { pos.x(), pos.y(), pos.z() };
-                backupPosition = position; // Update backupPosition
+        if (isDynamic && boxRigidBody) {    
+            btTransform trans;
+            if (boxRigidBody->getMotionState()) {
+                boxRigidBody->getMotionState()->getWorldTransform(trans);
             }
+            btVector3 rigidBodyPosition = trans.getOrigin();
+            position = { rigidBodyPosition.getX(), rigidBodyPosition.getY(), rigidBodyPosition.getZ() };
+            backupPosition = position;
         }
     }
 
@@ -413,7 +409,7 @@ public:
 
     void updateMass()
     {
-        if (!isDynamic) return;
+        if (!isDynamic || dynamicBoxShape == nullptr) return;
 
         btScalar btMass = mass;
         btVector3 boxInertia = btVector3(inertia.x, inertia.y, inertia.z);
@@ -426,59 +422,71 @@ public:
 
     void createStaticBox(float x, float y, float z) {
         if (!isDynamic && staticBoxShape == nullptr) {
-            staticBoxShape = new btBoxShape(btVector3(x, y, z));
 
+            staticBoxShape = new btBoxShape(btVector3(btScalar(x), btScalar(y), btScalar(z)));
+            
             // Remove any existing dynamic shape and rigid body
             if (dynamicBoxShape) {
                 dynamicsWorld->removeRigidBody(boxRigidBody);
 
+                delete dynamicBoxShape;
+                delete boxRigidBody;
+                delete boxMotionState;
+
                 dynamicBoxShape = nullptr;
                 boxRigidBody = nullptr;
                 boxMotionState = nullptr;
+
                 isDynamic = false;
             }
 
-            // Create the static rigid body
-            btDefaultMotionState* boxMotionState = new btDefaultMotionState(
-                btTransform(btQuaternion(0, 0, 0, 1), btVector3(position.x, position.y, position.z))
-            );
-            btRigidBody::btRigidBodyConstructionInfo boxRigidBodyCI(0, boxMotionState, staticBoxShape, btVector3(0, 0, 0));
-            boxRigidBody = new btRigidBody(boxRigidBodyCI);
+            btTransform groundTransform;
+            groundTransform.setIdentity();
+            groundTransform.setOrigin(btVector3(position.x, position.y, position.z));
+
+            btDefaultMotionState *groundMotionState = new btDefaultMotionState(groundTransform);
+            btRigidBody::btRigidBodyConstructionInfo groundRigidBodyCI(0, groundMotionState, staticBoxShape, btVector3(0, 0, 0));
+            boxRigidBody = new btRigidBody(groundRigidBodyCI);
+
+            // Set additional properties for the rigid body, if needed
+            // boxRigidBody->setFriction(...);
+            // boxRigidBody->setRestitution(...);
+
             dynamicsWorld->addRigidBody(boxRigidBody);
         }
     }
 
 
+
     void createDynamicBox(float x, float y, float z) {
         if (!isDynamic) return;
 
-        dynamicBoxShape = new btBoxShape(btVector3(x, y, z));
-
+        dynamicBoxShape = new btBoxShape(btVector3(btScalar(x), btScalar(y), btScalar(z)));
+        
         if (staticBoxShape) 
             dynamicsWorld->removeRigidBody(boxRigidBody);
 
-        btDefaultMotionState* boxMotionState = new btDefaultMotionState(
-            btTransform(btQuaternion(0, 0, 0, 1), btVector3(position.x, position.y, position.z))
-        );
-        btScalar btMass = mass;
-        btVector3 boxInertia = btVector3(inertia.x, inertia.y, inertia.z);
-        dynamicBoxShape->calculateLocalInertia(btMass, boxInertia);
+        btTransform startTransform;
+        startTransform.setIdentity();
+        startTransform.setOrigin(btVector3(position.x, position.y, position.z));
 
-        // Create the rigid body construction info
-        btRigidBody::btRigidBodyConstructionInfo boxRigidBodyCI(
-            btMass, boxMotionState, dynamicBoxShape, boxInertia
-        );
+        btScalar btMass(mass);
 
-        // Set up Verlet integration properties
-        boxRigidBodyCI.m_additionalDamping = true;
-        boxRigidBodyCI.m_additionalAngularDampingFactor = 0.1f;
-        boxRigidBodyCI.m_additionalAngularDampingThresholdSqr = 0.01f;
+        btVector3 localInertia(inertia.x, inertia.y, inertia.z);
+        if (isDynamic)
+            dynamicBoxShape->calculateLocalInertia(btMass, localInertia);
 
-        // Create the rigid body with Verlet integration
+        btDefaultMotionState* boxMotionState = new btDefaultMotionState(startTransform);
+
+        btRigidBody::btRigidBodyConstructionInfo boxRigidBodyCI(btMass, boxMotionState, dynamicBoxShape, localInertia);
         boxRigidBody = new btRigidBody(boxRigidBodyCI);
+
+        // Set additional properties for the rigid body, if needed
+        // boxRigidBody->setFriction(...);
+        // boxRigidBody->setRestitution(...);
+
         dynamicsWorld->addRigidBody(boxRigidBody);
     }
-
 
 
 
@@ -492,7 +500,10 @@ public:
         createStaticBox(scale.x, scale.y, scale.z);
     }
     
-
+    void print_position()
+    {
+        std::cout << "Position: " << position.x << ", " << position.y << ", " << position.z << "\n";
+    }
 
 
     void render() {
@@ -512,7 +523,12 @@ public:
             setPhysicsPosition(position);
         }
 
+
        updateMass();
+
+        // if (isDynamic) std::cout << "Position: " << position.x << " " << position.y << " " << position.z << std::endl << std::endl;
+
+
 
         
         

@@ -1,99 +1,91 @@
 #include "raylib.h"
 
-#define BSPLINE_LINE_DIVISIONS 100
+#include "rlgl.h"
+#include "raymath.h"
+#include <string>
+#include <vector>
+#include <algorithm>
+#include <iostream>
+#include <sstream>
 
-
-
-struct DraggablePoint {
-    Vector2 position;
-    bool isDragging;
-};
-
-
-
-static void DrawLineBSpline(Vector2 p1, Vector2 p2, Vector2 p3, Vector2 p4, float thick, Color color)
-{
-    float a[4] = { 0 };
-    float b[4] = { 0 };
-
-    a[0] = (-p1.x + 3*p2.x - 3*p3.x + p4.x)/6.0f;
-    a[1] = (3*p1.x - 6*p2.x + 3*p3.x)/6.0f;
-    a[2] = (-3*p1.x + 3*p3.x)/6.0f;
-    a[3] = (p1.x + 4*p2.x + p3.x)/6.0f;
-    b[0] = (-p1.y + 3*p2.y - 3*p3.y + p4.y)/6.0f;
-    b[1] = (3*p1.y - 6*p2.y + 3*p3.y)/6.0f;
-    b[2] = (-3*p1.y + 3*p3.y)/6.0f;
-    b[3] = (p1.y + 4*p2.y + p3.y)/6.0f;
-
-    Vector2 currentPoint = { 0 };
-    Vector2 nextPoint = { 0 };
-    currentPoint.x = a[3];
-    currentPoint.y = b[3];
-
-    float t = 0.0f;
-    for (int i = 1; i < BSPLINE_LINE_DIVISIONS; i++)
-    {
-        t = ((float)i)/((float)BSPLINE_LINE_DIVISIONS);
-
-        nextPoint.x = a[3] + t*(a[2] + t*(a[1] + t*a[0]));
-        nextPoint.y = b[3] + t*(b[2] + t*(b[1] + t*b[0]));
-
-        DrawLineEx(currentPoint, nextPoint, 10, color);
-
-        currentPoint = nextPoint;
-    }
-}
+#include "include/bullet3/src/btBulletDynamicsCommon.h"
 
 int main()
 {
+    // Initialization
     const int screenWidth = 800;
-    const int screenHeight = 600;
+    const int screenHeight = 450;
+    InitWindow(screenWidth, screenHeight, "Bullet3 with Raylib Example");
 
-    InitWindow(screenWidth, screenHeight, "B-Spline Example");
+    // Setup camera
+    Camera3D camera = { 0 };
+    camera.position = (Vector3){ 10.0f, 10.0f, 10.0f };
+    camera.target = (Vector3){ 0.0f, 0.0f, 0.0f };
+    camera.up = (Vector3){ 0.0f, 1.0f, 0.0f };
+    camera.fovy = 45.0f;
+    camera.projection = CAMERA_PERSPECTIVE;
     
-    DraggablePoint points[] = {
-        { { 100, 300 }, false },
-        { { 200, 100 }, false },
-        { { 400, 500 }, false },
-        { { 600, 300 }, false }
-    };
-    
+    // Physics world setup
+    btBroadphaseInterface* broadphase = new btDbvtBroadphase();
+    btDefaultCollisionConfiguration* collisionConfiguration = new btDefaultCollisionConfiguration();
+    btCollisionDispatcher* dispatcher = new btCollisionDispatcher(collisionConfiguration);
+    btSequentialImpulseConstraintSolver* solver = new btSequentialImpulseConstraintSolver();
+    btDiscreteDynamicsWorld* dynamicsWorld = new btDiscreteDynamicsWorld(dispatcher, broadphase, solver, collisionConfiguration);
+    dynamicsWorld->setGravity(btVector3(0, -9.81, 0)); // Set gravity
+
+    // Create ground plane
+    btCollisionShape* groundShape = new btStaticPlaneShape(btVector3(0, 1, 0), 0);
+    btDefaultMotionState* groundMotionState = new btDefaultMotionState();
+    btRigidBody::btRigidBodyConstructionInfo groundRigidBodyCI(0, groundMotionState, groundShape, btVector3(0, 0, 0));
+    btRigidBody* groundRigidBody = new btRigidBody(groundRigidBodyCI);
+    dynamicsWorld->addRigidBody(groundRigidBody);
+
+    // Create cube
+    btCollisionShape* boxShape = new btBoxShape(btVector3(1, 1, 1));
+    btDefaultMotionState* boxMotionState = new btDefaultMotionState(btTransform(btQuaternion(0, 0, 0, 1), btVector3(0, 10, 0)));
+    btScalar mass = 1.0f;
+    btVector3 boxInertia(0, 0, 0);
+    boxShape->calculateLocalInertia(mass, boxInertia);
+    btRigidBody::btRigidBodyConstructionInfo boxRigidBodyCI(mass, boxMotionState, boxShape, boxInertia);
+    btRigidBody* boxRigidBody = new btRigidBody(boxRigidBodyCI);
+    dynamicsWorld->addRigidBody(boxRigidBody);
+
     SetTargetFPS(60);
 
+    // Main game loop
     while (!WindowShouldClose())
     {
-        for (int i = 0; i < 4; i++)
-        {
-            if (IsMouseButtonPressed(MOUSE_LEFT_BUTTON) && CheckCollisionPointCircle(GetMousePosition(), points[i].position, 5))
-            {
-                points[i].isDragging = true;
-            }
-            if (IsMouseButtonReleased(MOUSE_LEFT_BUTTON))
-            {
-                points[i].isDragging = false;
-            }
-            if (points[i].isDragging)
-            {
-                points[i].position = GetMousePosition();
-            }
-        }
+        UpdateCamera(&camera, CAMERA_FREE);
+        // Update
+        dynamicsWorld->stepSimulation(1.0f / 60.0f);
 
+        // Draw
         BeginDrawing();
-
         ClearBackground(RAYWHITE);
 
-        for (int i = 0; i < 3; i++)
-        {
-            DrawCircleV(points[i].position, 5, RED);
-            DrawLineV(points[i].position, points[i + 1].position, DARKGRAY);
-        }
-        DrawCircleV(points[3].position, 5, RED);
-        
-        // Draw B-spline curve
-        DrawLineBSpline(points[0].position, points[1].position, points[2].position, points[3].position, 2, BLUE);
+        // 3D drawing
+        BeginMode3D(camera);
+
+        // Draw ground plane
+        DrawPlane((Vector3){ 0, 0, 0 }, (Vector2){ 100, 100 }, LIGHTGRAY);
+
+        // Draw cube
+        btTransform trans;
+        boxRigidBody->getMotionState()->getWorldTransform(trans);
+        Vector3 position = { trans.getOrigin().getX(), trans.getOrigin().getY(), trans.getOrigin().getZ() };
+        DrawCube(position, 2, 2, 2, RED);
+
+        EndMode3D();
 
         EndDrawing();
     }
+
+    // Cleanup
+    delete dynamicsWorld;
+    delete solver;
+    delete collisionConfiguration;
+    delete dispatcher;
+    delete broadphase;
 
     CloseWindow();
 
