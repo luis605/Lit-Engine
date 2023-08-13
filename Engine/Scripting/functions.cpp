@@ -30,10 +30,18 @@ Vector3 lerp_Vector3(Vector3 start, Vector3 end, float t) {
 PYBIND11_EMBEDDED_MODULE(math_module, m) {
     py::class_<Vector3>(m, "Vector3")
         .def(py::init<float, float, float>())
-        .def_readwrite("x", &Vector3::x, py::call_guard<py::gil_scoped_release>())
-        .def_readwrite("y", &Vector3::y, py::call_guard<py::gil_scoped_release>())
-        .def_readwrite("z", &Vector3::z, py::call_guard<py::gil_scoped_release>());
+        .def_property("x",
+            [](const Vector3 &v) { return static_cast<float>(v.x); },
+            [](Vector3 &v, float value) { v.x = value; })
+        .def_property("y",
+            [](const Vector3 &v) { return static_cast<float>(v.y); },
+            [](Vector3 &v, float value) { v.y = value; })
+        .def_property("z",
+            [](const Vector3 &v) { return static_cast<float>(v.z); },
+            [](Vector3 &v, float value) { v.z = value; });
 
+
+    
     py::class_<Vector2>(m, "Vector2")
         .def(py::init<float, float>())
         .def_readwrite("x", &Vector2::x, py::call_guard<py::gil_scoped_release>())

@@ -70,7 +70,7 @@ void RunGame()
 
     ClearBackground(GRAY);
 
-    dynamicsWorld->stepSimulation(1.0f / 60.0f);
+    dynamicsWorld->stepSimulation(GetFrameTime(), 10);
 
     UpdateInGameGlobals();
 
