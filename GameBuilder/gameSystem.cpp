@@ -87,6 +87,7 @@ void InitWindow()
     inGame_Camera.fovy = 45.0f;                                // inGame_Camera field-of-view Y
     inGame_Camera.projection = CAMERA_PERSPECTIVE;             // inGame_Camera mode type
 
+    SetupPhysicsWorld();
 }
 
 void WindowMainloop()
