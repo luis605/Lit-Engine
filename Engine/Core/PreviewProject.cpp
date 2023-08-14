@@ -24,10 +24,9 @@ void PreviewStartup()
 
     SetupPhysicsWorld();
 
-    std::cout << dynamicsWorld->getGravity().y() << std::endl;
-
-
     InitSkybox();
+
+    DisableCursor();
 
 }
 
