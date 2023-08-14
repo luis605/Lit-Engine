@@ -111,6 +111,8 @@ void Run()
 
         BeginMode3D(inGame_Camera);
 
+            DrawSkybox();
+            
             UpdateInGameGlobals();
 
             for (Entity& entity : entities_list)
