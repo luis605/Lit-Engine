@@ -86,6 +86,8 @@ void PreviewProject()
 
             BeginMode3D(camera_preview);
 
+                DrawSkybox();
+
                 for (Entity& entity : entities_list_preview)
                 {
                     RenderAndRunEntity(entity, scripts_threads_preview, first_time, &camera_preview);
