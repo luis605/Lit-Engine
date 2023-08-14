@@ -530,7 +530,40 @@ void ObjectsPopup()
 }
 
 
+void ProcessDeletion()
+{
+    if (IsKeyPressed(KEY_DELETE))
+    {
+        if (selected_game_object_type == "entity")
+            entities_list_pregame.erase(std::remove(entities_list_pregame.begin(), entities_list_pregame.end(), *selected_entity), entities_list_pregame.end());
+        else if (selected_game_object_type == "light")
+        {
+            lights.erase(std::remove(lights.begin(), lights.end(), *selected_light), lights.end());
+            lights_info.erase(std::remove(lights_info.begin(), lights_info.end(), *selected_light), lights_info.end());
+            UpdateLightsBuffer(true);
+            return;
+        }
+    }        
+}
 
+bool can_duplicate_entity = true;
+
+void ProcessCopy()
+{
+    if (IsKeyDown(KEY_D) && (IsKeyDown(KEY_LEFT_CONTROL) || IsKeyDown(KEY_RIGHT_CONTROL)) && !in_game_preview && selected_game_object_type == "entity" && can_duplicate_entity)
+    {
+        std::cout << "Creating Entity" << std::endl;
+        Entity new_entity = *selected_entity;
+        entities_list_pregame.reserve(1);
+        entities_list_pregame.emplace_back(new_entity);
+        selected_entity = &entities_list_pregame.back();
+        can_duplicate_entity = false;
+    }
+    if (!can_duplicate_entity)
+    {
+        can_duplicate_entity = IsKeyUp(KEY_D);
+    }
+}
 
 
 int EditorCamera(void)
@@ -548,21 +581,8 @@ int EditorCamera(void)
 
     if (ImGui::IsWindowFocused())
     {
-        if (IsKeyPressed(KEY_DELETE))
-        {
-            if (selected_game_object_type == "entity")
-                entities_list_pregame.erase(std::remove(entities_list_pregame.begin(), entities_list_pregame.end(), *selected_entity), entities_list_pregame.end());
-            else if (selected_game_object_type == "light")
-            {
-                if (IsKeyPressed(KEY_DELETE))
-                {
-                    lights.erase(std::remove(lights.begin(), lights.end(), *selected_light), lights.end());
-                    lights_info.erase(std::remove(lights_info.begin(), lights_info.end(), *selected_light), lights_info.end());
-                    UpdateLightsBuffer(true);
-                    return;
-                }
-            }
-        }        
+        ProcessDeletion();
+        ProcessCopy();
     }
 
 

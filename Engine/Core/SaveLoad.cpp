@@ -182,7 +182,8 @@ void LoadEntity(const json& entity_json, Entity& entity) {
         entity_json["color"]["b"].get<int>(),
         entity_json["color"]["a"].get<int>()
     });
-    
+
+
     entity.setName(entity_json["name"].get<std::string>());
 
     Vector3 scale{
@@ -213,7 +214,13 @@ void LoadEntity(const json& entity_json, Entity& entity) {
     };
     entity.relative_position = relative_position;
 
-    entity.setModel(entity_json["model_path"].get<std::string>().c_str());
+
+    std::cout << IsModelReady(LoadModel("project/game/models/plane.obj")) << std::endl;
+    entity.setModel(
+        entity_json["model_path"].get<std::string>().c_str(),
+        LoadModel(entity_json["model_path"].get<std::string>().c_str())
+    );
+
     entity.script = entity_json["script_path"].get<std::string>();
     entity.id = entity_json["id"].get<int>();
 
@@ -247,6 +254,7 @@ void LoadEntity(const json& entity_json, Entity& entity) {
         entity.ReloadTextures();
     }
 
+
     entity.roughness_texture_path = entity_json["roughness_texture_path"].get<std::string>();
     if (!entity.roughness_texture_path.empty())
     {
@@ -256,14 +264,13 @@ void LoadEntity(const json& entity_json, Entity& entity) {
 
 
     entity.setShader(shader);
-    entity.isDynamic = entity_json["is_dynamic"].get<bool>();
+
     if (entity.isDynamic)
         entity.makePhysicsDynamic();
     else
         entity.makePhysicsStatic();
         
     entity.mass = entity_json["mass"].get<float>();
-    
 
     if (entity_json.contains("children")) {
         const json& children_data = entity_json["children"];
@@ -335,7 +342,7 @@ void LoadLight(const json& light_json, Light& light, AdditionalLightInfo light_i
 int LoadProject(vector<Entity>& entities_vector, vector<Light>& lights_vector, vector<AdditionalLightInfo>& lights_info_vector) {
     std::ifstream infile("project.json");
     if (!infile.is_open()) {
-        std::cerr << "Error: Failed to open project file." << std::endl;
+        std::cout << "Error: Failed to open project file." << std::endl;
         return 1;
     }
 
@@ -365,7 +372,7 @@ int LoadProject(vector<Entity>& entities_vector, vector<Light>& lights_vector, v
             }
         }
     } catch (const json::type_error& e) {
-        std::cerr << "JSON type error: " << e.what() << std::endl;
+        std::cout << "JSON type error: " << e.what() << std::endl;
         return 1;
     }
 

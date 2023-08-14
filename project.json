@@ -59,10 +59,10 @@
         "is_dynamic": false,
         "mass": 1.0,
         "model_path": "project/game/models/cube.obj",
-        "name": "highPlace",
+        "name": "Wall 1",
         "normal_texture_path": "",
         "position": {
-            "x": 0.0,
+            "x": -6.0,
             "y": 6.0,
             "z": 7.399998664855957
         },
@@ -78,7 +78,7 @@
         },
         "roughness_texture_path": "",
         "scale": {
-            "x": 10.0,
+            "x": 4.0,
             "y": 6.0,
             "z": 1.0
         },

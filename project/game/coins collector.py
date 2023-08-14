@@ -74,6 +74,7 @@ def update():
     camera.look_at.x += math.sin(math.radians(yaw))
     camera.look_at.y += pitch
     camera.look_at.z += math.cos(math.radians(yaw))
+    camera.look_at.y = camera.pos.y
     camera.up = Vector3(0, 1, 0)
 
 
@@ -128,6 +129,7 @@ def update():
             can_fall = False
     else:
         can_fall = True
+
 
 
 

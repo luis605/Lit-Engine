@@ -221,13 +221,18 @@ public:
         model_path = modelPath;
     
         if (modelPath == "")
+        {
             model = entity_model;
-        else
+        } else
+        {
             model = LoadModel(modelPath);
-    
+        }
+
         model.materials[0].shader = shader;
 
+
         bounds = GetMeshBoundingBox(model.meshes[0]);
+
 
         if (isDynamic) {
             createDynamicBox(scale.x, scale.y, scale.z);
@@ -422,9 +427,8 @@ public:
 
     void createStaticBox(float x, float y, float z) {
         if (!isDynamic && staticBoxShape == nullptr) {
-
             staticBoxShape = new btBoxShape(btVector3(btScalar(x), btScalar(y), btScalar(z)));
-            
+
             // Remove any existing dynamic shape and rigid body
             if (dynamicBoxShape) {
                 dynamicsWorld->removeRigidBody(boxRigidBody);
@@ -460,7 +464,7 @@ public:
 
     void createDynamicBox(float x, float y, float z) {
         if (!isDynamic) return;
-
+        std::cout << name << " is dynamic" << std::endl;
         dynamicBoxShape = new btBoxShape(btVector3(btScalar(x), btScalar(y), btScalar(z)));
         
         if (staticBoxShape) 
