@@ -88,6 +88,8 @@ void InitWindow()
     inGame_Camera.projection = CAMERA_PERSPECTIVE;             // inGame_Camera mode type
 
     SetupPhysicsWorld();
+
+    DisableCursor();
 }
 
 void WindowMainloop()
@@ -103,7 +105,7 @@ void WindowMainloop()
 void Run()
 {
     dynamicsWorld->stepSimulation(GetFrameTime(), 10);
-    
+
     BeginDrawing();
         ClearBackground(GRAY);
 
