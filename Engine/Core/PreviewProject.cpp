@@ -25,6 +25,9 @@ void PreviewStartup()
     shader = LoadShader("Engine/Lighting/shaders/lighting_vertex.glsl", "Engine/Lighting/shaders/lighting_fragment.glsl");
     InitLighting();
 
+    // Physics
+    SetupPhysicsWorld();
+
 }
 
 bool received_data = false;
