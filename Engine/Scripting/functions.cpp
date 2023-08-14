@@ -1,58 +1,46 @@
-// Custom implementation of clamp
-template <typename T>
-constexpr const T& custom_clamp(const T& value, const T& low, const T& high) {
-    return (value < low) ? low : ((value > high) ? high : value);
-}
+#pragma once
 
-// Lerp for floating-point types (float and double)
-template <typename T>
-T lerp(T start, T end, float t) {
-    t = custom_clamp(t, 0.0f, 1.0f);
-    return start + t * (end - start);
-}
-
-// Lerp for integer types (int)
-int lerp_int(int start, int end, float t) {
-    t = custom_clamp(t, 0.0f, 1.0f);
-    return static_cast<int>(std::round(start + t * (end - start)));
-}
-
-// Lerp for Vector3
-Vector3 lerp_Vector3(Vector3 start, Vector3 end, float t) {
-    t = custom_clamp(t, 0.0f, 1.0f);
-    return Vector3{
-        lerp(start.x, end.x, t),
-        lerp(start.y, end.y, t),
-        lerp(start.z, end.z, t)
-    };
-}
 
 PYBIND11_EMBEDDED_MODULE(math_module, m) {
-    py::class_<Vector3>(m, "Vector3")
+    py::class_<LitVector3>(m, "Vector3")
         .def(py::init<float, float, float>())
-        .def_property("x",
-            [](const Vector3 &v) { return static_cast<float>(v.x); },
-            [](Vector3 &v, float value) { v.x = value; })
-        .def_property("y",
-            [](const Vector3 &v) { return static_cast<float>(v.y); },
-            [](Vector3 &v, float value) { v.y = value; })
-        .def_property("z",
-            [](const Vector3 &v) { return static_cast<float>(v.z); },
-            [](Vector3 &v, float value) { v.z = value; });
+        .def_readwrite("x", &LitVector3::x, py::call_guard<py::gil_scoped_release>())
+        .def_readwrite("y", &LitVector3::y, py::call_guard<py::gil_scoped_release>())
+        .def_readwrite("z", &LitVector3::z, py::call_guard<py::gil_scoped_release>())
+        .def("normalize", &LitVector3::normalize, py::call_guard<py::gil_scoped_release>())
+        .def("CrossProduct", &LitVector3::CrossProduct, py::call_guard<py::gil_scoped_release>())
+        .def("pos", &LitVector3::pos, py::call_guard<py::gil_scoped_release>())
+        .def("__sub__", [](const LitVector3 &a, const LitVector3 &b) {
+            return LitVector3(a.x - b.x, a.y - b.y, a.z - b.z);
+        }, py::call_guard<py::gil_scoped_release>())
+        .def("__add__", [](const LitVector3 &a, const LitVector3 &b) {
+            return LitVector3(a.x + b.x, a.y + b.y, a.z + b.z);
+        }, py::call_guard<py::gil_scoped_release>())
+        .def("__mul__", [](const LitVector3 &a, const LitVector3 &b) {
+            return a * b;
+        }, py::call_guard<py::gil_scoped_release>())
+        .def("__mul__", [](const LitVector3 &a, float scalar) {
+            return a * scalar;
+        }, py::call_guard<py::gil_scoped_release>())
+        .def("__mul__", [](const LitVector3 &a, int scalar) {
+            return a * scalar;
+        }, py::call_guard<py::gil_scoped_release>())
+        .def("__truediv__", [](const LitVector3 &a, const LitVector3 &b) {
+            return LitVector3(a.x / b.x, a.y / b.y, a.z / b.z);
+        }, py::call_guard<py::gil_scoped_release>())
+        .def("__str__", [](const LitVector3 &a) {
+            return std::to_string(a.x) + " " + std::to_string(a.y) + " " + std::to_string(a.z);
+        }, py::call_guard<py::gil_scoped_release>());
 
 
-    
+
+
     py::class_<Vector2>(m, "Vector2")
         .def(py::init<float, float>())
         .def_readwrite("x", &Vector2::x, py::call_guard<py::gil_scoped_release>())
         .def_readwrite("y", &Vector2::y, py::call_guard<py::gil_scoped_release>());
 
-    m.def("Vector3Add", &Vector3Add, py::call_guard<py::gil_scoped_release>());
-    m.def("Vector3Subtract", &Vector3Subtract, py::call_guard<py::gil_scoped_release>());
-    m.def("Vector3Multiply", &Vector3Multiply, py::call_guard<py::gil_scoped_release>());
-    m.def("Vector3Divide", &Vector3Divide, py::call_guard<py::gil_scoped_release>());
     m.def("Vector3Scale", &Vector3Scale, py::call_guard<py::gil_scoped_release>());
-    m.def("Vector3CrossProduct", &Vector3CrossProduct, py::call_guard<py::gil_scoped_release>());
     m.def("lerp", static_cast<float(*)(float, float, float)>(&lerp<float>), "Lerp function for float and double types");
     m.def("lerp", static_cast<int(*)(int, int, float)>(&lerp_int), "Lerp function for integer types");
     m.def("lerp", &lerp_Vector3, "Lerp function for Vector3 type");
@@ -60,14 +48,53 @@ PYBIND11_EMBEDDED_MODULE(math_module, m) {
 
 
 struct LitCamera : Camera3D {
-    Vector3 front;
+    LitVector3 front;
+    LitVector3 right;
+    LitVector3 left;
+    LitVector3 back;
 
-    // Constructor with default values
-    LitCamera(Vector3 _position = Vector3{}, Vector3 _target = Vector3{},
-              Vector3 _up = Vector3{}, float _fovy = 0.0f, int _projection = 0)
-        : Camera3D{_position, _target, _up, _fovy, _projection},
-          front{Vector3Subtract(_target, _position)} {}
+    LitVector3 pos = LitVector3{};
+    LitVector3 look_at = LitVector3{};
+    LitVector3 up_vector = LitVector3{};
+
+    LitCamera(LitVector3 pos = LitVector3{}, LitVector3 look_at = LitVector3{},
+              LitVector3 up_vector = LitVector3{}, float _fovy = 0.0f, int _projection = 0)
+        : Camera3D{},
+          front{Vector3Subtract(look_at, pos)} {
+            update();
+          }
+
+    void update() {
+        position = pos;
+        target = look_at;
+        up = up_vector;
+        front = Vector3Subtract(look_at, pos);
+        right = Vector3Normalize(Vector3CrossProduct(front, up));
+        left = Vector3Negate(right);
+        back = Vector3Negate(front);
+    }
 };
+
+
+
+PYBIND11_EMBEDDED_MODULE(camera_module, m) {
+    py::class_<LitCamera>(m, "LitCamera")
+        .def(py::init<LitVector3, LitVector3, LitVector3, float, float>())
+        .def_readwrite("pos", &LitCamera::pos, py::call_guard<py::gil_scoped_release>())
+        .def_readwrite("look_at", &LitCamera::look_at, py::call_guard<py::gil_scoped_release>())
+        .def_readwrite("up", &LitCamera::up_vector, py::call_guard<py::gil_scoped_release>())
+        .def_readwrite("fovy", &LitCamera::fovy, py::call_guard<py::gil_scoped_release>())
+        .def_readwrite("projection", &LitCamera::projection, py::call_guard<py::gil_scoped_release>())
+        .def_readwrite("front", &LitCamera::front, py::call_guard<py::gil_scoped_release>())
+        .def_readwrite("back", &LitCamera::back, py::call_guard<py::gil_scoped_release>())
+        .def_readwrite("left", &LitCamera::left, py::call_guard<py::gil_scoped_release>())
+        .def_readwrite("right", &LitCamera::right, py::call_guard<py::gil_scoped_release>());
+
+
+}
+
+
+
 
 
 
@@ -190,8 +217,7 @@ PYBIND11_EMBEDDED_MODULE(input_module, m) {
 
 
 
-
-HitInfo raycast(Vector3 origin, Vector3 direction, bool debug=false, std::vector<Entity> ignore = {});
+HitInfo raycast(LitVector3 origin, LitVector3 direction, bool debug=false, std::vector<Entity> ignore = {});
 
 
 PYBIND11_EMBEDDED_MODULE(collisions_module, m) {
@@ -232,22 +258,6 @@ PYBIND11_EMBEDDED_MODULE(color_module, m) {
             printColor(color);
         });
 }
-
-
-
-
-PYBIND11_EMBEDDED_MODULE(camera_module, m) {
-    py::class_<LitCamera>(m, "LitCamera")
-        .def(py::init<Vector3, Vector3, Vector3, float, float>())
-        .def_readwrite("position", &Camera3D::position, py::call_guard<py::gil_scoped_release>())
-        .def_readwrite("front", &LitCamera::front, py::call_guard<py::gil_scoped_release>())
-        .def_readwrite("target", &Camera3D::target, py::call_guard<py::gil_scoped_release>())
-        .def_readwrite("up", &Camera3D::up, py::call_guard<py::gil_scoped_release>())
-        .def_readwrite("fovy", &Camera3D::fovy, py::call_guard<py::gil_scoped_release>())
-        .def_readwrite("projection", &Camera3D::projection, py::call_guard<py::gil_scoped_release>());
-}
-
-
 
 
 

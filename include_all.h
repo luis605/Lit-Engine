@@ -96,15 +96,20 @@ using json = nlohmann::json;
 #include "Engine/Core/Engine.hpp"
 #include "Engine/Lighting/lights.h"
 
+/* Scripting */
+#include "Engine/Scripting/math.cpp"
+#include "Engine/Scripting/functions.cpp"
+
+
 /* Globals */
 #include "globals.h"
 #include "Engine/Core/functions.h"
-#include "Engine/Scripting/functions.cpp"
 #include "Engine/Core/global_variables.cpp"
 
 #include "Engine/Core/Engine.cpp"
 
 #include "Engine/Core/RunGame.h"
+
 
 /* GUI */
 #include "Engine/GUI/Tooltip/Tooltip.cpp"

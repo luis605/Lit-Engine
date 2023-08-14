@@ -29,8 +29,8 @@ pitch = 0.0
 def update():
     global velocity, elapsed_time, total_duration, can_move_forward, can_move_back, can_move_left, can_move_right, can_fall, gravity, step, yaw, pitch
 
-    camera_direction = camera.front
-    camera_direction.y = 0  # Keep movement in the horizontal plane
+    camera_direction = camera.front * time.dt * velocity
+    camera_direction.y = 0
 
     DeltaTimeVec3 = Vector3(time.dt, time.dt, time.dt)
 
@@ -40,20 +40,20 @@ def update():
 
     if IsKeyDown(KeyboardKey.KEY_S) and can_move_back:
         print("Back")
-        entity.applyImpulse(Vector3Subtract(Vector3(0,0,0), camera_direction))
+        entity.applyImpulse(camera.back * DeltaTimeVec3 * velocity)
 
     if IsKeyDown(KeyboardKey.KEY_A):
         print("Left")
-        right = Vector3CrossProduct(camera_direction, camera.up)
-        entity.applyImpulse(Vector3Subtract(Vector3(0,0,0), right))
+        left = camera.left * DeltaTimeVec3 * velocity
+        entity.applyImpulse(left)
 
 
     if (IsKeyDown(KeyboardKey.KEY_D) and can_move_right):
         print("Right")
-        right = Vector3CrossProduct(camera_direction, camera.up)
+        right = camera.right * DeltaTimeVec3 * velocity
         entity.applyImpulse(right)
 
-    entity.print_position()
+
     # Jumping behavior (example: press spacebar to jump)
     if IsKeyDown(KeyboardKey.KEY_SPACE):
         entity.applyImpulse(Vector3(0, 0.5, 0))  # Adjust the value for the desired jump height
@@ -61,17 +61,19 @@ def update():
 
 
     # Camera controls
-    camera.position = Vector3(entity.position.x, entity.position.y, entity.position.z)
-    camera.target = Vector3(entity.position.x + 0.1, entity.position.y, entity.position.z)
+    camera.pos = Vector3(entity.position.x, entity.position.y, entity.position.z)
+    camera.look_at = Vector3(entity.position.x + 0.1, entity.position.y, entity.position.z)
 
+    # entity.print_position()
+    
     # Mouse rotation
     sensitivity = 0.3
     yaw -= GetMouseMovement().x * sensitivity
     pitch += GetMouseMovement().y * sensitivity
-    camera.target = Vector3(entity.position.x, entity.position.y, entity.position.z)
-    camera.target.x += math.sin(math.radians(yaw))
-    camera.target.y += pitch
-    camera.target.z += math.cos(math.radians(yaw))
+    camera.look_at = Vector3(entity.position.x, entity.position.y, entity.position.z)
+    camera.look_at.x += math.sin(math.radians(yaw))
+    camera.look_at.y += pitch
+    camera.look_at.z += math.cos(math.radians(yaw))
     camera.up = Vector3(0, 1, 0)
 
 
@@ -126,6 +128,16 @@ def update():
             can_fall = False
     else:
         can_fall = True
+
+
+
+
+
+
+
+
+
+
 
 
 
