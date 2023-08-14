@@ -51,7 +51,7 @@ const char* encryptFile(const std::string& inputFile, const std::string& key) {
         encryptedData.append(buffer, bytesRead);
     }
 
-    // Convert the encrypted data to a C-style string
+    
     char* encryptedCString = new char[encryptedData.size() + 1];
     std::strcpy(encryptedCString, encryptedData.c_str());
 
@@ -61,7 +61,7 @@ const char* encryptFile(const std::string& inputFile, const std::string& key) {
 
 
 const char* decryptFile(const std::string& inputFile, const std::string& key) {
-    return encryptFile(inputFile, key); // XOR decryption is the same as encryption    
+    return encryptFile(inputFile, key); 
 }
 
 
@@ -81,11 +81,11 @@ void InitWindow()
     InitLighting();
     SetTargetFPS(60);
 
-    inGame_Camera.position = (Vector3){ 0.0f, 10.0f, 10.0f };  // inGame_Camera position
-    inGame_Camera.target = (Vector3){ 0.0f, 0.0f, 0.0f };      // inGame_Camera looking at point
-    inGame_Camera.up = (Vector3){ 0.0f, 1.0f, 0.0f };          // inGame_Camera up vector (rotation towards target)
-    inGame_Camera.fovy = 45.0f;                                // inGame_Camera field-of-view Y
-    inGame_Camera.projection = CAMERA_PERSPECTIVE;             // inGame_Camera mode type
+    inGame_Camera.position = (Vector3){ 0.0f, 10.0f, 10.0f };  
+    inGame_Camera.target = (Vector3){ 0.0f, 0.0f, 0.0f };      
+    inGame_Camera.up = (Vector3){ 0.0f, 1.0f, 0.0f };          
+    inGame_Camera.fovy = 45.0f;                                
+    inGame_Camera.projection = CAMERA_PERSPECTIVE;             
 
     SetupPhysicsWorld();
 
