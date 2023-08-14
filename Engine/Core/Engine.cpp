@@ -51,13 +51,13 @@ public:
     string name = "Entity";
     Color color;
     float size = 1;
-    Vector3 position = { 0, 0, 0 };
-    Vector3 rotation = { 0, 0, 0 };
-    Vector3 scale = { 1, 1, 1 };
+    LitVector3 position = { 0, 0, 0 };
+    LitVector3 rotation = { 0, 0, 0 };
+    LitVector3 scale = { 1, 1, 1 };
 
-    Vector3 relative_position = { 0, 0, 0 };
-    Vector3 relative_rotation = { 0, 0, 0 };
-    Vector3 relative_scale = { 1, 1, 1 };
+    LitVector3 relative_position = { 0, 0, 0 };
+    LitVector3 relative_rotation = { 0, 0, 0 };
+    LitVector3 relative_scale = { 1, 1, 1 };
 
     string script = "";
     string model_path = "";
@@ -108,11 +108,11 @@ private:
     btCollisionShape* dynamicBoxShape = nullptr;
     btDefaultMotionState* boxMotionState = nullptr;
     btRigidBody* boxRigidBody = nullptr;
-    Vector3 backupPosition = position;
+    LitVector3 backupPosition = position;
 
 public:
-    Entity(Color color = { 255, 255, 255, 255 }, Vector3 scale = { 1, 1, 1 }, Vector3 rotation = { 0, 0, 0 }, string name = "entity",
-    Vector3 position = {0, 0, 0}, string script = "")
+    Entity(Color color = { 255, 255, 255, 255 }, LitVector3 scale = { 1, 1, 1 }, LitVector3 rotation = { 0, 0, 0 }, string name = "entity",
+    LitVector3 position = {0, 0, 0}, string script = "")
         : color(color), scale(scale), rotation(rotation), name(name), position(position), script(script)
     {   
         initialized = true;
@@ -125,7 +125,11 @@ public:
 
     void addChild(Entity& child) {
         Entity* newChild = new Entity(child);
-        newChild->relative_position = Vector3Subtract(newChild->position, this->position);
+        newChild->relative_position = {
+            newChild->position.x - this->position.x,
+            newChild->position.y - this->position.y,
+            newChild->position.z - this->position.z
+        };
         newChild->parent = selected_entity;
         printf("Parent x position: %f", newChild->parent->position.x);
         children.push_back(newChild);
@@ -141,7 +145,7 @@ public:
                 if (child == selected_entity) return;
             #endif
 
-            child->position = Vector3Add(this->position, child->relative_position);
+            child->position = {this->position + child->relative_position};
 
             child->update_children();
 
@@ -299,12 +303,7 @@ public:
             "raycast"_a = collisions_module.attr("raycast"),
             "Vector3"_a = math_module.attr("Vector3"),
             "Vector2"_a = math_module.attr("Vector2"),
-            "Vector3Add"_a = math_module.attr("Vector3Add"),
-            "Vector3Subtract"_a = math_module.attr("Vector3Subtract"),
-            "Vector3Multiply"_a = math_module.attr("Vector3Multiply"),
-            "Vector3Divide"_a = math_module.attr("Vector3Divide"),
             "Vector3Scale"_a = math_module.attr("Vector3Scale"),
-            "Vector3CrossProduct"_a = math_module.attr("Vector3CrossProduct"),
             "Color"_a = color_module.attr("Color"),
             "time"_a = py::cast(&time_instance),
             "lerp"_a = math_module.attr("lerp"),
@@ -346,6 +345,7 @@ public:
                     rendering_camera->front = Vector3Subtract(rendering_camera->target, rendering_camera->position);
                     if (time_instance.dt - last_frame_count != 0) {
                         locals["time"] = py::cast(&time_instance);
+                        rendering_camera->update();
                         update_func();
                         last_frame_count = time_instance.dt;
                     }
@@ -391,7 +391,7 @@ public:
     
 
 
-    void applyForce(const Vector3& force) {
+    void applyForce(const LitVector3& force) {
         if (boxRigidBody && isDynamic) {
             boxRigidBody->setActivationState(ACTIVE_TAG);
             btVector3 btForce(force.x, force.y, force.z);
@@ -399,7 +399,7 @@ public:
         }
     }
 
-    void applyImpulse(const Vector3& impulse) {
+    void applyImpulse(const LitVector3& impulse) {
         if (boxRigidBody && isDynamic) {
             boxRigidBody->setActivationState(ACTIVE_TAG);
             btVector3 btImpulse(impulse.x, impulse.y, impulse.z);
@@ -707,7 +707,7 @@ py::module entity_module("entity_module");
 
 
 
-HitInfo raycast(Vector3 origin, Vector3 direction, bool debug=false, std::vector<Entity> ignore = {})
+HitInfo raycast(LitVector3 origin, LitVector3 direction, bool debug=false, std::vector<Entity> ignore = {})
 {
     std::lock_guard<std::mutex> lock(script_mutex);
     pybind11::gil_scoped_acquire acquire;

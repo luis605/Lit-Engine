@@ -34,7 +34,7 @@ namespace nlohmann {
 
 
     template<>
-    struct adl_serializer<Vector3> {
+    struct adl_serializer<LitVector3> {
         static void to_json(json& j, const Vector3& vec) {
             j = json{{"x", vec.x}, {"y", vec.y}, {"z", vec.z}};
         }
