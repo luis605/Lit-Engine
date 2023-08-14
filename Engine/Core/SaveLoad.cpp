@@ -214,8 +214,11 @@ void LoadEntity(const json& entity_json, Entity& entity) {
     };
     entity.relative_position = relative_position;
 
+    entity.isDynamic = entity_json["is_dynamic"].get<bool>();
+    std::cout << "IS DYNAMIC: " << entity.isDynamic << "\n";
+    entity.mass = entity_json["mass"].get<float>();
 
-    std::cout << IsModelReady(LoadModel("project/game/models/plane.obj")) << std::endl;
+
     entity.setModel(
         entity_json["model_path"].get<std::string>().c_str(),
         LoadModel(entity_json["model_path"].get<std::string>().c_str())
@@ -265,12 +268,6 @@ void LoadEntity(const json& entity_json, Entity& entity) {
 
     entity.setShader(shader);
 
-    if (entity.isDynamic)
-        entity.makePhysicsDynamic();
-    else
-        entity.makePhysicsStatic();
-        
-    entity.mass = entity_json["mass"].get<float>();
 
     if (entity_json.contains("children")) {
         const json& children_data = entity_json["children"];

@@ -102,6 +102,8 @@ void WindowMainloop()
 
 void Run()
 {
+    dynamicsWorld->stepSimulation(GetFrameTime(), 10);
+    
     BeginDrawing();
         ClearBackground(GRAY);
 
