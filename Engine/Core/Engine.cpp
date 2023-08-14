@@ -446,6 +446,16 @@ public:
 
             btTransform groundTransform;
             groundTransform.setIdentity();
+
+            float rollRad = glm::radians(rotation.x);
+            float pitchRad = glm::radians(rotation.y);
+            float yawRad = glm::radians(rotation.z);
+
+            btQuaternion quaternion;
+            quaternion.setEulerZYX(yawRad, pitchRad, rollRad);
+
+            groundTransform.setRotation(quaternion);
+
             groundTransform.setOrigin(btVector3(position.x, position.y, position.z));
 
             btDefaultMotionState *groundMotionState = new btDefaultMotionState(groundTransform);
@@ -503,7 +513,14 @@ public:
         isDynamic = false;
         createStaticBox(scale.x, scale.y, scale.z);
     }
-    
+
+    void reloadRigidBody() {
+        if (isDynamic)
+            makePhysicsDynamic();
+        else
+            makePhysicsStatic();
+    }
+
     void print_position()
     {
         std::cout << "Position: " << position.x << ", " << position.y << ", " << position.z << "\n";

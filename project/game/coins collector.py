@@ -130,6 +130,10 @@ def update():
     else:
         can_fall = True
 
+    if (IsKeyDown(KeyboardKey.KEY_LEFT_SHIFT)):
+        velocity = 20
+    else:
+        velocity = 10
 
 
 

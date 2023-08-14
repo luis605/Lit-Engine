@@ -554,6 +554,7 @@ void ProcessCopy()
     {
         std::cout << "Creating Entity" << std::endl;
         Entity new_entity = *selected_entity;
+        new_entity.reloadRigidBody();
         entities_list_pregame.reserve(1);
         entities_list_pregame.emplace_back(new_entity);
         selected_entity = &entities_list_pregame.back();

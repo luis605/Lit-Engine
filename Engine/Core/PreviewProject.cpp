@@ -3,30 +3,31 @@
 bool can_previewProject = false;
 
 
+
 void PreviewStartup()
 {
-    // Raylib
-    SetTraceLogLevel(LOG_WARNING);
+    SetTraceLogLevel(LOG_ERROR);
     SetTargetFPS(10000);
     SetExitKey(KEY_NULL);
 
-    // Window
     SetConfigFlags(FLAG_MSAA_4X_HINT | FLAG_VSYNC_HINT | FLAG_WINDOW_RESIZABLE);
     InitWindow(1200, 700, "Game Preview");
 
-    // Face Culling
     glEnable(GL_CULL_FACE);
     glCullFace(GL_BACK);
 
-    // Python
     Py_Initialize();
 
-    // Shaders
     shader = LoadShader("Engine/Lighting/shaders/lighting_vertex.glsl", "Engine/Lighting/shaders/lighting_fragment.glsl");
     InitLighting();
 
-    // Physics
+
     SetupPhysicsWorld();
+
+    std::cout << dynamicsWorld->getGravity().y() << std::endl;
+
+
+    InitSkybox();
 
 }
 
@@ -77,7 +78,7 @@ void PreviewProject()
     InitPreviewCamera();
     while (!WindowShouldClose())
     {
-
+        dynamicsWorld->stepSimulation(GetFrameTime(), 10);
         UpdateInGameGlobals();
 
         BeginDrawing();
