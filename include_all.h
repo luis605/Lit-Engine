@@ -98,6 +98,7 @@ using json = nlohmann::json;
 
 /* Scripting */
 #include "Engine/Scripting/math.cpp"
+#include "Engine/Scripting/time.cpp"
 #include "Engine/Scripting/functions.cpp"
 
 

@@ -1,5 +1,14 @@
 #pragma once
 
+PYBIND11_EMBEDDED_MODULE(time_module, m) {
+    py::class_<Time>(m, "Time")
+        .def(py::init<>())
+        .def_readwrite("dt", &Time::dt);
+}
+
+
+
+
 
 PYBIND11_EMBEDDED_MODULE(math_module, m) {
     py::class_<LitVector3>(m, "Vector3")
@@ -38,7 +47,10 @@ PYBIND11_EMBEDDED_MODULE(math_module, m) {
     py::class_<Vector2>(m, "Vector2")
         .def(py::init<float, float>())
         .def_readwrite("x", &Vector2::x, py::call_guard<py::gil_scoped_release>())
-        .def_readwrite("y", &Vector2::y, py::call_guard<py::gil_scoped_release>());
+        .def_readwrite("y", &Vector2::y, py::call_guard<py::gil_scoped_release>())
+        .def("__str__", [](const Vector2 &a) {
+            return std::to_string(a.x) + " " + std::to_string(a.y);
+        }, py::call_guard<py::gil_scoped_release>());
 
     m.def("Vector3Scale", &Vector3Scale, py::call_guard<py::gil_scoped_release>());
     m.def("lerp", static_cast<float(*)(float, float, float)>(&lerp<float>), "Lerp function for float and double types");
@@ -97,16 +109,22 @@ PYBIND11_EMBEDDED_MODULE(camera_module, m) {
 
 
 
+Vector2 mouseMove;
+float last_frame_count = 0;
 
 Vector2 GetMouseMovement()
 {
     static Vector2 lastMousePosition = { 0 };
 
-    Vector2 mousePosition = GetMousePosition();
-    Vector2 mouseMove = { mousePosition.x - lastMousePosition.x, mousePosition.y - lastMousePosition.y };
+    if (time_instance.dt - last_frame_count != 0)
+    {
+        Vector2 mousePosition = GetMousePosition();
+        mouseMove = { mousePosition.x - lastMousePosition.x, mousePosition.y - lastMousePosition.y };
 
-    lastMousePosition = mousePosition;
-    
+        lastMousePosition = mousePosition;
+        last_frame_count = time_instance.dt;
+    }
+        
     return mouseMove;
 }
 
@@ -259,31 +277,3 @@ PYBIND11_EMBEDDED_MODULE(color_module, m) {
         });
 }
 
-
-
-
-
-
-class Time {
-public:
-    float dt;
-
-    void update() {
-        dt = GetFrameTime();
-    }
-};
-
-
-PYBIND11_EMBEDDED_MODULE(time_module, m) {
-    py::class_<Time>(m, "Time")
-        .def(py::init<>())
-        .def_readwrite("dt", &Time::dt);
-}
-
-
-Time time_instance;
-
-void UpdateInGameGlobals()
-{
-    time_instance.update();
-}
