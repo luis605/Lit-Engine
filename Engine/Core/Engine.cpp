@@ -347,7 +347,6 @@ public:
 
                 float last_frame_count = 0;
                 while (running) {
-                    rendering_camera->front = Vector3Subtract(rendering_camera->target, rendering_camera->position);
                     if (time_instance.dt - last_frame_count != 0) {
                         locals["time"] = py::cast(&time_instance);
                         rendering_camera->update();

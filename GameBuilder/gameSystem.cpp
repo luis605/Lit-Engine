@@ -90,6 +90,15 @@ void InitWindow()
     SetupPhysicsWorld();
 
     DisableCursor();
+
+    InitSkybox(
+        "assets/default skybox.hdr",
+        "shaders/skybox.vs",
+        "shaders/skybox.fs",
+        "shaders/cubemap.vs",
+        "shaders/cubemap.fs"
+    );
+
 }
 
 void WindowMainloop()

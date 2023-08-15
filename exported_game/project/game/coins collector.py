@@ -69,12 +69,17 @@ def update():
     # Mouse rotation
     sensitivity = 0.3
     yaw -= GetMouseMovement().x * sensitivity
-    pitch += GetMouseMovement().y * sensitivity
-    camera.look_at = Vector3(entity.position.x, entity.position.y, entity.position.z)
-    camera.look_at.x += math.sin(math.radians(yaw))
-    camera.look_at.y += pitch
-    camera.look_at.z += math.cos(math.radians(yaw))
-    camera.look_at.y = camera.pos.y
+    pitch -= GetMouseMovement().y * sensitivity
+
+    print(pitch)
+    front = Vector3(
+        -math.cos(math.radians(yaw)) * math.cos(math.radians(pitch)),
+        math.sin(math.radians(pitch)),
+        math.sin(math.radians(yaw)) * math.cos(math.radians(pitch))
+    )
+
+    camera.look_at = camera.pos + front
+
     camera.up = Vector3(0, 1, 0)
 
 
@@ -134,6 +139,7 @@ def update():
         velocity = 20
     else:
         velocity = 10
+
 
 
 

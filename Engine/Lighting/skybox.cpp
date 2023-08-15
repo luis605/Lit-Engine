@@ -27,13 +27,20 @@ static TextureCubemap GenTextureCubemap(Shader shader, Texture2D panorama, int s
 Model skybox;
 Shader shdrCubemap;
 
-void InitSkybox(const char* skyboxFileName = "assets/images/skybox/default skybox.hdr")
+void InitSkybox(
+    const char* skyboxFileName = "assets/images/skybox/default skybox.hdr",
+    const char* skyboxVS = "Engine/Lighting/shaders/skybox.vs",
+    const char* skyboxFS = "Engine/Lighting/shaders/skybox.fs",
+    const char* cubemapVS = "Engine/Lighting/shaders/cubemap.vs",
+    const char* cubemapFS = "Engine/Lighting/shaders/cubemap.fs"
+    )
+    
 {
     Mesh cube = GenMeshCube(1.0f, 1.0f, 1.0f);
     skybox = LoadModelFromMesh(cube);
 
-    skybox.materials[0].shader = LoadShader("Engine/Lighting/shaders/skybox.vs",
-                                            "Engine/Lighting/shaders/skybox.fs");
+    skybox.materials[0].shader = LoadShader(skyboxVS,
+                                            skyboxFS);
 
 
     bool useHDR = true;
@@ -47,8 +54,8 @@ void InitSkybox(const char* skyboxFileName = "assets/images/skybox/default skybo
     SetShaderValue(skybox.materials[0].shader, GetShaderLocation(skybox.materials[0].shader, "vflipped"), use_hdr, SHADER_UNIFORM_INT);
 
     // Load cubemap shader and setup required shader locations
-    shdrCubemap = LoadShader("Engine/Lighting/shaders/cubemap.vs",
-                                    "Engine/Lighting/shaders/cubemap.fs");
+    shdrCubemap = LoadShader(cubemapVS,
+                             cubemapFS);
 
     int array0[1] = { 0 };
     SetShaderValue(shdrCubemap, GetShaderLocation(shdrCubemap, "equirectangularMap"), array0, SHADER_UNIFORM_INT);
