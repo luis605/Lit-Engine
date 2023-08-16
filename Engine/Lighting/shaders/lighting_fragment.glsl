@@ -140,21 +140,23 @@ void main() {
             
             float distance = length(light.position - fragPosition);
             float attenuation = 1.0 / (1.0 + light.attenuation * distance * distance);
+            float lambertian = max(dot(norm, lightDir), 0.0);
 
             diff = max(dot(norm, lightDir), 0.0);
-            diffuse = light.intensity * surface_material.DiffuseIntensity * diff * attenuation * (light.color.rgb + vec3(colDiffuse.x, colDiffuse.y, colDiffuse.z)) / 2.0;
-            
+            diffuse = light.intensity * surface_material.DiffuseIntensity * diff * attenuation * (light.color.rgb + vec3(colDiffuse.x, colDiffuse.y, colDiffuse.z)) / 2.0 * lambertian;
+
             reflectDir = reflect(-lightDir, norm);
             
             spec = pow(max(dot(viewDir, reflectDir), 0.0), 64.0);
+
             specular = light.specularStrength * surface_material.SpecularIntensity * spec * attenuation * light.color.rgb;
-            specular *= surface_material.SpecularTint;
+            specular *= surface_material.SpecularTint * lambertian;
 
             
             // Apply soft shadows
             
             result += diffuse;
-            result += specular;            
+            result += specular;
         }
 
         else if (light.type == LIGHT_SPOT && light.enabled)
