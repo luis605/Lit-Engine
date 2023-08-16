@@ -22,6 +22,8 @@ uniform sampler2D texture3;
 
 uniform sampler2D texture4;
 
+// Fog
+vec4 fogColor = vec4(1, 0.6, 0.6, 1);
 // Lights
 #define LIGHT_DIRECTIONAL 0
 #define LIGHT_POINT 1
@@ -42,6 +44,9 @@ struct Light
     float cutOff;
     bool isChild;
     vec3 direction;
+    // Spot
+	float spread;
+	float penumbraFactor;
 };
 
 
@@ -72,6 +77,13 @@ out vec4 finalColor;
 out vec3 fragLightDir;
 out vec3 fragViewDir;
 
+
+
+vec4 addFog(in float dist, in vec4 before, in vec3 camPos, in vec3 rayDir) {
+    float b = 1.4, c = 0.01;
+    float fogAmount = c * exp(-camPos.y * b) * (1.0 - exp(-dist * dot(rayDir, vec3(0, 1, 0)) * b)) / dot(rayDir, vec3(0, 1, 0));
+    return mix(before, fogColor, fogAmount);
+}
 
 
 void main() {
@@ -147,23 +159,13 @@ void main() {
 
         else if (light.type == LIGHT_SPOT && light.enabled)
         {
-            vec3 fragLightDir = normalize(-light.direction);
+            vec3 lightToPoint = light.position - fragPosition;
+            float spot = smoothstep(0.6, 0.8, dot(normalize(lightToPoint), light.direction)); // Adjust the thresholds for smoother transition
 
-            fragViewDir = normalize(viewPos - fragPosition);
+            float lightToFragDist = length(light.position - fragPosition);
+            float attenuation = 1.0 / (1.0 + light.attenuation * lightToFragDist * lightToFragDist);
 
-            vec3 lightDir = normalize(fragLightDir);
-            vec3 viewDir = normalize(fragViewDir);
-            
-            float distance = length(fragLightDir);
-            float attenuation = light.attenuation;
-            
-            float spotAngle = dot(-lightDir, normalize(light.direction));
-            float spotFactor = 100;
-            
-            float diffuseStrength = 0.7;
-            float diffuse = max(dot(norm, lightDir), 0.0);
-            
-            result += vec3(diffuse * diffuseStrength * light.color * colDiffuse * attenuation * spotFactor);
+            result += colDiffuse.rgb * spot * light.intensity * attenuation + (colDiffuse.rgb * ambient.rgb);
         }
     }
 
@@ -176,13 +178,13 @@ void main() {
         blendedColor.rgb *= roughnessIntensity;
     }
 
-
-
+    // float distanceToCamera = length(viewPos - fragPosition);
+    // vec4 fog = addFog(distanceToCamera, blendedColor, viewPos, viewDir);
+    // blendedColor.rgb = fog.rgb;
 
     // Apply gamma correction
     blendedColor.rgb = pow(blendedColor.rgb, vec3(1.0 / 2.2));
 
     // Assign the final color
     finalColor = blendedColor;
-
 }

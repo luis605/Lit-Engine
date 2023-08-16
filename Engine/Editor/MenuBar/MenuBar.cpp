@@ -105,6 +105,17 @@ void DrawMenus()
         
         ImGui::EndMenu();
     }
+
+    if (ImGui::BeginMenu("Debug/Developers Options"))
+    {
+        if (ImGui::MenuItem("Reload Lighting Shader", ""))
+        {
+            std::cout << "\n\n\n\n\nReloading Lighting Shaders\n\n";
+            shader = LoadShader("Engine/Lighting/shaders/lighting_vertex.glsl", "Engine/Lighting/shaders/lighting_fragment.glsl");
+        }
+        ImGui::EndMenu();
+    }
+
 }
 
 void MenuBar()

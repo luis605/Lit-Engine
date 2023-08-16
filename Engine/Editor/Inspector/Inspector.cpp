@@ -230,6 +230,32 @@ void EntityInspector()
             ImGui::EndDragDropTarget();
         }
 
+
+        ImGui::Text("Ambient Occlusion Texture: ");
+        if (ImGui::ImageButton((ImTextureID)&selected_entity->ao_texture, ImVec2(64, 64)))
+        {
+            //show_texture = !show_normal_texture;
+        }
+
+        if (ImGui::BeginDragDropTarget())
+        {
+            if (const ImGuiPayload* payload = ImGui::AcceptDragDropPayload("TEXTURE_PAYLOAD"))
+            {
+                IM_ASSERT(payload->DataSize == sizeof(int));
+                int payload_n = *(const int*)payload->Data;
+
+                string path = dir_path.c_str();
+                path += "/" + files_texture_struct[payload_n].name;
+
+                selected_entity->ao_texture = LoadTexture(path.c_str());
+                selected_entity->ao_texture_path = path;
+
+                selected_entity->ReloadTextures();
+
+            }
+            ImGui::EndDragDropTarget();
+        }
+
         if (ImGui::Button("View Material in Nodes Editor"))
             show_material_in_nodes_editor = !show_material_in_nodes_editor;
 
