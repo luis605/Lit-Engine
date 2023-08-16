@@ -36,20 +36,16 @@
 
 #include <stdio.h>
 #include <iostream>
-#include <dirent.h>
 #include <string>
 #include <vector>
 #include <fstream>
-#include <sys/stat.h>
-#include <sys/types.h>
 #include <exception>
 #include <signal.h>
 #include <boost/filesystem.hpp>
-#include <glm/glm.hpp>
-#include <glm/gtc/matrix_transform.hpp>
+#include "dependencies/include/glm/glm.hpp"
+#include "dependencies/include/glm/gtc/matrix_transform.hpp"
 #include <algorithm>
 #include <cmath>
-#include <sys/mman.h>
 #include <python3.11/Python.h>
 #include <pybind11/embed.h>
 #include <pybind11/pybind11.h>
@@ -63,9 +59,10 @@
     #include "include/nlohmann/json.hpp"
 #endif
 
-#include <IconsFontAwesome.h>
-#include <execinfo.h>
-#include <unistd.h>
+#ifndef GAME_SHIPPING
+    #include <IconsFontAwesome.h>
+#endif
+
 #include <typeinfo>
 #include <thread>
 #include <functional>
