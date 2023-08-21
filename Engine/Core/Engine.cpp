@@ -275,8 +275,12 @@ public:
                 .def_property("name",
                     &Entity::getName,
                     &Entity::setName)
-                    
-                .def_readwrite("position", &Entity::position, py::call_guard<py::gil_scoped_release>())
+
+                .def_property("position",
+                    [](const Entity& entity) { return entity.position; },
+                    [](Entity& entity, LitVector3& position) { entity.setPos(position); }
+                )
+                
                 .def_readwrite("scale", &Entity::scale, py::call_guard<py::gil_scoped_release>())
                 .def_readwrite("rotation", &Entity::rotation, py::call_guard<py::gil_scoped_release>())
                 .def_readwrite("color", &Entity::color, py::call_guard<py::gil_scoped_release>())
@@ -285,7 +289,9 @@ public:
                 .def_readwrite("collider", &Entity::collider, py::call_guard<py::gil_scoped_release>())
                 .def("print_position", &Entity::print_position, py::call_guard<py::gil_scoped_release>())
                 .def("applyForce", &Entity::applyForce, py::call_guard<py::gil_scoped_release>())
-                .def("applyImpulse", &Entity::applyImpulse, py::call_guard<py::gil_scoped_release>());
+                .def("applyImpulse", &Entity::applyImpulse, py::call_guard<py::gil_scoped_release>())
+                .def("makeStatic", &Entity::makePhysicsStatic, py::call_guard<py::gil_scoped_release>())
+                .def("makeDynamic", &Entity::makePhysicsDynamic, py::call_guard<py::gil_scoped_release>());
         }
 
 
@@ -379,7 +385,7 @@ public:
 
 
     void calcPhysicsPosition() {
-        if (isDynamic && boxRigidBody) {    
+        if (isDynamic && boxRigidBody != nullptr) {    
             btTransform trans;
             if (boxRigidBody->getMotionState()) {
                 boxRigidBody->getMotionState()->getWorldTransform(trans);
@@ -391,9 +397,10 @@ public:
     }
 
 
-    void setPhysicsPosition(Vector3& position) {
-        if (isDynamic && boxRigidBody) {
-            btVector3 btNewPosition(position.x, position.y, position.z);
+    void setPos(LitVector3& new_position) {
+        position = new_position;
+        if (boxRigidBody) {
+            btVector3 btNewPosition(new_position.x, new_position.y, new_position.z);
             btTransform trans = boxRigidBody->getCenterOfMassTransform();
             trans.setOrigin(btNewPosition);
             boxRigidBody->setCenterOfMassTransform(trans);
@@ -541,17 +548,17 @@ public:
 
         if (calc_physics)
         {
-            calcPhysicsPosition();
             if (!isDynamic)
                 makePhysicsStatic();
+            else
+                calcPhysicsPosition();
         }
         else
         {
-            setPhysicsPosition(position);
+            setPos(position);    
+//            updateMass();
         }
 
-
-       updateMass();
 
         // if (isDynamic) std::cout << "Position: " << position.x << " " << position.y << " " << position.z << std::endl << std::endl;
 
@@ -727,12 +734,6 @@ bool operator==(const Entity& e, const Entity* ptr) {
     
 
 py::module entity_module("entity_module");
-
-
-
-
-
-
 
 HitInfo raycast(LitVector3 origin, LitVector3 direction, bool debug=false, std::vector<Entity> ignore = {})
 {
