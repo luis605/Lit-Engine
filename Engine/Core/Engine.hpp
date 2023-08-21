@@ -28,7 +28,7 @@ typedef struct HitInfo
     Vector3 worldNormal;
     float distance;
     Color hitColor;
-    Entity* entity;
+    std::shared_ptr<Entity> entity;
 };
 
 
