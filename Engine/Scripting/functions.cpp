@@ -257,8 +257,8 @@ PYBIND11_EMBEDDED_MODULE(collisions_module, m) {
         .def_readwrite("distance", &HitInfo::distance)
         .def_readwrite("hitColor", &HitInfo::hitColor)
         .def_property("entity", 
-            [](const HitInfo& info) { return info.entity.get(); }, // Getter
-            [](HitInfo& info, Entity* entity) { info.entity = std::shared_ptr<Entity>(entity); } // Setter
+            [](const HitInfo& info) { return info.entity; }, // Getter
+            [](HitInfo& info, const std::shared_ptr<Entity>& entity) { info.entity = entity; } // Setter
         );
         
     m.def("raycast", &raycast, py::arg("origin"), py::arg("direction"), py::arg("debug") = false, py::arg("ignore") = std::vector<Entity>(), py::call_guard<py::gil_scoped_release>());

@@ -1,71 +1,45 @@
 import math
 
 velocity = 10.0
-can_move_forward = True
-can_move_back = True
-can_move_left = True
-can_move_right = True
+dragging_item = None
+hovered_entity = None
 
-trigger_distance = 1.5
+target_distance = 5.0  # Adjust the distance at which the object appears in front of the player
 gravity = 9.8
-can_fall = True
-
-print("GAME")
-total_duration = 8.0 
-elapsed_time = 0.0001
-
-target_position = Vector3(
-    entity.position.x + 3,
-    entity.position.y,
-    entity.position.z
-    )
-
-step = 0
 
 yaw = 0.0
 pitch = 0.0
 
+rotation_angle = 45.0  # Angle in degrees for rotation
+
 def update():
-    global velocity, elapsed_time, total_duration, can_move_forward, can_move_back, can_move_left, can_move_right, can_fall, gravity, step, yaw, pitch
+    global velocity, dragging_item, hovered_entity, yaw, pitch
 
     camera_direction = camera.front * time.dt * velocity
     camera_direction.y = 0
 
     DeltaTimeVec3 = Vector3(time.dt, time.dt, time.dt)
 
-    if IsKeyDown(KeyboardKey.KEY_W) and can_move_forward:
-        print("Forward")
+    if IsKeyDown(KeyboardKey.KEY_W):
         entity.applyImpulse(camera_direction)
 
-    if IsKeyDown(KeyboardKey.KEY_S) and can_move_back:
-        print("Back")
+    if IsKeyDown(KeyboardKey.KEY_S):
         entity.applyImpulse(camera.back * DeltaTimeVec3 * velocity)
 
     if IsKeyDown(KeyboardKey.KEY_A):
-        print("Left")
         left = camera.left * DeltaTimeVec3 * velocity
         entity.applyImpulse(left)
 
-
-    if (IsKeyDown(KeyboardKey.KEY_D) and can_move_right):
-        print("Right")
+    if IsKeyDown(KeyboardKey.KEY_D):
         right = camera.right * DeltaTimeVec3 * velocity
         entity.applyImpulse(right)
 
-
-    # Jumping behavior (example: press spacebar to jump)
     if IsKeyDown(KeyboardKey.KEY_SPACE):
-        entity.applyImpulse(Vector3(0, 0.5, 0))  # Adjust the value for the desired jump height
+        entity.applyImpulse(Vector3(0, 0.5, 0))  # Adjust for desired jump height
 
-
-
-    # Camera controls
     camera.pos = Vector3(entity.position.x, entity.position.y, entity.position.z)
     camera.look_at = Vector3(entity.position.x + 0.1, entity.position.y, entity.position.z)
 
-    # entity.print_position()
-    
-    # Mouse rotation
     sensitivity = 0.3
     yaw -= GetMouseMovement().x * sensitivity
     pitch -= GetMouseMovement().y * sensitivity
@@ -77,31 +51,36 @@ def update():
     )
 
     camera.look_at = camera.pos + front
-
     camera.up = Vector3(0, 1, 0)
 
-
-
-
-    down_raycast = raycast(Vector3(target_position.x, target_position.y - 0.5, target_position.z), Vector3(0, -1, 0), debug=False, ignore=[])
-    if down_raycast.hit:
-        # Compare the distance with the entity's height instead of trigger_distance
-        if down_raycast.distance > entity.scale.y * 0.5:
-            can_fall = True
-        else:
-            can_fall = False
-    else:
-        can_fall = True
-
-    if (IsKeyDown(KeyboardKey.KEY_LEFT_SHIFT)):
-        velocity = 20
-    else:
-        velocity = 10
-
-
-    # detect mouse hovering
     camera_raycast = raycast(entity.position, camera_direction, ignore=[entity])
-    if camera_raycast.hit and IsMouseButtonPressed(MouseButton.MOUSE_BUTTON_LEFT):
-        print("Hovering")
-        print(camera_raycast.entity.name)
 
+    if IsKeyDown(KeyboardKey.KEY_F) and camera_raycast.hit and not dragging_item:
+        hovered_entity = camera_raycast.entity
+        hovered_entity.makeStatic()
+        dragging_item = hovered_entity
+        dragging_item.position = entity.position + front * target_distance  # Move the object in front of the player
+        print("Picking up item")
+
+    if dragging_item:
+        print("Dragging:", hovered_entity.name)
+        dragging_item.position = entity.position + front * target_distance  # Move the object in front of the player
+        hovered_entity.applyForce(camera_direction * 6.0)
+
+    if IsKeyDown(KeyboardKey.KEY_G) and dragging_item:
+        # if not dragging_item.isColliding():  # Check if it's not colliding with another object
+            dragging_item.makeDynamic()
+            dragging_item = None
+            print("Dropping item")
+
+    if IsKeyDown(KeyboardKey.KEY_X) and dragging_item:
+        # Rotate the dragged item around the X-axis
+        dragging_item.rotation = Vector3(rotation_angle, 0, 0)
+
+    if IsKeyDown(KeyboardKey.KEY_Y) and dragging_item:
+        # Rotate the dragged item around the Y-axis
+        dragging_item.rotation = Vector3(0, rotation_angle, 0)
+
+    if IsKeyDown(KeyboardKey.KEY_Z) and dragging_item:
+        # Rotate the dragged item around the Z-axis
+        dragging_item.rotation = Vector3(0, 0, rotation_angle)
