@@ -266,13 +266,16 @@ public:
         py::gil_scoped_release release;
         py::gil_scoped_acquire acquire;
 
-        if (!Entity_already_registered)
-        {
+        if (!Entity_already_registered) {
             Entity_already_registered = true;
             py::module entity_module("entity_module");
             py::class_<Entity>(entity_module, "Entity")
                 .def(py::init<>())
-                .def_readwrite("name", &Entity::name, py::call_guard<py::gil_scoped_release>())
+
+                .def_property("name",
+                    &Entity::getName,
+                    &Entity::setName)
+                    
                 .def_readwrite("position", &Entity::position, py::call_guard<py::gil_scoped_release>())
                 .def_readwrite("scale", &Entity::scale, py::call_guard<py::gil_scoped_release>())
                 .def_readwrite("rotation", &Entity::rotation, py::call_guard<py::gil_scoped_release>())
@@ -280,13 +283,16 @@ public:
                 .def_readwrite("visible", &Entity::visible, py::call_guard<py::gil_scoped_release>())
                 .def_readwrite("id", &Entity::id, py::call_guard<py::gil_scoped_release>())
                 .def_readwrite("collider", &Entity::collider, py::call_guard<py::gil_scoped_release>())
-                .def("print_position", &this->print_position, py::call_guard<py::gil_scoped_release>())
-                .def("applyForce", &this->applyForce, py::call_guard<py::gil_scoped_release>())
-                .def("applyImpulse", &this->applyImpulse, py::call_guard<py::gil_scoped_release>());
+                .def("print_position", &Entity::print_position, py::call_guard<py::gil_scoped_release>())
+                .def("applyForce", &Entity::applyForce, py::call_guard<py::gil_scoped_release>())
+                .def("applyImpulse", &Entity::applyImpulse, py::call_guard<py::gil_scoped_release>());
         }
-        Entity& this_entity = entityRef.get();
 
+
+
+        Entity& this_entity = entityRef.get();
         py::object entity_obj = py::cast(&this_entity);
+
         py::module input_module = py::module::import("input_module");
         py::module collisions_module = py::module::import("collisions_module");
         py::module camera_module = py::module::import("camera_module");
@@ -298,13 +304,14 @@ public:
         std::cout << "Camera position: " << camera.position.x << std::endl;
 
 
-        thread_local py::dict locals = py::dict(
+        py::dict locals = py::dict(
             "entity"_a = entity_obj,
             "IsMouseButtonPressed"_a = input_module.attr("IsMouseButtonPressed"),
             "IsKeyDown"_a = input_module.attr("IsKeyDown"),
             "IsKeyUp"_a = input_module.attr("IsKeyUp"),
             "GetMouseMovement"_a = input_module.attr("GetMouseMovement"),
             "KeyboardKey"_a = input_module.attr("KeyboardKey"),
+            "MouseButton"_a = input_module.attr("MouseButton"),
             "raycast"_a = collisions_module.attr("raycast"),
             "Vector3"_a = math_module.attr("Vector3"),
             "Vector2"_a = math_module.attr("Vector2"),
@@ -771,10 +778,10 @@ HitInfo raycast(LitVector3 origin, LitVector3 direction, bool debug=false, std::
             {
                 _hitInfo.hit = true;
                 _hitInfo.distance = meshHitInfo.distance;
-                _hitInfo.entity = &entity;
+                _hitInfo.entity = _hitInfo.entity = std::make_shared<Entity>(entity);
                 _hitInfo.worldPoint = meshHitInfo.point;
                 _hitInfo.worldNormal = meshHitInfo.normal;
-               _hitInfo.hitColor = entity.color;
+                _hitInfo.hitColor = entity.color;
 
                 return _hitInfo;
             }

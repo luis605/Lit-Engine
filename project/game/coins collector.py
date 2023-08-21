@@ -1,7 +1,6 @@
 import math
 
 velocity = 10.0
-entity.name = str(entity.position.x)
 can_move_forward = True
 can_move_back = True
 can_move_left = True
@@ -71,7 +70,6 @@ def update():
     yaw -= GetMouseMovement().x * sensitivity
     pitch -= GetMouseMovement().y * sensitivity
 
-    print(pitch)
     front = Vector3(
         -math.cos(math.radians(yaw)) * math.cos(math.radians(pitch)),
         math.sin(math.radians(pitch)),
@@ -83,46 +81,6 @@ def update():
     camera.up = Vector3(0, 1, 0)
 
 
-
-    # Front Raycast
-    front_raycast = raycast(target_position, Vector3(1, 0, 0), debug=False, ignore=[entity])
-    if front_raycast.hit:
-        if front_raycast.distance < trigger_distance:
-            can_move_forward = False
-        else:
-            can_move_forward = True
-    else:
-        can_move_forward = True
-
-    # Back Raycast
-    back_raycast = raycast(target_position, Vector3(-1, 0, 0), debug=False, ignore=[entity])
-    if back_raycast.hit:
-        if back_raycast.distance < trigger_distance:
-            can_move_back = False
-        else:
-            can_move_back = True
-    else:
-        can_move_back = True
-
-    # Left Raycast
-    left_raycast = raycast(target_position, Vector3(0, 0, 1), debug=False, ignore=[entity])
-    if left_raycast.hit:
-        if left_raycast.distance < trigger_distance:
-            can_move_left = False
-        else:
-            can_move_left = True
-    else:
-        can_move_left = True
-
-    # Right Raycast
-    right_raycast = raycast(target_position, Vector3(0, 0, -1), debug=False, ignore=[entity])
-    if right_raycast.hit:
-        if right_raycast.distance < trigger_distance:
-            can_move_right = False
-        else:
-            can_move_right = True
-    else:
-        can_move_right = True
 
 
     down_raycast = raycast(Vector3(target_position.x, target_position.y - 0.5, target_position.z), Vector3(0, -1, 0), debug=False, ignore=[])
@@ -141,30 +99,9 @@ def update():
         velocity = 10
 
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
+    # detect mouse hovering
+    camera_raycast = raycast(entity.position, camera_direction, ignore=[entity])
+    if camera_raycast.hit and IsMouseButtonPressed(MouseButton.MOUSE_BUTTON_LEFT):
+        print("Hovering")
+        print(camera_raycast.entity.name)
 

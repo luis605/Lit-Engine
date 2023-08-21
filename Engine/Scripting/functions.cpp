@@ -136,6 +136,15 @@ PYBIND11_EMBEDDED_MODULE(input_module, m) {
     m.def("GetMousePosition", &GetMousePosition, py::call_guard<py::gil_scoped_release>());
     m.def("GetMouseMovement", &GetMouseMovement, py::call_guard<py::gil_scoped_release>());
 
+    py::enum_<MouseButton>(m, "MouseButton")
+        .value("MOUSE_BUTTON_LEFT", MOUSE_BUTTON_LEFT)
+        .value("MOUSE_BUTTON_RIGHT", MOUSE_BUTTON_RIGHT)
+        .value("MOUSE_BUTTON_MIDDLE", MOUSE_BUTTON_MIDDLE)
+        .value("MOUSE_BUTTON_SIDE", MOUSE_BUTTON_SIDE)
+        .value("MOUSE_BUTTON_EXTRA", MOUSE_BUTTON_EXTRA)
+        .value("MOUSE_BUTTON_FORWARD", MOUSE_BUTTON_FORWARD)
+        .value("MOUSE_BUTTON_BACK", MOUSE_BUTTON_BACK);
+
     py::enum_<KeyboardKey>(m, "KeyboardKey")
         .value("KEY_NULL", KEY_NULL)
         .value("KEY_APOSTROPHE", KEY_APOSTROPHE)
@@ -247,8 +256,11 @@ PYBIND11_EMBEDDED_MODULE(collisions_module, m) {
         .def_readwrite("worldNormal", &HitInfo::worldNormal, py::call_guard<py::gil_scoped_release>())
         .def_readwrite("distance", &HitInfo::distance)
         .def_readwrite("hitColor", &HitInfo::hitColor)
-        .def_readwrite("entity", &HitInfo::entity, py::call_guard<py::gil_scoped_release>());
-
+        .def_property("entity", 
+            [](const HitInfo& info) { return info.entity.get(); }, // Getter
+            [](HitInfo& info, Entity* entity) { info.entity = std::shared_ptr<Entity>(entity); } // Setter
+        );
+        
     m.def("raycast", &raycast, py::arg("origin"), py::arg("direction"), py::arg("debug") = false, py::arg("ignore") = std::vector<Entity>(), py::call_guard<py::gil_scoped_release>());
 }
 
