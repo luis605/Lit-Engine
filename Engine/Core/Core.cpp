@@ -1,7 +1,7 @@
 #include "../include_all.h"
 #include "Core.h"
 
-#define STRESS_TEST false
+#define STRESS_TEST true
 #if STRESS_TEST
     #include "stressTest.cpp"
 #endif
@@ -117,15 +117,11 @@ void Startup()
 
     // Shaders
     shader = LoadShader("Engine/Lighting/shaders/lighting_vertex.glsl", "Engine/Lighting/shaders/lighting_fragment.glsl");
+    instancing_shader = LoadShader("Engine/Lighting/shaders/instancing_lighting_vertex.glsl", "Engine/Lighting/shaders/lighting_fragment.glsl");
     InitLighting();
 
     #if STRESS_TEST
-    for (int index = 0; index < 5000; index++)
-    {
-        std::cout << index << std::endl;
         InitStressTest();
-    }
-
     #endif
 }
 

@@ -70,11 +70,13 @@ struct LitCamera : Camera3D {
     LitVector3 up_vector = LitVector3{};
 
     LitCamera(LitVector3 pos = LitVector3{}, LitVector3 look_at = LitVector3{},
-              LitVector3 up_vector = LitVector3{}, float _fovy = 0.0f, int _projection = 0)
+              LitVector3 up_vector = LitVector3{ 0.0f, 1.0f, 0.0f }, float _fovy = 0.0f, int _projection = 0)
         : Camera3D{},
-          front{Vector3Subtract(look_at, pos)} {
-            update();
-          }
+          front{Vector3Subtract(look_at, pos)},
+          up_vector{up_vector}
+    {
+        update();
+    }
 
     void update() {
         position = pos;

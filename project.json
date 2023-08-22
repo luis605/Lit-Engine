@@ -229,7 +229,7 @@
             "y": 1.0,
             "z": 1.0
         },
-        "script_path": "project/game/coins collector.py",
+        "script_path": "project/game/stress.py",
         "surface_material": {
             "DiffuseIntensity": 0.5,
             "Roughness": 0.5,
@@ -258,7 +258,7 @@
             "y": 0.3930000066757202,
             "z": -0.3569999933242798
         },
-        "id": 1154547712,
+        "id": 1727169296,
         "intensity": 2.678999900817871,
         "light_type": 0,
         "name": "",
@@ -294,7 +294,7 @@
             "y": 0.4000000059604645,
             "z": -0.4000000059604645
         },
-        "id": 1154547712,
+        "id": 1727169296,
         "intensity": 0.5,
         "light_type": 1,
         "name": "",
