@@ -1,7 +1,7 @@
 #include "../include_all.h"
 #include "Core.h"
 
-#define STRESS_TEST true
+#define STRESS_TEST false
 #if STRESS_TEST
     #include "stressTest.cpp"
 #endif
