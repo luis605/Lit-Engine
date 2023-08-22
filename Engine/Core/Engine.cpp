@@ -34,7 +34,7 @@ string read_file_to_string(const string& filename) {
     return buffer.str();
 }
 
-py::scoped_interpreter guard{}; // Start interpreter
+py::scoped_interpreter guard{}; 
 
 
 
@@ -103,12 +103,16 @@ public:
 
 
 private:
-    // Add these variables for Bullet Physics integration
+    
     btCollisionShape* staticBoxShape = nullptr;
     btCollisionShape* dynamicBoxShape = nullptr;
     btDefaultMotionState* boxMotionState = nullptr;
     btRigidBody* boxRigidBody = nullptr;
     LitVector3 backupPosition = position;
+    vector<Entity*> instances;
+    Matrix *transforms = nullptr;
+    Material matInstances;
+    int lastIndexCalculated = -1;
 
 public:
     Entity(Color color = { 255, 255, 255, 255 }, LitVector3 scale = { 1, 1, 1 }, LitVector3 rotation = { 0, 0, 0 }, string name = "entity",
@@ -122,7 +126,43 @@ public:
         return this->id == other.id;
     }
 
+    void addInstance(Entity* instance) {
+        instances.push_back(instance);
 
+        
+        if (transforms == nullptr) {
+            transforms = (Matrix *)RL_CALLOC(instances.size(), sizeof(Matrix));
+        } else {
+            
+            transforms = (Matrix *)RL_REALLOC(transforms, instances.size() * sizeof(Matrix));
+        }
+
+        
+        int lastIndex = instances.size() - 1;
+        calculateInstance(lastIndex);
+
+        instancing_shader.locs[SHADER_LOC_MATRIX_MVP] = GetShaderLocation(instancing_shader, "mvp");
+        instancing_shader.locs[SHADER_LOC_VECTOR_VIEW] = GetShaderLocation(instancing_shader, "viewPos");
+        instancing_shader.locs[SHADER_LOC_MATRIX_MODEL] = GetShaderLocationAttrib(instancing_shader, "instanceTransform");
+
+    }
+
+    void calculateInstance(int index) {
+        if (index < 0 || index >= instances.size()) {
+            
+            return;
+        }
+
+        Entity* entity = instances.at(index);
+
+        Matrix translation = MatrixTranslate(entity->position.x, entity->position.y, entity->position.z);
+        Matrix rotation = MatrixRotateXYZ(Vector3{ DEG2RAD * entity->rotation.x, DEG2RAD * entity->rotation.y, DEG2RAD * entity->rotation.z });    
+
+        transforms[index] = MatrixMultiply(rotation, translation);
+
+        matInstances = LoadMaterialDefault();
+    }    
+    
     void addChild(Entity& child) {
         Entity* newChild = new Entity(child);
         newChild->relative_position = {
@@ -216,7 +256,7 @@ public:
         }
     }
 
-    void setModel(const char* modelPath = "", Model entity_model = Model())
+    void setModel(const char* modelPath = "", Model entity_model = Model(), Shader default_shader = shader)
     {
         model_path = modelPath;
     
@@ -228,7 +268,7 @@ public:
             model = LoadModel(modelPath);
         }
 
-        model.materials[0].shader = shader;
+        model.materials[0].shader = default_shader;
 
 
         bounds = GetMeshBoundingBox(model.meshes[0]);
@@ -306,10 +346,6 @@ public:
         py::module color_module = py::module::import("color_module");
         py::module math_module = py::module::import("math_module");
         
-        rendering_camera->position.x = 100;
-        std::cout << "Camera position: " << camera.position.x << std::endl;
-
-
         py::dict locals = py::dict(
             "entity"_a = entity_obj,
             "IsMouseButtonPressed"_a = input_module.attr("IsMouseButtonPressed"),
@@ -378,12 +414,6 @@ public:
         }
     }
 
-
-
-
-
-
-
     void calcPhysicsPosition() {
         if (isDynamic && boxRigidBody != nullptr) {    
             btTransform trans;
@@ -396,7 +426,6 @@ public:
         }
     }
 
-
     void setPos(LitVector3& new_position) {
         position = new_position;
         if (boxRigidBody) {
@@ -407,8 +436,6 @@ public:
         }
     }
     
-
-
     void applyForce(const LitVector3& force) {
         if (boxRigidBody && isDynamic) {
             boxRigidBody->setActivationState(ACTIVE_TAG);
@@ -435,14 +462,11 @@ public:
         boxRigidBody->setMassProps(btMass, boxInertia);
     }
 
-
-
-
     void createStaticBox(float x, float y, float z) {
         if (!isDynamic && staticBoxShape == nullptr) {
             staticBoxShape = new btBoxShape(btVector3(btScalar(x), btScalar(y), btScalar(z)));
 
-            // Remove any existing dynamic shape and rigid body
+            
             if (dynamicBoxShape) {
                 dynamicsWorld->removeRigidBody(boxRigidBody);
 
@@ -475,15 +499,13 @@ public:
             btRigidBody::btRigidBodyConstructionInfo groundRigidBodyCI(0, groundMotionState, staticBoxShape, btVector3(0, 0, 0));
             boxRigidBody = new btRigidBody(groundRigidBodyCI);
 
-            // Set additional properties for the rigid body, if needed
-            // boxRigidBody->setFriction(...);
-            // boxRigidBody->setRestitution(...);
+            
+            
+            
 
             dynamicsWorld->addRigidBody(boxRigidBody);
         }
     }
-
-
 
     void createDynamicBox(float x, float y, float z) {
         if (!isDynamic) return;
@@ -508,14 +530,12 @@ public:
         btRigidBody::btRigidBodyConstructionInfo boxRigidBodyCI(btMass, boxMotionState, dynamicBoxShape, localInertia);
         boxRigidBody = new btRigidBody(boxRigidBodyCI);
 
-        // Set additional properties for the rigid body, if needed
-        // boxRigidBody->setFriction(...);
-        // boxRigidBody->setRestitution(...);
+        
+        
+        
 
         dynamicsWorld->addRigidBody(boxRigidBody);
     }
-
-
 
     void makePhysicsDynamic() {
         isDynamic = true;
@@ -556,31 +576,51 @@ public:
         else
         {
             setPos(position);    
-//            updateMass();
+
         }
 
-
-        // if (isDynamic) std::cout << "Position: " << position.x << " " << position.y << " " << position.z << std::endl << std::endl;
-
-
-
-        
         
         if (visible)
         {
 
             PassSurfaceMaterials();
 
-            glUseProgram((GLuint)shader.id);
 
-            bool normalMapInit = !normal_texture_path.empty();
-            glUniform1i(glGetUniformLocation((GLuint)shader.id, "normalMapInit"), normalMapInit);
 
-            bool roughnessMapInit = !roughness_texture_path.empty();
-            glUniform1i(glGetUniformLocation((GLuint)shader.id, "roughnessMapInit"), roughnessMapInit);
+            if (!instances.empty())
+            {
+                glUseProgram((GLuint)instancing_shader.id);
 
-            DrawModelEx(model, position, rotation, GetExtremeValue(rotation), scale, color);
+                bool normalMapInit = !normal_texture_path.empty();
+                glUniform1i(glGetUniformLocation((GLuint)instancing_shader.id, "normalMapInit"), normalMapInit);
 
+                bool roughnessMapInit = !roughness_texture_path.empty();
+                glUniform1i(glGetUniformLocation((GLuint)instancing_shader.id, "roughnessMapInit"), roughnessMapInit);
+                
+                matInstances = LoadMaterialDefault();
+
+                instancing_shader.locs[SHADER_LOC_MATRIX_MVP] = GetShaderLocation(instancing_shader, "mvp");
+                instancing_shader.locs[SHADER_LOC_VECTOR_VIEW] = GetShaderLocation(instancing_shader, "viewPos");
+                instancing_shader.locs[SHADER_LOC_MATRIX_MODEL] = GetShaderLocationAttrib(instancing_shader, "instanceTransform");
+
+                model.materials[0].maps[MATERIAL_MAP_DIFFUSE].color = color;
+
+                DrawMeshInstanced(model.meshes[0], model.materials[0], transforms, instances.size());
+            }
+            else
+            {
+
+                glUseProgram((GLuint)shader.id);
+
+                bool normalMapInit = !normal_texture_path.empty();
+                glUniform1i(glGetUniformLocation((GLuint)shader.id, "normalMapInit"), normalMapInit);
+
+                bool roughnessMapInit = !roughness_texture_path.empty();
+                glUniform1i(glGetUniformLocation((GLuint)shader.id, "roughnessMapInit"), roughnessMapInit);
+                
+
+                DrawModelEx(model, position, rotation, GetExtremeValue(rotation), scale, color);
+            }
         }
     }
 
@@ -592,12 +632,12 @@ private:
         glBufferData(GL_UNIFORM_BUFFER, sizeof(SurfaceMaterial), &this->surface_material, GL_DYNAMIC_DRAW);
         glBindBuffer(GL_UNIFORM_BUFFER, 0);
 
-        // Bind the buffer to a specific binding point (for example, binding point 0)
+        
         GLuint bindingPoint = 0;
         glBindBufferBase(GL_UNIFORM_BUFFER, bindingPoint, surface_material_ubo);
 
 
-        // Update the uniform buffer data
+        
         glBindBuffer(GL_UNIFORM_BUFFER, surface_material_ubo);
         glBufferSubData(GL_UNIFORM_BUFFER, 0, sizeof(SurfaceMaterial), &this->surface_material);
         glBindBuffer(GL_UNIFORM_BUFFER, 0);
@@ -677,7 +717,7 @@ bool operator==(const Entity& e, const Entity* ptr) {
         }
         else if (canAddEntity)
         {
-            ImGui::PushStyleColor(ImGuiCol_WindowBg, ImVec4(0.6f, 0.6f, 0.6f, 0.6f)); // light gray
+            ImGui::PushStyleColor(ImGuiCol_WindowBg, ImVec4(0.6f, 0.6f, 0.6f, 0.6f)); 
 
             ImGui::Begin("Entities");
 
