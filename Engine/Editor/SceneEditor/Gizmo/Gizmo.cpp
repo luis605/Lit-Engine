@@ -129,7 +129,7 @@ void GizmoPosition()
         
         if ((bool)selected_entity->isChild)
         {
-            if (selected_entity->parent != nullptr)
+            if (selected_entity->parent != nullptr && selected_entity != nullptr && selected_entity->initialized)
                 selected_entity->relative_position = Vector3Subtract(selected_entity->position, selected_entity->parent->position);
         }
     }

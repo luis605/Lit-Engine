@@ -88,6 +88,7 @@ public:
     bool isChild = false;
     bool isParent = false;
     bool running = false;
+    bool running_first_time = false;
     bool calc_physics = false;
     bool isDynamic = false;
 
@@ -100,7 +101,6 @@ public:
 
     Entity* parent = nullptr;
     vector<Entity*> children;
-
 
 private:
     
@@ -129,15 +129,15 @@ public:
     void addInstance(Entity* instance) {
         instances.push_back(instance);
 
-        
+
         if (transforms == nullptr) {
             transforms = (Matrix *)RL_CALLOC(instances.size(), sizeof(Matrix));
         } else {
-            
+
             transforms = (Matrix *)RL_REALLOC(transforms, instances.size() * sizeof(Matrix));
         }
 
-        
+
         int lastIndex = instances.size() - 1;
         calculateInstance(lastIndex);
 
@@ -149,7 +149,7 @@ public:
 
     void calculateInstance(int index) {
         if (index < 0 || index >= instances.size()) {
-            
+
             return;
         }
 
@@ -161,7 +161,7 @@ public:
         transforms[index] = MatrixMultiply(rotation, translation);
 
         matInstances = LoadMaterialDefault();
-    }    
+    }
     
     void addChild(Entity& child) {
         Entity* newChild = new Entity(child);
@@ -294,7 +294,8 @@ public:
 
     void setShader(Shader shader)
     {
-        model.materials[0].shader = shader;
+        if (IsModelReady(model))
+            model.materials[0].shader = shader;
     }
 
     void runScript(std::reference_wrapper<Entity> entityRef, LitCamera* rendering_camera)
@@ -596,7 +597,7 @@ public:
 
                 bool roughnessMapInit = !roughness_texture_path.empty();
                 glUniform1i(glGetUniformLocation((GLuint)instancing_shader.id, "roughnessMapInit"), roughnessMapInit);
-                
+
                 matInstances = LoadMaterialDefault();
 
                 instancing_shader.locs[SHADER_LOC_MATRIX_MVP] = GetShaderLocation(instancing_shader, "mvp");
@@ -617,7 +618,7 @@ public:
 
                 bool roughnessMapInit = !roughness_texture_path.empty();
                 glUniform1i(glGetUniformLocation((GLuint)shader.id, "roughnessMapInit"), roughnessMapInit);
-                
+
 
                 DrawModelEx(model, position, rotation, GetExtremeValue(rotation), scale, color);
             }
