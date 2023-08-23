@@ -76,6 +76,7 @@ void RunGame()
 
     for (Entity& entity : entities_list)
     {
+        entity.running_first_time = true;
         RenderAndRunEntity(entity, scripts_thread_vector);
     }
 

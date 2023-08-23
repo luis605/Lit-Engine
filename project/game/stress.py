@@ -17,8 +17,9 @@ def update():
     entity.rotation.x += 30 * time.dt
     entity.rotation.y += 30 * time.dt
 
-    camera.pos = Vector3(10, 10, 0)
-    camera.look_at = Vector3(0, 0, 0)
+#    camera.pos = Vector3(10, 10, 0)
+#    camera.look_at = Vector3(0, 0, 0)
     
     rotate_around_point(entity, Vector3(0, 0, 0), float(time.dt * 50))
+
 
