@@ -9,7 +9,7 @@ string colorToString(const Color& color);
 
 typedef struct Light;
 
-variant<Entity*, Light*> object_in_inspector;
+variant<Entity*, Light*, Text*, LitButton*> object_in_inspector;
 
 vector<Entity> entities_list_pregame;
 vector<Light> lights_list_pregame;
@@ -17,6 +17,8 @@ vector<Entity> entities_list;
 
 Entity *selected_entity;
 Light *selected_light;
+LitButton *selected_button;
+Text *selected_textElement;
 
 
 
