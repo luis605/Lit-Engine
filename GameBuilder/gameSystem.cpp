@@ -142,6 +142,9 @@ void Run()
 
         EndMode3D();
 
+    DrawTextElements();
+    DrawButtons();
+    
     EndDrawing();
 }
 

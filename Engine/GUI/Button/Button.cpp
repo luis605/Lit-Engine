@@ -121,7 +121,7 @@ public:
 
         Vector2 position = {bounds.x - ImGui::GetFrameHeight(), bounds.y};
 
-        isHovered = CheckCollisionPointRec(renderTextureMousePos, {position.x, position.y, bounds.width/divideX, bounds.height/divideY});
+        isHovered = CheckCollisionPointRec(renderTextureMousePos, {position.x/divideX, position.y/divideY, bounds.width/divideX, bounds.height/divideY});
 #else
         isHovered = CheckCollisionPointRec(GetMousePosition(), bounds);
 #endif
@@ -147,6 +147,8 @@ public:
             isPressed = false;
         }
 
+#ifdef GAME_SHIPPING
+
         if (isHovered && !isDisabled)
         {
             tooltipTimer += GetFrameTime();
@@ -160,7 +162,7 @@ public:
             tooltipTimer = 0.0f;
             showTooltip = false;
         }
-
+#endif
         wasMousePressed = isMousePressed;
     }
 
@@ -237,13 +239,17 @@ public:
 };
 
 
+void print_hi()
+{
+    std::cout << "Pressed\n";
+}
 
 LitButton &AddButton(const char* button_text, Vector3 position, Vector2 size, float text_size = 20)
 {
     LitButton button = LitButton(position, size);
     button.SetText(button_text, text_size);
     button.SetTooltip("This is a tooltip!");
-    
+    button.SetOnClickCallback(print_hi);
 
     lit_buttons.push_back(button);
 }
@@ -253,7 +259,6 @@ void DrawButtons()
 
     for (const auto &button : lit_buttons)
     {
-        std::cout << button.text.text << std::endl;
         button.Draw();
     }
 }

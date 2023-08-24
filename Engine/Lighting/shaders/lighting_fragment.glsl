@@ -65,6 +65,7 @@ struct SurfaceMaterial
     float Roughness;
     float DiffuseIntensity;
     vec3 SpecularTint;
+    vec3 baseReflectance;
 };
 
 layout(std140) uniform MaterialBlock {
@@ -84,6 +85,19 @@ vec4 addFog(in float dist, in vec4 before, in vec3 camPos, in vec3 rayDir) {
     float fogAmount = c * exp(-camPos.y * b) * (1.0 - exp(-dist * dot(rayDir, vec3(0, 1, 0)) * b)) / dot(rayDir, vec3(0, 1, 0));
     return mix(before, fogColor, fogAmount);
 }
+
+
+vec3 CalculateFresnelReflection(vec3 baseReflectance, vec3 viewDirection, vec3 halfVector)
+{
+    float cosTheta = dot(viewDirection, halfVector);
+    cosTheta = max(cosTheta, 0.0);
+    float fresnel = pow(1.0 - cosTheta, 5.0);
+
+    vec3 finalColor = baseReflectance + (vec3(1.0) - baseReflectance) * fresnel;
+    
+    return finalColor;
+}
+
 
 
 void main() {
@@ -109,7 +123,6 @@ void main() {
     float diff;
     float spec;
     
-
     vec3 viewDir = normalize(viewPos - fragPosition);
     vec3 reflectDir = reflect(-viewDir, norm);
     
@@ -121,18 +134,20 @@ void main() {
 
     vec4 texColor = texture(texture0, fragTexCoord);
 
-
-
     for (int i = 0; i < lightsCount; i++) {
         Light light = lights[i];
-        
+
+        vec3 halfVector = normalize(light.direction + viewDir);
+
         if (light.type == LIGHT_DIRECTIONAL && light.enabled) {
             float diffuseStrength = light.intensity * surface_material.DiffuseIntensity;
             vec3 fragLightDir = normalize(-light.direction);
             float diffuse = diffuseStrength * max(dot(norm, fragLightDir), 0.0);
             vec3 colDiffuse = colDiffuse.rgb * light.color.rgb;
-            result += colDiffuse * diffuse;
 
+            vec3 fresnel = CalculateFresnelReflection(surface_material.baseReflectance, viewDir, halfVector);
+
+            result += colDiffuse * diffuse * fresnel;
 
         }
         else if (light.type == LIGHT_POINT && light.enabled) {
@@ -142,19 +157,20 @@ void main() {
             float attenuation = 1.0 / (1.0 + light.attenuation * distance * distance);
             float lambertian = max(dot(norm, lightDir), 0.0);
 
+
             diff = max(dot(norm, lightDir), 0.0);
             diffuse = light.intensity * surface_material.DiffuseIntensity * diff * attenuation * (light.color.rgb + vec3(colDiffuse.x, colDiffuse.y, colDiffuse.z)) / 2.0 * lambertian;
 
             reflectDir = reflect(-lightDir, norm);
             
             spec = pow(max(dot(viewDir, reflectDir), 0.0), 64.0);
+            vec3 fresnel = CalculateFresnelReflection(surface_material.baseReflectance, viewDir, halfVector);
 
-            specular = light.specularStrength * surface_material.SpecularIntensity * spec * attenuation * light.color.rgb;
+            specular = light.specularStrength * surface_material.SpecularIntensity * spec * attenuation * light.color.rgb * fresnel;
             specular *= surface_material.SpecularTint * lambertian;
 
             
-            // Apply soft shadows
-            
+
             result += diffuse;
             result += specular;
         }
@@ -180,9 +196,7 @@ void main() {
         blendedColor.rgb *= roughnessIntensity;
     }
 
-    // float distanceToCamera = length(viewPos - fragPosition);
-    // vec4 fog = addFog(distanceToCamera, blendedColor, viewPos, viewDir);
-    // blendedColor.rgb = fog.rgb;
+
 
     // Apply gamma correction
     blendedColor.rgb = pow(blendedColor.rgb, vec3(1.0 / 2.2));

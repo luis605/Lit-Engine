@@ -129,6 +129,43 @@ void DrawLightTree(Light& light, AdditionalLightInfo& light_info, int active, in
 
 
 
+void DrawTextElementsTree(Text& text, int active, int& index) {
+    ImGuiTreeNodeFlags nodeFlags = ImGuiTreeNodeFlags_OpenOnArrow | ImGuiTreeNodeFlags_OpenOnDoubleClick;
+    if (selected_textElement == &text && selected_game_object_type == "text") {
+        nodeFlags |= ImGuiTreeNodeFlags_Selected;
+        if (should_change_object_name) {
+            char nameBuffer[256];
+            strcpy(nameBuffer, text.text.c_str());
+
+            if (ImGui::InputText("##TextName", nameBuffer, sizeof(nameBuffer), ImGuiInputTextFlags_EnterReturnsTrue)) {
+                text.text = nameBuffer;
+                should_change_object_name = false;
+            }
+        }
+    }
+    const char icon[] = ICON_FA_TEXT_SLASH;
+    const char space[] = " ";
+    
+    std::string text_name = std::string(icon) + space + text.text;
+
+    ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(0.85f, 0.85f, 0.85f, 1.0f));
+    bool isNodeOpen = ImGui::TreeNodeEx((void*)&text, nodeFlags, text_name.c_str());
+    ImGui::PopStyleColor();
+    if (ImGui::IsItemClicked()) {
+        selected_textElement = &text;
+        active = index;
+        selected_game_object_type = "text";
+        object_in_inspector = &text;
+        std::cout << "index: " << index << std::endl;
+    }
+
+    if (isNodeOpen) {
+        ImGui::TreePop();
+    }
+}
+
+
+
 int AmountOfEntities(const std::vector<Entity>& entities, int current_amount)
 {
     for (const Entity& entity : entities)
@@ -179,6 +216,10 @@ void ImGuiListViewEx(vector<string>& items, int& focus, int& scroll, int& active
     for (Light& light : lights) {
         DrawLightTree(light, lights_info[lights_index], active, index);
         lights_index++;
+    }
+
+    for (Text& text : textElements) {
+        DrawTextElementsTree(text, active, index);
     }
 
     ImGui::PopFont();

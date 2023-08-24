@@ -39,7 +39,24 @@ py::scoped_interpreter guard{};
 
 
 
+struct Plane
+{
+    glm::vec3 normal = { 0.f, 1.f, 0.f };
 
+    float     distance = 0.f;             
+};
+
+struct Frustum
+{
+    Plane topFace;
+    Plane bottomFace;
+
+    Plane rightFace;
+    Plane leftFace;
+
+    Plane farFace;
+    Plane nearFace;
+};
 
 bool EntityRunScriptFirstTime = true;
 bool Entity_already_registered = false;
@@ -113,6 +130,7 @@ private:
     Matrix *transforms = nullptr;
     Material matInstances;
     int lastIndexCalculated = -1;
+    Plane frustumPlanes[6];
 
 public:
     Entity(Color color = { 255, 255, 255, 255 }, LitVector3 scale = { 1, 1, 1 }, LitVector3 rotation = { 0, 0, 0 }, string name = "entity",
@@ -560,7 +578,6 @@ public:
         std::cout << "Position: " << position.x << ", " << position.y << ", " << position.z << "\n";
     }
 
-
     void render() {
         if (!hasModel())
             initializeDefaultModel();
@@ -577,16 +594,11 @@ public:
         else
         {
             setPos(position);    
-
         }
 
-        
         if (visible)
         {
-
             PassSurfaceMaterials();
-
-
 
             if (!instances.empty())
             {
@@ -610,7 +622,6 @@ public:
             }
             else
             {
-
                 glUseProgram((GLuint)shader.id);
 
                 bool normalMapInit = !normal_texture_path.empty();
@@ -618,7 +629,6 @@ public:
 
                 bool roughnessMapInit = !roughness_texture_path.empty();
                 glUniform1i(glGetUniformLocation((GLuint)shader.id, "roughnessMapInit"), roughnessMapInit);
-
 
                 DrawModelEx(model, position, rotation, GetExtremeValue(rotation), scale, color);
             }

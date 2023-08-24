@@ -341,6 +341,7 @@ void RenderScene()
     }
 
     EndMode3D();
+    
     DrawTextElements();
     DrawButtons();
     

@@ -97,6 +97,10 @@ void RunGame()
 
 
     EndMode3D();
+
+    DrawTextElements();
+    DrawButtons();
+
     EndTextureMode();
 
     DrawTextureOnRectangle(&texture);
