@@ -135,10 +135,10 @@ void DrawTextElementsTree(Text& text, int active, int& index) {
         nodeFlags |= ImGuiTreeNodeFlags_Selected;
         if (should_change_object_name) {
             char nameBuffer[256];
-            strcpy(nameBuffer, text.text.c_str());
+            strcpy(nameBuffer, text.name.c_str());
 
             if (ImGui::InputText("##TextName", nameBuffer, sizeof(nameBuffer), ImGuiInputTextFlags_EnterReturnsTrue)) {
-                text.text = nameBuffer;
+                text.name = nameBuffer;
                 should_change_object_name = false;
             }
         }
@@ -146,7 +146,7 @@ void DrawTextElementsTree(Text& text, int active, int& index) {
     const char icon[] = ICON_FA_TEXT_SLASH;
     const char space[] = " ";
     
-    std::string text_name = std::string(icon) + space + text.text;
+    std::string text_name = std::string(icon) + space + text.name;
 
     ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(0.85f, 0.85f, 0.85f, 1.0f));
     bool isNodeOpen = ImGui::TreeNodeEx((void*)&text, nodeFlags, text_name.c_str());

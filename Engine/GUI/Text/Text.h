@@ -6,8 +6,9 @@
 struct Text
 {
     std::string text;
+    std::string name = "Text";
     Vector3 position;
-    int fontSize;
+    float fontSize;
     float spacing=4;
     Color color;
     Color backgroundColor = {0,0,0,0};
