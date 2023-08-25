@@ -146,6 +146,25 @@ void SaveLight(json& json_data, const Light& light, int light_index) {
     json_data.emplace_back(j);
 }
 
+
+
+
+void SaveText(json& json_data, const Text& text) {
+    json j;
+    j["type"] = "text";
+    j["name"] = text.name;
+    j["text"] = text.text;
+    j["color"] = text.color;
+    j["background color"] = text.backgroundColor;
+    j["background roundiness"] = text.backgroundRoundiness;
+    j["position"] = text.position;
+    j["font size"] = text.fontSize;
+    j["spacing"] = text.spacing;
+    j["padding"] = text.padding;
+
+    json_data.emplace_back(j);
+}
+
 int SaveProject() {
     json json_data;
     for (const auto& entity : entities_list_pregame) {
@@ -156,6 +175,11 @@ int SaveProject() {
     for (const auto& light : lights) {
         SaveLight(json_data, light, light_index);
         light_index++;
+    }
+
+    for (const Text& text : textElements)
+    {
+        SaveText(json_data, text);
     }
 
     std::ofstream outfile("project.json");
@@ -336,6 +360,35 @@ void LoadLight(const json& light_json, Light& light, AdditionalLightInfo light_i
 }
 
 
+void LoadText(const json& text_json, Text& text) {
+    text.name                = text_json["name"].get<std::string>();
+    text.text                = text_json["text"].get<std::string>();
+
+    text.color.a             = text_json["color"]["a"].get<unsigned char>();
+    text.color.r             = text_json["color"]["r"].get<unsigned char>();
+    text.color.g             = text_json["color"]["g"].get<unsigned char>();
+    text.color.b             = text_json["color"]["b"].get<unsigned char>();
+
+    text.backgroundColor.a             = text_json["background color"]["a"].get<unsigned char>();
+    text.backgroundColor.r             = text_json["background color"]["r"].get<unsigned char>();
+    text.backgroundColor.g             = text_json["background color"]["g"].get<unsigned char>();
+    text.backgroundColor.b             = text_json["background color"]["b"].get<unsigned char>();
+
+    text.backgroundRoundiness          = text_json["background roundiness"].get<float>();
+    text.fontSize                      = text_json["font size"].get<float>();
+    text.spacing                       = text_json["spacing"].get<float>();
+    text.padding                       = text_json["padding"].get<float>();
+
+    text.position = {
+        text_json["position"]["x"].get<float>(),
+        text_json["position"]["y"].get<float>(),
+        text_json["position"]["z"].get<float>()
+    };
+
+
+}
+
+
 int LoadProject(vector<Entity>& entities_vector, vector<Light>& lights_vector, vector<AdditionalLightInfo>& lights_info_vector) {
     std::ifstream infile("project.json");
     if (!infile.is_open()) {
@@ -351,6 +404,7 @@ int LoadProject(vector<Entity>& entities_vector, vector<Light>& lights_vector, v
     entities_vector.clear();
     lights_vector.clear();
     lights_info_vector.clear();
+    textElements.clear();
     
     try {
         for (const auto& entity_json : json_data) {
@@ -366,6 +420,11 @@ int LoadProject(vector<Entity>& entities_vector, vector<Light>& lights_vector, v
                 LoadLight(entity_json, light, light_info);
                 lights_info_vector.push_back(light_info);
                 lights_vector.push_back(light);
+            }
+            else if (type == "text") {
+                Text textElement;
+                LoadText(entity_json, textElement);
+                textElements.push_back(textElement);
             }
         }
     } catch (const json::type_error& e) {
