@@ -7,7 +7,7 @@ struct Text
 {
     std::string text;
     std::string name = "Text";
-    Vector3 position;
+    LitVector3 position;
     float fontSize;
     float spacing=4;
     Color color;

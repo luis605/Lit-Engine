@@ -1,1 +1,28 @@
-null
+[
+    {
+        "background color": {
+            "a": 101,
+            "b": 71,
+            "g": 71,
+            "r": 71
+        },
+        "background roundiness": 5.468999862670898,
+        "color": {
+            "a": 255,
+            "b": 0,
+            "g": 0,
+            "r": 255
+        },
+        "font size": 98.36699676513672,
+        "name": "Text",
+        "padding": 62.44900131225586,
+        "position": {
+            "x": 100.0,
+            "y": 100.0,
+            "z": 1.0
+        },
+        "spacing": 4.0,
+        "text": "Default Text",
+        "type": "text"
+    }
+]

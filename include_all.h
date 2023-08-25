@@ -89,6 +89,10 @@ using json = nlohmann::json;
 // Physics
 #include "Engine/Physics/InitPhysx.cpp"
 
+// Critical
+#include "globals.h"
+#include "Engine/Scripting/math.cpp"
+
 /* Game Objects */
 #include "Engine/GUI/Text/Text.h"
 #include "Engine/GUI/Button/Button.h"
@@ -96,13 +100,11 @@ using json = nlohmann::json;
 #include "Engine/Lighting/lights.h"
 
 /* Scripting */
-#include "Engine/Scripting/math.cpp"
 #include "Engine/Scripting/time.cpp"
 #include "Engine/Scripting/functions.cpp"
 
 
 /* Globals */
-#include "globals.h"
 #include "Engine/Core/functions.h"
 #include "Engine/Core/global_variables.cpp"
 #include "Engine/Core/Engine.cpp"
