@@ -27,4 +27,9 @@ bool FontSizeActiveInputMode                   = false;
 bool TextSpacingActiveInputMode                = false;
 bool TextBackgroundRoundinessActiveInputMode   = false;
 bool TextPaddingActiveInputMode                = false;
+
+#include "Inspector.Entity.cpp"
+#include "Inspector.Light.cpp"
+#include "Inspector.Text.cpp"
+#include "Inspector.Button.cpp"
 #endif // INSPECTOR_H
