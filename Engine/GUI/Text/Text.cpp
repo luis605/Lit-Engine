@@ -5,7 +5,7 @@ bool Text::IsPressed() {
     // Assuming you have a way to get mouse input, you can check if the mouse
     // is within the bounds of the text element.
     Vector2 mousePos = GetMousePosition();
-    return CheckCollisionPointRec(mousePos, bounds);
+    return CheckCollisionPointRec(mousePos, bounds) && IsMouseButtonDown(MOUSE_BUTTON_LEFT);
 }
 
 void Text::Draw() {
@@ -40,6 +40,22 @@ void Text::Draw() {
     while (std::getline(ss, line, '\n')) {
         DrawText(line.c_str(), static_cast<int>(currentPosition.x), static_cast<int>(currentPosition.y), fontSize, color);
         currentPosition.y += lineHeight;
+    }
+
+    if (IsPressed())
+    {
+        selected_textElement = this;
+        selected_game_object_type = "text";
+    }
+
+    if (selected_textElement == this && selected_game_object_type == "text")
+        selected = true;
+    else
+        selected = false;
+
+    if (selectable && selected)
+    {
+        DrawRectangleLines(bounds.x, bounds.y, bounds.width, bounds.height, BLUE);
     }
 }
 
