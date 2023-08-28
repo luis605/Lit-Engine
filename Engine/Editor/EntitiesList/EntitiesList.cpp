@@ -166,6 +166,45 @@ void DrawTextElementsTree(Text& text, int active, int& index) {
 
 
 
+
+
+void DrawButtonTree(LitButton& button, int active, int& index) {
+    ImGuiTreeNodeFlags nodeFlags = ImGuiTreeNodeFlags_OpenOnArrow | ImGuiTreeNodeFlags_OpenOnDoubleClick;
+    if (selected_button == &button && selected_game_object_type == "button") {
+        nodeFlags |= ImGuiTreeNodeFlags_Selected;
+        if (should_change_object_name) {
+            char nameBuffer[256];
+            strcpy(nameBuffer, button.name.c_str());
+
+            if (ImGui::InputText("##ButtonName", nameBuffer, sizeof(nameBuffer), ImGuiInputTextFlags_EnterReturnsTrue)) {
+                button.name = nameBuffer;
+                should_change_object_name = false;
+            }
+        }
+    }
+    const char icon[] = ICON_FA_STOP;
+    const char space[] = " ";
+    
+    std::string button_name = std::string(icon) + space + button.name;
+
+    ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(0.85f, 0.85f, 0.85f, 1.0f));
+    bool isNodeOpen = ImGui::TreeNodeEx((void*)&button, nodeFlags, button_name.c_str());
+    ImGui::PopStyleColor();
+    if (ImGui::IsItemClicked()) {
+        selected_button = &button;
+        active = index;
+        selected_game_object_type = "button";
+        object_in_inspector = &button;
+        std::cout << "index: " << index << std::endl;
+    }
+
+    if (isNodeOpen) {
+        ImGui::TreePop();
+    }
+}
+
+
+
 int AmountOfEntities(const std::vector<Entity>& entities, int current_amount)
 {
     for (const Entity& entity : entities)
@@ -220,6 +259,10 @@ void ImGuiListViewEx(vector<string>& items, int& focus, int& scroll, int& active
 
     for (Text& text : textElements) {
         DrawTextElementsTree(text, active, index);
+    }
+
+    for (LitButton& button : lit_buttons) {
+        DrawButtonTree(button, active, index);
     }
 
     ImGui::PopFont();
