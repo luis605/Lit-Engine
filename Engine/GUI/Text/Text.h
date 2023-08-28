@@ -15,6 +15,8 @@ public:
     float backgroundRoundness = 0;
     float padding = 25;
     Rectangle bounds;
+    bool selectable = true;
+    bool selected = false;
 
 public:
     Text() : text(""), position(0, 0, 0), fontSize(12), color(RAYWHITE) {
