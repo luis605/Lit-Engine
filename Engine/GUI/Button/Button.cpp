@@ -40,6 +40,8 @@ public:
 
     Sound clickSound;
 
+    bool autoResize = false;
+
 private:
     Rectangle bounds;
     void (*onClick)();
@@ -171,46 +173,54 @@ public:
     {
         Update();
 
+        // Check if not in any transition
+        bool notInTransition = !transitioningHover && !transitioningUnhover;
+
+        // Initialize start colors if transitioning just started
+        if (notInTransition)
+        {
+            startColorHover = btnColor;
+            startColorUnhover = btnColor;
+        }
+
         // Smooth color transition for hovering
-        if (!isDisabled && isHovered && !transitioningHover && !transitioningUnhover)
+        if (isHovered && !transitioningHover)
         {
             transitioningHover = true;
             hoverTransitionTime = 0;
-            startColorHover = color;
             targetColorHover = hoverColor;
         }
-        else if (!isDisabled && !isHovered && transitioningHover && !transitioningUnhover)
+        else if (!isHovered && transitioningHover)
         {
             transitioningHover = false;
             hoverTransitionTime = 0;
-            startColorHover = hoverColor;
-            targetColorHover = color;
+            targetColorHover = startColorHover;
         }
 
         // Smooth color transition for unhovering
-        if (!isDisabled && !isHovered && !transitioningHover && !transitioningUnhover)
+        if (!isHovered && notInTransition)
         {
             transitioningUnhover = true;
             unhoverTransitionTime = 0;
-            startColorUnhover = hoverColor;
             targetColorUnhover = color;
         }
-        else if (!isDisabled && isHovered && !transitioningHover && transitioningUnhover)
+        else if (isHovered && transitioningUnhover)
         {
             transitioningUnhover = false;
             unhoverTransitionTime = 0;
-            startColorUnhover = color;
-            targetColorUnhover = hoverColor;
+            targetColorUnhover = startColorUnhover;
         }
 
         // Apply the appropriate color depending on the transition state
-        if (!isDisabled && transitioningHover)
+        if (transitioningHover)
         {
             hoverTransitionTime += GetFrameTime();
             float t = hoverTransitionTime / transitionDuration;
             if (t > 1.0f)
+            {
                 t = 1.0f;
-
+                transitioningHover = false;
+            }
             btnColor = LerpColor(startColorHover, targetColorHover, t);
         }
         else if (transitioningUnhover)
@@ -218,16 +228,28 @@ public:
             unhoverTransitionTime += GetFrameTime();
             float t = unhoverTransitionTime / transitionDuration;
             if (t > 1.0f)
+            {
                 t = 1.0f;
-
+                transitioningUnhover = false;
+            }
             btnColor = LerpColor(startColorUnhover, targetColorUnhover, t);
         }
+
+        text.position = {position.x + size.x / 2 - MeasureText(text.text.c_str(), text.fontSize) / 2, position.y + size.y / 2 - text.fontSize / 2, 0};
+        
+        if (autoResize)
+            DrawRectangleRounded(text.bounds, roundness / 10, roundness / 10, btnColor);
         else
         {
-            btnColor = color;
-        }
+            bounds = {
+                position.x,
+                position.y,
+                size.x,
+                size.y
+            };
 
-        DrawRectangleRounded(bounds, roundness / 10, roundness / 10, btnColor);
+            DrawRectangleRounded(bounds, roundness / 10, roundness * 10, btnColor);
+        }
 
         text.Draw();
 
@@ -237,6 +259,7 @@ public:
             tooltip.Draw();
         }
     }
+
 };
 
 
