@@ -505,12 +505,12 @@ void TextInspector()
     ImGui::SetNextItemWidth(-1);
 
     if (!TextBackgroundRoundinessActiveInputMode) {
-        ImGui::SliderFloat("##Background Roundiness", &selected_textElement->backgroundRoundiness, 0.0f, 10.0f);
+        ImGui::SliderFloat("##Background Roundiness", &selected_textElement->backgroundRoundness, 0.0f, 10.0f);
         TextBackgroundRoundinessActiveInputMode = ImGui::IsItemHovered() && ImGui::IsMouseDoubleClicked(0);
     }
     else
     {
-        if (ImGui::InputFloat("##Background Roundiness", &selected_textElement->backgroundRoundiness, 0.0f, 10.0f, "%.3f", ImGuiInputTextFlags_EnterReturnsTrue))
+        if (ImGui::InputFloat("##Background Roundiness", &selected_textElement->backgroundRoundness, 0.0f, 10.0f, "%.3f", ImGuiInputTextFlags_EnterReturnsTrue))
             TextBackgroundRoundinessActiveInputMode = false;
     }
 

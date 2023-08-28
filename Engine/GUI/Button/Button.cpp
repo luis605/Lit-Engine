@@ -228,7 +228,7 @@ public:
 
         DrawRectangleRounded(bounds, roundness / 10, roundness / 10, btnColor);
 
-        DrawTextElement(text);
+        text.Draw();
 
         if (showTooltip)
         {

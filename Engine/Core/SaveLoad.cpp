@@ -156,7 +156,7 @@ void SaveText(json& json_data, const Text& text) {
     j["text"] = text.text;
     j["color"] = text.color;
     j["background color"] = text.backgroundColor;
-    j["background roundiness"] = text.backgroundRoundiness;
+    j["background roundiness"] = text.backgroundRoundness;
     j["position"] = text.position;
     j["font size"] = text.fontSize;
     j["spacing"] = text.spacing;
@@ -374,7 +374,7 @@ void LoadText(const json& text_json, Text& text) {
     text.backgroundColor.g             = text_json["background color"]["g"].get<unsigned char>();
     text.backgroundColor.b             = text_json["background color"]["b"].get<unsigned char>();
 
-    text.backgroundRoundiness          = text_json["background roundiness"].get<float>();
+    text.backgroundRoundness          = text_json["background roundiness"].get<float>();
     text.fontSize                      = text_json["font size"].get<float>();
     text.spacing                       = text_json["spacing"].get<float>();
     text.padding                       = text_json["padding"].get<float>();
