@@ -1,28 +1,79 @@
 [
     {
-        "background color": {
-            "a": 101,
-            "b": 71,
-            "g": 71,
-            "r": 71
-        },
-        "background roundiness": 5.468999862670898,
+        "auto resize": false,
+        "button roundness": 5.0,
         "color": {
             "a": 255,
-            "b": 0,
-            "g": 0,
-            "r": 255
+            "b": 200,
+            "g": 200,
+            "r": 200
         },
-        "font size": 98.36699676513672,
-        "name": "Text",
-        "padding": 62.44900131225586,
+        "disabled color": {
+            "a": 255,
+            "b": 130,
+            "g": 130,
+            "r": 130
+        },
+        "disabled hover color": {
+            "a": 255,
+            "b": 130,
+            "g": 130,
+            "r": 130
+        },
+        "disabled text color": {
+            "a": 255,
+            "b": 80,
+            "g": 80,
+            "r": 80
+        },
+        "hover color": {
+            "a": 255,
+            "b": 130,
+            "g": 130,
+            "r": 130
+        },
+        "name": "Button",
         "position": {
             "x": 100.0,
-            "y": 100.0,
+            "y": 150.0,
             "z": 1.0
         },
-        "spacing": 4.0,
-        "text": "Default Text",
-        "type": "text"
+        "pressed color": {
+            "a": 255,
+            "b": 80,
+            "g": 80,
+            "r": 80
+        },
+        "size": {
+            "x": 200.0,
+            "y": 50.0
+        },
+        "text": {
+            "background color": {
+                "a": 0,
+                "b": 0,
+                "g": 0,
+                "r": 0
+            },
+            "background roundiness": 0.0,
+            "color": {
+                "a": 255,
+                "b": 0,
+                "g": 0,
+                "r": 0
+            },
+            "font size": 20.0,
+            "name": "Text",
+            "padding": 25.0,
+            "position": {
+                "x": 134.0,
+                "y": 165.0,
+                "z": 0.0
+            },
+            "spacing": 4.0,
+            "text": "Default Text",
+            "type": "text"
+        },
+        "type": "button"
     }
 ]

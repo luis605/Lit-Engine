@@ -15,7 +15,7 @@ class LitButton
 {
 public:
     string name = "Button";
-    Vector3 position = {0, 0, 0};
+    LitVector3 position = {0, 0, 0};
     Vector2 size = {600, 450};
     Color color = LIGHTGRAY;
     Color pressedColor = DARKGRAY;

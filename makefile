@@ -72,6 +72,10 @@ tests:
 	@make --no-print-directory build_tests -j10
 	@./tests.out
 
+sandbox:
+	@ccache g++ $(CXXFLAGS) sandbox.cpp include/rlImGui.o $(INCLUDE_DIRS) $(IMGUI_OBJECTS) $(LIB_FLAGS) -o sandbox
+	@./sandbox
+
 build_dependencies: $(IMGUI_OBJECTS)
 	@$(call echo_success, "Building Dependencies")
 	@g++ -c $(IMGUI_OBJECTS) -I./imgui -O3 ImNodes/ImNodes.cpp -o ImNodes/ImNodes.o
