@@ -20,13 +20,14 @@ public:
     Color color = LIGHTGRAY;
     Color pressedColor = DARKGRAY;
     Color hoverColor = GRAY;
-    Color disabledButton = GRAY;
+    Color disabledButtonColor = GRAY;
     Color disabledText = DARKGRAY;
-    Color disabledHover = GRAY;
+    Color disabledHoverColor = GRAY;
 
     bool isPressed;
     bool isHovered;
     bool wasMousePressed;
+    bool enabled = true;
     float roundness = 5;
 
     Text text;
@@ -35,8 +36,6 @@ public:
     bool showTooltip = false;
     float tooltipDelay = 0.75f; // Time in seconds before showing tooltip
     float tooltipTimer = 0.0f;
-
-    bool isDisabled;
 
     Sound clickSound;
 
@@ -63,7 +62,7 @@ public:
 #ifndef GAME_SHIPPING
     LitButton(Vector3 position = {0, 0, 1}, Vector2 size = {600, 450}, Color color = LIGHTGRAY, Color pressedColor = DARKGRAY, Color hoverColor = GRAY, Text text = Text())
         : position(position), size(size), color(color), pressedColor(pressedColor), hoverColor(hoverColor), text(text),
-          isPressed(false), isHovered(false), isDisabled(isDisabled), bounds({position.x, position.y, size.x, size.y}),
+          isPressed(false), isHovered(false), enabled(enabled), bounds({position.x, position.y, size.x, size.y}),
           onClick(nullptr), wasMousePressed(false), transitioningHover(false), transitioningUnhover(false), tooltip(), clickSound(LoadSound("click.wav")), renderTexturePos({rectangle.x, rectangle.y})
     {
     }
@@ -72,7 +71,7 @@ public:
 #else
     LitButton(Vector3 position = {0, 0, 1}, Vector2 size = {600, 450}, Color color = LIGHTGRAY, Color pressedColor = DARKGRAY, Color hoverColor = GRAY, Text text = Text())
         : position(position), size(size), color(color), pressedColor(pressedColor), hoverColor(hoverColor), text(text),
-          isPressed(false), isHovered(false), isDisabled(isDisabled), bounds({position.x, position.y, size.x, size.y}),
+          isPressed(false), isHovered(false), enabled(enabled), bounds({position.x, position.y, size.x, size.y}),
           onClick(nullptr), wasMousePressed(false), transitioningHover(false), transitioningUnhover(false), tooltip(), clickSound(LoadSound("click.wav"))
     {
     }
@@ -103,7 +102,7 @@ public:
 
     void PlayClickSound()
     {
-        if (!isDisabled)
+        if (enabled && IsSoundReady(clickSound))
         {
             PlaySound(clickSound);
         }
@@ -130,13 +129,13 @@ public:
 #endif
         bool isMousePressed = IsMouseButtonDown(MOUSE_LEFT_BUTTON);
 
-        if (isDisabled)
+        if (!enabled)
         {
-            btnColor = disabledButton;
+            btnColor = disabledButtonColor;
             text.color = disabledText;
         }
 
-        if (!isDisabled && isHovered && !isPressed && isMousePressed && !wasMousePressed)
+        if (enabled && isHovered && !isPressed && isMousePressed && !wasMousePressed)
         {
             isPressed = true;
             btnColor = pressedColor;
@@ -152,7 +151,7 @@ public:
 
 #ifdef GAME_SHIPPING
 
-        if (isHovered && !isDisabled)
+        if (isHovered && enabled)
         {
             tooltipTimer += GetFrameTime();
             if (tooltipTimer >= tooltipDelay && !showTooltip)
@@ -179,8 +178,17 @@ public:
         // Initialize start colors if transitioning just started
         if (notInTransition)
         {
-            startColorHover = btnColor;
-            startColorUnhover = btnColor;
+            if (enabled)
+            {
+                startColorHover = btnColor;
+                startColorUnhover = btnColor;
+            }
+            else
+            {
+                startColorHover = disabledButtonColor;
+                startColorUnhover = disabledButtonColor;
+            }
+        
         }
 
         // Smooth color transition for hovering
@@ -188,7 +196,11 @@ public:
         {
             transitioningHover = true;
             hoverTransitionTime = 0;
-            targetColorHover = hoverColor;
+            if (enabled)
+                targetColorHover = hoverColor;
+            else
+                targetColorHover = disabledHoverColor;;
+
         }
         else if (!isHovered && transitioningHover)
         {
@@ -202,7 +214,10 @@ public:
         {
             transitioningUnhover = true;
             unhoverTransitionTime = 0;
-            targetColorUnhover = color;
+            if (enabled)
+                targetColorUnhover = color;
+            else
+                targetColorUnhover = disabledButtonColor;
         }
         else if (isHovered && transitioningUnhover)
         {
