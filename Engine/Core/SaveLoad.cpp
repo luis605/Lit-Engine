@@ -32,6 +32,19 @@ namespace nlohmann {
     };
 
 
+    template<>
+    struct adl_serializer<Vector2> {
+        static void to_json(json& j, const Vector2& vec) {
+            j = json{{"x", vec.x}, {"y", vec.y}};
+        }
+
+        static void from_json(const json& j, Vector2& vec) {
+            vec.x = j["x"];
+            vec.y = j["y"];
+        }
+    };
+
+
 
     template<>
     struct adl_serializer<LitVector3> {
@@ -149,7 +162,7 @@ void SaveLight(json& json_data, const Light& light, int light_index) {
 
 
 
-void SaveText(json& json_data, const Text& text) {
+void SaveText(json& json_data, const Text& text, bool emplace_back = true) {
     json j;
     j["type"] = "text";
     j["name"] = text.name;
@@ -162,8 +175,42 @@ void SaveText(json& json_data, const Text& text) {
     j["spacing"] = text.spacing;
     j["padding"] = text.padding;
 
+    if (emplace_back)
+        json_data.emplace_back(j);
+    else
+       json_data = j;
+
+}
+
+
+
+void SaveButton(json& json_data, const LitButton& button) {
+    json j;
+    j["type"] = "button";
+    
+    // Create a JSON object for the "text" field
+    json text_json;
+    SaveText(text_json, button.text, false);
+    j["text"] = text_json;
+
+    j["name"] = button.name;
+    j["position"] = button.position;
+    j["size"] = button.size;
+    j["color"] = button.color;
+    j["pressed color"] = button.pressedColor;
+    j["hover color"] = button.hoverColor;
+    j["disabled color"] = button.disabledButton;
+    j["disabled text color"] = button.disabledText;
+    j["disabled hover color"] = button.disabledHover;
+    j["button roundness"] = button.roundness;
+    j["auto resize"] = button.autoResize;
+
     json_data.emplace_back(j);
 }
+
+
+
+
 
 int SaveProject() {
     json json_data;
@@ -180,6 +227,11 @@ int SaveProject() {
     for (const Text& text : textElements)
     {
         SaveText(json_data, text);
+    }
+
+    for (const LitButton& button : lit_buttons)
+    {
+        SaveButton(json_data, button);
     }
 
     std::ofstream outfile("project.json");
@@ -384,9 +436,59 @@ void LoadText(const json& text_json, Text& text) {
         text_json["position"]["y"].get<float>(),
         text_json["position"]["z"].get<float>()
     };
-
-
 }
+
+
+void LoadButton(const json& button_json, LitButton& button) {
+    // Load text properties
+    LoadText(button_json["text"], button.text);
+
+    // Load other button properties
+    button.name = button_json["name"].get<std::string>();
+    button.position = {
+        button_json["position"]["x"].get<float>(),
+        button_json["position"]["y"].get<float>(),
+        button_json["position"]["z"].get<float>()
+    };
+    button.size = {
+        button_json["size"]["x"].get<float>(),
+        button_json["size"]["y"].get<float>()
+    };
+
+    button.color.a = button_json["color"]["a"].get<unsigned char>();
+    button.color.r = button_json["color"]["r"].get<unsigned char>();
+    button.color.g = button_json["color"]["g"].get<unsigned char>();
+    button.color.b = button_json["color"]["b"].get<unsigned char>();
+
+    button.pressedColor.a = button_json["pressed color"]["a"].get<unsigned char>();
+    button.pressedColor.r = button_json["pressed color"]["r"].get<unsigned char>();
+    button.pressedColor.g = button_json["pressed color"]["g"].get<unsigned char>();
+    button.pressedColor.b = button_json["pressed color"]["b"].get<unsigned char>();
+
+    button.hoverColor.a = button_json["hover color"]["a"].get<unsigned char>();
+    button.hoverColor.r = button_json["hover color"]["r"].get<unsigned char>();
+    button.hoverColor.g = button_json["hover color"]["g"].get<unsigned char>();
+    button.hoverColor.b = button_json["hover color"]["b"].get<unsigned char>();
+
+    button.disabledButton.a = button_json["disabled color"]["a"].get<unsigned char>();
+    button.disabledButton.r = button_json["disabled color"]["r"].get<unsigned char>();
+    button.disabledButton.g = button_json["disabled color"]["g"].get<unsigned char>();
+    button.disabledButton.b = button_json["disabled color"]["b"].get<unsigned char>();
+
+    button.disabledText.a = button_json["disabled text color"]["a"].get<unsigned char>();
+    button.disabledText.r = button_json["disabled text color"]["r"].get<unsigned char>();
+    button.disabledText.g = button_json["disabled text color"]["g"].get<unsigned char>();
+    button.disabledText.b = button_json["disabled text color"]["b"].get<unsigned char>();
+
+    button.disabledHover.a = button_json["disabled hover color"]["a"].get<unsigned char>();
+    button.disabledHover.r = button_json["disabled hover color"]["r"].get<unsigned char>();
+    button.disabledHover.g = button_json["disabled hover color"]["g"].get<unsigned char>();
+    button.disabledHover.b = button_json["disabled hover color"]["b"].get<unsigned char>();
+
+    button.roundness = button_json["button roundness"].get<float>();
+    button.autoResize = button_json["auto resize"].get<bool>();
+}
+
 
 
 int LoadProject(vector<Entity>& entities_vector, vector<Light>& lights_vector, vector<AdditionalLightInfo>& lights_info_vector) {
@@ -405,6 +507,7 @@ int LoadProject(vector<Entity>& entities_vector, vector<Light>& lights_vector, v
     lights_vector.clear();
     lights_info_vector.clear();
     textElements.clear();
+    lit_buttons.clear();
     
     try {
         for (const auto& entity_json : json_data) {
@@ -412,19 +515,24 @@ int LoadProject(vector<Entity>& entities_vector, vector<Light>& lights_vector, v
             if (type == "entity") {
                 Entity entity;
                 LoadEntity(entity_json, entity);
-                entities_vector.push_back(entity);
+                entities_vector.emplace_back(entity);
             }
             else if (type == "light") {
                 Light light;
                 AdditionalLightInfo light_info;
                 LoadLight(entity_json, light, light_info);
-                lights_info_vector.push_back(light_info);
-                lights_vector.push_back(light);
+                lights_info_vector.emplace_back(light_info);
+                lights_vector.emplace_back(light);
             }
             else if (type == "text") {
                 Text textElement;
                 LoadText(entity_json, textElement);
-                textElements.push_back(textElement);
+                textElements.emplace_back(textElement);
+            }
+            else if (type == "button") {
+                LitButton button;
+                LoadButton(entity_json, button);
+                lit_buttons.emplace_back(button);
             }
         }
     } catch (const json::type_error& e) {
