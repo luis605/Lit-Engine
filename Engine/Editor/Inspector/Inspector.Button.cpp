@@ -11,7 +11,7 @@ void ButtonInspector()
     if (!selected_button)
         return;
 
-    const float labelWidth = 100.0f;
+    float labelWidth = 100.0f;
 
     ImGui::Text("Name:");
     ImGui::SameLine(labelWidth);
@@ -28,13 +28,27 @@ void ButtonInspector()
         selected_button->name = name_buffer;
     }
 
+    ImGui::Dummy(ImVec2(0.0f, 10.0f));
 
     if (ImGui::CollapsingHeader("Button Proprieties"))
     {
+        ImGui::Indent(10.0f);
+
+        ImGui::Text("Enabled:");
+        ImGui::SameLine(labelWidth);
+        ImGui::SetNextItemWidth(-1);
+        ImGui::Checkbox("##Enabled", &selected_button->enabled);
+
+        ImGui::Dummy(ImVec2(0.0f, 10.0f));
+
+
         ImGui::Text("Auto-resize:");
         ImGui::SameLine(labelWidth);
         ImGui::SetNextItemWidth(-1);
         ImGui::Checkbox("##AutoResize", &selected_button->autoResize);
+
+        ImGui::Dummy(ImVec2(0.0f, 10.0f));
+
 
         if (selected_button->autoResize)
             ImGui::BeginDisabled();
@@ -56,6 +70,8 @@ void ButtonInspector()
 
         if (selected_button->autoResize)
             ImGui::EndDisabled();
+
+        ImGui::Dummy(ImVec2(0.0f, 10.0f));
 
 
         ImGui::Text("Position:");
@@ -80,6 +96,8 @@ void ButtonInspector()
         ImGui::SliderFloat("##Position Z", &selected_button->position.z, -(500), 500);
         ImGui::PopID();
 
+        ImGui::Dummy(ImVec2(0.0f, 10.0f));
+
 
         ImGui::Text("Roundness:");
         ImGui::SameLine(labelWidth);
@@ -95,33 +113,102 @@ void ButtonInspector()
                 ButtonRoundnessActiveInputMode = false;
         }
 
+        ImGui::Dummy(ImVec2(0.0f, 10.0f));
 
         if (ImGui::CollapsingHeader("Color"))
         {
-            ImGui::Text("Button Color: ");
-            ImGui::SameLine(labelWidth);
-            ImGui::SetNextItemWidth(-1);
+            ImGui::Indent(15.0f);
+            labelWidth += 30;
+            // Button Color
+            {
 
-            ImVec4 defaultButtonColorImGui = ImVec4(
-                selected_button->color.r / 255.0f,
-                selected_button->color.g / 255.0f,
-                selected_button->color.b / 255.0f,
-                selected_button->color.a / 255.0f
-            );
+                ImGui::Text("Button Color: ");
+                ImGui::SameLine(labelWidth);
+                ImGui::SetNextItemWidth(-1);
 
-        
-            bool colorChanged = ImGui::ColorEdit4("##Text Color", (float*)&defaultButtonColorImGui, ImGuiColorEditFlags_NoInputs);
+                ImVec4 defaultButtonColorImGui = ImVec4(
+                    selected_button->color.r / 255.0f,
+                    selected_button->color.g / 255.0f,
+                    selected_button->color.b / 255.0f,
+                    selected_button->color.a / 255.0f
+                );
 
-            Color defaultButtonColor = {
-                (unsigned char)(defaultButtonColorImGui.x * 255.0f),
-                (unsigned char)(defaultButtonColorImGui.y * 255.0f),
-                (unsigned char)(defaultButtonColorImGui.z * 255.0f),
-                (unsigned char)(defaultButtonColorImGui.w * 255.0f)
-            };
 
-            selected_button->color = defaultButtonColor;
+                bool colorChanged = ImGui::ColorEdit4("##Default Button Color", (float*)&defaultButtonColorImGui, ImGuiColorEditFlags_NoInputs);
+
+                Color defaultButtonColor = {
+                    (unsigned char)(defaultButtonColorImGui.x * 255.0f),
+                    (unsigned char)(defaultButtonColorImGui.y * 255.0f),
+                    (unsigned char)(defaultButtonColorImGui.z * 255.0f),
+                    (unsigned char)(defaultButtonColorImGui.w * 255.0f)
+                };
+
+                selected_button->color = defaultButtonColor;
+            }
+            
+            // Button Hover Color
+            {
+                ImGui::Text("Hover Color: ");
+                ImGui::SameLine(labelWidth);
+                ImGui::SetNextItemWidth(-1);
+
+                ImVec4 buttonHoverColorImGui = ImVec4(
+                    selected_button->hoverColor.r / 255.0f,
+                    selected_button->hoverColor.g / 255.0f,
+                    selected_button->hoverColor.b / 255.0f,
+                    selected_button->hoverColor.a / 255.0f
+                );
+
+
+                bool colorChanged = ImGui::ColorEdit4("##Button Hover Color", (float*)&buttonHoverColorImGui, ImGuiColorEditFlags_NoInputs);
+
+                Color buttonHoverColor = {
+                    (unsigned char)(buttonHoverColorImGui.x * 255.0f),
+                    (unsigned char)(buttonHoverColorImGui.y * 255.0f),
+                    (unsigned char)(buttonHoverColorImGui.z * 255.0f),
+                    (unsigned char)(buttonHoverColorImGui.w * 255.0f)
+                };
+
+                selected_button->hoverColor = buttonHoverColor;
+
+            }
+
+            // Button Pressed Color
+            {
+                ImGui::Text("Pressed Color: ");
+                ImGui::SameLine(labelWidth);
+                ImGui::SetNextItemWidth(-1);
+
+                ImVec4 buttonPressedColorImGui = ImVec4(
+                    selected_button->pressedColor.r / 255.0f,
+                    selected_button->pressedColor.g / 255.0f,
+                    selected_button->pressedColor.b / 255.0f,
+                    selected_button->pressedColor.a / 255.0f
+                );
+
+
+                bool colorChanged = ImGui::ColorEdit4("##Button Pressed Color", (float*)&buttonPressedColorImGui, ImGuiColorEditFlags_NoInputs);
+
+                Color buttonPressedColor = {
+                    (unsigned char)(buttonPressedColorImGui.x * 255.0f),
+                    (unsigned char)(buttonPressedColorImGui.y * 255.0f),
+                    (unsigned char)(buttonPressedColorImGui.z * 255.0f),
+                    (unsigned char)(buttonPressedColorImGui.w * 255.0f)
+                };
+
+                selected_button->pressedColor = buttonPressedColor;
+
+            }
+
+
+            labelWidth -= 30;
+            ImGui::Unindent(15.0f);
+
         }
 
+        ImGui::Dummy(ImVec2(0.0f, 10.0f));
+
+        ImGui::Unindent(10.0f);
 
     }
 

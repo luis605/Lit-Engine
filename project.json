@@ -3,10 +3,10 @@
         "auto resize": false,
         "button roundness": 5.0,
         "color": {
-            "a": 255,
-            "b": 200,
-            "g": 200,
-            "r": 200
+            "a": 22,
+            "b": 5,
+            "g": 5,
+            "r": 255
         },
         "disabled color": {
             "a": 255,
@@ -45,8 +45,8 @@
             "r": 80
         },
         "size": {
-            "x": 200.0,
-            "y": 50.0
+            "x": 661.7239990234375,
+            "y": 589.655029296875
         },
         "text": {
             "background color": {
@@ -62,16 +62,16 @@
                 "g": 0,
                 "r": 0
             },
-            "font size": 20.0,
+            "font size": 70.69000244140625,
             "name": "Text",
             "padding": 25.0,
             "position": {
-                "x": 134.0,
-                "y": 165.0,
+                "x": 136.86199951171875,
+                "y": 409.4825134277344,
                 "z": 0.0
             },
-            "spacing": 4.0,
-            "text": "Default Text",
+            "spacing": 0.0,
+            "text": "This is a random\nButton I made\nUsing Lit Engine!",
             "type": "text"
         },
         "type": "button"

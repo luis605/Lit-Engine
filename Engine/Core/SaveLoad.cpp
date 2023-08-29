@@ -199,9 +199,9 @@ void SaveButton(json& json_data, const LitButton& button) {
     j["color"] = button.color;
     j["pressed color"] = button.pressedColor;
     j["hover color"] = button.hoverColor;
-    j["disabled color"] = button.disabledButton;
+    j["disabled color"] = button.disabledButtonColor;
     j["disabled text color"] = button.disabledText;
-    j["disabled hover color"] = button.disabledHover;
+    j["disabled hover color"] = button.disabledHoverColor;;
     j["button roundness"] = button.roundness;
     j["auto resize"] = button.autoResize;
 
@@ -470,20 +470,20 @@ void LoadButton(const json& button_json, LitButton& button) {
     button.hoverColor.g = button_json["hover color"]["g"].get<unsigned char>();
     button.hoverColor.b = button_json["hover color"]["b"].get<unsigned char>();
 
-    button.disabledButton.a = button_json["disabled color"]["a"].get<unsigned char>();
-    button.disabledButton.r = button_json["disabled color"]["r"].get<unsigned char>();
-    button.disabledButton.g = button_json["disabled color"]["g"].get<unsigned char>();
-    button.disabledButton.b = button_json["disabled color"]["b"].get<unsigned char>();
+    button.disabledButtonColor.a = button_json["disabled color"]["a"].get<unsigned char>();
+    button.disabledButtonColor.r = button_json["disabled color"]["r"].get<unsigned char>();
+    button.disabledButtonColor.g = button_json["disabled color"]["g"].get<unsigned char>();
+    button.disabledButtonColor.b = button_json["disabled color"]["b"].get<unsigned char>();
 
     button.disabledText.a = button_json["disabled text color"]["a"].get<unsigned char>();
     button.disabledText.r = button_json["disabled text color"]["r"].get<unsigned char>();
     button.disabledText.g = button_json["disabled text color"]["g"].get<unsigned char>();
     button.disabledText.b = button_json["disabled text color"]["b"].get<unsigned char>();
 
-    button.disabledHover.a = button_json["disabled hover color"]["a"].get<unsigned char>();
-    button.disabledHover.r = button_json["disabled hover color"]["r"].get<unsigned char>();
-    button.disabledHover.g = button_json["disabled hover color"]["g"].get<unsigned char>();
-    button.disabledHover.b = button_json["disabled hover color"]["b"].get<unsigned char>();
+    button.disabledHoverColor.a = button_json["disabled hover color"]["a"].get<unsigned char>();
+    button.disabledHoverColor.r = button_json["disabled hover color"]["r"].get<unsigned char>();
+    button.disabledHoverColor.g = button_json["disabled hover color"]["g"].get<unsigned char>();
+    button.disabledHoverColor.b = button_json["disabled hover color"]["b"].get<unsigned char>();
 
     button.roundness = button_json["button roundness"].get<float>();
     button.autoResize = button_json["auto resize"].get<bool>();
