@@ -61,6 +61,40 @@ struct Frustum
 bool EntityRunScriptFirstTime = true;
 bool Entity_already_registered = false;
 
+RLFrustum cameraFrustum;
+
+
+void InitFrustum()
+{
+    cameraFrustum = RLFrustum();
+}
+
+// Update the camera frustum in your update function
+void UpdateFrustum()
+{
+    cameraFrustum.Extract();
+}
+
+// Check if a point is inside the camera frustum
+bool PointInFrustum(const Vector3& point)
+{
+    return cameraFrustum.PointIn(point);
+}
+
+// Check if a sphere is inside the camera frustum
+bool SphereInFrustum(const Vector3& position, float radius)
+{
+    return cameraFrustum.SphereIn(position, radius);
+}
+
+// Check if an axis-aligned bounding box is inside the camera frustum
+bool AABBoxInFrustum(const Vector3& min, const Vector3& max)
+{
+    return cameraFrustum.AABBoxIn(min, max);
+}
+
+
+
 std::mutex script_mutex;
 class Entity {
 public:
@@ -578,6 +612,15 @@ public:
         std::cout << "Position: " << position.x << ", " << position.y << ", " << position.z << "\n";
     }
 
+
+    bool inFrustum()
+    {
+        UpdateFrustum();
+        return AABBoxInFrustum(bounds.min, bounds.max);
+    }
+
+
+
     void render() {
         if (!hasModel())
             initializeDefaultModel();
@@ -622,6 +665,9 @@ public:
             }
             else
             {
+                if (!inFrustum())
+                    return;
+
                 glUseProgram((GLuint)shader.id);
 
                 bool normalMapInit = !normal_texture_path.empty();
