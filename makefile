@@ -82,7 +82,7 @@ build_dependencies: $(IMGUI_OBJECTS)
 	@g++ -c $(IMGUI_OBJECTS) -I./imgui -O3 ImNodes/ImNodesEz.cpp -o ImNodes/ImNodesEz.o
 	@g++ -c $(IMGUI_OBJECTS) -I./imgui -O3 include/rlImGui.cpp -o include/rlImGui.o
 	@g++ -c $(IMGUI_OBJECTS) -I./imgui -O3 ImGuiColorTextEdit/TextEditor.cpp -o ImGuiColorTextEdit/TextEditor.o
-
+	@g++ -c -O3 include/rlFrustum.cpp -o include/rlFrustum.o
 
 
 clean:

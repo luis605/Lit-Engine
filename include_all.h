@@ -10,6 +10,7 @@
 #include "include/rcamera.h"
 #include "include/rlgl.h"
 #include "include/custom.h"
+#include "include/rlFrustum.cpp"
 
 #ifndef GAME_SHIPPING
     #include "imgui/imgui.h"
