@@ -28,7 +28,7 @@ endef
 
 
 
-CXXFLAGS = -g -pipe -std=c++17 -fpermissive -w -Wall -DNDEBUG -O0
+CXXFLAGS = -g -pipe -flto -fuse-ld=gold -std=c++17 -fpermissive -w -Wall -DNDEBUG -O0
 SRC_FILES = main.cpp ImGuiColorTextEdit/TextEditor.o include/rlImGui.o ImNodes/ImNodes.o ImNodes/ImNodesEz.o
 INCLUDE_DIRS = -I./include -I./ImGuiColorTextEdit -I/usr/local/lib -L/usr/lib/x86_64-linux-gnu/ -L/usr/local/lib -I./include/nlohmann -I./imgui -L/include/bullet3/src
 LIB_FLAGS = -L./include -lboost_filesystem -lraylib -pthread -lpython3.11 -fPIC `python3.11 -m pybind11 --includes` -ldl -lBulletDynamics -lBulletCollision -lLinearMath -I./include/bullet3/src
@@ -53,7 +53,7 @@ build: $(IMGUI_OBJECTS)
 
 
 brun:
-	@make --no-print-directory build -j24
+	@make --no-print-directory build -j8
 	@make --no-print-directory run
 
 debug:
@@ -65,9 +65,12 @@ debug:
 
 bdb: build debug
 
-tests:
+build_tests:
 	@ccache g++ $(CXXFLAGS) tests.cpp include/rlImGui.o $(INCLUDE_DIRS) $(IMGUI_OBJECTS) $(LIB_FLAGS) -o tests.out
-	./tests.out
+
+tests:
+	@make --no-print-directory build_tests -j10
+	@./tests.out
 
 build_dependencies: $(IMGUI_OBJECTS)
 	@$(call echo_success, "Building Dependencies")
