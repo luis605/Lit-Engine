@@ -199,6 +199,11 @@ public:
 
     }
 
+    bool hasInstances()
+    {
+        return instances.empty();
+    }
+
     void calculateInstance(int index) {
         if (index < 0 || index >= instances.size()) {
 
@@ -243,7 +248,6 @@ public:
 
         }
     }
-
 
     void remove() {
 
@@ -321,10 +325,6 @@ public:
         }
 
         model.materials[0].shader = default_shader;
-
-
-        bounds = GetMeshBoundingBox(model.meshes[0]);
-
 
         if (isDynamic) {
             createDynamicBox(scale.x, scale.y, scale.z);
@@ -641,6 +641,17 @@ public:
 
         if (visible)
         {
+
+            Matrix transformMatrix = MatrixIdentity();
+            transformMatrix = MatrixScale(scale.x, scale.y, scale.z);
+            transformMatrix = MatrixMultiply(transformMatrix, MatrixRotateXYZ(rotation));
+            transformMatrix = MatrixMultiply(transformMatrix, MatrixTranslate(position.x, position.y, position.z));
+            
+            bounds = GetMeshBoundingBox(model.meshes[0]);
+            
+            bounds.min = Vector3Transform(bounds.min, transformMatrix);
+            bounds.max = Vector3Transform(bounds.max, transformMatrix);
+
             PassSurfaceMaterials();
 
             if (!instances.empty())

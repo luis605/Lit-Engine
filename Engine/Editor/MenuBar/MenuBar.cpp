@@ -111,7 +111,14 @@ void DrawMenus()
         if (ImGui::MenuItem("Reload Lighting Shader", ""))
         {
             std::cout << "\n\n\n\n\nReloading Lighting Shaders\n\n";
+            UnloadShader(shader);
             shader = LoadShader("Engine/Lighting/shaders/lighting_vertex.glsl", "Engine/Lighting/shaders/lighting_fragment.glsl");
+            for (Entity& entity : entities_list_pregame) {
+                if (entity.hasInstances())
+                {
+                    entity.setShader(shader);
+                }
+            }
         }
         ImGui::EndMenu();
     }
