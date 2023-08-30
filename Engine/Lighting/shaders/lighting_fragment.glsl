@@ -88,6 +88,13 @@ vec3 CalculateFresnelReflection(vec3 baseReflectance, vec3 viewDirection, vec3 h
     return finalColor;
 }
 
+vec3 toneMap(vec3 hdrColor) {
+    // Apply tone mapping here (e.g., Reinhard or ACES).
+    return hdrColor / (hdrColor + vec3(1.0)); // Adjust as needed.
+}
+
+
+
 void main() {
     vec4 texColor = texture(texture0, fragTexCoord);
 
@@ -138,14 +145,26 @@ void main() {
             vec3 lightDir = normalize(light.position - fragPosition);
             float distance = length(light.position - fragPosition);
             float attenuation = 1.0 / (1.0 + light.attenuation * distance * distance);
+            
+            // Calculate the diffuse term using NdotL without modifying color
             float NdotL = max(dot(norm, lightDir), 0.0);
 
-            // Simple diffuse and specular terms
-            vec3 diffuseTerm = colDiffuse.rgb * NdotL;
-            vec3 specularTerm = vec3(0.0); // No specular for now
+            vec3 H = normalize(lightDir + viewDir);
+            float NdotH = max(dot(norm, H), 0.0);
 
-            result += (diffuseTerm + specularTerm) * light.color.rgb * attenuation * light.intensity;
+            float roughnessFactor = max(1.0 - roughness, 0.02);
+            float roughnessSquared = roughnessFactor * roughnessFactor;
+            float geometricTerm = 2.0 * NdotH * NdotL / max(NdotH + NdotL, 0.001);
+            float k_s = (roughnessSquared + 1.0) / (8.0 * max(NdotH * NdotL, 0.001));
+            float k_d = 1.0 - k_s;
+
+            // Calculate the specular term
+            float specularTerm = k_s / (NdotH * NdotH * max(4.0 * NdotL * NdotH, 0.001));
+
+            // Use the unmodified NdotL for diffuse term
+            result += (NdotL + specular * specularTerm) * light.color.rgb * attenuation;
         }
+
 
 
 
@@ -190,8 +209,11 @@ void main() {
     result *= ao;
     result += vec4(result, 1.0).rgb * texColor.rgb;
 
+
     // Apply gamma correction
     result = pow(result, vec3(2.2));
+
+    result = toneMap(result);
 
     // Assign the final color
     finalColor = vec4(result, 1.0);
