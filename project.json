@@ -1,79 +1,87 @@
 [
     {
-        "auto resize": false,
-        "button roundness": 5.0,
         "color": {
-            "a": 22,
-            "b": 5,
-            "g": 5,
+            "a": 255,
+            "b": 255,
+            "g": 255,
             "r": 255
         },
-        "disabled color": {
-            "a": 255,
-            "b": 130,
-            "g": 130,
-            "r": 130
-        },
-        "disabled hover color": {
-            "a": 255,
-            "b": 130,
-            "g": 130,
-            "r": 130
-        },
-        "disabled text color": {
-            "a": 255,
-            "b": 80,
-            "g": 80,
-            "r": 80
-        },
-        "hover color": {
-            "a": 255,
-            "b": 130,
-            "g": 130,
-            "r": 130
-        },
-        "name": "Button",
+        "id": 751618283,
+        "is_dynamic": false,
+        "mass": 1.0,
+        "model_path": "project/game/models/plane.obj",
+        "name": "project/game/models/plane",
+        "normal_texture_path": "project/game/textures/metal grid/metalgrid2_normal-ogl.png",
         "position": {
+            "x": 0.0,
+            "y": 0.0,
+            "z": 0.0
+        },
+        "relative_position": {
+            "x": 0.0,
+            "y": 0.0,
+            "z": 0.0
+        },
+        "rotation": {
+            "x": 0.0,
+            "y": 0.0,
+            "z": 0.0
+        },
+        "roughness_texture_path": "",
+        "scale": {
             "x": 100.0,
-            "y": 150.0,
-            "z": 1.0
+            "y": 1.0,
+            "z": 100.0
         },
-        "pressed color": {
-            "a": 255,
-            "b": 80,
-            "g": 80,
-            "r": 80
-        },
-        "size": {
-            "x": 661.7239990234375,
-            "y": 589.655029296875
-        },
-        "text": {
-            "background color": {
-                "a": 0,
-                "b": 0,
-                "g": 0,
-                "r": 0
+        "script_path": "",
+        "surface_material": {
+            "DiffuseIntensity": 0.5,
+            "Roughness": 0.5,
+            "SpecularIntensity": 0.5,
+            "SpecularTint": {
+                "x": 1.0,
+                "y": 1.0,
+                "z": 1.0
             },
-            "background roundiness": 0.0,
-            "color": {
-                "a": 255,
-                "b": 0,
-                "g": 0,
-                "r": 0
-            },
-            "font size": 70.69000244140625,
-            "name": "Text",
-            "padding": 25.0,
-            "position": {
-                "x": 136.86199951171875,
-                "y": 409.4825134277344,
-                "z": 0.0
-            },
-            "spacing": 0.0,
-            "text": "This is a random\nButton I made\nUsing Lit Engine!",
-            "type": "text"
+            "shininess": 0.5
         },
-        "type": "button"
+        "texture_path": "",
+        "type": "entity"
+    },
+    {
+        "attenuation": 0.0,
+        "color": {
+            "a": 1.0,
+            "b": 1.0,
+            "g": 1.0,
+            "r": 1.0
+        },
+        "cutOff": 10.0,
+        "direction": {
+            "x": 0.20200000703334808,
+            "y": 1.0,
+            "z": 0.49399998784065247
+        },
+        "id": -223216566,
+        "intensity": 0.8949999809265137,
+        "light_type": 1,
+        "name": "",
+        "position": {
+            "x": 0.7000150680541992,
+            "y": 0.900001049041748,
+            "z": 1.0999997854232788
+        },
+        "relative_position": {
+            "x": 0.0,
+            "y": 0.0,
+            "z": 0.0
+        },
+        "specularStrength": 0.5,
+        "target": {
+            "x": 6.5244407099207535e-12,
+            "y": 3.071646233799999e-41,
+            "z": 722.0
+        },
+        "type": "light"
     }
 ]
