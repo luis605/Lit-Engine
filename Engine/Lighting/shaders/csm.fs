@@ -6,64 +6,43 @@ in vec2 fragTexCoord;
 in vec4 fragColor;
 in vec3 fragNormal;
 
-// Input uniform values
-uniform sampler2D texture0;
-uniform vec4 colDiffuse;
-
 // Output fragment color
 out vec4 finalColor;
 
-// NOTE: Add here your custom variables
-
-#define     MAX_LIGHTS              1
-#define     LIGHT_DIRECTIONAL       0
-#define     LIGHT_POINT             1
-
-struct MaterialProperty {
-    vec3 color;
-    int useSampler;
-    sampler2D sampler;
-};
-
-struct Light {
-    int enabled;
-    int type;
-    vec3 position;
-    vec3 target;
-    vec4 color;
-};
-
-// Input lighting values
-uniform vec4 ambient;
 uniform vec3 viewPos;
+uniform vec3 lightDirection; // Direction of the light source
 
 void main()
 {
-    // Texel color fetching from texture sampler
-    vec4 texelColor = texture(texture0, fragTexCoord);
-    vec3 lightDot = vec3(0.0);
     vec3 normal = normalize(fragNormal);
-    vec3 viewD = normalize(viewPos - fragPosition);
-    vec3 specular = vec3(0.0);
+    vec3 viewDir = normalize(viewPos - fragPosition);
 
-    // NOTE: Implement here your fragment shader code
+    vec3 color;
 
+    // Define the dimensions of the view frustum for cascades
+    float nearPlane = 0.1; // Adjust as needed
+    float farPlane = 100.0; // Adjust as needed
+    float aspectRatio = float(1920) / float(1080); // Example: 1920x1080 resolution
 
-    vec3 light = vec3(0.0);
-            
-    light = normalize(vec3(30,20,0) - fragPosition);
+    // Transform fragment position into light space
+    vec3 fragPositionLightSpace = fragPosition; // You may need to transform this based on your coordinate system
 
-    float NdotL = max(dot(normal, light), 0.0);
-    lightDot += vec3(1.0,1.0,1.0)*NdotL;
+    // Rotate the fragment position to align with the light direction
+    // This rotation should align the light direction with, for example, the Z-axis
+    mat3 lightRotationMatrix = mat3(1.0); // Identity matrix, modify as needed
+    fragPositionLightSpace = lightRotationMatrix * fragPositionLightSpace;
 
-    float specCo = 0.0;
-    if (NdotL > 0.0) specCo = pow(max(0.0, dot(viewD, reflect(-(light), normal))), 16); // 16 refers to shine
-    specular += specCo;
+    // Calculate cascade splits based on the minimum and maximum extents along X and Y
+    float cascadeSplitX = max(abs(fragPositionLightSpace.x), nearPlane * tan(radians(45.0) / 2.0));
+    float cascadeSplitY = max(abs(fragPositionLightSpace.y), nearPlane * tan(radians(45.0) / 2.0) / aspectRatio);
 
+    // Check if the fragment position is within the cascade splits
+    if (fragPositionLightSpace.z >= nearPlane && fragPositionLightSpace.z <= farPlane &&
+        abs(fragPositionLightSpace.x) <= cascadeSplitX && abs(fragPositionLightSpace.y) <= cascadeSplitY) {
+        color = vec3(1, 0, 1); // Inside the cascade split
+    } else {
+        color = vec3(0, 1, 0); // Outside the cascade split
+    }
 
-    finalColor = (texelColor*((colDiffuse + vec4(specular, 1.0))*vec4(lightDot, 1.0)));
-    finalColor += texelColor*(ambient/10.0);
-    
-    // Gamma correction
-    finalColor = pow(finalColor, vec4(1.0/2.2));
+    finalColor = vec4(color, 1);
 }

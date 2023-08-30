@@ -11,7 +11,6 @@ Texture2D RenderModelPreview(const char* modelFile) {
     model_previewer_camera.fovy = 60.0f;
     model_previewer_camera.projection = CAMERA_PERSPECTIVE;
 
-
     RenderTexture2D target = LoadRenderTexture(600, 600);
 
     BeginTextureMode(target);
@@ -110,8 +109,18 @@ void AssetsExplorer()
                             fileTextureItem = {file, icon, file};
                         } else {
                             Texture2D icon = RenderModelPreview(path.c_str());
-                            models_icons.insert({file, icon});
-                            fileTextureItem = {file, icon, file};
+
+                            RenderTexture2D target = LoadRenderTexture(icon.width, icon.height);
+
+                            BeginTextureMode(target);
+
+                            DrawTextureEx(icon, (Vector2){0, 0}, 0.0f, 1.0f, RAYWHITE);
+
+                            EndTextureMode();
+
+                            Texture2D flippedIcon = target.texture;
+                            models_icons.insert({file, flippedIcon});
+                            fileTextureItem = {file, flippedIcon, file};
                         }
                     }
                     files_texture_struct.push_back(fileTextureItem);
