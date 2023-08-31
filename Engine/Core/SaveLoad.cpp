@@ -117,10 +117,18 @@ void SaveEntity(json& json_data, const Entity& entity) {
 
     if (!entity.children.empty()) {
         json children_data;
-        for (const Entity* child : entity.children) {
-            json child_json;
-            SaveEntity(child_json, *child);
-            children_data.emplace_back(child_json);
+
+        std::vector<std::variant<Entity*, Light*, Text*, LitButton*>> nonConstChildren = entity.children;
+        for (std::variant<Entity*, Light*, Text*, LitButton*>& childVariant : nonConstChildren)
+        {
+            if (std::holds_alternative<Entity*>(childVariant))
+            {
+                Entity* child = std::get<Entity*>(childVariant);
+                json child_json;
+                SaveEntity(child_json, *child);
+                children_data.emplace_back(child_json);
+            }
+
         }
         j["children"] = children_data;
     }

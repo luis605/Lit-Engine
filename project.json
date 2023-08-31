@@ -6,15 +6,64 @@
             "g": 255,
             "r": 255
         },
-        "id": 751618283,
+        "id": 1436382731,
         "is_dynamic": false,
         "mass": 1.0,
-        "model_path": "project/game/models/plane.obj",
-        "name": "project/game/models/plane",
+        "model_path": "project/game/models/Ceiling_Lamp/Ceiling_Lamp.obj",
+        "name": "project/game/models/Ceiling_Lamp/Ceiling_Lamp",
+        "normal_texture_path": "project/game/models/Ceiling_Lamp/Mat_Normal_DirectX.png",
+        "position": {
+            "x": 0.0,
+            "y": 6.30000114440918,
+            "z": 0.0
+        },
+        "relative_position": {
+            "x": 0.0,
+            "y": 0.0,
+            "z": 0.0
+        },
+        "rotation": {
+            "x": 0.0,
+            "y": 0.0,
+            "z": 0.0
+        },
+        "roughness_texture_path": "project/game/models/Ceiling_Lamp/Mat_Roughness.png",
+        "scale": {
+            "x": 0.009999999776482582,
+            "y": 0.009999999776482582,
+            "z": 0.009999999776482582
+        },
+        "script_path": "",
+        "surface_material": {
+            "DiffuseIntensity": 0.5,
+            "Roughness": 0.5,
+            "SpecularIntensity": 0.5,
+            "SpecularTint": {
+                "x": 1.0,
+                "y": 1.0,
+                "z": 1.0
+            },
+            "shininess": 0.5
+        },
+        "texture_path": "project/game/models/Ceiling_Lamp/Mat_Base_Color.png",
+        "type": "entity"
+    },
+    {
+        "color": {
+            "a": 255,
+            "b": 255,
+            "g": 255,
+            "r": 255
+        },
+        "id": 1436382732,
+        "is_dynamic": false,
+        "mass": 1.0,
+        "model_path": "project/game/models/cube.obj",
+        "name": "Unnamed Entity",
         "normal_texture_path": "project/game/textures/metal grid/metalgrid2_normal-ogl.png",
         "position": {
             "x": 0.0,
-            "y": 0.0,
+            "y": 0.2999997138977051,
             "z": 0.0
         },
         "relative_position": {
@@ -29,9 +78,9 @@
         },
         "roughness_texture_path": "",
         "scale": {
-            "x": 100.0,
-            "y": 1.0,
-            "z": 100.0
+            "x": 45.0,
+            "y": 0.009999999776482582,
+            "z": 45.0
         },
         "script_path": "",
         "surface_material": {
@@ -49,37 +98,86 @@
         "type": "entity"
     },
     {
-        "attenuation": 0.0,
         "color": {
-            "a": 0.0,
-            "b": 255.0,
-            "g": 255.0,
-            "r": 255.0
+            "a": 255,
+            "b": 255,
+            "g": 255,
+            "r": 255
         },
-        "cutOff": 10.0,
-        "direction": {
-            "x": 0.30399999022483826,
-            "y": 1.0,
-            "z": 0.4909999966621399
-        },
-        "id": 1376918656,
-        "intensity": 4.910999774932861,
-        "light_type": 1,
-        "name": "",
+        "id": 1436382733,
+        "is_dynamic": true,
+        "mass": 1.0,
+        "model_path": "project/game/models/cube.obj",
+        "name": "project/game/models/test",
+        "normal_texture_path": "",
         "position": {
-            "x": 13.800003051757813,
-            "y": 11.50002670288086,
-            "z": -7.700003623962402
+            "x": 0.0,
+            "y": 1.4999990463256836,
+            "z": 0.0
         },
         "relative_position": {
             "x": 0.0,
             "y": 0.0,
             "z": 0.0
         },
+        "rotation": {
+            "x": 0.0,
+            "y": 0.0,
+            "z": 0.0
+        },
+        "roughness_texture_path": "",
+        "scale": {
+            "x": 1.0,
+            "y": 1.0,
+            "z": 1.0
+        },
+        "script_path": "project/game/coins collector.py",
+        "surface_material": {
+            "DiffuseIntensity": 0.5,
+            "Roughness": 0.5,
+            "SpecularIntensity": 0.5,
+            "SpecularTint": {
+                "x": 1.0,
+                "y": 1.0,
+                "z": 1.0
+            },
+            "shininess": 0.5
+        },
+        "texture_path": "",
+        "type": "entity"
+    },
+    {
+        "attenuation": 9.999999747378752e-05,
+        "color": {
+            "a": 255.0,
+            "b": 255.0,
+            "g": 255.0,
+            "r": 255.0
+        },
+        "cutOff": 10.0,
+        "direction": {
+            "x": 0.0010000000474974513,
+            "y": 1.0,
+            "z": -0.22300000488758087
+        },
+        "id": 2,
+        "intensity": 0.5,
+        "light_type": 2,
+        "name": "Light",
+        "position": {
+            "x": -0.1000000610947609,
+            "y": 5.799995422363281,
+            "z": -0.10000019520521164
+        },
+        "relative_position": {
+            "x": 0,
+            "y": 0,
+            "z": 0
+        },
         "specularStrength": 0.5,
         "target": {
-            "x": 6.5244407099207535e-12,
-            "y": 3.071646233799999e-41,
+            "x": 25047678844928.0,
+            "y": 3.061136495317563e-41,
             "z": 722.0
         },
         "type": "light"

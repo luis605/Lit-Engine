@@ -329,15 +329,20 @@ void RenderScene()
                 selected_game_object_type = "entity";
             }
 
-            for (Entity* child : entity.children)
+            for (std::variant<Entity*, Light*, Text*, LitButton*>& childVariant : entity.children)
             {
-                isEntitySelected = IsMouseHoveringModel(child->model, scene_camera, child->position, child->rotation, child->scale);
-                if (isEntitySelected)
+                if (auto* childEntity = std::get_if<Entity*>(&childVariant))
                 {
-                    object_in_inspector = child;
-                    selected_game_object_type = "entity";
+                    bool isEntitySelected = IsMouseHoveringModel((*childEntity)->model, scene_camera, (*childEntity)->position, (*childEntity)->rotation, (*childEntity)->scale);
+                    if (isEntitySelected)
+                    {
+                        object_in_inspector = *childEntity;
+                        selected_game_object_type = "entity";
+                    }
                 }
+                // You can handle other types (Light*, Text*, LitButton*) similarly if needed.
             }
+
         }
     }
 
