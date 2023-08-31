@@ -6,6 +6,7 @@ struct GizmoArrow {
     Model model;
     Vector3 position;
     Vector3 rotation;
+    Vector3 scale = {1,1,1};
     string drag_directions;
 
 };
@@ -16,6 +17,7 @@ struct GizmoTaurus {
     Model model;
     Vector3 position;
     Vector3 rotation;
+    Vector3 scale = {1,1,1};
     string drag_directions;
 
 };
@@ -27,6 +29,7 @@ struct GizmoCube {
     Model model;
     Vector3 position;
     Vector3 rotation;
+    Vector3 scale = {1,1,1};
     string drag_directions;
 
 };
