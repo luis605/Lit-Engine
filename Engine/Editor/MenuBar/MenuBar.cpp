@@ -119,6 +119,7 @@ void DrawMenus()
                     entity.setShader(shader);
                 }
             }
+            UpdateLightsBuffer();
         }
         ImGui::EndMenu();
     }

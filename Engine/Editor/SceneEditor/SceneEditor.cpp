@@ -292,6 +292,7 @@ void RenderScene()
     float cameraPos[3] = { scene_camera.position.x, scene_camera.position.y, scene_camera.position.z };
     SetShaderValue(shader, shader.locs[SHADER_LOC_VECTOR_VIEW], cameraPos, SHADER_UNIFORM_VEC3);
 
+    SetShaderValueMatrix(shader, GetShaderLocation(shader, "cameraMatrix"), GetCameraMatrix(scene_camera));
 
     ProcessSelection();
 
