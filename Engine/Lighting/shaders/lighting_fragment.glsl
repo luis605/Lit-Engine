@@ -192,13 +192,24 @@ void main() {
             float k_d = 1.0; // Adjust this value to control energy conservation
             float energyFactor = 1.0 / (k_d + (1.0 - k_d) * 0.5);
 
+            // Apply normal mapping
+            vec3 normalMap = texture(texture2, fragTexCoord).rgb;
+            vec3 tangent = dFdx(fragPosition);
+            vec3 bitangent = dFdy(fragPosition);
+            vec3 T = normalize(tangent);
+            vec3 B = normalize(bitangent);
+            vec3 N = normalize(fragNormal);
+            mat3 TBN = mat3(T, B, N);
+            vec3 sampledNormal = normalize((normalMap * 2.0 - 1.0) * TBN);
+
+            // Calculate the light direction in tangent space
             vec3 lightDirTangent = normalize(lightToPoint * TBN);
 
             // Calculate the diffuse term using the sampled normal
-            float NdotL = max(dot(norm, lightDirTangent), 0.0);
+            float NdotL = max(dot(sampledNormal, lightDirTangent), 0.0);
             vec3 diffuseTerm = colDiffuse.rgb * NdotL;
 
-            result += diffuseTerm * spot * light.intensity * attenuation * light.color.rgb * energyFactor + (colDiffuse.rgb * ambient.rgb);
+            result += diffuseTerm * spot * light.intensity * attenuation * energyFactor + (colDiffuse.rgb * ambient.rgb);
         }
 
     }
