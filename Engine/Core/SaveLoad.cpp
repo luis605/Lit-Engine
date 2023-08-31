@@ -133,7 +133,11 @@ void SaveEntity(json& json_data, const Entity& entity) {
 void SaveLight(json& json_data, const Light& light, int light_index) {
     json j;
     j["type"] = "light";
-    j["color"] = light.color;
+    j["color"]["r"] = light.color.r * 255;
+    j["color"]["g"] = light.color.g * 255;
+    j["color"]["b"] = light.color.b * 255;
+    j["color"]["a"] = light.color.a * 255;
+    
     j["name"] = lights_info.at(light_index).name;
     j["position"] = light.position;
     
@@ -361,10 +365,10 @@ void LoadEntity(const json& entity_json, Entity& entity) {
 
 void LoadLight(const json& light_json, Light& light, AdditionalLightInfo light_info) {
     light.color = (glm::vec4{
-        light_json["color"]["r"].get<int>(),
-        light_json["color"]["g"].get<int>(),
-        light_json["color"]["b"].get<int>(),
-        light_json["color"]["a"].get<int>()
+        light_json["color"]["r"].get<int>() / 255,
+        light_json["color"]["g"].get<int>() / 255,
+        light_json["color"]["b"].get<int>() / 255,
+        light_json["color"]["a"].get<int>() / 255
     });
     
     light_info.name = (light_json["name"].get<std::string>());

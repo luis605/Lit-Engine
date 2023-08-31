@@ -9,6 +9,8 @@ in vec3 fragNormal;
 uniform vec4 colDiffuse; // Entity Color
 uniform vec4 ambientLight;
 uniform vec3 viewPos;
+uniform mat4 viewMatrix;
+uniform mat4 projectionMatrix;
 
 // pbr
 uniform sampler2D texture0;
@@ -75,9 +77,13 @@ out vec3 fragLightDir;
 out vec3 fragViewDir;
 
 // Helper Functions
-vec3 TangentSpaceNormal(vec3 normalMap, vec3 tangent, vec3 bitangent) {
-    mat3 TBN = mat3(tangent, bitangent, fragNormal); // Notice fragNormal as the third axis
-    return normalize(TBN * (normalMap * 2.0 - 1.0)); // Use normalMap directly
+mat3 CalcTBN(vec3 T, vec3 B, vec3 N)
+{
+    return mat3(T, B, N);
+}
+
+vec3 TangentSpaceNormal(vec3 normalMap, mat3 TBN) {
+    return normalize((normalMap * 2.0 - 1.0) * TBN);
 }
 
 vec3 CalculateFresnelReflection(vec3 baseReflectance, vec3 viewDirection, vec3 halfVector) {
@@ -98,13 +104,21 @@ vec3 toneMap(vec3 hdrColor) {
 void main() {
     vec4 texColor = texture(texture0, fragTexCoord);
 
-    vec3 normalMap = texture(texture2, fragTexCoord).rgb;
     vec3 tangent = dFdx(fragPosition);
     vec3 bitangent = dFdy(fragPosition);
+
+    vec3 T = normalize(tangent);
+    vec3 B = normalize(bitangent);
+    vec3 N = normalize(fragNormal);
+    
+    mat3 TBN = CalcTBN(T, B, N);
+
     vec3 norm;
 
     if (normalMapInit) {
-        norm = TangentSpaceNormal(normalMap, tangent, bitangent);
+        norm = texture(texture2, fragTexCoord).rgb;
+        norm = norm * 2.0 - 1.0;
+        norm = normalize(TBN * norm);
     } else
         norm = normalize(fragNormal);
 
@@ -141,15 +155,17 @@ void main() {
 
 
 
+
         else if (light.type == LIGHT_POINT && light.enabled) {
             vec3 lightDir = normalize(light.position - fragPosition);
+            vec3 viewDirWorld = normalize(vec3(inverse(viewMatrix) * vec4(viewDir, 0.0))); // Transform viewDir to world space
+            vec3 H = normalize(lightDir + viewDirWorld); // Calculate H using transformed viewDir
+            
             float distance = length(light.position - fragPosition);
             float attenuation = 1.0 / (1.0 + light.attenuation * distance * distance);
-            
-            // Calculate the diffuse term using NdotL without modifying color
+
             float NdotL = max(dot(norm, lightDir), 0.0);
 
-            vec3 H = normalize(lightDir + viewDir);
             float NdotH = max(dot(norm, H), 0.0);
 
             float roughnessFactor = max(1.0 - roughness, 0.02);
@@ -164,13 +180,6 @@ void main() {
             // Use the unmodified NdotL for diffuse term
             result += (NdotL + specular * specularTerm) * light.color.rgb * attenuation;
         }
-
-
-
-
-
-
-
         else if (light.type == LIGHT_SPOT && light.enabled)
         {
             vec3 lightToPoint = light.position - fragPosition;
@@ -183,24 +192,13 @@ void main() {
             float k_d = 1.0; // Adjust this value to control energy conservation
             float energyFactor = 1.0 / (k_d + (1.0 - k_d) * 0.5);
 
-            // Apply normal mapping
-            vec3 normalMap = texture(texture2, fragTexCoord).rgb;
-            vec3 tangent = dFdx(fragPosition);
-            vec3 bitangent = dFdy(fragPosition);
-            vec3 T = normalize(tangent);
-            vec3 B = normalize(bitangent);
-            vec3 N = normalize(fragNormal);
-            mat3 TBN = mat3(T, B, N);
-            vec3 sampledNormal = normalize((normalMap * 2.0 - 1.0) * TBN);
-
-            // Calculate the light direction in tangent space
             vec3 lightDirTangent = normalize(lightToPoint * TBN);
 
             // Calculate the diffuse term using the sampled normal
-            float NdotL = max(dot(sampledNormal, lightDirTangent), 0.0);
+            float NdotL = max(dot(norm, lightDirTangent), 0.0);
             vec3 diffuseTerm = colDiffuse.rgb * NdotL;
 
-            result += diffuseTerm * spot * light.intensity * attenuation * energyFactor + (colDiffuse.rgb * ambient.rgb);
+            result += diffuseTerm * spot * light.intensity * attenuation * light.color.rgb * energyFactor + (colDiffuse.rgb * ambient.rgb);
         }
 
     }
