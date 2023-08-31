@@ -151,7 +151,7 @@ public:
     int id = 0;
 
     Entity* parent = nullptr;
-    vector<Entity*> children;
+    vector<variant<Entity*, Light*, Text*, LitButton*>> children;
 
 private:
     
@@ -222,39 +222,55 @@ public:
     
     void addChild(Entity& child) {
         Entity* newChild = new Entity(child);
+
         newChild->relative_position = {
             newChild->position.x - this->position.x,
             newChild->position.y - this->position.y,
             newChild->position.z - this->position.z
         };
-        newChild->parent = selected_entity;
-        printf("Parent x position: %f", newChild->parent->position.x);
+
+        newChild->parent = this;
         children.push_back(newChild);
     }
+
 
     void update_children()
     {
         if (children.empty()) return;
-        for (Entity* child : children)
+        
+        for (std::variant<Entity*, Light*, Text*, LitButton*>& childVariant : children)
         {
-            child->render();
-            #ifndef GAME_SHIPPING
-                if (child == selected_entity) return;
-            #endif
+            if (auto* child = std::get_if<Entity*>(&childVariant))
+            {
+                (*child)->render();
 
-            child->position = {this->position + child->relative_position};
+    #ifndef GAME_SHIPPING
+                if (*child == selected_entity) continue;
+    #endif
 
-            child->update_children();
-
+                (*child)->position = {this->position + (*child)->relative_position};
+                (*child)->update_children();
+            }
         }
     }
 
+
+
     void remove() {
 
-        for (Entity* child : children) {
-            delete child;
+    for (auto& childVariant : children) {
+        if (auto* entity = std::get_if<Entity*>(&childVariant)) {
+            delete *entity;
+        } else if (auto* light = std::get_if<Light*>(&childVariant)) {
+            delete *light;
+        } else if (auto* text = std::get_if<Text*>(&childVariant)) {
+            delete *text;
+        } else if (auto* button = std::get_if<LitButton*>(&childVariant)) {
+            delete *button;
         }
-        children.clear();
+    }
+
+    children.clear();
 
 
         entities_list_pregame.erase(
@@ -721,7 +737,7 @@ bool operator==(const Entity& e, const Entity* ptr) {
 #ifndef GAME_SHIPPING
     void AddEntity(
         bool create_immediatly = false,
-        bool is_create_entity_a_child = is_create_entity_a_child,
+        bool is_child = false,
         const char* model_path = "assets/models/tree.obj",
         Model model = Model(),
         string name = "Unnamed Entity"
@@ -746,7 +762,7 @@ bool operator==(const Entity& e, const Entity* ptr) {
             entity_create.setColor(entity_color_raylib);
             entity_create.setScale(Vector3{entity_create_scale, entity_create_scale, entity_create_scale});
             entity_create.setName(name);
-            entity_create.isChild = is_create_entity_a_child;
+            entity_create.isChild = is_create_entity_a_child || is_child;
             entity_create.setModel(model_path, model);
             entity_create.setShader(shader);
 

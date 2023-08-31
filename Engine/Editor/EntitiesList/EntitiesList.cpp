@@ -81,11 +81,25 @@ void DrawEntityTree(Entity& entity, int active, int& index, int depth = 0) {
     if (isNodeOpen) {
         for (int childIndex = 0; childIndex < entity.children.size(); childIndex++) {
             index++;
-            Entity* child = entity.children[childIndex];
-            DrawEntityTree(*child, active, index, depth + 1);  // Increase depth by 1 for child nodes
+            std::variant<Entity*, Light*, Text*, LitButton*> childVariant = entity.children[childIndex];
+            
+            if (auto* childEntity = std::get_if<Entity*>(&childVariant)) {
+                // Handle the Entity type.
+                DrawEntityTree(**childEntity, active, index, depth + 1);
+            } else if (auto* childLight = std::get_if<Light*>(&childVariant)) {
+                // Handle the Light type.
+                // Do something with *childLight.
+            } else if (auto* childText = std::get_if<Text*>(&childVariant)) {
+                // Handle the Text type.
+                // Do something with *childText.
+            } else if (auto* childButton = std::get_if<LitButton*>(&childVariant)) {
+                // Handle the LitButton type.
+                // Do something with *childButton.
+            }
         }
         ImGui::TreePop();
     }
+
 }
 
 
@@ -205,21 +219,6 @@ void DrawButtonTree(LitButton& button, int active, int& index) {
 
 
 
-int AmountOfEntities(const std::vector<Entity>& entities, int current_amount)
-{
-    for (const Entity& entity : entities)
-    {
-        current_amount++;
-        if (!entity.children.empty())
-        {
-            for (int index = 0; index < entity.children.size(); index++)
-                current_amount = AmountOfEntities({*entity.children[index]}, current_amount);
-        }
-    }
-    return current_amount;
-}
-
-
 
 
 
@@ -241,7 +240,6 @@ void ImGuiListViewEx(vector<string>& items, int& focus, int& scroll, int& active
     ImGui::PushStyleVar(ImGuiStyleVar_ItemInnerSpacing, ImVec2(10,10));
 
     int currentAmount = 0;
-    int amountOfEntities = AmountOfEntities(entities_list_pregame, currentAmount);
     int index = 0;
 
     ImGui::PopFont();
