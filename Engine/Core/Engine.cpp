@@ -646,7 +646,7 @@ public:
             transformMatrix = MatrixScale(scale.x, scale.y, scale.z);
             transformMatrix = MatrixMultiply(transformMatrix, MatrixRotateXYZ(rotation));
             transformMatrix = MatrixMultiply(transformMatrix, MatrixTranslate(position.x, position.y, position.z));
-            
+
             bounds = GetMeshBoundingBox(model.meshes[0]);
             
             bounds.min = Vector3Transform(bounds.min, transformMatrix);

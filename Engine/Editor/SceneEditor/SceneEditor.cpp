@@ -184,17 +184,17 @@ bool IsMouseInRectangle(Vector2 mousePos, Rectangle rectangle)
 
 
 
-bool IsMouseHoveringModel(Model model, Camera camera, Vector3 position, Vector3 rotation, Entity* entity = nullptr, bool bypass_optimization = false)
+bool IsMouseHoveringModel(Model model, Camera camera, Vector3 position, Vector3 rotation, Vector3 scale, Entity* entity = nullptr, bool bypass_optimization = false)
 {
     float x = position.x;
     float y = position.y;
     float z = position.z;
     float extreme_rotation = GetExtremeValue(rotation);
 
-    Matrix matScale = MatrixScale(model.transform.m0, model.transform.m5, model.transform.m10);
-    Matrix matRotation = MatrixRotate(rotation, extreme_rotation*DEG2RAD);
-    Matrix matTranslation = MatrixTranslate(x, y, z);
-    Matrix modelMatrix = MatrixMultiply(MatrixMultiply(matScale, matRotation), matTranslation);
+    Matrix modelMatrix = MatrixIdentity();
+    modelMatrix = MatrixScale(scale.x, scale.y, scale.z);
+    modelMatrix = MatrixMultiply(modelMatrix, MatrixRotateXYZ(rotation));
+    modelMatrix = MatrixMultiply(modelMatrix, MatrixTranslate(position.x, position.y, position.z));
 
     Ray ray = { 0 };
 
@@ -305,7 +305,7 @@ void RenderScene()
         
         if (IsMouseButtonDown(MOUSE_LEFT_BUTTON) && ImGui::IsWindowHovered() && !dragging_gizmo_position && !dragging_gizmo_rotation)
         {
-            bool isLightSelected = IsMouseHoveringModel(light_model, scene_camera, { light.position.x, light.position.y, light.position.z }, { 0, rotation, 0 } );
+            bool isLightSelected = IsMouseHoveringModel(light_model, scene_camera, { light.position.x, light.position.y, light.position.z }, { 0, rotation, 0 }, {1,1,1});
             if (isLightSelected)
             {
                 object_in_inspector = &light;
@@ -322,7 +322,7 @@ void RenderScene()
 
         if (IsMouseButtonDown(MOUSE_LEFT_BUTTON) && ImGui::IsWindowHovered() && !dragging_gizmo_position && !dragging_gizmo_rotation)
         {
-            bool isEntitySelected = IsMouseHoveringModel(entity.model, scene_camera, entity.position, entity.rotation, &entity);
+            bool isEntitySelected = IsMouseHoveringModel(entity.model, scene_camera, entity.position, entity.rotation, entity.scale, &entity);
             if (isEntitySelected)
             {
                 object_in_inspector = &entity;
@@ -331,7 +331,7 @@ void RenderScene()
 
             for (Entity* child : entity.children)
             {
-                isEntitySelected = IsMouseHoveringModel(child->model, scene_camera, child->position, child->rotation);
+                isEntitySelected = IsMouseHoveringModel(child->model, scene_camera, child->position, child->rotation, child->scale);
                 if (isEntitySelected)
                 {
                     object_in_inspector = child;
