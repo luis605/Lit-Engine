@@ -219,9 +219,9 @@ public:
 
         matInstances = LoadMaterialDefault();
     }
-    
-    void addChild(Entity& child) {
-        Entity* newChild = new Entity(child);
+        
+    void addChild(Entity& entityChild) {
+        Entity* newChild = new Entity(entityChild);
 
         newChild->relative_position = {
             newChild->position.x - this->position.x,
@@ -232,6 +232,19 @@ public:
         newChild->parent = this;
         children.push_back(newChild);
     }
+
+    void addChild(Light* lightChild) {
+        lightChild->relative_position = {
+            lightChild->position.x - this->position.x,
+            lightChild->position.y - this->position.y,
+            lightChild->position.z - this->position.z
+        };
+
+        lightChild->parent = this;
+        children.push_back(lightChild);
+    }
+
+
 
 
     void update_children()
@@ -251,7 +264,17 @@ public:
                 (*child)->position = {this->position + (*child)->relative_position};
                 (*child)->update_children();
             }
+          
+            else if (auto* child = std::get_if<Light*>(&childVariant))
+            {                
+                #ifndef GAME_SHIPPING
+                            if (*child == selected_light && selected_game_object_type == "light") continue;
+                #endif
+
+                (*child)->position = glm::vec3(this->position.x, this->position.y, this->position.z) + (*child)->relative_position;
+            }
         }
+        UpdateLightsBuffer();
     }
 
 
