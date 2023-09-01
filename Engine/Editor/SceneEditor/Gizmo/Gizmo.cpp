@@ -138,6 +138,16 @@ void GizmoPosition()
         selected_light->position.x = gizmo_arrow[0].position.x;
         selected_light->position.y = y_axis_arrows_center_pos;
         selected_light->position.z = gizmo_arrow[0].position.z;
+
+        if ((bool)selected_light->isChild)
+        {
+            if (selected_light->parent != nullptr && selected_light != nullptr)
+                selected_light->relative_position = glm::vec3(
+                    selected_light->position.x - selected_light->parent->position.x, 
+                    selected_light->position.y - selected_light->parent->position.y,
+                    selected_light->position.z - selected_light->parent->position.z
+                    );
+        }
     }
 
 }
