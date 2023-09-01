@@ -93,22 +93,6 @@ LitVector3 operator*(const LitVector3& vec, float scalar) {
 }
 
 
-glm::vec3 operator-(const glm::vec3 &lhs, const LitVector3 &rhs) {
-    return glm::vec3(lhs.x - rhs.x, lhs.y - rhs.y, lhs.z - rhs.z);
-}
-
-LitVector3 operator-(const LitVector3 &lhs, const glm::vec3 &rhs) {
-    return LitVector3(lhs.x - rhs.x, lhs.y - rhs.y, lhs.z - rhs.z);
-}
-
-
-glm::vec3 operator+(const glm::vec3 &lhs, const LitVector3 &rhs) {
-    return glm::vec3(lhs.x + rhs.x, lhs.y + rhs.y, lhs.z + rhs.z);
-}
-
-LitVector3 operator+(const LitVector3 &lhs, const glm::vec3 &rhs) {
-    return LitVector3(lhs.x + rhs.x, lhs.y + rhs.y, lhs.z + rhs.z);
-}
 
 
 

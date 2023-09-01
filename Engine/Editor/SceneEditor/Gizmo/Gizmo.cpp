@@ -141,12 +141,21 @@ void GizmoPosition()
 
         if ((bool)selected_light->isChild)
         {
-            if (selected_light->parent != nullptr && selected_light != nullptr)
-                selected_light->relative_position = glm::vec3(
-                    selected_light->position.x - selected_light->parent->position.x, 
-                    selected_light->position.y - selected_light->parent->position.y,
-                    selected_light->position.z - selected_light->parent->position.z
-                    );
+            auto it = std::find_if(lights_info.begin(), lights_info.end(), [selected_light](const AdditionalLightInfo& light) {
+                return light.id == selected_light->id;
+            });
+
+            AdditionalLightInfo* light_info = (AdditionalLightInfo*)&*it;
+
+            if (it != lights_info.end()) {
+                if (light_info->parent != nullptr && selected_light != nullptr && light_info != nullptr)
+                    selected_light->relative_position = glm::vec3(
+                        selected_light->position.x - light_info->parent->position.x, 
+                        selected_light->position.y - light_info->parent->position.y,
+                        selected_light->position.z - light_info->parent->position.z
+                        );
+            }
+        
         }
     }
 
