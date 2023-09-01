@@ -63,7 +63,8 @@ typedef struct Light
 	float penumbraFactor;
     
     // Others
-    bool isChild;
+    bool isChild = false;
+    Entity* parent = nullptr;
     alignas(16) glm::vec3 direction = {0.4, 0.4, -0.4};
     int id;
 

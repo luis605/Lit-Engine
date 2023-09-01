@@ -35,19 +35,18 @@ void updateListViewExList(vector<Entity>& entities, vector<Light>& lights) {
 
 
 
-
-
-
-
+void DrawEntityTree(Entity& entity, int active, int& index, int depth = 0);
+void DrawLightTree(Light& light, AdditionalLightInfo& light_info, int active, int& index);
+void DrawTextElementsTree(Text& text, int active, int& index);
+void DrawButtonTree(LitButton& button, int active, int& index);
 
 
 
 bool should_change_object_name = false;
 
 void DrawEntityTree(Entity& entity, int active, int& index, int depth = 0) {
-
     ImGuiTreeNodeFlags nodeFlags = ImGuiTreeNodeFlags_OpenOnArrow | ImGuiTreeNodeFlags_OpenOnDoubleClick | ImGuiTreeNodeFlags_SpanAvailWidth;
-    
+
     if (selected_entity == &entity && selected_game_object_type == "entity") {
         nodeFlags |= ImGuiTreeNodeFlags_Selected;
 
@@ -56,20 +55,44 @@ void DrawEntityTree(Entity& entity, int active, int& index, int depth = 0) {
             strcpy(nameBuffer, entity.name.c_str());
 
             if (ImGui::InputText("##LightName", nameBuffer, sizeof(nameBuffer), ImGuiInputTextFlags_EnterReturnsTrue)) {
-                entity.name = nameBuffer; // Update the 'name' member with the edited value
-                should_change_object_name = false; // Set this flag to false to stop editing mode
+                entity.name = nameBuffer;
+                should_change_object_name = false;
             }
         }
     }
 
     const char icon[] = ICON_FA_CUBE;
     const char space[] = " ";
-
     std::string entity_name = std::string(icon) + space + entity.name;
 
+    bool isNodeOpen = false;
+
     ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(0.85f, 0.85f, 0.85f, 1.0f));
-    bool isNodeOpen = ImGui::TreeNodeEx((void*)&entity, nodeFlags, entity_name.c_str());
+    isNodeOpen = ImGui::TreeNodeEx((void*)&entity, nodeFlags, entity_name.c_str());
     ImGui::PopStyleColor();
+
+    // Drag and drop target
+    if (ImGui::BeginDragDropTarget()) {
+        const ImGuiPayload* payload = ImGui::AcceptDragDropPayload("CHILD_LIGHT_PAYLOAD");
+        if (payload) {
+            // Retrieve the light ID from the payload data.
+            int droppedLightID = *(const int*)payload->Data;
+
+            auto it = std::find_if(lights.begin(), lights.end(), [droppedLightID](const Light& light) {
+                return light.id == droppedLightID;
+            });
+
+            if (it != lights.end()) {
+                Light* foundLight = (Light*)&*it;
+                foundLight->isChild = true;
+                entity.addChild(foundLight);
+            }
+
+        }
+
+        ImGui::EndDragDropTarget();
+    }
+
     if (ImGui::IsItemClicked()) {
         selected_entity = &entity;
         active = index;
@@ -78,30 +101,27 @@ void DrawEntityTree(Entity& entity, int active, int& index, int depth = 0) {
         std::cout << "index: " << index << std::endl;
     }
 
+
+
     if (isNodeOpen) {
         for (int childIndex = 0; childIndex < entity.children.size(); childIndex++) {
             index++;
             std::variant<Entity*, Light*, Text*, LitButton*> childVariant = entity.children[childIndex];
-            
+
             if (auto* childEntity = std::get_if<Entity*>(&childVariant)) {
                 // Handle the Entity type.
                 DrawEntityTree(**childEntity, active, index, depth + 1);
             } else if (auto* childLight = std::get_if<Light*>(&childVariant)) {
-                // Handle the Light type.
-                // Do something with *childLight.
+                DrawLightTree(**childLight, lights_info[childIndex], active, index);
             } else if (auto* childText = std::get_if<Text*>(&childVariant)) {
-                // Handle the Text type.
-                // Do something with *childText.
+                DrawTextElementsTree(**childText, active, index);
             } else if (auto* childButton = std::get_if<LitButton*>(&childVariant)) {
-                // Handle the LitButton type.
-                // Do something with *childButton.
+                DrawButtonTree(**childButton, active, index);
             }
         }
         ImGui::TreePop();
     }
-
 }
-
 
 
 
@@ -114,20 +134,36 @@ void DrawLightTree(Light& light, AdditionalLightInfo& light_info, int active, in
             strcpy(nameBuffer, light_info.name.c_str());
 
             if (ImGui::InputText("##LightName", nameBuffer, sizeof(nameBuffer), ImGuiInputTextFlags_EnterReturnsTrue)) {
-                light_info.name = nameBuffer; // Update the 'name' member with the edited value
-                should_change_object_name = false; // Set this flag to false to stop editing mode
+                light_info.name = nameBuffer;
+                should_change_object_name = false;
             }
         }
     }
+
     const char icon[] = ICON_FA_LIGHTBULB;
     const char space[] = " ";
-    
     std::string light_name = std::string(icon) + space + light_info.name;
 
+    bool isNodeOpen = false;
 
     ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(0.85f, 0.85f, 0.85f, 1.0f));
-    bool isNodeOpen = ImGui::TreeNodeEx((void*)&light, nodeFlags, light_name.c_str());
+    isNodeOpen = ImGui::TreeNodeEx((void*)&light, nodeFlags, light_name.c_str());
     ImGui::PopStyleColor();
+
+
+    // Drag and drop source
+    if (ImGui::BeginDragDropSource(ImGuiDragDropFlags_None))
+    {
+        ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(0.85f, 0.85f, 0.85f, 1.0f));
+
+        ImGui::SetDragDropPayload("CHILD_LIGHT_PAYLOAD", &light.id, sizeof(int));
+        ImGui::TreeNodeEx((void*)&light, nodeFlags | ImGuiTreeNodeFlags_Selected, light_name.c_str());
+        ImGui::PopStyleColor();
+
+        ImGui::EndDragDropSource();
+    }
+
+
     if (ImGui::IsItemClicked()) {
         selected_light = &light;
         active = index;
@@ -140,7 +176,6 @@ void DrawLightTree(Light& light, AdditionalLightInfo& light_info, int active, in
         ImGui::TreePop();
     }
 }
-
 
 
 void DrawTextElementsTree(Text& text, int active, int& index) {
@@ -177,9 +212,6 @@ void DrawTextElementsTree(Text& text, int active, int& index) {
         ImGui::TreePop();
     }
 }
-
-
-
 
 
 void DrawButtonTree(LitButton& button, int active, int& index) {
@@ -219,10 +251,6 @@ void DrawButtonTree(LitButton& button, int active, int& index) {
 
 
 
-
-
-
-
 void ImGuiListViewEx(vector<string>& items, int& focus, int& scroll, int& active) {
     ImGui::SetNextWindowSize(ImVec2(400, 200)); // set the container size
 
@@ -251,6 +279,8 @@ void ImGuiListViewEx(vector<string>& items, int& focus, int& scroll, int& active
 
     int lights_index = 0;
     for (Light& light : lights) {
+        if (light.isChild) continue;
+
         DrawLightTree(light, lights_info[lights_index], active, index);
         lights_index++;
     }
