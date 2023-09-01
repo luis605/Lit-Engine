@@ -85,7 +85,7 @@ void DrawEntityTree(Entity& entity, int active, int& index, int depth = 0) {
             if (it != lights.end()) {
                 Light* foundLight = (Light*)&*it;
                 foundLight->isChild = true;
-                entity.addChild(foundLight);
+                entity.addChild(foundLight, droppedLightID);
             }
 
         }
@@ -385,4 +385,3 @@ void EntitiesList()
 
     ImGui::End();
 }
-

@@ -233,16 +233,24 @@ public:
         children.push_back(newChild);
     }
 
-    void addChild(Light* lightChild) {
+    void addChild(Light* lightChild, int light_id) {
         lightChild->relative_position = {
             lightChild->position.x - this->position.x,
             lightChild->position.y - this->position.y,
             lightChild->position.z - this->position.z
         };
 
-        lightChild->parent = this;
-        children.push_back(lightChild);
+        auto it = std::find_if(lights_info.begin(), lights_info.end(), [light_id](const AdditionalLightInfo& light) {
+            return light.id == light_id;
+        });
+        
+        if (it != lights_info.end()) {
+            AdditionalLightInfo* light_info = (AdditionalLightInfo*)&*it;
+            light_info->parent = this;
+            children.push_back(lightChild);
+        }
     }
+
 
 
 

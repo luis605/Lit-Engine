@@ -86,13 +86,15 @@ typedef struct SurfaceMaterial
 typedef struct AdditionalLightInfo
 {
     string name;
-    Entity* parent = nullptr;
     int id;
+    Entity* parent = nullptr;
 
     bool operator==(const Light& other) const {
         return (int)this->id == (int)other.id;
     }
 };
+
+
 
 
 Light NewLight(const Vector3 position, const Color color, int type = LIGHT_POINT)
@@ -157,5 +159,3 @@ void AddLight()
         canAddLight = false;
     }
 }
-
-#endif
