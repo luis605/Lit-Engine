@@ -19,6 +19,7 @@ void InitGizmo()
     }
 }
 
+
 void GizmoPosition()
 {
     Vector3 selected_object_position;
@@ -169,6 +170,18 @@ void GizmoPosition()
 
 
 
+
+
+
+
+
+
+
+
+
+
+
+
 void GizmoRotation()
 {
     Vector3 selected_object_rotation;
@@ -186,39 +199,41 @@ void GizmoRotation()
         selected_object_position = {selected_light->position.x, selected_light->position.y, selected_light->position.z};
 
 
-    float scale;
+    Vector3 selected_object_scale;
+
+
 
     if (selected_game_object_type == "entity")
-        scale = GetExtremeValue(selected_entity->scale) / 2;
+        selected_object_scale = {1, 1, 1};//selected_entity->scale;
     else if (selected_game_object_type == "light")
-        scale = 1;
+        selected_object_rotation = {1, 1, 1};
 
-    if (scale > 10)
-        scale = 10;
+
+    float scale = GetExtremeValue(selected_object_scale);
 
     // Gizmo Arrow Up
     gizmo_taurus[0].position = selected_object_rotation;
     gizmo_taurus[0].rotation = {0, 90, 0};
-    gizmo_taurus[0].model.transform = MatrixScale(scale, scale, scale);
+    // gizmo_taurus[0].model.transform = MatrixScale(scale, scale, scale);
     
     // Gizmo Arrow Down
     gizmo_taurus[1].position = selected_object_rotation;
     gizmo_taurus[1].rotation = {90, 0, 0};
-    gizmo_taurus[1].model.transform = MatrixScale(scale, scale, scale);
+    // gizmo_taurus[1].model.transform = MatrixScale(scale, scale, scale);
     
     // Gizmo Arrow Right
     gizmo_taurus[2].position = selected_object_rotation;
     gizmo_taurus[2].rotation = {0, 0, 90};
-    gizmo_taurus[2].model.transform = MatrixScale(scale, scale, scale);
+    // gizmo_taurus[2].model.transform = MatrixScale(scale, scale, scale);
 
 
-    for (int arrow_i = 0; arrow_i < (sizeof(gizmo_taurus) / sizeof(gizmo_taurus[0])); arrow_i++)
+    for (int arrow_i = 0; arrow_i < (sizeof(gizmo_taurus) / sizeof(gizmo_taurus[0])) + 1; arrow_i++)
     {
         Color color1;
 
         if ((!dragging_gizmo_scale || !dragging_gizmo_rotation || !dragging_gizmo_position) && ImGui::IsWindowHovered())
         {
-            isHoveringGizmo = IsMouseHoveringModel(gizmo_taurus[arrow_i].model, scene_camera, gizmo_taurus[arrow_i].position, gizmo_taurus[arrow_i].rotation, gizmo_taurus[arrow_i].scale, nullptr, false);
+            isHoveringGizmo = IsMouseHoveringModel(gizmo_taurus[arrow_i].model, scene_camera, gizmo_taurus[arrow_i].position, gizmo_taurus[arrow_i].rotation, gizmo_taurus[arrow_i].scale, nullptr, true);
             if (isHoveringGizmo)
             {
                 color1 = GREEN;
@@ -328,7 +343,7 @@ void GizmoScale()
 
         if ((!dragging_gizmo_scale || !dragging_gizmo_rotation || !dragging_gizmo_position) && ImGui::IsWindowHovered())
         {
-            isHoveringGizmo = IsMouseHoveringModel(gizmo_cube[cube_i].model, scene_camera, gizmo_cube[cube_i].position, gizmo_cube[cube_i].rotation, gizmo_arrow[cube_i].scale, nullptr, false);
+            isHoveringGizmo = IsMouseHoveringModel(gizmo_cube[cube_i].model, scene_camera, gizmo_cube[cube_i].position, gizmo_cube[cube_i].rotation, gizmo_arrow[cube_i].scale, nullptr, true);
             if (isHoveringGizmo)
             {
                 color1 = GREEN;
