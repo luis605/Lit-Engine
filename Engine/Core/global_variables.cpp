@@ -48,20 +48,6 @@ int pipe_fds_lights[2];
 
 
 
-    bool dragging = false;
-    bool dragging_gizmo_position = false;
-    bool dragging_gizmo_rotation = false;
-    Vector2 mouse_drag_start = { 0, 0 };
-
-    int gizmo_arrow_selected;
-    int gizmo_taurus_selected;
-    bool isHoveringGizmo;
-
-    // Gizmo -> Mouse Position
-    Vector2 mousePosition;
-    Vector2 mousePositionPrev = GetMousePosition();
-
-
     // ImGui Window Info
     float sceneEditorWindowWidth;
     float sceneEditorWindowHeight;
