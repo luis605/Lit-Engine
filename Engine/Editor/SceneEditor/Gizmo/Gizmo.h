@@ -1,44 +1,43 @@
 #ifndef GIZMO_H
 #define GIZMO_H
+
 #include "../../../../include_all.h"
 
-struct GizmoArrow {
+// Define constants for gizmo arrow and cube count
+constexpr int NUM_GIZMO_ARROWS = 6;
+constexpr int NUM_GIZMO_TAURUS = 3;
+constexpr int NUM_GIZMO_CUBES = 6;
+
+// Gizmos
+struct Gizmo {
     Model model;
     Vector3 position;
     Vector3 rotation;
-    Vector3 scale = {1,1,1};
+    Vector3 scale = {1, 1, 1};
     string drag_directions;
-
 };
-GizmoArrow gizmo_arrow[5+1]; // +1 solved one arrow not drawing. probably memory corruption in the last arrow index...
 
+Gizmo gizmo_arrow[NUM_GIZMO_ARROWS];
+Gizmo gizmo_taurus[NUM_GIZMO_TAURUS];
+Gizmo gizmo_cube[NUM_GIZMO_CUBES];
 
-struct GizmoTaurus {
-    Model model;
-    Vector3 position;
-    Vector3 rotation;
-    Vector3 scale = {1,1,1};
-    string drag_directions;
-
-};
-GizmoTaurus gizmo_taurus[2];
-
-
-
-struct GizmoCube {
-    Model model;
-    Vector3 position;
-    Vector3 rotation;
-    Vector3 scale = {1,1,1};
-    string drag_directions;
-
-};
-GizmoCube gizmo_cube[5];
-
-int gizmo_cube_selected = -1;
-bool dragging_gizmo_scale = false;
+// Declare selected object variables and flags
+Vector3 selected_object_position;
+Vector3 selected_object_rotation;
+Vector3 selected_object_scale;
+Vector2 mouse_drag_start;
+Vector2 mousePosition;
+Vector2 mousePositionPrev;
+int gizmo_arrow_selected            = -1;
+int gizmo_taurus_selected           = -1;
+int gizmo_cube_selected             = -1;
+bool dragging;
+bool dragging_gizmo_position        = false;
+bool dragging_gizmo_rotation        = false;
+bool dragging_gizmo_scale           = false;
+bool dragging_gizmo_arrow           = false;
+bool isHoveringGizmo;
 
 float gizmo_drag_sensitivity_factor = 0.1f;
-
 
 #endif // GIZMO_H

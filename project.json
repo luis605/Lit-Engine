@@ -1,61 +1,20 @@
 [
     {
-        "children": [
-            [
-                {
-                    "attenuation": 9.999999747378752e-05,
-                    "color": {
-                        "a": 255.0,
-                        "b": 255.0,
-                        "g": 255.0,
-                        "r": 255.0
-                    },
-                    "cutOff": 10.0,
-                    "direction": {
-                        "x": 0.4000000059604645,
-                        "y": 0.4000000059604645,
-                        "z": -0.4000000059604645
-                    },
-                    "id": 2,
-                    "intensity": 0.5,
-                    "isChild": true,
-                    "light_type": 1,
-                    "name": "Light",
-                    "position": {
-                        "x": 4.0,
-                        "y": 4.0,
-                        "z": 4.0
-                    },
-                    "relative_position": {
-                        "x": 4.0,
-                        "y": 4.0,
-                        "z": 4.0
-                    },
-                    "specularStrength": 0.5,
-                    "target": {
-                        "x": 5.838879321780669e-37,
-                        "y": 4.591354418360263e-41,
-                        "z": 5.782399865172581e+29
-                    },
-                    "type": "light"
-                }
-            ]
-        ],
         "color": {
             "a": 255,
             "b": 255,
             "g": 255,
             "r": 255
         },
-        "id": 643603355,
+        "id": 1085949947,
         "is_dynamic": false,
         "mass": 1.0,
-        "model_path": "assets/models/tree.obj",
+        "model_path": "",
         "name": "Unnamed Entity",
-        "normal_texture_path": "",
+        "normal_texture_path": "project/game/textures/metal grid/metalgrid2_normal-ogl.png",
         "position": {
             "x": 0.0,
-            "y": 0.0,
+            "y": 0.9999990463256836,
             "z": 0.0
         },
         "relative_position": {
@@ -70,9 +29,9 @@
         },
         "roughness_texture_path": "",
         "scale": {
-            "x": 1.0,
+            "x": 100.0,
             "y": 1.0,
-            "z": 1.0
+            "z": 100.0
         },
         "script_path": "",
         "surface_material": {
@@ -86,7 +45,7 @@
             },
             "shininess": 0.5
         },
-        "texture_path": "",
+        "texture_path": "project/game/textures/metal grid/metalgrid2_basecolor.png",
         "type": "entity"
     },
     {
@@ -105,7 +64,7 @@
         },
         "id": 2,
         "intensity": 0.5,
-        "isChild": true,
+        "isChild": false,
         "light_type": 1,
         "name": "Light",
         "position": {
@@ -114,15 +73,15 @@
             "z": 4.0
         },
         "relative_position": {
-            "x": 4.0,
-            "y": 4.0,
-            "z": 4.0
+            "x": 0,
+            "y": 0,
+            "z": 0
         },
         "specularStrength": 0.5,
         "target": {
-            "x": 5.838879321780669e-37,
+            "x": 7.994438510339329e+33,
             "y": 4.591354418360263e-41,
-            "z": 5.782399865172581e+29
+            "z": -1.5681601809119912e-38
         },
         "type": "light"
     }

@@ -3,14 +3,20 @@
 
 void InitGizmo()
 {
-    for (int index = 0; index < sizeof(gizmo_arrow) / sizeof(gizmo_arrow[0]) + 1; index++)
+    for (int index = 0; index < NUM_GIZMO_ARROWS; index++)
+    {
         gizmo_arrow[index].model = LoadModel("assets/models/gizmo/arrow.obj");
+    }
 
-    for (int index = 0; index < (sizeof(gizmo_taurus) / sizeof(gizmo_taurus[0])) + 1; index++)
+    for (int index = 0; index < NUM_GIZMO_TAURUS; index++)
+    {
         gizmo_taurus[index].model = LoadModel("assets/models/gizmo/taurus.obj");
+    }
 
-    for (int index = 0; index < (sizeof(gizmo_cube) / sizeof(gizmo_cube[0])) + 1; index++)
+    for (int index = 0; index < NUM_GIZMO_CUBES; index++)
+    {
         gizmo_cube[index].model = LoadModelFromMesh(GenMeshCube(1, 1, 1));
+    }
 }
 
 void GizmoPosition()
@@ -163,18 +169,6 @@ void GizmoPosition()
 
 
 
-
-
-
-
-
-
-
-
-
-
-
-
 void GizmoRotation()
 {
     Vector3 selected_object_rotation;
@@ -192,35 +186,33 @@ void GizmoRotation()
         selected_object_position = {selected_light->position.x, selected_light->position.y, selected_light->position.z};
 
 
-    Vector3 selected_object_scale;
-
-
+    float scale;
 
     if (selected_game_object_type == "entity")
-        selected_object_scale = {1, 1, 1};//selected_entity->scale;
+        scale = GetExtremeValue(selected_entity->scale) / 2;
     else if (selected_game_object_type == "light")
-        selected_object_rotation = {1, 1, 1};
+        scale = 1;
 
-
-    float scale = GetExtremeValue(selected_object_scale);
+    if (scale > 10)
+        scale = 10;
 
     // Gizmo Arrow Up
     gizmo_taurus[0].position = selected_object_rotation;
     gizmo_taurus[0].rotation = {0, 90, 0};
-    // gizmo_taurus[0].model.transform = MatrixScale(scale, scale, scale);
+    gizmo_taurus[0].model.transform = MatrixScale(scale, scale, scale);
     
     // Gizmo Arrow Down
     gizmo_taurus[1].position = selected_object_rotation;
     gizmo_taurus[1].rotation = {90, 0, 0};
-    // gizmo_taurus[1].model.transform = MatrixScale(scale, scale, scale);
+    gizmo_taurus[1].model.transform = MatrixScale(scale, scale, scale);
     
     // Gizmo Arrow Right
     gizmo_taurus[2].position = selected_object_rotation;
     gizmo_taurus[2].rotation = {0, 0, 90};
-    // gizmo_taurus[2].model.transform = MatrixScale(scale, scale, scale);
+    gizmo_taurus[2].model.transform = MatrixScale(scale, scale, scale);
 
 
-    for (int arrow_i = 0; arrow_i < (sizeof(gizmo_taurus) / sizeof(gizmo_taurus[0])) + 1; arrow_i++)
+    for (int arrow_i = 0; arrow_i < (sizeof(gizmo_taurus) / sizeof(gizmo_taurus[0])); arrow_i++)
     {
         Color color1;
 
