@@ -117,9 +117,8 @@ public:
     BoundingBox bounds;
 
 
-
     std::filesystem::path texture_path;
-    Texture2D texture;
+    variant<Texture2D, VideoContext> texture;
 
     std::filesystem::path normal_texture_path;
     Texture2D normal_texture;
@@ -172,6 +171,7 @@ public:
         : color(color), scale(scale), rotation(rotation), name(name), position(position), script(script)
     {   
         initialized = true;
+
     }
 
     bool operator==(const Entity& other) const {
@@ -338,26 +338,31 @@ public:
         model = LoadModel(filename);
     }
 
-    void ReloadTextures()
-    {
-        if (!texture_path.empty())
-            model.materials[0].maps[MATERIAL_MAP_DIFFUSE].texture = texture;
-        
-        if (!normal_texture_path.empty())
-        {
+    void ReloadTextures() {
+        if (!texture_path.empty()) {
+            if (auto diffuse_texture = get_if<Texture2D>(&texture)) {
+                // If texture is of type Texture, assign it to the material
+                model.materials[0].maps[MATERIAL_MAP_DIFFUSE].texture = *diffuse_texture;
+            } else if (auto video_texture = get_if<VideoContext>(&texture)) {
+                // If texture is of type VideoContext, assign its texture to the material
+                *video_texture = UpdateVideoContext(*video_texture);
+                model.materials[0].maps[MATERIAL_MAP_DIFFUSE].texture = video_texture->videoTexture;
+            }
+        }
+
+        if (!normal_texture_path.empty()) {
             model.materials[0].maps[MATERIAL_MAP_NORMAL].texture = normal_texture;
         }
 
-        if (!roughness_texture_path.empty())
-        {
+        if (!roughness_texture_path.empty()) {
             model.materials[0].maps[MATERIAL_MAP_ROUGHNESS].texture = roughness_texture;
         }
 
-        if (!ao_texture_path.empty())
-        {
+        if (!ao_texture_path.empty()) {
             model.materials[0].maps[MATERIAL_MAP_OCCLUSION].texture = ao_texture;
         }
     }
+
 
     void setModel(const char* modelPath = "", Model entity_model = Model(), Shader default_shader = shader)
     {
@@ -726,6 +731,7 @@ public:
                 if (!inFrustum())
                     return;
 
+                ReloadTextures();
                 glUseProgram((GLuint)shader.id);
 
                 bool normalMapInit = !normal_texture_path.empty();

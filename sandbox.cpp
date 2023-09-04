@@ -7,7 +7,8 @@ extern "C" {
 }
 #include <iostream>
 
-
+#include <chrono>
+#include <thread>
 
 struct VideoContext {
     AVFormatContext* pFormatCtx;
@@ -78,6 +79,7 @@ VideoContext InitializeVideoContext(const char* videoFile) {
 
 VideoContext UpdateVideoContext(VideoContext& videoContext) {
     AVPacket packet;
+    double targetFrameTime = 1.0 / videoContext.videoFrameRate; // Target time per video frame
 
     if (av_read_frame(videoContext.pFormatCtx, &packet) < 0) {
         if (!videoContext.loop) {
@@ -86,13 +88,12 @@ VideoContext UpdateVideoContext(VideoContext& videoContext) {
             return videoContext;  // Return early in case of error
         } else {
             std::cout << "Looping" << std::endl;
-            videoContext.frameDelay = 1.0 / videoContext.videoFrameRate;
+            videoContext.frameDelay = targetFrameTime; // Use target frame time
             videoContext.finished = false;
             av_seek_frame(videoContext.pFormatCtx, videoContext.videoStream, 0, AVSEEK_FLAG_FRAME);
             return videoContext;  // Start playing the video from the beginning
         }
     }
-
 
     if (packet.stream_index == videoContext.videoStream) {
         avcodec_send_packet(videoContext.pCodecCtx, &packet);
@@ -116,9 +117,10 @@ VideoContext UpdateVideoContext(VideoContext& videoContext) {
 
             videoContext.currentTime += videoContext.frameDelay;
 
-            // Synchronize with video frame rate
-            while (GetTime() < videoContext.currentTime) {
-                // Wait until it's time to display the next frame
+            // Calculate time to sleep based on target frame time and GetFrameTime()
+            double timeToSleep = targetFrameTime - GetFrameTime();
+            if (timeToSleep > 0) {
+                std::this_thread::sleep_for(std::chrono::milliseconds(static_cast<long long>(timeToSleep * 1000))); // Sleep in milliseconds
             }
         }
     }
@@ -143,12 +145,10 @@ void UninitializeVideoContext(VideoContext& videoContext) {
 int main() {
     // Initialize Raylib
     SetTraceLogLevel(LOG_WARNING);
-    const int screenWidth = 800;
-    const int screenHeight = 600;
     SetConfigFlags(FLAG_WINDOW_RESIZABLE);
-    InitWindow(screenWidth, screenHeight, "Video Playback");
+    InitWindow(100, 100, "Video Playback");
 
-    VideoContext videoContext = InitializeVideoContext("abcd.mp4");
+    VideoContext videoContext = InitializeVideoContext("abc.avi");
     if (!videoContext.pCodecCtx) {
         CloseWindow();
         return -1;
@@ -162,6 +162,9 @@ int main() {
         ClearBackground(RAYWHITE);
         DrawTextureRec(videoContext.videoTexture, (Rectangle){0, 0, (float)videoContext.pCodecCtx->width, (float)videoContext.pCodecCtx->height},
                         (Vector2){0, 0}, WHITE);
+
+        DrawFPS(GetScreenWidth() * .9, GetScreenHeight() * .1);
+
         EndDrawing();
     }
 
