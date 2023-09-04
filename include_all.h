@@ -35,6 +35,12 @@
 #include "include/bullet3/src/LinearMath/btVector3.h"
 #include "include/bullet3/src/btBulletDynamicsCommon.h"
 
+extern "C" {
+    #include <libavcodec/avcodec.h>
+    #include <libavformat/avformat.h>
+    #include <libswscale/swscale.h>
+}
+
 #include <stdio.h>
 #include <iostream>
 #include <string>
@@ -97,6 +103,7 @@ using json = nlohmann::json;
 /* Game Objects */
 #include "Engine/GUI/Text/Text.h"
 #include "Engine/GUI/Button/Button.h"
+#include "Engine/GUI/Video/video.cpp"
 #include "Engine/Core/Engine.hpp"
 #include "Engine/Lighting/lights.h"
 

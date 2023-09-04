@@ -1,15 +1,3 @@
-#include <raylib.h>
-
-extern "C" {
-#include <libavcodec/avcodec.h>
-#include <libavformat/avformat.h>
-#include <libswscale/swscale.h>
-}
-#include <iostream>
-
-#include <chrono>
-#include <thread>
-
 struct VideoContext {
     AVFormatContext* pFormatCtx;
     AVCodecContext* pCodecCtx;
@@ -78,7 +66,9 @@ VideoContext InitializeVideoContext(const char* videoFile) {
 }
 
 VideoContext UpdateVideoContext(VideoContext& videoContext) {
-    AVPacket packet;
+    static AVPacket packet;  // Reuse the packet to minimize memory allocation
+    static AVFrame* pFrame = av_frame_alloc();  // Reuse the AVFrame
+
     double targetFrameTime = 1.0 / videoContext.videoFrameRate; // Target time per video frame
 
     if (av_read_frame(videoContext.pFormatCtx, &packet) < 0) {
@@ -97,7 +87,7 @@ VideoContext UpdateVideoContext(VideoContext& videoContext) {
 
     if (packet.stream_index == videoContext.videoStream) {
         avcodec_send_packet(videoContext.pCodecCtx, &packet);
-        if (avcodec_receive_frame(videoContext.pCodecCtx, videoContext.pFrame) == 0) {
+        if (avcodec_receive_frame(videoContext.pCodecCtx, pFrame) == 0) {
             if (!videoContext.sws_ctx) {
                 videoContext.sws_ctx = sws_getContext(videoContext.pCodecCtx->width, videoContext.pCodecCtx->height, videoContext.pCodecCtx->pix_fmt,
                                             videoContext.pCodecCtx->width, videoContext.pCodecCtx->height, AV_PIX_FMT_RGBA,
@@ -110,7 +100,7 @@ VideoContext UpdateVideoContext(VideoContext& videoContext) {
 
             uint8_t *pixels[1] = {(uint8_t *)videoContext.frameImage.data};
             int pitch[1] = {4 * videoContext.pCodecCtx->width};
-            sws_scale(videoContext.sws_ctx, videoContext.pFrame->data, videoContext.pFrame->linesize, 0, videoContext.pCodecCtx->height,
+            sws_scale(videoContext.sws_ctx, pFrame->data, pFrame->linesize, 0, videoContext.pCodecCtx->height,
                         pixels, pitch);
 
             UpdateTexture(videoContext.videoTexture, videoContext.frameImage.data);
@@ -120,7 +110,8 @@ VideoContext UpdateVideoContext(VideoContext& videoContext) {
             // Calculate time to sleep based on target frame time and GetFrameTime()
             double timeToSleep = targetFrameTime - GetFrameTime();
             if (timeToSleep > 0) {
-                std::this_thread::sleep_for(std::chrono::milliseconds(static_cast<long long>(timeToSleep * 1000))); // Sleep in milliseconds
+                // Convert timeToSleep to milliseconds and sleep
+                std::this_thread::sleep_for(std::chrono::milliseconds(static_cast<long long>(timeToSleep * 1000)));
             }
         }
     }
@@ -129,6 +120,11 @@ VideoContext UpdateVideoContext(VideoContext& videoContext) {
 
     return videoContext;
 }
+
+
+
+
+
 
 
 void UninitializeVideoContext(VideoContext& videoContext) {
@@ -142,7 +138,7 @@ void UninitializeVideoContext(VideoContext& videoContext) {
     UnloadTexture(videoContext.videoTexture);
 }
 
-int main() {
+int videoDemo() {
     // Initialize Raylib
     SetTraceLogLevel(LOG_WARNING);
     SetConfigFlags(FLAG_WINDOW_RESIZABLE);
@@ -162,9 +158,7 @@ int main() {
         ClearBackground(RAYWHITE);
         DrawTextureRec(videoContext.videoTexture, (Rectangle){0, 0, (float)videoContext.pCodecCtx->width, (float)videoContext.pCodecCtx->height},
                         (Vector2){0, 0}, WHITE);
-
-        DrawFPS(GetScreenWidth() * .9, GetScreenHeight() * .1);
-
+        
         EndDrawing();
     }
 

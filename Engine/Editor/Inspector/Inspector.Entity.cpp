@@ -152,7 +152,7 @@ void EntityInspector()
         ImGui::Text("Diffuse Texture: ");
         ImGui::PushStyleVar(ImGuiStyleVar_ItemSpacing, ImVec2(0, 40));
 
-        if (ImGui::ImageButton((ImTextureID)&selected_entity->texture, ImVec2(64, 64)))
+        if (ImGui::ImageButton((ImTextureID)&image_texture, ImVec2(64, 64)))
         {
             show_texture = !show_texture;
         }
@@ -169,8 +169,17 @@ void EntityInspector()
                 string path = dir_path.c_str();
                 path += "/" + files_texture_struct[payload_n].name;
 
-                selected_entity->texture = LoadTexture(path.c_str());
-                selected_entity->texture_path = path;
+                Texture2D diffuse_texture = LoadTexture(path.c_str());
+                if (!IsTextureReady(diffuse_texture)) // Means it is a video or an unsupported format
+                {
+                    selected_entity->texture_path = path;
+                    selected_entity->texture = InitializeVideoContext(path.c_str());
+                }
+                else
+                {
+                    selected_entity->texture_path = path;
+                    selected_entity->texture = diffuse_texture;
+                }
 
                 selected_entity->ReloadTextures();
             }
