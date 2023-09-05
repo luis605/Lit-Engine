@@ -13,4 +13,6 @@ Camera3D scene_camera;
 float lerp_factor = 0.5f;
 Vector3 front;
 
+std::shared_ptr<Entity> copiedEntity;
+
 #endif // SCENE_EDITOR_H

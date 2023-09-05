@@ -555,8 +555,26 @@ void ProcessDeletion()
 
 bool can_duplicate_entity = true;
 
+void EntityPaste(const std::shared_ptr<Entity>& entity)
+{
+    if (entity) {
+        Entity new_entity = *entity;
+        entities_list_pregame.push_back(new_entity);
+        selected_entity = &entities_list_pregame.back();
+    }
+}
+
 void ProcessCopy()
 {
+    if (IsKeyPressed(KEY_C) && (IsKeyDown(KEY_LEFT_CONTROL) || IsKeyDown(KEY_RIGHT_CONTROL))) {
+        copiedEntity = std::make_shared<Entity>(*selected_entity);
+    }
+
+    if (IsKeyPressed(KEY_V) && (IsKeyDown(KEY_LEFT_CONTROL) || IsKeyDown(KEY_RIGHT_CONTROL))) {
+        EntityPaste(copiedEntity);
+    }
+
+
     if (IsKeyDown(KEY_D) && (IsKeyDown(KEY_LEFT_CONTROL) || IsKeyDown(KEY_RIGHT_CONTROL)) && !in_game_preview && selected_game_object_type == "entity" && can_duplicate_entity)
     {
         std::cout << "Creating Entity" << std::endl;
