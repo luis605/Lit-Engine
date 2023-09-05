@@ -1,5 +1,6 @@
 # Lit-Engine
-A game engine with the speed and portability of cpp made with raylib.
+<img src="https://github.com/luis605/Lit-Engine/blob/main/docs/images/icon.png" width=50% height=50%>
+A high-level game engine made with the speed and portability of cpp, powered by raylib.
 
 # Cloning the Repository
 To clone the repository, run the following command in your terminal or command prompt:
