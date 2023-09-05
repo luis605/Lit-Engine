@@ -31,7 +31,6 @@ void Startup()
 
     // Raylib
     SetTraceLogLevel(LOG_WARNING);
-    SetTargetFPS(10000);
     SetExitKey(KEY_NULL);
 
     // Window

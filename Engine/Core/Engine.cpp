@@ -118,7 +118,8 @@ public:
 
 
     std::filesystem::path texture_path;
-    variant<Texture2D, VideoContext> texture;
+    std::variant<Texture2D, std::unique_ptr<VideoPlayer>> texture;
+
 
     std::filesystem::path normal_texture_path;
     Texture2D normal_texture;
@@ -173,6 +174,136 @@ public:
         initialized = true;
 
     }
+
+    Entity(const Entity& other) {
+        this->initialized = other.initialized;
+        this->name = other.name;
+        this->color = other.color;
+        this->size = other.size;
+        this->position = other.position;
+        this->rotation = other.rotation;
+        this->scale = other.scale;
+        this->relative_position = other.relative_position;
+        this->relative_rotation = other.relative_rotation;
+        this->relative_scale = other.relative_scale;
+        this->script = other.script;
+        this->model_path = other.model_path;
+        // Note: You might need to implement a copy constructor for the `Model` class
+        this->model = other.model;
+        this->bounds = other.bounds;
+        this->texture_path = other.texture_path;
+        // You'll need to handle copying the `std::variant` properly
+        this->texture = std::visit([](const auto& value) -> std::variant<Texture, std::unique_ptr<VideoPlayer, std::default_delete<VideoPlayer>>> {
+            using T = std::decay_t<decltype(value)>;
+
+            if constexpr (std::is_same_v<T, Texture>) {
+                return value; // Texture remains the same
+            } else if constexpr (std::is_same_v<T, std::unique_ptr<VideoPlayer>>) {
+                // Create a new std::unique_ptr<VideoPlayer> and copy the VideoPlayer
+                if (value) {
+                    return std::make_unique<VideoPlayer>(*value);
+                } else {
+                    return std::unique_ptr<VideoPlayer>(); // Handle null pointer case
+                }
+            } else {
+                TraceLog(LOG_WARNING, "Bad Type - Entity texture variant");
+            }
+        }, other.texture);
+
+
+        this->normal_texture_path = other.normal_texture_path;
+        this->normal_texture = other.normal_texture;
+        this->roughness_texture_path = other.roughness_texture_path;
+        this->roughness_texture = other.roughness_texture;
+        this->ao_texture_path = other.ao_texture_path;
+        this->ao_texture = other.ao_texture;
+        this->surface_material = other.surface_material;
+        this->collider = other.collider;
+        this->visible = other.visible;
+        this->isChild = other.isChild;
+        this->isParent = other.isParent;
+        this->running = other.running;
+        this->running_first_time = other.running_first_time;
+        this->calc_physics = other.calc_physics;
+        this->isDynamic = other.isDynamic;
+        this->mass = other.mass;
+        this->inertia = other.inertia;
+        this->id = other.id;
+        this->parent = nullptr; // Avoid copying the parent-child relationship
+        // You'll need to handle copying the vector of children properly
+        // Note: Be sure to consider whether you need to deep copy the elements
+        this->children = other.children; // Shallow copy of children
+    }
+
+
+    Entity& operator=(const Entity& other) {
+        if (this == &other) {
+            return *this;  // Handle self-assignment
+        }
+
+        this->initialized = other.initialized;
+        this->name = other.name;
+        this->color = other.color;
+        this->size = other.size;
+        this->position = other.position;
+        this->rotation = other.rotation;
+        this->scale = other.scale;
+        this->relative_position = other.relative_position;
+        this->relative_rotation = other.relative_rotation;
+        this->relative_scale = other.relative_scale;
+        this->script = other.script;
+        this->model_path = other.model_path;
+        // Note: You might need to implement a copy constructor for the `Model` class
+        this->model = other.model;
+        this->bounds = other.bounds;
+        this->texture_path = other.texture_path;
+        // You'll need to handle copying the `std::variant` properly
+        this->texture = std::visit([](const auto& value) -> std::variant<Texture, std::unique_ptr<VideoPlayer, std::default_delete<VideoPlayer>>> {
+            using T = std::decay_t<decltype(value)>;
+
+            if constexpr (std::is_same_v<T, Texture>) {
+                return value; // Texture remains the same
+            } else if constexpr (std::is_same_v<T, std::unique_ptr<VideoPlayer>>) {
+                // Create a new std::unique_ptr<VideoPlayer> and copy the VideoPlayer
+                if (value) {
+                    return std::make_unique<VideoPlayer>(*value);
+                } else {
+                    return std::unique_ptr<VideoPlayer>(); // Handle null pointer case
+                }
+            } else {
+                TraceLog(LOG_WARNING, "Bad Type - Entity texture variant");
+            }
+        }, other.texture);
+
+        this->normal_texture_path = other.normal_texture_path;
+        this->normal_texture = other.normal_texture;
+        this->roughness_texture_path = other.roughness_texture_path;
+        this->roughness_texture = other.roughness_texture;
+        this->ao_texture_path = other.ao_texture_path;
+        this->ao_texture = other.ao_texture;
+        this->surface_material = other.surface_material;
+        this->collider = other.collider;
+        this->visible = other.visible;
+        this->isChild = other.isChild;
+        this->isParent = other.isParent;
+        this->running = other.running;
+        this->running_first_time = other.running_first_time;
+        this->calc_physics = other.calc_physics;
+        this->isDynamic = other.isDynamic;
+        this->mass = other.mass;
+        this->inertia = other.inertia;
+        this->id = other.id;
+        this->parent = nullptr; // Avoid copying the parent-child relationship
+        // You'll need to handle copying the vector of children properly
+        // Note: Be sure to consider whether you need to deep copy the elements
+        this->children = other.children; // Shallow copy of children
+
+
+        return *this;
+    }
+
+    
+    
 
     bool operator==(const Entity& other) const {
         return this->id == other.id;
@@ -341,13 +472,17 @@ public:
     void ReloadTextures() {
         if (!texture_path.empty()) {
             if (auto diffuse_texture = get_if<Texture2D>(&texture)) {
-                // If texture is of type Texture, assign it to the material
+                // If texture is of type Texture2D, assign it to the material
                 model.materials[0].maps[MATERIAL_MAP_DIFFUSE].texture = *diffuse_texture;
-            } else if (auto video_texture = get_if<VideoContext>(&texture)) {
-                // If texture is of type VideoContext, assign its texture to the material
-                *video_texture = UpdateVideoContext(*video_texture);
-                model.materials[0].maps[MATERIAL_MAP_DIFFUSE].texture = video_texture->videoTexture;
+            } if (auto* videoPlayerPtr = std::get_if<std::unique_ptr<VideoPlayer>>(&texture)) {
+                // Use videoPlayerPtr to access the VideoPlayer object
+                (*videoPlayerPtr)->Update();
+                model.materials[0].maps[MATERIAL_MAP_DIFFUSE].texture = (*videoPlayerPtr)->GetTexture();
+                if ((*videoPlayerPtr)->IsFinished()) {
+                    (*videoPlayerPtr)->SetLoop(true);
+                }
             }
+
         }
 
         if (!normal_texture_path.empty()) {

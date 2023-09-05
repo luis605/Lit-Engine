@@ -349,16 +349,24 @@ void LoadEntity(const json& entity_json, Entity& entity) {
     string texture_path = entity_json["texture_path"].get<std::string>();
     if (!texture_path.empty())
     {
-        entity.texture_path = texture_path;
-        entity.texture = LoadTexture(entity.texture_path.c_str());
-        entity.ReloadTextures();
+
+        Texture2D diffuse_texture = LoadTexture(texture_path.c_str());
+        if (!IsTextureReady(diffuse_texture)) // Means it is a video or an unsupported format
+        {            
+            entity.texture_path = texture_path;
+            entity.texture = std::make_unique<VideoPlayer>("project/game/abc.avi");
+        }
+        else
+        {
+            entity.texture_path = texture_path;
+            entity.texture = diffuse_texture;
+        }
     }
 
     entity.normal_texture_path = entity_json["normal_texture_path"].get<std::string>();
     if (!entity.normal_texture_path.empty())
     {
         entity.normal_texture = LoadTexture(entity.normal_texture_path.c_str());
-        entity.ReloadTextures();
     }
 
 
@@ -366,7 +374,6 @@ void LoadEntity(const json& entity_json, Entity& entity) {
     if (!entity.roughness_texture_path.empty())
     {
         entity.roughness_texture = LoadTexture(entity.roughness_texture_path.c_str());
-        entity.ReloadTextures();
     }
 
 
