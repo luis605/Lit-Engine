@@ -11,10 +11,10 @@
         "mass": 1.0,
         "model_path": "project/game/models/plane.obj",
         "name": "project/game/models/plane",
-        "normal_texture_path": "",
+        "normal_texture_path": "project/game/abc.mp4",
         "position": {
             "x": 0.0,
-            "y": 0.0,
+            "y": 0.5999994277954102,
             "z": 0.0
         },
         "relative_position": {
@@ -29,9 +29,9 @@
         },
         "roughness_texture_path": "",
         "scale": {
-            "x": 1.0,
+            "x": 10.0,
             "y": 1.0,
-            "z": 1.0
+            "z": 10.0
         },
         "script_path": "",
         "surface_material": {
@@ -45,7 +45,7 @@
             },
             "shininess": 0.5
         },
-        "texture_path": "project/game/abc.mp4",
+        "texture_path": "project/game/textures/metal grid/metalgrid2_basecolor.png",
         "type": "entity"
     },
     {
@@ -62,14 +62,14 @@
             "y": 0.4000000059604645,
             "z": -0.4000000059604645
         },
-        "id": 2,
+        "id": -1377324569,
         "intensity": 0.5,
         "isChild": false,
         "light_type": 1,
-        "name": "Light",
+        "name": "",
         "position": {
-            "x": 4.0,
-            "y": 4.0,
+            "x": 1.299996256828308,
+            "y": 5.100002288818359,
             "z": 4.0
         },
         "relative_position": {
