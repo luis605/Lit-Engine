@@ -122,13 +122,13 @@ public:
 
 
     std::filesystem::path normal_texture_path;
-    Texture2D normal_texture;
+    std::variant<Texture2D, std::unique_ptr<VideoPlayer>> normal_texture;
 
     std::filesystem::path roughness_texture_path;
-    Texture2D roughness_texture;
+    std::variant<Texture2D, std::unique_ptr<VideoPlayer>> roughness_texture;
 
     std::filesystem::path ao_texture_path;
-    Texture2D ao_texture;
+    std::variant<Texture2D, std::unique_ptr<VideoPlayer>> ao_texture;
 
 
     SurfaceMaterial surface_material;
@@ -191,32 +191,58 @@ public:
         // Note: You might need to implement a copy constructor for the `Model` class
         this->model = other.model;
         this->bounds = other.bounds;
+
         this->texture_path = other.texture_path;
-        // You'll need to handle copying the `std::variant` properly
         this->texture = std::visit([](const auto& value) -> std::variant<Texture, std::unique_ptr<VideoPlayer, std::default_delete<VideoPlayer>>> {
             using T = std::decay_t<decltype(value)>;
 
             if constexpr (std::is_same_v<T, Texture>) {
                 return value; // Texture remains the same
-            } else if constexpr (std::is_same_v<T, std::unique_ptr<VideoPlayer>>) {
-                // Create a new std::unique_ptr<VideoPlayer> and copy the VideoPlayer
-                if (value) {
-                    return std::make_unique<VideoPlayer>(*value);
-                } else {
-                    return std::unique_ptr<VideoPlayer>(); // Handle null pointer case
-                }
-            } else {
-                TraceLog(LOG_WARNING, "Bad Type - Entity texture variant");
-            }
+            } else if constexpr (std::is_same_v<T, std::unique_ptr<VideoPlayer>>)
+                if (value) return std::make_unique<VideoPlayer>(*value);
+                else return std::unique_ptr<VideoPlayer>(); // Handle null pointer case
+            else TraceLog(LOG_WARNING, "Bad Type - Entity texture variant");
         }, other.texture);
 
 
         this->normal_texture_path = other.normal_texture_path;
-        this->normal_texture = other.normal_texture;
+        this->normal_texture = std::visit([](const auto& value) -> std::variant<Texture, std::unique_ptr<VideoPlayer, std::default_delete<VideoPlayer>>> {
+            using T = std::decay_t<decltype(value)>;
+
+            if constexpr (std::is_same_v<T, Texture>) {
+                return value; // Texture remains the same
+            } else if constexpr (std::is_same_v<T, std::unique_ptr<VideoPlayer>>)
+                if (value) return std::make_unique<VideoPlayer>(*value);
+                else return std::unique_ptr<VideoPlayer>(); // Handle null pointer case
+            else TraceLog(LOG_WARNING, "Bad Type - Entity normal texture variant");
+        }, other.normal_texture);
+
+
         this->roughness_texture_path = other.roughness_texture_path;
-        this->roughness_texture = other.roughness_texture;
+        this->roughness_texture = std::visit([](const auto& value) -> std::variant<Texture, std::unique_ptr<VideoPlayer, std::default_delete<VideoPlayer>>> {
+            using T = std::decay_t<decltype(value)>;
+
+            if constexpr (std::is_same_v<T, Texture>) {
+                return value; // Texture remains the same
+            } else if constexpr (std::is_same_v<T, std::unique_ptr<VideoPlayer>>)
+                if (value) return std::make_unique<VideoPlayer>(*value);
+                else return std::unique_ptr<VideoPlayer>(); // Handle null pointer case
+            else TraceLog(LOG_WARNING, "Bad Type - Entity roughness texture variant");
+        }, other.roughness_texture);
+
         this->ao_texture_path = other.ao_texture_path;
-        this->ao_texture = other.ao_texture;
+        this->ao_texture = std::visit([](const auto& value) -> std::variant<Texture, std::unique_ptr<VideoPlayer, std::default_delete<VideoPlayer>>> {
+            using T = std::decay_t<decltype(value)>;
+
+            if constexpr (std::is_same_v<T, Texture>) {
+                return value; // Texture remains the same
+            } else if constexpr (std::is_same_v<T, std::unique_ptr<VideoPlayer>>)
+                if (value) return std::make_unique<VideoPlayer>(*value);
+                else return std::unique_ptr<VideoPlayer>(); // Handle null pointer case
+            else TraceLog(LOG_WARNING, "Bad Type - Entity AO texture variant");
+        }, other.ao_texture);
+
+
         this->surface_material = other.surface_material;
         this->collider = other.collider;
         this->visible = other.visible;
@@ -257,30 +283,50 @@ public:
         this->model = other.model;
         this->bounds = other.bounds;
         this->texture_path = other.texture_path;
-        // You'll need to handle copying the `std::variant` properly
+
         this->texture = std::visit([](const auto& value) -> std::variant<Texture, std::unique_ptr<VideoPlayer, std::default_delete<VideoPlayer>>> {
             using T = std::decay_t<decltype(value)>;
-
-            if constexpr (std::is_same_v<T, Texture>) {
-                return value; // Texture remains the same
-            } else if constexpr (std::is_same_v<T, std::unique_ptr<VideoPlayer>>) {
-                // Create a new std::unique_ptr<VideoPlayer> and copy the VideoPlayer
-                if (value) {
-                    return std::make_unique<VideoPlayer>(*value);
-                } else {
-                    return std::unique_ptr<VideoPlayer>(); // Handle null pointer case
-                }
-            } else {
-                TraceLog(LOG_WARNING, "Bad Type - Entity texture variant");
-            }
+        
+            if constexpr (std::is_same_v<T, Texture>) return value;
+            else if constexpr (std::is_same_v<T, std::unique_ptr<VideoPlayer>>) 
+                if (value) return std::make_unique<VideoPlayer>(*value);
+                else return std::unique_ptr<VideoPlayer>();
+            else TraceLog(LOG_WARNING, "Bad Type - Entity texture variant");
         }, other.texture);
+    
+
 
         this->normal_texture_path = other.normal_texture_path;
-        this->normal_texture = other.normal_texture;
+        this->normal_texture = std::visit([](const auto& value) -> std::variant<Texture, std::unique_ptr<VideoPlayer, std::default_delete<VideoPlayer>>> {
+            using T = std::decay_t<decltype(value)>;
+            if constexpr (std::is_same_v<T, Texture>) return value;
+            else if constexpr (std::is_same_v<T, std::unique_ptr<VideoPlayer>>)
+                if (value) return std::make_unique<VideoPlayer>(*value);
+                else return std::unique_ptr<VideoPlayer>();
+            else TraceLog(LOG_WARNING, "Bad Type - Entity normal texture variant");
+        }, other.normal_texture);
+
         this->roughness_texture_path = other.roughness_texture_path;
-        this->roughness_texture = other.roughness_texture;
+        this->roughness_texture = std::visit([](const auto& value) -> std::variant<Texture, std::unique_ptr<VideoPlayer, std::default_delete<VideoPlayer>>> {
+            using T = std::decay_t<decltype(value)>;
+            if constexpr (std::is_same_v<T, Texture>) return value;
+            else if constexpr (std::is_same_v<T, std::unique_ptr<VideoPlayer>>)
+                if (value) return std::make_unique<VideoPlayer>(*value);
+                else return std::unique_ptr<VideoPlayer>();
+            else TraceLog(LOG_WARNING, "Bad Type - Entity roughness texture variant");
+        }, other.roughness_texture);
+
         this->ao_texture_path = other.ao_texture_path;
-        this->ao_texture = other.ao_texture;
+        this->ao_texture = std::visit([](const auto& value) -> std::variant<Texture, std::unique_ptr<VideoPlayer, std::default_delete<VideoPlayer>>> {
+            using T = std::decay_t<decltype(value)>;
+            if constexpr (std::is_same_v<T, Texture>) return value;
+            else if constexpr (std::is_same_v<T, std::unique_ptr<VideoPlayer>>)
+                if (value) return std::make_unique<VideoPlayer>(*value);
+                else return std::unique_ptr<VideoPlayer>();
+            else TraceLog(LOG_WARNING, "Bad Type - Entity ao texture variant");
+        }, other.ao_texture);
+
+
         this->surface_material = other.surface_material;
         this->collider = other.collider;
         this->visible = other.visible;
@@ -472,29 +518,39 @@ public:
     void ReloadTextures() {
         if (!texture_path.empty()) {
             if (auto diffuse_texture = get_if<Texture2D>(&texture)) {
-                // If texture is of type Texture2D, assign it to the material
                 model.materials[0].maps[MATERIAL_MAP_DIFFUSE].texture = *diffuse_texture;
-            } if (auto* videoPlayerPtr = std::get_if<std::unique_ptr<VideoPlayer>>(&texture)) {
-                // Use videoPlayerPtr to access the VideoPlayer object
+            } else if (auto* videoPlayerPtr = std::get_if<std::unique_ptr<VideoPlayer>>(&texture)) {
                 (*videoPlayerPtr)->Update();
                 model.materials[0].maps[MATERIAL_MAP_DIFFUSE].texture = (*videoPlayerPtr)->GetTexture();
-                if ((*videoPlayerPtr)->IsFinished()) {
-                    (*videoPlayerPtr)->SetLoop(true);
-                }
             }
-
         }
 
         if (!normal_texture_path.empty()) {
-            model.materials[0].maps[MATERIAL_MAP_NORMAL].texture = normal_texture;
+            if (auto normal = get_if<Texture2D>(&normal_texture)) {
+                model.materials[0].maps[MATERIAL_MAP_NORMAL].texture = *normal;
+            } else if (auto* videoPlayerPtr = std::get_if<std::unique_ptr<VideoPlayer>>(&normal_texture)) {
+                (*videoPlayerPtr)->Update();
+                model.materials[0].maps[MATERIAL_MAP_NORMAL].texture = (*videoPlayerPtr)->GetTexture();
+            }
         }
 
+
         if (!roughness_texture_path.empty()) {
-            model.materials[0].maps[MATERIAL_MAP_ROUGHNESS].texture = roughness_texture;
+            if (auto roughness = get_if<Texture2D>(&roughness_texture)) {
+                model.materials[0].maps[MATERIAL_MAP_ROUGHNESS].texture = *roughness;
+            } else if (auto* videoPlayerPtr = std::get_if<std::unique_ptr<VideoPlayer>>(&roughness_texture)) {
+                (*videoPlayerPtr)->Update();
+                model.materials[0].maps[MATERIAL_MAP_ROUGHNESS].texture = (*videoPlayerPtr)->GetTexture();
+            }
         }
 
         if (!ao_texture_path.empty()) {
-            model.materials[0].maps[MATERIAL_MAP_OCCLUSION].texture = ao_texture;
+            if (auto ao = get_if<Texture2D>(&ao_texture)) {
+                model.materials[0].maps[MATERIAL_MAP_OCCLUSION].texture = *ao;
+            } else if (auto* videoPlayerPtr = std::get_if<std::unique_ptr<VideoPlayer>>(&ao_texture)) {
+                (*videoPlayerPtr)->Update();
+                model.materials[0].maps[MATERIAL_MAP_OCCLUSION].texture = (*videoPlayerPtr)->GetTexture();
+            }
         }
     }
 

@@ -204,9 +204,17 @@ void EntityInspector()
                 string path = dir_path.c_str();
                 path += "/" + files_texture_struct[payload_n].name;
 
-                selected_entity->normal_texture = LoadTexture(path.c_str());
-                selected_entity->normal_texture_path = path;
-
+                Texture2D normal_texture = LoadTexture(path.c_str());
+                if (!IsTextureReady(normal_texture)) // Means it is a video or an unsupported format
+                {
+                    selected_entity->normal_texture_path = path;
+                    selected_entity->normal_texture = std::make_unique<VideoPlayer>(selected_entity->normal_texture_path.c_str());
+                }
+                else
+                {
+                    selected_entity->normal_texture_path = path;
+                    selected_entity->normal_texture = normal_texture;
+                }
                 selected_entity->ReloadTextures();
             }
             ImGui::EndDragDropTarget();

@@ -94,7 +94,6 @@ public:
             if (avcodec_receive_frame(pCodecCtx, pFrame) == 0) {
                 float frameTime = GetTime() - lastFrameTime;
                 if (frameTime >= frameDelay) {
-                    std::cout << "Rendering\n";
                     uint8_t *pixels[1] = {(uint8_t *)frameImage.data};
                     int pitch[1] = {4 * pCodecCtx->width};
 
