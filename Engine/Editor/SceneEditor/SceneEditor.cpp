@@ -560,18 +560,47 @@ void EntityPaste(const std::shared_ptr<Entity>& entity)
     if (entity) {
         Entity new_entity = *entity;
         entities_list_pregame.push_back(new_entity);
+        selected_game_object_type = "entity";
         selected_entity = &entities_list_pregame.back();
+    }
+}
+
+void LightPaste(const std::shared_ptr<Light>& light)
+{
+    if (light) {
+        Light new_light = *light;
+        new_light.id = lights.back().id+1;
+        lights.push_back(new_light);
+        AdditionalLightInfo new_light_info;
+        new_light_info.id = new_light.id;
+        lights_info.push_back(new_light_info);
+        
+        selected_game_object_type = "light";
+        selected_light = &lights.back();
+        UpdateLightsBuffer();
     }
 }
 
 void ProcessCopy()
 {
     if (IsKeyPressed(KEY_C) && (IsKeyDown(KEY_LEFT_CONTROL) || IsKeyDown(KEY_RIGHT_CONTROL))) {
-        copiedEntity = std::make_shared<Entity>(*selected_entity);
+        if (selected_game_object_type == "entity")
+        {
+            current_copy_type = CopyType_Entity;
+            copiedEntity = std::make_shared<Entity>(*selected_entity);
+        }
+        else if (selected_game_object_type == "light")
+        {
+            current_copy_type = CopyType_Light;
+            copiedLight = std::make_shared<Light>(*selected_light);
+        }
     }
 
     if (IsKeyPressed(KEY_V) && (IsKeyDown(KEY_LEFT_CONTROL) || IsKeyDown(KEY_RIGHT_CONTROL))) {
-        EntityPaste(copiedEntity);
+        if (current_copy_type == CopyType_Entity)
+            EntityPaste(copiedEntity);
+        if (current_copy_type == CopyType_Light)
+            LightPaste(copiedLight);
     }
 
 
