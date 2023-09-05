@@ -19,13 +19,13 @@ void ShowTexture()
         ImGui::End();
     }
 
-    if (show_normal_texture)
-    {
-        ImGui::SetNextWindowSize(ImVec2(selected_entity->normal_texture.width, selected_entity->normal_texture.height));
-        ImGui::Begin("Normal Texture Previewer");
-        ImGui::Image((ImTextureID)&selected_entity->normal_texture, ImVec2(selected_entity->normal_texture.width, selected_entity->normal_texture.height));
-        ImGui::End();
-    }
+    // if (show_normal_texture)
+    // {
+    //     ImGui::SetNextWindowSize(ImVec2(selected_entity->normal_texture.width, selected_entity->normal_texture.height));
+    //     ImGui::Begin("Normal Texture Previewer");
+    //     ImGui::Image((ImTextureID)&selected_entity->normal_texture, ImVec2(selected_entity->normal_texture.width, selected_entity->normal_texture.height));
+    //     ImGui::End();
+    // }
 
 }
 
