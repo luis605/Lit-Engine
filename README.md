@@ -7,12 +7,10 @@ To clone the repository, run the following command in your terminal or command p
 ```cpp
 git clone --recurse-submodules -j8 https://luis605@github.com/luis605/Lit-Engine
 ```
-and paste this password:
-
-`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`
+NOTE: You need to have permissions to download
 
 # Building and Installing Dependencies
-First you will need to install all commands needed to build this project. They are located inside build/ - `cd build`. Then you can run the first command: `./install.sh`
+First you will need to install all commands needed to build this project. They are located inside build/ - `cd install`. Then you can run the first command: `./install.sh`
 To build all dependencies run this commands: `./build_dependencies.sh`
 
 # Building the Engine
