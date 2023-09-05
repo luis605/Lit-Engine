@@ -6,12 +6,12 @@
             "g": 255,
             "r": 255
         },
-        "id": -830528266,
+        "id": -821273565,
         "is_dynamic": false,
         "mass": 1.0,
         "model_path": "project/game/models/plane.obj",
         "name": "project/game/models/plane",
-        "normal_texture_path": "project/game/textures/brick_wall_02_nor_gl_4k.png",
+        "normal_texture_path": "",
         "position": {
             "x": 0.0,
             "y": 0.0,
@@ -29,9 +29,9 @@
         },
         "roughness_texture_path": "",
         "scale": {
-            "x": 100.0,
+            "x": 1.0,
             "y": 1.0,
-            "z": 100.0
+            "z": 1.0
         },
         "script_path": "",
         "surface_material": {
@@ -45,11 +45,11 @@
             },
             "shininess": 0.5
         },
-        "texture_path": "project/game/abc.avi",
+        "texture_path": "project/game/abc.mp4",
         "type": "entity"
     },
     {
-        "attenuation": 0.0,
+        "attenuation": 9.999999747378752e-05,
         "color": {
             "a": 255.0,
             "b": 255.0,
@@ -58,30 +58,30 @@
         },
         "cutOff": 10.0,
         "direction": {
-            "x": 0.6150000095367432,
-            "y": -1.0,
-            "z": 1.0
+            "x": 0.4000000059604645,
+            "y": 0.4000000059604645,
+            "z": -0.4000000059604645
         },
         "id": 2,
-        "intensity": 2.1080000400543213,
+        "intensity": 0.5,
         "isChild": false,
-        "light_type": 0,
+        "light_type": 1,
         "name": "Light",
         "position": {
             "x": 4.0,
             "y": 4.0,
-            "z": 34.70000076293945
+            "z": 4.0
         },
         "relative_position": {
             "x": 0,
             "y": 0,
             "z": 0
         },
-        "specularStrength": 0.0,
+        "specularStrength": 0.5,
         "target": {
-            "x": 1.481164569182208e+15,
-            "y": 4.591634678053128e-41,
-            "z": -3.118541325414292e+27
+            "x": 8.363709030900779e-13,
+            "y": 4.591354418360263e-41,
+            "z": -1920648832.0
         },
         "type": "light"
     }

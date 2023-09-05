@@ -173,7 +173,7 @@ void EntityInspector()
                 if (!IsTextureReady(diffuse_texture)) // Means it is a video or an unsupported format
                 {
                     selected_entity->texture_path = path;
-                    selected_entity->texture = InitializeVideoContext(path.c_str());
+                    selected_entity->texture = std::make_unique<VideoPlayer>(selected_entity->texture_path.c_str());
                 }
                 else
                 {
