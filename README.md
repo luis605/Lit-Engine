@@ -2,26 +2,52 @@
 <img src="https://github.com/luis605/Lit-Engine/blob/main/docs/images/icon.png" width=50% height=50%>
 A high-level game engine made with the speed and portability of cpp, powered by raylib.
 
-# Cloning the Repository
-To clone the repository, run the following command in your terminal or command prompt:
-```cpp
-git clone --recurse-submodules -j8 https://luis605@github.com/luis605/Lit-Engine
+## Getting Started
+
+### Cloning the Repository
+
+To clone the repository, execute the following command in your terminal or command prompt:
+
+```bash
+git clone --recurse-submodules -j8 https://github.com/luis605/Lit-Engine
 ```
-NOTE: You need to have permissions to download
+Please note that you need appropriate permissions to access this repository.
 
 # Building and Installing Dependencies
-First you will need to install all commands needed to build this project. They are located inside build/ - `cd install`. Then you can run the first command: `./install.sh`
-To build all dependencies run this commands: `./build_dependencies.sh`
+Before building the engine, ensure that you have the necessary dependencies installed. These dependencies can be installed by navigating to the `install` directory and running: 
+```bash
+./install.sh
+```
+Then, you can build the remaining dependencies by running:
+```bash
+./build_dependencies.sh
+```
+# Building, Running, Debugging
+## Building the Engine
+After successfully cloning the repository and installing dependencies, you can proceed to build the Lit-Engine:
+ - Build the engine using the following commands:
+```bash
+make build
+```
 
-# Building the Engine
-Once you have cloned the repository, install and build all dependencies, you can then proceed. To build the engine, follow these steps:
-1. `make build`
-2. `make run`
+ - Run the engine:
+```bash
+make run
+```
 
-or: `make brun`
+Alternatively, you can build and run the engine in a single step using:
+```bash
+make brun
+```
 
-If you run into some bug and need to debug you can call the debugger with:
+## Debugging
+If you encounter any issues or bugs and need to debug the engine, you can follow these steps:
+1. Initiate the debugger with the following command:
  - `make debug`
- - Or if you want to rebuild the engine and then start the debugger, do `make bdb`
+2. Alternative is to build and debug the code in a single command:
+ - `make bdb`
 
-NOTE: If you ran make brun and `build` wasn't called, you can force make with the following command: `make -B brun`
+Please note that if you used `make brun` and the build step wasn't executed, you can force a complete rebuild with the following command:
+```bash
+make -B brun
+```
