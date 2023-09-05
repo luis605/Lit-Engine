@@ -11,7 +11,6 @@ Texture2D RenderModelPreview(const char* modelFile) {
     model_previewer_camera.fovy = 60.0f;
     model_previewer_camera.projection = CAMERA_PERSPECTIVE;
 
-
     RenderTexture2D target = LoadRenderTexture(600, 600);
 
     BeginTextureMode(target);
@@ -80,7 +79,10 @@ void AssetsExplorer()
                     FileTextureItem fileTextureItem = {file, empty_texture, file};
                     files_texture_struct.push_back(fileTextureItem);
                 }
-                else if (file_extension == ".png" || file_extension == ".jpg" || file_extension == ".jpeg")
+                else if (file_extension == ".png" || file_extension == ".jpg" || file_extension == ".jpeg" ||
+                         file_extension == ".avi" || file_extension == ".mp4" || file_extension == ".mov" ||
+                         file_extension == ".mkv" || file_extension == ".webm" || file_extension == ".gif"
+                )
                 {
                     FileTextureItem fileTextureItem = {file, image_texture, file};
                     files_texture_struct.push_back(fileTextureItem);
@@ -110,8 +112,18 @@ void AssetsExplorer()
                             fileTextureItem = {file, icon, file};
                         } else {
                             Texture2D icon = RenderModelPreview(path.c_str());
-                            models_icons.insert({file, icon});
-                            fileTextureItem = {file, icon, file};
+
+                            RenderTexture2D target = LoadRenderTexture(icon.width, icon.height);
+
+                            BeginTextureMode(target);
+
+                            DrawTextureEx(icon, (Vector2){0, 0}, 0.0f, 1.0f, RAYWHITE);
+
+                            EndTextureMode();
+
+                            Texture2D flippedIcon = target.texture;
+                            models_icons.insert({file, flippedIcon});
+                            fileTextureItem = {file, flippedIcon, file};
                         }
                     }
                     files_texture_struct.push_back(fileTextureItem);
@@ -222,8 +234,13 @@ void AssetsExplorer()
             string file_extension = getFileExtension(basename(files_texture_struct[i].path.c_str()));
             const char *drag_type;
 
-            if (file_extension == ".png" || file_extension == ".jpg" || file_extension == ".jpeg")
+            if (file_extension == ".png" || file_extension == ".jpg" || file_extension == ".jpeg" ||
+                file_extension == ".avi" || file_extension == ".mp4" || file_extension == ".mov" ||
+                file_extension == ".mkv" || file_extension == ".webm" || file_extension == ".gif"
+               )
+            {
                 drag_type = "TEXTURE_PAYLOAD";
+            }
             else if (file_extension == ".py" || file_extension == ".cpp" || file_extension == ".c++" || file_extension == ".cxx" || file_extension == ".hpp" || file_extension == ".cc" || file_extension == ".h" || file_extension == ".hh" || file_extension == ".hxx")
                 drag_type = "SCRIPT_PAYLOAD";
             else if (file_extension == ".fbx" || file_extension == ".obj" || file_extension == ".gltf" || file_extension == ".ply" || file_extension == ".mtl")

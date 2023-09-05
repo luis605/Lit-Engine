@@ -80,11 +80,13 @@ typedef struct SurfaceMaterial
     float Roughness = 0.5f;
     float DiffuseIntensity = 0.5f;
     alignas(16) glm::vec3 SpecularTint = { 1.0f, 1.0f, 1.0f };
+    alignas(16) glm::vec3 baseReflectance = { 1.0f, 1.0f, 1.0f };
 };
 
 typedef struct AdditionalLightInfo
 {
     string name;
+    Entity* parent = nullptr;
     int id;
 
     bool operator==(const Light& other) const {

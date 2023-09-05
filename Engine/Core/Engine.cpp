@@ -39,10 +39,61 @@ py::scoped_interpreter guard{};
 
 
 
+struct Plane
+{
+    glm::vec3 normal = { 0.f, 1.f, 0.f };
 
+    float     distance = 0.f;             
+};
+
+struct Frustum
+{
+    Plane topFace;
+    Plane bottomFace;
+
+    Plane rightFace;
+    Plane leftFace;
+
+    Plane farFace;
+    Plane nearFace;
+};
 
 bool EntityRunScriptFirstTime = true;
 bool Entity_already_registered = false;
+
+RLFrustum cameraFrustum;
+
+
+void InitFrustum()
+{
+    cameraFrustum = RLFrustum();
+}
+
+// Update the camera frustum in your update function
+void UpdateFrustum()
+{
+    cameraFrustum.Extract();
+}
+
+// Check if a point is inside the camera frustum
+bool PointInFrustum(const Vector3& point)
+{
+    return cameraFrustum.PointIn(point);
+}
+
+// Check if a sphere is inside the camera frustum
+bool SphereInFrustum(const Vector3& position, float radius)
+{
+    return cameraFrustum.SphereIn(position, radius);
+}
+
+// Check if an axis-aligned bounding box is inside the camera frustum
+bool AABBoxInFrustum(const Vector3& min, const Vector3& max)
+{
+    return cameraFrustum.AABBoxIn(min, max);
+}
+
+
 
 std::mutex script_mutex;
 class Entity {
@@ -66,18 +117,18 @@ public:
     BoundingBox bounds;
 
 
-
     std::filesystem::path texture_path;
-    Texture2D texture;
+    std::variant<Texture2D, std::unique_ptr<VideoPlayer>> texture;
+
 
     std::filesystem::path normal_texture_path;
-    Texture2D normal_texture;
+    std::variant<Texture2D, std::unique_ptr<VideoPlayer>> normal_texture;
 
     std::filesystem::path roughness_texture_path;
-    Texture2D roughness_texture;
+    std::variant<Texture2D, std::unique_ptr<VideoPlayer>> roughness_texture;
 
     std::filesystem::path ao_texture_path;
-    Texture2D ao_texture;
+    std::variant<Texture2D, std::unique_ptr<VideoPlayer>> ao_texture;
 
 
     SurfaceMaterial surface_material;
@@ -88,6 +139,7 @@ public:
     bool isChild = false;
     bool isParent = false;
     bool running = false;
+    bool running_first_time = false;
     bool calc_physics = false;
     bool isDynamic = false;
 
@@ -99,8 +151,7 @@ public:
     int id = 0;
 
     Entity* parent = nullptr;
-    vector<Entity*> children;
-
+    vector<variant<Entity*, Light*, Text*, LitButton*>> children;
 
 private:
     
@@ -113,6 +164,7 @@ private:
     Matrix *transforms = nullptr;
     Material matInstances;
     int lastIndexCalculated = -1;
+    Plane frustumPlanes[6];
 
 public:
     Entity(Color color = { 255, 255, 255, 255 }, LitVector3 scale = { 1, 1, 1 }, LitVector3 rotation = { 0, 0, 0 }, string name = "entity",
@@ -120,7 +172,184 @@ public:
         : color(color), scale(scale), rotation(rotation), name(name), position(position), script(script)
     {   
         initialized = true;
+
     }
+
+    Entity(const Entity& other) {
+        this->initialized = other.initialized;
+        this->name = other.name;
+        this->color = other.color;
+        this->size = other.size;
+        this->position = other.position;
+        this->rotation = other.rotation;
+        this->scale = other.scale;
+        this->relative_position = other.relative_position;
+        this->relative_rotation = other.relative_rotation;
+        this->relative_scale = other.relative_scale;
+        this->script = other.script;
+        this->model_path = other.model_path;
+        // Note: You might need to implement a copy constructor for the `Model` class
+        this->model = other.model;
+        this->bounds = other.bounds;
+
+        this->texture_path = other.texture_path;
+        this->texture = std::visit([](const auto& value) -> std::variant<Texture, std::unique_ptr<VideoPlayer, std::default_delete<VideoPlayer>>> {
+            using T = std::decay_t<decltype(value)>;
+
+            if constexpr (std::is_same_v<T, Texture>) {
+                return value; // Texture remains the same
+            } else if constexpr (std::is_same_v<T, std::unique_ptr<VideoPlayer>>)
+                if (value) return std::make_unique<VideoPlayer>(*value);
+                else return std::unique_ptr<VideoPlayer>(); // Handle null pointer case
+            else TraceLog(LOG_WARNING, "Bad Type - Entity texture variant");
+        }, other.texture);
+
+
+        this->normal_texture_path = other.normal_texture_path;
+        this->normal_texture = std::visit([](const auto& value) -> std::variant<Texture, std::unique_ptr<VideoPlayer, std::default_delete<VideoPlayer>>> {
+            using T = std::decay_t<decltype(value)>;
+
+            if constexpr (std::is_same_v<T, Texture>) {
+                return value; // Texture remains the same
+            } else if constexpr (std::is_same_v<T, std::unique_ptr<VideoPlayer>>)
+                if (value) return std::make_unique<VideoPlayer>(*value);
+                else return std::unique_ptr<VideoPlayer>(); // Handle null pointer case
+            else TraceLog(LOG_WARNING, "Bad Type - Entity normal texture variant");
+        }, other.normal_texture);
+
+
+        this->roughness_texture_path = other.roughness_texture_path;
+        this->roughness_texture = std::visit([](const auto& value) -> std::variant<Texture, std::unique_ptr<VideoPlayer, std::default_delete<VideoPlayer>>> {
+            using T = std::decay_t<decltype(value)>;
+
+            if constexpr (std::is_same_v<T, Texture>) {
+                return value; // Texture remains the same
+            } else if constexpr (std::is_same_v<T, std::unique_ptr<VideoPlayer>>)
+                if (value) return std::make_unique<VideoPlayer>(*value);
+                else return std::unique_ptr<VideoPlayer>(); // Handle null pointer case
+            else TraceLog(LOG_WARNING, "Bad Type - Entity roughness texture variant");
+        }, other.roughness_texture);
+
+        this->ao_texture_path = other.ao_texture_path;
+        this->ao_texture = std::visit([](const auto& value) -> std::variant<Texture, std::unique_ptr<VideoPlayer, std::default_delete<VideoPlayer>>> {
+            using T = std::decay_t<decltype(value)>;
+
+            if constexpr (std::is_same_v<T, Texture>) {
+                return value; // Texture remains the same
+            } else if constexpr (std::is_same_v<T, std::unique_ptr<VideoPlayer>>)
+                if (value) return std::make_unique<VideoPlayer>(*value);
+                else return std::unique_ptr<VideoPlayer>(); // Handle null pointer case
+            else TraceLog(LOG_WARNING, "Bad Type - Entity AO texture variant");
+        }, other.ao_texture);
+
+
+        this->surface_material = other.surface_material;
+        this->collider = other.collider;
+        this->visible = other.visible;
+        this->isChild = other.isChild;
+        this->isParent = other.isParent;
+        this->running = other.running;
+        this->running_first_time = other.running_first_time;
+        this->calc_physics = other.calc_physics;
+        this->isDynamic = other.isDynamic;
+        this->mass = other.mass;
+        this->inertia = other.inertia;
+        this->id = other.id;
+        this->parent = nullptr; // Avoid copying the parent-child relationship
+        // You'll need to handle copying the vector of children properly
+        // Note: Be sure to consider whether you need to deep copy the elements
+        this->children = other.children; // Shallow copy of children
+    }
+
+
+    Entity& operator=(const Entity& other) {
+        if (this == &other) {
+            return *this;  // Handle self-assignment
+        }
+
+        this->initialized = other.initialized;
+        this->name = other.name;
+        this->color = other.color;
+        this->size = other.size;
+        this->position = other.position;
+        this->rotation = other.rotation;
+        this->scale = other.scale;
+        this->relative_position = other.relative_position;
+        this->relative_rotation = other.relative_rotation;
+        this->relative_scale = other.relative_scale;
+        this->script = other.script;
+        this->model_path = other.model_path;
+        // Note: You might need to implement a copy constructor for the `Model` class
+        this->model = other.model;
+        this->bounds = other.bounds;
+        this->texture_path = other.texture_path;
+
+        this->texture = std::visit([](const auto& value) -> std::variant<Texture, std::unique_ptr<VideoPlayer, std::default_delete<VideoPlayer>>> {
+            using T = std::decay_t<decltype(value)>;
+        
+            if constexpr (std::is_same_v<T, Texture>) return value;
+            else if constexpr (std::is_same_v<T, std::unique_ptr<VideoPlayer>>) 
+                if (value) return std::make_unique<VideoPlayer>(*value);
+                else return std::unique_ptr<VideoPlayer>();
+            else TraceLog(LOG_WARNING, "Bad Type - Entity texture variant");
+        }, other.texture);
+    
+
+
+        this->normal_texture_path = other.normal_texture_path;
+        this->normal_texture = std::visit([](const auto& value) -> std::variant<Texture, std::unique_ptr<VideoPlayer, std::default_delete<VideoPlayer>>> {
+            using T = std::decay_t<decltype(value)>;
+            if constexpr (std::is_same_v<T, Texture>) return value;
+            else if constexpr (std::is_same_v<T, std::unique_ptr<VideoPlayer>>)
+                if (value) return std::make_unique<VideoPlayer>(*value);
+                else return std::unique_ptr<VideoPlayer>();
+            else TraceLog(LOG_WARNING, "Bad Type - Entity normal texture variant");
+        }, other.normal_texture);
+
+        this->roughness_texture_path = other.roughness_texture_path;
+        this->roughness_texture = std::visit([](const auto& value) -> std::variant<Texture, std::unique_ptr<VideoPlayer, std::default_delete<VideoPlayer>>> {
+            using T = std::decay_t<decltype(value)>;
+            if constexpr (std::is_same_v<T, Texture>) return value;
+            else if constexpr (std::is_same_v<T, std::unique_ptr<VideoPlayer>>)
+                if (value) return std::make_unique<VideoPlayer>(*value);
+                else return std::unique_ptr<VideoPlayer>();
+            else TraceLog(LOG_WARNING, "Bad Type - Entity roughness texture variant");
+        }, other.roughness_texture);
+
+        this->ao_texture_path = other.ao_texture_path;
+        this->ao_texture = std::visit([](const auto& value) -> std::variant<Texture, std::unique_ptr<VideoPlayer, std::default_delete<VideoPlayer>>> {
+            using T = std::decay_t<decltype(value)>;
+            if constexpr (std::is_same_v<T, Texture>) return value;
+            else if constexpr (std::is_same_v<T, std::unique_ptr<VideoPlayer>>)
+                if (value) return std::make_unique<VideoPlayer>(*value);
+                else return std::unique_ptr<VideoPlayer>();
+            else TraceLog(LOG_WARNING, "Bad Type - Entity ao texture variant");
+        }, other.ao_texture);
+
+
+        this->surface_material = other.surface_material;
+        this->collider = other.collider;
+        this->visible = other.visible;
+        this->isChild = other.isChild;
+        this->isParent = other.isParent;
+        this->running = other.running;
+        this->running_first_time = other.running_first_time;
+        this->calc_physics = other.calc_physics;
+        this->isDynamic = other.isDynamic;
+        this->mass = other.mass;
+        this->inertia = other.inertia;
+        this->id = other.id;
+        this->parent = nullptr; // Avoid copying the parent-child relationship
+        // You'll need to handle copying the vector of children properly
+        // Note: Be sure to consider whether you need to deep copy the elements
+        this->children = other.children; // Shallow copy of children
+
+
+        return *this;
+    }
+
+    
+    
 
     bool operator==(const Entity& other) const {
         return this->id == other.id;
@@ -129,15 +358,15 @@ public:
     void addInstance(Entity* instance) {
         instances.push_back(instance);
 
-        
+
         if (transforms == nullptr) {
             transforms = (Matrix *)RL_CALLOC(instances.size(), sizeof(Matrix));
         } else {
-            
+
             transforms = (Matrix *)RL_REALLOC(transforms, instances.size() * sizeof(Matrix));
         }
 
-        
+
         int lastIndex = instances.size() - 1;
         calculateInstance(lastIndex);
 
@@ -147,9 +376,14 @@ public:
 
     }
 
+    bool hasInstances()
+    {
+        return instances.empty();
+    }
+
     void calculateInstance(int index) {
         if (index < 0 || index >= instances.size()) {
-            
+
             return;
         }
 
@@ -161,44 +395,90 @@ public:
         transforms[index] = MatrixMultiply(rotation, translation);
 
         matInstances = LoadMaterialDefault();
-    }    
-    
-    void addChild(Entity& child) {
-        Entity* newChild = new Entity(child);
+    }
+        
+    void addChild(Entity& entityChild) {
+        Entity* newChild = new Entity(entityChild);
+
         newChild->relative_position = {
             newChild->position.x - this->position.x,
             newChild->position.y - this->position.y,
             newChild->position.z - this->position.z
         };
-        newChild->parent = selected_entity;
-        printf("Parent x position: %f", newChild->parent->position.x);
+
+        newChild->parent = this;
         children.push_back(newChild);
     }
+
+    void addChild(Light* lightChild, int light_id) {
+        lightChild->relative_position = {
+            lightChild->position.x - this->position.x,
+            lightChild->position.y - this->position.y,
+            lightChild->position.z - this->position.z
+        };
+
+        auto it = std::find_if(lights_info.begin(), lights_info.end(), [light_id](const AdditionalLightInfo& light) {
+            return light.id == light_id;
+        });
+        
+        if (it != lights_info.end()) {
+            AdditionalLightInfo* light_info = (AdditionalLightInfo*)&*it;
+            light_info->parent = this;
+            children.push_back(lightChild);
+        }
+    }
+
+
+
+
 
     void update_children()
     {
         if (children.empty()) return;
-        for (Entity* child : children)
+        
+        for (std::variant<Entity*, Light*, Text*, LitButton*>& childVariant : children)
         {
-            child->render();
-            #ifndef GAME_SHIPPING
-                if (child == selected_entity) return;
-            #endif
+            if (auto* child = std::get_if<Entity*>(&childVariant))
+            {
+                (*child)->render();
 
-            child->position = {this->position + child->relative_position};
+    #ifndef GAME_SHIPPING
+                if (*child == selected_entity) continue;
+    #endif
 
-            child->update_children();
+                (*child)->position = {this->position + (*child)->relative_position};
+                (*child)->update_children();
+            }
+          
+            else if (auto* child = std::get_if<Light*>(&childVariant))
+            {                
+                #ifndef GAME_SHIPPING
+                            if (*child == selected_light && selected_game_object_type == "light") continue;
+                #endif
 
+                (*child)->position = glm::vec3(this->position.x, this->position.y, this->position.z) + (*child)->relative_position;
+            }
         }
+        UpdateLightsBuffer();
     }
+
 
 
     void remove() {
 
-        for (Entity* child : children) {
-            delete child;
+    for (auto& childVariant : children) {
+        if (auto* entity = std::get_if<Entity*>(&childVariant)) {
+            delete *entity;
+        } else if (auto* light = std::get_if<Light*>(&childVariant)) {
+            delete *light;
+        } else if (auto* text = std::get_if<Text*>(&childVariant)) {
+            delete *text;
+        } else if (auto* button = std::get_if<LitButton*>(&childVariant)) {
+            delete *button;
         }
-        children.clear();
+    }
+
+    children.clear();
 
 
         entities_list_pregame.erase(
@@ -235,26 +515,45 @@ public:
         model = LoadModel(filename);
     }
 
-    void ReloadTextures()
-    {
-        if (!texture_path.empty())
-            model.materials[0].maps[MATERIAL_MAP_DIFFUSE].texture = texture;
-        
-        if (!normal_texture_path.empty())
-        {
-            model.materials[0].maps[MATERIAL_MAP_NORMAL].texture = normal_texture;
+    void ReloadTextures() {
+        if (!texture_path.empty()) {
+            if (auto diffuse_texture = get_if<Texture2D>(&texture)) {
+                model.materials[0].maps[MATERIAL_MAP_DIFFUSE].texture = *diffuse_texture;
+            } else if (auto* videoPlayerPtr = std::get_if<std::unique_ptr<VideoPlayer>>(&texture)) {
+                (*videoPlayerPtr)->Update();
+                model.materials[0].maps[MATERIAL_MAP_DIFFUSE].texture = (*videoPlayerPtr)->GetTexture();
+            }
         }
 
-        if (!roughness_texture_path.empty())
-        {
-            model.materials[0].maps[MATERIAL_MAP_ROUGHNESS].texture = roughness_texture;
+        if (!normal_texture_path.empty()) {
+            if (auto normal = get_if<Texture2D>(&normal_texture)) {
+                model.materials[0].maps[MATERIAL_MAP_NORMAL].texture = *normal;
+            } else if (auto* videoPlayerPtr = std::get_if<std::unique_ptr<VideoPlayer>>(&normal_texture)) {
+                (*videoPlayerPtr)->Update();
+                model.materials[0].maps[MATERIAL_MAP_NORMAL].texture = (*videoPlayerPtr)->GetTexture();
+            }
         }
 
-        if (!ao_texture_path.empty())
-        {
-            model.materials[0].maps[MATERIAL_MAP_OCCLUSION].texture = ao_texture;
+
+        if (!roughness_texture_path.empty()) {
+            if (auto roughness = get_if<Texture2D>(&roughness_texture)) {
+                model.materials[0].maps[MATERIAL_MAP_ROUGHNESS].texture = *roughness;
+            } else if (auto* videoPlayerPtr = std::get_if<std::unique_ptr<VideoPlayer>>(&roughness_texture)) {
+                (*videoPlayerPtr)->Update();
+                model.materials[0].maps[MATERIAL_MAP_ROUGHNESS].texture = (*videoPlayerPtr)->GetTexture();
+            }
+        }
+
+        if (!ao_texture_path.empty()) {
+            if (auto ao = get_if<Texture2D>(&ao_texture)) {
+                model.materials[0].maps[MATERIAL_MAP_OCCLUSION].texture = *ao;
+            } else if (auto* videoPlayerPtr = std::get_if<std::unique_ptr<VideoPlayer>>(&ao_texture)) {
+                (*videoPlayerPtr)->Update();
+                model.materials[0].maps[MATERIAL_MAP_OCCLUSION].texture = (*videoPlayerPtr)->GetTexture();
+            }
         }
     }
+
 
     void setModel(const char* modelPath = "", Model entity_model = Model(), Shader default_shader = shader)
     {
@@ -269,10 +568,6 @@ public:
         }
 
         model.materials[0].shader = default_shader;
-
-
-        bounds = GetMeshBoundingBox(model.meshes[0]);
-
 
         if (isDynamic) {
             createDynamicBox(scale.x, scale.y, scale.z);
@@ -294,7 +589,8 @@ public:
 
     void setShader(Shader shader)
     {
-        model.materials[0].shader = shader;
+        if (IsModelReady(model))
+            model.materials[0].shader = shader;
     }
 
     void runScript(std::reference_wrapper<Entity> entityRef, LitCamera* rendering_camera)
@@ -560,6 +856,14 @@ public:
     }
 
 
+    bool inFrustum()
+    {
+        UpdateFrustum();
+        return AABBoxInFrustum(bounds.min, bounds.max);
+    }
+
+
+
     void render() {
         if (!hasModel())
             initializeDefaultModel();
@@ -576,16 +880,22 @@ public:
         else
         {
             setPos(position);    
-
         }
 
-        
         if (visible)
         {
 
+            Matrix transformMatrix = MatrixIdentity();
+            transformMatrix = MatrixScale(scale.x, scale.y, scale.z);
+            transformMatrix = MatrixMultiply(transformMatrix, MatrixRotateXYZ(rotation));
+            transformMatrix = MatrixMultiply(transformMatrix, MatrixTranslate(position.x, position.y, position.z));
+
+            bounds = GetMeshBoundingBox(model.meshes[0]);
+            
+            bounds.min = Vector3Transform(bounds.min, transformMatrix);
+            bounds.max = Vector3Transform(bounds.max, transformMatrix);
+
             PassSurfaceMaterials();
-
-
 
             if (!instances.empty())
             {
@@ -596,7 +906,7 @@ public:
 
                 bool roughnessMapInit = !roughness_texture_path.empty();
                 glUniform1i(glGetUniformLocation((GLuint)instancing_shader.id, "roughnessMapInit"), roughnessMapInit);
-                
+
                 matInstances = LoadMaterialDefault();
 
                 instancing_shader.locs[SHADER_LOC_MATRIX_MVP] = GetShaderLocation(instancing_shader, "mvp");
@@ -609,7 +919,10 @@ public:
             }
             else
             {
+                if (!inFrustum())
+                    return;
 
+                ReloadTextures();
                 glUseProgram((GLuint)shader.id);
 
                 bool normalMapInit = !normal_texture_path.empty();
@@ -617,7 +930,6 @@ public:
 
                 bool roughnessMapInit = !roughness_texture_path.empty();
                 glUniform1i(glGetUniformLocation((GLuint)shader.id, "roughnessMapInit"), roughnessMapInit);
-                
 
                 DrawModelEx(model, position, rotation, GetExtremeValue(rotation), scale, color);
             }
@@ -653,7 +965,7 @@ bool operator==(const Entity& e, const Entity* ptr) {
 #ifndef GAME_SHIPPING
     void AddEntity(
         bool create_immediatly = false,
-        bool is_create_entity_a_child = is_create_entity_a_child,
+        bool is_child = false,
         const char* model_path = "assets/models/tree.obj",
         Model model = Model(),
         string name = "Unnamed Entity"
@@ -678,7 +990,7 @@ bool operator==(const Entity& e, const Entity* ptr) {
             entity_create.setColor(entity_color_raylib);
             entity_create.setScale(Vector3{entity_create_scale, entity_create_scale, entity_create_scale});
             entity_create.setName(name);
-            entity_create.isChild = is_create_entity_a_child;
+            entity_create.isChild = is_create_entity_a_child || is_child;
             entity_create.setModel(model_path, model);
             entity_create.setShader(shader);
 

@@ -10,6 +10,7 @@
 #include "include/rcamera.h"
 #include "include/rlgl.h"
 #include "include/custom.h"
+#include "include/rlFrustum.cpp"
 
 #ifndef GAME_SHIPPING
     #include "imgui/imgui.h"
@@ -33,6 +34,12 @@
 
 #include "include/bullet3/src/LinearMath/btVector3.h"
 #include "include/bullet3/src/btBulletDynamicsCommon.h"
+
+extern "C" {
+    #include <libavcodec/avcodec.h>
+    #include <libavformat/avformat.h>
+    #include <libswscale/swscale.h>
+}
 
 #include <stdio.h>
 #include <iostream>
@@ -89,23 +96,26 @@ using json = nlohmann::json;
 // Physics
 #include "Engine/Physics/InitPhysx.cpp"
 
+// Critical
+#include "globals.h"
+#include "Engine/Scripting/math.cpp"
+
 /* Game Objects */
+#include "Engine/GUI/Text/Text.h"
+#include "Engine/GUI/Button/Button.h"
+#include "Engine/GUI/Video/video.cpp"
 #include "Engine/Core/Engine.hpp"
 #include "Engine/Lighting/lights.h"
 
 /* Scripting */
-#include "Engine/Scripting/math.cpp"
 #include "Engine/Scripting/time.cpp"
 #include "Engine/Scripting/functions.cpp"
 
 
 /* Globals */
-#include "globals.h"
 #include "Engine/Core/functions.h"
 #include "Engine/Core/global_variables.cpp"
-
 #include "Engine/Core/Engine.cpp"
-
 #include "Engine/Core/RunGame.h"
 
 

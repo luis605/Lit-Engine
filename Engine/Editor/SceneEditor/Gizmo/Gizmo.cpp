@@ -3,15 +3,22 @@
 
 void InitGizmo()
 {
-    for (int index = 0; index < sizeof(gizmo_arrow) / sizeof(gizmo_arrow[0]) + 1; index++)
+    for (int index = 0; index < NUM_GIZMO_ARROWS; index++)
+    {
         gizmo_arrow[index].model = LoadModel("assets/models/gizmo/arrow.obj");
+    }
 
-    for (int index = 0; index < (sizeof(gizmo_taurus) / sizeof(gizmo_taurus[0])) + 1; index++)
+    for (int index = 0; index < NUM_GIZMO_TAURUS; index++)
+    {
         gizmo_taurus[index].model = LoadModel("assets/models/gizmo/taurus.obj");
+    }
 
-    for (int index = 0; index < (sizeof(gizmo_cube) / sizeof(gizmo_cube[0])) + 1; index++)
+    for (int index = 0; index < NUM_GIZMO_CUBES; index++)
+    {
         gizmo_cube[index].model = LoadModelFromMesh(GenMeshCube(1, 1, 1));
+    }
 }
+
 
 void GizmoPosition()
 {
@@ -52,7 +59,7 @@ void GizmoPosition()
 
         if ((!dragging_gizmo_scale || !dragging_gizmo_rotation || !dragging_gizmo_position) && ImGui::IsWindowHovered())
         {
-            isHoveringGizmo = IsMouseHoveringModel(gizmo_arrow[arrow_i].model, scene_camera, gizmo_arrow[arrow_i].position, gizmo_arrow[arrow_i].rotation, nullptr, true);
+            isHoveringGizmo = IsMouseHoveringModel(gizmo_arrow[arrow_i].model, scene_camera, gizmo_arrow[arrow_i].position, gizmo_arrow[arrow_i].rotation, gizmo_arrow[arrow_i].scale, nullptr, true);
             
             if (isHoveringGizmo)
             {
@@ -129,7 +136,7 @@ void GizmoPosition()
         
         if ((bool)selected_entity->isChild)
         {
-            if (selected_entity->parent != nullptr)
+            if (selected_entity->parent != nullptr && selected_entity != nullptr && selected_entity->initialized)
                 selected_entity->relative_position = Vector3Subtract(selected_entity->position, selected_entity->parent->position);
         }
     }
@@ -138,6 +145,25 @@ void GizmoPosition()
         selected_light->position.x = gizmo_arrow[0].position.x;
         selected_light->position.y = y_axis_arrows_center_pos;
         selected_light->position.z = gizmo_arrow[0].position.z;
+
+        if ((bool)selected_light->isChild)
+        {
+            auto it = std::find_if(lights_info.begin(), lights_info.end(), [selected_light](const AdditionalLightInfo& light) {
+                return light.id == selected_light->id;
+            });
+
+            AdditionalLightInfo* light_info = (AdditionalLightInfo*)&*it;
+
+            if (it != lights_info.end()) {
+                if (light_info->parent != nullptr && selected_light != nullptr && light_info != nullptr)
+                    selected_light->relative_position = glm::vec3(
+                        selected_light->position.x - light_info->parent->position.x, 
+                        selected_light->position.y - light_info->parent->position.y,
+                        selected_light->position.z - light_info->parent->position.z
+                        );
+            }
+        
+        }
     }
 
 }
@@ -207,7 +233,7 @@ void GizmoRotation()
 
         if ((!dragging_gizmo_scale || !dragging_gizmo_rotation || !dragging_gizmo_position) && ImGui::IsWindowHovered())
         {
-            isHoveringGizmo = IsMouseHoveringModel(gizmo_taurus[arrow_i].model, scene_camera, gizmo_taurus[arrow_i].position, gizmo_taurus[arrow_i].rotation, nullptr, false);
+            isHoveringGizmo = IsMouseHoveringModel(gizmo_taurus[arrow_i].model, scene_camera, gizmo_taurus[arrow_i].position, gizmo_taurus[arrow_i].rotation, gizmo_taurus[arrow_i].scale, nullptr, true);
             if (isHoveringGizmo)
             {
                 color1 = GREEN;
@@ -317,7 +343,7 @@ void GizmoScale()
 
         if ((!dragging_gizmo_scale || !dragging_gizmo_rotation || !dragging_gizmo_position) && ImGui::IsWindowHovered())
         {
-            isHoveringGizmo = IsMouseHoveringModel(gizmo_cube[cube_i].model, scene_camera, gizmo_cube[cube_i].position, gizmo_cube[cube_i].rotation, nullptr, false);
+            isHoveringGizmo = IsMouseHoveringModel(gizmo_cube[cube_i].model, scene_camera, gizmo_cube[cube_i].position, gizmo_cube[cube_i].rotation, gizmo_arrow[cube_i].scale, nullptr, true);
             if (isHoveringGizmo)
             {
                 color1 = GREEN;

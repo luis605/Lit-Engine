@@ -1,0 +1,12 @@
+        {
+            vec3 lightToPoint = light.position - fragPosition;
+            float spot = smoothstep(0.6, 0.8, dot(normalize(lightToPoint), light.direction)); // Adjust the thresholds for smoother transition
+
+            float lightToFragDist = length(light.position - fragPosition);
+            float attenuation = 1.0 / (1.0 + light.attenuation * lightToFragDist * lightToFragDist);
+
+            // Energy conservation: Scale down diffuse term
+            float k_d = 1.0; // Adjust this value to control energy conservation
+            float energyFactor = 1.0 / (k_d + (1.0 - k_d) * 0.5);
+            result += colDiffuse.rgb * spot * light.intensity * attenuation * energyFactor + (colDiffuse.rgb * ambient.rgb);
+        }

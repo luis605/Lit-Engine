@@ -14,18 +14,20 @@ Color LerpColor(Color startColor, Color endColor, float t)
 class LitButton
 {
 public:
-    Vector3 position = {0, 0, 0};
+    string name = "Button";
+    LitVector3 position = {0, 0, 0};
     Vector2 size = {600, 450};
     Color color = LIGHTGRAY;
     Color pressedColor = DARKGRAY;
     Color hoverColor = GRAY;
-    Color disabledButton = GRAY;
+    Color disabledButtonColor = GRAY;
     Color disabledText = DARKGRAY;
-    Color disabledHover = GRAY;
+    Color disabledHoverColor = GRAY;
 
     bool isPressed;
     bool isHovered;
     bool wasMousePressed;
+    bool enabled = true;
     float roundness = 5;
 
     Text text;
@@ -35,9 +37,9 @@ public:
     float tooltipDelay = 0.75f; // Time in seconds before showing tooltip
     float tooltipTimer = 0.0f;
 
-    bool isDisabled;
-
     Sound clickSound;
+
+    bool autoResize = false;
 
 private:
     Rectangle bounds;
@@ -60,7 +62,7 @@ public:
 #ifndef GAME_SHIPPING
     LitButton(Vector3 position = {0, 0, 1}, Vector2 size = {600, 450}, Color color = LIGHTGRAY, Color pressedColor = DARKGRAY, Color hoverColor = GRAY, Text text = Text())
         : position(position), size(size), color(color), pressedColor(pressedColor), hoverColor(hoverColor), text(text),
-          isPressed(false), isHovered(false), isDisabled(isDisabled), bounds({position.x, position.y, size.x, size.y}),
+          isPressed(false), isHovered(false), enabled(enabled), bounds({position.x, position.y, size.x, size.y}),
           onClick(nullptr), wasMousePressed(false), transitioningHover(false), transitioningUnhover(false), tooltip(), clickSound(LoadSound("click.wav")), renderTexturePos({rectangle.x, rectangle.y})
     {
     }
@@ -69,7 +71,7 @@ public:
 #else
     LitButton(Vector3 position = {0, 0, 1}, Vector2 size = {600, 450}, Color color = LIGHTGRAY, Color pressedColor = DARKGRAY, Color hoverColor = GRAY, Text text = Text())
         : position(position), size(size), color(color), pressedColor(pressedColor), hoverColor(hoverColor), text(text),
-          isPressed(false), isHovered(false), isDisabled(isDisabled), bounds({position.x, position.y, size.x, size.y}),
+          isPressed(false), isHovered(false), enabled(enabled), bounds({position.x, position.y, size.x, size.y}),
           onClick(nullptr), wasMousePressed(false), transitioningHover(false), transitioningUnhover(false), tooltip(), clickSound(LoadSound("click.wav"))
     {
     }
@@ -100,7 +102,7 @@ public:
 
     void PlayClickSound()
     {
-        if (!isDisabled)
+        if (enabled && IsSoundReady(clickSound))
         {
             PlaySound(clickSound);
         }
@@ -121,19 +123,19 @@ public:
 
         Vector2 position = {bounds.x - ImGui::GetFrameHeight(), bounds.y};
 
-        isHovered = CheckCollisionPointRec(renderTextureMousePos, {position.x, position.y, bounds.width/divideX, bounds.height/divideY});
+        isHovered = CheckCollisionPointRec(renderTextureMousePos, {position.x/divideX, position.y/divideY, bounds.width/divideX, bounds.height/divideY});
 #else
         isHovered = CheckCollisionPointRec(GetMousePosition(), bounds);
 #endif
         bool isMousePressed = IsMouseButtonDown(MOUSE_LEFT_BUTTON);
 
-        if (isDisabled)
+        if (!enabled)
         {
-            btnColor = disabledButton;
+            btnColor = disabledButtonColor;
             text.color = disabledText;
         }
 
-        if (!isDisabled && isHovered && !isPressed && isMousePressed && !wasMousePressed)
+        if (enabled && isHovered && !isPressed && isMousePressed && !wasMousePressed)
         {
             isPressed = true;
             btnColor = pressedColor;
@@ -147,7 +149,9 @@ public:
             isPressed = false;
         }
 
-        if (isHovered && !isDisabled)
+#ifdef GAME_SHIPPING
+
+        if (isHovered && enabled)
         {
             tooltipTimer += GetFrameTime();
             if (tooltipTimer >= tooltipDelay && !showTooltip)
@@ -160,7 +164,7 @@ public:
             tooltipTimer = 0.0f;
             showTooltip = false;
         }
-
+#endif
         wasMousePressed = isMousePressed;
     }
 
@@ -168,46 +172,70 @@ public:
     {
         Update();
 
+        // Check if not in any transition
+        bool notInTransition = !transitioningHover && !transitioningUnhover;
+
+        // Initialize start colors if transitioning just started
+        if (notInTransition)
+        {
+            if (enabled)
+            {
+                startColorHover = btnColor;
+                startColorUnhover = btnColor;
+            }
+            else
+            {
+                startColorHover = disabledButtonColor;
+                startColorUnhover = disabledButtonColor;
+            }
+        
+        }
+
         // Smooth color transition for hovering
-        if (!isDisabled && isHovered && !transitioningHover && !transitioningUnhover)
+        if (isHovered && !transitioningHover)
         {
             transitioningHover = true;
             hoverTransitionTime = 0;
-            startColorHover = color;
-            targetColorHover = hoverColor;
+            if (enabled)
+                targetColorHover = hoverColor;
+            else
+                targetColorHover = disabledHoverColor;;
+
         }
-        else if (!isDisabled && !isHovered && transitioningHover && !transitioningUnhover)
+        else if (!isHovered && transitioningHover)
         {
             transitioningHover = false;
             hoverTransitionTime = 0;
-            startColorHover = hoverColor;
-            targetColorHover = color;
+            targetColorHover = startColorHover;
         }
 
         // Smooth color transition for unhovering
-        if (!isDisabled && !isHovered && !transitioningHover && !transitioningUnhover)
+        if (!isHovered && notInTransition)
         {
             transitioningUnhover = true;
             unhoverTransitionTime = 0;
-            startColorUnhover = hoverColor;
-            targetColorUnhover = color;
+            if (enabled)
+                targetColorUnhover = color;
+            else
+                targetColorUnhover = disabledButtonColor;
         }
-        else if (!isDisabled && isHovered && !transitioningHover && transitioningUnhover)
+        else if (isHovered && transitioningUnhover)
         {
             transitioningUnhover = false;
             unhoverTransitionTime = 0;
-            startColorUnhover = color;
-            targetColorUnhover = hoverColor;
+            targetColorUnhover = startColorUnhover;
         }
 
         // Apply the appropriate color depending on the transition state
-        if (!isDisabled && transitioningHover)
+        if (transitioningHover)
         {
             hoverTransitionTime += GetFrameTime();
             float t = hoverTransitionTime / transitionDuration;
             if (t > 1.0f)
+            {
                 t = 1.0f;
-
+                transitioningHover = false;
+            }
             btnColor = LerpColor(startColorHover, targetColorHover, t);
         }
         else if (transitioningUnhover)
@@ -215,18 +243,30 @@ public:
             unhoverTransitionTime += GetFrameTime();
             float t = unhoverTransitionTime / transitionDuration;
             if (t > 1.0f)
+            {
                 t = 1.0f;
-
+                transitioningUnhover = false;
+            }
             btnColor = LerpColor(startColorUnhover, targetColorUnhover, t);
         }
+
+        text.position = {position.x + size.x / 2 - MeasureText(text.text.c_str(), text.fontSize) / 2, position.y + size.y / 2 - text.fontSize / 2, 0};
+        
+        if (autoResize)
+            DrawRectangleRounded(text.bounds, roundness / 10, roundness / 10, btnColor);
         else
         {
-            btnColor = color;
+            bounds = {
+                position.x,
+                position.y,
+                size.x,
+                size.y
+            };
+
+            DrawRectangleRounded(bounds, roundness / 10, roundness * 10, btnColor);
         }
 
-        DrawRectangleRounded(bounds, roundness / 10, roundness / 10, btnColor);
-
-        DrawTextElement(text);
+        text.Draw();
 
         if (showTooltip)
         {
@@ -234,16 +274,21 @@ public:
             tooltip.Draw();
         }
     }
+
 };
 
 
+void print_hi()
+{
+    std::cout << "Pressed\n";
+}
 
 LitButton &AddButton(const char* button_text, Vector3 position, Vector2 size, float text_size = 20)
 {
     LitButton button = LitButton(position, size);
     button.SetText(button_text, text_size);
     button.SetTooltip("This is a tooltip!");
-    
+    button.SetOnClickCallback(print_hi);
 
     lit_buttons.push_back(button);
 }
@@ -253,7 +298,6 @@ void DrawButtons()
 
     for (const auto &button : lit_buttons)
     {
-        std::cout << button.text.text << std::endl;
         button.Draw();
     }
 }

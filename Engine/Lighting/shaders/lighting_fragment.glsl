@@ -3,13 +3,14 @@
 // Input vertex attributes (from vertex shader)
 in vec3 fragPosition;
 in vec2 fragTexCoord;
-//in vec4 fragColor;
 in vec3 fragNormal;
 
 // Input uniform values
 uniform vec4 colDiffuse; // Entity Color
 uniform vec4 ambientLight;
 uniform vec3 viewPos;
+uniform mat4 viewMatrix;
+uniform mat4 projectionMatrix;
 
 // pbr
 uniform sampler2D texture0;
@@ -29,7 +30,6 @@ vec4 fogColor = vec4(1, 0.6, 0.6, 1);
 #define LIGHT_POINT 1
 #define LIGHT_SPOT 2
 
-
 struct Light
 {
     int type;
@@ -45,10 +45,9 @@ struct Light
     bool isChild;
     vec3 direction;
     // Spot
-	float spread;
-	float penumbraFactor;
+    float spread;
+    float penumbraFactor;
 };
-
 
 layout(std430, binding = 0) buffer LightsBuffer
 {
@@ -65,32 +64,61 @@ struct SurfaceMaterial
     float Roughness;
     float DiffuseIntensity;
     vec3 SpecularTint;
+    vec3 baseReflectance;
 };
 
 layout(std140) uniform MaterialBlock {
     SurfaceMaterial surface_material;
 };
 
-
 // Output fragment color
 out vec4 finalColor;
 out vec3 fragLightDir;
 out vec3 fragViewDir;
 
+// Helper Functions
+mat3 CalcTBN(vec3 T, vec3 B, vec3 N)
+{
+    return mat3(T, B, N);
+}
 
+vec3 TangentSpaceNormal(vec3 normalMap, mat3 TBN) {
+    return normalize((normalMap * 2.0 - 1.0) * TBN);
+}
 
-vec4 addFog(in float dist, in vec4 before, in vec3 camPos, in vec3 rayDir) {
-    float b = 1.4, c = 0.01;
-    float fogAmount = c * exp(-camPos.y * b) * (1.0 - exp(-dist * dot(rayDir, vec3(0, 1, 0)) * b)) / dot(rayDir, vec3(0, 1, 0));
-    return mix(before, fogColor, fogAmount);
+vec3 CalculateFresnelReflection(vec3 baseReflectance, vec3 viewDirection, vec3 halfVector) {
+    float cosTheta = dot(viewDirection, halfVector);
+    cosTheta = max(cosTheta, 0.0);
+    float fresnel = pow(1.0 - cosTheta, 5.0);
+    vec3 finalColor = baseReflectance + (vec3(1.0) - baseReflectance) * fresnel;
+    return finalColor;
+}
+
+vec3 toneMap(vec3 hdrColor) {
+    // Apply tone mapping here (e.g., Reinhard or ACES).
+    return hdrColor / (hdrColor + vec3(1.0)); // Adjust as needed.
 }
 
 
+
 void main() {
+    vec4 texColor = texture(texture0, fragTexCoord);
+
+    vec3 tangent = dFdx(fragPosition);
+    vec3 bitangent = dFdy(fragPosition);
+
+    vec3 T = normalize(tangent);
+    vec3 B = normalize(bitangent);
+    vec3 N = normalize(fragNormal);
+    
+    mat3 TBN = CalcTBN(T, B, N);
+
     vec3 norm;
+
     if (normalMapInit) {
-        vec3 normal = texture(texture2, fragTexCoord).rgb;
-        norm = normalize(normal * 2.0 - 1.0);
+        norm = texture(texture2, fragTexCoord).rgb;
+        norm = norm * 2.0 - 1.0;
+        norm = normalize(TBN * norm);
     } else
         norm = normalize(fragNormal);
 
@@ -102,63 +130,56 @@ void main() {
     else
         roughness = 0.1;
 
-
-    float shadow = 1.0;
-
-    vec3 lightDir;
-    float diff;
-    float spec;
-    
-
     vec3 viewDir = normalize(viewPos - fragPosition);
     vec3 reflectDir = reflect(-viewDir, norm);
-    
+
     vec3 diffuse;
     vec3 specular;
-    vec3 result = colDiffuse.rgb / 2.0 - ambientLight.rgb * 0.5;
-    result += ambientLight.rgb * 0.2;
+    vec3 result = colDiffuse.rgb / 1.8 - ambientLight.rgb * 0.5;
     vec3 ambient = vec3(0);
-
-    vec4 texColor = texture(texture0, fragTexCoord);
-
 
 
     for (int i = 0; i < lightsCount; i++) {
         Light light = lights[i];
-        
+
+        vec3 halfVector = normalize(light.direction + viewDir);
+
         if (light.type == LIGHT_DIRECTIONAL && light.enabled) {
-            float diffuseStrength = light.intensity * surface_material.DiffuseIntensity;
             vec3 fragLightDir = normalize(-light.direction);
-            float diffuse = diffuseStrength * max(dot(norm, fragLightDir), 0.0);
-            vec3 colDiffuse = colDiffuse.rgb * light.color.rgb;
-            result += colDiffuse * diffuse;
+            float NdotL = max(dot(norm, fragLightDir), 0.0);
 
+            vec3 fresnel = CalculateFresnelReflection(surface_material.baseReflectance, viewDir, halfVector);
 
+            result += (colDiffuse.rgb * surface_material.DiffuseIntensity * NdotL + specular) * light.color.rgb * fresnel * light.intensity;
         }
+
+
+
+
         else if (light.type == LIGHT_POINT && light.enabled) {
-            lightDir = normalize(light.position - fragPosition);
+            vec3 lightDir = normalize(light.position - fragPosition);
+            vec3 viewDirWorld = normalize(vec3(inverse(viewMatrix) * vec4(viewDir, 0.0))); // Transform viewDir to world space
+            vec3 H = normalize(lightDir + viewDirWorld); // Calculate H using transformed viewDir
             
             float distance = length(light.position - fragPosition);
             float attenuation = 1.0 / (1.0 + light.attenuation * distance * distance);
-            float lambertian = max(dot(norm, lightDir), 0.0);
 
-            diff = max(dot(norm, lightDir), 0.0);
-            diffuse = light.intensity * surface_material.DiffuseIntensity * diff * attenuation * (light.color.rgb + vec3(colDiffuse.x, colDiffuse.y, colDiffuse.z)) / 2.0 * lambertian;
+            float NdotL = max(dot(norm, lightDir), 0.0);
 
-            reflectDir = reflect(-lightDir, norm);
-            
-            spec = pow(max(dot(viewDir, reflectDir), 0.0), 64.0);
+            float NdotH = max(dot(norm, H), 0.0);
 
-            specular = light.specularStrength * surface_material.SpecularIntensity * spec * attenuation * light.color.rgb;
-            specular *= surface_material.SpecularTint * lambertian;
+            float roughnessFactor = max(1.0 - roughness, 0.02);
+            float roughnessSquared = roughnessFactor * roughnessFactor;
+            float geometricTerm = 2.0 * NdotH * NdotL / max(NdotH + NdotL, 0.001);
+            float k_s = (roughnessSquared + 1.0) / (8.0 * max(NdotH * NdotL, 0.001));
+            float k_d = 1.0 - k_s;
 
-            
-            // Apply soft shadows
-            
-            result += diffuse;
-            result += specular;
+            // Calculate the specular term
+            float specularTerm = k_s / (NdotH * NdotH * max(4.0 * NdotL * NdotH, 0.001));
+
+            // Use the unmodified NdotL for diffuse term
+            result += (NdotL + specular * specularTerm) * light.color.rgb * attenuation;
         }
-
         else if (light.type == LIGHT_SPOT && light.enabled)
         {
             vec3 lightToPoint = light.position - fragPosition;
@@ -167,26 +188,42 @@ void main() {
             float lightToFragDist = length(light.position - fragPosition);
             float attenuation = 1.0 / (1.0 + light.attenuation * lightToFragDist * lightToFragDist);
 
-            result += colDiffuse.rgb * spot * light.intensity * attenuation + (colDiffuse.rgb * ambient.rgb);
+            // Energy conservation: Scale down diffuse term
+            float k_d = 1.0; // Adjust this value to control energy conservation
+            float energyFactor = 1.0 / (k_d + (1.0 - k_d) * 0.5);
+
+            // Apply normal mapping
+            vec3 normalMap = texture(texture2, fragTexCoord).rgb;
+            vec3 tangent = dFdx(fragPosition);
+            vec3 bitangent = dFdy(fragPosition);
+            vec3 T = normalize(tangent);
+            vec3 B = normalize(bitangent);
+            vec3 N = normalize(fragNormal);
+            mat3 TBN = mat3(T, B, N);
+            vec3 sampledNormal = normalize((normalMap * 2.0 - 1.0) * TBN);
+
+            // Calculate the light direction in tangent space
+            vec3 lightDirTangent = normalize(lightToPoint * TBN);
+
+            // Calculate the diffuse term using the sampled normal
+            float NdotL = max(dot(sampledNormal, lightDirTangent), 0.0);
+            vec3 diffuseTerm = colDiffuse.rgb * NdotL;
+
+            result += diffuseTerm * spot * light.intensity * attenuation * energyFactor + (colDiffuse.rgb * ambient.rgb);
         }
+
     }
+
 
     result *= ao;
-    vec4 blendedColor = vec4(result, 1.0) * texColor;
+    result += vec4(result, 1.0).rgb * texColor.rgb;
 
-    if (roughnessMapInit)
-    {
-        float roughnessIntensity = 1.0 - roughness; // Invert roughness value to make roughness=0 fully reflective
-        blendedColor.rgb *= roughnessIntensity;
-    }
-
-    // float distanceToCamera = length(viewPos - fragPosition);
-    // vec4 fog = addFog(distanceToCamera, blendedColor, viewPos, viewDir);
-    // blendedColor.rgb = fog.rgb;
 
     // Apply gamma correction
-    blendedColor.rgb = pow(blendedColor.rgb, vec3(1.0 / 2.2));
+    result = pow(result, vec3(2.2));
+
+    result = toneMap(result);
 
     // Assign the final color
-    finalColor = blendedColor;
+    finalColor = vec4(result, 1.0);
 }

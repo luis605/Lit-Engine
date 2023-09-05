@@ -61,7 +61,14 @@ void SetMaterial()
     if (IsTextureReady(entity_material.normal_texture))
     {
         selected_entity->normal_texture = entity_material.normal_texture;
-        selected_entity->model.materials[0].maps[MATERIAL_MAP_NORMAL].texture = selected_entity->normal_texture;
+
+        if (auto normal = get_if<Texture2D>(&selected_entity->normal_texture)) {
+            selected_entity->model.materials[0].maps[MATERIAL_MAP_NORMAL].texture = *normal;
+        } else if (auto* videoPlayerPtr = std::get_if<std::unique_ptr<VideoPlayer>>(&selected_entity->normal_texture)) {
+            (*videoPlayerPtr)->Update();
+            selected_entity->model.materials[0].maps[MATERIAL_MAP_NORMAL].texture = (*videoPlayerPtr)->GetTexture();
+        }
+
         selected_entity->normal_texture_path = entity_material.normal_texture_path.string();
     }
     

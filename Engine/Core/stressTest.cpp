@@ -9,6 +9,7 @@ void CreateStressTest();
 
 
 Entity main_entity;
+Model model;
 
 
 void InitStressTest() {
@@ -20,6 +21,8 @@ void InitStressTest() {
     main_entity.setModel("", LoadModelFromMesh(GenMeshCube(1, 1, 1)));
     main_entity.setShader(instancing_shader);
     entities_list_pregame.push_back(main_entity);
+
+    model = LoadModelFromMesh(GenMeshCube(1, 1, 1));
 
     for (int index = 0; index <= 500000; index++)
     {
@@ -37,14 +40,11 @@ void CreateStressTest() {
     position.y = 0.0f;  // Assuming you want the y-coordinate to be 0
     position.z = random_z;
 
-    Model model = { 0 };
-    model = LoadModelFromMesh(GenMeshCube(1, 1, 1));
+
 
     Entity entity;
-    entity.setColor(RED);
     entity.position = position;
     entity.setScale(Vector3{1, 1, 1});
-    entity.setName("stress test");
     entity.setModel("", model, instancing_shader);
     entity.setShader(instancing_shader);
     entity.script = "project/game/stress.py";
