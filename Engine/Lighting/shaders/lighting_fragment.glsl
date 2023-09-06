@@ -164,21 +164,21 @@ void main() {
             float distance = length(light.position - fragPosition);
             float attenuation = 1.0 / (1.0 + light.attenuation * distance * distance);
 
-            float NdotL = max(dot(norm, lightDir), 0.0);
+            float NdotL = max(dot(norm, lightDir), 0.0) * surface_material.DiffuseIntensity;
 
             float NdotH = max(dot(norm, H), 0.0);
 
-            float roughnessFactor = max(1.0 - roughness, 0.02);
+            float roughnessFactor = max(1.0 - roughness, 0.02) * surface_material.Roughness;
             float roughnessSquared = roughnessFactor * roughnessFactor;
             float geometricTerm = 2.0 * NdotH * NdotL / max(NdotH + NdotL, 0.001);
             float k_s = (roughnessSquared + 1.0) / (8.0 * max(NdotH * NdotL, 0.001));
             float k_d = 1.0 - k_s;
 
             // Calculate the specular term
-            float specularTerm = k_s / (NdotH * NdotH * max(4.0 * NdotL * NdotH, 0.001));
+            float specularTerm = k_s / (NdotH * NdotH * max(4.0 * NdotL * NdotH, 0.001)) * surface_material.shininess;
 
             // Use the unmodified NdotL for diffuse term
-            result += (NdotL + specular * specularTerm) * light.color.rgb * attenuation;
+            result += (NdotL + specular * specularTerm * surface_material.SpecularIntensity) * light.color.rgb * attenuation;
         }
         else if (light.type == LIGHT_SPOT && light.enabled)
         {
@@ -193,20 +193,30 @@ void main() {
             float energyFactor = 1.0 / (k_d + (1.0 - k_d) * 0.5);
 
             // Apply normal mapping
-            vec3 normalMap = texture(texture2, fragTexCoord).rgb;
-            vec3 tangent = dFdx(fragPosition);
-            vec3 bitangent = dFdy(fragPosition);
-            vec3 T = normalize(tangent);
-            vec3 B = normalize(bitangent);
-            vec3 N = normalize(fragNormal);
-            mat3 TBN = mat3(T, B, N);
-            vec3 sampledNormal = normalize((normalMap * 2.0 - 1.0) * TBN);
+            float NdotL;
+            if (normalMapInit)
+            {
+                vec3 normalMap = texture(texture2, fragTexCoord).rgb;
+                vec3 tangent = dFdx(fragPosition);
+                vec3 bitangent = dFdy(fragPosition);
+                vec3 T = normalize(tangent);
+                vec3 B = normalize(bitangent);
+                vec3 N = normalize(fragNormal);
+                mat3 TBN = mat3(T, B, N);
+                vec3 sampledNormal = normalize((normalMap * 2.0 - 1.0) * TBN);
+                vec3 lightDirTangent = normalize(lightToPoint * TBN);
+                NdotL = max(dot(sampledNormal, lightDirTangent), 0.0) * surface_material.DiffuseIntensity;
+            }
+            else
+            {
+                // Calculate the light direction in tangent space
+                vec3 lightDirTangent = normalize(lightToPoint * TBN);
 
-            // Calculate the light direction in tangent space
-            vec3 lightDirTangent = normalize(lightToPoint * TBN);
+                // Calculate the diffuse term using the sampled normal
+                NdotL = max(dot(norm, lightDirTangent), 0.0) * surface_material.DiffuseIntensity;
+            }
 
-            // Calculate the diffuse term using the sampled normal
-            float NdotL = max(dot(sampledNormal, lightDirTangent), 0.0);
+
             vec3 diffuseTerm = colDiffuse.rgb * NdotL;
 
             result += diffuseTerm * spot * light.intensity * attenuation * energyFactor + (colDiffuse.rgb * ambient.rgb);

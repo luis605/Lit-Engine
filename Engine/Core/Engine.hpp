@@ -15,11 +15,11 @@ vector<Entity> entities_list_pregame;
 vector<Light> lights_list_pregame;
 vector<Entity> entities_list;
 
-Entity *selected_entity;
-Light *selected_light;
-LitButton *selected_button;
-Text *selected_textElement;
-
+Entity *selected_entity = nullptr;
+Light *selected_light = nullptr;
+LitButton *selected_button = nullptr;
+Text *selected_textElement = nullptr;
+fs::path selected_material;
 
 
 typedef struct HitInfo

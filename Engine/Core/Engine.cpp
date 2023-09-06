@@ -117,20 +117,20 @@ public:
     BoundingBox bounds;
 
 
-    std::filesystem::path texture_path;
+    fs::path texture_path;
     std::variant<Texture2D, std::unique_ptr<VideoPlayer>> texture;
 
 
-    std::filesystem::path normal_texture_path;
+    fs::path normal_texture_path;
     std::variant<Texture2D, std::unique_ptr<VideoPlayer>> normal_texture;
 
-    std::filesystem::path roughness_texture_path;
+    fs::path roughness_texture_path;
     std::variant<Texture2D, std::unique_ptr<VideoPlayer>> roughness_texture;
 
-    std::filesystem::path ao_texture_path;
+    fs::path ao_texture_path;
     std::variant<Texture2D, std::unique_ptr<VideoPlayer>> ao_texture;
 
-
+    fs::path surface_material_path;
     SurfaceMaterial surface_material;
 
 

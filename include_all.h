@@ -86,7 +86,7 @@ using namespace std;
 using std::vector;
 
 namespace filesys = boost::filesystem;
-
+namespace fs = std::filesystem;
 namespace py = pybind11;
 using namespace py::literals;
 

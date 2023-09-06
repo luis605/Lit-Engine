@@ -258,6 +258,13 @@ void ImGuiListViewEx(vector<string>& items, int& focus, int& scroll, int& active
     ImVec2 childSize = ImVec2(.2 * screen.x, .7 * screen.y);
     ImGui::BeginChild("Entities List", childSize, true, ImGuiWindowFlags_HorizontalScrollbar);
 
+    if ((ImGui::IsWindowFocused() || ImGui::IsWindowHovered() || ImGui::IsItemHovered()) && IsKeyDown(KEY_F2))
+        should_change_object_name = true;
+
+    if (ImGui::IsWindowFocused() && IsKeyDown(KEY_ESCAPE))
+        should_change_object_name = false;
+
+
     ImGui::PushStyleVar(ImGuiStyleVar_FrameBorderSize, 3.0f);
     ImGui::PushStyleColor(ImGuiCol_Button, ImVec4(0.9f, 0.9f, 0.9f, 0.9f)); // light gray
     ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(0.0f, 0.0f, 0.0f, 1.0f)); // black
@@ -307,15 +314,7 @@ void ImGuiListViewEx(vector<string>& items, int& focus, int& scroll, int& active
 
 void EntitiesList()
 {
-    const char* windowName = "Scene Objects List Window";
-    ImGui::Begin(windowName, NULL);
-
-    if ((ImGui::IsWindowFocused() || ImGui::IsWindowHovered()) && IsKeyDown(KEY_F2))
-        should_change_object_name = true;
-
-    if (ImGui::IsWindowFocused(windowName) && IsKeyDown(KEY_ESCAPE))
-        should_change_object_name = false;
-
+    ImGui::Begin("Objects List", NULL);
 
     updateListViewExList(entities_list_pregame, lights_list_pregame);
     ImGuiListViewEx(objectNames, listViewExFocus, listViewExScrollIndex, listViewExActive);

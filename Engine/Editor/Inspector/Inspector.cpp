@@ -40,6 +40,8 @@ void Inspector()
         TextInspector();
     else if (selected_game_object_type == "button")
         ButtonInspector();
+    else if (selected_game_object_type == "material")
+        MaterialInspector();
 
     ShowTexture();
     MaterialsNodeEditor();
