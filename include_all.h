@@ -48,7 +48,6 @@ extern "C" {
 #include <fstream>
 #include <exception>
 #include <signal.h>
-#include <boost/filesystem.hpp>
 #include "dependencies/include/glm/glm.hpp"
 #include "dependencies/include/glm/gtc/matrix_transform.hpp"
 #include <algorithm>
@@ -85,7 +84,6 @@ extern "C" {
 using namespace std;
 using std::vector;
 
-namespace filesys = boost::filesystem;
 namespace fs = std::filesystem;
 namespace py = pybind11;
 using namespace py::literals;

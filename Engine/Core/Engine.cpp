@@ -1,6 +1,5 @@
-#ifndef GAME_SHIPPING
-    #include "../include_all.h"
-#endif
+#include "../../include_all.h"
+
 
 
 
@@ -15,7 +14,7 @@ float GetExtremeValue(const Vector3& a) {
 
 string getFileExtension(string filePath)
 {
-    filesys::path pathObj(filePath);
+    fs::path pathObj = filePath;
 
     if (pathObj.has_extension()) {
         return pathObj.extension().string();
