@@ -1,10 +1,8 @@
 // Engine/Ui/AssetsExplorer.h
 #ifndef ASSETSEXPLORER_H
 #define ASSETSEXPLORER_H
+#include "../../../include_all.h"
 
-
-#include <vector>
-#include <string>
 #include "file_manipulation.h"
 
 Texture2D folder_texture;
