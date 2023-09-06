@@ -47,20 +47,19 @@ void AssetsExplorer()
     ImGui::PushStyleVar(ImGuiStyleVar_FrameBorderSize, 0);
     ImGui::PushStyleVar(ImGuiStyleVar_FrameRounding, 5);
 
-    if ((dir = opendir(dir_path.c_str())) != NULL)
+    if (!dir_path.empty())
     {
-        while ((ent = readdir(dir)) != NULL)
+        for (fs::path entry : fs::directory_iterator(dir_path))
         {
-            string file = ent->d_name;
+            fs::path file = entry.filename();
             if (file == "." || file == "..")
             {
                 continue;
             }
 
-            string path = dir_path.c_str();
-            path += "/" + file;
+            string path = file.c_str();
 
-            if (stat(path.c_str(), &st) == -1)
+            if (stat(entry.c_str(), &st) == -1)
             {
                 cout << "Error: " << strerror(errno) << endl;
             }
@@ -97,12 +96,15 @@ void AssetsExplorer()
                     FileTextureItem fileTextureItem = {file, python_texture, file};
                     files_texture_struct.push_back(fileTextureItem);
                 }
-                else if (file_extension == ".fbx" || file_extension == ".obj" || file_extension == ".gltf" || file_extension == ".ply" || file_extension == ".mtl")
+                else if (file_extension == ".fbx" || file_extension == ".obj" || file_extension == ".gltf" || file_extension == ".ply" || file_extension == ".mtl" || file_extension == ".mat")
                 {
                     FileTextureItem fileTextureItem;
 
                     if (file_extension == ".mtl")
                         fileTextureItem = {file, model_texture, file};
+                    else if (file_extension == ".mat")
+                        fileTextureItem = {file, model_texture, file, entry};
+
                     else
                     {
                         auto iter = models_icons.find(file);
@@ -111,7 +113,7 @@ void AssetsExplorer()
                             Texture2D icon = iter->second;
                             fileTextureItem = {file, icon, file};
                         } else {
-                            Texture2D icon = RenderModelPreview(path.c_str());
+                            Texture2D icon = RenderModelPreview(entry.c_str());
 
                             RenderTexture2D target = LoadRenderTexture(icon.width, icon.height);
 
@@ -135,8 +137,6 @@ void AssetsExplorer()
                 }
             }
         }
-
-        closedir(dir);
     }
     else
     {
@@ -167,7 +167,42 @@ void AssetsExplorer()
 
     ImGui::PopStyleColor(3);
 
-    ImGui::BeginChild("MyChildWindowID");
+    ImGui::BeginChild("Assets Explorer Child", ImVec2(-1,-1), true);
+
+    if ((ImGui::IsWindowFocused() || ImGui::IsWindowHovered() || ImGui::IsItemHovered()) && IsMouseButtonPressed(MOUSE_RIGHT_BUTTON))
+    {
+        std::cout << "Adding file" << std::endl;
+        showAddFilePopup = true;
+    }
+
+    if (ImGui::IsWindowHovered() && showAddFilePopup)
+        ImGui::OpenPopup("popup");
+
+
+    if (ImGui::BeginPopup("popup"))
+    {
+        if (!ImGui::IsItemHovered() && !ImGui::IsItemHovered() && IsMouseButtonPressed(MOUSE_LEFT_BUTTON))
+            showAddFilePopup = false;
+
+        ImGui::Text("Add File");
+
+        ImGui::Separator();
+
+        if (ImGui::Button("Python"))
+        {
+            createNumberedFile(dir_path, "py");
+            showAddFilePopup = false;
+        }
+
+        if (ImGui::Button("Material"))
+        {
+            createNumberedFile(dir_path, "mat");
+            showAddFilePopup = false;
+        }
+
+        ImGui::EndPopup();
+    }
+
 
     int numButtons = folders_texture_struct.size();
     ImTextureID imageIds[numButtons] = {0};
@@ -226,12 +261,10 @@ void AssetsExplorer()
         ImGui::ImageButton((ImTextureID)&files_texture_struct[i].texture, ImVec2(thumbnailSize, thumbnailSize));
         ImGui::PopStyleColor(); 
 
-        
-
+        string file_extension = getFileExtension(basename(files_texture_struct[i].path.c_str()));
 
         if (ImGui::BeginDragDropSource(ImGuiDragDropFlags_None))
         {
-            string file_extension = getFileExtension(basename(files_texture_struct[i].path.c_str()));
             const char *drag_type;
 
             if (file_extension == ".png" || file_extension == ".jpg" || file_extension == ".jpeg" ||
@@ -245,7 +278,9 @@ void AssetsExplorer()
                 drag_type = "SCRIPT_PAYLOAD";
             else if (file_extension == ".fbx" || file_extension == ".obj" || file_extension == ".gltf" || file_extension == ".ply" || file_extension == ".mtl")
                 drag_type = "MODEL_PAYLOAD";
-
+            else if (file_extension == ".mat")
+                drag_type = "MATERIAL_PAYLOAD";
+            
             ImGui::SetDragDropPayload(drag_type, &i, sizeof(int));
             ImGui::Image((void *)(intptr_t)(ImTextureID)&files_texture_struct[i].texture, ImVec2(64, 64));
             ImGui::EndDragDropSource();
@@ -253,8 +288,12 @@ void AssetsExplorer()
 
 
 
-
-        if (ImGui::IsItemHovered() && ImGui::IsMouseDoubleClicked(ImGuiMouseButton_Left))
+        if (file_extension == ".mat" && ImGui::IsItemHovered() && ImGui::IsMouseDoubleClicked(ImGuiMouseButton_Left))
+        {
+            selected_game_object_type = "material";
+            selected_material = files_texture_struct[i].full_path;
+        }
+        else if (ImGui::IsItemHovered() && ImGui::IsMouseDoubleClicked(ImGuiMouseButton_Left))
         {
             code = read_file_to_string((dir_path / files_texture_struct[i].name).string());
 

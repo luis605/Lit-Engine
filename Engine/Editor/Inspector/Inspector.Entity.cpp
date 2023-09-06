@@ -140,145 +140,43 @@ void EntityInspector()
         ImGui::PopStyleVar();
     }
 
-    if (ImGui::CollapsingHeader("Materials"))
+
+
+
+
+    ImGui::Text("Drop Material Here: ");
+    ImGui::SameLine();
+
+    if (ImGui::Button(
+        ("##Drag'nDropMaterialPath"),
+        ImVec2(200, 25)
+        ));
+
+    if (ImGui::BeginDragDropTarget())
     {
-        ImGui::Text("Color: ");
-        ImGui::PushStyleVar(ImGuiStyleVar_ItemSpacing, ImVec2(0, 40));
-        ImGui::ColorEdit4("##Changeentity_color", (float*)&entity_colorImGui, ImGuiColorEditFlags_NoInputs);
-        ImGui::PopStyleVar();
-        Color entity_color = (Color){ (unsigned char)(entity_colorImGui.x*255), (unsigned char)(entity_colorImGui.y*255), (unsigned char)(entity_colorImGui.z*255), (unsigned char)(entity_colorImGui.w*255) };
-        selected_entity->color = entity_color;
-
-        ImGui::Text("Diffuse Texture: ");
-        ImGui::PushStyleVar(ImGuiStyleVar_ItemSpacing, ImVec2(0, 40));
-
-        if (ImGui::ImageButton((ImTextureID)&image_texture, ImVec2(64, 64)))
+        if (const ImGuiPayload* payload = ImGui::AcceptDragDropPayload("MATERIAL_PAYLOAD"))
         {
-            show_texture = !show_texture;
+            IM_ASSERT(payload->DataSize == sizeof(int));
+            int payload_n = *(const int*)payload->Data;
+
+            string path = dir_path.c_str();
+            path += "/" + files_texture_struct[payload_n].name;
+
+            selected_entity->surface_material_path = path;
+            DeserializeMaterial(selected_entity->surface_material, selected_entity->surface_material_path.c_str());
         }
+        ImGui::EndDragDropTarget();
+    }
 
-        ImGui::PopStyleVar();
 
-        if (ImGui::BeginDragDropTarget())
+    if (!selected_entity->surface_material_path.empty())
+    {
+        if (ImGui::CollapsingHeader("Materials"))
         {
-            if (const ImGuiPayload* payload = ImGui::AcceptDragDropPayload("TEXTURE_PAYLOAD"))
-            {
-                IM_ASSERT(payload->DataSize == sizeof(int));
-                int payload_n = *(const int*)payload->Data;
-
-                string path = dir_path.c_str();
-                path += "/" + files_texture_struct[payload_n].name;
-
-                Texture2D diffuse_texture = LoadTexture(path.c_str());
-                if (!IsTextureReady(diffuse_texture)) // Means it is a video or an unsupported format
-                {
-                    selected_entity->texture_path = path;
-                    selected_entity->texture = std::make_unique<VideoPlayer>(selected_entity->texture_path.c_str());
-                }
-                else
-                {
-                    selected_entity->texture_path = path;
-                    selected_entity->texture = diffuse_texture;
-                }
-
-                selected_entity->ReloadTextures();
-            }
-            ImGui::EndDragDropTarget();
+            ImGui::Indent(10);
+            MaterialInspector(&selected_entity->surface_material, selected_entity->surface_material_path);
+            ImGui::Unindent(10);
         }
-
-
-
-        ImGui::Text("Normal Map Texture: ");
-        if (ImGui::ImageButton((ImTextureID)&selected_entity->normal_texture, ImVec2(64, 64)))
-        {
-            show_texture = !show_normal_texture;
-        }
-
-        if (ImGui::BeginDragDropTarget())
-        {
-            if (const ImGuiPayload* payload = ImGui::AcceptDragDropPayload("TEXTURE_PAYLOAD"))
-            {
-                IM_ASSERT(payload->DataSize == sizeof(int));
-                int payload_n = *(const int*)payload->Data;
-
-                string path = dir_path.c_str();
-                path += "/" + files_texture_struct[payload_n].name;
-
-                Texture2D normal_texture = LoadTexture(path.c_str());
-                if (!IsTextureReady(normal_texture)) // Means it is a video or an unsupported format
-                {
-                    selected_entity->normal_texture_path = path;
-                    selected_entity->normal_texture = std::make_unique<VideoPlayer>(selected_entity->normal_texture_path.c_str());
-                }
-                else
-                {
-                    selected_entity->normal_texture_path = path;
-                    selected_entity->normal_texture = normal_texture;
-                }
-                selected_entity->ReloadTextures();
-            }
-            ImGui::EndDragDropTarget();
-        }
-
-
-
-        ImGui::Text("RoughnessMap Texture: ");
-        if (ImGui::ImageButton((ImTextureID)&selected_entity->roughness_texture, ImVec2(64, 64)))
-        {
-            //show_texture = !show_normal_texture;
-        }
-
-        if (ImGui::BeginDragDropTarget())
-        {
-            if (const ImGuiPayload* payload = ImGui::AcceptDragDropPayload("TEXTURE_PAYLOAD"))
-            {
-                IM_ASSERT(payload->DataSize == sizeof(int));
-                int payload_n = *(const int*)payload->Data;
-
-                string path = dir_path.c_str();
-                path += "/" + files_texture_struct[payload_n].name;
-
-                selected_entity->roughness_texture = LoadTexture(path.c_str());
-                selected_entity->roughness_texture_path = path;
-
-                selected_entity->ReloadTextures();
-
-            }
-            ImGui::EndDragDropTarget();
-        }
-
-
-        ImGui::Text("Ambient Occlusion Texture: ");
-        if (ImGui::ImageButton((ImTextureID)&selected_entity->ao_texture, ImVec2(64, 64)))
-        {
-            //show_texture = !show_normal_texture;
-        }
-
-        if (ImGui::BeginDragDropTarget())
-        {
-            if (const ImGuiPayload* payload = ImGui::AcceptDragDropPayload("TEXTURE_PAYLOAD"))
-            {
-                IM_ASSERT(payload->DataSize == sizeof(int));
-                int payload_n = *(const int*)payload->Data;
-
-                string path = dir_path.c_str();
-                path += "/" + files_texture_struct[payload_n].name;
-
-                selected_entity->ao_texture = LoadTexture(path.c_str());
-                selected_entity->ao_texture_path = path;
-
-                selected_entity->ReloadTextures();
-
-            }
-            ImGui::EndDragDropTarget();
-        }
-
-        if (ImGui::Button("View Material in Nodes Editor"))
-            show_material_in_nodes_editor = !show_material_in_nodes_editor;
-
-        
-            
-
     }
 
 

@@ -46,9 +46,9 @@ struct EntityMaterial
 
     // Textures
     Texture2D texture;
-    std::filesystem::path texture_path;
+    fs::path texture_path;
     Texture2D normal_texture;
-    std::filesystem::path normal_texture_path;
+    fs::path normal_texture_path;
     
     // Surface Material
     float shininess = 0.5f;

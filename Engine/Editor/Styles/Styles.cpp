@@ -70,7 +70,7 @@ string showFileExplorer(const char* folderPath, nlohmann::json_abi_v3_11_2::json
 
         // Display the list of files and directories in the folder
         ImGui::BeginChild("FileList", ImVec2(0, 300), true);
-        for (auto& file : std::filesystem::directory_iterator(folderPath)) {
+        for (auto& file : fs::directory_iterator(folderPath)) {
             if (ImGui::Selectable(file.path().filename().string().c_str())) {
                 std::strncpy(fileName, file.path().filename().string().c_str(), sizeof(fileName));
             }

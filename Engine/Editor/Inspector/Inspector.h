@@ -31,8 +31,10 @@ bool TextPaddingActiveInputMode                  = false;
 bool ButtonPaddingActiveInputMode                = false;
 bool ButtonRoundnessActiveInputMode              = false;
 
+#include "Inspector.Material.cpp"
 #include "Inspector.Entity.cpp"
 #include "Inspector.Light.cpp"
 #include "Inspector.Text.cpp"
 #include "Inspector.Button.cpp"
+
 #endif // INSPECTOR_H
