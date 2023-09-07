@@ -97,6 +97,85 @@ namespace nlohmann {
 }
 
 
+/* Material */
+void SerializeMaterial(SurfaceMaterial& material, const char* path)
+{
+    json j;
+    j["color"] = material.color;
+    j["diffuse_texture_path"] = material.diffuse_texture_path;
+    j["specular_texture_path"] = material.specular_texture_path;
+    j["normal_texture_path"] = material.normal_texture_path;
+    j["roughness_texture_path"] = material.roughness_texture_path;
+    j["ao_texture_path"] = material.ao_texture_path;
+    j["shininess"] = material.shininess;
+    j["specular_intensity"] = material.SpecularIntensity;
+    j["roughness"] = material.Roughness;
+    j["diffuse_intensity"] = material.DiffuseIntensity;
+
+    std::ofstream outfile(path);
+    if (!outfile.is_open()) {
+        std::cerr << "Error: Failed to open material file: " << path << std::endl;
+        return 1;
+    }
+
+    outfile << std::setw(4) << j;
+    outfile.close();
+}
+
+void DeserializeMaterial(SurfaceMaterial& material, const char* path) {
+    // Attempt to open the JSON file for reading
+    std::ifstream infile(path);
+    if (!infile.is_open()) {
+        std::cerr << "Error: Failed to open material file for reading: " << path << std::endl;
+        return;
+    }
+
+    try {
+        // Parse the JSON data from the file
+        json j;
+        infile >> j;
+
+        // Check if the JSON object contains the expected material properties
+        if (j.contains("color")) {
+            material.color = j["color"];
+        }
+        if (j.contains("diffuse_texture_path")) {
+            material.diffuse_texture_path = j["diffuse_texture_path"].get<fs::path>();
+        }
+        if (j.contains("specular_texture_path")) {
+            material.specular_texture_path = j["specular_texture_path"].get<fs::path>();
+        }
+        if (j.contains("normal_texture_path")) {
+            material.normal_texture_path = j["normal_texture_path"].get<fs::path>();
+        }
+        if (j.contains("roughness_texture_path")) {
+            material.roughness_texture_path = j["roughness_texture_path"].get<fs::path>();
+        }
+        if (j.contains("ao_texture_path")) {
+            material.ao_texture_path = j["ao_texture_path"].get<fs::path>();
+        }
+        if (j.contains("shininess")) {
+            material.shininess = j["shininess"];
+        }
+        if (j.contains("specular_intensity")) {
+            material.SpecularIntensity = j["specular_intensity"];
+        }
+        if (j.contains("roughness")) {
+            material.Roughness = j["roughness"];
+        }
+        if (j.contains("diffuse_intensity")) {
+            material.DiffuseIntensity = j["diffuse_intensity"];
+        }
+
+        // Close the input file
+        infile.close();
+    } catch (const json::parse_error& e) {
+        std::cerr << "Error: Failed to parse material file (" << path << "): " << e.what() << std::endl;
+    }
+}
+
+
+/* Objects */
 void SaveEntity(json& json_data, const Entity& entity);
 void SaveLight(json& json_data, const Light& light, int light_index);
 void SaveText(json& json_data, const Text& text, bool emplace_back = true);
@@ -105,7 +184,6 @@ void SaveButton(json& json_data, const LitButton& button);
 void SaveEntity(json& json_data, const Entity& entity) {
     json j;
     j["type"] = "entity";
-    j["color"] = entity.color;
     j["name"] = entity.name;
     j["scale"] = entity.scale;
     j["position"] = entity.position;
@@ -116,6 +194,7 @@ void SaveEntity(json& json_data, const Entity& entity) {
     j["texture_path"] = entity.texture_path;
     j["normal_texture_path"] = entity.normal_texture_path;
     j["roughness_texture_path"] = entity.roughness_texture_path;
+    j["material_path"] = entity.surface_material_path;
     j["id"] = entity.id;
     j["surface_material"] = entity.surface_material;
     j["is_dynamic"] = entity.isDynamic;
@@ -282,46 +361,61 @@ pair<Light, AdditionalLightInfo> LoadLight(const json& light_json, Light& light,
 
 
 void LoadEntity(const json& entity_json, Entity& entity) {
-    entity.setColor(Color{
-        entity_json["color"]["r"].get<int>(),
-        entity_json["color"]["g"].get<int>(),
-        entity_json["color"]["b"].get<int>(),
-        entity_json["color"]["a"].get<int>()
-    });
+    if (entity_json.contains("name")) {
+        entity.setName(entity_json["name"].get<std::string>());
+    }
 
 
-    entity.setName(entity_json["name"].get<std::string>());
 
-    Vector3 scale{
-        entity_json["scale"]["x"].get<float>(),
-        entity_json["scale"]["y"].get<float>(),
-        entity_json["scale"]["z"].get<float>()
-    };
-    entity.setScale(scale);
 
-    Vector3 position{
-        entity_json["position"]["x"].get<float>(),
-        entity_json["position"]["y"].get<float>(),
-        entity_json["position"]["z"].get<float>()
-    };
-    entity.position = position;
+    if (entity_json.contains("scale")) {
+        Vector3 scale{
+            entity_json["scale"]["x"].get<float>(),
+            entity_json["scale"]["y"].get<float>(),
+            entity_json["scale"]["z"].get<float>()
+        };
+        entity.setScale(scale);
+    }
 
-    Vector3 rotation{
-        entity_json["rotation"]["x"].get<float>(),
-        entity_json["rotation"]["y"].get<float>(),
-        entity_json["rotation"]["z"].get<float>()
-    };
-    entity.rotation = rotation;
 
-    Vector3 relative_position{
-        entity_json["relative_position"]["x"].get<float>(),
-        entity_json["relative_position"]["y"].get<float>(),
-        entity_json["relative_position"]["z"].get<float>()
-    };
-    entity.relative_position = relative_position;
+
+    if (entity_json.contains("position")) {
+        Vector3 position{
+            entity_json["position"]["x"].get<float>(),
+            entity_json["position"]["y"].get<float>(),
+            entity_json["position"]["z"].get<float>()
+        };
+        entity.position = position;
+    }
+
+
+
+    if (entity_json.contains("rotation")) {
+        Vector3 rotation{
+            entity_json["rotation"]["x"].get<float>(),
+            entity_json["rotation"]["y"].get<float>(),
+            entity_json["rotation"]["z"].get<float>()
+        };
+        entity.rotation = rotation;
+    }
+
+
+
+    if (entity_json.contains("relative_position")) {
+        Vector3 relative_position{
+            entity_json["relative_position"]["x"].get<float>(),
+            entity_json["relative_position"]["y"].get<float>(),
+            entity_json["relative_position"]["z"].get<float>()
+        };
+        entity.relative_position = relative_position;
+    }
+
+
 
     entity.isDynamic = entity_json["is_dynamic"].get<bool>();
     entity.mass = entity_json["mass"].get<float>();
+
+
 
 
     entity.setModel(
@@ -329,21 +423,20 @@ void LoadEntity(const json& entity_json, Entity& entity) {
         LoadModel(entity_json["model_path"].get<std::string>().c_str())
     );
 
+
+
     entity.script = entity_json["script_path"].get<std::string>();
     entity.id = entity_json["id"].get<int>();
 
-    // Materials
-    entity.surface_material.shininess = entity_json["surface_material"]["shininess"].get<float>();
-    entity.surface_material.SpecularIntensity = entity_json["surface_material"]["SpecularIntensity"].get<float>();
-    entity.surface_material.Roughness = entity_json["surface_material"]["Roughness"].get<float>();
-    entity.surface_material.DiffuseIntensity = entity_json["surface_material"]["DiffuseIntensity"].get<float>();
 
-    glm::vec3 SpecularTintValue;
-    const json& SpecularTintJson = entity_json["surface_material"]["SpecularTint"];
-    SpecularTintValue.x = SpecularTintJson["x"].get<float>();
-    SpecularTintValue.y = SpecularTintJson["y"].get<float>();
-    SpecularTintValue.z = SpecularTintJson["z"].get<float>();
-    entity.surface_material.SpecularTint = SpecularTintValue;
+
+    // Materials
+    if (entity_json.contains("material_path")) {
+        entity.surface_material_path = entity_json["material_path"].get<string>();
+        DeserializeMaterial(entity.surface_material, entity.surface_material_path.c_str());
+    }
+
+
 
     // Textures
     string texture_path = entity_json["texture_path"].get<std::string>();
@@ -363,11 +456,15 @@ void LoadEntity(const json& entity_json, Entity& entity) {
         }
     }
 
+
+
     entity.normal_texture_path = entity_json["normal_texture_path"].get<std::string>();
     if (!entity.normal_texture_path.empty())
     {
         entity.normal_texture = LoadTexture(entity.normal_texture_path.c_str());
     }
+
+
 
 
     entity.roughness_texture_path = entity_json["roughness_texture_path"].get<std::string>();
@@ -378,6 +475,7 @@ void LoadEntity(const json& entity_json, Entity& entity) {
 
 
     entity.setShader(shader);
+
 
 
     if (entity_json.contains("children")) {

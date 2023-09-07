@@ -1,81 +1,7 @@
 #include "../../include_all.h"
 
 
-void SerializeMaterial(SurfaceMaterial& material, const char* path)
-{
-    json j;
-    j["color"] = material.color;
-    j["diffuse_texture_path"] = material.diffuse_texture_path;
-    j["specular_texture_path"] = material.specular_texture_path;
-    j["normal_texture_path"] = material.normal_texture_path;
-    j["roughness_texture_path"] = material.roughness_texture_path;
-    j["ao_texture_path"] = material.ao_texture_path;
-    j["shininess"] = material.shininess;
-    j["specular_intensity"] = material.SpecularIntensity;
-    j["roughness"] = material.Roughness;
-    j["diffuse_intensity"] = material.DiffuseIntensity;
 
-    std::ofstream outfile(path);
-    if (!outfile.is_open()) {
-        std::cerr << "Error: Failed to open material file: " << path << std::endl;
-        return 1;
-    }
-
-    outfile << std::setw(4) << j;
-    outfile.close();
-}
-
-void DeserializeMaterial(SurfaceMaterial& material, const char* path) {
-    // Attempt to open the JSON file for reading
-    std::ifstream infile(path);
-    if (!infile.is_open()) {
-        std::cerr << "Error: Failed to open material file for reading: " << path << std::endl;
-        return;
-    }
-
-    try {
-        // Parse the JSON data from the file
-        json j;
-        infile >> j;
-
-        // Check if the JSON object contains the expected material properties
-        if (j.contains("color")) {
-            material.color = j["color"];
-        }
-        if (j.contains("diffuse_texture_path")) {
-            material.diffuse_texture_path = j["diffuse_texture_path"].get<fs::path>();
-        }
-        if (j.contains("specular_texture_path")) {
-            material.specular_texture_path = j["specular_texture_path"].get<fs::path>();
-        }
-        if (j.contains("normal_texture_path")) {
-            material.normal_texture_path = j["normal_texture_path"].get<fs::path>();
-        }
-        if (j.contains("roughness_texture_path")) {
-            material.roughness_texture_path = j["roughness_texture_path"].get<fs::path>();
-        }
-        if (j.contains("ao_texture_path")) {
-            material.ao_texture_path = j["ao_texture_path"].get<fs::path>();
-        }
-        if (j.contains("shininess")) {
-            material.shininess = j["shininess"];
-        }
-        if (j.contains("specular_intensity")) {
-            material.SpecularIntensity = j["specular_intensity"];
-        }
-        if (j.contains("roughness")) {
-            material.Roughness = j["roughness"];
-        }
-        if (j.contains("diffuse_intensity")) {
-            material.DiffuseIntensity = j["diffuse_intensity"];
-        }
-
-        // Close the input file
-        infile.close();
-    } catch (const json::parse_error& e) {
-        std::cerr << "Error: Failed to parse material file (" << path << "): " << e.what() << std::endl;
-    }
-}
 
 
 void MaterialInspector(SurfaceMaterial* surface_material = nullptr, string path = "")
@@ -96,10 +22,16 @@ void MaterialInspector(SurfaceMaterial* surface_material = nullptr, string path 
     ImGui::BeginChild("MainContent", window_size);
 
     ImGui::Text("Color: ");
-    // ImGui::ColorEdit4("##Changeentity_color", (float*)&entity_colorImGui, ImGuiColorEditFlags_NoInputs);
-    // ImGui::PopStyleVar();
-    // Color entity_color = (Color){ (unsigned char)(entity_colorImGui.x*255), (unsigned char)(entity_colorImGui.y*255), (unsigned char)(entity_colorImGui.z*255), (unsigned char)(entity_colorImGui.w*255) };
-    // selected_entity->color = entity_color;
+    ImVec4 material_color(material->color.r, material->color.g, material->color.b, material->color.a);
+    if (ImGui::ColorEdit4("##MaterialColor", (float*)&material_color, ImGuiColorEditFlags_NoInputs))
+    {
+        material->color = {
+            material_color.x,
+            material_color.y,
+            material_color.z,
+            material_color.w
+        };
+    }
 
     ImGui::Dummy(ImVec2(0.0f, 10.0f));
 

@@ -42,7 +42,7 @@ enum NodeSlotTypes
 struct EntityMaterial
 {
     // Colors
-    Color color;
+    alignas(16) glm::vec4 color;
 
     // Textures
     Texture2D texture;
@@ -74,10 +74,10 @@ struct MyNode
     std::vector<ImNodes::Ez::SlotInfo> OutputSlots{};
 
     ImVec4 ColorValue = {
-        static_cast<float>(selected_entity->color.r) / 255.0f,
-        static_cast<float>(selected_entity->color.g) / 255.0f,
-        static_cast<float>(selected_entity->color.b) / 255.0f,
-        static_cast<float>(selected_entity->color.a) / 255.0f
+        static_cast<float>(selected_entity->surface_material.color.r),
+        static_cast<float>(selected_entity->surface_material.color.g),
+        static_cast<float>(selected_entity->surface_material.color.b),
+        static_cast<float>(selected_entity->surface_material.color.a)
     };
 
     explicit MyNode(const char* title,
@@ -88,7 +88,7 @@ struct MyNode
         InputSlots = input_slots;
         OutputSlots = output_slots;
 
-        entity_material.color = selected_entity->color;
+        entity_material.color = selected_entity->surface_material.color;
     }
 
     /// Deletes connection from this node.

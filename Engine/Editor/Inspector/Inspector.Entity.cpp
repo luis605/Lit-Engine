@@ -12,13 +12,6 @@ void EntityInspector()
         selected_entity_position = selected_entity->relative_position;
 
     selected_entity_scale = selected_entity->scale;
-    selected_entity_color = selected_entity->color;
-    ImVec4 entity_colorImGui = ImVec4(
-        selected_entity_color.r / 255.0f,
-        selected_entity_color.g / 255.0f,
-        selected_entity_color.b / 255.0f,
-        selected_entity_color.a / 255.0f
-    );
 
     string entity_name;
 
