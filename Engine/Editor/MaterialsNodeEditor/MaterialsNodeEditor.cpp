@@ -47,7 +47,7 @@ std::vector<MyNode*> nodes;
 void SetMaterial()
 {
     // Color
-    selected_entity->color = entity_material.color;
+    selected_entity->surface_material.color = entity_material.color;
 
     // Textures
     if (IsTextureReady(entity_material.texture))

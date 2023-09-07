@@ -2,16 +2,16 @@
     "ao_texture_path": "",
     "color": {
         "a": 1.0,
-        "b": 1.0,
-        "g": 1.0,
+        "b": 0.0,
+        "g": 0.0,
         "r": 1.0
     },
-    "diffuse_intensity": 1.0,
+    "diffuse_intensity": 0.5220000147819519,
     "diffuse_texture_path": "",
     "normal_texture_path": "",
-    "roughness": 0.8610000014305115,
+    "roughness": 1.0,
     "roughness_texture_path": "",
-    "shininess": 0.0,
-    "specular_intensity": 0.23899999260902405,
+    "shininess": 1.0,
+    "specular_intensity": 0.2630000114440918,
     "specular_texture_path": ""
 }

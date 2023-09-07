@@ -99,7 +99,6 @@ class Entity {
 public:
     bool initialized = false;
     string name = "Entity";
-    Color color;
     float size = 1;
     LitVector3 position = { 0, 0, 0 };
     LitVector3 rotation = { 0, 0, 0 };
@@ -166,9 +165,9 @@ private:
     Plane frustumPlanes[6];
 
 public:
-    Entity(Color color = { 255, 255, 255, 255 }, LitVector3 scale = { 1, 1, 1 }, LitVector3 rotation = { 0, 0, 0 }, string name = "entity",
+    Entity(LitVector3 scale = { 1, 1, 1 }, LitVector3 rotation = { 0, 0, 0 }, string name = "entity",
     LitVector3 position = {0, 0, 0}, string script = "")
-        : color(color), scale(scale), rotation(rotation), name(name), position(position), script(script)
+        : scale(scale), rotation(rotation), name(name), position(position), script(script)
     {   
         initialized = true;
 
@@ -177,7 +176,6 @@ public:
     Entity(const Entity& other) {
         this->initialized = other.initialized;
         this->name = other.name;
-        this->color = other.color;
         this->size = other.size;
         this->position = other.position;
         this->rotation = other.rotation;
@@ -268,7 +266,6 @@ public:
 
         this->initialized = other.initialized;
         this->name = other.name;
-        this->color = other.color;
         this->size = other.size;
         this->position = other.position;
         this->rotation = other.rotation;
@@ -489,8 +486,23 @@ public:
 
     }
 
+    Color getColor() {
+        return (Color) {
+            surface_material.color.x * 255,
+            surface_material.color.y * 255,
+            surface_material.color.z * 255,
+            surface_material.color.w * 255
+        };
+    }
+
+
     void setColor(Color newColor) {
-        color = newColor;
+        surface_material.color = {
+            newColor.r / 255,
+            newColor.g / 255,
+            newColor.b / 255,
+            newColor.a / 255
+        };
     }
 
     void setName(const string& newName) {
@@ -618,7 +630,11 @@ public:
                 
                 .def_readwrite("scale", &Entity::scale, py::call_guard<py::gil_scoped_release>())
                 .def_readwrite("rotation", &Entity::rotation, py::call_guard<py::gil_scoped_release>())
-                .def_readwrite("color", &Entity::color, py::call_guard<py::gil_scoped_release>())
+                .def_property("color",
+                    &Entity::getColor, // Getter
+                    &Entity::setColor, // Setter
+                    py::call_guard<py::gil_scoped_release>())
+
                 .def_readwrite("visible", &Entity::visible, py::call_guard<py::gil_scoped_release>())
                 .def_readwrite("id", &Entity::id, py::call_guard<py::gil_scoped_release>())
                 .def_readwrite("collider", &Entity::collider, py::call_guard<py::gil_scoped_release>())
@@ -912,7 +928,12 @@ public:
                 instancing_shader.locs[SHADER_LOC_VECTOR_VIEW] = GetShaderLocation(instancing_shader, "viewPos");
                 instancing_shader.locs[SHADER_LOC_MATRIX_MODEL] = GetShaderLocationAttrib(instancing_shader, "instanceTransform");
 
-                model.materials[0].maps[MATERIAL_MAP_DIFFUSE].color = color;
+                model.materials[0].maps[MATERIAL_MAP_DIFFUSE].color = {
+                    surface_material.color.x * 255,
+                    surface_material.color.y * 255,
+                    surface_material.color.z * 255,
+                    surface_material.color.w * 255,
+                };
 
                 DrawMeshInstanced(model.meshes[0], model.materials[0], transforms, instances.size());
             }
@@ -930,7 +951,19 @@ public:
                 bool roughnessMapInit = !roughness_texture_path.empty();
                 glUniform1i(glGetUniformLocation((GLuint)shader.id, "roughnessMapInit"), roughnessMapInit);
 
-                DrawModelEx(model, position, rotation, GetExtremeValue(rotation), scale, color);
+                DrawModelEx(
+                    model, 
+                    position, 
+                    rotation, 
+                    GetExtremeValue(rotation), 
+                    scale, 
+                    (Color) {
+                        surface_material.color.x * 255,
+                        surface_material.color.y * 255,
+                        surface_material.color.z * 255,
+                        surface_material.color.w * 255,
+                    }
+                );
             }
         }
     }
@@ -1133,7 +1166,12 @@ HitInfo raycast(LitVector3 origin, LitVector3 direction, bool debug=false, std::
                 _hitInfo.entity = _hitInfo.entity = std::make_shared<Entity>(entity);
                 _hitInfo.worldPoint = meshHitInfo.point;
                 _hitInfo.worldNormal = meshHitInfo.normal;
-                _hitInfo.hitColor = entity.color;
+                _hitInfo.hitColor = {
+                    entity.surface_material.color.x * 255,
+                    entity.surface_material.color.w * 255,
+                    entity.surface_material.color.y * 255,
+                    entity.surface_material.color.z * 255,
+                };
 
                 return _hitInfo;
             }
