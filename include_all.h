@@ -141,8 +141,8 @@ using json = nlohmann::json;
 
 #ifndef GAME_SHIPPING
     #include "Engine/Editor/CodeEditor/CodeEditor.cpp"
-    #include "Engine/Editor/EntitiesList/EntitiesList.cpp"
     #include "Engine/Editor/SceneEditor/SceneEditor.cpp"
+    #include "Engine/Editor/EntitiesList/EntitiesList.cpp"
 #endif
 
 #include "Engine/Core/RunGame.cpp"

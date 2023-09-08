@@ -30,9 +30,51 @@ void updateListViewExList(vector<Entity>& entities, vector<Light>& lights) {
     }
 }
 
+bool should_change_object_name = false;
+bool showManipulateEntityPopup = false;
 
+void ManipulateEntityPopup()
+{
+    if (showManipulateEntityPopup)
+        ImGui::OpenPopup("Entity");
 
+    if (ImGui::BeginPopup("Entity"))
+    {
+        if (ImGui::Button("Copy Entity"))
+        {
+            current_copy_type = CopyType_Entity;
+            copiedEntity = std::make_shared<Entity>(*selected_entity);
+            showManipulateEntityPopup = false;
+        }
+        else if (ImGui::Button("Delete Entity"))
+        {
+            entities_list_pregame.erase(std::remove(entities_list_pregame.begin(), entities_list_pregame.end(), *selected_entity), entities_list_pregame.end());
+            showManipulateEntityPopup = false;
+        }
+        else if (ImGui::Button("Locate Entity"))
+        {
+            LocateEntity(*selected_entity);
+            showManipulateEntityPopup = false;
+        }
+        else if (ImGui::Button("Rename Entity"))
+        {
+            should_change_object_name = true;
+            showManipulateEntityPopup = false;
+        }
+        else if (ImGui::Button("Duplicate Entity"))
+        {
+            DuplicateEntity(*selected_entity);
+            showManipulateEntityPopup = false;
+        }
+        else if (IsMouseButtonDown(MOUSE_BUTTON_RIGHT) || IsMouseButtonDown(MOUSE_BUTTON_LEFT))
+        {
+            showManipulateEntityPopup = false;
+        }
 
+        ImGui::EndPopup();
+    }
+
+}
 
 
 void DrawEntityTree(Entity& entity, int active, int& index, int depth = 0);
@@ -41,8 +83,6 @@ void DrawTextElementsTree(Text& text, int active, int& index);
 void DrawButtonTree(LitButton& button, int active, int& index);
 
 
-
-bool should_change_object_name = false;
 
 void DrawEntityTree(Entity& entity, int active, int& index, int depth = 0) {
     ImGuiTreeNodeFlags nodeFlags = ImGuiTreeNodeFlags_OpenOnArrow | ImGuiTreeNodeFlags_OpenOnDoubleClick | ImGuiTreeNodeFlags_SpanAvailWidth;
@@ -71,6 +111,11 @@ void DrawEntityTree(Entity& entity, int active, int& index, int depth = 0) {
     isNodeOpen = ImGui::TreeNodeEx((void*)&entity, nodeFlags, entity_name.c_str());
     ImGui::PopStyleColor();
 
+    if (ImGui::IsItemHovered() && IsMouseButtonDown(MOUSE_BUTTON_RIGHT))
+    {
+        showManipulateEntityPopup = true;
+    }
+
     // Drag and drop target
     if (ImGui::BeginDragDropTarget()) {
         const ImGuiPayload* payload = ImGui::AcceptDragDropPayload("CHILD_LIGHT_PAYLOAD");
@@ -93,7 +138,7 @@ void DrawEntityTree(Entity& entity, int active, int& index, int depth = 0) {
         ImGui::EndDragDropTarget();
     }
 
-    if (ImGui::IsItemClicked()) {
+    if (ImGui::IsItemClicked() || showManipulateEntityPopup) {
         selected_entity = &entity;
         active = index;
         selected_game_object_type = "entity";
@@ -309,6 +354,8 @@ void ImGuiListViewEx(vector<string>& items, int& focus, int& scroll, int& active
     ImGui::PopStyleColor(3);
 
     ImGui::EndChild();
+
+    ManipulateEntityPopup();
 }
 
 

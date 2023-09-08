@@ -245,22 +245,24 @@ bool isVectorNeutral(const Vector3& vector) {
 
 
 
-
+void LocateEntity(Entity& entity)
+{
+    if (selected_game_object_type == "entity")
+    {
+        scene_camera.target = entity.position;
+        scene_camera.position = {
+            entity.position.x + 10,
+            entity.position.y + 2,
+            entity.position.z
+        };
+    }
+}
 
 void ProcessCameraControls()
 {
     if (IsKeyPressed(KEY_F))
     {
-        if (selected_game_object_type == "entity")
-        {
-            scene_camera.target = selected_entity->position;
-            scene_camera.position = {
-                selected_entity->position.x + 10,
-                selected_entity->position.y + 2,
-                selected_entity->position.z
-            };
-            
-        }
+        LocateEntity(*selected_entity);
     }
 }
 
@@ -581,6 +583,17 @@ void LightPaste(const std::shared_ptr<Light>& light)
     }
 }
 
+
+void DuplicateEntity(Entity& entity)
+{
+    Entity new_entity = entity;
+    new_entity.reloadRigidBody();
+    entities_list_pregame.reserve(1);
+    entities_list_pregame.emplace_back(new_entity);
+    selected_entity = &entities_list_pregame.back();
+}
+
+
 void ProcessCopy()
 {
     if (IsKeyPressed(KEY_C) && (IsKeyDown(KEY_LEFT_CONTROL) || IsKeyDown(KEY_RIGHT_CONTROL))) {
@@ -606,12 +619,7 @@ void ProcessCopy()
 
     if (IsKeyDown(KEY_D) && (IsKeyDown(KEY_LEFT_CONTROL) || IsKeyDown(KEY_RIGHT_CONTROL)) && !in_game_preview && selected_game_object_type == "entity" && can_duplicate_entity)
     {
-        std::cout << "Creating Entity" << std::endl;
-        Entity new_entity = *selected_entity;
-        new_entity.reloadRigidBody();
-        entities_list_pregame.reserve(1);
-        entities_list_pregame.emplace_back(new_entity);
-        selected_entity = &entities_list_pregame.back();
+        DuplicateEntity(*selected_entity);
         can_duplicate_entity = false;
     }
     if (!can_duplicate_entity)
