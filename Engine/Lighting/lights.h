@@ -36,6 +36,9 @@ int shadowMapHeight = 1024; // Height of the shadow map texture
 unsigned int depthMapFBO;
 
 Shader shader;
+Shader brightPassShader;
+Shader blurShader;
+Shader mixShader;
 Shader instancing_shader;
 
 GLuint lightsBuffer;

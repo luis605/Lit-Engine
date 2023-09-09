@@ -25,6 +25,7 @@ uniform sampler2D texture4;
 
 // Fog
 vec4 fogColor = vec4(1, 0.6, 0.6, 1);
+
 // Lights
 #define LIGHT_DIRECTIONAL 0
 #define LIGHT_POINT 1
@@ -94,9 +95,9 @@ vec3 CalculateFresnelReflection(vec3 baseReflectance, vec3 viewDirection, vec3 h
     return finalColor;
 }
 
-vec3 toneMap(vec3 hdrColor) {
+vec4 toneMap(vec4 hdrColor) {
     // Apply tone mapping here (e.g., Reinhard or ACES).
-    return hdrColor / (hdrColor + vec3(1.0)); // Adjust as needed.
+    return hdrColor / (hdrColor + vec4(1.0)); // Adjust as needed.
 }
 
 
@@ -134,8 +135,8 @@ void main() {
     vec3 reflectDir = reflect(-viewDir, norm);
 
     vec3 diffuse;
-    vec3 specular;
-    vec3 result = colDiffuse.rgb / 1.8 - ambientLight.rgb * 0.5;
+    vec4 specular;
+    vec4 result = colDiffuse / 1.8 - ambientLight * 0.5;
     vec3 ambient = vec3(0);
 
 
@@ -150,7 +151,7 @@ void main() {
 
             vec3 fresnel = CalculateFresnelReflection(surface_material.baseReflectance, viewDir, halfVector);
 
-            result += (colDiffuse.rgb * surface_material.DiffuseIntensity * NdotL + specular) * light.color.rgb * fresnel * light.intensity;
+            result += (colDiffuse * surface_material.DiffuseIntensity * NdotL + specular) * light.color * vec4(fresnel, 1.0) * light.intensity;
         }
 
 
@@ -178,7 +179,7 @@ void main() {
             float specularTerm = k_s / (NdotH * NdotH * max(4.0 * NdotL * NdotH, 0.001)) * surface_material.shininess;
 
             // Use the unmodified NdotL for diffuse term
-            result += (NdotL + specular * specularTerm * surface_material.SpecularIntensity) * light.color.rgb * attenuation;
+            result += (NdotL + specular * specularTerm * surface_material.SpecularIntensity) * light.color * attenuation;
         }
         else if (light.type == LIGHT_SPOT && light.enabled)
         {
@@ -217,23 +218,24 @@ void main() {
             }
 
 
-            vec3 diffuseTerm = colDiffuse.rgb * NdotL;
+            vec4 diffuseTerm = colDiffuse * NdotL;
 
-            result += diffuseTerm * spot * light.intensity * attenuation * energyFactor + (colDiffuse.rgb * ambient.rgb);
+            result += vec4(diffuseTerm * spot * light.intensity * attenuation * energyFactor) + vec4(colDiffuse.rgb * ambient.rgb, 1);
         }
 
     }
 
 
+
     result *= ao;
-    result += vec4(result, 1.0).rgb * texColor.rgb;
+    result += result * texColor;
 
 
     // Apply gamma correction
-    result = pow(result, vec3(2.2));
+    result = pow(result, vec4(2.2, 2.2, 2.2, 1.0));
 
-    result = toneMap(result);
+    result = vec4(toneMap(result).rgb, result.a);
 
     // Assign the final color
-    finalColor = vec4(result, 1.0);
+    finalColor = result;
 }
