@@ -116,8 +116,15 @@ void Startup()
 
     // Shaders
     shader = LoadShader("Engine/Lighting/shaders/lighting_vertex.glsl", "Engine/Lighting/shaders/lighting_fragment.glsl");
+    brightPassShader = LoadShader("Engine/Lighting/shaders/lighting_vertex.glsl", "Engine/Lighting/shaders/bright_pass.glsl");
+    mixShader = LoadShader("Engine/Lighting/shaders/lighting_vertex.glsl", "Engine/Lighting/shaders/mix.glsl");
     instancing_shader = LoadShader("Engine/Lighting/shaders/instancing_lighting_vertex.glsl", "Engine/Lighting/shaders/lighting_fragment.glsl");
+    blurShader = LoadShader("Engine/Lighting/shaders/lighting_vertex.glsl", "Engine/Lighting/shaders/blur.glsl");
     InitLighting();
+
+    brightPass = LoadRenderTexture(GetScreenWidth(), GetScreenHeight());
+    blurPass = LoadRenderTexture(GetScreenWidth(), GetScreenHeight());
+    mixPass = LoadRenderTexture(GetScreenWidth(), GetScreenHeight());
 
     #if STRESS_TEST
         InitStressTest();
