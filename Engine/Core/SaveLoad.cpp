@@ -122,8 +122,11 @@ void SerializeMaterial(SurfaceMaterial& material, const char* path)
     outfile.close();
 }
 
-void DeserializeMaterial(SurfaceMaterial& material, const char* path) {
+void DeserializeMaterial(SurfaceMaterial* material, const char* path) {
     // Attempt to open the JSON file for reading
+    if (!material)
+        return;
+        
     std::ifstream infile(path);
     if (!infile.is_open()) {
         std::cerr << "Error: Failed to open material file for reading: " << path << std::endl;
@@ -135,42 +138,55 @@ void DeserializeMaterial(SurfaceMaterial& material, const char* path) {
         json j;
         infile >> j;
 
+
         // Check if the JSON object contains the expected material properties
         if (j.contains("color")) {
-            material.color = j["color"];
+            material->color = j["color"];
         }
+        // Clear default values or initialize them if necessary
+        material->diffuse_texture_path.clear();
+        material->specular_texture_path.clear();
+        material->normal_texture_path.clear();
+        material->roughness_texture_path.clear();
+        material->ao_texture_path.clear();
+        material->shininess = 0.0f;
+        material->SpecularIntensity = 0.0f;
+        material->Roughness = 0.0f;
+        material->DiffuseIntensity = 0.0f;
+
         if (j.contains("diffuse_texture_path")) {
-            material.diffuse_texture_path = j["diffuse_texture_path"].get<fs::path>();
+            material->diffuse_texture_path = j["diffuse_texture_path"].get<std::string>();
         }
         if (j.contains("specular_texture_path")) {
-            material.specular_texture_path = j["specular_texture_path"].get<fs::path>();
+            material->specular_texture_path = j["specular_texture_path"].get<std::string>();
         }
         if (j.contains("normal_texture_path")) {
-            material.normal_texture_path = j["normal_texture_path"].get<fs::path>();
+            material->normal_texture_path = j["normal_texture_path"].get<std::string>();
         }
         if (j.contains("roughness_texture_path")) {
-            material.roughness_texture_path = j["roughness_texture_path"].get<fs::path>();
+            material->roughness_texture_path = j["roughness_texture_path"].get<std::string>();
         }
         if (j.contains("ao_texture_path")) {
-            material.ao_texture_path = j["ao_texture_path"].get<fs::path>();
+            material->ao_texture_path = j["ao_texture_path"].get<std::string>();
         }
         if (j.contains("shininess")) {
-            material.shininess = j["shininess"];
+            material->shininess = j["shininess"];
         }
         if (j.contains("specular_intensity")) {
-            material.SpecularIntensity = j["specular_intensity"];
+            material->SpecularIntensity = j["specular_intensity"];
         }
         if (j.contains("roughness")) {
-            material.Roughness = j["roughness"];
+            material->Roughness = j["roughness"];
         }
         if (j.contains("diffuse_intensity")) {
-            material.DiffuseIntensity = j["diffuse_intensity"];
+            material->DiffuseIntensity = j["diffuse_intensity"];
         }
 
         // Close the input file
         infile.close();
     } catch (const json::parse_error& e) {
         std::cerr << "Error: Failed to parse material file (" << path << "): " << e.what() << std::endl;
+        return; // Return to avoid using an invalid material
     }
 }
 
@@ -433,7 +449,7 @@ void LoadEntity(const json& entity_json, Entity& entity) {
     // Materials
     if (entity_json.contains("material_path")) {
         entity.surface_material_path = entity_json["material_path"].get<string>();
-        DeserializeMaterial(entity.surface_material, entity.surface_material_path.c_str());
+        DeserializeMaterial(&entity.surface_material, entity.surface_material_path.c_str());
     }
 
 

@@ -156,7 +156,7 @@ void EntityInspector()
             path += "/" + files_texture_struct[payload_n].name;
 
             selected_entity->surface_material_path = path;
-            DeserializeMaterial(selected_entity->surface_material, selected_entity->surface_material_path.c_str());
+            DeserializeMaterial(&selected_entity->surface_material, selected_entity->surface_material_path.c_str());
         }
         ImGui::EndDragDropTarget();
     }
