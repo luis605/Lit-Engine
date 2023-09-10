@@ -3,8 +3,6 @@
 #define ASSETSEXPLORER_H
 #include "../../../include_all.h"
 
-#include "file_manipulation.h"
-
 Texture2D folder_texture;
 Texture2D image_texture;
 Texture2D cpp_texture;
@@ -23,6 +21,7 @@ struct FileTextureItem {
     Texture2D texture;
     fs::path path;
     fs::path full_path = "";
+    bool rename = false;
 };
 vector<FileTextureItem> files_texture_struct;
 
@@ -41,8 +40,8 @@ float cellSize = thumbnailSize + padding;
 
 ImVec2 AssetsExplorer_window_size = {cellSize, cellSize};
 
-bool showAddFilePopup = false;
-
 Camera3D model_previewer_camera = { 0 };
+
+#include "file_manipulation.h"
 
 #endif // ASSETSEXPLORER_H

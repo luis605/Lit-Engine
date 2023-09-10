@@ -124,6 +124,7 @@ using json = nlohmann::json;
 
 /* Editor */
 #ifndef GAME_SHIPPING
+    #include "Engine/Editor/SceneEditor/SceneEditor.h"
     #include "Engine/Editor/AssetsExplorer/AssetsExplorer.h"
     #include "Engine/Core/Core.h"
 #endif

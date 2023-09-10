@@ -347,6 +347,8 @@ void RenderScene()
         }
     }
 
+    UpdateInGameGlobals();
+    
     EndMode3D();
     
     DrawTextElements();

@@ -93,6 +93,8 @@ bool AABBoxInFrustum(const Vector3& min, const Vector3& max)
 }
 
 
+py::module entity_module("entity_module");
+
 
 std::mutex script_mutex;
 class Entity {
@@ -344,7 +346,10 @@ public:
         return *this;
     }
 
-    
+    Entity(std::vector<Entity>& entities_list_pregame) {
+        // Add the newly created Entity to the C++ vector
+        entities_list_pregame.push_back(*this);
+    }
     
 
     bool operator==(const Entity& other) const {
@@ -424,10 +429,6 @@ public:
         }
     }
 
-
-
-
-
     void update_children()
     {
         if (children.empty()) return;
@@ -457,8 +458,6 @@ public:
         }
         UpdateLightsBuffer();
     }
-
-
 
     void remove() {
 
@@ -494,7 +493,6 @@ public:
             surface_material.color.w * 255
         };
     }
-
 
     void setColor(Color newColor) {
         surface_material.color = {
@@ -565,7 +563,6 @@ public:
         }
     }
 
-
     void setModel(const char* modelPath = "", Model entity_model = Model(), Shader default_shader = shader)
     {
         model_path = modelPath;
@@ -615,9 +612,9 @@ public:
 
         if (!Entity_already_registered) {
             Entity_already_registered = true;
-            py::module entity_module("entity_module");
             py::class_<Entity>(entity_module, "Entity")
                 .def(py::init<>())
+                .def(py::init<std::vector<Entity>&>())
 
                 .def_property("name",
                     &Entity::getName,
@@ -675,14 +672,13 @@ public:
             "camera"_a = py::cast(rendering_camera)
         );
 
-
+        locals["Entity"] = entity_module.attr("Entity");
 
 
 
         try {
             pybind11::gil_scoped_acquire acquire;
             string script_content = read_file_to_string(script);
-            
 
             py::module module("__main__");
 
@@ -1116,8 +1112,6 @@ bool operator==(const Entity& e, const Entity* ptr) {
     }
 #endif
     
-
-py::module entity_module("entity_module");
 
 HitInfo raycast(LitVector3 origin, LitVector3 direction, bool debug=false, std::vector<Entity> ignore = {})
 {

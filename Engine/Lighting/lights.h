@@ -86,11 +86,11 @@ typedef struct SurfaceMaterial
     alignas(16) glm::vec3 baseReflectance = { 1.0f, 1.0f, 1.0f };
     alignas(16) glm::vec4 color = { 1.0f, 1.0f, 1.0f, 1.0f };
 
-    fs::path diffuse_texture_path;
-    fs::path specular_texture_path;
-    fs::path normal_texture_path;
-    fs::path roughness_texture_path;
-    fs::path ao_texture_path;
+    string diffuse_texture_path;
+    string specular_texture_path;
+    string normal_texture_path;
+    string roughness_texture_path;
+    string ao_texture_path;
 };
 
 typedef struct AdditionalLightInfo

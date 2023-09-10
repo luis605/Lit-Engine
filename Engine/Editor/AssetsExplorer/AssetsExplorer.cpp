@@ -75,7 +75,7 @@ void AssetsExplorer()
                 string file_extension = getFileExtension(basename(file.c_str()));
                 if (file_extension == "no file extension")
                 {
-                    FileTextureItem fileTextureItem = {file, empty_texture, file};
+                    FileTextureItem fileTextureItem = {file, empty_texture, file, entry};
                     files_texture_struct.push_back(fileTextureItem);
                 }
                 else if (file_extension == ".png" || file_extension == ".jpg" || file_extension == ".jpeg" ||
@@ -83,56 +83,51 @@ void AssetsExplorer()
                          file_extension == ".mkv" || file_extension == ".webm" || file_extension == ".gif"
                 )
                 {
-                    FileTextureItem fileTextureItem = {file, image_texture, file};
+                    FileTextureItem fileTextureItem = {file, image_texture, file, entry};
                     files_texture_struct.push_back(fileTextureItem);
                 }
                 else if (file_extension == ".cpp" || file_extension == ".c++" || file_extension == ".cxx" || file_extension == ".hpp" || file_extension == ".cc" || file_extension == ".h" || file_extension == ".hh" || file_extension == ".hxx")
                 {
-                    FileTextureItem fileTextureItem = {file, cpp_texture, file};
+                    FileTextureItem fileTextureItem = {file, cpp_texture, file, entry};
                     files_texture_struct.push_back(fileTextureItem);
                 }
                 else if (file_extension == ".py")
                 {
-                    FileTextureItem fileTextureItem = {file, python_texture, file};
+                    FileTextureItem fileTextureItem = {file, python_texture, file, entry};
                     files_texture_struct.push_back(fileTextureItem);
                 }
                 else if (file_extension == ".fbx" || file_extension == ".obj" || file_extension == ".gltf" || file_extension == ".ply" || file_extension == ".mtl" || file_extension == ".mat")
                 {
                     FileTextureItem fileTextureItem;
 
-                    if (file_extension == ".mtl")
-                        fileTextureItem = {file, model_texture, file};
-                    else if (file_extension == ".mat")
-                        fileTextureItem = {file, model_texture, file, entry};
+                    fileTextureItem = {file, model_texture, file, entry};
 
-                    else
-                    {
-                        auto iter = models_icons.find(file);
+                    auto iter = models_icons.find(file);
 
-                        if (iter != models_icons.end()) {
-                            Texture2D icon = iter->second;
-                            fileTextureItem = {file, icon, file};
-                        } else {
-                            Texture2D icon = RenderModelPreview(entry.c_str());
+                    if (iter != models_icons.end()) {
+                        Texture2D icon = iter->second;
+                        fileTextureItem = {file, icon, file, entry};
+                    } else {
+                        Texture2D icon = RenderModelPreview(entry.c_str());
 
-                            RenderTexture2D target = LoadRenderTexture(icon.width, icon.height);
+                        RenderTexture2D target = LoadRenderTexture(icon.width, icon.height);
 
-                            BeginTextureMode(target);
+                        BeginTextureMode(target);
 
-                            DrawTextureEx(icon, (Vector2){0, 0}, 0.0f, 1.0f, RAYWHITE);
+                        DrawTextureEx(icon, (Vector2){0, 0}, 0.0f, 1.0f, RAYWHITE);
 
-                            EndTextureMode();
+                        EndTextureMode();
 
-                            Texture2D flippedIcon = target.texture;
-                            models_icons.insert({file, flippedIcon});
-                            fileTextureItem = {file, flippedIcon, file};
-                        }
+                        Texture2D flippedIcon = target.texture;
+                        models_icons.insert({file, flippedIcon});
+                        fileTextureItem = {file, flippedIcon, file, entry};
                     }
+
                     files_texture_struct.push_back(fileTextureItem);
                 }
                 else
                 {
-                    FileTextureItem fileTextureItem = {file, empty_texture, file};
+                    FileTextureItem fileTextureItem = {file, empty_texture, file, entry};
                     files_texture_struct.push_back(fileTextureItem);
                 }
             }
@@ -168,41 +163,6 @@ void AssetsExplorer()
     ImGui::PopStyleColor(3);
 
     ImGui::BeginChild("Assets Explorer Child", ImVec2(-1,-1), true);
-
-    if ((ImGui::IsWindowFocused() || ImGui::IsWindowHovered() || ImGui::IsItemHovered()) && IsMouseButtonPressed(MOUSE_RIGHT_BUTTON))
-    {
-        std::cout << "Adding file" << std::endl;
-        showAddFilePopup = true;
-    }
-
-    if (ImGui::IsWindowHovered() && showAddFilePopup)
-        ImGui::OpenPopup("popup");
-
-
-    if (ImGui::BeginPopup("popup"))
-    {
-        if (!ImGui::IsItemHovered() && !ImGui::IsItemHovered() && IsMouseButtonPressed(MOUSE_LEFT_BUTTON))
-            showAddFilePopup = false;
-
-        ImGui::Text("Add File");
-
-        ImGui::Separator();
-
-        if (ImGui::Button("Python"))
-        {
-            createNumberedFile(dir_path, "py");
-            showAddFilePopup = false;
-        }
-
-        if (ImGui::Button("Material"))
-        {
-            createNumberedFile(dir_path, "mat");
-            showAddFilePopup = false;
-        }
-
-        ImGui::EndPopup();
-    }
-
 
     int numButtons = folders_texture_struct.size();
     ImTextureID imageIds[numButtons] = {0};
@@ -260,6 +220,8 @@ void AssetsExplorer()
         ImGui::PushStyleColor(ImGuiCol_Button, ImVec4(0, 0, 0, 0)); 
         ImGui::ImageButton((ImTextureID)&files_texture_struct[i].texture, ImVec2(thumbnailSize, thumbnailSize));
         ImGui::PopStyleColor(); 
+        
+        bool isButtonHovered = ImGui::IsItemHovered(); // Check if the button is hovered
 
         string file_extension = getFileExtension(basename(files_texture_struct[i].path.c_str()));
 
@@ -287,6 +249,20 @@ void AssetsExplorer()
         }
 
 
+        if ((ImGui::IsWindowFocused() || ImGui::IsWindowHovered()) && IsMouseButtonPressed(MOUSE_RIGHT_BUTTON) && isButtonHovered)
+        {
+            file_index = i;
+            showEditFilePopup = true;
+        }
+
+        if ((ImGui::IsWindowFocused() || ImGui::IsWindowHovered()) && IsMouseButtonPressed(MOUSE_RIGHT_BUTTON) && !isButtonHovered)
+        {
+            showAddFilePopup = true;
+        }
+
+        AddFileManipulation();
+        EditFileManipulation();
+
 
         if (file_extension == ".mat" && ImGui::IsItemHovered() && ImGui::IsMouseDoubleClicked(ImGuiMouseButton_Left))
         {
@@ -300,8 +276,34 @@ void AssetsExplorer()
             editor.SetText(code);
             code_editor_script_path = (dir_path / files_texture_struct[i].name).string();
         }
+        else if (ImGui::IsItemHovered() && ImGui::IsMouseDoubleClicked(ImGuiMouseButton_Right))
+        {
+            if (file_extension == ".py")
+            {
 
-        ImGui::TextWrapped(files_texture_struct[i].name.c_str());
+            }
+        }
+
+        if (rename_file_index == i)
+            files_texture_struct[i].rename = true;
+
+        if (files_texture_struct[i].rename)
+        {
+            ImGui::InputText("##RenameFile", (char *)files_texture_struct[i].name.c_str(), files_texture_struct[i].name.size() + 100);
+            if (ImGui::IsItemEdited() && IsKeyDown(KEY_ENTER))
+            {
+                if (fs::exists(rename_file_name)) {
+                    fs::rename(rename_file_name, files_texture_struct[i].full_path);
+                    std::cout << "File renamed successfully." << std::endl;
+                } else {
+                    std::cout << "File not found: " << files_texture_struct[i].full_path << std::endl;
+                }
+                files_texture_struct[i].rename = false;
+                rename_file_index = -1;
+            }
+        }
+        else
+            ImGui::TextWrapped(files_texture_struct[i].name.c_str());
 
 
         ImGui::PopID();
