@@ -11,7 +11,7 @@ void main()
     vec3 hdrColor = texture(scene, fragTexCoord).rgb;      
     vec3 bloomColor = texture(bloomBlur, fragTexCoord).rgb;
 
-    hdrColor = mix(hdrColor, bloomColor, 0.5);
+    hdrColor = mix(hdrColor, bloomColor, 0.25);
 
     FragColor = vec4(hdrColor, 1.0);
 }
