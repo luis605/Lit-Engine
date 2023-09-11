@@ -165,6 +165,7 @@ private:
     Material matInstances;
     int lastIndexCalculated = -1;
     Plane frustumPlanes[6];
+    Shader* entity_shader;
 
 public:
     Entity(LitVector3 scale = { 1, 1, 1 }, LitVector3 rotation = { 0, 0, 0 }, string name = "entity",
@@ -518,6 +519,10 @@ public:
     void initializeDefaultModel() {
         Mesh mesh = GenMeshCube(scale.x, scale.y, scale.z);
         model = LoadModelFromMesh(mesh);
+        if (entity_shader)
+            model.materials[0].shader = *entity_shader;
+        else
+            model.materials[0].shader = shader;
     }
 
     void loadModel(const char* filename, const char* textureFilename = NULL) {
@@ -588,17 +593,15 @@ public:
 
     bool hasModel()
     {
-
-        if (model.meshCount > 0)
-            return true;
-        else
-            return false;
+        return IsModelReady(model);
     }
 
     void setShader(Shader shader)
     {
+        entity_shader = &shader;
         if (IsModelReady(model))
             model.materials[0].shader = shader;
+
     }
 
     void runScript(std::reference_wrapper<Entity> entityRef, LitCamera* rendering_camera)
@@ -613,9 +616,20 @@ public:
         if (!Entity_already_registered) {
             Entity_already_registered = true;
             py::class_<Entity>(entity_module, "Entity")
-                .def(py::init<>())
-                .def(py::init<std::vector<Entity>&>())
+                .def(py::init<>([]() {
+                    // Create an Entity instance
+                    Entity* entity = new Entity();
+                    entity->setColor(RAYWHITE);
+                    entity->setScale(LitVector3{1,1,1});
+                    entity->setName("New Entity");
 
+
+                    // Add the newly created Entity to the vector
+                    entities_list_pregame.push_back(*entity);
+
+                    return entities_list_pregame.back(); // Return the Entity instance
+                }))
+                    
                 .def_property("name",
                     &Entity::getName,
                     &Entity::setName)
@@ -896,15 +910,18 @@ public:
         if (visible)
         {
 
-            Matrix transformMatrix = MatrixIdentity();
-            transformMatrix = MatrixScale(scale.x, scale.y, scale.z);
-            transformMatrix = MatrixMultiply(transformMatrix, MatrixRotateXYZ(rotation));
-            transformMatrix = MatrixMultiply(transformMatrix, MatrixTranslate(position.x, position.y, position.z));
+            if (hasModel())
+            {
+                Matrix transformMatrix = MatrixIdentity();
+                transformMatrix = MatrixScale(scale.x, scale.y, scale.z);
+                transformMatrix = MatrixMultiply(transformMatrix, MatrixRotateXYZ(rotation));
+                transformMatrix = MatrixMultiply(transformMatrix, MatrixTranslate(position.x, position.y, position.z));
 
-            bounds = GetMeshBoundingBox(model.meshes[0]);
-            
-            bounds.min = Vector3Transform(bounds.min, transformMatrix);
-            bounds.max = Vector3Transform(bounds.max, transformMatrix);
+                bounds = GetMeshBoundingBox(model.meshes[0]);
+                
+                bounds.min = Vector3Transform(bounds.min, transformMatrix);
+                bounds.max = Vector3Transform(bounds.max, transformMatrix);
+            }
 
             PassSurfaceMaterials();
 
@@ -935,8 +952,9 @@ public:
             }
             else
             {
-                if (!inFrustum())
-                    return;
+                if (hasModel())
+                    if (!inFrustum())
+                        return;
 
                 ReloadTextures();
                 glUseProgram((GLuint)shader.id);
