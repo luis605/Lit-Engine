@@ -337,7 +337,7 @@ void GizmoScale()
     gizmo_cube[4].position = { selected_object_position.x, selected_object_position.y, selected_object_position.z + selected_object_scale.z + 1.75 };
     gizmo_cube[5].position = { selected_object_position.x, selected_object_position.y, selected_object_position.z - selected_object_scale.z - 1.75 };
 
-    for (int cube_i = 0; cube_i < (sizeof(gizmo_cube) / sizeof(gizmo_cube[0])) + 1; cube_i++)
+    for (int cube_i = 0; cube_i < NUM_GIZMO_CUBES; cube_i++)
     {
         Color color1;
 
@@ -348,6 +348,7 @@ void GizmoScale()
             {
                 color1 = GREEN;
                 gizmo_cube_selected = cube_i;
+                std::cout << gizmo_cube_selected << std::endl;
             }
             else
             {
