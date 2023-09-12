@@ -1,8 +1,5 @@
 #include "../../include_all.h"
 
-
-
-
 float GetExtremeValue(const Vector3& a) {
     const float absX = abs(a.x);
     const float absY = abs(a.y);
@@ -1130,6 +1127,26 @@ bool operator==(const Entity& e, const Entity* ptr) {
     }
 #endif
     
+
+void updateEntitiesList(std::vector<Entity>& entities_list, const std::vector<Entity>& entities_list_pregame) {
+    std::unordered_map<int, Entity> entityMap;
+
+    // Create a map of entity IDs to entities in entities_list
+    for (const Entity& entity : entities_list) {
+        entityMap[entity.id] = entity;
+    }
+
+    // Update entities_list by adding new entities and removing entities not in entities_list_pregame
+    for (const Entity& pregameEntity : entities_list_pregame) {
+        entityMap[pregameEntity.id] = pregameEntity;
+    }
+
+    // Clear entities_list and insert entities from the map
+    entities_list.clear();
+    for (const auto& pair : entityMap) {
+        entities_list.push_back(pair.second);
+    }
+}
 
 HitInfo raycast(LitVector3 origin, LitVector3 direction, bool debug=false, std::vector<Entity> ignore = {})
 {

@@ -138,6 +138,9 @@ void EngineMainLoop()
         if (WindowShouldClose()) {
             exitWindowRequested = true;
         }
+
+        updateEntitiesList(entities_list, entities_list_pregame);
+        
         BeginDrawing();
 
         ClearBackground(DARKGRAY);
