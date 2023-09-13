@@ -295,7 +295,7 @@ void RenderScene()
 
     SetShaderValueMatrix(shader, GetShaderLocation(shader, "cameraMatrix"), GetCameraMatrix(scene_camera));
 
-    ProcessSelection();
+    // ProcessSelection();
 
     for (Light& light : lights)
     {

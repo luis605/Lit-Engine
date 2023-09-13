@@ -401,6 +401,9 @@ void EntitiesList()
     if (ImGui::ImageButton((ImTextureID)&run_texture, ImVec2(60, 60)))
     {
         cout << "Running Game" << endl;
+
+        entities_list.assign(entities_list_pregame.begin(), entities_list_pregame.end());
+        
         InitGameCamera();
         in_game_preview = true;
     }

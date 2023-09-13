@@ -18,6 +18,7 @@ extern bool showContentArea;
 #define screenWidth    GetScreenWidth()
 #define screenHeight   GetScreenHeight()
 
+std::thread::id mainThreadId;
 
 
 

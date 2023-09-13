@@ -126,6 +126,8 @@ void Startup()
     blurPass = LoadRenderTexture(GetScreenWidth(), GetScreenHeight());
     mixPass = LoadRenderTexture(GetScreenWidth(), GetScreenHeight());
 
+    mainThreadId = std::this_thread::get_id();
+
     #if STRESS_TEST
         InitStressTest();
     #endif
@@ -140,7 +142,7 @@ void EngineMainLoop()
         }
 
         updateEntitiesList(entities_list, entities_list_pregame);
-        
+
         BeginDrawing();
 
         ClearBackground(DARKGRAY);

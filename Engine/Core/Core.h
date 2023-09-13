@@ -35,5 +35,4 @@ RenderTexture brightPass;
 RenderTexture blurPass;
 RenderTexture mixPass;
 
-
 #endif // CORE_H
