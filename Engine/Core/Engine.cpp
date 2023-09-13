@@ -516,9 +516,7 @@ public:
     void initializeDefaultModel() {
         Mesh mesh = GenMeshCube(scale.x, scale.y, scale.z);
         model = LoadModelFromMesh(mesh);
-        if (entity_shader)
-            model.materials[0].shader = *entity_shader;
-        else
+        if (entity_shader == nullptr)
             model.materials[0].shader = shader;
     }
 
@@ -904,78 +902,88 @@ public:
             setPos(position);    
         }
 
-        if (visible)
-        {
+        if (!visible) {
+            return; // Early return if not visible
+        }
 
-            if (hasModel())
-            {
-                Matrix transformMatrix = MatrixIdentity();
-                transformMatrix = MatrixScale(scale.x, scale.y, scale.z);
-                transformMatrix = MatrixMultiply(transformMatrix, MatrixRotateXYZ(rotation));
-                transformMatrix = MatrixMultiply(transformMatrix, MatrixTranslate(position.x, position.y, position.z));
-
-                bounds = GetMeshBoundingBox(model.meshes[0]);
-                
-                bounds.min = Vector3Transform(bounds.min, transformMatrix);
-                bounds.max = Vector3Transform(bounds.max, transformMatrix);
+        if (hasModel()) {
+            if (!inFrustum()) {
+                return; // Early return if not in the frustum
             }
+        }
+        
+        if (hasModel())
+        {
+            Matrix transformMatrix = MatrixIdentity();
+            transformMatrix = MatrixScale(scale.x, scale.y, scale.z);
+            transformMatrix = MatrixMultiply(transformMatrix, MatrixRotateXYZ(rotation));
+            transformMatrix = MatrixMultiply(transformMatrix, MatrixTranslate(position.x, position.y, position.z));
 
+            if (model.meshes != nullptr)
+                bounds = GetMeshBoundingBox(model.meshes[0]);
+            
+            bounds.min = Vector3Transform(bounds.min, transformMatrix);
+            bounds.max = Vector3Transform(bounds.max, transformMatrix);
+        }
+
+
+        if (!instances.empty())
+        {
             PassSurfaceMaterials();
 
-            if (!instances.empty())
-            {
-                glUseProgram((GLuint)instancing_shader.id);
+            glUseProgram((GLuint)instancing_shader.id);
 
-                bool normalMapInit = !normal_texture_path.empty();
-                glUniform1i(glGetUniformLocation((GLuint)instancing_shader.id, "normalMapInit"), normalMapInit);
+            bool normalMapInit = !normal_texture_path.empty();
+            glUniform1i(glGetUniformLocation((GLuint)instancing_shader.id, "normalMapInit"), normalMapInit);
 
-                bool roughnessMapInit = !roughness_texture_path.empty();
-                glUniform1i(glGetUniformLocation((GLuint)instancing_shader.id, "roughnessMapInit"), roughnessMapInit);
+            bool roughnessMapInit = !roughness_texture_path.empty();
+            glUniform1i(glGetUniformLocation((GLuint)instancing_shader.id, "roughnessMapInit"), roughnessMapInit);
 
-                matInstances = LoadMaterialDefault();
+            static Material matInstances;
+            static bool materialUpdated = false;
 
-                instancing_shader.locs[SHADER_LOC_MATRIX_MVP] = GetShaderLocation(instancing_shader, "mvp");
-                instancing_shader.locs[SHADER_LOC_VECTOR_VIEW] = GetShaderLocation(instancing_shader, "viewPos");
-                instancing_shader.locs[SHADER_LOC_MATRIX_MODEL] = GetShaderLocationAttrib(instancing_shader, "instanceTransform");
+            instancing_shader.locs[SHADER_LOC_MATRIX_MVP] = GetShaderLocation(instancing_shader, "mvp");
+            instancing_shader.locs[SHADER_LOC_VECTOR_VIEW] = GetShaderLocation(instancing_shader, "viewPos");
+            instancing_shader.locs[SHADER_LOC_MATRIX_MODEL] = GetShaderLocationAttrib(instancing_shader, "instanceTransform");
 
+            if (!materialUpdated) {
                 model.materials[0].maps[MATERIAL_MAP_DIFFUSE].color = {
+                    static_cast<int>(surface_material.color.x * 255),
+                    static_cast<int>(surface_material.color.y * 255),
+                    static_cast<int>(surface_material.color.z * 255),
+                    static_cast<int>(surface_material.color.w * 255)
+                };
+                materialUpdated = true;
+            }
+            
+            DrawMeshInstanced(model.meshes[0], model.materials[0], transforms, instances.size());
+        }
+        else
+        {
+            PassSurfaceMaterials();
+            
+            ReloadTextures();
+            glUseProgram((GLuint)shader.id);
+
+            bool normalMapInit = !normal_texture_path.empty();
+            glUniform1i(glGetUniformLocation((GLuint)shader.id, "normalMapInit"), normalMapInit);
+
+            bool roughnessMapInit = !roughness_texture_path.empty();
+            glUniform1i(glGetUniformLocation((GLuint)shader.id, "roughnessMapInit"), roughnessMapInit);
+
+            DrawModelEx(
+                model, 
+                position, 
+                rotation, 
+                GetExtremeValue(rotation), 
+                scale, 
+                (Color) {
                     surface_material.color.x * 255,
                     surface_material.color.y * 255,
                     surface_material.color.z * 255,
                     surface_material.color.w * 255,
-                };
-
-                DrawMeshInstanced(model.meshes[0], model.materials[0], transforms, instances.size());
-            }
-            else
-            {
-                if (hasModel())
-                    if (!inFrustum())
-                        return;
-
-                ReloadTextures();
-                glUseProgram((GLuint)shader.id);
-
-                bool normalMapInit = !normal_texture_path.empty();
-                glUniform1i(glGetUniformLocation((GLuint)shader.id, "normalMapInit"), normalMapInit);
-
-                bool roughnessMapInit = !roughness_texture_path.empty();
-                glUniform1i(glGetUniformLocation((GLuint)shader.id, "roughnessMapInit"), roughnessMapInit);
-
-                DrawModelEx(
-                    model, 
-                    position, 
-                    rotation, 
-                    GetExtremeValue(rotation), 
-                    scale, 
-                    (Color) {
-                        surface_material.color.x * 255,
-                        surface_material.color.y * 255,
-                        surface_material.color.z * 255,
-                        surface_material.color.w * 255,
-                    }
-                );
-            }
+                }
+            );
         }
     }
 
@@ -1129,23 +1137,23 @@ bool operator==(const Entity& e, const Entity* ptr) {
     
 
 void updateEntitiesList(std::vector<Entity>& entities_list, const std::vector<Entity>& entities_list_pregame) {
-    std::unordered_map<int, Entity> entityMap;
+    // std::unordered_map<int, Entity> entityMap;
 
-    // Create a map of entity IDs to entities in entities_list
-    for (const Entity& entity : entities_list) {
-        entityMap[entity.id] = entity;
-    }
+    // // Create a map of entity IDs to entities in entities_list
+    // for (const Entity& entity : entities_list) {
+    //     entityMap[entity.id] = entity;
+    // }
 
-    // Update entities_list by adding new entities and removing entities not in entities_list_pregame
-    for (const Entity& pregameEntity : entities_list_pregame) {
-        entityMap[pregameEntity.id] = pregameEntity;
-    }
+    // // Update entities_list by adding new entities and removing entities not in entities_list_pregame
+    // for (const Entity& pregameEntity : entities_list_pregame) {
+    //     entityMap[pregameEntity.id] = pregameEntity;
+    // }
 
-    // Clear entities_list and insert entities from the map
-    entities_list.clear();
-    for (const auto& pair : entityMap) {
-        entities_list.push_back(pair.second);
-    }
+    // // Clear entities_list and insert entities from the map
+    // entities_list.clear();
+    // for (const auto& pair : entityMap) {
+    //     entities_list.push_back(pair.second);
+    // }
 }
 
 HitInfo raycast(LitVector3 origin, LitVector3 direction, bool debug=false, std::vector<Entity> ignore = {})
