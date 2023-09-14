@@ -142,6 +142,7 @@ void EngineMainLoop()
         }
 
         updateEntitiesList(entities_list, entities_list_pregame);
+        UpdateLightsBuffer();
 
         BeginDrawing();
 

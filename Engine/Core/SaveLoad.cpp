@@ -102,11 +102,11 @@ void SerializeMaterial(SurfaceMaterial& material, const char* path)
 {
     json j;
     j["color"] = material.color;
-    j["diffuse_texture_path"] = material.diffuse_texture_path;
-    j["specular_texture_path"] = material.specular_texture_path;
-    j["normal_texture_path"] = material.normal_texture_path;
-    j["roughness_texture_path"] = material.roughness_texture_path;
-    j["ao_texture_path"] = material.ao_texture_path;
+    // j["diffuse_texture_path"] = material.diffuse_texture_path;
+    // j["specular_texture_path"] = material.specular_texture_path;
+    // j["normal_texture_path"] = material.normal_texture_path;
+    // j["roughness_texture_path"] = material.roughness_texture_path;
+    // j["ao_texture_path"] = material.ao_texture_path;
     j["shininess"] = material.shininess;
     j["specular_intensity"] = material.SpecularIntensity;
     j["roughness"] = material.Roughness;
@@ -143,32 +143,32 @@ void DeserializeMaterial(SurfaceMaterial* material, const char* path) {
         if (j.contains("color")) {
             material->color = j["color"];
         }
-        // Clear default values or initialize them if necessary
-        material->diffuse_texture_path.clear();
-        material->specular_texture_path.clear();
-        material->normal_texture_path.clear();
-        material->roughness_texture_path.clear();
-        material->ao_texture_path.clear();
+        // // Clear default values or initialize them if necessary
+        // material->diffuse_texture_path.clear();
+        // material->specular_texture_path.clear();
+        // material->normal_texture_path.clear();
+        // material->roughness_texture_path.clear();
+        // material->ao_texture_path.clear();
         material->shininess = 0.0f;
         material->SpecularIntensity = 0.0f;
         material->Roughness = 0.0f;
         material->DiffuseIntensity = 0.0f;
 
-        if (j.contains("diffuse_texture_path")) {
-            material->diffuse_texture_path = j["diffuse_texture_path"].get<std::string>();
-        }
-        if (j.contains("specular_texture_path")) {
-            material->specular_texture_path = j["specular_texture_path"].get<std::string>();
-        }
-        if (j.contains("normal_texture_path")) {
-            material->normal_texture_path = j["normal_texture_path"].get<std::string>();
-        }
-        if (j.contains("roughness_texture_path")) {
-            material->roughness_texture_path = j["roughness_texture_path"].get<std::string>();
-        }
-        if (j.contains("ao_texture_path")) {
-            material->ao_texture_path = j["ao_texture_path"].get<std::string>();
-        }
+        // if (j.contains("diffuse_texture_path")) {
+        //     material->diffuse_texture_path = j["diffuse_texture_path"].get<std::string>();
+        // }
+        // if (j.contains("specular_texture_path")) {
+        //     material->specular_texture_path = j["specular_texture_path"].get<std::string>();
+        // }
+        // if (j.contains("normal_texture_path")) {
+        //     material->normal_texture_path = j["normal_texture_path"].get<std::string>();
+        // }
+        // if (j.contains("roughness_texture_path")) {
+        //     material->roughness_texture_path = j["roughness_texture_path"].get<std::string>();
+        // }
+        // if (j.contains("ao_texture_path")) {
+        //     material->ao_texture_path = j["ao_texture_path"].get<std::string>();
+        // }
         if (j.contains("shininess")) {
             material->shininess = j["shininess"];
         }
@@ -464,7 +464,7 @@ void LoadEntity(const json& entity_json, Entity& entity) {
         if (!IsTextureReady(diffuse_texture)) // Means it is a video or an unsupported format
         {            
             entity.texture_path = texture_path;
-            entity.texture = std::make_unique<VideoPlayer>("project/game/abc.avi");
+            entity.texture = std::make_unique<VideoPlayer>(texture_path.c_str());
         }
         else
         {
