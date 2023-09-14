@@ -906,26 +906,6 @@ public:
             return; // Early return if not visible
         }
 
-        if (hasModel()) {
-            if (!inFrustum()) {
-                return; // Early return if not in the frustum
-            }
-        }
-        
-        if (hasModel())
-        {
-            Matrix transformMatrix = MatrixIdentity();
-            transformMatrix = MatrixScale(scale.x, scale.y, scale.z);
-            transformMatrix = MatrixMultiply(transformMatrix, MatrixRotateXYZ(rotation));
-            transformMatrix = MatrixMultiply(transformMatrix, MatrixTranslate(position.x, position.y, position.z));
-
-            if (model.meshes != nullptr)
-                bounds = GetMeshBoundingBox(model.meshes[0]);
-            
-            bounds.min = Vector3Transform(bounds.min, transformMatrix);
-            bounds.max = Vector3Transform(bounds.max, transformMatrix);
-        }
-
 
         if (!instances.empty())
         {
@@ -939,27 +919,45 @@ public:
             bool roughnessMapInit = !roughness_texture_path.empty();
             glUniform1i(glGetUniformLocation((GLuint)instancing_shader.id, "roughnessMapInit"), roughnessMapInit);
 
-            static Material matInstances;
-            static bool materialUpdated = false;
+            matInstances = LoadMaterialDefault();
 
             instancing_shader.locs[SHADER_LOC_MATRIX_MVP] = GetShaderLocation(instancing_shader, "mvp");
             instancing_shader.locs[SHADER_LOC_VECTOR_VIEW] = GetShaderLocation(instancing_shader, "viewPos");
             instancing_shader.locs[SHADER_LOC_MATRIX_MODEL] = GetShaderLocationAttrib(instancing_shader, "instanceTransform");
 
-            if (!materialUpdated) {
-                model.materials[0].maps[MATERIAL_MAP_DIFFUSE].color = {
-                    static_cast<int>(surface_material.color.x * 255),
-                    static_cast<int>(surface_material.color.y * 255),
-                    static_cast<int>(surface_material.color.z * 255),
-                    static_cast<int>(surface_material.color.w * 255)
-                };
-                materialUpdated = true;
-            }
-            
+            model.materials[0].maps[MATERIAL_MAP_DIFFUSE].color = {
+                surface_material.color.x * 255,
+                surface_material.color.y * 255,
+                surface_material.color.z * 255,
+                surface_material.color.w * 255,
+            };
+
             DrawMeshInstanced(model.meshes[0], model.materials[0], transforms, instances.size());
         }
         else
         {
+
+            if (hasModel()) {
+                if (!inFrustum()) {
+                    return; // Early return if not in the frustum
+                }
+            }
+            
+            if (hasModel())
+            {
+                Matrix transformMatrix = MatrixIdentity();
+                transformMatrix = MatrixScale(scale.x, scale.y, scale.z);
+                transformMatrix = MatrixMultiply(transformMatrix, MatrixRotateXYZ(rotation));
+                transformMatrix = MatrixMultiply(transformMatrix, MatrixTranslate(position.x, position.y, position.z));
+
+                if (model.meshes != nullptr)
+                    bounds = GetMeshBoundingBox(model.meshes[0]);
+                
+                bounds.min = Vector3Transform(bounds.min, transformMatrix);
+                bounds.max = Vector3Transform(bounds.max, transformMatrix);
+            }
+
+
             PassSurfaceMaterials();
             
             ReloadTextures();

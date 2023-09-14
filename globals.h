@@ -19,7 +19,7 @@ extern bool showContentArea;
 #define screenHeight   GetScreenHeight()
 
 std::thread::id mainThreadId;
-
+bool bloomEnabled = true;
 
 
 #ifdef __cplusplus

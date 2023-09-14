@@ -295,7 +295,7 @@ void RenderScene()
 
     SetShaderValueMatrix(shader, GetShaderLocation(shader, "cameraMatrix"), GetCameraMatrix(scene_camera));
 
-    // ProcessSelection();
+    ProcessSelection();
 
     for (Light& light : lights)
     {
@@ -357,67 +357,71 @@ void RenderScene()
     EndTextureMode();
 
 
+    if (bloomEnabled)
+    {
+        BeginTextureMode(brightPass);
+        BeginShaderMode(brightPassShader);
+            SetShaderValueTexture(brightPassShader, GetShaderLocation(brightPassShader, "colorTexture"), texture);
+
+            Rectangle sourceRec = { 0, 0, texture.width, -texture.height };
+            Rectangle destRec = { 0, 0, texture.width, texture.height };
+            Vector2 origin = { 0, 0 };
+
+            // Draw the texture with the modified sourceRec
+            DrawTexturePro(texture, sourceRec, destRec, origin, 0, WHITE);
 
 
-    BeginTextureMode(brightPass);
-    BeginShaderMode(brightPassShader);
-        SetShaderValueTexture(brightPassShader, GetShaderLocation(brightPassShader, "colorTexture"), texture);
-
-        Rectangle sourceRec = { 0, 0, texture.width, -texture.height };
-        Rectangle destRec = { 0, 0, texture.width, texture.height };
-        Vector2 origin = { 0, 0 };
-
-        // Draw the texture with the modified sourceRec
-        DrawTexturePro(texture, sourceRec, destRec, origin, 0, WHITE);
+        EndShaderMode();
+        EndTextureMode();
 
 
-    EndShaderMode();
-    EndTextureMode();
+        BeginTextureMode(blurPass);
+        BeginShaderMode(blurShader);
+
+            SetShaderValueTexture(blurShader, GetShaderLocation(blurShader, "screenTexture"), brightPass.texture);
+
+            // Draw a full-screen quad to apply the blur effect
+            DrawTexture(brightPass.texture, 0, 0, WHITE);
+
+        EndShaderMode();
+        EndTextureMode();
 
 
-    BeginTextureMode(blurPass);
-    BeginShaderMode(blurShader);
+        BeginTextureMode(blurPass);
+        BeginShaderMode(blurShader);
+            bool true_var = true;
+            SetShaderValueTexture(blurShader, GetShaderLocation(blurShader, "screenTexture"), brightPass.texture);
+            SetShaderValue(blurShader, GetShaderLocation(blurShader, "horizontal"), &true_var, SHADER_UNIFORM_INT);
+            // Draw a full-screen quad to apply the blur effect
+            DrawTexture(mixPass.texture, 0, 0, WHITE);
 
-        SetShaderValueTexture(blurShader, GetShaderLocation(blurShader, "screenTexture"), brightPass.texture);
-
-        // Draw a full-screen quad to apply the blur effect
-        DrawTexture(brightPass.texture, 0, 0, WHITE);
-
-    EndShaderMode();
-    EndTextureMode();
-
-
-    BeginTextureMode(blurPass);
-    BeginShaderMode(blurShader);
-        bool true_var = true;
-        SetShaderValueTexture(blurShader, GetShaderLocation(blurShader, "screenTexture"), brightPass.texture);
-        SetShaderValue(blurShader, GetShaderLocation(blurShader, "horizontal"), &true_var, SHADER_UNIFORM_INT);
-        // Draw a full-screen quad to apply the blur effect
-        DrawTexture(mixPass.texture, 0, 0, WHITE);
-
-    EndShaderMode();
-    EndTextureMode();
+        EndShaderMode();
+        EndTextureMode();
 
 
-    RenderTexture flipped_texture = LoadRenderTexture(GetScreenWidth(), GetScreenHeight());
-    BeginTextureMode(flipped_texture);
-        sourceRec = { 0, 0, texture.width, texture.height };
-        DrawTexturePro(texture, sourceRec, destRec, origin, 0, WHITE);
+        RenderTexture flipped_texture = LoadRenderTexture(GetScreenWidth(), GetScreenHeight());
+        BeginTextureMode(flipped_texture);
+            sourceRec = { 0, 0, texture.width, texture.height };
+            DrawTexturePro(texture, sourceRec, destRec, origin, 0, WHITE);
 
-    EndTextureMode();
-
-
-    BeginTextureMode(mixPass);
-    BeginShaderMode(mixShader);
-        SetShaderValueTexture(mixShader, GetShaderLocation(mixShader, "scene"), flipped_texture.texture);
-        SetShaderValueTexture(mixShader, GetShaderLocation(mixShader, "bloomBlur"), blurPass.texture);
-        DrawTexture(texture,0,0,WHITE);
-    EndShaderMode();
-    EndTextureMode();
-    UnloadRenderTexture(flipped_texture);
+        EndTextureMode();
 
 
-    DrawTextureOnRectangle(&mixPass.texture);
+        BeginTextureMode(mixPass);
+        BeginShaderMode(mixShader);
+            SetShaderValueTexture(mixShader, GetShaderLocation(mixShader, "scene"), flipped_texture.texture);
+            SetShaderValueTexture(mixShader, GetShaderLocation(mixShader, "bloomBlur"), blurPass.texture);
+            DrawTexture(texture,0,0,WHITE);
+        EndShaderMode();
+        EndTextureMode();
+        UnloadRenderTexture(flipped_texture);
+    
+        DrawTextureOnRectangle(&mixPass.texture);
+    }
+    else
+    {
+        DrawTextureOnRectangle(&texture);
+    }
 }
 
 void DropEntity()

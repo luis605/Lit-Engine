@@ -42,6 +42,10 @@ void Inspector()
         ButtonInspector();
     else if (selected_game_object_type == "material")
         MaterialInspector();
+    else
+    {
+        WorldInspector();
+    }
 
     ShowTexture();
     MaterialsNodeEditor();

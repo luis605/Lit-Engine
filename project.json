@@ -1,5 +1,53 @@
 [
     {
+        "children": [
+            [
+                {
+                    "id": 1423728792,
+                    "is_dynamic": false,
+                    "mass": 1.0,
+                    "material_path": "",
+                    "model_path": "assets/models/tree.obj",
+                    "name": "Unnamed Entity",
+                    "normal_texture_path": "",
+                    "position": {
+                        "x": 0.0,
+                        "y": 0.0,
+                        "z": 1.8999993801116943
+                    },
+                    "relative_position": {
+                        "x": 0.0,
+                        "y": 0.0,
+                        "z": -10.0
+                    },
+                    "rotation": {
+                        "x": 0.0,
+                        "y": 0.0,
+                        "z": 0.0
+                    },
+                    "roughness_texture_path": "",
+                    "scale": {
+                        "x": 1.0,
+                        "y": 1.0,
+                        "z": 1.0
+                    },
+                    "script_path": "",
+                    "surface_material": {
+                        "DiffuseIntensity": 0.5,
+                        "Roughness": 0.5,
+                        "SpecularIntensity": 0.5,
+                        "SpecularTint": {
+                            "x": 1.0,
+                            "y": 1.0,
+                            "z": 1.0
+                        },
+                        "shininess": 0.5
+                    },
+                    "texture_path": "",
+                    "type": "entity"
+                }
+            ]
+        ],
         "id": 1423728791,
         "is_dynamic": false,
         "mass": 1.0,
@@ -10,7 +58,7 @@
         "position": {
             "x": 0.0,
             "y": 0.0,
-            "z": 0.0
+            "z": 11.899999618530273
         },
         "relative_position": {
             "x": 0.0,
@@ -57,7 +105,7 @@
             "y": 0.4000000059604645,
             "z": -0.4000000059604645
         },
-        "id": 1216844032,
+        "id": 162677088,
         "intensity": 0.5,
         "isChild": false,
         "light_type": 1,
@@ -94,11 +142,11 @@
             "y": 0.4000000059604645,
             "z": -0.4000000059604645
         },
-        "id": 3,
+        "id": 162677088,
         "intensity": 0.5,
         "isChild": false,
         "light_type": 1,
-        "name": "Light",
+        "name": "",
         "position": {
             "x": 4.0,
             "y": 4.0,
@@ -131,11 +179,11 @@
             "y": 0.4000000059604645,
             "z": -0.4000000059604645
         },
-        "id": 4,
+        "id": 162677088,
         "intensity": 0.5,
         "isChild": false,
         "light_type": 1,
-        "name": "Light",
+        "name": "",
         "position": {
             "x": 4.0,
             "y": 4.0,
@@ -168,11 +216,11 @@
             "y": 0.4000000059604645,
             "z": -0.4000000059604645
         },
-        "id": 5,
+        "id": 162677088,
         "intensity": 0.5,
         "isChild": false,
         "light_type": 1,
-        "name": "Light",
+        "name": "",
         "position": {
             "x": 4.0,
             "y": 4.0,
@@ -205,11 +253,11 @@
             "y": 0.4000000059604645,
             "z": -0.4000000059604645
         },
-        "id": 6,
+        "id": 162677088,
         "intensity": 0.5,
         "isChild": false,
         "light_type": 1,
-        "name": "Light",
+        "name": "",
         "position": {
             "x": 4.0,
             "y": 4.0,
@@ -242,11 +290,11 @@
             "y": 0.4000000059604645,
             "z": -0.4000000059604645
         },
-        "id": 7,
+        "id": 162677088,
         "intensity": 0.5,
         "isChild": false,
         "light_type": 1,
-        "name": "Light",
+        "name": "",
         "position": {
             "x": 4.0,
             "y": 4.0,
@@ -279,11 +327,11 @@
             "y": 0.4000000059604645,
             "z": -0.4000000059604645
         },
-        "id": 8,
+        "id": 162677088,
         "intensity": 0.5,
         "isChild": false,
         "light_type": 1,
-        "name": "Light",
+        "name": "",
         "position": {
             "x": 4.0,
             "y": 4.0,
@@ -316,11 +364,11 @@
             "y": 0.4000000059604645,
             "z": -0.4000000059604645
         },
-        "id": 9,
+        "id": 162677088,
         "intensity": 0.5,
         "isChild": false,
         "light_type": 1,
-        "name": "Light",
+        "name": "",
         "position": {
             "x": 4.0,
             "y": 4.0,
@@ -353,11 +401,11 @@
             "y": 0.4000000059604645,
             "z": -0.4000000059604645
         },
-        "id": 10,
+        "id": 162677088,
         "intensity": 0.5,
         "isChild": false,
         "light_type": 1,
-        "name": "Light",
+        "name": "",
         "position": {
             "x": 4.0,
             "y": 4.0,
@@ -390,11 +438,11 @@
             "y": 0.4000000059604645,
             "z": -0.4000000059604645
         },
-        "id": 11,
+        "id": 162677088,
         "intensity": 0.5,
         "isChild": false,
         "light_type": 1,
-        "name": "Light",
+        "name": "",
         "position": {
             "x": 4.0,
             "y": 4.0,
@@ -427,11 +475,11 @@
             "y": 0.4000000059604645,
             "z": -0.4000000059604645
         },
-        "id": 12,
+        "id": 162677088,
         "intensity": 0.5,
         "isChild": false,
         "light_type": 1,
-        "name": "Light",
+        "name": "",
         "position": {
             "x": 4.0,
             "y": 4.0,
@@ -464,11 +512,11 @@
             "y": 0.4000000059604645,
             "z": -0.4000000059604645
         },
-        "id": 13,
+        "id": 162677088,
         "intensity": 0.5,
         "isChild": false,
         "light_type": 1,
-        "name": "Light",
+        "name": "",
         "position": {
             "x": 4.0,
             "y": 4.0,
@@ -501,11 +549,11 @@
             "y": 0.4000000059604645,
             "z": -0.4000000059604645
         },
-        "id": 14,
+        "id": 162677088,
         "intensity": 0.5,
         "isChild": false,
         "light_type": 1,
-        "name": "Light",
+        "name": "",
         "position": {
             "x": 4.0,
             "y": 4.0,
@@ -538,11 +586,11 @@
             "y": 0.4000000059604645,
             "z": -0.4000000059604645
         },
-        "id": 15,
+        "id": 162677088,
         "intensity": 0.5,
         "isChild": false,
         "light_type": 1,
-        "name": "Light",
+        "name": "",
         "position": {
             "x": 4.0,
             "y": 4.0,
@@ -575,11 +623,11 @@
             "y": 0.4000000059604645,
             "z": -0.4000000059604645
         },
-        "id": 16,
+        "id": 162677088,
         "intensity": 0.5,
         "isChild": false,
         "light_type": 1,
-        "name": "Light",
+        "name": "",
         "position": {
             "x": 4.0,
             "y": 4.0,
@@ -612,11 +660,11 @@
             "y": 0.4000000059604645,
             "z": -0.4000000059604645
         },
-        "id": 17,
+        "id": 162677088,
         "intensity": 0.5,
         "isChild": false,
         "light_type": 1,
-        "name": "Light",
+        "name": "",
         "position": {
             "x": 4.0,
             "y": 4.0,
@@ -649,11 +697,11 @@
             "y": 0.4000000059604645,
             "z": -0.4000000059604645
         },
-        "id": 18,
+        "id": 162677088,
         "intensity": 0.5,
         "isChild": false,
         "light_type": 1,
-        "name": "Light",
+        "name": "",
         "position": {
             "x": 4.0,
             "y": 4.0,
@@ -686,11 +734,11 @@
             "y": 0.4000000059604645,
             "z": -0.4000000059604645
         },
-        "id": 19,
+        "id": 162677088,
         "intensity": 0.5,
         "isChild": false,
         "light_type": 1,
-        "name": "Light",
+        "name": "",
         "position": {
             "x": 4.0,
             "y": 4.0,
@@ -723,11 +771,11 @@
             "y": 0.4000000059604645,
             "z": -0.4000000059604645
         },
-        "id": 20,
+        "id": 162677088,
         "intensity": 0.5,
         "isChild": false,
         "light_type": 1,
-        "name": "Light",
+        "name": "",
         "position": {
             "x": 4.0,
             "y": 4.0,
@@ -760,11 +808,11 @@
             "y": 0.4000000059604645,
             "z": -0.4000000059604645
         },
-        "id": 21,
+        "id": 162677088,
         "intensity": 0.5,
         "isChild": false,
         "light_type": 1,
-        "name": "Light",
+        "name": "",
         "position": {
             "x": 4.0,
             "y": 4.0,
@@ -797,11 +845,11 @@
             "y": 0.4000000059604645,
             "z": -0.4000000059604645
         },
-        "id": 22,
+        "id": 162677088,
         "intensity": 0.5,
         "isChild": false,
         "light_type": 1,
-        "name": "Light",
+        "name": "",
         "position": {
             "x": 4.0,
             "y": 4.0,
