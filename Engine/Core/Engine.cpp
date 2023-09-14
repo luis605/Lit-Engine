@@ -578,9 +578,9 @@ public:
         model.materials[0].shader = default_shader;
 
         if (isDynamic) {
-            createDynamicBox(scale.x, scale.y, scale.z);
+            makePhysicsDynamic();
         } else {
-            createStaticBox(scale.x, scale.y, scale.z);
+            makePhysicsStatic();
         }
 
         ReloadTextures();
@@ -731,7 +731,10 @@ public:
     }
 
     void calcPhysicsPosition() {
-        if (isDynamic && boxRigidBody != nullptr) {    
+        if (isDynamic) {
+            if (boxRigidBody == nullptr)
+                createDynamicBox(scale.x, scale.y, scale.z);
+            
             btTransform trans;
             if (boxRigidBody->getMotionState()) {
                 boxRigidBody->getMotionState()->getWorldTransform(trans);
@@ -787,11 +790,9 @@ public:
                 dynamicsWorld->removeRigidBody(boxRigidBody);
 
                 delete dynamicBoxShape;
-                delete boxRigidBody;
                 delete boxMotionState;
 
                 dynamicBoxShape = nullptr;
-                boxRigidBody = nullptr;
                 boxMotionState = nullptr;
 
                 isDynamic = false;
@@ -814,10 +815,6 @@ public:
             btDefaultMotionState *groundMotionState = new btDefaultMotionState(groundTransform);
             btRigidBody::btRigidBodyConstructionInfo groundRigidBodyCI(0, groundMotionState, staticBoxShape, btVector3(0, 0, 0));
             boxRigidBody = new btRigidBody(groundRigidBodyCI);
-
-            
-            
-            
 
             dynamicsWorld->addRigidBody(boxRigidBody);
         }
@@ -846,11 +843,12 @@ public:
         btRigidBody::btRigidBodyConstructionInfo boxRigidBodyCI(btMass, boxMotionState, dynamicBoxShape, localInertia);
         boxRigidBody = new btRigidBody(boxRigidBodyCI);
 
-        
-        
-        
+        // Set additional properties for the rigid body, if needed
+        // boxRigidBody->setFriction(...);
+        // boxRigidBody->setRestitution(...);
 
         dynamicsWorld->addRigidBody(boxRigidBody);
+        std::cout << "Rigid BODY CREATED" << std::endl;
     }
 
     void makePhysicsDynamic() {
@@ -900,6 +898,7 @@ public:
         else
         {
             setPos(position);    
+            updateMass();
         }
 
         if (!visible) {
