@@ -23,9 +23,6 @@ uniform sampler2D texture3;
 
 uniform sampler2D texture4;
 
-// Fog
-vec4 fogColor = vec4(1, 0.6, 0.6, 1);
-
 // Lights
 #define LIGHT_DIRECTIONAL 0
 #define LIGHT_POINT 1
@@ -45,9 +42,6 @@ struct Light
     float cutOff;
     bool isChild;
     vec3 direction;
-    // Spot
-    float spread;
-    float penumbraFactor;
 };
 
 layout(std430, binding = 0) buffer LightsBuffer
@@ -222,6 +216,7 @@ void main() {
 
             result += vec4(diffuseTerm * spot * light.intensity * attenuation * energyFactor) + vec4(colDiffuse.rgb * ambient.rgb, 1);
         }
+
 
     }
 
