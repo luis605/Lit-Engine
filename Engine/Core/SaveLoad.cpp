@@ -431,6 +431,7 @@ void LoadEntity(const json& entity_json, Entity& entity) {
     entity.isDynamic = entity_json["is_dynamic"].get<bool>();
     entity.mass = entity_json["mass"].get<float>();
 
+    entity.reloadRigidBody();
 
 
 

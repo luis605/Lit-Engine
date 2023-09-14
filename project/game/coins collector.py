@@ -15,12 +15,14 @@ rotation_angle = 45.0  # Angle in degrees for rotation
 def update():
     global velocity, dragging_item, hovered_entity, yaw, pitch
 
+
     camera_direction = camera.front * time.dt * velocity
     camera_direction.y = 0
 
     DeltaTimeVec3 = Vector3(time.dt, time.dt, time.dt)
 
     if IsKeyDown(KeyboardKey.KEY_W):
+        print("Forward")
         entity.applyImpulse(camera_direction)
 
     if IsKeyDown(KeyboardKey.KEY_S):
@@ -84,3 +86,6 @@ def update():
     if IsKeyDown(KeyboardKey.KEY_Z) and dragging_item:
         # Rotate the dragged item around the Z-axis
         dragging_item.rotation = Vector3(0, 0, rotation_angle)
+
+
+
