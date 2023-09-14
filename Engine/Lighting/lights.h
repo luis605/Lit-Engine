@@ -60,11 +60,7 @@ typedef struct Light
     float intensity = 0.5;
     float specularStrength = 0.5;
     float cutOff = 10;
-    
-    // Spot
-	float spread;
-	float penumbraFactor;
-    
+        
     // Others
     bool isChild;
     alignas(16) glm::vec3 direction = {0.4, 0.4, -0.4};
