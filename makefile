@@ -30,9 +30,9 @@ endef
 
 CXXFLAGS = -g -pipe -flto -fuse-ld=gold -std=c++17 -fpermissive -w -Wall -DNDEBUG -O0
 SRC_FILES = main.cpp ImGuiColorTextEdit/TextEditor.o include/rlImGui.o ImNodes/ImNodes.o ImNodes/ImNodesEz.o
-INCLUDE_DIRS = -I./include -I./ImGuiColorTextEdit -I/usr/local/lib -L/usr/lib/x86_64-linux-gnu/ -L/usr/local/lib -I./include/nlohmann -I./imgui -L/include/bullet3/src
+INCLUDE_DIRS = -I./include -I./ImGuiColorTextEdit -I/usr/local/lib -L/usr/lib/x86_64-linux-gnu/ -L/usr/local/lib -I./include/nlohmann -I./imgui -L/include/bullet3/src -I./ufbx
 LIB_FLAGS = -L./include -lboost_filesystem -lraylib -lpython3.11 -fPIC `python3.11 -m pybind11 --includes` -ldl -lBulletDynamics -lBulletCollision -lLinearMath -I./include/bullet3/src
-LIB_FLAGS += -lraylib -lavformat -lavcodec -lavutil -lswscale -lz -lm -lpthread
+LIB_FLAGS += -lraylib -lavformat -lavcodec -lavutil -lswscale -lz -lm -lpthread -ldrm
 
 
 IMGUI_OBJECTS = $(patsubst imgui/%.cpp, imgui/%.o, $(wildcard imgui/*.cpp))
@@ -74,7 +74,7 @@ tests:
 	@./tests.out
 
 sandbox:
-	@ccache g++ $(CXXFLAGS) sandbox.cpp include/rlImGui.o $(INCLUDE_DIRS) $(IMGUI_OBJECTS) $(LIB_FLAGS) -o sandbox.out
+	@ccache g++ $(CXXFLAGS) sandbox.cpp ufbx/ufbx.c $(INCLUDE_DIRS) $(IMGUI_OBJECTS) $(LIB_FLAGS) -o sandbox.out
 	@./sandbox.out
 
 build_dependencies: $(IMGUI_OBJECTS)

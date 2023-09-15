@@ -24,7 +24,7 @@
         },
         "roughness_texture_path": "",
         "scale": {
-            "x": 98.70001983642578,
+            "x": 99.20001220703125,
             "y": 0.10000000149011612,
             "z": 100.0
         },
@@ -140,7 +140,7 @@
         "name": "wall",
         "normal_texture_path": "",
         "position": {
-            "x": 0.0,
+            "x": -15.0,
             "y": 5.0,
             "z": 11.600000381469727
         },
@@ -156,7 +156,7 @@
         },
         "roughness_texture_path": "",
         "scale": {
-            "x": 35.0,
+            "x": 40.0,
             "y": 5.0,
             "z": 1.0
         },
@@ -179,7 +179,7 @@
         "id": 1436442486,
         "is_dynamic": false,
         "mass": 1.0,
-        "material_path": "",
+        "material_path": "project/game/file3.mat",
         "model_path": "project/game/models/cube.obj",
         "name": "wall",
         "normal_texture_path": "",
@@ -267,7 +267,7 @@
         "id": 1436442486,
         "is_dynamic": false,
         "mass": 1.0,
-        "material_path": "",
+        "material_path": "project/game/file2.mat",
         "model_path": "project/game/models/cube.obj",
         "name": "wall",
         "normal_texture_path": "",
@@ -360,9 +360,9 @@
         "name": "wall",
         "normal_texture_path": "",
         "position": {
-            "x": -9.100005149841309,
+            "x": -11.000004768371582,
             "y": 5.0,
-            "z": -25.899974822998047
+            "z": -38.650001525878906
         },
         "relative_position": {
             "x": 0.0,
@@ -376,7 +376,7 @@
         },
         "roughness_texture_path": "",
         "scale": {
-            "x": 7.0,
+            "x": 20.20000457763672,
             "y": 5.0,
             "z": 1.0
         },
@@ -448,7 +448,139 @@
         "name": "wall",
         "normal_texture_path": "",
         "position": {
-            "x": -17.70003318786621,
+            "x": -18.199989318847656,
+            "y": 5.0,
+            "z": -57.59996032714844
+        },
+        "relative_position": {
+            "x": 0.0,
+            "y": 0.0,
+            "z": 0.0
+        },
+        "rotation": {
+            "x": 0.0,
+            "y": 0.0,
+            "z": 0.0
+        },
+        "roughness_texture_path": "",
+        "scale": {
+            "x": 6.0,
+            "y": 5.0,
+            "z": 1.2000000476837158
+        },
+        "script_path": "",
+        "surface_material": {
+            "DiffuseIntensity": 0.5,
+            "Roughness": 0.5,
+            "SpecularIntensity": 0.5,
+            "SpecularTint": {
+                "x": 1.0,
+                "y": 1.0,
+                "z": 1.0
+            },
+            "shininess": 0.5
+        },
+        "texture_path": "",
+        "type": "entity"
+    },
+    {
+        "id": 1436442486,
+        "is_dynamic": false,
+        "mass": 1.0,
+        "material_path": "",
+        "model_path": "project/game/models/cube.obj",
+        "name": "wall",
+        "normal_texture_path": "",
+        "position": {
+            "x": -34.0,
+            "y": 5.0,
+            "z": -13.0
+        },
+        "relative_position": {
+            "x": 0.0,
+            "y": 0.0,
+            "z": 0.0
+        },
+        "rotation": {
+            "x": 0.0,
+            "y": 0.0,
+            "z": 0.0
+        },
+        "roughness_texture_path": "",
+        "scale": {
+            "x": 1.0,
+            "y": 5.0,
+            "z": 8.0
+        },
+        "script_path": "",
+        "surface_material": {
+            "DiffuseIntensity": 0.5,
+            "Roughness": 0.5,
+            "SpecularIntensity": 0.5,
+            "SpecularTint": {
+                "x": 1.0,
+                "y": 1.0,
+                "z": 1.0
+            },
+            "shininess": 0.5
+        },
+        "texture_path": "",
+        "type": "entity"
+    },
+    {
+        "id": 1436442486,
+        "is_dynamic": false,
+        "mass": 1.0,
+        "material_path": "",
+        "model_path": "project/game/models/cube.obj",
+        "name": "wall",
+        "normal_texture_path": "",
+        "position": {
+            "x": -55.0,
+            "y": 5.0,
+            "z": -17.5
+        },
+        "relative_position": {
+            "x": 0.0,
+            "y": 0.0,
+            "z": 0.0
+        },
+        "rotation": {
+            "x": 0.0,
+            "y": 0.0,
+            "z": 0.0
+        },
+        "roughness_texture_path": "",
+        "scale": {
+            "x": 1.0,
+            "y": 5.0,
+            "z": 30.0
+        },
+        "script_path": "",
+        "surface_material": {
+            "DiffuseIntensity": 0.5,
+            "Roughness": 0.5,
+            "SpecularIntensity": 0.5,
+            "SpecularTint": {
+                "x": 1.0,
+                "y": 1.0,
+                "z": 1.0
+            },
+            "shininess": 0.5
+        },
+        "texture_path": "",
+        "type": "entity"
+    },
+    {
+        "id": 1436442486,
+        "is_dynamic": false,
+        "mass": 1.0,
+        "material_path": "",
+        "model_path": "project/game/models/cube.obj",
+        "name": "wall",
+        "normal_texture_path": "",
+        "position": {
+            "x": -21.0,
             "y": 5.0,
             "z": -19.800018310546875
         },
@@ -464,7 +596,183 @@
         },
         "roughness_texture_path": "",
         "scale": {
-            "x": 10.0,
+            "x": 12.0,
+            "y": 5.0,
+            "z": 1.2000000476837158
+        },
+        "script_path": "",
+        "surface_material": {
+            "DiffuseIntensity": 0.5,
+            "Roughness": 0.5,
+            "SpecularIntensity": 0.5,
+            "SpecularTint": {
+                "x": 1.0,
+                "y": 1.0,
+                "z": 1.0
+            },
+            "shininess": 0.5
+        },
+        "texture_path": "",
+        "type": "entity"
+    },
+    {
+        "id": 1436442486,
+        "is_dynamic": false,
+        "mass": 1.0,
+        "material_path": "",
+        "model_path": "project/game/models/cube.obj",
+        "name": "wall",
+        "normal_texture_path": "",
+        "position": {
+            "x": -28.600011825561523,
+            "y": 5.0,
+            "z": -29.69999885559082
+        },
+        "relative_position": {
+            "x": 0.0,
+            "y": 0.0,
+            "z": 0.0
+        },
+        "rotation": {
+            "x": 0.0,
+            "y": 0.0,
+            "z": 0.0
+        },
+        "roughness_texture_path": "",
+        "scale": {
+            "x": 4.0,
+            "y": 5.0,
+            "z": 1.0
+        },
+        "script_path": "",
+        "surface_material": {
+            "DiffuseIntensity": 0.5,
+            "Roughness": 0.5,
+            "SpecularIntensity": 0.5,
+            "SpecularTint": {
+                "x": 1.0,
+                "y": 1.0,
+                "z": 1.0
+            },
+            "shininess": 0.5
+        },
+        "texture_path": "",
+        "type": "entity"
+    },
+    {
+        "id": 1436442486,
+        "is_dynamic": false,
+        "mass": 1.0,
+        "material_path": "",
+        "model_path": "project/game/models/cube.obj",
+        "name": "wall",
+        "normal_texture_path": "",
+        "position": {
+            "x": -25.19998550415039,
+            "y": 5.0,
+            "z": -43.69997024536133
+        },
+        "relative_position": {
+            "x": 0.0,
+            "y": 0.0,
+            "z": 0.0
+        },
+        "rotation": {
+            "x": 0.0,
+            "y": 0.0,
+            "z": 0.0
+        },
+        "roughness_texture_path": "",
+        "scale": {
+            "x": 1.0,
+            "y": 5.0,
+            "z": 15.0
+        },
+        "script_path": "",
+        "surface_material": {
+            "DiffuseIntensity": 0.5,
+            "Roughness": 0.5,
+            "SpecularIntensity": 0.5,
+            "SpecularTint": {
+                "x": 1.0,
+                "y": 1.0,
+                "z": 1.0
+            },
+            "shininess": 0.5
+        },
+        "texture_path": "",
+        "type": "entity"
+    },
+    {
+        "id": 1436442486,
+        "is_dynamic": false,
+        "mass": 1.0,
+        "material_path": "",
+        "model_path": "project/game/models/cube.obj",
+        "name": "wall",
+        "normal_texture_path": "",
+        "position": {
+            "x": -45.0,
+            "y": 5.0,
+            "z": -36.200042724609375
+        },
+        "relative_position": {
+            "x": 0.0,
+            "y": 0.0,
+            "z": 0.0
+        },
+        "rotation": {
+            "x": 0.0,
+            "y": 0.0,
+            "z": 0.0
+        },
+        "roughness_texture_path": "",
+        "scale": {
+            "x": 2.0,
+            "y": 5.0,
+            "z": 1.0
+        },
+        "script_path": "",
+        "surface_material": {
+            "DiffuseIntensity": 0.5,
+            "Roughness": 0.5,
+            "SpecularIntensity": 0.5,
+            "SpecularTint": {
+                "x": 1.0,
+                "y": 1.0,
+                "z": 1.0
+            },
+            "shininess": 0.5
+        },
+        "texture_path": "",
+        "type": "entity"
+    },
+    {
+        "id": 1436442486,
+        "is_dynamic": false,
+        "mass": 1.0,
+        "material_path": "",
+        "model_path": "project/game/models/cube.obj",
+        "name": "wall",
+        "normal_texture_path": "",
+        "position": {
+            "x": -45.0,
+            "y": 5.0,
+            "z": -46.0
+        },
+        "relative_position": {
+            "x": 0.0,
+            "y": 0.0,
+            "z": 0.0
+        },
+        "rotation": {
+            "x": 0.0,
+            "y": 0.0,
+            "z": 0.0
+        },
+        "roughness_texture_path": "",
+        "scale": {
+            "x": 20.0,
             "y": 5.0,
             "z": 1.0
         },
@@ -487,8 +795,8 @@
         "attenuation": 9.999999747378752e-05,
         "color": {
             "a": 255.0,
-            "b": 255.0,
-            "g": 255.0,
+            "b": 0.0,
+            "g": 0.0,
             "r": 255.0
         },
         "cutOff": 10.0,
@@ -497,7 +805,7 @@
             "y": 0.4000000059604645,
             "z": -0.4000000059604645
         },
-        "id": 1448763632,
+        "id": 1150435328,
         "intensity": 0.5,
         "isChild": false,
         "light_type": 1,
@@ -524,8 +832,8 @@
         "attenuation": 9.999999747378752e-05,
         "color": {
             "a": 255.0,
-            "b": 255.0,
-            "g": 255.0,
+            "b": 0.0,
+            "g": 0.0,
             "r": 255.0
         },
         "cutOff": 10.0,
@@ -534,15 +842,15 @@
             "y": 0.4000000059604645,
             "z": -0.4000000059604645
         },
-        "id": 13,
+        "id": 1150435328,
         "intensity": 0.5,
         "isChild": false,
         "light_type": 1,
-        "name": "Light",
+        "name": "",
         "position": {
-            "x": 4.0,
-            "y": 12.60000991821289,
-            "z": -42.70000076293945
+            "x": 9.400002479553223,
+            "y": 9.50000286102295,
+            "z": -37.39999771118164
         },
         "relative_position": {
             "x": 0,
@@ -551,9 +859,9 @@
         },
         "specularStrength": 0.5,
         "target": {
-            "x": null,
-            "y": 4.591634678053128e-41,
-            "z": 16972029886464.0
+            "x": -0.0001849886029958725,
+            "y": 4.5914945482066956e-41,
+            "z": 7.249485546817163e-37
         },
         "type": "light"
     }
