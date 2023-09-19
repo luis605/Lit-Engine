@@ -9,15 +9,18 @@
 #define MAX(a, b) ((a) > (b) ? (a) : (b))
 #define MIN(a, b) ((a) < (b) ? (a) : (b))
 
+/*
 void segfault_sigaction(int signal, siginfo_t *si, void *arg)
 {
     printf("Safe exit enabled by segfault at address %p\n", si->si_addr);
     kill(-pid, SIGTERM);
     exit(0);
 }
+*/
 
 void Startup()
 {
+/*
     // Core - Safety
     struct sigaction sa;
 
@@ -27,7 +30,7 @@ void Startup()
     sa.sa_flags   = SA_SIGINFO;
 
     sigaction(SIGSEGV, &sa, NULL);
-
+*/
 
     // Raylib
     SetTraceLogLevel(LOG_WARNING);
@@ -111,8 +114,8 @@ void Startup()
     // Editor Camera
     InitEditorCamera();
 
-    selected_entity = &Entity();
-    selected_light = &Light();
+    selected_entity = { 0 };
+    selected_light = { 0 };
 
     // Shaders
     shader = LoadShader("Engine/Lighting/shaders/lighting_vertex.glsl", "Engine/Lighting/shaders/lighting_fragment.glsl");
@@ -140,6 +143,7 @@ void EngineMainLoop()
         if (WindowShouldClose()) {
             exitWindowRequested = true;
         }
+
 
         updateEntitiesList(entities_list, entities_list_pregame);
         UpdateLightsBuffer();
@@ -189,7 +193,7 @@ void CleanUp()
 {
 
     std::cout << "Exiting..." << std::endl;
-    kill(-pid, SIGTERM);
+    //kill(-pid, SIGTERM);
 
 
     in_game_preview = false;

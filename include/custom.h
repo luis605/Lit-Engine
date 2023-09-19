@@ -11,7 +11,7 @@ float DrawBillboardRotation(Camera camera, Texture2D texture, Vector3 position, 
 {
     Rectangle source = { 0.0f, 0.0f, (float)texture.width, (float)texture.height };
 
-    return DrawBillboardRecRotation(camera, texture, source, position, (Vector2){ size, size }, tint);
+    return DrawBillboardRecRotation(camera, texture, source, position, { size, size }, tint);
 
 
 }

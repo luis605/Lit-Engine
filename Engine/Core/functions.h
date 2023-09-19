@@ -13,7 +13,7 @@ void CleanUp();
 void AddLight();
 void MenuBar();
 void CleanScriptThreads(vector<std::thread>& script_threads);
-void BuildProject();
+int BuildProject();
 bool IsMouseHoveringModel(Model model, Camera camera, Vector3 position, Vector3 rotation, Vector3 scale, Entity* entity = nullptr, bool bypass_optimization = false);
 float GetExtremeValue(const Vector3& a);
 

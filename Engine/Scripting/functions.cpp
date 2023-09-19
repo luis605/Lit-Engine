@@ -281,7 +281,7 @@ void printColor(const Color& color) {
 
 PYBIND11_EMBEDDED_MODULE(color_module, m) {
     py::class_<Color>(m, "Color")
-        .def(py::init<float, float, float, float>())
+        .def(py::init<unsigned char, unsigned char, unsigned char, unsigned char>())
         .def_readwrite("r", &Color::r, py::call_guard<py::gil_scoped_release>())
         .def_readwrite("g", &Color::g, py::call_guard<py::gil_scoped_release>())
         .def_readwrite("b", &Color::b, py::call_guard<py::gil_scoped_release>())
@@ -290,4 +290,3 @@ PYBIND11_EMBEDDED_MODULE(color_module, m) {
             printColor(color);
         });
 }
-

@@ -51,31 +51,31 @@ void AssetsExplorer()
     {
         for (fs::path entry : fs::directory_iterator(dir_path))
         {
+            entry = entry.generic_string();
             fs::path file = entry.filename();
             if (file == "." || file == "..")
             {
                 continue;
             }
 
-            string path = file.c_str();
-
-            if (stat(entry.c_str(), &st) == -1)
+            string path = file.string();
+            if (!fs::exists(entry))
             {
-                cout << "Error: " << strerror(errno) << endl;
+                cout << "File Error: " << strerror(errno) << endl;
             }
-            if (S_ISDIR(st.st_mode))
+            if (fs::is_directory(entry))
             {
-                FolderTextureItem folderTextureItem = {file, folder_texture};
+                FolderTextureItem folderTextureItem = {file.string(), folder_texture};
                 folders_texture_struct.push_back(folderTextureItem);
 
-                folders.push_back(file);
+                folders.push_back(file.string());
             }
             else
             {
-                string file_extension = getFileExtension(basename(file.c_str()));
+                string file_extension = getFileExtension(file.filename().string());
                 if (file_extension == "no file extension")
                 {
-                    FileTextureItem fileTextureItem = {file, empty_texture, file, entry};
+                    FileTextureItem fileTextureItem = {file.string(), empty_texture, file, entry};
                     files_texture_struct.push_back(fileTextureItem);
                 }
                 else if (file_extension == ".png" || file_extension == ".jpg" || file_extension == ".jpeg" ||
@@ -83,32 +83,32 @@ void AssetsExplorer()
                          file_extension == ".mkv" || file_extension == ".webm" || file_extension == ".gif"
                 )
                 {
-                    FileTextureItem fileTextureItem = {file, image_texture, file, entry};
+                    FileTextureItem fileTextureItem = {file.string(), image_texture, file, entry};
                     files_texture_struct.push_back(fileTextureItem);
                 }
                 else if (file_extension == ".cpp" || file_extension == ".c++" || file_extension == ".cxx" || file_extension == ".hpp" || file_extension == ".cc" || file_extension == ".h" || file_extension == ".hh" || file_extension == ".hxx")
                 {
-                    FileTextureItem fileTextureItem = {file, cpp_texture, file, entry};
+                    FileTextureItem fileTextureItem = {file.string(), cpp_texture, file, entry};
                     files_texture_struct.push_back(fileTextureItem);
                 }
                 else if (file_extension == ".py")
                 {
-                    FileTextureItem fileTextureItem = {file, python_texture, file, entry};
+                    FileTextureItem fileTextureItem = {file.string(), python_texture, file, entry};
                     files_texture_struct.push_back(fileTextureItem);
                 }
                 else if (file_extension == ".fbx" || file_extension == ".obj" || file_extension == ".gltf" || file_extension == ".ply" || file_extension == ".mtl" || file_extension == ".mat")
                 {
                     FileTextureItem fileTextureItem;
 
-                    fileTextureItem = {file, model_texture, file, entry};
+                    fileTextureItem = {file.string(), model_texture, file, entry};
 
-                    auto iter = models_icons.find(file);
+                    auto iter = models_icons.find(file.string());
 
                     if (iter != models_icons.end()) {
                         Texture2D icon = iter->second;
-                        fileTextureItem = {file, icon, file, entry};
+                        fileTextureItem = {file.string(), icon, file, entry};
                     } else {
-                        Texture2D icon = RenderModelPreview(entry.c_str());
+                        Texture2D icon = RenderModelPreview(entry.string().c_str());
 
                         RenderTexture2D target = LoadRenderTexture(icon.width, icon.height);
 
@@ -119,15 +119,15 @@ void AssetsExplorer()
                         EndTextureMode();
 
                         Texture2D flippedIcon = target.texture;
-                        models_icons.insert({file, flippedIcon});
-                        fileTextureItem = {file, flippedIcon, file, entry};
+                        models_icons.insert({file.string(), flippedIcon});
+                        fileTextureItem = {file.string(), flippedIcon, file, entry};
                     }
 
                     files_texture_struct.push_back(fileTextureItem);
                 }
                 else
                 {
-                    FileTextureItem fileTextureItem = {file, empty_texture, file, entry};
+                    FileTextureItem fileTextureItem = {file.string(), empty_texture, file, entry};
                     files_texture_struct.push_back(fileTextureItem);
                 }
             }
@@ -165,7 +165,6 @@ void AssetsExplorer()
     ImGui::BeginChild("Assets Explorer Child", ImVec2(-1,-1), true);
 
     int numButtons = folders_texture_struct.size();
-    ImTextureID imageIds[numButtons] = {0};
 
     /* Organization of content [ FOLDERS && FILES ] */
     /*
@@ -223,7 +222,7 @@ void AssetsExplorer()
         
         bool isButtonHovered = ImGui::IsItemHovered(); // Check if the button is hovered
 
-        string file_extension = getFileExtension(basename(files_texture_struct[i].path.c_str()));
+        string file_extension = getFileExtension(files_texture_struct[i].path.filename().string());
 
         if (ImGui::BeginDragDropSource(ImGuiDragDropFlags_None))
         {

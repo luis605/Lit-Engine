@@ -26,7 +26,7 @@ void updateListViewExList(vector<Entity>& entities, vector<Light>& lights) {
 
     // Set the values of listViewExList to the character pointers to the names in objectNames
     for (int i = 0; i < objectNames.size(); i++) {
-        listViewExList[i] = objectNames[i].c_str();
+        listViewExList[i] = (char*)objectNames[i].c_str();
     }
 }
 
@@ -84,7 +84,7 @@ void DrawButtonTree(LitButton& button, int active, int& index);
 
 
 
-void DrawEntityTree(Entity& entity, int active, int& index, int depth = 0) {
+void DrawEntityTree(Entity& entity, int active, int& index, int depth) {
     ImGuiTreeNodeFlags nodeFlags = ImGuiTreeNodeFlags_OpenOnArrow | ImGuiTreeNodeFlags_OpenOnDoubleClick | ImGuiTreeNodeFlags_SpanAvailWidth;
 
     if (selected_entity == &entity && selected_game_object_type == "entity") {

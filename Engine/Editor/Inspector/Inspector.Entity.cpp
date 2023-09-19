@@ -82,7 +82,7 @@ void EntityInspector()
             IM_ASSERT(payload->DataSize == sizeof(int));
             int payload_n = *(const int*)payload->Data;
 
-            string path = dir_path.c_str();
+            string path = dir_path.string();
             path += "/" + files_texture_struct[payload_n].name;
 
             selected_entity->model_path = path;
@@ -152,11 +152,11 @@ void EntityInspector()
             IM_ASSERT(payload->DataSize == sizeof(int));
             int payload_n = *(const int*)payload->Data;
 
-            string path = dir_path.c_str();
+            string path = dir_path.string();
             path += "/" + files_texture_struct[payload_n].name;
 
             selected_entity->surface_material_path = path;
-            DeserializeMaterial(&selected_entity->surface_material, selected_entity->surface_material_path.c_str());
+            DeserializeMaterial(&selected_entity->surface_material, selected_entity->surface_material_path.string().c_str());
         }
         ImGui::EndDragDropTarget();
     }
@@ -167,7 +167,7 @@ void EntityInspector()
         if (ImGui::CollapsingHeader("Materials"))
         {
             ImGui::Indent(10);
-            MaterialInspector(&selected_entity->surface_material, selected_entity->surface_material_path);
+            MaterialInspector(&selected_entity->surface_material, selected_entity->surface_material_path.string());
             ImGui::Unindent(10);
         }
     }
@@ -215,7 +215,7 @@ void EntityInspector()
             int payload_n = *(const int*)payload->Data;
 
             // Copy the button name to the variable outside the window
-            string path = dir_path.c_str();
+            string path = dir_path.string();
             path += "/" + files_texture_struct[payload_n].name;
 
             selected_entity_script_path = path;

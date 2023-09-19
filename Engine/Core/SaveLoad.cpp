@@ -115,7 +115,7 @@ void SerializeMaterial(SurfaceMaterial& material, const char* path)
     std::ofstream outfile(path);
     if (!outfile.is_open()) {
         std::cerr << "Error: Failed to open material file: " << path << std::endl;
-        return 1;
+        return;
     }
 
     outfile << std::setw(4) << j;
@@ -288,7 +288,7 @@ void SaveLight(json& json_data, const Light& light, int light_index) {
 }
 
 
-void SaveText(json& json_data, const Text& text, bool emplace_back = true) {
+void SaveText(json& json_data, const Text& text, bool emplace_back) {
     json j;
     j["type"] = "text";
     j["name"] = text.name;
@@ -450,7 +450,7 @@ void LoadEntity(const json& entity_json, Entity& entity) {
     // Materials
     if (entity_json.contains("material_path")) {
         entity.surface_material_path = entity_json["material_path"].get<string>();
-        DeserializeMaterial(&entity.surface_material, entity.surface_material_path.c_str());
+        DeserializeMaterial(&entity.surface_material, entity.surface_material_path.string().c_str());
     }
 
 
@@ -478,7 +478,7 @@ void LoadEntity(const json& entity_json, Entity& entity) {
     entity.normal_texture_path = entity_json["normal_texture_path"].get<std::string>();
     if (!entity.normal_texture_path.empty())
     {
-        entity.normal_texture = LoadTexture(entity.normal_texture_path.c_str());
+        entity.normal_texture = LoadTexture(entity.normal_texture_path.string().c_str());
     }
 
 
@@ -487,7 +487,7 @@ void LoadEntity(const json& entity_json, Entity& entity) {
     entity.roughness_texture_path = entity_json["roughness_texture_path"].get<std::string>();
     if (!entity.roughness_texture_path.empty())
     {
-        entity.roughness_texture = LoadTexture(entity.roughness_texture_path.c_str());
+        entity.roughness_texture = LoadTexture(entity.roughness_texture_path.string().c_str());
     }
 
 

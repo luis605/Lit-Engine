@@ -1,8 +1,10 @@
+#include "../../include_all.h"
+
 class VideoPlayer {
 public:
     VideoPlayer(const char* videoFile) {
-        av_register_all();
-        avcodec_register_all();
+        // av_register_all();
+        // avcodec_register_all();
 
         pFormatCtx = avformat_alloc_context();
         if (avformat_open_input(&pFormatCtx, videoFile, NULL, NULL) != 0) {
@@ -20,7 +22,7 @@ public:
         for (int i = 0; i < pFormatCtx->nb_streams; i++) {
             if (pFormatCtx->streams[i]->codecpar->codec_type == AVMEDIA_TYPE_VIDEO) {
                 videoStream = i;
-                AVCodec* codec = avcodec_find_decoder(pFormatCtx->streams[i]->codecpar->codec_id);
+                const AVCodec* codec = avcodec_find_decoder(pFormatCtx->streams[i]->codecpar->codec_id);
                 pCodecCtx = avcodec_alloc_context3(codec);
                 if (pCodecCtx == NULL) {
                     TraceLog(LOG_ERROR, "Error allocating codec context");

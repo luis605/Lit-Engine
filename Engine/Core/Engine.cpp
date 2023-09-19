@@ -485,10 +485,10 @@ public:
 
     Color getColor() {
         return (Color) {
-            surface_material.color.x * 255,
-            surface_material.color.y * 255,
-            surface_material.color.z * 255,
-            surface_material.color.w * 255
+            static_cast<unsigned char>(surface_material.color.x * 255),
+            static_cast<unsigned char>(surface_material.color.y * 255),
+            static_cast<unsigned char>(surface_material.color.z * 255),
+            static_cast<unsigned char>(surface_material.color.w * 255)
         };
     }
 
@@ -721,7 +721,7 @@ public:
                 }
             } else {
                 std::cout << "The 'update' function is not defined in the script.\n";
-                return 1;
+                return;
             }
 
             py::gil_scoped_release release;
@@ -925,10 +925,10 @@ public:
             instancing_shader.locs[SHADER_LOC_MATRIX_MODEL] = GetShaderLocationAttrib(instancing_shader, "instanceTransform");
 
             model.materials[0].maps[MATERIAL_MAP_DIFFUSE].color = {
-                surface_material.color.x * 255,
-                surface_material.color.y * 255,
-                surface_material.color.z * 255,
-                surface_material.color.w * 255,
+                static_cast<unsigned char>(surface_material.color.x * 255),
+                static_cast<unsigned char>(surface_material.color.y * 255),
+                static_cast<unsigned char>(surface_material.color.z * 255),
+                static_cast<unsigned char>(surface_material.color.w * 255)
             };
 
             DrawMeshInstanced(model.meshes[0], model.materials[0], transforms, instances.size());
@@ -975,10 +975,10 @@ public:
                 GetExtremeValue(rotation), 
                 scale, 
                 (Color) {
-                    surface_material.color.x * 255,
-                    surface_material.color.y * 255,
-                    surface_material.color.z * 255,
-                    surface_material.color.w * 255,
+                    static_cast<unsigned char>(surface_material.color.x * 255),
+                    static_cast<unsigned char>(surface_material.color.y * 255),
+                    static_cast<unsigned char>(surface_material.color.z * 255),
+                    static_cast<unsigned char>(surface_material.color.w * 255)
                 }
             );
         }
@@ -1048,7 +1048,7 @@ bool operator==(const Entity& e, const Entity* ptr) {
                 entity_create.id = id;
             }
             else
-                entity_create.id = "0";
+                entity_create.id = 0;
 
             if (!is_create_entity_a_child)
             {
@@ -1100,7 +1100,7 @@ bool operator==(const Entity& e, const Entity* ptr) {
             ImGui::SliderFloat(" ", &entity_create_scale, 0.1f, 100.0f);
 
             /* Name Input */
-            ImGui::InputText("##text_input_box", name.c_str(), sizeof(name));
+            ImGui::InputText("##text_input_box", (char*)name.c_str(), sizeof(name));
             
             /* Color Picker */
             ImGui::Text("Color: ");
@@ -1153,7 +1153,7 @@ void updateEntitiesList(std::vector<Entity>& entities_list, const std::vector<En
     // }
 }
 
-HitInfo raycast(LitVector3 origin, LitVector3 direction, bool debug=false, std::vector<Entity> ignore = {})
+HitInfo raycast(LitVector3 origin, LitVector3 direction, bool debug, std::vector<Entity> ignore)
 {
     std::lock_guard<std::mutex> lock(script_mutex);
     pybind11::gil_scoped_acquire acquire;
@@ -1201,10 +1201,10 @@ HitInfo raycast(LitVector3 origin, LitVector3 direction, bool debug=false, std::
                 _hitInfo.worldPoint = meshHitInfo.point;
                 _hitInfo.worldNormal = meshHitInfo.normal;
                 _hitInfo.hitColor = {
-                    entity.surface_material.color.x * 255,
-                    entity.surface_material.color.w * 255,
-                    entity.surface_material.color.y * 255,
-                    entity.surface_material.color.z * 255,
+                    static_cast<unsigned char>(entity.surface_material.color.x * 255),
+                    static_cast<unsigned char>(entity.surface_material.color.w * 255),
+                    static_cast<unsigned char>(entity.surface_material.color.y * 255),
+                    static_cast<unsigned char>(entity.surface_material.color.z * 255)
                 };
 
                 return _hitInfo;

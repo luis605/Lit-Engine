@@ -184,7 +184,7 @@ bool IsMouseInRectangle(Vector2 mousePos, Rectangle rectangle)
 
 
 
-bool IsMouseHoveringModel(Model model, Camera camera, Vector3 position, Vector3 rotation, Vector3 scale, Entity* entity = nullptr, bool bypass_optimization = false)
+bool IsMouseHoveringModel(Model model, Camera camera, Vector3 position, Vector3 rotation, Vector3 scale, Entity* entity, bool bypass_optimization)
 {
     float x = position.x;
     float y = position.y;
@@ -363,8 +363,8 @@ void RenderScene()
         BeginShaderMode(brightPassShader);
             SetShaderValueTexture(brightPassShader, GetShaderLocation(brightPassShader, "colorTexture"), texture);
 
-            Rectangle sourceRec = { 0, 0, texture.width, -texture.height };
-            Rectangle destRec = { 0, 0, texture.width, texture.height };
+            Rectangle sourceRec = { 0, 0, static_cast<float>(texture.width), static_cast<float>(-texture.height) };
+            Rectangle destRec = { 0, 0, static_cast<float>(texture.width), static_cast<float>(texture.height) };
             Vector2 origin = { 0, 0 };
 
             // Draw the texture with the modified sourceRec
@@ -401,7 +401,7 @@ void RenderScene()
 
         RenderTexture flipped_texture = LoadRenderTexture(GetScreenWidth(), GetScreenHeight());
         BeginTextureMode(flipped_texture);
-            sourceRec = { 0, 0, texture.width, texture.height };
+            sourceRec = { 0, 0, static_cast<float>(texture.width), static_cast<float>(texture.height) };
             DrawTexturePro(texture, sourceRec, destRec, origin, 0, WHITE);
 
         EndTextureMode();
@@ -439,7 +439,7 @@ void DropEntity()
             IM_ASSERT(payload->DataSize == sizeof(int));
             int payload_n = *(const int*)payload->Data;
 
-            string path = dir_path.c_str();
+            string path = dir_path.string();
             path += "/" + files_texture_struct[payload_n].name;
 
             size_t lastDotIndex = path.find_last_of('.');

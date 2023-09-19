@@ -9,7 +9,7 @@ float fastCameraSpeed = 50.0f;
 float movementSpeed = defaultCameraSpeed;
 
 
-Camera3D scene_camera;
+LitCamera scene_camera;
 float lerp_factor = 0.5f;
 Vector3 front;
 

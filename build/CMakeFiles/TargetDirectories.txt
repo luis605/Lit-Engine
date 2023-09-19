@@ -1,0 +1,10 @@
+C:/Users/USER/Desktop/_/Lit-Engine/build/CMakeFiles/lit_engine.dir
+C:/Users/USER/Desktop/_/Lit-Engine/build/CMakeFiles/run.dir
+C:/Users/USER/Desktop/_/Lit-Engine/build/CMakeFiles/build_and_run.dir
+C:/Users/USER/Desktop/_/Lit-Engine/build/CMakeFiles/debug.dir
+C:/Users/USER/Desktop/_/Lit-Engine/build/CMakeFiles/bdb.dir
+C:/Users/USER/Desktop/_/Lit-Engine/build/CMakeFiles/build_dependencies.dir
+C:/Users/USER/Desktop/_/Lit-Engine/build/CMakeFiles/clean_all.dir
+C:/Users/USER/Desktop/_/Lit-Engine/build/CMakeFiles/clean_depend.dir
+C:/Users/USER/Desktop/_/Lit-Engine/build/CMakeFiles/edit_cache.dir
+C:/Users/USER/Desktop/_/Lit-Engine/build/CMakeFiles/rebuild_cache.dir

@@ -24,7 +24,7 @@ typedef struct AdditionalLightInfo;
 vector<Light> lights;
 vector<AdditionalLightInfo> lights_info;
 
-void UpdateLightsBuffer(bool force=false, vector<Light> lights = lights);
+void UpdateLightsBuffer(bool force=false, vector<Light> lights_vector = lights);
 Light NewLight(const Vector3 position, const Color color, int type = LIGHT_POINT);
 
 
@@ -101,7 +101,7 @@ typedef struct AdditionalLightInfo
 };
 
 
-Light NewLight(const Vector3 position, const Color color, int type = LIGHT_POINT)
+Light NewLight(const Vector3 position, const Color color, int type)
 {
     glm::vec3 lights_position = glm::vec3(position.x, position.y, position.z);
     glm::vec4 lights_color = glm::vec4(color.r/255, color.g/255, color.b/255, color.a/255);
@@ -127,15 +127,15 @@ Light NewLight(const Vector3 position, const Color color, int type = LIGHT_POINT
 
 
 
-void UpdateLightsBuffer(bool force=false, vector<Light> lights = lights)
+void UpdateLightsBuffer(bool force, vector<Light> lights_vector)
 {
-    if (lights.empty() && !force)
+    if (lights_vector.empty() && !force)
         return;
 
     glBindBuffer(GL_SHADER_STORAGE_BUFFER, lightsBuffer);
 
     // Resize the buffer if the size has changed
-    size_t bufferSize = sizeof(Light) * lights.size();
+    size_t bufferSize = sizeof(Light) * lights_vector.size();
     GLsizeiptr currentBufferSize;
     glGetBufferParameteri64v(GL_SHADER_STORAGE_BUFFER, GL_BUFFER_SIZE, &currentBufferSize);
     if (bufferSize != static_cast<size_t>(currentBufferSize))
@@ -144,10 +144,10 @@ void UpdateLightsBuffer(bool force=false, vector<Light> lights = lights)
     }
 
     // Update the buffer data
-    glBufferSubData(GL_SHADER_STORAGE_BUFFER, 0, bufferSize, lights.data());
+    glBufferSubData(GL_SHADER_STORAGE_BUFFER, 0, bufferSize, lights_vector.data());
     glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 0, lightsBuffer);  // Bind the SSBO to binding point 0
 
-    int lightsCount = lights.size();
+    int lightsCount = lights_vector.size();
     SetShaderValue(shader, GetShaderLocation(shader, "lightsCount"), &lightsCount, SHADER_UNIFORM_INT);
 
 }
