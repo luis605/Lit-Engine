@@ -64,7 +64,7 @@ void DrawTextElements() {
         return a.position.z < b.position.z;
     });
 
-    for (const auto& element : textElements) {
+    for (Text& element : textElements) {
         element.Draw();
     }
 }

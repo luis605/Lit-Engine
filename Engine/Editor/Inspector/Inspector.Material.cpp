@@ -6,13 +6,13 @@
 
 void MaterialInspector(SurfaceMaterial* surface_material = nullptr, string path = "")
 {
-    SurfaceMaterial* material = &SurfaceMaterial{};
+    SurfaceMaterial* material = nullptr;
     if (surface_material != nullptr)
         material = surface_material;
 
     
     if (path.empty())
-        path = selected_material;
+        path = selected_material.string();
 
     DeserializeMaterial(material, path.c_str());
     ImVec2 window_size = ImGui::GetWindowSize();
@@ -53,14 +53,14 @@ void MaterialInspector(SurfaceMaterial* surface_material = nullptr, string path 
                 IM_ASSERT(payload->DataSize == sizeof(int));
                 int payload_n = *(const int*)payload->Data;
 
-                string path = dir_path.c_str();
+                string path = dir_path.string();
                 path += "/" + files_texture_struct[payload_n].name;
 
                 Texture2D diffuse_texture = LoadTexture(path.c_str());
                 if (!IsTextureReady(diffuse_texture)) // Means it is a video or an unsupported format
                 {
                     selected_entity->texture_path = path;
-                    selected_entity->texture = std::make_unique<VideoPlayer>(selected_entity->texture_path.c_str());
+                    //selected_entity->texture = std::make_unique<VideoPlayer>(selected_entity->texture_path);
                 }
                 else
                 {
@@ -89,14 +89,14 @@ void MaterialInspector(SurfaceMaterial* surface_material = nullptr, string path 
                 IM_ASSERT(payload->DataSize == sizeof(int));
                 int payload_n = *(const int*)payload->Data;
 
-                string path = dir_path.c_str();
+                string path = dir_path.string();
                 path += "/" + files_texture_struct[payload_n].name;
 
                 Texture2D normal_texture = LoadTexture(path.c_str());
                 if (!IsTextureReady(normal_texture)) // Means it is a video or an unsupported format
                 {
                     selected_entity->normal_texture_path = path;
-                    selected_entity->normal_texture = std::make_unique<VideoPlayer>(selected_entity->normal_texture_path.c_str());
+//                    selected_entity->normal_texture = std::make_unique<VideoPlayer>(selected_entity->normal_texture_path.c_str());
                 }
                 else
                 {
@@ -123,7 +123,7 @@ void MaterialInspector(SurfaceMaterial* surface_material = nullptr, string path 
                 IM_ASSERT(payload->DataSize == sizeof(int));
                 int payload_n = *(const int*)payload->Data;
 
-                string path = dir_path.c_str();
+                string path = dir_path.string();
                 path += "/" + files_texture_struct[payload_n].name;
 
                 selected_entity->roughness_texture = LoadTexture(path.c_str());
@@ -150,7 +150,7 @@ void MaterialInspector(SurfaceMaterial* surface_material = nullptr, string path 
                 IM_ASSERT(payload->DataSize == sizeof(int));
                 int payload_n = *(const int*)payload->Data;
 
-                string path = dir_path.c_str();
+                string path = dir_path.string();
                 path += "/" + files_texture_struct[payload_n].name;
 
                 selected_entity->ao_texture = LoadTexture(path.c_str());

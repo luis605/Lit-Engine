@@ -44,7 +44,7 @@ int pipe_fds_lights[2];
     /* Scene Editor */
     RenderTexture2D renderTexture;
     Texture2D texture;
-    Rectangle rectangle = { screenWidth*.2, screenHeight*.2, texture.width, texture.height };
+    Rectangle rectangle = { screenWidth*.2f, screenHeight*.2f, static_cast<float>(texture.width), static_cast<float>(texture.height) };
 
 
 

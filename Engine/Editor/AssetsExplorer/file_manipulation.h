@@ -60,22 +60,24 @@ void EditFileManipulation()
             if (file_index != -1)
             {
                 rename_file_index = file_index;
-                rename_file_name = files_texture_struct[file_index].full_path.c_str();
+                rename_file_name = files_texture_struct[file_index].full_path.string().c_str();
                 showEditFilePopup = false;
             }
         }
         if (ImGui::Button("Run"))
         {
-            string file_extension = getFileExtension(basename(files_texture_struct[file_index].path.c_str()));
+            string file_extension = getFileExtension(files_texture_struct[file_index].path.filename().string());
             if (file_extension == ".py")
             {
                 std::shared_ptr<Entity> run_script_entity = std::make_shared<Entity>();
-                run_script_entity->script = files_texture_struct[file_index].full_path;
+                run_script_entity->script = files_texture_struct[file_index].full_path.string();
 
                 py::gil_scoped_acquire acquire;
                 // Start a thread to run the script
-                std::thread scriptRunnerThread([run_script_entity, &scene_camera]() {
-                    run_script_entity->runScript(*run_script_entity, &scene_camera);
+
+                LitCamera* scene_camera_reference = &scene_camera;
+                std::thread scriptRunnerThread([run_script_entity, scene_camera_reference]() {
+                    run_script_entity->runScript(*run_script_entity, scene_camera_reference);
                 });
 
                 if (scriptRunnerThread.joinable()) {

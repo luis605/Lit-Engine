@@ -35,11 +35,19 @@
 #include "include/bullet3/src/LinearMath/btVector3.h"
 #include "include/bullet3/src/btBulletDynamicsCommon.h"
 
-extern "C" {
-    #include <libavcodec/avcodec.h>
-    #include <libavformat/avformat.h>
-    #include <libswscale/swscale.h>
+#ifdef _WIN32
+    extern "C" {
+        #include <libavcodec/avcodec.h>
+        #include <libavformat/avformat.h>
+        #include <libswscale/swscale.h>
+    }
+#else
+    extern "C" {
+        #include <libavcodec/avcodec.h>
+        #include <libavformat/avformat.h>
+        #include <libswscale/swscale.h>
 }
+#endif
 
 #include <stdio.h>
 #include <iostream>
@@ -52,7 +60,12 @@ extern "C" {
 #include "dependencies/include/glm/gtc/matrix_transform.hpp"
 #include <algorithm>
 #include <cmath>
-#include <python3.11/Python.h>
+#ifdef _WIN32
+//    #include <Python.h>
+#else
+    #include <python3.11/Python.h>
+#endif
+
 #include <pybind11/embed.h>
 #include <pybind11/pybind11.h>
 #include <pybind11/stl.h>

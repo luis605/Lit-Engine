@@ -89,7 +89,7 @@ public:
     {
         tooltip.text = tooltipText;
         tooltip.position = {position.x + size.x, position.y};
-        tooltip.size = {MeasureText(tooltipText, font.baseSize) + 10, font.baseSize + 10};
+        tooltip.size = {MeasureText(tooltipText, font.baseSize) + 10.0f, font.baseSize + 10.0f};
         tooltip.font = font;
         tooltip.backgroundColor = backgroundColor;
         tooltip.textColor = textColor;
@@ -283,7 +283,7 @@ void print_hi()
     std::cout << "Pressed\n";
 }
 
-LitButton &AddButton(const char* button_text, Vector3 position, Vector2 size, float text_size = 20)
+LitButton &AddButton(const char* button_text, Vector3 position, Vector2 size, float text_size)
 {
     LitButton button = LitButton(position, size);
     button.SetText(button_text, text_size);
@@ -296,7 +296,7 @@ LitButton &AddButton(const char* button_text, Vector3 position, Vector2 size, fl
 void DrawButtons()
 {
 
-    for (const auto &button : lit_buttons)
+    for (LitButton &button : lit_buttons)
     {
         button.Draw();
     }

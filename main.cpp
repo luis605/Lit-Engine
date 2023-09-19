@@ -14,6 +14,7 @@ int LitEngine()
 
 int main()
 {
+/*
     // Create a pipe
     if (pipe(pipe_fds) == -1) {
         std::cerr << "Pipe creation failed." << std::endl;
@@ -32,6 +33,9 @@ int main()
         std::cout << "This is the parent process." << std::endl;
         LitEngine();
     }
+*/
+
+    LitEngine();
 
     return 0;
 }

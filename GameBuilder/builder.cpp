@@ -41,14 +41,14 @@ void createFolder(string directoryName)
             std::cout << "Directory created successfully." << std::endl;
         } else {
             std::cerr << "Failed to create directory." << std::endl;
-            return 1;
+            return;
         }
     } else {
         std::cout << "Directory already exists." << std::endl;
     }
 }
 
-void BuildProject()
+int BuildProject()
 {
     createFolder("exported_game");
     createFolder("exported_game/shaders");

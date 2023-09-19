@@ -35,7 +35,7 @@ std::vector<Entity> entities_list_preview;
 std::vector<Light> lights_preview;
 std::vector<AdditionalLightInfo> light_info_preview;
 
-Camera3D camera_preview;
+LitCamera camera_preview;
 bool first_time = true;
 
 vector<std::thread> scripts_threads_preview;
