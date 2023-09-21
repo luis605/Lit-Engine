@@ -28,7 +28,7 @@ Model skybox;
 Shader shdrCubemap;
 
 void InitSkybox(
-    const char* skyboxFileName = "assets/images/skybox/default skybox.hdr",
+    const char* skyboxFileName = "assets/images/skybox/default_skybox.hdr",
     const char* skyboxVS = "Engine/Lighting/shaders/skybox.vs",
     const char* skyboxFS = "Engine/Lighting/shaders/skybox.fs",
     const char* cubemapVS = "Engine/Lighting/shaders/cubemap.vs",
@@ -70,14 +70,13 @@ void InitSkybox(
 
 int DrawSkybox()
 {
-
-
     rlDisableBackfaceCulling();
     rlDisableDepthMask();
         DrawModel(skybox, (Vector3){0, 0, 0}, 1.0f, WHITE);
     rlEnableBackfaceCulling();
     rlEnableDepthMask();
 
+    return 0;
 }
 
 static TextureCubemap GenTextureCubemap(Shader shader, Texture2D panorama, int size, int format)

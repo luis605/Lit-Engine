@@ -356,7 +356,6 @@ void RenderScene()
     
     EndTextureMode();
 
-
     if (bloomEnabled)
     {
         BeginTextureMode(brightPass);

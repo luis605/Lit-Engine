@@ -145,8 +145,8 @@ void EngineMainLoop()
         }
 
 
-        updateEntitiesList(entities_list, entities_list_pregame);
-        UpdateLightsBuffer();
+        // updateEntitiesList(entities_list, entities_list_pregame);
+        // UpdateLightsBuffer();
 
         BeginDrawing();
 
@@ -177,7 +177,7 @@ void EngineMainLoop()
         ImGui::End();
         ImGui::PopStyleVar();
 
-        AddEntity();
+        // AddEntity();
 
         ImGui::PopFont();
 
