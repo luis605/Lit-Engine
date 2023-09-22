@@ -45,25 +45,21 @@ void InitFrustum()
     cameraFrustum = RLFrustum();
 }
 
-// Update the camera frustum in your update function
 void UpdateFrustum()
 {
     cameraFrustum.Extract();
 }
 
-// Check if a point is inside the camera frustum
 bool PointInFrustum(const Vector3& point)
 {
     return cameraFrustum.PointIn(point);
 }
 
-// Check if a sphere is inside the camera frustum
 bool SphereInFrustum(const Vector3& position, float radius)
 {
     return cameraFrustum.SphereIn(position, radius);
 }
 
-// Check if an axis-aligned bounding box is inside the camera frustum
 bool AABBoxInFrustum(const Vector3& min, const Vector3& max)
 {
     return cameraFrustum.AABBoxIn(min, max);
