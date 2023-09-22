@@ -33,31 +33,11 @@ string read_file_to_string(const string& filename) {
 py::scoped_interpreter guard{}; 
 
 
+RLFrustum cameraFrustum;
 
-
-struct Plane
-{
-    glm::vec3 normal = { 0.f, 1.f, 0.f };
-
-    float     distance = 0.f;             
-};
-
-struct Frustum
-{
-    Plane topFace;
-    Plane bottomFace;
-
-    Plane rightFace;
-    Plane leftFace;
-
-    Plane farFace;
-    Plane nearFace;
-};
 
 bool EntityRunScriptFirstTime = true;
 bool Entity_already_registered = false;
-
-RLFrustum cameraFrustum;
 
 
 void InitFrustum()
@@ -161,7 +141,6 @@ private:
     Matrix *transforms = nullptr;
     Material matInstances;
     int lastIndexCalculated = -1;
-    Plane frustumPlanes[6];
     Shader* entity_shader;
 
 public:
