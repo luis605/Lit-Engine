@@ -28,7 +28,7 @@ Model skybox;
 Shader shdrCubemap;
 
 void InitSkybox(
-    const char* skyboxFileName = "assets/images/skybox/default_skybox.hdr",
+    const char* skyboxFileName = "assets/images/skybox/default skybox.hdr",
     const char* skyboxVS = "Engine/Lighting/shaders/skybox.vs",
     const char* skyboxFS = "Engine/Lighting/shaders/skybox.fs",
     const char* cubemapVS = "Engine/Lighting/shaders/cubemap.vs",
