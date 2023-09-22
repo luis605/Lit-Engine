@@ -432,22 +432,31 @@ public:
         UpdateLightsBuffer();
     }
 
-    void remove() {
-
-    for (auto& childVariant : children) {
-        if (auto* entity = std::get_if<Entity*>(&childVariant)) {
-            delete *entity;
-        } else if (auto* light = std::get_if<Light*>(&childVariant)) {
-            delete *light;
-        } else if (auto* text = std::get_if<Text*>(&childVariant)) {
-            delete *text;
-        } else if (auto* button = std::get_if<LitButton*>(&childVariant)) {
-            delete *button;
+    void makeChildrenInstances() {
+        for (const auto& childVariant : children) {
+            if (auto childEntity = std::get_if<Entity*>(&childVariant)) {
+                addInstance(*childEntity); // Add child as an instance
+                (*childEntity)->makeChildrenInstances(); // Recursively make children instances
+            }
         }
     }
 
-    children.clear();
 
+    void remove() {
+
+        for (auto& childVariant : children) {
+            if (auto* entity = std::get_if<Entity*>(&childVariant)) {
+                delete *entity;
+            } else if (auto* light = std::get_if<Light*>(&childVariant)) {
+                delete *light;
+            } else if (auto* text = std::get_if<Text*>(&childVariant)) {
+                delete *text;
+            } else if (auto* button = std::get_if<LitButton*>(&childVariant)) {
+                delete *button;
+            }
+        }
+
+        children.clear();
 
         entities_list_pregame.erase(
             std::remove_if(entities_list_pregame.begin(), entities_list_pregame.end(),

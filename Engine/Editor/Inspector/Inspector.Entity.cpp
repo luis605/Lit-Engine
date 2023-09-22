@@ -237,21 +237,15 @@ void EntityInspector()
 
     if (ImGui::CollapsingHeader("Advanced Settings"))
     {
-        ImGui::TextWrapped("Warning!"
-"Some of these features are experimental and may not save or load from files!"
-"Other settings may be complex for new users."
+        ImGui::TextWrapped("Warning!\n"
+"Some of these features are experimental and may not save or load from files!\n"
+"Other settings may be complex for new users.\n"
+"Lit Engine is a prototype and does not guarantee all features working|\n"
 "We DO NOT recommend visiting the Advanced Settings section until we reach the alpha state!");
 
         if (ImGui::Button("Set all children instanced"))
         {
-            for (auto& child_variant : selected_entity->children) {
-                if (std::holds_alternative<Entity*>(child_variant)) {
-                    Entity* entity_variant = new Entity(*std::get<Entity*>(child_variant));
-                    selected_entity->addInstance(entity_variant);
-                    std::get<Entity*>(child_variant)->visible = false;
-                } 
-            }
-
+            selected_entity->makeChildrenInstances();
         }
     }
 
