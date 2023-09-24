@@ -1129,7 +1129,7 @@ public:
 
             DrawMeshInstanced(model.meshes[0], model.materials[0], transforms, instances.size());
         }
-        else if (false)
+        else
         {
 
             if (hasModel()) {
@@ -1178,16 +1178,7 @@ public:
                 }
             );
         }
-        else
-        {
-            if (isDynamic)
-            {
-                if (IsModelReady(LoadModelFromMesh(ShapeToMesh(MeshToShape(&model.meshes[0])))))
-                    drawDebug(LoadModelFromMesh(ShapeToMesh(MeshToShape(&model.meshes[0]))));
-                else
-                    std::cout << "Model not ready" << std::endl;
-            }
-        }
+
     }
 
 private:
