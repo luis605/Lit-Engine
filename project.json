@@ -42,5 +42,42 @@
         },
         "texture_path": "",
         "type": "entity"
+    },
+    {
+        "attenuation": 9.999999747378752e-05,
+        "color": {
+            "a": 255.0,
+            "b": 255.0,
+            "g": 255.0,
+            "r": 255.0
+        },
+        "cutOff": 10.0,
+        "direction": {
+            "x": 0.4000000059604645,
+            "y": 0.4000000059604645,
+            "z": -0.4000000059604645
+        },
+        "id": 2,
+        "intensity": 0.5,
+        "isChild": false,
+        "light_type": 1,
+        "name": "Light",
+        "position": {
+            "x": 4.0,
+            "y": 4.0,
+            "z": 4.0
+        },
+        "relative_position": {
+            "x": 0,
+            "y": 0,
+            "z": 0
+        },
+        "specularStrength": 0.5,
+        "target": {
+            "x": -1.1515034187947318e-24,
+            "y": 4.591634678053128e-41,
+            "z": 30563.056640625
+        },
+        "type": "light"
     }
 ]

@@ -42,6 +42,7 @@ void Text::Draw() {
         currentPosition.y += lineHeight;
     }
 
+#ifndef GAME_SHIPPING
     if (IsPressed())
     {
         selected_textElement = this;
@@ -57,6 +58,7 @@ void Text::Draw() {
     {
         DrawRectangleLines(bounds.x, bounds.y, bounds.width, bounds.height, BLUE);
     }
+#endif
 }
 
 void DrawTextElements() {
