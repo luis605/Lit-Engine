@@ -88,7 +88,7 @@ void InitWindow()
 
     SetupPhysicsWorld();
 
-    // DisableCursor();
+    DisableCursor();
 
     InitSkybox(
         "assets/default skybox.hdr",
