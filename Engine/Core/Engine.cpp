@@ -84,6 +84,7 @@ public:
     LitVector3 relative_scale = { 1, 1, 1 };
 
     string script = "";
+    string script_index = "";
     string model_path = "";
     Model model;
 
@@ -160,6 +161,7 @@ public:
         this->relative_rotation = other.relative_rotation;
         this->relative_scale = other.relative_scale;
         this->script = other.script;
+        this->script_index = other.script_index;
         this->model_path = other.model_path;
         // Note: You might need to implement a copy constructor for the `Model` class
         this->model = other.model;
@@ -250,6 +252,7 @@ public:
         this->relative_rotation = other.relative_rotation;
         this->relative_scale = other.relative_scale;
         this->script = other.script;
+        this->script_index = other.script_index;
         this->model_path = other.model_path;
         // Note: You might need to implement a copy constructor for the `Model` class
         this->model = other.model;
@@ -585,7 +588,7 @@ public:
 
     void runScript(std::reference_wrapper<Entity> entityRef, LitCamera* rendering_camera)
     {
-        if (script.empty()) return;
+        if (script.empty() && script_index.empty()) return;
         running = true;
         std::lock_guard<std::mutex> lock(script_mutex);
         
@@ -668,20 +671,34 @@ public:
         locals["Entity"] = entity_module.attr("Entity");
 
 
+        std::cout << "Index of Script" << script_index << std::endl;
+
 
         try {
             pybind11::gil_scoped_acquire acquire;
-            string script_content = read_file_to_string(script);
 
+            string script_content;
+#ifndef GAME_SHIPPING
+            script_content = read_file_to_string(script);
+#else
+            auto it = scriptMap.find(script_index);
+
+            if (it != scriptMap.end()) {
+                script_content = it->second;
+            } else {
+                return; // Script not found
+            }
+#endif
             py::module module("__main__");
+
 
             for (auto item : locals) {
                 module.attr(item.first) = item.second;
             }
-
+            
             py::eval<py::eval_statements>(script_content, module.attr("__dict__"));
 
-
+            
             if (module.attr("__dict__").contains("update")) {
                 py::object update_func = module.attr("update");
 
@@ -704,7 +721,7 @@ public:
                     }
                 }
             } else {
-                std::cout << "The 'update' function is not defined in the script.\n";
+                std::cerr << "The 'update' function is not defined in the script.\n";
                 return;
             }
 
@@ -830,7 +847,6 @@ public:
 
     void createDynamicBox(float x, float y, float z) {
         if (!isDynamic) return;
-        std::cout << name << " is dynamic" << std::endl;
         dynamicBoxShape = new btBoxShape(btVector3(btScalar(x), btScalar(y), btScalar(z)));
         
         if (staticBoxShape) 
@@ -856,13 +872,11 @@ public:
         // boxRigidBody->setRestitution(...);
 
         dynamicsWorld->addRigidBody(boxRigidBody);
-        std::cout << "Rigid BODY CREATED" << std::endl;
     }
 
 
     void createDynamicMesh(btCollisionShape* meshShape) {
         if (!isDynamic) return;
-        std::cout << name << " is a dynamic shape" << std::endl;
 
         if (boxRigidBody) {
             dynamicsWorld->removeRigidBody(boxRigidBody);
@@ -890,14 +904,13 @@ public:
         // boxRigidBody->setRestitution(...);
 
         dynamicsWorld->addRigidBody(boxRigidBody);
-        std::cout << "Rigid BODY CREATED" << std::endl;
     }
 
 
     void makePhysicsDynamic() {
         isDynamic = true;
-        createDynamicMesh(MeshToShape(&model.meshes[0]));
-//        createDynamicBox(scale.x, scale.y, scale.z);
+//        createDynamicMesh(MeshToShape(&model.meshes[0]));
+        createDynamicBox(scale.x, scale.y, scale.z);
     }
 
     void makePhysicsStatic() {
