@@ -207,6 +207,7 @@ void SaveEntity(json& json_data, const Entity& entity) {
     j["relative_position"] = entity.relative_position;
     j["model_path"] = entity.model_path;
     j["script_path"] = entity.script;
+    j["script_index"] = entity.script_index;
     j["texture_path"] = entity.texture_path;
     j["normal_texture_path"] = entity.normal_texture_path;
     j["roughness_texture_path"] = entity.roughness_texture_path;
@@ -335,9 +336,64 @@ void SaveButton(json& json_data, const LitButton& button) {
 
 
 
+std::string serializePythonScript(const std::string &scriptFilePath) {
+    std::ifstream inputFile(scriptFilePath);
+    if (!inputFile.is_open()) {
+        std::cerr << "Failed to open file: " << scriptFilePath << std::endl;
+        return "";
+    }
+
+    std::string scriptContent((std::istreambuf_iterator<char>(inputFile)),
+                              std::istreambuf_iterator<char>());
+    inputFile.close();
+
+    return scriptContent;
+}
+
+std::map<std::string, std::string> scriptContents;
+
+void serializeScripts() {
+    int file_id = 0;
+    for (Entity& entity : entities_list_pregame) {
+        if (entity.script.empty()) continue;
+
+        std::string scriptContent = serializePythonScript(entity.script);
+        if (scriptContent.empty()) continue;
+
+        // Extract the script name from the file path (e.g., "test.py")
+        std::string scriptName = entity.script.substr(entity.script.find_last_of('/') + 1);
+        // Remove the file extension to use as a variable name (e.g., "test") and add the index
+        scriptName = scriptName.substr(0, scriptName.find_last_of('.')) + std::to_string(file_id);
+
+        // Store the script content in the map with the script name as the key
+        scriptContents[scriptName] = scriptContent;
+        entity.script_index = scriptName;
+
+        file_id++;
+    }
+
+    // Generate the header file content with the map of script variables
+    std::string headerContent = "std::map<std::string, const char*> scriptMap = {\n";
+    for (const auto& entry : scriptContents) {
+        headerContent += "    {\"" + entry.first + "\", R\"(\n";
+        headerContent += entry.second + "\n)\"},\n";
+    }
+    headerContent += "};\n";
+
+    // Write the header content to a header file
+    std::ofstream headerFile("exported_game/ScriptData.h");
+    if (headerFile.is_open()) {
+        headerFile << headerContent;
+        headerFile.close();
+        std::cout << "Header file 'ScriptData.h' generated successfully." << std::endl;
+    } else {
+        std::cerr << "Failed to create header file 'ScriptData.h'." << std::endl;
+    }
+}
 
 
 int SaveProject() {
+    serializeScripts();
     json json_data;
     for (const auto& entity : entities_list_pregame) {
         SaveEntity(json_data, entity);
@@ -380,9 +436,6 @@ void LoadEntity(const json& entity_json, Entity& entity) {
     if (entity_json.contains("name")) {
         entity.setName(entity_json["name"].get<std::string>());
     }
-
-
-
 
     if (entity_json.contains("scale")) {
         Vector3 scale{
@@ -443,6 +496,8 @@ void LoadEntity(const json& entity_json, Entity& entity) {
 
 
     entity.script = entity_json["script_path"].get<std::string>();
+    entity.script_index = entity_json["script_index"].get<std::string>();
+    std::cout << "Loaded Index: " << entity.script_index << std::endl;
     entity.id = entity_json["id"].get<int>();
 
 
@@ -683,6 +738,13 @@ int LoadProject(vector<Entity>& entities_vector, vector<Light>& lights_vector, v
                 Entity entity;
                 LoadEntity(entity_json, entity);
                 entities_vector.emplace_back(entity);
+
+                // Debug output
+                std::cout << "Entity script index (before): " << entity.script_index << std::endl;
+                if (!entity.script_index.empty())
+                    std::cout << "Entity script index (after): " << entities_vector.back().script_index << std::endl;
+
+                std::cout << "Entities vector size: " << entities_vector.size() << std::endl;
             }
             else if (type == "light") {
                 if (entity_json["isChild"].get<bool>() == true) continue;

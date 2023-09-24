@@ -29,7 +29,7 @@ endef
 
 
 CXXFLAGS = -g -pipe -flto -fuse-ld=gold -std=c++17 -fpermissive -w -Wall -DNDEBUG -O0
-SRC_FILES = main.cpp ImGuiColorTextEdit/TextEditor.o include/rlImGui.o ImNodes/ImNodes.o ImNodes/ImNodesEz.o
+SRC_FILES = ImGuiColorTextEdit/TextEditor.o include/rlImGui.o ImNodes/ImNodes.o ImNodes/ImNodesEz.o
 INCLUDE_DIRS = -I./include -I./ImGuiColorTextEdit -I/usr/local/lib -L/usr/lib/x86_64-linux-gnu/ -L/usr/local/lib -I./include/nlohmann -I./imgui -L/include/bullet3/src
 LIB_FLAGS = -L./include -lboost_filesystem -lraylib -lpython3.11 -fPIC `python3.11 -m pybind11 --includes` -ldl -lBulletDynamics -lBulletCollision -lLinearMath -I./include/bullet3/src
 LIB_FLAGS += -lraylib -lavformat -lavcodec -lavutil -lswscale -lz -lm -lpthread -ldrm
@@ -50,7 +50,7 @@ run:
 
 build: $(IMGUI_OBJECTS)
 	@$(call echo_success, "Building Demo")
-	@ccache g++ $(CXXFLAGS) $(SRC_FILES) $(INCLUDE_DIRS) $(IMGUI_OBJECTS) $(LIB_FLAGS) -o lit_engine.out
+	@ccache g++ $(CXXFLAGS) main.cpp $(SRC_FILES) $(INCLUDE_DIRS) $(IMGUI_OBJECTS) $(LIB_FLAGS) -o lit_engine.out
 
 
 brun:
@@ -74,7 +74,7 @@ tests:
 	@./tests.out
 
 sandbox:
-	@ccache g++ $(CXXFLAGS) sandbox.cpp ufbx/ufbx.c $(INCLUDE_DIRS) $(IMGUI_OBJECTS) $(LIB_FLAGS) -o sandbox.out
+	@ccache g++ $(CXXFLAGS) sandbox.cpp $(SRC_FILES) $(INCLUDE_DIRS) $(IMGUI_OBJECTS) $(LIB_FLAGS) -o sandbox.out
 	@./sandbox.out
 
 build_dependencies: $(IMGUI_OBJECTS)

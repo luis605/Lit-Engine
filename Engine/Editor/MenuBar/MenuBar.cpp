@@ -84,6 +84,7 @@ void DrawMenus()
 
         if (ImGui::MenuItem("Export"))
         {
+            SaveProject();
             BuildProject();
         }
 

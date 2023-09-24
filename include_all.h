@@ -104,6 +104,10 @@ using namespace py::literals;
 using json = nlohmann::json;
 
 
+#ifdef GAME_SHIPPING
+    #include "exported_game/ScriptData.h"
+#endif
+
 // Physics
 #include "Engine/Physics/InitPhysx.cpp"
 
