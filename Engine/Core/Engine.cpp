@@ -430,7 +430,6 @@ public:
                 (*child)->position = glm::vec3(this->position.x, this->position.y, this->position.z) + (*child)->relative_position;
             }
         }
-        UpdateLightsBuffer();
     }
 
     void makeChildrenInstances() {

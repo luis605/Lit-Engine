@@ -120,8 +120,6 @@ Light NewLight(const Vector3 position, const Color color, int type)
 
     lights_info.push_back(info);
 
-    UpdateLightsBuffer();
-
     return lights.back();
 }
 

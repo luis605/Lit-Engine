@@ -94,6 +94,4 @@ void LightInspector()
                 CutoffActiveInputMode = false;
         }
     }
-
-    UpdateLightsBuffer();
 }
