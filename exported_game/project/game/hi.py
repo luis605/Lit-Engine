@@ -1,4 +1,3 @@
-const char* hi0 = R"(
 velocity = 4
 entity.name = str(entity.position.x)
 can_move_forward = True
@@ -113,7 +112,4 @@ def update():
 
 
 
-
-
-)";
 

@@ -1,5 +1,3 @@
-std::map<std::string, const char*> scriptMap = {
-    {"coins collector0", R"(
 import math
 
 velocity = 10.0
@@ -93,6 +91,3 @@ def update():
     # if IsKeyDown(KeyboardKey.KEY_Z) and dragging_item:
     #     # Rotate the dragged item around the Z-axis
     #     dragging_item.rotation = Vector3(0, 0, rotation_angle)
-
-)"},
-};
