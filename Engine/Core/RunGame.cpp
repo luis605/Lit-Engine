@@ -91,7 +91,7 @@ void RunGame()
 
     first_time_gameplay = false;
 
-
+    UpdateLightsBuffer();
 
 
 

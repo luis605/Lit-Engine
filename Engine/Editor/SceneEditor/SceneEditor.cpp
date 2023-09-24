@@ -348,7 +348,8 @@ void RenderScene()
     }
 
     UpdateInGameGlobals();
-    
+    UpdateLightsBuffer();
+
     EndMode3D();
     
     DrawTextElements();
@@ -645,7 +646,6 @@ void LightPaste(const std::shared_ptr<Light>& light)
         
         selected_game_object_type = "light";
         selected_light = &lights.back();
-        UpdateLightsBuffer();
     }
 }
 

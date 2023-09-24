@@ -385,7 +385,6 @@ void EntitiesList()
     {
         canAddLight = true;
         NewLight({4, 4, 4}, WHITE);
-        UpdateLightsBuffer();
     }
 
 
