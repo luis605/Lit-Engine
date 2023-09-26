@@ -19,7 +19,7 @@ int main(void)
     model.materials[0].maps[MATERIAL_MAP_DIFFUSE].texture = texture;
 
     // Set the tiling of the texture
-    float tiling[2] = {5.0f, 5.0f};
+    float tiling[2] = {3.0f, 3.0f};
     Shader shader = LoadShader(0, "custom.shader"); // Create a custom shader in a .glsl file
     SetShaderValue(shader, GetShaderLocation(shader, "tiling"), tiling, SHADER_UNIFORM_VEC2);
     model.materials[0].shader = shader;
