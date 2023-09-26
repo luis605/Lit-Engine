@@ -107,6 +107,8 @@ public:
     fs::path surface_material_path;
     SurfaceMaterial surface_material;
 
+    float tiling[2] = { 1.0f, 1.0f };
+
 
     bool collider = true;
     bool visible = true;
@@ -1113,6 +1115,9 @@ public:
         if (!visible) {
             return; // Early return if not visible
         }
+
+        SetShaderValue(shader, GetShaderLocation(shader, "tiling"), tiling, SHADER_UNIFORM_VEC2);
+
 
 
         if (!instances.empty())

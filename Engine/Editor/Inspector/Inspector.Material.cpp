@@ -15,6 +15,8 @@ void MaterialInspector(SurfaceMaterial* surface_material = nullptr, string path 
         path = selected_material.string();
 
     DeserializeMaterial(material, path.c_str());
+    if (!material) material = &SurfaceMaterial{};
+
     ImVec2 window_size = ImGui::GetWindowSize();
     
     ImGui::Text("Inspecting Material");    
@@ -73,6 +75,10 @@ void MaterialInspector(SurfaceMaterial* surface_material = nullptr, string path 
             ImGui::EndDragDropTarget();
         }
 
+
+        ImGui::Dummy(ImVec2(0.0f, 10.0f));
+
+        ImGui::SliderFloat2("Texture Tiling", (float*)&selected_entity->tiling, 0.01f, 100.0f, "%.2f");
 
         ImGui::Dummy(ImVec2(0.0f, 10.0f));
 

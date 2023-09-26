@@ -11,6 +11,7 @@ uniform vec4 ambientLight;
 uniform vec3 viewPos;
 uniform mat4 viewMatrix;
 uniform mat4 projectionMatrix;
+uniform vec2 tiling;
 
 // pbr
 uniform sampler2D texture0;
@@ -97,7 +98,8 @@ vec4 toneMap(vec4 hdrColor) {
 
 
 void main() {
-    vec4 texColor = texture(texture0, fragTexCoord);
+    vec2 texCoord = fragTexCoord * tiling;
+    vec4 texColor = texture(texture0, texCoord);
 
     vec3 tangent = dFdx(fragPosition);
     vec3 bitangent = dFdy(fragPosition);
@@ -111,17 +113,17 @@ void main() {
     vec3 norm;
 
     if (normalMapInit) {
-        norm = texture(texture2, fragTexCoord).rgb;
+        norm = texture(texture2, texCoord).rgb;
         norm = norm * 2.0 - 1.0;
         norm = normalize(TBN * norm);
     } else
         norm = normalize(fragNormal);
 
-    float ao = texture(texture4, fragTexCoord).r;
+    float ao = texture(texture4, texCoord).r;
 
     float roughness;
     if (roughnessMapInit)
-        roughness = texture(texture3, fragTexCoord).r;
+        roughness = texture(texture3, texCoord).r;
     else
         roughness = 0.1;
 
@@ -191,7 +193,7 @@ void main() {
             float NdotL;
             if (normalMapInit)
             {
-                vec3 normalMap = texture(texture2, fragTexCoord).rgb;
+                vec3 normalMap = texture(texture2, texCoord).rgb;
                 vec3 tangent = dFdx(fragPosition);
                 vec3 bitangent = dFdy(fragPosition);
                 vec3 T = normalize(tangent);

@@ -1,77 +1,63 @@
-#include "include_all.h"
+#include "raylib.h"
 
-// Function to read and serialize a Python script file
-std::string serializePythonScript(const std::string &scriptFilePath) {
-    std::ifstream inputFile(scriptFilePath);
-    if (!inputFile.is_open()) {
-        std::cerr << "Failed to open file: " << scriptFilePath << std::endl;
-        return "";
+int main(void)
+{
+    SetTraceLogLevel(LOG_WARNING);
+    const int screenWidth = 800;
+    const int screenHeight = 600;
+
+    InitWindow(screenWidth, screenHeight, "Raylib Texture Tiling");
+
+    // Load a texture
+    Texture2D texture = LoadTexture("icon.png");
+
+    // Create a cube mesh
+    Mesh cube = GenMeshCube(1.0f, 1.0f, 1.0f);
+
+    // Load the texture onto the GPU
+    Model model = LoadModelFromMesh(cube);
+    model.materials[0].maps[MATERIAL_MAP_DIFFUSE].texture = texture;
+
+    // Set the tiling of the texture
+    float tiling[2] = {5.0f, 5.0f};
+    Shader shader = LoadShader(0, "custom.shader"); // Create a custom shader in a .glsl file
+    SetShaderValue(shader, GetShaderLocation(shader, "tiling"), tiling, SHADER_UNIFORM_VEC2);
+    model.materials[0].shader = shader;
+
+    // Camera setup
+    Camera camera = { 0 };
+    camera.position = (Vector3){ 3.0f, 3.0f, 3.0f };
+    camera.target = (Vector3){ 0.0f, 0.0f, 0.0f };
+    camera.up = (Vector3){ 0.0f, 1.0f, 0.0f };
+    camera.fovy = 45.0f;
+    camera.projection = CAMERA_PERSPECTIVE;
+
+    // Main game loop
+    while (!WindowShouldClose())
+    {
+        BeginDrawing();
+        ClearBackground(RAYWHITE);
+        UpdateCamera(&camera, CAMERA_FREE);
+
+        // Draw the model
+        {
+            BeginMode3D(camera);
+            BeginShaderMode(shader);
+
+            DrawModel(model, (Vector3){ 0.0f, 0.0f, 0.0f }, 5.0f, WHITE);
+
+            EndShaderMode();
+            EndMode3D();
+        }
+        
+        DrawText("Use mouse to rotate the camera", 10, 10, 20, DARKGRAY);
+
+        EndDrawing();
     }
 
-    std::string scriptContent((std::istreambuf_iterator<char>(inputFile)),
-                              std::istreambuf_iterator<char>());
-    inputFile.close();
-
-    return scriptContent;
-}
-
-int main() {
-    // Initialize the Python interpreter
-    int file_id = 0;
-
-    Entity entity1;
-    entity1.script = "project/game/test.py";
-    Entity entity2;
-    entity2.script = "project/game/file2.py";
-    Entity entity3;
-    entity3.script = "project/game/hi.py";
-
-    entities_list_pregame.push_back(entity1);
-    entities_list_pregame.push_back(entity2);
-    entities_list_pregame.push_back(entity3);    
-
-    // Map to store individual script contents
-    std::map<std::string, std::string> scriptContents;
-
-    for (Entity& entity : entities_list_pregame) {
-        if (entity.script.empty()) continue;
-
-        std::string scriptContent = serializePythonScript(entity.script);
-        if (scriptContent.empty()) continue;
-
-        // Extract the script name from the file path (e.g., "test.py")
-        std::string scriptName = entity.script.substr(entity.script.find_last_of('/') + 1);
-        // Remove the file extension to use as a variable name (e.g., "test") and add the index
-        scriptName = scriptName.substr(0, scriptName.find_last_of('.'))  + std::to_string(file_id);
-
-        // Store the script content in the map with the script name as the key
-        scriptContents[scriptName] = scriptContent;
-        entity.script_index = scriptName;
-
-        file_id++;
-
-    }
-
-    // Generate the header file content with individual script variables
-    std::string headerContent = "";
-    for (const auto &entry : scriptContents) {
-        headerContent += "const char* " + entry.first + " = R\"(\n";
-        headerContent += entry.second + "\n)\";\n\n";
-    }
-
-    // Write the header content to a header file
-    std::ofstream headerFile("ScriptData.h");
-    if (headerFile.is_open()) {
-        headerFile << headerContent;
-        headerFile.close();
-        std::cout << "Header file 'ScriptData.h' generated successfully." << std::endl;
-    } else {
-        std::cerr << "Failed to create header file 'ScriptData.h'." << std::endl;
-    }
-
-    for (Entity& entity : entities_list_pregame) {
-        std::cout << "Script Index: " << entity.script_index << std::endl;
-    }
+    UnloadTexture(texture);
+    UnloadModel(model);
+    CloseWindow();
 
     return 0;
 }
