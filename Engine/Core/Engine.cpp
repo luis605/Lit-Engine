@@ -153,6 +153,8 @@ public:
     }
 
     Entity(const Entity& other) {
+        if (!this || this == nullptr || !other.initialized)
+            return;
         this->initialized = other.initialized;
         this->name = other.name;
         this->size = other.size;
