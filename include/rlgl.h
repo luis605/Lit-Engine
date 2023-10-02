@@ -2998,7 +2998,7 @@ unsigned int rlLoadTexture(const void *data, int width, int height, int format, 
     int mipWidth = width;
     int mipHeight = height;
     int mipOffset = 0;          // Mipmap data offset, only used for tracelog
-    
+
     // NOTE: Added pointer math separately from function to avoid UBSAN complaining
     unsigned char *dataPtr = (unsigned char *)data;
 
@@ -3012,7 +3012,7 @@ unsigned int rlLoadTexture(const void *data, int width, int height, int format, 
 
         TRACELOGD("TEXTURE: Load mipmap level %i (%i x %i), size: %i, offset: %i", i, mipWidth, mipHeight, mipSize, mipOffset);
 
-        if (glInternalFormat != -1)
+        if (glInternalFormat != 0)
         {
             if (format < RL_PIXELFORMAT_COMPRESSED_DXT1_RGB) glTexImage2D(GL_TEXTURE_2D, i, glInternalFormat, mipWidth, mipHeight, 0, glFormat, glType, dataPtr);
 #if !defined(GRAPHICS_API_OPENGL_11)
@@ -3166,7 +3166,7 @@ unsigned int rlLoadTextureCubemap(const void *data, int size, int format)
     unsigned int glInternalFormat, glFormat, glType;
     rlGetGlTextureFormats(format, &glInternalFormat, &glFormat, &glType);
 
-    if (glInternalFormat != -1)
+    if (glInternalFormat != 0)
     {
         // Load cubemap faces
         for (unsigned int i = 0; i < 6; i++)
@@ -3234,7 +3234,7 @@ void rlUpdateTexture(unsigned int id, int offsetX, int offsetY, int width, int h
     unsigned int glInternalFormat, glFormat, glType;
     rlGetGlTextureFormats(format, &glInternalFormat, &glFormat, &glType);
 
-    if ((glInternalFormat != -1) && (format < RL_PIXELFORMAT_COMPRESSED_DXT1_RGB))
+    if ((glInternalFormat != 0) && (format < RL_PIXELFORMAT_COMPRESSED_DXT1_RGB))
     {
         glTexSubImage2D(GL_TEXTURE_2D, 0, offsetX, offsetY, width, height, glFormat, glType, data);
     }
@@ -3378,7 +3378,7 @@ void *rlReadTexturePixels(unsigned int id, int width, int height, int format)
     rlGetGlTextureFormats(format, &glInternalFormat, &glFormat, &glType);
     unsigned int size = rlGetPixelDataSize(width, height, format);
 
-    if ((glInternalFormat != -1) && (format < RL_PIXELFORMAT_COMPRESSED_DXT1_RGB))
+    if ((glInternalFormat != 0) && (format < RL_PIXELFORMAT_COMPRESSED_DXT1_RGB))
     {
         pixels = RL_MALLOC(size);
         glGetTexImage(GL_TEXTURE_2D, 0, glFormat, glType, pixels);
@@ -3403,7 +3403,7 @@ void *rlReadTexturePixels(unsigned int id, int width, int height, int format)
 
     // Attach our texture to FBO
     glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, id, 0);
-    
+
     // We read data as RGBA because FBO texture is configured as RGBA, despite binding another texture format
     pixels = (unsigned char *)RL_MALLOC(rlGetPixelDataSize(width, height, RL_PIXELFORMAT_UNCOMPRESSED_R8G8B8A8));
     glReadPixels(0, 0, width, height, GL_RGBA, GL_UNSIGNED_BYTE, pixels);
@@ -3697,7 +3697,7 @@ void rlDrawVertexArrayElements(int offset, int count, const void *buffer)
     // NOTE: Added pointer math separately from function to avoid UBSAN complaining
     unsigned short *bufferPtr = (unsigned short *)buffer;
     if (offset > 0) bufferPtr += offset;
-    
+
     glDrawElements(GL_TRIANGLES, count, GL_UNSIGNED_SHORT, (const unsigned short *)bufferPtr);
 }
 
@@ -3716,7 +3716,7 @@ void rlDrawVertexArrayElementsInstanced(int offset, int count, const void *buffe
     // NOTE: Added pointer math separately from function to avoid UBSAN complaining
     unsigned short *bufferPtr = (unsigned short *)buffer;
     if (offset > 0) bufferPtr += offset;
-    
+
     glDrawElementsInstanced(GL_TRIANGLES, count, GL_UNSIGNED_SHORT, (const unsigned short *)bufferPtr, instances);
 #endif
 }
