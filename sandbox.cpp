@@ -3,8 +3,8 @@
 #include <iostream>
 #include <vector>
 #include <cfloat>
-#include <cstring>
 
+// Function to calculate the midpoint between two vertices
 Vector3 CalculateMidpoint(const Vector3& vertex1, const Vector3& vertex2) {
     float midX = (vertex1.x + vertex2.x) / 2.0f;
     float midY = (vertex1.y + vertex2.y) / 2.0f;
@@ -13,13 +13,12 @@ Vector3 CalculateMidpoint(const Vector3& vertex1, const Vector3& vertex2) {
     return Vector3{ midX, midY, midZ };
 }
 
+// Function to contract vertices based on a maximum distance
 std::vector<Vector3> ContractVertices(const Mesh& mesh, float maxDistance) {
     if (mesh.vertices == nullptr || mesh.vertexCount == 0) {
         std::cout << "Mesh has no vertices or is not initialized." << std::endl;
         return std::vector<Vector3>();
     }
-
-    std::cout << "Unique vertices within a distance of " << maxDistance << " from each other:" << std::endl;
 
     std::vector<Vector3> uniqueVertices;
 
@@ -32,10 +31,10 @@ std::vector<Vector3> ContractVertices(const Mesh& mesh, float maxDistance) {
 
         bool isUnique = true;
 
-        // Check if this vertex is unique or very close to an existing one
         for (const Vector3& uniqueVertex : uniqueVertices) {
-            float distance = Vector3Distance(Vector3{ xi, yi, zi }, uniqueVertex);
+            float distance = Vector3Distance(vertex_position, uniqueVertex);
             if (distance <= maxDistance) {
+                std::cout << "Simplifying triangle: " << i << std::endl;
                 vertex_position = CalculateMidpoint(vertex_position, uniqueVertex);
                 isUnique = false;
                 break;
@@ -47,17 +46,11 @@ std::vector<Vector3> ContractVertices(const Mesh& mesh, float maxDistance) {
         }
     }
 
-    int index = 0;
-    for (const Vector3& vertex : uniqueVertices) {
-        // std::cout << "Vertex " << index << ": " << vertex.x << ", " << vertex.y << ", " << vertex.z << std::endl;
-        index++;
-    }
-
     return uniqueVertices;
 }
 
+// Function to generate a simplified LOD mesh
 Mesh GenerateLODMesh(const std::vector<Vector3>& uniqueVertices, Mesh& sourceMesh) {
-    // Create a new mesh based on unique vertices
     Mesh lodMesh = { 0 };
 
     if (!uniqueVertices.empty()) {
@@ -71,10 +64,12 @@ Mesh GenerateLODMesh(const std::vector<Vector3>& uniqueVertices, Mesh& sourceMes
         lodMesh.vertices = (float*)malloc(sizeof(float) * 3 * vertexCount);
         lodMesh.indices = (unsigned short*)malloc(sizeof(unsigned short) * indexCount);
 
-        lodMesh.indices = sourceMesh.indices;
-        
-        
-        
+        // Generate new indices based on the new vertex positions
+        for (int i = 0; i < triangleCount; i++) {
+            lodMesh.indices[i * 3] = i * 3;
+            lodMesh.indices[i * 3 + 1] = i * 3 + 1;
+            lodMesh.indices[i * 3 + 2] = i * 3 + 2;
+        }
 
         // Copy unique vertices to the new mesh's vertex array
         for (int i = 0; i < vertexCount; i++) {
@@ -82,19 +77,9 @@ Mesh GenerateLODMesh(const std::vector<Vector3>& uniqueVertices, Mesh& sourceMes
             lodMesh.vertices[i * 3 + 1] = uniqueVertices[i].y;
             lodMesh.vertices[i * 3 + 2] = uniqueVertices[i].z;
         }
-
-        // // Generate triangle indices
-        // for (int i = 0; i < indexCount; i++) {
-        //     lodMesh.indices[i] = i;
-        // }
-
-        // Generate VBO for vertices
-       lodMesh.vboId = (unsigned int *)RL_CALLOC(1, sizeof(unsigned int));
-//        lodMesh.vboId = sourceMesh.vboId;      
-        lodMesh.vaoId = sourceMesh.vaoId;      
     }
 
-    UploadMesh(&lodMesh, false);
+    UploadMesh(&lodMesh, false); // Upload mesh data to GPU (VBO/IBO)
 
     return lodMesh;
 }
