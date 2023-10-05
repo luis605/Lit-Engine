@@ -20,7 +20,7 @@ std::vector<Vector3> ContractVertices(const Mesh& mesh, float maxDistance) {
         return std::vector<Vector3>();
     }
 
-    std::vector<Vector3> uniqueVertices;
+    std::vector<Vector3> contractedVertices(mesh.vertexCount);
 
     for (int i = 0; i < mesh.vertexCount; i++) {
         float xi = mesh.vertices[i * 3];
@@ -29,25 +29,29 @@ std::vector<Vector3> ContractVertices(const Mesh& mesh, float maxDistance) {
 
         Vector3 vertex_position = { xi, yi, zi };
 
-        bool isUnique = true;
+        // Find the closest existing vertex
+        int closestVertexIndex = -1;
+        float closestDistance = FLT_MAX;
 
-        for (const Vector3& uniqueVertex : uniqueVertices) {
-            float distance = Vector3Distance(vertex_position, uniqueVertex);
-            if (distance <= maxDistance) {
-                std::cout << "Simplifying triangle: " << i << std::endl;
-                vertex_position = CalculateMidpoint(vertex_position, uniqueVertex);
-                isUnique = false;
-                break;
+        for (int j = 0; j < contractedVertices.size(); j++) {
+            float distance = Vector3Distance(vertex_position, contractedVertices[j]);
+            if (distance <= maxDistance && distance < closestDistance) {
+                closestVertexIndex = j;
+                closestDistance = distance;
             }
         }
 
-        if (isUnique) {
-            uniqueVertices.push_back(vertex_position);
+        // If a close vertex is found, use it; otherwise, use the original vertex
+        if (closestVertexIndex != -1) {
+            contractedVertices[i] = contractedVertices[closestVertexIndex];
+        } else {
+            contractedVertices[i] = vertex_position;
         }
     }
 
-    return uniqueVertices;
+    return contractedVertices;
 }
+
 
 // Function to generate a simplified LOD mesh
 Mesh GenerateLODMesh(const std::vector<Vector3>& uniqueVertices, Mesh& sourceMesh) {
