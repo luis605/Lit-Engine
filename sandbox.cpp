@@ -1,19 +1,30 @@
+#include "nanoflann/include/nanoflann.hpp"
+#undef PI
+
 #include "include/raylib.h"
 #include "include/raymath.h"
+#include "include/kd_tree_utils.h"
 #include <iostream>
 #include <vector>
 #include <cfloat>
+#include <limits>
+#include <cmath>
+#include <unordered_map>
+#include <omp.h>
 
 // Function to calculate the midpoint between two vertices
 Vector3 CalculateMidpoint(const Vector3& vertex1, const Vector3& vertex2) {
-    float midX = (vertex1.x + vertex2.x) / 2.0f;
-    float midY = (vertex1.y + vertex2.y) / 2.0f;
-    float midZ = (vertex1.z + vertex2.z) / 2.0f;
-
-    return Vector3{ midX, midY, midZ };
+    return Vector3{ (vertex1.x + vertex2.x) / 2.0f, (vertex1.y + vertex2.y) / 2.0f, (vertex1.z + vertex2.z) / 2.0f };
 }
 
 // Function to contract vertices based on a maximum distance
+inline float Vector3DistanceSquared(const Vector3& a, const Vector3& b) {
+    float dx = a.x - b.x;
+    float dy = a.y - b.y;
+    float dz = a.z - b.z;
+    return dx * dx + dy * dy + dz * dz;
+}
+
 std::vector<Vector3> ContractVertices(const Mesh& mesh, float maxDistance) {
     if (mesh.vertices == nullptr || mesh.vertexCount == 0) {
         std::cout << "Mesh has no vertices or is not initialized." << std::endl;
@@ -22,6 +33,13 @@ std::vector<Vector3> ContractVertices(const Mesh& mesh, float maxDistance) {
 
     std::vector<Vector3> contractedVertices(mesh.vertexCount);
 
+    // Create a spatial hash for efficient lookup
+    std::unordered_map<int, int> spatialHash;
+
+    // Store the squared maximum distance to avoid redundant calculations
+    const float maxDistanceSquared = maxDistance * maxDistance;
+
+    #pragma omp parallel for
     for (int i = 0; i < mesh.vertexCount; i++) {
         float xi = mesh.vertices[i * 3];
         float yi = mesh.vertices[i * 3 + 1];
@@ -29,15 +47,48 @@ std::vector<Vector3> ContractVertices(const Mesh& mesh, float maxDistance) {
 
         Vector3 vertex_position = { xi, yi, zi };
 
-        // Find the closest existing vertex
+        // Find the closest existing vertex within maxDistance
         int closestVertexIndex = -1;
-        float closestDistance = FLT_MAX;
+        float closestDistance = maxDistanceSquared;
 
-        for (int j = 0; j < contractedVertices.size(); j++) {
-            float distance = Vector3Distance(vertex_position, contractedVertices[j]);
-            if (distance <= maxDistance && distance < closestDistance) {
-                closestVertexIndex = j;
-                closestDistance = distance;
+        // Determine the spatial hash cell for the current vertex
+        int cellX = static_cast<int>(xi / maxDistance);
+        int cellY = static_cast<int>(yi / maxDistance);
+        int cellZ = static_cast<int>(zi / maxDistance);
+
+        int hashKey = cellX * 1000000 + cellY * 1000 + cellZ;
+        
+        // Iterate over neighboring cells within a radius of 1
+        for (int dx = -1; dx <= 1; dx++) {
+            for (int dy = -1; dy <= 1; dy++) {
+                for (int dz = -1; dz <= 1; dz++) {
+                    int neighborCellX = cellX + dx;
+                    int neighborCellY = cellY + dy;
+                    int neighborCellZ = cellZ + dz;
+
+                    // Calculate the hash key for the neighboring cell
+                    int hashKey = neighborCellX * 1000000 + neighborCellY * 1000 + neighborCellZ;
+
+                    // Check if the neighboring cell exists in the spatial hash
+                    auto neighborCellIter = spatialHash.find(hashKey);
+
+                    if (neighborCellIter != spatialHash.end()) {
+                        int neighborVertexIndex = neighborCellIter->second;
+
+                        // Calculate the distance squared to the neighboring vertex
+                        float distanceSquared = Vector3DistanceSquared(vertex_position, contractedVertices[neighborVertexIndex]);
+
+                        if (distanceSquared <= closestDistance) {
+                            closestVertexIndex = neighborVertexIndex;
+                            closestDistance = distanceSquared;
+
+                            // If a vertex is found within half the maxDistance, break early
+                            if (distanceSquared < maxDistanceSquared * 0.25f) {
+                                break;
+                            }
+                        }
+                    }
+                }
             }
         }
 
@@ -47,10 +98,14 @@ std::vector<Vector3> ContractVertices(const Mesh& mesh, float maxDistance) {
         } else {
             contractedVertices[i] = vertex_position;
         }
+
+        // Update the spatial hash for the current vertex
+        spatialHash[hashKey] = i;
     }
 
     return contractedVertices;
 }
+
 
 
 // Function to generate a simplified LOD mesh
@@ -101,11 +156,12 @@ int main() {
     Shader shader = LoadShader("Engine/Lighting/shaders/lod.vs", "Engine/Lighting/shaders/lod.fs");
 
     // Starting LOD level
-    Mesh sourceMesh = GenMeshSphere(1, 16, 16);
+    Mesh sourceMesh = GenMeshSphere(1, 32, 32);//LoadModel("a.obj").meshes[0];
+
+    std::cout << "loaded" << std::endl;
 
     float lodFactor = 0;
     // Get unique vertices and generate LOD mesh
-    std::vector<Vector3> uniqueVertices = ContractVertices(sourceMesh, 0.3f);
     Model lodModel = LoadModelFromMesh(GenMeshCube(1,1,1));
     lodModel.materials[0].shader = shader;
 
@@ -123,6 +179,10 @@ int main() {
 
         // Get unique vertices and generate LOD mesh
         std::vector<Vector3> uniqueVertices = ContractVertices(sourceMesh, lodFactor);
+
+        // Debug output to check if vertices are being contracted
+        std::cout << "Unique vertices count: " << uniqueVertices.size() << std::endl;
+
         lodModel.meshes[0] = GenerateLODMesh(uniqueVertices, sourceMesh);
 
         if (IsKeyPressed(KEY_O))
@@ -132,11 +192,11 @@ int main() {
         else if (IsKeyPressed(KEY_P))
         {
             lodFactor -= 0.1f;
+            std::cout << "DECREASING\n";
         }
 
-
         BeginDrawing();
-        ClearBackground(DARKBLUE);
+        ClearBackground(RED);
         UpdateCamera(&camera, CAMERA_FREE);
         SetShaderValue(shader, GetShaderLocation(shader, "viewPos"), &camera.position, SHADER_UNIFORM_VEC3);
 
