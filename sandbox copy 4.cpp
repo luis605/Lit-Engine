@@ -52,3 +52,30 @@ std::vector<Vector3> ContractVertices(const Mesh& mesh, float maxDistance) {
 
     return contractedVertices;
 }
+
+
+
+
+
+        if (closestVertexIndices[0] != -1) {
+            Vector3 averagePosition = Vector3Zero();
+            int numUsedSlots = 0;
+
+            for (int index : closestVertexIndices) {
+                if (index != -1) {
+                    averagePosition = Vector3Add(averagePosition, contractedVertices[index]);
+                    numUsedSlots++;
+                }
+            }
+
+            averagePosition = Vector3Scale(averagePosition, 1.0f / numUsedSlots);
+            contractedVertices.at(i) = averagePosition;
+            std::cout << "contracted vertex: " << i << std::endl;
+            std::cout << "Near vertices: " << closestVertexIndices[0] << ", " << closestVertexIndices[1] << ", " << closestVertexIndices[2] << std::endl << std::endl;
+
+        } else {
+            contractedVertices.at(i) = vertexPosition;
+            keepVertex.at(i) = false;
+        }
+    }
+
