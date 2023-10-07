@@ -47,6 +47,8 @@ std::vector<Vector3> ContractVertices(const Mesh& mesh, float maxDistance) {
         int closestVertexIndex = -1;
         float closestDistance = maxDistanceSquared;
 
+        // Parallelize the inner loop as well
+        #pragma omp parallel for reduction(min : closestDistance)
         for (int j = 0; j < i; j++) {
             float distSq = Vector3DistanceSquared(vertex_position, contractedVertices[j]);
             if (distSq <= closestDistance) {
@@ -63,7 +65,6 @@ std::vector<Vector3> ContractVertices(const Mesh& mesh, float maxDistance) {
 
     return contractedVertices;
 }
-
 
 // Function to generate a simplified LOD mesh
 Mesh GenerateLODMesh(const std::vector<Vector3>& uniqueVertices, Mesh& sourceMesh) {
@@ -121,7 +122,7 @@ int main() {
     Shader shader = LoadShader(0, "Engine/Lighting/shaders/lod.fs");
 
     // Starting LOD level
-    Mesh sourceMesh = GenMeshSphere(1, 100, 100);//LoadModel("a.obj").meshes[0];
+    Mesh sourceMesh = GenMeshSphere(1, 15, 15);//LoadModel("a.obj").meshes[0];
 
     std::cout << "loaded" << std::endl;
 
