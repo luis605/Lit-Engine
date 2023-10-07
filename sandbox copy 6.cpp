@@ -24,8 +24,14 @@ inline float Vector3DistanceSquared(const Vector3& a, const Vector3& b) {
     float dx = a.x - b.x;
     float dy = a.y - b.y;
     float dz = a.z - b.z;
-    return dx * dx + dy * dy + dz * dz;
+
+    // Avoid redundant multiplications by combining terms
+    return dx * dx + (dy * dy + dz * dz);
 }
+
+
+
+
 
 std::vector<Vector3> ContractVertices(const Mesh& mesh, float maxDistance) {
     if (mesh.vertices == nullptr || mesh.vertexCount == 0) {
@@ -33,53 +39,63 @@ std::vector<Vector3> ContractVertices(const Mesh& mesh, float maxDistance) {
         return std::vector<Vector3>();
     }
 
-    std::vector<Vector3> contractedVertices(mesh.vertexCount);
+    // Create a spatial hash for efficient lookup
+    std::unordered_map<int, int> spatialHash;
 
-    // Precompute squared maximum distance
+    // Store the squared maximum distance to avoid redundant calculations
     const float maxDistanceSquared = maxDistance * maxDistance;
 
-    // Precompute squared distances between all vertex pairs
-    std::vector<std::vector<float>> distanceSquared(mesh.vertexCount, std::vector<float>(mesh.vertexCount));
-    for (int i = 0; i < mesh.vertexCount; i++) {
-        for (int j = 0; j < i; j++) {
-            float distSq = Vector3DistanceSquared({mesh.vertices[i * 3], mesh.vertices[i * 3 + 1], mesh.vertices[i * 3 + 2]},
-                                                  {mesh.vertices[j * 3], mesh.vertices[j * 3 + 1], mesh.vertices[j * 3 + 2]});
-            distanceSquared[i][j] = distSq;
-            distanceSquared[j][i] = distSq;
-        }
-    }
+    std::vector<Vector3> contractedVertices;
+    contractedVertices.reserve(mesh.vertexCount); // Reserve memory for efficiency
 
     #pragma omp parallel for
     for (int i = 0; i < mesh.vertexCount; i++) {
         float xi = mesh.vertices[i * 3];
         float yi = mesh.vertices[i * 3 + 1];
         float zi = mesh.vertices[i * 3 + 2];
+
         Vector3 vertex_position = { xi, yi, zi };
 
+        // Find the closest existing vertex within maxDistance using spatial hashing
         int closestVertexIndex = -1;
         float closestDistance = maxDistanceSquared;
 
-        // Search for the closest existing vertex within maxDistance
-        for (int j = 0; j < i; j++) {
-            if (distanceSquared[i][j] <= closestDistance) {
-                closestVertexIndex = j;
-                closestDistance = distanceSquared[i][j];
+        // Calculate spatial hash key
+        int hashKey = static_cast<int>(xi + yi + zi);
 
-                // If a vertex is found within half the maxDistance, break early
-                if (distanceSquared[i][j] < maxDistanceSquared * 0.25f) {
-                    break;
+        #pragma omp critical
+        {
+            auto it = spatialHash.find(hashKey);
+            if (it != spatialHash.end()) {
+                int j = it->second;
+                float distanceSquared = Vector3DistanceSquared(vertex_position, contractedVertices[j]);
+
+                if (distanceSquared <= closestDistance) {
+                    closestVertexIndex = j;
+                    closestDistance = distanceSquared;
+
+                    // If a vertex is found within half the maxDistance, break early
+                    if (distanceSquared < maxDistanceSquared * 0.25f) {
+                        spatialHash[hashKey] = j;
+                        continue;
+                    }
                 }
             }
         }
 
-        // If a close vertex is found, use it; otherwise, use the original vertex
-        contractedVertices[i] = (closestVertexIndex != -1) ? contractedVertices[closestVertexIndex] : vertex_position;
+        // If a close vertex is found, use it; otherwise, add the original vertex
+        if (closestVertexIndex != -1) {
+            contractedVertices[i] = contractedVertices[closestVertexIndex];
+        } else {
+            contractedVertices.push_back(vertex_position);
+        }
+
+        // Update the spatial hash for the current vertex
+        spatialHash[hashKey] = contractedVertices.size() - 1;
     }
 
     return contractedVertices;
 }
-
-
 
 // Function to generate a simplified LOD mesh
 Mesh GenerateLODMesh(const std::vector<Vector3>& uniqueVertices, Mesh& sourceMesh) {
@@ -187,6 +203,7 @@ int main() {
 
         DrawModel(lodModel, Vector3Zero(), 1.0f, WHITE);
 
+        std::cout << uniqueVertices.size() << std::endl;
         
         EndShaderMode();
         EndMode3D();

@@ -1,5 +1,9 @@
+#include "nanoflann/include/nanoflann.hpp"
+#undef PI
+
 #include "include/raylib.h"
 #include "include/raymath.h"
+#include "include/kd_tree_utils.h"
 #include <iostream>
 #include <vector>
 #include <cfloat>
@@ -7,19 +11,13 @@
 #include <cmath>
 #include <unordered_map>
 #include <omp.h>
-#include <queue>
-#include <algorithm>
-#include <execution>
-#include <unordered_map>
-
-
-
 
 // Function to calculate the midpoint between two vertices
 Vector3 CalculateMidpoint(const Vector3& vertex1, const Vector3& vertex2) {
     return Vector3{ (vertex1.x + vertex2.x) / 2.0f, (vertex1.y + vertex2.y) / 2.0f, (vertex1.z + vertex2.z) / 2.0f };
 }
 
+// Function to contract vertices based on a maximum distance
 inline float Vector3DistanceSquared(const Vector3& a, const Vector3& b) {
     float dx = a.x - b.x;
     float dy = a.y - b.y;
@@ -35,45 +33,74 @@ std::vector<Vector3> ContractVertices(const Mesh& mesh, float maxDistance) {
 
     std::vector<Vector3> contractedVertices(mesh.vertexCount);
 
-    // Precompute squared maximum distance
-    const float maxDistanceSquared = maxDistance * maxDistance;
+    // Create a spatial hash for efficient lookup
+    std::unordered_map<int, int> spatialHash;
 
-    // Precompute squared distances between all vertex pairs
-    std::vector<std::vector<float>> distanceSquared(mesh.vertexCount, std::vector<float>(mesh.vertexCount));
-    for (int i = 0; i < mesh.vertexCount; i++) {
-        for (int j = 0; j < i; j++) {
-            float distSq = Vector3DistanceSquared({mesh.vertices[i * 3], mesh.vertices[i * 3 + 1], mesh.vertices[i * 3 + 2]},
-                                                  {mesh.vertices[j * 3], mesh.vertices[j * 3 + 1], mesh.vertices[j * 3 + 2]});
-            distanceSquared[i][j] = distSq;
-            distanceSquared[j][i] = distSq;
-        }
-    }
+    // Store the squared maximum distance to avoid redundant calculations
+    const float maxDistanceSquared = maxDistance * maxDistance;
 
     #pragma omp parallel for
     for (int i = 0; i < mesh.vertexCount; i++) {
         float xi = mesh.vertices[i * 3];
         float yi = mesh.vertices[i * 3 + 1];
         float zi = mesh.vertices[i * 3 + 2];
+
         Vector3 vertex_position = { xi, yi, zi };
 
+        // Find the closest existing vertex within maxDistance
         int closestVertexIndex = -1;
         float closestDistance = maxDistanceSquared;
 
-        // Search for the closest existing vertex within maxDistance
-        for (int j = 0; j < i; j++) {
-            if (distanceSquared[i][j] <= closestDistance) {
-                closestVertexIndex = j;
-                closestDistance = distanceSquared[i][j];
+        // Determine the spatial hash cell for the current vertex
+        int cellX = static_cast<int>(xi / maxDistance);
+        int cellY = static_cast<int>(yi / maxDistance);
+        int cellZ = static_cast<int>(zi / maxDistance);
 
-                // If a vertex is found within half the maxDistance, break early
-                if (distanceSquared[i][j] < maxDistanceSquared * 0.25f) {
-                    break;
+        int hashKey = cellX * 1000000 + cellY * 1000 + cellZ;
+        
+        // Iterate over neighboring cells within a radius of 1
+        for (int dx = -1; dx <= 1; dx++) {
+            for (int dy = -1; dy <= 1; dy++) {
+                for (int dz = -1; dz <= 1; dz++) {
+                    int neighborCellX = cellX + dx;
+                    int neighborCellY = cellY + dy;
+                    int neighborCellZ = cellZ + dz;
+
+                    // Calculate the hash key for the neighboring cell
+                    int hashKey = neighborCellX * 1000000 + neighborCellY * 1000 + neighborCellZ;
+
+                    // Check if the neighboring cell exists in the spatial hash
+                    auto neighborCellIter = spatialHash.find(hashKey);
+
+                    if (neighborCellIter != spatialHash.end()) {
+                        int neighborVertexIndex = neighborCellIter->second;
+
+                        // Calculate the distance squared to the neighboring vertex
+                        float distanceSquared = Vector3DistanceSquared(vertex_position, contractedVertices[neighborVertexIndex]);
+
+                        if (distanceSquared <= closestDistance) {
+                            closestVertexIndex = neighborVertexIndex;
+                            closestDistance = distanceSquared;
+
+                            // If a vertex is found within half the maxDistance, break early
+                            if (distanceSquared < maxDistanceSquared * 0.25f) {
+                                break;
+                            }
+                        }
+                    }
                 }
             }
         }
 
         // If a close vertex is found, use it; otherwise, use the original vertex
-        contractedVertices[i] = (closestVertexIndex != -1) ? contractedVertices[closestVertexIndex] : vertex_position;
+        if (closestVertexIndex != -1) {
+            contractedVertices[i] = contractedVertices[closestVertexIndex];
+        } else {
+            contractedVertices[i] = vertex_position;
+        }
+
+        // Update the spatial hash for the current vertex
+        spatialHash[hashKey] = i;
     }
 
     return contractedVertices;
@@ -95,7 +122,13 @@ Mesh GenerateLODMesh(const std::vector<Vector3>& uniqueVertices, Mesh& sourceMes
         lodMesh.triangleCount = triangleCount;
         lodMesh.vertices = (float*)malloc(sizeof(float) * 3 * vertexCount);
         lodMesh.indices = (unsigned short*)malloc(sizeof(unsigned short) * indexCount);
-//        lodMesh.indices = sourceMesh.indices;
+
+        // Generate new indices based on the new vertex positions
+        for (int i = 0; i < triangleCount; i++) {
+            lodMesh.indices[i * 3] = i * 3;
+            lodMesh.indices[i * 3 + 1] = i * 3 + 1;
+            lodMesh.indices[i * 3 + 2] = i * 3 + 2;
+        }
 
         // Copy unique vertices to the new mesh's vertex array
         for (int i = 0; i < vertexCount; i++) {
@@ -103,25 +136,12 @@ Mesh GenerateLODMesh(const std::vector<Vector3>& uniqueVertices, Mesh& sourceMes
             lodMesh.vertices[i * 3 + 1] = uniqueVertices[i].y;
             lodMesh.vertices[i * 3 + 2] = uniqueVertices[i].z;
         }
-
-        // Generate new indices for non-indexed mesh
-        if (sourceMesh.indices)
-        {
-            for (int i = 0; i < triangleCount; i++) {
-                lodMesh.indices[i * 3] = sourceMesh.indices[i * 3];
-                lodMesh.indices[i * 3 + 1] = sourceMesh.indices[i * 3 + 1];
-                lodMesh.indices[i * 3 + 2] = sourceMesh.indices[i * 3 + 2];
-            }
-        }
-        else
-            lodMesh.indices = sourceMesh.indices;
     }
-    UploadMesh(&lodMesh, false);
+
+    UploadMesh(&lodMesh, false); // Upload mesh data to GPU (VBO/IBO)
+
     return lodMesh;
 }
-
-
-
 
 int main() {
     SetTraceLogLevel(LOG_WARNING);
@@ -129,7 +149,6 @@ int main() {
     const int screenWidth = 800;
     const int screenHeight = 600;
 
-    SetConfigFlags(FLAG_WINDOW_RESIZABLE);
     InitWindow(screenWidth, screenHeight, "LOD Example");
 
     std::cout << "Starting Program..." << std::endl;
@@ -137,7 +156,7 @@ int main() {
     Shader shader = LoadShader(0, "Engine/Lighting/shaders/lod.fs");
 
     // Starting LOD level
-    Mesh sourceMesh = GenMeshSphere(1, 99, 99);//LoadModel("a.obj").meshes[0];
+    Mesh sourceMesh = LoadModel("a.obj").meshes[0];
 
     std::cout << "loaded" << std::endl;
 
@@ -158,6 +177,13 @@ int main() {
     // Use the generated LOD mesh as needed
     while (!WindowShouldClose()) {
 
+        // Get unique vertices and generate LOD mesh
+        std::vector<Vector3> uniqueVertices = ContractVertices(sourceMesh, lodFactor);
+
+        // Debug output to check if vertices are being contracted
+
+        lodModel.meshes[0] = GenerateLODMesh(uniqueVertices, sourceMesh);
+
         if (IsKeyPressed(KEY_O))
         {
             lodFactor += 0.1f;
@@ -168,15 +194,6 @@ int main() {
             std::cout << "DECREASING\n";
         }
 
-        // Get unique vertices and generate LOD mesh
-        std::vector<Vector3> uniqueVertices = ContractVertices(sourceMesh, lodFactor);
-
-        // Debug output to check if vertices are being contracted
-
-        lodModel.meshes[0] = GenerateLODMesh(uniqueVertices, sourceMesh);
-
-
-
         BeginDrawing();
         ClearBackground(WHITE);
         UpdateCamera(&camera, CAMERA_FREE);
@@ -186,12 +203,9 @@ int main() {
         BeginShaderMode(shader);
 
         DrawModel(lodModel, Vector3Zero(), 1.0f, WHITE);
-
         
         EndShaderMode();
         EndMode3D();
-
-        DrawFPS(10,10);
         EndDrawing();
     }
 
