@@ -35,19 +35,7 @@ std::vector<Vector3> ContractVertices(const Mesh& mesh, float maxDistance) {
 
     std::vector<Vector3> contractedVertices(mesh.vertexCount);
 
-    // Precompute squared maximum distance
     const float maxDistanceSquared = maxDistance * maxDistance;
-
-    // Precompute squared distances between all vertex pairs
-    std::vector<std::vector<float>> distanceSquared(mesh.vertexCount, std::vector<float>(mesh.vertexCount));
-    for (int i = 0; i < mesh.vertexCount; i++) {
-        for (int j = 0; j < i; j++) {
-            float distSq = Vector3DistanceSquared({mesh.vertices[i * 3], mesh.vertices[i * 3 + 1], mesh.vertices[i * 3 + 2]},
-                                                  {mesh.vertices[j * 3], mesh.vertices[j * 3 + 1], mesh.vertices[j * 3 + 2]});
-            distanceSquared[i][j] = distSq;
-            distanceSquared[j][i] = distSq;
-        }
-    }
 
     #pragma omp parallel for
     for (int i = 0; i < mesh.vertexCount; i++) {
@@ -59,26 +47,22 @@ std::vector<Vector3> ContractVertices(const Mesh& mesh, float maxDistance) {
         int closestVertexIndex = -1;
         float closestDistance = maxDistanceSquared;
 
-        // Search for the closest existing vertex within maxDistance
         for (int j = 0; j < i; j++) {
-            if (distanceSquared[i][j] <= closestDistance) {
+            float distSq = Vector3DistanceSquared(vertex_position, contractedVertices[j]);
+            if (distSq <= closestDistance) {
                 closestVertexIndex = j;
-                closestDistance = distanceSquared[i][j];
-
-                // If a vertex is found within half the maxDistance, break early
-                if (distanceSquared[i][j] < maxDistanceSquared * 0.25f) {
+                closestDistance = distSq;
+                if (distSq < maxDistanceSquared * 0.25f) {
                     break;
                 }
             }
         }
 
-        // If a close vertex is found, use it; otherwise, use the original vertex
         contractedVertices[i] = (closestVertexIndex != -1) ? contractedVertices[closestVertexIndex] : vertex_position;
     }
 
     return contractedVertices;
 }
-
 
 
 // Function to generate a simplified LOD mesh
@@ -137,7 +121,7 @@ int main() {
     Shader shader = LoadShader(0, "Engine/Lighting/shaders/lod.fs");
 
     // Starting LOD level
-    Mesh sourceMesh = GenMeshSphere(1, 99, 99);//LoadModel("a.obj").meshes[0];
+    Mesh sourceMesh = GenMeshSphere(1, 100, 100);//LoadModel("a.obj").meshes[0];
 
     std::cout << "loaded" << std::endl;
 
