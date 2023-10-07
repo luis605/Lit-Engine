@@ -1,7 +1,3 @@
-#include "nanoflann/include/nanoflann.hpp" // Include nanoflann for KD-tree
-#undef PI
-#include "include/nanoflann_utils.h"
-
 #include "include/raylib.h"
 #include "include/raymath.h"
 #include <iostream>
@@ -17,30 +13,6 @@
 #include <unordered_map>
 
 
-struct MeshAdaptor {
-    const Mesh& mesh;
-    MeshAdaptor(const Mesh& mesh) : mesh(mesh) {}
-    
-    inline size_t kdtree_get_point_count() const {
-        return mesh.vertexCount;
-    }
-
-    inline float kdtree_get_pt(const size_t idx, const size_t dim) const {
-        const float* vertex = &(mesh.vertices[idx * 3]);
-        return vertex[dim];
-    }
-
-    template <class BBOX>
-    bool kdtree_get_bbox(BBOX&) const {
-        return false;
-    }
-};
-
-
-typedef nanoflann::KDTreeSingleIndexAdaptor<
-    nanoflann::L2_Simple_Adaptor<float, MeshAdaptor>,
-    MeshAdaptor,
-    3> KDTree;
 
 
 // Function to calculate the midpoint between two vertices
@@ -63,14 +35,7 @@ std::vector<Vector3> ContractVertices(const Mesh& mesh, float maxDistance) {
 
     std::vector<Vector3> contractedVertices(mesh.vertexCount);
 
-    // Create a MeshAdaptor for nanoflann
-    MeshAdaptor meshAdaptor(mesh);
-
     const float maxDistanceSquared = maxDistance * maxDistance;
-
-    // Build the KD-tree
-    KDTree index(3, meshAdaptor, nanoflann::KDTreeSingleIndexAdaptorParams(10));
-    index.buildIndex();
 
     #pragma omp parallel for
     for (int i = 0; i < mesh.vertexCount; i++) {
@@ -79,24 +44,27 @@ std::vector<Vector3> ContractVertices(const Mesh& mesh, float maxDistance) {
         float zi = mesh.vertices[i * 3 + 2];
         Vector3 vertex_position = { xi, yi, zi };
 
-        long unsigned int closestVertexIndex; // Use the correct data type
-        float closestDistance;
-        nanoflann::KNNResultSet<float> resultSet(1);
-        resultSet.init(&closestVertexIndex, &closestDistance);
+        int closestVertexIndex = -1;
+        float closestDistance = maxDistanceSquared;
 
-        // Search for the closest vertex using the KD-tree
-        index.findNeighbors(resultSet, &vertex_position.x);
-
-        if (closestDistance < maxDistanceSquared * 0.25f) {
-            contractedVertices[i] = contractedVertices[static_cast<int>(closestVertexIndex)];
-        } else {
-            contractedVertices[i] = vertex_position;
+        // Parallelize the inner loop as well
+        #pragma omp parallel for reduction(min : closestDistance)
+        for (int j = 0; j < i; j++) {
+            float distSq = Vector3DistanceSquared(vertex_position, contractedVertices[j]);
+            if (distSq <= closestDistance) {
+                closestVertexIndex = j;
+                closestDistance = distSq;
+                if (distSq < maxDistanceSquared * 0.25f) {
+                    break;
+                }
+            }
         }
+
+        contractedVertices[i] = (closestVertexIndex != -1) ? contractedVertices[closestVertexIndex] : vertex_position;
     }
 
     return contractedVertices;
 }
-
 
 // Function to generate a simplified LOD mesh
 Mesh GenerateLODMesh(const std::vector<Vector3>& uniqueVertices, Mesh& sourceMesh) {
@@ -154,7 +122,7 @@ int main() {
     Shader shader = LoadShader(0, "Engine/Lighting/shaders/lod.fs");
 
     // Starting LOD level
-    Mesh sourceMesh = GenMeshTorus(1, 1, 10, 10);//LoadModel("a.obj").meshes[0];
+    Mesh sourceMesh = GenMeshSphere(1, 15, 15);//LoadModel("a.obj").meshes[0];
 
     std::cout << "loaded" << std::endl;
 
