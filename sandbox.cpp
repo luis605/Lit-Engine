@@ -104,6 +104,8 @@ std::vector<Vector3> ContractVertices(const Mesh& mesh, float maxDistance) {
         contractedVertices[idx] = (closestVertexIndex != -1) ? contractedVertices[closestVertexIndex] : vertex_position;
     }
 
+    sortedIndices.clear();
+
     return contractedVertices;
 }
 
@@ -195,11 +197,7 @@ int main() {
             std::cout << "DECREASING\n";
         }
 
-        // Get unique vertices and generate LOD mesh
         std::vector<Vector3> uniqueVertices = ContractVertices(sourceMesh, lodFactor);
-
-        // Debug output to check if vertices are being contracted
-
         lodModel.meshes[0] = GenerateLODMesh(uniqueVertices, sourceMesh);
 
 
@@ -222,6 +220,9 @@ int main() {
         EndDrawing();
     }
 
+    UnloadModel(lodModel);
+    UnloadMesh(sourceMesh);
+    UnloadShader(shader);
     CloseWindow();
     return 0;
 }
