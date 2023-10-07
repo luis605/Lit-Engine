@@ -1,7 +1,3 @@
-#include "nanoflann/include/nanoflann.hpp" // Include nanoflann for KD-tree
-#undef PI
-#include "include/nanoflann_utils.h"
-
 #include "include/raylib.h"
 #include "include/raymath.h"
 #include <iostream>
@@ -11,42 +7,25 @@
 #include <cmath>
 #include <unordered_map>
 #include <omp.h>
-#include <queue>
 #include <algorithm>
-#include <execution>
 #include <unordered_map>
 
+using namespace std;
 
-struct MeshAdaptor {
-    const Mesh& mesh;
-    MeshAdaptor(const Mesh& mesh) : mesh(mesh) {}
-    
-    inline size_t kdtree_get_point_count() const {
-        return mesh.vertexCount;
-    }
-
-    inline float kdtree_get_pt(const size_t idx, const size_t dim) const {
-        const float* vertex = &(mesh.vertices[idx * 3]);
-        return vertex[dim];
-    }
-
-    template <class BBOX>
-    bool kdtree_get_bbox(BBOX&) const {
-        return false;
-    }
+typedef struct Entities
+{
+    Vector3 position;
+    Model model;
+    Model lod_model = LoadModelFromMesh(GenMeshCube(1.0f, 1.0f, 1.0f));
 };
 
+typedef struct Cluster
+{
+    Color color;
+    int lodLevel;
+    std::vector<Entities> entities;
+};
 
-typedef nanoflann::KDTreeSingleIndexAdaptor<
-    nanoflann::L2_Simple_Adaptor<float, MeshAdaptor>,
-    MeshAdaptor,
-    3> KDTree;
-
-
-// Function to calculate the midpoint between two vertices
-Vector3 CalculateMidpoint(const Vector3& vertex1, const Vector3& vertex2) {
-    return Vector3{ (vertex1.x + vertex2.x) / 2.0f, (vertex1.y + vertex2.y) / 2.0f, (vertex1.z + vertex2.z) / 2.0f };
-}
 
 inline float Vector3DistanceSquared(const Vector3& a, const Vector3& b) {
     float dx = a.x - b.x;
@@ -152,77 +131,125 @@ Mesh GenerateLODMesh(const std::vector<Vector3>& uniqueVertices, Mesh& sourceMes
 
 
 
+
 int main() {
     SetTraceLogLevel(LOG_WARNING);
-
+    // Initialization
     const int screenWidth = 800;
     const int screenHeight = 600;
 
-    SetConfigFlags(FLAG_WINDOW_RESIZABLE);
-    InitWindow(screenWidth, screenHeight, "LOD Example");
-
-    std::cout << "Starting Program..." << std::endl;
+    InitWindow(screenWidth, screenHeight, "HLOD");
 
     Shader shader = LoadShader(0, "Engine/Lighting/shaders/lod.fs");
 
-    // Starting LOD level
-    Mesh sourceMesh = GenMeshSphere(1, 50, 50);//LoadModel("a.obj").meshes[0];
-
-    std::cout << "loaded" << std::endl;
-
-    float lodFactor = 0;
-    // Get unique vertices and generate LOD mesh
-    Model lodModel = LoadModelFromMesh(GenMeshCube(1,1,1));
-    lodModel.materials[0].shader = shader;
-
-    Camera3D camera = { 0 };
-    camera.position = (Vector3){ 0.0f, 0.0f, 5.0f };
-    camera.target = (Vector3){ 0.0f, 0.0f, 0.0f };
-    camera.up = (Vector3){ 0.0f, 1.0f, 0.0f };
+    Camera3D camera;
+    camera.position = { 0.0f, 0.0f, 10.0f };
+    camera.target = { 0.0f, 0.0f, 0.0f };
+    camera.up = { 0.0f, 1.0f, 0.0f };
     camera.fovy = 45.0f;
     camera.projection = CAMERA_PERSPECTIVE;
 
-    SetTargetFPS(60);
+    // Create a vector of clusters
+    std::vector<Cluster> clusters;
+    
+    // Define colors for clusters
+    Color clusterColors[] = {
+        RED, GREEN, BLUE, YELLOW, ORANGE,
+        PINK, PURPLE, DARKGRAY, LIME, SKYBLUE
+    };
+    
+    // Create clusters and populate them with entities (for example, cubes)
+    for (int i = 0; i < 10; i++) {
+        Cluster cluster;
+        cluster.color = clusterColors[i];
+        cluster.lodLevel = 0; // Start with the highest LOD level
 
-    // Use the generated LOD mesh as needed
+        for (int j = 0; j < 2; j++) {
+            Entities entity;
+            entity.model = LoadModelFromMesh(GenMeshSphere(1.0f, 16.0f, 16.0f));
+            entity.lod_model = entity.model;
+            // entity.model.materials[0].shader = shader;
+            entity.position = { static_cast<float>(GetRandomValue(-10, 10)), static_cast<float>(GetRandomValue(-10, 10)), static_cast<float>(GetRandomValue(-10, 10)) };
+            cluster.entities.push_back(entity);
+        }
+
+        clusters.push_back(cluster);
+    }
+    
+    float lodLevel = 0.0f;
+    // Main game loop
     while (!WindowShouldClose()) {
-
-        if (IsKeyPressed(KEY_O))
-        {
-            lodFactor += 0.1f;
-        }
-        else if (IsKeyPressed(KEY_P))
-        {
-            lodFactor -= 0.1f;
-            std::cout << "DECREASING\n";
-        }
-
-        std::vector<Vector3> uniqueVertices = ContractVertices(sourceMesh, lodFactor);
-        lodModel.meshes[0] = GenerateLODMesh(uniqueVertices, sourceMesh);
-
-
-
+        // Update
+        
+        // Clear the background
         BeginDrawing();
-        ClearBackground(WHITE);
-        UpdateCamera(&camera, CAMERA_FREE);
-        SetShaderValue(shader, GetShaderLocation(shader, "viewPos"), &camera.position, SHADER_UNIFORM_VEC3);
-
+        ClearBackground(GRAY);
         BeginMode3D(camera);
         BeginShaderMode(shader);
+        UpdateCamera(&camera, CAMERA_FREE);
 
-        DrawModel(lodModel, Vector3Zero(), 1.0f, WHITE);
 
-        
+        // Iterate through clusters and group them into LOD levels based on positions
+        for (size_t i = 0; i < clusters.size(); i++) {
+            int clusterIndex = static_cast<int>((clusters[i].entities[0].position.x + clusters[i].entities[0].position.y + clusters[i].entities[0].position.z) / 3) + 5;
+            
+            // Ensure clusterIndex is within bounds
+            clusterIndex = Clamp(clusterIndex, 0, 9);
+            
+            // Determine the LOD level based on the cluster's distance from the camera (you can adjust the threshold as needed)
+            float distance = Vector3Distance(clusters[i].entities[0].position, camera.position);
+
+            if (distance < 20.0f) {
+                clusters[i].lodLevel = 0; // Highest LOD
+                clusters[i].color = GREEN;
+                for (Entities& entity : clusters[i].entities) {
+                    entity.lod_model = entity.model;
+                    // Also, update the mesh data for the lod_model
+                    entity.lod_model = LoadModelFromMesh(entity.model.meshes[0]);
+                    
+                }
+
+            } else if (distance < 50.0f) {
+                clusters[i].lodLevel = 1; // Medium LOD
+
+                for (size_t j = 0; j < clusters[i].entities.size(); j++) {
+                    clusters[i].entities[j].lod_model = LoadModelFromMesh(GenerateLODMesh(ContractVertices(clusters[i].entities[j].model.meshes[0], 0.5f), clusters[i].entities[j].model.meshes[0]));
+                    clusters[i].color = YELLOW;
+                }
+            } else {
+                clusters[i].lodLevel = 2; // Lowest LOD
+                clusters[i].color = RED;
+                for (size_t j = 0; j < clusters[i].entities.size(); j++) {
+                    clusters[i].entities[j].lod_model = LoadModelFromMesh(GenerateLODMesh(ContractVertices(clusters[i].entities[j].model.meshes[0], 1.0f), clusters[i].entities[j].model.meshes[0]));
+                }
+            }
+
+            // Draw all entities in the cluster with the cluster's color and LOD level
+            for (size_t j = 0; j < clusters[i].entities.size(); j++) {
+                DrawModel(clusters[i].entities[j].lod_model, clusters[i].entities[j].position, 1.0f, clusters[i].color);
+            }
+
+        }
+
         EndShaderMode();
+
         EndMode3D();
 
         DrawFPS(10,10);
+        
         EndDrawing();
     }
-
-    UnloadModel(lodModel);
-    UnloadMesh(sourceMesh);
-    UnloadShader(shader);
+    
+    // Unload models
+    for (size_t i = 0; i < clusters.size(); i++) {
+        for (size_t j = 0; j < clusters[i].entities.size(); j++) {
+            UnloadModel(clusters[i].entities[j].model);
+            UnloadModel(clusters[i].entities[j].lod_model);
+        }
+    }
+    
+    // Clean up and close the window
     CloseWindow();
+    
     return 0;
 }
