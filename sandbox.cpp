@@ -63,35 +63,45 @@ std::vector<Vector3> ContractVertices(const Mesh& mesh, float maxDistance) {
 
     std::vector<Vector3> contractedVertices(mesh.vertexCount);
 
-    // Create a MeshAdaptor for nanoflann
-    MeshAdaptor meshAdaptor(mesh);
-
     const float maxDistanceSquared = maxDistance * maxDistance;
 
-    // Build the KD-tree
-    KDTree index(3, meshAdaptor, nanoflann::KDTreeSingleIndexAdaptorParams(10));
-    index.buildIndex();
+    // Sort vertices by x-coordinate for better memory access patterns
+    std::vector<int> sortedIndices(mesh.vertexCount);
+    #pragma omp parallel for
+    for (int i = 0; i < mesh.vertexCount; i++) {
+        sortedIndices[i] = i;
+    }
+    std::sort(sortedIndices.begin(), sortedIndices.end(), [&](int a, int b) {
+        return mesh.vertices[a * 3] < mesh.vertices[b * 3];
+    });
 
     #pragma omp parallel for
     for (int i = 0; i < mesh.vertexCount; i++) {
-        float xi = mesh.vertices[i * 3];
-        float yi = mesh.vertices[i * 3 + 1];
-        float zi = mesh.vertices[i * 3 + 2];
+        int idx = sortedIndices[i];
+        float xi = mesh.vertices[idx * 3];
+        float yi = mesh.vertices[idx * 3 + 1];
+        float zi = mesh.vertices[idx * 3 + 2];
         Vector3 vertex_position = { xi, yi, zi };
 
-        long unsigned int closestVertexIndex; // Use the correct data type
-        float closestDistance;
-        nanoflann::KNNResultSet<float> resultSet(1);
-        resultSet.init(&closestVertexIndex, &closestDistance);
+        int closestVertexIndex = -1;
+        float closestDistance = maxDistanceSquared;
 
-        // Search for the closest vertex using the KD-tree
-        index.findNeighbors(resultSet, &vertex_position.x);
+        // Only search within a limited neighborhood
+        int searchStart = std::max(0, i - 128); // Adjust the neighborhood size as needed
 
-        if (closestDistance < maxDistanceSquared * 0.25f) {
-            contractedVertices[i] = contractedVertices[static_cast<int>(closestVertexIndex)];
-        } else {
-            contractedVertices[i] = vertex_position;
+        for (int j = searchStart; j < i; j++) {
+            int jdx = sortedIndices[j];
+            float distSq = Vector3DistanceSquared(vertex_position, contractedVertices[jdx]);
+            if (distSq <= closestDistance) {
+                closestVertexIndex = jdx;
+                closestDistance = distSq;
+                if (distSq < maxDistanceSquared * 0.25f) {
+                    break;
+                }
+            }
         }
+
+        contractedVertices[idx] = (closestVertexIndex != -1) ? contractedVertices[closestVertexIndex] : vertex_position;
     }
 
     return contractedVertices;
@@ -154,7 +164,7 @@ int main() {
     Shader shader = LoadShader(0, "Engine/Lighting/shaders/lod.fs");
 
     // Starting LOD level
-    Mesh sourceMesh = GenMeshTorus(1, 1, 10, 10);//LoadModel("a.obj").meshes[0];
+    Mesh sourceMesh = GenMeshSphere(1, 50, 50);//LoadModel("a.obj").meshes[0];
 
     std::cout << "loaded" << std::endl;
 
