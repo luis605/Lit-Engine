@@ -1,7 +1,3 @@
-#include "nanoflann/include/nanoflann.hpp" // Include nanoflann for KD-tree
-#undef PI
-#include "include/nanoflann_utils.h"
-
 #include "include/raylib.h"
 #include "include/raymath.h"
 #include <iostream>
@@ -15,7 +11,6 @@
 #include <algorithm>
 #include <execution>
 #include <unordered_map>
-#include <immintrin.h> // Include for SIMD intrinsics (requires a compatible compiler and hardware)
 
 
 // Function to calculate the midpoint between two vertices
@@ -40,10 +35,9 @@ std::vector<Vector3> ContractVertices(const Mesh& mesh, float maxDistance) {
 
     const float maxDistanceSquared = maxDistance * maxDistance;
 
-    // Preallocate memory for contractedVertices
     std::vector<Vector3> contractedVertices(mesh.vertexCount, Vector3{0.0f, 0.0f, 0.0f});
 
-    // Use a spatial data structure for faster neighbor lookups (e.g., an octree)
+
 
     // Sort vertices by x-coordinate for better memory access patterns
     std::vector<int> sortedIndices(mesh.vertexCount);
