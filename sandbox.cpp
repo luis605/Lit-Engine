@@ -187,7 +187,7 @@ int main() {
         PINK, PURPLE, DARKGRAY, LIME, SKYBLUE
     };
     
-    // Create clusters and populate them with entities (for example, cubes)
+    #pragma omp parallel for
     for (int i = 0; i < 10; i++) {
         Cluster cluster;
         cluster.color = clusterColors[i];
@@ -223,6 +223,7 @@ int main() {
 
 
         // Iterate through clusters and group them into LOD levels based on positions
+        #pragma omp parallel for
         for (Cluster& cluster : clusters) {
             float distance = Vector3Distance(cluster.entities[0].position, camera.position);
             int lodLevel = 0;
@@ -265,12 +266,16 @@ int main() {
     // Unload models
     for (Cluster& cluster : clusters) {
         for (Entities& entity : cluster.entities) {
-            UnloadModel(entity.model);
-            for (int i = 0; i < 4; i++) {
+            // Unload LODModels first (index 1 to 3)
+            for (int i = 1; i < 4; i++) {
                 UnloadModel(entity.LodModels[i]);
             }
+
+            // Unload the original model
+            UnloadModel(entity.model);
         }
     }
+
     
     // Clean up and close the window
     CloseWindow();
