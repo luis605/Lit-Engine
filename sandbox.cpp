@@ -55,7 +55,6 @@ std::vector<Vector3> ContractVertices(const Mesh& mesh, float maxDistance) {
 
     std::vector<Vector3> contractedVertices(vertexCount, Vector3{0.0f, 0.0f, 0.0f});
 
-    // Sort vertices by x-coordinate for better memory access patterns
     std::vector<int> sortedIndices(vertexCount);
     #pragma omp parallel for
     for (int i = 0; i < vertexCount; i++) {
@@ -77,9 +76,8 @@ std::vector<Vector3> ContractVertices(const Mesh& mesh, float maxDistance) {
         float closestDistance = maxDistanceSquared;
 
         // Calculate a smaller neighborhood range based on current vertex position
-        int searchStart = i - 4; // Further reduce the neighborhood size
+        int searchStart = i - 4;
 
-        // Ensure that searchStart doesn't go out of bounds
         searchStart = std::max(searchStart, 0);
 
         for (int j = searchStart; j < i; j++) {
@@ -89,7 +87,6 @@ std::vector<Vector3> ContractVertices(const Mesh& mesh, float maxDistance) {
                 closestVertexIndex = jdx;
                 closestDistance = distSq;
 
-                // Early exit if a very close vertex is found
                 if (distSq < maxDistanceSquared * 0.25f) {
                     break;
                 }
@@ -100,11 +97,51 @@ std::vector<Vector3> ContractVertices(const Mesh& mesh, float maxDistance) {
     }
 
     sortedIndices.clear();
-    std::cout << "Vertices Count -> " << contractedVertices.size() << std::endl;
+
+    // Create a new vector to store unique vertices
+    std::vector<Vector3> uniqueVertices;
+
+    // Define the cell size for spatial hashing (adjust as needed)
+    const float cellSize = maxDistance * 0.5f;
+
+    // Create a hash map for spatial hashing
+    std::unordered_map<uint64_t, Vector3> spatialHashMap;
+
+    #pragma omp parallel for
+    for (int i = 0; i < contractedVertices.size(); i++) {
+        const Vector3& vertex = contractedVertices[i];
+
+        // Calculate the cell coordinates for the vertex
+        int cellX = static_cast<int>(vertex.x / cellSize);
+        int cellY = static_cast<int>(vertex.y / cellSize);
+        int cellZ = static_cast<int>(vertex.z / cellSize);
+
+        // Generate a hash key based on cell coordinates
+        uint64_t hashKey = static_cast<uint64_t>(cellX) * 73856093ULL ^
+                        static_cast<uint64_t>(cellY) * 19349663ULL ^
+                        static_cast<uint64_t>(cellZ) * 83492791ULL;
+
+        // Check if the hash key is already in the spatialHashMap
+        #pragma omp critical
+        auto it = spatialHashMap.find(hashKey);
+        if (it == spatialHashMap.end()) {
+            // Vertex is unique within its cell, add it to uniqueVertices
+            spatialHashMap[hashKey] = vertex;
+            uniqueVertices.push_back(vertex);
+        } else {
+            // Check distance to previously stored vertex in the same cell
+            const Vector3& storedVertex = it->second;
+            if (Vector3DistanceSquared(vertex, storedVertex) >= maxDistanceSquared * 0.25f) {
+                // Vertex is unique, add it to uniqueVertices
+                spatialHashMap[hashKey] = vertex;
+                uniqueVertices.push_back(vertex);
+            }
+        }
+    }
+
 
     return contractedVertices;
 }
-
 
 
 // Function to generate a simplified LOD mesh
