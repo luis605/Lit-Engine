@@ -8,15 +8,18 @@
 #include <unordered_map>
 #include <omp.h>
 #include <algorithm>
-#include <unordered_map>
 
 using namespace std;
+
+const float LOD_DISTANCE_HIGH = 10.0f;
+const float LOD_DISTANCE_MEDIUM = 25.0f;
+const float LOD_DISTANCE_LOW = 35.0f;
 
 typedef struct Entities
 {
     Vector3 position;
-    Model model;
-    Model lod_model = LoadModelFromMesh(GenMeshCube(1.0f, 1.0f, 1.0f));
+    Model model = LoadModelFromMesh(GenMeshCube(1.0f, 1.0f, 1.0f));
+    Model LodModels[4] = { model, LoadModelFromMesh(GenMeshCube(1.0f, 1.0f, 1.0f)), LoadModelFromMesh(GenMeshCube(1.0f, 1.0f, 1.0f)) };
 };
 
 typedef struct Cluster
@@ -104,12 +107,6 @@ std::vector<Vector3> ContractVertices(const Mesh& mesh, float maxDistance) {
 
 
 
-
-
-
-
-
-
 // Function to generate a simplified LOD mesh
 Mesh GenerateLODMesh(const std::vector<Vector3>& uniqueVertices, Mesh& sourceMesh) {
     Mesh lodMesh = { 0 };
@@ -144,9 +141,6 @@ Mesh GenerateLODMesh(const std::vector<Vector3>& uniqueVertices, Mesh& sourceMes
             lodMesh.indices = sourceMesh.indices;
         }
     }
-
-    // UploadMesh already duplicates the data, so we don't need to keep the original
-
 
     UploadMesh(&lodMesh, false);
     
@@ -201,9 +195,13 @@ int main() {
 
         for (int j = 0; j < 2; j++) {
             Entities entity;
-            entity.model = LoadModelFromMesh(GenMeshSphere(1.0f, 16.0f, 16.0f));
-            entity.lod_model = entity.model;
-            // entity.model.materials[0].shader = shader;
+            entity.model = LoadModelFromMesh(GenMeshSphere(1.0f, 99.0f, 99.0f));
+            entity.LodModels[0] = entity.model;
+            entity.LodModels[1] = LoadModelFromMesh(GenerateLODMesh(ContractVertices(entity.model.meshes[0], 0.5f), entity.model.meshes[0]));
+            entity.LodModels[2] = LoadModelFromMesh(GenerateLODMesh(ContractVertices(entity.model.meshes[0], 1.0f), entity.model.meshes[0]));
+            entity.LodModels[3] = LoadModelFromMesh(GenerateLODMesh(ContractVertices(entity.model.meshes[0], 1.5f), entity.model.meshes[0]));
+            
+
             entity.position = { static_cast<float>(GetRandomValue(-10, 10)), static_cast<float>(GetRandomValue(-10, 10)), static_cast<float>(GetRandomValue(-10, 10)) };
             cluster.entities.push_back(entity);
         }
@@ -211,7 +209,7 @@ int main() {
         clusters.push_back(cluster);
     }
     
-    float lodLevel = 0.0f;
+    
     // Main game loop
     while (!WindowShouldClose()) {
         // Update
@@ -225,46 +223,35 @@ int main() {
 
 
         // Iterate through clusters and group them into LOD levels based on positions
-        for (size_t i = 0; i < clusters.size(); i++) {
-            int clusterIndex = static_cast<int>((clusters[i].entities[0].position.x + clusters[i].entities[0].position.y + clusters[i].entities[0].position.z) / 3) + 5;
-            
-            // Ensure clusterIndex is within bounds
-            clusterIndex = Clamp(clusterIndex, 0, 9);
-            
-            // Determine the LOD level based on the cluster's distance from the camera (you can adjust the threshold as needed)
-            float distance = Vector3Distance(clusters[i].entities[0].position, camera.position);
+        for (Cluster& cluster : clusters) {
+            float distance = Vector3Distance(cluster.entities[0].position, camera.position);
+            int lodLevel = 0;
 
-            if (distance < 20.0f) {
-                clusters[i].lodLevel = 0; // Highest LOD
-                clusters[i].color = GREEN;
-                for (Entities& entity : clusters[i].entities) {
-                    entity.lod_model = entity.model;
-                    // Also, update the mesh data for the lod_model
-                    entity.lod_model = LoadModelFromMesh(entity.model.meshes[0]);
-                    
-                }
-
-            } else if (distance < 50.0f) {
-                clusters[i].lodLevel = 1; // Medium LOD
-
-                for (size_t j = 0; j < clusters[i].entities.size(); j++) {
-                    clusters[i].entities[j].lod_model = LoadModelFromMesh(GenerateLODMesh(ContractVertices(clusters[i].entities[j].model.meshes[0], 0.5f), clusters[i].entities[j].model.meshes[0]));
-                    clusters[i].color = YELLOW;
-                }
+            if (distance < LOD_DISTANCE_HIGH) {
+                lodLevel = 0;
+                cluster.color = GREEN;
+            } else if (distance < LOD_DISTANCE_MEDIUM) {
+                lodLevel = 1;
+                cluster.color = YELLOW;
+            } else if (distance < LOD_DISTANCE_LOW) {
+                lodLevel = 2;
+                cluster.color = RED;
             } else {
-                clusters[i].lodLevel = 2; // Lowest LOD
-                clusters[i].color = RED;
-                for (size_t j = 0; j < clusters[i].entities.size(); j++) {
-                    clusters[i].entities[j].lod_model = LoadModelFromMesh(GenerateLODMesh(ContractVertices(clusters[i].entities[j].model.meshes[0], 1.0f), clusters[i].entities[j].model.meshes[0]));
-                }
+                lodLevel = 3;
+                cluster.color = WHITE;
+            }
+
+            // Update LOD level for all entities in the cluster
+            for (Entities& entity : cluster.entities) {
+                entity.LodModels[lodLevel] = LoadModelFromMesh(entity.LodModels[lodLevel].meshes[0]);
             }
 
             // Draw all entities in the cluster with the cluster's color and LOD level
-            for (size_t j = 0; j < clusters[i].entities.size(); j++) {
-                DrawModel(clusters[i].entities[j].lod_model, clusters[i].entities[j].position, 1.0f, clusters[i].color);
+            for (Entities& entity : cluster.entities) {
+                DrawModel(entity.LodModels[lodLevel], entity.position, 1.0f, cluster.color);
             }
-
         }
+
 
         EndShaderMode();
 
@@ -276,10 +263,12 @@ int main() {
     }
     
     // Unload models
-    for (size_t i = 0; i < clusters.size(); i++) {
-        for (size_t j = 0; j < clusters[i].entities.size(); j++) {
-            UnloadModel(clusters[i].entities[j].model);
-            UnloadModel(clusters[i].entities[j].lod_model);
+    for (Cluster& cluster : clusters) {
+        for (Entities& entity : cluster.entities) {
+            UnloadModel(entity.model);
+            for (int i = 0; i < 4; i++) {
+                UnloadModel(entity.LodModels[i]);
+            }
         }
     }
     
@@ -288,3 +277,4 @@ int main() {
     
     return 0;
 }
+
