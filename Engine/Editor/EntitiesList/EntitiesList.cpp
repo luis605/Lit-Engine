@@ -414,6 +414,17 @@ void EntitiesList()
         cout << "Stopping Game" << endl;
         in_game_preview = false;
         first_time_gameplay = true;
+
+        for (Entity& entity : entities_list_pregame)
+        {
+            entity.resetPhysics();
+        }
+
+        for (Entity& entity : entities_list)
+        {
+            entity.resetPhysics();
+        }
+
         CleanScriptThreads(scripts_thread_vector);
     }
 
