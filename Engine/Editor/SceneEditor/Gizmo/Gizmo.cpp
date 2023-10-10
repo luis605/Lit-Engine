@@ -349,7 +349,6 @@ void GizmoScale()
             {
                 color1 = GREEN;
                 gizmo_cube_selected = cube_i;
-                std::cout << gizmo_cube_selected << std::endl;
             }
             else
             {
