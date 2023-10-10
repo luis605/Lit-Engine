@@ -756,17 +756,17 @@ public:
             }
             btVector3 rigidBodyPosition = trans.getOrigin();
             position = { rigidBodyPosition.getX(), rigidBodyPosition.getY(), rigidBodyPosition.getZ() };
-            backupPosition = position;
         }
     }
 
-    void setPos(LitVector3& new_position) {
-        position = new_position;
+    void setPos(LitVector3 newPos) {
+        position = newPos;
         if (boxRigidBody) {
-            btVector3 btNewPosition(new_position.x, new_position.y, new_position.z);
-            btTransform trans = boxRigidBody->getCenterOfMassTransform();
-            trans.setOrigin(btNewPosition);
-            boxRigidBody->setCenterOfMassTransform(trans);
+            btTransform transform;
+            transform.setIdentity();
+
+            transform.setOrigin(btVector3(newPos.x, newPos.y, newPos.z));
+            boxRigidBody->setWorldTransform(transform);
         }
     }
     
@@ -797,6 +797,7 @@ public:
     }
 
 
+    /* NOT WORKING */
     btCollisionShape* MeshToShape(Mesh* mesh) {
         btTriangleMesh* triangleMesh = new btTriangleMesh();
 
@@ -881,10 +882,6 @@ public:
         btRigidBody::btRigidBodyConstructionInfo boxRigidBodyCI(btMass, boxMotionState, dynamicBoxShape, localInertia);
         boxRigidBody = new btRigidBody(boxRigidBodyCI);
 
-        // Set additional properties for the rigid body, if needed
-        // boxRigidBody->setFriction(...);
-        // boxRigidBody->setRestitution(...);
-
         dynamicsWorld->addRigidBody(boxRigidBody);
     }
 
@@ -913,23 +910,23 @@ public:
         btRigidBody::btRigidBodyConstructionInfo meshRigidBodyCI(btMass, meshMotionState, meshShape, localInertia);
         boxRigidBody = new btRigidBody(meshRigidBodyCI);
 
-        // Set additional properties for the rigid body, if needed
-        // boxRigidBody->setFriction(...);
-        // boxRigidBody->setRestitution(...);
 
         dynamicsWorld->addRigidBody(boxRigidBody);
     }
 
 
     void makePhysicsDynamic() {
-        isDynamic = true;
-//        createDynamicMesh(MeshToShape(&model.meshes[0]));
-        createDynamicBox(scale.x, scale.y, scale.z);
+        if (!isDynamic) {
+            isDynamic = true;
+            createDynamicBox(scale.x, scale.y, scale.z);
+        }
     }
 
     void makePhysicsStatic() {
-        isDynamic = false;
-        createStaticBox(scale.x, scale.y, scale.z);
+        if (isDynamic) {
+            isDynamic = false;
+            createStaticBox(scale.x, scale.y, scale.z);
+        }
     }
 
     void reloadRigidBody() {
@@ -938,6 +935,17 @@ public:
         else
             makePhysicsStatic();
     }
+
+    void resetPhysics() {
+        if (boxRigidBody) {
+            std::cout << "Stoping physics\n";
+            boxRigidBody->setLinearVelocity(btVector3(0, 0, 0));
+            boxRigidBody->setAngularVelocity(btVector3(0, 0, 0));
+
+            setPos(backupPosition);
+        }
+    }
+
 
     void print_position()
     {
@@ -990,6 +998,7 @@ public:
         {
             setPos(position);    
             updateMass();
+            backupPosition = position;
         }
 
         if (!visible) {
