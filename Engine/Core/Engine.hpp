@@ -15,6 +15,8 @@ vector<Entity> entities_list_pregame;
 vector<Light> lights_list_pregame;
 vector<Entity> entities_list;
 
+// std::vector<Cluster> clusters;
+
 Entity *selected_entity = nullptr;
 Light *selected_light = nullptr;
 LitButton *selected_button = nullptr;

@@ -122,7 +122,7 @@ public:
     float mass = 1;
     Vector3 inertia = {0, 0, 0};
 
-
+    Model LodModels[4] = { model, LoadModelFromMesh(GenMeshCube(1.0f, 1.0f, 1.0f)), LoadModelFromMesh(GenMeshCube(1.0f, 1.0f, 1.0f)) };
 
     int id = 0;
 
@@ -575,6 +575,16 @@ public:
         }
 
         ReloadTextures();
+
+        this->LodModels[0] = this->model;
+        this->LodModels[1] = LoadModelFromMesh(GenerateLODMesh(ContractVertices(this->model.meshes[0], 0.5f), this->model.meshes[0]));
+        this->LodModels[2] = LoadModelFromMesh(GenerateLODMesh(ContractVertices(this->model.meshes[0], 1.0f), this->model.meshes[0]));
+        this->LodModels[3] = LoadModelFromMesh(GenerateLODMesh(ContractVertices(this->model.meshes[0], 1.5f), this->model.meshes[0]));
+        
+        // cluster.entities.push_back(entity);
+
+        // clusters.push_back(cluster);
+
     }
 
     bool hasModel()
@@ -942,146 +952,14 @@ public:
     }
 
     void AllocateMeshData(Mesh *mesh, int triangleCount) {
-    mesh->vertexCount = triangleCount * 3;
-    mesh->triangleCount = triangleCount;
+        mesh->vertexCount = triangleCount * 3;
+        mesh->triangleCount = triangleCount;
 
-    mesh->vertices = (float *)MemAlloc(mesh->vertexCount * 3 * sizeof(float));
-    mesh->texcoords = (float *)MemAlloc(mesh->vertexCount * 2 * sizeof(float));
-    mesh->normals = (float *)MemAlloc(mesh->vertexCount * 3 * sizeof(float));
+        mesh->vertices = (float *)MemAlloc(mesh->vertexCount * 3 * sizeof(float));
+        mesh->texcoords = (float *)MemAlloc(mesh->vertexCount * 2 * sizeof(float));
+        mesh->normals = (float *)MemAlloc(mesh->vertexCount * 3 * sizeof(float));
     }
 
-
-    Mesh ShapeToMesh(btCollisionShape *shape) {
-        Mesh mesh = {0};
-
-        if (shape->isConvex()) {
-
-            const btConvexPolyhedron *poly =
-                shape->isPolyhedral()
-                    ? ((btPolyhedralConvexShape *)shape)->getConvexPolyhedron()
-                    : 0;
-
-            if (poly) {
-            int i;
-            AllocateMeshData(&mesh, poly->m_faces.size());
-            int currentVertice = 0;
-            for (i = 0; i < poly->m_faces.size(); i++) {
-                btVector3 centroid(0, 0, 0);
-                int numVerts = poly->m_faces[i].m_indices.size();
-                if (numVerts > 2) {
-                    btVector3 v1 = poly->m_vertices[poly->m_faces[i].m_indices[0]];
-                    for (int v = 0; v < poly->m_faces[i].m_indices.size() - 2; v++) {
-                        btVector3 v2 = poly->m_vertices[poly->m_faces[i].m_indices[v + 1]];
-                        btVector3 v3 = poly->m_vertices[poly->m_faces[i].m_indices[v + 2]];
-                        btVector3 normal = (v3 - v1).cross(v2 - v1);
-                        normal.normalize();
-
-                        mesh.vertices[currentVertice] = v1.x();
-                        mesh.vertices[currentVertice + 1] = v1.y();
-                        mesh.vertices[currentVertice + 2] = v1.z();
-                        mesh.normals[currentVertice] = normal.getX();
-                        mesh.normals[currentVertice + 1] = normal.getY();
-                        mesh.normals[currentVertice + 2] = normal.getZ();
-
-                        mesh.vertices[currentVertice + 3] = v2.x();
-                        mesh.vertices[currentVertice + 4] = v2.y();
-                        mesh.vertices[currentVertice + 5] = v2.z();
-                        mesh.normals[currentVertice + 3] = normal.getX();
-                        mesh.normals[currentVertice + 4] = normal.getY();
-                        mesh.normals[currentVertice + 5] = normal.getZ();
-
-                        mesh.vertices[currentVertice + 6] = v3.x();
-                        mesh.vertices[currentVertice + 7] = v3.y();
-                        mesh.vertices[currentVertice + 8] = v3.z();
-                        mesh.normals[currentVertice + 6] = normal.getX();
-                        mesh.normals[currentVertice + 7] = normal.getY();
-                        mesh.normals[currentVertice + 8] = normal.getZ();
-
-                        currentVertice += 9;
-                    }
-                }
-            }
-            } else {
-                btConvexShape *convexShape = (btConvexShape *)shape;
-                btShapeHull *hull = new btShapeHull(convexShape);
-                hull->buildHull(shape->getMargin());
-
-                AllocateMeshData(&mesh, hull->numTriangles());
-                int currentVertice = 0;
-                if (hull->numTriangles() > 0) {
-
-                    int index = 0;
-                    const unsigned int *idx = hull->getIndexPointer();
-                    const btVector3 *vtx = hull->getVertexPointer();
-
-                    for (int i = 0; i < hull->numTriangles(); i++) {
-                    int i1 = index++;
-                    int i2 = index++;
-                    int i3 = index++;
-                    btAssert(i1 < hull->numIndices() && i2 < hull->numIndices() &&
-                            i3 < hull->numIndices());
-
-                    int index1 = idx[i1];
-                    int index2 = idx[i2];
-                    int index3 = idx[i3];
-                    btAssert(index1 < hull->numVertices() &&
-                            index2 < hull->numVertices() &&
-                            index3 < hull->numVertices());
-
-                    btVector3 v1 = vtx[index1];
-                    btVector3 v2 = vtx[index2];
-                    btVector3 v3 = vtx[index3];
-                    btVector3 normal = (v3 - v1).cross(v2 - v1);
-                    normal.normalize();
-
-                    mesh.vertices[currentVertice] = v1.x();
-                    mesh.vertices[currentVertice + 1] = v1.y();
-                    mesh.vertices[currentVertice + 2] = v1.z();
-                    mesh.normals[currentVertice] = normal.getX();
-                    mesh.normals[currentVertice + 1] = normal.getY();
-                    mesh.normals[currentVertice + 2] = normal.getZ();
-
-                    mesh.vertices[currentVertice + 3] = v2.x();
-                    mesh.vertices[currentVertice + 4] = v2.y();
-                    mesh.vertices[currentVertice + 5] = v2.z();
-                    mesh.normals[currentVertice + 3] = normal.getX();
-                    mesh.normals[currentVertice + 4] = normal.getY();
-                    mesh.normals[currentVertice + 5] = normal.getZ();
-
-                    mesh.vertices[currentVertice + 6] = v3.x();
-                    mesh.vertices[currentVertice + 7] = v3.y();
-                    mesh.vertices[currentVertice + 8] = v3.z();
-                    mesh.normals[currentVertice + 6] = normal.getX();
-                    mesh.normals[currentVertice + 7] = normal.getY();
-                    mesh.normals[currentVertice + 8] = normal.getZ();
-
-                    currentVertice += 9;
-                    }
-                }
-                }
-            UploadMesh(&mesh, false);
-        }
-        return mesh;
-    }
-
-    void setTransform(btScalar m[16], Matrix *matrix) {
-    matrix->m0 = m[0];
-    matrix->m1 = m[1];
-    matrix->m2 = m[2];
-    matrix->m3 = m[3];
-    matrix->m4 = m[4];
-    matrix->m5 = m[5];
-    matrix->m6 = m[6];
-    matrix->m7 = m[7];
-    matrix->m8 = m[8];
-    matrix->m9 = m[9];
-    matrix->m10 = m[10];
-    matrix->m11 = m[11];
-    matrix->m12 = m[12];
-    matrix->m13 = m[13];
-    matrix->m14 = m[14];
-    matrix->m15 = m[15];
-    }
 
 
   void drawDebug(Model model_draw) {
@@ -1184,19 +1062,53 @@ public:
             bool roughnessMapInit = !roughness_texture_path.empty();
             glUniform1i(glGetUniformLocation((GLuint)shader.id, "roughnessMapInit"), roughnessMapInit);
 
-            DrawModelEx(
-                model, 
-                position, 
-                rotation, 
-                GetExtremeValue(rotation), 
-                scale, 
-                (Color) {
-                    static_cast<unsigned char>(surface_material.color.x * 255),
-                    static_cast<unsigned char>(surface_material.color.y * 255),
-                    static_cast<unsigned char>(surface_material.color.z * 255),
-                    static_cast<unsigned char>(surface_material.color.w * 255)
-                }
-            );
+
+            float distance = Vector3Distance(this->position, camera.position);
+            int lodLevel = 0;
+
+            if (distance < LOD_DISTANCE_HIGH) {
+                lodLevel = 0;
+            } else if (distance < LOD_DISTANCE_MEDIUM) {
+                lodLevel = 1;
+            } else if (distance < LOD_DISTANCE_LOW) {
+                lodLevel = 2;
+            } else {
+                lodLevel = 3;
+            }
+
+            if (IsModelReady(LodModels[lodLevel]))
+            {
+                DrawModelEx(
+                    LodModels[lodLevel],
+                    position, 
+                    rotation, 
+                    GetExtremeValue(rotation), 
+                    scale, 
+                    (Color) {
+                        static_cast<unsigned char>(surface_material.color.x * 255),
+                        static_cast<unsigned char>(surface_material.color.y * 255),
+                        static_cast<unsigned char>(surface_material.color.z * 255),
+                        static_cast<unsigned char>(surface_material.color.w * 255)
+                    }
+                );
+            }
+            else
+            {
+                DrawModelEx(
+                    model,
+                    position, 
+                    rotation, 
+                    GetExtremeValue(rotation), 
+                    scale, 
+                    (Color) {
+                        static_cast<unsigned char>(surface_material.color.x * 255),
+                        static_cast<unsigned char>(surface_material.color.y * 255),
+                        static_cast<unsigned char>(surface_material.color.z * 255),
+                        static_cast<unsigned char>(surface_material.color.w * 255)
+                    }
+                );
+            }
+            
         }
 
     }
