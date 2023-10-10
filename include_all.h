@@ -135,6 +135,8 @@ using json = nlohmann::json;
 /* Globals */
 #include "Engine/Core/functions.h"
 #include "Engine/Core/global_variables.cpp"
+#include "Engine/Editor/SceneEditor/SceneEditor.h"
+
 #include "Engine/Core/Engine.cpp"
 #include "Engine/Core/RunGame.h"
 

@@ -946,7 +946,6 @@ public:
         }
     }
 
-
     void print_position()
     {
         std::cout << "Position: " << position.x << ", " << position.y << ", " << position.z << "\n";
@@ -1071,8 +1070,17 @@ public:
             bool roughnessMapInit = !roughness_texture_path.empty();
             glUniform1i(glGetUniformLocation((GLuint)shader.id, "roughnessMapInit"), roughnessMapInit);
 
+            float distance;
 
-            float distance = Vector3Distance(this->position, camera.position);
+#ifndef GAME_SHIPPING
+            if (in_game_preview)
+                distance = Vector3Distance(this->position, camera.position);
+            else
+                distance = Vector3Distance(this->position, scene_camera.position);
+#else
+            distance = Vector3Distance(this->position, camera.position);
+#endif
+
             int lodLevel = 0;
 
             if (distance < LOD_DISTANCE_HIGH) {
