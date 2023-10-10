@@ -1,40 +1,15 @@
-#include "include/raylib.h"
-#include "include/raymath.h"
-#include <iostream>
-#include <vector>
-#include <cfloat>
-#include <limits>
-#include <cmath>
-#include <unordered_map>
-#include <omp.h>
-#include <algorithm>
-
-using namespace std;
+#include "../../include_all.h"
 
 const float LOD_DISTANCE_HIGH = 10.0f;
 const float LOD_DISTANCE_MEDIUM = 25.0f;
 const float LOD_DISTANCE_LOW = 35.0f;
 
-typedef struct Entities
-{
-    Vector3 position;
-    Model model = LoadModelFromMesh(GenMeshCube(1.0f, 1.0f, 1.0f));
-    Model LodModels[4] = { model, LoadModelFromMesh(GenMeshCube(1.0f, 1.0f, 1.0f)), LoadModelFromMesh(GenMeshCube(1.0f, 1.0f, 1.0f)) };
-};
-
 typedef struct Cluster
 {
     Color color;
     int lodLevel;
-    std::vector<Entities> entities;
+    // std::vector<Entity> entities;
 };
-
-
-
-// Function to calculate the midpoint between two vertices
-Vector3 CalculateMidpoint(const Vector3& vertex1, const Vector3& vertex2) {
-    return Vector3{ (vertex1.x + vertex2.x) / 2.0f, (vertex1.y + vertex2.y) / 2.0f, (vertex1.z + vertex2.z) / 2.0f };
-}
 
 inline float Vector3DistanceSquared(const Vector3& a, const Vector3& b) {
     float dx = a.x - b.x;
@@ -193,130 +168,3 @@ Mesh GenerateLODMesh(const std::vector<Vector3>& uniqueVertices, Mesh& sourceMes
 
     return lodMesh;
 }
-
-
-
-
-
-int main() {
-    SetTraceLogLevel(LOG_WARNING);
-    // Initialization
-    const int screenWidth = 800;
-    const int screenHeight = 600;
-
-    InitWindow(screenWidth, screenHeight, "HLOD");
-
-    Shader shader = LoadShader(0, "Engine/Lighting/shaders/lod.fs");
-
-    Camera3D camera;
-    camera.position = { 0.0f, 0.0f, 10.0f };
-    camera.target = { 0.0f, 0.0f, 0.0f };
-    camera.up = { 0.0f, 1.0f, 0.0f };
-    camera.fovy = 45.0f;
-    camera.projection = CAMERA_PERSPECTIVE;
-
-    // Create a vector of clusters
-    std::vector<Cluster> clusters;
-
-    // Define colors for clusters
-    Color clusterColors[] = {
-        RED, GREEN, BLUE, YELLOW, ORANGE,
-        PINK, PURPLE, DARKGRAY, LIME, SKYBLUE
-    };
-    
-    #pragma omp parallel for
-    for (int i = 0; i < 10; i++) {
-        Cluster cluster;
-        cluster.color = clusterColors[i];
-        cluster.lodLevel = 0; // Start with the highest LOD level
-
-        for (int j = 0; j < 2; j++) {
-            Entities entity;
-            entity.model = LoadModel("assets/models/tree.obj");
-            entity.LodModels[0] = entity.model;
-            entity.LodModels[1] = LoadModelFromMesh(GenerateLODMesh(ContractVertices(entity.model.meshes[0], 0.5f), entity.model.meshes[0]));
-            entity.LodModels[2] = LoadModelFromMesh(GenerateLODMesh(ContractVertices(entity.model.meshes[0], 1.0f), entity.model.meshes[0]));
-            entity.LodModels[3] = LoadModelFromMesh(GenerateLODMesh(ContractVertices(entity.model.meshes[0], 1.5f), entity.model.meshes[0]));
-            
-
-            entity.position = { static_cast<float>(GetRandomValue(-10, 10)), static_cast<float>(GetRandomValue(-10, 10)), static_cast<float>(GetRandomValue(-10, 10)) };
-            cluster.entities.push_back(entity);
-        }
-
-        clusters.push_back(cluster);
-    }
-    
-    
-    // Main game loop
-    while (!WindowShouldClose()) {
-        // Update
-        
-        // Clear the background
-        BeginDrawing();
-        ClearBackground(GRAY);
-        BeginMode3D(camera);
-        BeginShaderMode(shader);
-        UpdateCamera(&camera, CAMERA_FREE);
-
-
-        // Iterate through clusters and group them into LOD levels based on positions
-        #pragma omp parallel for
-        for (Cluster& cluster : clusters) {
-            float distance = Vector3Distance(cluster.entities[0].position, camera.position);
-            int lodLevel = 0;
-
-            if (distance < LOD_DISTANCE_HIGH) {
-                lodLevel = 0;
-                cluster.color = GREEN;
-            } else if (distance < LOD_DISTANCE_MEDIUM) {
-                lodLevel = 1;
-                cluster.color = YELLOW;
-            } else if (distance < LOD_DISTANCE_LOW) {
-                lodLevel = 2;
-                cluster.color = RED;
-            } else {
-                lodLevel = 3;
-                cluster.color = WHITE;
-            }
-
-            // Update LOD level for all entities in the cluster
-            for (Entities& entity : cluster.entities) {
-                entity.LodModels[lodLevel] = LoadModelFromMesh(entity.LodModels[lodLevel].meshes[0]);
-            }
-
-            // Draw all entities in the cluster with the cluster's color and LOD level
-            for (Entities& entity : cluster.entities) {
-                DrawModel(entity.LodModels[lodLevel], entity.position, 1.0f, cluster.color);
-            }
-        }
-
-
-        EndShaderMode();
-
-        EndMode3D();
-
-        DrawFPS(10,10);
-        
-        EndDrawing();
-    }
-    
-    // Unload models
-    for (Cluster& cluster : clusters) {
-        for (Entities& entity : cluster.entities) {
-            // Unload LODModels first (index 1 to 3)
-            for (int i = 1; i < 4; i++) {
-                UnloadModel(entity.LodModels[i]);
-            }
-
-            // Unload the original model
-            UnloadModel(entity.model);
-        }
-    }
-
-    
-    // Clean up and close the window
-    CloseWindow();
-    
-    return 0;
-}
-

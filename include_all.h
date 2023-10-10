@@ -60,6 +60,10 @@
 #include "dependencies/include/glm/gtc/matrix_transform.hpp"
 #include <algorithm>
 #include <cmath>
+
+#include <limits>
+#include <omp.h>
+
 #ifdef _WIN32
 //    #include <Python.h>
 #else
@@ -113,6 +117,7 @@ using json = nlohmann::json;
 
 // Critical
 #include "globals.h"
+#include "Engine/Core/LoD.cpp"
 #include "Engine/Scripting/math.cpp"
 
 /* Game Objects */
