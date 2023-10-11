@@ -7,7 +7,6 @@ bool can_previewProject = false;
 void PreviewStartup()
 {
     SetTraceLogLevel(LOG_ERROR);
-    SetTargetFPS(10000);
     SetExitKey(KEY_NULL);
 
     SetConfigFlags(FLAG_MSAA_4X_HINT | FLAG_VSYNC_HINT | FLAG_WINDOW_RESIZABLE);
