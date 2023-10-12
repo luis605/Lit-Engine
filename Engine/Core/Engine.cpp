@@ -566,8 +566,6 @@ public:
             model = LoadModel(modelPath);
         }
 
-        model.materials[0].shader = default_shader;
-
         if (isDynamic) {
             makePhysicsDynamic();
         } else {
@@ -580,7 +578,9 @@ public:
         this->LodModels[1] = LoadModelFromMesh(GenerateLODMesh(ContractVertices(this->model.meshes[0], 0.5f), this->model.meshes[0]));
         this->LodModels[2] = LoadModelFromMesh(GenerateLODMesh(ContractVertices(this->model.meshes[0], 1.0f), this->model.meshes[0]));
         this->LodModels[3] = LoadModelFromMesh(GenerateLODMesh(ContractVertices(this->model.meshes[0], 1.5f), this->model.meshes[0]));
-        
+
+        setShader(default_shader);
+
         // cluster.entities.push_back(entity);
 
         // clusters.push_back(cluster);
@@ -598,6 +598,9 @@ public:
         if (IsModelReady(model))
             model.materials[0].shader = shader;
 
+        for (int index; index < 4; index++)
+            if (IsModelReady(LodModels[index]))
+                LodModels[index].materials[0].shader = shader;
     }
 
     void runScript(std::reference_wrapper<Entity> entityRef, LitCamera* rendering_camera)
