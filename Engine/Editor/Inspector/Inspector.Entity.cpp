@@ -131,48 +131,89 @@ void EntityInspector()
         ImGui::PushStyleVar(ImGuiStyleVar_ItemSpacing, ImVec2(0, 40));
         ImGui::SliderFloat("Z##RotationZ", &selected_entity->rotation.z, -360.0f, 360.0f);
         ImGui::PopStyleVar();
-    }
 
+        ImGui::Text("Scripts: ");
+        ImGui::Text("Drop Script Here: ");
+        ImGui::SameLine();
 
-
-
-
-    ImGui::Text("Drop Material Here: ");
-    ImGui::SameLine();
-
-    if (ImGui::Button(
-        ("##Drag'nDropMaterialPath"),
-        ImVec2(200, 25)
-        ));
-
-    if (ImGui::BeginDragDropTarget())
-    {
-        if (const ImGuiPayload* payload = ImGui::AcceptDragDropPayload("MATERIAL_PAYLOAD"))
+        if (ImGui::Button("##Drag'nDropScriptPath", ImVec2(200,25)))
         {
-            IM_ASSERT(payload->DataSize == sizeof(int));
-            int payload_n = *(const int*)payload->Data;
-
-            string path = dir_path.string();
-            path += "/" + files_texture_struct[payload_n].name;
-
-            selected_entity->surface_material_path = path;
-            DeserializeMaterial(&selected_entity->surface_material, selected_entity->surface_material_path.string().c_str());
         }
-        ImGui::EndDragDropTarget();
+
+
+        if (ImGui::BeginDragDropTarget())
+        {
+            // Check if a drag and drop operation has been accepted
+            if (const ImGuiPayload* payload = ImGui::AcceptDragDropPayload("SCRIPT_PAYLOAD"))
+            {
+                IM_ASSERT(payload->DataSize == sizeof(int));
+                int payload_n = *(const int*)payload->Data;
+
+                // Copy the button name to the variable outside the window
+                string path = dir_path.string();
+                path += "/" + files_texture_struct[payload_n].name;
+
+                selected_entity_script_path = path;
+                selected_entity_script_path_index = 0;
+                selected_entity->script = selected_entity_script_path;
+            }
+            ImGui::EndDragDropTarget();
+        }
+
+        ImGui::Text("In Game Proprieties");
+        ImGui::Text("Collider: ");
+        ImGui::SameLine();
+        ImGui::Checkbox("##Collider", &selected_entity->collider);
+
+        ImGui::Text("Visible: ");
+        ImGui::SameLine();
+        ImGui::Checkbox("##Visible", &selected_entity->visible);
+
+
     }
 
 
-    if (!selected_entity->surface_material_path.empty())
+
+
+
+    if (ImGui::CollapsingHeader("Materials"))
     {
-        if (ImGui::CollapsingHeader("Materials"))
+        ImGui::Indent(10);
+
+        ImGui::Text("Drop Material Here: ");
+        ImGui::SameLine();
+
+        if (ImGui::Button(
+            ("##Drag'nDropMaterialPath"),
+            ImVec2(200, 25)
+            ));
+
+        if (ImGui::BeginDragDropTarget())
         {
-            ImGui::Indent(10);
+
+            if (const ImGuiPayload* payload = ImGui::AcceptDragDropPayload("MATERIAL_PAYLOAD"))
+            {
+                IM_ASSERT(payload->DataSize == sizeof(int));
+                int payload_n = *(const int*)payload->Data;
+
+                string path = dir_path.string();
+                path += "/" + files_texture_struct[payload_n].name;
+
+                selected_entity->surface_material_path = path;
+                DeserializeMaterial(&selected_entity->surface_material, selected_entity->surface_material_path.string().c_str());
+            }
+            ImGui::EndDragDropTarget();
+        }
+
+        if (!selected_entity->surface_material_path.empty())
+        {
             MaterialInspector(&selected_entity->surface_material, selected_entity->surface_material_path.string());
-            ImGui::Unindent(10);
         }
+
+        ImGui::Unindent(10);
+
+
     }
-
-
 
     if (ImGui::CollapsingHeader("Physics"))
     {
@@ -196,43 +237,6 @@ void EntityInspector()
     }
 
 
-
-    ImGui::Text("Scripts: ");
-    ImGui::Text("Drop Script Here: ");
-    ImGui::SameLine();
-
-    if (ImGui::Button("##Drag'nDropScriptPath", ImVec2(200,25)))
-    {
-    }
-
-
-    if (ImGui::BeginDragDropTarget())
-    {
-        // Check if a drag and drop operation has been accepted
-        if (const ImGuiPayload* payload = ImGui::AcceptDragDropPayload("SCRIPT_PAYLOAD"))
-        {
-            IM_ASSERT(payload->DataSize == sizeof(int));
-            int payload_n = *(const int*)payload->Data;
-
-            // Copy the button name to the variable outside the window
-            string path = dir_path.string();
-            path += "/" + files_texture_struct[payload_n].name;
-
-            selected_entity_script_path = path;
-            selected_entity_script_path_index = 0;
-            selected_entity->script = selected_entity_script_path;
-        }
-        ImGui::EndDragDropTarget();
-    }
-
-    ImGui::Text("In Game Proprieties");
-    ImGui::Text("Collider: ");
-    ImGui::SameLine();
-    ImGui::Checkbox("##Collider", &selected_entity->collider);
-
-    ImGui::Text("Visible: ");
-    ImGui::SameLine();
-    ImGui::Checkbox("##Visible", &selected_entity->visible);
 
 
     if (ImGui::CollapsingHeader("Advanced Settings"))
