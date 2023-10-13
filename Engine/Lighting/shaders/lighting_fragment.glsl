@@ -96,6 +96,83 @@ vec4 toneMap(vec4 hdrColor) {
 }
 
 
+vec4 CalculateDirectionalLight(Light light, vec3 viewDir, vec3 norm, vec3 halfVector, vec4 specular) {
+        vec3 fragLightDir = normalize(-light.direction);
+        float NdotL = max(dot(norm, fragLightDir), 0.0);
+
+        vec3 fresnel = CalculateFresnelReflection(surface_material.baseReflectance, viewDir, halfVector);
+
+        return (colDiffuse * surface_material.DiffuseIntensity * NdotL + specular) * light.color * vec4(fresnel, 1.0) * light.intensity;
+}
+
+vec4 CalculatePointLight(Light light, vec3 viewDir, vec3 norm, float roughness, float ao, vec3 fragPosition, vec4 specular) {
+    vec3 lightDir = normalize(light.position - fragPosition);
+    vec3 viewDirWorld = normalize(vec3(inverse(viewMatrix) * vec4(viewDir, 0.0))); // Transform viewDir to world space
+    vec3 H = normalize(lightDir + viewDirWorld); // Calculate H using transformed viewDir
+    
+    float distance = length(light.position - fragPosition);
+    float attenuation = 1.0 / (1.0 + light.attenuation * distance * distance);
+
+    float NdotL = max(dot(norm, lightDir), 0.0) * surface_material.DiffuseIntensity;
+
+    float NdotH = max(dot(norm, H), 0.0);
+
+    float roughnessFactor = max(1.0 - roughness, 0.02) * surface_material.Roughness;
+    float roughnessSquared = roughnessFactor * roughnessFactor;
+    float geometricTerm = 2.0 * NdotH * NdotL / max(NdotH + NdotL, 0.001);
+    float k_s = (roughnessSquared + 1.0) / (8.0 * max(NdotH * NdotL, 0.001));
+    float k_d = 1.0 - k_s;
+
+    // Calculate the specular term
+    float specularTerm = k_s / (NdotH * NdotH * max(4.0 * NdotL * NdotH, 0.001)) * surface_material.shininess;
+
+    // Use the unmodified NdotL for diffuse term
+    return (NdotL + specular * specularTerm * surface_material.SpecularIntensity) * light.color * attenuation;
+
+}
+
+
+vec4 CalculateSpotLight(Light light, vec3 viewDir, vec3 norm, float roughness, float ao, vec3 fragPosition, vec3 ambient, vec2 texCoord, mat3 TBN) {
+    vec3 lightToPoint = light.position - fragPosition;
+    float spot = smoothstep(0.6, 0.8, dot(normalize(lightToPoint), light.direction)); // Adjust the thresholds for smoother transition
+
+    float lightToFragDist = length(light.position - fragPosition);
+    float attenuation = 1.0 / (1.0 + light.attenuation * lightToFragDist * lightToFragDist);
+
+    // Energy conservation: Scale down diffuse term
+    float k_d = 1.0; // Adjust this value to control energy conservation
+    float energyFactor = 1.0 / (k_d + (1.0 - k_d) * 0.5);
+
+    // Apply normal mapping
+    float NdotL;
+    if (normalMapInit)
+    {
+        vec3 normalMap = texture(texture2, texCoord).rgb;
+        vec3 tangent = dFdx(fragPosition);
+        vec3 bitangent = dFdy(fragPosition);
+        vec3 T = normalize(tangent);
+        vec3 B = normalize(bitangent);
+        vec3 N = normalize(fragNormal);
+        mat3 TBN = mat3(T, B, N);
+        vec3 sampledNormal = normalize((normalMap * 2.0 - 1.0) * TBN);
+        vec3 lightDirTangent = normalize(lightToPoint * TBN);
+        NdotL = max(dot(sampledNormal, lightDirTangent), 0.0) * surface_material.DiffuseIntensity;
+    }
+    else
+    {
+        // Calculate the light direction in tangent space
+        vec3 lightDirTangent = normalize(lightToPoint * TBN);
+
+        // Calculate the diffuse term using the sampled normal
+        NdotL = max(dot(norm, lightDirTangent), 0.0) * surface_material.DiffuseIntensity;
+    }
+
+
+    vec4 diffuseTerm = colDiffuse * NdotL;
+
+    return vec4(diffuseTerm * spot * light.intensity * attenuation * energyFactor) + vec4(colDiffuse.rgb * ambient.rgb, 1);
+
+}
 
 void main() {
     vec2 texCoord = fragTexCoord * tiling;
@@ -142,81 +219,14 @@ void main() {
         vec3 halfVector = normalize(light.direction + viewDir);
 
         if (light.type == LIGHT_DIRECTIONAL && light.enabled) {
-            vec3 fragLightDir = normalize(-light.direction);
-            float NdotL = max(dot(norm, fragLightDir), 0.0);
-
-            vec3 fresnel = CalculateFresnelReflection(surface_material.baseReflectance, viewDir, halfVector);
-
-            result += (colDiffuse * surface_material.DiffuseIntensity * NdotL + specular) * light.color * vec4(fresnel, 1.0) * light.intensity;
+            result += CalculateDirectionalLight(light, viewDir, norm, halfVector, specular);
         }
-
-
-
-
         else if (light.type == LIGHT_POINT && light.enabled) {
-            vec3 lightDir = normalize(light.position - fragPosition);
-            vec3 viewDirWorld = normalize(vec3(inverse(viewMatrix) * vec4(viewDir, 0.0))); // Transform viewDir to world space
-            vec3 H = normalize(lightDir + viewDirWorld); // Calculate H using transformed viewDir
-            
-            float distance = length(light.position - fragPosition);
-            float attenuation = 1.0 / (1.0 + light.attenuation * distance * distance);
-
-            float NdotL = max(dot(norm, lightDir), 0.0) * surface_material.DiffuseIntensity;
-
-            float NdotH = max(dot(norm, H), 0.0);
-
-            float roughnessFactor = max(1.0 - roughness, 0.02) * surface_material.Roughness;
-            float roughnessSquared = roughnessFactor * roughnessFactor;
-            float geometricTerm = 2.0 * NdotH * NdotL / max(NdotH + NdotL, 0.001);
-            float k_s = (roughnessSquared + 1.0) / (8.0 * max(NdotH * NdotL, 0.001));
-            float k_d = 1.0 - k_s;
-
-            // Calculate the specular term
-            float specularTerm = k_s / (NdotH * NdotH * max(4.0 * NdotL * NdotH, 0.001)) * surface_material.shininess;
-
-            // Use the unmodified NdotL for diffuse term
-            result += (NdotL + specular * specularTerm * surface_material.SpecularIntensity) * light.color * attenuation;
+            result += CalculatePointLight(light, viewDir, norm, roughness, ao, fragPosition, specular);
         }
         else if (light.type == LIGHT_SPOT && light.enabled)
         {
-            vec3 lightToPoint = light.position - fragPosition;
-            float spot = smoothstep(0.6, 0.8, dot(normalize(lightToPoint), light.direction)); // Adjust the thresholds for smoother transition
-
-            float lightToFragDist = length(light.position - fragPosition);
-            float attenuation = 1.0 / (1.0 + light.attenuation * lightToFragDist * lightToFragDist);
-
-            // Energy conservation: Scale down diffuse term
-            float k_d = 1.0; // Adjust this value to control energy conservation
-            float energyFactor = 1.0 / (k_d + (1.0 - k_d) * 0.5);
-
-            // Apply normal mapping
-            float NdotL;
-            if (normalMapInit)
-            {
-                vec3 normalMap = texture(texture2, texCoord).rgb;
-                vec3 tangent = dFdx(fragPosition);
-                vec3 bitangent = dFdy(fragPosition);
-                vec3 T = normalize(tangent);
-                vec3 B = normalize(bitangent);
-                vec3 N = normalize(fragNormal);
-                mat3 TBN = mat3(T, B, N);
-                vec3 sampledNormal = normalize((normalMap * 2.0 - 1.0) * TBN);
-                vec3 lightDirTangent = normalize(lightToPoint * TBN);
-                NdotL = max(dot(sampledNormal, lightDirTangent), 0.0) * surface_material.DiffuseIntensity;
-            }
-            else
-            {
-                // Calculate the light direction in tangent space
-                vec3 lightDirTangent = normalize(lightToPoint * TBN);
-
-                // Calculate the diffuse term using the sampled normal
-                NdotL = max(dot(norm, lightDirTangent), 0.0) * surface_material.DiffuseIntensity;
-            }
-
-
-            vec4 diffuseTerm = colDiffuse * NdotL;
-
-            result += vec4(diffuseTerm * spot * light.intensity * attenuation * energyFactor) + vec4(colDiffuse.rgb * ambient.rgb, 1);
+            result += CalculateSpotLight(light, viewDir, norm, roughness, ao, fragPosition, ambient, texCoord, TBN);
         }
 
 
