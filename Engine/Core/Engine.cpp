@@ -122,7 +122,7 @@ public:
     float mass = 1;
     Vector3 inertia = {0, 0, 0};
 
-    Model LodModels[4] = { model, LoadModelFromMesh(GenMeshCube(1.0f, 1.0f, 1.0f)), LoadModelFromMesh(GenMeshCube(1.0f, 1.0f, 1.0f)) };
+    Model LodModels[4] = { };
 
     int id = 0;
 
@@ -142,6 +142,7 @@ private:
     Material matInstances;
     int lastIndexCalculated = -1;
     Shader* entity_shader;
+    bool lodEnabled = true;
 
 public:
     Entity(LitVector3 scale = { 1, 1, 1 }, LitVector3 rotation = { 0, 0, 0 }, string name = "entity",
@@ -573,12 +574,15 @@ public:
         }
 
         ReloadTextures();
+        
+        std::cout << "\n\n\nyuijkl\n\n\n";
 
         this->LodModels[0] = this->model;
-        this->LodModels[1] = LoadModelFromMesh(GenerateLODMesh(ContractVertices(this->model.meshes[0], 0.5f), this->model.meshes[0]));
-        this->LodModels[2] = LoadModelFromMesh(GenerateLODMesh(ContractVertices(this->model.meshes[0], 1.0f), this->model.meshes[0]));
+        this->LodModels[1] = LoadModelFromMesh(GenerateLODMesh(ContractVertices(this->model.meshes[0], 1.0f), this->model.meshes[0]));
+        this->LodModels[2] = LoadModelFromMesh(GenerateLODMesh(ContractVertices(this->model.meshes[0], 1.2f), this->model.meshes[0]));
         this->LodModels[3] = LoadModelFromMesh(GenerateLODMesh(ContractVertices(this->model.meshes[0], 1.5f), this->model.meshes[0]));
 
+        lodEnabled = true;
         setShader(default_shader);
 
         // cluster.entities.push_back(entity);
@@ -598,9 +602,10 @@ public:
         if (IsModelReady(model))
             model.materials[0].shader = shader;
 
-        for (int index; index < 4; index++)
-            if (IsModelReady(LodModels[index]))
-                LodModels[index].materials[0].shader = shader;
+        LodModels[0].materials[0].shader = shader;
+        LodModels[1].materials[0].shader = shader;
+        LodModels[2].materials[0].shader = shader;
+        LodModels[3].materials[0].shader = shader;
     }
 
     void runScript(std::reference_wrapper<Entity> entityRef, LitCamera* rendering_camera)
@@ -1096,7 +1101,7 @@ public:
                 lodLevel = 3;
             }
 
-            if (IsModelReady(LodModels[lodLevel]))
+            if (IsModelReady(LodModels[lodLevel]) && lodEnabled)
             {
                 DrawModelEx(
                     LodModels[lodLevel],
