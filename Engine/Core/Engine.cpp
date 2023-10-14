@@ -977,27 +977,8 @@ public:
         return AABBoxInFrustum(bounds.min, bounds.max);
     }
 
-    void AllocateMeshData(Mesh *mesh, int triangleCount) {
-        mesh->vertexCount = triangleCount * 3;
-        mesh->triangleCount = triangleCount;
-
-        mesh->vertices = (float *)MemAlloc(mesh->vertexCount * 3 * sizeof(float));
-        mesh->texcoords = (float *)MemAlloc(mesh->vertexCount * 2 * sizeof(float));
-        mesh->normals = (float *)MemAlloc(mesh->vertexCount * 3 * sizeof(float));
-    }
 
 
-
-  void drawDebug(Model model_draw) {
-      Vector3 position = (Vector3){0, 0, 0};
-      Model model = model_draw;
-      
-      btVector3 vecColor = btVector3(230, 41, 55);
-      Color color = Color{(int)vecColor.getX(), (int)vecColor.getY(),
-                                  (int)vecColor.getZ(), 255};
-
-      DrawModelWires(model, position, 1.0f, color);
-  }
 
     void render() {
         if (!hasModel())
