@@ -33,32 +33,29 @@ int main() {
     // Create a convex hull shape for your tree mesh
     btConvexHullShape* treeShape = new btConvexHullShape();
 
-    // Add the vertices of your mesh to the convex hull shape
+    // Iterate through the mesh vertices and add them to the convex hull shape
     for (int m = 0; m < treeModel.meshCount; m++) {
         Mesh mesh = treeModel.meshes[m];
         float* meshVertices = (float*)mesh.vertices;
 
         for (int v = 0; v < mesh.vertexCount; v += 3) {
-            Vector3 v1 = { meshVertices[v], meshVertices[v + 1], meshVertices[v + 2] };
-
-            treeShape->addPoint(btVector3(v1.x, v1.y, v1.z));
+            treeShape->addPoint(btVector3(meshVertices[v], meshVertices[v + 1], meshVertices[v + 2]));
         }
     }
 
-    // Set up the dynamics of your tree object as before
+    // Set up the dynamics of your tree object
     btTransform treeTransform;
     treeTransform.setIdentity();
     treeTransform.setOrigin(btVector3(0, 10, 0));
 
-    btDefaultMotionState* treeMotionState = new btDefaultMotionState(treeTransform);
     btScalar treeMass = 1.0f;
     btVector3 treeInertia(0, 0, 0);
     treeShape->calculateLocalInertia(treeMass, treeInertia);
+    btDefaultMotionState* treeMotionState = new btDefaultMotionState(treeTransform);
     btRigidBody::btRigidBodyConstructionInfo treeRigidBodyCI(treeMass, treeMotionState, treeShape, treeInertia);
     btRigidBody* treeRigidBody = new btRigidBody(treeRigidBodyCI);
 
     dynamicsWorld->addRigidBody(treeRigidBody);
-
 
 
 
@@ -83,7 +80,7 @@ int main() {
     
     Camera3D camera = {0};
     camera.position = (Vector3){0, 30, 30};
-    camera.target = (Vector3){0, 3, 0};
+    camera.target = (Vector3){0, 0, 0};
     camera.up = (Vector3){0, 1, 0};
     camera.fovy = 40.0f;
     camera.projection = CAMERA_PERSPECTIVE;
@@ -122,17 +119,6 @@ int main() {
         treeModel.transform = MatrixRotateXYZ((Vector3){ DEG2RAD*treePitchDegrees, DEG2RAD*treeYawDegrees, DEG2RAD*treeRollDegrees });
         DrawModelWires(treeModel, treePos, 1.0f, RED);
 
-        
-        btQuaternion floorRotation = floorTransform.getRotation();
-        btScalar floorYaw, floorPitch, floorRoll;
-        treeRotation.getEulerZYX(floorYaw, floorPitch, floorRoll);
-
-        
-        float floorYawDegrees = floorYaw * RAD2DEG;
-        float floorPitchDegrees = floorPitch * RAD2DEG;
-        float floorRollDegrees = floorRoll * RAD2DEG;
-        plane.transform = MatrixRotateXYZ((Vector3){ DEG2RAD*floorPitchDegrees, DEG2RAD*floorYawDegrees, DEG2RAD*floorRollDegrees });
-        DrawModelWires(plane, Vector3{ 0, 0, 0 }, 1.0f, BLUE);
 
         EndMode3D();
 
