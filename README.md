@@ -43,6 +43,8 @@ https://github.com/BalazsJako/ImGuiColorTextEdit.git
 https://github.com/BalazsJako/ImGuiColorTextEdit.git
 ```
 
+When running the engine on windows, make sure to copy assets and project into the build/ directory. otherwise the program will NOT run!
+
 # Building, Running, Debugging
 ## Linux
 ### Building the Engine
