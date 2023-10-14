@@ -24,6 +24,7 @@
 
 #include "dependencies/include/glad/glad.h"
 
+#define SUPPORT_FILEFORMAT_HDR      1
 
 
 #include "include/bullet3/src/BulletCollision/BroadphaseCollision/btBroadphaseProxy.h"
