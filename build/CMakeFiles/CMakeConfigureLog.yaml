@@ -61,8 +61,8 @@ events:
     checks:
       - "Detecting C compiler ABI info"
     directories:
-      source: "C:/Users/USER/Desktop/_/Lit-Engine/build/CMakeFiles/CMakeScratch/TryCompile-ae7tmz"
-      binary: "C:/Users/USER/Desktop/_/Lit-Engine/build/CMakeFiles/CMakeScratch/TryCompile-ae7tmz"
+      source: "C:/Users/USER/Desktop/_/Lit-Engine/build/CMakeFiles/CMakeScratch/TryCompile-v7s3vn"
+      binary: "C:/Users/USER/Desktop/_/Lit-Engine/build/CMakeFiles/CMakeScratch/TryCompile-v7s3vn"
     cmakeVariables:
       CMAKE_C_FLAGS: ""
       CMAKE_C_FLAGS_DEBUG: "-g"
@@ -71,19 +71,19 @@ events:
       variable: "CMAKE_C_ABI_COMPILED"
       cached: true
       stdout: |
-        Change Dir: 'C:/Users/USER/Desktop/_/Lit-Engine/build/CMakeFiles/CMakeScratch/TryCompile-ae7tmz'
+        Change Dir: 'C:/Users/USER/Desktop/_/Lit-Engine/build/CMakeFiles/CMakeScratch/TryCompile-v7s3vn'
         
-        Run Build Command(s): "C:/Program Files/CMake/bin/cmake.exe" -E env VERBOSE=1 C:/LLVM-MinGW/bin/mingw32-make.exe -f Makefile cmTC_ead13/fast
-        C:/LLVM-MinGW/bin/mingw32-make.exe  -f CMakeFiles\\cmTC_ead13.dir\\build.make CMakeFiles/cmTC_ead13.dir/build
-        mingw32-make.exe[1]: Entering directory 'C:/Users/USER/Desktop/_/Lit-Engine/build/CMakeFiles/CMakeScratch/TryCompile-ae7tmz'
-        Building C object CMakeFiles/cmTC_ead13.dir/CMakeCCompilerABI.c.obj
-        C:\\LLVM-MinGW\\bin\\cc.exe   -v -MD -MT CMakeFiles/cmTC_ead13.dir/CMakeCCompilerABI.c.obj -MF CMakeFiles\\cmTC_ead13.dir\\CMakeCCompilerABI.c.obj.d -o CMakeFiles\\cmTC_ead13.dir\\CMakeCCompilerABI.c.obj -c "C:\\Program Files\\CMake\\share\\cmake-3.27\\Modules\\CMakeCCompilerABI.c"
+        Run Build Command(s): "C:/Program Files/CMake/bin/cmake.exe" -E env VERBOSE=1 C:/LLVM-MinGW/bin/mingw32-make.exe -f Makefile cmTC_32ec3/fast
+        C:/LLVM-MinGW/bin/mingw32-make.exe  -f CMakeFiles\\cmTC_32ec3.dir\\build.make CMakeFiles/cmTC_32ec3.dir/build
+        mingw32-make.exe[1]: Entering directory 'C:/Users/USER/Desktop/_/Lit-Engine/build/CMakeFiles/CMakeScratch/TryCompile-v7s3vn'
+        Building C object CMakeFiles/cmTC_32ec3.dir/CMakeCCompilerABI.c.obj
+        C:\\LLVM-MinGW\\bin\\cc.exe   -v -MD -MT CMakeFiles/cmTC_32ec3.dir/CMakeCCompilerABI.c.obj -MF CMakeFiles\\cmTC_32ec3.dir\\CMakeCCompilerABI.c.obj.d -o CMakeFiles\\cmTC_32ec3.dir\\CMakeCCompilerABI.c.obj -c "C:\\Program Files\\CMake\\share\\cmake-3.27\\Modules\\CMakeCCompilerABI.c"
         clang version 16.0.6 (https://github.com/llvm/llvm-project.git 7cbf1a2591520c2491aa35339f227775f4d3adf6)
         Target: x86_64-w64-windows-gnu
         Thread model: posix
         InstalledDir: C:/LLVM-MinGW/bin
          (in-process)
-         "C:/LLVM-MinGW/bin/clang-16.exe" -cc1 -triple x86_64-w64-windows-gnu -emit-obj -mrelax-all -disable-free -clear-ast-before-backend -disable-llvm-verifier -discard-value-names -main-file-name CMakeCCompilerABI.c -mrelocation-model pic -pic-level 2 -mframe-pointer=none -fmath-errno -ffp-contract=on -fno-rounding-math -mconstructor-aliases -mms-bitfields -funwind-tables=2 -target-cpu x86-64 -tune-cpu generic -mllvm -treat-scalable-fixed-error-as-warning -debugger-tuning=gdb -v -fcoverage-compilation-dir=C:/Users/USER/Desktop/_/Lit-Engine/build/CMakeFiles/CMakeScratch/TryCompile-ae7tmz -resource-dir C:/LLVM-MinGW/lib/clang/16 -dependency-file "CMakeFiles\\\\cmTC_ead13.dir\\\\CMakeCCompilerABI.c.obj.d" -MT CMakeFiles/cmTC_ead13.dir/CMakeCCompilerABI.c.obj -sys-header-deps -internal-isystem C:/LLVM-MinGW/lib/clang/16/include -internal-isystem C:/LLVM-MinGW/x86_64-w64-mingw32/include -internal-isystem C:/LLVM-MinGW/x86_64-w64-mingw32/usr/include -internal-isystem C:/LLVM-MinGW/include -fdebug-compilation-dir=C:/Users/USER/Desktop/_/Lit-Engine/build/CMakeFiles/CMakeScratch/TryCompile-ae7tmz -ferror-limit 19 -fno-use-cxa-atexit -fgnuc-version=4.2.1 -exception-model=seh -faddrsig -o "CMakeFiles\\\\cmTC_ead13.dir\\\\CMakeCCompilerABI.c.obj" -x c "C:\\\\Program Files\\\\CMake\\\\share\\\\cmake-3.27\\\\Modules\\\\CMakeCCompilerABI.c"
+         "C:/LLVM-MinGW/bin/clang-16.exe" -cc1 -triple x86_64-w64-windows-gnu -emit-obj -mrelax-all -disable-free -clear-ast-before-backend -disable-llvm-verifier -discard-value-names -main-file-name CMakeCCompilerABI.c -mrelocation-model pic -pic-level 2 -mframe-pointer=none -fmath-errno -ffp-contract=on -fno-rounding-math -mconstructor-aliases -mms-bitfields -funwind-tables=2 -target-cpu x86-64 -tune-cpu generic -mllvm -treat-scalable-fixed-error-as-warning -debugger-tuning=gdb -v -fcoverage-compilation-dir=C:/Users/USER/Desktop/_/Lit-Engine/build/CMakeFiles/CMakeScratch/TryCompile-v7s3vn -resource-dir C:/LLVM-MinGW/lib/clang/16 -dependency-file "CMakeFiles\\\\cmTC_32ec3.dir\\\\CMakeCCompilerABI.c.obj.d" -MT CMakeFiles/cmTC_32ec3.dir/CMakeCCompilerABI.c.obj -sys-header-deps -internal-isystem C:/LLVM-MinGW/lib/clang/16/include -internal-isystem C:/LLVM-MinGW/x86_64-w64-mingw32/include -internal-isystem C:/LLVM-MinGW/x86_64-w64-mingw32/usr/include -internal-isystem C:/LLVM-MinGW/include -fdebug-compilation-dir=C:/Users/USER/Desktop/_/Lit-Engine/build/CMakeFiles/CMakeScratch/TryCompile-v7s3vn -ferror-limit 19 -fno-use-cxa-atexit -fgnuc-version=4.2.1 -exception-model=seh -faddrsig -o "CMakeFiles\\\\cmTC_32ec3.dir\\\\CMakeCCompilerABI.c.obj" -x c "C:\\\\Program Files\\\\CMake\\\\share\\\\cmake-3.27\\\\Modules\\\\CMakeCCompilerABI.c"
         clang -cc1 version 16.0.6 based upon LLVM 16.0.6 default target x86_64-w64-mingw32
         ignoring nonexistent directory "C:/LLVM-MinGW/x86_64-w64-mingw32/include"
         ignoring nonexistent directory "C:/LLVM-MinGW/x86_64-w64-mingw32/usr/include"
@@ -92,17 +92,17 @@ events:
          C:/LLVM-MinGW/lib/clang/16/include
          C:/LLVM-MinGW/include
         End of search list.
-        Linking C executable cmTC_ead13.exe
-        "C:\\Program Files\\CMake\\bin\\cmake.exe" -E cmake_link_script CMakeFiles\\cmTC_ead13.dir\\link.txt --verbose=1
-        "C:\\Program Files\\CMake\\bin\\cmake.exe" -E rm -f CMakeFiles\\cmTC_ead13.dir/objects.a
-        C:\\LLVM-MinGW\\bin\\llvm-ar.exe qc CMakeFiles\\cmTC_ead13.dir/objects.a @CMakeFiles\\cmTC_ead13.dir\\objects1.rsp
-        C:\\LLVM-MinGW\\bin\\cc.exe  -v -Wl,--whole-archive CMakeFiles\\cmTC_ead13.dir/objects.a -Wl,--no-whole-archive -o cmTC_ead13.exe -Wl,--out-implib,libcmTC_ead13.dll.a -Wl,--major-image-version,0,--minor-image-version,0 
+        Linking C executable cmTC_32ec3.exe
+        "C:\\Program Files\\CMake\\bin\\cmake.exe" -E cmake_link_script CMakeFiles\\cmTC_32ec3.dir\\link.txt --verbose=1
+        "C:\\Program Files\\CMake\\bin\\cmake.exe" -E rm -f CMakeFiles\\cmTC_32ec3.dir/objects.a
+        C:\\LLVM-MinGW\\bin\\llvm-ar.exe qc CMakeFiles\\cmTC_32ec3.dir/objects.a @CMakeFiles\\cmTC_32ec3.dir\\objects1.rsp
+        C:\\LLVM-MinGW\\bin\\cc.exe  -v -Wl,--whole-archive CMakeFiles\\cmTC_32ec3.dir/objects.a -Wl,--no-whole-archive -o cmTC_32ec3.exe -Wl,--out-implib,libcmTC_32ec3.dll.a -Wl,--major-image-version,0,--minor-image-version,0 
         clang version 16.0.6 (https://github.com/llvm/llvm-project.git 7cbf1a2591520c2491aa35339f227775f4d3adf6)
         Target: x86_64-w64-windows-gnu
         Thread model: posix
         InstalledDir: C:/LLVM-MinGW/bin
-         "C:/LLVM-MinGW/bin/ld.lld" -m i386pep -Bdynamic -o cmTC_ead13.exe C:/LLVM-MinGW/x86_64-w64-mingw32/lib/crt2.o C:/LLVM-MinGW/x86_64-w64-mingw32/lib/crtbegin.o -LC:/LLVM-MinGW/x86_64-w64-mingw32/lib -LC:/LLVM-MinGW/x86_64-w64-mingw32/mingw/lib -LC:/LLVM-MinGW/lib -LC:/LLVM-MinGW/lib/clang/16/lib/windows --whole-archive "CMakeFiles\\\\cmTC_ead13.dir/objects.a" --no-whole-archive --out-implib libcmTC_ead13.dll.a --major-image-version 0 --minor-image-version 0 -lmingw32 C:/LLVM-MinGW/lib/clang/16/lib/windows/libclang_rt.builtins-x86_64.a -lunwind -lmoldname -lmingwex -lmsvcrt -ladvapi32 -lshell32 -luser32 -lkernel32 -lmingw32 C:/LLVM-MinGW/lib/clang/16/lib/windows/libclang_rt.builtins-x86_64.a -lunwind -lmoldname -lmingwex -lmsvcrt -lkernel32 C:/LLVM-MinGW/x86_64-w64-mingw32/lib/crtend.o
-        mingw32-make.exe[1]: Leaving directory 'C:/Users/USER/Desktop/_/Lit-Engine/build/CMakeFiles/CMakeScratch/TryCompile-ae7tmz'
+         "C:/LLVM-MinGW/bin/ld.lld" -m i386pep -Bdynamic -o cmTC_32ec3.exe C:/LLVM-MinGW/x86_64-w64-mingw32/lib/crt2.o C:/LLVM-MinGW/x86_64-w64-mingw32/lib/crtbegin.o -LC:/LLVM-MinGW/x86_64-w64-mingw32/lib -LC:/LLVM-MinGW/x86_64-w64-mingw32/mingw/lib -LC:/LLVM-MinGW/lib -LC:/LLVM-MinGW/lib/clang/16/lib/windows --whole-archive "CMakeFiles\\\\cmTC_32ec3.dir/objects.a" --no-whole-archive --out-implib libcmTC_32ec3.dll.a --major-image-version 0 --minor-image-version 0 -lmingw32 C:/LLVM-MinGW/lib/clang/16/lib/windows/libclang_rt.builtins-x86_64.a -lunwind -lmoldname -lmingwex -lmsvcrt -ladvapi32 -lshell32 -luser32 -lkernel32 -lmingw32 C:/LLVM-MinGW/lib/clang/16/lib/windows/libclang_rt.builtins-x86_64.a -lunwind -lmoldname -lmingwex -lmsvcrt -lkernel32 C:/LLVM-MinGW/x86_64-w64-mingw32/lib/crtend.o
+        mingw32-make.exe[1]: Leaving directory 'C:/Users/USER/Desktop/_/Lit-Engine/build/CMakeFiles/CMakeScratch/TryCompile-v7s3vn'
         
       exitCode: 0
   -
@@ -132,19 +132,19 @@ events:
     message: |
       Parsed C implicit link information:
         link line regex: [^( *|.*[/\\])(ld\\.lld\\.exe|CMAKE_LINK_STARTFILE-NOTFOUND|([^/\\]+-)?ld|collect2)[^/\\]*( |$)]
-        ignore line: [Change Dir: 'C:/Users/USER/Desktop/_/Lit-Engine/build/CMakeFiles/CMakeScratch/TryCompile-ae7tmz']
+        ignore line: [Change Dir: 'C:/Users/USER/Desktop/_/Lit-Engine/build/CMakeFiles/CMakeScratch/TryCompile-v7s3vn']
         ignore line: []
-        ignore line: [Run Build Command(s): "C:/Program Files/CMake/bin/cmake.exe" -E env VERBOSE=1 C:/LLVM-MinGW/bin/mingw32-make.exe -f Makefile cmTC_ead13/fast]
-        ignore line: [C:/LLVM-MinGW/bin/mingw32-make.exe  -f CMakeFiles\\cmTC_ead13.dir\\build.make CMakeFiles/cmTC_ead13.dir/build]
-        ignore line: [mingw32-make.exe[1]: Entering directory 'C:/Users/USER/Desktop/_/Lit-Engine/build/CMakeFiles/CMakeScratch/TryCompile-ae7tmz']
-        ignore line: [Building C object CMakeFiles/cmTC_ead13.dir/CMakeCCompilerABI.c.obj]
-        ignore line: [C:\\LLVM-MinGW\\bin\\cc.exe   -v -MD -MT CMakeFiles/cmTC_ead13.dir/CMakeCCompilerABI.c.obj -MF CMakeFiles\\cmTC_ead13.dir\\CMakeCCompilerABI.c.obj.d -o CMakeFiles\\cmTC_ead13.dir\\CMakeCCompilerABI.c.obj -c "C:\\Program Files\\CMake\\share\\cmake-3.27\\Modules\\CMakeCCompilerABI.c"]
+        ignore line: [Run Build Command(s): "C:/Program Files/CMake/bin/cmake.exe" -E env VERBOSE=1 C:/LLVM-MinGW/bin/mingw32-make.exe -f Makefile cmTC_32ec3/fast]
+        ignore line: [C:/LLVM-MinGW/bin/mingw32-make.exe  -f CMakeFiles\\cmTC_32ec3.dir\\build.make CMakeFiles/cmTC_32ec3.dir/build]
+        ignore line: [mingw32-make.exe[1]: Entering directory 'C:/Users/USER/Desktop/_/Lit-Engine/build/CMakeFiles/CMakeScratch/TryCompile-v7s3vn']
+        ignore line: [Building C object CMakeFiles/cmTC_32ec3.dir/CMakeCCompilerABI.c.obj]
+        ignore line: [C:\\LLVM-MinGW\\bin\\cc.exe   -v -MD -MT CMakeFiles/cmTC_32ec3.dir/CMakeCCompilerABI.c.obj -MF CMakeFiles\\cmTC_32ec3.dir\\CMakeCCompilerABI.c.obj.d -o CMakeFiles\\cmTC_32ec3.dir\\CMakeCCompilerABI.c.obj -c "C:\\Program Files\\CMake\\share\\cmake-3.27\\Modules\\CMakeCCompilerABI.c"]
         ignore line: [clang version 16.0.6 (https://github.com/llvm/llvm-project.git 7cbf1a2591520c2491aa35339f227775f4d3adf6)]
         ignore line: [Target: x86_64-w64-windows-gnu]
         ignore line: [Thread model: posix]
         ignore line: [InstalledDir: C:/LLVM-MinGW/bin]
         ignore line: [ (in-process)]
-        ignore line: [ "C:/LLVM-MinGW/bin/clang-16.exe" -cc1 -triple x86_64-w64-windows-gnu -emit-obj -mrelax-all -disable-free -clear-ast-before-backend -disable-llvm-verifier -discard-value-names -main-file-name CMakeCCompilerABI.c -mrelocation-model pic -pic-level 2 -mframe-pointer=none -fmath-errno -ffp-contract=on -fno-rounding-math -mconstructor-aliases -mms-bitfields -funwind-tables=2 -target-cpu x86-64 -tune-cpu generic -mllvm -treat-scalable-fixed-error-as-warning -debugger-tuning=gdb -v -fcoverage-compilation-dir=C:/Users/USER/Desktop/_/Lit-Engine/build/CMakeFiles/CMakeScratch/TryCompile-ae7tmz -resource-dir C:/LLVM-MinGW/lib/clang/16 -dependency-file "CMakeFiles\\\\cmTC_ead13.dir\\\\CMakeCCompilerABI.c.obj.d" -MT CMakeFiles/cmTC_ead13.dir/CMakeCCompilerABI.c.obj -sys-header-deps -internal-isystem C:/LLVM-MinGW/lib/clang/16/include -internal-isystem C:/LLVM-MinGW/x86_64-w64-mingw32/include -internal-isystem C:/LLVM-MinGW/x86_64-w64-mingw32/usr/include -internal-isystem C:/LLVM-MinGW/include -fdebug-compilation-dir=C:/Users/USER/Desktop/_/Lit-Engine/build/CMakeFiles/CMakeScratch/TryCompile-ae7tmz -ferror-limit 19 -fno-use-cxa-atexit -fgnuc-version=4.2.1 -exception-model=seh -faddrsig -o "CMakeFiles\\\\cmTC_ead13.dir\\\\CMakeCCompilerABI.c.obj" -x c "C:\\\\Program Files\\\\CMake\\\\share\\\\cmake-3.27\\\\Modules\\\\CMakeCCompilerABI.c"]
+        ignore line: [ "C:/LLVM-MinGW/bin/clang-16.exe" -cc1 -triple x86_64-w64-windows-gnu -emit-obj -mrelax-all -disable-free -clear-ast-before-backend -disable-llvm-verifier -discard-value-names -main-file-name CMakeCCompilerABI.c -mrelocation-model pic -pic-level 2 -mframe-pointer=none -fmath-errno -ffp-contract=on -fno-rounding-math -mconstructor-aliases -mms-bitfields -funwind-tables=2 -target-cpu x86-64 -tune-cpu generic -mllvm -treat-scalable-fixed-error-as-warning -debugger-tuning=gdb -v -fcoverage-compilation-dir=C:/Users/USER/Desktop/_/Lit-Engine/build/CMakeFiles/CMakeScratch/TryCompile-v7s3vn -resource-dir C:/LLVM-MinGW/lib/clang/16 -dependency-file "CMakeFiles\\\\cmTC_32ec3.dir\\\\CMakeCCompilerABI.c.obj.d" -MT CMakeFiles/cmTC_32ec3.dir/CMakeCCompilerABI.c.obj -sys-header-deps -internal-isystem C:/LLVM-MinGW/lib/clang/16/include -internal-isystem C:/LLVM-MinGW/x86_64-w64-mingw32/include -internal-isystem C:/LLVM-MinGW/x86_64-w64-mingw32/usr/include -internal-isystem C:/LLVM-MinGW/include -fdebug-compilation-dir=C:/Users/USER/Desktop/_/Lit-Engine/build/CMakeFiles/CMakeScratch/TryCompile-v7s3vn -ferror-limit 19 -fno-use-cxa-atexit -fgnuc-version=4.2.1 -exception-model=seh -faddrsig -o "CMakeFiles\\\\cmTC_32ec3.dir\\\\CMakeCCompilerABI.c.obj" -x c "C:\\\\Program Files\\\\CMake\\\\share\\\\cmake-3.27\\\\Modules\\\\CMakeCCompilerABI.c"]
         ignore line: [clang -cc1 version 16.0.6 based upon LLVM 16.0.6 default target x86_64-w64-mingw32]
         ignore line: [ignoring nonexistent directory "C:/LLVM-MinGW/x86_64-w64-mingw32/include"]
         ignore line: [ignoring nonexistent directory "C:/LLVM-MinGW/x86_64-w64-mingw32/usr/include"]
@@ -153,22 +153,22 @@ events:
         ignore line: [ C:/LLVM-MinGW/lib/clang/16/include]
         ignore line: [ C:/LLVM-MinGW/include]
         ignore line: [End of search list.]
-        ignore line: [Linking C executable cmTC_ead13.exe]
-        ignore line: ["C:\\Program Files\\CMake\\bin\\cmake.exe" -E cmake_link_script CMakeFiles\\cmTC_ead13.dir\\link.txt --verbose=1]
-        ignore line: ["C:\\Program Files\\CMake\\bin\\cmake.exe" -E rm -f CMakeFiles\\cmTC_ead13.dir/objects.a]
-        ignore line: [C:\\LLVM-MinGW\\bin\\llvm-ar.exe qc CMakeFiles\\cmTC_ead13.dir/objects.a @CMakeFiles\\cmTC_ead13.dir\\objects1.rsp]
-        ignore line: [C:\\LLVM-MinGW\\bin\\cc.exe  -v -Wl --whole-archive CMakeFiles\\cmTC_ead13.dir/objects.a -Wl --no-whole-archive -o cmTC_ead13.exe -Wl --out-implib libcmTC_ead13.dll.a -Wl --major-image-version 0 --minor-image-version 0 ]
+        ignore line: [Linking C executable cmTC_32ec3.exe]
+        ignore line: ["C:\\Program Files\\CMake\\bin\\cmake.exe" -E cmake_link_script CMakeFiles\\cmTC_32ec3.dir\\link.txt --verbose=1]
+        ignore line: ["C:\\Program Files\\CMake\\bin\\cmake.exe" -E rm -f CMakeFiles\\cmTC_32ec3.dir/objects.a]
+        ignore line: [C:\\LLVM-MinGW\\bin\\llvm-ar.exe qc CMakeFiles\\cmTC_32ec3.dir/objects.a @CMakeFiles\\cmTC_32ec3.dir\\objects1.rsp]
+        ignore line: [C:\\LLVM-MinGW\\bin\\cc.exe  -v -Wl --whole-archive CMakeFiles\\cmTC_32ec3.dir/objects.a -Wl --no-whole-archive -o cmTC_32ec3.exe -Wl --out-implib libcmTC_32ec3.dll.a -Wl --major-image-version 0 --minor-image-version 0 ]
         ignore line: [clang version 16.0.6 (https://github.com/llvm/llvm-project.git 7cbf1a2591520c2491aa35339f227775f4d3adf6)]
         ignore line: [Target: x86_64-w64-windows-gnu]
         ignore line: [Thread model: posix]
         ignore line: [InstalledDir: C:/LLVM-MinGW/bin]
-        link line: [ "C:/LLVM-MinGW/bin/ld.lld" -m i386pep -Bdynamic -o cmTC_ead13.exe C:/LLVM-MinGW/x86_64-w64-mingw32/lib/crt2.o C:/LLVM-MinGW/x86_64-w64-mingw32/lib/crtbegin.o -LC:/LLVM-MinGW/x86_64-w64-mingw32/lib -LC:/LLVM-MinGW/x86_64-w64-mingw32/mingw/lib -LC:/LLVM-MinGW/lib -LC:/LLVM-MinGW/lib/clang/16/lib/windows --whole-archive "CMakeFiles\\\\cmTC_ead13.dir/objects.a" --no-whole-archive --out-implib libcmTC_ead13.dll.a --major-image-version 0 --minor-image-version 0 -lmingw32 C:/LLVM-MinGW/lib/clang/16/lib/windows/libclang_rt.builtins-x86_64.a -lunwind -lmoldname -lmingwex -lmsvcrt -ladvapi32 -lshell32 -luser32 -lkernel32 -lmingw32 C:/LLVM-MinGW/lib/clang/16/lib/windows/libclang_rt.builtins-x86_64.a -lunwind -lmoldname -lmingwex -lmsvcrt -lkernel32 C:/LLVM-MinGW/x86_64-w64-mingw32/lib/crtend.o]
+        link line: [ "C:/LLVM-MinGW/bin/ld.lld" -m i386pep -Bdynamic -o cmTC_32ec3.exe C:/LLVM-MinGW/x86_64-w64-mingw32/lib/crt2.o C:/LLVM-MinGW/x86_64-w64-mingw32/lib/crtbegin.o -LC:/LLVM-MinGW/x86_64-w64-mingw32/lib -LC:/LLVM-MinGW/x86_64-w64-mingw32/mingw/lib -LC:/LLVM-MinGW/lib -LC:/LLVM-MinGW/lib/clang/16/lib/windows --whole-archive "CMakeFiles\\\\cmTC_32ec3.dir/objects.a" --no-whole-archive --out-implib libcmTC_32ec3.dll.a --major-image-version 0 --minor-image-version 0 -lmingw32 C:/LLVM-MinGW/lib/clang/16/lib/windows/libclang_rt.builtins-x86_64.a -lunwind -lmoldname -lmingwex -lmsvcrt -ladvapi32 -lshell32 -luser32 -lkernel32 -lmingw32 C:/LLVM-MinGW/lib/clang/16/lib/windows/libclang_rt.builtins-x86_64.a -lunwind -lmoldname -lmingwex -lmsvcrt -lkernel32 C:/LLVM-MinGW/x86_64-w64-mingw32/lib/crtend.o]
           arg [C:/LLVM-MinGW/bin/ld.lld] ==> ignore
           arg [-m] ==> ignore
           arg [i386pep] ==> ignore
           arg [-Bdynamic] ==> search dynamic
           arg [-o] ==> ignore
-          arg [cmTC_ead13.exe] ==> ignore
+          arg [cmTC_32ec3.exe] ==> ignore
           arg [C:/LLVM-MinGW/x86_64-w64-mingw32/lib/crt2.o] ==> obj [C:/LLVM-MinGW/x86_64-w64-mingw32/lib/crt2.o]
           arg [C:/LLVM-MinGW/x86_64-w64-mingw32/lib/crtbegin.o] ==> obj [C:/LLVM-MinGW/x86_64-w64-mingw32/lib/crtbegin.o]
           arg [-LC:/LLVM-MinGW/x86_64-w64-mingw32/lib] ==> dir [C:/LLVM-MinGW/x86_64-w64-mingw32/lib]
@@ -176,10 +176,10 @@ events:
           arg [-LC:/LLVM-MinGW/lib] ==> dir [C:/LLVM-MinGW/lib]
           arg [-LC:/LLVM-MinGW/lib/clang/16/lib/windows] ==> dir [C:/LLVM-MinGW/lib/clang/16/lib/windows]
           arg [--whole-archive] ==> ignore
-          arg [CMakeFiles\\\\cmTC_ead13.dir/objects.a] ==> ignore
+          arg [CMakeFiles\\\\cmTC_32ec3.dir/objects.a] ==> ignore
           arg [--no-whole-archive] ==> ignore
           arg [--out-implib] ==> ignore
-          arg [libcmTC_ead13.dll.a] ==> ignore
+          arg [libcmTC_32ec3.dll.a] ==> ignore
           arg [--major-image-version] ==> ignore
           arg [0] ==> ignore
           arg [--minor-image-version] ==> ignore
@@ -225,8 +225,8 @@ events:
     checks:
       - "Detecting CXX compiler ABI info"
     directories:
-      source: "C:/Users/USER/Desktop/_/Lit-Engine/build/CMakeFiles/CMakeScratch/TryCompile-fly2xj"
-      binary: "C:/Users/USER/Desktop/_/Lit-Engine/build/CMakeFiles/CMakeScratch/TryCompile-fly2xj"
+      source: "C:/Users/USER/Desktop/_/Lit-Engine/build/CMakeFiles/CMakeScratch/TryCompile-bahryv"
+      binary: "C:/Users/USER/Desktop/_/Lit-Engine/build/CMakeFiles/CMakeScratch/TryCompile-bahryv"
     cmakeVariables:
       CMAKE_CXX_FLAGS: ""
       CMAKE_CXX_FLAGS_DEBUG: "-g"
@@ -235,19 +235,19 @@ events:
       variable: "CMAKE_CXX_ABI_COMPILED"
       cached: true
       stdout: |
-        Change Dir: 'C:/Users/USER/Desktop/_/Lit-Engine/build/CMakeFiles/CMakeScratch/TryCompile-fly2xj'
+        Change Dir: 'C:/Users/USER/Desktop/_/Lit-Engine/build/CMakeFiles/CMakeScratch/TryCompile-bahryv'
         
-        Run Build Command(s): "C:/Program Files/CMake/bin/cmake.exe" -E env VERBOSE=1 C:/LLVM-MinGW/bin/mingw32-make.exe -f Makefile cmTC_1403e/fast
-        C:/LLVM-MinGW/bin/mingw32-make.exe  -f CMakeFiles\\cmTC_1403e.dir\\build.make CMakeFiles/cmTC_1403e.dir/build
-        mingw32-make.exe[1]: Entering directory 'C:/Users/USER/Desktop/_/Lit-Engine/build/CMakeFiles/CMakeScratch/TryCompile-fly2xj'
-        Building CXX object CMakeFiles/cmTC_1403e.dir/CMakeCXXCompilerABI.cpp.obj
-        C:\\LLVM-MinGW\\bin\\c++.exe   -v -MD -MT CMakeFiles/cmTC_1403e.dir/CMakeCXXCompilerABI.cpp.obj -MF CMakeFiles\\cmTC_1403e.dir\\CMakeCXXCompilerABI.cpp.obj.d -o CMakeFiles\\cmTC_1403e.dir\\CMakeCXXCompilerABI.cpp.obj -c "C:\\Program Files\\CMake\\share\\cmake-3.27\\Modules\\CMakeCXXCompilerABI.cpp"
+        Run Build Command(s): "C:/Program Files/CMake/bin/cmake.exe" -E env VERBOSE=1 C:/LLVM-MinGW/bin/mingw32-make.exe -f Makefile cmTC_2d3b0/fast
+        C:/LLVM-MinGW/bin/mingw32-make.exe  -f CMakeFiles\\cmTC_2d3b0.dir\\build.make CMakeFiles/cmTC_2d3b0.dir/build
+        mingw32-make.exe[1]: Entering directory 'C:/Users/USER/Desktop/_/Lit-Engine/build/CMakeFiles/CMakeScratch/TryCompile-bahryv'
+        Building CXX object CMakeFiles/cmTC_2d3b0.dir/CMakeCXXCompilerABI.cpp.obj
+        C:\\LLVM-MinGW\\bin\\c++.exe   -v -MD -MT CMakeFiles/cmTC_2d3b0.dir/CMakeCXXCompilerABI.cpp.obj -MF CMakeFiles\\cmTC_2d3b0.dir\\CMakeCXXCompilerABI.cpp.obj.d -o CMakeFiles\\cmTC_2d3b0.dir\\CMakeCXXCompilerABI.cpp.obj -c "C:\\Program Files\\CMake\\share\\cmake-3.27\\Modules\\CMakeCXXCompilerABI.cpp"
         clang version 16.0.6 (https://github.com/llvm/llvm-project.git 7cbf1a2591520c2491aa35339f227775f4d3adf6)
         Target: x86_64-w64-windows-gnu
         Thread model: posix
         InstalledDir: C:/LLVM-MinGW/bin
          (in-process)
-         "C:/LLVM-MinGW/bin/clang-16.exe" -cc1 -triple x86_64-w64-windows-gnu -emit-obj -mrelax-all -disable-free -clear-ast-before-backend -disable-llvm-verifier -discard-value-names -main-file-name CMakeCXXCompilerABI.cpp -mrelocation-model pic -pic-level 2 -mframe-pointer=none -fmath-errno -ffp-contract=on -fno-rounding-math -mconstructor-aliases -mms-bitfields -funwind-tables=2 -target-cpu x86-64 -tune-cpu generic -mllvm -treat-scalable-fixed-error-as-warning -debugger-tuning=gdb -v -fcoverage-compilation-dir=C:/Users/USER/Desktop/_/Lit-Engine/build/CMakeFiles/CMakeScratch/TryCompile-fly2xj -resource-dir C:/LLVM-MinGW/lib/clang/16 -dependency-file "CMakeFiles\\\\cmTC_1403e.dir\\\\CMakeCXXCompilerABI.cpp.obj.d" -MT CMakeFiles/cmTC_1403e.dir/CMakeCXXCompilerABI.cpp.obj -sys-header-deps -internal-isystem C:/LLVM-MinGW/x86_64-w64-mingw32/include/c++/v1 -internal-isystem C:/LLVM-MinGW/include/c++/v1 -internal-isystem C:/LLVM-MinGW/lib/clang/16/include -internal-isystem C:/LLVM-MinGW/x86_64-w64-mingw32/include -internal-isystem C:/LLVM-MinGW/x86_64-w64-mingw32/usr/include -internal-isystem C:/LLVM-MinGW/include -fdeprecated-macro -fdebug-compilation-dir=C:/Users/USER/Desktop/_/Lit-Engine/build/CMakeFiles/CMakeScratch/TryCompile-fly2xj -ferror-limit 19 -fno-use-cxa-atexit -fgnuc-version=4.2.1 -fcxx-exceptions -fexceptions -exception-model=seh -faddrsig -o "CMakeFiles\\\\cmTC_1403e.dir\\\\CMakeCXXCompilerABI.cpp.obj" -x c++ "C:\\\\Program Files\\\\CMake\\\\share\\\\cmake-3.27\\\\Modules\\\\CMakeCXXCompilerABI.cpp"
+         "C:/LLVM-MinGW/bin/clang-16.exe" -cc1 -triple x86_64-w64-windows-gnu -emit-obj -mrelax-all -disable-free -clear-ast-before-backend -disable-llvm-verifier -discard-value-names -main-file-name CMakeCXXCompilerABI.cpp -mrelocation-model pic -pic-level 2 -mframe-pointer=none -fmath-errno -ffp-contract=on -fno-rounding-math -mconstructor-aliases -mms-bitfields -funwind-tables=2 -target-cpu x86-64 -tune-cpu generic -mllvm -treat-scalable-fixed-error-as-warning -debugger-tuning=gdb -v -fcoverage-compilation-dir=C:/Users/USER/Desktop/_/Lit-Engine/build/CMakeFiles/CMakeScratch/TryCompile-bahryv -resource-dir C:/LLVM-MinGW/lib/clang/16 -dependency-file "CMakeFiles\\\\cmTC_2d3b0.dir\\\\CMakeCXXCompilerABI.cpp.obj.d" -MT CMakeFiles/cmTC_2d3b0.dir/CMakeCXXCompilerABI.cpp.obj -sys-header-deps -internal-isystem C:/LLVM-MinGW/x86_64-w64-mingw32/include/c++/v1 -internal-isystem C:/LLVM-MinGW/include/c++/v1 -internal-isystem C:/LLVM-MinGW/lib/clang/16/include -internal-isystem C:/LLVM-MinGW/x86_64-w64-mingw32/include -internal-isystem C:/LLVM-MinGW/x86_64-w64-mingw32/usr/include -internal-isystem C:/LLVM-MinGW/include -fdeprecated-macro -fdebug-compilation-dir=C:/Users/USER/Desktop/_/Lit-Engine/build/CMakeFiles/CMakeScratch/TryCompile-bahryv -ferror-limit 19 -fno-use-cxa-atexit -fgnuc-version=4.2.1 -fcxx-exceptions -fexceptions -exception-model=seh -faddrsig -o "CMakeFiles\\\\cmTC_2d3b0.dir\\\\CMakeCXXCompilerABI.cpp.obj" -x c++ "C:\\\\Program Files\\\\CMake\\\\share\\\\cmake-3.27\\\\Modules\\\\CMakeCXXCompilerABI.cpp"
         clang -cc1 version 16.0.6 based upon LLVM 16.0.6 default target x86_64-w64-mingw32
         ignoring nonexistent directory "C:/LLVM-MinGW/x86_64-w64-mingw32/include/c++/v1"
         ignoring nonexistent directory "C:/LLVM-MinGW/x86_64-w64-mingw32/include"
@@ -258,17 +258,17 @@ events:
          C:/LLVM-MinGW/lib/clang/16/include
          C:/LLVM-MinGW/include
         End of search list.
-        Linking CXX executable cmTC_1403e.exe
-        "C:\\Program Files\\CMake\\bin\\cmake.exe" -E cmake_link_script CMakeFiles\\cmTC_1403e.dir\\link.txt --verbose=1
-        "C:\\Program Files\\CMake\\bin\\cmake.exe" -E rm -f CMakeFiles\\cmTC_1403e.dir/objects.a
-        C:\\LLVM-MinGW\\bin\\llvm-ar.exe qc CMakeFiles\\cmTC_1403e.dir/objects.a @CMakeFiles\\cmTC_1403e.dir\\objects1.rsp
-        C:\\LLVM-MinGW\\bin\\c++.exe  -v -Wl,--whole-archive CMakeFiles\\cmTC_1403e.dir/objects.a -Wl,--no-whole-archive -o cmTC_1403e.exe -Wl,--out-implib,libcmTC_1403e.dll.a -Wl,--major-image-version,0,--minor-image-version,0 
+        Linking CXX executable cmTC_2d3b0.exe
+        "C:\\Program Files\\CMake\\bin\\cmake.exe" -E cmake_link_script CMakeFiles\\cmTC_2d3b0.dir\\link.txt --verbose=1
+        "C:\\Program Files\\CMake\\bin\\cmake.exe" -E rm -f CMakeFiles\\cmTC_2d3b0.dir/objects.a
+        C:\\LLVM-MinGW\\bin\\llvm-ar.exe qc CMakeFiles\\cmTC_2d3b0.dir/objects.a @CMakeFiles\\cmTC_2d3b0.dir\\objects1.rsp
+        C:\\LLVM-MinGW\\bin\\c++.exe  -v -Wl,--whole-archive CMakeFiles\\cmTC_2d3b0.dir/objects.a -Wl,--no-whole-archive -o cmTC_2d3b0.exe -Wl,--out-implib,libcmTC_2d3b0.dll.a -Wl,--major-image-version,0,--minor-image-version,0 
         clang version 16.0.6 (https://github.com/llvm/llvm-project.git 7cbf1a2591520c2491aa35339f227775f4d3adf6)
         Target: x86_64-w64-windows-gnu
         Thread model: posix
         InstalledDir: C:/LLVM-MinGW/bin
-         "C:/LLVM-MinGW/bin/ld.lld" -m i386pep -Bdynamic -o cmTC_1403e.exe C:/LLVM-MinGW/x86_64-w64-mingw32/lib/crt2.o C:/LLVM-MinGW/x86_64-w64-mingw32/lib/crtbegin.o -LC:/LLVM-MinGW/x86_64-w64-mingw32/lib -LC:/LLVM-MinGW/x86_64-w64-mingw32/mingw/lib -LC:/LLVM-MinGW/lib -LC:/LLVM-MinGW/lib/clang/16/lib/windows --whole-archive "CMakeFiles\\\\cmTC_1403e.dir/objects.a" --no-whole-archive --out-implib libcmTC_1403e.dll.a --major-image-version 0 --minor-image-version 0 -lc++ -lmingw32 C:/LLVM-MinGW/lib/clang/16/lib/windows/libclang_rt.builtins-x86_64.a -lunwind -lmoldname -lmingwex -lmsvcrt -ladvapi32 -lshell32 -luser32 -lkernel32 -lmingw32 C:/LLVM-MinGW/lib/clang/16/lib/windows/libclang_rt.builtins-x86_64.a -lunwind -lmoldname -lmingwex -lmsvcrt -lkernel32 C:/LLVM-MinGW/x86_64-w64-mingw32/lib/crtend.o
-        mingw32-make.exe[1]: Leaving directory 'C:/Users/USER/Desktop/_/Lit-Engine/build/CMakeFiles/CMakeScratch/TryCompile-fly2xj'
+         "C:/LLVM-MinGW/bin/ld.lld" -m i386pep -Bdynamic -o cmTC_2d3b0.exe C:/LLVM-MinGW/x86_64-w64-mingw32/lib/crt2.o C:/LLVM-MinGW/x86_64-w64-mingw32/lib/crtbegin.o -LC:/LLVM-MinGW/x86_64-w64-mingw32/lib -LC:/LLVM-MinGW/x86_64-w64-mingw32/mingw/lib -LC:/LLVM-MinGW/lib -LC:/LLVM-MinGW/lib/clang/16/lib/windows --whole-archive "CMakeFiles\\\\cmTC_2d3b0.dir/objects.a" --no-whole-archive --out-implib libcmTC_2d3b0.dll.a --major-image-version 0 --minor-image-version 0 -lc++ -lmingw32 C:/LLVM-MinGW/lib/clang/16/lib/windows/libclang_rt.builtins-x86_64.a -lunwind -lmoldname -lmingwex -lmsvcrt -ladvapi32 -lshell32 -luser32 -lkernel32 -lmingw32 C:/LLVM-MinGW/lib/clang/16/lib/windows/libclang_rt.builtins-x86_64.a -lunwind -lmoldname -lmingwex -lmsvcrt -lkernel32 C:/LLVM-MinGW/x86_64-w64-mingw32/lib/crtend.o
+        mingw32-make.exe[1]: Leaving directory 'C:/Users/USER/Desktop/_/Lit-Engine/build/CMakeFiles/CMakeScratch/TryCompile-bahryv'
         
       exitCode: 0
   -
@@ -300,19 +300,19 @@ events:
     message: |
       Parsed CXX implicit link information:
         link line regex: [^( *|.*[/\\])(ld\\.lld\\.exe|CMAKE_LINK_STARTFILE-NOTFOUND|([^/\\]+-)?ld|collect2)[^/\\]*( |$)]
-        ignore line: [Change Dir: 'C:/Users/USER/Desktop/_/Lit-Engine/build/CMakeFiles/CMakeScratch/TryCompile-fly2xj']
+        ignore line: [Change Dir: 'C:/Users/USER/Desktop/_/Lit-Engine/build/CMakeFiles/CMakeScratch/TryCompile-bahryv']
         ignore line: []
-        ignore line: [Run Build Command(s): "C:/Program Files/CMake/bin/cmake.exe" -E env VERBOSE=1 C:/LLVM-MinGW/bin/mingw32-make.exe -f Makefile cmTC_1403e/fast]
-        ignore line: [C:/LLVM-MinGW/bin/mingw32-make.exe  -f CMakeFiles\\cmTC_1403e.dir\\build.make CMakeFiles/cmTC_1403e.dir/build]
-        ignore line: [mingw32-make.exe[1]: Entering directory 'C:/Users/USER/Desktop/_/Lit-Engine/build/CMakeFiles/CMakeScratch/TryCompile-fly2xj']
-        ignore line: [Building CXX object CMakeFiles/cmTC_1403e.dir/CMakeCXXCompilerABI.cpp.obj]
-        ignore line: [C:\\LLVM-MinGW\\bin\\c++.exe   -v -MD -MT CMakeFiles/cmTC_1403e.dir/CMakeCXXCompilerABI.cpp.obj -MF CMakeFiles\\cmTC_1403e.dir\\CMakeCXXCompilerABI.cpp.obj.d -o CMakeFiles\\cmTC_1403e.dir\\CMakeCXXCompilerABI.cpp.obj -c "C:\\Program Files\\CMake\\share\\cmake-3.27\\Modules\\CMakeCXXCompilerABI.cpp"]
+        ignore line: [Run Build Command(s): "C:/Program Files/CMake/bin/cmake.exe" -E env VERBOSE=1 C:/LLVM-MinGW/bin/mingw32-make.exe -f Makefile cmTC_2d3b0/fast]
+        ignore line: [C:/LLVM-MinGW/bin/mingw32-make.exe  -f CMakeFiles\\cmTC_2d3b0.dir\\build.make CMakeFiles/cmTC_2d3b0.dir/build]
+        ignore line: [mingw32-make.exe[1]: Entering directory 'C:/Users/USER/Desktop/_/Lit-Engine/build/CMakeFiles/CMakeScratch/TryCompile-bahryv']
+        ignore line: [Building CXX object CMakeFiles/cmTC_2d3b0.dir/CMakeCXXCompilerABI.cpp.obj]
+        ignore line: [C:\\LLVM-MinGW\\bin\\c++.exe   -v -MD -MT CMakeFiles/cmTC_2d3b0.dir/CMakeCXXCompilerABI.cpp.obj -MF CMakeFiles\\cmTC_2d3b0.dir\\CMakeCXXCompilerABI.cpp.obj.d -o CMakeFiles\\cmTC_2d3b0.dir\\CMakeCXXCompilerABI.cpp.obj -c "C:\\Program Files\\CMake\\share\\cmake-3.27\\Modules\\CMakeCXXCompilerABI.cpp"]
         ignore line: [clang version 16.0.6 (https://github.com/llvm/llvm-project.git 7cbf1a2591520c2491aa35339f227775f4d3adf6)]
         ignore line: [Target: x86_64-w64-windows-gnu]
         ignore line: [Thread model: posix]
         ignore line: [InstalledDir: C:/LLVM-MinGW/bin]
         ignore line: [ (in-process)]
-        ignore line: [ "C:/LLVM-MinGW/bin/clang-16.exe" -cc1 -triple x86_64-w64-windows-gnu -emit-obj -mrelax-all -disable-free -clear-ast-before-backend -disable-llvm-verifier -discard-value-names -main-file-name CMakeCXXCompilerABI.cpp -mrelocation-model pic -pic-level 2 -mframe-pointer=none -fmath-errno -ffp-contract=on -fno-rounding-math -mconstructor-aliases -mms-bitfields -funwind-tables=2 -target-cpu x86-64 -tune-cpu generic -mllvm -treat-scalable-fixed-error-as-warning -debugger-tuning=gdb -v -fcoverage-compilation-dir=C:/Users/USER/Desktop/_/Lit-Engine/build/CMakeFiles/CMakeScratch/TryCompile-fly2xj -resource-dir C:/LLVM-MinGW/lib/clang/16 -dependency-file "CMakeFiles\\\\cmTC_1403e.dir\\\\CMakeCXXCompilerABI.cpp.obj.d" -MT CMakeFiles/cmTC_1403e.dir/CMakeCXXCompilerABI.cpp.obj -sys-header-deps -internal-isystem C:/LLVM-MinGW/x86_64-w64-mingw32/include/c++/v1 -internal-isystem C:/LLVM-MinGW/include/c++/v1 -internal-isystem C:/LLVM-MinGW/lib/clang/16/include -internal-isystem C:/LLVM-MinGW/x86_64-w64-mingw32/include -internal-isystem C:/LLVM-MinGW/x86_64-w64-mingw32/usr/include -internal-isystem C:/LLVM-MinGW/include -fdeprecated-macro -fdebug-compilation-dir=C:/Users/USER/Desktop/_/Lit-Engine/build/CMakeFiles/CMakeScratch/TryCompile-fly2xj -ferror-limit 19 -fno-use-cxa-atexit -fgnuc-version=4.2.1 -fcxx-exceptions -fexceptions -exception-model=seh -faddrsig -o "CMakeFiles\\\\cmTC_1403e.dir\\\\CMakeCXXCompilerABI.cpp.obj" -x c++ "C:\\\\Program Files\\\\CMake\\\\share\\\\cmake-3.27\\\\Modules\\\\CMakeCXXCompilerABI.cpp"]
+        ignore line: [ "C:/LLVM-MinGW/bin/clang-16.exe" -cc1 -triple x86_64-w64-windows-gnu -emit-obj -mrelax-all -disable-free -clear-ast-before-backend -disable-llvm-verifier -discard-value-names -main-file-name CMakeCXXCompilerABI.cpp -mrelocation-model pic -pic-level 2 -mframe-pointer=none -fmath-errno -ffp-contract=on -fno-rounding-math -mconstructor-aliases -mms-bitfields -funwind-tables=2 -target-cpu x86-64 -tune-cpu generic -mllvm -treat-scalable-fixed-error-as-warning -debugger-tuning=gdb -v -fcoverage-compilation-dir=C:/Users/USER/Desktop/_/Lit-Engine/build/CMakeFiles/CMakeScratch/TryCompile-bahryv -resource-dir C:/LLVM-MinGW/lib/clang/16 -dependency-file "CMakeFiles\\\\cmTC_2d3b0.dir\\\\CMakeCXXCompilerABI.cpp.obj.d" -MT CMakeFiles/cmTC_2d3b0.dir/CMakeCXXCompilerABI.cpp.obj -sys-header-deps -internal-isystem C:/LLVM-MinGW/x86_64-w64-mingw32/include/c++/v1 -internal-isystem C:/LLVM-MinGW/include/c++/v1 -internal-isystem C:/LLVM-MinGW/lib/clang/16/include -internal-isystem C:/LLVM-MinGW/x86_64-w64-mingw32/include -internal-isystem C:/LLVM-MinGW/x86_64-w64-mingw32/usr/include -internal-isystem C:/LLVM-MinGW/include -fdeprecated-macro -fdebug-compilation-dir=C:/Users/USER/Desktop/_/Lit-Engine/build/CMakeFiles/CMakeScratch/TryCompile-bahryv -ferror-limit 19 -fno-use-cxa-atexit -fgnuc-version=4.2.1 -fcxx-exceptions -fexceptions -exception-model=seh -faddrsig -o "CMakeFiles\\\\cmTC_2d3b0.dir\\\\CMakeCXXCompilerABI.cpp.obj" -x c++ "C:\\\\Program Files\\\\CMake\\\\share\\\\cmake-3.27\\\\Modules\\\\CMakeCXXCompilerABI.cpp"]
         ignore line: [clang -cc1 version 16.0.6 based upon LLVM 16.0.6 default target x86_64-w64-mingw32]
         ignore line: [ignoring nonexistent directory "C:/LLVM-MinGW/x86_64-w64-mingw32/include/c++/v1"]
         ignore line: [ignoring nonexistent directory "C:/LLVM-MinGW/x86_64-w64-mingw32/include"]
@@ -323,22 +323,22 @@ events:
         ignore line: [ C:/LLVM-MinGW/lib/clang/16/include]
         ignore line: [ C:/LLVM-MinGW/include]
         ignore line: [End of search list.]
-        ignore line: [Linking CXX executable cmTC_1403e.exe]
-        ignore line: ["C:\\Program Files\\CMake\\bin\\cmake.exe" -E cmake_link_script CMakeFiles\\cmTC_1403e.dir\\link.txt --verbose=1]
-        ignore line: ["C:\\Program Files\\CMake\\bin\\cmake.exe" -E rm -f CMakeFiles\\cmTC_1403e.dir/objects.a]
-        ignore line: [C:\\LLVM-MinGW\\bin\\llvm-ar.exe qc CMakeFiles\\cmTC_1403e.dir/objects.a @CMakeFiles\\cmTC_1403e.dir\\objects1.rsp]
-        ignore line: [C:\\LLVM-MinGW\\bin\\c++.exe  -v -Wl --whole-archive CMakeFiles\\cmTC_1403e.dir/objects.a -Wl --no-whole-archive -o cmTC_1403e.exe -Wl --out-implib libcmTC_1403e.dll.a -Wl --major-image-version 0 --minor-image-version 0 ]
+        ignore line: [Linking CXX executable cmTC_2d3b0.exe]
+        ignore line: ["C:\\Program Files\\CMake\\bin\\cmake.exe" -E cmake_link_script CMakeFiles\\cmTC_2d3b0.dir\\link.txt --verbose=1]
+        ignore line: ["C:\\Program Files\\CMake\\bin\\cmake.exe" -E rm -f CMakeFiles\\cmTC_2d3b0.dir/objects.a]
+        ignore line: [C:\\LLVM-MinGW\\bin\\llvm-ar.exe qc CMakeFiles\\cmTC_2d3b0.dir/objects.a @CMakeFiles\\cmTC_2d3b0.dir\\objects1.rsp]
+        ignore line: [C:\\LLVM-MinGW\\bin\\c++.exe  -v -Wl --whole-archive CMakeFiles\\cmTC_2d3b0.dir/objects.a -Wl --no-whole-archive -o cmTC_2d3b0.exe -Wl --out-implib libcmTC_2d3b0.dll.a -Wl --major-image-version 0 --minor-image-version 0 ]
         ignore line: [clang version 16.0.6 (https://github.com/llvm/llvm-project.git 7cbf1a2591520c2491aa35339f227775f4d3adf6)]
         ignore line: [Target: x86_64-w64-windows-gnu]
         ignore line: [Thread model: posix]
         ignore line: [InstalledDir: C:/LLVM-MinGW/bin]
-        link line: [ "C:/LLVM-MinGW/bin/ld.lld" -m i386pep -Bdynamic -o cmTC_1403e.exe C:/LLVM-MinGW/x86_64-w64-mingw32/lib/crt2.o C:/LLVM-MinGW/x86_64-w64-mingw32/lib/crtbegin.o -LC:/LLVM-MinGW/x86_64-w64-mingw32/lib -LC:/LLVM-MinGW/x86_64-w64-mingw32/mingw/lib -LC:/LLVM-MinGW/lib -LC:/LLVM-MinGW/lib/clang/16/lib/windows --whole-archive "CMakeFiles\\\\cmTC_1403e.dir/objects.a" --no-whole-archive --out-implib libcmTC_1403e.dll.a --major-image-version 0 --minor-image-version 0 -lc++ -lmingw32 C:/LLVM-MinGW/lib/clang/16/lib/windows/libclang_rt.builtins-x86_64.a -lunwind -lmoldname -lmingwex -lmsvcrt -ladvapi32 -lshell32 -luser32 -lkernel32 -lmingw32 C:/LLVM-MinGW/lib/clang/16/lib/windows/libclang_rt.builtins-x86_64.a -lunwind -lmoldname -lmingwex -lmsvcrt -lkernel32 C:/LLVM-MinGW/x86_64-w64-mingw32/lib/crtend.o]
+        link line: [ "C:/LLVM-MinGW/bin/ld.lld" -m i386pep -Bdynamic -o cmTC_2d3b0.exe C:/LLVM-MinGW/x86_64-w64-mingw32/lib/crt2.o C:/LLVM-MinGW/x86_64-w64-mingw32/lib/crtbegin.o -LC:/LLVM-MinGW/x86_64-w64-mingw32/lib -LC:/LLVM-MinGW/x86_64-w64-mingw32/mingw/lib -LC:/LLVM-MinGW/lib -LC:/LLVM-MinGW/lib/clang/16/lib/windows --whole-archive "CMakeFiles\\\\cmTC_2d3b0.dir/objects.a" --no-whole-archive --out-implib libcmTC_2d3b0.dll.a --major-image-version 0 --minor-image-version 0 -lc++ -lmingw32 C:/LLVM-MinGW/lib/clang/16/lib/windows/libclang_rt.builtins-x86_64.a -lunwind -lmoldname -lmingwex -lmsvcrt -ladvapi32 -lshell32 -luser32 -lkernel32 -lmingw32 C:/LLVM-MinGW/lib/clang/16/lib/windows/libclang_rt.builtins-x86_64.a -lunwind -lmoldname -lmingwex -lmsvcrt -lkernel32 C:/LLVM-MinGW/x86_64-w64-mingw32/lib/crtend.o]
           arg [C:/LLVM-MinGW/bin/ld.lld] ==> ignore
           arg [-m] ==> ignore
           arg [i386pep] ==> ignore
           arg [-Bdynamic] ==> search dynamic
           arg [-o] ==> ignore
-          arg [cmTC_1403e.exe] ==> ignore
+          arg [cmTC_2d3b0.exe] ==> ignore
           arg [C:/LLVM-MinGW/x86_64-w64-mingw32/lib/crt2.o] ==> obj [C:/LLVM-MinGW/x86_64-w64-mingw32/lib/crt2.o]
           arg [C:/LLVM-MinGW/x86_64-w64-mingw32/lib/crtbegin.o] ==> obj [C:/LLVM-MinGW/x86_64-w64-mingw32/lib/crtbegin.o]
           arg [-LC:/LLVM-MinGW/x86_64-w64-mingw32/lib] ==> dir [C:/LLVM-MinGW/x86_64-w64-mingw32/lib]
@@ -346,10 +346,10 @@ events:
           arg [-LC:/LLVM-MinGW/lib] ==> dir [C:/LLVM-MinGW/lib]
           arg [-LC:/LLVM-MinGW/lib/clang/16/lib/windows] ==> dir [C:/LLVM-MinGW/lib/clang/16/lib/windows]
           arg [--whole-archive] ==> ignore
-          arg [CMakeFiles\\\\cmTC_1403e.dir/objects.a] ==> ignore
+          arg [CMakeFiles\\\\cmTC_2d3b0.dir/objects.a] ==> ignore
           arg [--no-whole-archive] ==> ignore
           arg [--out-implib] ==> ignore
-          arg [libcmTC_1403e.dll.a] ==> ignore
+          arg [libcmTC_2d3b0.dll.a] ==> ignore
           arg [--major-image-version] ==> ignore
           arg [0] ==> ignore
           arg [--minor-image-version] ==> ignore

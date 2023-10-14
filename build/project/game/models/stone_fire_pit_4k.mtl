@@ -1,0 +1,13 @@
+# Blender 3.5.1 MTL File: 'stone_fire_pit_4k.blend'
+# www.blender.org
+
+newmtl stone_fire_pit
+Ka 1.000000 1.000000 1.000000
+Ks 0.500000 0.500000 0.500000
+Ke 0.000000 0.000000 0.000000
+Ni 1.450000
+d 1.000000
+illum 2
+map_Kd /home/lixt/Desktop/textures/stone_fire_pit_diff_4k.jpg
+map_Ns /home/lixt/Desktop/textures/stone_fire_pit_rough_4k.exr
+map_Bump -bm 1.000000 /home/lixt/Desktop/textures/stone_fire_pit_nor_gl_4k.exr
