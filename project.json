@@ -3,7 +3,7 @@
         "id": 0,
         "is_dynamic": false,
         "mass": 1.0,
-        "material_path": "project/game/file3.mat",
+        "material_path": "",
         "model_path": "",
         "name": "Unnamed Entity",
         "normal_texture_path": "",
@@ -24,9 +24,9 @@
         },
         "roughness_texture_path": "",
         "scale": {
-            "x": 1.0,
+            "x": 100.0,
             "y": 1.0,
-            "z": 1.0
+            "z": 100.0
         },
         "script_index": "",
         "script_path": "",
@@ -41,7 +41,7 @@
             },
             "shininess": 0.5
         },
-        "texture_path": "project/game/icon.png",
+        "texture_path": "",
         "type": "entity"
     },
     {
@@ -75,9 +75,9 @@
         },
         "specularStrength": 0.5,
         "target": {
-            "x": null,
-            "y": 4.591634678053128e-41,
-            "z": 16973590167552.0
+            "x": 6.383587574016782e-16,
+            "y": 4.5914945482066956e-41,
+            "z": -1.8331227103555469e+25
         },
         "type": "light"
     }

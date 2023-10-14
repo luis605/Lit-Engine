@@ -1,21 +1,6 @@
 #include <raylib.h>
 #include "btBulletDynamicsCommon.h"
 #include <math.h>
-#include "raymath.h"        // Required for: MatrixRotateXYZ()
-
-float GetLargestComponent(Vector3 vector) {
-    float largest = vector.x;
-
-    if (vector.y > largest) {
-        largest = vector.y;
-    }
-
-    if (vector.z > largest) {
-        largest = vector.z;
-    }
-
-    return largest;
-}
 
 int main() {
     // Initialize raylib
@@ -30,37 +15,11 @@ int main() {
     dynamicsWorld->setGravity(btVector3(0, -9.81, 0)); // Set gravity
 
     // Create a raylib sphere mesh
-    Model model = LoadModel("assets/models/tree.obj");
+    Mesh mesh = GenMeshSphere(1, 50, 50);
+    Model model = LoadModelFromMesh(mesh);
 
     // Create a Bullet Physics shape for the sphere
-    // Create a Bullet Physics shape for the sphere
-    btTriangleMesh* triMesh = new btTriangleMesh();
-    for (int i = 0; i < model.meshCount; i++) {
-        Mesh mesh = model.meshes[i];
-        int numVerts = mesh.vertexCount;
-        int numTriangles = mesh.triangleCount;
-
-        for (int j = 0; j < numTriangles; j++) {
-            unsigned int index0 = mesh.indices[j * 3];
-            unsigned int index1 = mesh.indices[j * 3 + 1];
-            unsigned int index2 = mesh.indices[j * 3 + 2];
-
-            Vector3 v0 = mesh.vertices[index0];
-            Vector3 v1 = mesh.vertices[index1];
-            Vector3 v2 = mesh.vertices[index2];
-
-            btVector3 vertex0(v0.x, v0.y, v0.z);
-            btVector3 vertex1(v1.x, v1.y, v1.z);
-            btVector3 vertex2(v2.x, v2.y, v2.z);
-
-            triMesh->addTriangle(vertex0, vertex1, vertex2);
-        }
-    }
-
-    btBvhTriangleMeshShape* customShape = new btBvhTriangleMeshShape(triMesh, true);
-
-
-
+    btCollisionShape* sphereShape = new btSphereShape(1.0f);
 
     // Create a Bullet Physics rigid body for the sphere
     btTransform sphereTransform;
@@ -70,16 +29,16 @@ int main() {
     btDefaultMotionState* sphereMotionState = new btDefaultMotionState(sphereTransform);
     btScalar sphereMass = 1.0f;
     btVector3 sphereInertia(0, 0, 0);
-    customShape->calculateLocalInertia(sphereMass, sphereInertia);
-    btRigidBody::btRigidBodyConstructionInfo sphereRigidBodyCI(sphereMass, sphereMotionState, customShape, sphereInertia);
+    sphereShape->calculateLocalInertia(sphereMass, sphereInertia);
+    btRigidBody::btRigidBodyConstructionInfo sphereRigidBodyCI(sphereMass, sphereMotionState, sphereShape, sphereInertia);
     btRigidBody* sphereRigidBody = new btRigidBody(sphereRigidBodyCI);
 
     // Create a Bullet Physics shape for the inclined floor
     // Calculate the inclination in radians (10 degrees to the right)
-    float inclination = 40.0f * DEG2RAD;
+    float inclination = 10.0f * DEG2RAD;
     btVector3 planeNormal(cos(inclination), sin(inclination), 0); // Inclined along the X-axis
-    btStaticPlaneShape* floorShape = new btStaticPlaneShape(planeNormal, 0.f);
-    
+    btStaticPlaneShape* floorShape = new btStaticPlaneShape(planeNormal, 0);
+
     // Create a Bullet Physics rigid body for the inclined floor
     btTransform floorTransform;
     floorTransform.setIdentity();
@@ -89,25 +48,17 @@ int main() {
     btRigidBody::btRigidBodyConstructionInfo floorRigidBodyCI(0.0f, floorMotionState, floorShape, btVector3(0, 0, 0));
     btRigidBody* floorRigidBody = new btRigidBody(floorRigidBodyCI);
 
-    
     // Add the rigid bodies to the dynamics world
     dynamicsWorld->addRigidBody(sphereRigidBody);
     dynamicsWorld->addRigidBody(floorRigidBody);
 
-
-
-
-
     // Set up the camera
     Camera3D camera = {0};
-    camera.position = (Vector3){0, 30, 30};
+    camera.position = (Vector3){0, 15, 15};
     camera.target = (Vector3){0, 3, 0};
     camera.up = (Vector3){0, 1, 0};
     camera.fovy = 40.0f;
     camera.projection = CAMERA_PERSPECTIVE;
-
-    Model plane_model = LoadModelFromMesh(GenMeshPlane(10, 10, 100, 100));
-
 
     // Main game loop
     while (!WindowShouldClose()) {
@@ -115,37 +66,35 @@ int main() {
         dynamicsWorld->stepSimulation(1.0f * GetFrameTime(), 10);
 
         // Get the sphere's transformation
-        btTransform sphereTrans;
+        btTransform trans;
         if (sphereRigidBody->getMotionState()) {
-            sphereRigidBody->getMotionState()->getWorldTransform(sphereTrans);
+            sphereRigidBody->getMotionState()->getWorldTransform(trans);
         }
 
-        // Get the sphere's rotation as Euler angles (in radians)
-        btQuaternion sphereRotation = sphereTrans.getRotation();
-        btScalar sphereYaw, spherePitch, sphereRoll;
-        sphereRotation.getEulerZYX(sphereRoll, sphereYaw, spherePitch);
+        // Get the rotation as Euler angles (in radians)
+        btQuaternion rotation = trans.getRotation();
+        btScalar yaw, pitch, roll;
+        rotation.getEulerZYX(roll, pitch, yaw);
 
         // Convert radians to degrees for printing
-        float sphereYawDegrees = sphereYaw * RAD2DEG;
-        float spherePitchDegrees = spherePitch * RAD2DEG;
-        float sphereRollDegrees = sphereRoll * RAD2DEG;
+        float rollDegrees = roll * RAD2DEG;
+        float pitchDegrees = pitch * RAD2DEG;
+        float yawDegrees = yaw * RAD2DEG;
 
-        // Get the sphere's position
-        btVector3 spherePosition = sphereTrans.getOrigin();
-        Vector3 spherePos = { spherePosition.getX(), spherePosition.getY(), spherePosition.getZ() };
-
-        // Update camera position
-        // camera.target = spherePos;
+        // Print the rotation angles to the console
+        printf("Roll: %f degrees, Pitch: %f degrees, Yaw: %f degrees\n", rollDegrees, pitchDegrees, yawDegrees);
+        // Update camera
+        if (sphereRigidBody->getMotionState()) {
+            sphereRigidBody->getMotionState()->getWorldTransform(trans);
+        }
+        btVector3 spherePosition = trans.getOrigin();
+        Vector3 spherePos = {spherePosition.getX(), spherePosition.getY(), spherePosition.getZ()};
 
         // Draw the models
         BeginDrawing();
         ClearBackground(RAYWHITE);
         BeginMode3D(camera);
-
-        // Apply the sphere's rotation to the cube model
-        model.transform = MatrixRotateXYZ((Vector3){ DEG2RAD*spherePitchDegrees, DEG2RAD*sphereYawDegrees, DEG2RAD*sphereRollDegrees });
-        DrawModelWires(model, Vector3Zero(), 1.0f , RED);
-
+        DrawModelWires(model, spherePos, 1.0f, RED);
 
         // Draw the inclined floor
         DrawGrid(10, 1.0f);
@@ -157,7 +106,7 @@ int main() {
     // Cleanup
     delete sphereRigidBody;
     delete sphereMotionState;
-    delete customShape;
+    delete sphereShape;
 
     delete floorRigidBody;
     delete floorMotionState;

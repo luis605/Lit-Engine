@@ -602,10 +602,9 @@ public:
         if (IsModelReady(model))
             model.materials[0].shader = shader;
 
-        LodModels[0].materials[0].shader = shader;
-        LodModels[1].materials[0].shader = shader;
-        LodModels[2].materials[0].shader = shader;
-        LodModels[3].materials[0].shader = shader;
+        for (int index = 0; index < 4; index++)
+            if (IsModelReady(LodModels[index]))
+            LodModels[index].materials[0].shader = shader;
     }
 
     void runScript(std::reference_wrapper<Entity> entityRef, LitCamera* rendering_camera)
