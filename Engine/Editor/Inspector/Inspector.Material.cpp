@@ -15,7 +15,10 @@ void MaterialInspector(SurfaceMaterial* surface_material = nullptr, string path 
         path = selected_material.string();
 
     DeserializeMaterial(material, path.c_str());
-    if (!material) material = &SurfaceMaterial{};
+    if (!material){
+        SurfaceMaterial emptySurfaceMaterial;
+        material = &emptySurfaceMaterial;
+    }
 
     ImVec2 window_size = ImGui::GetWindowSize();
     
