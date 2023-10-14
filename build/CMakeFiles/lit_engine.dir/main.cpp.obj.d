@@ -1118,6 +1118,7 @@ CMakeFiles/lit_engine.dir/main.cpp.obj: \
   C:/Users/USER/Desktop/_/Lit-Engine/dependencies/include/glm/gtc/../geometric.hpp \
   C:/Users/USER/Desktop/_/Lit-Engine/dependencies/include/glm/gtc/../trigonometric.hpp \
   C:/Users/USER/Desktop/_/Lit-Engine/dependencies/include/glm/gtc/../matrix.hpp \
+  C:/LLVM-MinGW/include/omp.h \
   C:/Users/USER/AppData/Local/Programs/Python/Python311/Lib/site-packages/pybind11/include/pybind11/embed.h \
   C:/Users/USER/AppData/Local/Programs/Python/Python311/Lib/site-packages/pybind11/include/pybind11/pybind11.h \
   C:/Users/USER/AppData/Local/Programs/Python/Python311/Lib/site-packages/pybind11/include/pybind11/detail/class.h \
@@ -1325,13 +1326,15 @@ CMakeFiles/lit_engine.dir/main.cpp.obj: \
   C:/Users/USER/Desktop/_/Lit-Engine/Engine/Physics/PhysicsManager.cpp \
   C:/Users/USER/Desktop/_/Lit-Engine/Engine/Physics/PhysicsManager.h \
   C:/Users/USER/Desktop/_/Lit-Engine/globals.h \
+  C:/Users/USER/Desktop/_/Lit-Engine/Engine/Core/LoD.cpp \
+  C:/Users/USER/Desktop/_/Lit-Engine/Engine/Core/../../include_all.h \
   C:/Users/USER/Desktop/_/Lit-Engine/Engine/Scripting/math.cpp \
   C:/Users/USER/Desktop/_/Lit-Engine/Engine/GUI/Text/Text.h \
   C:/Users/USER/Desktop/_/Lit-Engine/Engine/GUI/Text/../../../include_all.h \
   C:/Users/USER/Desktop/_/Lit-Engine/Engine/GUI/Button/Button.h \
   C:/Users/USER/Desktop/_/Lit-Engine/Engine/GUI/Button/../../../include_all.h \
   C:/Users/USER/Desktop/_/Lit-Engine/Engine/GUI/Video/video.cpp \
-  C:/Users/USER/Desktop/_/Lit-Engine/./include/nlohmann/../../include_all.h \
+  C:/Users/USER/Desktop/_/Lit-Engine/Engine/GUI/Video/../../../include_all.h \
   C:/Users/USER/Desktop/_/Lit-Engine/Engine/Core/Engine.hpp \
   C:/Users/USER/Desktop/_/Lit-Engine/./include/../include_all.h \
   C:/Users/USER/Desktop/_/Lit-Engine/Engine/Lighting/lights.h \
@@ -1339,20 +1342,20 @@ CMakeFiles/lit_engine.dir/main.cpp.obj: \
   C:/Users/USER/Desktop/_/Lit-Engine/Engine/Scripting/functions.cpp \
   C:/Users/USER/Desktop/_/Lit-Engine/Engine/Core/functions.h \
   C:/Users/USER/Desktop/_/Lit-Engine/Engine/Core/global_variables.cpp \
+  C:/Users/USER/Desktop/_/Lit-Engine/Engine/Editor/SceneEditor/SceneEditor.h \
+  C:/Users/USER/Desktop/_/Lit-Engine/Engine/Editor/SceneEditor/../../../include_all.h \
   C:/Users/USER/Desktop/_/Lit-Engine/Engine/Core/Engine.cpp \
-  C:/Users/USER/Desktop/_/Lit-Engine/Engine/Core/../../include_all.h \
   C:/Users/USER/Desktop/_/Lit-Engine/Engine/Core/RunGame.h \
   C:/Users/USER/Desktop/_/Lit-Engine/Engine/GUI/Tooltip/Tooltip.cpp \
   C:/Users/USER/Desktop/_/Lit-Engine/Engine/GUI/Tooltip/../../../include_all.h \
   C:/Users/USER/Desktop/_/Lit-Engine/Engine/GUI/Text/Text.cpp \
   C:/Users/USER/Desktop/_/Lit-Engine/Engine/GUI/Button/Button.cpp \
-  C:/Users/USER/Desktop/_/Lit-Engine/Engine/Editor/SceneEditor/SceneEditor.h \
-  C:/Users/USER/Desktop/_/Lit-Engine/Engine/Editor/SceneEditor/../../../include_all.h \
   C:/Users/USER/Desktop/_/Lit-Engine/Engine/Editor/AssetsExplorer/AssetsExplorer.h \
   C:/Users/USER/Desktop/_/Lit-Engine/Engine/Editor/AssetsExplorer/../../../include_all.h \
   C:/Users/USER/Desktop/_/Lit-Engine/Engine/Editor/AssetsExplorer/file_manipulation.h \
   C:/Users/USER/Desktop/_/Lit-Engine/Engine/Core/Core.h \
   C:/Users/USER/Desktop/_/Lit-Engine/Engine/Editor/UiScripts/UiScripts.cpp \
+  C:/Users/USER/Desktop/_/Lit-Engine/./include/nlohmann/../../include_all.h \
   C:/Users/USER/Desktop/_/Lit-Engine/Engine/Editor/Styles/Styles.cpp \
   C:/Users/USER/Desktop/_/Lit-Engine/Engine/Core/SaveLoad.cpp \
   C:/Users/USER/Desktop/_/Lit-Engine/Engine/Lighting/InitLighting.cpp \
