@@ -860,8 +860,6 @@ public:
 
             dynamicsWorld->addRigidBody(boxRigidBody);
             currentCollisionShapeType = None;
-
-            std::cout << "Model - Static" << "\n";
         }
     }
 
@@ -944,9 +942,10 @@ public:
     }
 
     void makePhysicsStatic() {
-        isDynamic = false;
-        createStaticBox(scale.x, scale.y, scale.z);
-
+        if (isDynamic) {
+            isDynamic = false;
+            createStaticBox(scale.x, scale.y, scale.z);
+        }
     }
 
     void reloadRigidBody() {
