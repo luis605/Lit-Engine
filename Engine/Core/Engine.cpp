@@ -234,7 +234,7 @@ public:
             else TraceLog(LOG_WARNING, "Bad Type - Entity AO texture variant");
         }, other.ao_texture);
 
-
+        this->surface_material_path = other.surface_material_path;
         this->surface_material = other.surface_material;
         this->collider = other.collider;
         this->visible = other.visible;
@@ -320,6 +320,7 @@ public:
 
 
         this->surface_material = other.surface_material;
+        this->surface_material_path = other.surface_material_path;
         this->collider = other.collider;
         this->visible = other.visible;
         this->isChild = other.isChild;
@@ -781,18 +782,6 @@ public:
             }
             btVector3 rigidBodyPosition = trans.getOrigin();
             position = { rigidBodyPosition.getX(), rigidBodyPosition.getY(), rigidBodyPosition.getZ() };
-            
-            btQuaternion treeRotation = trans.getRotation();
-            btScalar treeYaw, treePitch, treeRoll;
-            treeRotation.getEulerZYX(treeRoll, treeYaw, treePitch);
-
-            model.transform = MatrixRotateXYZ((Vector3){ treePitch, DEG2RAD*treeYaw, DEG2RAD*treeRoll });
-
-            
-            float treeYawDegrees = treeYaw * RAD2DEG;
-            float treePitchDegrees = treePitch * RAD2DEG;
-            float treeRollDegrees = treeRoll * RAD2DEG;
-
         }
 
     }
