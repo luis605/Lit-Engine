@@ -266,7 +266,7 @@ void ProcessCameraControls()
     }
 }
 
-void ProcessSelection()
+void ProcessGizmo()
 {
     if ((selected_game_object_type == "entity") ||
         (selected_game_object_type == "light"))
@@ -278,6 +278,7 @@ void ProcessSelection()
     }
 }
 
+struct EmptyType {};
 
 void RenderScene()
 {
@@ -295,7 +296,11 @@ void RenderScene()
 
     SetShaderValueMatrix(shader, GetShaderLocation(shader, "cameraMatrix"), GetCameraMatrix(scene_camera));
 
-    ProcessSelection();
+    ProcessGizmo();
+
+    bool isLightSelected   = false;
+    bool isEntitySelected  = false;
+
 
     for (Light& light : lights)
     {
@@ -306,7 +311,7 @@ void RenderScene()
         
         if (IsMouseButtonDown(MOUSE_LEFT_BUTTON) && ImGui::IsWindowHovered() && !dragging_gizmo_position && !dragging_gizmo_rotation)
         {
-            bool isLightSelected = IsMouseHoveringModel(light_model, scene_camera, { light.position.x, light.position.y, light.position.z }, { 0, rotation, 0 }, {1,1,1});
+            isLightSelected = IsMouseHoveringModel(light_model, scene_camera, { light.position.x, light.position.y, light.position.z }, { 0, rotation, 0 }, {1,1,1});
             if (isLightSelected)
             {
                 object_in_inspector = &light;
@@ -323,7 +328,7 @@ void RenderScene()
 
         if (IsMouseButtonDown(MOUSE_LEFT_BUTTON) && ImGui::IsWindowHovered() && !dragging_gizmo_position && !dragging_gizmo_rotation)
         {
-            bool isEntitySelected = IsMouseHoveringModel(entity.model, scene_camera, entity.position, entity.rotation, entity.scale, &entity);
+            isEntitySelected = IsMouseHoveringModel(entity.model, scene_camera, entity.position, entity.rotation, entity.scale, &entity);
             if (isEntitySelected)
             {
                 object_in_inspector = &entity;
@@ -345,6 +350,19 @@ void RenderScene()
             }
 
         }
+    }
+
+    if (
+        IsMouseButtonPressed(MOUSE_BUTTON_LEFT) &&
+        ImGui::IsWindowHovered() &&
+        !isEntitySelected &&
+        !isLightSelected
+        )
+    {
+        std::cout << "Empty Entity" << std::endl;
+        static Entity default_entity;
+        selected_game_object_type = "none";
+        object_in_inspector = &default_entity;
     }
 
     UpdateInGameGlobals();

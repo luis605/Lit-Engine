@@ -48,7 +48,7 @@
         "id": 1,
         "is_dynamic": true,
         "mass": 1.0,
-        "material_path": "",
+        "material_path": "project/game/file3.mat",
         "model_path": "project/game/models/tree.obj",
         "name": "project/game/models/tree",
         "normal_texture_path": "",
@@ -76,15 +76,15 @@
         "script_index": "",
         "script_path": "",
         "surface_material": {
-            "DiffuseIntensity": 0.5,
-            "Roughness": 0.5,
-            "SpecularIntensity": 0.5,
+            "DiffuseIntensity": 0.30399999022483826,
+            "Roughness": 0.6159999966621399,
+            "SpecularIntensity": 1.0,
             "SpecularTint": {
                 "x": 1.0,
                 "y": 1.0,
                 "z": 1.0
             },
-            "shininess": 0.5
+            "shininess": 0.7279999852180481
         },
         "texture_path": "",
         "type": "entity"
@@ -103,11 +103,11 @@
             "y": 0.4000000059604645,
             "z": -0.4000000059604645
         },
-        "id": 3,
+        "id": 16580860,
         "intensity": 0.5,
         "isChild": false,
         "light_type": 1,
-        "name": "Light",
+        "name": "",
         "position": {
             "x": 4.0,
             "y": 4.0,
