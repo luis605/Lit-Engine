@@ -37,5 +37,6 @@ bool ButtonRoundnessActiveInputMode              = false;
 #include "Inspector.Text.cpp"
 #include "Inspector.Button.cpp"
 #include "Inspector.World.cpp"
+#include "Inspector.Camera.cpp"
 
 #endif // INSPECTOR_H
