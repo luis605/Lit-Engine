@@ -1,4 +1,4 @@
-#include "../../include_all.h"
+#include "../../../include_all.h"
 #include "../../globals.h"
 
 
@@ -81,6 +81,31 @@ void DrawEntityTree(Entity& entity, int active, int& index, int depth = 0);
 void DrawLightTree(Light& light, AdditionalLightInfo& light_info, int active, int& index);
 void DrawTextElementsTree(Text& text, int active, int& index);
 void DrawButtonTree(LitButton& button, int active, int& index);
+void DrawCameraTree(int active, int& index);
+
+void DrawCameraTree(int active, int& index)
+{
+    ImGuiTreeNodeFlags nodeFlags;
+
+    if (selected_game_object_type == "camera") {
+        nodeFlags |= ImGuiTreeNodeFlags_Selected;
+    }
+
+    const char icon[] = ICON_FA_CAMERA;
+    const char space[] = " ";
+    
+    std::string button_name = std::string(icon) + space + "Camera";
+
+    ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(0.85f, 0.85f, 0.85f, 1.0f));
+    ImGui::TreeNodeEx(button_name.c_str(), nodeFlags);
+    ImGui::PopStyleColor();
+
+    if (ImGui::IsItemClicked()) {
+        active = index;
+        selected_game_object_type = "camera";
+    }
+}
+
 
 
 
@@ -324,6 +349,8 @@ void ImGuiListViewEx(vector<string>& items, int& focus, int& scroll, int& active
 
     ImGui::PopFont();
     ImGui::PushFont(s_Fonts["ImGui Default"]);
+
+    DrawCameraTree(active, index);
 
     for (Entity& entity : entities_list_pregame) {
         DrawEntityTree(entity, active, index);
