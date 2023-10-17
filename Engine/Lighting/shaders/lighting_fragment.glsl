@@ -174,6 +174,81 @@ vec4 CalculateSpotLight(Light light, vec3 viewDir, vec3 norm, float roughness, f
 
 }
 
+
+vec4 CalculateLighting(vec3 fragPosition, vec3 fragNormal, vec3 viewDir, vec2 texCoord, SurfaceMaterial material) {
+    vec4 result = vec4(0.0);
+    
+    for (int i = 0; i < lightsCount; i++) {
+        Light light = lights[i];
+        
+        // Calculate light contributions (directional, point, and spot)
+        if (light.enabled) {
+            if (light.type == LIGHT_DIRECTIONAL) {
+                // Calculate directional light
+                result += CalculateDirectionalLight(light, viewDir, fragNormal, vec3(0.0), vec4(0.0));
+            } else if (light.type == LIGHT_POINT) {
+                // Calculate point light
+                result += CalculatePointLight(light, viewDir, fragNormal, material.Roughness, 1.0, fragPosition, vec4(0.0));
+            } else if (light.type == LIGHT_SPOT) {
+                // Calculate spot light
+                result += CalculateSpotLight(light, viewDir, fragNormal, material.Roughness, 1.0, fragPosition, vec3(0.0), texCoord, mat3(1.0));
+            }
+        }
+    }
+    
+    // // Apply ambient and tone mapping
+    // vec4 ambientColor = colDiffuse * ambientLight * material.DiffuseIntensity;
+    // result += ambientColor;
+    // vec4 toneMappedResult = toneMap(result);
+    
+    // return vec4(toneMappedResult.rgb, result);
+    return result;
+}
+
+void main() {
+    vec2 texCoord = fragTexCoord * tiling;
+    vec4 texColor = texture(texture0, texCoord);
+
+    // Calculate tangent space
+    vec3 tangent = dFdx(fragPosition);
+    vec3 bitangent = dFdy(fragPosition);
+    vec3 T = normalize(tangent);
+    vec3 B = normalize(bitangent);
+    vec3 N = normalize(fragNormal);
+    mat3 TBN = mat3(T, B, N);
+
+    // Calculate normal
+    vec3 norm;
+    if (normalMapInit) {
+        vec3 normalMap = texture(texture2, texCoord).rgb;
+        normalMap = normalMap * 2.0 - 1.0;
+        norm = normalize(TBN * normalMap);
+    } else {
+        norm = N;
+    }
+
+    // Calculate material properties
+    float roughness;
+    if (roughnessMapInit) {
+        roughness = texture(texture3, texCoord).r;
+    } else {
+        roughness = surface_material.Roughness;
+    }
+
+    // Calculate view direction
+    vec3 viewDir = normalize(viewPos - fragPosition);
+    vec3 reflectDir = reflect(-viewDir, norm);
+
+    vec4 result = colDiffuse / 1.8 - ambientLight * 0.5;
+    vec3 ambient = vec3(0);
+
+
+    // Calculate lighting
+    finalColor = vec4(result.rgb + CalculateLighting(fragPosition, norm, viewDir, texCoord, surface_material).rgb, colDiffuse.a);
+}
+
+/*
+
 void main() {
     vec2 texCoord = fragTexCoord * tiling;
     vec4 texColor = texture(texture0, texCoord);
@@ -246,3 +321,5 @@ void main() {
     // Assign the final color
     finalColor = result;
 }
+
+*/
