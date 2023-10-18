@@ -90,9 +90,11 @@ vec3 CalculateFresnelReflection(vec3 baseReflectance, vec3 viewDirection, vec3 h
     return finalColor;
 }
 
-vec4 toneMap(vec4 hdrColor) {
-    // Apply tone mapping here (e.g., Reinhard or ACES).
-    return hdrColor / (hdrColor + vec4(1.0)); // Adjust as needed.
+vec4 toneMap(vec4 hdrColor, float exposure = .5) {
+    vec3 hdr = hdrColor.rgb;
+    vec3 mapped = hdr / (hdr + vec3(1.0));
+    mapped = pow(mapped, vec3(1.0 / exposure));
+    return vec4(mapped, 1.0);
 }
 
 
@@ -197,10 +199,12 @@ vec4 CalculateLighting(vec3 fragPosition, vec3 fragNormal, vec3 viewDir, vec2 te
     }
     
     // // Apply ambient and tone mapping
-    // vec4 ambientColor = colDiffuse * ambientLight * material.DiffuseIntensity;
-    // result += ambientColor;
-    // vec4 toneMappedResult = toneMap(result);
-    
+    vec4 ambientColor = colDiffuse * ambientLight * material.DiffuseIntensity;
+    result += ambientColor;
+    vec4 toneMappedResult = toneMap(result);
+
+    float ao = texture(texture4, texCoord).r;
+
     // return vec4(toneMappedResult.rgb, result);
     return result;
 }
@@ -241,8 +245,7 @@ void main() {
 
     vec4 result = colDiffuse / 1.8 - ambientLight * 0.5;
     vec3 ambient = vec3(0);
-
-
+    
     // Calculate lighting
     finalColor = vec4(result.rgb + CalculateLighting(fragPosition, norm, viewDir, texCoord, surface_material).rgb, colDiffuse.a);
 }
