@@ -356,7 +356,11 @@ void RenderScene()
         IsMouseButtonPressed(MOUSE_BUTTON_LEFT) &&
         ImGui::IsWindowHovered() &&
         !isEntitySelected &&
-        !isLightSelected
+        !isLightSelected &&
+        !isHoveringGizmo &&
+        !gizmo_arrow_selected &&
+        !gizmo_cube_selected &&
+        !gizmo_taurus_selected
         )
     {
         std::cout << "Empty Entity" << std::endl;
