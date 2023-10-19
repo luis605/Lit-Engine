@@ -1,131 +1,22 @@
 [
     {
-        "id": 0,
-        "is_dynamic": false,
-        "mass": 1.0,
-        "material_path": "",
-        "mesh_type": 3,
-        "model_path": "",
-        "name": "Unnamed Entity",
-        "normal_texture_path": "",
+        "fovy": 126.45982360839844,
         "position": {
-            "x": 0.0,
-            "y": 0.0,
-            "z": 0.0
+            "x": 29.324522018432617,
+            "y": 24.64360237121582,
+            "z": 0.349140465259552
         },
-        "relative_position": {
-            "x": 0.0,
-            "y": 0.0,
-            "z": 0.0
-        },
-        "rotation": {
-            "x": 0.0,
-            "y": 0.0,
-            "z": 0.0
-        },
-        "roughness_texture_path": "",
-        "scale": {
-            "x": 1.0,
-            "y": 1.0,
-            "z": 1.0
-        },
-        "script_index": "",
-        "script_path": "",
-        "surface_material": {
-            "DiffuseIntensity": 0.5,
-            "Roughness": 0.5,
-            "SpecularIntensity": 0.5,
-            "SpecularTint": {
-                "x": 1.0,
-                "y": 1.0,
-                "z": 1.0
-            },
-            "shininess": 0.5
-        },
-        "texture_path": "",
-        "type": "entity"
-    },
-    {
-        "id": 1,
-        "is_dynamic": false,
-        "mass": 1.0,
-        "material_path": "",
-        "mesh_type": 5,
-        "model_path": "",
-        "name": "Unnamed Entity",
-        "normal_texture_path": "",
-        "position": {
-            "x": 0.0,
-            "y": 0.0,
-            "z": 0.0
-        },
-        "relative_position": {
-            "x": 0.0,
-            "y": 0.0,
-            "z": 0.0
-        },
-        "rotation": {
-            "x": 0.0,
-            "y": 0.0,
-            "z": 0.0
-        },
-        "roughness_texture_path": "",
-        "scale": {
-            "x": 1.0,
-            "y": 1.0,
-            "z": 1.0
-        },
-        "script_index": "",
-        "script_path": "",
-        "surface_material": {
-            "DiffuseIntensity": 0.5,
-            "Roughness": 0.5,
-            "SpecularIntensity": 0.5,
-            "SpecularTint": {
-                "x": 1.0,
-                "y": 1.0,
-                "z": 1.0
-            },
-            "shininess": 0.5
-        },
-        "texture_path": "",
-        "type": "entity"
-    },
-    {
-        "attenuation": 9.999999747378752e-05,
-        "color": {
-            "a": 255.0,
-            "b": 255.0,
-            "g": 255.0,
-            "r": 255.0
-        },
-        "cutOff": 10.0,
-        "direction": {
-            "x": 0.4000000059604645,
-            "y": 0.4000000059604645,
-            "z": -0.4000000059604645
-        },
-        "id": 16580860,
-        "intensity": 0.5,
-        "isChild": false,
-        "light_type": 1,
-        "name": "",
-        "position": {
-            "x": 4.0,
-            "y": 4.0,
-            "z": 4.0
-        },
-        "relative_position": {
-            "x": 0,
-            "y": 0,
-            "z": 0
-        },
-        "specularStrength": 0.5,
+        "projection": 0,
         "target": {
-            "x": 0,
-            "y": 0,
-            "z": 0
+            "x": -9.848939895629883,
+            "y": -6.405679702758789,
+            "z": -0.8264021277427673
         },
-        "type": "light"
+        "type": "camera",
+        "up": {
+            "x": 0.0,
+            "y": 1.0,
+            "z": 0.0
+        }
     }
 ]
