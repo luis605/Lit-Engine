@@ -119,6 +119,19 @@ public:
     bool calc_physics = false;
     bool isDynamic = false;
 
+    typedef enum ObjectTypeEnum
+    {
+        ObjectType_None,
+        ObjectType_Cube,
+        ObjectType_Cone,
+        ObjectType_Cylinder,
+        ObjectType_Plane,
+        ObjectType_Sphere,
+        ObjectType_Torus
+    };
+
+    ObjectTypeEnum ObjectType;
+
     float mass = 1;
     Vector3 inertia = {0, 0, 0};
 

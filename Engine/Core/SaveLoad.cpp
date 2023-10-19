@@ -206,6 +206,9 @@ void SaveEntity(json& json_data, const Entity& entity) {
     j["rotation"] = entity.rotation;
     j["relative_position"] = entity.relative_position;
     j["model_path"] = entity.model_path;
+    if (IsModelReady(entity.model) && entity.model_path.empty())
+        j["mesh_type"] = entity.ObjectType;
+        
     j["script_path"] = entity.script;
     j["script_index"] = entity.script_index;
     j["texture_path"] = entity.texture_path;

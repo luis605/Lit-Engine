@@ -232,7 +232,7 @@ int main() {
 
         for (int j = 0; j < 2; j++) {
             Entities entity;
-            entity.model = LoadModelFromMesh(GenMeshPlane(10,10,10,10));//LoadModel("assets/models/tree.obj");
+            entity.model = LoadModel("assets/models/tree.obj");
             entity.LodModels[0] = entity.model;
             entity.LodModels[1] = LoadModelFromMesh(GenerateLODMesh(ContractVertices(entity.model.meshes[0], 0.5f), entity.model.meshes[0]));
             entity.LodModels[2] = LoadModelFromMesh(GenerateLODMesh(ContractVertices(entity.model.meshes[0], 1.0f), entity.model.meshes[0]));

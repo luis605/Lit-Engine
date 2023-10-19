@@ -475,17 +475,6 @@ void DropEntity()
     }
 }
 
-
-
-enum class ObjectType
-{
-    None,
-    Cube,
-    Sphere,
-    // Add more object types here
-};
-
-
 bool showObjectTypePopup = false;
 
 void ProcessObjectControls()
@@ -530,36 +519,42 @@ void ObjectsPopup()
             if (ImGui::MenuItem("Cube"))
             {
                 AddEntity(true, false, "", LoadModelFromMesh(GenMeshCube(1, 1, 1)));
+                entities_list_pregame.back().ObjectType = Entity::ObjectType_Cube;
                 showObjectTypePopup = false;
             }
 
             if (ImGui::MenuItem("Cone"))
             {
                 AddEntity(true, false, "", LoadModelFromMesh(GenMeshCone(1, 1, 30)));
+                entities_list_pregame.back().ObjectType = Entity::ObjectType_Cone;
                 showObjectTypePopup = false;
             }
 
             if (ImGui::MenuItem("Cylinder"))
             {
                 AddEntity(true, false, "", LoadModelFromMesh(GenMeshCylinder(1, 2, 30)));
+                entities_list_pregame.back().ObjectType = Entity::ObjectType_Cylinder;
                 showObjectTypePopup = false;
             }
 
             if (ImGui::MenuItem("Plane"))
             {
                 AddEntity(true, false, "", LoadModelFromMesh(GenMeshPlane(1, 1, 1, 1)));
+                entities_list_pregame.back().ObjectType = Entity::ObjectType_Plane;
                 showObjectTypePopup = false;
             }
 
             if (ImGui::MenuItem("Sphere"))
             {
                 AddEntity(true, false, "", LoadModelFromMesh(GenMeshSphere(1, 50, 50)));
+                entities_list_pregame.back().ObjectType = Entity::ObjectType_Sphere;
                 showObjectTypePopup = false;
             }
 
             if (ImGui::MenuItem("Torus"))
             {
                 AddEntity(true, false, "", LoadModelFromMesh(GenMeshTorus(1, 1, 30, 30)));
+                entities_list_pregame.back().ObjectType = Entity::ObjectType_Torus;
                 showObjectTypePopup = false;
             }
 
