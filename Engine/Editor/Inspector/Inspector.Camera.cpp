@@ -12,20 +12,28 @@ void CameraInspector()
 
     if (ImGui::CollapsingHeader("Camera Properties"))
     {
-        bool isOrthographic = (scene_camera.projection == 1) ? true : false;
-
-        
-        if (ImGui::BeginCombo("Projection", isOrthographic ? "Orthographic" : "Perspective")) {
-            if (ImGui::Selectable("Orthographic", isOrthographic)) {
-                isOrthographic = true;
-                scene_camera.projection = 1;
+        {
+            bool isOrthographic = (scene_camera.projection == 1) ? true : false;
+            
+            if (ImGui::BeginCombo("Projection", isOrthographic ? "Orthographic" : "Perspective")) {
+                if (ImGui::Selectable("Orthographic", isOrthographic)) {
+                    isOrthographic = true;
+                    scene_camera.projection = 1;
+                }
+                if (ImGui::Selectable("Perspective", !isOrthographic)) {
+                    isOrthographic = false;
+                    scene_camera.projection = 0;
+                }
+                ImGui::EndCombo();
             }
-            if (ImGui::Selectable("Perspective", !isOrthographic)) {
-                isOrthographic = false;
-                scene_camera.projection = 0;
-            }
-            ImGui::EndCombo();
         }
+
+        {
+            ImGui::Text("Fovy: ");
+            ImGui::SameLine();
+            ImGui::SliderFloat("##FovySlider", &scene_camera.fovy, 1.0f, 180.0f, ".1f");
+        }
+
 
     }
 

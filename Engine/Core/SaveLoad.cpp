@@ -206,9 +206,10 @@ void SaveEntity(json& json_data, const Entity& entity) {
     j["rotation"] = entity.rotation;
     j["relative_position"] = entity.relative_position;
     j["model_path"] = entity.model_path;
+    
     if (IsModelReady(entity.model) && entity.model_path.empty())
         j["mesh_type"] = entity.ObjectType;
-        
+
     j["script_path"] = entity.script;
     j["script_index"] = entity.script_index;
     j["texture_path"] = entity.texture_path;
@@ -277,7 +278,15 @@ void SaveLight(json& json_data, const Light& light, int light_index) {
         j["relative_position"]["z"] = 0;
     }
     
-    j["target"] = light.target;
+    if (light.type == LightType::LIGHT_POINT)
+    {
+        j["target"]["x"] = 0;
+        j["target"]["y"] = 0;
+        j["target"]["z"] = 0;
+    }
+    else
+        j["target"] = light.target;
+    
     j["direction"] = light.direction;
     j["intensity"] = light.intensity;
     j["cutOff"] = light.cutOff;
@@ -471,8 +480,6 @@ void LoadEntity(const json& entity_json, Entity& entity) {
         entity.rotation = rotation;
     }
 
-
-
     if (entity_json.contains("relative_position")) {
         Vector3 relative_position{
             entity_json["relative_position"]["x"].get<float>(),
@@ -482,20 +489,40 @@ void LoadEntity(const json& entity_json, Entity& entity) {
         entity.relative_position = relative_position;
     }
 
-
-
     entity.isDynamic = entity_json["is_dynamic"].get<bool>();
     entity.mass = entity_json["mass"].get<float>();
 
     entity.reloadRigidBody();
 
+    entity.ObjectType = entity_json["mesh_type"].get<Entity::ObjectTypeEnum>();
 
+    if (entity_json.contains("model_path") && !entity_json["model_path"].get<std::string>().empty()) {
+        entity.setModel(
+            entity_json["model_path"].get<std::string>().c_str(),
+            LoadModel(entity_json["model_path"].get<std::string>().c_str())
+        );
+    }
+    else
+    {
+        if (entity.ObjectType == Entity::ObjectType_Cube)
+            entity.setModel("", LoadModelFromMesh(GenMeshCube(1, 1, 1)));
 
-    entity.setModel(
-        entity_json["model_path"].get<std::string>().c_str(),
-        LoadModel(entity_json["model_path"].get<std::string>().c_str())
-    );
+        else if (entity.ObjectType == Entity::ObjectType_Cone)
+            entity.setModel("", LoadModelFromMesh(GenMeshCone(1, 1, 10)));
 
+        else if (entity.ObjectType == Entity::ObjectType_Cylinder)
+            entity.setModel("", LoadModelFromMesh(GenMeshCylinder(1, 2, 30)));
+
+        else if (entity.ObjectType == Entity::ObjectType_Plane)
+            entity.setModel("", LoadModelFromMesh(GenMeshPlane(1, 1, 1, 1)));
+
+        else if (entity.ObjectType == Entity::ObjectType_Sphere)
+            entity.setModel("", LoadModelFromMesh(GenMeshSphere(1, 50, 50)));
+
+        else if (entity.ObjectType == Entity::ObjectType_Torus)
+            entity.setModel("", LoadModelFromMesh(GenMeshTorus(1, 1, 30, 30)));
+
+    }
 
 
     entity.script = entity_json["script_path"].get<std::string>();
