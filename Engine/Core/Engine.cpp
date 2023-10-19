@@ -142,6 +142,18 @@ public:
     Entity* parent = nullptr;
     vector<variant<Entity*, Light*, Text*, LitButton*>> children;
 
+    enum CollisionShapeType
+    {
+        Box           = 0,
+        HighPolyMesh  = 1,
+        LowPolyMesh   = 2,
+        Sphere        = 3,
+        None          = 4
+    };
+
+    CollisionShapeType currentCollisionShapeType;
+
+
 private:
     btCollisionShape* staticBoxShape               = nullptr;
     btCollisionShape* dynamicBoxShape              = nullptr;
@@ -158,16 +170,6 @@ private:
     Shader* entity_shader;
     bool lodEnabled                                = true;
 
-    enum CollisionShapeType
-    {
-        Box           = 0,
-        HighPolyMesh  = 1,
-        LowPolyMesh   = 2,
-        Sphere        = 3,
-        None          = 4
-    };
-
-    CollisionShapeType currentCollisionShapeType;
 
 public:
     Entity(LitVector3 scale = { 1, 1, 1 }, LitVector3 rotation = { 0, 0, 0 }, string name = "entity",
@@ -196,7 +198,7 @@ public:
         this->ObjectType = other.ObjectType;
         this->model = other.model;
         this->bounds = other.bounds;
-
+        this->currentCollisionShapeType = currentCollisionShapeType;
         this->texture_path = other.texture_path;
         this->texture = std::visit([](const auto& value) -> std::variant<Texture, std::unique_ptr<VideoPlayer, std::default_delete<VideoPlayer>>> {
             using T = std::decay_t<decltype(value)>;
@@ -335,6 +337,7 @@ public:
         this->surface_material = other.surface_material;
         this->surface_material_path = other.surface_material_path;
         this->collider = other.collider;
+        this->currentCollisionShapeType = currentCollisionShapeType;
         this->visible = other.visible;
         this->isChild = other.isChild;
         this->isParent = other.isParent;
@@ -1005,7 +1008,7 @@ public:
 
     void reloadRigidBody() {
         if (isDynamic)
-            makePhysicsDynamic();
+            makePhysicsDynamic(currentCollisionShapeType);
         else
             makePhysicsStatic();
     }
