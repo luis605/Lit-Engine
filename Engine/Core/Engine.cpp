@@ -193,7 +193,7 @@ public:
         this->script = other.script;
         this->script_index = other.script_index;
         this->model_path = other.model_path;
-        // Note: You might need to implement a copy constructor for the `Model` class
+        this->ObjectType = other.ObjectType;
         this->model = other.model;
         this->bounds = other.bounds;
 
@@ -284,7 +284,7 @@ public:
         this->script = other.script;
         this->script_index = other.script_index;
         this->model_path = other.model_path;
-        // Note: You might need to implement a copy constructor for the `Model` class
+        this->ObjectType = other.ObjectType;
         this->model = other.model;
         this->bounds = other.bounds;
         this->texture_path = other.texture_path;
