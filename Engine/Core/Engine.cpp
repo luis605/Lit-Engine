@@ -796,7 +796,47 @@ public:
             btVector3 rigidBodyPosition = trans.getOrigin();
             position = { rigidBodyPosition.getX(), rigidBodyPosition.getY(), rigidBodyPosition.getZ() };
         }
+    }
 
+
+
+    void calcPhysicsRotation() {
+        if (!isDynamic) return;
+        
+        if (currentCollisionShapeType == Box)
+        {
+            if (boxRigidBody == nullptr)
+                createDynamicBox(scale.x, scale.y, scale.z);
+            
+            btTransform trans;
+            if (boxRigidBody->getMotionState()) {
+                boxRigidBody->getMotionState()->getWorldTransform(trans);
+            }
+
+            btQuaternion objectRotation = trans.getRotation();
+            btScalar Roll, Yaw, Pitch;
+            objectRotation.getEulerZYX(Roll, Yaw, Pitch);
+
+            for (int index; index < 4; index++)
+                LodModels[index].transform = MatrixRotateXYZ((Vector3){ Pitch, Yaw, Roll });
+
+        }
+        else if (currentCollisionShapeType == HighPolyMesh)
+        {
+            btTransform trans;
+            if (treeRigidBody->getMotionState()) {
+                treeRigidBody->getMotionState()->getWorldTransform(trans);
+            }
+
+
+            btQuaternion objectRotation = trans.getRotation();
+            btScalar Roll, Yaw, Pitch;
+            objectRotation.getEulerZYX(Roll, Yaw, Pitch);
+
+            for (int index; index < 4; index++)
+                LodModels[index].transform = MatrixRotateXYZ((Vector3){ Pitch, Yaw, Roll });
+
+        }
     }
 
     void setPos(LitVector3 newPos) {
