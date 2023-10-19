@@ -344,6 +344,14 @@ void SaveText(json& json_data, const Text& text, bool emplace_back) {
 
 }
 
+void SaveWorldSetting(json& json_data)
+{
+    json j;
+    j["type"] = "world settings";
+    // j["gravity"] = gravity;
+    j["bloom"] = bloomEnabled;
+    json_data.emplace_back(j);
+}
 
 void SaveButton(json& json_data, const LitButton& button) {
     json j;
@@ -432,6 +440,7 @@ int SaveProject() {
     json json_data;
 
     SaveCamera(json_data, scene_camera);
+    SaveWorldSetting(json_data);
 
     for (const auto& entity : entities_list_pregame) {
         SaveEntity(json_data, entity);
@@ -504,6 +513,13 @@ void LoadCamera(const json& camera_json, LitCamera& camera) {
 
     if (camera_json.contains("projection")) {
         camera.projection = camera_json["projection"].get<int>(); // Adjust the type as needed
+    }
+}
+
+void LoadWorldSettings(const json& world_setting_json)
+{
+    if (world_setting_json.contains("bloom")) {
+        bloomEnabled = world_setting_json["bloom"].get<bool>();
     }
 }
 
@@ -839,6 +855,10 @@ int LoadProject(vector<Entity>& entities_vector, vector<Light>& lights_vector, v
             }
             else if (type == "camera") {
                 LoadCamera(entity_json, camera);
+            }
+            else if (type == "world settings")
+            {
+                LoadWorldSettings(entity_json);
             }
             else if (type == "light") {
                 if (entity_json["isChild"].get<bool>() == true) continue;
