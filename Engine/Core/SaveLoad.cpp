@@ -210,6 +210,8 @@ void SaveEntity(json& json_data, const Entity& entity) {
     if (IsModelReady(entity.model) && entity.model_path.empty())
         j["mesh_type"] = entity.ObjectType;
 
+    j["collider_type"] = entity.currentCollisionShapeType;
+
     j["script_path"] = entity.script;
     j["script_index"] = entity.script_index;
     j["texture_path"] = entity.texture_path;
@@ -489,10 +491,6 @@ void LoadEntity(const json& entity_json, Entity& entity) {
         entity.relative_position = relative_position;
     }
 
-    entity.isDynamic = entity_json["is_dynamic"].get<bool>();
-    entity.mass = entity_json["mass"].get<float>();
-
-    entity.reloadRigidBody();
 
     entity.ObjectType = entity_json["mesh_type"].get<Entity::ObjectTypeEnum>();
 
@@ -521,13 +519,19 @@ void LoadEntity(const json& entity_json, Entity& entity) {
 
         else if (entity.ObjectType == Entity::ObjectType_Torus)
             entity.setModel("", LoadModelFromMesh(GenMeshTorus(1, 1, 30, 30)));
-
     }
+
+
+    entity.isDynamic = entity_json["is_dynamic"].get<bool>();
+    entity.mass = entity_json["mass"].get<float>();
+
+    if (entity_json.contains("collider_type"))
+        entity.currentCollisionShapeType = entity_json["collider_type"].get<Entity::CollisionShapeType>();
+    entity.reloadRigidBody();
 
 
     entity.script = entity_json["script_path"].get<std::string>();
     entity.script_index = entity_json["script_index"].get<std::string>();
-    std::cout << "Loaded Index: " << entity.script_index << std::endl;
     entity.id = entity_json["id"].get<int>();
 
 
