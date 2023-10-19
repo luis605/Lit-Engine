@@ -192,10 +192,31 @@ void DeserializeMaterial(SurfaceMaterial* material, const char* path) {
 
 
 /* Objects */
+void SaveCamera(json& json_data, const LitCamera camera);
 void SaveEntity(json& json_data, const Entity& entity);
 void SaveLight(json& json_data, const Light& light, int light_index);
 void SaveText(json& json_data, const Text& text, bool emplace_back = true);
 void SaveButton(json& json_data, const LitButton& button);
+
+void SaveCamera(json& json_data, LitCamera camera) {
+    json j;
+    j["type"] = "camera";
+    j["position"]["x"] = camera.position.x;
+    j["position"]["y"] = camera.position.y;
+    j["position"]["z"] = camera.position.z;
+    j["target"]["x"] = camera.target.x;
+    j["target"]["y"] = camera.target.y;
+    j["target"]["z"] = camera.target.z;
+    j["up"]["x"] = camera.up.x;
+    j["up"]["y"] = camera.up.y;
+    j["up"]["z"] = camera.up.z;
+    j["fovy"] = camera.fovy;
+    j["projection"] = camera.projection;
+
+    json_data.emplace_back(j);
+}
+
+
 
 void SaveEntity(json& json_data, const Entity& entity) {
     json j;
@@ -409,6 +430,9 @@ void serializeScripts() {
 int SaveProject() {
     serializeScripts();
     json json_data;
+
+    SaveCamera(json_data, scene_camera);
+
     for (const auto& entity : entities_list_pregame) {
         SaveEntity(json_data, entity);
     }
@@ -443,6 +467,46 @@ int SaveProject() {
 
 void LoadEntity(const json& entity_json, Entity& entity);
 pair<Light, AdditionalLightInfo> LoadLight(const json& light_json, Light& light, AdditionalLightInfo light_info);
+
+
+
+void LoadCamera(const json& camera_json, LitCamera& camera) {
+    if (camera_json.contains("position")) {
+        Vector3 position{
+            camera_json["position"]["x"].get<float>(),
+            camera_json["position"]["y"].get<float>(),
+            camera_json["position"]["z"].get<float>()
+        };
+        camera.position = position;
+    }
+
+    if (camera_json.contains("target")) {
+        Vector3 target{
+            camera_json["target"]["x"].get<float>(),
+            camera_json["target"]["y"].get<float>(),
+            camera_json["target"]["z"].get<float>()
+        };
+        camera.target = target;
+    }
+
+    if (camera_json.contains("up")) {
+        Vector3 up{
+            camera_json["up"]["x"].get<float>(),
+            camera_json["up"]["y"].get<float>(),
+            camera_json["up"]["z"].get<float>()
+        };
+        camera.up = up;
+    }
+
+    if (camera_json.contains("fovy")) {
+        camera.fovy = camera_json["fovy"].get<float>();
+    }
+
+    if (camera_json.contains("projection")) {
+        camera.projection = camera_json["projection"].get<int>(); // Adjust the type as needed
+    }
+}
+
 
 
 
@@ -747,7 +811,7 @@ void LoadButton(const json& button_json, LitButton& button) {
 
 
 
-int LoadProject(vector<Entity>& entities_vector, vector<Light>& lights_vector, vector<AdditionalLightInfo>& lights_info_vector) {
+int LoadProject(vector<Entity>& entities_vector, vector<Light>& lights_vector, vector<AdditionalLightInfo>& lights_info_vector, LitCamera& camera) {
     std::ifstream infile("project.json");
     if (!infile.is_open()) {
         std::cout << "Error: Failed to open project file." << std::endl;
@@ -772,13 +836,9 @@ int LoadProject(vector<Entity>& entities_vector, vector<Light>& lights_vector, v
                 Entity entity;
                 LoadEntity(entity_json, entity);
                 entities_vector.emplace_back(entity);
-
-                // Debug output
-                std::cout << "Entity script index (before): " << entity.script_index << std::endl;
-                if (!entity.script_index.empty())
-                    std::cout << "Entity script index (after): " << entities_vector.back().script_index << std::endl;
-
-                std::cout << "Entities vector size: " << entities_vector.size() << std::endl;
+            }
+            else if (type == "camera") {
+                LoadCamera(entity_json, camera);
             }
             else if (type == "light") {
                 if (entity_json["isChild"].get<bool>() == true) continue;
