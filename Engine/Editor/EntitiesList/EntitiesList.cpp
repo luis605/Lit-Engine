@@ -83,9 +83,8 @@ void DrawTextElementsTree(Text& text, int active, int& index);
 void DrawButtonTree(LitButton& button, int active, int& index);
 void DrawCameraTree(int active, int& index);
 
-void DrawCameraTree(int active, int& index)
-{
-    ImGuiTreeNodeFlags nodeFlags;
+void DrawCameraTree(int active, int& index) {
+    ImGuiTreeNodeFlags nodeFlags = 0;
 
     if (selected_game_object_type == "camera") {
         nodeFlags |= ImGuiTreeNodeFlags_Selected;
@@ -93,19 +92,24 @@ void DrawCameraTree(int active, int& index)
 
     const char icon[] = ICON_FA_CAMERA;
     const char space[] = " ";
-    
     std::string button_name = std::string(icon) + space + "Camera";
 
+    bool isNodeOpen = false;
+
     ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(0.85f, 0.85f, 0.85f, 1.0f));
-    if (ImGui::TreeNodeEx(button_name.c_str(), nodeFlags)) {
+    isNodeOpen = ImGui::TreeNodeEx(button_name.c_str(), nodeFlags);
+    ImGui::PopStyleColor();
+
+    if (isNodeOpen) {
         if (ImGui::IsItemClicked()) {
             active = index;
             selected_game_object_type = "camera";
         }
+        index++;
         ImGui::TreePop();
     }
-    ImGui::PopStyleColor();
 }
+
 
 
 
