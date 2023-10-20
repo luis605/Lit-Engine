@@ -68,11 +68,16 @@ void RunGame()
     BeginTextureMode(renderTexture);
     BeginMode3D(camera);
 
+    BeginShaderMode(shader);
+
     ClearBackground(GRAY);
 
-    dynamicsWorld->stepSimulation(GetFrameTime(), 10);
 
-    UpdateInGameGlobals();
+    DrawSkybox();
+
+    SetShaderValueMatrix(shader, GetShaderLocation(shader, "cameraMatrix"), GetCameraMatrix(scene_camera));
+
+    dynamicsWorld->stepSimulation(GetFrameTime(), 10);
 
     for (Entity& entity : entities_list)
     {
@@ -92,10 +97,12 @@ void RunGame()
     first_time_gameplay = false;
 
     UpdateLightsBuffer();
+    UpdateInGameGlobals();
 
 
 
 
+    EndShaderMode();
     EndMode3D();
 
     DrawTextElements();
