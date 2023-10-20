@@ -1,17 +1,23 @@
-{
-    "ao_texture_path": "",
-    "color": {
-        "a": 1.0,
-        "b": 0.0,
-        "g": 0.0,
-        "r": 0.0
-    },
-    "diffuse_intensity": 0.5,
-    "diffuse_texture_path": "",
-    "normal_texture_path": "",
-    "roughness": 0.5,
-    "roughness_texture_path": "",
-    "shininess": 0.5,
-    "specular_intensity": 0.5,
-    "specular_texture_path": ""
-}
+
+
+def update():
+	normalFovy = 60.0
+	runningFovy = 160.0
+	
+	if (IsKeyDown(KeyboardKey.KEY_W)):
+		camera.fovy = lerp(camera.fovy, runningFovy, time.dt)
+	else:
+		camera.fovy = lerp(camera.fovy, normalFovy, time.dt)
+
+
+	camera.pos = Vector3(entity.position.x, entity.position.y, entity.position.z)
+	camera.pos.y = -10
+	camera.look_at = Vector3(entity.position.x + 0.1, entity.position.y, entity.position.x + 0)
+
+	camera.up = Vector3(0, 1, 0)
+
+
+
+
+
+
