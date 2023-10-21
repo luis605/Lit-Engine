@@ -266,7 +266,7 @@ void ProcessCameraControls()
     }
 }
 
-void ProcessSelection()
+void ProcessGizmo()
 {
     if ((selected_game_object_type == "entity") ||
         (selected_game_object_type == "light"))
@@ -278,6 +278,7 @@ void ProcessSelection()
     }
 }
 
+struct EmptyType {};
 
 void RenderScene()
 {
@@ -295,7 +296,11 @@ void RenderScene()
 
     SetShaderValueMatrix(shader, GetShaderLocation(shader, "cameraMatrix"), GetCameraMatrix(scene_camera));
 
-    ProcessSelection();
+    ProcessGizmo();
+
+    bool isLightSelected   = false;
+    bool isEntitySelected  = false;
+
 
     for (Light& light : lights)
     {
@@ -306,7 +311,7 @@ void RenderScene()
         
         if (IsMouseButtonDown(MOUSE_LEFT_BUTTON) && ImGui::IsWindowHovered() && !dragging_gizmo_position && !dragging_gizmo_rotation)
         {
-            bool isLightSelected = IsMouseHoveringModel(light_model, scene_camera, { light.position.x, light.position.y, light.position.z }, { 0, rotation, 0 }, {1,1,1});
+            isLightSelected = IsMouseHoveringModel(light_model, scene_camera, { light.position.x, light.position.y, light.position.z }, { 0, rotation, 0 }, {1,1,1});
             if (isLightSelected)
             {
                 object_in_inspector = &light;
@@ -323,7 +328,7 @@ void RenderScene()
 
         if (IsMouseButtonDown(MOUSE_LEFT_BUTTON) && ImGui::IsWindowHovered() && !dragging_gizmo_position && !dragging_gizmo_rotation)
         {
-            bool isEntitySelected = IsMouseHoveringModel(entity.model, scene_camera, entity.position, entity.rotation, entity.scale, &entity);
+            isEntitySelected = IsMouseHoveringModel(entity.model, scene_camera, entity.position, entity.rotation, entity.scale, &entity);
             if (isEntitySelected)
             {
                 object_in_inspector = &entity;
@@ -341,10 +346,25 @@ void RenderScene()
                         selected_game_object_type = "entity";
                     }
                 }
-                // You can handle other types (Light*, Text*, LitButton*) similarly if needed.
             }
 
         }
+    }
+
+    if (
+        IsMouseButtonPressed(MOUSE_BUTTON_LEFT) &&
+        ImGui::IsWindowHovered() &&
+        !isEntitySelected &&
+        !isLightSelected &&
+        !isHoveringGizmo &&
+        !gizmo_arrow_selected &&
+        !gizmo_cube_selected &&
+        !gizmo_taurus_selected
+        )
+    {
+        static Entity default_entity;
+        selected_game_object_type = "none";
+        object_in_inspector = &default_entity;
     }
 
     UpdateInGameGlobals();
@@ -453,17 +473,6 @@ void DropEntity()
     }
 }
 
-
-
-enum class ObjectType
-{
-    None,
-    Cube,
-    Sphere,
-    // Add more object types here
-};
-
-
 bool showObjectTypePopup = false;
 
 void ProcessObjectControls()
@@ -508,36 +517,42 @@ void ObjectsPopup()
             if (ImGui::MenuItem("Cube"))
             {
                 AddEntity(true, false, "", LoadModelFromMesh(GenMeshCube(1, 1, 1)));
+                entities_list_pregame.back().ObjectType = Entity::ObjectType_Cube;
                 showObjectTypePopup = false;
             }
 
             if (ImGui::MenuItem("Cone"))
             {
                 AddEntity(true, false, "", LoadModelFromMesh(GenMeshCone(1, 1, 30)));
+                entities_list_pregame.back().ObjectType = Entity::ObjectType_Cone;
                 showObjectTypePopup = false;
             }
 
             if (ImGui::MenuItem("Cylinder"))
             {
                 AddEntity(true, false, "", LoadModelFromMesh(GenMeshCylinder(1, 2, 30)));
+                entities_list_pregame.back().ObjectType = Entity::ObjectType_Cylinder;
                 showObjectTypePopup = false;
             }
 
             if (ImGui::MenuItem("Plane"))
             {
                 AddEntity(true, false, "", LoadModelFromMesh(GenMeshPlane(1, 1, 1, 1)));
+                entities_list_pregame.back().ObjectType = Entity::ObjectType_Plane;
                 showObjectTypePopup = false;
             }
 
             if (ImGui::MenuItem("Sphere"))
             {
                 AddEntity(true, false, "", LoadModelFromMesh(GenMeshSphere(1, 50, 50)));
+                entities_list_pregame.back().ObjectType = Entity::ObjectType_Sphere;
                 showObjectTypePopup = false;
             }
 
             if (ImGui::MenuItem("Torus"))
             {
                 AddEntity(true, false, "", LoadModelFromMesh(GenMeshTorus(1, 1, 30, 30)));
+                entities_list_pregame.back().ObjectType = Entity::ObjectType_Torus;
                 showObjectTypePopup = false;
             }
 

@@ -1155,8 +1155,11 @@ CMakeFiles/lit_engine.dir/main.cpp.obj: C:/Users/USER/Desktop/_/Lit-Engine/main.
   C:/Users/USER/Desktop/_/Lit-Engine/Engine/Editor/AssetsExplorer/file_manipulation.h \
   C:/Users/USER/Desktop/_/Lit-Engine/Engine/Editor/CodeEditor/CodeEditor.cpp \
   C:/Users/USER/Desktop/_/Lit-Engine/Engine/Editor/CodeEditor/CodeEditor.h \
+  C:/Users/USER/Desktop/_/Lit-Engine/include_all.h \
   C:/Users/USER/Desktop/_/Lit-Engine/Engine/Editor/EntitiesList/EntitiesList.cpp \
+  C:/Users/USER/Desktop/_/Lit-Engine/include_all.h \
   C:/Users/USER/Desktop/_/Lit-Engine/Engine/Editor/Inspector/Inspector.Button.cpp \
+  C:/Users/USER/Desktop/_/Lit-Engine/Engine/Editor/Inspector/Inspector.Camera.cpp \
   C:/Users/USER/Desktop/_/Lit-Engine/Engine/Editor/Inspector/Inspector.Entity.cpp \
   C:/Users/USER/Desktop/_/Lit-Engine/Engine/Editor/Inspector/Inspector.Light.cpp \
   C:/Users/USER/Desktop/_/Lit-Engine/Engine/Editor/Inspector/Inspector.Material.cpp \
@@ -3876,6 +3879,8 @@ C:/Users/USER/Desktop/_/Lit-Engine/Engine/Core/functions.h:
 C:/Users/USER/Desktop/_/Lit-Engine/Engine/Core/global_variables.cpp:
 
 C:/Users/USER/Desktop/_/Lit-Engine/Engine/Editor/EntitiesList/EntitiesList.cpp:
+
+C:/Users/USER/Desktop/_/Lit-Engine/Engine/Editor/Inspector/Inspector.Camera.cpp:
 
 C:/Users/USER/Desktop/_/Lit-Engine/imgui/imgui_internal.h:
 

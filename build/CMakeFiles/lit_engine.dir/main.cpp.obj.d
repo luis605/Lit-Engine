@@ -1368,6 +1368,7 @@ CMakeFiles/lit_engine.dir/main.cpp.obj: \
   C:/Users/USER/Desktop/_/Lit-Engine/Engine/Editor/SceneEditor/Gizmo/Gizmo.h \
   C:/Users/USER/Desktop/_/Lit-Engine/Engine/Editor/SceneEditor/Gizmo/../../../../include_all.h \
   C:/Users/USER/Desktop/_/Lit-Engine/Engine/Editor/EntitiesList/EntitiesList.cpp \
+  C:/Users/USER/Desktop/_/Lit-Engine/Engine/Editor/EntitiesList/../../../include_all.h \
   C:/Users/USER/Desktop/_/Lit-Engine/./include/nlohmann/../../globals.h \
   C:/Users/USER/Desktop/_/Lit-Engine/Engine/Core/RunGame.cpp \
   C:/Users/USER/Desktop/_/Lit-Engine/./include/../globals.h \
@@ -1380,10 +1381,12 @@ CMakeFiles/lit_engine.dir/main.cpp.obj: \
   C:/Users/USER/Desktop/_/Lit-Engine/Engine/Editor/Inspector/Inspector.h \
   C:/Users/USER/Desktop/_/Lit-Engine/Engine/Editor/Inspector/Inspector.Material.cpp \
   C:/Users/USER/Desktop/_/Lit-Engine/Engine/Editor/Inspector/Inspector.Entity.cpp \
+  C:/Users/USER/Desktop/_/Lit-Engine/Engine/Editor/Inspector/../../../include_all.h \
   C:/Users/USER/Desktop/_/Lit-Engine/Engine/Editor/Inspector/Inspector.Light.cpp \
   C:/Users/USER/Desktop/_/Lit-Engine/Engine/Editor/Inspector/Inspector.Text.cpp \
   C:/Users/USER/Desktop/_/Lit-Engine/Engine/Editor/Inspector/Inspector.Button.cpp \
   C:/Users/USER/Desktop/_/Lit-Engine/Engine/Editor/Inspector/Inspector.World.cpp \
+  C:/Users/USER/Desktop/_/Lit-Engine/Engine/Editor/Inspector/Inspector.Camera.cpp \
   C:/Users/USER/Desktop/_/Lit-Engine/Engine/Editor/AssetsExplorer/AssetsExplorer.cpp \
   C:/Users/USER/Desktop/_/Lit-Engine/Engine/Core/Core.cpp \
   C:/Users/USER/Desktop/_/Lit-Engine/Engine/Editor/MenuBar/MenuBar.cpp \

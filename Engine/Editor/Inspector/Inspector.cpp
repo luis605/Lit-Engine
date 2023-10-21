@@ -42,6 +42,8 @@ void Inspector()
         ButtonInspector();
     else if (selected_game_object_type == "material")
         MaterialInspector();
+    else if (selected_game_object_type == "camera")
+        CameraInspector();
     else
     {
         WorldInspector();

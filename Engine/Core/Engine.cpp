@@ -119,6 +119,19 @@ public:
     bool calc_physics = false;
     bool isDynamic = false;
 
+    typedef enum ObjectTypeEnum
+    {
+        ObjectType_None,
+        ObjectType_Cube,
+        ObjectType_Cone,
+        ObjectType_Cylinder,
+        ObjectType_Plane,
+        ObjectType_Sphere,
+        ObjectType_Torus
+    };
+
+    ObjectTypeEnum ObjectType;
+
     float mass = 1;
     Vector3 inertia = {0, 0, 0};
 
@@ -128,6 +141,18 @@ public:
 
     Entity* parent = nullptr;
     vector<variant<Entity*, Light*, Text*, LitButton*>> children;
+
+    enum CollisionShapeType
+    {
+        Box           = 0,
+        HighPolyMesh  = 1,
+        LowPolyMesh   = 2,
+        Sphere        = 3,
+        None          = 4
+    };
+
+    CollisionShapeType currentCollisionShapeType;
+
 
 private:
     btCollisionShape* staticBoxShape               = nullptr;
@@ -145,16 +170,6 @@ private:
     Shader* entity_shader;
     bool lodEnabled                                = true;
 
-    enum CollisionShapeType
-    {
-        Box           = 0,
-        HighPolyMesh  = 1,
-        LowPolyMesh   = 2,
-        Sphere        = 3,
-        None          = 4
-    };
-
-    CollisionShapeType currentCollisionShapeType;
 
 public:
     Entity(LitVector3 scale = { 1, 1, 1 }, LitVector3 rotation = { 0, 0, 0 }, string name = "entity",
@@ -180,10 +195,10 @@ public:
         this->script = other.script;
         this->script_index = other.script_index;
         this->model_path = other.model_path;
-        // Note: You might need to implement a copy constructor for the `Model` class
+        this->ObjectType = other.ObjectType;
         this->model = other.model;
         this->bounds = other.bounds;
-
+        this->currentCollisionShapeType = currentCollisionShapeType;
         this->texture_path = other.texture_path;
         this->texture = std::visit([](const auto& value) -> std::variant<Texture, std::unique_ptr<VideoPlayer, std::default_delete<VideoPlayer>>> {
             using T = std::decay_t<decltype(value)>;
@@ -234,7 +249,7 @@ public:
             else TraceLog(LOG_WARNING, "Bad Type - Entity AO texture variant");
         }, other.ao_texture);
 
-
+        this->surface_material_path = other.surface_material_path;
         this->surface_material = other.surface_material;
         this->collider = other.collider;
         this->visible = other.visible;
@@ -271,7 +286,7 @@ public:
         this->script = other.script;
         this->script_index = other.script_index;
         this->model_path = other.model_path;
-        // Note: You might need to implement a copy constructor for the `Model` class
+        this->ObjectType = other.ObjectType;
         this->model = other.model;
         this->bounds = other.bounds;
         this->texture_path = other.texture_path;
@@ -320,7 +335,9 @@ public:
 
 
         this->surface_material = other.surface_material;
+        this->surface_material_path = other.surface_material_path;
         this->collider = other.collider;
+        this->currentCollisionShapeType = currentCollisionShapeType;
         this->visible = other.visible;
         this->isChild = other.isChild;
         this->isParent = other.isParent;
@@ -782,7 +799,47 @@ public:
             btVector3 rigidBodyPosition = trans.getOrigin();
             position = { rigidBodyPosition.getX(), rigidBodyPosition.getY(), rigidBodyPosition.getZ() };
         }
+    }
 
+
+
+    void calcPhysicsRotation() {
+        if (!isDynamic) return;
+        
+        if (currentCollisionShapeType == Box)
+        {
+            if (boxRigidBody == nullptr)
+                createDynamicBox(scale.x, scale.y, scale.z);
+            
+            btTransform trans;
+            if (boxRigidBody->getMotionState()) {
+                boxRigidBody->getMotionState()->getWorldTransform(trans);
+            }
+
+            btQuaternion objectRotation = trans.getRotation();
+            btScalar Roll, Yaw, Pitch;
+            objectRotation.getEulerZYX(Roll, Yaw, Pitch);
+
+            for (int index; index < 4; index++)
+                LodModels[index].transform = MatrixRotateXYZ((Vector3){ Pitch, Yaw, Roll });
+
+        }
+        else if (currentCollisionShapeType == HighPolyMesh)
+        {
+            btTransform trans;
+            if (treeRigidBody->getMotionState()) {
+                treeRigidBody->getMotionState()->getWorldTransform(trans);
+            }
+
+
+            btQuaternion objectRotation = trans.getRotation();
+            btScalar Roll, Yaw, Pitch;
+            objectRotation.getEulerZYX(Roll, Yaw, Pitch);
+
+            for (int index; index < 4; index++)
+                LodModels[index].transform = MatrixRotateXYZ((Vector3){ Pitch, Yaw, Roll });
+
+        }
     }
 
     void setPos(LitVector3 newPos) {
@@ -951,7 +1008,7 @@ public:
 
     void reloadRigidBody() {
         if (isDynamic)
-            makePhysicsDynamic();
+            makePhysicsDynamic(currentCollisionShapeType);
         else
             makePhysicsStatic();
     }

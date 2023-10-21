@@ -192,10 +192,31 @@ void DeserializeMaterial(SurfaceMaterial* material, const char* path) {
 
 
 /* Objects */
+void SaveCamera(json& json_data, const LitCamera camera);
 void SaveEntity(json& json_data, const Entity& entity);
 void SaveLight(json& json_data, const Light& light, int light_index);
 void SaveText(json& json_data, const Text& text, bool emplace_back = true);
 void SaveButton(json& json_data, const LitButton& button);
+
+void SaveCamera(json& json_data, LitCamera camera) {
+    json j;
+    j["type"] = "camera";
+    j["position"]["x"] = camera.position.x;
+    j["position"]["y"] = camera.position.y;
+    j["position"]["z"] = camera.position.z;
+    j["target"]["x"] = camera.target.x;
+    j["target"]["y"] = camera.target.y;
+    j["target"]["z"] = camera.target.z;
+    j["up"]["x"] = camera.up.x;
+    j["up"]["y"] = camera.up.y;
+    j["up"]["z"] = camera.up.z;
+    j["fovy"] = camera.fovy;
+    j["projection"] = camera.projection;
+
+    json_data.emplace_back(j);
+}
+
+
 
 void SaveEntity(json& json_data, const Entity& entity) {
     json j;
@@ -206,6 +227,12 @@ void SaveEntity(json& json_data, const Entity& entity) {
     j["rotation"] = entity.rotation;
     j["relative_position"] = entity.relative_position;
     j["model_path"] = entity.model_path;
+    
+    if (IsModelReady(entity.model) && entity.model_path.empty())
+        j["mesh_type"] = entity.ObjectType;
+
+    j["collider_type"] = entity.currentCollisionShapeType;
+
     j["script_path"] = entity.script;
     j["script_index"] = entity.script_index;
     j["texture_path"] = entity.texture_path;
@@ -274,7 +301,15 @@ void SaveLight(json& json_data, const Light& light, int light_index) {
         j["relative_position"]["z"] = 0;
     }
     
-    j["target"] = light.target;
+    if (light.type == LightType::LIGHT_POINT)
+    {
+        j["target"]["x"] = 0;
+        j["target"]["y"] = 0;
+        j["target"]["z"] = 0;
+    }
+    else
+        j["target"] = light.target;
+    
     j["direction"] = light.direction;
     j["intensity"] = light.intensity;
     j["cutOff"] = light.cutOff;
@@ -309,6 +344,14 @@ void SaveText(json& json_data, const Text& text, bool emplace_back) {
 
 }
 
+void SaveWorldSetting(json& json_data)
+{
+    json j;
+    j["type"] = "world settings";
+    // j["gravity"] = gravity;
+    j["bloom"] = bloomEnabled;
+    json_data.emplace_back(j);
+}
 
 void SaveButton(json& json_data, const LitButton& button) {
     json j;
@@ -395,6 +438,10 @@ void serializeScripts() {
 int SaveProject() {
     serializeScripts();
     json json_data;
+
+    SaveCamera(json_data, scene_camera);
+    SaveWorldSetting(json_data);
+
     for (const auto& entity : entities_list_pregame) {
         SaveEntity(json_data, entity);
     }
@@ -429,6 +476,53 @@ int SaveProject() {
 
 void LoadEntity(const json& entity_json, Entity& entity);
 pair<Light, AdditionalLightInfo> LoadLight(const json& light_json, Light& light, AdditionalLightInfo light_info);
+
+
+
+void LoadCamera(const json& camera_json, LitCamera& camera) {
+    if (camera_json.contains("position")) {
+        Vector3 position{
+            camera_json["position"]["x"].get<float>(),
+            camera_json["position"]["y"].get<float>(),
+            camera_json["position"]["z"].get<float>()
+        };
+        camera.position = position;
+    }
+
+    if (camera_json.contains("target")) {
+        Vector3 target{
+            camera_json["target"]["x"].get<float>(),
+            camera_json["target"]["y"].get<float>(),
+            camera_json["target"]["z"].get<float>()
+        };
+        camera.target = target;
+    }
+
+    if (camera_json.contains("up")) {
+        Vector3 up{
+            camera_json["up"]["x"].get<float>(),
+            camera_json["up"]["y"].get<float>(),
+            camera_json["up"]["z"].get<float>()
+        };
+        camera.up = up;
+    }
+
+    if (camera_json.contains("fovy")) {
+        camera.fovy = camera_json["fovy"].get<float>();
+    }
+
+    if (camera_json.contains("projection")) {
+        camera.projection = camera_json["projection"].get<int>(); // Adjust the type as needed
+    }
+}
+
+void LoadWorldSettings(const json& world_setting_json)
+{
+    if (world_setting_json.contains("bloom")) {
+        bloomEnabled = world_setting_json["bloom"].get<bool>();
+    }
+}
+
 
 
 
@@ -468,8 +562,6 @@ void LoadEntity(const json& entity_json, Entity& entity) {
         entity.rotation = rotation;
     }
 
-
-
     if (entity_json.contains("relative_position")) {
         Vector3 relative_position{
             entity_json["relative_position"]["x"].get<float>(),
@@ -480,24 +572,46 @@ void LoadEntity(const json& entity_json, Entity& entity) {
     }
 
 
+    entity.ObjectType = entity_json["mesh_type"].get<Entity::ObjectTypeEnum>();
+
+    if (entity_json.contains("model_path") && !entity_json["model_path"].get<std::string>().empty()) {
+        entity.setModel(
+            entity_json["model_path"].get<std::string>().c_str(),
+            LoadModel(entity_json["model_path"].get<std::string>().c_str())
+        );
+    }
+    else
+    {
+        if (entity.ObjectType == Entity::ObjectType_Cube)
+            entity.setModel("", LoadModelFromMesh(GenMeshCube(1, 1, 1)));
+
+        else if (entity.ObjectType == Entity::ObjectType_Cone)
+            entity.setModel("", LoadModelFromMesh(GenMeshCone(1, 1, 10)));
+
+        else if (entity.ObjectType == Entity::ObjectType_Cylinder)
+            entity.setModel("", LoadModelFromMesh(GenMeshCylinder(1, 2, 30)));
+
+        else if (entity.ObjectType == Entity::ObjectType_Plane)
+            entity.setModel("", LoadModelFromMesh(GenMeshPlane(1, 1, 1, 1)));
+
+        else if (entity.ObjectType == Entity::ObjectType_Sphere)
+            entity.setModel("", LoadModelFromMesh(GenMeshSphere(1, 50, 50)));
+
+        else if (entity.ObjectType == Entity::ObjectType_Torus)
+            entity.setModel("", LoadModelFromMesh(GenMeshTorus(1, 1, 30, 30)));
+    }
+
 
     entity.isDynamic = entity_json["is_dynamic"].get<bool>();
     entity.mass = entity_json["mass"].get<float>();
 
+    if (entity_json.contains("collider_type"))
+        entity.currentCollisionShapeType = entity_json["collider_type"].get<Entity::CollisionShapeType>();
     entity.reloadRigidBody();
-
-
-
-    entity.setModel(
-        entity_json["model_path"].get<std::string>().c_str(),
-        LoadModel(entity_json["model_path"].get<std::string>().c_str())
-    );
-
 
 
     entity.script = entity_json["script_path"].get<std::string>();
     entity.script_index = entity_json["script_index"].get<std::string>();
-    std::cout << "Loaded Index: " << entity.script_index << std::endl;
     entity.id = entity_json["id"].get<int>();
 
 
@@ -713,7 +827,7 @@ void LoadButton(const json& button_json, LitButton& button) {
 
 
 
-int LoadProject(vector<Entity>& entities_vector, vector<Light>& lights_vector, vector<AdditionalLightInfo>& lights_info_vector) {
+int LoadProject(vector<Entity>& entities_vector, vector<Light>& lights_vector, vector<AdditionalLightInfo>& lights_info_vector, LitCamera& camera) {
     std::ifstream infile("project.json");
     if (!infile.is_open()) {
         std::cout << "Error: Failed to open project file." << std::endl;
@@ -738,13 +852,13 @@ int LoadProject(vector<Entity>& entities_vector, vector<Light>& lights_vector, v
                 Entity entity;
                 LoadEntity(entity_json, entity);
                 entities_vector.emplace_back(entity);
-
-                // Debug output
-                std::cout << "Entity script index (before): " << entity.script_index << std::endl;
-                if (!entity.script_index.empty())
-                    std::cout << "Entity script index (after): " << entities_vector.back().script_index << std::endl;
-
-                std::cout << "Entities vector size: " << entities_vector.size() << std::endl;
+            }
+            else if (type == "camera") {
+                LoadCamera(entity_json, camera);
+            }
+            else if (type == "world settings")
+            {
+                LoadWorldSettings(entity_json);
             }
             else if (type == "light") {
                 if (entity_json["isChild"].get<bool>() == true) continue;
