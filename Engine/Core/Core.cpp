@@ -105,7 +105,7 @@ void Startup()
     SetWindowIcon(window_icon_image);
 
     // Code Editor
-    code.resize(100000);
+    code.resize(10);
     auto lang = TextEditor::LanguageDefinition::CPlusPlus();
 
     // Gizmo

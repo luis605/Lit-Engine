@@ -21,7 +21,6 @@ void updateListViewExList(vector<Entity>& entities, vector<Light>& lights) {
 
     
     // Resize listViewExList to match the size of objectNames
-    listViewExList.reserve(100000000);
     listViewExList.resize(listViewExList.size()+1);
 
     // Set the values of listViewExList to the character pointers to the names in objectNames
