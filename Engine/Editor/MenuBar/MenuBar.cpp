@@ -56,7 +56,7 @@ void DrawMenus()
         if (ImGui::MenuItem("Open", "Ctrl+O"))
         {
             cout << "Opening Project..." << endl;
-            LoadProject(entities_list_pregame, lights, lights_info);
+            LoadProject(entities_list_pregame, lights, lights_info, scene_camera);
         }
 
     

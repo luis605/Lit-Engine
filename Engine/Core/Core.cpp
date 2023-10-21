@@ -99,13 +99,13 @@ void Startup()
     light_texture = LoadTexture("assets/images/light_bulb.png");
     window_icon_texture = LoadTexture("docs/images/icon.png");
 
-    window_icon_image = LoadImage("docs/images/icon.png");
+    window_icon_image = LoadImage("icon.png");
 
     ImageFormat(&window_icon_image, PIXELFORMAT_UNCOMPRESSED_R8G8B8A8);
     SetWindowIcon(window_icon_image);
 
     // Code Editor
-    code.resize(100000);
+    code.resize(10);
     auto lang = TextEditor::LanguageDefinition::CPlusPlus();
 
     // Gizmo

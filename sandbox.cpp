@@ -117,7 +117,7 @@ int main() {
 
         
         treeModel.transform = MatrixRotateXYZ((Vector3){ DEG2RAD*treePitchDegrees, DEG2RAD*treeYawDegrees, DEG2RAD*treeRollDegrees });
-        DrawModelWires(treeModel, treePos, 1.0f, RED);
+        DrawModelWires(treeModel, Vector3Zero(), 1.0f, RED);
 
 
         EndMode3D();

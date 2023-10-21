@@ -69,7 +69,7 @@ void PreviewProject()
 
     PreviewStartup();
 
-    LoadProject(entities_list_preview, lights_preview, light_info_preview);
+    LoadProject(entities_list_preview, lights_preview, light_info_preview, camera_preview);
 
     std::cout << "Project Loaded" << std::endl;
 
