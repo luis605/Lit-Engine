@@ -346,7 +346,6 @@ void RenderScene()
                         selected_game_object_type = "entity";
                     }
                 }
-                // You can handle other types (Light*, Text*, LitButton*) similarly if needed.
             }
 
         }
