@@ -205,6 +205,8 @@ vec4 CalculateLighting(vec3 fragPosition, vec3 fragNormal, vec3 viewDir, vec2 te
 
     float ao = texture(texture4, texCoord).r;
 
+    result *= ao;
+
     // return vec4(toneMappedResult.rgb, result);
     return result;
 }

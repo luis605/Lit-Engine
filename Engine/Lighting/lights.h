@@ -40,7 +40,8 @@ Shader brightPassShader;
 Shader blurShader;
 Shader mixShader;
 Shader instancing_shader;
-
+Shader downsamplerShader;
+Shader upsamplerShader;
 GLuint lightsBuffer;
 
 GLuint surface_material_ubo;
