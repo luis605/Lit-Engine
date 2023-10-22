@@ -34,5 +34,6 @@ static std::unordered_map<std::string, ImFont*> s_Fonts;
 RenderTexture brightPass;
 RenderTexture blurPass;
 RenderTexture mixPass;
+RenderTexture flipped_texture;
 
 #endif // CORE_H

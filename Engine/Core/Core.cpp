@@ -128,7 +128,7 @@ void Startup()
     brightPass = LoadRenderTexture(GetScreenWidth(), GetScreenHeight());
     blurPass = LoadRenderTexture(GetScreenWidth(), GetScreenHeight());
     mixPass = LoadRenderTexture(GetScreenWidth(), GetScreenHeight());
-
+    flipped_texture = LoadRenderTexture(GetScreenWidth(), GetScreenHeight());
     mainThreadId = std::this_thread::get_id();
 
     #if STRESS_TEST
