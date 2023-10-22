@@ -419,7 +419,6 @@ void RenderScene()
         EndTextureMode();
 
 
-        RenderTexture flipped_texture = LoadRenderTexture(GetScreenWidth(), GetScreenHeight());
         BeginTextureMode(flipped_texture);
             sourceRec = { 0, 0, static_cast<float>(texture.width), static_cast<float>(texture.height) };
             DrawTexturePro(texture, sourceRec, destRec, origin, 0, WHITE);
@@ -434,7 +433,6 @@ void RenderScene()
             DrawTexture(texture,0,0,WHITE);
         EndShaderMode();
         EndTextureMode();
-        UnloadRenderTexture(flipped_texture);
     
         DrawTextureOnRectangle(&mixPass.texture);
     }
@@ -743,9 +741,6 @@ int EditorCamera(void)
 
 
     ObjectsPopup();
-
-    // UnloadRenderTexture(brightPass);
-
 
     return 0;
 }
