@@ -545,8 +545,8 @@ public:
         model = LoadModel(filename);
     }
 
-    void ReloadTextures() {
-        if (!texture_path.empty()) {
+    void ReloadTextures(bool force_reload = false) {
+        if (!texture_path.empty() || !force_reload) {
             if (auto diffuse_texture = get_if<Texture2D>(&texture)) {
                 model.materials[0].maps[MATERIAL_MAP_DIFFUSE].texture = *diffuse_texture;
             } else if (auto* videoPlayerPtr = std::get_if<std::unique_ptr<VideoPlayer>>(&texture)) {
@@ -555,7 +555,7 @@ public:
             }
         }
 
-        if (!normal_texture_path.empty()) {
+        if (!normal_texture_path.empty() || !force_reload) {
             if (auto normal = get_if<Texture2D>(&normal_texture)) {
                 model.materials[0].maps[MATERIAL_MAP_NORMAL].texture = *normal;
             } else if (auto* videoPlayerPtr = std::get_if<std::unique_ptr<VideoPlayer>>(&normal_texture)) {
@@ -565,7 +565,7 @@ public:
         }
 
 
-        if (!roughness_texture_path.empty()) {
+        if (!roughness_texture_path.empty() || !force_reload) {
             if (auto roughness = get_if<Texture2D>(&roughness_texture)) {
                 model.materials[0].maps[MATERIAL_MAP_ROUGHNESS].texture = *roughness;
             } else if (auto* videoPlayerPtr = std::get_if<std::unique_ptr<VideoPlayer>>(&roughness_texture)) {
@@ -574,7 +574,7 @@ public:
             }
         }
 
-        if (!ao_texture_path.empty()) {
+        if (!ao_texture_path.empty() || !force_reload) {
             if (auto ao = get_if<Texture2D>(&ao_texture)) {
                 model.materials[0].maps[MATERIAL_MAP_OCCLUSION].texture = *ao;
             } else if (auto* videoPlayerPtr = std::get_if<std::unique_ptr<VideoPlayer>>(&ao_texture)) {
