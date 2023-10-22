@@ -121,6 +121,14 @@ void DrawMenus()
                 }
             }
         }
+
+        if (ImGui::MenuItem("Reload Skybox Shader", ""))
+        {
+            std::cout << "\n\n\n\n\nReloading Lighting Shaders\n\n";
+            InitSkybox();
+
+        }
+
         ImGui::EndMenu();
     }
 
