@@ -2,15 +2,15 @@
     {
         "fovy": 60.0,
         "position": {
-            "x": 7.51531982421875,
-            "y": 35.531246185302734,
-            "z": -9.203904151916504
+            "x": -9.252695083618164,
+            "y": 9.442849159240723,
+            "z": 15.693202018737793
         },
         "projection": 0,
         "target": {
-            "x": 7.113801956176758,
-            "y": -12.510631561279297,
-            "z": 4.646299362182617
+            "x": 7.05906867980957,
+            "y": -26.936431884765625,
+            "z": -14.480843544006348
         },
         "type": "camera",
         "up": {
@@ -24,7 +24,7 @@
         "type": "world settings"
     },
     {
-        "collider_type": 2523185400,
+        "collider_type": 2238031742,
         "id": 0,
         "is_dynamic": false,
         "mass": 1.0,
@@ -57,7 +57,7 @@
         "script_index": "",
         "script_path": "",
         "surface_material": {
-            "DiffuseIntensity": 0.6169999837875366,
+            "DiffuseIntensity": 0.6710000038146973,
             "Roughness": 1.0,
             "SpecularIntensity": 1.0,
             "SpecularTint": {
@@ -84,11 +84,11 @@
             "y": 0.4000000059604645,
             "z": -0.4000000059604645
         },
-        "id": 2,
+        "id": 16580860,
         "intensity": 0.5,
         "isChild": false,
         "light_type": 1,
-        "name": "Light",
+        "name": "",
         "position": {
             "x": 4.0,
             "y": 4.0,
