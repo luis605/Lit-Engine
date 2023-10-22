@@ -191,6 +191,17 @@ vec3 FresnelSchlick(float cosTheta, vec3 F0) {
     return F0 + (1.0 - F0) * pow(1.0 - cosTheta, 5.0);
 }
 
+float DistributionGGX_Smith(vec3 N, vec3 V, vec3 L, float roughness) {
+    float NdotV = max(dot(N, V), 0.0);
+    float NdotL = max(dot(N, L), 0.0);
+    float k = (roughness * roughness) / 2.0;
+
+    float ggx1 = NdotV / (NdotV * (1.0 - k) + k);
+    float ggx2 = NdotL / (NdotL * (1.0 - k) + k);
+    return ggx1 * ggx2;
+}
+
+
 // Helper function to calculate the Cook-Torrance specular term
 vec3 CookTorranceSpecular(Light light, vec3 viewDir, vec3 fragPos, vec3 norm, float roughness) {
     vec3 F0 = vec3(0.04); // F0 for dielectrics
@@ -204,14 +215,10 @@ vec3 CookTorranceSpecular(Light light, vec3 viewDir, vec3 fragPos, vec3 norm, fl
     vec3 F = FresnelSchlick(HdotV, F0);
     float D = DistributionGGX(norm, H, roughness);
 
-    float G = 0.0;
-    float k = (roughness + 1.0) * (roughness + 1.0) / 8.0;
-    float NdotHV = max(dot(norm, H), 0.0);
-    float NdotLV = max(dot(norm, L), 0.0);
-    G = NdotLV / (NdotLV * (1.0 - k) + k);
+    float G = DistributionGGX_Smith(norm, viewDir, L, roughness);
 
-    vec3 numerator = D * NdotL * F * G;
-    float denominator = 4.0 * NdotLV * NdotHV;
+    vec3 numerator = D * F * G;
+    float denominator = 4.0 * NdotL * max(dot(norm, H), 0.0);
     
     return numerator / max(denominator, 0.001);
 }
@@ -221,10 +228,11 @@ vec4 CalculateDiffuseLighting(vec3 fragPosition, vec3 norm, vec2 texCoord) {
     vec4 texColor = texture(texture0, texCoord);
 
     // Apply the diffuse intensity from the material
-    vec4 diffuseColor = texColor * surface_material.DiffuseIntensity;
+    vec4 diffuseColor = texColor * surface_material.DiffuseIntensity * colDiffuse;
 
     return diffuseColor;
 }
+
 
 // Function to calculate the final lighting
 vec4 CalculateLighting(vec3 fragPosition, vec3 fragNormal, vec3 viewDir, vec2 texCoord, SurfaceMaterial material, float roughness = 0) {
