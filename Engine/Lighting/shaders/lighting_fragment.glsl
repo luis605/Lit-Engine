@@ -176,10 +176,60 @@ vec4 CalculateSpotLight(Light light, vec3 viewDir, vec3 norm, float roughness, f
 
 }
 
+float DistributionGGX(vec3 N, vec3 H, float roughness) {
+    float a = roughness * roughness;
+    float a2 = a * a;
+    float NdotH = max(dot(N, H), 0.0);
+    float NdotH2 = NdotH * NdotH;
 
-vec4 CalculateLighting(vec3 fragPosition, vec3 fragNormal, vec3 viewDir, vec2 texCoord, SurfaceMaterial material) {
-    vec4 result = vec4(0.0);
+    float denom = (NdotH2 * (a2 - 1.0) + 1.0);
+    return a2 / (3.141592 * denom * denom);
+}
+
+// Helper function to calculate the Cook-Torrance F term
+vec3 FresnelSchlick(float cosTheta, vec3 F0) {
+    return F0 + (1.0 - F0) * pow(1.0 - cosTheta, 5.0);
+}
+
+// Helper function to calculate the Cook-Torrance specular term
+vec3 CookTorranceSpecular(Light light, vec3 viewDir, vec3 fragPos, vec3 norm, float roughness) {
+    vec3 F0 = vec3(0.04); // F0 for dielectrics
+
+    vec3 L = normalize(light.position - fragPos);
+    vec3 H = normalize(viewDir + L);
+    float NdotL = max(dot(norm, L), 0.0);
+    float NdotH = max(dot(norm, H), 0.0);
+    float HdotV = max(dot(H, viewDir), 0.0);
+
+    vec3 F = FresnelSchlick(HdotV, F0);
+    float D = DistributionGGX(norm, H, roughness);
+
+    float G = 0.0;
+    float k = (roughness + 1.0) * (roughness + 1.0) / 8.0;
+    float NdotHV = max(dot(norm, H), 0.0);
+    float NdotLV = max(dot(norm, L), 0.0);
+    G = NdotLV / (NdotLV * (1.0 - k) + k);
+
+    vec3 numerator = D * NdotL * F * G;
+    float denominator = 4.0 * NdotLV * NdotHV;
     
+    return numerator / max(denominator, 0.001);
+}
+
+vec4 CalculateDiffuseLighting(vec3 fragPosition, vec3 norm, vec2 texCoord) {
+    // Retrieve the color from the texture
+    vec4 texColor = texture(texture0, texCoord);
+
+    // Apply the diffuse intensity from the material
+    vec4 diffuseColor = texColor * surface_material.DiffuseIntensity;
+
+    return diffuseColor;
+}
+
+// Function to calculate the final lighting
+vec4 CalculateLighting(vec3 fragPosition, vec3 fragNormal, vec3 viewDir, vec2 texCoord, SurfaceMaterial material, float roughness = 0) {
+    vec4 result = vec4(0.0);
+
     for (int i = 0; i < lightsCount; i++) {
         Light light = lights[i];
         
@@ -195,12 +245,18 @@ vec4 CalculateLighting(vec3 fragPosition, vec3 fragNormal, vec3 viewDir, vec2 te
                 // Calculate spot light
                 result += CalculateSpotLight(light, viewDir, fragNormal, material.Roughness, 1.0, fragPosition, vec3(0.0), texCoord, mat3(1.0));
             }
+
+            vec3 specular = CookTorranceSpecular(light, viewDir, fragPosition, fragNormal, roughness);
+            result += vec4(specular, 1);
         }
     }
     
-    // // Apply ambient and tone mapping
     vec4 ambientColor = colDiffuse * ambientLight * material.DiffuseIntensity;
     result += ambientColor;
+
+    vec4 diffuseLight = CalculateDiffuseLighting(fragPosition, fragNormal, texCoord);
+    result += diffuseLight;
+    
     vec4 toneMappedResult = toneMap(result);
 
     float ao = texture(texture4, texCoord).r;
@@ -210,6 +266,7 @@ vec4 CalculateLighting(vec3 fragPosition, vec3 fragNormal, vec3 viewDir, vec2 te
     // return vec4(toneMappedResult.rgb, result);
     return result;
 }
+
 
 void main() {
     vec2 texCoord = fragTexCoord * tiling;
@@ -249,82 +306,5 @@ void main() {
     vec3 ambient = vec3(0);
     
     // Calculate lighting
-    finalColor = vec4(result.rgb + CalculateLighting(fragPosition, norm, viewDir, texCoord, surface_material).rgb, colDiffuse.a);
+    finalColor = vec4(CalculateLighting(fragPosition, norm, viewDir, texCoord, surface_material, roughness).rgb, colDiffuse.a);
 }
-
-/*
-
-void main() {
-    vec2 texCoord = fragTexCoord * tiling;
-    vec4 texColor = texture(texture0, texCoord);
-
-    vec3 tangent = dFdx(fragPosition);
-    vec3 bitangent = dFdy(fragPosition);
-
-    vec3 T = normalize(tangent);
-    vec3 B = normalize(bitangent);
-    vec3 N = normalize(fragNormal);
-    
-    mat3 TBN = CalcTBN(T, B, N);
-
-    vec3 norm;
-
-    if (normalMapInit) {
-        norm = texture(texture2, texCoord).rgb;
-        norm = norm * 2.0 - 1.0;
-        norm = normalize(TBN * norm);
-    } else
-        norm = normalize(fragNormal);
-
-    float ao = texture(texture4, texCoord).r;
-
-    float roughness;
-    if (roughnessMapInit)
-        roughness = texture(texture3, texCoord).r;
-    else
-        roughness = 0.1;
-
-    vec3 viewDir = normalize(viewPos - fragPosition);
-    vec3 reflectDir = reflect(-viewDir, norm);
-
-    vec3 diffuse;
-    vec4 specular;
-    vec4 result = colDiffuse / 1.8 - ambientLight * 0.5;
-    vec3 ambient = vec3(0);
-
-
-    for (int i = 0; i < lightsCount; i++) {
-        Light light = lights[i];
-
-        vec3 halfVector = normalize(light.direction + viewDir);
-
-        if (light.type == LIGHT_DIRECTIONAL && light.enabled) {
-            result += CalculateDirectionalLight(light, viewDir, norm, halfVector, specular);
-        }
-        else if (light.type == LIGHT_POINT && light.enabled) {
-            result += CalculatePointLight(light, viewDir, norm, roughness, ao, fragPosition, specular);
-        }
-        else if (light.type == LIGHT_SPOT && light.enabled)
-        {
-            result += CalculateSpotLight(light, viewDir, norm, roughness, ao, fragPosition, ambient, texCoord, TBN);
-        }
-
-
-    }
-
-
-
-    result *= ao;
-    result += result * texColor;
-
-
-    // Apply gamma correction
-    result = pow(result, vec4(2.2, 2.2, 2.2, 1.0));
-
-    result = vec4(toneMap(result).rgb, result.a);
-
-    // Assign the final color
-    finalColor = result;
-}
-
-*/
