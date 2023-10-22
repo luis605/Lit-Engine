@@ -46,7 +46,7 @@ void MaterialInspector(SurfaceMaterial* surface_material = nullptr, string path 
         ImGui::Indent(10);
         ImGui::Text("Diffuse Texture: ");
         
-        if (ImGui::ImageButton((ImTextureID)&image_texture, ImVec2(64, 64)))
+        if (ImGui::ImageButton((ImTextureID)&selected_entity->texture, ImVec2(64, 64)))
         {
             show_texture = !show_texture;
         }
@@ -78,6 +78,15 @@ void MaterialInspector(SurfaceMaterial* surface_material = nullptr, string path 
             ImGui::EndDragDropTarget();
         }
 
+        ImGui::SameLine();
+
+        if (ImGui::Button("x##DiffuseEmptyButton"))
+        {
+            std::cout << "\n\n\n";
+            selected_entity->texture = Texture{};
+            selected_entity->texture_path = "";
+            selected_entity->ReloadTextures(true);
+        }
 
         ImGui::Dummy(ImVec2(0.0f, 10.0f));
 
