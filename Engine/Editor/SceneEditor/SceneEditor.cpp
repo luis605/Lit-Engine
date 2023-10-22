@@ -357,11 +357,12 @@ void RenderScene()
         !isEntitySelected &&
         !isLightSelected &&
         !isHoveringGizmo &&
-        !gizmo_arrow_selected &&
-        !gizmo_cube_selected &&
-        !gizmo_taurus_selected
+        !dragging_gizmo_scale &&
+        !dragging_gizmo_rotation &&
+        !dragging_gizmo_position
         )
     {
+        std::cout << "h" << std::endl;
         static Entity default_entity;
         selected_game_object_type = "none";
         object_in_inspector = &default_entity;
@@ -379,61 +380,82 @@ void RenderScene()
 
     if (bloomEnabled)
     {
-        BeginTextureMode(brightPass);
-        BeginShaderMode(brightPassShader);
-            SetShaderValueTexture(brightPassShader, GetShaderLocation(brightPassShader, "colorTexture"), texture);
+        // BeginTextureMode(brightPass);
+        // BeginShaderMode(brightPassShader);
+        //     SetShaderValueTexture(brightPassShader, GetShaderLocation(brightPassShader, "colorTexture"), texture);
 
-            Rectangle sourceRec = { 0, 0, static_cast<float>(texture.width), static_cast<float>(-texture.height) };
-            Rectangle destRec = { 0, 0, static_cast<float>(texture.width), static_cast<float>(texture.height) };
-            Vector2 origin = { 0, 0 };
+        //     Rectangle sourceRec = { 0, 0, static_cast<float>(texture.width), static_cast<float>(-texture.height) };
+        //     Rectangle destRec = { 0, 0, static_cast<float>(texture.width), static_cast<float>(texture.height) };
+        //     Vector2 origin = { 0, 0 };
 
-            // Draw the texture with the modified sourceRec
-            DrawTexturePro(texture, sourceRec, destRec, origin, 0, WHITE);
-
-
-        EndShaderMode();
-        EndTextureMode();
+        //     // Draw the texture with the modified sourceRec
+        //     DrawTexturePro(texture, sourceRec, destRec, origin, 0, WHITE);
 
 
-        BeginTextureMode(blurPass);
-        BeginShaderMode(blurShader);
-
-            SetShaderValueTexture(blurShader, GetShaderLocation(blurShader, "screenTexture"), brightPass.texture);
-
-            // Draw a full-screen quad to apply the blur effect
-            DrawTexture(brightPass.texture, 0, 0, WHITE);
-
-        EndShaderMode();
-        EndTextureMode();
+        // EndShaderMode();
+        // EndTextureMode();
 
 
-        BeginTextureMode(blurPass);
-        BeginShaderMode(blurShader);
-            bool true_var = true;
-            SetShaderValueTexture(blurShader, GetShaderLocation(blurShader, "screenTexture"), brightPass.texture);
-            SetShaderValue(blurShader, GetShaderLocation(blurShader, "horizontal"), &true_var, SHADER_UNIFORM_INT);
-            // Draw a full-screen quad to apply the blur effect
-            DrawTexture(mixPass.texture, 0, 0, WHITE);
+        // BeginTextureMode(blurPass);
+        // BeginShaderMode(blurShader);
 
-        EndShaderMode();
-        EndTextureMode();
+        //     SetShaderValueTexture(blurShader, GetShaderLocation(blurShader, "screenTexture"), brightPass.texture);
+
+        //     // Draw a full-screen quad to apply the blur effect
+        //     DrawTexture(brightPass.texture, 0, 0, WHITE);
+
+        // EndShaderMode();
+        // EndTextureMode();
+
+
+        // BeginTextureMode(blurPass);
+        // BeginShaderMode(blurShader);
+        //     bool true_var = true;
+        //     SetShaderValueTexture(blurShader, GetShaderLocation(blurShader, "screenTexture"), brightPass.texture);
+        //     SetShaderValue(blurShader, GetShaderLocation(blurShader, "horizontal"), &true_var, SHADER_UNIFORM_INT);
+        //     // Draw a full-screen quad to apply the blur effect
+        //     DrawTexture(mixPass.texture, 0, 0, WHITE);
+
+        // EndShaderMode();
+        // EndTextureMode();
+
+
+        // BeginTextureMode(flipped_texture);
+        //     sourceRec = { 0, 0, static_cast<float>(texture.width), static_cast<float>(texture.height) };
+        //     DrawTexturePro(texture, sourceRec, destRec, origin, 0, WHITE);
+
+        // EndTextureMode();
+
+
+        // BeginTextureMode(mixPass);
+        // BeginShaderMode(mixShader);
+        //     SetShaderValueTexture(mixShader, GetShaderLocation(mixShader, "scene"), flipped_texture.texture);
+        //     SetShaderValueTexture(mixShader, GetShaderLocation(mixShader, "bloomBlur"), blurPass.texture);
+        //     DrawTexture(texture,0,0,WHITE);
+        // EndShaderMode();
+        // EndTextureMode();
 
 
         BeginTextureMode(flipped_texture);
-            sourceRec = { 0, 0, static_cast<float>(texture.width), static_cast<float>(texture.height) };
-            DrawTexturePro(texture, sourceRec, destRec, origin, 0, WHITE);
+        BeginShaderMode(downsamplerShader);
+            SetShaderValueTexture(downsamplerShader, GetShaderLocation(downsamplerShader, "srcTexture"), texture);
+            Vector2 screenResolution = { static_cast<float>(texture.width), static_cast<float>(texture.height) };
+            SetShaderValue(downsamplerShader, GetShaderLocation(downsamplerShader, "srcResolution"), &screenResolution, SHADER_UNIFORM_VEC2);
 
-        EndTextureMode();
-
-
-        BeginTextureMode(mixPass);
-        BeginShaderMode(mixShader);
-            SetShaderValueTexture(mixShader, GetShaderLocation(mixShader, "scene"), flipped_texture.texture);
-            SetShaderValueTexture(mixShader, GetShaderLocation(mixShader, "bloomBlur"), blurPass.texture);
             DrawTexture(texture,0,0,WHITE);
         EndShaderMode();
         EndTextureMode();
-    
+
+        BeginTextureMode(mixPass);
+        BeginShaderMode(upsamplerShader);
+            SetShaderValueTexture(downsamplerShader, GetShaderLocation(downsamplerShader, "srcTexture"), flipped_texture.texture);
+            float filter = 100.0f;
+            SetShaderValue(downsamplerShader, GetShaderLocation(downsamplerShader, "filterRadius"), &filter, SHADER_UNIFORM_FLOAT);
+
+            DrawTexture(flipped_texture.texture,0,0,WHITE);
+        EndShaderMode();
+        EndTextureMode();
+
         DrawTextureOnRectangle(&mixPass.texture);
     }
     else

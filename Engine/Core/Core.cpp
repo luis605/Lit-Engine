@@ -123,6 +123,8 @@ void Startup()
     mixShader = LoadShader("Engine/Lighting/shaders/lighting_vertex.glsl", "Engine/Lighting/shaders/mix.glsl");
     instancing_shader = LoadShader("Engine/Lighting/shaders/instancing_lighting_vertex.glsl", "Engine/Lighting/shaders/lighting_fragment.glsl");
     blurShader = LoadShader("Engine/Lighting/shaders/lighting_vertex.glsl", "Engine/Lighting/shaders/blur.glsl");
+    downsamplerShader = LoadShader("Engine/Lighting/shaders/lighting_vertex.glsl", "Engine/Lighting/shaders/downsampler.glsl");
+    upsamplerShader = LoadShader("Engine/Lighting/shaders/lighting_vertex.glsl", "Engine/Lighting/shaders/upsampler.glsl");
     InitLighting();
 
     brightPass = LoadRenderTexture(GetScreenWidth(), GetScreenHeight());
