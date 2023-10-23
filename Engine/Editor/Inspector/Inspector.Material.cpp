@@ -79,8 +79,7 @@ void MaterialInspector(SurfaceMaterial* surface_material = nullptr, string path 
         }
 
         ImGui::SameLine();
-
-        if (ImGui::Button("x##DiffuseEmptyButton"))
+        if (ImGui::Button("x##DiffuseEmptyButton", ImVec2(25, 25)))
         {
             selected_entity->texture = Texture{};
             selected_entity->texture_path = "";
