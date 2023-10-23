@@ -227,7 +227,11 @@ vec4 CalculateDiffuseLighting(vec3 fragPosition, vec3 norm, vec2 texCoord) {
     // Retrieve the color from the texture
     vec4 texColor = texture(texture0, texCoord);
 
-    // Apply the diffuse intensity from the material
+    // Check if the texture is not valid or transparent
+    if (texColor.rgb == vec3(0.0)) {
+        return colDiffuse * surface_material.DiffuseIntensity;
+    }
+
     vec4 diffuseColor = texColor * surface_material.DiffuseIntensity * colDiffuse;
 
     return diffuseColor;
@@ -255,7 +259,9 @@ vec4 CalculateLighting(vec3 fragPosition, vec3 fragNormal, vec3 viewDir, vec2 te
             }
 
             vec3 specular = CookTorranceSpecular(light, viewDir, fragPosition, fragNormal, roughness);
+            specular = max(specular, vec3(0.0)); // Ensure all components are non-negative
             result += vec4(specular, 1);
+
         }
     }
     
