@@ -82,7 +82,6 @@ void MaterialInspector(SurfaceMaterial* surface_material = nullptr, string path 
 
         if (ImGui::Button("x##DiffuseEmptyButton"))
         {
-            std::cout << "\n\n\n";
             selected_entity->texture = Texture{};
             selected_entity->texture_path = "";
             selected_entity->ReloadTextures(true);
