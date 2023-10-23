@@ -124,6 +124,16 @@ void MaterialInspector(SurfaceMaterial* surface_material = nullptr, string path 
             ImGui::EndDragDropTarget();
         }
 
+        ImGui::SameLine();
+        
+        if (ImGui::Button("x##NormalEmptyButton", ImVec2(25, 25)))
+        {
+            selected_entity->normal_texture = Texture{};
+            selected_entity->normal_texture_path = "";
+            selected_entity->ReloadTextures(true);
+        }
+
+
         ImGui::Dummy(ImVec2(0.0f, 10.0f));
 
         ImGui::Text("RoughnessMap Texture: ");
@@ -149,6 +159,14 @@ void MaterialInspector(SurfaceMaterial* surface_material = nullptr, string path 
 
             }
             ImGui::EndDragDropTarget();
+        }
+
+        ImGui::SameLine();
+        if (ImGui::Button("x##RoughnessEmptyButton", ImVec2(25, 25)))
+        {
+            selected_entity->roughness_texture = Texture{};
+            selected_entity->roughness_texture_path = "";
+            selected_entity->ReloadTextures(true);
         }
 
         ImGui::Dummy(ImVec2(0.0f, 10.0f));
@@ -177,8 +195,19 @@ void MaterialInspector(SurfaceMaterial* surface_material = nullptr, string path 
             }
             ImGui::EndDragDropTarget();
         }
+
+        ImGui::SameLine();
+        if (ImGui::Button("x##AOEmptyButton", ImVec2(25, 25)))
+        {
+            selected_entity->ao_texture = Texture{};
+            selected_entity->ao_texture_path = "";
+            selected_entity->ReloadTextures(true);
+        }
+
+
         ImGui::Unindent(10);
     }
+
 
     ImGui::Dummy(ImVec2(0.0f, 10.0f));
 
