@@ -1058,7 +1058,7 @@ public:
         }
 
         if (!visible) {
-            return; // Early return if not visible
+            return;
         }
 
         SetShaderValue(shader, GetShaderLocation(shader, "tiling"), tiling, SHADER_UNIFORM_VEC2);
