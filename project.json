@@ -1,16 +1,16 @@
 [
     {
-        "fovy": 60.0,
+        "fovy": 70.44170379638672,
         "position": {
-            "x": -9.252695083618164,
-            "y": 9.442849159240723,
-            "z": 15.693202018737793
+            "x": -9.310378074645996,
+            "y": 8.540155410766602,
+            "z": 9.431422233581543
         },
         "projection": 0,
         "target": {
-            "x": 7.05906867980957,
-            "y": -26.936431884765625,
-            "z": -14.480843544006348
+            "x": 29.609939575195313,
+            "y": -14.539804458618164,
+            "z": -11.841382026672363
         },
         "type": "camera",
         "up": {
@@ -24,7 +24,7 @@
         "type": "world settings"
     },
     {
-        "collider_type": 2238031742,
+        "collider_type": 0,
         "id": 0,
         "is_dynamic": false,
         "mass": 1.0,
@@ -57,17 +57,111 @@
         "script_index": "",
         "script_path": "",
         "surface_material": {
-            "DiffuseIntensity": 0.6710000038146973,
+            "DiffuseIntensity": 0.8040000200271606,
             "Roughness": 1.0,
-            "SpecularIntensity": 1.0,
+            "SpecularIntensity": 0.0,
             "SpecularTint": {
                 "x": 1.0,
                 "y": 1.0,
                 "z": 1.0
             },
-            "shininess": 0.9959999918937683
+            "shininess": 0.0
         },
         "texture_path": "project/game/textures/brick_wall_02_diff_4k.png",
+        "type": "entity"
+    },
+    {
+        "collider_type": 0,
+        "id": 0,
+        "is_dynamic": false,
+        "mass": 1.0,
+        "material_path": "project/game/file3.mat",
+        "mesh_type": 4,
+        "model_path": "",
+        "name": "Unnamed Entity",
+        "normal_texture_path": "project/game/textures/brick_wall_02_nor_gl_4k.png",
+        "position": {
+            "x": 37.90006637573242,
+            "y": 16.500003814697266,
+            "z": 0.0
+        },
+        "relative_position": {
+            "x": 0.0,
+            "y": 0.0,
+            "z": 0.0
+        },
+        "rotation": {
+            "x": 0.0,
+            "y": 0.0,
+            "z": 90.0
+        },
+        "roughness_texture_path": "project/game/textures/brick_wall_02_rough_4k.png",
+        "scale": {
+            "x": 100.0,
+            "y": 1.0,
+            "z": 100.0
+        },
+        "script_index": "",
+        "script_path": "",
+        "surface_material": {
+            "DiffuseIntensity": 0.8040000200271606,
+            "Roughness": 1.0,
+            "SpecularIntensity": 0.0,
+            "SpecularTint": {
+                "x": 1.0,
+                "y": 1.0,
+                "z": 1.0
+            },
+            "shininess": 0.0
+        },
+        "texture_path": "project/game/textures/brick_wall_02_diff_4k.png",
+        "type": "entity"
+    },
+    {
+        "collider_type": 1,
+        "id": 1,
+        "is_dynamic": true,
+        "mass": 1.0,
+        "material_path": "",
+        "mesh_type": 1,
+        "model_path": "",
+        "name": "Unnamed Entity",
+        "normal_texture_path": "",
+        "position": {
+            "x": 0.0,
+            "y": 9.199999809265137,
+            "z": 0.0
+        },
+        "relative_position": {
+            "x": 0.0,
+            "y": 0.0,
+            "z": 0.0
+        },
+        "rotation": {
+            "x": 0.0,
+            "y": 0.0,
+            "z": 0.0
+        },
+        "roughness_texture_path": "",
+        "scale": {
+            "x": 1.0,
+            "y": 1.0,
+            "z": 1.0
+        },
+        "script_index": "coins collector0",
+        "script_path": "project/game/coins collector.py",
+        "surface_material": {
+            "DiffuseIntensity": 0.5,
+            "Roughness": 0.5,
+            "SpecularIntensity": 0.5,
+            "SpecularTint": {
+                "x": 1.0,
+                "y": 1.0,
+                "z": 1.0
+            },
+            "shininess": 0.5
+        },
+        "texture_path": "",
         "type": "entity"
     },
     {
@@ -84,7 +178,7 @@
             "y": 0.4000000059604645,
             "z": -0.4000000059604645
         },
-        "id": 16580860,
+        "id": -67438088,
         "intensity": 0.5,
         "isChild": false,
         "light_type": 1,

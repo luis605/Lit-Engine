@@ -88,8 +88,12 @@ void MaterialInspector(SurfaceMaterial* surface_material = nullptr, string path 
 
         ImGui::Dummy(ImVec2(0.0f, 10.0f));
 
-        ImGui::SliderFloat2("Texture Tiling", (float*)&selected_entity->tiling, 0.01f, 100.0f, "%.2f");
-
+        float tiling_value[2] = { selected_entity->tiling[0], selected_entity->tiling[1] };
+        if (ImGui::SliderFloat2("Texture Tiling", (float*)&tiling_value, 0.01f, 100.0f, "%.2f"))
+        {
+            selected_entity->tiling[0] = tiling_value[0];
+            selected_entity->tiling[1] = tiling_value[1];
+        }
         ImGui::Dummy(ImVec2(0.0f, 10.0f));
 
         ImGui::Text("Normal Map Texture: ");
