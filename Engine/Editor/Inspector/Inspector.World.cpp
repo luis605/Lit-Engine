@@ -1,5 +1,6 @@
 #include "../../include_all.h"
 
+float bloomBrighness = 0.0f;
 void WorldInspector()
 {
     ImGui::Text("World Inspector");
@@ -9,10 +10,27 @@ void WorldInspector()
 
     if (ImGui::CollapsingHeader("Post Processing"))
     {
-        ImGui::Text("Bloom:");
-        ImGui::SameLine(inputWidth);
-        ImGui::SetNextItemWidth(-1);
-        ImGui::Checkbox("##BloomToggle", &bloomEnabled);
+        ImGui::Indent(15.0f);
+        if (ImGui::CollapsingHeader("Bloom"))
+        {
+            ImGui::Indent(15.0f);
+            ImGui::Text("Enabled:");
+            ImGui::SameLine(inputWidth);
+            ImGui::SetNextItemWidth(-1);
+            ImGui::Checkbox("##BloomToggle", &bloomEnabled);
+
+            ImGui::Text("Brightness:");
+            ImGui::SameLine(inputWidth);
+            ImGui::SetNextItemWidth(-1);
+            
+            if (ImGui::SliderFloat("##BrightnessControl", &bloomBrighness, -5.0f, 15.0f))
+            {
+                SetShaderValue(downsamplerShader, GetShaderLocation(downsamplerShader, "bloomBrightness"), &bloomBrighness, SHADER_ATTRIB_FLOAT);
+            }
+            ImGui::Unindent(15.0f);
+        }
+        ImGui::Unindent(15.0f);
+
     }
 
 }
