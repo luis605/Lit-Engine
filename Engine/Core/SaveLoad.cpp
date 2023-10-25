@@ -350,6 +350,7 @@ void SaveWorldSetting(json& json_data)
     j["type"] = "world settings";
     // j["gravity"] = gravity;
     j["bloom"] = bloomEnabled;
+    j["bloomBrightness"] = bloomBrightness;
     json_data.emplace_back(j);
 }
 
@@ -520,6 +521,11 @@ void LoadWorldSettings(const json& world_setting_json)
 {
     if (world_setting_json.contains("bloom")) {
         bloomEnabled = world_setting_json["bloom"].get<bool>();
+    }
+
+    if (world_setting_json.contains("bloomBrightness")) {
+        bloomBrightness = world_setting_json["bloomBrightness"].get<float>();
+        SetShaderValue(downsamplerShader, GetShaderLocation(downsamplerShader, "bloomBrightness"), &bloomBrightness, SHADER_ATTRIB_FLOAT);
     }
 }
 
