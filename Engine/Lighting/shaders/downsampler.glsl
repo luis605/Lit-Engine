@@ -3,10 +3,10 @@
 in vec2 fragTexCoord;
 out vec4 FragColor;
 uniform sampler2D srcTexture;
-
-const float weight = 1.0 / 2000.0; // Adjust the weight for a more intense bloom effect
+uniform float bloomBrightness;
 
 void main() {
+    float weight = (1.0 / 2000.0) * (1.0 + bloomBrightness); // Adjust the weight for a more intense bloom effect
     vec2 texelSize = 1.0 / textureSize(srcTexture, 0);
     vec3 result = texture(srcTexture, fragTexCoord).rgb * (1.0 - 9.0 * weight);
 
