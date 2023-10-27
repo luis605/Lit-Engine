@@ -231,7 +231,7 @@ void SaveEntity(json& json_data, const Entity& entity) {
     if (IsModelReady(entity.model) && entity.model_path.empty())
         j["mesh_type"] = entity.ObjectType;
 
-    j["collider_type"] = entity.currentCollisionShapeType;
+    j["collider_type"] = *entity.currentCollisionShapeType;
 
     j["script_path"] = entity.script;
     j["script_index"] = entity.script_index;
@@ -612,7 +612,7 @@ void LoadEntity(const json& entity_json, Entity& entity) {
     entity.mass = entity_json["mass"].get<float>();
 
     if (entity_json.contains("collider_type"))
-        entity.currentCollisionShapeType = entity_json["collider_type"].get<Entity::CollisionShapeType>();
+        entity.currentCollisionShapeType = make_shared<Entity::CollisionShapeType>(entity_json["collider_type"].get<Entity::CollisionShapeType>());
     entity.reloadRigidBody();
 
 
