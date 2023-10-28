@@ -2,15 +2,15 @@
     {
         "fovy": 60.0,
         "position": {
-            "x": 18.923053741455078,
-            "y": 27.8728084564209,
-            "z": -27.333202362060547
+            "x": 50.0,
+            "y": 0.0,
+            "z": 0.8364627361297607
         },
         "projection": 0,
         "target": {
-            "x": 1.0121135711669922,
-            "y": -3.752969741821289,
-            "z": 7.003532409667969
+            "x": 0.0,
+            "y": 0.0,
+            "z": 0.8364627361297607
         },
         "type": "camera",
         "up": {
@@ -21,7 +21,7 @@
     },
     {
         "bloom": true,
-        "bloomBrightness": 0.2939999997615814,
+        "bloomBrightness": 0.0,
         "type": "world settings"
     },
     {
@@ -29,11 +29,11 @@
         "id": 0,
         "is_dynamic": false,
         "mass": 1.0,
-        "material_path": "project/game/file3.mat",
-        "mesh_type": 4,
+        "material_path": "",
+        "mesh_type": 1,
         "model_path": "",
         "name": "Unnamed Entity",
-        "normal_texture_path": "project/game/textures/brick_wall_02_nor_gl_4k.png",
+        "normal_texture_path": "",
         "position": {
             "x": 0.0,
             "y": 0.0,
@@ -49,63 +49,26 @@
             "y": 0.0,
             "z": 0.0
         },
-        "roughness_texture_path": "project/game/textures/brick_wall_02_rough_4k.png",
+        "roughness_texture_path": "",
         "scale": {
-            "x": 100.0,
+            "x": 1.0,
             "y": 1.0,
-            "z": 100.0
+            "z": 1.0
         },
         "script_index": "",
         "script_path": "",
         "surface_material": {
-            "DiffuseIntensity": 0.5379999876022339,
-            "Roughness": 1.0,
-            "SpecularIntensity": 0.0,
+            "DiffuseIntensity": 0.5,
+            "Roughness": 0.5,
+            "SpecularIntensity": 0.5,
             "SpecularTint": {
                 "x": 1.0,
                 "y": 1.0,
                 "z": 1.0
             },
-            "shininess": 0.0
+            "shininess": 0.5
         },
-        "texture_path": "project/game/textures/brick_wall_02_diff_4k.png",
+        "texture_path": "",
         "type": "entity"
-    },
-    {
-        "attenuation": 9.999999747378752e-05,
-        "color": {
-            "a": 255.0,
-            "b": 255.0,
-            "g": 255.0,
-            "r": 255.0
-        },
-        "cutOff": 10.0,
-        "direction": {
-            "x": 0.4000000059604645,
-            "y": 0.4000000059604645,
-            "z": -0.4000000059604645
-        },
-        "id": 2,
-        "intensity": 0.5,
-        "isChild": false,
-        "light_type": 1,
-        "name": "Light",
-        "position": {
-            "x": 4.0,
-            "y": 4.0,
-            "z": -0.40000566840171814
-        },
-        "relative_position": {
-            "x": 0,
-            "y": 0,
-            "z": 0
-        },
-        "specularStrength": 0.5,
-        "target": {
-            "x": 0,
-            "y": 0,
-            "z": 0
-        },
-        "type": "light"
     }
 ]

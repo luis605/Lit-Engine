@@ -1,55 +1,37 @@
 [
     {
-        "id": 0,
-        "is_dynamic": true,
-        "mass": 1.0,
-        "material_path": "",
-        "model_path": "project/game/models/cube.obj",
-        "name": "project/game/models/cube",
-        "normal_texture_path": "",
+        "fovy": 60.0,
         "position": {
-            "x": 2.3000001907348633,
+            "x": 50.0,
             "y": 0.0,
-            "z": 0.0
+            "z": 0.8364627361297607
         },
-        "relative_position": {
+        "projection": 0,
+        "target": {
             "x": 0.0,
             "y": 0.0,
-            "z": 0.0
+            "z": 0.8364627361297607
         },
-        "rotation": {
+        "type": "camera",
+        "up": {
             "x": 0.0,
-            "y": 0.0,
-            "z": 0.0
-        },
-        "roughness_texture_path": "",
-        "scale": {
-            "x": 1.0,
             "y": 1.0,
-            "z": 1.0
-        },
-        "script_index": "coins collector0",
-        "script_path": "project/game/coins collector.py",
-        "surface_material": {
-            "DiffuseIntensity": 0.5,
-            "Roughness": 0.5,
-            "SpecularIntensity": 0.5,
-            "SpecularTint": {
-                "x": 1.0,
-                "y": 1.0,
-                "z": 1.0
-            },
-            "shininess": 0.5
-        },
-        "texture_path": "",
-        "type": "entity"
+            "z": 0.0
+        }
     },
     {
-        "id": 1,
+        "bloom": true,
+        "bloomBrightness": 0.0,
+        "type": "world settings"
+    },
+    {
+        "collider_type": 0,
+        "id": 0,
         "is_dynamic": false,
         "mass": 1.0,
         "material_path": "",
-        "model_path": "assets/models/tree.obj",
+        "mesh_type": 1,
+        "model_path": "",
         "name": "Unnamed Entity",
         "normal_texture_path": "",
         "position": {
@@ -88,42 +70,5 @@
         },
         "texture_path": "",
         "type": "entity"
-    },
-    {
-        "attenuation": 9.999999747378752e-05,
-        "color": {
-            "a": 255.0,
-            "b": 255.0,
-            "g": 255.0,
-            "r": 255.0
-        },
-        "cutOff": 10.0,
-        "direction": {
-            "x": 0.4000000059604645,
-            "y": 0.4000000059604645,
-            "z": -0.4000000059604645
-        },
-        "id": 0,
-        "intensity": 0.5,
-        "isChild": false,
-        "light_type": 1,
-        "name": "",
-        "position": {
-            "x": 4.0,
-            "y": 4.0,
-            "z": 4.0
-        },
-        "relative_position": {
-            "x": 0,
-            "y": 0,
-            "z": 0
-        },
-        "specularStrength": 0.5,
-        "target": {
-            "x": 5.66354009433468e-25,
-            "y": 4.5912142885138307e-41,
-            "z": 51633413160960.0
-        },
-        "type": "light"
     }
 ]
