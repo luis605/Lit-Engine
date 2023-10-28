@@ -362,7 +362,6 @@ void RenderScene()
         !dragging_gizmo_position
         )
     {
-        std::cout << "h" << std::endl;
         static Entity default_entity;
         selected_game_object_type = "none";
         object_in_inspector = &default_entity;
