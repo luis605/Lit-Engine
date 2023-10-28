@@ -781,9 +781,7 @@ public:
     void calcPhysicsPosition() {
         if (!isDynamic) return;
         
-        std::cout << "BOX: " << CollisionShapeType::Box << std::endl << "Current Collider: " << *currentCollisionShapeType << "\n\n";
         if (CollisionShapeType::Box == *currentCollisionShapeType) {
-            std::cout << "WARNING: Physics are being calculated\n";
             btTransform trans;
             if (boxRigidBody && (*boxRigidBody)->getMotionState()) {
                 (*boxRigidBody)->getMotionState()->getWorldTransform(trans);
@@ -914,8 +912,6 @@ public:
 
             dynamicsWorld->addRigidBody(*boxRigidBody);
             currentCollisionShapeType = make_shared<CollisionShapeType>(CollisionShapeType::Box);
-
-            std::cout << "Model - Static" << "\n";
         }
     }
 
@@ -944,7 +940,6 @@ public:
 
         dynamicBoxShape = new btBoxShape(btVector3(x, y, z));
         currentCollisionShapeType = make_shared<CollisionShapeType>(CollisionShapeType::Box);
-        std::cout << "CURRENT THING: " << *currentCollisionShapeType << "\n";
 
         btTransform startTransform;
         startTransform.setIdentity();
@@ -990,7 +985,6 @@ public:
             boxMotionState = nullptr;
             staticBoxShape = nullptr;
             dynamicBoxShape = nullptr;
-            std::cout << "Model - Dynamic" << "\n";
         }
 
         customMeshShape = new btConvexHullShape();
