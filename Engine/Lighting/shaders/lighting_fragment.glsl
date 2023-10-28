@@ -90,7 +90,7 @@ vec3 CalculateFresnelReflection(vec3 baseReflectance, vec3 viewDirection, vec3 h
     return finalColor;
 }
 
-vec4 toneMap(vec4 hdrColor, float exposure = .5) {
+vec4 toneMap(vec4 hdrColor, float exposure) {
     vec3 hdr = hdrColor.rgb;
     vec3 mapped = hdr / (hdr + vec3(1.0));
     mapped = pow(mapped, vec3(1.0 / exposure));
@@ -239,7 +239,7 @@ vec4 CalculateDiffuseLighting(vec3 fragPosition, vec3 norm, vec2 texCoord) {
 
 
 // Function to calculate the final lighting
-vec4 CalculateLighting(vec3 fragPosition, vec3 fragNormal, vec3 viewDir, vec2 texCoord, SurfaceMaterial material, float roughness = 0) {
+vec4 CalculateLighting(vec3 fragPosition, vec3 fragNormal, vec3 viewDir, vec2 texCoord, SurfaceMaterial material, float roughness) {
     vec4 result = vec4(0.0);
 
     for (int i = 0; i < lightsCount; i++) {
@@ -271,7 +271,7 @@ vec4 CalculateLighting(vec3 fragPosition, vec3 fragNormal, vec3 viewDir, vec2 te
     vec4 diffuseLight = CalculateDiffuseLighting(fragPosition, fragNormal, texCoord);
     result += diffuseLight;
     
-    vec4 toneMappedResult = toneMap(result);
+    vec4 toneMappedResult = toneMap(result, 0.5);
 
     float ao = texture(texture4, texCoord).r;
     if (ao != 0.0)
