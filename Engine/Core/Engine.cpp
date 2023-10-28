@@ -1034,9 +1034,9 @@ public:
     void makePhysicsDynamic(CollisionShapeType shapeType = CollisionShapeType::Box) {
         isDynamic = true;
 
-        if (shapeType == CollisionShapeType::Box)
+        if (false && shapeType == CollisionShapeType::Box)
             createDynamicBox(scale.x, scale.y, scale.z);
-        else if (shapeType == CollisionShapeType::HighPolyMesh)
+        else if (true || shapeType == CollisionShapeType::HighPolyMesh)
             createDynamicMesh();
     }
 
