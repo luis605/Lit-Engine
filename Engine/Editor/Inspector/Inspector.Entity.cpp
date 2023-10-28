@@ -136,7 +136,7 @@ void EntityInspector()
         ImGui::Text("Drop Script Here: ");
         ImGui::SameLine();
 
-        ImGui::Button("##Drag'nDropScriptPath", ImVec2(200,25))
+        ImGui::Button("##Drag'nDropScriptPath", ImVec2(200,25));
 
         if (ImGui::BeginDragDropTarget())
         {
@@ -155,7 +155,6 @@ void EntityInspector()
             ImGui::EndDragDropTarget();
         }
 
-        ImGui::Text("In Game Proprieties");
         ImGui::Text("Collider: ");
         ImGui::SameLine();
         ImGui::Checkbox("##Collider", &selected_entity->collider);
@@ -225,6 +224,28 @@ void EntityInspector()
 
         }
         ImGui::PopStyleVar();
+
+
+        ImGui::Text("Collision Type");
+        ImGui::SameLine();
+        const char* collisionShapeNames[] = { "Box", "HighPolyMesh", "LowPolyMesh", "Sphere", "None" };
+        int currentItem = static_cast<int>(*selected_entity->currentCollisionShapeType);
+        if (ImGui::BeginCombo("##CollisionType", collisionShapeNames[currentItem]))
+        {
+            for (int i = 0; i < IM_ARRAYSIZE(collisionShapeNames); i++)
+            {
+                const bool isSelected = (currentItem == i);
+                if (ImGui::Selectable(collisionShapeNames[i], isSelected))
+                {
+                    *selected_entity->currentCollisionShapeType = static_cast<Entity::CollisionShapeType>(i);
+                    selected_entity->reloadRigidBody();
+                }
+                if (isSelected)
+                    ImGui::SetItemDefaultFocus();
+            }
+            ImGui::EndCombo();
+        }
+
 
         ImGui::Text("Mass: ");
         ImGui::SameLine();

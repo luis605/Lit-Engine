@@ -197,10 +197,19 @@ public:
         this->ObjectType = other.ObjectType;
         this->model = other.model;
         this->bounds = other.bounds;
-        this->currentCollisionShapeType = make_shared<CollisionShapeType>(*other.currentCollisionShapeType);
-        this->boxRigidBody = make_shared<btRigidBody *>(*other.boxRigidBody);
-        this->treeRigidBody = make_shared<btRigidBody *>(*other.treeRigidBody);
-        this->texture_path = other.texture_path;
+
+        this->currentCollisionShapeType     = make_shared<CollisionShapeType>(*other.currentCollisionShapeType);
+        if (other.boxRigidBody && *other.boxRigidBody != nullptr)
+            this->boxRigidBody              = make_shared<btRigidBody *>(*other.boxRigidBody);
+        else
+            this->boxRigidBody              = make_shared<btRigidBody *>(nullptr);
+
+        if (other.treeRigidBody && *other.treeRigidBody != nullptr)
+            this->treeRigidBody             = make_shared<btRigidBody *>(*other.treeRigidBody);
+        else
+            this->treeRigidBody             = make_shared<btRigidBody *>(nullptr);
+
+        this->texture_path                  = other.texture_path;
         this->texture = std::visit([](const auto& value) -> std::variant<Texture, std::unique_ptr<VideoPlayer, std::default_delete<VideoPlayer>>> {
             using T = std::decay_t<decltype(value)>;
 
@@ -338,9 +347,18 @@ public:
         this->surface_material = other.surface_material;
         this->surface_material_path = other.surface_material_path;
         this->collider = other.collider;
-        this->currentCollisionShapeType = make_shared<CollisionShapeType>(*other.currentCollisionShapeType);
-        this->boxRigidBody = make_shared<btRigidBody *>(*other.boxRigidBody);
-        this->treeRigidBody = make_shared<btRigidBody *>(*other.treeRigidBody);
+
+        this->currentCollisionShapeType     = make_shared<CollisionShapeType>(*other.currentCollisionShapeType);
+        if (other.boxRigidBody && *other.boxRigidBody != nullptr)
+            this->boxRigidBody              = make_shared<btRigidBody *>(*other.boxRigidBody);
+        else
+            this->boxRigidBody              = make_shared<btRigidBody *>(nullptr);
+
+        if (other.treeRigidBody && *other.treeRigidBody != nullptr)
+            this->treeRigidBody             = make_shared<btRigidBody *>(*other.treeRigidBody);
+        else
+            this->treeRigidBody             = make_shared<btRigidBody *>(nullptr);
+
         this->visible = other.visible;
         this->isChild = other.isChild;
         this->isParent = other.isParent;
@@ -866,7 +884,11 @@ public:
         btScalar btMass = mass;
         btVector3 boxInertia(inertia.x, inertia.y, inertia.z);
         dynamicBoxShape->calculateLocalInertia(btMass, boxInertia);
-        (*boxRigidBody)->setMassProps(btMass, boxInertia);
+        if (*currentCollisionShapeType == CollisionShapeType::Box && boxRigidBody && *boxRigidBody != nullptr)
+            (*boxRigidBody)->setMassProps(btMass, boxInertia);
+        else if (*currentCollisionShapeType == CollisionShapeType::HighPolyMesh && treeRigidBody && *treeRigidBody != nullptr)
+            (*treeRigidBody)->setMassProps(btMass, boxInertia);
+
     }
 
     void createStaticBox(float x, float y, float z) {
@@ -929,11 +951,6 @@ public:
             delete *treeRigidBody;
             treeRigidBody = make_shared<btRigidBody*>(nullptr);
         }
-
-        delete dynamicBoxShape;
-        delete boxMotionState;
-
-
 
         dynamicBoxShape = nullptr;
         boxMotionState = nullptr;
