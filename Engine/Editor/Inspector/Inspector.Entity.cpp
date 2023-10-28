@@ -136,20 +136,15 @@ void EntityInspector()
         ImGui::Text("Drop Script Here: ");
         ImGui::SameLine();
 
-        if (ImGui::Button("##Drag'nDropScriptPath", ImVec2(200,25)))
-        {
-        }
-
+        ImGui::Button("##Drag'nDropScriptPath", ImVec2(200,25))
 
         if (ImGui::BeginDragDropTarget())
         {
-            // Check if a drag and drop operation has been accepted
             if (const ImGuiPayload* payload = ImGui::AcceptDragDropPayload("SCRIPT_PAYLOAD"))
             {
                 IM_ASSERT(payload->DataSize == sizeof(int));
                 int payload_n = *(const int*)payload->Data;
 
-                // Copy the button name to the variable outside the window
                 string path = dir_path.string();
                 path += "/" + files_texture_struct[payload_n].name;
 
