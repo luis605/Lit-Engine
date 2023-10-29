@@ -1,0 +1,74 @@
+[
+    {
+        "fovy": 60.0,
+        "position": {
+            "x": 50.0,
+            "y": 0.0,
+            "z": 0.8010400533676147
+        },
+        "projection": 0,
+        "target": {
+            "x": 0.0,
+            "y": 0.0,
+            "z": 0.8010400533676147
+        },
+        "type": "camera",
+        "up": {
+            "x": 0.0,
+            "y": 1.0,
+            "z": 0.0
+        }
+    },
+    {
+        "bloom": true,
+        "bloomBrightness": 0.0,
+        "type": "world settings"
+    },
+    {
+        "collider_type": 0,
+        "id": 0,
+        "is_dynamic": false,
+        "mass": 1.0,
+        "material_path": "",
+        "mesh_type": 1,
+        "model_path": "",
+        "name": "Unnamed Entity",
+        "normal_texture_path": "",
+        "position": {
+            "x": 0.0,
+            "y": 0.0,
+            "z": 0.0
+        },
+        "relative_position": {
+            "x": 0.0,
+            "y": 0.0,
+            "z": 0.0
+        },
+        "rotation": {
+            "x": 0.0,
+            "y": 0.0,
+            "z": 0.0
+        },
+        "roughness_texture_path": "",
+        "scale": {
+            "x": 1.0,
+            "y": 1.0,
+            "z": 1.0
+        },
+        "script_index": "",
+        "script_path": "",
+        "surface_material": {
+            "DiffuseIntensity": 0.5,
+            "Roughness": 0.5,
+            "SpecularIntensity": 0.5,
+            "SpecularTint": {
+                "x": 1.0,
+                "y": 1.0,
+                "z": 1.0
+            },
+            "shininess": 0.5
+        },
+        "texture_path": "",
+        "type": "entity"
+    }
+]

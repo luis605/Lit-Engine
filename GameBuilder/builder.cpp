@@ -48,12 +48,12 @@ void createFolder(string directoryName)
     }
 }
 
-int BuildProject()
-{
+int BuildProject() {
     createFolder("exported_game");
     createFolder("exported_game/shaders");
     createFolder("exported_game/assets");
 
+ 
     string key_a = "99ec8e6c8f47650000bc98440c36a7898a80f1a18bbf395d92fd8564774a11cdee77b83fedfcf324731f449bd00b29cf854199991e6a92cd23cc63ab8b4adf5d800ee7d4239a36fa4e2e546ea5f61dec41d750bff7be78e2ace47774b4eaadc826b83fceb5316aea4937c604bc8eb25c2cc410414a9eea583c6610da0d3b87e03c49915f2f609d398ff1a8631211eb51f0a324fa7f30af8cc6ab4f4b14329aba2fba34f9e7b930c203351c4c9537159dc8cfbda40b902a01ec27b1817b60284f42b0313c8f835c244d3cfc98b45f0eb149c2d1d027911a47ff66256b0bfab84ddf0d7e2bb146e8d874e6aa589697d8f69e5034d7171dd0c5d199fabb500743615924c03e2f7ed74717db7483937dcf2b5a211fa5e4bf57e3f4e53909999aab792b66c350db1156a840f633d322096c06b22d4ed5fea413fee182ae05559a17ccfcca4a14a8bc7ea77fc67abefe7f05e14e13069f7622d0bd33e16dd35b999dac93abcb690b6d2261ba79f3bdc18ef77e8ef2a9f22973b4bed1da8277fcf5a71a27bb9b7fded476161f3d67b5d12c5d1c993c833f119d23553adc04eb2d1452792208f2a2ff4d61ab0929fa76fbe4";
     std::string inputFile_a = "Engine/Lighting/shaders/lighting_fragment.glsl";
     std::string outputFile_a = "exported_game/shaders/whatami.glsl";
@@ -68,20 +68,24 @@ int BuildProject()
     encryptFile(inputFile_b, outputFile_b, key_b);
 
 
-    const char* compileCommand = R"""(
-        cp project.json exported_game && \
-        cp -r project/ exported_game && \
-        cp "assets/images/skybox/default skybox.hdr" exported_game/assets && \
-        cp Engine/Lighting/shaders/skybox.vs exported_game/shaders && \
-        cp Engine/Lighting/shaders/skybox.fs exported_game/shaders && \
-        cp Engine/Lighting/shaders/cubemap.fs exported_game/shaders && \
-        cp Engine/Lighting/shaders/cubemap.vs exported_game/shaders && \
-        cd GameBuilder && \
-        make build
-    )""";
+    // File copying logic using std::filesystem
+    std::filesystem::copy("project.json", "exported_game/project.json", std::filesystem::copy_options::overwrite_existing);
+    std::filesystem::copy("assets/images/skybox/default skybox.hdr", "exported_game/assets/default skybox.hdr", std::filesystem::copy_options::overwrite_existing);
 
+    std::filesystem::copy("Engine/Lighting/shaders/skybox.vs", "exported_game/shaders/skybox.vs", std::filesystem::copy_options::overwrite_existing);
+    std::filesystem::copy("Engine/Lighting/shaders/skybox.fs", "exported_game/shaders/skybox.fs", std::filesystem::copy_options::overwrite_existing);
+    std::filesystem::copy("Engine/Lighting/shaders/cubemap.fs", "exported_game/shaders/cubemap.fs", std::filesystem::copy_options::overwrite_existing);
+    std::filesystem::copy("Engine/Lighting/shaders/cubemap.vs", "exported_game/shaders/cubemap.vs", std::filesystem::copy_options::overwrite_existing);
+
+    // Add your own file copy operations as needed
+
+    // Call to your make or build system goes here
+
+    const char* compileCommand = "cd GameBuilder && \
+        make build";
 
     int result = system(compileCommand);
+
 
     std::remove("exported_game/ScriptData.h");
 
@@ -92,4 +96,5 @@ int BuildProject()
         std::cout << "ERROR: Game Could Not Be Exported due to errors while building the executable!" << std::endl;
         return 1;
     }
+    return 0;
 }

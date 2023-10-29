@@ -2,15 +2,15 @@
     {
         "fovy": 60.0,
         "position": {
-            "x": 2.251007080078125,
-            "y": 1.5064783096313477,
-            "z": 0.7209462523460388
+            "x": 50.0,
+            "y": 0.0,
+            "z": 0.8010400533676147
         },
         "projection": 0,
         "target": {
-            "x": -30.68909454345703,
-            "y": -29.933151245117188,
-            "z": -19.930828094482422
+            "x": 0.0,
+            "y": 0.0,
+            "z": 0.8010400533676147
         },
         "type": "camera",
         "up": {
@@ -29,11 +29,11 @@
         "id": 0,
         "is_dynamic": false,
         "mass": 1.0,
-        "material_path": "project/game/file1.mat",
+        "material_path": "",
         "mesh_type": 1,
         "model_path": "",
         "name": "Unnamed Entity",
-        "normal_texture_path": "project/game/textures/brick_wall_02_nor_gl_4k.png",
+        "normal_texture_path": "",
         "position": {
             "x": 0.0,
             "y": 0.0,
@@ -49,7 +49,7 @@
             "y": 0.0,
             "z": 0.0
         },
-        "roughness_texture_path": "project/game/textures/brick_wall_02_rough_4k.png",
+        "roughness_texture_path": "",
         "scale": {
             "x": 1.0,
             "y": 1.0,
@@ -58,17 +58,17 @@
         "script_index": "",
         "script_path": "",
         "surface_material": {
-            "DiffuseIntensity": 0.5220000147819519,
-            "Roughness": 1.0,
-            "SpecularIntensity": 0.2630000114440918,
+            "DiffuseIntensity": 0.5,
+            "Roughness": 0.5,
+            "SpecularIntensity": 0.5,
             "SpecularTint": {
                 "x": 1.0,
                 "y": 1.0,
                 "z": 1.0
             },
-            "shininess": 0.28600001335144043
+            "shininess": 0.5
         },
-        "texture_path": "project/game/textures/brick_wall_02_diff_4k.png",
+        "texture_path": "",
         "type": "entity"
     }
 ]
