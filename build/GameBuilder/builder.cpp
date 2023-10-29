@@ -81,12 +81,15 @@ int BuildProject() {
 
     // Call to your make or build system goes here
 
-    const char* compileCommand = "cd GameBuilder && \
-        make build";
+    const char* compileCommand = R"""(
+        cd GameBuilder
+        make export_build
+        echo HELLO
+    )""";
 
     int result = system(compileCommand);
-
-
+    system("echo Hello World!");
+    
     std::remove("exported_game/ScriptData.h");
 
     if (result == 0) {
@@ -96,5 +99,4 @@ int BuildProject() {
         std::cout << "ERROR: Game Could Not Be Exported due to errors while building the executable!" << std::endl;
         return 1;
     }
-    return 0;
 }
