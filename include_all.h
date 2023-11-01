@@ -1,6 +1,9 @@
 #ifndef INCLUDE_ALL_H_
 #define INCLUDE_ALL_H_
 
+#define SUPPORT_FILEFORMAT_HDR      1
+
+
 #ifndef IMGUI_DEFINE_MATH_OPERATORS
 #   define IMGUI_DEFINE_MATH_OPERATORS
 #endif
@@ -23,8 +26,6 @@
 #endif
 
 #include "dependencies/include/glad/glad.h"
-
-#define SUPPORT_FILEFORMAT_HDR      1
 
 
 #include "include/bullet3/src/BulletCollision/BroadphaseCollision/btBroadphaseProxy.h"
