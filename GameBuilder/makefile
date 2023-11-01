@@ -14,8 +14,8 @@ STRING2 ?= ""
 CXXFLAGS = -g -pipe -std=c++17 -fpermissive -w -Wall -g
 SRC_FILES = gameSystem.cpp
 INCLUDE_DIRS = -I../include/ -I./include/nlohmann -L../include/bullet3/src
-LIB_FLAGS = -L./include -lboost_filesystem -lraylib -pthread -lpython3.11 -fPIC `python3.11 -m pybind11 --includes` -ldl -lBulletDynamics -lBulletCollision -lLinearMath -I../include/bullet3/src
-LIB_FLAGS += -lavformat -lavcodec -lavutil -lswscale -lz -lm -lpthread -ldrm
+LIB_FLAGS = -pthread -lpython3.11 -fPIC `python3.11 -m pybind11 --includes` -ldl -lBulletDynamics -lBulletCollision -lLinearMath -I../include/bullet3/src
+LIB_FLAGS += -lavformat -lavcodec -lavutil -lswscale -lz -lm -lpthread -ldrm -L. -lstatic -lraylib
 
 
 build:
