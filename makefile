@@ -25,14 +25,16 @@ define echo_success
 endef
 
 
-
-
+CXXFLAGS = -g -pipe -flto -fuse-ld=gold -std=c++17 -fpermissive -w -Wall -DNDEBUG -O0
 SRC_FILES = ImGuiColorTextEdit/TextEditor.o include/rlImGui.o ImNodes/ImNodes.o ImNodes/ImNodesEz.o
 INCLUDE_DIRS = -I./include -I./ImGuiColorTextEdit -I/usr/local/lib -L/usr/lib/x86_64-linux-gnu/ -L/usr/local/lib -I./include/nlohmann -I./imgui -L/include/bullet3/src
-
-CXXFLAGS = -std=c++17 -fpermissive -w -Wall -DNDEBUG -O0
 INCLUDE_DIRS_STATIC = -I./include -I/usr/local/lib -I./include/nlohmann -I./include/bullet3/src
-LIB_FLAGS = -L./include -L/usr/lib/x86_64-linux-gnu -L/usr/local/lib -L./include/bullet3/src -lpython3.11 -fPIC `python3.11 -m pybind11 --includes` -ldl -lBulletDynamics -lBulletCollision -lLinearMath -lavformat -lavcodec -lavutil -lswscale -lz -lm -lpthread -ldrm -ltbb -lchromaprint -lgme -lopenmpt -lraylib -lGL -lm -lpthread -ldl -lrt -lX11
+LIB_FLAGS = -L./include -lboost_filesystem -lraylib -lpython3.11 -fPIC `python3.11 -m pybind11 --includes` -ldl -lBulletDynamics -lBulletCollision -lLinearMath -I./include/bullet3/src
+LIB_FLAGS += -lraylib -lavformat -lavcodec -lavutil -lswscale -lz -lm -lpthread -ldrm -ltbb
+
+
+
+
 
 static-build:
 	@$(call echo_success, "Building Static")
@@ -63,7 +65,6 @@ run:
 build: $(IMGUI_OBJECTS)
 	@$(call echo_success, "Building Demo")
 	@ccache g++ $(CXXFLAGS) main.cpp $(SRC_FILES) $(INCLUDE_DIRS) $(IMGUI_OBJECTS) $(LIB_FLAGS) -o lit_engine.out
-
 
 
 brun:
