@@ -8,9 +8,9 @@
         },
         "projection": 0,
         "target": {
-            "x": -41.036319732666016,
-            "y": -18.694828033447266,
-            "z": 16.40355682373047
+            "x": -37.277034759521484,
+            "y": -29.42021369934082,
+            "z": 6.660419464111328
         },
         "type": "camera",
         "up": {
@@ -55,8 +55,8 @@
             "y": 1.0,
             "z": 1.0
         },
-        "script_index": "",
-        "script_path": "",
+        "script_index": "file10",
+        "script_path": "project/game/file1.py",
         "surface_material": {
             "DiffuseIntensity": 0.5,
             "Roughness": 0.5,
@@ -85,7 +85,7 @@
             "y": 0.4000000059604645,
             "z": -0.4000000059604645
         },
-        "id": 1063616512,
+        "id": 0,
         "intensity": 0.5,
         "isChild": false,
         "light_type": 1,
