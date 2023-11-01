@@ -1,5 +1,6 @@
 #define GAME_SHIPPING
-#include "include_all_static.h"
+#define STATIC_BUILD
+#include "include_all.h"
 
 int main()
 {
