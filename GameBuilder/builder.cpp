@@ -90,7 +90,7 @@ int BuildProject() {
     int result = system(compileCommand);
 
 
-    std::remove("exported_game/ScriptData.h");
+    // std::remove("exported_game/ScriptData.h");
 
     if (result == 0) {
         std::cout << "Game Sucessfully Exported" << std::endl;

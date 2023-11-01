@@ -417,7 +417,7 @@ void serializeScripts() {
     }
 
     // Generate the header file content with the map of script variables
-    std::string headerContent = "std::map<std::string, const char*> scriptMap = {\n";
+    std::string headerContent = std::string("#include \"../include_all.h\"\nstd::map<std::string, const char*> scriptMap = {\n");
     for (const auto& entry : scriptContents) {
         headerContent += "    {\"" + entry.first + "\", R\"(\n";
         headerContent += entry.second + "\n)\"},\n";
