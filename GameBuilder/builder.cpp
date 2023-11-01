@@ -6,7 +6,7 @@ void encryptFile(const std::string& inputFile, const std::string& outputFile, co
     std::ofstream outFile(outputFile, std::ios::binary);
 
     if (!inFile || !outFile) {
-        std::cerr << "Failed to open files." << std::endl;
+        std::cerr << "Failed to open shader files while exporting." << std::endl;
         return;
     }
 
@@ -71,7 +71,7 @@ int BuildProject() {
     encryptFile(inputFile_b, outputFile_b, key_b);
 
 
-    // File copying logic using std::filesystem
+    std::filesystem::copy("project", "exported_game/project", std::filesystem::copy_options::recursive | std::filesystem::copy_options::overwrite_existing);
     std::filesystem::copy("project.json", "exported_game/project.json", std::filesystem::copy_options::overwrite_existing);
     std::filesystem::copy("assets/images/skybox/default skybox.hdr", "exported_game/assets/default skybox.hdr", std::filesystem::copy_options::overwrite_existing);
 
@@ -79,11 +79,7 @@ int BuildProject() {
     std::filesystem::copy("Engine/Lighting/shaders/skybox.fs", "exported_game/shaders/skybox.fs", std::filesystem::copy_options::overwrite_existing);
     std::filesystem::copy("Engine/Lighting/shaders/cubemap.fs", "exported_game/shaders/cubemap.fs", std::filesystem::copy_options::overwrite_existing);
     std::filesystem::copy("Engine/Lighting/shaders/cubemap.vs", "exported_game/shaders/cubemap.vs", std::filesystem::copy_options::overwrite_existing);
-
-    // Add your own file copy operations as needed
-
-    // Call to your make or build system goes here
-
+    
     const char* compileCommand = "cd GameBuilder && \
         make build";
 
