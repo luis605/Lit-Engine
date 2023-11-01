@@ -17,7 +17,8 @@ INCLUDE_DIRS = -I../include/ -I./include/nlohmann -L../include/bullet3/src
 LIB_FLAGS = -L./include -lboost_filesystem -lraylib -pthread -lpython3.11 -fPIC `python3.11 -m pybind11 --includes` -ldl -lBulletDynamics -lBulletCollision -lLinearMath -I../include/bullet3/src
 LIB_FLAGS += -lavformat -lavcodec -lavutil -lswscale -lz -lm -lpthread -ldrm
 
-export_build:
+
+build:
 	@g++ $(CXXFLAGS) $(SRC_FILES) $(INCLUDE_DIRS) $(LIB_FLAGS) -o ../exported_game/my_program.out -DSTRING1=$(STRING1) -DSTRING2=$(STRING2)
 
 print:
