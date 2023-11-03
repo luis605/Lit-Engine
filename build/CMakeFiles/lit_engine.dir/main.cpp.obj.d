@@ -1119,11 +1119,11 @@ CMakeFiles/lit_engine.dir/main.cpp.obj: \
   C:/Users/USER/Desktop/_/Lit-Engine/dependencies/include/glm/gtc/../trigonometric.hpp \
   C:/Users/USER/Desktop/_/Lit-Engine/dependencies/include/glm/gtc/../matrix.hpp \
   C:/LLVM-MinGW/include/omp.h \
-  C:/Users/USER/AppData/Local/Programs/Python/Python311/Lib/site-packages/pybind11/include/pybind11/embed.h \
-  C:/Users/USER/AppData/Local/Programs/Python/Python311/Lib/site-packages/pybind11/include/pybind11/pybind11.h \
-  C:/Users/USER/AppData/Local/Programs/Python/Python311/Lib/site-packages/pybind11/include/pybind11/detail/class.h \
-  C:/Users/USER/AppData/Local/Programs/Python/Python311/Lib/site-packages/pybind11/include/pybind11/detail/../attr.h \
-  C:/Users/USER/AppData/Local/Programs/Python/Python311/Lib/site-packages/pybind11/include/pybind11/detail/common.h \
+  C:/Users/USER/Desktop/_/Lit-Engine/pybind11/embed.h \
+  C:/Users/USER/Desktop/_/Lit-Engine/pybind11/pybind11.h \
+  C:/Users/USER/Desktop/_/Lit-Engine/pybind11/detail/class.h \
+  C:/Users/USER/Desktop/_/Lit-Engine/pybind11/detail/../attr.h \
+  C:/Users/USER/Desktop/_/Lit-Engine/pybind11/detail/common.h \
   C:/Users/USER/AppData/Local/Programs/Python/Python311/include/Python.h \
   C:/Users/USER/AppData/Local/Programs/Python/Python311/include/patchlevel.h \
   C:/Users/USER/AppData/Local/Programs/Python/Python311/include/pyconfig.h \
@@ -1237,23 +1237,23 @@ CMakeFiles/lit_engine.dir/main.cpp.obj: \
   C:/Users/USER/AppData/Local/Programs/Python/Python311/include/cpython/frameobject.h \
   C:/LLVM-MinGW/include/c++/v1/forward_list \
   C:/LLVM-MinGW/include/c++/v1/typeindex \
-  C:/Users/USER/AppData/Local/Programs/Python/Python311/Lib/site-packages/pybind11/include/pybind11/cast.h \
-  C:/Users/USER/AppData/Local/Programs/Python/Python311/Lib/site-packages/pybind11/include/pybind11/detail/descr.h \
-  C:/Users/USER/AppData/Local/Programs/Python/Python311/Lib/site-packages/pybind11/include/pybind11/detail/type_caster_base.h \
-  C:/Users/USER/AppData/Local/Programs/Python/Python311/Lib/site-packages/pybind11/include/pybind11/detail/../pytypes.h \
-  C:/Users/USER/AppData/Local/Programs/Python/Python311/Lib/site-packages/pybind11/include/pybind11/buffer_info.h \
-  C:/Users/USER/AppData/Local/Programs/Python/Python311/Lib/site-packages/pybind11/include/pybind11/detail/internals.h \
-  C:/Users/USER/AppData/Local/Programs/Python/Python311/Lib/site-packages/pybind11/include/pybind11/detail/typeid.h \
+  C:/Users/USER/Desktop/_/Lit-Engine/pybind11/cast.h \
+  C:/Users/USER/Desktop/_/Lit-Engine/pybind11/detail/descr.h \
+  C:/Users/USER/Desktop/_/Lit-Engine/pybind11/detail/type_caster_base.h \
+  C:/Users/USER/Desktop/_/Lit-Engine/pybind11/detail/../pytypes.h \
+  C:/Users/USER/Desktop/_/Lit-Engine/pybind11/buffer_info.h \
+  C:/Users/USER/Desktop/_/Lit-Engine/pybind11/detail/internals.h \
+  C:/Users/USER/Desktop/_/Lit-Engine/pybind11/detail/typeid.h \
   C:/LLVM-MinGW/include/c++/v1/cxxabi.h \
   C:/LLVM-MinGW/include/c++/v1/__cxxabi_config.h \
-  C:/Users/USER/AppData/Local/Programs/Python/Python311/Lib/site-packages/pybind11/include/pybind11/pytypes.h \
-  C:/Users/USER/AppData/Local/Programs/Python/Python311/Lib/site-packages/pybind11/include/pybind11/detail/../options.h \
-  C:/Users/USER/AppData/Local/Programs/Python/Python311/Lib/site-packages/pybind11/include/pybind11/detail/init.h \
-  C:/Users/USER/AppData/Local/Programs/Python/Python311/Lib/site-packages/pybind11/include/pybind11/attr.h \
-  C:/Users/USER/AppData/Local/Programs/Python/Python311/Lib/site-packages/pybind11/include/pybind11/gil.h \
-  C:/Users/USER/AppData/Local/Programs/Python/Python311/Lib/site-packages/pybind11/include/pybind11/options.h \
-  C:/Users/USER/AppData/Local/Programs/Python/Python311/Lib/site-packages/pybind11/include/pybind11/eval.h \
-  C:/Users/USER/AppData/Local/Programs/Python/Python311/Lib/site-packages/pybind11/include/pybind11/stl.h \
+  C:/Users/USER/Desktop/_/Lit-Engine/pybind11/pytypes.h \
+  C:/Users/USER/Desktop/_/Lit-Engine/pybind11/detail/../options.h \
+  C:/Users/USER/Desktop/_/Lit-Engine/pybind11/detail/init.h \
+  C:/Users/USER/Desktop/_/Lit-Engine/pybind11/attr.h \
+  C:/Users/USER/Desktop/_/Lit-Engine/pybind11/gil.h \
+  C:/Users/USER/Desktop/_/Lit-Engine/pybind11/options.h \
+  C:/Users/USER/Desktop/_/Lit-Engine/pybind11/eval.h \
+  C:/Users/USER/Desktop/_/Lit-Engine/pybind11/stl.h \
   C:/LLVM-MinGW/include/c++/v1/list C:/LLVM-MinGW/include/c++/v1/set \
   C:/LLVM-MinGW/include/c++/v1/valarray \
   C:/LLVM-MinGW/include/c++/v1/sstream \
@@ -1390,4 +1390,5 @@ CMakeFiles/lit_engine.dir/main.cpp.obj: \
   C:/Users/USER/Desktop/_/Lit-Engine/Engine/Editor/AssetsExplorer/AssetsExplorer.cpp \
   C:/Users/USER/Desktop/_/Lit-Engine/Engine/Core/Core.cpp \
   C:/Users/USER/Desktop/_/Lit-Engine/Engine/Editor/MenuBar/MenuBar.cpp \
-  C:/Users/USER/Desktop/_/Lit-Engine/GameBuilder/builder.cpp
+  C:/Users/USER/Desktop/_/Lit-Engine/GameBuilder/builder.cpp \
+  C:/Users/USER/Desktop/_/Lit-Engine/GameBuilder/../include_all.h

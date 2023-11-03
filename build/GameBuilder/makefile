@@ -1,25 +1,22 @@
-GREEN =
+GREEN = \033[32m
+
 define echo_success
-    @echo $(1)
+    @echo "$(GREEN)$(1)\033[0m"
 endef
 
 define echo_fail
-    @echo $(1)
+    @echo "$(GREEN)$(1)\033[0m"
 endef
 
-STRING1 ?= "hiiii"
-STRING2 ?= ""
 
-CXX = g++
-CXXFLAGS = -g -std=c++17 -fpermissive -w -Wall -g
+PYTHON_INCLUDE_DIR := $(shell python -c "import sys; print(sys.prefix + '/include')")
+
+CXXFLAGS = -g -pipe -std=c++17 -fpermissive -w -Wall -g
 SRC_FILES = gameSystem.cpp
-INCLUDE_DIRS = -I../include/ -I./include/nlohmann
-LIB_FLAGS = -L./include -lboost_filesystem -lraylib -pthread -lfreetype -ld3d9 -lpython3.11 -lbullet3 -lbulletcollision -lbulletlinearmath
+INCLUDE_DIRS = -I../../include/ -I../../include/nlohmann -I../../ffmpeg -I../../include/bullet3/src -I./pybind11/include -I$(PYTHON_INCLUDE_DIR)
+LIB_FLAGS = -pthread -ldl -lBulletDynamics -lBulletCollision -lLinearMath -lavformat -lavcodec -lavutil -lswscale -lz -lm -lpthread -ldrm -L. -lstatic -lraylib -lpybind11
 
 build:
-	@$(CXX) $(CXXFLAGS) $(SRC_FILES) $(INCLUDE_DIRS) $(LIB_FLAGS) -o ../exported_game/my_program.exe -DSTRING1=$(STRING1) -DSTRING2=$(STRING2)
-
-print:
-	@echo $(STRING1)
+	@g++ $(CXXFLAGS) $(SRC_FILES) $(INCLUDE_DIRS) $(LIB_FLAGS) -o ../exported_game/my_program.out -DSTRING1=$(STRING1) -DSTRING2=$(STRING2)
 
 .PHONY: build print

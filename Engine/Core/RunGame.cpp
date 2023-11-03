@@ -1,8 +1,6 @@
-#ifndef GAME_SHIPPING
-    #include "../include_all.h"
-#endif
+#include "../../include_all.h"
 
-#include "../globals.h"
+#include "../../globals.h"
 #include "RunGame.h"
 
 void CleanScriptThreads(vector<std::thread>& script_threads) {

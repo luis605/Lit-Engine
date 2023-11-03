@@ -1201,6 +1201,7 @@ CMakeFiles/lit_engine.dir/main.cpp.obj: C:/Users/USER/Desktop/_/Lit-Engine/main.
   C:/Users/USER/Desktop/_/Lit-Engine/Engine/Scripting/functions.cpp \
   C:/Users/USER/Desktop/_/Lit-Engine/Engine/Scripting/math.cpp \
   C:/Users/USER/Desktop/_/Lit-Engine/Engine/Scripting/time.cpp \
+  C:/Users/USER/Desktop/_/Lit-Engine/include_all.h \
   C:/Users/USER/Desktop/_/Lit-Engine/GameBuilder/builder.cpp \
   C:/Users/USER/Desktop/_/Lit-Engine/ImGuiColorTextEdit/TextEditor.h \
   C:/Users/USER/Desktop/_/Lit-Engine/dependencies/include/glad/glad.h \
