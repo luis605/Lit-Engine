@@ -14,7 +14,7 @@ string gameTitle = "My Own Game!";
 bool first_time = true;
 
 
-Camera3D inGame_Camera = { 0 };
+LitCamera inGame_Camera = { 0 };
 
 
 
@@ -151,7 +151,7 @@ void Run()
 int main()
 {
     InitWindow();
-    LoadProject(entities_list, lights, lights_info);
+    LoadProject(entities_list, lights, lights_info, inGame_Camera);
     WindowMainloop();
     CloseWindow();
 }

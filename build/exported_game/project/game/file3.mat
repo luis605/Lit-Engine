@@ -1,0 +1,12 @@
+{
+    "color": {
+        "a": 1.0,
+        "b": 1.0,
+        "g": 1.0,
+        "r": 1.0
+    },
+    "diffuse_intensity": 0.30399999022483826,
+    "roughness": 0.6159999966621399,
+    "shininess": 0.7279999852180481,
+    "specular_intensity": 1.0
+}
