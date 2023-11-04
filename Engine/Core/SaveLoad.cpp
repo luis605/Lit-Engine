@@ -610,19 +610,24 @@ void LoadEntity(const json& entity_json, Entity& entity) {
             entity.setModel("", LoadModelFromMesh(GenMeshTorus(1, 1, 30, 30)));
     }
 
+    if (entity_json.contains("is_dynamic"))
+        entity.isDynamic = entity_json["is_dynamic"].get<bool>();
 
-    entity.isDynamic = entity_json["is_dynamic"].get<bool>();
-    entity.mass = entity_json["mass"].get<float>();
+    if (entity_json.contains("mass"))
+        entity.mass = entity_json["mass"].get<float>();
 
     if (entity_json.contains("collider_type"))
         entity.currentCollisionShapeType = make_shared<Entity::CollisionShapeType>(entity_json["collider_type"].get<Entity::CollisionShapeType>());
     entity.reloadRigidBody();
 
-
-    entity.script = entity_json["script_path"].get<std::string>();
-    entity.script_index = entity_json["script_index"].get<std::string>();
-    entity.id = entity_json["id"].get<int>();
-
+    if (entity_json.contains("script_path"))
+        entity.script = entity_json["script_path"].get<std::string>();
+    if (entity_json.contains("script_index"))
+        entity.script_index = entity_json["script_index"].get<std::string>();
+    if (entity_json.contains("id"))
+        entity.id = entity_json["id"].get<int>();
+    else
+        entity.id = -1;
 
 
     // Materials
