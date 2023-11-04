@@ -14,10 +14,10 @@ PYTHON_INCLUDE_DIR := $(shell python -c "import sys; print(sys.prefix + '/includ
 
 CXXFLAGS = -g -pipe -std=c++17 -fpermissive -Wall -w -v
 SRC_FILES = gameSystem.cpp
-INCLUDE_DIRS = -I../../include/ -I../../include/nlohmann -I../../ffmpeg -I../../include/bullet3/src -I../../include/bullet3/lib -I./pybind11/include -I$(PYTHON_INCLUDE_DIR) -I. -L.
-LIB_FLAGS = -pthread -ldl -lBulletDynamics -lBulletCollision -lLinearMath -lavformat -lavcodec -lavutil -lswscale -lz -lm -lpthread -ldrm -L. -lstatic -lraylib
+INCLUDE_DIRS = -I../../include/ -I../../include/nlohmann -I../../ffmpeg -I../../include/bullet3/src -I../../include/bullet3/lib -I./pybind11/include -I$(PYTHON_INCLUDE_DIR) -I.
+LIB_FLAGS = -pthread -ldl -L. -lBulletDynamics -lBulletCollision -lLinearMath -L. -lstatic -lraylib -L. -lavformat -lavcodec -lavutil -lswscale -lz -lm -lpthread -ldrm
 
 build:
-	@g++ $(CXXFLAGS) $(SRC_FILES) $(INCLUDE_DIRS) $(LIB_FLAGS) -o ../exported_game/my_program.out
+	@g++ $(CXXFLAGS) $(SRC_FILES) $(INCLUDE_DIRS) $(LIB_FLAGS) -o ../exported_game/my_program.exe
 
 .PHONY: build
