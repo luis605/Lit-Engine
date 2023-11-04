@@ -4,7 +4,7 @@ project(LitEngine)
 set(CMAKE_CXX_STANDARD 17)
 
 set(CMAKE_WIN32_EXECUTABLE OFF)
-set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -w")
+set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -w -g")
 set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -w")
 
 # Define source files

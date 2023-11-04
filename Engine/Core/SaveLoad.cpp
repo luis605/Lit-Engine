@@ -578,7 +578,10 @@ void LoadEntity(const json& entity_json, Entity& entity) {
     }
 
 
-    entity.ObjectType = entity_json["mesh_type"].get<Entity::ObjectTypeEnum>();
+    if (entity_json.contains("mesh_type")) {
+        entity.ObjectType = entity_json["mesh_type"].get<Entity::ObjectTypeEnum>();
+    }
+
 
     if (entity_json.contains("model_path") && !entity_json["model_path"].get<std::string>().empty()) {
         entity.setModel(
