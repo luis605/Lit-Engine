@@ -406,6 +406,7 @@ void serializeScripts() {
 
         // Extract the script name from the file path (e.g., "test.py")
         std::string scriptName = entity.script.substr(entity.script.find_last_of('/') + 1);
+
         // Remove the file extension to use as a variable name (e.g., "test") and add the index
         scriptName = scriptName.substr(0, scriptName.find_last_of('.')) + std::to_string(file_id);
 
@@ -416,7 +417,6 @@ void serializeScripts() {
         file_id++;
     }
 
-    // Generate the header file content with the map of script variables
     std::string headerContent = std::string("#include \"../include_all.h\"\nstd::map<std::string, const char*> scriptMap = {\n");
     for (const auto& entry : scriptContents) {
         headerContent += "    {\"" + entry.first + "\", R\"(\n";
@@ -424,7 +424,6 @@ void serializeScripts() {
     }
     headerContent += "};\n";
 
-    // Write the header content to a header file
     std::ofstream headerFile("exported_game/ScriptData.h");
     if (headerFile.is_open()) {
         headerFile << headerContent;
@@ -513,7 +512,7 @@ void LoadCamera(const json& camera_json, LitCamera& camera) {
     }
 
     if (camera_json.contains("projection")) {
-        camera.projection = camera_json["projection"].get<int>(); // Adjust the type as needed
+        camera.projection = camera_json["projection"].get<int>();
     }
 }
 
@@ -629,14 +628,11 @@ void LoadEntity(const json& entity_json, Entity& entity) {
     else
         entity.id = -1;
 
-
     // Materials
     if (entity_json.contains("material_path")) {
         entity.surface_material_path = entity_json["material_path"].get<string>();
         DeserializeMaterial(&entity.surface_material, entity.surface_material_path.string().c_str());
     }
-
-
 
     // Textures
     string texture_path = entity_json["texture_path"].get<std::string>();
@@ -644,7 +640,7 @@ void LoadEntity(const json& entity_json, Entity& entity) {
     {
 
         Texture2D diffuse_texture = LoadTexture(texture_path.c_str());
-        if (!IsTextureReady(diffuse_texture)) // Means it is a video or an unsupported format
+        if (!IsTextureReady(diffuse_texture))
         {            
             entity.texture_path = texture_path;
             entity.texture = std::make_unique<VideoPlayer>(texture_path.c_str());
@@ -656,16 +652,11 @@ void LoadEntity(const json& entity_json, Entity& entity) {
         }
     }
 
-
-
     entity.normal_texture_path = entity_json["normal_texture_path"].get<std::string>();
     if (!entity.normal_texture_path.empty())
     {
         entity.normal_texture = LoadTexture(entity.normal_texture_path.string().c_str());
     }
-
-
-
 
     entity.roughness_texture_path = entity_json["roughness_texture_path"].get<std::string>();
     if (!entity.roughness_texture_path.empty())
@@ -673,17 +664,14 @@ void LoadEntity(const json& entity_json, Entity& entity) {
         entity.roughness_texture = LoadTexture(entity.roughness_texture_path.string().c_str());
     }
 
-
     entity.setShader(shader);
-
-
 
     if (entity_json.contains("children")) {
         const json& children_data = entity_json["children"];
         if (children_data.is_array()) {
             for (const auto& child_array : children_data) {
-                if (!child_array.empty()) { // Check if the array is not empty
-                    const json& child_json = child_array[0]; // Access the first object in the array
+                if (!child_array.empty()) {
+                    const json& child_json = child_array[0];
                     string type = child_json["type"].get<std::string>();
                     if (type == "entity") {
                         Entity* child = new Entity();
@@ -790,10 +778,8 @@ void LoadText(const json& text_json, Text& text) {
 
 
 void LoadButton(const json& button_json, LitButton& button) {
-    // Load text properties
     LoadText(button_json["text"], button.text);
 
-    // Load other button properties
     button.name = button_json["name"].get<std::string>();
     button.position = {
         button_json["position"]["x"].get<float>(),
