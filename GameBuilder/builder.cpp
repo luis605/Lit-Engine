@@ -80,13 +80,24 @@ int BuildProject() {
     std::filesystem::copy("Engine/Lighting/shaders/cubemap.fs", "exported_game/shaders/cubemap.fs", std::filesystem::copy_options::overwrite_existing);
     std::filesystem::copy("Engine/Lighting/shaders/cubemap.vs", "exported_game/shaders/cubemap.vs", std::filesystem::copy_options::overwrite_existing);
     
-    const char* compileCommand = "cd GameBuilder && \
-        make build";
+
+    const char* compileCommand = R"""(cmd /c "cd GameBuilder && (
+        mkdir build
+        cd build
+        cmake -G "MinGW Makefiles" .. --fresh
+        make
+    )")""";
 
     int result = system(compileCommand);
 
-
     // std::remove("exported_game/ScriptData.h");
+    std::filesystem::copy("GameBuilder/build/my_program.exe", "exported_game/my_program.exe", std::filesystem::copy_options::overwrite_existing);
+
+    std::filesystem::copy("swscale-7.dll", "exported_game/swscale-7.dll", std::filesystem::copy_options::overwrite_existing);
+    std::filesystem::copy("avformat-60.dll", "exported_game/avformat-60.dll", std::filesystem::copy_options::overwrite_existing);
+    std::filesystem::copy("avutil-58.dll", "exported_game/avutil-58.dll", std::filesystem::copy_options::overwrite_existing);
+    std::filesystem::copy("swresample-4.dll", "exported_game/swresample-4.dll", std::filesystem::copy_options::overwrite_existing);
+    std::filesystem::copy("avcodec-60.dll", "exported_game/avcodec-60.dll", std::filesystem::copy_options::overwrite_existing);
 
     if (result == 0) {
         std::cout << "Game Sucessfully Exported" << std::endl;
