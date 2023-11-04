@@ -118,4 +118,3 @@ add_custom_target(build_dependencies COMMAND
 # Clean targets
 add_custom_target(clean_all COMMAND find . -name "*.out" | xargs rm -f && find . -name "*.o" | xargs rm -f)
 add_custom_target(clean_depend COMMAND find . -name "*.o" | xargs rm -f)
-
