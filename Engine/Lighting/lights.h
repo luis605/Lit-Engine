@@ -157,7 +157,7 @@ void AddLight()
     if (canAddLight)
     {
         cout << "AddLight" << endl;
-        Light light_create = NewLight((Vector3){ -2, 1, -2 }, RED);
+        Light light_create = NewLight({ -2, 1, -2 }, RED);
         lights_list_pregame.push_back(light_create);
         canAddLight = false;
     }
