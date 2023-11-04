@@ -1,4 +1,3 @@
-/*
 #include "include_all.h"
 
 int LitEngine()
@@ -10,10 +9,6 @@ int LitEngine()
     return 0;
 }
 
-
-*/
-
-#include <iostream>
 
 int main()
 {
@@ -38,7 +33,6 @@ int main()
     }
 */
 
-//    LitEngine();
-    std::cout << "Hello World" << std::endl;
+    LitEngine();
     return 0;
 }
