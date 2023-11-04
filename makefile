@@ -28,19 +28,34 @@ endef
 CXXFLAGS = -g -pipe -flto -fuse-ld=gold -std=c++17 -fpermissive -w -Wall -DNDEBUG -O0
 SRC_FILES = ImGuiColorTextEdit/TextEditor.o include/rlImGui.o ImNodes/ImNodes.o ImNodes/ImNodesEz.o
 INCLUDE_DIRS = -I./include -I./ImGuiColorTextEdit -I/usr/local/lib -L/usr/lib/x86_64-linux-gnu/ -L/usr/local/lib -I./include/nlohmann -I./imgui -L/include/bullet3/src
-INCLUDE_DIRS_STATIC = -I./include -I/usr/local/lib -I./include/nlohmann -I./include/bullet3/src
-LIB_FLAGS = -L./include -lboost_filesystem -lraylib -lpython3.11 -fPIC `python3.11 -m pybind11 --includes` -ldl -lBulletDynamics -lBulletCollision -lLinearMath -I./include/bullet3/src
+INCLUDE_DIRS_STATIC = -I./include -I/usr/local/lib -I./include/nlohmann -I./include/bullet3/src -I./ffmpeg
+LIB_FLAGS = -L./include -lboost_filesystem -lraylib -ldl -lBulletDynamics -lBulletCollision -lLinearMath -I./include/bullet3/src
 LIB_FLAGS += -lraylib -lavformat -lavcodec -lavutil -lswscale -lz -lm -lpthread -ldrm -ltbb
 
+PYTHON_INCLUDE_DIR := $(shell python -c "import sys; print(sys.prefix + '/include')")
+
+
+LIB_FLAGS_LINUX = $(LIB_FLAGS) -lpython3.11 -fPIC `python3.11 -m pybind11 --includes`
+
+LIB_FLAGS_WINDOWS = -I./pybind11/include -I$(PYTHON_INCLUDE_DIR) $(LIB_FLAGS)
 
 
 
 
-static-build:
+static-build-windows:
+	@echo "Building Static"
+	@del /F /Q libstatic.a static.o
+	@g++ $(CXXFLAGS) static.cpp -o static.o $(INCLUDE_DIRS_STATIC) $(LIB_FLAGS_WINDOWS) -c
+	@llvm-ar rcs libstatic.a static.o
+
+
+
+static-build-linux:
 	@$(call echo_success, "Building Static")
 	@rm -f libstatic.a static.o
-	@g++ $(CXXFLAGS) static.cpp -o static.o $(INCLUDE_DIRS_STATIC) $(LIB_FLAGS) -c
+	@g++ $(CXXFLAGS) static.cpp -o static.o $(INCLUDE_DIRS_STATIC) $(LIB_FLAGS_LINUX) -c
 	@ar rcs libstatic.a static.o
+
 
 
 sandbox:
