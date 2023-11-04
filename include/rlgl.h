@@ -516,28 +516,28 @@ typedef enum {
 // Framebuffer attachment type
 // NOTE: By default up to 8 color channels defined, but it can be more
 typedef enum {
-    RL_ATTACHMENT_COLOR_CHANNEL0 = 0,   // Framebuffer attachment type: color 0
-    RL_ATTACHMENT_COLOR_CHANNEL1,       // Framebuffer attachment type: color 1
-    RL_ATTACHMENT_COLOR_CHANNEL2,       // Framebuffer attachment type: color 2
-    RL_ATTACHMENT_COLOR_CHANNEL3,       // Framebuffer attachment type: color 3
-    RL_ATTACHMENT_COLOR_CHANNEL4,       // Framebuffer attachment type: color 4
-    RL_ATTACHMENT_COLOR_CHANNEL5,       // Framebuffer attachment type: color 5
-    RL_ATTACHMENT_COLOR_CHANNEL6,       // Framebuffer attachment type: color 6
-    RL_ATTACHMENT_COLOR_CHANNEL7,       // Framebuffer attachment type: color 7
-    RL_ATTACHMENT_DEPTH = 100,          // Framebuffer attachment type: depth
-    RL_ATTACHMENT_STENCIL = 200,        // Framebuffer attachment type: stencil
+    RL_ATTACHMENT_COLOR_CHANNEL0 = 0,       // Framebuffer attachment type: color 0
+    RL_ATTACHMENT_COLOR_CHANNEL1 = 1,       // Framebuffer attachment type: color 1
+    RL_ATTACHMENT_COLOR_CHANNEL2 = 2,       // Framebuffer attachment type: color 2
+    RL_ATTACHMENT_COLOR_CHANNEL3 = 3,       // Framebuffer attachment type: color 3
+    RL_ATTACHMENT_COLOR_CHANNEL4 = 4,       // Framebuffer attachment type: color 4
+    RL_ATTACHMENT_COLOR_CHANNEL5 = 5,       // Framebuffer attachment type: color 5
+    RL_ATTACHMENT_COLOR_CHANNEL6 = 6,       // Framebuffer attachment type: color 6
+    RL_ATTACHMENT_COLOR_CHANNEL7 = 7,       // Framebuffer attachment type: color 7
+    RL_ATTACHMENT_DEPTH = 100,              // Framebuffer attachment type: depth
+    RL_ATTACHMENT_STENCIL = 200,            // Framebuffer attachment type: stencil
 } rlFramebufferAttachType;
 
 // Framebuffer texture attachment type
 typedef enum {
-    RL_ATTACHMENT_CUBEMAP_POSITIVE_X = 0, // Framebuffer texture attachment type: cubemap, +X side
-    RL_ATTACHMENT_CUBEMAP_NEGATIVE_X,   // Framebuffer texture attachment type: cubemap, -X side
-    RL_ATTACHMENT_CUBEMAP_POSITIVE_Y,   // Framebuffer texture attachment type: cubemap, +Y side
-    RL_ATTACHMENT_CUBEMAP_NEGATIVE_Y,   // Framebuffer texture attachment type: cubemap, -Y side
-    RL_ATTACHMENT_CUBEMAP_POSITIVE_Z,   // Framebuffer texture attachment type: cubemap, +Z side
-    RL_ATTACHMENT_CUBEMAP_NEGATIVE_Z,   // Framebuffer texture attachment type: cubemap, -Z side
-    RL_ATTACHMENT_TEXTURE2D = 100,      // Framebuffer texture attachment type: texture2d
-    RL_ATTACHMENT_RENDERBUFFER = 200,   // Framebuffer texture attachment type: renderbuffer
+    RL_ATTACHMENT_CUBEMAP_POSITIVE_X = 0,   // Framebuffer texture attachment type: cubemap, +X side
+    RL_ATTACHMENT_CUBEMAP_NEGATIVE_X = 1,   // Framebuffer texture attachment type: cubemap, -X side
+    RL_ATTACHMENT_CUBEMAP_POSITIVE_Y = 2,   // Framebuffer texture attachment type: cubemap, +Y side
+    RL_ATTACHMENT_CUBEMAP_NEGATIVE_Y = 3,   // Framebuffer texture attachment type: cubemap, -Y side
+    RL_ATTACHMENT_CUBEMAP_POSITIVE_Z = 4,   // Framebuffer texture attachment type: cubemap, +Z side
+    RL_ATTACHMENT_CUBEMAP_NEGATIVE_Z = 5,   // Framebuffer texture attachment type: cubemap, -Z side
+    RL_ATTACHMENT_TEXTURE2D = 100,          // Framebuffer texture attachment type: texture2d
+    RL_ATTACHMENT_RENDERBUFFER = 200,       // Framebuffer texture attachment type: renderbuffer
 } rlFramebufferAttachTextureType;
 
 // Face culling mode
@@ -617,6 +617,7 @@ RLAPI void rlDisableShader(void);                       // Disable shader progra
 RLAPI void rlEnableFramebuffer(unsigned int id);        // Enable render texture (fbo)
 RLAPI void rlDisableFramebuffer(void);                  // Disable render texture (fbo), return to default framebuffer
 RLAPI void rlActiveDrawBuffers(int count);              // Activate multiple draw color buffers
+RLAPI void rlBlitFramebuffer(int srcX, int srcY, int srcWidth, int srcHeight, int dstX, int dstY, int dstWidth, int dstHeight, int bufferMask); // Blit active framebuffer to main framebuffer
 
 // General render state
 RLAPI void rlEnableColorBlend(void);                     // Enable color blending
@@ -632,7 +633,8 @@ RLAPI void rlEnableScissorTest(void);                   // Enable scissor test
 RLAPI void rlDisableScissorTest(void);                  // Disable scissor test
 RLAPI void rlScissor(int x, int y, int width, int height); // Scissor test
 RLAPI void rlEnableWireMode(void);                      // Enable wire mode
-RLAPI void rlDisableWireMode(void);                     // Disable wire mode
+RLAPI void rlEnablePointMode(void);                     //  Enable point mode
+RLAPI void rlDisableWireMode(void);                     // Disable wire mode ( and point ) maybe rename
 RLAPI void rlSetLineWidth(float width);                 // Set the line drawing width
 RLAPI float rlGetLineWidth(void);                       // Get the line drawing width
 RLAPI void rlEnableSmoothLines(void);                   // Enable line aliasing
@@ -803,7 +805,7 @@ RLAPI void rlLoadDrawQuad(void);     // Load and draw a quad
 #if defined(GRAPHICS_API_OPENGL_ES2)
     // NOTE: OpenGL ES 2.0 can be enabled on PLATFORM_DESKTOP,
     // in that case, functions are loaded from a custom glad for OpenGL ES 2.0
-    #if defined(PLATFORM_DESKTOP)
+    #if defined(PLATFORM_DESKTOP) || defined(PLATFORM_DESKTOP_SDL)
         #define GLAD_GLES2_IMPLEMENTATION
         #include "external/glad_gles2.h"
     #else
@@ -820,6 +822,9 @@ RLAPI void rlLoadDrawQuad(void);     // Load and draw a quad
     typedef void (GL_APIENTRYP PFNGLDRAWELEMENTSINSTANCEDEXTPROC) (GLenum mode, GLsizei count, GLenum type, const void *indices, GLsizei primcount);
     typedef void (GL_APIENTRYP PFNGLVERTEXATTRIBDIVISOREXTPROC) (GLuint index, GLuint divisor);
     #endif
+#endif
+#if defined(GRAPHICS_API_OPENGL_ES3)
+    #include <GLES3/gl3.h>
 #endif
 
 #include <stdlib.h>                     // Required for: malloc(), free()
@@ -1037,7 +1042,7 @@ typedef void *(*rlglLoadProc)(const char *name);   // OpenGL extension functions
 static rlglData RLGL = { 0 };
 #endif  // GRAPHICS_API_OPENGL_33 || GRAPHICS_API_OPENGL_ES2
 
-#if defined(GRAPHICS_API_OPENGL_ES2)
+#if defined(GRAPHICS_API_OPENGL_ES2) && !defined(GRAPHICS_API_OPENGL_ES3)
 // NOTE: VAO functionality is exposed through extensions (OES)
 static PFNGLGENVERTEXARRAYSOESPROC glGenVertexArrays = NULL;
 static PFNGLBINDVERTEXARRAYOESPROC glBindVertexArray = NULL;
@@ -1712,6 +1717,14 @@ void rlDisableFramebuffer(void)
 #endif
 }
 
+// Blit active framebuffer to main framebuffer
+void rlBlitFramebuffer(int srcX, int srcY, int srcWidth, int srcHeight, int dstX, int dstY, int dstWidth, int dstHeight, int bufferMask)
+{
+#if (defined(GRAPHICS_API_OPENGL_33) || defined(GRAPHICS_API_OPENGL_ES3)) && defined(RLGL_RENDER_TEXTURES_HINT)
+    glBlitFramebuffer(srcX, srcY, srcWidth, srcHeight, dstX, dstY, dstWidth, dstHeight, bufferMask, GL_NEAREST);
+#endif
+}
+
 // Activate multiple draw color buffers
 // NOTE: One color buffer is always active by default
 void rlActiveDrawBuffers(int count)
@@ -1817,6 +1830,14 @@ void rlEnableWireMode(void)
 #endif
 }
 
+void rlEnablePointMode(void)
+{
+#if defined(GRAPHICS_API_OPENGL_11) || defined(GRAPHICS_API_OPENGL_33)
+    // NOTE: glPolygonMode() not available on OpenGL ES
+    glPolygonMode(GL_FRONT_AND_BACK, GL_POINT);
+    glEnable(GL_PROGRAM_POINT_SIZE);
+#endif
+}
 // Disable wire mode
 void rlDisableWireMode(void)
 {
@@ -2225,7 +2246,7 @@ void rlLoadExtensions(void *loader)
 
 #if defined(GRAPHICS_API_OPENGL_ES3)
     // Register supported extensions flags
-    // OpenGL ES 3.0 extensions supported by default
+    // OpenGL ES 3.0 extensions supported by default (or it should be)
     RLGL.ExtSupported.vao = true;
     RLGL.ExtSupported.instancing = true;
     RLGL.ExtSupported.texNPOT = true;
@@ -2236,20 +2257,20 @@ void rlLoadExtensions(void *loader)
     RLGL.ExtSupported.maxDepthBits = 24;
     RLGL.ExtSupported.texAnisoFilter = true;
     RLGL.ExtSupported.texMirrorClamp = true;
-    // TODO: Make sure that the ones above are actually present by default
-    // TODO: Check for these...
-    //       RLGL.ExtSupported.texCompDXT
-    //       RLGL.ExtSupported.texCompETC1
-    //       RLGL.ExtSupported.texCompETC2
-    //       RLGL.ExtSupported.texCompPVRT
-    //       RLGL.ExtSupported.texCompASTC
-    //       RLGL.ExtSupported.computeShader
-    //       RLGL.ExtSupported.ssbo
-    //       RLGL.ExtSupported.maxAnisotropyLevel
+    // TODO: Check for additional OpenGL ES 3.0 supported extensions:
+    //RLGL.ExtSupported.texCompDXT = true;
+    //RLGL.ExtSupported.texCompETC1 = true;
+    //RLGL.ExtSupported.texCompETC2 = true;
+    //RLGL.ExtSupported.texCompPVRT = true;
+    //RLGL.ExtSupported.texCompASTC = true;
+    //RLGL.ExtSupported.maxAnisotropyLevel = true;
+    //RLGL.ExtSupported.computeShader = true;
+    //RLGL.ExtSupported.ssbo = true;
+
 #elif defined(GRAPHICS_API_OPENGL_ES2)
 
-    #if defined(PLATFORM_DESKTOP)
-    // TODO: Support OpenGL ES 3.0
+    #if defined(PLATFORM_DESKTOP) || defined(PLATFORM_DESKTOP_SDL)
+    // TODO: Support GLAD loader for OpenGL ES 3.0
     if (gladLoadGLES2((GLADloadfunc)loader) == 0) TRACELOG(RL_LOG_WARNING, "GLAD: Cannot load OpenGL ES2.0 functions");
     else TRACELOG(RL_LOG_INFO, "GLAD: OpenGL ES 2.0 loaded successfully");
     #endif
@@ -3000,7 +3021,8 @@ unsigned int rlLoadTexture(const void *data, int width, int height, int format, 
     int mipOffset = 0;          // Mipmap data offset, only used for tracelog
 
     // NOTE: Added pointer math separately from function to avoid UBSAN complaining
-    unsigned char *dataPtr = (unsigned char *)data;
+    unsigned char *dataPtr = NULL;
+    if (data != NULL) dataPtr = (unsigned char *)data;
 
     // Load the different mipmap levels
     for (int i = 0; i < mipmapCount; i++)
@@ -3040,7 +3062,7 @@ unsigned int rlLoadTexture(const void *data, int width, int height, int format, 
         mipWidth /= 2;
         mipHeight /= 2;
         mipOffset += mipSize;       // Increment offset position to next mipmap
-        dataPtr += mipSize;         // Increment data pointer to next mipmap
+        if (data != NULL) dataPtr += mipSize;         // Increment data pointer to next mipmap
 
         // Security check for NPOT textures
         if (mipWidth < 1) mipWidth = 1;
@@ -4248,7 +4270,7 @@ void rlBindImageTexture(unsigned int id, unsigned int index, int format, bool re
     unsigned int glInternalFormat = 0, glFormat = 0, glType = 0;
 
     rlGetGlTextureFormats(format, &glInternalFormat, &glFormat, &glType);
-    glBindImageTexture(index, id, 0, 0, 0, readonly ? GL_READ_ONLY : GL_READ_WRITE, glInternalFormat);
+    glBindImageTexture(index, id, 0, 0, 0, readonly? GL_READ_ONLY : GL_READ_WRITE, glInternalFormat);
 #endif
 }
 
