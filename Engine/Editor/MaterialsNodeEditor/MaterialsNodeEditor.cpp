@@ -44,7 +44,7 @@ std::vector<MyNode*> nodes;
 
 
 
-void SetMaterial()
+void SetMaterial(SurfaceMaterial& material)
 {
     // Color
     selected_entity->surface_material.color = entity_material.color;
@@ -78,11 +78,18 @@ void SetMaterial()
     selected_entity->surface_material.Roughness = entity_material.Roughness;
     selected_entity->surface_material.DiffuseIntensity = entity_material.DiffuseIntensity;
     selected_entity->surface_material.SpecularTint = entity_material.SpecularTint;
+
+
+    material.shininess = entity_material.shininess;
+    material.SpecularIntensity = entity_material.SpecularIntensity;
+    material.Roughness = entity_material.Roughness;
+    material.DiffuseIntensity = entity_material.DiffuseIntensity;
+    material.SpecularTint = entity_material.SpecularTint;
 }
 
 
 
-void MaterialsNodeEditor()
+void MaterialsNodeEditor(SurfaceMaterial& material)
 {
     if (!show_material_in_nodes_editor)
         return;
@@ -209,7 +216,7 @@ void MaterialsNodeEditor()
 
             if (ImGui::Button("Apply", buttonSize))
             {
-                SetMaterial();
+                SetMaterial(material);
             }
         }
 

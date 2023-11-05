@@ -223,6 +223,8 @@ void MaterialInspector(SurfaceMaterial* surface_material = nullptr, string path 
     if (ImGui::Button("View Material in Nodes Editor"))
         show_material_in_nodes_editor = !show_material_in_nodes_editor;
 
+    MaterialsNodeEditor(*material);
+
 
     SerializeMaterial(*material, path.c_str());
         
