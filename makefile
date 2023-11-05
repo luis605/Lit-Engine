@@ -79,7 +79,7 @@ run:
 
 build: $(IMGUI_OBJECTS)
 	@$(call echo_success, "Building Demo")
-	@ccache g++ $(CXXFLAGS) main.cpp $(SRC_FILES) $(INCLUDE_DIRS) $(IMGUI_OBJECTS) $(LIB_FLAGS) -o lit_engine.out
+	@ccache g++ $(CXXFLAGS) main.cpp $(SRC_FILES) $(INCLUDE_DIRS) $(IMGUI_OBJECTS) $(LIB_FLAGS_LINUX) -o lit_engine.out
 
 
 brun:

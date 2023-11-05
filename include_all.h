@@ -66,14 +66,18 @@
 #include <omp.h>
 
 #ifdef _WIN32
-//    #include <Python.h>
+    #include "pybind11/embed.h"
+    #include "pybind11/pybind11.h"
+    #include "pybind11/stl.h"
 #else
     #include <python3.11/Python.h>
+
+    #include <pybind11/embed.h>
+    #include <pybind11/pybind11.h>
+    #include <pybind11/stl.h>
+
 #endif
 
-#include "pybind11/embed.h"
-#include "pybind11/pybind11.h"
-#include "pybind11/stl.h"
 #include <sstream>
 #include <regex>
 
