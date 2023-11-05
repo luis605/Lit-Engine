@@ -203,8 +203,8 @@ float DistributionGGX_Smith(vec3 N, vec3 V, vec3 L, float roughness) {
 
 
 // Helper function to calculate the Cook-Torrance specular term
-vec3 CookTorranceSpecular(Light light, vec3 viewDir, vec3 fragPos, vec3 norm, float roughness, float SpecularIntensity) {
-    if (SpecularIntensity == 0) return vec3(0);
+vec3 CookTorranceSpecular(Light light, vec3 viewDir, vec3 fragPos, vec3 norm, float roughness, float SpecularIntensity, vec3 SpecularTint, vec4 lightColor) {
+    if (SpecularIntensity == 0 || SpecularTint == vec3(0)) return vec3(0);
     vec3 F0 = vec3(0.04); // F0 for dielectrics
 
     vec3 L = normalize(light.position - fragPos);
@@ -221,7 +221,7 @@ vec3 CookTorranceSpecular(Light light, vec3 viewDir, vec3 fragPos, vec3 norm, fl
     vec3 numerator = D * F * G;
     float denominator = 4.0 * NdotL * max(dot(norm, H), 0.0);
     
-    return numerator / max(denominator, 0.001) * SpecularIntensity;
+    return SpecularTint * lightColor.rgb * (numerator / max(denominator, 0.001) * SpecularIntensity);
 }
 
 vec4 CalculateDiffuseLighting(vec3 fragPosition, vec3 norm, vec2 texCoord) {
@@ -259,7 +259,7 @@ vec4 CalculateLighting(vec3 fragPosition, vec3 fragNormal, vec3 viewDir, vec2 te
                 result += CalculateSpotLight(light, viewDir, fragNormal, material.Roughness, 1.0, fragPosition, vec3(0.0), texCoord, mat3(1.0));
             }
 
-            vec3 specular = CookTorranceSpecular(light, viewDir, fragPosition, fragNormal, roughness, surface_material.SpecularIntensity);
+            vec3 specular = CookTorranceSpecular(light, viewDir, fragPosition, fragNormal, roughness, surface_material.SpecularIntensity, surface_material.SpecularTint, light.color);
             specular = max(specular, vec3(0.0)); // Ensure all components are non-negative
             result += vec4(specular, 1);
 

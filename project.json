@@ -2,15 +2,15 @@
     {
         "fovy": 60.0,
         "position": {
-            "x": 4.43121862411499,
-            "y": 3.870030403137207,
-            "z": -0.0616769976913929
+            "x": 21.731544494628906,
+            "y": 30.89748191833496,
+            "z": 32.4770622253418
         },
         "projection": 0,
         "target": {
-            "x": -23.797264099121094,
-            "y": -34.02206039428711,
-            "z": 16.288818359375
+            "x": -12.048904418945313,
+            "y": -3.9093265533447266,
+            "z": 20.337169647216797
         },
         "type": "camera",
         "up": {
@@ -32,10 +32,10 @@
         "material_path": "project/game/file4.mat",
         "model_path": "project/game/models/plane.obj",
         "name": "project/game/models/tree",
-        "normal_texture_path": "",
+        "normal_texture_path": "project/game/textures/metal grid/metalgrid2_normal-ogl.png",
         "position": {
             "x": 0.0,
-            "y": 0.0,
+            "y": 1.1999988555908203,
             "z": 0.0
         },
         "relative_position": {
@@ -48,26 +48,26 @@
             "y": 0.0,
             "z": 0.0
         },
-        "roughness_texture_path": "",
+        "roughness_texture_path": "project/game/textures/brick_wall_02_rough_4k.png",
         "scale": {
-            "x": 1.0,
+            "x": 50.0,
             "y": 1.0,
-            "z": 1.0
+            "z": 50.0
         },
         "script_index": "",
         "script_path": "",
         "surface_material": {
-            "DiffuseIntensity": 0.6669999957084656,
-            "Roughness": 0.0,
-            "SpecularIntensity": 0.0,
+            "DiffuseIntensity": 0.6240000128746033,
+            "Roughness": 100.0,
+            "SpecularIntensity": 4.27400016784668,
             "SpecularTint": {
-                "x": 1.0,
-                "y": 0.20000000298023224,
-                "z": 0.10000000149011612
+                "x": 0.5250965356826782,
+                "y": 0.29194557666778564,
+                "z": 0.0
             },
-            "shininess": 0.0
+            "shininess": 5.127999782562256
         },
-        "texture_path": "",
+        "texture_path": "project/game/textures/metal grid/metalgrid2_basecolor.png",
         "type": "entity"
     },
     {
@@ -84,7 +84,7 @@
             "y": 0.4000000059604645,
             "z": -0.4000000059604645
         },
-        "id": 0,
+        "id": 8096,
         "intensity": 0.5,
         "isChild": false,
         "light_type": 1,
@@ -92,7 +92,7 @@
         "position": {
             "x": 4.0,
             "y": 4.0,
-            "z": 4.0
+            "z": 37.10000228881836
         },
         "relative_position": {
             "x": 0,
