@@ -65,7 +65,7 @@ void MaterialInspector(SurfaceMaterial* surface_material = nullptr, string path 
                 if (!IsTextureReady(diffuse_texture)) // Means it is a video or an unsupported format
                 {
                     selected_entity->texture_path = path;
-                    //selected_entity->texture = std::make_unique<VideoPlayer>(selected_entity->texture_path);
+                    selected_entity->texture = std::make_unique<VideoPlayer>(selected_entity->texture_path.string().c_str());
                 }
                 else
                 {
@@ -116,7 +116,7 @@ void MaterialInspector(SurfaceMaterial* surface_material = nullptr, string path 
                 if (!IsTextureReady(normal_texture)) // Means it is a video or an unsupported format
                 {
                     selected_entity->normal_texture_path = path;
-//                    selected_entity->normal_texture = std::make_unique<VideoPlayer>(selected_entity->normal_texture_path.c_str());
+                    selected_entity->normal_texture = std::make_unique<VideoPlayer>(selected_entity->normal_texture_path.string().c_str());
                 }
                 else
                 {

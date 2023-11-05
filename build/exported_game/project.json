@@ -2,15 +2,15 @@
     {
         "fovy": 60.0,
         "position": {
-            "x": 4.834921836853027,
-            "y": 4.0759968757629395,
-            "z": -0.6067647933959961
+            "x": 1.5485948324203491,
+            "y": 1.23564612865448,
+            "z": -0.6054067611694336
         },
         "projection": 0,
         "target": {
-            "x": -38.510345458984375,
-            "y": -17.897125244140625,
-            "z": 11.156352043151855
+            "x": -37.277034759521484,
+            "y": -29.42021369934082,
+            "z": 6.660419464111328
         },
         "type": "camera",
         "up": {
@@ -21,7 +21,7 @@
     },
     {
         "bloom": true,
-        "bloomBrightness": 0.1379999965429306,
+        "bloomBrightness": 0.0,
         "type": "world settings"
     },
     {
@@ -30,7 +30,8 @@
         "is_dynamic": false,
         "mass": 1.0,
         "material_path": "",
-        "model_path": "project/game/models/test.obj",
+        "mesh_type": 1,
+        "model_path": "",
         "name": "Unnamed Entity",
         "normal_texture_path": "",
         "position": {
@@ -84,7 +85,7 @@
             "y": 0.4000000059604645,
             "z": -0.4000000059604645
         },
-        "id": 1,
+        "id": 0,
         "intensity": 0.5,
         "isChild": false,
         "light_type": 1,

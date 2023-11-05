@@ -3,7 +3,7 @@
 class VideoPlayer {
 public:
     VideoPlayer(const char* videoFile) {
-        // av_register_all();
+        //av_register_all();
         // avcodec_register_all();
 
         pFormatCtx = avformat_alloc_context();
