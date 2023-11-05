@@ -2,15 +2,15 @@
     {
         "fovy": 60.0,
         "position": {
-            "x": 1.5485948324203491,
-            "y": 1.23564612865448,
-            "z": -0.6054067611694336
+            "x": 4.43121862411499,
+            "y": 3.870030403137207,
+            "z": -0.0616769976913929
         },
         "projection": 0,
         "target": {
-            "x": -37.277034759521484,
-            "y": -29.42021369934082,
-            "z": 6.660419464111328
+            "x": -23.797264099121094,
+            "y": -34.02206039428711,
+            "z": 16.288818359375
         },
         "type": "camera",
         "up": {
@@ -20,7 +20,7 @@
         }
     },
     {
-        "bloom": true,
+        "bloom": false,
         "bloomBrightness": 0.0,
         "type": "world settings"
     },
@@ -29,10 +29,9 @@
         "id": 0,
         "is_dynamic": false,
         "mass": 1.0,
-        "material_path": "",
-        "mesh_type": 1,
-        "model_path": "",
-        "name": "Unnamed Entity",
+        "material_path": "project/game/file4.mat",
+        "model_path": "project/game/models/plane.obj",
+        "name": "project/game/models/tree",
         "normal_texture_path": "",
         "position": {
             "x": 0.0,
@@ -55,18 +54,18 @@
             "y": 1.0,
             "z": 1.0
         },
-        "script_index": "file10",
-        "script_path": "project/game/file1.py",
+        "script_index": "",
+        "script_path": "",
         "surface_material": {
-            "DiffuseIntensity": 0.5,
-            "Roughness": 0.5,
-            "SpecularIntensity": 0.5,
+            "DiffuseIntensity": 0.6669999957084656,
+            "Roughness": 0.0,
+            "SpecularIntensity": 0.0,
             "SpecularTint": {
                 "x": 1.0,
-                "y": 1.0,
-                "z": 1.0
+                "y": 0.20000000298023224,
+                "z": 0.10000000149011612
             },
-            "shininess": 0.5
+            "shininess": 0.0
         },
         "texture_path": "",
         "type": "entity"

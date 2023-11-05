@@ -31,10 +31,12 @@ struct Connection
 
 enum NodeSlotTypes
 {
-    NodeSlotColor = 1,   // ID can not be 0
-    NodeSlotTexture = 2,
-    NodeSlotNormalTexture = 3,
-    NodeSlotSurfaceMaterial = 4,
+    NodeSlotColor              = 1,   // ID can not be 0
+    NodeSlotTexture            = 2,
+    NodeSlotNormalTexture      = 3,
+    NodeSlotSurfaceMaterial    = 4,
+    NodeSlotRoughnessTexture   = 5,
+    NodeSlotAoTexture          = 6,
 };
 
 
@@ -49,6 +51,10 @@ struct EntityMaterial
     fs::path texture_path;
     Texture2D normal_texture;
     fs::path normal_texture_path;
+    Texture2D roughness_texture;
+    fs::path roughness_texture_path;
+    Texture2D ao_texture;
+    fs::path ao_texture_path;
     
     // Surface Material
     float shininess = 0.5f;
