@@ -1,16 +1,16 @@
 [
     {
-        "fovy": 60.0,
+        "fovy": 66.52678680419922,
         "position": {
-            "x": 4.834921836853027,
-            "y": 4.0759968757629395,
-            "z": -0.6067647933959961
+            "x": 30.154722213745117,
+            "y": 36.6086311340332,
+            "z": 5.877904415130615
         },
         "projection": 0,
         "target": {
-            "x": -38.510345458984375,
-            "y": -17.897125244140625,
-            "z": 11.156352043151855
+            "x": 9.089359283447266,
+            "y": -8.0599365234375,
+            "z": -1.9299464225769043
         },
         "type": "camera",
         "up": {
@@ -21,7 +21,7 @@
     },
     {
         "bloom": true,
-        "bloomBrightness": 0.1379999965429306,
+        "bloomBrightness": 0.9660000205039978,
         "type": "world settings"
     },
     {
@@ -29,8 +29,8 @@
         "id": 0,
         "is_dynamic": false,
         "mass": 1.0,
-        "material_path": "",
-        "model_path": "project/game/models/test.obj",
+        "material_path": "project/game/file1.mat",
+        "model_path": "project/game/models/plane.obj",
         "name": "Unnamed Entity",
         "normal_texture_path": "",
         "position": {
@@ -50,24 +50,24 @@
         },
         "roughness_texture_path": "",
         "scale": {
-            "x": 1.0,
+            "x": 100.0,
             "y": 1.0,
-            "z": 1.0
+            "z": 100.0
         },
         "script_index": "file10",
         "script_path": "project/game/file1.py",
         "surface_material": {
-            "DiffuseIntensity": 0.5,
-            "Roughness": 0.5,
-            "SpecularIntensity": 0.5,
+            "DiffuseIntensity": 0.44600000977516174,
+            "Roughness": 1.0,
+            "SpecularIntensity": 1.0,
             "SpecularTint": {
                 "x": 1.0,
                 "y": 1.0,
                 "z": 1.0
             },
-            "shininess": 0.5
+            "shininess": 0.0
         },
-        "texture_path": "",
+        "texture_path": "project/game/videos/185096 (540p).mp4",
         "type": "entity"
     },
     {
@@ -92,7 +92,7 @@
         "position": {
             "x": 4.0,
             "y": 4.0,
-            "z": 4.0
+            "z": 2.700002431869507
         },
         "relative_position": {
             "x": 0,
