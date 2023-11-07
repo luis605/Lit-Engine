@@ -33,10 +33,11 @@ enum NodeSlotTypes
 {
     NodeSlotColor              = 1,   // ID can not be 0
     NodeSlotTexture            = 2,
-    NodeSlotNormalTexture      = 3,
-    NodeSlotSurfaceMaterial    = 4,
-    NodeSlotRoughnessTexture   = 5,
-    NodeSlotAoTexture          = 6,
+    NodeSlotDiffuseTexture     = 3,
+    NodeSlotRoughnessTexture   = 4,
+    NodeSlotAoTexture          = 5,
+    NodeSlotNormalTexture      = 6,
+    NodeSlotSurfaceMaterial    = 7,
 };
 
 
