@@ -2,15 +2,15 @@
     {
         "fovy": 60.0,
         "position": {
-            "x": -26.450071334838867,
-            "y": 12.201571464538574,
-            "z": -3.125218391418457
+            "x": -0.6386101245880127,
+            "y": 28.70902442932129,
+            "z": -25.613698959350586
         },
         "projection": 0,
         "target": {
-            "x": 21.183393478393555,
-            "y": -2.096024513244629,
-            "z": 2.037672519683838
+            "x": -2.1649935245513916,
+            "y": 23.057323455810547,
+            "z": -17.26334571838379
         },
         "type": "camera",
         "up": {
@@ -25,17 +25,17 @@
         "type": "world settings"
     },
     {
-        "collider_type": 0,
+        "collider_type": 1,
         "id": 0,
         "is_dynamic": false,
-        "mass": 1.0,
-        "material_path": "project/game/file4.mat",
-        "model_path": "project/game/models/plane.obj",
-        "name": "project/game/models/tree",
-        "normal_texture_path": "project/game/textures/metal grid/metalgrid2_normal-ogl.png",
+        "mass": 370.8330078125,
+        "material_path": "project/game/file3.mat",
+        "model_path": "project/game/models/simple_terrain.obj",
+        "name": "project/game/models/simple_terrain",
+        "normal_texture_path": "",
         "position": {
             "x": 0.0,
-            "y": 1.1999988555908203,
+            "y": 4.700003623962402,
             "z": 0.0
         },
         "relative_position": {
@@ -48,18 +48,18 @@
             "y": 0.0,
             "z": 0.0
         },
-        "roughness_texture_path": "project/game/textures/brick_wall_02_rough_4k.png",
+        "roughness_texture_path": "",
         "scale": {
-            "x": 50.0,
-            "y": 1.0,
-            "z": 50.0
+            "x": 200.0,
+            "y": 135.0,
+            "z": 200.0
         },
         "script_index": "",
         "script_path": "",
         "surface_material": {
-            "DiffuseIntensity": 1.0,
-            "Roughness": 100.0,
-            "SpecularIntensity": 4.27400016784668,
+            "DiffuseIntensity": 0.5379999876022339,
+            "Roughness": 1.0,
+            "SpecularIntensity": 0.0,
             "SpecularTint": {
                 "x": 1.0,
                 "y": 1.0,
@@ -67,8 +67,92 @@
             },
             "shininess": 0.0
         },
-        "texture_path": "project/game/textures/metal grid/metalgrid2_basecolor.png",
+        "texture_path": "",
         "type": "entity"
+    },
+    {
+        "collider_type": 0,
+        "id": 1,
+        "is_dynamic": true,
+        "mass": 1.0,
+        "material_path": "",
+        "mesh_type": 1,
+        "model_path": "",
+        "name": "Unnamed Entity",
+        "normal_texture_path": "",
+        "position": {
+            "x": 0.0,
+            "y": 23.400005340576172,
+            "z": 0.0
+        },
+        "relative_position": {
+            "x": 0.0,
+            "y": 0.0,
+            "z": 0.0
+        },
+        "rotation": {
+            "x": 0.0,
+            "y": 0.0,
+            "z": 0.0
+        },
+        "roughness_texture_path": "",
+        "scale": {
+            "x": 1.0,
+            "y": 1.0,
+            "z": 1.0
+        },
+        "script_index": "coins collector0",
+        "script_path": "project/game/coins collector.py",
+        "surface_material": {
+            "DiffuseIntensity": 0.5,
+            "Roughness": 0.5,
+            "SpecularIntensity": 0.5,
+            "SpecularTint": {
+                "x": 1.0,
+                "y": 1.0,
+                "z": 1.0
+            },
+            "shininess": 0.5
+        },
+        "texture_path": "",
+        "type": "entity"
+    },
+    {
+        "attenuation": 9.999999747378752e-05,
+        "color": {
+            "a": 255.0,
+            "b": 0.0,
+            "g": 0.0,
+            "r": 255.0
+        },
+        "cutOff": 10.0,
+        "direction": {
+            "x": 0.4000000059604645,
+            "y": 0.4000000059604645,
+            "z": -0.4000000059604645
+        },
+        "id": 1063616512,
+        "intensity": 0.5,
+        "isChild": false,
+        "light_type": 1,
+        "name": "",
+        "position": {
+            "x": 4.0,
+            "y": 5.0,
+            "z": 3.0
+        },
+        "relative_position": {
+            "x": 0,
+            "y": 0,
+            "z": 0
+        },
+        "specularStrength": 0.5,
+        "target": {
+            "x": 0,
+            "y": 0,
+            "z": 0
+        },
+        "type": "light"
     },
     {
         "attenuation": 9.999999747378752e-05,
@@ -80,19 +164,19 @@
         },
         "cutOff": 10.0,
         "direction": {
-            "x": 0.20800000429153442,
-            "y": -0.32499998807907104,
-            "z": -0.05900000035762787
+            "x": -1.0,
+            "y": -0.15800000727176666,
+            "z": -0.4000000059604645
         },
-        "id": 8098,
-        "intensity": 0.9169999957084656,
+        "id": 1063616512,
+        "intensity": 0.5,
         "isChild": false,
         "light_type": 0,
         "name": "",
         "position": {
             "x": 4.0,
-            "y": 4.0,
-            "z": 37.10000228881836
+            "y": 5.0,
+            "z": 3.0
         },
         "relative_position": {
             "x": 0,
@@ -101,9 +185,9 @@
         },
         "specularStrength": 0.5,
         "target": {
-            "x": 0.0,
-            "y": 0.0,
-            "z": 0.0
+            "x": 2.1261522320514814e-08,
+            "y": 3.0761303888858384e-41,
+            "z": 1.401298464324817e-45
         },
         "type": "light"
     }
