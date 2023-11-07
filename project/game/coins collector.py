@@ -12,6 +12,7 @@ pitch = 0.0
 
 rotation_angle = 45.0  # Angle in degrees for rotation
 
+entity.visible = False
 def update():
     global velocity, dragging_item, hovered_entity, yaw, pitch
 
@@ -36,10 +37,10 @@ def update():
         entity.applyImpulse(right)
 
     if IsKeyDown(KeyboardKey.KEY_SPACE):
-        if (entity.position.y < 4):
+        if (entity.position.y < 400000):
             entity.applyImpulse(Vector3(0, 0.5, 0))  # Adjust for desired jump height
 
-    camera.pos = Vector3(entity.position.x, entity.position.y, entity.position.z)
+    camera.pos = Vector3(entity.position.x, entity.position.y-2, entity.position.z)
     camera.look_at = Vector3(entity.position.x + 0.1, entity.position.y, entity.position.z)
 
     sensitivity = 0.3
@@ -91,3 +92,5 @@ def update():
     # if IsKeyDown(KeyboardKey.KEY_Z) and dragging_item:
     #     # Rotate the dragged item around the Z-axis
     #     dragging_item.rotation = Vector3(0, 0, rotation_angle)
+
+

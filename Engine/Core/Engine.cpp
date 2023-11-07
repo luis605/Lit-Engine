@@ -937,6 +937,79 @@ public:
         }
     }
 
+
+    void createStaticMesh() {
+        if (isDynamic)
+            isDynamic = true;
+
+        currentCollisionShapeType = std::make_shared<CollisionShapeType>(CollisionShapeType::HighPolyMesh);
+
+        if (treeRigidBody != nullptr && *treeRigidBody.get() != nullptr) {
+            dynamicsWorld->removeRigidBody(*treeRigidBody);
+            delete (*treeRigidBody)->getMotionState();
+            delete *treeRigidBody;
+            treeRigidBody = nullptr;
+        }
+        if (boxRigidBody && *boxRigidBody.get() != nullptr) {
+            dynamicsWorld->removeRigidBody(*boxRigidBody);
+            delete (*boxRigidBody)->getMotionState();
+            delete *boxRigidBody;
+            boxRigidBody= nullptr;
+        }
+
+
+        if (staticBoxShape) {
+            delete staticBoxShape;
+            boxMotionState = nullptr;
+            staticBoxShape = nullptr;
+            dynamicBoxShape = nullptr;
+        }
+
+        // Create a btBvhTriangleMeshShape for the ground
+        btTriangleMesh* triangleMesh = new btTriangleMesh();
+
+        for (int m = 0; m < model.meshCount; m++) {
+            Mesh mesh = model.meshes[m];
+            float* meshVertices = reinterpret_cast<float*>(mesh.vertices);
+
+            for (int v = 0; v < mesh.vertexCount; v += 9) {
+                triangleMesh->addTriangle(
+                    btVector3(meshVertices[v], meshVertices[v + 1], meshVertices[v + 2]),
+                    btVector3(meshVertices[v + 3], meshVertices[v + 4], meshVertices[v + 5]),
+                    btVector3(meshVertices[v + 6], meshVertices[v + 7], meshVertices[v + 8])
+                );
+            }
+        }
+
+        btBvhTriangleMeshShape* groundShape = new btBvhTriangleMeshShape(triangleMesh, true);
+
+        // Create the rigid body for the ground
+        btTransform groundTransform;
+        groundTransform.setIdentity();
+        groundTransform.setOrigin(btVector3(0, 10, 0));
+
+        btDefaultMotionState* groundMotionState = new btDefaultMotionState(groundTransform);
+        btRigidBody::btRigidBodyConstructionInfo groundRigidBodyCI(0, groundMotionState, groundShape, btVector3(0, 0, 0));
+        btRigidBody* groundRigidBody = new btRigidBody(groundRigidBodyCI);
+
+
+        Matrix scaleMatrix = MatrixScale(model.transform.m0, model.transform.m5, model.transform.m10);
+        float scaleX = scaleMatrix.m0 * scale.x;
+        float scaleY = scaleMatrix.m5 * scale.y;
+        float scaleZ = scaleMatrix.m10 * scale.z;
+
+
+        btVector3 scaleVector(scaleX, scaleY, scaleZ);
+        groundRigidBody->getCollisionShape()->setLocalScaling(scaleVector);
+
+        // Add the ground rigid body to the dynamics world
+        dynamicsWorld->addRigidBody(groundRigidBody);
+
+        std::cout << "\n\n\nDONE\n\n\n";
+        std::cout << "Scale (" << scaleX << ", " << scaleY << ", " << scaleZ << ")\n";
+    }
+
+
     void createDynamicBox(float x, float y, float z) {
         if (!isDynamic) isDynamic = true;
 
@@ -995,10 +1068,6 @@ public:
         }
 
         if (staticBoxShape) {
-
-            delete boxMotionState;
-            delete staticBoxShape;
-            delete dynamicBoxShape;
             boxMotionState = nullptr;
             staticBoxShape = nullptr;
             dynamicBoxShape = nullptr;
@@ -1040,9 +1109,18 @@ public:
             createDynamicMesh();
     }
 
-    void makePhysicsStatic() {
+    void makePhysicsStatic(CollisionShapeType shapeType = CollisionShapeType::None) {
+        if (shapeType == None) {
+            shapeType = *currentCollisionShapeType;
+        } 
+ 
         isDynamic = false;
-        createStaticBox(scale.x, scale.y, scale.z);
+ 
+        if (shapeType == CollisionShapeType::Box)
+            createStaticBox(scale.x, scale.y, scale.z);
+        else if (shapeType == CollisionShapeType::HighPolyMesh)
+            createStaticMesh();
+
     }
 
     void reloadRigidBody() {
@@ -1084,9 +1162,9 @@ public:
 
         if (calc_physics)
         {
-            if (boxRigidBody == nullptr && treeRigidBody == nullptr)
+            if (*currentCollisionShapeType != CollisionShapeType::Box && *currentCollisionShapeType != CollisionShapeType::HighPolyMesh && !isDynamic)
                 makePhysicsStatic();
-            else
+            else if (*currentCollisionShapeType != CollisionShapeType::None && isDynamic)
                 calcPhysicsPosition();
         }
         else
