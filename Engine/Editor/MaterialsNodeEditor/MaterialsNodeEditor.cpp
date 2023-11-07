@@ -13,16 +13,39 @@ std::map<std::string, MyNode*(*)()> available_nodes{
             {"Color", NodeSlotColor} 
         });
     }},
+    {"Texture", []() -> MyNode* {
+        return new MyNode("Texture", {
+            {"Diffuse Map", NodeSlotDiffuseTexture},
+            {"Normal Map", NodeSlotNormalTexture},
+            {"Roughness Map", NodeSlotRoughnessTexture},
+            {"AO Map", NodeSlotAoTexture},
+        },
+        {
+            {"Texture", NodeSlotTexture},
+        });
+    }},
     {"Diffuse Texture", []() -> MyNode* {
         return new MyNode("Diffuse Texture", {},
         {
-            {"Diffuse Texture", NodeSlotTexture},
+            {"Diffuse Texture", NodeSlotDiffuseTexture},
         });
     }},
     {"Normal Map Texture", []() -> MyNode* {
         return new MyNode("Normal Map Texture", {},
         {
             {"Normal Map Texture", NodeSlotNormalTexture},
+        });
+    }},
+    {"Roughness Map Texture", []() -> MyNode* {
+        return new MyNode("Roughness Map Texture", {},
+        {
+            {"Roughness Map Texture", NodeSlotRoughnessTexture},
+        });
+    }},
+    {"Ambient Occlusion Map Texture", []() -> MyNode* {
+        return new MyNode("Ambient Occlusion Map Texture", {},
+        {
+            {"AO Map Texture", NodeSlotAoTexture},
         });
     }},
     {"Surface Material", []() -> MyNode* {
