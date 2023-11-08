@@ -272,10 +272,12 @@ public:
         this->mass = other.mass;
         this->inertia = other.inertia;
         this->id = other.id;
-        this->parent = nullptr; // Avoid copying the parent-child relationship
-        // You'll need to handle copying the vector of children properly
-        // Note: Be sure to consider whether you need to deep copy the elements
-        this->children = other.children; // Shallow copy of children
+        this->parent = nullptr; 
+
+        for (int i = 0; i < sizeof(LodModels)/sizeof(LodModels[0]); i++)
+            this->LodModels[i] = other.LodModels[i];
+
+        this->children = other.children;
     }
 
 
@@ -300,6 +302,9 @@ public:
         this->model = other.model;
         this->bounds = other.bounds;
         this->texture_path = other.texture_path;
+
+        for (int i = 0; i < sizeof(LodModels)/sizeof(LodModels[0]); i++)
+            this->LodModels[i] = other.LodModels[i];
 
         this->texture = std::visit([](const auto& value) -> std::variant<Texture, std::unique_ptr<VideoPlayer, std::default_delete<VideoPlayer>>> {
             using T = std::decay_t<decltype(value)>;
@@ -617,6 +622,13 @@ public:
             model = LoadModel(modelPath);
         }
 
+        lodEnabled = true;
+
+        this->LodModels[0] = this->model;
+        this->LodModels[1] = LoadModelFromMesh(GenerateLODMesh(ContractVertices(this->model.meshes[0], 1.0f), this->model.meshes[0]));
+        this->LodModels[2] = LoadModelFromMesh(GenerateLODMesh(ContractVertices(this->model.meshes[0], 1.2f), this->model.meshes[0]));
+        this->LodModels[3] = LoadModelFromMesh(GenerateLODMesh(ContractVertices(this->model.meshes[0], 1.5f), this->model.meshes[0]));
+
         if (isDynamic) {
             makePhysicsDynamic();
         } else {
@@ -625,18 +637,7 @@ public:
 
         ReloadTextures();
         
-        this->LodModels[0] = this->model;
-        this->LodModels[1] = LoadModelFromMesh(GenerateLODMesh(ContractVertices(this->model.meshes[0], 1.0f), this->model.meshes[0]));
-        this->LodModels[2] = LoadModelFromMesh(GenerateLODMesh(ContractVertices(this->model.meshes[0], 1.2f), this->model.meshes[0]));
-        this->LodModels[3] = LoadModelFromMesh(GenerateLODMesh(ContractVertices(this->model.meshes[0], 1.5f), this->model.meshes[0]));
-
-        lodEnabled = true;
         setShader(default_shader);
-
-        // cluster.entities.push_back(entity);
-
-        // clusters.push_back(cluster);
-
     }
 
     bool hasModel()
@@ -1267,7 +1268,7 @@ public:
                 lodLevel = 3;
             }
 
-            if (IsModelReady(LodModels[lodLevel]) && lodEnabled)
+            if (lodEnabled)
             {
                 DrawModelEx(
                     LodModels[lodLevel],
