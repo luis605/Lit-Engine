@@ -199,7 +199,7 @@ void EntityInspector()
             ImGui::EndDragDropTarget();
         }
 
-        if (!selected_entity->surface_material_path.empty())
+        if (!selected_entity->surface_material_path.empty() && selected_entity->surface_material_path.has_filename())
         {
             MaterialInspector(&selected_entity->surface_material, selected_entity->surface_material_path.string());
         }

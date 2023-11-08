@@ -40,7 +40,7 @@ def update():
         entity.applyImpulse(right)
 
     if IsKeyDown(KeyboardKey.KEY_SPACE):
-        if (entity.position.y < 400000):
+        if (entity.position.y < 10):
             entity.applyImpulse(Vector3(0, 0.5, 0))  # Adjust for desired jump height
 
     camera.pos = Vector3(entity.position.x, entity.position.y-2, entity.position.z)
@@ -95,6 +95,7 @@ def update():
     # if IsKeyDown(KeyboardKey.KEY_Z) and dragging_item:
     #     # Rotate the dragged item around the Z-axis
     #     dragging_item.rotation = Vector3(0, 0, rotation_angle)
+
 
 
 
