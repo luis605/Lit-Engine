@@ -134,11 +134,8 @@ Mesh GenerateLODMesh(const std::vector<Vector3>& uniqueVertices, Mesh& sourceMes
         lodMesh.vertices = (float*)malloc(sizeof(float) * 3 * vertexCount);
         lodMesh.indices = (unsigned short*)malloc(sizeof(unsigned short) * indexCount);
         lodMesh.normals = (float*)malloc(sizeof(float) * 3 * vertexCount);
-        lodMesh.texcoords = (float*)malloc(sizeof(float) * 2 * vertexCount); // Allocate memory for texcoords
-        lodMesh.texcoords2 = (float*)malloc(sizeof(float) * 2 * vertexCount); // Allocate memory for texcoords2
-        lodMesh.colors = (unsigned char*)malloc(sizeof(unsigned char) * 4 * vertexCount); // Allocate memory for colors
-        lodMesh.tangents = (float*)malloc(sizeof(float) * 4 * vertexCount); // Allocate memory for tangents
-        lodMesh.boneWeights = (float*)malloc(sizeof(float) * 4 * vertexCount); // Allocate memory for boneWeights
+        lodMesh.texcoords = sourceMesh.texcoords;
+        lodMesh.texcoords2 = sourceMesh.texcoords2;
 
         // Copy unique vertices to the new mesh's vertex array
         for (int i = 0; i < vertexCount; i++) {
@@ -198,52 +195,11 @@ Mesh GenerateLODMesh(const std::vector<Vector3>& uniqueVertices, Mesh& sourceMes
         else {
             lodMesh.indices = sourceMesh.indices;
         }
-
-        // Assuming texture coordinates are already available in the sourceMesh
-        if (sourceMesh.texcoords) {
-            for (int i = 0; i < vertexCount; i++) {
-                lodMesh.texcoords[i * 2] = sourceMesh.texcoords[i * 2];
-                lodMesh.texcoords[i * 2 + 1] = sourceMesh.texcoords[i * 2 + 1];
-            }
-        }
     }
 
     // Upload the mesh data to GPU
     UploadMesh(&lodMesh, false);
 
-    // Free the allocated memory before returning
-    if (lodMesh.vertices) {
-        free(lodMesh.vertices);
-        lodMesh.vertices = NULL;
-    }
-    if (lodMesh.indices) {
-        free(lodMesh.indices);
-        lodMesh.indices = NULL;
-    }
-    if (lodMesh.normals) {
-        free(lodMesh.normals);
-        lodMesh.normals = NULL;
-    }
-    if (lodMesh.texcoords) {
-        free(lodMesh.texcoords);
-        lodMesh.texcoords = NULL;
-    }
-    if (lodMesh.texcoords2) {
-        free(lodMesh.texcoords2);
-        lodMesh.texcoords2 = NULL;
-    }
-    if (lodMesh.colors) {
-        free(lodMesh.colors);
-        lodMesh.colors = NULL;
-    }
-    if (lodMesh.tangents) {
-        free(lodMesh.tangents);
-        lodMesh.tangents = NULL;
-    }
-    if (lodMesh.boneWeights) {
-        free(lodMesh.boneWeights);
-        lodMesh.boneWeights = NULL;
-    }
 
     return lodMesh;
 }
