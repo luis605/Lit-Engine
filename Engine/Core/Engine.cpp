@@ -197,6 +197,8 @@ public:
         this->ObjectType = other.ObjectType;
         this->model = other.model;
         this->bounds = other.bounds;
+        this->tiling[0] = other.tiling[0];
+        this->tiling[1] = other.tiling[1];
 
         this->currentCollisionShapeType     = make_shared<CollisionShapeType>(*other.currentCollisionShapeType);
         if (other.boxRigidBody && *other.boxRigidBody != nullptr)
@@ -302,6 +304,9 @@ public:
         this->model = other.model;
         this->bounds = other.bounds;
         this->texture_path = other.texture_path;
+        this->tiling[0] = other.tiling[0];
+        this->tiling[1] = other.tiling[1];
+
 
         for (int i = 0; i < sizeof(LodModels)/sizeof(LodModels[0]); i++)
             this->LodModels[i] = other.LodModels[i];
@@ -575,18 +580,31 @@ public:
         if (!texture_path.empty() || !force_reload) {
             if (auto diffuse_texture = get_if<Texture2D>(&texture)) {
                 model.materials[0].maps[MATERIAL_MAP_DIFFUSE].texture = *diffuse_texture;
+                for (int i = 0; i < sizeof(LodModels)/sizeof(LodModels[0]); i++) {
+                    LodModels[i].materials[0].maps[MATERIAL_MAP_DIFFUSE].texture = *diffuse_texture;
+                }
             } else if (auto* videoPlayerPtr = std::get_if<std::unique_ptr<VideoPlayer>>(&texture)) {
                 (*videoPlayerPtr)->Update();
                 model.materials[0].maps[MATERIAL_MAP_DIFFUSE].texture = (*videoPlayerPtr)->GetTexture();
+                for (int i = 0; i < sizeof(LodModels)/sizeof(LodModels[0]); i++) {
+                    LodModels[i].materials[0].maps[MATERIAL_MAP_DIFFUSE].texture = (*videoPlayerPtr)->GetTexture();
+                }
             }
         }
 
         if (!normal_texture_path.empty() || !force_reload) {
             if (auto normal = get_if<Texture2D>(&normal_texture)) {
                 model.materials[0].maps[MATERIAL_MAP_NORMAL].texture = *normal;
+                for (int i = 0; i < sizeof(LodModels)/sizeof(LodModels[0]); i++) {
+                    LodModels[i].materials[0].maps[MATERIAL_MAP_NORMAL].texture = *normal;
+                }
             } else if (auto* videoPlayerPtr = std::get_if<std::unique_ptr<VideoPlayer>>(&normal_texture)) {
                 (*videoPlayerPtr)->Update();
                 model.materials[0].maps[MATERIAL_MAP_NORMAL].texture = (*videoPlayerPtr)->GetTexture();
+
+                for (int i = 0; i < sizeof(LodModels)/sizeof(LodModels[0]); i++) {
+                    LodModels[i].materials[0].maps[MATERIAL_MAP_NORMAL].texture = (*videoPlayerPtr)->GetTexture();
+                }
             }
         }
 
@@ -594,18 +612,35 @@ public:
         if (!roughness_texture_path.empty() || !force_reload) {
             if (auto roughness = get_if<Texture2D>(&roughness_texture)) {
                 model.materials[0].maps[MATERIAL_MAP_ROUGHNESS].texture = *roughness;
+
+                for (int i = 0; i < sizeof(LodModels)/sizeof(LodModels[0]); i++) {
+                    LodModels[i].materials[0].maps[MATERIAL_MAP_ROUGHNESS].texture = *roughness;
+                }
             } else if (auto* videoPlayerPtr = std::get_if<std::unique_ptr<VideoPlayer>>(&roughness_texture)) {
                 (*videoPlayerPtr)->Update();
                 model.materials[0].maps[MATERIAL_MAP_ROUGHNESS].texture = (*videoPlayerPtr)->GetTexture();
+
+                for (int i = 0; i < sizeof(LodModels)/sizeof(LodModels[0]); i++) {
+                    LodModels[i].materials[0].maps[MATERIAL_MAP_ROUGHNESS].texture = (*videoPlayerPtr)->GetTexture();
+                }
+
             }
         }
 
         if (!ao_texture_path.empty() || !force_reload) {
             if (auto ao = get_if<Texture2D>(&ao_texture)) {
                 model.materials[0].maps[MATERIAL_MAP_OCCLUSION].texture = *ao;
+
+                for (int i = 0; i < sizeof(LodModels)/sizeof(LodModels[0]); i++) {
+                    LodModels[i].materials[0].maps[MATERIAL_MAP_OCCLUSION].texture = *ao;
+                }
             } else if (auto* videoPlayerPtr = std::get_if<std::unique_ptr<VideoPlayer>>(&ao_texture)) {
                 (*videoPlayerPtr)->Update();
                 model.materials[0].maps[MATERIAL_MAP_OCCLUSION].texture = (*videoPlayerPtr)->GetTexture();
+
+                for (int i = 0; i < sizeof(LodModels)/sizeof(LodModels[0]); i++) {
+                    LodModels[i].materials[0].maps[MATERIAL_MAP_OCCLUSION].texture = (*videoPlayerPtr)->GetTexture();
+                }
             }
         }
     }

@@ -2,15 +2,15 @@
     {
         "fovy": 60.0,
         "position": {
-            "x": 48.95396423339844,
-            "y": 22.269603729248047,
-            "z": 13.5164213180542
+            "x": -0.8069698810577393,
+            "y": 8.480989456176758,
+            "z": -2.271993637084961
         },
         "projection": 0,
         "target": {
-            "x": 40.894901275634766,
-            "y": 19.13536262512207,
-            "z": 8.109780311584473
+            "x": 5.908764839172363,
+            "y": 0.9734377861022949,
+            "z": -3.8652467727661133
         },
         "type": "camera",
         "up": {
@@ -32,7 +32,7 @@
         "material_path": "project/game/file3.mat",
         "model_path": "project/game/models/simple_terrain.obj",
         "name": "project/game/models/simple_terrain",
-        "normal_texture_path": "",
+        "normal_texture_path": "project/game/textures/textures/forrest_ground_01_disp_4k.png",
         "position": {
             "x": 0.0,
             "y": 4.700003623962402,
@@ -48,7 +48,7 @@
             "y": 0.0,
             "z": 0.0
         },
-        "roughness_texture_path": "",
+        "roughness_texture_path": "project/game/textures/textures/forrest_ground_01_rough_4k.jpg",
         "scale": {
             "x": 200.0,
             "y": 135.0,
@@ -67,7 +67,7 @@
             },
             "shininess": 0.0
         },
-        "texture_path": "",
+        "texture_path": "project/game/textures/textures/forrest_ground_01_diff_4k.jpg",
         "type": "entity"
     },
     {
@@ -493,9 +493,9 @@
         "attenuation": 9.999999747378752e-05,
         "color": {
             "a": 255.0,
-            "b": 52.45896530151367,
-            "g": 118.0509033203125,
-            "r": 181.15830993652344
+            "b": 0.0,
+            "g": 0.0,
+            "r": 0.0
         },
         "cutOff": 10.0,
         "direction": {
