@@ -133,6 +133,12 @@ Mesh GenerateLODMesh(const std::vector<Vector3>& uniqueVertices, Mesh& sourceMes
         lodMesh.triangleCount = triangleCount;
         lodMesh.vertices = (float*)malloc(sizeof(float) * 3 * vertexCount);
         lodMesh.indices = (unsigned short*)malloc(sizeof(unsigned short) * indexCount);
+        lodMesh.normals = (float*)malloc(sizeof(float) * 3 * vertexCount);
+        lodMesh.texcoords = (float*)malloc(sizeof(float) * 2 * vertexCount); // Allocate memory for texcoords
+        lodMesh.texcoords2 = (float*)malloc(sizeof(float) * 2 * vertexCount); // Allocate memory for texcoords2
+        lodMesh.colors = (unsigned char*)malloc(sizeof(unsigned char) * 4 * vertexCount); // Allocate memory for colors
+        lodMesh.tangents = (float*)malloc(sizeof(float) * 4 * vertexCount); // Allocate memory for tangents
+        lodMesh.boneWeights = (float*)malloc(sizeof(float) * 4 * vertexCount); // Allocate memory for boneWeights
 
         // Copy unique vertices to the new mesh's vertex array
         for (int i = 0; i < vertexCount; i++) {
@@ -143,19 +149,68 @@ Mesh GenerateLODMesh(const std::vector<Vector3>& uniqueVertices, Mesh& sourceMes
 
         // Generate new indices for non-indexed mesh
         if (sourceMesh.indices) {
+            // Allocate memory for the indices
+            lodMesh.indices = (unsigned short*)malloc(sizeof(unsigned short) * indexCount);
+
+            // Copy indices from the source mesh
+            for (int i = 0; i < indexCount; i++) {
+                lodMesh.indices[i] = sourceMesh.indices[i];
+            }
+
+            // Calculate normals for the mesh
             for (int i = 0; i < triangleCount; i++) {
-                lodMesh.indices[i * 3] = sourceMesh.indices[i * 3];
-                lodMesh.indices[i * 3 + 1] = sourceMesh.indices[i * 3 + 1];
-                lodMesh.indices[i * 3 + 2] = sourceMesh.indices[i * 3 + 2];
+                // Get the indices of the vertices of the current triangle
+                unsigned short index1 = lodMesh.indices[i * 3];
+                unsigned short index2 = lodMesh.indices[i * 3 + 1];
+                unsigned short index3 = lodMesh.indices[i * 3 + 2];
+
+                // Get the positions of the vertices of the current triangle
+                Vector3 v1 = { lodMesh.vertices[index1 * 3], lodMesh.vertices[index1 * 3 + 1], lodMesh.vertices[index1 * 3 + 2] };
+                Vector3 v2 = { lodMesh.vertices[index2 * 3], lodMesh.vertices[index2 * 3 + 1], lodMesh.vertices[index2 * 3 + 2] };
+                Vector3 v3 = { lodMesh.vertices[index3 * 3], lodMesh.vertices[index3 * 3 + 1], lodMesh.vertices[index3 * 3 + 2] };
+
+                // Calculate the normal for the current triangle
+                Vector3 normal = Vector3Normalize(Vector3CrossProduct(Vector3Subtract(v2, v1), Vector3Subtract(v3, v1)));
+
+                // Assign the normal to each vertex of the current triangle
+                lodMesh.normals[index1 * 3] += normal.x;
+                lodMesh.normals[index1 * 3 + 1] += normal.y;
+                lodMesh.normals[index1 * 3 + 2] += normal.z;
+
+                lodMesh.normals[index2 * 3] += normal.x;
+                lodMesh.normals[index2 * 3 + 1] += normal.y;
+                lodMesh.normals[index2 * 3 + 2] += normal.z;
+
+                lodMesh.normals[index3 * 3] += normal.x;
+                lodMesh.normals[index3 * 3 + 1] += normal.y;
+                lodMesh.normals[index3 * 3 + 2] += normal.z;
+            }
+
+            // Normalize the normals
+            for (int i = 0; i < vertexCount; i++) {
+                Vector3 normal = { lodMesh.normals[i * 3], lodMesh.normals[i * 3 + 1], lodMesh.normals[i * 3 + 2] };
+                normal = Vector3Normalize(normal);
+                lodMesh.normals[i * 3] = normal.x;
+                lodMesh.normals[i * 3 + 1] = normal.y;
+                lodMesh.normals[i * 3 + 2] = normal.z;
             }
         }
         else {
             lodMesh.indices = sourceMesh.indices;
         }
+
+        // Assuming texture coordinates are already available in the sourceMesh
+        if (sourceMesh.texcoords) {
+            for (int i = 0; i < vertexCount; i++) {
+                lodMesh.texcoords[i * 2] = sourceMesh.texcoords[i * 2];
+                lodMesh.texcoords[i * 2 + 1] = sourceMesh.texcoords[i * 2 + 1];
+            }
+        }
     }
 
+    // Upload the mesh data to GPU
     UploadMesh(&lodMesh, false);
-    
+
     // Free the allocated memory before returning
     if (lodMesh.vertices) {
         free(lodMesh.vertices);
@@ -164,6 +219,30 @@ Mesh GenerateLODMesh(const std::vector<Vector3>& uniqueVertices, Mesh& sourceMes
     if (lodMesh.indices) {
         free(lodMesh.indices);
         lodMesh.indices = NULL;
+    }
+    if (lodMesh.normals) {
+        free(lodMesh.normals);
+        lodMesh.normals = NULL;
+    }
+    if (lodMesh.texcoords) {
+        free(lodMesh.texcoords);
+        lodMesh.texcoords = NULL;
+    }
+    if (lodMesh.texcoords2) {
+        free(lodMesh.texcoords2);
+        lodMesh.texcoords2 = NULL;
+    }
+    if (lodMesh.colors) {
+        free(lodMesh.colors);
+        lodMesh.colors = NULL;
+    }
+    if (lodMesh.tangents) {
+        free(lodMesh.tangents);
+        lodMesh.tangents = NULL;
+    }
+    if (lodMesh.boneWeights) {
+        free(lodMesh.boneWeights);
+        lodMesh.boneWeights = NULL;
     }
 
     return lodMesh;
