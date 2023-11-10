@@ -660,9 +660,9 @@ public:
         lodEnabled = true;
 
         this->LodModels[0] = this->model;
-        this->LodModels[1] = LoadModelFromMesh(GenerateLODMesh(ContractVertices(this->model.meshes[0], 1.0f), this->model.meshes[0]));
-        this->LodModels[2] = LoadModelFromMesh(GenerateLODMesh(ContractVertices(this->model.meshes[0], 1.2f), this->model.meshes[0]));
-        this->LodModels[3] = LoadModelFromMesh(GenerateLODMesh(ContractVertices(this->model.meshes[0], 1.5f), this->model.meshes[0]));
+        this->LodModels[1] = LoadModelFromMesh(GenerateLODMesh(ContractVertices(this->model.meshes[0], .0001f), this->model.meshes[0]));
+        this->LodModels[2] = LoadModelFromMesh(GenerateLODMesh(ContractVertices(this->model.meshes[0], .0002f), this->model.meshes[0]));
+        this->LodModels[3] = LoadModelFromMesh(GenerateLODMesh(ContractVertices(this->model.meshes[0], .0005f), this->model.meshes[0]));
 
         if (isDynamic) {
             makePhysicsDynamic();
@@ -1302,6 +1302,9 @@ public:
             } else {
                 lodLevel = 3;
             }
+
+            if (name == "project/game/models/simple_terrain")
+                std::cout << LodModels[lodLevel].meshes[0].vertexCount << std::endl;
 
             if (lodEnabled)
             {
