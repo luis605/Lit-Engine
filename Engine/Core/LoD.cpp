@@ -1,4 +1,5 @@
 #include "../../include_all.h"
+#include <queue>
 
 const float LOD_DISTANCE_HIGH = 10.0f;
 const float LOD_DISTANCE_MEDIUM = 25.0f;
@@ -11,119 +12,184 @@ typedef struct Cluster
     // std::vector<Entity> entities;
 };
 
-
-struct QuadricErrorMatrix {
-    Matrix qem;
-    int count; // Count of vertices contributing to this quadric
+struct VertexPair {
+    int v1;
+    int v2;
 };
 
+// Define a struct to represent the result of mesh simplification
 struct VertexIndices {
     std::vector<int> indices;
     std::vector<Vector3> vertices;
 };
 
-inline float Vector3DistanceSquared(const Vector3& a, const Vector3& b) {
-    float dx = a.x - b.x;
-    float dy = a.y - b.y;
-    float dz = a.z - b.z;
-    return dx * dx + dy * dy + dz * dz;
+// Helper functions
+float Vector4DotProduct(const Vector4& v1, const Vector4& v2) {
+    return v1.x * v2.x + v1.y * v2.y + v1.z * v2.z + v1.w * v2.w;
 }
 
-Matrix ComputeQEM(const Vector3& normal, const Vector3& point) {
-    Matrix qem = {0};
-    qem.m0 += normal.x * normal.x;
-    qem.m1 += normal.x * normal.y;
-    qem.m2 += normal.x * normal.z;
-    qem.m4 += normal.y * normal.y;
-    qem.m5 += normal.y * normal.z;
-    qem.m8 += normal.z * normal.z;
-    qem.m3 = qem.m1;
-    qem.m6 = qem.m2;
-    qem.m7 = qem.m5;
-    qem.m9 = -2 * normal.x * point.x;
-    qem.m10 = -2 * normal.y * point.y;
-    qem.m11 = -2 * normal.z * point.z;
-    qem.m15 = 1;
-    return qem;
-}
+Vector4 Vector4Transform(const Vector4& v, const Matrix& mat) {
+    Vector4 result;
 
-VertexIndices ContractVertices(const Mesh& mesh, float maxDistance) {
-    if (mesh.vertices == nullptr || mesh.vertexCount < 3) {
-        std::cout << "Mesh has no vertices or is not initialized." << std::endl;
-        VertexIndices result;
-        return result;  // Return an empty result if mesh is not valid
-    }
-
-    const int vertexCount = mesh.vertexCount / 3; // Assuming each vertex has x, y, z components
-
-    std::vector<QuadricErrorMatrix> qemMatrices(vertexCount, {MatrixIdentity(), 0});
-
-    std::vector<bool> isContracted(vertexCount, false);
-
-    for (int i = 0; i < vertexCount; i++) {
-        Vector3 vertex_position = {
-            mesh.vertices[i * 3], 
-            mesh.vertices[i * 3 + 1], 
-            mesh.vertices[i * 3 + 2]
-        };
-
-        // Calculate a smaller neighborhood range based on the current vertex position
-        int searchStart = std::max(i - 8, 0);
-
-        for (int j = searchStart; j < i; j++) {
-            Vector3 contracted_position = {
-                mesh.vertices[j * 3], 
-                mesh.vertices[j * 3 + 1], 
-                mesh.vertices[j * 3 + 2]
-            };
-            float distSq = Vector3DistanceSquared(vertex_position, contracted_position);
-
-            if (distSq <= maxDistance * maxDistance) {
-                // Compute normal using cross product
-                Vector3 normal = Vector3Normalize(Vector3CrossProduct(Vector3Subtract(vertex_position, contracted_position), {1, 0, 0}));
-
-                // Compute QEM matrix
-                Matrix qem = ComputeQEM(normal, vertex_position);
-                qemMatrices[i].qem = MatrixAdd(qemMatrices[i].qem, qem);
-                qemMatrices[i].count++;
-                isContracted[j] = true;
-            }
-        }
-    }
-
-    // Create a new struct to store unique vertices and indices
-    VertexIndices result;
-
-    // Use a smaller maxDistance for better connectivity
-    const float smallerMaxDistance = maxDistance * 0.5f;
-
-    for (int i = 0; i < vertexCount; i++) {
-        if (!isContracted[i]) {
-            // Compute the contracted vertex position using the QEM matrix
-            Vector3 contractedVertex = {0};
-            if (qemMatrices[i].count > 0) {
-                Matrix inverseQEM = MatrixInvert(qemMatrices[i].qem);
-                contractedVertex = Vector3Transform(Vector3Zero(), inverseQEM);
-            } else {
-                contractedVertex = {
-                    mesh.vertices[i * 3], 
-                    mesh.vertices[i * 3 + 1], 
-                    mesh.vertices[i * 3 + 2]
-                };
-            }
-
-            // Add the contracted vertex to the result
-            result.vertices.push_back(contractedVertex);
-            result.indices.push_back(i * 3);  // Assuming each vertex represents a new triangle
-            result.indices.push_back(i * 3 + 1);
-            result.indices.push_back(i * 3 + 2);
-        }
-    }
+    result.x = v.x * mat.m0 + v.y * mat.m1 + v.z * mat.m2 + v.w * mat.m3;
+    result.y = v.x * mat.m4 + v.y * mat.m5 + v.z * mat.m6 + v.w * mat.m7;
+    result.z = v.x * mat.m8 + v.y * mat.m9 + v.z * mat.m10 + v.w * mat.m11;
+    result.w = v.x * mat.m12 + v.y * mat.m13 + v.z * mat.m14 + v.w * mat.m15;
 
     return result;
 }
 
-// Function to generate a simplified LOD mesh
+Vector4 Vector4Add(Vector4 v1, Vector4 v2)
+{
+    Vector4 result = { v1.x + v2.x, v1.y + v2.y, v1.z + v2.z , v1.w + v2.w };
+
+    return result;
+}
+
+
+float determinant3x3(float a, float b, float c, float d, float e, float f, float g, float h, float i) {
+    return a * (e * i - f * h) - b * (d * i - f * g) + c * (d * h - e * g);
+}
+
+Matrix Matrix4Invert(const Matrix& mat) {
+    Matrix result;
+
+    // Calculate the determinant of the 4x4 matrix
+    float det = mat.m0 * determinant3x3(mat.m5, mat.m6, mat.m7, mat.m9, mat.m10, mat.m11, mat.m13, mat.m14, mat.m15)
+                - mat.m1 * determinant3x3(mat.m4, mat.m6, mat.m7, mat.m8, mat.m10, mat.m11, mat.m12, mat.m14, mat.m15)
+                + mat.m2 * determinant3x3(mat.m4, mat.m5, mat.m7, mat.m8, mat.m9, mat.m11, mat.m12, mat.m13, mat.m15)
+                - mat.m3 * determinant3x3(mat.m4, mat.m5, mat.m6, mat.m8, mat.m9, mat.m10, mat.m12, mat.m13, mat.m14);
+
+    if (std::fabs(det) < 1e-8) {
+        // Matrix is singular, cannot invert
+        // Handle this case appropriately for your application
+        // For now, just return an identity matrix
+        return Matrix{1.0f, 0.0f, 0.0f, 0.0f,
+                       0.0f, 1.0f, 0.0f, 0.0f,
+                       0.0f, 0.0f, 1.0f, 0.0f,
+                       0.0f, 0.0f, 0.0f, 1.0f};
+    }
+
+    // Calculate the inverse of the 4x4 matrix
+    float invDet = 1.0f / det;
+
+    result.m0 = determinant3x3(mat.m5, mat.m6, mat.m7, mat.m9, mat.m10, mat.m11, mat.m13, mat.m14, mat.m15) * invDet;
+    // (similar calculations for other elements)
+
+    return result;
+}
+
+
+float CalculateQuadricError(const Mesh& mesh, int v1, int v2, const Matrix& quadric) {
+    // Get the positions of vertices v1 and v2
+    Vector4 posV1{mesh.vertices[v1 * 3], mesh.vertices[v1 * 3 + 1], mesh.vertices[v1 * 3 + 2], 1.0f};
+    Vector4 posV2{mesh.vertices[v2 * 3], mesh.vertices[v2 * 3 + 1], mesh.vertices[v2 * 3 + 2], 1.0f};
+
+    // Calculate the error for vertex v1
+    float errorV1 = Vector4DotProduct(Vector4Transform(posV1, quadric), posV1);
+
+    // Calculate the error for vertex v2
+    float errorV2 = Vector4DotProduct(Vector4Transform(posV2, quadric), posV2);
+
+    // Return the sum of squared distances as the overall error
+    return errorV1 + errorV2;
+}
+
+void ContractVertices(Mesh& mesh, int v1, int v2, Matrix quadric) {
+    // Calculate the optimal position of the contracted vertex
+    Vector4 posV1{mesh.vertices[v1 * 3], mesh.vertices[v1 * 3 + 1], mesh.vertices[v1 * 3 + 2], 1.0f};
+    Vector4 posV2{mesh.vertices[v2 * 3], mesh.vertices[v2 * 3 + 1], mesh.vertices[v2 * 3 + 2], 1.0f};
+
+    Vector4 newPos = Vector4Add(Vector4Transform(posV1, quadric), Vector4Transform(posV2, quadric));
+
+    // Update the position of v1 to the optimal position
+    mesh.vertices[v1 * 3] = newPos.x;
+    mesh.vertices[v1 * 3 + 1] = newPos.y;
+    mesh.vertices[v1 * 3 + 2] = newPos.z;
+
+    // Remove v2 by setting its position to v1's position
+    mesh.vertices[v2 * 3] = newPos.x;
+    mesh.vertices[v2 * 3 + 1] = newPos.y;
+    mesh.vertices[v2 * 3 + 2] = newPos.z;
+}
+
+// Function to simplify the mesh using Quadric Error Metrics
+VertexIndices SimplifyMesh(const Mesh& inputMesh, int targetVertexCount) {
+    // Copy the input mesh to avoid modifying the original mesh
+    Mesh mesh = inputMesh;
+
+    int vertexCount = mesh.vertexCount;
+
+    // Continue simplifying until the vertex count reaches the target
+    while (vertexCount > targetVertexCount) {
+        // Placeholder variables for the optimal pair
+        int optimalV1 = -1;
+        int optimalV2 = -1;
+        float minError = FLT_MAX;
+
+        Matrix quadric;
+
+        // Iterate through all vertex pairs to find the optimal contraction
+        for (int v1 = 0; v1 < vertexCount - 1; ++v1) {
+            for (int v2 = v1 + 1; v2 < vertexCount; ++v2) {
+                // Create a Quadric matrix for the pair (v1, v2)
+                // You need to implement the logic to calculate the Quadric matrix
+
+                // Calculate the error for this contraction
+                float error = CalculateQuadricError(mesh, v1, v2, quadric);
+                
+                // Update the optimal pair if the error is minimal
+                if (error < minError) {
+                    minError = error;
+                    optimalV1 = v1;
+                    optimalV2 = v2;
+                    vertexCount--;
+                }
+            }
+        }
+
+        // Contract the vertices based on Quadric Error Metrics for the optimal pair
+        if (optimalV1 != -1 && optimalV2 != -1) {
+            ContractVertices(mesh, optimalV1, optimalV2, quadric);
+            // Update mesh properties (vertex count, etc.)
+            // You need to implement this part based on the actual mesh structure
+            vertexCount--;
+        }
+    }
+
+    // Create a structure to store the simplified mesh data
+    VertexIndices result;
+
+    // Assuming the final simplified mesh is stored in the 'mesh' variable
+    result.vertices.reserve(mesh.vertexCount);
+    result.indices.reserve(mesh.triangleCount * 3);
+
+    // Copy vertices to the result structure
+    for (int i = 0; i < mesh.vertexCount; ++i) {
+        Vector3 vertex = { mesh.vertices[i * 3], mesh.vertices[i * 3 + 1], mesh.vertices[i * 3 + 2] };
+        result.vertices.push_back(vertex);
+    }
+
+    // Copy indices to the result structure
+    if (mesh.indices) {
+        for (int i = 0; i < mesh.triangleCount * 3; ++i) {
+            result.indices.push_back(mesh.indices[i]);
+        }
+    } else {
+        // If the mesh is not indexed, generate new indices
+        for (int i = 0; i < mesh.triangleCount * 3; ++i) {
+            result.indices.push_back(i);
+        }
+    }
+
+    // Free the memory used by the original mesh
+
+    return result;
+}
+
+
+
+// Function to generate a simplified LOD mesh with recalculated texture coordinates
 Mesh GenerateLODMesh(VertexIndices meshData, Mesh& sourceMesh) {
     Mesh lodMesh = { 0 };
 
@@ -144,7 +210,7 @@ Mesh GenerateLODMesh(VertexIndices meshData, Mesh& sourceMesh) {
         lodMesh.tangents = (float*)malloc(sizeof(float) * 4 * vertexCount); // Allocate memory for tangents
         lodMesh.boneWeights = (float*)malloc(sizeof(float) * 4 * vertexCount); // Allocate memory for boneWeights
 
-        // Calculate the bounding box of the mesh
+        // Calculate the bounding box of the contracted mesh
         Vector3 minVertex = meshData.vertices[0];
         Vector3 maxVertex = meshData.vertices[0];
         for (const auto& vertex : meshData.vertices) {

@@ -660,9 +660,9 @@ public:
         lodEnabled = true;
 
         this->LodModels[0] = this->model;
-        this->LodModels[1] = LoadModelFromMesh(GenerateLODMesh(ContractVertices(this->model.meshes[0], .0001f), this->model.meshes[0]));
-        this->LodModels[2] = LoadModelFromMesh(GenerateLODMesh(ContractVertices(this->model.meshes[0], .0002f), this->model.meshes[0]));
-        this->LodModels[3] = LoadModelFromMesh(GenerateLODMesh(ContractVertices(this->model.meshes[0], .0005f), this->model.meshes[0]));
+        this->LodModels[1] = LoadModelFromMesh(GenerateLODMesh(SimplifyMesh(this->model.meshes[0], this->model.meshes[0].vertexCount / 1.2), this->model.meshes[0]));
+        this->LodModels[2] = LoadModelFromMesh(GenerateLODMesh(SimplifyMesh(this->model.meshes[0], this->model.meshes[0].vertexCount / 1.5), this->model.meshes[0]));
+        this->LodModels[3] = LoadModelFromMesh(GenerateLODMesh(SimplifyMesh(this->model.meshes[0], this->model.meshes[0].vertexCount / 2.0), this->model.meshes[0]));
 
         if (isDynamic) {
             makePhysicsDynamic();
