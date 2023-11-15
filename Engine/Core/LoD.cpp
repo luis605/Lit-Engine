@@ -17,12 +17,6 @@ struct VertexPair {
     int v2;
 };
 
-// Define a struct to represent the result of mesh simplification
-struct VertexIndices {
-    std::vector<int> indices;
-    std::vector<Vector3> vertices;
-};
-
 // Helper functions
 float Vector4DotProduct(const Vector4& v1, const Vector4& v2) {
     return v1.x * v2.x + v1.y * v2.y + v1.z * v2.z + v1.w * v2.w;
@@ -79,113 +73,95 @@ Matrix Matrix4Invert(const Matrix& mat) {
     return result;
 }
 
+Vector4 Vector4OuterProduct(const Vector4& v1, const Vector4& v2) {
+    Vector4 result;
 
-float CalculateQuadricError(const Mesh& mesh, int v1, int v2, const Matrix& quadric) {
-    // Get the positions of vertices v1 and v2
-    Vector4 posV1{mesh.vertices[v1 * 3], mesh.vertices[v1 * 3 + 1], mesh.vertices[v1 * 3 + 2], 1.0f};
-    Vector4 posV2{mesh.vertices[v2 * 3], mesh.vertices[v2 * 3 + 1], mesh.vertices[v2 * 3 + 2], 1.0f};
+    result.x = v1.x * v2.x;
+    result.y = v1.y * v2.y;
+    result.z = v1.z * v2.z;
+    result.w = v1.w * v2.w;
 
-    // Calculate the error for vertex v1
-    float errorV1 = Vector4DotProduct(Vector4Transform(posV1, quadric), posV1);
-
-    // Calculate the error for vertex v2
-    float errorV2 = Vector4DotProduct(Vector4Transform(posV2, quadric), posV2);
-
-    // Return the sum of squared distances as the overall error
-    return errorV1 + errorV2;
+    return result;
 }
 
-void ContractVertices(Mesh& mesh, int v1, int v2, Matrix quadric) {
-    // Calculate the optimal position of the contracted vertex
-    Vector4 posV1{mesh.vertices[v1 * 3], mesh.vertices[v1 * 3 + 1], mesh.vertices[v1 * 3 + 2], 1.0f};
-    Vector4 posV2{mesh.vertices[v2 * 3], mesh.vertices[v2 * 3 + 1], mesh.vertices[v2 * 3 + 2], 1.0f};
 
-    Vector4 newPos = Vector4Add(Vector4Transform(posV1, quadric), Vector4Transform(posV2, quadric));
+struct VertexIndices {
+    std::vector<size_t> indices;
+    std::vector<Vector3> vertices;
+};
 
-    // Update the position of v1 to the optimal position
-    mesh.vertices[v1 * 3] = newPos.x;
-    mesh.vertices[v1 * 3 + 1] = newPos.y;
-    mesh.vertices[v1 * 3 + 2] = newPos.z;
+class SimplifyMesh {
+public:
+    VertexIndices result;  // Store the simplified vertices here
+    VertexIndices simplify(Mesh& mesh, float factor);
 
-    // Remove v2 by setting its position to v1's position
-    mesh.vertices[v2 * 3] = newPos.x;
-    mesh.vertices[v2 * 3 + 1] = newPos.y;
-    mesh.vertices[v2 * 3 + 2] = newPos.z;
-}
+private:
+    float calculateError(const Mesh& mesh, size_t v1, size_t v2);
+    void collapse(Mesh& mesh, size_t u, size_t v);
+};
 
-// Function to simplify the mesh using Quadric Error Metrics
-VertexIndices SimplifyMesh(const Mesh& inputMesh, int targetVertexCount) {
-    // Copy the input mesh to avoid modifying the original mesh
-    Mesh mesh = inputMesh;
+VertexIndices SimplifyMesh::simplify(Mesh& mesh, float factor) {
+    // Simplify the mesh here...
 
-    int vertexCount = mesh.vertexCount;
+    // This is a simplified version of the algorithm
+    // and may not work for all meshes or factors.
 
-    // Continue simplifying until the vertex count reaches the target
-    while (vertexCount > targetVertexCount) {
-        // Placeholder variables for the optimal pair
-        int optimalV1 = -1;
-        int optimalV2 = -1;
-        float minError = FLT_MAX;
-
-        Matrix quadric;
-
-        // Iterate through all vertex pairs to find the optimal contraction
-        for (int v1 = 0; v1 < vertexCount - 1; ++v1) {
-            for (int v2 = v1 + 1; v2 < vertexCount; ++v2) {
-                // Create a Quadric matrix for the pair (v1, v2)
-                // You need to implement the logic to calculate the Quadric matrix
-
-                // Calculate the error for this contraction
-                float error = CalculateQuadricError(mesh, v1, v2, quadric);
-                
-                // Update the optimal pair if the error is minimal
+    // Calculate the target number of vertices
+    size_t targetCount = static_cast<size_t>(mesh.vertexCount * factor);
+    while (mesh.vertexCount > targetCount) {
+        // Find the edge with the smallest error
+        size_t minErrorV1 = 0;
+        size_t minErrorV2 = 0;
+        float minError = calculateError(mesh, 0, 1);
+        for (size_t i = 0; i < mesh.vertexCount; i++) {
+            for (size_t j = i + 1; j < mesh.vertexCount; j++) {
+                float error = calculateError(mesh, i, j);
                 if (error < minError) {
                     minError = error;
-                    optimalV1 = v1;
-                    optimalV2 = v2;
-                    vertexCount--;
+                    minErrorV1 = i;
+                    minErrorV2 = j;
                 }
             }
         }
 
-        // Contract the vertices based on Quadric Error Metrics for the optimal pair
-        if (optimalV1 != -1 && optimalV2 != -1) {
-            ContractVertices(mesh, optimalV1, optimalV2, quadric);
-            // Update mesh properties (vertex count, etc.)
-            // You need to implement this part based on the actual mesh structure
-            vertexCount--;
-        }
+        // Collapse the edge with the smallest error
+        collapse(mesh, minErrorV1, minErrorV2);
     }
 
-    // Create a structure to store the simplified mesh data
-    VertexIndices result;
-
-    // Assuming the final simplified mesh is stored in the 'mesh' variable
-    result.vertices.reserve(mesh.vertexCount);
-    result.indices.reserve(mesh.triangleCount * 3);
-
-    // Copy vertices to the result structure
-    for (int i = 0; i < mesh.vertexCount; ++i) {
-        Vector3 vertex = { mesh.vertices[i * 3], mesh.vertices[i * 3 + 1], mesh.vertices[i * 3 + 2] };
-        result.vertices.push_back(vertex);
+    // Store the simplified mesh in the result member
+    result.indices.clear();
+    result.vertices.clear();
+    for (size_t i = 0; i < mesh.vertexCount; i++) {
+        result.indices.push_back(i);
+        result.vertices.push_back({ mesh.vertices[i], mesh.vertices[i] + 1, mesh.vertices[i] + 2 });
     }
-
-    // Copy indices to the result structure
-    if (mesh.indices) {
-        for (int i = 0; i < mesh.triangleCount * 3; ++i) {
-            result.indices.push_back(mesh.indices[i]);
-        }
-    } else {
-        // If the mesh is not indexed, generate new indices
-        for (int i = 0; i < mesh.triangleCount * 3; ++i) {
-            result.indices.push_back(i);
-        }
-    }
-
-    // Free the memory used by the original mesh
 
     return result;
 }
+
+float SimplifyMesh::calculateError(const Mesh& mesh, size_t v1, size_t v2) {
+    // Calculate the error of collapsing edge (v1, v2)
+    // This is a placeholder implementation and should be replaced
+    // with a proper error calculation based on the mesh geometry.
+    return Vector3Distance({mesh.vertices[v1], mesh.vertices[v1] + 1, mesh.vertices[v1] + 2 }, { mesh.vertices[v2], mesh.vertices[v2] + 1, mesh.vertices[v2] + 2 });
+}
+
+void SimplifyMesh::collapse(Mesh& mesh, size_t u, size_t v) {
+    // Collapse the edge (u, v)
+    // This is a placeholder implementation and should be replaced
+    // with a proper edge collapse operation based on the mesh geometry.
+    result.vertices.reserve(1);
+    
+    result.vertices[u] = (Vector3) {
+        (mesh.vertices[u] + 0 + mesh.vertices[v] + 0 ) / 2,
+        (mesh.vertices[u] + 1 + mesh.vertices[v] + 1 ) / 2,
+        (mesh.vertices[u] + 2 + mesh.vertices[v] + 2 ) / 2
+        };
+
+    result.vertices.erase(result.vertices.begin() + v);
+    mesh.vertexCount--;
+}
+
 
 
 

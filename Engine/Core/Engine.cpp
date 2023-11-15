@@ -660,9 +660,15 @@ public:
         lodEnabled = true;
 
         this->LodModels[0] = this->model;
-        this->LodModels[1] = LoadModelFromMesh(GenerateLODMesh(SimplifyMesh(this->model.meshes[0], this->model.meshes[0].vertexCount / 1.2), this->model.meshes[0]));
-        this->LodModels[2] = LoadModelFromMesh(GenerateLODMesh(SimplifyMesh(this->model.meshes[0], this->model.meshes[0].vertexCount / 1.5), this->model.meshes[0]));
-        this->LodModels[3] = LoadModelFromMesh(GenerateLODMesh(SimplifyMesh(this->model.meshes[0], this->model.meshes[0].vertexCount / 2.0), this->model.meshes[0]));
+
+        SimplifyMesh simplifier;
+        VertexIndices lodLevel1 = simplifier.simplify(this->model.meshes[0], 0.01f);
+        VertexIndices lodLevel2 = simplifier.simplify(this->model.meshes[0], 0.03f);
+        VertexIndices lodLevel3 = simplifier.simplify(this->model.meshes[0], 0.05f);
+        
+        this->LodModels[1] = LoadModelFromMesh(GenerateLODMesh(lodLevel1, this->model.meshes[0]));
+        this->LodModels[2] = LoadModelFromMesh(GenerateLODMesh(lodLevel2, this->model.meshes[0]));
+        this->LodModels[3] = LoadModelFromMesh(GenerateLODMesh(lodLevel3, this->model.meshes[0]));
 
         if (isDynamic) {
             makePhysicsDynamic();
@@ -1373,8 +1379,8 @@ bool operator==(const Entity& e, const Entity* ptr) {
     void AddEntity(
         bool create_immediatly = false,
         bool is_child = false,
-        const char* model_path = "assets/models/tree.obj",
-        Model model = Model(),
+        const char* model_path = "",
+        Model model = LoadModelFromMesh(GenMeshCube(1,1,1)),
         string name = "Unnamed Entity"
     )
     {
