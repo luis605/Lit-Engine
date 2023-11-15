@@ -1342,8 +1342,8 @@ public:
                 lodLevel = 3;
             }
 
-            if (name == "project/game/models/simple_terrain")
-                std::cout << LodModels[lodLevel].meshes[0].vertexCount << std::endl;
+            // if (name == "project/game/models/simple_terrain")
+            //     std::cout << LodModels[lodLevel].meshes[0].vertexCount << std::endl;
 
             if (lodEnabled && IsModelReady(LodModels[lodLevel]))
             {
