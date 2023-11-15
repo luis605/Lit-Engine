@@ -1345,7 +1345,7 @@ public:
             if (name == "project/game/models/simple_terrain")
                 std::cout << LodModels[lodLevel].meshes[0].vertexCount << std::endl;
 
-            if (lodEnabled)
+            if (lodEnabled && IsModelReady(LodModels[lodLevel]))
             {
                 DrawModelEx(
                     LodModels[lodLevel],
