@@ -580,14 +580,23 @@ public:
         if (!texture_path.empty() || !force_reload) {
             if (auto diffuse_texture = get_if<Texture2D>(&texture)) {
                 model.materials[0].maps[MATERIAL_MAP_DIFFUSE].texture = *diffuse_texture;
-                for (int i = 0; i < sizeof(LodModels)/sizeof(LodModels[0]); i++) {
-                    LodModels[i].materials[0].maps[MATERIAL_MAP_DIFFUSE].texture = *diffuse_texture;
+
+                if (lodEnabled)
+                {
+                    for (int i = 0; i < sizeof(LodModels)/sizeof(LodModels[0]); i++) {
+                        if (IsModelReady(LodModels[i]))
+                            LodModels[i].materials[0].maps[MATERIAL_MAP_DIFFUSE].texture = *diffuse_texture;
+                    }
                 }
             } else if (auto* videoPlayerPtr = std::get_if<std::unique_ptr<VideoPlayer>>(&texture)) {
                 (*videoPlayerPtr)->Update();
                 model.materials[0].maps[MATERIAL_MAP_DIFFUSE].texture = (*videoPlayerPtr)->GetTexture();
-                for (int i = 0; i < sizeof(LodModels)/sizeof(LodModels[0]); i++) {
-                    LodModels[i].materials[0].maps[MATERIAL_MAP_DIFFUSE].texture = (*videoPlayerPtr)->GetTexture();
+                if (lodEnabled)
+                {
+                    for (int i = 0; i < sizeof(LodModels)/sizeof(LodModels[0]); i++) {
+                        if (IsModelReady(LodModels[i]))
+                            LodModels[i].materials[0].maps[MATERIAL_MAP_DIFFUSE].texture = (*videoPlayerPtr)->GetTexture();
+                    }
                 }
             }
         }
@@ -595,15 +604,24 @@ public:
         if (!normal_texture_path.empty() || !force_reload) {
             if (auto normal = get_if<Texture2D>(&normal_texture)) {
                 model.materials[0].maps[MATERIAL_MAP_NORMAL].texture = *normal;
-                for (int i = 0; i < sizeof(LodModels)/sizeof(LodModels[0]); i++) {
-                    LodModels[i].materials[0].maps[MATERIAL_MAP_NORMAL].texture = *normal;
+
+                if (lodEnabled)
+                {
+                    for (int i = 0; i < sizeof(LodModels)/sizeof(LodModels[0]); i++) {
+                        if (IsModelReady(LodModels[i]))
+                            LodModels[i].materials[0].maps[MATERIAL_MAP_NORMAL].texture = *normal;
+                    }
                 }
             } else if (auto* videoPlayerPtr = std::get_if<std::unique_ptr<VideoPlayer>>(&normal_texture)) {
                 (*videoPlayerPtr)->Update();
                 model.materials[0].maps[MATERIAL_MAP_NORMAL].texture = (*videoPlayerPtr)->GetTexture();
 
-                for (int i = 0; i < sizeof(LodModels)/sizeof(LodModels[0]); i++) {
-                    LodModels[i].materials[0].maps[MATERIAL_MAP_NORMAL].texture = (*videoPlayerPtr)->GetTexture();
+                if (lodEnabled)
+                {
+                    for (int i = 0; i < sizeof(LodModels)/sizeof(LodModels[0]); i++) {
+                        if (IsModelReady(LodModels[i]))
+                            LodModels[i].materials[0].maps[MATERIAL_MAP_NORMAL].texture = (*videoPlayerPtr)->GetTexture();
+                    }
                 }
             }
         }
@@ -613,17 +631,24 @@ public:
             if (auto roughness = get_if<Texture2D>(&roughness_texture)) {
                 model.materials[0].maps[MATERIAL_MAP_ROUGHNESS].texture = *roughness;
 
-                for (int i = 0; i < sizeof(LodModels)/sizeof(LodModels[0]); i++) {
-                    LodModels[i].materials[0].maps[MATERIAL_MAP_ROUGHNESS].texture = *roughness;
+                if (lodEnabled)
+                {
+                    for (int i = 0; i < sizeof(LodModels)/sizeof(LodModels[0]); i++) {
+                        if (IsModelReady(LodModels[i]))
+                            LodModels[i].materials[0].maps[MATERIAL_MAP_ROUGHNESS].texture = *roughness;
+                    }
                 }
             } else if (auto* videoPlayerPtr = std::get_if<std::unique_ptr<VideoPlayer>>(&roughness_texture)) {
                 (*videoPlayerPtr)->Update();
                 model.materials[0].maps[MATERIAL_MAP_ROUGHNESS].texture = (*videoPlayerPtr)->GetTexture();
 
-                for (int i = 0; i < sizeof(LodModels)/sizeof(LodModels[0]); i++) {
-                    LodModels[i].materials[0].maps[MATERIAL_MAP_ROUGHNESS].texture = (*videoPlayerPtr)->GetTexture();
+                if (lodEnabled)
+                {
+                    for (int i = 0; i < sizeof(LodModels)/sizeof(LodModels[0]); i++) {
+                        if (IsModelReady(LodModels[i]))
+                            LodModels[i].materials[0].maps[MATERIAL_MAP_ROUGHNESS].texture = (*videoPlayerPtr)->GetTexture();
+                    }
                 }
-
             }
         }
 
@@ -631,15 +656,23 @@ public:
             if (auto ao = get_if<Texture2D>(&ao_texture)) {
                 model.materials[0].maps[MATERIAL_MAP_OCCLUSION].texture = *ao;
 
-                for (int i = 0; i < sizeof(LodModels)/sizeof(LodModels[0]); i++) {
-                    LodModels[i].materials[0].maps[MATERIAL_MAP_OCCLUSION].texture = *ao;
+                if (lodEnabled)
+                {
+                    for (int i = 0; i < sizeof(LodModels)/sizeof(LodModels[0]); i++) {
+                        if (IsModelReady(LodModels[i]))
+                            LodModels[i].materials[0].maps[MATERIAL_MAP_OCCLUSION].texture = *ao;
+                    }
                 }
             } else if (auto* videoPlayerPtr = std::get_if<std::unique_ptr<VideoPlayer>>(&ao_texture)) {
                 (*videoPlayerPtr)->Update();
                 model.materials[0].maps[MATERIAL_MAP_OCCLUSION].texture = (*videoPlayerPtr)->GetTexture();
 
-                for (int i = 0; i < sizeof(LodModels)/sizeof(LodModels[0]); i++) {
-                    LodModels[i].materials[0].maps[MATERIAL_MAP_OCCLUSION].texture = (*videoPlayerPtr)->GetTexture();
+                if (lodEnabled)
+                {
+                    for (int i = 0; i < sizeof(LodModels)/sizeof(LodModels[0]); i++) {
+                        if (IsModelReady(LodModels[i]))
+                            LodModels[i].materials[0].maps[MATERIAL_MAP_OCCLUSION].texture = (*videoPlayerPtr)->GetTexture();
+                    }
                 }
             }
         }
@@ -657,18 +690,18 @@ public:
             model = LoadModel(modelPath);
         }
 
-        lodEnabled = true;
+        // lodEnabled = true;
 
-        this->LodModels[0] = this->model;
+        // this->LodModels[0] = this->model;
 
-        SimplifyMesh simplifier;
-        VertexIndices lodLevel1 = simplifier.simplify(this->model.meshes[0], 0.01f);
-        VertexIndices lodLevel2 = simplifier.simplify(this->model.meshes[0], 0.03f);
-        VertexIndices lodLevel3 = simplifier.simplify(this->model.meshes[0], 0.05f);
+        // SimplifyMesh simplifier;
+        // VertexIndices lodLevel1 = simplifier.simplify(this->model.meshes[0], 0.01f);
+        // VertexIndices lodLevel2 = simplifier.simplify(this->model.meshes[0], 0.03f);
+        // VertexIndices lodLevel3 = simplifier.simplify(this->model.meshes[0], 0.05f);
         
-        this->LodModels[1] = LoadModelFromMesh(GenerateLODMesh(lodLevel1, this->model.meshes[0]));
-        this->LodModels[2] = LoadModelFromMesh(GenerateLODMesh(lodLevel2, this->model.meshes[0]));
-        this->LodModels[3] = LoadModelFromMesh(GenerateLODMesh(lodLevel3, this->model.meshes[0]));
+        // this->LodModels[1] = LoadModelFromMesh(GenerateLODMesh(lodLevel1, this->model.meshes[0]));
+        // this->LodModels[2] = LoadModelFromMesh(GenerateLODMesh(lodLevel2, this->model.meshes[0]));
+        // this->LodModels[3] = LoadModelFromMesh(GenerateLODMesh(lodLevel3, this->model.meshes[0]));
 
         if (isDynamic) {
             makePhysicsDynamic();
