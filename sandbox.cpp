@@ -1,322 +1,272 @@
-#include "include/raylib.h"
-#include "include/raymath.h"
-#include <iostream>
+#include "raylib.h"
+#include "raymath.h"
 #include <vector>
-#include <cfloat>
-#include <limits>
-#include <cmath>
 #include <unordered_map>
-#include <omp.h>
-#include <algorithm>
+#include <map>
+#include <queue>
+#include <limits>
+#include <iostream>
 
-using namespace std;
+// Half-edge data structure for mesh representation
+struct HalfEdge {
+    int vertex;   // Vertex index
+    int pair;     // Index of the paired half-edge
+    int face;     // Index of the incident face
+    int next;     // Next half-edge in the face
+};
 
-const float LOD_DISTANCE_HIGH = 10.0f;
-const float LOD_DISTANCE_MEDIUM = 25.0f;
-const float LOD_DISTANCE_LOW = 35.0f;
+// QEM matrix data structure
+struct QEMMatrix {
+    float matrix[10];  // QEM matrix coefficients
+};
 
-typedef struct Entities
-{
+// Vertex data structure with associated QEM matrix
+struct VertexData {
     Vector3 position;
-    Model model = LoadModelFromMesh(GenMeshCube(1.0f, 1.0f, 1.0f));
-    Model LodModels[4] = { model, LoadModelFromMesh(GenMeshCube(1.0f, 1.0f, 1.0f)), LoadModelFromMesh(GenMeshCube(1.0f, 1.0f, 1.0f)) };
+    Vector3 normal;
+    QEMMatrix qem;
+    bool isDeleted;  // Flag to mark deleted vertices
 };
 
-typedef struct Cluster
-{
-    Color color;
-    int lodLevel;
-    std::vector<Entities> entities;
-};
+// This function initializes the half-edge data structure from the mesh
+std::vector<HalfEdge> InitializeHalfEdges(const Mesh& mesh) {
+    std::vector<HalfEdge> halfEdges(mesh.vertexCount * 6);
 
+    for (int i = 0; i < mesh.triangleCount; ++i) {
+        int baseIndex = i * 3;
+        for (int j = 0; j < 3; ++j) {
+            int edgeIndex = baseIndex + j;
+            halfEdges[edgeIndex * 2].vertex = mesh.indices[baseIndex + j];
+            halfEdges[edgeIndex * 2].next = edgeIndex * 2 + 1;
+            halfEdges[edgeIndex * 2].face = i;
 
-
-// Function to calculate the midpoint between two vertices
-Vector3 CalculateMidpoint(const Vector3& vertex1, const Vector3& vertex2) {
-    return Vector3{ (vertex1.x + vertex2.x) / 2.0f, (vertex1.y + vertex2.y) / 2.0f, (vertex1.z + vertex2.z) / 2.0f };
-}
-
-inline float Vector3DistanceSquared(const Vector3& a, const Vector3& b) {
-    float dx = a.x - b.x;
-    float dy = a.y - b.y;
-    float dz = a.z - b.z;
-    return dx * dx + dy * dy + dz * dz;
-}
-
-// Define the spatial hash cell size (adjust as needed)
-std::vector<Vector3> ContractVertices(const Mesh& mesh, float maxDistance) {
-    if (mesh.vertices == nullptr || mesh.vertexCount == 0) {
-        std::cout << "Mesh has no vertices or is not initialized." << std::endl;
-        return std::vector<Vector3>();
+            halfEdges[edgeIndex * 2 + 1].vertex = mesh.indices[baseIndex + (j + 1) % 3];
+            halfEdges[edgeIndex * 2 + 1].next = edgeIndex * 2;
+            halfEdges[edgeIndex * 2 + 1].face = i;
+        }
     }
 
-    const float maxDistanceSquared = maxDistance * maxDistance;
-    const int vertexCount = mesh.vertexCount;
+    // Pair half-edges
+    for (size_t i = 0; i < halfEdges.size(); ++i) {
+        int vertex = halfEdges[i].vertex;
+        int nextVertex = halfEdges[halfEdges[i].next].vertex;
 
-    std::vector<Vector3> contractedVertices(vertexCount, Vector3{0.0f, 0.0f, 0.0f});
-
-    std::vector<int> sortedIndices(vertexCount);
-    #pragma omp parallel for
-    for (int i = 0; i < vertexCount; i++) {
-        sortedIndices[i] = i;
+        for (size_t j = 0; j < halfEdges.size(); ++j) {
+            if (i != j && vertex == halfEdges[j].vertex && nextVertex == halfEdges[halfEdges[j].next].vertex) {
+                halfEdges[i].pair = j;
+                halfEdges[j].pair = i;
+                break;
+            }
+        }
     }
-    std::sort(sortedIndices.begin(), sortedIndices.end(), [&](int a, int b) {
-        return mesh.vertices[a * 3] < mesh.vertices[b * 3];
-    });
 
-    #pragma omp parallel for
-    for (int i = 0; i < vertexCount; i++) {
-        int idx = sortedIndices[i];
-        float xi = mesh.vertices[idx * 3];
-        float yi = mesh.vertices[idx * 3 + 1];
-        float zi = mesh.vertices[idx * 3 + 2];
-        Vector3 vertex_position = { xi, yi, zi };
+    return halfEdges;
+}
 
-        int closestVertexIndex = -1;
-        float closestDistance = maxDistanceSquared;
+// This function initializes the QEM matrix for each vertex
+std::vector<VertexData> InitializeQEMMatrices(const Mesh& mesh, const std::vector<HalfEdge>& halfEdges) {
+    std::vector<VertexData> vertices(mesh.vertexCount);
 
-        // Calculate a smaller neighborhood range based on current vertex position
-        int searchStart = i - 4;
+    for (size_t i = 0; i < vertices.size(); ++i) {
+        vertices[i].position.x = mesh.vertices[i * 3];
+        vertices[i].position.y = mesh.vertices[i * 3 + 1];
+        vertices[i].position.z = mesh.vertices[i * 3 + 2];
 
-        searchStart = std::max(searchStart, 0);
+        vertices[i].normal.x = mesh.normals[i * 3];
+        vertices[i].normal.y = mesh.normals[i * 3 + 1];
+        vertices[i].normal.z = mesh.normals[i * 3 + 2];
 
-        for (int j = searchStart; j < i; j++) {
-            int jdx = sortedIndices[j];
-            float distSq = Vector3DistanceSquared(vertex_position, contractedVertices[jdx]);
-            if (distSq <= closestDistance) {
-                closestVertexIndex = jdx;
-                closestDistance = distSq;
+        // Initialize QEM matrix as identity
+        for (int j = 0; j < 10; ++j) {
+            vertices[i].qem.matrix[j] = 0.0f;
+        }
+        vertices[i].qem.matrix[0] = 1.0f;
+        vertices[i].qem.matrix[4] = 1.0f;
+        vertices[i].qem.matrix[8] = 1.0f;
+    }
 
-                if (distSq < maxDistanceSquared * 0.25f) {
-                    break;
+    // Accumulate QEM matrices from faces
+    for (size_t i = 0; i < halfEdges.size(); ++i) {
+        int vertex = halfEdges[i].vertex;
+        int nextVertex = halfEdges[halfEdges[i].next].vertex;
+        int pairVertex = halfEdges[halfEdges[i].pair].vertex;
+
+        Vector3 normal = Vector3CrossProduct(Vector3Subtract(vertices[nextVertex].position, vertices[vertex].position),
+                                             Vector3Subtract(vertices[pairVertex].position, vertices[vertex].position));
+
+        for (int j = 0; j < 10; ++j) {
+            vertices[vertex].qem.matrix[j] += normal.x * normal.x;
+        }
+        vertices[vertex].qem.matrix[1] += normal.x * normal.y * 2.0f;
+        vertices[vertex].qem.matrix[2] += normal.x * normal.z * 2.0f;
+        vertices[vertex].qem.matrix[5] += normal.y * normal.y;
+        vertices[vertex].qem.matrix[6] += normal.y * normal.z * 2.0f;
+        vertices[vertex].qem.matrix[9] += normal.z * normal.z;
+    }
+
+    return vertices;
+}
+
+// This function computes the error for a given vertex collapse
+float ComputeError(const VertexData& v1, const VertexData& v2) {
+    QEMMatrix qemSum;
+    for (int i = 0; i < 10; ++i) {
+        qemSum.matrix[i] = v1.qem.matrix[i] + v2.qem.matrix[i];
+    }
+
+    float error = 0.0f;
+    for (int i = 0; i < 10; ++i) {
+        for (int j = 0; j < 10; ++j) {
+            error += qemSum.matrix[i] * v1.qem.matrix[i];
+        }
+    }
+
+    return error;
+}
+
+// This function collapses a pair of vertices and updates the mesh
+void CollapseVertices(std::vector<VertexData>& vertices, std::vector<HalfEdge>& halfEdges, int collapseEdge) {
+    int vertex1 = halfEdges[collapseEdge].vertex;
+    int vertex2 = halfEdges[halfEdges[collapseEdge].pair].vertex;
+
+    // Update the position and normal of vertex1
+    vertices[vertex1].position = Vector3Scale(Vector3Add(vertices[vertex1].position, vertices[vertex2].position), 0.5f);
+    vertices[vertex1].normal = Vector3Normalize(Vector3Add(vertices[vertex1].normal, vertices[vertex2].normal));
+
+    // Update the QEM matrix of vertex1
+    for (int i = 0; i < 10; ++i) {
+        vertices[vertex1].qem.matrix[i] += vertices[vertex2].qem.matrix[i];
+    }
+
+    // Mark vertex2 as deleted
+    vertices[vertex2].isDeleted = true;
+
+    // Update adjacent half-edges
+    for (size_t i = 0; i < halfEdges.size(); ++i) {
+        if (halfEdges[i].vertex == vertex2 && !vertices[halfEdges[i].pair].isDeleted) {
+            halfEdges[i].vertex = vertex1;
+            halfEdges[halfEdges[i].pair].vertex = vertex1;
+        }
+    }
+}
+
+// This function simplifies the mesh using the QEM algorithm
+std::vector<VertexData> SimplifyMesh(const Mesh& mesh, float threshold) {
+    // Initialize half-edge data structure
+    std::vector<HalfEdge> halfEdges = InitializeHalfEdges(mesh);
+
+    // Initialize QEM matrices
+    std::vector<VertexData> vertices = InitializeQEMMatrices(mesh, halfEdges);
+
+    // Priority queue for edge collapses
+    std::priority_queue<std::pair<float, int>, std::vector<std::pair<float, int>>, std::greater<std::pair<float, int>>> queue;
+
+    // Initialize the queue with edge collapses
+    for (size_t i = 0; i < halfEdges.size(); ++i) {
+        int vertex1 = halfEdges[i].vertex;
+        int vertex2 = halfEdges[halfEdges[i].pair].vertex;
+
+        if (!vertices[vertex1].isDeleted && !vertices[vertex2].isDeleted) {
+            float error = ComputeError(vertices[vertex1], vertices[vertex2]);
+            queue.push(std::make_pair(error, i));
+        }
+    }
+
+    // Perform edge collapses until the threshold is reached
+    while (!queue.empty()) {
+        float error;
+        int collapseEdge;
+        std::tie(error, collapseEdge) = queue.top();
+        queue.pop();
+
+        if (error < threshold) {
+            CollapseVertices(vertices, halfEdges, collapseEdge);
+            
+            // Update the priority queue with new edge collapses
+            for (size_t i = 0; i < halfEdges.size(); ++i) {
+                int vertex1 = halfEdges[i].vertex;
+                int vertex2 = halfEdges[halfEdges[i].pair].vertex;
+
+                if (!vertices[vertex1].isDeleted && !vertices[vertex2].isDeleted) {
+                    float newError = ComputeError(vertices[vertex1], vertices[vertex2]);
+                    queue.push(std::make_pair(newError, i));
                 }
             }
         }
-
-        contractedVertices[idx] = (closestVertexIndex != -1) ? contractedVertices[closestVertexIndex] : vertex_position;
     }
 
-    sortedIndices.clear();
-
-    // Create a new vector to store unique vertices
-    std::vector<Vector3> uniqueVertices;
-
-    // Define the cell size for spatial hashing (adjust as needed)
-    const float cellSize = maxDistance * 0.5f;
-
-    // Create a hash map for spatial hashing
-    std::unordered_map<uint64_t, Vector3> spatialHashMap;
-
-    #pragma omp parallel for
-    for (int i = 0; i < contractedVertices.size(); i++) {
-        const Vector3& vertex = contractedVertices[i];
-
-        // Calculate the cell coordinates for the vertex
-        int cellX = static_cast<int>(vertex.x / cellSize);
-        int cellY = static_cast<int>(vertex.y / cellSize);
-        int cellZ = static_cast<int>(vertex.z / cellSize);
-
-        // Generate a hash key based on cell coordinates
-        uint64_t hashKey = static_cast<uint64_t>(cellX) * 73856093ULL ^
-                        static_cast<uint64_t>(cellY) * 19349663ULL ^
-                        static_cast<uint64_t>(cellZ) * 83492791ULL;
-
-        // Check if the hash key is already in the spatialHashMap
-        #pragma omp critical
-        auto it = spatialHashMap.find(hashKey);
-        if (it == spatialHashMap.end()) {
-            // Vertex is unique within its cell, add it to uniqueVertices
-            spatialHashMap[hashKey] = vertex;
-            uniqueVertices.push_back(vertex);
-        } else {
-            // Check distance to previously stored vertex in the same cell
-            const Vector3& storedVertex = it->second;
-            if (Vector3DistanceSquared(vertex, storedVertex) >= maxDistanceSquared * 0.25f) {
-                // Vertex is unique, add it to uniqueVertices
-                spatialHashMap[hashKey] = vertex;
-                uniqueVertices.push_back(vertex);
-            }
-        }
-    }
-
-
-    return contractedVertices;
+    return vertices;
 }
-
-
-// Function to generate a simplified LOD mesh
-Mesh GenerateLODMesh(const std::vector<Vector3>& uniqueVertices, Mesh& sourceMesh) {
-    Mesh lodMesh = { 0 };
-
-    if (!uniqueVertices.empty()) {
-        int vertexCount = uniqueVertices.size();
-        int triangleCount = vertexCount / 3;
-        int indexCount = triangleCount * 3;
-
-        // Allocate memory for the new mesh
-        lodMesh.vertexCount = vertexCount;
-        lodMesh.triangleCount = triangleCount;
-        lodMesh.vertices = (float*)malloc(sizeof(float) * 3 * vertexCount);
-        lodMesh.indices = (unsigned short*)malloc(sizeof(unsigned short) * indexCount);
-
-        // Copy unique vertices to the new mesh's vertex array
-        for (int i = 0; i < vertexCount; i++) {
-            lodMesh.vertices[i * 3] = uniqueVertices[i].x;
-            lodMesh.vertices[i * 3 + 1] = uniqueVertices[i].y;
-            lodMesh.vertices[i * 3 + 2] = uniqueVertices[i].z;
-        }
-
-        // Generate new indices for non-indexed mesh
-        if (sourceMesh.indices) {
-            for (int i = 0; i < triangleCount; i++) {
-                lodMesh.indices[i * 3] = sourceMesh.indices[i * 3];
-                lodMesh.indices[i * 3 + 1] = sourceMesh.indices[i * 3 + 1];
-                lodMesh.indices[i * 3 + 2] = sourceMesh.indices[i * 3 + 2];
-            }
-        }
-        else {
-            lodMesh.indices = sourceMesh.indices;
-        }
-    }
-
-    UploadMesh(&lodMesh, false);
-    
-    // Free the allocated memory before returning
-    if (lodMesh.vertices) {
-        free(lodMesh.vertices);
-        lodMesh.vertices = NULL;
-    }
-    if (lodMesh.indices) {
-        free(lodMesh.indices);
-        lodMesh.indices = NULL;
-    }
-
-    return lodMesh;
-}
-
-
-
-
 
 int main() {
-    SetTraceLogLevel(LOG_WARNING);
-    // Initialization
-    const int screenWidth = 800;
-    const int screenHeight = 600;
+    // Initialize the screen and camera
+    int screenWidth = 800;
+    int screenHeight = 450;
+    SetConfigFlags(FLAG_MSAA_4X_HINT);
+    InitWindow(screenWidth, screenHeight, "QEM Mesh Simplification");
 
-    InitWindow(screenWidth, screenHeight, "HLOD");
+    // Create a mesh
+    Mesh cube = GenMeshSphere(1,30,30);
 
-    Shader shader = LoadShader(0, "Engine/Lighting/shaders/lod.fs");
+    // Simplify the mesh
+    std::vector<VertexData> simplifiedVertices = SimplifyMesh(cube, 0.1f);
 
-    Camera3D camera;
-    camera.position = { 0.0f, 0.0f, 10.0f };
-    camera.target = { 0.0f, 0.0f, 0.0f };
-    camera.up = { 0.0f, 1.0f, 0.0f };
+    // Generate a wireframe model from the simplified mesh
+    Mesh wireframe = { 0 };
+    wireframe.vertexCount = static_cast<int>(simplifiedVertices.size());
+    wireframe.vertices = (float*)malloc(sizeof(float) * 3 * wireframe.vertexCount);
+    wireframe.normals = (float*)malloc(sizeof(float) * 3 * wireframe.vertexCount);
+    wireframe.indices = (unsigned short*)malloc(sizeof(unsigned short) * wireframe.vertexCount);
+
+    for (size_t i = 0; i < simplifiedVertices.size(); ++i) {
+        wireframe.vertices[i * 3] = simplifiedVertices[i].position.x;
+        wireframe.vertices[i * 3 + 1] = simplifiedVertices[i].position.y;
+        wireframe.vertices[i * 3 + 2] = simplifiedVertices[i].position.z;
+
+        wireframe.normals[i * 3] = simplifiedVertices[i].normal.x;
+        wireframe.normals[i * 3 + 1] = simplifiedVertices[i].normal.y;
+        wireframe.normals[i * 3 + 2] = simplifiedVertices[i].normal.z;
+
+        wireframe.indices[i] = static_cast<unsigned short>(i);
+    }
+
+    UploadMesh(&wireframe, false);
+
+    // Set up the camera
+    Camera3D camera = { 0 };
+    camera.position = (Vector3){ 0.0f, 1.0f, -5.0f };
+    camera.target = (Vector3){ 0.0f, 0.0f, 0.0f };
+    camera.up = (Vector3){ 0.0f, 1.0f, 0.0f };
     camera.fovy = 45.0f;
     camera.projection = CAMERA_PERSPECTIVE;
 
-    // Create a vector of clusters
-    std::vector<Cluster> clusters;
+    SetTargetFPS(60);
 
-    // Define colors for clusters
-    Color clusterColors[] = {
-        RED, GREEN, BLUE, YELLOW, ORANGE,
-        PINK, PURPLE, DARKGRAY, LIME, SKYBLUE
-    };
-    
-    #pragma omp parallel for
-    for (int i = 0; i < 10; i++) {
-        Cluster cluster;
-        cluster.color = clusterColors[i];
-        cluster.lodLevel = 0; // Start with the highest LOD level
-
-        for (int j = 0; j < 2; j++) {
-            Entities entity;
-            entity.model = LoadModel("assets/models/tree.obj");
-            entity.LodModels[0] = entity.model;
-            entity.LodModels[1] = LoadModelFromMesh(GenerateLODMesh(ContractVertices(entity.model.meshes[0], 0.5f), entity.model.meshes[0]));
-            entity.LodModels[2] = LoadModelFromMesh(GenerateLODMesh(ContractVertices(entity.model.meshes[0], 1.0f), entity.model.meshes[0]));
-            entity.LodModels[3] = LoadModelFromMesh(GenerateLODMesh(ContractVertices(entity.model.meshes[0], 1.5f), entity.model.meshes[0]));
-            
-
-            entity.position = { static_cast<float>(GetRandomValue(-10, 10)), static_cast<float>(GetRandomValue(-10, 10)), static_cast<float>(GetRandomValue(-10, 10)) };
-            cluster.entities.push_back(entity);
-        }
-
-        clusters.push_back(cluster);
-    }
-    
-    
     // Main game loop
     while (!WindowShouldClose()) {
-        // Update
-        
-        // Clear the background
-        BeginDrawing();
-        ClearBackground(GRAY);
-        BeginMode3D(camera);
-        BeginShaderMode(shader);
+        // Update the camera
         UpdateCamera(&camera, CAMERA_FREE);
 
+        // Draw the wireframe mesh
+        BeginDrawing();
+        ClearBackground(GRAY);
 
-        // Iterate through clusters and group them into LOD levels based on positions
-        #pragma omp parallel for
-        for (Cluster& cluster : clusters) {
-            float distance = Vector3Distance(cluster.entities[0].position, camera.position);
-            int lodLevel = 0;
-
-            if (distance < LOD_DISTANCE_HIGH) {
-                lodLevel = 0;
-                cluster.color = GREEN;
-            } else if (distance < LOD_DISTANCE_MEDIUM) {
-                lodLevel = 1;
-                cluster.color = YELLOW;
-            } else if (distance < LOD_DISTANCE_LOW) {
-                lodLevel = 2;
-                cluster.color = RED;
-            } else {
-                lodLevel = 3;
-                cluster.color = WHITE;
-            }
-
-            // Update LOD level for all entities in the cluster
-            for (Entities& entity : cluster.entities) {
-                entity.LodModels[lodLevel] = LoadModelFromMesh(entity.LodModels[lodLevel].meshes[0]);
-            }
-
-            // Draw all entities in the cluster with the cluster's color and LOD level
-            for (Entities& entity : cluster.entities) {
-                DrawModel(entity.LodModels[lodLevel], entity.position, 1.0f, cluster.color);
-            }
-        }
-
-
-        EndShaderMode();
-
+        BeginMode3D(camera);
+        DrawModel(LoadModelFromMesh(wireframe), Vector3Zero(), 1, WHITE);
+        DrawSphere(Vector3Zero(), .1, RED);
         EndMode3D();
 
-        DrawFPS(10,10);
-        
+        // Draw the UI
+        DrawText("Press ESC to close", 10, 10, 20, GRAY);
+        DrawText(TextFormat("Vertices: %d", wireframe.vertexCount), 10, 30, 20, GRAY);
+
         EndDrawing();
     }
-    
-    // Unload models
-    for (Cluster& cluster : clusters) {
-        for (Entities& entity : cluster.entities) {
-            // Unload LODModels first (index 1 to 3)
-            for (int i = 1; i < 4; i++) {
-                UnloadModel(entity.LodModels[i]);
-            }
 
-            // Unload the original model
-            UnloadModel(entity.model);
-        }
-    }
-
-    
-    // Clean up and close the window
+    // Clean up
+    UnloadMesh(cube);
+    UnloadMesh(wireframe);
     CloseWindow();
-    
+
     return 0;
 }
-
