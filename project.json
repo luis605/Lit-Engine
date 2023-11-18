@@ -2,15 +2,15 @@
     {
         "fovy": 60.0,
         "position": {
-            "x": 3.7430224418640137,
-            "y": -18.972835540771484,
-            "z": -19.272558212280273
+            "x": -22.51567268371582,
+            "y": 32.58810806274414,
+            "z": 24.082317352294922
         },
         "projection": 0,
         "target": {
-            "x": -1.3874688148498535,
-            "y": 23.762603759765625,
-            "z": 6.170221328735352
+            "x": 20.1735897064209,
+            "y": 14.507320404052734,
+            "z": 5.355035781860352
         },
         "type": "camera",
         "up": {
@@ -25,18 +25,17 @@
         "type": "world settings"
     },
     {
-        "collider_type": 4,
+        "collider_type": 1,
         "id": 0,
         "is_dynamic": false,
         "mass": 1.0,
-        "material_path": "",
-        "mesh_type": 1,
-        "model_path": "",
-        "name": "Unnamed Entity",
+        "material_path": "project/game/file3.mat",
+        "model_path": "project/game/models/simple_terrain.obj",
+        "name": "project/game/models/simple_terrain",
         "normal_texture_path": "",
         "position": {
             "x": 0.0,
-            "y": 0.0,
+            "y": 6.100006103515625,
             "z": 0.0
         },
         "relative_position": {
@@ -51,12 +50,59 @@
         },
         "roughness_texture_path": "",
         "scale": {
-            "x": 10.0,
-            "y": 1.0,
-            "z": 10.0
+            "x": 100.0,
+            "y": 100.0,
+            "z": 100.0
         },
         "script_index": "",
         "script_path": "",
+        "surface_material": {
+            "DiffuseIntensity": 0.5379999876022339,
+            "Roughness": 1.0,
+            "SpecularIntensity": 0.0,
+            "SpecularTint": {
+                "x": 1.0,
+                "y": 1.0,
+                "z": 1.0
+            },
+            "shininess": 0.0
+        },
+        "texture_path": "",
+        "type": "entity"
+    },
+    {
+        "collider_type": 0,
+        "id": 1,
+        "is_dynamic": true,
+        "mass": 1.0,
+        "material_path": "",
+        "mesh_type": 1,
+        "model_path": "",
+        "name": "Unnamed Entity",
+        "normal_texture_path": "",
+        "position": {
+            "x": 0.0,
+            "y": 17.399999618530273,
+            "z": 0.0
+        },
+        "relative_position": {
+            "x": 0.0,
+            "y": 0.0,
+            "z": 0.0
+        },
+        "rotation": {
+            "x": 0.0,
+            "y": 0.0,
+            "z": 0.0
+        },
+        "roughness_texture_path": "",
+        "scale": {
+            "x": 1.0,
+            "y": 1.0,
+            "z": 1.0
+        },
+        "script_index": "coins collector0",
+        "script_path": "project/game/coins collector.py",
         "surface_material": {
             "DiffuseIntensity": 0.5,
             "Roughness": 0.5,
@@ -72,7 +118,7 @@
         "type": "entity"
     },
     {
-        "attenuation": 9.999999747378752e-05,
+        "attenuation": 0.004000000189989805,
         "color": {
             "a": 255.0,
             "b": 255.0,
@@ -85,15 +131,89 @@
             "y": 0.4000000059604645,
             "z": -0.4000000059604645
         },
-        "id": 0,
-        "intensity": 0.5,
+        "id": 1,
+        "intensity": 0.0,
         "isChild": false,
         "light_type": 1,
         "name": "",
         "position": {
             "x": 4.0,
-            "y": 4.0,
+            "y": 16.5000057220459,
             "z": 4.0
+        },
+        "relative_position": {
+            "x": 0,
+            "y": 0,
+            "z": 0
+        },
+        "specularStrength": 0.5,
+        "target": {
+            "x": 0,
+            "y": 0,
+            "z": 0
+        },
+        "type": "light"
+    },
+    {
+        "attenuation": 9.999999747378752e-05,
+        "color": {
+            "a": 255.0,
+            "b": 111.25482177734375,
+            "g": 194.50491333007813,
+            "r": 255.0
+        },
+        "cutOff": 10.0,
+        "direction": {
+            "x": -0.4729999899864197,
+            "y": -1.0,
+            "z": -0.28600001335144043
+        },
+        "id": 1,
+        "intensity": 0.5,
+        "isChild": false,
+        "light_type": 0,
+        "name": "",
+        "position": {
+            "x": 4.0,
+            "y": 5.0,
+            "z": 3.0
+        },
+        "relative_position": {
+            "x": 0,
+            "y": 0,
+            "z": 0
+        },
+        "specularStrength": 0.5,
+        "target": {
+            "x": 22502.771484375,
+            "y": 3.0888822049111943e-41,
+            "z": 1.401298464324817e-45
+        },
+        "type": "light"
+    },
+    {
+        "attenuation": 9.999999747378752e-05,
+        "color": {
+            "a": 255.0,
+            "b": 93.5328140258789,
+            "g": 255.0,
+            "r": 244.4017791748047
+        },
+        "cutOff": 10.0,
+        "direction": {
+            "x": 0.4000000059604645,
+            "y": 0.4000000059604645,
+            "z": -0.4000000059604645
+        },
+        "id": 5,
+        "intensity": 0.5,
+        "isChild": false,
+        "light_type": 1,
+        "name": "Light",
+        "position": {
+            "x": 32.70000076293945,
+            "y": 12.80000114440918,
+            "z": 39.30000305175781
         },
         "relative_position": {
             "x": 0,

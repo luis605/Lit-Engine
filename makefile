@@ -58,17 +58,19 @@ static-build-linux:
 
 
 
-sandbox:
-	@g++ sandbox.cpp -o sandbox.out -L. -lstatic -lraylib -fpermissive -Wall -w
-	@./sandbox.out
-
-
-
 IMGUI_OBJECTS = $(patsubst imgui/%.cpp, imgui/%.o, $(wildcard imgui/*.cpp))
 
 imgui/%.o: imgui/%.cpp
 	@echo "Building Dear ImGUI"
 	g++ -std=c++17 -O3 -DIMGUI_IMPL_OPENGL_LOADER_GLAD -c $< -o $@
+
+
+sandbox: $(IMGUI_OBJECTS)
+	@g++ $(IMGUI_OBJECTS) sandbox.cpp -o sandbox.out -L. include/rlImGui.o -lstatic -lraylib -fpermissive -Wall -w  -I./imgui
+	@./sandbox.out
+
+
+
 
 
 run:

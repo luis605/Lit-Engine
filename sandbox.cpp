@@ -1,3 +1,4 @@
+#include <algorithm>
 #include "raylib.h"
 #include "raymath.h"
 #include <vector>
@@ -7,266 +8,269 @@
 #include <limits>
 #include <iostream>
 
-// Half-edge data structure for mesh representation
-struct HalfEdge {
-    int vertex;   // Vertex index
-    int pair;     // Index of the paired half-edge
-    int face;     // Index of the incident face
-    int next;     // Next half-edge in the face
+#include "imgui/imgui.h"
+#include "imgui/imgui_internal.h"
+#include "include/rlImGui.h"
+
+const size_t batchSize = 500;
+
+struct VertexIndices {
+    std::vector<size_t> indices;
+    std::vector<Vector3> vertices;
+    std::vector<Vector3> normals;
 };
 
-// QEM matrix data structure
-struct QEMMatrix {
-    float matrix[10];  // QEM matrix coefficients
-};
-
-// Vertex data structure with associated QEM matrix
-struct VertexData {
-    Vector3 position;
+struct EdgeData {
     Vector3 normal;
-    QEMMatrix qem;
-    bool isDeleted;  // Flag to mark deleted vertices
+    size_t indices[2];
+    bool processed;
 };
 
-// This function initializes the half-edge data structure from the mesh
-std::vector<HalfEdge> InitializeHalfEdges(const Mesh& mesh) {
-    std::vector<HalfEdge> halfEdges(mesh.vertexCount * 6);
-
-    for (int i = 0; i < mesh.triangleCount; ++i) {
-        int baseIndex = i * 3;
-        for (int j = 0; j < 3; ++j) {
-            int edgeIndex = baseIndex + j;
-            halfEdges[edgeIndex * 2].vertex = mesh.indices[baseIndex + j];
-            halfEdges[edgeIndex * 2].next = edgeIndex * 2 + 1;
-            halfEdges[edgeIndex * 2].face = i;
-
-            halfEdges[edgeIndex * 2 + 1].vertex = mesh.indices[baseIndex + (j + 1) % 3];
-            halfEdges[edgeIndex * 2 + 1].next = edgeIndex * 2;
-            halfEdges[edgeIndex * 2 + 1].face = i;
-        }
-    }
-
-    // Pair half-edges
-    for (size_t i = 0; i < halfEdges.size(); ++i) {
-        int vertex = halfEdges[i].vertex;
-        int nextVertex = halfEdges[halfEdges[i].next].vertex;
-
-        for (size_t j = 0; j < halfEdges.size(); ++j) {
-            if (i != j && vertex == halfEdges[j].vertex && nextVertex == halfEdges[halfEdges[j].next].vertex) {
-                halfEdges[i].pair = j;
-                halfEdges[j].pair = i;
-                break;
-            }
-        }
-    }
-
-    return halfEdges;
-}
-
-// This function initializes the QEM matrix for each vertex
-std::vector<VertexData> InitializeQEMMatrices(const Mesh& mesh, const std::vector<HalfEdge>& halfEdges) {
-    std::vector<VertexData> vertices(mesh.vertexCount);
+VertexIndices CollapseVertices(const std::vector<Vector3>& vertices, const std::vector<Vector3>& normals) {
+    VertexIndices result;
+    std::unordered_map<size_t, size_t> indexMap;
 
     for (size_t i = 0; i < vertices.size(); ++i) {
-        vertices[i].position.x = mesh.vertices[i * 3];
-        vertices[i].position.y = mesh.vertices[i * 3 + 1];
-        vertices[i].position.z = mesh.vertices[i * 3 + 2];
-
-        vertices[i].normal.x = mesh.normals[i * 3];
-        vertices[i].normal.y = mesh.normals[i * 3 + 1];
-        vertices[i].normal.z = mesh.normals[i * 3 + 2];
-
-        // Initialize QEM matrix as identity
-        for (int j = 0; j < 10; ++j) {
-            vertices[i].qem.matrix[j] = 0.0f;
+        auto iter = indexMap.find(i);
+        if (iter == indexMap.end()) {
+            result.indices.push_back(i);
+            result.vertices.push_back(vertices[i]);
+            result.normals.push_back(normals[i]);
+            indexMap[i] = result.vertices.size() - 1;
         }
-        vertices[i].qem.matrix[0] = 1.0f;
-        vertices[i].qem.matrix[4] = 1.0f;
-        vertices[i].qem.matrix[8] = 1.0f;
     }
 
-    // Accumulate QEM matrices from faces
-    for (size_t i = 0; i < halfEdges.size(); ++i) {
-        int vertex = halfEdges[i].vertex;
-        int nextVertex = halfEdges[halfEdges[i].next].vertex;
-        int pairVertex = halfEdges[halfEdges[i].pair].vertex;
-
-        Vector3 normal = Vector3CrossProduct(Vector3Subtract(vertices[nextVertex].position, vertices[vertex].position),
-                                             Vector3Subtract(vertices[pairVertex].position, vertices[vertex].position));
-
-        for (int j = 0; j < 10; ++j) {
-            vertices[vertex].qem.matrix[j] += normal.x * normal.x;
-        }
-        vertices[vertex].qem.matrix[1] += normal.x * normal.y * 2.0f;
-        vertices[vertex].qem.matrix[2] += normal.x * normal.z * 2.0f;
-        vertices[vertex].qem.matrix[5] += normal.y * normal.y;
-        vertices[vertex].qem.matrix[6] += normal.y * normal.z * 2.0f;
-        vertices[vertex].qem.matrix[9] += normal.z * normal.z;
-    }
-
-    return vertices;
+    return result;
 }
 
-// This function computes the error for a given vertex collapse
-float ComputeError(const VertexData& v1, const VertexData& v2) {
-    QEMMatrix qemSum;
-    for (int i = 0; i < 10; ++i) {
-        qemSum.matrix[i] = v1.qem.matrix[i] + v2.qem.matrix[i];
-    }
-
-    float error = 0.0f;
-    for (int i = 0; i < 10; ++i) {
-        for (int j = 0; j < 10; ++j) {
-            error += qemSum.matrix[i] * v1.qem.matrix[i];
-        }
-    }
-
-    return error;
+float ComputeQuadraticError(const Vector3& v1, const Vector3& v2, const Vector3& n1, const Vector3& n2) {
+    Vector3 delta = Vector3Subtract(v2, v1);
+    float distance = Vector3Length(delta);
+    float dot = Vector3DotProduct(n1, n2);
+    return distance * distance * (1.0f - dot * dot);
 }
 
-// This function collapses a pair of vertices and updates the mesh
-void CollapseVertices(std::vector<VertexData>& vertices, std::vector<HalfEdge>& halfEdges, int collapseEdge) {
-    int vertex1 = halfEdges[collapseEdge].vertex;
-    int vertex2 = halfEdges[halfEdges[collapseEdge].pair].vertex;
+std::pair<size_t, float> FindSmallestError(const std::vector<Vector3>& vertices, const std::vector<Vector3>& normals, const std::vector<EdgeData>& edges) {
+    float minError = std::numeric_limits<float>::max();
+    size_t minIndex = 0;
 
-    // Update the position and normal of vertex1
-    vertices[vertex1].position = Vector3Scale(Vector3Add(vertices[vertex1].position, vertices[vertex2].position), 0.5f);
-    vertices[vertex1].normal = Vector3Normalize(Vector3Add(vertices[vertex1].normal, vertices[vertex2].normal));
-
-    // Update the QEM matrix of vertex1
-    for (int i = 0; i < 10; ++i) {
-        vertices[vertex1].qem.matrix[i] += vertices[vertex2].qem.matrix[i];
-    }
-
-    // Mark vertex2 as deleted
-    vertices[vertex2].isDeleted = true;
-
-    // Update adjacent half-edges
-    for (size_t i = 0; i < halfEdges.size(); ++i) {
-        if (halfEdges[i].vertex == vertex2 && !vertices[halfEdges[i].pair].isDeleted) {
-            halfEdges[i].vertex = vertex1;
-            halfEdges[halfEdges[i].pair].vertex = vertex1;
+    for (size_t i = 0; i < edges.size(); ++i) {
+        float error = ComputeQuadraticError(vertices[edges[i].indices[0]], vertices[edges[i].indices[1]], normals[edges[i].indices[0]], normals[edges[i].indices[1]]);
+        if (error < minError) {
+            minError = error;
+            minIndex = i;
         }
     }
+
+    return std::make_pair(minIndex, minError);
 }
 
-// This function simplifies the mesh using the QEM algorithm
-std::vector<VertexData> SimplifyMesh(const Mesh& mesh, float threshold) {
-    // Initialize half-edge data structure
-    std::vector<HalfEdge> halfEdges = InitializeHalfEdges(mesh);
+VertexIndices SimplifyMesh(const std::vector<Vector3> vertices, const std::vector<Vector3> normals, float threshold) {
+    VertexIndices result;
 
-    // Initialize QEM matrices
-    std::vector<VertexData> vertices = InitializeQEMMatrices(mesh, halfEdges);
-
-    // Priority queue for edge collapses
-    std::priority_queue<std::pair<float, int>, std::vector<std::pair<float, int>>, std::greater<std::pair<float, int>>> queue;
-
-    // Initialize the queue with edge collapses
-    for (size_t i = 0; i < halfEdges.size(); ++i) {
-        int vertex1 = halfEdges[i].vertex;
-        int vertex2 = halfEdges[halfEdges[i].pair].vertex;
-
-        if (!vertices[vertex1].isDeleted && !vertices[vertex2].isDeleted) {
-            float error = ComputeError(vertices[vertex1], vertices[vertex2]);
-            queue.push(std::make_pair(error, i));
+    // Initialize the data structures for the QEM algorithm.
+    std::vector<EdgeData> edges;
+    for (size_t i = 0; i < vertices.size(); ++i) {
+        for (size_t j = i + 1; j < vertices.size(); ++j) {
+            EdgeData edge;
+            edge.indices[0] = i;
+            edge.indices[1] = j;
+            edge.normal = Vector3CrossProduct(normals[i], normals[j]);
+            edges.push_back(edge);
         }
     }
 
-    // Perform edge collapses until the threshold is reached
-    while (!queue.empty()) {
-        float error;
-        int collapseEdge;
-        std::tie(error, collapseEdge) = queue.top();
-        queue.pop();
+    // Sort edges based on error (ascending order).
+    std::sort(edges.begin(), edges.end(), [&](const EdgeData& a, const EdgeData& b) {
+        float errorA = ComputeQuadraticError(vertices[a.indices[0]], vertices[a.indices[1]], normals[a.indices[0]], normals[a.indices[1]]);
+        float errorB = ComputeQuadraticError(vertices[b.indices[0]], vertices[b.indices[1]], normals[b.indices[0]], normals[b.indices[1]]);
+        return errorA < errorB;
+    });
+
+    // Process the edges.
+    for (size_t i = 0; i < edges.size(); ++i) {
+        float error = ComputeQuadraticError(vertices[edges[i].indices[0]], vertices[edges[i].indices[1]], normals[edges[i].indices[0]], normals[edges[i].indices[1]]);
 
         if (error < threshold) {
-            CollapseVertices(vertices, halfEdges, collapseEdge);
-            
-            // Update the priority queue with new edge collapses
-            for (size_t i = 0; i < halfEdges.size(); ++i) {
-                int vertex1 = halfEdges[i].vertex;
-                int vertex2 = halfEdges[halfEdges[i].pair].vertex;
+            // Update the edge information.
+            size_t index0 = edges[i].indices[0];
+            size_t index1 = edges[i].indices[1];
 
-                if (!vertices[vertex1].isDeleted && !vertices[vertex2].isDeleted) {
-                    float newError = ComputeError(vertices[vertex1], vertices[vertex2]);
-                    queue.push(std::make_pair(newError, i));
+            // Update the vertices and normals directly.
+            vertices[index0] = Vector3Lerp(vertices[index0], vertices[index1], 0.5f);
+            normals[index0] = Vector3Lerp(normals[index0], normals[index1], 0.5f);
+
+            // Mark the edge as processed
+            edges[i].processed = true;
+
+            // Recompute the error for affected edges.
+            for (size_t j = i + 1; j < edges.size(); ++j) {
+                if (!edges[j].processed && (edges[j].indices[0] == index0 || edges[j].indices[1] == index0)) {
+                    float newError = ComputeQuadraticError(vertices[edges[j].indices[0]], vertices[edges[j].indices[1]], normals[edges[j].indices[0]], normals[edges[j].indices[1]]);
+                    if (newError < threshold) {
+                        // Mark the edge as processed and update the vertices and normals directly.
+                        edges[j].processed = true;
+                        size_t otherIndex = (edges[j].indices[0] == index0) ? edges[j].indices[1] : edges[j].indices[0];
+                        vertices[index0] = Vector3Lerp(vertices[index0], vertices[otherIndex], 0.5f);
+                        normals[index0] = Vector3Lerp(normals[index0], normals[otherIndex], 0.5f);
+                    }
                 }
             }
         }
     }
 
-    return vertices;
+    // Directly update the result with the collapsed vertices.
+    result = CollapseVertices(vertices, normals);
+
+    return result;
+}
+
+
+Mesh GenerateLODMesh(const VertexIndices& meshData, const Mesh sourceMesh) {
+    Mesh lodMesh = { 0 };
+
+    if (!meshData.vertices.empty()) {
+        int vertexCount = meshData.vertices.size();
+        int triangleCount = vertexCount / 3;
+        int indexCount = triangleCount * 3;
+
+        // Allocate memory for the new mesh
+        lodMesh.vertexCount = vertexCount;
+        lodMesh.triangleCount = triangleCount;
+        lodMesh.vertices = (float*)malloc(sizeof(float) * 3 * vertexCount);
+        lodMesh.indices = (unsigned short*)malloc(sizeof(unsigned short) * indexCount);
+        lodMesh.normals = (float*)malloc(sizeof(float) * 3 * vertexCount);
+
+        // Calculate the bounding box of the contracted mesh
+        Vector3 minVertex = meshData.vertices[0];
+        Vector3 maxVertex = meshData.vertices[0];
+        for (const auto& vertex : meshData.vertices) {
+            minVertex = Vector3Min(minVertex, vertex);
+            maxVertex = Vector3Max(maxVertex, vertex);
+        }
+
+        // Calculate the scaling factors for texture coordinates
+        float scaleX = 1.0f / (maxVertex.x - minVertex.x);
+        float scaleY = 1.0f / (maxVertex.y - minVertex.y);
+
+        // Assign vertices and normals directly to the mesh
+        for (int i = 0; i < vertexCount; i++) {
+            lodMesh.vertices[i * 3] = meshData.vertices[i].x;
+            lodMesh.vertices[i * 3 + 1] = meshData.vertices[i].y;
+            lodMesh.vertices[i * 3 + 2] = meshData.vertices[i].z;
+
+            lodMesh.normals[i * 3] = meshData.normals[i].x;
+            lodMesh.normals[i * 3 + 1] = meshData.normals[i].y;
+            lodMesh.normals[i * 3 + 2] = meshData.normals[i].z;
+        }
+
+        // Generate new indices for non-indexed mesh
+        if (sourceMesh.indices) {
+            // Allocate memory for the indices
+            lodMesh.indices = (unsigned short*)malloc(sizeof(unsigned short) * indexCount);
+
+            // Copy indices from the source mesh
+            for (int i = 0; i < indexCount; i++) {
+                lodMesh.indices[i] = meshData.indices.at(i);
+            }
+        }
+        else {
+            lodMesh.indices = sourceMesh.indices;
+        }
+    }
+
+    // Upload the mesh data to GPU
+    UploadMesh(&lodMesh, false);
+
+    // Free the allocated memory before returning
+    if (lodMesh.vertices) {
+        free(lodMesh.vertices);
+        lodMesh.vertices = NULL;
+    }
+    if (lodMesh.indices) {
+        free(lodMesh.indices);
+        lodMesh.indices = NULL;
+    }
+    if (lodMesh.normals) {
+        free(lodMesh.normals);
+        lodMesh.normals = NULL;
+    }
+
+    return lodMesh;
 }
 
 int main() {
-    // Initialize the screen and camera
     int screenWidth = 800;
     int screenHeight = 450;
-    SetConfigFlags(FLAG_MSAA_4X_HINT);
+    SetConfigFlags(FLAG_MSAA_4X_HINT | FLAG_WINDOW_RESIZABLE);
     InitWindow(screenWidth, screenHeight, "QEM Mesh Simplification");
 
-    // Create a mesh
-    Mesh cube = GenMeshSphere(1,30,30);
+    Mesh cube = GenMeshSphere(1,5,5);
 
-    // Simplify the mesh
-    std::vector<VertexData> simplifiedVertices = SimplifyMesh(cube, 0.1f);
+    std::vector<Vector3> vertices;
+    std::vector<Vector3> normals;
 
-    // Generate a wireframe model from the simplified mesh
-    Mesh wireframe = { 0 };
-    wireframe.vertexCount = static_cast<int>(simplifiedVertices.size());
-    wireframe.vertices = (float*)malloc(sizeof(float) * 3 * wireframe.vertexCount);
-    wireframe.normals = (float*)malloc(sizeof(float) * 3 * wireframe.vertexCount);
-    wireframe.indices = (unsigned short*)malloc(sizeof(unsigned short) * wireframe.vertexCount);
+    for (size_t i = 0; i < cube.vertexCount; ++i) {
+        size_t baseIndex = i * 6;
+        float x = cube.vertices[baseIndex];
+        float y = cube.vertices[baseIndex + 1];
+        float z = cube.vertices[baseIndex + 2];
+        float nx = cube.normals[baseIndex];
+        float ny = cube.normals[baseIndex + 1];
+        float nz = cube.normals[baseIndex + 2];
 
-    for (size_t i = 0; i < simplifiedVertices.size(); ++i) {
-        wireframe.vertices[i * 3] = simplifiedVertices[i].position.x;
-        wireframe.vertices[i * 3 + 1] = simplifiedVertices[i].position.y;
-        wireframe.vertices[i * 3 + 2] = simplifiedVertices[i].position.z;
-
-        wireframe.normals[i * 3] = simplifiedVertices[i].normal.x;
-        wireframe.normals[i * 3 + 1] = simplifiedVertices[i].normal.y;
-        wireframe.normals[i * 3 + 2] = simplifiedVertices[i].normal.z;
-
-        wireframe.indices[i] = static_cast<unsigned short>(i);
+        vertices.push_back({ x, y, z });
+        normals.push_back({ nx, ny, nz });
     }
 
-    UploadMesh(&wireframe, false);
+    float threshold = 0.1f;
+    VertexIndices result = SimplifyMesh(vertices, normals, threshold);
 
-    // Set up the camera
+    Mesh wireframe = GenerateLODMesh(result, cube);
+
     Camera3D camera = { 0 };
-    camera.position = (Vector3){ 0.0f, 1.0f, -5.0f };
-    camera.target = (Vector3){ 0.0f, 0.0f, 0.0f };
-    camera.up = (Vector3){ 0.0f, 1.0f, 0.0f };
+    camera.position = { 0.0f, 1.0f, -5.0f };
+    camera.target = { 0.0f, 0.0f, 0.0f };
+    camera.up = { 0.0f, 1.0f, 0.0f };
     camera.fovy = 45.0f;
     camera.projection = CAMERA_PERSPECTIVE;
 
-    SetTargetFPS(60);
+    SetTargetFPS(50);
+    Vector3 lightPosition = { 0.0f, 2.0f, 0.0f };
 
-    // Main game loop
+    rlImGuiSetup(true);
+
     while (!WindowShouldClose()) {
-        // Update the camera
-        UpdateCamera(&camera, CAMERA_FREE);
-
-        // Draw the wireframe mesh
+        if (IsMouseButtonDown(MOUSE_BUTTON_RIGHT))
+            UpdateCamera(&camera, CAMERA_FREE);
         BeginDrawing();
         ClearBackground(GRAY);
+        rlImGuiBegin();
 
         BeginMode3D(camera);
-        DrawModel(LoadModelFromMesh(wireframe), Vector3Zero(), 1, WHITE);
-        DrawSphere(Vector3Zero(), .1, RED);
+        DrawModel(LoadModelFromMesh(wireframe), { -0.5f, 0.0f, -0.5f }, 1.0f, RED);
         EndMode3D();
 
-        // Draw the UI
-        DrawText("Press ESC to close", 10, 10, 20, GRAY);
-        DrawText(TextFormat("Vertices: %d", wireframe.vertexCount), 10, 30, 20, GRAY);
+        DrawText("Press ESC to close", 10, 10, 20, WHITE);
+        DrawText(TextFormat("Faces: %d", result.indices.size() / 3), 10, 30, 20, WHITE);
+        DrawText(TextFormat("Vertices: %d", result.vertices.size()), 10, 50, 20, WHITE);
 
+        ImGui::Begin("Inspector Window", NULL);
+        if (ImGui::SliderFloat("Simplification Factor", &threshold, 0, .5))
+        {
+            VertexIndices result = SimplifyMesh(vertices, normals, threshold);
+            wireframe = GenerateLODMesh(result, cube);
+        }
+        ImGui::End();
+
+        rlImGuiEnd();
         EndDrawing();
     }
 
-    // Clean up
     UnloadMesh(cube);
     UnloadMesh(wireframe);
     CloseWindow();
 
     return 0;
 }
+
