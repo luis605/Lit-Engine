@@ -65,8 +65,24 @@ std::pair<size_t, float> FindSmallestError(const std::vector<Vector3>& vertices,
     return std::make_pair(minIndex, minError);
 }
 
-VertexIndices SimplifyMesh(const std::vector<Vector3> vertices, const std::vector<Vector3> normals, float threshold) {
+VertexIndices SimplifyMesh(const Mesh mesh, const std::vector<Vector3> vertices, const std::vector<Vector3> normals, float threshold) {
     VertexIndices result;
+
+    if (threshold == 0) {
+        result.vertices = vertices;
+        result.normals = normals;
+        result.indices.resize(mesh.triangleCount * 3);
+
+        for (int i = 0; i < mesh.triangleCount; i++) {
+            result.indices[i * 3] = mesh.indices[i * 3];
+            result.indices[i * 3 + 1] = mesh.indices[i * 3 + 1];
+            result.indices[i * 3 + 2] = mesh.indices[i * 3 + 2];
+        }
+
+        return result;
+    }
+
+
 
     // Initialize the data structures for the QEM algorithm.
     std::vector<EdgeData> edges;
@@ -98,7 +114,7 @@ VertexIndices SimplifyMesh(const std::vector<Vector3> vertices, const std::vecto
 
             // Update the vertices and normals directly.
             vertices[index0] = Vector3Lerp(vertices[index0], vertices[index1], 0.5f);
-            normals[index0] = Vector3Lerp(normals[index0], normals[index1], 0.5f);
+            normals[index0] = Vector3Normalize(Vector3Add(normals[index0], normals[index1]));
 
             // Mark the edge as processed
             edges[i].processed = true;
@@ -112,7 +128,7 @@ VertexIndices SimplifyMesh(const std::vector<Vector3> vertices, const std::vecto
                         edges[j].processed = true;
                         size_t otherIndex = (edges[j].indices[0] == index0) ? edges[j].indices[1] : edges[j].indices[0];
                         vertices[index0] = Vector3Lerp(vertices[index0], vertices[otherIndex], 0.5f);
-                        normals[index0] = Vector3Lerp(normals[index0], normals[otherIndex], 0.5f);
+                        normals[index0] = Vector3Normalize(Vector3Add(normals[index0], normals[otherIndex]));
                     }
                 }
             }
@@ -126,7 +142,8 @@ VertexIndices SimplifyMesh(const std::vector<Vector3> vertices, const std::vecto
 }
 
 
-Mesh GenerateLODMesh(const VertexIndices& meshData, const Mesh sourceMesh) {
+
+Mesh GenerateLODMesh(const VertexIndices meshData, const Mesh sourceMesh) {
     Mesh lodMesh = { 0 };
 
     if (!meshData.vertices.empty()) {
@@ -164,20 +181,14 @@ Mesh GenerateLODMesh(const VertexIndices& meshData, const Mesh sourceMesh) {
             lodMesh.normals[i * 3 + 2] = meshData.normals[i].z;
         }
 
-        // Generate new indices for non-indexed mesh
-        if (sourceMesh.indices) {
-            // Allocate memory for the indices
-            lodMesh.indices = (unsigned short*)malloc(sizeof(unsigned short) * indexCount);
 
-            // Copy indices from the source mesh
-            for (int i = 0; i < indexCount; i++) {
-                lodMesh.indices[i] = meshData.indices.at(i);
-            }
+        // Copy indices from the result mesh
+        for (int i = 0; i < indexCount; i++) {
+            lodMesh.indices[i] = meshData.indices.at(i);
         }
-        else {
-            lodMesh.indices = sourceMesh.indices;
-        }
+
     }
+
 
     // Upload the mesh data to GPU
     UploadMesh(&lodMesh, false);
@@ -187,10 +198,8 @@ Mesh GenerateLODMesh(const VertexIndices& meshData, const Mesh sourceMesh) {
         free(lodMesh.vertices);
         lodMesh.vertices = NULL;
     }
-    if (lodMesh.indices) {
-        free(lodMesh.indices);
-        lodMesh.indices = NULL;
-    }
+
+
     if (lodMesh.normals) {
         free(lodMesh.normals);
         lodMesh.normals = NULL;
@@ -205,13 +214,13 @@ int main() {
     SetConfigFlags(FLAG_MSAA_4X_HINT | FLAG_WINDOW_RESIZABLE);
     InitWindow(screenWidth, screenHeight, "QEM Mesh Simplification");
 
-    Mesh cube = GenMeshSphere(1,5,5);
+    Mesh cube = GenMeshCube(1,1,1);
 
     std::vector<Vector3> vertices;
     std::vector<Vector3> normals;
 
     for (size_t i = 0; i < cube.vertexCount; ++i) {
-        size_t baseIndex = i * 6;
+        size_t baseIndex = i * 3;
         float x = cube.vertices[baseIndex];
         float y = cube.vertices[baseIndex + 1];
         float z = cube.vertices[baseIndex + 2];
@@ -224,7 +233,7 @@ int main() {
     }
 
     float threshold = 0.1f;
-    VertexIndices result = SimplifyMesh(vertices, normals, threshold);
+    VertexIndices result = SimplifyMesh(cube, vertices, normals, threshold);
 
     Mesh wireframe = GenerateLODMesh(result, cube);
 
@@ -258,7 +267,7 @@ int main() {
         ImGui::Begin("Inspector Window", NULL);
         if (ImGui::SliderFloat("Simplification Factor", &threshold, 0, .5))
         {
-            VertexIndices result = SimplifyMesh(vertices, normals, threshold);
+            VertexIndices result = SimplifyMesh(cube, vertices, normals, threshold);
             wireframe = GenerateLODMesh(result, cube);
         }
         ImGui::End();

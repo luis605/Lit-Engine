@@ -66,7 +66,7 @@ imgui/%.o: imgui/%.cpp
 
 
 sandbox: $(IMGUI_OBJECTS)
-	@g++ $(IMGUI_OBJECTS) sandbox.cpp -o sandbox.out -L. include/rlImGui.o -lstatic -lraylib -fpermissive -Wall -w  -I./imgui
+	@g++ $(IMGUI_OBJECTS) sandbox.cpp -o sandbox.out -L. include/rlImGui.o -lstatic -lraylib -fpermissive -Wall -w  -I./imgui -g
 	@./sandbox.out
 
 
