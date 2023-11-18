@@ -59,7 +59,7 @@ static-build-linux:
 
 
 sandbox:
-	@g++ sandbox.cpp -o sandbox.out -L. -lstatic -lraylib
+	@g++ sandbox.cpp -o sandbox.out -L. -lstatic -lraylib -fpermissive -Wall -w
 	@./sandbox.out
 
 

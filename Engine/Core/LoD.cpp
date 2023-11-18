@@ -84,85 +84,122 @@ Vector4 Vector4OuterProduct(const Vector4& v1, const Vector4& v2) {
     return result;
 }
 
-
 struct VertexIndices {
     std::vector<size_t> indices;
     std::vector<Vector3> vertices;
 };
 
-class SimplifyMesh {
-public:
-    VertexIndices result;  // Store the simplified vertices here
-    VertexIndices simplify(Mesh& mesh, float factor);
+// The QEM result type
 
-private:
-    float calculateError(const Mesh& mesh, size_t v1, size_t v2);
-    void collapse(Mesh& mesh, size_t u, size_t v);
+struct QEM {
+
+    float QEM_distortion;
+
+    float QEM_displacement;
+
+    float QEM_accuracy;
+
 };
 
-VertexIndices SimplifyMesh::simplify(Mesh& mesh, float factor) {
-    // Simplify the mesh here...
 
-    // This is a simplified version of the algorithm
-    // and may not work for all meshes or factors.
 
-    // Calculate the target number of vertices
-    size_t targetCount = static_cast<size_t>(mesh.vertexCount * factor);
-    while (mesh.vertexCount > targetCount) {
-        // Find the edge with the smallest error
-        size_t minErrorV1 = 0;
-        size_t minErrorV2 = 0;
-        float minError = calculateError(mesh, 0, 1);
-        for (size_t i = 0; i < mesh.vertexCount; i++) {
-            for (size_t j = i + 1; j < mesh.vertexCount; j++) {
-                float error = calculateError(mesh, i, j);
-                if (error < minError) {
-                    minError = error;
-                    minErrorV1 = i;
-                    minErrorV2 = j;
-                }
-            }
-        }
+// The function that calculates the QEM of a collapsed mesh
 
-        // Collapse the edge with the smallest error
-        collapse(mesh, minErrorV1, minErrorV2);
+QEM CalculateQEM(const Mesh &mesh) {
+
+    // Assume the mesh has vertices
+
+    const size_t numVertices = mesh.vertexCount;
+
+    const float *vertices = mesh.vertices;
+
+
+    // Assume the mesh has normals
+
+    const Vector3 *normals = reinterpret_cast<const Vector3 *>(mesh.normals);
+
+
+    // Calculate QEM_distortion, QEM_displacement, and QEM_accuracy
+
+    float QEM_distortion = 0.0f;
+
+    float QEM_displacement = 0.0f;
+
+    float QEM_accuracy = 0.0f;
+
+
+    // Calculate the average position and normal of the vertices
+
+    Vector3 averagePosition = {0.0f, 0.0f, 0.0f};
+
+    Vector3 averageNormal = {0.0f, 0.0f, 0.0f};
+
+
+    for (size_t i = 0; i < numVertices; ++i) {
+
+        averagePosition.x += vertices[i * 3];
+
+        averagePosition.y += vertices[i * 3 + 1];
+
+        averagePosition.z += vertices[i * 3 + 2];
+
+
+        averageNormal.x += normals[i].x;
+
+        averageNormal.y += normals[i].y;
+
+        averageNormal.z += normals[i].z;
+
     }
 
-    // Store the simplified mesh in the result member
-    result.indices.clear();
-    result.vertices.clear();
-    for (size_t i = 0; i < mesh.vertexCount; i++) {
-        result.indices.push_back(i);
-        result.vertices.push_back({ mesh.vertices[i], mesh.vertices[i] + 1, mesh.vertices[i] + 2 });
+
+    averagePosition.x /= static_cast<float>(numVertices);
+
+    averagePosition.y /= static_cast<float>(numVertices);
+
+    averagePosition.z /= static_cast<float>(numVertices);
+
+
+    averageNormal.x /= static_cast<float>(numVertices);
+
+    averageNormal.y /= static_cast<float>(numVertices);
+
+    averageNormal.z /= static_cast<float>(numVertices);
+
+
+    // Calculate the displacement, distortion, and accuracy values
+
+    for (size_t i = 0; i < numVertices; ++i) {
+
+        Vector3 position = {vertices[i * 3], vertices[i * 3 + 1], vertices[i * 3 + 2]};
+
+        Vector3 normal = normals[i];
+
+
+        QEM_displacement += Vector3Distance(position, averagePosition);
+
+        QEM_distortion += Vector3Distance(normal, averageNormal);
+
+
+        float accuracy = 1.0f - (Vector3DotProduct(normal, position) - Vector3DotProduct(averageNormal, averagePosition)) /
+
+                                (Vector3Length(normal) * Vector3Length(position));
+
+        QEM_accuracy += accuracy;
+
     }
 
-    return result;
+
+    QEM_distortion /= static_cast<float>(numVertices);
+
+    QEM_displacement /= static_cast<float>(numVertices);
+
+    QEM_accuracy /= static_cast<float>(numVertices);
+
+
+    return QEM{QEM_distortion, QEM_displacement, QEM_accuracy};
+
 }
-
-float SimplifyMesh::calculateError(const Mesh& mesh, size_t v1, size_t v2) {
-    // Calculate the error of collapsing edge (v1, v2)
-    // This is a placeholder implementation and should be replaced
-    // with a proper error calculation based on the mesh geometry.
-    return Vector3Distance({mesh.vertices[v1], mesh.vertices[v1] + 1, mesh.vertices[v1] + 2 }, { mesh.vertices[v2], mesh.vertices[v2] + 1, mesh.vertices[v2] + 2 });
-}
-
-void SimplifyMesh::collapse(Mesh& mesh, size_t u, size_t v) {
-    // Collapse the edge (u, v)
-    // This is a placeholder implementation and should be replaced
-    // with a proper edge collapse operation based on the mesh geometry.
-    result.vertices.reserve(1);
-    
-    result.vertices[u] = (Vector3) {
-        (mesh.vertices[u] + 0 + mesh.vertices[v] + 0 ) / 2,
-        (mesh.vertices[u] + 1 + mesh.vertices[v] + 1 ) / 2,
-        (mesh.vertices[u] + 2 + mesh.vertices[v] + 2 ) / 2
-        };
-
-    result.vertices.erase(result.vertices.begin() + v);
-    mesh.vertexCount--;
-}
-
-
 
 
 // Function to generate a simplified LOD mesh with recalculated texture coordinates
@@ -185,6 +222,7 @@ Mesh GenerateLODMesh(VertexIndices meshData, Mesh& sourceMesh) {
         lodMesh.colors = (unsigned char*)malloc(sizeof(unsigned char) * 4 * vertexCount); // Allocate memory for colors
         lodMesh.tangents = (float*)malloc(sizeof(float) * 4 * vertexCount); // Allocate memory for tangents
         lodMesh.boneWeights = (float*)malloc(sizeof(float) * 4 * vertexCount); // Allocate memory for boneWeights
+
 
         // Calculate the bounding box of the contracted mesh
         Vector3 minVertex = meshData.vertices[0];

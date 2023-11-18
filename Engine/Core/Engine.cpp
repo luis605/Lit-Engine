@@ -276,6 +276,7 @@ public:
         this->id = other.id;
         this->parent = nullptr; 
 
+        this->lodEnabled = other.lodEnabled;
         for (int i = 0; i < sizeof(LodModels)/sizeof(LodModels[0]); i++)
             this->LodModels[i] = other.LodModels[i];
 
@@ -306,6 +307,7 @@ public:
         this->texture_path = other.texture_path;
         this->tiling[0] = other.tiling[0];
         this->tiling[1] = other.tiling[1];
+        this->lodEnabled = other.lodEnabled;
 
 
         for (int i = 0; i < sizeof(LodModels)/sizeof(LodModels[0]); i++)
@@ -1342,8 +1344,8 @@ public:
                 lodLevel = 3;
             }
 
-            // if (name == "project/game/models/simple_terrain")
-            //     std::cout << LodModels[lodLevel].meshes[0].vertexCount << std::endl;
+            if (name == "project/game/models/simple_terrain" && lodEnabled && IsModelReady(LodModels[lodLevel]))
+                std::cout << LodModels[lodLevel].meshes[0].vertexCount << std::endl;
 
             if (lodEnabled && IsModelReady(LodModels[lodLevel]))
             {
