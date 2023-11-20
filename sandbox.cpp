@@ -28,16 +28,116 @@ struct EdgeData {
 
 
 
+VertexIndices CollapseVertices(const std::vector<Vector3> vertices, const std::vector<Vector3> normals) {
+    VertexIndices result;
+    std::unordered_map<size_t, size_t> indexMap;
+
+    for (size_t i = 0; i < vertices.size(); ++i) {
+        auto iter = indexMap.find(i);
+        if (iter == indexMap.end()) {
+            result.indices.push_back(i);
+            result.vertices.push_back(vertices[i]);
+            result.normals.push_back(normals[i]);
+            indexMap[i] = result.vertices.size() - 1;
+        }
+    }
+
+    return result;
+}
+
+float ComputeQuadraticError(const Vector3 v1, const Vector3 v2, const Vector3 n1, const Vector3 n2) {
+    Vector3 delta = Vector3Subtract(v2, v1);
+    float distance = Vector3Length(delta);
+    float dot = Vector3DotProduct(n1, n2);
+    return distance * distance * (1.0f - dot * dot);
+}
+
+std::pair<size_t, float> FindSmallestError(const std::vector<Vector3> vertices, const std::vector<Vector3> normals, const std::vector<EdgeData> edges) {
+    float minError = std::numeric_limits<float>::max();
+    size_t minIndex = 0;
+
+    for (size_t i = 0; i < edges.size(); ++i) {
+        float error = ComputeQuadraticError(vertices[edges[i].indices[0]], vertices[edges[i].indices[1]], normals[edges[i].indices[0]], normals[edges[i].indices[1]]);
+        if (error < minError) {
+            minError = error;
+            minIndex = i;
+        }
+    }
+
+    return std::make_pair(minIndex, minError);
+}
+
+
+
 VertexIndices SimplifyMesh(const Mesh mesh, const std::vector<Vector3> vertices, const std::vector<Vector3> normals, float threshold) {
     VertexIndices result;
 
-    result.vertices = vertices;
-    result.normals = normals;
+    if (threshold == 0) 
+    {
+        result.vertices = vertices;
+        result.normals = normals;
 
-    for (size_t i = 0; i < mesh.vertexCount; i++) {
-        result.indices.push_back(mesh.indices[i]);
+        for (size_t i = 0; i < mesh.triangleCount * 3; i++) {
+            result.indices.push_back(mesh.indices[i]);
+        }
+        return result;
     }
 
+
+
+    // Initialize the data structures for the QEM algorithm.
+    std::vector<EdgeData> edges;
+    for (size_t i = 0; i < vertices.size(); ++i) {
+        for (size_t j = i + 1; j < vertices.size(); ++j) {
+            EdgeData edge;
+            edge.indices[0] = i;
+            edge.indices[1] = j;
+            edge.normal = Vector3CrossProduct(normals[i], normals[j]);
+            edges.push_back(edge);
+        }
+    }
+
+    // Sort edges based on error (ascending order).
+    std::sort(edges.begin(), edges.end(), [&](const EdgeData& a, const EdgeData& b) {
+        float errorA = ComputeQuadraticError(vertices[a.indices[0]], vertices[a.indices[1]], normals[a.indices[0]], normals[a.indices[1]]);
+        float errorB = ComputeQuadraticError(vertices[b.indices[0]], vertices[b.indices[1]], normals[b.indices[0]], normals[b.indices[1]]);
+        return errorA < errorB;
+    });
+
+    // Process the edges.
+    for (size_t i = 0; i < edges.size(); ++i) {
+        float error = ComputeQuadraticError(vertices[edges[i].indices[0]], vertices[edges[i].indices[1]], normals[edges[i].indices[0]], normals[edges[i].indices[1]]);
+
+        if (error < threshold) {
+            // Update the edge information.
+            size_t index0 = edges[i].indices[0];
+            size_t index1 = edges[i].indices[1];
+
+            // Update the vertices and normals directly.
+            vertices[index0] = Vector3Lerp(vertices[index0], vertices[index1], 0.5f);
+            normals[index0] = Vector3Normalize(Vector3Add(normals[index0], normals[index1]));
+
+            // Mark the edge as processed
+            edges[i].processed = true;
+
+            // Recompute the error for affected edges.
+            for (size_t j = i + 1; j < edges.size(); ++j) {
+                if (!edges[j].processed && (edges[j].indices[0] == index0 || edges[j].indices[1] == index0)) {
+                    float newError = ComputeQuadraticError(vertices[edges[j].indices[0]], vertices[edges[j].indices[1]], normals[edges[j].indices[0]], normals[edges[j].indices[1]]);
+                    if (newError < threshold) {
+                        // Mark the edge as processed and update the vertices and normals directly.
+                        edges[j].processed = true;
+                        size_t otherIndex = (edges[j].indices[0] == index0) ? edges[j].indices[1] : edges[j].indices[0];
+                        vertices[index0] = Vector3Lerp(vertices[index0], vertices[otherIndex], 0.5f);
+                        normals[index0] = Vector3Normalize(Vector3Add(normals[index0], normals[otherIndex]));
+                    }
+                }
+            }
+        }
+    }
+
+    // Directly update the result with the collapsed vertices.
+    result = CollapseVertices(vertices, normals);
 
 
     return result;
@@ -86,12 +186,13 @@ Mesh GenerateLODMesh(const VertexIndices meshData, const Mesh sourceMesh) {
 
 
         // Copy indices from the result mesh
-        for (int i = 0; i < triangleCount; i++) {
-            lodMesh.indices[i * 3] = static_cast<unsigned short>(meshData.indices[i * 3]);
-            lodMesh.indices[i * 3 + 1] = static_cast<unsigned short>(meshData.indices[i * 3 + 1]);
-            lodMesh.indices[i * 3 + 2] = static_cast<unsigned short>(meshData.indices[i * 3 + 2]);
+        
+        for (int i = 0; i < meshData.indices.size(); i++) {
+            lodMesh.indices[i] = static_cast<unsigned short>(sourceMesh.indices[i]);
         }
 
+        lodMesh.triangleCount = sourceMesh.triangleCount + 4;
+        
 
     }
 
@@ -129,11 +230,11 @@ int main() {
     }
 
 
-    for (size_t i = 0; i < cube.vertexCount; ++i) {
-        std::cout << "Vertices 1: " << vertices[i].x << " " << vertices[i].y << " " << vertices[i].z << std::endl;
-        std::cout << "Vertices 2: " << cube.vertices[i * 3] << " " << cube.vertices[i * 3 + 1] << " " << cube.vertices[i * 3 + 2] << std::endl;
-        std::cout << "\n\n";
-    }
+    // for (size_t i = 0; i < cube.vertexCount; ++i) {
+    //     std::cout << "Vertices 1: " << vertices[i].x << " " << vertices[i].y << " " << vertices[i].z << std::endl;
+    //     std::cout << "Vertices 2: " << cube.vertices[i * 3] << " " << cube.vertices[i * 3 + 1] << " " << cube.vertices[i * 3 + 2] << std::endl;
+    //     std::cout << "\n\n";
+    // }
 
 
     float threshold = 0.1f;
