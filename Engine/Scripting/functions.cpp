@@ -94,7 +94,7 @@ struct LitCamera : Camera3D {
 PYBIND11_EMBEDDED_MODULE(camera_module, m) {
     py::class_<LitCamera>(m, "LitCamera")
         .def(py::init<LitVector3, LitVector3, LitVector3, float, float>())
-        .def_readwrite("pos", &LitCamera::pos, py::call_guard<py::gil_scoped_release>())
+        .def_readwrite("position", &LitCamera::pos, py::call_guard<py::gil_scoped_release>())
         .def_readwrite("look_at", &LitCamera::look_at, py::call_guard<py::gil_scoped_release>())
         .def_readwrite("up", &LitCamera::up_vector, py::call_guard<py::gil_scoped_release>())
         .def_readwrite("fovy", &LitCamera::fovy, py::call_guard<py::gil_scoped_release>())
