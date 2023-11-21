@@ -7,27 +7,25 @@
 #include <queue>
 #include <limits>
 #include <iostream>
-
+#include "glm/glm.hpp"
+#include "glm/gtc/matrix_transform.hpp"
 #include "imgui/imgui.h"
 #include "imgui/imgui_internal.h"
 #include "include/rlImGui.h"
 
-
 struct VertexIndices {
     std::vector<size_t> indices;
-    std::vector<Vector3> vertices;
-    std::vector<Vector3> normals;
+    std::vector<glm::vec3> vertices;
+    std::vector<glm::vec3> normals;
 };
 
 struct EdgeData {
-    Vector3 normal;
+    glm::vec3 normal;
     size_t indices[2];
     bool processed;
 };
 
-
-
-VertexIndices CollapseVertices(const std::vector<Vector3> vertices, const std::vector<Vector3> normals) {
+VertexIndices CollapseVertices(const std::vector<glm::vec3>& vertices, const std::vector<glm::vec3>& normals) {
     VertexIndices result;
     std::unordered_map<size_t, size_t> indexMap;
 
@@ -44,14 +42,14 @@ VertexIndices CollapseVertices(const std::vector<Vector3> vertices, const std::v
     return result;
 }
 
-float ComputeQuadraticError(const Vector3 v1, const Vector3 v2, const Vector3 n1, const Vector3 n2) {
-    Vector3 delta = Vector3Subtract(v2, v1);
-    float distance = Vector3Length(delta);
-    float dot = Vector3DotProduct(n1, n2);
+float ComputeQuadraticError(const glm::vec3& v1, const glm::vec3& v2, const glm::vec3& n1, const glm::vec3& n2) {
+    glm::vec3 delta = v2 - v1;
+    float distance = glm::length(delta);
+    float dot = glm::dot(n1, n2);
     return distance * distance + (1.0f - dot);
 }
 
-std::pair<size_t, float> FindSmallestError(const std::vector<Vector3> vertices, const std::vector<Vector3> normals, const std::vector<EdgeData> edges) {
+std::pair<size_t, float> FindSmallestError(const std::vector<glm::vec3>& vertices, const std::vector<glm::vec3>& normals, const std::vector<EdgeData>& edges) {
     float minError = std::numeric_limits<float>::max();
     size_t minIndex = 0;
 
@@ -66,17 +64,14 @@ std::pair<size_t, float> FindSmallestError(const std::vector<Vector3> vertices, 
     return std::make_pair(minIndex, minError);
 }
 
-
-
-VertexIndices SimplifyMesh(const Mesh mesh, const std::vector<Vector3> vertices, const std::vector<Vector3> normals, float threshold) {
+VertexIndices SimplifyMesh(const Mesh mesh, const std::vector<glm::vec3> vertices, const std::vector<glm::vec3> normals, float threshold) {
     VertexIndices result;
 
     if (threshold == 0.5) {
         result.vertices = vertices;
         result.normals = normals;
 
-        if (mesh.indices)
-        {
+        if (mesh.indices) {
             for (size_t i = 0; i < mesh.triangleCount * 3; i++) {
                 result.indices.push_back(mesh.indices[i]);
             }
@@ -92,7 +87,7 @@ VertexIndices SimplifyMesh(const Mesh mesh, const std::vector<Vector3> vertices,
             EdgeData edge;
             edge.indices[0] = i;
             edge.indices[1] = j;
-            edge.normal = Vector3CrossProduct(normals[i], normals[j]);
+            edge.normal = glm::cross(normals[i], normals[j]);
             edges.push_back(edge);
         }
     }
@@ -114,8 +109,8 @@ VertexIndices SimplifyMesh(const Mesh mesh, const std::vector<Vector3> vertices,
             size_t index1 = edges[i].indices[1];
 
             // Update the vertices and normals directly.
-            vertices[index0] = Vector3Lerp(vertices[index0], vertices[index1], 0.5f);
-            normals[index0] = Vector3Normalize(Vector3Add(normals[index0], normals[index1]));
+            vertices[index0] = glm::mix(vertices[index0], vertices[index1], 0.5f);
+            normals[index0] = glm::normalize(normals[index0] + normals[index1]);
 
             // Mark the edge as processed
             edges[i].processed = true;
@@ -128,24 +123,21 @@ VertexIndices SimplifyMesh(const Mesh mesh, const std::vector<Vector3> vertices,
                         // Mark the edge as processed and update the vertices and normals directly.
                         edges[j].processed = true;
                         size_t otherIndex = (edges[j].indices[0] == index0) ? edges[j].indices[1] : edges[j].indices[0];
-                        vertices[index0] = Vector3Lerp(vertices[index0], vertices[otherIndex], 0.5f);
-                        normals[index0] = Vector3Normalize(Vector3Add(normals[index0], normals[otherIndex]));
+                        vertices[index0] = glm::mix(vertices[index0], vertices[otherIndex], 0.5f);
+                        normals[index0] = glm::normalize(normals[index0] + normals[otherIndex]);
                     }
                 }
             }
         }
     }
 
-
-
     // Directly update the result with the collapsed vertices.
     result = CollapseVertices(vertices, normals);
-
 
     return result;
 }
 
-Mesh GenerateLODMesh(const VertexIndices meshData, const Mesh sourceMesh) {
+Mesh GenerateLODMesh(const VertexIndices& meshData, const Mesh& sourceMesh) {
     Mesh lodMesh = { 0 };
 
     if (!meshData.vertices.empty()) {
@@ -189,10 +181,10 @@ int main() {
     SetConfigFlags(FLAG_MSAA_4X_HINT | FLAG_WINDOW_RESIZABLE);
     InitWindow(screenWidth, screenHeight, "QEM Mesh Simplification");
 
-    Mesh cube = GenMeshSphere(1,6,6);
+    Mesh cube = GenMeshSphere(1, 6, 6);
 
-    std::vector<Vector3> vertices;
-    std::vector<Vector3> normals;
+    std::vector<glm::vec3> vertices;
+    std::vector<glm::vec3> normals;
 
     for (size_t i = 0; i < cube.vertexCount; ++i) {
         size_t baseIndex = i * 3;
@@ -203,29 +195,19 @@ int main() {
         float ny = cube.normals[baseIndex + 1];
         float nz = cube.normals[baseIndex + 2];
 
-        vertices.push_back({ x, y, z });
-        normals.push_back({ nx, ny, nz });
+        vertices.push_back(glm::vec3(x, y, z));
+        normals.push_back(glm::vec3(nx, ny, nz));
     }
-
-
-    // for (size_t i = 0; i < cube.vertexCount; ++i) {
-    //     std::cout << "Vertices 1: " << vertices[i].x << " " << vertices[i].y << " " << vertices[i].z << std::endl;
-    //     std::cout << "Vertices 2: " << cube.vertices[i * 3] << " " << cube.vertices[i * 3 + 1] << " " << cube.vertices[i * 3 + 2] << std::endl;
-    //     std::cout << "\n\n";
-    // }
-
 
     Shader shader = LoadShader(0, "Engine/Lighting/shaders/lod.fs");
 
-
     Model model;
-
 
     float threshold = 0.1f;
     VertexIndices result = SimplifyMesh(cube, vertices, normals, threshold);
 
     Mesh wireframe = GenerateLODMesh(result, cube);
-    
+
     model = LoadModelFromMesh(wireframe);
     model.materials[0].shader = shader;
 
