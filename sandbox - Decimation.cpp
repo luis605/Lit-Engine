@@ -205,7 +205,7 @@ int main() {
 
     float lodFactor = 0;
     // Get unique vertices and generate LOD mesh
-    Model lodModel = LoadModelFromMesh(GenMeshCube(1,1,1));
+    Model lodModel = LoadModelFromdMesh(GenMeshCube(1,1,1));
     lodModel.materials[0].shader = shader;
 
     Camera3D camera = { 0 };

@@ -12,7 +12,6 @@
 #include "imgui/imgui_internal.h"
 #include "include/rlImGui.h"
 
-const size_t batchSize = 500;
 
 struct VertexIndices {
     std::vector<size_t> indices;
@@ -49,7 +48,7 @@ float ComputeQuadraticError(const Vector3 v1, const Vector3 v2, const Vector3 n1
     Vector3 delta = Vector3Subtract(v2, v1);
     float distance = Vector3Length(delta);
     float dot = Vector3DotProduct(n1, n2);
-    return distance * distance * (1.0f - dot * dot);
+    return distance * distance + (1.0f - dot);
 }
 
 std::pair<size_t, float> FindSmallestError(const std::vector<Vector3> vertices, const std::vector<Vector3> normals, const std::vector<EdgeData> edges) {
@@ -72,18 +71,19 @@ std::pair<size_t, float> FindSmallestError(const std::vector<Vector3> vertices, 
 VertexIndices SimplifyMesh(const Mesh mesh, const std::vector<Vector3> vertices, const std::vector<Vector3> normals, float threshold) {
     VertexIndices result;
 
-    if (threshold == 0) 
-    {
+    if (threshold == 0.5) {
         result.vertices = vertices;
         result.normals = normals;
 
-        for (size_t i = 0; i < mesh.triangleCount * 3; i++) {
-            result.indices.push_back(mesh.indices[i]);
+        if (mesh.indices)
+        {
+            for (size_t i = 0; i < mesh.triangleCount * 3; i++) {
+                result.indices.push_back(mesh.indices[i]);
+            }
         }
+
         return result;
     }
-
-
 
     // Initialize the data structures for the QEM algorithm.
     std::vector<EdgeData> edges;
@@ -124,7 +124,7 @@ VertexIndices SimplifyMesh(const Mesh mesh, const std::vector<Vector3> vertices,
             for (size_t j = i + 1; j < edges.size(); ++j) {
                 if (!edges[j].processed && (edges[j].indices[0] == index0 || edges[j].indices[1] == index0)) {
                     float newError = ComputeQuadraticError(vertices[edges[j].indices[0]], vertices[edges[j].indices[1]], normals[edges[j].indices[0]], normals[edges[j].indices[1]]);
-                    if (newError < threshold) {
+                    if (newError < threshold * threshold) {
                         // Mark the edge as processed and update the vertices and normals directly.
                         edges[j].processed = true;
                         size_t otherIndex = (edges[j].indices[0] == index0) ? edges[j].indices[1] : edges[j].indices[0];
@@ -136,15 +136,14 @@ VertexIndices SimplifyMesh(const Mesh mesh, const std::vector<Vector3> vertices,
         }
     }
 
+
+
     // Directly update the result with the collapsed vertices.
     result = CollapseVertices(vertices, normals);
 
 
     return result;
-
 }
-
-
 
 Mesh GenerateLODMesh(const VertexIndices meshData, const Mesh sourceMesh) {
     Mesh lodMesh = { 0 };
@@ -161,18 +160,6 @@ Mesh GenerateLODMesh(const VertexIndices meshData, const Mesh sourceMesh) {
         lodMesh.indices = (unsigned short*)calloc(indexCount, sizeof(unsigned short));
         lodMesh.normals = (float*)malloc(sizeof(float) * 3 * vertexCount);
 
-        // Calculate the bounding box of the contracted mesh
-        Vector3 minVertex = meshData.vertices[0];
-        Vector3 maxVertex = meshData.vertices[0];
-        for (const auto& vertex : meshData.vertices) {
-            minVertex = Vector3Min(minVertex, vertex);
-            maxVertex = Vector3Max(maxVertex, vertex);
-        }
-
-        // Calculate the scaling factors for texture coordinates
-        float scaleX = 1.0f / (maxVertex.x - minVertex.x);
-        float scaleY = 1.0f / (maxVertex.y - minVertex.y);
-
         // Assign vertices and normals directly to the mesh
         for (int i = 0; i < vertexCount; i++) {
             lodMesh.vertices[i * 3] = meshData.vertices[i].x;
@@ -184,23 +171,14 @@ Mesh GenerateLODMesh(const VertexIndices meshData, const Mesh sourceMesh) {
             lodMesh.normals[i * 3 + 2] = meshData.normals[i].z;
         }
 
-
         // Copy indices from the result mesh
-        
         for (int i = 0; i < meshData.indices.size(); i++) {
-            lodMesh.indices[i] = static_cast<unsigned short>(sourceMesh.indices[i]);
+            lodMesh.indices[i] = meshData.indices[i];
         }
-
-        lodMesh.triangleCount = sourceMesh.triangleCount + 4;
-        
-
     }
-
 
     // Upload the mesh data to GPU
     UploadMesh(&lodMesh, false);
-
-
 
     return lodMesh;
 }
@@ -211,7 +189,7 @@ int main() {
     SetConfigFlags(FLAG_MSAA_4X_HINT | FLAG_WINDOW_RESIZABLE);
     InitWindow(screenWidth, screenHeight, "QEM Mesh Simplification");
 
-    Mesh cube = GenMeshCube(1,1,1);
+    Mesh cube = GenMeshSphere(1,6,6);
 
     std::vector<Vector3> vertices;
     std::vector<Vector3> normals;
@@ -237,10 +215,19 @@ int main() {
     // }
 
 
+    Shader shader = LoadShader(0, "Engine/Lighting/shaders/lod.fs");
+
+
+    Model model;
+
+
     float threshold = 0.1f;
     VertexIndices result = SimplifyMesh(cube, vertices, normals, threshold);
 
     Mesh wireframe = GenerateLODMesh(result, cube);
+    
+    model = LoadModelFromMesh(wireframe);
+    model.materials[0].shader = shader;
 
     Camera3D camera = { 0 };
     camera.position = { 0.0f, 1.0f, -5.0f };
@@ -262,7 +249,7 @@ int main() {
         rlImGuiBegin();
 
         BeginMode3D(camera);
-        DrawModel(LoadModelFromMesh(wireframe), { -0.5f, 0.0f, -0.5f }, 1.0f, RED);
+        DrawModel(model, { -0.5f, 0.0f, -0.5f }, 1.0f, RED);
         EndMode3D();
 
         DrawText("Press ESC to close", 10, 10, 20, WHITE);
@@ -274,6 +261,8 @@ int main() {
         {
             VertexIndices result = SimplifyMesh(cube, vertices, normals, threshold);
             wireframe = GenerateLODMesh(result, cube);
+            model = LoadModelFromMesh(wireframe);
+            model.materials[0].shader = shader;
         }
         ImGui::End();
 
@@ -287,4 +276,3 @@ int main() {
 
     return 0;
 }
-
