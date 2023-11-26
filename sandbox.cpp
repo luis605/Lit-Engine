@@ -5,9 +5,9 @@
 #include <vector>
 #include "raylib.h"
 #include "raymath.h"
+
 #include "include/rlImGui.h"
 #include "imgui.h"
-#include "imgui_internal.h"
 
 
 const int screenWidth = 1200;
