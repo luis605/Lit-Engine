@@ -1,136 +1,163 @@
 #include <algorithm>
+#include <cmath>
+#include <iostream>
+#include <set>
+#include <vector>
 #include "raylib.h"
 #include "raymath.h"
-#include <vector>
-#include <iostream>
-
 #include "include/rlImGui.h"
 #include "imgui.h"
 #include "imgui_internal.h"
 
+// Constants
+const int screenWidth = 1200;
+const int screenHeight = 450;
 
+// Structure to represent half-edge data
 struct HalfEdge {
-    int vertexIndex;  
-    int pairIndex;    
-    int faceIndex;    
-    bool boundary;     
+    int vertexIndex;
+    int pairIndex;
+    int nextIndex;
+    bool isBoundary;
 };
 
-std::vector<HalfEdge> initializeHalfEdges(const std::vector<Vector3>& vertices, const std::vector<Vector3>& normals) {
+// Function to initialize half-edges from vertices
+std::vector<HalfEdge> initializeHalfEdges(const std::vector<Vector3>& vertices) {
     std::vector<HalfEdge> halfEdges;
 
-    // Initialize half-edges
-    for (size_t i = 0; i < vertices.size(); ++i) {
-        HalfEdge he;
-        he.vertexIndex = static_cast<int>(i);
-        he.pairIndex = -1;  // Initialize pair index to -1
-        he.faceIndex = -1;  // Initialize face index to -1
-        he.boundary = false; // Initialize boundary flag to false
-        halfEdges.push_back(he);
+    // Iterate through triangles in the vertices
+    for (size_t i = 0; i < vertices.size(); i += 3) {
+        // Create three half-edges for each triangle
+        for (int j = 0; j < 3; ++j) {
+            HalfEdge he;
+            he.vertexIndex = i + j;
+            he.nextIndex = i + (j + 1) % 3;
+            he.pairIndex = -1;
+            he.isBoundary = true;
+            halfEdges.push_back(he);
+        }
     }
 
-    // Assign pair indices to half-edges
+    // Connect pairs
     for (size_t i = 0; i < halfEdges.size(); ++i) {
-        halfEdges[i].pairIndex = static_cast<int>((i + 1) % halfEdges.size());
+        HalfEdge& he = halfEdges[i];
+
+        for (size_t j = i + 1; j < halfEdges.size(); ++j) {
+            HalfEdge& other = halfEdges[j];
+
+            if (he.vertexIndex == other.nextIndex && he.nextIndex == other.vertexIndex) {
+                he.pairIndex = j;
+                other.pairIndex = i;
+                he.isBoundary = false;
+                other.isBoundary = false;
+                break;
+            }
+        }
     }
 
     return halfEdges;
 }
 
-void collapseEdge(std::vector<HalfEdge>& halfEdges, int edgeIndex, std::vector<Vector3>& vertices) {
-    // Get the two vertices associated with the edge
-    int v1 = halfEdges[edgeIndex].vertexIndex;
-    int v2 = halfEdges[halfEdges[edgeIndex].pairIndex].vertexIndex;
-
-    // Calculate the midpoint of the edge
-    Vector3 midpoint = Vector3Scale(Vector3Add(vertices[v1], vertices[v2]), 0.5f);
-
-    // Update the position of the first vertex
-    vertices[v1] = midpoint;
-
-    // Invalidate the second vertex (it will be removed later)
-    vertices[v2] = { NAN, NAN, NAN };
-
-    // Update the pair index of the affected edges
-    halfEdges[halfEdges[edgeIndex].pairIndex].pairIndex = halfEdges[edgeIndex].pairIndex;
-
-    // Invalidate the edge (it will be removed later)
-    halfEdges[edgeIndex].vertexIndex = -1;
-    halfEdges[halfEdges[edgeIndex].pairIndex].vertexIndex = -1;
-}
-
-void removeInvalidVertices(std::vector<Vector3>& vertices, const std::vector<HalfEdge>& halfEdges) {
-    auto invalidVertex = [](const Vector3& v) { return std::isnan(v.x); };
-
-    // Remove vertices marked as invalid
-    vertices.erase(std::remove_if(vertices.begin(), vertices.end(), invalidVertex), vertices.end());
-}
-
+// Function to collapse a half-edge based on distance threshold
 void halfEdgeCollapse(std::vector<HalfEdge>& halfEdges, std::vector<Vector3>& vertices, float threshold) {
-    // Identify edges to collapse based on the threshold
-    for (size_t i = 0; i < halfEdges.size(); ++i) {
-        int v1 = halfEdges[i].vertexIndex;
-        int v2 = halfEdges[halfEdges[i].pairIndex].vertexIndex;
+    // For simplicity, assume vertex at index 1 collapses into vertex at index 0
+    size_t vertexToKeep = 0;
+    size_t vertexToRemove = 1;
 
-        if (v1 != -1 && v2 != -1) {
-            float distance = Vector3Distance(vertices[v1], vertices[v2]);
+    // Calculate the distance between the two vertices
+    float distance = Vector3Distance(vertices[vertexToKeep], vertices[vertexToRemove]);
 
-            if (distance < threshold) {
-                collapseEdge(halfEdges, static_cast<int>(i), vertices);
+    // Check if the distance is below the threshold
+    if (distance <= threshold) {
+        // Collapse the vertex at index 'vertexToRemove' into the vertex at index 'vertexToKeep'
+        vertices.erase(vertices.begin() + vertexToRemove);
+
+        // Update half-edges
+        for (HalfEdge& he : halfEdges) {
+            if (he.vertexIndex > vertexToRemove) {
+                he.vertexIndex--;
+            }
+            if (he.nextIndex > vertexToRemove) {
+                he.nextIndex--;
+            }
+            if (he.pairIndex > vertexToRemove) {
+                he.pairIndex--;
             }
         }
-    }
 
-    // Remove invalid vertices and update indices
-    removeInvalidVertices(vertices, halfEdges);
+        // Remove edges connected to the removed vertex
+        halfEdges.erase(std::remove_if(halfEdges.begin(), halfEdges.end(),
+                                       [vertexToRemove](const HalfEdge& he) {
+                                           return he.vertexIndex == vertexToRemove || he.nextIndex == vertexToRemove;
+                                       }),
+                        halfEdges.end());
+    }
 }
 
+// Function to compute indices from vertices
 std::vector<unsigned short> computeIndices(const std::vector<Vector3>& vertices) {
     std::vector<unsigned short> indices;
-
-    // Assuming vertices form a triangle list
-    for (size_t i = 0; i < vertices.size(); ++i) {
+    // For simplicity, assume vertices are still ordered as triangles
+    for (size_t i = 0; i < vertices.size(); i += 3) {
         indices.push_back(static_cast<unsigned short>(i));
+        indices.push_back(static_cast<unsigned short>(i + 1));
+        indices.push_back(static_cast<unsigned short>(i + 2));
     }
-
     return indices;
 }
 
-Mesh GenerateLODMesh(const std::vector<Vector3> vertices, const std::vector<Vector3> normals, const std::vector<unsigned short>& indices) {
+Mesh generateLODMesh(const std::vector<Vector3>& vertices, const std::vector<unsigned short>& indices) {
     Mesh lodMesh = { 0 };
 
     if (!vertices.empty() && !indices.empty()) {
-        int vertexCount = vertices.size();
-        int triangleCount = indices.size() / 3;
+        int vertexCount = static_cast<int>(vertices.size());
+        int triangleCount = static_cast<int>(indices.size()) / 3;
 
-        // Allocate memory for the new mesh
         lodMesh.vertexCount = vertexCount;
         lodMesh.triangleCount = triangleCount;
         lodMesh.vertices = (float*)malloc(sizeof(float) * 3 * vertexCount);
         lodMesh.indices = (unsigned short*)malloc(sizeof(unsigned short) * indices.size());
         lodMesh.normals = (float*)malloc(sizeof(float) * 3 * vertexCount);
 
-        // Assign vertices and normals directly to the mesh
+        // Calculate normals
+        for (int i = 0; i < triangleCount; ++i) {
+            Vector3 normal = Vector3Normalize(Vector3CrossProduct(
+                Vector3Subtract(vertices[indices[i * 3 + 1]], vertices[indices[i * 3]]),
+                Vector3Subtract(vertices[indices[i * 3 + 2]], vertices[indices[i * 3]])));
+
+            lodMesh.normals[indices[i * 3] * 3] += normal.x;
+            lodMesh.normals[indices[i * 3] * 3 + 1] += normal.y;
+            lodMesh.normals[indices[i * 3] * 3 + 2] += normal.z;
+
+            lodMesh.normals[indices[i * 3 + 1] * 3] += normal.x;
+            lodMesh.normals[indices[i * 3 + 1] * 3 + 1] += normal.y;
+            lodMesh.normals[indices[i * 3 + 1] * 3 + 2] += normal.z;
+
+            lodMesh.normals[indices[i * 3 + 2] * 3] += normal.x;
+            lodMesh.normals[indices[i * 3 + 2] * 3 + 1] += normal.y;
+            lodMesh.normals[indices[i * 3 + 2] * 3 + 2] += normal.z;
+        }
+
+        for (int i = 0; i < vertexCount; ++i) {
+            lodMesh.normals[i * 3] /= 3.0f;
+            lodMesh.normals[i * 3 + 1] /= 3.0f;
+            lodMesh.normals[i * 3 + 2] /= 3.0f;
+        }
+
+        // Copy vertices and indices
         for (int i = 0; i < vertexCount; i++) {
             lodMesh.vertices[i * 3] = vertices[i].x;
             lodMesh.vertices[i * 3 + 1] = vertices[i].y;
             lodMesh.vertices[i * 3 + 2] = vertices[i].z;
-
-            lodMesh.normals[i * 3] = normals[i].x;
-            lodMesh.normals[i * 3 + 1] = normals[i].y;
-            lodMesh.normals[i * 3 + 2] = normals[i].z;
         }
 
-        // Copy indices from the result mesh
-        for (size_t i = 0; i < vertexCount; i++) {
+        for (size_t i = 0; i < indices.size(); i++) {
             lodMesh.indices[i] = indices[i];
         }
     }
 
-    // Upload the mesh data to GPU
     UploadMesh(&lodMesh, false);
 
-    // Free the allocated memory before returning
     if (lodMesh.vertices) {
         free(lodMesh.vertices);
         lodMesh.vertices = NULL;
@@ -145,9 +172,7 @@ Mesh GenerateLODMesh(const std::vector<Vector3> vertices, const std::vector<Vect
 }
 
 int main() {
-    const int screenWidth = 800;
-    const int screenHeight = 450;
-
+    // Initialize window and camera
     SetConfigFlags(FLAG_WINDOW_RESIZABLE);
     InitWindow(screenWidth, screenHeight, "Half-Edge Collapsing");
 
@@ -158,14 +183,14 @@ int main() {
     camera.fovy = 45.0f;
     camera.projection = CAMERA_PERSPECTIVE;
 
+    // Load shader, mesh, and model
     Shader shader = LoadShader(0, "Engine/Lighting/shaders/lod.fs");
-
-    Mesh mesh = GenMeshSphere(1, 7, 7);
+    Mesh mesh = GenMeshSphere(1, 15, 15);
     Model model = LoadModelFromMesh(mesh);
     model.materials[0].shader = shader;
 
+    // Initialize vertices and half-edges
     std::vector<Vector3> vertices;
-
     for (int i = 0; i < mesh.vertexCount; i++) {
         float x = mesh.vertices[i * 3];
         float y = mesh.vertices[i * 3 + 1];
@@ -173,105 +198,78 @@ int main() {
         vertices.push_back({ x, y, z });
     }
 
-    std::vector<Vector3> normals;
-    for (int i = 0; i < mesh.vertexCount; i++) {
-        float x = mesh.normals[i * 3];
-        float y = mesh.normals[i * 3 + 1];
-        float z = mesh.normals[i * 3 + 2];
-        normals.push_back({ x, y, z });
-    }
+    std::vector<HalfEdge> halfEdges = initializeHalfEdges(vertices);
 
-    std::vector<HalfEdge> halfEdges = initializeHalfEdges(vertices, normals);
-
-    float threshold = 0.2;
-
+    // Set threshold and other configurations
+    float threshold = 0.0;
     SetTargetFPS(50);
     rlImGuiSetup(true);
 
+    // Main game loop
     while (!WindowShouldClose()) {
+        // Update camera if right mouse button is pressed
         if (IsMouseButtonDown(MOUSE_BUTTON_RIGHT))
             UpdateCamera(&camera, CAMERA_FREE);
 
-        // Perform half-edge collapsing
-        halfEdgeCollapse(halfEdges, vertices, threshold);
-
-        // Update the mesh structure with the new vertices
-        for (size_t i = 0; i < vertices.size(); ++i) {
-            mesh.vertices[i * 3] = vertices[i].x;
-            mesh.vertices[i * 3 + 1] = vertices[i].y;
-            mesh.vertices[i * 3 + 2] = vertices[i].z;
+        // Update vertices and perform half-edge collapse
+        vertices.clear();
+        for (int i = 0; i < mesh.vertexCount; i++) {
+            float x = mesh.vertices[i * 3];
+            float y = mesh.vertices[i * 3 + 1];
+            float z = mesh.vertices[i * 3 + 2];
+            vertices.push_back({ x, y, z });
         }
+        halfEdgeCollapse(halfEdges, vertices, threshold);
 
         // Compute new indices
         std::vector<unsigned short> newIndices = computeIndices(vertices);
 
+        // Begin drawing
         BeginDrawing();
         ClearBackground(GRAY);
 
+        // Begin 3D mode and draw model
         BeginMode3D(camera);
-
         if (IsModelReady(model))
             DrawModel(model, { -0.5f, 0.0f, -0.5f }, 1.0f, RED);
-    
         EndMode3D();
 
+        // Draw text information
         DrawText("Half-Edge Collapsing", 10, 10, 20, BLACK);
-
-        std::vector<Vector3> newVertices;
-        for (const auto& vertex : vertices) {
-            newVertices.push_back(vertex);
+        DrawText(TextFormat("Collapsed Vertices: %d", mesh.vertexCount - static_cast<int>(vertices.size())), 10, 40, 20, BLACK);
+        for (size_t i = 0; i < vertices.size(); ++i) {
+            DrawText(TextFormat("Vertex %d: [%.2f, %.2f, %.2f]", i, vertices[i].x, vertices[i].y, vertices[i].z), 10, 70 + 30 * i, 20, BLACK);
         }
 
-        DrawText(TextFormat("Collapsed Vertices: %d", vertices.size() - newVertices.size()), 10, 40, 20, BLACK);
-
-        for (size_t i = 0; i < newVertices.size(); ++i) {
-            DrawText(TextFormat("Vertex %d: [%.2f, %.2f, %.2f]", i, newVertices[i].x, newVertices[i].y, newVertices[i].z), 10, 70 + 30 * i, 20, BLACK);
-        }
-
+        // ImGui inspector window
         rlImGuiBegin();
-
         ImGui::Begin("Inspector Window", NULL);
-        if (ImGui::SliderFloat("Simplification Factor", &threshold, 0, .5)) {
-
-            vertices.clear();
-            normals.clear();
-            
-            for (int i = 0; i < mesh.vertexCount; i++)
-            {
-                float x = mesh.vertices[i * 3];
-                float y = mesh.vertices[i * 3 + 1];
-                float z = mesh.vertices[i * 3 + 2];
-                vertices.push_back({ x, y, z });
-            }
-
-            for (int i = 0; i < mesh.vertexCount; i++)
-            {
-                float x = mesh.normals[i * 3];
-                float y = mesh.normals[i * 3 + 1];
-                float z = mesh.normals[i * 3 + 2];
-                normals.push_back({ x, y, z });
-            }
-            
+        if (ImGui::SliderFloat("Simplification Factor", &threshold, 0, 1)) {
             halfEdgeCollapse(halfEdges, vertices, threshold);
+            model = LoadModelFromMesh(generateLODMesh(vertices, newIndices));
 
-
-            // Update the indices in the new mesh
-            model = LoadModelFromMesh(GenerateLODMesh(vertices, normals, newIndices));
-            model.materials[0].shader = shader;
-
-            if (threshold == .5) {
-                // Reset the model to the original mesh when threshold is maximum
-                model = LoadModelFromMesh(mesh);
-                model.materials[0].shader = shader;
+            if (threshold == 0) {
+                vertices.clear();
+                for (int i = 0; i < mesh.vertexCount; i++) {
+                    float x = mesh.vertices[i * 3];
+                    float y = mesh.vertices[i * 3 + 1];
+                    float z = mesh.vertices[i * 3 + 2];
+                    vertices.push_back({ x, y, z });
+                }
+                newIndices = computeIndices(vertices);
+                model = LoadModelFromMesh(generateLODMesh(vertices, newIndices));
             }
+
+            model.materials[0].shader = shader;
         }
         ImGui::End();
-
         rlImGuiEnd();
 
+        // End drawing
         EndDrawing();
     }
 
+    // Close window
     CloseWindow();
 
     return 0;
