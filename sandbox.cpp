@@ -132,7 +132,7 @@ Mesh generateLODMesh(const std::vector<Vector3>& vertices, const std::vector<uns
         return lodMesh;
     }
 
-    
+
     // Calculate normals
     for (int i = 0; i < triangleCount; ++i) {
         Vector3 normal = Vector3Normalize(Vector3CrossProduct(
@@ -249,7 +249,7 @@ int main() {
         
         BeginMode3D(camera);
         if (IsModelReady(model))
-            DrawModel(model, { -0.5f, 0.0f, -0.5f }, 1.0f, RED);
+            DrawModel(model, Vector3Zero(), 1.0f, RED);
         EndMode3D();
 
         
