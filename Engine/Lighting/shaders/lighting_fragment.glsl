@@ -230,13 +230,24 @@ vec4 CalculateDiffuseLighting(vec3 fragPosition, vec3 norm, vec2 texCoord) {
 
     // Check if the texture is not valid or transparent
     if (texColor.rgb == vec3(0.0)) {
-        return colDiffuse * surface_material.DiffuseIntensity;
+        return colDiffuse * ambientLight * surface_material.DiffuseIntensity;
     }
 
-    vec4 diffuseColor = texColor * surface_material.DiffuseIntensity * colDiffuse;
+    // Calculate the ambient component
+    vec3 ambientComponent = colDiffuse.rgb * ambientLight.rgb * surface_material.DiffuseIntensity;
+
+    // Use the texture color for the diffuse component
+    vec3 diffuseComponent = texColor.rgb;
+
+    // Combine ambient and diffuse components
+    vec3 resultColor = ambientComponent + (diffuseComponent * colDiffuse.rgb);
+
+    // Multiply by alpha (transparency)
+    vec4 diffuseColor = vec4(resultColor, texColor.a);
 
     return diffuseColor;
 }
+
 
 
 // Function to calculate the final lighting
@@ -266,8 +277,6 @@ vec4 CalculateLighting(vec3 fragPosition, vec3 fragNormal, vec3 viewDir, vec2 te
         }
     }
     
-    vec4 ambientColor = colDiffuse * ambientLight * material.DiffuseIntensity;
-    result += ambientColor;
 
     vec4 diffuseLight = CalculateDiffuseLighting(fragPosition, fragNormal, texCoord);
     result += diffuseLight;
