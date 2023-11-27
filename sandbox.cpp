@@ -60,16 +60,25 @@ std::vector<HalfEdge> initializeHalfEdges(const std::vector<Vector3>& vertices) 
 
 
 void halfEdgeCollapse(std::vector<HalfEdge>& halfEdges, std::vector<Vector3>& vertices, float threshold) {
-    
     size_t vertexToKeep = 0;
     size_t vertexToRemove = 1;
-    
-    float distance = Vector3Distance(vertices[vertexToKeep], vertices[vertexToRemove]);
 
-    if (distance <= threshold) {
-        vertices.erase(vertices.begin() + vertexToRemove);
-        
-        for (HalfEdge& he : halfEdges) {
+    for (HalfEdge& he : halfEdges) {
+        float distance = Vector3Distance(vertices[he.vertexIndex], vertices[he.nextIndex]);
+
+        if (distance <= threshold) {
+            vertices.erase(vertices.begin() + vertexToRemove);
+
+            if (he.vertexIndex == vertexToRemove) {
+                he.vertexIndex = vertexToKeep;
+            }
+            if (he.nextIndex == vertexToRemove) {
+                he.nextIndex = vertexToKeep;
+            }
+            if (he.pairIndex == vertexToRemove) {
+                he.pairIndex = vertexToKeep;
+            }
+
             if (he.vertexIndex > vertexToRemove) {
                 he.vertexIndex--;
             }
@@ -80,15 +89,16 @@ void halfEdgeCollapse(std::vector<HalfEdge>& halfEdges, std::vector<Vector3>& ve
                 he.pairIndex--;
             }
         }
-
-        
-        halfEdges.erase(std::remove_if(halfEdges.begin(), halfEdges.end(),
-                                       [vertexToRemove](const HalfEdge& he) {
-                                           return he.vertexIndex == vertexToRemove || he.nextIndex == vertexToRemove;
-                                       }),
-                        halfEdges.end());
     }
+
+    halfEdges.erase(std::remove_if(halfEdges.begin(), halfEdges.end(),
+                                   [vertexToRemove](const HalfEdge& he) {
+                                       return he.vertexIndex == vertexToRemove || he.nextIndex == vertexToRemove;
+                                   }),
+                    halfEdges.end());
 }
+
+
 
 
 std::vector<unsigned short> computeIndices(const std::vector<Vector3>& vertices) {
@@ -102,12 +112,12 @@ std::vector<unsigned short> computeIndices(const std::vector<Vector3>& vertices)
     return indices;
 }
 
-Mesh generateLODMesh(const std::vector<Vector3>& vertices, const std::vector<unsigned short>& indices) {
+Mesh generateLODMesh(const std::vector<Vector3>& vertices, const std::vector<unsigned short>& indices, Mesh sourceMesh) {
     Mesh lodMesh = { 0 };
 
     if (vertices.empty() || indices.empty()) {
         TraceLog(LOG_WARNING, "generateLODMesh: Input arrays are empty.");
-        return lodMesh;
+        return sourceMesh;
     }
 
 
@@ -129,7 +139,7 @@ Mesh generateLODMesh(const std::vector<Vector3>& vertices, const std::vector<uns
         if (lodMesh.indices) free(lodMesh.indices);
         if (lodMesh.normals) free(lodMesh.normals);
 
-        return lodMesh;
+        return sourceMesh;
     }
 
 
@@ -261,26 +271,29 @@ int main() {
 
         
         rlImGuiBegin();
-        ImGui::Begin("Inspector Window", NULL);
-        if (ImGui::SliderFloat("Simplification Factor", &threshold, 0, 1)) {
-            halfEdgeCollapse(halfEdges, vertices, threshold);
-            model = LoadModelFromMesh(generateLODMesh(vertices, newIndices));
+        if (ImGui::Begin("Inspector Window", NULL))
+        {
+            if (ImGui::SliderFloat("Simplification Factor", &threshold, 0, 1)) {
+                halfEdgeCollapse(halfEdges, vertices, threshold);
+                model = LoadModelFromMesh(generateLODMesh(vertices, newIndices, mesh));
 
-            if (threshold == 0) {
-                vertices.clear();
-                for (int i = 0; i < mesh.vertexCount; i++) {
-                    float x = mesh.vertices[i * 3];
-                    float y = mesh.vertices[i * 3 + 1];
-                    float z = mesh.vertices[i * 3 + 2];
-                    vertices.push_back({ x, y, z });
+                if (threshold == 0) {
+                    vertices.clear();
+                    for (int i = 0; i < mesh.vertexCount; i++) {
+                        float x = mesh.vertices[i * 3];
+                        float y = mesh.vertices[i * 3 + 1];
+                        float z = mesh.vertices[i * 3 + 2];
+                        vertices.push_back({ x, y, z });
+                    }
+                    newIndices = computeIndices(vertices);
+                    model = LoadModelFromMesh(generateLODMesh(vertices, newIndices, mesh));
                 }
-                newIndices = computeIndices(vertices);
-                model = LoadModelFromMesh(generateLODMesh(vertices, newIndices));
-            }
 
-            model.materials[0].shader = shader;
+                model.materials[0].shader = shader;
+            }
+            ImGui::End();
         }
-        ImGui::End();
+        
         rlImGuiEnd();
 
         
