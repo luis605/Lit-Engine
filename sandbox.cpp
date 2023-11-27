@@ -134,7 +134,7 @@ Mesh generateLODMesh(const std::vector<Vector3>& vertices, const std::vector<uns
     if (!lodMesh.vertices || !lodMesh.indices || !lodMesh.normals) {
         TraceLog(LOG_ERROR, "generateLODMesh: Memory allocation failed.");
         
-        // Free allocated memory if any
+        
         if (lodMesh.vertices) free(lodMesh.vertices);
         if (lodMesh.indices) free(lodMesh.indices);
         if (lodMesh.normals) free(lodMesh.normals);
@@ -143,7 +143,7 @@ Mesh generateLODMesh(const std::vector<Vector3>& vertices, const std::vector<uns
     }
 
 
-    // Calculate normals
+    
     for (int i = 0; i < triangleCount; ++i) {
         Vector3 normal = Vector3Normalize(Vector3CrossProduct(
             Vector3Subtract(vertices[indices[i * 3 + 1]], vertices[indices[i * 3]]),
@@ -168,7 +168,7 @@ Mesh generateLODMesh(const std::vector<Vector3>& vertices, const std::vector<uns
         lodMesh.normals[i * 3 + 2] /= 3.0f;
     }
 
-    // Copy vertices and indices
+    
     for (int i = 0; i < vertexCount; i++) {
         lodMesh.vertices[i * 3] = vertices[i].x;
         lodMesh.vertices[i * 3 + 1] = vertices[i].y;
