@@ -10,7 +10,6 @@ void SetupShadowMapping()
 
 void InitLighting()
 {
-    Vector4 ambientLight = {0.0f, 0.0f, 0.0f, 0.0f};
     // Vector4 ambientLight = {0.2f, 0.2f, 0.2f, 1.0f};
     SetShaderValue(shader, GetShaderLocation(shader, "ambientLight"), &ambientLight, SHADER_UNIFORM_VEC4);
 
