@@ -274,6 +274,15 @@ int main() {
         if (ImGui::Begin("Inspector Window", NULL))
         {
             if (ImGui::SliderFloat("Simplification Factor", &threshold, 0, 1)) {
+
+                vertices.clear();
+                for (int i = 0; i < mesh.vertexCount; i++) {
+                    float x = mesh.vertices[i * 3];
+                    float y = mesh.vertices[i * 3 + 1];
+                    float z = mesh.vertices[i * 3 + 2];
+                    vertices.push_back({ x, y, z });
+                }
+
                 halfEdgeCollapse(halfEdges, vertices, threshold);
                 model = LoadModelFromMesh(generateLODMesh(vertices, newIndices, mesh));
 
