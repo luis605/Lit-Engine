@@ -158,6 +158,40 @@ std::vector<unsigned short> computeIndices(const std::vector<Vector3>& vertices)
     return indices;
 }
 
+
+void calculateNormals(const std::vector<Vector3>& vertices, const std::vector<unsigned short>& indices, float* normals) {
+    // Initialize normals to zero
+    for (size_t i = 0; i < vertices.size(); ++i) {
+        normals[i * 3] = 0.0f;
+        normals[i * 3 + 1] = 0.0f;
+        normals[i * 3 + 2] = 0.0f;
+    }
+
+    // Calculate normals for each triangle and accumulate
+    for (size_t i = 0; i < indices.size(); i += 3) {
+        Vector3 v0 = vertices[indices[i]];
+        Vector3 v1 = vertices[indices[i + 1]];
+        Vector3 v2 = vertices[indices[i + 2]];
+
+        Vector3 normal = Vector3Normalize(Vector3CrossProduct(Vector3Subtract(v1, v0), Vector3Subtract(v2, v0)));
+
+        // Accumulate normals for each vertex of the triangle
+        for (int j = 0; j < 3; ++j) {
+            normals[indices[i + j] * 3] += normal.x;
+            normals[indices[i + j] * 3 + 1] += normal.y;
+            normals[indices[i + j] * 3 + 2] += normal.z;
+        }
+    }
+
+    // Normalize the accumulated normals
+    for (size_t i = 0; i < vertices.size(); ++i) {
+        float length = sqrt(normals[i * 3] * normals[i * 3] + normals[i * 3 + 1] * normals[i * 3 + 1] + normals[i * 3 + 2] * normals[i * 3 + 2]);
+        normals[i * 3] /= length;
+        normals[i * 3 + 1] /= length;
+        normals[i * 3 + 2] /= length;
+    }
+}
+
 Mesh generateLODMesh(const std::vector<Vector3>& vertices, const std::vector<unsigned short>& indices, Mesh sourceMesh) {
     Mesh lodMesh = { 0 };
 
@@ -175,6 +209,7 @@ Mesh generateLODMesh(const std::vector<Vector3>& vertices, const std::vector<uns
     lodMesh.vertices = (float*)malloc(sizeof(float) * 3 * vertexCount);
     lodMesh.indices = (unsigned short*)malloc(sizeof(unsigned short) * indices.size());
     lodMesh.normals = (float*)malloc(sizeof(float) * 3 * vertexCount);
+    lodMesh.normals = sourceMesh.normals;
 
 
     if (!lodMesh.vertices || !lodMesh.indices || !lodMesh.normals) {
@@ -190,24 +225,8 @@ Mesh generateLODMesh(const std::vector<Vector3>& vertices, const std::vector<uns
 
 
     
-    for (int i = 0; i < triangleCount; ++i) {
-        Vector3 normal = Vector3Normalize(Vector3CrossProduct(
-            Vector3Subtract(vertices[indices[i * 3 + 1]], vertices[indices[i * 3]]),
-            Vector3Subtract(vertices[indices[i * 3 + 2]], vertices[indices[i * 3]])));
-
-        lodMesh.normals[indices[i * 3] * 3] += normal.x;
-        lodMesh.normals[indices[i * 3] * 3 + 1] += normal.y;
-        lodMesh.normals[indices[i * 3] * 3 + 2] += normal.z;
-
-        lodMesh.normals[indices[i * 3 + 1] * 3] += normal.x;
-        lodMesh.normals[indices[i * 3 + 1] * 3 + 1] += normal.y;
-        lodMesh.normals[indices[i * 3 + 1] * 3 + 2] += normal.z;
-
-        lodMesh.normals[indices[i * 3 + 2] * 3] += normal.x;
-        lodMesh.normals[indices[i * 3 + 2] * 3 + 1] += normal.y;
-        lodMesh.normals[indices[i * 3 + 2] * 3 + 2] += normal.z;
-    }
-
+    calculateNormals(vertices, indices, lodMesh.normals);
+    
     for (int i = 0; i < vertexCount; ++i) {
         lodMesh.normals[i * 3] /= 3.0f;
         lodMesh.normals[i * 3 + 1] /= 3.0f;
