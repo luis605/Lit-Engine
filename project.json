@@ -2,15 +2,15 @@
     {
         "fovy": 60.0,
         "position": {
-            "x": 3.4272279739379883,
-            "y": 1.5334091186523438,
-            "z": -2.023829221725464
+            "x": 1.5681965351104736,
+            "y": 2.8448150157928467,
+            "z": -3.5531511306762695
         },
         "projection": 0,
         "target": {
-            "x": -37.31477737426758,
-            "y": -17.937511444091797,
-            "z": 19.44647789001465
+            "x": -24.91786766052246,
+            "y": -24.556442260742188,
+            "z": 28.81430435180664
         },
         "type": "camera",
         "up": {
@@ -72,54 +72,7 @@
         "type": "entity"
     },
     {
-        "collider_type": 4,
-        "id": 1,
-        "is_dynamic": false,
-        "mass": 1.0,
-        "material_path": "",
-        "mesh_type": 5,
-        "model_path": "",
-        "name": "Unnamed Entity",
-        "normal_texture_path": "",
-        "position": {
-            "x": 0.0,
-            "y": 0.0,
-            "z": 0.0
-        },
-        "relative_position": {
-            "x": 0.0,
-            "y": 0.0,
-            "z": 0.0
-        },
-        "rotation": {
-            "x": 0.0,
-            "y": 0.0,
-            "z": 0.0
-        },
-        "roughness_texture_path": "",
-        "scale": {
-            "x": 1.0,
-            "y": 1.0,
-            "z": 1.0
-        },
-        "script_index": "",
-        "script_path": "",
-        "surface_material": {
-            "DiffuseIntensity": 0.5,
-            "Roughness": 0.5,
-            "SpecularIntensity": 0.5,
-            "SpecularTint": {
-                "x": 1.0,
-                "y": 1.0,
-                "z": 1.0
-            },
-            "shininess": 0.5
-        },
-        "texture_path": "",
-        "type": "entity"
-    },
-    {
-        "attenuation": 9.999999747378752e-05,
+        "attenuation": 0.0,
         "color": {
             "a": 255.0,
             "b": 255.0,
@@ -132,11 +85,11 @@
             "y": 0.4000000059604645,
             "z": -0.4000000059604645
         },
-        "id": 2,
-        "intensity": 0.5,
+        "id": 0,
+        "intensity": 1.375,
         "isChild": false,
         "light_type": 1,
-        "name": "Light",
+        "name": "",
         "position": {
             "x": 4.0,
             "y": 4.0,

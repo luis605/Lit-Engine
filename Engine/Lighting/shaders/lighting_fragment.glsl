@@ -129,7 +129,7 @@ vec4 CalculatePointLight(Light light, vec3 viewDir, vec3 norm, float roughness, 
     float specularTerm = k_s / (NdotH * NdotH * max(4.0 * NdotL * NdotH, 0.001)) * surface_material.shininess;
 
     // Use the unmodified NdotL for diffuse term
-    return (NdotL + specular * specularTerm * surface_material.SpecularIntensity) * light.color * attenuation;
+    return (NdotL + specular * specularTerm * surface_material.SpecularIntensity) * light.color * attenuation * light.intensity;
 
 }
 
