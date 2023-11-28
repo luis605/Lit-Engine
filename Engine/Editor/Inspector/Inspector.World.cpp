@@ -39,11 +39,6 @@ void WorldInspector()
         if (ImGui::CollapsingHeader("Ambient Light"))
         {
             ImGui::Indent(15.0f);
-            // ImGui::Text("Enabled:");
-            // ImGui::SameLine(inputWidth);
-            // ImGui::SetNextItemWidth(-1);
-            // ImGui::Checkbox("##AmbientLightToggle", &bloomEnabled);
-
 
             ImVec4 light_colorImGui = ImVec4(
                 ambientLight.x,
@@ -61,11 +56,9 @@ void WorldInspector()
 
             SetShaderValue(shader, GetShaderLocation(shader, "ambientLight"), &ambientLight, SHADER_UNIFORM_VEC4);
 
-
             ImGui::Unindent(15.0f);
         }
         ImGui::Unindent(15.0f);
-
     }
 
 }
