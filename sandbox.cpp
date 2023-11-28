@@ -37,6 +37,8 @@ struct Edge {
     float cost;
     Vector3 v0;
     Vector3 v1;
+
+    Vector3 midpoint;
 };
 
 struct HalfEdge {
