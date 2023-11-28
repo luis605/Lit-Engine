@@ -45,6 +45,20 @@ namespace nlohmann {
     };
 
 
+    template<>
+    struct adl_serializer<Vector4> {
+        static void to_json(json& j, const Vector4& vec) {
+            j = json{{"x", vec.x}, {"y", vec.y}, {"z", vec.z}, {"w", vec.w}};
+        }
+
+        static void from_json(const json& j, Vector4& vec) {
+            vec.x = j["x"];
+            vec.y = j["y"];
+            vec.z = j["z"];
+            vec.w = j["w"];
+        }
+    };
+
 
     template<>
     struct adl_serializer<LitVector3> {
@@ -351,6 +365,8 @@ void SaveWorldSetting(json& json_data)
     // j["gravity"] = gravity;
     j["bloom"] = bloomEnabled;
     j["bloomBrightness"] = bloomBrightness;
+
+    j["ambientColor"] = ambientLight;
     json_data.emplace_back(j);
 }
 
@@ -525,6 +541,11 @@ void LoadWorldSettings(const json& world_setting_json)
     if (world_setting_json.contains("bloomBrightness")) {
         bloomBrightness = world_setting_json["bloomBrightness"].get<float>();
         SetShaderValue(downsamplerShader, GetShaderLocation(downsamplerShader, "bloomBrightness"), &bloomBrightness, SHADER_ATTRIB_FLOAT);
+    }
+
+    if (world_setting_json.contains("ambientColor")) {
+        ambientLight = world_setting_json["ambientColor"].get<Vector4>();
+        SetShaderValue(shader, GetShaderLocation(shader, "ambientLight"), &ambientLight, SHADER_UNIFORM_VEC4);
     }
 }
 
