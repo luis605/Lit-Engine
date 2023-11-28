@@ -37,7 +37,7 @@ struct Edge {
     float cost;
     Vector3 v0;
     Vector3 v1;
-}
+};
 
 struct HalfEdge {
     int vertexIndex;
@@ -94,6 +94,18 @@ void calculateEdgeCost(Edge& edge) {
 }
 
 void halfEdgeCollapse(std::vector<HalfEdge>& halfEdges, std::vector<Vector3>& vertices, float threshold) {
+    std::vector<Edge> edges;
+
+    for (const HalfEdge& he : halfEdges) {
+        Edge edge;
+        edge.v0 = vertices[he.vertexIndex];
+        edge.v1 = vertices[he.nextIndex];
+        calculateEdgeCost(edge); // Calculate the cost for the edge
+        edges.push_back(edge);
+
+        std::cout << "Edge cost: " << edge.cost << std::endl;
+    }
+
 }
 
 
