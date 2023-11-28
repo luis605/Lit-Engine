@@ -4,7 +4,7 @@ void WorldInspector()
 {
     ImGui::Text("World Inspector");
     
-    // Input field width (adjust as needed)
+    
     const float inputWidth = 200.0f;
 
     if (ImGui::CollapsingHeader("Post Processing"))
@@ -47,7 +47,18 @@ void WorldInspector()
                 ambientLight.w
             );
 
-            ImGui::ColorPicker4("Color", (float*)&light_colorImGui);
+            ImGui::Text("Ambient Light Color: ");
+            
+            if (ImGui::ColorButton("##AmbientLightColorButton", light_colorImGui))
+            {
+                ImGui::OpenPopup("##AmbientLightColorPicker");
+            }
+
+            if (ImGui::BeginPopup("##AmbientLightColorPicker"))
+            {
+                ImGui::ColorPicker4("##AmbientLightColor", (float*)&light_colorImGui);
+                ImGui::EndPopup();
+            }
 
             ambientLight.x = light_colorImGui.x;
             ambientLight.y = light_colorImGui.y;
@@ -60,5 +71,4 @@ void WorldInspector()
         }
         ImGui::Unindent(15.0f);
     }
-
 }
