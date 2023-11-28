@@ -102,7 +102,7 @@ void halfEdgeCollapse(std::vector<HalfEdge>& halfEdges, std::vector<Vector3>& ve
         Edge edge;
         edge.v0 = vertices[he.vertexIndex];
         edge.v1 = vertices[he.nextIndex];
-        calculateEdgeCost(edge); // Calculate the cost for the edge
+        calculateEdgeCost(edge);
         edges.push_back(edge);
 
         std::cout << "Edge cost: " << edge.cost << std::endl;
