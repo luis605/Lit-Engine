@@ -63,11 +63,15 @@ void halfEdgeCollapse(std::vector<HalfEdge>& halfEdges, std::vector<Vector3>& ve
     size_t vertexToKeep = 0;
     size_t vertexToRemove = 1;
 
+    // Create a vector to mark vertices that need to be removed
+    std::vector<bool> toRemove(vertices.size(), false);
+
     for (HalfEdge& he : halfEdges) {
         float distance = Vector3Distance(vertices[he.vertexIndex], vertices[he.nextIndex]);
 
         if (distance <= threshold) {
-            vertices.erase(vertices.begin() + vertexToRemove);
+            // Mark the vertex for removal
+            toRemove[vertexToRemove] = true;
 
             if (he.vertexIndex == vertexToRemove) {
                 he.vertexIndex = vertexToKeep;
@@ -91,6 +95,14 @@ void halfEdgeCollapse(std::vector<HalfEdge>& halfEdges, std::vector<Vector3>& ve
         }
     }
 
+    // Remove vertices marked for removal
+    vertices.erase(std::remove_if(vertices.begin(), vertices.end(),
+                                   [&toRemove, &vertices](const Vector3& vertex) {
+                                       return toRemove[&vertex - &vertices[0]];
+                                   }),
+                   vertices.end());
+
+    // Remove corresponding half edges
     halfEdges.erase(std::remove_if(halfEdges.begin(), halfEdges.end(),
                                    [vertexToRemove](const HalfEdge& he) {
                                        return he.vertexIndex == vertexToRemove || he.nextIndex == vertexToRemove;
