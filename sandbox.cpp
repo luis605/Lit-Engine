@@ -104,10 +104,18 @@ void halfEdgeCollapse(std::vector<HalfEdge>& halfEdges, std::vector<Vector3>& ve
         edge.v1 = vertices[he.nextIndex];
         calculateEdgeCost(edge);
         edges.push_back(edge);
-
-        std::cout << "Edge cost: " << edge.cost << std::endl;
     }
 
+    // Sort the edges by cost in ascending order
+    std::sort(edges.begin(), edges.end(), [](const Edge& a, const Edge& b) {
+        return a.cost < b.cost;
+    });
+
+    std::cout << "Lowest cost: " << edges[0].cost << std::endl;
+    std::cout << "Highest cost: " << edges[edges.size() - 1].cost << std::endl;
+    std::cout << "Threshold: " << threshold << std::endl;
+    std::cout << "Number of edges: " << edges.size() << std::endl;
+    std::cout << std::endl;
 }
 
 
