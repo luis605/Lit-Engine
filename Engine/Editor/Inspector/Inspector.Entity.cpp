@@ -126,10 +126,10 @@ void EntityInspector()
         }
 
         ImGui::Text("Rotation:");
-        ImGui::SliderFloat("X##RotationX", &selected_entity->rotation.x, -180.0f, 180.0f);
-        ImGui::SliderFloat("Y##RotationY", &selected_entity->rotation.y, -180.0f, 180.0f);
+        ImGui::SliderFloat("X##RotationX", &selected_entity->rotation.x, -180.0f, 180.0f, "%.1f");
+        ImGui::SliderFloat("Y##RotationY", &selected_entity->rotation.y, -180.0f, 180.0f, "%.1f");
         ImGui::PushStyleVar(ImGuiStyleVar_ItemSpacing, ImVec2(0, 40));
-        ImGui::SliderFloat("Z##RotationZ", &selected_entity->rotation.z, -180.0f, 180.0f);
+        ImGui::SliderFloat("Z##RotationZ", &selected_entity->rotation.z, -180.0f, 180.0f, "%.1f");
         ImGui::PopStyleVar();
 
         ImGui::Text("Scripts: ");
