@@ -96,11 +96,12 @@ void calculateEdgeCost(Edge& edge) {
 }
 
 void collapseEdge(Edge& edge) {
-    edge.midpoint = Vector3Lerp(&edge.v0, &edge.v1, 0.5f);
+    edge.midpoint = Vector3Lerp(edge.v0, edge.v1, 0.5f);
 }
 
 void halfEdgeCollapse(std::vector<HalfEdge>& halfEdges, std::vector<Vector3>& vertices, float threshold) {
     std::vector<Edge> edges;
+    std::vector<Vector3> collapsedVertices;
 
     for (const HalfEdge& he : halfEdges) {
         Edge edge;
@@ -120,10 +121,21 @@ void halfEdgeCollapse(std::vector<HalfEdge>& halfEdges, std::vector<Vector3>& ve
         collapseEdge(edge);
     }
 
+    for (Edge& edge : edges) {
+        if (edge.cost <  threshold)
+            collapsedVertices.push_back(edge.midpoint);
+        else
+        {
+            collapsedVertices.push_back(edge.v0);
+            collapsedVertices.push_back(edge.v1);
+        }
+    }
+
     std::cout << "Lowest cost: " << edges[0].cost << std::endl;
     std::cout << "Highest cost: " << edges[edges.size() - 1].cost << std::endl;
     std::cout << "Threshold: " << threshold << std::endl;
     std::cout << "Number of edges: " << edges.size() << std::endl;
+    std::cout << "Number of vertices: " << collapsedVertices.size() << std::endl;
     std::cout << std::endl;
 }
 
