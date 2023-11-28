@@ -131,6 +131,11 @@ void halfEdgeCollapse(std::vector<HalfEdge>& halfEdges, std::vector<Vector3>& ve
         }
     }
 
+    vertices.clear();
+
+    for (const Vector3& v : collapsedVertices)
+        vertices.push_back(v);
+
     std::cout << "Lowest cost: " << edges[0].cost << std::endl;
     std::cout << "Highest cost: " << edges[edges.size() - 1].cost << std::endl;
     std::cout << "Threshold: " << threshold << std::endl;
