@@ -13,6 +13,31 @@
 const int screenWidth = 1200;
 const int screenHeight = 450;
 
+/*
+        ALGORITHM OVERVIEW 
+
+Select the edge with the minimum cost, collapse it, and re-evaluate
+Substitute an edge { v0, v1 } with a new vertex, at the midpoint of the 2 vertices
+
+FIRST STEP:
+Assign costs to all edges in the mesh, which are maintained in a priority queue
+
+SECOND STEP:
+Collapse the edge with the lowest cost
+
+THIRD STEP:
+Re-evaluate the costs of all edges in the mesh
+
+FOURTH STEP:
+Repeat the process until no more edges can be collapsed (no cost lower than a threshold)
+
+*/
+
+struct Edge {
+    float cost;
+    Vector3 v0;
+    Vector3 v1;
+}
 
 struct HalfEdge {
     int vertexIndex;
@@ -58,56 +83,17 @@ std::vector<HalfEdge> initializeHalfEdges(const std::vector<Vector3>& vertices) 
     return halfEdges;
 }
 
+void calculateEdgeCost(Edge& edge) {
+    Vector3 midpoint = Vector3Add(edge.v0, edge.v1);
+    midpoint.x /= 2.0f;
+    midpoint.y /= 2.0f;
+    midpoint.z /= 2.0f;
+
+    // Calculate the distance between the original edge midpoint and the new midpoint
+    edge.cost = sqrt(pow(midpoint.x - edge.v0.x, 2) + pow(midpoint.y - edge.v0.y, 2) + pow(midpoint.z - edge.v0.z, 2));
+}
 
 void halfEdgeCollapse(std::vector<HalfEdge>& halfEdges, std::vector<Vector3>& vertices, float threshold) {
-    size_t vertexToKeep = 0;
-    size_t vertexToRemove = 1;
-
-    // Create a vector to mark vertices that need to be removed
-    std::vector<bool> toRemove(vertices.size(), false);
-
-    for (HalfEdge& he : halfEdges) {
-        float distance = Vector3Distance(vertices[he.vertexIndex], vertices[he.nextIndex]);
-
-        if (distance <= threshold) {
-            // Mark the vertex for removal
-            toRemove[vertexToRemove] = true;
-
-            if (he.vertexIndex == vertexToRemove) {
-                he.vertexIndex = vertexToKeep;
-            }
-            if (he.nextIndex == vertexToRemove) {
-                he.nextIndex = vertexToKeep;
-            }
-            if (he.pairIndex == vertexToRemove) {
-                he.pairIndex = vertexToKeep;
-            }
-
-            if (he.vertexIndex > vertexToRemove) {
-                he.vertexIndex--;
-            }
-            if (he.nextIndex > vertexToRemove) {
-                he.nextIndex--;
-            }
-            if (he.pairIndex > vertexToRemove) {
-                he.pairIndex--;
-            }
-        }
-    }
-
-    // Remove vertices marked for removal
-    vertices.erase(std::remove_if(vertices.begin(), vertices.end(),
-                                   [&toRemove, &vertices](const Vector3& vertex) {
-                                       return toRemove[&vertex - &vertices[0]];
-                                   }),
-                   vertices.end());
-
-    // Remove corresponding half edges
-    halfEdges.erase(std::remove_if(halfEdges.begin(), halfEdges.end(),
-                                   [vertexToRemove](const HalfEdge& he) {
-                                       return he.vertexIndex == vertexToRemove || he.nextIndex == vertexToRemove;
-                                   }),
-                    halfEdges.end());
 }
 
 
