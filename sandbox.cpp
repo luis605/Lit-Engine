@@ -95,6 +95,10 @@ void calculateEdgeCost(Edge& edge) {
     edge.cost = sqrt(pow(midpoint.x - edge.v0.x, 2) + pow(midpoint.y - edge.v0.y, 2) + pow(midpoint.z - edge.v0.z, 2));
 }
 
+void collapseEdge(Edge& edge) {
+    edge.midpoint = Vector3Lerp(&edge.v0, &edge.v1, 0.5f);
+}
+
 void halfEdgeCollapse(std::vector<HalfEdge>& halfEdges, std::vector<Vector3>& vertices, float threshold) {
     std::vector<Edge> edges;
 
@@ -110,6 +114,11 @@ void halfEdgeCollapse(std::vector<HalfEdge>& halfEdges, std::vector<Vector3>& ve
     std::sort(edges.begin(), edges.end(), [](const Edge& a, const Edge& b) {
         return a.cost < b.cost;
     });
+
+    for (Edge& edge : edges) {
+        if (edge.cost >=  threshold) break;
+        collapseEdge(edge);
+    }
 
     std::cout << "Lowest cost: " << edges[0].cost << std::endl;
     std::cout << "Highest cost: " << edges[edges.size() - 1].cost << std::endl;
