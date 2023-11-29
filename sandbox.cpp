@@ -99,9 +99,10 @@ void collapseEdge(Edge& edge) {
     edge.midpoint = Vector3Lerp(edge.v0, edge.v1, 0.5f);
 }
 
-void halfEdgeCollapse(std::vector<HalfEdge>& halfEdges, std::vector<Vector3>& vertices, float threshold) {
+void halfEdgeCollapse(std::vector<HalfEdge>& halfEdges, std::vector<Vector3>& vertices, std::vector<unsigned short>& indices, float threshold) {
     std::vector<Edge> edges;
     std::vector<Vector3> collapsedVertices;
+    std::vector<unsigned short> collapsedIndices;
 
     for (const HalfEdge& he : halfEdges) {
         Edge edge;
@@ -117,24 +118,31 @@ void halfEdgeCollapse(std::vector<HalfEdge>& halfEdges, std::vector<Vector3>& ve
     });
 
     for (Edge& edge : edges) {
-        if (edge.cost >=  threshold) break;
+        if (edge.cost >= threshold) break;
         collapseEdge(edge);
     }
 
+    // Update vertices and collect collapsed vertices
     for (Edge& edge : edges) {
-        if (edge.cost <  threshold)
+        if (edge.cost < threshold)
             collapsedVertices.push_back(edge.midpoint);
-        else
-        {
+        else {
             collapsedVertices.push_back(edge.v0);
             collapsedVertices.push_back(edge.v1);
         }
     }
 
-    vertices.clear();
+    // Clear the indices vector
+    collapsedIndices.clear();
 
-    for (const Vector3& v : collapsedVertices)
-        vertices.push_back(v);
+    // Recalculate indices based on the collapsed vertices
+    for (int i = 0; i < vertices.size(); ++i) {
+        collapsedIndices.push_back(i);
+    }
+
+    // Update the input vectors
+    vertices = collapsedVertices;
+    indices = collapsedIndices;
 
     std::cout << "Lowest cost: " << edges[0].cost << std::endl;
     std::cout << "Highest cost: " << edges[edges.size() - 1].cost << std::endl;
@@ -143,6 +151,7 @@ void halfEdgeCollapse(std::vector<HalfEdge>& halfEdges, std::vector<Vector3>& ve
     std::cout << "Number of vertices: " << collapsedVertices.size() << std::endl;
     std::cout << std::endl;
 }
+
 
 
 
@@ -298,24 +307,19 @@ int main() {
     SetTargetFPS(50);
     rlImGuiSetup(true);
 
-    
+    std::vector<unsigned short> newIndices;
+
+    if (mesh.indices)
+    {
+        for (int i = 0; i < sizeof(mesh.indices)/sizeof(mesh.indices[0]); i++) {
+            newIndices.push_back(mesh.indices[i]);
+        }
+    }
+
     while (!WindowShouldClose()) {
         
         if (IsMouseButtonDown(MOUSE_BUTTON_RIGHT))
             UpdateCamera(&camera, CAMERA_FREE);
-
-        
-        vertices.clear();
-        for (int i = 0; i < mesh.vertexCount; i++) {
-            float x = mesh.vertices[i * 3];
-            float y = mesh.vertices[i * 3 + 1];
-            float z = mesh.vertices[i * 3 + 2];
-            vertices.push_back({ x, y, z });
-        }
-        halfEdgeCollapse(halfEdges, vertices, threshold);
-
-        
-        std::vector<unsigned short> newIndices = computeIndices(vertices);
 
         
         BeginDrawing();
@@ -329,7 +333,7 @@ int main() {
 
         
         DrawText("Half-Edge Collapsing", 10, 10, 20, BLACK);
-        DrawText(TextFormat("Collapsed Vertices: %d", mesh.vertexCount - static_cast<int>(vertices.size())), 10, 40, 20, BLACK);
+        DrawText(TextFormat("Collapsed Vertices: %d", static_cast<int>(vertices.size())), 10, 40, 20, BLACK);
         for (size_t i = 0; i < vertices.size(); ++i) {
             DrawText(TextFormat("Vertex %d: [%.2f, %.2f, %.2f]", i, vertices[i].x, vertices[i].y, vertices[i].z), 10, 70 + 30 * i, 20, BLACK);
         }
@@ -348,7 +352,7 @@ int main() {
                     vertices.push_back({ x, y, z });
                 }
 
-                halfEdgeCollapse(halfEdges, vertices, threshold);
+                halfEdgeCollapse(halfEdges, vertices, newIndices, threshold);
                 model = LoadModelFromMesh(generateLODMesh(vertices, newIndices, mesh));
 
                 if (threshold == 0) {
