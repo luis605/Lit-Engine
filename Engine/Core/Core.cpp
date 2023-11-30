@@ -97,7 +97,7 @@ void Startup()
     save_texture = LoadTexture("assets/images/save_file.png");
     hot_reload_texture = LoadTexture("assets/images/hot_reload.png");
     light_texture = LoadTexture("assets/images/light_bulb.png");
-    window_icon_texture = LoadTexture("docs/images/icon.png");
+    window_icon_texture = LoadTexture("assets/images/icon.png");
 
     window_icon_image = LoadImage("icon.png");
 
