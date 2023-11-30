@@ -137,7 +137,7 @@ void DrawMenus()
 void MenuBar()
 {
     float originalFramePaddingY = ImGui::GetStyle().FramePadding.y;
-    ImVec2 windowPadding = ImGui::GetCurrentWindow()->WindowPadding;
+    ImVec2 windowPadding = ImVec2(0, 0); // ImGui::GetCurrentWindow()->WindowPadding;
 
     ImGui::GetStyle().FramePadding.y = 19.0f;
 
