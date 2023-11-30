@@ -1,12 +1,17 @@
 <?xml version="1.0" encoding="UTF-8" standalone="no"?>
 <svg
    id="svg-element"
-   viewBox="0 0 210 210"
+   viewBox="0 0 100 100"
    fill="inherit"
-   preserveAspectRatio="xMidYMin meet"
+   preserveAspectRatio="xMidYMin"
    version="1.1"
    sodipodi:docname="hot_reload.svg"
-   inkscape:version="1.1.2 (0a00cf5339, 2022-02-04)"
+   inkscape:version="1.3.2 (1:1.3.2+202311252150+091e20ef0f)"
+   width="100"
+   height="100"
+   inkscape:export-filename="hot_reload.png"
+   inkscape:export-xdpi="92.36"
+   inkscape:export-ydpi="92.36"
    xmlns:inkscape="http://www.inkscape.org/namespaces/inkscape"
    xmlns:sodipodi="http://sodipodi.sourceforge.net/DTD/sodipodi-0.dtd"
    xmlns="http://www.w3.org/2000/svg"
@@ -20,15 +25,17 @@
      inkscape:pageopacity="0"
      inkscape:pagecheckerboard="1"
      showgrid="false"
-     inkscape:zoom="1.9428571"
-     inkscape:cx="21.360294"
-     inkscape:cy="81.580882"
+     inkscape:zoom="3.8857142"
+     inkscape:cx="80.680149"
+     inkscape:cy="60.863972"
      inkscape:window-width="1920"
      inkscape:window-height="1008"
      inkscape:window-x="0"
      inkscape:window-y="0"
      inkscape:window-maximized="1"
-     inkscape:current-layer="svg-element" />
+     inkscape:current-layer="svg-element"
+     inkscape:showpageshadow="0"
+     inkscape:deskcolor="#d1d1d1" />
   <defs
      id="defs2">
     <filter
@@ -37,7 +44,7 @@
   </defs>
   <g
      id="g14832"
-     transform="matrix(0.8000295,0,0,0.63409241,4.4318608,5.2498152)">
+     transform="matrix(0.3480279,0,0,0.27584214,7.5295231,6.8934943)">
     <g
        id="layer1"
        transform="translate(42.094092,3.0164438)"

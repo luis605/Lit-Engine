@@ -63,6 +63,7 @@ void InitSkybox(
 
     Texture2D panorama;
     panorama = LoadTexture(skyboxFileName);
+    GenTextureMipmaps(&panorama);
     skybox.materials[0].maps[MATERIAL_MAP_CUBEMAP].texture = GenTextureCubemap(shdrCubemap, panorama, 1024, PIXELFORMAT_UNCOMPRESSED_R8G8B8A8);
 
 
