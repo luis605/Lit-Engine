@@ -435,7 +435,7 @@ void RenderScene()
         // EndTextureMode();
 
 
-        BeginTextureMode(flipped_texture);
+        BeginTextureMode(downsamplerTexture);
         BeginShaderMode(downsamplerShader);
             SetShaderValueTexture(downsamplerShader, GetShaderLocation(downsamplerShader, "srcTexture"), texture);
             Vector2 screenResolution = { static_cast<float>(texture.width), static_cast<float>(texture.height) };
@@ -445,17 +445,17 @@ void RenderScene()
         EndShaderMode();
         EndTextureMode();
 
-        BeginTextureMode(mixPass);
+        BeginTextureMode(upsamplerTexture);
         BeginShaderMode(upsamplerShader);
-            SetShaderValueTexture(downsamplerShader, GetShaderLocation(downsamplerShader, "srcTexture"), flipped_texture.texture);
+            SetShaderValueTexture(downsamplerShader, GetShaderLocation(downsamplerShader, "srcTexture"), downsamplerTexture.texture);
             float filter = 100.0f;
             SetShaderValue(downsamplerShader, GetShaderLocation(downsamplerShader, "filterRadius"), &filter, SHADER_UNIFORM_FLOAT);
 
-            DrawTexture(flipped_texture.texture,0,0,WHITE);
+            DrawTexture(downsamplerTexture.texture,0,0,WHITE);
         EndShaderMode();
         EndTextureMode();
 
-        DrawTextureOnRectangle(&mixPass.texture);
+        DrawTextureOnRectangle(&upsamplerTexture.texture);
     }
     else
     {
