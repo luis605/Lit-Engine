@@ -1258,6 +1258,7 @@ public:
         SetShaderValue(shader, GetShaderLocation(shader, "tiling"), tiling, SHADER_UNIFORM_VEC2);
 
 
+        model.transform = MatrixRotateXYZ(rotation);
 
         if (!instances.empty())
         {
