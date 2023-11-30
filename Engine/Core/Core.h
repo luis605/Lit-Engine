@@ -31,9 +31,7 @@ bool exitWindow = false;
 
 static std::unordered_map<std::string, ImFont*> s_Fonts;
 
-RenderTexture brightPass;
-RenderTexture blurPass;
-RenderTexture mixPass;
-RenderTexture flipped_texture;
+RenderTexture downsamplerTexture;
+RenderTexture upsamplerTexture;
 
 #endif // CORE_H
