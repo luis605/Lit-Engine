@@ -101,6 +101,7 @@ void Startup()
     window_icon_texture = LoadTextureFromImage(window_icon_image);
 
     ImageFormat(&window_icon_image, PIXELFORMAT_UNCOMPRESSED_R8G8B8A8);
+
     SetWindowIcon(window_icon_image);
 
     // Code Editor
