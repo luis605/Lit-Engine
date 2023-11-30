@@ -17,6 +17,12 @@ bool do_physics                                  = false;
 bool show_texture                                = false;
 bool show_normal_texture                         = false;
 
+bool EntityRotationXInputModel                   = false;
+bool EntityRotationYInputModel                   = false;
+bool EntityRotationZInputModel                   = false;
+
+bool ButtonPaddingActiveInputMode                = false;
+bool ButtonRoundnessActiveInputMode              = false;
 
 bool AttenuationActiveInputMode                  = false;
 bool IntensityActiveInputMode                    = false;
@@ -27,9 +33,6 @@ bool FontSizeActiveInputMode                     = false;
 bool TextSpacingActiveInputMode                  = false;
 bool TextBackgroundRoundinessActiveInputMode     = false;
 bool TextPaddingActiveInputMode                  = false;
-
-bool ButtonPaddingActiveInputMode                = false;
-bool ButtonRoundnessActiveInputMode              = false;
 
 #include "Inspector.Material.cpp"
 #include "Inspector.Entity.cpp"

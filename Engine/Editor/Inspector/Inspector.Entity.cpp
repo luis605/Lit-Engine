@@ -126,10 +126,42 @@ void EntityInspector()
         }
 
         ImGui::Text("Rotation:");
-        ImGui::SliderFloat("X##RotationX", &selected_entity->rotation.x, -180.0f, 180.0f, "%.1f");
-        ImGui::SliderFloat("Y##RotationY", &selected_entity->rotation.y, -180.0f, 180.0f, "%.1f");
+
+        if (EntityRotationXInputModel)
+        {
+            if (ImGui::InputFloat("X##RotationX", &selected_entity->rotation.x, -180.0f, 180.0f, "%.3f", ImGuiInputTextFlags_EnterReturnsTrue))
+                EntityRotationXInputModel = false;
+        }
+        else
+        {
+            ImGui::SliderFloat("X##RotationX", &selected_entity->rotation.x, -180.0f, 180.0f, "%.3f");
+            EntityRotationXInputModel = ImGui::IsItemHovered() && ImGui::IsMouseDoubleClicked(0);
+        }
+
+        if (EntityRotationYInputModel)
+        {
+            if (ImGui::InputFloat("Y##RotationY", &selected_entity->rotation.y, -180.0f, 180.0f, "%.3f", ImGuiInputTextFlags_EnterReturnsTrue))
+                EntityRotationYInputModel = false;
+        }
+        else
+        {
+            ImGui::SliderFloat("Y##RotationY", &selected_entity->rotation.y, -180.0f, 180.0f, "%.3f");
+            EntityRotationYInputModel = ImGui::IsItemHovered() && ImGui::IsMouseDoubleClicked(0);
+        }
+        
         ImGui::PushStyleVar(ImGuiStyleVar_ItemSpacing, ImVec2(0, 40));
-        ImGui::SliderFloat("Z##RotationZ", &selected_entity->rotation.z, -180.0f, 180.0f, "%.1f");
+        
+        if (EntityRotationZInputModel)
+        {
+            if (ImGui::InputFloat("Z##RotationZ", &selected_entity->rotation.z, -180.0f, 180.0f, "%.3f", ImGuiInputTextFlags_EnterReturnsTrue))
+                EntityRotationZInputModel = false;
+        }
+        else
+        {
+            ImGui::SliderFloat("Y##RotationZ", &selected_entity->rotation.z, -180.0f, 180.0f, "%.3f");
+            EntityRotationZInputModel = ImGui::IsItemHovered() && ImGui::IsMouseDoubleClicked(0);
+        }
+
         ImGui::PopStyleVar();
 
         ImGui::Text("Scripts: ");
