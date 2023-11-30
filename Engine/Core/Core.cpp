@@ -125,6 +125,7 @@ void Startup()
 
     downsamplerTexture = LoadRenderTexture(GetScreenWidth(), GetScreenHeight());
     upsamplerTexture = LoadRenderTexture(GetScreenWidth(), GetScreenHeight());
+
     mainThreadId = std::this_thread::get_id();
 
     #if STRESS_TEST

@@ -12,7 +12,7 @@
 
 void InitEditorCamera()
 {
-    renderTexture = LoadRenderTexture( GetScreenWidth(), GetScreenHeight() );
+    renderTexture = LoadRenderTexture( 1, 1 );
     texture = renderTexture.texture;
 
     scene_camera.position = { 50.0f, 0.0f, 0.0f };
@@ -759,6 +759,30 @@ int EditorCamera(void)
 
     if (ImGui::IsWindowHovered() && !dragging_gizmo_position && !dragging_gizmo_rotation && !in_game_preview)
         ProcessObjectControls();
+
+
+
+    ImVec2 currentWindowSize = ImGui::GetWindowSize();
+
+    if (currentWindowSize.x != prevEditorWindowSize.x || currentWindowSize.y != prevEditorWindowSize.y)
+    {
+        UnloadRenderTexture(renderTexture);
+        renderTexture = LoadRenderTexture(currentWindowSize.x, currentWindowSize.y);
+        texture = renderTexture.texture;
+
+        // Unload existing textures before copying
+        UnloadRenderTexture(downsamplerTexture);
+        UnloadRenderTexture(upsamplerTexture);
+
+        // Create new textures by loading from renderTexture
+        downsamplerTexture = LoadRenderTexture(currentWindowSize.x, currentWindowSize.y);
+        upsamplerTexture = LoadRenderTexture(currentWindowSize.x, currentWindowSize.y);
+
+        prevEditorWindowSize = currentWindowSize;
+    }
+
+
+
 
 
     ObjectsPopup();
