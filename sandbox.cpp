@@ -217,7 +217,6 @@ Mesh generateLODMesh(const std::vector<Vector3>& vertices, const std::vector<uns
     lodMesh.triangleCount = triangleCount;
     lodMesh.vertices = (float*)malloc(sizeof(float) * 3 * vertexCount);
     lodMesh.indices = (unsigned short*)malloc(sizeof(unsigned short) * indices.size());
-    lodMesh.normals = (float*)malloc(sizeof(float) * 3 * vertexCount);
     lodMesh.normals = sourceMesh.normals;
 
 
