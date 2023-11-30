@@ -39,8 +39,7 @@ void InitSkybox(
     Mesh cube = GenMeshCube(1.0f, 1.0f, 1.0f);
     skybox = LoadModelFromMesh(cube);
 
-    skybox.materials[0].shader = LoadShader(skyboxVS,
-                                            skyboxFS);
+    skybox.materials[0].shader = LoadShader(skyboxVS, skyboxFS);
 
 
     bool useHDR = true;
