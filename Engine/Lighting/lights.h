@@ -46,7 +46,7 @@ GLuint lightsBuffer;
 
 GLuint surface_material_ubo;
 
-Vector4 ambientLight = {0.0f, 0.0f, 0.0f, 0.0f};
+Vector4 ambientLight = {1.0f, 1.0f, 1.0f, 1.0f};
 
 bool canAddLight = false;
 

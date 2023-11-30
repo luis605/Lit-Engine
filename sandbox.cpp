@@ -37,7 +37,6 @@ struct Edge {
     float cost;
     Vector3 v0;
     Vector3 v1;
-
     Vector3 midpoint;
 };
 
@@ -48,13 +47,10 @@ struct HalfEdge {
     bool isBoundary;
 };
 
-
 std::vector<HalfEdge> initializeHalfEdges(const std::vector<Vector3>& vertices) {
     std::vector<HalfEdge> halfEdges;
 
-    
     for (size_t i = 0; i < vertices.size(); i += 3) {
-        
         for (int j = 0; j < 3; ++j) {
             HalfEdge he;
             he.vertexIndex = i + j;
@@ -65,7 +61,6 @@ std::vector<HalfEdge> initializeHalfEdges(const std::vector<Vector3>& vertices) 
         }
     }
 
-    
     for (size_t i = 0; i < halfEdges.size(); ++i) {
         HalfEdge& he = halfEdges[i];
 
@@ -86,13 +81,8 @@ std::vector<HalfEdge> initializeHalfEdges(const std::vector<Vector3>& vertices) 
 }
 
 void calculateEdgeCost(Edge& edge) {
-    Vector3 midpoint = Vector3Add(edge.v0, edge.v1);
-    midpoint.x /= 2.0f;
-    midpoint.y /= 2.0f;
-    midpoint.z /= 2.0f;
-
-    // Calculate the distance between the original edge midpoint and the new midpoint
-    edge.cost = sqrt(pow(midpoint.x - edge.v0.x, 2) + pow(midpoint.y - edge.v0.y, 2) + pow(midpoint.z - edge.v0.z, 2));
+    edge.midpoint = Vector3Lerp(edge.v0, edge.v1, 0.5f);
+    edge.cost = Vector3Distance(edge.v0, edge.midpoint);
 }
 
 void collapseEdge(Edge& edge) {
@@ -101,8 +91,6 @@ void collapseEdge(Edge& edge) {
 
 void halfEdgeCollapse(std::vector<HalfEdge>& halfEdges, std::vector<Vector3>& vertices, std::vector<unsigned short>& indices, float threshold) {
     std::vector<Edge> edges;
-    std::vector<Vector3> collapsedVertices;
-    std::vector<unsigned short> collapsedIndices;
 
     for (const HalfEdge& he : halfEdges) {
         Edge edge;
@@ -112,7 +100,6 @@ void halfEdgeCollapse(std::vector<HalfEdge>& halfEdges, std::vector<Vector3>& ve
         edges.push_back(edge);
     }
 
-    // Sort the edges by cost in ascending order
     std::sort(edges.begin(), edges.end(), [](const Edge& a, const Edge& b) {
         return a.cost < b.cost;
     });
@@ -122,8 +109,9 @@ void halfEdgeCollapse(std::vector<HalfEdge>& halfEdges, std::vector<Vector3>& ve
         collapseEdge(edge);
     }
 
-    // Update vertices and collect collapsed vertices
-    for (Edge& edge : edges) {
+    std::vector<Vector3> collapsedVertices;
+
+    for (const Edge& edge : edges) {
         if (edge.cost < threshold)
             collapsedVertices.push_back(edge.midpoint);
         else {
@@ -132,23 +120,26 @@ void halfEdgeCollapse(std::vector<HalfEdge>& halfEdges, std::vector<Vector3>& ve
         }
     }
 
-    // Clear the indices vector
-    collapsedIndices.clear();
+    indices.clear();
 
-    // Recalculate indices based on the collapsed vertices
-    for (int i = 0; i < vertices.size(); ++i) {
-        collapsedIndices.push_back(i);
+    for (int i = 0; i < static_cast<int>(collapsedVertices.size()); i += 3) {
+        indices.push_back(static_cast<unsigned short>(i));
+        indices.push_back(static_cast<unsigned short>(i + 2));
+        indices.push_back(static_cast<unsigned short>(i + 1));
     }
 
-    // Update the input vectors
     vertices = collapsedVertices;
-    indices = collapsedIndices;
 
     std::cout << "Lowest cost: " << edges[0].cost << std::endl;
     std::cout << "Highest cost: " << edges[edges.size() - 1].cost << std::endl;
     std::cout << "Threshold: " << threshold << std::endl;
     std::cout << "Number of edges: " << edges.size() << std::endl;
     std::cout << "Number of vertices: " << collapsedVertices.size() << std::endl;
+
+    std::cout << "Collapsed Indices: ";
+    for (const auto& index : indices) {
+        std::cout << index << " ";
+    }
     std::cout << std::endl;
 }
 
@@ -327,7 +318,7 @@ int main() {
         
         BeginMode3D(camera);
         if (IsModelReady(model))
-            DrawModel(model, Vector3Zero(), 1.0f, RED);
+            DrawModelWires(model, Vector3Zero(), 1.0f, RED);
         EndMode3D();
 
         
