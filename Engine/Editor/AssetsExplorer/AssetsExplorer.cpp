@@ -11,7 +11,7 @@ Texture2D RenderModelPreview(const char* modelFile) {
     model_previewer_camera.fovy = 60.0f;
     model_previewer_camera.projection = CAMERA_PERSPECTIVE;
 
-    RenderTexture2D target = LoadRenderTexture(600, 600);
+    RenderTexture2D target = LoadRenderTexture(thumbnailSize, thumbnailSize);
 
     BeginTextureMode(target);
     ClearBackground(GRAY);

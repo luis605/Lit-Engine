@@ -23,4 +23,6 @@ CopyType current_copy_type = (CopyType)CopyType_None;
 std::shared_ptr<Entity> copiedEntity;
 std::shared_ptr<Light> copiedLight;
 
+ImVec2 prevEditorWindowSize = {0.0f, 0.0f};
+
 #endif // SCENE_EDITOR_H
