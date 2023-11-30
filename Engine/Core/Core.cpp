@@ -97,9 +97,8 @@ void Startup()
     save_texture = LoadTexture("assets/images/save_file.png");
     hot_reload_texture = LoadTexture("assets/images/hot_reload.png");
     light_texture = LoadTexture("assets/images/light_bulb.png");
-    window_icon_texture = LoadTexture("assets/images/window_icon.png");
-
-    window_icon_image = LoadImage("icon.png");
+    window_icon_image = LoadImage("assets/images/window_icon.png");
+    window_icon_texture = LoadTextureFromImage(window_icon_image);
 
     ImageFormat(&window_icon_image, PIXELFORMAT_UNCOMPRESSED_R8G8B8A8);
     SetWindowIcon(window_icon_image);
