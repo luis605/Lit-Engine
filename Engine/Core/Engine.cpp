@@ -1258,11 +1258,9 @@ public:
         SetShaderValue(shader, GetShaderLocation(shader, "tiling"), tiling, SHADER_UNIFORM_VEC2);
 
         model.transform = MatrixMultiply(
-            MatrixMultiply(
-                MatrixRotateX(DEG2RAD * rotation.x),
-                MatrixRotateY(DEG2RAD * rotation.y)
-            ),
-            MatrixRotateZ(DEG2RAD * rotation.z)
+            DEG2RAD * rotation.x,
+            DEG2RAD * rotation.y            
+            DEG2RAD * rotation.z
         );
 
 
