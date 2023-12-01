@@ -1,3 +1,5 @@
+#include "../../include_all.h"
+
 // Custom implementation of clamp
 template <typename T>
 constexpr const T& custom_clamp(const T& value, const T& low, const T& high) {
@@ -100,5 +102,25 @@ template <typename... Args>
 LitVector3 multiplyAll(const Args&... args) {
     LitVector3 result = LitVector3(1.0f, 1.0f, 1.0f);
     ((result *= args), ...);
+    return result;
+}
+
+float LitVector3Distance(LitVector3 v1, LitVector3 v2)
+{
+    float result = 0.0f;
+
+    float dx = v2.x - v1.x;
+    float dy = v2.y - v1.y;
+    float dz = v2.z - v1.z;
+    result = sqrtf(dx*dx + dy*dy + dz*dz);
+
+    return result;
+}
+
+
+LitVector3 LitVector3Scale(LitVector3 v, float scalar)
+{
+    Vector3 result = { v.x*scalar, v.y*scalar, v.z*scalar };
+
     return result;
 }
