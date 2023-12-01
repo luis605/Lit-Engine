@@ -58,6 +58,8 @@ If the indices array is provided, we can see what vertices are connected with ea
 
 */
 
+// ISSUE IS THAT COLLAPSING THE VERTICES MESSES UP THE INDICES, BECAUSE THE VERTICES ARE MOVED TO THE MIDPOINT, SO THE ID OF THE VERTICES CHANGE AND IT IS NOT UPDATED IN THE RECALCULATIONS
+
 struct Edge {
     float cost;
     Vector3 v0;
@@ -108,11 +110,8 @@ void printEdgeIndices(const std::vector<Edge>& edges) {
     }
 }
 
-void EdgeCollapse(std::vector<Vector3>& vertices, std::vector<unsigned short>& indices, int triangleCount, float threshold) {
-
-
-    if (indices.empty())
-    {
+void edgeCollapse(std::vector<Vector3>& vertices, std::vector<unsigned short>& indices, float threshold) {
+    if (indices.empty()) {
         for (int i = 0; i < static_cast<int>(vertices.size()); i += 3) {
             indices.push_back(static_cast<unsigned short>(i));
             indices.push_back(static_cast<unsigned short>(i + 2));
@@ -135,12 +134,6 @@ void EdgeCollapse(std::vector<Vector3>& vertices, std::vector<unsigned short>& i
             }
         }
 
-        // Loop through the indices and find the indices corresponding to vertex 1
-        for (int j = 0; j < indices.size(); ++j) {
-            if (indices[j] == i + 1) {
-                edge.v1Indices.push_back(j);
-            }
-        }
 
         calculateEdgeCost(edge);
         edges.push_back(edge);
@@ -163,24 +156,17 @@ void EdgeCollapse(std::vector<Vector3>& vertices, std::vector<unsigned short>& i
     std::vector<unsigned short> collapsedIndices;
 
     for (const Edge& edge : edges) {
-        if (edge.cost < threshold)
-        {
+        if (edge.cost < threshold) {
             collapsedVertices.push_back(edge.midpoint);
             for (unsigned short index : edge.midpointIndices)
                 collapsedIndices.push_back(index);
-        }
-        else {
+        } else {
             collapsedVertices.push_back(edge.v0);
-
-            for (unsigned short index : edge.v0Indices)
-                collapsedIndices.push_back(index);
-
             collapsedVertices.push_back(edge.v1);
 
-            for (unsigned short index : edge.v1Indices)
-                collapsedIndices.push_back(index);
         }
     }
+
 
     // Update the indices vector with the new indices
     indices.clear();
@@ -202,9 +188,6 @@ void EdgeCollapse(std::vector<Vector3>& vertices, std::vector<unsigned short>& i
 }
 
 
-
-
-
 std::vector<unsigned short> computeIndices(const std::vector<Vector3>& vertices) {
     std::vector<unsigned short> indices;
     
@@ -215,6 +198,9 @@ std::vector<unsigned short> computeIndices(const std::vector<Vector3>& vertices)
     }
     return indices;
 }
+
+
+
 
 
 void calculateNormals(const std::vector<Vector3>& vertices, const std::vector<unsigned short>& indices, float* normals) {
@@ -336,8 +322,9 @@ int main() {
     
     Shader shader = LoadShader(0, "Engine/Lighting/shaders/lod.fs");
     
-    Model model = LoadModel("project/game/models/cube.obj");
-    Mesh mesh = model.meshes[0];
+    Mesh mesh = GenMeshSphere(1,17,17);
+    Model model = LoadModelFromMesh(mesh);
+    
     
     model.materials[0].shader = shader;
 
@@ -408,7 +395,7 @@ int main() {
                     vertices.push_back({ x, y, z });
                 }
 
-                EdgeCollapse(vertices, newIndices, mesh.triangleCount, threshold);
+                edgeCollapse(vertices, newIndices, threshold);
                 model = LoadModelFromMesh(generateLODMesh(vertices, newIndices, mesh));
 
                 if (threshold == 0) {
