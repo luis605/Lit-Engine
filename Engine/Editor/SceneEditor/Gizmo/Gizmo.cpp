@@ -24,7 +24,7 @@ void GizmoPosition()
 {
     Vector3 selected_object_position;
 
-    if (selected_game_object_type == "entity")
+    if (selected_game_object_type == "entity" && selected_entity != nullptr)
         selected_object_position = selected_entity->position;
     else if (selected_game_object_type == "light")
         selected_object_position = {selected_light->position.x, selected_light->position.y, selected_light->position.z};
