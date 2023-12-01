@@ -268,13 +268,18 @@ void ProcessCameraControls()
 
 void ProcessGizmo()
 {
-    if ((selected_game_object_type == "entity") ||
-        (selected_game_object_type == "light"))
+    if (selected_game_object_type == "entity" && selected_entity)
+    {
+        if (selected_entity->initialized)
+        {
+            GizmoPosition();
+            GizmoRotation();
+            GizmoScale();
+        }
+    }
+    else if (selected_game_object_type == "light")
     {
         GizmoPosition();
-        GizmoRotation();
-        GizmoScale();
-
     }
 }
 
