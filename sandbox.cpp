@@ -50,7 +50,7 @@ void collapseEdge(Edge& edge) {
     edge.midpoint = Vector3Lerp(edge.v0, edge.v1, 0.5f);
 }
 
-void halfEdgeCollapse(std::vector<Vector3>& vertices, std::vector<unsigned short>& indices, float threshold) {
+void EdgeCollapse(std::vector<Vector3>& vertices, std::vector<unsigned short>& indices, float threshold) {
     std::vector<Edge> edges;
 
     for (int i = 0; i < vertices.size(); i += 2) {
@@ -301,7 +301,7 @@ int main() {
                     vertices.push_back({ x, y, z });
                 }
 
-                halfEdgeCollapse(vertices, newIndices, threshold);
+                EdgeCollapse(vertices, newIndices, threshold);
                 model = LoadModelFromMesh(generateLODMesh(vertices, newIndices, mesh));
 
                 if (threshold == 0) {
