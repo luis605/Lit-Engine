@@ -92,10 +92,10 @@ void collapseEdge(Edge& edge) {
 void halfEdgeCollapse(std::vector<HalfEdge>& halfEdges, std::vector<Vector3>& vertices, std::vector<unsigned short>& indices, float threshold) {
     std::vector<Edge> edges;
 
-    for (const HalfEdge& he : halfEdges) {
+    for (int i = 0; i < vertices.size(); i += 2) {
         Edge edge;
-        edge.v0 = vertices[he.vertexIndex];
-        edge.v1 = vertices[he.nextIndex];
+        edge.v0 = vertices[i];
+        edge.v1 = vertices[i + 1];
         calculateEdgeCost(edge);
         edges.push_back(edge);
     }
@@ -128,18 +128,17 @@ void halfEdgeCollapse(std::vector<HalfEdge>& halfEdges, std::vector<Vector3>& ve
         indices.push_back(static_cast<unsigned short>(i + 1));
     }
 
-    vertices = collapsedVertices;
-
     std::cout << "Lowest cost: " << edges[0].cost << std::endl;
     std::cout << "Highest cost: " << edges[edges.size() - 1].cost << std::endl;
     std::cout << "Threshold: " << threshold << std::endl;
     std::cout << "Number of edges: " << edges.size() << std::endl;
     std::cout << "Number of vertices: " << collapsedVertices.size() << std::endl;
+    std::cout << "Collapsed " << vertices.size() - collapsedVertices.size() << " vertices!" << std::endl;
 
-    std::cout << "Collapsed Indices: ";
-    for (const auto& index : indices) {
-        std::cout << index << " ";
-    }
+
+    vertices = collapsedVertices;
+
+
     std::cout << std::endl;
 }
 
