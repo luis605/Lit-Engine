@@ -31,6 +31,31 @@ Re-evaluate the costs of all edges in the mesh
 FOURTH STEP:
 Repeat the process until no more edges can be collapsed (no cost lower than a threshold)
 
+FIFTH STEP:
+Recalculate the indices. The triangles are made out of vertices connected by indices. example:
+
+Vertices:
+{
+    {-1.0f, -1.0f, -1.0f},
+    {-1.0f, -1.0f, 1.0f},
+    {-1.0f, 1.0f, -1.0f},
+    {-1.0f, 1.0f, 1.0f},
+    {1.0f, -1.0f, -1.0f},
+    {1.0f, -1.0f, 1.0f},
+}
+
+Indices:
+{
+    0, 1, 2,   // Triangle 1 (Face 1)
+    1, 3, 2,   // Triangle 2 (Face 1)
+    4, 5, 6,   // Triangle 3 (Face 2)
+    5, 7, 6,   // Triangle 4 (Face 2)
+    0, 1, 5,   // Triangle 5 (Face 3)
+    0, 5, 4,   // Triangle 6 (Face 3)
+}
+
+If the indices array is provided, we can see what vertices are connected with each other and recalculate them correctly.
+
 */
 
 struct Edge {
@@ -50,7 +75,9 @@ void collapseEdge(Edge& edge) {
     edge.midpoint = Vector3Lerp(edge.v0, edge.v1, 0.5f);
 }
 
-void EdgeCollapse(std::vector<Vector3>& vertices, std::vector<unsigned short>& indices, float threshold) {
+void EdgeCollapse(std::vector<Vector3>& vertices, std::vector<unsigned short>& indices, int triangleCount, float threshold) {
+
+    /* FIRST STEP */
     std::vector<Edge> edges;
 
     for (int i = 0; i < vertices.size(); i += 2) {
@@ -65,6 +92,7 @@ void EdgeCollapse(std::vector<Vector3>& vertices, std::vector<unsigned short>& i
         return a.cost < b.cost;
     });
 
+    /* SECOND STEP */
     for (Edge& edge : edges) {
         if (edge.cost >= threshold) break;
         collapseEdge(edge);
@@ -80,6 +108,7 @@ void EdgeCollapse(std::vector<Vector3>& vertices, std::vector<unsigned short>& i
             collapsedVertices.push_back(edge.v1);
         }
     }
+
 
     indices.clear();
 
@@ -301,7 +330,7 @@ int main() {
                     vertices.push_back({ x, y, z });
                 }
 
-                EdgeCollapse(vertices, newIndices, threshold);
+                EdgeCollapse(vertices, newIndices, mesh.triangleCount, threshold);
                 model = LoadModelFromMesh(generateLODMesh(vertices, newIndices, mesh));
 
                 if (threshold == 0) {
