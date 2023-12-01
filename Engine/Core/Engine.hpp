@@ -27,9 +27,9 @@ fs::path selected_material;
 typedef struct HitInfo
 {
     bool hit;
-    Vector3 worldPoint;
-    Vector3 relativePoint; // Relative Hit Position from Origin
-    Vector3 worldNormal;
+    LitVector3 worldPoint;
+    LitVector3 relativePoint; // Relative Hit Position from Origin
+    LitVector3 worldNormal;
     float distance;
     Color hitColor;
     std::shared_ptr<Entity> entity;

@@ -1,3 +1,4 @@
+#include "../../include_all.h"
 #pragma once
 
 PYBIND11_EMBEDDED_MODULE(time_module, m) {
@@ -52,12 +53,12 @@ PYBIND11_EMBEDDED_MODULE(math_module, m) {
             return std::to_string(a.x) + " " + std::to_string(a.y);
         }, py::call_guard<py::gil_scoped_release>());
 
-    m.def("Vector3Scale", &Vector3Scale, py::call_guard<py::gil_scoped_release>());
+    m.def("Vector3Scale", &LitVector3Scale, py::call_guard<py::gil_scoped_release>());
+    m.def("Vector3Distance", &LitVector3Distance, py::call_guard<py::gil_scoped_release>());
     m.def("lerp", static_cast<float(*)(float, float, float)>(&lerp<float>), "Lerp function for float and double types");
     m.def("lerp", static_cast<int(*)(int, int, float)>(&lerp_int), "Lerp function for integer types");
     m.def("lerp", &lerp_Vector3, "Lerp function for Vector3 type");
 }
-
 
 struct LitCamera : Camera3D {
     LitVector3 front;
@@ -134,6 +135,7 @@ Vector2 GetMouseMovement()
 PYBIND11_EMBEDDED_MODULE(input_module, m) {
     m.def("IsMouseButtonPressed", &IsMouseButtonPressed, py::call_guard<py::gil_scoped_release>());
     m.def("IsKeyDown", &IsKeyDown, py::call_guard<py::gil_scoped_release>());
+    m.def("IsKeyPressed", &IsKeyPressed, py::call_guard<py::gil_scoped_release>());
     m.def("IsKeyUp", &IsKeyUp, py::call_guard<py::gil_scoped_release>());
     m.def("GetMousePosition", &GetMousePosition, py::call_guard<py::gil_scoped_release>());
     m.def("GetMouseMovement", &GetMouseMovement, py::call_guard<py::gil_scoped_release>());
