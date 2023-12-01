@@ -40,45 +40,6 @@ struct Edge {
     Vector3 midpoint;
 };
 
-struct HalfEdge {
-    int vertexIndex;
-    int pairIndex;
-    int nextIndex;
-    bool isBoundary;
-};
-
-std::vector<HalfEdge> initializeHalfEdges(const std::vector<Vector3>& vertices) {
-    std::vector<HalfEdge> halfEdges;
-
-    for (size_t i = 0; i < vertices.size(); i += 3) {
-        for (int j = 0; j < 3; ++j) {
-            HalfEdge he;
-            he.vertexIndex = i + j;
-            he.nextIndex = i + (j + 1) % 3;
-            he.pairIndex = -1;
-            he.isBoundary = true;
-            halfEdges.push_back(he);
-        }
-    }
-
-    for (size_t i = 0; i < halfEdges.size(); ++i) {
-        HalfEdge& he = halfEdges[i];
-
-        for (size_t j = i + 1; j < halfEdges.size(); ++j) {
-            HalfEdge& other = halfEdges[j];
-
-            if (he.vertexIndex == other.nextIndex && he.nextIndex == other.vertexIndex) {
-                he.pairIndex = j;
-                other.pairIndex = i;
-                he.isBoundary = false;
-                other.isBoundary = false;
-                break;
-            }
-        }
-    }
-
-    return halfEdges;
-}
 
 void calculateEdgeCost(Edge& edge) {
     edge.midpoint = Vector3Lerp(edge.v0, edge.v1, 0.5f);
@@ -89,7 +50,7 @@ void collapseEdge(Edge& edge) {
     edge.midpoint = Vector3Lerp(edge.v0, edge.v1, 0.5f);
 }
 
-void halfEdgeCollapse(std::vector<HalfEdge>& halfEdges, std::vector<Vector3>& vertices, std::vector<unsigned short>& indices, float threshold) {
+void halfEdgeCollapse(std::vector<Vector3>& vertices, std::vector<unsigned short>& indices, float threshold) {
     std::vector<Edge> edges;
 
     for (int i = 0; i < vertices.size(); i += 2) {
@@ -289,7 +250,6 @@ int main() {
         vertices.push_back({ x, y, z });
     }
 
-    std::vector<HalfEdge> halfEdges = initializeHalfEdges(vertices);
 
     
     float threshold = 0.0;
@@ -341,7 +301,7 @@ int main() {
                     vertices.push_back({ x, y, z });
                 }
 
-                halfEdgeCollapse(halfEdges, vertices, newIndices, threshold);
+                halfEdgeCollapse(vertices, newIndices, threshold);
                 model = LoadModelFromMesh(generateLODMesh(vertices, newIndices, mesh));
 
                 if (threshold == 0) {
