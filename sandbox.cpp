@@ -63,6 +63,9 @@ struct Edge {
     Vector3 v0;
     Vector3 v1;
     Vector3 midpoint;
+    std::vector<unsigned short> v0Indices;
+    std::vector<unsigned short> v1Indices;
+    std::vector<unsigned short> midpointIndices;
 };
 
 
@@ -73,9 +76,49 @@ void calculateEdgeCost(Edge& edge) {
 
 void collapseEdge(Edge& edge) {
     edge.midpoint = Vector3Lerp(edge.v0, edge.v1, 0.5f);
+    
+    for (unsigned short indice : edge.v0Indices)
+        edge.midpointIndices.push_back(indice);
+
+    for (unsigned short indice : edge.v1Indices)
+        edge.midpointIndices.push_back(indice);
+
+}
+
+void printEdgeIndices(const std::vector<Edge>& edges) {
+    for (const Edge& edge : edges) {
+        std::cout << "Edge (" << edge.v0.x << ", " << edge.v0.y << ", " << edge.v0.z << ") - ("
+                  << edge.v1.x << ", " << edge.v1.y << ", " << edge.v1.z << "):" << std::endl;
+
+        // Print indices for vertex v0
+        std::cout << "  v0Indices: ";
+        for (unsigned short index : edge.v0Indices) {
+            std::cout << index << " ";
+        }
+        std::cout << std::endl;
+
+        // Print indices for vertex v1
+        std::cout << "  v1Indices: ";
+        for (unsigned short index : edge.v1Indices) {
+            std::cout << index << " ";
+        }
+        std::cout << std::endl;
+
+        std::cout << std::endl;
+    }
 }
 
 void EdgeCollapse(std::vector<Vector3>& vertices, std::vector<unsigned short>& indices, int triangleCount, float threshold) {
+
+
+    if (indices.empty())
+    {
+        for (int i = 0; i < static_cast<int>(vertices.size()); i += 3) {
+            indices.push_back(static_cast<unsigned short>(i));
+            indices.push_back(static_cast<unsigned short>(i + 2));
+            indices.push_back(static_cast<unsigned short>(i + 1));
+        }
+    }
 
     /* FIRST STEP */
     std::vector<Edge> edges;
@@ -84,9 +127,27 @@ void EdgeCollapse(std::vector<Vector3>& vertices, std::vector<unsigned short>& i
         Edge edge;
         edge.v0 = vertices[i];
         edge.v1 = vertices[i + 1];
+
+        // Loop through the indices and find the indices corresponding to vertex 0
+        for (int j = 0; j < indices.size(); ++j) {
+            if (indices[j] == i) {
+                edge.v0Indices.push_back(j);
+            }
+        }
+
+        // Loop through the indices and find the indices corresponding to vertex 1
+        for (int j = 0; j < indices.size(); ++j) {
+            if (indices[j] == i + 1) {
+                edge.v1Indices.push_back(j);
+            }
+        }
+
         calculateEdgeCost(edge);
         edges.push_back(edge);
     }
+
+    printEdgeIndices(edges);
+
 
     std::sort(edges.begin(), edges.end(), [](const Edge& a, const Edge& b) {
         return a.cost < b.cost;
@@ -99,25 +160,33 @@ void EdgeCollapse(std::vector<Vector3>& vertices, std::vector<unsigned short>& i
     }
 
     std::vector<Vector3> collapsedVertices;
+    std::vector<unsigned short> collapsedIndices;
 
     for (const Edge& edge : edges) {
         if (edge.cost < threshold)
+        {
             collapsedVertices.push_back(edge.midpoint);
+            for (unsigned short index : edge.midpointIndices)
+                collapsedIndices.push_back(index);
+        }
         else {
             collapsedVertices.push_back(edge.v0);
+
+            for (unsigned short index : edge.v0Indices)
+                collapsedIndices.push_back(index);
+
             collapsedVertices.push_back(edge.v1);
+
+            for (unsigned short index : edge.v1Indices)
+                collapsedIndices.push_back(index);
         }
     }
 
-
+    // Update the indices vector with the new indices
     indices.clear();
+    indices = collapsedIndices;
 
-    for (int i = 0; i < static_cast<int>(collapsedVertices.size()); i += 3) {
-        indices.push_back(static_cast<unsigned short>(i));
-        indices.push_back(static_cast<unsigned short>(i + 2));
-        indices.push_back(static_cast<unsigned short>(i + 1));
-    }
-
+    // 
     std::cout << "Lowest cost: " << edges[0].cost << std::endl;
     std::cout << "Highest cost: " << edges[edges.size() - 1].cost << std::endl;
     std::cout << "Threshold: " << threshold << std::endl;
@@ -253,7 +322,7 @@ Mesh generateLODMesh(const std::vector<Vector3>& vertices, const std::vector<uns
 
 
 int main() {
-    
+    SetTraceLogLevel(LOG_WARNING);
     SetConfigFlags(FLAG_WINDOW_RESIZABLE);
     InitWindow(screenWidth, screenHeight, "Half-Edge Collapsing");
 
@@ -266,11 +335,22 @@ int main() {
 
     
     Shader shader = LoadShader(0, "Engine/Lighting/shaders/lod.fs");
-    Mesh mesh = GenMeshSphere(1, 15, 15);
-    Model model = LoadModelFromMesh(mesh);
+    
+    Model model = LoadModel("project/game/models/cube.obj");
+    Mesh mesh = model.meshes[0];
+    
     model.materials[0].shader = shader;
 
-    
+    std::vector<unsigned short> newIndices;
+
+    if (mesh.indices)
+    {
+        std::cout << "indices!" << std::endl;
+        for (int i = 0; i < sizeof(mesh.indices)/sizeof(mesh.indices[0]); i++) {
+            newIndices.push_back(mesh.indices[i]);
+        }
+    }
+
     std::vector<Vector3> vertices;
     for (int i = 0; i < mesh.vertexCount; i++) {
         float x = mesh.vertices[i * 3];
@@ -285,14 +365,7 @@ int main() {
     SetTargetFPS(50);
     rlImGuiSetup(true);
 
-    std::vector<unsigned short> newIndices;
 
-    if (mesh.indices)
-    {
-        for (int i = 0; i < sizeof(mesh.indices)/sizeof(mesh.indices[0]); i++) {
-            newIndices.push_back(mesh.indices[i]);
-        }
-    }
 
     while (!WindowShouldClose()) {
         
@@ -306,7 +379,12 @@ int main() {
         
         BeginMode3D(camera);
         if (IsModelReady(model))
-            DrawModelWires(model, Vector3Zero(), 1.0f, RED);
+        {
+            if (IsKeyDown(KEY_X))
+                DrawModel(model, Vector3Zero(), 1.0f, RED);
+            else
+                DrawModelWires(model, Vector3Zero(), 1.0f, RED);
+        }
         EndMode3D();
 
         
