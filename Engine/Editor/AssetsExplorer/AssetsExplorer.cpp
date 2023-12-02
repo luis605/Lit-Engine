@@ -302,7 +302,7 @@ void AssetsExplorer()
             }
         }
         else
-            ImGui::TextWrapped(files_texture_struct[i].name.c_str());
+            ImGui::Text(files_texture_struct[i].name.c_str());
 
 
         ImGui::PopID();

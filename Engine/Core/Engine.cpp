@@ -973,29 +973,31 @@ public:
     void createStaticBox(float x, float y, float z) {
         if (isDynamic) isDynamic = false;
         if (staticBoxShape == nullptr) {
-            staticBoxShape = new btBoxShape(btVector3(x, y, z));
+            // Use the provided dimensions (x, y, z) to create the btBoxShape
+            staticBoxShape = new btBoxShape(btVector3(x * scaleFactorRaylibBullet, y * scaleFactorRaylibBullet, z * scaleFactorRaylibBullet));
 
-            
-            if (boxRigidBody && *boxRigidBody.get() != nullptr) {
-                dynamicsWorld->removeRigidBody(*boxRigidBody.get());
+            // Remove existing rigid bodies
+            if (boxRigidBody && *boxRigidBody != nullptr) {
+                dynamicsWorld->removeRigidBody(*boxRigidBody);
                 delete (*boxRigidBody)->getMotionState();
                 delete *boxRigidBody;
-                boxRigidBody = make_shared<btRigidBody*>(nullptr);
+                boxRigidBody = std::make_shared<btRigidBody*>(nullptr);
             }
 
-            if (treeRigidBody && *treeRigidBody.get() != nullptr) {
-                dynamicsWorld->removeRigidBody(*treeRigidBody.get());
+            if (treeRigidBody && *treeRigidBody != nullptr) {
+                dynamicsWorld->removeRigidBody(*treeRigidBody);
                 delete (*treeRigidBody)->getMotionState();
                 delete *treeRigidBody;
-                treeRigidBody = make_shared<btRigidBody*>(nullptr);
+                treeRigidBody = std::make_shared<btRigidBody*>(nullptr);
             }
 
             dynamicBoxShape = nullptr;
 
-    
+            // Set up the transformation
             btTransform groundTransform;
             groundTransform.setIdentity();
 
+            // Use radians for rotation
             float rollRad = glm::radians(rotation.x);
             float pitchRad = glm::radians(rotation.y);
             float yawRad = glm::radians(rotation.z);
@@ -1006,16 +1008,19 @@ public:
             groundTransform.setRotation(quaternion);
             groundTransform.setOrigin(btVector3(position.x, position.y, position.z));
 
+            // Create the motion state and rigid body construction info
             btDefaultMotionState* groundMotionState = new btDefaultMotionState(groundTransform);
             btRigidBody::btRigidBodyConstructionInfo groundRigidBodyCI(0, groundMotionState, staticBoxShape, btVector3(0, 0, 0));
+
+            // Create the rigid body
             btRigidBody* groundRigidBody = new btRigidBody(groundRigidBodyCI);
             boxRigidBody = std::make_shared<btRigidBody*>(groundRigidBody);
 
+            // Add the rigid body to the dynamics world
             dynamicsWorld->addRigidBody(*boxRigidBody);
-            currentCollisionShapeType = make_shared<CollisionShapeType>(CollisionShapeType::Box);
+            currentCollisionShapeType = std::make_shared<CollisionShapeType>(CollisionShapeType::Box);
         }
     }
-
 
     void createStaticMesh() {
         if (isDynamic)
@@ -1065,10 +1070,10 @@ public:
         // Create the rigid body for the ground
         btTransform groundTransform;
         groundTransform.setIdentity();
-        groundTransform.setOrigin(btVector3(0, 10, 0));
+        groundTransform.setOrigin(btVector3(position.x, position.y, position.z));
 
         btDefaultMotionState* groundMotionState = new btDefaultMotionState(groundTransform);
-        btRigidBody::btRigidBodyConstructionInfo groundRigidBodyCI(0, groundMotionState, groundShape, btVector3(0, 0, 0));
+        btRigidBody::btRigidBodyConstructionInfo groundRigidBodyCI(0, groundMotionState, groundShape, btVector3(position.x, position.y, position.z));
         btRigidBody* groundRigidBody = new btRigidBody(groundRigidBodyCI);
 
 
@@ -1078,14 +1083,11 @@ public:
         float scaleZ = scaleMatrix.m10 * scale.z;
 
 
-        btVector3 scaleVector(scaleX, scaleY, scaleZ);
+        btVector3 scaleVector(scaleX * scaleFactorRaylibBullet, scaleY * scaleFactorRaylibBullet, scaleZ * scaleFactorRaylibBullet);
         groundRigidBody->getCollisionShape()->setLocalScaling(scaleVector);
 
         // Add the ground rigid body to the dynamics world
         dynamicsWorld->addRigidBody(groundRigidBody);
-
-        std::cout << "\n\n\nDONE\n\n\n";
-        std::cout << "Scale (" << scaleX << ", " << scaleY << ", " << scaleZ << ")\n";
     }
 
 
@@ -1107,7 +1109,7 @@ public:
         dynamicBoxShape = nullptr;
         boxMotionState = nullptr;
 
-        dynamicBoxShape = new btBoxShape(btVector3(x, y, z));
+        dynamicBoxShape = new btBoxShape(btVector3(x * scaleFactorRaylibBullet, y * scaleFactorRaylibBullet, z * scaleFactorRaylibBullet));
         currentCollisionShapeType = make_shared<CollisionShapeType>(CollisionShapeType::Box);
 
         btTransform startTransform;
