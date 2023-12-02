@@ -494,10 +494,12 @@ public:
             else if (auto* child = std::get_if<Light*>(&childVariant))
             {                
                 #ifndef GAME_SHIPPING
-                            if (*child == selected_light && selected_game_object_type == "light") continue;
+                    if (*child == selected_light && selected_game_object_type == "light") continue;
                 #endif
 
-                (*child)->position = glm::vec3(this->position.x, this->position.y, this->position.z) + (*child)->relative_position;
+                if (*child) {
+                    (*child)->position = glm::vec3(this->position.x, this->position.y, this->position.z) + (*child)->relative_position;
+                }
             }
         }
     }
@@ -1577,12 +1579,11 @@ HitInfo raycast(LitVector3 origin, LitVector3 direction, bool debug, std::vector
     if (debug)
         DrawRay(ray, RED);
 
-
-    Entity entity;
+    float minDistance = 1000000000000000000000000000000000.0f;
 
     for (int index = 0; index < entities_list.size(); index++)
     {
-        entity = entities_list[index];
+        Entity& entity = entities_list[index];
 
         if (std::find(ignore.begin(), ignore.end(), entity) != ignore.end())
             continue;
@@ -1593,7 +1594,7 @@ HitInfo raycast(LitVector3 origin, LitVector3 direction, bool debug, std::vector
         float extreme_rotation = GetExtremeValue(entity.rotation);
 
         Matrix matScale = MatrixScale(entity.scale.x, entity.scale.y, entity.scale.z);
-        Matrix matRotation = MatrixRotate(entity.rotation, extreme_rotation*DEG2RAD);
+        Matrix matRotation = MatrixRotate(entity.rotation, extreme_rotation * DEG2RAD);
         Matrix matTranslation = MatrixTranslate(entity.position.x, entity.position.y, entity.position.z);
 
         Matrix modelMatrix = MatrixMultiply(MatrixMultiply(matScale, matRotation), matTranslation);
@@ -1606,7 +1607,7 @@ HitInfo raycast(LitVector3 origin, LitVector3 direction, bool debug, std::vector
             {
                 _hitInfo.hit = true;
                 _hitInfo.distance = meshHitInfo.distance;
-                _hitInfo.entity = _hitInfo.entity = std::make_shared<Entity>(entity);
+                _hitInfo.entity = std::make_shared<Entity>(entity);
                 _hitInfo.worldPoint = meshHitInfo.point;
                 _hitInfo.worldNormal = meshHitInfo.normal;
                 _hitInfo.hitColor = {
@@ -1616,12 +1617,12 @@ HitInfo raycast(LitVector3 origin, LitVector3 direction, bool debug, std::vector
                     static_cast<unsigned char>(entity.surface_material.color.z * 255)
                 };
 
-                return _hitInfo;
+                minDistance = meshHitInfo.distance;
             }
         }
     }
 
     pybind11::gil_scoped_release release;
-    
+
     return _hitInfo;
 }
