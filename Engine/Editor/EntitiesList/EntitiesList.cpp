@@ -4,30 +4,33 @@
 
 
 void updateListViewExList(vector<Entity>& entities, vector<Light>& lights) {
+    // Clear vectors before populating them
     listViewExList.clear();
     objectNames.clear();
+    listViewExListTypes.clear(); // Assuming listViewExListTypes is a global vector
 
+    // Loop through entities and lights, populate objectNames and listViewExListTypes
     for (int index = 0; index < entities.size() + lights.size(); index++) {
         string name;
         if (index < entities.size()) {
             name = entities[index].name;
             listViewExListTypes.push_back("entity");
         } else {
-            name = lights_info[index - entities.size()].name;
             listViewExListTypes.push_back("light");
         }
         objectNames.push_back(name);
     }
 
-    
     // Resize listViewExList to match the size of objectNames
-    listViewExList.resize(listViewExList.size()+1);
+    listViewExList.resize(objectNames.size());
 
     // Set the values of listViewExList to the character pointers to the names in objectNames
     for (int i = 0; i < objectNames.size(); i++) {
-        listViewExList[i] = (char*)objectNames[i].c_str();
+        // Use strdup to allocate new memory for each string, as listViewExList stores char pointers
+        listViewExList[i] = strdup(objectNames[i].c_str());
     }
 }
+
 
 bool should_change_object_name = false;
 bool showManipulateEntityPopup = false;
