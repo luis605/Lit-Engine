@@ -938,8 +938,11 @@ public:
             btTransform transform;
             transform.setIdentity();
             transform.setOrigin(btVector3(newPos.x, newPos.y, newPos.z));
-        (*boxRigidBody)->setWorldTransform(transform);
-        (*boxRigidBody)->getMotionState()->setWorldTransform(transform);
+
+            if ((*boxRigidBody)->getMotionState()) {
+                (*boxRigidBody)->setWorldTransform(transform);
+                (*boxRigidBody)->getMotionState()->setWorldTransform(transform);
+            }
         }
     }
 
@@ -1263,13 +1266,16 @@ public:
 
         SetShaderValue(shader, GetShaderLocation(shader, "tiling"), tiling, SHADER_UNIFORM_VEC2);
 
-        model.transform = MatrixRotateXYZ((Vector3){
+
+        Matrix rotationMat = MatrixRotateXYZ((Vector3){
             DEG2RAD * rotation.x,
             DEG2RAD * rotation.y,
             DEG2RAD * rotation.z
         });
 
-
+        Matrix scaleMat = MatrixScale(scale.x, scale.y, scale.z);
+        model.transform = MatrixMultiply(scaleMat, rotationMat);
+        
         if (!instances.empty())
         {
             PassSurfaceMaterials();
@@ -1355,17 +1361,15 @@ public:
                 lodLevel = 3;
             }
 
-            if (name == "project/game/models/simple_terrain" && lodEnabled && IsModelReady(LodModels[lodLevel]))
-                std::cout << LodModels[lodLevel].meshes[0].vertexCount << std::endl;
+            for (Model& lodModel : LodModels)
+                lodModel.transform = MatrixMultiply(scaleMat, rotationMat);
 
             if (lodEnabled && IsModelReady(LodModels[lodLevel]))
             {
-                DrawModelEx(
+                DrawModel(
                     LodModels[lodLevel],
                     position, 
-                    rotation, 
-                    GetExtremeValue(rotation), 
-                    scale, 
+                    1,
                     (Color) {
                         static_cast<unsigned char>(surface_material.color.x * 255),
                         static_cast<unsigned char>(surface_material.color.y * 255),
@@ -1376,12 +1380,11 @@ public:
             }
             else
             {
-                DrawModelEx(
+
+                DrawModel(
                     model,
                     position, 
-                    rotation, 
-                    GetExtremeValue(rotation), 
-                    scale, 
+                    1, 
                     (Color) {
                         static_cast<unsigned char>(surface_material.color.x * 255),
                         static_cast<unsigned char>(surface_material.color.y * 255),
