@@ -187,6 +187,13 @@ void EntityInspector()
             ImGui::EndDragDropTarget();
         }
 
+        ImGui::SameLine();
+        if (ImGui::Button("x##ScriptEmptyButton", ImVec2(25, 25)))
+        {
+            selected_entity->script.clear();
+            selected_entity->script_index = -1;
+        }
+
         ImGui::Text("Collider: ");
         ImGui::SameLine();
         ImGui::Checkbox("##Collider", &selected_entity->collider);
