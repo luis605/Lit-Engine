@@ -33,8 +33,10 @@ void ShowTexture()
 void Inspector()
 {
     if (selected_game_object_type == "entity" && selected_entity)
+    {
         if (selected_entity->initialized)
             EntityInspector();
+    }
     else if (selected_game_object_type == "light")
         LightInspector();
     else if (selected_game_object_type == "text")
