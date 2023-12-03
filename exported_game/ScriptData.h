@@ -64,16 +64,18 @@ def update():
 	camera.look_at = camera.position + front
 	camera.up = Vector3(0, 1, 0)
 
-	distance = Vector3Distance(
-		raycast(
-			entity.position,
-			Vector3(0,-1,0)
-		).worldPoint,
-		entity.position
-	)-entity.scale.y
+	distance = raycast(
+						entity.position,
+						Vector3(0,-1,0),
+						ignore = [entity]
+					).distance
 
-	print(distance)
-	grounded = distance < .1
+#	print(distance)
+	grounded = distance < entity.scale.y / 2 + 0.01
+
+
+
+
 
 
 
