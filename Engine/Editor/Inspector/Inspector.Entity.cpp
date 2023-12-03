@@ -190,8 +190,8 @@ void EntityInspector()
         ImGui::SameLine();
         if (ImGui::Button("x##ScriptEmptyButton", ImVec2(25, 25)))
         {
-            selected_entity->script.clear();
-            selected_entity->script_index = -1;
+            selected_entity->script = "";
+            selected_entity->script_index = "NONE";
         }
 
         ImGui::Text("Collider: ");
