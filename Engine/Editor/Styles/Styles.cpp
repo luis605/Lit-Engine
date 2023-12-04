@@ -278,6 +278,7 @@ void SetStyleGray(ImGuiStyle* dst)
     
     // Text
     colors[ImGuiCol_Text] = ImVec4(0.95f, 0.95f, 0.95f, 1.00f);
+    colors[ImGuiCol_TextDisabled] = ImVec4(0.97f, 0.97f, 0.97f, 1.00f);
     
     // Frames
     colors[ImGuiCol_FrameBg]            = ImVec4(0.4f, 0.4f, 0.4f, 1.0f);
@@ -286,6 +287,8 @@ void SetStyleGray(ImGuiStyle* dst)
     
     // Windows && Tabs && MenuBar
     colors[ImGuiCol_WindowBg]           = ImVec4{ 0.094f, 0.098f, 0.1f, 1.0f };
+	colors[ImGuiCol_ChildBg]            = ImVec4{ 0.094f, 0.098f, 0.1f, 1.0f };
+	colors[ImGuiCol_PopupBg]            = ImVec4( 0.090f, 0.090f, 0.090f, 0.95f);
     colors[ImGuiCol_Tab]                = ImVec4{ 0.15f, 0.1505f, 0.151f, 1.0f };
     colors[ImGuiCol_TabHovered]         = ImVec4{ 0.38f, 0.3805f, 0.381f, 1.0f };
     colors[ImGuiCol_TabActive]          = ImVec4{ 0.28f, 0.2805f, 0.281f, 1.0f };
