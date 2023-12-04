@@ -946,6 +946,28 @@ public:
         }
     }
 
+    void setRot(LitVector3 newRot) {
+        rotation = newRot;
+
+        if (CollisionShapeType::Box == *currentCollisionShapeType) {
+            btTransform trans;
+            if (boxRigidBody && (*boxRigidBody)->getMotionState()) {
+                btTransform currentTransform = (*boxRigidBody)->getWorldTransform();
+                
+                // Set the new rotation (in this example, a 90-degree rotation around the Y-axis)
+                btQuaternion newRotation;
+                newRotation.setEulerZYX(newRot.z * DEG2RAD, newRot.y * DEG2RAD, newRot.x * DEG2RAD);
+
+                // Apply the new rotation to the transform
+                currentTransform.setRotation(newRotation);
+
+                // Set the updated transform to the rigid body
+                (*boxRigidBody)->setWorldTransform(currentTransform);
+            }
+        }
+    }
+
+
     void applyForce(const LitVector3& force) {
         if (boxRigidBody && isDynamic) {
             (*boxRigidBody)->setActivationState(ACTIVE_TAG);
@@ -1259,6 +1281,8 @@ public:
             updateMass();
             backupPosition = position;
         }
+
+        setRot(rotation);
 
         if (!visible) {
             return;
