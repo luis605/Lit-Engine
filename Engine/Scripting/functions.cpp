@@ -261,9 +261,28 @@ PYBIND11_EMBEDDED_MODULE(collisions_module, m) {
         .def_readwrite("distance", &HitInfo::distance)
         .def_readwrite("hitColor", &HitInfo::hitColor)
         .def_property("entity", 
-            [](const HitInfo& info) { return info.entity; }, // Getter
-            [](HitInfo& info, const std::shared_ptr<Entity>& entity) { info.entity = entity; } // Setter
+            [](const HitInfo& info) -> py::object { 
+                // Convert raw pointer to Python object
+                if (info.entity) {
+                    // If the pointer is not null, create a Python object from it
+                    return py::cast(info.entity);
+                } else {
+                    // If the pointer is null, return None
+                    return py::none();
+                }
+            }, // Getter
+            [](HitInfo& info, py::object pyEntity) { 
+                // Convert Python object to raw pointer
+                if (!pyEntity.is_none()) {
+                    // If the Python object is not None, extract the raw pointer
+                    info.entity = pyEntity.cast<Entity*>();
+                } else {
+                    // If the Python object is None, set the pointer to null
+                    info.entity = nullptr;
+                }
+            } // Setter
         );
+
         
     m.def("raycast", &raycast, py::arg("origin"), py::arg("direction"), py::arg("debug") = false, py::arg("ignore") = std::vector<Entity>(), py::call_guard<py::gil_scoped_release>());
 }
