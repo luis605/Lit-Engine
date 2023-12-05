@@ -67,9 +67,16 @@ def update():
 						ignore = [entity]
 					).distance
 
-#	print(distance)
 	grounded = distance < entity.scale.y / 2 + 0.01
 
+	monkeyRay = raycast(
+								entity.position,
+								front,
+								ignore = [entity]
+							)
+	
+	if (monkeyRay.hit):
+		print(monkeyRay.entity.name)
 
 
 

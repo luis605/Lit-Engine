@@ -1634,7 +1634,7 @@ HitInfo raycast(LitVector3 origin, LitVector3 direction, bool debug, std::vector
             {
                 _hitInfo.hit = true;
                 _hitInfo.distance = meshHitInfo.distance;
-                _hitInfo.entity = std::make_shared<Entity>(entity);
+                _hitInfo.entity = &entity;
                 _hitInfo.worldPoint = meshHitInfo.point;
                 _hitInfo.worldNormal = meshHitInfo.normal;
                 _hitInfo.hitColor = {
