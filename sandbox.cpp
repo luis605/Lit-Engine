@@ -178,13 +178,22 @@ int main() {
         if (ImGui::Begin("Inspector Window", NULL))
         {
             if (ImGui::SliderFloat("Simplification Factor", &threshold, 0, 1)) {
-                std::vector<unsigned int> lod(index_count);
+                std::vector<unsigned int> lod(mesh.triangleCount * 3);
 
                 Mesh lodMesh = mesh;
                 if (threshold > 0.0) {
-                    meshopt_simplify(&lod[0], lodMesh.indices, lodMesh.vertexCount, lodMesh.vertices, lodMesh.vertexCount, );
+
+                    size_t lodVertexCount = meshopt_simplify(
+                        &lod[0],            // Destination indices (unsigned int*)
+                        reinterpret_cast<const unsigned int*>(lodMesh.indices), // Input indices (unsigned int*)
+                        lodMesh.triangleCount * 3,
+                        lodMesh.vertices,       // Vertex positions
+                        lodMesh.vertexCount,
+                        sizeof(Vector3),        // Size of each vertex position
+                        threshold);
+
+
                 }
-                    
             }
             ImGui::End();
         }

@@ -29,7 +29,7 @@ CXXFLAGS = -g -pipe -flto -fuse-ld=gold -std=c++17 -fpermissive -w -Wall -DNDEBU
 SRC_FILES = ImGuiColorTextEdit/TextEditor.o include/rlImGui.o ImNodes/ImNodes.o ImNodes/ImNodesEz.o
 INCLUDE_DIRS = -I./include -I./ImGuiColorTextEdit -I/usr/local/lib -L/usr/lib/x86_64-linux-gnu/ -L/usr/local/lib -I./include/nlohmann -I./imgui -L/include/bullet3/src
 INCLUDE_DIRS_STATIC = -I./include -I/usr/local/lib -I./include/nlohmann -I./include/bullet3/src -I./ffmpeg
-LIB_FLAGS = -L./include -lboost_filesystem -lraylib -ldl -lmeshoptimizer -lBulletDynamics -lBulletCollision -lLinearMath -I./include/bullet3/src
+LIB_FLAGS = -L./include -lboost_filesystem -lraylib -ldl -lBulletDynamics -lBulletCollision -lLinearMath -I./include/bullet3/src
 LIB_FLAGS += -lraylib -lavformat -lavcodec -lavutil -lswscale -lz -lm -lpthread -ldrm -ltbb
 
 PYTHON_INCLUDE_DIR := $(shell python -c "import sys; print(sys.prefix + '/include')")
@@ -66,7 +66,7 @@ imgui/%.o: imgui/%.cpp
 
 
 sandbox: $(IMGUI_OBJECTS)
-	@g++ -g $(IMGUI_OBJECTS) sandbox.cpp -o sandbox.out -L. include/rlImGui.o -lraylib -Wall -w  -I./imgui
+	@g++ -g $(IMGUI_OBJECTS) sandbox.cpp -o sandbox.out -L. include/rlImGui.o -lraylib -Wall -w  -I./imgui -lmeshoptimizer
 	@./sandbox.out
 
 

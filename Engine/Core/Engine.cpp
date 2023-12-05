@@ -1339,7 +1339,7 @@ public:
             if (hasModel())
             {
                 Matrix transformMatrix = MatrixIdentity();
-                transformMatrix = MatrixScale(scale.x, scale.y, scale.z);
+                transformMatrix = MatrixMultiply(transformMatrix, MatrixScale(scale.x, scale.y, scale.z));
                 transformMatrix = MatrixMultiply(transformMatrix, MatrixRotateXYZ(rotation));
                 transformMatrix = MatrixMultiply(transformMatrix, MatrixTranslate(position.x, position.y, position.z));
 
