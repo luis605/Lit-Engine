@@ -65,12 +65,12 @@ pybind11::object export_camera()
     pybind11::module m("raylib_camera");
     pybind11::class_<LitCamera>(m, "LitCamera")
         .def(pybind11::init<>())
-        .def_readwrite("position", &LitCamera::position, py::call_guard<py::gil_scoped_release>())
-        .def_readwrite("front", &LitCamera::front, py::call_guard<py::gil_scoped_release>())
-        .def_readwrite("target", &LitCamera::target, py::call_guard<py::gil_scoped_release>())
-        .def_readwrite("up", &LitCamera::up, py::call_guard<py::gil_scoped_release>())
-        .def_readwrite("fovy", &LitCamera::fovy, py::call_guard<py::gil_scoped_release>())
-        .def_readwrite("projection", &LitCamera::projection, py::call_guard<py::gil_scoped_release>());
+        .def_readwrite("position", &LitCamera::position)
+        .def_readwrite("front", &LitCamera::front)
+        .def_readwrite("target", &LitCamera::target)
+        .def_readwrite("up", &LitCamera::up)
+        .def_readwrite("fovy", &LitCamera::fovy)
+        .def_readwrite("projection", &LitCamera::projection);
     pybind11::object camera_obj = pybind11::cast(camera);
     camera_obj.attr("__class__") = m.attr("LitCamera");
     return camera_obj;
