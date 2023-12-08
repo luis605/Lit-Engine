@@ -171,6 +171,8 @@ private:
 
     py::object entity_obj;
     string script_content;
+    py::dict locals;
+    py::module script_module;
 
 public:
     Entity(LitVector3 scale = { 1, 1, 1 }, LitVector3 rotation = { 0, 0, 0 }, string name = "entity",
@@ -278,6 +280,8 @@ public:
         this->id = other.id;
         this->parent = nullptr; 
 
+        this->script_content = other.script_content;
+
         this->lodEnabled = other.lodEnabled;
         for (int i = 0; i < sizeof(LodModels)/sizeof(LodModels[0]); i++)
             this->LodModels[i] = other.LodModels[i];
@@ -310,6 +314,7 @@ public:
         this->tiling[0] = other.tiling[0];
         this->tiling[1] = other.tiling[1];
         this->lodEnabled = other.lodEnabled;
+        this->script_content = other.script_content;
 
 
         for (int i = 0; i < sizeof(LodModels)/sizeof(LodModels[0]); i++)
@@ -772,21 +777,21 @@ public:
                     [](Entity& entity, LitVector3& position) { entity.setPos(position); }
                 )
                 
-                .def_readwrite("scale", &Entity::scale, py::call_guard<py::gil_scoped_release>())
-                .def_readwrite("rotation", &Entity::rotation, py::call_guard<py::gil_scoped_release>())
+                .def_readwrite("scale", &Entity::scale)
+                .def_readwrite("rotation", &Entity::rotation)
                 .def_property("color",
                     &Entity::getColor, // Getter
-                    &Entity::setColor, // Setter
-                    py::call_guard<py::gil_scoped_release>())
+                    &Entity::setColor // Setter
+                    )
 
-                .def_readwrite("visible", &Entity::visible, py::call_guard<py::gil_scoped_release>())
-                .def_readwrite("id", &Entity::id, py::call_guard<py::gil_scoped_release>())
-                .def_readwrite("collider", &Entity::collider, py::call_guard<py::gil_scoped_release>())
-                .def("print_position", &Entity::print_position, py::call_guard<py::gil_scoped_release>())
-                .def("applyForce", &Entity::applyForce, py::call_guard<py::gil_scoped_release>())
-                .def("applyImpulse", &Entity::applyImpulse, py::call_guard<py::gil_scoped_release>())
-                .def("makeStatic", &Entity::makePhysicsStatic, py::call_guard<py::gil_scoped_release>())
-                .def("makeDynamic", &Entity::makePhysicsDynamic, py::call_guard<py::gil_scoped_release>());
+                .def_readwrite("visible", &Entity::visible)
+                .def_readwrite("id", &Entity::id)
+                .def_readwrite("collider", &Entity::collider)
+                .def("print_position", &Entity::print_position)
+                .def("applyForce", &Entity::applyForce)
+                .def("applyImpulse", &Entity::applyImpulse)
+                .def("makeStatic", &Entity::makePhysicsStatic)
+                .def("makeDynamic", &Entity::makePhysicsDynamic);
         }
 
 
@@ -801,7 +806,7 @@ public:
         entity_obj = py::cast(&this_entity);
 
 
-        py::dict locals = py::dict(
+        locals = py::dict(
             "entity"_a = entity_obj,
             "IsMouseButtonPressed"_a = input_module.attr("IsMouseButtonPressed"),
             "IsKeyDown"_a = input_module.attr("IsKeyDown"),
@@ -838,15 +843,14 @@ public:
         }
 #endif
 
-
         try {
-            py::module module("__main__");
+            script_module = py::module("__main__");
 
             for (auto item : locals) {
-                module.attr(item.first) = item.second;
+                script_module.attr(item.first) = item.second;
             }
             
-            py::eval<py::eval_statements>(script_content, module.attr("__dict__"));
+            py::eval<py::eval_statements>(script_content, script_module.attr("__dict__"));
         } catch (const py::error_already_set& e) {
             py::print(e.what());
         }
@@ -854,70 +858,50 @@ public:
     }
 
 
-    void runScript(LitCamera* rendering_camera)
-    {
+    void runScript(LitCamera* rendering_camera) {
         if (script.empty() && script_index.empty()) return;
 
 
-        py::module input_module = py::module::import("input_module");
-        py::module collisions_module = py::module::import("collisions_module");
-        py::module camera_module = py::module::import("camera_module");
-        py::module time_module = py::module::import("time_module");
-        py::module color_module = py::module::import("color_module");
-        py::module math_module = py::module::import("math_module");
+#ifndef GAME_SHIPPING
+        script_content = read_file_to_string(script);
+#else
+        auto it = scriptMap.find(script_index);
 
-        py::dict locals = py::dict(
-            "entity"_a = entity_obj,
-            "IsMouseButtonPressed"_a = input_module.attr("IsMouseButtonPressed"),
-            "IsKeyDown"_a = input_module.attr("IsKeyDown"),
-            "IsKeyPressed"_a = input_module.attr("IsKeyPressed"),
-            "IsKeyUp"_a = input_module.attr("IsKeyUp"),
-            "GetMouseMovement"_a = input_module.attr("GetMouseMovement"),
-            "KeyboardKey"_a = input_module.attr("KeyboardKey"),
-            "MouseButton"_a = input_module.attr("MouseButton"),
-            "raycast"_a = collisions_module.attr("raycast"),
-            "Vector3"_a = math_module.attr("Vector3"),
-            "Vector2"_a = math_module.attr("Vector2"),
-            "Vector3Scale"_a = math_module.attr("Vector3Scale"),
-            "Vector3Distance"_a = math_module.attr("Vector3Distance"),
-            "Color"_a = color_module.attr("Color"),
-            "time"_a = py::cast(&time_instance),
-            "lerp"_a = math_module.attr("lerp"),
-            "camera"_a = py::cast(rendering_camera)
-        );
-
-
-        locals["Entity"] = entity_module.attr("Entity");
+        if (it != scriptMap.end()) {
+            script_content = it->second;
+        } else {
+            return; // Script not found
+        }
+#endif
 
         try {
 
-            py::module module("__main__");
+            script_module = py::module("__main__");
 
-            
-            if (module.attr("__dict__").contains("update")) {
-                py::object update_func = module.attr("update");
-
-                float last_frame_count = 0;
-                while (running) {
-                    std::cout << "hi" << std::endl;
-                    {
-                        if (time_instance.dt - last_frame_count != 0) {
-                            locals["time"] = py::cast(&time_instance);
-                            rendering_camera->update();
-                            update_func();
-                            last_frame_count = time_instance.dt;
-                        }
-                    }
-                }
-            } else {
-                std::cerr << "The 'update' function is not defined in the script.\n";
-                return;
+            for (auto item : locals) {
+                script_module.attr(item.first) = item.second;
             }
 
+            py::eval<py::eval_statements>(script_content, script_module.attr("__dict__"));
+
+            if (script_module.attr("__dict__").contains("update")) {
+                py::object update_func = script_module.attr("update");
+
+                locals["time"] = py::cast(&time_instance);
+                rendering_camera->update();
+                update_func();
+                last_frame_count = time_instance.dt;
+            } else {
+                std::cerr << "Warning: The 'update' function is not defined in the script.\n";
+                // You might want to decide on further action here
+            }
         } catch (const py::error_already_set& e) {
-            py::print(e.what());
+            // Log the error for better debugging
+            std::cerr << "Error running script: " << e.what() << std::endl;
+            // You might want to decide on further action here
         }
     }
+
 
     void calcPhysicsPosition() {
         if (!isDynamic) return;
