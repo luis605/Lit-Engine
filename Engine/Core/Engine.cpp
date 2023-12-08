@@ -69,7 +69,7 @@ bool AABBoxInFrustum(const Vector3& min, const Vector3& max)
 py::module entity_module("entity_module");
 
 
-std::mutex script_mutex;
+// thread_local std::mutex script_mutex;
 class Entity {
 public:
     bool initialized = false;
@@ -160,7 +160,7 @@ private:
     btDefaultMotionState* boxMotionState           = nullptr;
     btTriangleMesh* triangleMesh                   = nullptr;
     std::shared_ptr<btRigidBody*>(boxRigidBody)    = make_shared<btRigidBody*>(nullptr);
-    std::shared_ptr<btRigidBody*>(treeRigidBody)   = make_shared<btRigidBody*>(nullptr);
+    std::shared_ptr<btRigidBody*>(highPolyDynamicRigidBody)   = make_shared<btRigidBody*>(nullptr);
     LitVector3 backupPosition                      = position;
     vector<Entity*> instances;
     Matrix *transforms                             = nullptr;
@@ -206,10 +206,10 @@ public:
         else
             this->boxRigidBody              = make_shared<btRigidBody *>(nullptr);
 
-        if (other.treeRigidBody && *other.treeRigidBody != nullptr)
-            this->treeRigidBody             = make_shared<btRigidBody *>(*other.treeRigidBody);
+        if (other.highPolyDynamicRigidBody && *other.highPolyDynamicRigidBody != nullptr)
+            this->highPolyDynamicRigidBody             = make_shared<btRigidBody *>(*other.highPolyDynamicRigidBody);
         else
-            this->treeRigidBody             = make_shared<btRigidBody *>(nullptr);
+            this->highPolyDynamicRigidBody             = make_shared<btRigidBody *>(nullptr);
 
         this->texture_path                  = other.texture_path;
         this->texture = std::visit([](const auto& value) -> std::variant<Texture, std::unique_ptr<VideoPlayer, std::default_delete<VideoPlayer>>> {
@@ -366,10 +366,10 @@ public:
         else
             this->boxRigidBody              = make_shared<btRigidBody *>(nullptr);
 
-        if (other.treeRigidBody && *other.treeRigidBody != nullptr)
-            this->treeRigidBody             = make_shared<btRigidBody *>(*other.treeRigidBody);
+        if (other.highPolyDynamicRigidBody && *other.highPolyDynamicRigidBody != nullptr)
+            this->highPolyDynamicRigidBody             = make_shared<btRigidBody *>(*other.highPolyDynamicRigidBody);
         else
-            this->treeRigidBody             = make_shared<btRigidBody *>(nullptr);
+            this->highPolyDynamicRigidBody             = make_shared<btRigidBody *>(nullptr);
 
         this->visible = other.visible;
         this->isChild = other.isChild;
@@ -555,6 +555,15 @@ public:
             newColor.b / 255,
             newColor.a / 255
         };
+        
+        model.materials->shader = shader;
+
+        if (lodEnabled)
+        {
+            for (int i = 0; i < sizeof(LodModels)/sizeof(LodModels[0]); i++)
+                if (IsModelReady(LodModels[i]))
+                    LodModels[i].materials->shader = shader;
+        }
     }
 
     void setName(const string& newName) {
@@ -563,10 +572,6 @@ public:
 
     string getName() const {
         return name;
-    }
-
-    void setScale(Vector3 newScale) {
-        scale = newScale;
     }
 
     void initializeDefaultModel() {
@@ -738,7 +743,7 @@ public:
     {
         if (script.empty() && script_index.empty()) return;
         running = true;
-        std::lock_guard<std::mutex> lock(script_mutex);
+        // std::lock_guard<std::mutex> lock(script_mutex);
         
         py::gil_scoped_release release;
         py::gil_scoped_acquire acquire;
@@ -849,7 +854,7 @@ public:
                 py::object update_func = module.attr("update");
 
 
-                script_mutex.unlock();
+                // script_mutex.unlock();
                 
                 /*
                 We only want to call the update function every frame, but because the runScript()
@@ -866,6 +871,7 @@ public:
                         last_frame_count = time_instance.dt;
                     }
                 }
+                py::gil_scoped_release release;
             } else {
                 std::cerr << "The 'update' function is not defined in the script.\n";
                 return;
@@ -889,8 +895,8 @@ public:
             }
         } else if (*currentCollisionShapeType == CollisionShapeType::HighPolyMesh) {
             btTransform trans;
-            if (treeRigidBody && (*treeRigidBody)->getMotionState()) {
-                (*treeRigidBody)->getMotionState()->getWorldTransform(trans);
+            if (highPolyDynamicRigidBody && (*highPolyDynamicRigidBody)->getMotionState()) {
+                (*highPolyDynamicRigidBody)->getMotionState()->getWorldTransform(trans);
                 btVector3 rigidBodyPosition = trans.getOrigin();
                 position = { rigidBodyPosition.getX(), rigidBodyPosition.getY(), rigidBodyPosition.getZ() };
             }
@@ -917,10 +923,10 @@ public:
                     LodModels[index].transform = MatrixRotateXYZ((Vector3){ Pitch, Yaw, Roll });
             }
         }
-        else if (treeRigidBody) {
+        else if (highPolyDynamicRigidBody) {
             btTransform trans;
-            if ((*treeRigidBody)->getMotionState()) {
-                (*treeRigidBody)->getMotionState()->getWorldTransform(trans);
+            if ((*highPolyDynamicRigidBody)->getMotionState()) {
+                (*highPolyDynamicRigidBody)->getMotionState()->getWorldTransform(trans);
                 btQuaternion objectRotation = trans.getRotation();
                 btScalar Roll, Yaw, Pitch;
                 objectRotation.getEulerZYX(Roll, Yaw, Pitch);
@@ -968,6 +974,25 @@ public:
     }
 
 
+    void setScale(Vector3 newScale) {
+        scale = newScale;
+
+        if (CollisionShapeType::Box == *currentCollisionShapeType) {
+            if (isDynamic)
+                createDynamicBox(scale.x, scale.y, scale.z);
+            else
+                createStaticBox(scale.x, scale.y, scale.z);
+        }
+
+        else if (CollisionShapeType::HighPolyMesh == *currentCollisionShapeType) {
+            if (isDynamic)
+                createDynamicMesh(false);
+            else
+                createStaticMesh(false);
+        }
+
+    }
+
     void applyForce(const LitVector3& force) {
         if (boxRigidBody && isDynamic) {
             (*boxRigidBody)->setActivationState(ACTIVE_TAG);
@@ -992,8 +1017,8 @@ public:
         dynamicBoxShape->calculateLocalInertia(btMass, boxInertia);
         if (*currentCollisionShapeType == CollisionShapeType::Box && boxRigidBody && *boxRigidBody != nullptr)
             (*boxRigidBody)->setMassProps(btMass, boxInertia);
-        else if (*currentCollisionShapeType == CollisionShapeType::HighPolyMesh && treeRigidBody && *treeRigidBody != nullptr)
-            (*treeRigidBody)->setMassProps(btMass, boxInertia);
+        else if (*currentCollisionShapeType == CollisionShapeType::HighPolyMesh && highPolyDynamicRigidBody && *highPolyDynamicRigidBody != nullptr)
+            (*highPolyDynamicRigidBody)->setMassProps(btMass, boxInertia);
 
     }
 
@@ -1011,11 +1036,11 @@ public:
                 boxRigidBody = std::make_shared<btRigidBody*>(nullptr);
             }
 
-            if (treeRigidBody && *treeRigidBody != nullptr) {
-                dynamicsWorld->removeRigidBody(*treeRigidBody);
-                delete (*treeRigidBody)->getMotionState();
-                delete *treeRigidBody;
-                treeRigidBody = std::make_shared<btRigidBody*>(nullptr);
+            if (highPolyDynamicRigidBody && *highPolyDynamicRigidBody != nullptr) {
+                dynamicsWorld->removeRigidBody(*highPolyDynamicRigidBody);
+                delete (*highPolyDynamicRigidBody)->getMotionState();
+                delete *highPolyDynamicRigidBody;
+                highPolyDynamicRigidBody = std::make_shared<btRigidBody*>(nullptr);
             }
 
             dynamicBoxShape = nullptr;
@@ -1037,11 +1062,11 @@ public:
 
             // Create the motion state and rigid body construction info
             btDefaultMotionState* groundMotionState = new btDefaultMotionState(groundTransform);
-            btRigidBody::btRigidBodyConstructionInfo groundRigidBodyCI(0, groundMotionState, staticBoxShape, btVector3(0, 0, 0));
+            btRigidBody::btRigidBodyConstructionInfo highPolyStaticRigidBodyCI(0, groundMotionState, staticBoxShape, btVector3(0, 0, 0));
 
             // Create the rigid body
-            btRigidBody* groundRigidBody = new btRigidBody(groundRigidBodyCI);
-            boxRigidBody = std::make_shared<btRigidBody*>(groundRigidBody);
+            btRigidBody* highPolyStaticRigidBody = new btRigidBody(highPolyStaticRigidBodyCI);
+            boxRigidBody = std::make_shared<btRigidBody*>(highPolyStaticRigidBody);
 
             // Add the rigid body to the dynamics world
             dynamicsWorld->addRigidBody(*boxRigidBody);
@@ -1049,23 +1074,23 @@ public:
         }
     }
 
-    void createStaticMesh() {
+    void createStaticMesh(bool generateShape = true) {
         if (isDynamic)
             isDynamic = true;
 
         currentCollisionShapeType = std::make_shared<CollisionShapeType>(CollisionShapeType::HighPolyMesh);
 
-        if (treeRigidBody != nullptr && *treeRigidBody.get() != nullptr) {
-            dynamicsWorld->removeRigidBody(*treeRigidBody);
-            delete (*treeRigidBody)->getMotionState();
-            delete *treeRigidBody;
-            treeRigidBody = nullptr;
+        if (highPolyDynamicRigidBody != nullptr && *highPolyDynamicRigidBody.get() != nullptr) {
+            dynamicsWorld->removeRigidBody(*highPolyDynamicRigidBody);
+            delete (*highPolyDynamicRigidBody)->getMotionState();
+            delete *highPolyDynamicRigidBody;
+            highPolyDynamicRigidBody = nullptr;
         }
         if (boxRigidBody && *boxRigidBody.get() != nullptr) {
             dynamicsWorld->removeRigidBody(*boxRigidBody);
             delete (*boxRigidBody)->getMotionState();
             delete *boxRigidBody;
-            boxRigidBody= nullptr;
+            boxRigidBody = nullptr;
         }
 
 
@@ -1076,23 +1101,25 @@ public:
             dynamicBoxShape = nullptr;
         }
 
-        // Create a btBvhTriangleMeshShape for the ground
-        btTriangleMesh* triangleMesh = new btTriangleMesh();
+        if (generateShape)
+        {
+            triangleMesh = new btTriangleMesh();
 
-        for (int m = 0; m < model.meshCount; m++) {
-            Mesh mesh = model.meshes[m];
-            float* meshVertices = reinterpret_cast<float*>(mesh.vertices);
+            for (int m = 0; m < model.meshCount; m++) {
+                Mesh mesh = model.meshes[m];
+                float* meshVertices = reinterpret_cast<float*>(mesh.vertices);
 
-            for (int v = 0; v < mesh.vertexCount; v += 9) {
-                triangleMesh->addTriangle(
-                    btVector3(meshVertices[v], meshVertices[v + 1], meshVertices[v + 2]),
-                    btVector3(meshVertices[v + 3], meshVertices[v + 4], meshVertices[v + 5]),
-                    btVector3(meshVertices[v + 6], meshVertices[v + 7], meshVertices[v + 8])
-                );
+                for (int v = 0; v < mesh.vertexCount; v += 9) {
+                    triangleMesh->addTriangle(
+                        btVector3(meshVertices[v], meshVertices[v + 1], meshVertices[v + 2]),
+                        btVector3(meshVertices[v + 3], meshVertices[v + 4], meshVertices[v + 5]),
+                        btVector3(meshVertices[v + 6], meshVertices[v + 7], meshVertices[v + 8])
+                    );
+                }
             }
         }
 
-        btBvhTriangleMeshShape* groundShape = new btBvhTriangleMeshShape(triangleMesh, true);
+        btBvhTriangleMeshShape* highPolyMeshShape = new btBvhTriangleMeshShape(triangleMesh, true);
 
         // Create the rigid body for the ground
         btTransform groundTransform;
@@ -1100,8 +1127,8 @@ public:
         groundTransform.setOrigin(btVector3(position.x, position.y, position.z));
 
         btDefaultMotionState* groundMotionState = new btDefaultMotionState(groundTransform);
-        btRigidBody::btRigidBodyConstructionInfo groundRigidBodyCI(0, groundMotionState, groundShape, btVector3(position.x, position.y, position.z));
-        btRigidBody* groundRigidBody = new btRigidBody(groundRigidBodyCI);
+        btRigidBody::btRigidBodyConstructionInfo highPolyStaticRigidBodyCI(0, groundMotionState, highPolyMeshShape, btVector3(position.x, position.y, position.z));
+        btRigidBody* highPolyStaticRigidBody = new btRigidBody(highPolyStaticRigidBodyCI);
 
 
         Matrix scaleMatrix = MatrixScale(model.transform.m0, model.transform.m5, model.transform.m10);
@@ -1111,10 +1138,10 @@ public:
 
 
         btVector3 scaleVector(scaleX * scaleFactorRaylibBullet, scaleY * scaleFactorRaylibBullet, scaleZ * scaleFactorRaylibBullet);
-        groundRigidBody->getCollisionShape()->setLocalScaling(scaleVector);
+        highPolyStaticRigidBody->getCollisionShape()->setLocalScaling(scaleVector);
 
         // Add the ground rigid body to the dynamics world
-        dynamicsWorld->addRigidBody(groundRigidBody);
+        dynamicsWorld->addRigidBody(highPolyStaticRigidBody);
     }
 
 
@@ -1127,10 +1154,10 @@ public:
             boxRigidBody = make_shared<btRigidBody*>(nullptr);
         }
 
-        if (treeRigidBody && *treeRigidBody.get() != nullptr) {
-            dynamicsWorld->removeRigidBody(*treeRigidBody);
-            delete *treeRigidBody;
-            treeRigidBody = make_shared<btRigidBody*>(nullptr);
+        if (highPolyDynamicRigidBody && *highPolyDynamicRigidBody.get() != nullptr) {
+            dynamicsWorld->removeRigidBody(*highPolyDynamicRigidBody);
+            delete *highPolyDynamicRigidBody;
+            highPolyDynamicRigidBody = make_shared<btRigidBody*>(nullptr);
         }
 
         dynamicBoxShape = nullptr;
@@ -1157,16 +1184,16 @@ public:
         dynamicsWorld->addRigidBody(*boxRigidBody);
     }
 
-    void createDynamicMesh() {
+    void createDynamicMesh(bool generateShape = true) {
         if (!isDynamic) isDynamic = true;
 
         currentCollisionShapeType = make_shared<CollisionShapeType>(CollisionShapeType::HighPolyMesh);
 
-        if (treeRigidBody != nullptr && *treeRigidBody.get() != nullptr) {
-            dynamicsWorld->removeRigidBody(*treeRigidBody);
-            delete (*treeRigidBody)->getMotionState();
-            delete *treeRigidBody;
-            treeRigidBody = nullptr;
+        if (highPolyDynamicRigidBody != nullptr && *highPolyDynamicRigidBody.get() != nullptr) {
+            dynamicsWorld->removeRigidBody(*highPolyDynamicRigidBody);
+            delete (*highPolyDynamicRigidBody)->getMotionState();
+            delete *highPolyDynamicRigidBody;
+            highPolyDynamicRigidBody = nullptr;
         }
         if (boxRigidBody && *boxRigidBody.get() != nullptr) {
             dynamicsWorld->removeRigidBody(*boxRigidBody);
@@ -1181,16 +1208,20 @@ public:
             dynamicBoxShape = nullptr;
         }
 
-        customMeshShape = new btConvexHullShape();
+        if (generateShape)
+        {
+            customMeshShape = new btConvexHullShape();
 
-        for (int m = 0; m < model.meshCount; m++) {
-            Mesh mesh = model.meshes[m];
-            float* meshVertices = (float*)mesh.vertices;
+            for (int m = 0; m < model.meshCount; m++) {
+                Mesh mesh = model.meshes[m];
+                float* meshVertices = (float*)mesh.vertices;
 
-            for (int v = 0; v < mesh.vertexCount; v += 3) {
-                customMeshShape->addPoint(btVector3(meshVertices[v], meshVertices[v + 1], meshVertices[v + 2]));
+                for (int v = 0; v < mesh.vertexCount; v += 3) {
+                    customMeshShape->addPoint(btVector3(meshVertices[v], meshVertices[v + 1], meshVertices[v + 2]));
+                }
             }
         }
+
 
         // Set up the dynamics of your tree object
         btTransform treeTransform;
@@ -1201,11 +1232,11 @@ public:
         btVector3 treeInertia(0, 0, 0);
         customMeshShape->calculateLocalInertia(treeMass, treeInertia);
         btDefaultMotionState* treeMotionState = new btDefaultMotionState(treeTransform);
-        btRigidBody::btRigidBodyConstructionInfo treeRigidBodyCI(treeMass, treeMotionState, customMeshShape, treeInertia);
-        btRigidBody* treeRigidBodyPtr = new btRigidBody(treeRigidBodyCI);
-        treeRigidBody = std::make_shared<btRigidBody*>(treeRigidBodyPtr);
+        btRigidBody::btRigidBodyConstructionInfo highPolyDynamicRigidBodyCI(treeMass, treeMotionState, customMeshShape, treeInertia);
+        btRigidBody* highPolyDynamicRigidBodyPtr = new btRigidBody(highPolyDynamicRigidBodyCI);
+        highPolyDynamicRigidBody = std::make_shared<btRigidBody*>(highPolyDynamicRigidBodyPtr);
 
-        dynamicsWorld->addRigidBody(*treeRigidBody);
+        dynamicsWorld->addRigidBody(*highPolyDynamicRigidBody);
     }
 
     void makePhysicsDynamic(CollisionShapeType shapeType = CollisionShapeType::Box) {
@@ -1277,13 +1308,14 @@ public:
         }
         else
         {
-            setPos(position);    
+            setPos(position);
             updateMass();
             backupPosition = position;
+
+            setRot(rotation);
+            setScale(scale);
+
         }
-
-        setRot(rotation);
-
         if (!visible) {
             return;
         }
@@ -1593,7 +1625,7 @@ void updateEntitiesList(std::vector<Entity>& entities_list, const std::vector<En
 
 HitInfo raycast(LitVector3 origin, LitVector3 direction, bool debug, std::vector<Entity> ignore)
 {
-    std::lock_guard<std::mutex> lock(script_mutex);
+    // std::lock_guard<std::mutex> lock(script_mutex);
     pybind11::gil_scoped_acquire acquire;
 
     HitInfo _hitInfo;

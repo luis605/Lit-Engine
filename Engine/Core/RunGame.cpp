@@ -3,7 +3,7 @@
 #include "../../globals.h"
 #include "RunGame.h"
 
-void CleanScriptThreads(vector<std::thread>& script_threads) {
+void CleanScriptThreads(std::vector<std::thread>& script_threads) {
     for (auto& script_thread : script_threads) {
         if (script_thread.joinable())
             script_thread.join();
@@ -29,10 +29,12 @@ void RenderAndRunEntity(Entity& entity, vector<std::thread>& scripts_threads, bo
 
     if (first_time_flag && !entity.script.empty())
     {
-        py::gil_scoped_acquire acquire;
 
         std::thread scriptRunnerThread([&entity, rendering_camera]() {
-            entity.runScript(std::ref(entity), rendering_camera);
+            {
+                py::gil_scoped_acquire acquire;
+                entity.runScript(std::ref(entity), rendering_camera);
+            }
         });
 
         scripts_threads.push_back(std::move(scriptRunnerThread));
@@ -40,7 +42,6 @@ void RenderAndRunEntity(Entity& entity, vector<std::thread>& scripts_threads, bo
 
     entity.render();
 }
-
 
 #ifndef GAME_SHIPPING
 void RunGame()
@@ -67,11 +68,17 @@ void RunGame()
             RenderAndRunEntity(entity, scripts_thread_vector);
         }
 
+
         if (first_time_gameplay)
         {
+            for (Entity& entity : entities_list)
+                entity.running = true;
+            
             for (auto& script_thread : scripts_thread_vector) {
                 if (script_thread.joinable())
                     script_thread.detach();
+
+                std::cout << "HI" << std::endl;
             }
         }
 

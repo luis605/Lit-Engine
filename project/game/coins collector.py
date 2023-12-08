@@ -75,8 +75,15 @@ def update():
 								ignore = [entity]
 							)
 	
-	if (monkeyRay.hit):
-		print(monkeyRay.entity.name)
+	if (monkeyRay.hit and 
+		monkeyRay.distance < .5 and
+		monkeyRay.entity.name == "monkey"):
+			print(monkeyRay.entity.name)
+			monkeyRay.entity.color = Color(0,255,255,255)
+
+
+
+
 
 
 

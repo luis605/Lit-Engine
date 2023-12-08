@@ -1,6 +1,6 @@
 #include "../include_all.h"
 std::map<std::string, const char*> scriptMap = {
-    {"coins collector0", R"(
+    {"coins collector1", R"(
 import math
 
 velocity = 10.0
@@ -70,9 +70,19 @@ def update():
 						ignore = [entity]
 					).distance
 
-#	print(distance)
 	grounded = distance < entity.scale.y / 2 + 0.01
 
+	monkeyRay = raycast(
+								entity.position,
+								front,
+								ignore = [entity]
+							)
+	
+	if (monkeyRay.hit and 
+		monkeyRay.distance < .5 and
+		monkeyRay.entity.name == "monkey"):
+			print(monkeyRay.entity.name)
+			monkeyRay.entity.color = Color(0,255,255,255)
 
 
 
@@ -87,6 +97,17 @@ def update():
 
 
 
+
+
+
+
+
+)"},
+    {"file10", R"(
+
+def update():
+	entity.rotation.y += 1*time.dt
+	print("rotating")
 
 )"},
 };

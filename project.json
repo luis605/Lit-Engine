@@ -2,15 +2,15 @@
     {
         "fovy": 37.85570526123047,
         "position": {
-            "x": 22.456804275512695,
-            "y": 21.533674240112305,
-            "z": -8.53758716583252
+            "x": 2.6755776405334473,
+            "y": 22.951364517211914,
+            "z": -31.76228904724121
         },
         "projection": 0,
         "target": {
-            "x": 13.843156814575195,
-            "y": 16.57842445373535,
-            "z": -6.246169090270996
+            "x": -3.4820523262023926,
+            "y": 20.80160140991211,
+            "z": -23.922527313232422
         },
         "type": "camera",
         "up": {
@@ -22,11 +22,11 @@
     {
         "ambientColor": {
             "w": 0.0,
-            "x": 0.837837815284729,
-            "y": 0.837837815284729,
-            "z": 0.837837815284729
+            "x": 1.0,
+            "y": 1.0,
+            "z": 1.0
         },
-        "bloom": true,
+        "bloom": false,
         "bloomBrightness": -0.3230000138282776,
         "type": "world settings"
     },
@@ -38,8 +38,8 @@
                     "color": {
                         "a": 0.0,
                         "b": 0.0,
-                        "g": 7.864500364837849e-39,
-                        "r": -0.000862552784383297
+                        "g": 7.805898063059785e-39,
+                        "r": 2.0591229353500606e+19
                     },
                     "cutOff": 0.5018532276153564,
                     "direction": {
@@ -47,19 +47,19 @@
                         "y": 1.9345910173343265e-19,
                         "z": 1.8468664570276642e+25
                     },
-                    "id": 1063616512,
+                    "id": 0,
                     "intensity": 1.9345910173343265e-19,
                     "isChild": true,
                     "light_type": 0,
                     "name": "",
                     "position": {
-                        "x": -7.500001430511475,
-                        "y": 13.600013732910156,
-                        "z": 0.0
+                        "x": 8.074964577235763e+16,
+                        "y": 12.90001106262207,
+                        "z": -0.800000011920929
                     },
                     "relative_position": {
-                        "x": -3.3825526770669967e-06,
-                        "y": 3.08411779013249e-41,
+                        "x": 8.074964577235763e+16,
+                        "y": 3.061136495317563e-41,
                         "z": 0.0
                     },
                     "specularStrength": 1.8468664570276642e+25,
@@ -82,8 +82,8 @@
         "normal_texture_path": "",
         "position": {
             "x": -7.499998092651367,
-            "y": 13.600013732910156,
-            "z": 0.0
+            "y": 12.90001106262207,
+            "z": -0.800000011920929
         },
         "relative_position": {
             "x": 0.0,
@@ -97,12 +97,12 @@
         },
         "roughness_texture_path": "",
         "scale": {
-            "x": 1.0,
-            "y": 1.0,
-            "z": 1.0
+            "x": 2.0,
+            "y": 2.0,
+            "z": 2.0
         },
-        "script_index": "",
-        "script_path": "",
+        "script_index": "file10",
+        "script_path": "project/game/file1.py",
         "surface_material": {
             "DiffuseIntensity": 0.5139999985694885,
             "Roughness": 0.5,
@@ -181,14 +181,14 @@
                         "y": 1.0,
                         "z": 0.0
                     },
-                    "id": 1063616512,
+                    "id": 0,
                     "intensity": 1.0,
                     "isChild": false,
                     "light_type": 0,
                     "name": "",
                     "position": {
-                        "x": -1.3999989032745361,
-                        "y": 6.499999046325684,
+                        "x": 4.68160025198592e+15,
+                        "y": 5.499999046325684,
                         "z": -0.3999999463558197
                     },
                     "relative_position": {
@@ -198,8 +198,8 @@
                     },
                     "specularStrength": 0.0,
                     "target": {
-                        "x": 0.0,
-                        "y": 0.0,
+                        "x": 7.315397697878323e+34,
+                        "y": 4.103702552775227e-41,
                         "z": 1.0
                     },
                     "type": "light"
@@ -263,8 +263,8 @@
         "name": "Unnamed Entity",
         "normal_texture_path": "",
         "position": {
-            "x": 13.100007057189941,
-            "y": 7.900003433227539,
+            "x": 9.900016784667969,
+            "y": 9.200005531311035,
             "z": -3.799999713897705
         },
         "relative_position": {
@@ -279,7 +279,7 @@
         },
         "roughness_texture_path": "",
         "scale": {
-            "x": 6.0,
+            "x": 12.0,
             "y": 1.0,
             "z": 3.0
         },
@@ -354,12 +354,12 @@
         "material_path": "",
         "mesh_type": 24,
         "model_path": "",
-        "name": "Unnamed Entity",
+        "name": "Player",
         "normal_texture_path": "",
         "position": {
-            "x": 21.30000877380371,
-            "y": 8.5,
-            "z": 0.0
+            "x": 23.900007247924805,
+            "y": 17.80000114440918,
+            "z": 4.799998760223389
         },
         "relative_position": {
             "x": 0.0,
@@ -377,7 +377,7 @@
             "y": 1.0,
             "z": 1.0
         },
-        "script_index": "coins collector0",
+        "script_index": "coins collector1",
         "script_path": "project/game/coins collector.py",
         "surface_material": {
             "DiffuseIntensity": 0.5,
@@ -399,7 +399,7 @@
             "a": 0.0,
             "b": 0.0,
             "g": 0.0,
-            "r": 255.0
+            "r": -2147483520.0
         },
         "cutOff": 0.5018532276153564,
         "direction": {
@@ -407,18 +407,18 @@
             "y": 1.9345910173343265e-19,
             "z": 1.8468664570276642e+25
         },
-        "id": 1063616512,
+        "id": 0,
         "intensity": 1.9345910173343265e-19,
         "isChild": true,
         "light_type": 0,
         "name": "",
         "position": {
-            "x": 165217.75,
-            "y": 13.600013732910156,
-            "z": 0.0
+            "x": 8.725600582972211e+16,
+            "y": 12.90001106262207,
+            "z": -0.800000011920929
         },
         "relative_position": {
-            "x": 165225.25,
+            "x": 8.725600582972211e+16,
             "y": 0.0,
             "z": 0.0
         },
@@ -427,6 +427,524 @@
             "x": 2.7489071405544033e+20,
             "y": 1.9345910173343265e-19,
             "z": 1.8468664570276642e+25
+        },
+        "type": "light"
+    },
+    {
+        "attenuation": 0.0,
+        "color": {
+            "a": 255.0,
+            "b": 255.0,
+            "g": 0.0,
+            "r": 255.0
+        },
+        "cutOff": 0.0,
+        "direction": {
+            "x": 1.0,
+            "y": 1.0,
+            "z": 0.0
+        },
+        "id": 0,
+        "intensity": 1.0,
+        "isChild": false,
+        "light_type": 0,
+        "name": "",
+        "position": {
+            "x": 2.3284323381673984e+16,
+            "y": 5.499999046325684,
+            "z": -0.3999999463558197
+        },
+        "relative_position": {
+            "x": 0,
+            "y": 0,
+            "z": 0
+        },
+        "specularStrength": 0.0,
+        "target": {
+            "x": 7.315397697878323e+34,
+            "y": 4.103702552775227e-41,
+            "z": 1.0
+        },
+        "type": "light"
+    },
+    {
+        "attenuation": 0.0,
+        "color": {
+            "a": 255.0,
+            "b": 255.0,
+            "g": 0.0,
+            "r": 255.0
+        },
+        "cutOff": 0.0,
+        "direction": {
+            "x": 1.0,
+            "y": 1.0,
+            "z": 0.0
+        },
+        "id": 0,
+        "intensity": 1.0,
+        "isChild": false,
+        "light_type": 0,
+        "name": "",
+        "position": {
+            "x": 1.1916309109743288e+18,
+            "y": 5.499999046325684,
+            "z": -0.3999999463558197
+        },
+        "relative_position": {
+            "x": 0,
+            "y": 0,
+            "z": 0
+        },
+        "specularStrength": 0.0,
+        "target": {
+            "x": 7.315397697878323e+34,
+            "y": 4.103702552775227e-41,
+            "z": 1.0
+        },
+        "type": "light"
+    },
+    {
+        "attenuation": 0.0,
+        "color": {
+            "a": 255.0,
+            "b": 255.0,
+            "g": 0.0,
+            "r": 255.0
+        },
+        "cutOff": 0.0,
+        "direction": {
+            "x": 1.0,
+            "y": 1.0,
+            "z": 0.0
+        },
+        "id": 0,
+        "intensity": 1.0,
+        "isChild": false,
+        "light_type": 0,
+        "name": "",
+        "position": {
+            "x": -165583257600.0,
+            "y": 5.499999046325684,
+            "z": -0.3999999463558197
+        },
+        "relative_position": {
+            "x": 0,
+            "y": 0,
+            "z": 0
+        },
+        "specularStrength": 0.0,
+        "target": {
+            "x": 7.315397697878323e+34,
+            "y": 4.103702552775227e-41,
+            "z": 1.0
+        },
+        "type": "light"
+    },
+    {
+        "attenuation": 0.0,
+        "color": {
+            "a": 255.0,
+            "b": 255.0,
+            "g": 0.0,
+            "r": 255.0
+        },
+        "cutOff": 0.0,
+        "direction": {
+            "x": 1.0,
+            "y": 1.0,
+            "z": 0.0
+        },
+        "id": 0,
+        "intensity": 1.0,
+        "isChild": false,
+        "light_type": 0,
+        "name": "",
+        "position": {
+            "x": -2.399998903274536,
+            "y": 5.499999046325684,
+            "z": -0.3999999463558197
+        },
+        "relative_position": {
+            "x": 0,
+            "y": 0,
+            "z": 0
+        },
+        "specularStrength": 0.0,
+        "target": {
+            "x": 7.315397697878323e+34,
+            "y": 4.103702552775227e-41,
+            "z": 1.0
+        },
+        "type": "light"
+    },
+    {
+        "attenuation": 0.0,
+        "color": {
+            "a": 255.0,
+            "b": 255.0,
+            "g": 0.0,
+            "r": 255.0
+        },
+        "cutOff": 0.0,
+        "direction": {
+            "x": 1.0,
+            "y": 1.0,
+            "z": 0.0
+        },
+        "id": 0,
+        "intensity": 1.0,
+        "isChild": false,
+        "light_type": 0,
+        "name": "",
+        "position": {
+            "x": -2.399998903274536,
+            "y": 5.499999046325684,
+            "z": -0.3999999463558197
+        },
+        "relative_position": {
+            "x": 0,
+            "y": 0,
+            "z": 0
+        },
+        "specularStrength": 0.0,
+        "target": {
+            "x": 7.315397697878323e+34,
+            "y": 4.103702552775227e-41,
+            "z": 1.0
+        },
+        "type": "light"
+    },
+    {
+        "attenuation": 0.0,
+        "color": {
+            "a": 255.0,
+            "b": 255.0,
+            "g": 0.0,
+            "r": 255.0
+        },
+        "cutOff": 0.0,
+        "direction": {
+            "x": 1.0,
+            "y": 1.0,
+            "z": 0.0
+        },
+        "id": 0,
+        "intensity": 1.0,
+        "isChild": false,
+        "light_type": 0,
+        "name": "",
+        "position": {
+            "x": 19515.255859375,
+            "y": 5.499999046325684,
+            "z": -0.3999999463558197
+        },
+        "relative_position": {
+            "x": 0,
+            "y": 0,
+            "z": 0
+        },
+        "specularStrength": 0.0,
+        "target": {
+            "x": 7.315397697878323e+34,
+            "y": 4.103702552775227e-41,
+            "z": 1.0
+        },
+        "type": "light"
+    },
+    {
+        "attenuation": 0.0,
+        "color": {
+            "a": 255.0,
+            "b": 255.0,
+            "g": 0.0,
+            "r": 255.0
+        },
+        "cutOff": 0.0,
+        "direction": {
+            "x": 1.0,
+            "y": 1.0,
+            "z": 0.0
+        },
+        "id": 0,
+        "intensity": 1.0,
+        "isChild": false,
+        "light_type": 0,
+        "name": "",
+        "position": {
+            "x": 6.184972808565555e+17,
+            "y": 5.499999046325684,
+            "z": -0.3999999463558197
+        },
+        "relative_position": {
+            "x": 0,
+            "y": 0,
+            "z": 0
+        },
+        "specularStrength": 0.0,
+        "target": {
+            "x": 7.315397697878323e+34,
+            "y": 4.103702552775227e-41,
+            "z": 1.0
+        },
+        "type": "light"
+    },
+    {
+        "attenuation": 0.0,
+        "color": {
+            "a": 255.0,
+            "b": 255.0,
+            "g": 0.0,
+            "r": 255.0
+        },
+        "cutOff": 0.0,
+        "direction": {
+            "x": 1.0,
+            "y": 1.0,
+            "z": 0.0
+        },
+        "id": 0,
+        "intensity": 1.0,
+        "isChild": false,
+        "light_type": 0,
+        "name": "",
+        "position": {
+            "x": -1.3999989032745361,
+            "y": 6.499999046325684,
+            "z": -0.3999999463558197
+        },
+        "relative_position": {
+            "x": 0,
+            "y": 0,
+            "z": 0
+        },
+        "specularStrength": 0.0,
+        "target": {
+            "x": 0.0,
+            "y": 0.0,
+            "z": 1.0
+        },
+        "type": "light"
+    },
+    {
+        "attenuation": 0.0,
+        "color": {
+            "a": 0.0,
+            "b": 0.0,
+            "g": 255.0,
+            "r": 0.0
+        },
+        "cutOff": 0.0,
+        "direction": {
+            "x": 1.0,
+            "y": 1.0,
+            "z": 0.0
+        },
+        "id": 0,
+        "intensity": 0.0,
+        "isChild": false,
+        "light_type": 0,
+        "name": "",
+        "position": {
+            "x": -2.399998903274536,
+            "y": 5.499999046325684,
+            "z": 0.6000000238418579
+        },
+        "relative_position": {
+            "x": 0,
+            "y": 0,
+            "z": 0
+        },
+        "specularStrength": 1.0,
+        "target": {
+            "x": 1.0,
+            "y": 0.0,
+            "z": 1.0
+        },
+        "type": "light"
+    },
+    {
+        "attenuation": 1.0,
+        "color": {
+            "a": 0.0,
+            "b": 255.0,
+            "g": 0.0,
+            "r": 0.0
+        },
+        "cutOff": 1.0,
+        "direction": {
+            "x": 1.0,
+            "y": 1.0,
+            "z": 0.0
+        },
+        "id": 0,
+        "intensity": 1.0,
+        "isChild": false,
+        "light_type": 0,
+        "name": "",
+        "position": {
+            "x": -1.3999989032745361,
+            "y": 5.499999046325684,
+            "z": 0.6000000238418579
+        },
+        "relative_position": {
+            "x": 0,
+            "y": 0,
+            "z": 0
+        },
+        "specularStrength": 0.0,
+        "target": {
+            "x": 0.0,
+            "y": 1.0,
+            "z": 0.0
+        },
+        "type": "light"
+    },
+    {
+        "attenuation": 1.0,
+        "color": {
+            "a": 0.0,
+            "b": 255.0,
+            "g": 0.0,
+            "r": 0.0
+        },
+        "cutOff": 1.0,
+        "direction": {
+            "x": 1.0,
+            "y": 1.0,
+            "z": 0.0
+        },
+        "id": 0,
+        "intensity": 1.0,
+        "isChild": false,
+        "light_type": 0,
+        "name": "",
+        "position": {
+            "x": -1.3999989032745361,
+            "y": 5.499999046325684,
+            "z": 0.6000000238418579
+        },
+        "relative_position": {
+            "x": 0,
+            "y": 0,
+            "z": 0
+        },
+        "specularStrength": 0.0,
+        "target": {
+            "x": 0.0,
+            "y": 1.0,
+            "z": 0.0
+        },
+        "type": "light"
+    },
+    {
+        "attenuation": 0.0,
+        "color": {
+            "a": 255.0,
+            "b": 255.0,
+            "g": 0.0,
+            "r": 255.0
+        },
+        "cutOff": 0.0,
+        "direction": {
+            "x": 1.0,
+            "y": 1.0,
+            "z": 0.0
+        },
+        "id": 0,
+        "intensity": 1.0,
+        "isChild": false,
+        "light_type": 0,
+        "name": "",
+        "position": {
+            "x": -1.3999989032745361,
+            "y": 6.499999046325684,
+            "z": -0.3999999463558197
+        },
+        "relative_position": {
+            "x": 0,
+            "y": 0,
+            "z": 0
+        },
+        "specularStrength": 0.0,
+        "target": {
+            "x": 0.0,
+            "y": 0.0,
+            "z": 1.0
+        },
+        "type": "light"
+    },
+    {
+        "attenuation": 0.0,
+        "color": {
+            "a": 255.0,
+            "b": 255.0,
+            "g": 0.0,
+            "r": 255.0
+        },
+        "cutOff": 0.0,
+        "direction": {
+            "x": 1.0,
+            "y": 1.0,
+            "z": 0.0
+        },
+        "id": 0,
+        "intensity": 1.0,
+        "isChild": false,
+        "light_type": 0,
+        "name": "",
+        "position": {
+            "x": -1.3999989032745361,
+            "y": 6.499999046325684,
+            "z": -0.3999999463558197
+        },
+        "relative_position": {
+            "x": 0,
+            "y": 0,
+            "z": 0
+        },
+        "specularStrength": 0.0,
+        "target": {
+            "x": 0.0,
+            "y": 0.0,
+            "z": 1.0
+        },
+        "type": "light"
+    },
+    {
+        "attenuation": 0.0,
+        "color": {
+            "a": 255.0,
+            "b": 255.0,
+            "g": 0.0,
+            "r": 255.0
+        },
+        "cutOff": 0.0,
+        "direction": {
+            "x": 1.0,
+            "y": 1.0,
+            "z": 0.0
+        },
+        "id": 0,
+        "intensity": 1.0,
+        "isChild": false,
+        "light_type": 0,
+        "name": "",
+        "position": {
+            "x": -1.3999989032745361,
+            "y": 6.499999046325684,
+            "z": -0.3999999463558197
+        },
+        "relative_position": {
+            "x": 0,
+            "y": 0,
+            "z": 0
+        },
+        "specularStrength": 0.0,
+        "target": {
+            "x": 0.0,
+            "y": 0.0,
+            "z": 1.0
         },
         "type": "light"
     },
@@ -444,11 +962,11 @@
             "y": 0.4000000059604645,
             "z": -0.4000000059604645
         },
-        "id": 7,
+        "id": 0,
         "intensity": 0.0,
         "isChild": false,
         "light_type": 1,
-        "name": "Light",
+        "name": "",
         "position": {
             "x": -2.399998903274536,
             "y": 5.499999046325684,
@@ -481,7 +999,7 @@
             "y": -0.621999979019165,
             "z": 1.0
         },
-        "id": 1063616512,
+        "id": 0,
         "intensity": 0.7409999966621399,
         "isChild": false,
         "light_type": 0,
