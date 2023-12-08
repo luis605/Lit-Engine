@@ -40,6 +40,9 @@ bool EntityRunScriptFirstTime = true;
 bool Entity_already_registered = false;
 
 
+py::module entity_module("entity_module");
+
+
 void InitFrustum()
 {
     cameraFrustum = RLFrustum();
@@ -64,9 +67,6 @@ bool AABBoxInFrustum(const Vector3& min, const Vector3& max)
 {
     return cameraFrustum.AABBoxIn(min, max);
 }
-
-
-py::module entity_module("entity_module");
 
 
 // thread_local std::mutex script_mutex;
@@ -169,6 +169,8 @@ private:
     Shader* entity_shader;
     bool lodEnabled                                = true;
 
+    py::object entity_obj;
+    string script_content;
 
 public:
     Entity(LitVector3 scale = { 1, 1, 1 }, LitVector3 rotation = { 0, 0, 0 }, string name = "entity",
@@ -739,14 +741,10 @@ public:
             LodModels[index].materials[0].shader = shader;
     }
 
-    void runScript(std::reference_wrapper<Entity> entityRef, LitCamera* rendering_camera)
+    void setupScript(std::reference_wrapper<Entity> entityRef, LitCamera* rendering_camera)
     {
         if (script.empty() && script_index.empty()) return;
         running = true;
-        // std::lock_guard<std::mutex> lock(script_mutex);
-        
-        py::gil_scoped_release release;
-        py::gil_scoped_acquire acquire;
 
         if (!Entity_already_registered) {
             Entity_already_registered = true;
@@ -792,17 +790,17 @@ public:
         }
 
 
-
-        Entity& this_entity = entityRef.get();
-        py::object entity_obj = py::cast(&this_entity);
-
         py::module input_module = py::module::import("input_module");
         py::module collisions_module = py::module::import("collisions_module");
         py::module camera_module = py::module::import("camera_module");
         py::module time_module = py::module::import("time_module");
         py::module color_module = py::module::import("color_module");
         py::module math_module = py::module::import("math_module");
-        
+
+        Entity& this_entity = entityRef.get();
+        entity_obj = py::cast(&this_entity);
+
+
         py::dict locals = py::dict(
             "entity"_a = entity_obj,
             "IsMouseButtonPressed"_a = input_module.attr("IsMouseButtonPressed"),
@@ -823,61 +821,99 @@ public:
             "camera"_a = py::cast(rendering_camera)
         );
 
+
         locals["Entity"] = entity_module.attr("Entity");
 
-        try {
-            pybind11::gil_scoped_acquire acquire;
 
-            string script_content;
+
 #ifndef GAME_SHIPPING
-            script_content = read_file_to_string(script);
+        script_content = read_file_to_string(script);
 #else
-            auto it = scriptMap.find(script_index);
+        auto it = scriptMap.find(script_index);
 
-            if (it != scriptMap.end()) {
-                script_content = it->second;
-            } else {
-                return; // Script not found
-            }
+        if (it != scriptMap.end()) {
+            script_content = it->second;
+        } else {
+            return; // Script not found
+        }
 #endif
-            py::module module("__main__");
 
+
+        try {
+            py::module module("__main__");
 
             for (auto item : locals) {
                 module.attr(item.first) = item.second;
             }
             
             py::eval<py::eval_statements>(script_content, module.attr("__dict__"));
+        } catch (const py::error_already_set& e) {
+            py::print(e.what());
+        }
+
+    }
+
+
+    void runScript(LitCamera* rendering_camera)
+    {
+        if (script.empty() && script_index.empty()) return;
+
+
+        py::module input_module = py::module::import("input_module");
+        py::module collisions_module = py::module::import("collisions_module");
+        py::module camera_module = py::module::import("camera_module");
+        py::module time_module = py::module::import("time_module");
+        py::module color_module = py::module::import("color_module");
+        py::module math_module = py::module::import("math_module");
+
+        py::dict locals = py::dict(
+            "entity"_a = entity_obj,
+            "IsMouseButtonPressed"_a = input_module.attr("IsMouseButtonPressed"),
+            "IsKeyDown"_a = input_module.attr("IsKeyDown"),
+            "IsKeyPressed"_a = input_module.attr("IsKeyPressed"),
+            "IsKeyUp"_a = input_module.attr("IsKeyUp"),
+            "GetMouseMovement"_a = input_module.attr("GetMouseMovement"),
+            "KeyboardKey"_a = input_module.attr("KeyboardKey"),
+            "MouseButton"_a = input_module.attr("MouseButton"),
+            "raycast"_a = collisions_module.attr("raycast"),
+            "Vector3"_a = math_module.attr("Vector3"),
+            "Vector2"_a = math_module.attr("Vector2"),
+            "Vector3Scale"_a = math_module.attr("Vector3Scale"),
+            "Vector3Distance"_a = math_module.attr("Vector3Distance"),
+            "Color"_a = color_module.attr("Color"),
+            "time"_a = py::cast(&time_instance),
+            "lerp"_a = math_module.attr("lerp"),
+            "camera"_a = py::cast(rendering_camera)
+        );
+
+
+        locals["Entity"] = entity_module.attr("Entity");
+
+        try {
+
+            py::module module("__main__");
 
             
             if (module.attr("__dict__").contains("update")) {
                 py::object update_func = module.attr("update");
 
-
-                // script_mutex.unlock();
-                
-                /*
-                We only want to call the update function every frame, but because the runScript()
-                is being called in a new thread the update_func may be called more than once per
-                frame. This solution will fix it.
-                */
-
                 float last_frame_count = 0;
                 while (running) {
-                    if (time_instance.dt - last_frame_count != 0) {
-                        locals["time"] = py::cast(&time_instance);
-                        rendering_camera->update();
-                        update_func();
-                        last_frame_count = time_instance.dt;
+                    std::cout << "hi" << std::endl;
+                    {
+                        if (time_instance.dt - last_frame_count != 0) {
+                            locals["time"] = py::cast(&time_instance);
+                            rendering_camera->update();
+                            update_func();
+                            last_frame_count = time_instance.dt;
+                        }
                     }
                 }
-                py::gil_scoped_release release;
             } else {
                 std::cerr << "The 'update' function is not defined in the script.\n";
                 return;
             }
 
-            py::gil_scoped_release release;
         } catch (const py::error_already_set& e) {
             py::print(e.what());
         }
