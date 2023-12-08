@@ -1,6 +1,6 @@
 #include "../include_all.h"
 std::map<std::string, const char*> scriptMap = {
-    {"coins collector1", R"(
+    {"coins collector0", R"(
 import math
 
 velocity = 10.0
@@ -101,13 +101,6 @@ def update():
 
 
 
-
-)"},
-    {"file10", R"(
-
-def update():
-	entity.rotation.y += 1*time.dt
-	print("rotating")
 
 )"},
 };

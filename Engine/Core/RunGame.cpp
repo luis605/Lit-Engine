@@ -23,25 +23,17 @@ void InitGameCamera() {
     camera.projection = CAMERA_PERSPECTIVE;
 }
 
-void RenderAndRunEntity(Entity& entity, vector<std::thread>& scripts_threads, bool first_time_flag = first_time_gameplay, LitCamera* rendering_camera = &camera) {
+void RenderAndRunEntity(Entity& entity, LitCamera* rendering_camera = &camera) {
     entity.calc_physics = true;
     entity.render();
 
-    if (first_time_flag && !entity.script.empty())
-    {
-
-        std::thread scriptRunnerThread([&entity, rendering_camera]() {
-            {
-                py::gil_scoped_acquire acquire;
-                entity.runScript(std::ref(entity), rendering_camera);
-            }
-        });
-
-        scripts_threads.push_back(std::move(scriptRunnerThread));
+    if (!entity.script.empty()) {
+        entity.setupScript(std::ref(entity), rendering_camera);
     }
 
     entity.render();
 }
+
 
 #ifndef GAME_SHIPPING
 void RunGame()
@@ -65,21 +57,14 @@ void RunGame()
         for (Entity& entity : entities_list)
         {
             entity.running_first_time = true;
-            RenderAndRunEntity(entity, scripts_thread_vector);
+            RenderAndRunEntity(entity);
         }
 
 
-        if (first_time_gameplay)
+        for (Entity& entity : entities_list)
         {
-            for (Entity& entity : entities_list)
-                entity.running = true;
-            
-            for (auto& script_thread : scripts_thread_vector) {
-                if (script_thread.joinable())
-                    script_thread.detach();
-
-                std::cout << "HI" << std::endl;
-            }
+            entity.running = true;
+            entity.runScript(&camera);
         }
 
         first_time_gameplay = false;
