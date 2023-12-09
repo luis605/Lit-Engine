@@ -10,7 +10,7 @@ pitch = 0.0
 
 grounded = False
 rotation_angle = 45.0
-entity.visible = False
+entity.visible = True
 
 def update():
 	global velocity, dragging_item, hovered_entity, yaw, pitch, grounded
@@ -97,12 +97,14 @@ def update():
 
 
 
+
 )"},
     {"file11", R"(
 
 def update():
 	entity.rotation.y += 15*time.dt
-	print("rotating")
+
+
 
 
 )"},

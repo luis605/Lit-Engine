@@ -123,18 +123,18 @@ void Run()
             
             UpdateInGameGlobals();
 
+
+
             for (Entity& entity : entities_list)
             {
-                RenderAndRunEntity(entity, scripts_thread_vector, first_time, &inGame_Camera);
-            }
-
-
-            if (first_time)
-            {
-                for (auto& script_thread : scripts_thread_vector) {
-                    if (script_thread.joinable())
-                        script_thread.detach();
+                if (first_time)
+                {
+                    entity.running_first_time = true;
+                    RenderAndRunEntity(entity, &inGame_Camera);
                 }
+
+                entity.render();
+                entity.runScript(&camera);
             }
 
             first_time = false;

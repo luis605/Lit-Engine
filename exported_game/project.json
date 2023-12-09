@@ -1,16 +1,16 @@
 [
     {
-        "fovy": 60.0,
+        "fovy": 37.85570526123047,
         "position": {
-            "x": -9.507183074951172,
-            "y": 5.774477958679199,
-            "z": -2.4040467739105225
+            "x": 8.301726341247559,
+            "y": 30.65531349182129,
+            "z": 4.360586643218994
         },
         "projection": 0,
         "target": {
-            "x": -15.033963203430176,
-            "y": -1.9366416931152344,
-            "z": -6.144665718078613
+            "x": 5.327392578125,
+            "y": 20.900798797607422,
+            "z": 4.312232971191406
         },
         "type": "camera",
         "up": {
@@ -20,23 +20,30 @@
         }
     },
     {
+        "ambientColor": {
+            "w": 0.0,
+            "x": 1.0,
+            "y": 0.925239622592926,
+            "z": 0.7722007632255554
+        },
         "bloom": false,
-        "bloomBrightness": -0.7649999856948853,
+        "bloomBrightness": -0.3230000138282776,
         "type": "world settings"
     },
     {
-        "collider_type": 1,
-        "id": 0,
+        "collider_type": 0,
+        "id": 1,
         "is_dynamic": false,
-        "mass": 370.8330078125,
-        "material_path": "project/game/file3.mat",
-        "model_path": "project/game/models/simple_terrain.obj",
-        "name": "project/game/models/simple_terrain",
-        "normal_texture_path": "project/game/textures/textures/forrest_ground_01_nor_gl_4k.png",
+        "mass": 1.0,
+        "material_path": "project/game/file5.mat",
+        "mesh_type": 4,
+        "model_path": "",
+        "name": "Unnamed Entity",
+        "normal_texture_path": "",
         "position": {
-            "x": -0.20000000298023224,
-            "y": 4.700003623962402,
-            "z": 0.0
+            "x": 0.0,
+            "y": 4.800002098083496,
+            "z": -1.5000001192092896
         },
         "relative_position": {
             "x": 0.0,
@@ -48,18 +55,65 @@
             "y": 0.0,
             "z": 0.0
         },
-        "roughness_texture_path": "project/game/textures/textures/forrest_ground_01_rough_4k.jpg",
+        "roughness_texture_path": "",
         "scale": {
-            "x": 200.0,
-            "y": 135.0,
-            "z": 200.0
+            "x": 97.9000015258789,
+            "y": 0.009999999776482582,
+            "z": 101.29998016357422
         },
         "script_index": "",
         "script_path": "",
         "surface_material": {
-            "DiffuseIntensity": 0.5379999876022339,
+            "DiffuseIntensity": 0.5,
+            "Roughness": 0.5,
+            "SpecularIntensity": 0.5,
+            "SpecularTint": {
+                "x": 1.0,
+                "y": 1.0,
+                "z": 1.0
+            },
+            "shininess": 0.5
+        },
+        "texture_path": "",
+        "type": "entity"
+    },
+    {
+        "collider_type": 0,
+        "id": 2,
+        "is_dynamic": false,
+        "mass": 1.0,
+        "material_path": "project/game/file1.mat",
+        "mesh_type": 1,
+        "model_path": "",
+        "name": "Unnamed Entity",
+        "normal_texture_path": "",
+        "position": {
+            "x": -2.399998903274536,
+            "y": 5.499999046325684,
+            "z": -0.3999999463558197
+        },
+        "relative_position": {
+            "x": 0.0,
+            "y": 0.0,
+            "z": 0.0
+        },
+        "rotation": {
+            "x": 0.0,
+            "y": 0.0,
+            "z": 0.0
+        },
+        "roughness_texture_path": "",
+        "scale": {
+            "x": 13.0,
+            "y": 13.0,
+            "z": 5.0
+        },
+        "script_index": "",
+        "script_path": "",
+        "surface_material": {
+            "DiffuseIntensity": 0.5220000147819519,
             "Roughness": 1.0,
-            "SpecularIntensity": 0.0,
+            "SpecularIntensity": 0.2630000114440918,
             "SpecularTint": {
                 "x": 1.0,
                 "y": 1.0,
@@ -67,13 +121,13 @@
             },
             "shininess": 0.0
         },
-        "texture_path": "project/game/textures/textures/forrest_ground_01_diff_4k.jpg",
+        "texture_path": "",
         "type": "entity"
     },
     {
         "collider_type": 0,
-        "id": 1,
-        "is_dynamic": true,
+        "id": 3,
+        "is_dynamic": false,
         "mass": 1.0,
         "material_path": "",
         "mesh_type": 1,
@@ -81,9 +135,103 @@
         "name": "Unnamed Entity",
         "normal_texture_path": "",
         "position": {
+            "x": 9.900016784667969,
+            "y": 9.200005531311035,
+            "z": -3.799999713897705
+        },
+        "relative_position": {
             "x": 0.0,
-            "y": 23.400005340576172,
+            "y": 0.0,
             "z": 0.0
+        },
+        "rotation": {
+            "x": -180.0,
+            "y": 180.0,
+            "z": -28.0
+        },
+        "roughness_texture_path": "",
+        "scale": {
+            "x": 12.0,
+            "y": 1.0,
+            "z": 3.0
+        },
+        "script_index": "NONE",
+        "script_path": "",
+        "surface_material": {
+            "DiffuseIntensity": 0.5,
+            "Roughness": 0.5,
+            "SpecularIntensity": 0.5,
+            "SpecularTint": {
+                "x": 1.0,
+                "y": 1.0,
+                "z": 1.0
+            },
+            "shininess": 0.5
+        },
+        "texture_path": "",
+        "type": "entity"
+    },
+    {
+        "collider_type": 0,
+        "id": 4,
+        "is_dynamic": false,
+        "mass": 1.0,
+        "material_path": "",
+        "mesh_type": 1,
+        "model_path": "",
+        "name": "Unnamed Entity",
+        "normal_texture_path": "",
+        "position": {
+            "x": 19.999988555908203,
+            "y": 6.499993324279785,
+            "z": -3.8000001907348633
+        },
+        "relative_position": {
+            "x": 0.0,
+            "y": 0.0,
+            "z": 0.0
+        },
+        "rotation": {
+            "x": 0.0,
+            "y": 0.0,
+            "z": 0.0
+        },
+        "roughness_texture_path": "",
+        "scale": {
+            "x": 10.0,
+            "y": 1.0,
+            "z": 3.0
+        },
+        "script_index": "",
+        "script_path": "",
+        "surface_material": {
+            "DiffuseIntensity": 0.5,
+            "Roughness": 0.5,
+            "SpecularIntensity": 0.5,
+            "SpecularTint": {
+                "x": 1.0,
+                "y": 1.0,
+                "z": 1.0
+            },
+            "shininess": 0.5
+        },
+        "texture_path": "",
+        "type": "entity"
+    },
+    {
+        "collider_type": 0,
+        "id": 5,
+        "is_dynamic": true,
+        "mass": 1.0,
+        "material_path": "",
+        "mesh_type": 24,
+        "model_path": "",
+        "name": "Player",
+        "normal_texture_path": "",
+        "position": {
+            "x": 0.5000036358833313,
+            "y": 17.80000114440918,
+            "z": 0.2999986410140991
         },
         "relative_position": {
             "x": 0.0,
@@ -119,111 +267,16 @@
     },
     {
         "collider_type": 0,
-        "id": 2,
+        "id": 6,
         "is_dynamic": false,
         "mass": 1.0,
-        "material_path": "project/game/file3.mat",
-        "mesh_type": 1,
-        "model_path": "",
-        "name": "Unnamed Entity",
+        "material_path": "",
+        "model_path": "project/game/models/monkey.obj",
+        "name": "monkey",
         "normal_texture_path": "",
         "position": {
-            "x": 0.0,
-            "y": 3.3000011444091797,
-            "z": 187.7000274658203
-        },
-        "relative_position": {
-            "x": 0.0,
-            "y": 0.0,
-            "z": 0.0
-        },
-        "rotation": {
-            "x": 0.0,
-            "y": 0.0,
-            "z": 0.0
-        },
-        "roughness_texture_path": "",
-        "scale": {
-            "x": 400.0,
-            "y": 40.0,
-            "z": 1.0
-        },
-        "script_index": "",
-        "script_path": "",
-        "surface_material": {
-            "DiffuseIntensity": 0.5379999876022339,
-            "Roughness": 1.0,
-            "SpecularIntensity": 0.0,
-            "SpecularTint": {
-                "x": 1.0,
-                "y": 1.0,
-                "z": 1.0
-            },
-            "shininess": 0.0
-        },
-        "texture_path": "",
-        "type": "entity"
-    },
-    {
-        "collider_type": 0,
-        "id": 2,
-        "is_dynamic": false,
-        "mass": 1.0,
-        "material_path": "project/game/file3.mat",
-        "mesh_type": 1,
-        "model_path": "",
-        "name": "Unnamed Entity",
-        "normal_texture_path": "",
-        "position": {
-            "x": 0.0,
-            "y": 3.3000011444091797,
-            "z": -187.6999969482422
-        },
-        "relative_position": {
-            "x": 0.0,
-            "y": 0.0,
-            "z": 0.0
-        },
-        "rotation": {
-            "x": 0.0,
-            "y": 0.0,
-            "z": 0.0
-        },
-        "roughness_texture_path": "",
-        "scale": {
-            "x": 400.0,
-            "y": 40.0,
-            "z": 1.0
-        },
-        "script_index": "",
-        "script_path": "",
-        "surface_material": {
-            "DiffuseIntensity": 0.5379999876022339,
-            "Roughness": 1.0,
-            "SpecularIntensity": 0.0,
-            "SpecularTint": {
-                "x": 1.0,
-                "y": 1.0,
-                "z": 1.0
-            },
-            "shininess": 0.0
-        },
-        "texture_path": "",
-        "type": "entity"
-    },
-    {
-        "collider_type": 0,
-        "id": 2,
-        "is_dynamic": false,
-        "mass": 1.0,
-        "material_path": "project/game/file3.mat",
-        "mesh_type": 1,
-        "model_path": "",
-        "name": "Unnamed Entity",
-        "normal_texture_path": "",
-        "position": {
-            "x": 187.6999969482422,
-            "y": 3.3000011444091797,
+            "x": -6.399998188018799,
+            "y": 13.400001525878906,
             "z": 0.0
         },
         "relative_position": {
@@ -233,258 +286,27 @@
         },
         "rotation": {
             "x": 0.0,
-            "y": 0.0,
+            "y": 89.33300018310547,
             "z": 0.0
         },
         "roughness_texture_path": "",
         "scale": {
-            "x": 1.0,
-            "y": 40.0,
-            "z": 400.0
+            "x": 2.0,
+            "y": 2.0,
+            "z": 2.0
         },
-        "script_index": "",
-        "script_path": "",
+        "script_index": "file11",
+        "script_path": "project/game/file1.py",
         "surface_material": {
-            "DiffuseIntensity": 0.5379999876022339,
-            "Roughness": 1.0,
-            "SpecularIntensity": 0.0,
+            "DiffuseIntensity": 0.5,
+            "Roughness": 0.5,
+            "SpecularIntensity": 0.5,
             "SpecularTint": {
                 "x": 1.0,
                 "y": 1.0,
                 "z": 1.0
             },
-            "shininess": 0.0
-        },
-        "texture_path": "",
-        "type": "entity"
-    },
-    {
-        "collider_type": 0,
-        "id": 2,
-        "is_dynamic": false,
-        "mass": 1.0,
-        "material_path": "project/game/file3.mat",
-        "mesh_type": 1,
-        "model_path": "",
-        "name": "Unnamed Entity",
-        "normal_texture_path": "",
-        "position": {
-            "x": -187.6999969482422,
-            "y": 3.3000011444091797,
-            "z": 0.0
-        },
-        "relative_position": {
-            "x": 0.0,
-            "y": 0.0,
-            "z": 0.0
-        },
-        "rotation": {
-            "x": 0.0,
-            "y": 0.0,
-            "z": 0.0
-        },
-        "roughness_texture_path": "",
-        "scale": {
-            "x": 1.0,
-            "y": 40.0,
-            "z": 400.0
-        },
-        "script_index": "",
-        "script_path": "",
-        "surface_material": {
-            "DiffuseIntensity": 0.5379999876022339,
-            "Roughness": 1.0,
-            "SpecularIntensity": 0.0,
-            "SpecularTint": {
-                "x": 1.0,
-                "y": 1.0,
-                "z": 1.0
-            },
-            "shininess": 0.0
-        },
-        "texture_path": "",
-        "type": "entity"
-    },
-    {
-        "collider_type": 4,
-        "id": 3,
-        "is_dynamic": false,
-        "mass": 1.0,
-        "material_path": "project/game/file4.mat",
-        "model_path": "project/game/models/tree.obj",
-        "name": "project/game/models/tree",
-        "normal_texture_path": "",
-        "position": {
-            "x": -19.100000381469727,
-            "y": 0.5000009536743164,
-            "z": -14.500000953674316
-        },
-        "relative_position": {
-            "x": 0.0,
-            "y": 0.0,
-            "z": 0.0
-        },
-        "rotation": {
-            "x": 0.0,
-            "y": 0.0,
-            "z": 0.0
-        },
-        "roughness_texture_path": "",
-        "scale": {
-            "x": 1.0,
-            "y": 1.0,
-            "z": 1.0
-        },
-        "script_index": "",
-        "script_path": "",
-        "surface_material": {
-            "DiffuseIntensity": 0.32100000977516174,
-            "Roughness": 0.017000000923871994,
-            "SpecularIntensity": 0.0,
-            "SpecularTint": {
-                "x": 1.0,
-                "y": 1.0,
-                "z": 1.0
-            },
-            "shininess": 0.0
-        },
-        "texture_path": "",
-        "type": "entity"
-    },
-    {
-        "collider_type": 4,
-        "id": 3,
-        "is_dynamic": false,
-        "mass": 1.0,
-        "material_path": "project/game/file4.mat",
-        "model_path": "project/game/models/tree.obj",
-        "name": "project/game/models/tree",
-        "normal_texture_path": "",
-        "position": {
-            "x": 0.0,
-            "y": 0.0,
-            "z": 0.0
-        },
-        "relative_position": {
-            "x": 0.0,
-            "y": 0.0,
-            "z": 0.0
-        },
-        "rotation": {
-            "x": 0.0,
-            "y": 0.0,
-            "z": 0.0
-        },
-        "roughness_texture_path": "",
-        "scale": {
-            "x": 1.0,
-            "y": 1.0,
-            "z": 1.0
-        },
-        "script_index": "",
-        "script_path": "",
-        "surface_material": {
-            "DiffuseIntensity": 0.32100000977516174,
-            "Roughness": 0.017000000923871994,
-            "SpecularIntensity": 0.0,
-            "SpecularTint": {
-                "x": 1.0,
-                "y": 1.0,
-                "z": 1.0
-            },
-            "shininess": 0.0
-        },
-        "texture_path": "",
-        "type": "entity"
-    },
-    {
-        "collider_type": 4,
-        "id": 3,
-        "is_dynamic": false,
-        "mass": 1.0,
-        "material_path": "project/game/file4.mat",
-        "model_path": "project/game/models/tree.obj",
-        "name": "project/game/models/tree",
-        "normal_texture_path": "",
-        "position": {
-            "x": -52.89999771118164,
-            "y": 5.999998092651367,
-            "z": -48.0999870300293
-        },
-        "relative_position": {
-            "x": 0.0,
-            "y": 0.0,
-            "z": 0.0
-        },
-        "rotation": {
-            "x": 0.0,
-            "y": 0.0,
-            "z": 0.0
-        },
-        "roughness_texture_path": "",
-        "scale": {
-            "x": 1.0,
-            "y": 1.0,
-            "z": 1.0
-        },
-        "script_index": "",
-        "script_path": "",
-        "surface_material": {
-            "DiffuseIntensity": 0.32100000977516174,
-            "Roughness": 0.017000000923871994,
-            "SpecularIntensity": 0.0,
-            "SpecularTint": {
-                "x": 1.0,
-                "y": 1.0,
-                "z": 1.0
-            },
-            "shininess": 0.0
-        },
-        "texture_path": "",
-        "type": "entity"
-    },
-    {
-        "collider_type": 4,
-        "id": 3,
-        "is_dynamic": false,
-        "mass": 1.0,
-        "material_path": "project/game/file4.mat",
-        "model_path": "project/game/models/tree.obj",
-        "name": "project/game/models/tree",
-        "normal_texture_path": "",
-        "position": {
-            "x": -39.09999465942383,
-            "y": 1.4000005722045898,
-            "z": 11.69999885559082
-        },
-        "relative_position": {
-            "x": 0.0,
-            "y": 0.0,
-            "z": 0.0
-        },
-        "rotation": {
-            "x": 0.0,
-            "y": 0.0,
-            "z": 0.0
-        },
-        "roughness_texture_path": "",
-        "scale": {
-            "x": 1.0,
-            "y": 1.0,
-            "z": 1.0
-        },
-        "script_index": "",
-        "script_path": "",
-        "surface_material": {
-            "DiffuseIntensity": 0.32100000977516174,
-            "Roughness": 0.017000000923871994,
-            "SpecularIntensity": 0.0,
-            "SpecularTint": {
-                "x": 1.0,
-                "y": 1.0,
-                "z": 1.0
-            },
-            "shininess": 0.0
+            "shininess": 0.5
         },
         "texture_path": "",
         "type": "entity"
@@ -493,8 +315,8 @@
         "attenuation": 9.999999747378752e-05,
         "color": {
             "a": 255.0,
-            "b": 124.0540542602539,
-            "g": 178.656982421875,
+            "b": 255.0,
+            "g": 255.0,
             "r": 255.0
         },
         "cutOff": 10.0,
@@ -503,15 +325,15 @@
             "y": 0.4000000059604645,
             "z": -0.4000000059604645
         },
-        "id": 1063616512,
+        "id": 1900683056,
         "intensity": 0.5,
         "isChild": false,
         "light_type": 1,
         "name": "",
         "position": {
-            "x": 4.0,
-            "y": 5.0,
-            "z": 3.0
+            "x": 7.099997520446777,
+            "y": 9.50000286102295,
+            "z": 6.799998760223389
         },
         "relative_position": {
             "x": 0,
@@ -530,25 +352,25 @@
         "attenuation": 9.999999747378752e-05,
         "color": {
             "a": 255.0,
-            "b": 255.0,
-            "g": 255.0,
+            "b": 0.0,
+            "g": 0.0,
             "r": 255.0
         },
         "cutOff": 10.0,
         "direction": {
-            "x": -1.0,
-            "y": -0.15800000727176666,
-            "z": -0.4000000059604645
+            "x": 0.4000000059604645,
+            "y": -0.4959999918937683,
+            "z": 1.0
         },
-        "id": 1063616512,
+        "id": 1900683056,
         "intensity": 0.5,
         "isChild": false,
         "light_type": 0,
         "name": "",
         "position": {
             "x": 4.0,
-            "y": 5.0,
-            "z": 3.0
+            "y": 7.900001525878906,
+            "z": -17.80000114440918
         },
         "relative_position": {
             "x": 0,
@@ -557,9 +379,9 @@
         },
         "specularStrength": 0.5,
         "target": {
-            "x": 2.1261522320514814e-08,
-            "y": 3.0761303888858384e-41,
-            "z": 1.401298464324817e-45
+            "x": -6.8392638108948e-27,
+            "y": 4.5914945482066956e-41,
+            "z": 2.7402994770440032e+31
         },
         "type": "light"
     }
