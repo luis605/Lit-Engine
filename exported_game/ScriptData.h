@@ -4,20 +4,14 @@ std::map<std::string, const char*> scriptMap = {
 import math
 
 velocity = 10.0
-dragging_item = None
-hovered_entity = None
-
-target_distance = 5.0  # Adjust the distance at which the object appears in front of the entity
-gravity = 9.8
 
 yaw = 0.0
 pitch = 0.0
 
 grounded = False
+rotation_angle = 45.0
+entity.visible = False
 
-rotation_angle = 45.0  # Angle in degrees for rotation
-
-entity.visible = True
 def update():
 	global velocity, dragging_item, hovered_entity, yaw, pitch, grounded
 
@@ -100,6 +94,15 @@ def update():
 
 
 
+
+
+
+)"},
+    {"file11", R"(
+
+def update():
+	entity.rotation.y += 15*time.dt
+	print("rotating")
 
 
 )"},
