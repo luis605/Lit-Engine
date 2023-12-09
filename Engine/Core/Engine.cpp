@@ -746,7 +746,7 @@ public:
             LodModels[index].materials[0].shader = shader;
     }
 
-    void setupScript(Entity& entityRef, LitCamera* rendering_camera)
+    void setupScript(LitCamera* rendering_camera)
     {
         if (script.empty() && script_index.empty()) return;
         running = true;
@@ -802,7 +802,7 @@ public:
         py::module color_module = py::module::import("color_module");
         py::module math_module = py::module::import("math_module");
 
-        entity_obj = py::cast(entityRef);
+        entity_obj = py::cast(this);
 
 
         locals = py::dict(
@@ -873,19 +873,8 @@ public:
         }
 #endif
 
+
         try {
-
-            if (!script_module)
-            {
-                script_module = py::module("__main__");
-
-                for (auto item : locals) {
-                    script_module.attr(item.first) = item.second;
-                }
-                
-                py::eval<py::eval_statements>(script_content, script_module.attr("__dict__"));
-            }
-
             if (script_module.attr("__dict__").contains("update")) {
                 py::object update_func = script_module.attr("update");
 

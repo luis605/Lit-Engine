@@ -77,7 +77,7 @@ void EditFileManipulation()
 
                 LitCamera* scene_camera_reference = &scene_camera;
                 std::thread scriptRunnerThread([run_script_entity, scene_camera_reference]() {
-                    run_script_entity->setupScript(*run_script_entity, scene_camera_reference);
+                    run_script_entity->setupScript(scene_camera_reference);
                     run_script_entity->runScript(scene_camera_reference);
                 });
 

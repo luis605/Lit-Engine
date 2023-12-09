@@ -26,9 +26,7 @@ void InitGameCamera() {
 void RenderAndRunEntity(Entity& entity, LitCamera* rendering_camera = &camera) {
     entity.calc_physics = true;
 
-    if (!entity.script.empty()) {
-        entity.setupScript(entity, rendering_camera);
-    }
+    entity.setupScript(rendering_camera);
 }
 
 
@@ -56,7 +54,6 @@ void RunGame()
             if (first_time_gameplay)
             {
                 entity.running_first_time = true;
-                entity.running = true;
                 RenderAndRunEntity(entity);
             }
 
