@@ -562,15 +562,6 @@ public:
             newColor.b / 255,
             newColor.a / 255
         };
-        
-        model.materials->shader = shader;
-
-        if (lodEnabled)
-        {
-            for (int i = 0; i < sizeof(LodModels)/sizeof(LodModels[0]); i++)
-                if (IsModelReady(LodModels[i]))
-                    LodModels[i].materials->shader = shader;
-        }
     }
 
     void setName(const string& newName) {
@@ -1503,7 +1494,7 @@ bool operator==(const Entity& e, const Entity* ptr) {
 
         if (create || create_immediatly)
         {
-            Color entity_color_raylib = {
+            Color entity_color_raylib = (Color){
                 static_cast<unsigned char>(entity_create_color.x * 255),
                 static_cast<unsigned char>(entity_create_color.y * 255),
                 static_cast<unsigned char>(entity_create_color.z * 255),
