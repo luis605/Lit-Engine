@@ -7,7 +7,7 @@ pitch = 0.0
 
 grounded = False
 rotation_angle = 45.0
-entity.visible = False
+entity.visible = True
 
 def update():
 	global velocity, dragging_item, hovered_entity, yaw, pitch, grounded
@@ -74,6 +74,7 @@ def update():
 		monkeyRay.entity.name == "monkey"):
 			print(monkeyRay.entity.name)
 			monkeyRay.entity.color = Color(0,255,255,255)
+
 
 
 

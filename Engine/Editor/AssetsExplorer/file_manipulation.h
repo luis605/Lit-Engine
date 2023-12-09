@@ -69,21 +69,13 @@ void EditFileManipulation()
             string file_extension = getFileExtension(files_texture_struct[file_index].path.filename().string());
             if (file_extension == ".py")
             {
-                std::shared_ptr<Entity> run_script_entity = std::make_shared<Entity>();
-                run_script_entity->script = files_texture_struct[file_index].full_path.string();
-
-                py::gil_scoped_acquire acquire;
-                // Start a thread to run the script
+                Entity run_script_entity = Entity();
+                run_script_entity.script = files_texture_struct[file_index].full_path.string();
 
                 LitCamera* scene_camera_reference = &scene_camera;
-                std::thread scriptRunnerThread([run_script_entity, scene_camera_reference]() {
-                    run_script_entity->setupScript(scene_camera_reference);
-                    run_script_entity->runScript(scene_camera_reference);
-                });
+                run_script_entity.setupScript(scene_camera_reference);
+                run_script_entity.runScript(scene_camera_reference);
 
-                if (scriptRunnerThread.joinable()) {
-                    scriptRunnerThread.detach(); // Wait for the thread to finish
-                }
 
                 showEditFilePopup = false;
             }
