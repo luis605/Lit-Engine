@@ -746,7 +746,7 @@ public:
             LodModels[index].materials[0].shader = shader;
     }
 
-    void setupScript(std::reference_wrapper<Entity> entityRef, LitCamera* rendering_camera)
+    void setupScript(Entity& entityRef, LitCamera* rendering_camera)
     {
         if (script.empty() && script_index.empty()) return;
         running = true;
@@ -802,8 +802,7 @@ public:
         py::module color_module = py::module::import("color_module");
         py::module math_module = py::module::import("math_module");
 
-        Entity& this_entity = entityRef.get();
-        entity_obj = py::cast(&this_entity);
+        entity_obj = py::cast(entityRef);
 
 
         locals = py::dict(
@@ -876,13 +875,16 @@ public:
 
         try {
 
-            script_module = py::module("__main__");
+            if (!script_module)
+            {
+                script_module = py::module("__main__");
 
-            for (auto item : locals) {
-                script_module.attr(item.first) = item.second;
+                for (auto item : locals) {
+                    script_module.attr(item.first) = item.second;
+                }
+                
+                py::eval<py::eval_statements>(script_content, script_module.attr("__dict__"));
             }
-
-            py::eval<py::eval_statements>(script_content, script_module.attr("__dict__"));
 
             if (script_module.attr("__dict__").contains("update")) {
                 py::object update_func = script_module.attr("update");
@@ -891,14 +893,9 @@ public:
                 rendering_camera->update();
                 update_func();
                 last_frame_count = time_instance.dt;
-            } else {
-                std::cerr << "Warning: The 'update' function is not defined in the script.\n";
-                // You might want to decide on further action here
             }
         } catch (const py::error_already_set& e) {
-            // Log the error for better debugging
             std::cerr << "Error running script: " << e.what() << std::endl;
-            // You might want to decide on further action here
         }
     }
 

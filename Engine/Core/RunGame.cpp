@@ -25,13 +25,10 @@ void InitGameCamera() {
 
 void RenderAndRunEntity(Entity& entity, LitCamera* rendering_camera = &camera) {
     entity.calc_physics = true;
-    entity.render();
 
     if (!entity.script.empty()) {
-        entity.setupScript(std::ref(entity), rendering_camera);
+        entity.setupScript(entity, rendering_camera);
     }
-
-    entity.render();
 }
 
 
@@ -56,14 +53,14 @@ void RunGame()
 
         for (Entity& entity : entities_list)
         {
-            entity.running_first_time = true;
-            RenderAndRunEntity(entity);
-        }
+            if (first_time_gameplay)
+            {
+                entity.running_first_time = true;
+                entity.running = true;
+                RenderAndRunEntity(entity);
+            }
 
-
-        for (Entity& entity : entities_list)
-        {
-            entity.running = true;
+            entity.render();
             entity.runScript(&camera);
         }
 
