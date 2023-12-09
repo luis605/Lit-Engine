@@ -10,7 +10,7 @@ void StartGame();
 #define WindowHeight GetScreenHeight() / 1.5
 #define WindowWidth GetScreenWidth() / 1.5
 
-string gameTitle = "My Own Game!";
+string gameTitle = "Game";
 bool first_time = true;
 
 
