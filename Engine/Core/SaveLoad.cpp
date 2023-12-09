@@ -861,6 +861,11 @@ int LoadProject(vector<Entity>& entities_vector, vector<Light>& lights_vector, v
     infile.close();
 
     entities_vector.clear();
+
+#ifndef GAME_SHIPPING
+    entities_list_pregame.clear();
+#endif
+
     lights_vector.clear();
     lights_info_vector.clear();
     textElements.clear();
