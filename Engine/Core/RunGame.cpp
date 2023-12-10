@@ -30,25 +30,6 @@ void RenderAndRunEntity(Entity& entity, LitCamera* rendering_camera = &camera) {
     entity.setupScript(rendering_camera);
 }
 
-void gameplayThread()
-{
-    for (Entity& entity : entities_list)
-    {
-        entity.running_first_time = true;
-        entity.calc_physics = true;
-
-        entity.setupScript(&camera);
-    }
-
-    while (in_game_preview)
-    {
-        for (Entity& entity : entities_list)
-        {
-            entity.render();
-            entity.runScript(&camera);
-        }
-    }
-}
 
 #ifndef GAME_SHIPPING
 void RunGame()
@@ -71,11 +52,26 @@ void RunGame()
 
         if (first_time_gameplay)
         {
-            std::cout << "Gameplay Thread Started" << std::endl;
-            std::thread gameplayThreadObj(gameplayThread);
-            gameplayThreadObj.detach();
+            #pragma omp parallel for
+            for (Entity& entity : entities_list)
+            {
+                entity.running_first_time = true;
+
+                #pragma omp critical
+                RenderAndRunEntity(entity);
+            }
         }
 
+        #pragma omp parallel for
+        for (Entity& entity : entities_list)
+        {
+            entity.render();
+
+            #pragma omp critical
+            entity.runScript(&camera);
+        }
+
+        
         first_time_gameplay = false;
 
         UpdateLightsBuffer();
