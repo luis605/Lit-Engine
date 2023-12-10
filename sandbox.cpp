@@ -198,9 +198,8 @@ int main() {
     
     Shader shader = LoadShader(0, "Engine/Lighting/shaders/lod.fs");
     
-    Mesh mesh = GenMeshSphere(1,17,17);
-    Model model = LoadModelFromMesh(mesh);
-    
+    Model model = LoadModel("project/game/models/simple_terrain.obj");
+    Mesh mesh = model.meshes[0];
     
     model.materials[0].shader = shader;
     
@@ -224,9 +223,9 @@ int main() {
         if (IsModelReady(model))
         {
             if (!IsKeyDown(KEY_X))
-                DrawModel(model, Vector3Zero(), 1.0f, RED);
+                DrawModel(model, Vector3Zero(), 10.0f, RED);
             else
-                DrawModelWires(model, Vector3Zero(), 1.0f, RED);
+                DrawModelWires(model, Vector3Zero(), 10.0f, RED);
         }
         EndMode3D();
 
