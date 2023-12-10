@@ -52,6 +52,13 @@ OptimizedMeshData OptimizeMesh(Mesh& mesh, std::vector<uint>& Indices, std::vect
 
     meshopt_remapVertexBuffer(OptVertices.data(), Vertices.data(), NumVertices, sizeof(Vector3), remap.data());
 
+    // Optimization #2: improve the locality of the vertices
+    meshopt_optimizeVertexCache(OptIndices.data(), OptIndices.data(), NumIndices, OptVertexCount);
+
+    // Optimization #3: reduce pixel overdraw
+    meshopt_optimizeOverdraw(OptIndices.data(), OptIndices.data(), NumIndices, &(OptVertices[0].x), OptVertexCount, sizeof(Vector3), 1.05f);
+
+    // Optimization #4: optimize access to the vertex buffer
     meshopt_optimizeVertexFetch(OptVertices.data(), OptIndices.data(), NumIndices, OptVertices.data(), OptVertexCount, sizeof(Vector3));
 
     size_t TargetIndexCount = (size_t)(NumIndices * threshold);
