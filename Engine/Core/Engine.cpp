@@ -775,7 +775,6 @@ public:
         if (script.empty() && script_index.empty()) return;
         running = true;
 
-        std::cout << "PASS 1\n";
         if (!Entity_already_registered) {
             Entity_already_registered = true;
             py::class_<Entity>(entity_module, "Entity")
@@ -802,24 +801,22 @@ public:
                     [](Entity& entity, LitVector3& position) { entity.setPos(position); }
                 )
                 
-                .def_readwrite("scale", &Entity::scale, py::call_guard<py::gil_scoped_release>())
-                .def_readwrite("rotation", &Entity::rotation, py::call_guard<py::gil_scoped_release>())
+                .def_readwrite("scale", &Entity::scale)
+                .def_readwrite("rotation", &Entity::rotation)
                 .def_property("color",
                     &Entity::getColor, // Getter
-                    &Entity::setColor, // Setter
-                    py::call_guard<py::gil_scoped_release>())
+                    &Entity::setColor // Setter
+                    )
 
-                .def_readwrite("visible", &Entity::visible, py::call_guard<py::gil_scoped_release>())
-                .def_readwrite("id", &Entity::id, py::call_guard<py::gil_scoped_release>())
-                .def_readwrite("collider", &Entity::collider, py::call_guard<py::gil_scoped_release>())
-                .def("print_position", &Entity::print_position, py::call_guard<py::gil_scoped_release>())
-                .def("applyForce", &Entity::applyForce, py::call_guard<py::gil_scoped_release>())
-                .def("applyImpulse", &Entity::applyImpulse, py::call_guard<py::gil_scoped_release>())
-                .def("makeStatic", &Entity::makePhysicsStatic, py::call_guard<py::gil_scoped_release>())
-                .def("makeDynamic", &Entity::makePhysicsDynamic, py::call_guard<py::gil_scoped_release>());
+                .def_readwrite("visible", &Entity::visible)
+                .def_readwrite("id", &Entity::id)
+                .def_readwrite("collider", &Entity::collider)
+                .def("print_position", &Entity::print_position)
+                .def("applyForce", &Entity::applyForce)
+                .def("applyImpulse", &Entity::applyImpulse)
+                .def("makeStatic", &Entity::makePhysicsStatic)
+                .def("makeDynamic", &Entity::makePhysicsDynamic);
         }
-
-        std::cout << "PASS 2\n";
 
 
         py::module input_module = py::module::import("input_module");
@@ -831,7 +828,6 @@ public:
 
         entity_obj = py::cast(this);
 
-        std::cout << "PASS 3\n";
 
         locals = py::dict(
             "entity"_a = entity_obj,
