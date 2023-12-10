@@ -12,6 +12,9 @@
 #include "include/custom.h"
 #include "include/rlFrustum.cpp"
 
+#include "meshoptimizer/src/meshoptimizer.h" 
+
+
 #ifndef GAME_SHIPPING
     #include "imgui/imgui.h"
     #include "imgui/imgui_internal.h"

@@ -704,18 +704,44 @@ public:
             model = LoadModel(modelPath);
         }
 
-        // lodEnabled = true;
 
-        // this->LodModels[0] = this->model;
 
-        // SimplifyMesh simplifier;
-        // VertexIndices lodLevel1 = simplifier.simplify(this->model.meshes[0], 0.01f);
-        // VertexIndices lodLevel2 = simplifier.simplify(this->model.meshes[0], 0.03f);
-        // VertexIndices lodLevel3 = simplifier.simplify(this->model.meshes[0], 0.05f);
-        
-        // this->LodModels[1] = LoadModelFromMesh(GenerateLODMesh(lodLevel1, this->model.meshes[0]));
-        // this->LodModels[2] = LoadModelFromMesh(GenerateLODMesh(lodLevel2, this->model.meshes[0]));
-        // this->LodModels[3] = LoadModelFromMesh(GenerateLODMesh(lodLevel3, this->model.meshes[0]));
+        std::vector<uint> indices;
+        std::vector<Vector3> vertices;
+
+        for (size_t i = 0; i < model.meshes[0].vertexCount; ++i) {
+            size_t baseIndex = i * 3;
+            float x = model.meshes[0].vertices[baseIndex];
+            float y = model.meshes[0].vertices[baseIndex + 1];
+            float z = model.meshes[0].vertices[baseIndex + 2];
+
+            size_t ix;
+            if (model.meshes[0].indices)
+                ix = model.meshes[0].indices[i];
+            else
+                ix = i;
+
+            vertices.push_back({x, y, z});
+            indices.push_back(ix);
+        }
+
+        if (vertices.size() > 150)
+        {
+            lodEnabled = true;
+
+            OptimizedMeshData data(indices, vertices);
+
+            this->LodModels[0] = this->model;
+
+            data = OptimizeMesh(model.meshes[0], indices, vertices, 0.05);
+            this->LodModels[1] = LoadModelFromMesh(generateLODMesh(data.Vertices, data.Indices, data.vertexCount, model.meshes[0]));
+
+            data = OptimizeMesh(model.meshes[0], indices, vertices, 0.2);
+            this->LodModels[2] = LoadModelFromMesh(generateLODMesh(data.Vertices, data.Indices, data.vertexCount, model.meshes[0]));
+
+            data = OptimizeMesh(model.meshes[0], indices, vertices, 1.0);
+            this->LodModels[3] = LoadModelFromMesh(generateLODMesh(data.Vertices, data.Indices, data.vertexCount, model.meshes[0]));
+        }        
 
         if (isDynamic) {
             makePhysicsDynamic();
