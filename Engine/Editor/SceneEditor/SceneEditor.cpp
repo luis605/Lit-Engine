@@ -650,7 +650,7 @@ void ProcessDeletion()
     if (IsKeyPressed(KEY_DELETE))
     {
         if (selected_game_object_type == "entity")
-            entities_list_pregame.erase(std::remove(entities_list_pregame.begin(), entities_list_pregame.end(), *selected_entity), entities_list_pregame.end());
+            selected_entity->remove();
         else if (selected_game_object_type == "light")
         {
             lights.erase(std::remove(lights.begin(), lights.end(), *selected_light), lights.end());

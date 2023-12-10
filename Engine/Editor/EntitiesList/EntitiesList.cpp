@@ -455,8 +455,6 @@ void EntitiesList()
         {
             entity.resetPhysics();
         }
-
-        CleanScriptThreads(scripts_thread_vector);
     }
 
     ImGui::PopStyleColor(4);

@@ -522,28 +522,35 @@ public:
 
 
     void remove() {
-
+        // Delete objects in children vector
         for (auto& childVariant : children) {
-            if (auto* entity = std::get_if<Entity*>(&childVariant)) {
-                delete *entity;
-            } else if (auto* light = std::get_if<Light*>(&childVariant)) {
-                delete *light;
-            } else if (auto* text = std::get_if<Text*>(&childVariant)) {
-                delete *text;
-            } else if (auto* button = std::get_if<LitButton*>(&childVariant)) {
-                delete *button;
-            }
+            std::visit([](auto& child) { delete child; }, childVariant);
         }
 
+        // Clear the children vector
         children.clear();
 
+        if (boxRigidBody && *boxRigidBody.get() != nullptr) {
+            dynamicsWorld->removeRigidBody(*boxRigidBody);
+            delete (*boxRigidBody)->getMotionState();
+            delete *boxRigidBody;
+            boxRigidBody = std::make_shared<btRigidBody*>(nullptr);
+        }
+
+        if (highPolyDynamicRigidBody && *highPolyDynamicRigidBody.get() != nullptr) {
+            dynamicsWorld->removeRigidBody(*highPolyDynamicRigidBody);
+            delete (*highPolyDynamicRigidBody)->getMotionState();
+            delete *highPolyDynamicRigidBody;
+            highPolyDynamicRigidBody = std::make_shared<btRigidBody*>(nullptr);
+        }
+
+        // Remove the corresponding entity from entities_list_pregame
         entities_list_pregame.erase(
             std::remove_if(entities_list_pregame.begin(), entities_list_pregame.end(),
                 [this](const Entity& entity) {
                     return entity.id == this->id;
                 }),
             entities_list_pregame.end());
-
     }
 
     Color getColor() {
