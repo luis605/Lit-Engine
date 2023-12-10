@@ -23,12 +23,32 @@ void InitGameCamera() {
     camera.projection = CAMERA_PERSPECTIVE;
 }
 
+
 void RenderAndRunEntity(Entity& entity, LitCamera* rendering_camera = &camera) {
     entity.calc_physics = true;
 
     entity.setupScript(rendering_camera);
 }
 
+void gameplayThread()
+{
+    for (Entity& entity : entities_list)
+    {
+        entity.running_first_time = true;
+        entity.calc_physics = true;
+
+        entity.setupScript(&camera);
+    }
+
+    while (in_game_preview)
+    {
+        for (Entity& entity : entities_list)
+        {
+            entity.render();
+            entity.runScript(&camera);
+        }
+    }
+}
 
 #ifndef GAME_SHIPPING
 void RunGame()
@@ -49,16 +69,11 @@ void RunGame()
 
         dynamicsWorld->stepSimulation(GetFrameTime(), 10);
 
-        for (Entity& entity : entities_list)
+        if (first_time_gameplay)
         {
-            if (first_time_gameplay)
-            {
-                entity.running_first_time = true;
-                RenderAndRunEntity(entity);
-            }
-
-            entity.render();
-            entity.runScript(&camera);
+            std::cout << "Gameplay Thread Started" << std::endl;
+            std::thread gameplayThreadObj(gameplayThread);
+            gameplayThreadObj.detach();
         }
 
         first_time_gameplay = false;

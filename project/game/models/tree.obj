@@ -1,6 +1,6 @@
 # Blender v2.82 (sub 7) OBJ File: 'tree.blend'
 # www.blender.org
-mtllib tree.mtl
+
 o tree
 v -0.050300 0.000000 0.087123
 v 0.050300 0.000000 0.087123
