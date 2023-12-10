@@ -16,6 +16,84 @@ const int screenWidth = 1200;
 const int screenHeight = 450;
 
 
+struct Vertex {
+    Vertex() {}
+
+    Vertex(float x, float y, float z)
+    {
+        Pos.x = x;
+        Pos.y = y;
+        Pos.z = z;
+    }
+
+    Vector3 Pos;
+};
+
+
+void OptimizeMesh(Mesh& mesh, std::vector<uint>& Indices, std::vector<Vertex>& Vertices)
+{
+    size_t NumIndices = Indices.size();
+    size_t NumVertices = Vertices.size();
+
+    // Create a remap table
+    std::vector<unsigned int> remap(NumIndices);
+    size_t OptVertexCount = meshopt_generateVertexRemap(remap.data(),    // dst addr
+                                                        Indices.data(),  // src indices
+                                                        NumIndices,      // ...and size
+                                                        Vertices.data(), // src vertices
+                                                        NumVertices,     // ...and size
+                                                        sizeof(Vertex)); // stride
+
+    std::cout << "OptVertexCount: " << OptVertexCount << std::endl;
+    std::cout << "NumVertices: " << NumVertices << std::endl << std::endl;
+
+    // // Allocate a local index/vertex arrays
+    // std::vector<uint> OptIndices;
+    // std::vector<Vertex> OptVertices;
+    // OptIndices.resize(NumIndices);
+    // OptVertices.resize(OptVertexCount);
+
+    // // Optimization #1: remove duplicate vertices    
+    // meshopt_remapIndexBuffer(OptIndices.data(), Indices.data(), NumIndices, remap.data());
+
+    // meshopt_remapVertexBuffer(OptVertices.data(), Vertices.data(), NumVertices, sizeof(Vertex), remap.data());
+
+    // // Optimization #2: improve the locality of the vertices
+    // meshopt_optimizeVertexCache(OptIndices.data(), OptIndices.data(), NumIndices, OptVertexCount);
+
+    // // Optimization #3: reduce pixel overdraw
+    // meshopt_optimizeOverdraw(OptIndices.data(), OptIndices.data(), NumIndices, &(OptVertices[0].Position.x), OptVertexCount, sizeof(Vertex), 1.05f);
+
+    // // Optimization #4: optimize access to the vertex buffer
+    // meshopt_optimizeVertexFetch(OptVertices.data(), OptIndices.data(), NumIndices, OptVertices.data(), OptVertexCount, sizeof(Vertex));
+
+    // // Optimization #5: create a simplified version of the model
+    // float Threshold = 1.0f;
+    // size_t TargetIndexCount = (size_t)(NumIndices * Threshold);
+    
+    // float TargetError = 0.0f;
+    // std::vector<unsigned int> SimplifiedIndices(OptIndices.size());
+    // size_t OptIndexCount = meshopt_simplify(SimplifiedIndices.data(), OptIndices.data(), NumIndices,
+    //                                         &OptVertices[0].Position.x, OptVertexCount, sizeof(Vertex), TargetIndexCount, TargetError);
+
+    // static int num_indices = 0;
+    // num_indices += (int)NumIndices;
+    // static int opt_indices = 0;
+    // opt_indices += (int)OptIndexCount;
+    // printf("Num indices %d\n", num_indices);
+    // //printf("Target num indices %d\n", TargetIndexCount);
+    // printf("Optimized number of indices %d\n", opt_indices);
+    // SimplifiedIndices.resize(OptIndexCount);
+    
+    // // Concatenate the local arrays into the class attributes arrays
+    // m_Indices.insert(m_Indices.end(), SimplifiedIndices.begin(), SimplifiedIndices.end());
+
+    // m_Vertices.insert(m_Vertices.end(), OptVertices.begin(), OptVertices.end());
+
+    // m_Meshes[MeshIndex].NumIndices = (uint)OptIndexCount;
+}
+
+
 
 
 
@@ -183,15 +261,26 @@ int main() {
                 Mesh lodMesh = mesh;
                 if (threshold > 0.0) {
 
-                    size_t lodVertexCount = meshopt_simplify(
-                        &lod[0],            // Destination indices (unsigned int*)
-                        reinterpret_cast<const unsigned int*>(lodMesh.indices), // Input indices (unsigned int*)
-                        lodMesh.triangleCount * 3,
-                        lodMesh.vertices,       // Vertex positions
-                        lodMesh.vertexCount,
-                        sizeof(Vector3),        // Size of each vertex position
-                        threshold);
+                    std::vector<uint> indices;
+                    std::vector<Vertex> vertices;
 
+                    for (size_t i = 0; i < lodMesh.vertexCount; ++i) {
+                        size_t baseIndex = i * 3;
+                        float x = lodMesh.vertices[baseIndex];
+                        float y = lodMesh.vertices[baseIndex + 1];
+                        float z = lodMesh.vertices[baseIndex + 2];
+    
+                        size_t ix;
+                        if (lodMesh.indices)
+                            ix = lodMesh.indices[i];
+                        else
+                            ix = i;
+
+                        vertices.push_back({x, y, z});
+                        indices.push_back(ix);
+                    }
+
+                    OptimizeMesh(lodMesh, indices, vertices);
 
                 }
             }
