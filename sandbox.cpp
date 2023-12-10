@@ -3,7 +3,7 @@
 #include "raylib.h"
 #include "raymath.h"
 
-#include "meshoptimizer/src/meshoptimizer.h" // Include meshoptimizer header
+#include "meshoptimizer/src/meshoptimizer.h" 
 
 #include "include/rlImGui.h"
 #include "imgui.h"
@@ -18,7 +18,7 @@ struct OptimizedMeshData {
     std::vector<Vector3>& Vertices;
     int vertexCount;
 
-    // Constructor to initialize references
+    
     OptimizedMeshData(std::vector<uint>& indices, std::vector<Vector3>& vertices)
         : Indices(indices), Vertices(vertices) {}
 };
@@ -29,35 +29,31 @@ OptimizedMeshData OptimizeMesh(Mesh& mesh, std::vector<uint>& Indices, std::vect
     size_t NumIndices = Indices.size();
     size_t NumVertices = Vertices.size();
 
-    // Create a remap table
+    
     std::vector<unsigned int> remap(NumIndices);
-    size_t OptVertexCount = meshopt_generateVertexRemap(remap.data(),    // dst addr
-                                                        Indices.data(),  // src indices
-                                                        NumIndices,      // ...and size
-                                                        Vertices.data(), // src vertices
-                                                        NumVertices,     // ...and size
-                                                        sizeof(Vector3)); // stride
+    size_t OptVertexCount = meshopt_generateVertexRemap(remap.data(),    
+                                                        Indices.data(),  
+                                                        NumIndices,      
+                                                        Vertices.data(), 
+                                                        NumVertices,     
+                                                        sizeof(Vector3)); 
 
     std::cout << "OptVertexCount: " << OptVertexCount << std::endl;
     std::cout << "NumVertices: " << NumVertices << std::endl;
 
     data.vertexCount = OptVertexCount;
 
-    // // Allocate a local index/vertex arrays
     std::vector<uint> OptIndices;
     std::vector<Vector3> OptVertices;
     OptIndices.resize(NumIndices);
     OptVertices.resize(OptVertexCount);
 
-    // Optimization #1: remove duplicate vertices    
     meshopt_remapIndexBuffer(OptIndices.data(), Indices.data(), NumIndices, remap.data());
 
     meshopt_remapVertexBuffer(OptVertices.data(), Vertices.data(), NumVertices, sizeof(Vector3), remap.data());
 
-    // Optimization #4: optimize access to the vertex buffer
     meshopt_optimizeVertexFetch(OptVertices.data(), OptIndices.data(), NumIndices, OptVertices.data(), OptVertexCount, sizeof(Vector3));
 
-    // Optimization #5: create a simplified version of the model
     size_t TargetIndexCount = (size_t)(NumIndices * threshold);
     
     float TargetError = 0.0f;
@@ -69,34 +65,30 @@ OptimizedMeshData OptimizeMesh(Mesh& mesh, std::vector<uint>& Indices, std::vect
     num_indices += (int)NumIndices;
     static int opt_indices = 0;
     opt_indices += (int)OptIndexCount;
-    printf("Num indices %d\n", num_indices);
-    //printf("Target num indices %d\n", TargetIndexCount);
-    printf("Optimized number of indices %d\n\n", opt_indices);
+    std::cout << "Num indices: " << num_indices << "\n";
+    
+    std::cout << "Optimized number of indices: " << opt_indices << "\n\n";
     SimplifiedIndices.resize(OptIndexCount);
     
     data.Indices.clear();
     data.Vertices.clear();
+
     
-    // // Concatenate the local arrays into the class attributes arrays
     data.Indices.insert(data.Indices.end(), SimplifiedIndices.begin(), SimplifiedIndices.end());
     data.Vertices.insert(data.Vertices.end(), OptVertices.begin(), OptVertices.end());
 
     return data;
 }
 
-
-
-
-
 void calculateNormals(const std::vector<Vector3>& vertices, const std::vector<uint>& indices, float* normals) {
-    // Initialize normals to zero
+    
     for (size_t i = 0; i < vertices.size(); ++i) {
         normals[i * 3] = 0.0f;
         normals[i * 3 + 1] = 0.0f;
         normals[i * 3 + 2] = 0.0f;
     }
 
-    // Calculate normals for each triangle and accumulate
+    
     for (size_t i = 0; i < indices.size(); i += 3) {
         Vector3 v0 = vertices[indices[i]];
         Vector3 v1 = vertices[indices[i + 1]];
@@ -104,7 +96,7 @@ void calculateNormals(const std::vector<Vector3>& vertices, const std::vector<ui
 
         Vector3 normal = Vector3Normalize(Vector3CrossProduct(Vector3Subtract(v1, v0), Vector3Subtract(v2, v0)));
 
-        // Accumulate normals for each vertex of the triangle
+        
         for (int j = 0; j < 3; ++j) {
             normals[indices[i + j] * 3] += normal.x;
             normals[indices[i + j] * 3 + 1] += normal.y;
@@ -112,7 +104,7 @@ void calculateNormals(const std::vector<Vector3>& vertices, const std::vector<ui
         }
     }
 
-    // Normalize the accumulated normals
+    
     for (size_t i = 0; i < vertices.size(); ++i) {
         float length = sqrt(normals[i * 3] * normals[i * 3] + normals[i * 3 + 1] * normals[i * 3 + 1] + normals[i * 3 + 2] * normals[i * 3 + 2]);
         normals[i * 3] /= length;
