@@ -124,16 +124,24 @@ void Run()
             UpdateInGameGlobals();
 
 
-
-            for (Entity& entity : entities_list)
+            if (first_time)
             {
-                if (first_time)
+                #pragma omp parallel for
+                for (Entity& entity : entities_list)
                 {
                     entity.running_first_time = true;
-                    RenderAndRunEntity(entity, &inGame_Camera);
-                }
 
+                    #pragma omp critical
+                    RenderAndRunEntity(entity);
+                }
+            }
+
+            #pragma omp parallel for
+            for (Entity& entity : entities_list)
+            {
                 entity.render();
+
+                #pragma omp critical
                 entity.runScript(&camera);
             }
 
@@ -143,6 +151,8 @@ void Run()
 
     DrawTextElements();
     DrawButtons();
+
+    DrawFPS(30,30);
     
     EndDrawing();
 }

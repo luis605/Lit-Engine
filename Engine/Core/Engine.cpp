@@ -186,6 +186,7 @@ public:
     Entity(const Entity& other) {
         if (!this || this == nullptr || !other.initialized)
             return;
+
         this->initialized = other.initialized;
         this->name = other.name;
         this->size = other.size;
@@ -388,10 +389,8 @@ public:
         this->mass = other.mass;
         this->inertia = other.inertia;
         this->id = other.id;
-        this->parent = nullptr; // Avoid copying the parent-child relationship
-        // You'll need to handle copying the vector of children properly
-        // Note: Be sure to consider whether you need to deep copy the elements
-        this->children = other.children; // Shallow copy of children
+        this->parent = nullptr;
+        this->children = other.children;
 
 
         return *this;
@@ -736,7 +735,7 @@ public:
             data = OptimizeMesh(model.meshes[0], indices, vertices, 0.05);
             this->LodModels[1] = LoadModelFromMesh(generateLODMesh(data.Vertices, data.Indices, data.vertexCount, model.meshes[0]));
 
-            data = OptimizeMesh(model.meshes[0], indices, vertices, 0.2);
+            data = OptimizeMesh(model.meshes[0], indices, vertices, 0.6);
             this->LodModels[2] = LoadModelFromMesh(generateLODMesh(data.Vertices, data.Indices, data.vertexCount, model.meshes[0]));
 
             data = OptimizeMesh(model.meshes[0], indices, vertices, 1.0);
@@ -975,9 +974,10 @@ public:
             transform.setIdentity();
             transform.setOrigin(btVector3(newPos.x, newPos.y, newPos.z));
 
-            if ((*boxRigidBody)->getMotionState()) {
+            if ((*boxRigidBody)->getMotionState() ) {
                 (*boxRigidBody)->setWorldTransform(transform);
-                (*boxRigidBody)->getMotionState()->setWorldTransform(transform);
+                if ((*boxRigidBody)->getMotionState())
+                    (*boxRigidBody)->getMotionState()->setWorldTransform(transform);
             }
         }
     }
@@ -986,10 +986,9 @@ public:
         rotation = newRot;
 
         if (CollisionShapeType::Box == *currentCollisionShapeType) {
-            btTransform trans;
-            if (boxRigidBody && (*boxRigidBody)->getMotionState()) {
+            if (boxRigidBody && *boxRigidBody && (*boxRigidBody)->getMotionState()) {
                 btTransform currentTransform = (*boxRigidBody)->getWorldTransform();
-                
+
                 // Set the new rotation (in this example, a 90-degree rotation around the Y-axis)
                 btQuaternion newRotation;
                 newRotation.setEulerZYX(newRot.z * DEG2RAD, newRot.y * DEG2RAD, newRot.x * DEG2RAD);
@@ -1000,8 +999,10 @@ public:
                 // Set the updated transform to the rigid body
                 (*boxRigidBody)->setWorldTransform(currentTransform);
             }
+            // You may want to add an else block here to handle the case where boxRigidBody or its motion state is null.
         }
     }
+
 
 
     void setScale(Vector3 newScale) {
@@ -1176,17 +1177,15 @@ public:
 
 
     void createDynamicBox(float x, float y, float z) {
-        if (!isDynamic) isDynamic = true;
+        isDynamic = true;
 
-        if (boxRigidBody && *boxRigidBody.get() != nullptr) {
+        if (boxRigidBody && *boxRigidBody != nullptr && *boxRigidBody.get() != nullptr) {
             dynamicsWorld->removeRigidBody(*boxRigidBody);
-            delete *boxRigidBody;
             boxRigidBody = make_shared<btRigidBody*>(nullptr);
         }
 
         if (highPolyDynamicRigidBody && *highPolyDynamicRigidBody.get() != nullptr) {
             dynamicsWorld->removeRigidBody(*highPolyDynamicRigidBody);
-            delete *highPolyDynamicRigidBody;
             highPolyDynamicRigidBody = make_shared<btRigidBody*>(nullptr);
         }
 
@@ -1221,9 +1220,7 @@ public:
 
         if (highPolyDynamicRigidBody != nullptr && *highPolyDynamicRigidBody.get() != nullptr) {
             dynamicsWorld->removeRigidBody(*highPolyDynamicRigidBody);
-            delete (*highPolyDynamicRigidBody)->getMotionState();
-            delete *highPolyDynamicRigidBody;
-            highPolyDynamicRigidBody = nullptr;
+            highPolyDynamicRigidBody.reset();
         }
         if (boxRigidBody && *boxRigidBody.get() != nullptr) {
             dynamicsWorld->removeRigidBody(*boxRigidBody);
@@ -1279,10 +1276,6 @@ public:
     }
 
     void makePhysicsStatic(CollisionShapeType shapeType = CollisionShapeType::None) {
-        if (shapeType == None) {
-            shapeType = *currentCollisionShapeType;
-        } 
- 
         isDynamic = false;
  
         if (shapeType == CollisionShapeType::Box)
@@ -1392,12 +1385,6 @@ public:
         else
         {
 
-            if (hasModel()) {
-                if (!inFrustum()) {
-                    return; // Early return if not in the frustum
-                }
-            }
-            
             if (hasModel())
             {
                 Matrix transformMatrix = MatrixIdentity();
@@ -1411,6 +1398,14 @@ public:
                 bounds.min = Vector3Transform(bounds.min, transformMatrix);
                 bounds.max = Vector3Transform(bounds.max, transformMatrix);
             }
+            
+            if (hasModel()) {
+                if (!inFrustum()) {
+                    return; // Early return if not in the frustum
+                }
+            }
+            
+
 
 
             PassSurfaceMaterials();

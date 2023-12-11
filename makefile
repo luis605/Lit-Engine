@@ -66,7 +66,7 @@ imgui/%.o: imgui/%.cpp
 
 
 sandbox: $(IMGUI_OBJECTS)
-	@g++ -g $(IMGUI_OBJECTS) sandbox.cpp -o sandbox.out -L. include/rlImGui.o -lraylib -Wall -w  -I./imgui
+	@g++ -g $(IMGUI_OBJECTS) sandbox.cpp -o sandbox.out -L. include/rlImGui.o -lraylib -Wall -w  -I./imgui -L. -lmeshoptimizer
 	@./sandbox.out
 
 
