@@ -132,7 +132,7 @@ void Run()
                     entity.running_first_time = true;
 
                     #pragma omp critical
-                    RenderAndRunEntity(entity);
+                    RenderAndRunEntity(entity, &inGame_Camera);
                 }
             }
 
@@ -142,7 +142,7 @@ void Run()
                 entity.render();
 
                 #pragma omp critical
-                entity.runScript(&camera);
+                entity.runScript(&inGame_Camera);
             }
 
             first_time = false;
