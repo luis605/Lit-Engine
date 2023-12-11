@@ -464,6 +464,7 @@ int SaveProject() {
 
     int light_index = 0;
     for (const auto& light : lights) {
+        if (light.isChild) continue;
         SaveLight(json_data, light, light_index);
         light_index++;
     }
