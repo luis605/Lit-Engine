@@ -86,9 +86,14 @@ void InitWindow()
     inGame_Camera.fovy = 45.0f;                                
     inGame_Camera.projection = CAMERA_PERSPECTIVE;             
 
+    glEnable(GL_CULL_FACE);
+    glCullFace(GL_BACK);
+
     SetupPhysicsWorld();
 
     DisableCursor();
+
+    Py_Initialize();
 
     InitSkybox(
         "assets/default skybox.hdr",
