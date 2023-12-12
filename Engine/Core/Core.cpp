@@ -34,11 +34,12 @@ void Startup()
 
     // Raylib
     SetTraceLogLevel(LOG_WARNING);
-    SetExitKey(KEY_NULL);
 
     // Window
     SetConfigFlags(FLAG_MSAA_4X_HINT | FLAG_VSYNC_HINT | FLAG_WINDOW_RESIZABLE | FLAG_WINDOW_UNDECORATED);
     InitWindow(windowWidth, windowHeight, "Lit Engine");
+
+    SetExitKey(KEY_NULL);
 
     // Face Culling
     glEnable(GL_CULL_FACE);
