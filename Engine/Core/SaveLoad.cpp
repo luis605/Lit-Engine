@@ -639,7 +639,6 @@ void LoadEntity(const json& entity_json, Entity& entity) {
 
     if (entity_json.contains("collider_type"))
         entity.currentCollisionShapeType = make_shared<Entity::CollisionShapeType>(entity_json["collider_type"].get<Entity::CollisionShapeType>());
-    entity.reloadRigidBody();
 
     if (entity_json.contains("script_path"))
         entity.script = entity_json["script_path"].get<std::string>();
@@ -879,6 +878,8 @@ int LoadProject(vector<Entity>& entities_vector, vector<Light>& lights_vector, v
                 Entity entity;
                 LoadEntity(entity_json, entity);
                 entities_vector.emplace_back(entity);
+                entities_vector.back().reloadRigidBody();
+
             }
             else if (type == "camera") {
                 LoadCamera(entity_json, camera);
