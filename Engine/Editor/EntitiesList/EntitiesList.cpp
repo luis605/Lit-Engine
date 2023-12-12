@@ -434,15 +434,21 @@ void EntitiesList()
 
         entities_list.assign(entities_list_pregame.begin(), entities_list_pregame.end());
         
+        DisableCursor();
+
         InitGameCamera();
         in_game_preview = true;
     }
 
     ImGui::SameLine();
 
-    if (ImGui::ImageButton((ImTextureID)&pause_texture, ImVec2(60, 60)))
+    if ((ImGui::ImageButton((ImTextureID)&pause_texture, ImVec2(60, 60))) ||
+        (in_game_preview && IsKeyDown(KEY_ESCAPE)))
     {
         cout << "Stopping Game" << endl;
+        
+        EnableCursor();
+        
         in_game_preview = false;
         first_time_gameplay = true;
 
