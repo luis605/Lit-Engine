@@ -172,7 +172,6 @@ void DrawEntityTree(Entity& entity, int active, int& index, int depth) {
         active = index;
         selected_game_object_type = "entity";
         object_in_inspector = &entity;
-        std::cout << "index: " << index << std::endl;
     }
 
 
@@ -243,7 +242,6 @@ void DrawLightTree(Light& light, AdditionalLightInfo& light_info, int active, in
         active = index;
         selected_game_object_type = "light";
         object_in_inspector = &light;
-        std::cout << "index: " << index << std::endl;
     }
 
     if (isNodeOpen) {
@@ -279,7 +277,6 @@ void DrawTextElementsTree(Text& text, int active, int& index) {
         active = index;
         selected_game_object_type = "text";
         object_in_inspector = &text;
-        std::cout << "index: " << index << std::endl;
     }
 
     if (isNodeOpen) {
@@ -315,7 +312,6 @@ void DrawButtonTree(LitButton& button, int active, int& index) {
         active = index;
         selected_game_object_type = "button";
         object_in_inspector = &button;
-        std::cout << "index: " << index << std::endl;
     }
 
     if (isNodeOpen) {
