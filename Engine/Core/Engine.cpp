@@ -1055,54 +1055,47 @@ public:
 
     void createStaticBox(float x, float y, float z) {
         if (isDynamic) isDynamic = false;
-        if (staticBoxShape == nullptr) {
-            // Use the provided dimensions (x, y, z) to create the btBoxShape
-            staticBoxShape = new btBoxShape(btVector3(x * scaleFactorRaylibBullet, y * scaleFactorRaylibBullet, z * scaleFactorRaylibBullet));
 
-            // Remove existing rigid bodies
-            if (boxRigidBody && *boxRigidBody != nullptr) {
-                dynamicsWorld->removeRigidBody(*boxRigidBody);
-                delete (*boxRigidBody)->getMotionState();
-                delete *boxRigidBody;
-                boxRigidBody = std::make_shared<btRigidBody*>(nullptr);
-            }
+        staticBoxShape = new btBoxShape(btVector3(x * scaleFactorRaylibBullet, y * scaleFactorRaylibBullet, z * scaleFactorRaylibBullet));
 
-            if (highPolyDynamicRigidBody && *highPolyDynamicRigidBody != nullptr) {
-                dynamicsWorld->removeRigidBody(*highPolyDynamicRigidBody);
-                delete (*highPolyDynamicRigidBody)->getMotionState();
-                delete *highPolyDynamicRigidBody;
-                highPolyDynamicRigidBody = std::make_shared<btRigidBody*>(nullptr);
-            }
-
-            dynamicBoxShape = nullptr;
-
-            // Set up the transformation
-            btTransform groundTransform;
-            groundTransform.setIdentity();
-
-            // Use radians for rotation
-            float rollRad = glm::radians(rotation.x);
-            float pitchRad = glm::radians(rotation.y);
-            float yawRad = glm::radians(rotation.z);
-
-            btQuaternion quaternion;
-            quaternion.setEulerZYX(yawRad, pitchRad, rollRad);
-
-            groundTransform.setRotation(quaternion);
-            groundTransform.setOrigin(btVector3(position.x, position.y, position.z));
-
-            // Create the motion state and rigid body construction info
-            btDefaultMotionState* groundMotionState = new btDefaultMotionState(groundTransform);
-            btRigidBody::btRigidBodyConstructionInfo highPolyStaticRigidBodyCI(0, groundMotionState, staticBoxShape, btVector3(0, 0, 0));
-
-            // Create the rigid body
-            btRigidBody* highPolyStaticRigidBody = new btRigidBody(highPolyStaticRigidBodyCI);
-            boxRigidBody = std::make_shared<btRigidBody*>(highPolyStaticRigidBody);
-
-            // Add the rigid body to the dynamics world
-            dynamicsWorld->addRigidBody(*boxRigidBody);
-            currentCollisionShapeType = std::make_shared<CollisionShapeType>(CollisionShapeType::Box);
+        if (boxRigidBody && *boxRigidBody != nullptr) {
+            dynamicsWorld->removeRigidBody(*boxRigidBody);
+            delete (*boxRigidBody)->getMotionState();
+            delete *boxRigidBody;
+            boxRigidBody = std::make_shared<btRigidBody*>(nullptr);
         }
+
+        if (highPolyDynamicRigidBody && *highPolyDynamicRigidBody != nullptr) {
+            dynamicsWorld->removeRigidBody(*highPolyDynamicRigidBody);
+            delete (*highPolyDynamicRigidBody)->getMotionState();
+            delete *highPolyDynamicRigidBody;
+            highPolyDynamicRigidBody = std::make_shared<btRigidBody*>(nullptr);
+        }
+
+        dynamicBoxShape = nullptr;
+
+        btTransform groundTransform;
+        groundTransform.setIdentity();
+
+        float rollRad = glm::radians(rotation.x);
+        float pitchRad = glm::radians(rotation.y);
+        float yawRad = glm::radians(rotation.z);
+
+        btQuaternion quaternion;
+        quaternion.setEulerZYX(yawRad, pitchRad, rollRad);
+
+        groundTransform.setRotation(quaternion);
+        groundTransform.setOrigin(btVector3(position.x, position.y, position.z));
+
+        btDefaultMotionState* groundMotionState = new btDefaultMotionState(groundTransform);
+        btRigidBody::btRigidBodyConstructionInfo highPolyStaticRigidBodyCI(0, groundMotionState, staticBoxShape, btVector3(0, 0, 0));
+
+        btRigidBody* highPolyStaticRigidBody = new btRigidBody(highPolyStaticRigidBodyCI);
+        boxRigidBody = std::make_shared<btRigidBody*>(highPolyStaticRigidBody);
+
+        dynamicsWorld->addRigidBody(*boxRigidBody);
+
+        currentCollisionShapeType = std::make_shared<CollisionShapeType>(CollisionShapeType::Box);
     }
 
     void createStaticMesh(bool generateShape = true) {
@@ -1279,7 +1272,9 @@ public:
         isDynamic = false;
  
         if (shapeType == CollisionShapeType::Box)
+        {
             createStaticBox(scale.x, scale.y, scale.z);
+        }
         else if (shapeType == CollisionShapeType::HighPolyMesh)
             createStaticMesh();
 
@@ -1289,7 +1284,7 @@ public:
         if (isDynamic)
             makePhysicsDynamic(*currentCollisionShapeType);
         else
-            makePhysicsStatic();
+            makePhysicsStatic(*currentCollisionShapeType);
     }
 
     void resetPhysics() {
