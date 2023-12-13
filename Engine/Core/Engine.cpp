@@ -705,7 +705,7 @@ public:
 
 
 
-        std::vector<uint> indices;
+        std::vector<uint32_t> indices;
         std::vector<Vector3> vertices;
 
         for (size_t i = 0; i < model.meshes[0].vertexCount; ++i) {

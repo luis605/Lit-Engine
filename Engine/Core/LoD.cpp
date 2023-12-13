@@ -13,11 +13,11 @@ typedef struct Cluster
 };
 
 struct OptimizedMeshData {
-    std::vector<uint> Indices;
+    std::vector<uint32_t> Indices;
     std::vector<Vector3> Vertices;
     int vertexCount;
 
-    OptimizedMeshData(std::vector<uint> indices, std::vector<Vector3> vertices)
+    OptimizedMeshData(std::vector<uint32_t> indices, std::vector<Vector3> vertices)
         : Indices(indices), Vertices(vertices) {}
 
     // Provide a custom copy constructor
@@ -40,7 +40,7 @@ struct OptimizedMeshData {
 
 
 
-OptimizedMeshData OptimizeMesh(Mesh& mesh, std::vector<uint>& Indices, std::vector<Vector3>& Vertices, float threshold)
+OptimizedMeshData OptimizeMesh(Mesh& mesh, std::vector<uint32_t>& Indices, std::vector<Vector3>& Vertices, float threshold)
 {
     OptimizedMeshData data(Indices, Vertices);
     size_t NumIndices = Indices.size();
@@ -68,7 +68,7 @@ OptimizedMeshData OptimizeMesh(Mesh& mesh, std::vector<uint>& Indices, std::vect
 
     data.vertexCount = OptVertexCount;
 
-    std::vector<uint> OptIndices;
+    std::vector<uint32_t> OptIndices;
     std::vector<Vector3> OptVertices;
     OptIndices.resize(NumIndices);
     OptVertices.resize(OptVertexCount);
@@ -112,7 +112,7 @@ OptimizedMeshData OptimizeMesh(Mesh& mesh, std::vector<uint>& Indices, std::vect
     return data;
 }
 
-void calculateNormals(const std::vector<Vector3>& vertices, const std::vector<uint>& indices, float* normals) {
+void calculateNormals(const std::vector<Vector3>& vertices, const std::vector<uint32_t>& indices, float* normals) {
     
     for (size_t i = 0; i < vertices.size(); ++i) {
         normals[i * 3] = 0.0f;
@@ -145,7 +145,7 @@ void calculateNormals(const std::vector<Vector3>& vertices, const std::vector<ui
     }
 }
 
-Mesh generateLODMesh(const std::vector<Vector3>& vertices, const std::vector<uint>& indices, int vertexCount32, Mesh sourceMesh) {
+Mesh generateLODMesh(const std::vector<Vector3>& vertices, const std::vector<uint32_t>& indices, int vertexCount32, Mesh sourceMesh) {
     Mesh lodMesh = { 0 };
 
     if (vertices.empty() || indices.empty()) {

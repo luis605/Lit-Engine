@@ -74,7 +74,7 @@ if (WIN32)
     set(LIB_FLAGS "-lraylib -LC:/Users/USER/AppData/Local/Programs/Python/Python311/libs -lpython311 -fPIC")
     execute_process(COMMAND python -m pybind11 --includes OUTPUT_VARIABLE PYBIND11_INCLUDES)
     string(STRIP "${PYBIND11_INCLUDES}" PYBIND11_INCLUDES)
-    set(LIB_FLAGS "${LIB_FLAGS} ${PYBIND11_INCLUDES} -lBulletDynamics -lBulletCollision -lLinearMath -I./include/bullet3/src -lavformat -lavcodec -lavutil -lswscale -lopengl32 -lgdi32 -lwinmm -lpthread")
+    set(LIB_FLAGS "${LIB_FLAGS} ${PYBIND11_INCLUDES} -L. -lBulletDynamics -lBulletCollision -lLinearMath -I./include/bullet3/src -lavformat -lavcodec -lavutil -lswscale -lopengl32 -lgdi32 -lwinmm -lpthread")
 else ()
     set(LIB_FLAGS "-lraylib -lpython3.11 -fPIC")
     execute_process(COMMAND python3.11 -m pybind11 --includes OUTPUT_VARIABLE PYBIND11_INCLUDES)
@@ -86,7 +86,7 @@ endif ()
 
 # Build Lit Engine executable
 add_executable(lit_engine ${SRC_FILES} ${IMGUI_OBJECTS})
-target_link_libraries(lit_engine avcodec)
+target_link_libraries(lit_engine avcodec meshoptimizer)
 target_link_libraries(lit_engine ${LIB_FLAGS})
 
 # Custom targets
