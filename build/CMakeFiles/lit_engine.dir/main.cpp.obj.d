@@ -650,11 +650,13 @@ CMakeFiles/lit_engine.dir/main.cpp.obj: \
   C:/LLVM-MinGW/include/c++/v1/__functional/pointer_to_unary_function.h \
   C:/LLVM-MinGW/include/c++/v1/__functional/unary_negate.h \
   C:/Users/USER/Desktop/_/Lit-Engine/./include/rlgl.h \
+  C:/Users/USER/Desktop/_/Lit-Engine/meshoptimizer/src/meshoptimizer.h \
+  C:/LLVM-MinGW/include/assert.h \
   C:/Users/USER/Desktop/_/Lit-Engine/imgui/imgui.h \
   C:/Users/USER/Desktop/_/Lit-Engine/./imgui/imconfig.h \
   C:/LLVM-MinGW/include/c++/v1/float.h \
   C:/LLVM-MinGW/lib/clang/16/include/float.h \
-  C:/LLVM-MinGW/include/float.h C:/LLVM-MinGW/include/assert.h \
+  C:/LLVM-MinGW/include/float.h \
   C:/Users/USER/Desktop/_/Lit-Engine/imgui/imgui_internal.h \
   C:/LLVM-MinGW/lib/clang/16/include/immintrin.h \
   C:/LLVM-MinGW/lib/clang/16/include/x86gprintrin.h \
@@ -1327,7 +1329,9 @@ CMakeFiles/lit_engine.dir/main.cpp.obj: \
   C:/Users/USER/Desktop/_/Lit-Engine/globals.h \
   C:/Users/USER/Desktop/_/Lit-Engine/Engine/Core/LoD.cpp \
   C:/Users/USER/Desktop/_/Lit-Engine/Engine/Core/../../include_all.h \
+  C:/LLVM-MinGW/include/c++/v1/queue \
   C:/Users/USER/Desktop/_/Lit-Engine/Engine/Scripting/math.cpp \
+  C:/Users/USER/Desktop/_/Lit-Engine/Engine/Scripting/../../include_all.h \
   C:/Users/USER/Desktop/_/Lit-Engine/Engine/GUI/Text/Text.h \
   C:/Users/USER/Desktop/_/Lit-Engine/Engine/GUI/Text/../../../include_all.h \
   C:/Users/USER/Desktop/_/Lit-Engine/Engine/GUI/Button/Button.h \
@@ -1337,6 +1341,7 @@ CMakeFiles/lit_engine.dir/main.cpp.obj: \
   C:/Users/USER/Desktop/_/Lit-Engine/Engine/Core/Engine.hpp \
   C:/Users/USER/Desktop/_/Lit-Engine/./include/../include_all.h \
   C:/Users/USER/Desktop/_/Lit-Engine/Engine/Lighting/lights.h \
+  C:/Users/USER/Desktop/_/Lit-Engine/Engine/Lighting/shaders/shaders.h \
   C:/Users/USER/Desktop/_/Lit-Engine/Engine/Scripting/time.cpp \
   C:/Users/USER/Desktop/_/Lit-Engine/Engine/Scripting/functions.cpp \
   C:/Users/USER/Desktop/_/Lit-Engine/Engine/Core/functions.h \

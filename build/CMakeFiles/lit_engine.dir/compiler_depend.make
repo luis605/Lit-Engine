@@ -667,6 +667,7 @@ CMakeFiles/lit_engine.dir/main.cpp.obj: C:/Users/USER/Desktop/_/Lit-Engine/main.
   C:/LLVM-MinGW/include/c++/v1/numeric \
   C:/LLVM-MinGW/include/c++/v1/optional \
   C:/LLVM-MinGW/include/c++/v1/ostream \
+  C:/LLVM-MinGW/include/c++/v1/queue \
   C:/LLVM-MinGW/include/c++/v1/ratio \
   C:/LLVM-MinGW/include/c++/v1/regex \
   C:/LLVM-MinGW/include/c++/v1/set \
@@ -1172,11 +1173,13 @@ CMakeFiles/lit_engine.dir/main.cpp.obj: C:/Users/USER/Desktop/_/Lit-Engine/main.
   C:/Users/USER/Desktop/_/Lit-Engine/include_all.h \
   C:/Users/USER/Desktop/_/Lit-Engine/Engine/Lighting/InitLighting.cpp \
   C:/Users/USER/Desktop/_/Lit-Engine/Engine/Lighting/lights.h \
+  C:/Users/USER/Desktop/_/Lit-Engine/Engine/Lighting/shaders/shaders.h \
   C:/Users/USER/Desktop/_/Lit-Engine/Engine/Lighting/skybox.cpp \
   C:/Users/USER/Desktop/_/Lit-Engine/include_all.h \
   C:/Users/USER/Desktop/_/Lit-Engine/Engine/Physics/InitPhysx.cpp \
   C:/Users/USER/Desktop/_/Lit-Engine/Engine/Physics/PhysicsManager.cpp \
   C:/Users/USER/Desktop/_/Lit-Engine/Engine/Physics/PhysicsManager.h \
+  C:/Users/USER/Desktop/_/Lit-Engine/include_all.h \
   C:/Users/USER/Desktop/_/Lit-Engine/Engine/Scripting/functions.cpp \
   C:/Users/USER/Desktop/_/Lit-Engine/Engine/Scripting/math.cpp \
   C:/Users/USER/Desktop/_/Lit-Engine/Engine/Scripting/time.cpp \
@@ -1392,6 +1395,7 @@ CMakeFiles/lit_engine.dir/main.cpp.obj: C:/Users/USER/Desktop/_/Lit-Engine/main.
   C:/Users/USER/Desktop/_/Lit-Engine/include/rlImGui.h \
   C:/Users/USER/Desktop/_/Lit-Engine/include/rlgl.h \
   C:/Users/USER/Desktop/_/Lit-Engine/include_all.h \
+  C:/Users/USER/Desktop/_/Lit-Engine/meshoptimizer/src/meshoptimizer.h \
   C:/Users/USER/Desktop/_/Lit-Engine/pybind11/attr.h \
   C:/Users/USER/Desktop/_/Lit-Engine/pybind11/buffer_info.h \
   C:/Users/USER/Desktop/_/Lit-Engine/pybind11/cast.h \
@@ -1680,9 +1684,9 @@ C:/LLVM-MinGW/include/c++/v1/__algorithm/is_heap_until.h:
 
 C:/LLVM-MinGW/include/c++/v1/__algorithm/is_partitioned.h:
 
-C:/LLVM-MinGW/include/c++/v1/__algorithm/is_sorted_until.h:
-
 C:/Users/USER/Desktop/_/Lit-Engine/include/bullet3/src/BulletDynamics/ConstraintSolver/btGeneric6DofSpring2Constraint.h:
+
+C:/LLVM-MinGW/include/c++/v1/__algorithm/is_sorted_until.h:
 
 C:/LLVM-MinGW/include/c++/v1/__algorithm/iter_swap.h:
 
@@ -1839,6 +1843,8 @@ C:/LLVM-MinGW/include/c++/v1/__type_traits/remove_extent.h:
 C:/LLVM-MinGW/include/c++/v1/__algorithm/push_heap.h:
 
 C:/LLVM-MinGW/lib/clang/16/include/ptwriteintrin.h:
+
+C:/Users/USER/Desktop/_/Lit-Engine/meshoptimizer/src/meshoptimizer.h:
 
 C:/LLVM-MinGW/include/c++/v1/__algorithm/ranges_set_union.h:
 
@@ -3290,6 +3296,10 @@ C:/LLVM-MinGW/include/c++/v1/optional:
 
 C:/Users/USER/Desktop/_/Lit-Engine/include/bullet3/src/BulletDynamics/ConstraintSolver/btContactSolverInfo.h:
 
+C:/Users/USER/Desktop/_/Lit-Engine/dependencies/include/glm/detail/type_mat3x4.hpp:
+
+C:/LLVM-MinGW/include/c++/v1/queue:
+
 C:/LLVM-MinGW/include/c++/v1/set:
 
 C:/Users/USER/Desktop/_/Lit-Engine/dependencies/include/glm/mat2x2.hpp:
@@ -3894,6 +3904,8 @@ C:/Users/USER/Desktop/_/Lit-Engine/Engine/GUI/Tooltip/Tooltip.cpp:
 
 C:/Users/USER/Desktop/_/Lit-Engine/Engine/Lighting/InitLighting.cpp:
 
+C:/Users/USER/Desktop/_/Lit-Engine/Engine/Lighting/shaders/shaders.h:
+
 C:/Users/USER/Desktop/_/Lit-Engine/Engine/Lighting/skybox.cpp:
 
 C:/Users/USER/Desktop/_/Lit-Engine/Engine/Physics/InitPhysx.cpp:
@@ -3917,8 +3929,6 @@ C:/Users/USER/Desktop/_/Lit-Engine/dependencies/include/glm/detail/type_mat2x3.h
 C:/Users/USER/Desktop/_/Lit-Engine/dependencies/include/glm/detail/type_mat2x4.hpp:
 
 C:/Users/USER/Desktop/_/Lit-Engine/dependencies/include/glm/detail/type_mat3x3.hpp:
-
-C:/Users/USER/Desktop/_/Lit-Engine/dependencies/include/glm/detail/type_mat3x4.hpp:
 
 C:/Users/USER/Desktop/_/Lit-Engine/dependencies/include/glm/detail/type_mat4x3.hpp:
 

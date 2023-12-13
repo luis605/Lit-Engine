@@ -668,6 +668,7 @@ CMakeFiles/lit_engine.dir/main.cpp.obj
  C:/LLVM-MinGW/include/c++/v1/numeric
  C:/LLVM-MinGW/include/c++/v1/optional
  C:/LLVM-MinGW/include/c++/v1/ostream
+ C:/LLVM-MinGW/include/c++/v1/queue
  C:/LLVM-MinGW/include/c++/v1/ratio
  C:/LLVM-MinGW/include/c++/v1/regex
  C:/LLVM-MinGW/include/c++/v1/set
@@ -1173,11 +1174,13 @@ CMakeFiles/lit_engine.dir/main.cpp.obj
  C:/Users/USER/Desktop/_/Lit-Engine/include_all.h
  C:/Users/USER/Desktop/_/Lit-Engine/Engine/Lighting/InitLighting.cpp
  C:/Users/USER/Desktop/_/Lit-Engine/Engine/Lighting/lights.h
+ C:/Users/USER/Desktop/_/Lit-Engine/Engine/Lighting/shaders/shaders.h
  C:/Users/USER/Desktop/_/Lit-Engine/Engine/Lighting/skybox.cpp
  C:/Users/USER/Desktop/_/Lit-Engine/include_all.h
  C:/Users/USER/Desktop/_/Lit-Engine/Engine/Physics/InitPhysx.cpp
  C:/Users/USER/Desktop/_/Lit-Engine/Engine/Physics/PhysicsManager.cpp
  C:/Users/USER/Desktop/_/Lit-Engine/Engine/Physics/PhysicsManager.h
+ C:/Users/USER/Desktop/_/Lit-Engine/include_all.h
  C:/Users/USER/Desktop/_/Lit-Engine/Engine/Scripting/functions.cpp
  C:/Users/USER/Desktop/_/Lit-Engine/Engine/Scripting/math.cpp
  C:/Users/USER/Desktop/_/Lit-Engine/Engine/Scripting/time.cpp
@@ -1393,6 +1396,7 @@ CMakeFiles/lit_engine.dir/main.cpp.obj
  C:/Users/USER/Desktop/_/Lit-Engine/include/rlImGui.h
  C:/Users/USER/Desktop/_/Lit-Engine/include/rlgl.h
  C:/Users/USER/Desktop/_/Lit-Engine/include_all.h
+ C:/Users/USER/Desktop/_/Lit-Engine/meshoptimizer/src/meshoptimizer.h
  C:/Users/USER/Desktop/_/Lit-Engine/pybind11/attr.h
  C:/Users/USER/Desktop/_/Lit-Engine/pybind11/buffer_info.h
  C:/Users/USER/Desktop/_/Lit-Engine/pybind11/cast.h
