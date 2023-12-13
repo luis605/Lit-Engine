@@ -2,6 +2,8 @@
     #include "../include_all.h"
 #endif
 
+#include "shaders/shaders.h"
+
 #include <string>
 #include <iostream>
 
