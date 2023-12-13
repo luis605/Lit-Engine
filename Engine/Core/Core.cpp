@@ -119,10 +119,10 @@ void Startup()
     selected_light = { 0 };
 
     // Shaders
-    shader = LoadShader("Engine/Lighting/shaders/lighting_vertex.glsl", "Engine/Lighting/shaders/lighting_fragment.glsl");
+    shader = LoadShaderFromMemory(lightingVert, lightingFrag); // LoadShader("Engine/Lighting/shaders/lighting_vertex.glsl", "Engine/Lighting/shaders/lighting_fragment.glsl");
     instancing_shader = LoadShader("Engine/Lighting/shaders/instancing_lighting_vertex.glsl", "Engine/Lighting/shaders/lighting_fragment.glsl");
-    downsamplerShader = LoadShader("Engine/Lighting/shaders/lighting_vertex.glsl", "Engine/Lighting/shaders/downsampler.glsl");
-    upsamplerShader = LoadShader("Engine/Lighting/shaders/lighting_vertex.glsl", "Engine/Lighting/shaders/upsampler.glsl");
+    downsamplerShader = LoadShaderFromMemory(lightingVert, downsamplerFrag); // LoadShader("Engine/Lighting/shaders/lighting_vertex.glsl", "Engine/Lighting/shaders/downsampler.glsl");
+    upsamplerShader = LoadShaderFromMemory(lightingVert, upsamplerFrag); // LoadShader("Engine/Lighting/shaders/lighting_vertex.glsl", "Engine/Lighting/shaders/upsampler.glsl");
     InitLighting();
 
     downsamplerTexture = LoadRenderTexture(GetScreenWidth(), GetScreenHeight());
