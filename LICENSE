@@ -1,0 +1,44 @@
+LIT ENGINE PROPRIETARY LICENSE
+
+1. GRANT OF LICENSE:
+
+Subject to the terms and conditions of this License, Luís Almeida ("Licensor") hereby grants you ("Licensee") a non-exclusive, non-transferable license to use the Lit Engine ("Software").
+
+2. RESTRICTIONS:
+
+(a) Licensee may not reverse engineer, decompile, disassemble, or attempt to derive the source code of the Software.
+
+(b) Licensee may not distribute, sublicense, lease, rent, or lend the Software to any third party without prior written consent from Licensor.
+
+(c) Licensee may not use the Software for the creation of derivative works, including but not limited to game engines or development tools.
+
+(d) Licensee may not remove or alter any proprietary notices, labels, or marks from the Software.
+
+3. THIRD-PARTY COMPONENTS:
+
+The Software includes third-party components, including but not limited to Mesh Optimizer, raylib, FFmpeg, ImGui, Bullet3, ImNodes, and Pybind11. Each third-party component is subject to its respective license terms. Licensor makes no warranties or representations regarding these third-party components and disclaims any liability arising from their use.
+
+4. SUPPORT AND UPDATES:
+
+This license does not entitle Licensee to any support, maintenance, or updates. Licensor may, at its discretion, provide support and updates separately and may require additional fees.
+
+6. TERMINATION:
+
+This License is effective until terminated. Licensor may terminate this License at any time if Licensee breaches any terms or conditions. Upon termination, Licensee must cease using the Software and destroy all copies.
+
+7. DISCLAIMER OF WARRANTY:
+
+THE SOFTWARE IS PROVIDED "AS IS," WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED. LICENSOR DISCLAIMS ALL WARRANTIES, INCLUDING BUT NOT LIMITED TO THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE.
+
+8. LIMITATION OF LIABILITY:
+
+IN NO EVENT SHALL LICENSOR BE LIABLE FOR ANY INCIDENTAL, SPECIAL, INDIRECT, OR CONSEQUENTIAL DAMAGES ARISING OUT OF OR RELATING TO THE USE OR INABILITY TO USE THE SOFTWARE.
+
+9. GOVERNING LAW:
+
+This License shall be governed by and construed in accordance with the laws of Portugal.
+
+---
+
+Lit Engine
+litengine.main@gmail.com
