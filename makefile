@@ -25,21 +25,43 @@ define echo_success
 endef
 
 
-CXXFLAGS = -g -pipe -flto -fuse-ld=gold -std=c++17 -fpermissive -w -Wall -DNDEBUG -O0
+CXXFLAGS = -g -pipe -std=c++17 -fpermissive -w -Wall -DNDEBUG -O0
 SRC_FILES = ImGuiColorTextEdit/TextEditor.o include/rlImGui.o ImNodes/ImNodes.o ImNodes/ImNodesEz.o
-INCLUDE_DIRS = -I./include -I./ImGuiColorTextEdit -I/usr/local/lib -L/usr/lib/x86_64-linux-gnu/ -L/usr/local/lib -I./include/nlohmann -I./imgui -L/include/bullet3/src
-INCLUDE_DIRS_STATIC = -I./include -I/usr/local/lib -I./include/nlohmann -I./include/bullet3/src -I./ffmpeg
+INCLUDE_DIRS = -I./include -I./ImGuiColorTextEdit -L./ffmpeg -L. -I. -I./ffmpeg -I./include/nlohmann -L./include -I./imgui -L/include/bullet3/src
+INCLUDE_DIRS_STATIC = -I./include -I/usr/local/lib -I./include/nlohmann -I./include/bullet3/src -I./ffmpeg -I./ffmpeg -L./include
 LIB_FLAGS = -L./include -lboost_filesystem -lraylib -ldl -lBulletDynamics -lBulletCollision -lLinearMath -I./include/bullet3/src
-LIB_FLAGS += -lraylib -lavformat -lavcodec -lavutil -lswscale -lz -lm -lpthread -ldrm -ltbb -lmeshoptimizer -L.
+LIB_FLAGS += -L./ffmpeg -lavformat -lavcodec -lavutil -lswscale -lswresample -lz -lm -lpthread -ldrm -ltbb -lmeshoptimizer -L.
 
 PYTHON_INCLUDE_DIR := $(shell python -c "import sys; print(sys.prefix + '/include')")
-
 
 LIB_FLAGS_LINUX = $(LIB_FLAGS) -lpython3.11 -fPIC `python3.11 -m pybind11 --includes`
 
 LIB_FLAGS_WINDOWS = -I./pybind11/include -I$(PYTHON_INCLUDE_DIR) $(LIB_FLAGS)
 
 
+
+IMGUI_OBJECTS = $(patsubst imgui/%.cpp, imgui/%.o, $(wildcard imgui/*.cpp))
+
+imgui/%.o: imgui/%.cpp
+	@echo "Building Dear ImGUI"
+	g++ -std=c++17 -O3 -DIMGUI_IMPL_OPENGL_LOADER_GLAD -c $< -o $@
+
+
+run:
+	@echo "Running Lit Engine"
+	@$(call echo_success, $(subst $(newline),\n,$$BANNER_TEXT))
+	@./lit_engine.out
+
+
+build: $(IMGUI_OBJECTS)
+	@$(call echo_success, "Building Demo")
+	@g++ $(CXXFLAGS) main.cpp $(SRC_FILES) $(INCLUDE_DIRS) $(IMGUI_OBJECTS) $(LIB_FLAGS_LINUX) -Wl,-rpath,'$$ORIGIN:.' -lavformat -lavcodec -lavutil -lswscale -lswresample -o lit_engine.out
+	@$(call echo_success, "Success!")
+
+
+brun:
+	@make --no-print-directory build -j8
+	@make --no-print-directory run
 
 
 static-build-windows:
@@ -70,23 +92,6 @@ sandbox: $(IMGUI_OBJECTS)
 	@./sandbox.out
 
 
-
-
-
-run:
-	@echo "Running Lit Engine"
-	@$(call echo_success, $(subst $(newline),\n,$$BANNER_TEXT))
-	@./lit_engine.out
-
-
-build: $(IMGUI_OBJECTS)
-	@$(call echo_success, "Building Demo")
-	@ccache g++ $(CXXFLAGS) main.cpp $(SRC_FILES) $(INCLUDE_DIRS) $(IMGUI_OBJECTS) $(LIB_FLAGS_LINUX) -o lit_engine.out
-
-
-brun:
-	@make --no-print-directory build -j8
-	@make --no-print-directory run
 
 debug:
 	@echo "Debugging Lit Engine"
