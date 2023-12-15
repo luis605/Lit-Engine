@@ -47,9 +47,9 @@
     }
 #else
     extern "C" {
-        #include <libavcodec/avcodec.h>
-        #include <libavformat/avformat.h>
-        #include <libswscale/swscale.h>
+        #include "ffmpeg/libavcodec/avcodec.h"
+        #include "ffmpeg/libavformat/avformat.h"
+        #include "ffmpeg/libswscale/swscale.h"
 }
 #endif
 
