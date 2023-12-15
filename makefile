@@ -39,6 +39,14 @@ LIB_FLAGS_LINUX = $(LIB_FLAGS) -lpython3.11 -fPIC `python3.11 -m pybind11 --incl
 LIB_FLAGS_WINDOWS = -I./pybind11/include -I$(PYTHON_INCLUDE_DIR) $(LIB_FLAGS)
 
 
+
+IMGUI_OBJECTS = $(patsubst imgui/%.cpp, imgui/%.o, $(wildcard imgui/*.cpp))
+
+imgui/%.o: imgui/%.cpp
+	@echo "Building Dear ImGUI"
+	g++ -std=c++17 -O3 -DIMGUI_IMPL_OPENGL_LOADER_GLAD -c $< -o $@
+
+
 run:
 	@echo "Running Lit Engine"
 	@$(call echo_success, $(subst $(newline),\n,$$BANNER_TEXT))
@@ -47,7 +55,7 @@ run:
 
 build: $(IMGUI_OBJECTS)
 	@$(call echo_success, "Building Demo")
-	@ccache g++ $(CXXFLAGS) main.cpp $(SRC_FILES) $(INCLUDE_DIRS) $(IMGUI_OBJECTS) $(LIB_FLAGS_LINUX) -o lit_engine.out 
+	@g++ $(CXXFLAGS) main.cpp $(SRC_FILES) $(INCLUDE_DIRS) $(IMGUI_OBJECTS) $(LIB_FLAGS_LINUX) -Wl,-rpath,'$$ORIGIN:.' -lavformat -lavcodec -lavutil -lswscale -lswresample -o lit_engine.out
 	@$(call echo_success, "Success!")
 
 
