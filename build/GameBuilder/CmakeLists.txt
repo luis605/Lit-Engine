@@ -44,6 +44,7 @@ set(LIBRARIES
     gdi32
     winmm
     pthread
+    meshoptimizer
 )
 
 # Build executable

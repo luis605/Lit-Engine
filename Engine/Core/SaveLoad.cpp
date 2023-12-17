@@ -554,9 +554,12 @@ void LoadWorldSettings(const json& world_setting_json)
 
 
 void LoadEntity(const json& entity_json, Entity& entity) {
+    std::cout << "PRINT 1" << std::endl;
     if (entity_json.contains("name")) {
         entity.setName(entity_json["name"].get<std::string>());
     }
+
+    std::cout << "PRINT 2" << std::endl;
 
     if (entity_json.contains("scale")) {
         Vector3 scale{
@@ -567,6 +570,7 @@ void LoadEntity(const json& entity_json, Entity& entity) {
         entity.setScale(scale);
     }
 
+    std::cout << "PRINT 3" << std::endl;
 
 
     if (entity_json.contains("position")) {
@@ -580,6 +584,8 @@ void LoadEntity(const json& entity_json, Entity& entity) {
 
 
 
+    std::cout << "PRINT 4" << std::endl;
+
     if (entity_json.contains("rotation")) {
         Vector3 rotation{
             entity_json["rotation"]["x"].get<float>(),
@@ -588,6 +594,8 @@ void LoadEntity(const json& entity_json, Entity& entity) {
         };
         entity.rotation = rotation;
     }
+
+    std::cout << "PRINT 5" << std::endl;
 
     if (entity_json.contains("relative_position")) {
         Vector3 relative_position{
@@ -598,11 +606,13 @@ void LoadEntity(const json& entity_json, Entity& entity) {
         entity.relative_position = relative_position;
     }
 
+    std::cout << "PRINT 6" << std::endl;
 
     if (entity_json.contains("mesh_type")) {
         entity.ObjectType = entity_json["mesh_type"].get<Entity::ObjectTypeEnum>();
     }
 
+    std::cout << "PRINT 7" << std::endl;
 
     if (entity_json.contains("model_path") && !entity_json["model_path"].get<std::string>().empty()) {
         entity.setModel(
@@ -630,16 +640,20 @@ void LoadEntity(const json& entity_json, Entity& entity) {
         else if (entity.ObjectType == Entity::ObjectType_Torus)
             entity.setModel("", LoadModelFromMesh(GenMeshTorus(1, 1, 30, 30)));
     }
+    std::cout << "PRINT 8" << std::endl;
 
     if (entity_json.contains("is_dynamic"))
         entity.isDynamic = entity_json["is_dynamic"].get<bool>();
 
+    std::cout << "PRINT 9" << std::endl;
     if (entity_json.contains("mass"))
         entity.mass = entity_json["mass"].get<float>();
 
+    std::cout << "PRINT 10" << std::endl;
     if (entity_json.contains("collider_type"))
         entity.currentCollisionShapeType = make_shared<Entity::CollisionShapeType>(entity_json["collider_type"].get<Entity::CollisionShapeType>());
 
+    std::cout << "PRINT 11" << std::endl;
     if (entity_json.contains("script_path"))
         entity.script = entity_json["script_path"].get<std::string>();
     if (entity_json.contains("script_index"))
@@ -649,11 +663,16 @@ void LoadEntity(const json& entity_json, Entity& entity) {
     else
         entity.id = -1;
 
+    std::cout << "PRINT 12" << std::endl;
+
+
     // Materials
     if (entity_json.contains("material_path")) {
         entity.surface_material_path = entity_json["material_path"].get<string>();
         DeserializeMaterial(&entity.surface_material, entity.surface_material_path.string().c_str());
     }
+
+    std::cout << "PRINT 13" << std::endl;
 
     // Textures
     string texture_path = entity_json["texture_path"].get<std::string>();
@@ -684,6 +703,9 @@ void LoadEntity(const json& entity_json, Entity& entity) {
     {
         entity.roughness_texture = LoadTexture(entity.roughness_texture_path.string().c_str());
     }
+
+    std::cout << "PRINT 14" << std::endl;
+
 
     entity.setShader(shader);
 

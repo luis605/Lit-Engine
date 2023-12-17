@@ -10,7 +10,7 @@ void StartGame();
 #define WindowHeight GetScreenHeight() / 1.5
 #define WindowWidth GetScreenWidth() / 1.5
 
-string gameTitle = "My Own Game!";
+string gameTitle = "Game";
 bool first_time = true;
 
 
@@ -55,7 +55,7 @@ const char* encryptFile(const std::string& inputFile, const std::string& key) {
     char* encryptedCString = new char[encryptedData.size() + 1];
     std::strcpy(encryptedCString, encryptedData.c_str());
 
-    return encryptedCString;
+    return (const char*)encryptedCString;
 }
 
 
@@ -86,9 +86,14 @@ void InitWindow()
     inGame_Camera.fovy = 45.0f;                                
     inGame_Camera.projection = CAMERA_PERSPECTIVE;             
 
+    glEnable(GL_CULL_FACE);
+    glCullFace(GL_BACK);
+
     SetupPhysicsWorld();
 
     DisableCursor();
+
+    Py_Initialize();
 
     InitSkybox(
         "assets/default skybox.hdr",
@@ -123,18 +128,26 @@ void Run()
             
             UpdateInGameGlobals();
 
-            for (Entity& entity : entities_list)
-            {
-                RenderAndRunEntity(entity, scripts_thread_vector, first_time, &inGame_Camera);
-            }
-
 
             if (first_time)
             {
-                for (auto& script_thread : scripts_thread_vector) {
-                    if (script_thread.joinable())
-                        script_thread.detach();
+                #pragma omp parallel for
+                for (Entity& entity : entities_list)
+                {
+                    entity.running_first_time = true;
+
+                    #pragma omp critical
+                    RenderAndRunEntity(entity, &inGame_Camera);
                 }
+            }
+
+            #pragma omp parallel for
+            for (Entity& entity : entities_list)
+            {
+                entity.render();
+
+                #pragma omp critical
+                entity.runScript(&inGame_Camera);
             }
 
             first_time = false;
@@ -143,6 +156,8 @@ void Run()
 
     DrawTextElements();
     DrawButtons();
+
+    DrawFPS(30,30);
     
     EndDrawing();
 }

@@ -1,9 +1,9 @@
 CMakeFiles/my_program.dir/gameSystem.cpp.obj: \
   C:/Users/USER/Desktop/_/Lit-Engine/build/GameBuilder/gameSystem.cpp \
-  C:/Users/USER/Desktop/_/Lit-Engine/build/GameBuilder/../../include_all.h \
-  C:/Users/USER/Desktop/_/Lit-Engine/build/GameBuilder/../../include/raylib.h \
+  C:/Users/USER/Desktop/_/Lit-Engine/build/GameBuilder/../../include/../include_all.h \
+  C:/Users/USER/Desktop/_/Lit-Engine/build/GameBuilder/../../include/../include/raylib.h \
   C:/LLVM-MinGW/lib/clang/16/include/stdarg.h \
-  C:/Users/USER/Desktop/_/Lit-Engine/build/GameBuilder/../../include/raymath.h \
+  C:/Users/USER/Desktop/_/Lit-Engine/build/GameBuilder/../../include/../include/raymath.h \
   C:/LLVM-MinGW/include/c++/v1/math.h \
   C:/LLVM-MinGW/include/c++/v1/__config \
   C:/LLVM-MinGW/include/c++/v1/__config_site \
@@ -161,12 +161,14 @@ CMakeFiles/my_program.dir/gameSystem.cpp.obj: \
   C:/LLVM-MinGW/include/sec_api/stdlib_s.h \
   C:/LLVM-MinGW/include/malloc.h \
   C:/LLVM-MinGW/lib/clang/16/include/mm_malloc.h \
-  C:/Users/USER/Desktop/_/Lit-Engine/build/GameBuilder/../../include/rcamera.h \
-  C:/Users/USER/Desktop/_/Lit-Engine/build/GameBuilder/../../include/rlgl.h \
-  C:/Users/USER/Desktop/_/Lit-Engine/build/GameBuilder/../../include/custom.h \
-  C:/Users/USER/Desktop/_/Lit-Engine/build/GameBuilder/../../include/rlFrustum.cpp \
+  C:/Users/USER/Desktop/_/Lit-Engine/build/GameBuilder/../../include/../include/rcamera.h \
+  C:/Users/USER/Desktop/_/Lit-Engine/build/GameBuilder/../../include/../include/rlgl.h \
+  C:/Users/USER/Desktop/_/Lit-Engine/build/GameBuilder/../../include/../include/custom.h \
+  C:/Users/USER/Desktop/_/Lit-Engine/build/GameBuilder/../../include/../include/rlFrustum.cpp \
   C:/LLVM-MinGW/include/c++/v1/cmath \
   C:/Users/USER/Desktop/_/Lit-Engine/build/GameBuilder/../../include/rlFrustum.h \
+  C:/Users/USER/Desktop/_/Lit-Engine/build/GameBuilder/../../include/raylib.h \
+  C:/Users/USER/Desktop/_/Lit-Engine/build/GameBuilder/../../include/raymath.h \
   C:/LLVM-MinGW/include/c++/v1/map \
   C:/LLVM-MinGW/include/c++/v1/__algorithm/equal.h \
   C:/LLVM-MinGW/include/c++/v1/__algorithm/comp.h \
@@ -647,9 +649,12 @@ CMakeFiles/my_program.dir/gameSystem.cpp.obj: \
   C:/LLVM-MinGW/include/c++/v1/__functional/pointer_to_binary_function.h \
   C:/LLVM-MinGW/include/c++/v1/__functional/pointer_to_unary_function.h \
   C:/LLVM-MinGW/include/c++/v1/__functional/unary_negate.h \
-  C:/Users/USER/Desktop/_/Lit-Engine/build/GameBuilder/../../dependencies/include/glad/glad.h \
+  C:/Users/USER/Desktop/_/Lit-Engine/build/GameBuilder/../../include/rlgl.h \
+  C:/Users/USER/Desktop/_/Lit-Engine/build/GameBuilder/../../include/../meshoptimizer/src/meshoptimizer.h \
+  C:/LLVM-MinGW/include/assert.h \
+  C:/Users/USER/Desktop/_/Lit-Engine/build/GameBuilder/../../include/../dependencies/include/glad/glad.h \
   C:/LLVM-MinGW/include/KHR/khrplatform.h \
-  C:/Users/USER/Desktop/_/Lit-Engine/build/GameBuilder/../../include/bullet3/src/BulletCollision/BroadphaseCollision/btBroadphaseProxy.h \
+  C:/Users/USER/Desktop/_/Lit-Engine/build/GameBuilder/../../include/../include/bullet3/src/BulletCollision/BroadphaseCollision/btBroadphaseProxy.h \
   C:/Users/USER/Desktop/_/Lit-Engine/build/GameBuilder/../../include/bullet3/src/LinearMath/btScalar.h \
   C:/LLVM-MinGW/include/c++/v1/float.h \
   C:/LLVM-MinGW/lib/clang/16/include/float.h \
@@ -657,17 +662,19 @@ CMakeFiles/my_program.dir/gameSystem.cpp.obj: \
   C:/Users/USER/Desktop/_/Lit-Engine/build/GameBuilder/../../include/bullet3/src/LinearMath/btVector3.h \
   C:/Users/USER/Desktop/_/Lit-Engine/build/GameBuilder/../../include/bullet3/src/LinearMath/btMinMax.h \
   C:/Users/USER/Desktop/_/Lit-Engine/build/GameBuilder/../../include/bullet3/src/LinearMath/btAlignedAllocator.h \
-  C:/Users/USER/Desktop/_/Lit-Engine/build/GameBuilder/../../include/bullet3/src/BulletCollision/CollisionShapes/btCollisionShape.h \
+  C:/Users/USER/Desktop/_/Lit-Engine/build/GameBuilder/../../include/../include/bullet3/src/BulletCollision/CollisionShapes/btCollisionShape.h \
   C:/Users/USER/Desktop/_/Lit-Engine/build/GameBuilder/../../include/bullet3/src/LinearMath/btTransform.h \
   C:/Users/USER/Desktop/_/Lit-Engine/build/GameBuilder/../../include/bullet3/src/LinearMath/btMatrix3x3.h \
   C:/Users/USER/Desktop/_/Lit-Engine/build/GameBuilder/../../include/bullet3/src/LinearMath/btQuaternion.h \
   C:/Users/USER/Desktop/_/Lit-Engine/build/GameBuilder/../../include/bullet3/src/LinearMath/btQuadWord.h \
-  C:/Users/USER/Desktop/_/Lit-Engine/build/GameBuilder/../../include/bullet3/src/BulletCollision/CollisionShapes/btConvexPolyhedron.h \
+  C:/Users/USER/Desktop/_/Lit-Engine/build/GameBuilder/../../include/bullet3/src/BulletCollision/BroadphaseCollision/btBroadphaseProxy.h \
+  C:/Users/USER/Desktop/_/Lit-Engine/build/GameBuilder/../../include/../include/bullet3/src/BulletCollision/CollisionShapes/btConvexPolyhedron.h \
   C:/Users/USER/Desktop/_/Lit-Engine/build/GameBuilder/../../include/bullet3/src/LinearMath/btAlignedObjectArray.h \
-  C:/Users/USER/Desktop/_/Lit-Engine/build/GameBuilder/../../include/bullet3/src/BulletCollision/CollisionShapes/btShapeHull.h \
+  C:/Users/USER/Desktop/_/Lit-Engine/build/GameBuilder/../../include/../include/bullet3/src/BulletCollision/CollisionShapes/btShapeHull.h \
   C:/Users/USER/Desktop/_/Lit-Engine/build/GameBuilder/../../include/bullet3/src/BulletCollision/CollisionShapes/btConvexShape.h \
-  C:/Users/USER/Desktop/_/Lit-Engine/build/GameBuilder/../../include/bullet3/src/BulletCollision/CollisionShapes/btCollisionMargin.h \
-  C:/Users/USER/Desktop/_/Lit-Engine/build/GameBuilder/../../include/bullet3/src/btBulletDynamicsCommon.h \
+  C:/Users/USER/Desktop/_/Lit-Engine/build/GameBuilder/../../include/../include/bullet3/src/BulletCollision/CollisionShapes/btCollisionMargin.h \
+  C:/Users/USER/Desktop/_/Lit-Engine/build/GameBuilder/../../include/../include/bullet3/src/LinearMath/btVector3.h \
+  C:/Users/USER/Desktop/_/Lit-Engine/build/GameBuilder/../../include/../include/bullet3/src/btBulletDynamicsCommon.h \
   C:/Users/USER/Desktop/_/Lit-Engine/build/GameBuilder/../../include/bullet3/src/btBulletCollisionCommon.h \
   C:/Users/USER/Desktop/_/Lit-Engine/build/GameBuilder/../../include/bullet3/src/BulletCollision/CollisionDispatch/btCollisionWorld.h \
   C:/Users/USER/Desktop/_/Lit-Engine/build/GameBuilder/../../include/bullet3/src/BulletCollision/CollisionDispatch/btCollisionObject.h \
@@ -682,29 +689,31 @@ CMakeFiles/my_program.dir/gameSystem.cpp.obj: \
   C:/Users/USER/Desktop/_/Lit-Engine/build/GameBuilder/../../include/bullet3/src/BulletCollision/CollisionDispatch/btCollisionObjectWrapper.h \
   C:/Users/USER/Desktop/_/Lit-Engine/build/GameBuilder/../../include/bullet3/src/BulletCollision/CollisionDispatch/btCollisionCreateFunc.h \
   C:/Users/USER/Desktop/_/Lit-Engine/build/GameBuilder/../../include/bullet3/src/BulletCollision/BroadphaseCollision/btOverlappingPairCache.h \
-  C:/Users/USER/Desktop/_/Lit-Engine/build/GameBuilder/../../include/bullet3/src/BulletCollision/BroadphaseCollision/btBroadphaseInterface.h \
-  C:/Users/USER/Desktop/_/Lit-Engine/build/GameBuilder/../../include/bullet3/src/BulletCollision/BroadphaseCollision/btOverlappingPairCallback.h \
+  C:/Users/USER/Desktop/_/Lit-Engine/build/GameBuilder/../../include/../include/bullet3/src/BulletCollision/BroadphaseCollision/btBroadphaseInterface.h \
+  C:/Users/USER/Desktop/_/Lit-Engine/build/GameBuilder/../../include/../include/bullet3/src/BulletCollision/BroadphaseCollision/btOverlappingPairCallback.h \
   C:/Users/USER/Desktop/_/Lit-Engine/build/GameBuilder/../../include/bullet3/src/BulletCollision/CollisionShapes/btBoxShape.h \
-  C:/Users/USER/Desktop/_/Lit-Engine/build/GameBuilder/../../include/bullet3/src/BulletCollision/CollisionShapes/btPolyhedralConvexShape.h \
-  C:/Users/USER/Desktop/_/Lit-Engine/build/GameBuilder/../../include/bullet3/src/BulletCollision/CollisionShapes/btConvexInternalShape.h \
+  C:/Users/USER/Desktop/_/Lit-Engine/build/GameBuilder/../../include/../include/bullet3/src/BulletCollision/CollisionShapes/btPolyhedralConvexShape.h \
+  C:/Users/USER/Desktop/_/Lit-Engine/build/GameBuilder/../../include/../include/bullet3/src/BulletCollision/CollisionShapes/btConvexInternalShape.h \
+  C:/Users/USER/Desktop/_/Lit-Engine/build/GameBuilder/../../include/../include/bullet3/src/BulletCollision/CollisionShapes/btConvexShape.h \
   C:/Users/USER/Desktop/_/Lit-Engine/build/GameBuilder/../../include/bullet3/src/LinearMath/btAabbUtil2.h \
   C:/Users/USER/Desktop/_/Lit-Engine/build/GameBuilder/../../include/bullet3/src/BulletCollision/CollisionShapes/btSphereShape.h \
   C:/Users/USER/Desktop/_/Lit-Engine/build/GameBuilder/../../include/bullet3/src/BulletCollision/CollisionShapes/btCapsuleShape.h \
   C:/Users/USER/Desktop/_/Lit-Engine/build/GameBuilder/../../include/bullet3/src/BulletCollision/CollisionShapes/btCylinderShape.h \
+  C:/Users/USER/Desktop/_/Lit-Engine/build/GameBuilder/../../include/../include/bullet3/src/BulletCollision/CollisionShapes/btBoxShape.h \
   C:/Users/USER/Desktop/_/Lit-Engine/build/GameBuilder/../../include/bullet3/src/BulletCollision/CollisionShapes/btConeShape.h \
   C:/Users/USER/Desktop/_/Lit-Engine/build/GameBuilder/../../include/bullet3/src/BulletCollision/CollisionShapes/btStaticPlaneShape.h \
-  C:/Users/USER/Desktop/_/Lit-Engine/build/GameBuilder/../../include/bullet3/src/BulletCollision/CollisionShapes/btConcaveShape.h \
-  C:/Users/USER/Desktop/_/Lit-Engine/build/GameBuilder/../../include/bullet3/src/BulletCollision/CollisionShapes/btTriangleCallback.h \
+  C:/Users/USER/Desktop/_/Lit-Engine/build/GameBuilder/../../include/../include/bullet3/src/BulletCollision/CollisionShapes/btConcaveShape.h \
+  C:/Users/USER/Desktop/_/Lit-Engine/build/GameBuilder/../../include/../include/bullet3/src/BulletCollision/CollisionShapes/btTriangleCallback.h \
   C:/Users/USER/Desktop/_/Lit-Engine/build/GameBuilder/../../include/bullet3/src/BulletCollision/CollisionShapes/btConvexHullShape.h \
   C:/Users/USER/Desktop/_/Lit-Engine/build/GameBuilder/../../include/bullet3/src/BulletCollision/CollisionShapes/btTriangleMesh.h \
-  C:/Users/USER/Desktop/_/Lit-Engine/build/GameBuilder/../../include/bullet3/src/BulletCollision/CollisionShapes/btTriangleIndexVertexArray.h \
-  C:/Users/USER/Desktop/_/Lit-Engine/build/GameBuilder/../../include/bullet3/src/BulletCollision/CollisionShapes/btStridingMeshInterface.h \
+  C:/Users/USER/Desktop/_/Lit-Engine/build/GameBuilder/../../include/../include/bullet3/src/BulletCollision/CollisionShapes/btTriangleIndexVertexArray.h \
+  C:/Users/USER/Desktop/_/Lit-Engine/build/GameBuilder/../../include/../include/bullet3/src/BulletCollision/CollisionShapes/btStridingMeshInterface.h \
   C:/Users/USER/Desktop/_/Lit-Engine/build/GameBuilder/../../include/bullet3/src/BulletCollision/CollisionShapes/btConvexTriangleMeshShape.h \
   C:/Users/USER/Desktop/_/Lit-Engine/build/GameBuilder/../../include/bullet3/src/BulletCollision/CollisionShapes/btBvhTriangleMeshShape.h \
-  C:/Users/USER/Desktop/_/Lit-Engine/build/GameBuilder/../../include/bullet3/src/BulletCollision/CollisionShapes/btTriangleMeshShape.h \
-  C:/Users/USER/Desktop/_/Lit-Engine/build/GameBuilder/../../include/bullet3/src/BulletCollision/CollisionShapes/btOptimizedBvh.h \
+  C:/Users/USER/Desktop/_/Lit-Engine/build/GameBuilder/../../include/../include/bullet3/src/BulletCollision/CollisionShapes/btTriangleMeshShape.h \
+  C:/Users/USER/Desktop/_/Lit-Engine/build/GameBuilder/../../include/../include/bullet3/src/BulletCollision/CollisionShapes/btOptimizedBvh.h \
   C:/Users/USER/Desktop/_/Lit-Engine/build/GameBuilder/../../include/bullet3/src/BulletCollision/BroadphaseCollision/btQuantizedBvh.h \
-  C:/Users/USER/Desktop/_/Lit-Engine/build/GameBuilder/../../include/bullet3/src/BulletCollision/CollisionShapes/btTriangleInfoMap.h \
+  C:/Users/USER/Desktop/_/Lit-Engine/build/GameBuilder/../../include/../include/bullet3/src/BulletCollision/CollisionShapes/btTriangleInfoMap.h \
   C:/Users/USER/Desktop/_/Lit-Engine/build/GameBuilder/../../include/bullet3/src/LinearMath/btHashMap.h \
   C:/LLVM-MinGW/include/c++/v1/string \
   C:/LLVM-MinGW/include/c++/v1/__ios/fpos.h \
@@ -712,6 +721,8 @@ CMakeFiles/my_program.dir/gameSystem.cpp.obj: \
   C:/Users/USER/Desktop/_/Lit-Engine/build/GameBuilder/../../include/bullet3/src/LinearMath/btSerializer.h \
   C:/LLVM-MinGW/include/memory.h \
   C:/Users/USER/Desktop/_/Lit-Engine/build/GameBuilder/../../include/bullet3/src/BulletCollision/CollisionShapes/btScaledBvhTriangleMeshShape.h \
+  C:/Users/USER/Desktop/_/Lit-Engine/build/GameBuilder/../../include/bullet3/src/BulletCollision/CollisionShapes/btTriangleMeshShape.h \
+  C:/Users/USER/Desktop/_/Lit-Engine/build/GameBuilder/../../include/bullet3/src/BulletCollision/CollisionShapes/btTriangleIndexVertexArray.h \
   C:/Users/USER/Desktop/_/Lit-Engine/build/GameBuilder/../../include/bullet3/src/BulletCollision/CollisionShapes/btCompoundShape.h \
   C:/Users/USER/Desktop/_/Lit-Engine/build/GameBuilder/../../include/bullet3/src/BulletCollision/CollisionShapes/btTetrahedronShape.h \
   C:/Users/USER/Desktop/_/Lit-Engine/build/GameBuilder/../../include/bullet3/src/BulletCollision/CollisionShapes/btEmptyShape.h \
@@ -723,10 +734,12 @@ CMakeFiles/my_program.dir/gameSystem.cpp.obj: \
   C:/Users/USER/Desktop/_/Lit-Engine/build/GameBuilder/../../include/bullet3/src/BulletCollision/CollisionDispatch/btDefaultCollisionConfiguration.h \
   C:/Users/USER/Desktop/_/Lit-Engine/build/GameBuilder/../../include/bullet3/src/BulletCollision/CollisionDispatch/btCollisionConfiguration.h \
   C:/Users/USER/Desktop/_/Lit-Engine/build/GameBuilder/../../include/bullet3/src/BulletCollision/BroadphaseCollision/btSimpleBroadphase.h \
+  C:/Users/USER/Desktop/_/Lit-Engine/build/GameBuilder/../../include/../include/bullet3/src/BulletCollision/BroadphaseCollision/btOverlappingPairCache.h \
   C:/Users/USER/Desktop/_/Lit-Engine/build/GameBuilder/../../include/bullet3/src/BulletCollision/BroadphaseCollision/btAxisSweep3.h \
-  C:/Users/USER/Desktop/_/Lit-Engine/build/GameBuilder/../../include/bullet3/src/BulletCollision/BroadphaseCollision/btDbvtBroadphase.h \
+  C:/Users/USER/Desktop/_/Lit-Engine/build/GameBuilder/../../include/../include/bullet3/src/BulletCollision/BroadphaseCollision/btDbvtBroadphase.h \
   C:/Users/USER/Desktop/_/Lit-Engine/build/GameBuilder/../../include/bullet3/src/BulletCollision/BroadphaseCollision/btDbvt.h \
-  C:/Users/USER/Desktop/_/Lit-Engine/build/GameBuilder/../../include/bullet3/src/BulletCollision/BroadphaseCollision/btAxisSweep3Internal.h \
+  C:/Users/USER/Desktop/_/Lit-Engine/build/GameBuilder/../../include/../include/bullet3/src/BulletCollision/BroadphaseCollision/btAxisSweep3Internal.h \
+  C:/Users/USER/Desktop/_/Lit-Engine/build/GameBuilder/../../include/bullet3/src/BulletCollision/BroadphaseCollision/btDbvtBroadphase.h \
   C:/Users/USER/Desktop/_/Lit-Engine/build/GameBuilder/../../include/bullet3/src/LinearMath/btDefaultMotionState.h \
   C:/Users/USER/Desktop/_/Lit-Engine/build/GameBuilder/../../include/bullet3/src/LinearMath/btQuickprof.h \
   C:/Users/USER/Desktop/_/Lit-Engine/build/GameBuilder/../../include/bullet3/src/LinearMath/btIDebugDraw.h \
@@ -830,186 +843,186 @@ CMakeFiles/my_program.dir/gameSystem.cpp.obj: \
   C:/LLVM-MinGW/include/c++/v1/__filesystem/recursive_directory_iterator.h \
   C:/LLVM-MinGW/include/c++/v1/__filesystem/u8path.h \
   C:/LLVM-MinGW/include/signal.h C:/LLVM-MinGW/include/pthread_signal.h \
-  C:/Users/USER/Desktop/_/Lit-Engine/build/GameBuilder/../../dependencies/include/glm/glm.hpp \
-  C:/Users/USER/Desktop/_/Lit-Engine/build/GameBuilder/../../dependencies/include/glm/detail/_fixes.hpp \
-  C:/Users/USER/Desktop/_/Lit-Engine/build/GameBuilder/../../dependencies/include/glm/detail/setup.hpp \
-  C:/LLVM-MinGW/include/c++/v1/cassert C:/LLVM-MinGW/include/assert.h \
-  C:/Users/USER/Desktop/_/Lit-Engine/build/GameBuilder/../../dependencies/include/glm/detail/../simd/platform.h \
+  C:/Users/USER/Desktop/_/Lit-Engine/build/GameBuilder/../../include/../dependencies/include/glm/glm.hpp \
+  C:/Users/USER/Desktop/_/Lit-Engine/build/GameBuilder/../../include/../dependencies/include/glm/detail/_fixes.hpp \
+  C:/Users/USER/Desktop/_/Lit-Engine/build/GameBuilder/../../include/../dependencies/include/glm/detail/setup.hpp \
+  C:/LLVM-MinGW/include/c++/v1/cassert \
+  C:/Users/USER/Desktop/_/Lit-Engine/build/GameBuilder/../../include/../dependencies/include/glm/detail/../simd/platform.h \
   C:/LLVM-MinGW/include/c++/v1/cfloat \
-  C:/Users/USER/Desktop/_/Lit-Engine/build/GameBuilder/../../dependencies/include/glm/fwd.hpp \
-  C:/Users/USER/Desktop/_/Lit-Engine/build/GameBuilder/../../dependencies/include/glm/detail/qualifier.hpp \
-  C:/Users/USER/Desktop/_/Lit-Engine/build/GameBuilder/../../dependencies/include/glm/vec2.hpp \
-  C:/Users/USER/Desktop/_/Lit-Engine/build/GameBuilder/../../dependencies/include/glm/./ext/vector_bool2.hpp \
-  C:/Users/USER/Desktop/_/Lit-Engine/build/GameBuilder/../../dependencies/include/glm/./ext/../detail/type_vec2.hpp \
-  C:/Users/USER/Desktop/_/Lit-Engine/build/GameBuilder/../../dependencies/include/glm/detail/type_vec2.inl \
-  C:/Users/USER/Desktop/_/Lit-Engine/build/GameBuilder/../../dependencies/include/glm/detail/./compute_vector_relational.hpp \
-  C:/Users/USER/Desktop/_/Lit-Engine/build/GameBuilder/../../dependencies/include/glm/./ext/vector_bool2_precision.hpp \
-  C:/Users/USER/Desktop/_/Lit-Engine/build/GameBuilder/../../dependencies/include/glm/./ext/vector_float2.hpp \
-  C:/Users/USER/Desktop/_/Lit-Engine/build/GameBuilder/../../dependencies/include/glm/./ext/vector_float2_precision.hpp \
-  C:/Users/USER/Desktop/_/Lit-Engine/build/GameBuilder/../../dependencies/include/glm/./ext/vector_double2.hpp \
-  C:/Users/USER/Desktop/_/Lit-Engine/build/GameBuilder/../../dependencies/include/glm/./ext/vector_double2_precision.hpp \
-  C:/Users/USER/Desktop/_/Lit-Engine/build/GameBuilder/../../dependencies/include/glm/./ext/vector_int2.hpp \
-  C:/Users/USER/Desktop/_/Lit-Engine/build/GameBuilder/../../dependencies/include/glm/./ext/vector_int2_sized.hpp \
-  C:/Users/USER/Desktop/_/Lit-Engine/build/GameBuilder/../../dependencies/include/glm/./ext/../ext/vector_int2.hpp \
-  C:/Users/USER/Desktop/_/Lit-Engine/build/GameBuilder/../../dependencies/include/glm/./ext/../ext/scalar_int_sized.hpp \
-  C:/Users/USER/Desktop/_/Lit-Engine/build/GameBuilder/../../dependencies/include/glm/./ext/../detail/setup.hpp \
-  C:/Users/USER/Desktop/_/Lit-Engine/build/GameBuilder/../../dependencies/include/glm/./ext/vector_uint2.hpp \
-  C:/Users/USER/Desktop/_/Lit-Engine/build/GameBuilder/../../dependencies/include/glm/./ext/vector_uint2_sized.hpp \
-  C:/Users/USER/Desktop/_/Lit-Engine/build/GameBuilder/../../dependencies/include/glm/./ext/../ext/vector_uint2.hpp \
-  C:/Users/USER/Desktop/_/Lit-Engine/build/GameBuilder/../../dependencies/include/glm/./ext/../ext/scalar_uint_sized.hpp \
-  C:/Users/USER/Desktop/_/Lit-Engine/build/GameBuilder/../../dependencies/include/glm/vec3.hpp \
-  C:/Users/USER/Desktop/_/Lit-Engine/build/GameBuilder/../../dependencies/include/glm/./ext/vector_bool3.hpp \
-  C:/Users/USER/Desktop/_/Lit-Engine/build/GameBuilder/../../dependencies/include/glm/./ext/../detail/type_vec3.hpp \
-  C:/Users/USER/Desktop/_/Lit-Engine/build/GameBuilder/../../dependencies/include/glm/detail/type_vec3.inl \
-  C:/Users/USER/Desktop/_/Lit-Engine/build/GameBuilder/../../dependencies/include/glm/detail/compute_vector_relational.hpp \
-  C:/Users/USER/Desktop/_/Lit-Engine/build/GameBuilder/../../dependencies/include/glm/./ext/vector_bool3_precision.hpp \
-  C:/Users/USER/Desktop/_/Lit-Engine/build/GameBuilder/../../dependencies/include/glm/./ext/vector_float3.hpp \
-  C:/Users/USER/Desktop/_/Lit-Engine/build/GameBuilder/../../dependencies/include/glm/./ext/vector_float3_precision.hpp \
-  C:/Users/USER/Desktop/_/Lit-Engine/build/GameBuilder/../../dependencies/include/glm/./ext/vector_double3.hpp \
-  C:/Users/USER/Desktop/_/Lit-Engine/build/GameBuilder/../../dependencies/include/glm/./ext/vector_double3_precision.hpp \
-  C:/Users/USER/Desktop/_/Lit-Engine/build/GameBuilder/../../dependencies/include/glm/./ext/vector_int3.hpp \
-  C:/Users/USER/Desktop/_/Lit-Engine/build/GameBuilder/../../dependencies/include/glm/./ext/vector_int3_sized.hpp \
-  C:/Users/USER/Desktop/_/Lit-Engine/build/GameBuilder/../../dependencies/include/glm/./ext/../ext/vector_int3.hpp \
-  C:/Users/USER/Desktop/_/Lit-Engine/build/GameBuilder/../../dependencies/include/glm/./ext/vector_uint3.hpp \
-  C:/Users/USER/Desktop/_/Lit-Engine/build/GameBuilder/../../dependencies/include/glm/./ext/vector_uint3_sized.hpp \
-  C:/Users/USER/Desktop/_/Lit-Engine/build/GameBuilder/../../dependencies/include/glm/./ext/../ext/vector_uint3.hpp \
-  C:/Users/USER/Desktop/_/Lit-Engine/build/GameBuilder/../../dependencies/include/glm/vec4.hpp \
-  C:/Users/USER/Desktop/_/Lit-Engine/build/GameBuilder/../../dependencies/include/glm/./ext/vector_bool4.hpp \
-  C:/Users/USER/Desktop/_/Lit-Engine/build/GameBuilder/../../dependencies/include/glm/./ext/../detail/type_vec4.hpp \
-  C:/Users/USER/Desktop/_/Lit-Engine/build/GameBuilder/../../dependencies/include/glm/detail/type_vec4.inl \
-  C:/Users/USER/Desktop/_/Lit-Engine/build/GameBuilder/../../dependencies/include/glm/./ext/vector_bool4_precision.hpp \
-  C:/Users/USER/Desktop/_/Lit-Engine/build/GameBuilder/../../dependencies/include/glm/./ext/vector_float4.hpp \
-  C:/Users/USER/Desktop/_/Lit-Engine/build/GameBuilder/../../dependencies/include/glm/./ext/vector_float4_precision.hpp \
-  C:/Users/USER/Desktop/_/Lit-Engine/build/GameBuilder/../../dependencies/include/glm/./ext/vector_double4.hpp \
-  C:/Users/USER/Desktop/_/Lit-Engine/build/GameBuilder/../../dependencies/include/glm/./ext/vector_double4_precision.hpp \
-  C:/Users/USER/Desktop/_/Lit-Engine/build/GameBuilder/../../dependencies/include/glm/./ext/vector_int4.hpp \
-  C:/Users/USER/Desktop/_/Lit-Engine/build/GameBuilder/../../dependencies/include/glm/./ext/vector_int4_sized.hpp \
-  C:/Users/USER/Desktop/_/Lit-Engine/build/GameBuilder/../../dependencies/include/glm/./ext/../ext/vector_int4.hpp \
-  C:/Users/USER/Desktop/_/Lit-Engine/build/GameBuilder/../../dependencies/include/glm/./ext/vector_uint4.hpp \
-  C:/Users/USER/Desktop/_/Lit-Engine/build/GameBuilder/../../dependencies/include/glm/./ext/vector_uint4_sized.hpp \
-  C:/Users/USER/Desktop/_/Lit-Engine/build/GameBuilder/../../dependencies/include/glm/./ext/../ext/vector_uint4.hpp \
-  C:/Users/USER/Desktop/_/Lit-Engine/build/GameBuilder/../../dependencies/include/glm/mat2x2.hpp \
-  C:/Users/USER/Desktop/_/Lit-Engine/build/GameBuilder/../../dependencies/include/glm/./ext/matrix_double2x2.hpp \
-  C:/Users/USER/Desktop/_/Lit-Engine/build/GameBuilder/../../dependencies/include/glm/./ext/../detail/type_mat2x2.hpp \
-  C:/Users/USER/Desktop/_/Lit-Engine/build/GameBuilder/../../dependencies/include/glm/detail/type_vec2.hpp \
-  C:/Users/USER/Desktop/_/Lit-Engine/build/GameBuilder/../../dependencies/include/glm/detail/type_mat2x2.inl \
-  C:/Users/USER/Desktop/_/Lit-Engine/build/GameBuilder/../../dependencies/include/glm/detail/../matrix.hpp \
-  C:/Users/USER/Desktop/_/Lit-Engine/build/GameBuilder/../../dependencies/include/glm/mat2x3.hpp \
-  C:/Users/USER/Desktop/_/Lit-Engine/build/GameBuilder/../../dependencies/include/glm/./ext/matrix_double2x3.hpp \
-  C:/Users/USER/Desktop/_/Lit-Engine/build/GameBuilder/../../dependencies/include/glm/./ext/../detail/type_mat2x3.hpp \
-  C:/Users/USER/Desktop/_/Lit-Engine/build/GameBuilder/../../dependencies/include/glm/detail/type_vec3.hpp \
-  C:/Users/USER/Desktop/_/Lit-Engine/build/GameBuilder/../../dependencies/include/glm/detail/type_mat2x3.inl \
-  C:/Users/USER/Desktop/_/Lit-Engine/build/GameBuilder/../../dependencies/include/glm/./ext/matrix_double2x3_precision.hpp \
-  C:/Users/USER/Desktop/_/Lit-Engine/build/GameBuilder/../../dependencies/include/glm/./ext/matrix_float2x3.hpp \
-  C:/Users/USER/Desktop/_/Lit-Engine/build/GameBuilder/../../dependencies/include/glm/./ext/matrix_float2x3_precision.hpp \
-  C:/Users/USER/Desktop/_/Lit-Engine/build/GameBuilder/../../dependencies/include/glm/mat2x4.hpp \
-  C:/Users/USER/Desktop/_/Lit-Engine/build/GameBuilder/../../dependencies/include/glm/./ext/matrix_double2x4.hpp \
-  C:/Users/USER/Desktop/_/Lit-Engine/build/GameBuilder/../../dependencies/include/glm/./ext/../detail/type_mat2x4.hpp \
-  C:/Users/USER/Desktop/_/Lit-Engine/build/GameBuilder/../../dependencies/include/glm/detail/type_vec4.hpp \
-  C:/Users/USER/Desktop/_/Lit-Engine/build/GameBuilder/../../dependencies/include/glm/detail/type_mat2x4.inl \
-  C:/Users/USER/Desktop/_/Lit-Engine/build/GameBuilder/../../dependencies/include/glm/./ext/matrix_double2x4_precision.hpp \
-  C:/Users/USER/Desktop/_/Lit-Engine/build/GameBuilder/../../dependencies/include/glm/./ext/matrix_float2x4.hpp \
-  C:/Users/USER/Desktop/_/Lit-Engine/build/GameBuilder/../../dependencies/include/glm/./ext/matrix_float2x4_precision.hpp \
-  C:/Users/USER/Desktop/_/Lit-Engine/build/GameBuilder/../../dependencies/include/glm/mat3x2.hpp \
-  C:/Users/USER/Desktop/_/Lit-Engine/build/GameBuilder/../../dependencies/include/glm/./ext/matrix_double3x2.hpp \
-  C:/Users/USER/Desktop/_/Lit-Engine/build/GameBuilder/../../dependencies/include/glm/./ext/../detail/type_mat3x2.hpp \
-  C:/Users/USER/Desktop/_/Lit-Engine/build/GameBuilder/../../dependencies/include/glm/detail/type_mat3x2.inl \
-  C:/Users/USER/Desktop/_/Lit-Engine/build/GameBuilder/../../dependencies/include/glm/./ext/matrix_double3x2_precision.hpp \
-  C:/Users/USER/Desktop/_/Lit-Engine/build/GameBuilder/../../dependencies/include/glm/./ext/matrix_float3x2.hpp \
-  C:/Users/USER/Desktop/_/Lit-Engine/build/GameBuilder/../../dependencies/include/glm/./ext/matrix_float3x2_precision.hpp \
-  C:/Users/USER/Desktop/_/Lit-Engine/build/GameBuilder/../../dependencies/include/glm/mat3x3.hpp \
-  C:/Users/USER/Desktop/_/Lit-Engine/build/GameBuilder/../../dependencies/include/glm/./ext/matrix_double3x3.hpp \
-  C:/Users/USER/Desktop/_/Lit-Engine/build/GameBuilder/../../dependencies/include/glm/./ext/../detail/type_mat3x3.hpp \
-  C:/Users/USER/Desktop/_/Lit-Engine/build/GameBuilder/../../dependencies/include/glm/detail/type_mat3x3.inl \
-  C:/Users/USER/Desktop/_/Lit-Engine/build/GameBuilder/../../dependencies/include/glm/./ext/matrix_double3x3_precision.hpp \
-  C:/Users/USER/Desktop/_/Lit-Engine/build/GameBuilder/../../dependencies/include/glm/./ext/matrix_float3x3.hpp \
-  C:/Users/USER/Desktop/_/Lit-Engine/build/GameBuilder/../../dependencies/include/glm/./ext/matrix_float3x3_precision.hpp \
-  C:/Users/USER/Desktop/_/Lit-Engine/build/GameBuilder/../../dependencies/include/glm/mat3x4.hpp \
-  C:/Users/USER/Desktop/_/Lit-Engine/build/GameBuilder/../../dependencies/include/glm/./ext/matrix_double3x4.hpp \
-  C:/Users/USER/Desktop/_/Lit-Engine/build/GameBuilder/../../dependencies/include/glm/./ext/../detail/type_mat3x4.hpp \
-  C:/Users/USER/Desktop/_/Lit-Engine/build/GameBuilder/../../dependencies/include/glm/detail/type_mat3x4.inl \
-  C:/Users/USER/Desktop/_/Lit-Engine/build/GameBuilder/../../dependencies/include/glm/./ext/matrix_double3x4_precision.hpp \
-  C:/Users/USER/Desktop/_/Lit-Engine/build/GameBuilder/../../dependencies/include/glm/./ext/matrix_float3x4.hpp \
-  C:/Users/USER/Desktop/_/Lit-Engine/build/GameBuilder/../../dependencies/include/glm/./ext/matrix_float3x4_precision.hpp \
-  C:/Users/USER/Desktop/_/Lit-Engine/build/GameBuilder/../../dependencies/include/glm/mat4x2.hpp \
-  C:/Users/USER/Desktop/_/Lit-Engine/build/GameBuilder/../../dependencies/include/glm/./ext/matrix_double4x2.hpp \
-  C:/Users/USER/Desktop/_/Lit-Engine/build/GameBuilder/../../dependencies/include/glm/./ext/../detail/type_mat4x2.hpp \
-  C:/Users/USER/Desktop/_/Lit-Engine/build/GameBuilder/../../dependencies/include/glm/detail/type_mat4x2.inl \
-  C:/Users/USER/Desktop/_/Lit-Engine/build/GameBuilder/../../dependencies/include/glm/./ext/matrix_double4x2_precision.hpp \
-  C:/Users/USER/Desktop/_/Lit-Engine/build/GameBuilder/../../dependencies/include/glm/./ext/matrix_float4x2.hpp \
-  C:/Users/USER/Desktop/_/Lit-Engine/build/GameBuilder/../../dependencies/include/glm/./ext/matrix_float4x2_precision.hpp \
-  C:/Users/USER/Desktop/_/Lit-Engine/build/GameBuilder/../../dependencies/include/glm/mat4x3.hpp \
-  C:/Users/USER/Desktop/_/Lit-Engine/build/GameBuilder/../../dependencies/include/glm/./ext/matrix_double4x3.hpp \
-  C:/Users/USER/Desktop/_/Lit-Engine/build/GameBuilder/../../dependencies/include/glm/./ext/../detail/type_mat4x3.hpp \
-  C:/Users/USER/Desktop/_/Lit-Engine/build/GameBuilder/../../dependencies/include/glm/detail/type_mat4x3.inl \
-  C:/Users/USER/Desktop/_/Lit-Engine/build/GameBuilder/../../dependencies/include/glm/./ext/matrix_double4x3_precision.hpp \
-  C:/Users/USER/Desktop/_/Lit-Engine/build/GameBuilder/../../dependencies/include/glm/./ext/matrix_float4x3.hpp \
-  C:/Users/USER/Desktop/_/Lit-Engine/build/GameBuilder/../../dependencies/include/glm/./ext/matrix_float4x3_precision.hpp \
-  C:/Users/USER/Desktop/_/Lit-Engine/build/GameBuilder/../../dependencies/include/glm/mat4x4.hpp \
-  C:/Users/USER/Desktop/_/Lit-Engine/build/GameBuilder/../../dependencies/include/glm/./ext/matrix_double4x4.hpp \
-  C:/Users/USER/Desktop/_/Lit-Engine/build/GameBuilder/../../dependencies/include/glm/./ext/../detail/type_mat4x4.hpp \
-  C:/Users/USER/Desktop/_/Lit-Engine/build/GameBuilder/../../dependencies/include/glm/detail/type_mat4x4.inl \
-  C:/Users/USER/Desktop/_/Lit-Engine/build/GameBuilder/../../dependencies/include/glm/./ext/matrix_double4x4_precision.hpp \
-  C:/Users/USER/Desktop/_/Lit-Engine/build/GameBuilder/../../dependencies/include/glm/./ext/matrix_float4x4.hpp \
-  C:/Users/USER/Desktop/_/Lit-Engine/build/GameBuilder/../../dependencies/include/glm/./ext/matrix_float4x4_precision.hpp \
-  C:/Users/USER/Desktop/_/Lit-Engine/build/GameBuilder/../../dependencies/include/glm/detail/func_matrix.inl \
-  C:/Users/USER/Desktop/_/Lit-Engine/build/GameBuilder/../../dependencies/include/glm/detail/../geometric.hpp \
-  C:/Users/USER/Desktop/_/Lit-Engine/build/GameBuilder/../../dependencies/include/glm/detail/func_geometric.inl \
-  C:/Users/USER/Desktop/_/Lit-Engine/build/GameBuilder/../../dependencies/include/glm/detail/../exponential.hpp \
-  C:/Users/USER/Desktop/_/Lit-Engine/build/GameBuilder/../../dependencies/include/glm/detail/type_vec1.hpp \
-  C:/Users/USER/Desktop/_/Lit-Engine/build/GameBuilder/../../dependencies/include/glm/detail/type_vec1.inl \
-  C:/Users/USER/Desktop/_/Lit-Engine/build/GameBuilder/../../dependencies/include/glm/detail/func_exponential.inl \
-  C:/Users/USER/Desktop/_/Lit-Engine/build/GameBuilder/../../dependencies/include/glm/detail/../vector_relational.hpp \
-  C:/Users/USER/Desktop/_/Lit-Engine/build/GameBuilder/../../dependencies/include/glm/detail/func_vector_relational.inl \
-  C:/Users/USER/Desktop/_/Lit-Engine/build/GameBuilder/../../dependencies/include/glm/detail/_vectorize.hpp \
-  C:/Users/USER/Desktop/_/Lit-Engine/build/GameBuilder/../../dependencies/include/glm/detail/../common.hpp \
-  C:/Users/USER/Desktop/_/Lit-Engine/build/GameBuilder/../../dependencies/include/glm/detail/func_common.inl \
-  C:/Users/USER/Desktop/_/Lit-Engine/build/GameBuilder/../../dependencies/include/glm/detail/compute_common.hpp \
-  C:/Users/USER/Desktop/_/Lit-Engine/build/GameBuilder/../../dependencies/include/glm/./ext/matrix_double2x2_precision.hpp \
-  C:/Users/USER/Desktop/_/Lit-Engine/build/GameBuilder/../../dependencies/include/glm/./ext/matrix_float2x2.hpp \
-  C:/Users/USER/Desktop/_/Lit-Engine/build/GameBuilder/../../dependencies/include/glm/./ext/matrix_float2x2_precision.hpp \
-  C:/Users/USER/Desktop/_/Lit-Engine/build/GameBuilder/../../dependencies/include/glm/trigonometric.hpp \
-  C:/Users/USER/Desktop/_/Lit-Engine/build/GameBuilder/../../dependencies/include/glm/detail/func_trigonometric.inl \
-  C:/Users/USER/Desktop/_/Lit-Engine/build/GameBuilder/../../dependencies/include/glm/exponential.hpp \
-  C:/Users/USER/Desktop/_/Lit-Engine/build/GameBuilder/../../dependencies/include/glm/common.hpp \
-  C:/Users/USER/Desktop/_/Lit-Engine/build/GameBuilder/../../dependencies/include/glm/packing.hpp \
-  C:/Users/USER/Desktop/_/Lit-Engine/build/GameBuilder/../../dependencies/include/glm/detail/func_packing.inl \
-  C:/Users/USER/Desktop/_/Lit-Engine/build/GameBuilder/../../dependencies/include/glm/detail/type_half.hpp \
-  C:/Users/USER/Desktop/_/Lit-Engine/build/GameBuilder/../../dependencies/include/glm/detail/type_half.inl \
-  C:/Users/USER/Desktop/_/Lit-Engine/build/GameBuilder/../../dependencies/include/glm/geometric.hpp \
-  C:/Users/USER/Desktop/_/Lit-Engine/build/GameBuilder/../../dependencies/include/glm/matrix.hpp \
-  C:/Users/USER/Desktop/_/Lit-Engine/build/GameBuilder/../../dependencies/include/glm/vector_relational.hpp \
-  C:/Users/USER/Desktop/_/Lit-Engine/build/GameBuilder/../../dependencies/include/glm/integer.hpp \
-  C:/Users/USER/Desktop/_/Lit-Engine/build/GameBuilder/../../dependencies/include/glm/detail/func_integer.inl \
-  C:/Users/USER/Desktop/_/Lit-Engine/build/GameBuilder/../../dependencies/include/glm/gtc/matrix_transform.hpp \
-  C:/Users/USER/Desktop/_/Lit-Engine/build/GameBuilder/../../dependencies/include/glm/gtc/../mat4x4.hpp \
-  C:/Users/USER/Desktop/_/Lit-Engine/build/GameBuilder/../../dependencies/include/glm/gtc/../vec2.hpp \
-  C:/Users/USER/Desktop/_/Lit-Engine/build/GameBuilder/../../dependencies/include/glm/gtc/../vec3.hpp \
-  C:/Users/USER/Desktop/_/Lit-Engine/build/GameBuilder/../../dependencies/include/glm/gtc/../vec4.hpp \
-  C:/Users/USER/Desktop/_/Lit-Engine/build/GameBuilder/../../dependencies/include/glm/gtc/../ext/matrix_projection.hpp \
-  C:/Users/USER/Desktop/_/Lit-Engine/build/GameBuilder/../../dependencies/include/glm/./ext/../gtc/constants.hpp \
-  C:/Users/USER/Desktop/_/Lit-Engine/build/GameBuilder/../../dependencies/include/glm/gtc/../ext/scalar_constants.hpp \
-  C:/Users/USER/Desktop/_/Lit-Engine/build/GameBuilder/../../dependencies/include/glm/./ext/scalar_constants.inl \
-  C:/Users/USER/Desktop/_/Lit-Engine/build/GameBuilder/../../dependencies/include/glm/gtc/constants.inl \
-  C:/Users/USER/Desktop/_/Lit-Engine/build/GameBuilder/../../dependencies/include/glm/./ext/../geometric.hpp \
-  C:/Users/USER/Desktop/_/Lit-Engine/build/GameBuilder/../../dependencies/include/glm/./ext/../trigonometric.hpp \
-  C:/Users/USER/Desktop/_/Lit-Engine/build/GameBuilder/../../dependencies/include/glm/./ext/../matrix.hpp \
-  C:/Users/USER/Desktop/_/Lit-Engine/build/GameBuilder/../../dependencies/include/glm/./ext/matrix_projection.inl \
-  C:/Users/USER/Desktop/_/Lit-Engine/build/GameBuilder/../../dependencies/include/glm/gtc/../ext/matrix_clip_space.hpp \
-  C:/Users/USER/Desktop/_/Lit-Engine/build/GameBuilder/../../dependencies/include/glm/./ext/../ext/scalar_constants.hpp \
-  C:/Users/USER/Desktop/_/Lit-Engine/build/GameBuilder/../../dependencies/include/glm/./ext/matrix_clip_space.inl \
-  C:/Users/USER/Desktop/_/Lit-Engine/build/GameBuilder/../../dependencies/include/glm/gtc/../ext/matrix_transform.hpp \
-  C:/Users/USER/Desktop/_/Lit-Engine/build/GameBuilder/../../dependencies/include/glm/./ext/matrix_transform.inl \
-  C:/Users/USER/Desktop/_/Lit-Engine/build/GameBuilder/../../dependencies/include/glm/gtc/matrix_transform.inl \
-  C:/Users/USER/Desktop/_/Lit-Engine/build/GameBuilder/../../dependencies/include/glm/gtc/../geometric.hpp \
-  C:/Users/USER/Desktop/_/Lit-Engine/build/GameBuilder/../../dependencies/include/glm/gtc/../trigonometric.hpp \
-  C:/Users/USER/Desktop/_/Lit-Engine/build/GameBuilder/../../dependencies/include/glm/gtc/../matrix.hpp \
+  C:/Users/USER/Desktop/_/Lit-Engine/build/GameBuilder/../../include/../dependencies/include/glm/fwd.hpp \
+  C:/Users/USER/Desktop/_/Lit-Engine/build/GameBuilder/../../include/../dependencies/include/glm/detail/qualifier.hpp \
+  C:/Users/USER/Desktop/_/Lit-Engine/build/GameBuilder/../../include/../dependencies/include/glm/vec2.hpp \
+  C:/Users/USER/Desktop/_/Lit-Engine/build/GameBuilder/../../include/../dependencies/include/glm/./ext/vector_bool2.hpp \
+  C:/Users/USER/Desktop/_/Lit-Engine/build/GameBuilder/../../include/../dependencies/include/glm/./ext/../detail/type_vec2.hpp \
+  C:/Users/USER/Desktop/_/Lit-Engine/build/GameBuilder/../../include/../dependencies/include/glm/detail/type_vec2.inl \
+  C:/Users/USER/Desktop/_/Lit-Engine/build/GameBuilder/../../include/../dependencies/include/glm/detail/./compute_vector_relational.hpp \
+  C:/Users/USER/Desktop/_/Lit-Engine/build/GameBuilder/../../include/../dependencies/include/glm/./ext/vector_bool2_precision.hpp \
+  C:/Users/USER/Desktop/_/Lit-Engine/build/GameBuilder/../../include/../dependencies/include/glm/./ext/vector_float2.hpp \
+  C:/Users/USER/Desktop/_/Lit-Engine/build/GameBuilder/../../include/../dependencies/include/glm/./ext/vector_float2_precision.hpp \
+  C:/Users/USER/Desktop/_/Lit-Engine/build/GameBuilder/../../include/../dependencies/include/glm/./ext/vector_double2.hpp \
+  C:/Users/USER/Desktop/_/Lit-Engine/build/GameBuilder/../../include/../dependencies/include/glm/./ext/vector_double2_precision.hpp \
+  C:/Users/USER/Desktop/_/Lit-Engine/build/GameBuilder/../../include/../dependencies/include/glm/./ext/vector_int2.hpp \
+  C:/Users/USER/Desktop/_/Lit-Engine/build/GameBuilder/../../include/../dependencies/include/glm/./ext/vector_int2_sized.hpp \
+  C:/Users/USER/Desktop/_/Lit-Engine/build/GameBuilder/../../include/../dependencies/include/glm/./ext/../ext/vector_int2.hpp \
+  C:/Users/USER/Desktop/_/Lit-Engine/build/GameBuilder/../../include/../dependencies/include/glm/./ext/../ext/scalar_int_sized.hpp \
+  C:/Users/USER/Desktop/_/Lit-Engine/build/GameBuilder/../../include/../dependencies/include/glm/./ext/../detail/setup.hpp \
+  C:/Users/USER/Desktop/_/Lit-Engine/build/GameBuilder/../../include/../dependencies/include/glm/./ext/vector_uint2.hpp \
+  C:/Users/USER/Desktop/_/Lit-Engine/build/GameBuilder/../../include/../dependencies/include/glm/./ext/vector_uint2_sized.hpp \
+  C:/Users/USER/Desktop/_/Lit-Engine/build/GameBuilder/../../include/../dependencies/include/glm/./ext/../ext/vector_uint2.hpp \
+  C:/Users/USER/Desktop/_/Lit-Engine/build/GameBuilder/../../include/../dependencies/include/glm/./ext/../ext/scalar_uint_sized.hpp \
+  C:/Users/USER/Desktop/_/Lit-Engine/build/GameBuilder/../../include/../dependencies/include/glm/vec3.hpp \
+  C:/Users/USER/Desktop/_/Lit-Engine/build/GameBuilder/../../include/../dependencies/include/glm/./ext/vector_bool3.hpp \
+  C:/Users/USER/Desktop/_/Lit-Engine/build/GameBuilder/../../include/../dependencies/include/glm/./ext/../detail/type_vec3.hpp \
+  C:/Users/USER/Desktop/_/Lit-Engine/build/GameBuilder/../../include/../dependencies/include/glm/detail/type_vec3.inl \
+  C:/Users/USER/Desktop/_/Lit-Engine/build/GameBuilder/../../include/../dependencies/include/glm/detail/compute_vector_relational.hpp \
+  C:/Users/USER/Desktop/_/Lit-Engine/build/GameBuilder/../../include/../dependencies/include/glm/./ext/vector_bool3_precision.hpp \
+  C:/Users/USER/Desktop/_/Lit-Engine/build/GameBuilder/../../include/../dependencies/include/glm/./ext/vector_float3.hpp \
+  C:/Users/USER/Desktop/_/Lit-Engine/build/GameBuilder/../../include/../dependencies/include/glm/./ext/vector_float3_precision.hpp \
+  C:/Users/USER/Desktop/_/Lit-Engine/build/GameBuilder/../../include/../dependencies/include/glm/./ext/vector_double3.hpp \
+  C:/Users/USER/Desktop/_/Lit-Engine/build/GameBuilder/../../include/../dependencies/include/glm/./ext/vector_double3_precision.hpp \
+  C:/Users/USER/Desktop/_/Lit-Engine/build/GameBuilder/../../include/../dependencies/include/glm/./ext/vector_int3.hpp \
+  C:/Users/USER/Desktop/_/Lit-Engine/build/GameBuilder/../../include/../dependencies/include/glm/./ext/vector_int3_sized.hpp \
+  C:/Users/USER/Desktop/_/Lit-Engine/build/GameBuilder/../../include/../dependencies/include/glm/./ext/../ext/vector_int3.hpp \
+  C:/Users/USER/Desktop/_/Lit-Engine/build/GameBuilder/../../include/../dependencies/include/glm/./ext/vector_uint3.hpp \
+  C:/Users/USER/Desktop/_/Lit-Engine/build/GameBuilder/../../include/../dependencies/include/glm/./ext/vector_uint3_sized.hpp \
+  C:/Users/USER/Desktop/_/Lit-Engine/build/GameBuilder/../../include/../dependencies/include/glm/./ext/../ext/vector_uint3.hpp \
+  C:/Users/USER/Desktop/_/Lit-Engine/build/GameBuilder/../../include/../dependencies/include/glm/vec4.hpp \
+  C:/Users/USER/Desktop/_/Lit-Engine/build/GameBuilder/../../include/../dependencies/include/glm/./ext/vector_bool4.hpp \
+  C:/Users/USER/Desktop/_/Lit-Engine/build/GameBuilder/../../include/../dependencies/include/glm/./ext/../detail/type_vec4.hpp \
+  C:/Users/USER/Desktop/_/Lit-Engine/build/GameBuilder/../../include/../dependencies/include/glm/detail/type_vec4.inl \
+  C:/Users/USER/Desktop/_/Lit-Engine/build/GameBuilder/../../include/../dependencies/include/glm/./ext/vector_bool4_precision.hpp \
+  C:/Users/USER/Desktop/_/Lit-Engine/build/GameBuilder/../../include/../dependencies/include/glm/./ext/vector_float4.hpp \
+  C:/Users/USER/Desktop/_/Lit-Engine/build/GameBuilder/../../include/../dependencies/include/glm/./ext/vector_float4_precision.hpp \
+  C:/Users/USER/Desktop/_/Lit-Engine/build/GameBuilder/../../include/../dependencies/include/glm/./ext/vector_double4.hpp \
+  C:/Users/USER/Desktop/_/Lit-Engine/build/GameBuilder/../../include/../dependencies/include/glm/./ext/vector_double4_precision.hpp \
+  C:/Users/USER/Desktop/_/Lit-Engine/build/GameBuilder/../../include/../dependencies/include/glm/./ext/vector_int4.hpp \
+  C:/Users/USER/Desktop/_/Lit-Engine/build/GameBuilder/../../include/../dependencies/include/glm/./ext/vector_int4_sized.hpp \
+  C:/Users/USER/Desktop/_/Lit-Engine/build/GameBuilder/../../include/../dependencies/include/glm/./ext/../ext/vector_int4.hpp \
+  C:/Users/USER/Desktop/_/Lit-Engine/build/GameBuilder/../../include/../dependencies/include/glm/./ext/vector_uint4.hpp \
+  C:/Users/USER/Desktop/_/Lit-Engine/build/GameBuilder/../../include/../dependencies/include/glm/./ext/vector_uint4_sized.hpp \
+  C:/Users/USER/Desktop/_/Lit-Engine/build/GameBuilder/../../include/../dependencies/include/glm/./ext/../ext/vector_uint4.hpp \
+  C:/Users/USER/Desktop/_/Lit-Engine/build/GameBuilder/../../include/../dependencies/include/glm/mat2x2.hpp \
+  C:/Users/USER/Desktop/_/Lit-Engine/build/GameBuilder/../../include/../dependencies/include/glm/./ext/matrix_double2x2.hpp \
+  C:/Users/USER/Desktop/_/Lit-Engine/build/GameBuilder/../../include/../dependencies/include/glm/./ext/../detail/type_mat2x2.hpp \
+  C:/Users/USER/Desktop/_/Lit-Engine/build/GameBuilder/../../include/../dependencies/include/glm/detail/type_vec2.hpp \
+  C:/Users/USER/Desktop/_/Lit-Engine/build/GameBuilder/../../include/../dependencies/include/glm/detail/type_mat2x2.inl \
+  C:/Users/USER/Desktop/_/Lit-Engine/build/GameBuilder/../../include/../dependencies/include/glm/detail/../matrix.hpp \
+  C:/Users/USER/Desktop/_/Lit-Engine/build/GameBuilder/../../include/../dependencies/include/glm/mat2x3.hpp \
+  C:/Users/USER/Desktop/_/Lit-Engine/build/GameBuilder/../../include/../dependencies/include/glm/./ext/matrix_double2x3.hpp \
+  C:/Users/USER/Desktop/_/Lit-Engine/build/GameBuilder/../../include/../dependencies/include/glm/./ext/../detail/type_mat2x3.hpp \
+  C:/Users/USER/Desktop/_/Lit-Engine/build/GameBuilder/../../include/../dependencies/include/glm/detail/type_vec3.hpp \
+  C:/Users/USER/Desktop/_/Lit-Engine/build/GameBuilder/../../include/../dependencies/include/glm/detail/type_mat2x3.inl \
+  C:/Users/USER/Desktop/_/Lit-Engine/build/GameBuilder/../../include/../dependencies/include/glm/./ext/matrix_double2x3_precision.hpp \
+  C:/Users/USER/Desktop/_/Lit-Engine/build/GameBuilder/../../include/../dependencies/include/glm/./ext/matrix_float2x3.hpp \
+  C:/Users/USER/Desktop/_/Lit-Engine/build/GameBuilder/../../include/../dependencies/include/glm/./ext/matrix_float2x3_precision.hpp \
+  C:/Users/USER/Desktop/_/Lit-Engine/build/GameBuilder/../../include/../dependencies/include/glm/mat2x4.hpp \
+  C:/Users/USER/Desktop/_/Lit-Engine/build/GameBuilder/../../include/../dependencies/include/glm/./ext/matrix_double2x4.hpp \
+  C:/Users/USER/Desktop/_/Lit-Engine/build/GameBuilder/../../include/../dependencies/include/glm/./ext/../detail/type_mat2x4.hpp \
+  C:/Users/USER/Desktop/_/Lit-Engine/build/GameBuilder/../../include/../dependencies/include/glm/detail/type_vec4.hpp \
+  C:/Users/USER/Desktop/_/Lit-Engine/build/GameBuilder/../../include/../dependencies/include/glm/detail/type_mat2x4.inl \
+  C:/Users/USER/Desktop/_/Lit-Engine/build/GameBuilder/../../include/../dependencies/include/glm/./ext/matrix_double2x4_precision.hpp \
+  C:/Users/USER/Desktop/_/Lit-Engine/build/GameBuilder/../../include/../dependencies/include/glm/./ext/matrix_float2x4.hpp \
+  C:/Users/USER/Desktop/_/Lit-Engine/build/GameBuilder/../../include/../dependencies/include/glm/./ext/matrix_float2x4_precision.hpp \
+  C:/Users/USER/Desktop/_/Lit-Engine/build/GameBuilder/../../include/../dependencies/include/glm/mat3x2.hpp \
+  C:/Users/USER/Desktop/_/Lit-Engine/build/GameBuilder/../../include/../dependencies/include/glm/./ext/matrix_double3x2.hpp \
+  C:/Users/USER/Desktop/_/Lit-Engine/build/GameBuilder/../../include/../dependencies/include/glm/./ext/../detail/type_mat3x2.hpp \
+  C:/Users/USER/Desktop/_/Lit-Engine/build/GameBuilder/../../include/../dependencies/include/glm/detail/type_mat3x2.inl \
+  C:/Users/USER/Desktop/_/Lit-Engine/build/GameBuilder/../../include/../dependencies/include/glm/./ext/matrix_double3x2_precision.hpp \
+  C:/Users/USER/Desktop/_/Lit-Engine/build/GameBuilder/../../include/../dependencies/include/glm/./ext/matrix_float3x2.hpp \
+  C:/Users/USER/Desktop/_/Lit-Engine/build/GameBuilder/../../include/../dependencies/include/glm/./ext/matrix_float3x2_precision.hpp \
+  C:/Users/USER/Desktop/_/Lit-Engine/build/GameBuilder/../../include/../dependencies/include/glm/mat3x3.hpp \
+  C:/Users/USER/Desktop/_/Lit-Engine/build/GameBuilder/../../include/../dependencies/include/glm/./ext/matrix_double3x3.hpp \
+  C:/Users/USER/Desktop/_/Lit-Engine/build/GameBuilder/../../include/../dependencies/include/glm/./ext/../detail/type_mat3x3.hpp \
+  C:/Users/USER/Desktop/_/Lit-Engine/build/GameBuilder/../../include/../dependencies/include/glm/detail/type_mat3x3.inl \
+  C:/Users/USER/Desktop/_/Lit-Engine/build/GameBuilder/../../include/../dependencies/include/glm/./ext/matrix_double3x3_precision.hpp \
+  C:/Users/USER/Desktop/_/Lit-Engine/build/GameBuilder/../../include/../dependencies/include/glm/./ext/matrix_float3x3.hpp \
+  C:/Users/USER/Desktop/_/Lit-Engine/build/GameBuilder/../../include/../dependencies/include/glm/./ext/matrix_float3x3_precision.hpp \
+  C:/Users/USER/Desktop/_/Lit-Engine/build/GameBuilder/../../include/../dependencies/include/glm/mat3x4.hpp \
+  C:/Users/USER/Desktop/_/Lit-Engine/build/GameBuilder/../../include/../dependencies/include/glm/./ext/matrix_double3x4.hpp \
+  C:/Users/USER/Desktop/_/Lit-Engine/build/GameBuilder/../../include/../dependencies/include/glm/./ext/../detail/type_mat3x4.hpp \
+  C:/Users/USER/Desktop/_/Lit-Engine/build/GameBuilder/../../include/../dependencies/include/glm/detail/type_mat3x4.inl \
+  C:/Users/USER/Desktop/_/Lit-Engine/build/GameBuilder/../../include/../dependencies/include/glm/./ext/matrix_double3x4_precision.hpp \
+  C:/Users/USER/Desktop/_/Lit-Engine/build/GameBuilder/../../include/../dependencies/include/glm/./ext/matrix_float3x4.hpp \
+  C:/Users/USER/Desktop/_/Lit-Engine/build/GameBuilder/../../include/../dependencies/include/glm/./ext/matrix_float3x4_precision.hpp \
+  C:/Users/USER/Desktop/_/Lit-Engine/build/GameBuilder/../../include/../dependencies/include/glm/mat4x2.hpp \
+  C:/Users/USER/Desktop/_/Lit-Engine/build/GameBuilder/../../include/../dependencies/include/glm/./ext/matrix_double4x2.hpp \
+  C:/Users/USER/Desktop/_/Lit-Engine/build/GameBuilder/../../include/../dependencies/include/glm/./ext/../detail/type_mat4x2.hpp \
+  C:/Users/USER/Desktop/_/Lit-Engine/build/GameBuilder/../../include/../dependencies/include/glm/detail/type_mat4x2.inl \
+  C:/Users/USER/Desktop/_/Lit-Engine/build/GameBuilder/../../include/../dependencies/include/glm/./ext/matrix_double4x2_precision.hpp \
+  C:/Users/USER/Desktop/_/Lit-Engine/build/GameBuilder/../../include/../dependencies/include/glm/./ext/matrix_float4x2.hpp \
+  C:/Users/USER/Desktop/_/Lit-Engine/build/GameBuilder/../../include/../dependencies/include/glm/./ext/matrix_float4x2_precision.hpp \
+  C:/Users/USER/Desktop/_/Lit-Engine/build/GameBuilder/../../include/../dependencies/include/glm/mat4x3.hpp \
+  C:/Users/USER/Desktop/_/Lit-Engine/build/GameBuilder/../../include/../dependencies/include/glm/./ext/matrix_double4x3.hpp \
+  C:/Users/USER/Desktop/_/Lit-Engine/build/GameBuilder/../../include/../dependencies/include/glm/./ext/../detail/type_mat4x3.hpp \
+  C:/Users/USER/Desktop/_/Lit-Engine/build/GameBuilder/../../include/../dependencies/include/glm/detail/type_mat4x3.inl \
+  C:/Users/USER/Desktop/_/Lit-Engine/build/GameBuilder/../../include/../dependencies/include/glm/./ext/matrix_double4x3_precision.hpp \
+  C:/Users/USER/Desktop/_/Lit-Engine/build/GameBuilder/../../include/../dependencies/include/glm/./ext/matrix_float4x3.hpp \
+  C:/Users/USER/Desktop/_/Lit-Engine/build/GameBuilder/../../include/../dependencies/include/glm/./ext/matrix_float4x3_precision.hpp \
+  C:/Users/USER/Desktop/_/Lit-Engine/build/GameBuilder/../../include/../dependencies/include/glm/mat4x4.hpp \
+  C:/Users/USER/Desktop/_/Lit-Engine/build/GameBuilder/../../include/../dependencies/include/glm/./ext/matrix_double4x4.hpp \
+  C:/Users/USER/Desktop/_/Lit-Engine/build/GameBuilder/../../include/../dependencies/include/glm/./ext/../detail/type_mat4x4.hpp \
+  C:/Users/USER/Desktop/_/Lit-Engine/build/GameBuilder/../../include/../dependencies/include/glm/detail/type_mat4x4.inl \
+  C:/Users/USER/Desktop/_/Lit-Engine/build/GameBuilder/../../include/../dependencies/include/glm/./ext/matrix_double4x4_precision.hpp \
+  C:/Users/USER/Desktop/_/Lit-Engine/build/GameBuilder/../../include/../dependencies/include/glm/./ext/matrix_float4x4.hpp \
+  C:/Users/USER/Desktop/_/Lit-Engine/build/GameBuilder/../../include/../dependencies/include/glm/./ext/matrix_float4x4_precision.hpp \
+  C:/Users/USER/Desktop/_/Lit-Engine/build/GameBuilder/../../include/../dependencies/include/glm/detail/func_matrix.inl \
+  C:/Users/USER/Desktop/_/Lit-Engine/build/GameBuilder/../../include/../dependencies/include/glm/detail/../geometric.hpp \
+  C:/Users/USER/Desktop/_/Lit-Engine/build/GameBuilder/../../include/../dependencies/include/glm/detail/func_geometric.inl \
+  C:/Users/USER/Desktop/_/Lit-Engine/build/GameBuilder/../../include/../dependencies/include/glm/detail/../exponential.hpp \
+  C:/Users/USER/Desktop/_/Lit-Engine/build/GameBuilder/../../include/../dependencies/include/glm/detail/type_vec1.hpp \
+  C:/Users/USER/Desktop/_/Lit-Engine/build/GameBuilder/../../include/../dependencies/include/glm/detail/type_vec1.inl \
+  C:/Users/USER/Desktop/_/Lit-Engine/build/GameBuilder/../../include/../dependencies/include/glm/detail/func_exponential.inl \
+  C:/Users/USER/Desktop/_/Lit-Engine/build/GameBuilder/../../include/../dependencies/include/glm/detail/../vector_relational.hpp \
+  C:/Users/USER/Desktop/_/Lit-Engine/build/GameBuilder/../../include/../dependencies/include/glm/detail/func_vector_relational.inl \
+  C:/Users/USER/Desktop/_/Lit-Engine/build/GameBuilder/../../include/../dependencies/include/glm/detail/_vectorize.hpp \
+  C:/Users/USER/Desktop/_/Lit-Engine/build/GameBuilder/../../include/../dependencies/include/glm/detail/../common.hpp \
+  C:/Users/USER/Desktop/_/Lit-Engine/build/GameBuilder/../../include/../dependencies/include/glm/detail/func_common.inl \
+  C:/Users/USER/Desktop/_/Lit-Engine/build/GameBuilder/../../include/../dependencies/include/glm/detail/compute_common.hpp \
+  C:/Users/USER/Desktop/_/Lit-Engine/build/GameBuilder/../../include/../dependencies/include/glm/./ext/matrix_double2x2_precision.hpp \
+  C:/Users/USER/Desktop/_/Lit-Engine/build/GameBuilder/../../include/../dependencies/include/glm/./ext/matrix_float2x2.hpp \
+  C:/Users/USER/Desktop/_/Lit-Engine/build/GameBuilder/../../include/../dependencies/include/glm/./ext/matrix_float2x2_precision.hpp \
+  C:/Users/USER/Desktop/_/Lit-Engine/build/GameBuilder/../../include/../dependencies/include/glm/trigonometric.hpp \
+  C:/Users/USER/Desktop/_/Lit-Engine/build/GameBuilder/../../include/../dependencies/include/glm/detail/func_trigonometric.inl \
+  C:/Users/USER/Desktop/_/Lit-Engine/build/GameBuilder/../../include/../dependencies/include/glm/exponential.hpp \
+  C:/Users/USER/Desktop/_/Lit-Engine/build/GameBuilder/../../include/../dependencies/include/glm/common.hpp \
+  C:/Users/USER/Desktop/_/Lit-Engine/build/GameBuilder/../../include/../dependencies/include/glm/packing.hpp \
+  C:/Users/USER/Desktop/_/Lit-Engine/build/GameBuilder/../../include/../dependencies/include/glm/detail/func_packing.inl \
+  C:/Users/USER/Desktop/_/Lit-Engine/build/GameBuilder/../../include/../dependencies/include/glm/detail/type_half.hpp \
+  C:/Users/USER/Desktop/_/Lit-Engine/build/GameBuilder/../../include/../dependencies/include/glm/detail/type_half.inl \
+  C:/Users/USER/Desktop/_/Lit-Engine/build/GameBuilder/../../include/../dependencies/include/glm/geometric.hpp \
+  C:/Users/USER/Desktop/_/Lit-Engine/build/GameBuilder/../../include/../dependencies/include/glm/matrix.hpp \
+  C:/Users/USER/Desktop/_/Lit-Engine/build/GameBuilder/../../include/../dependencies/include/glm/vector_relational.hpp \
+  C:/Users/USER/Desktop/_/Lit-Engine/build/GameBuilder/../../include/../dependencies/include/glm/integer.hpp \
+  C:/Users/USER/Desktop/_/Lit-Engine/build/GameBuilder/../../include/../dependencies/include/glm/detail/func_integer.inl \
+  C:/Users/USER/Desktop/_/Lit-Engine/build/GameBuilder/../../include/../dependencies/include/glm/gtc/matrix_transform.hpp \
+  C:/Users/USER/Desktop/_/Lit-Engine/build/GameBuilder/../../include/../dependencies/include/glm/gtc/../mat4x4.hpp \
+  C:/Users/USER/Desktop/_/Lit-Engine/build/GameBuilder/../../include/../dependencies/include/glm/gtc/../vec2.hpp \
+  C:/Users/USER/Desktop/_/Lit-Engine/build/GameBuilder/../../include/../dependencies/include/glm/gtc/../vec3.hpp \
+  C:/Users/USER/Desktop/_/Lit-Engine/build/GameBuilder/../../include/../dependencies/include/glm/gtc/../vec4.hpp \
+  C:/Users/USER/Desktop/_/Lit-Engine/build/GameBuilder/../../include/../dependencies/include/glm/gtc/../ext/matrix_projection.hpp \
+  C:/Users/USER/Desktop/_/Lit-Engine/build/GameBuilder/../../include/../dependencies/include/glm/./ext/../gtc/constants.hpp \
+  C:/Users/USER/Desktop/_/Lit-Engine/build/GameBuilder/../../include/../dependencies/include/glm/gtc/../ext/scalar_constants.hpp \
+  C:/Users/USER/Desktop/_/Lit-Engine/build/GameBuilder/../../include/../dependencies/include/glm/./ext/scalar_constants.inl \
+  C:/Users/USER/Desktop/_/Lit-Engine/build/GameBuilder/../../include/../dependencies/include/glm/gtc/constants.inl \
+  C:/Users/USER/Desktop/_/Lit-Engine/build/GameBuilder/../../include/../dependencies/include/glm/./ext/../geometric.hpp \
+  C:/Users/USER/Desktop/_/Lit-Engine/build/GameBuilder/../../include/../dependencies/include/glm/./ext/../trigonometric.hpp \
+  C:/Users/USER/Desktop/_/Lit-Engine/build/GameBuilder/../../include/../dependencies/include/glm/./ext/../matrix.hpp \
+  C:/Users/USER/Desktop/_/Lit-Engine/build/GameBuilder/../../include/../dependencies/include/glm/./ext/matrix_projection.inl \
+  C:/Users/USER/Desktop/_/Lit-Engine/build/GameBuilder/../../include/../dependencies/include/glm/gtc/../ext/matrix_clip_space.hpp \
+  C:/Users/USER/Desktop/_/Lit-Engine/build/GameBuilder/../../include/../dependencies/include/glm/./ext/../ext/scalar_constants.hpp \
+  C:/Users/USER/Desktop/_/Lit-Engine/build/GameBuilder/../../include/../dependencies/include/glm/./ext/matrix_clip_space.inl \
+  C:/Users/USER/Desktop/_/Lit-Engine/build/GameBuilder/../../include/../dependencies/include/glm/gtc/../ext/matrix_transform.hpp \
+  C:/Users/USER/Desktop/_/Lit-Engine/build/GameBuilder/../../include/../dependencies/include/glm/./ext/matrix_transform.inl \
+  C:/Users/USER/Desktop/_/Lit-Engine/build/GameBuilder/../../include/../dependencies/include/glm/gtc/matrix_transform.inl \
+  C:/Users/USER/Desktop/_/Lit-Engine/build/GameBuilder/../../include/../dependencies/include/glm/gtc/../geometric.hpp \
+  C:/Users/USER/Desktop/_/Lit-Engine/build/GameBuilder/../../include/../dependencies/include/glm/gtc/../trigonometric.hpp \
+  C:/Users/USER/Desktop/_/Lit-Engine/build/GameBuilder/../../include/../dependencies/include/glm/gtc/../matrix.hpp \
   C:/LLVM-MinGW/include/omp.h \
-  C:/Users/USER/Desktop/_/Lit-Engine/build/GameBuilder/../../pybind11/embed.h \
-  C:/Users/USER/Desktop/_/Lit-Engine/build/GameBuilder/../../pybind11/pybind11.h \
-  C:/Users/USER/Desktop/_/Lit-Engine/build/GameBuilder/../../pybind11/detail/class.h \
-  C:/Users/USER/Desktop/_/Lit-Engine/build/GameBuilder/../../pybind11/detail/../attr.h \
-  C:/Users/USER/Desktop/_/Lit-Engine/build/GameBuilder/../../pybind11/detail/common.h \
+  C:/Users/USER/Desktop/_/Lit-Engine/build/GameBuilder/../../include/../pybind11/embed.h \
+  C:/Users/USER/Desktop/_/Lit-Engine/build/GameBuilder/../../include/../pybind11/pybind11.h \
+  C:/Users/USER/Desktop/_/Lit-Engine/build/GameBuilder/../../include/../pybind11/detail/class.h \
+  C:/Users/USER/Desktop/_/Lit-Engine/build/GameBuilder/../../include/../pybind11/detail/../attr.h \
+  C:/Users/USER/Desktop/_/Lit-Engine/build/GameBuilder/../../include/../pybind11/detail/common.h \
   C:/Users/USER/AppData/Local/Programs/Python/Python311/include/Python.h \
   C:/Users/USER/AppData/Local/Programs/Python/Python311/include/patchlevel.h \
   C:/Users/USER/AppData/Local/Programs/Python/Python311/include/pyconfig.h \
@@ -1124,28 +1137,28 @@ CMakeFiles/my_program.dir/gameSystem.cpp.obj: \
   C:/LLVM-MinGW/include/c++/v1/forward_list \
   C:/LLVM-MinGW/include/c++/v1/typeindex \
   C:/LLVM-MinGW/include/c++/v1/unordered_set \
-  C:/Users/USER/Desktop/_/Lit-Engine/build/GameBuilder/../../pybind11/cast.h \
-  C:/Users/USER/Desktop/_/Lit-Engine/build/GameBuilder/../../pybind11/detail/descr.h \
-  C:/Users/USER/Desktop/_/Lit-Engine/build/GameBuilder/../../pybind11/detail/type_caster_base.h \
-  C:/Users/USER/Desktop/_/Lit-Engine/build/GameBuilder/../../pybind11/detail/../pytypes.h \
-  C:/Users/USER/Desktop/_/Lit-Engine/build/GameBuilder/../../pybind11/buffer_info.h \
-  C:/Users/USER/Desktop/_/Lit-Engine/build/GameBuilder/../../pybind11/detail/internals.h \
-  C:/Users/USER/Desktop/_/Lit-Engine/build/GameBuilder/../../pybind11/detail/typeid.h \
+  C:/Users/USER/Desktop/_/Lit-Engine/build/GameBuilder/../../include/../pybind11/cast.h \
+  C:/Users/USER/Desktop/_/Lit-Engine/build/GameBuilder/../../include/../pybind11/detail/descr.h \
+  C:/Users/USER/Desktop/_/Lit-Engine/build/GameBuilder/../../include/../pybind11/detail/type_caster_base.h \
+  C:/Users/USER/Desktop/_/Lit-Engine/build/GameBuilder/../../include/../pybind11/detail/../pytypes.h \
+  C:/Users/USER/Desktop/_/Lit-Engine/build/GameBuilder/../../include/../pybind11/buffer_info.h \
+  C:/Users/USER/Desktop/_/Lit-Engine/build/GameBuilder/../../include/../pybind11/detail/internals.h \
+  C:/Users/USER/Desktop/_/Lit-Engine/build/GameBuilder/../../include/../pybind11/detail/typeid.h \
   C:/LLVM-MinGW/include/c++/v1/cxxabi.h \
   C:/LLVM-MinGW/include/c++/v1/__cxxabi_config.h \
-  C:/Users/USER/Desktop/_/Lit-Engine/build/GameBuilder/../../pybind11/pytypes.h \
-  C:/Users/USER/Desktop/_/Lit-Engine/build/GameBuilder/../../pybind11/detail/../options.h \
-  C:/Users/USER/Desktop/_/Lit-Engine/build/GameBuilder/../../pybind11/detail/init.h \
-  C:/Users/USER/Desktop/_/Lit-Engine/build/GameBuilder/../../pybind11/attr.h \
-  C:/Users/USER/Desktop/_/Lit-Engine/build/GameBuilder/../../pybind11/gil.h \
-  C:/Users/USER/Desktop/_/Lit-Engine/build/GameBuilder/../../pybind11/options.h \
-  C:/Users/USER/Desktop/_/Lit-Engine/build/GameBuilder/../../pybind11/eval.h \
-  C:/Users/USER/Desktop/_/Lit-Engine/build/GameBuilder/../../pybind11/stl.h \
+  C:/Users/USER/Desktop/_/Lit-Engine/build/GameBuilder/../../include/../pybind11/pytypes.h \
+  C:/Users/USER/Desktop/_/Lit-Engine/build/GameBuilder/../../include/../pybind11/detail/../options.h \
+  C:/Users/USER/Desktop/_/Lit-Engine/build/GameBuilder/../../include/../pybind11/detail/init.h \
+  C:/Users/USER/Desktop/_/Lit-Engine/build/GameBuilder/../../include/../pybind11/attr.h \
+  C:/Users/USER/Desktop/_/Lit-Engine/build/GameBuilder/../../include/../pybind11/gil.h \
+  C:/Users/USER/Desktop/_/Lit-Engine/build/GameBuilder/../../include/../pybind11/options.h \
+  C:/Users/USER/Desktop/_/Lit-Engine/build/GameBuilder/../../include/../pybind11/eval.h \
+  C:/Users/USER/Desktop/_/Lit-Engine/build/GameBuilder/../../include/../pybind11/stl.h \
   C:/LLVM-MinGW/include/c++/v1/deque C:/LLVM-MinGW/include/c++/v1/list \
   C:/LLVM-MinGW/include/c++/v1/set C:/LLVM-MinGW/include/c++/v1/valarray \
   C:/LLVM-MinGW/include/c++/v1/sstream \
   C:/LLVM-MinGW/include/c++/v1/regex \
-  C:/Users/USER/Desktop/_/Lit-Engine/build/GameBuilder/../../include/nlohmann/json.hpp \
+  C:/Users/USER/Desktop/_/Lit-Engine/build/GameBuilder/../../include/../include/nlohmann/json.hpp \
   C:/Users/USER/Desktop/_/Lit-Engine/build/GameBuilder/../../include/nlohmann/adl_serializer.hpp \
   C:/Users/USER/Desktop/_/Lit-Engine/build/GameBuilder/../../include/nlohmann/detail/abi_macros.hpp \
   C:/Users/USER/Desktop/_/Lit-Engine/build/GameBuilder/../../include/nlohmann/detail/conversions/from_json.hpp \
@@ -1208,40 +1221,42 @@ CMakeFiles/my_program.dir/gameSystem.cpp.obj: \
   C:/Users/USER/Desktop/_/Lit-Engine/build/GameBuilder/../../include/nlohmann/thirdparty/hedley/hedley_undef.hpp \
   C:/LLVM-MinGW/include/c++/v1/thread \
   C:/LLVM-MinGW/include/c++/v1/future \
-  C:/Users/USER/Desktop/_/Lit-Engine/build/GameBuilder/../../exported_game/ScriptData.h \
-  C:/Users/USER/Desktop/_/Lit-Engine/build/GameBuilder/../../exported_game/../include_all.h \
-  C:/Users/USER/Desktop/_/Lit-Engine/build/GameBuilder/../../Engine/Physics/InitPhysx.cpp \
-  C:/Users/USER/Desktop/_/Lit-Engine/build/GameBuilder/../../Engine/Physics/../../include_all.h \
-  C:/Users/USER/Desktop/_/Lit-Engine/build/GameBuilder/../../Engine/Physics/PhysicsManager.cpp \
-  C:/Users/USER/Desktop/_/Lit-Engine/build/GameBuilder/../../Engine/Physics/PhysicsManager.h \
-  C:/Users/USER/Desktop/_/Lit-Engine/build/GameBuilder/../../globals.h \
-  C:/Users/USER/Desktop/_/Lit-Engine/build/GameBuilder/../../Engine/Core/LoD.cpp \
-  C:/Users/USER/Desktop/_/Lit-Engine/build/GameBuilder/../../Engine/Core/../../include_all.h \
-  C:/Users/USER/Desktop/_/Lit-Engine/build/GameBuilder/../../Engine/Scripting/math.cpp \
-  C:/Users/USER/Desktop/_/Lit-Engine/build/GameBuilder/../../Engine/GUI/Text/Text.h \
-  C:/Users/USER/Desktop/_/Lit-Engine/build/GameBuilder/../../Engine/GUI/Text/../../../include_all.h \
-  C:/Users/USER/Desktop/_/Lit-Engine/build/GameBuilder/../../Engine/GUI/Button/Button.h \
-  C:/Users/USER/Desktop/_/Lit-Engine/build/GameBuilder/../../Engine/GUI/Button/../../../include_all.h \
-  C:/Users/USER/Desktop/_/Lit-Engine/build/GameBuilder/../../Engine/GUI/Video/video.cpp \
-  C:/Users/USER/Desktop/_/Lit-Engine/build/GameBuilder/../../Engine/GUI/Video/../../../include_all.h \
-  C:/Users/USER/Desktop/_/Lit-Engine/build/GameBuilder/../../Engine/Core/Engine.hpp \
-  C:/Users/USER/Desktop/_/Lit-Engine/build/GameBuilder/../../include/../include_all.h \
-  C:/Users/USER/Desktop/_/Lit-Engine/build/GameBuilder/../../Engine/Lighting/lights.h \
-  C:/Users/USER/Desktop/_/Lit-Engine/build/GameBuilder/../../Engine/Scripting/time.cpp \
-  C:/Users/USER/Desktop/_/Lit-Engine/build/GameBuilder/../../Engine/Scripting/functions.cpp \
-  C:/Users/USER/Desktop/_/Lit-Engine/build/GameBuilder/../../Engine/Core/functions.h \
-  C:/Users/USER/Desktop/_/Lit-Engine/build/GameBuilder/../../Engine/Core/global_variables.cpp \
-  C:/Users/USER/Desktop/_/Lit-Engine/build/GameBuilder/../../Engine/Editor/SceneEditor/SceneEditor.h \
-  C:/Users/USER/Desktop/_/Lit-Engine/build/GameBuilder/../../Engine/Editor/SceneEditor/../../../include_all.h \
-  C:/Users/USER/Desktop/_/Lit-Engine/build/GameBuilder/../../Engine/Core/Engine.cpp \
-  C:/Users/USER/Desktop/_/Lit-Engine/build/GameBuilder/../../Engine/Core/RunGame.h \
-  C:/Users/USER/Desktop/_/Lit-Engine/build/GameBuilder/../../Engine/GUI/Tooltip/Tooltip.cpp \
-  C:/Users/USER/Desktop/_/Lit-Engine/build/GameBuilder/../../Engine/GUI/Tooltip/../../../include_all.h \
-  C:/Users/USER/Desktop/_/Lit-Engine/build/GameBuilder/../../Engine/GUI/Text/Text.cpp \
-  C:/Users/USER/Desktop/_/Lit-Engine/build/GameBuilder/../../Engine/GUI/Button/Button.cpp \
-  C:/Users/USER/Desktop/_/Lit-Engine/build/GameBuilder/../../Engine/Core/SaveLoad.cpp \
-  C:/Users/USER/Desktop/_/Lit-Engine/build/GameBuilder/../../Engine/Lighting/InitLighting.cpp \
-  C:/Users/USER/Desktop/_/Lit-Engine/build/GameBuilder/../../Engine/Lighting/../../include_all.h \
-  C:/Users/USER/Desktop/_/Lit-Engine/build/GameBuilder/../../Engine/Lighting/skybox.cpp \
-  C:/Users/USER/Desktop/_/Lit-Engine/build/GameBuilder/../../Engine/Core/RunGame.cpp \
-  C:/Users/USER/Desktop/_/Lit-Engine/build/GameBuilder/../../Engine/Core/../../globals.h
+  C:/Users/USER/Desktop/_/Lit-Engine/build/GameBuilder/../../include/../exported_game/ScriptData.h \
+  C:/Users/USER/Desktop/_/Lit-Engine/build/GameBuilder/../../include/../exported_game/../include_all.h \
+  C:/Users/USER/Desktop/_/Lit-Engine/build/GameBuilder/../../include/../Engine/Physics/InitPhysx.cpp \
+  C:/Users/USER/Desktop/_/Lit-Engine/build/GameBuilder/../../include/../Engine/Physics/../../include_all.h \
+  C:/Users/USER/Desktop/_/Lit-Engine/build/GameBuilder/../../include/../Engine/Physics/PhysicsManager.cpp \
+  C:/Users/USER/Desktop/_/Lit-Engine/build/GameBuilder/../../include/../Engine/Physics/PhysicsManager.h \
+  C:/Users/USER/Desktop/_/Lit-Engine/build/GameBuilder/../../include/../globals.h \
+  C:/Users/USER/Desktop/_/Lit-Engine/build/GameBuilder/../../include/../Engine/Core/LoD.cpp \
+  C:/Users/USER/Desktop/_/Lit-Engine/build/GameBuilder/../../include/../Engine/Core/../../include_all.h \
+  C:/LLVM-MinGW/include/c++/v1/queue \
+  C:/Users/USER/Desktop/_/Lit-Engine/build/GameBuilder/../../include/../Engine/Scripting/math.cpp \
+  C:/Users/USER/Desktop/_/Lit-Engine/build/GameBuilder/../../include/../Engine/Scripting/../../include_all.h \
+  C:/Users/USER/Desktop/_/Lit-Engine/build/GameBuilder/../../include/../Engine/GUI/Text/Text.h \
+  C:/Users/USER/Desktop/_/Lit-Engine/build/GameBuilder/../../include/../Engine/GUI/Text/../../../include_all.h \
+  C:/Users/USER/Desktop/_/Lit-Engine/build/GameBuilder/../../include/../Engine/GUI/Button/Button.h \
+  C:/Users/USER/Desktop/_/Lit-Engine/build/GameBuilder/../../include/../Engine/GUI/Button/../../../include_all.h \
+  C:/Users/USER/Desktop/_/Lit-Engine/build/GameBuilder/../../include/../Engine/GUI/Video/video.cpp \
+  C:/Users/USER/Desktop/_/Lit-Engine/build/GameBuilder/../../include/../Engine/GUI/Video/../../../include_all.h \
+  C:/Users/USER/Desktop/_/Lit-Engine/build/GameBuilder/../../include/../Engine/Core/Engine.hpp \
+  C:/Users/USER/Desktop/_/Lit-Engine/build/GameBuilder/../../include/../Engine/Lighting/lights.h \
+  C:/Users/USER/Desktop/_/Lit-Engine/build/GameBuilder/../../include/../Engine/Lighting/shaders/shaders.h \
+  C:/Users/USER/Desktop/_/Lit-Engine/build/GameBuilder/../../include/../Engine/Scripting/time.cpp \
+  C:/Users/USER/Desktop/_/Lit-Engine/build/GameBuilder/../../include/../Engine/Scripting/functions.cpp \
+  C:/Users/USER/Desktop/_/Lit-Engine/build/GameBuilder/../../include/../Engine/Core/functions.h \
+  C:/Users/USER/Desktop/_/Lit-Engine/build/GameBuilder/../../include/../Engine/Core/global_variables.cpp \
+  C:/Users/USER/Desktop/_/Lit-Engine/build/GameBuilder/../../include/../Engine/Editor/SceneEditor/SceneEditor.h \
+  C:/Users/USER/Desktop/_/Lit-Engine/build/GameBuilder/../../include/../Engine/Editor/SceneEditor/../../../include_all.h \
+  C:/Users/USER/Desktop/_/Lit-Engine/build/GameBuilder/../../include/../Engine/Core/Engine.cpp \
+  C:/Users/USER/Desktop/_/Lit-Engine/build/GameBuilder/../../include/../Engine/Core/RunGame.h \
+  C:/Users/USER/Desktop/_/Lit-Engine/build/GameBuilder/../../include/../Engine/GUI/Tooltip/Tooltip.cpp \
+  C:/Users/USER/Desktop/_/Lit-Engine/build/GameBuilder/../../include/../Engine/GUI/Tooltip/../../../include_all.h \
+  C:/Users/USER/Desktop/_/Lit-Engine/build/GameBuilder/../../include/../Engine/GUI/Text/Text.cpp \
+  C:/Users/USER/Desktop/_/Lit-Engine/build/GameBuilder/../../include/../Engine/GUI/Button/Button.cpp \
+  C:/Users/USER/Desktop/_/Lit-Engine/build/GameBuilder/../../include/../Engine/Core/SaveLoad.cpp \
+  C:/Users/USER/Desktop/_/Lit-Engine/build/GameBuilder/../../include/../Engine/Lighting/InitLighting.cpp \
+  C:/Users/USER/Desktop/_/Lit-Engine/build/GameBuilder/../../include/../Engine/Lighting/../../include_all.h \
+  C:/Users/USER/Desktop/_/Lit-Engine/build/GameBuilder/../../include/../Engine/Lighting/skybox.cpp \
+  C:/Users/USER/Desktop/_/Lit-Engine/build/GameBuilder/../../include/../Engine/Core/RunGame.cpp \
+  C:/Users/USER/Desktop/_/Lit-Engine/build/GameBuilder/../../include/../Engine/Core/../../globals.h
