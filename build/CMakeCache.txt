@@ -54,11 +54,16 @@ CMAKE_CXX_FLAGS_RELEASE:STRING=-O3 -DNDEBUG
 //Flags used by the CXX compiler during RELWITHDEBINFO builds.
 CMAKE_CXX_FLAGS_RELWITHDEBINFO:STRING=-O2 -g -DNDEBUG
 
+<<<<<<< HEAD
 //Libraries linked by default with all C++ applications.
 CMAKE_CXX_STANDARD_LIBRARIES:STRING=-lkernel32 -luser32 -lgdi32 -lwinspool -lshell32 -lole32 -loleaut32 -luuid -lcomdlg32 -ladvapi32
 
 //C compiler
 CMAKE_C_COMPILER:FILEPATH=C:/LLVM-MinGW/bin/cc.exe
+=======
+//No help, variable specified on the command line.
+CMAKE_C_COMPILER:FILEPATH=/usr/bin/gcc-9
+>>>>>>> d6604c3 (Frustum culling example)
 
 //LLVM archiver
 CMAKE_C_COMPILER_AR:FILEPATH=C:/LLVM-MinGW/bin/llvm-ar.exe
