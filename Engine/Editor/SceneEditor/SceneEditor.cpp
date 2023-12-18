@@ -301,7 +301,6 @@ void RenderScene()
 
     SetShaderValueMatrix(shader, GetShaderLocation(shader, "cameraMatrix"), GetCameraMatrix(scene_camera));
 
-    ProcessGizmo();
 
     bool isLightSelected   = false;
     bool isEntitySelected  = false;
@@ -371,6 +370,8 @@ void RenderScene()
         selected_game_object_type = "none";
         object_in_inspector = &default_entity;
     }
+
+    ProcessGizmo();
 
     UpdateInGameGlobals();
     UpdateLightsBuffer();
