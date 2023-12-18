@@ -50,7 +50,7 @@ imgui/%.o: imgui/%.cpp
 run:
 	@echo "Running Lit Engine"
 	@$(call echo_success, $(subst $(newline),\n,$$BANNER_TEXT))
-	@./lit_engine.out
+	@./run.sh
 
 
 build: $(IMGUI_OBJECTS)
