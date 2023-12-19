@@ -35,6 +35,13 @@ void Startup()
     // Raylib
     SetTraceLogLevel(LOG_WARNING);
 
+    InitWindow(windowWidth, windowHeight, "Lit Engine - INITIALISING");
+
+    windowWidth = GetMonitorWidth(0) * 0.9;
+    windowHeight = GetMonitorHeight(0) * 0.9;    
+    CloseWindow();
+
+
     // Window
     SetConfigFlags(FLAG_MSAA_4X_HINT | FLAG_VSYNC_HINT | FLAG_WINDOW_RESIZABLE | FLAG_WINDOW_UNDECORATED);
     InitWindow(windowWidth, windowHeight, "Lit Engine");

@@ -10,8 +10,8 @@ void ToggleMaximization();
 void ExitWindowRequested();
 
 
-int windowWidth = 1900;
-int windowHeight = 900;
+int windowWidth = 100;
+int windowHeight = 50;
 int windowX = 0;
 int windowY = 0;
 
