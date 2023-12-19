@@ -355,6 +355,8 @@ void RenderScene()
         }
     }
 
+    ProcessGizmo();
+
     if (
         IsMouseButtonPressed(MOUSE_BUTTON_LEFT) &&
         ImGui::IsWindowHovered() &&
@@ -371,7 +373,6 @@ void RenderScene()
         object_in_inspector = &default_entity;
     }
 
-    ProcessGizmo();
 
     UpdateInGameGlobals();
     UpdateLightsBuffer();
