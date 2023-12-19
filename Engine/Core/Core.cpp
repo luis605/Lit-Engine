@@ -37,7 +37,7 @@ void Startup()
 
     InitWindow(windowWidth, windowHeight, "Lit Engine - INITIALISING");
 
-    windowWidth = GetMonitorWidth(0) * 0.9;
+    windowWidth = GetMonitorWidth(0) * 0.95;
     windowHeight = GetMonitorHeight(0) * 0.9;    
     CloseWindow();
 
