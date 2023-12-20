@@ -521,10 +521,12 @@ public:
 
 
     void remove() {
+        // Delete objects in children vector
         for (auto& childVariant : children) {
             std::visit([](auto& child) { delete child; }, childVariant);
         }
 
+        // Clear the children vector
         children.clear();
 
         if (boxRigidBody && *boxRigidBody.get() != nullptr) {
@@ -967,22 +969,18 @@ public:
 
     void setPos(LitVector3 newPos) {
         position = newPos;
-
         if (boxRigidBody && *boxRigidBody.get() != nullptr) {
             btTransform transform;
             transform.setIdentity();
             transform.setOrigin(btVector3(newPos.x, newPos.y, newPos.z));
 
-            if (auto rigidBody = *boxRigidBody) {
-                if (auto motionState = rigidBody->getMotionState()) {
-                    rigidBody->setWorldTransform(transform);
-                    motionState->setWorldTransform(transform);
-                }
+            if ((*boxRigidBody)->getMotionState() ) {
+                (*boxRigidBody)->setWorldTransform(transform);
+                if ((*boxRigidBody)->getMotionState())
+                    (*boxRigidBody)->getMotionState()->setWorldTransform(transform);
             }
         }
     }
-
-
 
     void setRot(LitVector3 newRot) {
         rotation = newRot;
@@ -1062,11 +1060,15 @@ public:
 
         if (boxRigidBody && *boxRigidBody != nullptr) {
             dynamicsWorld->removeRigidBody(*boxRigidBody);
+            delete (*boxRigidBody)->getMotionState();
+            delete *boxRigidBody;
             boxRigidBody = std::make_shared<btRigidBody*>(nullptr);
         }
 
         if (highPolyDynamicRigidBody && *highPolyDynamicRigidBody != nullptr) {
             dynamicsWorld->removeRigidBody(*highPolyDynamicRigidBody);
+            delete (*highPolyDynamicRigidBody)->getMotionState();
+            delete *highPolyDynamicRigidBody;
             highPolyDynamicRigidBody = std::make_shared<btRigidBody*>(nullptr);
         }
 
@@ -1104,15 +1106,20 @@ public:
 
         if (highPolyDynamicRigidBody != nullptr && *highPolyDynamicRigidBody.get() != nullptr) {
             dynamicsWorld->removeRigidBody(*highPolyDynamicRigidBody);
+            delete (*highPolyDynamicRigidBody)->getMotionState();
+            delete *highPolyDynamicRigidBody;
             highPolyDynamicRigidBody = nullptr;
         }
         if (boxRigidBody && *boxRigidBody.get() != nullptr) {
             dynamicsWorld->removeRigidBody(*boxRigidBody);
+            delete (*boxRigidBody)->getMotionState();
+            delete *boxRigidBody;
             boxRigidBody = nullptr;
         }
 
 
         if (staticBoxShape) {
+            delete staticBoxShape;
             boxMotionState = nullptr;
             staticBoxShape = nullptr;
             dynamicBoxShape = nullptr;
@@ -1210,6 +1217,8 @@ public:
         }
         if (boxRigidBody && *boxRigidBody.get() != nullptr) {
             dynamicsWorld->removeRigidBody(*boxRigidBody);
+            delete (*boxRigidBody)->getMotionState();
+            delete *boxRigidBody;
             boxRigidBody= nullptr;
         }
 
