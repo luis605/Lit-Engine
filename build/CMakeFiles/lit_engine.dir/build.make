@@ -93,22 +93,22 @@ lit_engine_EXTERNAL_OBJECTS = \
 "C:/Users/USER/Desktop/_/Lit-Engine/include/rlImGui.o" \
 "C:/Users/USER/Desktop/_/Lit-Engine/ImNodes/ImNodes.o" \
 "C:/Users/USER/Desktop/_/Lit-Engine/ImNodes/ImNodesEz.o" \
-"C:/Users/USER/Desktop/_/Lit-Engine/imgui/imgui.o" \
-"C:/Users/USER/Desktop/_/Lit-Engine/imgui/imgui_demo.o" \
-"C:/Users/USER/Desktop/_/Lit-Engine/imgui/imgui_draw.o" \
-"C:/Users/USER/Desktop/_/Lit-Engine/imgui/imgui_tables.o" \
-"C:/Users/USER/Desktop/_/Lit-Engine/imgui/imgui_widgets.o"
+"C:/Users/USER/Desktop/_/Lit-Engine/imgui/imgui.obj" \
+"C:/Users/USER/Desktop/_/Lit-Engine/imgui/imgui_demo.obj" \
+"C:/Users/USER/Desktop/_/Lit-Engine/imgui/imgui_draw.obj" \
+"C:/Users/USER/Desktop/_/Lit-Engine/imgui/imgui_tables.obj" \
+"C:/Users/USER/Desktop/_/Lit-Engine/imgui/imgui_widgets.obj"
 
 lit_engine.exe: CMakeFiles/lit_engine.dir/main.cpp.obj
 lit_engine.exe: C:/Users/USER/Desktop/_/Lit-Engine/ImGuiColorTextEdit/TextEditor.o
 lit_engine.exe: C:/Users/USER/Desktop/_/Lit-Engine/include/rlImGui.o
 lit_engine.exe: C:/Users/USER/Desktop/_/Lit-Engine/ImNodes/ImNodes.o
 lit_engine.exe: C:/Users/USER/Desktop/_/Lit-Engine/ImNodes/ImNodesEz.o
-lit_engine.exe: C:/Users/USER/Desktop/_/Lit-Engine/imgui/imgui.o
-lit_engine.exe: C:/Users/USER/Desktop/_/Lit-Engine/imgui/imgui_demo.o
-lit_engine.exe: C:/Users/USER/Desktop/_/Lit-Engine/imgui/imgui_draw.o
-lit_engine.exe: C:/Users/USER/Desktop/_/Lit-Engine/imgui/imgui_tables.o
-lit_engine.exe: C:/Users/USER/Desktop/_/Lit-Engine/imgui/imgui_widgets.o
+lit_engine.exe: C:/Users/USER/Desktop/_/Lit-Engine/imgui/imgui.obj
+lit_engine.exe: C:/Users/USER/Desktop/_/Lit-Engine/imgui/imgui_demo.obj
+lit_engine.exe: C:/Users/USER/Desktop/_/Lit-Engine/imgui/imgui_draw.obj
+lit_engine.exe: C:/Users/USER/Desktop/_/Lit-Engine/imgui/imgui_tables.obj
+lit_engine.exe: C:/Users/USER/Desktop/_/Lit-Engine/imgui/imgui_widgets.obj
 lit_engine.exe: CMakeFiles/lit_engine.dir/build.make
 lit_engine.exe: CMakeFiles/lit_engine.dir/linkLibs.rsp
 lit_engine.exe: CMakeFiles/lit_engine.dir/objects1.rsp

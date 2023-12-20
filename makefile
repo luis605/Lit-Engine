@@ -40,9 +40,9 @@ LIB_FLAGS_WINDOWS = -I./pybind11/include -I$(PYTHON_INCLUDE_DIR) $(LIB_FLAGS)
 
 
 
-IMGUI_OBJECTS = $(patsubst imgui/%.cpp, imgui/%.o, $(wildcard imgui/*.cpp))
+IMGUI_OBJECTS = $(patsubst imgui/%.cpp, imgui/%.obj, $(wildcard imgui/*.cpp))
 
-imgui/%.o: imgui/%.cpp
+imgui/%.obj: imgui/%.cpp
 	@echo "Building Dear ImGUI"
 	g++ -std=c++17 -O3 -DIMGUI_IMPL_OPENGL_LOADER_GLAD -c $< -o $@
 
@@ -80,11 +80,8 @@ static-build-linux:
 
 
 
-IMGUI_OBJECTS = $(patsubst imgui/%.cpp, imgui/%.o, $(wildcard imgui/*.cpp))
+IMGUI_OBJECTS = $(patsubst imgui/%.cpp, imgui/%.obj, $(wildcard imgui/*.cpp))
 
-imgui/%.o: imgui/%.cpp
-	@echo "Building Dear ImGUI"
-	g++ -std=c++17 -O3 -DIMGUI_IMPL_OPENGL_LOADER_GLAD -c $< -o $@
 
 
 sandbox: $(IMGUI_OBJECTS)

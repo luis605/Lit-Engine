@@ -66,9 +66,9 @@ include CMakeFiles/build_dependencies.dir/compiler_depend.make
 include CMakeFiles/build_dependencies.dir/progress.make
 
 CMakeFiles/build_dependencies:
-	cd /d C:\Users\USER\Desktop\_\Lit-Engine && C:\LLVM-MinGW\bin\c++.exe -c imgui/imgui.o imgui/imgui_demo.o imgui/imgui_draw.o imgui/imgui_tables.o imgui/imgui_widgets.o -I./imgui -O3 ImNodes/ImNodes.cpp -o ImNodes/ImNodes.o
-	cd /d C:\Users\USER\Desktop\_\Lit-Engine && C:\LLVM-MinGW\bin\c++.exe -c imgui/imgui.o imgui/imgui_demo.o imgui/imgui_draw.o imgui/imgui_tables.o imgui/imgui_widgets.o -I./imgui -O3 ImNodes/ImNodesEz.cpp -o ImNodes/ImNodesEz.o
-	cd /d C:\Users\USER\Desktop\_\Lit-Engine && C:\LLVM-MinGW\bin\c++.exe -c imgui/imgui.o imgui/imgui_demo.o imgui/imgui_draw.o imgui/imgui_tables.o imgui/imgui_widgets.o -I./imgui -O3 include/rlImGui.cpp -o include/rlImGui.o
+	cd /d C:\Users\USER\Desktop\_\Lit-Engine && C:\LLVM-MinGW\bin\c++.exe -c imgui/imgui.obj imgui/imgui_demo.obj imgui/imgui_draw.obj imgui/imgui_tables.obj imgui/imgui_widgets.obj -I./imgui -O3 ImNodes/ImNodes.cpp -o ImNodes/ImNodes.o
+	cd /d C:\Users\USER\Desktop\_\Lit-Engine && C:\LLVM-MinGW\bin\c++.exe -c imgui/imgui.obj imgui/imgui_demo.obj imgui/imgui_draw.obj imgui/imgui_tables.obj imgui/imgui_widgets.obj -I./imgui -O3 ImNodes/ImNodesEz.cpp -o ImNodes/ImNodesEz.o
+	cd /d C:\Users\USER\Desktop\_\Lit-Engine && C:\LLVM-MinGW\bin\c++.exe -c imgui/imgui.obj imgui/imgui_demo.obj imgui/imgui_draw.obj imgui/imgui_tables.obj imgui/imgui_widgets.obj -I./imgui -O3 include/rlImGui.cpp -o include/rlImGui.o
 	cd /d C:\Users\USER\Desktop\_\Lit-Engine && C:\LLVM-MinGW\bin\c++.exe -c -O3 include/rlFrustum.cpp -o include/rlFrustum.o
 
 build_dependencies: CMakeFiles/build_dependencies

@@ -1,3 +1,3 @@
 "C:\Program Files\CMake\bin\cmake.exe" -E rm -f CMakeFiles\lit_engine.dir/objects.a
 C:\LLVM-MinGW\bin\llvm-ar.exe qc CMakeFiles\lit_engine.dir/objects.a @CMakeFiles\lit_engine.dir\objects1.rsp
-C:\LLVM-MinGW\bin\c++.exe  -w -g -Wl,--whole-archive CMakeFiles\lit_engine.dir/objects.a -Wl,--no-whole-archive -o lit_engine.exe -Wl,--out-implib,liblit_engine.dll.a -Wl,--major-image-version,0,--minor-image-version,0 @CMakeFiles\lit_engine.dir\linkLibs.rsp
+C:\LLVM-MinGW\bin\c++.exe -Wl,--whole-archive CMakeFiles\lit_engine.dir/objects.a -Wl,--no-whole-archive -o lit_engine.exe -Wl,--out-implib,liblit_engine.dll.a -Wl,--major-image-version,0,--minor-image-version,0 @CMakeFiles\lit_engine.dir\linkLibs.rsp

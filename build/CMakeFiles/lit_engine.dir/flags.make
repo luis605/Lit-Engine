@@ -6,5 +6,5 @@ CXX_DEFINES =
 
 CXX_INCLUDES = @CMakeFiles/lit_engine.dir/includes_CXX.rsp
 
-CXX_FLAGS =  -w -g -std=gnu++17
+CXX_FLAGS = -std=gnu++17
 
