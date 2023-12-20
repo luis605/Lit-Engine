@@ -84,7 +84,7 @@ int BuildProject() {
 #ifdef _WIN32
 
     const char* compileCommand = R"""(cmd /c "cd GameBuilder && (
-        mkdir build
+        mkdir -p build
         cd build
         cmake -G "MinGW Makefiles" .. --fresh
         make

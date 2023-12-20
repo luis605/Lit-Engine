@@ -4,7 +4,7 @@ project(LitEngine)
 set(CMAKE_CXX_STANDARD 17)
 
 set(CMAKE_WIN32_EXECUTABLE OFF)
-set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -w -g")
+set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS}")
 set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -w")
 
 # Define source files
@@ -43,7 +43,7 @@ include_directories(${Python3_INCLUDE_DIRS})
 file(GLOB IMGUI_SOURCES imgui/*.cpp)
 foreach (IMGUI_SOURCE ${IMGUI_SOURCES})
     get_filename_component(IMGUI_SOURCE_NAME ${IMGUI_SOURCE} NAME_WE)  # Use NAME_WE to get the name without extension
-    set(IMGUI_OBJECT "imgui/${IMGUI_SOURCE_NAME}.o")
+    set(IMGUI_OBJECT "imgui/${IMGUI_SOURCE_NAME}.obj")
     add_custom_command(
             OUTPUT ${IMGUI_OBJECT}
             COMMAND ${CMAKE_CXX_COMPILER} ${CMAKE_CXX_FLAGS} -DIMGUI_IMPL_OPENGL_LOADER_GLAD -c ${IMGUI_SOURCE} -o ${IMGUI_OBJECT}
