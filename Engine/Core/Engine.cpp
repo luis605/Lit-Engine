@@ -856,35 +856,38 @@ public:
 #ifndef GAME_SHIPPING
         script_content = read_file_to_string(script);
 #else
-    std::ifstream infile("scripts.json");
-    if (!infile.is_open()) {
-        std::cout << "Error: Failed to open scripts file." << std::endl;
-        return 1;
-    }
+    if (script_content.empty())
+    {
+        std::ifstream infile("scripts.json");
+        if (!infile.is_open()) {
+            std::cout << "Error: Failed to open scripts file." << std::endl;
+            return 1;
+        }
 
-    json json_data;
-    infile >> json_data;
+        json json_data;
+        infile >> json_data;
 
-    infile.close();
+        infile.close();
 
-    if (json_data.is_array() && !json_data.empty()) {
-        json first_element = json_data.at(0);
+        if (json_data.is_array() && !json_data.empty()) {
+            json first_element = json_data.at(0);
 
-        if (first_element.is_object()) {
-            if (first_element.contains("coins collector0")) {
-                script_content = first_element["coins collector0"].get<std::string>();
-                std::cout << "Script loaded successfully." << std::endl;
-                std::cout << script_content << std::endl;
+            if (first_element.is_object()) {
+                if (first_element.contains("coins collector0")) {
+                    script_content = first_element["coins collector0"].get<std::string>();
+                    std::cout << "Script loaded successfully." << std::endl;
+                    std::cout << script_content << std::endl;
+                } else {
+                    std::cout << "Key 'coins collector0' not found in the first element." << std::endl;
+                }
             } else {
-                std::cout << "Key 'coins collector0' not found in the first element." << std::endl;
+                std::cout << "First element is not an object." << std::endl;
+                return;
             }
         } else {
-            std::cout << "First element is not an object." << std::endl;
+            std::cout << "JSON data is not an array or is empty." << std::endl;
             return;
         }
-    } else {
-        std::cout << "JSON data is not an array or is empty." << std::endl;
-        return;
     }
 #endif
 
@@ -895,7 +898,8 @@ public:
                 script_module.attr(item.first) = item.second;
             }
             
-            py::eval<py::eval_statements>(script_content, script_module.attr("__dict__"));
+            std::string script_content_copy = script_content;
+            py::eval<py::eval_statements>(script_content_copy, script_module.attr("__dict__"));
         } catch (const py::error_already_set& e) {
             py::print(e.what());
         }
@@ -905,44 +909,6 @@ public:
 
     void runScript(LitCamera* rendering_camera) {
         if (script.empty() && script_index.empty()) return;
-
-
-#ifndef GAME_SHIPPING
-        script_content = read_file_to_string(script);
-#else
-    std::ifstream infile("scripts.json");
-    if (!infile.is_open()) {
-        std::cout << "Error: Failed to open scripts file." << std::endl;
-        return 1;
-    }
-
-    json json_data;
-    infile >> json_data;
-
-    infile.close();
-
-    if (json_data.is_array() && !json_data.empty()) {
-        json first_element = json_data.at(0);
-
-        if (first_element.is_object()) {
-            if (first_element.contains("coins collector0")) {
-                script_content = first_element["coins collector0"].get<std::string>();
-                std::cout << "Script loaded successfully." << std::endl;
-                std::cout << script_content << std::endl;
-            } else {
-                std::cout << "Key 'coins collector0' not found in the first element." << std::endl;
-            }
-        } else {
-            std::cout << "First element is not an object." << std::endl;
-            return;
-        }
-    } else {
-        std::cout << "JSON data is not an array or is empty." << std::endl;
-        return;
-    }
-
-#endif
-
 
         try {
             if (script_module.attr("__dict__").contains("update")) {

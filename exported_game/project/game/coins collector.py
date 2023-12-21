@@ -74,23 +74,3 @@ def update():
 		monkeyRay.entity.name == "monkey"):
 			print(monkeyRay.entity.name)
 			monkeyRay.entity.color = Color(0,255,255,255)
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-

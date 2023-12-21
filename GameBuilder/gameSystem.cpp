@@ -78,7 +78,6 @@ void InitWindow()
     shader = LoadShaderFromMemory(vert, frag);
 
     InitLighting();
-    SetTargetFPS(60);
 
     inGame_Camera.position = (Vector3){ 0.0f, 10.0f, 10.0f };  
     inGame_Camera.target = (Vector3){ 0.0f, 0.0f, 0.0f };      
@@ -91,7 +90,7 @@ void InitWindow()
 
     SetupPhysicsWorld();
 
-    // DisableCursor();
+    DisableCursor();
 
     Py_Initialize();
 
