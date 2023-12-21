@@ -73,7 +73,7 @@ int BuildProject() {
 
     encryptFile(inputFile_a, outputFile_a, key_a);
 
-    // std::filesystem::remove("exported_game/scripts.json");
+    std::filesystem::remove("exported_game/scripts.json");
 
 
 #ifdef _WIN32
