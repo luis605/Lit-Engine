@@ -91,7 +91,7 @@ void InitWindow()
 
     SetupPhysicsWorld();
 
-    DisableCursor();
+    // DisableCursor();
 
     Py_Initialize();
 
