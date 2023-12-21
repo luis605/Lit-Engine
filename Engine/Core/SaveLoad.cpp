@@ -413,6 +413,8 @@ std::string serializePythonScript(const std::string &scriptFilePath) {
 std::map<std::string, std::string> scriptContents;
 
 void serializeScripts() {
+    json script_data;
+
     int file_id = 0;
     for (Entity& entity : entities_list_pregame) {
         if (entity.script.empty()) continue;
@@ -420,34 +422,25 @@ void serializeScripts() {
         std::string scriptContent = serializePythonScript(entity.script);
         if (scriptContent.empty()) continue;
 
-        // Extract the script name from the file path (e.g., "test.py")
+        json j;
         std::string scriptName = entity.script.substr(entity.script.find_last_of('/') + 1);
-
-        // Remove the file extension to use as a variable name (e.g., "test") and add the index
         scriptName = scriptName.substr(0, scriptName.find_last_of('.')) + std::to_string(file_id);
 
-        // Store the script content in the map with the script name as the key
-        scriptContents[scriptName] = scriptContent;
+        j[scriptName] = scriptContent;
         entity.script_index = scriptName;
 
         file_id++;
+        script_data.emplace_back(j);
     }
 
-    std::string headerContent = std::string("#include \"../include_all.h\"\nstd::map<std::string, const char*> scriptMap = {\n");
-    for (const auto& entry : scriptContents) {
-        headerContent += "    {\"" + entry.first + "\", R\"(\n";
-        headerContent += entry.second + "\n)\"},\n";
+    std::ofstream outfile("exported_game/scripts.json");
+    if (!outfile.is_open()) {
+        std::cerr << "Error: Failed to open project file." << std::endl;
+        return 1;
     }
-    headerContent += "};\n";
 
-    std::ofstream headerFile("exported_game/ScriptData.h");
-    if (headerFile.is_open()) {
-        headerFile << headerContent;
-        headerFile.close();
-        std::cout << "Header file 'ScriptData.h' generated successfully." << std::endl;
-    } else {
-        std::cerr << "Failed to create header file 'ScriptData.h'." << std::endl;
-    }
+    outfile << std::setw(4) << script_data;
+    outfile.close();
 }
 
 

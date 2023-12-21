@@ -1,0 +1,7 @@
+[
+{
+  "directory": "/home/lixt/Desktop/projects/Lit Engine - engine/main/build",
+  "command": "/usr/bin/c++ -I\"/home/lixt/Desktop/projects/Lit Engine - engine/main/./include\" -I\"/home/lixt/Desktop/projects/Lit Engine - engine/main/./include/nlohmann\" -I\"/home/lixt/Desktop/projects/Lit Engine - engine/main/./imgui\" -I\"/home/lixt/Desktop/projects/Lit Engine - engine/main/./include/bullet3/src\" -I\"/home/lixt/Desktop/projects/Lit Engine - engine/main/./ffmpeg\" -I\"/home/lixt/Desktop/projects/Lit Engine - engine/main/./ImGuiColorTextEdit\" -I\"/home/lixt/Desktop/projects/Lit Engine - engine/main/C:/Users/USER/AppData/Local/Programs/Python/Python311/Lib/site-packages/pybind11/include\" -I/usr/include/python3.10  -w -g -fuse-ld=gold -g -o CMakeFiles/lit_engine.dir/main.cpp.o -c \"/home/lixt/Desktop/projects/Lit Engine - engine/main/main.cpp\"",
+  "file": "/home/lixt/Desktop/projects/Lit Engine - engine/main/main.cpp"
+}
+]
