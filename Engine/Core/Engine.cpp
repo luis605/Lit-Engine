@@ -22,6 +22,51 @@ string getFileExtension(string filePath)
 
 
 
+const char* encryptFileString(const std::string& inputFile, const std::string& key) {
+    std::ifstream inFile(inputFile, std::ios::binary);
+
+    if (!inFile) {
+        std::cerr << "Failed to open encrypted file." << std::endl;
+        return nullptr;
+    }
+
+    size_t keyLength = key.size();
+    size_t bufferSize = 4096;
+    char buffer[4096];
+
+    size_t bytesRead = 0;
+    size_t keyIndex = 0;
+    std::string encryptedData;
+
+    while (inFile.good()) {
+        inFile.read(buffer, bufferSize);
+        bytesRead = inFile.gcount();
+
+        for (size_t i = 0; i < bytesRead; ++i) {
+            buffer[i] ^= key[keyIndex++];
+            keyIndex %= keyLength;
+        }
+
+        encryptedData.append(buffer, bytesRead);
+    }
+
+    inFile.close();
+    
+    char* encryptedCString = new char[encryptedData.size() + 1];
+    std::strcpy(encryptedCString, encryptedData.c_str());
+
+
+    return encryptedCString;
+}
+
+
+const char* decryptFileString(const std::string& inputFile, const std::string& key) {
+    return encryptFileString(inputFile, key); 
+}
+
+
+
+
 
 string read_file_to_string(const string& filename) {
     ifstream file(filename);
@@ -774,6 +819,7 @@ public:
         if (script.empty() && script_index.empty()) return;
         running = true;
 
+
         if (!Entity_already_registered) {
             Entity_already_registered = true;
             py::class_<Entity>(entity_module, "Entity")
@@ -856,39 +902,40 @@ public:
 #ifndef GAME_SHIPPING
         script_content = read_file_to_string(script);
 #else
-    if (script_content.empty())
-    {
-        std::ifstream infile("scripts.json");
-        if (!infile.is_open()) {
-            std::cout << "Error: Failed to open scripts file." << std::endl;
-            return 1;
-        }
+    std::ifstream infile("encryptedScripts.json");
+    if (!infile.is_open()) {
+        std::cout << "Error: Failed to open scripts file." << std::endl;
+        return 1;
+    }
 
-        json json_data;
-        infile >> json_data;
+    const char* decryptedScripts = decryptFileString("encryptedScripts.json", "141b5aceaaa5582ec3efb9a17cac2da5e52bbc1057f776e99a56a064f5ea40d5f8689b7542c4d0e9d6d7163b9dee7725369742a54905ac95c74be5cb1435fdb726fead2437675eaa13bc77ced8fb9cc6108d4a247a2b37b76a6e0bf41916fcc98ee5f85db11ecb52b0d94b5fbab58b1f4814ed49e761a7fb9dfb0960f00ecf8c87989b8e92a630680128688fa7606994e3be12734868716f9df27674700a2cb37440afe131e570a4ee9e7e867aab18a44ee972956b7bd728f9b937c973b9726f6bdd56090d720e6fa31c70b31e0216739cde4210bcd93671c1e8edb752b32f782b62eab4d77a51e228a6b6ac185d7639bd037f9195c3f05c5d2198947621814827f2d99dd7c2821e76635a845203f42060e5a9a494482afab1c42c23ba5f317f250321c7713c2ce19fe7a3957ce439f4782dbee3d418aebe08314a4d6ac7b3d987696d39600c5777f555a8dc99f2953ab45b0687efa1a77d8e5b448b37a137f2849c9b76fec98765523869c22a3453c214ec8e8827acdded27c37d96017fbf862a405b4b06fe0e815e09ed5288ccd9139e67c7feed3e7306f621976b9d3ba917d19ef4a13490f9e2af925996f59a87uihjoklas9emyuikw75igeturf7unftyngl635n4554hs23d2453pfds");
 
-        infile.close();
+    json json_data;
+    try {
+        // Parse the decrypted string into a JSON object
+        json_data = json::parse(decryptedScripts);
+    } catch (const json::parse_error& e) {
+        return;
+    }
 
-        if (json_data.is_array() && !json_data.empty()) {
-            json first_element = json_data.at(0);
+    infile.close();
 
-            if (first_element.is_object()) {
-                if (first_element.contains("coins collector0")) {
-                    script_content = first_element["coins collector0"].get<std::string>();
+    if (json_data.is_array() && !json_data.empty()) {
+        for (const auto& element : json_data) {
+
+            if (element.is_object()) {
+                if (element.contains(script_index)) {
+                    script_content = element[script_index].get<std::string>();
                     std::cout << "Script loaded successfully." << std::endl;
-                    std::cout << script_content << std::endl;
                 } else {
-                    std::cout << "Key 'coins collector0' not found in the first element." << std::endl;
                 }
             } else {
-                std::cout << "First element is not an object." << std::endl;
-                return;
             }
-        } else {
-            std::cout << "JSON data is not an array or is empty." << std::endl;
-            return;
         }
+    } else {
+        return;
     }
+
 #endif
 
         try {
