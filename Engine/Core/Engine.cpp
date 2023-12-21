@@ -856,13 +856,36 @@ public:
 #ifndef GAME_SHIPPING
         script_content = read_file_to_string(script);
 #else
-        auto it = scriptMap.find(script_index);
+    std::ifstream infile("scripts.json");
+    if (!infile.is_open()) {
+        std::cout << "Error: Failed to open scripts file." << std::endl;
+        return 1;
+    }
 
-        if (it != scriptMap.end()) {
-            script_content = it->second;
+    json json_data;
+    infile >> json_data;
+
+    infile.close();
+
+    if (json_data.is_array() && !json_data.empty()) {
+        json first_element = json_data.at(0);
+
+        if (first_element.is_object()) {
+            if (first_element.contains("coins collector0")) {
+                script_content = first_element["coins collector0"].get<std::string>();
+                std::cout << "Script loaded successfully." << std::endl;
+                std::cout << script_content << std::endl;
+            } else {
+                std::cout << "Key 'coins collector0' not found in the first element." << std::endl;
+            }
         } else {
-            return; // Script not found
+            std::cout << "First element is not an object." << std::endl;
+            return;
         }
+    } else {
+        std::cout << "JSON data is not an array or is empty." << std::endl;
+        return;
+    }
 #endif
 
         try {
@@ -887,13 +910,37 @@ public:
 #ifndef GAME_SHIPPING
         script_content = read_file_to_string(script);
 #else
-        auto it = scriptMap.find(script_index);
+    std::ifstream infile("scripts.json");
+    if (!infile.is_open()) {
+        std::cout << "Error: Failed to open scripts file." << std::endl;
+        return 1;
+    }
 
-        if (it != scriptMap.end()) {
-            script_content = it->second;
+    json json_data;
+    infile >> json_data;
+
+    infile.close();
+
+    if (json_data.is_array() && !json_data.empty()) {
+        json first_element = json_data.at(0);
+
+        if (first_element.is_object()) {
+            if (first_element.contains("coins collector0")) {
+                script_content = first_element["coins collector0"].get<std::string>();
+                std::cout << "Script loaded successfully." << std::endl;
+                std::cout << script_content << std::endl;
+            } else {
+                std::cout << "Key 'coins collector0' not found in the first element." << std::endl;
+            }
         } else {
-            return; // Script not found
+            std::cout << "First element is not an object." << std::endl;
+            return;
         }
+    } else {
+        std::cout << "JSON data is not an array or is empty." << std::endl;
+        return;
+    }
+
 #endif
 
 
@@ -1060,11 +1107,15 @@ public:
 
         if (boxRigidBody && *boxRigidBody != nullptr) {
             dynamicsWorld->removeRigidBody(*boxRigidBody);
+            delete (*boxRigidBody)->getMotionState();
+            delete *boxRigidBody;
             boxRigidBody = std::make_shared<btRigidBody*>(nullptr);
         }
 
         if (highPolyDynamicRigidBody && *highPolyDynamicRigidBody != nullptr) {
             dynamicsWorld->removeRigidBody(*highPolyDynamicRigidBody);
+            delete (*highPolyDynamicRigidBody)->getMotionState();
+            delete *highPolyDynamicRigidBody;
             highPolyDynamicRigidBody = std::make_shared<btRigidBody*>(nullptr);
         }
 
@@ -1102,15 +1153,20 @@ public:
 
         if (highPolyDynamicRigidBody != nullptr && *highPolyDynamicRigidBody.get() != nullptr) {
             dynamicsWorld->removeRigidBody(*highPolyDynamicRigidBody);
+            delete (*highPolyDynamicRigidBody)->getMotionState();
+            delete *highPolyDynamicRigidBody;
             highPolyDynamicRigidBody = nullptr;
         }
         if (boxRigidBody && *boxRigidBody.get() != nullptr) {
             dynamicsWorld->removeRigidBody(*boxRigidBody);
+            delete (*boxRigidBody)->getMotionState();
+            delete *boxRigidBody;
             boxRigidBody = nullptr;
         }
 
 
         if (staticBoxShape) {
+            delete staticBoxShape;
             boxMotionState = nullptr;
             staticBoxShape = nullptr;
             dynamicBoxShape = nullptr;
@@ -1208,6 +1264,8 @@ public:
         }
         if (boxRigidBody && *boxRigidBody.get() != nullptr) {
             dynamicsWorld->removeRigidBody(*boxRigidBody);
+            delete (*boxRigidBody)->getMotionState();
+            delete *boxRigidBody;
             boxRigidBody= nullptr;
         }
 
