@@ -908,16 +908,16 @@ public:
 
 
     void runScript(LitCamera* rendering_camera) {
-        if (script.empty() && script_index.empty()) return;
+        if (script.empty() && script_index.empty()) {
+            return;
+        }
 
         try {
-            if (script_module.attr("__dict__").contains("update")) {
+            if (py::hasattr(script_module, "update")) {
                 py::object update_func = script_module.attr("update");
-
                 locals["time"] = py::cast(&time_instance);
-                rendering_camera->update();
                 update_func();
-                last_frame_count = time_instance.dt;
+                rendering_camera->update();
             }
         } catch (const py::error_already_set& e) {
             std::cerr << "Error running script: " << e.what() << std::endl;
