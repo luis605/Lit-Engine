@@ -305,6 +305,8 @@ void RenderScene()
     bool isLightSelected   = false;
     bool isEntitySelected  = false;
 
+    ProcessGizmo();
+
 
     for (Light& light : lights)
     {
@@ -355,7 +357,6 @@ void RenderScene()
         }
     }
 
-    ProcessGizmo();
 
     if (
         IsMouseButtonPressed(MOUSE_BUTTON_LEFT) &&
