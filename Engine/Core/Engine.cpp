@@ -1175,7 +1175,7 @@ public:
             dynamicBoxShape = nullptr;
         }
 
-        if (generateShape)
+        if (generateShape || !triangleMesh)
         {
             triangleMesh = new btTriangleMesh();
 
@@ -1192,8 +1192,6 @@ public:
                 }
             }
         }
-
-        if (triangleMesh == nullptr) return;
 
         btBvhTriangleMeshShape* highPolyMeshShape = new btBvhTriangleMeshShape(triangleMesh, true);
 
@@ -1283,8 +1281,6 @@ public:
                 }
             }
         }
-
-        if (customMeshShape == nullptr) return;
 
         // Set up the dynamics of your tree object
         btTransform treeTransform;
