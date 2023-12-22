@@ -1238,7 +1238,7 @@ public:
     }
 
     void createDynamicMesh(bool generateShape = true) {
-        if (!isDynamic) isDynamic = true;
+        isDynamic = false;
 
         currentCollisionShapeType = std::make_shared<CollisionShapeType>(CollisionShapeType::HighPolyMesh);
 
@@ -1272,13 +1272,13 @@ public:
         btScalar treeMass = mass;
         btVector3 treeInertia(0, 0, 0);
         customMeshShape->calculateLocalInertia(treeMass, treeInertia);
-        btDefaultMotionState* treeMotionState = new btDefaultMotionState(treeTransform);
-        btRigidBody::btRigidBodyConstructionInfo highPolyDynamicRigidBodyCI(treeMass, treeMotionState, customMeshShape, treeInertia);
-        btRigidBody* highPolyDynamicRigidBodyPtr = new btRigidBody(highPolyDynamicRigidBodyCI);
-        highPolyDynamicRigidBody = std::make_shared<btRigidBody*>(highPolyDynamicRigidBodyPtr);
+        btDefaultMotionState* objectMotionState = new btDefaultMotionState(treeTransform);
+        btRigidBody::btRigidBodyConstructionInfo highPolyStaticRigidBodyCI(treeMass, objectMotionState, customMeshShape, treeInertia);
+        
+        btRigidBody* highPolyStaticRigidBodyPtr = new btRigidBody(highPolyStaticRigidBodyCI);
+        highPolyDynamicRigidBody = std::make_shared<btRigidBody*>(highPolyStaticRigidBodyPtr);
 
-        dynamicsWorld->addRigidBody(*highPolyDynamicRigidBody);
-    }
+        dynamicsWorld->addRigidBody(*highPolyDynamicRigidBody);    }
 
     void makePhysicsDynamic(CollisionShapeType shapeType = CollisionShapeType::Box) {
         isDynamic = true;
