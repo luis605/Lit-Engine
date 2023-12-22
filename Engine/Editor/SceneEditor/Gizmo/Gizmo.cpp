@@ -27,7 +27,10 @@ void GizmoPosition()
     if (selected_game_object_type == "entity" && selected_entity != nullptr)
         selected_object_position = selected_entity->position;
     else if (selected_game_object_type == "light")
-        selected_object_position = {selected_light->position.x, selected_light->position.y, selected_light->position.z};
+    {
+        if (selected_light == nullptr) return;
+            selected_object_position = {selected_light->position.x, selected_light->position.y, selected_light->position.z};
+    }
 
     // Gizmo Arrow Up
     gizmo_arrow[0].position = {selected_object_position.x, selected_object_position.y + 6, selected_object_position.z};
