@@ -1162,18 +1162,9 @@ public:
 
         if (highPolyDynamicRigidBody != nullptr && *highPolyDynamicRigidBody.get() != nullptr) {
             dynamicsWorld->removeRigidBody(*highPolyDynamicRigidBody);
-            highPolyDynamicRigidBody = nullptr;
         }
         if (boxRigidBody && *boxRigidBody.get() != nullptr) {
             dynamicsWorld->removeRigidBody(*boxRigidBody);
-            boxRigidBody = nullptr;
-        }
-
-
-        if (staticBoxShape) {
-            boxMotionState = nullptr;
-            staticBoxShape = nullptr;
-            dynamicBoxShape = nullptr;
         }
 
         if (generateShape)
@@ -1194,10 +1185,12 @@ public:
             }
         }
 
+        if (triangleMesh == nullptr) return;
+        
         btBvhTriangleMeshShape* highPolyMeshShape = new btBvhTriangleMeshShape(triangleMesh, true);
 
         delete triangleMesh;
-        
+
         // Create the rigid body for the ground
         btTransform groundTransform;
         groundTransform.setIdentity();
