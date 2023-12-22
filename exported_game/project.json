@@ -2,15 +2,15 @@
     {
         "fovy": 74.51786041259766,
         "position": {
-            "x": 19.287960052490234,
-            "y": 34.194671630859375,
-            "z": -11.93102741241455
+            "x": 30.998149871826172,
+            "y": 39.23551940917969,
+            "z": 20.517597198486328
         },
         "projection": 0,
         "target": {
-            "x": 10.43210506439209,
-            "y": 30.627038955688477,
-            "z": -15.515058517456055
+            "x": 22.748546600341797,
+            "y": 34.32489013671875,
+            "z": 17.07825469970703
         },
         "type": "camera",
         "up": {
@@ -26,7 +26,7 @@
             "y": 0.925239622592926,
             "z": 0.7722007632255554
         },
-        "bloom": false,
+        "bloom": true,
         "bloomBrightness": -0.3230000138282776,
         "type": "world settings"
     },
@@ -111,15 +111,15 @@
         "script_index": "",
         "script_path": "",
         "surface_material": {
-            "DiffuseIntensity": 0.44600000977516174,
-            "Roughness": 1.0,
-            "SpecularIntensity": 1.0,
+            "DiffuseIntensity": 0.5,
+            "Roughness": 0.5,
+            "SpecularIntensity": 0.5,
             "SpecularTint": {
                 "x": 1.0,
                 "y": 1.0,
                 "z": 1.0
             },
-            "shininess": 0.0
+            "shininess": 0.5
         },
         "texture_path": "",
         "type": "entity"
@@ -345,15 +345,15 @@
         "script_index": "",
         "script_path": "",
         "surface_material": {
-            "DiffuseIntensity": 0.44600000977516174,
-            "Roughness": 1.0,
-            "SpecularIntensity": 1.0,
+            "DiffuseIntensity": 0.5,
+            "Roughness": 0.5,
+            "SpecularIntensity": 0.5,
             "SpecularTint": {
                 "x": 1.0,
                 "y": 1.0,
                 "z": 1.0
             },
-            "shininess": 0.0
+            "shininess": 0.5
         },
         "texture_path": "",
         "type": "entity"
@@ -392,15 +392,15 @@
         "script_index": "",
         "script_path": "",
         "surface_material": {
-            "DiffuseIntensity": 0.44600000977516174,
-            "Roughness": 1.0,
-            "SpecularIntensity": 1.0,
+            "DiffuseIntensity": 0.5,
+            "Roughness": 0.5,
+            "SpecularIntensity": 0.5,
             "SpecularTint": {
                 "x": 1.0,
                 "y": 1.0,
                 "z": 1.0
             },
-            "shininess": 0.0
+            "shininess": 0.5
         },
         "texture_path": "",
         "type": "entity"
@@ -439,15 +439,15 @@
         "script_index": "",
         "script_path": "",
         "surface_material": {
-            "DiffuseIntensity": 0.44600000977516174,
-            "Roughness": 1.0,
-            "SpecularIntensity": 1.0,
+            "DiffuseIntensity": 0.5,
+            "Roughness": 0.5,
+            "SpecularIntensity": 0.5,
             "SpecularTint": {
                 "x": 1.0,
                 "y": 1.0,
                 "z": 1.0
             },
-            "shininess": 0.0
+            "shininess": 0.5
         },
         "texture_path": "",
         "type": "entity"
@@ -486,15 +486,15 @@
         "script_index": "",
         "script_path": "",
         "surface_material": {
-            "DiffuseIntensity": 0.44600000977516174,
-            "Roughness": 1.0,
-            "SpecularIntensity": 1.0,
+            "DiffuseIntensity": 0.5,
+            "Roughness": 0.5,
+            "SpecularIntensity": 0.5,
             "SpecularTint": {
                 "x": 1.0,
                 "y": 1.0,
                 "z": 1.0
             },
-            "shininess": 0.0
+            "shininess": 0.5
         },
         "texture_path": "",
         "type": "entity"
@@ -533,15 +533,15 @@
         "script_index": "",
         "script_path": "",
         "surface_material": {
-            "DiffuseIntensity": 0.44600000977516174,
-            "Roughness": 1.0,
-            "SpecularIntensity": 1.0,
+            "DiffuseIntensity": 0.5,
+            "Roughness": 0.5,
+            "SpecularIntensity": 0.5,
             "SpecularTint": {
                 "x": 1.0,
                 "y": 1.0,
                 "z": 1.0
             },
-            "shininess": 0.0
+            "shininess": 0.5
         },
         "texture_path": "",
         "type": "entity"
@@ -580,15 +580,15 @@
         "script_index": "",
         "script_path": "",
         "surface_material": {
-            "DiffuseIntensity": 0.44600000977516174,
-            "Roughness": 1.0,
-            "SpecularIntensity": 1.0,
+            "DiffuseIntensity": 0.5,
+            "Roughness": 0.5,
+            "SpecularIntensity": 0.5,
             "SpecularTint": {
                 "x": 1.0,
                 "y": 1.0,
                 "z": 1.0
             },
-            "shininess": 0.0
+            "shininess": 0.5
         },
         "texture_path": "",
         "type": "entity"
@@ -627,15 +627,15 @@
         "script_index": "",
         "script_path": "",
         "surface_material": {
-            "DiffuseIntensity": 0.44600000977516174,
-            "Roughness": 1.0,
-            "SpecularIntensity": 1.0,
+            "DiffuseIntensity": 0.5,
+            "Roughness": 0.5,
+            "SpecularIntensity": 0.5,
             "SpecularTint": {
                 "x": 1.0,
                 "y": 1.0,
                 "z": 1.0
             },
-            "shininess": 0.0
+            "shininess": 0.5
         },
         "texture_path": "",
         "type": "entity"
@@ -674,15 +674,15 @@
         "script_index": "",
         "script_path": "",
         "surface_material": {
-            "DiffuseIntensity": 0.44600000977516174,
-            "Roughness": 1.0,
-            "SpecularIntensity": 1.0,
+            "DiffuseIntensity": 0.5,
+            "Roughness": 0.5,
+            "SpecularIntensity": 0.5,
             "SpecularTint": {
                 "x": 1.0,
                 "y": 1.0,
                 "z": 1.0
             },
-            "shininess": 0.0
+            "shininess": 0.5
         },
         "texture_path": "",
         "type": "entity"
@@ -721,15 +721,15 @@
         "script_index": "",
         "script_path": "",
         "surface_material": {
-            "DiffuseIntensity": 0.44600000977516174,
-            "Roughness": 1.0,
-            "SpecularIntensity": 1.0,
+            "DiffuseIntensity": 0.5,
+            "Roughness": 0.5,
+            "SpecularIntensity": 0.5,
             "SpecularTint": {
                 "x": 1.0,
                 "y": 1.0,
                 "z": 1.0
             },
-            "shininess": 0.0
+            "shininess": 0.5
         },
         "texture_path": "",
         "type": "entity"
@@ -768,15 +768,15 @@
         "script_index": "",
         "script_path": "",
         "surface_material": {
-            "DiffuseIntensity": 0.44600000977516174,
-            "Roughness": 1.0,
-            "SpecularIntensity": 1.0,
+            "DiffuseIntensity": 0.5,
+            "Roughness": 0.5,
+            "SpecularIntensity": 0.5,
             "SpecularTint": {
                 "x": 1.0,
                 "y": 1.0,
                 "z": 1.0
             },
-            "shininess": 0.0
+            "shininess": 0.5
         },
         "texture_path": "",
         "type": "entity"
@@ -815,15 +815,15 @@
         "script_index": "",
         "script_path": "",
         "surface_material": {
-            "DiffuseIntensity": 0.44600000977516174,
-            "Roughness": 1.0,
-            "SpecularIntensity": 1.0,
+            "DiffuseIntensity": 0.5,
+            "Roughness": 0.5,
+            "SpecularIntensity": 0.5,
             "SpecularTint": {
                 "x": 1.0,
                 "y": 1.0,
                 "z": 1.0
             },
-            "shininess": 0.0
+            "shininess": 0.5
         },
         "texture_path": "",
         "type": "entity"
@@ -862,15 +862,15 @@
         "script_index": "",
         "script_path": "",
         "surface_material": {
-            "DiffuseIntensity": 0.44600000977516174,
-            "Roughness": 1.0,
-            "SpecularIntensity": 1.0,
+            "DiffuseIntensity": 0.5,
+            "Roughness": 0.5,
+            "SpecularIntensity": 0.5,
             "SpecularTint": {
                 "x": 1.0,
                 "y": 1.0,
                 "z": 1.0
             },
-            "shininess": 0.0
+            "shininess": 0.5
         },
         "texture_path": "",
         "type": "entity"
@@ -909,15 +909,15 @@
         "script_index": "",
         "script_path": "",
         "surface_material": {
-            "DiffuseIntensity": 0.44600000977516174,
-            "Roughness": 1.0,
-            "SpecularIntensity": 1.0,
+            "DiffuseIntensity": 0.5,
+            "Roughness": 0.5,
+            "SpecularIntensity": 0.5,
             "SpecularTint": {
                 "x": 1.0,
                 "y": 1.0,
                 "z": 1.0
             },
-            "shininess": 0.0
+            "shininess": 0.5
         },
         "texture_path": "",
         "type": "entity"
@@ -956,15 +956,15 @@
         "script_index": "",
         "script_path": "",
         "surface_material": {
-            "DiffuseIntensity": 0.44600000977516174,
-            "Roughness": 1.0,
-            "SpecularIntensity": 1.0,
+            "DiffuseIntensity": 0.5,
+            "Roughness": 0.5,
+            "SpecularIntensity": 0.5,
             "SpecularTint": {
                 "x": 1.0,
                 "y": 1.0,
                 "z": 1.0
             },
-            "shininess": 0.0
+            "shininess": 0.5
         },
         "texture_path": "",
         "type": "entity"
@@ -1003,15 +1003,15 @@
         "script_index": "",
         "script_path": "",
         "surface_material": {
-            "DiffuseIntensity": 0.44600000977516174,
-            "Roughness": 1.0,
-            "SpecularIntensity": 1.0,
+            "DiffuseIntensity": 0.5,
+            "Roughness": 0.5,
+            "SpecularIntensity": 0.5,
             "SpecularTint": {
                 "x": 1.0,
                 "y": 1.0,
                 "z": 1.0
             },
-            "shininess": 0.0
+            "shininess": 0.5
         },
         "texture_path": "",
         "type": "entity"
@@ -1050,15 +1050,15 @@
         "script_index": "",
         "script_path": "",
         "surface_material": {
-            "DiffuseIntensity": 0.44600000977516174,
-            "Roughness": 1.0,
-            "SpecularIntensity": 1.0,
+            "DiffuseIntensity": 0.5,
+            "Roughness": 0.5,
+            "SpecularIntensity": 0.5,
             "SpecularTint": {
                 "x": 1.0,
                 "y": 1.0,
                 "z": 1.0
             },
-            "shininess": 0.0
+            "shininess": 0.5
         },
         "texture_path": "",
         "type": "entity"
@@ -1097,15 +1097,15 @@
         "script_index": "",
         "script_path": "",
         "surface_material": {
-            "DiffuseIntensity": 0.44600000977516174,
-            "Roughness": 1.0,
-            "SpecularIntensity": 1.0,
+            "DiffuseIntensity": 0.5,
+            "Roughness": 0.5,
+            "SpecularIntensity": 0.5,
             "SpecularTint": {
                 "x": 1.0,
                 "y": 1.0,
                 "z": 1.0
             },
-            "shininess": 0.0
+            "shininess": 0.5
         },
         "texture_path": "",
         "type": "entity"
@@ -1144,15 +1144,15 @@
         "script_index": "",
         "script_path": "",
         "surface_material": {
-            "DiffuseIntensity": 0.44600000977516174,
-            "Roughness": 1.0,
-            "SpecularIntensity": 1.0,
+            "DiffuseIntensity": 0.5,
+            "Roughness": 0.5,
+            "SpecularIntensity": 0.5,
             "SpecularTint": {
                 "x": 1.0,
                 "y": 1.0,
                 "z": 1.0
             },
-            "shininess": 0.0
+            "shininess": 0.5
         },
         "texture_path": "",
         "type": "entity"
@@ -1191,15 +1191,15 @@
         "script_index": "",
         "script_path": "",
         "surface_material": {
-            "DiffuseIntensity": 0.44600000977516174,
-            "Roughness": 1.0,
-            "SpecularIntensity": 1.0,
+            "DiffuseIntensity": 0.5,
+            "Roughness": 0.5,
+            "SpecularIntensity": 0.5,
             "SpecularTint": {
                 "x": 1.0,
                 "y": 1.0,
                 "z": 1.0
             },
-            "shininess": 0.0
+            "shininess": 0.5
         },
         "texture_path": "",
         "type": "entity"
@@ -1238,15 +1238,15 @@
         "script_index": "",
         "script_path": "",
         "surface_material": {
-            "DiffuseIntensity": 0.44600000977516174,
-            "Roughness": 1.0,
-            "SpecularIntensity": 1.0,
+            "DiffuseIntensity": 0.5,
+            "Roughness": 0.5,
+            "SpecularIntensity": 0.5,
             "SpecularTint": {
                 "x": 1.0,
                 "y": 1.0,
                 "z": 1.0
             },
-            "shininess": 0.0
+            "shininess": 0.5
         },
         "texture_path": "",
         "type": "entity"
@@ -1285,15 +1285,15 @@
         "script_index": "",
         "script_path": "",
         "surface_material": {
-            "DiffuseIntensity": 0.44600000977516174,
-            "Roughness": 1.0,
-            "SpecularIntensity": 1.0,
+            "DiffuseIntensity": 0.5,
+            "Roughness": 0.5,
+            "SpecularIntensity": 0.5,
             "SpecularTint": {
                 "x": 1.0,
                 "y": 1.0,
                 "z": 1.0
             },
-            "shininess": 0.0
+            "shininess": 0.5
         },
         "texture_path": "",
         "type": "entity"
@@ -1332,15 +1332,15 @@
         "script_index": "",
         "script_path": "",
         "surface_material": {
-            "DiffuseIntensity": 0.44600000977516174,
-            "Roughness": 1.0,
-            "SpecularIntensity": 1.0,
+            "DiffuseIntensity": 0.5,
+            "Roughness": 0.5,
+            "SpecularIntensity": 0.5,
             "SpecularTint": {
                 "x": 1.0,
                 "y": 1.0,
                 "z": 1.0
             },
-            "shininess": 0.0
+            "shininess": 0.5
         },
         "texture_path": "",
         "type": "entity"
@@ -1379,15 +1379,15 @@
         "script_index": "",
         "script_path": "",
         "surface_material": {
-            "DiffuseIntensity": 0.44600000977516174,
-            "Roughness": 1.0,
-            "SpecularIntensity": 1.0,
+            "DiffuseIntensity": 0.5,
+            "Roughness": 0.5,
+            "SpecularIntensity": 0.5,
             "SpecularTint": {
                 "x": 1.0,
                 "y": 1.0,
                 "z": 1.0
             },
-            "shininess": 0.0
+            "shininess": 0.5
         },
         "texture_path": "",
         "type": "entity"
@@ -1426,15 +1426,15 @@
         "script_index": "",
         "script_path": "",
         "surface_material": {
-            "DiffuseIntensity": 0.44600000977516174,
-            "Roughness": 1.0,
-            "SpecularIntensity": 1.0,
+            "DiffuseIntensity": 0.5,
+            "Roughness": 0.5,
+            "SpecularIntensity": 0.5,
             "SpecularTint": {
                 "x": 1.0,
                 "y": 1.0,
                 "z": 1.0
             },
-            "shininess": 0.0
+            "shininess": 0.5
         },
         "texture_path": "",
         "type": "entity"
@@ -1473,15 +1473,15 @@
         "script_index": "",
         "script_path": "",
         "surface_material": {
-            "DiffuseIntensity": 0.44600000977516174,
-            "Roughness": 1.0,
-            "SpecularIntensity": 1.0,
+            "DiffuseIntensity": 0.5,
+            "Roughness": 0.5,
+            "SpecularIntensity": 0.5,
             "SpecularTint": {
                 "x": 1.0,
                 "y": 1.0,
                 "z": 1.0
             },
-            "shininess": 0.0
+            "shininess": 0.5
         },
         "texture_path": "",
         "type": "entity"
@@ -1561,7 +1561,7 @@
         "type": "light"
     },
     {
-        "attenuation": 9.999999747378752e-05,
+        "attenuation": 0.009999999776482582,
         "color": {
             "a": 255.0,
             "b": 255.0,
@@ -1575,7 +1575,7 @@
             "z": -0.4000000059604645
         },
         "id": 0,
-        "intensity": 0.5,
+        "intensity": 1.0,
         "isChild": false,
         "light_type": 1,
         "name": "",
