@@ -1259,7 +1259,7 @@ public:
     void createDynamicMesh(bool generateShape = true) {
         if (!isDynamic) isDynamic = true;
 
-        currentCollisionShapeType = make_shared<CollisionShapeType>(CollisionShapeType::HighPolyMesh);
+        currentCollisionShapeType = std::make_shared<CollisionShapeType>(CollisionShapeType::HighPolyMesh);
 
         if (highPolyDynamicRigidBody != nullptr && *highPolyDynamicRigidBody.get() != nullptr) {
             dynamicsWorld->removeRigidBody(*highPolyDynamicRigidBody);
