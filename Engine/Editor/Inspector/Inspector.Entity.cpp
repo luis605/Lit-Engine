@@ -7,6 +7,8 @@ void EntityInspector()
 
     selected_entity = get<Entity*>(object_in_inspector);
 
+    if (selected_entity == nullptr || !selected_entity->initialized) return;
+
     selected_entity_position = selected_entity->position;
     if (selected_entity->isChild)
         selected_entity_position = selected_entity->relative_position;
