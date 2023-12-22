@@ -2,15 +2,15 @@
     {
         "fovy": 60.0,
         "position": {
-            "x": 6.384058952331543,
-            "y": 9.141552925109863,
-            "z": -24.242015838623047
+            "x": 2.6735289096832275,
+            "y": 11.796180725097656,
+            "z": -41.21265411376953
         },
         "projection": 0,
         "target": {
-            "x": 6.284551620483398,
-            "y": 4.775729656219482,
-            "z": -15.026290893554688
+            "x": 3.5926952362060547,
+            "y": 7.5690836906433105,
+            "z": -31.977554321289063
         },
         "type": "camera",
         "up": {
@@ -31,7 +31,7 @@
         "type": "world settings"
     },
     {
-        "collider_type": 1,
+        "collider_type": 0,
         "id": 0,
         "is_dynamic": false,
         "mass": 1.0,
@@ -58,7 +58,7 @@
         "roughness_texture_path": "",
         "scale": {
             "x": 100.0,
-            "y": 1.0,
+            "y": 0.009999999776482582,
             "z": 100.0
         },
         "script_index": "",
@@ -78,9 +78,9 @@
         "type": "entity"
     },
     {
-        "collider_type": 0,
+        "collider_type": 1,
         "id": 1,
-        "is_dynamic": false,
+        "is_dynamic": true,
         "mass": 1.0,
         "material_path": "",
         "mesh_type": 1,
@@ -125,9 +125,9 @@
         "type": "entity"
     },
     {
-        "collider_type": 0,
+        "collider_type": 1,
         "id": 1,
-        "is_dynamic": false,
+        "is_dynamic": true,
         "mass": 1.0,
         "material_path": "",
         "mesh_type": 1,
@@ -172,9 +172,9 @@
         "type": "entity"
     },
     {
-        "collider_type": 4,
+        "collider_type": 1,
         "id": 1,
-        "is_dynamic": false,
+        "is_dynamic": true,
         "mass": 1.0,
         "material_path": "",
         "mesh_type": 1,
@@ -229,9 +229,9 @@
         "name": "Unnamed Entity",
         "normal_texture_path": "",
         "position": {
-            "x": 8.59999942779541,
-            "y": 5.30000114440918,
-            "z": 0.0
+            "x": 1.5000030994415283,
+            "y": 3.3999996185302734,
+            "z": -30.89999771118164
         },
         "relative_position": {
             "x": 0.0,
