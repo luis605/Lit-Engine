@@ -327,6 +327,7 @@ void RenderScene()
     }
 
 
+    int index = 0;
     for (Entity& entity : entities_list_pregame)
     {
         entity.calc_physics = false;
@@ -337,8 +338,11 @@ void RenderScene()
             isEntitySelected = IsMouseHoveringModel(entity.model, scene_camera, entity.position, entity.rotation, entity.scale, &entity);
             if (isEntitySelected)
             {
-                object_in_inspector = &entity;
-                selected_game_object_type = "entity";
+                if (IsModelReady(entity.model) && entity.initialized)
+                {
+                    object_in_inspector = &entities_list_pregame.at(index);
+                    selected_game_object_type = "entity";
+                }
             }
 
             for (std::variant<Entity*, Light*, Text*, LitButton*>& childVariant : entity.children)
@@ -355,7 +359,10 @@ void RenderScene()
             }
 
         }
+
+        index++;
     }
+
 
 
     if (
@@ -369,9 +376,7 @@ void RenderScene()
         !dragging_gizmo_position
         )
     {
-        static Entity default_entity;
         selected_game_object_type = "none";
-        object_in_inspector = &default_entity;
     }
 
 

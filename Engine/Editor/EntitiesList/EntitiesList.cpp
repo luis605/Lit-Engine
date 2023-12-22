@@ -462,15 +462,7 @@ void EntitiesList()
     ImGui::PopStyleColor(4);
     ImGui::PopStyleVar();
 
-    if (!entities_list_pregame.empty() || !lights_list_pregame.empty()) {
-        // if (selected_game_object_type == "entity")
-        //     object_in_inspector = &entities_list_pregame[listViewExActive];
-        // else
-        //     object_in_inspector = &lights_list_pregame[listViewExActive];
-    } else {
-        static Entity default_entity;
-        object_in_inspector = &default_entity;
-    }
+
 
     ImGui::End();
 }
