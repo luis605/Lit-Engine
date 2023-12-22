@@ -1196,6 +1196,8 @@ public:
 
         btBvhTriangleMeshShape* highPolyMeshShape = new btBvhTriangleMeshShape(triangleMesh, true);
 
+        delete triangleMesh;
+        
         // Create the rigid body for the ground
         btTransform groundTransform;
         groundTransform.setIdentity();
