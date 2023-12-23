@@ -116,14 +116,6 @@ using namespace py::literals;
 using json = nlohmann::json;
 
 
-#ifdef GAME_SHIPPING
-extern std::map<std::string, const char*> scriptMap;
-
-#ifndef STATIC_BUILD
-    #include "exported_game/ScriptData.h"
-#endif
-#endif
-
 // Physics
 #include "Engine/Physics/InitPhysx.cpp"
 
