@@ -60,7 +60,6 @@ int BuildProject() {
 
     std::filesystem::copy("project", "exported_game/project", std::filesystem::copy_options::recursive | std::filesystem::copy_options::overwrite_existing);
     std::filesystem::copy("project.json", "exported_game/project.json", std::filesystem::copy_options::overwrite_existing);
-    std::filesystem::copy("assets/images/skybox/default skybox.hdr", "exported_game/assets/default skybox.hdr", std::filesystem::copy_options::overwrite_existing);
 
     std::filesystem::copy("Engine/Lighting/shaders/skybox.vs", "exported_game/shaders/skybox.vs", std::filesystem::copy_options::overwrite_existing);
     std::filesystem::copy("Engine/Lighting/shaders/skybox.fs", "exported_game/shaders/skybox.fs", std::filesystem::copy_options::overwrite_existing);
