@@ -1281,7 +1281,8 @@ public:
         btRigidBody* highPolyStaticRigidBodyPtr = new btRigidBody(highPolyStaticRigidBodyCI);
         highPolyDynamicRigidBody = std::make_shared<btRigidBody*>(highPolyStaticRigidBodyPtr);
 
-        dynamicsWorld->addRigidBody(*highPolyDynamicRigidBody);    }
+        dynamicsWorld->addRigidBody(*highPolyDynamicRigidBody);
+    }
 
     void makePhysicsDynamic(CollisionShapeType shapeType = CollisionShapeType::Box) {
         isDynamic = true;
