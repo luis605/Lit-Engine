@@ -1174,8 +1174,11 @@ public:
                 float* meshVertices = reinterpret_cast<float*>(mesh.vertices);
 
                 for (int v = 0; v < mesh.vertexCount; v += 3) {
-                    // Apply scaling to the vertex coordinates
-                    btVector3 scaledVertex(meshVertices[v] * scale.x, meshVertices[v + 1] * scale.y, meshVertices[v + 2] * scale.z);
+                    btVector3 scaledVertex(
+                        meshVertices[v]     * scale.x, 
+                        meshVertices[v + 1] * scale.y,
+                        meshVertices[v + 2] * scale.z
+                    );
                     customMeshShape->addPoint(scaledVertex);
                 }
             }
