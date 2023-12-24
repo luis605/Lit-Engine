@@ -75,15 +75,6 @@ int BuildProject() {
     std::filesystem::remove("exported_game/scripts.json");
 
 
-#ifdef _WIN32
-    std::filesystem::copy("swscale-7.dll", "exported_game/swscale-7.dll", std::filesystem::copy_options::overwrite_existing);
-    std::filesystem::copy("avformat-60.dll", "exported_game/avformat-60.dll", std::filesystem::copy_options::overwrite_existing);
-    std::filesystem::copy("avutil-58.dll", "exported_game/avutil-58.dll", std::filesystem::copy_options::overwrite_existing);
-    std::filesystem::copy("swresample-4.dll", "exported_game/swresample-4.dll", std::filesystem::copy_options::overwrite_existing);
-    std::filesystem::copy("avcodec-60.dll", "exported_game/avcodec-60.dll", std::filesystem::copy_options::overwrite_existing);
-
-#endif
-
     std::cout << "Game Sucessfully Exported" << std::endl;
     return 0;
 }
