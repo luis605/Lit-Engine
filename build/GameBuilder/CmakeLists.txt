@@ -1,0 +1,52 @@
+cmake_minimum_required(VERSION 3.15)
+project(MyProgram)
+
+set(CMAKE_CXX_STANDARD 17)
+set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -w")
+
+# Define source files
+set(SRC_FILES gameSystem.cpp)
+
+# Find Python
+find_package(Python3 COMPONENTS Development)
+
+# Include directories
+include_directories(
+    ${CMAKE_CURRENT_SOURCE_DIR}/../../include/
+    ${CMAKE_CURRENT_SOURCE_DIR}/../../include/nlohmann
+    ${CMAKE_CURRENT_SOURCE_DIR}/../../ffmpeg
+    ${CMAKE_CURRENT_SOURCE_DIR}/../../include/bullet3/src
+    ${Python3_INCLUDE_DIRS}  # Include Python directories
+    ${CMAKE_CURRENT_SOURCE_DIR}/pybind11/include
+)
+
+# Set library directories
+link_directories(
+    ${CMAKE_CURRENT_LIST_DIR}
+    ${CMAKE_SOURCE_DIR}/../../include
+    ${CMAKE_SOURCE_DIR}/../../include/bullet3/lib
+    ${CMAKE_SOURCE_DIR}/../../include/ffmpeg/lib
+    ${CMAKE_SOURCE_DIR}/../../include/ffmpeg/bin
+)
+
+# Define libraries to link against
+set(LIBRARIES
+    raylib
+    ${Python3_LIBRARIES}  # Link Python libraries
+    BulletDynamics
+    BulletCollision
+    LinearMath
+    avformat
+    avcodec
+    avutil
+    swscale
+    opengl32
+    gdi32
+    winmm
+    pthread
+    meshoptimizer
+)
+
+# Build executable
+add_executable(my_program ${SRC_FILES})
+target_link_libraries(my_program ${LIBRARIES})
