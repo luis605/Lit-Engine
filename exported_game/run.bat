@@ -1,2 +1,2 @@
-set PATH=%PATH%;.
+set PATH=%PATH%;./libs/
 .\my_program.exe
