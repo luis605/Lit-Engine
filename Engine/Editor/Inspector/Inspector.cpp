@@ -32,8 +32,8 @@ void ShowTexture()
 
 void Inspector()
 {
-    ImGui::Begin("Inspector", NULL);
-
+    ImGui::Begin((std::string(ICON_FA_CIRCLE_INFO) + " Inspector").c_str(), NULL);
+    
     if (selected_game_object_type == "entity" && selected_entity)
     {
         if (selected_entity->initialized)
