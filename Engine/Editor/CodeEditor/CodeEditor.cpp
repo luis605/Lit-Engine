@@ -9,7 +9,7 @@ static float clickTimer = 0.0f;
 
 void CodeEditor()
 {
-    ImGui::Begin("Code Editor Window", NULL);
+    ImGui::Begin("Code Editor", NULL);
 
     ImVec2 size = ImGui::GetContentRegionAvail();
     bool save_file = ImGui::ImageButton((ImTextureID)&save_texture, ImVec2(64, 64));
