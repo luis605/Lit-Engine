@@ -396,18 +396,19 @@ void EntitiesList()
     ImGuiListViewEx(objectNames, listViewExFocus, listViewExScrollIndex, listViewExActive);
 
     ImGui::PushStyleColor(ImGuiCol_Button, ImVec4(0.3f, 0.3f, 0.3f, 0.0f));
-    ImGui::PushStyleColor(ImGuiCol_ButtonHovered, ImVec4(0.3f, 0.3f, 0.3f, 0.0f));
-    ImGui::PushStyleColor(ImGuiCol_ButtonActive, ImVec4(0.3f, 0.3f, 0.3f, 0.0f));
-    ImGui::PushStyleColor(ImGuiCol_Border, ImVec4(0.3f, 0.3f, 0.3f, 0.0f));
+    ImGui::PushStyleColor(ImGuiCol_ButtonHovered, ImVec4(0.3f, 0.3f, 0.3f, 0.05f));
+    ImGui::PushStyleColor(ImGuiCol_ButtonActive, ImVec4(0.3f, 0.3f, 0.3f, 0.2f));
+    ImGui::PushStyleColor(ImGuiCol_Border, ImVec4(0.15f, 0.15f, 0.3f, 1.0f));
     ImGui::PushStyleVar(ImGuiStyleVar_FramePadding, ImVec2(0,0));
+    ImGui::PushStyleVar(ImGuiStyleVar_FrameBorderSize, 2);
 
-    if (ImGui::ImageButton((ImTextureID)&run_texture, ImVec2(40, 40)))
+    if (ImGui::ImageButton((ImTextureID)&run_texture, ImVec2(50, 50)))
     {
         cout << "Running Game" << endl;
 
         entities_list.assign(entities_list_pregame.begin(), entities_list_pregame.end());
         
-        DisableCursor();
+        // DisableCursor();
 
         InitGameCamera();
         in_game_preview = true;
@@ -415,7 +416,7 @@ void EntitiesList()
 
     ImGui::SameLine();
 
-    if ((ImGui::ImageButton((ImTextureID)&pause_texture, ImVec2(40, 40))) ||
+    if ((ImGui::ImageButton((ImTextureID)&pause_texture, ImVec2(50, 50))) ||
         (in_game_preview && IsKeyDown(KEY_ESCAPE)))
     {
         cout << "Stopping Game" << endl;
@@ -437,9 +438,7 @@ void EntitiesList()
     }
 
     ImGui::PopStyleColor(4);
-    ImGui::PopStyleVar();
-
-
+    ImGui::PopStyleVar(2);
 
     ImGui::End();
 }

@@ -93,8 +93,7 @@ sandbox: $(IMGUI_OBJECTS)
 debug:
 	@echo "Debugging Lit Engine"
 	@echo $(info $(BANNER_TEXT))
-
-
+	export LD_LIBRARY_PATH=./libs/:$LD_LIBRARY_PATH
 	@gdb lit_engine.out
 
 bdb: build debug
