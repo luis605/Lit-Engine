@@ -390,7 +390,7 @@ void ImGuiListViewEx(vector<string>& items, int& focus, int& scroll, int& active
 
 void EntitiesList()
 {
-    ImGui::Begin("Objects List", NULL);
+    ImGui::Begin((std::string(ICON_FA_BARS) + " Objects List").c_str(), NULL);
 
     updateListViewExList(entities_list_pregame, lights_list_pregame);
     ImGuiListViewEx(objectNames, listViewExFocus, listViewExScrollIndex, listViewExActive);

@@ -42,7 +42,7 @@ void AssetsExplorer()
     else if (AssetsExplorer_window_size.y < cellSize)
         ImGui::SetNextWindowSize({AssetsExplorer_window_size.y, cellSize});
 
-    ImGui::Begin("Assets Explorer", NULL);
+    ImGui::Begin((std::string(ICON_FA_FOLDER_OPEN) + " Assets Explorer").c_str(), NULL);
 
     ImGui::PushStyleVar(ImGuiStyleVar_FrameBorderSize, 0);
     ImGui::PushStyleVar(ImGuiStyleVar_FrameRounding, 5);
