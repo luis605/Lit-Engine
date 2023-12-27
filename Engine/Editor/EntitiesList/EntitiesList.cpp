@@ -322,10 +322,12 @@ void DrawButtonTree(LitButton& button, int active, int& index) {
 
 
 void ImGuiListViewEx(vector<string>& items, int& focus, int& scroll, int& active) {
-    ImGui::SetNextWindowSize(ImVec2(400, 200)); // set the container size
-
     ImVec2 screen = ImGui::GetIO().DisplaySize;
-    ImVec2 childSize = ImVec2(.2 * screen.x, .7 * screen.y);
+    
+    ImVec2 childSize = ImVec2(
+        ImGui::GetWindowSize().x - 30,
+        ImGui::GetWindowSize().y - 150);
+
     ImGui::BeginChild("Entities List", childSize, true, ImGuiWindowFlags_HorizontalScrollbar);
 
     if ((ImGui::IsWindowFocused() || ImGui::IsWindowHovered() || ImGui::IsItemHovered()) && IsKeyDown(KEY_F2))
@@ -392,31 +394,6 @@ void EntitiesList()
 
     updateListViewExList(entities_list_pregame, lights_list_pregame);
     ImGuiListViewEx(objectNames, listViewExFocus, listViewExScrollIndex, listViewExActive);
-
-    ImGui::PushStyleVar(ImGuiStyleVar_FrameBorderSize, 3.0f);
-    ImGui::PushStyleColor(ImGuiCol_Button, ImVec4(0.9f, 0.9f, 0.9f, 0.9f)); // light gray
-    ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(0.0f, 0.0f, 0.0f, 1.0f)); // black
-    ImGui::PushStyleColor(ImGuiCol_FrameBg, ImVec4(0.5f, 0.5f, 0.5f, 0.5f)); // light gray
-
-    bool add_entity = ImGui::Button("Add Entity", ImVec2(120,40));
-    if (add_entity)
-    {
-        sprintf(name, "Entity Name");
-        canAddEntity = true;
-    }
-
-    ImGui::SameLine();
-
-    bool add_light = ImGui::Button("Add Light", ImVec2(120,40));
-    if (add_light)
-    {
-        canAddLight = true;
-        NewLight({4, 4, 4}, WHITE);
-    }
-
-
-    ImGui::PopStyleColor(3);
-    ImGui::PopStyleVar();
 
     ImGui::PushStyleColor(ImGuiCol_Button, ImVec4(0.3f, 0.3f, 0.3f, 0.0f));
     ImGui::PushStyleColor(ImGuiCol_ButtonHovered, ImVec4(0.3f, 0.3f, 0.3f, 0.0f));
