@@ -1520,7 +1520,6 @@ private:
     }
 };
 
-
 bool operator==(const Entity& e, const Entity* ptr) {
     return &e == ptr;
 }

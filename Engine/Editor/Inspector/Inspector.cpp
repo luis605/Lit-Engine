@@ -32,6 +32,8 @@ void ShowTexture()
 
 void Inspector()
 {
+    ImGui::Begin("Inspector", NULL);
+
     if (selected_game_object_type == "entity" && selected_entity)
     {
         if (selected_entity->initialized)
@@ -51,6 +53,8 @@ void Inspector()
     {
         WorldInspector();
     }
+
+    ImGui::End();
 
     ShowTexture();
 }

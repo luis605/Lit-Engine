@@ -744,6 +744,9 @@ void ProcessCopy()
 
 int EditorCamera(void)
 {
+    ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(0.0f, 0.0f));
+    ImGui::Begin("Scene Editor", NULL);
+
     if (ImGui::IsWindowHovered() && !dragging_gizmo_position && !dragging_gizmo_rotation && !in_game_preview)
     {
         DropEntity();
@@ -794,11 +797,10 @@ int EditorCamera(void)
         prevEditorWindowSize = currentWindowSize;
     }
 
-
-
-
-
     ObjectsPopup();
+
+    ImGui::End();
+    ImGui::PopStyleVar();
 
     return 0;
 }

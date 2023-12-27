@@ -2,10 +2,7 @@
 	"artifacts" : 
 	[
 		{
-			"path" : "lit_engine.exe"
-		},
-		{
-			"path" : "lit_engine.pdb"
+			"path" : "lit_engine"
 		}
 	],
 	"backtrace" : 1,
@@ -84,7 +81,7 @@
 			{
 				"command" : 3,
 				"file" : 0,
-				"line" : 63,
+				"line" : 40,
 				"parent" : 0
 			}
 		]
@@ -95,46 +92,42 @@
 			"compileCommandFragments" : 
 			[
 				{
-					"fragment" : "-std=gnu++17"
+					"fragment" : " -fuse-ld=gold -g"
 				}
 			],
 			"includes" : 
 			[
 				{
 					"backtrace" : 8,
-					"path" : "C:/Users/USER/Desktop/_/Lit-Engine/./include"
+					"path" : "/home/lixt/Desktop/projects/Lit Engine - engine/main/./include"
 				},
 				{
 					"backtrace" : 8,
-					"path" : "C:/Users/USER/Desktop/_/Lit-Engine/./include/nlohmann"
+					"path" : "/home/lixt/Desktop/projects/Lit Engine - engine/main/./include/nlohmann"
 				},
 				{
 					"backtrace" : 8,
-					"path" : "C:/Users/USER/Desktop/_/Lit-Engine/./imgui"
+					"path" : "/home/lixt/Desktop/projects/Lit Engine - engine/main/./imgui"
 				},
 				{
 					"backtrace" : 8,
-					"path" : "C:/Users/USER/Desktop/_/Lit-Engine/./include/bullet3/src"
+					"path" : "/home/lixt/Desktop/projects/Lit Engine - engine/main/./include/bullet3/src"
 				},
 				{
 					"backtrace" : 8,
-					"path" : "C:/Users/USER/Desktop/_/Lit-Engine/./ffmpeg"
+					"path" : "/home/lixt/Desktop/projects/Lit Engine - engine/main/./ffmpeg"
 				},
 				{
 					"backtrace" : 8,
-					"path" : "C:/Users/USER/Desktop/_/Lit-Engine/./ImGuiColorTextEdit"
-				},
-				{
-					"backtrace" : 8,
-					"path" : "C:/Users/USER/AppData/Local/Programs/Python/Python311/include"
+					"path" : "/home/lixt/Desktop/projects/Lit Engine - engine/main/./ImGuiColorTextEdit"
 				},
 				{
 					"backtrace" : 9,
-					"path" : "C:/Users/USER/AppData/Local/Programs/Python/Python311/Lib/site-packages/pybind11/include"
+					"path" : "/home/lixt/Desktop/projects/Lit Engine - engine/main/C:/Users/USER/AppData/Local/Programs/Python/Python311/Lib/site-packages/pybind11/include"
 				},
 				{
 					"backtrace" : 10,
-					"path" : "C:/Users/USER/Desktop/_/Lit-Engine/-IC:/Users/USER/AppData/Local/Programs/Python/Python311/Include -IC:/Users/USER/AppData/Local/Programs/Python/Python311/Lib/site-packages/pybind11/include"
+					"path" : "/usr/include/python3.10"
 				}
 			],
 			"language" : "CXX",
@@ -158,28 +151,36 @@
 		"commandFragments" : 
 		[
 			{
+				"fragment" : "-fuse-ld=gold -g",
+				"role" : "flags"
+			},
+			{
 				"fragment" : "",
 				"role" : "flags"
 			},
 			{
 				"backtrace" : 2,
-				"fragment" : "-LC:\\Users\\USER\\Desktop\\_\\Lit-Engine\\include",
+				"fragment" : "-L\"/home/lixt/Desktop/projects/Lit Engine - engine/main/include\"",
 				"role" : "libraryPath"
 			},
 			{
 				"backtrace" : 3,
-				"fragment" : "-LC:\\Users\\USER\\Desktop\\_\\Lit-Engine\\include\\bullet3\\lib",
+				"fragment" : "-L\"/home/lixt/Desktop/projects/Lit Engine - engine/main/include/bullet3/lib\"",
 				"role" : "libraryPath"
 			},
 			{
 				"backtrace" : 4,
-				"fragment" : "-LC:\\Users\\USER\\Desktop\\_\\Lit-Engine\\include\\ffmpeg\\lib",
+				"fragment" : "-L\"/home/lixt/Desktop/projects/Lit Engine - engine/main/include/ffmpeg/lib\"",
 				"role" : "libraryPath"
 			},
 			{
 				"backtrace" : 5,
-				"fragment" : "-LC:\\Users\\USER\\Desktop\\_\\Lit-Engine\\include\\ffmpeg\\bin",
+				"fragment" : "-L\"/home/lixt/Desktop/projects/Lit Engine - engine/main/include/ffmpeg/bin\"",
 				"role" : "libraryPath"
+			},
+			{
+				"fragment" : "-Wl,-rpath,\"/home/lixt/Desktop/projects/Lit Engine - engine/main/include:/home/lixt/Desktop/projects/Lit Engine - engine/main/include/bullet3/lib:/home/lixt/Desktop/projects/Lit Engine - engine/main/include/ffmpeg/lib:/home/lixt/Desktop/projects/Lit Engine - engine/main/include/ffmpeg/bin\"",
+				"role" : "libraries"
 			},
 			{
 				"backtrace" : 6,
@@ -193,18 +194,14 @@
 			},
 			{
 				"backtrace" : 7,
-				"fragment" : "-lraylib -LC:/Users/USER/AppData/Local/Programs/Python/Python311/libs -lpython311 -fPIC -IC:\\Users\\USER\\AppData\\Local\\Programs\\Python\\Python311\\Include -IC:\\Users\\USER\\AppData\\Local\\Programs\\Python\\Python311\\Lib\\site-packages\\pybind11\\include -L. -lBulletDynamics -lBulletCollision -lLinearMath -I./include/bullet3/src -lavformat -lavcodec -lavutil -lswscale -lopengl32 -lgdi32 -lwinmm -lpthread",
-				"role" : "libraries"
-			},
-			{
-				"fragment" : "-lkernel32 -luser32 -lgdi32 -lwinspool -lshell32 -lole32 -loleaut32 -luuid -lcomdlg32 -ladvapi32",
+				"fragment" : "-lraylib -lpython3.11 -fPIC -I/usr/include/python3.11 -I/home/lixt/.local/lib/python3.11/site-packages/pybind11/include -ldl -lBulletDynamics -lBulletCollision -lLinearMath -I./include/bullet3/src -lavformat -lavcodec -lavutil -lswscale -lz -lm -lpthread -ldrm",
 				"role" : "libraries"
 			}
 		],
 		"language" : "CXX"
 	},
 	"name" : "lit_engine",
-	"nameOnDisk" : "lit_engine.exe",
+	"nameOnDisk" : "lit_engine",
 	"paths" : 
 	{
 		"build" : ".",
