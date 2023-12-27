@@ -28,7 +28,7 @@ void LightInspector()
 
     // Light Type
     static const char* lights_types[] = { "Directional Light", "Point Light", "Spot Light" };
-    static int currentItem = 0;
+    static int currentItem = selected_light->type;
 
     if (ImGui::BeginCombo("Light Types", lights_types[currentItem])) {
         for (int index = 0; index < IM_ARRAYSIZE(lights_types); index++) {
