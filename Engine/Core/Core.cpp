@@ -174,7 +174,11 @@ void EngineMainLoop()
 
         Inspector();
 
+        ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(0.0f, 0.0f));
+        ImGui::Begin("Scene Editor", NULL);
         int editor_camera = EditorCamera();
+        ImGui::End();
+        ImGui::PopStyleVar();
 
         AddEntity();
 
