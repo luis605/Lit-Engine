@@ -163,6 +163,7 @@ public:
     bool running_first_time = false;
     bool calc_physics = false;
     bool isDynamic = false;
+    bool lodEnabled                                = true;
 
     typedef enum ObjectTypeEnum
     {
@@ -212,7 +213,6 @@ private:
     Material matInstances;
     int lastIndexCalculated                        = -1;
     Shader* entity_shader;
-    bool lodEnabled                                = true;
 
     py::object entity_obj;
     string script_content;
