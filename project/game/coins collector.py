@@ -7,7 +7,7 @@ pitch = 0.0
 
 grounded = False
 rotation_angle = 45.0
-entity.visible = True
+entity.visible = False
 
 def update():
 	global velocity, dragging_item, hovered_entity, yaw, pitch, grounded
@@ -34,7 +34,7 @@ def update():
 
 	if IsKeyPressed(KeyboardKey.KEY_SPACE):
 		if (grounded):
-			entity.applyImpulse(Vector3(0, 9, 0))  # Adjust for desired jump height
+			entity.applyImpulse(Vector3(0, 5, 0))  # Adjust for desired jump height
 
 	camera.position = Vector3(entity.position.x + 0, entity.position.y - 0, entity.position.z)
 	camera.look_at = Vector3(entity.position.x, entity.position.y, entity.position.z)
@@ -61,16 +61,5 @@ def update():
 						ignore = [entity]
 					).distance
 
-	grounded = distance < entity.scale.y / 2 + 0.01
+	grounded = distance < entity.scale.y / 2 + 0.1
 
-	monkeyRay = raycast(
-								entity.position,
-								front,
-								ignore = [entity]
-							)
-	
-	if (monkeyRay.hit and 
-		monkeyRay.distance < .5 and
-		monkeyRay.entity.name == "monkey"):
-			print(monkeyRay.entity.name)
-			monkeyRay.entity.color = Color(0,255,255,255)

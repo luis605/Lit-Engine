@@ -2,15 +2,15 @@
     {
         "fovy": 60.0,
         "position": {
-            "x": 9.150104522705078,
-            "y": 6.915121078491211,
-            "z": 7.410806655883789
+            "x": 16.418453216552734,
+            "y": 11.170744895935059,
+            "z": -9.318045616149902
         },
         "projection": 0,
         "target": {
-            "x": -21.988117218017578,
-            "y": -19.005794525146484,
-            "z": -21.88959503173828
+            "x": -33.4321174621582,
+            "y": 12.420515060424805,
+            "z": -5.663068771362305
         },
         "type": "camera",
         "up": {
@@ -27,18 +27,18 @@
             "z": 1.0
         },
         "bloom": true,
-        "bloomBrightness": 0.0,
+        "bloomBrightness": -1.1030000448226929,
         "type": "world settings"
     },
     {
-        "collider_type": 4,
+        "collider_type": 1,
         "id": 0,
-        "is_dynamic": false,
+        "is_dynamic": true,
         "mass": 1.0,
         "material_path": "project/game/materials/gate.mat",
         "model_path": "project/game/assets/gate.obj",
-        "name": "project/game/assets/gate",
-        "normal_texture_path": "",
+        "name": "gate",
+        "normal_texture_path": "project/game/assets/textures/large_iron_gate_nor_gl_2k.png",
         "position": {
             "x": 0.0,
             "y": 0.0,
@@ -57,8 +57,102 @@
         "roughness_texture_path": "",
         "scale": {
             "x": 2.0,
-            "y": 2.0,
+            "y": 1.7000000476837158,
             "z": 2.0
+        },
+        "script_index": "",
+        "script_path": "",
+        "surface_material": {
+            "DiffuseIntensity": 1.0,
+            "Roughness": 0.5,
+            "SpecularIntensity": 0.41100001335144043,
+            "SpecularTint": {
+                "x": 1.0,
+                "y": 1.0,
+                "z": 1.0
+            },
+            "shininess": 0.5
+        },
+        "texture_path": "project/game/assets/textures/large_iron_gate_diff_2k.jpg",
+        "type": "entity"
+    },
+    {
+        "collider_type": 0,
+        "id": 1,
+        "is_dynamic": true,
+        "mass": 1.0,
+        "material_path": "",
+        "mesh_type": 1,
+        "model_path": "",
+        "name": "Player",
+        "normal_texture_path": "",
+        "position": {
+            "x": 0.0,
+            "y": 1.0999994277954102,
+            "z": 2.0000009536743164
+        },
+        "relative_position": {
+            "x": 0.0,
+            "y": 0.0,
+            "z": 0.0
+        },
+        "rotation": {
+            "x": 0.0,
+            "y": 0.0,
+            "z": 0.0
+        },
+        "roughness_texture_path": "",
+        "scale": {
+            "x": 1.0,
+            "y": 1.0,
+            "z": 1.0
+        },
+        "script_index": "coins collector0",
+        "script_path": "project/game/coins collector.py",
+        "surface_material": {
+            "DiffuseIntensity": 0.5,
+            "Roughness": 0.5,
+            "SpecularIntensity": 0.5,
+            "SpecularTint": {
+                "x": 1.0,
+                "y": 1.0,
+                "z": 1.0
+            },
+            "shininess": 0.5
+        },
+        "texture_path": "",
+        "type": "entity"
+    },
+    {
+        "collider_type": 0,
+        "id": 2,
+        "is_dynamic": false,
+        "mass": 1.0,
+        "material_path": "",
+        "mesh_type": 4,
+        "model_path": "",
+        "name": "Floor",
+        "normal_texture_path": "",
+        "position": {
+            "x": 0.0,
+            "y": 0.0,
+            "z": 0.0
+        },
+        "relative_position": {
+            "x": 0.0,
+            "y": 0.0,
+            "z": 0.0
+        },
+        "rotation": {
+            "x": 0.0,
+            "y": 0.0,
+            "z": 0.0
+        },
+        "roughness_texture_path": "",
+        "scale": {
+            "x": 1000.0,
+            "y": 0.009999999776482582,
+            "z": 1000.0
         },
         "script_index": "",
         "script_path": "",
@@ -73,23 +167,22 @@
             },
             "shininess": 0.5
         },
-        "texture_path": "project/game/assets/textures/large_iron_gate_diff_2k.jpg",
+        "texture_path": "",
         "type": "entity"
     },
     {
-        "collider_type": 4,
-        "id": 1,
-        "is_dynamic": false,
+        "collider_type": 1,
+        "id": 3,
+        "is_dynamic": true,
         "mass": 1.0,
         "material_path": "",
-        "mesh_type": 1,
-        "model_path": "",
-        "name": "Unnamed Entity",
+        "model_path": "project/game/assets/LOD0_concrete_house_004.obj",
+        "name": "project/game/house",
         "normal_texture_path": "",
         "position": {
-            "x": 0.0,
+            "x": -12.0,
             "y": 0.0,
-            "z": 0.0
+            "z": -9.49999713897705
         },
         "relative_position": {
             "x": 0.0,
@@ -122,5 +215,42 @@
         },
         "texture_path": "",
         "type": "entity"
+    },
+    {
+        "attenuation": 0.0,
+        "color": {
+            "a": 255.0,
+            "b": 0.0,
+            "g": 0.0,
+            "r": 255.0
+        },
+        "cutOff": 10.0,
+        "direction": {
+            "x": 0.4000000059604645,
+            "y": 0.4000000059604645,
+            "z": -0.4000000059604645
+        },
+        "id": 8096,
+        "intensity": 0.6000000238418579,
+        "isChild": false,
+        "light_type": 1,
+        "name": "",
+        "position": {
+            "x": 4.0,
+            "y": 38.10001754760742,
+            "z": 3.600001573562622
+        },
+        "relative_position": {
+            "x": 0,
+            "y": 0,
+            "z": 0
+        },
+        "specularStrength": 0.5,
+        "target": {
+            "x": 0,
+            "y": 0,
+            "z": 0
+        },
+        "type": "light"
     }
 ]

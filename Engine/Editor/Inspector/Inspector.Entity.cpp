@@ -207,6 +207,10 @@ void EntityInspector()
         ImGui::SameLine();
         ImGui::Checkbox("##Visible", &selected_entity->visible);
 
+        ImGui::Text("LOD: ");
+        ImGui::SameLine();
+        ImGui::Checkbox("##Lod", &selected_entity->lodEnabled);
+
 
     }
 
