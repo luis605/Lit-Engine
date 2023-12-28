@@ -105,6 +105,21 @@ void EditorCameraMovement(void)
         scene_camera.target = Vector3Subtract(scene_camera.target, Vector3Multiply(movement, DeltaTimeVec3));
     }
 
+    if (IsKeyDown(KEY_Q))
+    {
+        Vector3 movement = Vector3Scale(scene_camera.up, movementSpeed);
+        scene_camera.position = Vector3Subtract(scene_camera.position, Vector3Multiply(movement, DeltaTimeVec3));
+        scene_camera.target = Vector3Subtract(scene_camera.target, Vector3Multiply(movement, DeltaTimeVec3));
+    }
+    
+    if (IsKeyDown(KEY_E))
+    {
+        Vector3 movement = Vector3Scale(scene_camera.up, movementSpeed);
+        scene_camera.position = Vector3Add(scene_camera.position, Vector3Multiply(movement, DeltaTimeVec3));
+        scene_camera.target = Vector3Add(scene_camera.target, Vector3Multiply(movement, DeltaTimeVec3));
+    }
+
+
     scene_camera.target = Vector3Add(scene_camera.position, forward);
 
 
