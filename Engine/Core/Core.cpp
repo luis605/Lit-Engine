@@ -78,7 +78,7 @@ void Startup()
     std::string fontPath = GetWorkingDirectory();
     fontPath += "/assets/fonts/";
 
-    float fontSize = 18.0f * io->FontGlobalScale;
+    float fontSize = 19.0f * io->FontGlobalScale;
 
     ImFont *defaultFont = io->Fonts->Fonts[0];
     s_Fonts["ImGui Default"] = defaultFont;
