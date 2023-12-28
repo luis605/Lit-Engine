@@ -390,7 +390,10 @@ void ImGuiListViewEx(vector<string>& items, int& focus, int& scroll, int& active
 
 void EntitiesList()
 {
+
+    ImGui::PushFont(s_Fonts["Default"]);
     ImGui::Begin((std::string(ICON_FA_BARS) + " Objects List").c_str(), NULL);
+    ImGui::PopFont();
 
     updateListViewExList(entities_list_pregame, lights_list_pregame);
     ImGuiListViewEx(objectNames, listViewExFocus, listViewExScrollIndex, listViewExActive);
@@ -399,8 +402,7 @@ void EntitiesList()
     ImGui::PushStyleColor(ImGuiCol_ButtonHovered, ImVec4(0.3f, 0.3f, 0.3f, 0.1f));
     ImGui::PushStyleColor(ImGuiCol_ButtonActive, ImVec4(0.3f, 0.3f, 0.3f, 0.2f));
     ImGui::PushStyleColor(ImGuiCol_Border, ImVec4(0.25f, 0.25f, 0.3f, 1.0f));
-    ImGui::PushStyleVar(ImGuiStyleVar_FramePadding, ImVec2(0,0));
-    ImGui::PushStyleVar(ImGuiStyleVar_FrameBorderSize, 2);
+    ImGui::PushStyleVar(ImGuiStyleVar_FramePadding, ImVec2(0, 0));
 
     if (ImGui::ImageButton((ImTextureID)&run_texture, ImVec2(50, 50)))
     {
@@ -438,7 +440,7 @@ void EntitiesList()
     }
 
     ImGui::PopStyleColor(4);
-    ImGui::PopStyleVar(2);
+    ImGui::PopStyleVar(1);
 
     ImGui::End();
 }
