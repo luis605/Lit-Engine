@@ -226,7 +226,7 @@ void AssetsExplorer()
 
         if (ImGui::BeginDragDropSource(ImGuiDragDropFlags_None))
         {
-            const char *drag_type;
+            const char* drag_type;
 
             if (file_extension == ".png" || file_extension == ".jpg" || file_extension == ".jpeg" ||
                 file_extension == ".avi" || file_extension == ".mp4" || file_extension == ".mov" ||
@@ -241,6 +241,8 @@ void AssetsExplorer()
                 drag_type = "MODEL_PAYLOAD";
             else if (file_extension == ".mat")
                 drag_type = "MATERIAL_PAYLOAD";
+            else
+                drag_type = "UNSUPORTED TYPE";
             
             ImGui::SetDragDropPayload(drag_type, &i, sizeof(int));
             ImGui::Image((void *)(intptr_t)(ImTextureID)&files_texture_struct[i].texture, ImVec2(64, 64));
