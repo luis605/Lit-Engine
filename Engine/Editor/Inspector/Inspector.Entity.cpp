@@ -170,7 +170,7 @@ void EntityInspector()
         ImGui::Text("Drop Script Here: ");
         ImGui::SameLine();
 
-        ImGui::Button("##Drag'nDropScriptPath", ImVec2(200,25));
+        ImGui::Button((const char*)selected_entity->script.c_str(), ImVec2(200,25));
 
         if (ImGui::BeginDragDropTarget())
         {
