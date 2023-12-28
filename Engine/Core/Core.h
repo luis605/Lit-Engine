@@ -18,6 +18,7 @@ int windowY = 0;
 bool isDragging = false;
 ImVec2 windowPosition;
 
+ImGuiIO *io;
 
 static Image window_icon_image;
 Texture2D window_icon_texture;

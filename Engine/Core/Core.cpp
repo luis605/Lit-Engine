@@ -66,32 +66,28 @@ void Startup()
 
     ImGui::CreateContext();
 
-    ImGuiIO &io = ImGui::GetIO();
+    io = &ImGui::GetIO();
 
-    io.ConfigFlags |= ImGuiConfigFlags_DockingEnable;
+    io->ConfigFlags |= ImGuiConfigFlags_DockingEnable;
 
     SetStyleGray(&ImGui::GetStyle());
 
     ImGuiStyle &style = ImGui::GetStyle();
     style.WindowMinSize.x = 370.0f;
 
-    {
+    std::string fontPath = GetWorkingDirectory();
+    fontPath += "/assets/fonts/";
 
-        std::string fontPath = GetWorkingDirectory();
-        fontPath += "/assets/fonts/";
+    float fontSize = 18.0f * io->FontGlobalScale;
 
-        float fontSize = 18.0f * ImGui::GetIO().FontGlobalScale;
+    ImFont *defaultFont = io->Fonts->Fonts[0];
+    s_Fonts["ImGui Default"] = defaultFont;
+    s_Fonts["Default"] = io->Fonts->AddFontFromFileTTF((fontPath + "NotoSans-Medium.ttf").c_str(), fontSize);
+    s_Fonts["Bold"] = io->Fonts->AddFontFromFileTTF((fontPath + "NotoSans-Bold.ttf").c_str(), fontSize + 4);
+    s_Fonts["Italic"] = io->Fonts->AddFontFromFileTTF((fontPath + "NotoSans-Italic.ttf").c_str(), fontSize);
+    s_Fonts["FontAwesome"] = io->Fonts->AddFontFromFileTTF((fontPath + "fontawesome-webfont.ttf").c_str(), fontSize);
 
-        ImFont *defaultFont = io.Fonts->Fonts[0];
-        s_Fonts["ImGui Default"] = defaultFont;
-        s_Fonts["Default"] = io.Fonts->AddFontFromFileTTF((fontPath + "NotoSans-Medium.ttf").c_str(), fontSize);
-        s_Fonts["Bold"] = io.Fonts->AddFontFromFileTTF((fontPath + "NotoSans-Bold.ttf").c_str(), fontSize + 4);
-        s_Fonts["Italic"] = io.Fonts->AddFontFromFileTTF((fontPath + "NotoSans-Italic.ttf").c_str(), fontSize);
-        s_Fonts["FontAwesome"] = io.Fonts->AddFontFromFileTTF((fontPath + "fontawesome-webfont.ttf").c_str(), fontSize);
-
-        io.FontDefault = defaultFont;
-        rlImGuiReloadFonts();
-    }
+    rlImGuiReloadFonts();
 
     // Textures
     folder_texture = LoadTexture("assets/images/folder.png");
