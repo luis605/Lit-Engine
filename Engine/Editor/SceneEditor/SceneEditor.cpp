@@ -38,32 +38,11 @@ void CalculateTextureRect(const Texture* texture, Rectangle& rectangle)
     ImVec2 windowPos = ImGui::GetWindowPos();
     ImVec2 windowSize = ImGui::GetWindowSize();
 
-    float targetWidth = windowSize.x;
-    float targetHeight = windowSize.y + GetImGuiWindowTitleHeight();
-
-    float offsetX = windowPos.x;
-    float offsetY = windowPos.y;
-
-    float textureAspectRatio = (float)texture->width / (float)texture->height;
-    float imguiWindowAspectRatio = targetWidth / targetHeight;
-    float scale = 1.0f;
-
-    if (textureAspectRatio > imguiWindowAspectRatio)
-        scale = targetWidth / (float)texture->width;
-    else
-        scale = targetHeight / (float)texture->height;
-
-    float scaledWidth = scale * (float)texture->width;
-    float scaledHeight = scale * (float)texture->height - GetImGuiWindowTitleHeight() * 2;
-
-    rectangle.width = scaledWidth;
-    rectangle.height = scaledHeight;
+    rectangle.width = windowSize.x;
+    rectangle.height = windowSize.y - GetImGuiWindowTitleHeight();
 
     rectangle.x = windowPos.x;
-    rectangle.y = windowPos.y + GetImGuiWindowTitleHeight();
-
-    offsetX += (targetWidth - scaledWidth) * 0.5f;
-    offsetY += (targetHeight - scaledHeight) * 0.5f;
+    rectangle.y = windowPos.y;
 }
 
 void DrawTextureOnRectangle(const Texture* texture)
