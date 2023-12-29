@@ -2,15 +2,15 @@
     {
         "fovy": 60.0,
         "position": {
-            "x": 16.418453216552734,
-            "y": 11.170744895935059,
-            "z": -9.318045616149902
+            "x": 15.718425750732422,
+            "y": 10.631545066833496,
+            "z": -7.359065532684326
         },
         "projection": 0,
         "target": {
-            "x": -33.4321174621582,
-            "y": 12.420515060424805,
-            "z": -5.663068771362305
+            "x": 6.594952583312988,
+            "y": 6.082267761230469,
+            "z": -7.101840496063232
         },
         "type": "camera",
         "up": {
@@ -34,6 +34,7 @@
         "collider_type": 1,
         "id": 0,
         "is_dynamic": true,
+        "lodEnabled": true,
         "mass": 1.0,
         "material_path": "project/game/materials/gate.mat",
         "model_path": "project/game/assets/gate.obj",
@@ -80,6 +81,7 @@
         "collider_type": 0,
         "id": 1,
         "is_dynamic": true,
+        "lodEnabled": true,
         "mass": 1.0,
         "material_path": "",
         "mesh_type": 1,
@@ -127,6 +129,7 @@
         "collider_type": 0,
         "id": 2,
         "is_dynamic": false,
+        "lodEnabled": true,
         "mass": 1.0,
         "material_path": "",
         "mesh_type": 4,
@@ -174,13 +177,14 @@
         "collider_type": 1,
         "id": 3,
         "is_dynamic": true,
+        "lodEnabled": false,
         "mass": 1.0,
-        "material_path": "",
+        "material_path": "project/game/materials/house.mat",
         "model_path": "project/game/assets/LOD0_concrete_house_004.obj",
         "name": "project/game/house",
         "normal_texture_path": "",
         "position": {
-            "x": -12.0,
+            "x": -24.300006866455078,
             "y": 0.0,
             "z": -9.49999713897705
         },
@@ -203,15 +207,15 @@
         "script_index": "",
         "script_path": "",
         "surface_material": {
-            "DiffuseIntensity": 0.5,
-            "Roughness": 0.5,
-            "SpecularIntensity": 0.5,
+            "DiffuseIntensity": 0.43799999356269836,
+            "Roughness": 0.0,
+            "SpecularIntensity": 0.0,
             "SpecularTint": {
                 "x": 1.0,
                 "y": 1.0,
                 "z": 1.0
             },
-            "shininess": 0.5
+            "shininess": 0.0
         },
         "texture_path": "",
         "type": "entity"
@@ -220,8 +224,8 @@
         "attenuation": 0.0,
         "color": {
             "a": 255.0,
-            "b": 0.0,
-            "g": 0.0,
+            "b": 255.0,
+            "g": 255.0,
             "r": 255.0
         },
         "cutOff": 10.0,
@@ -230,7 +234,7 @@
             "y": 0.4000000059604645,
             "z": -0.4000000059604645
         },
-        "id": 8096,
+        "id": 1971308392,
         "intensity": 0.6000000238418579,
         "isChild": false,
         "light_type": 1,

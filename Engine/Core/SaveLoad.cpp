@@ -257,6 +257,7 @@ void SaveEntity(json& json_data, const Entity& entity) {
     j["surface_material"] = entity.surface_material;
     j["is_dynamic"] = entity.isDynamic;
     j["mass"] = entity.mass;
+    j["lodEnabled"] = entity.lodEnabled;
 
     if (!entity.children.empty()) {
         json children_data;
@@ -587,6 +588,10 @@ void LoadEntity(const json& entity_json, Entity& entity) {
         entity.relative_position = relative_position;
     }
 
+    if (entity_json.contains("lodEnabled")) {
+        entity.lodEnabled = entity_json["lodEnabled"].get<bool>();
+    }
+    
     if (entity_json.contains("mesh_type")) {
         entity.ObjectType = entity_json["mesh_type"].get<Entity::ObjectTypeEnum>();
     }
@@ -635,6 +640,8 @@ void LoadEntity(const json& entity_json, Entity& entity) {
         entity.id = entity_json["id"].get<int>();
     else
         entity.id = -1;
+
+
 
 
     // Materials
