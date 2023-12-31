@@ -165,11 +165,6 @@ Mesh generateLODMesh(const std::vector<Vector3>& vertices, const std::vector<uin
 
     if (!lodMesh.vertices || !lodMesh.indices || !lodMesh.normals) {
         TraceLog(LOG_ERROR, "generateLODMesh: Memory allocation failed.");
-        
-        
-        if (lodMesh.vertices) free(lodMesh.vertices);
-        if (lodMesh.indices) free(lodMesh.indices);
-        if (lodMesh.normals) free(lodMesh.normals);
 
         return sourceMesh;
     }
@@ -196,20 +191,6 @@ Mesh generateLODMesh(const std::vector<Vector3>& vertices, const std::vector<uin
     }
 
     UploadMesh(&lodMesh, false);
-
-    if (lodMesh.vertexCount == 0 || lodMesh.triangleCount == 0 || !lodMesh.vertices || !lodMesh.indices) {
-        TraceLog(LOG_ERROR, "generateLODMesh: Mesh creation failed.");
-        
-        if (lodMesh.vertices) {
-            free(lodMesh.vertices);
-            lodMesh.vertices = NULL;
-        }
-
-        if (lodMesh.normals) {
-            free(lodMesh.normals);
-            lodMesh.normals = NULL;
-        }
-    }
     
     return lodMesh;
 }

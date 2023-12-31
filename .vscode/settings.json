@@ -94,7 +94,8 @@
         "__memory": "cpp",
         "locale": "cpp",
         "__config": "cpp",
-        "__mutex_base": "cpp"
+        "__mutex_base": "cpp",
+        "ios": "c"
     },
     "C_Cpp.default.compilerPath": "/usr/bin/g++"
 }
