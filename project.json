@@ -32,6 +32,8 @@
     },
     {
         "collider_type": 0,
+        "damping": 0.0,
+        "friction": 1.0,
         "id": 0,
         "is_dynamic": false,
         "lodEnabled": false,
@@ -79,6 +81,8 @@
     },
     {
         "collider_type": 0,
+        "damping": 0.0,
+        "friction": 1.0,
         "id": 1,
         "is_dynamic": false,
         "lodEnabled": true,
@@ -127,6 +131,8 @@
     },
     {
         "collider_type": 0,
+        "damping": 0.5,
+        "friction": 0.800000011920929,
         "id": 2,
         "is_dynamic": true,
         "lodEnabled": true,
@@ -187,7 +193,7 @@
             "y": -0.5270000100135803,
             "z": 0.14300000667572021
         },
-        "id": 646230696,
+        "id": 8096,
         "intensity": 0.5,
         "isChild": false,
         "light_type": 0,

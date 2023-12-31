@@ -234,30 +234,34 @@ void SaveCamera(json& json_data, LitCamera camera) {
 
 void SaveEntity(json& json_data, const Entity& entity) {
     json j;
-    j["type"] = "entity";
-    j["name"] = entity.name;
-    j["scale"] = entity.scale;
-    j["position"] = entity.position;
-    j["rotation"] = entity.rotation;
-    j["relative_position"] = entity.relative_position;
-    j["model_path"] = entity.model_path;
+    j["type"]                    = "entity";
+    j["name"]                    = entity.name;
+    j["scale"]                   = entity.scale;
+    j["position"]                = entity.position;
+    j["rotation"]                = entity.rotation;
+    j["relative_position"]       = entity.relative_position;
+    j["model_path"]              = entity.model_path;
     
     if (IsModelReady(entity.model) && entity.model_path.empty())
-        j["mesh_type"] = entity.ObjectType;
+        j["mesh_type"]           = entity.ObjectType;
 
-    j["collider_type"] = *entity.currentCollisionShapeType;
+    j["collider_type"]           = *entity.currentCollisionShapeType;
 
-    j["script_path"] = entity.script;
-    j["script_index"] = entity.script_index;
-    j["texture_path"] = entity.texture_path;
-    j["normal_texture_path"] = entity.normal_texture_path;
-    j["roughness_texture_path"] = entity.roughness_texture_path;
-    j["material_path"] = entity.surface_material_path;
-    j["id"] = entity.id;
-    j["surface_material"] = entity.surface_material;
-    j["is_dynamic"] = entity.isDynamic;
-    j["mass"] = entity.mass;
-    j["lodEnabled"] = entity.lodEnabled;
+    j["script_path"]             = entity.script;
+    j["script_index"]            = entity.script_index;
+    j["texture_path"]            = entity.texture_path;
+    j["normal_texture_path"]     = entity.normal_texture_path;
+    j["roughness_texture_path"]  = entity.roughness_texture_path;
+    j["material_path"]           = entity.surface_material_path;
+    j["id"]                      = entity.id;
+    j["surface_material"]        = entity.surface_material;
+    j["is_dynamic"]              = entity.isDynamic;
+    j["mass"]                    = entity.mass;
+    j["lodEnabled"]              = entity.lodEnabled;
+
+    j["mass"]                    = entity.mass;
+    j["friction"]                = entity.friction;
+    j["damping"]                 = entity.damping;
 
     if (!entity.children.empty()) {
         json children_data;
@@ -586,6 +590,18 @@ void LoadEntity(const json& entity_json, Entity& entity) {
             entity_json["relative_position"]["z"].get<float>()
         };
         entity.relative_position = relative_position;
+    }
+
+    if (entity_json.contains("mass")) {
+        entity.mass = entity_json["mass"].get<float>();
+    }
+
+    if (entity_json.contains("friction")) {
+        entity.friction = entity_json["friction"].get<float>();
+    }
+
+    if (entity_json.contains("damping")) {
+        entity.damping = entity_json["damping"].get<float>();
     }
 
     if (entity_json.contains("lodEnabled")) {
