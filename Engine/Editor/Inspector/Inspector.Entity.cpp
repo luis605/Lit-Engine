@@ -319,7 +319,7 @@ if (ImGui::CollapsingHeader("Physics"))
     ImGui::SameLine();
     ImGui::SetCursorPosX(ImGui::GetWindowWidth() - (sliderWidth + marginLeft));
     ImGui::SetNextItemWidth(sliderWidth);
-    if (ImGui::SliderFloat("##Friction", &selected_entity->friction, 0.0f, 50.0f, "%.1f"))
+    if (ImGui::SliderFloat("##Friction", &selected_entity->friction, 0.0f, 10.0f, "%.1f"))
     {
         selected_entity->setFriction(selected_entity->friction);
     }
