@@ -836,23 +836,15 @@ public:
 
                     return entities_list_pregame.back(); // Return the Entity instance
                 }))
-                    
-                .def_property("name",
-                    &Entity::getName,
-                    &Entity::setName)
 
+                .def_property("name", &Entity::getName, &Entity::setName)
                 .def_property("position",
                     [](const Entity& entity) { return entity.position; },
                     [](Entity& entity, LitVector3& position) { entity.setPos(position); }
                 )
-                
                 .def_readwrite("scale", &Entity::scale)
                 .def_readwrite("rotation", &Entity::rotation)
-                .def_property("color",
-                    &Entity::getColor, // Getter
-                    &Entity::setColor // Setter
-                    )
-
+                .def_property("color", &Entity::getColor, &Entity::setColor)
                 .def_readwrite("visible", &Entity::visible)
                 .def_readwrite("id", &Entity::id)
                 .def_readwrite("collider", &Entity::collider)
