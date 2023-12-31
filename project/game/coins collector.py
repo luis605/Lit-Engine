@@ -34,9 +34,9 @@ def update():
 
 	if IsKeyPressed(KeyboardKey.KEY_SPACE):
 		if (grounded):
-			entity.applyImpulse(Vector3(0, 5, 0))  # Adjust for desired jump height
+			entity.applyImpulse(Vector3(0, 7, 0))  # Adjust for desired jump height
 
-	camera.position = Vector3(entity.position.x + 0, entity.position.y - 0, entity.position.z)
+	camera.position = Vector3(entity.position.x + 0, entity.position.y + entity.scale.y / 2, entity.position.z)
 	camera.look_at = Vector3(entity.position.x, entity.position.y, entity.position.z)
 
 	sensitivity = 0.3
@@ -62,4 +62,5 @@ def update():
 					).distance
 
 	grounded = distance < entity.scale.y / 2 + 0.1
+
 

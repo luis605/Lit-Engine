@@ -202,7 +202,7 @@ public:
 private:
     btCollisionShape* staticBoxShape               = nullptr;
     btCollisionShape* dynamicBoxShape              = nullptr;
-    btConvexHullShape* customMeshShape             = nullptr;
+    btConcaveShape* customMeshShape             = nullptr;
     btDefaultMotionState* boxMotionState           = nullptr;
     btConvexHullShape* triangleMesh                = nullptr;
     std::shared_ptr<btRigidBody*>(boxRigidBody)    = make_shared<btRigidBody*>(nullptr);
@@ -769,10 +769,8 @@ public:
             indices.push_back(ix);
         }
 
-        if (vertices.size() > 150)
+        if (vertices.size() > 150 && lodEnabled)
         {
-            lodEnabled = true;
-
             OptimizedMeshData data(indices, vertices);
 
             this->LodModels[0] = this->model;
@@ -1154,53 +1152,110 @@ public:
         currentCollisionShapeType = std::make_shared<CollisionShapeType>(CollisionShapeType::Box);
     }
 
-    void createStaticMesh(bool generateShape = true) {
-        if (!isDynamic) isDynamic = true;
+void createStaticMesh(bool generateShape = true) {
+    // if (isDynamic) {
+    //     isDynamic = false;
+    // }
 
-        currentCollisionShapeType = std::make_shared<CollisionShapeType>(CollisionShapeType::HighPolyMesh);
+    // currentCollisionShapeType = std::make_shared<CollisionShapeType>(CollisionShapeType::HighPolyMesh);
 
-        if (highPolyDynamicRigidBody != nullptr && *highPolyDynamicRigidBody.get() != nullptr) {
-            dynamicsWorld->removeRigidBody(*highPolyDynamicRigidBody);
-        }
-        if (boxRigidBody && *boxRigidBody.get() != nullptr) {
-            dynamicsWorld->removeRigidBody(*boxRigidBody);
-        }
+    // if (highPolyDynamicRigidBody && *highPolyDynamicRigidBody) {
+    //     dynamicsWorld->removeRigidBody(*highPolyDynamicRigidBody);
+    //     delete *highPolyDynamicRigidBody;
+    // }
+    // if (boxRigidBody && *boxRigidBody) {
+    //     dynamicsWorld->removeRigidBody(*boxRigidBody);
+    //     delete *boxRigidBody;
+    // }
 
-        if (generateShape || !customMeshShape) {
-            customMeshShape = new btConvexHullShape();
+    // if (generateShape || !customMeshShape) {
+    //     if (customMeshShape) {
+    //         delete customMeshShape;
+    //     }
+    //     customMeshShape = createConcaveShapeFromModel();
+    // }
 
-            for (int m = 0; m < model.meshCount; m++) {
-                Mesh mesh = model.meshes[m];
-                float* meshVertices = reinterpret_cast<float*>(mesh.vertices);
+    // btTransform shapeTransform;
+    // shapeTransform.setIdentity();
+    // shapeTransform.setOrigin(btVector3(position.x, position.y, position.z));
 
-                for (int v = 0; v < mesh.vertexCount; v += 3) {
-                    btVector3 scaledVertex(
-                        meshVertices[v]     * scale.x, 
-                        meshVertices[v + 1] * scale.y,
-                        meshVertices[v + 2] * scale.z
-                    );
-                    customMeshShape->addPoint(scaledVertex);
-                }
-            }
-        }
+    // btDefaultMotionState* shapeMotionState = new btDefaultMotionState(shapeTransform);
 
-        // Set up the dynamics of your tree object
-        btTransform treeTransform;
-        treeTransform.setIdentity();
-        treeTransform.setOrigin(btVector3(position.x, position.y, position.z));
+    // btScalar shapeMass = mass;
+    // btVector3 shapeInertia(0, 0, 0);
+    // customMeshShape->calculateLocalInertia(shapeMass, shapeInertia);
 
-        btDefaultMotionState* groundMotionState = new btDefaultMotionState(treeTransform);
+    // btRigidBody::btRigidBodyConstructionInfo highPolyDynamicRigidBodyCI(shapeMass, shapeMotionState, customMeshShape, shapeInertia);
 
-        btScalar treeMass = 0.0f;
-        btVector3 treeInertia(0, 0, 0);
-        customMeshShape->calculateLocalInertia(treeMass, treeInertia);
-        btDefaultMotionState* treeMotionState = new btDefaultMotionState(treeTransform);
-        btRigidBody::btRigidBodyConstructionInfo highPolyDynamicRigidBodyCI(treeMass, treeMotionState, customMeshShape, treeInertia);
-        btRigidBody* highPolyDynamicRigidBodyPtr = new btRigidBody(highPolyDynamicRigidBodyCI);
-        highPolyDynamicRigidBody = std::make_shared<btRigidBody*>(highPolyDynamicRigidBodyPtr);
+    // btRigidBody* highPolyDynamicRigidBodyPtr = new btRigidBody(highPolyDynamicRigidBodyCI);
+    // highPolyDynamicRigidBody = std::make_shared<btRigidBody*>(highPolyDynamicRigidBodyPtr);
 
-        dynamicsWorld->addRigidBody(*highPolyDynamicRigidBody);
-    }
+    // dynamicsWorld->addRigidBody(*highPolyDynamicRigidBody);
+}
+
+// btConcaveShape* createConcaveShapeFromModel() {
+//     btConcaveShape* triangleMesh = new btConcaveShape();
+
+//     for (int m = 0; m < model.meshCount; m++) {
+//         Mesh mesh = model.meshes[m];
+//         float* meshVertices = reinterpret_cast<float*>(mesh.vertices);
+//         int* meshIndices = reinterpret_cast<int*>(mesh.indices);
+
+//         if (meshIndices) {
+//             // Use indexed vertices if indices are available
+//             for (int i = 0; i < mesh.triangleCount * 3; i += 3) {
+//                 btVector3 vertex0(
+//                     meshVertices[meshIndices[i] * 3]     * scaleFactorRaylibBullet,
+//                     meshVertices[meshIndices[i] * 3 + 1] * scaleFactorRaylibBullet,
+//                     meshVertices[meshIndices[i] * 3 + 2] * scaleFactorRaylibBullet
+//                 );
+
+//                 btVector3 vertex1(
+//                     meshVertices[meshIndices[i + 1] * 3]     * scaleFactorRaylibBullet,
+//                     meshVertices[meshIndices[i + 1] * 3 + 1] * scaleFactorRaylibBullet,
+//                     meshVertices[meshIndices[i + 1] * 3 + 2] * scaleFactorRaylibBullet
+//                 );
+
+//                 btVector3 vertex2(
+//                     meshVertices[meshIndices[i + 2] * 3]     * scaleFactorRaylibBullet,
+//                     meshVertices[meshIndices[i + 2] * 3 + 1] * scaleFactorRaylibBullet,
+//                     meshVertices[meshIndices[i + 2] * 3 + 2] * scaleFactorRaylibBullet
+//                 );
+
+//                 triangleMesh->addTriangle(vertex0, vertex1, vertex2);
+//             }
+//         } else {
+//             // Use vertices directly if indices are not available
+//             for (int i = 0; i < mesh.triangleCount; i++) {
+//                 btVector3 vertex0(
+//                     meshVertices[i * 9]     * scaleFactorRaylibBullet,
+//                     meshVertices[i * 9 + 2] * scaleFactorRaylibBullet,
+//                     meshVertices[i * 9 + 1] * scaleFactorRaylibBullet
+//                 );
+
+//                 btVector3 vertex1(
+//                     meshVertices[i * 9 + 3] * scaleFactorRaylibBullet,
+//                     meshVertices[i * 9 + 5] * scaleFactorRaylibBullet,
+//                     meshVertices[i * 9 + 4] * scaleFactorRaylibBullet
+//                 );
+
+//                 btVector3 vertex2(
+//                     meshVertices[i * 9 + 6] * scaleFactorRaylibBullet,
+//                     meshVertices[i * 9 + 8] * scaleFactorRaylibBullet,
+//                     meshVertices[i * 9 + 7] * scaleFactorRaylibBullet
+//                 );
+
+//                 triangleMesh->addTriangle(vertex0, vertex1, vertex2);
+//             }
+//         }
+//     }
+
+//     btBvhTriangleMeshShape* concaveShape = new btBvhTriangleMeshShape(triangleMesh, true, true);
+//     concaveShape->setLocalScaling(btVector3(scale.x, scale.y, scale.z));
+
+//     return concaveShape;
+// }
+
 
 
     void createDynamicBox(float x, float y, float z) {
@@ -1243,45 +1298,45 @@ public:
     void createDynamicMesh(bool generateShape = true) {
         isDynamic = false;
 
-        currentCollisionShapeType = std::make_shared<CollisionShapeType>(CollisionShapeType::HighPolyMesh);
+        // currentCollisionShapeType = std::make_shared<CollisionShapeType>(CollisionShapeType::HighPolyMesh);
 
-        if (highPolyDynamicRigidBody != nullptr && *highPolyDynamicRigidBody.get() != nullptr) {
-            dynamicsWorld->removeRigidBody(*highPolyDynamicRigidBody);
-        }
-        if (boxRigidBody && *boxRigidBody.get() != nullptr) {
-            dynamicsWorld->removeRigidBody(*boxRigidBody);
-        }
+        // if (highPolyDynamicRigidBody != nullptr && *highPolyDynamicRigidBody.get() != nullptr) {
+        //     dynamicsWorld->removeRigidBody(*highPolyDynamicRigidBody);
+        // }
+        // if (boxRigidBody && *boxRigidBody.get() != nullptr) {
+        //     dynamicsWorld->removeRigidBody(*boxRigidBody);
+        // }
 
-        if (generateShape || !customMeshShape) {
-            customMeshShape = new btConvexHullShape();
+        // if (generateShape || !customMeshShape) {
+        //     customMeshShape = new btConvexHullShape();
 
-            for (int m = 0; m < model.meshCount; m++) {
-                Mesh mesh = model.meshes[m];
-                float* meshVertices = reinterpret_cast<float*>(mesh.vertices);
+        //     for (int m = 0; m < model.meshCount; m++) {
+        //         Mesh mesh = model.meshes[m];
+        //         float* meshVertices = reinterpret_cast<float*>(mesh.vertices);
 
-                for (int v = 0; v < mesh.vertexCount; v += 3) {
-                    // Apply scaling to the vertex coordinates
-                    btVector3 scaledVertex(meshVertices[v] * scale.x, meshVertices[v + 1] * scale.y, meshVertices[v + 2] * scale.z);
-                    customMeshShape->addPoint(scaledVertex);
-                }
-            }
-        }
+        //         for (int v = 0; v < mesh.vertexCount; v += 3) {
+        //             // Apply scaling to the vertex coordinates
+        //             btVector3 scaledVertex(meshVertices[v] * scale.x, meshVertices[v + 1] * scale.y, meshVertices[v + 2] * scale.z);
+        //             customMeshShape->addPoint(scaledVertex);
+        //         }
+        //     }
+        // }
 
-        // Set up the dynamics of your tree object
-        btTransform treeTransform;
-        treeTransform.setIdentity();
-        treeTransform.setOrigin(btVector3(position.x, position.y, position.z));
+        // // Set up the dynamics of your tree object
+        // btTransform shapeTransform;
+        // shapeTransform.setIdentity();
+        // shapeTransform.setOrigin(btVector3(position.x, position.y, position.z));
 
-        btScalar treeMass = mass;
-        btVector3 treeInertia(0, 0, 0);
-        customMeshShape->calculateLocalInertia(treeMass, treeInertia);
-        btDefaultMotionState* objectMotionState = new btDefaultMotionState(treeTransform);
-        btRigidBody::btRigidBodyConstructionInfo highPolyStaticRigidBodyCI(treeMass, objectMotionState, customMeshShape, treeInertia);
+        // btScalar treeMass = mass;
+        // btVector3 shapeInertia(0, 0, 0);
+        // customMeshShape->calculateLocalInertia(treeMass, shapeInertia);
+        // btDefaultMotionState* objectMotionState = new btDefaultMotionState(shapeTransform);
+        // btRigidBody::btRigidBodyConstructionInfo highPolyStaticRigidBodyCI(treeMass, objectMotionState, customMeshShape, shapeInertia);
         
-        btRigidBody* highPolyStaticRigidBodyPtr = new btRigidBody(highPolyStaticRigidBodyCI);
-        highPolyDynamicRigidBody = std::make_shared<btRigidBody*>(highPolyStaticRigidBodyPtr);
+        // btRigidBody* highPolyStaticRigidBodyPtr = new btRigidBody(highPolyStaticRigidBodyCI);
+        // highPolyDynamicRigidBody = std::make_shared<btRigidBody*>(highPolyStaticRigidBodyPtr);
 
-        dynamicsWorld->addRigidBody(*highPolyDynamicRigidBody);
+        // dynamicsWorld->addRigidBody(*highPolyDynamicRigidBody);
     }
 
     void makePhysicsDynamic(CollisionShapeType shapeType = CollisionShapeType::Box) {
@@ -1348,6 +1403,7 @@ public:
                 makePhysicsStatic();
             else if (*currentCollisionShapeType != CollisionShapeType::None && isDynamic)
                 calcPhysicsPosition();
+
         }
         else
         {
