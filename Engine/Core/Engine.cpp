@@ -154,7 +154,6 @@ public:
 
     float tiling[2] = { 1.0f, 1.0f };
 
-
     bool collider = true;
     bool visible = true;
     bool isChild = false;
@@ -179,6 +178,9 @@ public:
     ObjectTypeEnum ObjectType;
 
     float mass = 1;
+    float friction = 1;
+    float damping = 1;
+
     Vector3 inertia = {0, 0, 0};
 
     Model LodModels[4] = { };
@@ -857,6 +859,8 @@ public:
                 .def("print_position", &Entity::print_position)
                 .def("applyForce", &Entity::applyForce)
                 .def("applyImpulse", &Entity::applyImpulse)
+                .def("applyVelocity", &Entity::applyLinearVelocity)
+                .def("setFriction", &Entity::setFriction)
                 .def("makeStatic", &Entity::makePhysicsStatic)
                 .def("makeDynamic", &Entity::makePhysicsDynamic);
         }
@@ -1098,6 +1102,26 @@ public:
         }
     }
 
+    void applyLinearVelocity(const LitVector3& velocity) {
+        if (boxRigidBody && isDynamic) {
+            (*boxRigidBody)->setActivationState(ACTIVE_TAG);
+            btVector3 btVelocity(velocity.x, velocity.y, velocity.z);
+            (*boxRigidBody)->applyCentralForce(btVelocity);
+        }
+    }
+
+    void setFriction(const float& friction) {
+        if (boxRigidBody && isDynamic) {
+            (*boxRigidBody)->setFriction(friction);
+        }
+    }
+
+    void applyDamping(const float& damping) {
+        if (boxRigidBody && isDynamic) {
+            (*boxRigidBody)->setDamping(damping, damping);
+        }
+    }
+
     void updateMass() {
         if (!isDynamic || dynamicBoxShape == nullptr) return;
 
@@ -1146,6 +1170,9 @@ public:
 
         btRigidBody* highPolyStaticRigidBody = new btRigidBody(highPolyStaticRigidBodyCI);
         boxRigidBody = std::make_shared<btRigidBody*>(highPolyStaticRigidBody);
+        
+        setFriction(friction);
+        applyDamping(damping);
 
         dynamicsWorld->addRigidBody(*boxRigidBody);
 
@@ -1292,6 +1319,9 @@ void createStaticMesh(bool generateShape = true) {
         btRigidBody* boxRigidBodyPtr = new btRigidBody(boxRigidBodyCI);
         boxRigidBody = std::make_shared<btRigidBody*>(boxRigidBodyPtr);
 
+        setFriction(friction);
+        applyDamping(damping);
+        
         dynamicsWorld->addRigidBody(*boxRigidBody);
     }
 

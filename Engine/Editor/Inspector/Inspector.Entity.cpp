@@ -302,7 +302,26 @@ void EntityInspector()
 
         ImGui::Text("Mass: ");
         ImGui::SameLine();
-        ImGui::SliderFloat("##Mass", &selected_entity->mass, 0.0f, 1000.0f);
+        if (ImGui::SliderFloat("##Mass", &selected_entity->mass, 0.0f, 1000.0f))
+        {
+            selected_entity->updateMass();
+        }
+
+        ImGui::Text("Friction: ");
+        ImGui::SameLine();
+        if (ImGui::SliderFloat("##Friction", &selected_entity->friction, 0.0f, 100.0f))
+        {
+            selected_entity->setFriction(selected_entity->friction);
+        }
+
+        ImGui::Text("Damping: ");
+        ImGui::SameLine();
+        if (ImGui::SliderFloat("##Damping", &selected_entity->damping, 0.0f, 5.0f, "%.1f"))
+        {
+            selected_entity->applyDamping(selected_entity->damping);
+        }
+
+
     }
 
 
