@@ -1,6 +1,6 @@
 import math
 
-velocity = 10.0
+velocity = 500.0
 
 yaw = 0.0
 pitch = 0.0
@@ -19,18 +19,18 @@ def update():
 	DeltaTimeVec3 = Vector3(time.dt, time.dt, time.dt)
 
 	if IsKeyDown(KeyboardKey.KEY_W):
-		entity.applyImpulse(camera_direction)
+		entity.applyVelocity(camera_direction)
 
 	if IsKeyDown(KeyboardKey.KEY_S):
-		entity.applyImpulse(camera.back * DeltaTimeVec3 * velocity)
+		entity.applyVelocity(camera.back * DeltaTimeVec3 * velocity)
 
 	if IsKeyDown(KeyboardKey.KEY_A):
 		left = camera.left * DeltaTimeVec3 * velocity
-		entity.applyImpulse(left)
+		entity.applyVelocity(left)
 
 	if IsKeyDown(KeyboardKey.KEY_D):
 		right = camera.right * DeltaTimeVec3 * velocity
-		entity.applyImpulse(right)
+		entity.applyVelocity(right)
 
 	if IsKeyPressed(KeyboardKey.KEY_SPACE):
 		if (grounded):
@@ -62,5 +62,7 @@ def update():
 					).distance
 
 	grounded = distance < entity.scale.y / 2 + 0.1
+
+
 
 

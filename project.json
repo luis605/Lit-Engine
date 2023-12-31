@@ -2,15 +2,15 @@
     {
         "fovy": 60.0,
         "position": {
-            "x": 3.360698699951172,
-            "y": 4.168929576873779,
-            "z": 11.787425994873047
+            "x": 11.798494338989258,
+            "y": 9.454275131225586,
+            "z": 11.921346664428711
         },
         "projection": 0,
         "target": {
-            "x": -5.628169059753418,
-            "y": 5.168816089630127,
-            "z": -37.387855529785156
+            "x": -23.617185592651367,
+            "y": -19.597578048706055,
+            "z": -8.121841430664063
         },
         "type": "camera",
         "up": {
@@ -31,9 +31,9 @@
         "type": "world settings"
     },
     {
-        "collider_type": 1,
+        "collider_type": 0,
         "id": 0,
-        "is_dynamic": true,
+        "is_dynamic": false,
         "lodEnabled": false,
         "mass": 1.0,
         "material_path": "",
@@ -86,7 +86,7 @@
         "material_path": "",
         "mesh_type": 4,
         "model_path": "",
-        "name": "Unnamed Entity",
+        "name": "groud",
         "normal_texture_path": "",
         "position": {
             "x": 0.0,
@@ -187,7 +187,7 @@
             "y": -0.5270000100135803,
             "z": 0.14300000667572021
         },
-        "id": 8096,
+        "id": -1268685232,
         "intensity": 0.5,
         "isChild": false,
         "light_type": 0,
