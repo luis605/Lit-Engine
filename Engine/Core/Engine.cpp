@@ -859,7 +859,6 @@ public:
                 .def("print_position", &Entity::print_position)
                 .def("applyForce", &Entity::applyForce)
                 .def("applyImpulse", &Entity::applyImpulse)
-                .def("applyVelocity", &Entity::applyLinearVelocity)
                 .def("setFriction", &Entity::setFriction)
                 .def("makeStatic", &Entity::makePhysicsStatic)
                 .def("makeDynamic", &Entity::makePhysicsDynamic);
@@ -1102,13 +1101,6 @@ public:
         }
     }
 
-    void applyLinearVelocity(const LitVector3& velocity) {
-        if (boxRigidBody && isDynamic) {
-            (*boxRigidBody)->setActivationState(ACTIVE_TAG);
-            btVector3 btVelocity(velocity.x, velocity.y, velocity.z);
-            (*boxRigidBody)->applyCentralForce(btVelocity);
-        }
-    }
 
     void setFriction(const float& friction) {
         if (boxRigidBody && isDynamic) {
