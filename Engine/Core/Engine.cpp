@@ -179,7 +179,7 @@ public:
 
     float mass = 1;
     float friction = 1;
-    float damping = 1;
+    float damping = 0;
 
     Vector3 inertia = {0, 0, 0};
 
@@ -1321,7 +1321,7 @@ void createStaticMesh(bool generateShape = true) {
 
         setFriction(friction);
         applyDamping(damping);
-        
+
         dynamicsWorld->addRigidBody(*boxRigidBody);
     }
 
