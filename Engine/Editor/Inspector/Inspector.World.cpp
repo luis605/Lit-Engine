@@ -2,10 +2,11 @@
 
 void WorldInspector()
 {
-    ImGui::Text("World Inspector");
-    
-    
     const float inputWidth = 200.0f;
+
+    ImGui::Text("World Inspector");
+
+    ImGui::Dummy(ImVec2(0.0f, 10.0f));
 
     if (ImGui::CollapsingHeader("Post Processing"))
     {
@@ -32,6 +33,7 @@ void WorldInspector()
 
     }
 
+    ImGui::Dummy(ImVec2(0.0f, 10.0f));
 
     if (ImGui::CollapsingHeader("Lighting"))
     {
@@ -48,7 +50,7 @@ void WorldInspector()
             );
 
             ImGui::Text("Ambient Light Color: ");
-            
+            ImGui::SameLine(inputWidth);
             if (ImGui::ColorButton("##AmbientLightColorButton", light_colorImGui))
             {
                 ImGui::OpenPopup("##AmbientLightColorPicker");
