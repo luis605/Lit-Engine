@@ -160,7 +160,7 @@ void EntityInspector()
         }
         else
         {
-            ImGui::SliderFloat("Y##RotationZ", &selected_entity->rotation.z, -180.0f, 180.0f, "%.3f");
+            ImGui::SliderFloat("Z##RotationZ", &selected_entity->rotation.z, -180.0f, 180.0f, "%.3f");
             EntityRotationZInputModel = ImGui::IsItemHovered() && ImGui::IsMouseDoubleClicked(0);
         }
 
