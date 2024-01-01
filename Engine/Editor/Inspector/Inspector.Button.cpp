@@ -2,7 +2,7 @@
 
 void ButtonInspector()
 {
-    ImGui::Text("Button Inspector");
+    ImGui::Text("Inspecting Button");
     
     if (std::holds_alternative<LitButton*>(object_in_inspector)) {
         selected_button = std::get<LitButton*>(object_in_inspector);
