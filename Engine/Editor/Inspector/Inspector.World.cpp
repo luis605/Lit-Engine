@@ -33,7 +33,7 @@ void WorldInspector()
 
     }
 
-    ImGui::Dummy(ImVec2(0.0f, 10.0f));
+    ImGui::Dummy(ImVec2(0.0f, 5.0f));
 
     if (ImGui::CollapsingHeader("Lighting"))
     {
