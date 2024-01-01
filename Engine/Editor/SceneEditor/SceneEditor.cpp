@@ -58,7 +58,7 @@ void EditorCameraMovement(void)
 
     Vector3 forward = Vector3Subtract(scene_camera.target, scene_camera.position);
     Vector3 right = Vector3CrossProduct(front, scene_camera.up);
-    Vector3 normalized_right = Vector3Normalize(right);
+    Vector3 normalizedRight = Vector3Normalize(right);
     Vector3 DeltaTimeVec3 = { GetFrameTime(), GetFrameTime(), GetFrameTime() };
 
     if (IsKeyDown(KEY_W))
@@ -77,14 +77,14 @@ void EditorCameraMovement(void)
 
     if (IsKeyDown(KEY_A))
     {
-        Vector3 movement = Vector3Scale(normalized_right, -movementSpeed);
+        Vector3 movement = Vector3Scale(normalizedRight, -movementSpeed);
         scene_camera.position = Vector3Add(scene_camera.position, Vector3Multiply(movement, DeltaTimeVec3));
         scene_camera.target = Vector3Add(scene_camera.target, Vector3Multiply(movement, DeltaTimeVec3));
     }
 
     if (IsKeyDown(KEY_D))
     {
-        Vector3 movement = Vector3Scale(normalized_right, -movementSpeed);
+        Vector3 movement = Vector3Scale(normalizedRight, -movementSpeed);
         scene_camera.position = Vector3Subtract(scene_camera.position, Vector3Multiply(movement, DeltaTimeVec3));
         scene_camera.target = Vector3Subtract(scene_camera.target, Vector3Multiply(movement, DeltaTimeVec3));
     }
