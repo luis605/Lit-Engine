@@ -192,24 +192,28 @@ void EntityInspector()
         }
 
         ImGui::SameLine();
+
         if (ImGui::Button("x##ScriptEmptyButton", ImVec2(25, 25)))
         {
             selected_entity->script = "";
             selected_entity->script_index = "NONE";
         }
 
+        const float margin = 40.0f;
+        const float LODWidth = ImGui::CalcTextSize("Level of Detail: ").x + margin;
+
         ImGui::Dummy(ImVec2(0.0f, 30.0f));
 
         ImGui::Text("Collisions: ");
-        ImGui::SameLine();
+        ImGui::SameLine(LODWidth);
         ImGui::Checkbox("##Collisions", &selected_entity->collider);
 
         ImGui::Text("Visible: ");
-        ImGui::SameLine();
+        ImGui::SameLine(LODWidth);
         ImGui::Checkbox("##Visible", &selected_entity->visible);
 
         ImGui::Text("Level of Detail: ");
-        ImGui::SameLine();
+        ImGui::SameLine(LODWidth);
         ImGui::Checkbox("##Lod", &selected_entity->lodEnabled);
 
         ImGui::Unindent(15.0f);
