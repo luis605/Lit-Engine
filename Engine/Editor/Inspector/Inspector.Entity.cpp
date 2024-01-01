@@ -62,13 +62,13 @@ void EntityInspector()
 
 
     ImGui::PushStyleColor(ImGuiCol_Button, ImVec4(1.0f, 0.0f, 0.0f, 1.0f));
-    ImGui::PushStyleVar(ImGuiStyleVar_ItemSpacing, ImVec2(0, 40));
+    ImGui::PushStyleVar(ImGuiStyleVar_ItemSpacing, ImVec2(0, 30));
     ImGui::PopStyleColor();
     ImGui::PopStyleVar();
 
 
     ImGui::Text("Model Path:");
-    ImGui::PushStyleVar(ImGuiStyleVar_ItemSpacing, ImVec2(0, 40));
+    ImGui::PushStyleVar(ImGuiStyleVar_ItemSpacing, ImVec2(0, 30));
     ImGui::Text("Drop Model Here: ");
     ImGui::SameLine();
 
@@ -104,18 +104,17 @@ void EntityInspector()
         ImGui::Text("Scale:");
         ImGui::InputFloat("X##ScaleX", &selected_entity_scale.x);
         ImGui::InputFloat("Y##ScaleY", &selected_entity_scale.y);
-        ImGui::PushStyleVar(ImGuiStyleVar_ItemSpacing, ImVec2(0, 40));
         ImGui::InputFloat("Z##ScaleZ", &selected_entity_scale.z);
-        ImGui::PopStyleVar();
         selected_entity->scale = selected_entity_scale;
+
+        ImGui::Dummy(ImVec2(0.0f, 30.0f));
 
         ImGui::Text("Position:");
         ImGui::InputFloat("X##PositionX", &selected_entity_position.x);
         ImGui::InputFloat("Y##PositionY", &selected_entity_position.y);
-        ImGui::PushStyleVar(ImGuiStyleVar_ItemSpacing, ImVec2(0, 40));
         ImGui::InputFloat("Z##PositionZ", &selected_entity_position.z);
-        ImGui::PopStyleVar();
 
+        ImGui::Dummy(ImVec2(0.0f, 30.0f));
 
         if (selected_entity->isChild)
         {
@@ -152,9 +151,7 @@ void EntityInspector()
             ImGui::SliderFloat("Y##RotationY", &selected_entity->rotation.y, -180.0f, 180.0f, "%.3f");
             EntityRotationYInputModel = ImGui::IsItemHovered() && ImGui::IsMouseDoubleClicked(0);
         }
-        
-        ImGui::PushStyleVar(ImGuiStyleVar_ItemSpacing, ImVec2(0, 40));
-        
+                
         if (EntityRotationZInputModel)
         {
             if (ImGui::InputFloat("Z##RotationZ", &selected_entity->rotation.z, -180.0f, 180.0f, "%.3f", ImGuiInputTextFlags_EnterReturnsTrue))
@@ -166,7 +163,7 @@ void EntityInspector()
             EntityRotationZInputModel = ImGui::IsItemHovered() && ImGui::IsMouseDoubleClicked(0);
         }
 
-        ImGui::PopStyleVar();
+        ImGui::Dummy(ImVec2(0.0f, 30.0f));
 
         ImGui::Text("Scripts: ");
         ImGui::Text("Drop Script Here: ");
@@ -201,15 +198,17 @@ void EntityInspector()
             selected_entity->script_index = "NONE";
         }
 
-        ImGui::Text("Collider: ");
+        ImGui::Dummy(ImVec2(0.0f, 30.0f));
+
+        ImGui::Text("Collisions: ");
         ImGui::SameLine();
-        ImGui::Checkbox("##Collider", &selected_entity->collider);
+        ImGui::Checkbox("##Collisions", &selected_entity->collider);
 
         ImGui::Text("Visible: ");
         ImGui::SameLine();
         ImGui::Checkbox("##Visible", &selected_entity->visible);
 
-        ImGui::Text("LOD: ");
+        ImGui::Text("Level of Detail: ");
         ImGui::SameLine();
         ImGui::Checkbox("##Lod", &selected_entity->lodEnabled);
 
@@ -263,20 +262,6 @@ if (ImGui::CollapsingHeader("Physics"))
 {
     ImGui::Indent(15.0f);
 
-    ImGui::Text("Is Dynamic");
-    ImGui::SameLine();
-    ImGui::PushStyleVar(ImGuiStyleVar_ItemSpacing, ImVec2(0, 40));
-
-    if (ImGui::Checkbox("##doPhysics", &selected_entity->isDynamic))
-    {
-        if (selected_entity->isDynamic)
-            selected_entity->makePhysicsDynamic();
-        else
-            selected_entity->makePhysicsStatic();
-    }
-
-    ImGui::PopStyleVar();
-
     ImGui::Text("Collision Type");
     ImGui::SameLine();
 
@@ -309,6 +294,23 @@ if (ImGui::CollapsingHeader("Physics"))
 
     const float sliderWidth = comboWidth;
     const float marginLeft  = 30.0f;
+
+    ImGui::Dummy(ImVec2(0.0f, 15.0f));
+
+    ImGui::Text("Is Dynamic");
+    ImGui::SameLine();
+
+    ImGui::SetCursorPosX(ImGui::GetWindowWidth() - (sliderWidth + marginLeft));
+
+    if (ImGui::Checkbox("##doPhysics", &selected_entity->isDynamic))
+    {
+        if (selected_entity->isDynamic)
+            selected_entity->makePhysicsDynamic();
+        else
+            selected_entity->makePhysicsStatic();
+    }
+
+    ImGui::Dummy(ImVec2(0.0f, 15.0f));
 
     ImGui::Text("Mass:");
     ImGui::SameLine();
