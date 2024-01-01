@@ -2,8 +2,8 @@
 
 void LightInspector()
 {
-    ImGui::Text("Light Inspector");
-    
+    ImGui::Text("Inspecting Light");
+
     if (std::holds_alternative<Light*>(object_in_inspector)) {
         selected_light = std::get<Light*>(object_in_inspector);
     }
