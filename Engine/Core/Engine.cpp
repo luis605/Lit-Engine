@@ -1406,35 +1406,106 @@ void createStaticMesh(bool generateShape = true) {
 
 
     void render() {
-        if (!hasModel())
-            initializeDefaultModel();
+        if (!hasModel()) initializeDefaultModel();
 
         update_children();
 
-        if (calc_physics)
-        {
-            if (*currentCollisionShapeType != CollisionShapeType::Box && *currentCollisionShapeType != CollisionShapeType::HighPolyMesh && !isDynamic)
+        if (calc_physics) {
+            if (*currentCollisionShapeType != CollisionShapeType::Box &&
+                *currentCollisionShapeType != CollisionShapeType::HighPolyMesh &&
+                !isDynamic) {
                 makePhysicsStatic();
-            else if (*currentCollisionShapeType != CollisionShapeType::None && isDynamic)
+            } else if (*currentCollisionShapeType != CollisionShapeType::None && isDynamic) {
                 calcPhysicsPosition();
-
-        }
-        else
-        {
+            }
+        } else {
             setPos(position);
             updateMass();
             backupPosition = position;
 
             setRot(rotation);
             setScale(scale);
+        }
 
-        }
-        if (!visible) {
-            return;
-        }
+        if (!visible) return;
 
         SetShaderValue(shader, GetShaderLocation(shader, "tiling"), tiling, SHADER_UNIFORM_VEC2);
 
+        
+        if (!instances.empty()) renderInstanced();
+        else renderSingleModel();
+
+    }
+
+private:
+    void renderInstanced() {
+        PassSurfaceMaterials();
+
+        glUseProgram((GLuint)instancing_shader.id);
+
+        bool normalMapInit = !normal_texture_path.empty();
+        glUniform1i(glGetUniformLocation((GLuint)instancing_shader.id, "normalMapInit"), normalMapInit);
+
+        bool roughnessMapInit = !roughness_texture_path.empty();
+        glUniform1i(glGetUniformLocation((GLuint)instancing_shader.id, "roughnessMapInit"), roughnessMapInit);
+
+        matInstances = LoadMaterialDefault();
+
+        instancing_shader.locs[SHADER_LOC_MATRIX_MVP] = GetShaderLocation(instancing_shader, "mvp");
+        instancing_shader.locs[SHADER_LOC_VECTOR_VIEW] = GetShaderLocation(instancing_shader, "viewPos");
+        instancing_shader.locs[SHADER_LOC_MATRIX_MODEL] = GetShaderLocationAttrib(instancing_shader, "instanceTransform");
+
+        model.materials[0].maps[MATERIAL_MAP_DIFFUSE].color = {
+            static_cast<unsigned char>(surface_material.color.x * 255),
+            static_cast<unsigned char>(surface_material.color.y * 255),
+            static_cast<unsigned char>(surface_material.color.z * 255),
+            static_cast<unsigned char>(surface_material.color.w * 255)
+        };
+
+        DrawMeshInstanced(model.meshes[0], model.materials[0], transforms, instances.size());
+    }
+
+    void renderSingleModel() {
+        if (hasModel()) {
+            Matrix transformMatrix = MatrixIdentity();
+            transformMatrix = MatrixMultiply(transformMatrix, MatrixScale(scale.x, scale.y, scale.z));
+            transformMatrix = MatrixMultiply(transformMatrix, MatrixRotateXYZ(rotation));
+            transformMatrix = MatrixMultiply(transformMatrix, MatrixTranslate(position.x, position.y, position.z));
+
+            if (model.meshes != nullptr)
+                bounds = GetMeshBoundingBox(model.meshes[0]);
+
+            
+            bounds.min = Vector3Transform(bounds.min, transformMatrix);
+            bounds.max = Vector3Transform(bounds.max, transformMatrix);
+        }
+
+        if (hasModel()) {
+            if (!inFrustum()) return;
+        }
+
+        PassSurfaceMaterials();
+
+        ReloadTextures();
+        glUseProgram((GLuint)shader.id);
+
+        bool normalMapInit = !normal_texture_path.empty();
+        glUniform1i(glGetUniformLocation((GLuint)shader.id, "normalMapInit"), normalMapInit);
+
+        bool roughnessMapInit = !roughness_texture_path.empty();
+        glUniform1i(glGetUniformLocation((GLuint)shader.id, "roughnessMapInit"), roughnessMapInit);
+
+        float distance;
+
+#ifndef GAME_SHIPPING
+    if (in_game_preview) {
+        distance = Vector3Distance(this->position, camera.position);
+    } else {
+        distance = Vector3Distance(this->position, scene_camera.position);
+    }
+#else
+    distance = Vector3Distance(this->position, camera.position);
+#endif
 
         Matrix rotationMat = MatrixRotateXYZ((Vector3){
             DEG2RAD * rotation.x,
@@ -1444,132 +1515,42 @@ void createStaticMesh(bool generateShape = true) {
 
         Matrix scaleMat = MatrixScale(scale.x, scale.y, scale.z);
         model.transform = MatrixMultiply(scaleMat, rotationMat);
-        
-        if (!instances.empty())
-        {
-            PassSurfaceMaterials();
 
-            glUseProgram((GLuint)instancing_shader.id);
-
-            bool normalMapInit = !normal_texture_path.empty();
-            glUniform1i(glGetUniformLocation((GLuint)instancing_shader.id, "normalMapInit"), normalMapInit);
-
-            bool roughnessMapInit = !roughness_texture_path.empty();
-            glUniform1i(glGetUniformLocation((GLuint)instancing_shader.id, "roughnessMapInit"), roughnessMapInit);
-
-            matInstances = LoadMaterialDefault();
-
-            instancing_shader.locs[SHADER_LOC_MATRIX_MVP] = GetShaderLocation(instancing_shader, "mvp");
-            instancing_shader.locs[SHADER_LOC_VECTOR_VIEW] = GetShaderLocation(instancing_shader, "viewPos");
-            instancing_shader.locs[SHADER_LOC_MATRIX_MODEL] = GetShaderLocationAttrib(instancing_shader, "instanceTransform");
-
-            model.materials[0].maps[MATERIAL_MAP_DIFFUSE].color = {
-                static_cast<unsigned char>(surface_material.color.x * 255),
-                static_cast<unsigned char>(surface_material.color.y * 255),
-                static_cast<unsigned char>(surface_material.color.z * 255),
-                static_cast<unsigned char>(surface_material.color.w * 255)
-            };
-
-            DrawMeshInstanced(model.meshes[0], model.materials[0], transforms, instances.size());
+        for (Model& lodModel : LodModels) {
+            lodModel.transform = MatrixMultiply(scaleMat, rotationMat);
         }
-        else
-        {
 
-            if (hasModel())
-            {
-                Matrix transformMatrix = MatrixIdentity();
-                transformMatrix = MatrixMultiply(transformMatrix, MatrixScale(scale.x, scale.y, scale.z));
-                transformMatrix = MatrixMultiply(transformMatrix, MatrixRotateXYZ(rotation));
-                transformMatrix = MatrixMultiply(transformMatrix, MatrixTranslate(position.x, position.y, position.z));
 
-                if (model.meshes != nullptr)
-                    bounds = GetMeshBoundingBox(model.meshes[0]);
-                
-                bounds.min = Vector3Transform(bounds.min, transformMatrix);
-                bounds.max = Vector3Transform(bounds.max, transformMatrix);
-            }
-            
-            if (hasModel()) {
-                if (!inFrustum()) {
-                    return; // Early return if not in the frustum
+        int lodLevel = (distance < LOD_DISTANCE_HIGH) ? 0 :
+                    (distance < LOD_DISTANCE_MEDIUM) ? 1 :
+                    (distance < LOD_DISTANCE_LOW) ? 2 : 3;
+
+        if (lodEnabled && IsModelReady(LodModels[lodLevel])) {
+            DrawModel(
+                LodModels[lodLevel],
+                position, 
+                1,
+                (Color) {
+                    static_cast<unsigned char>(surface_material.color.x * 255),
+                    static_cast<unsigned char>(surface_material.color.y * 255),
+                    static_cast<unsigned char>(surface_material.color.z * 255),
+                    static_cast<unsigned char>(surface_material.color.w * 255)
                 }
-            }
-            
-
-
-
-            PassSurfaceMaterials();
-            
-            ReloadTextures();
-            glUseProgram((GLuint)shader.id);
-
-            bool normalMapInit = !normal_texture_path.empty();
-            glUniform1i(glGetUniformLocation((GLuint)shader.id, "normalMapInit"), normalMapInit);
-
-            bool roughnessMapInit = !roughness_texture_path.empty();
-            glUniform1i(glGetUniformLocation((GLuint)shader.id, "roughnessMapInit"), roughnessMapInit);
-
-            float distance;
-
-#ifndef GAME_SHIPPING
-            if (in_game_preview)
-                distance = Vector3Distance(this->position, camera.position);
-            else
-                distance = Vector3Distance(this->position, scene_camera.position);
-#else
-            distance = Vector3Distance(this->position, camera.position);
-#endif
-
-            int lodLevel = 0;
-
-            if (distance < LOD_DISTANCE_HIGH) {
-                lodLevel = 0;
-            } else if (distance < LOD_DISTANCE_MEDIUM) {
-                lodLevel = 1;
-            } else if (distance < LOD_DISTANCE_LOW) {
-                lodLevel = 2;
-            } else {
-                lodLevel = 3;
-            }
-
-            for (Model& lodModel : LodModels)
-                lodModel.transform = MatrixMultiply(scaleMat, rotationMat);
-
-            if (lodEnabled && IsModelReady(LodModels[lodLevel]))
-            {
-                DrawModel(
-                    LodModels[lodLevel],
-                    position, 
-                    1,
-                    (Color) {
-                        static_cast<unsigned char>(surface_material.color.x * 255),
-                        static_cast<unsigned char>(surface_material.color.y * 255),
-                        static_cast<unsigned char>(surface_material.color.z * 255),
-                        static_cast<unsigned char>(surface_material.color.w * 255)
-                    }
-                );
-            }
-            else
-            {
-
-                DrawModel(
-                    model,
-                    position, 
-                    1, 
-                    (Color) {
-                        static_cast<unsigned char>(surface_material.color.x * 255),
-                        static_cast<unsigned char>(surface_material.color.y * 255),
-                        static_cast<unsigned char>(surface_material.color.z * 255),
-                        static_cast<unsigned char>(surface_material.color.w * 255)
-                    }
-                );
-            }
-            
+            );
+        } else {
+            DrawModel(
+                model,
+                position, 
+                1, 
+                (Color) {
+                    static_cast<unsigned char>(surface_material.color.x * 255),
+                    static_cast<unsigned char>(surface_material.color.y * 255),
+                    static_cast<unsigned char>(surface_material.color.z * 255),
+                    static_cast<unsigned char>(surface_material.color.w * 255)
+                }
+            );
         }
-
     }
-
-private:
     void PassSurfaceMaterials()
     {
         glGenBuffers(1, &surface_material_ubo);

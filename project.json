@@ -2,15 +2,15 @@
     {
         "fovy": 60.0,
         "position": {
-            "x": 0.9165610074996948,
-            "y": 7.538040637969971,
-            "z": 8.416399955749512
+            "x": -1.3864904642105103,
+            "y": 7.143340110778809,
+            "z": 21.467294692993164
         },
         "projection": 0,
         "target": {
-            "x": -9.560037612915039,
-            "y": -10.075752258300781,
-            "z": -37.1906852722168
+            "x": 1.967697024345398,
+            "y": -4.984567642211914,
+            "z": -26.92347526550293
         },
         "type": "camera",
         "up": {
@@ -26,7 +26,7 @@
             "y": 1.0,
             "z": 1.0
         },
-        "bloom": true,
+        "bloom": false,
         "bloomBrightness": 0.0,
         "type": "world settings"
     },
@@ -36,7 +36,7 @@
         "friction": 1.0,
         "id": 0,
         "is_dynamic": false,
-        "lodEnabled": false,
+        "lodEnabled": true,
         "mass": 1.0,
         "material_path": "project/game/materials/gate.mat",
         "model_path": "project/game/assets/gate.obj",
@@ -193,8 +193,8 @@
             "y": -0.5270000100135803,
             "z": 0.14300000667572021
         },
-        "id": 130115152,
-        "intensity": 0.0,
+        "id": 1922746152,
+        "intensity": 0.6029999852180481,
         "isChild": false,
         "light_type": 0,
         "name": "",
