@@ -222,6 +222,10 @@ void EntityInspector()
 
 
 
+    ImGui::Dummy(ImVec2(0.0f, 5.0f));
+
+
+
 
     if (ImGui::CollapsingHeader("Materials"))
     {
@@ -262,90 +266,96 @@ void EntityInspector()
 
     }
 
-if (ImGui::CollapsingHeader("Physics"))
-{
-    ImGui::Indent(30.0f);
 
-    ImGui::Text("Collision Type");
-    ImGui::SameLine();
+    ImGui::Dummy(ImVec2(0.0f, 5.0f));
 
-    const char* collisionShapeNames[] = {"Box", "HighPolyMesh", "LowPolyMesh", "Sphere", "None"};
-    int currentItem = static_cast<int>(Entity::CollisionShapeType::None);
-
-    if (selected_entity->currentCollisionShapeType)
-        currentItem = static_cast<int>(*selected_entity->currentCollisionShapeType);
-
-    const float comboWidth = ImGui::GetContentRegionAvail().x - 30.0f;
-
-    if (ImGui::BeginCombo("##CollisionType", collisionShapeNames[currentItem]))
+    if (ImGui::CollapsingHeader("Physics"))
     {
-        for (int i = 0; i < IM_ARRAYSIZE(collisionShapeNames); i++)
-        {
-            const bool isSelected = (currentItem == i);
+        ImGui::Indent(30.0f);
 
-            if (ImGui::Selectable(collisionShapeNames[i], isSelected))
+        ImGui::Text("Collision Type");
+        ImGui::SameLine();
+
+        const char* collisionShapeNames[] = {"Box", "HighPolyMesh", "LowPolyMesh", "Sphere", "None"};
+        int currentItem = static_cast<int>(Entity::CollisionShapeType::None);
+
+        if (selected_entity->currentCollisionShapeType)
+            currentItem = static_cast<int>(*selected_entity->currentCollisionShapeType);
+
+        const float comboWidth = ImGui::GetContentRegionAvail().x - 30.0f;
+
+        if (ImGui::BeginCombo("##CollisionType", collisionShapeNames[currentItem]))
+        {
+            for (int i = 0; i < IM_ARRAYSIZE(collisionShapeNames); i++)
             {
-                *selected_entity->currentCollisionShapeType = static_cast<Entity::CollisionShapeType>(i);
-                selected_entity->reloadRigidBody();
+                const bool isSelected = (currentItem == i);
+
+                if (ImGui::Selectable(collisionShapeNames[i], isSelected))
+                {
+                    *selected_entity->currentCollisionShapeType = static_cast<Entity::CollisionShapeType>(i);
+                    selected_entity->reloadRigidBody();
+                }
+
+                if (isSelected)
+                    ImGui::SetItemDefaultFocus();
             }
 
-            if (isSelected)
-                ImGui::SetItemDefaultFocus();
+            ImGui::EndCombo();
         }
 
-        ImGui::EndCombo();
+        const float sliderWidth = comboWidth;
+        const float marginLeft  = 30.0f;
+
+        ImGui::Dummy(ImVec2(0.0f, 15.0f));
+
+        ImGui::Text("Is Dynamic");
+        ImGui::SameLine();
+
+        ImGui::SetCursorPosX(ImGui::GetWindowWidth() - (sliderWidth + marginLeft));
+
+        if (ImGui::Checkbox("##doPhysics", &selected_entity->isDynamic))
+        {
+            if (selected_entity->isDynamic)
+                selected_entity->makePhysicsDynamic();
+            else
+                selected_entity->makePhysicsStatic();
+        }
+
+        ImGui::Dummy(ImVec2(0.0f, 15.0f));
+
+        ImGui::Text("Mass:");
+        ImGui::SameLine();
+        ImGui::SetCursorPosX(ImGui::GetWindowWidth() - (sliderWidth + marginLeft));
+        ImGui::SetNextItemWidth(sliderWidth);
+        if (ImGui::SliderFloat("##Mass", &selected_entity->mass, 0.0f, 100.0f, "%.1f"))
+        {
+            selected_entity->updateMass();
+        }
+
+        ImGui::Text("Friction:");
+        ImGui::SameLine();
+        ImGui::SetCursorPosX(ImGui::GetWindowWidth() - (sliderWidth + marginLeft));
+        ImGui::SetNextItemWidth(sliderWidth);
+        if (ImGui::SliderFloat("##Friction", &selected_entity->friction, 0.0f, 10.0f, "%.1f"))
+        {
+            selected_entity->setFriction(selected_entity->friction);
+        }
+
+        ImGui::Text("Damping:");
+        ImGui::SameLine();
+        ImGui::SetCursorPosX(ImGui::GetWindowWidth() - (sliderWidth + marginLeft));
+        ImGui::SetNextItemWidth(sliderWidth);
+        if (ImGui::SliderFloat("##Damping", &selected_entity->damping, 0.0f, 5.0f, "%.1f"))
+        {
+            selected_entity->applyDamping(selected_entity->damping);
+        }
+
+        ImGui::Unindent(30.0f);
     }
 
-    const float sliderWidth = comboWidth;
-    const float marginLeft  = 30.0f;
 
-    ImGui::Dummy(ImVec2(0.0f, 15.0f));
 
-    ImGui::Text("Is Dynamic");
-    ImGui::SameLine();
-
-    ImGui::SetCursorPosX(ImGui::GetWindowWidth() - (sliderWidth + marginLeft));
-
-    if (ImGui::Checkbox("##doPhysics", &selected_entity->isDynamic))
-    {
-        if (selected_entity->isDynamic)
-            selected_entity->makePhysicsDynamic();
-        else
-            selected_entity->makePhysicsStatic();
-    }
-
-    ImGui::Dummy(ImVec2(0.0f, 15.0f));
-
-    ImGui::Text("Mass:");
-    ImGui::SameLine();
-    ImGui::SetCursorPosX(ImGui::GetWindowWidth() - (sliderWidth + marginLeft));
-    ImGui::SetNextItemWidth(sliderWidth);
-    if (ImGui::SliderFloat("##Mass", &selected_entity->mass, 0.0f, 100.0f, "%.1f"))
-    {
-        selected_entity->updateMass();
-    }
-
-    ImGui::Text("Friction:");
-    ImGui::SameLine();
-    ImGui::SetCursorPosX(ImGui::GetWindowWidth() - (sliderWidth + marginLeft));
-    ImGui::SetNextItemWidth(sliderWidth);
-    if (ImGui::SliderFloat("##Friction", &selected_entity->friction, 0.0f, 10.0f, "%.1f"))
-    {
-        selected_entity->setFriction(selected_entity->friction);
-    }
-
-    ImGui::Text("Damping:");
-    ImGui::SameLine();
-    ImGui::SetCursorPosX(ImGui::GetWindowWidth() - (sliderWidth + marginLeft));
-    ImGui::SetNextItemWidth(sliderWidth);
-    if (ImGui::SliderFloat("##Damping", &selected_entity->damping, 0.0f, 5.0f, "%.1f"))
-    {
-        selected_entity->applyDamping(selected_entity->damping);
-    }
-
-    ImGui::Unindent(30.0f);
-}
-
+    ImGui::Dummy(ImVec2(0.0f, 5.0f));
 
 
 

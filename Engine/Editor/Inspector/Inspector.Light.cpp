@@ -50,6 +50,15 @@ void LightInspector()
         ImGui::Unindent(30.0f);
     }
 
+
+
+
+    ImGui::Dummy(ImVec2(0.0f, 5.0f));
+
+
+
+
+
     if (ImGui::CollapsingHeader("Light Properties")) {
         ImGui::Indent(30.0f);
 
