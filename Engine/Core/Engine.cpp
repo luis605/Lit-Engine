@@ -1551,6 +1551,7 @@ private:
             );
         }
     }
+    
     void PassSurfaceMaterials()
     {
         glGenBuffers(1, &surface_material_ubo);
