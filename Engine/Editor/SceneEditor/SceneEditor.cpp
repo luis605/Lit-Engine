@@ -119,7 +119,7 @@ void EditorCameraMovement(void)
         scene_camera.target = Vector3Add(scene_camera.target, Vector3Multiply(movement, DeltaTimeVec3));
     }
 
-    if (GetMouseWheelMove() != 0)
+    if (GetMouseWheelMove() != 0 && ImGui::IsWindowHovered())
     {
         CameraMoveToTarget(&scene_camera, -GetMouseWheelMove());
     }
