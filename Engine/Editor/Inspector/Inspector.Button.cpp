@@ -117,7 +117,7 @@ void ButtonInspector()
 
         if (ImGui::CollapsingHeader("Color"))
         {
-            ImGui::Indent(15.0f);
+            ImGui::Indent(30.0f);
             labelWidth += 30;
             // Button Color
             {
@@ -202,7 +202,7 @@ void ButtonInspector()
 
 
             labelWidth -= 30;
-            ImGui::Unindent(15.0f);
+            ImGui::Unindent(30.0f);
 
         }
 

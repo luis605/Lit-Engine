@@ -10,10 +10,10 @@ void WorldInspector()
 
     if (ImGui::CollapsingHeader("Post Processing"))
     {
-        ImGui::Indent(15.0f);
+        ImGui::Indent(30.0f);
         if (ImGui::CollapsingHeader("Bloom"))
         {
-            ImGui::Indent(15.0f);
+            ImGui::Indent(30.0f);
             ImGui::Text("Enabled:");
             ImGui::SameLine(inputWidth);
             ImGui::SetNextItemWidth(-1);
@@ -27,9 +27,9 @@ void WorldInspector()
             {
                 SetShaderValue(downsamplerShader, GetShaderLocation(downsamplerShader, "bloomBrightness"), &bloomBrightness, SHADER_ATTRIB_FLOAT);
             }
-            ImGui::Unindent(15.0f);
+            ImGui::Unindent(30.0f);
         }
-        ImGui::Unindent(15.0f);
+        ImGui::Unindent(30.0f);
 
     }
 
@@ -37,10 +37,10 @@ void WorldInspector()
 
     if (ImGui::CollapsingHeader("Lighting"))
     {
-        ImGui::Indent(15.0f);
+        ImGui::Indent(30.0f);
         if (ImGui::CollapsingHeader("Ambient Light"))
         {
-            ImGui::Indent(15.0f);
+            ImGui::Indent(30.0f);
 
             ImVec4 light_colorImGui = ImVec4(
                 ambientLight.x,
@@ -69,8 +69,8 @@ void WorldInspector()
 
             SetShaderValue(shader, GetShaderLocation(shader, "ambientLight"), &ambientLight, SHADER_UNIFORM_VEC4);
 
-            ImGui::Unindent(15.0f);
+            ImGui::Unindent(30.0f);
         }
-        ImGui::Unindent(15.0f);
+        ImGui::Unindent(30.0f);
     }
 }
