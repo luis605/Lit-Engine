@@ -27,14 +27,12 @@ void InitEditorCamera()
 }
 
 
-float GetImGuiWindowTitleHeight()
-{
+float GetImGuiWindowTitleHeight() {
     ImGuiStyle& style = ImGui::GetStyle();
     return ImGui::GetTextLineHeight() + style.FramePadding.y * 2.0f;
 }
 
-void CalculateTextureRect(const Texture* texture, Rectangle& rectangle)
-{
+void CalculateTextureRect(const Texture* texture, Rectangle& rectangle) {
     ImVec2 windowPos = ImGui::GetWindowPos();
     ImVec2 windowSize = ImGui::GetWindowSize();
 
@@ -45,19 +43,11 @@ void CalculateTextureRect(const Texture* texture, Rectangle& rectangle)
     rectangle.y = windowPos.y;
 }
 
-void DrawTextureOnRectangle(const Texture* texture)
-{
+void DrawTextureOnRectangle(const Texture* texture) {
     CalculateTextureRect(texture, rectangle);
 
     ImGui::Image((ImTextureID)texture, ImVec2(rectangle.width, rectangle.height), ImVec2(0,1), ImVec2(1,0));
-    DrawTexturePro(
-        *texture,
-        Rectangle{ 0, 0, (float)texture->width, (float)texture->height },
-        Rectangle{ rectangle.x, rectangle.y, rectangle.width, rectangle.height },
-        Vector2{ 0, 0 },
-        0.0f,
-        WHITE
-    );
+
 }
 
 
