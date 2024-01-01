@@ -2,7 +2,7 @@
 
 void TextInspector()
 {
-    ImGui::Text("Text Inspector");
+    ImGui::Text("Inspecting Text");
     
     if (std::holds_alternative<Text*>(object_in_inspector)) {
         selected_textElement = std::get<Text*>(object_in_inspector);
