@@ -82,7 +82,7 @@ void LightInspector()
         }
 
         if (!IntensityActiveInputMode) {
-            ImGui::SliderFloat("Intensity", &selected_light->intensity, 0.0f, 100.0f);
+            ImGui::SliderFloat("Intensity", &selected_light->intensity, 0.0f, 5.0f);
             IntensityActiveInputMode = ImGui::IsItemHovered() && ImGui::IsMouseDoubleClicked(0);
         }
         else
