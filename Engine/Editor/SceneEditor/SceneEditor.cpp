@@ -50,12 +50,6 @@ void DrawTextureOnRectangle(const Texture* texture) {
 
 }
 
-
-
-
-bool is_mouse_pressed = false;
-float mousePositionXLast = 0;
-
 void EditorCameraMovement(void)
 {
     // Update Camera Position
