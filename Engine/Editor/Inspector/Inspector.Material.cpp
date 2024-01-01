@@ -20,12 +20,10 @@ void MaterialInspector(SurfaceMaterial* surface_material = nullptr, string path 
         material = &emptySurfaceMaterial;
     }
 
-    ImVec2 window_size = ImGui::GetWindowSize();
     
     ImGui::Text("Inspecting Material");    
     ImGui::Dummy(ImVec2(0.0f, 10.0f));
 
-    ImGui::BeginChild("MainContent", window_size);
 
     ImGui::Text("Color: ");
     ImVec4 material_color(material->color.r, material->color.g, material->color.b, material->color.a);
@@ -229,7 +227,4 @@ void MaterialInspector(SurfaceMaterial* surface_material = nullptr, string path 
 
 
     SerializeMaterial(*material, path.c_str());
-        
-
-    ImGui::EndChild();
 }
