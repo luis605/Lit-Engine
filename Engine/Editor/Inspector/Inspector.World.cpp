@@ -23,7 +23,7 @@ void WorldInspector()
             ImGui::SameLine(inputWidth);
             ImGui::SetNextItemWidth(-1);
             
-            if (ImGui::SliderFloat("##BrightnessControl", &bloomBrightness, -5.0f, 15.0f))
+            if (ImGui::SliderFloat("##BrightnessControl", &bloomBrightness, -2.0f, 2.0f))
             {
                 SetShaderValue(downsamplerShader, GetShaderLocation(downsamplerShader, "bloomBrightness"), &bloomBrightness, SHADER_ATTRIB_FLOAT);
             }
