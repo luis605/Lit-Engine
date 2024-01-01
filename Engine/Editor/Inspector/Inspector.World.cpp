@@ -4,7 +4,7 @@ void WorldInspector()
 {
     const float inputWidth = 200.0f;
 
-    ImGui::Text("World Inspector");
+    ImGui::Text("Inspecting World");
 
     ImGui::Dummy(ImVec2(0.0f, 10.0f));
 
