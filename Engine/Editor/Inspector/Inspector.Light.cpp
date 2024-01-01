@@ -26,7 +26,6 @@ void LightInspector()
 
     selected_light->color = light_color;
 
-    // Light Type
     static const char* lights_types[] = { "Directional Light", "Point Light", "Spot Light" };
     static int currentItem = selected_light->type;
 
@@ -44,13 +43,16 @@ void LightInspector()
 
 
     if (ImGui::CollapsingHeader("Light Direction")) {
+        ImGui::Indent(30.0f);
         ImGui::SliderFloat("X", &selected_light->direction.x, -1.0f, 1.0f);
         ImGui::SliderFloat("Y", &selected_light->direction.y, -1.0f, 1.0f);
         ImGui::SliderFloat("Z", &selected_light->direction.z, -1.0f, 1.0f);
+        ImGui::Unindent(30.0f);
     }
 
     if (ImGui::CollapsingHeader("Light Properties")) {
-        // Attenuation
+        ImGui::Indent(30.0f);
+
         if (!AttenuationActiveInputMode) {
             ImGui::SliderFloat("Attenuation", &selected_light->attenuation, 0.0f, 1.0f);
             AttenuationActiveInputMode = ImGui::IsItemHovered() && ImGui::IsMouseDoubleClicked(0);
@@ -61,7 +63,6 @@ void LightInspector()
                 AttenuationActiveInputMode = false;
         }
 
-        // Intensity
         if (!IntensityActiveInputMode) {
             ImGui::SliderFloat("Intensity", &selected_light->intensity, 0.0f, 100.0f);
             IntensityActiveInputMode = ImGui::IsItemHovered() && ImGui::IsMouseDoubleClicked(0);
@@ -72,7 +73,6 @@ void LightInspector()
                 IntensityActiveInputMode = false;
         }
 
-        // Specular Strenght
         if (!SpecularStrenghtActiveInputMode) {
             ImGui::SliderFloat("Specular Strenght", &selected_light->specularStrength, 0.0f, 1.0f);
             SpecularStrenghtActiveInputMode = ImGui::IsItemHovered() && ImGui::IsMouseDoubleClicked(0);
@@ -83,7 +83,6 @@ void LightInspector()
                 SpecularStrenghtActiveInputMode = false;
         }
 
-        // Cutoff
         if (!CutoffActiveInputMode) {
             ImGui::SliderFloat("Range", &selected_light->cutOff, 0.0f, 10000.0f);
             CutoffActiveInputMode = ImGui::IsItemHovered() && ImGui::IsMouseDoubleClicked(0);
@@ -93,5 +92,7 @@ void LightInspector()
             if (ImGui::InputFloat("Range", &selected_light->cutOff, 0.0f, 10000.0f, "%.3f", ImGuiInputTextFlags_EnterReturnsTrue))
                 CutoffActiveInputMode = false;
         }
+
+        ImGui::Unindent(30.0f);
     }
 }

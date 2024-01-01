@@ -99,7 +99,7 @@ void EntityInspector()
 
     if (ImGui::CollapsingHeader("Entity Properties"))
     {
-        ImGui::Indent(15.0f);
+        ImGui::Indent(30.0f);
 
         ImGui::Text("Scale:");
         ImGui::InputFloat("X##ScaleX", &selected_entity_scale.x);
@@ -216,7 +216,7 @@ void EntityInspector()
         ImGui::SameLine(LODWidth);
         ImGui::Checkbox("##Lod", &selected_entity->lodEnabled);
 
-        ImGui::Unindent(15.0f);
+        ImGui::Unindent(30.0f);
     }
 
 
@@ -225,7 +225,7 @@ void EntityInspector()
 
     if (ImGui::CollapsingHeader("Materials"))
     {
-        ImGui::Indent(15.0f);
+        ImGui::Indent(30.0f);
 
         ImGui::Text("Drop Material Here: ");
         ImGui::SameLine();
@@ -257,14 +257,14 @@ void EntityInspector()
             MaterialInspector(&selected_entity->surface_material, selected_entity->surface_material_path.string());
         }
 
-        ImGui::Unindent(15.0f);
+        ImGui::Unindent(30.0f);
 
 
     }
 
 if (ImGui::CollapsingHeader("Physics"))
 {
-    ImGui::Indent(15.0f);
+    ImGui::Indent(30.0f);
 
     ImGui::Text("Collision Type");
     ImGui::SameLine();
@@ -343,7 +343,7 @@ if (ImGui::CollapsingHeader("Physics"))
         selected_entity->applyDamping(selected_entity->damping);
     }
 
-    ImGui::Unindent(15.0f);
+    ImGui::Unindent(30.0f);
 }
 
 
@@ -351,7 +351,7 @@ if (ImGui::CollapsingHeader("Physics"))
 
     if (ImGui::CollapsingHeader("Advanced Settings"))
     {
-        ImGui::Indent(15.0f);
+        ImGui::Indent(30.0f);
 
         ImGui::TextWrapped("Warning!\n"
 "These experimental features won't save or load.\n"
@@ -362,7 +362,7 @@ if (ImGui::CollapsingHeader("Physics"))
             selected_entity->makeChildrenInstances();
         }
 
-        ImGui::Unindent(15.0f);
+        ImGui::Unindent(30.0f);
     }
 
     ImGui::EndChild();

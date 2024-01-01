@@ -16,7 +16,7 @@ void CameraInspector()
 
     if (ImGui::CollapsingHeader("Camera Properties"))
     {
-        ImGui::Indent(15.0f);
+        ImGui::Indent(30.0f);
 
         bool isOrthographic = (scene_camera.projection == 1) ? true : false;
 
@@ -42,7 +42,7 @@ void CameraInspector()
         ImGui::SetNextItemWidth(inputWidth);
         ImGui::SliderFloat("##FovySlider", &scene_camera.fovy, 1.0f, 180.0f, "%.1f");
 
-        ImGui::Unindent(15.0f);
+        ImGui::Unindent(30.0f);
     }
 
     ImGui::EndChild();
