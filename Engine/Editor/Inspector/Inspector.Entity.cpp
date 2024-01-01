@@ -99,6 +99,8 @@ void EntityInspector()
 
     if (ImGui::CollapsingHeader("Entity Properties"))
     {
+        ImGui::Indent(15.0f);
+
         ImGui::Text("Scale:");
         ImGui::InputFloat("X##ScaleX", &selected_entity_scale.x);
         ImGui::InputFloat("Y##ScaleY", &selected_entity_scale.y);
@@ -211,7 +213,7 @@ void EntityInspector()
         ImGui::SameLine();
         ImGui::Checkbox("##Lod", &selected_entity->lodEnabled);
 
-
+        ImGui::Unindent(15.0f);
     }
 
 
@@ -220,7 +222,7 @@ void EntityInspector()
 
     if (ImGui::CollapsingHeader("Materials"))
     {
-        ImGui::Indent(10);
+        ImGui::Indent(15.0f);
 
         ImGui::Text("Drop Material Here: ");
         ImGui::SameLine();
@@ -252,13 +254,15 @@ void EntityInspector()
             MaterialInspector(&selected_entity->surface_material, selected_entity->surface_material_path.string());
         }
 
-        ImGui::Unindent(10);
+        ImGui::Unindent(15.0f);
 
 
     }
 
 if (ImGui::CollapsingHeader("Physics"))
 {
+    ImGui::Indent(15.0f);
+
     ImGui::Text("Is Dynamic");
     ImGui::SameLine();
     ImGui::PushStyleVar(ImGuiStyleVar_ItemSpacing, ImVec2(0, 40));
@@ -332,6 +336,8 @@ if (ImGui::CollapsingHeader("Physics"))
     {
         selected_entity->applyDamping(selected_entity->damping);
     }
+
+    ImGui::Unindent(15.0f);
 }
 
 
@@ -339,16 +345,18 @@ if (ImGui::CollapsingHeader("Physics"))
 
     if (ImGui::CollapsingHeader("Advanced Settings"))
     {
+        ImGui::Indent(15.0f);
+
         ImGui::TextWrapped("Warning!\n"
-"Some of these features are experimental and may not save or load from files!\n"
-"Other settings may be complex for new users.\n"
-"Lit Engine is a prototype and does not guarantee all features working|\n"
-"We DO NOT recommend visiting the Advanced Settings section until we reach the alpha state!");
+"These experimental features won't save or load.\n"
+"Avoid Advanced Settings until the alpha state.");
 
         if (ImGui::Button("Set all children instanced"))
         {
             selected_entity->makeChildrenInstances();
         }
+
+        ImGui::Unindent(15.0f);
     }
 
     ImGui::EndChild();
