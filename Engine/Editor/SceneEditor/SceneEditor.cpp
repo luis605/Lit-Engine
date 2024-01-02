@@ -192,33 +192,31 @@ Ray GetMouseRayEx(Vector2 mouse, Camera camera, Rectangle rect) {
 }
 
 
-bool IsMouseHoveringModel(Model model, Camera camera, Vector3 position, Vector3 rotation, Vector3 scale, Entity* entity, bool bypass_optimization)
+bool IsMouseHoveringModel(Model model, Camera camera, Vector3 position, Vector3 rotation, Vector3 scale, Entity* entity, bool bypassOptimization)
 {
-    Matrix modelMatrix = MatrixIdentity();
-    modelMatrix = MatrixMultiply(modelMatrix, MatrixScale(scale.x, scale.y, scale.z));
-    modelMatrix = MatrixMultiply(modelMatrix, MatrixRotateXYZ(rotation));
-    modelMatrix = MatrixMultiply(modelMatrix, MatrixTranslate(position.x, position.y, position.z));
+    Matrix modelTransform = MatrixIdentity();
+    modelTransform = MatrixMultiply(modelTransform, MatrixScale(scale.x, scale.y, scale.z));
+    modelTransform = MatrixMultiply(modelTransform, MatrixRotateXYZ(rotation));
+    modelTransform = MatrixMultiply(modelTransform, MatrixTranslate(position.x, position.y, position.z));
 
-    // Get mouse position relative to top-left corner of the rectangle
-    Vector2 mousePos = {
+    Vector2 relativeMousePos = {
         ImGui::GetMousePos().x - rectangle.x,
         ImGui::GetMousePos().y - rectangle.y - GetImGuiWindowTitleHeight()
     };
 
-    // Get mouse position relative to the rectangle size
-    Vector2 realPos = mousePos;
+    Vector2 adjustedMousePos = relativeMousePos;
 
-    Ray ray = GetMouseRayEx(realPos, camera, rectangle);
-    RayCollision meshHitInfo = { 0 };
+    Ray mouseRay = GetMouseRayEx(adjustedMousePos, camera, rectangle);
+    RayCollision meshCollisionInfo = { 0 };
 
-    for (int mesh_i = 0; mesh_i < model.meshCount; mesh_i++)
+    for (int meshIndex = 0; meshIndex < model.meshCount; meshIndex++)
     {
-        BoundingBox bounds = (entity == nullptr) ? GetMeshBoundingBox(model.meshes[mesh_i]) : entity->bounds;
+        BoundingBox meshBounds = (entity == nullptr) ? GetMeshBoundingBox(model.meshes[meshIndex]) : entity->bounds;
 
-        if (bypass_optimization || GetRayCollisionBox(ray, bounds).hit)
+        if (bypassOptimization || GetRayCollisionBox(mouseRay, meshBounds).hit)
         {
-            meshHitInfo = GetRayCollisionMesh(ray, model.meshes[mesh_i], modelMatrix);
-            if (meshHitInfo.hit)
+            meshCollisionInfo = GetRayCollisionMesh(mouseRay, model.meshes[meshIndex], modelTransform);
+            if (meshCollisionInfo.hit)
                 return true;
         }
     }
