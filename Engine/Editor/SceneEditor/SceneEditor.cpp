@@ -150,21 +150,11 @@ float GetModelHeight(Model model)
     return modelHeight;
 }
 
-
 bool IsMouseInRectangle(Vector2 mousePos, Rectangle rectangle)
 {
-    if (mousePos.x >= sceneEditorWindowX && mousePos.x <= sceneEditorWindowX + sceneEditorWindowWidth &&
-        mousePos.y >= sceneEditorWindowY && mousePos.y <= sceneEditorWindowY + sceneEditorWindowHeight)
-    {
-        return true;
-    }
-    return false;
+    return (mousePos.x >= sceneEditorWindowX && mousePos.x <= sceneEditorWindowX + sceneEditorWindowWidth &&
+            mousePos.y >= sceneEditorWindowY && mousePos.y <= sceneEditorWindowY + sceneEditorWindowHeight);
 }
-
-
-
-
-
 
 bool IsMouseHoveringModel(Model model, Camera camera, Vector3 position, Vector3 rotation, Vector3 scale, Entity* entity, bool bypass_optimization)
 {
@@ -174,11 +164,11 @@ bool IsMouseHoveringModel(Model model, Camera camera, Vector3 position, Vector3 
     float extreme_rotation = GetExtremeValue(rotation);
 
     Matrix modelMatrix = MatrixIdentity();
-    modelMatrix = MatrixScale(scale.x, scale.y, scale.z);
+    modelMatrix = MatrixMultiply(modelMatrix, MatrixScale(scale.x, scale.y, scale.z));
     modelMatrix = MatrixMultiply(modelMatrix, MatrixRotateXYZ(rotation));
     modelMatrix = MatrixMultiply(modelMatrix, MatrixTranslate(position.x, position.y, position.z));
 
-    Ray ray = { 0 };
+    Ray ray = GetMouseRay(GetMousePosition(), camera);
 
     ImGuiStyle& style = ImGui::GetStyle();
     ImVec2 windowPadding = style.WindowPadding;
@@ -186,21 +176,15 @@ bool IsMouseHoveringModel(Model model, Camera camera, Vector3 position, Vector3 
     Vector2 pos = { GetMousePosition().x - rectangle.x + windowPadding.x, GetMousePosition().y - rectangle.y + windowPadding.y };
     Vector2 realPos = { pos.x * GetScreenWidth() / rectangle.width, pos.y * GetScreenHeight() / rectangle.height }; 
 
-    
     ray = GetMouseRay(realPos, camera);
 
     RayCollision meshHitInfo = { 0 };
 
     for (int mesh_i = 0; mesh_i < model.meshCount; mesh_i++)
     {
-        BoundingBox bounds = { 0 };
+        BoundingBox bounds = (entity == nullptr) ? GetMeshBoundingBox(model.meshes[mesh_i]) : entity->bounds;
 
-        if (entity == nullptr)
-            bounds = GetMeshBoundingBox(model.meshes[mesh_i]);
-        else
-            bounds = entity->bounds;
-
-        if (bypass_optimization || GetRayCollisionBox(GetMouseRay(GetMousePosition(), scene_camera),  bounds).hit)
+        if (bypass_optimization || GetRayCollisionBox(ray, bounds).hit)
         {
             meshHitInfo = GetRayCollisionMesh(ray, model.meshes[mesh_i], modelMatrix);
             if (meshHitInfo.hit)
