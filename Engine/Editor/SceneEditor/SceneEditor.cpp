@@ -47,7 +47,6 @@ void DrawTextureOnRectangle(const Texture* texture) {
     CalculateTextureRect(texture, rectangle);
 
     ImGui::Image((ImTextureID)texture, ImVec2(rectangle.width, rectangle.height), ImVec2(0,1), ImVec2(1,0));
-
 }
 
 void EditorCameraMovement(void)
@@ -139,45 +138,26 @@ void EditorCameraMovement(void)
     }
 }
 
-
-
-
-
-float GetModelHeight(Model model) 
-{
-    BoundingBox modelBBox = GetMeshBoundingBox(model.meshes[0]);
-    float modelHeight = modelBBox.max.y - modelBBox.min.y;
-    return modelHeight;
-}
-
-bool IsMouseInRectangle(Vector2 mousePos, Rectangle rectangle)
-{
-    return (mousePos.x >= sceneEditorWindowX && mousePos.x <= sceneEditorWindowX + sceneEditorWindowWidth &&
-            mousePos.y >= sceneEditorWindowY && mousePos.y <= sceneEditorWindowY + sceneEditorWindowHeight);
-}
-
 bool IsMouseHoveringModel(Model model, Camera camera, Vector3 position, Vector3 rotation, Vector3 scale, Entity* entity, bool bypass_optimization)
 {
-    float x = position.x;
-    float y = position.y;
-    float z = position.z;
-    float extreme_rotation = GetExtremeValue(rotation);
-
     Matrix modelMatrix = MatrixIdentity();
     modelMatrix = MatrixMultiply(modelMatrix, MatrixScale(scale.x, scale.y, scale.z));
     modelMatrix = MatrixMultiply(modelMatrix, MatrixRotateXYZ(rotation));
     modelMatrix = MatrixMultiply(modelMatrix, MatrixTranslate(position.x, position.y, position.z));
 
-    Ray ray = GetMouseRay(GetMousePosition(), camera);
+    Vector2 mousePos = {
+        ImGui::GetMousePos().x - rectangle.x,
+        ImGui::GetMousePos().y - rectangle.y - GetImGuiWindowTitleHeight()
+    };
 
-    ImGuiStyle& style = ImGui::GetStyle();
-    ImVec2 windowPadding = style.WindowPadding;
+    std::cout << "mousePos: " << mousePos.x << ", " << mousePos.y << std::endl;
 
-    Vector2 pos = { GetMousePosition().x - rectangle.x + windowPadding.x, GetMousePosition().y - rectangle.y + windowPadding.y };
-    Vector2 realPos = { pos.x * GetScreenWidth() / rectangle.width, pos.y * GetScreenHeight() / rectangle.height }; 
+    Vector2 realPos = {
+        mousePos.x * (GetScreenWidth()  / rectangle.width),
+        mousePos.y * (GetScreenHeight() / rectangle.height)
+    };
 
-    ray = GetMouseRay(realPos, camera);
-
+    Ray ray = GetMouseRay(realPos, camera);
     RayCollision meshHitInfo = { 0 };
 
     for (int mesh_i = 0; mesh_i < model.meshCount; mesh_i++)
