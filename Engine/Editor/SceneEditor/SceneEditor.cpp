@@ -139,34 +139,28 @@ void EditorCameraMovement(void)
 }
 
 
-Ray GetMouseRayEx(Vector2 mouse, Camera camera, Rectangle rect) {
+Ray GetMouseRayEx(Vector2 mouse, Camera camera, float width, float height) {
     Ray ray = { 0 };
 
-    // NOTE: y value is negative
-    float x = (2.0f*mouse.x)/(float)rect.width - 1.0f;
-    float y = 1.0f - (2.0f*mouse.y)/rect.height;
+    float x = (2.0f*mouse.x)/(float)width - 1.0f;
+    float y = 1.0f - (2.0f*mouse.y)/height;
     float z = 1.0f;
 
-    // Store values in a vector
     Vector3 deviceCoords = { x, y, z };
 
-    // Calculate view matrix from camera look at
     Matrix matView = MatrixLookAt(camera.position, camera.target, camera.up);
-
     Matrix matProj = MatrixIdentity();
 
     if (camera.projection == CAMERA_PERSPECTIVE)
     {
-        // Calculate projection matrix from perspective
-        matProj = MatrixPerspective(camera.fovy*DEG2RAD, ((double)rect.width/(double)rect.height), RL_CULL_DISTANCE_NEAR, RL_CULL_DISTANCE_FAR);
+        matProj = MatrixPerspective(camera.fovy*DEG2RAD, ((double)width/(double)height), RL_CULL_DISTANCE_NEAR, RL_CULL_DISTANCE_FAR);
     }
     else if (camera.projection == CAMERA_ORTHOGRAPHIC)
     {
-        float aspect = (float)rect.width/(float)rect.height;
+        float aspect = (float)width/(float)height;
         double top = camera.fovy/2.0;
         double right = top*aspect;
 
-        // Calculate projection matrix from orthographic
         matProj = MatrixOrtho(-right, right, -top, top, 0.01, 1000.0);
     }
 
@@ -174,18 +168,13 @@ Ray GetMouseRayEx(Vector2 mouse, Camera camera, Rectangle rect) {
     Vector3 nearPoint = Vector3Unproject((Vector3){ deviceCoords.x, deviceCoords.y, 0.0f }, matProj, matView);
     Vector3 farPoint = Vector3Unproject((Vector3){ deviceCoords.x, deviceCoords.y, 1.0f }, matProj, matView);
 
-    // Unproject the mouse cursor in the near plane.
-    // We need this as the source position because orthographic projects, compared to perspective doesn't have a
-    // convergence point, meaning that the "eye" of the camera is more like a plane than a point.
     Vector3 cameraPlanePointerPos = Vector3Unproject((Vector3){ deviceCoords.x, deviceCoords.y, -1.0f }, matProj, matView);
 
-    // Calculate normalized direction vector
     Vector3 direction = Vector3Normalize(Vector3Subtract(farPoint, nearPoint));
 
     if (camera.projection == CAMERA_PERSPECTIVE) ray.position = camera.position;
     else if (camera.projection == CAMERA_ORTHOGRAPHIC) ray.position = cameraPlanePointerPos;
 
-    // Apply calculated vectors to ray
     ray.direction = direction;
 
     return ray;
@@ -204,9 +193,11 @@ bool IsMouseHoveringModel(Model model, Camera camera, Vector3 position, Vector3 
         ImGui::GetMousePos().y - rectangle.y - GetImGuiWindowTitleHeight()
     };
 
+    std::cout << "relativeMousePos: " << relativeMousePos.x << ", " << relativeMousePos.y << std::endl;
+
     Vector2 adjustedMousePos = relativeMousePos;
 
-    Ray mouseRay = GetMouseRayEx(adjustedMousePos, camera, rectangle);
+    Ray mouseRay = GetMouseRayEx(adjustedMousePos, camera, rectangle.width, rectangle.height);
     RayCollision meshCollisionInfo = { 0 };
 
     for (int meshIndex = 0; meshIndex < model.meshCount; meshIndex++)
