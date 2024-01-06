@@ -245,14 +245,15 @@ void DraggableWindow()
     ImVec2 mousePos = ImGui::GetMousePos();
     ImVec2 mouseDelta = ImVec2(mousePos.x - lastMousePos.x, mousePos.y - lastMousePos.y);
 
-    float moveThreshold = 7.0f;
+    float moveThreshold = 3.f;
 
     if (isTitleBarHovered && ImGui::IsMouseDown(ImGuiMouseButton_Left))
     {
         if (!isDragging && (fabs(mouseDelta.x) > moveThreshold || fabs(mouseDelta.y) > moveThreshold))
         {
             isDragging = true;
-            originalPos = mousePos;
+            ImVec2 windowPos = ImGui::GetWindowPos();
+            originalPos = ImVec2(mousePos.x - windowPos.x, mousePos.y - windowPos.y);
         }
     }
     else if (isDragging && ImGui::IsMouseReleased(ImGuiMouseButton_Left))
@@ -265,9 +266,12 @@ void DraggableWindow()
         if (isWindowMaximized)
             ToggleMaximization();
 
-        ImVec2 newPosition = ImVec2(ImGui::GetMousePos().x + originalPos.x, ImGui::GetMousePos().y + originalPos.y);
-        std::cout << "New position: " << ImGui::GetMousePos().x << ", " << ImGui::GetMousePos().y << std::endl;
-        SetWindowPosition(static_cast<int>(newPosition.x), static_cast<int>(newPosition.y));
+        ImVec2 newPosition = ImVec2(ImGui::GetMousePos().x - originalPos.x, ImGui::GetMousePos().y - originalPos.y);
+        float smoothFactor = 0.6f;
+        newPosition.x = lerp(ImGui::GetWindowPos().x, newPosition.x, smoothFactor);
+        newPosition.y = lerp(ImGui::GetWindowPos().y, newPosition.y, smoothFactor);
+        std::cout << "New position: " << newPosition.x << ", " << newPosition.y << std::endl;
+        SetWindowPosition(newPosition.x, newPosition.y);
     }
 
     lastMousePos = mousePos;
