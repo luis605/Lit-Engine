@@ -183,7 +183,11 @@ Ray GetMouseRayEx(Vector2 mouse, Camera camera, float width, float height) {
 
 bool IsMouseHoveringModel(Model model, Camera camera, Vector3 position, Vector3 rotation, Vector3 scale, Entity* entity, bool bypassOptimization)
 {
-    Matrix modelTransform = MatrixIdentity();
+    if (model.meshCount <= 0) {
+        return false;
+    }
+
+    Matrix modelTransform = model.transform;
     modelTransform = MatrixMultiply(modelTransform, MatrixScale(scale.x, scale.y, scale.z));
     modelTransform = MatrixMultiply(modelTransform, MatrixRotateXYZ(rotation));
     modelTransform = MatrixMultiply(modelTransform, MatrixTranslate(position.x, position.y, position.z));
@@ -193,7 +197,7 @@ bool IsMouseHoveringModel(Model model, Camera camera, Vector3 position, Vector3 
         ImGui::GetMousePos().y - rectangle.y - GetImGuiWindowTitleHeight()
     };
 
-    std::cout << "relativeMousePos: " << relativeMousePos.x << ", " << relativeMousePos.y << std::endl;
+    std::cout << "Relative Position: " << relativeMousePos.x << ", " << relativeMousePos.y << "\n";
 
     Vector2 adjustedMousePos = relativeMousePos;
 
@@ -203,6 +207,15 @@ bool IsMouseHoveringModel(Model model, Camera camera, Vector3 position, Vector3 
     for (int meshIndex = 0; meshIndex < model.meshCount; meshIndex++)
     {
         BoundingBox meshBounds = (entity == nullptr) ? GetMeshBoundingBox(model.meshes[meshIndex]) : entity->bounds;
+
+        if (Vector3Equals(scale, Vector3Zero()))
+        {
+            Vector3 originalSize = Vector3Subtract(meshBounds.max, meshBounds.min);
+            modelTransform = model.transform;
+            modelTransform = MatrixMultiply(modelTransform, MatrixScale(originalSize.x, originalSize.y, originalSize.z));
+            modelTransform = MatrixMultiply(modelTransform, MatrixRotateXYZ(rotation));
+            modelTransform = MatrixMultiply(modelTransform, MatrixTranslate(position.x, position.y, position.z));
+        }
 
         if (bypassOptimization || GetRayCollisionBox(mouseRay, meshBounds).hit)
         {
