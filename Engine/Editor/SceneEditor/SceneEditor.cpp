@@ -142,7 +142,7 @@ void EditorCameraMovement(void)
 Ray GetMouseRayEx(Vector2 mouse, Camera camera, float width, float height) {
     Ray ray = { 0 };
 
-    float x = (2.0f*mouse.x)/(float)width - 1.0f;
+    float x = (2.0f*mouse.x)/width - 1.0f;
     float y = 1.0f - (2.0f*mouse.y)/height;
     float z = 1.0f;
 
@@ -181,47 +181,55 @@ Ray GetMouseRayEx(Vector2 mouse, Camera camera, float width, float height) {
 }
 
 
-bool IsMouseHoveringModel(Model model, Camera camera, Vector3 position, Vector3 rotation, Vector3 scale, Entity* entity, bool bypassOptimization)
+
+
+bool IsMouseHoveringModel(const Model& model, const Camera& camera, const Vector3& position, const Vector3& rotation, const Vector3& scale, const Entity* entity = nullptr, bool bypassOptimization = false)
 {
     if (model.meshCount <= 0) {
         return false;
     }
 
-    Matrix modelTransform = model.transform;
+    // Calculate model transform once outside the loop
+    Matrix modelTransform = MatrixIdentity();
     modelTransform = MatrixMultiply(modelTransform, MatrixScale(scale.x, scale.y, scale.z));
     modelTransform = MatrixMultiply(modelTransform, MatrixRotateXYZ(rotation));
     modelTransform = MatrixMultiply(modelTransform, MatrixTranslate(position.x, position.y, position.z));
+
+    Vector3 originalSize = Vector3Zero();
+
+    if (Vector3Equals(scale, Vector3Zero())) {
+        originalSize = Vector3Subtract(entity ? entity->bounds.max : GetMeshBoundingBox(model.meshes[0]).max,
+                                      entity ? entity->bounds.min : GetMeshBoundingBox(model.meshes[0]).min);
+    }
 
     Vector2 relativeMousePos = {
         ImGui::GetMousePos().x - rectangle.x,
         ImGui::GetMousePos().y - rectangle.y - GetImGuiWindowTitleHeight()
     };
 
-    std::cout << "Relative Position: " << relativeMousePos.x << ", " << relativeMousePos.y << "\n";
-
-    Vector2 adjustedMousePos = relativeMousePos;
-
-    Ray mouseRay = GetMouseRayEx(adjustedMousePos, camera, rectangle.width, rectangle.height);
+    Ray mouseRay = GetMouseRayEx(relativeMousePos, camera, rectangle.width, rectangle.height);
     RayCollision meshCollisionInfo = { 0 };
 
-    for (int meshIndex = 0; meshIndex < model.meshCount; meshIndex++)
-    {
+    for (int meshIndex = 0; meshIndex < model.meshCount; meshIndex++) {
         BoundingBox meshBounds = (entity == nullptr) ? GetMeshBoundingBox(model.meshes[meshIndex]) : entity->bounds;
 
-        if (Vector3Equals(scale, Vector3Zero()))
-        {
-            Vector3 originalSize = Vector3Subtract(meshBounds.max, meshBounds.min);
-            modelTransform = model.transform;
+        if (Vector3Equals(scale, Vector3Zero())) {
+            modelTransform = MatrixIdentity();
             modelTransform = MatrixMultiply(modelTransform, MatrixScale(originalSize.x, originalSize.y, originalSize.z));
             modelTransform = MatrixMultiply(modelTransform, MatrixRotateXYZ(rotation));
             modelTransform = MatrixMultiply(modelTransform, MatrixTranslate(position.x, position.y, position.z));
         }
 
-        if (bypassOptimization || GetRayCollisionBox(mouseRay, meshBounds).hit)
-        {
+        // Transform the mesh bounding box based on the model's transform
+        meshBounds.min = Vector3Transform(meshBounds.min, modelTransform);
+        meshBounds.max = Vector3Transform(meshBounds.max, modelTransform);
+
+        if (bypassOptimization || GetRayCollisionBox(mouseRay, meshBounds).hit) {
+            return true;
             meshCollisionInfo = GetRayCollisionMesh(mouseRay, model.meshes[meshIndex], modelTransform);
-            if (meshCollisionInfo.hit)
+            if (meshCollisionInfo.hit) {
                 return true;
+            }
         }
     }
 
