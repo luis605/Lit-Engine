@@ -197,10 +197,10 @@ void CleanUp()
     in_game_preview = false;
     first_time_gameplay = false;
 
-    // for (Entity &entity : entities_list_pregame)
-    //     entity.remove();
+    for (Entity &entity : entities_list_pregame)
+        entity.remove();
 
-    // entities_list_pregame.clear();
+    entities_list_pregame.clear();
 
     UnloadShader(shader);
     UnloadImage(window_icon_image);
