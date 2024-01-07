@@ -35,4 +35,8 @@ static std::unordered_map<std::string, ImFont*> s_Fonts;
 RenderTexture downsamplerTexture;
 RenderTexture upsamplerTexture;
 
+ImVec2 windowOriginalPos;
+ImVec2 lastMousePosition;
+
+
 #endif // CORE_H
