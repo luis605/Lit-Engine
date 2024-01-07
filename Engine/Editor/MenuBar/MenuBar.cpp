@@ -137,13 +137,12 @@ void DrawMenus()
 void MenuBar()
 {
     float originalFramePaddingY = ImGui::GetStyle().FramePadding.y;
-    ImVec2 windowPadding = ImVec2(0, 0); // ImGui::GetCurrentWindow()->WindowPadding;
+    ImVec2 windowPadding = ImVec2(0, 0);
 
     ImGui::GetStyle().FramePadding.y = 19.0f;
 
     float titleBarHeight = ImGui::GetFrameHeight();
     float titlebarVerticalOffset = isWindowMaximized ? -6.0f : 0.0f;
-
 
     if (ImGui::BeginMainMenuBar())
     {
@@ -153,10 +152,9 @@ void MenuBar()
         float centeredHeight = (titleBarHeight - imageSize.y) * 0.5f;
         ImVec2 imagePos = ImVec2(centeredHeight + 10, centeredHeight);
 
-
         ImGuiWindow* window = ImGui::GetCurrentWindow();
 
-        // Start a new path for the left polygon
+        // Left polygon
         window->DrawList->PathClear();
         window->DrawList->PathLineTo(window->Pos + ImVec2(0, titleBarHeight / 1.5));
         window->DrawList->PathLineTo(window->Pos + ImVec2(75, titleBarHeight / 3.5));
@@ -165,12 +163,12 @@ void MenuBar()
         window->DrawList->PathLineTo(window->Pos + ImVec2(0, titleBarHeight / 1.5));
         window->DrawList->PathFillConvex(ImColor(50, 50, 50));
 
-        // Start a new path for the middle rectangle
+        // Middle rectangle
         window->DrawList->PathClear();
         window->DrawList->PathRect(window->Pos + ImVec2(75, titleBarHeight / 3.5), window->Pos + ImVec2(windowSize.x - 75, titleBarHeight));
         window->DrawList->PathFillConvex(ImColor(50, 50, 50));
 
-        // Start a new path for the right polygon
+        // Right polygon
         window->DrawList->PathClear();
         window->DrawList->PathLineTo(window->Pos + ImVec2(windowSize.x - 75, titleBarHeight));
         window->DrawList->PathLineTo(window->Pos + ImVec2(windowSize.x - 75, titleBarHeight / 3.5));
@@ -179,10 +177,8 @@ void MenuBar()
         window->DrawList->PathLineTo(window->Pos + ImVec2(windowSize.x / 2, titleBarHeight));
         window->DrawList->PathFillConvex(ImColor(50, 50, 50));
 
-        // Clear the paths after rendering
+        // Clear Path
         window->DrawList->PathClear();
-
-
 
         ImGui::SetCursorPos(imagePos);
         ImGui::Image((ImTextureID)&window_icon_texture, imageSize);
