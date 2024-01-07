@@ -285,6 +285,9 @@ void ToggleMaximization()
     isWindowMaximized = !isWindowMaximized;
 }
 
+static int currentExitMenuButton = 1;
+
+
 void ExitWindowRequested()
 {
     const ImVec2 windowSize(200, 90);
@@ -303,22 +306,37 @@ void ExitWindowRequested()
 
         ImVec2 buttonSize(100, 30);
 
-        const float buttonPosX = (windowSize.x - ImGui::CalcTextSize("Yes").x) * 0.5f;
         ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(1, 0, 0, 1));
-        if (ImGui::Button("Yes", buttonSize)) 
-        {
-            exitWindow = true;
-        }
-        ImGui::PopStyleColor();
+
+        if (currentExitMenuButton == 0) ImGui::PushStyleColor(ImGuiCol_Button, ImVec4(0.6, 0.6, 0.6, 1));
+
+        if (ImGui::Button("Yes", buttonSize) || (ImGui::IsKeyPressed(ImGui::GetKeyIndex(ImGuiKey_Enter)) && currentExitMenuButton == 0)) exitWindow = true;
+        ImGui::PopStyleColor(1);
+
+        if (currentExitMenuButton == 0) ImGui::PopStyleColor(1);
 
         ImGui::SameLine();
 
-        const float noButtonPosX = (buttonPosX + ImGui::CalcTextSize("Yes").x) + 20;
-        ImGui::SetCursorPosX(noButtonPosX);
-        if (ImGui::Button("No", buttonSize))
+        if (currentExitMenuButton == 1) ImGui::PushStyleColor(ImGuiCol_Button, ImVec4(0.6, 0.6, 0.6, 1));
+
+        if (ImGui::Button("No", buttonSize) || ImGui::IsKeyPressed(ImGui::GetKeyIndex(ImGuiKey_Escape)) || (ImGui::IsKeyPressed(ImGui::GetKeyIndex(ImGuiKey_Enter)) && currentExitMenuButton == 1))
         {
             exitWindowRequested = false;
         }
 
+        if (currentExitMenuButton == 1)
+            ImGui::PopStyleColor(1);
+
+        // Update selected button based on arrow key input
+        if (ImGui::IsKeyPressed(ImGui::GetKeyIndex(ImGuiKey_RightArrow)))
+        {
+            currentExitMenuButton = (currentExitMenuButton + 1) % 2; // Circular navigation
+        }
+        else if (ImGui::IsKeyPressed(ImGui::GetKeyIndex(ImGuiKey_LeftArrow)))
+        {
+            currentExitMenuButton = (currentExitMenuButton - 1 + 2) % 2; // Circular navigation
+        }
+
         ImGui::EndPopup();
-    }}
+    }
+}
