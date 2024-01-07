@@ -9,10 +9,7 @@
 #define MAX(a, b) ((a) > (b) ? (a) : (b))
 #define MIN(a, b) ((a) < (b) ? (a) : (b))
 
-
-void Startup()
-{
-    // Raylib
+void InitLitWindow() {
     SetTraceLogLevel(LOG_WARNING);
 
     InitWindow(windowWidth, windowHeight, "Lit Engine - INITIALISING");
@@ -27,27 +24,35 @@ void Startup()
     InitWindow(windowWidth, windowHeight, "Lit Engine");
 
     SetExitKey(KEY_NULL);
+}
 
-    // Face Culling
-    glEnable(GL_CULL_FACE);
-    glCullFace(GL_BACK);
+void LoadTextures() {
+    folder_texture = LoadTexture("assets/images/folder.png");
+    image_texture = LoadTexture("assets/images/image_file_type.png");
+    cpp_texture = LoadTexture("assets/images/cpp_file_type.png");
+    python_texture = LoadTexture("assets/images/python_file_type.png");
+    model_texture = LoadTexture("assets/images/model_file_type.png");
+    empty_texture = LoadTexture("assets/images/empty_file_file_type.png");
+    run_texture = LoadTexture("assets/images/run_game.png");
+    pause_texture = LoadTexture("assets/images/pause_game.png");
+    save_texture = LoadTexture("assets/images/save_file.png");
+    hot_reload_texture = LoadTexture("assets/images/hot_reload.png");
+    light_texture = LoadTexture("assets/images/light_bulb.png");
+    window_icon_image = LoadImage("assets/images/window_icon.png");
+    window_icon_texture = LoadTextureFromImage(window_icon_image);
 
-    // Physics
-    SetupPhysicsWorld();
-    
-    // Skybox
-    InitSkybox();
+    ImageFormat(&window_icon_image, PIXELFORMAT_UNCOMPRESSED_R8G8B8A8);
+    SetWindowIcon(window_icon_image);
 
-    // Python
-    Py_Initialize();
+    downsamplerTexture = LoadRenderTexture(GetScreenWidth(), GetScreenHeight());
+    upsamplerTexture = LoadRenderTexture(GetScreenWidth(), GetScreenHeight());
+}
 
-    // ImGui
+void InitImGui() {
     rlImGuiSetup(true);
-
     ImGui::CreateContext();
 
     io = &ImGui::GetIO();
-
     io->ConfigFlags |= ImGuiConfigFlags_DockingEnable;
 
     SetStyleGray(&ImGui::GetStyle());
@@ -68,50 +73,38 @@ void Startup()
     s_Fonts["FontAwesome"] = io->Fonts->AddFontFromFileTTF((fontPath + "fontawesome-webfont.ttf").c_str(), fontSize);
 
     rlImGuiReloadFonts();
+}
 
-    // Textures
-    folder_texture = LoadTexture("assets/images/folder.png");
-    image_texture = LoadTexture("assets/images/image_file_type.png");
-    cpp_texture = LoadTexture("assets/images/cpp_file_type.png");
-    python_texture = LoadTexture("assets/images/python_file_type.png");
-    model_texture = LoadTexture("assets/images/model_file_type.png");
-    empty_texture = LoadTexture("assets/images/empty_file_file_type.png");
-    run_texture = LoadTexture("assets/images/run_game.png");
-    pause_texture = LoadTexture("assets/images/pause_game.png");
-    save_texture = LoadTexture("assets/images/save_file.png");
-    hot_reload_texture = LoadTexture("assets/images/hot_reload.png");
-    light_texture = LoadTexture("assets/images/light_bulb.png");
-    window_icon_image = LoadImage("assets/images/window_icon.png");
-    window_icon_texture = LoadTextureFromImage(window_icon_image);
-
-    ImageFormat(&window_icon_image, PIXELFORMAT_UNCOMPRESSED_R8G8B8A8);
-
-    SetWindowIcon(window_icon_image);
-
-    // Code Editor
-    code.resize(10);
-    auto lang = TextEditor::LanguageDefinition::CPlusPlus();
-
-    // Gizmo
-    InitGizmo();
-    
-    // Editor Camera
-    InitEditorCamera();
-
-    selected_entity = { 0 };
-    selected_light = { 0 };
-
-    // Shaders
+void InitShaders() {
     shader = LoadShaderFromMemory(lightingVert, lightingFrag); // LoadShader("Engine/Lighting/shaders/lighting_vertex.glsl", "Engine/Lighting/shaders/lighting_fragment.glsl");
     instancing_shader = LoadShaderFromMemory(lightingVert, lightingFrag);
     downsamplerShader = LoadShaderFromMemory(lightingVert, downsamplerFrag); // LoadShader("Engine/Lighting/shaders/lighting_vertex.glsl", "Engine/Lighting/shaders/downsampler.glsl");
     upsamplerShader = LoadShaderFromMemory(lightingVert, upsamplerFrag); // LoadShader("Engine/Lighting/shaders/lighting_vertex.glsl", "Engine/Lighting/shaders/upsampler.glsl");
+}
+
+void InitCodeEditor() {
+    code.resize(10);
+    auto lang = TextEditor::LanguageDefinition::CPlusPlus();
+}
+
+void Startup()
+{
+    InitLitWindow();
+
+    // Face Culling
+    glEnable(GL_CULL_FACE);
+    glCullFace(GL_BACK);
+
+    SetupPhysicsWorld();
+    InitSkybox();
+    Py_Initialize();
+    InitImGui();
+    LoadTextures();
+    InitGizmo();
+    InitEditorCamera();
+    InitCodeEditor();
+    InitShaders();
     InitLighting();
-
-    downsamplerTexture = LoadRenderTexture(GetScreenWidth(), GetScreenHeight());
-    upsamplerTexture = LoadRenderTexture(GetScreenWidth(), GetScreenHeight());
-
-    mainThreadId = std::this_thread::get_id();
 
     #if STRESS_TEST
         InitStressTest();
