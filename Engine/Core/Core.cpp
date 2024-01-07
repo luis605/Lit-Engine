@@ -229,10 +229,6 @@ void CleanUp()
     CloseWindow();
 }
 
-
-ImVec2 windowOriginalPos;
-ImVec2 lastMousePosition;
-
 void DraggableWindow()
 {
     bool isTitleBarHovered = ImGui::IsItemHovered();
