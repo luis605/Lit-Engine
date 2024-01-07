@@ -287,42 +287,38 @@ void ToggleMaximization()
 
 void ExitWindowRequested()
 {
-    const ImVec2 windowSize(260, 65);
-    const ImVec2 windowPos((GetScreenWidth() - windowSize.x) * 0.5f, (GetScreenHeight() - windowSize.y) / 2.0f);
+    const ImVec2 windowSize(200, 90);
+    const ImVec2 windowPos((GetScreenWidth() - windowSize.x) * 0.5f, (GetScreenHeight() - windowSize.y) * 0.5f);
 
-    ImGuiWindowFlags flags = ImGuiWindowFlags_NoCollapse | ImGuiWindowFlags_NoDocking | ImGuiWindowFlags_Modal | ImGuiWindowFlags_NoResize;
+    ImGuiWindowFlags windowFlags = ImGuiWindowFlags_NoCollapse | ImGuiWindowFlags_NoDocking | ImGuiWindowFlags_Modal | ImGuiWindowFlags_NoResize;
 
     ImGui::SetNextWindowPos(windowPos);
-    ImGui::SetNextWindowSize({200, 90});
+    ImGui::SetNextWindowSize(windowSize);
 
-    if (true) {
-        ImGui::OpenPopup("Do you want to quit?");
-    }
-    
-    if (ImGui::BeginPopupModal("Do you want to quit?")){
+    ImGui::OpenPopup("Are you sure you want to exit?");
 
+    if (ImGui::BeginPopupModal("Are you sure you want to exit?", nullptr, windowFlags))
+    {
         ImGui::Separator();
 
-        ImVec2 buttonSize = ImVec2(100, 30);
+        ImVec2 buttonSize(100, 30);
 
-        const float posX = (windowSize.x - ImGui::CalcTextSize("Yes").x) * 0.5f;
+        const float buttonPosX = (windowSize.x - ImGui::CalcTextSize("Yes").x) * 0.5f;
         ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(1, 0, 0, 1));
-        if (ImGui::Button("Yes", buttonSize))
+        if (ImGui::Button("Yes", buttonSize)) 
         {
             exitWindow = true;
-            std::cout << "QUITING\n";
         }
         ImGui::PopStyleColor();
 
         ImGui::SameLine();
 
-        const float posX2 = (posX + ImGui::CalcTextSize("Yes").x) + 20;
-        ImGui::SetCursorPosX(posX2);
+        const float noButtonPosX = (buttonPosX + ImGui::CalcTextSize("Yes").x) + 20;
+        ImGui::SetCursorPosX(noButtonPosX);
         if (ImGui::Button("No", buttonSize))
         {
             exitWindowRequested = false;
         }
 
         ImGui::EndPopup();
-    }
-}
+    }}
