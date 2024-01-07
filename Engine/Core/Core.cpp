@@ -267,9 +267,9 @@ void DraggableWindow()
             ToggleMaximization();
 
         ImVec2 newPosition = ImVec2(ImGui::GetMousePos().x - originalPos.x, ImGui::GetMousePos().y - originalPos.y);
-        float smoothFactor = 0.6f;
-        newPosition.x = lerp(ImGui::GetWindowPos().x, newPosition.x, smoothFactor);
-        newPosition.y = lerp(ImGui::GetWindowPos().y, newPosition.y, smoothFactor);
+        float smoothFactor = 0.3f;
+        newPosition.x = lerp(ImGui::GetWindowPos().x, newPosition.x * 2.f, smoothFactor);
+        newPosition.y = lerp(ImGui::GetWindowPos().y, newPosition.y * 2.f, smoothFactor);
         std::cout << "New position: " << newPosition.x << ", " << newPosition.y << std::endl;
         SetWindowPosition(newPosition.x, newPosition.y);
     }
