@@ -279,17 +279,10 @@ void DraggableWindow()
 
 void ToggleMaximization()
 {
-    if (!isWindowMaximized)
-    {
-
-        MaximizeWindow();
-        isWindowMaximized = true;
-    }
-    else
-    {
-        RestoreWindow();
-        isWindowMaximized = false;
-    }
+    if (isWindowMaximized) RestoreWindow();
+    else                   MaximizeWindow();
+    
+    isWindowMaximized = !isWindowMaximized;
 }
 
 void ExitWindowRequested()
