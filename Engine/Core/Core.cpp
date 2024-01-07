@@ -9,14 +9,6 @@
 #define MAX(a, b) ((a) > (b) ? (a) : (b))
 #define MIN(a, b) ((a) < (b) ? (a) : (b))
 
-/*
-void segfault_sigaction(int signal, siginfo_t *si, void *arg)
-{
-    printf("Safe exit enabled by segfault at address %p\n", si->si_addr);
-    kill(-pid, SIGTERM);
-    exit(0);
-}
-*/
 
 void Startup()
 {
