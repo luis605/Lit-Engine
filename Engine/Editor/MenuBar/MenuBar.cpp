@@ -158,23 +158,23 @@ ImGuiWindow* window = ImGui::GetCurrentWindow();
 
 // Start a new path for the left polygon
 window->DrawList->PathClear();
-window->DrawList->PathLineTo(window->Pos + ImVec2(0, titleBarHeight / 3));
-window->DrawList->PathLineTo(window->Pos + ImVec2(75, titleBarHeight / 1.5));
+window->DrawList->PathLineTo(window->Pos + ImVec2(0, titleBarHeight / 1.5));
+window->DrawList->PathLineTo(window->Pos + ImVec2(75, titleBarHeight / 3.5));
 window->DrawList->PathLineTo(window->Pos + ImVec2(75, titleBarHeight));
 window->DrawList->PathLineTo(window->Pos + ImVec2(0, titleBarHeight));
-window->DrawList->PathLineTo(window->Pos + ImVec2(0, titleBarHeight / 3));
+window->DrawList->PathLineTo(window->Pos + ImVec2(0, titleBarHeight / 1.5));
 window->DrawList->PathFillConvex(ImColor(50, 50, 50));
 
 // Start a new path for the middle rectangle
 window->DrawList->PathClear();
-window->DrawList->PathRect(window->Pos + ImVec2(75, titleBarHeight / 1.5), window->Pos + ImVec2(windowSize.x - 75, titleBarHeight));
+window->DrawList->PathRect(window->Pos + ImVec2(75, titleBarHeight / 3.5), window->Pos + ImVec2(windowSize.x - 75, titleBarHeight));
 window->DrawList->PathFillConvex(ImColor(50, 50, 50));
 
 // Start a new path for the right polygon
 window->DrawList->PathClear();
 window->DrawList->PathLineTo(window->Pos + ImVec2(windowSize.x - 75, titleBarHeight));
-window->DrawList->PathLineTo(window->Pos + ImVec2(windowSize.x - 75, titleBarHeight / 1.5));
-window->DrawList->PathLineTo(window->Pos + ImVec2(windowSize.x, titleBarHeight / 3));
+window->DrawList->PathLineTo(window->Pos + ImVec2(windowSize.x - 75, titleBarHeight / 3.5));
+window->DrawList->PathLineTo(window->Pos + ImVec2(windowSize.x, titleBarHeight / 1.5));
 window->DrawList->PathLineTo(window->Pos + ImVec2(windowSize.x, titleBarHeight));
 window->DrawList->PathLineTo(window->Pos + ImVec2(windowSize.x / 2, titleBarHeight));
 window->DrawList->PathFillConvex(ImColor(50, 50, 50));
