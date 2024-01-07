@@ -207,6 +207,8 @@ bool IsMouseHoveringModel(const Model& model, const Camera& camera, const Vector
         ImGui::GetMousePos().y - rectangle.y - GetImGuiWindowTitleHeight()
     };
 
+    std::cout << "Relative Position: " << relativeMousePos.x << ", " << relativeMousePos.y << std::endl;
+
     Ray mouseRay = GetMouseRayEx(relativeMousePos, camera, rectangle.width, rectangle.height);
     RayCollision meshCollisionInfo = { 0 };
 
