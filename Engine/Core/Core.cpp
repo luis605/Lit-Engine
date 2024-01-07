@@ -190,7 +190,6 @@ void EngineMainLoop()
 
 void CleanUp()
 {
-
     std::cout << "Exiting..." << std::endl;
     //kill(-pid, SIGTERM);
 
@@ -230,11 +229,6 @@ void CleanUp()
     CloseWindow();
 }
 
-Vector2 GetGlobalMousePosition()
-{
-    ImVec2 mousePosition = ImGui::GetMousePos();
-    return {static_cast<float>(mousePosition.x), static_cast<float>(mousePosition.y)};
-}
 
 ImVec2 windowOriginalPos;
 ImVec2 lastMousePosition;
