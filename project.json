@@ -2,15 +2,15 @@
     {
         "fovy": 60.0,
         "position": {
-            "x": -1.3864904642105103,
-            "y": 7.143340110778809,
-            "z": 21.467294692993164
+            "x": -3.7233316898345947,
+            "y": 1.9584436416625977,
+            "z": -0.47899162769317627
         },
         "projection": 0,
         "target": {
-            "x": 1.967697024345398,
-            "y": -4.984567642211914,
-            "z": -26.92347526550293
+            "x": 40.599788665771484,
+            "y": -20.462814331054688,
+            "z": 5.2438645362854
         },
         "type": "camera",
         "up": {
@@ -26,126 +26,27 @@
             "y": 1.0,
             "z": 1.0
         },
-        "bloom": false,
+        "bloom": true,
         "bloomBrightness": 0.0,
         "type": "world settings"
     },
     {
-        "collider_type": 0,
+        "collider_type": 4,
         "damping": 0.0,
         "friction": 1.0,
         "id": 0,
         "is_dynamic": false,
         "lodEnabled": true,
         "mass": 1.0,
-        "material_path": "project/game/materials/gate.mat",
-        "model_path": "project/game/assets/gate.obj",
-        "name": "gate",
-        "normal_texture_path": "",
-        "position": {
-            "x": 0.0,
-            "y": 0.0,
-            "z": 0.0
-        },
-        "relative_position": {
-            "x": 0.0,
-            "y": 0.0,
-            "z": 0.0
-        },
-        "rotation": {
-            "x": 0.0,
-            "y": 0.0,
-            "z": 0.0
-        },
-        "roughness_texture_path": "",
-        "scale": {
-            "x": 3.0,
-            "y": 3.0,
-            "z": 3.0
-        },
-        "script_index": "",
-        "script_path": "",
-        "surface_material": {
-            "DiffuseIntensity": 0.6340000033378601,
-            "Roughness": 0.5,
-            "SpecularIntensity": 0.41100001335144043,
-            "SpecularTint": {
-                "x": 1.0,
-                "y": 1.0,
-                "z": 1.0
-            },
-            "shininess": 0.5
-        },
-        "texture_path": "",
-        "type": "entity"
-    },
-    {
-        "collider_type": 0,
-        "damping": 0.0,
-        "friction": 1.0,
-        "id": 1,
-        "is_dynamic": false,
-        "lodEnabled": true,
-        "mass": 1.0,
-        "material_path": "",
-        "mesh_type": 4,
-        "model_path": "",
-        "name": "groud",
-        "normal_texture_path": "",
-        "position": {
-            "x": 0.0,
-            "y": 0.0,
-            "z": 0.0
-        },
-        "relative_position": {
-            "x": 0.0,
-            "y": 0.0,
-            "z": 0.0
-        },
-        "rotation": {
-            "x": 0.0,
-            "y": 0.0,
-            "z": 0.0
-        },
-        "roughness_texture_path": "",
-        "scale": {
-            "x": 100.0,
-            "y": 0.0010000000474974513,
-            "z": 100.0
-        },
-        "script_index": "",
-        "script_path": "",
-        "surface_material": {
-            "DiffuseIntensity": 0.5,
-            "Roughness": 0.5,
-            "SpecularIntensity": 0.5,
-            "SpecularTint": {
-                "x": 1.0,
-                "y": 1.0,
-                "z": 1.0
-            },
-            "shininess": 0.5
-        },
-        "texture_path": "",
-        "type": "entity"
-    },
-    {
-        "collider_type": 0,
-        "damping": 0.0,
-        "friction": 1.0,
-        "id": 2,
-        "is_dynamic": true,
-        "lodEnabled": true,
-        "mass": 1.0,
         "material_path": "",
         "mesh_type": 1,
         "model_path": "",
-        "name": "Player",
+        "name": "Unnamed Entity",
         "normal_texture_path": "",
         "position": {
             "x": 0.0,
-            "y": 1.8000001907348633,
-            "z": 3.6000001430511475
+            "y": 0.0,
+            "z": 0.0
         },
         "relative_position": {
             "x": 0.0,
@@ -160,11 +61,11 @@
         "roughness_texture_path": "",
         "scale": {
             "x": 1.0,
-            "y": 3.0,
+            "y": 1.0,
             "z": 1.0
         },
-        "script_index": "coins collector0",
-        "script_path": "project/game/coins collector.py",
+        "script_index": "",
+        "script_path": "",
         "surface_material": {
             "DiffuseIntensity": 0.5,
             "Roughness": 0.5,
@@ -193,8 +94,8 @@
             "y": -0.5270000100135803,
             "z": 0.14300000667572021
         },
-        "id": 1922746152,
-        "intensity": 0.6029999852180481,
+        "id": 773940816,
+        "intensity": 5.0,
         "isChild": false,
         "light_type": 0,
         "name": "",
