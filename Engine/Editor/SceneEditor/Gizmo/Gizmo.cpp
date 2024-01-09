@@ -237,7 +237,7 @@ void GizmoRotation()
 
         if ((!dragging_gizmo_scale && !dragging_gizmo_position && !dragging_gizmo_rotation) && ImGui::IsWindowHovered())
         {
-            isHoveringGizmo = IsMouseHoveringModel(gizmo_taurus[index].model, scene_camera, gizmo_taurus[index].position, gizmo_taurus[index].rotation, gizmo_taurus[index].scale, nullptr, false);
+            isHoveringGizmo = IsMouseHoveringModel(gizmo_taurus[index].model, scene_camera, gizmo_taurus[index].position, gizmo_taurus[index].rotation, gizmo_taurus[index].scale, nullptr, true);
             
             if (isHoveringGizmo)
             {
@@ -348,7 +348,7 @@ void GizmoScale()
 
         if ((!dragging_gizmo_scale || !dragging_gizmo_rotation || !dragging_gizmo_position) && ImGui::IsWindowHovered())
         {
-            isHoveringGizmo = IsMouseHoveringModel(gizmo_cube[cube_i].model, scene_camera, gizmo_cube[cube_i].position, gizmo_cube[cube_i].rotation, gizmo_cube[cube_i].scale, nullptr, false);
+            isHoveringGizmo = IsMouseHoveringModel(gizmo_cube[cube_i].model, scene_camera, gizmo_cube[cube_i].position, gizmo_cube[cube_i].rotation, gizmo_cube[cube_i].scale, nullptr, true);
             if (isHoveringGizmo)
             {
                 color1 = GREEN;
