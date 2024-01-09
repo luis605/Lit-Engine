@@ -35,12 +35,6 @@ int pipe_fds_lights[2];
     bool showNextTime = true;
     bool create = false;
 
-
-    /* Code Editor [IDE] */
-    string code;
-    string code_editor_script_path;
-    TextEditor editor;
-
     /* Scene Editor */
     RenderTexture2D renderTexture;
     Texture2D texture;
