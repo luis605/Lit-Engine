@@ -85,6 +85,7 @@ void InitShaders() {
 void InitCodeEditor() {
     code.resize(10);
     auto lang = TextEditor::LanguageDefinition::Python();
+    editor.SetLanguageDefinition(lang);
 }
 
 void Startup()
