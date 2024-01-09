@@ -62,7 +62,7 @@ void GizmoPosition()
 
         if ((!dragging_gizmo_scale && !dragging_gizmo_position && !dragging_gizmo_rotation) && ImGui::IsWindowHovered())
         {
-            isHoveringGizmo = IsMouseHoveringModel(gizmo_arrow[index].model, scene_camera, gizmo_arrow[index].position, gizmo_arrow[index].rotation, gizmo_arrow[index].scale, nullptr, false);
+            isHoveringGizmo = IsMouseHoveringModel(gizmo_arrow[index].model, scene_camera, gizmo_arrow[index].position, gizmo_arrow[index].rotation, gizmo_arrow[index].scale, nullptr, true);
             
             if (isHoveringGizmo)
             {
