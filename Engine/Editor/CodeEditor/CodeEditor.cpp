@@ -67,8 +67,7 @@ void CodeEditor()
     if (ImGui::IsItemHovered())
     {
         ImGui::BeginTooltip();
-        ImGui::Text("1 click to reload this script\n"
-                    "2 clicks to reload all scripts");
+        ImGui::Text("Reload all scripts");
         ImGui::EndTooltip();
     }
 
