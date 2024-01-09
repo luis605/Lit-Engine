@@ -247,8 +247,6 @@ void MenuBar()
         ImGui::EndMainMenuBar();
     }
 
-
-
     ImGui::GetStyle().FramePadding.y = originalFramePaddingY;
 
     if (appearance_window_enabled) Appearance();

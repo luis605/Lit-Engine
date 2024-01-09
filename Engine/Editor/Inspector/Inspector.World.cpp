@@ -50,7 +50,7 @@ void WorldInspector()
             );
 
             ImGui::Text("Ambient Light Color: ");
-            ImGui::SameLine(inputWidth);
+            ImGui::SameLine(inputWidth + 40);
             if (ImGui::ColorButton("##AmbientLightColorButton", light_colorImGui))
             {
                 ImGui::OpenPopup("##AmbientLightColorPicker");

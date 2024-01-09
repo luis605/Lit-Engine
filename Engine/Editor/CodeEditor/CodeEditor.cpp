@@ -28,6 +28,13 @@ void CodeEditor()
         }
     }
 
+    if (ImGui::IsItemHovered())
+    {
+        ImGui::BeginTooltip();
+        ImGui::Text("Save file");
+        ImGui::EndTooltip();
+    }
+
 
     ImGui::SameLine();
 
