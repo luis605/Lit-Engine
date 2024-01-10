@@ -407,8 +407,7 @@ void EntitiesList()
 
     ImVec2 buttonSize = ImVec2(50, 50);
 
-    if (ImGui::ImageButton((ImTextureID)&run_texture, buttonSize))
-    {
+    if (ImGui::ImageButton((ImTextureID)&run_texture, buttonSize)) {
         entities_list.assign(entities_list_pregame.begin(), entities_list_pregame.end());
         
         DisableCursor();
@@ -419,10 +418,7 @@ void EntitiesList()
 
     ImGui::SameLine();
 
-    if ((ImGui::ImageButton((ImTextureID)&pause_texture, buttonSize)) &&
-        in_game_preview ||
-        IsKeyDown(KEY_ESCAPE))
-    {
+    if ((ImGui::ImageButton((ImTextureID)&pause_texture, buttonSize)) && in_game_preview || IsKeyDown(KEY_ESCAPE)) {
         EnableCursor();
         
         in_game_preview = false;
