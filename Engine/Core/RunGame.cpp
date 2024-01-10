@@ -113,7 +113,7 @@ void RunGame()
     {
         DrawTextureOnRectangle(&texture);
     }
-*}
+}
 #endif
 
 
