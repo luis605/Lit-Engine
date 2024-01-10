@@ -41,7 +41,6 @@ void GizmoPosition()
     {
         Color color1 = RED;
 
-
         if (!dragging && ImGui::IsWindowHovered())
         {
             isHoveringGizmo = IsMouseHoveringModel(gizmo_arrow[index].model, scene_camera, gizmo_arrow[index].position, gizmo_arrow[index].rotation, gizmo_arrow[index].scale, nullptr, true);
@@ -117,11 +116,11 @@ void GizmoPosition()
             gizmo_arrow[0].position.z
         };
         
-        if ((bool)selected_entity->isChild)
+        if (selected_entity && selected_entity->isChild && selected_entity->initialized && selected_entity->parent)
         {
-            if (selected_entity->parent != nullptr && selected_entity != nullptr && selected_entity->initialized)
-                selected_entity->relative_position = Vector3Subtract(selected_entity->position, selected_entity->parent->position);
+            selected_entity->relative_position = Vector3Subtract(selected_entity->position, selected_entity->parent->position);
         }
+
     }
     else if (selected_game_object_type == "light")
     {
@@ -146,10 +145,8 @@ void GizmoPosition()
                         selected_light->position.z - light_info->parent->position.z
                     );
             }
-        
         }
     }
-
 }
 
 
