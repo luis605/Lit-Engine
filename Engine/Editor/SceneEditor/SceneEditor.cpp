@@ -325,13 +325,21 @@ void ProcessGizmo()
     {
         GizmoPosition();
     }
+    else
+    {
+        dragging = false;
+        dragging_gizmo_position = false;
+        dragging_gizmo_rotation = false;
+        dragging_gizmo_scale = false;
+    }
+
+    dragging = (dragging_gizmo_scale || dragging_gizmo_position || dragging_gizmo_rotation);
 }
 
 struct EmptyType {};
 
 void RenderScene()
 {
-    dragging = (dragging_gizmo_scale || dragging_gizmo_position || dragging_gizmo_rotation);
 
     BeginTextureMode(renderTexture);
     BeginMode3D(scene_camera);
@@ -734,7 +742,7 @@ int EditorCamera(void)
     {
         DropEntity();
     }
-    
+
     if ((ImGui::IsWindowHovered() || ImGui::IsWindowFocused()) && !in_game_preview)
     {
         if (!showObjectTypePopup)
@@ -747,7 +755,6 @@ int EditorCamera(void)
         ProcessDeletion();
         ProcessCopy();
     }
-
 
     if (in_game_preview)
     {
