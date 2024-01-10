@@ -41,7 +41,7 @@ void GizmoPosition()
     {
         Color color1 = { 255, 0, 0, 100 };
 
-        gizmo_arrow_selected == -1;
+        gizmo_arrow_selected = -1;
 
         if (!dragging && ImGui::IsWindowHovered())
         {
