@@ -378,7 +378,7 @@ void RenderScene()
         entity.calc_physics = false;
         entity.render();
 
-        if (IsMouseButtonDown(MOUSE_LEFT_BUTTON) && ImGui::IsWindowHovered() && !dragging_gizmo_position && !dragging_gizmo_rotation)
+        if (IsMouseButtonDown(MOUSE_LEFT_BUTTON) && ImGui::IsWindowHovered() && !dragging)
         {
             isEntitySelected = IsMouseHoveringModel(entity.model, scene_camera, entity.position, entity.rotation, entity.scale, &entity);
             if (isEntitySelected)
@@ -416,9 +416,7 @@ void RenderScene()
         !isEntitySelected &&
         !isLightSelected &&
         !isHoveringGizmo &&
-        !dragging_gizmo_scale &&
-        !dragging_gizmo_rotation &&
-        !dragging_gizmo_position
+        !dragging
         )
     {
         selected_game_object_type = "none";
