@@ -312,7 +312,7 @@ void ProcessCameraControls()
 
 void ProcessGizmo()
 {
-    dragging = (dragging_gizmo_scale && dragging_gizmo_position && dragging_gizmo_rotation);
+    dragging = (dragging_gizmo_scale || dragging_gizmo_position || dragging_gizmo_rotation);
     if (selected_game_object_type == "entity" && selected_entity)
     {
         if (selected_entity->initialized)
