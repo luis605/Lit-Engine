@@ -6,6 +6,7 @@ void InitGizmo()
     for (int index = 0; index < NUM_GIZMO_ARROWS; index++)
     {
         gizmo_arrow[index].model = LoadModel("assets/models/gizmo/arrow.obj");
+        gizmo_arrow[index].rotation = gizmo_arrow_offsets[index].rotation;
     }
 
     for (int index = 0; index < NUM_GIZMO_TAURUS; index++)
@@ -32,24 +33,9 @@ void GizmoPosition()
         return;
     
 
-    struct GizmoArrow {
-        Vector3 position;
-        Vector3 rotation;
-    };
-
-    GizmoArrow gizmo_arrow_offsets[] = {
-        {{0, 6, 0}, {0, 0, 0}},     // Up
-        {{0, -6, 0}, {180, 0, 0}},  // Down
-        {{0, 0, 6}, {90, 0, 0}},    // Right
-        {{0, 0, -6}, {-90, 0, 0}},  // Left
-        {{6, 0, 0}, {0, 0, -90}},   // Forward
-        {{-6, 0, 0}, {0, 0, 90}}    // Backward
-    };
-
     // Update gizmo arrow positions and rotations
     for (int index = 0; index < 6; ++index) {
         gizmo_arrow[index].position = Vector3Add(selected_object_position, gizmo_arrow_offsets[index].position);
-        gizmo_arrow[index].rotation = gizmo_arrow_offsets[index].rotation;
     }
 
     for (int index = 0; index < (sizeof(gizmo_arrow) / sizeof(gizmo_arrow[0])); index++)
@@ -133,8 +119,6 @@ void GizmoPosition()
     }
 
     float y_axis_arrows_center_pos = (gizmo_arrow[0].position.y + gizmo_arrow[1].position.y) / 2.0f;
-
-
 
     if (selected_game_object_type == "entity")
     {
