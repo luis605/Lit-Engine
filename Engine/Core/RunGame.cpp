@@ -85,7 +85,34 @@ void RunGame()
 
     EndTextureMode();
 
-    DrawTextureOnRectangle(&texture);
+    if (bloomEnabled)
+    {
+        BeginTextureMode(downsamplerTexture);
+        BeginShaderMode(downsamplerShader);
+            SetShaderValueTexture(downsamplerShader, GetShaderLocation(downsamplerShader, "srcTexture"), texture);
+            Vector2 screenResolution = { static_cast<float>(texture.width), static_cast<float>(texture.height) };
+            SetShaderValue(downsamplerShader, GetShaderLocation(downsamplerShader, "srcResolution"), &screenResolution, SHADER_UNIFORM_VEC2);
+
+            DrawTexture(texture,0,0,WHITE);
+        EndShaderMode();
+        EndTextureMode();
+
+        BeginTextureMode(upsamplerTexture);
+        BeginShaderMode(upsamplerShader);
+            SetShaderValueTexture(downsamplerShader, GetShaderLocation(downsamplerShader, "srcTexture"), downsamplerTexture.texture);
+            float filter = 100.0f;
+            SetShaderValue(downsamplerShader, GetShaderLocation(downsamplerShader, "filterRadius"), &filter, SHADER_UNIFORM_FLOAT);
+
+            DrawTexture(downsamplerTexture.texture,0,0,WHITE);
+        EndShaderMode();
+        EndTextureMode();
+
+        DrawTextureOnRectangle(&upsamplerTexture.texture);
+    }
+    else
+    {
+        DrawTextureOnRectangle(&texture);
+    }
 }
 #endif
 
