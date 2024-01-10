@@ -116,9 +116,20 @@ void GizmoPosition()
         }
         else dragging_gizmo_position = false;
 
-        float extreme_rotation = GetExtremeValue(gizmo_arrow[index].rotation);
+        Matrix rotationMat = MatrixRotateXYZ((Vector3){
+            DEG2RAD * gizmo_arrow[index].rotation.x,
+            DEG2RAD * gizmo_arrow[index].rotation.y,
+            DEG2RAD * gizmo_arrow[index].rotation.z
+        });
 
-        DrawModelEx(gizmo_arrow[index].model, gizmo_arrow[index].position, gizmo_arrow[index].rotation, extreme_rotation, {1,1,1}, color1);
+        Matrix transformMatrix = MatrixIdentity();
+        transformMatrix = MatrixMultiply(transformMatrix, MatrixScale(gizmo_arrow[index].scale.x, gizmo_arrow[index].scale.y, gizmo_arrow[index].scale.z));
+        transformMatrix = MatrixMultiply(transformMatrix, rotationMat);
+        transformMatrix = MatrixMultiply(transformMatrix, MatrixTranslate(gizmo_arrow[index].position.x, gizmo_arrow[index].position.y, gizmo_arrow[index].position.z));
+        
+        gizmo_arrow[index].model.transform = transformMatrix;
+
+        DrawModel(gizmo_arrow[index].model, Vector3Zero(), 1, color1);
     }
 
     float y_axis_arrows_center_pos = (gizmo_arrow[0].position.y + gizmo_arrow[1].position.y) / 2.0f;
