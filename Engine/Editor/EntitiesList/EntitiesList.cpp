@@ -405,7 +405,9 @@ void EntitiesList()
     ImGui::PushStyleVar(ImGuiStyleVar_FramePadding, ImVec2(0, 0));
     ImGui::PushStyleVar(ImGuiStyleVar_FrameBorderSize, 0.0f);
 
-    if (ImGui::ImageButton((ImTextureID)&run_texture, ImVec2(50, 50)))
+    ImVec2 buttonSize = ImVec2(50, 50);
+
+    if (ImGui::ImageButton((ImTextureID)&run_texture, buttonSize))
     {
         cout << "Running Game" << endl;
 
@@ -419,7 +421,7 @@ void EntitiesList()
 
     ImGui::SameLine();
 
-    if ((ImGui::ImageButton((ImTextureID)&pause_texture, ImVec2(50, 50))) &&
+    if ((ImGui::ImageButton((ImTextureID)&pause_texture, buttonSize)) &&
         in_game_preview ||
         IsKeyDown(KEY_ESCAPE))
     {
