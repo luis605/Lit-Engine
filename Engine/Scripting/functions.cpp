@@ -18,7 +18,7 @@ PYBIND11_EMBEDDED_MODULE(math_module, m) {
         .def_readwrite("y", &LitVector3::y)
         .def_readwrite("z", &LitVector3::z)
         .def("normalize", &LitVector3::normalize)
-        .def("CrossProduct", &LitVector3::CrossProduct)
+        .def("crossProduct", &LitVector3::CrossProduct)
         .def("pos", &LitVector3::pos)
         .def("__sub__", [](const LitVector3 &a, const LitVector3 &b) {
             return LitVector3(a.x - b.x, a.y - b.y, a.z - b.z);
@@ -53,8 +53,8 @@ PYBIND11_EMBEDDED_MODULE(math_module, m) {
             return std::to_string(a.x) + " " + std::to_string(a.y);
         });
 
-    m.def("Vector3Scale", &LitVector3Scale);
-    m.def("Vector3Distance", &LitVector3Distance);
+    m.def("vector3Scale", &LitVector3Scale);
+    m.def("vector3Distance", &LitVector3Distance);
     m.def("lerp", static_cast<float(*)(float, float, float)>(&lerp<float>), "Lerp function for float and double types");
     m.def("lerp", static_cast<int(*)(int, int, float)>(&lerp_int), "Lerp function for integer types");
     m.def("lerp", &lerp_Vector3, "Lerp function for Vector3 type");
@@ -105,11 +105,7 @@ PYBIND11_EMBEDDED_MODULE(camera_module, m) {
         .def_readwrite("left", &LitCamera::left)
         .def_readwrite("right", &LitCamera::right);
 
-
 }
-
-
-
 
 
 Vector2 mouseMove;
@@ -133,12 +129,12 @@ Vector2 GetMouseMovement()
 
 
 PYBIND11_EMBEDDED_MODULE(input_module, m) {
-    m.def("IsMouseButtonPressed", &IsMouseButtonPressed);
-    m.def("IsKeyDown", &IsKeyDown);
-    m.def("IsKeyPressed", &IsKeyPressed);
-    m.def("IsKeyUp", &IsKeyUp);
-    m.def("GetMousePosition", &GetMousePosition);
-    m.def("GetMouseMovement", &GetMouseMovement);
+    m.def("isMouseButtonPressed", &IsMouseButtonPressed);
+    m.def("isKeyDown", &IsKeyDown);
+    m.def("isKeyPressed", &IsKeyPressed);
+    m.def("isKeyUp", &IsKeyUp);
+    m.def("getMousePosition", &GetMousePosition);
+    m.def("getMouseMovement", &GetMouseMovement);
 
     py::enum_<MouseButton>(m, "MouseButton")
         .value("MOUSE_BUTTON_LEFT", MOUSE_BUTTON_LEFT)
@@ -240,12 +236,6 @@ PYBIND11_EMBEDDED_MODULE(input_module, m) {
         .value("KEY_KB_MENU", KEY_KB_MENU)
         .value("KEY_SPACE", KEY_SPACE);
 }
-
-
-
-
-
-
 
 
 HitInfo raycast(LitVector3 origin, LitVector3 direction, bool debug=false, std::vector<Entity> ignore = {});
