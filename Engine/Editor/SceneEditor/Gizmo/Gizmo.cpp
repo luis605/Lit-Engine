@@ -26,35 +26,31 @@ void GizmoPosition()
 
     if (selected_game_object_type == "entity" && selected_entity != nullptr)
         selected_object_position = selected_entity->position;
-    else if (selected_game_object_type == "light")
-    {
-        if (selected_light == nullptr) return;
-            selected_object_position = {selected_light->position.x, selected_light->position.y, selected_light->position.z};
+    else if (selected_game_object_type == "light" && selected_light != nullptr)
+        selected_object_position = {selected_light->position.x, selected_light->position.y, selected_light->position.z};
+    else
+        return;
+    
+
+    struct GizmoArrow {
+        Vector3 position;
+        Vector3 rotation;
+    };
+
+    GizmoArrow gizmo_arrow_offsets[] = {
+        {{0, 6, 0}, {0, 0, 0}},     // Up
+        {{0, -6, 0}, {180, 0, 0}},  // Down
+        {{0, 0, 6}, {90, 0, 0}},    // Right
+        {{0, 0, -6}, {-90, 0, 0}},  // Left
+        {{6, 0, 0}, {0, 0, -90}},   // Forward
+        {{-6, 0, 0}, {0, 0, 90}}    // Backward
+    };
+
+    // Update gizmo arrow positions and rotations
+    for (int index = 0; index < 6; ++index) {
+        gizmo_arrow[index].position = Vector3Add(selected_object_position, gizmo_arrow_offsets[index].position);
+        gizmo_arrow[index].rotation = gizmo_arrow_offsets[index].rotation;
     }
-
-    // Gizmo Arrow Up
-    gizmo_arrow[0].position = {selected_object_position.x, selected_object_position.y + 6, selected_object_position.z};
-    gizmo_arrow[0].rotation = {0, 0, 0};
-
-    // Gizmo Arrow Down
-    gizmo_arrow[1].position = {selected_object_position.x, selected_object_position.y - 6, selected_object_position.z};
-    gizmo_arrow[1].rotation = {180, 0, 0};
-
-    // Gizmo Arrow Right
-    gizmo_arrow[2].position = {selected_object_position.x, selected_object_position.y, selected_object_position.z + 6};
-    gizmo_arrow[2].rotation = {90, 0, 0};
-
-    // Gizmo Arrow Left
-    gizmo_arrow[3].position = {selected_object_position.x, selected_object_position.y, selected_object_position.z - 6};
-    gizmo_arrow[3].rotation = {-90, 0, 0};
-
-    // Gizmo Arrow Forward
-    gizmo_arrow[4].position = {selected_object_position.x + 6, selected_object_position.y, selected_object_position.z};
-    gizmo_arrow[4].rotation = {0, 0, -90};
-
-    // Gizmo Arrow Backward
-    gizmo_arrow[5].position = {selected_object_position.x - 6, selected_object_position.y, selected_object_position.z};
-    gizmo_arrow[5].rotation = {0, 0, 90};
 
     for (int index = 0; index < (sizeof(gizmo_arrow) / sizeof(gizmo_arrow[0])); index++)
     {
