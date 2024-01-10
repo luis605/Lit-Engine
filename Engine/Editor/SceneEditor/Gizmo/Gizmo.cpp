@@ -39,7 +39,9 @@ void GizmoPosition()
 
     for (int index = 0; index < (sizeof(gizmo_arrow) / sizeof(gizmo_arrow[0])); index++)
     {
-        Color color1;
+        Color color1 = { 255, 0, 0, 100 };
+
+        gizmo_arrow_selected == -1;
 
         if (!dragging && ImGui::IsWindowHovered())
         {
@@ -50,16 +52,6 @@ void GizmoPosition()
                 color1 = GREEN;
                 gizmo_arrow_selected = index;
             }
-            else
-            {
-                color1 = { 255, 0, 0, 100 };
-                gizmo_arrow_selected == -1;
-            }
-        }
-        else
-        {
-            color1 = RED;
-            gizmo_arrow_selected == -1;
         }
 
         if (ImGui::IsWindowHovered() && IsMouseButtonDown(MOUSE_LEFT_BUTTON))
