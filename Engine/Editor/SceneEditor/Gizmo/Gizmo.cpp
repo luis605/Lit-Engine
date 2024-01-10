@@ -32,7 +32,6 @@ void GizmoPosition()
     else
         return;
     
-
     // Update gizmo arrow positions and rotations
     for (int index = 0; index < 6; ++index) {
         gizmo_arrow[index].position = Vector3Add(selected_object_position, gizmo_arrow_offsets[index].position);
@@ -42,7 +41,7 @@ void GizmoPosition()
     {
         Color color1;
 
-        if ((!dragging_gizmo_scale && !dragging_gizmo_position && !dragging_gizmo_rotation) && ImGui::IsWindowHovered())
+        if (!dragging && ImGui::IsWindowHovered())
         {
             isHoveringGizmo = IsMouseHoveringModel(gizmo_arrow[index].model, scene_camera, gizmo_arrow[index].position, gizmo_arrow[index].rotation, gizmo_arrow[index].scale, nullptr, true);
             
