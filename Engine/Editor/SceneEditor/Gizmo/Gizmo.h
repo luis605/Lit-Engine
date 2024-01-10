@@ -40,4 +40,21 @@ bool isHoveringGizmo;
 
 float gizmo_drag_sensitivity_factor = 0.1f;
 
+
+
+struct GizmoArrow {
+    Vector3 position;
+    Vector3 rotation;
+};
+
+GizmoArrow gizmo_arrow_offsets[] = {
+    {{0, 6, 0}, {0, 0, 0}},     // Up
+    {{0, -6, 0}, {180, 0, 0}},  // Down
+    {{0, 0, 6}, {90, 0, 0}},    // Right
+    {{0, 0, -6}, {-90, 0, 0}},  // Left
+    {{6, 0, 0}, {0, 0, -90}},   // Forward
+    {{-6, 0, 0}, {0, 0, 90}}    // Backward
+};
+
+
 #endif // GIZMO_H
