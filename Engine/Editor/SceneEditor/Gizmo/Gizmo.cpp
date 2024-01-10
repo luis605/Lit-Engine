@@ -51,7 +51,6 @@ void GizmoPosition()
                 gizmo_arrow_selected = index;
             }
             else gizmo_arrow_selected = -1;
-
         }
 
         if (ImGui::IsWindowHovered() && IsMouseButtonDown(MOUSE_LEFT_BUTTON))
@@ -62,6 +61,7 @@ void GizmoPosition()
                 dragging_gizmo_position = true;
                 dragging = true;
             }
+
             if (dragging_gizmo_position)
             {
                 Vector2 mouse_drag_end = GetMousePosition();
