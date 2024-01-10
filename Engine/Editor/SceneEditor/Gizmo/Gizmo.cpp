@@ -39,9 +39,8 @@ void GizmoPosition()
 
     for (int index = 0; index < (sizeof(gizmo_arrow) / sizeof(gizmo_arrow[0])); index++)
     {
-        Color color1 = { 255, 0, 0, 100 };
+        Color color1 = RED;
 
-        gizmo_arrow_selected = -1;
 
         if (!dragging && ImGui::IsWindowHovered())
         {
@@ -52,17 +51,17 @@ void GizmoPosition()
                 color1 = GREEN;
                 gizmo_arrow_selected = index;
             }
+            else gizmo_arrow_selected = -1;
+
         }
 
         if (ImGui::IsWindowHovered() && IsMouseButtonDown(MOUSE_LEFT_BUTTON))
         {
             if (isHoveringGizmo)
             {
-                if (!dragging_gizmo_position)
-                {
-                    mouse_drag_start = GetMousePosition();
-                    dragging_gizmo_position = true;
-                }
+                mouse_drag_start = GetMousePosition();
+                dragging_gizmo_position = true;
+                dragging = true;
             }
             if (dragging_gizmo_position)
             {
@@ -73,7 +72,6 @@ void GizmoPosition()
                     
                     gizmo_arrow[0].position.y -= delta_y;
                     gizmo_arrow[1].position.y -= delta_y;
-                    
                 }
 
                 else if ( gizmo_arrow_selected == 2 || gizmo_arrow_selected == 3 )
