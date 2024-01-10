@@ -146,7 +146,7 @@ void GizmoPosition()
                         selected_light->position.x - light_info->parent->position.x, 
                         selected_light->position.y - light_info->parent->position.y,
                         selected_light->position.z - light_info->parent->position.z
-                        );
+                    );
             }
         
         }
