@@ -312,7 +312,6 @@ void ProcessCameraControls()
 
 void ProcessGizmo()
 {
-    dragging = (dragging_gizmo_scale || dragging_gizmo_position || dragging_gizmo_rotation);
     if (selected_game_object_type == "entity" && selected_entity)
     {
         if (selected_entity->initialized)
@@ -332,10 +331,11 @@ struct EmptyType {};
 
 void RenderScene()
 {
+    dragging = (dragging_gizmo_scale || dragging_gizmo_position || dragging_gizmo_rotation);
+
     BeginTextureMode(renderTexture);
     BeginMode3D(scene_camera);
 
-    
     ClearBackground(GRAY);
 
     DrawSkybox();
@@ -346,12 +346,10 @@ void RenderScene()
 
     SetShaderValueMatrix(shader, GetShaderLocation(shader, "cameraMatrix"), GetCameraMatrix(scene_camera));
 
-
     bool isLightSelected   = false;
     bool isEntitySelected  = false;
 
     ProcessGizmo();
-
 
     for (Light& light : lights)
     {
@@ -732,11 +730,12 @@ void ProcessCopy()
 int EditorCamera(void)
 {
 
-    if (ImGui::IsWindowHovered() && !dragging_gizmo_position && !dragging_gizmo_rotation && !in_game_preview)
+    if (ImGui::IsWindowHovered() && !dragging && !in_game_preview)
     {
         DropEntity();
     }
-    if ((ImGui::IsWindowHovered() || ImGui::IsWindowFocused()) && !dragging_gizmo_position && !dragging_gizmo_rotation && !in_game_preview)
+    
+    if ((ImGui::IsWindowHovered() || ImGui::IsWindowFocused()) && !in_game_preview)
     {
         if (!showObjectTypePopup)
             EditorCameraMovement();
@@ -758,7 +757,7 @@ int EditorCamera(void)
 
     RenderScene();
 
-    if (ImGui::IsWindowHovered() && !dragging_gizmo_position && !dragging_gizmo_rotation && !in_game_preview)
+    if (ImGui::IsWindowHovered() && !dragging && !in_game_preview)
         ProcessObjectControls();
 
 
