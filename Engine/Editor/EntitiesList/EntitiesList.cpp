@@ -409,8 +409,6 @@ void EntitiesList()
 
     if (ImGui::ImageButton((ImTextureID)&run_texture, buttonSize))
     {
-        cout << "Running Game" << endl;
-
         entities_list.assign(entities_list_pregame.begin(), entities_list_pregame.end());
         
         DisableCursor();
