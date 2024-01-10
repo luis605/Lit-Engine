@@ -419,8 +419,9 @@ void EntitiesList()
 
     ImGui::SameLine();
 
-    if ((ImGui::ImageButton((ImTextureID)&pause_texture, ImVec2(50, 50))) ||
-        (in_game_preview && IsKeyDown(KEY_ESCAPE)))
+    if ((ImGui::ImageButton((ImTextureID)&pause_texture, ImVec2(50, 50))) &&
+        in_game_preview ||
+        IsKeyDown(KEY_ESCAPE))
     {
         EnableCursor();
         
