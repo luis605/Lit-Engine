@@ -422,8 +422,6 @@ void EntitiesList()
     if ((ImGui::ImageButton((ImTextureID)&pause_texture, ImVec2(50, 50))) ||
         (in_game_preview && IsKeyDown(KEY_ESCAPE)))
     {
-        cout << "Stopping Game" << endl;
-        
         EnableCursor();
         
         in_game_preview = false;
