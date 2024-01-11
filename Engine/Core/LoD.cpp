@@ -63,9 +63,6 @@ OptimizedMeshData OptimizeMesh(Mesh& mesh, std::vector<uint32_t>& Indices, std::
                                                         NumVertices,     
                                                         sizeof(Vector3)); 
 
-    std::cout << "OptVertexCount: " << OptVertexCount << std::endl;
-    std::cout << "NumVertices: " << NumVertices << std::endl;
-
     data.vertexCount = OptVertexCount;
 
     std::vector<uint32_t> OptIndices;
@@ -97,9 +94,7 @@ OptimizedMeshData OptimizeMesh(Mesh& mesh, std::vector<uint32_t>& Indices, std::
     num_indices += (int)NumIndices;
     static int opt_indices = 0;
     opt_indices += (int)OptIndexCount;
-    std::cout << "Num indices: " << num_indices << "\n";
     
-    std::cout << "Optimized number of indices: " << opt_indices << "\n\n";
     SimplifiedIndices.resize(OptIndexCount);
     
     data.Indices.clear();
