@@ -1414,9 +1414,9 @@ void createStaticMesh(bool generateShape = true) {
         update_children();
 
         if (calc_physics) {
-            if (*currentCollisionShapeType != CollisionShapeType::Box &&
-                *currentCollisionShapeType != CollisionShapeType::HighPolyMesh &&
-                !isDynamic) {
+            if ((*currentCollisionShapeType == CollisionShapeType::None || !isDynamic) &&
+                (*currentCollisionShapeType == CollisionShapeType::Box ||
+                *currentCollisionShapeType == CollisionShapeType::HighPolyMesh)) {
                 makePhysicsStatic();
             } else if (*currentCollisionShapeType != CollisionShapeType::None && isDynamic) {
                 calcPhysicsPosition();
@@ -1432,11 +1432,11 @@ void createStaticMesh(bool generateShape = true) {
 
         if (!visible) return;
 
-        SetShaderValue(shader, GetShaderLocation(shader, "tiling"), tiling, SHADER_UNIFORM_VEC2);
+        int tilingLocation = GetShaderLocation(shader, "tiling");
+        SetShaderValue(shader, tilingLocation, tiling, SHADER_UNIFORM_VEC2);
 
         if (!instances.empty()) renderInstanced();
         else renderSingleModel();
-
     }
 
 private:
