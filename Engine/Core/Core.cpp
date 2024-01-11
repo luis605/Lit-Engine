@@ -20,10 +20,8 @@ void InitLitWindow() {
 
 
     // Window
-    SetConfigFlags(FLAG_MSAA_4X_HINT | FLAG_VSYNC_HINT | FLAG_WINDOW_RESIZABLE | FLAG_WINDOW_UNDECORATED);
+    SetConfigFlags(FLAG_MSAA_4X_HINT | FLAG_WINDOW_RESIZABLE | FLAG_WINDOW_UNDECORATED);
     InitWindow(windowWidth, windowHeight, "Lit Engine");
-
-    SetTargetFPS(120);
 
     SetExitKey(KEY_NULL);
 }

@@ -186,6 +186,9 @@ Mesh generateLODMesh(const std::vector<Vector3>& vertices, const std::vector<uin
     }
 
     UploadMesh(&lodMesh, false);
-    
+
+    free(lodMesh.vertices);
+    free(lodMesh.indices);
+
     return lodMesh;
 }
