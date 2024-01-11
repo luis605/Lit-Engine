@@ -106,6 +106,7 @@ void Startup()
     InitCodeEditor();
     InitShaders();
     InitLighting();
+    InitRenderModelPreviewer();
 
     #if STRESS_TEST
         InitStressTest();

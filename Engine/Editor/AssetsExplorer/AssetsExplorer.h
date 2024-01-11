@@ -10,6 +10,8 @@ Texture2D empty_texture;
 Texture2D python_texture;
 Texture2D model_texture;
 
+RenderTexture2D target;
+
 struct FolderTextureItem {
     string name;
     Texture2D texture;
