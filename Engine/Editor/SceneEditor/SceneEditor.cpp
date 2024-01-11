@@ -338,26 +338,94 @@ void ProcessGizmo()
 
 struct EmptyType {};
 
-void RenderScene()
-{
+// void RenderScene()
+// {
 
-    BeginTextureMode(renderTexture);
-    BeginMode3D(scene_camera);
+//     BeginTextureMode(renderTexture);
+//     BeginMode3D(scene_camera);
 
-    ClearBackground(GRAY);
+//     ClearBackground(GRAY);
 
-    DrawSkybox();
-    DrawGrid(40, 1.0f);
+//     DrawSkybox();
+//     DrawGrid(40, 1.0f);
 
-    float cameraPos[3] = { scene_camera.position.x, scene_camera.position.y, scene_camera.position.z };
-    SetShaderValue(shader, shader.locs[SHADER_LOC_VECTOR_VIEW], cameraPos, SHADER_UNIFORM_VEC3);
+//     float cameraPos[3] = { scene_camera.position.x, scene_camera.position.y, scene_camera.position.z };
+//     SetShaderValue(shader, shader.locs[SHADER_LOC_VECTOR_VIEW], cameraPos, SHADER_UNIFORM_VEC3);
 
-    SetShaderValueMatrix(shader, GetShaderLocation(shader, "cameraMatrix"), GetCameraMatrix(scene_camera));
+//     SetShaderValueMatrix(shader, GetShaderLocation(shader, "cameraMatrix"), GetCameraMatrix(scene_camera));
 
-    bool isLightSelected   = false;
-    bool isEntitySelected  = false;
+//     bool isLightSelected   = false;
+//     bool isEntitySelected  = false;
 
-    ProcessGizmo();
+//     ProcessGizmo();
+
+
+
+
+
+
+
+//     UpdateInGameGlobals();
+//     UpdateLightsBuffer();
+
+//     EndMode3D();
+    
+//     DrawTextElements();
+//     DrawButtons();
+    
+//     EndTextureMode();
+
+
+// }
+
+void HandleUnselect(bool isEntitySelected, bool isLightSelected) {
+    if (
+        IsMouseButtonPressed(MOUSE_BUTTON_LEFT) &&
+        ImGui::IsWindowHovered() &&
+        !isEntitySelected &&
+        !isLightSelected &&
+        !isHoveringGizmo &&
+        !dragging
+        )
+    {
+        selected_game_object_type = "none";
+    }
+}
+
+void ApplyBloomEffect() {
+    if (bloomEnabled)
+    {
+        BeginTextureMode(downsamplerTexture);
+        BeginShaderMode(downsamplerShader);
+            SetShaderValueTexture(downsamplerShader, GetShaderLocation(downsamplerShader, "srcTexture"), texture);
+            Vector2 screenResolution = { static_cast<float>(texture.width), static_cast<float>(texture.height) };
+            SetShaderValue(downsamplerShader, GetShaderLocation(downsamplerShader, "srcResolution"), &screenResolution, SHADER_UNIFORM_VEC2);
+
+            DrawTexture(texture,0,0,WHITE);
+        EndShaderMode();
+        EndTextureMode();
+
+        BeginTextureMode(upsamplerTexture);
+        BeginShaderMode(upsamplerShader);
+            SetShaderValueTexture(downsamplerShader, GetShaderLocation(downsamplerShader, "srcTexture"), downsamplerTexture.texture);
+            float filter = 100.0f;
+            SetShaderValue(downsamplerShader, GetShaderLocation(downsamplerShader, "filterRadius"), &filter, SHADER_UNIFORM_FLOAT);
+
+            DrawTexture(downsamplerTexture.texture,0,0,WHITE);
+        EndShaderMode();
+        EndTextureMode();
+
+        DrawTextureOnRectangle(&upsamplerTexture.texture);
+    }
+    else
+    {
+        DrawTextureOnRectangle(&texture);
+    }
+}
+
+void RenderLight(Light* light, bool& isLightSelected) {
+    int index = 0;
+
 
     for (Light& light : lights)
     {
@@ -376,8 +444,9 @@ void RenderScene()
             }
         }
     }
+}
 
-
+void RenderEntities(bool& isEntitySelected) {
     int index = 0;
     for (Entity& entity : entities_list_pregame)
     {
@@ -413,61 +482,52 @@ void RenderScene()
 
         index++;
     }
+}
 
+void UpdateShaderAndView() {
+    float cameraPos[3] = { scene_camera.position.x, scene_camera.position.y, scene_camera.position.z };
+    SetShaderValue(shader, shader.locs[SHADER_LOC_VECTOR_VIEW], cameraPos, SHADER_UNIFORM_VEC3);
 
+    SetShaderValueMatrix(shader, GetShaderLocation(shader, "cameraMatrix"), GetCameraMatrix(scene_camera));
+}
 
-    if (
-        IsMouseButtonPressed(MOUSE_BUTTON_LEFT) &&
-        ImGui::IsWindowHovered() &&
-        !isEntitySelected &&
-        !isLightSelected &&
-        !isHoveringGizmo &&
-        !dragging
-        )
-    {
-        selected_game_object_type = "none";
+void RenderScene() {
+    BeginTextureMode(renderTexture);
+    BeginMode3D(scene_camera);
+
+    ClearBackground(GRAY);
+
+    DrawSkybox();
+    DrawGrid(GRID_SIZE, GRID_SCALE);
+
+    UpdateShaderAndView();
+
+    bool isLightSelected = false;
+    bool isEntitySelected = false;
+
+    ProcessGizmo();
+
+    for (Light& light : lights) {
+        RenderLight(&light, isLightSelected);
     }
 
+    RenderEntities(isEntitySelected);
+
+    HandleUnselect(isEntitySelected, isLightSelected);
 
     UpdateInGameGlobals();
     UpdateLightsBuffer();
 
     EndMode3D();
-    
+
     DrawTextElements();
     DrawButtons();
-    
+
     EndTextureMode();
 
-    if (bloomEnabled)
-    {
-        BeginTextureMode(downsamplerTexture);
-        BeginShaderMode(downsamplerShader);
-            SetShaderValueTexture(downsamplerShader, GetShaderLocation(downsamplerShader, "srcTexture"), texture);
-            Vector2 screenResolution = { static_cast<float>(texture.width), static_cast<float>(texture.height) };
-            SetShaderValue(downsamplerShader, GetShaderLocation(downsamplerShader, "srcResolution"), &screenResolution, SHADER_UNIFORM_VEC2);
-
-            DrawTexture(texture,0,0,WHITE);
-        EndShaderMode();
-        EndTextureMode();
-
-        BeginTextureMode(upsamplerTexture);
-        BeginShaderMode(upsamplerShader);
-            SetShaderValueTexture(downsamplerShader, GetShaderLocation(downsamplerShader, "srcTexture"), downsamplerTexture.texture);
-            float filter = 100.0f;
-            SetShaderValue(downsamplerShader, GetShaderLocation(downsamplerShader, "filterRadius"), &filter, SHADER_UNIFORM_FLOAT);
-
-            DrawTexture(downsamplerTexture.texture,0,0,WHITE);
-        EndShaderMode();
-        EndTextureMode();
-
-        DrawTextureOnRectangle(&upsamplerTexture.texture);
-    }
-    else
-    {
-        DrawTextureOnRectangle(&texture);
-    }
+    ApplyBloomEffect();
 }
+
 
 void DropEntity()
 {
