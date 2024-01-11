@@ -1472,10 +1472,10 @@ private:
             return;
         }
 
-        Matrix transformMatrix = MatrixMultiply(
-            MatrixMultiply(MatrixScale(scale.x, scale.y, scale.z),
-                        MatrixRotateXYZ(rotation)),
-            MatrixTranslate(position.x, position.y, position.z));
+        Matrix scaleMat = MatrixScale(scale.x, scale.y, scale.z);
+        Matrix rotationMat = MatrixRotateXYZ(Vector3Scale(rotation, DEG2RAD));
+        Matrix transformMatrix = MatrixMultiply(MatrixMultiply(scaleMat, rotationMat),
+                                                MatrixTranslate(position.x, position.y, position.z));
 
         if (model.meshes != nullptr) {
             bounds.min = Vector3Transform(const_bounds.min, transformMatrix);
@@ -1490,13 +1490,11 @@ private:
         ReloadTextures();
         glUseProgram((GLuint)shader.id);
 
-        bool normalMapInit = !normal_texture_path.empty();
-        glUniform1i(glGetUniformLocation((GLuint)shader.id, "normalMapInit"), normalMapInit);
-
-        bool roughnessMapInit = !roughness_texture_path.empty();
-        glUniform1i(glGetUniformLocation((GLuint)shader.id, "roughnessMapInit"), roughnessMapInit);
+        glUniform1i(glGetUniformLocation((GLuint)shader.id, "normalMapInit"), !normal_texture_path.empty());
+        glUniform1i(glGetUniformLocation((GLuint)shader.id, "roughnessMapInit"), !roughness_texture_path.empty());
 
         float distance;
+
     #ifndef GAME_SHIPPING
         distance = in_game_preview ? Vector3Distance(this->position, camera.position)
                                 : Vector3Distance(this->position, scene_camera.position);
@@ -1504,8 +1502,6 @@ private:
         distance = Vector3Distance(this->position, camera.position);
     #endif
 
-        Matrix rotationMat = MatrixRotateXYZ(Vector3Scale(rotation, DEG2RAD));
-        Matrix scaleMat = MatrixScale(scale.x, scale.y, scale.z);
         model.transform = MatrixMultiply(scaleMat, rotationMat);
 
         for (Model& lodModel : LodModels) {
@@ -1517,15 +1513,14 @@ private:
                     : (distance < LOD_DISTANCE_LOW) ? 2
                     : 3;
 
-        DrawModel(
-            lodEnabled && IsModelReady(LodModels[lodLevel]) ? LodModels[lodLevel] : model,
-            position,
-            1,
-            (Color){
-                static_cast<unsigned char>(surface_material.color.x * 255),
-                static_cast<unsigned char>(surface_material.color.y * 255),
-                static_cast<unsigned char>(surface_material.color.z * 255),
-                static_cast<unsigned char>(surface_material.color.w * 255)});
+        DrawModel(lodEnabled && IsModelReady(LodModels[lodLevel]) ? LodModels[lodLevel] : model,
+                position,
+                1,
+                (Color){
+                    static_cast<unsigned char>(surface_material.color.x * 255),
+                    static_cast<unsigned char>(surface_material.color.y * 255),
+                    static_cast<unsigned char>(surface_material.color.z * 255),
+                    static_cast<unsigned char>(surface_material.color.w * 255)});
     }
     
     void PassSurfaceMaterials()
