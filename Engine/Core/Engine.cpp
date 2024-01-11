@@ -134,6 +134,7 @@ public:
     Model model;
 
     BoundingBox bounds;
+    BoundingBox const_bounds;
 
 
     fs::path texture_path;
@@ -249,6 +250,7 @@ public:
         this->ObjectType = other.ObjectType;
         this->model = other.model;
         this->bounds = other.bounds;
+        this->const_bounds = other.const_bounds;
         this->tiling[0] = other.tiling[0];
         this->tiling[1] = other.tiling[1];
 
@@ -358,6 +360,7 @@ public:
         this->ObjectType = other.ObjectType;
         this->model = other.model;
         this->bounds = other.bounds;
+        this->const_bounds = other.const_bounds;
         this->texture_path = other.texture_path;
         this->tiling[0] = other.tiling[0];
         this->tiling[1] = other.tiling[1];
@@ -750,7 +753,7 @@ public:
             model = LoadModel(modelPath);
         }
 
-        bounds = GetMeshBoundingBox(model.meshes[0]);
+        const_bounds = GetMeshBoundingBox(model.meshes[0]);
 
         std::vector<uint32_t> indices;
         std::vector<Vector3> vertices;
@@ -1475,8 +1478,8 @@ private:
             MatrixTranslate(position.x, position.y, position.z));
 
         if (model.meshes != nullptr) {
-            bounds.min = Vector3Transform(bounds.min, transformMatrix);
-            bounds.max = Vector3Transform(bounds.max, transformMatrix);
+            bounds.min = Vector3Transform(const_bounds.min, transformMatrix);
+            bounds.max = Vector3Transform(const_bounds.max, transformMatrix);
         }
 
         if (!inFrustum()) {
