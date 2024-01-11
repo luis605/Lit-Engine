@@ -383,7 +383,7 @@ void RenderScene()
     {
         entity.calc_physics = false;
         entity.render();
-
+        
         if (IsMouseButtonDown(MOUSE_LEFT_BUTTON) && ImGui::IsWindowHovered() && !dragging)
         {
             isEntitySelected = IsMouseHoveringModel(entity.model, scene_camera, entity.position, entity.rotation, entity.scale, &entity);
