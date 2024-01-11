@@ -6,19 +6,12 @@ uniform sampler2D srcTexture;
 uniform float bloomBrightness;
 
 void main() {
-    vec2 texelSize = 1.0 / textureSize(srcTexture, 0);
-    vec3 result = texture(srcTexture, fragTexCoord).rgb;
+    vec3 result = textureLod(srcTexture, fragTexCoord, 0.0).rgb * 0.6364; // Initial sample
 
-    // Horizontal blur pass
-    for (int x = -5; x <= 5; x++) {
-        vec2 offset = vec2(x, 0) * texelSize * 5.0;
-        result += texture(srcTexture, fragTexCoord + offset).rgb / 11.0;
-    }
-
-    // Vertical blur pass
-    for (int y = -5; y <= 5; y++) {
-        vec2 offset = vec2(0, y) * texelSize * 5.0;
-        result += texture(srcTexture, fragTexCoord + offset).rgb / 11.0;
+    // Combine 10 neighboring samples in a single loop
+    for (float i = -5.0; i <= 5.0; i++) {
+        vec2 offset = vec2(i) * 0.05; // Assuming texture size is normalized to 1.0
+        result += textureLod(srcTexture, fragTexCoord + offset, 0.0).rgb * 0.0909;
     }
 
     FragColor = vec4(result * bloomBrightness, 1.0);
