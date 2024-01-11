@@ -2,16 +2,18 @@ void AssetsExplorer(string code);
 
 #include "../../include_all.h"
 
-Texture2D RenderModelPreview(const char* modelFile) {
-    Model model = LoadModel(modelFile);
-
+void InitRenderModelPreviewer() {
     model_previewer_camera.position = (Vector3){ 10.0f, 10.0f, 2.0f };
     model_previewer_camera.target = (Vector3){ 0.0f, 0.0f, 0.0f };
     model_previewer_camera.up = (Vector3){ 0.0f, 1.0f, 0.0f };
     model_previewer_camera.fovy = 60.0f;
     model_previewer_camera.projection = CAMERA_PERSPECTIVE;
 
-    RenderTexture2D target = LoadRenderTexture(thumbnailSize, thumbnailSize);
+    target = LoadRenderTexture(thumbnailSize, thumbnailSize);
+}
+
+Texture2D RenderModelPreview(const char* modelFile) {
+    Model model = LoadModel(modelFile);
 
     BeginTextureMode(target);
     ClearBackground(GRAY);
