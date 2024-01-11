@@ -1374,7 +1374,6 @@ void createStaticMesh(bool generateShape = true) {
         }
         else if (shapeType == CollisionShapeType::HighPolyMesh)
             createStaticMesh();
-
     }
 
     void reloadRigidBody() {
@@ -1398,15 +1397,11 @@ void createStaticMesh(bool generateShape = true) {
         std::cout << "Position: " << position.x << ", " << position.y << ", " << position.z << "\n";
     }
 
-
     bool inFrustum()
     {
         UpdateFrustum();
         return AABBoxInFrustum(bounds.min, bounds.max);
     }
-
-
-
 
     void render() {
         if (!hasModel()) initializeDefaultModel();
