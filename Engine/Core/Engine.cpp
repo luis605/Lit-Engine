@@ -750,7 +750,7 @@ public:
             model = LoadModel(modelPath);
         }
 
-
+        bounds = GetMeshBoundingBox(model.meshes[0]);
 
         std::vector<uint32_t> indices;
         std::vector<Vector3> vertices;
@@ -1431,7 +1431,6 @@ void createStaticMesh(bool generateShape = true) {
 
         SetShaderValue(shader, GetShaderLocation(shader, "tiling"), tiling, SHADER_UNIFORM_VEC2);
 
-        
         if (!instances.empty()) renderInstanced();
         else renderSingleModel();
 
@@ -1466,26 +1465,25 @@ private:
     }
 
     void renderSingleModel() {
-        if (hasModel()) {
-            Matrix transformMatrix = MatrixIdentity();
-            transformMatrix = MatrixMultiply(transformMatrix, MatrixScale(scale.x, scale.y, scale.z));
-            transformMatrix = MatrixMultiply(transformMatrix, MatrixRotateXYZ(rotation));
-            transformMatrix = MatrixMultiply(transformMatrix, MatrixTranslate(position.x, position.y, position.z));
+        if (!hasModel()) {
+            return;
+        }
 
-            if (model.meshes != nullptr)
-                bounds = GetMeshBoundingBox(model.meshes[0]);
+        Matrix transformMatrix = MatrixMultiply(
+            MatrixMultiply(MatrixScale(scale.x, scale.y, scale.z),
+                        MatrixRotateXYZ(rotation)),
+            MatrixTranslate(position.x, position.y, position.z));
 
-            
+        if (model.meshes != nullptr) {
             bounds.min = Vector3Transform(bounds.min, transformMatrix);
             bounds.max = Vector3Transform(bounds.max, transformMatrix);
         }
 
-        if (hasModel()) {
-            if (!inFrustum()) return;
+        if (!inFrustum()) {
+            return;
         }
 
         PassSurfaceMaterials();
-
         ReloadTextures();
         glUseProgram((GLuint)shader.id);
 
@@ -1496,60 +1494,35 @@ private:
         glUniform1i(glGetUniformLocation((GLuint)shader.id, "roughnessMapInit"), roughnessMapInit);
 
         float distance;
-
-#ifndef GAME_SHIPPING
-    if (in_game_preview) {
+    #ifndef GAME_SHIPPING
+        distance = in_game_preview ? Vector3Distance(this->position, camera.position)
+                                : Vector3Distance(this->position, scene_camera.position);
+    #else
         distance = Vector3Distance(this->position, camera.position);
-    } else {
-        distance = Vector3Distance(this->position, scene_camera.position);
-    }
-#else
-    distance = Vector3Distance(this->position, camera.position);
-#endif
+    #endif
 
-        Matrix rotationMat = MatrixRotateXYZ((Vector3){
-            DEG2RAD * rotation.x,
-            DEG2RAD * rotation.y,
-            DEG2RAD * rotation.z
-        });
-
+        Matrix rotationMat = MatrixRotateXYZ(Vector3Scale(rotation, DEG2RAD));
         Matrix scaleMat = MatrixScale(scale.x, scale.y, scale.z);
         model.transform = MatrixMultiply(scaleMat, rotationMat);
 
         for (Model& lodModel : LodModels) {
-            lodModel.transform = MatrixMultiply(scaleMat, rotationMat);
+            lodModel.transform = model.transform;
         }
 
+        int lodLevel = (distance < LOD_DISTANCE_HIGH) ? 0
+                    : (distance < LOD_DISTANCE_MEDIUM) ? 1
+                    : (distance < LOD_DISTANCE_LOW) ? 2
+                    : 3;
 
-        int lodLevel = (distance < LOD_DISTANCE_HIGH) ? 0 :
-                    (distance < LOD_DISTANCE_MEDIUM) ? 1 :
-                    (distance < LOD_DISTANCE_LOW) ? 2 : 3;
-
-        if (lodEnabled && IsModelReady(LodModels[lodLevel])) {
-            DrawModel(
-                LodModels[lodLevel],
-                position, 
-                1,
-                (Color) {
-                    static_cast<unsigned char>(surface_material.color.x * 255),
-                    static_cast<unsigned char>(surface_material.color.y * 255),
-                    static_cast<unsigned char>(surface_material.color.z * 255),
-                    static_cast<unsigned char>(surface_material.color.w * 255)
-                }
-            );
-        } else {
-            DrawModel(
-                model,
-                position, 
-                1, 
-                (Color) {
-                    static_cast<unsigned char>(surface_material.color.x * 255),
-                    static_cast<unsigned char>(surface_material.color.y * 255),
-                    static_cast<unsigned char>(surface_material.color.z * 255),
-                    static_cast<unsigned char>(surface_material.color.w * 255)
-                }
-            );
-        }
+        DrawModel(
+            lodEnabled && IsModelReady(LodModels[lodLevel]) ? LodModels[lodLevel] : model,
+            position,
+            1,
+            (Color){
+                static_cast<unsigned char>(surface_material.color.x * 255),
+                static_cast<unsigned char>(surface_material.color.y * 255),
+                static_cast<unsigned char>(surface_material.color.z * 255),
+                static_cast<unsigned char>(surface_material.color.w * 255)});
     }
     
     void PassSurfaceMaterials()
