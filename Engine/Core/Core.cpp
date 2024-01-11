@@ -79,8 +79,8 @@ void InitImGui() {
 void InitShaders() {
     shader = LoadShaderFromMemory(lightingVert, lightingFrag); // LoadShader("Engine/Lighting/shaders/lighting_vertex.glsl", "Engine/Lighting/shaders/lighting_fragment.glsl");
     instancing_shader = LoadShaderFromMemory(lightingVert, lightingFrag);
-    downsamplerShader = LoadShaderFromMemory(lightingVert, downsamplerFrag); // LoadShader("Engine/Lighting/shaders/lighting_vertex.glsl", "Engine/Lighting/shaders/downsampler.glsl");
-    upsamplerShader = LoadShaderFromMemory(lightingVert, upsamplerFrag); // LoadShader("Engine/Lighting/shaders/lighting_vertex.glsl", "Engine/Lighting/shaders/upsampler.glsl");
+    downsamplerShader = LoadShader("Engine/Lighting/shaders/lighting_vertex.glsl", "Engine/Lighting/shaders/downsampler.glsl");
+    upsamplerShader = LoadShader("Engine/Lighting/shaders/lighting_vertex.glsl", "Engine/Lighting/shaders/upsampler.glsl");
 }
 
 void InitCodeEditor() {
