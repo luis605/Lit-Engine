@@ -26,7 +26,8 @@ std::shared_ptr<Light> copiedLight;
 bool is_mouse_pressed = false;
 float mousePositionXLast = 0;
 
-
+float GRID_SIZE = 40.0f;
+float GRID_SCALE = 1.0f;
 #ifndef GAME_SHIPPING
 ImVec2 prevEditorWindowSize = {0.0f, 0.0f};
 #endif // GAME_SHIPPING
