@@ -233,7 +233,7 @@ public:
     ~Entity() {
         this->remove();
     }
-    
+
     Entity(const Entity& other) {
         if (!this || this == nullptr || !other.initialized)
             return;
@@ -450,7 +450,6 @@ public:
     }
 
     Entity(std::vector<Entity>& entities_list_pregame) {
-        // Add the newly created Entity to the C++ vector
         entities_list_pregame.push_back(*this);
     }
     
