@@ -56,77 +56,56 @@ void AssetsExplorer() {
                 }
 
                 string path = file.string();
-                if (!fs::exists(entry))
-                {
+                if (!fs::exists(entry)) {
                     cout << "File Error: " << strerror(errno) << endl;
                 }
-                if (fs::is_directory(entry))
-                {
-                    FolderTextureItem folderTextureItem = {file.string(), folder_texture};
-                    folders_texture_struct.push_back(folderTextureItem);
 
-                    folders.push_back(file.string());
-                }
-                else
-                {
+                if (fs::is_directory(entry)) {
+                    folders_texture_struct.emplace_back(file.string(), folder_texture);
+                    folders.emplace_back(file.string());
+                } else {
                     string file_extension = getFileExtension(file.filename().string());
-                    if (file_extension == "no file extension")
-                    {
-                        FileTextureItem fileTextureItem = {file.string(), empty_texture, file, entry};
-                        files_texture_struct.push_back(fileTextureItem);
-                    }
-                    else if (file_extension == ".png" || file_extension == ".jpg" || file_extension == ".jpeg" ||
-                            file_extension == ".avi" || file_extension == ".mp4" || file_extension == ".mov" ||
-                            file_extension == ".mkv" || file_extension == ".webm" || file_extension == ".gif"
-                    )
-                    {
-                        FileTextureItem fileTextureItem = {file.string(), image_texture, file, entry};
-                        files_texture_struct.push_back(fileTextureItem);
-                    }
-                    else if (file_extension == ".cpp" || file_extension == ".c++" || file_extension == ".cxx" || file_extension == ".hpp" || file_extension == ".cc" || file_extension == ".h" || file_extension == ".hh" || file_extension == ".hxx")
-                    {
-                        FileTextureItem fileTextureItem = {file.string(), cpp_texture, file, entry};
-                        files_texture_struct.push_back(fileTextureItem);
-                    }
-                    else if (file_extension == ".py")
-                    {
-                        FileTextureItem fileTextureItem = {file.string(), python_texture, file, entry};
-                        files_texture_struct.push_back(fileTextureItem);
-                    }
-                    else if (file_extension == ".fbx" || file_extension == ".obj" || file_extension == ".gltf" || file_extension == ".ply" || file_extension == ".mtl" || file_extension == ".mat")
-                    {
-                        FileTextureItem fileTextureItem;
+                    FileTextureItem fileTextureItem;
 
+                    if (file_extension == "no file extension") {
+                        fileTextureItem = {file.string(), empty_texture, file, entry};
+                    } else if (file_extension == ".png" || file_extension == ".jpg" || file_extension == ".jpeg" ||
+                            file_extension == ".avi" || file_extension == ".mp4" || file_extension == ".mov" ||
+                            file_extension == ".mkv" || file_extension == ".webm" || file_extension == ".gif") {
+                        fileTextureItem = {file.string(), image_texture, file, entry};
+                    } else if (file_extension == ".cpp" || file_extension == ".c++" || file_extension == ".cxx" ||
+                            file_extension == ".hpp" || file_extension == ".cc" || file_extension == ".h" ||
+                            file_extension == ".hh" || file_extension == ".hxx") {
+                        fileTextureItem = {file.string(), cpp_texture, file, entry};
+                    } else if (file_extension == ".py") {
+                        fileTextureItem = {file.string(), python_texture, file, entry};
+                    } else if (file_extension == ".mtl" || file_extension == ".mat") {
+                        fileTextureItem = {file.string(), material_texture, file, entry};
+                    } else if (file_extension == ".fbx" || file_extension == ".obj" || file_extension == ".gltf" ||
+                            file_extension == ".ply") {
                         fileTextureItem = {file.string(), model_texture, file, entry};
 
                         auto iter = models_icons.find(file.string());
 
                         if (iter != models_icons.end()) {
-                            Texture2D icon = iter->second;
-                            fileTextureItem = {file.string(), icon, file, entry};
+                            fileTextureItem = {file.string(), iter->second, file, entry};
                         } else {
                             Texture2D icon = RenderModelPreview(entry.path().string().c_str());
-
                             RenderTexture2D target = LoadRenderTexture(icon.width, icon.height);
 
                             BeginTextureMode(target);
-
                             DrawTextureEx(icon, (Vector2){0, 0}, 0.0f, 1.0f, RAYWHITE);
-
                             EndTextureMode();
 
                             Texture2D flippedIcon = target.texture;
-                            models_icons.insert({file.string(), flippedIcon});
+                            models_icons[file.string()] = flippedIcon;
                             fileTextureItem = {file.string(), flippedIcon, file, entry};
                         }
+                    } else {
+                        fileTextureItem = {file.string(), empty_texture, file, entry};
+                    }
 
-                        files_texture_struct.push_back(fileTextureItem);
-                    }
-                    else
-                    {
-                        FileTextureItem fileTextureItem = {file.string(), empty_texture, file, entry};
-                        files_texture_struct.push_back(fileTextureItem);
-                    }
+                    files_texture_struct.emplace_back(std::move(fileTextureItem));
                 }
             }
         }

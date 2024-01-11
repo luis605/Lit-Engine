@@ -32,6 +32,7 @@ void LoadTextures() {
     cpp_texture = LoadTexture("assets/images/cpp_file_type.png");
     python_texture = LoadTexture("assets/images/python_file_type.png");
     model_texture = LoadTexture("assets/images/model_file_type.png");
+    material_texture = LoadTexture("assets/images/material_file_type.png");
     empty_texture = LoadTexture("assets/images/empty_file_file_type.png");
     run_texture = LoadTexture("assets/images/run_game.png");
     pause_texture = LoadTexture("assets/images/pause_game.png");

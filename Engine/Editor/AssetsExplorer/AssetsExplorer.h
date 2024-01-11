@@ -9,12 +9,16 @@ Texture2D cpp_texture;
 Texture2D empty_texture;
 Texture2D python_texture;
 Texture2D model_texture;
+Texture2D material_texture;
 
 RenderTexture2D target;
 
 struct FolderTextureItem {
     string name;
     Texture2D texture;
+
+    FolderTextureItem(const string& name, const Texture2D& texture)
+        : name(name), texture(texture) {}
 };
 vector<FolderTextureItem> folders_texture_struct;
 
