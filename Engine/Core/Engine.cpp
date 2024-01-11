@@ -230,10 +230,6 @@ public:
         initialized = true;
     }
 
-    ~Entity() {
-        this->remove();
-    }
-
     Entity(const Entity& other) {
         if (!this || this == nullptr || !other.initialized)
             return;
