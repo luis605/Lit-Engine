@@ -395,25 +395,29 @@ void HandleUnselect(bool isEntitySelected, bool isLightSelected) {
 void ApplyBloomEffect() {
     if (bloomEnabled)
     {
-        BeginTextureMode(downsamplerTexture);
-        BeginShaderMode(downsamplerShader);
+        {
+            BeginTextureMode(downsamplerTexture);
+            BeginShaderMode(downsamplerShader);
+
             SetShaderValueTexture(downsamplerShader, GetShaderLocation(downsamplerShader, "srcTexture"), texture);
-            Vector2 screenResolution = { static_cast<float>(texture.width), static_cast<float>(texture.height) };
-            SetShaderValue(downsamplerShader, GetShaderLocation(downsamplerShader, "srcResolution"), &screenResolution, SHADER_UNIFORM_VEC2);
 
-            DrawTexture(texture,0,0,WHITE);
-        EndShaderMode();
-        EndTextureMode();
+            DrawTexture(texture, 0, 0, WHITE);
 
-        BeginTextureMode(upsamplerTexture);
-        BeginShaderMode(upsamplerShader);
-            SetShaderValueTexture(downsamplerShader, GetShaderLocation(downsamplerShader, "srcTexture"), downsamplerTexture.texture);
-            float filter = 100.0f;
-            SetShaderValue(downsamplerShader, GetShaderLocation(downsamplerShader, "filterRadius"), &filter, SHADER_UNIFORM_FLOAT);
+            EndShaderMode();
+            EndTextureMode();
+        }
 
-            DrawTexture(downsamplerTexture.texture,0,0,WHITE);
-        EndShaderMode();
-        EndTextureMode();
+        {
+            BeginTextureMode(upsamplerTexture);
+            BeginShaderMode(upsamplerShader);
+
+            SetShaderValueTexture(upsamplerShader, GetShaderLocation(upsamplerShader, "srcTexture"), downsamplerTexture.texture);
+
+            DrawTexture(downsamplerTexture.texture, 0, 0, WHITE);
+
+            EndShaderMode();
+            EndTextureMode();
+        }
 
         DrawTextureOnRectangle(&upsamplerTexture.texture);
     }
@@ -421,6 +425,7 @@ void ApplyBloomEffect() {
     {
         DrawTextureOnRectangle(&texture);
     }
+
 }
 
 void RenderLight(Light* light, bool& isLightSelected) {

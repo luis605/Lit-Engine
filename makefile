@@ -25,7 +25,7 @@ define echo_success
 endef
 
 
-CXXFLAGS = -g -pipe -std=c++17 -fpermissive -w -Wall -DNDEBUG -O0
+CXXFLAGS = -g -pipe -std=c++17 -fpermissive -w -Wall -DNDEBUG -O0 -g
 SRC_FILES = ImGuiColorTextEdit/TextEditor.o include/rlImGui.o ImNodes/ImNodes.o ImNodes/ImNodesEz.o
 INCLUDE_DIRS = -I./include -I./ImGuiColorTextEdit -L./ffmpeg -L. -I. -I./ffmpeg -I./include/nlohmann -L./include -I./imgui -L/include/bullet3/src
 INCLUDE_DIRS_STATIC = -I./include -I/usr/local/lib -I./include/nlohmann -I./include/bullet3/src -I./ffmpeg -I./ffmpeg -L./include
