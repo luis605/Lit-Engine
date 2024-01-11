@@ -576,6 +576,10 @@ public:
             std::visit([](auto& child) { delete child; }, childVariant);
         }
 
+        for (Entity* child : children) {
+            delete child;
+        }
+
         // Clear the children vector
         children.clear();
 
