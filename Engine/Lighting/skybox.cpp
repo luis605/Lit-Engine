@@ -26,6 +26,7 @@ static TextureCubemap GenTextureCubemap(Shader shader, Texture2D panorama, int s
 
 Model skybox;
 Shader shdrCubemap;
+Vector4 skyboxColor = (Vector4){1,1,1,1};
 
 void InitSkybox(
     const char* skyboxFileName = "assets/images/skybox/default skybox.hdr",
