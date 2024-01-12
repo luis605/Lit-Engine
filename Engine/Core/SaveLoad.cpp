@@ -370,6 +370,7 @@ void SaveWorldSetting(json& json_data)
     // j["gravity"] = gravity;
     j["bloom"] = bloomEnabled;
     j["bloomBrightness"] = bloomBrightness;
+    j["bloomSamples"] = bloomSamples;
 
     j["ambientColor"] = ambientLight;
     j["skyboxColor"] = skyboxColor;
@@ -551,6 +552,20 @@ void LoadWorldSettings(const json& world_setting_json)
     if (world_setting_json.contains("skyboxColor")) {
         skyboxColor = world_setting_json["skyboxColor"].get<Vector4>();
         SetShaderValue(skybox.materials[0].shader, GetShaderLocation(skybox.materials[0].shader, "skyboxColor"), &skyboxColor, SHADER_UNIFORM_VEC4);
+    }
+    else
+    {
+        skyboxColor = (Vector4){1,1,1,1};
+        SetShaderValue(skybox.materials[0].shader, GetShaderLocation(skybox.materials[0].shader, "skyboxColor"), &skyboxColor, SHADER_UNIFORM_VEC4);
+    }
+
+    if (world_setting_json.contains("bloomSamples")) {
+        bloomSamples = world_setting_json["bloomSamples"].get<int>();
+        int shaderLocation = glGetUniformLocation(downsamplerShader.id, "samples");
+
+        glUseProgram(downsamplerShader.id);
+        glUniform1i(shaderLocation, bloomSamples);
+        glUseProgram(0);
     }
 }
 
