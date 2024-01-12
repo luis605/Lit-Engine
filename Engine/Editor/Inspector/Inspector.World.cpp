@@ -71,6 +71,40 @@ void WorldInspector()
 
             ImGui::Unindent(30.0f);
         }
+
+
+        if (ImGui::CollapsingHeader("Skybox"))
+        {
+            ImGui::Indent(30.0f);
+            ImVec4 light_colorImGui = ImVec4(
+                skyboxColor.x,
+                skyboxColor.y,
+                skyboxColor.z,
+                skyboxColor.w
+            );
+            ImGui::Text("Skybox Color");
+            ImGui::SameLine(inputWidth + 40);
+            if (ImGui::ColorButton("##SkyboxLightColorButton", light_colorImGui))
+            {
+                ImGui::OpenPopup("##SkyboxLightColorButton");
+            }
+
+            if (ImGui::BeginPopup("##SkyboxLightColorButton"))
+            {
+                ImGui::ColorPicker4("##SkyboxLightColor", (float*)&light_colorImGui);
+                ImGui::EndPopup();
+            }
+
+            skyboxColor.x = light_colorImGui.x;
+            skyboxColor.y = light_colorImGui.y;
+            skyboxColor.z = light_colorImGui.z;
+            skyboxColor.w = light_colorImGui.w;
+
+            SetShaderValue(skybox.materials[0].shader, GetShaderLocation(skybox.materials[0].shader, "skyboxColor"), &skyboxColor, SHADER_UNIFORM_VEC4);
+
+            ImGui::Unindent(30.0f);
+        }
+
         ImGui::Unindent(30.0f);
     }
 }
