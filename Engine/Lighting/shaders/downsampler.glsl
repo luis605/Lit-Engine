@@ -1,6 +1,5 @@
 #version 330 core
 
-const int samples = 6;
 const float stepSize = 3.0;
 
 in vec2 fragTexCoord;
@@ -12,6 +11,8 @@ const float weightConstant = 0.0006;
 float weight = weightConstant * (1.0 + bloomBrightness) * 8;
 float attenuation = 1.0 - 9.0 * weight;
 vec2 texelSize = vec2(1.0) / textureSize(srcTexture, 0);
+
+uniform int samples = 6;
 
 void main() {
     vec3 result = texture(srcTexture, fragTexCoord).rgb;

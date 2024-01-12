@@ -27,6 +27,20 @@ void WorldInspector()
             {
                 SetShaderValue(downsamplerShader, GetShaderLocation(downsamplerShader, "bloomBrightness"), &bloomBrightness, SHADER_ATTRIB_FLOAT);
             }
+
+            ImGui::Text("Samples:");
+            ImGui::SameLine(inputWidth);
+            ImGui::SetNextItemWidth(-1);
+            
+            if (ImGui::SliderFloat("##SamplesControl", &bloomSamples, 1.0f, 25.0f, "%1.f"))
+            {
+                int shaderLocation = glGetUniformLocation(downsamplerShader.id, "samples");
+
+                glUseProgram(downsamplerShader.id);
+                glUniform1i(shaderLocation, bloomSamples);
+                glUseProgram(0);
+            }
+
             ImGui::Unindent(30.0f);
         }
         ImGui::Unindent(30.0f);

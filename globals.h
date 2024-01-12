@@ -21,7 +21,7 @@ extern bool showContentArea;
 std::thread::id mainThreadId;
 bool bloomEnabled = true;
 float bloomBrightness = 0.0f;
-
+float bloomSamples = 6.0f;
 
 #ifdef __cplusplus
 }
