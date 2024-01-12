@@ -163,9 +163,9 @@ using json = nlohmann::json;
     #include "Engine/Editor/Styles/Styles.cpp"
 #endif
 
-#include "Engine/Core/SaveLoad.cpp"
 #include "Engine/Lighting/InitLighting.cpp"
 #include "Engine/Lighting/skybox.cpp"
+#include "Engine/Core/SaveLoad.cpp"
 
 
 #ifndef GAME_SHIPPING
