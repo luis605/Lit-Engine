@@ -372,6 +372,7 @@ void SaveWorldSetting(json& json_data)
     j["bloomBrightness"] = bloomBrightness;
 
     j["ambientColor"] = ambientLight;
+    j["skyboxColor"] = skyboxColor;
     json_data.emplace_back(j);
 }
 
@@ -545,6 +546,11 @@ void LoadWorldSettings(const json& world_setting_json)
     if (world_setting_json.contains("ambientColor")) {
         ambientLight = world_setting_json["ambientColor"].get<Vector4>();
         SetShaderValue(shader, GetShaderLocation(shader, "ambientLight"), &ambientLight, SHADER_UNIFORM_VEC4);
+    }
+
+    if (world_setting_json.contains("skyboxColor")) {
+        skyboxColor = world_setting_json["skyboxColor"].get<Vector4>();
+        SetShaderValue(skybox.materials[0].shader, GetShaderLocation(skybox.materials[0].shader, "skyboxColor"), &skyboxColor, SHADER_UNIFORM_VEC4);
     }
 }
 
