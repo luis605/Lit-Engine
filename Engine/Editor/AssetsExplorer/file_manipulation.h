@@ -63,6 +63,7 @@ void EditFileManipulation()
                 strcpy(rename_file_buffer, files_texture_struct[file_index].name.c_str());
 
                 showEditFilePopup = false;
+                showAddFilePopup = false;
             }
         }
         if (ImGui::Button("Run"))
@@ -79,6 +80,7 @@ void EditFileManipulation()
 
 
                 showEditFilePopup = false;
+                showAddFilePopup = false;
             }
         }
 
