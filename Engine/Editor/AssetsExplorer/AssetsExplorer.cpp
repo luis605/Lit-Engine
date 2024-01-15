@@ -267,14 +267,16 @@ void AssetsExplorer() {
 
         if (files_texture_struct[i].rename)
         {
-            ImGui::InputText("##RenameFile", (char *)files_texture_struct[i].name.c_str(), files_texture_struct[i].name.size() + 100);
-            if (ImGui::IsItemEdited() && IsKeyDown(KEY_ENTER))
+            ImGui::InputText("##RenameFile", (char*)rename_file_buffer, 256);
+
+            if (IsKeyDown(KEY_ENTER))
             {
                 if (fs::exists(rename_file_name)) {
-                    fs::rename(rename_file_name, files_texture_struct[i].full_path);
-                    std::cout << "File renamed successfully." << std::endl;
+                    fs::path newFilePath = files_texture_struct[i].full_path.parent_path() / rename_file_buffer;
+                    fs::rename(rename_file_name, newFilePath);
+                    std::cout << "File renamed successfully to " << newFilePath.string() << std::endl;
                 } else {
-                    std::cout << "File not found: " << files_texture_struct[i].full_path << std::endl;
+                    std::cout << "File not found: " << rename_file_name.string() << std::endl;
                 }
                 files_texture_struct[i].rename = false;
                 rename_file_index = -1;

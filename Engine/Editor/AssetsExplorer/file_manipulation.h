@@ -34,7 +34,7 @@ bool createNumberedFile(const fs::path& directoryPath, const std::string& extens
 bool showAddFilePopup = false;
 bool showEditFilePopup = false;
 int rename_file_index = -1;
-const char* rename_file_name;
+std::filesystem::path rename_file_name;
 int file_index = -1;
 
 void EditFileManipulation()
@@ -56,8 +56,12 @@ void EditFileManipulation()
         {
             if (file_index != -1)
             {
+                std::filesystem::path currentPath = std::filesystem::current_path();
+
                 rename_file_index = file_index;
-                rename_file_name = files_texture_struct[file_index].full_path.string().c_str();
+                rename_file_name = (currentPath / files_texture_struct[file_index].full_path);
+                strcpy(rename_file_buffer, files_texture_struct[file_index].name.c_str());
+
                 showEditFilePopup = false;
             }
         }
