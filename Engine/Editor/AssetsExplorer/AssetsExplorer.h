@@ -48,6 +48,8 @@ ImVec2 AssetsExplorer_window_size = {cellSize, cellSize};
 
 Camera3D model_previewer_camera = { 0 };
 
+char rename_file_buffer[256];
+
 #include "file_manipulation.h"
 
 #endif // ASSETSEXPLORER_H
