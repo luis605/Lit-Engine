@@ -2,15 +2,15 @@
     {
         "fovy": 60.0,
         "position": {
-            "x": 4.095438480377197,
-            "y": 4.468181133270264,
-            "z": -0.5990793704986572
+            "x": 0.7020954489707947,
+            "y": 8.160974502563477,
+            "z": 0.4552919566631317
         },
         "projection": 0,
         "target": {
-            "x": -26.658842086791992,
-            "y": -34.69820785522461,
-            "z": 3.891810178756714
+            "x": -1.9388809204101563,
+            "y": -41.37870788574219,
+            "z": -5.77736759185791
         },
         "type": "camera",
         "up": {
@@ -26,8 +26,8 @@
             "y": 1.0,
             "z": 1.0
         },
-        "bloom": true,
-        "bloomBrightness": 0.2240000069141388,
+        "bloom": false,
+        "bloomBrightness": 0.0,
         "bloomSamples": 6.0,
         "skyboxColor": {
             "w": 1.0,
@@ -45,14 +45,14 @@
         "is_dynamic": false,
         "lodEnabled": true,
         "mass": 1.0,
-        "material_path": "",
-        "mesh_type": 1,
+        "material_path": "project/game/materials/file1.mat",
+        "mesh_type": 4,
         "model_path": "",
         "name": "Unnamed Entity",
         "normal_texture_path": "",
         "position": {
             "x": 0.0,
-            "y": 0.0,
+            "y": 0.7999992370605469,
             "z": 0.0
         },
         "relative_position": {
@@ -67,14 +67,14 @@
         },
         "roughness_texture_path": "",
         "scale": {
-            "x": 1.0,
+            "x": 10.0,
             "y": 1.0,
-            "z": 1.0
+            "z": 10.0
         },
         "script_index": "",
         "script_path": "",
         "surface_material": {
-            "DiffuseIntensity": 0.5,
+            "DiffuseIntensity": 0.7990000247955322,
             "Roughness": 0.5,
             "SpecularIntensity": 0.5,
             "SpecularTint": {
@@ -84,7 +84,7 @@
             },
             "shininess": 0.5
         },
-        "texture_path": "",
+        "texture_path": "project/game/178049 (1440p).mp4",
         "type": "entity"
     },
     {
@@ -101,11 +101,11 @@
             "y": 0.4000000059604645,
             "z": -0.4000000059604645
         },
-        "id": 0,
-        "intensity": 5.0,
+        "id": 2,
+        "intensity": 0.5,
         "isChild": false,
         "light_type": 1,
-        "name": "",
+        "name": "Light",
         "position": {
             "x": 4.0,
             "y": 5.0,
