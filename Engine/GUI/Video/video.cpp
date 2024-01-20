@@ -6,6 +6,8 @@ public:
         //av_register_all();
         // avcodec_register_all();
 
+        av_init_packet(&packet);
+
         pFormatCtx = avformat_alloc_context();
         if (avformat_open_input(&pFormatCtx, videoFile, NULL, NULL) != 0) {
             TraceLog(LOG_ERROR, "Error opening video file");
@@ -66,19 +68,21 @@ public:
         loop = true;
     }
 
-    // ~VideoPlayer() {
-    //     av_frame_free(&pFrame);
-    //     avcodec_close(pCodecCtx);
-    //     avformat_close_input(&pFormatCtx);
-    //     sws_freeContext(sws_ctx);
-    //     UnloadImage(frameImage);
-    //     UnloadTexture(videoTexture);
-    // }
+    ~VideoPlayer() {
+        av_packet_unref(&packet);
+
+        // av_frame_free(&pFrame);
+        // avcodec_close(pCodecCtx);
+        // avformat_close_input(&pFormatCtx);
+        // sws_freeContext(sws_ctx);
+        // UnloadImage(frameImage);
+        // UnloadTexture(videoTexture);
+    }
 
     void Update() {
-        AVPacket packet;
-        av_init_packet(&packet);
-        if (av_read_frame(pFormatCtx, &packet) < 0) {
+        int readFrameResult = av_read_frame(pFormatCtx, &packet);
+
+        if (readFrameResult < 0) {
             if (!loop) {
                 TraceLog(LOG_INFO, "End of video file");
                 finished = true;
@@ -93,19 +97,17 @@ public:
 
         if (packet.stream_index == videoStream) {
             avcodec_send_packet(pCodecCtx, &packet);
+
             if (avcodec_receive_frame(pCodecCtx, pFrame) == 0) {
                 float frameTime = GetTime() - lastFrameTime;
+
                 if (frameTime >= frameDelay) {
                     uint8_t *pixels[1] = {(uint8_t *)frameImage.data};
                     int pitch[1] = {4 * pCodecCtx->width};
 
-                    // Ensure that the input and output dimensions match
-                    int scaledWidth = pCodecCtx->width;
-                    int scaledHeight = pCodecCtx->height;
-
                     // Perform the image scaling
                     sws_scale(sws_ctx, pFrame->data, pFrame->linesize, 0, pCodecCtx->height,
-                                pixels, pitch);
+                            pixels, pitch);
 
                     // Update the texture with the scaled image data
                     UpdateTexture(videoTexture, frameImage.data);
@@ -115,9 +117,8 @@ public:
                 }
             }
         }
-
-        av_packet_unref(&packet);
     }
+
 
 
 
@@ -139,6 +140,7 @@ public:
 
 
 private:
+    AVPacket packet;
     AVFormatContext* pFormatCtx;
     AVCodecContext* pCodecCtx;
     AVFrame* pFrame;
