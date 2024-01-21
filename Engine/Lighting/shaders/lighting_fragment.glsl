@@ -140,16 +140,14 @@ vec4 CalculatePointLight(Light light, vec3 viewDir, vec3 norm, float roughness, 
 
 vec4 CalculateSpotLight(Light light, vec3 viewDir, vec3 norm, float roughness, float ao, vec3 fragPosition, vec3 ambient, vec2 texCoord, mat3 TBN) {
     vec3 lightToPoint = light.position - fragPosition;
-    float spot = smoothstep(0.6, 0.8, dot(normalize(lightToPoint), light.direction)); // Adjust the thresholds for smoother transition
+    float spot = smoothstep(0.6, 0.8, dot(normalize(lightToPoint), light.direction));
 
     float lightToFragDist = length(light.position - fragPosition);
     float attenuation = 1.0 / (1.0 + light.attenuation * lightToFragDist * lightToFragDist);
 
-    // Energy conservation: Scale down diffuse term
-    float k_d = 1.0; // Adjust this value to control energy conservation
+    float k_d = 1.0;
     float energyFactor = 1.0 / (k_d + (1.0 - k_d) * 0.5);
 
-    // Apply normal mapping
     float NdotL;
     if (normalMapInit)
     {
@@ -160,16 +158,11 @@ vec4 CalculateSpotLight(Light light, vec3 viewDir, vec3 norm, float roughness, f
     }
     else
     {
-        // Calculate the light direction in tangent space
         vec3 lightDirTangent = normalize(lightToPoint * TBN);
-
-        // Calculate the diffuse term using the sampled normal
         NdotL = max(dot(norm, lightDirTangent), 0.0) * surface_material.DiffuseIntensity;
     }
 
-
     vec4 diffuseTerm = colDiffuse * NdotL;
-
     return vec4(diffuseTerm * spot * light.intensity * attenuation * energyFactor) + vec4(colDiffuse.rgb * ambient.rgb, 1);
 
 }
