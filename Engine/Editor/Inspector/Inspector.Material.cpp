@@ -44,6 +44,20 @@ void MaterialInspector(SurfaceMaterial* surface_material = nullptr, string path 
 
     if (ImGui::CollapsingHeader("Maps")) {
         ImGui::Indent(10);
+        
+        float tiling_value[2] = { selected_entity->tiling[0], selected_entity->tiling[1] };
+        ImGui::Text("Tiling: ");
+        if (ImGui::SliderFloat("##TextureTiling0", (float*)&tiling_value[0], 0.01f, 100.0f, "%.1f"))
+        {
+            selected_entity->tiling[0] = tiling_value[0];
+        }
+        if (ImGui::SliderFloat("##TextureTiling1", (float*)&tiling_value[1], 0.01f, 100.0f, "%.1f"))
+        {
+            selected_entity->tiling[1] = tiling_value[1];
+        }
+        ImGui::Dummy(ImVec2(0.0f, 10.0f));
+
+        
         ImGui::Text("Diffuse Texture: ");
         
         if (ImGui::ImageButton((ImTextureID)&selected_entity->texture, ImVec2(64, 64)))
@@ -88,13 +102,6 @@ void MaterialInspector(SurfaceMaterial* surface_material = nullptr, string path 
 
         ImGui::Dummy(ImVec2(0.0f, 10.0f));
 
-        float tiling_value[2] = { selected_entity->tiling[0], selected_entity->tiling[1] };
-        if (ImGui::SliderFloat2("Texture Tiling", (float*)&tiling_value, 0.01f, 100.0f, "%.2f"))
-        {
-            selected_entity->tiling[0] = tiling_value[0];
-            selected_entity->tiling[1] = tiling_value[1];
-        }
-        ImGui::Dummy(ImVec2(0.0f, 10.0f));
 
         ImGui::Text("Normal Map Texture: ");
         if (ImGui::ImageButton((ImTextureID)&selected_entity->normal_texture, ImVec2(64, 64)))
