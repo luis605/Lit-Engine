@@ -50,18 +50,20 @@ void GizmoPosition()
                 color1 = GREEN;
                 gizmo_arrow_selected = index;
             }
-            else gizmo_arrow_selected = -1;
+            else gizmo_arrow_selected == -1;
         }
+        else gizmo_arrow_selected == -1;
 
         if (ImGui::IsWindowHovered() && IsMouseButtonDown(MOUSE_LEFT_BUTTON))
         {
             if (isHoveringGizmo)
             {
-                mouse_drag_start = GetMousePosition();
-                dragging_gizmo_position = true;
-                dragging = true;
+                if (!dragging_gizmo_position)
+                {
+                    mouse_drag_start = GetMousePosition();
+                    dragging_gizmo_position = true;
+                }
             }
-
             if (dragging_gizmo_position)
             {
                 Vector2 mouse_drag_end = GetMousePosition();
@@ -71,6 +73,7 @@ void GizmoPosition()
                     
                     gizmo_arrow[0].position.y -= delta_y;
                     gizmo_arrow[1].position.y -= delta_y;
+                    
                 }
 
                 else if ( gizmo_arrow_selected == 2 || gizmo_arrow_selected == 3 )
@@ -116,11 +119,11 @@ void GizmoPosition()
             gizmo_arrow[0].position.z
         };
         
-        if (selected_entity && selected_entity->isChild && selected_entity->initialized && selected_entity->parent)
+        if ((bool)selected_entity->isChild)
         {
-            selected_entity->relative_position = Vector3Subtract(selected_entity->position, selected_entity->parent->position);
+            if (selected_entity->parent != nullptr && selected_entity != nullptr && selected_entity->initialized)
+                selected_entity->relative_position = Vector3Subtract(selected_entity->position, selected_entity->parent->position);
         }
-
     }
     else if (selected_game_object_type == "light")
     {
@@ -143,11 +146,14 @@ void GizmoPosition()
                         selected_light->position.x - light_info->parent->position.x, 
                         selected_light->position.y - light_info->parent->position.y,
                         selected_light->position.z - light_info->parent->position.z
-                    );
+                        );
             }
+        
         }
     }
+
 }
+
 
 
 
