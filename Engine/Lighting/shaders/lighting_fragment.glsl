@@ -249,8 +249,7 @@ vec4 CalculateLighting(vec3 fragPosition, vec3 fragNormal, vec3 viewDir, vec2 te
     if (ao != 0.0)
         result *= ao;
 
-    // return vec4(toneMappedResult.rgb, result);
-    return result;
+    return vec4(toneMappedResult.rgb, result);
 }
 
 
