@@ -3,6 +3,7 @@
 int LitEngine()
 {
     Startup();
+    std::cout << "Lit Engine Started" << std::endl << std::endl << std::endl << std::endl;
     EngineMainLoop();
     CleanUp();
 
