@@ -79,45 +79,48 @@ public:
         // UnloadTexture(videoTexture);
     }
 
+    void ProcessFrame() {
+        float frameTime = GetTime() - lastFrameTime;
+
+        if (frameTime < frameDelay) {
+            return;
+        }
+
+        uint8_t *pixels[1] = { (uint8_t *)frameImage.data };
+        int pitch[1] = { 4 * pCodecCtx->width };
+
+        // Perform the image scaling
+        sws_scale(sws_ctx, pFrame->data, pFrame->linesize, 0, pCodecCtx->height,
+                pixels, pitch);
+
+        // Update the texture with the scaled image data
+        UpdateTexture(videoTexture, frameImage.data);
+
+        currentTime += frameDelay;
+        lastFrameTime = GetTime();
+    }
+
     void Update() {
         int readFrameResult = av_read_frame(pFormatCtx, &packet);
 
-        if (readFrameResult < 0) {
+        if (readFrameResult >= 0 && packet.stream_index == videoStream) {
+            avcodec_send_packet(pCodecCtx, &packet);
+
+            if (avcodec_receive_frame(pCodecCtx, pFrame) == 0) {
+                ProcessFrame();
+            }
+        } else if (readFrameResult < 0) {
             if (!loop) {
                 TraceLog(LOG_INFO, "End of video file");
                 finished = true;
                 return;
-            } else {
-                TraceLog(LOG_INFO, "Looping");
-                finished = false;
-                av_seek_frame(pFormatCtx, videoStream, 0, AVSEEK_FLAG_FRAME);
-                return;
             }
-        }
 
-        if (packet.stream_index == videoStream) {
-            avcodec_send_packet(pCodecCtx, &packet);
-
-            if (avcodec_receive_frame(pCodecCtx, pFrame) == 0) {
-                float frameTime = GetTime() - lastFrameTime;
-
-                if (frameTime >= frameDelay) {
-                    uint8_t *pixels[1] = {(uint8_t *)frameImage.data};
-                    int pitch[1] = {4 * pCodecCtx->width};
-
-                    // Perform the image scaling
-                    sws_scale(sws_ctx, pFrame->data, pFrame->linesize, 0, pCodecCtx->height,
-                            pixels, pitch);
-
-                    // Update the texture with the scaled image data
-                    UpdateTexture(videoTexture, frameImage.data);
-
-                    currentTime += frameDelay;
-                    lastFrameTime = GetTime();
-                }
-            }
+            finished = false;
+            av_seek_frame(pFormatCtx, videoStream, 0, AVSEEK_FLAG_FRAME);
         }
     }
+
 
 
 
