@@ -151,10 +151,10 @@ vec4 CalculateSpotLight(Light light, vec3 viewDir, vec3 norm, float roughness, f
 
     // Apply normal mapping
     float NdotL;
-    if (false)
+    if (normalMapInit)
     {
         vec3 normalMap = texture(texture2, texCoord).rgb;
-        vec3 sampledNormal = normalize((normalMap * 2.0 - 1.0) * TBN);
+        vec3 sampledNormal = norm;
         vec3 lightDirTangent = normalize(lightToPoint * TBN);
         NdotL = max(dot(sampledNormal, lightDirTangent), 0.0) * surface_material.DiffuseIntensity;
     }
