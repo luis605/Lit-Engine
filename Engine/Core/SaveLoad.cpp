@@ -241,6 +241,7 @@ void SaveEntity(json& json_data, const Entity& entity) {
     j["rotation"]                = entity.rotation;
     j["relative_position"]       = entity.relative_position;
     j["model_path"]              = entity.model_path;
+    j["tiling"]                  = entity.tiling;
     
     if (IsModelReady(entity.model) && entity.model_path.empty())
         j["mesh_type"]           = entity.ObjectType;
@@ -629,6 +630,11 @@ void LoadEntity(const json& entity_json, Entity& entity) {
         entity.lodEnabled = entity_json["lodEnabled"].get<bool>();
     }
     
+    if (entity_json.contains("tiling")) {
+        entity.tiling[0] = entity_json["tiling"][0].get<float>();
+        entity.tiling[1] = entity_json["tiling"][1].get<float>();
+    }
+
     if (entity_json.contains("mesh_type")) {
         entity.ObjectType = entity_json["mesh_type"].get<Entity::ObjectTypeEnum>();
     }
