@@ -167,25 +167,22 @@ vec4 CalculateSpotLight(Light light, vec3 viewDir, vec3 norm, float roughness, f
 
 }
 
-// Helper function to calculate the Cook-Torrance F term
 vec3 FresnelSchlick(float cosTheta, vec3 F0) {
     return F0 + (1.0 - F0) * pow(1.0 - cosTheta, 5.0);
 }
 
-// Distribution function for GGX
 float DistributionGGX(float NdotH, float roughness) {
     float a = roughness * roughness;
-    float a2 = a * a;
-    float d = (NdotH * a2 - NdotH) * NdotH + 1.0;
-    return a2 / (PI * d * d);
+    float d = NdotH * NdotH * (a * a - 1.0) + 1.0;
+    return a * a / (PI * d * d);
 }
 
 // Geometry function for GGX
 float GeometrySchlickGGX(float NdotV, float roughness) {
-    float r = roughness + 1.0;
-    float k = (r * r) / 8.0;
+    float k = (roughness + 1.0) * (roughness + 1.0) / 8.0;
     return NdotV / (NdotV * (1.0 - k) + k);
 }
+
 
 // Cook-Torrance BRDF
 vec3 CookTorrance(vec3 L, vec3 V, vec3 N, vec3 albedo, float roughness) {
@@ -197,67 +194,49 @@ vec3 CookTorrance(vec3 L, vec3 V, vec3 N, vec3 albedo, float roughness) {
     float NdotH = max(dot(N, H), 0.0);
     float VdotH = max(dot(V, H), 0.0);
 
-    vec3 F0 = vec3(0.04); // F0 for dielectrics
-    vec3 F = FresnelSchlick(VdotH, F0);
+    vec3 F = FresnelSchlick(VdotH, vec3(0.04));
     float D = DistributionGGX(NdotH, roughness);
     float G = GeometrySchlickGGX(NdotL, roughness) * GeometrySchlickGGX(NdotV, roughness);
-    
-    vec3 specular = F * D * G / (4.0 * NdotL * NdotV + 0.001); // Add epsilon to prevent division by zero
-    
+
+    vec3 specular = F * D * G / max(4.0 * NdotL * NdotV, 0.001); // Add epsilon to prevent division by zero
+
     return (albedo / PI + specular) * NdotL;
 }
 
 
 vec4 CalculateDiffuseLighting(vec3 fragPosition, vec3 norm, vec2 texCoord) {
-    // Retrieve the color from the texture
     vec4 texColor = texture(texture0, texCoord);
 
-    // Check if the texture is not valid or transparent
-    if (texColor.rgb == vec3(0.0)) {
-        return colDiffuse * ambientLight * surface_material.DiffuseIntensity;
-    }
-
-    // Calculate the ambient component
+    vec3 diffuseComponent = mix(colDiffuse.rgb, texColor.rgb, step(0.0, texColor.rgb));
     vec3 ambientComponent = colDiffuse.rgb * ambientLight.rgb * surface_material.DiffuseIntensity;
-
-    // Use the texture color for the diffuse component
-    vec3 diffuseComponent = texColor.rgb;
-
-    // Combine ambient and diffuse components
-    vec3 resultColor = ambientComponent + (diffuseComponent * colDiffuse.rgb);
-
-    // Multiply by alpha (transparency)
+    vec3 resultColor = ambientComponent + diffuseComponent;
     vec4 diffuseColor = vec4(resultColor, texColor.a);
 
     return diffuseColor;
 }
 
-
-
-// Function to calculate the final lighting
 vec4 CalculateLighting(vec3 fragPosition, vec3 fragNormal, vec3 viewDir, vec2 texCoord, SurfaceMaterial material, float roughness) {
     vec4 result = vec4(0.0);
 
     for (int i = 0; i < lightsCount; i++) {
         Light light = lights[i];
         
-        // Calculate light contributions (directional, point, and spot)
-        if (light.enabled) {
-            if (light.type == LIGHT_DIRECTIONAL) {
-                // Calculate directional light
-                result += CalculateDirectionalLight(light, viewDir, fragNormal, vec3(0.0), vec4(0.0));
-            } else if (light.type == LIGHT_POINT) {
-                // Calculate point light
-                result += CalculatePointLight(light, viewDir, fragNormal, material.Roughness, 1.0, fragPosition, vec4(0.0));
-            } else if (light.type == LIGHT_SPOT) {
-                // Calculate spot light
-                result += CalculateSpotLight(light, viewDir, fragNormal, material.Roughness, 1.0, fragPosition, vec3(0.0), texCoord, mat3(1.0));
-            }
-            vec3 specular = CookTorrance(fragLightDir, viewDir, fragNormal, colDiffuse.rgb, roughness);
-            specular = max(specular, vec3(0.0)); // Ensure all components are non-negative
-            result += vec4(specular, 1);
+        if (!light.enabled) continue;
 
+        if (light.type == LIGHT_DIRECTIONAL) {
+            // Calculate directional light
+            result += CalculateDirectionalLight(light, viewDir, fragNormal, vec3(0.0), vec4(0.0));
+        } else if (light.type == LIGHT_POINT) {
+            // Calculate point light
+            result += CalculatePointLight(light, viewDir, fragNormal, material.Roughness, 1.0, fragPosition, vec4(0.0));
+        } else if (light.type == LIGHT_SPOT) {
+            // Calculate spot light
+            result += CalculateSpotLight(light, viewDir, fragNormal, material.Roughness, 1.0, fragPosition, vec3(0.0), texCoord, mat3(1.0));
         }
+        vec3 specular = CookTorrance(fragLightDir, viewDir, fragNormal, colDiffuse.rgb, roughness);
+        specular = max(specular, vec3(0.0)); // Ensure all components are non-negative
+        result += vec4(specular, 1);
+
     }
     
 
