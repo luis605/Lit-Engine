@@ -55,6 +55,7 @@ void MaterialInspector(SurfaceMaterial* surface_material = nullptr, string path 
         {
             selected_entity->tiling[1] = tiling_value[1];
         }
+        
         ImGui::Dummy(ImVec2(0.0f, 10.0f));
 
         
