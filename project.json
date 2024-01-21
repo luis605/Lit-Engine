@@ -2,15 +2,15 @@
     {
         "fovy": 60.0,
         "position": {
-            "x": 0.6944252252578735,
-            "y": 4.088733673095703,
-            "z": 0.9687879085540771
+            "x": 2.435230255126953,
+            "y": 4.933925628662109,
+            "z": 8.686176300048828
         },
         "projection": 0,
         "target": {
-            "x": 0.7474269270896912,
-            "y": -45.88715362548828,
-            "z": -0.5800561904907227
+            "x": -5.825380325317383,
+            "y": -21.61628532409668,
+            "z": -32.86829376220703
         },
         "type": "camera",
         "up": {
@@ -22,9 +22,9 @@
     {
         "ambientColor": {
             "w": 1.0,
-            "x": 0.43795621395111084,
-            "y": 0.43795621395111084,
-            "z": 0.43795621395111084
+            "x": 1.0,
+            "y": 1.0,
+            "z": 1.0
         },
         "bloom": false,
         "bloomBrightness": 0.0,
@@ -49,10 +49,10 @@
         "mesh_type": 4,
         "model_path": "",
         "name": "Unnamed Entity",
-        "normal_texture_path": "",
+        "normal_texture_path": "project/game/models/textures/rubber_tiles_nor_gl_4k.png",
         "position": {
-            "x": 0.0,
-            "y": 0.7999992370605469,
+            "x": 4.100002288818359,
+            "y": 0.6999993324279785,
             "z": 0.0
         },
         "relative_position": {
@@ -65,26 +65,63 @@
             "y": 0.0,
             "z": 0.0
         },
-        "roughness_texture_path": "",
+        "roughness_texture_path": "project/game/models/textures/rubber_tiles_rough_4k.png",
         "scale": {
-            "x": 10.0,
+            "x": 100.0,
             "y": 1.0,
-            "z": 10.0
+            "z": 100.0
         },
         "script_index": "",
         "script_path": "",
         "surface_material": {
-            "DiffuseIntensity": 0.7990000247955322,
-            "Roughness": 0.5,
-            "SpecularIntensity": 0.5,
+            "DiffuseIntensity": 1.0,
+            "Roughness": 1.0,
+            "SpecularIntensity": 1.0,
             "SpecularTint": {
                 "x": 1.0,
                 "y": 1.0,
                 "z": 1.0
             },
-            "shininess": 0.5
+            "shininess": 1.0
         },
-        "texture_path": "project/game/178049 (1440p).mp4",
+        "texture_path": "project/game/models/textures/rubber_tiles_diff_4k.png",
         "type": "entity"
+    },
+    {
+        "attenuation": 9.999999747378752e-05,
+        "color": {
+            "a": 255.0,
+            "b": 255.0,
+            "g": 255.0,
+            "r": 255.0
+        },
+        "cutOff": 10.0,
+        "direction": {
+            "x": -1.0,
+            "y": -1.0,
+            "z": 1.0
+        },
+        "id": 2,
+        "intensity": 1.843999981880188,
+        "isChild": false,
+        "light_type": 1,
+        "name": "",
+        "position": {
+            "x": 4.0,
+            "y": 5.0,
+            "z": 3.0
+        },
+        "relative_position": {
+            "x": 0,
+            "y": 0,
+            "z": 0
+        },
+        "specularStrength": 0.5,
+        "target": {
+            "x": 0,
+            "y": 0,
+            "z": 0
+        },
+        "type": "light"
     }
 ]
