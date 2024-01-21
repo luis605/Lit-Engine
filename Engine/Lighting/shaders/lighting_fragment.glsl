@@ -260,36 +260,23 @@ void main() {
     // Calculate tangent space
     vec3 tangent = dFdx(fragPosition);
     vec3 bitangent = dFdy(fragPosition);
-    vec3 T = normalize(tangent);
-    vec3 B = normalize(bitangent);
-    vec3 N = normalize(fragNormal);
-    mat3 TBN = mat3(T, B, N);
+    mat3 TBN = mat3(normalize(tangent), normalize(bitangent), normalize(fragNormal));
 
     // Calculate normal
-    vec3 norm;
-    if (normalMapInit) {
-        vec3 normalMap = texture(texture2, texCoord).rgb;
-        normalMap = normalMap * 2.0 - 1.0;
-        norm = normalize(TBN * normalMap);
-    } else {
-        norm = N;
-    }
+    vec3 norm = normalMapInit ? normalize(TBN * (texture(texture2, texCoord).rgb * 2.0 - 1.0)) : normalize(fragNormal);
 
-    // Calculate material properties
-    float roughness;
-    if (roughnessMapInit) {
-        roughness = texture(texture3, texCoord).r;
-    } else {
-        roughness = surface_material.Roughness;
-    }
+    // Calculate roughness
+    float roughness = roughnessMapInit ? texture(texture3, texCoord).r : surface_material.Roughness;
 
     // Calculate view direction
     vec3 viewDir = normalize(viewPos - fragPosition);
-    vec3 reflectDir = reflect(-viewDir, norm);
 
-    vec4 result = colDiffuse / 1.8 - ambientLight * 0.5;
-    vec3 ambient = vec3(0);
-    
     // Calculate lighting
-    finalColor = vec4(CalculateLighting(fragPosition, norm, viewDir, texCoord, surface_material, roughness).rgb, colDiffuse.a);
+    vec3 lighting = CalculateLighting(fragPosition, norm, viewDir, texCoord, surface_material, roughness).rgb;
+
+    // Calculate final color
+    vec4 result = vec4(colDiffuse.rgb / 1.8 - ambientLight.rgb * 0.5, colDiffuse.a);
+    vec3 ambient = vec3(0);
+
+    finalColor = mix(result, vec4(lighting, colDiffuse.a), step(0.0, length(lighting)));
 }
