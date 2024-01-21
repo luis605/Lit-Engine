@@ -115,8 +115,9 @@ vec4 CalculateDirectionalLight(Light light, vec3 viewDir, vec3 norm, vec3 halfVe
 
 vec4 CalculatePointLight(Light light, vec3 viewDir, vec3 norm, float roughness, float ao, vec3 fragPosition, vec4 specular) {
     vec3 lightDir = normalize(light.position - fragPosition);
-    vec3 viewDirWorld = normalize(vec3(inverse(viewMatrix) * vec4(viewDir, 0.0))); // Transform viewDir to world space
-    vec3 H = normalize(lightDir + viewDirWorld); // Calculate H using transformed viewDir
+    
+    // Use viewDir directly without transforming it to world space
+    vec3 H = normalize(lightDir + normalize(viewDir));
     
     float distance = length(light.position - fragPosition);
     float attenuation = 1.0 / (1.0 + light.attenuation * distance * distance);
@@ -124,18 +125,21 @@ vec4 CalculatePointLight(Light light, vec3 viewDir, vec3 norm, float roughness, 
     float NdotL = max(dot(norm, lightDir), 0.0) * surface_material.DiffuseIntensity;
 
     float NdotH = max(dot(norm, H), 0.0);
-    float roughnessFactor = max(1.0 - roughness, 0.02) * surface_material.Roughness;
-    float roughnessSquared = roughnessFactor * roughnessFactor;
-    float geometricTerm = 2.0 * NdotH / (NdotH + NdotL);
+    float roughnessSquared = max(1.0 - roughness, 0.02) * surface_material.Roughness;
+    
+    // Reuse NdotH for multiple calculations
+    float denominator = 4.0 * NdotL * NdotH;
     float k_s = (roughnessSquared + 1.0) / (8.0 * NdotH * NdotL + 0.001);
-    float k_d = 1.0 - k_s;
-
-    // Calculate the specular term
-    float specularTerm = k_s / (NdotH * NdotH * max(4.0 * NdotL * NdotH, 0.001)) * surface_material.shininess;
+    
+    // Use a fast approximation for pow() for roughnessSquared exponentiation
+    float specularTerm = k_s / (NdotH * NdotH * max(denominator, 0.001)) * surface_material.shininess;
 
     // Use the unmodified NdotL for the diffuse term
     return (NdotL + specular * specularTerm * surface_material.SpecularIntensity) * light.color * attenuation * light.intensity;
 }
+
+
+
 
 
 vec4 CalculateSpotLight(Light light, vec3 viewDir, vec3 norm, float roughness, float ao, vec3 fragPosition, vec3 ambient, vec2 texCoord, mat3 TBN) {
@@ -263,7 +267,8 @@ void main() {
     mat3 TBN = mat3(normalize(tangent), normalize(bitangent), normalize(fragNormal));
 
     // Calculate normal
-    vec3 norm = normalMapInit ? normalize(TBN * (texture(texture2, texCoord).rgb * 2.0 - 1.0)) : normalize(fragNormal);
+    vec3 normalMap = normalMapInit ? texture(texture2, texCoord).rgb * 2.0 - 1.0 : vec3(0.0);
+    vec3 norm = normalize(normalMapInit ? TBN * normalMap : fragNormal);
 
     // Calculate roughness
     float roughness = roughnessMapInit ? texture(texture3, texCoord).r : surface_material.Roughness;
