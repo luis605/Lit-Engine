@@ -189,6 +189,13 @@ void AssetsExplorer() {
     // FILES List
     int numFileButtons = files_texture_struct.size();
 
+    if (numFileButtons <= 0)
+    {
+        if ((ImGui::IsWindowFocused() || ImGui::IsWindowHovered()) && IsMouseButtonPressed(MOUSE_RIGHT_BUTTON))
+        {
+            showAddFilePopup = true;
+        }
+    }
     for (int i = 0; i < numFileButtons; i++)
     {
         ImGui::PushID(i);
