@@ -254,13 +254,6 @@ void AssetsExplorer() {
             editor.SetText(code);
             code_editor_script_path = (dir_path / files_texture_struct[i].name).string();
         }
-        else if (ImGui::IsItemHovered() && ImGui::IsMouseDoubleClicked(ImGuiMouseButton_Right))
-        {
-            if (file_extension == ".py")
-            {
-
-            }
-        }
 
         if (rename_file_index == i)
             files_texture_struct[i].rename = true;
