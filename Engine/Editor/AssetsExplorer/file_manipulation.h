@@ -30,6 +30,25 @@ bool createNumberedFile(const fs::path& directoryPath, const std::string& extens
     }
 }
 
+bool createNumberedFolder(const fs::path& directoryPath) {
+    int folderNumber = 1;
+
+    fs::path folderPath = directoryPath / std::to_string(folderNumber); // Use / for path concatenation
+
+    try {
+        if (!fs::exists(folderPath)) {
+            fs::create_directory(folderPath);
+            std::cout << "Directory created successfully.\n";
+        } else {
+            std::cout << "Directory already exists.\n";
+        }
+    } catch (const std::filesystem::filesystem_error& e) {
+        std::cerr << "Error creating directory: " << e.what() << '\n';
+        return false; // Indicate failure to create the directory
+    }
+
+    return true; // Indicate success
+}
 
 bool showAddFilePopup = false;
 bool showEditFilePopup = false;
@@ -110,6 +129,16 @@ void AddFileManipulation()
         if (ImGui::Button("Material"))
         {
             createNumberedFile(dir_path, "mat");
+            showAddFilePopup = false;
+        }
+
+        ImGui::Text("Add Folder");
+
+        ImGui::Separator();
+
+        if (ImGui::Button("Folder"))
+        {
+            createNumberedFolder(dir_path);
             showAddFilePopup = false;
         }
 
