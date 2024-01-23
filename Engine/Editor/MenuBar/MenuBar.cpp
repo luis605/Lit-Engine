@@ -185,7 +185,6 @@ void MenuBar()
 
         if (ImGui::IsItemClicked())
         {
-            std::cout << "Clicked!\n";
             menuButtonClicked = true;
         }
 
