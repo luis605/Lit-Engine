@@ -36,7 +36,7 @@ void Appearance()
 
 bool isDraggingWindow = false;
 Vector2 offset = { 0.0f, 0.0f };
-
+bool menuButtonClicked = false;
 
 void DrawMenus()
 {
@@ -182,6 +182,33 @@ void MenuBar()
 
         ImGui::SetCursorPos(imagePos);
         ImGui::Image((ImTextureID)&window_icon_texture, imageSize);
+
+        if (ImGui::IsItemClicked())
+        {
+            std::cout << "Clicked!\n";
+            menuButtonClicked = true;
+        }
+
+        if (menuButtonClicked) ImGui::OpenPopup("Menu");
+
+
+        if (ImGui::BeginPopup("Menu"))
+        {
+            if (ImGui::MenuItem("Option 1"))
+            {
+                // Handle option 1 click
+            }
+
+            if (ImGui::MenuItem("Exit", "Alt + F4"))
+            {
+                menuButtonClicked = false;
+                exitWindowRequested = true;
+            }
+
+            // Add more menu items as needed
+
+            ImGui::EndPopup();
+        }
 
         ImGui::SetCursorPosX(ImGui::GetCursorPosX() + 20);
 
