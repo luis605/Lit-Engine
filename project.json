@@ -2,15 +2,15 @@
     {
         "fovy": 60.0,
         "position": {
-            "x": 3.670452117919922,
-            "y": 10.144061088562012,
-            "z": 10.987704277038574
+            "x": -3.938225269317627,
+            "y": 7.271731853485107,
+            "z": 4.071321487426758
         },
         "projection": 0,
         "target": {
-            "x": -17.45427894592285,
-            "y": -13.607550621032715,
-            "z": -27.607730865478516
+            "x": 22.035884857177734,
+            "y": -26.993118286132813,
+            "z": -21.449914932250977
         },
         "type": "camera",
         "up": {
@@ -38,7 +38,7 @@
         "type": "world settings"
     },
     {
-        "collider_type": 4,
+        "collider_type": 0,
         "damping": 0.0,
         "friction": 1.0,
         "id": 0,
@@ -94,11 +94,11 @@
     {
         "collider_type": 0,
         "damping": 0.0,
-        "friction": 1.0,
+        "friction": 0.0,
         "id": 1,
         "is_dynamic": true,
         "lodEnabled": true,
-        "mass": 1.0,
+        "mass": 0.4000000059604645,
         "material_path": "",
         "mesh_type": 1,
         "model_path": "",
@@ -107,7 +107,7 @@
         "position": {
             "x": 0.0,
             "y": 3.8000049591064453,
-            "z": 0.0
+            "z": -1.2000000476837158
         },
         "relative_position": {
             "x": 0.0,
@@ -125,8 +125,8 @@
             "y": 1.0,
             "z": 1.0
         },
-        "script_index": "",
-        "script_path": "",
+        "script_index": "file10",
+        "script_path": "project/game/materials/file1.py",
         "surface_material": {
             "DiffuseIntensity": 0.5,
             "Roughness": 0.5,
@@ -146,24 +146,24 @@
         "type": "entity"
     },
     {
-        "attenuation": 9.999999747378752e-05,
+        "attenuation": 0.0,
         "color": {
             "a": 255.0,
             "b": 255.0,
             "g": 255.0,
             "r": 255.0
         },
-        "cutOff": 10.0,
+        "cutOff": 10000.0,
         "direction": {
             "x": 0.4000000059604645,
             "y": 0.4000000059604645,
             "z": -0.4000000059604645
         },
         "id": 2,
-        "intensity": 0.5,
+        "intensity": 5.0,
         "isChild": false,
         "light_type": 1,
-        "name": "Light",
+        "name": "",
         "position": {
             "x": 4.0,
             "y": 5.0,
@@ -174,7 +174,7 @@
             "y": 0,
             "z": 0
         },
-        "specularStrength": 0.5,
+        "specularStrength": 1.0,
         "target": {
             "x": 0,
             "y": 0,
