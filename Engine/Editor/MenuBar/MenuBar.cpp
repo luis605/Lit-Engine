@@ -193,9 +193,30 @@ void MenuBar()
 
         if (ImGui::BeginPopup("Menu"))
         {
-            if (ImGui::MenuItem("Option 1"))
+            if (ImGui::MenuItem("About", "F1"))
             {
-                // Handle option 1 click
+                #ifdef __linux__
+                    system("xdg-open https://www.litengine.org");
+                #elif _WIN32
+                    system("start https://www.litengine.org");
+                #elif __APPLE__
+                    system("open https://www.litengine.org");
+                #endif
+
+                menuButtonClicked = false;
+            }
+
+            if (ImGui::MenuItem("Manual", "F2"))
+            {
+                #ifdef __linux__
+                    system("xdg-open https://www.litengine.org/manual");
+                #elif _WIN32
+                    system("start https://www.litengine.org");
+                #elif __APPLE__
+                    system("open https://www.litengine.org");
+                #endif
+
+                menuButtonClicked = false;
             }
 
             if (ImGui::MenuItem("Exit", "Alt + F4"))
@@ -203,8 +224,6 @@ void MenuBar()
                 menuButtonClicked = false;
                 exitWindowRequested = true;
             }
-
-            // Add more menu items as needed
 
             ImGui::EndPopup();
         }
