@@ -225,6 +225,10 @@ void MenuBar()
                 exitWindowRequested = true;
             }
 
+            if (!ImGui::IsItemHovered() && ImGui::IsMouseClicked(ImGuiMouseButton_Left)) {
+                menuButtonClicked = false;
+            }
+            
             ImGui::EndPopup();
         }
 
