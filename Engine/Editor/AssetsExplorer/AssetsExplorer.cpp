@@ -176,10 +176,17 @@ void AssetsExplorer() {
         ImGui::ImageButton((ImTextureID)&folder_texture, ImVec2(thumbnailSize, thumbnailSize));
         ImGui::PopStyleColor(); 
 
+        float textWidth = ImGui::CalcTextSize(folders_texture_struct[i].name.c_str()).x;
+        float buttonWidth = thumbnailSize;
+        float offset = (buttonWidth - textWidth) * 0.5f;
+
+        float centerPosX = (ImGui::GetCursorPosX() + offset);
+
         if (ImGui::IsItemHovered() && ImGui::IsMouseDoubleClicked(ImGuiMouseButton_Left))
         {
             dir_path += "/" + folders_texture_struct[i].name;
         }
+        ImGui::SetCursorPosX(centerPosX);
         ImGui::Text(folders_texture_struct[i].name.c_str());
 
         ImGui::PopID();
@@ -202,7 +209,13 @@ void AssetsExplorer() {
 
         ImGui::PushStyleColor(ImGuiCol_Button, ImVec4(0, 0, 0, 0)); 
         ImGui::ImageButton((ImTextureID)&files_texture_struct[i].texture, ImVec2(thumbnailSize, thumbnailSize));
-        ImGui::PopStyleColor(); 
+        ImGui::PopStyleColor();
+    
+        float textWidth = ImGui::CalcTextSize(files_texture_struct[i].name.c_str()).x;
+        float buttonWidth = thumbnailSize;
+        float offset = (buttonWidth - textWidth) * 0.5f;
+
+        float centerPosX = (ImGui::GetCursorPosX() + offset);
         
         bool isButtonHovered = ImGui::IsItemHovered(); // Check if the button is hovered
 
@@ -283,8 +296,10 @@ void AssetsExplorer() {
             }
         }
         else
+        {
+            ImGui::SetCursorPosX(centerPosX);
             ImGui::Text(files_texture_struct[i].name.c_str());
-
+        }
 
         ImGui::PopID();
         ImGui::NextColumn();
