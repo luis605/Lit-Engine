@@ -96,7 +96,7 @@ void WorldInspector()
                 skyboxColor.z,
                 skyboxColor.w
             );
-            ImGui::Text("Skybox Color");
+            ImGui::Text("Skybox Color:");
             ImGui::SameLine(inputWidth + 40);
             if (ImGui::ColorButton("##SkyboxLightColorButton", light_colorImGui))
             {
