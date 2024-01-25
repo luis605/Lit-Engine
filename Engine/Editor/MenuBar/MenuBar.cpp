@@ -131,7 +131,30 @@ void DrawMenus()
 
         ImGui::EndMenu();
     }
+}
 
+void openAboutPage() {
+    menuButtonClicked = false;
+
+    #ifdef __linux__
+        system("xdg-open https://www.litengine.org");
+    #elif _WIN32
+        system("start https://www.litengine.org");
+    #elif __APPLE__
+        system("open https://www.litengine.org");
+    #endif
+}
+
+void openManualPage() {
+    menuButtonClicked = false;
+
+    #ifdef __linux__
+        system("xdg-open https://www.litengine.org/manual");
+    #elif _WIN32
+        system("start https://www.litengine.org/manual");
+    #elif __APPLE__
+        system("open https://www.litengine.org/manual");
+    #endif
 }
 
 void MenuBar()
@@ -195,28 +218,12 @@ void MenuBar()
         {
             if (ImGui::MenuItem("About", "F1"))
             {
-                #ifdef __linux__
-                    system("xdg-open https://www.litengine.org");
-                #elif _WIN32
-                    system("start https://www.litengine.org");
-                #elif __APPLE__
-                    system("open https://www.litengine.org");
-                #endif
-
-                menuButtonClicked = false;
+                openAboutPage();
             }
 
             if (ImGui::MenuItem("Manual", "F2"))
             {
-                #ifdef __linux__
-                    system("xdg-open https://www.litengine.org/manual");
-                #elif _WIN32
-                    system("start https://www.litengine.org");
-                #elif __APPLE__
-                    system("open https://www.litengine.org");
-                #endif
-
-                menuButtonClicked = false;
+                openManualPage();
             }
 
             if (ImGui::MenuItem("Exit", "Alt + F4"))
@@ -300,6 +307,8 @@ void MenuBar()
 
     if (appearance_window_enabled) Appearance();
     CreateNewTheme();
+
+
 
     if (exitWindowRequested)
         ExitWindowRequested();

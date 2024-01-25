@@ -6,7 +6,7 @@
         "r": 1.0
     },
     "diffuse_intensity": 1.0,
-    "roughness": 0.6880000233650208,
-    "shininess": 0.781000018119812,
-    "specular_intensity": 0.7260000109672546
+    "roughness": 0.5,
+    "shininess": 0.5,
+    "specular_intensity": 0.5
 }
