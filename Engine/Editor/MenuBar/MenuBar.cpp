@@ -308,7 +308,15 @@ void MenuBar()
     if (appearance_window_enabled) Appearance();
     CreateNewTheme();
 
+    if (IsKeyPressed(KEY_F1))
+    {
+        openAboutPage();
+    }
 
+    if (IsKeyPressed(KEY_F2))
+    {
+        openManualPage();
+    }
 
     if (exitWindowRequested)
         ExitWindowRequested();
