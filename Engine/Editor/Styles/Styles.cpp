@@ -297,6 +297,8 @@ void SetStyleGray(ImGuiStyle* dst)
     colors[ImGuiCol_MenuBarBg]          = ImVec4{ 0.15f, 0.1505f, 0.151f, 1.0f };
     colors[ImGuiCol_ScrollbarBg]        = ImVec4{ 0.15f, 0.1505f, 0.151f, 1.0f };
     colors[ImGuiCol_ScrollbarGrab]      = ImVec4{ 0.310f, 0.310f, 0.310f, 1.0f };
+    colors[ImGuiCol_SliderGrab]         = ImVec4(0.55f, 0.55f, 0.55f, 1.0f);
+    colors[ImGuiCol_SliderGrabActive]   = ImVec4(0.7f, 0.7f, 0.7f, 1.0f);
 
     // Title
     colors[ImGuiCol_TitleBg]            = ImVec4{ 0.125f, 0.125f, 0.125f, 1.0f };
