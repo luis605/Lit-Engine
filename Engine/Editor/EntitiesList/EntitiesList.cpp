@@ -98,14 +98,13 @@ void DrawCameraTree(int active, int& index) {
     isNodeOpen = ImGui::TreeNodeEx(button_name.c_str(), nodeFlags);
     ImGui::PopStyleColor();
 
-    if (isNodeOpen) {
-        if (ImGui::IsItemClicked()) {
-            active = index;
-            selected_game_object_type = "camera";
-        }
-        index++;
-        ImGui::TreePop();
+
+    if (ImGui::IsItemClicked()) {
+        active = index;
+        selected_game_object_type = "camera";
     }
+    index++;
+    if (isNodeOpen) ImGui::TreePop();
 }
 
 
