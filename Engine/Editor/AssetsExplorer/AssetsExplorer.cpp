@@ -156,12 +156,16 @@ void AssetsExplorer() {
 
     // Collumns
     float panelWidth = ImGui::GetContentRegionAvail().x;
-
+    float columnWidth = cellSize + 40.0f;
     int columnCount = (int)(panelWidth / cellSize);
     if (columnCount < 1)
         columnCount = 1;
 
     ImGui::Columns(columnCount, "##AssetsExplorerListColumns", false);
+
+    for (int i = 0; i < columnCount; ++i) {
+        ImGui::SetColumnWidth(i, columnWidth);
+    }
 
     // Window Size Readjust
     AssetsExplorer_window_size = ImGui::GetWindowSize();
