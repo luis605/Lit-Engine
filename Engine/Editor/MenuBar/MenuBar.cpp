@@ -305,8 +305,6 @@ void MenuBar()
 
     ImGui::GetStyle().FramePadding.y = originalFramePaddingY;
 
-    if (appearance_window_enabled) Appearance();
-    CreateNewTheme();
 
     if (IsKeyPressed(KEY_F1))
     {
@@ -317,6 +315,17 @@ void MenuBar()
     {
         openManualPage();
     }
+
+    if ((IsKeyDown(KEY_LEFT_CONTROL) || IsKeyDown(KEY_RIGHT_CONTROL)) &&
+        (IsKeyDown(KEY_LEFT_SHIFT) || IsKeyDown(KEY_RIGHT_SHIFT)) &&
+        IsKeyPressed(KEY_D)
+        )
+    {
+        appearance_window_enabled = true;
+    }
+
+    if (appearance_window_enabled) Appearance();
+    CreateNewTheme();
 
     if (exitWindowRequested)
         ExitWindowRequested();
