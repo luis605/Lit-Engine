@@ -92,6 +92,8 @@ void EditFileManipulation()
             string file_extension = getFileExtension(files_texture_struct[file_index].path.filename().string());
             if (file_extension == ".py")
             {
+                entities_list.assign(entities_list_pregame.begin(), entities_list_pregame.end());
+
                 Entity run_script_entity = Entity();
                 run_script_entity.script = files_texture_struct[file_index].full_path.string();
 

@@ -2,15 +2,15 @@
     {
         "fovy": 60.0,
         "position": {
-            "x": -3.938225269317627,
-            "y": 7.271731853485107,
-            "z": 4.071321487426758
+            "x": -1.0604712963104248,
+            "y": 12.800086975097656,
+            "z": -6.247636795043945
         },
         "projection": 0,
         "target": {
-            "x": 22.035884857177734,
-            "y": -26.993118286132813,
-            "z": -21.449914932250977
+            "x": 7.858179092407227,
+            "y": -17.467363357543945,
+            "z": 32.53813934326172
         },
         "type": "camera",
         "up": {
@@ -45,14 +45,14 @@
         "is_dynamic": false,
         "lodEnabled": true,
         "mass": 1.0,
-        "material_path": "project/game/materials/file1.mat",
-        "mesh_type": 1,
+        "material_path": "",
+        "mesh_type": 4,
         "model_path": "",
-        "name": "Floor",
+        "name": "Unnamed Entity",
         "normal_texture_path": "",
         "position": {
             "x": 0.0,
-            "y": 0.0,
+            "y": 0.5999994277954102,
             "z": 0.0
         },
         "relative_position": {
@@ -68,65 +68,11 @@
         "roughness_texture_path": "",
         "scale": {
             "x": 100.0,
-            "y": 0.10000000149011612,
+            "y": 1.0,
             "z": 100.0
         },
         "script_index": "",
         "script_path": "",
-        "surface_material": {
-            "DiffuseIntensity": 1.0,
-            "Roughness": 1.0,
-            "SpecularIntensity": 1.0,
-            "SpecularTint": {
-                "x": 1.0,
-                "y": 1.0,
-                "z": 1.0
-            },
-            "shininess": 1.0
-        },
-        "texture_path": "",
-        "tiling": [
-            1.0,
-            1.0
-        ],
-        "type": "entity"
-    },
-    {
-        "collider_type": 0,
-        "damping": 0.0,
-        "friction": 0.0,
-        "id": 1,
-        "is_dynamic": true,
-        "lodEnabled": true,
-        "mass": 0.4000000059604645,
-        "material_path": "",
-        "mesh_type": 1,
-        "model_path": "",
-        "name": "Unnamed Entity",
-        "normal_texture_path": "",
-        "position": {
-            "x": 0.0,
-            "y": 3.8000049591064453,
-            "z": -1.2000000476837158
-        },
-        "relative_position": {
-            "x": 0.0,
-            "y": 0.0,
-            "z": 0.0
-        },
-        "rotation": {
-            "x": 0.0,
-            "y": 0.0,
-            "z": 0.0
-        },
-        "roughness_texture_path": "",
-        "scale": {
-            "x": 1.0,
-            "y": 1.0,
-            "z": 1.0
-        },
-        "script_index": "file10",
-        "script_path": "project/game/materials/file1.py",
         "surface_material": {
             "DiffuseIntensity": 0.5,
             "Roughness": 0.5,
@@ -146,24 +92,24 @@
         "type": "entity"
     },
     {
-        "attenuation": 0.0,
+        "attenuation": 9.999999747378752e-05,
         "color": {
             "a": 255.0,
             "b": 255.0,
             "g": 255.0,
             "r": 255.0
         },
-        "cutOff": 10000.0,
+        "cutOff": 10.0,
         "direction": {
             "x": 0.4000000059604645,
             "y": 0.4000000059604645,
             "z": -0.4000000059604645
         },
         "id": 2,
-        "intensity": 5.0,
+        "intensity": 0.5,
         "isChild": false,
         "light_type": 1,
-        "name": "",
+        "name": "Light",
         "position": {
             "x": 4.0,
             "y": 5.0,
@@ -174,7 +120,7 @@
             "y": 0,
             "z": 0
         },
-        "specularStrength": 1.0,
+        "specularStrength": 0.5,
         "target": {
             "x": 0,
             "y": 0,
