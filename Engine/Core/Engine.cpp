@@ -830,7 +830,7 @@ public:
                     entity->setColor(RAYWHITE);
                     entity->setScale(LitVector3{1,1,1});
                     entity->setName("New Entity");
-
+                    entity->initializeDefaultModel();
 
                     // Add the newly created Entity to the vector
                     entities_list_pregame.push_back(*entity);
