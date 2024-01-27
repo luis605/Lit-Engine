@@ -56,10 +56,10 @@ def update():
 	camera.up = Vector3(0, 1, 0)
 
 	distance = raycast(
-						entity.position,
-						Vector3(0,-1,0),
-						ignore = [entity]
-					).distance
+                entity.position,
+                Vector3(0,-1,0),
+                ignore = [entity]
+	).distance
 
 	grounded = distance < entity.scale.y / 2 + 0.01
 
