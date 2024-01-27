@@ -10,6 +10,7 @@ std::string to_hex_string(ImU32 color)
 
 void LoadThemeFromFile(const std::string& filename)
 {
+    SetStyleGray(&ImGui::GetStyle());
     std::ifstream file(filename);
 
     if (!file.is_open()) {
