@@ -108,45 +108,51 @@ void EditFileManipulation()
         ImGui::EndPopup();
     }
 }
+
 void AddFileManipulation()
 {
     if (ImGui::IsWindowHovered() && showAddFilePopup)
         ImGui::OpenPopup("popup");
-
 
     if (ImGui::BeginPopup("popup"))
     {
         if (!ImGui::IsItemHovered() && !ImGui::IsItemHovered() && IsMouseButtonPressed(MOUSE_LEFT_BUTTON))
             showAddFilePopup = false;
 
-        ImGui::Text("Add File");
-
+        ImGui::Text("Add");
         ImGui::Separator();
 
-        if (ImGui::Button("Python"))
+        if (ImGui::BeginMenu("File"))
         {
-            createNumberedFile(dir_path, "py");
-            showAddFilePopup = false;
+            if (ImGui::MenuItem("Python"))
+            {
+                createNumberedFile(dir_path, "py");
+                showAddFilePopup = false;
+            }
+
+            if (ImGui::MenuItem("Material"))
+            {
+                createNumberedFile(dir_path, "mat");
+                showAddFilePopup = false;
+            }
+
+            ImGui::EndMenu();
         }
 
-        if (ImGui::Button("Material"))
+        if (ImGui::BeginMenu("Folder"))
         {
-            createNumberedFile(dir_path, "mat");
-            showAddFilePopup = false;
-        }
+            if (ImGui::MenuItem("Folder"))
+            {
+                createNumberedFolder(dir_path);
+                showAddFilePopup = false;
+            }
 
-        ImGui::Text("Add Folder");
-
-        ImGui::Separator();
-
-        if (ImGui::Button("Folder"))
-        {
-            createNumberedFolder(dir_path);
-            showAddFilePopup = false;
+            ImGui::EndMenu();
         }
 
         ImGui::EndPopup();
     }
 }
+
 
 #endif // FILE_MANIPULATION_H
