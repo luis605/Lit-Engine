@@ -824,13 +824,14 @@ public:
         if (!Entity_already_registered) {
             Entity_already_registered = true;
             py::class_<Entity>(entity_module, "Entity")
-                .def(py::init<>([]() {
-                    // Create an Entity instance
+                .def(py::init<>([](const LitVector3& position = LitVector3{0, 0, 0}) {
+                    // Create an Entity instance with the specified position
                     Entity* entity = new Entity();
                     entity->setColor(RAYWHITE);
-                    entity->setScale(LitVector3{1,1,1});
+                    entity->setScale(LitVector3{1, 1, 1});
                     entity->setName("New Entity");
                     entity->initializeDefaultModel();
+                    entity->setPos(position);  // Set the position
 
                     // Add the newly created Entity to the vector
                     entities_list_pregame.push_back(*entity);

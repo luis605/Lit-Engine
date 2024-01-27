@@ -101,7 +101,6 @@ void EditFileManipulation()
                 run_script_entity.setupScript(scene_camera_reference);
                 run_script_entity.runScript(scene_camera_reference);
 
-
                 showEditFilePopup = false;
                 showAddFilePopup = false;
             }
