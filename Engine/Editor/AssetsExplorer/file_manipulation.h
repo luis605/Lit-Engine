@@ -151,7 +151,7 @@ void AddFileManipulation()
 
             ImGui::EndMenu();
         }
-«
+
         ImGui::EndPopup();
     }
 

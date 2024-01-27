@@ -11,30 +11,45 @@ std::string to_hex_string(ImU32 color)
 void LoadThemeFromFile(const std::string& filename)
 {
     std::ifstream file(filename);
-    std::string json_string((std::istreambuf_iterator<char>(file)), std::istreambuf_iterator<char>());
 
-    json data = json::parse(json_string);
+    if (!file.is_open()) {
+        std::cerr << "Error opening file: " << filename << std::endl;
+        return;
+    }
 
-    ImGuiStyle* style = &ImGui::GetStyle();
-    ImVec4* colors = style->Colors;
+    try {
+        std::string json_string((std::istreambuf_iterator<char>(file)), std::istreambuf_iterator<char>());
+        file.close();
 
-    for (const auto& option : data["options"])
-    {
-        std::string name = option["index"];
+        json data = json::parse(json_string);
 
-        int themes_colors_string_size = sizeof(themes_colors_string) / sizeof(themes_colors_string[0]);
-        int option_index = -1;
+        ImGuiStyle* style = &ImGui::GetStyle();
+        ImVec4* colors = style->Colors;
 
-        for (int index = 0; index < themes_colors_string_size; index++) {
-            if (strcmp(themes_colors_string[index], name.c_str()) == 0) {
-                option_index = index;
-                break;
+        for (const auto& option : data["options"])
+        {
+            std::string name = option["index"];
+
+            int themes_colors_string_size = sizeof(themes_colors_string) / sizeof(themes_colors_string[0]);
+            int option_index = -1;
+
+            for (int index = 0; index < themes_colors_string_size; index++) {
+                if (strcmp(themes_colors_string[index], name.c_str()) == 0) {
+                    option_index = index;
+                    break;
+                }
+            }
+
+            if (option_index != -1) {
+                std::string color_hex = option["color"];
+                ImU32 color = std::stoul(color_hex, nullptr, 16);
+                colors[themes_colors[option_index]] = ImGui::ColorConvertU32ToFloat4(color);
+            } else {
+                std::cerr << "Invalid option index: " << name << std::endl;
             }
         }
-        
-        std::string color_hex = option["color"];
-        ImU32 color = std::stoul(color_hex, nullptr, 16);
-        colors[themes_colors[option_index]] = ImGui::ColorConvertU32ToFloat4(color);
+    } catch (const std::exception& e) {
+        std::cerr << "Error parsing JSON: " << e.what() << std::endl;
     }
 }
 
