@@ -163,7 +163,7 @@ public:
     bool running_first_time = false;
     bool calc_physics = false;
     bool isDynamic = false;
-    bool lodEnabled                                = true;
+    bool lodEnabled = false;
 
     typedef enum ObjectTypeEnum
     {
