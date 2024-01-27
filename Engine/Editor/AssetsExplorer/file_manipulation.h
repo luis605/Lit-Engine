@@ -114,7 +114,9 @@ void AddFileManipulation()
     if (ImGui::IsWindowHovered() && showAddFilePopup)
         ImGui::OpenPopup("popup");
 
-    if (ImGui::BeginPopup("popup"))
+    ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(8, 8));
+
+    if (ImGui::BeginPopup("popup", ImGuiWindowFlags_NoTitleBar))
     {
         if (!ImGui::IsItemHovered() && !ImGui::IsItemHovered() && IsMouseButtonPressed(MOUSE_LEFT_BUTTON))
             showAddFilePopup = false;
@@ -149,9 +151,11 @@ void AddFileManipulation()
 
             ImGui::EndMenu();
         }
-
+«
         ImGui::EndPopup();
     }
+
+    ImGui::PopStyleVar(); // Restore window padding
 }
 
 
