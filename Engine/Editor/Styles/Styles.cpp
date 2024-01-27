@@ -8,9 +8,6 @@ std::string to_hex_string(ImU32 color)
     return stream.str();
 }
 
-
-using json = nlohmann::json;
-
 void LoadThemeFromFile(const std::string& filename)
 {
     std::ifstream file(filename);
