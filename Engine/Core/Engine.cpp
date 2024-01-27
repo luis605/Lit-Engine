@@ -824,20 +824,38 @@ public:
         if (!Entity_already_registered) {
             Entity_already_registered = true;
             py::class_<Entity>(entity_module, "Entity")
-                .def(py::init<>([](const LitVector3& position = LitVector3{0, 0, 0}) {
-                    // Create an Entity instance with the specified position
+                .def(py::init([](py::args args, py::kwargs kwargs) {
+                    LitVector3 position{0, 0, 0};
+                    std::string modelPath = "";
+
+                    if (args.size() > 0) {
+                        // Position argument is provided
+                        position = py::cast<LitVector3>(args[0]);
+                    }
+
+                    if (kwargs.contains("modelPath")) {
+                        modelPath = py::cast<std::string>(kwargs["modelPath"]);
+                    }
+
                     Entity* entity = new Entity();
                     entity->setColor(RAYWHITE);
                     entity->setScale(LitVector3{1, 1, 1});
                     entity->setName("New Entity");
-                    entity->initializeDefaultModel();
-                    entity->setPos(position);  // Set the position
 
-                    // Add the newly created Entity to the vector
+                    if (!modelPath.empty()) {
+                        entity->setModel(modelPath.c_str());
+                    } else {
+                        entity->initializeDefaultModel();
+                    }
+
+                    entity->setPos(position);
                     entities_list_pregame.push_back(*entity);
 
-                    return entities_list_pregame.back(); // Return the Entity instance
+                    return entities_list_pregame.back();
                 }))
+
+
+
 
                 .def_property("name", &Entity::getName, &Entity::setName)
                 .def_property("position",
