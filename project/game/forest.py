@@ -11,7 +11,9 @@ for i in range(100):
     ray = raycast(origin, direction)
     
     if (ray.hit):
-        newEntity = Entity(ray.worldPoint, modelPath = "project/game/tree.obj")
+        newEntity = Entity(ray.worldPoint, modelPath = "project/game/tree.obj", collider = False)
+
+
 
 
 

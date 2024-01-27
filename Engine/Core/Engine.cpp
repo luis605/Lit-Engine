@@ -205,7 +205,7 @@ public:
 private:
     btCollisionShape* staticBoxShape               = nullptr;
     btCollisionShape* dynamicBoxShape              = nullptr;
-    btConcaveShape* customMeshShape             = nullptr;
+    btConvexHullShape* customMeshShape             = nullptr;
     btDefaultMotionState* boxMotionState           = nullptr;
     btConvexHullShape* triangleMesh                = nullptr;
     std::shared_ptr<btRigidBody*>(boxRigidBody)    = make_shared<btRigidBody*>(nullptr);
@@ -842,6 +842,10 @@ public:
                     entity->setScale(LitVector3{1, 1, 1});
                     entity->setName("New Entity");
 
+                    if (kwargs.contains("collider")) {
+                        entity->collider = py::cast<bool>(kwargs["collider"]);
+                    }
+
                     if (!modelPath.empty()) {
                         entity->setModel(modelPath.c_str());
                     } else {
@@ -1183,7 +1187,53 @@ public:
         currentCollisionShapeType = std::make_shared<CollisionShapeType>(CollisionShapeType::Box);
     }
 
-void createStaticMesh(bool generateShape = true) {
+
+    void createStaticMesh(bool generateShape = true) {
+        isDynamic = false;
+
+        currentCollisionShapeType = std::make_shared<CollisionShapeType>(CollisionShapeType::HighPolyMesh);
+
+        if (highPolyDynamicRigidBody != nullptr && *highPolyDynamicRigidBody.get() != nullptr) {
+            dynamicsWorld->removeRigidBody(*highPolyDynamicRigidBody);
+        }
+        if (boxRigidBody && *boxRigidBody.get() != nullptr) {
+            dynamicsWorld->removeRigidBody(*boxRigidBody);
+        }
+
+        if (generateShape || !customMeshShape) {
+            customMeshShape = new btConvexHullShape();
+
+            for (int m = 0; m < model.meshCount; m++) {
+                Mesh mesh = model.meshes[m];
+                float* meshVertices = reinterpret_cast<float*>(mesh.vertices);
+
+                for (int v = 0; v < mesh.vertexCount; v += 3) {
+                    // Apply scaling to the vertex coordinates
+                    btVector3 scaledVertex(meshVertices[v] * scale.x, meshVertices[v + 1] * scale.y, meshVertices[v + 2] * scale.z);
+                    customMeshShape->addPoint(scaledVertex);
+                }
+            }
+        }
+
+        // Set up the dynamics of your tree object
+        btTransform treeTransform;
+        treeTransform.setIdentity();
+        treeTransform.setOrigin(btVector3(position.x, position.y, position.z));
+
+        btDefaultMotionState* groundMotionState = new btDefaultMotionState(treeTransform);
+
+        btScalar treeMass = 0.0f;
+        btVector3 treeInertia(0, 0, 0);
+        customMeshShape->calculateLocalInertia(treeMass, treeInertia);
+        btDefaultMotionState* treeMotionState = new btDefaultMotionState(treeTransform);
+        btRigidBody::btRigidBodyConstructionInfo highPolyDynamicRigidBodyCI(treeMass, treeMotionState, customMeshShape, treeInertia);
+        btRigidBody* highPolyDynamicRigidBodyPtr = new btRigidBody(highPolyDynamicRigidBodyCI);
+        highPolyDynamicRigidBody = std::make_shared<btRigidBody*>(highPolyDynamicRigidBodyPtr);
+
+        dynamicsWorld->addRigidBody(*highPolyDynamicRigidBody);
+    }
+
+// void createStaticMesh(bool generateShape = true) {
     // if (isDynamic) {
     //     isDynamic = false;
     // }
@@ -1222,7 +1272,7 @@ void createStaticMesh(bool generateShape = true) {
     // highPolyDynamicRigidBody = std::make_shared<btRigidBody*>(highPolyDynamicRigidBodyPtr);
 
     // dynamicsWorld->addRigidBody(*highPolyDynamicRigidBody);
-}
+// }
 
 // btConcaveShape* createConcaveShapeFromModel() {
 //     btConcaveShape* triangleMesh = new btConcaveShape();
