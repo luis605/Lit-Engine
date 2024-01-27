@@ -1,5 +1,5 @@
 #include "../../include_all.h"
-
+#include "Styles.h"
 
 std::string to_hex_string(ImU32 color)
 {
@@ -53,19 +53,10 @@ void LoadThemeFromFile(const std::string& filename)
     }
 }
 
-
-enum FileExplorerType
-{
-    Save,
-    Load,
-    SaveLoad
-};
-
 string showFileExplorer(const char* folderPath, nlohmann::json_abi_v3_11_2::json fileContent, FileExplorerType type = FileExplorerType::Save)
 {
     if (show_save_theme_window || show_load_theme_window)
     {
-        // Show file explorer window
         show_file_explorer = true;
         
         ImGui::Begin("File Explorer", &show_file_explorer, ImGuiConfigFlags_ViewportsEnable);
@@ -120,11 +111,6 @@ string showFileExplorer(const char* folderPath, nlohmann::json_abi_v3_11_2::json
     return "";
 }
 
-
-ImGuiCol_ theme_create_selected_option = ImGuiCol_Text;
-
-vector<int> new_theme_saved_options;
-vector<ImVec4> new_theme_saved_options_color;
 void CreateNewTheme()
 {
     if (!createNewThemeWindow_open) return;
