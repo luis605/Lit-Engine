@@ -207,6 +207,7 @@ void AssetsExplorer() {
             showAddFilePopup = true;
         }
     }
+
     for (int i = 0; i < numFileButtons; i++)
     {
         ImGui::PushID(i);
@@ -262,10 +263,6 @@ void AssetsExplorer() {
             showAddFilePopup = true;
         }
 
-        AddFileManipulation();
-        EditFileManipulation();
-
-
         if (file_extension == ".mat" && ImGui::IsItemHovered() && ImGui::IsMouseDoubleClicked(ImGuiMouseButton_Left))
         {
             selected_game_object_type = "material";
@@ -308,6 +305,9 @@ void AssetsExplorer() {
         ImGui::PopID();
         ImGui::NextColumn();
     }
+
+    AddFileManipulation();
+    EditFileManipulation();
 
     ImGui::PopStyleVar(3);
     ImGui::EndChild();
