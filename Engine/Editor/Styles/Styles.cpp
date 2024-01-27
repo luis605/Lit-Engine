@@ -13,17 +13,13 @@ using json = nlohmann::json;
 
 void LoadThemeFromFile(const std::string& filename)
 {
-    // Step 1: Read the contents of the JSON file into a string
     std::ifstream file(filename);
     std::string json_string((std::istreambuf_iterator<char>(file)), std::istreambuf_iterator<char>());
 
-    // Step 2: Parse the JSON string into a JSON object
     json data = json::parse(json_string);
 
-    // Step 3: Extract the style information from the JSON object and apply it to the ImGui style
     ImGuiStyle* style = &ImGui::GetStyle();
     ImVec4* colors = style->Colors;
-
 
     for (const auto& option : data["options"])
     {
