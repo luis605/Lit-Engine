@@ -149,8 +149,6 @@ void EngineMainLoop()
         ImGui::End();
         ImGui::PopStyleVar();
 
-        AddEntity();
-
         ImGui::PopFont();
 
         rlImGuiEnd();
