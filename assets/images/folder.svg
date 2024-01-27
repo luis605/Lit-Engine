@@ -26,9 +26,9 @@
      inkscape:pagecheckerboard="1"
      inkscape:document-units="mm"
      showgrid="false"
-     inkscape:zoom="0.72693602"
-     inkscape:cx="596.33859"
-     inkscape:cy="35.07874"
+     inkscape:zoom="0.51402139"
+     inkscape:cx="166.33549"
+     inkscape:cy="72.954163"
      inkscape:window-width="1920"
      inkscape:window-height="1008"
      inkscape:window-x="0"
@@ -53,7 +53,7 @@
      inkscape:label="Camada 3">
     <g
        id="g1"
-       transform="matrix(0.4823196,0,0,0.4823196,-1.3003922,-3.1972247)">
+       transform="matrix(0.53601784,0,0,0.53601784,-8.1798491,-6.3352209)">
       <rect
          style="fill:#999999;stroke:#342c3b;stroke-width:0;stroke-linecap:round;stroke-linejoin:round;stroke-miterlimit:46.6;stroke-dasharray:none"
          id="rect43"
@@ -63,7 +63,7 @@
          y="41.962269"
          ry="13.936137" />
       <rect
-         style="fill:#999999;stroke:#342c3b;stroke-width:0;stroke-linecap:round;stroke-linejoin:round;stroke-miterlimit:46.6;stroke-dasharray:none;fill-opacity:1"
+         style="fill:#999999;fill-opacity:1;stroke:#342c3b;stroke-width:0;stroke-linecap:round;stroke-linejoin:round;stroke-miterlimit:46.6;stroke-dasharray:none"
          id="rect43-3"
          width="80.264488"
          height="131.79442"
@@ -71,7 +71,7 @@
          y="41.962269"
          ry="4.7317109" />
       <rect
-         style="fill:#999999;stroke:#342c3b;stroke-width:0;stroke-linecap:round;stroke-linejoin:round;stroke-miterlimit:46.6;stroke-dasharray:none;fill-opacity:1"
+         style="fill:#999999;fill-opacity:1;stroke:#342c3b;stroke-width:0;stroke-linecap:round;stroke-linejoin:round;stroke-miterlimit:46.6;stroke-dasharray:none"
          id="rect43-3-5"
          width="80.264488"
          height="115.62913"
