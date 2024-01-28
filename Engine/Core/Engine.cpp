@@ -1617,7 +1617,6 @@ bool operator==(const Entity& e, const Entity* ptr) {
         }
     }
 #endif
-
 HitInfo raycast(LitVector3 origin, LitVector3 direction, bool debug, std::vector<Entity> ignore)
 {
     HitInfo _hitInfo;
@@ -1630,12 +1629,16 @@ HitInfo raycast(LitVector3 origin, LitVector3 direction, bool debug, std::vector
     if (debug)
         DrawRay(ray, RED);
 
+    if (entities_list.empty())
+        return _hitInfo;
+
     float minDistance = 1000000000000000000000000000000000.0f;
 
-    for (int index = 0; index < entities_list.size(); index++)
-    {
-        Entity& entity = entities_list[index];
+    // Combine scaling, rotation, and translation matrices outside the loop
+    Matrix matScale, matRotation, matTranslation, modelMatrix;
 
+    for (const auto& entity : entities_list)
+    {
         if (std::find(ignore.begin(), ignore.end(), entity) != ignore.end())
             continue;
 
@@ -1644,19 +1647,23 @@ HitInfo raycast(LitVector3 origin, LitVector3 direction, bool debug, std::vector
 
         float extreme_rotation = GetExtremeValue(entity.rotation);
 
-        Matrix matScale = MatrixScale(entity.scale.x, entity.scale.y, entity.scale.z);
-        Matrix matRotation = MatrixRotate(entity.rotation, extreme_rotation * DEG2RAD);
-        Matrix matTranslation = MatrixTranslate(entity.position.x, entity.position.y, entity.position.z);
+        matScale = MatrixScale(entity.scale.x, entity.scale.y, entity.scale.z);
+        matRotation = MatrixRotate(entity.rotation, extreme_rotation * DEG2RAD);
+        matTranslation = MatrixTranslate(entity.position.x, entity.position.y, entity.position.z);
 
-        Matrix modelMatrix = MatrixMultiply(MatrixMultiply(matScale, matRotation), matTranslation);
-        RayCollision meshHitInfo = { 0 };
+        modelMatrix = MatrixMultiply(MatrixMultiply(matScale, matRotation), matTranslation);
+
+        // Calculate bounding box outside the inner loop
+        RayCollision entityBounds = GetRayCollisionBox(ray, entity.bounds);
 
         for (int mesh_i = 0; mesh_i < entity.model.meshCount; mesh_i++)
         {
-            if (!GetRayCollisionBox(ray, entity.bounds).hit) break;
+            if (!entityBounds.hit)
+                break;
 
-            meshHitInfo = GetRayCollisionMesh(ray, entity.model.meshes[mesh_i], modelMatrix);
-            if (meshHitInfo.hit)
+            RayCollision meshHitInfo = GetRayCollisionMesh(ray, entity.model.meshes[mesh_i], modelMatrix);
+            
+            if (meshHitInfo.hit && meshHitInfo.distance < minDistance)
             {
                 _hitInfo.hit = true;
                 _hitInfo.distance = meshHitInfo.distance;
