@@ -843,7 +843,6 @@ public:
                     entity->setName("New Entity");
 
                     if (kwargs.contains("collider")) {
-                        std::cout << "hiu" << std::endl;
                         entity->collider = py::cast<bool>(kwargs["collider"]);
                     }
 
