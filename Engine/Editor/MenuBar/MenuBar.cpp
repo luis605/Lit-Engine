@@ -34,6 +34,7 @@ void Appearance()
 
 void DebugWindow()
 {
+    if (!debug_window_enabled) return;
     ImGui::Begin("Debug", &debug_window_enabled);
 
     if (ImGui::CollapsingHeader("Performance"))
@@ -147,8 +148,11 @@ void DrawMenus()
     {
         if (ImGui::MenuItem("Debug"))
         {
-            debug_window_enabled = true;
+            debug_window_enabled = !debug_window_enabled;
         }
+
+        ImGui::EndMenu();
+
     }
 
     if (ImGui::BeginMenu("Preferences"))
