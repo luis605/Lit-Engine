@@ -843,6 +843,7 @@ public:
                     entity->setName("New Entity");
 
                     if (kwargs.contains("collider")) {
+                        std::cout << "hiu" << std::endl;
                         entity->collider = py::cast<bool>(kwargs["collider"]);
                     }
 
@@ -1367,11 +1368,7 @@ public:
         update_children();
 
         if (calc_physics) {
-            if ((*currentCollisionShapeType == CollisionShapeType::None || !isDynamic) &&
-                (*currentCollisionShapeType == CollisionShapeType::Box ||
-                *currentCollisionShapeType == CollisionShapeType::HighPolyMesh)) {
-                makePhysicsStatic();
-            } else if (*currentCollisionShapeType != CollisionShapeType::None && isDynamic) {
+            if (*currentCollisionShapeType != CollisionShapeType::None && isDynamic) {
                 calcPhysicsPosition();
             }
         } else {

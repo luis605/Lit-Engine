@@ -247,6 +247,7 @@ void SaveEntity(json& json_data, const Entity& entity) {
         j["mesh_type"]           = entity.ObjectType;
 
     j["collider_type"]           = *entity.currentCollisionShapeType;
+    j["collider"]                = entity.collider;
 
     j["script_path"]             = entity.script;
     j["script_index"]            = entity.script_index;
@@ -675,6 +676,8 @@ void LoadEntity(const json& entity_json, Entity& entity) {
     if (entity_json.contains("collider_type"))
         entity.currentCollisionShapeType = make_shared<Entity::CollisionShapeType>(entity_json["collider_type"].get<Entity::CollisionShapeType>());
 
+    if (entity_json.contains("collider"))
+        entity.collider = entity_json["collider"].get<bool>();
     if (entity_json.contains("script_path"))
         entity.script = entity_json["script_path"].get<std::string>();
     if (entity_json.contains("script_index"))
