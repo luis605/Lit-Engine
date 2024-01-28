@@ -97,6 +97,14 @@ void DrawMenus()
         ImGui::EndMenu();
     }
 
+    if (ImGui::BeginMenu("View"))
+    {
+        if (ImGui::MenuItem("Debug"))
+        {
+            debug_window_enabled = true;
+        }
+    }
+
     if (ImGui::BeginMenu("Preferences"))
     {
         if (ImGui::MenuItem("Appearance", "Ctrl+Shift+D"))
