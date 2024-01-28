@@ -2,15 +2,15 @@
     {
         "fovy": 60.0,
         "position": {
-            "x": 73.28978729248047,
-            "y": 29.68768882751465,
-            "z": -55.8128547668457
+            "x": 17.874162673950195,
+            "y": 22.312997817993164,
+            "z": -5.178015232086182
         },
         "projection": 0,
         "target": {
-            "x": 52.947731018066406,
-            "y": 16.351078033447266,
-            "z": -12.128307342529297
+            "x": 8.762755393981934,
+            "y": 23.762340545654297,
+            "z": -0.8327560424804688
         },
         "type": "camera",
         "up": {
@@ -39,7 +39,7 @@
     },
     {
         "collider": true,
-        "collider_type": 4,
+        "collider_type": 1,
         "damping": 0.0,
         "friction": 1.0,
         "id": 0,
@@ -21692,6 +21692,61 @@
         "type": "entity"
     },
     {
+        "collider": true,
+        "collider_type": 0,
+        "damping": 0.0,
+        "friction": 1.0,
+        "id": 1,
+        "is_dynamic": true,
+        "lodEnabled": false,
+        "mass": 1.0,
+        "material_path": "",
+        "mesh_type": 1,
+        "model_path": "",
+        "name": "Unnamed Entity",
+        "normal_texture_path": "",
+        "position": {
+            "x": 0.0,
+            "y": 18.199996948242188,
+            "z": 0.0
+        },
+        "relative_position": {
+            "x": 0.0,
+            "y": 0.0,
+            "z": 0.0
+        },
+        "rotation": {
+            "x": 0.0,
+            "y": 0.0,
+            "z": 0.0
+        },
+        "roughness_texture_path": "",
+        "scale": {
+            "x": 1.0,
+            "y": 1.0,
+            "z": 1.0
+        },
+        "script_index": "player0",
+        "script_path": "project/game/player.py",
+        "surface_material": {
+            "DiffuseIntensity": 0.5,
+            "Roughness": 0.5,
+            "SpecularIntensity": 0.5,
+            "SpecularTint": {
+                "x": 1.0,
+                "y": 1.0,
+                "z": 1.0
+            },
+            "shininess": 0.5
+        },
+        "texture_path": "",
+        "tiling": [
+            1.0,
+            1.0
+        ],
+        "type": "entity"
+    },
+    {
         "attenuation": 9.999999747378752e-05,
         "color": {
             "a": 255.0,
@@ -21709,7 +21764,7 @@
         "intensity": 4.183000087738037,
         "isChild": false,
         "light_type": 0,
-        "name": "Light",
+        "name": "",
         "position": {
             "x": 4.0,
             "y": 5.0,
