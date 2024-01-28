@@ -48,8 +48,6 @@ void DebugWindow()
         ImGui::Separator();
 
         ImGui::Dummy(ImVec2(0.0f, 10.0f));
-        ImGui::Separator();
-        ImGui::Dummy(ImVec2(0.0f, 10.0f));
 
         ImGui::Text("Scene Information");
         ImGui::Text("Number of Entities: %d", entities_list_pregame.size());
@@ -67,6 +65,15 @@ void DebugWindow()
         }
 
         ImGui::Text("Polygon count: %d", polygon_count);
+        ImGui::Unindent(15.0f);
+    }
+
+    if (ImGui::CollapsingHeader("Editor Profiler"))
+    {
+        ImGui::Indent(15.0f);
+
+        ImGui::Text("Scene Editor %.4f ms", sceneEditor_profiler_duration.count());
+
         ImGui::Unindent(15.0f);
     }
 

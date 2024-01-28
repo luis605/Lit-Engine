@@ -47,6 +47,9 @@ int pipe_fds_lights[2];
     float sceneEditorWindowHeight;
     float sceneEditorWindowX;
     float sceneEditorWindowY;
+
+    // Profiler
+    std::chrono::milliseconds sceneEditor_profiler_duration;
 #endif
 
 
