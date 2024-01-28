@@ -1641,8 +1641,6 @@ void updateEntitiesList(std::vector<Entity>& entities_list, const std::vector<En
 
 HitInfo raycast(LitVector3 origin, LitVector3 direction, bool debug, std::vector<Entity> ignore)
 {
-    // std::lock_guard<std::mutex> lock(script_mutex);
-
     HitInfo _hitInfo;
     _hitInfo.hit = false;
 
