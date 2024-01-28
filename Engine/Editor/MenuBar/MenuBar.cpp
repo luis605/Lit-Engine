@@ -1,7 +1,7 @@
 #include "../../include_all.h"
 
 bool appearance_window_enabled = false;
-
+bool debug_window_enabled = false;
 
 void Appearance()
 {
@@ -31,8 +31,6 @@ void Appearance()
 
     ImGui::End();
 }
-
-
 
 bool isDraggingWindow = false;
 Vector2 offset = { 0.0f, 0.0f };
