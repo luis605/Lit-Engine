@@ -32,6 +32,19 @@ void Appearance()
     ImGui::End();
 }
 
+void DebugWindow()
+{
+    ImGui::Begin("Debug", &debug_window_enabled);
+
+    if (ImGui::CollapsingHeader("Performance"))
+    {
+        ImGui::Text("FPS: %.2f", ImGui::GetIO().Framerate);
+        ImGui::Text("Frame Time: %.2f ms", 1000.0f / ImGui::GetIO().Framerate);
+    }
+
+    ImGui::End();
+}
+
 bool isDraggingWindow = false;
 Vector2 offset = { 0.0f, 0.0f };
 bool menuButtonClicked = false;
@@ -335,4 +348,6 @@ void MenuBar()
 
     if (exitWindowRequested)
         ExitWindowRequested();
+
+    DebugWindow();
 }
