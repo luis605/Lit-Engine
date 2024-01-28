@@ -42,8 +42,17 @@ void DebugWindow()
 
         ImGui::Text("FPS: %.2f", ImGui::GetIO().Framerate);
         ImGui::Text("Frame Time: %.2f ms", 1000.0f / ImGui::GetIO().Framerate);
-        
+
         ImGui::Dummy(ImVec2(0.0f, 10.0f));
+
+        ImGui::Separator();
+
+        ImGui::Dummy(ImVec2(0.0f, 10.0f));
+        ImGui::Separator();
+        ImGui::Dummy(ImVec2(0.0f, 10.0f));
+
+        ImGui::Text("Scene Information");
+        ImGui::Text("Number of Entities: %d", entities_list_pregame.size());
 
         int polygon_count = 0;
         for (Entity& entity : entities_list_pregame)
