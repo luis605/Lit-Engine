@@ -38,8 +38,27 @@ void DebugWindow()
 
     if (ImGui::CollapsingHeader("Performance"))
     {
+        ImGui::Indent(15.0f);
+
         ImGui::Text("FPS: %.2f", ImGui::GetIO().Framerate);
         ImGui::Text("Frame Time: %.2f ms", 1000.0f / ImGui::GetIO().Framerate);
+        
+        ImGui::Dummy(ImVec2(0.0f, 10.0f));
+
+        int polygon_count = 0;
+        for (Entity& entity : entities_list_pregame)
+        {
+            if (IsModelReady(entity.model))
+            {
+                for (int mesh_index = 0; mesh_index < entity.model.meshCount; mesh_index++)
+                {
+                    polygon_count += entity.model.meshes[mesh_index].vertexCount;
+                }
+            }
+        }
+
+        ImGui::Text("Polygon count: %d", polygon_count);
+        ImGui::Unindent(15.0f);
     }
 
     ImGui::End();
