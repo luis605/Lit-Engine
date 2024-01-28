@@ -803,6 +803,8 @@ void ProcessCopy()
 int EditorCamera(void)
 {
 
+    std::chrono::high_resolution_clock::time_point sceneEditor_start = std::chrono::high_resolution_clock::now();
+
     if (ImGui::IsWindowHovered() && !dragging && !in_game_preview)
     {
         DropEntity();
@@ -855,6 +857,8 @@ int EditorCamera(void)
 
     ObjectsPopup();
 
-
+    std::chrono::high_resolution_clock::time_point sceneEditor_end = std::chrono::high_resolution_clock::now();
+    sceneEditor_profiler_duration = std::chrono::duration_cast<std::chrono::milliseconds>(sceneEditor_end - sceneEditor_start);
+    
     return 0;
 }

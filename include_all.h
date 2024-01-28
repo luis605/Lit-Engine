@@ -64,6 +64,7 @@
 #include "dependencies/include/glm/gtc/matrix_transform.hpp"
 #include <algorithm>
 #include <cmath>
+#include <chrono>
 
 #include <limits>
 #include <omp.h>
