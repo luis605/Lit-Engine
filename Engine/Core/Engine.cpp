@@ -1676,6 +1676,8 @@ HitInfo raycast(LitVector3 origin, LitVector3 direction, bool debug, std::vector
 
         for (int mesh_i = 0; mesh_i < entity.model.meshCount; mesh_i++)
         {
+            if (!GetRayCollisionBox(ray, entity.bounds).hit) break;
+
             meshHitInfo = GetRayCollisionMesh(ray, entity.model.meshes[mesh_i], modelMatrix);
             if (meshHitInfo.hit)
             {
@@ -1695,7 +1697,6 @@ HitInfo raycast(LitVector3 origin, LitVector3 direction, bool debug, std::vector
             }
         }
     }
-
 
     return _hitInfo;
 }
