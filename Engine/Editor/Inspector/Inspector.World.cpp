@@ -4,34 +4,40 @@ void WorldInspector()
 {
     const float inputWidth = 200.0f;
 
+    ImGui::PushFont(s_Fonts["ImGui Default"]);
+
+    // Header Title
     ImGui::Text("Inspecting World");
 
-    ImGui::Dummy(ImVec2(0.0f, 10.0f));
+    ImGui::Spacing();
 
-    if (ImGui::CollapsingHeader("Post Processing"))
+
+    if (ImGui::CollapsingHeader((std::string(ICON_FA_FILTER) + " Post Processing").c_str(), ImGuiTreeNodeFlags_DefaultOpen))
     {
-        ImGui::Indent(30.0f);
-        if (ImGui::CollapsingHeader("Bloom"))
+        ImGui::Indent(20.0f);
+
+        // Bloom Panel
+        if (ImGui::CollapsingHeader(ICON_FA_SUN " Bloom", ImGuiTreeNodeFlags_DefaultOpen))
         {
-            ImGui::Indent(30.0f);
+            ImGui::Indent(20.0f);
+
+            // Bloom Enabled Checkbox
             ImGui::Text("Enabled:");
             ImGui::SameLine(inputWidth);
             ImGui::SetNextItemWidth(-1);
             ImGui::Checkbox("##BloomToggle", &bloomEnabled);
 
-            ImGui::Text("Brightness:");
+            // Brightness Slider
+            ImGui::Text(ICON_FA_ADJUST " Brightness:");
             ImGui::SameLine(inputWidth);
-            ImGui::SetNextItemWidth(-1);
-            
             if (ImGui::SliderFloat("##BrightnessControl", &bloomBrightness, -2.0f, 2.0f))
             {
                 SetShaderValue(downsamplerShader, GetShaderLocation(downsamplerShader, "bloomBrightness"), &bloomBrightness, SHADER_ATTRIB_FLOAT);
             }
 
-            ImGui::Text("Samples:");
+            // Samples Slider
+            ImGui::Text(ICON_FA_CUBE " Samples:");
             ImGui::SameLine(inputWidth);
-            ImGui::SetNextItemWidth(-1);
-            
             if (ImGui::SliderFloat("##SamplesControl", &bloomSamples, 1.0f, 18.0f, "%1.f"))
             {
                 int shaderLocation = glGetUniformLocation(downsamplerShader.id, "samples");
@@ -41,40 +47,39 @@ void WorldInspector()
                 glUseProgram(0);
             }
 
-            ImGui::Unindent(30.0f);
+            ImGui::Unindent(20.0f);
         }
-        ImGui::Unindent(30.0f);
 
+        ImGui::Unindent(20.0f);
     }
 
-    ImGui::Dummy(ImVec2(0.0f, 5.0f));
+    ImGui::Spacing();
 
-    if (ImGui::CollapsingHeader("Lighting"))
+    // Lighting Panel
+    if (ImGui::CollapsingHeader(ICON_FA_LIGHTBULB " Lighting", ImGuiTreeNodeFlags_DefaultOpen))
     {
-        ImGui::Indent(30.0f);
-        if (ImGui::CollapsingHeader("Ambient Light"))
+        ImGui::Indent(20.0f);
+
+        // Ambient Light Panel
+        if (ImGui::CollapsingHeader(ICON_FA_SUN " Ambient Light", ImGuiTreeNodeFlags_DefaultOpen))
         {
-            ImGui::Indent(30.0f);
+            ImGui::Indent(20.0f);
 
-            ImVec4 light_colorImGui = ImVec4(
-                ambientLight.x,
-                ambientLight.y,
-                ambientLight.z,
-                ambientLight.w
-            );
-
-            ImGui::Text("Ambient Light Color: ");
-            ImGui::SameLine(inputWidth + 40);
-            if (ImGui::ColorButton("##AmbientLightColorButton", light_colorImGui))
+            // Ambient Light Color Picker
+            ImVec4 light_colorImGui = ImVec4(ambientLight.x, ambientLight.y, ambientLight.z, ambientLight.w);
+            if (ImGui::ColorButton(ICON_FA_PALETTE " Ambient Light Color", light_colorImGui))
             {
                 ImGui::OpenPopup("##AmbientLightColorPicker");
             }
 
-            if (ImGui::BeginPopup("##AmbientLightColorPicker"))
+            if (ImGui::BeginPopupContextItem("##AmbientLightColorPicker"))
             {
                 ImGui::ColorPicker4("##AmbientLightColor", (float*)&light_colorImGui);
+                ambientLight = { light_colorImGui.x, light_colorImGui.y, light_colorImGui.z, light_colorImGui.w };
+                SetShaderValue(shader, GetShaderLocation(shader, "ambientLight"), &ambientLight, SHADER_UNIFORM_VEC4);
                 ImGui::EndPopup();
             }
+
 
             ambientLight.x = light_colorImGui.x;
             ambientLight.y = light_colorImGui.y;
@@ -83,42 +88,35 @@ void WorldInspector()
 
             SetShaderValue(shader, GetShaderLocation(shader, "ambientLight"), &ambientLight, SHADER_UNIFORM_VEC4);
 
-            ImGui::Unindent(30.0f);
+            ImGui::Unindent(20.0f);
         }
 
-
-        if (ImGui::CollapsingHeader("Skybox"))
+        // Skybox Panel
+        if (ImGui::CollapsingHeader(ICON_FA_MOUNTAIN_SUN " Skybox", ImGuiTreeNodeFlags_DefaultOpen))
         {
-            ImGui::Indent(30.0f);
-            ImVec4 light_colorImGui = ImVec4(
-                skyboxColor.x,
-                skyboxColor.y,
-                skyboxColor.z,
-                skyboxColor.w
-            );
-            ImGui::Text("Skybox Color:");
-            ImGui::SameLine(inputWidth + 40);
-            if (ImGui::ColorButton("##SkyboxLightColorButton", light_colorImGui))
+            ImGui::Indent(20.0f);
+
+            // Skybox Color Picker
+            ImVec4 light_colorImGui = ImVec4(skyboxColor.x, skyboxColor.y, skyboxColor.z, skyboxColor.w);
+
+            if (ImGui::ColorButton(ICON_FA_PALETTE " Skybox Color", light_colorImGui))
             {
-                ImGui::OpenPopup("##SkyboxLightColorButton");
+                ImGui::OpenPopup("##SkyboxColorPicker");
             }
 
-            if (ImGui::BeginPopup("##SkyboxLightColorButton"))
+            if (ImGui::BeginPopupContextItem("##SkyboxColorPicker"))
             {
-                ImGui::ColorPicker4("##SkyboxLightColor", (float*)&light_colorImGui);
+                ImGui::ColorPicker4("##SkyboxColor", (float*)&light_colorImGui);
+                skyboxColor = { light_colorImGui.x, light_colorImGui.y, light_colorImGui.z, light_colorImGui.w };
+                SetShaderValue(skybox.materials[0].shader, GetShaderLocation(skybox.materials[0].shader, "skyboxColor"), &skyboxColor, SHADER_UNIFORM_VEC4);
                 ImGui::EndPopup();
             }
 
-            skyboxColor.x = light_colorImGui.x;
-            skyboxColor.y = light_colorImGui.y;
-            skyboxColor.z = light_colorImGui.z;
-            skyboxColor.w = light_colorImGui.w;
-
-            SetShaderValue(skybox.materials[0].shader, GetShaderLocation(skybox.materials[0].shader, "skyboxColor"), &skyboxColor, SHADER_UNIFORM_VEC4);
-
-            ImGui::Unindent(30.0f);
+            ImGui::Unindent(20.0f);
         }
 
-        ImGui::Unindent(30.0f);
+        ImGui::Unindent(20.0f);
     }
+
+    ImGui::PopFont();
 }
