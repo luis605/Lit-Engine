@@ -819,9 +819,10 @@ int EditorCamera(void)
 
     if (ImGui::IsWindowFocused())
     {
-        ProcessDeletion();
         ProcessCopy();
     }
+
+    ProcessDeletion();
 
     if (in_game_preview)
     {
