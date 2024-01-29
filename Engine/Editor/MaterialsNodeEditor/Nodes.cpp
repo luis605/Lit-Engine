@@ -131,7 +131,7 @@ int MaterialNode(MyNode* node)
         {
             ImVec4 colorValue = ((MyNode*)(connection.OutputNode))->ColorValue;
             ImGui::ColorButton("Connected Color", colorValue, ImGuiColorEditFlags_NoPicker | ImGuiColorEditFlags_NoTooltip);
-            entity_material.color = { colorValue.x * 255, colorValue.y * 255, colorValue.z * 255, colorValue.w * 255 };
+            entity_material.color = { colorValue.x, colorValue.y, colorValue.z, colorValue.w };
         }
     }
 }
