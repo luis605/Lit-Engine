@@ -30,17 +30,15 @@ Vector4 skyboxColor = (Vector4){1,1,1,1};
 
 void InitSkybox(
     const char* skyboxFileName = "assets/images/skybox/default skybox.hdr",
-    const char* skyboxVS = "Engine/Lighting/shaders/skybox.vs",
-    const char* skyboxFS = "Engine/Lighting/shaders/skybox.fs",
-    const char* cubemapVS = "Engine/Lighting/shaders/cubemap.vs",
-    const char* cubemapFS = "Engine/Lighting/shaders/cubemap.fs"
+    Shader skyboxShader = LoadShaderFromMemory(skyboxVert, skyboxFrag),
+    Shader cubemapShader = LoadShaderFromMemory(cubemapVert, cubemapFrag)
     )
     
 {
     Mesh cube = GenMeshCube(1.0f, 1.0f, 1.0f);
     skybox = LoadModelFromMesh(cube);
 
-    skybox.materials[0].shader = LoadShader(skyboxVS, skyboxFS);
+    skybox.materials[0].shader = skyboxShader;
 
 
     bool useHDR = true;
@@ -54,8 +52,7 @@ void InitSkybox(
     SetShaderValue(skybox.materials[0].shader, GetShaderLocation(skybox.materials[0].shader, "vflipped"), use_hdr, SHADER_UNIFORM_INT);
 
     // Load cubemap shader and setup required shader locations
-    shdrCubemap = LoadShader(cubemapVS,
-                             cubemapFS);
+    shdrCubemap = cubemapShader;
 
     int array0[1] = { 0 };
     SetShaderValue(shdrCubemap, GetShaderLocation(shdrCubemap, "equirectangularMap"), array0, SHADER_UNIFORM_INT);
