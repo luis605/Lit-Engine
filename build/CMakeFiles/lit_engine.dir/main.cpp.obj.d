@@ -1361,10 +1361,11 @@ CMakeFiles/lit_engine.dir/main.cpp.obj: \
   C:/Users/USER/Desktop/_/Lit-Engine/Engine/Editor/UiScripts/UiScripts.cpp \
   C:/Users/USER/Desktop/_/Lit-Engine/./include/nlohmann/../../include_all.h \
   C:/Users/USER/Desktop/_/Lit-Engine/Engine/Editor/Styles/Styles.cpp \
-  C:/Users/USER/Desktop/_/Lit-Engine/Engine/Core/SaveLoad.cpp \
+  C:/Users/USER/Desktop/_/Lit-Engine/Engine/Editor/Styles/Styles.h \
   C:/Users/USER/Desktop/_/Lit-Engine/Engine/Lighting/InitLighting.cpp \
   C:/Users/USER/Desktop/_/Lit-Engine/Engine/Lighting/../../include_all.h \
   C:/Users/USER/Desktop/_/Lit-Engine/Engine/Lighting/skybox.cpp \
+  C:/Users/USER/Desktop/_/Lit-Engine/Engine/Core/SaveLoad.cpp \
   C:/Users/USER/Desktop/_/Lit-Engine/Engine/Editor/CodeEditor/CodeEditor.cpp \
   C:/Users/USER/Desktop/_/Lit-Engine/Engine/Editor/CodeEditor/CodeEditor.h \
   C:/Users/USER/Desktop/_/Lit-Engine/Engine/Editor/SceneEditor/SceneEditor.cpp \

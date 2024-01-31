@@ -226,7 +226,7 @@ Ray my_GetMouseRay(Vector2 mouse, Camera camera, Rectangle rect) {
 
 
 
-bool IsMouseHoveringModel(const Model& model, const Camera& camera, const Vector3& position, const Vector3& rotation, const Vector3& scale, const Entity* entity = nullptr, bool bypassOptimization = false)
+bool IsMouseHoveringModel(const Model& model, const Camera& camera, const Vector3& position, const Vector3& rotation, const Vector3& scale, const Entity* entity, bool bypassOptimization)
 {
     if (model.meshCount <= 0) {
         return false;
