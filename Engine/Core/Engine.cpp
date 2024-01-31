@@ -1637,7 +1637,7 @@ HitInfo raycast(LitVector3 origin, LitVector3 direction, bool debug, std::vector
     // Combine scaling, rotation, and translation matrices outside the loop
     Matrix matScale, matRotation, matTranslation, modelMatrix;
 
-    for (const auto& entity : entities_list)
+    for (auto& entity : entities_list)
     {
         if (std::find(ignore.begin(), ignore.end(), entity) != ignore.end())
             continue;

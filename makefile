@@ -80,7 +80,7 @@ static-build-linux:
 
 
 
-IMGUI_OBJECTS = $(patsubst imgui/%.cpp, imgui/%.obj, $(wildcard imgui/*.cpp))
+IMGUI_OBJECTS = $(patsubst imgui/%.cpp, imgui/%.o, $(wildcard imgui/*.cpp))
 
 
 

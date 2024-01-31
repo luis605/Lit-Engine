@@ -54,7 +54,7 @@ void LoadThemeFromFile(const std::string& filename)
     }
 }
 
-string showFileExplorer(const char* folderPath, nlohmann::json_abi_v3_11_2::json fileContent, FileExplorerType type = FileExplorerType::Save)
+string showFileExplorer(const char* folderPath, nlohmann::json_abi_v3_11_2::json fileContent, FileExplorerType type)
 {
     if (show_save_theme_window || show_load_theme_window)
     {
