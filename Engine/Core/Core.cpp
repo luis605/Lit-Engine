@@ -67,7 +67,7 @@ void InitImGui() {
     float fontSize = 19.0f * io->FontGlobalScale;
 
     ImFont *defaultFont = io->Fonts->Fonts[0];
-    defaultFont->Scale = (15.0f * io->FontGlobalScale) / defaultFont->FontSize;
+    defaultFont->FontSize = fontSize;
     
     s_Fonts["ImGui Default"] = defaultFont;
     s_Fonts["Default"] = io->Fonts->AddFontFromFileTTF((fontPath + "NotoSans-Medium.ttf").c_str(), fontSize);
