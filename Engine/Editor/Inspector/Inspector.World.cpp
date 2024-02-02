@@ -38,7 +38,7 @@ void WorldInspector()
             // Samples Slider
             ImGui::Text(ICON_FA_CUBE " Samples:");
             ImGui::SameLine(inputWidth);
-            if (ImGui::SliderFloat("##SamplesControl", &bloomSamples, 1.0f, 18.0f, "%1.f"))
+            if (ImGui::SliderFloat("##SamplesControl", &bloomSamples, 1.0f, 8.0f, "%1.f"))
             {
                 int shaderLocation = glGetUniformLocation(downsamplerShader.id, "samples");
 
