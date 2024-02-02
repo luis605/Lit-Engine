@@ -12,7 +12,7 @@ float weight = weightConstant * (1.0 + bloomBrightness) * 10;
 float attenuation = 1.0 - 6.0 * weight;
 vec2 texelSize = vec2(1.0) / textureSize(srcTexture, 0);
 
-uniform int samples = 33; // Increased number of samples
+uniform int samples = 3;
 
 float gaussian(float x, float sigma) {
     return exp(-(x * x) / (2.0 * sigma * sigma));
