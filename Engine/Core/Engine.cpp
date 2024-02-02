@@ -744,6 +744,29 @@ public:
     {
         entityOptimized = true;
 
+        for (int models_index = 0; models_index < sizeof(LodModels)/sizeof(LodModels[0]); models_index++)
+        {
+            for (int index = 0; index < LodModels[models_index].meshCount; index++)
+            {
+                free(LodModels[models_index].meshes[index].vertices);
+                free(LodModels[models_index].meshes[index].indices);
+                free(LodModels[models_index].meshes[index].colors);
+                free(LodModels[models_index].meshes[index].normals);
+                free(LodModels[models_index].meshes[index].tangents);
+                free(LodModels[models_index].meshes[index].texcoords);
+                free(LodModels[models_index].meshes[index].boneIds);
+                free(LodModels[models_index].meshes[index].boneWeights);
+                free(LodModels[models_index].meshes[index].animVertices);
+                free(LodModels[models_index].meshes[index].animNormals);
+                free(LodModels[models_index].meshes[index].texcoords2);
+            }
+
+            free(LodModels[models_index].bindPose);
+            free(LodModels[models_index].boneCount);
+            free(LodModels[models_index].bones);
+        }
+
+        
         for (int index = 0; index < model.meshCount; index++)
         {
             free(model.meshes[index].vertices);
