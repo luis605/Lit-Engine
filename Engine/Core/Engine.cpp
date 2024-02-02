@@ -221,6 +221,7 @@ private:
     string script_content;
     py::dict locals;
     py::module script_module;
+    bool entityOptimized = false;
 
 public:
     Entity(LitVector3 scale = { 1, 1, 1 }, LitVector3 rotation = { 0, 0, 0 }, string name = "entity",
@@ -739,6 +740,30 @@ public:
         }
     }
 
+    void OptimizeEntityMemory()
+    {
+        entityOptimized = true;
+
+        for (int index = 0; index < model.meshCount; index++)
+        {
+            free(model.meshes[index].vertices);
+            free(model.meshes[index].indices);
+            free(model.meshes[index].colors);
+            free(model.meshes[index].normals);
+            free(model.meshes[index].tangents);
+            free(model.meshes[index].texcoords);
+            free(model.meshes[index].boneIds);
+            free(model.meshes[index].boneWeights);
+            free(model.meshes[index].animVertices);
+            free(model.meshes[index].animNormals);
+            free(model.meshes[index].texcoords2);
+        }
+
+        free(model.bindPose);
+        free(model.boneCount);
+        free(model.bones);
+    }
+
     void setModel(const char* modelPath = "", Model entity_model = Model(), Shader default_shader = shader)
     {
         model_path = modelPath;
@@ -797,6 +822,8 @@ public:
         ReloadTextures();
         
         setShader(default_shader);
+
+        OptimizeEntityMemory();
     }
 
     bool hasModel()
