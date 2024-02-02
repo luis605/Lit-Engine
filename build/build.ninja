@@ -51,7 +51,7 @@ build cmake_object_order_depends_target_lit_engine: phony || CMakeFiles/lit_engi
 
 build CMakeFiles/lit_engine.dir/main.cpp.o: CXX_COMPILER__lit_engine_Debug /home/lixt/Desktop/projects/Lit$ Engine$ -$ engine/main/main.cpp || cmake_object_order_depends_target_lit_engine
   DEP_FILE = CMakeFiles/lit_engine.dir/main.cpp.o.d
-  FLAGS = -fuse-ld=gold -g
+  FLAGS = -w -fuse-ld=gold -g
   INCLUDES = -I"/home/lixt/Desktop/projects/Lit Engine - engine/main/./include" -I"/home/lixt/Desktop/projects/Lit Engine - engine/main/./include/nlohmann" -I"/home/lixt/Desktop/projects/Lit Engine - engine/main/./imgui" -I"/home/lixt/Desktop/projects/Lit Engine - engine/main/./include/bullet3/src" -I"/home/lixt/Desktop/projects/Lit Engine - engine/main/./ffmpeg" -I"/home/lixt/Desktop/projects/Lit Engine - engine/main/./ImGuiColorTextEdit" -I"/home/lixt/Desktop/projects/Lit Engine - engine/main/C:/Users/USER/AppData/Local/Programs/Python/Python311/Lib/site-packages/pybind11/include" -I/usr/include/python3.10
   OBJECT_DIR = CMakeFiles/lit_engine.dir
   OBJECT_FILE_DIR = CMakeFiles/lit_engine.dir
@@ -64,8 +64,8 @@ build CMakeFiles/lit_engine.dir/main.cpp.o: CXX_COMPILER__lit_engine_Debug /home
 #############################################
 # Link the executable lit_engine
 
-build lit_engine: CXX_EXECUTABLE_LINKER__lit_engine_Debug ../ImGuiColorTextEdit/TextEditor.o ../include/rlImGui.o ../ImNodes/ImNodes.o ../ImNodes/ImNodesEz.o ../imgui/imgui.obj ../imgui/imgui_demo.obj ../imgui/imgui_draw.obj ../imgui/imgui_tables.obj ../imgui/imgui_widgets.obj CMakeFiles/lit_engine.dir/main.cpp.o
-  FLAGS = -fuse-ld=gold -g
+build lit_engine: CXX_EXECUTABLE_LINKER__lit_engine_Debug ../ImGuiColorTextEdit/TextEditor.o ../include/rlImGui.o ../ImNodes/ImNodes.o ../ImNodes/ImNodesEz.o ../imgui/imgui.o ../imgui/imgui_demo.o ../imgui/imgui_draw.o ../imgui/imgui_tables.o ../imgui/imgui_widgets.o CMakeFiles/lit_engine.dir/main.cpp.o
+  FLAGS = -w -fuse-ld=gold -g
   LINK_LIBRARIES = -Wl,-rpath,"/home/lixt/Desktop/projects/Lit Engine - engine/main/include:/home/lixt/Desktop/projects/Lit Engine - engine/main/include/bullet3/lib:/home/lixt/Desktop/projects/Lit Engine - engine/main/include/ffmpeg/lib:/home/lixt/Desktop/projects/Lit Engine - engine/main/include/ffmpeg/bin"  -lavcodec  -lmeshoptimizer  -lraylib -lpython3.11 -fPIC -I/usr/include/python3.11 -I/home/lixt/.local/lib/python3.11/site-packages/pybind11/include -ldl -lBulletDynamics -lBulletCollision -lLinearMath -I./include/bullet3/src -lavformat -lavcodec -lavutil -lswscale -lz -lm -lpthread -ldrm
   LINK_PATH = -L"/home/lixt/Desktop/projects/Lit Engine - engine/main/include"   -L"/home/lixt/Desktop/projects/Lit Engine - engine/main/include/bullet3/lib"   -L"/home/lixt/Desktop/projects/Lit Engine - engine/main/include/ffmpeg/lib"   -L"/home/lixt/Desktop/projects/Lit Engine - engine/main/include/ffmpeg/bin"
   OBJECT_DIR = CMakeFiles/lit_engine.dir
@@ -171,7 +171,7 @@ build CMakeFiles/bdb | ${cmake_ninja_workdir}CMakeFiles/bdb: phony . || debug
 # Custom command for CMakeFiles/build_dependencies
 
 build CMakeFiles/build_dependencies | ${cmake_ninja_workdir}CMakeFiles/build_dependencies: CUSTOM_COMMAND
-  COMMAND = cd "/home/lixt/Desktop/projects/Lit Engine - engine/main" && /usr/bin/c++ -c imgui/imgui.obj imgui/imgui_demo.obj imgui/imgui_draw.obj imgui/imgui_tables.obj imgui/imgui_widgets.obj -I./imgui -O3 ImNodes/ImNodes.cpp -o ImNodes/ImNodes.o && /usr/bin/c++ -c imgui/imgui.obj imgui/imgui_demo.obj imgui/imgui_draw.obj imgui/imgui_tables.obj imgui/imgui_widgets.obj -I./imgui -O3 ImNodes/ImNodesEz.cpp -o ImNodes/ImNodesEz.o && /usr/bin/c++ -c imgui/imgui.obj imgui/imgui_demo.obj imgui/imgui_draw.obj imgui/imgui_tables.obj imgui/imgui_widgets.obj -I./imgui -O3 include/rlImGui.cpp -o include/rlImGui.o && /usr/bin/c++ -c -O3 include/rlFrustum.cpp -o include/rlFrustum.o
+  COMMAND = cd "/home/lixt/Desktop/projects/Lit Engine - engine/main" && /usr/bin/c++ -c imgui/imgui.o imgui/imgui_demo.o imgui/imgui_draw.o imgui/imgui_tables.o imgui/imgui_widgets.o -I./imgui -O3 ImNodes/ImNodes.cpp -o ImNodes/ImNodes.o && /usr/bin/c++ -c imgui/imgui.o imgui/imgui_demo.o imgui/imgui_draw.o imgui/imgui_tables.o imgui/imgui_widgets.o -I./imgui -O3 ImNodes/ImNodesEz.cpp -o ImNodes/ImNodesEz.o && /usr/bin/c++ -c imgui/imgui.o imgui/imgui_demo.o imgui/imgui_draw.o imgui/imgui_tables.o imgui/imgui_widgets.o -I./imgui -O3 include/rlImGui.cpp -o include/rlImGui.o && /usr/bin/c++ -c -O3 include/rlFrustum.cpp -o include/rlFrustum.o
 
 
 #############################################

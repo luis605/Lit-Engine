@@ -360,7 +360,6 @@ void ImGuiListViewEx(vector<string>& items, int& focus, int& scroll, int& active
     int lights_index = 0;
     for (Light& light : lights) {
         if (light.isChild) continue;
-
         DrawLightTree(light, lights_info[lights_index], active, index);
         lights_index++;
     }

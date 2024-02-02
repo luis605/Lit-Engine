@@ -64,7 +64,7 @@ typedef struct Light
     float cutOff = 10;
         
     // Others
-    bool isChild;
+    bool isChild = false;
     alignas(16) glm::vec3 direction = {0.4, 0.4, -0.4};
     int id;
 
@@ -159,6 +159,7 @@ void AddLight()
     {
         cout << "AddLight" << endl;
         Light light_create = NewLight({ -2, 1, -2 }, RED);
+        light_create.isChild = false;
         lights_list_pregame.push_back(light_create);
         canAddLight = false;
     }
