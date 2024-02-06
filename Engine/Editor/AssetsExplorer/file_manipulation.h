@@ -53,13 +53,13 @@ bool createNumberedFolder(const fs::path& directoryPath) {
     }
 }
 
-bool showAddFilePopup = false;
-bool showEditFilePopup = false;
-bool showEditFolderPopup = false;
-int rename_file_index = -1;
+bool showAddFilePopup       = false;
+bool showEditFilePopup      = false;
+bool showEditFolderPopup    = false;
+int rename_file_index       = -1;
 std::filesystem::path rename_file_name;
-int file_index = -1;
-int folder_index = -1;
+int file_index            = -1;
+int folder_index          = -1;
 
 void EditFileManipulation()
 {
