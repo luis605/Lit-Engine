@@ -207,7 +207,7 @@ void AssetsExplorer() {
 
         if (rename_folder_index == i)
             files_texture_struct[i].rename = true;
-
+            
         if (files_texture_struct[i].rename)
         {
             ImGui::InputText("##RenameFolder", (char*)rename_folder_buffer, 256);
@@ -215,9 +215,9 @@ void AssetsExplorer() {
             if (IsKeyDown(KEY_ENTER))
             {
                 if (fs::exists(rename_folder_name)) {
-                    fs::path newFilePath = rename_folder_name.parent_path() / rename_folder_buffer;
+                    fs::path newFolderPath = rename_folder_name.parent_path() / rename_folder_buffer;
                     fs::rename(rename_folder_name, newFilePath);
-                    std::cout << "Folder renamed successfully to " << newFilePath.string() << std::endl;
+                    std::cout << "Folder renamed successfully to " << newFolderPath.string() << std::endl;
                 } else {
                     std::cout << "Folder not found: " << rename_folder_name.string() << std::endl;
                 }
