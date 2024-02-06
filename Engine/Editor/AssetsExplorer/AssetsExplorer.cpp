@@ -61,7 +61,7 @@ void AssetsExplorer() {
                 }
 
                 if (fs::is_directory(entry)) {
-                    folders_texture_struct.emplace_back(file.string(), folder_texture);
+                    folders_texture_struct.emplace_back(file.string(), folder_texture, entry);
                     folders.emplace_back(file.string());
                 } else {
                     string file_extension = getFileExtension(file.filename().string());
