@@ -177,8 +177,19 @@ void AssetsExplorer() {
         ImGui::PushID(i);
 
         ImGui::PushStyleColor(ImGuiCol_Button, ImVec4(0, 0, 0, 0)); 
-        ImGui::ImageButton((ImTextureID)&folder_texture, ImVec2(thumbnailSize, thumbnailSize));
+        bool isButtonHovered = ImGui::ImageButton((ImTextureID)&folder_texture, ImVec2(thumbnailSize, thumbnailSize));
         ImGui::PopStyleColor(); 
+
+        if ((ImGui::IsWindowFocused() || ImGui::IsWindowHovered()) && IsMouseButtonPressed(MOUSE_RIGHT_BUTTON) && isButtonHovered)
+        {
+            folder_index = i;
+            showEditFolderPopup = true;
+        }
+
+        if ((ImGui::IsWindowFocused() || ImGui::IsWindowHovered()) && IsMouseButtonPressed(MOUSE_RIGHT_BUTTON) && !isButtonHovered)
+        {
+            showAddFilePopup = true;
+        }
 
         float textWidth = ImGui::CalcTextSize(folders_texture_struct[i].name.c_str()).x;
         float buttonWidth = thumbnailSize;
