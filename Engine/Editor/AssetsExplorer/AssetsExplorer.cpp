@@ -170,6 +170,8 @@ void AssetsExplorer() {
     // Window Size Readjust
     AssetsExplorer_window_size = ImGui::GetWindowSize();
 
+    bool isFolderHovered = false;
+
     // FOLDERS List
     ImGui::PushStyleVar(ImGuiStyleVar_FrameBorderSize, 0.0f);
     for (int i = 0; i < numButtons; i++)
@@ -177,18 +179,17 @@ void AssetsExplorer() {
         ImGui::PushID(i);
 
         ImGui::PushStyleColor(ImGuiCol_Button, ImVec4(0, 0, 0, 0)); 
-        bool isButtonHovered = ImGui::ImageButton((ImTextureID)&folder_texture, ImVec2(thumbnailSize, thumbnailSize));
+        ImGui::ImageButton((ImTextureID)&folder_texture, ImVec2(thumbnailSize, thumbnailSize));
         ImGui::PopStyleColor(); 
+
+        bool isButtonHovered = ImGui::IsItemHovered();
+        
+        if (isButtonHovered) isFolderHovered = true;
 
         if ((ImGui::IsWindowFocused() || ImGui::IsWindowHovered()) && IsMouseButtonPressed(MOUSE_RIGHT_BUTTON) && isButtonHovered)
         {
             folder_index = i;
             showEditFolderPopup = true;
-        }
-
-        if ((ImGui::IsWindowFocused() || ImGui::IsWindowHovered()) && IsMouseButtonPressed(MOUSE_RIGHT_BUTTON) && !isButtonHovered)
-        {
-            showAddFilePopup = true;
         }
 
         float textWidth = ImGui::CalcTextSize(folders_texture_struct[i].name.c_str()).x;
@@ -219,6 +220,7 @@ void AssetsExplorer() {
         }
     }
 
+    std::cout << isFolderHovered << std::endl;
     for (int i = 0; i < numFileButtons; i++)
     {
         ImGui::PushID(i);
@@ -263,13 +265,13 @@ void AssetsExplorer() {
         }
 
 
-        if ((ImGui::IsWindowFocused() || ImGui::IsWindowHovered()) && IsMouseButtonPressed(MOUSE_RIGHT_BUTTON) && isButtonHovered)
+        if ((ImGui::IsWindowFocused() || ImGui::IsWindowHovered()) && IsMouseButtonPressed(MOUSE_RIGHT_BUTTON) && isButtonHovered && !isFolderHovered)
         {
             file_index = i;
             showEditFilePopup = true;
         }
 
-        if ((ImGui::IsWindowFocused() || ImGui::IsWindowHovered()) && IsMouseButtonPressed(MOUSE_RIGHT_BUTTON) && !isButtonHovered)
+        if ((ImGui::IsWindowFocused() || ImGui::IsWindowHovered()) && IsMouseButtonPressed(MOUSE_RIGHT_BUTTON) && !isButtonHovered && !isFolderHovered)
         {
             showAddFilePopup = true;
         }

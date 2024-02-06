@@ -57,54 +57,38 @@ bool showAddFilePopup       = false;
 bool showEditFilePopup      = false;
 bool showEditFolderPopup    = false;
 int rename_file_index       = -1;
+int rename_folder_index       = -1;
 std::filesystem::path rename_file_name;
+std::filesystem::path rename_folder_name;
 int file_index            = -1;
 int folder_index          = -1;
 
 void EditFolderManipulation()
 {
-    if (ImGui::IsWindowHovered() && showEditFilePopup)
+    if (ImGui::IsWindowHovered() && showEditFolderPopup)
         ImGui::OpenPopup("edit_folder_popup");
 
 
     if (ImGui::BeginPopup("edit_folder_popup"))
     {
         if (!ImGui::IsItemHovered() && IsMouseButtonPressed(MOUSE_LEFT_BUTTON))
-            showEditFilePopup = false;
+            showEditFolderPopup = false;
 
-        ImGui::Text("Edit File");
+        ImGui::Text("Edit Folder");
 
         ImGui::Separator();
 
         if (ImGui::Button("Rename"))
         {
-            if (file_index != -1)
+            if (folder_index != -1)
             {
                 std::filesystem::path currentPath = std::filesystem::current_path();
 
-                rename_file_index = file_index;
-                rename_file_name = (currentPath / files_texture_struct[file_index].full_path);
-                strcpy(rename_file_buffer, files_texture_struct[file_index].name.c_str());
+                rename_folder_index = folder_index;
+                rename_folder_name = (currentPath / folders_texture_struct[folder_index].name);
+                strcpy(rename_file_buffer, folders_texture_struct[folder_index].name.c_str());
 
-                showEditFilePopup = false;
-            }
-        }
-        if (ImGui::Button("Run"))
-        {
-            string file_extension = getFileExtension(files_texture_struct[file_index].path.filename().string());
-            if (file_extension == ".py")
-            {
-                entities_list.assign(entities_list_pregame.begin(), entities_list_pregame.end());
-
-                Entity run_script_entity = Entity();
-                run_script_entity.script = files_texture_struct[file_index].full_path.string();
-
-                LitCamera* scene_camera_reference = &scene_camera;
-                run_script_entity.setupScript(scene_camera_reference);
-                run_script_entity.runScript(scene_camera_reference);
-
-                showEditFilePopup = false;
-                showAddFilePopup = false;
+                showEditFolderPopup = false;
             }
         }
 
