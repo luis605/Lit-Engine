@@ -85,7 +85,7 @@ void EditFolderManipulation()
                 std::filesystem::path currentPath = std::filesystem::current_path();
 
                 rename_folder_index = folder_index;
-                rename_folder_name = (currentPath / folders_texture_struct[folder_index].name);
+                rename_folder_name = (currentPath / folders_texture_struct[folder_index].full_path);
                 strcpy(rename_file_buffer, folders_texture_struct[folder_index].name.c_str());
 
                 showEditFolderPopup = false;

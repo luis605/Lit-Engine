@@ -16,9 +16,10 @@ RenderTexture2D target;
 struct FolderTextureItem {
     string name;
     Texture2D texture;
+    fs::path full_path = "";
 
-    FolderTextureItem(const string& name, const Texture2D& texture)
-        : name(name), texture(texture) {}
+    FolderTextureItem(const string& name, const Texture2D& texture, const fs::path& full_path)
+        : name(name), texture(texture), full_path(full_path) {}
 };
 vector<FolderTextureItem> folders_texture_struct;
 
