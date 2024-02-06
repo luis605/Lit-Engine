@@ -318,6 +318,7 @@ void AssetsExplorer() {
     }
 
     AddFileManipulation();
+    EditFolderManipulation();
     EditFileManipulation();
 
     ImGui::PopStyleVar(3);
