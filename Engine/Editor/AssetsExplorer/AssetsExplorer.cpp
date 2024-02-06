@@ -248,7 +248,6 @@ void AssetsExplorer() {
         }
     }
 
-    std::cout << isFolderHovered << std::endl;
     for (int i = 0; i < numFileButtons; i++)
     {
         ImGui::PushID(i);
