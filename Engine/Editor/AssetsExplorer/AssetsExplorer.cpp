@@ -203,7 +203,35 @@ void AssetsExplorer() {
             dir_path += "/" + folders_texture_struct[i].name;
         }
         ImGui::SetCursorPosX(centerPosX);
-        ImGui::Text(folders_texture_struct[i].name.c_str());
+
+
+        if (rename_folder_index == i)
+            files_texture_struct[i].rename = true;
+
+        if (files_texture_struct[i].rename)
+        {
+            ImGui::InputText("##RenameFolder", (char*)rename_folder_buffer, 256);
+
+            if (IsKeyDown(KEY_ENTER))
+            {
+                if (fs::exists(rename_folder_name)) {
+                    fs::path newFilePath = rename_folder_name.parent_path() / rename_folder_buffer;
+                    fs::rename(rename_folder_name, newFilePath);
+                    std::cout << "File renamed successfully to " << newFilePath.string() << std::endl;
+                } else {
+                    std::cout << "File not found: " << rename_folder_name.string() << std::endl;
+                }
+                files_texture_struct[i].rename = false;
+                rename_folder_index = -1;
+            }
+        }
+        else
+        {
+            ImGui::SetCursorPosX(centerPosX);
+            ImGui::Text(folders_texture_struct[i].name.c_str());
+        }
+
+
 
         ImGui::PopID();
         ImGui::NextColumn();
