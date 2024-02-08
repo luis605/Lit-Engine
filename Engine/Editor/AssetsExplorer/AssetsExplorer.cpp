@@ -216,7 +216,7 @@ void AssetsExplorer() {
             {
                 if (fs::exists(rename_folder_name)) {
                     fs::path newFolderPath = rename_folder_name.parent_path() / rename_folder_buffer;
-                    fs::rename(rename_folder_name, newFilePath);
+                    fs::rename(rename_folder_name, newFolderPath);
                     std::cout << "Folder renamed successfully to " << newFolderPath.string() << std::endl;
                 } else {
                     std::cout << "Folder not found: " << rename_folder_name.string() << std::endl;
