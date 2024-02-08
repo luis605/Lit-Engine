@@ -92,6 +92,19 @@ void EditFolderManipulation()
             }
         }
 
+        if (ImGui::Button("Delete"))
+        {
+            if (folder_index != -1)
+            {
+                std::filesystem::path currentPath = std::filesystem::current_path();
+
+                std::filesystem::path folderPath = (currentPath / folders_texture_struct[folder_index].full_path);
+                fs::remove_all(folderPath);
+
+                showEditFolderPopup = false;
+            }
+        }
+        
         ImGui::EndPopup();
     }
 }
