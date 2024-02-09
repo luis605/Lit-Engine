@@ -2,15 +2,15 @@
     {
         "fovy": 60.0,
         "position": {
-            "x": 50.0,
-            "y": 0.0,
-            "z": 0.0
+            "x": 251.7460174560547,
+            "y": 179.72323608398438,
+            "z": -32.13688659667969
         },
         "projection": 0,
         "target": {
-            "x": 0.0,
-            "y": 0.0,
-            "z": 0.0
+            "x": 206.7020263671875,
+            "y": 158.65272521972656,
+            "z": -37.33979415893555
         },
         "type": "camera",
         "up": {
@@ -22,19 +22,110 @@
     {
         "ambientColor": {
             "w": 1.0,
-            "x": 1.0,
-            "y": 1.0,
-            "z": 1.0
+            "x": 0.0,
+            "y": 0.0,
+            "z": 0.0
         },
         "bloom": true,
         "bloomBrightness": 0.0,
         "bloomSamples": 3.0,
         "skyboxColor": {
             "w": 1.0,
+            "x": 0.005434811115264893,
+            "y": 0.005434811115264893,
+            "z": 0.005434811115264893
+        },
+        "type": "world settings"
+    },
+    {
+        "collider": true,
+        "collider_type": 4,
+        "damping": 0.0,
+        "friction": 1.0,
+        "id": 0,
+        "is_dynamic": false,
+        "lodEnabled": false,
+        "mass": 1.0,
+        "material_path": "",
+        "model_path": "project/game/terrain.obj",
+        "name": "project/game/terrain",
+        "normal_texture_path": "",
+        "position": {
+            "x": 0.0,
+            "y": 0.0,
+            "z": 0.0
+        },
+        "relative_position": {
+            "x": 0.0,
+            "y": 0.0,
+            "z": 0.0
+        },
+        "rotation": {
+            "x": 0.0,
+            "y": 0.0,
+            "z": 0.0
+        },
+        "roughness_texture_path": "",
+        "scale": {
             "x": 1.0,
             "y": 1.0,
             "z": 1.0
         },
-        "type": "world settings"
+        "script_index": "",
+        "script_path": "",
+        "surface_material": {
+            "DiffuseIntensity": 0.5,
+            "Roughness": 0.5,
+            "SpecularIntensity": 0.5,
+            "SpecularTint": {
+                "x": 1.0,
+                "y": 1.0,
+                "z": 1.0
+            },
+            "shininess": 0.5
+        },
+        "texture_path": "",
+        "tiling": [
+            1.0,
+            1.0
+        ],
+        "type": "entity"
+    },
+    {
+        "attenuation": 9.999999747378752e-05,
+        "color": {
+            "a": 255.0,
+            "b": 229.5,
+            "g": 167.16668701171875,
+            "r": 135.99998474121094
+        },
+        "cutOff": 10.0,
+        "direction": {
+            "x": 0.4000000059604645,
+            "y": -0.17399999499320984,
+            "z": 1.0
+        },
+        "id": 2,
+        "intensity": 5.0,
+        "isChild": false,
+        "light_type": 0,
+        "name": "Light",
+        "position": {
+            "x": 4.0,
+            "y": 5.0,
+            "z": 3.0
+        },
+        "relative_position": {
+            "x": 0,
+            "y": 0,
+            "z": 0
+        },
+        "specularStrength": 0.5,
+        "target": {
+            "x": 0.0,
+            "y": 0.0,
+            "z": 22.0
+        },
+        "type": "light"
     }
 ]
