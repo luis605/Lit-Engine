@@ -138,6 +138,19 @@ void EditFileManipulation()
             }
         }
 
+        if (ImGui::Button("Delete"))
+        {
+            if (file_index != -1)
+            {
+                std::filesystem::path currentPath = std::filesystem::current_path();
+
+                std::filesystem::path filePath = (currentPath / files_texture_struct[file_index].full_path);
+                fs::remove_all(filePath);
+
+                showEditFilePopup = false;
+            }
+        }
+
         string file_extension = getFileExtension(files_texture_struct[file_index].path.filename().string());
         if (file_extension == ".py")
         {
@@ -156,7 +169,7 @@ void EditFileManipulation()
                     showAddFilePopup = false;
             }
         }
-        
+
         ImGui::EndPopup();
     }
 }
