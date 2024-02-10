@@ -761,10 +761,10 @@ void LoadEntity(const json& entity_json, Entity& entity) {
 
 pair<Light, AdditionalLightInfo> LoadLight(const json& light_json, Light& light, AdditionalLightInfo light_info) {
     light.color = (glm::vec4{
-        light_json["color"]["r"].get<int>() / 255,
-        light_json["color"]["g"].get<int>() / 255,
-        light_json["color"]["b"].get<int>() / 255,
-        light_json["color"]["a"].get<int>() / 255
+        light_json["color"]["r"].get<float>() / 255,
+        light_json["color"]["g"].get<float>() / 255,
+        light_json["color"]["b"].get<float>() / 255,
+        light_json["color"]["a"].get<float>() / 255
     });
     
     light_info.name = light_json["name"].get<std::string>();
