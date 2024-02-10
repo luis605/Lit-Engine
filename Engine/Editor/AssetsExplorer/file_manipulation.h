@@ -124,7 +124,9 @@ void EditFileManipulation()
 
         ImGui::Separator();
 
-        if (ImGui::Button("Rename"))
+        const float buttonWidth = ImGui::GetContentRegionAvail().x;
+
+        if (ImGui::Button("Rename", ImVec2(buttonWidth, 0)))
         {
             if (file_index != -1)
             {
@@ -138,7 +140,7 @@ void EditFileManipulation()
             }
         }
 
-        if (ImGui::Button("Delete"))
+        if (ImGui::Button("Delete", ImVec2(buttonWidth, 0)))
         {
             if (file_index != -1)
             {
@@ -154,7 +156,7 @@ void EditFileManipulation()
         string file_extension = getFileExtension(files_texture_struct[file_index].path.filename().string());
         if (file_extension == ".py")
         {
-            if (ImGui::Button("Run"))
+            if (ImGui::Button("Run", ImVec2(buttonWidth, 0)))
             {
                     entities_list.assign(entities_list_pregame.begin(), entities_list_pregame.end());
 
