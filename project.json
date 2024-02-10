@@ -2,15 +2,15 @@
     {
         "fovy": 60.0,
         "position": {
-            "x": 76.4329833984375,
-            "y": 53.31654739379883,
-            "z": -2.075387716293335
+            "x": 130.27926635742188,
+            "y": 44.114837646484375,
+            "z": 1.0670511722564697
         },
         "projection": 0,
         "target": {
-            "x": 29.816028594970703,
-            "y": 37.35101318359375,
-            "z": -10.557937622070313
+            "x": 98.02813720703125,
+            "y": 34.917388916015625,
+            "z": -36.01747512817383
         },
         "type": "camera",
         "up": {
@@ -92,12 +92,174 @@
         "type": "entity"
     },
     {
-        "attenuation": 0.0,
+        "collider": false,
+        "collider_type": 4,
+        "damping": 0.0,
+        "friction": 1.0,
+        "id": 0,
+        "is_dynamic": false,
+        "lodEnabled": false,
+        "mass": 1.0,
+        "material_path": "",
+        "model_path": "project/game/tree.obj",
+        "name": "New Entity",
+        "normal_texture_path": "",
+        "position": {
+            "x": -180.8991241455078,
+            "y": 0.050628662109375,
+            "z": 201.3352508544922
+        },
+        "relative_position": {
+            "x": 0.0,
+            "y": 0.0,
+            "z": 0.0
+        },
+        "rotation": {
+            "x": 0.0,
+            "y": 0.0,
+            "z": 0.0
+        },
+        "roughness_texture_path": "",
+        "scale": {
+            "x": 1.0,
+            "y": 1.0,
+            "z": 1.0
+        },
+        "script_index": "",
+        "script_path": "",
+        "surface_material": {
+            "DiffuseIntensity": 0.5,
+            "Roughness": 0.5,
+            "SpecularIntensity": 0.5,
+            "SpecularTint": {
+                "x": 1.0,
+                "y": 1.0,
+                "z": 1.0
+            },
+            "shininess": 0.5
+        },
+        "texture_path": "",
+        "tiling": [
+            1.0,
+            1.0
+        ],
+        "type": "entity"
+    },
+    {
+        "collider": false,
+        "collider_type": 4,
+        "damping": 0.0,
+        "friction": 1.0,
+        "id": 0,
+        "is_dynamic": false,
+        "lodEnabled": false,
+        "mass": 1.0,
+        "material_path": "",
+        "model_path": "project/game/tree.obj",
+        "name": "New Entity",
+        "normal_texture_path": "",
+        "position": {
+            "x": -97.70543670654297,
+            "y": 14.804534912109375,
+            "z": -102.86955261230469
+        },
+        "relative_position": {
+            "x": 0.0,
+            "y": 0.0,
+            "z": 0.0
+        },
+        "rotation": {
+            "x": 0.0,
+            "y": 0.0,
+            "z": 0.0
+        },
+        "roughness_texture_path": "",
+        "scale": {
+            "x": 1.0,
+            "y": 1.0,
+            "z": 1.0
+        },
+        "script_index": "",
+        "script_path": "",
+        "surface_material": {
+            "DiffuseIntensity": 0.5,
+            "Roughness": 0.5,
+            "SpecularIntensity": 0.5,
+            "SpecularTint": {
+                "x": 1.0,
+                "y": 1.0,
+                "z": 1.0
+            },
+            "shininess": 0.5
+        },
+        "texture_path": "",
+        "tiling": [
+            1.0,
+            1.0
+        ],
+        "type": "entity"
+    },
+    {
+        "collider": false,
+        "collider_type": 4,
+        "damping": 0.0,
+        "friction": 1.0,
+        "id": 0,
+        "is_dynamic": false,
+        "lodEnabled": false,
+        "mass": 1.0,
+        "material_path": "",
+        "model_path": "project/game/tree.obj",
+        "name": "New Entity",
+        "normal_texture_path": "",
+        "position": {
+            "x": 131.6894073486328,
+            "y": 0.09356689453125,
+            "z": -156.54269409179688
+        },
+        "relative_position": {
+            "x": 0.0,
+            "y": 0.0,
+            "z": 0.0
+        },
+        "rotation": {
+            "x": 0.0,
+            "y": 0.0,
+            "z": 0.0
+        },
+        "roughness_texture_path": "",
+        "scale": {
+            "x": 1.0,
+            "y": 1.0,
+            "z": 1.0
+        },
+        "script_index": "",
+        "script_path": "",
+        "surface_material": {
+            "DiffuseIntensity": 0.5,
+            "Roughness": 0.5,
+            "SpecularIntensity": 0.5,
+            "SpecularTint": {
+                "x": 1.0,
+                "y": 1.0,
+                "z": 1.0
+            },
+            "shininess": 0.5
+        },
+        "texture_path": "",
+        "tiling": [
+            1.0,
+            1.0
+        ],
+        "type": "entity"
+    },
+    {
+        "attenuation": 9.999999747378752e-05,
         "color": {
             "a": 255.0,
-            "b": 0.0,
-            "g": 0.0,
-            "r": 0.0
+            "b": 163.38888549804688,
+            "g": 141.87266540527344,
+            "r": 114.97737121582031
         },
         "cutOff": 10.0,
         "direction": {
@@ -105,7 +267,7 @@
             "y": -0.17399999499320984,
             "z": 1.0
         },
-        "id": -357420288,
+        "id": -766007808,
         "intensity": 5.0,
         "isChild": false,
         "light_type": 0,
@@ -125,43 +287,6 @@
             "x": 0.0,
             "y": 0.0,
             "z": 22.0
-        },
-        "type": "light"
-    },
-    {
-        "attenuation": 9.999999747378752e-05,
-        "color": {
-            "a": 255.0,
-            "b": 64.25021362304688,
-            "g": 154.88890075683594,
-            "r": 70.29278564453125
-        },
-        "cutOff": 10.0,
-        "direction": {
-            "x": 0.4000000059604645,
-            "y": 0.4000000059604645,
-            "z": -0.4000000059604645
-        },
-        "id": -357420288,
-        "intensity": 4.061999797821045,
-        "isChild": false,
-        "light_type": 1,
-        "name": "",
-        "position": {
-            "x": 4.0,
-            "y": 22.900066375732422,
-            "z": 3.0
-        },
-        "relative_position": {
-            "x": 0,
-            "y": 0,
-            "z": 0
-        },
-        "specularStrength": 0.5,
-        "target": {
-            "x": 0,
-            "y": 0,
-            "z": 0
         },
         "type": "light"
     }
