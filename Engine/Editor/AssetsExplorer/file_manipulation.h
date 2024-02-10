@@ -78,7 +78,9 @@ void EditFolderManipulation()
 
         ImGui::Separator();
 
-        if (ImGui::Button("Rename"))
+        const float buttonWidth = ImGui::GetContentRegionAvail().x;
+
+        if (ImGui::Button("Rename", ImVec2(buttonWidth, 0)))
         {
             if (folder_index != -1)
             {
@@ -92,7 +94,7 @@ void EditFolderManipulation()
             }
         }
 
-        if (ImGui::Button("Delete"))
+        if (ImGui::Button("Delete", ImVec2(buttonWidth, 0)))
         {
             if (folder_index != -1)
             {
