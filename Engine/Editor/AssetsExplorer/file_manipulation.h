@@ -137,25 +137,26 @@ void EditFileManipulation()
                 showEditFilePopup = false;
             }
         }
-        if (ImGui::Button("Run"))
+
+        string file_extension = getFileExtension(files_texture_struct[file_index].path.filename().string());
+        if (file_extension == ".py")
         {
-            string file_extension = getFileExtension(files_texture_struct[file_index].path.filename().string());
-            if (file_extension == ".py")
+            if (ImGui::Button("Run"))
             {
-                entities_list.assign(entities_list_pregame.begin(), entities_list_pregame.end());
+                    entities_list.assign(entities_list_pregame.begin(), entities_list_pregame.end());
 
-                Entity run_script_entity = Entity();
-                run_script_entity.script = files_texture_struct[file_index].full_path.string();
+                    Entity run_script_entity = Entity();
+                    run_script_entity.script = files_texture_struct[file_index].full_path.string();
 
-                LitCamera* scene_camera_reference = &scene_camera;
-                run_script_entity.setupScript(scene_camera_reference);
-                run_script_entity.runScript(scene_camera_reference);
+                    LitCamera* scene_camera_reference = &scene_camera;
+                    run_script_entity.setupScript(scene_camera_reference);
+                    run_script_entity.runScript(scene_camera_reference);
 
-                showEditFilePopup = false;
-                showAddFilePopup = false;
+                    showEditFilePopup = false;
+                    showAddFilePopup = false;
             }
         }
-
+        
         ImGui::EndPopup();
     }
 }
