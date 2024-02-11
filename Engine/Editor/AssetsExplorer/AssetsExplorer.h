@@ -14,12 +14,13 @@ Texture2D material_texture;
 RenderTexture2D target;
 
 struct FolderTextureItem {
-    string name;
+    std::string name;
     Texture2D texture;
-    fs::path full_path = "";
+    std::filesystem::path full_path = "";
+    bool rename = false;
 
-    FolderTextureItem(const string& name, const Texture2D& texture, const fs::path& full_path)
-        : name(name), texture(texture), full_path(full_path) {}
+    FolderTextureItem(const std::string& name, const Texture2D& texture, const std::filesystem::path& full_path, bool rename = false)
+        : name(name), texture(texture), full_path(full_path), rename(rename) {}
 };
 vector<FolderTextureItem> folders_texture_struct;
 
