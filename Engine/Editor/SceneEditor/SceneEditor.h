@@ -19,6 +19,8 @@ typedef enum CopyType {
     CopyType_Light = 2
 };
 
+bool movingEditorCamera = false;
+
 CopyType current_copy_type = (CopyType)CopyType_None;
 std::shared_ptr<Entity> copiedEntity;
 std::shared_ptr<Light> copiedLight;
