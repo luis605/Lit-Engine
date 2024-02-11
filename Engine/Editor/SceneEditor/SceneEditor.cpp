@@ -60,8 +60,11 @@ void EditorCameraMovement(void)
     Vector3 normalizedRight = Vector3Normalize(right);
     Vector3 DeltaTimeVec3 = { GetFrameTime(), GetFrameTime(), GetFrameTime() };
 
+    movingEditorCamera = false;
+
     if (IsKeyDown(KEY_W))
     {
+        movingEditorCamera = true;
         Vector3 movement = Vector3Scale(front, movementSpeed);
         scene_camera.position = Vector3Add(scene_camera.position, Vector3Multiply(movement, DeltaTimeVec3));
         scene_camera.target = Vector3Add(scene_camera.target, Vector3Multiply(movement, DeltaTimeVec3));
@@ -69,6 +72,7 @@ void EditorCameraMovement(void)
 
     if (IsKeyDown(KEY_S))
     {
+        movingEditorCamera = true;
         Vector3 movement = Vector3Scale(front, movementSpeed);
         scene_camera.position = Vector3Subtract(scene_camera.position, Vector3Multiply(movement, DeltaTimeVec3));
         scene_camera.target = Vector3Subtract(scene_camera.target, Vector3Multiply(movement, DeltaTimeVec3));
@@ -76,6 +80,7 @@ void EditorCameraMovement(void)
 
     if (IsKeyDown(KEY_A))
     {
+        movingEditorCamera = true;
         Vector3 movement = Vector3Scale(normalizedRight, -movementSpeed);
         scene_camera.position = Vector3Add(scene_camera.position, Vector3Multiply(movement, DeltaTimeVec3));
         scene_camera.target = Vector3Add(scene_camera.target, Vector3Multiply(movement, DeltaTimeVec3));
@@ -83,6 +88,7 @@ void EditorCameraMovement(void)
 
     if (IsKeyDown(KEY_D))
     {
+        movingEditorCamera = true;
         Vector3 movement = Vector3Scale(normalizedRight, -movementSpeed);
         scene_camera.position = Vector3Subtract(scene_camera.position, Vector3Multiply(movement, DeltaTimeVec3));
         scene_camera.target = Vector3Subtract(scene_camera.target, Vector3Multiply(movement, DeltaTimeVec3));
@@ -90,6 +96,7 @@ void EditorCameraMovement(void)
 
     if (IsKeyDown(KEY_Q))
     {
+        movingEditorCamera = true;
         Vector3 movement = Vector3Scale(scene_camera.up, movementSpeed);
         scene_camera.position = Vector3Subtract(scene_camera.position, Vector3Multiply(movement, DeltaTimeVec3));
         scene_camera.target = Vector3Subtract(scene_camera.target, Vector3Multiply(movement, DeltaTimeVec3));
@@ -97,6 +104,7 @@ void EditorCameraMovement(void)
 
     if (IsKeyDown(KEY_E))
     {
+        movingEditorCamera = true;
         Vector3 movement = Vector3Scale(scene_camera.up, movementSpeed);
         scene_camera.position = Vector3Add(scene_camera.position, Vector3Multiply(movement, DeltaTimeVec3));
         scene_camera.target = Vector3Add(scene_camera.target, Vector3Multiply(movement, DeltaTimeVec3));
@@ -104,6 +112,7 @@ void EditorCameraMovement(void)
 
     if (GetMouseWheelMove() != 0 && ImGui::IsWindowHovered())
     {
+        movingEditorCamera = true;
         CameraMoveToTarget(&scene_camera, -GetMouseWheelMove());
     }
 
@@ -528,7 +537,7 @@ bool showObjectTypePopup = false;
 
 void ProcessObjectControls()
 {
-    if ((IsKeyDown(KEY_LEFT_SHIFT) || IsKeyDown(KEY_RIGHT_SHIFT)) && IsKeyDown(KEY_A))
+    if ((IsKeyDown(KEY_LEFT_SHIFT) || IsKeyDown(KEY_RIGHT_SHIFT)) && IsKeyDown(KEY_A) && !movingEditorCamera)
     {
         ImGui::OpenPopup("Add Object");
         showObjectTypePopup = true;
@@ -771,6 +780,9 @@ int EditorCamera(void)
         DropEntity();
     }
 
+    if (ImGui::IsWindowHovered() && !dragging && !in_game_preview)
+        ProcessObjectControls();
+
     if ((ImGui::IsWindowHovered() || ImGui::IsWindowFocused()) && !in_game_preview)
     {
         if (!showObjectTypePopup)
@@ -792,11 +804,6 @@ int EditorCamera(void)
     }
 
     RenderScene();
-
-    if (ImGui::IsWindowHovered() && !dragging && !in_game_preview)
-        ProcessObjectControls();
-
-
 
     ImVec2 currentWindowSize = ImGui::GetWindowSize();
 
