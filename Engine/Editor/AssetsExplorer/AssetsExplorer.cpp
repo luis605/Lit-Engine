@@ -206,9 +206,9 @@ void AssetsExplorer() {
 
 
         if (rename_folder_index == i)
-            folder_textures_struct[i].rename = true;
+            folders_texture_struct[i].rename = true;
             
-        if (folder_textures_struct[i].rename)
+        if (folders_texture_struct[i].rename)
         {
             ImGui::InputText("##RenameFolder", (char*)rename_folder_buffer, 256);
 
@@ -229,7 +229,7 @@ void AssetsExplorer() {
                 } else {
                     std::cout << "Folder not found: " << rename_folder_name.string() << std::endl;
                 }
-                folder_textures_struct[i].rename = false;
+                folders_texture_struct[i].rename = false;
                 rename_folder_index = -1;
             }
         }
