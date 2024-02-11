@@ -270,8 +270,7 @@ void AssetsExplorer() {
             file_index = i;
             showEditFilePopup = true;
         }
-
-        if ((ImGui::IsWindowFocused() || ImGui::IsWindowHovered()) && IsMouseButtonPressed(MOUSE_RIGHT_BUTTON) && !isButtonHovered && !isFolderHovered)
+        else if ((ImGui::IsWindowFocused() || ImGui::IsWindowHovered()) && IsMouseButtonPressed(MOUSE_RIGHT_BUTTON) && !isButtonHovered && !isFolderHovered)
         {
             showAddFilePopup = true;
         }
