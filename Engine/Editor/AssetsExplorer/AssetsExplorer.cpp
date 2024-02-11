@@ -35,9 +35,7 @@ void AssetsExplorer() {
     files.clear();
 
     if (AssetsExplorer_window_size.x < cellSize)
-    {
         ImGui::SetNextWindowSize({cellSize, AssetsExplorer_window_size.y});
-    }
     else if (AssetsExplorer_window_size.y < cellSize)
         ImGui::SetNextWindowSize({AssetsExplorer_window_size.y, cellSize});
 
@@ -101,19 +99,15 @@ void AssetsExplorer() {
                             models_icons[file.string()] = flippedIcon;
                             fileTextureItem = {file.string(), flippedIcon, file, entry};
                         }
-                    } else {
+                    } else
                         fileTextureItem = {file.string(), empty_texture, file, entry};
-                    }
 
                     files_texture_struct.emplace_back(std::move(fileTextureItem));
                 }
             }
         }
     }
-    else
-    {
-        cout << "Error: " << strerror(errno) << endl;
-    }
+    else cout << "Error: " << strerror(errno) << endl;
 
     if (dir_path != "project")
     {
@@ -121,13 +115,9 @@ void AssetsExplorer() {
         ImGui::PushStyleColor(ImGuiCol_ButtonHovered, ImVec4(0.6f, 0.6f, 0.6f, 1.0f));
         ImGui::PushStyleColor(ImGuiCol_ButtonActive, ImVec4(0.4f, 0.4f, 0.4f, 1.0f));
 
-        if (ImGui::Button("<--"))
-        {
-            dir_path = dir_path.parent_path();
-        }
+        if (ImGui::Button("<--")) dir_path = dir_path.parent_path();
 
         ImGui::PopStyleColor(3);
-
         ImGui::SameLine();
     }
 
@@ -143,17 +133,6 @@ void AssetsExplorer() {
 
     int numButtons = folders_texture_struct.size();
 
-    /* Organization of content [ FOLDERS && FILES ] */
-    /*
-    ____________   ____________
-    |          |   |          |
-    |  FOLDER  |   |   File   |
-    |          |   |          |
-    ------------   ------------
-    Folder Name    Filename.py
-
-    */
-
     // Collumns
     float panelWidth = ImGui::GetContentRegionAvail().x;
     float columnWidth = cellSize + 40.0f;
@@ -167,9 +146,7 @@ void AssetsExplorer() {
         ImGui::SetColumnWidth(i, columnWidth);
     }
 
-    // Window Size Readjust
     AssetsExplorer_window_size = ImGui::GetWindowSize();
-
     bool isFolderHovered = false;
 
     // FOLDERS List
@@ -199,10 +176,7 @@ void AssetsExplorer() {
         float centerPosX = (ImGui::GetCursorPosX() + offset);
 
         if (ImGui::IsItemHovered() && ImGui::IsMouseDoubleClicked(ImGuiMouseButton_Left))
-        {
             dir_path += "/" + folders_texture_struct[i].name;
-        }
-
 
         if (rename_folder_index == i)
             folders_texture_struct[i].rename = true;
@@ -238,8 +212,6 @@ void AssetsExplorer() {
             ImGui::Text(folders_texture_struct[i].name.c_str());
         }
 
-
-
         ImGui::PopID();
         ImGui::NextColumn();
     }
@@ -250,9 +222,7 @@ void AssetsExplorer() {
     if (numFileButtons <= 0)
     {
         if ((ImGui::IsWindowFocused() || ImGui::IsWindowHovered()) && IsMouseButtonPressed(MOUSE_RIGHT_BUTTON))
-        {
             showAddFilePopup = true;
-        }
     }
 
     for (int i = 0; i < numFileButtons; i++)
@@ -266,10 +236,8 @@ void AssetsExplorer() {
         float textWidth = ImGui::CalcTextSize(files_texture_struct[i].name.c_str()).x;
         float buttonWidth = thumbnailSize;
         float offset = (buttonWidth - textWidth) * 0.5f;
-
         float centerPosX = (ImGui::GetCursorPosX() + offset);
-        
-        bool isButtonHovered = ImGui::IsItemHovered(); // Check if the button is hovered
+        bool isButtonHovered = ImGui::IsItemHovered();
 
         string file_extension = getFileExtension(files_texture_struct[i].path.filename().string());
 
@@ -279,8 +247,7 @@ void AssetsExplorer() {
 
             if (file_extension == ".png" || file_extension == ".jpg" || file_extension == ".jpeg" ||
                 file_extension == ".avi" || file_extension == ".mp4" || file_extension == ".mov" ||
-                file_extension == ".mkv" || file_extension == ".webm" || file_extension == ".gif"
-               )
+                file_extension == ".mkv" || file_extension == ".webm" || file_extension == ".gif")
             {
                 drag_type = "TEXTURE_PAYLOAD";
             }
@@ -292,12 +259,11 @@ void AssetsExplorer() {
                 drag_type = "MATERIAL_PAYLOAD";
             else
                 drag_type = "UNSUPORTED TYPE";
-            
+        
             ImGui::SetDragDropPayload(drag_type, &i, sizeof(int));
             ImGui::Image((void *)(intptr_t)(ImTextureID)&files_texture_struct[i].texture, ImVec2(64, 64));
             ImGui::EndDragDropSource();
         }
-
 
         if ((ImGui::IsWindowFocused() || ImGui::IsWindowHovered()) && IsMouseButtonPressed(MOUSE_RIGHT_BUTTON) && isButtonHovered && !isFolderHovered)
         {
