@@ -202,7 +202,6 @@ void AssetsExplorer() {
         {
             dir_path += "/" + folders_texture_struct[i].name;
         }
-        ImGui::SetCursorPosX(centerPosX);
 
 
         if (rename_folder_index == i)
