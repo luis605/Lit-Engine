@@ -419,7 +419,7 @@ void RenderLight(Light* light, bool& isLightSelected) {
             }
         }
 
-        UnLoadModel(light_model);
+        UnloadModel(light_model);
     }
 }
 
