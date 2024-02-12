@@ -1503,22 +1503,23 @@ private:
     
     void PassSurfaceMaterials()
     {
+        if (surface_material_ubo != 0) {
+            glDeleteBuffers(1, &surface_material_ubo);
+        }
+
         glGenBuffers(1, &surface_material_ubo);
         glBindBuffer(GL_UNIFORM_BUFFER, surface_material_ubo);
         glBufferData(GL_UNIFORM_BUFFER, sizeof(SurfaceMaterial), &this->surface_material, GL_DYNAMIC_DRAW);
         glBindBuffer(GL_UNIFORM_BUFFER, 0);
 
-        
         GLuint bindingPoint = 0;
         glBindBufferBase(GL_UNIFORM_BUFFER, bindingPoint, surface_material_ubo);
 
-
-        
         glBindBuffer(GL_UNIFORM_BUFFER, surface_material_ubo);
         glBufferSubData(GL_UNIFORM_BUFFER, 0, sizeof(SurfaceMaterial), &this->surface_material);
         glBindBuffer(GL_UNIFORM_BUFFER, 0);
-
     }
+
 };
 
 bool operator==(const Entity& e, const Entity* ptr) {
