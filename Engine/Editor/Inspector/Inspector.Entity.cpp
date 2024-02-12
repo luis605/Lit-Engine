@@ -276,7 +276,7 @@ void EntityInspector()
         ImGui::Text("Collision Type");
         ImGui::SameLine();
 
-        const char* collisionShapeNames[] = {"Box", "HighPolyMesh", "LowPolyMesh", "Sphere", "None"};
+        const char* collisionShapeNames[] = {"Box", "HighPolyMesh", "None"};
         int currentItem = static_cast<int>(Entity::CollisionShapeType::None);
 
         if (selected_entity->currentCollisionShapeType)
