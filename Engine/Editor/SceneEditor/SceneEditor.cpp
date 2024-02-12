@@ -590,7 +590,7 @@ void ObjectsPopup()
 
             if (ImGui::MenuItem("Cylinder"))
             {
-                AddEntity(true, false, "", LoadModelFromMesh(GenMeshCylinder(1, 2, 30)));
+                AddEntity(true, false, "", LoadModelFromMesh(GenMeshCylinder(1.5, 2, 30)));
                 entities_list_pregame.back().ObjectType = Entity::ObjectType_Cylinder;
                 showObjectTypePopup = false;
             }
