@@ -195,9 +195,7 @@ public:
     {
         Box           = 0,
         HighPolyMesh  = 1,
-        LowPolyMesh   = 2,
-        Sphere        = 3,
-        None          = 4
+        None          = 2
     };
 
     std::shared_ptr<CollisionShapeType> currentCollisionShapeType = make_shared<CollisionShapeType>(None);
