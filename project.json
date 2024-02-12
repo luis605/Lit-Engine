@@ -2,15 +2,15 @@
     {
         "fovy": 60.0,
         "position": {
-            "x": -1.417984962463379,
-            "y": 2.1417996883392334,
-            "z": -10.281877517700195
+            "x": -6.269792556762695,
+            "y": 5.244678497314453,
+            "z": 1.5825767517089844
         },
         "projection": 0,
         "target": {
-            "x": -1.9600698947906494,
-            "y": 0.39240217208862305,
-            "z": -0.2496490478515625
+            "x": 1.979391098022461,
+            "y": 1.4127836227416992,
+            "z": 6.194211959838867
         },
         "type": "camera",
         "up": {
@@ -46,7 +46,7 @@
         "is_dynamic": false,
         "lodEnabled": false,
         "mass": 1.0,
-        "material_path": "",
+        "material_path": "project/game/file1.mat",
         "mesh_type": 1,
         "model_path": "",
         "name": "Floor",
@@ -75,7 +75,7 @@
         "script_index": "",
         "script_path": "",
         "surface_material": {
-            "DiffuseIntensity": 0.5,
+            "DiffuseIntensity": 0.9010000228881836,
             "Roughness": 0.5,
             "SpecularIntensity": 0.5,
             "SpecularTint": {
@@ -130,7 +130,7 @@
         "script_index": "",
         "script_path": "",
         "surface_material": {
-            "DiffuseIntensity": 0.5,
+            "DiffuseIntensity": 1.0,
             "Roughness": 0.5,
             "SpecularIntensity": 0.5,
             "SpecularTint": {
@@ -203,6 +203,61 @@
         "type": "entity"
     },
     {
+        "collider": true,
+        "collider_type": 0,
+        "damping": 0.0,
+        "friction": 1.0,
+        "id": 3,
+        "is_dynamic": true,
+        "lodEnabled": false,
+        "mass": 1.0,
+        "material_path": "",
+        "mesh_type": 1,
+        "model_path": "",
+        "name": "Player",
+        "normal_texture_path": "",
+        "position": {
+            "x": 0.0,
+            "y": 1.8999981880187988,
+            "z": 8.399995803833008
+        },
+        "relative_position": {
+            "x": 0.0,
+            "y": 0.0,
+            "z": 0.0
+        },
+        "rotation": {
+            "x": 0.0,
+            "y": 0.0,
+            "z": 0.0
+        },
+        "roughness_texture_path": "",
+        "scale": {
+            "x": 1.0,
+            "y": 1.0,
+            "z": 1.0
+        },
+        "script_index": "player0",
+        "script_path": "project/game/player.py",
+        "surface_material": {
+            "DiffuseIntensity": 0.5,
+            "Roughness": 0.5,
+            "SpecularIntensity": 0.5,
+            "SpecularTint": {
+                "x": 1.0,
+                "y": 1.0,
+                "z": 1.0
+            },
+            "shininess": 0.5
+        },
+        "texture_path": "",
+        "tiling": [
+            1.0,
+            1.0
+        ],
+        "type": "entity"
+    },
+    {
         "attenuation": 9.999999747378752e-05,
         "color": {
             "a": 255.0,
@@ -216,11 +271,11 @@
             "y": -1.0,
             "z": 1.0
         },
-        "id": 2,
+        "id": -822717184,
         "intensity": 1.8079999685287476,
         "isChild": false,
         "light_type": 0,
-        "name": "Light",
+        "name": "",
         "position": {
             "x": 4.0,
             "y": 5.0,
