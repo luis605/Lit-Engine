@@ -418,6 +418,8 @@ void RenderLight(Light* light, bool& isLightSelected) {
                 selected_game_object_type = "light";
             }
         }
+
+        UnLoadModel(light_model);
     }
 }
 
