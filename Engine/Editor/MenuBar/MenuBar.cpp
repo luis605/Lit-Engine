@@ -363,17 +363,6 @@ void MenuBar()
 
     ImGui::GetStyle().FramePadding.y = originalFramePaddingY;
 
-
-    if (IsKeyPressed(KEY_F1))
-    {
-        openAboutPage();
-    }
-
-    if (IsKeyPressed(KEY_F2))
-    {
-        openManualPage();
-    }
-
     if ((IsKeyDown(KEY_LEFT_CONTROL) || IsKeyDown(KEY_RIGHT_CONTROL)) &&
         (IsKeyDown(KEY_LEFT_SHIFT) || IsKeyDown(KEY_RIGHT_SHIFT)) &&
         IsKeyPressed(KEY_D)

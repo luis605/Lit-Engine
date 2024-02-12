@@ -433,6 +433,18 @@ void EntitiesList()
         }
     }
 
+
+    if (IsKeyPressed(KEY_F1))
+    {
+        openAboutPage();
+    }
+
+    if (IsKeyPressed(KEY_F2) && !in_game_preview && !ImGui::IsWindowFocused)
+    {
+        openManualPage();
+    }
+
+
     ImGui::PopStyleColor(4);
     ImGui::PopStyleVar(2);
 
