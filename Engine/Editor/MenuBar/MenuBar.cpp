@@ -371,7 +371,7 @@ void MenuBar()
         appearance_window_enabled = true;
     }
 
-    if (appearance_window_enabled) Appearance();
+    if (appearance_window_enabled && !movingEditorCamera) Appearance();
     CreateNewTheme();
 
     if (exitWindowRequested)
