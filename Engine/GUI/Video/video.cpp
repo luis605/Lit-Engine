@@ -100,7 +100,6 @@ public:
             return;
         }
 
-        // Reuse the buffer for pixels and pitch
         uint8_t *pixels[1] = { (uint8_t *)frameImage.data };
         int pitch[1] = { 4 * pCodecCtx->width };
 
@@ -133,7 +132,7 @@ public:
             av_seek_frame(pFormatCtx, videoStream, 0, AVSEEK_FLAG_FRAME);
         }
     }
-
+    
     bool IsFinished() const {
         return finished;
     }

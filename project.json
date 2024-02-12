@@ -2,15 +2,15 @@
     {
         "fovy": 60.0,
         "position": {
-            "x": -15.482702255249023,
-            "y": 66.77539825439453,
-            "z": 25.919891357421875
+            "x": -1.417984962463379,
+            "y": 2.1417996883392334,
+            "z": -10.281877517700195
         },
         "projection": 0,
         "target": {
-            "x": -13.627054214477539,
-            "y": 17.935012817382813,
-            "z": 15.375666618347168
+            "x": -1.9600698947906494,
+            "y": 0.39240217208862305,
+            "z": -0.2496490478515625
         },
         "type": "camera",
         "up": {
@@ -39,21 +39,21 @@
     },
     {
         "collider": true,
-        "collider_type": 4,
+        "collider_type": 0,
         "damping": 0.0,
         "friction": 1.0,
         "id": 0,
         "is_dynamic": false,
         "lodEnabled": false,
         "mass": 1.0,
-        "material_path": "project/game/hwllo world.mat",
-        "mesh_type": 4,
+        "material_path": "",
+        "mesh_type": 1,
         "model_path": "",
-        "name": "Unnamed Entity",
+        "name": "Floor",
         "normal_texture_path": "",
         "position": {
             "x": 0.0,
-            "y": 0.09999990463256836,
+            "y": 0.0,
             "z": 0.0
         },
         "relative_position": {
@@ -69,7 +69,7 @@
         "roughness_texture_path": "",
         "scale": {
             "x": 100.0,
-            "y": 1.0,
+            "y": 0.3999999165534973,
             "z": 100.0
         },
         "script_index": "",
@@ -85,7 +85,117 @@
             },
             "shininess": 0.5
         },
-        "texture_path": "project/game/192357 (1080p).mp4",
+        "texture_path": "",
+        "tiling": [
+            1.0,
+            1.0
+        ],
+        "type": "entity"
+    },
+    {
+        "collider": true,
+        "collider_type": 0,
+        "damping": 0.0,
+        "friction": 1.0,
+        "id": 1,
+        "is_dynamic": true,
+        "lodEnabled": false,
+        "mass": 1.0,
+        "material_path": "project/game/hwllo world.mat",
+        "mesh_type": 1,
+        "model_path": "",
+        "name": "cube",
+        "normal_texture_path": "",
+        "position": {
+            "x": 0.0,
+            "y": 3.7000045776367188,
+            "z": 0.0
+        },
+        "relative_position": {
+            "x": 0.0,
+            "y": 0.0,
+            "z": 0.0
+        },
+        "rotation": {
+            "x": 0.0,
+            "y": 0.0,
+            "z": 0.0
+        },
+        "roughness_texture_path": "",
+        "scale": {
+            "x": 1.0,
+            "y": 1.0,
+            "z": 1.0
+        },
+        "script_index": "",
+        "script_path": "",
+        "surface_material": {
+            "DiffuseIntensity": 0.5,
+            "Roughness": 0.5,
+            "SpecularIntensity": 0.5,
+            "SpecularTint": {
+                "x": 1.0,
+                "y": 1.0,
+                "z": 1.0
+            },
+            "shininess": 0.5
+        },
+        "texture_path": "",
+        "tiling": [
+            1.0,
+            1.0
+        ],
+        "type": "entity"
+    },
+    {
+        "collider": true,
+        "collider_type": 1,
+        "damping": 0.0,
+        "friction": 1.0,
+        "id": 2,
+        "is_dynamic": true,
+        "lodEnabled": false,
+        "mass": 1.0,
+        "material_path": "",
+        "mesh_type": 5,
+        "model_path": "",
+        "name": "Sphere",
+        "normal_texture_path": "",
+        "position": {
+            "x": -3.7999985218048096,
+            "y": 2.6000003814697266,
+            "z": 0.0
+        },
+        "relative_position": {
+            "x": 0.0,
+            "y": 0.0,
+            "z": 0.0
+        },
+        "rotation": {
+            "x": 0.0,
+            "y": 0.0,
+            "z": 0.0
+        },
+        "roughness_texture_path": "",
+        "scale": {
+            "x": 1.0,
+            "y": 1.0,
+            "z": 1.0
+        },
+        "script_index": "",
+        "script_path": "",
+        "surface_material": {
+            "DiffuseIntensity": 0.5,
+            "Roughness": 0.5,
+            "SpecularIntensity": 0.5,
+            "SpecularTint": {
+                "x": 1.0,
+                "y": 1.0,
+                "z": 1.0
+            },
+            "shininess": 0.5
+        },
+        "texture_path": "",
         "tiling": [
             1.0,
             1.0
@@ -96,20 +206,20 @@
         "attenuation": 9.999999747378752e-05,
         "color": {
             "a": 255.0,
-            "b": 255.0,
-            "g": 255.0,
-            "r": 255.0
+            "b": 139.6658477783203,
+            "g": 215.31094360351563,
+            "r": 234.22222900390625
         },
         "cutOff": 10.0,
         "direction": {
-            "x": 0.4000000059604645,
-            "y": 0.4000000059604645,
-            "z": -0.4000000059604645
+            "x": 0.46299999952316284,
+            "y": -1.0,
+            "z": 1.0
         },
         "id": 2,
-        "intensity": 0.5,
+        "intensity": 1.8079999685287476,
         "isChild": false,
-        "light_type": 1,
+        "light_type": 0,
         "name": "Light",
         "position": {
             "x": 4.0,
@@ -123,9 +233,9 @@
         },
         "specularStrength": 0.5,
         "target": {
-            "x": 0,
-            "y": 0,
-            "z": 0
+            "x": 0.0,
+            "y": 0.0,
+            "z": 22.0
         },
         "type": "light"
     }

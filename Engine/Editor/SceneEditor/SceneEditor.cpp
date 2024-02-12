@@ -604,7 +604,7 @@ void ObjectsPopup()
 
             if (ImGui::MenuItem("Sphere"))
             {
-                AddEntity(true, false, "", LoadModelFromMesh(GenMeshSphere(1, 50, 50)));
+                AddEntity(true, false, "", LoadModelFromMesh(GenMeshSphere(.5, 50, 50)));
                 entities_list_pregame.back().ObjectType = Entity::ObjectType_Sphere;
                 showObjectTypePopup = false;
             }
