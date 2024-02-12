@@ -583,7 +583,7 @@ void ObjectsPopup()
 
             if (ImGui::MenuItem("Cone"))
             {
-                AddEntity(true, false, "", LoadModelFromMesh(GenMeshCone(1, 1, 30)));
+                AddEntity(true, false, "", LoadModelFromMesh(GenMeshCone(.5, 1, 30)));
                 entities_list_pregame.back().ObjectType = Entity::ObjectType_Cone;
                 showObjectTypePopup = false;
             }
@@ -611,7 +611,7 @@ void ObjectsPopup()
 
             if (ImGui::MenuItem("Torus"))
             {
-                AddEntity(true, false, "", LoadModelFromMesh(GenMeshTorus(1, 1, 30, 30)));
+                AddEntity(true, false, "", LoadModelFromMesh(GenMeshTorus(.5, 1, 30, 30)));
                 entities_list_pregame.back().ObjectType = Entity::ObjectType_Torus;
                 showObjectTypePopup = false;
             }
