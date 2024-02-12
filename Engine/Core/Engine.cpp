@@ -1047,28 +1047,28 @@ public:
     void calcPhysicsRotation() {
         if (!isDynamic) return;
 
-        if (boxRigidBody) {
-            btTransform trans;
-            if ((*boxRigidBody)->getMotionState()) {
-                (*boxRigidBody)->getMotionState()->getWorldTransform(trans);
-                btQuaternion objectRotation = trans.getRotation();
-                btScalar Roll, Yaw, Pitch;
-                objectRotation.getEulerZYX(Roll, Yaw, Pitch);
+        if (CollisionShapeType::Box == *currentCollisionShapeType) {
+            if (boxRigidBody) {
+                btTransform trans;
+                if ((*boxRigidBody)->getMotionState()) {
+                    (*boxRigidBody)->getMotionState()->getWorldTransform(trans);
+                    btQuaternion objectRotation = trans.getRotation();
+                    btScalar Roll, Yaw, Pitch;
+                    objectRotation.getEulerZYX(Roll, Yaw, Pitch);
 
-                for (int index = 0; index < 4; index++)
-                    LodModels[index].transform = MatrixRotateXYZ((Vector3){ Pitch, Yaw, Roll });
+                    rotation = (Vector3){ Pitch * RAD2DEG, Yaw * RAD2DEG, Roll * RAD2DEG };
+                }
             }
-        }
-        else if (highPolyDynamicRigidBody) {
-            btTransform trans;
-            if ((*highPolyDynamicRigidBody)->getMotionState()) {
-                (*highPolyDynamicRigidBody)->getMotionState()->getWorldTransform(trans);
-                btQuaternion objectRotation = trans.getRotation();
-                btScalar Roll, Yaw, Pitch;
-                objectRotation.getEulerZYX(Roll, Yaw, Pitch);
+            else if (highPolyDynamicRigidBody) {
+                btTransform trans;
+                if ((*highPolyDynamicRigidBody)->getMotionState()) {
+                    (*highPolyDynamicRigidBody)->getMotionState()->getWorldTransform(trans);
+                    btQuaternion objectRotation = trans.getRotation();
+                    btScalar Roll, Yaw, Pitch;
+                    objectRotation.getEulerZYX(Roll, Yaw, Pitch);
 
-                for (int index = 0; index < 4; index++)
-                    LodModels[index].transform = MatrixRotateXYZ((Vector3){ Pitch, Yaw, Roll });
+                    rotation = (Vector3){ Pitch * RAD2DEG, Yaw * RAD2DEG, Roll * RAD2DEG };
+                }
             }
         }
     }
@@ -1398,6 +1398,7 @@ public:
 
         if (calc_physics) {
             if (*currentCollisionShapeType != CollisionShapeType::None && isDynamic) {
+                calcPhysicsRotation();
                 calcPhysicsPosition();
             }
         } else {
