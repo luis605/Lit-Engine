@@ -739,7 +739,7 @@ void DuplicateEntity(Entity& entity)
 
 void ProcessCopy()
 {
-    if (IsKeyPressed(KEY_C) && (IsKeyDown(KEY_LEFT_CONTROL) || IsKeyDown(KEY_RIGHT_CONTROL))) {
+    if (IsKeyPressed(KEY_C) && (IsKeyDown(KEY_LEFT_CONTROL) || IsKeyDown(KEY_RIGHT_CONTROL) && !movingEditorCamera)) {
         if (selected_game_object_type == "entity")
         {
             current_copy_type = CopyType_Entity;
