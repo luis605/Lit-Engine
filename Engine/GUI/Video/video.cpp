@@ -45,6 +45,11 @@ public:
         }
 
         pFrame = av_frame_alloc();
+        if (!pFrame) {
+            TraceLog(LOG_ERROR, "Error allocating AVFrame");
+            return;
+        }
+
         sws_ctx = sws_getContext(pCodecCtx->width, pCodecCtx->height, pCodecCtx->pix_fmt,
                                  pCodecCtx->width, pCodecCtx->height, AV_PIX_FMT_RGBA,
                                  SWS_BILINEAR, NULL, NULL, NULL);
