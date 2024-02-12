@@ -3,9 +3,6 @@
 class VideoPlayer {
 public:
     VideoPlayer(const char* videoFile) {
-        //av_register_all();
-        // avcodec_register_all();
-
         av_init_packet(&packet);
 
         pFormatCtx = avformat_alloc_context();
@@ -21,48 +18,60 @@ public:
 
         videoStream = -1;
         pCodecCtx = NULL;
+
         for (int i = 0; i < pFormatCtx->nb_streams; i++) {
             if (pFormatCtx->streams[i]->codecpar->codec_type == AVMEDIA_TYPE_VIDEO) {
                 videoStream = i;
                 const AVCodec* codec = avcodec_find_decoder(pFormatCtx->streams[i]->codecpar->codec_id);
                 pCodecCtx = avcodec_alloc_context3(codec);
+
                 if (pCodecCtx == NULL) {
                     TraceLog(LOG_ERROR, "Error allocating codec context");
                     return;
                 }
+
                 if (avcodec_parameters_to_context(pCodecCtx, pFormatCtx->streams[i]->codecpar) < 0) {
                     TraceLog(LOG_ERROR, "Failed to copy codec parameters to codec context");
                     return;
                 }
+
                 if (avcodec_open2(pCodecCtx, codec, NULL) < 0) {
                     TraceLog(LOG_ERROR, "Could not open codec");
                     return;
                 }
+
                 break;
             }
         }
 
         pFrame = av_frame_alloc();
         sws_ctx = sws_getContext(pCodecCtx->width, pCodecCtx->height, pCodecCtx->pix_fmt,
-                                pCodecCtx->width, pCodecCtx->height, AV_PIX_FMT_RGBA,
-                                SWS_BILINEAR, NULL, NULL, NULL);
+                                 pCodecCtx->width, pCodecCtx->height, AV_PIX_FMT_RGBA,
+                                 SWS_BILINEAR, NULL, NULL, NULL);
+
         if (!sws_ctx) {
             TraceLog(LOG_ERROR, "Failed to create SwsContext");
             return;
         }
 
+        // Allocate frameImage.data only once
+        frameImage.data = (Color *)malloc(pCodecCtx->width * pCodecCtx->height * 4);
+        if (!frameImage.data) {
+            TraceLog(LOG_ERROR, "Error allocating frame data");
+            return;
+        }
+
         if (pFormatCtx->streams[videoStream]->r_frame_rate.den != 0) {
             frameRate = static_cast<float>(pFormatCtx->streams[videoStream]->r_frame_rate.num) /
-                            static_cast<float>(pFormatCtx->streams[videoStream]->r_frame_rate.den);
+                        static_cast<float>(pFormatCtx->streams[videoStream]->r_frame_rate.den);
         } else {
-            // Handle the case where the denominator is 0 (to avoid division by zero)
             frameRate = 30.0f; // Set a default frame rate
         }
 
         frameImage = GenImageColor(pCodecCtx->width, pCodecCtx->height, BLANK);
         videoTexture = LoadTextureFromImage(frameImage);
         frameDelay = 1.0f / frameRate;
-        lastFrameTime = 0.0f;
+        lastFrameTime = GetTime();
         currentTime = 0.0f;
         finished = false;
         loop = true;
@@ -86,14 +95,13 @@ public:
             return;
         }
 
+        // Reuse the buffer for pixels and pitch
         uint8_t *pixels[1] = { (uint8_t *)frameImage.data };
         int pitch[1] = { 4 * pCodecCtx->width };
 
-        // Perform the image scaling
         sws_scale(sws_ctx, pFrame->data, pFrame->linesize, 0, pCodecCtx->height,
-                pixels, pitch);
+                  pixels, pitch);
 
-        // Update the texture with the scaled image data
         UpdateTexture(videoTexture, frameImage.data);
 
         currentTime += frameDelay;
@@ -121,10 +129,6 @@ public:
         }
     }
 
-
-
-
-
     bool IsFinished() const {
         return finished;
     }
@@ -140,7 +144,6 @@ public:
     float GetFrameRate() const {
         return frameRate;
     }
-
 
 private:
     AVPacket packet;
