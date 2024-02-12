@@ -84,14 +84,8 @@ public:
 
     ~VideoPlayer() {
         av_packet_unref(&packet);
-
-        // av_frame_free(&pFrame);
-        // avcodec_close(pCodecCtx);
-        // avformat_close_input(&pFormatCtx);
-        // sws_freeContext(sws_ctx);
-        // UnloadImage(frameImage);
-        // UnloadTexture(videoTexture);
     }
+
 
     void ProcessFrame() {
         float frameTime = GetTime() - lastFrameTime;
