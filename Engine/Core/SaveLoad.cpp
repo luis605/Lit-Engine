@@ -652,19 +652,19 @@ void LoadEntity(const json& entity_json, Entity& entity) {
             entity.setModel("", LoadModelFromMesh(GenMeshCube(1, 1, 1)));
 
         else if (entity.ObjectType == Entity::ObjectType_Cone)
-            entity.setModel("", LoadModelFromMesh(GenMeshCone(1, 1, 10)));
+            entity.setModel("", LoadModelFromMesh(GenMeshCone(.5, 1, 10)));
 
         else if (entity.ObjectType == Entity::ObjectType_Cylinder)
-            entity.setModel("", LoadModelFromMesh(GenMeshCylinder(1, 2, 30)));
+            entity.setModel("", LoadModelFromMesh(GenMeshCylinder(.5, 2, 30)));
 
         else if (entity.ObjectType == Entity::ObjectType_Plane)
             entity.setModel("", LoadModelFromMesh(GenMeshPlane(1, 1, 1, 1)));
 
         else if (entity.ObjectType == Entity::ObjectType_Sphere)
-            entity.setModel("", LoadModelFromMesh(GenMeshSphere(1, 50, 50)));
+            entity.setModel("", LoadModelFromMesh(GenMeshSphere(.5, 50, 50)));
 
         else if (entity.ObjectType == Entity::ObjectType_Torus)
-            entity.setModel("", LoadModelFromMesh(GenMeshTorus(1, 1, 30, 30)));
+            entity.setModel("", LoadModelFromMesh(GenMeshTorus(.5, 1, 30, 30)));
     }
 
     if (entity_json.contains("is_dynamic"))
