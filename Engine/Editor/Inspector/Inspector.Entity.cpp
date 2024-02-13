@@ -19,17 +19,7 @@ void EntityInspector()
 
 
         
-    if (!entities_list_pregame.empty() && selected_entity == nullptr && selected_entity && !selected_entity->name.empty()) {
-        try {
-            selected_entity_name = selected_entity->name;
-        } catch (std::bad_alloc) {
-            return;
-        }
-    }
-    else
-    {
-        selected_entity_name = "Unnamed Entity";
-    }
+    selected_entity_name = selected_entity->name;
 
 
     ImGui::Text("Inspecting '");
