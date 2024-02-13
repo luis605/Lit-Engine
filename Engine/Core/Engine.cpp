@@ -760,7 +760,7 @@ public:
             }
 
             free(LodModels[models_index].bindPose);
-            free(LodModels[models_index].boneCount);
+            LodModels[models_index].boneCount = 0;
             free(LodModels[models_index].bones);
         }
     }
