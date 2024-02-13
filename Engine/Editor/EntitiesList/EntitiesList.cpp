@@ -139,10 +139,11 @@ void DrawEntityTree(Entity& entity, int active, int& index, int depth) {
     isNodeOpen = ImGui::TreeNodeEx((void*)&entity, nodeFlags, entity_name.c_str());
     ImGui::PopStyleColor();
 
-    if (ImGui::IsItemHovered() && IsMouseButtonDown(MOUSE_BUTTON_RIGHT))
+    if (ImGui::IsItemHovered() && IsMouseButtonPressed(MOUSE_BUTTON_RIGHT))
     {
         showManipulateEntityPopup = true;
     }
+
 
     // Drag and drop target
     if (ImGui::BeginDragDropTarget()) {
