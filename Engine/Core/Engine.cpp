@@ -1451,9 +1451,9 @@ private:
             return;
         }
 
-        Matrix scaleMat = MatrixScale(scale.x, scale.y, scale.z);
-        Matrix rotationMat = MatrixRotateXYZ(Vector3Scale(rotation, DEG2RAD));
-        Matrix transformMatrix = MatrixMultiply(MatrixMultiply(scaleMat, rotationMat),
+        Matrix transformMatrix = MatrixMultiply(MatrixMultiply(MatrixScale(scale.x, scale.y, scale.z),
+                                                            MatrixRotateXYZ(Vector3Scale(rotation, DEG2RAD))),
+                                                MatrixTranslate(position.x, position.y, position.z));
                                                 MatrixTranslate(position.x, position.y, position.z));
 
         if (model.meshes != nullptr) {
