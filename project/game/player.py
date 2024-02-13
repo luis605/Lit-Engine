@@ -7,7 +7,7 @@ pitch = 0.0
 
 grounded = False
 rotation_angle = 45.0
-entity.visible = False
+entity.visible = True
 
 def update():
 	global velocity, dragging_item, hovered_entity, yaw, pitch, grounded
@@ -36,7 +36,7 @@ def update():
 		if (grounded):
 			entity.applyImpulse(Vector3(0, 9, 0))  # Adjust for desired jump height
 
-	camera.position = Vector3(entity.position.x, entity.position.y, entity.position.z)
+	camera.position = Vector3(entity.position.x - 5, entity.position.y + 5, entity.position.z )
 	camera.look_at = Vector3(entity.position.x, entity.position.y, entity.position.z)
 
 	sensitivity = 0.3
@@ -62,6 +62,7 @@ def update():
 	).distance
 
 	grounded = distance < entity.scale.y / 2 + 0.01
+
 
 
 
