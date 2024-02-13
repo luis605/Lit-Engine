@@ -1,7 +1,7 @@
 import random
 
 
-for i in range(3000):
+for i in range(1500):
     pos_x = random.uniform(-250, 250)
     pos_y = 300
     pos_z = random.uniform(-250, 250)
@@ -12,6 +12,8 @@ for i in range(3000):
     
     if (ray.hit):
         newEntity = Entity(ray.worldPoint, modelPath = "project/game/tree.obj", collider = False)
+
+
 
 
 
