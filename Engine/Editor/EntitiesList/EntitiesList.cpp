@@ -190,6 +190,12 @@ void DrawEntityTree(Entity& entity, int active, int& index, int depth) {
                 Entity* foundEntity = (Entity*)&*it;
                 foundEntity->isChild = true;
                 entity.addChild(*foundEntity);
+
+                auto it = std::find(entities_list_pregame.begin(), entities_list_pregame.end(), foundEntity);
+                
+                if (it != entities_list_pregame.end()) {
+                    entities_list_pregame.erase(it);
+                }
             }
         }
         ImGui::EndDragDropTarget();
