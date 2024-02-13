@@ -1454,7 +1454,7 @@ private:
         Matrix transformMatrix = MatrixMultiply(MatrixMultiply(MatrixScale(scale.x, scale.y, scale.z),
                                                             MatrixRotateXYZ(Vector3Scale(rotation, DEG2RAD))),
                                                 MatrixTranslate(position.x, position.y, position.z));
-                                                MatrixTranslate(position.x, position.y, position.z));
+                                                MatrixTranslate(position.x, position.y, position.z);
 
         if (model.meshes != nullptr) {
             bounds.min = Vector3Transform(const_bounds.min, transformMatrix);
@@ -1481,7 +1481,8 @@ private:
         distance = Vector3Distance(this->position, camera.position);
     #endif
 
-        model.transform = MatrixMultiply(scaleMat, rotationMat);
+        model.transform = MatrixMultiply(MatrixScale(scale.x, scale.y, scale.z),
+                                        MatrixRotateXYZ(Vector3Scale(rotation, DEG2RAD)));
 
         for (Model& lodModel : LodModels) {
             lodModel.transform = model.transform;
