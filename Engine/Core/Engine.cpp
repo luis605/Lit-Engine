@@ -768,6 +768,8 @@ public:
 
     void setModel(const char* modelPath = "", Model entity_model = Model(), Shader default_shader = shader)
     {
+        model_path = modelPath;
+    
         if (modelPath == "")
         {
             model = entity_model;
