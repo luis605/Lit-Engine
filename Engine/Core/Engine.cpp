@@ -163,7 +163,7 @@ public:
     bool running_first_time = false;
     bool calc_physics = false;
     bool isDynamic = false;
-    bool lodEnabled = true;
+    bool lodEnabled = false;
 
     typedef enum ObjectTypeEnum
     {
@@ -744,49 +744,25 @@ public:
 
         for (int models_index = 0; models_index < sizeof(LodModels)/sizeof(LodModels[0]); models_index++)
         {
+            if (IsModelReady(LodModels[models_index])) continue;
             for (int index = 0; index < LodModels[models_index].meshCount; index++)
             {
-                if (LodModels[models_index].meshes[index].vertices)
-                    free(LodModels[models_index].meshes[index].vertices);
-
-                if (LodModels[models_index].meshes[index].indices)
-                    free(LodModels[models_index].meshes[index].indices);
-
-                if (LodModels[models_index].meshes[index].colors)
-                    free(LodModels[models_index].meshes[index].colors);
-
-                if (LodModels[models_index].meshes[index].normals)
-                    free(LodModels[models_index].meshes[index].normals);
-
-                if (LodModels[models_index].meshes[index].tangents)
-                    free(LodModels[models_index].meshes[index].tangents);
-
-                if (LodModels[models_index].meshes[index].texcoords)
-                    free(LodModels[models_index].meshes[index].texcoords);
-
-                if (LodModels[models_index].meshes[index].boneIds)
-                    free(LodModels[models_index].meshes[index].boneIds);
-
-                if (LodModels[models_index].meshes[index].boneWeights)
-                    free(LodModels[models_index].meshes[index].boneWeights);
-
-                if (LodModels[models_index].meshes[index].animVertices)
-                    free(LodModels[models_index].meshes[index].animVertices);
-
-                if (LodModels[models_index].meshes[index].animNormals)
-                    free(LodModels[models_index].meshes[index].animNormals);
-
-                if (LodModels[models_index].meshes[index].texcoords2)
-                    free(LodModels[models_index].meshes[index].texcoords2);
+                free(LodModels[models_index].meshes[index].vertices);
+                free(LodModels[models_index].meshes[index].indices);
+                free(LodModels[models_index].meshes[index].colors);
+                free(LodModels[models_index].meshes[index].normals);
+                free(LodModels[models_index].meshes[index].tangents);
+                free(LodModels[models_index].meshes[index].texcoords);
+                free(LodModels[models_index].meshes[index].boneIds);
+                free(LodModels[models_index].meshes[index].boneWeights);
+                free(LodModels[models_index].meshes[index].animVertices);
+                free(LodModels[models_index].meshes[index].animNormals);
+                free(LodModels[models_index].meshes[index].texcoords2);
             }
 
-            if (LodModels[models_index].bindPose)
-                free(LodModels[models_index].bindPose);
-
-            LodModels[models_index].boneCount = 0;
-
-            if (LodModels[models_index].bones)
-                free(LodModels[models_index].bones);
+            free(LodModels[models_index].bindPose);
+            free(LodModels[models_index].boneCount);
+            free(LodModels[models_index].bones);
         }
     }
 
