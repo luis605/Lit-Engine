@@ -768,7 +768,6 @@ public:
 
     void setModel(const char* modelPath = "", Model entity_model = Model(), Shader default_shader = shader)
     {
-        lodEnabled = true;
         model_path = modelPath;
     
         if (modelPath == "")
