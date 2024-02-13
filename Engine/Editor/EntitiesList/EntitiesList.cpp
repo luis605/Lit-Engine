@@ -144,6 +144,17 @@ void DrawEntityTree(Entity& entity, int active, int& index, int depth) {
         showManipulateEntityPopup = true;
     }
 
+    if (ImGui::BeginDragDropSource(ImGuiDragDropFlags_None))
+    {
+        ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(0.85f, 0.85f, 0.85f, 1.0f));
+
+        ImGui::SetDragDropPayload("CHILD_ENTITY_PAYLOAD", &entity.id, sizeof(int));
+        ImGui::TreeNodeEx((void*)&entity, nodeFlags | ImGuiTreeNodeFlags_Selected, entity.name.c_str());
+        ImGui::PopStyleColor();
+
+        ImGui::EndDragDropSource();
+    }
+
 
     // Drag and drop target
     if (ImGui::BeginDragDropTarget()) {
