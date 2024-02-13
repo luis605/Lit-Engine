@@ -404,7 +404,7 @@ void RenderLight(Light* light, bool& isLightSelected) {
 
     for (Light& light : lights)
     {
-        Model light_model = LoadModelFromMesh(GenMeshPlane(10, 10, 1, 1));
+        Model light_model = LoadModelFromMesh(GenMeshPlane(4, 4, 1, 1));
         light_model.materials[0].maps[MATERIAL_MAP_DIFFUSE].texture = light_texture;
 
         float rotation = DrawBillboardRotation(scene_camera, light_texture, { light.position.x, light.position.y, light.position.z }, 1.0f, WHITE);
