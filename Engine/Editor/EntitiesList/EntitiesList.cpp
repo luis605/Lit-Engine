@@ -172,9 +172,26 @@ void DrawEntityTree(Entity& entity, int active, int& index, int depth) {
                 foundLight->isChild = true;
                 entity.addChild(foundLight, droppedLightID);
             }
-
         }
+        ImGui::EndDragDropTarget();
+    }
 
+    if (ImGui::BeginDragDropTarget()) {
+        const ImGuiPayload* payload = ImGui::AcceptDragDropPayload("CHILD_ENTITY_PAYLOAD");
+        if (payload) {
+            // Retrieve the entity ID from the payload data.
+            int droppedEntityID = *(const int*)payload->Data;
+
+            auto it = std::find_if(entities_list_pregame.begin(), entities_list_pregame.end(), [droppedEntityID](const Entity& entity) {
+                return entity.id == droppedEntityID;
+            });
+
+            if (it != entities_list_pregame.end()) {
+                Entity* foundEntity = (Entity*)&*it;
+                foundEntity->isChild = true;
+                entity.addChild(*foundEntity);
+            }
+        }
         ImGui::EndDragDropTarget();
     }
 
