@@ -14,6 +14,10 @@ void InitGizmo()
         gizmo_taurus[index].model = LoadModel("assets/models/gizmo/taurus.obj");
     }
 
+    gizmo_taurus[0].rotation = {0, 90, 0};
+    gizmo_taurus[1].rotation = {90, 0, 0};
+    gizmo_taurus[2].rotation = {0, 0, 90};
+
     for (int index = 0; index < NUM_GIZMO_CUBES; index++)
     {
         gizmo_cube[index].model = LoadModelFromMesh(GenMeshCube(1, 1, 1));
@@ -195,12 +199,6 @@ void GizmoRotation()
     else if (selected_game_object_type == "light")
         selected_object_rotation = {1, 1, 1};
 
-
-    float scale = GetExtremeValue(selected_object_scale);
-
-    gizmo_taurus[0].rotation = {0, 90, 0};
-    gizmo_taurus[1].rotation = {90, 0, 0};
-    gizmo_taurus[2].rotation = {0, 0, 90};
 
     for (int index = 0; index < NUM_GIZMO_TAURUS; index++)
     {
