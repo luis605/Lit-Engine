@@ -171,8 +171,9 @@ bool IsMouseHoveringModel(const Model& model, const Camera& camera, const Vector
         (float)GetMousePosition().x - (float)rectangle.x,
         (float)GetMousePosition().y - (float)rectangle.y - (float)GetImGuiWindowTitleHeight()
     };
+
+    Ray mouseRay = GetViewRay(relativeMousePosition, camera, rectangle.width, rectangle.height);
     
-    Ray mouseRay = GetViewRay(relativeMousePosition, scene_camera, rectangle.width, rectangle.height);
     RayCollision meshCollisionInfo = { 0 };
 
 
@@ -190,11 +191,8 @@ bool IsMouseHoveringModel(const Model& model, const Camera& camera, const Vector
         meshBounds.min = Vector3Transform(meshBounds.min, modelTransform);
         meshBounds.max = Vector3Transform(meshBounds.max, modelTransform);
 
-        bypassOptimization = true;
-
-
         if (bypassOptimization || GetRayCollisionBox(mouseRay, meshBounds).hit) {
-            meshCollisionInfo = GetRayCollisionMesh(mouseRay, model.meshes[meshIndex], modelTransform);
+            meshCollisionInfo = GetRayCollisionMesh(mouseRay, model.meshes[meshIndex], model.transform);
             if (meshCollisionInfo.hit) {
                 return true;
             }
