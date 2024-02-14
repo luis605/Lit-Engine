@@ -147,94 +147,6 @@ void EditorCameraMovement(void)
     }
 }
 
-
-Ray GetMouseRayEx(Vector2 mouse, Camera camera, float width, float height) {
-    Ray ray = { 0 };
-
-    float x = (2.0f*mouse.x)/width - 1.0f;
-    float y = 1.0f - (2.0f*mouse.y)/height;
-    float z = 1.0f;
-
-    Vector3 deviceCoords = { x, y, z };
-
-    Matrix matView = MatrixLookAt(camera.position, camera.target, camera.up);
-    Matrix matProj = MatrixIdentity();
-
-    if (camera.projection == CAMERA_PERSPECTIVE)
-    {
-        matProj = MatrixPerspective(camera.fovy*DEG2RAD, ((double)width/(double)height), RL_CULL_DISTANCE_NEAR, RL_CULL_DISTANCE_FAR);
-    }
-    else if (camera.projection == CAMERA_ORTHOGRAPHIC)
-    {
-        float aspect = (float)width/(float)height;
-        double top = camera.fovy/2.0;
-        double right = top*aspect;
-
-        matProj = MatrixOrtho(-right, right, -top, top, 0.01, 1000.0);
-    }
-
-    // Unproject far/near points
-    Vector3 nearPoint = Vector3Unproject((Vector3){ deviceCoords.x, deviceCoords.y, 0.0f }, matProj, matView);
-    Vector3 farPoint = Vector3Unproject((Vector3){ deviceCoords.x, deviceCoords.y, 1.0f }, matProj, matView);
-
-    Vector3 cameraPlanePointerPos = Vector3Unproject((Vector3){ deviceCoords.x, deviceCoords.y, -1.0f }, matProj, matView);
-
-    Vector3 direction = Vector3Normalize(Vector3Subtract(farPoint, nearPoint));
-
-    if (camera.projection == CAMERA_PERSPECTIVE) ray.position = camera.position;
-    else if (camera.projection == CAMERA_ORTHOGRAPHIC) ray.position = cameraPlanePointerPos;
-
-    ray.direction = direction;
-
-    return ray;
-}
-
-
-Ray my_GetMouseRay(Vector2 mouse, Camera camera, Rectangle rect) {
-    Ray ray = { 0 };
-
-    Vector2 mouseAdj = {mouse.x - rect.x, mouse.y - rect.y};
-
-    float x = (2.0f*mouseAdj.x)/rect.width - 1.0f;
-    float y = 1.0f - (2.0f*mouseAdj.y)/rect.height;
-    float z = 1.0f;
-
-    Vector3 deviceCoords = { x, y, z };
-
-    Matrix matView = MatrixLookAt(camera.position, camera.target, camera.up);
-
-    Matrix matProj = MatrixIdentity();
-
-    if (camera.projection == CAMERA_PERSPECTIVE)
-    {
-        matProj = MatrixPerspective(camera.fovy*DEG2RAD, ((double)rect.width/(double)rect.height), RL_CULL_DISTANCE_NEAR, RL_CULL_DISTANCE_FAR);
-    }
-    else if (camera.projection == CAMERA_ORTHOGRAPHIC)
-    {
-        double aspect = (double)rect.width/(double)rect.height;
-        double top = camera.fovy/2.0;
-        double right = top*aspect;
-
-        matProj = MatrixOrtho(-right, right, -top, top, 0.01, 1000.0);
-    }
-
-    Vector3 nearPoint = Vector3Unproject((Vector3){ deviceCoords.x, deviceCoords.y, 0.0f }, matProj, matView);
-    Vector3 farPoint = Vector3Unproject((Vector3){ deviceCoords.x, deviceCoords.y, 1.0f }, matProj, matView);
-
-    Vector3 cameraPlanePointerPos = Vector3Unproject((Vector3){ deviceCoords.x, deviceCoords.y, -1.0f }, matProj, matView);
-
-    Vector3 direction = Vector3Normalize(Vector3Subtract(farPoint, nearPoint));
-
-    if (camera.projection == CAMERA_PERSPECTIVE) ray.position = camera.position;
-    else if (camera.projection == CAMERA_ORTHOGRAPHIC) ray.position = cameraPlanePointerPos;
-
-    ray.direction = direction;
-
-    return ray;
-}
-
-
-
 bool IsMouseHoveringModel(const Model& model, const Camera& camera, const Vector3& position, const Vector3& rotation, const Vector3& scale, const Entity* entity, bool bypassOptimization)
 {
     if (model.meshCount <= 0) {
@@ -254,8 +166,17 @@ bool IsMouseHoveringModel(const Model& model, const Camera& camera, const Vector
                                       entity ? entity->bounds.min : GetMeshBoundingBox(model.meshes[0]).min);
     }
 
-    Ray mouseRay = my_GetMouseRay(GetMousePosition(), camera, rectangle);
+    Vector2 relativeMousePosition = {
+        GetMousePosition().x - rectangle.x,
+        GetMousePosition().y - rectangle.y - GetImGuiWindowTitleHeight()
+    };
+
+    std::cout << "Mouse Position: " << relativeMousePosition.x << ", " << relativeMousePosition.y << std::endl;
+
+    Ray mouseRay = GetViewRay(relativeMousePosition, camera, rectangle.width, rectangle.height);
     RayCollision meshCollisionInfo = { 0 };
+
+    DrawRay(mouseRay, RED);
 
     for (int meshIndex = 0; meshIndex < model.meshCount; meshIndex++) {
         BoundingBox meshBounds = (entity == nullptr) ? GetMeshBoundingBox(model.meshes[meshIndex]) : entity->bounds;
@@ -270,6 +191,9 @@ bool IsMouseHoveringModel(const Model& model, const Camera& camera, const Vector
         // Transform the mesh bounding box based on the model's transform
         meshBounds.min = Vector3Transform(meshBounds.min, modelTransform);
         meshBounds.max = Vector3Transform(meshBounds.max, modelTransform);
+
+        bypassOptimization = true;
+
 
         if (bypassOptimization || GetRayCollisionBox(mouseRay, meshBounds).hit) {
             meshCollisionInfo = GetRayCollisionMesh(mouseRay, model.meshes[meshIndex], modelTransform);
