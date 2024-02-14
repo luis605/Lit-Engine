@@ -319,12 +319,12 @@ void GizmoScale()
     }
 
 
-    gizmo_cube[0].position = { selected_object_position.x + selected_object_scale.x + 1.75f, selected_object_position.y, selected_object_position.z };
-    gizmo_cube[1].position = { selected_object_position.x - selected_object_scale.x - 1.75f, selected_object_position.y, selected_object_position.z };
-    gizmo_cube[2].position = { selected_object_position.x, selected_object_position.y + selected_object_scale.y + 1.75f, selected_object_position.z };
-    gizmo_cube[3].position = { selected_object_position.x, selected_object_position.y - selected_object_scale.y - 1.75f, selected_object_position.z };
-    gizmo_cube[4].position = { selected_object_position.x, selected_object_position.y, selected_object_position.z + selected_object_scale.z + 1.75f };
-    gizmo_cube[5].position = { selected_object_position.x, selected_object_position.y, selected_object_position.z - selected_object_scale.z - 1.75f };
+    gizmo_cube[0].position = { selected_object_position.x + selected_object_scale.x / 2 + 1.75f, selected_object_position.y, selected_object_position.z };
+    gizmo_cube[1].position = { selected_object_position.x - selected_object_scale.x / 2 - 1.75f, selected_object_position.y, selected_object_position.z };
+    gizmo_cube[2].position = { selected_object_position.x, selected_object_position.y + selected_object_scale.y / 2 + 1.75f, selected_object_position.z };
+    gizmo_cube[3].position = { selected_object_position.x, selected_object_position.y - selected_object_scale.y / 2 - 1.75f, selected_object_position.z };
+    gizmo_cube[4].position = { selected_object_position.x, selected_object_position.y, selected_object_position.z + selected_object_scale.z / 2 + 1.75f };
+    gizmo_cube[5].position = { selected_object_position.x, selected_object_position.y, selected_object_position.z - selected_object_scale.z / 2 - 1.75f };
 
     for (int cube_i = 0; cube_i < NUM_GIZMO_CUBES; cube_i++)
     {
