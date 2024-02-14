@@ -95,7 +95,8 @@
         "locale": "cpp",
         "__config": "cpp",
         "__mutex_base": "cpp",
-        "ios": "c"
+        "ios": "c",
+        "__locale": "cpp"
     },
     "C_Cpp.default.compilerPath": "/usr/bin/g++"
 }

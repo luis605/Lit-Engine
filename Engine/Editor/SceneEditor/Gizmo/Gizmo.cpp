@@ -388,9 +388,22 @@ void GizmoScale()
             dragging_gizmo_scale = false;
         }
 
-        float extreme_rotation = GetExtremeValue(gizmo_cube[cube_i].rotation);
-    
-        DrawModelEx(gizmo_cube[cube_i].model, gizmo_cube[cube_i].position, gizmo_cube[cube_i].rotation, extreme_rotation, {1,1,1}, color1);
+
+
+        Matrix rotationMat = MatrixRotateXYZ((Vector3){
+            DEG2RAD * gizmo_cube[cube_i].rotation.x,
+            DEG2RAD * gizmo_cube[cube_i].rotation.y,
+            DEG2RAD * gizmo_cube[cube_i].rotation.z
+        });
+
+        Matrix transformMatrix = MatrixIdentity();
+        transformMatrix = MatrixMultiply(transformMatrix, MatrixScale(gizmo_cube[cube_i].scale.x, gizmo_cube[cube_i].scale.y, gizmo_cube[cube_i].scale.z));
+        transformMatrix = MatrixMultiply(transformMatrix, rotationMat);
+        transformMatrix = MatrixMultiply(transformMatrix, MatrixTranslate(gizmo_cube[cube_i].position.x, gizmo_cube[cube_i].position.y, gizmo_cube[cube_i].position.z));
+        
+        gizmo_cube[cube_i].model.transform = transformMatrix;
+
+        DrawModel(gizmo_cube[cube_i].model, Vector3Zero(), 1, color1);
     }
 
 
