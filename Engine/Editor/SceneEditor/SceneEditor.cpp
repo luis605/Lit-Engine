@@ -147,6 +147,7 @@ void EditorCameraMovement(void)
     }
 }
 
+
 bool IsMouseHoveringModel(const Model& model, const Camera& camera, const Vector3& position, const Vector3& rotation, const Vector3& scale, const Entity* entity, bool bypassOptimization)
 {
     if (model.meshCount <= 0) {
@@ -167,16 +168,13 @@ bool IsMouseHoveringModel(const Model& model, const Camera& camera, const Vector
     }
 
     Vector2 relativeMousePosition = {
-        GetMousePosition().x - rectangle.x,
-        GetMousePosition().y - rectangle.y - GetImGuiWindowTitleHeight()
+        (float)GetMousePosition().x - (float)rectangle.x,
+        (float)GetMousePosition().y - (float)rectangle.y - (float)GetImGuiWindowTitleHeight()
     };
-
-    std::cout << "Mouse Position: " << relativeMousePosition.x << ", " << relativeMousePosition.y << std::endl;
-
-    Ray mouseRay = GetViewRay(relativeMousePosition, camera, rectangle.width, rectangle.height);
+    
+    Ray mouseRay = GetViewRay(relativeMousePosition, scene_camera, rectangle.width, rectangle.height);
     RayCollision meshCollisionInfo = { 0 };
 
-    DrawRay(mouseRay, RED);
 
     for (int meshIndex = 0; meshIndex < model.meshCount; meshIndex++) {
         BoundingBox meshBounds = (entity == nullptr) ? GetMeshBoundingBox(model.meshes[meshIndex]) : entity->bounds;
@@ -490,7 +488,6 @@ void ObjectsPopup()
 
     if (ImGui::IsWindowHovered() && showObjectTypePopup)
         ImGui::OpenPopup("popup");
-
 
     if (ImGui::BeginPopup("popup"))
     {
