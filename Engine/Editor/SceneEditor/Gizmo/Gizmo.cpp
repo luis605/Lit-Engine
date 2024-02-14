@@ -198,24 +198,14 @@ void GizmoRotation()
 
     float scale = GetExtremeValue(selected_object_scale);
 
-    // Gizmo Arrow Up
-    gizmo_taurus[0].position = selected_object_rotation;
     gizmo_taurus[0].rotation = {0, 90, 0};
-    // gizmo_taurus[0].model.transform = MatrixScale(scale, scale, scale);
-    
-    // Gizmo Arrow Down
-    gizmo_taurus[1].position = selected_object_rotation;
     gizmo_taurus[1].rotation = {90, 0, 0};
-    // gizmo_taurus[1].model.transform = MatrixScale(scale, scale, scale);
-    
-    // Gizmo Arrow Right
-    gizmo_taurus[2].position = selected_object_rotation;
     gizmo_taurus[2].rotation = {0, 0, 90};
-    // gizmo_taurus[2].model.transform = MatrixScale(scale, scale, scale);
-
 
     for (int index = 0; index < NUM_GIZMO_TAURUS; index++)
     {
+        gizmo_taurus[index].position = selected_object_position;
+
         Color color1;
 
         if ((!dragging_gizmo_scale && !dragging_gizmo_position && !dragging_gizmo_rotation) && ImGui::IsWindowHovered())
@@ -277,8 +267,21 @@ void GizmoRotation()
             dragging_gizmo_rotation = false;
         }
 
-        float extreme_rotation = GetExtremeValue(gizmo_taurus[index].rotation);
-        DrawModelEx(gizmo_taurus[index].model, selected_object_position, gizmo_taurus[index].rotation, extreme_rotation, {1,1,1}, color1);
+        Matrix rotationMat = MatrixRotateXYZ((Vector3){
+            DEG2RAD * gizmo_taurus[index].rotation.x,
+            DEG2RAD * gizmo_taurus[index].rotation.y,
+            DEG2RAD * gizmo_taurus[index].rotation.z
+        });
+
+
+        Matrix transformMatrix = MatrixIdentity();
+        transformMatrix = MatrixMultiply(transformMatrix, MatrixScale(gizmo_taurus[index].scale.x, gizmo_taurus[index].scale.y, gizmo_taurus[index].scale.z));
+        transformMatrix = MatrixMultiply(transformMatrix, rotationMat);
+        transformMatrix = MatrixMultiply(transformMatrix, MatrixTranslate(gizmo_taurus[index].position.x, gizmo_taurus[index].position.y, gizmo_taurus[index].position.z));
+        
+        gizmo_taurus[index].model.transform = transformMatrix;
+
+        DrawModel(gizmo_taurus[index].model, Vector3Zero(), 1, color1);
     }
 
 
