@@ -154,12 +154,6 @@ bool IsMouseHoveringModel(const Model& model, const Camera& camera, const Vector
         return false;
     }
 
-    // Calculate model transform once outside the loop
-    Matrix modelTransform = MatrixIdentity();
-    modelTransform = MatrixMultiply(modelTransform, MatrixScale(scale.x, scale.y, scale.z));
-    modelTransform = MatrixMultiply(modelTransform, MatrixRotateXYZ(rotation));
-    modelTransform = MatrixMultiply(modelTransform, MatrixTranslate(position.x, position.y, position.z));
-
     Vector3 originalSize = Vector3Zero();
 
     if (Vector3Equals(scale, Vector3Zero())) {
@@ -180,16 +174,9 @@ bool IsMouseHoveringModel(const Model& model, const Camera& camera, const Vector
     for (int meshIndex = 0; meshIndex < model.meshCount; meshIndex++) {
         BoundingBox meshBounds = (entity == nullptr) ? GetMeshBoundingBox(model.meshes[meshIndex]) : entity->bounds;
 
-        if (Vector3Equals(scale, Vector3Zero())) {
-            modelTransform = MatrixIdentity();
-            modelTransform = MatrixMultiply(modelTransform, MatrixScale(originalSize.x, originalSize.y, originalSize.z));
-            modelTransform = MatrixMultiply(modelTransform, MatrixRotateXYZ(rotation));
-            modelTransform = MatrixMultiply(modelTransform, MatrixTranslate(position.x, position.y, position.z));
-        }
-
         // Transform the mesh bounding box based on the model's transform
-        meshBounds.min = Vector3Transform(meshBounds.min, modelTransform);
-        meshBounds.max = Vector3Transform(meshBounds.max, modelTransform);
+        meshBounds.min = Vector3Transform(meshBounds.min, model.transform);
+        meshBounds.max = Vector3Transform(meshBounds.max, model.transform);
 
         if (bypassOptimization || GetRayCollisionBox(mouseRay, meshBounds).hit) {
             meshCollisionInfo = GetRayCollisionMesh(mouseRay, model.meshes[meshIndex], model.transform);
