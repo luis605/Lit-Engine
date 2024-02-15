@@ -896,7 +896,10 @@ public:
                     [](Entity& entity, LitVector3& position) { entity.setPos(position); }
                 )
                 .def_readwrite("scale", &Entity::scale)
-                .def_readwrite("rotation", &Entity::rotation)
+                .def_property("rotation",
+                    [](const Entity& entity) { return entity.rotation; },
+                    [](Entity& entity, LitVector3& rotation) { entity.setRot(rotation); }
+                )
                 .def_property("color", &Entity::getColor, &Entity::setColor)
                 .def_readwrite("visible", &Entity::visible)
                 .def_readwrite("id", &Entity::id)
@@ -1095,17 +1098,11 @@ public:
             if (boxRigidBody && *boxRigidBody && (*boxRigidBody)->getMotionState()) {
                 btTransform currentTransform = (*boxRigidBody)->getWorldTransform();
 
-                // Set the new rotation (in this example, a 90-degree rotation around the Y-axis)
                 btQuaternion newRotation;
                 newRotation.setEulerZYX(newRot.z * DEG2RAD, newRot.y * DEG2RAD, newRot.x * DEG2RAD);
-
-                // Apply the new rotation to the transform
                 currentTransform.setRotation(newRotation);
-
-                // Set the updated transform to the rigid body
                 (*boxRigidBody)->setWorldTransform(currentTransform);
             }
-            // You may want to add an else block here to handle the case where boxRigidBody or its motion state is null.
         }
     }
 
