@@ -189,16 +189,7 @@ void GizmoRotation()
     else if (selected_game_object_type == "light")
         selected_object_position = {selected_light->position.x, selected_light->position.y, selected_light->position.z};
 
-
     Vector3 selected_object_scale;
-
-
-
-    if (selected_game_object_type == "entity")
-        selected_object_scale = {1, 1, 1};//selected_entity->scale;
-    else if (selected_game_object_type == "light")
-        selected_object_rotation = {1, 1, 1};
-
 
     for (int index = 0; index < NUM_GIZMO_TAURUS; index++)
     {
@@ -217,7 +208,7 @@ void GizmoRotation()
             }
             else
             {
-                color1 = { 40, 40, 255, 100 };
+                color1 = DARKBLUE;
                 gizmo_taurus_selected == -1;
             }
         }
