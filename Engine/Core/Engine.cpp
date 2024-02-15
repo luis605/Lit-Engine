@@ -1481,7 +1481,7 @@ private:
         model.transform = transformMatrix;
 
         for (Model& lodModel : LodModels) {
-            lodModel.transform = model.transform;
+            lodModel.transform = transformMatrix;
         }
 
         int lodLevel = (distance < LOD_DISTANCE_HIGH) ? 0
