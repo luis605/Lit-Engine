@@ -919,10 +919,10 @@ public:
         py::module time_module = py::module::import("time_module");
         py::module color_module = py::module::import("color_module");
         py::module math_module = py::module::import("math_module");
+        py::module_::import("__main__").attr("entities_list") = py::cast(entities_list);
 
         entity_obj = py::cast(this);
-
-
+    
         locals = py::dict(
             "entity"_a = entity_obj,
             "IsMouseButtonPressed"_a = input_module.attr("isMouseButtonPressed"),
@@ -940,6 +940,7 @@ public:
             "Color"_a = color_module.attr("Color"),
             "time"_a = py::cast(&time_instance),
             "lerp"_a = math_module.attr("lerp"),
+            "entitiesList"_a = entities_list,
             "camera"_a = py::cast(rendering_camera)
         );
 
@@ -1673,7 +1674,7 @@ HitInfo raycast(LitVector3 origin, LitVector3 direction, bool debug, std::vector
     if (entities_list.empty())
         return hitInfo;
 
-    float minDistance = FLT_MAX;
+    float minDistance = 100000000000000000000000000000.0f;
 
     for (const Entity& entity : entities_list)
     {
