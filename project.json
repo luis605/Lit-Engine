@@ -2,15 +2,15 @@
     {
         "fovy": 60.0,
         "position": {
-            "x": 3.053201913833618,
-            "y": 10.405535697937012,
-            "z": -6.008042335510254
+            "x": 24.669092178344727,
+            "y": 36.863834381103516,
+            "z": -0.38006576895713806
         },
         "projection": 0,
         "target": {
-            "x": 15.149690628051758,
-            "y": -17.619766235351563,
-            "z": 33.592567443847656
+            "x": 24.674280166625977,
+            "y": 4.845035552978516,
+            "z": -38.78181457519531
         },
         "type": "camera",
         "up": {
@@ -155,7 +155,7 @@
         "id": 2,
         "is_dynamic": true,
         "lodEnabled": true,
-        "mass": 1.0,
+        "mass": 8.399999618530273,
         "material_path": "",
         "mesh_type": 1,
         "model_path": "",
@@ -273,7 +273,7 @@
         "normal_texture_path": "",
         "position": {
             "x": 19.5,
-            "y": 5.600000381469727,
+            "y": 6.100002288818359,
             "z": -23.0
         },
         "relative_position": {
@@ -288,9 +288,9 @@
         },
         "roughness_texture_path": "",
         "scale": {
-            "x": 25.0,
+            "x": 26.300004959106445,
             "y": 10.0,
-            "z": 1.0
+            "z": 2.000000476837158
         },
         "script_index": "",
         "script_path": "",
@@ -327,9 +327,9 @@
         "name": "Wall",
         "normal_texture_path": "",
         "position": {
-            "x": 26.500062942504883,
+            "x": 29.400074005126953,
             "y": 5.600011825561523,
-            "z": 1.5
+            "z": 1.299999713897705
         },
         "relative_position": {
             "x": 0.0,
@@ -343,9 +343,9 @@
         },
         "roughness_texture_path": "",
         "scale": {
-            "x": 25.0,
-            "y": 10.0,
-            "z": 1.0
+            "x": 58.799617767333984,
+            "y": 22.100046157836914,
+            "z": 6.199996471405029
         },
         "script_index": "",
         "script_path": "",
@@ -423,6 +423,61 @@
         "type": "entity"
     },
     {
+        "collider": true,
+        "collider_type": 0,
+        "damping": 0.0,
+        "friction": 1.0,
+        "id": 1,
+        "is_dynamic": false,
+        "lodEnabled": true,
+        "mass": 1.0,
+        "material_path": "",
+        "mesh_type": 1,
+        "model_path": "",
+        "name": "Wall",
+        "normal_texture_path": "",
+        "position": {
+            "x": 26.600027084350586,
+            "y": 6.100002288818359,
+            "z": -28.300020217895508
+        },
+        "relative_position": {
+            "x": 0.0,
+            "y": 0.0,
+            "z": 0.0
+        },
+        "rotation": {
+            "x": 0.0,
+            "y": 0.0,
+            "z": 0.0
+        },
+        "roughness_texture_path": "",
+        "scale": {
+            "x": 15.09996223449707,
+            "y": 9.999996185302734,
+            "z": 2.1000006198883057
+        },
+        "script_index": "",
+        "script_path": "",
+        "surface_material": {
+            "DiffuseIntensity": 0.5,
+            "Roughness": 0.5,
+            "SpecularIntensity": 0.5,
+            "SpecularTint": {
+                "x": 1.0,
+                "y": 1.0,
+                "z": 1.0
+            },
+            "shininess": 0.5
+        },
+        "texture_path": "",
+        "tiling": [
+            1.0,
+            1.0
+        ],
+        "type": "entity"
+    },
+    {
         "attenuation": 9.999999747378752e-05,
         "color": {
             "a": 255.0,
@@ -436,11 +491,11 @@
             "y": -0.3240000009536743,
             "z": 1.0
         },
-        "id": 2,
+        "id": -1734064128,
         "intensity": 5.0,
         "isChild": false,
         "light_type": 0,
-        "name": "Light",
+        "name": "",
         "position": {
             "x": 4.0,
             "y": 5.0,
@@ -473,11 +528,11 @@
             "y": 0.4000000059604645,
             "z": -0.4000000059604645
         },
-        "id": 3,
+        "id": -1734064128,
         "intensity": 5.0,
         "isChild": false,
         "light_type": 1,
-        "name": "Light",
+        "name": "",
         "position": {
             "x": 4.0,
             "y": 5.0,

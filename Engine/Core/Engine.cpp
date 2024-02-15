@@ -1478,8 +1478,7 @@ private:
         distance = Vector3Distance(this->position, camera.position);
     #endif
 
-        model.transform = MatrixMultiply(MatrixScale(scale.x, scale.y, scale.z),
-                                        MatrixRotateXYZ(Vector3Scale(rotation, DEG2RAD)));
+        model.transform = transformMatrix;
 
         for (Model& lodModel : LodModels) {
             lodModel.transform = model.transform;
@@ -1491,7 +1490,7 @@ private:
                     : 3;
 
         DrawModel(lodEnabled && IsModelReady(LodModels[lodLevel]) ? LodModels[lodLevel] : model,
-                position,
+                Vector3Zero(),
                 1,
                 (Color){
                     static_cast<unsigned char>(surface_material.color.x * 255),
@@ -1646,6 +1645,8 @@ bool operator==(const Entity& e, const Entity* ptr) {
         }
     }
 #endif
+
+
 HitInfo raycast(LitVector3 origin, LitVector3 direction, bool debug, std::vector<Entity> ignore)
 {
     HitInfo _hitInfo;
@@ -1663,9 +1664,6 @@ HitInfo raycast(LitVector3 origin, LitVector3 direction, bool debug, std::vector
 
     float minDistance = 1000000000000000000000000000000000.0f;
 
-    // Combine scaling, rotation, and translation matrices outside the loop
-    Matrix matScale, matRotation, matTranslation, modelMatrix;
-
     for (auto& entity : entities_list)
     {
         if (std::find(ignore.begin(), ignore.end(), entity) != ignore.end())
@@ -1674,15 +1672,6 @@ HitInfo raycast(LitVector3 origin, LitVector3 direction, bool debug, std::vector
         if (!entity.collider)
             continue;
 
-        float extreme_rotation = GetExtremeValue(entity.rotation);
-
-        matScale = MatrixScale(entity.scale.x, entity.scale.y, entity.scale.z);
-        matRotation = MatrixRotate(entity.rotation, extreme_rotation * DEG2RAD);
-        matTranslation = MatrixTranslate(entity.position.x, entity.position.y, entity.position.z);
-
-        modelMatrix = MatrixMultiply(MatrixMultiply(matScale, matRotation), matTranslation);
-
-        // Calculate bounding box outside the inner loop
         RayCollision entityBounds = GetRayCollisionBox(ray, entity.bounds);
 
         for (int mesh_i = 0; mesh_i < entity.model.meshCount; mesh_i++)
@@ -1690,7 +1679,7 @@ HitInfo raycast(LitVector3 origin, LitVector3 direction, bool debug, std::vector
             if (!entityBounds.hit)
                 break;
 
-            RayCollision meshHitInfo = GetRayCollisionMesh(ray, entity.model.meshes[mesh_i], modelMatrix);
+            RayCollision meshHitInfo = GetRayCollisionMesh(ray, entity.model.meshes[mesh_i], entity.model.transform);
             
             if (meshHitInfo.hit && meshHitInfo.distance < minDistance)
             {
