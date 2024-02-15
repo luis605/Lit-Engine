@@ -1451,7 +1451,6 @@ private:
         Matrix transformMatrix = MatrixMultiply(MatrixMultiply(MatrixScale(scale.x, scale.y, scale.z),
                                                             MatrixRotateXYZ(Vector3Scale(rotation, DEG2RAD))),
                                                 MatrixTranslate(position.x, position.y, position.z));
-                                                MatrixTranslate(position.x, position.y, position.z);
 
         if (model.meshes != nullptr) {
             bounds.min = Vector3Transform(const_bounds.min, transformMatrix);
