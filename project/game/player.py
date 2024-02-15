@@ -18,6 +18,7 @@ def spherical_to_cartesian(radius, yaw, pitch):
     return Vector3(x, y, z)
 
 def update():
+    pass
     global yaw, pitch, grounded
 
     handle_movement()
@@ -46,7 +47,7 @@ def handle_movement():
         right = camera.right * DeltaTimeVec3 * VELOCITY
         entity.applyImpulse(right)
     if IsKeyPressed(KeyboardKey.KEY_SPACE) and grounded:
-        entity.applyImpulse(Vector3(0, VELOCITY * 1.5, 0))
+        entity.applyImpulse(Vector3(0, VELOCITY * 1.8, 0))
 
 def handle_camera_rotation():
     global yaw, pitch
@@ -76,9 +77,11 @@ def update_camera_position():
 def check_ground():
     global grounded
 
-    distance = raycast(entity.position, Vector3(0, -1, 0), ignore=[entity]).distance
-
-    grounded = distance < entity.scale.y / 2 + 0.5
+    ray = raycast(entity.position, Vector3(0, -1, 0), ignore=[entity])
+    if (ray.hit):
+        grounded = ray.distance < entity.scale.y / 2 + 0.01
+    else:
+        grounded = False
 
 def set_entity_rotation():
     # Set entity rotation based on camera direction
@@ -86,6 +89,9 @@ def set_entity_rotation():
     entity_rotation_yaw = math.degrees(math.atan2(front.z, front.x)) + 90.0
     entity_rotation_pitch = math.degrees(math.asin(front.y))
     entity.rotation = Vector3(0, -entity_rotation_yaw, 0)
+
+
+
 
 
 

@@ -2,15 +2,15 @@
     {
         "fovy": 60.0,
         "position": {
-            "x": 25.30351448059082,
-            "y": 4.76217794418335,
-            "z": -0.5981261730194092
+            "x": -22.946653366088867,
+            "y": 16.74785041809082,
+            "z": 0.34369850158691406
         },
         "projection": 0,
         "target": {
-            "x": -24.032670974731445,
-            "y": -2.4624247550964355,
-            "z": 3.1090433597564697
+            "x": 23.39384651184082,
+            "y": -2.0205039978027344,
+            "z": -0.150970458984375
         },
         "type": "camera",
         "up": {
@@ -26,7 +26,7 @@
             "y": 1.0,
             "z": 1.0
         },
-        "bloom": true,
+        "bloom": false,
         "bloomBrightness": 0.0,
         "bloomSamples": 3.0,
         "skyboxColor": {
@@ -39,21 +39,21 @@
     },
     {
         "collider": true,
-        "collider_type": 2,
+        "collider_type": 0,
         "damping": 0.0,
         "friction": 1.0,
         "id": 0,
         "is_dynamic": false,
         "lodEnabled": true,
         "mass": 1.0,
-        "material_path": "",
+        "material_path": "project/game/hwllo world.mat",
         "mesh_type": 1,
         "model_path": "",
-        "name": "Unnamed Entity",
+        "name": "Floor",
         "normal_texture_path": "",
         "position": {
             "x": 0.0,
-            "y": 0.0,
+            "y": 1.2999987602233887,
             "z": 0.0
         },
         "relative_position": {
@@ -68,14 +68,14 @@
         },
         "roughness_texture_path": "",
         "scale": {
-            "x": 1.0,
-            "y": 1.0,
-            "z": 1.0
+            "x": 100.0,
+            "y": 0.10000000149011612,
+            "z": 100.0
         },
         "script_index": "",
         "script_path": "",
         "surface_material": {
-            "DiffuseIntensity": 0.5,
+            "DiffuseIntensity": 1.0,
             "Roughness": 0.5,
             "SpecularIntensity": 0.5,
             "SpecularTint": {
@@ -94,62 +94,7 @@
     },
     {
         "collider": true,
-        "collider_type": 2,
-        "damping": 0.0,
-        "friction": 1.0,
-        "id": 2,
-        "is_dynamic": false,
-        "lodEnabled": true,
-        "mass": 1.0,
-        "material_path": "",
-        "mesh_type": 1,
-        "model_path": "",
-        "name": "Unnamed Entity",
-        "normal_texture_path": "",
-        "position": {
-            "x": 0.0,
-            "y": 0.0,
-            "z": 0.0
-        },
-        "relative_position": {
-            "x": 0.0,
-            "y": 0.0,
-            "z": 0.0
-        },
-        "rotation": {
-            "x": 0.0,
-            "y": 0.0,
-            "z": 0.0
-        },
-        "roughness_texture_path": "",
-        "scale": {
-            "x": 1.0,
-            "y": 1.0,
-            "z": 1.0
-        },
-        "script_index": "",
-        "script_path": "",
-        "surface_material": {
-            "DiffuseIntensity": 0.5,
-            "Roughness": 0.5,
-            "SpecularIntensity": 0.5,
-            "SpecularTint": {
-                "x": 1.0,
-                "y": 1.0,
-                "z": 1.0
-            },
-            "shininess": 0.5
-        },
-        "texture_path": "",
-        "tiling": [
-            1.0,
-            1.0
-        ],
-        "type": "entity"
-    },
-    {
-        "collider": true,
-        "collider_type": 2,
+        "collider_type": 0,
         "damping": 0.0,
         "friction": 1.0,
         "id": 1,
@@ -159,12 +104,12 @@
         "material_path": "",
         "mesh_type": 1,
         "model_path": "",
-        "name": "Unnamed Entity",
+        "name": "Wall",
         "normal_texture_path": "",
         "position": {
-            "x": 0.0,
-            "y": 0.0,
-            "z": 0.0
+            "x": 13.800016403198242,
+            "y": 5.600011825561523,
+            "z": 7.299994468688965
         },
         "relative_position": {
             "x": 0.0,
@@ -178,8 +123,8 @@
         },
         "roughness_texture_path": "",
         "scale": {
-            "x": 1.0,
-            "y": 1.0,
+            "x": 25.0,
+            "y": 10.0,
             "z": 1.0
         },
         "script_index": "",
@@ -201,5 +146,464 @@
             1.0
         ],
         "type": "entity"
+    },
+    {
+        "collider": true,
+        "collider_type": 0,
+        "damping": 0.0,
+        "friction": 1.0,
+        "id": 2,
+        "is_dynamic": true,
+        "lodEnabled": true,
+        "mass": 8.399999618530273,
+        "material_path": "",
+        "mesh_type": 1,
+        "model_path": "",
+        "name": "Player",
+        "normal_texture_path": "",
+        "position": {
+            "x": 0.0,
+            "y": 4.300006866455078,
+            "z": 0.0
+        },
+        "relative_position": {
+            "x": 0.0,
+            "y": 0.0,
+            "z": 0.0
+        },
+        "rotation": {
+            "x": 0.0,
+            "y": 0.0,
+            "z": 0.0
+        },
+        "roughness_texture_path": "",
+        "scale": {
+            "x": 1.0,
+            "y": 1.0,
+            "z": 1.0
+        },
+        "script_index": "player0",
+        "script_path": "project/game/player.py",
+        "surface_material": {
+            "DiffuseIntensity": 0.5,
+            "Roughness": 0.5,
+            "SpecularIntensity": 0.5,
+            "SpecularTint": {
+                "x": 1.0,
+                "y": 1.0,
+                "z": 1.0
+            },
+            "shininess": 0.5
+        },
+        "texture_path": "",
+        "tiling": [
+            1.0,
+            1.0
+        ],
+        "type": "entity"
+    },
+    {
+        "collider": true,
+        "collider_type": 0,
+        "damping": 0.0,
+        "friction": 1.0,
+        "id": 1,
+        "is_dynamic": false,
+        "lodEnabled": true,
+        "mass": 1.0,
+        "material_path": "",
+        "mesh_type": 1,
+        "model_path": "",
+        "name": "Wall",
+        "normal_texture_path": "",
+        "position": {
+            "x": 0.0,
+            "y": 5.600011825561523,
+            "z": -10.300003051757813
+        },
+        "relative_position": {
+            "x": 0.0,
+            "y": 0.0,
+            "z": 0.0
+        },
+        "rotation": {
+            "x": 0.0,
+            "y": 0.0,
+            "z": 0.0
+        },
+        "roughness_texture_path": "",
+        "scale": {
+            "x": 40.0,
+            "y": 10.0,
+            "z": 1.0
+        },
+        "script_index": "",
+        "script_path": "",
+        "surface_material": {
+            "DiffuseIntensity": 0.5,
+            "Roughness": 0.5,
+            "SpecularIntensity": 0.5,
+            "SpecularTint": {
+                "x": 1.0,
+                "y": 1.0,
+                "z": 1.0
+            },
+            "shininess": 0.5
+        },
+        "texture_path": "",
+        "tiling": [
+            1.0,
+            1.0
+        ],
+        "type": "entity"
+    },
+    {
+        "collider": true,
+        "collider_type": 0,
+        "damping": 0.0,
+        "friction": 1.0,
+        "id": 1,
+        "is_dynamic": false,
+        "lodEnabled": true,
+        "mass": 1.0,
+        "material_path": "",
+        "mesh_type": 1,
+        "model_path": "",
+        "name": "Wall",
+        "normal_texture_path": "",
+        "position": {
+            "x": 19.5,
+            "y": 6.100002288818359,
+            "z": -23.0
+        },
+        "relative_position": {
+            "x": 0.0,
+            "y": 0.0,
+            "z": 0.0
+        },
+        "rotation": {
+            "x": 0.0,
+            "y": 90.0,
+            "z": 0.0
+        },
+        "roughness_texture_path": "",
+        "scale": {
+            "x": 26.300004959106445,
+            "y": 10.0,
+            "z": 2.000000476837158
+        },
+        "script_index": "",
+        "script_path": "",
+        "surface_material": {
+            "DiffuseIntensity": 0.5,
+            "Roughness": 0.5,
+            "SpecularIntensity": 0.5,
+            "SpecularTint": {
+                "x": 1.0,
+                "y": 1.0,
+                "z": 1.0
+            },
+            "shininess": 0.5
+        },
+        "texture_path": "",
+        "tiling": [
+            1.0,
+            1.0
+        ],
+        "type": "entity"
+    },
+    {
+        "collider": true,
+        "collider_type": 0,
+        "damping": 0.0,
+        "friction": 1.0,
+        "id": 1,
+        "is_dynamic": false,
+        "lodEnabled": true,
+        "mass": 1.0,
+        "material_path": "",
+        "mesh_type": 1,
+        "model_path": "",
+        "name": "Wall",
+        "normal_texture_path": "",
+        "position": {
+            "x": 29.400074005126953,
+            "y": 5.600011825561523,
+            "z": 1.299999713897705
+        },
+        "relative_position": {
+            "x": 0.0,
+            "y": 0.0,
+            "z": 0.0
+        },
+        "rotation": {
+            "x": 0.0,
+            "y": 90.0,
+            "z": 0.0
+        },
+        "roughness_texture_path": "",
+        "scale": {
+            "x": 58.799617767333984,
+            "y": 22.100046157836914,
+            "z": 6.199996471405029
+        },
+        "script_index": "",
+        "script_path": "",
+        "surface_material": {
+            "DiffuseIntensity": 0.5,
+            "Roughness": 0.5,
+            "SpecularIntensity": 0.5,
+            "SpecularTint": {
+                "x": 1.0,
+                "y": 1.0,
+                "z": 1.0
+            },
+            "shininess": 0.5
+        },
+        "texture_path": "",
+        "tiling": [
+            1.0,
+            1.0
+        ],
+        "type": "entity"
+    },
+    {
+        "collider": true,
+        "collider_type": 0,
+        "damping": 0.0,
+        "friction": 1.0,
+        "id": 10,
+        "is_dynamic": true,
+        "lodEnabled": true,
+        "mass": 1.0,
+        "material_path": "project/game/file1.mat",
+        "mesh_type": 1,
+        "model_path": "",
+        "name": "Box",
+        "normal_texture_path": "",
+        "position": {
+            "x": 10.300003051757813,
+            "y": 5.500011444091797,
+            "z": 0.0
+        },
+        "relative_position": {
+            "x": 0.0,
+            "y": 0.0,
+            "z": 0.0
+        },
+        "rotation": {
+            "x": 0.0,
+            "y": 0.0,
+            "z": 0.0
+        },
+        "roughness_texture_path": "",
+        "scale": {
+            "x": 3.0,
+            "y": 5.0,
+            "z": 3.0
+        },
+        "script_index": "",
+        "script_path": "",
+        "surface_material": {
+            "DiffuseIntensity": 1.0,
+            "Roughness": 1.0,
+            "SpecularIntensity": 1.0,
+            "SpecularTint": {
+                "x": 1.0,
+                "y": 1.0,
+                "z": 1.0
+            },
+            "shininess": 1.0
+        },
+        "texture_path": "",
+        "tiling": [
+            1.0,
+            1.0
+        ],
+        "type": "entity"
+    },
+    {
+        "collider": true,
+        "collider_type": 0,
+        "damping": 0.0,
+        "friction": 1.0,
+        "id": 1,
+        "is_dynamic": false,
+        "lodEnabled": true,
+        "mass": 1.0,
+        "material_path": "",
+        "mesh_type": 1,
+        "model_path": "",
+        "name": "Wall",
+        "normal_texture_path": "",
+        "position": {
+            "x": 26.600027084350586,
+            "y": 6.100002288818359,
+            "z": -28.300020217895508
+        },
+        "relative_position": {
+            "x": 0.0,
+            "y": 0.0,
+            "z": 0.0
+        },
+        "rotation": {
+            "x": 0.0,
+            "y": 0.0,
+            "z": 0.0
+        },
+        "roughness_texture_path": "",
+        "scale": {
+            "x": 15.09996223449707,
+            "y": 9.999996185302734,
+            "z": 2.1000006198883057
+        },
+        "script_index": "",
+        "script_path": "",
+        "surface_material": {
+            "DiffuseIntensity": 0.5,
+            "Roughness": 0.5,
+            "SpecularIntensity": 0.5,
+            "SpecularTint": {
+                "x": 1.0,
+                "y": 1.0,
+                "z": 1.0
+            },
+            "shininess": 0.5
+        },
+        "texture_path": "",
+        "tiling": [
+            1.0,
+            1.0
+        ],
+        "type": "entity"
+    },
+    {
+        "collider": true,
+        "collider_type": 2,
+        "damping": 0.0,
+        "friction": 1.0,
+        "id": 3,
+        "is_dynamic": false,
+        "lodEnabled": true,
+        "mass": 1.0,
+        "material_path": "project/game/monster.mat",
+        "mesh_type": 1,
+        "model_path": "",
+        "name": "Monster",
+        "normal_texture_path": "",
+        "position": {
+            "x": 0.0,
+            "y": 3.600004196166992,
+            "z": 18.000032424926758
+        },
+        "relative_position": {
+            "x": 0.0,
+            "y": 0.0,
+            "z": 0.0
+        },
+        "rotation": {
+            "x": 0.0,
+            "y": 0.0,
+            "z": 0.0
+        },
+        "roughness_texture_path": "",
+        "scale": {
+            "x": 3.0,
+            "y": 3.0,
+            "z": 3.0
+        },
+        "script_index": "",
+        "script_path": "project/game/monster.py",
+        "surface_material": {
+            "DiffuseIntensity": 0.0,
+            "Roughness": 0.0,
+            "SpecularIntensity": 0.0,
+            "SpecularTint": {
+                "x": 1.0,
+                "y": 1.0,
+                "z": 1.0
+            },
+            "shininess": 0.0
+        },
+        "texture_path": "",
+        "tiling": [
+            1.0,
+            1.0
+        ],
+        "type": "entity"
+    },
+    {
+        "attenuation": 9.999999747378752e-05,
+        "color": {
+            "a": 255.0,
+            "b": 255.0,
+            "g": 255.0,
+            "r": 255.0
+        },
+        "cutOff": 10.0,
+        "direction": {
+            "x": 0.4000000059604645,
+            "y": -0.3240000009536743,
+            "z": 1.0
+        },
+        "id": -1125328640,
+        "intensity": 5.0,
+        "isChild": false,
+        "light_type": 0,
+        "name": "",
+        "position": {
+            "x": 4.0,
+            "y": 5.0,
+            "z": 3.0
+        },
+        "relative_position": {
+            "x": 0,
+            "y": 0,
+            "z": 0
+        },
+        "specularStrength": 0.5,
+        "target": {
+            "x": 0.0,
+            "y": 0.0,
+            "z": 22.0
+        },
+        "type": "light"
+    },
+    {
+        "attenuation": 9.999999747378752e-05,
+        "color": {
+            "a": 255.0,
+            "b": 0.0,
+            "g": 221.0,
+            "r": 255.0
+        },
+        "cutOff": 10.0,
+        "direction": {
+            "x": 0.4000000059604645,
+            "y": 0.4000000059604645,
+            "z": -0.4000000059604645
+        },
+        "id": -1125328640,
+        "intensity": 5.0,
+        "isChild": false,
+        "light_type": 1,
+        "name": "",
+        "position": {
+            "x": 4.0,
+            "y": 5.0,
+            "z": 3.0
+        },
+        "relative_position": {
+            "x": 0,
+            "y": 0,
+            "z": 0
+        },
+        "specularStrength": 0.5,
+        "target": {
+            "x": 0,
+            "y": 0,
+            "z": 0
+        },
+        "type": "light"
     }
 ]
