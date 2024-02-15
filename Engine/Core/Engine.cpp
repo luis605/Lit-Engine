@@ -1524,6 +1524,21 @@ bool operator==(const Entity& e, const Entity* ptr) {
 }
 
 #ifndef GAME_SHIPPING
+
+    int GenerateUniqueID(const std::vector<Entity>& entitiesList)
+    {
+        int newID = 0;
+
+        // Loop until a unique ID is found
+        while (std::find_if(entitiesList.begin(), entitiesList.end(),
+            [newID](const Entity& entity) { return entity.id == newID; }) != entitiesList.end())
+        {
+            newID++;
+        }
+
+        return newID;
+    }
+
     void AddEntity(
         bool create_immediatly = false,
         bool is_child = false,
@@ -1557,8 +1572,7 @@ bool operator==(const Entity& e, const Entity* ptr) {
 
             if (!entities_list_pregame.empty())
             {
-                int id = entities_list_pregame.back().id + 1;
-                entity_create.id = id;
+                entity_create.id = GenerateUniqueID(entities_list_pregame);
             }
             else
                 entity_create.id = 0;
@@ -1648,56 +1662,51 @@ bool operator==(const Entity& e, const Entity* ptr) {
 
 HitInfo raycast(LitVector3 origin, LitVector3 direction, bool debug, std::vector<Entity> ignore)
 {
-    HitInfo _hitInfo;
-    _hitInfo.hit = false;
+    HitInfo hitInfo;
+    hitInfo.hit = false;
 
-    Ray ray;
-    ray.position = origin;
-    ray.direction = direction;
+    Ray ray{origin, direction};
 
     if (debug)
         DrawRay(ray, RED);
 
     if (entities_list.empty())
-        return _hitInfo;
+        return hitInfo;
 
-    float minDistance = 1000000000000000000000000000000000.0f;
+    float minDistance = FLT_MAX;
 
-    for (auto& entity : entities_list)
+    for (const Entity& entity : entities_list)
     {
         if (std::find(ignore.begin(), ignore.end(), entity) != ignore.end())
             continue;
-
+        
         if (!entity.collider)
             continue;
 
         RayCollision entityBounds = GetRayCollisionBox(ray, entity.bounds);
 
-        for (int mesh_i = 0; mesh_i < entity.model.meshCount; mesh_i++)
+        for (int mesh_i = 0; mesh_i < entity.model.meshCount && entityBounds.hit; mesh_i++)
         {
-            if (!entityBounds.hit)
-                break;
-
             RayCollision meshHitInfo = GetRayCollisionMesh(ray, entity.model.meshes[mesh_i], entity.model.transform);
-            
+
             if (meshHitInfo.hit && meshHitInfo.distance < minDistance)
             {
-                _hitInfo.hit = true;
-                _hitInfo.distance = meshHitInfo.distance;
-                _hitInfo.entity = &entity;
-                _hitInfo.worldPoint = meshHitInfo.point;
-                _hitInfo.worldNormal = meshHitInfo.normal;
-                _hitInfo.hitColor = {
+                minDistance = meshHitInfo.distance;
+                
+                hitInfo.hit = true;
+                hitInfo.distance = minDistance;
+                hitInfo.entity = &entity;
+                hitInfo.worldPoint = meshHitInfo.point;
+                hitInfo.worldNormal = meshHitInfo.normal;
+                hitInfo.hitColor = {
                     static_cast<unsigned char>(entity.surface_material.color.x * 255),
                     static_cast<unsigned char>(entity.surface_material.color.w * 255),
                     static_cast<unsigned char>(entity.surface_material.color.y * 255),
                     static_cast<unsigned char>(entity.surface_material.color.z * 255)
                 };
-
-                minDistance = meshHitInfo.distance;
             }
         }
     }
 
-    return _hitInfo;
+    return hitInfo;
 }
