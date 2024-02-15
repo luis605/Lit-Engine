@@ -38,6 +38,12 @@ PYBIND11_EMBEDDED_MODULE(math_module, m) {
         .def("__truediv__", [](const LitVector3 &a, const LitVector3 &b) {
             return LitVector3(a.x / b.x, a.y / b.y, a.z / b.z);
         })
+        .def("__truediv__", [](const LitVector3 &a, float scalar) {
+            return LitVector3(a.x / scalar, a.y / scalar, a.z / scalar);
+        })
+        .def("__truediv__", [](const LitVector3 &a, int scalar) {
+            return LitVector3(a.x / scalar, a.y / scalar, a.z / scalar);
+        })
         .def("__str__", [](const LitVector3 &a) {
             return std::to_string(a.x) + " " + std::to_string(a.y) + " " + std::to_string(a.z);
         });
