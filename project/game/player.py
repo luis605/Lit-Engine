@@ -77,7 +77,7 @@ def check_ground():
     global grounded
 
     distance = raycast(entity.position, Vector3(0, -1, 0), ignore=[entity]).distance
-    print(distance)
+
     grounded = distance < entity.scale.y / 2 + 0.5
 
 def set_entity_rotation():
@@ -86,5 +86,9 @@ def set_entity_rotation():
     entity_rotation_yaw = math.degrees(math.atan2(front.z, front.x)) + 90.0
     entity_rotation_pitch = math.degrees(math.asin(front.y))
     entity.rotation = Vector3(0, -entity_rotation_yaw, 0)
+
+
+
+
 
 
