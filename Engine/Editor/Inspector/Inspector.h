@@ -34,6 +34,10 @@ bool TextSpacingActiveInputMode                  = false;
 bool TextBackgroundRoundinessActiveInputMode     = false;
 bool TextPaddingActiveInputMode                  = false;
 
+bool WorldGravityXInputMode                      = false;
+bool WorldGravityYInputMode                      = false;
+bool WorldGravityZInputMode                      = false;
+
 #include "Inspector.Material.cpp"
 #include "Inspector.Entity.cpp"
 #include "Inspector.Light.cpp"

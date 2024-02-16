@@ -77,7 +77,7 @@ def update_camera_position():
 def check_ground():
     global grounded
 
-    ray = raycast(entity.position, Vector3(0, -1, 0), ignore=[entity])
+    ray = Raycast(entity.position, Vector3(0, -1, 0), ignore=[entity])
     if (ray.hit):
         grounded = ray.distance < entity.scale.y / 2 + 0.01
     else:
@@ -89,6 +89,7 @@ def set_entity_rotation():
     entity_rotation_yaw = math.degrees(math.atan2(front.z, front.x)) + 90.0
     entity_rotation_pitch = math.degrees(math.asin(front.y))
     entity.rotation = Vector3(0, -entity_rotation_yaw, 0)
+
 
 
 
