@@ -55,7 +55,6 @@ void WorldInspector()
 
     ImGui::Spacing();
 
-    // Lighting Panel
     if (ImGui::CollapsingHeader(ICON_FA_LIGHTBULB " Lighting", ImGuiTreeNodeFlags_DefaultOpen))
     {
         ImGui::Indent(20.0f);
@@ -114,6 +113,67 @@ void WorldInspector()
 
             ImGui::Unindent(20.0f);
         }
+
+        ImGui::Unindent(20.0f);
+    }
+
+    ImGui::Spacing();
+
+    if (ImGui::CollapsingHeader(ICON_FA_GLOBE " Physics", ImGuiTreeNodeFlags_DefaultOpen))
+    {
+        ImGui::Indent(20.0f);
+
+        ImGui::Text("Gravity:");
+        float gravity[3] = { dynamicsWorld->getGravity().x(), dynamicsWorld->getGravity().y(), dynamicsWorld->getGravity().z() };
+
+        if (WorldGravityXInputMode)
+        {
+            if (ImGui::InputFloat("##GravityX", &gravity[0], 0.0f, 0.0f, "%.2f", ImGuiInputTextFlags_EnterReturnsTrue))
+            {
+                dynamicsWorld->setGravity(btVector3(gravity[0], gravity[1], gravity[2]));
+                WorldGravityXInputMode = false;
+            }
+        }
+        else
+        {
+            if (ImGui::SliderFloat("##GravityX", &gravity[0], -100, 100, "%.2f"))
+                dynamicsWorld->setGravity(btVector3(gravity[0], gravity[1], gravity[2]));
+                
+            WorldGravityXInputMode = ImGui::IsItemHovered() && ImGui::IsMouseDoubleClicked(0);
+        }
+
+        if (WorldGravityYInputMode)
+        {
+            if (ImGui::InputFloat("##GravityY", &gravity[1], 0.0f, 0.0f, "%.2f", ImGuiInputTextFlags_EnterReturnsTrue))
+            {
+                dynamicsWorld->setGravity(btVector3(gravity[0], gravity[1], gravity[2]));
+                WorldGravityYInputMode = false;
+            }
+        }
+        else
+        {
+            if (ImGui::SliderFloat("##GravityY", &gravity[1], -100, 100, "%.2f"))
+                dynamicsWorld->setGravity(btVector3(gravity[0], gravity[1], gravity[2]));
+                
+            WorldGravityYInputMode = ImGui::IsItemHovered() && ImGui::IsMouseDoubleClicked(0);
+        }
+
+        if (WorldGravityZInputMode)
+        {
+            if (ImGui::InputFloat("##GravityZ", &gravity[2], 0.0f, 0.0f, "%.2f", ImGuiInputTextFlags_EnterReturnsTrue))
+            {
+                dynamicsWorld->setGravity(btVector3(gravity[0], gravity[1], gravity[2]));
+                WorldGravityZInputMode = false;
+            }
+        }
+        else
+        {
+            if (ImGui::SliderFloat("##GravityZ", &gravity[2], -100, 100, "%.2f"))
+                dynamicsWorld->setGravity(btVector3(gravity[0], gravity[1], gravity[2]));
+                
+            WorldGravityZInputMode = ImGui::IsItemHovered() && ImGui::IsMouseDoubleClicked(0);
+        }
+
 
         ImGui::Unindent(20.0f);
     }
