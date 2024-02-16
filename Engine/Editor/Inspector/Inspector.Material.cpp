@@ -205,8 +205,16 @@ void MaterialInspector(SurfaceMaterial* surface_material = nullptr, string path 
                 string path = dir_path.string();
                 path += "/" + files_texture_struct[payload_n].name;
 
-                selected_entity->ao_texture = LoadTexture(path.c_str());
                 selected_entity->ao_texture_path = path;
+                Texture2D ao_texture = LoadTexture(path.c_str());
+                if (!IsTextureReady(ao_texture)) // Means it is a video or an unsupported format
+                {
+                    selected_entity->ao_texture = std::make_unique<VideoPlayer>(selected_entity->ao_texture_path.string().c_str());
+                }
+                else
+                {
+                    selected_entity->ao_texture = ao_texture;
+                }
 
                 selected_entity->ReloadTextures();
 
