@@ -4,31 +4,15 @@
 
 
 
-
-
-
-
-
 void ShowTexture()
 {
     if (show_texture)
     {
-        ImGui::SetNextWindowSize(ImVec2(entity_texture.width, entity_texture.height));
-        ImGui::Begin("Texture Previewer");
-        ImGui::Image((ImTextureID)&entity_texture, ImVec2(entity_texture.width, entity_texture.height));
+        ImGui::Begin("Diffuse Texture", &show_texture);
+        ImGui::Image((ImTextureID)&selected_entity->model.materials[0].maps[MATERIAL_MAP_DIFFUSE].texture, ImVec2(350, 350));
         ImGui::End();
     }
-
-    // if (show_normal_texture)
-    // {
-    //     ImGui::SetNextWindowSize(ImVec2(selected_entity->normal_texture.width, selected_entity->normal_texture.height));
-    //     ImGui::Begin("Normal Texture Previewer");
-    //     ImGui::Image((ImTextureID)&selected_entity->normal_texture, ImVec2(selected_entity->normal_texture.width, selected_entity->normal_texture.height));
-    //     ImGui::End();
-    // }
-
 }
-
 
 void Inspector()
 {

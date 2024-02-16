@@ -35,8 +35,6 @@ void MaterialInspector(SurfaceMaterial* surface_material = nullptr, string path 
             material_color.z,
             material_color.w
         };
-
-
     }
 
     ImGui::Dummy(ImVec2(0.0f, 10.0f));
