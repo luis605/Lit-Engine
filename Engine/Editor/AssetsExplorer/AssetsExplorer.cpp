@@ -171,28 +171,33 @@ void AssetsExplorer() {
 
         if (ImGui::BeginDragDropTarget())
         {
-
-            if (const ImGuiPayload* payload = ImGui::AcceptDragDropPayload("MATERIAL_PAYLOAD"))
+            const ImGuiPayload* payload = ImGui::AcceptDragDropPayload("TEXTURE_PAYLOAD");
+            if (payload || (payload = ImGui::AcceptDragDropPayload("SCRIPT_PAYLOAD"))
+                || (payload = ImGui::AcceptDragDropPayload("MODEL_PAYLOAD"))
+                || (payload = ImGui::AcceptDragDropPayload("MATERIAL_PAYLOAD"))
+                || (payload = ImGui::AcceptDragDropPayload("UNSUPPORTED_TYPE")))
             {
-                IM_ASSERT(payload->DataSize == sizeof(int));
-                int payload_n = *(const int*)payload->Data;
+                if (payload)
+                {
+                    if (payload->DataSize == sizeof(int))
+                    {
+                        int payload_n = *(const int*)payload->Data;
 
-                std::filesystem::path currentPath = std::filesystem::current_path();
+                        std::filesystem::path currentPath = std::filesystem::current_path();
 
-                string path = dir_path.string();
-                path += "/" + files_texture_struct[payload_n].name;
+                        std::string path = dir_path.string();
+                        path += "/" + files_texture_struct[payload_n].name;
 
-                fs::path sourceFilePath = currentPath / path;
-                fs::path destinationFilePath = currentPath / folders_texture_struct[i].full_path / files_texture_struct[payload_n].name;
+                        fs::path sourceFilePath = currentPath / path;
+                        fs::path destinationFilePath = currentPath / folders_texture_struct[i].full_path / files_texture_struct[payload_n].name;
 
-                std::cout << "File path: " << sourceFilePath << std::endl;
-                std::cout << "Folder path: " << destinationFilePath << std::endl;
-
-                fs::rename(sourceFilePath, destinationFilePath);
+                        fs::rename(sourceFilePath, destinationFilePath);
+                    }
+                }
             }
+
             ImGui::EndDragDropTarget();
         }
-
 
         float textWidth = ImGui::CalcTextSize(folders_texture_struct[i].name.c_str()).x;
         float buttonWidth = thumbnailSize;
