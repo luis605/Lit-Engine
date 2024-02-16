@@ -162,8 +162,16 @@ void MaterialInspector(SurfaceMaterial* surface_material = nullptr, string path 
                 string path = dir_path.string();
                 path += "/" + files_texture_struct[payload_n].name;
 
-                selected_entity->roughness_texture = LoadTexture(path.c_str());
                 selected_entity->roughness_texture_path = path;
+                Texture2D roughness_texture = LoadTexture(path.c_str());
+                if (!IsTextureReady(roughness_texture)) // Means it is a video or an unsupported format
+                {
+                    selected_entity->roughness_texture = std::make_unique<VideoPlayer>(selected_entity->roughness_texture_path.string().c_str());
+                }
+                else
+                {
+                    selected_entity->roughness_texture = roughness_texture;
+                }
 
                 selected_entity->ReloadTextures();
 
@@ -184,7 +192,7 @@ void MaterialInspector(SurfaceMaterial* surface_material = nullptr, string path 
         ImGui::Text("Ambient Occlusion Texture: ");
         if (ImGui::ImageButton((ImTextureID)&selected_entity->ao_texture, ImVec2(64, 64)))
         {
-            //show_texture = !show_normal_texture;
+            show_ao_texture = !show_ao_texture;
         }
 
         if (ImGui::BeginDragDropTarget())
