@@ -1,9 +1,10 @@
 import math
 
 # Constants
-VELOCITY = 50.0
+VELOCITY = 100.0
 SENSITIVITY = 0.3
 DISTANCE_FROM_ENTITY = 5.0
+JUMP_FORCE = 100.0
 
 # Initial values
 yaw, pitch = 0.0, 0.0
@@ -44,7 +45,7 @@ def handle_movement():
     if IsKeyDown(KeyboardKey.KEY_D):
         entity.applyImpulse(camera.right * DeltaTimeVec3 * VELOCITY)
     if IsKeyPressed(KeyboardKey.KEY_SPACE) and grounded:
-        entity.applyImpulse(Vector3(0, VELOCITY * 1.8, 0))
+        entity.applyImpulse(Vector3(0, JUMP_FORCE, 0))
 
 def handle_camera_rotation():
     global yaw, pitch
@@ -86,6 +87,8 @@ def set_entity_rotation():
     entity_rotation_yaw = math.degrees(math.atan2(front.z, front.x)) + 90.0
     entity_rotation_pitch = math.degrees(math.asin(front.y))
     entity.rotation = Vector3(0, -entity_rotation_yaw, 0)
+
+
 
 
 
