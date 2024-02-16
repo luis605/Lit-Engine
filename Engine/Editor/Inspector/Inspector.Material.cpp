@@ -59,7 +59,7 @@ void MaterialInspector(SurfaceMaterial* surface_material = nullptr, string path 
         
         ImGui::Text("Diffuse Texture: ");
         
-        if (ImGui::ImageButton((ImTextureID)&selected_entity->texture, ImVec2(64, 64)))
+        if (ImGui::ImageButton((ImTextureID)&selected_entity->model.materials[0].maps[MATERIAL_MAP_DIFFUSE].texture, ImVec2(64, 64)))
         {
             show_texture = !show_texture;
         }
@@ -103,7 +103,7 @@ void MaterialInspector(SurfaceMaterial* surface_material = nullptr, string path 
 
 
         ImGui::Text("Normal Map Texture: ");
-        if (ImGui::ImageButton((ImTextureID)&selected_entity->normal_texture, ImVec2(64, 64)))
+        if (ImGui::ImageButton((ImTextureID)&selected_entity->model.materials[0].maps[MATERIAL_MAP_NORMAL].texture, ImVec2(64, 64)))
         {
             show_normal_texture = !show_normal_texture;
         }
@@ -147,7 +147,7 @@ void MaterialInspector(SurfaceMaterial* surface_material = nullptr, string path 
         ImGui::Dummy(ImVec2(0.0f, 10.0f));
 
         ImGui::Text("RoughnessMap Texture: ");
-        if (ImGui::ImageButton((ImTextureID)&selected_entity->roughness_texture, ImVec2(64, 64)))
+        if (ImGui::ImageButton((ImTextureID)&selected_entity->model.materials[0].maps[MATERIAL_MAP_ROUGHNESS].texture, ImVec2(64, 64)))
         {
             show_roughness_texture = !show_roughness_texture;
         }
@@ -190,7 +190,7 @@ void MaterialInspector(SurfaceMaterial* surface_material = nullptr, string path 
         ImGui::Dummy(ImVec2(0.0f, 10.0f));
 
         ImGui::Text("Ambient Occlusion Texture: ");
-        if (ImGui::ImageButton((ImTextureID)&selected_entity->ao_texture, ImVec2(64, 64)))
+        if (ImGui::ImageButton((ImTextureID)&selected_entity->model.materials[0].maps[MATERIAL_MAP_OCCLUSION].texture, ImVec2(64, 64)))
         {
             show_ao_texture = !show_ao_texture;
         }
