@@ -10,11 +10,12 @@ def update():
     
     entity.position += (direction / 4) * time.dt
     entity.position.y = 0
-    ray = raycast(entity.position, direction, ignore=[entity])
+    ray = Raycast(entity.position, direction, ignore=[entity])
     if (ray.hit and ray.entity == player):
         if (ray.distance < 0.75):
             print("DEAD!")
             player.position = Vector3(0,10,0)
+
 
 
 

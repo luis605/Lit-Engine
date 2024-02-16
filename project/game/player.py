@@ -18,7 +18,6 @@ def spherical_to_cartesian(radius, yaw, pitch):
     return Vector3(x, y, z)
 
 def update():
-    pass
     global yaw, pitch, grounded
 
     handle_movement()
@@ -30,22 +29,20 @@ def update():
 def handle_movement():
     global yaw, pitch
 
-    camera_direction = camera.front * time.dt * VELOCITY
+    camera_direction = camera.front
     camera_direction.y = 0
 
     DeltaTimeVec3 = Vector3(time.dt, time.dt, time.dt)
 
     # Handle player movement inputs
     if IsKeyDown(KeyboardKey.KEY_W):
-        entity.applyImpulse(camera_direction)
+        entity.applyImpulse(camera_direction * DeltaTimeVec3 * VELOCITY)
     if IsKeyDown(KeyboardKey.KEY_S):
         entity.applyImpulse(camera.back * DeltaTimeVec3 * VELOCITY)
     if IsKeyDown(KeyboardKey.KEY_A):
-        left = camera.left * DeltaTimeVec3 * VELOCITY
-        entity.applyImpulse(left)
+        entity.applyImpulse(camera.left * DeltaTimeVec3 * VELOCITY)
     if IsKeyDown(KeyboardKey.KEY_D):
-        right = camera.right * DeltaTimeVec3 * VELOCITY
-        entity.applyImpulse(right)
+        entity.applyImpulse(camera.right * DeltaTimeVec3 * VELOCITY)
     if IsKeyPressed(KeyboardKey.KEY_SPACE) and grounded:
         entity.applyImpulse(Vector3(0, VELOCITY * 1.8, 0))
 
@@ -89,6 +86,7 @@ def set_entity_rotation():
     entity_rotation_yaw = math.degrees(math.atan2(front.z, front.x)) + 90.0
     entity_rotation_pitch = math.degrees(math.asin(front.y))
     entity.rotation = Vector3(0, -entity_rotation_yaw, 0)
+
 
 
 

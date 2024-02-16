@@ -89,7 +89,7 @@ struct LitCamera : Camera3D {
         position = pos;
         target = look_at;
         up = up_vector;
-        front = Vector3Subtract(look_at, pos);
+        front = Vector3Normalize(Vector3Subtract(look_at, pos));
         right = Vector3Normalize(Vector3CrossProduct(front, up));
         left = Vector3Negate(right);
         back = Vector3Negate(front);
