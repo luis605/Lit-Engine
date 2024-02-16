@@ -932,14 +932,14 @@ public:
             "GetMouseMovement"_a = input_module.attr("getMouseMovement"),
             "KeyboardKey"_a = input_module.attr("KeyboardKey"),
             "MouseButton"_a = input_module.attr("MouseButton"),
-            "raycast"_a = collisions_module.attr("raycast"),
+            "Raycast"_a = collisions_module.attr("raycast"),
             "Vector3"_a = math_module.attr("Vector3"),
             "Vector2"_a = math_module.attr("Vector2"),
             "Vector3Scale"_a = math_module.attr("vector3Scale"),
             "Vector3Distance"_a = math_module.attr("vector3Distance"),
             "Color"_a = color_module.attr("Color"),
             "time"_a = py::cast(&time_instance),
-            "lerp"_a = math_module.attr("lerp"),
+            "Lerp"_a = math_module.attr("lerp"),
             "entitiesList"_a = entities_list,
             "camera"_a = py::cast(rendering_camera)
         );
