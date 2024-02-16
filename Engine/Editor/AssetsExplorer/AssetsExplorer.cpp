@@ -169,6 +169,31 @@ void AssetsExplorer() {
             showEditFolderPopup = true;
         }
 
+        if (ImGui::BeginDragDropTarget())
+        {
+
+            if (const ImGuiPayload* payload = ImGui::AcceptDragDropPayload("MATERIAL_PAYLOAD"))
+            {
+                IM_ASSERT(payload->DataSize == sizeof(int));
+                int payload_n = *(const int*)payload->Data;
+
+                std::filesystem::path currentPath = std::filesystem::current_path();
+
+                string path = dir_path.string();
+                path += "/" + files_texture_struct[payload_n].name;
+
+                fs::path sourceFilePath = currentPath / path;
+                fs::path destinationFilePath = currentPath / folders_texture_struct[i].full_path / files_texture_struct[payload_n].name;
+
+                std::cout << "File path: " << sourceFilePath << std::endl;
+                std::cout << "Folder path: " << destinationFilePath << std::endl;
+
+                fs::rename(sourceFilePath, destinationFilePath);
+            }
+            ImGui::EndDragDropTarget();
+        }
+
+
         float textWidth = ImGui::CalcTextSize(folders_texture_struct[i].name.c_str()).x;
         float buttonWidth = thumbnailSize;
         float offset = (buttonWidth - textWidth) * 0.5f;
