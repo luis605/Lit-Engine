@@ -105,7 +105,7 @@ void MaterialInspector(SurfaceMaterial* surface_material = nullptr, string path 
         ImGui::Text("Normal Map Texture: ");
         if (ImGui::ImageButton((ImTextureID)&selected_entity->normal_texture, ImVec2(64, 64)))
         {
-            show_texture = !show_normal_texture;
+            show_normal_texture = !show_normal_texture;
         }
 
         if (ImGui::BeginDragDropTarget())

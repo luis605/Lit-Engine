@@ -12,6 +12,13 @@ void ShowTexture()
         ImGui::Image((ImTextureID)&selected_entity->model.materials[0].maps[MATERIAL_MAP_DIFFUSE].texture, ImVec2(350, 350));
         ImGui::End();
     }
+
+    if (show_normal_texture)
+    {
+        ImGui::Begin("Normal Texture", &show_normal_texture);
+        ImGui::Image((ImTextureID)&selected_entity->model.materials[0].maps[MATERIAL_MAP_NORMAL].texture, ImVec2(350, 350));
+        ImGui::End();
+    }
 }
 
 void Inspector()
