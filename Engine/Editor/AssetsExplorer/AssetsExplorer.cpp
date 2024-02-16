@@ -117,6 +117,36 @@ void AssetsExplorer() {
 
         if (ImGui::Button("<--")) dir_path = dir_path.parent_path();
 
+        if (ImGui::BeginDragDropTarget())
+        {
+            const ImGuiPayload* payload = ImGui::AcceptDragDropPayload("TEXTURE_PAYLOAD");
+            if (payload || (payload = ImGui::AcceptDragDropPayload("SCRIPT_PAYLOAD"))
+                || (payload = ImGui::AcceptDragDropPayload("MODEL_PAYLOAD"))
+                || (payload = ImGui::AcceptDragDropPayload("MATERIAL_PAYLOAD"))
+                || (payload = ImGui::AcceptDragDropPayload("UNSUPPORTED_TYPE")))
+            {
+                if (payload)
+                {
+                    if (payload->DataSize == sizeof(int))
+                    {
+                        int payload_n = *(const int*)payload->Data;
+
+                        std::filesystem::path currentPath = std::filesystem::current_path();
+
+                        std::string path = dir_path.string();
+                        path += "/" + files_texture_struct[payload_n].name;
+
+                        fs::path sourceFilePath = currentPath / path;
+                        fs::path destinationFilePath = dir_path.parent_path() / files_texture_struct[payload_n].name;
+
+                        fs::rename(sourceFilePath, destinationFilePath);
+                    }
+                }
+            }
+
+            ImGui::EndDragDropTarget();
+        }
+        
         ImGui::PopStyleColor(3);
         ImGui::SameLine();
     }
