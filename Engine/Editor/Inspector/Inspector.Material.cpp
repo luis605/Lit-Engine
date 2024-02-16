@@ -149,7 +149,7 @@ void MaterialInspector(SurfaceMaterial* surface_material = nullptr, string path 
         ImGui::Text("RoughnessMap Texture: ");
         if (ImGui::ImageButton((ImTextureID)&selected_entity->roughness_texture, ImVec2(64, 64)))
         {
-            //show_texture = !show_normal_texture;
+            show_roughness_texture = !show_roughness_texture;
         }
 
         if (ImGui::BeginDragDropTarget())

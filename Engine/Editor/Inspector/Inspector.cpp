@@ -19,6 +19,20 @@ void ShowTexture()
         ImGui::Image((ImTextureID)&selected_entity->model.materials[0].maps[MATERIAL_MAP_NORMAL].texture, ImVec2(350, 350));
         ImGui::End();
     }
+
+    if (show_roughness_texture)
+    {
+        ImGui::Begin("Roughness Texture", &show_roughness_texture);
+        ImGui::Image((ImTextureID)&selected_entity->model.materials[0].maps[MATERIAL_MAP_ROUGHNESS].texture, ImVec2(350, 350));
+        ImGui::End();
+    }
+
+    if (show_ao_texture)
+    {
+        ImGui::Begin("Ambient Occlusion Texture", &show_ao_texture);
+        ImGui::Image((ImTextureID)&selected_entity->model.materials[0].maps[MATERIAL_MAP_OCCLUSION].texture, ImVec2(350, 350));
+        ImGui::End();
+    }
 }
 
 void Inspector()
