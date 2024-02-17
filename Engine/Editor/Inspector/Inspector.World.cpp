@@ -111,6 +111,38 @@ void WorldInspector()
                 ImGui::EndPopup();
             }
 
+
+
+            ImGui::Text("Skybox Texture: ");
+            
+            if (ImGui::ImageButton((ImTextureID)&skybox.materials[0].maps[MATERIAL_MAP_CUBEMAP].texture, ImVec2(64, 64)))
+            {
+                show_skybox_texture = !show_skybox_texture;
+            }
+
+            if (ImGui::BeginDragDropTarget())
+            {
+                if (const ImGuiPayload* payload = ImGui::AcceptDragDropPayload("TEXTURE_PAYLOAD"))
+                {
+                    IM_ASSERT(payload->DataSize == sizeof(int));
+                    int payload_n = *(const int*)payload->Data;
+
+                    string path = dir_path.string();
+                    path += "/" + files_texture_struct[payload_n].name;
+
+                    InitSkybox(path.c_str());
+                }
+                ImGui::EndDragDropTarget();
+            }
+
+            ImGui::SameLine();
+            if (ImGui::Button("x##SkuboxEmptyButton", ImVec2(25, 25)))
+            {
+                InitSkybox();
+            }
+
+
+
             ImGui::Unindent(20.0f);
         }
 

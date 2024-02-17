@@ -18,6 +18,7 @@ bool show_texture                                = false;
 bool show_normal_texture                         = false;
 bool show_roughness_texture                      = false;
 bool show_ao_texture                             = false;
+bool show_skybox_texture                         = false;
 
 bool EntityRotationXInputModel                   = false;
 bool EntityRotationYInputModel                   = false;
