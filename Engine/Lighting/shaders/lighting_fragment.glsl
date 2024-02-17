@@ -1,4 +1,4 @@
-#version 460 core
+#version 430 core
 
 // Input vertex attributes (from vertex shader)
 in vec3 fragPosition;
