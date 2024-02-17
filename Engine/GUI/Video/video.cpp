@@ -107,6 +107,9 @@ public:
     }
 
     void Update() {
+        if (!pFormatCtx || !pCodecCtx || !pFrame)
+            return;
+
         int readFrameResult = av_read_frame(pFormatCtx, &packet);
 
         if (readFrameResult >= 0 && packet.stream_index == videoStream) {
