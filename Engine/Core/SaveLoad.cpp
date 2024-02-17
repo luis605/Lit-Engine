@@ -373,6 +373,8 @@ void SaveWorldSetting(json& json_data)
     j["bloom"] = bloomEnabled;
     j["bloomBrightness"] = bloomBrightness;
     j["bloomSamples"] = bloomSamples;
+    
+    j["skyboxPath"] = skyboxPath;
 
     j["ambientColor"] = ambientLight;
     j["skyboxColor"] = skyboxColor;
@@ -544,6 +546,10 @@ void LoadWorldSettings(const json& world_setting_json)
     if (world_setting_json.contains("bloomBrightness")) {
         bloomBrightness = world_setting_json["bloomBrightness"].get<float>();
         SetShaderValue(downsamplerShader, GetShaderLocation(downsamplerShader, "bloomBrightness"), &bloomBrightness, SHADER_ATTRIB_FLOAT);
+    }
+
+    if (world_setting_json.contains("skyboxPath")) {
+        InitSkybox(world_setting_json["skyboxPath"].get<std::string>().c_str());
     }
 
     if (world_setting_json.contains("ambientColor")) {
