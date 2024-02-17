@@ -305,7 +305,7 @@ void AssetsExplorer() {
         {
             const char* drag_type;
 
-            if (file_extension == ".png" || file_extension == ".jpg" || file_extension == ".jpeg" ||
+            if (file_extension == ".png" || file_extension == ".jpg" || file_extension == ".hdr" || file_extension == ".jpeg" ||
                 file_extension == ".avi" || file_extension == ".mp4" || file_extension == ".mov" ||
                 file_extension == ".mkv" || file_extension == ".webm" || file_extension == ".gif")
             {
