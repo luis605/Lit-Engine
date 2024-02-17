@@ -67,7 +67,7 @@ void AssetsExplorer() {
 
                     if (file_extension == "no file extension") {
                         fileTextureItem = {file.string(), empty_texture, file, entry};
-                    } else if (file_extension == ".png" || file_extension == ".jpg" || file_extension == ".jpeg" ||
+                    } else if (file_extension == ".png" || file_extension == ".jpg" || file_extension == ".hdr" || file_extension == ".jpeg" ||
                             file_extension == ".avi" || file_extension == ".mp4" || file_extension == ".mov" ||
                             file_extension == ".mkv" || file_extension == ".webm" || file_extension == ".gif") {
                         fileTextureItem = {file.string(), image_texture, file, entry};
