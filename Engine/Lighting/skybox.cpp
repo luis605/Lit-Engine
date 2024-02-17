@@ -24,6 +24,8 @@
 
 static TextureCubemap GenTextureCubemap(Shader shader, Texture2D panorama, int size, int format);
 
+std::string skyboxPath;
+
 Model skybox;
 Shader shdrCubemap;
 Vector4 skyboxColor = (Vector4){1,1,1,1};
@@ -35,6 +37,9 @@ void InitSkybox(
     )
     
 {
+
+    skyboxPath = std::string(skyboxFileName);
+
     Mesh cube = GenMeshCube(1.0f, 1.0f, 1.0f);
     skybox = LoadModelFromMesh(cube);
 
