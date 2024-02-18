@@ -15,71 +15,71 @@ entity.visible = True
 
 # Helper functions
 def spherical_to_cartesian(radius, yaw, pitch):
-    x = radius * math.cos(math.radians(yaw)) * math.cos(math.radians(pitch))
-    y = radius * math.sin(math.radians(pitch))
-    z = radius * math.sin(math.radians(yaw)) * math.cos(math.radians(pitch))
-    return Vector3(x, y, z)
+	x = radius * math.cos(math.radians(yaw)) * math.cos(math.radians(pitch))
+	y = radius * math.sin(math.radians(pitch))
+	z = radius * math.sin(math.radians(yaw)) * math.cos(math.radians(pitch))
+	return Vector3(x, y, z)
 
 def get_camera_direction():
-    direction = camera.front
-    direction.y = 0
-    return direction
+	direction = camera.front
+	direction.y = 0
+	return direction
 
 def is_moving_forward_backwards():
-    return IsKeyDown(KeyboardKey.KEY_W) or IsKeyDown(KeyboardKey.KEY_S)
+	return IsKeyDown(KeyboardKey.KEY_W) or IsKeyDown(KeyboardKey.KEY_S)
 
 def update_camera_fovy():
-    if is_moving_forward_backwards():
-        camera.fovy = Lerp(camera.fovy, FOV_FORWARD, time.dt)
-    else:
-        camera.fovy = Lerp(camera.fovy, FOV_BACKWARD, time.dt)
+	if is_moving_forward_backwards():
+		camera.fovy = Lerp(camera.fovy, FOV_FORWARD, time.dt)
+	else:
+		camera.fovy = Lerp(camera.fovy, FOV_BACKWARD, time.dt)
 
 def update_camera_rotation():
-    global yaw, pitch
-    yaw -= GetMouseMovement().x * SENSITIVITY
-    pitch -= GetMouseMovement().y * SENSITIVITY
-    pitch = max(-89, min(89, pitch))
+	global yaw, pitch
+	yaw -= GetMouseMovement().x * SENSITIVITY
+	pitch -= GetMouseMovement().y * SENSITIVITY
+	pitch = max(-89, min(89, pitch))
 
 def update_camera_position():
-    global yaw, pitch
-    front = spherical_to_cartesian(ENTITY_DISTANCE, -yaw, -pitch)
-    camera.position = entity.position + front
-    camera.look_at = entity.position
-    camera.up = Vector3(0, 1, 0)
+	global yaw, pitch
+	front = spherical_to_cartesian(ENTITY_DISTANCE, -yaw, -pitch)
+	camera.position = entity.position + front
+	camera.look_at = entity.position
+	camera.up = Vector3(0, 1, 0)
 
 def check_ground():
-    global grounded
-    halfScale = entity.scale.y / 2
-    ray = Raycast(entity.position - Vector3(0, halfScale - 0.1, 0), Vector3(0, -1, 0), ignore=[entity])
-    grounded = ray.hit and ray.distance < 0.15  # floating pointers margin
+	global grounded
+	halfScale = entity.scale.y / 2
+	ray = Raycast(entity.position - Vector3(0, halfScale - 0.1, 0), Vector3(0, -1, 0), ignore=[entity])
+	grounded = ray.hit and ray.distance < 0.15  # floating pointers margin
 
 def set_entity_rotation():
-    global yaw
-    front = get_camera_direction()
-    entity_rotation_yaw = math.degrees(math.atan2(front.z, front.x)) + 90
-    entity.rotation = Vector3(0, -entity_rotation_yaw, 0)
+	global yaw
+	front = get_camera_direction()
+	entity_rotation_yaw = math.degrees(math.atan2(front.z, front.x)) + 90
+	entity.rotation = Vector3(0, -entity_rotation_yaw, 0)
 
 def handle_movement():
-    global yaw, pitch, grounded
+	global yaw, pitch, grounded
 
-    direction = get_camera_direction()
+	direction = get_camera_direction()
 
-    if IsKeyDown(KeyboardKey.KEY_W):
-        entity.applyImpulse(direction * time.dt * VELOCITY)
-    elif IsKeyDown(KeyboardKey.KEY_S):
-        entity.applyImpulse(camera.back * time.dt * VELOCITY)
-    elif IsKeyDown(KeyboardKey.KEY_A):
-        entity.applyImpulse(camera.left * time.dt * VELOCITY)
-    elif IsKeyDown(KeyboardKey.KEY_D):
-        entity.applyImpulse(camera.right * time.dt * VELOCITY)
-    elif IsKeyPressed(KeyboardKey.KEY_SPACE) and grounded:
-        entity.applyImpulse(Vector3(0, JUMP_FORCE, 0))
+	if IsKeyDown(KeyboardKey.KEY_W):
+		entity.applyImpulse(direction * time.dt * VELOCITY)
+	elif IsKeyDown(KeyboardKey.KEY_S):
+		entity.applyImpulse(camera.back * time.dt * VELOCITY)
+	elif IsKeyDown(KeyboardKey.KEY_A):
+		entity.applyImpulse(camera.left * time.dt * VELOCITY)
+	elif IsKeyDown(KeyboardKey.KEY_D):
+		entity.applyImpulse(camera.right * time.dt * VELOCITY)
+	elif IsKeyPressed(KeyboardKey.KEY_SPACE) and grounded:
+		entity.applyImpulse(Vector3(0, JUMP_FORCE, 0))
 
-    update_camera_fovy()
+	update_camera_fovy()
 
 def update():
-    handle_movement()
-    update_camera_rotation()
-    update_camera_position()
-    check_ground()
-    set_entity_rotation()
+	handle_movement()
+	update_camera_rotation()
+	update_camera_position()
+	check_ground()
+	set_entity_rotation()
