@@ -30,6 +30,8 @@ Model skybox;
 Shader shdrCubemap;
 Vector4 skyboxColor = (Vector4){1,1,1,1};
 
+Texture2D skyboxPanorama;
+
 void InitSkybox(
     const char* skyboxFileName = "assets/images/skybox/default skybox.hdr",
     Shader skyboxShader = LoadShaderFromMemory(skyboxVert, skyboxFrag),
@@ -63,9 +65,8 @@ void InitSkybox(
     SetShaderValue(shdrCubemap, GetShaderLocation(shdrCubemap, "equirectangularMap"), array0, SHADER_UNIFORM_INT);
 
 
-    Texture2D panorama;
-    panorama = LoadTexture(skyboxFileName);
-    skybox.materials[0].maps[MATERIAL_MAP_CUBEMAP].texture = GenTextureCubemap(shdrCubemap, panorama, 500, PIXELFORMAT_UNCOMPRESSED_R8G8B8A8);
+    skyboxPanorama = LoadTexture(skyboxFileName);
+    skybox.materials[0].maps[MATERIAL_MAP_CUBEMAP].texture = GenTextureCubemap(shdrCubemap, skyboxPanorama, 500, PIXELFORMAT_UNCOMPRESSED_R8G8B8A8);
 
 
 }

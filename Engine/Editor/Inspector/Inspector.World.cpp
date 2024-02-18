@@ -115,7 +115,7 @@ void WorldInspector()
 
             ImGui::Text("Skybox Texture: ");
             
-            if (ImGui::ImageButton((ImTextureID)&skybox.materials[0].maps[MATERIAL_MAP_CUBEMAP].texture, ImVec2(64, 64)))
+            if (ImGui::ImageButton((ImTextureID)&skyboxPanorama, ImVec2(200, 200)))
             {
                 show_skybox_texture = !show_skybox_texture;
             }
