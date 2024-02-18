@@ -1177,9 +1177,14 @@ public:
 
         if (boxRigidBody) {
             dynamicsWorld->removeRigidBody(boxRigidBody);
+
+            delete boxRigidBody->getMotionState();
+            delete boxRigidBody->getCollisionShape();
             delete boxRigidBody;
+
             boxRigidBody = nullptr;
         }
+
 
         if (highPolyDynamicRigidBody && *highPolyDynamicRigidBody != nullptr) {
             dynamicsWorld->removeRigidBody(*highPolyDynamicRigidBody);
@@ -1222,7 +1227,11 @@ public:
 
         if (boxRigidBody) {
             dynamicsWorld->removeRigidBody(boxRigidBody);
+
+            delete boxRigidBody->getMotionState();
+            delete boxRigidBody->getCollisionShape();
             delete boxRigidBody;
+
             boxRigidBody = nullptr;
         }
 
@@ -1268,7 +1277,11 @@ public:
 
         if (boxRigidBody) {
             dynamicsWorld->removeRigidBody(boxRigidBody);
+
+            delete boxRigidBody->getMotionState();
+            delete boxRigidBody->getCollisionShape();
             delete boxRigidBody;
+
             boxRigidBody = nullptr;
         }
 
@@ -1311,7 +1324,11 @@ public:
 
         if (boxRigidBody) {
             dynamicsWorld->removeRigidBody(boxRigidBody);
+
+            delete boxRigidBody->getMotionState();
+            delete boxRigidBody->getCollisionShape();
             delete boxRigidBody;
+
             boxRigidBody = nullptr;
         }
         
@@ -1509,6 +1526,7 @@ private:
     {
         if (surface_material_ubo != 0) {
             glDeleteBuffers(1, &surface_material_ubo);
+            surface_material_ubo = 0;
         }
 
         glGenBuffers(1, &surface_material_ubo);
