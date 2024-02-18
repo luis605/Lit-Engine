@@ -1175,8 +1175,9 @@ public:
 
         staticBoxShape = new btBoxShape(btVector3(x * scaleFactorRaylibBullet, y * scaleFactorRaylibBullet, z * scaleFactorRaylibBullet));
 
-        if (boxRigidBody && boxRigidBody != nullptr) {
+        if (boxRigidBody) {
             dynamicsWorld->removeRigidBody(boxRigidBody);
+            delete boxRigidBody;
             boxRigidBody = nullptr;
         }
 
@@ -1184,13 +1185,6 @@ public:
             dynamicsWorld->removeRigidBody(*highPolyDynamicRigidBody);
             highPolyDynamicRigidBody = std::make_shared<btRigidBody*>(nullptr);
         }
-
-        if (boxRigidBody && boxRigidBody != nullptr) {
-            dynamicsWorld->removeRigidBody(boxRigidBody);
-            delete boxRigidBody;  // Free the memory
-            boxRigidBody = nullptr;
-        }
-
 
         dynamicBoxShape = nullptr;
 
@@ -1225,8 +1219,11 @@ public:
         if (highPolyDynamicRigidBody != nullptr && *highPolyDynamicRigidBody.get() != nullptr) {
             dynamicsWorld->removeRigidBody(*highPolyDynamicRigidBody);
         }
-        if (boxRigidBody && boxRigidBody != nullptr) {
+
+        if (boxRigidBody) {
             dynamicsWorld->removeRigidBody(boxRigidBody);
+            delete boxRigidBody;
+            boxRigidBody = nullptr;
         }
 
         if (generateShape || !customMeshShape) {
@@ -1269,8 +1266,9 @@ public:
     void createDynamicBox(float x, float y, float z) {
         isDynamic = true;
 
-        if (boxRigidBody && boxRigidBody != nullptr && boxRigidBody != nullptr) {
+        if (boxRigidBody) {
             dynamicsWorld->removeRigidBody(boxRigidBody);
+            delete boxRigidBody;
             boxRigidBody = nullptr;
         }
 
@@ -1310,10 +1308,13 @@ public:
         if (highPolyDynamicRigidBody != nullptr && *highPolyDynamicRigidBody.get() != nullptr) {
             dynamicsWorld->removeRigidBody(*highPolyDynamicRigidBody);
         }
-        if (boxRigidBody && boxRigidBody != nullptr) {
-            dynamicsWorld->removeRigidBody(boxRigidBody);
-        }
 
+        if (boxRigidBody) {
+            dynamicsWorld->removeRigidBody(boxRigidBody);
+            delete boxRigidBody;
+            boxRigidBody = nullptr;
+        }
+        
         if (generateShape || !customMeshShape) {
             customMeshShape = new btConvexHullShape();
 
