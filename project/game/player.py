@@ -11,6 +11,8 @@ yaw, pitch = 0.0, 0.0
 grounded = False
 entity.visible = True
 
+movingForwardBackwards = False
+
 # Function to convert spherical coordinates to Cartesian coordinates
 def spherical_to_cartesian(radius, yaw, pitch):
     x = radius * math.cos(math.radians(yaw)) * math.cos(math.radians(pitch))
@@ -28,7 +30,7 @@ def update():
     set_entity_rotation()
 
 def handle_movement():
-    global yaw, pitch
+    global yaw, pitch, movingForwardBackwards
 
     camera_direction = camera.front
     camera_direction.y = 0
@@ -37,15 +39,26 @@ def handle_movement():
 
     # Handle player movement inputs
     if IsKeyDown(KeyboardKey.KEY_W):
+        movingForwardBackwards = True
         entity.applyImpulse(camera_direction * DeltaTimeVec3 * VELOCITY)
-    if IsKeyDown(KeyboardKey.KEY_S):
+    elif IsKeyDown(KeyboardKey.KEY_S):
+        movingForwardBackwards = True
         entity.applyImpulse(camera.back * DeltaTimeVec3 * VELOCITY)
-    if IsKeyDown(KeyboardKey.KEY_A):
+    elif IsKeyDown(KeyboardKey.KEY_A):
+        movingForwardBackwards = False
         entity.applyImpulse(camera.left * DeltaTimeVec3 * VELOCITY)
-    if IsKeyDown(KeyboardKey.KEY_D):
+    elif IsKeyDown(KeyboardKey.KEY_D):
+        movingForwardBackwards = False
         entity.applyImpulse(camera.right * DeltaTimeVec3 * VELOCITY)
-    if IsKeyPressed(KeyboardKey.KEY_SPACE) and grounded:
+    elif IsKeyPressed(KeyboardKey.KEY_SPACE) and grounded:
         entity.applyImpulse(Vector3(0, JUMP_FORCE, 0))
+    else:
+        movingForwardBackwards = False
+       
+    if (movingForwardBackwards):
+        camera.fovy = Lerp(camera.fovy, 80, time.dt)
+    else:
+        camera.fovy = Lerp(camera.fovy, 60, time.dt)
 
 def handle_camera_rotation():
     global yaw, pitch
@@ -87,16 +100,3 @@ def set_entity_rotation():
     entity_rotation_yaw = math.degrees(math.atan2(front.z, front.x)) + 90.0
     entity_rotation_pitch = math.degrees(math.asin(front.y))
     entity.rotation = Vector3(0, -entity_rotation_yaw, 0)
-
-
-
-
-
-
-
-
-
-
-
-
-
