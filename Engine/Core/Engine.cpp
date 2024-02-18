@@ -1185,6 +1185,13 @@ public:
             highPolyDynamicRigidBody = std::make_shared<btRigidBody*>(nullptr);
         }
 
+        if (boxRigidBody && *boxRigidBody != nullptr) {
+            dynamicsWorld->removeRigidBody(*boxRigidBody);
+            delete *boxRigidBody;  // Free the memory
+            boxRigidBody = std::make_shared<btRigidBody*>(nullptr);
+        }
+
+
         dynamicBoxShape = nullptr;
 
         btTransform groundTransform;
@@ -1205,7 +1212,7 @@ public:
 
         btRigidBody* highPolyStaticRigidBody = new btRigidBody(highPolyStaticRigidBodyCI);
         boxRigidBody = std::make_shared<btRigidBody*>(highPolyStaticRigidBody);
-
+        
         dynamicsWorld->addRigidBody(*boxRigidBody);
 
         currentCollisionShapeType = std::make_shared<CollisionShapeType>(CollisionShapeType::Box);
