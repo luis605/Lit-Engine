@@ -1198,10 +1198,11 @@ public:
 
         btDefaultMotionState* rigidMotionState = new btDefaultMotionState(rigidTransform);
         btRigidBody::btRigidBodyConstructionInfo highPolyStaticRigidBodyCI(0, rigidMotionState, staticBoxShape, btVector3(0, 0, 0));
-
-        boxRigidBody = new btRigidBody(highPolyStaticRigidBodyCI);
         
+        boxRigidBody = new btRigidBody(highPolyStaticRigidBodyCI);
         dynamicsWorld->addRigidBody(boxRigidBody);
+
+        delete rigidMotionState;
 
         currentCollisionShapeType = std::make_shared<CollisionShapeType>(CollisionShapeType::Box);
     }
