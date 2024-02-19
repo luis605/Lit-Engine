@@ -1242,18 +1242,18 @@ public:
             }
         }
 
-        // Set up the dynamics of your tree object
-        btTransform treeTransform;
-        treeTransform.setIdentity();
-        treeTransform.setOrigin(btVector3(position.x, position.y, position.z));
+        // Set up the dynamics of your rigid object
+        btTransform rigidTransform;
+        rigidTransform.setIdentity();
+        rigidTransform.setOrigin(btVector3(position.x, position.y, position.z));
 
-        btDefaultMotionState* rigidMotionState = new btDefaultMotionState(treeTransform);
+        btDefaultMotionState* rigidMotionState = new btDefaultMotionState(rigidTransform);
 
-        btScalar treeMass = 0.0f;
-        btVector3 treeInertia(0, 0, 0);
-        customMeshShape->calculateLocalInertia(treeMass, treeInertia);
-        btDefaultMotionState* treeMotionState = new btDefaultMotionState(treeTransform);
-        btRigidBody::btRigidBodyConstructionInfo highPolyDynamicRigidBodyCI(treeMass, treeMotionState, customMeshShape, treeInertia);
+        btScalar rigidMass = 0.0f;
+        btVector3 rigidInertia(0, 0, 0);
+        customMeshShape->calculateLocalInertia(rigidMass, rigidInertia);
+        btDefaultMotionState* rigidMotionState = new btDefaultMotionState(rigidTransform);
+        btRigidBody::btRigidBodyConstructionInfo highPolyDynamicRigidBodyCI(rigidMass, rigidMotionState, customMeshShape, rigidInertia);
         highPolyDynamicRigidBody = new btRigidBody(highPolyDynamicRigidBodyCI);
         
         dynamicsWorld->addRigidBody(highPolyDynamicRigidBody);
@@ -1327,16 +1327,16 @@ public:
             }
         }
 
-        // Set up the dynamics of your tree object
-        btTransform treeTransform;
-        treeTransform.setIdentity();
-        treeTransform.setOrigin(btVector3(position.x, position.y, position.z));
+        // Set up the dynamics of your rigid object
+        btTransform rigidTransform;
+        rigidTransform.setIdentity();
+        rigidTransform.setOrigin(btVector3(position.x, position.y, position.z));
 
-        btScalar treeMass = mass;
-        btVector3 treeInertia(0, 0, 0);
-        customMeshShape->calculateLocalInertia(treeMass, treeInertia);
-        btDefaultMotionState* objectMotionState = new btDefaultMotionState(treeTransform);
-        btRigidBody::btRigidBodyConstructionInfo highPolyStaticRigidBodyCI(treeMass, objectMotionState, customMeshShape, treeInertia);
+        btScalar rigidMass = mass;
+        btVector3 rigidInertia(0, 0, 0);
+        customMeshShape->calculateLocalInertia(rigidMass, rigidInertia);
+        btDefaultMotionState* objectMotionState = new btDefaultMotionState(rigidTransform);
+        btRigidBody::btRigidBodyConstructionInfo highPolyStaticRigidBodyCI(rigidMass, objectMotionState, customMeshShape, rigidInertia);
         
         highPolyDynamicRigidBody = new btRigidBody(highPolyStaticRigidBodyCI);
 
