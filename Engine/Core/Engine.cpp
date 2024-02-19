@@ -578,8 +578,6 @@ public:
 
         if (boxRigidBody && boxRigidBody != nullptr) {
             dynamicsWorld->removeRigidBody(boxRigidBody);
-            delete boxRigidBody->getMotionState();
-            delete boxRigidBody;
             boxRigidBody = nullptr;
         }
 
@@ -1213,8 +1211,9 @@ public:
 
         currentCollisionShapeType = std::make_shared<CollisionShapeType>(CollisionShapeType::HighPolyMesh);
 
-        if (highPolyDynamicRigidBody != nullptr) {
+        if (highPolyDynamicRigidBody && highPolyDynamicRigidBody != nullptr) {
             dynamicsWorld->removeRigidBody(highPolyDynamicRigidBody);
+            highPolyDynamicRigidBody = nullptr;
         }
 
         if (boxRigidBody) {
@@ -1302,8 +1301,9 @@ public:
 
         currentCollisionShapeType = std::make_shared<CollisionShapeType>(CollisionShapeType::HighPolyMesh);
 
-        if (highPolyDynamicRigidBody != nullptr) {
+        if (highPolyDynamicRigidBody && highPolyDynamicRigidBody != nullptr) {
             dynamicsWorld->removeRigidBody(highPolyDynamicRigidBody);
+            highPolyDynamicRigidBody = nullptr;
         }
 
         if (boxRigidBody) {
