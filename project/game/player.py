@@ -66,11 +66,11 @@ def handle_movement():
 
     if IsKeyDown(KeyboardKey.KEY_W):
         entity.applyImpulse(direction * time.dt * VELOCITY)
-    elif IsKeyDown(KeyboardKey.KEY_S):
+    if IsKeyDown(KeyboardKey.KEY_S):
         entity.applyImpulse(camera.back * time.dt * VELOCITY)
-    elif IsKeyDown(KeyboardKey.KEY_A):
+    if IsKeyDown(KeyboardKey.KEY_A):
         entity.applyImpulse(camera.left * time.dt * VELOCITY)
-    elif IsKeyDown(KeyboardKey.KEY_D):
+    if IsKeyDown(KeyboardKey.KEY_D):
         entity.applyImpulse(camera.right * time.dt * VELOCITY)
     
     if IsKeyPressed(KeyboardKey.KEY_SPACE) and grounded:
@@ -84,3 +84,4 @@ def update():
     update_camera_position()
     check_ground()
     set_entity_rotation()
+
