@@ -1175,7 +1175,7 @@ public:
 
         staticBoxShape = new btBoxShape(btVector3(x * scaleFactorRaylibBullet, y * scaleFactorRaylibBullet, z * scaleFactorRaylibBullet));
 
-        if (boxRigidBody) {
+        if (boxRigidBody != nullptr) {
             dynamicsWorld->removeRigidBody(boxRigidBody);
 
             delete boxRigidBody->getMotionState();
@@ -1184,7 +1184,6 @@ public:
 
             boxRigidBody = nullptr;
         }
-
 
         if (highPolyDynamicRigidBody && *highPolyDynamicRigidBody != nullptr) {
             dynamicsWorld->removeRigidBody(*highPolyDynamicRigidBody);
@@ -1209,7 +1208,7 @@ public:
         btDefaultMotionState* groundMotionState = new btDefaultMotionState(groundTransform);
         btRigidBody::btRigidBodyConstructionInfo highPolyStaticRigidBodyCI(0, groundMotionState, staticBoxShape, btVector3(0, 0, 0));
 
-        btRigidBody* boxRigidBody = new btRigidBody(highPolyStaticRigidBodyCI);
+        boxRigidBody = new btRigidBody(highPolyStaticRigidBodyCI);
         
         dynamicsWorld->addRigidBody(boxRigidBody);
 
