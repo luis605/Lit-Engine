@@ -1183,8 +1183,8 @@ public:
 
         dynamicBoxShape = nullptr;
 
-        btTransform groundTransform;
-        groundTransform.setIdentity();
+        btTransform rigidTransform;
+        rigidTransform.setIdentity();
 
         float rollRad = glm::radians(rotation.x);
         float pitchRad = glm::radians(rotation.y);
@@ -1193,11 +1193,11 @@ public:
         btQuaternion quaternion;
         quaternion.setEulerZYX(yawRad, pitchRad, rollRad);
 
-        groundTransform.setRotation(quaternion);
-        groundTransform.setOrigin(btVector3(position.x, position.y, position.z));
+        rigidTransform.setRotation(quaternion);
+        rigidTransform.setOrigin(btVector3(position.x, position.y, position.z));
 
-        btDefaultMotionState* groundMotionState = new btDefaultMotionState(groundTransform);
-        btRigidBody::btRigidBodyConstructionInfo highPolyStaticRigidBodyCI(0, groundMotionState, staticBoxShape, btVector3(0, 0, 0));
+        btDefaultMotionState* rigidMotionState = new btDefaultMotionState(rigidTransform);
+        btRigidBody::btRigidBodyConstructionInfo highPolyStaticRigidBodyCI(0, rigidMotionState, staticBoxShape, btVector3(0, 0, 0));
 
         boxRigidBody = new btRigidBody(highPolyStaticRigidBodyCI);
         
@@ -1246,7 +1246,7 @@ public:
         treeTransform.setIdentity();
         treeTransform.setOrigin(btVector3(position.x, position.y, position.z));
 
-        btDefaultMotionState* groundMotionState = new btDefaultMotionState(treeTransform);
+        btDefaultMotionState* rigidMotionState = new btDefaultMotionState(treeTransform);
 
         btScalar treeMass = 0.0f;
         btVector3 treeInertia(0, 0, 0);
