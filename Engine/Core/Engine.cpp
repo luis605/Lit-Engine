@@ -1210,8 +1210,6 @@ public:
     void createStaticMesh(bool generateShape = true) {
         isDynamic = false;
 
-        currentCollisionShapeType = std::make_shared<CollisionShapeType>(CollisionShapeType::HighPolyMesh);
-
         if (highPolyDynamicRigidBody && highPolyDynamicRigidBody != nullptr) {
             dynamicsWorld->removeRigidBody(highPolyDynamicRigidBody);
             highPolyDynamicRigidBody = nullptr;
@@ -1221,8 +1219,6 @@ public:
             dynamicsWorld->removeRigidBody(boxRigidBody);
             boxRigidBody = nullptr;
         }
-
-
 
         if (generateShape || !customMeshShape) {
             customMeshShape = new btConvexHullShape();
@@ -1247,8 +1243,6 @@ public:
         rigidTransform.setIdentity();
         rigidTransform.setOrigin(btVector3(position.x, position.y, position.z));
 
-        btDefaultMotionState* rigidMotionState = new btDefaultMotionState(rigidTransform);
-
         btScalar rigidMass = 0.0f;
         btVector3 rigidInertia(0, 0, 0);
         customMeshShape->calculateLocalInertia(rigidMass, rigidInertia);
@@ -1257,6 +1251,9 @@ public:
         highPolyDynamicRigidBody = new btRigidBody(highPolyDynamicRigidBodyCI);
         
         dynamicsWorld->addRigidBody(highPolyDynamicRigidBody);
+        currentCollisionShapeType = std::make_shared<CollisionShapeType>(CollisionShapeType::HighPolyMesh);
+
+        delete rigidMotionState;
     }
 
 
@@ -1268,7 +1265,6 @@ public:
             boxRigidBody = nullptr;
         }
 
-
         if (highPolyDynamicRigidBody) {
             dynamicsWorld->removeRigidBody(highPolyDynamicRigidBody);
             highPolyDynamicRigidBody = nullptr;
@@ -1278,7 +1274,6 @@ public:
         boxMotionState = nullptr;
 
         dynamicBoxShape = new btBoxShape(btVector3(x * scaleFactorRaylibBullet, y * scaleFactorRaylibBullet, z * scaleFactorRaylibBullet));
-        currentCollisionShapeType = make_shared<CollisionShapeType>(CollisionShapeType::Box);
 
         btTransform startTransform;
         startTransform.setIdentity();
@@ -1295,6 +1290,8 @@ public:
         boxRigidBody = new btRigidBody(boxRigidBodyCI);
         
         dynamicsWorld->addRigidBody(boxRigidBody);
+
+        currentCollisionShapeType = make_shared<CollisionShapeType>(CollisionShapeType::Box);
     }
 
     void createDynamicMesh(bool generateShape = true) {
@@ -1335,12 +1332,13 @@ public:
         btScalar rigidMass = mass;
         btVector3 rigidInertia(0, 0, 0);
         customMeshShape->calculateLocalInertia(rigidMass, rigidInertia);
-        btDefaultMotionState* objectMotionState = new btDefaultMotionState(rigidTransform);
-        btRigidBody::btRigidBodyConstructionInfo highPolyStaticRigidBodyCI(rigidMass, objectMotionState, customMeshShape, rigidInertia);
+        btDefaultMotionState* rigidMotionState = new btDefaultMotionState(rigidTransform);
+        btRigidBody::btRigidBodyConstructionInfo highPolyStaticRigidBodyCI(rigidMass, rigidMotionState, customMeshShape, rigidInertia);
         
         highPolyDynamicRigidBody = new btRigidBody(highPolyStaticRigidBodyCI);
-
         dynamicsWorld->addRigidBody(highPolyDynamicRigidBody);
+
+        delete rigidMotionState;
     }
 
     void makePhysicsDynamic(CollisionShapeType shapeType = CollisionShapeType::Box) {
