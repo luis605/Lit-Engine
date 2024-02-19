@@ -1079,18 +1079,17 @@ public:
 
     void setPos(LitVector3 newPos) {
         position = newPos;
-        if (boxRigidBody && boxRigidBody != nullptr) {
+
+        if (boxRigidBody) {
             btTransform transform;
             transform.setIdentity();
             transform.setOrigin(btVector3(newPos.x, newPos.y, newPos.z));
 
-            if (boxRigidBody->getMotionState() ) {
-                boxRigidBody->setWorldTransform(transform);
-                if (boxRigidBody->getMotionState())
-                    boxRigidBody->getMotionState()->setWorldTransform(transform);
-            }
+            boxRigidBody->setWorldTransform(transform);
         }
     }
+
+
 
     void setRot(LitVector3 newRot) {
         rotation = newRot;
@@ -1175,15 +1174,11 @@ public:
 
         staticBoxShape = new btBoxShape(btVector3(x * scaleFactorRaylibBullet, y * scaleFactorRaylibBullet, z * scaleFactorRaylibBullet));
 
-        if (boxRigidBody != nullptr) {
+        if (boxRigidBody) {
             dynamicsWorld->removeRigidBody(boxRigidBody);
-
-            delete boxRigidBody->getMotionState();
-            delete boxRigidBody->getCollisionShape();
-            delete boxRigidBody;
-
             boxRigidBody = nullptr;
         }
+
 
         if (highPolyDynamicRigidBody && *highPolyDynamicRigidBody != nullptr) {
             dynamicsWorld->removeRigidBody(*highPolyDynamicRigidBody);
@@ -1226,13 +1221,10 @@ public:
 
         if (boxRigidBody) {
             dynamicsWorld->removeRigidBody(boxRigidBody);
-
-            delete boxRigidBody->getMotionState();
-            delete boxRigidBody->getCollisionShape();
-            delete boxRigidBody;
-
             boxRigidBody = nullptr;
         }
+
+
 
         if (generateShape || !customMeshShape) {
             customMeshShape = new btConvexHullShape();
@@ -1276,13 +1268,9 @@ public:
 
         if (boxRigidBody) {
             dynamicsWorld->removeRigidBody(boxRigidBody);
-
-            delete boxRigidBody->getMotionState();
-            delete boxRigidBody->getCollisionShape();
-            delete boxRigidBody;
-
             boxRigidBody = nullptr;
         }
+
 
         if (highPolyDynamicRigidBody && *highPolyDynamicRigidBody.get() != nullptr) {
             dynamicsWorld->removeRigidBody(*highPolyDynamicRigidBody);
@@ -1323,14 +1311,9 @@ public:
 
         if (boxRigidBody) {
             dynamicsWorld->removeRigidBody(boxRigidBody);
-
-            delete boxRigidBody->getMotionState();
-            delete boxRigidBody->getCollisionShape();
-            delete boxRigidBody;
-
             boxRigidBody = nullptr;
         }
-        
+
         if (generateShape || !customMeshShape) {
             customMeshShape = new btConvexHullShape();
 
