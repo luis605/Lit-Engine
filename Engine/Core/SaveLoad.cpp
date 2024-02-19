@@ -699,8 +699,12 @@ void LoadEntity(const json& entity_json, Entity& entity) {
     // Materials
     if (entity_json.contains("material_path")) {
         entity.surface_material_path = entity_json["material_path"].get<string>();
-        DeserializeMaterial(&entity.surface_material, entity.surface_material_path.string().c_str());
+        if (!entity.surface_material_path.empty())
+        {
+            DeserializeMaterial(&entity.surface_material, entity.surface_material_path.string().c_str());
+        }
     }
+
 
 
     // Textures
