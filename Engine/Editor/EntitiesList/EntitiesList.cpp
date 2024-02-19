@@ -443,7 +443,7 @@ void EntitiesList()
     if (ImGui::ImageButton((ImTextureID)&run_texture, buttonSize)) {
         entities_list.assign(entities_list_pregame.begin(), entities_list_pregame.end());
         
-        // DisableCursor();
+        DisableCursor();
 
         InitGameCamera();
         in_game_preview = true;

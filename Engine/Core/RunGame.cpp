@@ -46,8 +46,6 @@ void RunGame()
 
         DrawSkybox();
 
-        SetShaderValueMatrix(shader, GetShaderLocation(shader, "cameraMatrix"), GetCameraMatrix(scene_camera));
-
         dynamicsWorld->stepSimulation(GetFrameTime(), 10);
 
         if (first_time_gameplay)

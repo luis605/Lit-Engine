@@ -72,7 +72,8 @@ def handle_movement():
         entity.applyImpulse(camera.left * time.dt * VELOCITY)
     elif IsKeyDown(KeyboardKey.KEY_D):
         entity.applyImpulse(camera.right * time.dt * VELOCITY)
-    elif IsKeyPressed(KeyboardKey.KEY_SPACE) and grounded:
+    
+    if IsKeyPressed(KeyboardKey.KEY_SPACE) and grounded:
         entity.applyImpulse(Vector3(0, JUMP_FORCE, 0))
 
     update_camera_fovy()
