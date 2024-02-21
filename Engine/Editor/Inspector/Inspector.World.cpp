@@ -159,48 +159,48 @@ void WorldInspector()
 
         if (WorldGravityXInputMode)
         {
-            if (ImGui::InputFloat("##GravityX", &physics.gravity[0], 0.0f, 0.0f, "%.2f", ImGuiInputTextFlags_EnterReturnsTrue))
+            if (ImGui::InputFloat("##GravityX", &physics.gravity.x, 0.0f, 0.0f, "%.2f", ImGuiInputTextFlags_EnterReturnsTrue))
             {
-                physics.dynamicsWorld->setGravity(btVector3(physics.gravity[0], physics.gravity[1], physics.gravity[2]));
+                physics.dynamicsWorld->setGravity(btVector3(physics.gravity.x, physics.gravity.y, physics.gravity.z));
                 WorldGravityXInputMode = false;
             }
         }
         else
         {
-            if (ImGui::SliderFloat("##GravityX", &physics.gravity[0], -100, 100, "%.2f"))
-                physics.dynamicsWorld->setGravity(btVector3(physics.gravity[0], physics.gravity[1], physics.gravity[2]));
+            if (ImGui::SliderFloat("##GravityX", &physics.gravity.x, -100, 100, "%.2f"))
+                physics.dynamicsWorld->setGravity(btVector3(physics.gravity.x, physics.gravity.y, physics.gravity.z));
                 
             WorldGravityXInputMode = ImGui::IsItemHovered() && ImGui::IsMouseDoubleClicked(0);
         }
 
         if (WorldGravityYInputMode)
         {
-            if (ImGui::InputFloat("##GravityY", &physics.gravity[1], 0.0f, 0.0f, "%.2f", ImGuiInputTextFlags_EnterReturnsTrue))
+            if (ImGui::InputFloat("##GravityY", &physics.gravity.y, 0.0f, 0.0f, "%.2f", ImGuiInputTextFlags_EnterReturnsTrue))
             {
-                physics.dynamicsWorld->setGravity(btVector3(physics.gravity[0], physics.gravity[1], physics.gravity[2]));
+                physics.dynamicsWorld->setGravity(btVector3(physics.gravity.x, physics.gravity.y, physics.gravity.z));
                 WorldGravityYInputMode = false;
             }
         }
         else
         {
-            if (ImGui::SliderFloat("##GravityY", &physics.gravity[1], -100, 100, "%.2f"))
-                physics.dynamicsWorld->setGravity(btVector3(physics.gravity[0], physics.gravity[1], physics.gravity[2]));
+            if (ImGui::SliderFloat("##GravityY", &physics.gravity.y, -100, 100, "%.2f"))
+                physics.dynamicsWorld->setGravity(btVector3(physics.gravity.x, physics.gravity.y, physics.gravity.z));
                 
             WorldGravityYInputMode = ImGui::IsItemHovered() && ImGui::IsMouseDoubleClicked(0);
         }
 
         if (WorldGravityZInputMode)
         {
-            if (ImGui::InputFloat("##GravityZ", &physics.gravity[2], 0.0f, 0.0f, "%.2f", ImGuiInputTextFlags_EnterReturnsTrue))
+            if (ImGui::InputFloat("##GravityZ", &physics.gravity.z, 0.0f, 0.0f, "%.2f", ImGuiInputTextFlags_EnterReturnsTrue))
             {
-                physics.dynamicsWorld->setGravity(btVector3(physics.gravity[0], physics.gravity[1], physics.gravity[2]));
+                physics.dynamicsWorld->setGravity(btVector3(physics.gravity.x, physics.gravity.y, physics.gravity.z));
                 WorldGravityZInputMode = false;
             }
         }
         else
         {
-            if (ImGui::SliderFloat("##GravityZ", &physics.gravity[2], -100, 100, "%.2f"))
-                physics.dynamicsWorld->setGravity(btVector3(physics.gravity[0], physics.gravity[1], physics.gravity[2]));
+            if (ImGui::SliderFloat("##GravityZ", &physics.gravity.z, -100, 100, "%.2f"))
+                physics.dynamicsWorld->setGravity(btVector3(physics.gravity.x, physics.gravity.y, physics.gravity.z));
                 
             WorldGravityZInputMode = ImGui::IsItemHovered() && ImGui::IsMouseDoubleClicked(0);
         }

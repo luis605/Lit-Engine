@@ -889,6 +889,7 @@ public:
         py::module input_module = py::module::import("input_module");
         py::module collisions_module = py::module::import("collisions_module");
         py::module camera_module = py::module::import("camera_module");
+        py::module physics_module = py::module::import("physics_module");
         py::module mouse_module = py::module::import("mouse_module");
         py::module time_module = py::module::import("time_module");
         py::module color_module = py::module::import("color_module");
@@ -915,6 +916,7 @@ public:
             "LockMouse"_a = mouse_module.attr("LockMouse"),
             "UnlockMouse"_a = mouse_module.attr("UnlockMouse"),
             "time"_a = py::cast(&time_instance),
+            "physics"_a = py::cast(&physics),
             "Lerp"_a = math_module.attr("lerp"),
             "entitiesList"_a = entities_list,
             "camera"_a = py::cast(rendering_camera)
