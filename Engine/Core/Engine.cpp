@@ -203,7 +203,7 @@ public:
 private:
     std::shared_ptr<btCollisionShape> rigidShape;
     btConvexHullShape* customMeshShape             = nullptr;
-    btDefaultMotionState* boxMotionState           = nullptr;
+    std::shared_ptr<btDefaultMotionState> boxMotionState;
     btConvexHullShape* triangleMesh                = nullptr;
     std::shared_ptr<btRigidBody> rigidBody;
     LitVector3 backupPosition                      = position;
@@ -1209,8 +1209,8 @@ public:
         btScalar rigidMass = 0.0f;
         btVector3 rigidInertia(0, 0, 0);
         customMeshShape->calculateLocalInertia(rigidMass, rigidInertia);
-        boxMotionState = new btDefaultMotionState(rigidTransform);
-        btRigidBody::btRigidBodyConstructionInfo rigidBodyCI(rigidMass, boxMotionState, customMeshShape, rigidInertia);
+        boxMotionState = std::make_shared<btDefaultMotionState>(rigidTransform);
+        btRigidBody::btRigidBodyConstructionInfo rigidBodyCI(rigidMass, boxMotionState.get(), customMeshShape, rigidInertia);
         rigidBody = std::make_shared<btRigidBody>(rigidBodyCI);
         
         dynamicsWorld->addRigidBody(rigidBody.get());
@@ -1237,8 +1237,8 @@ public:
 
         rigidShape->calculateLocalInertia(btMass, localInertia);
 
-        boxMotionState = new btDefaultMotionState(startTransform);
-        btRigidBody::btRigidBodyConstructionInfo rigidBodyCI(btMass, boxMotionState, rigidShape.get(), localInertia);
+        boxMotionState = std::make_shared<btDefaultMotionState>(startTransform);
+        btRigidBody::btRigidBodyConstructionInfo rigidBodyCI(btMass, boxMotionState.get(), rigidShape.get(), localInertia);
         rigidBody = std::make_unique<btRigidBody>(rigidBodyCI);
         
         dynamicsWorld->addRigidBody(rigidBody.get());
