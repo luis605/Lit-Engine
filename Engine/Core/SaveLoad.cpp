@@ -933,7 +933,6 @@ int LoadProject(vector<Entity>& entities_vector, vector<Light>& lights_vector, v
                 LoadEntity(entity_json, entity);
                 entities_vector.emplace_back(entity);
                 entities_vector.back().reloadRigidBody();
-
             }
             else if (type == "camera") {
                 LoadCamera(entity_json, camera);
