@@ -8,14 +8,13 @@ JUMP_FORCE = 100
 FOV_FORWARD = 80
 FOV_BACKWARD = 60
 
-physics.gravity = Vector3(0,0,3)
 # Initial values
 yaw, pitch = 0, 0
 grounded = False
 entity.visible = True
 
 
-#LockMouse()
+LockMouse()
 
 # Helper functions
 def spherical_to_cartesian(radius, yaw, pitch):
@@ -50,6 +49,14 @@ def update_camera_position():
     camera.position = entity.position + front
     camera.look_at = entity.position
     camera.up = Vector3(0, 1, 0)
+
+def change_gravity():
+	if (IsKeyDown(KeyboardKey.KEY_LEFT)):
+		physics.gravity = Vector3(0,-9.8,30)
+	if (IsKeyDown(KeyboardKey.KEY_RIGHT)):
+		physics.gravity = Vector3(0,-9.8,-30)
+	if (IsKeyDown(KeyboardKey.KEY_DOWN)):
+		physics.gravity = Vector3(0,-9.8,0)
 
 def check_ground():
     global grounded
@@ -88,6 +95,8 @@ def update():
     update_camera_position()
     check_ground()
     set_entity_rotation()
+    change_gravity()
+
 
 
 
