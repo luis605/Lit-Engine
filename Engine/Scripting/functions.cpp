@@ -66,6 +66,16 @@ PYBIND11_EMBEDDED_MODULE(math_module, m) {
     m.def("lerp", &lerp_Vector3, "Lerp function for Vector3 type");
 }
 
+
+
+
+PYBIND11_EMBEDDED_MODULE(mouse_module, m) {
+    m.def("LockMouse", &DisableCursor);
+    m.def("UnlockMouse", &EnableCursor);
+}
+
+
+
 struct LitCamera : Camera3D {
     LitVector3 front;
     LitVector3 right;

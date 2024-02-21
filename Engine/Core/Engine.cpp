@@ -889,6 +889,7 @@ public:
         py::module input_module = py::module::import("input_module");
         py::module collisions_module = py::module::import("collisions_module");
         py::module camera_module = py::module::import("camera_module");
+        py::module mouse_module = py::module::import("mouse_module");
         py::module time_module = py::module::import("time_module");
         py::module color_module = py::module::import("color_module");
         py::module math_module = py::module::import("math_module");
@@ -911,6 +912,8 @@ public:
             "Vector3Scale"_a = math_module.attr("vector3Scale"),
             "Vector3Distance"_a = math_module.attr("vector3Distance"),
             "Color"_a = color_module.attr("Color"),
+            "LockMouse"_a = mouse_module.attr("LockMouse"),
+            "UnlockMouse"_a = mouse_module.attr("UnlockMouse"),
             "time"_a = py::cast(&time_instance),
             "Lerp"_a = math_module.attr("lerp"),
             "entitiesList"_a = entities_list,

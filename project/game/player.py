@@ -1,5 +1,7 @@
 import math
 
+LockMouse()
+
 # Constants
 VELOCITY = 100
 SENSITIVITY = 0.3
@@ -84,4 +86,5 @@ def update():
     update_camera_position()
     check_ground()
     set_entity_rotation()
+
 
