@@ -201,13 +201,12 @@ public:
     std::shared_ptr<CollisionShapeType> currentCollisionShapeType = make_shared<CollisionShapeType>(None);
 
 private:
-    btCollisionShape* staticBoxShape               = nullptr;
+    std::shared_ptr<btCollisionShape> staticBoxShape;
     btCollisionShape* dynamicBoxShape              = nullptr;
     btConvexHullShape* customMeshShape             = nullptr;
     btDefaultMotionState* boxMotionState           = nullptr;
     btConvexHullShape* triangleMesh                = nullptr;
-    btRigidBody* boxRigidBody                      = nullptr;
-    btRigidBody* highPolyDynamicRigidBody          = nullptr;
+    std::shared_ptr<btRigidBody> rigidBody;
     LitVector3 backupPosition                      = position;
     vector<Entity*> instances;
     Matrix *transforms                             = nullptr;
@@ -253,15 +252,10 @@ public:
         this->tiling[1] = other.tiling[1];
 
         this->currentCollisionShapeType     = make_shared<CollisionShapeType>(*other.currentCollisionShapeType);
-        if (other.boxRigidBody)
-            this->boxRigidBody               = other.boxRigidBody;
-        else
-            this->boxRigidBody               = nullptr;
 
-        if (other.highPolyDynamicRigidBody && other.highPolyDynamicRigidBody != nullptr)
-            this->highPolyDynamicRigidBody  = other.highPolyDynamicRigidBody;
-        else
-            this->highPolyDynamicRigidBody  = nullptr;
+        if (other.rigidBody && other.rigidBody != nullptr) {
+            this->rigidBody = std::move(other.rigidBody);
+        }
 
         this->texture_path                  = other.texture_path;
         this->texture = std::visit([](const auto& value) -> std::variant<Texture, std::unique_ptr<VideoPlayer, std::default_delete<VideoPlayer>>> {
@@ -417,15 +411,10 @@ public:
         this->collider = other.collider;
 
         this->currentCollisionShapeType     = make_shared<CollisionShapeType>(*other.currentCollisionShapeType);
-        if (other.boxRigidBody && other.boxRigidBody != nullptr)
-            this->boxRigidBody              = other.boxRigidBody;
-        else
-            this->boxRigidBody              = nullptr;
 
-        if (other.highPolyDynamicRigidBody && other.highPolyDynamicRigidBody != nullptr)
-            this->highPolyDynamicRigidBody  = other.highPolyDynamicRigidBody;
-        else
-            this->highPolyDynamicRigidBody  = nullptr;
+        if (other.rigidBody && other.rigidBody != nullptr) {
+            this->rigidBody = std::move(other.rigidBody);
+        }
 
         this->visible = other.visible;
         this->isChild = other.isChild;
@@ -575,16 +564,6 @@ public:
 
         // Clear the children vector
         children.clear();
-
-        if (boxRigidBody && boxRigidBody != nullptr) {
-            dynamicsWorld->removeRigidBody(boxRigidBody);
-            boxRigidBody = nullptr;
-        }
-
-        if (highPolyDynamicRigidBody) {
-            dynamicsWorld->removeRigidBody(highPolyDynamicRigidBody);
-            highPolyDynamicRigidBody = nullptr;
-        }
 
         // Remove the corresponding entity from entities_list_pregame
         entities_list_pregame.erase(
@@ -1023,15 +1002,15 @@ public:
         
         if (CollisionShapeType::Box == *currentCollisionShapeType) {
             btTransform trans;
-            if (boxRigidBody && boxRigidBody->getMotionState()) {
-                boxRigidBody->getMotionState()->getWorldTransform(trans);
+            if (rigidBody && rigidBody->getMotionState()) {
+                rigidBody->getMotionState()->getWorldTransform(trans);
                 btVector3 rigidBodyPosition = trans.getOrigin();
                 position = { rigidBodyPosition.getX(), rigidBodyPosition.getY(), rigidBodyPosition.getZ() };
             }
         } else if (*currentCollisionShapeType == CollisionShapeType::HighPolyMesh) {
             btTransform trans;
-            if (highPolyDynamicRigidBody && highPolyDynamicRigidBody->getMotionState()) {
-                highPolyDynamicRigidBody->getMotionState()->getWorldTransform(trans);
+            if (rigidBody && rigidBody->getMotionState()) {
+                rigidBody->getMotionState()->getWorldTransform(trans);
                 btVector3 rigidBodyPosition = trans.getOrigin();
                 position = { rigidBodyPosition.getX(), rigidBodyPosition.getY(), rigidBodyPosition.getZ() };
             }
@@ -1047,10 +1026,10 @@ public:
         if (!isDynamic) return;
 
         if (CollisionShapeType::Box == *currentCollisionShapeType) {
-            if (boxRigidBody) {
+            if (rigidBody) {
                 btTransform trans;
-                if (boxRigidBody->getMotionState()) {
-                    boxRigidBody->getMotionState()->getWorldTransform(trans);
+                if (rigidBody->getMotionState()) {
+                    rigidBody->getMotionState()->getWorldTransform(trans);
                     btQuaternion objectRotation = trans.getRotation();
                     btScalar Roll, Yaw, Pitch;
                     objectRotation.getEulerZYX(Roll, Yaw, Pitch);
@@ -1058,10 +1037,10 @@ public:
                     rotation = (Vector3){ Pitch * RAD2DEG, Yaw * RAD2DEG, Roll * RAD2DEG };
                 }
             }
-            else if (highPolyDynamicRigidBody) {
+            else if (rigidBody) {
                 btTransform trans;
-                if (highPolyDynamicRigidBody->getMotionState()) {
-                    highPolyDynamicRigidBody->getMotionState()->getWorldTransform(trans);
+                if (rigidBody->getMotionState()) {
+                    rigidBody->getMotionState()->getWorldTransform(trans);
                     btQuaternion objectRotation = trans.getRotation();
                     btScalar Roll, Yaw, Pitch;
                     objectRotation.getEulerZYX(Roll, Yaw, Pitch);
@@ -1076,12 +1055,12 @@ public:
     void setPos(LitVector3 newPos) {
         position = newPos;
 
-        if (boxRigidBody) {
+        if (rigidBody) {
             btTransform transform;
             transform.setIdentity();
             transform.setOrigin(btVector3(newPos.x, newPos.y, newPos.z));
 
-            boxRigidBody->setWorldTransform(transform);
+            rigidBody->setWorldTransform(transform);
         }
     }
 
@@ -1091,13 +1070,13 @@ public:
         rotation = newRot;
 
         if (CollisionShapeType::Box == *currentCollisionShapeType) {
-            if (boxRigidBody) {
-                btTransform currentTransform = boxRigidBody->getWorldTransform();
+            if (rigidBody) {
+                btTransform currentTransform = rigidBody->getWorldTransform();
 
                 btQuaternion newRotation;
                 newRotation.setEulerZYX(newRot.z * DEG2RAD, newRot.y * DEG2RAD, newRot.x * DEG2RAD);
                 currentTransform.setRotation(newRotation);
-                boxRigidBody->setWorldTransform(currentTransform);
+                rigidBody->setWorldTransform(currentTransform);
             }
         }
     }
@@ -1124,31 +1103,31 @@ public:
     }
 
     void applyForce(const LitVector3& force) {
-        if (boxRigidBody && isDynamic) {
-            boxRigidBody->setActivationState(ACTIVE_TAG);
+        if (rigidBody && isDynamic) {
+            rigidBody->setActivationState(ACTIVE_TAG);
             btVector3 btForce(force.x, force.y, force.z);
-            boxRigidBody->applyCentralForce(btForce);
+            rigidBody->applyCentralForce(btForce);
         }
     }
 
     void applyImpulse(const LitVector3& impulse) {
-        if (boxRigidBody && isDynamic) {
-            boxRigidBody->setActivationState(ACTIVE_TAG);
+        if (rigidBody && isDynamic) {
+            rigidBody->setActivationState(ACTIVE_TAG);
             btVector3 btImpulse(impulse.x, impulse.y, impulse.z);
-            boxRigidBody->applyCentralImpulse(btImpulse);
+            rigidBody->applyCentralImpulse(btImpulse);
         }
     }
 
 
     void setFriction(const float& friction) {
-        if (boxRigidBody && isDynamic) {
-            boxRigidBody->setFriction(friction);
+        if (rigidBody && isDynamic) {
+            rigidBody->setFriction(friction);
         }
     }
 
     void applyDamping(const float& damping) {
-        if (boxRigidBody && isDynamic) {
-            boxRigidBody->setDamping(damping, damping);
+        if (rigidBody && isDynamic) {
+            rigidBody->setDamping(damping, damping);
         }
     }
 
@@ -1158,10 +1137,10 @@ public:
         btScalar btMass = mass;
         btVector3 boxInertia(inertia.x, inertia.y, inertia.z);
         dynamicBoxShape->calculateLocalInertia(btMass, boxInertia);
-        if (*currentCollisionShapeType == CollisionShapeType::Box && boxRigidBody && boxRigidBody != nullptr)
-            boxRigidBody->setMassProps(btMass, boxInertia);
-        else if (*currentCollisionShapeType == CollisionShapeType::HighPolyMesh && highPolyDynamicRigidBody && highPolyDynamicRigidBody != nullptr)
-            highPolyDynamicRigidBody->setMassProps(btMass, boxInertia);
+        if (*currentCollisionShapeType == CollisionShapeType::Box && rigidBody && rigidBody != nullptr)
+            rigidBody->setMassProps(btMass, boxInertia);
+        else if (*currentCollisionShapeType == CollisionShapeType::HighPolyMesh && rigidBody && rigidBody != nullptr)
+            rigidBody->setMassProps(btMass, boxInertia);
 
     }
 
@@ -1170,18 +1149,9 @@ public:
 
         staticBoxShape = new btBoxShape(btVector3(x * scaleFactorRaylibBullet, y * scaleFactorRaylibBullet, z * scaleFactorRaylibBullet));
 
-        if (boxRigidBody) {
-            dynamicsWorld->removeRigidBody(boxRigidBody);
-            boxRigidBody = nullptr;
+        if (rigidBody) {
+            dynamicsWorld->removeRigidBody(rigidBody.get());
         }
-
-
-        if (highPolyDynamicRigidBody && highPolyDynamicRigidBody != nullptr) {
-            dynamicsWorld->removeRigidBody(highPolyDynamicRigidBody);
-            highPolyDynamicRigidBody = nullptr;
-        }
-
-        dynamicBoxShape = nullptr;
 
         btTransform rigidTransform;
         rigidTransform.setIdentity();
@@ -1196,28 +1166,22 @@ public:
         rigidTransform.setRotation(quaternion);
         rigidTransform.setOrigin(btVector3(position.x, position.y, position.z));
 
-        btDefaultMotionState* rigidMotionState = new btDefaultMotionState(rigidTransform);
-        btRigidBody::btRigidBodyConstructionInfo highPolyStaticRigidBodyCI(0, rigidMotionState, staticBoxShape, btVector3(0, 0, 0));
-        
-        boxRigidBody = new btRigidBody(highPolyStaticRigidBodyCI);
-        dynamicsWorld->addRigidBody(boxRigidBody);
+        btDefaultMotionState boxMotionState(rigidTransform);
+        btRigidBody::btRigidBodyConstructionInfo highPolyStaticRigidBodyCI(0, &boxMotionState, staticBoxShape, btVector3(0, 0, 0));
 
-        delete rigidMotionState;
+        // Use std::make_unique to create the std::unique_ptr
+        rigidBody = std::make_unique<btRigidBody>(highPolyStaticRigidBodyCI);
+        dynamicsWorld->addRigidBody(rigidBody.get());
 
         currentCollisionShapeType = std::make_shared<CollisionShapeType>(CollisionShapeType::Box);
     }
 
+
     void createStaticMesh(bool generateShape = true) {
         isDynamic = false;
 
-        if (highPolyDynamicRigidBody && highPolyDynamicRigidBody != nullptr) {
-            dynamicsWorld->removeRigidBody(highPolyDynamicRigidBody);
-            highPolyDynamicRigidBody = nullptr;
-        }
-
-        if (boxRigidBody) {
-            dynamicsWorld->removeRigidBody(boxRigidBody);
-            boxRigidBody = nullptr;
+        if (rigidBody.get()) {
+            dynamicsWorld->removeRigidBody(rigidBody.get());
         }
 
         if (generateShape || !customMeshShape) {
@@ -1246,32 +1210,21 @@ public:
         btScalar rigidMass = 0.0f;
         btVector3 rigidInertia(0, 0, 0);
         customMeshShape->calculateLocalInertia(rigidMass, rigidInertia);
-        btDefaultMotionState* rigidMotionState = new btDefaultMotionState(rigidTransform);
-        btRigidBody::btRigidBodyConstructionInfo highPolyDynamicRigidBodyCI(rigidMass, rigidMotionState, customMeshShape, rigidInertia);
-        highPolyDynamicRigidBody = new btRigidBody(highPolyDynamicRigidBodyCI);
+        boxMotionState = new btDefaultMotionState(rigidTransform);
+        btRigidBody::btRigidBodyConstructionInfo rigidBodyCI(rigidMass, boxMotionState, customMeshShape, rigidInertia);
+        rigidBody = std::make_shared<btRigidBody>(rigidBodyCI);
         
-        dynamicsWorld->addRigidBody(highPolyDynamicRigidBody);
+        dynamicsWorld->addRigidBody(rigidBody.get());
         currentCollisionShapeType = std::make_shared<CollisionShapeType>(CollisionShapeType::HighPolyMesh);
-
-        delete rigidMotionState;
     }
 
 
     void createDynamicBox(float x, float y, float z) {
         isDynamic = true;
 
-        if (boxRigidBody) {
-            dynamicsWorld->removeRigidBody(boxRigidBody);
-            boxRigidBody = nullptr;
+        if (rigidBody.get()) {
+            dynamicsWorld->removeRigidBody(rigidBody.get());
         }
-
-        if (highPolyDynamicRigidBody) {
-            dynamicsWorld->removeRigidBody(highPolyDynamicRigidBody);
-            highPolyDynamicRigidBody = nullptr;
-        }
-
-        dynamicBoxShape = nullptr;
-        boxMotionState = nullptr;
 
         dynamicBoxShape = new btBoxShape(btVector3(x * scaleFactorRaylibBullet, y * scaleFactorRaylibBullet, z * scaleFactorRaylibBullet));
 
@@ -1286,10 +1239,10 @@ public:
         dynamicBoxShape->calculateLocalInertia(btMass, localInertia);
 
         boxMotionState = new btDefaultMotionState(startTransform);
-        btRigidBody::btRigidBodyConstructionInfo boxRigidBodyCI(btMass, boxMotionState, dynamicBoxShape, localInertia);
-        boxRigidBody = new btRigidBody(boxRigidBodyCI);
+        btRigidBody::btRigidBodyConstructionInfo rigidBodyCI(btMass, boxMotionState, dynamicBoxShape, localInertia);
+        rigidBody = std::make_unique<btRigidBody>(rigidBodyCI);
         
-        dynamicsWorld->addRigidBody(boxRigidBody);
+        dynamicsWorld->addRigidBody(rigidBody.get());
 
         currentCollisionShapeType = make_shared<CollisionShapeType>(CollisionShapeType::Box);
     }
@@ -1299,14 +1252,8 @@ public:
 
         currentCollisionShapeType = std::make_shared<CollisionShapeType>(CollisionShapeType::HighPolyMesh);
 
-        if (highPolyDynamicRigidBody && highPolyDynamicRigidBody != nullptr) {
-            dynamicsWorld->removeRigidBody(highPolyDynamicRigidBody);
-            highPolyDynamicRigidBody = nullptr;
-        }
-
-        if (boxRigidBody) {
-            dynamicsWorld->removeRigidBody(boxRigidBody);
-            boxRigidBody = nullptr;
+        if (rigidBody.get()) {
+            dynamicsWorld->removeRigidBody(rigidBody.get());
         }
 
         if (generateShape || !customMeshShape) {
@@ -1332,13 +1279,11 @@ public:
         btScalar rigidMass = mass;
         btVector3 rigidInertia(0, 0, 0);
         customMeshShape->calculateLocalInertia(rigidMass, rigidInertia);
-        btDefaultMotionState* rigidMotionState = new btDefaultMotionState(rigidTransform);
-        btRigidBody::btRigidBodyConstructionInfo highPolyStaticRigidBodyCI(rigidMass, rigidMotionState, customMeshShape, rigidInertia);
+        btDefaultMotionState* boxMotionState = new btDefaultMotionState(rigidTransform);
+        btRigidBody::btRigidBodyConstructionInfo highPolyStaticRigidBodyCI(rigidMass, boxMotionState, customMeshShape, rigidInertia);
         
-        highPolyDynamicRigidBody = new btRigidBody(highPolyStaticRigidBodyCI);
-        dynamicsWorld->addRigidBody(highPolyDynamicRigidBody);
-
-        delete rigidMotionState;
+        rigidBody = std::make_shared<btRigidBody>(highPolyStaticRigidBodyCI);
+        dynamicsWorld->addRigidBody(rigidBody.get());
     }
 
     void makePhysicsDynamic(CollisionShapeType shapeType = CollisionShapeType::Box) {
@@ -1369,9 +1314,9 @@ public:
     }
 
     void resetPhysics() {
-        if (boxRigidBody && boxRigidBody != nullptr) {
-            boxRigidBody->setLinearVelocity(btVector3(0, 0, 0));
-            boxRigidBody->setAngularVelocity(btVector3(0, 0, 0));
+        if (rigidBody && rigidBody != nullptr) {
+            rigidBody->setLinearVelocity(btVector3(0, 0, 0));
+            rigidBody->setAngularVelocity(btVector3(0, 0, 0));
 
             setPos(backupPosition);
         }
