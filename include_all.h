@@ -80,7 +80,6 @@
     #include <pybind11/embed.h>
     #include <pybind11/pybind11.h>
     #include <pybind11/stl.h>
-
 #endif
 
 #include <sstream>
@@ -118,13 +117,13 @@ using namespace py::literals;
 using json = nlohmann::json;
 
 
-// Physics
-#include "Engine/Physics/PhysicsManager.cpp"
-
 // Critical
 #include "globals.h"
 #include "Engine/Core/LoD.cpp"
 #include "Engine/Scripting/math.cpp"
+
+// Physics
+#include "Engine/Physics/PhysicsManager.cpp"
 
 /* Game Objects */
 #include "Engine/GUI/Text/Text.h"

@@ -1,7 +1,5 @@
 import math
 
-LockMouse()
-
 # Constants
 VELOCITY = 100
 SENSITIVITY = 0.3
@@ -10,10 +8,14 @@ JUMP_FORCE = 100
 FOV_FORWARD = 80
 FOV_BACKWARD = 60
 
+physics.gravity = Vector3(0,0,3)
 # Initial values
 yaw, pitch = 0, 0
 grounded = False
 entity.visible = True
+
+
+#LockMouse()
 
 # Helper functions
 def spherical_to_cartesian(radius, yaw, pitch):
@@ -86,5 +88,10 @@ def update():
     update_camera_position()
     check_ground()
     set_entity_rotation()
+
+
+
+
+
 
 

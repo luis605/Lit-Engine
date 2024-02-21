@@ -74,10 +74,17 @@ PYBIND11_EMBEDDED_MODULE(mouse_module, m) {
     m.def("UnlockMouse", &EnableCursor);
 }
 
-// PYBIND11_EMBEDDED_MODULE(physics_module, m) {
-//     m.def("LockMouse", &DisableCursor);
-//     m.def("UnlockMouse", &EnableCursor);
-// }
+
+
+
+
+PYBIND11_EMBEDDED_MODULE(physics_module, m) {
+    py::class_<PhysicsManager>(m, "physics")
+        .def_property("gravity",
+            [](const PhysicsManager& physics) { return physics.gravity; },
+            [](PhysicsManager& physics, const LitVector3& gravity) { physics.setGravity(gravity); }
+        );
+}
 
 struct LitCamera : Camera3D {
     LitVector3 front;
