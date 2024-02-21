@@ -201,8 +201,7 @@ public:
     std::shared_ptr<CollisionShapeType> currentCollisionShapeType = make_shared<CollisionShapeType>(None);
 
 private:
-    std::shared_ptr<btCollisionShape> staticBoxShape;
-    btCollisionShape* dynamicBoxShape              = nullptr;
+    std::shared_ptr<btCollisionShape> rigidShape;
     btConvexHullShape* customMeshShape             = nullptr;
     btDefaultMotionState* boxMotionState           = nullptr;
     btConvexHullShape* triangleMesh                = nullptr;
@@ -1132,11 +1131,11 @@ public:
     }
 
     void updateMass() {
-        if (!isDynamic || dynamicBoxShape == nullptr) return;
+        if (!isDynamic || rigidShape == nullptr) return;
 
         btScalar btMass = mass;
         btVector3 boxInertia(inertia.x, inertia.y, inertia.z);
-        dynamicBoxShape->calculateLocalInertia(btMass, boxInertia);
+        rigidShape->calculateLocalInertia(btMass, boxInertia);
         if (*currentCollisionShapeType == CollisionShapeType::Box && rigidBody && rigidBody != nullptr)
             rigidBody->setMassProps(btMass, boxInertia);
         else if (*currentCollisionShapeType == CollisionShapeType::HighPolyMesh && rigidBody && rigidBody != nullptr)
@@ -1147,7 +1146,7 @@ public:
     void createStaticBox(float x, float y, float z) {
         isDynamic = false;
 
-        staticBoxShape = new btBoxShape(btVector3(x * scaleFactorRaylibBullet, y * scaleFactorRaylibBullet, z * scaleFactorRaylibBullet));
+        rigidShape = std::make_shared<btBoxShape>(btVector3(x * scaleFactorRaylibBullet, y * scaleFactorRaylibBullet, z * scaleFactorRaylibBullet));
 
         if (rigidBody) {
             dynamicsWorld->removeRigidBody(rigidBody.get());
@@ -1167,7 +1166,7 @@ public:
         rigidTransform.setOrigin(btVector3(position.x, position.y, position.z));
 
         btDefaultMotionState boxMotionState(rigidTransform);
-        btRigidBody::btRigidBodyConstructionInfo highPolyStaticRigidBodyCI(0, &boxMotionState, staticBoxShape, btVector3(0, 0, 0));
+        btRigidBody::btRigidBodyConstructionInfo highPolyStaticRigidBodyCI(0, &boxMotionState, rigidShape.get(), btVector3(0, 0, 0));
 
         // Use std::make_unique to create the std::unique_ptr
         rigidBody = std::make_unique<btRigidBody>(highPolyStaticRigidBodyCI);
@@ -1226,7 +1225,7 @@ public:
             dynamicsWorld->removeRigidBody(rigidBody.get());
         }
 
-        dynamicBoxShape = new btBoxShape(btVector3(x * scaleFactorRaylibBullet, y * scaleFactorRaylibBullet, z * scaleFactorRaylibBullet));
+        rigidShape = std::make_shared<btBoxShape>(btVector3(x * scaleFactorRaylibBullet, y * scaleFactorRaylibBullet, z * scaleFactorRaylibBullet));
 
         btTransform startTransform;
         startTransform.setIdentity();
@@ -1236,10 +1235,10 @@ public:
 
         btVector3 localInertia(inertia.x, inertia.y, inertia.z);
 
-        dynamicBoxShape->calculateLocalInertia(btMass, localInertia);
+        rigidShape->calculateLocalInertia(btMass, localInertia);
 
         boxMotionState = new btDefaultMotionState(startTransform);
-        btRigidBody::btRigidBodyConstructionInfo rigidBodyCI(btMass, boxMotionState, dynamicBoxShape, localInertia);
+        btRigidBody::btRigidBodyConstructionInfo rigidBodyCI(btMass, boxMotionState, rigidShape.get(), localInertia);
         rigidBody = std::make_unique<btRigidBody>(rigidBodyCI);
         
         dynamicsWorld->addRigidBody(rigidBody.get());
