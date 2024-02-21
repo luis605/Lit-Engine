@@ -6,6 +6,9 @@
 extern "C" {
 #endif
 
+// Preview Project
+bool can_previewProject = false;
+
 // Entities List Panel
 extern Rectangle panelRec;
 
