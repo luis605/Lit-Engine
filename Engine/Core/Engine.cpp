@@ -1151,7 +1151,7 @@ public:
         rigidShape = std::make_shared<btBoxShape>(btVector3(x * scaleFactorRaylibBullet, y * scaleFactorRaylibBullet, z * scaleFactorRaylibBullet));
 
         if (rigidBody) {
-            dynamicsWorld->removeRigidBody(rigidBody.get());
+            physics.dynamicsWorld->removeRigidBody(rigidBody.get());
         }
 
         btTransform rigidTransform;
@@ -1172,7 +1172,7 @@ public:
 
         // Use std::make_unique to create the std::unique_ptr
         rigidBody = std::make_unique<btRigidBody>(highPolyStaticRigidBodyCI);
-        dynamicsWorld->addRigidBody(rigidBody.get());
+        physics.dynamicsWorld->addRigidBody(rigidBody.get());
 
         currentCollisionShapeType = std::make_shared<CollisionShapeType>(CollisionShapeType::Box);
     }
@@ -1182,7 +1182,7 @@ public:
         isDynamic = false;
 
         if (rigidBody.get()) {
-            dynamicsWorld->removeRigidBody(rigidBody.get());
+            physics.dynamicsWorld->removeRigidBody(rigidBody.get());
         }
 
         if (generateShape || !customMeshShape.get()) {
@@ -1215,7 +1215,7 @@ public:
         btRigidBody::btRigidBodyConstructionInfo rigidBodyCI(rigidMass, boxMotionState.get(), customMeshShape.get(), rigidInertia);
         rigidBody = std::make_shared<btRigidBody>(rigidBodyCI);
         
-        dynamicsWorld->addRigidBody(rigidBody.get());
+        physics.dynamicsWorld->addRigidBody(rigidBody.get());
         currentCollisionShapeType = std::make_shared<CollisionShapeType>(CollisionShapeType::HighPolyMesh);
     }
 
@@ -1224,7 +1224,7 @@ public:
         isDynamic = true;
 
         if (rigidBody.get()) {
-            dynamicsWorld->removeRigidBody(rigidBody.get());
+            physics.dynamicsWorld->removeRigidBody(rigidBody.get());
         }
 
         rigidShape = std::make_shared<btBoxShape>(btVector3(x * scaleFactorRaylibBullet, y * scaleFactorRaylibBullet, z * scaleFactorRaylibBullet));
@@ -1243,7 +1243,7 @@ public:
         btRigidBody::btRigidBodyConstructionInfo rigidBodyCI(btMass, boxMotionState.get(), rigidShape.get(), localInertia);
         rigidBody = std::make_unique<btRigidBody>(rigidBodyCI);
         
-        dynamicsWorld->addRigidBody(rigidBody.get());
+        physics.dynamicsWorld->addRigidBody(rigidBody.get());
 
         currentCollisionShapeType = make_shared<CollisionShapeType>(CollisionShapeType::Box);
     }
@@ -1254,7 +1254,7 @@ public:
         currentCollisionShapeType = std::make_shared<CollisionShapeType>(CollisionShapeType::HighPolyMesh);
 
         if (rigidBody.get()) {
-            dynamicsWorld->removeRigidBody(rigidBody.get());
+            physics.dynamicsWorld->removeRigidBody(rigidBody.get());
         }
 
         if (generateShape || !customMeshShape.get()) {
@@ -1284,7 +1284,7 @@ public:
         btRigidBody::btRigidBodyConstructionInfo highPolyStaticRigidBodyCI(rigidMass, boxMotionState, customMeshShape.get(), rigidInertia);
         
         rigidBody = std::make_shared<btRigidBody>(highPolyStaticRigidBodyCI);
-        dynamicsWorld->addRigidBody(rigidBody.get());
+        physics.dynamicsWorld->addRigidBody(rigidBody.get());
     }
 
     void makePhysicsDynamic(CollisionShapeType shapeType = CollisionShapeType::Box) {

@@ -100,7 +100,6 @@ void Startup()
     glEnable(GL_CULL_FACE);
     glCullFace(GL_BACK);
 
-    SetupPhysicsWorld();
     InitSkybox();
     Py_Initialize();
     InitImGui();

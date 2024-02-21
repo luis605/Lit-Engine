@@ -1,7 +1,6 @@
 #include "../include_all.h"
 
-bool can_previewProject = false;
-
+PhysicsManager physics;
 
 
 void PreviewStartup()
@@ -19,9 +18,6 @@ void PreviewStartup()
 
     shader = LoadShader("Engine/Lighting/shaders/lighting_vertex.glsl", "Engine/Lighting/shaders/lighting_fragment.glsl");
     InitLighting();
-
-
-    SetupPhysicsWorld();
 
     InitSkybox();
 
@@ -76,7 +72,7 @@ void PreviewProject()
     InitPreviewCamera();
     while (!WindowShouldClose())
     {
-        dynamicsWorld->stepSimulation(GetFrameTime(), 10);
+        physics.dynamicsWorld->stepSimulation(GetFrameTime(), 10);
         UpdateInGameGlobals();
 
         BeginDrawing();

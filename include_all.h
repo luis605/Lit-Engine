@@ -119,7 +119,7 @@ using json = nlohmann::json;
 
 
 // Physics
-#include "Engine/Physics/InitPhysx.cpp"
+#include "Engine/Physics/PhysicsManager.cpp"
 
 // Critical
 #include "globals.h"
@@ -179,7 +179,7 @@ using json = nlohmann::json;
 #include "Engine/Core/RunGame.cpp"
 
 #ifndef GAME_SHIPPING
-    #include "Engine/Core/PreviewProject.cpp"
+    // #include "Engine/Core/PreviewProject.cpp"
     #include "Engine/Editor/MaterialsNodeEditor/MaterialsNodeEditor.cpp"
     #include "Engine/Editor/Inspector/Inspector.cpp"
     #include "Engine/Editor/AssetsExplorer/AssetsExplorer.cpp"

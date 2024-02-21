@@ -74,7 +74,10 @@ PYBIND11_EMBEDDED_MODULE(mouse_module, m) {
     m.def("UnlockMouse", &EnableCursor);
 }
 
-
+// PYBIND11_EMBEDDED_MODULE(physics_module, m) {
+//     m.def("LockMouse", &DisableCursor);
+//     m.def("UnlockMouse", &EnableCursor);
+// }
 
 struct LitCamera : Camera3D {
     LitVector3 front;

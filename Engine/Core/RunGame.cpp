@@ -46,7 +46,7 @@ void RunGame()
 
         DrawSkybox();
 
-        dynamicsWorld->stepSimulation(GetFrameTime(), 10);
+        physics.dynamicsWorld->stepSimulation(GetFrameTime(), 10);
 
         if (first_time_gameplay)
         {
