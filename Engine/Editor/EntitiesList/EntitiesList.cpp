@@ -444,6 +444,7 @@ void EntitiesList()
         entities_list.assign(entities_list_pregame.begin(), entities_list_pregame.end());
         
         // DisableCursor();
+        physics.backup();
 
         InitGameCamera();
         in_game_preview = true;
@@ -457,6 +458,8 @@ void EntitiesList()
         in_game_preview = false;
         first_time_gameplay = true;
 
+        physics.unBackup();
+        
         for (Entity& entity : entities_list_pregame)
         {
             entity.resetPhysics();

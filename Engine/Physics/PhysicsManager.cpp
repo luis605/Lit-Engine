@@ -10,6 +10,7 @@ public:
     btDiscreteDynamicsWorld* dynamicsWorld;
 
     LitVector3 gravity;
+    LitVector3 backupGravity;
 
 public:
     PhysicsManager()
@@ -36,6 +37,16 @@ public:
         this->gravity.x = dynamicsWorld->getGravity().x();
         this->gravity.y = dynamicsWorld->getGravity().y();
         this->gravity.z = dynamicsWorld->getGravity().z();
+    }
+
+    void backup()
+    {
+        this->backupGravity = this->gravity;
+    }
+
+    void unBackup()
+    {
+        this->setGravity(this->backupGravity);
     }
 
 
