@@ -31,14 +31,14 @@
 #define SUPPORT_FILEFORMAT_HDR      1
 
 
-#include "include/bullet3/src/BulletCollision/BroadphaseCollision/btBroadphaseProxy.h"
+#include "bullet3/src/BulletCollision/BroadphaseCollision/btBroadphaseProxy.h"
 
-#include "include/bullet3/src/BulletCollision/CollisionShapes/btCollisionShape.h"
-#include "include/bullet3/src/BulletCollision/CollisionShapes/btConvexPolyhedron.h"
-#include "include/bullet3/src/BulletCollision/CollisionShapes/btShapeHull.h"
+#include "bullet3/src/BulletCollision/CollisionShapes/btCollisionShape.h"
+#include "bullet3/src/BulletCollision/CollisionShapes/btConvexPolyhedron.h"
+#include "bullet3/src/BulletCollision/CollisionShapes/btShapeHull.h"
 
-#include "include/bullet3/src/LinearMath/btVector3.h"
-#include "include/bullet3/src/btBulletDynamicsCommon.h"
+#include "bullet3/src/LinearMath/btVector3.h"
+#include "bullet3/src/btBulletDynamicsCommon.h"
 
 #ifdef _WIN32
     extern "C" {
