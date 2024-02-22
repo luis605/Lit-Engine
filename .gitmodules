@@ -1,13 +1,14 @@
 [submodule "imgui"]
 	path = imgui
 	url = https://github.com/ocornut/imgui.git
-	branch=docking
+	branch = docking
 [submodule "raylib"]
 	path = raylib
 	url = https://github.com/raysan5/raylib.git
 [submodule "ImGuiColorTextEdit"]
 	path = ImGuiColorTextEdit
 	url = https://github.com/luis605/ImGuiColorTextEdit.git
+	branch = main
 [submodule "ImNodes"]
 	path = ImNodes
 	url = https://github.com/luis605/ImNodes.git
