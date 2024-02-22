@@ -14,3 +14,6 @@
 [submodule "bullet3"]
     path = bullet3
     url = https://github.com/bulletphysics/bullet3.git
+[submodule "ffmpeg"]
+    path = ffmpeg
+    url = https://github.com/FFmpeg/FFmpeg.git
