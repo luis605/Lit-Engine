@@ -2,7 +2,6 @@
 	path = imgui
 	url = https://github.com/ocornut/imgui.git
 	branch=docking
-	branch = docking
 [submodule "raylib"]
 	path = raylib
 	url = https://github.com/raysan5/raylib.git
@@ -12,3 +11,6 @@
 [submodule "ImNodes"]
 	path = ImNodes
 	url = https://github.com/luis605/ImNodes.git
+[submodule "bullet3"]
+    path = bullet3
+    url = https://github.com/bulletphysics/bullet3.git
