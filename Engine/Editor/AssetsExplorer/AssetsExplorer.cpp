@@ -173,7 +173,8 @@ void AssetsExplorer() {
     ImGui::Columns(columnCount, "##AssetsExplorerListColumns", false);
 
     for (int i = 0; i < columnCount; ++i) {
-        ImGui::SetColumnWidth(i, columnWidth);
+        if (columnCount > 1)
+            ImGui::SetColumnWidth(i, columnWidth);
     }
 
     AssetsExplorer_window_size = ImGui::GetWindowSize();
