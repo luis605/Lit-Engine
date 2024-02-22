@@ -7,3 +7,6 @@
 [submodule "ImNodes"]
 	path = ImNodes
 	url = https://github.com/luis605/ImNodes.git
+[submodule "imgui"]
+	path = imgui
+	url = https://github.com/ocornut/imgui.git
