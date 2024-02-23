@@ -138,11 +138,20 @@ void DrawMenus()
         ImGui::EndMenu();
     }
 
-    // if (ImGui::BeginMenu("Edit"))
-    // {
-    //     // Add menu items for "Edit" menu here
-    //     ImGui::EndMenu();
-    // }
+    if (ImGui::BeginMenu("Edit"))
+    {
+        if (ImGui::BeginMenu("Preferences"))
+        {
+            if (ImGui::MenuItem("Appearance", "Ctrl+Shift+D"))
+            {
+                appearance_window_enabled = true;
+            }
+            
+            ImGui::EndMenu();
+        }
+
+        ImGui::EndMenu();
+    }
 
     if (ImGui::BeginMenu("View"))
     {
@@ -153,16 +162,6 @@ void DrawMenus()
 
         ImGui::EndMenu();
 
-    }
-
-    if (ImGui::BeginMenu("Preferences"))
-    {
-        if (ImGui::MenuItem("Appearance", "Ctrl+Shift+D"))
-        {
-            appearance_window_enabled = true;
-        }
-        
-        ImGui::EndMenu();
     }
 
     if (ImGui::BeginMenu("Debug/Developers Options"))
