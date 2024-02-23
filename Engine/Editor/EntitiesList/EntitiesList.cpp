@@ -120,7 +120,12 @@ void DrawEntityTree(Entity& entity, int active, int& index, int depth) {
 
         if (should_change_object_name) {
             char nameBuffer[256];
-            strcpy(nameBuffer, entity.name.c_str());
+
+            size_t buffer_size = sizeof(nameBuffer);
+            const char* source = entity.name.c_str();
+
+            strncpy(nameBuffer, source, buffer_size - 1);
+            nameBuffer[buffer_size - 1] = '\0';
 
             if (ImGui::InputText("##LightName", nameBuffer, sizeof(nameBuffer), ImGuiInputTextFlags_EnterReturnsTrue)) {
                 entity.name = nameBuffer;
