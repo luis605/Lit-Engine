@@ -219,7 +219,16 @@ void DrawEntityTree(Entity& entity, int active, int& index, int depth) {
                 // Handle the Entity type.
                 DrawEntityTree(**childEntity, active, index, depth + 1);
             } else if (auto* childLight = std::get_if<Light*>(&childVariant)) {
-                DrawLightTree(**childLight, lights_info[childIndex], active, index);
+                auto it = std::find_if(lights.begin(), lights.end(),
+                    [childLight](Light light) { return light.id == (**childLight).id; });
+                
+                int distance;
+                if (it != lights.end()) {
+                    distance = std::distance(lights.begin(), it);
+                } else {
+                    distance = -1;
+                }
+                DrawLightTree(**childLight, lights_info[distance], active, index);
             } else if (auto* childText = std::get_if<Text*>(&childVariant)) {
                 DrawTextElementsTree(**childText, active, index);
             } else if (auto* childButton = std::get_if<LitButton*>(&childVariant)) {
