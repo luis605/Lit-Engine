@@ -86,9 +86,9 @@
 #include <regex>
 
 #ifndef GAME_SHIPPING
-    #include <json.hpp>
+    #include <nlohmann/json.hpp>
 #else
-    #include "include/nlohmann/json.hpp"
+    #include "include/nlohmann/include/nlohmann/json.hpp"
 #endif
 
 #ifndef GAME_SHIPPING
