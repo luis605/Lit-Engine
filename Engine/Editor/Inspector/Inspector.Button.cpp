@@ -17,9 +17,11 @@ void ButtonInspector()
     ImGui::SameLine(labelWidth);
     ImGui::SetNextItemWidth(-1);
 
-    char name_buffer[selected_button->name.length() + 100];
-    strcpy(name_buffer, selected_button->name.c_str());
+    size_t buffer_size = selected_button->name.length() + 100;
+    char name_buffer[buffer_size];
 
+    strncpy(name_buffer, selected_button->name.c_str(), buffer_size - 1);
+    name_buffer[buffer_size - 1] = '\0';
     
     const float inputWidth = 200.0f;
 
