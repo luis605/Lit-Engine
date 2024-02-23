@@ -749,13 +749,13 @@ void LoadEntity(const json& entity_json, Entity& entity) {
                     const json& child_json = child_array[0];
                     string type = child_json["type"].get<std::string>();
                     if (type == "entity") {
-                        Entity* child = new Entity();
-                        LoadEntity(child_json, *child);
-                        entity.children.push_back(child);
+                        Entity child;
+                        LoadEntity(child_json, child);
+                        entity.addChild(child);
                     } else if (type == "light") {
-                        Light* child = new Light();
-                        AdditionalLightInfo* light_info = new AdditionalLightInfo();
-                        pair<Light, AdditionalLightInfo> light_pair = LoadLight(child_json, *child, *light_info);
+                        Light child;
+                        AdditionalLightInfo light_info;
+                        pair<Light, AdditionalLightInfo> light_pair = LoadLight(child_json, child, light_info);
                         lights.push_back(light_pair.first);
                         lights_info.push_back(light_pair.second);
 
