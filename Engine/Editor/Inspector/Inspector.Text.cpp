@@ -21,7 +21,6 @@ void TextInspector()
     size_t buffer_size = selected_textElement->name.length() + 100;
     char name_buffer[buffer_size];
 
-    // Ensure null-termination
     strncpy(name_buffer, selected_textElement->name.c_str(), buffer_size - 1);
     name_buffer[buffer_size - 1] = '\0';
 
@@ -37,9 +36,12 @@ void TextInspector()
     ImGui::SameLine(labelWidth);
     ImGui::SetNextItemWidth(-1);
 
-    char text_buffer[selected_textElement->text.length() + 100];
-    strcpy(text_buffer, selected_textElement->text.c_str());
+    size_t buffer_size = selected_textElement->text.length() + 100;
+    char text_buffer[buffer_size];
 
+    // Ensure null-termination
+    strncpy(text_buffer, selected_textElement->text.c_str(), buffer_size - 1);
+    text_buffer[buffer_size - 1] = '\0';
 
     if (ImGui::InputTextMultiline("##Text", text_buffer, IM_ARRAYSIZE(text_buffer), ImVec2(-1, 115)))
     {
