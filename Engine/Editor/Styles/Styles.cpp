@@ -54,7 +54,7 @@ void LoadThemeFromFile(const std::string& filename)
     }
 }
 
-string showFileExplorer(const char* folderPath, nlohmann::json_abi_v3_11_2::json fileContent, FileExplorerType type)
+string showFileExplorer(const char* folderPath, nlohmann::json fileContent, FileExplorerType type)
 {
     if (show_save_theme_window || show_load_theme_window)
     {
@@ -159,7 +159,7 @@ void CreateNewTheme()
 
     if (show_save_theme_window && !show_load_theme_window)
     {
-        nlohmann::json_abi_v3_11_2::json data;
+        nlohmann::json data;
 
         for (int i = 0; i < new_theme_saved_options.size(); i++)
         {

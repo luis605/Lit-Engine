@@ -12,7 +12,7 @@ enum FileExplorerType
     SaveLoad
 };
 
-string showFileExplorer(const char* folderPath, nlohmann::json_abi_v3_11_2::json fileContent, FileExplorerType type = FileExplorerType::Save);
+string showFileExplorer(const char* folderPath, nlohmann::json fileContent, FileExplorerType type = FileExplorerType::Save);
 
 ImGuiCol_ theme_create_selected_option = ImGuiCol_Text;
 
