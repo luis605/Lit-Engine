@@ -18,8 +18,12 @@ void TextInspector()
     ImGui::SameLine(labelWidth);
     ImGui::SetNextItemWidth(-1);
 
-    char name_buffer[selected_textElement->name.length() + 100];
-    strcpy(name_buffer, selected_textElement->name.c_str());
+    size_t buffer_size = selected_textElement->name.length() + 100;
+    char name_buffer[buffer_size];
+
+    // Ensure null-termination
+    strncpy(name_buffer, selected_textElement->name.c_str(), buffer_size - 1);
+    name_buffer[buffer_size - 1] = '\0';
 
     // Input field width (adjust as needed)
     const float inputWidth = 200.0f;
