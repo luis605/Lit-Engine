@@ -39,7 +39,6 @@ void TextInspector()
     size_t buffer_size = selected_textElement->text.length() + 100;
     char text_buffer[buffer_size];
 
-    // Ensure null-termination
     strncpy(text_buffer, selected_textElement->text.c_str(), buffer_size - 1);
     text_buffer[buffer_size - 1] = '\0';
 
