@@ -37,7 +37,9 @@ void EntityInspector()
         name_size = selected_entity->name.size();
     
     char inputBuffer[255];
-    strcpy(inputBuffer, selected_entity_name.c_str());
+    size_t buffer_size = sizeof(inputBuffer);
+    strncpy(inputBuffer, selected_entity_name.c_str(), buffer_size - 1);
+    inputBuffer[buffer_size - 1] = '\0';
 
     if (ImGui::InputText("##Title Part 2", inputBuffer, sizeof(inputBuffer)))
         selected_entity->name = inputBuffer;

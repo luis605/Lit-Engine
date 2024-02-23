@@ -36,7 +36,7 @@ void TextInspector()
     ImGui::SameLine(labelWidth);
     ImGui::SetNextItemWidth(-1);
 
-    size_t buffer_size = selected_textElement->text.length() + 100;
+    buffer_size = selected_textElement->text.length() + 100;
     char text_buffer[buffer_size];
 
     strncpy(text_buffer, selected_textElement->text.c_str(), buffer_size - 1);
