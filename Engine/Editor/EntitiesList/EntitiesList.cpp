@@ -348,7 +348,11 @@ void DrawButtonTree(LitButton& button, int active, int& index) {
         nodeFlags |= ImGuiTreeNodeFlags_Selected;
         if (should_change_object_name) {
             char nameBuffer[256];
-            strcpy(nameBuffer, button.name.c_str());
+            size_t buffer_size = sizeof(nameBuffer);
+            const char* source = button.name.c_str();
+
+            strncpy(nameBuffer, source, buffer_size - 1);
+            nameBuffer[buffer_size - 1] = '\0';
 
             if (ImGui::InputText("##ButtonName", nameBuffer, sizeof(nameBuffer), ImGuiInputTextFlags_EnterReturnsTrue)) {
                 button.name = nameBuffer;
