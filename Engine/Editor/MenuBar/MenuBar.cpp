@@ -164,7 +164,7 @@ void DrawMenus()
 
     }
 
-    if (ImGui::BeginMenu("Debug/Developers Options"))
+    if (ImGui::BeginMenu("Debug"))
     {
         if (ImGui::MenuItem("Reload Lighting Shader", ""))
         {
