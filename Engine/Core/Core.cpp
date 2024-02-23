@@ -154,9 +154,7 @@ void EngineMainLoop()
         ImGui::PopFont();
 
         rlImGuiEnd();
-
-        DrawFPS(windowWidth * .9, windowHeight * .1);
-
+        
         EndDrawing();
     }
 }
