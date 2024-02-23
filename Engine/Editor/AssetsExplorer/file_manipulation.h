@@ -88,8 +88,12 @@ void EditFolderManipulation()
 
                 rename_folder_index = folder_index;
                 rename_folder_name = (currentPath / folders_texture_struct[folder_index].full_path);
-                
-                strcpy(rename_file_buffer, folders_texture_struct[folder_index].name.c_str());
+
+                size_t buffer_size = sizeof(rename_file_buffer);
+                const char* source = folders_texture_struct[folder_index].name.c_str();
+
+                strncpy(rename_file_buffer, source, buffer_size - 1);
+                rename_file_buffer[buffer_size - 1] = '\0';
 
                 showEditFolderPopup = false;
             }
