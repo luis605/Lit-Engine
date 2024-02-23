@@ -839,23 +839,23 @@ public:
                         modelPath = py::cast<std::string>(kwargs["modelPath"]);
                     }
 
-                    Entity* entity = new Entity();
-                    entity->setColor(RAYWHITE);
-                    entity->setScale(LitVector3{1, 1, 1});
-                    entity->setName("New Entity");
+                    Entity entity;
+                    entity.setColor(RAYWHITE);
+                    entity.setScale(LitVector3{1, 1, 1});
+                    entity.setName("New Entity");
 
                     if (kwargs.contains("collider")) {
-                        entity->collider = py::cast<bool>(kwargs["collider"]);
+                        entity.collider = py::cast<bool>(kwargs["collider"]);
                     }
 
                     if (!modelPath.empty()) {
-                        entity->setModel(modelPath.c_str());
+                        entity.setModel(modelPath.c_str());
                     } else {
-                        entity->initializeDefaultModel();
+                        entity.initializeDefaultModel();
                     }
 
-                    entity->setPos(position);
-                    entities_list_pregame.push_back(*entity);
+                    entity.setPos(position);
+                    entities_list_pregame.push_back(entity);
 
                     return entities_list_pregame.back();
                 }))
