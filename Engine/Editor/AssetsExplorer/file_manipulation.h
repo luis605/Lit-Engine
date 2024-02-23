@@ -141,8 +141,12 @@ void EditFileManipulation()
 
                 rename_file_index = file_index;
                 rename_file_name = (currentPath / files_texture_struct[file_index].full_path);
-                strcpy(rename_file_buffer, files_texture_struct[file_index].name.c_str());
 
+                size_t buffer_size = sizeof(rename_file_buffer);
+                const char* source = files_texture_struct[file_index].name.c_str();
+
+                strncpy(rename_file_buffer, source, buffer_size - 1);
+                rename_file_buffer[buffer_size - 1] = '\0';
                 showEditFilePopup = false;
             }
         }
