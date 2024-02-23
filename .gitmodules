@@ -21,3 +21,6 @@
 [submodule "meshoptimizer"]
     path = meshoptimizer
     url = https://github.com/zeux/meshoptimizer.git
+[submodule "include/nlohmann"]
+	path = include/nlohmann
+	url = https://github.com/nlohmann/json.git
