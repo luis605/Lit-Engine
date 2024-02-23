@@ -220,9 +220,11 @@ void ButtonInspector()
         ImGui::SameLine(labelWidth);
         ImGui::SetNextItemWidth(-1);
 
-        char text_buffer[selected_button->text.text.length() + 100];
-        strcpy(text_buffer, selected_button->text.text.c_str());
+        size_t buffer_size = selected_button->text.text.length() + 100;
+        char text_buffer[buffer_size];
 
+        strncpy(text_buffer, selected_button->text.text.c_str(), buffer_size - 1);
+        text_buffer[buffer_size - 1] = '\0';
 
         if (ImGui::InputTextMultiline("##Text", text_buffer, IM_ARRAYSIZE(text_buffer), ImVec2(-1, 115)))
         {
