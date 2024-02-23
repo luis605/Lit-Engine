@@ -252,7 +252,12 @@ void DrawLightTree(Light& light, AdditionalLightInfo& light_info, int active, in
         nodeFlags |= ImGuiTreeNodeFlags_Selected;
         if (should_change_object_name) {
             char nameBuffer[256];
-            strcpy(nameBuffer, light_info.name.c_str());
+
+            size_t buffer_size = sizeof(nameBuffer);
+            const char* source = light_info.name.c_str();
+
+            strncpy(nameBuffer, source, buffer_size - 1);
+            nameBuffer[buffer_size - 1] = '\0';
 
             if (ImGui::InputText("##LightName", nameBuffer, sizeof(nameBuffer), ImGuiInputTextFlags_EnterReturnsTrue)) {
                 light_info.name = nameBuffer;
@@ -304,7 +309,11 @@ void DrawTextElementsTree(Text& text, int active, int& index) {
         nodeFlags |= ImGuiTreeNodeFlags_Selected;
         if (should_change_object_name) {
             char nameBuffer[256];
-            strcpy(nameBuffer, text.name.c_str());
+            size_t buffer_size = sizeof(nameBuffer);
+            const char* source = text.name.c_str();
+
+            strncpy(nameBuffer, source, buffer_size - 1);
+            nameBuffer[buffer_size - 1] = '\0';
 
             if (ImGui::InputText("##TextName", nameBuffer, sizeof(nameBuffer), ImGuiInputTextFlags_EnterReturnsTrue)) {
                 text.name = nameBuffer;
