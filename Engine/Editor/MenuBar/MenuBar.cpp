@@ -138,11 +138,11 @@ void DrawMenus()
         ImGui::EndMenu();
     }
 
-    if (ImGui::BeginMenu("Edit"))
-    {
-        // Add menu items for "Edit" menu here
-        ImGui::EndMenu();
-    }
+    // if (ImGui::BeginMenu("Edit"))
+    // {
+    //     // Add menu items for "Edit" menu here
+    //     ImGui::EndMenu();
+    // }
 
     if (ImGui::BeginMenu("View"))
     {
