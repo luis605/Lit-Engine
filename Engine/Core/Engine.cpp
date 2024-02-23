@@ -507,8 +507,8 @@ public:
         });
         
         if (it != lights_info.end()) {
-            AdditionalLightInfo* light_info = (AdditionalLightInfo*)&*it;
-            light_info->parent = this;
+            AdditionalLightInfo& light_info = reinterpret_cast<AdditionalLightInfo&>(*it);
+            light_info.parent = this;
             children.push_back(lightChild);
         }
     }
