@@ -113,33 +113,26 @@ vec4 CalculateDirectionalLight(Light light, vec3 viewDir, vec3 norm, vec3 halfVe
 }
 
 
-vec4 CalculatePointLight(Light light, vec3 viewDir, vec3 norm, float roughness, float ao, vec3 fragPosition, vec4 specular) {
+vec4 CalculatePointLight(Light light, vec3 viewDir, vec3 norm, float roughness, float ao, vec3 fragPosition) {
     vec3 lightDir = normalize(light.position - fragPosition);
     
     // Use viewDir directly without transforming it to world space
-    vec3 H = normalize(lightDir + normalize(viewDir));
-    
+    vec3 H = normalize(lightDir + viewDir);
+
     float distance = length(light.position - fragPosition);
     float attenuation = 1.0 / (1.0 + light.attenuation * distance * distance);
 
     float NdotL = max(dot(norm, lightDir), 0.0) * surface_material.DiffuseIntensity;
 
-    float NdotH = max(dot(norm, H), 0.0);
-    float roughnessSquared = max(1.0 - roughness, 0.02) * surface_material.Roughness;
-    
-    // Reuse NdotH for multiple calculations
-    float denominator = 4.0 * NdotL * NdotH;
-    float k_s = (roughnessSquared + 1.0) / (8.0 * NdotH * NdotL + 0.001);
-    
-    // Use a fast approximation for pow() for roughnessSquared exponentiation
-    float specularTerm = k_s / (NdotH * NdotH * max(denominator, 0.001)) * surface_material.shininess;
+    // Specular
+    vec3 reflectDir = reflect(-lightDir, norm);  
+
+    float spec = pow(max(dot(viewDir, reflectDir), 0.0), surface_material.shininess);
+    vec3 specular = surface_material.SpecularIntensity * spec * light.color.rgb;  
 
     // Use the unmodified NdotL for the diffuse term
-    return (NdotL + specular * specularTerm * surface_material.SpecularIntensity) * light.color * attenuation * light.intensity;
+    return ((NdotL + colDiffuse + vec4(specular, 1.0)) * light.color * attenuation * light.intensity);
 }
-
-
-
 
 
 vec4 CalculateSpotLight(Light light, vec3 viewDir, vec3 norm, float roughness, float ao, vec3 fragPosition, vec3 ambient, vec2 texCoord, mat3 TBN) {
@@ -167,8 +160,7 @@ vec4 CalculateSpotLight(Light light, vec3 viewDir, vec3 norm, float roughness, f
     }
 
     vec4 diffuseTerm = colDiffuse * NdotL;
-    return vec4(diffuseTerm * spot * light.intensity * attenuation * energyFactor) + vec4(colDiffuse.rgb * ambient.rgb, 1);
-
+    return vec4(light.color * diffuseTerm * spot * light.intensity * attenuation * energyFactor) + vec4(colDiffuse.rgb * ambient.rgb, 1);
 }
 
 vec3 FresnelSchlick(float cosTheta, vec3 F0) {
@@ -232,15 +224,11 @@ vec4 CalculateLighting(vec3 fragPosition, vec3 fragNormal, vec3 viewDir, vec2 te
             result += CalculateDirectionalLight(light, viewDir, fragNormal, vec3(0.0), vec4(0.0));
         } else if (light.type == LIGHT_POINT) {
             // Calculate point light
-            result += CalculatePointLight(light, viewDir, fragNormal, material.Roughness, 1.0, fragPosition, vec4(0.0));
+            result += CalculatePointLight(light, viewDir, fragNormal, material.Roughness, 1.0, fragPosition);
         } else if (light.type == LIGHT_SPOT) {
             // Calculate spot light
             result += CalculateSpotLight(light, viewDir, fragNormal, material.Roughness, 1.0, fragPosition, vec3(0.0), texCoord, mat3(1.0));
         }
-        vec3 specular = CookTorrance(fragLightDir, viewDir, fragNormal, colDiffuse.rgb, roughness);
-        specular = max(specular, vec3(0.0)); // Ensure all components are non-negative
-        result += vec4(specular, 1);
-
     }
     
 
