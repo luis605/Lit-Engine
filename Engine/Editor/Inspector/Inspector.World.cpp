@@ -10,13 +10,14 @@ void WorldInspector()
     ImGui::Text("Inspecting World");
 
     ImGui::Spacing();
-
+    ImGui::SetNextItemWidth(-1);
 
     if (ImGui::CollapsingHeader((std::string(ICON_FA_FILTER) + " Post Processing").c_str(), ImGuiTreeNodeFlags_DefaultOpen))
     {
         ImGui::Indent(20.0f);
 
         // Bloom Panel
+        ImGui::SetNextItemWidth(-1);
         if (ImGui::CollapsingHeader(ICON_FA_SUN " Bloom", ImGuiTreeNodeFlags_DefaultOpen))
         {
             ImGui::Indent(20.0f);
@@ -56,12 +57,15 @@ void WorldInspector()
     }
 
     ImGui::Spacing();
+    ImGui::SetNextItemWidth(-1);
 
     if (ImGui::CollapsingHeader(ICON_FA_LIGHTBULB " Lighting", ImGuiTreeNodeFlags_DefaultOpen))
     {
         ImGui::Indent(20.0f);
 
         // Ambient Light Panel
+        ImGui::SetNextItemWidth(-1);
+
         if (ImGui::CollapsingHeader(ICON_FA_SUN " Ambient Light", ImGuiTreeNodeFlags_DefaultOpen))
         {
             ImGui::Indent(20.0f);
@@ -96,6 +100,7 @@ void WorldInspector()
         }
 
         // Skybox Panel
+        ImGui::SetNextItemWidth(-1);
         if (ImGui::CollapsingHeader(ICON_FA_MOUNTAIN_SUN " Skybox", ImGuiTreeNodeFlags_DefaultOpen))
         {
             ImGui::Indent(20.0f);
@@ -162,6 +167,7 @@ void WorldInspector()
     }
 
     ImGui::Spacing();
+    ImGui::SetNextItemWidth(-1);
 
     if (ImGui::CollapsingHeader(ICON_FA_GLOBE " Physics", ImGuiTreeNodeFlags_DefaultOpen))
     {
@@ -213,7 +219,7 @@ void WorldInspector()
         ImGui::Text("Z:");
         ImGui::SameLine();
         ImGui::SetNextItemWidth(-1);
-        
+
         if (WorldGravityZInputMode)
         {
             if (ImGui::InputFloat("##GravityZ", &physics.gravity.z, 0.0f, 0.0f, "%.2f", ImGuiInputTextFlags_EnterReturnsTrue))
