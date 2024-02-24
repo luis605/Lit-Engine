@@ -3,13 +3,13 @@
 #define ASSETSEXPLORER_H
 #include "../../../include_all.h"
 
-Texture2D folder_texture;
-Texture2D image_texture;
-Texture2D cpp_texture;
-Texture2D empty_texture;
-Texture2D python_texture;
-Texture2D model_texture;
-Texture2D material_texture;
+Texture2D folderTexture;
+Texture2D imageTexture;
+Texture2D cppTexture;
+Texture2D emptyTexture;
+Texture2D pythonTexture;
+Texture2D modelTexture;
+Texture2D materialTexture;
 
 RenderTexture2D target;
 
@@ -22,7 +22,7 @@ struct FolderTextureItem {
     FolderTextureItem(const std::string& name, const Texture2D& texture, const std::filesystem::path& full_path, bool rename = false)
         : name(name), texture(texture), full_path(full_path), rename(rename) {}
 };
-vector<FolderTextureItem> folders_texture_struct;
+vector<FolderTextureItem> foldersTextureStruct;
 
 struct FileTextureItem {
     string name;
@@ -31,9 +31,9 @@ struct FileTextureItem {
     fs::path full_path = "";
     bool rename = false;
 };
-vector<FileTextureItem> files_texture_struct;
+vector<FileTextureItem> filesTextureStruct;
 
-std::unordered_map<string, Texture2D> models_icons;
+std::unordered_map<string, Texture2D> modelsIcons;
 
 struct dirent *ent;
 struct stat st;
@@ -41,17 +41,14 @@ struct stat st;
 vector<string> files;
 vector<string> folders;
 
-fs::path dir_path = "project/game";
+fs::path dirPath = "project/game";
 float padding = 10.0f;
 float thumbnailSize = 128.0f;
 float cellSize = thumbnailSize + padding;
 
-ImVec2 AssetsExplorer_window_size = {cellSize, cellSize};
+ImVec2 assetsExplorerWindowSize = {cellSize, cellSize};
 
-Camera3D model_previewer_camera = { 0 };
-
-char rename_file_buffer[256];
-char rename_folder_buffer[256];
+Camera3D modelPreviewerCamera = { 0 };
 
 #include "file_manipulation.h"
 

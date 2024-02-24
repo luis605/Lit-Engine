@@ -19,13 +19,13 @@ void InitGameCamera() {
     Vector3 front = Vector3Subtract(camera.target, camera.position);
     front = Vector3Normalize(front);
 
-    camera.fovy = scene_camera.fovy;
+    camera.fovy = sceneCamera.fovy;
     camera.projection = CAMERA_PERSPECTIVE;
 }
 
 
 void RenderAndRunEntity(Entity& entity, LitCamera* rendering_camera = &camera) {
-    entity.calc_physics = true;
+    entity.calcPhysics = true;
 
     entity.setupScript(rendering_camera);
 }
@@ -48,10 +48,10 @@ void RunGame()
 
         physics.Update(GetFrameTime());
 
-        if (first_time_gameplay)
+        if (firstTimeGameplay)
         {
             #pragma omp parallel for
-            for (Entity& entity : entities_list)
+            for (Entity& entity : entitiesList)
             {
                 entity.running_first_time = true;
 
@@ -61,7 +61,7 @@ void RunGame()
         }
 
         #pragma omp parallel for
-        for (Entity& entity : entities_list)
+        for (Entity& entity : entitiesList)
         {
             entity.render();
 
@@ -70,7 +70,7 @@ void RunGame()
         }
 
         
-        first_time_gameplay = false;
+        firstTimeGameplay = false;
 
         UpdateLightsBuffer();
         UpdateInGameGlobals();

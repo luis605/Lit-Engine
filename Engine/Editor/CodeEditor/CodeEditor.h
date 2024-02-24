@@ -2,11 +2,11 @@
 #define CODEEDITOR_H
 
 
-Texture2D save_texture;
-Texture2D hot_reload_texture;
+Texture2D saveTexture;
+Texture2D hotReloadTexture;
 
 string code;
-string code_editor_script_path;
+string codeEditorScriptPath;
 TextEditor editor;
 
 

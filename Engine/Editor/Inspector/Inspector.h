@@ -1,45 +1,45 @@
 #ifndef INSPECTOR_H
 #define INSPECTOR_H
 
-string selected_entity_name                      = "";
-Vector3 selected_entity_scale                    = {1, 1, 1};
-Vector3 selected_entity_position                 = {0, 0, 0};
-Vector3 selected_entity_relative_position        = {0, 0, 0};
-Vector3 selected_entity_rotation                 = {0, 0, 0};
-Color selected_entity_color                      = RED;
-ImVec4 selected_entity_colorImGui                = { 0, 0, 0, 0 };
-string selected_entity_script_path               = "";
-Texture2D entity_texture;
-int selected_entity_script_path_index            = 0;
-int selected_entity_model_path_index             = 0;
-bool do_physics                                  = false;
+string selectedEntityName                    = "";
+Vector3 selectedEntityScale                  = {1, 1, 1};
+Vector3 selectedEntityPosition               = {0, 0, 0};
+Vector3 selectedEntityRelativePosition       = {0, 0, 0};
+Vector3 selectedEntityRotation               = {0, 0, 0};
+Color selectedEntityColor                    = RED;
+ImVec4 selectedEntityColorImGui              = { 0, 0, 0, 0 };
+string selectedEntityScriptPath              = "";
+Texture2D entityTexture;
+int selectedEntityScriptPathIndex            = 0;
+int selectedEntityModelPathIndex             = 0;
+bool doPhysics                               = false;
 
-bool show_texture                                = false;
-bool show_normal_texture                         = false;
-bool show_roughness_texture                      = false;
-bool show_ao_texture                             = false;
-bool show_skybox_texture                         = false;
+bool showTexture                             = false;
+bool showNormalTexture                       = false;
+bool showRoughnessTexture                    = false;
+bool showAOTexture                           = false;
+bool showSkyboxTexture                       = false;
 
-bool EntityRotationXInputModel                   = false;
-bool EntityRotationYInputModel                   = false;
-bool EntityRotationZInputModel                   = false;
+bool EntityRotationXInputModel               = false;
+bool EntityRotationYInputModel               = false;
+bool EntityRotationZInputModel               = false;
 
-bool ButtonPaddingActiveInputMode                = false;
-bool ButtonRoundnessActiveInputMode              = false;
+bool ButtonPaddingActiveInputMode            = false;
+bool ButtonRoundnessActiveInputMode          = false;
 
-bool AttenuationActiveInputMode                  = false;
-bool IntensityActiveInputMode                    = false;
-bool SpecularStrenghtActiveInputMode             = false;
-bool CutoffActiveInputMode                       = false;
+bool AttenuationActiveInputMode              = false;
+bool IntensityActiveInputMode                = false;
+bool SpecularStrenghtActiveInputMode         = false;
+bool CutoffActiveInputMode                   = false;
 
-bool FontSizeActiveInputMode                     = false;
-bool TextSpacingActiveInputMode                  = false;
-bool TextBackgroundRoundinessActiveInputMode     = false;
-bool TextPaddingActiveInputMode                  = false;
+bool FontSizeActiveInputMode                 = false;
+bool TextSpacingActiveInputMode              = false;
+bool TextBackgroundRoundinessActiveInputMode = false;
+bool TextPaddingActiveInputMode              = false;
 
-bool WorldGravityXInputMode                      = false;
-bool WorldGravityYInputMode                      = false;
-bool WorldGravityZInputMode                      = false;
+bool WorldGravityXInputMode                  = false;
+bool WorldGravityYInputMode                  = false;
+bool WorldGravityZInputMode                  = false;
 
 #include "Inspector.Material.cpp"
 #include "Inspector.Entity.cpp"

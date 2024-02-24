@@ -49,13 +49,13 @@ struct EntityMaterial
 
     // Textures
     Texture2D texture;
-    fs::path texture_path;
-    Texture2D normal_texture;
-    fs::path normal_texture_path;
-    Texture2D roughness_texture;
-    fs::path roughness_texture_path;
-    Texture2D ao_texture;
-    fs::path ao_texture_path;
+    fs::path texturePath;
+    Texture2D normalTexture;
+    fs::path normalTexturePath;
+    Texture2D roughnessTexture;
+    fs::path roughnessTexturePath;
+    Texture2D aoTexture;
+    fs::path aoTexturePath;
     
     // Surface Material
     float shininess = 0.5f;
@@ -66,7 +66,7 @@ struct EntityMaterial
 
 };
 
-EntityMaterial entity_material;
+EntityMaterial entityMaterial;
 
 
 /// A structure holding node state.
@@ -81,10 +81,10 @@ struct MyNode
     std::vector<ImNodes::Ez::SlotInfo> OutputSlots{};
 
     ImVec4 ColorValue = {
-        static_cast<float>(selected_entity->surface_material.color.r),
-        static_cast<float>(selected_entity->surface_material.color.g),
-        static_cast<float>(selected_entity->surface_material.color.b),
-        static_cast<float>(selected_entity->surface_material.color.a)
+        static_cast<float>(selectedEntity->surface_material.color.r),
+        static_cast<float>(selectedEntity->surface_material.color.g),
+        static_cast<float>(selectedEntity->surface_material.color.b),
+        static_cast<float>(selectedEntity->surface_material.color.a)
     };
 
     explicit MyNode(const char* title,
@@ -95,7 +95,7 @@ struct MyNode
         InputSlots = input_slots;
         OutputSlots = output_slots;
 
-        entity_material.color = selected_entity->surface_material.color;
+        entityMaterial.color = selectedEntity->surface_material.color;
     }
 
     /// Deletes connection from this node.

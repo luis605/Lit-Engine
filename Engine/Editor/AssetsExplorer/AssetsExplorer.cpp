@@ -3,11 +3,11 @@ void AssetsExplorer(string code);
 #include "../../include_all.h"
 
 void InitRenderModelPreviewer() {
-    model_previewer_camera.position = (Vector3){ 10.0f, 10.0f, 2.0f };
-    model_previewer_camera.target = (Vector3){ 0.0f, 0.0f, 0.0f };
-    model_previewer_camera.up = (Vector3){ 0.0f, 1.0f, 0.0f };
-    model_previewer_camera.fovy = 60.0f;
-    model_previewer_camera.projection = CAMERA_PERSPECTIVE;
+    modelPreviewerCamera.position = (Vector3){ 10.0f, 10.0f, 2.0f };
+    modelPreviewerCamera.target = (Vector3){ 0.0f, 0.0f, 0.0f };
+    modelPreviewerCamera.up = (Vector3){ 0.0f, 1.0f, 0.0f };
+    modelPreviewerCamera.fovy = 60.0f;
+    modelPreviewerCamera.projection = CAMERA_PERSPECTIVE;
 
     target = LoadRenderTexture(thumbnailSize, thumbnailSize);
 }
@@ -18,7 +18,7 @@ Texture2D RenderModelPreview(const char* modelFile) {
     BeginTextureMode(target);
     ClearBackground(GRAY);
 
-    BeginMode3D(model_previewer_camera);
+    BeginMode3D(modelPreviewerCamera);
     DrawModel(model, (Vector3){ 0.0f, 0.0f, 0.0f }, 1.0f, WHITE);
     EndMode3D();
 
@@ -31,23 +31,23 @@ Texture2D RenderModelPreview(const char* modelFile) {
 void AssetsExplorer() {
     std::chrono::high_resolution_clock::time_point assetsExplorer_start = std::chrono::high_resolution_clock::now();
 
-    folders_texture_struct.clear();
-    files_texture_struct.clear();
+    foldersTextureStruct.clear();
+    filesTextureStruct.clear();
     folders.clear();
     files.clear();
 
-    if (AssetsExplorer_window_size.x < cellSize)
-        ImGui::SetNextWindowSize({cellSize, AssetsExplorer_window_size.y});
-    else if (AssetsExplorer_window_size.y < cellSize)
-        ImGui::SetNextWindowSize({AssetsExplorer_window_size.y, cellSize});
+    if (assetsExplorerWindowSize.x < cellSize)
+        ImGui::SetNextWindowSize({cellSize, assetsExplorerWindowSize.y});
+    else if (assetsExplorerWindowSize.y < cellSize)
+        ImGui::SetNextWindowSize({assetsExplorerWindowSize.y, cellSize});
 
     ImGui::Begin((std::string(ICON_FA_FOLDER_OPEN) + " Assets Explorer").c_str(), NULL);
 
     ImGui::PushStyleVar(ImGuiStyleVar_FrameBorderSize, 0);
     ImGui::PushStyleVar(ImGuiStyleVar_FrameRounding, 5);
 
-    if (!dir_path.empty()) {
-        fs::path dirPath = dir_path;
+    if (!dirPath.empty()) {
+        fs::path dirPath = dirPath;
         if (fs::exists(dirPath)) {
             for (const auto& entry : fs::directory_iterator(dirPath)) {
                 fs::path file = entry.path().filename();
@@ -61,33 +61,33 @@ void AssetsExplorer() {
                 }
 
                 if (fs::is_directory(entry)) {
-                    folders_texture_struct.emplace_back(file.string(), folder_texture, entry);
+                    foldersTextureStruct.emplace_back(file.string(), folderTexture, entry);
                     folders.emplace_back(file.string());
                 } else {
                     string file_extension = getFileExtension(file.filename().string());
                     FileTextureItem fileTextureItem;
 
                     if (file_extension == "no file extension") {
-                        fileTextureItem = {file.string(), empty_texture, file, entry};
+                        fileTextureItem = {file.string(), emptyTexture, file, entry};
                     } else if (file_extension == ".png" || file_extension == ".jpg" || file_extension == ".hdr" || file_extension == ".jpeg" ||
                             file_extension == ".avi" || file_extension == ".mp4" || file_extension == ".mov" ||
                             file_extension == ".mkv" || file_extension == ".webm" || file_extension == ".gif") {
-                        fileTextureItem = {file.string(), image_texture, file, entry};
+                        fileTextureItem = {file.string(), imageTexture, file, entry};
                     } else if (file_extension == ".cpp" || file_extension == ".c++" || file_extension == ".cxx" ||
                             file_extension == ".hpp" || file_extension == ".cc" || file_extension == ".h" ||
                             file_extension == ".hh" || file_extension == ".hxx") {
-                        fileTextureItem = {file.string(), cpp_texture, file, entry};
+                        fileTextureItem = {file.string(), cppTexture, file, entry};
                     } else if (file_extension == ".py") {
-                        fileTextureItem = {file.string(), python_texture, file, entry};
+                        fileTextureItem = {file.string(), pythonTexture, file, entry};
                     } else if (file_extension == ".mtl" || file_extension == ".mat") {
-                        fileTextureItem = {file.string(), material_texture, file, entry};
+                        fileTextureItem = {file.string(), materialTexture, file, entry};
                     } else if (file_extension == ".fbx" || file_extension == ".obj" || file_extension == ".gltf" ||
                             file_extension == ".ply") {
-                        fileTextureItem = {file.string(), model_texture, file, entry};
+                        fileTextureItem = {file.string(), modelTexture, file, entry};
 
-                        auto iter = models_icons.find(file.string());
+                        auto iter = modelsIcons.find(file.string());
 
-                        if (iter != models_icons.end()) {
+                        if (iter != modelsIcons.end()) {
                             fileTextureItem = {file.string(), iter->second, file, entry};
                         } else {
                             Texture2D icon = RenderModelPreview(entry.path().string().c_str());
@@ -98,26 +98,26 @@ void AssetsExplorer() {
                             EndTextureMode();
 
                             Texture2D flippedIcon = target.texture;
-                            models_icons[file.string()] = flippedIcon;
+                            modelsIcons[file.string()] = flippedIcon;
                             fileTextureItem = {file.string(), flippedIcon, file, entry};
                         }
                     } else
-                        fileTextureItem = {file.string(), empty_texture, file, entry};
+                        fileTextureItem = {file.string(), emptyTexture, file, entry};
 
-                    files_texture_struct.emplace_back(std::move(fileTextureItem));
+                    filesTextureStruct.emplace_back(std::move(fileTextureItem));
                 }
             }
         }
     }
     else cout << "Error: " << strerror(errno) << endl;
 
-    if (dir_path != "project")
+    if (dirPath != "project")
     {
         ImGui::PushStyleColor(ImGuiCol_Button, ImVec4(0.5f, 0.5f, 0.5f, 1.0f));
         ImGui::PushStyleColor(ImGuiCol_ButtonHovered, ImVec4(0.6f, 0.6f, 0.6f, 1.0f));
         ImGui::PushStyleColor(ImGuiCol_ButtonActive, ImVec4(0.4f, 0.4f, 0.4f, 1.0f));
 
-        if (ImGui::Button("<--")) dir_path = dir_path.parent_path();
+        if (ImGui::Button("<--")) dirPath = dirPath.parent_path();
 
         if (ImGui::BeginDragDropTarget())
         {
@@ -135,11 +135,11 @@ void AssetsExplorer() {
 
                         std::filesystem::path currentPath = std::filesystem::current_path();
 
-                        std::string path = dir_path.string();
-                        path += "/" + files_texture_struct[payload_n].name;
+                        std::string path = dirPath.string();
+                        path += "/" + filesTextureStruct[payload_n].name;
 
                         fs::path sourceFilePath = currentPath / path;
-                        fs::path destinationFilePath = dir_path.parent_path() / files_texture_struct[payload_n].name;
+                        fs::path destinationFilePath = dirPath.parent_path() / filesTextureStruct[payload_n].name;
 
                         fs::rename(sourceFilePath, destinationFilePath);
                     }
@@ -157,13 +157,13 @@ void AssetsExplorer() {
     ImGui::PushStyleColor(ImGuiCol_ButtonHovered, ImVec4(0.3f, 0.3f, 0.3f, 1.0f));
     ImGui::PushStyleColor(ImGuiCol_ButtonActive, ImVec4(0.3f, 0.3f, 0.3f, 1.0f));
 
-    ImGui::Button((std::string(dir_path.string()) + "##AssetsExplorerPath").c_str());
+    ImGui::Button((std::string(dirPath.string()) + "##AssetsExplorerPath").c_str());
 
     ImGui::PopStyleColor(3);
 
     ImGui::BeginChild("Assets Explorer Child", ImVec2(-1,-1), true);
 
-    int numButtons = folders_texture_struct.size();
+    int numButtons = foldersTextureStruct.size();
 
     // Collumns
     float panelWidth = ImGui::GetContentRegionAvail().x;
@@ -179,7 +179,7 @@ void AssetsExplorer() {
             ImGui::SetColumnWidth(i, columnWidth);
     }
 
-    AssetsExplorer_window_size = ImGui::GetWindowSize();
+    assetsExplorerWindowSize = ImGui::GetWindowSize();
     bool isFolderHovered = false;
 
     // FOLDERS List
@@ -189,7 +189,7 @@ void AssetsExplorer() {
         ImGui::PushID(i);
 
         ImGui::PushStyleColor(ImGuiCol_Button, ImVec4(0, 0, 0, 0)); 
-        ImGui::ImageButton((ImTextureID)&folder_texture, ImVec2(thumbnailSize, thumbnailSize));
+        ImGui::ImageButton((ImTextureID)&folderTexture, ImVec2(thumbnailSize, thumbnailSize));
         ImGui::PopStyleColor(); 
 
         bool isButtonHovered = ImGui::IsItemHovered();
@@ -198,7 +198,7 @@ void AssetsExplorer() {
 
         if ((ImGui::IsWindowFocused() || ImGui::IsWindowHovered()) && IsMouseButtonPressed(MOUSE_RIGHT_BUTTON) && isButtonHovered)
         {
-            folder_index = i;
+            folderIndex = i;
             showEditFolderPopup = true;
         }
 
@@ -218,11 +218,11 @@ void AssetsExplorer() {
 
                         std::filesystem::path currentPath = std::filesystem::current_path();
 
-                        std::string path = dir_path.string();
-                        path += "/" + files_texture_struct[payload_n].name;
+                        std::string path = dirPath.string();
+                        path += "/" + filesTextureStruct[payload_n].name;
 
                         fs::path sourceFilePath = currentPath / path;
-                        fs::path destinationFilePath = currentPath / folders_texture_struct[i].full_path / files_texture_struct[payload_n].name;
+                        fs::path destinationFilePath = currentPath / foldersTextureStruct[i].full_path / filesTextureStruct[payload_n].name;
 
                         fs::rename(sourceFilePath, destinationFilePath);
                     }
@@ -232,47 +232,47 @@ void AssetsExplorer() {
             ImGui::EndDragDropTarget();
         }
 
-        float textWidth = ImGui::CalcTextSize(folders_texture_struct[i].name.c_str()).x;
+        float textWidth = ImGui::CalcTextSize(foldersTextureStruct[i].name.c_str()).x;
         float buttonWidth = thumbnailSize;
         float offset = (buttonWidth - textWidth) * 0.5f;
 
         float centerPosX = (ImGui::GetCursorPosX() + offset);
 
         if (ImGui::IsItemHovered() && ImGui::IsMouseDoubleClicked(ImGuiMouseButton_Left))
-            dir_path += "/" + folders_texture_struct[i].name;
+            dirPath += "/" + foldersTextureStruct[i].name;
 
-        if (rename_folder_index == i)
-            folders_texture_struct[i].rename = true;
+        if (renameFolderIndex == i)
+            foldersTextureStruct[i].rename = true;
             
-        if (folders_texture_struct[i].rename)
+        if (foldersTextureStruct[i].rename)
         {
-            ImGui::InputText("##RenameFolder", (char*)rename_folder_buffer, 256);
+            ImGui::InputText("##RenameFolder", (char*)renameFolderBuffer, 256);
 
             if (IsKeyDown(KEY_ENTER))
             {
-                if (fs::exists(rename_folder_name)) {
-                    fs::path newFolderPath = rename_folder_name.parent_path() / rename_folder_buffer;
+                if (fs::exists(renameFolderName)) {
+                    fs::path newFolderPath = renameFolderName.parent_path() / renameFolderBuffer;
                     try {
                         if (fs::exists(newFolderPath)) {
                             std::cerr << "Target directory already exists: " << newFolderPath.string() << std::endl;
                         } else {
-                            fs::rename(rename_folder_name, newFolderPath);
+                            fs::rename(renameFolderName, newFolderPath);
                             std::cout << "Folder renamed successfully to " << newFolderPath.string() << std::endl;
                         }
                     } catch (const std::filesystem::filesystem_error& e) {
                         std::cerr << "Error renaming folder: " << e.what() << std::endl;
                     }
                 } else {
-                    std::cout << "Folder not found: " << rename_folder_name.string() << std::endl;
+                    std::cout << "Folder not found: " << renameFolderName.string() << std::endl;
                 }
-                folders_texture_struct[i].rename = false;
-                rename_folder_index = -1;
+                foldersTextureStruct[i].rename = false;
+                renameFolderIndex = -1;
             }
         }
         else
         {
             ImGui::SetCursorPosX(centerPosX);
-            ImGui::Text(folders_texture_struct[i].name.c_str());
+            ImGui::Text(foldersTextureStruct[i].name.c_str());
         }
 
         ImGui::PopID();
@@ -280,7 +280,7 @@ void AssetsExplorer() {
     }
 
     // FILES List
-    int numFileButtons = files_texture_struct.size();
+    int numFileButtons = filesTextureStruct.size();
 
     if (numFileButtons <= 0)
     {
@@ -293,16 +293,16 @@ void AssetsExplorer() {
         ImGui::PushID(i);
 
         ImGui::PushStyleColor(ImGuiCol_Button, ImVec4(0, 0, 0, 0)); 
-        ImGui::ImageButton((ImTextureID)&files_texture_struct[i].texture, ImVec2(thumbnailSize, thumbnailSize));
+        ImGui::ImageButton((ImTextureID)&filesTextureStruct[i].texture, ImVec2(thumbnailSize, thumbnailSize));
         ImGui::PopStyleColor();
     
-        float textWidth = ImGui::CalcTextSize(files_texture_struct[i].name.c_str()).x;
+        float textWidth = ImGui::CalcTextSize(filesTextureStruct[i].name.c_str()).x;
         float buttonWidth = thumbnailSize;
         float offset = (buttonWidth - textWidth) * 0.5f;
         float centerPosX = (ImGui::GetCursorPosX() + offset);
         bool isButtonHovered = ImGui::IsItemHovered();
 
-        string file_extension = getFileExtension(files_texture_struct[i].path.filename().string());
+        string file_extension = getFileExtension(filesTextureStruct[i].path.filename().string());
 
         if (ImGui::BeginDragDropSource(ImGuiDragDropFlags_None))
         {
@@ -324,13 +324,13 @@ void AssetsExplorer() {
                 drag_type = "UNSUPORTED TYPE";
         
             ImGui::SetDragDropPayload(drag_type, &i, sizeof(int));
-            ImGui::Image((void *)(intptr_t)(ImTextureID)&files_texture_struct[i].texture, ImVec2(64, 64));
+            ImGui::Image((void *)(intptr_t)(ImTextureID)&filesTextureStruct[i].texture, ImVec2(64, 64));
             ImGui::EndDragDropSource();
         }
 
         if ((ImGui::IsWindowFocused() || ImGui::IsWindowHovered()) && IsMouseButtonPressed(MOUSE_RIGHT_BUTTON) && isButtonHovered && !isFolderHovered)
         {
-            file_index = i;
+            fileIndex = i;
             showEditFilePopup = true;
         }
         else if ((ImGui::IsWindowFocused() || ImGui::IsWindowHovered()) && IsMouseButtonPressed(MOUSE_RIGHT_BUTTON) && !isButtonHovered && !isFolderHovered)
@@ -340,41 +340,41 @@ void AssetsExplorer() {
 
         if (file_extension == ".mat" && ImGui::IsItemHovered() && ImGui::IsMouseDoubleClicked(ImGuiMouseButton_Left))
         {
-            selected_game_object_type = "material";
-            selected_material = files_texture_struct[i].full_path;
+            selectedGameObjectType = "material";
+            selectedMaterial = filesTextureStruct[i].full_path;
         }
         else if (ImGui::IsItemHovered() && ImGui::IsMouseDoubleClicked(ImGuiMouseButton_Left))
         {
-            code = read_file_to_string((dir_path / files_texture_struct[i].name).string());
+            code = read_file_to_string((dirPath / filesTextureStruct[i].name).string());
 
             editor.SetText(code);
-            code_editor_script_path = (dir_path / files_texture_struct[i].name).string();
+            codeEditorScriptPath = (dirPath / filesTextureStruct[i].name).string();
         }
 
-        if (rename_file_index == i)
-            files_texture_struct[i].rename = true;
+        if (renameFileIndex == i)
+            filesTextureStruct[i].rename = true;
 
-        if (files_texture_struct[i].rename)
+        if (filesTextureStruct[i].rename)
         {
-            ImGui::InputText("##RenameFile", (char*)rename_file_buffer, 256);
+            ImGui::InputText("##RenameFile", (char*)renameFileBuffer, 256);
 
             if (IsKeyDown(KEY_ENTER))
             {
-                if (fs::exists(rename_file_name)) {
-                    fs::path newFilePath = files_texture_struct[i].full_path.parent_path() / rename_file_buffer;
-                    fs::rename(rename_file_name, newFilePath);
+                if (fs::exists(renameFileName)) {
+                    fs::path newFilePath = filesTextureStruct[i].full_path.parent_path() / renameFileBuffer;
+                    fs::rename(renameFileName, newFilePath);
                     std::cout << "File renamed successfully to " << newFilePath.string() << std::endl;
                 } else {
-                    std::cout << "File not found: " << rename_file_name.string() << std::endl;
+                    std::cout << "File not found: " << renameFileName.string() << std::endl;
                 }
-                files_texture_struct[i].rename = false;
-                rename_file_index = -1;
+                filesTextureStruct[i].rename = false;
+                renameFileIndex = -1;
             }
         }
         else
         {
             ImGui::SetCursorPosX(centerPosX);
-            ImGui::Text(files_texture_struct[i].name.c_str());
+            ImGui::Text(filesTextureStruct[i].name.c_str());
         }
 
         ImGui::PopID();
@@ -390,5 +390,5 @@ void AssetsExplorer() {
     ImGui::End();
 
     std::chrono::high_resolution_clock::time_point assetsExplorer_end = std::chrono::high_resolution_clock::now();
-    assetsExplorer_profiler_duration = std::chrono::duration_cast<std::chrono::milliseconds>(assetsExplorer_end - assetsExplorer_start);
+    assetsExplorerProfilerDuration = std::chrono::duration_cast<std::chrono::milliseconds>(assetsExplorer_end - assetsExplorer_start);
 }

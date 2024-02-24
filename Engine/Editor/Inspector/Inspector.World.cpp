@@ -132,7 +132,7 @@ void WorldInspector()
 
             if (ImGui::ImageButton((ImTextureID)&skyboxPanorama, ImVec2(200, 200)))
             {
-                show_skybox_texture = !show_skybox_texture;
+                showSkyboxTexture = !showSkyboxTexture;
             }
 
             if (ImGui::BeginDragDropTarget())
@@ -142,8 +142,8 @@ void WorldInspector()
                     IM_ASSERT(payload->DataSize == sizeof(int));
                     int payload_n = *(const int*)payload->Data;
 
-                    string path = dir_path.string();
-                    path += "/" + files_texture_struct[payload_n].name;
+                    string path = dirPath.string();
+                    path += "/" + filesTextureStruct[payload_n].name;
 
                     InitSkybox(path.c_str());
                 }

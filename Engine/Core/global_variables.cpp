@@ -8,13 +8,13 @@ int pipe_fds_lights[2];
 
 #ifndef GAME_SHIPPING
     /* Not specific */
-    char* selected_game_object_type = "";
+    char* selectedGameObjectType = "";
 
     /* Entities List */
-    bool in_game_preview = false;
+    bool inGamePreview = false;
 
-    Texture2D run_texture;
-    Texture2D pause_texture;
+    Texture2D runTexture;
+    Texture2D pauseTexture;
 
     int listViewExScrollIndex = 0;
     int listViewExActive = 0;
@@ -27,11 +27,6 @@ int pipe_fds_lights[2];
     vector<string> objectNames;
     char name[256] = { 0 };
 
-    float entity_create_scale = 1;
-    ImVec4 entity_create_color = ImVec4(1.0f, 1.0f, 1.0f, 1.0f);
-
-    bool is_create_entity_a_child = false;
-
     bool showNextTime = true;
     bool create = false;
 
@@ -40,8 +35,6 @@ int pipe_fds_lights[2];
     Texture2D texture;
     Rectangle rectangle = { screenWidth*.2f, screenHeight*.2f, static_cast<float>(texture.width), static_cast<float>(texture.height) };
 
-
-
     // ImGui Window Info
     float sceneEditorWindowWidth;
     float sceneEditorWindowHeight;
@@ -49,8 +42,8 @@ int pipe_fds_lights[2];
     float sceneEditorWindowY;
 
     // Profiler
-    std::chrono::milliseconds sceneEditor_profiler_duration;
-    std::chrono::milliseconds assetsExplorer_profiler_duration;
+    std::chrono::milliseconds sceneEditorProfilerDuration;
+    std::chrono::milliseconds assetsExplorerProfilerDuration;
 #endif
 
 
@@ -74,19 +67,19 @@ pybind11::object export_camera()
     return camera_obj;
 }
 
-bool first_time_gameplay = true;
+bool firstTimeGameplay = true;
 
 
 #ifndef GAME_SHIPPING
     /* Themes */
     // Create theme
-    bool createNewThemeWindow_open = false;
+    bool createNewThemeWindowOpen = false;
 
     // Load && Save
     string themes_folder = "project/themes/";
-    bool show_file_explorer = false;
-    bool show_save_theme_window = false;
-    bool show_load_theme_window = false;
+    bool showFileExplorer = false;
+    bool showSaveThemeWindow = false;
+    bool showLoadThemeWindow = false;
 
     const int themes_colors[] = {
         ImGuiCol_Text,

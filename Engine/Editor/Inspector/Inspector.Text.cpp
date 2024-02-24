@@ -4,11 +4,11 @@ void TextInspector()
 {
     ImGui::Text("Inspecting Text");
     
-    if (std::holds_alternative<Text*>(object_in_inspector)) {
-        selected_textElement = std::get<Text*>(object_in_inspector);
+    if (std::holds_alternative<Text*>(objectInInspector)) {
+        selectedTextElement = std::get<Text*>(objectInInspector);
     }
 
-    if (!selected_textElement)
+    if (!selectedTextElement)
         return;
 
     // Label width (adjust as needed)
@@ -18,33 +18,33 @@ void TextInspector()
     ImGui::SameLine(labelWidth);
     ImGui::SetNextItemWidth(-1);
 
-    size_t buffer_size = selected_textElement->name.length() + 100;
-    char name_buffer[buffer_size];
+    size_t bufferSize = selectedTextElement->name.length() + 100;
+    char name_buffer[bufferSize];
 
-    strncpy(name_buffer, selected_textElement->name.c_str(), buffer_size - 1);
-    name_buffer[buffer_size - 1] = '\0';
+    strncpy(name_buffer, selectedTextElement->name.c_str(), bufferSize - 1);
+    name_buffer[bufferSize - 1] = '\0';
 
     // Input field width (adjust as needed)
     const float inputWidth = 200.0f;
 
     if (ImGui::InputText("##Name", name_buffer, IM_ARRAYSIZE(name_buffer)))
     {
-        selected_textElement->name = name_buffer;
+        selectedTextElement->name = name_buffer;
     }
 
     ImGui::Text("Text:");
     ImGui::SameLine(labelWidth);
     ImGui::SetNextItemWidth(-1);
 
-    buffer_size = selected_textElement->text.length() + 100;
-    char text_buffer[buffer_size];
+    bufferSize = selectedTextElement->text.length() + 100;
+    char text_buffer[bufferSize];
 
-    strncpy(text_buffer, selected_textElement->text.c_str(), buffer_size - 1);
-    text_buffer[buffer_size - 1] = '\0';
+    strncpy(text_buffer, selectedTextElement->text.c_str(), bufferSize - 1);
+    text_buffer[bufferSize - 1] = '\0';
 
     if (ImGui::InputTextMultiline("##Text", text_buffer, IM_ARRAYSIZE(text_buffer), ImVec2(-1, 115)))
     {
-        selected_textElement->text = text_buffer;
+        selectedTextElement->text = text_buffer;
     }
 
     ImGui::Text("Font Size:");
@@ -52,12 +52,12 @@ void TextInspector()
     ImGui::SetNextItemWidth(-1);
 
     if (!FontSizeActiveInputMode) {
-        ImGui::SliderFloat("##Font Size", &selected_textElement->fontSize, 0.0f, 100.0f);
+        ImGui::SliderFloat("##Font Size", &selectedTextElement->fontSize, 0.0f, 100.0f);
         FontSizeActiveInputMode = ImGui::IsItemHovered() && ImGui::IsMouseDoubleClicked(0);
     }
     else
     {
-        if (ImGui::InputFloat("##Font Size", &selected_textElement->fontSize, 0.0f, 100.0f, "%.3f", ImGuiInputTextFlags_EnterReturnsTrue))
+        if (ImGui::InputFloat("##Font Size", &selectedTextElement->fontSize, 0.0f, 100.0f, "%.3f", ImGuiInputTextFlags_EnterReturnsTrue))
             FontSizeActiveInputMode = false;
     }
 
@@ -67,12 +67,12 @@ void TextInspector()
     ImGui::SetNextItemWidth(-1);
 
     if (!TextSpacingActiveInputMode) {
-        ImGui::SliderFloat("##Text Spacing", &selected_textElement->spacing, 0.0f, 100.0f);
+        ImGui::SliderFloat("##Text Spacing", &selectedTextElement->spacing, 0.0f, 100.0f);
         TextSpacingActiveInputMode = ImGui::IsItemHovered() && ImGui::IsMouseDoubleClicked(0);
     }
     else
     {
-        if (ImGui::InputFloat("##Text Spacing", &selected_textElement->spacing, 0.0f, 100.0f, "%.3f", ImGuiInputTextFlags_EnterReturnsTrue))
+        if (ImGui::InputFloat("##Text Spacing", &selectedTextElement->spacing, 0.0f, 100.0f, "%.3f", ImGuiInputTextFlags_EnterReturnsTrue))
             TextSpacingActiveInputMode = false;
     }
 
@@ -82,12 +82,12 @@ void TextInspector()
     ImGui::SetNextItemWidth(-1);
 
     if (!TextBackgroundRoundinessActiveInputMode) {
-        ImGui::SliderFloat("##Background Roundiness", &selected_textElement->backgroundRoundness, 0.0f, 10.0f);
+        ImGui::SliderFloat("##Background Roundiness", &selectedTextElement->backgroundRoundness, 0.0f, 10.0f);
         TextBackgroundRoundinessActiveInputMode = ImGui::IsItemHovered() && ImGui::IsMouseDoubleClicked(0);
     }
     else
     {
-        if (ImGui::InputFloat("##Background Roundiness", &selected_textElement->backgroundRoundness, 0.0f, 10.0f, "%.3f", ImGuiInputTextFlags_EnterReturnsTrue))
+        if (ImGui::InputFloat("##Background Roundiness", &selectedTextElement->backgroundRoundness, 0.0f, 10.0f, "%.3f", ImGuiInputTextFlags_EnterReturnsTrue))
             TextBackgroundRoundinessActiveInputMode = false;
     }
 
@@ -97,12 +97,12 @@ void TextInspector()
     ImGui::SetNextItemWidth(-1);
 
     if (!TextPaddingActiveInputMode) {
-        ImGui::SliderFloat("##Text Padding", &selected_textElement->padding, 0.0f, 100.0f);
+        ImGui::SliderFloat("##Text Padding", &selectedTextElement->padding, 0.0f, 100.0f);
         TextPaddingActiveInputMode = ImGui::IsItemHovered() && ImGui::IsMouseDoubleClicked(0);
     }
     else
     {
-        if (ImGui::InputFloat("##Text Padding", &selected_textElement->padding, 0.0f, 100.0f, "%.3f", ImGuiInputTextFlags_EnterReturnsTrue))
+        if (ImGui::InputFloat("##Text Padding", &selectedTextElement->padding, 0.0f, 100.0f, "%.3f", ImGuiInputTextFlags_EnterReturnsTrue))
             TextPaddingActiveInputMode = false;
     }
 
@@ -112,10 +112,10 @@ void TextInspector()
     ImGui::SetNextItemWidth(-1);
 
     ImVec4 text_colorImGui = ImVec4(
-        selected_textElement->color.r / 255.0f,
-        selected_textElement->color.g / 255.0f,
-        selected_textElement->color.b / 255.0f,
-        selected_textElement->color.a / 255.0f
+        selectedTextElement->color.r / 255.0f,
+        selectedTextElement->color.g / 255.0f,
+        selectedTextElement->color.b / 255.0f,
+        selectedTextElement->color.a / 255.0f
     );
 
     // ImGui::ColorEdit4 will continuously update text_colorImGui while dragging
@@ -129,7 +129,7 @@ void TextInspector()
     };
 
     if (colorChanged) {
-        selected_textElement->color = text_color;
+        selectedTextElement->color = text_color;
     }
 
 
@@ -140,10 +140,10 @@ void TextInspector()
     ImGui::SetNextItemWidth(-1);
 
     ImVec4 textBG_colorImGui = ImVec4(
-        selected_textElement->backgroundColor.r / 255.0f,
-        selected_textElement->backgroundColor.g / 255.0f,
-        selected_textElement->backgroundColor.b / 255.0f,
-        selected_textElement->backgroundColor.a / 255.0f
+        selectedTextElement->backgroundColor.r / 255.0f,
+        selectedTextElement->backgroundColor.g / 255.0f,
+        selectedTextElement->backgroundColor.b / 255.0f,
+        selectedTextElement->backgroundColor.a / 255.0f
     );
 
     bool bgColorChanged = ImGui::ColorEdit4("##Text BG Color", (float*)&textBG_colorImGui, ImGuiColorEditFlags_NoInputs);
@@ -156,6 +156,6 @@ void TextInspector()
     };
 
     if (bgColorChanged) {
-        selected_textElement->backgroundColor = textBG_color;
+        selectedTextElement->backgroundColor = textBG_color;
     }
 }

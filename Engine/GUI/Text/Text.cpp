@@ -45,11 +45,11 @@ void Text::Draw() {
 #ifndef GAME_SHIPPING
     if (IsPressed())
     {
-        selected_textElement = this;
-        selected_game_object_type = "text";
+        selectedTextElement = this;
+        selectedGameObjectType = "text";
     }
 
-    if (selected_textElement == this && selected_game_object_type == "text")
+    if (selectedTextElement == this && selectedGameObjectType == "text")
         selected = true;
     else
         selected = false;

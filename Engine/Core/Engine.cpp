@@ -124,7 +124,7 @@ public:
     LitVector3 rotation = { 0, 0, 0 };
     LitVector3 scale = { 1, 1, 1 };
 
-    LitVector3 relative_position = { 0, 0, 0 };
+    LitVector3 relativePosition = { 0, 0, 0 };
     LitVector3 relative_rotation = { 0, 0, 0 };
     LitVector3 relative_scale = { 1, 1, 1 };
 
@@ -137,18 +137,18 @@ public:
     BoundingBox const_bounds;
 
 
-    fs::path texture_path;
+    fs::path texturePath;
     std::variant<Texture2D, std::unique_ptr<VideoPlayer>> texture;
 
 
-    fs::path normal_texture_path;
-    std::variant<Texture2D, std::unique_ptr<VideoPlayer>> normal_texture;
+    fs::path normalTexturePath;
+    std::variant<Texture2D, std::unique_ptr<VideoPlayer>> normalTexture;
 
-    fs::path roughness_texture_path;
-    std::variant<Texture2D, std::unique_ptr<VideoPlayer>> roughness_texture;
+    fs::path roughnessTexturePath;
+    std::variant<Texture2D, std::unique_ptr<VideoPlayer>> roughnessTexture;
 
-    fs::path ao_texture_path;
-    std::variant<Texture2D, std::unique_ptr<VideoPlayer>> ao_texture;
+    fs::path aoTexturePath;
+    std::variant<Texture2D, std::unique_ptr<VideoPlayer>> aoTexture;
 
     fs::path surface_material_path;
     SurfaceMaterial surface_material;
@@ -161,7 +161,7 @@ public:
     bool isParent = false;
     bool running = false;
     bool running_first_time = false;
-    bool calc_physics = false;
+    bool calcPhysics = false;
     bool isDynamic = false;
     bool lodEnabled = true;
 
@@ -236,7 +236,7 @@ public:
         this->position = other.position;
         this->rotation = other.rotation;
         this->scale = other.scale;
-        this->relative_position = other.relative_position;
+        this->relativePosition = other.relativePosition;
         this->relative_rotation = other.relative_rotation;
         this->relative_scale = other.relative_scale;
         this->script = other.script;
@@ -255,7 +255,7 @@ public:
             this->rigidBody = std::move(other.rigidBody);
         }
 
-        this->texture_path                  = other.texture_path;
+        this->texturePath                  = other.texturePath;
         this->texture = std::visit([](const auto& value) -> std::variant<Texture, std::unique_ptr<VideoPlayer, std::default_delete<VideoPlayer>>> {
             using T = std::decay_t<decltype(value)>;
 
@@ -268,8 +268,8 @@ public:
         }, other.texture);
 
 
-        this->normal_texture_path = other.normal_texture_path;
-        this->normal_texture = std::visit([](const auto& value) -> std::variant<Texture, std::unique_ptr<VideoPlayer, std::default_delete<VideoPlayer>>> {
+        this->normalTexturePath = other.normalTexturePath;
+        this->normalTexture = std::visit([](const auto& value) -> std::variant<Texture, std::unique_ptr<VideoPlayer, std::default_delete<VideoPlayer>>> {
             using T = std::decay_t<decltype(value)>;
 
             if constexpr (std::is_same_v<T, Texture>) {
@@ -278,11 +278,11 @@ public:
                 if (value) return std::make_unique<VideoPlayer>(*value);
                 else return std::unique_ptr<VideoPlayer>(); // Handle null pointer case
             else TraceLog(LOG_WARNING, "Bad Type - Entity normal texture variant");
-        }, other.normal_texture);
+        }, other.normalTexture);
 
 
-        this->roughness_texture_path = other.roughness_texture_path;
-        this->roughness_texture = std::visit([](const auto& value) -> std::variant<Texture, std::unique_ptr<VideoPlayer, std::default_delete<VideoPlayer>>> {
+        this->roughnessTexturePath = other.roughnessTexturePath;
+        this->roughnessTexture = std::visit([](const auto& value) -> std::variant<Texture, std::unique_ptr<VideoPlayer, std::default_delete<VideoPlayer>>> {
             using T = std::decay_t<decltype(value)>;
 
             if constexpr (std::is_same_v<T, Texture>) {
@@ -291,10 +291,10 @@ public:
                 if (value) return std::make_unique<VideoPlayer>(*value);
                 else return std::unique_ptr<VideoPlayer>(); // Handle null pointer case
             else TraceLog(LOG_WARNING, "Bad Type - Entity roughness texture variant");
-        }, other.roughness_texture);
+        }, other.roughnessTexture);
 
-        this->ao_texture_path = other.ao_texture_path;
-        this->ao_texture = std::visit([](const auto& value) -> std::variant<Texture, std::unique_ptr<VideoPlayer, std::default_delete<VideoPlayer>>> {
+        this->aoTexturePath = other.aoTexturePath;
+        this->aoTexture = std::visit([](const auto& value) -> std::variant<Texture, std::unique_ptr<VideoPlayer, std::default_delete<VideoPlayer>>> {
             using T = std::decay_t<decltype(value)>;
 
             if constexpr (std::is_same_v<T, Texture>) {
@@ -303,7 +303,7 @@ public:
                 if (value) return std::make_unique<VideoPlayer>(*value);
                 else return std::unique_ptr<VideoPlayer>(); // Handle null pointer case
             else TraceLog(LOG_WARNING, "Bad Type - Entity AO texture variant");
-        }, other.ao_texture);
+        }, other.aoTexture);
 
         this->surface_material_path = other.surface_material_path;
         this->surface_material = other.surface_material;
@@ -313,7 +313,7 @@ public:
         this->isParent = other.isParent;
         this->running = other.running;
         this->running_first_time = other.running_first_time;
-        this->calc_physics = other.calc_physics;
+        this->calcPhysics = other.calcPhysics;
         this->isDynamic = other.isDynamic;
         this->mass = other.mass;
         this->inertia = other.inertia;
@@ -341,7 +341,7 @@ public:
         this->position = other.position;
         this->rotation = other.rotation;
         this->scale = other.scale;
-        this->relative_position = other.relative_position;
+        this->relativePosition = other.relativePosition;
         this->relative_rotation = other.relative_rotation;
         this->relative_scale = other.relative_scale;
         this->script = other.script;
@@ -351,7 +351,7 @@ public:
         this->model = other.model;
         this->bounds = other.bounds;
         this->const_bounds = other.const_bounds;
-        this->texture_path = other.texture_path;
+        this->texturePath = other.texturePath;
         this->tiling[0] = other.tiling[0];
         this->tiling[1] = other.tiling[1];
         this->lodEnabled = other.lodEnabled;
@@ -373,35 +373,35 @@ public:
     
 
 
-        this->normal_texture_path = other.normal_texture_path;
-        this->normal_texture = std::visit([](const auto& value) -> std::variant<Texture, std::unique_ptr<VideoPlayer, std::default_delete<VideoPlayer>>> {
+        this->normalTexturePath = other.normalTexturePath;
+        this->normalTexture = std::visit([](const auto& value) -> std::variant<Texture, std::unique_ptr<VideoPlayer, std::default_delete<VideoPlayer>>> {
             using T = std::decay_t<decltype(value)>;
             if constexpr (std::is_same_v<T, Texture>) return value;
             else if constexpr (std::is_same_v<T, std::unique_ptr<VideoPlayer>>)
                 if (value) return std::make_unique<VideoPlayer>(*value);
                 else return std::unique_ptr<VideoPlayer>();
             else TraceLog(LOG_WARNING, "Bad Type - Entity normal texture variant");
-        }, other.normal_texture);
+        }, other.normalTexture);
 
-        this->roughness_texture_path = other.roughness_texture_path;
-        this->roughness_texture = std::visit([](const auto& value) -> std::variant<Texture, std::unique_ptr<VideoPlayer, std::default_delete<VideoPlayer>>> {
+        this->roughnessTexturePath = other.roughnessTexturePath;
+        this->roughnessTexture = std::visit([](const auto& value) -> std::variant<Texture, std::unique_ptr<VideoPlayer, std::default_delete<VideoPlayer>>> {
             using T = std::decay_t<decltype(value)>;
             if constexpr (std::is_same_v<T, Texture>) return value;
             else if constexpr (std::is_same_v<T, std::unique_ptr<VideoPlayer>>)
                 if (value) return std::make_unique<VideoPlayer>(*value);
                 else return std::unique_ptr<VideoPlayer>();
             else TraceLog(LOG_WARNING, "Bad Type - Entity roughness texture variant");
-        }, other.roughness_texture);
+        }, other.roughnessTexture);
 
-        this->ao_texture_path = other.ao_texture_path;
-        this->ao_texture = std::visit([](const auto& value) -> std::variant<Texture, std::unique_ptr<VideoPlayer, std::default_delete<VideoPlayer>>> {
+        this->aoTexturePath = other.aoTexturePath;
+        this->aoTexture = std::visit([](const auto& value) -> std::variant<Texture, std::unique_ptr<VideoPlayer, std::default_delete<VideoPlayer>>> {
             using T = std::decay_t<decltype(value)>;
             if constexpr (std::is_same_v<T, Texture>) return value;
             else if constexpr (std::is_same_v<T, std::unique_ptr<VideoPlayer>>)
                 if (value) return std::make_unique<VideoPlayer>(*value);
                 else return std::unique_ptr<VideoPlayer>();
             else TraceLog(LOG_WARNING, "Bad Type - Entity ao texture variant");
-        }, other.ao_texture);
+        }, other.aoTexture);
 
 
         this->surface_material = other.surface_material;
@@ -419,7 +419,7 @@ public:
         this->isParent = other.isParent;
         this->running = other.running;
         this->running_first_time = other.running_first_time;
-        this->calc_physics = other.calc_physics;
+        this->calcPhysics = other.calcPhysics;
         this->isDynamic = other.isDynamic;
         this->mass = other.mass;
         this->inertia = other.inertia;
@@ -431,8 +431,8 @@ public:
         return *this;
     }
 
-    Entity(std::vector<Entity>& entities_list_pregame) {
-        entities_list_pregame.push_back(*this);
+    Entity(std::vector<Entity>& entitiesListPregame) {
+        entitiesListPregame.push_back(*this);
     }
     
 
@@ -455,9 +455,9 @@ public:
         int lastIndex = instances.size() - 1;
         calculateInstance(lastIndex);
 
-        instancing_shader.locs[SHADER_LOC_MATRIX_MVP] = GetShaderLocation(instancing_shader, "mvp");
-        instancing_shader.locs[SHADER_LOC_VECTOR_VIEW] = GetShaderLocation(instancing_shader, "viewPos");
-        instancing_shader.locs[SHADER_LOC_MATRIX_MODEL] = GetShaderLocationAttrib(instancing_shader, "instanceTransform");
+        instancingShader.locs[SHADER_LOC_MATRIX_MVP] = GetShaderLocation(instancingShader, "mvp");
+        instancingShader.locs[SHADER_LOC_VECTOR_VIEW] = GetShaderLocation(instancingShader, "viewPos");
+        instancingShader.locs[SHADER_LOC_MATRIX_MODEL] = GetShaderLocationAttrib(instancingShader, "instanceTransform");
 
     }
 
@@ -487,7 +487,7 @@ public:
 
         newChild->isChild = true;
         newChild->parent = this;
-        newChild->relative_position = {
+        newChild->relativePosition = {
             newChild->position.x - this->position.x,
             newChild->position.y - this->position.y,
             newChild->position.z - this->position.z
@@ -498,17 +498,17 @@ public:
 
 
     void addChild(Light* lightChild, int light_id) {
-        lightChild->relative_position = {
+        lightChild->relativePosition = {
             lightChild->position.x - this->position.x,
             lightChild->position.y - this->position.y,
             lightChild->position.z - this->position.z
         };
 
-        auto it = std::find_if(lights_info.begin(), lights_info.end(), [light_id](const AdditionalLightInfo& light) {
+        auto it = std::find_if(lightsInfo.begin(), lightsInfo.end(), [light_id](const AdditionalLightInfo& light) {
             return light.id == light_id;
         });
         
-        if (it != lights_info.end()) {
+        if (it != lightsInfo.end()) {
             AdditionalLightInfo& light_info = reinterpret_cast<AdditionalLightInfo&>(*it);
             light_info.parent = this;
             children.push_back(lightChild);
@@ -538,21 +538,21 @@ public:
                 (*child)->render();
 
     #ifndef GAME_SHIPPING
-                if (*child == selected_entity) continue;
+                if (*child == selectedEntity) continue;
     #endif
 
-                (*child)->position = {this->position + (*child)->relative_position};
+                (*child)->position = {this->position + (*child)->relativePosition};
                 (*child)->update_children();
             }
           
             else if (auto* child = std::get_if<Light*>(&childVariant))
             {                
                 #ifndef GAME_SHIPPING
-                    if (*child == selected_light && selected_game_object_type == "light") continue;
+                    if (*child == selectedLight && selectedGameObjectType == "light") continue;
                 #endif
 
                 if (*child) {
-                    (*child)->position = glm::vec3(this->position.x, this->position.y, this->position.z) + (*child)->relative_position;
+                    (*child)->position = glm::vec3(this->position.x, this->position.y, this->position.z) + (*child)->relativePosition;
                 }
             }
         }
@@ -577,13 +577,13 @@ public:
         // // Clear the children vector
         // children.clear();
 
-        // Remove the corresponding entity from entities_list_pregame
-        entities_list_pregame.erase(
-            std::remove_if(entities_list_pregame.begin(), entities_list_pregame.end(),
+        // Remove the corresponding entity from entitiesListPregame
+        entitiesListPregame.erase(
+            std::remove_if(entitiesListPregame.begin(), entitiesListPregame.end(),
                 [this](const Entity& entity) {
                     return entity.id == this->id;
                 }),
-            entities_list_pregame.end());
+            entitiesListPregame.end());
     }
 
     Color getColor() {
@@ -624,15 +624,15 @@ public:
     }
 
     void ReloadTextures(bool force_reload = false) {
-        if (!texture_path.empty() || !force_reload) {
-            if (auto diffuse_texture = get_if<Texture2D>(&texture)) {
-                model.materials[0].maps[MATERIAL_MAP_DIFFUSE].texture = *diffuse_texture;
+        if (!texturePath.empty() || !force_reload) {
+            if (auto diffuseTexture = get_if<Texture2D>(&texture)) {
+                model.materials[0].maps[MATERIAL_MAP_DIFFUSE].texture = *diffuseTexture;
 
                 if (lodEnabled)
                 {
                     for (int i = 0; i < sizeof(LodModels)/sizeof(LodModels[0]); i++) {
                         if (IsModelReady(LodModels[i]))
-                            LodModels[i].materials[0].maps[MATERIAL_MAP_DIFFUSE].texture = *diffuse_texture;
+                            LodModels[i].materials[0].maps[MATERIAL_MAP_DIFFUSE].texture = *diffuseTexture;
                     }
                 }
             } else if (auto* videoPlayerPtr = std::get_if<std::unique_ptr<VideoPlayer>>(&texture)) {
@@ -648,8 +648,8 @@ public:
             }
         }
 
-        if (!normal_texture_path.empty() || !force_reload) {
-            if (auto normal = get_if<Texture2D>(&normal_texture)) {
+        if (!normalTexturePath.empty() || !force_reload) {
+            if (auto normal = get_if<Texture2D>(&normalTexture)) {
                 model.materials[0].maps[MATERIAL_MAP_NORMAL].texture = *normal;
 
                 if (lodEnabled)
@@ -659,7 +659,7 @@ public:
                             LodModels[i].materials[0].maps[MATERIAL_MAP_NORMAL].texture = *normal;
                     }
                 }
-            } else if (auto* videoPlayerPtr = std::get_if<std::unique_ptr<VideoPlayer>>(&normal_texture)) {
+            } else if (auto* videoPlayerPtr = std::get_if<std::unique_ptr<VideoPlayer>>(&normalTexture)) {
                 (*videoPlayerPtr)->Update();
                 model.materials[0].maps[MATERIAL_MAP_NORMAL].texture = (*videoPlayerPtr)->GetTexture();
 
@@ -674,8 +674,8 @@ public:
         }
 
 
-        if (!roughness_texture_path.empty() || !force_reload) {
-            if (auto roughness = get_if<Texture2D>(&roughness_texture)) {
+        if (!roughnessTexturePath.empty() || !force_reload) {
+            if (auto roughness = get_if<Texture2D>(&roughnessTexture)) {
                 model.materials[0].maps[MATERIAL_MAP_ROUGHNESS].texture = *roughness;
 
                 if (lodEnabled)
@@ -685,7 +685,7 @@ public:
                             LodModels[i].materials[0].maps[MATERIAL_MAP_ROUGHNESS].texture = *roughness;
                     }
                 }
-            } else if (auto* videoPlayerPtr = std::get_if<std::unique_ptr<VideoPlayer>>(&roughness_texture)) {
+            } else if (auto* videoPlayerPtr = std::get_if<std::unique_ptr<VideoPlayer>>(&roughnessTexture)) {
                 (*videoPlayerPtr)->Update();
                 model.materials[0].maps[MATERIAL_MAP_ROUGHNESS].texture = (*videoPlayerPtr)->GetTexture();
 
@@ -699,8 +699,8 @@ public:
             }
         }
 
-        if (!ao_texture_path.empty() || !force_reload) {
-            if (auto ao = get_if<Texture2D>(&ao_texture)) {
+        if (!aoTexturePath.empty() || !force_reload) {
+            if (auto ao = get_if<Texture2D>(&aoTexture)) {
                 model.materials[0].maps[MATERIAL_MAP_OCCLUSION].texture = *ao;
 
                 if (lodEnabled)
@@ -710,7 +710,7 @@ public:
                             LodModels[i].materials[0].maps[MATERIAL_MAP_OCCLUSION].texture = *ao;
                     }
                 }
-            } else if (auto* videoPlayerPtr = std::get_if<std::unique_ptr<VideoPlayer>>(&ao_texture)) {
+            } else if (auto* videoPlayerPtr = std::get_if<std::unique_ptr<VideoPlayer>>(&aoTexture)) {
                 (*videoPlayerPtr)->Update();
                 model.materials[0].maps[MATERIAL_MAP_OCCLUSION].texture = (*videoPlayerPtr)->GetTexture();
 
@@ -869,9 +869,9 @@ public:
                     }
 
                     entity.setPos(position);
-                    entities_list_pregame.push_back(entity);
+                    entitiesListPregame.push_back(entity);
 
-                    return entities_list_pregame.back();
+                    return entitiesListPregame.back();
                 }))
 
 
@@ -908,7 +908,7 @@ public:
         py::module time_module = py::module::import("time_module");
         py::module color_module = py::module::import("color_module");
         py::module math_module = py::module::import("math_module");
-        py::module_::import("__main__").attr("entities_list") = py::cast(entities_list);
+        py::module_::import("__main__").attr("entitiesList") = py::cast(entitiesList);
 
         entity_obj = py::cast(this);
     
@@ -932,7 +932,7 @@ public:
             "time"_a = py::cast(&time_instance),
             "physics"_a = py::cast(&physics),
             "Lerp"_a = math_module.attr("lerp"),
-            "entitiesList"_a = entities_list,
+            "entitiesList"_a = entitiesList,
             "camera"_a = py::cast(rendering_camera)
         );
 
@@ -1355,7 +1355,7 @@ public:
 
         update_children();
 
-        if (calc_physics) {
+        if (calcPhysics) {
             if (*currentCollisionShapeType != CollisionShapeType::None && isDynamic) {
                 calcPhysicsRotation();
                 calcPhysicsPosition();
@@ -1382,19 +1382,19 @@ private:
     void renderInstanced() {
         PassSurfaceMaterials();
 
-        glUseProgram((GLuint)instancing_shader.id);
+        glUseProgram((GLuint)instancingShader.id);
 
-        bool normalMapInit = !normal_texture_path.empty();
-        glUniform1i(glGetUniformLocation((GLuint)instancing_shader.id, "normalMapInit"), normalMapInit);
+        bool normalMapInit = !normalTexturePath.empty();
+        glUniform1i(glGetUniformLocation((GLuint)instancingShader.id, "normalMapInit"), normalMapInit);
 
-        bool roughnessMapInit = !roughness_texture_path.empty();
-        glUniform1i(glGetUniformLocation((GLuint)instancing_shader.id, "roughnessMapInit"), roughnessMapInit);
+        bool roughnessMapInit = !roughnessTexturePath.empty();
+        glUniform1i(glGetUniformLocation((GLuint)instancingShader.id, "roughnessMapInit"), roughnessMapInit);
 
         matInstances = LoadMaterialDefault();
 
-        instancing_shader.locs[SHADER_LOC_MATRIX_MVP] = GetShaderLocation(instancing_shader, "mvp");
-        instancing_shader.locs[SHADER_LOC_VECTOR_VIEW] = GetShaderLocation(instancing_shader, "viewPos");
-        instancing_shader.locs[SHADER_LOC_MATRIX_MODEL] = GetShaderLocationAttrib(instancing_shader, "instanceTransform");
+        instancingShader.locs[SHADER_LOC_MATRIX_MVP] = GetShaderLocation(instancingShader, "mvp");
+        instancingShader.locs[SHADER_LOC_VECTOR_VIEW] = GetShaderLocation(instancingShader, "viewPos");
+        instancingShader.locs[SHADER_LOC_MATRIX_MODEL] = GetShaderLocationAttrib(instancingShader, "instanceTransform");
 
         model.materials[0].maps[MATERIAL_MAP_DIFFUSE].color = {
             static_cast<unsigned char>(surface_material.color.x * 255),
@@ -1428,14 +1428,14 @@ private:
         ReloadTextures();
         glUseProgram((GLuint)shader.id);
 
-        glUniform1i(glGetUniformLocation((GLuint)shader.id, "normalMapInit"), !normal_texture_path.empty());
-        glUniform1i(glGetUniformLocation((GLuint)shader.id, "roughnessMapInit"), !roughness_texture_path.empty());
+        glUniform1i(glGetUniformLocation((GLuint)shader.id, "normalMapInit"), !normalTexturePath.empty());
+        glUniform1i(glGetUniformLocation((GLuint)shader.id, "roughnessMapInit"), !roughnessTexturePath.empty());
 
         float distance;
 
     #ifndef GAME_SHIPPING
-        distance = in_game_preview ? Vector3Distance(this->position, camera.position)
-                                : Vector3Distance(this->position, scene_camera.position);
+        distance = inGamePreview ? Vector3Distance(this->position, camera.position)
+                                : Vector3Distance(this->position, sceneCamera.position);
     #else
         distance = Vector3Distance(this->position, camera.position);
     #endif
@@ -1463,20 +1463,20 @@ private:
     
     void PassSurfaceMaterials()
     {
-        if (surface_material_ubo != 0) {
-            glDeleteBuffers(1, &surface_material_ubo);
-            surface_material_ubo = 0;
+        if (surfaveMaterialUBO != 0) {
+            glDeleteBuffers(1, &surfaveMaterialUBO);
+            surfaveMaterialUBO = 0;
         }
 
-        glGenBuffers(1, &surface_material_ubo);
-        glBindBuffer(GL_UNIFORM_BUFFER, surface_material_ubo);
+        glGenBuffers(1, &surfaveMaterialUBO);
+        glBindBuffer(GL_UNIFORM_BUFFER, surfaveMaterialUBO);
         glBufferData(GL_UNIFORM_BUFFER, sizeof(SurfaceMaterial), &this->surface_material, GL_DYNAMIC_DRAW);
         glBindBuffer(GL_UNIFORM_BUFFER, 0);
 
         GLuint bindingPoint = 0;
-        glBindBufferBase(GL_UNIFORM_BUFFER, bindingPoint, surface_material_ubo);
+        glBindBufferBase(GL_UNIFORM_BUFFER, bindingPoint, surfaveMaterialUBO);
 
-        glBindBuffer(GL_UNIFORM_BUFFER, surface_material_ubo);
+        glBindBuffer(GL_UNIFORM_BUFFER, surfaveMaterialUBO);
         glBufferSubData(GL_UNIFORM_BUFFER, 0, sizeof(SurfaceMaterial), &this->surface_material);
         glBindBuffer(GL_UNIFORM_BUFFER, 0);
     }
@@ -1504,8 +1504,8 @@ bool operator==(const Entity& e, const Entity* ptr) {
     }
 
     void AddEntity(
-        bool create_immediatly = false,
-        bool is_child = false,
+        bool createimmediatly = false,
+        bool isChild = false,
         const char* model_path = "",
         Model model = LoadModelFromMesh(GenMeshCube(1,1,1)),
         string name = "Unnamed Entity"
@@ -1517,108 +1517,40 @@ bool operator==(const Entity& e, const Entity* ptr) {
         int popupX = GetScreenWidth() / 4.5;
         int popupY = (GetScreenHeight() - POPUP_HEIGHT) / 6;
 
-        if (create || create_immediatly)
+        if (create || createimmediatly)
         {
-            Color entity_color_raylib = (Color){
-                static_cast<unsigned char>(entity_create_color.x * 255),
-                static_cast<unsigned char>(entity_create_color.y * 255),
-                static_cast<unsigned char>(entity_create_color.z * 255),
-                static_cast<unsigned char>(entity_create_color.w * 255)
-            };
+            Color entity_color_raylib = WHITE;
 
             Entity entity_create;
             entity_create.setColor(entity_color_raylib);
-            entity_create.setScale(Vector3{entity_create_scale, entity_create_scale, entity_create_scale});
+            entity_create.setScale(Vector3{1, 1, 1});
             entity_create.setName(name);
-            entity_create.isChild = is_create_entity_a_child || is_child;
+            entity_create.isChild = isChild;
             entity_create.setModel(model_path, model);
             entity_create.setShader(shader);
 
-            if (!entities_list_pregame.empty())
+            if (!entitiesListPregame.empty())
             {
-                entity_create.id = GenerateUniqueID(entities_list_pregame);
+                entity_create.id = GenerateUniqueID(entitiesListPregame);
             }
             else
                 entity_create.id = 0;
 
-            if (!is_create_entity_a_child)
+            if (selectedGameObjectType == "entity")
             {
-                entities_list_pregame.reserve(1);
-                entities_list_pregame.emplace_back(entity_create);
-            }
-            else
-            {
-                if (selected_game_object_type == "entity")
-                {
-                    if (selected_entity->isChild)
-                        selected_entity->addChild(entity_create);
-                    else
-                        entities_list_pregame.back().addChild(entity_create);
-                }
+                if (selectedEntity->isChild)
+                    selectedEntity->addChild(entity_create);
+                else
+                    entitiesListPregame.back().addChild(entity_create);
             }
 
-            selected_entity = &entity_create;
+            selectedEntity = &entity_create;
 
-            int last_entity_index = entities_list_pregame.size() - 1;
+            int last_entity_index = entitiesListPregame.size() - 1;
             listViewExActive = last_entity_index;
 
             create = false;
-            is_create_entity_a_child = false;
             canAddEntity = false;
-        }
-        else if (canAddEntity)
-        {
-            ImGui::PushStyleColor(ImGuiCol_WindowBg, ImVec4(0.6f, 0.6f, 0.6f, 0.6f)); 
-
-            ImGui::Begin("Entities");
-
-            ImVec2 size = ImGui::GetContentRegionAvail();
-
-            ImGui::PushStyleVar(ImGuiStyleVar_FrameRounding, 50.0f);
-            ImGui::PushStyleColor(ImGuiCol_Button, ImVec4(0.2f, 0.2f, 0.2f, 1.0f));
-            ImGui::PushStyleColor(ImGuiCol_ButtonHovered, ImVec4(0.2f, 0.2f, 0.2f, 1.0f));
-            ImGui::PushStyleColor(ImGuiCol_ButtonActive, ImVec4(0.2f, 0.2f, 0.2f, 1.0f));
-
-            ImGui::SetCursorPosX(size.x / 2 - 250);
-            ImGui::SetCursorPosY(size.y / 4);
-            ImGui::Button("Entity Add Menu", ImVec2(500,100));
-
-            ImGui::PopStyleColor(4);
-
-            /* Scale Slider */
-            ImGui::Text("Scale: ");
-            ImGui::SameLine();
-            ImGui::SliderFloat(" ", &entity_create_scale, 0.1f, 100.0f);
-
-            /* Name Input */
-            ImGui::InputText("##text_input_box", (char*)name.c_str(), sizeof(name));
-            
-            /* Color Picker */
-            ImGui::Text("Color: ");
-            ImGui::SameLine();
-            ImGui::ColorEdit4(" ", (float*)&entity_create_color, ImGuiColorEditFlags_NoInputs);
-
-            /* Is Children */
-            ImGui::Checkbox("Is Children: ", &is_create_entity_a_child);
-
-            /* Create BTN */
-            ImGui::PushStyleColor(ImGuiCol_Button, ImVec4(0.14, 0.37, 0.15, 1.0f));
-            ImGui::PushStyleColor(ImGuiCol_ButtonHovered, ImVec4(0.18, 0.48, 0.19, 1.0f));
-            ImGui::PushStyleColor(ImGuiCol_ButtonActive, ImVec4(0.5f, 0.5f, 0.5f, 1.0f));
-
-            ImGui::SetCursorPosX(size.x / 2);
-            ImGui::SetCursorPosY(size.y / 1.1);
-            bool create_entity_btn = ImGui::Button("Create", ImVec2(200,50));
-            if (create_entity_btn)
-            {
-                canAddEntity = false;
-                create = true;
-            }
-
-            ImGui::PopStyleColor(3);
-            ImGui::PopStyleVar();
-
-            ImGui::End();
         }
     }
 #endif
@@ -1634,12 +1566,12 @@ HitInfo raycast(LitVector3 origin, LitVector3 direction, bool debug, std::vector
     if (debug)
         DrawRay(ray, RED);
 
-    if (entities_list.empty())
+    if (entitiesList.empty())
         return hitInfo;
 
     float minDistance = 100000000000000000000000000000.0f;
 
-    for (const Entity& entity : entities_list)
+    for (const Entity& entity : entitiesList)
     {
         if (std::find(ignore.begin(), ignore.end(), entity) != ignore.end())
             continue;
