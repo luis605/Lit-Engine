@@ -2,7 +2,7 @@
 
 void WorldInspector()
 {
-    const float inputWidth = 200.0f;
+    const float inputWidth = 150.0f;
 
     ImGui::PushFont(s_Fonts["ImGui Default"]);
 
@@ -30,6 +30,7 @@ void WorldInspector()
             // Brightness Slider
             ImGui::Text(ICON_FA_ADJUST " Brightness:");
             ImGui::SameLine(inputWidth);
+            ImGui::SetNextItemWidth(-1);
             if (ImGui::SliderFloat("##BrightnessControl", &bloomBrightness, -2.0f, 2.0f))
             {
                 SetShaderValue(downsamplerShader, GetShaderLocation(downsamplerShader, "bloomBrightness"), &bloomBrightness, SHADER_ATTRIB_FLOAT);
@@ -38,6 +39,7 @@ void WorldInspector()
             // Samples Slider
             ImGui::Text(ICON_FA_CUBE " Samples:");
             ImGui::SameLine(inputWidth);
+            ImGui::SetNextItemWidth(-1);
             if (ImGui::SliderFloat("##SamplesControl", &bloomSamples, 1.0f, 8.0f, "%1.f"))
             {
                 int shaderLocation = glGetUniformLocation(downsamplerShader.id, "samples");
@@ -63,6 +65,9 @@ void WorldInspector()
         if (ImGui::CollapsingHeader(ICON_FA_SUN " Ambient Light", ImGuiTreeNodeFlags_DefaultOpen))
         {
             ImGui::Indent(20.0f);
+
+            ImGui::Text("Color:");
+            ImGui::SameLine();
 
             // Ambient Light Color Picker
             ImVec4 light_colorImGui = ImVec4(ambientLight.x, ambientLight.y, ambientLight.z, ambientLight.w);
@@ -96,6 +101,10 @@ void WorldInspector()
             ImGui::Indent(20.0f);
 
             // Skybox Color Picker
+
+            ImGui::Text("Color:");
+            ImGui::SameLine();
+
             ImVec4 light_colorImGui = ImVec4(skyboxColor.x, skyboxColor.y, skyboxColor.z, skyboxColor.w);
 
             if (ImGui::ColorButton(ICON_FA_PALETTE " Skybox Color", light_colorImGui))
@@ -112,9 +121,10 @@ void WorldInspector()
             }
 
 
+            ImGui::Text("Texture:");
 
-            ImGui::Text("Skybox Texture: ");
-            
+            ImGui::Indent(20.0f);
+
             if (ImGui::ImageButton((ImTextureID)&skyboxPanorama, ImVec2(200, 200)))
             {
                 show_skybox_texture = !show_skybox_texture;
@@ -144,6 +154,8 @@ void WorldInspector()
 
 
             ImGui::Unindent(20.0f);
+
+            ImGui::Unindent(20.0f);
         }
 
         ImGui::Unindent(20.0f);
@@ -157,6 +169,11 @@ void WorldInspector()
 
         ImGui::Text("Gravity:");
 
+        ImGui::Indent(20.0f);
+
+        ImGui::Text("X:");
+        ImGui::SameLine();
+        ImGui::SetNextItemWidth(-1);
         if (WorldGravityXInputMode)
         {
             if (ImGui::InputFloat("##GravityX", &physics.gravity.x, 0.0f, 0.0f, "%.2f", ImGuiInputTextFlags_EnterReturnsTrue))
@@ -172,6 +189,10 @@ void WorldInspector()
                 
             WorldGravityXInputMode = ImGui::IsItemHovered() && ImGui::IsMouseDoubleClicked(0);
         }
+
+        ImGui::Text("y:");
+        ImGui::SameLine();
+        ImGui::SetNextItemWidth(-1);
 
         if (WorldGravityYInputMode)
         {
@@ -189,6 +210,10 @@ void WorldInspector()
             WorldGravityYInputMode = ImGui::IsItemHovered() && ImGui::IsMouseDoubleClicked(0);
         }
 
+        ImGui::Text("Z:");
+        ImGui::SameLine();
+        ImGui::SetNextItemWidth(-1);
+        
         if (WorldGravityZInputMode)
         {
             if (ImGui::InputFloat("##GravityZ", &physics.gravity.z, 0.0f, 0.0f, "%.2f", ImGuiInputTextFlags_EnterReturnsTrue))
@@ -207,6 +232,9 @@ void WorldInspector()
 
 
         ImGui::Unindent(20.0f);
+
+        ImGui::Unindent(20.0f);
+
     }
 
     ImGui::PopFont();
