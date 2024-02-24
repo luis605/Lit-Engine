@@ -50,6 +50,7 @@ int pipe_fds_lights[2];
 
     // Profiler
     std::chrono::milliseconds sceneEditor_profiler_duration;
+    std::chrono::milliseconds assetsExplorer_profiler_duration;
 #endif
 
 

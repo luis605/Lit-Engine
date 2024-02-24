@@ -29,6 +29,8 @@ Texture2D RenderModelPreview(const char* modelFile) {
 }
 
 void AssetsExplorer() {
+    std::chrono::high_resolution_clock::time_point assetsExplorer_start = std::chrono::high_resolution_clock::now();
+
     folders_texture_struct.clear();
     files_texture_struct.clear();
     folders.clear();
@@ -386,4 +388,7 @@ void AssetsExplorer() {
     ImGui::PopStyleVar(3);
     ImGui::EndChild();
     ImGui::End();
+
+    std::chrono::high_resolution_clock::time_point assetsExplorer_end = std::chrono::high_resolution_clock::now();
+    assetsExplorer_profiler_duration = std::chrono::duration_cast<std::chrono::milliseconds>(assetsExplorer_end - assetsExplorer_start);
 }
