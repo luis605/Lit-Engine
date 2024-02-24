@@ -58,37 +58,6 @@ void EntityInspector()
     ImGui::PopStyleColor();
     ImGui::PopStyleVar();
 
-
-    ImGui::Text("Model Path:");
-    ImGui::PushStyleVar(ImGuiStyleVar_ItemSpacing, ImVec2(0, 30));
-    ImGui::Text("Drop Model Here: ");
-    ImGui::SameLine();
-
-    if (ImGui::Button(
-        ("##Drag'nDropModelPath"),
-        ImVec2(200, 25)
-        ));
-
-    if (ImGui::BeginDragDropTarget())
-    {
-        if (const ImGuiPayload* payload = ImGui::AcceptDragDropPayload("MODEL_PAYLOAD"))
-        {
-            IM_ASSERT(payload->DataSize == sizeof(int));
-            int payload_n = *(const int*)payload->Data;
-
-            string path = dir_path.string();
-            path += "/" + files_texture_struct[payload_n].name;
-
-            selected_entity->model_path = path;
-            selected_entity_model_path_index = 0;
-            selected_entity->model_path = selected_entity->model_path;
-
-            selected_entity->setModel(selected_entity->model_path.c_str());
-        }
-        ImGui::EndDragDropTarget();
-    }
-    ImGui::PopStyleVar();
-
     if (ImGui::CollapsingHeader("Entity Properties"))
     {
         ImGui::Indent(30.0f);
@@ -193,6 +162,37 @@ void EntityInspector()
         const float margin = 40.0f;
         const float LODWidth = ImGui::CalcTextSize("Level of Detail: ").x + margin;
 
+
+        ImGui::PushStyleVar(ImGuiStyleVar_ItemSpacing, ImVec2(0, 30));
+        ImGui::Text("Model: ");
+        ImGui::SameLine(LODWidth);
+
+        if (ImGui::Button(
+            ("##Drag'nDropModelPath"),
+            ImVec2(200, 25)
+            ));
+
+        if (ImGui::BeginDragDropTarget())
+        {
+            if (const ImGuiPayload* payload = ImGui::AcceptDragDropPayload("MODEL_PAYLOAD"))
+            {
+                IM_ASSERT(payload->DataSize == sizeof(int));
+                int payload_n = *(const int*)payload->Data;
+
+                string path = dir_path.string();
+                path += "/" + files_texture_struct[payload_n].name;
+
+                selected_entity->model_path = path;
+                selected_entity_model_path_index = 0;
+                selected_entity->model_path = selected_entity->model_path;
+
+                selected_entity->setModel(selected_entity->model_path.c_str());
+            }
+            ImGui::EndDragDropTarget();
+        }
+        ImGui::PopStyleVar();
+
+
         ImGui::Text("Script: ");
         ImGui::SameLine(LODWidth);
 
@@ -255,7 +255,7 @@ void EntityInspector()
     {
         ImGui::Indent(30.0f);
 
-        ImGui::Text("Drop Material Here: ");
+        ImGui::Text("Material:");
         ImGui::SameLine();
 
         if (ImGui::Button(
