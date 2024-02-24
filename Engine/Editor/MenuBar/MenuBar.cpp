@@ -75,6 +75,8 @@ void DebugWindow()
 
         ImGui::Text("Scene Editor %lld ms", sceneEditor_profiler_duration.count());
 
+        ImGui::Text("Assets Explorer %lld ms", assetsExplorer_profiler_duration.count());
+
         ImGui::Unindent(15.0f);
     }
 
