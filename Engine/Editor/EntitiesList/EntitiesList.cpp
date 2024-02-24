@@ -463,7 +463,7 @@ void EntitiesList()
     ImGui::PushStyleVar(ImGuiStyleVar_FramePadding, ImVec2(0, 0));
     ImGui::PushStyleVar(ImGuiStyleVar_FrameBorderSize, 0.0f);
 
-    ImVec2 buttonSize = ImVec2(50, 50);
+    ImVec2 buttonSize = ImVec2(34, 34);
 
     if (ImGui::ImageButton((ImTextureID)&runTexture, buttonSize)) {
         entitiesList.assign(entitiesListPregame.begin(), entitiesListPregame.end());
