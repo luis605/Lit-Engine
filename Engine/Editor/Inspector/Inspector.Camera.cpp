@@ -18,7 +18,7 @@ void CameraInspector()
     {
         ImGui::Indent(30.0f);
 
-        bool isOrthographic = (scene_camera.projection == 1) ? true : false;
+        bool isOrthographic = (sceneCamera.projection == 1) ? true : false;
 
         // Set the width for the text and combo box
         ImGui::Text("Camera Projection: ");
@@ -27,11 +27,11 @@ void CameraInspector()
         if (ImGui::BeginCombo("##Projection", isOrthographic ? "Orthographic" : "Perspective")) {
             if (ImGui::Selectable("Orthographic", isOrthographic)) {
                 isOrthographic = true;
-                scene_camera.projection = 1;
+                sceneCamera.projection = 1;
             }
             if (ImGui::Selectable("Perspective", !isOrthographic)) {
                 isOrthographic = false;
-                scene_camera.projection = 0;
+                sceneCamera.projection = 0;
             }
             ImGui::EndCombo();
         }
@@ -40,7 +40,7 @@ void CameraInspector()
         ImGui::Text("Fovy: ");
         ImGui::SameLine(spacingWidth);
         ImGui::SetNextItemWidth(inputWidth);
-        ImGui::SliderFloat("##FovySlider", &scene_camera.fovy, 1.0f, 180.0f, "%.1f");
+        ImGui::SliderFloat("##FovySlider", &sceneCamera.fovy, 1.0f, 180.0f, "%.1f");
 
         ImGui::Unindent(30.0f);
     }

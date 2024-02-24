@@ -5,44 +5,44 @@ void EntityInspector()
 {
     ImVec2 window_size = ImGui::GetWindowSize();
 
-    selected_entity = get<Entity*>(object_in_inspector);
+    selectedEntity = get<Entity*>(objectInInspector);
 
-    if (selected_entity == nullptr || !selected_entity->initialized) return;
+    if (selectedEntity == nullptr || !selectedEntity->initialized) return;
 
-    selected_entity_position = selected_entity->position;
-    if (selected_entity->isChild)
-        selected_entity_position = selected_entity->relative_position;
+    selectedEntityPosition = selectedEntity->position;
+    if (selectedEntity->isChild)
+        selectedEntityPosition = selectedEntity->relativePosition;
 
-    selected_entity_scale = selected_entity->scale;
+    selectedEntityScale = selectedEntity->scale;
 
-    string entity_name;
+    string entityName;
 
 
         
-    selected_entity_name = selected_entity->name;
+    selectedEntityName = selectedEntity->name;
 
 
     ImGui::Text("Inspecting '");
     ImGui::SameLine();
 
-    float textWidth = ImGui::CalcTextSize(entity_name.c_str()).x + 10.0f;
+    float textWidth = ImGui::CalcTextSize(entityName.c_str()).x + 10.0f;
     textWidth = std::max(textWidth, 100.0f);
     ImGui::SetNextItemWidth(textWidth);
 
     int name_size = 0;
     
-    if (selected_entity->name.empty())
+    if (selectedEntity->name.empty())
         name_size = 10;
     else
-        name_size = selected_entity->name.size();
+        name_size = selectedEntity->name.size();
     
     char inputBuffer[255];
-    size_t buffer_size = sizeof(inputBuffer);
-    strncpy(inputBuffer, selected_entity_name.c_str(), buffer_size - 1);
-    inputBuffer[buffer_size - 1] = '\0';
+    size_t bufferSize = sizeof(inputBuffer);
+    strncpy(inputBuffer, selectedEntityName.c_str(), bufferSize - 1);
+    inputBuffer[bufferSize - 1] = '\0';
 
     if (ImGui::InputText("##Title Part 2", inputBuffer, sizeof(inputBuffer)))
-        selected_entity->name = inputBuffer;
+        selectedEntity->name = inputBuffer;
 
 
 
@@ -63,17 +63,17 @@ void EntityInspector()
 
         ImGui::Text("X:");
         ImGui::SameLine();
-        ImGui::InputFloat("##ScaleX", &selected_entity_scale.x);
+        ImGui::InputFloat("##ScaleX", &selectedEntityScale.x);
         
         ImGui::Text("Y:");
         ImGui::SameLine();
-        ImGui::InputFloat("##ScaleY", &selected_entity_scale.y);
+        ImGui::InputFloat("##ScaleY", &selectedEntityScale.y);
         
         ImGui::Text("Z:");
         ImGui::SameLine();
-        ImGui::InputFloat("##ScaleZ", &selected_entity_scale.z);
+        ImGui::InputFloat("##ScaleZ", &selectedEntityScale.z);
         
-        selected_entity->scale = selected_entity_scale;
+        selectedEntity->scale = selectedEntityScale;
             
         ImGui::Unindent(20.0f);
         ImGui::Dummy(ImVec2(0.0f, 30.0f));
@@ -83,29 +83,29 @@ void EntityInspector()
 
         ImGui::Text("X:");
         ImGui::SameLine();
-        ImGui::InputFloat("##PositionX", &selected_entity_position.x);
+        ImGui::InputFloat("##PositionX", &selectedEntityPosition.x);
 
         ImGui::Text("Y:");
         ImGui::SameLine();
-        ImGui::InputFloat("##PositionY", &selected_entity_position.y);
+        ImGui::InputFloat("##PositionY", &selectedEntityPosition.y);
 
         ImGui::Text("Z:");
         ImGui::SameLine();
-        ImGui::InputFloat("##PositionZ", &selected_entity_position.z);
+        ImGui::InputFloat("##PositionZ", &selectedEntityPosition.z);
 
         ImGui::Unindent(20.0f);
         ImGui::Dummy(ImVec2(0.0f, 30.0f));
 
-        if (selected_entity->isChild)
+        if (selectedEntity->isChild)
         {
-            selected_entity->relative_position = selected_entity_position;
+            selectedEntity->relativePosition = selectedEntityPosition;
         }
         else
         {
-            if (selected_entity->isDynamic && selected_entity->calc_physics)
-                selected_entity->applyForce(selected_entity_position);
+            if (selectedEntity->isDynamic && selectedEntity->calcPhysics)
+                selectedEntity->applyForce(selectedEntityPosition);
             else
-                selected_entity->position = selected_entity_position;
+                selectedEntity->position = selectedEntityPosition;
         }
 
         ImGui::Text("Rotation:");
@@ -115,12 +115,12 @@ void EntityInspector()
         ImGui::SameLine();
         if (EntityRotationXInputModel)
         {
-            if (ImGui::InputFloat("##RotationX", &selected_entity->rotation.x, -180.0f, 180.0f, "%.3f", ImGuiInputTextFlags_EnterReturnsTrue))
+            if (ImGui::InputFloat("##RotationX", &selectedEntity->rotation.x, -180.0f, 180.0f, "%.3f", ImGuiInputTextFlags_EnterReturnsTrue))
                 EntityRotationXInputModel = false;
         }
         else
         {
-            ImGui::SliderFloat("##RotationX", &selected_entity->rotation.x, -180.0f, 180.0f, "%.3f");
+            ImGui::SliderFloat("##RotationX", &selectedEntity->rotation.x, -180.0f, 180.0f, "%.3f");
             EntityRotationXInputModel = ImGui::IsItemHovered() && ImGui::IsMouseDoubleClicked(0);
         }
 
@@ -128,12 +128,12 @@ void EntityInspector()
         ImGui::SameLine();
         if (EntityRotationYInputModel)
         {
-            if (ImGui::InputFloat("##RotationY", &selected_entity->rotation.y, -180.0f, 180.0f, "%.3f", ImGuiInputTextFlags_EnterReturnsTrue))
+            if (ImGui::InputFloat("##RotationY", &selectedEntity->rotation.y, -180.0f, 180.0f, "%.3f", ImGuiInputTextFlags_EnterReturnsTrue))
                 EntityRotationYInputModel = false;
         }
         else
         {
-            ImGui::SliderFloat("##RotationY", &selected_entity->rotation.y, -180.0f, 180.0f, "%.3f");
+            ImGui::SliderFloat("##RotationY", &selectedEntity->rotation.y, -180.0f, 180.0f, "%.3f");
             EntityRotationYInputModel = ImGui::IsItemHovered() && ImGui::IsMouseDoubleClicked(0);
         }
 
@@ -141,16 +141,16 @@ void EntityInspector()
         ImGui::SameLine();
         if (EntityRotationZInputModel)
         {
-            if (ImGui::InputFloat("##RotationZ", &selected_entity->rotation.z, -180.0f, 180.0f, "%.3f", ImGuiInputTextFlags_EnterReturnsTrue))
+            if (ImGui::InputFloat("##RotationZ", &selectedEntity->rotation.z, -180.0f, 180.0f, "%.3f", ImGuiInputTextFlags_EnterReturnsTrue))
                 EntityRotationZInputModel = false;
         }
         else
         {
-            ImGui::SliderFloat("##RotationZ", &selected_entity->rotation.z, -180.0f, 180.0f, "%.3f");
+            ImGui::SliderFloat("##RotationZ", &selectedEntity->rotation.z, -180.0f, 180.0f, "%.3f");
             EntityRotationZInputModel = ImGui::IsItemHovered() && ImGui::IsMouseDoubleClicked(0);
         }
         
-        selected_entity->setRot(selected_entity->rotation);
+        selectedEntity->setRot(selectedEntity->rotation);
         
         ImGui::Unindent(20.0f);
         ImGui::Dummy(ImVec2(0.0f, 30.0f));
@@ -175,14 +175,14 @@ void EntityInspector()
                 IM_ASSERT(payload->DataSize == sizeof(int));
                 int payload_n = *(const int*)payload->Data;
 
-                string path = dir_path.string();
-                path += "/" + files_texture_struct[payload_n].name;
+                string path = dirPath.string();
+                path += "/" + filesTextureStruct[payload_n].name;
 
-                selected_entity->model_path = path;
-                selected_entity_model_path_index = 0;
-                selected_entity->model_path = selected_entity->model_path;
+                selectedEntity->model_path = path;
+                selectedEntityModelPathIndex = 0;
+                selectedEntity->model_path = selectedEntity->model_path;
 
-                selected_entity->setModel(selected_entity->model_path.c_str());
+                selectedEntity->setModel(selectedEntity->model_path.c_str());
             }
             ImGui::EndDragDropTarget();
         }
@@ -192,8 +192,8 @@ void EntityInspector()
         ImGui::Text("Script: ");
         ImGui::SameLine(LODWidth);
 
-        const char* script_name = selected_entity->script.c_str();
-        if (selected_entity->script.empty()) script_name = "##ScriptPath";
+        const char* script_name = selectedEntity->script.c_str();
+        if (selectedEntity->script.empty()) script_name = "##ScriptPath";
         
         ImGui::Button(script_name, ImVec2(200,25));
 
@@ -204,12 +204,12 @@ void EntityInspector()
                 IM_ASSERT(payload->DataSize == sizeof(int));
                 int payload_n = *(const int*)payload->Data;
 
-                string path = dir_path.string();
-                path += "/" + files_texture_struct[payload_n].name;
+                string path = dirPath.string();
+                path += "/" + filesTextureStruct[payload_n].name;
 
-                selected_entity_script_path = path;
-                selected_entity_script_path_index = 0;
-                selected_entity->script = selected_entity_script_path;
+                selectedEntityScriptPath = path;
+                selectedEntityScriptPathIndex = 0;
+                selectedEntity->script = selectedEntityScriptPath;
             }
             ImGui::EndDragDropTarget();
         }
@@ -218,23 +218,23 @@ void EntityInspector()
 
         if (ImGui::Button("x##ScriptEmptyButton", ImVec2(25, 25)))
         {
-            selected_entity->script = "";
-            selected_entity->script_index = "NONE";
+            selectedEntity->script = "";
+            selectedEntity->script_index = "NONE";
         }
 
         ImGui::Dummy(ImVec2(0.0f, 30.0f));
 
         ImGui::Text("Collisions: ");
         ImGui::SameLine(LODWidth);
-        ImGui::Checkbox("##Collisions", &selected_entity->collider);
+        ImGui::Checkbox("##Collisions", &selectedEntity->collider);
 
         ImGui::Text("Visible: ");
         ImGui::SameLine(LODWidth);
-        ImGui::Checkbox("##Visible", &selected_entity->visible);
+        ImGui::Checkbox("##Visible", &selectedEntity->visible);
 
         ImGui::Text("Level of Detail: ");
         ImGui::SameLine(LODWidth);
-        ImGui::Checkbox("##Lod", &selected_entity->lodEnabled);
+        ImGui::Checkbox("##Lod", &selectedEntity->lodEnabled);
 
         ImGui::Unindent(30.0f);
     }
@@ -267,18 +267,18 @@ void EntityInspector()
                 IM_ASSERT(payload->DataSize == sizeof(int));
                 int payload_n = *(const int*)payload->Data;
 
-                string path = dir_path.string();
-                path += "/" + files_texture_struct[payload_n].name;
+                string path = dirPath.string();
+                path += "/" + filesTextureStruct[payload_n].name;
 
-                selected_entity->surface_material_path = path;
-                DeserializeMaterial(&selected_entity->surface_material, selected_entity->surface_material_path.string().c_str());
+                selectedEntity->surface_material_path = path;
+                DeserializeMaterial(&selectedEntity->surface_material, selectedEntity->surface_material_path.string().c_str());
             }
             ImGui::EndDragDropTarget();
         }
 
-        if (!selected_entity->surface_material_path.empty() && selected_entity->surface_material_path.has_filename())
+        if (!selectedEntity->surface_material_path.empty() && selectedEntity->surface_material_path.has_filename())
         {
-            MaterialInspector(&selected_entity->surface_material, selected_entity->surface_material_path.string());
+            MaterialInspector(&selectedEntity->surface_material, selectedEntity->surface_material_path.string());
         }
 
         ImGui::Unindent(30.0f);
@@ -299,8 +299,8 @@ void EntityInspector()
         const char* collisionShapeNames[] = {"Box", "HighPolyMesh", "None"};
         int currentItem = static_cast<int>(Entity::CollisionShapeType::None);
 
-        if (selected_entity->currentCollisionShapeType)
-            currentItem = static_cast<int>(*selected_entity->currentCollisionShapeType);
+        if (selectedEntity->currentCollisionShapeType)
+            currentItem = static_cast<int>(*selectedEntity->currentCollisionShapeType);
 
         const float comboWidth = ImGui::GetContentRegionAvail().x - 30.0f;
 
@@ -312,8 +312,8 @@ void EntityInspector()
 
                 if (ImGui::Selectable(collisionShapeNames[i], isSelected))
                 {
-                    *selected_entity->currentCollisionShapeType = static_cast<Entity::CollisionShapeType>(i);
-                    selected_entity->reloadRigidBody();
+                    *selectedEntity->currentCollisionShapeType = static_cast<Entity::CollisionShapeType>(i);
+                    selectedEntity->reloadRigidBody();
                 }
 
                 if (isSelected)
@@ -333,12 +333,12 @@ void EntityInspector()
 
         ImGui::SetCursorPosX(ImGui::GetWindowWidth() - (sliderWidth + marginLeft));
 
-        if (ImGui::Checkbox("##doPhysics", &selected_entity->isDynamic))
+        if (ImGui::Checkbox("##doPhysics", &selectedEntity->isDynamic))
         {
-            if (selected_entity->isDynamic)
-                selected_entity->makePhysicsDynamic();
+            if (selectedEntity->isDynamic)
+                selectedEntity->makePhysicsDynamic();
             else
-                selected_entity->makePhysicsStatic();
+                selectedEntity->makePhysicsStatic();
         }
 
         ImGui::Dummy(ImVec2(0.0f, 15.0f));
@@ -347,27 +347,27 @@ void EntityInspector()
         ImGui::SameLine();
         ImGui::SetCursorPosX(ImGui::GetWindowWidth() - (sliderWidth + marginLeft));
         ImGui::SetNextItemWidth(sliderWidth);
-        if (ImGui::SliderFloat("##Mass", &selected_entity->mass, 0.0f, 100.0f, "%.1f"))
+        if (ImGui::SliderFloat("##Mass", &selectedEntity->mass, 0.0f, 100.0f, "%.1f"))
         {
-            selected_entity->updateMass();
+            selectedEntity->updateMass();
         }
 
         ImGui::Text("Friction:");
         ImGui::SameLine();
         ImGui::SetCursorPosX(ImGui::GetWindowWidth() - (sliderWidth + marginLeft));
         ImGui::SetNextItemWidth(sliderWidth);
-        if (ImGui::SliderFloat("##Friction", &selected_entity->friction, 0.0f, 10.0f, "%.1f"))
+        if (ImGui::SliderFloat("##Friction", &selectedEntity->friction, 0.0f, 10.0f, "%.1f"))
         {
-            selected_entity->setFriction(selected_entity->friction);
+            selectedEntity->setFriction(selectedEntity->friction);
         }
 
         ImGui::Text("Damping:");
         ImGui::SameLine();
         ImGui::SetCursorPosX(ImGui::GetWindowWidth() - (sliderWidth + marginLeft));
         ImGui::SetNextItemWidth(sliderWidth);
-        if (ImGui::SliderFloat("##Damping", &selected_entity->damping, 0.0f, 5.0f, "%.1f"))
+        if (ImGui::SliderFloat("##Damping", &selectedEntity->damping, 0.0f, 5.0f, "%.1f"))
         {
-            selected_entity->applyDamping(selected_entity->damping);
+            selectedEntity->applyDamping(selectedEntity->damping);
         }
 
         ImGui::Unindent(30.0f);
@@ -389,7 +389,7 @@ void EntityInspector()
 
         if (ImGui::Button("Set all children instanced"))
         {
-            selected_entity->makeChildrenInstances();
+            selectedEntity->makeChildrenInstances();
         }
 
         ImGui::Unindent(30.0f);

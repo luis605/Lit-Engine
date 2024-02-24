@@ -8,8 +8,7 @@ float defaultCameraSpeed = 25.0f;
 float fastCameraSpeed = 50.0f;
 float movementSpeed = defaultCameraSpeed;
 
-
-LitCamera scene_camera;
+LitCamera sceneCamera;
 float lerp_factor = 0.5f;
 Vector3 front;
 
@@ -21,11 +20,10 @@ typedef enum CopyType {
 
 bool movingEditorCamera = false;
 
-CopyType current_copy_type = (CopyType)CopyType_None;
+CopyType currentCopyType = (CopyType)CopyType_None;
 std::shared_ptr<Entity> copiedEntity;
 std::shared_ptr<Light> copiedLight;
 
-bool is_mouse_pressed = false;
 float mousePositionXLast = 0;
 
 float GRID_SIZE = 40.0f;

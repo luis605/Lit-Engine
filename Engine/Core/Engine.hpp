@@ -9,19 +9,19 @@ string colorToString(const Color& color);
 
 typedef struct Light;
 
-variant<Entity*, Light*, Text*, LitButton*> object_in_inspector;
+variant<Entity*, Light*, Text*, LitButton*> objectInInspector;
 
-vector<Entity> entities_list_pregame;
-vector<Light> lights_list_pregame;
-vector<Entity> entities_list;
+vector<Entity> entitiesListPregame;
+vector<Light> lightsListPregame;
+vector<Entity> entitiesList;
 
 // std::vector<Cluster> clusters;
 
-Entity *selected_entity = nullptr;
-Light *selected_light = nullptr;
-LitButton *selected_button = nullptr;
-Text *selected_textElement = nullptr;
-fs::path selected_material;
+Entity *selectedEntity = nullptr;
+Light *selectedLight = nullptr;
+LitButton *selectedButton = nullptr;
+Text *selectedTextElement = nullptr;
+fs::path selectedMaterial;
 
 
 typedef struct HitInfo

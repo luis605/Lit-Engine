@@ -26,7 +26,7 @@ void PreviewStartup()
 }
 
 bool received_data = false;
-std::vector<Entity> entities_list_preview;
+std::vector<Entity> entitiesList_preview;
 std::vector<Light> lights_preview;
 std::vector<AdditionalLightInfo> light_info_preview;
 
@@ -65,7 +65,7 @@ void PreviewProject()
 
     PreviewStartup();
 
-    LoadProject(entities_list_preview, lights_preview, light_info_preview, camera_preview);
+    LoadProject(entitiesList_preview, lights_preview, light_info_preview, camera_preview);
 
     std::cout << "Project Loaded" << std::endl;
 
@@ -83,7 +83,7 @@ void PreviewProject()
 
                 DrawSkybox();
 
-                for (Entity& entity : entities_list_preview)
+                for (Entity& entity : entitiesList_preview)
                 {
 //                    RenderAndRunEntity(entity, scripts_threads_preview, first_time, &camera_preview);
                 }

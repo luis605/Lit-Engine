@@ -116,11 +116,11 @@ void SerializeMaterial(SurfaceMaterial& material, const char* path)
 {
     json j;
     j["color"] = material.color;
-    // j["diffuse_texture_path"] = material.diffuse_texture_path;
-    // j["specular_texture_path"] = material.specular_texture_path;
-    // j["normal_texture_path"] = material.normal_texture_path;
-    // j["roughness_texture_path"] = material.roughness_texture_path;
-    // j["ao_texture_path"] = material.ao_texture_path;
+    // j["diffuseTexturePath"] = material.diffuseTexturePath;
+    // j["specularTexturePath"] = material.specularTexturePath;
+    // j["normalTexturePath"] = material.normalTexturePath;
+    // j["roughnessTexturePath"] = material.roughnessTexturePath;
+    // j["aoTexturePath"] = material.aoTexturePath;
     j["shininess"] = material.shininess;
     j["specular_intensity"] = material.SpecularIntensity;
     j["roughness"] = material.Roughness;
@@ -158,30 +158,30 @@ void DeserializeMaterial(SurfaceMaterial* material, const char* path) {
             material->color = j["color"];
         }
         // // Clear default values or initialize them if necessary
-        // material->diffuse_texture_path.clear();
-        // material->specular_texture_path.clear();
-        // material->normal_texture_path.clear();
-        // material->roughness_texture_path.clear();
-        // material->ao_texture_path.clear();
+        // material->diffuseTexturePath.clear();
+        // material->specularTexturePath.clear();
+        // material->normalTexturePath.clear();
+        // material->roughnessTexturePath.clear();
+        // material->aoTexturePath.clear();
         material->shininess = 0.0f;
         material->SpecularIntensity = 0.0f;
         material->Roughness = 0.0f;
         material->DiffuseIntensity = 0.0f;
 
-        // if (j.contains("diffuse_texture_path")) {
-        //     material->diffuse_texture_path = j["diffuse_texture_path"].get<std::string>();
+        // if (j.contains("diffuseTexturePath")) {
+        //     material->diffuseTexturePath = j["diffuseTexturePath"].get<std::string>();
         // }
-        // if (j.contains("specular_texture_path")) {
-        //     material->specular_texture_path = j["specular_texture_path"].get<std::string>();
+        // if (j.contains("specularTexturePath")) {
+        //     material->specularTexturePath = j["specularTexturePath"].get<std::string>();
         // }
-        // if (j.contains("normal_texture_path")) {
-        //     material->normal_texture_path = j["normal_texture_path"].get<std::string>();
+        // if (j.contains("normalTexturePath")) {
+        //     material->normalTexturePath = j["normalTexturePath"].get<std::string>();
         // }
-        // if (j.contains("roughness_texture_path")) {
-        //     material->roughness_texture_path = j["roughness_texture_path"].get<std::string>();
+        // if (j.contains("roughnessTexturePath")) {
+        //     material->roughnessTexturePath = j["roughnessTexturePath"].get<std::string>();
         // }
-        // if (j.contains("ao_texture_path")) {
-        //     material->ao_texture_path = j["ao_texture_path"].get<std::string>();
+        // if (j.contains("aoTexturePath")) {
+        //     material->aoTexturePath = j["aoTexturePath"].get<std::string>();
         // }
         if (j.contains("shininess")) {
             material->shininess = j["shininess"];
@@ -239,7 +239,7 @@ void SaveEntity(json& json_data, const Entity& entity) {
     j["scale"]                   = entity.scale;
     j["position"]                = entity.position;
     j["rotation"]                = entity.rotation;
-    j["relative_position"]       = entity.relative_position;
+    j["relativePosition"]       = entity.relativePosition;
     j["model_path"]              = entity.model_path;
     j["tiling"]                  = entity.tiling;
     
@@ -251,9 +251,9 @@ void SaveEntity(json& json_data, const Entity& entity) {
 
     j["script_path"]             = entity.script;
     j["script_index"]            = entity.script_index;
-    j["texture_path"]            = entity.texture_path;
-    j["normal_texture_path"]     = entity.normal_texture_path;
-    j["roughness_texture_path"]  = entity.roughness_texture_path;
+    j["texturePath"]            = entity.texturePath;
+    j["normalTexturePath"]     = entity.normalTexturePath;
+    j["roughnessTexturePath"]  = entity.roughnessTexturePath;
     j["material_path"]           = entity.surface_material_path;
     j["id"]                      = entity.id;
     j["surface_material"]        = entity.surface_material;
@@ -310,16 +310,16 @@ void SaveLight(json& json_data, const Light& light, int light_index) {
     j["color"]["b"] = light.color.b * 255;
     j["color"]["a"] = light.color.a * 255;
     
-    j["name"] = lights_info.at(light_index).name;
+    j["name"] = lightsInfo.at(light_index).name;
     j["position"] = light.position;
     
     if (light.isChild)
-        j["relative_position"] = light.relative_position;
+        j["relativePosition"] = light.relativePosition;
     else
     {
-        j["relative_position"]["x"] = 0;
-        j["relative_position"]["y"] = 0;
-        j["relative_position"]["z"] = 0;
+        j["relativePosition"]["x"] = 0;
+        j["relativePosition"]["y"] = 0;
+        j["relativePosition"]["z"] = 0;
     }
     
     if (light.type == LightType::LIGHT_POINT)
@@ -337,7 +337,7 @@ void SaveLight(json& json_data, const Light& light, int light_index) {
     j["specularStrength"] = light.specularStrength;
     j["attenuation"] = light.attenuation;
     j["isChild"] = light.isChild;
-    j["id"] = lights_info.at(light_index).id;
+    j["id"] = lightsInfo.at(light_index).id;
     j["light_type"] = lights.at(light_index).type;
 
 
@@ -427,7 +427,7 @@ void serializeScripts() {
     json script_data;
 
     int file_id = 0;
-    for (Entity& entity : entities_list_pregame) {
+    for (Entity& entity : entitiesListPregame) {
         if (entity.script.empty()) continue;
 
         std::string scriptContent = serializePythonScript(entity.script);
@@ -459,10 +459,10 @@ int SaveProject() {
     serializeScripts();
     json json_data;
 
-    SaveCamera(json_data, scene_camera);
+    SaveCamera(json_data, sceneCamera);
     SaveWorldSetting(json_data);
 
-    for (const auto& entity : entities_list_pregame) {
+    for (const auto& entity : entitiesListPregame) {
         SaveEntity(json_data, entity);
     }
 
@@ -478,7 +478,7 @@ int SaveProject() {
         SaveText(json_data, text);
     }
 
-    for (const LitButton& button : lit_buttons)
+    for (const LitButton& button : litButtons)
     {
         SaveButton(json_data, button);
     }
@@ -612,13 +612,13 @@ void LoadEntity(const json& entity_json, Entity& entity) {
         entity.rotation = rotation;
     }
 
-    if (entity_json.contains("relative_position")) {
-        Vector3 relative_position{
-            entity_json["relative_position"]["x"].get<float>(),
-            entity_json["relative_position"]["y"].get<float>(),
-            entity_json["relative_position"]["z"].get<float>()
+    if (entity_json.contains("relativePosition")) {
+        Vector3 relativePosition{
+            entity_json["relativePosition"]["x"].get<float>(),
+            entity_json["relativePosition"]["y"].get<float>(),
+            entity_json["relativePosition"]["z"].get<float>()
         };
-        entity.relative_position = relative_position;
+        entity.relativePosition = relativePosition;
     }
 
     if (entity_json.contains("mass")) {
@@ -708,33 +708,33 @@ void LoadEntity(const json& entity_json, Entity& entity) {
 
 
     // Textures
-    string texture_path = entity_json["texture_path"].get<std::string>();
-    if (!texture_path.empty())
+    string texturePath = entity_json["texturePath"].get<std::string>();
+    if (!texturePath.empty())
     {
 
-        Texture2D diffuse_texture = LoadTexture(texture_path.c_str());
-        if (!IsTextureReady(diffuse_texture))
+        Texture2D diffuseTexture = LoadTexture(texturePath.c_str());
+        if (!IsTextureReady(diffuseTexture))
         {            
-            entity.texture_path = texture_path;
-            entity.texture = std::make_unique<VideoPlayer>(texture_path.c_str());
+            entity.texturePath = texturePath;
+            entity.texture = std::make_unique<VideoPlayer>(texturePath.c_str());
         }
         else
         {
-            entity.texture_path = texture_path;
-            entity.texture = diffuse_texture;
+            entity.texturePath = texturePath;
+            entity.texture = diffuseTexture;
         }
     }
 
-    entity.normal_texture_path = entity_json["normal_texture_path"].get<std::string>();
-    if (!entity.normal_texture_path.empty())
+    entity.normalTexturePath = entity_json["normalTexturePath"].get<std::string>();
+    if (!entity.normalTexturePath.empty())
     {
-        entity.normal_texture = LoadTexture(entity.normal_texture_path.string().c_str());
+        entity.normalTexture = LoadTexture(entity.normalTexturePath.string().c_str());
     }
 
-    entity.roughness_texture_path = entity_json["roughness_texture_path"].get<std::string>();
-    if (!entity.roughness_texture_path.empty())
+    entity.roughnessTexturePath = entity_json["roughnessTexturePath"].get<std::string>();
+    if (!entity.roughnessTexturePath.empty())
     {
-        entity.roughness_texture = LoadTexture(entity.roughness_texture_path.string().c_str());
+        entity.roughnessTexture = LoadTexture(entity.roughnessTexturePath.string().c_str());
     }
 
 
@@ -757,9 +757,9 @@ void LoadEntity(const json& entity_json, Entity& entity) {
                         AdditionalLightInfo light_info;
                         pair<Light, AdditionalLightInfo> light_pair = LoadLight(child_json, child, light_info);
                         lights.push_back(light_pair.first);
-                        lights_info.push_back(light_pair.second);
+                        lightsInfo.push_back(light_pair.second);
 
-                        entity.addChild(&lights.back(), lights_info.back().id);
+                        entity.addChild(&lights.back(), lightsInfo.back().id);
                     }
                 }
             }
@@ -787,13 +787,13 @@ pair<Light, AdditionalLightInfo> LoadLight(const json& light_json, Light& light,
 
     light.position = position;
 
-    glm::vec3 relative_position{
-        light_json["relative_position"]["x"].get<float>(),
-        light_json["relative_position"]["y"].get<float>(),
-        light_json["relative_position"]["z"].get<float>()
+    glm::vec3 relativePosition{
+        light_json["relativePosition"]["x"].get<float>(),
+        light_json["relativePosition"]["y"].get<float>(),
+        light_json["relativePosition"]["z"].get<float>()
     };
 
-    light.relative_position = relative_position;
+    light.relativePosition = relativePosition;
 
     glm::vec3 target{
         light_json["target"]["x"].get<float>(),
@@ -902,7 +902,7 @@ void LoadButton(const json& button_json, LitButton& button) {
 
 
 
-int LoadProject(vector<Entity>& entities_vector, vector<Light>& lights_vector, vector<AdditionalLightInfo>& lights_info_vector, LitCamera& camera) {
+int LoadProject(vector<Entity>& entities_vector, vector<Light>& lightsVector, vector<AdditionalLightInfo>& lightsInfo_vector, LitCamera& camera) {
     std::ifstream infile("project.json");
     if (!infile.is_open()) {
         std::cout << "Error: Failed to open project file." << std::endl;
@@ -917,13 +917,13 @@ int LoadProject(vector<Entity>& entities_vector, vector<Light>& lights_vector, v
     entities_vector.clear();
 
 #ifndef GAME_SHIPPING
-    entities_list_pregame.clear();
+    entitiesListPregame.clear();
 #endif
 
-    lights_vector.clear();
-    lights_info_vector.clear();
+    lightsVector.clear();
+    lightsInfo_vector.clear();
     textElements.clear();
-    lit_buttons.clear();
+    litButtons.clear();
     
     try {
         for (const auto& entity_json : json_data) {
@@ -946,8 +946,8 @@ int LoadProject(vector<Entity>& entities_vector, vector<Light>& lights_vector, v
                 Light light;
                 AdditionalLightInfo light_info;
                 LoadLight(entity_json, light, light_info);
-                lights_info_vector.emplace_back(light_info);
-                lights_vector.emplace_back(light);
+                lightsInfo_vector.emplace_back(light_info);
+                lightsVector.emplace_back(light);
             }
             else if (type == "text") {
                 Text textElement;
@@ -957,7 +957,7 @@ int LoadProject(vector<Entity>& entities_vector, vector<Light>& lights_vector, v
             else if (type == "button") {
                 LitButton button;
                 LoadButton(entity_json, button);
-                lit_buttons.emplace_back(button);
+                litButtons.emplace_back(button);
             }
         }
     } catch (const json::type_error& e) {
@@ -965,7 +965,7 @@ int LoadProject(vector<Entity>& entities_vector, vector<Light>& lights_vector, v
         return 1;
     }
 
-    UpdateLightsBuffer(false, lights_vector);
+    UpdateLightsBuffer(false, lightsVector);
     
     return 0;
 }

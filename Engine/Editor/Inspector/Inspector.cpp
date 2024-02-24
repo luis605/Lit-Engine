@@ -6,31 +6,31 @@
 
 void ShowTexture()
 {
-    if (show_texture)
+    if (showTexture)
     {
-        ImGui::Begin("Diffuse Texture", &show_texture);
-        ImGui::Image((ImTextureID)&selected_entity->model.materials[0].maps[MATERIAL_MAP_DIFFUSE].texture, ImVec2(350, 350));
+        ImGui::Begin("Diffuse Texture", &showTexture);
+        ImGui::Image((ImTextureID)&selectedEntity->model.materials[0].maps[MATERIAL_MAP_DIFFUSE].texture, ImVec2(350, 350));
         ImGui::End();
     }
 
-    if (show_normal_texture)
+    if (showNormalTexture)
     {
-        ImGui::Begin("Normal Texture", &show_normal_texture);
-        ImGui::Image((ImTextureID)&selected_entity->model.materials[0].maps[MATERIAL_MAP_NORMAL].texture, ImVec2(350, 350));
+        ImGui::Begin("Normal Texture", &showNormalTexture);
+        ImGui::Image((ImTextureID)&selectedEntity->model.materials[0].maps[MATERIAL_MAP_NORMAL].texture, ImVec2(350, 350));
         ImGui::End();
     }
 
-    if (show_roughness_texture)
+    if (showRoughnessTexture)
     {
-        ImGui::Begin("Roughness Texture", &show_roughness_texture);
-        ImGui::Image((ImTextureID)&selected_entity->model.materials[0].maps[MATERIAL_MAP_ROUGHNESS].texture, ImVec2(350, 350));
+        ImGui::Begin("Roughness Texture", &showRoughnessTexture);
+        ImGui::Image((ImTextureID)&selectedEntity->model.materials[0].maps[MATERIAL_MAP_ROUGHNESS].texture, ImVec2(350, 350));
         ImGui::End();
     }
 
-    if (show_ao_texture)
+    if (showAOTexture)
     {
-        ImGui::Begin("Ambient Occlusion Texture", &show_ao_texture);
-        ImGui::Image((ImTextureID)&selected_entity->model.materials[0].maps[MATERIAL_MAP_OCCLUSION].texture, ImVec2(350, 350));
+        ImGui::Begin("Ambient Occlusion Texture", &showAOTexture);
+        ImGui::Image((ImTextureID)&selectedEntity->model.materials[0].maps[MATERIAL_MAP_OCCLUSION].texture, ImVec2(350, 350));
         ImGui::End();
     }
 }
@@ -39,25 +39,25 @@ void Inspector()
 {
     ImGui::Begin((std::string(ICON_FA_CIRCLE_INFO) + " Inspector").c_str(), NULL);
     
-    if (selected_game_object_type == "entity" && selected_entity)
+    if (selectedGameObjectType == "entity" && selectedEntity)
     {
-        if (selected_entity->initialized)
+        if (selectedEntity->initialized)
             EntityInspector();
     }
-    else if (selected_game_object_type == "light")
+    else if (selectedGameObjectType == "light")
         LightInspector();
-    else if (selected_game_object_type == "text")
+    else if (selectedGameObjectType == "text")
         TextInspector();
-    else if (selected_game_object_type == "button")
+    else if (selectedGameObjectType == "button")
         ButtonInspector();
-    else if (selected_game_object_type == "material")
+    else if (selectedGameObjectType == "material")
     {
         ImGui::Text("Inspecting Material");    
         ImGui::Dummy(ImVec2(0.0f, 10.0f));
 
         MaterialInspector();
     }
-    else if (selected_game_object_type == "camera")
+    else if (selectedGameObjectType == "camera")
         CameraInspector();
     else
     {

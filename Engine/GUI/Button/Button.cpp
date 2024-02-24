@@ -290,13 +290,13 @@ LitButton &AddButton(const char* button_text, Vector3 position, Vector2 size, fl
     button.SetTooltip("This is a tooltip!");
     button.SetOnClickCallback(print_hi);
 
-    lit_buttons.push_back(button);
+    litButtons.push_back(button);
 }
 
 void DrawButtons()
 {
 
-    for (LitButton &button : lit_buttons)
+    for (LitButton &button : litButtons)
     {
         button.Draw();
     }

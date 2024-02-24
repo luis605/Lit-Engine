@@ -38,7 +38,7 @@ struct Light
     int type;
     bool enabled;
     vec3 position;
-    vec3 relative_position;
+    vec3 relativePosition;
     vec3 target;
     vec4 color;
     float attenuation;

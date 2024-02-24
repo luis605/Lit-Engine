@@ -27,23 +27,23 @@ void InitLitWindow() {
 }
 
 void LoadTextures() {
-    folder_texture = LoadTexture("assets/images/folder.png");
-    image_texture = LoadTexture("assets/images/image_file_type.png");
-    cpp_texture = LoadTexture("assets/images/cpp_file_type.png");
-    python_texture = LoadTexture("assets/images/python_file_type.png");
-    model_texture = LoadTexture("assets/images/model_file_type.png");
-    material_texture = LoadTexture("assets/images/material_file_type.png");
-    empty_texture = LoadTexture("assets/images/empty_file_file_type.png");
-    run_texture = LoadTexture("assets/images/run_game.png");
-    pause_texture = LoadTexture("assets/images/pause_game.png");
-    save_texture = LoadTexture("assets/images/save_file.png");
-    hot_reload_texture = LoadTexture("assets/images/hot_reload.png");
-    light_texture = LoadTexture("assets/images/light_bulb.png");
-    window_icon_image = LoadImage("assets/images/window_icon.png");
-    window_icon_texture = LoadTextureFromImage(window_icon_image);
+    folderTexture = LoadTexture("assets/images/folder.png");
+    imageTexture = LoadTexture("assets/images/image_file_type.png");
+    cppTexture = LoadTexture("assets/images/cpp_file_type.png");
+    pythonTexture = LoadTexture("assets/images/python_file_type.png");
+    modelTexture = LoadTexture("assets/images/model_file_type.png");
+    materialTexture = LoadTexture("assets/images/material_file_type.png");
+    emptyTexture = LoadTexture("assets/images/empty_file_file_type.png");
+    runTexture = LoadTexture("assets/images/run_game.png");
+    pauseTexture = LoadTexture("assets/images/pause_game.png");
+    saveTexture = LoadTexture("assets/images/saveFile.png");
+    hotReloadTexture = LoadTexture("assets/images/hot_reload.png");
+    lightTexture = LoadTexture("assets/images/light_bulb.png");
+    windowIconImage = LoadImage("assets/images/window_icon.png");
+    windowIconTexture = LoadTextureFromImage(windowIconImage);
 
-    ImageFormat(&window_icon_image, PIXELFORMAT_UNCOMPRESSED_R8G8B8A8);
-    SetWindowIcon(window_icon_image);
+    ImageFormat(&windowIconImage, PIXELFORMAT_UNCOMPRESSED_R8G8B8A8);
+    SetWindowIcon(windowIconImage);
 
     downsamplerTexture = LoadRenderTexture(GetScreenWidth(), GetScreenHeight());
     upsamplerTexture = LoadRenderTexture(GetScreenWidth(), GetScreenHeight());
@@ -81,7 +81,7 @@ void InitImGui() {
 
 void InitShaders() {
     shader = LoadShader("Engine/Lighting/shaders/lighting_vertex.glsl", "Engine/Lighting/shaders/lighting_fragment.glsl"); // LoadShaderFromMemory(lightingVert, lightingFrag);
-    instancing_shader = LoadShaderFromMemory(lightingVert, lightingFrag);
+    instancingShader = LoadShaderFromMemory(lightingVert, lightingFrag);
     downsamplerShader = LoadShader("Engine/Lighting/shaders/lighting_vertex.glsl", "Engine/Lighting/shaders/downsampler.glsl"); // LoadShaderFromMemory(lightingVert, downsamplerFrag);
     upsamplerShader = LoadShader("Engine/Lighting/shaders/lighting_vertex.glsl", "Engine/Lighting/shaders/upsampler.glsl"); // LoadShaderFromMemory(lightingVert, upsamplerFrag);
 }
@@ -164,37 +164,37 @@ void CleanUp()
     std::cout << "Exiting..." << std::endl;
     //kill(-pid, SIGTERM);
 
-    in_game_preview = false;
-    first_time_gameplay = false;
+    inGamePreview = false;
+    firstTimeGameplay = false;
 
-    for (Entity &entity : entities_list_pregame)
+    for (Entity &entity : entitiesListPregame)
         entity.remove();
 
-    entities_list_pregame.clear();
+    entitiesListPregame.clear();
 
     UnloadShader(shader);
-    UnloadImage(window_icon_image);
-    UnloadTexture(folder_texture);
-    UnloadTexture(image_texture);
-    UnloadTexture(cpp_texture);
-    UnloadTexture(python_texture);
-    UnloadTexture(model_texture);
-    UnloadTexture(empty_texture);
-    UnloadTexture(run_texture);
-    UnloadTexture(pause_texture);
-    UnloadTexture(save_texture);
-    UnloadTexture(hot_reload_texture);
-    UnloadTexture(light_texture);
-    UnloadTexture(window_icon_texture);
+    UnloadImage(windowIconImage);
+    UnloadTexture(folderTexture);
+    UnloadTexture(imageTexture);
+    UnloadTexture(cppTexture);
+    UnloadTexture(pythonTexture);
+    UnloadTexture(modelTexture);
+    UnloadTexture(emptyTexture);
+    UnloadTexture(runTexture);
+    UnloadTexture(pauseTexture);
+    UnloadTexture(saveTexture);
+    UnloadTexture(hotReloadTexture);
+    UnloadTexture(lightTexture);
+    UnloadTexture(windowIconTexture);
 
-    for (auto it = models_icons.begin(); it != models_icons.end(); ++it)
+    for (auto it = modelsIcons.begin(); it != modelsIcons.end(); ++it)
     {
         UnloadTexture(it->second);
     }
-    models_icons.clear();
+    modelsIcons.clear();
 
     lights.clear();
-    lights_info.clear();
+    lightsInfo.clear();
 
     rlImGuiShutdown();
     CloseWindow();
