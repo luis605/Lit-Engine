@@ -47,7 +47,7 @@
         "is_dynamic": false,
         "lodEnabled": true,
         "mass": 1.0,
-        "material_path": "",
+        "material_path": "project/game/materials/hello world.mat",
         "mesh_type": 1,
         "model_path": "",
         "name": "Unnamed Entity",
@@ -76,7 +76,7 @@
         "script_index": "",
         "script_path": "",
         "surface_material": {
-            "DiffuseIntensity": 0.5,
+            "DiffuseIntensity": 1.0,
             "Roughness": 0.5,
             "SpecularIntensity": 0.5,
             "SpecularTint": {

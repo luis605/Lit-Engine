@@ -40,20 +40,34 @@ void MaterialInspector(SurfaceMaterial* surface_material = nullptr, string path 
         
         float tiling_value[2] = { selected_entity->tiling[0], selected_entity->tiling[1] };
         ImGui::Text("Tiling: ");
+
+        ImGui::Indent(20.0f);
+        
+        ImGui::Text("X:");
+        ImGui::SameLine();
+        
         if (ImGui::SliderFloat("##TextureTiling0", (float*)&tiling_value[0], 0.01f, 100.0f, "%.1f"))
         {
             selected_entity->tiling[0] = tiling_value[0];
         }
+        
+        ImGui::Text("Y:");
+        ImGui::SameLine();
+        
         if (ImGui::SliderFloat("##TextureTiling1", (float*)&tiling_value[1], 0.01f, 100.0f, "%.1f"))
         {
             selected_entity->tiling[1] = tiling_value[1];
         }
         
+        ImGui::Unindent(20.0f);
+        
         ImGui::Dummy(ImVec2(0.0f, 10.0f));
 
         
         ImGui::Text("Diffuse Texture: ");
-        
+
+        ImGui::Indent(20.0f);
+
         if (ImGui::ImageButton((ImTextureID)&selected_entity->model.materials[0].maps[MATERIAL_MAP_DIFFUSE].texture, ImVec2(64, 64)))
         {
             show_texture = !show_texture;
@@ -94,10 +108,15 @@ void MaterialInspector(SurfaceMaterial* surface_material = nullptr, string path 
             selected_entity->ReloadTextures(true);
         }
 
+        ImGui::Unindent(20.0f);
+
         ImGui::Dummy(ImVec2(0.0f, 10.0f));
 
 
         ImGui::Text("Normal Map Texture: ");
+        
+        ImGui::Indent(20.0f);
+
         if (ImGui::ImageButton((ImTextureID)&selected_entity->model.materials[0].maps[MATERIAL_MAP_NORMAL].texture, ImVec2(64, 64)))
         {
             show_normal_texture = !show_normal_texture;
@@ -138,10 +157,14 @@ void MaterialInspector(SurfaceMaterial* surface_material = nullptr, string path 
             selected_entity->ReloadTextures(true);
         }
 
+        ImGui::Unindent(20.0f);
 
         ImGui::Dummy(ImVec2(0.0f, 10.0f));
 
         ImGui::Text("RoughnessMap Texture: ");
+
+        ImGui::Indent(20.0f);
+
         if (ImGui::ImageButton((ImTextureID)&selected_entity->model.materials[0].maps[MATERIAL_MAP_ROUGHNESS].texture, ImVec2(64, 64)))
         {
             show_roughness_texture = !show_roughness_texture;
@@ -182,9 +205,13 @@ void MaterialInspector(SurfaceMaterial* surface_material = nullptr, string path 
             selected_entity->ReloadTextures(true);
         }
 
+        ImGui::Unindent(20.0f);
         ImGui::Dummy(ImVec2(0.0f, 10.0f));
 
         ImGui::Text("Ambient Occlusion Texture: ");
+
+        ImGui::Indent(20.0f);
+
         if (ImGui::ImageButton((ImTextureID)&selected_entity->model.materials[0].maps[MATERIAL_MAP_OCCLUSION].texture, ImVec2(64, 64)))
         {
             show_ao_texture = !show_ao_texture;
@@ -225,17 +252,35 @@ void MaterialInspector(SurfaceMaterial* surface_material = nullptr, string path 
             selected_entity->ReloadTextures(true);
         }
 
-
+        ImGui::Unindent(20.0f);
         ImGui::Unindent(10);
     }
 
 
     ImGui::Dummy(ImVec2(0.0f, 10.0f));
+    
+    const float margin = 40.0f;
+    const float spacing = ImGui::CalcTextSize("Specular Intensity:").x + margin;
 
-    ImGui::SliderFloat("Shininess", &material->shininess, 0.0f, 1.0f);
-    ImGui::SliderFloat("Specular Intensity", &material->SpecularIntensity, 0.0f, 1.0f);
-    ImGui::SliderFloat("Roughness", &material->Roughness, 0.0f, 1.0f);
-    ImGui::SliderFloat("Diffuse Intensity", &material->DiffuseIntensity, 0.0f, 1.0f);
+    ImGui::Text("Shininess:");
+    ImGui::SameLine(spacing);
+    ImGui::SetNextItemWidth(-1);
+    ImGui::SliderFloat("##Shininess", &material->shininess, 0.0f, 1.0f);
+
+    ImGui::Text("Specular Intensity:");
+    ImGui::SameLine(spacing);
+    ImGui::SetNextItemWidth(-1);
+    ImGui::SliderFloat("##Specular Intensity", &material->SpecularIntensity, 0.0f, 1.0f);
+
+    ImGui::Text("Roughness:");
+    ImGui::SameLine(spacing);
+    ImGui::SetNextItemWidth(-1);
+    ImGui::SliderFloat("##Roughness", &material->Roughness, 0.0f, 1.0f);
+
+    ImGui::Text("Diffuse Intensity:");
+    ImGui::SameLine(spacing);
+    ImGui::SetNextItemWidth(-1);
+    ImGui::SliderFloat("##Diffuse Intensity", &material->DiffuseIntensity, 0.0f, 1.0f);
 
     if (ImGui::Button("View Material in Nodes Editor"))
         show_material_in_nodes_editor = !show_material_in_nodes_editor;
