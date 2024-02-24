@@ -49,10 +49,6 @@ void EntityInspector()
     ImGui::SameLine();
     ImGui::Text("'");
 
-
-    ImGui::BeginChild("MainContent", window_size);
-
-
     ImGui::PushStyleColor(ImGuiCol_Button, ImVec4(1.0f, 0.0f, 0.0f, 1.0f));
     ImGui::PushStyleVar(ImGuiStyleVar_ItemSpacing, ImVec2(0, 30));
     ImGui::PopStyleColor();
@@ -398,6 +394,4 @@ void EntityInspector()
 
         ImGui::Unindent(30.0f);
     }
-
-    ImGui::EndChild();
 }
