@@ -75,7 +75,7 @@ void ManipulateEntityPopup()
 }
 
 
-void DrawEntityTree(Entity& entity, int active, int& index, int depth = 0);
+void DrawEntityTree(Entity& entity, int active, int& index);
 void DrawLightTree(Light& light, AdditionalLightInfo& light_info, int active, int& index);
 void DrawTextElementsTree(Text& text, int active, int& index);
 void DrawButtonTree(LitButton& button, int active, int& index);
@@ -112,7 +112,7 @@ void DrawCameraTree(int active, int& index) {
 
 
 
-void DrawEntityTree(Entity& entity, int active, int& index, int depth) {
+void DrawEntityTree(Entity& entity, int active, int& index) {
     ImGuiTreeNodeFlags nodeFlags = ImGuiTreeNodeFlags_OpenOnArrow | ImGuiTreeNodeFlags_OpenOnDoubleClick | ImGuiTreeNodeFlags_SpanAvailWidth;
 
     if (selected_entity == &entity && selected_game_object_type == "entity") {
@@ -153,12 +153,13 @@ void DrawEntityTree(Entity& entity, int active, int& index, int depth) {
     {
         ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(0.85f, 0.85f, 0.85f, 1.0f));
 
-        ImGui::SetDragDropPayload("CHILD_ENTITY_PAYLOAD", &entity.id, sizeof(int));
+        ImGui::SetDragDropPayload("CHILD_ENTITY_PAYLOAD", &entity, sizeof(Entity));
         ImGui::TreeNodeEx((void*)&entity, nodeFlags | ImGuiTreeNodeFlags_Selected, entity.name.c_str());
         ImGui::PopStyleColor();
 
         ImGui::EndDragDropSource();
     }
+
 
 
     // Drag and drop target
@@ -185,22 +186,19 @@ void DrawEntityTree(Entity& entity, int active, int& index, int depth) {
         const ImGuiPayload* payload = ImGui::AcceptDragDropPayload("CHILD_ENTITY_PAYLOAD");
         if (payload) {
             // Retrieve the entity ID from the payload data.
-            int droppedEntityID = *(const int*)payload->Data;
+            Entity* foundEntity = (Entity*)payload->Data;
 
-            auto it = std::find_if(entities_list_pregame.begin(), entities_list_pregame.end(), [droppedEntityID](const Entity& entity) {
-                return entity.id == droppedEntityID;
-            });
+            if (foundEntity->isChild) {
+                foundEntity->parent->removeChild(foundEntity);
+            }
 
+            foundEntity->isChild = true;
+            entity.addChild(*foundEntity);
+
+            auto it = std::find(entities_list_pregame.begin(), entities_list_pregame.end(), foundEntity);
+            
             if (it != entities_list_pregame.end()) {
-                Entity* foundEntity = (Entity*)&*it;
-                foundEntity->isChild = true;
-                entity.addChild(*foundEntity);
-
-                auto it = std::find(entities_list_pregame.begin(), entities_list_pregame.end(), foundEntity);
-                
-                if (it != entities_list_pregame.end()) {
-                    entities_list_pregame.erase(it);
-                }
+                entities_list_pregame.erase(it);
             }
         }
         ImGui::EndDragDropTarget();
@@ -222,7 +220,7 @@ void DrawEntityTree(Entity& entity, int active, int& index, int depth) {
 
             if (auto* childEntity = std::get_if<Entity*>(&childVariant)) {
                 // Handle the Entity type.
-                DrawEntityTree(**childEntity, active, index, depth + 1);
+                DrawEntityTree(**childEntity, active, index);
             } else if (auto* childLight = std::get_if<Light*>(&childVariant)) {
                 auto it = std::find_if(lights.begin(), lights.end(),
                     [childLight](Light light) { return light.id == (**childLight).id; });

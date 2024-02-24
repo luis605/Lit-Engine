@@ -2,15 +2,15 @@
     {
         "fovy": 60.0,
         "position": {
-            "x": -3.3835418224334717,
-            "y": 28.960289001464844,
-            "z": 58.418846130371094
+            "x": 19.570215225219727,
+            "y": 3.8238511085510254,
+            "z": -0.30430835485458374
         },
         "projection": 0,
         "target": {
-            "x": 12.568453788757324,
-            "y": -2.088998794555664,
-            "z": 22.62125015258789
+            "x": -27.884031295776367,
+            "y": -11.666954040527344,
+            "z": -3.1549835205078125
         },
         "type": "camera",
         "up": {
@@ -22,18 +22,18 @@
     {
         "ambientColor": {
             "w": 1.0,
-            "x": 0.0,
-            "y": 0.0,
-            "z": 0.0
+            "x": 1.0,
+            "y": 1.0,
+            "z": 1.0
         },
-        "bloom": false,
+        "bloom": true,
         "bloomBrightness": 0.0,
         "bloomSamples": 3.0,
         "skyboxColor": {
             "w": 1.0,
-            "x": 0.0,
-            "y": 0.0,
-            "z": 0.0
+            "x": 1.0,
+            "y": 1.0,
+            "z": 1.0
         },
         "skyboxPath": "assets/images/skybox/default skybox.hdr",
         "type": "world settings"
@@ -47,10 +47,10 @@
         "is_dynamic": false,
         "lodEnabled": true,
         "mass": 1.0,
-        "material_path": "project/game/materials/file2.mat",
+        "material_path": "",
         "mesh_type": 1,
         "model_path": "",
-        "name": "Unnamed Entity",
+        "name": "1",
         "normal_texture_path": "",
         "position": {
             "x": 0.0,
@@ -69,22 +69,22 @@
         },
         "roughness_texture_path": "",
         "scale": {
-            "x": 100.0,
+            "x": 1.0,
             "y": 1.0,
-            "z": 100.0
+            "z": 1.0
         },
         "script_index": "",
         "script_path": "",
         "surface_material": {
-            "DiffuseIntensity": 1.0,
-            "Roughness": 0.42500001192092896,
-            "SpecularIntensity": 0.0,
+            "DiffuseIntensity": 0.5,
+            "Roughness": 0.5,
+            "SpecularIntensity": 0.5,
             "SpecularTint": {
                 "x": 1.0,
                 "y": 1.0,
                 "z": 1.0
             },
-            "shininess": 1.0
+            "shininess": 0.5
         },
         "texture_path": "",
         "tiling": [
@@ -94,40 +94,117 @@
         "type": "entity"
     },
     {
-        "attenuation": 0.0,
-        "color": {
-            "a": 255.0,
-            "b": 0.0,
-            "g": 0.0,
-            "r": 255.0
-        },
-        "cutOff": 10.0,
-        "direction": {
-            "x": -1.0,
-            "y": -0.335999995470047,
-            "z": -0.16599999368190765
-        },
-        "id": 8,
-        "intensity": 5.0,
-        "isChild": false,
-        "light_type": 2,
-        "name": "",
+        "children": [
+            [
+                {
+                    "collider": true,
+                    "collider_type": 2,
+                    "damping": 0.0,
+                    "friction": 1.0,
+                    "id": 2,
+                    "is_dynamic": false,
+                    "lodEnabled": true,
+                    "mass": 1.0,
+                    "material_path": "",
+                    "mesh_type": 1,
+                    "model_path": "",
+                    "name": "3",
+                    "normal_texture_path": "",
+                    "position": {
+                        "x": 0.0,
+                        "y": 0.0,
+                        "z": 6.199995994567871
+                    },
+                    "relative_position": {
+                        "x": 0.0,
+                        "y": 0.0,
+                        "z": 14.099990844726563
+                    },
+                    "rotation": {
+                        "x": 0.0,
+                        "y": 0.0,
+                        "z": 0.0
+                    },
+                    "roughness_texture_path": "",
+                    "scale": {
+                        "x": 1.0,
+                        "y": 1.0,
+                        "z": 1.0
+                    },
+                    "script_index": "",
+                    "script_path": "",
+                    "surface_material": {
+                        "DiffuseIntensity": 0.5,
+                        "Roughness": 0.5,
+                        "SpecularIntensity": 0.5,
+                        "SpecularTint": {
+                            "x": 1.0,
+                            "y": 1.0,
+                            "z": 1.0
+                        },
+                        "shininess": 0.5
+                    },
+                    "texture_path": "",
+                    "tiling": [
+                        1.0,
+                        1.0
+                    ],
+                    "type": "entity"
+                }
+            ]
+        ],
+        "collider": true,
+        "collider_type": 2,
+        "damping": 0.0,
+        "friction": 1.0,
+        "id": 1,
+        "is_dynamic": false,
+        "lodEnabled": true,
+        "mass": 1.0,
+        "material_path": "",
+        "mesh_type": 1,
+        "model_path": "",
+        "name": "2",
+        "normal_texture_path": "",
         "position": {
-            "x": 4.0,
-            "y": 5.0,
-            "z": 6.5999979972839355
+            "x": 0.0,
+            "y": 0.0,
+            "z": -7.899994850158691
         },
         "relative_position": {
-            "x": 0,
-            "y": 0,
-            "z": 0
-        },
-        "specularStrength": 1.0,
-        "target": {
             "x": 0.0,
             "y": 0.0,
             "z": 0.0
         },
-        "type": "light"
+        "rotation": {
+            "x": 0.0,
+            "y": 0.0,
+            "z": 0.0
+        },
+        "roughness_texture_path": "",
+        "scale": {
+            "x": 1.0,
+            "y": 1.0,
+            "z": 1.0
+        },
+        "script_index": "",
+        "script_path": "",
+        "surface_material": {
+            "DiffuseIntensity": 0.5,
+            "Roughness": 0.5,
+            "SpecularIntensity": 0.5,
+            "SpecularTint": {
+                "x": 1.0,
+                "y": 1.0,
+                "z": 1.0
+            },
+            "shininess": 0.5
+        },
+        "texture_path": "",
+        "tiling": [
+            1.0,
+            1.0
+        ],
+        "type": "entity"
     }
 ]
