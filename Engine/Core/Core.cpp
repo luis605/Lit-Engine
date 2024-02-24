@@ -36,7 +36,7 @@ void LoadTextures() {
     emptyTexture = LoadTexture("assets/images/empty_file_file_type.png");
     runTexture = LoadTexture("assets/images/run_game.png");
     pauseTexture = LoadTexture("assets/images/pause_game.png");
-    saveTexture = LoadTexture("assets/images/saveFile.png");
+    saveTexture = LoadTexture("assets/images/save_file.png");
     hotReloadTexture = LoadTexture("assets/images/hot_reload.png");
     lightTexture = LoadTexture("assets/images/light_bulb.png");
     windowIconImage = LoadImage("assets/images/window_icon.png");
