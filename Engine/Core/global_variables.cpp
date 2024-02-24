@@ -76,7 +76,7 @@ bool firstTimeGameplay = true;
     bool createNewThemeWindowOpen = false;
 
     // Load && Save
-    string themes_folder = "project/themes/";
+    string themesFolder = "project/themes/";
     bool showFileExplorer = false;
     bool showSaveThemeWindow = false;
     bool showLoadThemeWindow = false;

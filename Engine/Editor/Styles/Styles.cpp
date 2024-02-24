@@ -1,4 +1,3 @@
-#include "../../include_all.h"
 #include "Styles.h"
 
 std::string to_hex_string(ImU32 color)
@@ -54,7 +53,7 @@ void LoadThemeFromFile(const std::string& filename)
     }
 }
 
-string showFileExplorer(const char* folderPath, nlohmann::json fileContent, FileExplorerType type)
+std::string ShowFileExplorer(const char* folderPath, nlohmann::json fileContent, FileExplorerType type = FileExplorerType::Save)
 {
     if (showSaveThemeWindow || showLoadThemeWindow)
     {
@@ -118,41 +117,41 @@ void CreateNewTheme()
     ImGui::Begin("Create New Theme", &createNewThemeWindowOpen);
     ImGui::Text("Themes options:");
 
-    ImGui::Combo("##OptionsCombo", (int*)&selectedThemeCreateOption, themes_colors_string, IM_ARRAYSIZE(themes_colors_string));
+    ImGui::Combo("##OptionsCombo", (int*)&theme_create_selected_option, themes_colors_string, IM_ARRAYSIZE(themes_colors_string));
     ImGui::SameLine();
     bool add_to_list = ImGui::Button("Add Selected Option", {ImGui::CalcTextSize("Add Selected Option").x + 30, 30});
     if (add_to_list)
     {
-        auto checker_algorithm = std::find(newThemeSavedOptions.begin(), newThemeSavedOptions.end(), selectedThemeCreateOption);
-        if (checker_algorithm != newThemeSavedOptions.end())
+        auto checker_algorithm = std::find(new_theme_saved_options.begin(), new_theme_saved_options.end(), theme_create_selected_option);
+        if (checker_algorithm != new_theme_saved_options.end())
         {
             std::cout << "Item already exists" << std::endl;
         }
         else
         {
-            std::cout << "Selected Option '" << selectedThemeCreateOption <<"' Added!" << std::endl;
-            newThemeSavedOptions.push_back(selectedThemeCreateOption);
-            newThemeSavedOptionsColor.push_back(ImVec4(1.0f, 1.0f, 1.0f, 1.0f));
+            std::cout << "Selected Option '" << theme_create_selected_option <<"' Added!" << std::endl;
+            new_theme_saved_options.push_back(theme_create_selected_option);
+            new_theme_saved_options_color.push_back(ImVec4(1.0f, 1.0f, 1.0f, 1.0f));
         }
     }
 
-    for (int index = 0; index < newThemeSavedOptions.size(); index++)
+    for (int index = 0; index < new_theme_saved_options.size(); index++)
     {
-        int option_index = newThemeSavedOptions[index];
+        int option_index = new_theme_saved_options[index];
         ImGui::Text(themes_colors_string[option_index]);
         ImGui::SameLine();
         string color_picker_name = "##Color Picker - " + to_string(index);
-        ImGui::ColorEdit4(color_picker_name.c_str(), (float*)&newThemeSavedOptionsColor[index], ImGuiColorEditFlags_NoInputs);
+        ImGui::ColorEdit4(color_picker_name.c_str(), (float*)&new_theme_saved_options_color[index], ImGuiColorEditFlags_NoInputs);
     }
 
-    bool save_button = ImGui::Button("Save", {110, 30});
+    bool saveButton = ImGui::Button("Save", {110, 30});
     ImGui::SameLine();
     bool load_button = ImGui::Button("Load", {110, 30});
     ImGui::SameLine();
     bool apply_button = ImGui::Button("Apply/Preview", {110, 30});
 
 
-    if (save_button)
+    if (saveButton)
     {
         showSaveThemeWindow = true;
     }
@@ -161,11 +160,11 @@ void CreateNewTheme()
     {
         nlohmann::json data;
 
-        for (int i = 0; i < newThemeSavedOptions.size(); i++)
+        for (int i = 0; i < new_theme_saved_options.size(); i++)
         {
-            int option_index = newThemeSavedOptions[i];
+            int option_index = new_theme_saved_options[i];
 
-            ImU32 color = ImGui::ColorConvertFloat4ToU32(newThemeSavedOptionsColor[i]);
+            ImU32 color = ImGui::ColorConvertFloat4ToU32(new_theme_saved_options_color[i]);
             std::string color_hex = to_hex_string(color);
             data["options"].push_back({
                 {"index", themes_colors_string[option_index]},
@@ -174,7 +173,7 @@ void CreateNewTheme()
         }
         
 
-        showFileExplorer(themes_folder.c_str(), data, FileExplorerType::Save);
+        ShowFileExplorer(themesFolder.c_str(), data, FileExplorerType::Save);
     }
 
 
@@ -184,20 +183,20 @@ void CreateNewTheme()
     }
 
     if (showLoadThemeWindow && !showSaveThemeWindow)
-        showFileExplorer(themes_folder.c_str(), "", FileExplorerType::Load);
+        ShowFileExplorer(themesFolder.c_str(), "", FileExplorerType::Load);
 
     if (showLoadThemeWindow && showSaveThemeWindow)
-        showFileExplorer(themes_folder.c_str(), "", FileExplorerType::SaveLoad);
+        ShowFileExplorer(themesFolder.c_str(), "", FileExplorerType::SaveLoad);
 
 
     if (apply_button)
     {
         ImGuiStyle& style = ImGui::GetStyle();
         ImVec4* colors = style.Colors;
-        for (int i = 0; i < newThemeSavedOptions.size(); i++)
+        for (int i = 0; i < new_theme_saved_options.size(); i++)
         {
-            int option_index = newThemeSavedOptions[i];
-            colors[option_index] = newThemeSavedOptionsColor[i];
+            int option_index = new_theme_saved_options[i];
+            colors[option_index] = new_theme_saved_options_color[i];
         }
     }
 

@@ -47,7 +47,6 @@ void AssetsExplorer() {
     ImGui::PushStyleVar(ImGuiStyleVar_FrameRounding, 5);
 
     if (!dirPath.empty()) {
-        fs::path dirPath = dirPath;
         if (fs::exists(dirPath)) {
             for (const auto& entry : fs::directory_iterator(dirPath)) {
                 fs::path file = entry.path().filename();
