@@ -51,7 +51,12 @@ void Inspector()
     else if (selected_game_object_type == "button")
         ButtonInspector();
     else if (selected_game_object_type == "material")
+    {
+        ImGui::Text("Inspecting Material");    
+        ImGui::Dummy(ImVec2(0.0f, 10.0f));
+
         MaterialInspector();
+    }
     else if (selected_game_object_type == "camera")
         CameraInspector();
     else

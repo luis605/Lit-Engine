@@ -20,11 +20,6 @@ void MaterialInspector(SurfaceMaterial* surface_material = nullptr, string path 
         material = &emptySurfaceMaterial;
     }
 
-    
-    ImGui::Text("Inspecting Material");    
-    ImGui::Dummy(ImVec2(0.0f, 10.0f));
-
-
     ImGui::Text("Color: ");
     ImVec4 material_color(material->color.r, material->color.g, material->color.b, material->color.a);
     if (ImGui::ColorEdit4("##MaterialColor", (float*)&material_color, ImGuiColorEditFlags_NoInputs))
