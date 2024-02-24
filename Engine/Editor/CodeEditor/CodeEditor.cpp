@@ -12,7 +12,7 @@ void CodeEditor()
     ImGui::Begin(ICON_FA_CODE " Code Editor", NULL);
 
     ImVec2 size = ImGui::GetContentRegionAvail();
-    bool saveFile = ImGui::ImageButton((ImTextureID)&saveTexture, ImVec2(64, 64));
+    bool saveFile = ImGui::ImageButton((ImTextureID)&saveTexture, ImVec2(34, 34));
 
     if (saveFile)
     {
@@ -40,7 +40,7 @@ void CodeEditor()
 
 
     // Inside your ImGui window loop
-    bool hot_reload = ImGui::ImageButton((ImTextureID)&hotReloadTexture, ImVec2(64, 64));
+    bool hot_reload = ImGui::ImageButton((ImTextureID)&hotReloadTexture, ImVec2(34, 34));
 
     if (hot_reload)
     {
