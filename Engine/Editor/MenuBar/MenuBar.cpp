@@ -73,7 +73,7 @@ void DebugWindow()
     {
         ImGui::Indent(15.0f);
 
-        ImGui::Text("Scene Editor %.4f ms", sceneEditor_profiler_duration.count());
+        ImGui::Text("Scene Editor %lld ms", sceneEditor_profiler_duration.count());
 
         ImGui::Unindent(15.0f);
     }
