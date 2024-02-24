@@ -485,15 +485,17 @@ public:
     void addChild(Entity& entityChild) {
         Entity* newChild = new Entity(entityChild);
 
+        newChild->isChild = true;
+        newChild->parent = this;
         newChild->relative_position = {
             newChild->position.x - this->position.x,
             newChild->position.y - this->position.y,
             newChild->position.z - this->position.z
         };
 
-        newChild->parent = this;
         children.push_back(newChild);
     }
+
 
     void addChild(Light* lightChild, int light_id) {
         lightChild->relative_position = {
@@ -512,6 +514,18 @@ public:
             children.push_back(lightChild);
         }
     }
+    
+    void removeChild(Entity* entityChild) {
+        if (!entityChild) {
+            std::cout << "Error: entityChild is null." << std::endl;
+            return;  // Indicate error
+        }
+
+        std::cout << "Entity with ID " << entityChild->id << " not found." << std::endl;
+        return false;  // Return false on failure
+    }
+
+
 
     void update_children()
     {
@@ -556,12 +570,12 @@ public:
 
     void remove() {
         // Delete objects in children vector
-        for (auto& childVariant : children) {
-            std::visit([](auto& child) { delete child; }, childVariant);
-        }
+        // for (auto& childVariant : children) {
+        //     std::visit([](auto& child) { delete child; }, childVariant);
+        // }
 
-        // Clear the children vector
-        children.clear();
+        // // Clear the children vector
+        // children.clear();
 
         // Remove the corresponding entity from entities_list_pregame
         entities_list_pregame.erase(
