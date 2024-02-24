@@ -94,18 +94,41 @@ void EntityInspector()
         ImGui::Indent(30.0f);
 
         ImGui::Text("Scale:");
-        ImGui::InputFloat("X##ScaleX", &selected_entity_scale.x);
-        ImGui::InputFloat("Y##ScaleY", &selected_entity_scale.y);
-        ImGui::InputFloat("Z##ScaleZ", &selected_entity_scale.z);
-        selected_entity->scale = selected_entity_scale;
+        ImGui::Indent(20.0f);
 
+        ImGui::Text("X:");
+        ImGui::SameLine();
+        ImGui::InputFloat("##ScaleX", &selected_entity_scale.x);
+        
+        ImGui::Text("Y:");
+        ImGui::SameLine();
+        ImGui::InputFloat("##ScaleY", &selected_entity_scale.y);
+        
+        ImGui::Text("Z:");
+        ImGui::SameLine();
+        ImGui::InputFloat("##ScaleZ", &selected_entity_scale.z);
+        
+        selected_entity->scale = selected_entity_scale;
+            
+        ImGui::Unindent(20.0f);
         ImGui::Dummy(ImVec2(0.0f, 30.0f));
 
         ImGui::Text("Position:");
-        ImGui::InputFloat("X##PositionX", &selected_entity_position.x);
-        ImGui::InputFloat("Y##PositionY", &selected_entity_position.y);
-        ImGui::InputFloat("Z##PositionZ", &selected_entity_position.z);
+        ImGui::Indent(20.0f);
 
+        ImGui::Text("X:");
+        ImGui::SameLine();
+        ImGui::InputFloat("##PositionX", &selected_entity_position.x);
+
+        ImGui::Text("Y:");
+        ImGui::SameLine();
+        ImGui::InputFloat("##PositionY", &selected_entity_position.y);
+
+        ImGui::Text("Z:");
+        ImGui::SameLine();
+        ImGui::InputFloat("##PositionZ", &selected_entity_position.z);
+
+        ImGui::Unindent(20.0f);
         ImGui::Dummy(ImVec2(0.0f, 30.0f));
 
         if (selected_entity->isChild)
@@ -121,47 +144,57 @@ void EntityInspector()
         }
 
         ImGui::Text("Rotation:");
+        ImGui::Indent(20.0f);
 
+        ImGui::Text("X:");
+        ImGui::SameLine();
         if (EntityRotationXInputModel)
         {
-            if (ImGui::InputFloat("X##RotationX", &selected_entity->rotation.x, -180.0f, 180.0f, "%.3f", ImGuiInputTextFlags_EnterReturnsTrue))
+            if (ImGui::InputFloat("##RotationX", &selected_entity->rotation.x, -180.0f, 180.0f, "%.3f", ImGuiInputTextFlags_EnterReturnsTrue))
                 EntityRotationXInputModel = false;
         }
         else
         {
-            ImGui::SliderFloat("X##RotationX", &selected_entity->rotation.x, -180.0f, 180.0f, "%.3f");
+            ImGui::SliderFloat("##RotationX", &selected_entity->rotation.x, -180.0f, 180.0f, "%.3f");
             EntityRotationXInputModel = ImGui::IsItemHovered() && ImGui::IsMouseDoubleClicked(0);
         }
 
+        ImGui::Text("Y:");
+        ImGui::SameLine();
         if (EntityRotationYInputModel)
         {
-            if (ImGui::InputFloat("Y##RotationY", &selected_entity->rotation.y, -180.0f, 180.0f, "%.3f", ImGuiInputTextFlags_EnterReturnsTrue))
+            if (ImGui::InputFloat("##RotationY", &selected_entity->rotation.y, -180.0f, 180.0f, "%.3f", ImGuiInputTextFlags_EnterReturnsTrue))
                 EntityRotationYInputModel = false;
         }
         else
         {
-            ImGui::SliderFloat("Y##RotationY", &selected_entity->rotation.y, -180.0f, 180.0f, "%.3f");
+            ImGui::SliderFloat("##RotationY", &selected_entity->rotation.y, -180.0f, 180.0f, "%.3f");
             EntityRotationYInputModel = ImGui::IsItemHovered() && ImGui::IsMouseDoubleClicked(0);
         }
-                
+
+        ImGui::Text("Z:");
+        ImGui::SameLine();
         if (EntityRotationZInputModel)
         {
-            if (ImGui::InputFloat("Z##RotationZ", &selected_entity->rotation.z, -180.0f, 180.0f, "%.3f", ImGuiInputTextFlags_EnterReturnsTrue))
+            if (ImGui::InputFloat("##RotationZ", &selected_entity->rotation.z, -180.0f, 180.0f, "%.3f", ImGuiInputTextFlags_EnterReturnsTrue))
                 EntityRotationZInputModel = false;
         }
         else
         {
-            ImGui::SliderFloat("Z##RotationZ", &selected_entity->rotation.z, -180.0f, 180.0f, "%.3f");
+            ImGui::SliderFloat("##RotationZ", &selected_entity->rotation.z, -180.0f, 180.0f, "%.3f");
             EntityRotationZInputModel = ImGui::IsItemHovered() && ImGui::IsMouseDoubleClicked(0);
         }
         
         selected_entity->setRot(selected_entity->rotation);
         
+        ImGui::Unindent(20.0f);
         ImGui::Dummy(ImVec2(0.0f, 30.0f));
 
-        ImGui::Text("Scripts: ");
-        ImGui::Text("Drop Script Here: ");
-        ImGui::SameLine();
+        const float margin = 40.0f;
+        const float LODWidth = ImGui::CalcTextSize("Level of Detail: ").x + margin;
+
+        ImGui::Text("Script: ");
+        ImGui::SameLine(LODWidth);
 
         const char* script_name = selected_entity->script.c_str();
         if (selected_entity->script.empty()) script_name = "##ScriptPath";
@@ -192,9 +225,6 @@ void EntityInspector()
             selected_entity->script = "";
             selected_entity->script_index = "NONE";
         }
-
-        const float margin = 40.0f;
-        const float LODWidth = ImGui::CalcTextSize("Level of Detail: ").x + margin;
 
         ImGui::Dummy(ImVec2(0.0f, 30.0f));
 
