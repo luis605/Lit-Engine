@@ -9,3 +9,5 @@ include/utils.h
 build/include
 build/CMakeFiles
 imgui.ini
+build/CMakeFiles
+build/include
