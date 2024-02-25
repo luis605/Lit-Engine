@@ -1516,30 +1516,23 @@ bool operator==(const Entity& e, const Entity* ptr) {
         {
             Color entity_color_raylib = WHITE;
 
-            Entity entity_create;
-            entity_create.setColor(entity_color_raylib);
-            entity_create.setScale(Vector3{1, 1, 1});
-            entity_create.setName(name);
-            entity_create.isChild = isChild;
-            entity_create.setModel(model_path, model);
-            entity_create.setShader(shader);
+            Entity entityCreate;
+            entityCreate.setColor(entity_color_raylib);
+            entityCreate.setScale(Vector3{1, 1, 1});
+            entityCreate.setName(name);
+            entityCreate.isChild = isChild;
+            entityCreate.setModel(model_path, model);
+            entityCreate.setShader(shader);
 
             if (!entitiesListPregame.empty())
             {
-                entity_create.id = GenerateUniqueID(entitiesListPregame);
+                entityCreate.id = GenerateUniqueID(entitiesListPregame);
             }
             else
-                entity_create.id = 0;
+                entityCreate.id = 0;
 
-            if (selectedGameObjectType == "entity")
-            {
-                if (selectedEntity->isChild)
-                    selectedEntity->addChild(entity_create);
-                else
-                    entitiesListPregame.back().addChild(entity_create);
-            }
-
-            selectedEntity = &entity_create;
+            entitiesListPregame.push_back(entityCreate);
+            selectedEntity = &entityCreate;
 
             int last_entity_index = entitiesListPregame.size() - 1;
             listViewExActive = last_entity_index;
