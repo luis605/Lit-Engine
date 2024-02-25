@@ -1512,34 +1512,31 @@ bool operator==(const Entity& e, const Entity* ptr) {
     )
     {
 
-        if (createimmediatly)
+        Color entity_color_raylib = WHITE;
+
+        Entity entityCreate;
+        entityCreate.setColor(entity_color_raylib);
+        entityCreate.setScale(Vector3{1, 1, 1});
+        entityCreate.setName(name);
+        entityCreate.isChild = isChild;
+        entityCreate.setModel(model_path, model);
+        entityCreate.setShader(shader);
+
+        if (!entitiesListPregame.empty())
         {
-            Color entity_color_raylib = WHITE;
-
-            Entity entityCreate;
-            entityCreate.setColor(entity_color_raylib);
-            entityCreate.setScale(Vector3{1, 1, 1});
-            entityCreate.setName(name);
-            entityCreate.isChild = isChild;
-            entityCreate.setModel(model_path, model);
-            entityCreate.setShader(shader);
-
-            if (!entitiesListPregame.empty())
-            {
-                entityCreate.id = GenerateUniqueID(entitiesListPregame);
-            }
-            else
-                entityCreate.id = 0;
-
-            entitiesListPregame.push_back(entityCreate);
-            selectedEntity = &entityCreate;
-
-            int last_entity_index = entitiesListPregame.size() - 1;
-            listViewExActive = last_entity_index;
-
-            create = false;
-            canAddEntity = false;
+            entityCreate.id = GenerateUniqueID(entitiesListPregame);
         }
+        else
+            entityCreate.id = 0;
+
+        entitiesListPregame.push_back(entityCreate);
+        selectedEntity = &entityCreate;
+
+        int last_entity_index = entitiesListPregame.size() - 1;
+        listViewExActive = last_entity_index;
+
+        create = false;
+        canAddEntity = false;
     }
 #endif
 
