@@ -1511,13 +1511,8 @@ bool operator==(const Entity& e, const Entity* ptr) {
         string name = "Unnamed Entity"
     )
     {
-        const int POPUP_WIDTH = 600;
-        const int POPUP_HEIGHT = 650;
 
-        int popupX = GetScreenWidth() / 4.5;
-        int popupY = (GetScreenHeight() - POPUP_HEIGHT) / 6;
-
-        if (create || createimmediatly)
+        if (createimmediatly)
         {
             Color entity_color_raylib = WHITE;
 

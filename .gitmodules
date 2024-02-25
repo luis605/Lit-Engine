@@ -1,26 +1,26 @@
-[submodule "include/imgui"]
-    path = include/imgui
-    url = https://github.com/ocornut/imgui.git
-    branch = docking
-[submodule "include/raylib"]
-    path = include/raylib
-    url = https://github.com/raysan5/raylib.git
-[submodule "include/ImGuiColorTextEdit"]
-    path = include/ImGuiColorTextEdit
-    url = https://github.com/luis605/ImGuiColorTextEdit.git
+[submodule "ImGuiColorTextEdit"]
+	path = include/ImGuiColorTextEdit
+	url = https://github.com/luis605/ImGuiColorTextEdit.git
     branch = main
-[submodule "include/ImNodes"]
-    path = include/ImNodes
-    url = https://github.com/luis605/ImNodes.git
-[submodule "include/bullet3"]
-    path = include/bullet3
-    url = https://github.com/bulletphysics/bullet3.git
-[submodule "include/ffmpeg"]
-    path = include/ffmpeg
-    url = https://github.com/FFmpeg/FFmpeg.git
-[submodule "include/meshoptimizer"]
-    path = include/meshoptimizer
-    url = https://github.com/zeux/meshoptimizer.git
+[submodule "ImNodes"]
+	path = include/ImNodes
+	url = https://github.com/luis605/ImNodes.git
+[submodule "include/imgui"]
+	path = include/imgui
+	url = https://github.com/ocornut/imgui.git
+	branch = docking
 [submodule "include/nlohmann"]
-    path = include/nlohmann
-    url = https://github.com/nlohmann/json.git
+	path = include/nlohmann
+	url = https://github.com/nlohmann/json.git
+[submodule "include/meshoptimizer"]
+	path = include/meshoptimizer
+	url = https://github.com/zeux/meshoptimizer.git
+[submodule "include/ffmpeg"]
+	path = include/ffmpeg
+	url = https://github.com/FFmpeg/FFmpeg.git
+[submodule "bullet3"]
+	path = include/bullet3
+	url = https://github.com/bulletphysics/bullet3.git
+[submodule "include/raylib"]
+	path = include/raylib
+	url = https://github.com/raysan5/raylib.git
