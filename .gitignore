@@ -3,9 +3,6 @@
 *.ini
 *.o
 *.ini
-raylib
-include/ray*
-include/utils.h
 build/include
 build/CMakeFiles
 imgui.ini

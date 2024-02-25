@@ -35,7 +35,7 @@
             "y": 0.02670646458864212,
             "z": 0.06521737575531006
         },
-        "skyboxPath": "project/game/kloppenheim_02_puresky_4k.hdr",
+        "skyboxPath": "project/game/images/kloppenheim_02_puresky_4k.hdr",
         "type": "world settings"
     },
     {
@@ -1246,7 +1246,6 @@
         "is_dynamic": false,
         "lodEnabled": true,
         "mass": 1.0,
-        "material_path": "project/game/hwllo world.mat",
         "mesh_type": 1,
         "model_path": "",
         "name": "Floor",
@@ -1415,7 +1414,6 @@
         "is_dynamic": true,
         "lodEnabled": true,
         "mass": 15.5,
-        "material_path": "project/game/file1.mat",
         "mesh_type": 1,
         "model_path": "",
         "name": "Box",

@@ -26,23 +26,23 @@ endef
 
 
 CXXFLAGS = -g -pipe -std=c++17 -fpermissive -w -Wall -DNDEBUG -O0 -g
-SRC_FILES = ImGuiColorTextEdit/TextEditor.o include/rlImGui.o ImNodes/ImNodes.o ImNodes/ImNodesEz.o
-INCLUDE_DIRS = -I./include -I./ImGuiColorTextEdit -L./ffmpeg -L. -I. -I./ffmpeg -I./include/nlohmann/include -L./include -I./imgui -L/bullet3/src
-INCLUDE_DIRS_STATIC = -I./include -I/usr/local/lib -I./include/nlohmann/include -I./bullet3/src -I./ffmpeg -I./ffmpeg -L./include
-LIB_FLAGS = -L./include -lraylib -ldl -lBulletDynamics -lBulletCollision -lLinearMath -I./bullet3/src
-LIB_FLAGS += -L./ffmpeg -lavformat -lavcodec -lavutil -lswscale -lswresample -lz -lm -lpthread -ldrm -ltbb -lmeshoptimizer -L./libs/
+SRC_FILES = include/ImGuiColorTextEdit/TextEditor.o include/rlImGui.o include/ImNodes/ImNodes.o include/ImNodes/ImNodesEz.o
+INCLUDE_DIRS = -I./include -I./include/ImGuiColorTextEdit -L./include/ffmpeg -L.include/ -I.include/ -I./include/ffmpeg -I./include/nlohmann/include -I./include/imgui -L/include/bullet3/src
+INCLUDE_DIRS_STATIC = -I./include -I/usr/local/lib -I./include/nlohmann/include -I./include/bullet3/src -I./include/ffmpeg -I./include/ffmpeg -L./include
+LIB_FLAGS = -L./include -lraylib -ldl -lBulletDynamics -lBulletCollision -lLinearMath -I./include/bullet3/src
+LIB_FLAGS += -L./include/ffmpeg -lavformat -lavcodec -lavutil -lswscale -lswresample -lz -lm -lpthread -ldrm -ltbb -lmeshoptimizer -L./libs/
 
 PYTHON_INCLUDE_DIR := $(shell python -c "import sys; print(sys.prefix + '/include')")
 
 LIB_FLAGS_LINUX = $(LIB_FLAGS) -lpython3.11 -fPIC `python3.11 -m pybind11 --includes`
 
-LIB_FLAGS_WINDOWS = -I./pybind11/include -I$(PYTHON_INCLUDE_DIR) $(LIB_FLAGS)
+LIB_FLAGS_WINDOWS = -I./include/pybind11/include -I$(PYTHON_INCLUDE_DIR) $(LIB_FLAGS)
 
 
 
-IMGUI_OBJECTS = $(patsubst imgui/%.cpp, imgui/%.obj, $(wildcard imgui/*.cpp))
+IMGUI_OBJECTS = $(patsubst include/imgui/%.cpp, include/imgui/%.obj, $(wildcard include/imgui/*.cpp))
 
-imgui/%.obj: imgui/%.cpp
+include/imgui/%.obj: include/imgui/%.cpp
 	@echo "Building Dear ImGUI"
 	g++ -std=c++17 -O3 -DIMGUI_IMPL_OPENGL_LOADER_GLAD -c $< -o $@
 
@@ -78,14 +78,8 @@ static-build-linux:
 	@g++ $(CXXFLAGS) static.cpp -o static.o $(INCLUDE_DIRS_STATIC) $(LIB_FLAGS_LINUX) -c
 	@ar rcs libstatic.a static.o
 
-
-
-IMGUI_OBJECTS = $(patsubst imgui/%.cpp, imgui/%.o, $(wildcard imgui/*.cpp))
-
-
-
 sandbox: $(IMGUI_OBJECTS)
-	@g++ -g $(IMGUI_OBJECTS) sandbox.cpp -o sandbox.out -L. include/rlImGui.o -lraylib -Wall -w  -I./imgui -L. -lmeshoptimizer
+	@g++ -g $(IMGUI_OBJECTS) sandbox.cpp -o sandbox.out -L. include/rlImGui.o -lraylib -Wall -w  -I./include/imgui -L. -lmeshoptimizer
 	@./sandbox.out
 
 
@@ -111,10 +105,10 @@ tests:
 
 build_dependencies: $(IMGUI_OBJECTS)
 	@$(call echo_success, "Building Dependencies")
-	@g++ -c $(IMGUI_OBJECTS) -I./imgui -O3 ImNodes/ImNodes.cpp -o ImNodes/ImNodes.o
-	@g++ -c $(IMGUI_OBJECTS) -I./imgui -O3 ImNodes/ImNodesEz.cpp -o ImNodes/ImNodesEz.o
-	@g++ -c $(IMGUI_OBJECTS) -I./imgui -O3 include/rlImGui.cpp -o include/rlImGui.o
-	@g++ -c $(IMGUI_OBJECTS) -I./imgui -O3 ImGuiColorTextEdit/TextEditor.cpp -o ImGuiColorTextEdit/TextEditor.o
+	@g++ -c $(IMGUI_OBJECTS) -I./include/imgui -O3 include/ImNodes/ImNodes.cpp -o include/ImNodes/ImNodes.o
+	@g++ -c $(IMGUI_OBJECTS) -I./include/imgui -O3 include/ImNodes/ImNodesEz.cpp -o include/ImNodes/ImNodesEz.o
+	@g++ -c $(IMGUI_OBJECTS) -I./include/imgui -O3 include/rlImGui.cpp -o include/rlImGui.o
+	@g++ -c $(IMGUI_OBJECTS) -I./include/imgui -O3 include/ImGuiColorTextEdit/TextEditor.cpp -o include/ImGuiColorTextEdit/TextEditor.o
 	@g++ -c -O3 include/rlFrustum.cpp -o include/rlFrustum.o
 
 
