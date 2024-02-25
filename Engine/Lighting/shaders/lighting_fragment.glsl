@@ -107,7 +107,7 @@ vec4 CalculateDirectionalLight(Light light, vec3 viewDir, vec3 norm, vec3 halfVe
     vec3 fresnel = CalculateFresnelReflection(surface_material.baseReflectance, viewDir, halfVector);
 
     vec4 diffuseTerm = colDiffuse * surface_material.DiffuseIntensity * NdotL;
-    vec4 lightContribution = (diffuseTerm + specular) * light.color * vec4(fresnel, 1.0) * light.intensity;
+    vec4 lightContribution = (diffuseTerm + specular * light.specularStrength) * light.color * vec4(fresnel, 1.0) * light.intensity;
 
     return lightContribution;
 }
@@ -128,7 +128,7 @@ vec4 CalculatePointLight(Light light, vec3 viewDir, vec3 norm, float roughness, 
     vec3 reflectDir = reflect(-lightDir, norm);  
 
     float spec = pow(max(dot(viewDir, reflectDir), 0.0), surface_material.shininess);
-    vec3 specular = surface_material.SpecularIntensity * spec * light.color.rgb;  
+    vec3 specular = surface_material.SpecularIntensity * spec * light.color.rgb * light.specularStrength;
 
     // Use the unmodified NdotL for the diffuse term
     return ((NdotL + colDiffuse + vec4(specular, 1.0)) * light.color * attenuation * light.intensity);
