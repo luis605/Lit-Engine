@@ -515,15 +515,15 @@ public:
         }
     }
     
-    void removeChild(Entity* entityChild) {
-        if (!entityChild) {
-            std::cout << "Error: entityChild is null." << std::endl;
-            return;  // Indicate error
-        }
+    // void removeChild(Entity* entityChild) {
+    //     if (!entityChild) {
+    //         std::cout << "Error: entityChild is null." << std::endl;
+    //         return;  // Indicate error
+    //     }
 
-        std::cout << "Entity with ID " << entityChild->id << " not found." << std::endl;
-        return false;  // Return false on failure
-    }
+    //     std::cout << "Entity with ID " << entityChild->id << " not found." << std::endl;
+    //     return false;  // Return false on failure
+    // }
 
 
 

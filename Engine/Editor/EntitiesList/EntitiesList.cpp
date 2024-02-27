@@ -188,9 +188,9 @@ void DrawEntityTree(Entity& entity, int active, int& index) {
             // Retrieve the entity ID from the payload data.
             Entity* foundEntity = (Entity*)payload->Data;
 
-            if (foundEntity->isChild) {
-                foundEntity->parent->removeChild(foundEntity);
-            }
+            // if (foundEntity->isChild) {
+            //     foundEntity->parent->removeChild(foundEntity);
+            // }
 
             foundEntity->isChild = true;
             entity.addChild(*foundEntity);
