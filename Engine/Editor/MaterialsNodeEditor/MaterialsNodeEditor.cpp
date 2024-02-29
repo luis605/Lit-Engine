@@ -70,44 +70,44 @@ std::vector<MyNode*> nodes;
 void SetMaterial(SurfaceMaterial& material)
 {
     // Color
-    selected_entity->surface_material.color = entity_material.color;
+    selectedEntity->surface_material.color = entityMaterial.color;
 
     // Textures
-    if (IsTextureReady(entity_material.texture))
+    if (IsTextureReady(entityMaterial.texture))
     {
-        Texture2D entity_texture = entity_material.texture;
-        selected_entity->texture = entity_texture;
-        selected_entity->model.materials[0].maps[MATERIAL_MAP_DIFFUSE].texture = entity_texture;
-        selected_entity->texture_path = entity_material.texture_path.string();
+        Texture2D entityTexture = entityMaterial.texture;
+        selectedEntity->texture = entityTexture;
+        selectedEntity->model.materials[0].maps[MATERIAL_MAP_DIFFUSE].texture = entityTexture;
+        selectedEntity->texturePath = entityMaterial.texturePath.string();
     }
 
-    if (IsTextureReady(entity_material.normal_texture))
+    if (IsTextureReady(entityMaterial.normalTexture))
     {
-        selected_entity->normal_texture = entity_material.normal_texture;
+        selectedEntity->normalTexture = entityMaterial.normalTexture;
 
-        if (auto normal = get_if<Texture2D>(&selected_entity->normal_texture)) {
-            selected_entity->model.materials[0].maps[MATERIAL_MAP_NORMAL].texture = *normal;
-        } else if (auto* videoPlayerPtr = std::get_if<std::unique_ptr<VideoPlayer>>(&selected_entity->normal_texture)) {
+        if (auto normal = get_if<Texture2D>(&selectedEntity->normalTexture)) {
+            selectedEntity->model.materials[0].maps[MATERIAL_MAP_NORMAL].texture = *normal;
+        } else if (auto* videoPlayerPtr = std::get_if<std::unique_ptr<VideoPlayer>>(&selectedEntity->normalTexture)) {
             (*videoPlayerPtr)->Update();
-            selected_entity->model.materials[0].maps[MATERIAL_MAP_NORMAL].texture = (*videoPlayerPtr)->GetTexture();
+            selectedEntity->model.materials[0].maps[MATERIAL_MAP_NORMAL].texture = (*videoPlayerPtr)->GetTexture();
         }
 
-        selected_entity->normal_texture_path = entity_material.normal_texture_path.string();
+        selectedEntity->normalTexturePath = entityMaterial.normalTexturePath.string();
     }
     
     // Surface Material
-    selected_entity->surface_material.shininess = entity_material.shininess;
-    selected_entity->surface_material.SpecularIntensity = entity_material.SpecularIntensity;
-    selected_entity->surface_material.Roughness = entity_material.Roughness;
-    selected_entity->surface_material.DiffuseIntensity = entity_material.DiffuseIntensity;
-    selected_entity->surface_material.SpecularTint = entity_material.SpecularTint;
+    selectedEntity->surface_material.shininess = entityMaterial.shininess;
+    selectedEntity->surface_material.SpecularIntensity = entityMaterial.SpecularIntensity;
+    selectedEntity->surface_material.Roughness = entityMaterial.Roughness;
+    selectedEntity->surface_material.DiffuseIntensity = entityMaterial.DiffuseIntensity;
+    selectedEntity->surface_material.SpecularTint = entityMaterial.SpecularTint;
 
 
-    material.shininess = entity_material.shininess;
-    material.SpecularIntensity = entity_material.SpecularIntensity;
-    material.Roughness = entity_material.Roughness;
-    material.DiffuseIntensity = entity_material.DiffuseIntensity;
-    material.SpecularTint = entity_material.SpecularTint;
+    material.shininess = entityMaterial.shininess;
+    material.SpecularIntensity = entityMaterial.SpecularIntensity;
+    material.Roughness = entityMaterial.Roughness;
+    material.DiffuseIntensity = entityMaterial.DiffuseIntensity;
+    material.SpecularTint = entityMaterial.SpecularTint;
 }
 
 

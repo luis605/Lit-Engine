@@ -15,15 +15,15 @@ void InitEditorCamera()
     renderTexture = LoadRenderTexture( 1, 1 );
     texture = renderTexture.texture;
 
-    scene_camera.position = { 50.0f, 0.0f, 0.0f };
-    scene_camera.target = { 0.0f, 0.0f, 0.0f };
-    scene_camera.up = { 0.0f, 1.0f, 0.0f };
+    sceneCamera.position = { 50.0f, 0.0f, 0.0f };
+    sceneCamera.target = { 0.0f, 0.0f, 0.0f };
+    sceneCamera.up = { 0.0f, 1.0f, 0.0f };
 
-    Vector3 front = Vector3Subtract(scene_camera.target, scene_camera.position);
+    Vector3 front = Vector3Subtract(sceneCamera.target, sceneCamera.position);
     front = Vector3Normalize(front);
 
-    scene_camera.fovy = 60.0f;
-    scene_camera.projection = CAMERA_PERSPECTIVE;
+    sceneCamera.fovy = 60.0f;
+    sceneCamera.projection = CAMERA_PERSPECTIVE;
 }
 
 
@@ -52,11 +52,11 @@ void DrawTextureOnRectangle(const Texture* texture) {
 void EditorCameraMovement(void)
 {
     // Update Camera Position
-    front = Vector3Subtract(scene_camera.target, scene_camera.position);
+    front = Vector3Subtract(sceneCamera.target, sceneCamera.position);
     front = Vector3Normalize(front);
 
-    Vector3 forward = Vector3Subtract(scene_camera.target, scene_camera.position);
-    Vector3 right = Vector3CrossProduct(front, scene_camera.up);
+    Vector3 forward = Vector3Subtract(sceneCamera.target, sceneCamera.position);
+    Vector3 right = Vector3CrossProduct(front, sceneCamera.up);
     Vector3 normalizedRight = Vector3Normalize(right);
     Vector3 DeltaTimeVec3 = { GetFrameTime(), GetFrameTime(), GetFrameTime() };
 
@@ -66,57 +66,57 @@ void EditorCameraMovement(void)
     {
         movingEditorCamera = true;
         Vector3 movement = Vector3Scale(front, movementSpeed);
-        scene_camera.position = Vector3Add(scene_camera.position, Vector3Multiply(movement, DeltaTimeVec3));
-        scene_camera.target = Vector3Add(scene_camera.target, Vector3Multiply(movement, DeltaTimeVec3));
+        sceneCamera.position = Vector3Add(sceneCamera.position, Vector3Multiply(movement, DeltaTimeVec3));
+        sceneCamera.target = Vector3Add(sceneCamera.target, Vector3Multiply(movement, DeltaTimeVec3));
     }
 
     if (IsKeyDown(KEY_S))
     {
         movingEditorCamera = true;
         Vector3 movement = Vector3Scale(front, movementSpeed);
-        scene_camera.position = Vector3Subtract(scene_camera.position, Vector3Multiply(movement, DeltaTimeVec3));
-        scene_camera.target = Vector3Subtract(scene_camera.target, Vector3Multiply(movement, DeltaTimeVec3));
+        sceneCamera.position = Vector3Subtract(sceneCamera.position, Vector3Multiply(movement, DeltaTimeVec3));
+        sceneCamera.target = Vector3Subtract(sceneCamera.target, Vector3Multiply(movement, DeltaTimeVec3));
     }
 
     if (IsKeyDown(KEY_A))
     {
         movingEditorCamera = true;
         Vector3 movement = Vector3Scale(normalizedRight, -movementSpeed);
-        scene_camera.position = Vector3Add(scene_camera.position, Vector3Multiply(movement, DeltaTimeVec3));
-        scene_camera.target = Vector3Add(scene_camera.target, Vector3Multiply(movement, DeltaTimeVec3));
+        sceneCamera.position = Vector3Add(sceneCamera.position, Vector3Multiply(movement, DeltaTimeVec3));
+        sceneCamera.target = Vector3Add(sceneCamera.target, Vector3Multiply(movement, DeltaTimeVec3));
     }
 
     if (IsKeyDown(KEY_D))
     {
         movingEditorCamera = true;
         Vector3 movement = Vector3Scale(normalizedRight, -movementSpeed);
-        scene_camera.position = Vector3Subtract(scene_camera.position, Vector3Multiply(movement, DeltaTimeVec3));
-        scene_camera.target = Vector3Subtract(scene_camera.target, Vector3Multiply(movement, DeltaTimeVec3));
+        sceneCamera.position = Vector3Subtract(sceneCamera.position, Vector3Multiply(movement, DeltaTimeVec3));
+        sceneCamera.target = Vector3Subtract(sceneCamera.target, Vector3Multiply(movement, DeltaTimeVec3));
     }
 
     if (IsKeyDown(KEY_Q))
     {
         movingEditorCamera = true;
-        Vector3 movement = Vector3Scale(scene_camera.up, movementSpeed);
-        scene_camera.position = Vector3Subtract(scene_camera.position, Vector3Multiply(movement, DeltaTimeVec3));
-        scene_camera.target = Vector3Subtract(scene_camera.target, Vector3Multiply(movement, DeltaTimeVec3));
+        Vector3 movement = Vector3Scale(sceneCamera.up, movementSpeed);
+        sceneCamera.position = Vector3Subtract(sceneCamera.position, Vector3Multiply(movement, DeltaTimeVec3));
+        sceneCamera.target = Vector3Subtract(sceneCamera.target, Vector3Multiply(movement, DeltaTimeVec3));
     }
 
     if (IsKeyDown(KEY_E))
     {
         movingEditorCamera = true;
-        Vector3 movement = Vector3Scale(scene_camera.up, movementSpeed);
-        scene_camera.position = Vector3Add(scene_camera.position, Vector3Multiply(movement, DeltaTimeVec3));
-        scene_camera.target = Vector3Add(scene_camera.target, Vector3Multiply(movement, DeltaTimeVec3));
+        Vector3 movement = Vector3Scale(sceneCamera.up, movementSpeed);
+        sceneCamera.position = Vector3Add(sceneCamera.position, Vector3Multiply(movement, DeltaTimeVec3));
+        sceneCamera.target = Vector3Add(sceneCamera.target, Vector3Multiply(movement, DeltaTimeVec3));
     }
 
     if (GetMouseWheelMove() != 0 && ImGui::IsWindowHovered())
     {
         movingEditorCamera = true;
-        CameraMoveToTarget(&scene_camera, -GetMouseWheelMove());
+        CameraMoveToTarget(&sceneCamera, -GetMouseWheelMove());
     }
 
-    scene_camera.target = Vector3Add(scene_camera.position, forward);
+    sceneCamera.target = Vector3Add(sceneCamera.position, forward);
 
 
     if (IsKeyDown(KEY_LEFT_SHIFT))
@@ -132,12 +132,12 @@ void EditorCameraMovement(void)
     if (IsMouseButtonDown(MOUSE_RIGHT_BUTTON))
     {
         Vector2 mousePosition = GetMousePosition();
-        float angle_in_x_axis = (lastMousePosition.x - mousePosition.x) * 0.005f;
-        float angle_in_y_axis = (lastMousePosition.y - mousePosition.y) * 0.005f;
+        float angleX = (lastMousePosition.x - mousePosition.x) * 0.005f;
+        float angleY = (lastMousePosition.y - mousePosition.y) * 0.005f;
 
-        Camera *camera_ptr = (Camera*)(&scene_camera);
-        CameraYaw(camera_ptr, angle_in_x_axis, false);
-        CameraPitch(camera_ptr, angle_in_y_axis, true, false, false);
+        Camera *cameraPtr = (Camera*)(&sceneCamera);
+        CameraYaw(cameraPtr, angleX, false);
+        CameraPitch(cameraPtr, angleY, true, false, false);
 
         lastMousePosition = mousePosition;
     }
@@ -207,10 +207,10 @@ bool isVectorNeutral(const Vector3& vector) {
 
 void LocateEntity(Entity& entity)
 {
-    if (selected_game_object_type == "entity")
+    if (selectedGameObjectType == "entity")
     {
-        scene_camera.target = entity.position;
-        scene_camera.position = {
+        sceneCamera.target = entity.position;
+        sceneCamera.position = {
             entity.position.x + 10,
             entity.position.y + 2,
             entity.position.z
@@ -222,34 +222,34 @@ void ProcessCameraControls()
 {
     if (IsKeyPressed(KEY_F))
     {
-        LocateEntity(*selected_entity);
+        LocateEntity(*selectedEntity);
     }
 }
 
 void ProcessGizmo()
 {
-    if (selected_game_object_type == "entity" && selected_entity)
+    if (selectedGameObjectType == "entity" && selectedEntity)
     {
-        if (selected_entity->initialized)
+        if (selectedEntity->initialized)
         {
             GizmoPosition();
             GizmoRotation();
             GizmoScale();
         }
     }
-    else if (selected_game_object_type == "light")
+    else if (selectedGameObjectType == "light")
     {
         GizmoPosition();
     }
     else
     {
         dragging = false;
-        dragging_gizmo_position = false;
-        dragging_gizmo_rotation = false;
-        dragging_gizmo_scale = false;
+        draggingGizmoPosition = false;
+        draggingGizmoRotation = false;
+        draggingGizmoScale = false;
     }
 
-    dragging = (dragging_gizmo_scale || dragging_gizmo_position || dragging_gizmo_rotation);
+    dragging = (draggingGizmoScale || draggingGizmoPosition || draggingGizmoRotation);
 }
 
 struct EmptyType {};
@@ -265,7 +265,7 @@ void HandleUnselect(bool isEntitySelected, bool isLightSelected) {
         !dragging
         )
     {
-        selected_game_object_type = "none";
+        selectedGameObjectType = "none";
     }
 }
 
@@ -311,41 +311,41 @@ void RenderLight(Light* light, bool& isLightSelected) {
 
     for (Light& light : lights)
     {
-        Model light_model = LoadModelFromMesh(GenMeshPlane(4, 4, 1, 1));
-        light_model.materials[0].maps[MATERIAL_MAP_DIFFUSE].texture = light_texture;
+        Model lightModel = LoadModelFromMesh(GenMeshPlane(4, 4, 1, 1));
+        lightModel.materials[0].maps[MATERIAL_MAP_DIFFUSE].texture = lightTexture;
 
-        float rotation = DrawBillboardRotation(scene_camera, light_texture, { light.position.x, light.position.y, light.position.z }, 1.0f, WHITE);
+        float rotation = DrawBillboardRotation(sceneCamera, lightTexture, { light.position.x, light.position.y, light.position.z }, 1.0f, WHITE);
         
         if (IsMouseButtonDown(MOUSE_LEFT_BUTTON) && ImGui::IsWindowHovered() && !dragging)
         {
-            isLightSelected = IsMouseHoveringModel(light_model, scene_camera, { light.position.x, light.position.y, light.position.z }, { 0, rotation, 0 }, {1,1,1});
+            isLightSelected = IsMouseHoveringModel(lightModel, sceneCamera, { light.position.x, light.position.y, light.position.z }, { 0, rotation, 0 }, {1,1,1});
             if (isLightSelected)
             {
-                object_in_inspector = &light;
-                selected_game_object_type = "light";
+                objectInInspector = &light;
+                selectedGameObjectType = "light";
             }
         }
 
-        UnloadModel(light_model);
+        UnloadModel(lightModel);
     }
 }
 
 void RenderEntities(bool& isEntitySelected) {
     int index = 0;
-    for (Entity& entity : entities_list_pregame)
+    for (Entity& entity : entitiesListPregame)
     {
-        entity.calc_physics = false;
+        entity.calcPhysics = false;
         entity.render();
         
         if (IsMouseButtonDown(MOUSE_LEFT_BUTTON) && ImGui::IsWindowHovered() && !dragging)
         {
-            isEntitySelected = IsMouseHoveringModel(entity.model, scene_camera, entity.position, entity.rotation, entity.scale, &entity);
+            isEntitySelected = IsMouseHoveringModel(entity.model, sceneCamera, entity.position, entity.rotation, entity.scale, &entity);
             if (isEntitySelected)
             {
                 if (IsModelReady(entity.model) && entity.initialized)
                 {
-                    object_in_inspector = &entities_list_pregame.at(index);
-                    selected_game_object_type = "entity";
+                    objectInInspector = &entitiesListPregame.at(index);
+                    selectedGameObjectType = "entity";
                 }
             }
 
@@ -353,11 +353,11 @@ void RenderEntities(bool& isEntitySelected) {
             {
                 if (auto* childEntity = std::get_if<Entity*>(&childVariant))
                 {
-                    bool isEntitySelected = IsMouseHoveringModel((*childEntity)->model, scene_camera, (*childEntity)->position, (*childEntity)->rotation, (*childEntity)->scale);
+                    bool isEntitySelected = IsMouseHoveringModel((*childEntity)->model, sceneCamera, (*childEntity)->position, (*childEntity)->rotation, (*childEntity)->scale);
                     if (isEntitySelected)
                     {
-                        object_in_inspector = *childEntity;
-                        selected_game_object_type = "entity";
+                        objectInInspector = *childEntity;
+                        selectedGameObjectType = "entity";
                     }
                 }
             }
@@ -369,15 +369,15 @@ void RenderEntities(bool& isEntitySelected) {
 }
 
 void UpdateShaderAndView() {
-    float cameraPos[3] = { scene_camera.position.x, scene_camera.position.y, scene_camera.position.z };
+    float cameraPos[3] = { sceneCamera.position.x, sceneCamera.position.y, sceneCamera.position.z };
     SetShaderValue(shader, shader.locs[SHADER_LOC_VECTOR_VIEW], cameraPos, SHADER_UNIFORM_VEC3);
 
-    SetShaderValueMatrix(shader, GetShaderLocation(shader, "cameraMatrix"), GetCameraMatrix(scene_camera));
+    SetShaderValueMatrix(shader, GetShaderLocation(shader, "cameraMatrix"), GetCameraMatrix(sceneCamera));
 }
 
 void RenderScene() {
     BeginTextureMode(renderTexture);
-    BeginMode3D(scene_camera);
+    BeginMode3D(sceneCamera);
 
     ClearBackground(GRAY);
 
@@ -428,15 +428,15 @@ void DropEntity()
             IM_ASSERT(payload->DataSize == sizeof(int));
             int payload_n = *(const int*)payload->Data;
 
-            string path = dir_path.string();
-            path += "/" + files_texture_struct[payload_n].name;
+            string path = dirPath.string();
+            path += "/" + filesTextureStruct[payload_n].name;
 
             size_t lastDotIndex = path.find_last_of('.');
 
             // Extract the substring after the last dot
-            std::string entity_name = path.substr(0, lastDotIndex);
+            std::string entityName = path.substr(0, lastDotIndex);
             
-            AddEntity(true, false, path.c_str(), Model(), entity_name);
+            AddEntity(true, false, path.c_str(), Model(), entityName);
         }
         ImGui::EndDragDropTarget();
     }
@@ -485,42 +485,42 @@ void ObjectsPopup()
             if (ImGui::MenuItem("Cube"))
             {
                 AddEntity(true, false, "", LoadModelFromMesh(GenMeshCube(1, 1, 1)));
-                entities_list_pregame.back().ObjectType = Entity::ObjectType_Cube;
+                entitiesListPregame.back().ObjectType = Entity::ObjectType_Cube;
                 showObjectTypePopup = false;
             }
 
             if (ImGui::MenuItem("Cone"))
             {
                 AddEntity(true, false, "", LoadModelFromMesh(GenMeshCone(.5, 1, 30)));
-                entities_list_pregame.back().ObjectType = Entity::ObjectType_Cone;
+                entitiesListPregame.back().ObjectType = Entity::ObjectType_Cone;
                 showObjectTypePopup = false;
             }
 
             if (ImGui::MenuItem("Cylinder"))
             {
                 AddEntity(true, false, "", LoadModelFromMesh(GenMeshCylinder(1.5, 2, 30)));
-                entities_list_pregame.back().ObjectType = Entity::ObjectType_Cylinder;
+                entitiesListPregame.back().ObjectType = Entity::ObjectType_Cylinder;
                 showObjectTypePopup = false;
             }
 
             if (ImGui::MenuItem("Plane"))
             {
                 AddEntity(true, false, "", LoadModelFromMesh(GenMeshPlane(1, 1, 1, 1)));
-                entities_list_pregame.back().ObjectType = Entity::ObjectType_Plane;
+                entitiesListPregame.back().ObjectType = Entity::ObjectType_Plane;
                 showObjectTypePopup = false;
             }
 
             if (ImGui::MenuItem("Sphere"))
             {
                 AddEntity(true, false, "", LoadModelFromMesh(GenMeshSphere(.5, 50, 50)));
-                entities_list_pregame.back().ObjectType = Entity::ObjectType_Sphere;
+                entitiesListPregame.back().ObjectType = Entity::ObjectType_Sphere;
                 showObjectTypePopup = false;
             }
 
             if (ImGui::MenuItem("Torus"))
             {
                 AddEntity(true, false, "", LoadModelFromMesh(GenMeshTorus(.5, 1, 30, 30)));
-                entities_list_pregame.back().ObjectType = Entity::ObjectType_Torus;
+                entitiesListPregame.back().ObjectType = Entity::ObjectType_Torus;
                 showObjectTypePopup = false;
             }
 
@@ -593,87 +593,87 @@ void ProcessDeletion()
 {
     if (IsKeyPressed(KEY_DELETE))
     {
-        if (selected_game_object_type == "entity")
-            selected_entity->remove();
-        else if (selected_game_object_type == "light")
+        if (selectedGameObjectType == "entity")
+            selectedEntity->remove();
+        else if (selectedGameObjectType == "light")
         {
-            lights.erase(std::remove(lights.begin(), lights.end(), *selected_light), lights.end());
-            lights_info.erase(std::remove(lights_info.begin(), lights_info.end(), *selected_light), lights_info.end());
+            lights.erase(std::remove(lights.begin(), lights.end(), *selectedLight), lights.end());
+            lightsInfo.erase(std::remove(lightsInfo.begin(), lightsInfo.end(), *selectedLight), lightsInfo.end());
             UpdateLightsBuffer(true);
             return;
         }
     }        
 }
 
-bool can_duplicate_entity = true;
+bool canDuplicateEntity = true;
 
 void EntityPaste(const std::shared_ptr<Entity>& entity)
 {
     if (entity) {
-        Entity new_entity = *entity;
-        entities_list_pregame.push_back(new_entity);
-        selected_game_object_type = "entity";
-        selected_entity = &entities_list_pregame.back();
+        Entity newEntity = *entity;
+        entitiesListPregame.push_back(newEntity);
+        selectedGameObjectType = "entity";
+        selectedEntity = &entitiesListPregame.back();
     }
 }
 
 void LightPaste(const std::shared_ptr<Light>& light)
 {
     if (light) {
-        Light new_light = *light;
-        new_light.id = lights.back().id+1;
-        lights.push_back(new_light);
-        AdditionalLightInfo new_light_info;
-        new_light_info.id = new_light.id;
-        lights_info.push_back(new_light_info);
+        Light newLight = *light;
+        newLight.id = lights.back().id+1;
+        lights.push_back(newLight);
+        AdditionalLightInfo newLightInfo;
+        newLightInfo.id = newLight.id;
+        lightsInfo.push_back(newLightInfo);
         
-        selected_game_object_type = "light";
-        selected_light = &lights.back();
+        selectedGameObjectType = "light";
+        selectedLight = &lights.back();
     }
 }
 
 
 void DuplicateEntity(Entity& entity)
 {
-    Entity new_entity = entity;
-    new_entity.reloadRigidBody();
-    entities_list_pregame.reserve(1);
-    entities_list_pregame.emplace_back(new_entity);
-    selected_entity = &entities_list_pregame.back();
+    Entity newEntity = entity;
+    newEntity.reloadRigidBody();
+    entitiesListPregame.reserve(1);
+    entitiesListPregame.emplace_back(newEntity);
+    selectedEntity = &entitiesListPregame.back();
 }
 
 
 void ProcessCopy()
 {
     if (IsKeyPressed(KEY_C) && (IsKeyDown(KEY_LEFT_CONTROL) || IsKeyDown(KEY_RIGHT_CONTROL) && !movingEditorCamera)) {
-        if (selected_game_object_type == "entity")
+        if (selectedGameObjectType == "entity")
         {
-            current_copy_type = CopyType_Entity;
-            copiedEntity = std::make_shared<Entity>(*selected_entity);
+            currentCopyType = CopyType_Entity;
+            copiedEntity = std::make_shared<Entity>(*selectedEntity);
         }
-        else if (selected_game_object_type == "light")
+        else if (selectedGameObjectType == "light")
         {
-            current_copy_type = CopyType_Light;
-            copiedLight = std::make_shared<Light>(*selected_light);
+            currentCopyType = CopyType_Light;
+            copiedLight = std::make_shared<Light>(*selectedLight);
         }
     }
 
     if (IsKeyPressed(KEY_V) && (IsKeyDown(KEY_LEFT_CONTROL) || IsKeyDown(KEY_RIGHT_CONTROL))) {
-        if (current_copy_type == CopyType_Entity)
+        if (currentCopyType == CopyType_Entity)
             EntityPaste(copiedEntity);
-        if (current_copy_type == CopyType_Light)
+        if (currentCopyType == CopyType_Light)
             LightPaste(copiedLight);
     }
 
 
-    if (IsKeyDown(KEY_D) && (IsKeyDown(KEY_LEFT_CONTROL) || IsKeyDown(KEY_RIGHT_CONTROL)) && !in_game_preview && selected_game_object_type == "entity" && can_duplicate_entity)
+    if (IsKeyDown(KEY_D) && (IsKeyDown(KEY_LEFT_CONTROL) || IsKeyDown(KEY_RIGHT_CONTROL)) && !inGamePreview && selectedGameObjectType == "entity" && canDuplicateEntity)
     {
-        DuplicateEntity(*selected_entity);
-        can_duplicate_entity = false;
+        DuplicateEntity(*selectedEntity);
+        canDuplicateEntity = false;
     }
-    if (!can_duplicate_entity)
+    if (!canDuplicateEntity)
     {
-        can_duplicate_entity = IsKeyUp(KEY_D);
+        canDuplicateEntity = IsKeyUp(KEY_D);
     }
 }
 
@@ -681,17 +681,17 @@ void ProcessCopy()
 int EditorCamera(void)
 {
 
-    std::chrono::high_resolution_clock::time_point sceneEditor_start = std::chrono::high_resolution_clock::now();
+    std::chrono::high_resolution_clock::time_point sceneEditorStart = std::chrono::high_resolution_clock::now();
 
-    if (ImGui::IsWindowHovered() && !dragging && !in_game_preview)
+    if (ImGui::IsWindowHovered() && !dragging && !inGamePreview)
     {
         DropEntity();
     }
 
-    if (ImGui::IsWindowHovered() && !dragging && !in_game_preview)
+    if (ImGui::IsWindowHovered() && !dragging && !inGamePreview)
         ProcessObjectControls();
 
-    if ((ImGui::IsWindowHovered() || ImGui::IsWindowFocused()) && !in_game_preview)
+    if ((ImGui::IsWindowHovered() || ImGui::IsWindowFocused()) && !inGamePreview)
     {
         if (!showObjectTypePopup)
             EditorCameraMovement();
@@ -705,7 +705,7 @@ int EditorCamera(void)
 
     ProcessDeletion();
 
-    if (in_game_preview)
+    if (inGamePreview)
     {
         RunGame();
         return 0;
@@ -734,8 +734,8 @@ int EditorCamera(void)
 
     ObjectsPopup();
 
-    std::chrono::high_resolution_clock::time_point sceneEditor_end = std::chrono::high_resolution_clock::now();
-    sceneEditor_profiler_duration = std::chrono::duration_cast<std::chrono::milliseconds>(sceneEditor_end - sceneEditor_start);
+    std::chrono::high_resolution_clock::time_point sceneEditorEnd = std::chrono::high_resolution_clock::now();
+    sceneEditorProfilerDuration = std::chrono::duration_cast<std::chrono::milliseconds>(sceneEditorEnd - sceneEditorStart);
     
     return 0;
 }

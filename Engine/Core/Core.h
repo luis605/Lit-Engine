@@ -20,8 +20,8 @@ ImVec2 windowPosition;
 
 ImGuiIO *io;
 
-static Image window_icon_image;
-Texture2D window_icon_texture;
+static Image windowIconImage;
+Texture2D windowIconTexture;
 
 // Window States
 bool isWindowMaximized = false;

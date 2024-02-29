@@ -14,31 +14,30 @@ struct Gizmo {
     Vector3 position;
     Vector3 rotation;
     Vector3 scale = {1, 1, 1};
-    string drag_directions;
+    string dragDirections;
 };
 
-Gizmo gizmo_arrow[NUM_GIZMO_ARROWS];
-Gizmo gizmo_taurus[NUM_GIZMO_TAURUS];
-Gizmo gizmo_cube[NUM_GIZMO_CUBES];
+Gizmo gizmoArrow[NUM_GIZMO_ARROWS];
+Gizmo gizmoTaurus[NUM_GIZMO_TAURUS];
+Gizmo gizmoCube[NUM_GIZMO_CUBES];
 
 // Declare selected object variables and flags
-Vector3 selected_object_position;
-Vector3 selected_object_rotation;
-Vector3 selected_object_scale;
-Vector2 mouse_drag_start;
+Vector3 selectedObjectPosition;
+Vector3 selectedObjectRotation;
+Vector3 selectedObjectScale;
+Vector2 mouseDragStart;
 Vector2 mousePosition;
 Vector2 mousePositionPrev;
-int gizmo_arrow_selected            = -1;
-int gizmo_taurus_selected           = -1;
-int gizmo_cube_selected             = -1;
+int selectedGizmoArrow            = -1;
+int selectedGizmoTaurus           = -1;
+int selectedGizmoCube             = -1;
 bool dragging;
-bool dragging_gizmo_position        = false;
-bool dragging_gizmo_rotation        = false;
-bool dragging_gizmo_scale           = false;
-bool dragging_gizmo_arrow           = false;
+bool draggingGizmoPosition        = false;
+bool draggingGizmoRotation        = false;
+bool draggingGizmoScale           = false;
 bool isHoveringGizmo;
 
-float gizmo_drag_sensitivity_factor = 0.1f;
+float gizmoDragSensitivityFactor = 0.1f;
 
 
 
@@ -47,7 +46,7 @@ struct GizmoArrow {
     Vector3 rotation;
 };
 
-GizmoArrow gizmo_arrow_offsets[] = {
+GizmoArrow gizmoArrowOffsets[] = {
     {{0, 6, 0}, {0, 0, 0}},     // Up
     {{0, -6, 0}, {180, 0, 0}},  // Down
     {{0, 0, 6}, {90, 0, 0}},    // Right

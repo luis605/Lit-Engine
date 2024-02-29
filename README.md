@@ -11,7 +11,6 @@ To clone the repository, execute the following command in your terminal or comma
 ```bash
 git clone --recurse-submodules -j8 https://github.com/luis605/Lit-Engine
 ```
-Please note that you need appropriate permissions to access this repository.
 
 # Building and Installing Dependencies
 ## Linux
@@ -34,13 +33,6 @@ make build_dependencies
 ```bash
 cd build
 cmake -G "MinGW Makefiles" .. --fresh
-```
-
-### Note
-It is possible that some dependencies didn't got downloaded when cloning Lit Engine. To fix it, you will need to clone the following repositories manually:
-```bash
-https://github.com/BalazsJako/ImGuiColorTextEdit.git
-https://github.com/BalazsJako/ImGuiColorTextEdit.git
 ```
 
 When running the engine on windows, make sure to copy assets and project into the build/ directory. otherwise the program will NOT run!

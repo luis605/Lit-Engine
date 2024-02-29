@@ -6,10 +6,10 @@
 #endif
 
 
-#include "include/raylib.h"
-#include "include/raymath.h"
-#include "include/rcamera.h"
-#include "include/rlgl.h"
+#include "include/raylib/src/raylib.h"
+#include "include/raylib/src/raymath.h"
+#include "include/raylib/src/rcamera.h"
+#include "include/raylib/src/rlgl.h"
 #include "include/custom.h"
 #include "include/rlFrustum.cpp"
 
@@ -20,25 +20,25 @@
     #include "imgui/imgui.h"
     #include "imgui/imgui_internal.h"
     #include "include/rlImGui.h"
-    #include "ImGuiColorTextEdit/TextEditor.h"
+    #include "include/ImGuiColorTextEdit/TextEditor.h"
 
-    #include "include/ImNodes.h"
-    #include "include/ImNodesEz.h"
+    #include "include/ImNodes/ImNodes.h"
+    #include "include/ImNodes/ImNodesEz.h"
 #endif
 
-#include "dependencies/include/glad/glad.h"
+#include "include/glad/glad.h"
 
 #define SUPPORT_FILEFORMAT_HDR      1
 
 
-#include "bullet3/src/BulletCollision/BroadphaseCollision/btBroadphaseProxy.h"
+#include "include/bullet3/src/BulletCollision/BroadphaseCollision/btBroadphaseProxy.h"
 
-#include "bullet3/src/BulletCollision/CollisionShapes/btCollisionShape.h"
-#include "bullet3/src/BulletCollision/CollisionShapes/btConvexPolyhedron.h"
-#include "bullet3/src/BulletCollision/CollisionShapes/btShapeHull.h"
+#include "include/bullet3/src/BulletCollision/CollisionShapes/btCollisionShape.h"
+#include "include/bullet3/src/BulletCollision/CollisionShapes/btConvexPolyhedron.h"
+#include "include/bullet3/src/BulletCollision/CollisionShapes/btShapeHull.h"
 
-#include "bullet3/src/LinearMath/btVector3.h"
-#include "bullet3/src/btBulletDynamicsCommon.h"
+#include "include/bullet3/src/LinearMath/btVector3.h"
+#include "include/bullet3/src/btBulletDynamicsCommon.h"
 
 #ifdef _WIN32
     extern "C" {
@@ -48,9 +48,9 @@
     }
 #else
     extern "C" {
-        #include "ffmpeg/libavcodec/avcodec.h"
-        #include "ffmpeg/libavformat/avformat.h"
-        #include "ffmpeg/libswscale/swscale.h"
+        #include "include/ffmpeg/libavcodec/avcodec.h"
+        #include "include/ffmpeg/libavformat/avformat.h"
+        #include "include/ffmpeg/libswscale/swscale.h"
 }
 #endif
 
@@ -61,8 +61,8 @@
 #include <fstream>
 #include <exception>
 #include <signal.h>
-#include "dependencies/include/glm/glm.hpp"
-#include "dependencies/include/glm/gtc/matrix_transform.hpp"
+#include "include/glm/glm.hpp"
+#include "include/glm/gtc/matrix_transform.hpp"
 #include <algorithm>
 #include <cmath>
 #include <chrono>

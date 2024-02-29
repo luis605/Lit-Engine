@@ -12,8 +12,6 @@ enum FileExplorerType
     SaveLoad
 };
 
-string showFileExplorer(const char* folderPath, nlohmann::json fileContent, FileExplorerType type = FileExplorerType::Save);
-
 ImGuiCol_ theme_create_selected_option = ImGuiCol_Text;
 
 vector<int> new_theme_saved_options;
