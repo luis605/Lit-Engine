@@ -56,18 +56,19 @@ bool createNumberedFolder(const fs::path& directoryPath) {
 bool showAddFilePopup       = false;
 bool showEditFilePopup      = false;
 bool showEditFolderPopup    = false;
-int rename_file_index       = -1;
-int rename_folder_index       = -1;
-std::filesystem::path rename_file_name;
-std::filesystem::path rename_folder_name;
-int file_index            = -1;
-int folder_index          = -1;
+int renameFileIndex       = -1;
+int renameFolderIndex       = -1;
+char renameFileBuffer[256];
+char renameFolderBuffer[256];
+std::filesystem::path renameFileName;
+std::filesystem::path renameFolderName;
+int fileIndex            = -1;
+int folderIndex          = -1;
 
 void EditFolderManipulation()
 {
     if (ImGui::IsWindowHovered() && showEditFolderPopup)
         ImGui::OpenPopup("edit_folder_popup");
-
 
     if (ImGui::BeginPopup("edit_folder_popup"))
     {
@@ -82,18 +83,18 @@ void EditFolderManipulation()
 
         if (ImGui::Button("Rename", ImVec2(buttonWidth, 0)))
         {
-            if (folder_index != -1)
+            if (folderIndex != -1)
             {
                 std::filesystem::path currentPath = std::filesystem::current_path();
 
-                rename_folder_index = folder_index;
-                rename_folder_name = (currentPath / folders_texture_struct[folder_index].full_path);
+                renameFolderIndex = folderIndex;
+                renameFolderName = (currentPath / foldersTextureStruct[folderIndex].full_path);
 
-                size_t buffer_size = sizeof(rename_file_buffer);
-                const char* source = folders_texture_struct[folder_index].name.c_str();
+                size_t bufferSize = sizeof(renameFileBuffer);
+                const char* source = foldersTextureStruct[folderIndex].name.c_str();
 
-                strncpy(rename_file_buffer, source, buffer_size - 1);
-                rename_file_buffer[buffer_size - 1] = '\0';
+                strncpy(renameFileBuffer, source, bufferSize - 1);
+                renameFileBuffer[bufferSize - 1] = '\0';
 
                 showEditFolderPopup = false;
             }
@@ -101,11 +102,11 @@ void EditFolderManipulation()
 
         if (ImGui::Button("Delete", ImVec2(buttonWidth, 0)))
         {
-            if (folder_index != -1)
+            if (folderIndex != -1)
             {
                 std::filesystem::path currentPath = std::filesystem::current_path();
 
-                std::filesystem::path folderPath = (currentPath / folders_texture_struct[folder_index].full_path);
+                std::filesystem::path folderPath = (currentPath / foldersTextureStruct[folderIndex].full_path);
                 fs::remove_all(folderPath);
 
                 showEditFolderPopup = false;
@@ -135,48 +136,48 @@ void EditFileManipulation()
 
         if (ImGui::Button("Rename", ImVec2(buttonWidth, 0)))
         {
-            if (file_index != -1)
+            if (fileIndex != -1)
             {
                 std::filesystem::path currentPath = std::filesystem::current_path();
 
-                rename_file_index = file_index;
-                rename_file_name = (currentPath / files_texture_struct[file_index].full_path);
+                renameFileIndex = fileIndex;
+                renameFileName = (currentPath / filesTextureStruct[fileIndex].full_path);
 
-                size_t buffer_size = sizeof(rename_file_buffer);
-                const char* source = files_texture_struct[file_index].name.c_str();
+                size_t bufferSize = sizeof(renameFileBuffer);
+                const char* source = filesTextureStruct[fileIndex].name.c_str();
 
-                strncpy(rename_file_buffer, source, buffer_size - 1);
-                rename_file_buffer[buffer_size - 1] = '\0';
+                strncpy(renameFileBuffer, source, bufferSize - 1);
+                renameFileBuffer[bufferSize - 1] = '\0';
                 showEditFilePopup = false;
             }
         }
 
         if (ImGui::Button("Delete", ImVec2(buttonWidth, 0)))
         {
-            if (file_index != -1)
+            if (fileIndex != -1)
             {
                 std::filesystem::path currentPath = std::filesystem::current_path();
 
-                std::filesystem::path filePath = (currentPath / files_texture_struct[file_index].full_path);
+                std::filesystem::path filePath = (currentPath / filesTextureStruct[fileIndex].full_path);
                 fs::remove_all(filePath);
 
                 showEditFilePopup = false;
             }
         }
 
-        string file_extension = getFileExtension(files_texture_struct[file_index].path.filename().string());
+        string file_extension = getFileExtension(filesTextureStruct[fileIndex].path.filename().string());
         if (file_extension == ".py")
         {
             if (ImGui::Button("Run", ImVec2(buttonWidth, 0)))
             {
-                    entities_list.assign(entities_list_pregame.begin(), entities_list_pregame.end());
+                    entitiesList.assign(entitiesListPregame.begin(), entitiesListPregame.end());
 
                     Entity run_script_entity = Entity();
-                    run_script_entity.script = files_texture_struct[file_index].full_path.string();
+                    run_script_entity.script = filesTextureStruct[fileIndex].full_path.string();
 
-                    LitCamera* scene_camera_reference = &scene_camera;
-                    run_script_entity.setupScript(scene_camera_reference);
-                    run_script_entity.runScript(scene_camera_reference);
+                    LitCamera* sceneCamera_reference = &sceneCamera;
+                    run_script_entity.setupScript(sceneCamera_reference);
+                    run_script_entity.runScript(sceneCamera_reference);
 
                     showEditFilePopup = false;
                     showAddFilePopup = false;
@@ -206,13 +207,13 @@ void AddFileManipulation()
         {
             if (ImGui::MenuItem("Python"))
             {
-                createNumberedFile(dir_path, "py");
+                createNumberedFile(dirPath, "py");
                 showAddFilePopup = false;
             }
 
             if (ImGui::MenuItem("Material"))
             {
-                createNumberedFile(dir_path, "mat");
+                createNumberedFile(dirPath, "mat");
                 showAddFilePopup = false;
             }
 
@@ -223,7 +224,7 @@ void AddFileManipulation()
         {
             if (ImGui::MenuItem("Folder"))
             {
-                createNumberedFolder(dir_path);
+                createNumberedFolder(dirPath);
                 showAddFilePopup = false;
             }
 

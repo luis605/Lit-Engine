@@ -1,4 +1,3 @@
-#include "../../include_all.h"
 #include "Styles.h"
 
 std::string to_hex_string(ImU32 color)
@@ -54,13 +53,13 @@ void LoadThemeFromFile(const std::string& filename)
     }
 }
 
-string showFileExplorer(const char* folderPath, nlohmann::json fileContent, FileExplorerType type)
+std::string ShowFileExplorer(const char* folderPath, nlohmann::json fileContent, FileExplorerType type = FileExplorerType::Save)
 {
-    if (show_save_theme_window || show_load_theme_window)
+    if (showSaveThemeWindow || showLoadThemeWindow)
     {
-        show_file_explorer = true;
+        showFileExplorer = true;
         
-        ImGui::Begin("File Explorer", &show_file_explorer, ImGuiConfigFlags_ViewportsEnable);
+        ImGui::Begin("File Explorer", &showFileExplorer, ImGuiConfigFlags_ViewportsEnable);
 
         // Display the folder path
         ImGui::Text("Folder: %s", folderPath);
@@ -103,10 +102,10 @@ string showFileExplorer(const char* folderPath, nlohmann::json fileContent, File
 
 
         // If the user closed the window, reset the other booleans
-        if (!show_file_explorer)
+        if (!showFileExplorer)
         {
-            show_save_theme_window = false;
-            show_load_theme_window = false;
+            showSaveThemeWindow = false;
+            showLoadThemeWindow = false;
         }
     }
     return "";
@@ -114,8 +113,8 @@ string showFileExplorer(const char* folderPath, nlohmann::json fileContent, File
 
 void CreateNewTheme()
 {
-    if (!createNewThemeWindow_open) return;
-    ImGui::Begin("Create New Theme", &createNewThemeWindow_open);
+    if (!createNewThemeWindowOpen) return;
+    ImGui::Begin("Create New Theme", &createNewThemeWindowOpen);
     ImGui::Text("Themes options:");
 
     ImGui::Combo("##OptionsCombo", (int*)&theme_create_selected_option, themes_colors_string, IM_ARRAYSIZE(themes_colors_string));
@@ -145,19 +144,19 @@ void CreateNewTheme()
         ImGui::ColorEdit4(color_picker_name.c_str(), (float*)&new_theme_saved_options_color[index], ImGuiColorEditFlags_NoInputs);
     }
 
-    bool save_button = ImGui::Button("Save", {110, 30});
+    bool saveButton = ImGui::Button("Save", {110, 30});
     ImGui::SameLine();
     bool load_button = ImGui::Button("Load", {110, 30});
     ImGui::SameLine();
     bool apply_button = ImGui::Button("Apply/Preview", {110, 30});
 
 
-    if (save_button)
+    if (saveButton)
     {
-        show_save_theme_window = true;
+        showSaveThemeWindow = true;
     }
 
-    if (show_save_theme_window && !show_load_theme_window)
+    if (showSaveThemeWindow && !showLoadThemeWindow)
     {
         nlohmann::json data;
 
@@ -174,20 +173,20 @@ void CreateNewTheme()
         }
         
 
-        showFileExplorer(themes_folder.c_str(), data, FileExplorerType::Save);
+        ShowFileExplorer(themesFolder.c_str(), data, FileExplorerType::Save);
     }
 
 
     if (load_button)
     {
-        show_load_theme_window = true;
+        showLoadThemeWindow = true;
     }
 
-    if (show_load_theme_window && !show_save_theme_window)
-        showFileExplorer(themes_folder.c_str(), "", FileExplorerType::Load);
+    if (showLoadThemeWindow && !showSaveThemeWindow)
+        ShowFileExplorer(themesFolder.c_str(), "", FileExplorerType::Load);
 
-    if (show_load_theme_window && show_save_theme_window)
-        showFileExplorer(themes_folder.c_str(), "", FileExplorerType::SaveLoad);
+    if (showLoadThemeWindow && showSaveThemeWindow)
+        ShowFileExplorer(themesFolder.c_str(), "", FileExplorerType::SaveLoad);
 
 
     if (apply_button)

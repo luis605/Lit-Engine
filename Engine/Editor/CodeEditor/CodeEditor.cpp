@@ -12,13 +12,13 @@ void CodeEditor()
     ImGui::Begin(ICON_FA_CODE " Code Editor", NULL);
 
     ImVec2 size = ImGui::GetContentRegionAvail();
-    bool save_file = ImGui::ImageButton((ImTextureID)&save_texture, ImVec2(64, 64));
+    bool saveFile = ImGui::ImageButton((ImTextureID)&saveTexture, ImVec2(34, 34));
 
-    if (save_file)
+    if (saveFile)
     {
         cout << "Saving file..." << endl;
 
-        std::ofstream file(code_editor_script_path);
+        std::ofstream file(codeEditorScriptPath);
 
         if (file.is_open()) {
             file << code;
@@ -40,7 +40,7 @@ void CodeEditor()
 
 
     // Inside your ImGui window loop
-    bool hot_reload = ImGui::ImageButton((ImTextureID)&hot_reload_texture, ImVec2(64, 64));
+    bool hot_reload = ImGui::ImageButton((ImTextureID)&hotReloadTexture, ImVec2(34, 34));
 
     if (hot_reload)
     {
@@ -53,8 +53,8 @@ void CodeEditor()
         }
         else if (clickCount == 2)
         {
-            first_time_gameplay = true;
-            for (Entity& entity : entities_list)
+            firstTimeGameplay = true;
+            for (Entity& entity : entitiesList)
                 entity.running = false;
                 
             clickCount = 0;

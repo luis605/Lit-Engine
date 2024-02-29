@@ -1,41 +1,41 @@
 #include "../../include_all.h"
 
-bool appearance_window_enabled = false;
-bool debug_window_enabled = false;
+bool showAppearanceWindow = false;
+bool showDebugWindow = false;
 
 void Appearance()
 {
-    ImGui::Begin("Appearance", &appearance_window_enabled);
+    ImGui::Begin("Appearance", &showAppearanceWindow);
 
     float button_width = ImGui::CalcTextSize("High Contrast").x + 30;
     float button_height = 30;
     ImVec2 ButtonSize = ImVec2(button_width, button_height);
 
     ImGui::Text("Themes: ");
-    bool theme_blue = ImGui::Button("Blue", ButtonSize);
-    bool theme_light = ImGui::Button("Light", ButtonSize);
-    bool theme_high_contrast = ImGui::Button("High Contrast", ButtonSize);
-    bool theme_gray = ImGui::Button("Gray", ButtonSize);
-    bool theme_custom = ImGui::Button("Custom", ButtonSize);
+    bool themeBlue = ImGui::Button("Blue", ButtonSize);
+    bool themeLight = ImGui::Button("Light", ButtonSize);
+    bool themeHighContrast = ImGui::Button("High Contrast", ButtonSize);
+    bool themeGray = ImGui::Button("Gray", ButtonSize);
+    bool themeCustom = ImGui::Button("Custom", ButtonSize);
 
-    if (theme_blue)
+    if (themeBlue)
         ImGui::StyleColorsDark();
-    else if (theme_light)
+    else if (themeLight)
         ImGui::StyleColorsLight();
-    else if (theme_high_contrast)
+    else if (themeHighContrast)
         SetStyleHighContrast(&ImGui::GetStyle());
-    else if (theme_gray)
+    else if (themeGray)
         SetStyleGray(&ImGui::GetStyle());
-    else if (theme_custom)
-        createNewThemeWindow_open = true;
+    else if (themeCustom)
+        createNewThemeWindowOpen = true;
 
     ImGui::End();
 }
 
 void DebugWindow()
 {
-    if (!debug_window_enabled) return;
-    ImGui::Begin("Debug", &debug_window_enabled);
+    if (!showDebugWindow) return;
+    ImGui::Begin("Debug", &showDebugWindow);
 
     if (ImGui::CollapsingHeader("Performance"))
     {
@@ -51,21 +51,21 @@ void DebugWindow()
         ImGui::Dummy(ImVec2(0.0f, 10.0f));
 
         ImGui::Text("Scene Information");
-        ImGui::Text("Number of Entities: %d", entities_list_pregame.size());
+        ImGui::Text("Number of Entities: %d", entitiesListPregame.size());
 
-        int polygon_count = 0;
-        for (Entity& entity : entities_list_pregame)
+        int polygonCount = 0;
+        for (Entity& entity : entitiesListPregame)
         {
             if (IsModelReady(entity.model))
             {
-                for (int mesh_index = 0; mesh_index < entity.model.meshCount; mesh_index++)
+                for (int meshIndex = 0; meshIndex < entity.model.meshCount; meshIndex++)
                 {
-                    polygon_count += entity.model.meshes[mesh_index].vertexCount;
+                    polygonCount += entity.model.meshes[meshIndex].vertexCount;
                 }
             }
         }
 
-        ImGui::Text("Polygon count: %d", polygon_count);
+        ImGui::Text("Polygon count: %d", polygonCount);
         ImGui::Unindent(15.0f);
     }
 
@@ -73,9 +73,8 @@ void DebugWindow()
     {
         ImGui::Indent(15.0f);
 
-        ImGui::Text("Scene Editor %lld ms", sceneEditor_profiler_duration.count());
-
-        ImGui::Text("Assets Explorer %lld ms", assetsExplorer_profiler_duration.count());
+        ImGui::Text("Scene Editor %lld ms", sceneEditorProfilerDuration.count());
+        ImGui::Text("Assets Explorer %lld ms", assetsExplorerProfilerDuration.count());
 
         ImGui::Unindent(15.0f);
     }
@@ -105,29 +104,29 @@ void DrawMenus()
         if (ImGui::MenuItem("Open", "Ctrl+O"))
         {
             cout << "Opening Project..." << endl;
-            LoadProject(entities_list_pregame, lights, lights_info, scene_camera);
+            LoadProject(entitiesListPregame, lights, lightsInfo, sceneCamera);
         }
 
     
         if (ImGui::MenuItem("Preview", "Ctrl+P"))
         {
-            // Can Preview Project
-            close(pipe_fds[0]);
-            can_previewProject = true;
-            ssize_t bytes_written = write(pipe_fds[1], &can_previewProject, sizeof(bool));
-            if (bytes_written != sizeof(bool)) {
-                std::cerr << "Error writing to the pipe." << std::endl;
-            }
-            close(pipe_fds[1]);
+            // // Can Preview Project
+            // close(pipe_fds[0]);
+            // can_previewProject = true;
+            // ssize_t bytes_written = write(pipe_fds[1], &can_previewProject, sizeof(bool));
+            // if (bytes_written != sizeof(bool)) {
+            //     std::cerr << "Error writing to the pipe." << std::endl;
+            // }
+            // close(pipe_fds[1]);
 
-            // Pass entities_list_pregame to Preview
-            close(pipe_fds_entities[0]);
+            // // Pass entitiesListPregame to Preview
+            // close(pipe_fds_entities[0]);
 
-            for (Entity entity : entities_list_pregame) {
-                write(pipe_fds_entities[1], &entity, sizeof(Entity));
-            }
+            // for (Entity entity : entitiesListPregame) {
+            //     write(pipe_fds_entities[1], &entity, sizeof(Entity));
+            // }
 
-            close(pipe_fds_entities[1]);
+            // close(pipe_fds_entities[1]);
 
         }
 
@@ -146,7 +145,7 @@ void DrawMenus()
         {
             if (ImGui::MenuItem("Appearance", "Ctrl+Shift+D"))
             {
-                appearance_window_enabled = true;
+                showAppearanceWindow = true;
             }
             
             ImGui::EndMenu();
@@ -159,7 +158,7 @@ void DrawMenus()
     {
         if (ImGui::MenuItem("Debug"))
         {
-            debug_window_enabled = !debug_window_enabled;
+            showDebugWindow = !showDebugWindow;
         }
 
         ImGui::EndMenu();
@@ -173,7 +172,7 @@ void DrawMenus()
             std::cout << "\n\n\n\n\nReloading Lighting Shaders\n\n";
             UnloadShader(shader);
             shader = LoadShader("Engine/Lighting/shaders/lighting_vertex.glsl", "Engine/Lighting/shaders/lighting_fragment.glsl");
-            for (Entity& entity : entities_list_pregame) {
+            for (Entity& entity : entitiesListPregame) {
                 if (entity.hasInstances())
                 {
                     entity.setShader(shader);
@@ -263,7 +262,7 @@ void MenuBar()
         window->DrawList->PathClear();
 
         ImGui::SetCursorPos(imagePos);
-        ImGui::Image((ImTextureID)&window_icon_texture, imageSize);
+        ImGui::Image((ImTextureID)&windowIconTexture, imageSize);
 
         if (ImGui::IsItemClicked())
         {
@@ -369,10 +368,10 @@ void MenuBar()
         IsKeyPressed(KEY_D)
         )
     {
-        appearance_window_enabled = true;
+        showAppearanceWindow = true;
     }
 
-    if (appearance_window_enabled && !movingEditorCamera) Appearance();
+    if (showAppearanceWindow && !movingEditorCamera) Appearance();
     CreateNewTheme();
 
     if (exitWindowRequested)
