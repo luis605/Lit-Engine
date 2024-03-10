@@ -27,10 +27,9 @@ endef
 
 CXXFLAGS = -g -pipe -std=c++17 -fpermissive -w -Wall -DNDEBUG -O0 -g
 SRC_FILES = include/ImGuiColorTextEdit/TextEditor.o include/rlImGui.o include/ImNodes/ImNodes.o include/ImNodes/ImNodesEz.o
-INCLUDE_DIRS = -I./include -I./include/ImGuiColorTextEdit -L./include/ffmpeg -L.include/ -I./include/ffmpeg -I./include/nlohmann/include -I./include/imgui -L/include/bullet3/src
-INCLUDE_DIRS_STATIC = -I./include -I/usr/local/lib -I./include/nlohmann/include -I./include/bullet3/src -I./include/ffmpeg -I./include/ffmpeg -L./include
-LIB_FLAGS = -L./include -lraylib -ldl -lBulletDynamics -lBulletCollision -lLinearMath -I./include/bullet3/src
-LIB_FLAGS += -L./include/ffmpeg -lavformat -lavcodec -lavutil -lswscale -lswresample -lz -lm -lpthread -ldrm -ltbb -lmeshoptimizer -L./libs/
+INCLUDE_DIRS = -I./include -L.include/ -I./include/ImGuiColorTextEdit -L./include/ffmpeg -I./include/ffmpeg -I./include/nlohmann/include -I./include/imgui -L/include/bullet3/src -I./include/bullet3/src -L./include/raylib/src -I./include/raylib/src -L./libs/
+LIB_FLAGS = -lraylib -ldl -lBulletDynamics -lBulletCollision -lLinearMath
+LIB_FLAGS += -lavformat -lavcodec -lavutil -lswscale -lswresample -lz -lm -lpthread -ldrm -ltbb -lmeshoptimizer
 
 PYTHON_INCLUDE_DIR := $(shell python -c "import sys; print(sys.prefix + '/include')")
 
@@ -63,26 +62,9 @@ brun:
 	@make --no-print-directory build -j8
 	@make --no-print-directory run
 
-
-static-build-windows:
-	@echo "Building Static"
-	@del /F /Q libstatic.a static.o
-	@g++ $(CXXFLAGS) static.cpp -o static.o $(INCLUDE_DIRS_STATIC) $(LIB_FLAGS_WINDOWS) -c
-	@llvm-ar rcs libstatic.a static.o
-
-
-
-static-build-linux:
-	@$(call echo_success, "Building Static")
-	@rm -f libstatic.a static.o
-	@g++ $(CXXFLAGS) static.cpp -o static.o $(INCLUDE_DIRS_STATIC) $(LIB_FLAGS_LINUX) -c
-	@ar rcs libstatic.a static.o
-
 sandbox: $(IMGUI_OBJECTS)
 	@g++ -g $(IMGUI_OBJECTS) sandbox.cpp -o sandbox.out -L. include/rlImGui.o -lraylib -Wall -w  -I./include/imgui -L. -lmeshoptimizer
 	@./sandbox.out
-
-
 
 debug:
 	@echo "Debugging Lit Engine"
@@ -91,17 +73,6 @@ debug:
 	@gdb lit_engine.out
 
 bdb: build debug
-
-build_tests:
-	@ccache g++ $(CXXFLAGS) tests.cpp include/rlImGui.o $(INCLUDE_DIRS) $(IMGUI_OBJECTS) $(LIB_FLAGS) -o tests.out
-
-tests:
-	@make --no-print-directory build_tests -j10
-	@./tests.out
-
-# sandbox:
-# 	@ccache g++ $(CXXFLAGS) sandbox.cpp $(SRC_FILES) $(INCLUDE_DIRS) $(IMGUI_OBJECTS) $(LIB_FLAGS) -o sandbox.out
-# 	@./sandbox.out
 
 build_dependencies: $(IMGUI_OBJECTS)
 	@$(call echo_success, "Building Dependencies")
