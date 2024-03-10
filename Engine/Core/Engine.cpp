@@ -497,22 +497,16 @@ public:
     }
 
 
-    void addChild(Light* lightChild, int light_id) {
+    void addChild(Light* lightChild) {
+        lightChild->isChild = true;
         lightChild->relativePosition = {
             lightChild->position.x - this->position.x,
             lightChild->position.y - this->position.y,
             lightChild->position.z - this->position.z
         };
 
-        auto it = std::find_if(lightsInfo.begin(), lightsInfo.end(), [light_id](const AdditionalLightInfo& light) {
-            return light.id == light_id;
-        });
-        
-        if (it != lightsInfo.end()) {
-            AdditionalLightInfo& light_info = reinterpret_cast<AdditionalLightInfo&>(*it);
-            light_info.parent = this;
-            children.push_back(lightChild);
-        }
+        children.push_back(lightChild);
+
     }
     
     // void removeChild(Entity* entityChild) {
@@ -569,15 +563,10 @@ public:
 
 
     void remove() {
-        // Delete objects in children vector
-        // for (auto& childVariant : children) {
-        //     std::visit([](auto& child) { delete child; }, childVariant);
-        // }
+        for (auto& childVariant : children) {
+            std::visit([](auto& child) { delete child; }, childVariant);
+        }
 
-        // // Clear the children vector
-        // children.clear();
-
-        // Remove the corresponding entity from entitiesListPregame
         entitiesListPregame.erase(
             std::remove_if(entitiesListPregame.begin(), entitiesListPregame.end(),
                 [this](const Entity& entity) {

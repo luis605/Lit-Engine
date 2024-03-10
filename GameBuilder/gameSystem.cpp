@@ -77,31 +77,19 @@ void InitWindow()
     const char* vert = decryptFile("shaders/whereami.glsl", key_b);
     shader = LoadShaderFromMemory(vert, frag);
 
-    InitLighting();
-
     inGame_Camera.position = (Vector3){ 0.0f, 10.0f, 10.0f };  
     inGame_Camera.target = (Vector3){ 0.0f, 0.0f, 0.0f };      
     inGame_Camera.up = (Vector3){ 0.0f, 1.0f, 0.0f };          
     inGame_Camera.fovy = 45.0f;                                
     inGame_Camera.projection = CAMERA_PERSPECTIVE;             
 
+    // Face Culling
     glEnable(GL_CULL_FACE);
     glCullFace(GL_BACK);
 
-    SetupPhysicsWorld();
-
-    DisableCursor();
-
+    InitSkybox();
     Py_Initialize();
-
-    InitSkybox(
-        "assets/default skybox.hdr",
-        "shaders/skybox.vs",
-        "shaders/skybox.fs",
-        "shaders/cubemap.vs",
-        "shaders/cubemap.fs"
-    );
-
+    InitLighting();
 }
 
 void WindowMainloop()
@@ -116,7 +104,7 @@ void WindowMainloop()
 
 void Run()
 {
-    dynamicsWorld->stepSimulation(GetFrameTime(), 10);
+    physics.Update(GetFrameTime());
 
     BeginDrawing();
         ClearBackground(GRAY);
@@ -131,7 +119,7 @@ void Run()
             if (first_time)
             {
                 #pragma omp parallel for
-                for (Entity& entity : entities_list)
+                for (Entity& entity : entitiesList)
                 {
                     entity.running_first_time = true;
 
@@ -141,7 +129,7 @@ void Run()
             }
 
             #pragma omp parallel for
-            for (Entity& entity : entities_list)
+            for (Entity& entity : entitiesList)
             {
                 entity.render();
 
@@ -165,7 +153,7 @@ void Run()
 int main()
 {
     InitWindow();
-    LoadProject(entities_list, lights, lights_info, inGame_Camera);
+    LoadProject(entitiesList, lights, lightsInfo, inGame_Camera);
     WindowMainloop();
     CloseWindow();
 }

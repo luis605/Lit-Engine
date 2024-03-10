@@ -8,6 +8,8 @@ uniform samplerCube environmentMap;
 uniform bool vflipped;
 uniform bool doGamma;
 
+uniform vec4 skyboxColor = vec4(1.0);
+
 // Output fragment color
 out vec4 finalColor;
 
@@ -19,7 +21,8 @@ void main()
     if (vflipped) color = texture(environmentMap, vec3(fragPosition.x, -fragPosition.y, fragPosition.z)).rgb;
     else color = texture(environmentMap, fragPosition).rgb;
 
-    if (doGamma)// Apply gamma correction
+    color *= skyboxColor.rgb;
+    if (doGamma)
     {
         color = color/(color + vec3(1.0));
         color = pow(color, vec3(1.0/2.2));

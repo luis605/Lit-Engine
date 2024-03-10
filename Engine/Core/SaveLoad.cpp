@@ -496,7 +496,7 @@ int SaveProject() {
 }
 
 void LoadEntity(const json& entity_json, Entity& entity);
-pair<Light, AdditionalLightInfo> LoadLight(const json& light_json, Light& light, AdditionalLightInfo light_info);
+void LoadLight(const json& light_json, Light& light, AdditionalLightInfo& light_info);
 
 
 
@@ -753,13 +753,15 @@ void LoadEntity(const json& entity_json, Entity& entity) {
                         LoadEntity(child_json, child);
                         entity.addChild(child);
                     } else if (type == "light") {
-                        Light child;
+                        Light light;
                         AdditionalLightInfo light_info;
-                        pair<Light, AdditionalLightInfo> light_pair = LoadLight(child_json, child, light_info);
-                        lights.push_back(light_pair.first);
-                        lightsInfo.push_back(light_pair.second);
 
-                        entity.addChild(&lights.back(), lightsInfo.back().id);
+                        LoadLight(child_json, light, light_info);
+                        lights.push_back(light);
+                        lightsInfo.push_back(light_info);
+                        light.isChild = true;
+
+                        entity.addChild(&lights.back());
                     }
                 }
             }
@@ -769,7 +771,7 @@ void LoadEntity(const json& entity_json, Entity& entity) {
 
 
 
-pair<Light, AdditionalLightInfo> LoadLight(const json& light_json, Light& light, AdditionalLightInfo light_info) {
+void LoadLight(const json& light_json, Light& light, AdditionalLightInfo& light_info) {
     light.color = (glm::vec4{
         light_json["color"]["r"].get<float>() / 255,
         light_json["color"]["g"].get<float>() / 255,
@@ -820,8 +822,6 @@ pair<Light, AdditionalLightInfo> LoadLight(const json& light_json, Light& light,
     light.attenuation        = light_json["attenuation"].get<float>();
     light.isChild            = light_json["isChild"].get<bool>();
     light.type               = (LightType)light_json["light_type"].get<int>();
-
-    return pair<Light, AdditionalLightInfo>(light, light_info);
 }
 
 
@@ -931,7 +931,7 @@ int LoadProject(vector<Entity>& entities_vector, vector<Light>& lightsVector, ve
             if (type == "entity") {
                 Entity entity;
                 LoadEntity(entity_json, entity);
-                entities_vector.emplace_back(entity);
+                entities_vector.push_back(entity);
                 entities_vector.back().reloadRigidBody();
             }
             else if (type == "camera") {
