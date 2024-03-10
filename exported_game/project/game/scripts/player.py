@@ -15,7 +15,7 @@ grounded = False
 entity.visible = True
 
 
-LockMouse()
+#LockMouse()
 
 # Helper functions
 def spherical_to_cartesian(radius, yaw, pitch):
@@ -99,6 +99,8 @@ def update():
     check_ground()
     set_entity_rotation()
     change_gravity()
+
+
 
 
 
