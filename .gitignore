@@ -1,10 +1,9 @@
 .vscode
+*.exe
 *.out
 *.ini
 *.o
-*.ini
-build/include
-build/CMakeFiles
-imgui.ini
-build/CMakeFiles
-build/include
+*.a
+*CMakeCache.txt
+build/include/
+build/CMakeFiles/
