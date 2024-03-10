@@ -28,7 +28,7 @@ void updateListViewExList(vector<Entity>& entities, vector<Light>& lights) {
     }
 }
 
-bool should_change_object_name = false;
+bool shouldChangeObjectName = false;
 bool showManipulateEntityPopup = false;
 
 void ManipulateEntityPopup()
@@ -56,7 +56,7 @@ void ManipulateEntityPopup()
         }
         else if (ImGui::Button("Rename Entity"))
         {
-            should_change_object_name = true;
+            shouldChangeObjectName = true;
             showManipulateEntityPopup = false;
         }
         else if (ImGui::Button("Duplicate Entity"))
@@ -118,7 +118,7 @@ void DrawEntityTree(Entity& entity, int active, int& index, int depth) {
     if (selectedEntity == &entity && selectedGameObjectType == "entity") {
         nodeFlags |= ImGuiTreeNodeFlags_Selected;
 
-        if (should_change_object_name) {
+        if (shouldChangeObjectName) {
             char nameBuffer[256];
 
             size_t buffer_size = sizeof(nameBuffer);
@@ -129,7 +129,7 @@ void DrawEntityTree(Entity& entity, int active, int& index, int depth) {
 
             if (ImGui::InputText("##LightName", nameBuffer, sizeof(nameBuffer), ImGuiInputTextFlags_EnterReturnsTrue)) {
                 entity.name = nameBuffer;
-                should_change_object_name = false;
+                shouldChangeObjectName = false;
             }
         }
     }
@@ -241,7 +241,7 @@ void DrawLightTree(Light& light, AdditionalLightInfo& light_info, int active, in
     ImGuiTreeNodeFlags nodeFlags = ImGuiTreeNodeFlags_OpenOnArrow | ImGuiTreeNodeFlags_OpenOnDoubleClick;
     if (selectedLight == &light && selectedGameObjectType == "light") {
         nodeFlags |= ImGuiTreeNodeFlags_Selected;
-        if (should_change_object_name) {
+        if (shouldChangeObjectName) {
             char nameBuffer[256];
 
             size_t buffer_size = sizeof(nameBuffer);
@@ -252,7 +252,7 @@ void DrawLightTree(Light& light, AdditionalLightInfo& light_info, int active, in
 
             if (ImGui::InputText("##LightName", nameBuffer, sizeof(nameBuffer), ImGuiInputTextFlags_EnterReturnsTrue)) {
                 light_info.name = nameBuffer;
-                should_change_object_name = false;
+                shouldChangeObjectName = false;
             }
         }
     }
@@ -305,7 +305,7 @@ void DrawTextElementsTree(Text& text, int active, int& index) {
     ImGuiTreeNodeFlags nodeFlags = ImGuiTreeNodeFlags_OpenOnArrow | ImGuiTreeNodeFlags_OpenOnDoubleClick;
     if (selectedTextElement == &text && selectedGameObjectType == "text") {
         nodeFlags |= ImGuiTreeNodeFlags_Selected;
-        if (should_change_object_name) {
+        if (shouldChangeObjectName) {
             char nameBuffer[256];
             size_t buffer_size = sizeof(nameBuffer);
             const char* source = text.name.c_str();
@@ -315,7 +315,7 @@ void DrawTextElementsTree(Text& text, int active, int& index) {
 
             if (ImGui::InputText("##TextName", nameBuffer, sizeof(nameBuffer), ImGuiInputTextFlags_EnterReturnsTrue)) {
                 text.name = nameBuffer;
-                should_change_object_name = false;
+                shouldChangeObjectName = false;
             }
         }
     }
@@ -344,7 +344,7 @@ void DrawButtonTree(LitButton& button, int active, int& index) {
     ImGuiTreeNodeFlags nodeFlags = ImGuiTreeNodeFlags_OpenOnArrow | ImGuiTreeNodeFlags_OpenOnDoubleClick;
     if (selectedButton == &button && selectedGameObjectType == "button") {
         nodeFlags |= ImGuiTreeNodeFlags_Selected;
-        if (should_change_object_name) {
+        if (shouldChangeObjectName) {
             char nameBuffer[256];
             size_t buffer_size = sizeof(nameBuffer);
             const char* source = button.name.c_str();
@@ -354,7 +354,7 @@ void DrawButtonTree(LitButton& button, int active, int& index) {
 
             if (ImGui::InputText("##ButtonName", nameBuffer, sizeof(nameBuffer), ImGuiInputTextFlags_EnterReturnsTrue)) {
                 button.name = nameBuffer;
-                should_change_object_name = false;
+                shouldChangeObjectName = false;
             }
         }
     }
@@ -390,10 +390,10 @@ void ImGuiListViewEx(vector<string>& items, int& focus, int& scroll, int& active
     ImGui::BeginChild("Entities List", childSize, true, ImGuiWindowFlags_HorizontalScrollbar);
 
     if ((ImGui::IsWindowFocused() || ImGui::IsWindowHovered() || ImGui::IsItemHovered()) && IsKeyDown(KEY_F2))
-        should_change_object_name = true;
+        shouldChangeObjectName = true;
 
     if (ImGui::IsWindowFocused() && IsKeyDown(KEY_ESCAPE))
-        should_change_object_name = false;
+        shouldChangeObjectName = false;
 
 
     ImGui::PushStyleVar(ImGuiStyleVar_FrameBorderSize, 3.0f);

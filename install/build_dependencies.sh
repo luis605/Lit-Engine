@@ -1,9 +1,6 @@
 cd ..
-cd include/raylib
-mkdir build
-cd build
-cmake ..
-cmake --build .
+cd include/raylib/src
+make
 
 cd ../../../
 
