@@ -902,7 +902,7 @@ void LoadButton(const json& button_json, LitButton& button) {
 
 
 
-int LoadProject(vector<Entity>& entities_vector, vector<Light>& lightsVector, vector<AdditionalLightInfo>& lightsInfo_vector, LitCamera& camera) {
+int LoadProject(vector<Entity>& entitiesVector, vector<Light>& lightsVector, vector<AdditionalLightInfo>& lightsInfoVector, LitCamera& camera) {
     std::ifstream infile("project.json");
     if (!infile.is_open()) {
         std::cout << "Error: Failed to open project file." << std::endl;
@@ -914,14 +914,14 @@ int LoadProject(vector<Entity>& entities_vector, vector<Light>& lightsVector, ve
 
     infile.close();
 
-    entities_vector.clear();
+    entitiesVector.clear();
 
 #ifndef GAME_SHIPPING
     entitiesListPregame.clear();
 #endif
 
     lightsVector.clear();
-    lightsInfo_vector.clear();
+    lightsInfoVector.clear();
     textElements.clear();
     litButtons.clear();
     
@@ -931,8 +931,8 @@ int LoadProject(vector<Entity>& entities_vector, vector<Light>& lightsVector, ve
             if (type == "entity") {
                 Entity entity;
                 LoadEntity(entity_json, entity);
-                entities_vector.push_back(entity);
-                entities_vector.back().reloadRigidBody();
+                entitiesVector.push_back(entity);
+                entitiesVector.back().reloadRigidBody();
             }
             else if (type == "camera") {
                 LoadCamera(entity_json, camera);
@@ -946,7 +946,7 @@ int LoadProject(vector<Entity>& entities_vector, vector<Light>& lightsVector, ve
                 Light light;
                 AdditionalLightInfo light_info;
                 LoadLight(entity_json, light, light_info);
-                lightsInfo_vector.emplace_back(light_info);
+                lightsInfoVector.emplace_back(light_info);
                 lightsVector.emplace_back(light);
             }
             else if (type == "text") {
