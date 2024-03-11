@@ -7,21 +7,12 @@ void WindowMainloop();
 void Run();
 void StartGame();
 
-#define WindowHeight GetScreenHeight() / 1.5
-#define WindowWidth GetScreenWidth() / 1.5
+#define WindowHeight GetScreenHeight()
+#define WindowWidth GetScreenWidth()
 
 string gameTitle = "Game";
 bool first_time = true;
-
-
-LitCamera inGame_Camera = { 0 };
-
-
-
-
-#include <iostream>
-#include <fstream>
-#include <string>
+LitCamera inGameCamera = { 0 };
 
 const char* encryptFile(const std::string& inputFile, const std::string& key) {
     std::ifstream inFile(inputFile, std::ios::binary);
@@ -77,12 +68,6 @@ void InitWindow()
     const char* vert = decryptFile("shaders/whereami.glsl", key_b);
     shader = LoadShaderFromMemory(vert, frag);
 
-    inGame_Camera.position = (Vector3){ 0.0f, 10.0f, 10.0f };  
-    inGame_Camera.target = (Vector3){ 0.0f, 0.0f, 0.0f };      
-    inGame_Camera.up = (Vector3){ 0.0f, 1.0f, 0.0f };          
-    inGame_Camera.fovy = 45.0f;                                
-    inGame_Camera.projection = CAMERA_PERSPECTIVE;             
-
     // Face Culling
     glEnable(GL_CULL_FACE);
     glCullFace(GL_BACK);
@@ -94,10 +79,10 @@ void InitWindow()
 
 void WindowMainloop()
 {
-    while (!WindowShouldClose())
-    {
+    // while (!WindowShouldClose())
+    // {
         Run();
-    }
+    // }
 }
 
 
@@ -109,10 +94,10 @@ void Run()
     BeginDrawing();
         ClearBackground(GRAY);
 
-        BeginMode3D(inGame_Camera);
+        BeginMode3D(inGameCamera);
 
             DrawSkybox();
-            
+
             UpdateInGameGlobals();
 
 
@@ -124,7 +109,7 @@ void Run()
                     entity.running_first_time = true;
 
                     #pragma omp critical
-                    RenderAndRunEntity(entity, &inGame_Camera);
+                    RenderAndRunEntity(entity, &inGameCamera);
                 }
             }
 
@@ -134,7 +119,7 @@ void Run()
                 entity.render();
 
                 #pragma omp critical
-                entity.runScript(&inGame_Camera);
+                entity.runScript(&inGameCamera);
             }
 
             first_time = false;
@@ -144,8 +129,6 @@ void Run()
     DrawTextElements();
     DrawButtons();
 
-    DrawFPS(30,30);
-    
     EndDrawing();
 }
 
@@ -153,7 +136,7 @@ void Run()
 int main()
 {
     InitWindow();
-    LoadProject(entitiesList, lights, lightsInfo, inGame_Camera);
+    LoadProject(entitiesList, lights, lightsInfo, inGameCamera);
     WindowMainloop();
     CloseWindow();
 }
