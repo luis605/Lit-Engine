@@ -79,10 +79,10 @@ void InitWindow()
 
 void WindowMainloop()
 {
-    // while (!WindowShouldClose())
-    // {
+    while (!WindowShouldClose())
+    {
         Run();
-    // }
+    }
 }
 
 
@@ -98,27 +98,24 @@ void Run()
 
             DrawSkybox();
 
+            UpdateLightsBuffer();
             UpdateInGameGlobals();
 
 
             if (first_time)
             {
-                #pragma omp parallel for
                 for (Entity& entity : entitiesList)
                 {
                     entity.running_first_time = true;
 
-                    #pragma omp critical
                     RenderAndRunEntity(entity, &inGameCamera);
                 }
             }
 
-            #pragma omp parallel for
             for (Entity& entity : entitiesList)
             {
                 entity.render();
 
-                #pragma omp critical
                 entity.runScript(&inGameCamera);
             }
 

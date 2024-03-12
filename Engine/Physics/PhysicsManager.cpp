@@ -15,6 +15,11 @@ public:
 public:
     PhysicsManager()
     {
+        Init();
+    }
+
+    void Init()
+    {
         broadphase = new btDbvtBroadphase();
         collisionConfiguration = new btDefaultCollisionConfiguration();
         dispatcher = new btCollisionDispatcher(collisionConfiguration);
