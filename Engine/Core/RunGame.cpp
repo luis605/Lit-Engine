@@ -3,13 +3,6 @@
 #include "../../globals.h"
 #include "RunGame.h"
 
-void CleanScriptThreads(std::vector<std::thread>& script_threads) {
-    for (auto& script_thread : script_threads) {
-        if (script_thread.joinable())
-            script_thread.join();
-    }
-    script_threads.clear();
-}
 
 void InitGameCamera() {
     camera.position = { 10.0f, 5.0f, 0.0f };
