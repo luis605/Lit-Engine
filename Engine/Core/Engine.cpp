@@ -259,6 +259,14 @@ public:
             this->boxMotionState = std::move(other.boxMotionState);
         }
 
+        if (other.rigidShape && other.rigidShape != nullptr) {
+            this->rigidShape = std::move(other.rigidShape);
+        }
+
+        if (other.customMeshShape && other.customMeshShape != nullptr) {
+            this->customMeshShape = std::move(other.customMeshShape);
+        }
+
         this->texturePath                  = other.texturePath;
         this->texture = std::visit([](const auto& value) -> std::variant<Texture, std::unique_ptr<VideoPlayer, std::default_delete<VideoPlayer>>> {
             using T = std::decay_t<decltype(value)>;
@@ -420,6 +428,14 @@ public:
 
         if (other.boxMotionState && other.boxMotionState != nullptr) {
             this->boxMotionState = std::move(other.boxMotionState);
+        }
+
+        if (other.rigidShape && other.rigidShape != nullptr) {
+            this->rigidShape = std::move(other.rigidShape);
+        }
+
+        if (other.customMeshShape && other.customMeshShape != nullptr) {
+            this->customMeshShape = std::move(other.customMeshShape);
         }
 
         this->visible = other.visible;
