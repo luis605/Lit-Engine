@@ -598,12 +598,12 @@ void ProcessDeletion()
         else if (selectedGameObjectType == "light")
         {
             lights.erase(std::remove(lights.begin(), lights.end(), *selectedLight), lights.end());
-            lightsInfo.erase(std::remove(lightsInfo.begin(), lightsInfo.end(), *selectedLight), lightsInfo.end());
+            lightsInfo.erase(std::remove(lightsInfo.begin(), lightsInfo.end(), *selectedLightInfo), lightsInfo.end());
             UpdateLightsBuffer(true);
-            return;
         }
     }        
 }
+
 
 bool canDuplicateEntity = true;
 
