@@ -597,9 +597,17 @@ void ProcessDeletion()
             selectedEntity->remove();
         else if (selectedGameObjectType == "light")
         {
-            lights.erase(std::remove(lights.begin(), lights.end(), *selectedLight), lights.end());
-            lightsInfo.erase(std::remove(lightsInfo.begin(), lightsInfo.end(), *selectedLightInfo), lightsInfo.end());
-            UpdateLightsBuffer(true);
+            auto it = std::find(lights.begin(), lights.end(), *selectedLight);
+            if (it != lights.end())
+            {
+                size_t index = std::distance(lights.begin(), it);
+                if (index < lightsInfo.size())
+                {
+                    lights.erase(it);
+                    lightsInfo.erase(lightsInfo.begin() + index);
+                    UpdateLightsBuffer(true);
+                }
+            }
         }
     }        
 }
