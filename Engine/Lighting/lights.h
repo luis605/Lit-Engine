@@ -160,7 +160,7 @@ void AddLight()
         cout << "AddLight" << endl;
         Light lightCreate = NewLight({ -2, 1, -2 }, RED);
         lightCreate.isChild = false;
-        lightsListPregame.push_back(lightCreate);
+        lightsListPregame.emplace_back(lightCreate);
         canAddLight = false;
     }
 }
