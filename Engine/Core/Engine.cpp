@@ -517,7 +517,7 @@ public:
             newChild->position.z - this->position.z
         };
 
-        children.push_back(newChild);
+        children.emplace_back(newChild);
     }
 
 
@@ -529,7 +529,7 @@ public:
             lightChild->position.z - this->position.z
         };
 
-        children.push_back(lightChild);
+        children.emplace_back(lightChild);
 
     }
     
