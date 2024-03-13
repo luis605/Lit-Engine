@@ -113,14 +113,14 @@ Light NewLight(const Vector3 position, const Color color, int type)
     light.position = lightsPosition;
     light.color = lightsColor;
     light.id = lights.size() + entitiesListPregame.size() + 1;
-    lights.push_back(light);
+    lights.emplace_back(light);
 
 
     AdditionalLightInfo info;
     info.name = "Light";
     info.id = light.id;
 
-    lightsInfo.push_back(info);
+    lightsInfo.emplace_back(info);
 
     return lights.back();
 }
