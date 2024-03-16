@@ -208,7 +208,7 @@ void DeserializeMaterial(SurfaceMaterial* material, const char* path) {
 /* Objects */
 void SaveCamera(json& json_data, const LitCamera camera);
 void SaveEntity(json& json_data, const Entity& entity);
-void SaveLight(json& json_data, const Light& light, int light_index);
+void SaveLight(json& json_data, const Light& light, int lightIndex);
 void SaveText(json& json_data, const Text& text, bool emplace_back = true);
 void SaveButton(json& json_data, const LitButton& button);
 
@@ -250,7 +250,7 @@ void SaveEntity(json& json_data, const Entity& entity) {
     j["collider"]                = entity.collider;
 
     j["script_path"]             = entity.script;
-    j["script_index"]            = entity.script_index;
+    j["scriptIndex"]            = entity.scriptIndex;
     j["texturePath"]            = entity.texturePath;
     j["normalTexturePath"]     = entity.normalTexturePath;
     j["roughnessTexturePath"]  = entity.roughnessTexturePath;
@@ -283,14 +283,14 @@ void SaveEntity(json& json_data, const Entity& entity) {
                 Light* child = std::get<Light*>(childVariant);
                 json child_json;
 
-                int light_index = -1;
-                auto light_it = std::find_if(lights.begin(), lights.end(), [&child, &light_index](const Light& light) {
-                    light_index++;
+                int lightIndex = -1;
+                auto light_it = std::find_if(lights.begin(), lights.end(), [&child, &lightIndex](const Light& light) {
+                    lightIndex++;
                     return light.id == child->id;
                 });
 
 
-                SaveLight(child_json, *child, light_index);
+                SaveLight(child_json, *child, lightIndex);
                 children_data.emplace_back(child_json);
             }
 
@@ -302,7 +302,7 @@ void SaveEntity(json& json_data, const Entity& entity) {
 }
 
 
-void SaveLight(json& json_data, const Light& light, int light_index) {
+void SaveLight(json& json_data, const Light& light, int lightIndex) {
     json j;
     j["type"] = "light";
     j["color"]["r"] = light.color.r * 255;
@@ -310,7 +310,7 @@ void SaveLight(json& json_data, const Light& light, int light_index) {
     j["color"]["b"] = light.color.b * 255;
     j["color"]["a"] = light.color.a * 255;
     
-    j["name"] = lightsInfo.at(light_index).name;
+    j["name"] = lightsInfo.at(lightIndex).name;
     j["position"] = light.position;
     
     if (light.isChild)
@@ -337,8 +337,8 @@ void SaveLight(json& json_data, const Light& light, int light_index) {
     j["specularStrength"] = light.specularStrength;
     j["attenuation"] = light.attenuation;
     j["isChild"] = light.isChild;
-    j["id"] = lightsInfo.at(light_index).id;
-    j["light_type"] = lights.at(light_index).type;
+    j["id"] = lightsInfo.at(lightIndex).id;
+    j["light_type"] = lights.at(lightIndex).type;
 
 
     json_data.emplace_back(j);
@@ -438,7 +438,7 @@ void serializeScripts() {
         scriptName = scriptName.substr(0, scriptName.find_last_of('.')) + std::to_string(file_id);
 
         j[scriptName] = scriptContent;
-        entity.script_index = scriptName;
+        entity.scriptIndex = scriptName;
 
         file_id++;
         script_data.emplace_back(j);
@@ -466,11 +466,11 @@ int SaveProject() {
         SaveEntity(json_data, entity);
     }
 
-    int light_index = 0;
+    int lightIndex = 0;
     for (const auto& light : lights) {
         if (light.isChild) continue;
-        SaveLight(json_data, light, light_index);
-        light_index++;
+        SaveLight(json_data, light, lightIndex);
+        lightIndex++;
     }
 
     for (const Text& text : textElements)
@@ -686,8 +686,8 @@ void LoadEntity(const json& entity_json, Entity& entity) {
         entity.collider = entity_json["collider"].get<bool>();
     if (entity_json.contains("script_path"))
         entity.script = entity_json["script_path"].get<std::string>();
-    if (entity_json.contains("script_index"))
-        entity.script_index = entity_json["script_index"].get<std::string>();
+    if (entity_json.contains("scriptIndex"))
+        entity.scriptIndex = entity_json["scriptIndex"].get<std::string>();
     if (entity_json.contains("id"))
         entity.id = entity_json["id"].get<int>();
     else

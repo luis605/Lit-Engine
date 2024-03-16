@@ -219,7 +219,7 @@ void EntityInspector()
         if (ImGui::Button("x##ScriptEmptyButton", ImVec2(25, 25)))
         {
             selectedEntity->script = "";
-            selectedEntity->script_index = "NONE";
+            selectedEntity->scriptIndex = "NONE";
         }
 
         ImGui::Dummy(ImVec2(0.0f, 30.0f));

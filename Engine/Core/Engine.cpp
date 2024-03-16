@@ -104,7 +104,7 @@ public:
     LitVector3 relative_scale = { 1, 1, 1 };
 
     string script = "";
-    string script_index = "";
+    string scriptIndex = "";
     string model_path = "";
     Model model;
 
@@ -214,7 +214,7 @@ public:
         this->relative_rotation = other.relative_rotation;
         this->relative_scale = other.relative_scale;
         this->script = other.script;
-        this->script_index = other.script_index;
+        this->scriptIndex = other.scriptIndex;
         this->model_path = other.model_path;
         this->ObjectType = other.ObjectType;
         this->model = other.model;
@@ -328,7 +328,7 @@ public:
         this->relative_rotation = other.relative_rotation;
         this->relative_scale = other.relative_scale;
         this->script = other.script;
-        this->script_index = other.script_index;
+        this->scriptIndex = other.scriptIndex;
         this->model_path = other.model_path;
         this->ObjectType = other.ObjectType;
         this->model = other.model;
@@ -687,27 +687,27 @@ public:
     {
         entityOptimized = true;
 
-        for (int models_index = 0; models_index < sizeof(LodModels)/sizeof(LodModels[0]); models_index++)
+        for (int modelsIndex = 0; modelsIndex < sizeof(LodModels)/sizeof(LodModels[0]); modelsIndex++)
         {
-            if (IsModelReady(LodModels[models_index])) continue;
-            for (int index = 0; index < LodModels[models_index].meshCount; index++)
+            if (IsModelReady(LodModels[modelsIndex])) continue;
+            for (int index = 0; index < LodModels[modelsIndex].meshCount; index++)
             {
-                free(LodModels[models_index].meshes[index].vertices);
-                free(LodModels[models_index].meshes[index].indices);
-                free(LodModels[models_index].meshes[index].colors);
-                free(LodModels[models_index].meshes[index].normals);
-                free(LodModels[models_index].meshes[index].tangents);
-                free(LodModels[models_index].meshes[index].texcoords);
-                free(LodModels[models_index].meshes[index].boneIds);
-                free(LodModels[models_index].meshes[index].boneWeights);
-                free(LodModels[models_index].meshes[index].animVertices);
-                free(LodModels[models_index].meshes[index].animNormals);
-                free(LodModels[models_index].meshes[index].texcoords2);
+                free(LodModels[modelsIndex].meshes[index].vertices);
+                free(LodModels[modelsIndex].meshes[index].indices);
+                free(LodModels[modelsIndex].meshes[index].colors);
+                free(LodModels[modelsIndex].meshes[index].normals);
+                free(LodModels[modelsIndex].meshes[index].tangents);
+                free(LodModels[modelsIndex].meshes[index].texcoords);
+                free(LodModels[modelsIndex].meshes[index].boneIds);
+                free(LodModels[modelsIndex].meshes[index].boneWeights);
+                free(LodModels[modelsIndex].meshes[index].animVertices);
+                free(LodModels[modelsIndex].meshes[index].animNormals);
+                free(LodModels[modelsIndex].meshes[index].texcoords2);
             }
 
-            free(LodModels[models_index].bindPose);
-            free(LodModels[models_index].boneCount);
-            free(LodModels[models_index].bones);
+            free(LodModels[modelsIndex].bindPose);
+            free(LodModels[modelsIndex].boneCount);
+            free(LodModels[modelsIndex].bones);
         }
     }
 
@@ -785,7 +785,7 @@ public:
 
     void setupScript(LitCamera* rendering_camera)
     {
-        if (script.empty() && script_index.empty()) return;
+        if (script.empty() && scriptIndex.empty()) return;
         running = true;
 
         if (!Entity_already_registered) {
@@ -907,8 +907,8 @@ public:
         for (const auto& element : json_data) {
 
             if (element.is_object()) {
-                if (element.contains(script_index)) {
-                    script_content = element[script_index].get<std::string>();
+                if (element.contains(scriptIndex)) {
+                    script_content = element[scriptIndex].get<std::string>();
                     std::cout << "Script loaded successfully." << std::endl;
                 } else {
                 }
@@ -935,7 +935,7 @@ public:
     }
 
     void runScript(LitCamera* rendering_camera) {
-        if (script.empty() && script_index.empty()) return;
+        if (script.empty() && scriptIndex.empty()) return;
 
         try {
             if (py::hasattr(scriptModule, "update")) {
@@ -1438,8 +1438,8 @@ bool operator==(const Entity& e, const Entity* ptr) {
         entitiesListPregame.push_back(entityCreate);
         selectedEntity = &entityCreate;
 
-        int last_entity_index = entitiesListPregame.size() - 1;
-        listViewExActive = last_entity_index;
+        int last_entityIndex = entitiesListPregame.size() - 1;
+        listViewExActive = last_entityIndex;
 
         create = false;
         canAddEntity = false;
