@@ -69,7 +69,7 @@ struct SurfaceMaterial
 };
 
 layout(std140) uniform MaterialBlock {
-    SurfaceMaterial surface_material;
+    SurfaceMaterial surfaceMaterial;
 };
 
 // Output fragment color
@@ -105,9 +105,9 @@ vec4 CalculateDirectionalLight(Light light, vec3 viewDir, vec3 norm, vec3 halfVe
     vec3 fragLightDir = normalize(-light.direction);
     float NdotL = max(dot(norm, fragLightDir), 0.0);
 
-    vec3 fresnel = CalculateFresnelReflection(surface_material.baseReflectance, viewDir, halfVector);
+    vec3 fresnel = CalculateFresnelReflection(surfaceMaterial.baseReflectance, viewDir, halfVector);
 
-    vec4 diffuseTerm = colDiffuse * surface_material.DiffuseIntensity * NdotL;
+    vec4 diffuseTerm = colDiffuse * surfaceMaterial.DiffuseIntensity * NdotL;
     vec4 lightContribution = (diffuseTerm + specular) * light.color * vec4(fresnel, 1.0) * light.intensity;
 
     return lightContribution;
@@ -123,20 +123,20 @@ vec4 CalculatePointLight(Light light, vec3 viewDir, vec3 norm, float roughness, 
     float distance = length(light.position - fragPosition);
     float attenuation = 1.0 / (1.0 + light.attenuation * distance * distance);
 
-    float NdotL = max(dot(norm, lightDir), 0.0) * surface_material.DiffuseIntensity;
+    float NdotL = max(dot(norm, lightDir), 0.0) * surfaceMaterial.DiffuseIntensity;
 
     float NdotH = max(dot(norm, H), 0.0);
-    float roughnessSquared = max(1.0 - roughness, 0.02) * surface_material.Roughness;
+    float roughnessSquared = max(1.0 - roughness, 0.02) * surfaceMaterial.Roughness;
     
     // Reuse NdotH for multiple calculations
     float denominator = 4.0 * NdotL * NdotH;
     float k_s = (roughnessSquared + 1.0) / (8.0 * NdotH * NdotL + 0.001);
     
     // Use a fast approximation for pow() for roughnessSquared exponentiation
-    float specularTerm = k_s / (NdotH * NdotH * max(denominator, 0.001)) * surface_material.shininess;
+    float specularTerm = k_s / (NdotH * NdotH * max(denominator, 0.001)) * surfaceMaterial.shininess;
 
     // Use the unmodified NdotL for the diffuse term
-    return (NdotL + specular * specularTerm * surface_material.SpecularIntensity) * light.color * attenuation * light.intensity;
+    return (NdotL + specular * specularTerm * surfaceMaterial.SpecularIntensity) * light.color * attenuation * light.intensity;
 }
 
 
@@ -159,12 +159,12 @@ vec4 CalculateSpotLight(Light light, vec3 viewDir, vec3 norm, float roughness, f
         vec3 normalMap = texture(texture2, texCoord).rgb;
         vec3 sampledNormal = norm;
         vec3 lightDirTangent = normalize(lightToPoint * TBN);
-        NdotL = max(dot(sampledNormal, lightDirTangent), 0.0) * surface_material.DiffuseIntensity;
+        NdotL = max(dot(sampledNormal, lightDirTangent), 0.0) * surfaceMaterial.DiffuseIntensity;
     }
     else
     {
         vec3 lightDirTangent = normalize(lightToPoint * TBN);
-        NdotL = max(dot(norm, lightDirTangent), 0.0) * surface_material.DiffuseIntensity;
+        NdotL = max(dot(norm, lightDirTangent), 0.0) * surfaceMaterial.DiffuseIntensity;
     }
 
     vec4 diffuseTerm = colDiffuse * NdotL;
@@ -213,7 +213,7 @@ vec4 CalculateDiffuseLighting(vec3 fragPosition, vec3 norm, vec2 texCoord) {
     vec4 texColor = texture(texture0, texCoord);
 
     vec3 diffuseComponent = mix(colDiffuse.rgb, texColor.rgb, step(0.0, texColor.rgb));
-    vec3 ambientComponent = colDiffuse.rgb * ambientLight.rgb * surface_material.DiffuseIntensity;
+    vec3 ambientComponent = colDiffuse.rgb * ambientLight.rgb * surfaceMaterial.DiffuseIntensity;
     vec3 resultColor = ambientComponent + diffuseComponent;
     vec4 diffuseColor = vec4(resultColor, texColor.a);
 
@@ -272,13 +272,13 @@ void main() {
     vec3 norm = normalize(normalMapInit ? TBN * normalMap : fragNormal);
 
     // Calculate roughness
-    float roughness = roughnessMapInit ? texture(texture3, texCoord).r : surface_material.Roughness;
+    float roughness = roughnessMapInit ? texture(texture3, texCoord).r : surfaceMaterial.Roughness;
 
     // Calculate view direction
     vec3 viewDir = normalize(viewPos - fragPosition);
 
     // Calculate lighting
-    vec3 lighting = CalculateLighting(fragPosition, norm, viewDir, texCoord, surface_material, roughness).rgb;
+    vec3 lighting = CalculateLighting(fragPosition, norm, viewDir, texCoord, surfaceMaterial, roughness).rgb;
 
     // Calculate final color
     vec4 result = vec4(colDiffuse.rgb / 1.8 - ambientLight.rgb * 0.5, colDiffuse.a);

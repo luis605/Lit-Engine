@@ -254,9 +254,9 @@ void SaveEntity(json& json_data, const Entity& entity) {
     j["texturePath"]            = entity.texturePath;
     j["normalTexturePath"]     = entity.normalTexturePath;
     j["roughnessTexturePath"]  = entity.roughnessTexturePath;
-    j["material_path"]           = entity.surface_material_path;
+    j["material_path"]           = entity.surfaceMaterial_path;
     j["id"]                      = entity.id;
-    j["surface_material"]        = entity.surface_material;
+    j["surfaceMaterial"]        = entity.surfaceMaterial;
     j["is_dynamic"]              = entity.isDynamic;
     j["mass"]                    = entity.mass;
     j["lodEnabled"]              = entity.lodEnabled;
@@ -698,10 +698,10 @@ void LoadEntity(const json& entity_json, Entity& entity) {
 
     // Materials
     if (entity_json.contains("material_path")) {
-        entity.surface_material_path = entity_json["material_path"].get<string>();
-        if (!entity.surface_material_path.empty())
+        entity.surfaceMaterial_path = entity_json["material_path"].get<string>();
+        if (!entity.surfaceMaterial_path.empty())
         {
-            DeserializeMaterial(&entity.surface_material, entity.surface_material_path.string().c_str());
+            DeserializeMaterial(&entity.surfaceMaterial, entity.surfaceMaterial_path.string().c_str());
         }
     }
 

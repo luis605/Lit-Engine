@@ -1,7 +1,7 @@
 #include "../../include_all.h"
 #pragma once
 
-PYBIND11_EMBEDDED_MODULE(time_module, m) {
+PYBIND11_EMBEDDED_MODULE(timeModule, m) {
     py::class_<Time>(m, "Time")
         .def(py::init<>())
         .def_readwrite("dt", &Time::dt);
@@ -11,7 +11,7 @@ PYBIND11_EMBEDDED_MODULE(time_module, m) {
 
 
 
-PYBIND11_EMBEDDED_MODULE(math_module, m) {
+PYBIND11_EMBEDDED_MODULE(mathModule, m) {
     py::class_<LitVector3>(m, "Vector3")
         .def(py::init<float, float, float>())
         .def_readwrite("x", &LitVector3::x)
@@ -69,7 +69,7 @@ PYBIND11_EMBEDDED_MODULE(math_module, m) {
 
 
 
-PYBIND11_EMBEDDED_MODULE(mouse_module, m) {
+PYBIND11_EMBEDDED_MODULE(mouseModule, m) {
     m.def("LockMouse", &DisableCursor);
     m.def("UnlockMouse", &EnableCursor);
 }
@@ -78,7 +78,7 @@ PYBIND11_EMBEDDED_MODULE(mouse_module, m) {
 
 
 
-PYBIND11_EMBEDDED_MODULE(physics_module, m) {
+PYBIND11_EMBEDDED_MODULE(physicsModule, m) {
     py::class_<PhysicsManager>(m, "physics")
         .def_property("gravity",
             [](const PhysicsManager& physics) { return physics.gravity; },
@@ -118,7 +118,7 @@ struct LitCamera : Camera3D {
 
 
 
-PYBIND11_EMBEDDED_MODULE(camera_module, m) {
+PYBIND11_EMBEDDED_MODULE(cameraModule, m) {
     py::class_<LitCamera>(m, "LitCamera")
         .def(py::init<LitVector3, LitVector3, LitVector3, float, float>())
         .def_readwrite("position", &LitCamera::pos)
@@ -154,7 +154,7 @@ Vector2 GetMouseMovement()
 }
 
 
-PYBIND11_EMBEDDED_MODULE(input_module, m) {
+PYBIND11_EMBEDDED_MODULE(inputModule, m) {
     m.def("isMouseButtonPressed", &IsMouseButtonPressed);
     m.def("isKeyDown", &IsKeyDown);
     m.def("isKeyPressed", &IsKeyPressed);
@@ -267,7 +267,7 @@ PYBIND11_EMBEDDED_MODULE(input_module, m) {
 HitInfo raycast(LitVector3 origin, LitVector3 direction, bool debug=false, std::vector<Entity> ignore = {});
 
 
-PYBIND11_EMBEDDED_MODULE(collisions_module, m) {
+PYBIND11_EMBEDDED_MODULE(collisionModule, m) {
     py::class_<HitInfo>(m, "HitInfo")
         .def(py::init<>())
         .def_readwrite("hit", &HitInfo::hit)
@@ -316,7 +316,7 @@ void printColor(const Color& color) {
   std::cout << color_text.c_str() << std::endl;
 }
 
-PYBIND11_EMBEDDED_MODULE(color_module, m) {
+PYBIND11_EMBEDDED_MODULE(colorModule, m) {
     py::class_<Color>(m, "Color")
         .def(py::init<unsigned char, unsigned char, unsigned char, unsigned char>())
         .def_readwrite("r", &Color::r)

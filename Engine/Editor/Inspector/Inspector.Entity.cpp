@@ -270,15 +270,15 @@ void EntityInspector()
                 string path = dirPath.string();
                 path += "/" + filesTextureStruct[payload_n].name;
 
-                selectedEntity->surface_material_path = path;
-                DeserializeMaterial(&selectedEntity->surface_material, selectedEntity->surface_material_path.string().c_str());
+                selectedEntity->surfaceMaterial_path = path;
+                DeserializeMaterial(&selectedEntity->surfaceMaterial, selectedEntity->surfaceMaterial_path.string().c_str());
             }
             ImGui::EndDragDropTarget();
         }
 
-        if (!selectedEntity->surface_material_path.empty() && selectedEntity->surface_material_path.has_filename())
+        if (!selectedEntity->surfaceMaterial_path.empty() && selectedEntity->surfaceMaterial_path.has_filename())
         {
-            MaterialInspector(&selectedEntity->surface_material, selectedEntity->surface_material_path.string());
+            MaterialInspector(&selectedEntity->surfaceMaterial, selectedEntity->surfaceMaterial_path.string());
         }
 
         ImGui::Unindent(30.0f);
