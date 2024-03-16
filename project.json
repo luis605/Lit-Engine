@@ -2,15 +2,15 @@
     {
         "fovy": 60.0,
         "position": {
-            "x": 12.587395668029785,
-            "y": 22.734989166259766,
-            "z": -5.8017401695251465
+            "x": 17.03638458251953,
+            "y": 34.162837982177734,
+            "z": -25.885883331298828
         },
         "projection": 0,
         "target": {
-            "x": 6.075875282287598,
-            "y": 15.158842086791992,
-            "z": -3.751760959625244
+            "x": 14.310601234436035,
+            "y": 29.207599639892578,
+            "z": -17.399669647216797
         },
         "type": "camera",
         "up": {
@@ -22,18 +22,18 @@
     {
         "ambientColor": {
             "w": 1.0,
-            "x": 1.0,
-            "y": 1.0,
-            "z": 1.0
+            "x": 0.0,
+            "y": 0.0,
+            "z": 0.0
         },
         "bloom": false,
         "bloomBrightness": 0.0,
         "bloomSamples": 3.0,
         "skyboxColor": {
             "w": 1.0,
-            "x": 1.0,
-            "y": 1.0,
-            "z": 1.0
+            "x": 0.0,
+            "y": 0.0,
+            "z": 0.0
         },
         "skyboxPath": "assets/images/skybox/default skybox.hdr",
         "type": "world settings"
@@ -95,7 +95,7 @@
     },
     {
         "collider": true,
-        "collider_type": 1,
+        "collider_type": 0,
         "damping": 0.0,
         "friction": 1.0,
         "id": 0,
@@ -103,7 +103,7 @@
         "lodEnabled": true,
         "mass": 1.0,
         "material_path": "",
-        "mesh_type": 5,
+        "mesh_type": 1,
         "model_path": "",
         "name": "Planet",
         "normalTexturePath": "",
@@ -124,9 +124,9 @@
         },
         "roughnessTexturePath": "",
         "scale": {
-            "x": 30.0,
-            "y": 30.0,
-            "z": 30.0
+            "x": 24.0,
+            "y": 24.0,
+            "z": 24.0
         },
         "script_index": "",
         "script_path": "",

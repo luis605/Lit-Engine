@@ -44,6 +44,7 @@ def update_camera_rotation():
     global yaw, pitch
     yaw -= GetMouseMovement().x * SENSITIVITY
     pitch -= GetMouseMovement().y * SENSITIVITY
+    pitch = max(-89, min(89, pitch))
     
 def update_camera_position():
     global yaw, pitch
@@ -99,6 +100,7 @@ def update():
     check_ground()
     set_entity_rotation()
     change_gravity()
+
 
 
 
