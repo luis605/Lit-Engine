@@ -6,9 +6,6 @@
     #include "stressTest.cpp"
 #endif
 
-#define MAX(a, b) ((a) > (b) ? (a) : (b))
-#define MIN(a, b) ((a) < (b) ? (a) : (b))
-
 void InitLitWindow() {
     SetTraceLogLevel(LOG_WARNING);
 
@@ -17,7 +14,6 @@ void InitLitWindow() {
     windowWidth = GetMonitorWidth(0) * 0.95;
     windowHeight = GetMonitorHeight(0) * 0.9;    
     CloseWindow();
-
 
     // Window
     SetConfigFlags(FLAG_MSAA_4X_HINT | FLAG_WINDOW_RESIZABLE | FLAG_WINDOW_UNDECORATED);
