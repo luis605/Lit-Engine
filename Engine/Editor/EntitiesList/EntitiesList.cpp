@@ -1,9 +1,15 @@
 #include "../../../include_all.h"
-#include "../../globals.h"
 
+bool shouldChangeObjectName = false;
+bool showManipulateEntityPopup = false;
 
-
-
+void DrawEntityTree(Entity& entity, int active, int& index, int depth = 0);
+void DrawLightTree(Light& light, AdditionalLightInfo& light_info, int active, int& index);
+void DrawTextElementsTree(Text& text, int active, int& index);
+void DrawButtonTree(LitButton& button, int active, int& index);
+void DrawCameraTree(int active, int& index);
+void updateListViewExList(vector<Entity>& entities, vector<Light>& lights);
+void ManipulateEntityPopup();
 
 void updateListViewExList(vector<Entity>& entities, vector<Light>& lights) {
     listViewExList.clear();
@@ -27,9 +33,6 @@ void updateListViewExList(vector<Entity>& entities, vector<Light>& lights) {
         listViewExList.push_back((char*)objectNames[i].c_str());
     }
 }
-
-bool shouldChangeObjectName = false;
-bool showManipulateEntityPopup = false;
 
 void ManipulateEntityPopup()
 {
@@ -71,15 +74,7 @@ void ManipulateEntityPopup()
 
         ImGui::EndPopup();
     }
-
 }
-
-
-void DrawEntityTree(Entity& entity, int active, int& index, int depth = 0);
-void DrawLightTree(Light& light, AdditionalLightInfo& light_info, int active, int& index);
-void DrawTextElementsTree(Text& text, int active, int& index);
-void DrawButtonTree(LitButton& button, int active, int& index);
-void DrawCameraTree(int active, int& index);
 
 void DrawCameraTree(int active, int& index) {
     ImGuiTreeNodeFlags nodeFlags = 0;
@@ -90,12 +85,12 @@ void DrawCameraTree(int active, int& index) {
 
     const char icon[] = ICON_FA_CAMERA;
     const char space[] = " ";
-    std::string button_name = std::string(icon) + space + "Camera";
+    std::string buttonName = std::string(icon) + space + "Camera";
 
     bool isNodeOpen = false;
 
     ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(0.85f, 0.85f, 0.85f, 1.0f));
-    isNodeOpen = ImGui::TreeNodeEx(button_name.c_str(), nodeFlags);
+    isNodeOpen = ImGui::TreeNodeEx(buttonName.c_str(), nodeFlags);
     ImGui::PopStyleColor();
 
 
@@ -107,11 +102,6 @@ void DrawCameraTree(int active, int& index) {
     if (isNodeOpen) ImGui::TreePop();
 }
 
-
-
-
-
-
 void DrawEntityTree(Entity& entity, int active, int& index, int depth) {
     ImGuiTreeNodeFlags nodeFlags = ImGuiTreeNodeFlags_OpenOnArrow | ImGuiTreeNodeFlags_OpenOnDoubleClick | ImGuiTreeNodeFlags_SpanAvailWidth;
 
@@ -121,11 +111,11 @@ void DrawEntityTree(Entity& entity, int active, int& index, int depth) {
         if (shouldChangeObjectName) {
             char nameBuffer[256];
 
-            size_t buffer_size = sizeof(nameBuffer);
+            size_t bufferSize = sizeof(nameBuffer);
             const char* source = entity.name.c_str();
 
-            strncpy(nameBuffer, source, buffer_size - 1);
-            nameBuffer[buffer_size - 1] = '\0';
+            strncpy(nameBuffer, source, bufferSize - 1);
+            nameBuffer[bufferSize - 1] = '\0';
 
             if (ImGui::InputText("##LightName", nameBuffer, sizeof(nameBuffer), ImGuiInputTextFlags_EnterReturnsTrue)) {
                 entity.name = nameBuffer;
@@ -136,12 +126,12 @@ void DrawEntityTree(Entity& entity, int active, int& index, int depth) {
 
     const char icon[] = ICON_FA_CUBE;
     const char space[] = " ";
-    std::string entity_name = std::string(icon) + space + entity.name;
+    std::string entityName = std::string(icon) + space + entity.name;
 
     bool isNodeOpen = false;
 
     ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(0.85f, 0.85f, 0.85f, 1.0f));
-    isNodeOpen = ImGui::TreeNodeEx((void*)&entity, nodeFlags, entity_name.c_str());
+    isNodeOpen = ImGui::TreeNodeEx((void*)&entity, nodeFlags, entityName.c_str());
     ImGui::PopStyleColor();
 
     if (ImGui::IsItemHovered() && IsMouseButtonPressed(MOUSE_BUTTON_RIGHT))
@@ -244,11 +234,11 @@ void DrawLightTree(Light& light, AdditionalLightInfo& light_info, int active, in
         if (shouldChangeObjectName) {
             char nameBuffer[256];
 
-            size_t buffer_size = sizeof(nameBuffer);
+            size_t bufferSize = sizeof(nameBuffer);
             const char* source = light_info.name.c_str();
 
-            strncpy(nameBuffer, source, buffer_size - 1);
-            nameBuffer[buffer_size - 1] = '\0';
+            strncpy(nameBuffer, source, bufferSize - 1);
+            nameBuffer[bufferSize - 1] = '\0';
 
             if (ImGui::InputText("##LightName", nameBuffer, sizeof(nameBuffer), ImGuiInputTextFlags_EnterReturnsTrue)) {
                 light_info.name = nameBuffer;
@@ -260,33 +250,30 @@ void DrawLightTree(Light& light, AdditionalLightInfo& light_info, int active, in
     const char icon[] = ICON_FA_LIGHTBULB;
     const char space[] = " ";
 
-    std::string light_name;
+    std::string lightName;
     try {
-        light_name.reserve(std::string(icon).length() + std::string(space).length() + light_info.name.length() + 1);  // +1 for null terminator
-        light_name = std::string(icon) + space + light_info.name;
+        lightName.reserve(std::string(icon).length() + std::string(space).length() + light_info.name.length() + 1);  // +1 for null terminator
+        lightName = std::string(icon) + space + light_info.name;
     } catch (const std::bad_alloc& e) {
-        light_name = std::string(icon) + space + "Error Getting Light Name";
+        lightName = std::string(icon) + space + "Error Getting Light Name";
     }
 
     bool isNodeOpen = false;
 
     ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(0.85f, 0.85f, 0.85f, 1.0f));
-    isNodeOpen = ImGui::TreeNodeEx((void*)&light, nodeFlags, light_name.c_str());
+    isNodeOpen = ImGui::TreeNodeEx((void*)&light, nodeFlags, lightName.c_str());
     ImGui::PopStyleColor();
 
-
-    // Drag and drop source
     if (ImGui::BeginDragDropSource(ImGuiDragDropFlags_None))
     {
         ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(0.85f, 0.85f, 0.85f, 1.0f));
 
         ImGui::SetDragDropPayload("CHILD_LIGHT_PAYLOAD", &light, sizeof(Light));
-        ImGui::TreeNodeEx((void*)&light, nodeFlags | ImGuiTreeNodeFlags_Selected, light_name.c_str());
+        ImGui::TreeNodeEx((void*)&light, nodeFlags | ImGuiTreeNodeFlags_Selected, lightName.c_str());
         ImGui::PopStyleColor();
 
         ImGui::EndDragDropSource();
     }
-
 
     if (ImGui::IsItemClicked()) {
         selectedLight = &light;
@@ -307,11 +294,11 @@ void DrawTextElementsTree(Text& text, int active, int& index) {
         nodeFlags |= ImGuiTreeNodeFlags_Selected;
         if (shouldChangeObjectName) {
             char nameBuffer[256];
-            size_t buffer_size = sizeof(nameBuffer);
+            size_t bufferSize = sizeof(nameBuffer);
             const char* source = text.name.c_str();
 
-            strncpy(nameBuffer, source, buffer_size - 1);
-            nameBuffer[buffer_size - 1] = '\0';
+            strncpy(nameBuffer, source, bufferSize - 1);
+            nameBuffer[bufferSize - 1] = '\0';
 
             if (ImGui::InputText("##TextName", nameBuffer, sizeof(nameBuffer), ImGuiInputTextFlags_EnterReturnsTrue)) {
                 text.name = nameBuffer;
@@ -322,10 +309,10 @@ void DrawTextElementsTree(Text& text, int active, int& index) {
     const char icon[] = ICON_FA_TEXT_SLASH;
     const char space[] = " ";
     
-    std::string text_name = std::string(icon) + space + text.name;
+    std::string textName = std::string(icon) + space + text.name;
 
     ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(0.85f, 0.85f, 0.85f, 1.0f));
-    bool isNodeOpen = ImGui::TreeNodeEx((void*)&text, nodeFlags, text_name.c_str());
+    bool isNodeOpen = ImGui::TreeNodeEx((void*)&text, nodeFlags, textName.c_str());
     ImGui::PopStyleColor();
     if (ImGui::IsItemClicked()) {
         selectedTextElement = &text;
@@ -346,11 +333,11 @@ void DrawButtonTree(LitButton& button, int active, int& index) {
         nodeFlags |= ImGuiTreeNodeFlags_Selected;
         if (shouldChangeObjectName) {
             char nameBuffer[256];
-            size_t buffer_size = sizeof(nameBuffer);
+            size_t bufferSize = sizeof(nameBuffer);
             const char* source = button.name.c_str();
 
-            strncpy(nameBuffer, source, buffer_size - 1);
-            nameBuffer[buffer_size - 1] = '\0';
+            strncpy(nameBuffer, source, bufferSize - 1);
+            nameBuffer[bufferSize - 1] = '\0';
 
             if (ImGui::InputText("##ButtonName", nameBuffer, sizeof(nameBuffer), ImGuiInputTextFlags_EnterReturnsTrue)) {
                 button.name = nameBuffer;
@@ -361,10 +348,10 @@ void DrawButtonTree(LitButton& button, int active, int& index) {
     const char icon[] = ICON_FA_STOP;
     const char space[] = " ";
     
-    std::string button_name = std::string(icon) + space + button.name;
+    std::string buttonName = std::string(icon) + space + button.name;
 
     ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(0.85f, 0.85f, 0.85f, 1.0f));
-    bool isNodeOpen = ImGui::TreeNodeEx((void*)&button, nodeFlags, button_name.c_str());
+    bool isNodeOpen = ImGui::TreeNodeEx((void*)&button, nodeFlags, buttonName.c_str());
     ImGui::PopStyleColor();
     if (ImGui::IsItemClicked()) {
         selectedButton = &button;
@@ -394,7 +381,6 @@ void ImGuiListViewEx(vector<string>& items, int& focus, int& scroll, int& active
 
     if (ImGui::IsWindowFocused() && IsKeyDown(KEY_ESCAPE))
         shouldChangeObjectName = false;
-
 
     ImGui::PushStyleVar(ImGuiStyleVar_FrameBorderSize, 3.0f);
     ImGui::PushStyleColor(ImGuiCol_Button, ImVec4(0.9f, 0.9f, 0.9f, 0.9f)); // light gray
