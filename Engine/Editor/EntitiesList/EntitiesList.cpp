@@ -403,11 +403,11 @@ void ImGuiListViewEx(vector<string>& items, int& focus, int& scroll, int& active
         DrawEntityTree(entity, active, index);
     }
 
-    int lights_index = 0;
+    int lightsIndex = 0;
     for (Light& light : lights) {
         if (light.isChild) continue;
-        DrawLightTree(light, lightsInfo[lights_index], active, index);
-        lights_index++;
+        DrawLightTree(light, lightsInfo[lightsIndex], active, index);
+        lightsIndex++;
     }
 
     for (Text& text : textElements) {

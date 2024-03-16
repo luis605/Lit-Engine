@@ -31,19 +31,19 @@ void LoadThemeFromFile(const std::string& filename)
             std::string name = option["index"];
 
             int themes_colors_string_size = sizeof(themes_colors_string) / sizeof(themes_colors_string[0]);
-            int option_index = -1;
+            int optionIndex = -1;
 
             for (int index = 0; index < themes_colors_string_size; index++) {
                 if (strcmp(themes_colors_string[index], name.c_str()) == 0) {
-                    option_index = index;
+                    optionIndex = index;
                     break;
                 }
             }
 
-            if (option_index != -1) {
+            if (optionIndex != -1) {
                 std::string color_hex = option["color"];
                 ImU32 color = std::stoul(color_hex, nullptr, 16);
-                colors[themes_colors[option_index]] = ImGui::ColorConvertU32ToFloat4(color);
+                colors[themes_colors[optionIndex]] = ImGui::ColorConvertU32ToFloat4(color);
             } else {
                 std::cerr << "Invalid option index: " << name << std::endl;
             }
@@ -137,8 +137,8 @@ void CreateNewTheme()
 
     for (int index = 0; index < new_theme_saved_options.size(); index++)
     {
-        int option_index = new_theme_saved_options[index];
-        ImGui::Text(themes_colors_string[option_index]);
+        int optionIndex = new_theme_saved_options[index];
+        ImGui::Text(themes_colors_string[optionIndex]);
         ImGui::SameLine();
         string color_pickerName = "##Color Picker - " + to_string(index);
         ImGui::ColorEdit4(color_pickerName.c_str(), (float*)&new_theme_saved_options_color[index], ImGuiColorEditFlags_NoInputs);
@@ -162,12 +162,12 @@ void CreateNewTheme()
 
         for (int i = 0; i < new_theme_saved_options.size(); i++)
         {
-            int option_index = new_theme_saved_options[i];
+            int optionIndex = new_theme_saved_options[i];
 
             ImU32 color = ImGui::ColorConvertFloat4ToU32(new_theme_saved_options_color[i]);
             std::string color_hex = to_hex_string(color);
             data["options"].push_back({
-                {"index", themes_colors_string[option_index]},
+                {"index", themes_colors_string[optionIndex]},
                 {"color", color_hex}
             });
         }
@@ -195,8 +195,8 @@ void CreateNewTheme()
         ImVec4* colors = style.Colors;
         for (int i = 0; i < new_theme_saved_options.size(); i++)
         {
-            int option_index = new_theme_saved_options[i];
-            colors[option_index] = new_theme_saved_options_color[i];
+            int optionIndex = new_theme_saved_options[i];
+            colors[optionIndex] = new_theme_saved_options_color[i];
         }
     }
 

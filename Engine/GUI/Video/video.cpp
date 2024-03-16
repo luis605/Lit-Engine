@@ -112,7 +112,7 @@ public:
 
         int readFrameResult = av_read_frame(pFormatCtx, &packet);
 
-        if (readFrameResult >= 0 && packet.stream_index == videoStream) {
+        if (readFrameResult >= 0 && packet.streamIndex == videoStream) {
             avcodec_send_packet(pCodecCtx, &packet);
 
             if (avcodec_receive_frame(pCodecCtx, pFrame) == 0) {
