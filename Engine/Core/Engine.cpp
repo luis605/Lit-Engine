@@ -1,14 +1,5 @@
 #include "../../include_all.h"
 
-float GetExtremeValue(const Vector3& a) {
-    const float absX = abs(a.x);
-    const float absY = abs(a.y);
-    const float absZ = abs(a.z);
-
-    return max(max(absX, absY), absZ);
-}
-
-
 string getFileExtension(string filePath)
 {
     fs::path pathObj = filePath;
