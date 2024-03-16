@@ -1117,17 +1117,13 @@ public:
         scale = newScale;
 
         if (CollisionShapeType::Box == *currentCollisionShapeType) {
-            if (isDynamic)
-                createDynamicBox(scale.x, scale.y, scale.z);
-            else
-                createStaticBox(scale.x, scale.y, scale.z);
+            if (isDynamic) createDynamicBox(scale.x, scale.y, scale.z);
+            else createStaticBox(scale.x, scale.y, scale.z);
         }
 
-        else if (CollisionShapeType::HighPolyMesh == *currentCollisionShapeType) {
-            if (isDynamic)
-                createDynamicMesh(false);
-            else
-                createStaticMesh(true);
+        else if (CollisionShapeType::HighPolyMesh == *currentCollisionShapeType && this->running) {
+            if (isDynamic) createDynamicMesh(false);
+            else createStaticMesh(true);
         }
 
     }

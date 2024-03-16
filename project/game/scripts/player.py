@@ -1,7 +1,7 @@
 import math
 
 # Constants
-VELOCITY = 100
+VELOCITY = 40
 SENSITIVITY = 0.3
 ENTITY_DISTANCE = 5
 JUMP_FORCE = 100
@@ -26,7 +26,7 @@ def spherical_to_cartesian(radius, yaw, pitch):
 
 def get_camera_direction():
     direction = camera.front
-    direction.y = 0
+
     return direction
 
 def is_moving_forward_backwards():
@@ -44,8 +44,7 @@ def update_camera_rotation():
     global yaw, pitch
     yaw -= GetMouseMovement().x * SENSITIVITY
     pitch -= GetMouseMovement().y * SENSITIVITY
-    pitch = max(-89, min(0, pitch))
-
+    
 def update_camera_position():
     global yaw, pitch
     front = spherical_to_cartesian(ENTITY_DISTANCE, -yaw, -pitch)
@@ -54,12 +53,13 @@ def update_camera_position():
     camera.up = Vector3(0, 1, 0)
 
 def change_gravity():
-	if (IsKeyDown(KeyboardKey.KEY_LEFT)):
-		physics.gravity = Vector3(0,-9.8,30)
-	if (IsKeyDown(KeyboardKey.KEY_RIGHT)):
-		physics.gravity = Vector3(0,-9.8,-30)
-	if (IsKeyDown(KeyboardKey.KEY_DOWN)):
-		physics.gravity = Vector3(0,-9.8,0)
+    GRAVITY_STRENGTH = 9.8
+    center_point = Vector3(0, 0, 0)
+    direction_to_center = center_point - entity.position
+
+    physics.gravity = direction_to_center
+
+
 
 def check_ground():
     global grounded
@@ -99,6 +99,9 @@ def update():
     check_ground()
     set_entity_rotation()
     change_gravity()
+
+
+
 
 
 
