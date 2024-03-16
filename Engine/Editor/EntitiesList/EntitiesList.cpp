@@ -157,7 +157,7 @@ void DrawEntityTree(Entity& entity, int active, int& index, int depth) {
         if (payload) {
             Light* droppedLight = (const Light*)payload->Data;
             droppedLight->isChild = true;
-            entity.addChild(droppedLight);
+            // entity.addChild(droppedLight);
         }
         ImGui::EndDragDropTarget();
     }
