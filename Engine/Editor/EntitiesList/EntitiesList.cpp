@@ -205,34 +205,34 @@ void DrawEntityTree(Entity& entity, int active, int& index, int depth) {
     }
 
 
-
     if (isNodeOpen) {
         for (int childIndex = 0; childIndex < entity.children.size(); childIndex++) {
             index++;
             std::variant<Entity*, Light*, Text*, LitButton*> childVariant = entity.children[childIndex];
 
-            if (auto* childEntity = std::get_if<Entity*>(&childVariant)) {
-                DrawEntityTree(**childEntity, active, index, depth + 1);
-            } else if (Light** childLight = std::get_if<Light*>(&entity.children.at(childIndex))) {
-                auto it = std::find_if(lights.begin(), lights.end(),
-                    [childLight](const Light& light) { return light.id == (**childLight).id; });
+            std::visit([&](auto&& child) {
+                using T = std::decay_t<decltype(child)>;
+                if constexpr (std::is_same_v<T, Entity*>) {
+                    DrawEntityTree(*child, active, index, depth + 1);
+                } else if constexpr (std::is_same_v<T, Light*>) {
+                    auto it = std::find_if(lights.begin(), lights.end(),
+                        [&](const Light& light) { return light == *child; });
 
-                int distance;
-                if (it != lights.end()) {
-                    distance = std::distance(lights.begin(), it);
-                } else {
-                    distance = -1;
+                    int distance = (it != lights.end()) ? std::distance(lights.begin(), it) : -1;
+
+                    std::cout << "Distance: " << distance << std::endl << "Size: " << lights.size() << std::endl << std::endl;
+
+                    DrawLightTree(*child, lightsInfo[distance], active, index);
+                } else if constexpr (std::is_same_v<T, Text*>) {
+                    DrawTextElementsTree(*child, active, index);
+                } else if constexpr (std::is_same_v<T, LitButton*>) {
+                    DrawButtonTree(*child, active, index);
                 }
-
-                DrawLightTree(**childLight, lightsInfo[distance], active, index);
-            } else if (auto* childText = std::get_if<Text*>(&childVariant)) {
-                DrawTextElementsTree(**childText, active, index);
-            } else if (auto* childButton = std::get_if<LitButton*>(&childVariant)) {
-                DrawButtonTree(**childButton, active, index);
-            }
+            }, childVariant);
         }
         ImGui::TreePop();
     }
+
 }
 
 
