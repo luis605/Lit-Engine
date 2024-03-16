@@ -70,7 +70,7 @@ std::vector<MyNode*> nodes;
 void SetMaterial(SurfaceMaterial& material)
 {
     // Color
-    selectedEntity->surface_material.color = entityMaterial.color;
+    selectedEntity->surfaceMaterial.color = entityMaterial.color;
 
     // Textures
     if (IsTextureReady(entityMaterial.texture))
@@ -96,11 +96,11 @@ void SetMaterial(SurfaceMaterial& material)
     }
     
     // Surface Material
-    selectedEntity->surface_material.shininess = entityMaterial.shininess;
-    selectedEntity->surface_material.SpecularIntensity = entityMaterial.SpecularIntensity;
-    selectedEntity->surface_material.Roughness = entityMaterial.Roughness;
-    selectedEntity->surface_material.DiffuseIntensity = entityMaterial.DiffuseIntensity;
-    selectedEntity->surface_material.SpecularTint = entityMaterial.SpecularTint;
+    selectedEntity->surfaceMaterial.shininess = entityMaterial.shininess;
+    selectedEntity->surfaceMaterial.SpecularIntensity = entityMaterial.SpecularIntensity;
+    selectedEntity->surfaceMaterial.Roughness = entityMaterial.Roughness;
+    selectedEntity->surfaceMaterial.DiffuseIntensity = entityMaterial.DiffuseIntensity;
+    selectedEntity->surfaceMaterial.SpecularTint = entityMaterial.SpecularTint;
 
 
     material.shininess = entityMaterial.shininess;

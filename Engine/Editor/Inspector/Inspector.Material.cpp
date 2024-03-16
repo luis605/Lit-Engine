@@ -4,11 +4,11 @@
 
 
 
-void MaterialInspector(SurfaceMaterial* surface_material = nullptr, string path = "")
+void MaterialInspector(SurfaceMaterial* surfaceMaterial = nullptr, string path = "")
 {
     SurfaceMaterial* material = nullptr;
-    if (surface_material != nullptr)
-        material = surface_material;
+    if (surfaceMaterial != nullptr)
+        material = surfaceMaterial;
 
     
     if (path.empty())

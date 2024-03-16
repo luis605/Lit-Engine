@@ -10,9 +10,6 @@ string getFileExtension(string filePath)
     return "no file extension";
 }
 
-
-
-
 const char* encryptFileString(const std::string& inputFile, const std::string& key) {
     std::ifstream inFile(inputFile, std::ios::binary);
 
@@ -46,18 +43,12 @@ const char* encryptFileString(const std::string& inputFile, const std::string& k
     char* encryptedCString = new char[encryptedData.size() + 1];
     std::strcpy(encryptedCString, encryptedData.c_str());
 
-
     return encryptedCString;
 }
-
 
 const char* decryptFileString(const std::string& inputFile, const std::string& key) {
     return encryptFileString(inputFile, key); 
 }
-
-
-
-
 
 string read_file_to_string(const string& filename) {
     ifstream file(filename);
@@ -68,16 +59,11 @@ string read_file_to_string(const string& filename) {
 
 py::scoped_interpreter guard{}; 
 
-
 RLFrustum cameraFrustum;
-
-
 bool EntityRunScriptFirstTime = true;
 bool Entity_already_registered = false;
 
-
 py::module entity_module("entity_module");
-
 
 void InitFrustum()
 {
@@ -104,8 +90,6 @@ bool AABBoxInFrustum(const Vector3& min, const Vector3& max)
     return cameraFrustum.AABBoxIn(min, max);
 }
 
-
-// thread_local std::mutex script_mutex;
 class Entity {
 public:
     bool initialized = false;
@@ -125,12 +109,10 @@ public:
     Model model;
 
     BoundingBox bounds;
-    BoundingBox const_bounds;
-
+    BoundingBox constBounds;
 
     fs::path texturePath;
     std::variant<Texture2D, std::unique_ptr<VideoPlayer>> texture;
-
 
     fs::path normalTexturePath;
     std::variant<Texture2D, std::unique_ptr<VideoPlayer>> normalTexture;
@@ -141,8 +123,8 @@ public:
     fs::path aoTexturePath;
     std::variant<Texture2D, std::unique_ptr<VideoPlayer>> aoTexture;
 
-    fs::path surface_material_path;
-    SurfaceMaterial surface_material;
+    fs::path surfaceMaterial_path;
+    SurfaceMaterial surfaceMaterial;
 
     float tiling[2] = { 1.0f, 1.0f };
 
@@ -197,16 +179,17 @@ private:
     std::shared_ptr<btDefaultMotionState> boxMotionState;
     std::shared_ptr<btRigidBody> rigidBody;
     LitVector3 backupPosition                      = position;
+
     vector<Entity*> instances;
     Matrix *transforms                             = nullptr;
     Material matInstances;
-    int lastIndexCalculated                        = -1;
+
     Shader* entity_shader;
 
     py::object entity_obj;
     string script_content;
     py::dict locals;
-    py::module script_module;
+    py::module scriptModule;
     bool entityOptimized = false;
 
 public:
@@ -236,7 +219,7 @@ public:
         this->ObjectType = other.ObjectType;
         this->model = other.model;
         this->bounds = other.bounds;
-        this->const_bounds = other.const_bounds;
+        this->constBounds = other.constBounds;
         this->tiling[0] = other.tiling[0];
         this->tiling[1] = other.tiling[1];
 
@@ -308,8 +291,8 @@ public:
             else TraceLog(LOG_WARNING, "Bad Type - Entity AO texture variant");
         }, other.aoTexture);
 
-        this->surface_material_path = other.surface_material_path;
-        this->surface_material = other.surface_material;
+        this->surfaceMaterial_path = other.surfaceMaterial_path;
+        this->surfaceMaterial = other.surfaceMaterial;
         this->collider = other.collider;
         this->visible = other.visible;
         this->isChild = other.isChild;
@@ -322,13 +305,10 @@ public:
         this->inertia = other.inertia;
         this->id = other.id;
         this->parent = nullptr; 
-
         this->script_content = other.script_content;
-
         this->lodEnabled = other.lodEnabled;
         for (int i = 0; i < sizeof(LodModels)/sizeof(LodModels[0]); i++)
             this->LodModels[i] = other.LodModels[i];
-
         this->children = other.children;
     }
 
@@ -353,13 +333,12 @@ public:
         this->ObjectType = other.ObjectType;
         this->model = other.model;
         this->bounds = other.bounds;
-        this->const_bounds = other.const_bounds;
+        this->constBounds = other.constBounds;
         this->texturePath = other.texturePath;
         this->tiling[0] = other.tiling[0];
         this->tiling[1] = other.tiling[1];
         this->lodEnabled = other.lodEnabled;
         this->script_content = other.script_content;
-
 
         for (int i = 0; i < sizeof(LodModels)/sizeof(LodModels[0]); i++)
             this->LodModels[i] = other.LodModels[i];
@@ -373,8 +352,6 @@ public:
                 else return std::unique_ptr<VideoPlayer>();
             else TraceLog(LOG_WARNING, "Bad Type - Entity texture variant");
         }, other.texture);
-    
-
 
         this->normalTexturePath = other.normalTexturePath;
         this->normalTexture = std::visit([](const auto& value) -> std::variant<Texture, std::unique_ptr<VideoPlayer, std::default_delete<VideoPlayer>>> {
@@ -406,9 +383,8 @@ public:
             else TraceLog(LOG_WARNING, "Bad Type - Entity ao texture variant");
         }, other.aoTexture);
 
-
-        this->surface_material = other.surface_material;
-        this->surface_material_path = other.surface_material_path;
+        this->surfaceMaterial = other.surfaceMaterial;
+        this->surfaceMaterial_path = other.surfaceMaterial_path;
         this->collider = other.collider;
 
         this->currentCollisionShapeType     = make_shared<CollisionShapeType>(*other.currentCollisionShapeType);
@@ -442,14 +418,12 @@ public:
         this->parent = nullptr;
         this->children = other.children;
 
-
         return *this;
     }
 
     Entity(std::vector<Entity>& entitiesListPregame) {
         entitiesListPregame.push_back(*this);
     }
-    
 
     bool operator==(const Entity& other) const {
         return this->id == other.id;
@@ -458,14 +432,11 @@ public:
     void addInstance(Entity* instance) {
         instances.push_back(instance);
 
-
         if (transforms == nullptr) {
             transforms = (Matrix *)RL_CALLOC(instances.size(), sizeof(Matrix));
         } else {
-
             transforms = (Matrix *)RL_REALLOC(transforms, instances.size() * sizeof(Matrix));
         }
-
 
         int lastIndex = instances.size() - 1;
         calculateInstance(lastIndex);
@@ -473,7 +444,6 @@ public:
         instancingShader.locs[SHADER_LOC_MATRIX_MVP] = GetShaderLocation(instancingShader, "mvp");
         instancingShader.locs[SHADER_LOC_VECTOR_VIEW] = GetShaderLocation(instancingShader, "viewPos");
         instancingShader.locs[SHADER_LOC_MATRIX_MODEL] = GetShaderLocationAttrib(instancingShader, "instanceTransform");
-
     }
 
     bool hasInstances()
@@ -482,10 +452,7 @@ public:
     }
 
     void calculateInstance(int index) {
-        if (index < 0 || index >= instances.size()) {
-
-            return;
-        }
+        if (index < 0 || index >= instances.size()) return;
 
         Entity* entity = instances.at(index);
 
@@ -521,61 +488,49 @@ public:
         };
 
         children.emplace_back(lightChild);
-
     }
-    
-    // void removeChild(Entity* entityChild) {
-    //     if (!entityChild) {
-    //         std::cout << "Error: entityChild is null." << std::endl;
-    //         return;  // Indicate error
-    //     }
 
-    //     std::cout << "Entity with ID " << entityChild->id << " not found." << std::endl;
-    //     return false;  // Return false on failure
-    // }
-
-
-
-    void update_children()
-    {
+    void update_children() {
         if (children.empty()) return;
         
-        for (std::variant<Entity*, Light*, Text*, LitButton*>& childVariant : children)
-        {
-            if (auto* child = std::get_if<Entity*>(&childVariant))
-            {
-                (*child)->render();
+        for (auto& childVariant : children) {
+            if (auto* entity = std::get_if<Entity*>(&childVariant)) {
+                update_entity_child(*entity);
+            } else if (auto* light = std::get_if<Light*>(&childVariant)) {
+                update_light_child(*light);
+            }
+        }
+    }
+
+    void update_entity_child(Entity* entity) {
+        entity->render();
 
     #ifndef GAME_SHIPPING
-                if (*child == selectedEntity) continue;
+        if (entity == selectedEntity) return;
     #endif
 
-                (*child)->position = {this->position + (*child)->relativePosition};
-                (*child)->update_children();
-            }
-          
-            else if (auto* child = std::get_if<Light*>(&childVariant))
-            {                
-                #ifndef GAME_SHIPPING
-                    if (*child == selectedLight && selectedGameObjectType == "light") continue;
-                #endif
+        entity->position = this->position + entity->relativePosition;
+        entity->update_children();
+    }
 
-                if (*child) {
-                    (*child)->position = glm::vec3(this->position.x, this->position.y, this->position.z) + (*child)->relativePosition;
-                }
-            }
+    void update_light_child(Light* light) {
+    #ifndef GAME_SHIPPING
+        if (light == selectedLight && selectedGameObjectType == "light") return;
+    #endif
+
+        if (light) {
+            light->position = glm::vec3(this->position.x, this->position.y, this->position.z) + light->relativePosition;
         }
     }
 
     void makeChildrenInstances() {
         for (const auto& childVariant : children) {
             if (auto childEntity = std::get_if<Entity*>(&childVariant)) {
-                addInstance(*childEntity); // Add child as an instance
-                (*childEntity)->makeChildrenInstances(); // Recursively make children instances
+                addInstance(*childEntity);
+                (*childEntity)->makeChildrenInstances();
             }
         }
     }
-
 
     void remove() {
         for (auto& childVariant : children) {
@@ -592,15 +547,15 @@ public:
 
     Color getColor() {
         return (Color) {
-            static_cast<unsigned char>(surface_material.color.x * 255),
-            static_cast<unsigned char>(surface_material.color.y * 255),
-            static_cast<unsigned char>(surface_material.color.z * 255),
-            static_cast<unsigned char>(surface_material.color.w * 255)
+            static_cast<unsigned char>(surfaceMaterial.color.x * 255),
+            static_cast<unsigned char>(surfaceMaterial.color.y * 255),
+            static_cast<unsigned char>(surfaceMaterial.color.z * 255),
+            static_cast<unsigned char>(surfaceMaterial.color.w * 255)
         };
     }
 
     void setColor(Color newColor) {
-        surface_material.color = {
+        surfaceMaterial.color = {
             newColor.r / 255,
             newColor.g / 255,
             newColor.b / 255,
@@ -676,7 +631,6 @@ public:
                 }
             }
         }
-
 
         if (!roughnessTexturePath.empty() || !force_reload) {
             if (auto roughness = get_if<Texture2D>(&roughnessTexture)) {
@@ -762,14 +716,11 @@ public:
         model_path = modelPath;
     
         if (modelPath == "")
-        {
             model = entity_model;
-        } else
-        {
+        else
             model = LoadModel(modelPath);
-        }
 
-        const_bounds = GetMeshBoundingBox(model.meshes[0]);
+        constBounds = GetMeshBoundingBox(model.meshes[0]);
 
         std::vector<uint32_t> indices;
         std::vector<Vector3> vertices;
@@ -806,16 +757,13 @@ public:
             this->LodModels[3] = LoadModelFromMesh(generateLODMesh(data.Vertices, data.Indices, data.vertexCount, model.meshes[0]));
         }        
 
-        if (isDynamic) {
+        if (isDynamic)
             makePhysicsDynamic();
-        } else {
+        else
             makePhysicsStatic();
-        }
 
         ReloadTextures();
-        
         setShader(default_shader);
-
         OptimizeEntityMemory();
     }
 
@@ -840,7 +788,6 @@ public:
         if (script.empty() && script_index.empty()) return;
         running = true;
 
-
         if (!Entity_already_registered) {
             Entity_already_registered = true;
             py::class_<Entity>(entity_module, "Entity")
@@ -849,7 +796,6 @@ public:
                     std::string modelPath = "";
 
                     if (args.size() > 0) {
-                        // Position argument is provided
                         position = py::cast<LitVector3>(args[0]);
                     }
 
@@ -878,9 +824,6 @@ public:
                     return entitiesListPregame.back();
                 }))
 
-
-
-
                 .def_property("name", &Entity::getName, &Entity::setName)
                 .def_property("position",
                     [](const Entity& entity) { return entity.position; },
@@ -895,7 +838,7 @@ public:
                 .def_readwrite("visible", &Entity::visible)
                 .def_readwrite("id", &Entity::id)
                 .def_readwrite("collider", &Entity::collider)
-                .def("print_position", &Entity::print_position)
+                .def("printPosition", &Entity::printPosition)
                 .def("applyForce", &Entity::applyForce)
                 .def("applyImpulse", &Entity::applyImpulse)
                 .def("setFriction", &Entity::setFriction)
@@ -903,47 +846,42 @@ public:
                 .def("makeDynamic", &Entity::makePhysicsDynamic);
         }
 
-
-        py::module input_module = py::module::import("input_module");
-        py::module collisions_module = py::module::import("collisions_module");
-        py::module camera_module = py::module::import("camera_module");
-        py::module physics_module = py::module::import("physics_module");
-        py::module mouse_module = py::module::import("mouse_module");
-        py::module time_module = py::module::import("time_module");
-        py::module color_module = py::module::import("color_module");
-        py::module math_module = py::module::import("math_module");
+        py::module inputModule = py::module::import("inputModule");
+        py::module collisionModule = py::module::import("collisionModule");
+        py::module cameraModule = py::module::import("cameraModule");
+        py::module physicsModule = py::module::import("physicsModule");
+        py::module mouseModule = py::module::import("mouseModule");
+        py::module timeModule = py::module::import("timeModule");
+        py::module colorModule = py::module::import("colorModule");
+        py::module mathModule = py::module::import("mathModule");
         py::module_::import("__main__").attr("entitiesList") = py::cast(entitiesList);
-
         entity_obj = py::cast(this);
     
         locals = py::dict(
             "entity"_a = entity_obj,
-            "IsMouseButtonPressed"_a = input_module.attr("isMouseButtonPressed"),
-            "IsKeyDown"_a = input_module.attr("isKeyDown"),
-            "IsKeyPressed"_a = input_module.attr("isKeyPressed"),
-            "IsKeyUp"_a = input_module.attr("isKeyUp"),
-            "GetMouseMovement"_a = input_module.attr("getMouseMovement"),
-            "KeyboardKey"_a = input_module.attr("KeyboardKey"),
-            "MouseButton"_a = input_module.attr("MouseButton"),
-            "Raycast"_a = collisions_module.attr("raycast"),
-            "Vector3"_a = math_module.attr("Vector3"),
-            "Vector2"_a = math_module.attr("Vector2"),
-            "Vector3Scale"_a = math_module.attr("vector3Scale"),
-            "Vector3Distance"_a = math_module.attr("vector3Distance"),
-            "Color"_a = color_module.attr("Color"),
-            "LockMouse"_a = mouse_module.attr("LockMouse"),
-            "UnlockMouse"_a = mouse_module.attr("UnlockMouse"),
+            "IsMouseButtonPressed"_a = inputModule.attr("isMouseButtonPressed"),
+            "IsKeyDown"_a = inputModule.attr("isKeyDown"),
+            "IsKeyPressed"_a = inputModule.attr("isKeyPressed"),
+            "IsKeyUp"_a = inputModule.attr("isKeyUp"),
+            "GetMouseMovement"_a = inputModule.attr("getMouseMovement"),
+            "KeyboardKey"_a = inputModule.attr("KeyboardKey"),
+            "MouseButton"_a = inputModule.attr("MouseButton"),
+            "Raycast"_a = collisionModule.attr("raycast"),
+            "Vector3"_a = mathModule.attr("Vector3"),
+            "Vector2"_a = mathModule.attr("Vector2"),
+            "Vector3Scale"_a = mathModule.attr("vector3Scale"),
+            "Vector3Distance"_a = mathModule.attr("vector3Distance"),
+            "Color"_a = colorModule.attr("Color"),
+            "LockMouse"_a = mouseModule.attr("LockMouse"),
+            "UnlockMouse"_a = mouseModule.attr("UnlockMouse"),
             "time"_a = py::cast(&time_instance),
             "physics"_a = py::cast(&physics),
-            "Lerp"_a = math_module.attr("lerp"),
+            "Lerp"_a = mathModule.attr("lerp"),
             "entitiesList"_a = entitiesList,
             "camera"_a = py::cast(rendering_camera)
         );
 
-
         locals["Entity"] = entity_module.attr("Entity");
-
-
 
 #ifndef GAME_SHIPPING
         script_content = read_file_to_string(script);
@@ -955,10 +893,9 @@ public:
     }
 
     const char* decryptedScripts = decryptFileString("encryptedScripts.json", "141b5aceaaa5582ec3efb9a17cac2da5e52bbc1057f776e99a56a064f5ea40d5f8689b7542c4d0e9d6d7163b9dee7725369742a54905ac95c74be5cb1435fdb726fead2437675eaa13bc77ced8fb9cc6108d4a247a2b37b76a6e0bf41916fcc98ee5f85db11ecb52b0d94b5fbab58b1f4814ed49e761a7fb9dfb0960f00ecf8c87989b8e92a630680128688fa7606994e3be12734868716f9df27674700a2cb37440afe131e570a4ee9e7e867aab18a44ee972956b7bd728f9b937c973b9726f6bdd56090d720e6fa31c70b31e0216739cde4210bcd93671c1e8edb752b32f782b62eab4d77a51e228a6b6ac185d7639bd037f9195c3f05c5d2198947621814827f2d99dd7c2821e76635a845203f42060e5a9a494482afab1c42c23ba5f317f250321c7713c2ce19fe7a3957ce439f4782dbee3d418aebe08314a4d6ac7b3d987696d39600c5777f555a8dc99f2953ab45b0687efa1a77d8e5b448b37a137f2849c9b76fec98765523869c22a3453c214ec8e8827acdded27c37d96017fbf862a405b4b06fe0e815e09ed5288ccd9139e67c7feed3e7306f621976b9d3ba917d19ef4a13490f9e2af925996f59a87uihjoklas9emyuikw75igeturf7unftyngl635n4554hs23d2453pfds");
-
     json json_data;
+
     try {
-        // Parse the decrypted string into a JSON object
         json_data = json::parse(decryptedScripts);
     } catch (const json::parse_error& e) {
         return;
@@ -983,31 +920,26 @@ public:
     }
 
 #endif
-
         try {
-            script_module = py::module("__main__");
+            scriptModule = py::module("__main__");
 
             for (auto item : locals) {
-                script_module.attr(item.first) = item.second;
+                scriptModule.attr(item.first) = item.second;
             }
-            
+
             std::string script_content_copy = script_content;
-            py::eval<py::eval_statements>(script_content_copy, script_module.attr("__dict__"));
+            py::eval<py::eval_statements>(script_content_copy, scriptModule.attr("__dict__"));
         } catch (const py::error_already_set& e) {
             py::print(e.what());
         }
-
     }
 
-
     void runScript(LitCamera* rendering_camera) {
-        if (script.empty() && script_index.empty()) {
-            return;
-        }
+        if (script.empty() && script_index.empty()) return;
 
         try {
-            if (py::hasattr(script_module, "update")) {
-                py::object update_func = script_module.attr("update");
+            if (py::hasattr(scriptModule, "update")) {
+                py::object update_func = scriptModule.attr("update");
                 locals["time"] = py::cast(&time_instance);
                 update_func();
                 rendering_camera->update();
@@ -1038,11 +970,6 @@ public:
         }
     }
 
-
-
-
-
-    
     void calcPhysicsRotation() {
         if (!isDynamic) return;
 
@@ -1057,8 +984,7 @@ public:
 
                     rotation = (Vector3){ Pitch * RAD2DEG, Yaw * RAD2DEG, Roll * RAD2DEG };
                 }
-            }
-            else if (rigidBody) {
+            } else if (rigidBody) {
                 btTransform trans;
                 if (rigidBody->getMotionState()) {
                     rigidBody->getMotionState()->getWorldTransform(trans);
@@ -1084,8 +1010,6 @@ public:
             rigidBody->setWorldTransform(transform);
         }
     }
-
-
 
     void setRot(LitVector3 newRot) {
         rotation = newRot;
@@ -1116,7 +1040,6 @@ public:
             if (isDynamic) createDynamicMesh(false);
             else createStaticMesh(true);
         }
-
     }
 
     void applyForce(const LitVector3& force) {
@@ -1158,7 +1081,6 @@ public:
             rigidBody->setMassProps(btMass, boxInertia);
         else if (*currentCollisionShapeType == CollisionShapeType::HighPolyMesh && rigidBody && rigidBody != nullptr)
             rigidBody->setMassProps(btMass, boxInertia);
-
     }
 
     void createStaticBox(float x, float y, float z) {
@@ -1186,7 +1108,6 @@ public:
         btDefaultMotionState boxMotionState(rigidTransform);
         btRigidBody::btRigidBodyConstructionInfo highPolyStaticRigidBodyCI(0, &boxMotionState, rigidShape.get(), btVector3(0, 0, 0));
 
-        // Use std::make_unique to create the std::unique_ptr
         rigidBody = std::make_unique<btRigidBody>(highPolyStaticRigidBodyCI);
         physics.dynamicsWorld->addRigidBody(rigidBody.get());
 
@@ -1219,7 +1140,6 @@ public:
             }
         }
 
-        // Set up the dynamics of your rigid object
         btTransform rigidTransform;
         rigidTransform.setIdentity();
         rigidTransform.setOrigin(btVector3(position.x, position.y, position.z));
@@ -1239,9 +1159,7 @@ public:
     void createDynamicBox(float x, float y, float z) {
         isDynamic = true;
 
-        if (rigidBody.get()) {
-            physics.dynamicsWorld->removeRigidBody(rigidBody.get());
-        }
+        if (rigidBody.get()) physics.dynamicsWorld->removeRigidBody(rigidBody.get());
 
         rigidShape = std::make_shared<btBoxShape>(btVector3(x * scaleFactorRaylibBullet, y * scaleFactorRaylibBullet, z * scaleFactorRaylibBullet));
 
@@ -1250,9 +1168,7 @@ public:
         startTransform.setOrigin(btVector3(position.x, position.y, position.z));
 
         btScalar btMass = mass;
-
         btVector3 localInertia(inertia.x, inertia.y, inertia.z);
-
         rigidShape->calculateLocalInertia(btMass, localInertia);
 
         boxMotionState = std::make_shared<btDefaultMotionState>(startTransform);
@@ -1260,7 +1176,6 @@ public:
         rigidBody = std::make_unique<btRigidBody>(rigidBodyCI);
         
         physics.dynamicsWorld->addRigidBody(rigidBody.get());
-
         currentCollisionShapeType = make_shared<CollisionShapeType>(CollisionShapeType::Box);
     }
 
@@ -1269,9 +1184,7 @@ public:
 
         currentCollisionShapeType = std::make_shared<CollisionShapeType>(CollisionShapeType::HighPolyMesh);
 
-        if (rigidBody.get()) {
-            physics.dynamicsWorld->removeRigidBody(rigidBody.get());
-        }
+        if (rigidBody.get()) physics.dynamicsWorld->removeRigidBody(rigidBody.get());
 
         if (generateShape || !customMeshShape.get()) {
             customMeshShape = std::make_shared<btConvexHullShape>();
@@ -1281,14 +1194,12 @@ public:
                 float* meshVertices = reinterpret_cast<float*>(mesh.vertices);
 
                 for (int v = 0; v < mesh.vertexCount; v += 3) {
-                    // Apply scaling to the vertex coordinates
                     btVector3 scaledVertex(meshVertices[v] * scale.x, meshVertices[v + 1] * scale.y, meshVertices[v + 2] * scale.z);
                     customMeshShape.get()->addPoint(scaledVertex);
                 }
             }
         }
 
-        // Set up the dynamics of your rigid object
         btTransform rigidTransform;
         rigidTransform.setIdentity();
         rigidTransform.setOrigin(btVector3(position.x, position.y, position.z));
@@ -1316,14 +1227,12 @@ public:
         isDynamic = false;
  
         if (shapeType == CollisionShapeType::Box)
-        {
             createStaticBox(scale.x, scale.y, scale.z);
-        }
         else if (shapeType == CollisionShapeType::HighPolyMesh)
             createStaticMesh();
-
     }
-        void reloadRigidBody() {
+
+    void reloadRigidBody() {
         if (isDynamic)
             makePhysicsDynamic(*currentCollisionShapeType);
         else
@@ -1339,7 +1248,7 @@ public:
         }
     }
 
-    void print_position()
+    void printPosition()
     {
         std::cout << "Position: " << position.x << ", " << position.y << ", " << position.z << "\n";
     }
@@ -1397,10 +1306,10 @@ private:
         instancingShader.locs[SHADER_LOC_MATRIX_MODEL] = GetShaderLocationAttrib(instancingShader, "instanceTransform");
 
         model.materials[0].maps[MATERIAL_MAP_DIFFUSE].color = {
-            static_cast<unsigned char>(surface_material.color.x * 255),
-            static_cast<unsigned char>(surface_material.color.y * 255),
-            static_cast<unsigned char>(surface_material.color.z * 255),
-            static_cast<unsigned char>(surface_material.color.w * 255)
+            static_cast<unsigned char>(surfaceMaterial.color.x * 255),
+            static_cast<unsigned char>(surfaceMaterial.color.y * 255),
+            static_cast<unsigned char>(surfaceMaterial.color.z * 255),
+            static_cast<unsigned char>(surfaceMaterial.color.w * 255)
         };
 
         DrawMeshInstanced(model.meshes[0], model.materials[0], transforms, instances.size());
@@ -1416,13 +1325,11 @@ private:
                                                 MatrixTranslate(position.x, position.y, position.z));
 
         if (model.meshes != nullptr) {
-            bounds.min = Vector3Transform(const_bounds.min, transformMatrix);
-            bounds.max = Vector3Transform(const_bounds.max, transformMatrix);
+            bounds.min = Vector3Transform(constBounds.min, transformMatrix);
+            bounds.max = Vector3Transform(constBounds.max, transformMatrix);
         }
 
-        if (!inFrustum()) {
-            return;
-        }
+        if (!inFrustum()) return;
 
         PassSurfaceMaterials();
         ReloadTextures();
@@ -1455,10 +1362,10 @@ private:
                 Vector3Zero(),
                 1,
                 (Color){
-                    static_cast<unsigned char>(surface_material.color.x * 255),
-                    static_cast<unsigned char>(surface_material.color.y * 255),
-                    static_cast<unsigned char>(surface_material.color.z * 255),
-                    static_cast<unsigned char>(surface_material.color.w * 255)});
+                    static_cast<unsigned char>(surfaceMaterial.color.x * 255),
+                    static_cast<unsigned char>(surfaceMaterial.color.y * 255),
+                    static_cast<unsigned char>(surfaceMaterial.color.z * 255),
+                    static_cast<unsigned char>(surfaceMaterial.color.w * 255)});
     }
     
     void PassSurfaceMaterials()
@@ -1470,14 +1377,14 @@ private:
 
         glGenBuffers(1, &surfaveMaterialUBO);
         glBindBuffer(GL_UNIFORM_BUFFER, surfaveMaterialUBO);
-        glBufferData(GL_UNIFORM_BUFFER, sizeof(SurfaceMaterial), &this->surface_material, GL_DYNAMIC_DRAW);
+        glBufferData(GL_UNIFORM_BUFFER, sizeof(SurfaceMaterial), &this->surfaceMaterial, GL_DYNAMIC_DRAW);
         glBindBuffer(GL_UNIFORM_BUFFER, 0);
 
         GLuint bindingPoint = 0;
         glBindBufferBase(GL_UNIFORM_BUFFER, bindingPoint, surfaveMaterialUBO);
 
         glBindBuffer(GL_UNIFORM_BUFFER, surfaveMaterialUBO);
-        glBufferSubData(GL_UNIFORM_BUFFER, 0, sizeof(SurfaceMaterial), &this->surface_material);
+        glBufferSubData(GL_UNIFORM_BUFFER, 0, sizeof(SurfaceMaterial), &this->surfaceMaterial);
         glBindBuffer(GL_UNIFORM_BUFFER, 0);
     }
 
@@ -1493,7 +1400,6 @@ bool operator==(const Entity& e, const Entity* ptr) {
     {
         int newID = 0;
 
-        // Loop until a unique ID is found
         while (std::find_if(entitiesList.begin(), entitiesList.end(),
             [newID](const Entity& entity) { return entity.id == newID; }) != entitiesList.end())
         {
@@ -1580,10 +1486,10 @@ HitInfo raycast(LitVector3 origin, LitVector3 direction, bool debug, std::vector
                 hitInfo.worldPoint = meshHitInfo.point;
                 hitInfo.worldNormal = meshHitInfo.normal;
                 hitInfo.hitColor = {
-                    static_cast<unsigned char>(entity.surface_material.color.x * 255),
-                    static_cast<unsigned char>(entity.surface_material.color.w * 255),
-                    static_cast<unsigned char>(entity.surface_material.color.y * 255),
-                    static_cast<unsigned char>(entity.surface_material.color.z * 255)
+                    static_cast<unsigned char>(entity.surfaceMaterial.color.x * 255),
+                    static_cast<unsigned char>(entity.surfaceMaterial.color.w * 255),
+                    static_cast<unsigned char>(entity.surfaceMaterial.color.y * 255),
+                    static_cast<unsigned char>(entity.surfaceMaterial.color.z * 255)
                 };
             }
         }

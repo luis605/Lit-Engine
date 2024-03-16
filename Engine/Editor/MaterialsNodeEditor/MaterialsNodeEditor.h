@@ -81,10 +81,10 @@ struct MyNode
     std::vector<ImNodes::Ez::SlotInfo> OutputSlots{};
 
     ImVec4 ColorValue = {
-        static_cast<float>(selectedEntity->surface_material.color.r),
-        static_cast<float>(selectedEntity->surface_material.color.g),
-        static_cast<float>(selectedEntity->surface_material.color.b),
-        static_cast<float>(selectedEntity->surface_material.color.a)
+        static_cast<float>(selectedEntity->surfaceMaterial.color.r),
+        static_cast<float>(selectedEntity->surfaceMaterial.color.g),
+        static_cast<float>(selectedEntity->surfaceMaterial.color.b),
+        static_cast<float>(selectedEntity->surfaceMaterial.color.a)
     };
 
     explicit MyNode(const char* title,
@@ -95,7 +95,7 @@ struct MyNode
         InputSlots = input_slots;
         OutputSlots = output_slots;
 
-        entityMaterial.color = selectedEntity->surface_material.color;
+        entityMaterial.color = selectedEntity->surfaceMaterial.color;
     }
 
     /// Deletes connection from this node.
