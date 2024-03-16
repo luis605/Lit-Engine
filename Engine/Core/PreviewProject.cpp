@@ -28,7 +28,7 @@ void PreviewStartup()
 bool received_data = false;
 std::vector<Entity> entitiesList_preview;
 std::vector<Light> lights_preview;
-std::vector<AdditionalLightInfo> light_info_preview;
+std::vector<AdditionalLightInfo> lightInfo_preview;
 
 LitCamera camera_preview;
 bool first_time = true;
@@ -65,7 +65,7 @@ void PreviewProject()
 
     PreviewStartup();
 
-    LoadProject(entitiesList_preview, lights_preview, light_info_preview, camera_preview);
+    LoadProject(entitiesList_preview, lights_preview, lightInfo_preview, camera_preview);
 
     std::cout << "Project Loaded" << std::endl;
 

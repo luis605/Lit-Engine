@@ -496,7 +496,7 @@ int SaveProject() {
 }
 
 void LoadEntity(const json& entity_json, Entity& entity);
-void LoadLight(const json& light_json, Light& light, AdditionalLightInfo& light_info);
+void LoadLight(const json& light_json, Light& light, AdditionalLightInfo& lightInfo);
 
 
 
@@ -754,11 +754,11 @@ void LoadEntity(const json& entity_json, Entity& entity) {
                         entity.addChild(child);
                     } else if (type == "light") {
                         Light light;
-                        AdditionalLightInfo light_info;
+                        AdditionalLightInfo lightInfo;
 
-                        LoadLight(child_json, light, light_info);
+                        LoadLight(child_json, light, lightInfo);
                         lights.push_back(light);
-                        lightsInfo.push_back(light_info);
+                        lightsInfo.push_back(lightInfo);
                         light.isChild = true;
 
                         entity.addChild(&lights.back());
@@ -771,7 +771,7 @@ void LoadEntity(const json& entity_json, Entity& entity) {
 
 
 
-void LoadLight(const json& light_json, Light& light, AdditionalLightInfo& light_info) {
+void LoadLight(const json& light_json, Light& light, AdditionalLightInfo& lightInfo) {
     light.color = (glm::vec4{
         light_json["color"]["r"].get<float>() / 255,
         light_json["color"]["g"].get<float>() / 255,
@@ -779,7 +779,7 @@ void LoadLight(const json& light_json, Light& light, AdditionalLightInfo& light_
         light_json["color"]["a"].get<float>() / 255
     });
     
-    light_info.name = light_json["name"].get<std::string>();
+    lightInfo.name = light_json["name"].get<std::string>();
 
     glm::vec3 position{
         light_json["position"]["x"].get<float>(),
@@ -814,7 +814,7 @@ void LoadLight(const json& light_json, Light& light, AdditionalLightInfo& light_
     light.direction = direction;
     
     light.id      = light_json["id"].get<int>();
-    light_info.id = light.id;
+    lightInfo.id = light.id;
 
     light.intensity          = light_json["intensity"].get<float>();
     light.cutOff             = light_json["cutOff"].get<float>();
@@ -944,9 +944,9 @@ int LoadProject(vector<Entity>& entitiesVector, vector<Light>& lightsVector, vec
             else if (type == "light") {
                 if (entity_json["isChild"].get<bool>() == true) continue;
                 Light light;
-                AdditionalLightInfo light_info;
-                LoadLight(entity_json, light, light_info);
-                lightsInfoVector.emplace_back(light_info);
+                AdditionalLightInfo lightInfo;
+                LoadLight(entity_json, light, lightInfo);
+                lightsInfoVector.emplace_back(lightInfo);
                 lightsVector.emplace_back(light);
             }
             else if (type == "text") {

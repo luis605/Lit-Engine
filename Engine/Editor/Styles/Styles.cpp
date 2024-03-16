@@ -140,8 +140,8 @@ void CreateNewTheme()
         int option_index = new_theme_saved_options[index];
         ImGui::Text(themes_colors_string[option_index]);
         ImGui::SameLine();
-        string color_picker_name = "##Color Picker - " + to_string(index);
-        ImGui::ColorEdit4(color_picker_name.c_str(), (float*)&new_theme_saved_options_color[index], ImGuiColorEditFlags_NoInputs);
+        string color_pickerName = "##Color Picker - " + to_string(index);
+        ImGui::ColorEdit4(color_pickerName.c_str(), (float*)&new_theme_saved_options_color[index], ImGuiColorEditFlags_NoInputs);
     }
 
     bool saveButton = ImGui::Button("Save", {110, 30});
