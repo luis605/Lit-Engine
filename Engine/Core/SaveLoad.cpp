@@ -761,7 +761,7 @@ void LoadEntity(const json& entity_json, Entity& entity) {
                         lightsInfo.push_back(lightInfo);
                         light.isChild = true;
 
-                        entity.addChild(&lights.back());
+                        entity.addChild(lights.back());
                     }
                 }
             }

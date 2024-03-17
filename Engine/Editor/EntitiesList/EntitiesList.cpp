@@ -154,9 +154,16 @@ void DrawEntityTree(Entity& entity, int active, int& index, int depth) {
     if (ImGui::BeginDragDropTarget()) {
         const ImGuiPayload* payload = ImGui::AcceptDragDropPayload("CHILD_LIGHT_PAYLOAD");
         if (payload) {
-            if (payload->DataSize == sizeof(Light*)) {
-                Light* droppedLight = reinterpret_cast<Light*>(payload->Data);
+            if (payload->DataSize == sizeof(Light)) {
+                Light& droppedLight = *(Light*)payload->Data;;
                 entity.addChild(droppedLight);
+
+                auto it = std::find(lights.begin(), lights.end(), droppedLight);
+                if (it != lights.end()) {
+                    lights.erase(it);
+                } else {
+                    std::cout << "Light not found." << std::endl;
+                }
             } else {
                 std::cerr << "Invalid payload size!" << std::endl;
             }
@@ -271,7 +278,7 @@ void DrawLightTree(Light& light, AdditionalLightInfo& light_info, int active, in
     {
         ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(0.85f, 0.85f, 0.85f, 1.0f));
 
-        ImGui::SetDragDropPayload("CHILD_LIGHT_PAYLOAD", &light, sizeof(Light*));
+        ImGui::SetDragDropPayload("CHILD_LIGHT_PAYLOAD", &light, sizeof(Light));
         ImGui::TreeNodeEx((void*)&light, nodeFlags | ImGuiTreeNodeFlags_Selected, lightName.c_str());
         ImGui::PopStyleColor();
 
