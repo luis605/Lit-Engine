@@ -24,3 +24,6 @@
 [submodule "include/raylib"]
 	path = include/raylib
 	url = https://github.com/raysan5/raylib.git
+[submodule "include/pybind11"]
+	path = include/pybind11
+	url = https://github.com/pybind/pybind11.git
