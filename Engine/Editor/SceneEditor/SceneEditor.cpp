@@ -228,9 +228,6 @@ void ProcessGizmo()
     dragging = (draggingGizmoScale || draggingGizmoPosition || draggingGizmoRotation);
 }
 
-struct EmptyType {};
-
-
 void HandleUnselect(bool isEntitySelected, bool isLightSelected) {
     if (
         IsMouseButtonPressed(MOUSE_BUTTON_LEFT) &&
