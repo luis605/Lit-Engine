@@ -71,9 +71,9 @@ build_dependencies: $(IMGUI_OBJECTS)
 	@$(call echo_success, "Building Dependencies")
 	@g++ -c $(IMGUI_OBJECTS) -I./include/imgui -O3 include/ImNodes/ImNodes.cpp -o include/ImNodes/ImNodes.o
 	@g++ -c $(IMGUI_OBJECTS) -I./include/imgui -O3 include/ImNodes/ImNodesEz.cpp -o include/ImNodes/ImNodesEz.o
-	@g++ -c $(IMGUI_OBJECTS) -I./include/imgui -O3 include/rlImGui.cpp -o include/rlImGui.o
+	@g++ -c $(IMGUI_OBJECTS) -I./include/imgui -O3 -I./include/raylib/src include/rlImGui.cpp -o include/rlImGui.o
 	@g++ -c $(IMGUI_OBJECTS) -I./include/imgui -O3 include/ImGuiColorTextEdit/TextEditor.cpp -o include/ImGuiColorTextEdit/TextEditor.o
-	@g++ -c -O3 include/rlFrustum.cpp -o include/rlFrustum.o
+	@g++ -c -O3 -I./include/raylib/src include/rlFrustum.cpp -o include/rlFrustum.o
 
 clean:
 	-find . -name "*.out" | xargs rm
