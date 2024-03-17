@@ -222,7 +222,7 @@ void DrawEntityTree(Entity& entity, int active, int& index, int depth) {
 
                     std::cout << "Distance: " << distance << std::endl << "Size: " << lights.size() << std::endl << std::endl;
 
-                    DrawLightTree(*child, lightsInfo[distance], active, index);
+                    DrawLightTree((Light&)child, lightsInfo[distance], active, index);
                 } else if constexpr (std::is_same_v<T, Text*>) {
                     DrawTextElementsTree(*child, active, index);
                 } else if constexpr (std::is_same_v<T, LitButton*>) {
