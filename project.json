@@ -2,15 +2,15 @@
     {
         "fovy": 60.0,
         "position": {
-            "x": 50.0,
-            "y": 0.0,
-            "z": 0.0
+            "x": 17.03638458251953,
+            "y": 34.162837982177734,
+            "z": -25.885883331298828
         },
         "projection": 0,
         "target": {
-            "x": 0.0,
-            "y": 0.0,
-            "z": 0.0
+            "x": 14.310601234436035,
+            "y": 29.207599639892578,
+            "z": -17.399669647216797
         },
         "type": "camera",
         "up": {
@@ -22,39 +22,39 @@
     {
         "ambientColor": {
             "w": 1.0,
-            "x": 1.0,
-            "y": 1.0,
-            "z": 1.0
+            "x": 0.0,
+            "y": 0.0,
+            "z": 0.0
         },
-        "bloom": true,
+        "bloom": false,
         "bloomBrightness": 0.0,
         "bloomSamples": 3.0,
         "skyboxColor": {
             "w": 1.0,
-            "x": 1.0,
-            "y": 1.0,
-            "z": 1.0
+            "x": 0.0,
+            "y": 0.0,
+            "z": 0.0
         },
         "skyboxPath": "assets/images/skybox/default skybox.hdr",
         "type": "world settings"
     },
     {
         "collider": true,
-        "collider_type": 2,
+        "collider_type": 0,
         "damping": 0.0,
         "friction": 1.0,
-        "id": 0,
-        "is_dynamic": false,
+        "id": 1,
+        "is_dynamic": true,
         "lodEnabled": true,
         "mass": 1.0,
-        "material_path": "",
+        "material_path": "project/game/materials/file2.mat",
         "mesh_type": 1,
         "model_path": "",
-        "name": "Unnamed Entity",
+        "name": "Player",
         "normalTexturePath": "",
         "position": {
             "x": 0.0,
-            "y": 0.0,
+            "y": 17.200056076049805,
             "z": 0.0
         },
         "relativePosition": {
@@ -73,9 +73,64 @@
             "y": 1.0,
             "z": 1.0
         },
+        "script_index": "player0",
+        "script_path": "project/game/scripts/player.py",
+        "surface_material": {
+            "DiffuseIntensity": 1.0,
+            "Roughness": 0.42500001192092896,
+            "SpecularIntensity": 0.0,
+            "SpecularTint": {
+                "x": 1.0,
+                "y": 1.0,
+                "z": 1.0
+            },
+            "shininess": 1.0
+        },
+        "texturePath": "",
+        "tiling": [
+            1.0,
+            1.0
+        ],
+        "type": "entity"
+    },
+    {
+        "collider": true,
+        "collider_type": 0,
+        "damping": 0.0,
+        "friction": 1.0,
+        "id": 0,
+        "is_dynamic": false,
+        "lodEnabled": true,
+        "mass": 1.0,
+        "material_path": "",
+        "mesh_type": 1,
+        "model_path": "",
+        "name": "Planet",
+        "normalTexturePath": "",
+        "position": {
+            "x": 0.0,
+            "y": 0.0,
+            "z": 0.0
+        },
+        "relativePosition": {
+            "x": 0.0,
+            "y": 0.0,
+            "z": 0.0
+        },
+        "rotation": {
+            "x": 0.0,
+            "y": 0.0,
+            "z": 0.0
+        },
+        "roughnessTexturePath": "",
+        "scale": {
+            "x": 24.0,
+            "y": 24.0,
+            "z": 24.0
+        },
         "script_index": "",
         "script_path": "",
-        "surfaceMaterial": {
+        "surface_material": {
             "DiffuseIntensity": 0.5,
             "Roughness": 0.5,
             "SpecularIntensity": 0.5,
@@ -103,18 +158,18 @@
         },
         "cutOff": 10.0,
         "direction": {
-            "x": 0.4000000059604645,
-            "y": 0.4000000059604645,
-            "z": -0.4000000059604645
+            "x": 0.8299999833106995,
+            "y": -1.0,
+            "z": 1.0
         },
         "id": 2,
-        "intensity": 0.5,
+        "intensity": 1.7410000562667847,
         "isChild": false,
         "light_type": 1,
         "name": "Light",
         "position": {
             "x": 4.0,
-            "y": 5.0,
+            "y": 27.100051879882813,
             "z": 3.0
         },
         "relativePosition": {
