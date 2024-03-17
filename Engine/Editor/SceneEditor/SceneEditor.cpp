@@ -2,14 +2,6 @@
 #include "SceneEditor.h"
 #include "Gizmo/Gizmo.cpp"
 
-#if defined(PLATFORM_DESKTOP)
-    #define GLSL_VERSION            330
-#else   // PLATFORM_RPI, PLATFORM_ANDROID, PLATFORM_WEB
-    #define GLSL_VERSION            100
-#endif
-
-
-
 void InitEditorCamera()
 {
     renderTexture = LoadRenderTexture( 1, 1 );
