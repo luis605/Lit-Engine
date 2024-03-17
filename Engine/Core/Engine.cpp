@@ -499,8 +499,13 @@ public:
         for (auto& childVariant : children) {
             if (auto* entity = std::get_if<Entity*>(&childVariant)) {
                 update_entity_child(*entity);
-            } else if (auto* light = std::get_if<Light*>(&childVariant)) {
-                update_light_child(*light);
+            } else if (Light* lightChild = *std::get_if<Light*>(&childVariant)) {
+                auto it = std::find_if(lights.begin(), lights.end(),
+                    [&](const Light& light) { return light.id == lightChild->id; });
+
+                int distance = (it != lights.end()) ? std::distance(lights.begin(), it) : -1;
+
+                update_light_child(&lights[distance]);
             }
         }
     }
