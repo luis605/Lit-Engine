@@ -489,7 +489,7 @@ public:
             newChild.position.z - this->position.z
         };
 
-        lights.emplace_back(newChild);
+        lights.emplace_back(std::move(newChild));
         children.emplace_back(&lights.back());
     }
 
