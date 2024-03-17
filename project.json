@@ -2,15 +2,15 @@
     {
         "fovy": 60.0,
         "position": {
-            "x": 17.03638458251953,
-            "y": 34.162837982177734,
-            "z": -25.885883331298828
+            "x": 34.979610443115234,
+            "y": 29.336944580078125,
+            "z": -13.005855560302734
         },
         "projection": 0,
         "target": {
-            "x": 14.310601234436035,
-            "y": 29.207599639892578,
-            "z": -17.399669647216797
+            "x": 26.24351692199707,
+            "y": 26.790281295776367,
+            "z": -8.402048110961914
         },
         "type": "camera",
         "up": {
@@ -31,9 +31,9 @@
         "bloomSamples": 3.0,
         "skyboxColor": {
             "w": 1.0,
-            "x": 0.0,
-            "y": 0.0,
-            "z": 0.0
+            "x": 0.0723884105682373,
+            "y": 0.042237721383571625,
+            "z": 0.1413043737411499
         },
         "skyboxPath": "assets/images/skybox/default skybox.hdr",
         "type": "world settings"
@@ -73,9 +73,9 @@
             "y": 1.0,
             "z": 1.0
         },
-        "script_index": "player0",
+        "scriptIndex": "player0",
         "script_path": "project/game/scripts/player.py",
-        "surface_material": {
+        "surfaceMaterial": {
             "DiffuseIntensity": 1.0,
             "Roughness": 0.42500001192092896,
             "SpecularIntensity": 0.0,
@@ -128,9 +128,9 @@
             "y": 24.0,
             "z": 24.0
         },
-        "script_index": "",
+        "scriptIndex": "",
         "script_path": "",
-        "surface_material": {
+        "surfaceMaterial": {
             "DiffuseIntensity": 0.5,
             "Roughness": 0.5,
             "SpecularIntensity": 0.5,
@@ -177,7 +177,7 @@
             "y": 0,
             "z": 0
         },
-        "specularStrength": 0.5,
+        "specularStrength": 0.0,
         "target": {
             "x": 0,
             "y": 0,

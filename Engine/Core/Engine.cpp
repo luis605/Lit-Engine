@@ -479,15 +479,18 @@ public:
     }
 
 
-    void addChild(Light* lightChild) {
-        lightChild->isChild = true;
-        lightChild->relativePosition = {
-            lightChild->position.x - this->position.x,
-            lightChild->position.y - this->position.y,
-            lightChild->position.z - this->position.z
+    void addChild(Light& lightChild) {
+        Light newChild = Light(lightChild);
+
+        newChild.isChild = true;
+        newChild.relativePosition = {
+            newChild.position.x - this->position.x,
+            newChild.position.y - this->position.y,
+            newChild.position.z - this->position.z
         };
 
-        children.emplace_back(lightChild);
+        lights.emplace_back(newChild);
+        children.emplace_back(&lights.back());
     }
 
     void update_children() {
