@@ -422,11 +422,8 @@ void ProcessObjectControls()
     }
 }
 
-
-
 void ObjectsPopup()
 {
-
     ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(10, 10));
     ImGui::PushStyleVar(ImGuiStyleVar_ItemSpacing, ImVec2(10, 5));
     ImGui::PushStyleVar(ImGuiStyleVar_FramePadding, ImVec2(5, 5));
@@ -518,10 +515,8 @@ void ObjectsPopup()
                 showObjectTypePopup = false;
             }
 
-
             ImGui::EndMenu();
         }
-
 
         ImGui::Separator();
 
@@ -539,12 +534,8 @@ void ObjectsPopup()
                 showObjectTypePopup = false;
             }
 
-
-
             ImGui::EndMenu();
         }
-
-
 
         ImGui::EndPopup();
     }
