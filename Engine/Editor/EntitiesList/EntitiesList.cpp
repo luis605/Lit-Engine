@@ -220,9 +220,7 @@ void DrawEntityTree(Entity& entity, int active, int& index, int depth) {
 
                     int distance = (it != lights.end()) ? std::distance(lights.begin(), it) : -1;
 
-                    std::cout << "Distance: " << distance << std::endl << "Size: " << lights.size() << std::endl << std::endl;
-
-                    DrawLightTree((Light&)child, lightsInfo[distance], active, index);
+                    DrawLightTree(lights[distance], lightsInfo[distance], active, index);
                 } else if constexpr (std::is_same_v<T, Text*>) {
                     DrawTextElementsTree(*child, active, index);
                 } else if constexpr (std::is_same_v<T, LitButton*>) {
