@@ -30,7 +30,7 @@ INCLUDE_DIRS = -I./include -L.include/ -I./include/ImGuiColorTextEdit -L./includ
 LIB_FLAGS = -lraylib -ldl -lBulletDynamics -lBulletCollision -lLinearMath
 LIB_FLAGS += -lavformat -lavcodec -lavutil -lswscale -lswresample -lz -lm -lpthread -ldrm -ltbb -lmeshoptimizer
 
-PYTHON_INCLUDE_DIR := $(shell python -c "import sys; print(sys.prefix + '/include')")
+PYTHON_INCLUDE_DIR := $(shell python3 -c "import sys; print(sys.prefix + '/include')")
 
 LIB_FLAGS_LINUX = $(LIB_FLAGS) -lpython3.11 -fPIC `python3.11 -m pybind11 --includes`
 LIB_FLAGS_WINDOWS = -I./include/pybind11/include -I$(PYTHON_INCLUDE_DIR) $(LIB_FLAGS)

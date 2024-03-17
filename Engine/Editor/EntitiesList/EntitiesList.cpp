@@ -150,7 +150,6 @@ void DrawEntityTree(Entity& entity, int active, int& index, int depth) {
         ImGui::EndDragDropSource();
     }
 
-
     // Drag and drop target
     if (ImGui::BeginDragDropTarget()) {
         const ImGuiPayload* payload = ImGui::AcceptDragDropPayload("CHILD_LIGHT_PAYLOAD");
