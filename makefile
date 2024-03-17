@@ -26,7 +26,7 @@ endef
 
 CXXFLAGS = -g -pipe -std=c++17 -fpermissive -w -Wall -DNDEBUG -O0 -g
 SRC_FILES = include/ImGuiColorTextEdit/TextEditor.o include/rlImGui.o include/ImNodes/ImNodes.o include/ImNodes/ImNodesEz.o
-INCLUDE_DIRS = -I./include -L.include/ -I./include/ImGuiColorTextEdit -L./include/ffmpeg -I./include/ffmpeg -I./include/nlohmann/include -I./include/imgui -L/include/bullet3/src -I./include/bullet3/src -L./include/raylib/src -I./include/raylib/src -L./libs/
+INCLUDE_DIRS = -I./include -L./include -I./include/ImGuiColorTextEdit -L./include/ffmpeg -I./include/ffmpeg -I./include/nlohmann/include -I./include/imgui -L/include/bullet3/src -I./include/bullet3/src -L./include/raylib/src -I./include/raylib/src -L./libs/ -L./include/meshoptimizer/build
 LIB_FLAGS = -lraylib -ldl -lBulletDynamics -lBulletCollision -lLinearMath
 LIB_FLAGS += -lavformat -lavcodec -lavutil -lswscale -lswresample -lz -lm -lpthread -ldrm -ltbb -lmeshoptimizer
 
