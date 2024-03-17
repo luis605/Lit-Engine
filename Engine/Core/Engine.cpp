@@ -533,9 +533,9 @@ public:
     }
 
     void remove() {
-        for (auto& childVariant : children) {
-            std::visit([](auto& child) { delete child; }, childVariant);
-        }
+        // for (auto& childVariant : children) {
+        //     std::visit([](auto& child) { delete child; }, childVariant);
+        // }
 
         entitiesListPregame.erase(
             std::remove_if(entitiesListPregame.begin(), entitiesListPregame.end(),
