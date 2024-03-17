@@ -181,22 +181,6 @@ bool IsMouseHoveringModel(const Model& model, const Camera& camera, const Vector
     return false;
 }
 
-
-bool isVectorPositive(const Vector3& vector) {
-    return (vector.x > 0 && vector.y > 0 && vector.z > 0);
-}
-
-bool isVectorNegative(const Vector3& vector) {
-    return (vector.x < 0 && vector.y < 0 && vector.z < 0);
-}
-
-
-bool isVectorNeutral(const Vector3& vector) {
-    return (vector.x == 0 && vector.y == 0 && vector.z == 0);
-}
-
-
-
 void LocateEntity(Entity& entity)
 {
     if (selectedGameObjectType == "entity")
