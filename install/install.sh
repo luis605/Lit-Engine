@@ -8,3 +8,5 @@ sudo apt install make
 sudo apt install cmake
 
 sudo apt-get install build-essential cmake xorg-dev libglu1-mesa-dev
+sudo apt-get install libavutil-dev libavcodec-dev libavformat-dev libswscale-dev
+
