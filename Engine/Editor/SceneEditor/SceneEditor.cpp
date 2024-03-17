@@ -281,7 +281,6 @@ void ApplyBloomEffect() {
 void RenderLight(Light* light, bool& isLightSelected) {
     int index = 0;
 
-
     for (Light& light : lights)
     {
         Model lightModel = LoadModelFromMesh(GenMeshPlane(4, 4, 1, 1));
@@ -334,7 +333,6 @@ void RenderEntities(bool& isEntitySelected) {
                     }
                 }
             }
-
         }
 
         index++;
@@ -344,8 +342,6 @@ void RenderEntities(bool& isEntitySelected) {
 void UpdateShaderAndView() {
     float cameraPos[3] = { sceneCamera.position.x, sceneCamera.position.y, sceneCamera.position.z };
     SetShaderValue(shader, shader.locs[SHADER_LOC_VECTOR_VIEW], cameraPos, SHADER_UNIFORM_VEC3);
-
-    SetShaderValueMatrix(shader, GetShaderLocation(shader, "cameraMatrix"), GetCameraMatrix(sceneCamera));
 }
 
 void RenderScene() {
