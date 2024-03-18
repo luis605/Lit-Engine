@@ -459,7 +459,7 @@ void EntitiesList()
 
     ImVec2 buttonSize = ImVec2(50, 50);
 
-    if (ImGui::ImageButton((ImTextureID)&runTexture, buttonSize)) {
+    if (ImGui::ImageButton((ImTextureID)&runTexture, buttonSize) && !inGamePreview) {
         entitiesList.assign(entitiesListPregame.begin(), entitiesListPregame.end());
         
         // DisableCursor();
