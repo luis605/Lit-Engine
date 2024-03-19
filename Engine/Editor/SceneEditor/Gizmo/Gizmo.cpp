@@ -158,20 +158,6 @@ void GizmoPosition()
 }
 
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 void GizmoRotation()
 {
     Vector3 selectedObjectRotation;
@@ -208,13 +194,13 @@ void GizmoRotation()
             else
             {
                 color1 = DARKBLUE;
-                selectedGizmoTaurus == -1;
+                selectedGizmoTaurus = -1;
             }
         }
         else
         {
             color1 = RED;
-            selectedGizmoTaurus == -1;
+            selectedGizmoTaurus = -1;
         }
 
 
