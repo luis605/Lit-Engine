@@ -7,6 +7,7 @@ void InitGizmo()
     {
         gizmoArrow[index].model = LoadModel("assets/models/gizmo/arrow.obj");
         gizmoArrow[index].rotation = gizmoArrowOffsets[index].rotation;
+        gizmoArrow[index].model.materials[0].shader = shader;
     }
 
     for (int index = 0; index < NUM_GIZMO_TAURUS; index++)
@@ -20,6 +21,8 @@ void InitGizmo()
     for (int index = 0; index < NUM_GIZMO_CUBES; index++)
     {
         gizmoCube[index].model = LoadModelFromMesh(GenMeshCube(1, 1, 1));
+        gizmoCube[index].model.materials[0].shader = shader;
+
     }
 }
 
@@ -161,12 +164,14 @@ void GizmoRotation()
 {
     Vector3 selectedObjectRotation;
 
-    if (selectedGameObjectType == "entity")
+    if (selectedGameObjectType == "entity") {
         selectedObjectRotation = selectedEntity->rotation;
-    else if (selectedGameObjectType == "light")
+        float maxScale = max(max(selectedEntity->scale.x, selectedEntity->scale.y), selectedEntity->scale.z);
+        selectedObjectScale = (Vector3) { maxScale, maxScale, maxScale }; 
+    } else if (selectedGameObjectType == "light") {
         selectedObjectRotation = {selectedLight->direction.x, selectedLight->direction.y, selectedLight->direction.z};
-
-    Vector3 selectedObjectPosition;
+        selectedObjectScale = (Vector3) { 1, 1, 1 };
+    }
 
     if (selectedGameObjectType == "entity")
         selectedObjectPosition = selectedEntity->position;
@@ -193,6 +198,7 @@ void GizmoRotation()
     // Update gizmo arrow positions and rotations
     for (int index = 0; index < NUM_GIZMO_TAURUS; index++)
     {
+        gizmoTaurus[index].scale = selectedObjectScale;
         gizmoTaurus[index].position = selectedObjectPosition;
 
         Color color1;
