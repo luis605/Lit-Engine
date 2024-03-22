@@ -9,6 +9,7 @@
 void InitLitWindow() {
     SetTraceLogLevel(LOG_WARNING);
 
+    // Open a window to get the screen resolution
     InitWindow(windowWidth, windowHeight, "Lit Engine - INITIALIZING");
 
     windowWidth = GetMonitorWidth(0) * 0.95;
