@@ -209,8 +209,8 @@ void ProcessGizmo()
         if (selectedEntity->initialized)
         {
             GizmoPosition();
-            GizmoRotation();
             GizmoScale();
+            GizmoRotation();
         }
     }
     else if (selectedGameObjectType == "light")
