@@ -160,12 +160,12 @@ void GizmoPosition()
 
 void GizmoRotation()
 {
-    Vector3 selectedObjectRotation;
+    Vector3 selectedObjectRotationation;
 
     if (selectedGameObjectType == "entity")
-        selectedObjectRotation = selectedEntity->rotation;
+        selectedObjectRotationation = selectedEntity->rotation;
     else if (selectedGameObjectType == "light")
-        selectedObjectRotation = {selectedLight->direction.x, selectedLight->direction.y, selectedLight->direction.z};
+        selectedObjectRotationation = {selectedLight->direction.x, selectedLight->direction.y, selectedLight->direction.z};
 
     Vector3 selectedObjectPosition;
 
@@ -174,15 +174,31 @@ void GizmoRotation()
     else if (selectedGameObjectType == "light")
         selectedObjectPosition = {selectedLight->position.x, selectedLight->position.y, selectedLight->position.z};
 
-    Vector3 selectedObjectScale;
+    if (selectedGameObjectType == "entity" && selectedEntity != nullptr)
+    {
+        selectedObjectRotation = (Vector3) {
+            selectedEntity->rotation.x,
+            selectedEntity->rotation.y,
+            selectedEntity->rotation.z
+        };
+    }
+    else if (selectedGameObjectType == "light")
+    {
+        selectedObjectRotation = (Vector3) {
+            selectedLight->direction.x,
+            selectedLight->direction.y,
+            selectedLight->direction.z
+        };
+    }
 
+    // Update gizmo arrow positions and rotations
     for (int index = 0; index < NUM_GIZMO_TAURUS; index++)
     {
         gizmoTaurus[index].position = selectedObjectPosition;
 
         Color color1;
 
-        if ((!draggingGizmoScale && !draggingGizmoPosition && !draggingGizmoRotation) && ImGui::IsWindowHovered())
+        if ((!draggingGizmoScale && !draggingGizmoPosition) && ImGui::IsWindowHovered())
         {
             isHoveringGizmo = IsMouseHoveringModel(gizmoTaurus[index].model, sceneCamera, gizmoTaurus[index].position, gizmoTaurus[index].rotation, gizmoTaurus[index].scale, nullptr, true);
             
@@ -222,15 +238,15 @@ void GizmoRotation()
 
                 if (selectedGizmoTaurus == 0)
                 {
-                    selectedObjectScale.x += deltaY;
+                    selectedObjectRotation.x += deltaY;
                 }
                 else if (selectedGizmoTaurus == 1)
                 {
-                    selectedObjectScale.y += deltaX;
+                    selectedObjectRotation.y += deltaX;
                 }
                 else if (selectedGizmoTaurus == 2)
                 {
-                    selectedObjectScale.z += deltaX;
+                    selectedObjectRotation.z += deltaX;
                 }
 
                 mouseDragStart = mouseDragEnd;
