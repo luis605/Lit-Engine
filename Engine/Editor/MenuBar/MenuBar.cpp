@@ -331,8 +331,6 @@ void MenuBar()
             exitWindowRequested = true;
         }
 
-        ImGui::PopFont();
-        ImGui::PushFont(s_Fonts["ImGui Default"]);
 
         ImGui::SetCursorPosX(ImGui::GetWindowSize().x - 35 * 2);
 
@@ -348,8 +346,6 @@ void MenuBar()
             MinimizeWindow();
         }
 
-        ImGui::PopFont();
-        ImGui::PushFont(s_Fonts["Default"]);
 
         ImGui::PopStyleColor(4);
 

@@ -402,8 +402,6 @@ void ImGuiListViewEx(vector<string>& items, int& focus, int& scroll, int& active
     int currentAmount = 0;
     int index = 0;
 
-    ImGui::PopFont();
-    ImGui::PushFont(s_Fonts["ImGui Default"]);
 
     DrawCameraTree(active, index);
 
@@ -426,8 +424,6 @@ void ImGuiListViewEx(vector<string>& items, int& focus, int& scroll, int& active
         DrawButtonTree(button, active, index);
     }
 
-    ImGui::PopFont();
-    ImGui::PushFont(s_Fonts["Default"]);
 
     ImGui::PopStyleVar(3);
     ImGui::PopItemWidth();
@@ -443,9 +439,7 @@ void ImGuiListViewEx(vector<string>& items, int& focus, int& scroll, int& active
 void EntitiesList()
 {
 
-    ImGui::PushFont(s_Fonts["Default"]);
     ImGui::Begin((std::string(ICON_FA_BARS) + " Objects List").c_str(), NULL);
-    ImGui::PopFont();
 
     updateListViewExList(entitiesListPregame, lightsListPregame);
     ImGuiListViewEx(objectNames, listViewExFocus, listViewExScrollIndex, listViewExActive);
