@@ -65,8 +65,6 @@ void InitImGui() {
         s_Fonts[fontName] = io.Fonts->AddFontFromFileTTF((fontPath.string() + fileName).c_str(), fontSize + sizeModifier);
     };
 
-    addFont("ImGui Default", "NotoSans-Medium.ttf");
-    addFont("Default", "NotoSans-Medium.ttf");
     addFont("Bold", "NotoSans-Bold.ttf", 4);
 
     io.Fonts->Fonts[0]->FontSize = fontSize;
@@ -76,7 +74,7 @@ void InitImGui() {
 
 void InitShaders() {
     shader = LoadShader("Engine/Lighting/shaders/lighting_vertex.glsl", "Engine/Lighting/shaders/lighting_fragment.glsl"); // LoadShaderFromMemory(lightingVert, lightingFrag);
-    instancingShader = LoadShaderFromMemory(lightingVert, lightingFrag);
+    instancingShader = LoadShader("Engine/Lighting/shaders/instancing_lighting_vertex.glsl", "lighting_fragment.glsl"); // LoadShaderFromMemory(lightingVert, lightingFrag);
     downsamplerShader = LoadShader("Engine/Lighting/shaders/lighting_vertex.glsl", "Engine/Lighting/shaders/downsampler.glsl"); // LoadShaderFromMemory(lightingVert, downsamplerFrag);
     upsamplerShader = LoadShader("Engine/Lighting/shaders/lighting_vertex.glsl", "Engine/Lighting/shaders/upsampler.glsl"); // LoadShaderFromMemory(lightingVert, upsamplerFrag);
 }
@@ -128,8 +126,6 @@ void EngineMainLoop()
         const ImGuiViewport *viewport = ImGui::GetMainViewport();
         ImGui::DockSpaceOverViewport(viewport);
 
-        ImGui::PushFont(s_Fonts["Default"]);
-
         MenuBar();
 
         AssetsExplorer();
@@ -145,8 +141,6 @@ void EngineMainLoop()
         int editor_camera = EditorCamera();
         ImGui::End();
         ImGui::PopStyleVar();
-
-        ImGui::PopFont();
 
         rlImGuiEnd();
         

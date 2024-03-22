@@ -4,8 +4,6 @@ void WorldInspector()
 {
     const float inputWidth = 150.0f;
 
-    ImGui::PushFont(s_Fonts["ImGui Default"]);
-
     // Header Title
     ImGui::Text("Inspecting World");
 
@@ -242,6 +240,4 @@ void WorldInspector()
         ImGui::Unindent(20.0f);
 
     }
-
-    ImGui::PopFont();
 }
