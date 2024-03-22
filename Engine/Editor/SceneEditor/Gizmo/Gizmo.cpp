@@ -359,7 +359,7 @@ void GizmoScale()
             }
             else
             {
-                color1 = { 40, 180, 40, 200 };
+                color1 = { 40, 180, 40, 250 };
                 selectedGizmoCube == -1;
             }
         }
