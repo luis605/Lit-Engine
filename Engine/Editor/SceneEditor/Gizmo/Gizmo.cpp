@@ -159,12 +159,12 @@ void GizmoPosition()
 
 void GizmoRotation()
 {
-    Vector3 selectedObjectRotationation;
+    Vector3 selectedObjectRotation;
 
     if (selectedGameObjectType == "entity")
-        selectedObjectRotationation = selectedEntity->rotation;
+        selectedObjectRotation = selectedEntity->rotation;
     else if (selectedGameObjectType == "light")
-        selectedObjectRotationation = {selectedLight->direction.x, selectedLight->direction.y, selectedLight->direction.z};
+        selectedObjectRotation = {selectedLight->direction.x, selectedLight->direction.y, selectedLight->direction.z};
 
     Vector3 selectedObjectPosition;
 
