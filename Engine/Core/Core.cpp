@@ -13,7 +13,7 @@ void InitLitWindow() {
     InitWindow(windowWidth, windowHeight, "Lit Engine - Initializing");
 
     windowWidth = GetMonitorWidth(0) * 0.95;
-    windowHeight = GetMonitorHeight(0) * 0.9;    
+    windowHeight = GetMonitorHeight(0) * 0.9;
     CloseWindow();
 
     // Window
@@ -39,7 +39,6 @@ void LoadTextures() {
     windowIconImage = LoadImage("assets/images/window_icon.png");
     windowIconTexture = LoadTextureFromImage(windowIconImage);
 
-    ImageFormat(&windowIconImage, PIXELFORMAT_UNCOMPRESSED_R8G8B8A8);
     SetWindowIcon(windowIconImage);
 
     downsamplerTexture = LoadRenderTexture(GetScreenWidth(), GetScreenHeight());
