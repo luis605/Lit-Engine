@@ -5,7 +5,7 @@
 
 // Define constants for gizmo arrow and cube count
 constexpr int NUM_GIZMO_ARROWS = 6;
-constexpr int NUM_GIZMO_TAURUS = 3;
+constexpr int NUM_GIZMO_TAURUS = 1;
 constexpr int NUM_GIZMO_CUBES = 6;
 
 // Gizmos

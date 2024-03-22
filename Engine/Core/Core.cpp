@@ -100,11 +100,11 @@ void Startup()
     Py_Initialize();
     InitImGui();
     LoadTextures();
+    InitShaders();
+    InitLighting();
     InitGizmo();
     InitEditorCamera();
     InitCodeEditor();
-    InitShaders();
-    InitLighting();
     InitRenderModelPreviewer();
 
     #if STRESS_TEST

@@ -358,13 +358,14 @@ void RenderScene() {
     bool isLightSelected = false;
     bool isEntitySelected = false;
 
-    ProcessGizmo();
 
     for (Light& light : lights) {
         RenderLight(&light, isLightSelected);
     }
 
     RenderEntities(isEntitySelected);
+
+    ProcessGizmo();
 
     HandleUnselect(isEntitySelected, isLightSelected);
 
