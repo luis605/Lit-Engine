@@ -38,11 +38,10 @@ void LoadTextures() {
     lightTexture = LoadTexture("assets/images/light_bulb.png");
     windowIconImage = LoadImage("assets/images/window_icon.png");
     windowIconTexture = LoadTextureFromImage(windowIconImage);
-
-    SetWindowIcon(windowIconImage);
-
     downsamplerTexture = LoadRenderTexture(GetScreenWidth(), GetScreenHeight());
     upsamplerTexture = LoadRenderTexture(GetScreenWidth(), GetScreenHeight());
+
+    SetWindowIcon(windowIconImage);
 }
 
 void InitImGui() {
