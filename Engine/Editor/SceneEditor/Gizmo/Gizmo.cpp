@@ -11,12 +11,11 @@ void InitGizmo()
 
     for (int index = 0; index < NUM_GIZMO_TAURUS; index++)
     {
-        gizmoTaurus[index].model = LoadModel("assets/models/gizmo/taurus.obj");
+        gizmoTaurus[index].model = LoadModelFromMesh(GenMeshSphere(1, 30, 30));
+        gizmoTaurus[index].model.materials[0].shader = shader;
     }
 
-    gizmoTaurus[0].rotation = {0, 90, 0};
-    gizmoTaurus[1].rotation = {90, 0, 0};
-    gizmoTaurus[2].rotation = {0, 0, 90};
+    gizmoTaurus[0].rotation = {0, 0, 0};
 
     for (int index = 0; index < NUM_GIZMO_CUBES; index++)
     {
@@ -204,18 +203,33 @@ void GizmoRotation()
             
             if (isHoveringGizmo)
             {
-                color1 = GREEN;
+                color1 = (Color) {
+                    150,
+                    150,
+                    150,
+                    120
+                };
                 selectedGizmoTaurus = index;
             }
             else
             {
-                color1 = DARKBLUE;
+                color1 = (Color) {
+                    100,
+                    100,
+                    100,
+                    120
+                };
                 selectedGizmoTaurus = -1;
             }
         }
         else
         {
-            color1 = RED;
+            color1 = (Color) {
+                100,
+                0,
+                0,
+                120
+            };
             selectedGizmoTaurus = -1;
         }
 
@@ -233,21 +247,28 @@ void GizmoRotation()
             if (draggingGizmoRotation)
             {
                 Vector2 mouseDragEnd = GetMousePosition();
-                float deltaX = (mouseDragEnd.x - mouseDragStart.x) * gizmoDragSensitivityFactor;
-                float deltaY = (mouseDragEnd.y - mouseDragStart.y) * gizmoDragSensitivityFactor;
+                float deltaX = -(mouseDragEnd.x - mouseDragStart.x) * gizmoDragSensitivityFactor;
+                float deltaY = -(mouseDragEnd.y - mouseDragStart.y) * gizmoDragSensitivityFactor;
 
-                if (selectedGizmoTaurus == 0)
-                {
-                    selectedObjectRotation.x += deltaY;
-                }
-                else if (selectedGizmoTaurus == 1)
-                {
-                    selectedObjectRotation.y += deltaX;
-                }
-                else if (selectedGizmoTaurus == 2)
-                {
-                    selectedObjectRotation.z += deltaX;
-                }
+                // Adjust the rotation direction based on camera orientation
+                Vector3 rotationDelta = {deltaY, -deltaX, 0.0f}; // Negate deltaY for correct rotation along y-axis
+
+                // Transform rotationDelta according to camera orientation
+                rotationDelta = Vector3Transform(rotationDelta, QuaternionToMatrix( (Vector4) {
+                    sceneCamera.front.x,
+                    sceneCamera.front.y,
+                    sceneCamera.front.z,
+                    0}));
+
+                // Apply the rotation delta to the selected object's rotation
+                selectedObjectRotation.x += rotationDelta.x;
+                selectedObjectRotation.y += rotationDelta.y;
+                selectedObjectRotation.z += rotationDelta.z;
+
+                // Ensure rotation values are within valid range
+                selectedObjectRotation.x = fmod(selectedObjectRotation.x, 360.0f);
+                selectedObjectRotation.y = fmod(selectedObjectRotation.y, 360.0f);
+                selectedObjectRotation.z = fmod(selectedObjectRotation.z, 360.0f);
 
                 mouseDragStart = mouseDragEnd;
             }
