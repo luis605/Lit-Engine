@@ -44,7 +44,7 @@ include/imgui/%.obj: include/imgui/%.cpp
 run:
 	@echo "Running Lit Engine"
 	@$(call echo_success, $(subst $(newline),\n,$$BANNER_TEXT))
-	@./run.sh
+	@./lit_engine.out
 
 build: $(IMGUI_OBJECTS)
 	@$(call echo_success, "Building Demo")
@@ -54,10 +54,6 @@ build: $(IMGUI_OBJECTS)
 brun:
 	@make --no-print-directory build -j8
 	@make --no-print-directory run
-
-sandbox: $(IMGUI_OBJECTS)
-	@g++ -g $(IMGUI_OBJECTS) sandbox.cpp -o sandbox.out -L. include/rlImGui.o -lraylib -Wall -w  -I./include/imgui -L. -lmeshoptimizer
-	@./sandbox.out
 
 debug:
 	@echo "Debugging Lit Engine"
