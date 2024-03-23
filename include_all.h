@@ -15,7 +15,6 @@
 
 #include "meshoptimizer/src/meshoptimizer.h" 
 
-
 #ifndef GAME_SHIPPING
     #include "imgui/imgui.h"
     #include "imgui/imgui_internal.h"
@@ -61,12 +60,10 @@
 #include <exception>
 #include <signal.h>
 #include "include/glm/glm.hpp"
-#include "include/glm/gtc/matrix_transform.hpp"
 #include <algorithm>
 #include <cmath>
 #include <chrono>
 
-#include <limits>
 #include <omp.h>
 
 #ifdef _WIN32
