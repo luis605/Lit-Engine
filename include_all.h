@@ -38,7 +38,7 @@
 #include <vector>
 #include <fstream>
 #include <exception>
-#include "include/glm/glm.hpp"
+#include "include/glm/glm/glm.hpp"
 #include <algorithm>
 #include <cmath>
 #include <chrono>
