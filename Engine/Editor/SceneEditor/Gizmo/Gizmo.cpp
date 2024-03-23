@@ -333,7 +333,7 @@ void GizmoScale()
 
     if (selectedGameObjectType == "entity")
     {
-        selectedObjectRotation = selectedEntity->rotation;
+        selectedObjectPosition = selectedEntity->position;
         float maxScale = std::max(std::max(selectedEntity->scale.x, selectedEntity->scale.y), selectedEntity->scale.z);
         selectedObjectScale = (Vector3) { maxScale, maxScale, maxScale }; 
     }
