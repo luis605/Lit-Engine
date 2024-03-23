@@ -49,7 +49,6 @@ struct LitVector3 : Vector3 {
         z = normalizedVector.z;
     }
 
-
     LitVector3 CrossProduct(LitVector3 v2)
     {
         x = y * v2.z - z * v2.y;
@@ -89,14 +88,9 @@ struct LitVector3 : Vector3 {
 
 };
 
-
 LitVector3 operator*(const LitVector3& vec, float scalar) {
     return LitVector3(vec.x * scalar, vec.y * scalar, vec.z * scalar);
 }
-
-
-
-
 
 template <typename... Args>
 LitVector3 multiplyAll(const Args&... args) {
@@ -120,7 +114,5 @@ float LitVector3Distance(LitVector3 v1, LitVector3 v2)
 
 LitVector3 LitVector3Scale(LitVector3 v, float scalar)
 {
-    Vector3 result = { v.x*scalar, v.y*scalar, v.z*scalar };
-
-    return result;
+    return { v.x*scalar, v.y*scalar, v.z*scalar };
 }
