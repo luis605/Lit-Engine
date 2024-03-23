@@ -8,6 +8,7 @@ sudo apt install g++
 sudo apt install libglm-dev
 sudo apt install make
 sudo apt install cmake
+sudo apt install libwayland-dev
 
 sudo apt-get install libtbb-dev
 sudo apt-get install libbullet-dev
