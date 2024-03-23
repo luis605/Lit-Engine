@@ -122,26 +122,26 @@ void CreateNewTheme()
     bool add_to_list = ImGui::Button("Add Selected Option", {ImGui::CalcTextSize("Add Selected Option").x + 30, 30});
     if (add_to_list)
     {
-        auto checker_algorithm = std::find(new_theme_saved_options.begin(), new_theme_saved_options.end(), theme_create_selected_option);
-        if (checker_algorithm != new_theme_saved_options.end())
+        auto checker_algorithm = std::find(newThemeSavedOptions.begin(), newThemeSavedOptions.end(), theme_create_selected_option);
+        if (checker_algorithm != newThemeSavedOptions.end())
         {
             std::cout << "Item already exists" << std::endl;
         }
         else
         {
             std::cout << "Selected Option '" << theme_create_selected_option <<"' Added!" << std::endl;
-            new_theme_saved_options.push_back(theme_create_selected_option);
-            new_theme_saved_options_color.push_back(ImVec4(1.0f, 1.0f, 1.0f, 1.0f));
+            newThemeSavedOptions.push_back(theme_create_selected_option);
+            newThemeSavedOptionsColor.push_back(ImVec4(1.0f, 1.0f, 1.0f, 1.0f));
         }
     }
 
-    for (int index = 0; index < new_theme_saved_options.size(); index++)
+    for (int index = 0; index < newThemeSavedOptions.size(); index++)
     {
-        int optionIndex = new_theme_saved_options[index];
+        int optionIndex = newThemeSavedOptions[index];
         ImGui::Text(themes_colors_string[optionIndex]);
         ImGui::SameLine();
         std::string color_pickerName = "##Color Picker - " + std::to_string(index);
-        ImGui::ColorEdit4(color_pickerName.c_str(), (float*)&new_theme_saved_options_color[index], ImGuiColorEditFlags_NoInputs);
+        ImGui::ColorEdit4(color_pickerName.c_str(), (float*)&newThemeSavedOptionsColor[index], ImGuiColorEditFlags_NoInputs);
     }
 
     bool saveButton = ImGui::Button("Save", {110, 30});
@@ -160,11 +160,11 @@ void CreateNewTheme()
     {
         nlohmann::json data;
 
-        for (int i = 0; i < new_theme_saved_options.size(); i++)
+        for (int i = 0; i < newThemeSavedOptions.size(); i++)
         {
-            int optionIndex = new_theme_saved_options[i];
+            int optionIndex = newThemeSavedOptions[i];
 
-            ImU32 color = ImGui::ColorConvertFloat4ToU32(new_theme_saved_options_color[i]);
+            ImU32 color = ImGui::ColorConvertFloat4ToU32(newThemeSavedOptionsColor[i]);
             std::string color_hex = to_hex_string(color);
             data["options"].push_back({
                 {"index", themes_colors_string[optionIndex]},
@@ -193,10 +193,10 @@ void CreateNewTheme()
     {
         ImGuiStyle& style = ImGui::GetStyle();
         ImVec4* colors = style.Colors;
-        for (int i = 0; i < new_theme_saved_options.size(); i++)
+        for (int i = 0; i < newThemeSavedOptions.size(); i++)
         {
-            int optionIndex = new_theme_saved_options[i];
-            colors[optionIndex] = new_theme_saved_options_color[i];
+            int optionIndex = newThemeSavedOptions[i];
+            colors[optionIndex] = newThemeSavedOptionsColor[i];
         }
     }
 
