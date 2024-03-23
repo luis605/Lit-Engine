@@ -20,19 +20,14 @@ public:
 
 public:
     Text() : text(""), position(0, 0, 0), fontSize(12), color(RAYWHITE) {
-        // Initialize other members if needed
     }
 
-    // Parameterized constructor
     Text(const char* text, Vector3 position, int fontSize, Color color)
         : text(text), position(position), fontSize(fontSize), color(color) {
-        // Initialize other members if needed
     }
 
     bool IsPressed();
     void Draw();
-
-
 };
 
 std::vector<Text> textElements;

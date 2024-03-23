@@ -15,14 +15,12 @@ std::vector<Entity> entitiesListPregame;
 std::vector<Light> lightsListPregame;
 std::vector<Entity> entitiesList;
 
-// std::vector<Cluster> clusters;
 
 Entity *selectedEntity = nullptr;
 Light *selectedLight = nullptr;
 LitButton *selectedButton = nullptr;
 Text *selectedTextElement = nullptr;
 fs::path selectedMaterial;
-
 
 typedef struct HitInfo
 {

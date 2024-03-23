@@ -6,8 +6,6 @@ public:
         dt = GetFrameTime();
     }
 };
-
-
 Time time_instance;
 
 void UpdateInGameGlobals()
