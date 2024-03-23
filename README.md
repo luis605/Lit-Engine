@@ -12,6 +12,12 @@ To clone the repository, execute the following command in your terminal or comma
 git clone --recurse-submodules -j8 https://github.com/luis605/Lit-Engine
 ```
 
+In case the submodules weren't downloaded, run:
+```bash
+git submodule update --init
+git submodule update --remote
+```
+
 # Building and Installing Dependencies
 ## Linux
 Before building the engine, ensure that you have the necessary dependencies installed. These dependencies can be installed by navigating to the `install` directory and running: 
