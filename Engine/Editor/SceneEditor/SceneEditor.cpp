@@ -209,8 +209,8 @@ void ProcessGizmo()
         if (selectedEntity->initialized)
         {
             GizmoPosition();
-            GizmoScale();
             GizmoRotation();
+            GizmoScale();
         }
     }
     else if (selectedGameObjectType == "light")
@@ -353,6 +353,8 @@ void RenderScene() {
     DrawSkybox();
     DrawGrid(GRID_SIZE, GRID_SCALE);
 
+    ProcessGizmo();
+
     UpdateShaderAndView();
 
     bool isLightSelected = false;
@@ -364,8 +366,6 @@ void RenderScene() {
     }
 
     RenderEntities(isEntitySelected);
-
-    ProcessGizmo();
 
     HandleUnselect(isEntitySelected, isLightSelected);
 
