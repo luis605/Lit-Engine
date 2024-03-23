@@ -74,3 +74,11 @@ make -B brun
 cmake -G "MinGW Makefiles" .. --fresh
 ```
  - Then use make to run, build and debug the engine [The Same as Linux]!
+
+## Social Links
+
+You can find us on:
+
+- [X/Twitter](https://twitter.com/TheLitEngine)
+- [YouTube](https://www.youtube.com/@litengine)
+- [Website](https://litengine.org)
