@@ -1,6 +1,6 @@
 #include "Styles.h"
 
-std::string to_hex_string(ImU32 color)
+std::string toHexString(ImU32 color)
 {
     std::stringstream stream;
     stream << std::setfill('0') << std::setw(8) << std::hex << color;
@@ -165,7 +165,7 @@ void CreateNewTheme()
             int optionIndex = newThemeSavedOptions[i];
 
             ImU32 color = ImGui::ColorConvertFloat4ToU32(newThemeSavedOptionsColor[i]);
-            std::string color_hex = to_hex_string(color);
+            std::string color_hex = toHexString(color);
             data["options"].push_back({
                 {"index", themes_colors_string[optionIndex]},
                 {"color", color_hex}
