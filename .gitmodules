@@ -15,9 +15,6 @@
 [submodule "include/meshoptimizer"]
 	path = include/meshoptimizer
 	url = https://github.com/zeux/meshoptimizer.git
-[submodule "bullet3"]
-	path = include/bullet3
-	url = https://github.com/bulletphysics/bullet3.git
 [submodule "include/raylib"]
 	path = include/raylib
 	url = https://github.com/raysan5/raylib.git
@@ -27,3 +24,6 @@
 [submodule "include/ffmpeg"]
 	path = include/ffmpeg
 	url = https://github.com/FFmpeg/FFmpeg.git
+[submodule "include/bullet3"]
+	path = include/bullet3
+	url = https://github.com/bulletphysics/bullet3.git
