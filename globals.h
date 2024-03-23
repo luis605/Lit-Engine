@@ -9,15 +9,6 @@ extern "C" {
 // Preview Project
 bool can_previewProject = false;
 
-// Entities List Panel
-extern Rectangle panelRec;
-
-// Entities List Box
-extern Rectangle panelContentRec;
-extern Vector2 panelScroll;
-
-extern bool showContentArea;
-
 #define screenWidth    GetScreenWidth()
 #define screenHeight   GetScreenHeight()
 
