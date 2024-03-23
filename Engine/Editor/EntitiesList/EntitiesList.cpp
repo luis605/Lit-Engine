@@ -8,10 +8,10 @@ void DrawLightTree(Light& light, AdditionalLightInfo& light_info, int active, in
 void DrawTextElementsTree(Text& text, int active, int& index);
 void DrawButtonTree(LitButton& button, int active, int& index);
 void DrawCameraTree(int active, int& index);
-void updateListViewExList(vector<Entity>& entities, vector<Light>& lights);
+void updateListViewExList(std::vector<Entity>& entities, std::vector<Light>& lights);
 void ManipulateEntityPopup();
 
-void updateListViewExList(vector<Entity>& entities, vector<Light>& lights) {
+void updateListViewExList(std::vector<Entity>& entities, std::vector<Light>& lights) {
     listViewExList.clear();
     objectNames.clear();
     listViewExListTypes.clear();

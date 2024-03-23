@@ -902,7 +902,7 @@ void LoadButton(const json& button_json, LitButton& button) {
 
 
 
-int LoadProject(vector<Entity>& entitiesVector, vector<Light>& lightsVector, vector<AdditionalLightInfo>& lightsInfoVector, LitCamera& camera) {
+int LoadProject(std::vector<Entity>& entitiesVector, std::vector<Light>& lightsVector, std::vector<AdditionalLightInfo>& lightsInfoVector, LitCamera& camera) {
     std::ifstream infile("project.json");
     if (!infile.is_open()) {
         std::cout << "Error: Failed to open project file." << std::endl;
