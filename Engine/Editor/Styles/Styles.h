@@ -14,8 +14,8 @@ enum FileExplorerType
 
 ImGuiCol_ theme_create_selected_option = ImGuiCol_Text;
 
-vector<int> new_theme_saved_options;
-vector<ImVec4> new_theme_saved_options_color;
+std::vector<int> new_theme_saved_options;
+std::vector<ImVec4> new_theme_saved_options_color;
 
 void CreateNewTheme();
 

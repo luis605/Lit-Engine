@@ -107,8 +107,6 @@
 
 
 /* NameSpaces */
-using std::vector;
-
 namespace fs = std::filesystem;
 namespace py = pybind11;
 using namespace py::literals;

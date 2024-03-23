@@ -180,7 +180,7 @@ private:
     std::shared_ptr<btRigidBody> rigidBody;
     LitVector3 backupPosition                      = position;
 
-    vector<Entity*> instances;
+    std::vector<Entity*> instances;
     Matrix *transforms                             = nullptr;
     Material matInstances;
 

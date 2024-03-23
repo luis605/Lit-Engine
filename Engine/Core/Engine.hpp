@@ -11,9 +11,9 @@ typedef struct Light;
 
 std::variant<Entity*, Light*, Text*, LitButton*> objectInInspector;
 
-vector<Entity> entitiesListPregame;
-vector<Light> lightsListPregame;
-vector<Entity> entitiesList;
+std::vector<Entity> entitiesListPregame;
+std::vector<Light> lightsListPregame;
+std::vector<Entity> entitiesList;
 
 // std::vector<Cluster> clusters;
 

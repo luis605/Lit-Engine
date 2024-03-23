@@ -23,10 +23,10 @@ typedef enum
 typedef struct SurfaceMaterial;
 typedef struct AdditionalLightInfo;
 
-vector<Light> lights;
-vector<AdditionalLightInfo> lightsInfo;
+std::vector<Light> lights;
+std::vector<AdditionalLightInfo> lightsInfo;
 
-void UpdateLightsBuffer(bool force=false, vector<Light> lightsVector = lights);
+void UpdateLightsBuffer(bool force=false, std::vector<Light> lightsVector = lights);
 Light NewLight(const Vector3 position, const Color color, int type = LIGHT_POINT);
 
 
@@ -127,7 +127,7 @@ Light NewLight(const Vector3 position, const Color color, int type)
 
 
 
-void UpdateLightsBuffer(bool force, vector<Light> lightsVector)
+void UpdateLightsBuffer(bool force, std::vector<Light> lightsVector)
 {
     if (lightsVector.empty() && !force)
         return;

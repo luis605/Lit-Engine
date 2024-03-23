@@ -4,7 +4,7 @@
 #include "../../../include_all.h"
 
 class LitButton;
-vector<LitButton> litButtons;
+std::vector<LitButton> litButtons;
 void DrawButtons();
 LitButton &AddButton(const char* button_text, Vector3 position, Vector2 size, float text_size = 20);
 
