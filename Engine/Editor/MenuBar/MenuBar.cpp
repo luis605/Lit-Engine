@@ -112,8 +112,8 @@ void DrawMenus()
         {
             // // Can Preview Project
             // close(pipe_fds[0]);
-            // can_previewProject = true;
-            // ssize_t bytes_written = write(pipe_fds[1], &can_previewProject, sizeof(bool));
+            // canPreviewProject = true;
+            // ssize_t bytes_written = write(pipe_fds[1], &canPreviewProject, sizeof(bool));
             // if (bytes_written != sizeof(bool)) {
             //     std::cerr << "Error writing to the pipe." << std::endl;
             // }

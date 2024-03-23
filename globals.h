@@ -7,7 +7,7 @@ extern "C" {
 #endif
 
 // Preview Project
-bool can_previewProject = false;
+bool canPreviewProject = false;
 
 #define screenWidth    GetScreenWidth()
 #define screenHeight   GetScreenHeight()
