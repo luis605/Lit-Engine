@@ -1,12 +1,12 @@
 #include "../../include_all.h"
 
-string getFileExtension(string filePath)
-{
-    fs::path pathObj = filePath;
+std::string getFileExtension(const std::string& filePath) {
+    std::filesystem::path pathObj(filePath);
 
     if (pathObj.has_extension()) {
         return pathObj.extension().string();
     }
+    
     return "no file extension";
 }
 
