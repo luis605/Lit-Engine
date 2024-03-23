@@ -4,13 +4,6 @@ const float LOD_DISTANCE_HIGH = 10.0f;
 const float LOD_DISTANCE_MEDIUM = 25.0f;
 const float LOD_DISTANCE_LOW = 35.0f;
 
-typedef struct Cluster
-{
-    Color color;
-    int lodLevel;
-    // std::vector<Entity> entities;
-};
-
 struct OptimizedMeshData {
     std::vector<uint32_t> Indices;
     std::vector<Vector3> Vertices;
@@ -107,7 +100,6 @@ OptimizedMeshData OptimizeMesh(Mesh& mesh, std::vector<uint32_t>& Indices, std::
 }
 
 void calculateNormals(const std::vector<Vector3>& vertices, const std::vector<uint32_t>& indices, float* normals) {
-    
     for (size_t i = 0; i < vertices.size(); ++i) {
         normals[i * 3] = 0.0f;
         normals[i * 3 + 1] = 0.0f;
@@ -163,8 +155,6 @@ Mesh generateLODMesh(const std::vector<Vector3>& vertices, const std::vector<uin
         return sourceMesh;
     }
 
-
-    
     calculateNormals(vertices, indices, lodMesh.normals);
     
     for (int i = 0; i < vertexCount; ++i) {
