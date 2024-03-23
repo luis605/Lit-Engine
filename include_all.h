@@ -34,13 +34,35 @@
 #include "include/bullet3/src/LinearMath/btVector3.h"
 #include "include/bullet3/src/btBulletDynamicsCommon.h"
 
+#include <iostream>
+#include <string>
+#include <vector>
+#include <fstream>
+#include <exception>
+#include "include/glm/glm.hpp"
+#include <algorithm>
+#include <cmath>
+#include <chrono>
+#include <sstream>
+#include <omp.h>
+
 #ifdef _WIN32
+    #include "pybind11/embed.h"
+    #include "pybind11/pybind11.h"
+    #include "pybind11/stl.h"
+
     extern "C" {
         #include <libavcodec/avcodec.h>
         #include <libavformat/avformat.h>
         #include <libswscale/swscale.h>
     }
 #else
+    #include <python3.11/Python.h>
+
+    #include <pybind11/embed.h>
+    #include <pybind11/pybind11.h>
+    #include <pybind11/stl.h>
+
     extern "C" {
         #include "include/ffmpeg/libavcodec/avcodec.h"
         #include "include/ffmpeg/libavformat/avformat.h"
@@ -48,54 +70,15 @@
 }
 #endif
 
-#include <iostream>
-#include <string>
-#include <vector>
-#include <fstream>
-#include <exception>
-#include <signal.h>
-#include "include/glm/glm.hpp"
-#include <algorithm>
-#include <cmath>
-#include <chrono>
-
-#include <omp.h>
-
-#ifdef _WIN32
-    #include "pybind11/embed.h"
-    #include "pybind11/pybind11.h"
-    #include "pybind11/stl.h"
-#else
-    #include <python3.11/Python.h>
-
-    #include <pybind11/embed.h>
-    #include <pybind11/pybind11.h>
-    #include <pybind11/stl.h>
-#endif
-
-#include <sstream>
-#include <regex>
-
 #ifndef GAME_SHIPPING
     #include <nlohmann/json.hpp>
+    #include <IconsFontAwesome.h>
 #else
     #include "include/nlohmann/include/nlohmann/json.hpp"
 #endif
 
-#ifndef GAME_SHIPPING
-    #include <IconsFontAwesome.h>
-#endif
-
-#include <typeinfo>
-#include <thread>
-#include <functional>
 #include <future>
-#include <iomanip>
 #include <unordered_map>
-#include <map>
-
-/* Physx */
-
 
 /* NameSpaces */
 namespace fs = std::filesystem;
