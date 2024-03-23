@@ -5,7 +5,6 @@
 #   define IMGUI_DEFINE_MATH_OPERATORS
 #endif
 
-
 #include "include/raylib/src/raylib.h"
 #include "include/raylib/src/raymath.h"
 #include "include/raylib/src/rcamera.h"
@@ -83,10 +82,9 @@
 /* NameSpaces */
 namespace fs = std::filesystem;
 namespace py = pybind11;
+
 using namespace py::literals;
-
 using json = nlohmann::json;
-
 
 // Critical
 #include "globals.h"
@@ -101,7 +99,7 @@ using json = nlohmann::json;
 #include "Engine/GUI/Button/Button.h"
 #include "Engine/GUI/Video/video.cpp"
 #include "Engine/Core/Engine.hpp"
-#include "shaders/shaders.h"
+#include "Engine/Lighting/shaders/shaders.h"
 #include "Engine/Lighting/lights.h"
 
 /* Scripting */
@@ -157,10 +155,7 @@ using json = nlohmann::json;
     #include "Engine/Core/Core.cpp"
     #include "Engine/Editor/MenuBar/MenuBar.cpp"
 
-    /* Game Builder */
     #include "GameBuilder/builder.cpp"
-
 #endif
-
 
 #endif
