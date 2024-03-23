@@ -101,6 +101,7 @@ using json = nlohmann::json;
 #include "Engine/GUI/Button/Button.h"
 #include "Engine/GUI/Video/video.cpp"
 #include "Engine/Core/Engine.hpp"
+#include "shaders/shaders.h"
 #include "Engine/Lighting/lights.h"
 
 /* Scripting */

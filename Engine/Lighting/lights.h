@@ -2,15 +2,8 @@
     #include "../include_all.h"
 #endif
 
-#include "shaders/shaders.h"
-
-#include <string>
-#include <iostream>
-
 #ifndef LIGHTS_H
 #define LIGHTS_H
-
-typedef struct Light;
 
 typedef enum
 {
@@ -32,8 +25,8 @@ Light NewLight(const Vector3 position, const Color color, int type = LIGHT_POINT
 
 Texture2D lightTexture;
 
-int shadowMapWidth = 1024;  // Width of the shadow map texture
-int shadowMapHeight = 1024; // Height of the shadow map texture
+int shadowMapWidth = 1024;
+int shadowMapHeight = 1024;
 
 unsigned int depthMapFBO;
 
@@ -42,13 +35,11 @@ Shader instancingShader;
 Shader downsamplerShader;
 Shader upsamplerShader;
 GLuint lightsBuffer;
-
 GLuint surfaveMaterialUBO;
 
 Vector4 ambientLight = {1.0f, 1.0f, 1.0f, 1.0f};
 
 bool canAddLight = false;
-
 
 typedef struct Light
 {
@@ -63,7 +54,6 @@ typedef struct Light
     float specularStrength = 0.5;
     float cutOff = 10;
         
-    // Others
     bool isChild = false;
     alignas(16) glm::vec3 direction = {0.4, 0.4, -0.4};
     int id;
@@ -115,7 +105,6 @@ Light NewLight(const Vector3 position, const Color color, int type)
     light.id = lights.size() + entitiesListPregame.size() + 1;
     lights.emplace_back(light);
 
-
     AdditionalLightInfo info;
     info.name = "Light";
     info.id = light.id;
@@ -124,8 +113,6 @@ Light NewLight(const Vector3 position, const Color color, int type)
 
     return lights.back();
 }
-
-
 
 void UpdateLightsBuffer(bool force, std::vector<Light> lightsVector)
 {
@@ -149,9 +136,7 @@ void UpdateLightsBuffer(bool force, std::vector<Light> lightsVector)
 
     int lightsCount = lightsVector.size();
     SetShaderValue(shader, GetShaderLocation(shader, "lightsCount"), &lightsCount, SHADER_UNIFORM_INT);
-
 }
-
 
 void AddLight()
 {
