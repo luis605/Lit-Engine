@@ -7,4 +7,4 @@
 *CMakeCache.txt
 build/include/
 build/CMakeFiles/
-include/ImGuiColorTextEdit/
+include/ImGuiColorTextEdit/TextEditor.o
