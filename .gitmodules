@@ -1,7 +1,7 @@
 [submodule "ImGuiColorTextEdit"]
 	path = include/ImGuiColorTextEdit
 	url = https://github.com/luis605/ImGuiColorTextEdit.git
-    branch = main
+	branch = master
 [submodule "ImNodes"]
 	path = include/ImNodes
 	url = https://github.com/luis605/ImNodes.git
