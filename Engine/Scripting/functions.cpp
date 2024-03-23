@@ -304,15 +304,15 @@ PYBIND11_EMBEDDED_MODULE(collisionModule, m) {
 }
 
 
-string colorToString(const Color& color) {
-  stringstream ss;
+std::string colorToString(const Color& color) {
+  std::stringstream ss;
   ss << "(" << (int)color.r << ", " << (int)color.g << ", " << (int)color.b << ", " << (int)color.a << ")";
   return ss.str();
 }
 
 
 void printColor(const Color& color) {
-  string color_text = colorToString(color);
+  std::string color_text = colorToString(color);
   std::cout << color_text.c_str() << std::endl;
 }
 

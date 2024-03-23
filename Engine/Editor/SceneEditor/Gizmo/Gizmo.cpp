@@ -166,7 +166,7 @@ void GizmoRotation()
 
     if (selectedGameObjectType == "entity") {
         selectedObjectRotation = selectedEntity->rotation;
-        float maxScale = max(max(selectedEntity->scale.x, selectedEntity->scale.y), selectedEntity->scale.z);
+        float maxScale = std::max(std::max(selectedEntity->scale.x, selectedEntity->scale.y), selectedEntity->scale.z);
         selectedObjectScale = (Vector3) { maxScale, maxScale, maxScale }; 
     } else if (selectedGameObjectType == "light") {
         selectedObjectRotation = {selectedLight->direction.x, selectedLight->direction.y, selectedLight->direction.z};

@@ -50,9 +50,9 @@ const char* decryptFileString(const std::string& inputFile, const std::string& k
     return encryptFileString(inputFile, key); 
 }
 
-string read_file_to_string(const string& filename) {
-    ifstream file(filename);
-    stringstream buffer;
+std::string read_file_to_string(const std::string& filename) {
+    std::ifstream file(filename);
+    std::stringstream buffer;
     buffer << file.rdbuf();
     return buffer.str();
 }
@@ -93,7 +93,7 @@ bool AABBoxInFrustum(const Vector3& min, const Vector3& max)
 class Entity {
 public:
     bool initialized = false;
-    string name = "Entity";
+    std::string name = "Entity";
     float size = 1;
     LitVector3 position = { 0, 0, 0 };
     LitVector3 rotation = { 0, 0, 0 };
@@ -103,9 +103,9 @@ public:
     LitVector3 relative_rotation = { 0, 0, 0 };
     LitVector3 relative_scale = { 1, 1, 1 };
 
-    string script = "";
-    string scriptIndex = "";
-    string model_path = "";
+    std::string script = "";
+    std::string scriptIndex = "";
+    std::string model_path = "";
     Model model;
 
     BoundingBox bounds;
@@ -162,7 +162,7 @@ public:
     int id = 0;
 
     Entity* parent = nullptr;
-    vector<variant<Entity*, Light*, Text*, LitButton*>> children;
+    std::vector<std::variant<Entity*, Light*, Text*, LitButton*>> children;
 
     enum CollisionShapeType
     {
@@ -171,7 +171,7 @@ public:
         None          = 2
     };
 
-    std::shared_ptr<CollisionShapeType> currentCollisionShapeType = make_shared<CollisionShapeType>(None);
+    std::shared_ptr<CollisionShapeType> currentCollisionShapeType = std::make_shared<CollisionShapeType>(None);
 
 private:
     std::shared_ptr<btCollisionShape> rigidShape;
@@ -187,14 +187,14 @@ private:
     Shader* entity_shader;
 
     py::object entity_obj;
-    string script_content;
+    std::string script_content;
     py::dict locals;
     py::module scriptModule;
     bool entityOptimized = false;
 
 public:
-    Entity(LitVector3 scale = { 1, 1, 1 }, LitVector3 rotation = { 0, 0, 0 }, string name = "entity",
-    LitVector3 position = {0, 0, 0}, string script = "")
+    Entity(LitVector3 scale = { 1, 1, 1 }, LitVector3 rotation = { 0, 0, 0 }, std::string name = "entity",
+    LitVector3 position = {0, 0, 0}, std::string script = "")
         : scale(scale), rotation(rotation), name(name), position(position), script(script)
     {   
         initialized = true;
@@ -223,7 +223,7 @@ public:
         this->tiling[0] = other.tiling[0];
         this->tiling[1] = other.tiling[1];
 
-        this->currentCollisionShapeType     = make_shared<CollisionShapeType>(*other.currentCollisionShapeType);
+        this->currentCollisionShapeType     = std::make_shared<CollisionShapeType>(*other.currentCollisionShapeType);
 
         if (other.rigidBody && other.rigidBody != nullptr) {
             this->rigidBody = std::move(other.rigidBody);
@@ -387,7 +387,7 @@ public:
         this->surfaceMaterial_path = other.surfaceMaterial_path;
         this->collider = other.collider;
 
-        this->currentCollisionShapeType     = make_shared<CollisionShapeType>(*other.currentCollisionShapeType);
+        this->currentCollisionShapeType     = std::make_shared<CollisionShapeType>(*other.currentCollisionShapeType);
 
         if (other.rigidBody && other.rigidBody != nullptr) {
             this->rigidBody = std::move(other.rigidBody);
@@ -571,11 +571,11 @@ public:
         };
     }
 
-    void setName(const string& newName) {
+    void setName(const std::string& newName) {
         name = newName;
     }
 
-    string getName() const {
+    std::string getName() const {
         return name;
     }
 
@@ -592,7 +592,7 @@ public:
 
     void ReloadTextures(bool force_reload = false) {
         if (!texturePath.empty() || !force_reload) {
-            if (auto diffuseTexture = get_if<Texture2D>(&texture)) {
+            if (auto diffuseTexture = std::get_if<Texture2D>(&texture)) {
                 model.materials[0].maps[MATERIAL_MAP_DIFFUSE].texture = *diffuseTexture;
 
                 if (lodEnabled)
@@ -616,7 +616,7 @@ public:
         }
 
         if (!normalTexturePath.empty() || !force_reload) {
-            if (auto normal = get_if<Texture2D>(&normalTexture)) {
+            if (auto normal = std::get_if<Texture2D>(&normalTexture)) {
                 model.materials[0].maps[MATERIAL_MAP_NORMAL].texture = *normal;
 
                 if (lodEnabled)
@@ -641,7 +641,7 @@ public:
         }
 
         if (!roughnessTexturePath.empty() || !force_reload) {
-            if (auto roughness = get_if<Texture2D>(&roughnessTexture)) {
+            if (auto roughness = std::get_if<Texture2D>(&roughnessTexture)) {
                 model.materials[0].maps[MATERIAL_MAP_ROUGHNESS].texture = *roughness;
 
                 if (lodEnabled)
@@ -666,7 +666,7 @@ public:
         }
 
         if (!aoTexturePath.empty() || !force_reload) {
-            if (auto ao = get_if<Texture2D>(&aoTexture)) {
+            if (auto ao = std::get_if<Texture2D>(&aoTexture)) {
                 model.materials[0].maps[MATERIAL_MAP_OCCLUSION].texture = *ao;
 
                 if (lodEnabled)
@@ -1184,7 +1184,7 @@ public:
         rigidBody = std::make_unique<btRigidBody>(rigidBodyCI);
         
         physics.dynamicsWorld->addRigidBody(rigidBody.get());
-        currentCollisionShapeType = make_shared<CollisionShapeType>(CollisionShapeType::Box);
+        currentCollisionShapeType = std::make_shared<CollisionShapeType>(CollisionShapeType::Box);
     }
 
     void createDynamicMesh(bool generateShape = true) {
@@ -1422,7 +1422,7 @@ bool operator==(const Entity& e, const Entity* ptr) {
         bool isChild = false,
         const char* model_path = "",
         Model model = LoadModelFromMesh(GenMeshCube(1,1,1)),
-        string name = "Unnamed Entity"
+        std::string name = "Unnamed Entity"
     )
     {
 

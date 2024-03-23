@@ -25,7 +25,7 @@ struct FolderTextureItem {
 vector<FolderTextureItem> foldersTextureStruct;
 
 struct FileTextureItem {
-    string name;
+    std::string name;
     Texture2D texture;
     fs::path path;
     fs::path full_path = "";
@@ -33,13 +33,13 @@ struct FileTextureItem {
 };
 vector<FileTextureItem> filesTextureStruct;
 
-std::unordered_map<string, Texture2D> modelsIcons;
+std::unordered_map<std::string, Texture2D> modelsIcons;
 
 struct dirent *ent;
 struct stat st;
 
-vector<string> files;
-vector<string> folders;
+vector<std::string> files;
+vector<std::string> folders;
 
 fs::path dirPath = "project/game";
 float padding = 10.0f;

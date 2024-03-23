@@ -14,7 +14,7 @@ struct Gizmo {
     Vector3 position;
     Vector3 rotation;
     Vector3 scale = {1, 1, 1};
-    string dragDirections;
+    std::string dragDirections;
 };
 
 Gizmo gizmoArrow[NUM_GIZMO_ARROWS];

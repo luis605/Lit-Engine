@@ -1,4 +1,4 @@
-void AssetsExplorer(string code);
+void AssetsExplorer(std::string code);
 
 #include "../../include_all.h"
 
@@ -54,16 +54,16 @@ void AssetsExplorer() {
                     continue;
                 }
 
-                string path = file.string();
+                std::string path = file.string();
                 if (!fs::exists(entry)) {
-                    cout << "File Error: " << strerror(errno) << endl;
+                    std::cout << "File Error: " << strerror(errno) << std::endl;
                 }
 
                 if (fs::is_directory(entry)) {
                     foldersTextureStruct.emplace_back(file.string(), folderTexture, entry);
                     folders.emplace_back(file.string());
                 } else {
-                    string file_extension = getFileExtension(file.filename().string());
+                    std::string file_extension = getFileExtension(file.filename().string());
                     FileTextureItem fileTextureItem;
 
                     if (file_extension == "no file extension") {
@@ -108,7 +108,7 @@ void AssetsExplorer() {
             }
         }
     }
-    else cout << "Error: " << strerror(errno) << endl;
+    else std::cout << "Error: " << strerror(errno) << std::endl;
 
     if (dirPath != "project")
     {
@@ -301,7 +301,7 @@ void AssetsExplorer() {
         float centerPosX = (ImGui::GetCursorPosX() + offset);
         bool isButtonHovered = ImGui::IsItemHovered();
 
-        string file_extension = getFileExtension(filesTextureStruct[i].path.filename().string());
+        std::string file_extension = getFileExtension(filesTextureStruct[i].path.filename().string());
 
         if (ImGui::BeginDragDropSource(ImGuiDragDropFlags_None))
         {

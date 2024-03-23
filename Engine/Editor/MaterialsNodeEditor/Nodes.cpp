@@ -30,7 +30,7 @@ int TextureNode(MyNode* node)
             IM_ASSERT(payload->DataSize == sizeof(int));
             int payload_n = *(const int*)payload->Data;
 
-            string path = dirPath.string();
+            std::string path = dirPath.string();
             path += "/" + filesTextureStruct[payload_n].name;
 
             entityMaterial.texture = LoadTexture((char*)path.c_str());
@@ -65,7 +65,7 @@ int NormalMapTextureNode(MyNode* node)
             IM_ASSERT(payload->DataSize == sizeof(int));
             int payload_n = *(const int*)payload->Data;
 
-            string path = dirPath.string();
+            std::string path = dirPath.string();
             path += "/" + filesTextureStruct[payload_n].name;
 
             entityMaterial.normalTexture = LoadTexture(path.c_str());

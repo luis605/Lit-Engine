@@ -5,7 +5,7 @@ void EntityInspector()
 {
     ImVec2 window_size = ImGui::GetWindowSize();
 
-    selectedEntity = get<Entity*>(objectInInspector);
+    selectedEntity = std::get<Entity*>(objectInInspector);
 
     if (selectedEntity == nullptr || !selectedEntity->initialized) return;
 
@@ -15,7 +15,7 @@ void EntityInspector()
 
     selectedEntityScale = selectedEntity->scale;
 
-    string entityName;
+    std::string entityName;
 
 
         
@@ -175,7 +175,7 @@ void EntityInspector()
                 IM_ASSERT(payload->DataSize == sizeof(int));
                 int payload_n = *(const int*)payload->Data;
 
-                string path = dirPath.string();
+                std::string path = dirPath.string();
                 path += "/" + filesTextureStruct[payload_n].name;
 
                 selectedEntity->model_path = path;
@@ -204,7 +204,7 @@ void EntityInspector()
                 IM_ASSERT(payload->DataSize == sizeof(int));
                 int payload_n = *(const int*)payload->Data;
 
-                string path = dirPath.string();
+                std::string path = dirPath.string();
                 path += "/" + filesTextureStruct[payload_n].name;
 
                 selectedEntityScriptPath = path;
@@ -267,7 +267,7 @@ void EntityInspector()
                 IM_ASSERT(payload->DataSize == sizeof(int));
                 int payload_n = *(const int*)payload->Data;
 
-                string path = dirPath.string();
+                std::string path = dirPath.string();
                 path += "/" + filesTextureStruct[payload_n].name;
 
                 selectedEntity->surfaceMaterial_path = path;
