@@ -114,9 +114,9 @@ void PreviewProject()
     CleanScriptThreads(scripts_threads_preview);
 
     close(pipe_fds[1]);
-    can_previewProject = false;
+    canPreviewProject = false;
 
-    ssize_t bytes_written = write(pipe_fds[0], &can_previewProject, sizeof(bool));
+    ssize_t bytes_written = write(pipe_fds[0], &canPreviewProject, sizeof(bool));
     if (bytes_written != sizeof(bool)) {
         std::cerr << "Error writing to the pipe." << std::endl;
     }
