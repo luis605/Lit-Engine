@@ -203,7 +203,7 @@ void GizmoRotation()
 
         Color color1;
 
-        if ((!draggingGizmoScale && !draggingGizmoPosition) && ImGui::IsWindowHovered())
+        if ((!draggingGizmoScale || !draggingGizmoRotation || !draggingGizmoPosition) && ImGui::IsWindowHovered())
         {
             isHoveringGizmo = IsMouseHoveringModel(gizmoTaurus[index].model, sceneCamera, gizmoTaurus[index].position, gizmoTaurus[index].rotation, gizmoTaurus[index].scale, nullptr, true);
             
@@ -244,7 +244,7 @@ void GizmoRotation()
         {
             if (isHoveringGizmo)
             {
-                if (!draggingGizmoRotation)
+                if (!draggingGizmoScale && !draggingGizmoPosition && !draggingGizmoRotation)
                 {
                     mouseDragStart = GetMousePosition();
                     draggingGizmoRotation = true;
@@ -298,7 +298,7 @@ void GizmoRotation()
         
         gizmoTaurus[index].model.transform = transformMatrix;
 
-        DrawModel(gizmoTaurus[index].model, Vector3Zero(), 1, color1);
+        DrawModelWires(gizmoTaurus[index].model, Vector3Zero(), 1, color1);
     }
 
 
@@ -333,17 +333,17 @@ void GizmoScale()
 
     if (selectedGameObjectType == "entity")
     {
-        selectedObjectPosition = selectedEntity->position;
-        selectedObjectScale    = selectedEntity->scale;
+        selectedObjectRotation = selectedEntity->rotation;
+        float maxScale = std::max(std::max(selectedEntity->scale.x, selectedEntity->scale.y), selectedEntity->scale.z);
+        selectedObjectScale = (Vector3) { maxScale, maxScale, maxScale }; 
     }
 
-
-    gizmoCube[0].position = { selectedObjectPosition.x + selectedObjectScale.x / 2 + 1.75f, selectedObjectPosition.y, selectedObjectPosition.z };
-    gizmoCube[1].position = { selectedObjectPosition.x - selectedObjectScale.x / 2 - 1.75f, selectedObjectPosition.y, selectedObjectPosition.z };
-    gizmoCube[2].position = { selectedObjectPosition.x, selectedObjectPosition.y + selectedObjectScale.y / 2 + 1.75f, selectedObjectPosition.z };
-    gizmoCube[3].position = { selectedObjectPosition.x, selectedObjectPosition.y - selectedObjectScale.y / 2 - 1.75f, selectedObjectPosition.z };
-    gizmoCube[4].position = { selectedObjectPosition.x, selectedObjectPosition.y, selectedObjectPosition.z + selectedObjectScale.z / 2 + 1.75f };
-    gizmoCube[5].position = { selectedObjectPosition.x, selectedObjectPosition.y, selectedObjectPosition.z - selectedObjectScale.z / 2 - 1.75f };
+    gizmoCube[0].position = { selectedObjectPosition.x + selectedObjectScale.x + 3.75f, selectedObjectPosition.y, selectedObjectPosition.z };
+    gizmoCube[1].position = { selectedObjectPosition.x - selectedObjectScale.x - 3.75f, selectedObjectPosition.y, selectedObjectPosition.z };
+    gizmoCube[2].position = { selectedObjectPosition.x, selectedObjectPosition.y + selectedObjectScale.y + 3.75f, selectedObjectPosition.z };
+    gizmoCube[3].position = { selectedObjectPosition.x, selectedObjectPosition.y - selectedObjectScale.y - 3.75f, selectedObjectPosition.z };
+    gizmoCube[4].position = { selectedObjectPosition.x, selectedObjectPosition.y, selectedObjectPosition.z + selectedObjectScale.z + 3.75f };
+    gizmoCube[5].position = { selectedObjectPosition.x, selectedObjectPosition.y, selectedObjectPosition.z - selectedObjectScale.z - 3.75f };
 
     for (int cubeIndex = 0; cubeIndex < NUM_GIZMO_CUBES; cubeIndex++)
     {
