@@ -165,7 +165,7 @@ void EditFileManipulation()
             }
         }
 
-        string file_extension = getFileExtension(filesTextureStruct[fileIndex].path.filename().string());
+        std::string file_extension = getFileExtension(filesTextureStruct[fileIndex].path.filename().string());
         if (file_extension == ".py")
         {
             if (ImGui::Button("Run", ImVec2(buttonWidth, 0)))

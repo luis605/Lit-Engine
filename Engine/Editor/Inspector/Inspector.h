@@ -1,14 +1,14 @@
 #ifndef INSPECTOR_H
 #define INSPECTOR_H
 
-string selectedEntityName                    = "";
+std::string selectedEntityName                    = "";
 Vector3 selectedEntityScale                  = {1, 1, 1};
 Vector3 selectedEntityPosition               = {0, 0, 0};
 Vector3 selectedEntityRelativePosition       = {0, 0, 0};
 Vector3 selectedEntityRotation               = {0, 0, 0};
 Color selectedEntityColor                    = RED;
 ImVec4 selectedEntityColorImGui              = { 0, 0, 0, 0 };
-string selectedEntityScriptPath              = "";
+std::string selectedEntityScriptPath              = "";
 Texture2D entityTexture;
 int selectedEntityScriptPathIndex            = 0;
 int selectedEntityModelPathIndex             = 0;

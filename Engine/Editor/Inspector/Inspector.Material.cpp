@@ -4,7 +4,7 @@
 
 
 
-void MaterialInspector(SurfaceMaterial* surfaceMaterial = nullptr, string path = "")
+void MaterialInspector(SurfaceMaterial* surfaceMaterial = nullptr, std::string path = "")
 {
     SurfaceMaterial* material = nullptr;
     if (surfaceMaterial != nullptr)
@@ -80,7 +80,7 @@ void MaterialInspector(SurfaceMaterial* surfaceMaterial = nullptr, string path =
                 IM_ASSERT(payload->DataSize == sizeof(int));
                 int payload_n = *(const int*)payload->Data;
 
-                string path = dirPath.string();
+                std::string path = dirPath.string();
                 path += "/" + filesTextureStruct[payload_n].name;
 
                 Texture2D diffuseTexture = LoadTexture(path.c_str());
@@ -129,7 +129,7 @@ void MaterialInspector(SurfaceMaterial* surfaceMaterial = nullptr, string path =
                 IM_ASSERT(payload->DataSize == sizeof(int));
                 int payload_n = *(const int*)payload->Data;
 
-                string path = dirPath.string();
+                std::string path = dirPath.string();
                 path += "/" + filesTextureStruct[payload_n].name;
 
                 Texture2D normalTexture = LoadTexture(path.c_str());
@@ -177,7 +177,7 @@ void MaterialInspector(SurfaceMaterial* surfaceMaterial = nullptr, string path =
                 IM_ASSERT(payload->DataSize == sizeof(int));
                 int payload_n = *(const int*)payload->Data;
 
-                string path = dirPath.string();
+                std::string path = dirPath.string();
                 path += "/" + filesTextureStruct[payload_n].name;
 
                 selectedEntity->roughnessTexturePath = path;
@@ -224,7 +224,7 @@ void MaterialInspector(SurfaceMaterial* surfaceMaterial = nullptr, string path =
                 IM_ASSERT(payload->DataSize == sizeof(int));
                 int payload_n = *(const int*)payload->Data;
 
-                string path = dirPath.string();
+                std::string path = dirPath.string();
                 path += "/" + filesTextureStruct[payload_n].name;
 
                 selectedEntity->aoTexturePath = path;

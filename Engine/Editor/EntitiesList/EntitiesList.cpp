@@ -17,7 +17,7 @@ void updateListViewExList(vector<Entity>& entities, vector<Light>& lights) {
     listViewExListTypes.clear();
 
     for (int index = 0; index < entities.size() + lights.size(); index++) {
-        string name;
+        std::string name;
         if (index < entities.size()) {
             name = entities[index].name;
             listViewExListTypes.push_back("entity");
@@ -375,7 +375,7 @@ void DrawButtonTree(LitButton& button, int active, int& index) {
 
 
 
-void ImGuiListViewEx(vector<string>& items, int& focus, int& scroll, int& active) {
+void ImGuiListViewEx(std::vector<std::string>& items, int& focus, int& scroll, int& active) {
     ImVec2 screen = ImGui::GetIO().DisplaySize;
     
     ImVec2 childSize = ImVec2(

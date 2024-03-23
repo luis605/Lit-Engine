@@ -680,7 +680,7 @@ void LoadEntity(const json& entity_json, Entity& entity) {
         entity.mass = entity_json["mass"].get<float>();
 
     if (entity_json.contains("collider_type"))
-        entity.currentCollisionShapeType = make_shared<Entity::CollisionShapeType>(entity_json["collider_type"].get<Entity::CollisionShapeType>());
+        entity.currentCollisionShapeType = std::make_shared<Entity::CollisionShapeType>(entity_json["collider_type"].get<Entity::CollisionShapeType>());
 
     if (entity_json.contains("collider"))
         entity.collider = entity_json["collider"].get<bool>();
@@ -698,7 +698,7 @@ void LoadEntity(const json& entity_json, Entity& entity) {
 
     // Materials
     if (entity_json.contains("material_path")) {
-        entity.surfaceMaterial_path = entity_json["material_path"].get<string>();
+        entity.surfaceMaterial_path = entity_json["material_path"].get<std::string>();
         if (!entity.surfaceMaterial_path.empty())
         {
             DeserializeMaterial(&entity.surfaceMaterial, entity.surfaceMaterial_path.string().c_str());
@@ -708,7 +708,7 @@ void LoadEntity(const json& entity_json, Entity& entity) {
 
 
     // Textures
-    string texturePath = entity_json["texturePath"].get<std::string>();
+    std::string texturePath = entity_json["texturePath"].get<std::string>();
     if (!texturePath.empty())
     {
 
@@ -747,7 +747,7 @@ void LoadEntity(const json& entity_json, Entity& entity) {
             for (const auto& child_array : children_data) {
                 if (!child_array.empty()) {
                     const json& child_json = child_array[0];
-                    string type = child_json["type"].get<std::string>();
+                    std::string type = child_json["type"].get<std::string>();
                     if (type == "entity") {
                         Entity child;
                         LoadEntity(child_json, child);
@@ -927,7 +927,7 @@ int LoadProject(vector<Entity>& entitiesVector, vector<Light>& lightsVector, vec
     
     try {
         for (const auto& entity_json : json_data) {
-            string type = entity_json["type"].get<std::string>();
+            std::string type = entity_json["type"].get<std::string>();
             if (type == "entity") {
                 Entity entity;
                 LoadEntity(entity_json, entity);

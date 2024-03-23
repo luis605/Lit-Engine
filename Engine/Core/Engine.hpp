@@ -5,11 +5,11 @@
 
 class Entity;
 
-string colorToString(const Color& color);
+std::string colorToString(const Color& color);
 
 typedef struct Light;
 
-variant<Entity*, Light*, Text*, LitButton*> objectInInspector;
+std::variant<Entity*, Light*, Text*, LitButton*> objectInInspector;
 
 vector<Entity> entitiesListPregame;
 vector<Light> lightsListPregame;

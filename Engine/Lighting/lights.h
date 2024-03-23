@@ -93,7 +93,7 @@ typedef struct SurfaceMaterial
 
 typedef struct AdditionalLightInfo
 {
-    string name;
+    std::string name;
     Entity* parent = nullptr;
     int id;
 

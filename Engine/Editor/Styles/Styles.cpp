@@ -93,7 +93,7 @@ std::string ShowFileExplorer(const char* folderPath, nlohmann::json fileContent,
         if ( (type == FileExplorerType::Load) || (type == FileExplorerType::SaveLoad) )
         {
             if (ImGui::Button("Select File")) {
-                string fullFileNamePath = string(folderPath) + string(fileName);
+                std::string fullFileNamePath = std::string(folderPath) + std::string(fileName);
                 LoadThemeFromFile(fullFileNamePath);
             }
         }
@@ -140,7 +140,7 @@ void CreateNewTheme()
         int optionIndex = new_theme_saved_options[index];
         ImGui::Text(themes_colors_string[optionIndex]);
         ImGui::SameLine();
-        string color_pickerName = "##Color Picker - " + to_string(index);
+        std::string color_pickerName = "##Color Picker - " + std::to_string(index);
         ImGui::ColorEdit4(color_pickerName.c_str(), (float*)&new_theme_saved_options_color[index], ImGuiColorEditFlags_NoInputs);
     }
 

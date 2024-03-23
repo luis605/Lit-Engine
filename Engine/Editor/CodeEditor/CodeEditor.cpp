@@ -16,7 +16,7 @@ void CodeEditor()
 
     if (saveFile)
     {
-        cout << "Saving file..." << endl;
+        std::cout << "Saving file..." << std::endl;
 
         std::ofstream file(codeEditorScriptPath);
 

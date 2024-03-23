@@ -398,7 +398,7 @@ void DropEntity()
             IM_ASSERT(payload->DataSize == sizeof(int));
             int payload_n = *(const int*)payload->Data;
 
-            string path = dirPath.string();
+            std::string path = dirPath.string();
             path += "/" + filesTextureStruct[payload_n].name;
 
             size_t lastDotIndex = path.find_last_of('.');

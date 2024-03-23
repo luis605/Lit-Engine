@@ -92,18 +92,18 @@ void DrawMenus()
     {
         if (ImGui::MenuItem("Save", "Ctrl+S"))
         {
-            cout << "Saving Project..." << endl;
+            std::cout << "Saving Project..." << std::endl;
             SaveProject();
         }
 
         if (ImGui::MenuItem("Save as", "Ctrl+Shift+S"))
         {
-            cout << "Saving Project as..." << endl;
+            std::cout << "Saving Project as..." << std::endl;
         }
 
         if (ImGui::MenuItem("Open", "Ctrl+O"))
         {
-            cout << "Opening Project..." << endl;
+            std::cout << "Opening Project..." << std::endl;
             LoadProject(entitiesListPregame, lights, lightsInfo, sceneCamera);
         }
 

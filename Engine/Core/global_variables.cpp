@@ -19,12 +19,12 @@ int pipe_fds_lights[2];
     int listViewExScrollIndex = 0;
     int listViewExActive = 0;
     int listViewExFocus = 0;
-    vector<char*> listViewExList;
-    vector<char*> listViewExListTypes;
+    std::vector<char*> listViewExList;
+    std::vector<char*> listViewExListTypes;
 
     bool canAddEntity = false;
 
-    vector<string> objectNames;
+    std::vector<std::string> objectNames;
     char name[256] = { 0 };
 
     bool showNextTime = true;
@@ -76,7 +76,7 @@ bool firstTimeGameplay = true;
     bool createNewThemeWindowOpen = false;
 
     // Load && Save
-    string themesFolder = "project/themes/";
+    std::string themesFolder = "project/themes/";
     bool showFileExplorer = false;
     bool showSaveThemeWindow = false;
     bool showLoadThemeWindow = false;

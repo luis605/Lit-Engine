@@ -14,7 +14,7 @@ Color LerpColor(Color startColor, Color endColor, float t)
 class LitButton
 {
 public:
-    string name = "Button";
+    std::string name = "Button";
     LitVector3 position = {0, 0, 0};
     Vector2 size = {600, 450};
     Color color = LIGHTGRAY;
