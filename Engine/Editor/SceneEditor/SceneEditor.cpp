@@ -213,9 +213,10 @@ void ProcessGizmo()
             GizmoScale();
         }
     }
-    else if (selectedGameObjectType == "light")
+    else if (selectedGameObjectType == "light" && selectedLight)
     {
         GizmoPosition();
+        GizmoRotation();
     }
     else
     {

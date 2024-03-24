@@ -29,18 +29,26 @@ void InitGizmo()
 
 void GizmoPosition()
 {
-    Vector3 selectedObjectPosition;
-
-    if (selectedGameObjectType == "entity" && selectedEntity != nullptr)
+    if (selectedGameObjectType == "entity" && selectedEntity != nullptr) {
         selectedObjectPosition = selectedEntity->position;
-    else if (selectedGameObjectType == "light" && selectedLight != nullptr)
+        selectedObjectScale = selectedEntity->scale; 
+    } else if (selectedGameObjectType == "light" && selectedLight != nullptr) {
         selectedObjectPosition = {selectedLight->position.x, selectedLight->position.y, selectedLight->position.z};
-    else
+        selectedObjectScale = (Vector3) { 1, 1, 1 }; 
+    } else
         return;
     
     // Update gizmo arrow positions and rotations
+
+    gizmoArrow[0].position = { selectedObjectPosition.x, selectedObjectPosition.y + selectedObjectScale.y, selectedObjectPosition.z };
+    gizmoArrow[1].position = { selectedObjectPosition.x, selectedObjectPosition.y - selectedObjectScale.y, selectedObjectPosition.z };
+    gizmoArrow[2].position = { selectedObjectPosition.x, selectedObjectPosition.y, selectedObjectPosition.z + selectedObjectScale.z };
+    gizmoArrow[3].position = { selectedObjectPosition.x, selectedObjectPosition.y, selectedObjectPosition.z - selectedObjectScale.z };
+    gizmoArrow[4].position = { selectedObjectPosition.x + selectedObjectScale.x, selectedObjectPosition.y, selectedObjectPosition.z };
+    gizmoArrow[5].position = { selectedObjectPosition.x - selectedObjectScale.x, selectedObjectPosition.y, selectedObjectPosition.z };
+
     for (int index = 0; index < 6; ++index) {
-        gizmoArrow[index].position = Vector3Add(selectedObjectPosition, gizmoArrowOffsets[index].position);
+        gizmoArrow[index].position = Vector3Add(gizmoArrow[index].position, gizmoArrowOffsets[index].position);
     }
 
     for (int index = 0; index < (sizeof(gizmoArrow) / sizeof(gizmoArrow[0])); index++)
@@ -77,21 +85,21 @@ void GizmoPosition()
                 {
                     float deltaY = (mouseDragEnd.y - mouseDragStart.y) * gizmoDragSensitivityFactor;
                     
-                    gizmoArrow[0].position.y -= deltaY;
-                    gizmoArrow[1].position.y -= deltaY;
+                    selectedObjectPosition.y -= deltaY;
+                    selectedObjectPosition.y -= deltaY;
                     
                 }
 
                 else if ( selectedGizmoArrow == 2 || selectedGizmoArrow == 3 )
                 {
                     float deltaZ = ((mouseDragEnd.x - mouseDragStart.x) + (mouseDragEnd.y - mouseDragStart.y)) * gizmoDragSensitivityFactor;
-                    gizmoArrow[index].position.z -= deltaZ;
+                    selectedObjectPosition.z -= deltaZ;
                 }
                 
                 else if ( selectedGizmoArrow == 4 || selectedGizmoArrow == 5 )
                 {
                     float deltaX = (mouseDragEnd.x - mouseDragStart.x) * gizmoDragSensitivityFactor;
-                    gizmoArrow[index].position.x += deltaX;
+                    selectedObjectPosition.x += deltaX;
                 }
 
                 mouseDragStart = mouseDragEnd;
@@ -115,16 +123,9 @@ void GizmoPosition()
         DrawModel(gizmoArrow[index].model, Vector3Zero(), 1, color1);
     }
 
-    float yAxisArrowsCenterPos = (gizmoArrow[0].position.y + gizmoArrow[1].position.y) / 2.0f;
-
     if (selectedGameObjectType == "entity")
     {
-        selectedEntity->position = {
-            gizmoArrow[0].position.x,
-            yAxisArrowsCenterPos,
-            gizmoArrow[0].position.z
-        };
-        
+        selectedEntity->position = selectedObjectPosition;        
         if ((bool)selectedEntity->isChild)
         {
             if (selectedEntity->parent != nullptr && selectedEntity != nullptr && selectedEntity->initialized)
@@ -133,9 +134,9 @@ void GizmoPosition()
     }
     else if (selectedGameObjectType == "light")
     {
-        selectedLight->position.x = gizmoArrow[0].position.x;
-        selectedLight->position.y = yAxisArrowsCenterPos;
-        selectedLight->position.z = gizmoArrow[0].position.z;
+        selectedLight->position.x = selectedObjectPosition.x;
+        selectedLight->position.y = selectedObjectPosition.y;
+        selectedLight->position.z = selectedObjectPosition.z;
 
         if ((bool)selectedLight->isChild)
         {
@@ -151,54 +152,33 @@ void GizmoPosition()
                         selectedLight->position.x - lightInfo->parent->position.x, 
                         selectedLight->position.y - lightInfo->parent->position.y,
                         selectedLight->position.z - lightInfo->parent->position.z
-                        );
+                    );
             }
         
         }
     }
-
 }
 
 
 void GizmoRotation()
 {
-    Vector3 selectedObjectRotation;
-
+    float maxScale;
     if (selectedGameObjectType == "entity") {
         selectedObjectRotation = selectedEntity->rotation;
-        float maxScale = std::max(std::max(selectedEntity->scale.x, selectedEntity->scale.y), selectedEntity->scale.z);
-        selectedObjectScale = (Vector3) { maxScale, maxScale, maxScale }; 
-    } else if (selectedGameObjectType == "light") {
-        selectedObjectRotation = {selectedLight->direction.x, selectedLight->direction.y, selectedLight->direction.z};
-        selectedObjectScale = (Vector3) { 1, 1, 1 };
-    }
-
-    if (selectedGameObjectType == "entity")
         selectedObjectPosition = selectedEntity->position;
-    else if (selectedGameObjectType == "light")
-        selectedObjectPosition = {selectedLight->position.x, selectedLight->position.y, selectedLight->position.z};
-
-    if (selectedGameObjectType == "entity" && selectedEntity != nullptr)
-    {
-        selectedObjectRotation = (Vector3) {
-            selectedEntity->rotation.x,
-            selectedEntity->rotation.y,
-            selectedEntity->rotation.z
-        };
-    }
-    else if (selectedGameObjectType == "light")
-    {
-        selectedObjectRotation = (Vector3) {
-            selectedLight->direction.x,
-            selectedLight->direction.y,
-            selectedLight->direction.z
-        };
+        selectedObjectScale = selectedEntity->scale; 
+        maxScale = std::max(std::max(selectedEntity->scale.x, selectedEntity->scale.y), selectedEntity->scale.z);
+    } else if (selectedGameObjectType == "light") {
+        selectedObjectRotation = { selectedLight->direction.x * 300, selectedLight->direction.y * 300, selectedLight->direction.z * 300 };
+        selectedObjectPosition = { selectedLight->position.x, selectedLight->position.y, selectedLight->position.z };
+        selectedObjectScale = (Vector3) { 3, 3, 3 };
+        maxScale = 3;
     }
 
     // Update gizmo arrow positions and rotations
     for (int index = 0; index < NUM_GIZMO_TAURUS; index++)
     {
-        gizmoTaurus[index].scale = selectedObjectScale;
+        gizmoTaurus[index].scale = { maxScale, maxScale, maxScale };
         gizmoTaurus[index].position = selectedObjectPosition;
 
         Color color1;
@@ -213,7 +193,7 @@ void GizmoRotation()
                     150,
                     150,
                     150,
-                    120
+                    255
                 };
                 selectedGizmoTaurus = index;
             }
@@ -276,6 +256,7 @@ void GizmoRotation()
                 selectedObjectRotation.y = fmod(selectedObjectRotation.y, 360.0f);
                 selectedObjectRotation.z = fmod(selectedObjectRotation.z, 360.0f);
 
+                // Update the mouse drag start position
                 mouseDragStart = mouseDragEnd;
             }
         }
@@ -284,6 +265,7 @@ void GizmoRotation()
             draggingGizmoRotation = false;
         }
 
+        gizmoTaurus[index].rotation = selectedObjectRotation;
         Matrix rotationMat = MatrixRotateXYZ((Vector3){
             DEG2RAD * gizmoTaurus[index].rotation.x,
             DEG2RAD * gizmoTaurus[index].rotation.y,
@@ -306,44 +288,34 @@ void GizmoRotation()
     {
         selectedEntity->rotation = selectedObjectRotation;
     }
+    else if (selectedGameObjectType == "light")
+    {
+        selectedLight->direction.x = selectedObjectRotation.x / 300;
+        selectedLight->direction.y = selectedObjectRotation.y / 300;
+        selectedLight->direction.z = selectedObjectRotation.z / 300;
+    }
 }
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 
 void GizmoScale()
 {
     if (selectedGameObjectType != "entity")
         return;
 
-    Vector3 selectedObjectPosition;
-    Vector3 selectedObjectScale;
+    float maxScale;
 
     if (selectedGameObjectType == "entity")
     {
         selectedObjectPosition = selectedEntity->position;
-        float maxScale = std::max(std::max(selectedEntity->scale.x, selectedEntity->scale.y), selectedEntity->scale.z);
-        selectedObjectScale = (Vector3) { maxScale, maxScale, maxScale }; 
+        maxScale = std::max(std::max(selectedEntity->scale.x, selectedEntity->scale.y), selectedEntity->scale.z);
+        selectedObjectScale = selectedEntity->scale; 
     }
 
-    gizmoCube[0].position = { selectedObjectPosition.x + selectedObjectScale.x + 3.75f, selectedObjectPosition.y, selectedObjectPosition.z };
-    gizmoCube[1].position = { selectedObjectPosition.x - selectedObjectScale.x - 3.75f, selectedObjectPosition.y, selectedObjectPosition.z };
-    gizmoCube[2].position = { selectedObjectPosition.x, selectedObjectPosition.y + selectedObjectScale.y + 3.75f, selectedObjectPosition.z };
-    gizmoCube[3].position = { selectedObjectPosition.x, selectedObjectPosition.y - selectedObjectScale.y - 3.75f, selectedObjectPosition.z };
-    gizmoCube[4].position = { selectedObjectPosition.x, selectedObjectPosition.y, selectedObjectPosition.z + selectedObjectScale.z + 3.75f };
-    gizmoCube[5].position = { selectedObjectPosition.x, selectedObjectPosition.y, selectedObjectPosition.z - selectedObjectScale.z - 3.75f };
+    gizmoCube[0].position = { selectedObjectPosition.x + maxScale + 3.75f, selectedObjectPosition.y, selectedObjectPosition.z };
+    gizmoCube[1].position = { selectedObjectPosition.x - maxScale - 3.75f, selectedObjectPosition.y, selectedObjectPosition.z };
+    gizmoCube[2].position = { selectedObjectPosition.x, selectedObjectPosition.y + maxScale + 3.75f, selectedObjectPosition.z };
+    gizmoCube[3].position = { selectedObjectPosition.x, selectedObjectPosition.y - maxScale - 3.75f, selectedObjectPosition.z };
+    gizmoCube[4].position = { selectedObjectPosition.x, selectedObjectPosition.y, selectedObjectPosition.z + maxScale + 3.75f };
+    gizmoCube[5].position = { selectedObjectPosition.x, selectedObjectPosition.y, selectedObjectPosition.z - maxScale - 3.75f };
 
     for (int cubeIndex = 0; cubeIndex < NUM_GIZMO_CUBES; cubeIndex++)
     {
