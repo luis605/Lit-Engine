@@ -158,7 +158,7 @@ bool IsMouseHoveringModel(const Model& model, const Camera& camera, const Vector
         (float)GetMousePosition().y - (float)rectangle.y - (float)GetImGuiWindowTitleHeight()
     };
 
-    Ray mouseRay = GetViewRay(relativeMousePosition, camera, rectangle.width, rectangle.height);
+    Ray mouseRay = GetScreenToWorldRayEx(relativeMousePosition, camera, rectangle.width, rectangle.height);
     
     RayCollision meshCollisionInfo = { 0 };
 
