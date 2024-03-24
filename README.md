@@ -14,8 +14,7 @@ git clone --recurse-submodules -j8 https://github.com/luis605/Lit-Engine
 
 In case the submodules weren't downloaded, run:
 ```bash
-git submodule update --init
-git submodule update --remote
+git submodule update --init --recursive
 ```
 
 # Building and Installing Dependencies
