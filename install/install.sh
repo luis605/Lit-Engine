@@ -1,5 +1,6 @@
 sudo add-apt-repository ppa:deadsnakes/ppa
-add-apt-repository universe
+sudo add-apt-repository universe
+
 sudo apt update
 
 sudo apt install python3.11-dev
