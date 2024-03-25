@@ -63,16 +63,19 @@ void EntityInspector()
 
         ImGui::Text("X:");
         ImGui::SameLine();
-        ImGui::InputFloat("##ScaleX", &selectedEntityScale.x);
+        if (ImGui::InputFloat("##ScaleX", &selectedEntityScale.x))
+            selectedEntity->reloadRigidBody();
         
         ImGui::Text("Y:");
         ImGui::SameLine();
-        ImGui::InputFloat("##ScaleY", &selectedEntityScale.y);
+        if (ImGui::InputFloat("##ScaleY", &selectedEntityScale.y))
+            selectedEntity->reloadRigidBody();
         
         ImGui::Text("Z:");
         ImGui::SameLine();
-        ImGui::InputFloat("##ScaleZ", &selectedEntityScale.z);
-        
+        if (ImGui::InputFloat("##ScaleZ", &selectedEntityScale.z))
+            selectedEntity->reloadRigidBody();
+
         selectedEntity->scale = selectedEntityScale;
             
         ImGui::Unindent(20.0f);
@@ -116,11 +119,16 @@ void EntityInspector()
         if (EntityRotationXInputModel)
         {
             if (ImGui::InputFloat("##RotationX", &selectedEntity->rotation.x, -180.0f, 180.0f, "%.3f", ImGuiInputTextFlags_EnterReturnsTrue))
+            {
                 EntityRotationXInputModel = false;
+                selectedEntity->reloadRigidBody();
+            }
         }
         else
         {
-            ImGui::SliderFloat("##RotationX", &selectedEntity->rotation.x, -180.0f, 180.0f, "%.3f");
+            if (ImGui::SliderFloat("##RotationX", &selectedEntity->rotation.x, -180.0f, 180.0f, "%.3f"))
+                selectedEntity->reloadRigidBody();
+
             EntityRotationXInputModel = ImGui::IsItemHovered() && ImGui::IsMouseDoubleClicked(0);
         }
 
@@ -129,11 +137,16 @@ void EntityInspector()
         if (EntityRotationYInputModel)
         {
             if (ImGui::InputFloat("##RotationY", &selectedEntity->rotation.y, -180.0f, 180.0f, "%.3f", ImGuiInputTextFlags_EnterReturnsTrue))
+            {
+                selectedEntity->reloadRigidBody();
                 EntityRotationYInputModel = false;
+            }
         }
         else
         {
-            ImGui::SliderFloat("##RotationY", &selectedEntity->rotation.y, -180.0f, 180.0f, "%.3f");
+            if (ImGui::SliderFloat("##RotationY", &selectedEntity->rotation.y, -180.0f, 180.0f, "%.3f"))
+                selectedEntity->reloadRigidBody();
+
             EntityRotationYInputModel = ImGui::IsItemHovered() && ImGui::IsMouseDoubleClicked(0);
         }
 
@@ -142,11 +155,16 @@ void EntityInspector()
         if (EntityRotationZInputModel)
         {
             if (ImGui::InputFloat("##RotationZ", &selectedEntity->rotation.z, -180.0f, 180.0f, "%.3f", ImGuiInputTextFlags_EnterReturnsTrue))
+            {
                 EntityRotationZInputModel = false;
+                selectedEntity->reloadRigidBody();
+            }
         }
         else
         {
-            ImGui::SliderFloat("##RotationZ", &selectedEntity->rotation.z, -180.0f, 180.0f, "%.3f");
+            if (ImGui::SliderFloat("##RotationZ", &selectedEntity->rotation.z, -180.0f, 180.0f, "%.3f"))
+                selectedEntity->reloadRigidBody();
+                
             EntityRotationZInputModel = ImGui::IsItemHovered() && ImGui::IsMouseDoubleClicked(0);
         }
         
