@@ -38,8 +38,6 @@ void GizmoPosition()
     } else
         return;
     
-    // Update gizmo arrow positions and rotations
-
     gizmoArrow[0].position = { selectedObjectPosition.x, selectedObjectPosition.y + selectedObjectScale.y, selectedObjectPosition.z };
     gizmoArrow[1].position = { selectedObjectPosition.x, selectedObjectPosition.y - selectedObjectScale.y, selectedObjectPosition.z };
     gizmoArrow[2].position = { selectedObjectPosition.x, selectedObjectPosition.y, selectedObjectPosition.z + selectedObjectScale.z };
@@ -51,7 +49,7 @@ void GizmoPosition()
         gizmoArrow[index].position = Vector3Add(gizmoArrow[index].position, gizmoArrowOffsets[index].position);
     }
 
-    for (int index = 0; index < (sizeof(gizmoArrow) / sizeof(gizmoArrow[0])); index++)
+    for (int index = 0; index < NUM_GIZMO_ARROWS; index++)
     {
         Color color1 = RED;
 
