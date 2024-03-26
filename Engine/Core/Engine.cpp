@@ -1163,7 +1163,6 @@ public:
         currentCollisionShapeType = std::make_shared<CollisionShapeType>(CollisionShapeType::HighPolyMesh);
     }
 
-
     void createDynamicBox(float x, float y, float z) {
         isDynamic = true;
 

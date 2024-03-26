@@ -8,11 +8,10 @@ void TextInspector()
         selectedTextElement = std::get<Text*>(objectInInspector);
     }
 
-    if (!selectedTextElement)
-        return;
+    if (!selectedTextElement) return;
 
-    // Label width (adjust as needed)
     const float labelWidth = 100.0f;
+    const float inputWidth = 200.0f;
 
     ImGui::Text("Name:");
     ImGui::SameLine(labelWidth);
@@ -24,13 +23,15 @@ void TextInspector()
     strncpy(name_buffer, selectedTextElement->name.c_str(), bufferSize - 1);
     name_buffer[bufferSize - 1] = '\0';
 
-    // Input field width (adjust as needed)
-    const float inputWidth = 200.0f;
-
     if (ImGui::InputText("##Name", name_buffer, IM_ARRAYSIZE(name_buffer)))
-    {
         selectedTextElement->name = name_buffer;
-    }
+
+    ImGui::Text("Position:");
+    ImGui::SameLine(labelWidth);
+    ImGui::SetNextItemWidth(-1);
+    float position[3] = { selectedTextElement->position.x, selectedTextElement->position.y, selectedTextElement->position.z };
+    if (ImGui::InputFloat3("##Position", position))
+        selectedTextElement->position = LitVector3{ position[0], position[1], position[2] };
 
     ImGui::Text("Text:");
     ImGui::SameLine(labelWidth);
@@ -43,9 +44,7 @@ void TextInspector()
     text_buffer[bufferSize - 1] = '\0';
 
     if (ImGui::InputTextMultiline("##Text", text_buffer, IM_ARRAYSIZE(text_buffer), ImVec2(-1, 115)))
-    {
         selectedTextElement->text = text_buffer;
-    }
 
     ImGui::Text("Font Size:");
     ImGui::SameLine(labelWidth);
@@ -118,7 +117,6 @@ void TextInspector()
         selectedTextElement->color.a / 255.0f
     );
 
-    // ImGui::ColorEdit4 will continuously update text_colorImGui while dragging
     bool colorChanged = ImGui::ColorEdit4("##Text Color", (float*)&text_colorImGui, ImGuiColorEditFlags_NoInputs);
 
     Color text_color = {
