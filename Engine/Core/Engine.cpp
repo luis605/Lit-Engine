@@ -1378,20 +1378,20 @@ private:
     
     void PassSurfaceMaterials()
     {
-        if (surfaveMaterialUBO != 0) {
-            glDeleteBuffers(1, &surfaveMaterialUBO);
-            surfaveMaterialUBO = 0;
+        if (surfaceMaterialUBO != 0) {
+            glDeleteBuffers(1, &surfaceMaterialUBO);
+            surfaceMaterialUBO = 0;
         }
 
-        glGenBuffers(1, &surfaveMaterialUBO);
-        glBindBuffer(GL_UNIFORM_BUFFER, surfaveMaterialUBO);
+        glGenBuffers(1, &surfaceMaterialUBO);
+        glBindBuffer(GL_UNIFORM_BUFFER, surfaceMaterialUBO);
         glBufferData(GL_UNIFORM_BUFFER, sizeof(SurfaceMaterial), &this->surfaceMaterial, GL_DYNAMIC_DRAW);
         glBindBuffer(GL_UNIFORM_BUFFER, 0);
 
         GLuint bindingPoint = 0;
-        glBindBufferBase(GL_UNIFORM_BUFFER, bindingPoint, surfaveMaterialUBO);
+        glBindBufferBase(GL_UNIFORM_BUFFER, bindingPoint, surfaceMaterialUBO);
 
-        glBindBuffer(GL_UNIFORM_BUFFER, surfaveMaterialUBO);
+        glBindBuffer(GL_UNIFORM_BUFFER, surfaceMaterialUBO);
         glBufferSubData(GL_UNIFORM_BUFFER, 0, sizeof(SurfaceMaterial), &this->surfaceMaterial);
         glBindBuffer(GL_UNIFORM_BUFFER, 0);
     }

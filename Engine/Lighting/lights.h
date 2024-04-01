@@ -35,7 +35,7 @@ Shader instancingShader;
 Shader downsamplerShader;
 Shader upsamplerShader;
 GLuint lightsBuffer;
-GLuint surfaveMaterialUBO;
+GLuint surfaceMaterialUBO;
 
 Vector4 ambientLight = {1.0f, 1.0f, 1.0f, 1.0f};
 
