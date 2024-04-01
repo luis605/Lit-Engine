@@ -581,9 +581,12 @@ void EntityPaste(const std::shared_ptr<Entity>& entity)
 {
     if (entity) {
         Entity newEntity = *entity;
-        entitiesListPregame.push_back(newEntity);
+        newEntity.reloadRigidBody();
+        newEntity.id = entitiesListPregame.back().id+1;
+        entitiesListPregame.emplace_back(newEntity);
         selectedGameObjectType = "entity";
         selectedEntity = &entitiesListPregame.back();
+        objectInInspector = selectedEntity;
     }
 }
 
@@ -610,6 +613,7 @@ void DuplicateEntity(Entity& entity)
     entitiesListPregame.reserve(1);
     entitiesListPregame.emplace_back(newEntity);
     selectedEntity = &entitiesListPregame.back();
+    objectInInspector = selectedEntity;
 }
 
 
@@ -619,7 +623,9 @@ void ProcessCopy()
         if (selectedGameObjectType == "entity")
         {
             currentCopyType = CopyType_Entity;
-            copiedEntity = std::make_shared<Entity>(*selectedEntity);
+            if (selectedEntity) {
+                copiedEntity = std::make_shared<Entity>(*selectedEntity);
+            }
         }
         else if (selectedGameObjectType == "light")
         {

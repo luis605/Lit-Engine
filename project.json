@@ -2,15 +2,15 @@
     {
         "fovy": 60.0,
         "position": {
-            "x": 2.5307376384735107,
-            "y": 19.304546356201172,
-            "z": 15.773402214050293
+            "x": -13.73466968536377,
+            "y": 42.04425811767578,
+            "z": -75.1393051147461
         },
         "projection": 0,
         "target": {
-            "x": 3.175351858139038,
-            "y": 15.170419692993164,
-            "z": 6.473074913024902
+            "x": -9.61599349975586,
+            "y": 39.745277404785156,
+            "z": -66.09780883789063
         },
         "type": "camera",
         "up": {
@@ -63,7 +63,7 @@
         },
         "rotation": {
             "x": 0.0,
-            "y": -0.10000000149011612,
+            "y": 0.10000000149011612,
             "z": 0.0
         },
         "roughnessTexturePath": "",
@@ -99,16 +99,16 @@
         "friction": 1.0,
         "id": 1,
         "is_dynamic": false,
-        "lodEnabled": true,
+        "lodEnabled": false,
         "mass": 1.0,
-        "material_path": "",
+        "material_path": "project/game/materials/cactus.mat",
         "model_path": "project/game/models/cactus.obj",
-        "name": "project/game/models/cactus",
-        "normalTexturePath": "",
+        "name": "cactus",
+        "normalTexturePath": "project/game/textures/cactus/normal.png",
         "position": {
             "x": 0.0,
-            "y": 0.0,
-            "z": 0.0
+            "y": 10.600004196166992,
+            "z": 1.0
         },
         "relativePosition": {
             "x": 0.0,
@@ -120,7 +120,7 @@
             "y": 0.0,
             "z": 0.0
         },
-        "roughnessTexturePath": "",
+        "roughnessTexturePath": "project/game/textures/cactus/ao.png",
         "scale": {
             "x": 1.0,
             "y": 1.0,
@@ -139,7 +139,115 @@
             },
             "shininess": 0.5
         },
-        "texturePath": "",
+        "texturePath": "project/game/textures/cactus/diffuse.png",
+        "tiling": [
+            1.0,
+            1.0
+        ],
+        "type": "entity"
+    },
+    {
+        "collider": true,
+        "collider_type": 2,
+        "damping": 0.0,
+        "friction": 1.0,
+        "id": 1,
+        "is_dynamic": false,
+        "lodEnabled": false,
+        "mass": 1.0,
+        "material_path": "project/game/materials/cactus.mat",
+        "model_path": "project/game/models/cactus.obj",
+        "name": "cactus",
+        "normalTexturePath": "project/game/textures/cactus/normal.png",
+        "position": {
+            "x": 13.30001449584961,
+            "y": 10.600004196166992,
+            "z": 1.0
+        },
+        "relativePosition": {
+            "x": 0.0,
+            "y": 0.0,
+            "z": 0.0
+        },
+        "rotation": {
+            "x": -11.800008773803711,
+            "y": -37.5,
+            "z": 0.0
+        },
+        "roughnessTexturePath": "project/game/textures/cactus/ao.png",
+        "scale": {
+            "x": 1.0,
+            "y": 1.0,
+            "z": 1.0
+        },
+        "scriptIndex": "",
+        "script_path": "",
+        "surfaceMaterial": {
+            "DiffuseIntensity": 0.5,
+            "Roughness": 0.5,
+            "SpecularIntensity": 0.5,
+            "SpecularTint": {
+                "x": 1.0,
+                "y": 1.0,
+                "z": 1.0
+            },
+            "shininess": 0.5
+        },
+        "texturePath": "project/game/textures/cactus/diffuse.png",
+        "tiling": [
+            1.0,
+            1.0
+        ],
+        "type": "entity"
+    },
+    {
+        "collider": true,
+        "collider_type": 2,
+        "damping": 0.0,
+        "friction": 1.0,
+        "id": 1,
+        "is_dynamic": false,
+        "lodEnabled": false,
+        "mass": 1.0,
+        "material_path": "project/game/materials/cactus.mat",
+        "model_path": "project/game/models/cactus.obj",
+        "name": "cactus",
+        "normalTexturePath": "project/game/textures/cactus/normal.png",
+        "position": {
+            "x": -200.0,
+            "y": 3.799999713897705,
+            "z": -166.20101928710938
+        },
+        "relativePosition": {
+            "x": 0.0,
+            "y": 0.0,
+            "z": 0.0
+        },
+        "rotation": {
+            "x": -11.800008773803711,
+            "y": -37.5,
+            "z": 0.0
+        },
+        "roughnessTexturePath": "project/game/textures/cactus/ao.png",
+        "scale": {
+            "x": 1.0,
+            "y": 1.0,
+            "z": 1.0
+        },
+        "scriptIndex": "",
+        "script_path": "",
+        "surfaceMaterial": {
+            "DiffuseIntensity": 0.5,
+            "Roughness": 0.5,
+            "SpecularIntensity": 0.5,
+            "SpecularTint": {
+                "x": 1.0,
+                "y": 1.0,
+                "z": 1.0
+            },
+            "shininess": 0.5
+        },
+        "texturePath": "project/game/textures/cactus/diffuse.png",
         "tiling": [
             1.0,
             1.0
@@ -150,9 +258,9 @@
         "attenuation": 9.999999747378752e-05,
         "color": {
             "a": 255.0,
-            "b": 255.0,
-            "g": 255.0,
-            "r": 255.0
+            "b": 96.37866973876953,
+            "g": 160.62228393554688,
+            "r": 183.75
         },
         "cutOff": 10.0,
         "direction": {
@@ -180,6 +288,43 @@
             "x": 1836704000.0,
             "y": 3.1623102444418147e-41,
             "z": 1.401298464324817e-45
+        },
+        "type": "light"
+    },
+    {
+        "attenuation": 9.999999747378752e-05,
+        "color": {
+            "a": 255.0,
+            "b": 79.96322631835938,
+            "g": 136.89447021484375,
+            "r": 187.5
+        },
+        "cutOff": 10.0,
+        "direction": {
+            "x": 0.4000000059604645,
+            "y": 0.4000000059604645,
+            "z": -0.4000000059604645
+        },
+        "id": 6,
+        "intensity": 0.9240000247955322,
+        "isChild": false,
+        "light_type": 1,
+        "name": "Light",
+        "position": {
+            "x": 4.0,
+            "y": 19.20003890991211,
+            "z": 3.0
+        },
+        "relativePosition": {
+            "x": 0,
+            "y": 0,
+            "z": 0
+        },
+        "specularStrength": 0.5,
+        "target": {
+            "x": 0,
+            "y": 0,
+            "z": 0
         },
         "type": "light"
     }
