@@ -728,6 +728,7 @@ public:
         else
             model = LoadModel(modelPath);
 
+        if (!IsModelReady(model)) return;
         constBounds = GetMeshBoundingBox(model.meshes[0]);
 
         std::vector<uint32_t> indices;

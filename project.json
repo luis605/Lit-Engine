@@ -2,15 +2,15 @@
     {
         "fovy": 60.0,
         "position": {
-            "x": 40.400264739990234,
-            "y": 35.696903228759766,
-            "z": 11.610795021057129
+            "x": 178.210205078125,
+            "y": 139.7324676513672,
+            "z": 81.81887817382813
         },
         "projection": 0,
         "target": {
-            "x": 30.714599609375,
-            "y": 32.51424026489258,
-            "z": 11.368635177612305
+            "x": 141.7024688720703,
+            "y": 111.50048828125,
+            "z": 62.57997131347656
         },
         "type": "camera",
         "up": {
@@ -22,9 +22,9 @@
     {
         "ambientColor": {
             "w": 1.0,
-            "x": 0.0,
-            "y": 0.0,
-            "z": 0.0
+            "x": 1.0,
+            "y": 1.0,
+            "z": 1.0
         },
         "bloom": false,
         "bloomBrightness": 0.0,
@@ -35,78 +35,22 @@
             "y": 1.0,
             "z": 1.0
         },
-        "skyboxPath": "project/game/images/kloppenheim_02_puresky_4k.hdr",
+        "skyboxPath": "assets/images/skybox/default skybox.hdr",
         "type": "world settings"
     },
     {
         "collider": true,
-        "collider_type": 0,
-        "damping": 0.0,
-        "friction": 1.0,
-        "id": 1,
-        "is_dynamic": true,
-        "lodEnabled": true,
-        "mass": 1.0,
-        "material_path": "project/game/materials/file2.mat",
-        "mesh_type": 1,
-        "model_path": "",
-        "name": "Player",
-        "normalTexturePath": "",
-        "position": {
-            "x": 0.0,
-            "y": 17.200056076049805,
-            "z": 0.0
-        },
-        "relativePosition": {
-            "x": 0.0,
-            "y": 0.0,
-            "z": 0.0
-        },
-        "rotation": {
-            "x": 0.0,
-            "y": 0.0,
-            "z": 0.0
-        },
-        "roughnessTexturePath": "",
-        "scale": {
-            "x": 1.0,
-            "y": 1.0,
-            "z": 1.0
-        },
-        "scriptIndex": "player0",
-        "script_path": "project/game/scripts/player.py",
-        "surfaceMaterial": {
-            "DiffuseIntensity": 1.0,
-            "Roughness": 0.42500001192092896,
-            "SpecularIntensity": 0.0,
-            "SpecularTint": {
-                "x": 1.0,
-                "y": 1.0,
-                "z": 1.0
-            },
-            "shininess": 1.0
-        },
-        "texturePath": "",
-        "tiling": [
-            1.0,
-            1.0
-        ],
-        "type": "entity"
-    },
-    {
-        "collider": true,
-        "collider_type": 1,
+        "collider_type": 2,
         "damping": 0.0,
         "friction": 1.0,
         "id": 0,
         "is_dynamic": false,
         "lodEnabled": true,
         "mass": 1.0,
-        "material_path": "",
-        "mesh_type": 1,
-        "model_path": "",
-        "name": "Planet",
-        "normalTexturePath": "",
+        "material_path": "project/game/materials/sand.mat",
+        "model_path": "project/game/models/sand.obj",
+        "name": "project/game/uploads_files_3835558_desert",
+        "normalTexturePath": "project/game/materials/as_normal.png",
         "position": {
             "x": 0.0,
             "y": 0.0,
@@ -124,14 +68,14 @@
         },
         "roughnessTexturePath": "",
         "scale": {
-            "x": 24.0,
-            "y": 24.0,
-            "z": 24.0
+            "x": 100.0,
+            "y": 100.0,
+            "z": 100.0
         },
         "scriptIndex": "",
         "script_path": "",
         "surfaceMaterial": {
-            "DiffuseIntensity": 0.5,
+            "DiffuseIntensity": 0.6959999799728394,
             "Roughness": 0.5,
             "SpecularIntensity": 0.5,
             "SpecularTint": {
@@ -139,7 +83,7 @@
                 "y": 1.0,
                 "z": 1.0
             },
-            "shininess": 0.5
+            "shininess": 1.0
         },
         "texturePath": "",
         "tiling": [
@@ -158,18 +102,18 @@
         },
         "cutOff": 10.0,
         "direction": {
-            "x": 0.8299999833106995,
+            "x": 0.4000000059604645,
             "y": -1.0,
-            "z": 1.0
+            "z": -0.4000000059604645
         },
         "id": 2,
-        "intensity": 1.7410000562667847,
+        "intensity": 2.678999900817871,
         "isChild": false,
-        "light_type": 1,
+        "light_type": 0,
         "name": "Light",
         "position": {
             "x": 4.0,
-            "y": 27.100051879882813,
+            "y": 5.0,
             "z": 3.0
         },
         "relativePosition": {
@@ -177,38 +121,12 @@
             "y": 0,
             "z": 0
         },
-        "specularStrength": 0.0,
+        "specularStrength": 0.5,
         "target": {
-            "x": 0,
-            "y": 0,
-            "z": 0
+            "x": 1836704000.0,
+            "y": 3.1623102444418147e-41,
+            "z": 1.401298464324817e-45
         },
         "type": "light"
-    },
-    {
-        "background color": {
-            "a": 0,
-            "b": 0,
-            "g": 0,
-            "r": 0
-        },
-        "background roundiness": 0.0,
-        "color": {
-            "a": 255,
-            "b": 255,
-            "g": 255,
-            "r": 255
-        },
-        "font size": 55.5099983215332,
-        "name": "Text",
-        "padding": 25.0,
-        "position": {
-            "x": 10.0,
-            "y": 10.0,
-            "z": 1.0
-        },
-        "spacing": 4.0,
-        "text": "In Orbit - Template",
-        "type": "text"
     }
 ]

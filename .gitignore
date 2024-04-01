@@ -4,6 +4,7 @@
 *.ini
 *.o
 *.a
+project/
 *CMakeCache.txt
 build/include/
 build/CMakeFiles/
