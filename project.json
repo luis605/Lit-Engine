@@ -2,15 +2,15 @@
     {
         "fovy": 60.0,
         "position": {
-            "x": 178.210205078125,
-            "y": 139.7324676513672,
-            "z": 81.81887817382813
+            "x": -3.8238041400909424,
+            "y": 31.329185485839844,
+            "z": 42.51402282714844
         },
         "projection": 0,
         "target": {
-            "x": 141.7024688720703,
-            "y": 111.50048828125,
-            "z": 62.57997131347656
+            "x": -3.179190158843994,
+            "y": 27.195058822631836,
+            "z": 33.21369552612305
         },
         "type": "camera",
         "up": {
@@ -31,11 +31,11 @@
         "bloomSamples": 3.0,
         "skyboxColor": {
             "w": 1.0,
-            "x": 1.0,
-            "y": 1.0,
-            "z": 1.0
+            "x": 0.5163043737411499,
+            "y": 0.5163043737411499,
+            "z": 0.5163043737411499
         },
-        "skyboxPath": "assets/images/skybox/default skybox.hdr",
+        "skyboxPath": "project/game/textures/skybox/kloofendal_misty_morning_puresky_2k.hdr",
         "type": "world settings"
     },
     {
@@ -49,8 +49,8 @@
         "mass": 1.0,
         "material_path": "project/game/materials/sand.mat",
         "model_path": "project/game/models/sand.obj",
-        "name": "project/game/uploads_files_3835558_desert",
-        "normalTexturePath": "project/game/materials/as_normal.png",
+        "name": "desert",
+        "normalTexturePath": "project/game/textures/desert/as_normal.png",
         "position": {
             "x": 0.0,
             "y": 0.0,
@@ -63,7 +63,7 @@
         },
         "rotation": {
             "x": 0.0,
-            "y": 0.0,
+            "y": -0.10000000149011612,
             "z": 0.0
         },
         "roughnessTexturePath": "",
@@ -86,6 +86,60 @@
             "shininess": 1.0
         },
         "texturePath": "",
+        "tiling": [
+            1.0,
+            1.0
+        ],
+        "type": "entity"
+    },
+    {
+        "collider": true,
+        "collider_type": 2,
+        "damping": 0.0,
+        "friction": 1.0,
+        "id": 1,
+        "is_dynamic": false,
+        "lodEnabled": false,
+        "mass": 1.0,
+        "material_path": "project/game/materials/cactus.mat",
+        "model_path": "project/game/models/cactus.obj",
+        "name": "cactus",
+        "normalTexturePath": "project/game/textures/cactus/normal.png",
+        "position": {
+            "x": 0.0,
+            "y": 10.0,
+            "z": 0.0
+        },
+        "relativePosition": {
+            "x": 0.0,
+            "y": 0.0,
+            "z": 0.0
+        },
+        "rotation": {
+            "x": 0.0,
+            "y": 0.0,
+            "z": 0.0
+        },
+        "roughnessTexturePath": "project/game/textures/cactus/ao.png",
+        "scale": {
+            "x": 1.0,
+            "y": 1.0,
+            "z": 1.0
+        },
+        "scriptIndex": "",
+        "script_path": "",
+        "surfaceMaterial": {
+            "DiffuseIntensity": 0.5,
+            "Roughness": 0.5,
+            "SpecularIntensity": 0.5,
+            "SpecularTint": {
+                "x": 1.0,
+                "y": 1.0,
+                "z": 1.0
+            },
+            "shininess": 0.5
+        },
+        "texturePath": "project/game/textures/cactus/diffuse.png",
         "tiling": [
             1.0,
             1.0
