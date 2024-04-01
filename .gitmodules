@@ -1,8 +1,7 @@
-[submodule "ImGuiColorTextEdit"]
+[submodule "include/ImGuiColorTextEdit"]
 	path = include/ImGuiColorTextEdit
 	url = https://github.com/luis605/ImGuiColorTextEdit.git
-	branch = master
-[submodule "ImNodes"]
+[submodule "include/ImNodes"]
 	path = include/ImNodes
 	url = https://github.com/luis605/ImNodes.git
 [submodule "include/imgui"]
@@ -15,9 +14,6 @@
 [submodule "include/meshoptimizer"]
 	path = include/meshoptimizer
 	url = https://github.com/zeux/meshoptimizer.git
-[submodule "include/raylib"]
-	path = include/raylib
-	url = https://github.com/raysan5/raylib.git
 [submodule "include/pybind11"]
 	path = include/pybind11
 	url = https://github.com/pybind/pybind11.git
@@ -30,3 +26,6 @@
 [submodule "include/glm"]
 	path = include/glm
 	url = https://github.com/g-truc/glm.git
+[submodule "include/raylib"]
+	path = include/raylib
+	url = https://github.com/raysan5/raylib.git
