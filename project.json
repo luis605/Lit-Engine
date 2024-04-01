@@ -2,15 +2,15 @@
     {
         "fovy": 60.0,
         "position": {
-            "x": -3.8238041400909424,
-            "y": 31.329185485839844,
-            "z": 42.51402282714844
+            "x": 2.5307376384735107,
+            "y": 19.304546356201172,
+            "z": 15.773402214050293
         },
         "projection": 0,
         "target": {
-            "x": -3.179190158843994,
-            "y": 27.195058822631836,
-            "z": 33.21369552612305
+            "x": 3.175351858139038,
+            "y": 15.170419692993164,
+            "z": 6.473074913024902
         },
         "type": "camera",
         "up": {
@@ -99,15 +99,15 @@
         "friction": 1.0,
         "id": 1,
         "is_dynamic": false,
-        "lodEnabled": false,
+        "lodEnabled": true,
         "mass": 1.0,
-        "material_path": "project/game/materials/cactus.mat",
+        "material_path": "",
         "model_path": "project/game/models/cactus.obj",
-        "name": "cactus",
-        "normalTexturePath": "project/game/textures/cactus/normal.png",
+        "name": "project/game/models/cactus",
+        "normalTexturePath": "",
         "position": {
             "x": 0.0,
-            "y": 10.0,
+            "y": 0.0,
             "z": 0.0
         },
         "relativePosition": {
@@ -120,7 +120,7 @@
             "y": 0.0,
             "z": 0.0
         },
-        "roughnessTexturePath": "project/game/textures/cactus/ao.png",
+        "roughnessTexturePath": "",
         "scale": {
             "x": 1.0,
             "y": 1.0,
@@ -139,7 +139,7 @@
             },
             "shininess": 0.5
         },
-        "texturePath": "project/game/textures/cactus/diffuse.png",
+        "texturePath": "",
         "tiling": [
             1.0,
             1.0
