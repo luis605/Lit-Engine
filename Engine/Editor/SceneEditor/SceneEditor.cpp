@@ -602,6 +602,7 @@ void LightPaste(const std::shared_ptr<Light>& light)
         
         selectedGameObjectType = "light";
         selectedLight = &lights.back();
+        objectInInspector = selectedLight;
     }
 }
 
