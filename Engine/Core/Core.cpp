@@ -67,8 +67,6 @@ void InitImGui() {
 
     addFont("Bold", "NotoSans-Bold.ttf", 4);
 
-    io.Fonts->Fonts[0]->FontSize = fontSize;
-
     rlImGuiReloadFonts();
 }
 
