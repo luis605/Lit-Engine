@@ -165,6 +165,11 @@ void EditFileManipulation()
             }
         }
 
+        if (!showEditFilePopup) {
+            ImGui::EndPopup();
+            return;
+        }
+
         std::string file_extension = getFileExtension(filesTextureStruct[fileIndex].path.filename().string());
         if (file_extension == ".py")
         {
