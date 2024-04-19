@@ -99,7 +99,7 @@ void WorldInspector()
 
         // Skybox Panel
         ImGui::SetNextItemWidth(-1);
-        if (ImGui::CollapsingHeader(ICON_FA_MOUNTAIN_SUN " Skybox", ImGuiTreeNodeFlags_DefaultOpen))
+        if (ImGui::CollapsingHeader(ICON_FA_CLOUD " Skybox", ImGuiTreeNodeFlags_DefaultOpen))
         {
             ImGui::Indent(20.0f);
 

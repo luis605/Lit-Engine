@@ -59,16 +59,27 @@ void InitImGui() {
     fs::path fontPath = GetWorkingDirectory();
     fontPath += "/assets/fonts/";
 
-    float fontSize = 19.0f * io.FontGlobalScale;
+    float fontSize = 17.0f * io.FontGlobalScale;
 
     auto addFont = [&](const std::string& fontName, const std::string& fileName, float sizeModifier = 0) {
         s_Fonts[fontName] = io.Fonts->AddFontFromFileTTF((fontPath.string() + fileName).c_str(), fontSize + sizeModifier);
     };
 
-    addFont("Bold", "NotoSans-Bold.ttf", 4);
+    // Add JetBrains Mono-Regular font
+    addFont("Regular", "JetBrainsMono-Regular.ttf");
+
+    // Enable MergeMode and add Font Awesome icons
+    ImFontConfig config;
+    config.MergeMode = true;
+    static const ImWchar icon_ranges[] = { ICON_MIN_FA, ICON_MAX_FA, 0 };
+    io.Fonts->AddFontFromFileTTF((fontPath.string() + "fontawesome-webfont.ttf").c_str(), fontSize, &config, icon_ranges);
+
+    // Set Regular font as default
+    io.FontDefault = s_Fonts["Regular"];
 
     rlImGuiReloadFonts();
 }
+
 
 void InitShaders() {
     shader = LoadShader("Engine/Lighting/shaders/lighting_vertex.glsl", "Engine/Lighting/shaders/lighting_fragment.glsl"); // LoadShaderFromMemory(lightingVert, lightingFrag);

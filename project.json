@@ -2,15 +2,15 @@
     {
         "fovy": 60.0,
         "position": {
-            "x": -13.73466968536377,
-            "y": 42.04425811767578,
-            "z": -75.1393051147461
+            "x": -13.049833297729492,
+            "y": 54.707881927490234,
+            "z": -142.7009735107422
         },
         "projection": 0,
         "target": {
-            "x": -9.61599349975586,
-            "y": 39.745277404785156,
-            "z": -66.09780883789063
+            "x": -11.253683090209961,
+            "y": 52.2601203918457,
+            "z": -132.9654541015625
         },
         "type": "camera",
         "up": {
@@ -66,7 +66,7 @@
             "y": 0.10000007599592209,
             "z": 0.0
         },
-        "roughnessTexturePath": "",
+        "roughnessTexturePath": "project/game/textures/desert/as_ao.png",
         "scale": {
             "x": 100.0,
             "y": 100.0,
@@ -75,15 +75,15 @@
         "scriptIndex": "",
         "script_path": "",
         "surfaceMaterial": {
-            "DiffuseIntensity": 0.6959999799728394,
-            "Roughness": 0.5,
-            "SpecularIntensity": 0.5,
+            "DiffuseIntensity": 0.49399998784065247,
+            "Roughness": 0.0,
+            "SpecularIntensity": 0.0,
             "SpecularTint": {
                 "x": 1.0,
                 "y": 1.0,
                 "z": 1.0
             },
-            "shininess": 1.0
+            "shininess": 0.5
         },
         "texturePath": "",
         "tiling": [
