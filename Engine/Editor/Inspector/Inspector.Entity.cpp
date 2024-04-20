@@ -54,6 +54,9 @@ void EntityInspector()
     ImGui::PopStyleColor();
     ImGui::PopStyleVar();
 
+    ImGui::Dummy(ImVec2(0.0f, 15.0f));
+
+
     if (ImGui::CollapsingHeader("Entity Properties"))
     {
         ImGui::Indent(30.0f);
@@ -174,12 +177,11 @@ void EntityInspector()
         ImGui::Dummy(ImVec2(0.0f, 30.0f));
 
         const float margin = 40.0f;
-        const float LODWidth = ImGui::CalcTextSize("Level of Detail: ").x + margin;
-
+        const float scriptWidth = ImGui::CalcTextSize("Script: ").x + margin;
 
         ImGui::PushStyleVar(ImGuiStyleVar_ItemSpacing, ImVec2(0, 30));
         ImGui::Text("Model: ");
-        ImGui::SameLine(LODWidth);
+        ImGui::SameLine(scriptWidth);
 
         if (ImGui::Button(
             ("##Drag'nDropModelPath"),
@@ -208,7 +210,7 @@ void EntityInspector()
 
 
         ImGui::Text("Script: ");
-        ImGui::SameLine(LODWidth);
+        ImGui::SameLine(scriptWidth);
 
         const char* scriptName = selectedEntity->script.c_str();
         if (selectedEntity->script.empty()) scriptName = "##ScriptPath";
@@ -241,6 +243,8 @@ void EntityInspector()
         }
 
         ImGui::Dummy(ImVec2(0.0f, 30.0f));
+
+        const float LODWidth = ImGui::CalcTextSize("Level of Detail: ").x + margin;
 
         ImGui::Text("Collisions: ");
         ImGui::SameLine(LODWidth);
