@@ -1,6 +1,8 @@
 #include "../../../include_all.h"
 
 
+// TODO: Make add object not only accessible by short cut
+
 void EntityInspector()
 {
     ImVec2 window_size = ImGui::GetWindowSize();

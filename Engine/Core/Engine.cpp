@@ -1468,7 +1468,7 @@ HitInfo raycast(LitVector3 origin, LitVector3 direction, bool debug, std::vector
     if (entitiesList.empty())
         return hitInfo;
 
-    float minDistance = 100000000000000000000000000000.0f;
+    float minDistance = FLT_MAX;
 
     for (const Entity& entity : entitiesList)
     {
