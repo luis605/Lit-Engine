@@ -16,7 +16,7 @@ void WorldInspector()
 
         // Bloom Panel
         ImGui::SetNextItemWidth(-1);
-        if (ImGui::CollapsingHeader(ICON_FA_SUN " Bloom", ImGuiTreeNodeFlags_DefaultOpen))
+        if (ImGui::CollapsingHeader(ICON_FA_STAR " Bloom", ImGuiTreeNodeFlags_DefaultOpen))
         {
             ImGui::Indent(20.0f);
 

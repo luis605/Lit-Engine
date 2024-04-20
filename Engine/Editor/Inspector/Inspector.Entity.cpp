@@ -57,7 +57,7 @@ void EntityInspector()
     ImGui::Dummy(ImVec2(0.0f, 15.0f));
 
 
-    if (ImGui::CollapsingHeader("Entity Properties"))
+    if (ImGui::CollapsingHeader(ICON_FA_SLIDERS " Entity Properties"))
     {
         ImGui::Indent(30.0f);
 
@@ -261,15 +261,9 @@ void EntityInspector()
         ImGui::Unindent(30.0f);
     }
 
-
-
-
     ImGui::Dummy(ImVec2(0.0f, 5.0f));
 
-
-
-
-    if (ImGui::CollapsingHeader("Materials"))
+    if (ImGui::CollapsingHeader(ICON_FA_CIRCLE_NOTCH " Materials"))
     {
         ImGui::Indent(30.0f);
 
@@ -311,7 +305,7 @@ void EntityInspector()
 
     ImGui::Dummy(ImVec2(0.0f, 5.0f));
 
-    if (ImGui::CollapsingHeader("Physics"))
+    if (ImGui::CollapsingHeader(ICON_FA_GLOBE " Physics"))
     {
         ImGui::Indent(30.0f);
 
@@ -401,7 +395,7 @@ void EntityInspector()
 
 
 
-    if (ImGui::CollapsingHeader("Advanced Settings"))
+    if (ImGui::CollapsingHeader(ICON_FA_COG " Advanced Settings"))
     {
         ImGui::Indent(30.0f);
 

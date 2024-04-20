@@ -14,7 +14,7 @@ void CameraInspector()
 
     ImGui::BeginChild("MainContent", window_size);
 
-    if (ImGui::CollapsingHeader("Camera Properties"))
+    if (ImGui::CollapsingHeader(ICON_FA_SLIDERS " Camera Properties"))
     {
         ImGui::Indent(30.0f);
 

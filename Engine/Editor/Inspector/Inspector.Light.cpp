@@ -10,21 +10,8 @@ void LightInspector()
 
     ImGui::Dummy(ImVec2(0.0f, 15.0f));
 
-
-    if (ImGui::CollapsingHeader("Light Direction")) {
+    if (ImGui::CollapsingHeader(ICON_FA_SLIDERS " Light Properties")) {
         ImGui::Indent(30.0f);
-        ImGui::SliderFloat("X", &selectedLight->direction.x, -1.0f, 1.0f);
-        ImGui::SliderFloat("Y", &selectedLight->direction.y, -1.0f, 1.0f);
-        ImGui::SliderFloat("Z", &selectedLight->direction.z, -1.0f, 1.0f);
-        ImGui::Unindent(30.0f);
-    }
-
-    ImGui::Dummy(ImVec2(0.0f, 5.0f));
-
-    if (ImGui::CollapsingHeader("Light Properties")) {
-        ImGui::Indent(30.0f);
-
-
 
         ImVec4 light_colorImGui = ImVec4(
             selectedLight->color.r,
@@ -104,6 +91,16 @@ void LightInspector()
                 CutoffActiveInputMode = false;
         }
 
+        ImGui::Unindent(30.0f);
+    }
+
+    ImGui::Dummy(ImVec2(0.0f, 5.0f));
+
+    if (ImGui::CollapsingHeader(ICON_FA_ARROWS_UP_DOWN_LEFT_RIGHT " Light Direction")) {
+        ImGui::Indent(30.0f);
+        ImGui::SliderFloat("X", &selectedLight->direction.x, -1.0f, 1.0f);
+        ImGui::SliderFloat("Y", &selectedLight->direction.y, -1.0f, 1.0f);
+        ImGui::SliderFloat("Z", &selectedLight->direction.z, -1.0f, 1.0f);
         ImGui::Unindent(30.0f);
     }
 }
