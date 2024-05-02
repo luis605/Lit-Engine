@@ -142,17 +142,17 @@ run/fast:
 .PHONY : run/fast
 
 #=============================================================================
-# Target rules for targets named build_and_run
+# Target rules for targets named brun
 
 # Build rule for target.
-build_and_run: cmake_check_build_system
-	$(MAKE) $(MAKESILENT) -f CMakeFiles\Makefile2 build_and_run
-.PHONY : build_and_run
+brun: cmake_check_build_system
+	$(MAKE) $(MAKESILENT) -f CMakeFiles\Makefile2 brun
+.PHONY : brun
 
 # fast build rule for target.
-build_and_run/fast:
-	$(MAKE) $(MAKESILENT) -f CMakeFiles\build_and_run.dir\build.make CMakeFiles/build_and_run.dir/build
-.PHONY : build_and_run/fast
+brun/fast:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles\brun.dir\build.make CMakeFiles/brun.dir/build
+.PHONY : brun/fast
 
 #=============================================================================
 # Target rules for targets named debug
@@ -181,19 +181,6 @@ bdb/fast:
 .PHONY : bdb/fast
 
 #=============================================================================
-# Target rules for targets named build_dependencies
-
-# Build rule for target.
-build_dependencies: cmake_check_build_system
-	$(MAKE) $(MAKESILENT) -f CMakeFiles\Makefile2 build_dependencies
-.PHONY : build_dependencies
-
-# fast build rule for target.
-build_dependencies/fast:
-	$(MAKE) $(MAKESILENT) -f CMakeFiles\build_dependencies.dir\build.make CMakeFiles/build_dependencies.dir/build
-.PHONY : build_dependencies/fast
-
-#=============================================================================
 # Target rules for targets named clean_all
 
 # Build rule for target.
@@ -205,19 +192,6 @@ clean_all: cmake_check_build_system
 clean_all/fast:
 	$(MAKE) $(MAKESILENT) -f CMakeFiles\clean_all.dir\build.make CMakeFiles/clean_all.dir/build
 .PHONY : clean_all/fast
-
-#=============================================================================
-# Target rules for targets named clean_depend
-
-# Build rule for target.
-clean_depend: cmake_check_build_system
-	$(MAKE) $(MAKESILENT) -f CMakeFiles\Makefile2 clean_depend
-.PHONY : clean_depend
-
-# fast build rule for target.
-clean_depend/fast:
-	$(MAKE) $(MAKESILENT) -f CMakeFiles\clean_depend.dir\build.make CMakeFiles/clean_depend.dir/build
-.PHONY : clean_depend/fast
 
 main.obj: main.cpp.obj
 .PHONY : main.obj
@@ -252,10 +226,8 @@ help:
 	@echo ... edit_cache
 	@echo ... rebuild_cache
 	@echo ... bdb
-	@echo ... build_and_run
-	@echo ... build_dependencies
+	@echo ... brun
 	@echo ... clean_all
-	@echo ... clean_depend
 	@echo ... debug
 	@echo ... run
 	@echo ... lit_engine

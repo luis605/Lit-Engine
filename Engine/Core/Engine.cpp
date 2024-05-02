@@ -714,7 +714,6 @@ public:
             }
 
             free(LodModels[modelsIndex].bindPose);
-            free(LodModels[modelsIndex].boneCount);
             free(LodModels[modelsIndex].bones);
         }
     }
@@ -1490,7 +1489,7 @@ HitInfo raycast(LitVector3 origin, LitVector3 direction, bool debug, std::vector
                 
                 hitInfo.hit = true;
                 hitInfo.distance = minDistance;
-                hitInfo.entity = &entity;
+                hitInfo.entity = const_cast<Entity*>(&entity);
                 hitInfo.worldPoint = meshHitInfo.point;
                 hitInfo.worldNormal = meshHitInfo.normal;
                 hitInfo.hitColor = {

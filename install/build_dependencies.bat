@@ -1,20 +1,18 @@
 cd ..
-cd raylib
+cd include/raylib/src
+make CUSTOM_CFLAGS+="-DSUPPORT_FILEFORMAT_BMP -DSUPPORT_FILEFORMAT_TGA -DSUPPORT_FILEFORMAT_JPG -DSUPPORT_FILEFORMAT_PSD -DSUPPORT_FILEFORMAT_HDR -DSUPPORT_FILEFORMAT_PIC -DSUPPORT_FILEFORMAT_KTX -DSUPPORT_FILEFORMAT_ASTC -DSUPPORT_FILEFORMAT_PKM -DSUPPORT_FILEFORMAT_PVR -DSUPPORT_FILEFORMAT_SVG" -B
+
+cd ../../meshoptimizer
 mkdir build
 cd build
 cmake ..
-cmake --build . --config Release
+make
 
-cd ../..
+cd ../../ffmpeg
+./configure --disable-iconv --disable-zlib --disable-network --disable-programs
+make
 
-copy raylib\build\src\raylib_static.lib lib\raylib.lib
-copy raylib\src\raylib.h include\
-copy raylib\src\raymath.h include\
-copy raylib\src\rlgl.h include\
-copy raylib\src\rcamera.h include\
-copy raylib\src\utils.h include\
-
-copy ImNodes\ImNodes.h include\
-copy ImNodes\ImNodesEz.h include\
+cd ../../../
+copy include/raylib/src/libraylib.a
 
 make build_dependencies

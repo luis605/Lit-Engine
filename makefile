@@ -23,6 +23,13 @@ define echo_success
     @echo "$(GREEN)$(1)\033[0m"
 endef
 
+UNAME := $(shell uname)
+
+ifeq ($(UNAME), Linux)
+    CXX := g++
+else
+    CXX := clang++
+endif
 
 CXXFLAGS = -g -pipe -std=c++17 -fpermissive -w -Wall -DNDEBUG -O0 -g
 SRC_FILES = include/ImGuiColorTextEdit/TextEditor.o include/rlImGui.o include/ImNodes/ImNodes.o include/ImNodes/ImNodesEz.o
@@ -35,11 +42,11 @@ LIB_FLAGS_LINUX = $(LIB_FLAGS) -lpython3.11 -I./include/pybind11/include -I$(PYT
 
 LIB_FLAGS_WINDOWS = -I./include/pybind11/include -I$(PYTHON_INCLUDE_DIR) $(LIB_FLAGS)
 
-IMGUI_OBJECTS = $(patsubst include/imgui/%.cpp, include/imgui/%.obj, $(wildcard include/imgui/*.cpp))
+IMGUI_OBJECTS = $(patsubst include/imgui/%.cpp, include/imgui/%.o, $(wildcard include/imgui/*.cpp))
 
-include/imgui/%.obj: include/imgui/%.cpp
+include/imgui/%.o: include/imgui/%.cpp
 	@echo "Building Dear ImGUI"
-	g++ -std=c++17 -O3 -DIMGUI_IMPL_OPENGL_LOADER_GLAD -c $< -o $@
+	$(CXX) -std=c++17 -O3 -DIMGUI_IMPL_OPENGL_LOADER_GLAD -c $< -o $@
 
 run:
 	@echo "Running Lit Engine"
@@ -48,7 +55,7 @@ run:
 
 build: $(IMGUI_OBJECTS)
 	@$(call echo_success, "Building Demo")
-	@g++ $(CXXFLAGS) main.cpp $(SRC_FILES) $(INCLUDE_DIRS) $(IMGUI_OBJECTS) $(LIB_FLAGS_LINUX) -Wl,-rpath,'$$ORIGIN:.' -lavformat -lavcodec -lavutil -lswscale -lswresample -o lit_engine.out
+	@$(CXX) $(CXXFLAGS) main.cpp $(SRC_FILES) $(INCLUDE_DIRS) $(IMGUI_OBJECTS) $(LIB_FLAGS_LINUX) -Wl,-rpath,'$$ORIGIN:.' -lavformat -lavcodec -lavutil -lswscale -lswresample -o lit_engine.out
 	@$(call echo_success, "Success!")
 
 brun:
@@ -64,11 +71,11 @@ bdb: build debug
 
 build_dependencies: $(IMGUI_OBJECTS)
 	@$(call echo_success, "Building Dependencies")
-	@g++ -c $(IMGUI_OBJECTS) -I./include/imgui -O3 include/ImNodes/ImNodes.cpp -o include/ImNodes/ImNodes.o
-	@g++ -c $(IMGUI_OBJECTS) -I./include/imgui -O3 include/ImNodes/ImNodesEz.cpp -o include/ImNodes/ImNodesEz.o
-	@g++ -c $(IMGUI_OBJECTS) -I./include/imgui -O3 -I./include/raylib/src include/rlImGui.cpp -o include/rlImGui.o
-	@g++ -c $(IMGUI_OBJECTS) -I./include/imgui -O3 include/ImGuiColorTextEdit/TextEditor.cpp -o include/ImGuiColorTextEdit/TextEditor.o
-	@g++ -c -O3 -I./include/raylib/src include/rlFrustum.cpp -o include/rlFrustum.o
+	@$(CXX) -c $(IMGUI_OBJECTS) -I./include/imgui -O3 include/ImNodes/ImNodes.cpp -o include/ImNodes/ImNodes.o
+	@$(CXX) -c $(IMGUI_OBJECTS) -I./include/imgui -O3 include/ImNodes/ImNodesEz.cpp -o include/ImNodes/ImNodesEz.o
+	@$(CXX) -c $(IMGUI_OBJECTS) -I./include/imgui -O3 -I./include/raylib/src include/rlImGui.cpp -o include/rlImGui.o
+	@$(CXX) -c $(IMGUI_OBJECTS) -I./include/imgui -O3 include/ImGuiColorTextEdit/TextEditor.cpp -o include/ImGuiColorTextEdit/TextEditor.o
+	@$(CXX) -c -O3 -I./include/raylib/src include/rlFrustum.cpp -o include/rlFrustum.o
 
 clean:
 	-find . -name "*.out" | xargs rm

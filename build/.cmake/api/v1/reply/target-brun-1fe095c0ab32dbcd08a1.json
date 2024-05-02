@@ -18,13 +18,13 @@
 			{
 				"command" : 0,
 				"file" : 0,
-				"line" : 93,
+				"line" : 81,
 				"parent" : 0
 			}
 		]
 	},
-	"id" : "run::@6890427a1f51a3e7e1df",
-	"name" : "run",
+	"id" : "brun::@6890427a1f51a3e7e1df",
+	"name" : "brun",
 	"paths" : 
 	{
 		"build" : ".",
@@ -52,13 +52,13 @@
 		{
 			"backtrace" : 1,
 			"isGenerated" : true,
-			"path" : "build/CMakeFiles/run",
+			"path" : "build/CMakeFiles/brun",
 			"sourceGroupIndex" : 0
 		},
 		{
 			"backtrace" : 0,
 			"isGenerated" : true,
-			"path" : "build/CMakeFiles/run.rule",
+			"path" : "build/CMakeFiles/brun.rule",
 			"sourceGroupIndex" : 1
 		}
 	],

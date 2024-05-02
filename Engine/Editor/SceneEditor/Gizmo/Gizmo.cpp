@@ -138,7 +138,7 @@ void GizmoPosition()
 
         if ((bool)selectedLight->isChild)
         {
-            auto it = std::find_if(lightsInfo.begin(), lightsInfo.end(), [selectedLight](const AdditionalLightInfo& light) {
+            auto it = std::find_if(lightsInfo.begin(), lightsInfo.end(), [&](const AdditionalLightInfo& light) {
                 return light.id == selectedLight->id;
             });
 

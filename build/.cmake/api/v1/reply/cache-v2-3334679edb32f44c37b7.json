@@ -15,7 +15,7 @@
 				}
 			],
 			"type" : "FILEPATH",
-			"value" : "/usr/bin/addr2line"
+			"value" : "C:/LLVM-MinGW/bin/llvm-addr2line.exe"
 		},
 		{
 			"name" : "CMAKE_AR",
@@ -31,7 +31,7 @@
 				}
 			],
 			"type" : "FILEPATH",
-			"value" : "/usr/bin/ar"
+			"value" : "C:/LLVM-MinGW/bin/llvm-ar.exe"
 		},
 		{
 			"name" : "CMAKE_BUILD_TYPE",
@@ -39,11 +39,11 @@
 			[
 				{
 					"name" : "HELPSTRING",
-					"value" : "No help, variable specified on the command line."
+					"value" : "Choose the type of build, options are: None Debug Release RelWithDebInfo MinSizeRel ..."
 				}
 			],
 			"type" : "STRING",
-			"value" : "Debug"
+			"value" : ""
 		},
 		{
 			"name" : "CMAKE_CACHEFILE_DIR",
@@ -55,7 +55,7 @@
 				}
 			],
 			"type" : "INTERNAL",
-			"value" : "/home/lixt/Desktop/projects/Lit Engine - engine/main/build"
+			"value" : "c:/Users/USER/Desktop/_/Lit-Engine/build"
 		},
 		{
 			"name" : "CMAKE_CACHE_MAJOR_VERSION",
@@ -79,7 +79,7 @@
 				}
 			],
 			"type" : "INTERNAL",
-			"value" : "22"
+			"value" : "27"
 		},
 		{
 			"name" : "CMAKE_CACHE_PATCH_VERSION",
@@ -94,6 +94,22 @@
 			"value" : "1"
 		},
 		{
+			"name" : "CMAKE_COLOR_MAKEFILE",
+			"properties" : 
+			[
+				{
+					"name" : "ADVANCED",
+					"value" : "1"
+				},
+				{
+					"name" : "HELPSTRING",
+					"value" : "Enable/Disable color output during build."
+				}
+			],
+			"type" : "BOOL",
+			"value" : "ON"
+		},
+		{
 			"name" : "CMAKE_COMMAND",
 			"properties" : 
 			[
@@ -103,7 +119,7 @@
 				}
 			],
 			"type" : "INTERNAL",
-			"value" : "/usr/bin/cmake"
+			"value" : "C:/Program Files/CMake/bin/cmake.exe"
 		},
 		{
 			"name" : "CMAKE_CPACK_COMMAND",
@@ -115,7 +131,7 @@
 				}
 			],
 			"type" : "INTERNAL",
-			"value" : "/usr/bin/cpack"
+			"value" : "C:/Program Files/CMake/bin/cpack.exe"
 		},
 		{
 			"name" : "CMAKE_CTEST_COMMAND",
@@ -127,7 +143,7 @@
 				}
 			],
 			"type" : "INTERNAL",
-			"value" : "/usr/bin/ctest"
+			"value" : "C:/Program Files/CMake/bin/ctest.exe"
 		},
 		{
 			"name" : "CMAKE_CXX_COMPILER",
@@ -142,8 +158,8 @@
 					"value" : "CXX compiler"
 				}
 			],
-			"type" : "STRING",
-			"value" : "/usr/bin/c++"
+			"type" : "FILEPATH",
+			"value" : "C:/LLVM-MinGW/bin/c++.exe"
 		},
 		{
 			"name" : "CMAKE_CXX_COMPILER_AR",
@@ -155,11 +171,27 @@
 				},
 				{
 					"name" : "HELPSTRING",
-					"value" : "A wrapper around 'ar' adding the appropriate '--plugin' option for the GCC compiler"
+					"value" : "LLVM archiver"
 				}
 			],
 			"type" : "FILEPATH",
-			"value" : "/usr/bin/gcc-ar-11"
+			"value" : "C:/LLVM-MinGW/bin/llvm-ar.exe"
+		},
+		{
+			"name" : "CMAKE_CXX_COMPILER_CLANG_SCAN_DEPS",
+			"properties" : 
+			[
+				{
+					"name" : "ADVANCED",
+					"value" : "1"
+				},
+				{
+					"name" : "HELPSTRING",
+					"value" : "`clang-scan-deps` dependency scanner"
+				}
+			],
+			"type" : "FILEPATH",
+			"value" : "CMAKE_CXX_COMPILER_CLANG_SCAN_DEPS-NOTFOUND"
 		},
 		{
 			"name" : "CMAKE_CXX_COMPILER_RANLIB",
@@ -171,11 +203,11 @@
 				},
 				{
 					"name" : "HELPSTRING",
-					"value" : "A wrapper around 'ranlib' adding the appropriate '--plugin' option for the GCC compiler"
+					"value" : "Generate index for LLVM archive"
 				}
 			],
 			"type" : "FILEPATH",
-			"value" : "/usr/bin/gcc-ranlib-11"
+			"value" : "C:/LLVM-MinGW/bin/llvm-ranlib.exe"
 		},
 		{
 			"name" : "CMAKE_CXX_FLAGS",
@@ -258,6 +290,22 @@
 			"value" : "-O2 -g -DNDEBUG"
 		},
 		{
+			"name" : "CMAKE_CXX_STANDARD_LIBRARIES",
+			"properties" : 
+			[
+				{
+					"name" : "ADVANCED",
+					"value" : "1"
+				},
+				{
+					"name" : "HELPSTRING",
+					"value" : "Libraries linked by default with all C++ applications."
+				}
+			],
+			"type" : "STRING",
+			"value" : "-lkernel32 -luser32 -lgdi32 -lwinspool -lshell32 -lole32 -loleaut32 -luuid -lcomdlg32 -ladvapi32"
+		},
+		{
 			"name" : "CMAKE_C_COMPILER",
 			"properties" : 
 			[
@@ -267,11 +315,11 @@
 				},
 				{
 					"name" : "HELPSTRING",
-					"value" : "No help, variable specified on the command line."
+					"value" : "C compiler"
 				}
 			],
 			"type" : "FILEPATH",
-			"value" : "/usr/bin/gcc-9"
+			"value" : "C:/LLVM-MinGW/bin/cc.exe"
 		},
 		{
 			"name" : "CMAKE_C_COMPILER_AR",
@@ -283,11 +331,27 @@
 				},
 				{
 					"name" : "HELPSTRING",
-					"value" : "A wrapper around 'ar' adding the appropriate '--plugin' option for the GCC compiler"
+					"value" : "LLVM archiver"
 				}
 			],
 			"type" : "FILEPATH",
-			"value" : "/usr/bin/gcc-ar-9"
+			"value" : "C:/LLVM-MinGW/bin/llvm-ar.exe"
+		},
+		{
+			"name" : "CMAKE_C_COMPILER_CLANG_SCAN_DEPS",
+			"properties" : 
+			[
+				{
+					"name" : "ADVANCED",
+					"value" : "1"
+				},
+				{
+					"name" : "HELPSTRING",
+					"value" : "`clang-scan-deps` dependency scanner"
+				}
+			],
+			"type" : "FILEPATH",
+			"value" : "CMAKE_C_COMPILER_CLANG_SCAN_DEPS-NOTFOUND"
 		},
 		{
 			"name" : "CMAKE_C_COMPILER_RANLIB",
@@ -299,11 +363,11 @@
 				},
 				{
 					"name" : "HELPSTRING",
-					"value" : "A wrapper around 'ranlib' adding the appropriate '--plugin' option for the GCC compiler"
+					"value" : "Generate index for LLVM archive"
 				}
 			],
 			"type" : "FILEPATH",
-			"value" : "/usr/bin/gcc-ranlib-9"
+			"value" : "C:/LLVM-MinGW/bin/llvm-ranlib.exe"
 		},
 		{
 			"name" : "CMAKE_C_FLAGS",
@@ -386,6 +450,22 @@
 			"value" : "-O2 -g -DNDEBUG"
 		},
 		{
+			"name" : "CMAKE_C_STANDARD_LIBRARIES",
+			"properties" : 
+			[
+				{
+					"name" : "ADVANCED",
+					"value" : "1"
+				},
+				{
+					"name" : "HELPSTRING",
+					"value" : "Libraries linked by default with all C applications."
+				}
+			],
+			"type" : "STRING",
+			"value" : "-lkernel32 -luser32 -lgdi32 -lwinspool -lshell32 -lole32 -loleaut32 -luuid -lcomdlg32 -ladvapi32"
+		},
+		{
 			"name" : "CMAKE_DLLTOOL",
 			"properties" : 
 			[
@@ -399,7 +479,19 @@
 				}
 			],
 			"type" : "FILEPATH",
-			"value" : "CMAKE_DLLTOOL-NOTFOUND"
+			"value" : "C:/LLVM-MinGW/bin/llvm-dlltool.exe"
+		},
+		{
+			"name" : "CMAKE_EDIT_COMMAND",
+			"properties" : 
+			[
+				{
+					"name" : "HELPSTRING",
+					"value" : "Path to cache edit program executable."
+				}
+			],
+			"type" : "INTERNAL",
+			"value" : "C:/Program Files/CMake/bin/cmake-gui.exe"
 		},
 		{
 			"name" : "CMAKE_EXECUTABLE_FORMAT",
@@ -411,7 +503,7 @@
 				}
 			],
 			"type" : "INTERNAL",
-			"value" : "ELF"
+			"value" : "Unknown"
 		},
 		{
 			"name" : "CMAKE_EXE_LINKER_FLAGS",
@@ -494,18 +586,6 @@
 			"value" : ""
 		},
 		{
-			"name" : "CMAKE_EXPORT_COMPILE_COMMANDS",
-			"properties" : 
-			[
-				{
-					"name" : "HELPSTRING",
-					"value" : "No help, variable specified on the command line."
-				}
-			],
-			"type" : "BOOL",
-			"value" : "TRUE"
-		},
-		{
 			"name" : "CMAKE_EXTRA_GENERATOR",
 			"properties" : 
 			[
@@ -518,6 +598,18 @@
 			"value" : ""
 		},
 		{
+			"name" : "CMAKE_FIND_PACKAGE_REDIRECTS_DIR",
+			"properties" : 
+			[
+				{
+					"name" : "HELPSTRING",
+					"value" : "Value Computed by CMake."
+				}
+			],
+			"type" : "STATIC",
+			"value" : "C:/Users/USER/Desktop/_/Lit-Engine/build/CMakeFiles/pkgRedirects"
+		},
+		{
 			"name" : "CMAKE_GENERATOR",
 			"properties" : 
 			[
@@ -527,7 +619,7 @@
 				}
 			],
 			"type" : "INTERNAL",
-			"value" : "Ninja"
+			"value" : "MinGW Makefiles"
 		},
 		{
 			"name" : "CMAKE_GENERATOR_INSTANCE",
@@ -566,6 +658,18 @@
 			"value" : ""
 		},
 		{
+			"name" : "CMAKE_GNUtoMS",
+			"properties" : 
+			[
+				{
+					"name" : "HELPSTRING",
+					"value" : "Convert GNU import libraries to MS format (requires Visual Studio)"
+				}
+			],
+			"type" : "BOOL",
+			"value" : "OFF"
+		},
+		{
 			"name" : "CMAKE_HOME_DIRECTORY",
 			"properties" : 
 			[
@@ -575,7 +679,7 @@
 				}
 			],
 			"type" : "INTERNAL",
-			"value" : "/home/lixt/Desktop/projects/Lit Engine - engine/main"
+			"value" : "C:/Users/USER/Desktop/_/Lit-Engine"
 		},
 		{
 			"name" : "CMAKE_INSTALL_PREFIX",
@@ -587,19 +691,7 @@
 				}
 			],
 			"type" : "PATH",
-			"value" : "/usr/local"
-		},
-		{
-			"name" : "CMAKE_INSTALL_SO_NO_EXE",
-			"properties" : 
-			[
-				{
-					"name" : "HELPSTRING",
-					"value" : "Install .so files without execute permission."
-				}
-			],
-			"type" : "INTERNAL",
-			"value" : "1"
+			"value" : "C:/Program Files (x86)/LitEngine"
 		},
 		{
 			"name" : "CMAKE_LINKER",
@@ -615,7 +707,7 @@
 				}
 			],
 			"type" : "FILEPATH",
-			"value" : "/usr/bin/ld"
+			"value" : "C:/LLVM-MinGW/bin/ld.lld.exe"
 		},
 		{
 			"name" : "CMAKE_MAKE_PROGRAM",
@@ -627,11 +719,11 @@
 				},
 				{
 					"name" : "HELPSTRING",
-					"value" : "Program used to build from build.ninja files."
+					"value" : "Path to a program."
 				}
 			],
 			"type" : "FILEPATH",
-			"value" : "/usr/bin/ninja"
+			"value" : "C:/LLVM-MinGW/bin/mingw32-make.exe"
 		},
 		{
 			"name" : "CMAKE_MODULE_LINKER_FLAGS",
@@ -727,7 +819,7 @@
 				}
 			],
 			"type" : "FILEPATH",
-			"value" : "/usr/bin/nm"
+			"value" : "C:/LLVM-MinGW/bin/llvm-nm.exe"
 		},
 		{
 			"name" : "CMAKE_NUMBER_OF_MAKEFILES",
@@ -755,7 +847,7 @@
 				}
 			],
 			"type" : "FILEPATH",
-			"value" : "/usr/bin/objcopy"
+			"value" : "C:/LLVM-MinGW/bin/llvm-objcopy.exe"
 		},
 		{
 			"name" : "CMAKE_OBJDUMP",
@@ -771,7 +863,7 @@
 				}
 			],
 			"type" : "FILEPATH",
-			"value" : "/usr/bin/objdump"
+			"value" : "C:/LLVM-MinGW/bin/llvm-objdump.exe"
 		},
 		{
 			"name" : "CMAKE_PLATFORM_INFO_INITIALIZED",
@@ -835,7 +927,115 @@
 				}
 			],
 			"type" : "FILEPATH",
-			"value" : "/usr/bin/ranlib"
+			"value" : "C:/LLVM-MinGW/bin/llvm-ranlib.exe"
+		},
+		{
+			"name" : "CMAKE_RC_COMPILER",
+			"properties" : 
+			[
+				{
+					"name" : "ADVANCED",
+					"value" : "1"
+				},
+				{
+					"name" : "HELPSTRING",
+					"value" : "RC compiler"
+				}
+			],
+			"type" : "FILEPATH",
+			"value" : "C:/LLVM-MinGW/bin/windres.exe"
+		},
+		{
+			"name" : "CMAKE_RC_COMPILER_WORKS",
+			"properties" : 
+			[
+				{
+					"name" : "HELPSTRING",
+					"value" : ""
+				}
+			],
+			"type" : "INTERNAL",
+			"value" : "1"
+		},
+		{
+			"name" : "CMAKE_RC_FLAGS",
+			"properties" : 
+			[
+				{
+					"name" : "ADVANCED",
+					"value" : "1"
+				},
+				{
+					"name" : "HELPSTRING",
+					"value" : "Flags for Windows Resource Compiler during all build types."
+				}
+			],
+			"type" : "STRING",
+			"value" : ""
+		},
+		{
+			"name" : "CMAKE_RC_FLAGS_DEBUG",
+			"properties" : 
+			[
+				{
+					"name" : "ADVANCED",
+					"value" : "1"
+				},
+				{
+					"name" : "HELPSTRING",
+					"value" : "Flags for Windows Resource Compiler during DEBUG builds."
+				}
+			],
+			"type" : "STRING",
+			"value" : ""
+		},
+		{
+			"name" : "CMAKE_RC_FLAGS_MINSIZEREL",
+			"properties" : 
+			[
+				{
+					"name" : "ADVANCED",
+					"value" : "1"
+				},
+				{
+					"name" : "HELPSTRING",
+					"value" : "Flags for Windows Resource Compiler during MINSIZEREL builds."
+				}
+			],
+			"type" : "STRING",
+			"value" : ""
+		},
+		{
+			"name" : "CMAKE_RC_FLAGS_RELEASE",
+			"properties" : 
+			[
+				{
+					"name" : "ADVANCED",
+					"value" : "1"
+				},
+				{
+					"name" : "HELPSTRING",
+					"value" : "Flags for Windows Resource Compiler during RELEASE builds."
+				}
+			],
+			"type" : "STRING",
+			"value" : ""
+		},
+		{
+			"name" : "CMAKE_RC_FLAGS_RELWITHDEBINFO",
+			"properties" : 
+			[
+				{
+					"name" : "ADVANCED",
+					"value" : "1"
+				},
+				{
+					"name" : "HELPSTRING",
+					"value" : "Flags for Windows Resource Compiler during RELWITHDEBINFO builds."
+				}
+			],
+			"type" : "STRING",
+			"value" : ""
 		},
 		{
 			"name" : "CMAKE_READELF",
@@ -851,7 +1051,7 @@
 				}
 			],
 			"type" : "FILEPATH",
-			"value" : "/usr/bin/readelf"
+			"value" : "C:/LLVM-MinGW/bin/llvm-readelf.exe"
 		},
 		{
 			"name" : "CMAKE_ROOT",
@@ -863,7 +1063,7 @@
 				}
 			],
 			"type" : "INTERNAL",
-			"value" : "/usr/share/cmake-3.22"
+			"value" : "C:/Program Files/CMake/share/cmake-3.27"
 		},
 		{
 			"name" : "CMAKE_SHARED_LINKER_FLAGS",
@@ -1071,19 +1271,23 @@
 				}
 			],
 			"type" : "FILEPATH",
-			"value" : "/usr/bin/strip"
+			"value" : "C:/LLVM-MinGW/bin/llvm-strip.exe"
 		},
 		{
-			"name" : "CMAKE_UNAME",
+			"name" : "CMAKE_TAPI",
 			"properties" : 
 			[
 				{
+					"name" : "ADVANCED",
+					"value" : "1"
+				},
+				{
 					"name" : "HELPSTRING",
-					"value" : "uname command"
+					"value" : "Path to a program."
 				}
 			],
-			"type" : "INTERNAL",
-			"value" : "/usr/bin/uname"
+			"type" : "FILEPATH",
+			"value" : "CMAKE_TAPI-NOTFOUND"
 		},
 		{
 			"name" : "CMAKE_VERBOSE_MAKEFILE",
@@ -1111,7 +1315,7 @@
 				}
 			],
 			"type" : "INTERNAL",
-			"value" : "[/usr/include/python3.10][/usr/lib/x86_64-linux-gnu/libpython3.10.so][cfound components: Development Development.Module Development.Embed ][v3.10.12()]"
+			"value" : "[C:/Users/USER/AppData/Local/Programs/Python/Python311/libs/python311.lib][C:/Users/USER/AppData/Local/Programs/Python/Python311/include][cfound components: Development Development.Module Development.Embed ][v3.11.4()]"
 		},
 		{
 			"name" : "LitEngine_BINARY_DIR",
@@ -1123,7 +1327,7 @@
 				}
 			],
 			"type" : "STATIC",
-			"value" : "/home/lixt/Desktop/projects/Lit Engine - engine/main/build"
+			"value" : "C:/Users/USER/Desktop/_/Lit-Engine/build"
 		},
 		{
 			"name" : "LitEngine_IS_TOP_LEVEL",
@@ -1147,7 +1351,19 @@
 				}
 			],
 			"type" : "STATIC",
-			"value" : "/home/lixt/Desktop/projects/Lit Engine - engine/main"
+			"value" : "C:/Users/USER/Desktop/_/Lit-Engine"
+		},
+		{
+			"name" : "_CMAKE_LINKER_PUSHPOP_STATE_SUPPORTED",
+			"properties" : 
+			[
+				{
+					"name" : "HELPSTRING",
+					"value" : "linker supports push/pop state"
+				}
+			],
+			"type" : "INTERNAL",
+			"value" : "FALSE"
 		},
 		{
 			"name" : "_Python3_CONFIG",
@@ -1159,7 +1375,19 @@
 				}
 			],
 			"type" : "INTERNAL",
-			"value" : "/usr/bin/x86_64-linux-gnu-python3.10-config"
+			"value" : "_Python3_CONFIG-NOTFOUND"
+		},
+		{
+			"name" : "_Python3_Compiler_REASON_FAILURE",
+			"properties" : 
+			[
+				{
+					"name" : "HELPSTRING",
+					"value" : "Compiler reason failure"
+				}
+			],
+			"type" : "INTERNAL",
+			"value" : ""
 		},
 		{
 			"name" : "_Python3_DEVELOPMENT_EMBED_SIGNATURE",
@@ -1171,7 +1399,7 @@
 				}
 			],
 			"type" : "INTERNAL",
-			"value" : "dda1c5a898074ddd86cc57d4f1aa6e4f"
+			"value" : "7947faec699aa786df041b86a6013997"
 		},
 		{
 			"name" : "_Python3_DEVELOPMENT_MODULE_SIGNATURE",
@@ -1183,7 +1411,19 @@
 				}
 			],
 			"type" : "INTERNAL",
-			"value" : "c5a4196440ec27af21f23fe28f108fb0"
+			"value" : "7947faec699aa786df041b86a6013997"
+		},
+		{
+			"name" : "_Python3_Development_REASON_FAILURE",
+			"properties" : 
+			[
+				{
+					"name" : "HELPSTRING",
+					"value" : "Development reason failure"
+				}
+			],
+			"type" : "INTERNAL",
+			"value" : ""
 		},
 		{
 			"name" : "_Python3_INCLUDE_DIR",
@@ -1195,7 +1435,31 @@
 				}
 			],
 			"type" : "INTERNAL",
-			"value" : "/usr/include/python3.10"
+			"value" : "C:/Users/USER/AppData/Local/Programs/Python/Python311/include"
+		},
+		{
+			"name" : "_Python3_Interpreter_REASON_FAILURE",
+			"properties" : 
+			[
+				{
+					"name" : "HELPSTRING",
+					"value" : "Interpreter reason failure"
+				}
+			],
+			"type" : "INTERNAL",
+			"value" : ""
+		},
+		{
+			"name" : "_Python3_LIBRARY_DEBUG",
+			"properties" : 
+			[
+				{
+					"name" : "HELPSTRING",
+					"value" : "Path to a library."
+				}
+			],
+			"type" : "INTERNAL",
+			"value" : "_Python3_LIBRARY_DEBUG-NOTFOUND"
 		},
 		{
 			"name" : "_Python3_LIBRARY_RELEASE",
@@ -1207,7 +1471,31 @@
 				}
 			],
 			"type" : "INTERNAL",
-			"value" : "/usr/lib/x86_64-linux-gnu/libpython3.10.so"
+			"value" : "C:/Users/USER/AppData/Local/Programs/Python/Python311/libs/python311.lib"
+		},
+		{
+			"name" : "_Python3_NumPy_REASON_FAILURE",
+			"properties" : 
+			[
+				{
+					"name" : "HELPSTRING",
+					"value" : "NumPy reason failure"
+				}
+			],
+			"type" : "INTERNAL",
+			"value" : ""
+		},
+		{
+			"name" : "_Python3_RUNTIME_LIBRARY_RELEASE",
+			"properties" : 
+			[
+				{
+					"name" : "HELPSTRING",
+					"value" : "Path to a library."
+				}
+			],
+			"type" : "INTERNAL",
+			"value" : "C:/Users/USER/AppData/Local/Programs/Python/Python311/python311.dll"
 		}
 	],
 	"kind" : "cache",

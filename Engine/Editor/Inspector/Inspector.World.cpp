@@ -143,7 +143,7 @@ void WorldInspector()
                     fs::path path = dirPath.string();
                     path += "/" + filesTextureStruct[payload_n].name;
 
-                    InitSkybox(path.c_str());
+                    InitSkybox(path.string().c_str());
                 }
                 ImGui::EndDragDropTarget();
             }
