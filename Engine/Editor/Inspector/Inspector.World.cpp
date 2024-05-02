@@ -10,13 +10,13 @@ void WorldInspector()
     ImGui::Spacing();
     ImGui::SetNextItemWidth(-1);
 
-    if (ImGui::CollapsingHeader((std::string(ICON_FA_FILTER) + " Post Processing").c_str(), ImGuiTreeNodeFlags_DefaultOpen))
+    if (ImGui::CollapsingHeader((std::string(ICON_FA_FILTER) + " Post Processing").c_str(), false))
     {
         ImGui::Indent(20.0f);
 
         // Bloom Panel
         ImGui::SetNextItemWidth(-1);
-        if (ImGui::CollapsingHeader(ICON_FA_STAR " Bloom", ImGuiTreeNodeFlags_DefaultOpen))
+        if (ImGui::CollapsingHeader(ICON_FA_STAR " Bloom", false))
         {
             ImGui::Indent(20.0f);
 
@@ -57,14 +57,14 @@ void WorldInspector()
     ImGui::Spacing();
     ImGui::SetNextItemWidth(-1);
 
-    if (ImGui::CollapsingHeader(ICON_FA_LIGHTBULB " Lighting", ImGuiTreeNodeFlags_DefaultOpen))
+    if (ImGui::CollapsingHeader(ICON_FA_LIGHTBULB " Lighting", false))
     {
         ImGui::Indent(20.0f);
 
         // Ambient Light Panel
         ImGui::SetNextItemWidth(-1);
 
-        if (ImGui::CollapsingHeader(ICON_FA_SUN " Ambient Light", ImGuiTreeNodeFlags_DefaultOpen))
+        if (ImGui::CollapsingHeader(ICON_FA_SUN " Ambient Light", false))
         {
             ImGui::Indent(20.0f);
 
@@ -99,7 +99,7 @@ void WorldInspector()
 
         // Skybox Panel
         ImGui::SetNextItemWidth(-1);
-        if (ImGui::CollapsingHeader(ICON_FA_CLOUD " Skybox", ImGuiTreeNodeFlags_DefaultOpen))
+        if (ImGui::CollapsingHeader(ICON_FA_CLOUD " Skybox", false))
         {
             ImGui::Indent(20.0f);
 
@@ -154,8 +154,6 @@ void WorldInspector()
                 InitSkybox();
             }
 
-
-
             ImGui::Unindent(20.0f);
 
             ImGui::Unindent(20.0f);
@@ -167,7 +165,7 @@ void WorldInspector()
     ImGui::Spacing();
     ImGui::SetNextItemWidth(-1);
 
-    if (ImGui::CollapsingHeader(ICON_FA_GLOBE " Physics", ImGuiTreeNodeFlags_DefaultOpen))
+    if (ImGui::CollapsingHeader(ICON_FA_GLOBE " Physics", false))
     {
         ImGui::Indent(20.0f);
 

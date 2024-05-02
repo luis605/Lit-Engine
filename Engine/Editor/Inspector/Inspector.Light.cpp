@@ -10,7 +10,7 @@ void LightInspector()
 
     ImGui::Dummy(ImVec2(0.0f, 15.0f));
 
-    if (ImGui::CollapsingHeader(ICON_FA_SLIDERS " Light Properties")) {
+    if (ImGui::CollapsingHeader(ICON_FA_SLIDERS " Light Properties", false)) {
         ImGui::Indent(30.0f);
 
         ImVec4 light_colorImGui = ImVec4(

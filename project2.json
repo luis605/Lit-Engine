@@ -1,0 +1,1573 @@
+[
+    {
+        "fovy": 60.0,
+        "position": {
+            "x": -13.049833297729492,
+            "y": 54.707881927490234,
+            "z": -142.7009735107422
+        },
+        "projection": 0,
+        "target": {
+            "x": -11.253683090209961,
+            "y": 52.2601203918457,
+            "z": -132.9654541015625
+        },
+        "type": "camera",
+        "up": {
+            "x": 0.0,
+            "y": 1.0,
+            "z": 0.0
+        }
+    },
+    {
+        "ambientColor": {
+            "w": 1.0,
+            "x": 1.0,
+            "y": 1.0,
+            "z": 1.0
+        },
+        "bloom": false,
+        "bloomBrightness": 0.0,
+        "bloomSamples": 3.0,
+        "skyboxColor": {
+            "w": 1.0,
+            "x": 0.5163043737411499,
+            "y": 0.5163043737411499,
+            "z": 0.5163043737411499
+        },
+        "skyboxPath": "project/game/textures/skybox/kloofendal_misty_morning_puresky_2k.hdr",
+        "type": "world settings"
+    },
+    {
+        "collider": true,
+        "collider_type": 2,
+        "damping": 0.0,
+        "friction": 1.0,
+        "id": 0,
+        "is_dynamic": false,
+        "lodEnabled": true,
+        "mass": 1.0,
+        "material_path": "project/game/materials/sand.mat",
+        "model_path": "project/game/models/sand.obj",
+        "name": "desert",
+        "normalTexturePath": "project/game/textures/desert/as_normal.png",
+        "position": {
+            "x": 0.0,
+            "y": 0.0,
+            "z": 0.0
+        },
+        "relativePosition": {
+            "x": 0.0,
+            "y": 0.0,
+            "z": 0.0
+        },
+        "rotation": {
+            "x": 0.10000000149011612,
+            "y": 0.10000007599592209,
+            "z": 0.0
+        },
+        "roughnessTexturePath": "project/game/textures/desert/as_ao.png",
+        "scale": {
+            "x": 100.0,
+            "y": 100.0,
+            "z": 100.0
+        },
+        "scriptIndex": "",
+        "script_path": "",
+        "surfaceMaterial": {
+            "DiffuseIntensity": 0.49399998784065247,
+            "Roughness": 0.0,
+            "SpecularIntensity": 0.0,
+            "SpecularTint": {
+                "x": 1.0,
+                "y": 1.0,
+                "z": 1.0
+            },
+            "shininess": 0.5
+        },
+        "texturePath": "",
+        "tiling": [
+            1.0,
+            1.0
+        ],
+        "type": "entity"
+    },
+    {
+        "collider": true,
+        "collider_type": 2,
+        "damping": 0.0,
+        "friction": 1.0,
+        "id": 1,
+        "is_dynamic": false,
+        "lodEnabled": false,
+        "mass": 1.0,
+        "material_path": "project/game/materials/cactus.mat",
+        "model_path": "project/game/models/cactus.obj",
+        "name": "cactus",
+        "normalTexturePath": "project/game/textures/cactus/normal.png",
+        "position": {
+            "x": 0.0,
+            "y": 10.600004196166992,
+            "z": 1.0
+        },
+        "relativePosition": {
+            "x": 0.0,
+            "y": 0.0,
+            "z": 0.0
+        },
+        "rotation": {
+            "x": 0.0,
+            "y": 0.0,
+            "z": 0.0
+        },
+        "roughnessTexturePath": "project/game/textures/cactus/ao.png",
+        "scale": {
+            "x": 1.0,
+            "y": 1.0,
+            "z": 1.0
+        },
+        "scriptIndex": "",
+        "script_path": "",
+        "surfaceMaterial": {
+            "DiffuseIntensity": 0.5,
+            "Roughness": 0.5,
+            "SpecularIntensity": 0.5,
+            "SpecularTint": {
+                "x": 1.0,
+                "y": 1.0,
+                "z": 1.0
+            },
+            "shininess": 0.5
+        },
+        "texturePath": "project/game/textures/cactus/diffuse.png",
+        "tiling": [
+            1.0,
+            1.0
+        ],
+        "type": "entity"
+    },
+    {
+        "collider": true,
+        "collider_type": 2,
+        "damping": 0.0,
+        "friction": 1.0,
+        "id": 1,
+        "is_dynamic": false,
+        "lodEnabled": false,
+        "mass": 1.0,
+        "material_path": "project/game/materials/cactus.mat",
+        "model_path": "project/game/models/cactus.obj",
+        "name": "cactus",
+        "normalTexturePath": "project/game/textures/cactus/normal.png",
+        "position": {
+            "x": 13.30001449584961,
+            "y": 10.600004196166992,
+            "z": 1.0
+        },
+        "relativePosition": {
+            "x": 0.0,
+            "y": 0.0,
+            "z": 0.0
+        },
+        "rotation": {
+            "x": -11.800008773803711,
+            "y": -37.5,
+            "z": 0.0
+        },
+        "roughnessTexturePath": "project/game/textures/cactus/ao.png",
+        "scale": {
+            "x": 1.0,
+            "y": 1.0,
+            "z": 1.0
+        },
+        "scriptIndex": "",
+        "script_path": "",
+        "surfaceMaterial": {
+            "DiffuseIntensity": 0.5,
+            "Roughness": 0.5,
+            "SpecularIntensity": 0.5,
+            "SpecularTint": {
+                "x": 1.0,
+                "y": 1.0,
+                "z": 1.0
+            },
+            "shininess": 0.5
+        },
+        "texturePath": "project/game/textures/cactus/diffuse.png",
+        "tiling": [
+            1.0,
+            1.0
+        ],
+        "type": "entity"
+    },
+    {
+        "collider": true,
+        "collider_type": 2,
+        "damping": 0.0,
+        "friction": 1.0,
+        "id": 1,
+        "is_dynamic": false,
+        "lodEnabled": false,
+        "mass": 1.0,
+        "material_path": "project/game/materials/cactus.mat",
+        "model_path": "project/game/models/cactus.obj",
+        "name": "cactus",
+        "normalTexturePath": "project/game/textures/cactus/normal.png",
+        "position": {
+            "x": -200.0,
+            "y": 3.799999713897705,
+            "z": -166.20101928710938
+        },
+        "relativePosition": {
+            "x": 0.0,
+            "y": 0.0,
+            "z": 0.0
+        },
+        "rotation": {
+            "x": -11.800008773803711,
+            "y": -37.5,
+            "z": 0.0
+        },
+        "roughnessTexturePath": "project/game/textures/cactus/ao.png",
+        "scale": {
+            "x": 1.0,
+            "y": 1.0,
+            "z": 1.0
+        },
+        "scriptIndex": "",
+        "script_path": "",
+        "surfaceMaterial": {
+            "DiffuseIntensity": 0.5,
+            "Roughness": 0.5,
+            "SpecularIntensity": 0.5,
+            "SpecularTint": {
+                "x": 1.0,
+                "y": 1.0,
+                "z": 1.0
+            },
+            "shininess": 0.5
+        },
+        "texturePath": "project/game/textures/cactus/diffuse.png",
+        "tiling": [
+            1.0,
+            1.0
+        ],
+        "type": "entity"
+    },
+    {
+        "collider": true,
+        "collider_type": 2,
+        "damping": 0.0,
+        "friction": 1.0,
+        "id": 2,
+        "is_dynamic": false,
+        "lodEnabled": false,
+        "mass": 1.0,
+        "material_path": "project/game/materials/cactus.mat",
+        "model_path": "project/game/models/cactus.obj",
+        "name": "cactus",
+        "normalTexturePath": "project/game/textures/cactus/normal.png",
+        "position": {
+            "x": 13.30001449584961,
+            "y": 10.600004196166992,
+            "z": -7.99999475479126
+        },
+        "relativePosition": {
+            "x": 0.0,
+            "y": 0.0,
+            "z": 0.0
+        },
+        "rotation": {
+            "x": -11.800008773803711,
+            "y": -37.5,
+            "z": 0.0
+        },
+        "roughnessTexturePath": "project/game/textures/cactus/ao.png",
+        "scale": {
+            "x": 1.0,
+            "y": 1.0,
+            "z": 1.0
+        },
+        "scriptIndex": "",
+        "script_path": "",
+        "surfaceMaterial": {
+            "DiffuseIntensity": 0.5,
+            "Roughness": 0.5,
+            "SpecularIntensity": 0.5,
+            "SpecularTint": {
+                "x": 1.0,
+                "y": 1.0,
+                "z": 1.0
+            },
+            "shininess": 0.5
+        },
+        "texturePath": "project/game/textures/cactus/diffuse.png",
+        "tiling": [
+            1.0,
+            1.0
+        ],
+        "type": "entity"
+    },
+    {
+        "collider": true,
+        "collider_type": 2,
+        "damping": 0.0,
+        "friction": 1.0,
+        "id": 3,
+        "is_dynamic": false,
+        "lodEnabled": false,
+        "mass": 1.0,
+        "material_path": "project/game/materials/cactus.mat",
+        "model_path": "project/game/models/cactus.obj",
+        "name": "cactus",
+        "normalTexturePath": "project/game/textures/cactus/normal.png",
+        "position": {
+            "x": 25.400060653686523,
+            "y": 10.600004196166992,
+            "z": -10.700004577636719
+        },
+        "relativePosition": {
+            "x": 0.0,
+            "y": 0.0,
+            "z": 0.0
+        },
+        "rotation": {
+            "x": -11.800008773803711,
+            "y": -37.5,
+            "z": 0.0
+        },
+        "roughnessTexturePath": "project/game/textures/cactus/ao.png",
+        "scale": {
+            "x": 1.0,
+            "y": 1.0,
+            "z": 1.0
+        },
+        "scriptIndex": "",
+        "script_path": "",
+        "surfaceMaterial": {
+            "DiffuseIntensity": 0.5,
+            "Roughness": 0.5,
+            "SpecularIntensity": 0.5,
+            "SpecularTint": {
+                "x": 1.0,
+                "y": 1.0,
+                "z": 1.0
+            },
+            "shininess": 0.5
+        },
+        "texturePath": "project/game/textures/cactus/diffuse.png",
+        "tiling": [
+            1.0,
+            1.0
+        ],
+        "type": "entity"
+    },
+    {
+        "collider": true,
+        "collider_type": 2,
+        "damping": 0.0,
+        "friction": 1.0,
+        "id": 4,
+        "is_dynamic": false,
+        "lodEnabled": false,
+        "mass": 1.0,
+        "material_path": "project/game/materials/cactus.mat",
+        "model_path": "project/game/models/cactus.obj",
+        "name": "cactus",
+        "normalTexturePath": "project/game/textures/cactus/normal.png",
+        "position": {
+            "x": 1.79999840259552,
+            "y": 10.600004196166992,
+            "z": -10.400003433227539
+        },
+        "relativePosition": {
+            "x": 0.0,
+            "y": 0.0,
+            "z": 0.0
+        },
+        "rotation": {
+            "x": -11.800008773803711,
+            "y": -37.5,
+            "z": 0.0
+        },
+        "roughnessTexturePath": "project/game/textures/cactus/ao.png",
+        "scale": {
+            "x": 1.0,
+            "y": 1.0,
+            "z": 1.0
+        },
+        "scriptIndex": "",
+        "script_path": "",
+        "surfaceMaterial": {
+            "DiffuseIntensity": 0.5,
+            "Roughness": 0.5,
+            "SpecularIntensity": 0.5,
+            "SpecularTint": {
+                "x": 1.0,
+                "y": 1.0,
+                "z": 1.0
+            },
+            "shininess": 0.5
+        },
+        "texturePath": "project/game/textures/cactus/diffuse.png",
+        "tiling": [
+            1.0,
+            1.0
+        ],
+        "type": "entity"
+    },
+    {
+        "collider": true,
+        "collider_type": 2,
+        "damping": 0.0,
+        "friction": 1.0,
+        "id": 5,
+        "is_dynamic": false,
+        "lodEnabled": false,
+        "mass": 1.0,
+        "material_path": "project/game/materials/cactus.mat",
+        "model_path": "project/game/models/cactus.obj",
+        "name": "cactus",
+        "normalTexturePath": "project/game/textures/cactus/normal.png",
+        "position": {
+            "x": 6.899993896484375,
+            "y": 10.600004196166992,
+            "z": -13.00001335144043
+        },
+        "relativePosition": {
+            "x": 0.0,
+            "y": 0.0,
+            "z": 0.0
+        },
+        "rotation": {
+            "x": -11.800008773803711,
+            "y": -37.5,
+            "z": 0.0
+        },
+        "roughnessTexturePath": "project/game/textures/cactus/ao.png",
+        "scale": {
+            "x": 1.0,
+            "y": 1.0,
+            "z": 1.0
+        },
+        "scriptIndex": "",
+        "script_path": "",
+        "surfaceMaterial": {
+            "DiffuseIntensity": 0.5,
+            "Roughness": 0.5,
+            "SpecularIntensity": 0.5,
+            "SpecularTint": {
+                "x": 1.0,
+                "y": 1.0,
+                "z": 1.0
+            },
+            "shininess": 0.5
+        },
+        "texturePath": "project/game/textures/cactus/diffuse.png",
+        "tiling": [
+            1.0,
+            1.0
+        ],
+        "type": "entity"
+    },
+    {
+        "collider": true,
+        "collider_type": 2,
+        "damping": 0.0,
+        "friction": 1.0,
+        "id": 6,
+        "is_dynamic": false,
+        "lodEnabled": false,
+        "mass": 1.0,
+        "material_path": "project/game/materials/cactus.mat",
+        "model_path": "project/game/models/cactus.obj",
+        "name": "cactus",
+        "normalTexturePath": "project/game/textures/cactus/normal.png",
+        "position": {
+            "x": -0.8000019192695618,
+            "y": 10.600004196166992,
+            "z": -13.00001335144043
+        },
+        "relativePosition": {
+            "x": 0.0,
+            "y": 0.0,
+            "z": 0.0
+        },
+        "rotation": {
+            "x": -11.800008773803711,
+            "y": -37.5,
+            "z": 0.0
+        },
+        "roughnessTexturePath": "project/game/textures/cactus/ao.png",
+        "scale": {
+            "x": 1.0,
+            "y": 1.0,
+            "z": 1.0
+        },
+        "scriptIndex": "",
+        "script_path": "",
+        "surfaceMaterial": {
+            "DiffuseIntensity": 0.5,
+            "Roughness": 0.5,
+            "SpecularIntensity": 0.5,
+            "SpecularTint": {
+                "x": 1.0,
+                "y": 1.0,
+                "z": 1.0
+            },
+            "shininess": 0.5
+        },
+        "texturePath": "project/game/textures/cactus/diffuse.png",
+        "tiling": [
+            1.0,
+            1.0
+        ],
+        "type": "entity"
+    },
+    {
+        "collider": true,
+        "collider_type": 2,
+        "damping": 0.0,
+        "friction": 1.0,
+        "id": 7,
+        "is_dynamic": false,
+        "lodEnabled": false,
+        "mass": 1.0,
+        "material_path": "project/game/materials/cactus.mat",
+        "model_path": "project/game/models/cactus.obj",
+        "name": "cactus",
+        "normalTexturePath": "project/game/textures/cactus/normal.png",
+        "position": {
+            "x": -0.8000019192695618,
+            "y": 10.600004196166992,
+            "z": 6.199993133544922
+        },
+        "relativePosition": {
+            "x": 0.0,
+            "y": 0.0,
+            "z": 0.0
+        },
+        "rotation": {
+            "x": -11.800008773803711,
+            "y": -37.5,
+            "z": 0.0
+        },
+        "roughnessTexturePath": "project/game/textures/cactus/ao.png",
+        "scale": {
+            "x": 1.0,
+            "y": 1.0,
+            "z": 1.0
+        },
+        "scriptIndex": "",
+        "script_path": "",
+        "surfaceMaterial": {
+            "DiffuseIntensity": 0.5,
+            "Roughness": 0.5,
+            "SpecularIntensity": 0.5,
+            "SpecularTint": {
+                "x": 1.0,
+                "y": 1.0,
+                "z": 1.0
+            },
+            "shininess": 0.5
+        },
+        "texturePath": "project/game/textures/cactus/diffuse.png",
+        "tiling": [
+            1.0,
+            1.0
+        ],
+        "type": "entity"
+    },
+    {
+        "collider": true,
+        "collider_type": 2,
+        "damping": 0.0,
+        "friction": 1.0,
+        "id": 8,
+        "is_dynamic": false,
+        "lodEnabled": false,
+        "mass": 1.0,
+        "material_path": "project/game/materials/cactus.mat",
+        "model_path": "project/game/models/cactus.obj",
+        "name": "cactus",
+        "normalTexturePath": "project/game/textures/cactus/normal.png",
+        "position": {
+            "x": 19.30003547668457,
+            "y": 10.600004196166992,
+            "z": -5.000000953674316
+        },
+        "relativePosition": {
+            "x": 0.0,
+            "y": 0.0,
+            "z": 0.0
+        },
+        "rotation": {
+            "x": -11.800008773803711,
+            "y": -37.5,
+            "z": 0.0
+        },
+        "roughnessTexturePath": "project/game/textures/cactus/ao.png",
+        "scale": {
+            "x": 1.0,
+            "y": 1.0,
+            "z": 1.0
+        },
+        "scriptIndex": "",
+        "script_path": "",
+        "surfaceMaterial": {
+            "DiffuseIntensity": 0.5,
+            "Roughness": 0.5,
+            "SpecularIntensity": 0.5,
+            "SpecularTint": {
+                "x": 1.0,
+                "y": 1.0,
+                "z": 1.0
+            },
+            "shininess": 0.5
+        },
+        "texturePath": "project/game/textures/cactus/diffuse.png",
+        "tiling": [
+            1.0,
+            1.0
+        ],
+        "type": "entity"
+    },
+    {
+        "collider": true,
+        "collider_type": 2,
+        "damping": 0.0,
+        "friction": 1.0,
+        "id": 9,
+        "is_dynamic": false,
+        "lodEnabled": false,
+        "mass": 1.0,
+        "material_path": "project/game/materials/cactus.mat",
+        "model_path": "project/game/models/cactus.obj",
+        "name": "cactus",
+        "normalTexturePath": "project/game/textures/cactus/normal.png",
+        "position": {
+            "x": 25.400060653686523,
+            "y": 10.600004196166992,
+            "z": -18.4000301361084
+        },
+        "relativePosition": {
+            "x": 0.0,
+            "y": 0.0,
+            "z": 0.0
+        },
+        "rotation": {
+            "x": -11.800008773803711,
+            "y": -37.5,
+            "z": 0.0
+        },
+        "roughnessTexturePath": "project/game/textures/cactus/ao.png",
+        "scale": {
+            "x": 1.0,
+            "y": 1.0,
+            "z": 1.0
+        },
+        "scriptIndex": "",
+        "script_path": "",
+        "surfaceMaterial": {
+            "DiffuseIntensity": 0.5,
+            "Roughness": 0.5,
+            "SpecularIntensity": 0.5,
+            "SpecularTint": {
+                "x": 1.0,
+                "y": 1.0,
+                "z": 1.0
+            },
+            "shininess": 0.5
+        },
+        "texturePath": "project/game/textures/cactus/diffuse.png",
+        "tiling": [
+            1.0,
+            1.0
+        ],
+        "type": "entity"
+    },
+    {
+        "collider": true,
+        "collider_type": 2,
+        "damping": 0.0,
+        "friction": 1.0,
+        "id": 10,
+        "is_dynamic": false,
+        "lodEnabled": false,
+        "mass": 1.0,
+        "material_path": "project/game/materials/cactus.mat",
+        "model_path": "project/game/models/cactus.obj",
+        "name": "cactus",
+        "normalTexturePath": "project/game/textures/cactus/normal.png",
+        "position": {
+            "x": 18.50003433227539,
+            "y": 10.600004196166992,
+            "z": -18.4000301361084
+        },
+        "relativePosition": {
+            "x": 0.0,
+            "y": 0.0,
+            "z": 0.0
+        },
+        "rotation": {
+            "x": -11.800008773803711,
+            "y": -37.5,
+            "z": 0.0
+        },
+        "roughnessTexturePath": "project/game/textures/cactus/ao.png",
+        "scale": {
+            "x": 1.0,
+            "y": 1.0,
+            "z": 1.0
+        },
+        "scriptIndex": "",
+        "script_path": "",
+        "surfaceMaterial": {
+            "DiffuseIntensity": 0.5,
+            "Roughness": 0.5,
+            "SpecularIntensity": 0.5,
+            "SpecularTint": {
+                "x": 1.0,
+                "y": 1.0,
+                "z": 1.0
+            },
+            "shininess": 0.5
+        },
+        "texturePath": "project/game/textures/cactus/diffuse.png",
+        "tiling": [
+            1.0,
+            1.0
+        ],
+        "type": "entity"
+    },
+    {
+        "collider": true,
+        "collider_type": 2,
+        "damping": 0.0,
+        "friction": 1.0,
+        "id": 11,
+        "is_dynamic": false,
+        "lodEnabled": false,
+        "mass": 1.0,
+        "material_path": "project/game/materials/cactus.mat",
+        "model_path": "project/game/models/cactus.obj",
+        "name": "cactus",
+        "normalTexturePath": "project/game/textures/cactus/normal.png",
+        "position": {
+            "x": 1.2000300884246826,
+            "y": 10.600004196166992,
+            "z": -18.4000301361084
+        },
+        "relativePosition": {
+            "x": 0.0,
+            "y": 0.0,
+            "z": 0.0
+        },
+        "rotation": {
+            "x": -11.800008773803711,
+            "y": -37.5,
+            "z": 0.0
+        },
+        "roughnessTexturePath": "project/game/textures/cactus/ao.png",
+        "scale": {
+            "x": 1.0,
+            "y": 1.0,
+            "z": 1.0
+        },
+        "scriptIndex": "",
+        "script_path": "",
+        "surfaceMaterial": {
+            "DiffuseIntensity": 0.5,
+            "Roughness": 0.5,
+            "SpecularIntensity": 0.5,
+            "SpecularTint": {
+                "x": 1.0,
+                "y": 1.0,
+                "z": 1.0
+            },
+            "shininess": 0.5
+        },
+        "texturePath": "project/game/textures/cactus/diffuse.png",
+        "tiling": [
+            1.0,
+            1.0
+        ],
+        "type": "entity"
+    },
+    {
+        "collider": true,
+        "collider_type": 2,
+        "damping": 0.0,
+        "friction": 1.0,
+        "id": 12,
+        "is_dynamic": false,
+        "lodEnabled": false,
+        "mass": 1.0,
+        "material_path": "project/game/materials/cactus.mat",
+        "model_path": "project/game/models/cactus.obj",
+        "name": "cactus",
+        "normalTexturePath": "project/game/textures/cactus/normal.png",
+        "position": {
+            "x": 12.600011825561523,
+            "y": 10.600004196166992,
+            "z": -18.4000301361084
+        },
+        "relativePosition": {
+            "x": 0.0,
+            "y": 0.0,
+            "z": 0.0
+        },
+        "rotation": {
+            "x": -11.800008773803711,
+            "y": -37.5,
+            "z": 0.0
+        },
+        "roughnessTexturePath": "project/game/textures/cactus/ao.png",
+        "scale": {
+            "x": 1.0,
+            "y": 1.0,
+            "z": 1.0
+        },
+        "scriptIndex": "",
+        "script_path": "",
+        "surfaceMaterial": {
+            "DiffuseIntensity": 0.5,
+            "Roughness": 0.5,
+            "SpecularIntensity": 0.5,
+            "SpecularTint": {
+                "x": 1.0,
+                "y": 1.0,
+                "z": 1.0
+            },
+            "shininess": 0.5
+        },
+        "texturePath": "project/game/textures/cactus/diffuse.png",
+        "tiling": [
+            1.0,
+            1.0
+        ],
+        "type": "entity"
+    },
+    {
+        "collider": true,
+        "collider_type": 2,
+        "damping": 0.0,
+        "friction": 1.0,
+        "id": 13,
+        "is_dynamic": false,
+        "lodEnabled": false,
+        "mass": 1.0,
+        "material_path": "project/game/materials/cactus.mat",
+        "model_path": "project/game/models/cactus.obj",
+        "name": "cactus",
+        "normalTexturePath": "project/game/textures/cactus/normal.png",
+        "position": {
+            "x": 18.50003433227539,
+            "y": 10.600004196166992,
+            "z": -25.30005645751953
+        },
+        "relativePosition": {
+            "x": 0.0,
+            "y": 0.0,
+            "z": 0.0
+        },
+        "rotation": {
+            "x": -11.800008773803711,
+            "y": -37.5,
+            "z": 0.0
+        },
+        "roughnessTexturePath": "project/game/textures/cactus/ao.png",
+        "scale": {
+            "x": 1.0,
+            "y": 1.0,
+            "z": 1.0
+        },
+        "scriptIndex": "",
+        "script_path": "",
+        "surfaceMaterial": {
+            "DiffuseIntensity": 0.5,
+            "Roughness": 0.5,
+            "SpecularIntensity": 0.5,
+            "SpecularTint": {
+                "x": 1.0,
+                "y": 1.0,
+                "z": 1.0
+            },
+            "shininess": 0.5
+        },
+        "texturePath": "project/game/textures/cactus/diffuse.png",
+        "tiling": [
+            1.0,
+            1.0
+        ],
+        "type": "entity"
+    },
+    {
+        "collider": true,
+        "collider_type": 2,
+        "damping": 0.0,
+        "friction": 1.0,
+        "id": 14,
+        "is_dynamic": false,
+        "lodEnabled": false,
+        "mass": 1.0,
+        "material_path": "project/game/materials/cactus.mat",
+        "model_path": "project/game/models/cactus.obj",
+        "name": "cactus",
+        "normalTexturePath": "project/game/textures/cactus/normal.png",
+        "position": {
+            "x": 10.200002670288086,
+            "y": 10.600004196166992,
+            "z": -25.30005645751953
+        },
+        "relativePosition": {
+            "x": 0.0,
+            "y": 0.0,
+            "z": 0.0
+        },
+        "rotation": {
+            "x": -11.800008773803711,
+            "y": -37.5,
+            "z": 0.0
+        },
+        "roughnessTexturePath": "project/game/textures/cactus/ao.png",
+        "scale": {
+            "x": 1.0,
+            "y": 1.0,
+            "z": 1.0
+        },
+        "scriptIndex": "",
+        "script_path": "",
+        "surfaceMaterial": {
+            "DiffuseIntensity": 0.5,
+            "Roughness": 0.5,
+            "SpecularIntensity": 0.5,
+            "SpecularTint": {
+                "x": 1.0,
+                "y": 1.0,
+                "z": 1.0
+            },
+            "shininess": 0.5
+        },
+        "texturePath": "project/game/textures/cactus/diffuse.png",
+        "tiling": [
+            1.0,
+            1.0
+        ],
+        "type": "entity"
+    },
+    {
+        "collider": true,
+        "collider_type": 2,
+        "damping": 0.0,
+        "friction": 1.0,
+        "id": 15,
+        "is_dynamic": false,
+        "lodEnabled": false,
+        "mass": 1.0,
+        "material_path": "project/game/materials/cactus.mat",
+        "model_path": "project/game/models/cactus.obj",
+        "name": "cactus",
+        "normalTexturePath": "project/game/textures/cactus/normal.png",
+        "position": {
+            "x": 10.200002670288086,
+            "y": 10.600004196166992,
+            "z": -29.900074005126953
+        },
+        "relativePosition": {
+            "x": 0.0,
+            "y": 0.0,
+            "z": 0.0
+        },
+        "rotation": {
+            "x": -11.800008773803711,
+            "y": -37.5,
+            "z": 0.0
+        },
+        "roughnessTexturePath": "project/game/textures/cactus/ao.png",
+        "scale": {
+            "x": 1.0,
+            "y": 1.0,
+            "z": 1.0
+        },
+        "scriptIndex": "",
+        "script_path": "",
+        "surfaceMaterial": {
+            "DiffuseIntensity": 0.5,
+            "Roughness": 0.5,
+            "SpecularIntensity": 0.5,
+            "SpecularTint": {
+                "x": 1.0,
+                "y": 1.0,
+                "z": 1.0
+            },
+            "shininess": 0.5
+        },
+        "texturePath": "project/game/textures/cactus/diffuse.png",
+        "tiling": [
+            1.0,
+            1.0
+        ],
+        "type": "entity"
+    },
+    {
+        "collider": true,
+        "collider_type": 2,
+        "damping": 0.0,
+        "friction": 1.0,
+        "id": 16,
+        "is_dynamic": false,
+        "lodEnabled": false,
+        "mass": 1.0,
+        "material_path": "project/game/materials/cactus.mat",
+        "model_path": "project/game/models/cactus.obj",
+        "name": "cactus",
+        "normalTexturePath": "project/game/textures/cactus/normal.png",
+        "position": {
+            "x": 2.700002670288086,
+            "y": 10.600004196166992,
+            "z": -29.900074005126953
+        },
+        "relativePosition": {
+            "x": 0.0,
+            "y": 0.0,
+            "z": 0.0
+        },
+        "rotation": {
+            "x": -11.800008773803711,
+            "y": -37.5,
+            "z": 0.0
+        },
+        "roughnessTexturePath": "project/game/textures/cactus/ao.png",
+        "scale": {
+            "x": 1.0,
+            "y": 1.0,
+            "z": 1.0
+        },
+        "scriptIndex": "",
+        "script_path": "",
+        "surfaceMaterial": {
+            "DiffuseIntensity": 0.5,
+            "Roughness": 0.5,
+            "SpecularIntensity": 0.5,
+            "SpecularTint": {
+                "x": 1.0,
+                "y": 1.0,
+                "z": 1.0
+            },
+            "shininess": 0.5
+        },
+        "texturePath": "project/game/textures/cactus/diffuse.png",
+        "tiling": [
+            1.0,
+            1.0
+        ],
+        "type": "entity"
+    },
+    {
+        "collider": true,
+        "collider_type": 2,
+        "damping": 0.0,
+        "friction": 1.0,
+        "id": 17,
+        "is_dynamic": false,
+        "lodEnabled": false,
+        "mass": 1.0,
+        "material_path": "project/game/materials/cactus.mat",
+        "model_path": "project/game/models/cactus.obj",
+        "name": "cactus",
+        "normalTexturePath": "project/game/textures/cactus/normal.png",
+        "position": {
+            "x": 6.59999942779541,
+            "y": 10.600004196166992,
+            "z": -20.800037384033203
+        },
+        "relativePosition": {
+            "x": 0.0,
+            "y": 0.0,
+            "z": 0.0
+        },
+        "rotation": {
+            "x": -11.800008773803711,
+            "y": -37.5,
+            "z": 0.0
+        },
+        "roughnessTexturePath": "project/game/textures/cactus/ao.png",
+        "scale": {
+            "x": 1.0,
+            "y": 1.0,
+            "z": 1.0
+        },
+        "scriptIndex": "",
+        "script_path": "",
+        "surfaceMaterial": {
+            "DiffuseIntensity": 0.5,
+            "Roughness": 0.5,
+            "SpecularIntensity": 0.5,
+            "SpecularTint": {
+                "x": 1.0,
+                "y": 1.0,
+                "z": 1.0
+            },
+            "shininess": 0.5
+        },
+        "texturePath": "project/game/textures/cactus/diffuse.png",
+        "tiling": [
+            1.0,
+            1.0
+        ],
+        "type": "entity"
+    },
+    {
+        "collider": true,
+        "collider_type": 2,
+        "damping": 0.0,
+        "friction": 1.0,
+        "id": 18,
+        "is_dynamic": false,
+        "lodEnabled": false,
+        "mass": 1.0,
+        "material_path": "project/game/materials/cactus.mat",
+        "model_path": "project/game/models/cactus.obj",
+        "name": "cactus",
+        "normalTexturePath": "project/game/textures/cactus/normal.png",
+        "position": {
+            "x": -6.499992370605469,
+            "y": 10.600004196166992,
+            "z": -20.800037384033203
+        },
+        "relativePosition": {
+            "x": 0.0,
+            "y": 0.0,
+            "z": 0.0
+        },
+        "rotation": {
+            "x": -11.800008773803711,
+            "y": -37.5,
+            "z": 0.0
+        },
+        "roughnessTexturePath": "project/game/textures/cactus/ao.png",
+        "scale": {
+            "x": 1.0,
+            "y": 1.0,
+            "z": 1.0
+        },
+        "scriptIndex": "",
+        "script_path": "",
+        "surfaceMaterial": {
+            "DiffuseIntensity": 0.5,
+            "Roughness": 0.5,
+            "SpecularIntensity": 0.5,
+            "SpecularTint": {
+                "x": 1.0,
+                "y": 1.0,
+                "z": 1.0
+            },
+            "shininess": 0.5
+        },
+        "texturePath": "project/game/textures/cactus/diffuse.png",
+        "tiling": [
+            1.0,
+            1.0
+        ],
+        "type": "entity"
+    },
+    {
+        "collider": true,
+        "collider_type": 2,
+        "damping": 0.0,
+        "friction": 1.0,
+        "id": 19,
+        "is_dynamic": false,
+        "lodEnabled": false,
+        "mass": 1.0,
+        "material_path": "project/game/materials/cactus.mat",
+        "model_path": "project/game/models/cactus.obj",
+        "name": "cactus",
+        "normalTexturePath": "project/game/textures/cactus/normal.png",
+        "position": {
+            "x": -2.5999960899353027,
+            "y": 10.600004196166992,
+            "z": -22.500043869018555
+        },
+        "relativePosition": {
+            "x": 0.0,
+            "y": 0.0,
+            "z": 0.0
+        },
+        "rotation": {
+            "x": -11.800008773803711,
+            "y": -37.5,
+            "z": 0.0
+        },
+        "roughnessTexturePath": "project/game/textures/cactus/ao.png",
+        "scale": {
+            "x": 1.0,
+            "y": 1.0,
+            "z": 1.0
+        },
+        "scriptIndex": "",
+        "script_path": "",
+        "surfaceMaterial": {
+            "DiffuseIntensity": 0.5,
+            "Roughness": 0.5,
+            "SpecularIntensity": 0.5,
+            "SpecularTint": {
+                "x": 1.0,
+                "y": 1.0,
+                "z": 1.0
+            },
+            "shininess": 0.5
+        },
+        "texturePath": "project/game/textures/cactus/diffuse.png",
+        "tiling": [
+            1.0,
+            1.0
+        ],
+        "type": "entity"
+    },
+    {
+        "collider": true,
+        "collider_type": 2,
+        "damping": 0.0,
+        "friction": 1.0,
+        "id": 20,
+        "is_dynamic": false,
+        "lodEnabled": false,
+        "mass": 1.0,
+        "material_path": "project/game/materials/cactus.mat",
+        "model_path": "project/game/models/cactus.obj",
+        "name": "cactus",
+        "normalTexturePath": "project/game/textures/cactus/normal.png",
+        "position": {
+            "x": -7.099992275238037,
+            "y": 10.600004196166992,
+            "z": -24.70005226135254
+        },
+        "relativePosition": {
+            "x": 0.0,
+            "y": 0.0,
+            "z": 0.0
+        },
+        "rotation": {
+            "x": -11.800008773803711,
+            "y": -37.5,
+            "z": 0.0
+        },
+        "roughnessTexturePath": "project/game/textures/cactus/ao.png",
+        "scale": {
+            "x": 1.0,
+            "y": 1.0,
+            "z": 1.0
+        },
+        "scriptIndex": "",
+        "script_path": "",
+        "surfaceMaterial": {
+            "DiffuseIntensity": 0.5,
+            "Roughness": 0.5,
+            "SpecularIntensity": 0.5,
+            "SpecularTint": {
+                "x": 1.0,
+                "y": 1.0,
+                "z": 1.0
+            },
+            "shininess": 0.5
+        },
+        "texturePath": "project/game/textures/cactus/diffuse.png",
+        "tiling": [
+            1.0,
+            1.0
+        ],
+        "type": "entity"
+    },
+    {
+        "collider": true,
+        "collider_type": 2,
+        "damping": 0.0,
+        "friction": 1.0,
+        "id": 21,
+        "is_dynamic": false,
+        "lodEnabled": false,
+        "mass": 1.0,
+        "material_path": "project/game/materials/cactus.mat",
+        "model_path": "project/game/models/cactus.obj",
+        "name": "cactus",
+        "normalTexturePath": "project/game/textures/cactus/normal.png",
+        "position": {
+            "x": -2.599998950958252,
+            "y": 10.600004196166992,
+            "z": -27.60006332397461
+        },
+        "relativePosition": {
+            "x": 0.0,
+            "y": 0.0,
+            "z": 0.0
+        },
+        "rotation": {
+            "x": -11.800008773803711,
+            "y": -37.5,
+            "z": 0.0
+        },
+        "roughnessTexturePath": "project/game/textures/cactus/ao.png",
+        "scale": {
+            "x": 1.0,
+            "y": 1.0,
+            "z": 1.0
+        },
+        "scriptIndex": "",
+        "script_path": "",
+        "surfaceMaterial": {
+            "DiffuseIntensity": 0.5,
+            "Roughness": 0.5,
+            "SpecularIntensity": 0.5,
+            "SpecularTint": {
+                "x": 1.0,
+                "y": 1.0,
+                "z": 1.0
+            },
+            "shininess": 0.5
+        },
+        "texturePath": "project/game/textures/cactus/diffuse.png",
+        "tiling": [
+            1.0,
+            1.0
+        ],
+        "type": "entity"
+    },
+    {
+        "collider": true,
+        "collider_type": 2,
+        "damping": 0.0,
+        "friction": 1.0,
+        "id": 22,
+        "is_dynamic": false,
+        "lodEnabled": false,
+        "mass": 1.0,
+        "material_path": "project/game/materials/cactus.mat",
+        "model_path": "project/game/models/cactus.obj",
+        "name": "cactus",
+        "normalTexturePath": "project/game/textures/cactus/normal.png",
+        "position": {
+            "x": -9.700000762939453,
+            "y": 10.600004196166992,
+            "z": -8.200047492980957
+        },
+        "relativePosition": {
+            "x": 0.0,
+            "y": 0.0,
+            "z": 0.0
+        },
+        "rotation": {
+            "x": -9.600000381469727,
+            "y": -45.19988250732422,
+            "z": 0.0
+        },
+        "roughnessTexturePath": "project/game/textures/cactus/ao.png",
+        "scale": {
+            "x": 1.0,
+            "y": 1.0,
+            "z": 1.0
+        },
+        "scriptIndex": "",
+        "script_path": "",
+        "surfaceMaterial": {
+            "DiffuseIntensity": 0.5,
+            "Roughness": 0.5,
+            "SpecularIntensity": 0.5,
+            "SpecularTint": {
+                "x": 1.0,
+                "y": 1.0,
+                "z": 1.0
+            },
+            "shininess": 0.5
+        },
+        "texturePath": "project/game/textures/cactus/diffuse.png",
+        "tiling": [
+            1.0,
+            1.0
+        ],
+        "type": "entity"
+    },
+    {
+        "collider": true,
+        "collider_type": 2,
+        "damping": 0.0,
+        "friction": 1.0,
+        "id": 23,
+        "is_dynamic": false,
+        "lodEnabled": false,
+        "mass": 1.0,
+        "material_path": "project/game/materials/cactus.mat",
+        "model_path": "project/game/models/cactus.obj",
+        "name": "cactus",
+        "normalTexturePath": "project/game/textures/cactus/normal.png",
+        "position": {
+            "x": -5.799997806549072,
+            "y": 10.600004196166992,
+            "z": -8.200047492980957
+        },
+        "relativePosition": {
+            "x": 0.0,
+            "y": 0.0,
+            "z": 0.0
+        },
+        "rotation": {
+            "x": -9.600000381469727,
+            "y": -45.19988250732422,
+            "z": 0.0
+        },
+        "roughnessTexturePath": "project/game/textures/cactus/ao.png",
+        "scale": {
+            "x": 1.0,
+            "y": 1.0,
+            "z": 1.0
+        },
+        "scriptIndex": "",
+        "script_path": "",
+        "surfaceMaterial": {
+            "DiffuseIntensity": 0.5,
+            "Roughness": 0.5,
+            "SpecularIntensity": 0.5,
+            "SpecularTint": {
+                "x": 1.0,
+                "y": 1.0,
+                "z": 1.0
+            },
+            "shininess": 0.5
+        },
+        "texturePath": "project/game/textures/cactus/diffuse.png",
+        "tiling": [
+            1.0,
+            1.0
+        ],
+        "type": "entity"
+    },
+    {
+        "collider": true,
+        "collider_type": 2,
+        "damping": 0.0,
+        "friction": 1.0,
+        "id": 24,
+        "is_dynamic": false,
+        "lodEnabled": false,
+        "mass": 1.0,
+        "material_path": "project/game/materials/cactus.mat",
+        "model_path": "project/game/models/cactus.obj",
+        "name": "cactus",
+        "normalTexturePath": "project/game/textures/cactus/normal.png",
+        "position": {
+            "x": -5.799997806549072,
+            "y": 10.600004196166992,
+            "z": -8.200047492980957
+        },
+        "relativePosition": {
+            "x": 0.0,
+            "y": 0.0,
+            "z": 0.0
+        },
+        "rotation": {
+            "x": -9.600000381469727,
+            "y": -45.19988250732422,
+            "z": 0.0
+        },
+        "roughnessTexturePath": "project/game/textures/cactus/ao.png",
+        "scale": {
+            "x": 1.0,
+            "y": 1.0,
+            "z": 1.0
+        },
+        "scriptIndex": "",
+        "script_path": "",
+        "surfaceMaterial": {
+            "DiffuseIntensity": 0.5,
+            "Roughness": 0.5,
+            "SpecularIntensity": 0.5,
+            "SpecularTint": {
+                "x": 1.0,
+                "y": 1.0,
+                "z": 1.0
+            },
+            "shininess": 0.5
+        },
+        "texturePath": "project/game/textures/cactus/diffuse.png",
+        "tiling": [
+            1.0,
+            1.0
+        ],
+        "type": "entity"
+    },
+    {
+        "attenuation": 9.999999747378752e-05,
+        "color": {
+            "a": 255.0,
+            "b": 96.37866973876953,
+            "g": 160.62228393554688,
+            "r": 183.75
+        },
+        "cutOff": 10.0,
+        "direction": {
+            "x": 0.4000000059604645,
+            "y": -1.0,
+            "z": -0.4000000059604645
+        },
+        "id": 2,
+        "intensity": 2.678999900817871,
+        "isChild": false,
+        "light_type": 0,
+        "name": "Light",
+        "position": {
+            "x": 4.0,
+            "y": 5.0,
+            "z": 3.0
+        },
+        "relativePosition": {
+            "x": 0,
+            "y": 0,
+            "z": 0
+        },
+        "specularStrength": 0.5,
+        "target": {
+            "x": 1836704000.0,
+            "y": 3.1623102444418147e-41,
+            "z": 1.401298464324817e-45
+        },
+        "type": "light"
+    },
+    {
+        "attenuation": 9.999999747378752e-05,
+        "color": {
+            "a": 255.0,
+            "b": 79.96322631835938,
+            "g": 136.89447021484375,
+            "r": 187.5
+        },
+        "cutOff": 10.0,
+        "direction": {
+            "x": 0.4000000059604645,
+            "y": 0.4000000059604645,
+            "z": -0.4000000059604645
+        },
+        "id": 6,
+        "intensity": 0.9240000247955322,
+        "isChild": false,
+        "light_type": 1,
+        "name": "Light",
+        "position": {
+            "x": 4.0,
+            "y": 19.20003890991211,
+            "z": 3.0
+        },
+        "relativePosition": {
+            "x": 0,
+            "y": 0,
+            "z": 0
+        },
+        "specularStrength": 0.5,
+        "target": {
+            "x": 0,
+            "y": 0,
+            "z": 0
+        },
+        "type": "light"
+    }
+]

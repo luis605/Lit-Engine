@@ -183,6 +183,8 @@ void AssetsExplorer() {
 
     // FOLDERS List
     ImGui::PushStyleVar(ImGuiStyleVar_FrameBorderSize, 0.0f);
+    ImGui::PushStyleVar(ImGuiStyleVar_FramePadding, ImVec2(cellSize / 8, cellSize / 8));
+    
     for (int i = 0; i < numButtons; i++)
     {
         ImGui::PushID(i);
@@ -384,7 +386,7 @@ void AssetsExplorer() {
     EditFolderManipulation();
     EditFileManipulation();
 
-    ImGui::PopStyleVar(3);
+    ImGui::PopStyleVar(4);
     ImGui::EndChild();
     ImGui::End();
 

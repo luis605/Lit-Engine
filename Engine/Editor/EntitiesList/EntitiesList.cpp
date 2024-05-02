@@ -438,7 +438,6 @@ void ImGuiListViewEx(std::vector<std::string>& items, int& focus, int& scroll, i
 
 void EntitiesList()
 {
-
     ImGui::Begin((std::string(ICON_FA_BARS) + " Objects List").c_str(), NULL);
 
     updateListViewExList(entitiesListPregame, lightsListPregame);
@@ -456,7 +455,6 @@ void EntitiesList()
     if (ImGui::ImageButton((ImTextureID)&runTexture, buttonSize) && !inGamePreview) {
         entitiesList.assign(entitiesListPregame.begin(), entitiesListPregame.end());
         
-        // DisableCursor();
         physics.backup();
 
         InitGameCamera();
