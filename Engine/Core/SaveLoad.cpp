@@ -89,7 +89,7 @@ namespace nlohmann {
 
 
     template<>
-    struct nlohmann::adl_serializer<SurfaceMaterial> {
+    struct adl_serializer<SurfaceMaterial> {
         static void to_json(json& j, const SurfaceMaterial& material) {
             j = json{
                 { "shininess", material.shininess },

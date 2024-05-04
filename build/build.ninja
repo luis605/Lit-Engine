@@ -47,12 +47,12 @@ cmake_ninja_workdir = /home/lixt/Desktop/projects/Lit$ Engine$ -$ engine/main/bu
 #############################################
 # Order-only phony target for lit_engine
 
-build cmake_object_order_depends_target_lit_engine: phony || CMakeFiles/lit_engine.dir
+build cmake_object_order_depends_target_lit_engine: phony || include/imgui/imgui.o include/imgui/imgui_demo.o include/imgui/imgui_draw.o include/imgui/imgui_tables.o include/imgui/imgui_widgets.o
 
 build CMakeFiles/lit_engine.dir/main.cpp.o: CXX_COMPILER__lit_engine_Debug /home/lixt/Desktop/projects/Lit$ Engine$ -$ engine/main/main.cpp || cmake_object_order_depends_target_lit_engine
   DEP_FILE = CMakeFiles/lit_engine.dir/main.cpp.o.d
-  FLAGS = -w -fuse-ld=gold -g
-  INCLUDES = -I"/home/lixt/Desktop/projects/Lit Engine - engine/main/./include" -I"/home/lixt/Desktop/projects/Lit Engine - engine/main/./include/nlohmann" -I"/home/lixt/Desktop/projects/Lit Engine - engine/main/./imgui" -I"/home/lixt/Desktop/projects/Lit Engine - engine/main/./include/bullet3/src" -I"/home/lixt/Desktop/projects/Lit Engine - engine/main/./ffmpeg" -I"/home/lixt/Desktop/projects/Lit Engine - engine/main/./ImGuiColorTextEdit" -I"/home/lixt/Desktop/projects/Lit Engine - engine/main/C:/Users/USER/AppData/Local/Programs/Python/Python311/Lib/site-packages/pybind11/include" -I/usr/include/python3.10
+  FLAGS = -w -g
+  INCLUDES = -I"/home/lixt/Desktop/projects/Lit Engine - engine/main/./include" -I"/home/lixt/Desktop/projects/Lit Engine - engine/main/./include/raylib/src" -I"/home/lixt/Desktop/projects/Lit Engine - engine/main/./include/nlohmann/include" -I"/home/lixt/Desktop/projects/Lit Engine - engine/main/./include/imgui" -I"/home/lixt/Desktop/projects/Lit Engine - engine/main/./include/bullet3/src" -I"/home/lixt/Desktop/projects/Lit Engine - engine/main/./include/ffmpeg" -I"/home/lixt/Desktop/projects/Lit Engine - engine/main/./include/pybind11/include" -I"/home/lixt/Desktop/projects/Lit Engine - engine/main/./include/ImGuiColorTextEdit" -I"/home/lixt/Desktop/projects/Lit Engine - engine/main/./include/pybind11"
   OBJECT_DIR = CMakeFiles/lit_engine.dir
   OBJECT_FILE_DIR = CMakeFiles/lit_engine.dir
 
@@ -64,10 +64,9 @@ build CMakeFiles/lit_engine.dir/main.cpp.o: CXX_COMPILER__lit_engine_Debug /home
 #############################################
 # Link the executable lit_engine
 
-build lit_engine: CXX_EXECUTABLE_LINKER__lit_engine_Debug ../ImGuiColorTextEdit/TextEditor.o ../include/rlImGui.o ../ImNodes/ImNodes.o ../ImNodes/ImNodesEz.o ../imgui/imgui.o ../imgui/imgui_demo.o ../imgui/imgui_draw.o ../imgui/imgui_tables.o ../imgui/imgui_widgets.o CMakeFiles/lit_engine.dir/main.cpp.o
-  FLAGS = -w -fuse-ld=gold -g
-  LINK_LIBRARIES = -Wl,-rpath,"/home/lixt/Desktop/projects/Lit Engine - engine/main/include:/home/lixt/Desktop/projects/Lit Engine - engine/main/include/bullet3/lib:/home/lixt/Desktop/projects/Lit Engine - engine/main/include/ffmpeg/lib:/home/lixt/Desktop/projects/Lit Engine - engine/main/include/ffmpeg/bin"  -lavcodec  -lmeshoptimizer  -lraylib -lpython3.11 -fPIC -I/usr/include/python3.11 -I/home/lixt/.local/lib/python3.11/site-packages/pybind11/include -ldl -lBulletDynamics -lBulletCollision -lLinearMath -I./include/bullet3/src -lavformat -lavcodec -lavutil -lswscale -lz -lm -lpthread -ldrm
-  LINK_PATH = -L"/home/lixt/Desktop/projects/Lit Engine - engine/main/include"   -L"/home/lixt/Desktop/projects/Lit Engine - engine/main/include/bullet3/lib"   -L"/home/lixt/Desktop/projects/Lit Engine - engine/main/include/ffmpeg/lib"   -L"/home/lixt/Desktop/projects/Lit Engine - engine/main/include/ffmpeg/bin"
+build lit_engine: CXX_EXECUTABLE_LINKER__lit_engine_Debug ../include/ImGuiColorTextEdit/TextEditor.o ../include/rlImGui.o ../include/ImNodes/ImNodes.o ../include/ImNodes/ImNodesEz.o include/imgui/imgui.o include/imgui/imgui_demo.o include/imgui/imgui_draw.o include/imgui/imgui_tables.o include/imgui/imgui_widgets.o CMakeFiles/lit_engine.dir/main.cpp.o
+  FLAGS = -w -g
+  LINK_LIBRARIES = -lraylib  -lbcrypt  -lwinmm  -lstrmiids  -lavcodec  -lavformat  -lavutil  -lswscale  -lswresample  -lopengl32  -lgdi32  -lpthread  -lpython311  -lmeshoptimizer  -lBulletCollision  -lBulletDynamics  -lLinearMath  -fPIC -L. -L./libs -v
   OBJECT_DIR = CMakeFiles/lit_engine.dir
   POST_BUILD = :
   PRE_LINK = :
@@ -82,9 +81,9 @@ build run: phony CMakeFiles/run
 
 
 #############################################
-# Utility command for build_and_run
+# Utility command for brun
 
-build build_and_run: phony CMakeFiles/build_and_run
+build brun: phony CMakeFiles/brun
 
 
 #############################################
@@ -100,21 +99,9 @@ build bdb: phony CMakeFiles/bdb debug
 
 
 #############################################
-# Utility command for build_dependencies
-
-build build_dependencies: phony CMakeFiles/build_dependencies
-
-
-#############################################
 # Utility command for clean_all
 
 build clean_all: phony CMakeFiles/clean_all
-
-
-#############################################
-# Utility command for clean_depend
-
-build clean_depend: phony CMakeFiles/clean_depend
 
 
 #############################################
@@ -141,6 +128,51 @@ build rebuild_cache: phony CMakeFiles/rebuild_cache.util
 
 
 #############################################
+# Custom command for include/imgui/imgui.o
+
+build include/imgui/imgui.o | ${cmake_ninja_workdir}include/imgui/imgui.o: CUSTOM_COMMAND ../include/imgui/imgui.cpp
+  COMMAND = cd "/home/lixt/Desktop/projects/Lit Engine - engine/main/build" && /usr/bin/c++ \ -w -DIMGUI_IMPL_OPENGL_LOADER_GLAD -c /home/lixt/Desktop/projects/Lit\ Engine\ -\ engine/main/include/imgui/imgui.cpp -o include/imgui/imgui.o
+  DESC = Generating include/imgui/imgui.o
+  restat = 1
+
+
+#############################################
+# Custom command for include/imgui/imgui_demo.o
+
+build include/imgui/imgui_demo.o | ${cmake_ninja_workdir}include/imgui/imgui_demo.o: CUSTOM_COMMAND ../include/imgui/imgui_demo.cpp
+  COMMAND = cd "/home/lixt/Desktop/projects/Lit Engine - engine/main/build" && /usr/bin/c++ \ -w -DIMGUI_IMPL_OPENGL_LOADER_GLAD -c /home/lixt/Desktop/projects/Lit\ Engine\ -\ engine/main/include/imgui/imgui_demo.cpp -o include/imgui/imgui_demo.o
+  DESC = Generating include/imgui/imgui_demo.o
+  restat = 1
+
+
+#############################################
+# Custom command for include/imgui/imgui_draw.o
+
+build include/imgui/imgui_draw.o | ${cmake_ninja_workdir}include/imgui/imgui_draw.o: CUSTOM_COMMAND ../include/imgui/imgui_draw.cpp
+  COMMAND = cd "/home/lixt/Desktop/projects/Lit Engine - engine/main/build" && /usr/bin/c++ \ -w -DIMGUI_IMPL_OPENGL_LOADER_GLAD -c /home/lixt/Desktop/projects/Lit\ Engine\ -\ engine/main/include/imgui/imgui_draw.cpp -o include/imgui/imgui_draw.o
+  DESC = Generating include/imgui/imgui_draw.o
+  restat = 1
+
+
+#############################################
+# Custom command for include/imgui/imgui_tables.o
+
+build include/imgui/imgui_tables.o | ${cmake_ninja_workdir}include/imgui/imgui_tables.o: CUSTOM_COMMAND ../include/imgui/imgui_tables.cpp
+  COMMAND = cd "/home/lixt/Desktop/projects/Lit Engine - engine/main/build" && /usr/bin/c++ \ -w -DIMGUI_IMPL_OPENGL_LOADER_GLAD -c /home/lixt/Desktop/projects/Lit\ Engine\ -\ engine/main/include/imgui/imgui_tables.cpp -o include/imgui/imgui_tables.o
+  DESC = Generating include/imgui/imgui_tables.o
+  restat = 1
+
+
+#############################################
+# Custom command for include/imgui/imgui_widgets.o
+
+build include/imgui/imgui_widgets.o | ${cmake_ninja_workdir}include/imgui/imgui_widgets.o: CUSTOM_COMMAND ../include/imgui/imgui_widgets.cpp
+  COMMAND = cd "/home/lixt/Desktop/projects/Lit Engine - engine/main/build" && /usr/bin/c++ \ -w -DIMGUI_IMPL_OPENGL_LOADER_GLAD -c /home/lixt/Desktop/projects/Lit\ Engine\ -\ engine/main/include/imgui/imgui_widgets.cpp -o include/imgui/imgui_widgets.o
+  DESC = Generating include/imgui/imgui_widgets.o
+  restat = 1
+
+
+#############################################
 # Custom command for CMakeFiles/run
 
 build CMakeFiles/run | ${cmake_ninja_workdir}CMakeFiles/run: CUSTOM_COMMAND
@@ -148,9 +180,9 @@ build CMakeFiles/run | ${cmake_ninja_workdir}CMakeFiles/run: CUSTOM_COMMAND
 
 
 #############################################
-# Custom command for CMakeFiles/build_and_run
+# Custom command for CMakeFiles/brun
 
-build CMakeFiles/build_and_run | ${cmake_ninja_workdir}CMakeFiles/build_and_run: CUSTOM_COMMAND
+build CMakeFiles/brun | ${cmake_ninja_workdir}CMakeFiles/brun: CUSTOM_COMMAND
   COMMAND = cd "/home/lixt/Desktop/projects/Lit Engine - engine/main/build" && make --no-print-directory build -j8 && make --no-print-directory run
 
 
@@ -168,24 +200,10 @@ build CMakeFiles/bdb | ${cmake_ninja_workdir}CMakeFiles/bdb: phony . || debug
 
 
 #############################################
-# Custom command for CMakeFiles/build_dependencies
-
-build CMakeFiles/build_dependencies | ${cmake_ninja_workdir}CMakeFiles/build_dependencies: CUSTOM_COMMAND
-  COMMAND = cd "/home/lixt/Desktop/projects/Lit Engine - engine/main" && /usr/bin/c++ -c imgui/imgui.o imgui/imgui_demo.o imgui/imgui_draw.o imgui/imgui_tables.o imgui/imgui_widgets.o -I./imgui -O3 ImNodes/ImNodes.cpp -o ImNodes/ImNodes.o && /usr/bin/c++ -c imgui/imgui.o imgui/imgui_demo.o imgui/imgui_draw.o imgui/imgui_tables.o imgui/imgui_widgets.o -I./imgui -O3 ImNodes/ImNodesEz.cpp -o ImNodes/ImNodesEz.o && /usr/bin/c++ -c imgui/imgui.o imgui/imgui_demo.o imgui/imgui_draw.o imgui/imgui_tables.o imgui/imgui_widgets.o -I./imgui -O3 include/rlImGui.cpp -o include/rlImGui.o && /usr/bin/c++ -c -O3 include/rlFrustum.cpp -o include/rlFrustum.o
-
-
-#############################################
 # Custom command for CMakeFiles/clean_all
 
 build CMakeFiles/clean_all | ${cmake_ninja_workdir}CMakeFiles/clean_all: CUSTOM_COMMAND
   COMMAND = cd "/home/lixt/Desktop/projects/Lit Engine - engine/main/build" && find . -name *.out | xargs rm -f && find . -name *.o | xargs rm -f
-
-
-#############################################
-# Custom command for CMakeFiles/clean_depend
-
-build CMakeFiles/clean_depend | ${cmake_ninja_workdir}CMakeFiles/clean_depend: CUSTOM_COMMAND
-  COMMAND = cd "/home/lixt/Desktop/projects/Lit Engine - engine/main/build" && find . -name *.o | xargs rm -f
 
 # =============================================================================
 # Target aliases.
