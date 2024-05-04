@@ -77,8 +77,8 @@ make -B brun
  - To generate the cmake file, run:
 ```bash
 cmake -G "MinGW Makefiles" .. --fresh
+make # make [all/run/debug/bdb/brun/clean_all]
 ```
- - Then use make to run, build and debug the engine [The Same as Linux]!
 
 ## Social Links
 
@@ -87,3 +87,4 @@ You can find us on:
 - [X/Twitter](https://twitter.com/TheLitEngine)
 - [YouTube](https://www.youtube.com/@litengine)
 - [Website](https://litengine.org)
+- [Discord](https://discord.gg/XqUZQCxrs6)
