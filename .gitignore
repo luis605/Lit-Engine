@@ -3,13 +3,12 @@
 *.out
 *.ini
 *.o
-*.a
 *CMakeCache.txt
 build/include/
 build/.cmake/
+build/CMakeFiles/
 build/build.ninja
 build/CMakeCache.txt
 build/cmake_install.cmake
 build/compile_commands.json
 build/Makefile
-build/CMakeFiles/

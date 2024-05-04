@@ -9,7 +9,7 @@ cmake ..
 make
 
 cd ../../ffmpeg
-./configure --disable-iconv --disable-zlib --disable-network --disable-programs
+./configure --disable-iconv --disable-zlib --disable-network --disable-programs --disable-encoders  --disable-muxers --disable-demuxers --disable-filters --disable-protocols --disable-openssl --disable-libxml2 --disable-indevs --disable-outdevs
 make
 
 cd ../../../
