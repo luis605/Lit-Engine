@@ -25,11 +25,7 @@ endef
 
 UNAME := $(shell uname)
 
-ifeq ($(UNAME), Linux)
-    CXX := g++
-else
-    CXX := clang++
-endif
+CXX := g++
 
 CXXFLAGS = -g -pipe -std=c++17 -fpermissive -w -Wall -DNDEBUG -O0 -g
 SRC_FILES = include/ImGuiColorTextEdit/TextEditor.o include/rlImGui.o include/ImNodes/ImNodes.o include/ImNodes/ImNodesEz.o

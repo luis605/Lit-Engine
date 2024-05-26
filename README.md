@@ -28,20 +28,6 @@ Then, you can build the remaining dependencies by running:
 ./build_dependencies.sh
 ```
 
-## Windows
-You have to install MinGw and cmake manually to continue!
- - To build dependencies run:
-```bash
-make build_dependencies
-```
- - After that, execute:
-```bash
-cd build
-cmake -G "MinGW Makefiles" .. --fresh
-```
-
-When running the engine on windows, make sure to copy assets and project into the build/ directory. otherwise the program will NOT run!
-
 # Building, Running, Debugging
 ## Linux
 ### Building the Engine
@@ -74,9 +60,35 @@ make -B brun
 ```
 
 # Windows
- - To generate the cmake file, run:
+## Dependencies
+To compile Lit Engine on Windows, you need to install some dependencies. CMake, Make, git CLI, clang, MSYS2 and some libraries are required to compile every part of the engine. To build the project you will need the MSYS2 MINGW64 console.
+
+### How to install?
+1) Make sure you have git installed on your machine. Otherwise, go to https://gitforwindows.org and install the git terminal. It is needed to initialize and update all submodules.
+
+2) Open the Git CMD and clone Lit Engine: `git clone --recurse-submodules -j8 https://github.com/luis605/Lit-Engine`
+
+3) To install the MSYS2 installer, visit https://www.msys2.org/ and follow their installation guide.
+
+4) Lanch MSYS2 MINGW64 and run the following package manager command `pacman -S make cmake nasm diffutils mingw-w64-x86_64-toolchain mingw-w64-x86_64-python mingw-w64-x86_64-ffmpeg mingw-w64-x86_64-bullet msys/msys2-runtime-devel`. If any installation option pops out, use the default option.
+
+5) Open the Lit-Engine directory inside the MSYS2 MINGW console and run:
 ```bash
-cmake -G "MinGW Makefiles" .. --fresh
+cd include/ffmpeg
+./configure --disable-iconv --disable-zlib --disable-network --disable-programs --disable-encoders --disable-demuxers --disable-filters --disable-protocols --disable-openssl --disable-libxml2 --disable-indevs --disable-outdevs # It may take a while
+cd ../..
+```
+
+Finally, follow the build process below.
+
+ - To build all the dependencies, run the following command inside the project's root directory:
+```bash
+make build_dependencies
+```
+ - To generate the cmake file and executable, run:
+```bash
+cd build
+cmake -G "Unix Makefiles" .. --fresh
 make # make [all/run/debug/bdb/brun/clean_all]
 ```
 
