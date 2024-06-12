@@ -244,5 +244,5 @@ void GizmoRotation()
     DrawGizmo(gizmoTaurus[0], color1, true, true);
 
     if (selectedGameObjectType == "entity")      selectedEntity->rotation = selectedObjectRotation;
-    else if (selectedGameObjectType == "light")  selectedLight->direction = {selectedObjectRotation.x / 300, selectedObjectRotation.y / 300, selectedObjectRotation.z / 300};
+    else if (selectedGameObjectType == "light")  selectedLight->direction = {selectedObjectRotation.x / 360, selectedObjectRotation.y / 360, selectedObjectRotation.z / 360};
 }
