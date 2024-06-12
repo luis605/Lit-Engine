@@ -298,3 +298,7 @@ void ExitWindowRequested()
         ImGui::EndPopup();
     }
 }
+
+Vector3 glm3ToVec3(glm::vec3 vec3) {
+    return (Vector3){ vec3.x, vec3.y, vec3.z };
+}

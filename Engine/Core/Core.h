@@ -8,7 +8,7 @@ Vector2 GetGlobalMousePosition();
 void DraggableWindow();
 void ToggleMaximization();
 void ExitWindowRequested();
-
+Vector3 glm3ToVec3(glm::vec3 vec3);
 
 int windowWidth = 100;
 int windowHeight = 50;
