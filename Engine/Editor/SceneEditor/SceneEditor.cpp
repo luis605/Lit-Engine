@@ -140,17 +140,10 @@ void EditorCameraMovement(void)
 }
 
 
-bool IsMouseHoveringModel(const Model& model, const Camera& camera, const Vector3& position, const Vector3& rotation, const Vector3& scale, const Entity* entity, bool bypassOptimization)
+bool IsMouseHoveringModel(const Model& model, const Vector3& position, const Vector3& rotation, const Vector3& scale, const Entity* entity = nullptr, bool bypassOptimization = false)
 {
     if (model.meshCount <= 0) {
         return false;
-    }
-
-    Vector3 originalSize = Vector3Zero();
-
-    if (Vector3Equals(scale, Vector3Zero())) {
-        originalSize = Vector3Subtract(entity ? entity->bounds.max : GetMeshBoundingBox(model.meshes[0]).max,
-                                      entity ? entity->bounds.min : GetMeshBoundingBox(model.meshes[0]).min);
     }
 
     Vector2 relativeMousePosition = {
@@ -158,21 +151,16 @@ bool IsMouseHoveringModel(const Model& model, const Camera& camera, const Vector
         (float)GetMousePosition().y - (float)rectangle.y - (float)GetImGuiWindowTitleHeight()
     };
 
-    Ray mouseRay = GetScreenToWorldRayEx(relativeMousePosition, camera, rectangle.width, rectangle.height);
-    
-    RayCollision meshCollisionInfo = { 0 };
-
+    Ray mouseRay = GetScreenToWorldRayEx(relativeMousePosition, sceneCamera, rectangle.width, rectangle.height);    
 
     for (int meshIndex = 0; meshIndex < model.meshCount; meshIndex++) {
         BoundingBox meshBounds = (entity == nullptr) ? GetMeshBoundingBox(model.meshes[meshIndex]) : entity->bounds;
 
-        // Transform the mesh bounding box based on the model's transform
         meshBounds.min = Vector3Transform(meshBounds.min, model.transform);
         meshBounds.max = Vector3Transform(meshBounds.max, model.transform);
 
         if (bypassOptimization || GetRayCollisionBox(mouseRay, meshBounds).hit) {
-            meshCollisionInfo = GetRayCollisionMesh(mouseRay, model.meshes[meshIndex], model.transform);
-            if (meshCollisionInfo.hit) {
+            if (GetRayCollisionMesh(mouseRay, model.meshes[meshIndex], model.transform).hit) {
                 return true;
             }
         }
@@ -291,7 +279,7 @@ void RenderLight(Light* light, bool& isLightSelected) {
         
         if (IsMouseButtonDown(MOUSE_LEFT_BUTTON) && ImGui::IsWindowHovered() && !dragging)
         {
-            isLightSelected = IsMouseHoveringModel(lightModel, sceneCamera, { light.position.x, light.position.y, light.position.z }, { 0, rotation, 0 }, {1,1,1});
+            isLightSelected = IsMouseHoveringModel(lightModel, { light.position.x, light.position.y, light.position.z }, { 0, rotation, 0 }, {1,1,1});
             if (isLightSelected)
             {
                 objectInInspector = &light;
@@ -312,7 +300,7 @@ void RenderEntities(bool& isEntitySelected) {
         
         if (IsMouseButtonDown(MOUSE_LEFT_BUTTON) && ImGui::IsWindowHovered() && !dragging)
         {
-            isEntitySelected = IsMouseHoveringModel(entity.model, sceneCamera, entity.position, entity.rotation, entity.scale, &entity);
+            isEntitySelected = IsMouseHoveringModel(entity.model, entity.position, entity.rotation, entity.scale, &entity);
             if (isEntitySelected)
             {
                 if (IsModelReady(entity.model) && entity.initialized)
@@ -326,7 +314,7 @@ void RenderEntities(bool& isEntitySelected) {
             {
                 if (auto* childEntity = std::get_if<Entity*>(&childVariant))
                 {
-                    bool isEntitySelected = IsMouseHoveringModel((*childEntity)->model, sceneCamera, (*childEntity)->position, (*childEntity)->rotation, (*childEntity)->scale);
+                    bool isEntitySelected = IsMouseHoveringModel((*childEntity)->model, (*childEntity)->position, (*childEntity)->rotation, (*childEntity)->scale);
                     if (isEntitySelected)
                     {
                         objectInInspector = *childEntity;

@@ -1,11 +1,11 @@
 #include "Gizmo.h"
 #include "../../../../include_all.h"
 
-void LoadGizmoModel(Gizmo& gizmo, const Model& model, const char* modelPath, const Shader& shader, const Vector3& rotation = {0,0,0}) {
-    if (strlen(modelPath) == 0)
+void LoadGizmoModel(Gizmo& gizmo, const Model& model, const fs::path& modelPath, const Shader& shader, const Vector3& rotation = {0,0,0}) {
+    if (modelPath.empty())
         gizmo.model = model;
     else
-        gizmo.model = LoadModel(modelPath);
+        gizmo.model = LoadModel(modelPath.c_str());
 
     if (!IsModelReady(gizmo.model)) {
         std::cerr << "Error: Gizmo model is not ready" << std::endl;
@@ -28,12 +28,12 @@ void InitGizmo() {
     }
 }
 
-bool UpdateGizmoObjectProperties(char* type) {
-    if (type == "entity" && selectedEntity) {
+bool UpdateGizmoObjectProperties() {
+    if (selectedGameObjectType == "entity" && selectedEntity) {
         selectedObjectPosition = selectedEntity->position;
         selectedObjectScale = selectedEntity->scale;
         selectedObjectRotation = selectedEntity->rotation;
-    } else if (type == "light" && selectedLight) {
+    } else if (selectedGameObjectType == "light" && selectedLight) {
         selectedObjectPosition = glm3ToVec3(selectedLight->position);
         selectedObjectScale = {1, 1, 1};
         selectedObjectRotation = Vector3Multiply(glm3ToVec3(selectedLight->direction), Vector3{ 360, 360, 360 });
@@ -65,7 +65,7 @@ void UpdateGizmoProperties(float maxObjectScale = 0) {
 void IsGizmoBeingInteracted(Gizmo& gizmo, int index, Color& color, int& selectedGizmoIndex) {
     if (dragging && !ImGui::IsWindowHovered()) return;
 
-    isHoveringGizmo = IsMouseHoveringModel(gizmo.model, sceneCamera, gizmo.position, gizmo.rotation, gizmo.scale, nullptr, true);
+    isHoveringGizmo = IsMouseHoveringModel(gizmo.model, gizmo.position, gizmo.rotation, gizmo.scale);
 
     if (!isHoveringGizmo) return;
 
@@ -130,7 +130,7 @@ void DrawGizmo(Gizmo& gizmo, Color color, bool wireframe = false, bool applyRota
 }
 
 void GizmoPosition() {
-    if (!UpdateGizmoObjectProperties(selectedGameObjectType)) return;
+    if (!UpdateGizmoObjectProperties()) return;
     UpdateGizmoProperties();
 
     for (int index = 0; index < NUM_GIZMO_ARROWS; index++) {
@@ -165,7 +165,7 @@ void GizmoPosition() {
 
 
 void GizmoScale() {
-    if (!UpdateGizmoObjectProperties(selectedGameObjectType)) return;
+    if (!UpdateGizmoObjectProperties()) return;
 
     float maxObjectScale;
     selectedObjectPosition = selectedEntity->position;
@@ -187,20 +187,23 @@ void GizmoScale() {
 
 
 void GizmoRotation() {
-    if (!UpdateGizmoObjectProperties(selectedGameObjectType)) return;
+    if (!UpdateGizmoObjectProperties()) return;
 
     float maxObjectScale = (selectedGameObjectType == "entity") ? 
                            std::max({selectedEntity->scale.x, selectedEntity->scale.y, selectedEntity->scale.z}) / 2 + 3 : 
                            3;
+    Gizmo& torus = gizmoTorus[0];
 
-    gizmoTorus[0].scale = { maxObjectScale, maxObjectScale, maxObjectScale };
-    gizmoTorus[0].position = selectedObjectPosition;
+    torus.scale = { maxObjectScale, maxObjectScale, maxObjectScale };
+    torus.position = selectedObjectPosition;
 
-    Color color1 = (!draggingGizmoScale || !draggingGizmoRotation || !draggingGizmoPosition) && ImGui::IsWindowHovered() ?
-                  (IsMouseHoveringModel(gizmoTorus[0].model, sceneCamera, gizmoTorus[0].position, gizmoTorus[0].rotation, gizmoTorus[0].scale, nullptr, true) ? 
-                   (Color){150, 150, 150, 255} : (Color){100, 100, 100, 120}) : (Color){100, 0, 0, 120};
+    isHoveringGizmo = IsMouseHoveringModel(torus.model, torus.position, torus.rotation, torus.scale);
 
-    isHoveringGizmo = IsMouseHoveringModel(gizmoTorus[0].model, sceneCamera, gizmoTorus[0].position, gizmoTorus[0].rotation, gizmoTorus[0].scale, nullptr, true);
+    Color color1 = !dragging && ImGui::IsWindowHovered
+        ? isHoveringGizmo
+            ? Color{150, 150, 150, 255} : Color{100, 100, 100, 120}
+        : Color{100, 0, 0, 120};
+        
         
     if (ImGui::IsWindowHovered() && IsMouseButtonDown(MOUSE_LEFT_BUTTON)) {
         if (isHoveringGizmo && !dragging) {
@@ -226,7 +229,7 @@ void GizmoRotation() {
     }
     else draggingGizmoRotation = false;
 
-    DrawGizmo(gizmoTorus[0], color1, true, true);
+    DrawGizmo(torus, color1, true, true);
 
     if (selectedGameObjectType == "entity")      selectedEntity->rotation = selectedObjectRotation;
     else if (selectedGameObjectType == "light")  selectedLight->direction = {selectedObjectRotation.x / 360, selectedObjectRotation.y / 360, selectedObjectRotation.z / 360};

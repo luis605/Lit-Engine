@@ -39,6 +39,47 @@
         "type": "world settings"
     },
     {
+        "children": [
+            [
+                {
+                    "attenuation": 9.999999747378752e-05,
+                    "color": {
+                        "a": 255.0,
+                        "b": 255.0,
+                        "g": 255.0,
+                        "r": 255.0
+                    },
+                    "cutOff": 10.0,
+                    "direction": {
+                        "x": 0.8299999833106995,
+                        "y": -1.0,
+                        "z": 1.0
+                    },
+                    "id": 2,
+                    "intensity": 1.7410000562667847,
+                    "isChild": true,
+                    "light_type": 1,
+                    "name": "Light",
+                    "position": {
+                        "x": 4.0,
+                        "y": 27.100051879882813,
+                        "z": 3.0
+                    },
+                    "relativePosition": {
+                        "x": 4.0,
+                        "y": 9.899995803833008,
+                        "z": 3.0
+                    },
+                    "specularStrength": 0.0,
+                    "target": {
+                        "x": 0,
+                        "y": 0,
+                        "z": 0
+                    },
+                    "type": "light"
+                }
+            ]
+        ],
         "collider": true,
         "collider_type": 0,
         "damping": 0.0,
@@ -147,42 +188,5 @@
             1.0
         ],
         "type": "entity"
-    },
-    {
-        "attenuation": 9.999999747378752e-05,
-        "color": {
-            "a": 255.0,
-            "b": 255.0,
-            "g": 255.0,
-            "r": 255.0
-        },
-        "cutOff": 10.0,
-        "direction": {
-            "x": 0.8299999833106995,
-            "y": -1.0,
-            "z": 1.0
-        },
-        "id": 2,
-        "intensity": 1.7410000562667847,
-        "isChild": false,
-        "light_type": 1,
-        "name": "Light",
-        "position": {
-            "x": 4.0,
-            "y": 27.100051879882813,
-            "z": 3.0
-        },
-        "relativePosition": {
-            "x": 0,
-            "y": 0,
-            "z": 0
-        },
-        "specularStrength": 0.0,
-        "target": {
-            "x": 0,
-            "y": 0,
-            "z": 0
-        },
-        "type": "light"
     }
 ]
