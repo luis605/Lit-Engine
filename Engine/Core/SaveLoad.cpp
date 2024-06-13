@@ -206,13 +206,13 @@ void DeserializeMaterial(SurfaceMaterial* material, const char* path) {
 
 
 /* Objects */
-void SaveCamera(json& json_data, const LitCamera camera);
-void SaveEntity(json& json_data, const Entity& entity);
-void SaveLight(json& json_data, const Light& light, int lightIndex);
-void SaveText(json& json_data, const Text& text, bool emplace_back = true);
-void SaveButton(json& json_data, const LitButton& button);
+void SaveCamera(json& jsonData, const LitCamera camera);
+void SaveEntity(json& jsonData, const Entity& entity);
+void SaveLight(json& jsonData, const Light& light, int lightIndex);
+void SaveText(json& jsonData, const Text& text, bool emplaceBack = true);
+void SaveButton(json& jsonData, const LitButton& button);
 
-void SaveCamera(json& json_data, LitCamera camera) {
+void SaveCamera(json& jsonData, LitCamera camera) {
     json j;
     j["type"] = "camera";
     j["position"]["x"] = camera.position.x;
@@ -227,12 +227,12 @@ void SaveCamera(json& json_data, LitCamera camera) {
     j["fovy"] = camera.fovy;
     j["projection"] = camera.projection;
 
-    json_data.emplace_back(j);
+    jsonData.emplace_back(j);
 }
 
 
 
-void SaveEntity(json& json_data, const Entity& entity) {
+void SaveEntity(json& jsonData, const Entity& entity) {
     json j;
     j["type"]                    = "entity";
     j["name"]                    = entity.name;
@@ -266,7 +266,7 @@ void SaveEntity(json& json_data, const Entity& entity) {
     j["damping"]                 = entity.damping;
 
     if (!entity.children.empty()) {
-        json children_data;
+        json childrenData;
 
         std::vector<std::variant<Entity*, Light*, Text*, LitButton*>> nonConstChildren = entity.children;
         for (std::variant<Entity*, Light*, Text*, LitButton*>& childVariant : nonConstChildren)
@@ -274,14 +274,14 @@ void SaveEntity(json& json_data, const Entity& entity) {
             if (std::holds_alternative<Entity*>(childVariant))
             {
                 Entity* child = std::get<Entity*>(childVariant);
-                json child_json;
-                SaveEntity(child_json, *child);
-                children_data.emplace_back(child_json);
+                json childJson;
+                SaveEntity(childJson, *child);
+                childrenData.emplace_back(childJson);
             }
             else if (std::holds_alternative<Light*>(childVariant))
             {
                 Light* child = std::get<Light*>(childVariant);
-                json child_json;
+                json childJson;
 
                 int lightIndex = -1;
                 auto light_it = std::find_if(lights.begin(), lights.end(), [&child, &lightIndex](const Light& light) {
@@ -290,19 +290,19 @@ void SaveEntity(json& json_data, const Entity& entity) {
                 });
 
 
-                SaveLight(child_json, *child, lightIndex);
-                children_data.emplace_back(child_json);
+                SaveLight(childJson, *child, lightIndex);
+                childrenData.emplace_back(childJson);
             }
 
         }
-        j["children"] = children_data;
+        j["children"] = childrenData;
     }
 
-    json_data.emplace_back(j);
+    jsonData.emplace_back(j);
 }
 
 
-void SaveLight(json& json_data, const Light& light, int lightIndex) {
+void SaveLight(json& jsonData, const Light& light, int lightIndex) {
     json j;
     j["type"] = "light";
     j["color"]["r"] = light.color.r * 255;
@@ -341,11 +341,11 @@ void SaveLight(json& json_data, const Light& light, int lightIndex) {
     j["light_type"] = lights.at(lightIndex).type;
 
 
-    json_data.emplace_back(j);
+    jsonData.emplace_back(j);
 }
 
 
-void SaveText(json& json_data, const Text& text, bool emplace_back) {
+void SaveText(json& jsonData, const Text& text, bool emplaceBack) {
     json j;
     j["type"] = "text";
     j["name"] = text.name;
@@ -358,14 +358,14 @@ void SaveText(json& json_data, const Text& text, bool emplace_back) {
     j["spacing"] = text.spacing;
     j["padding"] = text.padding;
 
-    if (emplace_back)
-        json_data.emplace_back(j);
+    if (emplaceBack)
+        jsonData.emplace_back(j);
     else
-       json_data = j;
+       jsonData = j;
 
 }
 
-void SaveWorldSetting(json& json_data)
+void SaveWorldSetting(json& jsonData)
 {
     json j;
     j["type"] = "world settings";
@@ -378,17 +378,17 @@ void SaveWorldSetting(json& json_data)
 
     j["ambientColor"] = ambientLight;
     j["skyboxColor"] = skyboxColor;
-    json_data.emplace_back(j);
+    jsonData.emplace_back(j);
 }
 
-void SaveButton(json& json_data, const LitButton& button) {
+void SaveButton(json& jsonData, const LitButton& button) {
     json j;
     j["type"] = "button";
     
     // Create a JSON object for the "text" field
-    json text_json;
-    SaveText(text_json, button.text, false);
-    j["text"] = text_json;
+    json textJson;
+    SaveText(textJson, button.text, false);
+    j["text"] = textJson;
 
     j["name"] = button.name;
     j["position"] = button.position;
@@ -402,7 +402,7 @@ void SaveButton(json& json_data, const LitButton& button) {
     j["button roundness"] = button.roundness;
     j["auto resize"] = button.autoResize;
 
-    json_data.emplace_back(j);
+    jsonData.emplace_back(j);
 }
 
 
@@ -424,9 +424,9 @@ std::string serializePythonScript(const std::string &scriptFilePath) {
 std::map<std::string, std::string> scriptContents;
 
 void serializeScripts() {
-    json script_data;
+    json scriptData;
 
-    int file_id = 0;
+    int fileID = 0;
     for (Entity& entity : entitiesListPregame) {
         if (entity.script.empty()) continue;
 
@@ -435,13 +435,13 @@ void serializeScripts() {
 
         json j;
         std::string scriptName = entity.script.substr(entity.script.find_last_of('/') + 1);
-        scriptName = scriptName.substr(0, scriptName.find_last_of('.')) + std::to_string(file_id);
+        scriptName = scriptName.substr(0, scriptName.find_last_of('.')) + std::to_string(fileID);
 
         j[scriptName] = scriptContent;
         entity.scriptIndex = scriptName;
 
-        file_id++;
-        script_data.emplace_back(j);
+        fileID++;
+        scriptData.emplace_back(j);
     }
 
     std::ofstream outfile("exported_game/scripts.json");
@@ -450,37 +450,37 @@ void serializeScripts() {
         return;
     }
 
-    outfile << std::setw(4) << script_data;
+    outfile << std::setw(4) << scriptData;
     outfile.close();
 }
 
 
 int SaveProject() {
     serializeScripts();
-    json json_data;
+    json jsonData;
 
-    SaveCamera(json_data, sceneCamera);
-    SaveWorldSetting(json_data);
+    SaveCamera(jsonData, sceneCamera);
+    SaveWorldSetting(jsonData);
 
     for (const auto& entity : entitiesListPregame) {
-        SaveEntity(json_data, entity);
+        SaveEntity(jsonData, entity);
     }
 
     int lightIndex = 0;
     for (const auto& light : lights) {
         if (light.isChild) continue;
-        SaveLight(json_data, light, lightIndex);
+        SaveLight(jsonData, light, lightIndex);
         lightIndex++;
     }
 
     for (const Text& text : textElements)
     {
-        SaveText(json_data, text);
+        SaveText(jsonData, text);
     }
 
     for (const LitButton& button : litButtons)
     {
-        SaveButton(json_data, button);
+        SaveButton(jsonData, button);
     }
 
     std::ofstream outfile("project.json");
@@ -489,76 +489,76 @@ int SaveProject() {
         return 1;
     }
 
-    outfile << std::setw(4) << json_data;
+    outfile << std::setw(4) << jsonData;
     outfile.close();
 
     return 0;
 }
 
-void LoadEntity(const json& entity_json, Entity& entity);
-void LoadLight(const json& light_json, Light& light, AdditionalLightInfo& lightInfo);
+void LoadEntity(const json& entityJson, Entity& entity);
+void LoadLight(const json& lightJson, Light& light, AdditionalLightInfo& lightInfo);
 
 
 
-void LoadCamera(const json& camera_json, LitCamera& camera) {
-    if (camera_json.contains("position")) {
+void LoadCamera(const json& cameraJson, LitCamera& camera) {
+    if (cameraJson.contains("position")) {
         Vector3 position{
-            camera_json["position"]["x"].get<float>(),
-            camera_json["position"]["y"].get<float>(),
-            camera_json["position"]["z"].get<float>()
+            cameraJson["position"]["x"].get<float>(),
+            cameraJson["position"]["y"].get<float>(),
+            cameraJson["position"]["z"].get<float>()
         };
         camera.position = position;
     }
 
-    if (camera_json.contains("target")) {
+    if (cameraJson.contains("target")) {
         Vector3 target{
-            camera_json["target"]["x"].get<float>(),
-            camera_json["target"]["y"].get<float>(),
-            camera_json["target"]["z"].get<float>()
+            cameraJson["target"]["x"].get<float>(),
+            cameraJson["target"]["y"].get<float>(),
+            cameraJson["target"]["z"].get<float>()
         };
         camera.target = target;
     }
 
-    if (camera_json.contains("up")) {
+    if (cameraJson.contains("up")) {
         Vector3 up{
-            camera_json["up"]["x"].get<float>(),
-            camera_json["up"]["y"].get<float>(),
-            camera_json["up"]["z"].get<float>()
+            cameraJson["up"]["x"].get<float>(),
+            cameraJson["up"]["y"].get<float>(),
+            cameraJson["up"]["z"].get<float>()
         };
         camera.up = up;
     }
 
-    if (camera_json.contains("fovy")) {
-        camera.fovy = camera_json["fovy"].get<float>();
+    if (cameraJson.contains("fovy")) {
+        camera.fovy = cameraJson["fovy"].get<float>();
     }
 
-    if (camera_json.contains("projection")) {
-        camera.projection = camera_json["projection"].get<int>();
+    if (cameraJson.contains("projection")) {
+        camera.projection = cameraJson["projection"].get<int>();
     }
 }
 
-void LoadWorldSettings(const json& world_setting_json)
+void LoadWorldSettings(const json& worldSettingsJson)
 {
-    if (world_setting_json.contains("bloom")) {
-        bloomEnabled = world_setting_json["bloom"].get<bool>();
+    if (worldSettingsJson.contains("bloom")) {
+        bloomEnabled = worldSettingsJson["bloom"].get<bool>();
     }
 
-    if (world_setting_json.contains("bloomBrightness")) {
-        bloomBrightness = world_setting_json["bloomBrightness"].get<float>();
+    if (worldSettingsJson.contains("bloomBrightness")) {
+        bloomBrightness = worldSettingsJson["bloomBrightness"].get<float>();
         SetShaderValue(downsamplerShader, GetShaderLocation(downsamplerShader, "bloomBrightness"), &bloomBrightness, SHADER_ATTRIB_FLOAT);
     }
 
-    if (world_setting_json.contains("skyboxPath")) {
-        InitSkybox(world_setting_json["skyboxPath"].get<std::string>().c_str());
+    if (worldSettingsJson.contains("skyboxPath")) {
+        InitSkybox(worldSettingsJson["skyboxPath"].get<std::string>().c_str());
     }
 
-    if (world_setting_json.contains("ambientColor")) {
-        ambientLight = world_setting_json["ambientColor"].get<Vector4>();
+    if (worldSettingsJson.contains("ambientColor")) {
+        ambientLight = worldSettingsJson["ambientColor"].get<Vector4>();
         SetShaderValue(shader, GetShaderLocation(shader, "ambientLight"), &ambientLight, SHADER_UNIFORM_VEC4);
     }
 
-    if (world_setting_json.contains("skyboxColor")) {
-        skyboxColor = world_setting_json["skyboxColor"].get<Vector4>();
+    if (worldSettingsJson.contains("skyboxColor")) {
+        skyboxColor = worldSettingsJson["skyboxColor"].get<Vector4>();
         SetShaderValue(skybox.materials[0].shader, GetShaderLocation(skybox.materials[0].shader, "skyboxColor"), &skyboxColor, SHADER_UNIFORM_VEC4);
     }
     else
@@ -567,8 +567,8 @@ void LoadWorldSettings(const json& world_setting_json)
         SetShaderValue(skybox.materials[0].shader, GetShaderLocation(skybox.materials[0].shader, "skyboxColor"), &skyboxColor, SHADER_UNIFORM_VEC4);
     }
 
-    if (world_setting_json.contains("bloomSamples")) {
-        bloomSamples = world_setting_json["bloomSamples"].get<int>();
+    if (worldSettingsJson.contains("bloomSamples")) {
+        bloomSamples = worldSettingsJson["bloomSamples"].get<int>();
         int shaderLocation = glGetUniformLocation(downsamplerShader.id, "samples");
 
         glUseProgram(downsamplerShader.id);
@@ -580,76 +580,76 @@ void LoadWorldSettings(const json& world_setting_json)
 
 
 
-void LoadEntity(const json& entity_json, Entity& entity) {
-    if (entity_json.contains("name")) {
-        entity.setName(entity_json["name"].get<std::string>());
+void LoadEntity(const json& entityJson, Entity& entity) {
+    if (entityJson.contains("name")) {
+        entity.setName(entityJson["name"].get<std::string>());
     }
 
-    if (entity_json.contains("scale")) {
+    if (entityJson.contains("scale")) {
         Vector3 scale{
-            entity_json["scale"]["x"].get<float>(),
-            entity_json["scale"]["y"].get<float>(),
-            entity_json["scale"]["z"].get<float>()
+            entityJson["scale"]["x"].get<float>(),
+            entityJson["scale"]["y"].get<float>(),
+            entityJson["scale"]["z"].get<float>()
         };
         entity.setScale(scale);
     }
 
-    if (entity_json.contains("position")) {
+    if (entityJson.contains("position")) {
         Vector3 position{
-            entity_json["position"]["x"].get<float>(),
-            entity_json["position"]["y"].get<float>(),
-            entity_json["position"]["z"].get<float>()
+            entityJson["position"]["x"].get<float>(),
+            entityJson["position"]["y"].get<float>(),
+            entityJson["position"]["z"].get<float>()
         };
         entity.position = position;
     }
 
-    if (entity_json.contains("rotation")) {
+    if (entityJson.contains("rotation")) {
         Vector3 rotation{
-            entity_json["rotation"]["x"].get<float>(),
-            entity_json["rotation"]["y"].get<float>(),
-            entity_json["rotation"]["z"].get<float>()
+            entityJson["rotation"]["x"].get<float>(),
+            entityJson["rotation"]["y"].get<float>(),
+            entityJson["rotation"]["z"].get<float>()
         };
         entity.rotation = rotation;
     }
 
-    if (entity_json.contains("relativePosition")) {
+    if (entityJson.contains("relativePosition")) {
         Vector3 relativePosition{
-            entity_json["relativePosition"]["x"].get<float>(),
-            entity_json["relativePosition"]["y"].get<float>(),
-            entity_json["relativePosition"]["z"].get<float>()
+            entityJson["relativePosition"]["x"].get<float>(),
+            entityJson["relativePosition"]["y"].get<float>(),
+            entityJson["relativePosition"]["z"].get<float>()
         };
         entity.relativePosition = relativePosition;
     }
 
-    if (entity_json.contains("mass")) {
-        entity.mass = entity_json["mass"].get<float>();
+    if (entityJson.contains("mass")) {
+        entity.mass = entityJson["mass"].get<float>();
     }
 
-    if (entity_json.contains("friction")) {
-        entity.friction = entity_json["friction"].get<float>();
+    if (entityJson.contains("friction")) {
+        entity.friction = entityJson["friction"].get<float>();
     }
 
-    if (entity_json.contains("damping")) {
-        entity.damping = entity_json["damping"].get<float>();
+    if (entityJson.contains("damping")) {
+        entity.damping = entityJson["damping"].get<float>();
     }
 
-    if (entity_json.contains("lodEnabled")) {
-        entity.lodEnabled = entity_json["lodEnabled"].get<bool>();
+    if (entityJson.contains("lodEnabled")) {
+        entity.lodEnabled = entityJson["lodEnabled"].get<bool>();
     }
     
-    if (entity_json.contains("tiling")) {
-        entity.tiling[0] = entity_json["tiling"][0].get<float>();
-        entity.tiling[1] = entity_json["tiling"][1].get<float>();
+    if (entityJson.contains("tiling")) {
+        entity.tiling[0] = entityJson["tiling"][0].get<float>();
+        entity.tiling[1] = entityJson["tiling"][1].get<float>();
     }
 
-    if (entity_json.contains("mesh_type")) {
-        entity.ObjectType = entity_json["mesh_type"].get<Entity::ObjectTypeEnum>();
+    if (entityJson.contains("mesh_type")) {
+        entity.ObjectType = entityJson["mesh_type"].get<Entity::ObjectTypeEnum>();
     }
 
-    if (entity_json.contains("model_path") && !entity_json["model_path"].get<std::string>().empty()) {
+    if (entityJson.contains("model_path") && !entityJson["model_path"].get<std::string>().empty()) {
         entity.setModel(
-            entity_json["model_path"].get<std::string>().c_str(),
-            LoadModel(entity_json["model_path"].get<std::string>().c_str())
+            entityJson["model_path"].get<std::string>().c_str(),
+            LoadModel(entityJson["model_path"].get<std::string>().c_str())
         );
     }
     else
@@ -673,23 +673,23 @@ void LoadEntity(const json& entity_json, Entity& entity) {
             entity.setModel("", LoadModelFromMesh(GenMeshTorus(.5, 1, 30, 30)));
     }
 
-    if (entity_json.contains("is_dynamic"))
-        entity.isDynamic = entity_json["is_dynamic"].get<bool>();
+    if (entityJson.contains("is_dynamic"))
+        entity.isDynamic = entityJson["is_dynamic"].get<bool>();
 
-    if (entity_json.contains("mass"))
-        entity.mass = entity_json["mass"].get<float>();
+    if (entityJson.contains("mass"))
+        entity.mass = entityJson["mass"].get<float>();
 
-    if (entity_json.contains("collider_type"))
-        entity.currentCollisionShapeType = std::make_shared<Entity::CollisionShapeType>(entity_json["collider_type"].get<Entity::CollisionShapeType>());
+    if (entityJson.contains("collider_type"))
+        entity.currentCollisionShapeType = std::make_shared<Entity::CollisionShapeType>(entityJson["collider_type"].get<Entity::CollisionShapeType>());
 
-    if (entity_json.contains("collider"))
-        entity.collider = entity_json["collider"].get<bool>();
-    if (entity_json.contains("script_path"))
-        entity.script = entity_json["script_path"].get<std::string>();
-    if (entity_json.contains("scriptIndex"))
-        entity.scriptIndex = entity_json["scriptIndex"].get<std::string>();
-    if (entity_json.contains("id"))
-        entity.id = entity_json["id"].get<int>();
+    if (entityJson.contains("collider"))
+        entity.collider = entityJson["collider"].get<bool>();
+    if (entityJson.contains("script_path"))
+        entity.script = entityJson["script_path"].get<std::string>();
+    if (entityJson.contains("scriptIndex"))
+        entity.scriptIndex = entityJson["scriptIndex"].get<std::string>();
+    if (entityJson.contains("id"))
+        entity.id = entityJson["id"].get<int>();
     else
         entity.id = -1;
 
@@ -697,8 +697,8 @@ void LoadEntity(const json& entity_json, Entity& entity) {
 
 
     // Materials
-    if (entity_json.contains("material_path")) {
-        entity.surfaceMaterial_path = entity_json["material_path"].get<std::string>();
+    if (entityJson.contains("material_path")) {
+        entity.surfaceMaterial_path = entityJson["material_path"].get<std::string>();
         if (!entity.surfaceMaterial_path.empty())
         {
             DeserializeMaterial(&entity.surfaceMaterial, entity.surfaceMaterial_path.string().c_str());
@@ -708,7 +708,7 @@ void LoadEntity(const json& entity_json, Entity& entity) {
 
 
     // Textures
-    std::string texturePath = entity_json["texturePath"].get<std::string>();
+    std::string texturePath = entityJson["texturePath"].get<std::string>();
     if (!texturePath.empty())
     {
 
@@ -725,13 +725,13 @@ void LoadEntity(const json& entity_json, Entity& entity) {
         }
     }
 
-    entity.normalTexturePath = entity_json["normalTexturePath"].get<std::string>();
+    entity.normalTexturePath = entityJson["normalTexturePath"].get<std::string>();
     if (!entity.normalTexturePath.empty())
     {
         entity.normalTexture = LoadTexture(entity.normalTexturePath.string().c_str());
     }
 
-    entity.roughnessTexturePath = entity_json["roughnessTexturePath"].get<std::string>();
+    entity.roughnessTexturePath = entityJson["roughnessTexturePath"].get<std::string>();
     if (!entity.roughnessTexturePath.empty())
     {
         entity.roughnessTexture = LoadTexture(entity.roughnessTexturePath.string().c_str());
@@ -741,22 +741,22 @@ void LoadEntity(const json& entity_json, Entity& entity) {
 
     entity.setShader(shader);
 
-    if (entity_json.contains("children")) {
-        const json& children_data = entity_json["children"];
-        if (children_data.is_array()) {
-            for (const auto& child_array : children_data) {
-                if (!child_array.empty()) {
-                    const json& child_json = child_array[0];
-                    std::string type = child_json["type"].get<std::string>();
+    if (entityJson.contains("children")) {
+        const json& childrenData = entityJson["children"];
+        if (childrenData.is_array()) {
+            for (const auto& childArray : childrenData) {
+                if (!childArray.empty()) {
+                    const json& childJson = childArray[0];
+                    std::string type = childJson["type"].get<std::string>();
                     if (type == "entity") {
                         Entity child;
-                        LoadEntity(child_json, child);
+                        LoadEntity(childJson, child);
                         entity.addChild(child);
                     } else if (type == "light") {
                         Light light;
                         AdditionalLightInfo lightInfo;
 
-                        LoadLight(child_json, light, lightInfo);
+                        LoadLight(childJson, light, lightInfo);
                         lightInfo.parent = &entity;
                         lights.push_back(std::move(light));
                         lightsInfo.push_back(std::move(lightInfo));
@@ -771,133 +771,133 @@ void LoadEntity(const json& entity_json, Entity& entity) {
 
 
 
-void LoadLight(const json& light_json, Light& light, AdditionalLightInfo& lightInfo) {
+void LoadLight(const json& lightJson, Light& light, AdditionalLightInfo& lightInfo) {
     light.color = (glm::vec4{
-        light_json["color"]["r"].get<float>() / 255,
-        light_json["color"]["g"].get<float>() / 255,
-        light_json["color"]["b"].get<float>() / 255,
-        light_json["color"]["a"].get<float>() / 255
+        lightJson["color"]["r"].get<float>() / 255,
+        lightJson["color"]["g"].get<float>() / 255,
+        lightJson["color"]["b"].get<float>() / 255,
+        lightJson["color"]["a"].get<float>() / 255
     });
     
-    lightInfo.name = light_json["name"].get<std::string>();
+    lightInfo.name = lightJson["name"].get<std::string>();
 
     glm::vec3 position{
-        light_json["position"]["x"].get<float>(),
-        light_json["position"]["y"].get<float>(),
-        light_json["position"]["z"].get<float>()
+        lightJson["position"]["x"].get<float>(),
+        lightJson["position"]["y"].get<float>(),
+        lightJson["position"]["z"].get<float>()
     };
 
     light.position = position;
 
     glm::vec3 relativePosition{
-        light_json["relativePosition"]["x"].get<float>(),
-        light_json["relativePosition"]["y"].get<float>(),
-        light_json["relativePosition"]["z"].get<float>()
+        lightJson["relativePosition"]["x"].get<float>(),
+        lightJson["relativePosition"]["y"].get<float>(),
+        lightJson["relativePosition"]["z"].get<float>()
     };
 
     light.relativePosition = relativePosition;
 
     glm::vec3 target{
-        light_json["target"]["x"].get<float>(),
-        light_json["target"]["y"].get<float>(),
-        light_json["target"]["z"].get<float>()
+        lightJson["target"]["x"].get<float>(),
+        lightJson["target"]["y"].get<float>(),
+        lightJson["target"]["z"].get<float>()
     };
 
     light.target = target;
     
     glm::vec3 direction{
-        light_json["direction"]["x"].get<float>(),
-        light_json["direction"]["y"].get<float>(),
-        light_json["direction"]["z"].get<float>()
+        lightJson["direction"]["x"].get<float>(),
+        lightJson["direction"]["y"].get<float>(),
+        lightJson["direction"]["z"].get<float>()
     };
 
     light.direction = direction;
     
-    light.id      = light_json["id"].get<int>();
+    light.id      = lightJson["id"].get<int>();
     lightInfo.id = light.id;
 
-    light.intensity          = light_json["intensity"].get<float>();
-    light.cutOff             = light_json["cutOff"].get<float>();
-    light.specularStrength   = light_json["specularStrength"].get<float>();
-    light.attenuation        = light_json["attenuation"].get<float>();
-    light.isChild            = light_json["isChild"].get<bool>();
-    light.type               = (LightType)light_json["light_type"].get<int>();
+    light.intensity          = lightJson["intensity"].get<float>();
+    light.cutOff             = lightJson["cutOff"].get<float>();
+    light.specularStrength   = lightJson["specularStrength"].get<float>();
+    light.attenuation        = lightJson["attenuation"].get<float>();
+    light.isChild            = lightJson["isChild"].get<bool>();
+    light.type               = (LightType)lightJson["light_type"].get<int>();
 }
 
 
-void LoadText(const json& text_json, Text& text) {
-    text.name                = text_json["name"].get<std::string>();
-    text.text                = text_json["text"].get<std::string>();
+void LoadText(const json& textJson, Text& text) {
+    text.name                = textJson["name"].get<std::string>();
+    text.text                = textJson["text"].get<std::string>();
 
-    text.color.a             = text_json["color"]["a"].get<unsigned char>();
-    text.color.r             = text_json["color"]["r"].get<unsigned char>();
-    text.color.g             = text_json["color"]["g"].get<unsigned char>();
-    text.color.b             = text_json["color"]["b"].get<unsigned char>();
+    text.color.a             = textJson["color"]["a"].get<unsigned char>();
+    text.color.r             = textJson["color"]["r"].get<unsigned char>();
+    text.color.g             = textJson["color"]["g"].get<unsigned char>();
+    text.color.b             = textJson["color"]["b"].get<unsigned char>();
 
-    text.backgroundColor.a             = text_json["background color"]["a"].get<unsigned char>();
-    text.backgroundColor.r             = text_json["background color"]["r"].get<unsigned char>();
-    text.backgroundColor.g             = text_json["background color"]["g"].get<unsigned char>();
-    text.backgroundColor.b             = text_json["background color"]["b"].get<unsigned char>();
+    text.backgroundColor.a             = textJson["background color"]["a"].get<unsigned char>();
+    text.backgroundColor.r             = textJson["background color"]["r"].get<unsigned char>();
+    text.backgroundColor.g             = textJson["background color"]["g"].get<unsigned char>();
+    text.backgroundColor.b             = textJson["background color"]["b"].get<unsigned char>();
 
-    text.backgroundRoundness          = text_json["background roundiness"].get<float>();
-    text.fontSize                      = text_json["font size"].get<float>();
-    text.spacing                       = text_json["spacing"].get<float>();
-    text.padding                       = text_json["padding"].get<float>();
+    text.backgroundRoundness          = textJson["background roundiness"].get<float>();
+    text.fontSize                      = textJson["font size"].get<float>();
+    text.spacing                       = textJson["spacing"].get<float>();
+    text.padding                       = textJson["padding"].get<float>();
 
     text.position = {
-        text_json["position"]["x"].get<float>(),
-        text_json["position"]["y"].get<float>(),
-        text_json["position"]["z"].get<float>()
+        textJson["position"]["x"].get<float>(),
+        textJson["position"]["y"].get<float>(),
+        textJson["position"]["z"].get<float>()
     };
 }
 
 
-void LoadButton(const json& button_json, LitButton& button) {
-    LoadText(button_json["text"], button.text);
+void LoadButton(const json& buttonJson, LitButton& button) {
+    LoadText(buttonJson["text"], button.text);
 
-    button.name = button_json["name"].get<std::string>();
+    button.name = buttonJson["name"].get<std::string>();
     button.position = {
-        button_json["position"]["x"].get<float>(),
-        button_json["position"]["y"].get<float>(),
-        button_json["position"]["z"].get<float>()
+        buttonJson["position"]["x"].get<float>(),
+        buttonJson["position"]["y"].get<float>(),
+        buttonJson["position"]["z"].get<float>()
     };
     button.size = {
-        button_json["size"]["x"].get<float>(),
-        button_json["size"]["y"].get<float>()
+        buttonJson["size"]["x"].get<float>(),
+        buttonJson["size"]["y"].get<float>()
     };
 
-    button.color.a = button_json["color"]["a"].get<unsigned char>();
-    button.color.r = button_json["color"]["r"].get<unsigned char>();
-    button.color.g = button_json["color"]["g"].get<unsigned char>();
-    button.color.b = button_json["color"]["b"].get<unsigned char>();
+    button.color.a = buttonJson["color"]["a"].get<unsigned char>();
+    button.color.r = buttonJson["color"]["r"].get<unsigned char>();
+    button.color.g = buttonJson["color"]["g"].get<unsigned char>();
+    button.color.b = buttonJson["color"]["b"].get<unsigned char>();
 
-    button.pressedColor.a = button_json["pressed color"]["a"].get<unsigned char>();
-    button.pressedColor.r = button_json["pressed color"]["r"].get<unsigned char>();
-    button.pressedColor.g = button_json["pressed color"]["g"].get<unsigned char>();
-    button.pressedColor.b = button_json["pressed color"]["b"].get<unsigned char>();
+    button.pressedColor.a = buttonJson["pressed color"]["a"].get<unsigned char>();
+    button.pressedColor.r = buttonJson["pressed color"]["r"].get<unsigned char>();
+    button.pressedColor.g = buttonJson["pressed color"]["g"].get<unsigned char>();
+    button.pressedColor.b = buttonJson["pressed color"]["b"].get<unsigned char>();
 
-    button.hoverColor.a = button_json["hover color"]["a"].get<unsigned char>();
-    button.hoverColor.r = button_json["hover color"]["r"].get<unsigned char>();
-    button.hoverColor.g = button_json["hover color"]["g"].get<unsigned char>();
-    button.hoverColor.b = button_json["hover color"]["b"].get<unsigned char>();
+    button.hoverColor.a = buttonJson["hover color"]["a"].get<unsigned char>();
+    button.hoverColor.r = buttonJson["hover color"]["r"].get<unsigned char>();
+    button.hoverColor.g = buttonJson["hover color"]["g"].get<unsigned char>();
+    button.hoverColor.b = buttonJson["hover color"]["b"].get<unsigned char>();
 
-    button.disabledButtonColor.a = button_json["disabled color"]["a"].get<unsigned char>();
-    button.disabledButtonColor.r = button_json["disabled color"]["r"].get<unsigned char>();
-    button.disabledButtonColor.g = button_json["disabled color"]["g"].get<unsigned char>();
-    button.disabledButtonColor.b = button_json["disabled color"]["b"].get<unsigned char>();
+    button.disabledButtonColor.a = buttonJson["disabled color"]["a"].get<unsigned char>();
+    button.disabledButtonColor.r = buttonJson["disabled color"]["r"].get<unsigned char>();
+    button.disabledButtonColor.g = buttonJson["disabled color"]["g"].get<unsigned char>();
+    button.disabledButtonColor.b = buttonJson["disabled color"]["b"].get<unsigned char>();
 
-    button.disabledText.a = button_json["disabled text color"]["a"].get<unsigned char>();
-    button.disabledText.r = button_json["disabled text color"]["r"].get<unsigned char>();
-    button.disabledText.g = button_json["disabled text color"]["g"].get<unsigned char>();
-    button.disabledText.b = button_json["disabled text color"]["b"].get<unsigned char>();
+    button.disabledText.a = buttonJson["disabled text color"]["a"].get<unsigned char>();
+    button.disabledText.r = buttonJson["disabled text color"]["r"].get<unsigned char>();
+    button.disabledText.g = buttonJson["disabled text color"]["g"].get<unsigned char>();
+    button.disabledText.b = buttonJson["disabled text color"]["b"].get<unsigned char>();
 
-    button.disabledHoverColor.a = button_json["disabled hover color"]["a"].get<unsigned char>();
-    button.disabledHoverColor.r = button_json["disabled hover color"]["r"].get<unsigned char>();
-    button.disabledHoverColor.g = button_json["disabled hover color"]["g"].get<unsigned char>();
-    button.disabledHoverColor.b = button_json["disabled hover color"]["b"].get<unsigned char>();
+    button.disabledHoverColor.a = buttonJson["disabled hover color"]["a"].get<unsigned char>();
+    button.disabledHoverColor.r = buttonJson["disabled hover color"]["r"].get<unsigned char>();
+    button.disabledHoverColor.g = buttonJson["disabled hover color"]["g"].get<unsigned char>();
+    button.disabledHoverColor.b = buttonJson["disabled hover color"]["b"].get<unsigned char>();
 
-    button.roundness = button_json["button roundness"].get<float>();
-    button.autoResize = button_json["auto resize"].get<bool>();
+    button.roundness = buttonJson["button roundness"].get<float>();
+    button.autoResize = buttonJson["auto resize"].get<bool>();
 }
 
 
@@ -909,8 +909,8 @@ int LoadProject(std::vector<Entity>& entitiesVector, std::vector<Light>& lightsV
         return 1;
     }
 
-    json json_data;
-    infile >> json_data;
+    json jsonData;
+    infile >> jsonData;
 
     infile.close();
 
@@ -926,37 +926,37 @@ int LoadProject(std::vector<Entity>& entitiesVector, std::vector<Light>& lightsV
     litButtons.clear();
     
     try {
-        for (const auto& entity_json : json_data) {
-            std::string type = entity_json["type"].get<std::string>();
+        for (const auto& objectJson : jsonData) {
+            std::string type = objectJson["type"].get<std::string>();
             if (type == "entity") {
                 Entity entity;
-                LoadEntity(entity_json, entity);
+                LoadEntity(objectJson, entity);
                 entitiesVector.emplace_back(std::move(entity));
                 entitiesVector.back().reloadRigidBody();
             }
             else if (type == "camera") {
-                LoadCamera(entity_json, camera);
+                LoadCamera(objectJson, camera);
             }
             else if (type == "world settings")
             {
-                LoadWorldSettings(entity_json);
+                LoadWorldSettings(objectJson);
             }
             else if (type == "light") {
-                if (entity_json["isChild"].get<bool>() == true) continue;
+                if (objectJson["isChild"].get<bool>() == true) continue;
                 Light light;
                 AdditionalLightInfo lightInfo;
-                LoadLight(entity_json, light, lightInfo);
+                LoadLight(objectJson, light, lightInfo);
                 lightsInfoVector.emplace_back(std::move(lightInfo));
                 lightsVector.emplace_back(std::move(light));
             }
             else if (type == "text") {
                 Text textElement;
-                LoadText(entity_json, textElement);
+                LoadText(objectJson, textElement);
                 textElements.emplace_back(std::move(textElement));
             }
             else if (type == "button") {
                 LitButton button;
-                LoadButton(entity_json, button);
+                LoadButton(objectJson, button);
                 litButtons.emplace_back(std::move(button));
             }
         }
