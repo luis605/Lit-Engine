@@ -299,6 +299,10 @@ void ExitWindowRequested()
     }
 }
 
-Vector3 glm3ToVec3(glm::vec3 vec3) {
+Vector3 glm3ToVec3(glm::vec3& vec3) {
     return (Vector3){ vec3.x, vec3.y, vec3.z };
+}
+
+glm::vec3 vec3ToGlm3(Vector3& vec3) {
+    return (glm::vec3){ vec3.x, vec3.y, vec3.z };
 }
