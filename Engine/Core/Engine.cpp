@@ -479,19 +479,53 @@ public:
     }
 
 
-    void addChild(Light& lightChild) {
-        Light newChild = Light(lightChild);
-
-        newChild.isChild = true;
-        newChild.relativePosition = {
-            newChild.position.x - this->position.x,
-            newChild.position.y - this->position.y,
-            newChild.position.z - this->position.z
+    void addChild(Light* newChild) {
+        newChild->isChild = true;
+        newChild->relativePosition = {
+            newChild->position.x - this->position.x,
+            newChild->position.y - this->position.y,
+            newChild->position.z - this->position.z
         };
 
-        lights.emplace_back(std::move(newChild));
-        children.emplace_back(&lights.back());
+        children.push_back(newChild);
     }
+
+    void printChildren() {
+        std::cout << "Children contents: ";
+        for (const auto& variant : children) {
+            if (std::holds_alternative<Entity*>(variant)) {
+                std::cout << "Entity* ";
+            } else if (std::holds_alternative<Light*>(variant)) {
+                std::cout << "Light* ";
+            } else if (std::holds_alternative<Text*>(variant)) {
+                std::cout << "Text* ";
+            } else if (std::holds_alternative<LitButton*>(variant)) {
+                std::cout << "LitButton* ";
+            } else {
+                std::cout << "Unknown ";
+            }
+        }
+        std::cout << std::endl;
+    }
+
+    void removeLightChild(Light* droppedLight) {
+        std::cout << "Before removal, children size: " << children.size() << std::endl;
+        printChildren();
+
+        children.erase(
+            std::remove_if(children.begin(), children.end(), [&](auto& variant) {
+                if (auto ptr = std::get_if<Light*>(&variant)) {
+                    return *ptr == droppedLight;
+                }
+                return false;
+            }),
+            children.end()
+        );
+
+        std::cout << "After removal, children size: " << children.size() << std::endl;
+        printChildren();
+    }
+
 
     void update_children() {
         if (children.empty()) return;

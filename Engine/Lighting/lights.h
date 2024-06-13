@@ -92,6 +92,20 @@ typedef struct AdditionalLightInfo
     }
 };
 
+struct FindLightById {
+    int id_to_find;
+
+    FindLightById(int id) : id_to_find(id) {}
+
+    bool operator()(const std::variant<Entity*, Light*, Text*, LitButton*>& var) const {
+        if (std::holds_alternative<Light*>(var)) {
+            Light* light = std::get<Light*>(var);
+            return light->id == id_to_find;
+        }
+        return false;
+    }
+};
+
 
 Light NewLight(const Vector3 position, const Color color, int type)
 {

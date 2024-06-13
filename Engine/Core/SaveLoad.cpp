@@ -757,11 +757,11 @@ void LoadEntity(const json& entity_json, Entity& entity) {
                         AdditionalLightInfo lightInfo;
 
                         LoadLight(child_json, light, lightInfo);
-                        lights.push_back(light);
-                        lightsInfo.push_back(lightInfo);
-                        light.isChild = true;
+                        lightInfo.parent = &entity;
+                        lights.push_back(std::move(light));
+                        lightsInfo.push_back(std::move(lightInfo));
 
-                        entity.addChild(lights.back());
+                        entity.addChild(&lights.back());
                     }
                 }
             }
@@ -931,7 +931,7 @@ int LoadProject(std::vector<Entity>& entitiesVector, std::vector<Light>& lightsV
             if (type == "entity") {
                 Entity entity;
                 LoadEntity(entity_json, entity);
-                entitiesVector.push_back(entity);
+                entitiesVector.emplace_back(std::move(entity));
                 entitiesVector.back().reloadRigidBody();
             }
             else if (type == "camera") {
@@ -946,18 +946,18 @@ int LoadProject(std::vector<Entity>& entitiesVector, std::vector<Light>& lightsV
                 Light light;
                 AdditionalLightInfo lightInfo;
                 LoadLight(entity_json, light, lightInfo);
-                lightsInfoVector.emplace_back(lightInfo);
-                lightsVector.emplace_back(light);
+                lightsInfoVector.emplace_back(std::move(lightInfo));
+                lightsVector.emplace_back(std::move(light));
             }
             else if (type == "text") {
                 Text textElement;
                 LoadText(entity_json, textElement);
-                textElements.emplace_back(textElement);
+                textElements.emplace_back(std::move(textElement));
             }
             else if (type == "button") {
                 LitButton button;
                 LoadButton(entity_json, button);
-                litButtons.emplace_back(button);
+                litButtons.emplace_back(std::move(button));
             }
         }
     } catch (const json::type_error& e) {

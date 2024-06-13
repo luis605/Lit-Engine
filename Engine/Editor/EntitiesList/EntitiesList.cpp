@@ -155,14 +155,23 @@ void DrawEntityTree(Entity& entity, int active, int& index, int depth) {
         const ImGuiPayload* payload = ImGui::AcceptDragDropPayload("CHILD_LIGHT_PAYLOAD");
         if (payload) {
             if (payload->DataSize == sizeof(Light)) {
-                Light& droppedLight = *(Light*)payload->Data;;
-                entity.addChild(droppedLight);
+                Light* droppedLight = (Light*)payload->Data;
+                int id = droppedLight->id;
 
-                auto it = std::find(lights.begin(), lights.end(), droppedLight);
-                if (it != lights.end()) {
-                    lights.erase(it);
-                } else {
-                    std::cout << "Light not found." << std::endl;
+                auto itLight = std::find_if(lights.begin(), lights.end(), [id](const Light& obj) {
+                    return obj.id == id;
+                });
+
+                auto itInfo = std::find_if(lightsInfo.begin(), lightsInfo.end(), [id](const AdditionalLightInfo& obj) {
+                    return obj.id == id;
+                });
+
+                if (itInfo != lightsInfo.end()) {
+                    if (itInfo->parent != &entity)
+                    {
+                        itInfo->parent = &entity;
+                        entity.addChild(&(*itLight));
+                    }
                 }
             } else {
                 std::cerr << "Invalid payload size!" << std::endl;
@@ -383,6 +392,40 @@ void ImGuiListViewEx(std::vector<std::string>& items, int& focus, int& scroll, i
         ImGui::GetWindowSize().y - 150);
 
     ImGui::BeginChild("Entities List", childSize, true, ImGuiWindowFlags_HorizontalScrollbar);
+    ImVec2 p = ImGui::GetCursorScreenPos();
+
+    ImGui::SetNextItemAllowOverlap();
+    ImGui::InvisibleButton("Background", ImGui::GetWindowSize());
+    ImGui::SetCursorScreenPos(p);
+
+
+    // Make a child a global object
+    if (ImGui::BeginDragDropTarget()) {
+        const ImGuiPayload* payload = ImGui::AcceptDragDropPayload("CHILD_LIGHT_PAYLOAD");
+        if (payload) {
+            if (payload->DataSize == sizeof(Light)) {
+                Light& droppedLight = *(Light*)payload->Data;
+                int id = droppedLight.id;
+                auto it1 = std::find_if(lightsInfo.begin(), lightsInfo.end(), [id](const AdditionalLightInfo& obj) {
+                    return obj.id == id;
+                });
+
+                auto it = std::find(lights.begin(), lights.end(), droppedLight);
+                if (it != lights.end()) {
+                    if (it1 != lightsInfo.end()) {
+                        it1->parent->removeLightChild(&(*it));
+                    }
+
+                    it->isChild = false;
+                } else {
+                    std::cout << "Light not found." << std::endl;
+                }
+            } else {
+                std::cerr << "Invalid payload size!" << std::endl;
+            }
+        }
+        ImGui::EndDragDropTarget();
+    }
 
     if ((ImGui::IsWindowFocused() || ImGui::IsWindowHovered() || ImGui::IsItemHovered()) && IsKeyDown(KEY_F2))
         shouldChangeObjectName = true;
@@ -427,7 +470,6 @@ void ImGuiListViewEx(std::vector<std::string>& items, int& focus, int& scroll, i
 
     ImGui::PopStyleVar(3);
     ImGui::PopItemWidth();
-
     ImGui::PopStyleColor(3);
 
     ImGui::EndChild();
