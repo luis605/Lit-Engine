@@ -384,28 +384,30 @@ void DrawButtonTree(LitButton& button, int active, int& index) {
 
 
 
-void ImGuiListViewEx(std::vector<std::string>& items, int& focus, int& scroll, int& active) {
-    ImVec2 screen = ImGui::GetIO().DisplaySize;
-    
+void ImGuiListViewEx(std::vector<std::string>& items, int& active) {
+    // Calculate the size for the child window
     ImVec2 childSize = ImVec2(
         ImGui::GetWindowSize().x - 30,
         ImGui::GetWindowSize().y - 150);
 
     ImGui::BeginChild("Entities List", childSize, true, ImGuiWindowFlags_HorizontalScrollbar);
-    ImVec2 p = ImGui::GetCursorScreenPos();
+
+    ImVec2 padding = ImGui::GetStyle().WindowPadding;
+    ImVec2 pos = ImGui::GetCursorScreenPos();
+    ImVec2 buttonSize = childSize - padding * 2.0f;
 
     ImGui::SetNextItemAllowOverlap();
-    ImGui::InvisibleButton("Background", ImGui::GetWindowSize());
-    ImGui::SetCursorScreenPos(p);
+    ImGui::InvisibleButton("Background", buttonSize);
+    ImGui::SetCursorScreenPos(pos);
 
-
-    // Make a child a global object
     if (ImGui::BeginDragDropTarget()) {
         const ImGuiPayload* payload = ImGui::AcceptDragDropPayload("CHILD_LIGHT_PAYLOAD");
         if (payload) {
             if (payload->DataSize == sizeof(Light)) {
                 Light& droppedLight = *(Light*)payload->Data;
+                if (!droppedLight.isChild) goto jump;
                 int id = droppedLight.id;
+
                 auto it1 = std::find_if(lightsInfo.begin(), lightsInfo.end(), [id](const AdditionalLightInfo& obj) {
                     return obj.id == id;
                 });
@@ -415,10 +417,9 @@ void ImGuiListViewEx(std::vector<std::string>& items, int& focus, int& scroll, i
                     if (it1 != lightsInfo.end()) {
                         it1->parent->removeLightChild(&(*it));
                     }
-
                     it->isChild = false;
                 } else {
-                    std::cout << "Light not found." << std::endl;
+                    std::cerr << "Light not found." << std::endl;
                 }
             } else {
                 std::cerr << "Invalid payload size!" << std::endl;
@@ -427,6 +428,7 @@ void ImGuiListViewEx(std::vector<std::string>& items, int& focus, int& scroll, i
         ImGui::EndDragDropTarget();
     }
 
+jump:
     if ((ImGui::IsWindowFocused() || ImGui::IsWindowHovered() || ImGui::IsItemHovered()) && IsKeyDown(KEY_F2))
         shouldChangeObjectName = true;
 
@@ -434,17 +436,16 @@ void ImGuiListViewEx(std::vector<std::string>& items, int& focus, int& scroll, i
         shouldChangeObjectName = false;
 
     ImGui::PushStyleVar(ImGuiStyleVar_FrameBorderSize, 3.0f);
-    ImGui::PushStyleColor(ImGuiCol_Button, ImVec4(0.9f, 0.9f, 0.9f, 0.9f)); // light gray
-    ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(0.0f, 0.0f, 0.0f, 1.0f)); // black
-    ImGui::PushStyleColor(ImGuiCol_FrameBg, ImVec4(0.5f, 0.5f, 0.5f, 0.5f)); // light gray
+    ImGui::PushStyleColor(ImGuiCol_Button, ImVec4(0.9f, 0.9f, 0.9f, 0.9f));
+    ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(0.0f, 0.0f, 0.0f, 1.0f));
+    ImGui::PushStyleColor(ImGuiCol_FrameBg, ImVec4(0.5f, 0.5f, 0.5f, 0.5f));
 
     ImGui::PushItemWidth(-1);
-    ImGui::PushStyleVar(ImGuiStyleVar_ItemSpacing, ImVec2(0,10));
-    ImGui::PushStyleVar(ImGuiStyleVar_ItemInnerSpacing, ImVec2(10,10));
+    ImGui::PushStyleVar(ImGuiStyleVar_ItemSpacing, ImVec2(0, 10));
+    ImGui::PushStyleVar(ImGuiStyleVar_ItemInnerSpacing, ImVec2(10, 10));
 
-    int currentAmount = 0;
     int index = 0;
-
+    int lightsIndex = 0;
 
     DrawCameraTree(active, index);
 
@@ -452,7 +453,6 @@ void ImGuiListViewEx(std::vector<std::string>& items, int& focus, int& scroll, i
         DrawEntityTree(entity, active, index);
     }
 
-    int lightsIndex = 0;
     for (Light& light : lights) {
         if (light.isChild) continue;
         DrawLightTree(light, lightsInfo[lightsIndex], active, index);
@@ -467,7 +467,6 @@ void ImGuiListViewEx(std::vector<std::string>& items, int& focus, int& scroll, i
         DrawButtonTree(button, active, index);
     }
 
-
     ImGui::PopStyleVar(3);
     ImGui::PopItemWidth();
     ImGui::PopStyleColor(3);
@@ -477,13 +476,12 @@ void ImGuiListViewEx(std::vector<std::string>& items, int& focus, int& scroll, i
     ManipulateEntityPopup();
 }
 
-
 void EntitiesList()
 {
     ImGui::Begin((std::string(ICON_FA_BARS) + " Objects List").c_str(), NULL);
 
     updateListViewExList(entitiesListPregame, lightsListPregame);
-    ImGuiListViewEx(objectNames, listViewExFocus, listViewExScrollIndex, listViewExActive);
+    ImGuiListViewEx(objectNames, listViewExActive);
 
     ImGui::PushStyleColor(ImGuiCol_Button, ImVec4(0.3f, 0.3f, 0.3f, 0.0f));
     ImGui::PushStyleColor(ImGuiCol_ButtonHovered, ImVec4(0.3f, 0.3f, 0.3f, 0.1f));
