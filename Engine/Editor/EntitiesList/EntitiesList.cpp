@@ -385,7 +385,6 @@ void DrawButtonTree(LitButton& button, int active, int& index) {
 
 
 void ImGuiListViewEx(std::vector<std::string>& items, int& active) {
-    // Calculate the size for the child window
     ImVec2 childSize = ImVec2(
         ImGui::GetWindowSize().x - 30,
         ImGui::GetWindowSize().y - 150);
@@ -408,14 +407,15 @@ void ImGuiListViewEx(std::vector<std::string>& items, int& active) {
                 if (!droppedLight.isChild) goto jump;
                 int id = droppedLight.id;
 
-                auto it1 = std::find_if(lightsInfo.begin(), lightsInfo.end(), [id](const AdditionalLightInfo& obj) {
+                auto itInfo = std::find_if(lightsInfo.begin(), lightsInfo.end(), [id](const AdditionalLightInfo& obj) {
                     return obj.id == id;
                 });
 
                 auto it = std::find(lights.begin(), lights.end(), droppedLight);
                 if (it != lights.end()) {
-                    if (it1 != lightsInfo.end()) {
-                        it1->parent->removeLightChild(&(*it));
+                    if (itInfo != lightsInfo.end()) {
+                        itInfo->parent->removeLightChild(&(*it));
+                        itInfo->parent = nullptr;
                     }
                     it->isChild = false;
                 } else {
