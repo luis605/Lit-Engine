@@ -487,31 +487,11 @@ public:
             newChild->position.z - this->position.z
         };
 
-        children.push_back(newChild);
+        children.emplace_back(newChild);
     }
 
-    void printChildren() {
-        std::cout << "Children contents: ";
-        for (const auto& variant : children) {
-            if (std::holds_alternative<Entity*>(variant)) {
-                std::cout << "Entity* ";
-            } else if (std::holds_alternative<Light*>(variant)) {
-                std::cout << "Light* ";
-            } else if (std::holds_alternative<Text*>(variant)) {
-                std::cout << "Text* ";
-            } else if (std::holds_alternative<LitButton*>(variant)) {
-                std::cout << "LitButton* ";
-            } else {
-                std::cout << "Unknown ";
-            }
-        }
-        std::cout << std::endl;
-    }
 
     void removeLightChild(Light* droppedLight) {
-        std::cout << "Before removal, children size: " << children.size() << std::endl;
-        printChildren();
-
         children.erase(
             std::remove_if(children.begin(), children.end(), [&](auto& variant) {
                 if (auto ptr = std::get_if<Light*>(&variant)) {
@@ -521,15 +501,12 @@ public:
             }),
             children.end()
         );
-
-        std::cout << "After removal, children size: " << children.size() << std::endl;
-        printChildren();
     }
 
 
     void update_children() {
         if (children.empty()) return;
-        
+
         for (auto& childVariant : children) {
             if (auto* entity = std::get_if<Entity*>(&childVariant)) {
                 update_entity_child(*entity);
@@ -556,6 +533,19 @@ public:
     }
 
     void update_light_child(Light* light) {
+        if (light == nullptr) return;
+        if (!light->isChild) {        
+            auto it = std::find_if(children.begin(), children.end(),
+                [light](const auto& child) {
+                    return std::holds_alternative<Light*>(child) && std::get<Light*>(child) == light;
+                });
+
+            if (it != children.end()) {
+                int index = std::distance(children.begin(), it);
+                children.erase(children.begin() + index);
+            }
+        }
+
     #ifndef GAME_SHIPPING
         if (light == selectedLight && selectedGameObjectType == "light") return;
     #endif

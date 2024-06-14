@@ -753,15 +753,15 @@ void LoadEntity(const json& entityJson, Entity& entity) {
                         LoadEntity(childJson, child);
                         entity.addChild(child);
                     } else if (type == "light") {
-                        Light light;
-                        AdditionalLightInfo lightInfo;
+                        lights.emplace_back();
+                        lightsInfo.emplace_back();
 
+                        Light& light = lights.back();
+                        AdditionalLightInfo& lightInfo = lightsInfo.back();
                         LoadLight(childJson, light, lightInfo);
-                        lightInfo.parent = &entity;
-                        lights.push_back(std::move(light));
-                        lightsInfo.push_back(std::move(lightInfo));
 
-                        entity.addChild(&lights.back());
+                        lightInfo.parent = &entity;
+                        entity.addChild(&light);
                     }
                 }
             }

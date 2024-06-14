@@ -167,8 +167,7 @@ void DrawEntityTree(Entity& entity, int active, int& index, int depth) {
                 });
 
                 if (itInfo != lightsInfo.end()) {
-                    if (itInfo->parent != &entity)
-                    {
+                    if (itInfo->parent != &entity) {
                         itInfo->parent = &entity;
                         entity.addChild(&(*itLight));
                     }
@@ -402,33 +401,40 @@ void ImGuiListViewEx(std::vector<std::string>& items, int& active) {
     if (ImGui::BeginDragDropTarget()) {
         const ImGuiPayload* payload = ImGui::AcceptDragDropPayload("CHILD_LIGHT_PAYLOAD");
         if (payload) {
-            if (payload->DataSize == sizeof(Light)) {
-                Light& droppedLight = *(Light*)payload->Data;
-                if (!droppedLight.isChild) goto jump;
-                int id = droppedLight.id;
+            if (payload->DataSize == sizeof(Light))
+            {
+                Light* droppedLight = static_cast<Light*>(payload->Data);
 
-                auto itInfo = std::find_if(lightsInfo.begin(), lightsInfo.end(), [id](const AdditionalLightInfo& obj) {
-                    return obj.id == id;
-                });
+                if (droppedLight->isChild)
+                {
+                    int id = droppedLight->id;
+                    auto itInfo = std::find_if(lightsInfo.begin(), lightsInfo.end(),
+                        [id](const AdditionalLightInfo& obj) { return obj.id == id; });
 
-                auto it = std::find(lights.begin(), lights.end(), droppedLight);
-                if (it != lights.end()) {
-                    if (itInfo != lightsInfo.end()) {
+                    auto it = std::find_if(lights.begin(), lights.end(),
+                        [id](const Light& obj) { return obj.id == id; });
+
+                    if (it != lights.end() && itInfo != lightsInfo.end())
+                    {
                         itInfo->parent->removeLightChild(&(*it));
+                        
                         itInfo->parent = nullptr;
+                        it->isChild = false;
+                    } else {
+                        std::cerr << "Light not found." << std::endl;
                     }
-                    it->isChild = false;
                 } else {
-                    std::cerr << "Light not found." << std::endl;
+                    std::cerr << "Dropped light is not a child." << std::endl;
                 }
-            } else {
+            }
+            else
+            {
                 std::cerr << "Invalid payload size!" << std::endl;
             }
         }
         ImGui::EndDragDropTarget();
     }
 
-jump:
     if ((ImGui::IsWindowFocused() || ImGui::IsWindowHovered() || ImGui::IsItemHovered()) && IsKeyDown(KEY_F2))
         shouldChangeObjectName = true;
 
