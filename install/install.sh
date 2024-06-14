@@ -35,7 +35,7 @@ elif [ "$selectedPackageManager" = "dnf" ]; then
     sudo dnf install python3-devel gcc-c++ glm-devel make cmake wayland-devel libxkbcommon-devel
     sudo dnf install tbb-devel bullet-devel @development-tools cmake mesa-libGLU-devel ffmpeg-devel
 elif [ "$selectedPackageManager" = "pacman" ]; then
-    sudo pacman -Syu
+    sudo pacman -Sy
     sudo pacman -S python python-pip gcc glm make cmake wayland xorg-server xorg-xinit libxkbcommon
     sudo pacman -S onetbb bullet mesa glu ffmpeg
 else
