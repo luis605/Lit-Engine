@@ -432,6 +432,24 @@ void ImGuiListViewEx(std::vector<std::string>& items, int& active) {
     }
 
 
+    if (ImGui::BeginDragDropTarget()) {
+        const ImGuiPayload* payload = ImGui::AcceptDragDropPayload("CHILD_ENTITY_PAYLOAD");
+        if (payload) {
+            Entity droppedEntity = *(Entity*)payload->Data;
+
+            if (!droppedEntity.isChild){
+                std::cerr << "Dropped entity is not a child." << std::endl;
+                goto jump;
+            }
+
+            droppedEntity.parent->removeChild(&droppedEntity);
+            droppedEntity.isChild = false;
+            droppedEntity.parent = nullptr;
+            entitiesListPregame.push_back(droppedEntity);
+        }
+        ImGui::EndDragDropTarget();
+    }
+
 jump:
     if ((ImGui::IsWindowFocused() || ImGui::IsWindowHovered() || ImGui::IsItemHovered()) && IsKeyDown(KEY_F2))
         shouldChangeObjectName = true;
