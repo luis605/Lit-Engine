@@ -143,7 +143,7 @@ void DrawEntityTree(Entity& entity, int active, int& index, int depth) {
     {
         ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(0.85f, 0.85f, 0.85f, 1.0f));
 
-        ImGui::SetDragDropPayload("CHILD_ENTITY_PAYLOAD", &entity.id, sizeof(int));
+        ImGui::SetDragDropPayload("CHILD_ENTITY_PAYLOAD", &entity, sizeof(Entity));
         ImGui::TreeNodeEx((void*)&entity, nodeFlags | ImGuiTreeNodeFlags_Selected, entity.name.c_str());
         ImGui::PopStyleColor();
 
@@ -184,10 +184,11 @@ void DrawEntityTree(Entity& entity, int active, int& index, int depth) {
         const ImGuiPayload* payload = ImGui::AcceptDragDropPayload("CHILD_ENTITY_PAYLOAD");
         if (payload) {
             // Retrieve the entity ID from the payload data.
-            int droppedEntityID = *(const int*)payload->Data;
+            Entity droppedEntity = *(Entity*)payload->Data;
+            int id = droppedEntity.id;
 
-            auto it = std::find_if(entitiesListPregame.begin(), entitiesListPregame.end(), [droppedEntityID](const Entity& entity) {
-                return entity.id == droppedEntityID;
+            auto it = std::find_if(entitiesListPregame.begin(), entitiesListPregame.end(), [id](const Entity& entity) {
+                return entity.id == id;
             });
 
             if (it != entitiesListPregame.end()) {
@@ -214,31 +215,26 @@ void DrawEntityTree(Entity& entity, int active, int& index, int depth) {
 
 
     if (isNodeOpen) {
-        for (int childIndex = 0; childIndex < entity.children.size(); childIndex++) {
+        for (auto& child : entity.children) {
             index++;
-            std::variant<Entity*, Light*, Text*, LitButton*> childVariant = entity.children[childIndex];
+            if (Entity** entityChild = std::any_cast<Entity*>(&child)) {
+                DrawEntityTree(**entityChild, active, index, depth + 1);
+            } else if (Light** lightChild = std::any_cast<Light*>(&child)) {
+                auto it = std::find_if(lights.begin(), lights.end(),
+                    [&](const Light& light) { return &light == *lightChild; });
 
-            std::visit([&](auto&& child) {
-                using T = std::decay_t<decltype(child)>;
-                if constexpr (std::is_same_v<T, Entity*>) {
-                    DrawEntityTree(*child, active, index, depth + 1);
-                } else if constexpr (std::is_same_v<T, Light*>) {
-                    auto it = std::find_if(lights.begin(), lights.end(),
-                        [&](const Light& light) { return light == *child; });
-
-                    int distance = (it != lights.end()) ? std::distance(lights.begin(), it) : -1;
-
+                if (it != lights.end()) {
+                    int distance = std::distance(lights.begin(), it);
                     DrawLightTree(lights[distance], lightsInfo[distance], active, index);
-                } else if constexpr (std::is_same_v<T, Text*>) {
-                    DrawTextElementsTree(*child, active, index);
-                } else if constexpr (std::is_same_v<T, LitButton*>) {
-                    DrawButtonTree(*child, active, index);
                 }
-            }, childVariant);
+            } else if (Text** textChild = std::any_cast<Text*>(&child)) {
+                DrawTextElementsTree(**textChild, active, index);
+            } else if (LitButton** buttonChild = std::any_cast<LitButton*>(&child)) {
+                DrawButtonTree(**buttonChild, active, index);
+            }
         }
         ImGui::TreePop();
     }
-
 }
 
 
@@ -405,26 +401,26 @@ void ImGuiListViewEx(std::vector<std::string>& items, int& active) {
             {
                 Light* droppedLight = static_cast<Light*>(payload->Data);
 
-                if (droppedLight->isChild)
-                {
-                    int id = droppedLight->id;
-                    auto itInfo = std::find_if(lightsInfo.begin(), lightsInfo.end(),
-                        [id](const AdditionalLightInfo& obj) { return obj.id == id; });
-
-                    auto it = std::find_if(lights.begin(), lights.end(),
-                        [id](const Light& obj) { return obj.id == id; });
-
-                    if (it != lights.end() && itInfo != lightsInfo.end())
-                    {
-                        itInfo->parent->removeLightChild(&(*it));
-                        
-                        itInfo->parent = nullptr;
-                        it->isChild = false;
-                    } else {
-                        std::cerr << "Light not found." << std::endl;
-                    }
-                } else {
+                if (!droppedLight->isChild){
                     std::cerr << "Dropped light is not a child." << std::endl;
+                    goto jump;
+                }
+                
+                int id = droppedLight->id;
+                auto itInfo = std::find_if(lightsInfo.begin(), lightsInfo.end(),
+                    [id](const AdditionalLightInfo& obj) { return obj.id == id; });
+
+                auto it = std::find_if(lights.begin(), lights.end(),
+                    [id](const Light& obj) { return obj.id == id; });
+
+                if (it != lights.end() && itInfo != lightsInfo.end())
+                {
+                    itInfo->parent->removeLightChild(&(*it));
+                    
+                    itInfo->parent = nullptr;
+                    it->isChild = false;
+                } else {
+                    std::cerr << "Light not found." << std::endl;
                 }
             }
             else
@@ -435,6 +431,8 @@ void ImGuiListViewEx(std::vector<std::string>& items, int& active) {
         ImGui::EndDragDropTarget();
     }
 
+
+jump:
     if ((ImGui::IsWindowFocused() || ImGui::IsWindowHovered() || ImGui::IsItemHovered()) && IsKeyDown(KEY_F2))
         shouldChangeObjectName = true;
 

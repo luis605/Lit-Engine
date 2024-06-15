@@ -162,7 +162,12 @@ public:
     int id = 0;
 
     Entity* parent = nullptr;
-    std::vector<std::variant<Entity*, Light*, Text*, LitButton*>> children;
+    std::vector<std::any> children;
+
+    template<typename T>
+    T* get_if(std::variant<Entity*, Light*, Text*, LitButton*>& var) {
+        return std::get_if<T>(&var);
+    }
 
     enum CollisionShapeType
     {
@@ -304,7 +309,7 @@ public:
         this->mass = other.mass;
         this->inertia = other.inertia;
         this->id = other.id;
-        this->parent = nullptr; 
+        this->parent = other.parent; 
         this->script_content = other.script_content;
         this->lodEnabled = other.lodEnabled;
         for (int i = 0; i < sizeof(LodModels)/sizeof(LodModels[0]); i++)
@@ -415,7 +420,7 @@ public:
         this->mass = other.mass;
         this->inertia = other.inertia;
         this->id = other.id;
-        this->parent = nullptr;
+        this->parent = other.parent;
         this->children = other.children;
 
         return *this;
@@ -494,7 +499,7 @@ public:
     void removeLightChild(Light* droppedLight) {
         children.erase(
             std::remove_if(children.begin(), children.end(), [&](auto& variant) {
-                if (auto ptr = std::get_if<Light*>(&variant)) {
+                if (auto ptr = std::any_cast<Light*>(&variant)) {
                     return *ptr == droppedLight;
                 }
                 return false;
@@ -503,20 +508,32 @@ public:
         );
     }
 
+    void removeEntityChild(Entity* droppedEntity) {
+        children.erase(
+            std::remove_if(children.begin(), children.end(), [&](auto& variant) {
+                if (auto ptr = std::any_cast<Entity*>(&variant)) {
+                    return *ptr == droppedEntity;
+                }
+                return false;
+            }),
+            children.end()
+        );
+    }
 
     void update_children() {
         if (children.empty()) return;
 
-        for (auto& childVariant : children) {
-            if (auto* entity = std::get_if<Entity*>(&childVariant)) {
+        for (auto& child : children) {
+            if (Entity** entity = std::any_cast<Entity*>(&child)) {
                 update_entity_child(*entity);
-            } else if (Light* lightChild = *std::get_if<Light*>(&childVariant)) {
+            } else if (Light** light = std::any_cast<Light*>(&child)) {
                 auto it = std::find_if(lights.begin(), lights.end(),
-                    [&](const Light& light) { return light.id == lightChild->id; });
+                    [&](const Light& lightInVector) { return lightInVector.id == (*light)->id; });
 
-                int distance = (it != lights.end()) ? std::distance(lights.begin(), it) : -1;
-
-                update_light_child(&lights[distance]);
+                if (it != lights.end()) {
+                    int distance = std::distance(lights.begin(), it);
+                    update_light_child(&lights[distance]);
+                }
             }
         }
     }
@@ -534,16 +551,16 @@ public:
 
     void update_light_child(Light* light) {
         if (light == nullptr) return;
-        if (!light->isChild) {        
-            auto it = std::find_if(children.begin(), children.end(),
-                [light](const auto& child) {
-                    return std::holds_alternative<Light*>(child) && std::get<Light*>(child) == light;
-                });
+        if (!light->isChild) {
+            // auto it = std::find_if(children.begin(), children.end(),
+            //     [light](const auto& child) {
+            //         return std::holds_alternative<Light*>(child) && std::get<Light*>(child) == light;
+            //     });
 
-            if (it != children.end()) {
-                int index = std::distance(children.begin(), it);
-                children.erase(children.begin() + index);
-            }
+            // if (it != children.end()) {
+            //     int index = std::distance(children.begin(), it);
+            //     children.erase(children.begin() + index);
+            // }
         }
 
     #ifndef GAME_SHIPPING
@@ -556,17 +573,25 @@ public:
     }
 
     void makeChildrenInstances() {
-        for (const auto& childVariant : children) {
-            if (auto childEntity = std::get_if<Entity*>(&childVariant)) {
-                addInstance(*childEntity);
-                (*childEntity)->makeChildrenInstances();
+        for (auto child : children) {
+            if (Entity** entity = std::any_cast<Entity*>(&child)) {
+                addInstance(*entity);
+                (*entity)->makeChildrenInstances();
             }
         }
     }
 
     void remove() {
-        for (auto& childVariant : children) {
-            std::visit([](auto& child) { delete child; }, childVariant);
+        for (auto& child : children) {
+            if (auto entity = std::any_cast<Entity*>(&child)) {
+                delete *entity;
+            } else if (auto light = std::any_cast<Light*>(&child)) {
+                delete *light;
+            } else if (auto text = std::any_cast<Text*>(&child)) {
+                delete *text;
+            } else if (auto litButton = std::any_cast<LitButton*>(&child)) {
+                delete *litButton;
+            }
         }
 
         entitiesListPregame.erase(

@@ -310,9 +310,9 @@ void RenderEntities(bool& isEntitySelected) {
                 }
             }
 
-            for (std::variant<Entity*, Light*, Text*, LitButton*>& childVariant : entity.children)
+            for (auto childVariant : entity.children)
             {
-                if (auto* childEntity = std::get_if<Entity*>(&childVariant))
+                if (Entity** childEntity = std::any_cast<Entity*>(&childVariant))
                 {
                     bool isEntitySelected = IsMouseHoveringModel((*childEntity)->model, (*childEntity)->position, (*childEntity)->rotation, (*childEntity)->scale);
                     if (isEntitySelected)

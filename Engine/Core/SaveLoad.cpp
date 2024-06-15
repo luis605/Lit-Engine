@@ -268,29 +268,22 @@ void SaveEntity(json& jsonData, const Entity& entity) {
     if (!entity.children.empty()) {
         json childrenData;
 
-        std::vector<std::variant<Entity*, Light*, Text*, LitButton*>> nonConstChildren = entity.children;
-        for (std::variant<Entity*, Light*, Text*, LitButton*>& childVariant : nonConstChildren)
+        for (std::any child : entity.children)
         {
-            if (std::holds_alternative<Entity*>(childVariant))
-            {
-                Entity* child = std::get<Entity*>(childVariant);
+            if (Entity** entityChild = std::any_cast<Entity*>(&child)) {
                 json childJson;
-                SaveEntity(childJson, *child);
+                SaveEntity(childJson, **entityChild);
                 childrenData.emplace_back(childJson);
-            }
-            else if (std::holds_alternative<Light*>(childVariant))
-            {
-                Light* child = std::get<Light*>(childVariant);
+            } else if (Light** lightChild = std::any_cast<Light*>(&child)) {
                 json childJson;
 
                 int lightIndex = -1;
-                auto light_it = std::find_if(lights.begin(), lights.end(), [&child, &lightIndex](const Light& light) {
+                auto light_it = std::find_if(lights.begin(), lights.end(), [&lightChild, &lightIndex](const Light& light) {
                     lightIndex++;
-                    return light.id == child->id;
+                    return light.id == (*lightChild)->id;
                 });
 
-
-                SaveLight(childJson, *child, lightIndex);
+                SaveLight(childJson, **lightChild, lightIndex);
                 childrenData.emplace_back(childJson);
             }
 
@@ -751,6 +744,7 @@ void LoadEntity(const json& entityJson, Entity& entity) {
                     if (type == "entity") {
                         Entity child;
                         LoadEntity(childJson, child);
+                        child.parent = &entity;
                         entity.addChild(child);
                     } else if (type == "light") {
                         lights.emplace_back();
