@@ -415,7 +415,7 @@ void ImGuiListViewEx(std::vector<std::string>& items, int& active) {
 
                 if (it != lights.end() && itInfo != lightsInfo.end())
                 {
-                    itInfo->parent->removeLightChild(&(*it));
+                    itInfo->parent->removeChild(&(*it));
                     
                     itInfo->parent = nullptr;
                     it->isChild = false;

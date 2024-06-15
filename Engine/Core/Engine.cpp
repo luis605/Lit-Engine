@@ -495,24 +495,13 @@ public:
         children.emplace_back(newChild);
     }
 
-
-    void removeLightChild(Light* droppedLight) {
+    void removeChild(void* childToRemove) {
         children.erase(
-            std::remove_if(children.begin(), children.end(), [&](auto& variant) {
-                if (auto ptr = std::any_cast<Light*>(&variant)) {
-                    return *ptr == droppedLight;
-                }
-                return false;
-            }),
-            children.end()
-        );
-    }
-
-    void removeEntityChild(Entity* droppedEntity) {
-        children.erase(
-            std::remove_if(children.begin(), children.end(), [&](auto& variant) {
-                if (auto ptr = std::any_cast<Entity*>(&variant)) {
-                    return *ptr == droppedEntity;
+            std::remove_if(children.begin(), children.end(), [&](const std::any& child) {
+                if (auto entity = std::any_cast<Entity*>(&child)) {
+                    return (*entity)->id == static_cast<Entity*>(childToRemove)->id;
+                } else if (auto light = std::any_cast<Light*>(&child)) {
+                    return (*light)->id == static_cast<Light*>(childToRemove)->id;
                 }
                 return false;
             }),
