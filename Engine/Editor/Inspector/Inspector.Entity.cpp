@@ -136,6 +136,7 @@ void DisplayMaterialDragDrop() {
     if (!selectedEntity->surfaceMaterialPath.empty())
         MaterialInspector(&selectedEntity->surfaceMaterial, selectedEntity->surfaceMaterialPath.string());
 }
+
 void DisplayScriptDragDrop() {
     ImGui::Text("Script: ");
     ImGui::SameLine();

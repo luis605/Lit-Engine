@@ -173,11 +173,18 @@ void DrawMenus()
             UnloadShader(shader);
             shader = LoadShader("Engine/Lighting/shaders/lighting_vertex.glsl", "Engine/Lighting/shaders/lighting_fragment.glsl");
             for (Entity& entity : entitiesListPregame) {
-                if (entity.hasInstances())
-                {
+                if (entity.hasInstances()) {
                     entity.setShader(shader);
                 }
             }
+
+            for (int index = 0; index < NUM_GIZMO_ARROWS; index++)
+                gizmoArrow[index].model.materials[0].shader = shader;
+
+            for (int index = 0; index < NUM_GIZMO_CUBES; index++)
+                gizmoCube[index].model.materials[0].shader = shader;
+
+            gizmoTorus[0].model.materials[0].shader = shader;
         }
 
         if (ImGui::MenuItem("Reload Skybox Shader", ""))

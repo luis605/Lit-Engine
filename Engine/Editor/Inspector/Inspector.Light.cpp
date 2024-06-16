@@ -9,6 +9,16 @@ void LightInspector()
     if (ImGui::CollapsingHeader(ICON_FA_SLIDERS " Light Properties", false)) {
         ImGui::Indent(30.0f);
 
+        ImGui::Text("Position:");
+        ImGui::Indent(20.0f);
+
+        float lightPos[3] = { selectedLight->position.x, selectedLight->position.y, selectedLight->position.z };
+        if (ImGui::InputFloat3("##Position", lightPos))
+            selectedLight->position = glm::vec3(lightPos[0], lightPos[1], lightPos[2]);
+
+        ImGui::Unindent(20.0f);
+
+
         ImVec4 light_colorImGui = ImVec4(
             selectedLight->color.r,
             selectedLight->color.g,
@@ -48,7 +58,7 @@ void LightInspector()
 
 
         if (!AttenuationActiveInputMode) {
-            ImGui::SliderFloat("Attenuation", &selectedLight->attenuation, 0.0f, 1.0f);
+            ImGui::SliderFloat("Attenuation", &selectedLight->attenuation, 0.0f, 0.3f);
             AttenuationActiveInputMode = ImGui::IsItemHovered() && ImGui::IsMouseDoubleClicked(0);
         }
         else
@@ -58,12 +68,12 @@ void LightInspector()
         }
 
         if (!IntensityActiveInputMode) {
-            ImGui::SliderFloat("Intensity", &selectedLight->intensity, 0.0f, 5.0f);
+            ImGui::SliderFloat("Intensity", &selectedLight->intensity, 0.0f, 50.0f);
             IntensityActiveInputMode = ImGui::IsItemHovered() && ImGui::IsMouseDoubleClicked(0);
         }
         else
         {
-            if (ImGui::InputFloat("Intensity", &selectedLight->intensity, 0.0f, 100.0f, "%.3f", ImGuiInputTextFlags_EnterReturnsTrue))
+            if (ImGui::InputFloat("Intensity", &selectedLight->intensity, 0.0f, 100000.0f, "%.3f", ImGuiInputTextFlags_EnterReturnsTrue))
                 IntensityActiveInputMode = false;
         }
 
@@ -78,7 +88,7 @@ void LightInspector()
         }
 
         if (!CutoffActiveInputMode) {
-            ImGui::SliderFloat("Range", &selectedLight->cutOff, 0.0f, 10000.0f);
+            ImGui::SliderFloat("Range", &selectedLight->cutOff, 0.0f, 50.0f);
             CutoffActiveInputMode = ImGui::IsItemHovered() && ImGui::IsMouseDoubleClicked(0);
         }
         else
