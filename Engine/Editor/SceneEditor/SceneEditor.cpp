@@ -240,8 +240,7 @@ void RenderScene() {
             DrawSkybox();
             DrawGrid(GRID_SIZE, GRID_SCALE);
 
-            if (ImGui::IsWindowFocused())
-                ProcessGizmo();
+            ProcessGizmo();
     
             UpdateShader();
 

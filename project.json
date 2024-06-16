@@ -2,15 +2,15 @@
     {
         "fovy": 60.0,
         "position": {
-            "x": 19.73796272277832,
-            "y": 101.30266571044922,
-            "z": 35.82880401611328
+            "x": 7.132375717163086,
+            "y": 6.791919231414795,
+            "z": 5.375588417053223
         },
         "projection": 0,
         "target": {
-            "x": 19.623458862304688,
-            "y": 100.37930297851563,
-            "z": 35.46234893798828
+            "x": 6.342692852020264,
+            "y": 6.185222625732422,
+            "z": 5.284373760223389
         },
         "type": "camera",
         "up": {
@@ -22,18 +22,18 @@
     {
         "ambientColor": {
             "w": 1.0,
-            "x": 0.0,
-            "y": 0.0,
-            "z": 0.0
+            "x": 1.0,
+            "y": 1.0,
+            "z": 1.0
         },
         "bloom": false,
         "bloomBrightness": 0.0,
         "bloomSamples": 3.0,
         "skyboxColor": {
             "w": 1.0,
-            "x": 0.0,
-            "y": 0.0,
-            "z": 0.0
+            "x": 1.0,
+            "y": 1.0,
+            "z": 1.0
         },
         "skyboxPath": "assets/images/skybox/default skybox.hdr",
         "type": "world settings"
@@ -47,14 +47,14 @@
         "is_dynamic": false,
         "lodEnabled": true,
         "mass": 1.0,
-        "material_path": "project/game/materials/ground.mat",
+        "material_path": "",
         "mesh_type": 1,
         "modelPath": "",
         "name": "Unnamed Entity",
-        "normalTexturePath": "project/game/textures/groud/normal.jpg",
+        "normalTexturePath": "",
         "position": {
             "x": 0.0,
-            "y": 6.799997806549072,
+            "y": 0.0,
             "z": 0.0
         },
         "relativePosition": {
@@ -63,22 +63,22 @@
             "z": 0.0
         },
         "rotation": {
-            "x": 5.602774143218994,
-            "y": -28.546371459960938,
-            "z": 16.82793426513672
+            "x": 0.0,
+            "y": 0.0,
+            "z": 0.0
         },
         "roughnessTexturePath": "",
         "scale": {
-            "x": 86.09957885742188,
+            "x": 1.0,
             "y": 1.0,
-            "z": 82.99948120117188
+            "z": 1.0
         },
         "scriptIndex": "",
         "script_path": "",
         "surfaceMaterial": {
-            "DiffuseIntensity": 1.0,
+            "DiffuseIntensity": 0.5,
             "Roughness": 0.5,
-            "SpecularIntensity": 1.0,
+            "SpecularIntensity": 0.5,
             "SpecularTint": {
                 "x": 1.0,
                 "y": 1.0,
@@ -94,27 +94,27 @@
         "type": "entity"
     },
     {
-        "attenuation": 0.003000000026077032,
+        "attenuation": 9.999999747378752e-05,
         "color": {
             "a": 255.0,
-            "b": 87.39918518066406,
-            "g": 87.39918518066406,
+            "b": 255.0,
+            "g": 255.0,
             "r": 255.0
         },
         "cutOff": 10.0,
         "direction": {
-            "x": 0.4740000069141388,
-            "y": 0.5,
-            "z": 0.027000000700354576
+            "x": 0.4000000059604645,
+            "y": 0.4000000059604645,
+            "z": -0.4000000059604645
         },
         "id": 2,
-        "intensity": 13.571000099182129,
+        "intensity": 13.392999649047852,
         "isChild": false,
         "light_type": 1,
         "name": "Light",
         "position": {
             "x": 0.0,
-            "y": 50.0,
+            "y": 0.0,
             "z": 5.0
         },
         "relativePosition": {
@@ -122,7 +122,7 @@
             "y": 0,
             "z": 0
         },
-        "specularStrength": 0.8930000066757202,
+        "specularStrength": 0.5,
         "target": {
             "x": 0,
             "y": 0,
