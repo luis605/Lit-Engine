@@ -136,23 +136,21 @@ vec3 CookTorrance(vec3 L, vec3 V, vec3 N, vec3 albedo, float roughness) {
 }
 
 
-vec4 CalculateDiffuseLighting(vec3 fragPosition, vec3 norm, vec2 texCoord) {
-    vec4 texColor = texture(texture0, texCoord);
-
-    vec3 diffuseComponent = mix(colDiffuse.rgb, texColor.rgb, step(0.0, texColor.rgb));
+vec4 CalculateDiffuseLighting(vec3 fragPosition, vec3 norm) {
+    vec3 diffuseComponent = colDiffuse.rgb;
     vec3 ambientComponent = colDiffuse.rgb * ambientLight.rgb * surfaceMaterial.DiffuseIntensity;
     vec3 resultColor = ambientComponent * diffuseComponent;
-    vec4 diffuseColor = vec4(resultColor, texColor.a);
+    vec4 diffuseColor = vec4(resultColor, 1.0);
 
     return diffuseColor;
 }
 
 
-vec4 CalculateDirectionalLight(Light light, vec3 viewDir, vec3 norm, float roughness) {
+vec4 CalculateDirectionalLight(Light light, vec3 viewDir, vec3 norm, float roughness, vec3 fragPosition, vec3 texColor) {
     vec3 lightDir = normalize(-light.direction);
     float NdotL = max(dot(norm, lightDir), 0.0);
 
-    vec3 H = normalize(lightDir + viewDir);
+    vec3 H = normalize(normalize(light.position - fragPosition) + viewDir);
 
     // Diffuse term
     vec4 diffuseTerm = colDiffuse * surfaceMaterial.DiffuseIntensity * NdotL;
@@ -164,17 +162,17 @@ vec4 CalculateDirectionalLight(Light light, vec3 viewDir, vec3 norm, float rough
     vec3 F = FresnelSchlick(VdotH, surfaceMaterial.baseReflectance);
     float D = DistributionGGX(NdotH, roughness);
     float G = GeometrySchlickGGX(NdotL, roughness) * GeometrySchlickGGX(NdotV, roughness);
-    vec3 specular = F * D * G / max(4.0 * NdotL * NdotV, 0.001);
+    vec3 specular = F * D * G * light.specularStrength / max(4.0 * NdotL * NdotV, 0.001);
 
     // Final light contribution
-    vec3 lightContribution = (diffuseTerm.rgb / PI + specular) * light.color.rgb * light.intensity;
+    vec3 lightContribution = (diffuseTerm.rgb / PI + specular) * light.color.rgb * light.intensity * texColor;
 
     return vec4(lightContribution, colDiffuse.a);
 }
 
 
 
-vec4 CalculatePointLight(Light light, vec3 viewDir, vec3 norm, float roughness, float ao, vec3 fragPosition) {
+vec4 CalculatePointLight(Light light, vec3 viewDir, vec3 norm, float roughness, float ao, vec3 fragPosition, vec3 texColor) {
     // Light direction
     vec3 lightDir = normalize(light.position - fragPosition);
     
@@ -196,16 +194,16 @@ vec4 CalculatePointLight(Light light, vec3 viewDir, vec3 norm, float roughness, 
     vec3 F = FresnelSchlick(VdotH, surfaceMaterial.baseReflectance);
     float D = DistributionGGX(NdotH, roughness);
     float G = GeometrySchlickGGX(NdotL, roughness) * GeometrySchlickGGX(NdotV, roughness);
-    vec3 specular = F * D * G / max(4.0 * NdotL * NdotV, 0.001);
+    vec3 specular = F * D * G * light.specularStrength / max(4.0 * NdotL * NdotV, 0.001);
 
     // Combine diffuse and specular
-    vec3 lightContribution = (diffuseTerm.rgb / PI + specular) * light.color.rgb * attenuation * light.intensity;
+    vec3 lightContribution = (diffuseTerm.rgb / PI + specular) * light.color.rgb * attenuation * light.intensity * texColor;
 
     return vec4(lightContribution, 1.0);
 }
 
 
-vec4 CalculateSpotLight(Light light, vec3 viewDir, vec3 norm, float roughness, float ao, vec3 fragPosition, vec3 ambient, vec2 texCoord) {
+vec4 CalculateSpotLight(Light light, vec3 viewDir, vec3 norm, float roughness, float ao, vec3 fragPosition, vec3 ambient, vec2 texCoord, vec3 texColor) {
     vec3 lightToPoint = light.position - fragPosition;
     vec3 lightDir = normalize(lightToPoint);
     float spot = smoothstep(0.6, 0.8, dot(lightDir, light.direction));
@@ -224,12 +222,12 @@ vec4 CalculateSpotLight(Light light, vec3 viewDir, vec3 norm, float roughness, f
     float G = GeometrySchlickGGX(NdotL, roughness) * GeometrySchlickGGX(max(dot(norm, viewDir), 0.0), roughness);
     vec3 specular = F * D * G * light.specularStrength / max(4.0 * NdotL * max(dot(norm, viewDir), 0.0), 0.001);
 
-    vec3 lightContribution = (diffuseTerm.rgb / PI + specular) * light.color.rgb * attenuation * spot * light.intensity;
+    vec3 lightContribution = (diffuseTerm.rgb / PI + specular) * light.color.rgb * attenuation * spot * light.intensity * texColor;
 
     return vec4(lightContribution, colDiffuse.a);
 }
 
-vec4 CalculateLighting(vec3 fragPosition, vec3 fragNormal, vec3 viewDir, vec2 texCoord, SurfaceMaterial material, float roughness) {
+vec4 CalculateLighting(vec3 fragPosition, vec3 fragNormal, vec3 viewDir, vec2 texCoord, SurfaceMaterial material, float roughness, vec4 texColor) {
     vec4 result = vec4(0.0);
 
     for (int i = 0; i < lightsCount; i++) {
@@ -239,17 +237,17 @@ vec4 CalculateLighting(vec3 fragPosition, vec3 fragNormal, vec3 viewDir, vec2 te
 
         if (light.type == LIGHT_DIRECTIONAL) {
             // Calculate directional light
-            result += CalculateDirectionalLight(light, viewDir, fragNormal, material.Roughness);
+            result += CalculateDirectionalLight(light, viewDir, fragNormal, material.Roughness, fragPosition, texColor.rgb);
         } else if (light.type == LIGHT_POINT) {
             // Calculate point light
-            result += CalculatePointLight(light, viewDir, fragNormal, material.Roughness, 1.0, fragPosition);
+            result += CalculatePointLight(light, viewDir, fragNormal, material.Roughness, 1.0, fragPosition, texColor.rgb);
         } else if (light.type == LIGHT_SPOT) {
             // Calculate spot light
-            result += CalculateSpotLight(light, viewDir, fragNormal, material.Roughness, 1.0, fragPosition, vec3(0.0), texCoord);
+            result += CalculateSpotLight(light, viewDir, fragNormal, material.Roughness, 1.0, fragPosition, vec3(0.0), texCoord, texColor.rgb);
         }
     }
 
-    vec4 diffuseLight = CalculateDiffuseLighting(fragPosition, fragNormal, texCoord);
+    vec4 diffuseLight = CalculateDiffuseLighting(fragPosition, fragNormal);
     result += diffuseLight;
     
     vec4 toneMappedResult = toneMap(result, 0.5);
@@ -294,7 +292,7 @@ void main() {
     vec3 viewDir = normalize(viewPos - fragPosition);
 
     // Calculate lighting
-    vec3 lighting = CalculateLighting(fragPosition, norm, viewDir, texCoord, surfaceMaterial, roughness).rgb;
+    vec3 lighting = CalculateLighting(fragPosition, norm, viewDir, texCoord, surfaceMaterial, roughness, texColor).rgb;
 
     // Calculate final color
     vec4 result = vec4(colDiffuse.rgb / 1.8 - ambientLight.rgb * 0.5, colDiffuse.a);
