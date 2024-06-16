@@ -9,14 +9,11 @@
 void InitLitWindow() {
     SetTraceLogLevel(LOG_WARNING);
 
-    // Open a window to get the screen resolution
     InitWindow(windowWidth, windowHeight, "Lit Engine - Initializing");
-
     windowWidth = GetMonitorWidth(0) * 0.95;
     windowHeight = GetMonitorHeight(0) * 0.9;
     CloseWindow();
 
-    // Window
     SetConfigFlags(FLAG_MSAA_4X_HINT | FLAG_WINDOW_RESIZABLE | FLAG_WINDOW_UNDECORATED);
     InitWindow(windowWidth, windowHeight, "Lit Engine");
 
@@ -65,7 +62,6 @@ void InitImGui() {
         s_Fonts[fontName] = io.Fonts->AddFontFromFileTTF((fontPath.string() + fileName).c_str(), fontSize + sizeModifier);
     };
 
-    // Add JetBrains Mono-Regular font
     addFont("Regular", "JetBrainsMono-Regular.ttf");
 
     // Enable MergeMode and add Font Awesome icons
@@ -74,12 +70,10 @@ void InitImGui() {
     static const ImWchar icon_ranges[] = { ICON_MIN_FA, ICON_MAX_FA, 0 };
     io.Fonts->AddFontFromFileTTF((fontPath.string() + "fontawesome-webfont.ttf").c_str(), fontSize, &config, icon_ranges);
 
-    // Set Regular font as default
     io.FontDefault = s_Fonts["Regular"];
 
     rlImGuiReloadFonts();
 }
-
 
 void InitShaders() {
     shader = LoadShader("Engine/Lighting/shaders/lighting_vertex.glsl", "Engine/Lighting/shaders/lighting_fragment.glsl"); // LoadShaderFromMemory(lightingVert, lightingFrag);
@@ -94,11 +88,13 @@ void InitCodeEditor() {
     editor.SetLanguageDefinition(lang);
 }
 
-void Startup()
-{
+void InitSceneEditor() {
+    lightModel = LoadModelFromMesh(GenMeshPlane(4, 4, 1, 1));
+}
+
+void Startup() {
     InitLitWindow();
 
-    // Face Culling
     glEnable(GL_CULL_FACE);
     glCullFace(GL_BACK);
 
@@ -111,6 +107,7 @@ void Startup()
     InitGizmo();
     InitEditorCamera();
     InitCodeEditor();
+    InitSceneEditor();
     InitRenderModelPreviewer();
 
     #if STRESS_TEST
@@ -118,40 +115,26 @@ void Startup()
     #endif
 }
 
-void EngineMainLoop()
-{
-    while ((!exitWindow))
-    {
-        if (WindowShouldClose()) {
-            exitWindowRequested = true;
-        }
+void EngineMainLoop() {
+    while ((!exitWindow)) {
+        if (WindowShouldClose()) exitWindowRequested = true;
 
         BeginDrawing();
 
-        ClearBackground(DARKGRAY);
+            ClearBackground(DARKGRAY);
 
-        rlImGuiBegin();
+            rlImGuiBegin();
+            const ImGuiViewport *viewport = ImGui::GetMainViewport();
+            ImGui::DockSpaceOverViewport(viewport);
 
-        const ImGuiViewport *viewport = ImGui::GetMainViewport();
-        ImGui::DockSpaceOverViewport(viewport);
+            MenuBar();
+            AssetsExplorer();
+            CodeEditor();
+            EntitiesList();
+            Inspector();
+            EditorCamera();
 
-        MenuBar();
-
-        AssetsExplorer();
-
-        CodeEditor();
-
-        EntitiesList();
-
-        Inspector();
-
-        ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(0.0f, 0.0f));
-        ImGui::Begin(ICON_FA_VIDEO " Scene Editor", NULL);
-        int editor_camera = EditorCamera();
-        ImGui::End();
-        ImGui::PopStyleVar();
-
-        rlImGuiEnd();
+            rlImGuiEnd();
         
         EndDrawing();
     }
@@ -160,13 +143,13 @@ void EngineMainLoop()
 void CleanUp()
 {
     std::cout << "Exiting..." << std::endl;
-    //kill(-pid, SIGTERM);
 
     inGamePreview = false;
     firstTimeGameplay = false;
 
-    for (Entity &entity : entitiesListPregame)
+    for (Entity &entity : entitiesListPregame) {
         entity.remove();
+    }
 
     entitiesListPregame.clear();
 
@@ -185,8 +168,7 @@ void CleanUp()
     UnloadTexture(lightTexture);
     UnloadTexture(windowIconTexture);
 
-    for (auto it = modelsIcons.begin(); it != modelsIcons.end(); ++it)
-    {
+    for (auto it = modelsIcons.begin(); it != modelsIcons.end(); ++it) {
         UnloadTexture(it->second);
     }
     modelsIcons.clear();
@@ -194,36 +176,31 @@ void CleanUp()
     lights.clear();
     lightsInfo.clear();
 
+    UnloadModel(lightModel);
+
     rlImGuiShutdown();
     CloseWindow();
 }
 
-void DraggableWindow()
-{
+void DraggableWindow() {
     bool isTitleBarHovered = ImGui::IsItemHovered();
     ImVec2 currentMousePos = ImGui::GetMousePos();
-    ImVec2 mouseDelta = ImVec2(currentMousePos.x - lastMousePosition.x, currentMousePos.y - lastMousePosition.y);
+    ImVec2 mouseDelta = ImVec2(currentMousePos.x - ImLastMousePosition.x, currentMousePos.y - ImLastMousePosition.y);
 
     float moveThreshold = 3.f;
 
-    if (isTitleBarHovered && ImGui::IsMouseDown(ImGuiMouseButton_Left))
-    {
-        if (!isDragging && (fabs(mouseDelta.x) > moveThreshold || fabs(mouseDelta.y) > moveThreshold))
-        {
+    if (isTitleBarHovered && ImGui::IsMouseDown(ImGuiMouseButton_Left)) {
+        if (!isDragging && (fabs(mouseDelta.x) > moveThreshold || fabs(mouseDelta.y) > moveThreshold)) {
             isDragging = true;
             ImVec2 windowPos = ImGui::GetWindowPos();
             windowOriginalPos = ImVec2(currentMousePos.x - windowPos.x, currentMousePos.y - windowPos.y);
         }
-    }
-    else if (isDragging && ImGui::IsMouseReleased(ImGuiMouseButton_Left))
-    {
+    } else if (isDragging && ImGui::IsMouseReleased(ImGuiMouseButton_Left)) {
         isDragging = false;
     }
 
-    if (isDragging)
-    {
-        if (isWindowMaximized)
-            ToggleMaximization();
+    if (isDragging) {
+        if (isWindowMaximized) ToggleMaximization();
 
         ImVec2 newPosition = ImVec2(ImGui::GetMousePos().x - windowOriginalPos.x, ImGui::GetMousePos().y - windowOriginalPos.y);
         float smoothFactor = 0.3f;
@@ -232,22 +209,17 @@ void DraggableWindow()
         SetWindowPosition(newPosition.x, newPosition.y);
     }
 
-    lastMousePosition = currentMousePos;
+    ImLastMousePosition = currentMousePos;
 }
 
-void ToggleMaximization()
-{
-    if (isWindowMaximized) RestoreWindow();
-    else                   MaximizeWindow();
-    
+void ToggleMaximization() {
+    isWindowMaximized ? RestoreWindow() : MaximizeWindow();    
     isWindowMaximized = !isWindowMaximized;
 }
 
 static int currentExitMenuButton = 1;
 
-
-void ExitWindowRequested()
-{
+void ExitWindowRequested() {
     const ImVec2 windowSize(200, 90);
     const ImVec2 windowPos((GetScreenWidth() - windowSize.x) * 0.5f, (GetScreenHeight() - windowSize.y) * 0.5f);
 
@@ -258,8 +230,7 @@ void ExitWindowRequested()
 
     ImGui::OpenPopup("Are you sure you want to exit?");
 
-    if (ImGui::BeginPopupModal("Are you sure you want to exit?", nullptr, windowFlags))
-    {
+    if (ImGui::BeginPopupModal("Are you sure you want to exit?", nullptr, windowFlags)) {
         ImGui::Separator();
 
         ImVec2 buttonSize(100, 30);
@@ -278,22 +249,12 @@ void ExitWindowRequested()
         if (currentExitMenuButton == 1) ImGui::PushStyleColor(ImGuiCol_Button, ImVec4(0.6, 0.6, 0.6, 1));
 
         if (ImGui::Button("No", buttonSize) || ImGui::IsKeyPressed(ImGui::GetKeyIndex(ImGuiKey_Escape)) || (ImGui::IsKeyPressed(ImGui::GetKeyIndex(ImGuiKey_Enter)) && currentExitMenuButton == 1))
-        {
             exitWindowRequested = false;
-        }
 
-        if (currentExitMenuButton == 1)
-            ImGui::PopStyleColor(1);
+        if (currentExitMenuButton == 1) ImGui::PopStyleColor(1);
 
-        // Update selected button based on arrow key input
-        if (ImGui::IsKeyPressed(ImGui::GetKeyIndex(ImGuiKey_RightArrow)))
-        {
-            currentExitMenuButton = (currentExitMenuButton + 1) % 2; // Circular navigation
-        }
-        else if (ImGui::IsKeyPressed(ImGui::GetKeyIndex(ImGuiKey_LeftArrow)))
-        {
-            currentExitMenuButton = (currentExitMenuButton - 1 + 2) % 2; // Circular navigation
-        }
+        if (ImGui::IsKeyPressed(ImGui::GetKeyIndex(ImGuiKey_RightArrow)) || ImGui::IsKeyPressed(ImGui::GetKeyIndex(ImGuiKey_LeftArrow)))
+            currentExitMenuButton = (currentExitMenuButton + 1) % 2;
 
         ImGui::EndPopup();
     }

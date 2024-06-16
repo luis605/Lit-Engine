@@ -3,11 +3,11 @@
 bool shouldChangeObjectName = false;
 bool showManipulateEntityPopup = false;
 
-void DrawEntityTree(Entity& entity, int active, int& index, int depth = 0);
-void DrawLightTree(Light& light, AdditionalLightInfo& light_info, int active, int& index);
-void DrawTextElementsTree(Text& text, int active, int& index);
-void DrawButtonTree(LitButton& button, int active, int& index);
-void DrawCameraTree(int active, int& index);
+void DrawEntityTree(Entity& entity, int& index, int depth = 0);
+void DrawLightTree(Light& light, AdditionalLightInfo& light_info, int& index);
+void DrawTextElementsTree(Text& text, int& index);
+void DrawButtonTree(LitButton& button, int& index);
+void DrawCameraTree(int& index);
 void updateListViewExList(std::vector<Entity>& entities, std::vector<Light>& lights);
 void ManipulateEntityPopup();
 
@@ -76,7 +76,7 @@ void ManipulateEntityPopup()
     }
 }
 
-void DrawCameraTree(int active, int& index) {
+void DrawCameraTree(int& index) {
     ImGuiTreeNodeFlags nodeFlags = 0;
 
     if (selectedGameObjectType == "camera") {
@@ -95,14 +95,13 @@ void DrawCameraTree(int active, int& index) {
 
 
     if (ImGui::IsItemClicked()) {
-        active = index;
         selectedGameObjectType = "camera";
     }
     index++;
     if (isNodeOpen) ImGui::TreePop();
 }
 
-void DrawEntityTree(Entity& entity, int active, int& index, int depth) {
+void DrawEntityTree(Entity& entity, int& index, int depth) {
     ImGuiTreeNodeFlags nodeFlags = ImGuiTreeNodeFlags_OpenOnArrow | ImGuiTreeNodeFlags_OpenOnDoubleClick | ImGuiTreeNodeFlags_SpanAvailWidth;
 
     if (selectedEntity == &entity && selectedGameObjectType == "entity") {
@@ -134,13 +133,11 @@ void DrawEntityTree(Entity& entity, int active, int& index, int depth) {
     isNodeOpen = ImGui::TreeNodeEx((void*)&entity, nodeFlags, entityName.c_str());
     ImGui::PopStyleColor();
 
-    if (ImGui::IsItemHovered() && IsMouseButtonPressed(MOUSE_BUTTON_RIGHT))
-    {
+    if (ImGui::IsItemHovered() && IsMouseButtonPressed(MOUSE_BUTTON_RIGHT)) {
         showManipulateEntityPopup = true;
     }
 
-    if (ImGui::BeginDragDropSource(ImGuiDragDropFlags_None))
-    {
+    if (ImGui::BeginDragDropSource(ImGuiDragDropFlags_None)) {
         ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(0.85f, 0.85f, 0.85f, 1.0f));
 
         ImGui::SetDragDropPayload("CHILD_ENTITY_PAYLOAD", &entity, sizeof(Entity));
@@ -183,7 +180,6 @@ void DrawEntityTree(Entity& entity, int active, int& index, int depth) {
     if (ImGui::BeginDragDropTarget()) {
         const ImGuiPayload* payload = ImGui::AcceptDragDropPayload("CHILD_ENTITY_PAYLOAD");
         if (payload) {
-            // Retrieve the entity ID from the payload data.
             Entity droppedEntity = *(Entity*)payload->Data;
             int id = droppedEntity.id;
 
@@ -208,29 +204,26 @@ void DrawEntityTree(Entity& entity, int active, int& index, int depth) {
 
     if (ImGui::IsItemClicked() || showManipulateEntityPopup) {
         selectedEntity = &entity;
-        active = index;
         selectedGameObjectType = "entity";
-        objectInInspector = &entity;
     }
-
 
     if (isNodeOpen) {
         for (auto& child : entity.children) {
             index++;
             if (Entity** entityChild = std::any_cast<Entity*>(&child)) {
-                DrawEntityTree(**entityChild, active, index, depth + 1);
+                DrawEntityTree(**entityChild, index, depth + 1);
             } else if (Light** lightChild = std::any_cast<Light*>(&child)) {
                 auto it = std::find_if(lights.begin(), lights.end(),
                     [&](const Light& light) { return &light == *lightChild; });
 
                 if (it != lights.end()) {
                     int distance = std::distance(lights.begin(), it);
-                    DrawLightTree(lights[distance], lightsInfo[distance], active, index);
+                    DrawLightTree(lights[distance], lightsInfo[distance], index);
                 }
             } else if (Text** textChild = std::any_cast<Text*>(&child)) {
-                DrawTextElementsTree(**textChild, active, index);
+                DrawTextElementsTree(**textChild, index);
             } else if (LitButton** buttonChild = std::any_cast<LitButton*>(&child)) {
-                DrawButtonTree(**buttonChild, active, index);
+                DrawButtonTree(**buttonChild, index);
             }
         }
         ImGui::TreePop();
@@ -239,7 +232,7 @@ void DrawEntityTree(Entity& entity, int active, int& index, int depth) {
 
 
 
-void DrawLightTree(Light& light, AdditionalLightInfo& light_info, int active, int& index) {
+void DrawLightTree(Light& light, AdditionalLightInfo& light_info, int& index) {
     ImGuiTreeNodeFlags nodeFlags = ImGuiTreeNodeFlags_OpenOnArrow | ImGuiTreeNodeFlags_OpenOnDoubleClick;
     if (selectedLight == &light && selectedGameObjectType == "light") {
         nodeFlags |= ImGuiTreeNodeFlags_Selected;
@@ -289,9 +282,7 @@ void DrawLightTree(Light& light, AdditionalLightInfo& light_info, int active, in
 
     if (ImGui::IsItemClicked()) {
         selectedLight = &light;
-        active = index;
         selectedGameObjectType = "light";
-        objectInInspector = &light;
     }
 
     if (isNodeOpen) {
@@ -300,7 +291,7 @@ void DrawLightTree(Light& light, AdditionalLightInfo& light_info, int active, in
 }
 
 
-void DrawTextElementsTree(Text& text, int active, int& index) {
+void DrawTextElementsTree(Text& text, int& index) {
     ImGuiTreeNodeFlags nodeFlags = ImGuiTreeNodeFlags_OpenOnArrow | ImGuiTreeNodeFlags_OpenOnDoubleClick;
     if (selectedTextElement == &text && selectedGameObjectType == "text") {
         nodeFlags |= ImGuiTreeNodeFlags_Selected;
@@ -328,9 +319,7 @@ void DrawTextElementsTree(Text& text, int active, int& index) {
     ImGui::PopStyleColor();
     if (ImGui::IsItemClicked()) {
         selectedTextElement = &text;
-        active = index;
         selectedGameObjectType = "text";
-        objectInInspector = &text;
     }
 
     if (isNodeOpen) {
@@ -339,7 +328,7 @@ void DrawTextElementsTree(Text& text, int active, int& index) {
 }
 
 
-void DrawButtonTree(LitButton& button, int active, int& index) {
+void DrawButtonTree(LitButton& button, int& index) {
     ImGuiTreeNodeFlags nodeFlags = ImGuiTreeNodeFlags_OpenOnArrow | ImGuiTreeNodeFlags_OpenOnDoubleClick;
     if (selectedButton == &button && selectedGameObjectType == "button") {
         nodeFlags |= ImGuiTreeNodeFlags_Selected;
@@ -367,9 +356,7 @@ void DrawButtonTree(LitButton& button, int active, int& index) {
     ImGui::PopStyleColor();
     if (ImGui::IsItemClicked()) {
         selectedButton = &button;
-        active = index;
         selectedGameObjectType = "button";
-        objectInInspector = &button;
     }
 
     if (isNodeOpen) {
@@ -379,7 +366,7 @@ void DrawButtonTree(LitButton& button, int active, int& index) {
 
 
 
-void ImGuiListViewEx(std::vector<std::string>& items, int& active) {
+void ImGuiListViewEx(std::vector<std::string>& items) {
     ImVec2 childSize = ImVec2(
         ImGui::GetWindowSize().x - 30,
         ImGui::GetWindowSize().y - 150);
@@ -469,24 +456,24 @@ jump:
     int index = 0;
     int lightsIndex = 0;
 
-    DrawCameraTree(active, index);
+    DrawCameraTree(index);
 
     for (Entity& entity : entitiesListPregame) {
-        DrawEntityTree(entity, active, index);
+        DrawEntityTree(entity, index);
     }
 
     for (Light& light : lights) {
         if (light.isChild) continue;
-        DrawLightTree(light, lightsInfo[lightsIndex], active, index);
+        DrawLightTree(light, lightsInfo[lightsIndex], index);
         lightsIndex++;
     }
 
     for (Text& text : textElements) {
-        DrawTextElementsTree(text, active, index);
+        DrawTextElementsTree(text, index);
     }
 
     for (LitButton& button : litButtons) {
-        DrawButtonTree(button, active, index);
+        DrawButtonTree(button, index);
     }
 
     ImGui::PopStyleVar(3);
@@ -503,7 +490,7 @@ void EntitiesList()
     ImGui::Begin((std::string(ICON_FA_BARS) + " Objects List").c_str(), NULL);
 
     updateListViewExList(entitiesListPregame, lightsListPregame);
-    ImGuiListViewEx(objectNames, listViewExActive);
+    ImGuiListViewEx(objectNames);
 
     ImGui::PushStyleColor(ImGuiCol_Button, ImVec4(0.3f, 0.3f, 0.3f, 0.0f));
     ImGui::PushStyleColor(ImGuiCol_ButtonHovered, ImVec4(0.3f, 0.3f, 0.3f, 0.1f));
@@ -527,34 +514,28 @@ void EntitiesList()
 
     if ((ImGui::ImageButton((ImTextureID)&pauseTexture, buttonSize)) && inGamePreview || IsKeyDown(KEY_ESCAPE)) {
         EnableCursor();
-        
+
         inGamePreview = false;
         firstTimeGameplay = true;
 
         physics.unBackup();
-        
-        for (Entity& entity : entitiesListPregame)
-        {
+
+        for (Entity& entity : entitiesListPregame) {
             entity.resetPhysics();
         }
 
-        for (Entity& entity : entitiesList)
-        {
+        for (Entity& entity : entitiesList) {
             entity.resetPhysics();
         }
     }
 
-
-    if (IsKeyPressed(KEY_F1))
-    {
+    if (IsKeyPressed(KEY_F1)) {
         openAboutPage();
     }
 
-    if (IsKeyPressed(KEY_F2) && !inGamePreview && !ImGui::IsWindowFocused)
-    {
+    if (IsKeyPressed(KEY_F2) && !inGamePreview && !ImGui::IsWindowFocused) {
         openManualPage();
     }
-
 
     ImGui::PopStyleColor(4);
     ImGui::PopStyleVar(2);

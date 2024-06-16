@@ -4,10 +4,6 @@ void LightInspector()
 {
     ImGui::Text("Inspecting Light");
 
-    if (std::holds_alternative<Light*>(objectInInspector)) {
-        selectedLight = std::get<Light*>(objectInInspector);
-    }
-
     ImGui::Dummy(ImVec2(0.0f, 15.0f));
 
     if (ImGui::CollapsingHeader(ICON_FA_SLIDERS " Light Properties", false)) {

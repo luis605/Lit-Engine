@@ -3,10 +3,6 @@
 void TextInspector()
 {
     ImGui::Text("Inspecting Text");
-    
-    if (std::holds_alternative<Text*>(objectInInspector)) {
-        selectedTextElement = std::get<Text*>(objectInInspector);
-    }
 
     if (!selectedTextElement) return;
 

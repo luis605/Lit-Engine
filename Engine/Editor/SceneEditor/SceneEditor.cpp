@@ -2,156 +2,115 @@
 #include "SceneEditor.h"
 #include "Gizmo/Gizmo.cpp"
 
-void InitEditorCamera()
-{
-    renderTexture = LoadRenderTexture( 1, 1 );
-    texture = renderTexture.texture;
+void InitEditorCamera() {
+    viewportRenderTexture = LoadRenderTexture( 1, 1 );
+    viewportTexture = viewportRenderTexture.texture;
 
-    sceneCamera.position = { 50.0f, 0.0f, 0.0f };
+    sceneCamera.position = { 35.0f, 5.0f, 0.0f };
     sceneCamera.target = { 0.0f, 0.0f, 0.0f };
     sceneCamera.up = { 0.0f, 1.0f, 0.0f };
-
-    Vector3 front = Vector3Subtract(sceneCamera.target, sceneCamera.position);
-    front = Vector3Normalize(front);
 
     sceneCamera.fovy = 60.0f;
     sceneCamera.projection = CAMERA_PERSPECTIVE;
 }
 
-
 float GetImGuiWindowTitleHeight() {
-    ImGuiStyle& style = ImGui::GetStyle();
-    return ImGui::GetTextLineHeight() + style.FramePadding.y * 2.0f;
+    return ImGui::GetTextLineHeight() + ImGui::GetStyle().FramePadding.y * 2.0f;
 }
 
-void CalculateTextureRect(const Texture* texture, Rectangle& rectangle) {
+void CalculateTextureRect(const Texture* texture, Rectangle& viewportRectangle) {
     ImVec2 windowPos = ImGui::GetWindowPos();
     ImVec2 windowSize = ImGui::GetWindowSize();
 
-    rectangle.width = windowSize.x;
-    rectangle.height = windowSize.y - GetImGuiWindowTitleHeight();
+    viewportRectangle.x = windowPos.x;
+    viewportRectangle.y = windowPos.y;
 
-    rectangle.x = windowPos.x;
-    rectangle.y = windowPos.y;
+    viewportRectangle.width = windowSize.x;
+    viewportRectangle.height = windowSize.y - GetImGuiWindowTitleHeight();
 }
 
-void DrawTextureOnRectangle(const Texture* texture) {
-    CalculateTextureRect(texture, rectangle);
+void DrawTextureOnViewportRectangle(const Texture* texture) {
+    CalculateTextureRect(texture, viewportRectangle);
 
-    ImGui::Image((ImTextureID)texture, ImVec2(rectangle.width, rectangle.height), ImVec2(0,1), ImVec2(1,0));
+    ImGui::Image((ImTextureID)texture, ImVec2(viewportRectangle.width, viewportRectangle.height), ImVec2(0,1), ImVec2(1,0));
 }
 
-void EditorCameraMovement(void)
-{
-    // Update Camera Position
-    front = Vector3Subtract(sceneCamera.target, sceneCamera.position);
-    front = Vector3Normalize(front);
+void EditorCameraMovement() {
+    sceneCamera.calculateVectors();
 
-    Vector3 forward = Vector3Subtract(sceneCamera.target, sceneCamera.position);
-    Vector3 right = Vector3CrossProduct(front, sceneCamera.up);
-    Vector3 normalizedRight = Vector3Normalize(right);
     Vector3 DeltaTimeVec3 = { GetFrameTime(), GetFrameTime(), GetFrameTime() };
-
     movingEditorCamera = false;
 
-    if (IsKeyDown(KEY_W))
-    {
+    if (IsKeyDown(KEY_W)) {
         movingEditorCamera = true;
-        Vector3 movement = Vector3Scale(front, movementSpeed);
+        Vector3 movement = Vector3Scale(sceneCamera.front, movementSpeed);
         sceneCamera.position = Vector3Add(sceneCamera.position, Vector3Multiply(movement, DeltaTimeVec3));
         sceneCamera.target = Vector3Add(sceneCamera.target, Vector3Multiply(movement, DeltaTimeVec3));
     }
 
-    if (IsKeyDown(KEY_S))
-    {
+    if (IsKeyDown(KEY_S)) {
         movingEditorCamera = true;
-        Vector3 movement = Vector3Scale(front, movementSpeed);
+        Vector3 movement = Vector3Scale(sceneCamera.front, movementSpeed);
         sceneCamera.position = Vector3Subtract(sceneCamera.position, Vector3Multiply(movement, DeltaTimeVec3));
         sceneCamera.target = Vector3Subtract(sceneCamera.target, Vector3Multiply(movement, DeltaTimeVec3));
     }
 
-    if (IsKeyDown(KEY_A))
-    {
+    if (IsKeyDown(KEY_A)) {
         movingEditorCamera = true;
-        Vector3 movement = Vector3Scale(normalizedRight, -movementSpeed);
+        Vector3 movement = Vector3Scale(sceneCamera.right, -movementSpeed);
         sceneCamera.position = Vector3Add(sceneCamera.position, Vector3Multiply(movement, DeltaTimeVec3));
-        sceneCamera.target = Vector3Add(sceneCamera.target, Vector3Multiply(movement, DeltaTimeVec3));
     }
 
-    if (IsKeyDown(KEY_D))
-    {
+    if (IsKeyDown(KEY_D)) {
         movingEditorCamera = true;
-        Vector3 movement = Vector3Scale(normalizedRight, -movementSpeed);
+        Vector3 movement = Vector3Scale(sceneCamera.right, -movementSpeed);
         sceneCamera.position = Vector3Subtract(sceneCamera.position, Vector3Multiply(movement, DeltaTimeVec3));
-        sceneCamera.target = Vector3Subtract(sceneCamera.target, Vector3Multiply(movement, DeltaTimeVec3));
     }
 
-    if (IsKeyDown(KEY_Q))
-    {
+    if (IsKeyDown(KEY_Q)) {
         movingEditorCamera = true;
         Vector3 movement = Vector3Scale(sceneCamera.up, movementSpeed);
         sceneCamera.position = Vector3Subtract(sceneCamera.position, Vector3Multiply(movement, DeltaTimeVec3));
-        sceneCamera.target = Vector3Subtract(sceneCamera.target, Vector3Multiply(movement, DeltaTimeVec3));
     }
 
-    if (IsKeyDown(KEY_E))
-    {
+    if (IsKeyDown(KEY_E)) {
         movingEditorCamera = true;
         Vector3 movement = Vector3Scale(sceneCamera.up, movementSpeed);
         sceneCamera.position = Vector3Add(sceneCamera.position, Vector3Multiply(movement, DeltaTimeVec3));
-        sceneCamera.target = Vector3Add(sceneCamera.target, Vector3Multiply(movement, DeltaTimeVec3));
     }
 
-    if (GetMouseWheelMove() != 0 && ImGui::IsWindowHovered())
-    {
+    if (GetMouseWheelMove() != 0 && ImGui::IsWindowHovered()) {
         movingEditorCamera = true;
         CameraMoveToTarget(&sceneCamera, -GetMouseWheelMove());
     }
 
-    sceneCamera.target = Vector3Add(sceneCamera.position, forward);
+    sceneCamera.target = Vector3Add(sceneCamera.position, sceneCamera.front);
 
+    if (IsKeyDown(KEY_LEFT_SHIFT))         movementSpeed = fastCameraSpeed;
+    else if (IsKeyDown(KEY_LEFT_CONTROL))  movementSpeed = slowCameraSpeed;
+    else                                   movementSpeed = defaultCameraSpeed;
 
-    if (IsKeyDown(KEY_LEFT_SHIFT))
-        movementSpeed = fastCameraSpeed;
-    else if (IsKeyDown(KEY_LEFT_CONTROL))
-        movementSpeed = slowCameraSpeed;
-    else
-        movementSpeed = defaultCameraSpeed;
-
-
-    // Camera Rotation
-    static Vector2 lastMousePosition = { 0 };
-    if (IsMouseButtonDown(MOUSE_RIGHT_BUTTON))
-    {
+    if (IsMouseButtonDown(MOUSE_RIGHT_BUTTON)) {
         Vector2 mousePosition = GetMousePosition();
-        float angleX = (lastMousePosition.x - mousePosition.x) * 0.005f;
-        float angleY = (lastMousePosition.y - mousePosition.y) * 0.005f;
+        float angleX = (rlLastMousePosition.x - mousePosition.x) * 0.005f;
+        float angleY = (rlLastMousePosition.y - mousePosition.y) * 0.005f;
 
-        Camera *cameraPtr = (Camera*)(&sceneCamera);
-        CameraYaw(cameraPtr, angleX, false);
-        CameraPitch(cameraPtr, angleY, true, false, false);
+        CameraYaw(&sceneCamera, angleX, false);
+        CameraPitch(&sceneCamera, angleY, true, false, false);
 
-        lastMousePosition = mousePosition;
-    }
-    else
-    {
-        lastMousePosition = GetMousePosition();
-    }
+        rlLastMousePosition = mousePosition;
+    } else rlLastMousePosition = GetMousePosition();
 }
 
-
-bool IsMouseHoveringModel(const Model& model, const Vector3& position, const Vector3& rotation, const Vector3& scale, const Entity* entity = nullptr, bool bypassOptimization = false)
-{
-    if (model.meshCount <= 0) {
-        return false;
-    }
+bool IsMouseHoveringModel(const Model& model, const Vector3& position, const Vector3& rotation, const Vector3& scale, const Entity* entity = nullptr, bool bypassOptimization = false) {
+    if (!IsModelReady(model)) return false;
 
     Vector2 relativeMousePosition = {
-        (float)GetMousePosition().x - (float)rectangle.x,
-        (float)GetMousePosition().y - (float)rectangle.y - (float)GetImGuiWindowTitleHeight()
+        (float)GetMousePosition().x - (float)viewportRectangle.x,
+        (float)GetMousePosition().y - (float)viewportRectangle.y - (float)GetImGuiWindowTitleHeight()
     };
 
-    Ray mouseRay = GetScreenToWorldRayEx(relativeMousePosition, sceneCamera, rectangle.width, rectangle.height);    
+    Ray mouseRay = GetScreenToWorldRayEx(relativeMousePosition, sceneCamera, viewportRectangle.width, viewportRectangle.height);    
 
     for (int meshIndex = 0; meshIndex < model.meshCount; meshIndex++) {
         BoundingBox meshBounds = (entity == nullptr) ? GetMeshBoundingBox(model.meshes[meshIndex]) : entity->bounds;
@@ -160,19 +119,16 @@ bool IsMouseHoveringModel(const Model& model, const Vector3& position, const Vec
         meshBounds.max = Vector3Transform(meshBounds.max, model.transform);
 
         if (bypassOptimization || GetRayCollisionBox(mouseRay, meshBounds).hit) {
-            if (GetRayCollisionMesh(mouseRay, model.meshes[meshIndex], model.transform).hit) {
+            if (GetRayCollisionMesh(mouseRay, model.meshes[meshIndex], model.transform).hit)
                 return true;
-            }
         }
     }
 
     return false;
 }
 
-void LocateEntity(Entity& entity)
-{
-    if (selectedGameObjectType == "entity")
-    {
+void LocateEntity(Entity& entity) {
+    if (selectedGameObjectType == "entity") {
         sceneCamera.target = entity.position;
         sceneCamera.position = {
             entity.position.x + 10,
@@ -182,238 +138,163 @@ void LocateEntity(Entity& entity)
     }
 }
 
-void ProcessCameraControls()
-{
+void ProcessCameraControls() {
     if (IsKeyPressed(KEY_F))
-    {
         LocateEntity(*selectedEntity);
-    }
 }
 
-void ProcessGizmo()
-{
-    if (selectedGameObjectType == "entity" && selectedEntity)
-    {
-        if (selectedEntity->initialized)
-        {
-            GizmoPosition();
-            GizmoRotation();
-            GizmoScale();
-        }
-    }
-    else if (selectedGameObjectType == "light" && selectedLight)
-    {
+void ProcessGizmo() {
+    if (selectedGameObjectType == "entity" && selectedEntity) {
         GizmoPosition();
         GizmoRotation();
-    }
-    else
-    {
-        dragging = false;
-        draggingGizmoPosition = false;
-        draggingGizmoRotation = false;
-        draggingGizmoScale = false;
+        GizmoScale();
+    } else if (selectedGameObjectType == "light" && selectedLight) {
+        GizmoPosition();
+        GizmoRotation();
+    } else {
+        draggingGizmoPosition = draggingGizmoRotation = draggingGizmoScale = false;
     }
 
     dragging = (draggingGizmoScale || draggingGizmoPosition || draggingGizmoRotation);
 }
 
-void HandleUnselect(bool isEntitySelected, bool isLightSelected) {
-    if (
-        IsMouseButtonPressed(MOUSE_BUTTON_LEFT) &&
-        ImGui::IsWindowHovered() &&
-        !isEntitySelected &&
-        !isLightSelected &&
-        !isHoveringGizmo &&
-        !dragging
-        )
-    {
-        selectedGameObjectType = "none";
-    }
+void HandleUnselect() {
+    if (IsMouseButtonPressed(MOUSE_BUTTON_LEFT) && ImGui::IsWindowHovered() && !dragging) selectedGameObjectType = "none";
+}
+
+void RenderViewportTexture() {
+    DrawTextureOnViewportRectangle(&viewportTexture);
 }
 
 void ApplyBloomEffect() {
-    if (bloomEnabled)
-    {
-        {
-            BeginTextureMode(downsamplerTexture);
-            BeginShaderMode(downsamplerShader);
+    if (!bloomEnabled) return;
 
-            SetShaderValueTexture(downsamplerShader, GetShaderLocation(downsamplerShader, "srcTexture"), texture);
+    BeginTextureMode(downsamplerTexture);
+    BeginShaderMode(downsamplerShader);
+    SetShaderValueTexture(downsamplerShader, GetShaderLocation(downsamplerShader, "srcTexture"), viewportTexture);
+        DrawTexture(viewportTexture, 0, 0, WHITE);
+    EndShaderMode();
+    EndTextureMode();
 
-            DrawTexture(texture, 0, 0, WHITE);
+    BeginTextureMode(upsamplerTexture);
+    BeginShaderMode(upsamplerShader);
+    SetShaderValueTexture(upsamplerShader, GetShaderLocation(upsamplerShader, "srcTexture"), downsamplerTexture.texture);
+        DrawTexture(downsamplerTexture.texture, 0, 0, WHITE);
+    EndShaderMode();
+    EndTextureMode();
 
-            EndShaderMode();
-            EndTextureMode();
-        }
-
-        {
-            BeginTextureMode(upsamplerTexture);
-            BeginShaderMode(upsamplerShader);
-
-            SetShaderValueTexture(upsamplerShader, GetShaderLocation(upsamplerShader, "srcTexture"), downsamplerTexture.texture);
-
-            DrawTexture(downsamplerTexture.texture, 0, 0, WHITE);
-
-            EndShaderMode();
-            EndTextureMode();
-        }
-
-        DrawTextureOnRectangle(&upsamplerTexture.texture);
-    }
-    else
-    {
-        DrawTextureOnRectangle(&texture);
-    }
-
+    viewportTexture = upsamplerTexture.texture;
 }
 
-void RenderLight(Light* light, bool& isLightSelected) {
-    int index = 0;
-
-    for (Light& light : lights)
-    {
-        Model lightModel = LoadModelFromMesh(GenMeshPlane(4, 4, 1, 1));
+void RenderLight() {
+    for (Light& light : lights) {
         lightModel.materials[0].maps[MATERIAL_MAP_DIFFUSE].texture = lightTexture;
 
         float rotation = DrawBillboardRotation(sceneCamera, lightTexture, { light.position.x, light.position.y, light.position.z }, 1.0f, WHITE);
-        
-        if (IsMouseButtonDown(MOUSE_LEFT_BUTTON) && ImGui::IsWindowHovered() && !dragging)
-        {
-            isLightSelected = IsMouseHoveringModel(lightModel, { light.position.x, light.position.y, light.position.z }, { 0, rotation, 0 }, {1,1,1});
-            if (isLightSelected)
-            {
-                objectInInspector = &light;
+
+        if (IsMouseButtonDown(MOUSE_LEFT_BUTTON) && ImGui::IsWindowHovered() && !dragging) {
+            bool isLightSelected = IsMouseHoveringModel(lightModel, { light.position.x, light.position.y, light.position.z }, { 0, rotation, 0 }, {1,1,1});
+            if (isLightSelected) {
+                selectedLight = &light;
                 selectedGameObjectType = "light";
             }
         }
-
-        UnloadModel(lightModel);
     }
 }
 
-void RenderEntities(bool& isEntitySelected) {
-    int index = 0;
-    for (Entity& entity : entitiesListPregame)
-    {
+void RenderEntities() {
+    for (Entity& entity : entitiesListPregame) {
         entity.calcPhysics = false;
         entity.render();
-        
-        if (IsMouseButtonDown(MOUSE_LEFT_BUTTON) && ImGui::IsWindowHovered() && !dragging)
-        {
-            isEntitySelected = IsMouseHoveringModel(entity.model, entity.position, entity.rotation, entity.scale, &entity);
-            if (isEntitySelected)
-            {
-                if (IsModelReady(entity.model) && entity.initialized)
-                {
-                    objectInInspector = &entitiesListPregame.at(index);
-                    selectedGameObjectType = "entity";
-                }
+
+        if (IsMouseButtonDown(MOUSE_LEFT_BUTTON) && ImGui::IsWindowHovered() && !dragging) {
+            bool isEntitySelected = IsMouseHoveringModel(entity.model, entity.position, entity.rotation, entity.scale, &entity);
+            if (isEntitySelected) {
+                selectedEntity = &entity;
+                selectedGameObjectType = "entity";
             }
 
-            for (auto childVariant : entity.children)
-            {
-                if (Entity** childEntity = std::any_cast<Entity*>(&childVariant))
-                {
+            for (auto childVariant : entity.children) {
+                if (Entity** childEntity = std::any_cast<Entity*>(&childVariant)) {
                     bool isEntitySelected = IsMouseHoveringModel((*childEntity)->model, (*childEntity)->position, (*childEntity)->rotation, (*childEntity)->scale);
-                    if (isEntitySelected)
-                    {
-                        objectInInspector = *childEntity;
+                    if (isEntitySelected) {
+                        selectedEntity = *childEntity;
                         selectedGameObjectType = "entity";
                     }
                 }
             }
         }
-
-        index++;
     }
 }
 
-void UpdateShaderAndView() {
+void UpdateShader() {
     float cameraPos[3] = { sceneCamera.position.x, sceneCamera.position.y, sceneCamera.position.z };
     SetShaderValue(shader, shader.locs[SHADER_LOC_VECTOR_VIEW], cameraPos, SHADER_UNIFORM_VEC3);
 }
 
 void RenderScene() {
-    BeginTextureMode(renderTexture);
-    BeginMode3D(sceneCamera);
+    BeginTextureMode(viewportRenderTexture);
+        BeginMode3D(sceneCamera);
+            ClearBackground(GRAY);
 
-    ClearBackground(GRAY);
+            DrawSkybox();
+            DrawGrid(GRID_SIZE, GRID_SCALE);
 
-    DrawSkybox();
-    DrawGrid(GRID_SIZE, GRID_SCALE);
+            if (ImGui::IsWindowFocused())
+                ProcessGizmo();
+    
+            UpdateShader();
 
-    ProcessGizmo();
+            RenderLight();
+            RenderEntities();
 
-    UpdateShaderAndView();
+            HandleUnselect();
 
-    bool isLightSelected = false;
-    bool isEntitySelected = false;
+            UpdateInGameGlobals();
+            UpdateLightsBuffer(true);
+        EndMode3D();
 
-
-    for (Light& light : lights) {
-        RenderLight(&light, isLightSelected);
-    }
-
-    RenderEntities(isEntitySelected);
-
-    HandleUnselect(isEntitySelected, isLightSelected);
-
-    UpdateInGameGlobals();
-    UpdateLightsBuffer();
-
-    EndMode3D();
-
-    DrawTextElements();
-    DrawButtons();
-
+        DrawTextElements();
+        DrawButtons();
     EndTextureMode();
 
     ApplyBloomEffect();
+    RenderViewportTexture();
 }
 
-
-void DropEntity()
-{
+void DropEntity() {
     ImVec2 windowPos = ImGui::GetWindowPos();
     ImVec2 windowSize = ImGui::GetWindowSize();
 
-    ImRect dropTargetArea(windowPos, ImVec2(windowPos.x + windowSize.x, windowPos.y + windowSize.y));
+    ImRect dropTargetArea(windowPos, windowPos + windowSize);
     ImGuiID windowID = ImGui::GetID(ImGui::GetCurrentWindow()->Name);
-   
-    if (ImGui::BeginDragDropTargetCustom(dropTargetArea, windowID))
-    {
-        if (const ImGuiPayload* payload = ImGui::AcceptDragDropPayload("MODEL_PAYLOAD"))
-        {
+
+    if (ImGui::BeginDragDropTargetCustom(dropTargetArea, windowID)) {
+        if (const ImGuiPayload* payload = ImGui::AcceptDragDropPayload("MODEL_PAYLOAD")) {
             IM_ASSERT(payload->DataSize == sizeof(int));
-            int payload_n = *(const int*)payload->Data;
 
-            std::string path = dirPath.string();
-            path += "/" + filesTextureStruct[payload_n].name;
+            int payloadIndex = *(const int*)payload->Data;
 
-            size_t lastDotIndex = path.find_last_of('.');
+            std::string modelFilePath = dirPath.string() + "/" + filesTextureStruct[payloadIndex].name;
 
-            // Extract the substring after the last dot
-            std::string entityName = path.substr(0, lastDotIndex);
-            
-            AddEntity(true, false, path.c_str(), Model(), entityName);
+            size_t lastDotIndex = modelFilePath.find_last_of('.');
+            std::string entityName = modelFilePath.substr(0, lastDotIndex);
+
+            AddEntity(true, false, modelFilePath.c_str(), Model(), entityName);
         }
+
         ImGui::EndDragDropTarget();
     }
 }
 
-bool showObjectTypePopup = false;
-
-void ProcessObjectControls()
-{
-    if ((IsKeyDown(KEY_LEFT_SHIFT) || IsKeyDown(KEY_RIGHT_SHIFT)) && IsKeyDown(KEY_A) && !movingEditorCamera)
-    {
+void ProcessObjectControls() {
+    if ((IsKeyDown(KEY_LEFT_SHIFT) || IsKeyDown(KEY_RIGHT_SHIFT)) && IsKeyDown(KEY_A) && !movingEditorCamera) {
         ImGui::OpenPopup("Add Object");
         showObjectTypePopup = true;
     }
 }
 
-void ObjectsPopup()
-{
+void ObjectsPopup() {
     ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(10, 10));
     ImGui::PushStyleVar(ImGuiStyleVar_ItemSpacing, ImVec2(10, 5));
     ImGui::PushStyleVar(ImGuiStyleVar_FramePadding, ImVec2(5, 5));
@@ -426,55 +307,46 @@ void ObjectsPopup()
     ImGui::PushStyleColor(ImGuiCol_HeaderHovered, ImVec4(0.4f, 0.4f, 0.4f, 0.8f));
     ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(1.0f, 1.0f, 1.0f, 1.0f));
 
-
     if (ImGui::IsWindowHovered() && showObjectTypePopup)
         ImGui::OpenPopup("popup");
 
-    if (ImGui::BeginPopup("popup"))
-    {
+    if (ImGui::BeginPopup("popup")) {
         ImGui::Text("Add an Object");
         
         ImGui::Separator();
 
-        if (ImGui::BeginMenu("Entity"))
-        {
-            if (ImGui::MenuItem("Cube"))
-            {
+        if (ImGui::BeginMenu("Entity")) {
+            if (ImGui::MenuItem("Cube")) {
                 AddEntity(true, false, "", LoadModelFromMesh(GenMeshCube(1, 1, 1)));
                 entitiesListPregame.back().ObjectType = Entity::ObjectType_Cube;
                 showObjectTypePopup = false;
             }
 
-            if (ImGui::MenuItem("Cone"))
-            {
+            if (ImGui::MenuItem("Cone")) {
                 AddEntity(true, false, "", LoadModelFromMesh(GenMeshCone(.5, 1, 30)));
                 entitiesListPregame.back().ObjectType = Entity::ObjectType_Cone;
                 showObjectTypePopup = false;
             }
 
-            if (ImGui::MenuItem("Cylinder"))
-            {
+            if (ImGui::MenuItem("Cylinder")) {
                 AddEntity(true, false, "", LoadModelFromMesh(GenMeshCylinder(1.5, 2, 30)));
                 entitiesListPregame.back().ObjectType = Entity::ObjectType_Cylinder;
                 showObjectTypePopup = false;
             }
 
-            if (ImGui::MenuItem("Plane"))
-            {
+            if (ImGui::MenuItem("Plane")) {
                 AddEntity(true, false, "", LoadModelFromMesh(GenMeshPlane(1, 1, 1, 1)));
                 entitiesListPregame.back().ObjectType = Entity::ObjectType_Plane;
                 showObjectTypePopup = false;
             }
 
-            if (ImGui::MenuItem("Sphere"))
-            {
+            if (ImGui::MenuItem("Sphere")) {
                 AddEntity(true, false, "", LoadModelFromMesh(GenMeshSphere(.5, 50, 50)));
                 entitiesListPregame.back().ObjectType = Entity::ObjectType_Sphere;
                 showObjectTypePopup = false;
             }
 
-            if (ImGui::MenuItem("Torus"))
-            {
+            if (ImGui::MenuItem("Torus")) {
                 AddEntity(true, false, "", LoadModelFromMesh(GenMeshTorus(.5, 1, 30, 30)));
                 entitiesListPregame.back().ObjectType = Entity::ObjectType_Torus;
                 showObjectTypePopup = false;
@@ -485,23 +357,25 @@ void ObjectsPopup()
 
         ImGui::Separator();
 
-        if (ImGui::BeginMenu("Light"))
-        {
-            if (ImGui::MenuItem("Point Light"))
-            {
-                NewLight({4, 5, 3}, WHITE, LIGHT_POINT);
+        if (ImGui::BeginMenu("Light")) {
+            if (ImGui::MenuItem("Point Light")) {
+                NewLight({0, 0, 5}, WHITE, LIGHT_POINT);
+                selectedLight = &lights.back();
+                selectedGameObjectType = "light";
                 showObjectTypePopup = false;
             }
 
-            if (ImGui::MenuItem("Directional Light"))
-            {
-                NewLight({4, 5, 3}, WHITE, LIGHT_DIRECTIONAL);
+            if (ImGui::MenuItem("Directional Light")) {
+                NewLight({0, 0, 5}, WHITE, LIGHT_DIRECTIONAL);
+                selectedLight = &lights.back();
+                selectedGameObjectType = "light";
                 showObjectTypePopup = false;
             }
 
-            if (ImGui::MenuItem("Spot Light"))
-            {
-                NewLight({4, 5, 3}, WHITE, LIGHT_SPOT);
+            if (ImGui::MenuItem("Spot Light")) {
+                selectedLight = &NewLight({0, 0, 5}, WHITE, LIGHT_SPOT);
+                selectedLight = &lights.back();
+                selectedGameObjectType = "light";
                 showObjectTypePopup = false;
             }
 
@@ -510,17 +384,16 @@ void ObjectsPopup()
 
         ImGui::Separator();
 
-        if (ImGui::BeginMenu("GUI"))
-        {
-            if (ImGui::MenuItem("Text"))
-            {
-                Text *MyTextElement = &AddText("Default Text", { 100, 100, 1 }, 20, BLUE);
+        if (ImGui::BeginMenu("GUI")) {
+            if (ImGui::MenuItem("Text")) {
+                selectedTextElement = &AddText("Default Text", { 100, 100, 1 }, 20, BLUE);
+                selectedGameObjectType = "text";
                 showObjectTypePopup = false;
             }
 
-            if (ImGui::MenuItem("Button"))
-            {
-                AddButton("Default Text", { 100, 150, 1 }, {200, 50});
+            if (ImGui::MenuItem("Button")) {
+                selectedButton = &AddButton("Default Text", { 100, 150, 1 }, {200, 50});
+                selectedGameObjectType = "button";
                 showObjectTypePopup = false;
             }
 
@@ -535,51 +408,37 @@ void ObjectsPopup()
 
     ImGui::PopStyleVar(6);
     ImGui::PopStyleColor(5);
-
 }
 
-
-void ProcessDeletion()
-{
-    if (IsKeyPressed(KEY_DELETE))
-    {
-        if (selectedGameObjectType == "entity")
+void ProcessDeletion() {
+    if (IsKeyPressed(KEY_DELETE)) {
+        if (selectedGameObjectType == "entity" && selectedEntity)
             selectedEntity->remove();
-        else if (selectedGameObjectType == "light")
-        {
+        else if (selectedGameObjectType == "light" && selectedLight) {
             auto it = std::find(lights.begin(), lights.end(), *selectedLight);
-            if (it != lights.end())
-            {
+            if (it != lights.end()) {
                 size_t index = std::distance(lights.begin(), it);
-                if (index < lightsInfo.size())
-                {
+                if (index < lightsInfo.size()) {
                     lights.erase(it);
                     lightsInfo.erase(lightsInfo.begin() + index);
-                    UpdateLightsBuffer(true);
                 }
             }
         }
-    }        
-}
-
-
-bool canDuplicateEntity = true;
-
-void EntityPaste(const std::shared_ptr<Entity>& entity)
-{
-    if (entity) {
-        Entity newEntity = *entity;
-        newEntity.reloadRigidBody();
-        newEntity.id = entitiesListPregame.back().id+1;
-        entitiesListPregame.emplace_back(newEntity);
-        selectedGameObjectType = "entity";
-        selectedEntity = &entitiesListPregame.back();
-        objectInInspector = selectedEntity;
     }
 }
 
-void LightPaste(const std::shared_ptr<Light>& light)
-{
+void EntityPaste(const std::shared_ptr<Entity>& entity) {
+    if (entity) {
+        Entity newEntity = *entity;
+        newEntity.reloadRigidBody();
+        newEntity.id = GenerateUniqueID(entitiesListPregame);
+        entitiesListPregame.emplace_back(newEntity);
+        selectedGameObjectType = "entity";
+        selectedEntity = &entitiesListPregame.back();
+    }
+}
+
+void LightPaste(const std::shared_ptr<Light>& light) {
     if (light) {
         Light newLight = *light;
         newLight.id = lights.back().id+1;
@@ -590,34 +449,23 @@ void LightPaste(const std::shared_ptr<Light>& light)
         
         selectedGameObjectType = "light";
         selectedLight = &lights.back();
-        objectInInspector = selectedLight;
     }
 }
 
-
-void DuplicateEntity(Entity& entity)
-{
+void DuplicateEntity(Entity& entity) {
     Entity newEntity = entity;
     newEntity.reloadRigidBody();
     entitiesListPregame.reserve(1);
     entitiesListPregame.emplace_back(newEntity);
     selectedEntity = &entitiesListPregame.back();
-    objectInInspector = selectedEntity;
 }
 
-
-void ProcessCopy()
-{
+void ProcessCopy() {
     if (IsKeyPressed(KEY_C) && (IsKeyDown(KEY_LEFT_CONTROL) || IsKeyDown(KEY_RIGHT_CONTROL) && !movingEditorCamera)) {
-        if (selectedGameObjectType == "entity")
-        {
+        if (selectedGameObjectType == "entity") {
             currentCopyType = CopyType_Entity;
-            if (selectedEntity) {
-                copiedEntity = std::make_shared<Entity>(*selectedEntity);
-            }
-        }
-        else if (selectedGameObjectType == "light")
-        {
+            if (selectedEntity) copiedEntity = std::make_shared<Entity>(*selectedEntity);
+        } else if (selectedGameObjectType == "light") {
             currentCopyType = CopyType_Light;
             copiedLight = std::make_shared<Light>(*selectedLight);
         }
@@ -631,76 +479,64 @@ void ProcessCopy()
     }
 
 
-    if (IsKeyDown(KEY_D) && (IsKeyDown(KEY_LEFT_CONTROL) || IsKeyDown(KEY_RIGHT_CONTROL)) && !inGamePreview && selectedGameObjectType == "entity" && canDuplicateEntity)
-    {
+    if (IsKeyDown(KEY_D) && (IsKeyDown(KEY_LEFT_CONTROL) || IsKeyDown(KEY_RIGHT_CONTROL)) && !inGamePreview && selectedGameObjectType == "entity" && canDuplicateEntity) {
         DuplicateEntity(*selectedEntity);
         canDuplicateEntity = false;
     }
-    if (!canDuplicateEntity)
-    {
-        canDuplicateEntity = IsKeyUp(KEY_D);
-    }
+
+    if (!canDuplicateEntity) canDuplicateEntity = IsKeyUp(KEY_D);
 }
 
-
-int EditorCamera(void)
-{
-
-    std::chrono::high_resolution_clock::time_point sceneEditorStart = std::chrono::high_resolution_clock::now();
-
-    if (ImGui::IsWindowHovered() && !dragging && !inGamePreview)
-    {
-        DropEntity();
-    }
-
-    if (ImGui::IsWindowHovered() && !dragging && !inGamePreview)
-        ProcessObjectControls();
-
-    if ((ImGui::IsWindowHovered() || ImGui::IsWindowFocused()) && !inGamePreview)
-    {
-        if (!showObjectTypePopup)
-            EditorCameraMovement();
-        ProcessCameraControls();
-    }
-
-    if (ImGui::IsWindowFocused())
-    {
-        ProcessCopy();
-    }
-
-    ProcessDeletion();
-
-    if (inGamePreview)
-    {
-        RunGame();
-        return 0;
-    }
-
-    RenderScene();
-
+void ScaleViewport() {
     ImVec2 currentWindowSize = ImGui::GetWindowSize();
 
-    if (currentWindowSize.x != prevEditorWindowSize.x || currentWindowSize.y != prevEditorWindowSize.y)
-    {
-        UnloadRenderTexture(renderTexture);
-        renderTexture = LoadRenderTexture(currentWindowSize.x, currentWindowSize.y);
-        texture = renderTexture.texture;
+    if (currentWindowSize.x != prevEditorWindowSize.x || currentWindowSize.y != prevEditorWindowSize.y) {
+        UnloadRenderTexture(viewportRenderTexture);
+        viewportRenderTexture = LoadRenderTexture(currentWindowSize.x, currentWindowSize.y);
+        viewportTexture = viewportRenderTexture.texture;
 
-        // Unload existing textures before copying
         UnloadRenderTexture(downsamplerTexture);
         UnloadRenderTexture(upsamplerTexture);
 
-        // Create new textures by loading from renderTexture
         downsamplerTexture = LoadRenderTexture(currentWindowSize.x, currentWindowSize.y);
         upsamplerTexture = LoadRenderTexture(currentWindowSize.x, currentWindowSize.y);
 
         prevEditorWindowSize = currentWindowSize;
     }
+}
 
+int EditorCamera() {
+    ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(0.0f, 0.0f));
+    ImGui::Begin(ICON_FA_VIDEO " Scene Editor", NULL);
+
+    std::chrono::high_resolution_clock::time_point sceneEditorStart = std::chrono::high_resolution_clock::now();
+
+    if (ImGui::IsWindowHovered() && !dragging && !inGamePreview) {
+        DropEntity();
+        ProcessObjectControls();
+    }
+
+    if (ImGui::IsWindowFocused() || (ImGui::IsWindowHovered() && IsMouseButtonDown(MOUSE_BUTTON_RIGHT)) && !inGamePreview) {
+        ProcessCameraControls();
+        ProcessCopy();
+
+        if (!showObjectTypePopup) EditorCameraMovement();
+    }
+    else rlLastMousePosition = GetMousePosition();
+
+    if (inGamePreview) {
+        RunGame();
+        return;
+    }
+
+    ProcessDeletion();
+    RenderScene();
+    ScaleViewport();
     ObjectsPopup();
 
     std::chrono::high_resolution_clock::time_point sceneEditorEnd = std::chrono::high_resolution_clock::now();
     sceneEditorProfilerDuration = std::chrono::duration_cast<std::chrono::milliseconds>(sceneEditorEnd - sceneEditorStart);
-    
-    return 0;
+
+    ImGui::End();
+    ImGui::PopStyleVar();
 }

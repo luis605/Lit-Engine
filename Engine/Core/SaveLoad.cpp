@@ -240,10 +240,10 @@ void SaveEntity(json& jsonData, const Entity& entity) {
     j["position"]                = entity.position;
     j["rotation"]                = entity.rotation;
     j["relativePosition"]       = entity.relativePosition;
-    j["model_path"]              = entity.model_path;
+    j["modelPath"]              = entity.modelPath;
     j["tiling"]                  = entity.tiling;
     
-    if (IsModelReady(entity.model) && entity.model_path.empty())
+    if (IsModelReady(entity.model) && entity.modelPath.empty())
         j["mesh_type"]           = entity.ObjectType;
 
     j["collider_type"]           = *entity.currentCollisionShapeType;
@@ -254,7 +254,7 @@ void SaveEntity(json& jsonData, const Entity& entity) {
     j["texturePath"]            = entity.texturePath;
     j["normalTexturePath"]     = entity.normalTexturePath;
     j["roughnessTexturePath"]  = entity.roughnessTexturePath;
-    j["material_path"]           = entity.surfaceMaterial_path;
+    j["material_path"]           = entity.surfaceMaterialPath;
     j["id"]                      = entity.id;
     j["surfaceMaterial"]        = entity.surfaceMaterial;
     j["is_dynamic"]              = entity.isDynamic;
@@ -639,10 +639,10 @@ void LoadEntity(const json& entityJson, Entity& entity) {
         entity.ObjectType = entityJson["mesh_type"].get<Entity::ObjectTypeEnum>();
     }
 
-    if (entityJson.contains("model_path") && !entityJson["model_path"].get<std::string>().empty()) {
+    if (entityJson.contains("modelPath") && !entityJson["modelPath"].get<std::string>().empty()) {
         entity.setModel(
-            entityJson["model_path"].get<std::string>().c_str(),
-            LoadModel(entityJson["model_path"].get<std::string>().c_str())
+            entityJson["modelPath"].get<std::string>().c_str(),
+            LoadModel(entityJson["modelPath"].get<std::string>().c_str())
         );
     }
     else
@@ -691,10 +691,10 @@ void LoadEntity(const json& entityJson, Entity& entity) {
 
     // Materials
     if (entityJson.contains("material_path")) {
-        entity.surfaceMaterial_path = entityJson["material_path"].get<std::string>();
-        if (!entity.surfaceMaterial_path.empty())
+        entity.surfaceMaterialPath = entityJson["material_path"].get<std::string>();
+        if (!entity.surfaceMaterialPath.empty())
         {
-            DeserializeMaterial(&entity.surfaceMaterial, entity.surfaceMaterial_path.string().c_str());
+            DeserializeMaterial(&entity.surfaceMaterial, entity.surfaceMaterialPath.string().c_str());
         }
     }
 

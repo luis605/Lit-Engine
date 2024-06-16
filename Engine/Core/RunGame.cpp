@@ -27,10 +27,10 @@ void RenderAndRunEntity(Entity& entity, LitCamera* rendering_camera = &camera) {
 #ifndef GAME_SHIPPING
 void RunGame()
 {
-    rectangle.width = sceneEditorWindowWidth;
-    rectangle.height = sceneEditorWindowHeight;
+    viewportRectangle.width = sceneEditorWindowWidth;
+    viewportRectangle.height = sceneEditorWindowHeight;
 
-    BeginTextureMode(renderTexture);
+    BeginTextureMode(viewportRenderTexture);
     BeginMode3D(camera);
 
     BeginShaderMode(shader);
@@ -80,11 +80,11 @@ void RunGame()
     {
         BeginTextureMode(downsamplerTexture);
         BeginShaderMode(downsamplerShader);
-            SetShaderValueTexture(downsamplerShader, GetShaderLocation(downsamplerShader, "srcTexture"), texture);
-            Vector2 screenResolution = { static_cast<float>(texture.width), static_cast<float>(texture.height) };
+            SetShaderValueTexture(downsamplerShader, GetShaderLocation(downsamplerShader, "srcTexture"), viewportTexture);
+            Vector2 screenResolution = { static_cast<float>(viewportTexture.width), static_cast<float>(viewportTexture.height) };
             SetShaderValue(downsamplerShader, GetShaderLocation(downsamplerShader, "srcResolution"), &screenResolution, SHADER_UNIFORM_VEC2);
 
-            DrawTexture(texture,0,0,WHITE);
+            DrawTexture(viewportTexture,0,0,WHITE);
         EndShaderMode();
         EndTextureMode();
 
@@ -98,11 +98,11 @@ void RunGame()
         EndShaderMode();
         EndTextureMode();
 
-        DrawTextureOnRectangle(&upsamplerTexture.texture);
+        DrawTextureOnViewportRectangle(&upsamplerTexture.texture);
     }
     else
     {
-        DrawTextureOnRectangle(&texture);
+        DrawTextureOnViewportRectangle(&viewportTexture);
     }
 }
 #endif

@@ -107,8 +107,7 @@ struct FindLightById {
 };
 
 
-Light NewLight(const Vector3 position, const Color color, int type)
-{
+Light NewLight(const Vector3 position, const Color color, int type) {
     glm::vec3 lightsPosition = glm::vec3(position.x, position.y, position.z);
     glm::vec4 lightsColor = glm::vec4(color.r/255, color.g/255, color.b/255, color.a/255);
 
@@ -128,8 +127,7 @@ Light NewLight(const Vector3 position, const Color color, int type)
     return lights.back();
 }
 
-void UpdateLightsBuffer(bool force, std::vector<Light> lightsVector)
-{
+void UpdateLightsBuffer(bool force, std::vector<Light> lightsVector) {
     if (lightsVector.empty() && !force)
         return;
 

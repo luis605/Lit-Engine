@@ -7,41 +7,29 @@ int pipe_fds_entities[2];
 int pipe_fds_lights[2];
 
 #ifndef GAME_SHIPPING
-    /* Not specific */
     char* selectedGameObjectType = "";
 
-    /* Entities List */
     bool inGamePreview = false;
+    bool canDuplicateEntity = true;
+    bool showObjectTypePopup = false;
 
     Texture2D runTexture;
     Texture2D pauseTexture;
+    Texture2D viewportTexture;
 
-    int listViewExScrollIndex = 0;
-    int listViewExActive = 0;
-    int listViewExFocus = 0;
+    RenderTexture2D viewportRenderTexture;
+
     std::vector<char*> listViewExList;
     std::vector<char*> listViewExListTypes;
-
-    bool canAddEntity = false;
-
     std::vector<std::string> objectNames;
-    char name[256] = { 0 };
 
-    bool showNextTime = true;
-    bool create = false;
+    Rectangle viewportRectangle;
 
-    /* Scene Editor */
-    RenderTexture2D renderTexture;
-    Texture2D texture;
-    Rectangle rectangle = { screenWidth*.2f, screenHeight*.2f, static_cast<float>(texture.width), static_cast<float>(texture.height) };
-
-    // ImGui Window Info
     float sceneEditorWindowWidth;
     float sceneEditorWindowHeight;
     float sceneEditorWindowX;
     float sceneEditorWindowY;
 
-    // Profiler
     std::chrono::milliseconds sceneEditorProfilerDuration;
     std::chrono::milliseconds assetsExplorerProfilerDuration;
 #endif

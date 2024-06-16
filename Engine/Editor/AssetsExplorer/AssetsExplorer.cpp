@@ -346,7 +346,7 @@ void AssetsExplorer() {
         }
         else if (ImGui::IsItemHovered() && ImGui::IsMouseDoubleClicked(ImGuiMouseButton_Left))
         {
-            code = read_file_to_string((dirPath / filesTextureStruct[i].name).string());
+            code = readFileToString((dirPath / filesTextureStruct[i].name).string());
 
             editor.SetText(code);
             codeEditorScriptPath = (dirPath / filesTextureStruct[i].name).string();

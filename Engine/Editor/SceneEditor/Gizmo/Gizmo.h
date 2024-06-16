@@ -30,7 +30,7 @@ Vector2 mousePosition;
 Vector2 mousePositionPrev;
 int selectedGizmoArrow            = -1;
 int selectedGizmoCube             = -1;
-bool dragging;
+bool dragging                     = false;
 bool draggingGizmoPosition        = false;
 bool draggingGizmoRotation        = false;
 bool draggingGizmoScale           = false;

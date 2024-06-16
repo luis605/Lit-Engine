@@ -37,7 +37,7 @@ RenderTexture downsamplerTexture;
 RenderTexture upsamplerTexture;
 
 ImVec2 windowOriginalPos;
-ImVec2 lastMousePosition;
+ImVec2 ImLastMousePosition;
 
 
 #endif // CORE_H
