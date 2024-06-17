@@ -113,7 +113,6 @@ using json = nlohmann::json;
 #include "Engine/Editor/SceneEditor/SceneEditor.h"
 
 #include "Engine/Core/Engine.cpp"
-#include "Engine/Core/RunGame.h"
 
 
 /* GUI */

@@ -1,9 +1,5 @@
 #include "../../include_all.h"
 
-#include "../../globals.h"
-#include "RunGame.h"
-
-
 void InitGameCamera() {
     camera.position = { 10.0f, 5.0f, 0.0f };
     camera.target = { 0.0f, 0.0f, 0.0f };
@@ -16,17 +12,13 @@ void InitGameCamera() {
     camera.projection = CAMERA_PERSPECTIVE;
 }
 
-
 void RenderAndRunEntity(Entity& entity, LitCamera* rendering_camera = &camera) {
     entity.calcPhysics = true;
-
     entity.setupScript(rendering_camera);
 }
 
-
 #ifndef GAME_SHIPPING
-void RunGame()
-{
+void RunGame() {
     viewportRectangle.width = sceneEditorWindowWidth;
     viewportRectangle.height = sceneEditorWindowHeight;
 
@@ -41,11 +33,9 @@ void RunGame()
 
         physics.Update(GetFrameTime());
 
-        if (firstTimeGameplay)
-        {
+        if (firstTimeGameplay) {
             #pragma omp parallel for
-            for (Entity& entity : entitiesList)
-            {
+            for (Entity& entity : entitiesList) {
                 entity.running_first_time = true;
 
                 #pragma omp critical
@@ -54,8 +44,7 @@ void RunGame()
         }
 
         #pragma omp parallel for
-        for (Entity& entity : entitiesList)
-        {
+        for (Entity& entity : entitiesList) {
             entity.render();
 
             #pragma omp critical
@@ -76,8 +65,7 @@ void RunGame()
 
     EndTextureMode();
 
-    if (bloomEnabled)
-    {
+    if (bloomEnabled) {
         BeginTextureMode(downsamplerTexture);
         BeginShaderMode(downsamplerShader);
             SetShaderValueTexture(downsamplerShader, GetShaderLocation(downsamplerShader, "srcTexture"), viewportTexture);
@@ -99,9 +87,7 @@ void RunGame()
         EndTextureMode();
 
         DrawTextureOnViewportRectangle(&upsamplerTexture.texture);
-    }
-    else
-    {
+    } else {
         DrawTextureOnViewportRectangle(&viewportTexture);
     }
 }

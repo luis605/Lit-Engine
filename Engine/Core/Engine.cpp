@@ -2,12 +2,10 @@
 #include "Entity.cpp"
 
 std::string getFileExtension(const std::string& filePath) {
-    std::filesystem::path pathObj(filePath);
+    fs::path pathObj(filePath);
 
-    if (pathObj.has_extension()) {
-        return pathObj.extension().string();
-    }
-    
+    if (pathObj.has_extension()) return pathObj.extension().string();
+
     return "no file extension";
 }
 

@@ -82,7 +82,6 @@ void DebugWindow()
     ImGui::End();
 }
 
-bool isDraggingWindow = false;
 Vector2 offset = { 0.0f, 0.0f };
 bool menuButtonClicked = false;
 

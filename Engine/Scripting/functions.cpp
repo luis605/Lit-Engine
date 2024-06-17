@@ -122,7 +122,7 @@ struct LitCamera : Camera3D {
     }
 };
 
-
+LitCamera camera;
 
 PYBIND11_EMBEDDED_MODULE(cameraModule, m) {
     py::class_<LitCamera>(m, "LitCamera")
@@ -139,6 +139,20 @@ PYBIND11_EMBEDDED_MODULE(cameraModule, m) {
 
 }
 
+pybind11::object export_camera() {
+    pybind11::module m("raylib_camera");
+    pybind11::class_<LitCamera>(m, "LitCamera")
+        .def(pybind11::init<>())
+        .def_readwrite("position", &LitCamera::position)
+        .def_readwrite("front", &LitCamera::front)
+        .def_readwrite("target", &LitCamera::target)
+        .def_readwrite("up", &LitCamera::up)
+        .def_readwrite("fovy", &LitCamera::fovy)
+        .def_readwrite("projection", &LitCamera::projection);
+    pybind11::object camera_obj = pybind11::cast(camera);
+    camera_obj.attr("__class__") = m.attr("LitCamera");
+    return camera_obj;
+}
 
 Vector2 mouseMove;
 float last_frame_count = 0;

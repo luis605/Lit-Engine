@@ -140,16 +140,14 @@ void EngineMainLoop() {
     }
 }
 
-void CleanUp()
-{
+void CleanUp() {
     std::cout << "Exiting..." << std::endl;
 
     inGamePreview = false;
     firstTimeGameplay = false;
 
-    for (Entity &entity : entitiesListPregame) {
+    for (Entity &entity : entitiesListPregame)
         entity.remove();
-    }
 
     entitiesListPregame.clear();
 
@@ -168,9 +166,9 @@ void CleanUp()
     UnloadTexture(lightTexture);
     UnloadTexture(windowIconTexture);
 
-    for (auto it = modelsIcons.begin(); it != modelsIcons.end(); ++it) {
+    for (auto it = modelsIcons.begin(); it != modelsIcons.end(); ++it)
         UnloadTexture(it->second);
-    }
+
     modelsIcons.clear();
 
     lights.clear();
@@ -190,16 +188,16 @@ void DraggableWindow() {
     float moveThreshold = 3.f;
 
     if (isTitleBarHovered && ImGui::IsMouseDown(ImGuiMouseButton_Left)) {
-        if (!isDragging && (fabs(mouseDelta.x) > moveThreshold || fabs(mouseDelta.y) > moveThreshold)) {
-            isDragging = true;
+        if (!isDraggingWindow && (fabs(mouseDelta.x) > moveThreshold || fabs(mouseDelta.y) > moveThreshold)) {
+            isDraggingWindow = true;
             ImVec2 windowPos = ImGui::GetWindowPos();
             windowOriginalPos = ImVec2(currentMousePos.x - windowPos.x, currentMousePos.y - windowPos.y);
         }
-    } else if (isDragging && ImGui::IsMouseReleased(ImGuiMouseButton_Left)) {
-        isDragging = false;
+    } else if (isDraggingWindow && ImGui::IsMouseReleased(ImGuiMouseButton_Left)) {
+        isDraggingWindow = false;
     }
 
-    if (isDragging) {
+    if (isDraggingWindow) {
         if (isWindowMaximized) ToggleMaximization();
 
         ImVec2 newPosition = ImVec2(ImGui::GetMousePos().x - windowOriginalPos.x, ImGui::GetMousePos().y - windowOriginalPos.y);

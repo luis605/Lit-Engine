@@ -1,5 +1,5 @@
 #ifndef GAME_SHIPPING
-    #include "../include_all.h"
+    #include "../../include_all.h"
 #endif
 
 #ifndef LIGHTS_H
@@ -19,10 +19,6 @@ typedef struct AdditionalLightInfo;
 std::vector<Light> lights;
 std::vector<AdditionalLightInfo> lightsInfo;
 
-void UpdateLightsBuffer(bool force=false, std::vector<Light> lightsVector = lights);
-Light NewLight(const Vector3 position, const Color color, int type = LIGHT_POINT);
-
-
 Texture2D lightTexture;
 
 int shadowMapWidth = 1024;
@@ -39,10 +35,13 @@ GLuint surfaceMaterialUBO;
 
 Vector4 ambientLight = {1.0f, 1.0f, 1.0f, 1.0f};
 
-bool canAddLight = false;
+RenderTexture downsamplerTexture;
+RenderTexture upsamplerTexture;
 
-typedef struct Light
-{
+void UpdateLightsBuffer(bool force=false, std::vector<Light> lightsVector = lights);
+Light NewLight(const Vector3 position, const Color color, int type = LIGHT_POINT);
+
+typedef struct Light {
     int type = LIGHT_POINT;
     bool enabled = true;
     alignas(16) glm::vec3 position;
@@ -63,9 +62,7 @@ typedef struct Light
     }
 };
 
-
-typedef struct SurfaceMaterial
-{
+typedef struct SurfaceMaterial {
     float shininess = 0.5f;
     float SpecularIntensity = 0.5f;
     float Roughness = 0.5f;
@@ -81,8 +78,7 @@ typedef struct SurfaceMaterial
     fs::path aoTexturePath;
 };
 
-typedef struct AdditionalLightInfo
-{
+typedef struct AdditionalLightInfo {
     std::string name;
     Entity* parent = nullptr;
     int id;
@@ -135,15 +131,10 @@ void UpdateLightsBuffer(bool force, std::vector<Light> lightsVector) {
     SetShaderValue(shader, GetShaderLocation(shader, "lightsCount"), &lightsCount, SHADER_UNIFORM_INT);
 }
 
-void AddLight()
-{
-    if (canAddLight)
-    {
-        Light lightCreate = NewLight({ -2, 1, -2 }, RED);
-        lightCreate.isChild = false;
-        lightsListPregame.emplace_back(lightCreate);
-        canAddLight = false;
-    }
+void AddLight() {
+    Light lightCreate = NewLight({ -2, 1, -2 }, RED);
+    lightCreate.isChild = false;
+    lightsListPregame.emplace_back(lightCreate);
 }
 
 #endif

@@ -1,11 +1,5 @@
 #include "../include_all.h"
 
-
-pid_t pid;
-int pipe_fds[2];
-int pipe_fds_entities[2];
-int pipe_fds_lights[2];
-
 #ifndef GAME_SHIPPING
     char* selectedGameObjectType = "";
 
@@ -19,10 +13,6 @@ int pipe_fds_lights[2];
 
     RenderTexture2D viewportRenderTexture;
 
-    std::vector<char*> listViewExList;
-    std::vector<char*> listViewExListTypes;
-    std::vector<std::string> objectNames;
-
     Rectangle viewportRectangle;
 
     float sceneEditorWindowWidth;
@@ -34,36 +24,11 @@ int pipe_fds_lights[2];
     std::chrono::milliseconds assetsExplorerProfilerDuration;
 #endif
 
-
-
-/* RunGame */
-LitCamera camera;
-
-pybind11::object export_camera()
-{
-    pybind11::module m("raylib_camera");
-    pybind11::class_<LitCamera>(m, "LitCamera")
-        .def(pybind11::init<>())
-        .def_readwrite("position", &LitCamera::position)
-        .def_readwrite("front", &LitCamera::front)
-        .def_readwrite("target", &LitCamera::target)
-        .def_readwrite("up", &LitCamera::up)
-        .def_readwrite("fovy", &LitCamera::fovy)
-        .def_readwrite("projection", &LitCamera::projection);
-    pybind11::object camera_obj = pybind11::cast(camera);
-    camera_obj.attr("__class__") = m.attr("LitCamera");
-    return camera_obj;
-}
-
 bool firstTimeGameplay = true;
 
-
 #ifndef GAME_SHIPPING
-    /* Themes */
-    // Create theme
     bool createNewThemeWindowOpen = false;
 
-    // Load && Save
     std::string themesFolder = "project/themes/";
     bool showFileExplorer = false;
     bool showSaveThemeWindow = false;

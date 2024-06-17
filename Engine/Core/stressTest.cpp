@@ -1,16 +1,13 @@
 #include "../../include_all.h"
 
+void CreateStressTest();
 
 float getRandomFloat(float min, float max) {
     return min + static_cast<float>(rand()) / static_cast<float>(RAND_MAX / (max - min));
 }
 
-void CreateStressTest();
-
-
 Entity mainEntity;
 Model model;
-
 
 void InitStressTest() {
 
@@ -24,8 +21,7 @@ void InitStressTest() {
 
     model = LoadModelFromMesh(GenMeshCube(1, 1, 1));
 
-    for (int index = 0; index <= 500000; index++)
-    {
+    for (int index = 0; index <= 500000; index++) {
         CreateStressTest();
     }
 }
@@ -33,14 +29,12 @@ void InitStressTest() {
 
 void CreateStressTest() {
     Vector3 position;
-    float random_x = getRandomFloat(-1000.0f, 1000.0f);  // Replace with appropriate range
-    float random_z = getRandomFloat(-1000.0f, 1000.0f);  // Replace with appropriate range
+    float random_x = getRandomFloat(-1000.0f, 1000.0f);
+    float random_z = getRandomFloat(-1000.0f, 1000.0f);
 
     position.x = random_x;
-    position.y = 0.0f;  // Assuming you want the y-coordinate to be 0
+    position.y = 0.0f;
     position.z = random_z;
-
-
 
     Entity entity;
     entity.position = position;
