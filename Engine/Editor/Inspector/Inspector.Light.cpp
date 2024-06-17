@@ -9,6 +9,24 @@ void LightInspector()
     if (ImGui::CollapsingHeader(ICON_FA_SLIDERS " Light Properties", false)) {
         ImGui::Indent(30.0f);
 
+        static const char* lights_types[] = { "Directional Light", "Point Light", "Spot Light" };
+        static int currentItem = selectedLight->type;
+
+        if (ImGui::BeginCombo("Light Types", lights_types[currentItem])) {
+            for (int index = 0; index < IM_ARRAYSIZE(lights_types); index++) {
+                const bool isSelected = (currentItem == index);
+                if (ImGui::Selectable(lights_types[index], isSelected))
+                    currentItem = index;
+                    selectedLight->type = currentItem;
+                if (isSelected)
+                    ImGui::SetItemDefaultFocus();
+            }
+            ImGui::EndCombo();
+        }
+
+
+        ImGui::Dummy(ImVec2(0.0f, 15.0f));
+
         ImGui::Text("Position:");
         ImGui::Indent(20.0f);
 
@@ -18,6 +36,7 @@ void LightInspector()
 
         ImGui::Unindent(20.0f);
 
+        ImGui::Dummy(ImVec2(0.0f, 15.0f));
 
         ImVec4 light_colorImGui = ImVec4(
             selectedLight->color.r,
@@ -37,25 +56,7 @@ void LightInspector()
 
         selectedLight->color = light_color;
 
-        static const char* lights_types[] = { "Directional Light", "Point Light", "Spot Light" };
-        static int currentItem = selectedLight->type;
-
-        if (ImGui::BeginCombo("Light Types", lights_types[currentItem])) {
-            for (int index = 0; index < IM_ARRAYSIZE(lights_types); index++) {
-                const bool isSelected = (currentItem == index);
-                if (ImGui::Selectable(lights_types[index], isSelected))
-                    currentItem = index;
-                    selectedLight->type = currentItem;
-                if (isSelected)
-                    ImGui::SetItemDefaultFocus();
-            }
-            ImGui::EndCombo();
-        }
-
-
         ImGui::Dummy(ImVec2(0.0f, 15.0f));
-
-
 
         if (!AttenuationActiveInputMode) {
             ImGui::SliderFloat("Attenuation", &selectedLight->attenuation, 0.0f, 0.3f);

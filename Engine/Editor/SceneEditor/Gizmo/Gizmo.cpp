@@ -86,20 +86,28 @@ bool HandleGizmo(bool& draggingGizmoProperty, Vector3& selectedObjectProperty, i
         float deltaX = (mouseDragEnd.x - mouseDragStart.x) * gizmoDragSensitivityFactor;
         float deltaY = (mouseDragEnd.y - mouseDragStart.y) * gizmoDragSensitivityFactor;
 
+        // Determine the direction of the camera
+        Vector3 cameraDirection = Vector3Normalize(Vector3Subtract(sceneCamera.position, selectedObjectProperty));
+
         switch (selectedGizmoIndex) {
             case 0:
             case 1:
+                // Adjust Y movement relative to camera direction
                 selectedObjectProperty.y -= deltaY;
                 break;
 
             case 2:
             case 3:
-                selectedObjectProperty.z -= deltaX + deltaY;
+                // Adjust Z movement relative to camera direction
+                if (cameraDirection.x > 0) deltaX = -deltaX;
+                selectedObjectProperty.z += deltaX + deltaY;
                 break;
 
             case 4:
             case 5:
-                selectedObjectProperty.x += deltaX;
+                // Adjust X movement relative to camera direction
+                if (cameraDirection.z > 0) deltaX = -deltaX;
+                selectedObjectProperty.x -= deltaX;
                 break;
         }
 
