@@ -34,41 +34,42 @@ void updateListViewExList(std::vector<Entity>& entities, std::vector<Light>& lig
     }
 }
 
-void ManipulateEntityPopup()
-{
+void ManipulateEntityPopup() {
     if (showManipulateEntityPopup)
         ImGui::OpenPopup("Entity");
 
-    if (ImGui::BeginPopup("Entity"))
-    {
-        if (ImGui::Button("Copy Entity"))
-        {
+    if (ImGui::BeginPopup("Entity")) {
+        ImVec2 buttonScale = ImGui::CalcTextSize("Duplicate Entity") + ImVec2(20.0f, 20.0f);
+
+        if (ImGui::Button("Duplicate Entity", buttonScale)) {
+            DuplicateEntity(*selectedEntity);
+            showManipulateEntityPopup = false;
+        }
+
+        if (ImGui::Button("Copy Entity", buttonScale)) {
             currentCopyType = CopyType_Entity;
             copiedEntity = std::make_shared<Entity>(*selectedEntity);
             showManipulateEntityPopup = false;
         }
-        else if (ImGui::Button("Delete Entity"))
-        {
+
+        if (ImGui::Button("Delete Entity", buttonScale)) {
             entitiesListPregame.erase(std::remove(entitiesListPregame.begin(), entitiesListPregame.end(), *selectedEntity), entitiesListPregame.end());
+            selectedEntity = nullptr;
+            selectedGameObjectType = "";
             showManipulateEntityPopup = false;
         }
-        else if (ImGui::Button("Locate Entity"))
-        {
+        
+        if (ImGui::Button("Locate Entity", buttonScale)) {
             LocateEntity(*selectedEntity);
             showManipulateEntityPopup = false;
         }
-        else if (ImGui::Button("Rename Entity"))
-        {
+        
+        if (ImGui::Button("Rename Entity", buttonScale)) {
             shouldChangeObjectName = true;
             showManipulateEntityPopup = false;
         }
-        else if (ImGui::Button("Duplicate Entity"))
-        {
-            DuplicateEntity(*selectedEntity);
-            showManipulateEntityPopup = false;
-        }
-        else if (IsMouseButtonDown(MOUSE_BUTTON_RIGHT) || IsMouseButtonDown(MOUSE_BUTTON_LEFT))
-        {
+        
+        if (IsMouseButtonDown(MOUSE_BUTTON_RIGHT) || IsMouseButtonDown(MOUSE_BUTTON_LEFT)) {
             showManipulateEntityPopup = false;
         }
 

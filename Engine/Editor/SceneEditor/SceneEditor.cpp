@@ -411,9 +411,11 @@ void ObjectsPopup() {
 
 void ProcessDeletion() {
     if (IsKeyPressed(KEY_DELETE)) {
-        if (selectedGameObjectType == "entity" && selectedEntity)
+        if (selectedGameObjectType == "entity" && selectedEntity) {
             selectedEntity->remove();
-        else if (selectedGameObjectType == "light" && selectedLight) {
+            selectedEntity = nullptr;
+            selectedGameObjectType = "";
+        } else if (selectedGameObjectType == "light" && selectedLight) {
             auto it = std::find(lights.begin(), lights.end(), *selectedLight);
             if (it != lights.end()) {
                 size_t index = std::distance(lights.begin(), it);
@@ -421,6 +423,9 @@ void ProcessDeletion() {
                     lights.erase(it);
                     lightsInfo.erase(lightsInfo.begin() + index);
                 }
+
+                selectedLight = nullptr;
+                selectedGameObjectType = "";
             }
         }
     }
