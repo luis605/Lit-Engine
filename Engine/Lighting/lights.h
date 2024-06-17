@@ -92,21 +92,6 @@ typedef struct AdditionalLightInfo
     }
 };
 
-struct FindLightById {
-    int id_to_find;
-
-    FindLightById(int id) : id_to_find(id) {}
-
-    bool operator()(const std::variant<Entity*, Light*, Text*, LitButton*>& var) const {
-        if (std::holds_alternative<Light*>(var)) {
-            Light* light = std::get<Light*>(var);
-            return light->id == id_to_find;
-        }
-        return false;
-    }
-};
-
-
 Light NewLight(const Vector3 position, const Color color, int type) {
     glm::vec3 lightsPosition = glm::vec3(position.x, position.y, position.z);
     glm::vec4 lightsColor = glm::vec4(color.r/255, color.g/255, color.b/255, color.a/255);
