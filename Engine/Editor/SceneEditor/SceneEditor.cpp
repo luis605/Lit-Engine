@@ -274,7 +274,7 @@ void DropEntity() {
 
             int payloadIndex = *(const int*)payload->Data;
 
-            std::string modelFilePath = dirPath.string() + "/" + filesTextureStruct[payloadIndex].name;
+            std::string modelFilePath = dirPath.string() + "/" + fileStruct[payloadIndex].name;
 
             size_t lastDotIndex = modelFilePath.find_last_of('.');
             std::string entityName = modelFilePath.substr(0, lastDotIndex);

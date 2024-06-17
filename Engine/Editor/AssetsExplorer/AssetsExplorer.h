@@ -22,7 +22,7 @@ struct FolderTextureItem {
     FolderTextureItem(const std::string& name, const Texture2D& texture, const std::filesystem::path& full_path, bool rename = false)
         : name(name), texture(texture), full_path(full_path), rename(rename) {}
 };
-std::vector<FolderTextureItem> foldersTextureStruct;
+std::vector<FolderTextureItem> folderStruct;
 
 struct FileTextureItem {
     std::string name;
@@ -31,7 +31,7 @@ struct FileTextureItem {
     fs::path full_path = "";
     bool rename = false;
 };
-std::vector<FileTextureItem> filesTextureStruct;
+std::vector<FileTextureItem> fileStruct;
 
 std::unordered_map<std::string, Texture2D> modelsIcons;
 

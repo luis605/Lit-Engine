@@ -81,7 +81,7 @@ void MaterialInspector(SurfaceMaterial* surfaceMaterial = nullptr, std::string p
                 int payload_n = *(const int*)payload->Data;
 
                 std::string path = dirPath.string();
-                path += "/" + filesTextureStruct[payload_n].name;
+                path += "/" + fileStruct[payload_n].name;
 
                 Texture2D diffuseTexture = LoadTexture(path.c_str());
                 if (!IsTextureReady(diffuseTexture)) // Means it is a video or an unsupported format
@@ -130,7 +130,7 @@ void MaterialInspector(SurfaceMaterial* surfaceMaterial = nullptr, std::string p
                 int payload_n = *(const int*)payload->Data;
 
                 std::string path = dirPath.string();
-                path += "/" + filesTextureStruct[payload_n].name;
+                path += "/" + fileStruct[payload_n].name;
 
                 Texture2D normalTexture = LoadTexture(path.c_str());
                 if (!IsTextureReady(normalTexture)) // Means it is a video or an unsupported format
@@ -178,7 +178,7 @@ void MaterialInspector(SurfaceMaterial* surfaceMaterial = nullptr, std::string p
                 int payload_n = *(const int*)payload->Data;
 
                 std::string path = dirPath.string();
-                path += "/" + filesTextureStruct[payload_n].name;
+                path += "/" + fileStruct[payload_n].name;
 
                 selectedEntity->roughnessTexturePath = path;
                 Texture2D roughnessTexture = LoadTexture(path.c_str());
@@ -225,7 +225,7 @@ void MaterialInspector(SurfaceMaterial* surfaceMaterial = nullptr, std::string p
                 int payload_n = *(const int*)payload->Data;
 
                 std::string path = dirPath.string();
-                path += "/" + filesTextureStruct[payload_n].name;
+                path += "/" + fileStruct[payload_n].name;
 
                 selectedEntity->aoTexturePath = path;
                 Texture2D aoTexture = LoadTexture(path.c_str());

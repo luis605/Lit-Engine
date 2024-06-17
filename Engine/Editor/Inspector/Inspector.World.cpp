@@ -141,7 +141,7 @@ void WorldInspector()
                     int payload_n = *(const int*)payload->Data;
 
                     fs::path path = dirPath.string();
-                    path += "/" + filesTextureStruct[payload_n].name;
+                    path += "/" + fileStruct[payload_n].name;
 
                     InitSkybox(path.string().c_str());
                 }

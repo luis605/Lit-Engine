@@ -46,7 +46,7 @@ bool createNumberedFolder(const fs::path& directoryPath) {
                 // Increment folderNumber for the next iteration
                 ++folderNumber;
             }
-        } catch (const std::filesystem::filesystem_error& e) {
+        } catch (const fs::filesystem_error& e) {
             std::cerr << "Error creating directory: " << e.what() << '\n';
             return false; // Indicate failure to create the directory
         }
@@ -60,8 +60,8 @@ int renameFileIndex       = -1;
 int renameFolderIndex       = -1;
 char renameFileBuffer[256];
 char renameFolderBuffer[256];
-std::filesystem::path renameFileName;
-std::filesystem::path renameFolderName;
+fs::path renameFileName;
+fs::path renameFolderName;
 int fileIndex            = -1;
 int folderIndex          = -1;
 
@@ -85,13 +85,13 @@ void EditFolderManipulation()
         {
             if (folderIndex != -1)
             {
-                std::filesystem::path currentPath = std::filesystem::current_path();
+                fs::path currentPath = fs::current_path();
 
                 renameFolderIndex = folderIndex;
-                renameFolderName = (currentPath / foldersTextureStruct[folderIndex].full_path);
+                renameFolderName = (currentPath / folderStruct[folderIndex].full_path);
 
                 size_t bufferSize = sizeof(renameFileBuffer);
-                const char* source = foldersTextureStruct[folderIndex].name.c_str();
+                const char* source = folderStruct[folderIndex].name.c_str();
 
                 strncpy(renameFileBuffer, source, bufferSize - 1);
                 renameFileBuffer[bufferSize - 1] = '\0';
@@ -104,9 +104,7 @@ void EditFolderManipulation()
         {
             if (folderIndex != -1)
             {
-                std::filesystem::path currentPath = std::filesystem::current_path();
-
-                std::filesystem::path folderPath = (currentPath / foldersTextureStruct[folderIndex].full_path);
+                fs::path folderPath = (fs::current_path() / folderStruct[folderIndex].full_path);
                 fs::remove_all(folderPath);
 
                 showEditFolderPopup = false;
@@ -138,13 +136,13 @@ void EditFileManipulation()
         {
             if (fileIndex != -1)
             {
-                std::filesystem::path currentPath = std::filesystem::current_path();
+                fs::path currentPath = fs::current_path();
 
                 renameFileIndex = fileIndex;
-                renameFileName = (currentPath / filesTextureStruct[fileIndex].full_path);
+                renameFileName = (currentPath / fileStruct[fileIndex].full_path);
 
                 size_t bufferSize = sizeof(renameFileBuffer);
-                const char* source = filesTextureStruct[fileIndex].name.c_str();
+                const char* source = fileStruct[fileIndex].name.c_str();
 
                 strncpy(renameFileBuffer, source, bufferSize - 1);
                 renameFileBuffer[bufferSize - 1] = '\0';
@@ -156,9 +154,9 @@ void EditFileManipulation()
         {
             if (fileIndex != -1)
             {
-                std::filesystem::path currentPath = std::filesystem::current_path();
+                fs::path currentPath = fs::current_path();
 
-                std::filesystem::path filePath = (currentPath / filesTextureStruct[fileIndex].full_path);
+                fs::path filePath = (currentPath / fileStruct[fileIndex].full_path);
                 fs::remove_all(filePath);
 
                 showEditFilePopup = false;
@@ -170,7 +168,7 @@ void EditFileManipulation()
             return;
         }
 
-        std::string file_extension = getFileExtension(filesTextureStruct[fileIndex].path.filename().string());
+        std::string file_extension = getFileExtension(fileStruct[fileIndex].path.filename().string());
         if (file_extension == ".py")
         {
             if (ImGui::Button("Run", ImVec2(buttonWidth, 0)))
@@ -178,7 +176,7 @@ void EditFileManipulation()
                     entitiesList.assign(entitiesListPregame.begin(), entitiesListPregame.end());
 
                     Entity run_script_entity = Entity();
-                    run_script_entity.script = filesTextureStruct[fileIndex].full_path.string();
+                    run_script_entity.script = fileStruct[fileIndex].full_path.string();
 
                     LitCamera* sceneCamera_reference = &sceneCamera;
                     run_script_entity.setupScript(sceneCamera_reference);
