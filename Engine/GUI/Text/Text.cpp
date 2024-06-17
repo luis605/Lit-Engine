@@ -43,19 +43,9 @@ void Text::Draw() {
     }
 
 #ifndef GAME_SHIPPING
-    if (IsPressed())
-    {
-        selectedTextElement = this;
-        selectedGameObjectType = "text";
-    }
+    selected = (selectedTextElement == this && selectedGameObjectType == "text");
 
-    if (selectedTextElement == this && selectedGameObjectType == "text")
-        selected = true;
-    else
-        selected = false;
-
-    if (selectable && selected)
-    {
+    if (selectable && selected) {
         DrawRectangleLines(bounds.x, bounds.y, bounds.width, bounds.height, BLUE);
     }
 #endif

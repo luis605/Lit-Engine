@@ -96,6 +96,8 @@ struct LitCamera : Camera3D {
     LitVector3 look_at = LitVector3{};
     LitVector3 up_vector = LitVector3{};
 
+    std::string name = "Camera";
+
     LitCamera(LitVector3 pos = LitVector3{}, LitVector3 look_at = LitVector3{},
               LitVector3 up_vector = LitVector3{ 0.0f, 1.0f, 0.0f }, float _fovy = 0.0f, int _projection = 0)
         : Camera3D{},

@@ -220,6 +220,8 @@ void ToggleMaximization() {
 static int currentExitMenuButton = 1;
 
 void ExitWindowRequested() {
+    showManipulateEntityPopup = false;
+
     const ImVec2 windowSize(200, 90);
     const ImVec2 windowPos((GetScreenWidth() - windowSize.x) * 0.5f, (GetScreenHeight() - windowSize.y) * 0.5f);
 

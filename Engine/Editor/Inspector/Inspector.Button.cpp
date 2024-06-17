@@ -13,8 +13,9 @@ void ButtonInspector()
     ImGui::SameLine(labelWidth);
     ImGui::SetNextItemWidth(-1);
 
-    size_t bufferSize = selectedButton->name.length() + 100;
-    char name_buffer[bufferSize];
+//    size_t bufferSize = selectedButton->name.length() + 100;
+    char name_buffer[255];
+    size_t bufferSize = sizeof(name_buffer);
 
     strncpy(name_buffer, selectedButton->name.c_str(), bufferSize - 1);
     name_buffer[bufferSize - 1] = '\0';
