@@ -5,108 +5,77 @@ const float LOD_DISTANCE_MEDIUM = 25.0f;
 const float LOD_DISTANCE_LOW = 35.0f;
 
 struct OptimizedMeshData {
-    std::vector<uint32_t> Indices;
+	std::vector<unsigned int> Indices;
     std::vector<Vector3> Vertices;
     int vertexCount;
 
-    OptimizedMeshData(std::vector<uint32_t> indices, std::vector<Vector3> vertices)
-        : Indices(indices), Vertices(vertices) {}
+    OptimizedMeshData() {}
 
-    // Provide a custom copy constructor
+    OptimizedMeshData(std::vector<unsigned int> indices, std::vector<Vector3> vertices)
+        : Indices(indices), Vertices(vertices), vertexCount(vertices.size()) {}
+
     OptimizedMeshData(const OptimizedMeshData& other)
         : Indices(other.Indices), Vertices(other.Vertices), vertexCount(other.vertexCount) {}
 
-    // Provide a custom assignment operator
-    OptimizedMeshData operator=(const OptimizedMeshData other) {
-
-        if (!other.Indices.empty())
-           Indices.assign(other.Indices.begin(), other.Indices.end());
-
-        if (!other.Vertices.empty())
-            Vertices.assign(other.Vertices.begin(), other.Vertices.end());
-
-        vertexCount = other.vertexCount;
+    OptimizedMeshData& operator=(const OptimizedMeshData& other) {
+        if (this != &other) {
+            Indices = other.Indices;
+            Vertices = other.Vertices;
+            vertexCount = other.vertexCount;
+        }
         return *this;
     }
 };
 
-
-
-OptimizedMeshData OptimizeMesh(Mesh& mesh, std::vector<uint32_t>& Indices, std::vector<Vector3>& Vertices, float threshold)
-{
-    OptimizedMeshData data(Indices, Vertices);
+OptimizedMeshData OptimizeMesh(std::vector<unsigned int>& Indices, std::vector<Vector3>& Vertices, float threshold) {
+    OptimizedMeshData data;
     size_t NumIndices = Indices.size();
     size_t NumVertices = Vertices.size();
 
-
-    if (
-        (NumIndices % 3 != 0) ||
-        NumVertices < 100
-    ) {
-        std::cerr << "Error: Number of indices must be a multiple of 3." << std::endl;
+    if ((NumIndices % 3 != 0) || NumVertices < 100) {
+        std::cerr << "Error: Number of indices must be a multiple of 3 and vertices should be more than 100." << std::endl;
         return data;
     }
 
-    std::vector<unsigned int> remap(NumIndices);
-    size_t OptVertexCount = meshopt_generateVertexRemap(remap.data(),    
-                                                        Indices.data(),  
-                                                        NumIndices,      
-                                                        Vertices.data(), 
-                                                        NumVertices,     
-                                                        sizeof(Vector3)); 
+    size_t target_index_count = static_cast<size_t>(NumIndices * threshold);
+    float target_error = 1e-2f;
+    float result_error = 0;
 
-    data.vertexCount = OptVertexCount;
+    data.Indices.resize(Indices.size());
 
-    std::vector<uint32_t> OptIndices;
-    std::vector<Vector3> OptVertices;
-    OptIndices.resize(NumIndices);
-    OptVertices.resize(OptVertexCount);
+    size_t optimized_index_count = meshopt_simplify(
+        &data.Indices[0], &Indices[0], NumIndices, &Vertices[0].x, NumVertices, 
+        sizeof(Vector3), target_index_count, target_error);
 
-    meshopt_remapIndexBuffer(OptIndices.data(), Indices.data(), NumIndices, remap.data());
+    data.Indices.resize(optimized_index_count);
 
-    meshopt_remapVertexBuffer(OptVertices.data(), Vertices.data(), NumVertices, sizeof(Vector3), remap.data());
+    std::vector<unsigned int> remap(NumVertices);
+    size_t optimized_vertex_count = meshopt_generateVertexRemap(
+        remap.data(), &data.Indices[0], optimized_index_count, 
+        &Vertices[0], NumVertices, sizeof(Vector3)
+    );
 
-    // Optimization #2: improve the locality of the vertices
-    meshopt_optimizeVertexCache(OptIndices.data(), OptIndices.data(), NumIndices, OptVertexCount);
+    data.Vertices.resize(optimized_vertex_count);
 
-    // Optimization #3: reduce pixel overdraw
-    meshopt_optimizeOverdraw(OptIndices.data(), OptIndices.data(), NumIndices, &(OptVertices[0].x), OptVertexCount, sizeof(Vector3), 1.05f);
+    meshopt_remapVertexBuffer(&data.Vertices[0], &Vertices[0], NumVertices, sizeof(Vector3), remap.data());
+    meshopt_remapIndexBuffer(&data.Indices[0], &data.Indices[0], optimized_index_count, remap.data());
 
-    // Optimization #4: optimize access to the vertex buffer
-    meshopt_optimizeVertexFetch(OptVertices.data(), OptIndices.data(), NumIndices, OptVertices.data(), OptVertexCount, sizeof(Vector3));
+    meshopt_optimizeVertexCache(&data.Indices[0], &data.Indices[0], optimized_index_count, optimized_vertex_count);
+    meshopt_optimizeOverdraw(&data.Indices[0], &data.Indices[0], optimized_index_count, &data.Vertices[0].x, optimized_vertex_count, sizeof(Vector3), 1.05f);
+    meshopt_optimizeVertexFetch(&data.Vertices[0], &data.Indices[0], optimized_index_count, &data.Vertices[0], optimized_vertex_count, sizeof(Vector3));
 
-    size_t TargetIndexCount = (size_t)(NumIndices * threshold);
-    
-    float TargetError = 0.0f;
-    std::vector<unsigned int> SimplifiedIndices(OptIndices.size());
-    size_t OptIndexCount = meshopt_simplify(SimplifiedIndices.data(), OptIndices.data(), NumIndices,
-                                            &OptVertices[0].x, OptVertexCount, sizeof(Vector3), TargetIndexCount, TargetError);
-
-    static int num_indices = 0;
-    num_indices += (int)NumIndices;
-    static int opt_indices = 0;
-    opt_indices += (int)OptIndexCount;
-    
-    SimplifiedIndices.resize(OptIndexCount);
-    
-    data.Indices.clear();
-    data.Vertices.clear();
-
-    
-    data.Indices.insert(data.Indices.end(), SimplifiedIndices.begin(), SimplifiedIndices.end());
-    data.Vertices.insert(data.Vertices.end(), OptVertices.begin(), OptVertices.end());
+    data.vertexCount = optimized_vertex_count;
 
     return data;
 }
 
-void calculateNormals(const std::vector<Vector3>& vertices, const std::vector<uint32_t>& indices, float* normals) {
+void calculateNormals(const std::vector<Vector3>& vertices, const std::vector<unsigned int>& indices, float* normals) {
     for (size_t i = 0; i < vertices.size(); ++i) {
         normals[i * 3] = 0.0f;
         normals[i * 3 + 1] = 0.0f;
         normals[i * 3 + 2] = 0.0f;
     }
 
-    
     for (size_t i = 0; i < indices.size(); i += 3) {
         Vector3 v0 = vertices[indices[i]];
         Vector3 v1 = vertices[indices[i + 1]];
@@ -114,7 +83,6 @@ void calculateNormals(const std::vector<Vector3>& vertices, const std::vector<ui
 
         Vector3 normal = Vector3Normalize(Vector3CrossProduct(Vector3Subtract(v1, v0), Vector3Subtract(v2, v0)));
 
-        
         for (int j = 0; j < 3; ++j) {
             normals[indices[i + j] * 3] += normal.x;
             normals[indices[i + j] * 3 + 1] += normal.y;
@@ -122,16 +90,17 @@ void calculateNormals(const std::vector<Vector3>& vertices, const std::vector<ui
         }
     }
 
-    
     for (size_t i = 0; i < vertices.size(); ++i) {
         float length = sqrt(normals[i * 3] * normals[i * 3] + normals[i * 3 + 1] * normals[i * 3 + 1] + normals[i * 3 + 2] * normals[i * 3 + 2]);
-        normals[i * 3] /= length;
-        normals[i * 3 + 1] /= length;
-        normals[i * 3 + 2] /= length;
+        if (length > 0) {
+            normals[i * 3] /= length;
+            normals[i * 3 + 1] /= length;
+            normals[i * 3 + 2] /= length;
+        }
     }
 }
 
-Mesh generateLODMesh(const std::vector<Vector3>& vertices, const std::vector<uint32_t>& indices, int vertexCount32, Mesh sourceMesh) {
+Mesh generateLODMesh(const std::vector<Vector3>& vertices, const std::vector<unsigned int>& indices, int vertexCount32, Mesh sourceMesh) {
     Mesh lodMesh = { 0 };
 
     if (vertices.empty() || indices.empty()) {
@@ -146,24 +115,18 @@ Mesh generateLODMesh(const std::vector<Vector3>& vertices, const std::vector<uin
     lodMesh.triangleCount = triangleCount;
     lodMesh.vertices = (float*)malloc(sizeof(float) * 3 * vertexCount);
     lodMesh.indices = (unsigned short*)malloc(sizeof(unsigned short) * indices.size());
-    lodMesh.normals = sourceMesh.normals;
-
+    lodMesh.normals = (float*)malloc(sizeof(float) * 3 * vertexCount);
 
     if (!lodMesh.vertices || !lodMesh.indices || !lodMesh.normals) {
         TraceLog(LOG_ERROR, "generateLODMesh: Memory allocation failed.");
-
+        if (lodMesh.vertices) free(lodMesh.vertices);
+        if (lodMesh.indices) free(lodMesh.indices);
+        if (lodMesh.normals) free(lodMesh.normals);
         return sourceMesh;
     }
 
     calculateNormals(vertices, indices, lodMesh.normals);
-    
-    for (int i = 0; i < vertexCount; ++i) {
-        lodMesh.normals[i * 3] /= 3.0f;
-        lodMesh.normals[i * 3 + 1] /= 3.0f;
-        lodMesh.normals[i * 3 + 2] /= 3.0f;
-    }
 
-    
     for (int i = 0; i < vertexCount; i++) {
         lodMesh.vertices[i * 3] = vertices[i].x;
         lodMesh.vertices[i * 3 + 1] = vertices[i].y;
@@ -178,6 +141,7 @@ Mesh generateLODMesh(const std::vector<Vector3>& vertices, const std::vector<uin
 
     free(lodMesh.vertices);
     free(lodMesh.indices);
+    free(lodMesh.normals);
 
     return lodMesh;
 }

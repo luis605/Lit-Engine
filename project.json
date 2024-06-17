@@ -2,15 +2,15 @@
     {
         "fovy": 60.0,
         "position": {
-            "x": -2.10185170173645,
-            "y": 18.260496139526367,
-            "z": -23.659503936767578
+            "x": 35.0,
+            "y": 5.0,
+            "z": 0.0
         },
         "projection": 0,
         "target": {
-            "x": -1.9577573537826538,
-            "y": 17.972759246826172,
-            "z": -22.712696075439453
+            "x": 34.01005172729492,
+            "y": 4.858578681945801,
+            "z": 0.0
         },
         "type": "camera",
         "up": {
@@ -22,18 +22,18 @@
     {
         "ambientColor": {
             "w": 1.0,
-            "x": 0.0,
-            "y": 0.0,
-            "z": 0.0
+            "x": 1.0,
+            "y": 1.0,
+            "z": 1.0
         },
         "bloom": false,
         "bloomBrightness": 0.0,
         "bloomSamples": 3.0,
         "skyboxColor": {
             "w": 1.0,
-            "x": 0.0,
-            "y": 0.0,
-            "z": 0.0
+            "x": 1.0,
+            "y": 1.0,
+            "z": 1.0
         },
         "skyboxPath": "assets/images/skybox/default skybox.hdr",
         "type": "world settings"
@@ -47,14 +47,13 @@
         "is_dynamic": false,
         "lodEnabled": true,
         "mass": 1.0,
-        "material_path": "project/game/materials/ground.mat",
-        "mesh_type": 4,
-        "modelPath": "",
-        "name": "Unnamed Entity",
-        "normalTexturePath": "project/game/textures/groud/normal.jpg",
+        "material_path": "",
+        "modelPath": "project/game/models/cactus.obj",
+        "name": "project/game/models/cactus",
+        "normalTexturePath": "",
         "position": {
             "x": 0.0,
-            "y": 5.199997425079346,
+            "y": 0.0,
             "z": 0.0
         },
         "relativePosition": {
@@ -63,22 +62,22 @@
             "z": 0.0
         },
         "rotation": {
-            "x": -4.018995761871338,
-            "y": 164.1964111328125,
-            "z": -3.174438238143921
+            "x": 0.0,
+            "y": 0.0,
+            "z": 0.0
         },
         "roughnessTexturePath": "",
         "scale": {
-            "x": 1000.0,
+            "x": 1.0,
             "y": 1.0,
-            "z": 1000.0
+            "z": 1.0
         },
         "scriptIndex": "",
         "script_path": "",
         "surfaceMaterial": {
-            "DiffuseIntensity": 1.0,
+            "DiffuseIntensity": 0.5,
             "Roughness": 0.5,
-            "SpecularIntensity": 1.0,
+            "SpecularIntensity": 0.5,
             "SpecularTint": {
                 "x": 1.0,
                 "y": 1.0,
@@ -86,15 +85,15 @@
             },
             "shininess": 0.5
         },
-        "texturePath": "project/game/textures/groud/diff.jpg",
+        "texturePath": "",
         "tiling": [
-            19.799999237060547,
-            19.299999237060547
+            1.0,
+            1.0
         ],
         "type": "entity"
     },
     {
-        "attenuation": 0.003000000026077032,
+        "attenuation": 9.999999747378752e-05,
         "color": {
             "a": 255.0,
             "b": 255.0,
@@ -103,18 +102,18 @@
         },
         "cutOff": 10.0,
         "direction": {
-            "x": -0.43799999356269836,
-            "y": -0.9380000829696655,
-            "z": 0.33899998664855957
+            "x": 0.4000000059604645,
+            "y": 0.4000000059604645,
+            "z": -0.4000000059604645
         },
         "id": 2,
-        "intensity": 19.19700050354004,
+        "intensity": 12.053999900817871,
         "isChild": false,
         "light_type": 1,
         "name": "Light",
         "position": {
-            "x": 5.999996662139893,
-            "y": 18.000030517578125,
+            "x": 0.0,
+            "y": 0.0,
             "z": 5.0
         },
         "relativePosition": {
@@ -122,7 +121,7 @@
             "y": 0,
             "z": 0
         },
-        "specularStrength": 0.0,
+        "specularStrength": 0.5,
         "target": {
             "x": 0,
             "y": 0,

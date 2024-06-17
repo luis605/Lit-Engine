@@ -698,15 +698,16 @@ public:
 
             this->LodModels[0] = this->model;
 
-            data = OptimizeMesh(model.meshes[0], indices, vertices, 0.05);
+            data = OptimizeMesh(indices, vertices, 0.8f);
             this->LodModels[1] = LoadModelFromMesh(generateLODMesh(data.Vertices, data.Indices, data.vertexCount, model.meshes[0]));
 
-            data = OptimizeMesh(model.meshes[0], indices, vertices, 0.6);
+            data = OptimizeMesh(indices, vertices, 0.6f);
             this->LodModels[2] = LoadModelFromMesh(generateLODMesh(data.Vertices, data.Indices, data.vertexCount, model.meshes[0]));
 
-            data = OptimizeMesh(model.meshes[0], indices, vertices, 1.0);
+            data = OptimizeMesh(indices, vertices, 0.3f);
             this->LodModels[3] = LoadModelFromMesh(generateLODMesh(data.Vertices, data.Indices, data.vertexCount, model.meshes[0]));
         }
+
 
         isDynamic ? makePhysicsDynamic() : makePhysicsStatic();
 
