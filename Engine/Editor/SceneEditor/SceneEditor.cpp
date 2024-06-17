@@ -530,6 +530,12 @@ int EditorCamera() {
 
     if (inGamePreview) {
         RunGame();
+
+        std::chrono::high_resolution_clock::time_point sceneEditorEnd = std::chrono::high_resolution_clock::now();
+        sceneEditorProfilerDuration = std::chrono::duration_cast<std::chrono::milliseconds>(sceneEditorEnd - sceneEditorStart);
+
+        ImGui::End();
+        ImGui::PopStyleVar();
         return;
     }
 

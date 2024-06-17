@@ -12,8 +12,6 @@ void CameraInspector()
     ImGui::Text("Inspecting Camera");
     ImGui::Dummy(ImVec2(0.0f, 10.0f));
 
-    ImGui::BeginChild("MainContent", window_size);
-
     if (ImGui::CollapsingHeader(ICON_FA_SLIDERS " Camera Properties"))
     {
         ImGui::Indent(30.0f);
@@ -44,6 +42,4 @@ void CameraInspector()
 
         ImGui::Unindent(30.0f);
     }
-
-    ImGui::EndChild();
 }
