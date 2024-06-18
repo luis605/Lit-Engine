@@ -1,81 +1,53 @@
-#include "../../include_all.h"
+#include "../../../include_all.h"
 #include "CodeEditor.h"
 
-// Declare variables to track button clicks
-static int clickCount = 0;
-static float clickTimer = 0.0f;
-
-
-
-void CodeEditor()
-{
-    ImGui::Begin(ICON_FA_CODE " Code Editor", NULL);
-
-    ImVec2 size = ImGui::GetContentRegionAvail();
-    bool saveFile = ImGui::ImageButton((ImTextureID)&saveTexture, ImVec2(34, 34));
-
-    if (saveFile)
-    {
-        std::cout << "Saving file..." << std::endl;
-
-        std::ofstream file(codeEditorScriptPath);
-
-        if (file.is_open()) {
-            file << code;
-            file.close();
-        } else {
-            std::cout << "Unable to open file." << std::endl;
-        }
-    }
-
-    if (ImGui::IsItemHovered())
-    {
+bool RenderImageButtonWithTooltip(ImTextureID textureID, const ImVec2& size, const char* tooltip) {
+    bool buttonClicked = ImGui::ImageButton(textureID, size);
+    if (ImGui::IsItemHovered()) {
         ImGui::BeginTooltip();
-        ImGui::Text("Save file");
+        ImGui::Text("%s", tooltip);
         ImGui::EndTooltip();
     }
+    return buttonClicked;
+}
 
+void SaveCodeToFile(const std::string& filePath, const std::string& code) {
+    std::cout << "Saving file..." << std::endl;
+    std::ofstream file(filePath);
+    if (file.is_open()) {
+        file << code;
+        file.close();
+    } else {
+        std::cout << "Unable to open file." << std::endl;
+    }
+}
+
+void CodeEditor() {
+    ImGui::Begin(ICON_FA_CODE " Code Editor", NULL);
+
+    if (RenderImageButtonWithTooltip((ImTextureID)&saveTexture, ImVec2(34, 34), "Save file")) {
+        SaveCodeToFile(codeEditorScriptPath, code);
+    }
 
     ImGui::SameLine();
 
-
-    // Inside your ImGui window loop
-    bool hot_reload = ImGui::ImageButton((ImTextureID)&hotReloadTexture, ImVec2(34, 34));
-
-    if (hot_reload)
-    {
-        clickCount++;
-        clickTimer = ImGui::GetTime();
-
-        if (clickCount == 1)
-        {
-            clickCount = 1;
-        }
-        else if (clickCount == 2)
-        {
+    if (RenderImageButtonWithTooltip((ImTextureID)&hotReloadTexture, ImVec2(34, 34), "Reload all scripts")) {
+        if (ImGui::IsMouseDoubleClicked(ImGuiMouseButton_Left)) {
             firstTimeGameplay = true;
-            for (Entity& entity : entitiesList)
+            for (Entity& entity : entitiesList) {
                 entity.running = false;
-                
-            clickCount = 0;
+            }
         }
     }
 
-    if (clickCount == 1 && ImGui::GetTime() - clickTimer > 0.4f)
-        clickCount = 0;
+    ImGui::SameLine();
 
-    if (ImGui::IsItemHovered())
-    {
-        ImGui::BeginTooltip();
-        ImGui::Text("Reload all scripts");
-        ImGui::EndTooltip();
-    }
-
-
+    ImGui::BeginDisabled();
+    ImGui::Button((codeEditorScriptPath.string() + std::string("##Script Path")).c_str(), ImVec2(ImGui::GetContentRegionAvail().x, 34));
+    ImGui::EndDisabled();
 
     editor.Render("TextEditor");
     code = editor.GetText();
-
 
     ImGui::End();
 }

@@ -6,7 +6,7 @@ Texture2D saveTexture;
 Texture2D hotReloadTexture;
 
 std::string code;
-std::string codeEditorScriptPath;
+fs::path codeEditorScriptPath;
 TextEditor editor;
 
 
