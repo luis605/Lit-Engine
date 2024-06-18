@@ -90,12 +90,13 @@ void EditFolderManipulation()
                 renameFolderIndex = folderIndex;
                 renameFolderName = (currentPath / folderStruct[folderIndex].full_path);
 
-                size_t bufferSize = sizeof(renameFileBuffer);
+                size_t bufferSize = sizeof(renameFolderBuffer);
                 const char* source = folderStruct[folderIndex].name.c_str();
 
-                strncpy(renameFileBuffer, source, bufferSize - 1);
-                renameFileBuffer[bufferSize - 1] = '\0';
+                strncpy(renameFolderBuffer, source, bufferSize - 1);
+                renameFolderBuffer[bufferSize - 1] = '\0';
 
+                folderIndex = -1;
                 showEditFolderPopup = false;
             }
         }
@@ -107,6 +108,7 @@ void EditFolderManipulation()
                 fs::path folderPath = (fs::current_path() / folderStruct[folderIndex].full_path);
                 fs::remove_all(folderPath);
 
+                folderIndex = -1;
                 showEditFolderPopup = false;
             }
         }
@@ -146,6 +148,8 @@ void EditFileManipulation()
 
                 strncpy(renameFileBuffer, source, bufferSize - 1);
                 renameFileBuffer[bufferSize - 1] = '\0';
+
+                fileIndex = -1;
                 showEditFilePopup = false;
             }
         }
@@ -156,9 +160,10 @@ void EditFileManipulation()
             {
                 fs::path currentPath = fs::current_path();
 
-                fs::path filePath = (currentPath / fileStruct[fileIndex].full_path);
+                fs::path filePath = currentPath / dirPath / fileStruct[fileIndex].name;
                 fs::remove_all(filePath);
 
+                fileIndex = -1;
                 showEditFilePopup = false;
             }
         }
@@ -173,17 +178,18 @@ void EditFileManipulation()
         {
             if (ImGui::Button("Run", ImVec2(buttonWidth, 0)))
             {
-                    entitiesList.assign(entitiesListPregame.begin(), entitiesListPregame.end());
+                entitiesList.assign(entitiesListPregame.begin(), entitiesListPregame.end());
 
-                    Entity run_script_entity = Entity();
-                    run_script_entity.script = fileStruct[fileIndex].full_path.string();
+                Entity run_script_entity = Entity();
+                run_script_entity.script = fileStruct[fileIndex].full_path.string();
 
-                    LitCamera* sceneCamera_reference = &sceneCamera;
-                    run_script_entity.setupScript(sceneCamera_reference);
-                    run_script_entity.runScript(sceneCamera_reference);
+                LitCamera* sceneCamera_reference = &sceneCamera;
+                run_script_entity.setupScript(sceneCamera_reference);
+                run_script_entity.runScript(sceneCamera_reference);
 
-                    showEditFilePopup = false;
-                    showAddFilePopup = false;
+                fileIndex = -1;
+                showEditFilePopup = false;
+                showAddFilePopup = false;
             }
         }
 

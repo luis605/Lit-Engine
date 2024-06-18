@@ -2,10 +2,12 @@
 #include "Entity.cpp"
 
 std::string getFileExtension(const std::string& filePath) {
-    fs::path pathObj(filePath);
+    size_t dotPos = filePath.find_last_of('.');
+    size_t slashPos = filePath.find_last_of("/\\");
 
-    if (pathObj.has_extension()) return pathObj.extension().string();
-
+    if (dotPos != std::string::npos && (slashPos == std::string::npos || dotPos > slashPos))
+        return filePath.substr(dotPos);
+ 
     return "no file extension";
 }
 

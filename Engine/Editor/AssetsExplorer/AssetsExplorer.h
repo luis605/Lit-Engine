@@ -16,10 +16,10 @@ RenderTexture2D target;
 struct FolderTextureItem {
     std::string name;
     Texture2D texture;
-    std::filesystem::path full_path = "";
-    bool rename = false;
+    fs::path full_path;
+    bool rename;
 
-    FolderTextureItem(const std::string& name, const Texture2D& texture, const std::filesystem::path& full_path, bool rename = false)
+    FolderTextureItem(const std::string& name, const Texture2D& texture, const fs::path& full_path, bool rename = false)
         : name(name), texture(texture), full_path(full_path), rename(rename) {}
 };
 std::vector<FolderTextureItem> folderStruct;
@@ -28,8 +28,8 @@ struct FileTextureItem {
     std::string name;
     Texture2D texture;
     fs::path path;
-    fs::path full_path = "";
-    bool rename = false;
+    fs::path full_path;
+    bool rename;
 };
 std::vector<FileTextureItem> fileStruct;
 
@@ -37,9 +37,6 @@ std::unordered_map<std::string, Texture2D> modelsIcons;
 
 struct dirent *ent;
 struct stat st;
-
-std::vector<std::string> files;
-std::vector<std::string> folders;
 
 fs::path dirPath = "project/game";
 float padding = 10.0f;

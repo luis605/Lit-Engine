@@ -1,4 +1,6 @@
-#include "../../include_all.h"
+#include "../../../include_all.h"
+
+std::unordered_map<std::string, Texture2D> modelIconCache;
 
 void InitRenderModelPreviewer() {
     modelPreviewerCamera.position = (Vector3){ 10.0f, 10.0f, 2.0f };
@@ -11,6 +13,10 @@ void InitRenderModelPreviewer() {
 }
 
 Texture2D RenderModelPreview(const char* modelFile) {
+    if (modelIconCache.find(modelFile) != modelIconCache.end()) {
+        return modelIconCache[modelFile];
+    }
+
     Model model = LoadModel(modelFile);
 
     BeginTextureMode(target);
@@ -23,6 +29,7 @@ Texture2D RenderModelPreview(const char* modelFile) {
     EndTextureMode();
     UnloadModel(model);
 
+    modelIconCache[modelFile] = target.texture;
     return target.texture;
 }
 
@@ -71,8 +78,8 @@ std::unordered_map<std::string, const char*> dragTypeMap = {
 
 const char* filesPayloadTypes[] = { "FILE_PAYLOAD", "TEXTURE_PAYLOAD", "SCRIPT_PAYLOAD", "MODEL_PAYLOAD", "MATERIAL_PAYLOAD" };
 
-const char* getDragType(const std::string& file_extension) {
-    auto it = dragTypeMap.find(file_extension);
+const char* getDragType(const std::string& fileExtension) {
+    auto it = dragTypeMap.find(fileExtension);
     if (it != dragTypeMap.end()) {
         return it->second;
     }
@@ -88,9 +95,9 @@ Texture2D& getTextureForFileExtension(const std::string& extension) {
 }
 
 FileTextureItem createFileTextureItem(const fs::path& file, const fs::directory_entry& entry) {
-    std::string file_extension = getFileExtension(file.filename().string());
+    const std::string fileExtension = getFileExtension(file.filename().string());
 
-    if (file_extension == ".fbx" || file_extension == ".obj" || file_extension == ".gltf" || file_extension == ".ply") {
+    if (fileExtension == ".fbx" || fileExtension == ".obj" || fileExtension == ".gltf" || fileExtension == ".ply") {
         auto iter = modelsIcons.find(file.string());
         if (iter != modelsIcons.end()) {
             return {file.string(), iter->second, file};
@@ -108,21 +115,17 @@ FileTextureItem createFileTextureItem(const fs::path& file, const fs::directory_
         }
     }
 
-    return {file.string(), getTextureForFileExtension(file_extension), file};
+    return {file.string(), getTextureForFileExtension(fileExtension), file};
 }
 
 void UpdateFileFolderStructures() {
-    if (dirPath.empty()) return;
-    if (!fs::exists(dirPath)) return;
+    if (dirPath.empty() || !fs::exists(dirPath)) return;
 
     for (const fs::directory_entry& entry : fs::directory_iterator(dirPath)) {
-        if (!entry.is_regular_file() && !entry.is_directory()) continue;
-
         fs::path file = entry.path().filename();
-        if (fs::is_directory(entry)) {
+        if (entry.is_directory()) {
             folderStruct.emplace_back(file.string(), folderTexture, entry.path());
-            folders.emplace_back(file.string());
-        } else {
+        } else if (entry.is_regular_file()) {
             FileTextureItem fileTextureItem = createFileTextureItem(file, entry);
             fileStruct.emplace_back(std::move(fileTextureItem));
         }
@@ -146,46 +149,43 @@ void AssetsExplorerTopBar() {
             if (payload) break;
         }
 
-        if (payload) {
-            if (payload->DataSize == sizeof(int)) {
-                int payload_n = *(const int*)payload->Data;
+        if (payload && payload->DataSize == sizeof(int)) {
+            int payload_n = *(const int*)payload->Data;
+            fs::path path = dirPath / fileStruct[payload_n].name;
+            fs::path sourceFilePath = fs::current_path() / path;
+            fs::path destinationFilePath = dirPath.parent_path() / fileStruct[payload_n].name;
 
-                fs::path path = dirPath.string() + "/" + fileStruct[payload_n].name;
-
-                fs::path sourceFilePath = fs::current_path() / path;
-                fs::path destinationFilePath = dirPath.parent_path() / fileStruct[payload_n].name;
-
-                if (fs::is_regular_file(destinationFilePath)) {
-                    std::cerr << "Error: Cannot move a file to a folder where a file with the same name already exists." << std::endl;
-                } else {
-                    try {
-                        fs::rename(sourceFilePath, destinationFilePath);
-                    } catch (const fs::filesystem_error& e) {
-                        std::cerr << "Error renaming file: " << e.what() << std::endl;
-                    }
+            if (!fs::is_regular_file(destinationFilePath)) {
+                try {
+                    fs::rename(sourceFilePath, destinationFilePath);
+                } catch (const fs::filesystem_error& e) {
+                    std::cerr << "Error renaming file: " << e.what() << std::endl;
                 }
+            } else {
+                std::cerr << "Error: Cannot move a file to a folder where a file with the same name already exists." << std::endl;
             }
         }
 
         ImGui::EndDragDropTarget();
     }
-    
+
     ImGui::PopStyleColor(3);
     ImGui::SameLine();
 }
 
 void AssetsExplorer() {
-    std::chrono::high_resolution_clock::time_point assetsExplorer_start = std::chrono::high_resolution_clock::now();
+    auto assetsExplorer_start = std::chrono::high_resolution_clock::now();
 
     folderStruct.clear();
     fileStruct.clear();
-    folders.clear();
-    files.clear();
 
-    if (assetsExplorerWindowSize.x < cellSize)        ImGui::SetNextWindowSize({cellSize, assetsExplorerWindowSize.y});
-    else if (assetsExplorerWindowSize.y < cellSize)   ImGui::SetNextWindowSize({assetsExplorerWindowSize.y, cellSize});
+    if (assetsExplorerWindowSize.x < cellSize) {
+        ImGui::SetNextWindowSize({cellSize, assetsExplorerWindowSize.y});
+    } else if (assetsExplorerWindowSize.y < cellSize) {
+        ImGui::SetNextWindowSize({assetsExplorerWindowSize.y, cellSize});
+    }
 
-    ImGui::Begin((std::string(ICON_FA_FOLDER_OPEN) + " Assets Explorer").c_str(), NULL);
+    ImGui::Begin((std::string(ICON_FA_FOLDER_OPEN) + " Assets Explorer").c_str(), nullptr);
 
     ImGui::PushStyleVar(ImGuiStyleVar_FrameBorderSize, 0);
     ImGui::PushStyleVar(ImGuiStyleVar_FrameRounding, 5);
@@ -193,33 +193,19 @@ void AssetsExplorer() {
     UpdateFileFolderStructures();
     AssetsExplorerTopBar();
 
-    ImGui::PushStyleColor(ImGuiCol_Button, ImVec4(0.3f, 0.3f, 0.3f, 1.0f));
-    ImGui::PushStyleColor(ImGuiCol_ButtonHovered, ImVec4(0.3f, 0.3f, 0.3f, 1.0f));
-    ImGui::PushStyleColor(ImGuiCol_ButtonActive, ImVec4(0.3f, 0.3f, 0.3f, 1.0f));
+    ImGui::BeginDisabled();
+    ImGui::Button((std::string(dirPath.string()) + "##AssetsExplorerPath").c_str());
+    ImGui::EndDisabled();
 
-        ImGui::Button((std::string(dirPath.string()) + "##AssetsExplorerPath").c_str());
-
-    ImGui::PopStyleColor(3);
-
-    ImGui::BeginChild("Assets Explorer Child", ImVec2(-1,-1), true);
+    ImGui::BeginChild("Assets Explorer Child", ImVec2(-1, -1), true);
     assetsExplorerWindowSize = ImGui::GetWindowSize();
 
     bool isFolderHovered = false;
 
     float panelWidth = ImGui::GetContentRegionAvail().x;
-    float columnWidth = cellSize + 40.0f;
+    int columnCount = std::max(1, static_cast<int>(panelWidth / (cellSize + padding)));
 
-    int numFolders = folderStruct.size();
-    int columnCount = (int)(panelWidth / cellSize);
-    if (columnCount < 1)
-        columnCount = 1;
-
-    ImGui::Columns(columnCount, "##AssetsExplorerListColumns", false);
-
-    for (int i = 0; i < columnCount; ++i) {
-        if (columnCount > 1)
-            ImGui::SetColumnWidth(i, columnWidth);
-    }
+    ImGui::Columns(columnCount, 0, false);
 
     // FOLDERS List
     ImGui::PushStyleVar(ImGuiStyleVar_FrameBorderSize, 0.0f);
@@ -227,25 +213,18 @@ void AssetsExplorer() {
 
     float buttonWidth = thumbnailSize;
     float halfButton = buttonWidth / 2.0f;
+    int numFolders = folderStruct.size();
 
-    for (int index = 0; index < numFolders; index++) {
+    for (size_t index = 0; index < numFolders; index++) {
+        FolderTextureItem& folderItem = folderStruct[index];
+
         ImGui::PushID(index);
 
         ImGui::PushStyleColor(ImGuiCol_Button, ImVec4(0, 0, 0, 0)); 
         ImGui::ImageButton((ImTextureID)&folderTexture, ImVec2(thumbnailSize, thumbnailSize));
         ImGui::PopStyleColor(); 
-        
-        bool isButtonHovered = ImGui::IsItemHovered();
 
-        if (isButtonHovered) isFolderHovered = true;
-        if (renameFolderIndex == index) folderStruct[index].rename = true;
-        if (isButtonHovered && ImGui::IsMouseDoubleClicked(ImGuiMouseButton_Left))
-            dirPath += "/" + folderStruct[index].name;
-
-        if (ImGui::IsWindowHovered() && IsMouseButtonPressed(MOUSE_RIGHT_BUTTON) && isButtonHovered) {
-            folderIndex = index;
-            showEditFolderPopup = true;
-        }
+        if (renameFolderIndex == index) folderItem.rename = true;
 
         if (ImGui::BeginDragDropTarget()) {
             const ImGuiPayload* payload = nullptr;
@@ -259,24 +238,32 @@ void AssetsExplorer() {
                 if (payload->DataSize == sizeof(int)) {
                     int payload_n = *(const int*)payload->Data;
 
-                    fs::path path = dirPath.string() + "/" + fileStruct[payload_n].name;
-                    
-                    fs::path sourceFilePath = fs::current_path() / path;
-                    fs::path destinationFilePath = fs::current_path() / dirPath.string() / folderStruct[index].name / fileStruct[payload_n].name;
+                    fs::path sourceFilePath = fs::current_path() / dirPath / fileStruct[payload_n].name;
+                    fs::path destinationFilePath = fs::current_path() / dirPath / folderItem.name / fileStruct[payload_n].name;
 
                     try {
                         fs::rename(sourceFilePath, destinationFilePath);
                     } catch (const fs::filesystem_error& e) {
                         std::cerr << "Error renaming file: " << e.what() << std::endl;
                     }
-
                 }
             }
- 
+
             ImGui::EndDragDropTarget();
         }
 
-        if (folderStruct[index].rename) {
+        if (ImGui::IsItemHovered()) {
+            isFolderHovered = true;
+
+            if (ImGui::IsMouseDoubleClicked(ImGuiMouseButton_Left))
+                dirPath += "/" + folderItem.name;
+            else if (IsMouseButtonPressed(MOUSE_RIGHT_BUTTON)) {
+                folderIndex = index;
+                showEditFolderPopup = true;
+            }
+        }
+
+        if (folderItem.rename) {
             ImGui::InputText("##RenameFolder", (char*)renameFolderBuffer, 256);
 
             if (IsKeyPressed(KEY_ENTER)) {
@@ -292,17 +279,17 @@ void AssetsExplorer() {
                     }
                 }
 
-                folderStruct[index].rename = false;
+                folderItem.rename = false;
                 renameFolderIndex = -1;
             }
         } else {
-            float textWidth = ImGui::CalcTextSize(folderStruct[index].name.c_str()).x;
+            float textWidth = ImGui::CalcTextSize(folderItem.name.c_str()).x;
             float buttonWidth = thumbnailSize;
             float offset = (buttonWidth - textWidth / 2) / 2;
             float centerPosX = (ImGui::GetCursorPosX() + offset);
 
             ImGui::SetCursorPosX(centerPosX);
-            ImGui::Text(folderStruct[index].name.c_str());
+            ImGui::Text(folderItem.name.c_str());
         }
 
         ImGui::PopID();
@@ -310,51 +297,56 @@ void AssetsExplorer() {
     }
 
     // FILES List
-    int numFileButtons = fileStruct.size();
+    int numFiles = fileStruct.size();
 
-    if (numFileButtons <= 0) {
-        if ((ImGui::IsWindowFocused() || ImGui::IsWindowHovered()) && IsMouseButtonPressed(MOUSE_RIGHT_BUTTON))
-            showAddFilePopup = true;
-    }
+    if ((ImGui::IsWindowFocused() || ImGui::IsWindowHovered()) && numFiles <= 0 && IsMouseButtonPressed(MOUSE_RIGHT_BUTTON))
+        showAddFilePopup = true;
 
-    for (int index = 0; index < numFileButtons; index++) {
+    for (int index = 0; index < numFiles; index++) {
+        FileTextureItem& fileItem = fileStruct[index];
         ImGui::PushID(index);
 
-        ImGui::PushStyleColor(ImGuiCol_Button, ImVec4(0, 0, 0, 0)); 
-        ImGui::ImageButton((ImTextureID)&fileStruct[index].texture, ImVec2(thumbnailSize, thumbnailSize));
+        ImGui::PushStyleColor(ImGuiCol_Button, ImVec4(0, 0, 0, 0));
+        ImGui::ImageButton((ImTextureID)&fileItem.texture, ImVec2(thumbnailSize, thumbnailSize));
         ImGui::PopStyleColor();
     
         bool isButtonHovered = ImGui::IsItemHovered();
 
-        std::string file_extension = getFileExtension(fileStruct[index].path.filename().string());
-
-        if (ImGui::BeginDragDropSource(ImGuiDragDropFlags_None)) {
-            const char* drag_type = getDragType(file_extension);
-
-            ImGui::SetDragDropPayload(drag_type, &index, sizeof(int));
-            ImGui::Image((void *)(intptr_t)(ImTextureID)&fileStruct[index].texture, ImVec2(64, 64));
-            ImGui::EndDragDropSource();
+        if (IsMouseButtonPressed(MOUSE_RIGHT_BUTTON) && ImGui::IsWindowHovered() && !isFolderHovered) {
+            if (isButtonHovered) {
+                fileIndex = index;
+                showEditFilePopup = true;
+            } else showAddFilePopup = true;
         }
 
-        if (ImGui::IsWindowHovered() && IsMouseButtonPressed(MOUSE_RIGHT_BUTTON) && isButtonHovered && !isFolderHovered) {
-            fileIndex = index;
-            showEditFilePopup = true;
-        } else if (ImGui::IsWindowHovered() && IsMouseButtonPressed(MOUSE_RIGHT_BUTTON) && !isButtonHovered && !isFolderHovered)
-            showAddFilePopup = true;
+        if (IsMouseButtonDown(MOUSE_BUTTON_LEFT))
+        {
+            if (ImGui::BeginDragDropSource(ImGuiDragDropFlags_None)) {
+                const std::string fileExtension = getFileExtension(fileItem.path.filename().string());
+                const char* drag_type = getDragType(fileExtension);
 
-        if (file_extension == ".mat" && ImGui::IsItemHovered() && ImGui::IsMouseDoubleClicked(ImGuiMouseButton_Left)) {
-            selectedGameObjectType = "material";
-            selectedMaterial = fileStruct[index].full_path;
-        } else if (ImGui::IsItemHovered() && ImGui::IsMouseDoubleClicked(ImGuiMouseButton_Left)) {
-            code = readFileToString((dirPath / fileStruct[index].name).string());
-            codeEditorScriptPath = (dirPath / fileStruct[index].name).string();
-
-            editor.SetText(code);
+                ImGui::SetDragDropPayload(drag_type, &index, sizeof(int));
+                ImGui::Image((void *)(intptr_t)(ImTextureID)&fileItem.texture, ImVec2(64, 64));
+                ImGui::EndDragDropSource();
+            }
         }
 
-        if (renameFileIndex == index) fileStruct[index].rename = true;
+        if (isButtonHovered) {
+            const std::string fileExtension = getFileExtension(fileItem.path.filename().string());
 
-        if (fileStruct[index].rename) {
+            if (fileExtension == ".mat" && ImGui::IsMouseDoubleClicked(ImGuiMouseButton_Left)) {
+                selectedGameObjectType = "material";
+                selectedMaterial = fileItem.full_path;
+            } else if (ImGui::IsMouseDoubleClicked(ImGuiMouseButton_Left)) {
+                code = readFileToString((dirPath / fileItem.name).string());
+                codeEditorScriptPath = (dirPath / fileItem.name).string();
+                editor.SetText(code);
+            }
+        }
+
+        if (renameFileIndex == index) fileItem.rename = true;
+
+        if (fileItem.rename) {
             ImGui::InputText("##RenameFile", (char*)renameFileBuffer, 256);
 
             if (IsKeyDown(KEY_ENTER)) {
@@ -364,23 +356,23 @@ void AssetsExplorer() {
                     std::cerr << "Error: Directory already exists!" << std::endl;
                 } else {
                     try {
-                        fs::rename(dirPath / fileStruct[index].name, newFilename);
+                        fs::rename(dirPath / fileItem.name, newFilename);
                     } catch (const fs::filesystem_error& e) {
                         std::cerr << "Error renaming file: " << e.what() << std::endl;
                     }
                 }
 
-                fileStruct[index].rename = false;
+                fileItem.rename = false;
                 renameFileIndex = -1;
             }
         } else {
-            float textWidth = ImGui::CalcTextSize(fileStruct[index].name.c_str()).x;
+            float textWidth = ImGui::CalcTextSize(fileItem.name.c_str()).x;
             float buttonWidth = thumbnailSize;
             float offset = (buttonWidth - textWidth / 2) / 2;
             float centerPosX = (ImGui::GetCursorPosX() + offset);
 
             ImGui::SetCursorPosX(centerPosX);
-            ImGui::Text(fileStruct[index].name.c_str());
+            ImGui::Text(fileItem.name.c_str());
         }
 
         ImGui::PopID();
