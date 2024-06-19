@@ -112,15 +112,13 @@ namespace nlohmann {
 
 
 /* Material */
-void SerializeMaterial(SurfaceMaterial& material, const char* path)
-{
+void SerializeMaterial(SurfaceMaterial& material, const fs::path path) {
     json j;
     j["color"] = material.color;
-    // j["diffuseTexturePath"] = material.diffuseTexturePath;
-    // j["specularTexturePath"] = material.specularTexturePath;
-    // j["normalTexturePath"] = material.normalTexturePath;
-    // j["roughnessTexturePath"] = material.roughnessTexturePath;
-    // j["aoTexturePath"] = material.aoTexturePath;
+    j["diffuseTexturePath"] = material.diffuseTexturePath;
+    j["normalTexturePath"] = material.normalTexturePath;
+    j["roughnessTexturePath"] = material.roughnessTexturePath;
+    j["aoTexturePath"] = material.aoTexturePath;
     j["shininess"] = material.shininess;
     j["specular_intensity"] = material.SpecularIntensity;
     j["roughness"] = material.Roughness;
@@ -136,8 +134,7 @@ void SerializeMaterial(SurfaceMaterial& material, const char* path)
     outfile.close();
 }
 
-void DeserializeMaterial(SurfaceMaterial* material, const char* path) {
-    // Attempt to open the JSON file for reading
+void DeserializeMaterial(SurfaceMaterial* material, const fs::path path) {
     if (!material)
         return;
         
@@ -148,41 +145,46 @@ void DeserializeMaterial(SurfaceMaterial* material, const char* path) {
     }
 
     try {
-        // Parse the JSON data from the file
         json j;
         infile >> j;
 
-
-        // Check if the JSON object contains the expected material properties
         if (j.contains("color")) {
             material->color = j["color"];
         }
-        // // Clear default values or initialize them if necessary
-        // material->diffuseTexturePath.clear();
-        // material->specularTexturePath.clear();
-        // material->normalTexturePath.clear();
-        // material->roughnessTexturePath.clear();
-        // material->aoTexturePath.clear();
+
+        material->diffuseTexturePath.clear();
+        material->normalTexturePath.clear();
+        material->roughnessTexturePath.clear();
+        material->aoTexturePath.clear();
         material->shininess = 0.0f;
         material->SpecularIntensity = 0.0f;
         material->Roughness = 0.0f;
         material->DiffuseIntensity = 0.0f;
 
-        // if (j.contains("diffuseTexturePath")) {
-        //     material->diffuseTexturePath = j["diffuseTexturePath"].get<std::string>();
-        // }
-        // if (j.contains("specularTexturePath")) {
-        //     material->specularTexturePath = j["specularTexturePath"].get<std::string>();
-        // }
-        // if (j.contains("normalTexturePath")) {
-        //     material->normalTexturePath = j["normalTexturePath"].get<std::string>();
-        // }
-        // if (j.contains("roughnessTexturePath")) {
-        //     material->roughnessTexturePath = j["roughnessTexturePath"].get<std::string>();
-        // }
-        // if (j.contains("aoTexturePath")) {
-        //     material->aoTexturePath = j["aoTexturePath"].get<std::string>();
-        // }
+        if (j.contains("diffuseTexturePath") && !j["diffuseTexturePath"].get<std::string>().empty()) {
+            material->diffuseTexturePath = j["diffuseTexturePath"].get<std::string>();
+
+            if (material->diffuseTexture.isEmpty())
+                material->diffuseTexture = material->diffuseTexturePath;
+        }
+        if (j.contains("normalTexturePath") && !j["normalTexturePath"].get<std::string>().empty()) {
+            material->normalTexturePath = j["normalTexturePath"].get<std::string>();
+
+            if (material->normalTexture.isEmpty())
+                material->normalTexture = material->normalTexturePath;
+        }
+        if (j.contains("roughnessTexturePath") && !j["roughnessTexturePath"].get<std::string>().empty()) {
+            material->roughnessTexturePath = j["roughnessTexturePath"].get<std::string>();
+
+            if (material->roughnessTexture.isEmpty())
+                material->roughnessTexture = material->roughnessTexturePath;
+        }
+        if (j.contains("aoTexturePath") && !j["aoTexturePath"].get<std::string>().empty()) {
+            material->aoTexturePath = j["aoTexturePath"].get<std::string>();
+
+            if (material->aoTexture.isEmpty())
+                material->aoTexture = material->aoTexturePath;
+        }
         if (j.contains("shininess")) {
             material->shininess = j["shininess"];
         }
@@ -248,15 +250,11 @@ void SaveEntity(json& jsonData, const Entity& entity) {
 
     j["collider_type"]           = *entity.currentCollisionShapeType;
     j["collider"]                = entity.collider;
-
     j["script_path"]             = entity.script;
     j["scriptIndex"]            = entity.scriptIndex;
-    j["texturePath"]            = entity.texturePath;
-    j["normalTexturePath"]     = entity.normalTexturePath;
-    j["roughnessTexturePath"]  = entity.roughnessTexturePath;
     j["material_path"]           = entity.surfaceMaterialPath;
-    j["id"]                      = entity.id;
     j["surfaceMaterial"]        = entity.surfaceMaterial;
+    j["id"]                      = entity.id;
     j["is_dynamic"]              = entity.isDynamic;
     j["mass"]                    = entity.mass;
     j["lodEnabled"]              = entity.lodEnabled;
@@ -358,8 +356,7 @@ void SaveText(json& jsonData, const Text& text, bool emplaceBack) {
 
 }
 
-void SaveWorldSetting(json& jsonData)
-{
+void SaveWorldSetting(json& jsonData) {
     json j;
     j["type"] = "world settings";
     // j["gravity"] = gravity;
@@ -687,50 +684,11 @@ void LoadEntity(const json& entityJson, Entity& entity) {
         entity.id = -1;
 
 
-
-
     // Materials
     if (entityJson.contains("material_path")) {
         entity.surfaceMaterialPath = entityJson["material_path"].get<std::string>();
-        if (!entity.surfaceMaterialPath.empty())
-        {
-            DeserializeMaterial(&entity.surfaceMaterial, entity.surfaceMaterialPath.string().c_str());
-        }
+        if (!entity.surfaceMaterialPath.empty()) DeserializeMaterial(&entity.surfaceMaterial, entity.surfaceMaterialPath);
     }
-
-
-
-    // Textures
-    std::string texturePath = entityJson["texturePath"].get<std::string>();
-    if (!texturePath.empty())
-    {
-
-        Texture2D diffuseTexture = LoadTexture(texturePath.c_str());
-        if (!IsTextureReady(diffuseTexture))
-        {            
-            entity.texturePath = texturePath;
-            entity.texture = std::make_unique<VideoPlayer>(texturePath.c_str());
-        }
-        else
-        {
-            entity.texturePath = texturePath;
-            entity.texture = diffuseTexture;
-        }
-    }
-
-    entity.normalTexturePath = entityJson["normalTexturePath"].get<std::string>();
-    if (!entity.normalTexturePath.empty())
-    {
-        entity.normalTexture = LoadTexture(entity.normalTexturePath.string().c_str());
-    }
-
-    entity.roughnessTexturePath = entityJson["roughnessTexturePath"].get<std::string>();
-    if (!entity.roughnessTexturePath.empty())
-    {
-        entity.roughnessTexture = LoadTexture(entity.roughnessTexturePath.string().c_str());
-    }
-
-
 
     entity.setShader(shader);
 

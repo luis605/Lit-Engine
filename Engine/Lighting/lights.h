@@ -62,6 +62,94 @@ typedef struct Light {
     }
 };
 
+struct SurfaceMaterialTexture {
+    std::variant<std::monostate, Texture2D, std::unique_ptr<VideoPlayer>> texture;
+    int activatedMode = -1;
+
+    // Default constructor
+    SurfaceMaterialTexture() = default;
+
+    // Constructor from path (or const char*)
+    SurfaceMaterialTexture(const fs::path& filePath) {
+        if (fs::exists(filePath)) {
+            Texture2D fileTexture = LoadTexture(filePath.c_str());
+
+            if (IsTextureReady(fileTexture)) {
+                texture = fileTexture;
+                activatedMode = 0; // Texture mode
+            } else {
+                texture = std::make_unique<VideoPlayer>(filePath.c_str());
+                activatedMode = 1; // Video mode
+                UnloadTexture(fileTexture);
+            }
+        } else {
+            throw std::runtime_error("File does not exist");
+        }
+    }
+
+    // Copy assignment operator
+    SurfaceMaterialTexture& operator=(const SurfaceMaterialTexture& other) {
+        if (this != &other) {
+            if (other.hasTexture()) {
+                texture = std::get<Texture2D>(other.texture);
+            } else if (other.hasVideoPlayer()) {
+                // Clone the unique_ptr<VideoPlayer>
+                texture = std::make_unique<VideoPlayer>(*std::get<std::unique_ptr<VideoPlayer>>(other.texture));
+            } else {
+                texture = std::monostate{};
+            }
+            activatedMode = other.activatedMode;
+        }
+        return *this;
+    }
+
+    // Assignment from path (or const char*)
+    SurfaceMaterialTexture& operator=(const fs::path& filePath) {
+        if (fs::exists(filePath)) {
+            Texture2D fileTexture = LoadTexture(filePath.c_str());
+
+            if (IsTextureReady(fileTexture)) {
+                texture = fileTexture;
+                activatedMode = 0; // Texture mode
+            } else {
+                texture = std::make_unique<VideoPlayer>(filePath.c_str());
+                activatedMode = 1; // Video mode
+                UnloadTexture(fileTexture);
+            }
+        } else {
+            throw std::runtime_error("File does not exist");
+        }
+        return *this;
+    }
+
+    // Assignment from const char* (optional)
+    SurfaceMaterialTexture& operator=(const char* filePath) {
+        return operator=(fs::path(filePath));
+    }
+
+    bool hasTexture() const {
+        return std::holds_alternative<Texture2D>(texture);
+    }
+
+    bool hasVideoPlayer() const {
+        return std::holds_alternative<std::unique_ptr<VideoPlayer>>(texture);
+    }
+
+    bool isEmpty() const {
+        return this->texture.valueless_by_exception() || std::holds_alternative<std::monostate>(this->texture);
+    }
+
+    // Getter functions
+    Texture2D& getTexture2D() {
+        return *std::get_if<Texture2D>(&texture);
+    }
+
+    VideoPlayer& getVideoPlayer() {
+        return *std::get_if<std::unique_ptr<VideoPlayer>>(&texture)->get();
+    }
+};
+
+
 typedef struct SurfaceMaterial {
     float shininess = 0.5f;
     float SpecularIntensity = 0.5f;
@@ -72,10 +160,14 @@ typedef struct SurfaceMaterial {
     alignas(16) glm::vec4 color = { 1.0f, 1.0f, 1.0f, 1.0f };
 
     fs::path diffuseTexturePath;
-    fs::path specularTexturePath;
     fs::path normalTexturePath;
     fs::path roughnessTexturePath;
     fs::path aoTexturePath;
+
+    SurfaceMaterialTexture diffuseTexture;
+    SurfaceMaterialTexture normalTexture;
+    SurfaceMaterialTexture roughnessTexture;
+    SurfaceMaterialTexture aoTexture;
 };
 
 typedef struct AdditionalLightInfo {

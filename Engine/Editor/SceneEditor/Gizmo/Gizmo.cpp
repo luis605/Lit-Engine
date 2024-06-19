@@ -1,6 +1,29 @@
 #include "Gizmo.h"
 #include "../../../../include_all.h"
 
+void PassGizmoMaterial() {
+    if (surfaceMaterialUBO != 0) {
+        glDeleteBuffers(1, &surfaceMaterialUBO);
+        surfaceMaterialUBO = 0;
+    }
+
+    glGenBuffers(1, &surfaceMaterialUBO);
+    glBindBuffer(GL_UNIFORM_BUFFER, surfaceMaterialUBO);
+    glBufferData(GL_UNIFORM_BUFFER, sizeof(SurfaceMaterial), &gizmoMaterial, GL_DYNAMIC_DRAW);
+    glBindBuffer(GL_UNIFORM_BUFFER, 0);
+
+    constexpr GLuint bindingPoint = 0;
+
+    glBindBufferBase(GL_UNIFORM_BUFFER, bindingPoint, surfaceMaterialUBO);
+
+    glUseProgram(shader.id);
+
+    glUniform1i(glGetUniformLocation(shader.id, "normalMapInit"), GL_FALSE);
+    glUniform1i(glGetUniformLocation(shader.id, "roughnessMapInit"), GL_FALSE);
+
+    glBindBuffer(GL_UNIFORM_BUFFER, 0);
+}
+
 void LoadGizmoModel(Gizmo& gizmo, const Model& model, const fs::path& modelPath, const Shader& shader, const Vector3& rotation = {0,0,0}) {
     if (modelPath.empty())
         gizmo.model = model;
@@ -17,6 +40,8 @@ void LoadGizmoModel(Gizmo& gizmo, const Model& model, const fs::path& modelPath,
 }
 
 void InitGizmo() {
+    gizmoMaterial.DiffuseIntensity = 1.0f;
+
     for (int index = 0; index < NUM_GIZMO_ARROWS; ++index) {
         LoadGizmoModel(gizmoArrow[index], { 0 }, "assets/models/gizmo/arrow.obj", shader, gizmoArrowOffsets[index].rotation);
     }
@@ -63,7 +88,11 @@ void UpdateGizmoProperties(float maxObjectScale = 0) {
 }
 
 void IsGizmoBeingInteracted(Gizmo& gizmo, int index, Color& color, int& selectedGizmoIndex) {
-    if (dragging && !ImGui::IsWindowHovered()) return;
+    const ImGuiPayload* payload = ImGui::GetDragDropPayload(); // Check if any payload is being dragged
+    if (dragging || payload || !ImGui::IsWindowHovered()) {
+        isHoveringGizmo = false;
+        return;
+    }
 
     isHoveringGizmo = IsMouseHoveringModel(gizmo.model, gizmo.position, gizmo.rotation, gizmo.scale);
 

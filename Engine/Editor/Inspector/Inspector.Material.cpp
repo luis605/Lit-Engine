@@ -15,15 +15,14 @@ void MaterialInspector(SurfaceMaterial* surfaceMaterial = nullptr, std::string p
         path = selectedMaterial.string();
 
     DeserializeMaterial(material, path.c_str());
-    if (!material){
+    if (!material) {
         SurfaceMaterial emptySurfaceMaterial;
         material = &emptySurfaceMaterial;
     }
 
     ImGui::Text("Color: ");
     ImVec4 material_color(material->color.r, material->color.g, material->color.b, material->color.a);
-    if (ImGui::ColorEdit4("##MaterialColor", (float*)&material_color, ImGuiColorEditFlags_NoInputs))
-    {
+    if (ImGui::ColorEdit4("##MaterialColor", (float*)&material_color, ImGuiColorEditFlags_NoInputs)) {
         material->color = {
             material_color.x,
             material_color.y,
@@ -47,17 +46,13 @@ void MaterialInspector(SurfaceMaterial* surfaceMaterial = nullptr, std::string p
         ImGui::SameLine();
         
         if (ImGui::SliderFloat("##TextureTiling0", (float*)&tiling_value[0], 0.01f, 100.0f, "%.1f"))
-        {
             selectedEntity->tiling[0] = tiling_value[0];
-        }
         
         ImGui::Text("Y:");
         ImGui::SameLine();
         
         if (ImGui::SliderFloat("##TextureTiling1", (float*)&tiling_value[1], 0.01f, 100.0f, "%.1f"))
-        {
             selectedEntity->tiling[1] = tiling_value[1];
-        }
         
         ImGui::Unindent(20.0f);
         
@@ -69,42 +64,32 @@ void MaterialInspector(SurfaceMaterial* surfaceMaterial = nullptr, std::string p
         ImGui::Indent(20.0f);
 
         if (ImGui::ImageButton((ImTextureID)&selectedEntity->model.materials[0].maps[MATERIAL_MAP_DIFFUSE].texture, ImVec2(64, 64)))
-        {
             showTexture = !showTexture;
-        }
 
-        if (ImGui::BeginDragDropTarget())
-        {
-            if (const ImGuiPayload* payload = ImGui::AcceptDragDropPayload("TEXTURE_PAYLOAD"))
-            {
+        if (ImGui::BeginDragDropTarget()) {
+            const ImGuiPayload* payload = ImGui::AcceptDragDropPayload("TEXTURE_PAYLOAD");
+
+            if (payload) {
                 IM_ASSERT(payload->DataSize == sizeof(int));
                 int payload_n = *(const int*)payload->Data;
 
                 std::string path = dirPath.string();
                 path += "/" + fileStruct[payload_n].name;
 
-                Texture2D diffuseTexture = LoadTexture(path.c_str());
-                if (!IsTextureReady(diffuseTexture)) // Means it is a video or an unsupported format
-                {
-                    selectedEntity->texturePath = path;
-                    selectedEntity->texture = std::make_unique<VideoPlayer>(selectedEntity->texturePath.string().c_str());
-                }
-                else
-                {
-                    selectedEntity->texturePath = path;
-                    selectedEntity->texture = diffuseTexture;
-                }
+                surfaceMaterial->diffuseTexturePath = path;
+                surfaceMaterial->diffuseTexture = path;
 
                 selectedEntity->ReloadTextures();
             }
+
             ImGui::EndDragDropTarget();
         }
 
         ImGui::SameLine();
-        if (ImGui::Button("x##DiffuseEmptyButton", ImVec2(25, 25)))
-        {
-            selectedEntity->texture = Texture{};
-            selectedEntity->texturePath = "";
+        if (ImGui::Button("x##DiffuseEmptyButton", ImVec2(25, 25))) {
+            surfaceMaterial->diffuseTexture.activatedMode = -1;
+            surfaceMaterial->diffuseTexture.texture = std::monostate{};
+            surfaceMaterial->diffuseTexturePath = "";
             selectedEntity->ReloadTextures(true);
         }
 
@@ -112,37 +97,26 @@ void MaterialInspector(SurfaceMaterial* surfaceMaterial = nullptr, std::string p
 
         ImGui::Dummy(ImVec2(0.0f, 10.0f));
 
-
         ImGui::Text("Normal Map Texture: ");
         
         ImGui::Indent(20.0f);
 
         if (ImGui::ImageButton((ImTextureID)&selectedEntity->model.materials[0].maps[MATERIAL_MAP_NORMAL].texture, ImVec2(64, 64)))
-        {
             showNormalTexture = !showNormalTexture;
-        }
 
-        if (ImGui::BeginDragDropTarget())
-        {
-            if (const ImGuiPayload* payload = ImGui::AcceptDragDropPayload("TEXTURE_PAYLOAD"))
-            {
+        if (ImGui::BeginDragDropTarget()) {
+            const ImGuiPayload* payload = ImGui::AcceptDragDropPayload("TEXTURE_PAYLOAD");
+
+            if (payload) {
                 IM_ASSERT(payload->DataSize == sizeof(int));
                 int payload_n = *(const int*)payload->Data;
 
                 std::string path = dirPath.string();
                 path += "/" + fileStruct[payload_n].name;
 
-                Texture2D normalTexture = LoadTexture(path.c_str());
-                if (!IsTextureReady(normalTexture)) // Means it is a video or an unsupported format
-                {
-                    selectedEntity->normalTexturePath = path;
-                    selectedEntity->normalTexture = std::make_unique<VideoPlayer>(selectedEntity->normalTexturePath.string().c_str());
-                }
-                else
-                {
-                    selectedEntity->normalTexturePath = path;
-                    selectedEntity->normalTexture = normalTexture;
-                }
+                surfaceMaterial->normalTexturePath = path;
+                surfaceMaterial->normalTexture = path;
+
                 selectedEntity->ReloadTextures();
             }
             ImGui::EndDragDropTarget();
@@ -150,10 +124,10 @@ void MaterialInspector(SurfaceMaterial* surfaceMaterial = nullptr, std::string p
 
         ImGui::SameLine();
         
-        if (ImGui::Button("x##NormalEmptyButton", ImVec2(25, 25)))
-        {
-            selectedEntity->normalTexture = Texture{};
-            selectedEntity->normalTexturePath = "";
+        if (ImGui::Button("x##NormalEmptyButton", ImVec2(25, 25))) {
+            surfaceMaterial->normalTexture.activatedMode = -1;
+            surfaceMaterial->normalTexture.texture = std::monostate{};
+            surfaceMaterial->normalTexturePath = "";
             selectedEntity->ReloadTextures(true);
         }
 
@@ -166,30 +140,20 @@ void MaterialInspector(SurfaceMaterial* surfaceMaterial = nullptr, std::string p
         ImGui::Indent(20.0f);
 
         if (ImGui::ImageButton((ImTextureID)&selectedEntity->model.materials[0].maps[MATERIAL_MAP_ROUGHNESS].texture, ImVec2(64, 64)))
-        {
             showRoughnessTexture = !showRoughnessTexture;
-        }
 
-        if (ImGui::BeginDragDropTarget())
-        {
-            if (const ImGuiPayload* payload = ImGui::AcceptDragDropPayload("TEXTURE_PAYLOAD"))
-            {
+        if (ImGui::BeginDragDropTarget()) {
+            const ImGuiPayload* payload = ImGui::AcceptDragDropPayload("TEXTURE_PAYLOAD");
+
+            if (payload) {
                 IM_ASSERT(payload->DataSize == sizeof(int));
                 int payload_n = *(const int*)payload->Data;
 
                 std::string path = dirPath.string();
                 path += "/" + fileStruct[payload_n].name;
 
-                selectedEntity->roughnessTexturePath = path;
-                Texture2D roughnessTexture = LoadTexture(path.c_str());
-                if (!IsTextureReady(roughnessTexture)) // Means it is a video or an unsupported format
-                {
-                    selectedEntity->roughnessTexture = std::make_unique<VideoPlayer>(selectedEntity->roughnessTexturePath.string().c_str());
-                }
-                else
-                {
-                    selectedEntity->roughnessTexture = roughnessTexture;
-                }
+                surfaceMaterial->roughnessTexture = path;
+                surfaceMaterial->roughnessTexturePath = path;
 
                 selectedEntity->ReloadTextures();
 
@@ -198,10 +162,10 @@ void MaterialInspector(SurfaceMaterial* surfaceMaterial = nullptr, std::string p
         }
 
         ImGui::SameLine();
-        if (ImGui::Button("x##RoughnessEmptyButton", ImVec2(25, 25)))
-        {
-            selectedEntity->roughnessTexture = Texture{};
-            selectedEntity->roughnessTexturePath = "";
+        if (ImGui::Button("x##RoughnessEmptyButton", ImVec2(25, 25))) {
+            surfaceMaterial->roughnessTexture.activatedMode = -1;
+            surfaceMaterial->roughnessTexture.texture = std::monostate{};
+            surfaceMaterial->roughnessTexturePath = "";
             selectedEntity->ReloadTextures(true);
         }
 
@@ -213,30 +177,20 @@ void MaterialInspector(SurfaceMaterial* surfaceMaterial = nullptr, std::string p
         ImGui::Indent(20.0f);
 
         if (ImGui::ImageButton((ImTextureID)&selectedEntity->model.materials[0].maps[MATERIAL_MAP_OCCLUSION].texture, ImVec2(64, 64)))
-        {
             showAOTexture = !showAOTexture;
-        }
 
-        if (ImGui::BeginDragDropTarget())
-        {
-            if (const ImGuiPayload* payload = ImGui::AcceptDragDropPayload("TEXTURE_PAYLOAD"))
-            {
+        if (ImGui::BeginDragDropTarget()) {
+            const ImGuiPayload* payload = ImGui::AcceptDragDropPayload("TEXTURE_PAYLOAD");
+
+            if (payload) {
                 IM_ASSERT(payload->DataSize == sizeof(int));
                 int payload_n = *(const int*)payload->Data;
 
                 std::string path = dirPath.string();
                 path += "/" + fileStruct[payload_n].name;
 
-                selectedEntity->aoTexturePath = path;
-                Texture2D aoTexture = LoadTexture(path.c_str());
-                if (!IsTextureReady(aoTexture)) // Means it is a video or an unsupported format
-                {
-                    selectedEntity->aoTexture = std::make_unique<VideoPlayer>(selectedEntity->aoTexturePath.string().c_str());
-                }
-                else
-                {
-                    selectedEntity->aoTexture = aoTexture;
-                }
+                surfaceMaterial->aoTexturePath = path;
+                surfaceMaterial->aoTexture = path;
 
                 selectedEntity->ReloadTextures();
 
@@ -245,10 +199,10 @@ void MaterialInspector(SurfaceMaterial* surfaceMaterial = nullptr, std::string p
         }
 
         ImGui::SameLine();
-        if (ImGui::Button("x##AOEmptyButton", ImVec2(25, 25)))
-        {
-            selectedEntity->aoTexture = Texture{};
-            selectedEntity->aoTexturePath = "";
+        if (ImGui::Button("x##AOEmptyButton", ImVec2(25, 25))) {
+            surfaceMaterial->aoTexture.activatedMode = -1;
+            surfaceMaterial->aoTexture.texture = std::monostate{};
+            surfaceMaterial->aoTexturePath = "";
             selectedEntity->ReloadTextures(true);
         }
 

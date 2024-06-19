@@ -50,17 +50,7 @@ public:
     BoundingBox bounds;
     BoundingBox constBounds;
 
-    fs::path texturePath;
-    fs::path normalTexturePath;
-    fs::path roughnessTexturePath;
-    fs::path aoTexturePath;
     fs::path surfaceMaterialPath;
-
-    std::variant<Texture2D, std::unique_ptr<VideoPlayer>> texture;
-    std::variant<Texture2D, std::unique_ptr<VideoPlayer>> normalTexture;
-    std::variant<Texture2D, std::unique_ptr<VideoPlayer>> roughnessTexture;
-    std::variant<Texture2D, std::unique_ptr<VideoPlayer>> aoTexture;
-
     SurfaceMaterial surfaceMaterial;
 
     float tiling[2] = { 1.0f, 1.0f };
@@ -170,56 +160,6 @@ public:
         if (other.customMeshShape && other.customMeshShape != nullptr)
             this->customMeshShape = std::move(other.customMeshShape);
 
-        this->texturePath                  = other.texturePath;
-        this->texture = std::visit([](const auto& value) -> std::variant<Texture, std::unique_ptr<VideoPlayer, std::default_delete<VideoPlayer>>> {
-            using T = std::decay_t<decltype(value)>;
-
-            if constexpr (std::is_same_v<T, Texture>) {
-                return value; // Texture remains the same
-            } else if constexpr (std::is_same_v<T, std::unique_ptr<VideoPlayer>>)
-                if (value) return std::make_unique<VideoPlayer>(*value);
-                else return std::unique_ptr<VideoPlayer>(); // Handle null pointer case
-            else TraceLog(LOG_WARNING, "Bad Type - Entity texture variant");
-        }, other.texture);
-
-
-        this->normalTexturePath = other.normalTexturePath;
-        this->normalTexture = std::visit([](const auto& value) -> std::variant<Texture, std::unique_ptr<VideoPlayer, std::default_delete<VideoPlayer>>> {
-            using T = std::decay_t<decltype(value)>;
-
-            if constexpr (std::is_same_v<T, Texture>) {
-                return value; // Texture remains the same
-            } else if constexpr (std::is_same_v<T, std::unique_ptr<VideoPlayer>>)
-                if (value) return std::make_unique<VideoPlayer>(*value);
-                else return std::unique_ptr<VideoPlayer>(); // Handle null pointer case
-            else TraceLog(LOG_WARNING, "Bad Type - Entity normal texture variant");
-        }, other.normalTexture);
-
-
-        this->roughnessTexturePath = other.roughnessTexturePath;
-        this->roughnessTexture = std::visit([](const auto& value) -> std::variant<Texture, std::unique_ptr<VideoPlayer, std::default_delete<VideoPlayer>>> {
-            using T = std::decay_t<decltype(value)>;
-
-            if constexpr (std::is_same_v<T, Texture>) {
-                return value; // Texture remains the same
-            } else if constexpr (std::is_same_v<T, std::unique_ptr<VideoPlayer>>)
-                if (value) return std::make_unique<VideoPlayer>(*value);
-                else return std::unique_ptr<VideoPlayer>(); // Handle null pointer case
-            else TraceLog(LOG_WARNING, "Bad Type - Entity roughness texture variant");
-        }, other.roughnessTexture);
-
-        this->aoTexturePath = other.aoTexturePath;
-        this->aoTexture = std::visit([](const auto& value) -> std::variant<Texture, std::unique_ptr<VideoPlayer, std::default_delete<VideoPlayer>>> {
-            using T = std::decay_t<decltype(value)>;
-
-            if constexpr (std::is_same_v<T, Texture>) {
-                return value; // Texture remains the same
-            } else if constexpr (std::is_same_v<T, std::unique_ptr<VideoPlayer>>)
-                if (value) return std::make_unique<VideoPlayer>(*value);
-                else return std::unique_ptr<VideoPlayer>(); // Handle null pointer case
-            else TraceLog(LOG_WARNING, "Bad Type - Entity AO texture variant");
-        }, other.aoTexture);
-
         this->surfaceMaterialPath = other.surfaceMaterialPath;
         this->surfaceMaterial = other.surfaceMaterial;
         this->collider = other.collider;
@@ -278,56 +218,6 @@ public:
 
         if (other.customMeshShape && other.customMeshShape != nullptr)
             this->customMeshShape = std::move(other.customMeshShape);
-
-        this->texturePath                  = other.texturePath;
-        this->texture = std::visit([](const auto& value) -> std::variant<Texture, std::unique_ptr<VideoPlayer, std::default_delete<VideoPlayer>>> {
-            using T = std::decay_t<decltype(value)>;
-
-            if constexpr (std::is_same_v<T, Texture>) {
-                return value; // Texture remains the same
-            } else if constexpr (std::is_same_v<T, std::unique_ptr<VideoPlayer>>)
-                if (value) return std::make_unique<VideoPlayer>(*value);
-                else return std::unique_ptr<VideoPlayer>(); // Handle null pointer case
-            else TraceLog(LOG_WARNING, "Bad Type - Entity texture variant");
-        }, other.texture);
-
-
-        this->normalTexturePath = other.normalTexturePath;
-        this->normalTexture = std::visit([](const auto& value) -> std::variant<Texture, std::unique_ptr<VideoPlayer, std::default_delete<VideoPlayer>>> {
-            using T = std::decay_t<decltype(value)>;
-
-            if constexpr (std::is_same_v<T, Texture>) {
-                return value; // Texture remains the same
-            } else if constexpr (std::is_same_v<T, std::unique_ptr<VideoPlayer>>)
-                if (value) return std::make_unique<VideoPlayer>(*value);
-                else return std::unique_ptr<VideoPlayer>(); // Handle null pointer case
-            else TraceLog(LOG_WARNING, "Bad Type - Entity normal texture variant");
-        }, other.normalTexture);
-
-
-        this->roughnessTexturePath = other.roughnessTexturePath;
-        this->roughnessTexture = std::visit([](const auto& value) -> std::variant<Texture, std::unique_ptr<VideoPlayer, std::default_delete<VideoPlayer>>> {
-            using T = std::decay_t<decltype(value)>;
-
-            if constexpr (std::is_same_v<T, Texture>) {
-                return value; // Texture remains the same
-            } else if constexpr (std::is_same_v<T, std::unique_ptr<VideoPlayer>>)
-                if (value) return std::make_unique<VideoPlayer>(*value);
-                else return std::unique_ptr<VideoPlayer>(); // Handle null pointer case
-            else TraceLog(LOG_WARNING, "Bad Type - Entity roughness texture variant");
-        }, other.roughnessTexture);
-
-        this->aoTexturePath = other.aoTexturePath;
-        this->aoTexture = std::visit([](const auto& value) -> std::variant<Texture, std::unique_ptr<VideoPlayer, std::default_delete<VideoPlayer>>> {
-            using T = std::decay_t<decltype(value)>;
-
-            if constexpr (std::is_same_v<T, Texture>) {
-                return value; // Texture remains the same
-            } else if constexpr (std::is_same_v<T, std::unique_ptr<VideoPlayer>>)
-                if (value) return std::make_unique<VideoPlayer>(*value);
-                else return std::unique_ptr<VideoPlayer>(); // Handle null pointer case
-            else TraceLog(LOG_WARNING, "Bad Type - Entity AO texture variant");
-        }, other.aoTexture);
 
         this->surfaceMaterialPath = other.surfaceMaterialPath;
         this->surfaceMaterial = other.surfaceMaterial;
@@ -543,101 +433,77 @@ public:
     }
 
     void ReloadTextures(bool force_reload = false) {
-        if (!texturePath.empty() || force_reload) {
-            if (auto loadedTexture = std::get_if<Texture2D>(&texture)) {
-                model.materials[0].maps[MATERIAL_MAP_DIFFUSE].texture = *loadedTexture;
-                if (lodEnabled) {
-                    for (int i = 0; i < sizeof(LodModels)/sizeof(LodModels[0]); i++) {
-                        if (IsModelReady(LodModels[i])) {
-                            LodModels[i].materials[0].maps[MATERIAL_MAP_DIFFUSE].texture = *loadedTexture;
-                        }
-                    }
-                }
-            } else {
-                if (auto* videoPlayerPtr = std::get_if<std::unique_ptr<VideoPlayer>>(&texture)) {
-                    (*videoPlayerPtr)->Update();
-                    model.materials[0].maps[MATERIAL_MAP_DIFFUSE].texture = (*videoPlayerPtr)->GetTexture();
-                    if (lodEnabled) {
-                    for (int i = 0; i < sizeof(LodModels)/sizeof(LodModels[0]); i++) {
-                            if (IsModelReady(LodModels[i])) {
-                                LodModels[i].materials[0].maps[MATERIAL_MAP_DIFFUSE].texture = (*videoPlayerPtr)->GetTexture();
-                            }
-                        }
+        if (!surfaceMaterial.diffuseTexturePath.empty() || force_reload) {
+            if (surfaceMaterial.diffuseTexture.activatedMode == 0) {
+                Texture2D& diffuse = surfaceMaterial.diffuseTexture.getTexture2D();
+                model.materials[0].maps[MATERIAL_MAP_DIFFUSE].texture = diffuse;
+            } else if (surfaceMaterial.diffuseTexture.activatedMode == 1) {
+                VideoPlayer& videoPlayer = surfaceMaterial.diffuseTexture.getVideoPlayer();
+                videoPlayer.Update();
+                model.materials[0].maps[MATERIAL_MAP_DIFFUSE].texture = videoPlayer.GetTexture();
+            } else model.materials[0].maps[MATERIAL_MAP_DIFFUSE].texture = Texture2D{ };
+
+            if (lodEnabled) {
+                for (int i = 0; i < sizeof(LodModels)/sizeof(LodModels[0]); i++) {
+                    if (IsModelReady(LodModels[i])) {
+                        LodModels[i].materials[0].maps[MATERIAL_MAP_DIFFUSE].texture = model.materials[0].maps[MATERIAL_MAP_DIFFUSE].texture;
                     }
                 }
             }
         }
 
-        if (!normalTexturePath.empty() || !force_reload) {
-            if (auto normal = std::get_if<Texture2D>(&normalTexture)) {
-                model.materials[0].maps[MATERIAL_MAP_NORMAL].texture = *normal;
+        if (!surfaceMaterial.normalTexturePath.empty() || force_reload) {
+            if (surfaceMaterial.normalTexture.activatedMode == 0) {
+                Texture2D& normal = surfaceMaterial.normalTexture.getTexture2D();
+                model.materials[0].maps[MATERIAL_MAP_NORMAL].texture = normal;
+            } else if (surfaceMaterial.normalTexture.activatedMode == 1) {
+                VideoPlayer& videoPlayer = surfaceMaterial.normalTexture.getVideoPlayer();
+                videoPlayer.Update();
+                model.materials[0].maps[MATERIAL_MAP_NORMAL].texture = videoPlayer.GetTexture();
+            } else model.materials[0].maps[MATERIAL_MAP_NORMAL].texture = Texture2D{ };
 
-                if (lodEnabled) {
-                    for (int i = 0; i < sizeof(LodModels)/sizeof(LodModels[0]); i++) {
-                        if (IsModelReady(LodModels[i])) {
-                            LodModels[i].materials[0].maps[MATERIAL_MAP_NORMAL].texture = *normal;
-                        }
-                    }
-                }
-            } else if (auto* videoPlayerPtr = std::get_if<std::unique_ptr<VideoPlayer>>(&normalTexture)) {
-                (*videoPlayerPtr)->Update();
-                model.materials[0].maps[MATERIAL_MAP_NORMAL].texture = (*videoPlayerPtr)->GetTexture();
-
-                if (lodEnabled) {
-                    for (int i = 0; i < sizeof(LodModels)/sizeof(LodModels[0]); i++) {
-                        if (IsModelReady(LodModels[i])) {
-                            LodModels[i].materials[0].maps[MATERIAL_MAP_NORMAL].texture = (*videoPlayerPtr)->GetTexture();
-                        }
+            if (lodEnabled) {
+                for (int i = 0; i < sizeof(LodModels)/sizeof(LodModels[0]); i++) {
+                    if (IsModelReady(LodModels[i])) {
+                        LodModels[i].materials[0].maps[MATERIAL_MAP_NORMAL].texture = model.materials[0].maps[MATERIAL_MAP_NORMAL].texture;
                     }
                 }
             }
         }
 
-        if (!roughnessTexturePath.empty() || !force_reload) {
-            if (auto roughness = std::get_if<Texture2D>(&roughnessTexture)) {
-                model.materials[0].maps[MATERIAL_MAP_ROUGHNESS].texture = *roughness;
+        if (!surfaceMaterial.roughnessTexturePath.empty() || !force_reload) {
+            if (surfaceMaterial.roughnessTexture.activatedMode == 0) {
+                Texture2D& roughness = surfaceMaterial.roughnessTexture.getTexture2D();
+                model.materials[0].maps[MATERIAL_MAP_ROUGHNESS].texture = roughness;
+            } else if (surfaceMaterial.roughnessTexture.activatedMode == 1) {
+                VideoPlayer& videoPlayer = surfaceMaterial.roughnessTexture.getVideoPlayer();
+                videoPlayer.Update();
+                model.materials[0].maps[MATERIAL_MAP_ROUGHNESS].texture = videoPlayer.GetTexture();
+            } else model.materials[0].maps[MATERIAL_MAP_ROUGHNESS].texture = Texture2D{ };
 
-                if (lodEnabled) {
-                    for (int i = 0; i < sizeof(LodModels)/sizeof(LodModels[0]); i++) {
-                        if (IsModelReady(LodModels[i])) {
-                            LodModels[i].materials[0].maps[MATERIAL_MAP_ROUGHNESS].texture = *roughness;
-                        }
-                    }
-                }
-            } else if (auto* videoPlayerPtr = std::get_if<std::unique_ptr<VideoPlayer>>(&roughnessTexture)) {
-                (*videoPlayerPtr)->Update();
-                model.materials[0].maps[MATERIAL_MAP_ROUGHNESS].texture = (*videoPlayerPtr)->GetTexture();
-
-                if (lodEnabled) {
-                    for (int i = 0; i < sizeof(LodModels)/sizeof(LodModels[0]); i++) {
-                        if (IsModelReady(LodModels[i])) {
-                            LodModels[i].materials[0].maps[MATERIAL_MAP_ROUGHNESS].texture = (*videoPlayerPtr)->GetTexture();
-                        }
+            if (lodEnabled) {
+                for (int i = 0; i < sizeof(LodModels)/sizeof(LodModels[0]); i++) {
+                    if (IsModelReady(LodModels[i])) {
+                        LodModels[i].materials[0].maps[MATERIAL_MAP_ROUGHNESS].texture = model.materials[0].maps[MATERIAL_MAP_ROUGHNESS].texture;
                     }
                 }
             }
         }
 
-        if (!aoTexturePath.empty() || !force_reload) {
-            if (auto ao = std::get_if<Texture2D>(&aoTexture)) {
-                model.materials[0].maps[MATERIAL_MAP_OCCLUSION].texture = *ao;
+        if (!surfaceMaterial.aoTexturePath.empty() || !force_reload) {
+            if (surfaceMaterial.aoTexture.activatedMode == 0) {
+                Texture2D& ao = surfaceMaterial.aoTexture.getTexture2D();
+                model.materials[0].maps[MATERIAL_MAP_OCCLUSION].texture = ao;
+            } else if (surfaceMaterial.aoTexture.activatedMode == 1) {
+                VideoPlayer& videoPlayer = surfaceMaterial.aoTexture.getVideoPlayer();
+                videoPlayer.Update();
+                model.materials[0].maps[MATERIAL_MAP_OCCLUSION].texture = videoPlayer.GetTexture();
+            } else model.materials[0].maps[MATERIAL_MAP_OCCLUSION].texture = Texture2D{ };
 
-                if (lodEnabled) {
-                    for (int i = 0; i < sizeof(LodModels)/sizeof(LodModels[0]); i++) {
-                        if (IsModelReady(LodModels[i])) {
-                            LodModels[i].materials[0].maps[MATERIAL_MAP_OCCLUSION].texture = *ao;
-                        }
-                    }
-                }
-            } else if (auto* videoPlayerPtr = std::get_if<std::unique_ptr<VideoPlayer>>(&aoTexture)) {
-                (*videoPlayerPtr)->Update();
-                model.materials[0].maps[MATERIAL_MAP_OCCLUSION].texture = (*videoPlayerPtr)->GetTexture();
-
-                if (lodEnabled) {
-                    for (int i = 0; i < sizeof(LodModels)/sizeof(LodModels[0]); i++) {
-                        if (IsModelReady(LodModels[i])) {
-                            LodModels[i].materials[0].maps[MATERIAL_MAP_OCCLUSION].texture = (*videoPlayerPtr)->GetTexture();
-                        }
+            if (lodEnabled) {
+                for (int i = 0; i < sizeof(LodModels)/sizeof(LodModels[0]); i++) {
+                    if (IsModelReady(LodModels[i])) {
+                        LodModels[i].materials[0].maps[MATERIAL_MAP_OCCLUSION].texture = model.materials[0].maps[MATERIAL_MAP_OCCLUSION].texture;
                     }
                 }
             }
@@ -1206,12 +1072,6 @@ private:
 
         glUseProgram((GLuint)instancingShader.id);
 
-        bool normalMapInit = !normalTexturePath.empty();
-        glUniform1i(glGetUniformLocation((GLuint)instancingShader.id, "normalMapInit"), normalMapInit);
-
-        bool roughnessMapInit = !roughnessTexturePath.empty();
-        glUniform1i(glGetUniformLocation((GLuint)instancingShader.id, "roughnessMapInit"), roughnessMapInit);
-
         matInstances = LoadMaterialDefault();
 
         instancingShader.locs[SHADER_LOC_MATRIX_MVP] = GetShaderLocation(instancingShader, "mvp");
@@ -1248,9 +1108,6 @@ private:
         ReloadTextures();
         glUseProgram((GLuint)shader.id);
 
-        glUniform1i(glGetUniformLocation((GLuint)shader.id, "normalMapInit"), !normalTexturePath.empty());
-        glUniform1i(glGetUniformLocation((GLuint)shader.id, "roughnessMapInit"), !roughnessTexturePath.empty());
-
         float distance;
 
     #ifndef GAME_SHIPPING
@@ -1281,8 +1138,7 @@ private:
                     static_cast<unsigned char>(surfaceMaterial.color.w * 255)});
     }
     
-    void PassSurfaceMaterials()
-    {
+    void PassSurfaceMaterials() {
         if (surfaceMaterialUBO != 0) {
             glDeleteBuffers(1, &surfaceMaterialUBO);
             surfaceMaterialUBO = 0;
@@ -1293,13 +1149,18 @@ private:
         glBufferData(GL_UNIFORM_BUFFER, sizeof(SurfaceMaterial), &this->surfaceMaterial, GL_DYNAMIC_DRAW);
         glBindBuffer(GL_UNIFORM_BUFFER, 0);
 
-        GLuint bindingPoint = 0;
+        constexpr GLuint bindingPoint = 0;
+
         glBindBufferBase(GL_UNIFORM_BUFFER, bindingPoint, surfaceMaterialUBO);
 
-        glBindBuffer(GL_UNIFORM_BUFFER, surfaceMaterialUBO);
-        glBufferSubData(GL_UNIFORM_BUFFER, 0, sizeof(SurfaceMaterial), &this->surfaceMaterial);
+        glUseProgram(shader.id);
+
+        glUniform1i(glGetUniformLocation(shader.id, "normalMapInit"), !surfaceMaterial.normalTexturePath.empty());
+        glUniform1i(glGetUniformLocation(shader.id, "roughnessMapInit"), !surfaceMaterial.roughnessTexturePath.empty());
+
         glBindBuffer(GL_UNIFORM_BUFFER, 0);
     }
+
 
 };
 

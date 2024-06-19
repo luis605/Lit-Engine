@@ -75,54 +75,37 @@ void SetMaterial(SurfaceMaterial& material)
     // Textures
     if (IsTextureReady(entityMaterial.texture))
     {
-        Texture2D entityTexture = entityMaterial.texture;
-        selectedEntity->texture = entityTexture;
-        selectedEntity->model.materials[0].maps[MATERIAL_MAP_DIFFUSE].texture = entityTexture;
-        selectedEntity->texturePath = entityMaterial.texturePath.string();
+        selectedEntity->surfaceMaterial.diffuseTexturePath = entityMaterial.texturePath;
+        selectedEntity->surfaceMaterial.diffuseTexture = entityMaterial.texturePath;
     }
 
     if (IsTextureReady(entityMaterial.normalTexture))
     {
-        selectedEntity->normalTexture = entityMaterial.normalTexture;
-
-        if (auto normal = std::get_if<Texture2D>(&selectedEntity->normalTexture)) {
-            selectedEntity->model.materials[0].maps[MATERIAL_MAP_NORMAL].texture = *normal;
-        } else if (auto* videoPlayerPtr = std::get_if<std::unique_ptr<VideoPlayer>>(&selectedEntity->normalTexture)) {
-            (*videoPlayerPtr)->Update();
-            selectedEntity->model.materials[0].maps[MATERIAL_MAP_NORMAL].texture = (*videoPlayerPtr)->GetTexture();
-        }
-
-        selectedEntity->normalTexturePath = entityMaterial.normalTexturePath.string();
+        selectedEntity->surfaceMaterial.normalTexturePath = entityMaterial.normalTexturePath;
+        selectedEntity->surfaceMaterial.normalTexture = entityMaterial.normalTexturePath;
     }
     
-    // Surface Material
-    selectedEntity->surfaceMaterial.shininess = entityMaterial.shininess;
+    selectedEntity->surfaceMaterial.shininess         = entityMaterial.shininess;
     selectedEntity->surfaceMaterial.SpecularIntensity = entityMaterial.SpecularIntensity;
-    selectedEntity->surfaceMaterial.Roughness = entityMaterial.Roughness;
-    selectedEntity->surfaceMaterial.DiffuseIntensity = entityMaterial.DiffuseIntensity;
-    selectedEntity->surfaceMaterial.SpecularTint = entityMaterial.SpecularTint;
+    selectedEntity->surfaceMaterial.Roughness         = entityMaterial.Roughness;
+    selectedEntity->surfaceMaterial.DiffuseIntensity  = entityMaterial.DiffuseIntensity;
+    selectedEntity->surfaceMaterial.SpecularTint      = entityMaterial.SpecularTint;
 
-
-    material.shininess = entityMaterial.shininess;
+    material.shininess         = entityMaterial.shininess;
     material.SpecularIntensity = entityMaterial.SpecularIntensity;
-    material.Roughness = entityMaterial.Roughness;
-    material.DiffuseIntensity = entityMaterial.DiffuseIntensity;
-    material.SpecularTint = entityMaterial.SpecularTint;
+    material.Roughness         = entityMaterial.Roughness;
+    material.DiffuseIntensity  = entityMaterial.DiffuseIntensity;
+    material.SpecularTint      = entityMaterial.SpecularTint;
 }
 
-
-
-void MaterialsNodeEditor(SurfaceMaterial& material)
-{
+void MaterialsNodeEditor(SurfaceMaterial& material) {
     if (!show_material_in_nodes_editor)
         return;
 
     static ImNodes::Ez::Context* context = ImNodes::Ez::CreateContext();
     IM_UNUSED(context);
 
-    if (ImGui::Begin("Material Node Editor"))
-    {
-
+    if (ImGui::Begin("Material Node Editor")) {
         ImNodes::Ez::BeginCanvas();
 
         can_apply_material = false;

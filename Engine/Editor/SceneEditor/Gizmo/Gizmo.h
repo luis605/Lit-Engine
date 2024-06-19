@@ -38,8 +38,6 @@ bool isHoveringGizmo;
 
 float gizmoDragSensitivityFactor = 0.1f;
 
-
-
 struct GizmoArrow {
     Vector3 position;
     Vector3 rotation;
@@ -54,5 +52,6 @@ GizmoArrow gizmoArrowOffsets[] = {
     {{-6, 0, 0}, {0, 0, 90}}    // Backward
 };
 
+SurfaceMaterial gizmoMaterial;
 
 #endif // GIZMO_H

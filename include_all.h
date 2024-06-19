@@ -52,8 +52,10 @@
 
     extern "C" {
         #include <libavcodec/avcodec.h>
+        #include <libavutil/pixfmt.h>
         #include <libavformat/avformat.h>
         #include <libswscale/swscale.h>
+        #include <libavutil/imgutils.h>
     }
 #else
     #include <python3.11/Python.h>
@@ -66,7 +68,9 @@
         #include "include/ffmpeg/libavcodec/avcodec.h"
         #include "include/ffmpeg/libavformat/avformat.h"
         #include "include/ffmpeg/libswscale/swscale.h"
-}
+        #include "include/ffmpeg/libavutil/imgutils.h"
+        #include "include/ffmpeg/libavutil/pixfmt.h"
+    }
 #endif
 
 #ifndef GAME_SHIPPING

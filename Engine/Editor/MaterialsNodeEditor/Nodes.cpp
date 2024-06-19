@@ -20,7 +20,7 @@ int TextureNode(MyNode* node)
         if (outputSlot.title != "Diffuse Texture")
             return -1;
     
-        ImGui::ImageButton((ImTextureID)&selectedEntity->texture, ImVec2(100, 100));
+        ImGui::ImageButton((ImTextureID)&selectedEntity->surfaceMaterial.diffuseTexture, ImVec2(100, 100));
 
         if (!ImGui::BeginDragDropTarget())
             return -1;
@@ -55,7 +55,7 @@ int NormalMapTextureNode(MyNode* node)
             return -1;
 
 
-        ImGui::ImageButton((ImTextureID)&selectedEntity->normalTexture, ImVec2(100, 100));
+        ImGui::ImageButton((ImTextureID)&selectedEntity->surfaceMaterial.normalTexture, ImVec2(100, 100));
 
         if (!ImGui::BeginDragDropTarget())
             return -1;

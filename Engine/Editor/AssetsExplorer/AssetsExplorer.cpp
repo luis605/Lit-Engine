@@ -74,6 +74,16 @@ std::unordered_map<std::string, const char*> dragTypeMap = {
     {".ply", "MODEL_PAYLOAD"},
     {".mtl", "MODEL_PAYLOAD"},
     {".mat", "MATERIAL_PAYLOAD"},
+    {".png", "TEXTURE_PAYLOAD"},
+    {".jpg", "TEXTURE_PAYLOAD"},
+    {".jpeg", "TEXTURE_PAYLOAD"},
+    {".hdr", "TEXTURE_PAYLOAD"},
+    {".avi", "TEXTURE_PAYLOAD"},
+    {".mp4", "TEXTURE_PAYLOAD"},
+    {".mov", "TEXTURE_PAYLOAD"},
+    {".mkv", "TEXTURE_PAYLOAD"},
+    {".webm", "TEXTURE_PAYLOAD"},
+    {".gif", "TEXTURE_PAYLOAD"}
 };
 
 const char* filesPayloadTypes[] = { "FILE_PAYLOAD", "TEXTURE_PAYLOAD", "SCRIPT_PAYLOAD", "MODEL_PAYLOAD", "MATERIAL_PAYLOAD" };
@@ -111,11 +121,11 @@ FileTextureItem createFileTextureItem(const fs::path& file, const fs::directory_
 
             Texture2D flippedIcon = target.texture;
             modelsIcons[file.string()] = flippedIcon;
-            return {file.string(), flippedIcon, file};
+            return {file.string(), flippedIcon, file, entry.path()};
         }
     }
 
-    return {file.string(), getTextureForFileExtension(fileExtension), file};
+    return {file.string(), getTextureForFileExtension(fileExtension), file, entry.path()};
 }
 
 void UpdateFileFolderStructures() {

@@ -1,53 +1,71 @@
-#include "../../../include_all.h"
-
 class VideoPlayer {
 public:
     VideoPlayer(const char* videoFile) {
+        if (!videoFile) {
+            TraceLog(LOG_ERROR, "No video file provided");
+            return;
+        }
+
         av_init_packet(&packet);
 
-        pFormatCtx = avformat_alloc_context();
-        if (avformat_open_input(&pFormatCtx, videoFile, NULL, NULL) != 0) {
-            TraceLog(LOG_ERROR, "Error opening video file");
+    	int res = avformat_open_input(&pFormatCtx, videoFile, NULL, NULL);
+	    if (res != 0) {
+	        TraceLog(LOG_ERROR, "Could not open video file");
+	        return;
+	    }
+
+        res = avformat_find_stream_info(pFormatCtx, NULL);
+        if (res < 0) {
+            TraceLog(LOG_ERROR, "Could not find stream information");
             return;
         }
 
-        if (avformat_find_stream_info(pFormatCtx, NULL) < 0) {
-            TraceLog(LOG_ERROR, "Error finding stream information");
+        videoStream = get_video_stream();
+        if (videoStream == -1) {
+            TraceLog(LOG_ERROR, "Could not find video stream. AVCodecParameters probably does not have codecpar_type type AVMEDIA_TYPE_VIDEO");
             return;
         }
 
-        videoStream = -1;
-        pCodecCtx = NULL;
-
-        for (int i = 0; i < pFormatCtx->nb_streams; i++) {
-            if (pFormatCtx->streams[i]->codecpar->codec_type == AVMEDIA_TYPE_VIDEO) {
-                videoStream = i;
-                const AVCodec* codec = avcodec_find_decoder(pFormatCtx->streams[i]->codecpar->codec_id);
-                pCodecCtx = avcodec_alloc_context3(codec);
-
-                if (pCodecCtx == NULL) {
-                    TraceLog(LOG_ERROR, "Error allocating codec context");
-                    return;
-                }
-
-                if (avcodec_parameters_to_context(pCodecCtx, pFormatCtx->streams[i]->codecpar) < 0) {
-                    TraceLog(LOG_ERROR, "Failed to copy codec parameters to codec context");
-                    return;
-                }
-
-                if (avcodec_open2(pCodecCtx, codec, NULL) < 0) {
-                    TraceLog(LOG_ERROR, "Could not open codec");
-                    return;
-                }
-
-                break;
-            }
+    	pCodec = avcodec_find_decoder(pCodecParameters->codec_id);
+        if (pCodec == NULL) {
+            TraceLog(LOG_ERROR, "Video decoder not found");
+            return;
         }
 
-        pFrame = av_frame_alloc();
-        if (!pFrame) {
-            TraceLog(LOG_ERROR, "Error allocating AVFrame");
+        pCodecCtx = avcodec_alloc_context3(pCodec);
+        if(pCodecCtx == NULL) {
+            TraceLog(LOG_ERROR, "Failed to allocate video context decoder");
             return;
+        }
+
+        res = avcodec_parameters_to_context(pCodecCtx, pCodecParameters);
+
+        if(res < 0) {
+            TraceLog(LOG_ERROR, "Failed to transfer video parameters to context");
+            return;
+        }
+   
+    	pFrame = av_frame_alloc();
+		if (pFrame == NULL) {
+            TraceLog(LOG_ERROR, "Could not allocate frame memory");
+            return;
+        }
+
+        int numBytes = av_image_get_buffer_size(AV_PIX_FMT_RGB24, pCodecCtx->width, pCodecCtx->height,1);
+
+        buffer = (uint8_t *)av_malloc(numBytes*sizeof(uint8_t));
+
+        res = av_image_fill_arrays(pFrame->data, pFrame->linesize, buffer, AV_PIX_FMT_RGB24, pCodecCtx->width, pCodecCtx->height, 1);
+        if (res < 0) {
+            TraceLog(LOG_ERROR, "Could not allocate image data");
+            return;
+        }
+
+        if (pFormatCtx->streams[video_stream_index]->r_frame_rate.den != 0) {
+            frameRate = static_cast<float>(pFormatCtx->streams[video_stream_index]->r_frame_rate.num) /
+                        static_cast<float>(pFormatCtx->streams[video_stream_index]->r_frame_rate.den);
+        } else {
+            frameRate = 30.0f; // Set a default frame rate
         }
 
         sws_ctx = sws_getContext(pCodecCtx->width, pCodecCtx->height, pCodecCtx->pix_fmt,
@@ -56,21 +74,8 @@ public:
 
         if (!sws_ctx) {
             TraceLog(LOG_ERROR, "Failed to create SwsContext");
+            Cleanup();
             return;
-        }
-
-        // Allocate frameImage.data only once
-        frameImage.data = (Color *)malloc(pCodecCtx->width * pCodecCtx->height * 4);
-        if (!frameImage.data) {
-            TraceLog(LOG_ERROR, "Error allocating frame data");
-            return;
-        }
-
-        if (pFormatCtx->streams[videoStream]->r_frame_rate.den != 0) {
-            frameRate = static_cast<float>(pFormatCtx->streams[videoStream]->r_frame_rate.num) /
-                        static_cast<float>(pFormatCtx->streams[videoStream]->r_frame_rate.den);
-        } else {
-            frameRate = 30.0f; // Set a default frame rate
         }
 
         frameImage = GenImageColor(pCodecCtx->width, pCodecCtx->height, BLANK);
@@ -80,12 +85,33 @@ public:
         currentTime = 0.0f;
         finished = false;
         loop = true;
+
+        TraceLog(LOG_INFO, "VideoPlayer initialized successfully");
     }
 
+
+    int get_video_stream() {
+        int videoStream = -1;
+
+        for (unsigned int i = 0; i < pFormatCtx->nb_streams; i++){
+            if (pFormatCtx->streams[i]->codecpar->codec_type == AVMEDIA_TYPE_VIDEO) {
+                videoStream = i;
+                break;
+            }
+        }
+
+        if (videoStream == -1) {
+            TraceLog(LOG_ERROR, "Could not find video stream");
+            return -1;
+        }
+
+        pCodecParameters = pFormatCtx->streams[videoStream]->codecpar;
+        video_stream_index = videoStream;
+        return videoStream;
+    }
     ~VideoPlayer() {
-        av_packet_unref(&packet);
+        Cleanup();
     }
-
 
     void ProcessFrame() {
         float frameTime = GetTime() - lastFrameTime;
@@ -94,7 +120,7 @@ public:
             return;
         }
 
-        uint8_t *pixels[1] = { (uint8_t *)frameImage.data };
+        uint8_t *pixels[1] = { reinterpret_cast<uint8_t*>(frameImage.data) };
         int pitch[1] = { 4 * pCodecCtx->width };
 
         sws_scale(sws_ctx, pFrame->data, pFrame->linesize, 0, pCodecCtx->height,
@@ -112,7 +138,7 @@ public:
 
         int readFrameResult = av_read_frame(pFormatCtx, &packet);
 
-        if (readFrameResult >= 0 && packet.stream_index == videoStream) {
+        if (readFrameResult >= 0 && packet.stream_index == video_stream_index) {
             avcodec_send_packet(pCodecCtx, &packet);
 
             if (avcodec_receive_frame(pCodecCtx, pFrame) == 0) {
@@ -126,7 +152,7 @@ public:
             }
 
             finished = false;
-            av_seek_frame(pFormatCtx, videoStream, 0, AVSEEK_FLAG_FRAME);
+            av_seek_frame(pFormatCtx, video_stream_index, 0, AVSEEK_FLAG_FRAME);
         }
     }
     
@@ -147,18 +173,34 @@ public:
     }
 
 private:
+    void Cleanup() {
+        // av_frame_free(&pFrame);
+        // avcodec_free_context(&pCodecCtx);
+        // sws_freeContext(sws_ctx);
+        // avformat_close_input(&pFormatCtx);
+        // if (frameImage.data) {
+        //     free(frameImage.data);
+        //     frameImage.data = NULL;
+        // }
+    }
+
+private:
     AVPacket packet;
-    AVFormatContext* pFormatCtx;
-    AVCodecContext* pCodecCtx;
-    AVFrame* pFrame;
-    struct SwsContext* sws_ctx;
-    int videoStream;
+    AVFormatContext* pFormatCtx         = NULL;
+	AVCodec* pCodec                     = NULL;
+    AVCodecContext* pCodecCtx           = NULL;
+	AVCodecParameters* pCodecParameters = NULL;
+    AVFrame* pFrame                     = NULL;
+    struct SwsContext* sws_ctx          = NULL;
+    uint8_t* buffer                     = NULL;
     Image frameImage;
     Texture2D videoTexture;
     float frameRate;
     float frameDelay;
     float currentTime;
+    float lastFrameTime;
     bool finished;
     bool loop;
-    float lastFrameTime = 30.0f;
+    int video_stream_index = -1;
+	int videoStream = 0;
 };
