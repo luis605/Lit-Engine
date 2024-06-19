@@ -92,11 +92,13 @@ cmake -G "Unix Makefiles" .. --fresh
 make # make [all/run/debug/bdb/brun/clean_all]
 ```
 
-## Social Links
+## Socials
+### Find us here!
 
-You can find us on:
+[![X(Twitter](https://img.shields.io/badge/X-000000?style=for-the-badge&logo=x&logoColor=white)](https://twitter.com/TheLitEngine)
 
-- [X/Twitter](https://twitter.com/TheLitEngine)
-- [YouTube](https://www.youtube.com/@litengine)
-- [Website](https://litengine.org)
-- [Discord](https://discord.gg/XqUZQCxrs6)
+[![YouTube](https://img.shields.io/badge/YouTube-FF0000?style=for-the-badge&logo=youtube&logoColor=white)](https://www.youtube.com/channel/UCP38rM1LFbABOVdd67p2-NQ)
+
+[![Discord](https://img.shields.io/badge/Discord-5865F2?style=for-the-badge&logo=discord&logoColor=white)](https://discord.gg/XqUZQCxrs6)
+
+[![Website](https://img.shields.io/website-up-down-green-red/http/shields.io.svg)](https://litengine.org/)
