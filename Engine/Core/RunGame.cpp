@@ -1,5 +1,3 @@
-#include "../../include_all.h"
-
 void InitGameCamera() {
     camera.position = { 10.0f, 5.0f, 0.0f };
     camera.target = { 0.0f, 0.0f, 0.0f };

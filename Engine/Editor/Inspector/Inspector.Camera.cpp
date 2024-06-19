@@ -1,5 +1,3 @@
-#include "../../../include_all.h"
-
 void CameraInspector()
 {
     ImVec2 window_size = ImGui::GetWindowSize();

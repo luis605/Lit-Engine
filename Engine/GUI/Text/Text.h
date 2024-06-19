@@ -1,8 +1,6 @@
 #ifndef TEXT_H
 #define TEXT_H
 
-#include "../../../include_all.h"
-
 class Text {
 public:
     std::string text;

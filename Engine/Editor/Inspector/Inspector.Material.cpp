@@ -1,9 +1,3 @@
-#include "../../include_all.h"
-
-
-
-
-
 void MaterialInspector(SurfaceMaterial* surfaceMaterial = nullptr, std::string path = "")
 {
     SurfaceMaterial* material = nullptr;

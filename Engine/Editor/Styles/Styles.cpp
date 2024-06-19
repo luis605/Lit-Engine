@@ -1,5 +1,3 @@
-#include "Styles.h"
-
 std::string toHexString(ImU32 color)
 {
     std::stringstream stream;

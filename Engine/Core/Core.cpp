@@ -1,4 +1,3 @@
-#include "../include_all.h"
 #include "Core.h"
 
 #define STRESS_TEST false

@@ -1,7 +1,6 @@
 #ifndef FILE_MANIPULATION_H
 #define FILE_MANIPULATION_H
 
-#include "../../../include_all.h"
 std::string generateNumberedFileName(const fs::path& directoryPath, const std::string& extension) {
     int fileNumber = 1;
     fs::path filePath;

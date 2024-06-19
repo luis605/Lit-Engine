@@ -1,6 +1,3 @@
-#include "../../../include_all.h"
-#include "Button.h"
-
 Color LerpColor(Color startColor, Color endColor, float t)
 {
     unsigned char r = static_cast<unsigned char>(startColor.r + (endColor.r - startColor.r) * t);

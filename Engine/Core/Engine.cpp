@@ -1,6 +1,3 @@
-#include "../../include_all.h"
-#include "Entity.cpp"
-
 std::string getFileExtension(const std::string& filePath) {
     size_t dotPos = filePath.find_last_of('.');
     size_t slashPos = filePath.find_last_of("/\\");

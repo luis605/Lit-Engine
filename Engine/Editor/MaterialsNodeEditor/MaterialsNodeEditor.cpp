@@ -1,11 +1,4 @@
 #pragma once
-#include "../../../include_all.h"
-#include "MaterialsNodeEditor.h"
-#include "Nodes.cpp"
-
-
-
-
 
 std::map<std::string, MyNode*(*)()> available_nodes{
     {"Color", []() -> MyNode* {

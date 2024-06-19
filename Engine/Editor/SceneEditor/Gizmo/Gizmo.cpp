@@ -1,6 +1,3 @@
-#include "Gizmo.h"
-#include "../../../../include_all.h"
-
 void PassGizmoMaterial() {
     if (surfaceMaterialUBO != 0) {
         glDeleteBuffers(1, &surfaceMaterialUBO);

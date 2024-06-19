@@ -1,6 +1,3 @@
-#include "../../../include_all.h"
-#include "CodeEditor.h"
-
 bool RenderImageButtonWithTooltip(ImTextureID textureID, const ImVec2& size, const char* tooltip) {
     bool buttonClicked = ImGui::ImageButton(textureID, size);
     if (ImGui::IsItemHovered()) {

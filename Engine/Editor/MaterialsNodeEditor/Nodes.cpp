@@ -1,6 +1,4 @@
 #pragma once
-#include "MaterialsNodeEditor.h"
-#include "../../../include_all.h"
 
 int TextureNode(MyNode* node);
 int ColorNode(MyNode* node);

@@ -1,5 +1,3 @@
-#include "../../include_all.h"
-
 void ButtonInspector()
 {
     ImGui::Text("Inspecting Button");

@@ -1,5 +1,3 @@
-#include "../../../include_all.h"
-
 void DisplayEntityNameInput() {
     std::string entityName = selectedEntity->name;
     char inputBuffer[255];

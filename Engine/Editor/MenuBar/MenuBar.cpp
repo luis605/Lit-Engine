@@ -1,5 +1,3 @@
-#include "../../include_all.h"
-
 bool showAppearanceWindow = false;
 bool showDebugWindow = false;
 

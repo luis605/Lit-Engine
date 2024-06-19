@@ -1,5 +1,3 @@
-#include "../include_all.h"
-
 #ifndef GAME_SHIPPING
     char* selectedGameObjectType = "";
 

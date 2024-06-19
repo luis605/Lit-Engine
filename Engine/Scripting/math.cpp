@@ -1,5 +1,3 @@
-#include "../../include_all.h"
-
 // Custom implementation of clamp
 template <typename T>
 constexpr const T& custom_clamp(const T& value, const T& low, const T& high) {

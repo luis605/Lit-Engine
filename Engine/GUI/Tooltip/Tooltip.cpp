@@ -1,5 +1,3 @@
-#include "../../../include_all.h"
-
 class Tooltip {
 public:
     std::string text;

@@ -1,5 +1,3 @@
-#include "../../../include_all.h"
-
 std::unordered_map<std::string, Texture2D> modelIconCache;
 
 void InitRenderModelPreviewer() {

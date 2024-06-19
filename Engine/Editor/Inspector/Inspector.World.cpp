@@ -1,5 +1,3 @@
-#include "../../include_all.h"
-
 void WorldInspector()
 {
     const float inputWidth = 150.0f;

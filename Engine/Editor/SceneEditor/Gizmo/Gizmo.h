@@ -1,8 +1,6 @@
 #ifndef GIZMO_H
 #define GIZMO_H
 
-#include "../../../../include_all.h"
-
 // Define constants for gizmo arrow and cube count
 constexpr int NUM_GIZMO_ARROWS = 6;
 constexpr int NUM_GIZMO_TORUS = 1;

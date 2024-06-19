@@ -1,5 +1,3 @@
-#include "../../../include_all.h"
-
 bool shouldChangeObjectName = false;
 bool showManipulateEntityPopup = false;
 

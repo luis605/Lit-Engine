@@ -1,7 +1,6 @@
 // Engine/Ui/AssetsExplorer.h
 #ifndef ASSETSEXPLORER_H
 #define ASSETSEXPLORER_H
-#include "../../../include_all.h"
 
 Texture2D folderTexture;
 Texture2D imageTexture;
@@ -46,7 +45,5 @@ float cellSize = thumbnailSize + padding;
 ImVec2 assetsExplorerWindowSize = {cellSize, cellSize};
 
 Camera3D modelPreviewerCamera = { 0 };
-
-#include "file_manipulation.h"
 
 #endif // ASSETSEXPLORER_H

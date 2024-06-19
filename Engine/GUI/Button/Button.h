@@ -1,8 +1,6 @@
 #ifndef LITBUTTONS_H
 #define LITBUTTONS_H
 
-#include "../../../include_all.h"
-
 class LitButton;
 std::vector<LitButton> litButtons;
 void DrawButtons();

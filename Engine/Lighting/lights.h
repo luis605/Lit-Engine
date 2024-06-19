@@ -1,7 +1,3 @@
-#ifndef GAME_SHIPPING
-    #include "../../include_all.h"
-#endif
-
 #ifndef LIGHTS_H
 #define LIGHTS_H
 

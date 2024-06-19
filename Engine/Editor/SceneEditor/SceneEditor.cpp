@@ -1,7 +1,3 @@
-#include "../../../include_all.h"
-#include "SceneEditor.h"
-#include "Gizmo/Gizmo.cpp"
-
 void InitEditorCamera() {
     viewportRenderTexture = LoadRenderTexture( 1, 1 );
     viewportTexture = viewportRenderTexture.texture;

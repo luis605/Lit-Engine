@@ -1,8 +1,6 @@
 #ifndef ENGINE_H
 #define ENGINE_H
 
-#include "../include_all.h"
-
 class Entity;
 typedef struct Light;
 

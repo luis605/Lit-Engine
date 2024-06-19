@@ -1,6 +1,3 @@
-#include "../../include_all.h"
-
-
 std::string toHexString(ImU32 color);
 
 void LoadThemeFromFile(const std::string& filename);

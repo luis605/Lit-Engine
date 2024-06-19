@@ -1,6 +1,3 @@
-#include "../../../include_all.h"
-#include "Text.h"
-
 bool Text::IsPressed() {
     // Assuming you have a way to get mouse input, you can check if the mouse
     // is within the bounds of the text element.

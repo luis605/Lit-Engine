@@ -1,5 +1,3 @@
-#include "../../include_all.h"
-
 const float LOD_DISTANCE_HIGH = 10.0f;
 const float LOD_DISTANCE_MEDIUM = 25.0f;
 const float LOD_DISTANCE_LOW = 35.0f;

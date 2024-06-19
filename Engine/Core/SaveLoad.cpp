@@ -1,7 +1,3 @@
-#ifndef GAME_SHIPPING
-    #include "../include_all.h"
-#endif
-
 namespace nlohmann {
     template<>
     struct adl_serializer<Color> {

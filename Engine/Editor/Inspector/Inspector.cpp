@@ -1,9 +1,3 @@
-#include "../../include_all.h"
-#include "Inspector.h"
-
-
-
-
 void ShowTexture()
 {
     if (showTexture)

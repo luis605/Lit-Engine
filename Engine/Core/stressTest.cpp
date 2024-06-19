@@ -1,5 +1,3 @@
-#include "../../include_all.h"
-
 void CreateStressTest();
 
 float getRandomFloat(float min, float max) {

@@ -13,15 +13,6 @@
 *
 ********************************************************************************************/
 
-// Modification for lazy c++
-
-#include "raylib.h"
-
-#include "rlgl.h"
-#include "raymath.h"
-#include "../../include_all.h"
-
-
 static TextureCubemap GenTextureCubemap(Shader shader, Texture2D panorama, int size, int format);
 
 std::string skyboxPath;

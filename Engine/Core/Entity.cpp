@@ -1,6 +1,3 @@
-#include "../../include_all.h"
-#include "Entity.hpp"
-
 py::scoped_interpreter guard{};
 py::module entity_module("entity_module");
 
