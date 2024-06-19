@@ -47,13 +47,13 @@
         "is_dynamic": false,
         "lodEnabled": true,
         "mass": 1.0,
-        "material_path": "project/game/materials/ground.mat",
-        "mesh_type": 4,
+        "material_path": "",
+        "mesh_type": 1,
         "modelPath": "",
         "name": "Unnamed Entity",
         "position": {
             "x": 0.0,
-            "y": 1.0,
+            "y": 0.0,
             "z": 0.0
         },
         "relativePosition": {
@@ -67,22 +67,22 @@
             "z": 0.0
         },
         "scale": {
-            "x": 10.0,
+            "x": 1.0,
             "y": 1.0,
-            "z": 10.0
+            "z": 1.0
         },
-        "scriptIndex": "",
-        "script_path": "",
+        "scriptIndex": "player0",
+        "script_path": "project/game/scripts/player.py",
         "surfaceMaterial": {
-            "DiffuseIntensity": 1.0,
-            "Roughness": 1.0,
-            "SpecularIntensity": 1.0,
+            "DiffuseIntensity": 0.5,
+            "Roughness": 0.5,
+            "SpecularIntensity": 0.5,
             "SpecularTint": {
                 "x": 1.0,
                 "y": 1.0,
                 "z": 1.0
             },
-            "shininess": 1.0
+            "shininess": 0.5
         },
         "tiling": [
             1.0,

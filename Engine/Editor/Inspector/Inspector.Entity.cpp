@@ -226,6 +226,7 @@ void EntityInspector() {
     if (ImGui::CollapsingHeader(ICON_FA_SLIDERS " Entity Properties")) {
         ImGui::Indent(30.0f);
         DisplayModelDragDrop();
+        DisplayScriptDragDrop();
         DisplayTransformControls();
         ImGui::Unindent(30.0f);
     }
