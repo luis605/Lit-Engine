@@ -27,20 +27,19 @@ UNAME := $(shell uname)
 
 CXX := g++
 
-CXXFLAGS = -g -pipe -std=c++17 -fpermissive -w -Wall -DNDEBUG -O0 -g
-SRC_FILES = include/ImGuiColorTextEdit/TextEditor.o include/rlImGui.o include/ImNodes/ImNodes.o include/ImNodes/ImNodesEz.o
-INCLUDE_DIRS = -I./include -L./include -I./include/ImGuiColorTextEdit -I./include/ffmpeg -I./include/nlohmann/include -I./include/imgui -L/include/bullet3/src -I./include/bullet3/src -L./include/raylib/src -I./include/raylib/src -L./include/meshoptimizer/build
-LIB_FLAGS = -lraylib -ldl -lBulletDynamics -lBulletCollision -lLinearMath
-LIB_FLAGS += -lz -lm -lpthread -ldrm -ltbb -lmeshoptimizer
+CXXFLAGS = -pipe -std=c++17 -fpermissive -Wall -O3 -funroll-loops -ftree-vectorize \
+           -fno-math-errno -fassociative-math -freciprocal-math \
+		   -fvect-cost-model -fgraphite-identity
 
-LIB_FLAGS_LINUX = $(LIB_FLAGS) -lpython3.11 -I./include/pybind11/include
+SRC_FILES = include/ImGuiColorTextEdit/TextEditor.o include/rlImGui.o include/ImNodes/ImNodes.o include/ImNodes/ImNodesEz.o
+INCLUDE_DIRS = -I./include -I./include/ImGuiColorTextEdit -I./include/ffmpeg -I./include/nlohmann/include
+INCLUDE_DIRS += -I./include/imgui -I./include/bullet3/src -L./include/raylib/src -I./include/raylib/src -L./include/meshoptimizer/build
+LIB_FLAGS = -lraylib -lBulletDynamics -lBulletCollision -lLinearMath -lpthread -lmeshoptimizer
 
 ifeq ($(UNAME), Linux)
 	PYTHON_INCLUDE_DIR := $(shell python3 -c "import sys; print(sys.prefix + '/include')")
-	LIB_FLAGS_LINUX += -I$(PYTHON_INCLUDE_DIR)/python3.11
+	LIB_FLAGS += -I$(PYTHON_INCLUDE_DIR)/python3.11 -lpython3.11 -I./include/pybind11/include
 endif
-
-LIB_FLAGS_WINDOWS = -I./include/pybind11/include $(LIB_FLAGS)
 
 IMGUI_OBJECTS = $(patsubst include/imgui/%.cpp, include/imgui/%.o, $(wildcard include/imgui/*.cpp))
 
@@ -55,7 +54,7 @@ run:
 
 build: $(IMGUI_OBJECTS)
 	@$(call echo_success, "Building Demo")
-	@$(CXX) $(CXXFLAGS) main.cpp $(SRC_FILES) $(INCLUDE_DIRS) $(IMGUI_OBJECTS) $(LIB_FLAGS_LINUX) -Wl,-rpath,'$$ORIGIN:.' -lavformat -lavcodec -lavutil -lswscale -lswresample -o lit_engine.out
+	@$(CXX) $(CXXFLAGS) main.cpp $(SRC_FILES) $(INCLUDE_DIRS) $(IMGUI_OBJECTS) $(LIB_FLAGS) -Wl,-rpath,'$$ORIGIN:.' -lavformat -lavcodec -lavutil -lswscale -lswresample -o lit_engine.out
 	@$(call echo_success, "Success!")
 
 brun:
@@ -64,9 +63,10 @@ brun:
 
 debug:
 	@echo "Debugging Lit Engine"
-	@echo $(info $(BANNER_TEXT))
+	@$(call echo_success, $(subst $(newline),\n,$$BANNER_TEXT))
 	@gdb lit_engine.out
 
+bdb: CXXFLAGS += -g -O0
 bdb: build debug
 
 build_dependencies: $(IMGUI_OBJECTS)
