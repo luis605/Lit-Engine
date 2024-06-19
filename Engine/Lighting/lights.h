@@ -22,6 +22,10 @@ int shadowMapHeight = 1024;
 
 unsigned int depthMapFBO;
 
+bool bloomEnabled = false;
+float bloomBrightness = 0.0f;
+float bloomSamples = 3.0f;
+
 Shader shader;
 Shader instancingShader;
 Shader downsamplerShader;
@@ -217,12 +221,6 @@ void UpdateLightsBuffer(bool force, std::vector<Light> lightsVector) {
 
     int lightsCount = lightsVector.size();
     SetShaderValue(shader, GetShaderLocation(shader, "lightsCount"), &lightsCount, SHADER_UNIFORM_INT);
-}
-
-void AddLight() {
-    Light lightCreate = NewLight({ -2, 1, -2 }, RED);
-    lightCreate.isChild = false;
-    lightsListPregame.emplace_back(lightCreate);
 }
 
 #endif

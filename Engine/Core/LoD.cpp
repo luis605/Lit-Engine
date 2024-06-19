@@ -5,21 +5,19 @@ const float LOD_DISTANCE_LOW = 35.0f;
 struct OptimizedMeshData {
 	std::vector<unsigned int> Indices;
     std::vector<Vector3> Vertices;
-    int vertexCount;
 
     OptimizedMeshData() {}
 
     OptimizedMeshData(std::vector<unsigned int> indices, std::vector<Vector3> vertices)
-        : Indices(indices), Vertices(vertices), vertexCount(vertices.size()) {}
+        : Indices(indices), Vertices(vertices) {}
 
     OptimizedMeshData(const OptimizedMeshData& other)
-        : Indices(other.Indices), Vertices(other.Vertices), vertexCount(other.vertexCount) {}
+        : Indices(other.Indices), Vertices(other.Vertices) {}
 
     OptimizedMeshData& operator=(const OptimizedMeshData& other) {
         if (this != &other) {
             Indices = other.Indices;
             Vertices = other.Vertices;
-            vertexCount = other.vertexCount;
         }
         return *this;
     }
@@ -37,7 +35,6 @@ OptimizedMeshData OptimizeMesh(std::vector<unsigned int>& Indices, std::vector<V
 
     size_t target_index_count = static_cast<size_t>(NumIndices * threshold);
     float target_error = 1e-2f;
-    float result_error = 0;
 
     data.Indices.resize(Indices.size());
 
@@ -61,8 +58,6 @@ OptimizedMeshData OptimizeMesh(std::vector<unsigned int>& Indices, std::vector<V
     meshopt_optimizeVertexCache(&data.Indices[0], &data.Indices[0], optimized_index_count, optimized_vertex_count);
     meshopt_optimizeOverdraw(&data.Indices[0], &data.Indices[0], optimized_index_count, &data.Vertices[0].x, optimized_vertex_count, sizeof(Vector3), 1.05f);
     meshopt_optimizeVertexFetch(&data.Vertices[0], &data.Indices[0], optimized_index_count, &data.Vertices[0], optimized_vertex_count, sizeof(Vector3));
-
-    data.vertexCount = optimized_vertex_count;
 
     return data;
 }
@@ -98,7 +93,7 @@ void calculateNormals(const std::vector<Vector3>& vertices, const std::vector<un
     }
 }
 
-Mesh generateLODMesh(const std::vector<Vector3>& vertices, const std::vector<unsigned int>& indices, int vertexCount32, Mesh sourceMesh) {
+Mesh generateLODMesh(const std::vector<Vector3>& vertices, const std::vector<unsigned int>& indices, Mesh sourceMesh) {
     Mesh lodMesh = { 0 };
 
     if (vertices.empty() || indices.empty()) {

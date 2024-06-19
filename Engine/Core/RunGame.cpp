@@ -17,9 +17,6 @@ void RenderAndRunEntity(Entity& entity, LitCamera* rendering_camera = &camera) {
 
 #ifndef GAME_SHIPPING
 void RunGame() {
-    viewportRectangle.width = sceneEditorWindowWidth;
-    viewportRectangle.height = sceneEditorWindowHeight;
-
     BeginTextureMode(viewportRenderTexture);
     BeginMode3D(camera);
 

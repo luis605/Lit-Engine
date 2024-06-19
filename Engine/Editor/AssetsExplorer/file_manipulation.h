@@ -59,18 +59,15 @@ int renameFileIndex       = -1;
 int renameFolderIndex       = -1;
 char renameFileBuffer[256];
 char renameFolderBuffer[256];
-fs::path renameFileName;
 fs::path renameFolderName;
 int fileIndex            = -1;
 int folderIndex          = -1;
 
-void EditFolderManipulation()
-{
+void EditFolderManipulation() {
     if (ImGui::IsWindowHovered() && showEditFolderPopup)
         ImGui::OpenPopup("edit_folder_popup");
 
-    if (ImGui::BeginPopup("edit_folder_popup"))
-    {
+    if (ImGui::BeginPopup("edit_folder_popup")) {
         if (!ImGui::IsItemHovered() && IsMouseButtonPressed(MOUSE_LEFT_BUTTON))
             showEditFolderPopup = false;
 
@@ -80,14 +77,11 @@ void EditFolderManipulation()
 
         const float buttonWidth = ImGui::GetContentRegionAvail().x;
 
-        if (ImGui::Button("Rename", ImVec2(buttonWidth, 0)))
-        {
-            if (folderIndex != -1)
-            {
+        if (ImGui::Button("Rename", ImVec2(buttonWidth, 0))) {
+            if (folderIndex != -1) {
                 fs::path currentPath = fs::current_path();
 
                 renameFolderIndex = folderIndex;
-                renameFolderName = (currentPath / folderStruct[folderIndex].full_path);
 
                 size_t bufferSize = sizeof(renameFolderBuffer);
                 const char* source = folderStruct[folderIndex].name.c_str();
@@ -100,10 +94,8 @@ void EditFolderManipulation()
             }
         }
 
-        if (ImGui::Button("Delete", ImVec2(buttonWidth, 0)))
-        {
-            if (folderIndex != -1)
-            {
+        if (ImGui::Button("Delete", ImVec2(buttonWidth, 0))) {
+            if (folderIndex != -1) {
                 fs::path folderPath = (fs::current_path() / folderStruct[folderIndex].full_path);
                 fs::remove_all(folderPath);
 
@@ -122,8 +114,7 @@ void EditFileManipulation()
         ImGui::OpenPopup("edit_file_popup");
 
 
-    if (ImGui::BeginPopup("edit_file_popup"))
-    {
+    if (ImGui::BeginPopup("edit_file_popup")) {
         if (!ImGui::IsItemHovered() && IsMouseButtonPressed(MOUSE_LEFT_BUTTON))
             showEditFilePopup = false;
 
@@ -133,14 +124,11 @@ void EditFileManipulation()
 
         const float buttonWidth = ImGui::GetContentRegionAvail().x;
 
-        if (ImGui::Button("Rename", ImVec2(buttonWidth, 0)))
-        {
-            if (fileIndex != -1)
-            {
+        if (ImGui::Button("Rename", ImVec2(buttonWidth, 0))) {
+            if (fileIndex != -1) {
                 fs::path currentPath = fs::current_path();
 
                 renameFileIndex = fileIndex;
-                renameFileName = (currentPath / fileStruct[fileIndex].full_path);
 
                 size_t bufferSize = sizeof(renameFileBuffer);
                 const char* source = fileStruct[fileIndex].name.c_str();
@@ -153,10 +141,8 @@ void EditFileManipulation()
             }
         }
 
-        if (ImGui::Button("Delete", ImVec2(buttonWidth, 0)))
-        {
-            if (fileIndex != -1)
-            {
+        if (ImGui::Button("Delete", ImVec2(buttonWidth, 0))) {
+            if (fileIndex != -1) {
                 fs::path currentPath = fs::current_path();
 
                 fs::path filePath = currentPath / dirPath / fileStruct[fileIndex].name;
@@ -173,10 +159,8 @@ void EditFileManipulation()
         }
 
         std::string file_extension = getFileExtension(fileStruct[fileIndex].path.filename().string());
-        if (file_extension == ".py")
-        {
-            if (ImGui::Button("Run", ImVec2(buttonWidth, 0)))
-            {
+        if (file_extension == ".py") {
+            if (ImGui::Button("Run", ImVec2(buttonWidth, 0))) {
                 entitiesList.assign(entitiesListPregame.begin(), entitiesListPregame.end());
 
                 Entity run_script_entity = Entity();
@@ -203,24 +187,20 @@ void AddFileManipulation()
 
     ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(8, 8));
 
-    if (ImGui::BeginPopup("popup", ImGuiWindowFlags_NoTitleBar))
-    {
+    if (ImGui::BeginPopup("popup", ImGuiWindowFlags_NoTitleBar)) {
         if (!ImGui::IsItemHovered() && !ImGui::IsItemHovered() && IsMouseButtonPressed(MOUSE_LEFT_BUTTON))
             showAddFilePopup = false;
 
         ImGui::Text("Add");
         ImGui::Separator();
 
-        if (ImGui::BeginMenu("File"))
-        {
-            if (ImGui::MenuItem("Python"))
-            {
+        if (ImGui::BeginMenu("File")) {
+            if (ImGui::MenuItem("Python")) {
                 createNumberedFile(dirPath, "py");
                 showAddFilePopup = false;
             }
 
-            if (ImGui::MenuItem("Material"))
-            {
+            if (ImGui::MenuItem("Material")) {
                 createNumberedFile(dirPath, "mat");
                 showAddFilePopup = false;
             }
@@ -228,10 +208,8 @@ void AddFileManipulation()
             ImGui::EndMenu();
         }
 
-        if (ImGui::BeginMenu("Folder"))
-        {
-            if (ImGui::MenuItem("Folder"))
-            {
+        if (ImGui::BeginMenu("Folder")) {
+            if (ImGui::MenuItem("Folder")) {
                 createNumberedFolder(dirPath);
                 showAddFilePopup = false;
             }
@@ -242,7 +220,7 @@ void AddFileManipulation()
         ImGui::EndPopup();
     }
 
-    ImGui::PopStyleVar(); // Restore window padding
+    ImGui::PopStyleVar();
 }
 
 

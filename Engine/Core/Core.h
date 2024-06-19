@@ -13,10 +13,6 @@ glm::vec3 vec3ToGlm3(Vector3& vec3);
 
 int windowWidth = 100;
 int windowHeight = 50;
-int windowX = 0;
-int windowY = 0;
-
-ImGuiIO *io;
 
 static Image windowIconImage;
 Texture2D windowIconTexture;

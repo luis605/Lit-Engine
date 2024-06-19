@@ -5,7 +5,6 @@ class Entity;
 struct Light;
 
 std::vector<Entity>  entitiesListPregame;
-std::vector<Light>   lightsListPregame;
 std::vector<Entity>  entitiesList;
 
 Entity*    selectedEntity      = nullptr;

@@ -2,8 +2,7 @@ std::string toHexString(ImU32 color);
 
 void LoadThemeFromFile(const std::string& filename);
 
-enum FileExplorerType
-{
+enum FileExplorerType {
     Save,
     Load,
     SaveLoad

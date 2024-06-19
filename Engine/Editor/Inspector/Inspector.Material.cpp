@@ -231,7 +231,7 @@ void MaterialInspector(SurfaceMaterial* surfaceMaterial = nullptr, std::string p
     ImGui::SliderFloat("##Diffuse Intensity", &material->DiffuseIntensity, 0.0f, 1.0f);
 
     if (ImGui::Button("View Material in Nodes Editor"))
-        show_material_in_nodes_editor = !show_material_in_nodes_editor;
+        showMaterialInNodesEditor = !showMaterialInNodesEditor;
 
     MaterialsNodeEditor(*material);
 

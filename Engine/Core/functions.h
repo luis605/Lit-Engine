@@ -5,7 +5,6 @@ void InitGameCamera();
 void RunGame();
 void Inspector();
 void CleanUp();
-void AddLight();
 void MenuBar();
 void CleanScriptThreads(std::vector<std::thread>& script_threads);
 void openAboutPage();

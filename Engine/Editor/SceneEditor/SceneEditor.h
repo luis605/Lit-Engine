@@ -5,8 +5,6 @@ float slowCameraSpeed = 15.0f;
 float defaultCameraSpeed = 25.0f;
 float fastCameraSpeed = 50.0f;
 float movementSpeed = defaultCameraSpeed;
-float lerp_factor = 0.5f;
-float mousePositionXLast = 0;
 float GRID_SIZE = 40.0f;
 float GRID_SCALE = 1.0f;
 

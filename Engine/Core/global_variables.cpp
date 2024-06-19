@@ -16,11 +16,6 @@ bool firstTimeGameplay = true;
 
     Rectangle viewportRectangle;
 
-    float sceneEditorWindowWidth;
-    float sceneEditorWindowHeight;
-    float sceneEditorWindowX;
-    float sceneEditorWindowY;
-
     std::chrono::milliseconds sceneEditorProfilerDuration;
     std::chrono::milliseconds assetsExplorerProfilerDuration;
 

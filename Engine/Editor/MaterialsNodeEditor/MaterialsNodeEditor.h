@@ -1,11 +1,10 @@
 #ifndef MATERIAL_H
 #define MATERIAL_H
 
-bool show_material_in_nodes_editor = false;
-bool can_apply_material = false;
+bool showMaterialInNodesEditor = false;
+bool canApplyMaterial = false;
 
-struct Connection
-{
+struct Connection {
     /// `id` that was passed to BeginNode() of input node.
     void* InputNode = nullptr;
     /// Descriptor of input slot.
@@ -15,22 +14,19 @@ struct Connection
     /// Descriptor of output slot.
     const char* OutputSlot = nullptr;
 
-    bool operator==(const Connection& other) const
-    {
+    bool operator==(const Connection& other) const {
         return InputNode == other.InputNode &&
                InputSlot == other.InputSlot &&
                OutputNode == other.OutputNode &&
                OutputSlot == other.OutputSlot;
     }
 
-    bool operator!=(const Connection& other) const
-    {
+    bool operator!=(const Connection& other) const {
         return !operator ==(other);
     }
 };
 
-enum NodeSlotTypes
-{
+enum NodeSlotTypes {
     NodeSlotColor              = 1,   // ID can not be 0
     NodeSlotTexture            = 2,
     NodeSlotDiffuseTexture     = 3,
@@ -42,8 +38,7 @@ enum NodeSlotTypes
 
 
 
-struct EntityMaterial
-{
+struct EntityMaterial {
     // Colors
     alignas(16) glm::vec4 color;
 
@@ -70,8 +65,7 @@ EntityMaterial entityMaterial;
 
 
 /// A structure holding node state.
-struct MyNode
-{
+struct MyNode {
     const char* Title = nullptr;
     bool Selected = false;
     ImVec2 Pos{};
@@ -99,22 +93,14 @@ struct MyNode
     }
 
     /// Deletes connection from this node.
-    void DeleteConnection(const Connection& connection)
-    {
-        for (auto it = Connections.begin(); it != Connections.end(); ++it)
-        {
-            if (connection == *it)
-            {
+    void DeleteConnection(const Connection& connection) {
+        for (auto it = Connections.begin(); it != Connections.end(); ++it) {
+            if (connection == *it) {
                 Connections.erase(it);
                 break;
             }
         }
     }
 };
-
-
-
-
-
 
 #endif // MATERIAL_H

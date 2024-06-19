@@ -7,7 +7,7 @@ void InitRenderModelPreviewer() {
     modelPreviewerCamera.fovy = 60.0f;
     modelPreviewerCamera.projection = CAMERA_PERSPECTIVE;
 
-    target = LoadRenderTexture(thumbnailSize, thumbnailSize);
+    modelPreviewRT = LoadRenderTexture(thumbnailSize, thumbnailSize);
 }
 
 Texture2D RenderModelPreview(const char* modelFile) {
@@ -17,7 +17,7 @@ Texture2D RenderModelPreview(const char* modelFile) {
 
     Model model = LoadModel(modelFile);
 
-    BeginTextureMode(target);
+    BeginTextureMode(modelPreviewRT);
     ClearBackground(GRAY);
 
     BeginMode3D(modelPreviewerCamera);
@@ -27,8 +27,8 @@ Texture2D RenderModelPreview(const char* modelFile) {
     EndTextureMode();
     UnloadModel(model);
 
-    modelIconCache[modelFile] = target.texture;
-    return target.texture;
+    modelIconCache[modelFile] = modelPreviewRT.texture;
+    return modelPreviewRT.texture;
 }
 
 std::unordered_map<std::string, Texture2D&> extensionToTextureMap = {
@@ -111,13 +111,12 @@ FileTextureItem createFileTextureItem(const fs::path& file, const fs::directory_
             return {file.string(), iter->second, file};
         } else {
             Texture2D icon = RenderModelPreview(entry.path().string().c_str());
-            RenderTexture2D target = LoadRenderTexture(icon.width, icon.height);
 
-            BeginTextureMode(target);
+            BeginTextureMode(modelPreviewRT);
             DrawTextureEx(icon, {0, 0}, 0.0f, 1.0f, RAYWHITE);
             EndTextureMode();
 
-            Texture2D flippedIcon = target.texture;
+            Texture2D flippedIcon = modelPreviewRT.texture;
             modelsIcons[file.string()] = flippedIcon;
             return {file.string(), flippedIcon, file, entry.path()};
         }
@@ -275,13 +274,13 @@ void AssetsExplorer() {
             ImGui::InputText("##RenameFolder", (char*)renameFolderBuffer, 256);
 
             if (IsKeyPressed(KEY_ENTER)) {
-                fs::path newFolderPath = renameFolderName.parent_path() / renameFolderBuffer;
+                fs::path newFolderPath = dirPath / renameFolderBuffer;
 
                 if (fs::exists(newFolderPath)) {
                     std::cerr << "Error: Directory already exists!" << std::endl;
                 } else {
                     try {
-                        fs::rename(renameFolderName, newFolderPath);
+                        fs::rename(dirPath / folderItem.name, newFolderPath);
                     } catch (const fs::filesystem_error& e) {
                         std::cerr << "Error renaming folder: " << e.what() << std::endl;
                     }

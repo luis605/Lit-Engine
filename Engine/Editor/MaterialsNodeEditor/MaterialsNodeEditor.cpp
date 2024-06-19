@@ -57,23 +57,17 @@ std::map<std::string, MyNode*(*)()> available_nodes{
 };
 std::vector<MyNode*> nodes;
 
-
-
-
-void SetMaterial(SurfaceMaterial& material)
-{
+void SetMaterial(SurfaceMaterial& material) {
     // Color
     selectedEntity->surfaceMaterial.color = entityMaterial.color;
 
     // Textures
-    if (IsTextureReady(entityMaterial.texture))
-    {
+    if (IsTextureReady(entityMaterial.texture)) {
         selectedEntity->surfaceMaterial.diffuseTexturePath = entityMaterial.texturePath;
         selectedEntity->surfaceMaterial.diffuseTexture = entityMaterial.texturePath;
     }
 
-    if (IsTextureReady(entityMaterial.normalTexture))
-    {
+    if (IsTextureReady(entityMaterial.normalTexture)) {
         selectedEntity->surfaceMaterial.normalTexturePath = entityMaterial.normalTexturePath;
         selectedEntity->surfaceMaterial.normalTexture = entityMaterial.normalTexturePath;
     }
@@ -92,7 +86,7 @@ void SetMaterial(SurfaceMaterial& material)
 }
 
 void MaterialsNodeEditor(SurfaceMaterial& material) {
-    if (!show_material_in_nodes_editor)
+    if (!showMaterialInNodesEditor)
         return;
 
     static ImNodes::Ez::Context* context = ImNodes::Ez::CreateContext();
@@ -101,17 +95,13 @@ void MaterialsNodeEditor(SurfaceMaterial& material) {
     if (ImGui::Begin("Material Node Editor")) {
         ImNodes::Ez::BeginCanvas();
 
-        can_apply_material = false;
+        canApplyMaterial = false;
 
-        for (auto it = nodes.begin(); it != nodes.end();)
-        {
+        for (auto it = nodes.begin(); it != nodes.end();) {
             MyNode* node = *it;
 
-            if (ImNodes::Ez::BeginNode(node, node->Title, &node->Pos, &node->Selected))
-            {
+            if (ImNodes::Ez::BeginNode(node, node->Title, &node->Pos, &node->Selected)) {
                 ImNodes::Ez::InputSlots(node->InputSlots.data(), node->InputSlots.size());
-
-
 
                 ColorNode(node);
                 TextureNode(node);
@@ -132,8 +122,7 @@ void MaterialsNodeEditor(SurfaceMaterial& material) {
                 }
 
                 // Render output connections of this node
-                for (const Connection& connection : node->Connections)
-                {
+                for (const Connection& connection : node->Connections) {
                     // Node contains all it's connections (both from output and to input slots). This means that multiple
                     // nodes will have same connection. We render only output connections and ensure that each connection
                     // will be rendered once.
@@ -152,42 +141,32 @@ void MaterialsNodeEditor(SurfaceMaterial& material) {
             // Node rendering is done. This call will render node background based on size of content inside node.
             ImNodes::Ez::EndNode();
 
-            if (node->Selected && ImGui::IsKeyPressedMap(ImGuiKey_Delete) && ImGui::IsWindowFocused())
-            {
+            if (node->Selected && ImGui::IsKeyPressedMap(ImGuiKey_Delete) && ImGui::IsWindowFocused()) {
                 // Deletion order is critical: first we delete connections to us
-                for (auto& connection : node->Connections)
-                {
-                    if (connection.OutputNode == node)
-                    {
+                for (auto& connection : node->Connections) {
+                    if (connection.OutputNode == node) {
                         ((MyNode*) connection.InputNode)->DeleteConnection(connection);
-                    }
-                    else
-                    {
+                    } else {
                         ((MyNode*) connection.OutputNode)->DeleteConnection(connection);
                     }
                 }
                 // Then we delete our own connections, so we don't corrupt the list
                 node->Connections.clear();
-                
+
                 delete node;
                 it = nodes.erase(it);
             }
-            else
-                ++it;
+            else ++it;
         }
 
-        if (ImGui::IsMouseReleased(1) && ImGui::IsWindowHovered() && !ImGui::IsMouseDragging(1))
-        {
+        if (ImGui::IsMouseReleased(1) && ImGui::IsWindowHovered() && !ImGui::IsMouseDragging(1)) {
             ImGui::FocusWindow(ImGui::GetCurrentWindow());
             ImGui::OpenPopup("NodesContextMenu");
         }
 
-        if (ImGui::BeginPopup("NodesContextMenu"))
-        {
-            for (const auto& desc : available_nodes)
-            {
-                if (ImGui::MenuItem(desc.first.c_str()))
-                {
+        if (ImGui::BeginPopup("NodesContextMenu")) {
+            for (const auto& desc : available_nodes) {
+                if (ImGui::MenuItem(desc.first.c_str())) {
                     nodes.push_back(desc.second());
                     ImNodes::AutoPositionNode(nodes.back());
                 }
@@ -204,17 +183,14 @@ void MaterialsNodeEditor(SurfaceMaterial& material) {
 
 
 
-        if (can_apply_material)
-        {
+        if (canApplyMaterial) {
             ImVec2 canvasPos = ImGui::GetCursorScreenPos();
             ImVec2 canvasSize = ImGui::GetContentRegionAvail();
             ImVec2 buttonSize(100, 25);
             ImVec2 buttonPos(canvasPos.x + canvasSize.x - buttonSize.x, canvasPos.y + canvasSize.y - buttonSize.y);
             ImGui::SetCursorScreenPos(buttonPos);
 
-
-            if (ImGui::Button("Apply", buttonSize))
-            {
+            if (ImGui::Button("Apply", buttonSize)) {
                 SetMaterial(material);
             }
         }

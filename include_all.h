@@ -64,7 +64,6 @@ namespace py = pybind11;
 using namespace py::literals;
 using json = nlohmann::json;
 
-#include "globals.h"
 #include "Engine/Core/LoD.cpp"
 #include "Engine/Scripting/math.cpp"
 #include "Engine/Physics/PhysicsManager.cpp"

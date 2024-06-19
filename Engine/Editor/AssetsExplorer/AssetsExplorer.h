@@ -10,7 +10,7 @@ Texture2D pythonTexture;
 Texture2D modelTexture;
 Texture2D materialTexture;
 
-RenderTexture2D target;
+RenderTexture2D modelPreviewRT;
 
 struct FolderTextureItem {
     std::string name;
@@ -33,9 +33,6 @@ struct FileTextureItem {
 std::vector<FileTextureItem> fileStruct;
 
 std::unordered_map<std::string, Texture2D> modelsIcons;
-
-struct dirent *ent;
-struct stat st;
 
 fs::path dirPath = "project/game";
 float padding = 10.0f;
