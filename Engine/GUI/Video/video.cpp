@@ -6,7 +6,7 @@ public:
             return;
         }
 
-        av_init_packet(&packet);
+        packet = av_packet_alloc();
 
     	int res = avformat_open_input(&pFormatCtx, videoFile, NULL, NULL);
 	    if (res != 0) {
@@ -25,8 +25,7 @@ public:
             TraceLog(LOG_ERROR, "Could not find video stream. AVCodecParameters probably does not have codecpar_type type AVMEDIA_TYPE_VIDEO");
             return;
         }
-
-    	pCodec = avcodec_find_decoder(pCodecParameters->codec_id);
+        pCodec = const_cast<AVCodec*>(avcodec_find_decoder(pCodecParameters->codec_id));
         if (pCodec == NULL) {
             TraceLog(LOG_ERROR, "Video decoder not found");
             return;
@@ -136,10 +135,10 @@ public:
         if (!pFormatCtx || !pCodecCtx || !pFrame)
             return;
 
-        int readFrameResult = av_read_frame(pFormatCtx, &packet);
+        int readFrameResult = av_read_frame(pFormatCtx, packet);
 
-        if (readFrameResult >= 0 && packet.stream_index == video_stream_index) {
-            avcodec_send_packet(pCodecCtx, &packet);
+        if (readFrameResult >= 0 && packet->stream_index == video_stream_index) {
+            avcodec_send_packet(pCodecCtx, packet);
 
             if (avcodec_receive_frame(pCodecCtx, pFrame) == 0) {
                 ProcessFrame();
@@ -185,7 +184,7 @@ private:
     }
 
 private:
-    AVPacket packet;
+    AVPacket* packet                    = NULL;
     AVFormatContext* pFormatCtx         = NULL;
 	AVCodec* pCodec                     = NULL;
     AVCodecContext* pCodecCtx           = NULL;

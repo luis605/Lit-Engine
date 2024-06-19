@@ -1,6 +1,8 @@
 #ifndef INCLUDE_ALL_H_
 #define INCLUDE_ALL_H_
 
+#include <extras/IconsFontAwesome6.h>
+
 #ifndef IMGUI_DEFINE_MATH_OPERATORS
 #   define IMGUI_DEFINE_MATH_OPERATORS
 #endif
@@ -51,7 +53,6 @@ extern "C" {
 
 #ifndef GAME_SHIPPING
     #include <nlohmann/json.hpp>
-    #include <IconsFontAwesome.h>
 #else
     #include "include/nlohmann/include/nlohmann/json.hpp"
 #endif
@@ -78,12 +79,12 @@ using json = nlohmann::json;
 #include "Engine/Core/functions.h"
 #include "Engine/Core/global_variables.cpp"
 #include "Engine/Editor/SceneEditor/SceneEditor.h"
-#include "Engine/Core/Entity.hpp"
-#include "Engine/Core/Entity.cpp"
-#include "Engine/Core/Engine.cpp"
 #include "Engine/GUI/Tooltip/Tooltip.cpp"
 #include "Engine/GUI/Text/Text.cpp"
 #include "Engine/GUI/Button/Button.cpp"
+#include "Engine/Core/Entity.hpp"
+#include "Engine/Core/Entity.cpp"
+#include "Engine/Core/Engine.cpp"
 
 #ifndef GAME_SHIPPING
     #include "Engine/Core/Core.h"

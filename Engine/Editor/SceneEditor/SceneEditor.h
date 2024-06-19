@@ -16,7 +16,7 @@ LitCamera sceneCamera;
 
 static Vector2 rlLastMousePosition = { 0 };
 
-typedef enum CopyType {
+enum CopyType {
     CopyType_None = 0,
     CopyType_Entity = 1,
     CopyType_Light = 2

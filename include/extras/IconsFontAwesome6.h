@@ -22,6 +22,7 @@
 #define ICON_FA_A "A"	// U+0041
 #define ICON_FA_ADDRESS_BOOK "\xef\x8a\xb9"	// U+f2b9
 #define ICON_FA_ADDRESS_CARD "\xef\x8a\xbb"	// U+f2bb
+#define ICON_FA_ADJUST u8"\uf042"
 #define ICON_FA_ALIGN_CENTER "\xef\x80\xb7"	// U+f037
 #define ICON_FA_ALIGN_JUSTIFY "\xef\x80\xb9"	// U+f039
 #define ICON_FA_ALIGN_LEFT "\xef\x80\xb6"	// U+f036
@@ -346,6 +347,7 @@
 #define ICON_FA_CLOUD_SUN_RAIN "\xef\x9d\x83"	// U+f743
 #define ICON_FA_CLOVER "\xee\x84\xb9"	// U+e139
 #define ICON_FA_CODE "\xef\x84\xa1"	// U+f121
+#define ICON_FA_COG u8"\uf013"
 #define ICON_FA_CODE_BRANCH "\xef\x84\xa6"	// U+f126
 #define ICON_FA_CODE_COMMIT "\xef\x8e\x86"	// U+f386
 #define ICON_FA_CODE_COMPARE "\xee\x84\xba"	// U+e13a

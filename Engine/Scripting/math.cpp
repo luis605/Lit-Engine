@@ -79,11 +79,6 @@ struct LitVector3 : Vector3 {
     LitVector3 operator*(const LitVector3 &other) const {
         return LitVector3(x * other.x, y * other.y, z * other.z);
     }
-
-    operator Vector3() const {
-        return {x, y, z};
-    }
-
 };
 
 LitVector3 operator*(const LitVector3& vec, float scalar) {

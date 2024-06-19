@@ -136,7 +136,7 @@ void CreateNewTheme()
     for (int index = 0; index < newThemeSavedOptions.size(); index++)
     {
         int optionIndex = newThemeSavedOptions[index];
-        ImGui::Text(themes_colors_string[optionIndex]);
+        ImGui::Text("%s", themes_colors_string[optionIndex]);
         ImGui::SameLine();
         std::string color_pickerName = "##Color Picker - " + std::to_string(index);
         ImGui::ColorEdit4(color_pickerName.c_str(), (float*)&newThemeSavedOptionsColor[index], ImGuiColorEditFlags_NoInputs);

@@ -2,7 +2,7 @@
 #define ENGINE_H
 
 class Entity;
-typedef struct Light;
+struct Light;
 
 std::vector<Entity>  entitiesListPregame;
 std::vector<Light>   lightsListPregame;
@@ -14,7 +14,7 @@ LitButton* selectedButton      = nullptr;
 Text*      selectedTextElement = nullptr;
 fs::path   selectedMaterial;
 
-typedef struct HitInfo {
+struct HitInfo {
     bool hit;
     LitVector3 worldPoint;
     LitVector3 relativePoint; // Relative Hit Position from Origin

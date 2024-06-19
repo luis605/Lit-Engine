@@ -41,7 +41,7 @@ void DebugWindow() {
         ImGui::Dummy(ImVec2(0.0f, 10.0f));
 
         ImGui::Text("Scene Information");
-        ImGui::Text("Number of Entities: %d", entitiesListPregame.size());
+        ImGui::Text("Number of Entities: %lu", entitiesListPregame.size());
 
         int polygonCount = 0;
         for (Entity& entity : entitiesListPregame) {
@@ -61,8 +61,8 @@ void DebugWindow() {
     if (ImGui::CollapsingHeader("Editor Profiler")) {
         ImGui::Indent(15.0f);
 
-        ImGui::Text("Scene Editor %lld ms", sceneEditorProfilerDuration.count());
-        ImGui::Text("Assets Explorer %lld ms", assetsExplorerProfilerDuration.count());
+        ImGui::Text("Scene Editor %ld ms", sceneEditorProfilerDuration.count());
+        ImGui::Text("Assets Explorer %ld ms", assetsExplorerProfilerDuration.count());
 
         ImGui::Unindent(15.0f);
     }

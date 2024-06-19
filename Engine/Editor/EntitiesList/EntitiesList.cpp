@@ -48,7 +48,8 @@ void ManipulateEntityPopup() {
 bool DrawNodeTree(const char* icon, const std::string& name, ImGuiTreeNodeFlags flags, void* ptr, bool isSelected, const std::function<void()>& callback, bool* rightClicked = nullptr) {
     if (isSelected) flags |= ImGuiTreeNodeFlags_Selected;
 
-    bool isNodeOpen = ImGui::TreeNodeEx(ptr, flags, (std::string(icon) + " " + name).c_str());
+    std::string label = std::string(icon) + " " + name;
+    bool isNodeOpen = ImGui::TreeNodeEx(label.c_str(), flags);
     if (ImGui::IsItemClicked(ImGuiMouseButton_Left)) callback();
     if (rightClicked && ImGui::IsItemClicked(ImGuiMouseButton_Right)) *rightClicked = true;
 
@@ -183,7 +184,7 @@ void DrawCameraTree() {
     ImGuiTreeNodeFlags nodeFlags = ImGuiTreeNodeFlags_OpenOnArrow | ImGuiTreeNodeFlags_OpenOnDoubleClick;
     bool isSelected = (selectedGameObjectType == "camera");
 
-    bool isNodeOpen = DrawNodeTree(ICON_FA_VIDEO, sceneCamera.name, (void*)&sceneCamera, nodeFlags, isSelected, [&]() {
+    bool isNodeOpen = DrawNodeTree(ICON_FA_VIDEO, sceneCamera.name, nodeFlags, (void*)&sceneCamera, isSelected, [&]() {
         selectedGameObjectType = "camera";
     });
 

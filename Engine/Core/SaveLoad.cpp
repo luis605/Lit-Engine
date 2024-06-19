@@ -309,7 +309,7 @@ void SaveLight(json& jsonData, const Light& light, int lightIndex) {
         j["relativePosition"]["z"] = 0;
     }
     
-    if (light.type == LightType::LIGHT_POINT)
+    if (light.type == LIGHT_POINT)
     {
         j["target"]["x"] = 0;
         j["target"]["y"] = 0;
@@ -769,7 +769,7 @@ void LoadLight(const json& lightJson, Light& light, AdditionalLightInfo& lightIn
     light.specularStrength   = lightJson["specularStrength"].get<float>();
     light.attenuation        = lightJson["attenuation"].get<float>();
     light.isChild            = lightJson["isChild"].get<bool>();
-    light.type               = (LightType)lightJson["light_type"].get<int>();
+    light.type               = lightJson["light_type"].get<int>();
 }
 
 

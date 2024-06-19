@@ -98,7 +98,7 @@ void EditorCameraMovement() {
     } else rlLastMousePosition = GetMousePosition();
 }
 
-bool IsMouseHoveringModel(const Model& model, const Vector3& position, const Vector3& rotation, const Vector3& scale, const Entity* entity = nullptr, bool bypassOptimization = false) {
+bool IsMouseHoveringModel(const Model& model, const Vector3& position, const Vector3& rotation, const Vector3& scale, const Entity* entity, bool bypassOptimization) {
     if (!IsModelReady(model)) return false;
 
     Vector2 relativeMousePosition = {
@@ -356,15 +356,13 @@ void ObjectsPopup() {
 
         if (ImGui::BeginMenu("Light")) {
             if (ImGui::MenuItem("Point Light")) {
-                NewLight({0, 0, 5}, WHITE, LIGHT_POINT);
-                selectedLight = &lights.back();
+                selectedLight = &NewLight({0, 0, 5}, WHITE, LIGHT_POINT);
                 selectedGameObjectType = "light";
                 showObjectTypePopup = false;
             }
 
             if (ImGui::MenuItem("Directional Light")) {
-                NewLight({0, 0, 5}, WHITE, LIGHT_DIRECTIONAL);
-                selectedLight = &lights.back();
+                selectedLight = &NewLight({0, 0, 5}, WHITE, LIGHT_DIRECTIONAL);
                 selectedGameObjectType = "light";
                 showObjectTypePopup = false;
             }
@@ -507,7 +505,7 @@ void ScaleViewport() {
     }
 }
 
-int EditorCamera() {
+void EditorCamera() {
     ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(0.0f, 0.0f));
     ImGui::Begin(ICON_FA_VIDEO " Scene Editor", NULL);
 

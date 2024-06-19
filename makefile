@@ -27,10 +27,7 @@ UNAME := $(shell uname)
 
 CXX := g++
 
-CXXFLAGS = -pipe -std=c++17 -fpermissive -w -O3 -funroll-loops -ftree-vectorize \
-           -fno-math-errno -fassociative-math -freciprocal-math \
-		   -fvect-cost-model -fgraphite-identity
-
+CXXFLAGS = -pipe -std=c++17 -fpermissive -Wno-unused-result
 SRC_FILES = include/ImGuiColorTextEdit/TextEditor.o include/rlImGui.o include/ImNodes/ImNodes.o include/ImNodes/ImNodesEz.o
 INCLUDE_DIRS = -I./include -I./include/ImGuiColorTextEdit -I./include/ImNodes -I./include/ffmpeg -I./include/nlohmann/include
 INCLUDE_DIRS += -I./include/imgui -I./include/bullet3/src -L./include/raylib/src -I./include/raylib/src -L./include/meshoptimizer/build -I./include/meshoptimizer/src
@@ -57,6 +54,7 @@ build: $(IMGUI_OBJECTS)
 	@$(CXX) $(CXXFLAGS) main.cpp $(SRC_FILES) $(INCLUDE_DIRS) $(IMGUI_OBJECTS) $(LIB_FLAGS) -Wl,-rpath,'$$ORIGIN:.' -lavformat -lavcodec -lavutil -lswscale -lswresample -o lit_engine.out
 	@$(call echo_success, "Success!")
 
+brun: CXXFLAGS += -O3 -funroll-loops -ftree-vectorize -fno-math-errno -freciprocal-math -fvect-cost-model -fgraphite-identity
 brun:
 	@make --no-print-directory build -j8
 	@make --no-print-directory run

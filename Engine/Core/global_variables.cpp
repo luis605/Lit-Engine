@@ -1,5 +1,8 @@
+bool firstTimeGameplay = true;
+
 #ifndef GAME_SHIPPING
-    char* selectedGameObjectType = "";
+    std::string selectedGameObjectType;
+    std::string themesFolder = "project/themes/";
 
     bool inGamePreview = false;
     bool canDuplicateEntity = true;
@@ -20,17 +23,11 @@
 
     std::chrono::milliseconds sceneEditorProfilerDuration;
     std::chrono::milliseconds assetsExplorerProfilerDuration;
-#endif
 
-bool firstTimeGameplay = true;
-
-#ifndef GAME_SHIPPING
-    bool createNewThemeWindowOpen = false;
-
-    std::string themesFolder = "project/themes/";
     bool showFileExplorer = false;
     bool showSaveThemeWindow = false;
     bool showLoadThemeWindow = false;
+    bool createNewThemeWindowOpen = false;
 
     const int themes_colors[] = {
         ImGuiCol_Text,

@@ -1,7 +1,7 @@
 #ifndef LIGHTS_H
 #define LIGHTS_H
 
-typedef enum
+enum
 {
     LIGHT_DIRECTIONAL = 0,
     LIGHT_POINT = 1,
@@ -9,8 +9,8 @@ typedef enum
 } LightType;
 
 
-typedef struct SurfaceMaterial;
-typedef struct AdditionalLightInfo;
+struct SurfaceMaterial;
+struct AdditionalLightInfo;
 
 std::vector<Light> lights;
 std::vector<AdditionalLightInfo> lightsInfo;
@@ -35,9 +35,9 @@ RenderTexture downsamplerTexture;
 RenderTexture upsamplerTexture;
 
 void UpdateLightsBuffer(bool force=false, std::vector<Light> lightsVector = lights);
-Light NewLight(const Vector3 position, const Color color, int type = LIGHT_POINT);
+Light& NewLight(const Vector3 position, const Color color, int type = LIGHT_POINT);
 
-typedef struct Light {
+struct Light {
     int type = LIGHT_POINT;
     bool enabled = true;
     alignas(16) glm::vec3 position;
@@ -146,7 +146,7 @@ struct SurfaceMaterialTexture {
 };
 
 
-typedef struct SurfaceMaterial {
+struct SurfaceMaterial {
     float shininess = 0.5f;
     float SpecularIntensity = 0.5f;
     float Roughness = 0.5f;
@@ -166,7 +166,7 @@ typedef struct SurfaceMaterial {
     SurfaceMaterialTexture aoTexture;
 };
 
-typedef struct AdditionalLightInfo {
+struct AdditionalLightInfo {
     std::string name;
     Entity* parent = nullptr;
     int id;
@@ -176,7 +176,7 @@ typedef struct AdditionalLightInfo {
     }
 };
 
-Light NewLight(const Vector3 position, const Color color, int type) {
+Light& NewLight(const Vector3 position, const Color color, int type) {
     glm::vec3 lightsPosition = glm::vec3(position.x, position.y, position.z);
     glm::vec4 lightsColor = glm::vec4(color.r/255, color.g/255, color.b/255, color.a/255);
 

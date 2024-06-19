@@ -1,5 +1,6 @@
 py::scoped_interpreter guard{};
-py::module entity_module("entity_module");
+
+py::module entity_module = py::module_::create_extension_module("entity_module", nullptr, new PyModuleDef());
 
 RLFrustum cameraFrustum;
 void InitFrustum() {
@@ -22,7 +23,7 @@ bool AABBoxInFrustum(const Vector3& min, const Vector3& max) {
     return cameraFrustum.AABBoxIn(min, max);
 }
 
-class Entity {
+class __attribute__((visibility("default"))) Entity {
 public:
     bool initialized = false;
     std::string name = "Entity";
@@ -65,7 +66,7 @@ public:
     bool isDynamic = false;
     bool lodEnabled = true;
 
-    typedef enum ObjectTypeEnum {
+    enum ObjectTypeEnum {
         ObjectType_None,
         ObjectType_Cube,
         ObjectType_Cone,
@@ -109,9 +110,12 @@ private:
 
     std::string scriptContent;
 
+    #pragma GCC visibility push(default)
     py::object entityObj;
     py::dict locals;
     py::module scriptModule;
+    #pragma GCC visibility pop
+
     bool entityOptimized = false;
 
 public:
@@ -180,7 +184,7 @@ public:
 
 
     Entity& operator=(const Entity& other) {
-        if (!this || this == nullptr || !other.initialized) return;
+        if (!other.initialized) return *this;
 
         if (this == &other) return *this;  // Handle self-assignment
 
@@ -720,7 +724,7 @@ public:
 
 #endif
         try {
-            scriptModule = py::module("__main__");
+            scriptModule = py::module::import("__main__");
 
             for (auto item : locals) {
                 scriptModule.attr(item.first) = item.second;

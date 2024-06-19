@@ -297,7 +297,7 @@ void AssetsExplorer() {
             float centerPosX = (ImGui::GetCursorPosX() + offset);
 
             ImGui::SetCursorPosX(centerPosX);
-            ImGui::Text(folderItem.name.c_str());
+            ImGui::Text("%s", folderItem.name.c_str());
         }
 
         ImGui::PopID();
@@ -380,7 +380,7 @@ void AssetsExplorer() {
             float centerPosX = (ImGui::GetCursorPosX() + offset);
 
             ImGui::SetCursorPosX(centerPosX);
-            ImGui::Text(fileItem.name.c_str());
+            ImGui::Text("%s", fileItem.name.c_str());
         }
 
         ImGui::PopID();

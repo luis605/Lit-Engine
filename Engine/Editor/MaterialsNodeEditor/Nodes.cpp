@@ -1,7 +1,7 @@
 #pragma once
 
 int TextureNode(MyNode* node);
-int ColorNode(MyNode* node);
+void ColorNode(MyNode* node);
 int SurfaceMaterialNode(MyNode* node);
 int MaterialNode(MyNode* node);
 
@@ -37,6 +37,8 @@ int TextureNode(MyNode* node)
         ImGui::EndDragDropTarget();
 
     }
+
+    return 0;
 }
 
 int NormalMapTextureNode(MyNode* node)
@@ -70,11 +72,12 @@ int NormalMapTextureNode(MyNode* node)
             entityMaterial.normalTexturePath = path;
         }
         ImGui::EndDragDropTarget();
-
     }
+
+    return 0;
 }
 
-int ColorNode(MyNode* node)
+void ColorNode(MyNode* node)
 {
     if (node->Title == "Color")
     {
@@ -115,6 +118,8 @@ int SurfaceMaterialNode(MyNode* node)
         ImGui::ColorEdit4("Color Picker", (float*)&specular_tint, ImGuiColorEditFlags_NoInputs);
         entityMaterial.SpecularTint = { specular_tint.x, specular_tint.y, specular_tint.z};
     }
+
+    return 0;
 }
 
 int MaterialNode(MyNode* node)
@@ -132,4 +137,5 @@ int MaterialNode(MyNode* node)
             entityMaterial.color = { colorValue.x, colorValue.y, colorValue.z, colorValue.w };
         }
     }
+    return 0;
 }
