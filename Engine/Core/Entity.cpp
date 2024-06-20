@@ -311,29 +311,18 @@ public:
         children.emplace_back(entityChild);
     }
 
-    void addChild(Light* newChild) {
+    void addChild(LightStruct* newChild) {
         newChild->isChild = true;
-        newChild->relativePosition = {
-            newChild->position.x - this->position.x,
-            newChild->position.y - this->position.y,
-            newChild->position.z - this->position.z
+        newChild->light.relativePosition = {
+            newChild->light.position.x - this->position.x,
+            newChild->light.position.y - this->position.y,
+            newChild->light.position.z - this->position.z
         };
 
-        children.emplace_back(newChild);
+        // children.emplace_back(newChild);
     }
 
     void removeChild(void* childToRemove) {
-        children.erase(
-            std::remove_if(children.begin(), children.end(), [&](const std::any& child) {
-                if (auto entity = std::any_cast<Entity*>(&child)) {
-                    return (*entity)->id == static_cast<Entity*>(childToRemove)->id;
-                } else if (auto light = std::any_cast<Light*>(&child)) {
-                    return (*light)->id == static_cast<Light*>(childToRemove)->id;
-                }
-                return false;
-            }),
-            children.end()
-        );
     }
 
     void updateChildren() {
@@ -343,13 +332,8 @@ public:
             if (Entity** entity = std::any_cast<Entity*>(&child)) {
                 updateEntityChild(*entity);
             } else if (Light** light = std::any_cast<Light*>(&child)) {
-                auto it = std::find_if(lights.begin(), lights.end(),
-                    [&](const Light& lightInVector) { return lightInVector.id == (*light)->id; });
-
-                if (it != lights.end()) {
-                    int distance = std::distance(lights.begin(), it);
-                    updateLightChild(&lights[distance]);
-                }
+                int distance = 0;
+                updateLightChild(&lights[distance]);
             }
         }
     }
@@ -366,14 +350,14 @@ public:
         entity->updateChildren();
     }
 
-    void updateLightChild(Light* light) {
-        if (!light) return;
+    void updateLightChild(LightStruct* lightStruct) {
+        if (!lightStruct) return;
 
     #ifndef GAME_SHIPPING
-        if (light == selectedLight && selectedGameObjectType == "light" && !inGamePreview) return;
+        if (lightStruct == selectedLight && selectedGameObjectType == "light" && !inGamePreview) return;
     #endif
 
-        light->position = glm::vec3(this->position.x, this->position.y, this->position.z) + light->relativePosition;
+        lightStruct->light.position = glm::vec3(this->position.x, this->position.y, this->position.z) + lightStruct->light.relativePosition;
     }
 
     void makeChildrenInstances() {

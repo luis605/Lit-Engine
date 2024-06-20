@@ -10,9 +10,9 @@ enum {
 
 struct SurfaceMaterial;
 struct AdditionalLightInfo;
+struct LightStruct;
 
-std::vector<Light> lights;
-std::vector<AdditionalLightInfo> lightsInfo;
+std::vector<LightStruct> lights;
 
 Texture2D lightTexture;
 
@@ -37,8 +37,8 @@ Vector4 ambientLight = {1.0f, 1.0f, 1.0f, 1.0f};
 RenderTexture downsamplerTexture;
 RenderTexture upsamplerTexture;
 
-void UpdateLightsBuffer(bool force=false, std::vector<Light> lightsVector = lights);
-Light& NewLight(const Vector3 position, const Color color, int type = LIGHT_POINT);
+void UpdateLightsBuffer(bool force=false, std::vector<LightStruct> lightsVector = lights);
+LightStruct& NewLight(const Vector3 position, const Color color, int type = LIGHT_POINT);
 
 struct Light {
     int type = LIGHT_POINT;
@@ -52,28 +52,34 @@ struct Light {
     float specularStrength = 0.5;
     float cutOff = 10;
         
-    bool isChild = false;
     alignas(16) glm::vec3 direction = {0.4, 0.4, -0.4};
-    int id;
 
-    bool operator==(const Light& other) const {
-        return (int)this->id == (int)other.id;
-    }
 };
 
-struct AdditionalLightInfo {
+struct LightInfo {
     std::string name;
+};
+
+struct LightStruct {
+    Light light;
+    LightInfo lightInfo;
     Entity* parent = nullptr;
     int id;
+    bool isChild = false;
 
-    bool operator==(const Light& other) const {
+    LightStruct() {
+        std::cout << "LightStruct created" << std::endl;
+    }
+
+    LightStruct(std::string newName, int id) {
+        lightInfo.name = newName;
+        this->id = id;
+        std::cout << "LightStruct created" << std::endl;
+    }
+
+    bool operator==(const LightStruct& other) const {
         return (int)this->id == (int)other.id;
     }
-};
-
-struct LightType {
-    Light light;
-    AdditionalLightInfo additionalInfo;
 };
 
 struct SurfaceMaterialTexture {
@@ -184,27 +190,21 @@ struct SurfaceMaterial {
     SurfaceMaterialTexture aoTexture;
 };
 
-Light& NewLight(const Vector3 position, const Color color, int type) {
+LightStruct& NewLight(const Vector3 position, const Color color, int type) {
     glm::vec3 lightsPosition = glm::vec3(position.x, position.y, position.z);
     glm::vec4 lightsColor = glm::vec4(color.r/255, color.g/255, color.b/255, color.a/255);
 
-    Light light;
-    light.type = type;
-    light.position = lightsPosition;
-    light.color = lightsColor;
-    light.id = lights.size() + entitiesListPregame.size() + 1;
-    lights.emplace_back(light);
+    LightStruct lightStruct{"New Light", (int)(lights.size() + entitiesListPregame.size() + 1)};
+    lightStruct.light.type = type;
+    lightStruct.light.position = lightsPosition;
+    lightStruct.light.color = lightsColor;
 
-    AdditionalLightInfo info;
-    info.name = "Light";
-    info.id = light.id;
-
-    lightsInfo.emplace_back(info);
+    lights.emplace_back(lightStruct);
 
     return lights.back();
 }
 
-void UpdateLightsBuffer(bool force, std::vector<Light> lightsVector) {
+void UpdateLightsBuffer(bool force, std::vector<LightStruct> lightsVector) {
     if (lightsVector.empty() && !force)
         return;
 

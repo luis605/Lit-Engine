@@ -56,9 +56,9 @@ bool UpdateGizmoObjectProperties() {
         selectedObjectScale = selectedEntity->scale;
         selectedObjectRotation = selectedEntity->rotation;
     } else if (selectedGameObjectType == "light" && selectedLight) {
-        selectedObjectPosition = glm3ToVec3(selectedLight->position);
+        selectedObjectPosition = glm3ToVec3(selectedLight->light.position);
         selectedObjectScale = {1, 1, 1};
-        selectedObjectRotation = Vector3Multiply(glm3ToVec3(selectedLight->direction), Vector3{ 360, 360, 360 });
+        selectedObjectRotation = Vector3Multiply(glm3ToVec3(selectedLight->light.direction), Vector3{ 360, 360, 360 });
     } else return false; // Failure
 
     return true; // Success
@@ -181,18 +181,13 @@ void GizmoPosition() {
             selectedEntity->relativePosition = Vector3Subtract(selectedEntity->position, selectedEntity->parent->position);
         }
     } else if (selectedGameObjectType == "light" && selectedLight) {
-        selectedLight->position = vec3ToGlm3(selectedObjectPosition);
+        selectedLight->light.position = vec3ToGlm3(selectedObjectPosition);
         if (selectedLight->isChild) {
-            auto it = std::find_if(lightsInfo.begin(), lightsInfo.end(), [&](const AdditionalLightInfo& light) {
-                return light.id == selectedLight->id;
-            });
-            if (it != lightsInfo.end() && it->parent) {
-                selectedLight->relativePosition = glm::vec3(
-                    selectedLight->position.x - it->parent->position.x, 
-                    selectedLight->position.y - it->parent->position.y,
-                    selectedLight->position.z - it->parent->position.z
-                );
-            }
+            selectedLight->light.relativePosition = glm::vec3(
+                selectedLight->light.position.x - selectedLight->parent->position.x, 
+                selectedLight->light.position.y - selectedLight->parent->position.y,
+                selectedLight->light.position.z - selectedLight->parent->position.z
+            );
         }
     }
 }
@@ -266,5 +261,5 @@ void GizmoRotation() {
     DrawGizmo(torus, color1, true, true);
 
     if (selectedGameObjectType == "entity")      selectedEntity->rotation = selectedObjectRotation;
-    else if (selectedGameObjectType == "light")  selectedLight->direction = {selectedObjectRotation.x / 360, selectedObjectRotation.y / 360, selectedObjectRotation.z / 360};
+    else if (selectedGameObjectType == "light")  selectedLight->light.direction = {selectedObjectRotation.x / 360, selectedObjectRotation.y / 360, selectedObjectRotation.z / 360};
 }

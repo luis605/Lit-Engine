@@ -171,7 +171,6 @@ void CleanUp() {
     modelsIcons.clear();
 
     lights.clear();
-    lightsInfo.clear();
 
     UnloadModel(lightModel);
 

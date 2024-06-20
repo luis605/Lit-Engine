@@ -2,16 +2,16 @@
 #define ENGINE_H
 
 class Entity;
-struct Light;
+struct LightStruct;
 
 std::vector<Entity>  entitiesListPregame;
 std::vector<Entity>  entitiesList;
 
-Entity*    selectedEntity      = nullptr;
-Light*     selectedLight       = nullptr;
-LitButton* selectedButton      = nullptr;
-Text*      selectedTextElement = nullptr;
-fs::path   selectedMaterial;
+Entity*      selectedEntity      = nullptr;
+LightStruct* selectedLight       = nullptr;
+LitButton*   selectedButton      = nullptr;
+Text*        selectedTextElement = nullptr;
+fs::path     selectedMaterial;
 
 struct HitInfo {
     bool hit;

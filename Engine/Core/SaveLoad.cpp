@@ -206,7 +206,7 @@ void DeserializeMaterial(SurfaceMaterial* material, const fs::path path) {
 /* Objects */
 void SaveCamera(json& jsonData, const LitCamera camera);
 void SaveEntity(json& jsonData, const Entity& entity);
-void SaveLight(json& jsonData, const Light& light, int lightIndex);
+void SaveLight(json& jsonData, const LightStruct& lightStruct);
 void SaveText(json& jsonData, const Text& text, bool emplaceBack = true);
 void SaveButton(json& jsonData, const LitButton& button);
 
@@ -262,22 +262,14 @@ void SaveEntity(json& jsonData, const Entity& entity) {
     if (!entity.children.empty()) {
         json childrenData;
 
-        for (std::any child : entity.children)
-        {
+        for (std::any child : entity.children) {
             if (Entity** entityChild = std::any_cast<Entity*>(&child)) {
                 json childJson;
                 SaveEntity(childJson, **entityChild);
                 childrenData.emplace_back(childJson);
-            } else if (Light** lightChild = std::any_cast<Light*>(&child)) {
+            } else if (LightStruct** lightStructChild = std::any_cast<LightStruct*>(&child)) {
                 json childJson;
-
-                int lightIndex = -1;
-                auto light_it = std::find_if(lights.begin(), lights.end(), [&lightChild, &lightIndex](const Light& light) {
-                    lightIndex++;
-                    return light.id == (*lightChild)->id;
-                });
-
-                SaveLight(childJson, **lightChild, lightIndex);
+                SaveLight(childJson, **lightStructChild);
                 childrenData.emplace_back(childJson);
             }
 
@@ -289,44 +281,39 @@ void SaveEntity(json& jsonData, const Entity& entity) {
 }
 
 
-void SaveLight(json& jsonData, const Light& light, int lightIndex) {
+void SaveLight(json& jsonData, const LightStruct& lightStruct) {
     json j;
     j["type"] = "light";
-    j["color"]["r"] = light.color.r * 255;
-    j["color"]["g"] = light.color.g * 255;
-    j["color"]["b"] = light.color.b * 255;
-    j["color"]["a"] = light.color.a * 255;
+    j["color"]["r"] = lightStruct.light.color.r * 255;
+    j["color"]["g"] = lightStruct.light.color.g * 255;
+    j["color"]["b"] = lightStruct.light.color.b * 255;
+    j["color"]["a"] = lightStruct.light.color.a * 255;
     
-    j["name"] = lightsInfo.at(lightIndex).name;
-    j["position"] = light.position;
+    j["name"] = lightStruct.lightInfo.name;
+    j["position"] = lightStruct.light.position;
     
-    if (light.isChild)
-        j["relativePosition"] = light.relativePosition;
-    else
-    {
+    if (lightStruct.isChild) {
+        j["relativePosition"] = lightStruct.light.relativePosition;
+    }else {
         j["relativePosition"]["x"] = 0;
         j["relativePosition"]["y"] = 0;
         j["relativePosition"]["z"] = 0;
     }
     
-    if (light.type == LIGHT_POINT)
-    {
+    if (lightStruct.light.type == LIGHT_POINT) {
         j["target"]["x"] = 0;
         j["target"]["y"] = 0;
         j["target"]["z"] = 0;
-    }
-    else
-        j["target"] = light.target;
-    
-    j["direction"] = light.direction;
-    j["intensity"] = light.intensity;
-    j["cutOff"] = light.cutOff;
-    j["specularStrength"] = light.specularStrength;
-    j["attenuation"] = light.attenuation;
-    j["isChild"] = light.isChild;
-    j["id"] = lightsInfo.at(lightIndex).id;
-    j["light_type"] = lights.at(lightIndex).type;
+    } else j["target"] = lightStruct.light.target;
 
+    j["direction"] = lightStruct.light.direction;
+    j["intensity"] = lightStruct.light.intensity;
+    j["cutOff"] = lightStruct.light.cutOff;
+    j["specularStrength"] = lightStruct.light.specularStrength;
+    j["attenuation"] = lightStruct.light.attenuation;
+    j["isChild"] = lightStruct.isChild;
+    j["id"] = lightStruct.id;
+    j["light_type"] = lightStruct.light.type;
 
     jsonData.emplace_back(j);
 }
@@ -452,20 +439,16 @@ int SaveProject() {
         SaveEntity(jsonData, entity);
     }
 
-    int lightIndex = 0;
-    for (const auto& light : lights) {
-        if (light.isChild) continue;
-        SaveLight(jsonData, light, lightIndex);
-        lightIndex++;
+    for (const auto& lightStruct : lights) {
+        if (lightStruct.isChild) continue;
+        SaveLight(jsonData, lightStruct);
     }
 
-    for (const Text& text : textElements)
-    {
+    for (const Text& text : textElements) {
         SaveText(jsonData, text);
     }
 
-    for (const LitButton& button : litButtons)
-    {
+    for (const LitButton& button : litButtons) {
         SaveButton(jsonData, button);
     }
 
@@ -482,7 +465,7 @@ int SaveProject() {
 }
 
 void LoadEntity(const json& entityJson, Entity& entity);
-void LoadLight(const json& lightJson, Light& light, AdditionalLightInfo& lightInfo);
+void LoadLight(const json& lightJson, LightStruct& lightStruct);
 
 
 
@@ -702,14 +685,12 @@ void LoadEntity(const json& entityJson, Entity& entity) {
                         entity.addChild(child);
                     } else if (type == "light") {
                         lights.emplace_back();
-                        lightsInfo.emplace_back();
 
-                        Light& light = lights.back();
-                        AdditionalLightInfo& lightInfo = lightsInfo.back();
-                        LoadLight(childJson, light, lightInfo);
+                        LightStruct& lightStruct = lights.back();
+                        LoadLight(childJson, lightStruct);
 
-                        lightInfo.parent = &entity;
-                        entity.addChild(&light);
+                        lightStruct.parent = &entity;
+                        entity.addChild(&lightStruct);
                     }
                 }
             }
@@ -719,57 +700,49 @@ void LoadEntity(const json& entityJson, Entity& entity) {
 
 
 
-void LoadLight(const json& lightJson, Light& light, AdditionalLightInfo& lightInfo) {
-    light.color = (glm::vec4{
+void LoadLight(const json& lightJson, LightStruct& lightStruct) {
+    lightStruct.light.color = (glm::vec4{
         lightJson["color"]["r"].get<float>() / 255,
         lightJson["color"]["g"].get<float>() / 255,
         lightJson["color"]["b"].get<float>() / 255,
         lightJson["color"]["a"].get<float>() / 255
     });
     
-    lightInfo.name = lightJson["name"].get<std::string>();
+    lightStruct.lightInfo.name = lightJson["name"].get<std::string>();
 
-    glm::vec3 position{
+    lightStruct.light.position = glm::vec3{
         lightJson["position"]["x"].get<float>(),
         lightJson["position"]["y"].get<float>(),
         lightJson["position"]["z"].get<float>()
     };
 
-    light.position = position;
-
-    glm::vec3 relativePosition{
+    lightStruct.light.relativePosition = glm::vec3{
         lightJson["relativePosition"]["x"].get<float>(),
         lightJson["relativePosition"]["y"].get<float>(),
         lightJson["relativePosition"]["z"].get<float>()
     };
 
-    light.relativePosition = relativePosition;
-
-    glm::vec3 target{
+    lightStruct.light.target = glm::vec3{
         lightJson["target"]["x"].get<float>(),
         lightJson["target"]["y"].get<float>(),
         lightJson["target"]["z"].get<float>()
     };
 
-    light.target = target;
     
-    glm::vec3 direction{
+    lightStruct.light.direction = glm::vec3{
         lightJson["direction"]["x"].get<float>(),
         lightJson["direction"]["y"].get<float>(),
         lightJson["direction"]["z"].get<float>()
     };
 
-    light.direction = direction;
+    lightStruct.id      = lightJson["id"].get<int>();
     
-    light.id      = lightJson["id"].get<int>();
-    lightInfo.id = light.id;
-
-    light.intensity          = lightJson["intensity"].get<float>();
-    light.cutOff             = lightJson["cutOff"].get<float>();
-    light.specularStrength   = lightJson["specularStrength"].get<float>();
-    light.attenuation        = lightJson["attenuation"].get<float>();
-    light.isChild            = lightJson["isChild"].get<bool>();
-    light.type               = lightJson["light_type"].get<int>();
+    lightStruct.light.intensity          = lightJson["intensity"].get<float>();
+    lightStruct.light.cutOff             = lightJson["cutOff"].get<float>();
+    lightStruct.light.specularStrength   = lightJson["specularStrength"].get<float>();
+    lightStruct.light.attenuation        = lightJson["attenuation"].get<float>();
+    lightStruct.isChild            = lightJson["isChild"].get<bool>();
+    lightStruct.light.type               = lightJson["light_type"].get<int>();
 }
 
 
@@ -850,7 +823,7 @@ void LoadButton(const json& buttonJson, LitButton& button) {
 
 
 
-int LoadProject(std::vector<Entity>& entitiesVector, std::vector<Light>& lightsVector, std::vector<AdditionalLightInfo>& lightsInfoVector, LitCamera& camera) {
+int LoadProject(std::vector<Entity>& entitiesVector, std::vector<LightStruct>& lightsVector, LitCamera& camera) {
     std::ifstream infile("project.json");
     if (!infile.is_open()) {
         std::cout << "Error: Failed to open project file." << std::endl;
@@ -869,7 +842,6 @@ int LoadProject(std::vector<Entity>& entitiesVector, std::vector<Light>& lightsV
 #endif
 
     lightsVector.clear();
-    lightsInfoVector.clear();
     textElements.clear();
     litButtons.clear();
     
@@ -891,11 +863,9 @@ int LoadProject(std::vector<Entity>& entitiesVector, std::vector<Light>& lightsV
             }
             else if (type == "light") {
                 if (objectJson["isChild"].get<bool>() == true) continue;
-                Light light;
-                AdditionalLightInfo lightInfo;
-                LoadLight(objectJson, light, lightInfo);
-                lightsInfoVector.emplace_back(std::move(lightInfo));
-                lightsVector.emplace_back(std::move(light));
+                LightStruct lightStruct;
+                LoadLight(objectJson, lightStruct);
+                lights.emplace_back(std::move(lightStruct));
             }
             else if (type == "text") {
                 Text textElement;

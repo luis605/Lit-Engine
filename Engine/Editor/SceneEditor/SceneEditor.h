@@ -24,7 +24,7 @@ bool movingEditorCamera = false;
 
 CopyType currentCopyType = (CopyType)CopyType_None;
 std::shared_ptr<Entity> copiedEntity;
-std::shared_ptr<Light> copiedLight;
+std::shared_ptr<LightStruct> copiedLight;
 
 #ifndef GAME_SHIPPING
     ImVec2 prevEditorWindowSize = {0.0f, 0.0f};

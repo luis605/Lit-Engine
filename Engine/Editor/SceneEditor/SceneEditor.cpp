@@ -185,15 +185,15 @@ void ApplyBloomEffect() {
 }
 
 void RenderLight() {
-    for (Light& light : lights) {
+    for (LightStruct& lightStruct : lights) {
         lightModel.materials[0].maps[MATERIAL_MAP_DIFFUSE].texture = lightTexture;
 
-        float rotation = DrawBillboardRotation(sceneCamera, lightTexture, { light.position.x, light.position.y, light.position.z }, 1.0f, WHITE);
+        float rotation = DrawBillboardRotation(sceneCamera, lightTexture, { lightStruct.light.position.x, lightStruct.light.position.y, lightStruct.light.position.z }, 1.0f, WHITE);
 
         if (IsMouseButtonDown(MOUSE_LEFT_BUTTON) && ImGui::IsWindowHovered() && !dragging) {
-            bool isLightSelected = IsMouseHoveringModel(lightModel, { light.position.x, light.position.y, light.position.z }, { 0, rotation, 0 }, {1,1,1});
+            bool isLightSelected = IsMouseHoveringModel(lightModel, { lightStruct.light.position.x, lightStruct.light.position.y, lightStruct.light.position.z }, { 0, rotation, 0 }, {1,1,1});
             if (isLightSelected) {
-                selectedLight = &light;
+                selectedLight = &lightStruct;
                 selectedGameObjectType = "light";
             }
         }
@@ -412,17 +412,9 @@ void ProcessDeletion() {
             selectedEntity = nullptr;
             selectedGameObjectType = "";
         } else if (selectedGameObjectType == "light" && selectedLight) {
-            auto it = std::find(lights.begin(), lights.end(), *selectedLight);
-            if (it != lights.end()) {
-                size_t index = std::distance(lights.begin(), it);
-                if (index < lightsInfo.size()) {
-                    lights.erase(it);
-                    lightsInfo.erase(lightsInfo.begin() + index);
-                }
-
-                selectedLight = nullptr;
-                selectedGameObjectType = "";
-            }
+            lights.erase(std::remove(lights.begin(), lights.end(), *selectedLight), lights.end());
+            selectedLight = nullptr;
+            selectedGameObjectType = "";
         }
     }
 }
@@ -438,15 +430,13 @@ void EntityPaste(const std::shared_ptr<Entity>& entity) {
     }
 }
 
-void LightPaste(const std::shared_ptr<Light>& light) {
-    if (light) {
-        Light newLight = *light;
-        newLight.id = lights.back().id+1;
-        lights.push_back(newLight);
-        AdditionalLightInfo newLightInfo;
-        newLightInfo.id = newLight.id;
-        lightsInfo.push_back(newLightInfo);
-        
+void LightPaste(const std::shared_ptr<LightStruct>& lightStruct) {
+    if (lightStruct) {
+        LightStruct newLightStruct = *lightStruct;
+        newLightStruct.id = lights.back().id+1;
+
+        lights.emplace_back(newLightStruct);
+
         selectedGameObjectType = "light";
         selectedLight = &lights.back();
     }
@@ -467,7 +457,7 @@ void ProcessCopy() {
             if (selectedEntity) copiedEntity = std::make_shared<Entity>(*selectedEntity);
         } else if (selectedGameObjectType == "light") {
             currentCopyType = CopyType_Light;
-            copiedLight = std::make_shared<Light>(*selectedLight);
+            copiedLight = std::make_shared<LightStruct>(*selectedLight);
         }
     }
 

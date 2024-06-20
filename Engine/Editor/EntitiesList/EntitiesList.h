@@ -2,7 +2,7 @@
 #define ENTITIESLIST_H
 
 void DrawEntityTree(Entity& entity);
-void DrawLightTree(Light& light, AdditionalLightInfo& lightInfo);
+void DrawLightTree(LightStruct& lightStruct);
 void DrawTextElementsTree(Text& text);
 void DrawButtonTree(LitButton& button);
 void DrawCameraTree();
