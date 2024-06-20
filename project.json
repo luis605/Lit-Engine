@@ -2,15 +2,15 @@
     {
         "fovy": 60.0,
         "position": {
-            "x": -0.40822523832321167,
-            "y": 13.32237434387207,
-            "z": -7.189051151275635
+            "x": 35.0,
+            "y": 5.0,
+            "z": 0.0
         },
         "projection": 0,
         "target": {
-            "x": -0.40840545296669006,
-            "y": 12.407660484313965,
-            "z": -6.784949779510498
+            "x": 34.01005172729492,
+            "y": 4.858578681945801,
+            "z": 0.0
         },
         "type": "camera",
         "up": {
@@ -50,7 +50,7 @@
         "material_path": "",
         "mesh_type": 1,
         "modelPath": "",
-        "name": "Unnamed Entity",
+        "name": "1",
         "position": {
             "x": 0.0,
             "y": 0.0,
@@ -71,8 +71,8 @@
             "y": 1.0,
             "z": 1.0
         },
-        "scriptIndex": "player0",
-        "script_path": "project/game/scripts/player.py",
+        "scriptIndex": "",
+        "script_path": "",
         "surfaceMaterial": {
             "DiffuseIntensity": 0.5,
             "Roughness": 0.5,
@@ -91,40 +91,159 @@
         "type": "entity"
     },
     {
-        "attenuation": 9.999999747378752e-05,
-        "color": {
-            "a": 255.0,
-            "b": 255.0,
-            "g": 255.0,
-            "r": 255.0
-        },
-        "cutOff": 10.0,
-        "direction": {
-            "x": 0.4000000059604645,
-            "y": 0.4000000059604645,
-            "z": -0.4000000059604645
-        },
-        "id": 2,
-        "intensity": 7.420000076293945,
-        "isChild": false,
-        "light_type": 1,
-        "name": "Light",
+        "collider": true,
+        "collider_type": 2,
+        "damping": 0.0,
+        "friction": 1.0,
+        "id": 1,
+        "is_dynamic": false,
+        "lodEnabled": true,
+        "mass": 1.0,
+        "material_path": "",
+        "mesh_type": 1,
+        "modelPath": "",
+        "name": "2",
         "position": {
-            "x": 8.499983787536621,
-            "y": 11.500006675720215,
-            "z": -0.5999974608421326
+            "x": 0.0,
+            "y": 0.0,
+            "z": 0.0
         },
         "relativePosition": {
-            "x": 0,
-            "y": 0,
-            "z": 0
+            "x": 0.0,
+            "y": 0.0,
+            "z": 0.0
         },
-        "specularStrength": 0.5,
-        "target": {
-            "x": 0,
-            "y": 0,
-            "z": 0
+        "rotation": {
+            "x": 0.0,
+            "y": 0.0,
+            "z": 0.0
         },
-        "type": "light"
+        "scale": {
+            "x": 1.0,
+            "y": 1.0,
+            "z": 1.0
+        },
+        "scriptIndex": "",
+        "script_path": "",
+        "surfaceMaterial": {
+            "DiffuseIntensity": 0.5,
+            "Roughness": 0.5,
+            "SpecularIntensity": 0.5,
+            "SpecularTint": {
+                "x": 1.0,
+                "y": 1.0,
+                "z": 1.0
+            },
+            "shininess": 0.5
+        },
+        "tiling": [
+            1.0,
+            1.0
+        ],
+        "type": "entity"
+    },
+    {
+        "collider": true,
+        "collider_type": 2,
+        "damping": 0.0,
+        "friction": 1.0,
+        "id": 2,
+        "is_dynamic": false,
+        "lodEnabled": true,
+        "mass": 1.0,
+        "material_path": "",
+        "mesh_type": 1,
+        "modelPath": "",
+        "name": "3",
+        "position": {
+            "x": 0.0,
+            "y": 0.0,
+            "z": 0.0
+        },
+        "relativePosition": {
+            "x": 0.0,
+            "y": 0.0,
+            "z": 0.0
+        },
+        "rotation": {
+            "x": 0.0,
+            "y": 0.0,
+            "z": 0.0
+        },
+        "scale": {
+            "x": 1.0,
+            "y": 1.0,
+            "z": 1.0
+        },
+        "scriptIndex": "",
+        "script_path": "",
+        "surfaceMaterial": {
+            "DiffuseIntensity": 0.5,
+            "Roughness": 0.5,
+            "SpecularIntensity": 0.5,
+            "SpecularTint": {
+                "x": 1.0,
+                "y": 1.0,
+                "z": 1.0
+            },
+            "shininess": 0.5
+        },
+        "tiling": [
+            1.0,
+            1.0
+        ],
+        "type": "entity"
+    },
+    {
+        "collider": true,
+        "collider_type": 2,
+        "damping": 0.0,
+        "friction": 1.0,
+        "id": 3,
+        "is_dynamic": false,
+        "lodEnabled": true,
+        "mass": 1.0,
+        "material_path": "",
+        "mesh_type": 1,
+        "modelPath": "",
+        "name": "4",
+        "position": {
+            "x": 0.0,
+            "y": 0.0,
+            "z": 0.0
+        },
+        "relativePosition": {
+            "x": 0.0,
+            "y": 0.0,
+            "z": 0.0
+        },
+        "rotation": {
+            "x": 0.0,
+            "y": 0.0,
+            "z": 0.0
+        },
+        "scale": {
+            "x": 1.0,
+            "y": 1.0,
+            "z": 1.0
+        },
+        "scriptIndex": "",
+        "script_path": "",
+        "surfaceMaterial": {
+            "DiffuseIntensity": 0.5,
+            "Roughness": 0.5,
+            "SpecularIntensity": 0.5,
+            "SpecularTint": {
+                "x": 1.0,
+                "y": 1.0,
+                "z": 1.0
+            },
+            "shininess": 0.5
+        },
+        "tiling": [
+            1.0,
+            1.0
+        ],
+        "type": "entity"
     }
 ]

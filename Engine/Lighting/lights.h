@@ -1,8 +1,7 @@
 #ifndef LIGHTS_H
 #define LIGHTS_H
 
-enum
-{
+enum {
     LIGHT_DIRECTIONAL = 0,
     LIGHT_POINT = 1,
     LIGHT_SPOT = 2
@@ -60,6 +59,21 @@ struct Light {
     bool operator==(const Light& other) const {
         return (int)this->id == (int)other.id;
     }
+};
+
+struct AdditionalLightInfo {
+    std::string name;
+    Entity* parent = nullptr;
+    int id;
+
+    bool operator==(const Light& other) const {
+        return (int)this->id == (int)other.id;
+    }
+};
+
+struct LightType {
+    Light light;
+    AdditionalLightInfo additionalInfo;
 };
 
 struct SurfaceMaterialTexture {
@@ -168,16 +182,6 @@ struct SurfaceMaterial {
     SurfaceMaterialTexture normalTexture;
     SurfaceMaterialTexture roughnessTexture;
     SurfaceMaterialTexture aoTexture;
-};
-
-struct AdditionalLightInfo {
-    std::string name;
-    Entity* parent = nullptr;
-    int id;
-
-    bool operator==(const Light& other) const {
-        return (int)this->id == (int)other.id;
-    }
 };
 
 Light& NewLight(const Vector3 position, const Color color, int type) {

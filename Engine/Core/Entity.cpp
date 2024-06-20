@@ -38,9 +38,9 @@ public:
 
     LitVector3 inertia = {0, 0, 0};
 
-    std::string script = "";
-    std::string scriptIndex = "";
-    std::string modelPath = "";
+    std::string script;
+    std::string scriptIndex;
+    fs::path modelPath;
 
     Model model;
     Model LodModels[4] = { };
@@ -127,7 +127,7 @@ public:
     }
 
     Entity(const Entity& other) {
-        if (!this || this == nullptr || !other.initialized) return;
+        if (!this || !other.initialized) return;
 
         this->initialized = other.initialized;
         this->name = other.name;
@@ -297,6 +297,18 @@ public:
         };
 
         children.emplace_back(newChild);
+    }
+
+    void addChild(Entity* entityChild) {
+        entityChild->isChild = true;
+        entityChild->parent = this;
+        entityChild->relativePosition = {
+            entityChild->position.x - this->position.x,
+            entityChild->position.y - this->position.y,
+            entityChild->position.z - this->position.z
+        };
+
+        children.emplace_back(entityChild);
     }
 
     void addChild(Light* newChild) {
