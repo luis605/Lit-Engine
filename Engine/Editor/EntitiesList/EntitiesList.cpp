@@ -343,12 +343,14 @@ void PlayPause() {
 }
 
 void OpenWebpages() {
-    if (IsKeyPressed(KEY_F1) && !inGamePreview) openAboutPage();
-    if (IsKeyPressed(KEY_F2) && !inGamePreview) openManualPage();
+    if (inGamePreview || ImGui::IsWindowFocused(ImGuiFocusedFlags_ChildWindows)) return;
+
+    if (IsKeyPressed(KEY_F1)) openAboutPage();
+    if (IsKeyPressed(KEY_F2)) openManualPage();
 }
 
 void EntitiesList() {
-    ImGui::Begin((std::string(ICON_FA_BARS) + " Objects List").c_str(), NULL);
+    ImGui::Begin((std::string(ICON_FA_BARS) + " Objects List").c_str());
 
     ImGuiListViewEx();
 
