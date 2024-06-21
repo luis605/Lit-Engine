@@ -106,6 +106,12 @@ namespace nlohmann {
     };
 }
 
+bool is_subpath(const std::filesystem::path &path,
+                const std::filesystem::path &base)
+{
+    auto rel = std::filesystem::relative(path, base);
+    return !rel.empty() && rel.native()[0] != '.';
+}
 
 /* Material */
 void SerializeMaterial(SurfaceMaterial& material, const fs::path path) {
@@ -133,8 +139,18 @@ void SerializeMaterial(SurfaceMaterial& material, const fs::path path) {
 void DeserializeMaterial(SurfaceMaterial* material, const fs::path path) {
     if (!material)
         return;
-        
-    std::ifstream infile(path);
+
+    // Path Traversal Vulnerability Prevention
+    fs::path resolvedPath = fs::canonical(path);
+    const fs::path baseDir = fs::current_path() / "project/";
+
+    if (!is_subpath(resolvedPath, baseDir)) {
+        std::cerr << "Error: Path traversal detected: " << path << std::endl;
+        return;
+    }
+
+    std::ifstream infile(resolvedPath);
+
     if (!infile.is_open()) {
         std::cerr << "Error: Failed to open material file for reading: " << path << std::endl;
         return;
