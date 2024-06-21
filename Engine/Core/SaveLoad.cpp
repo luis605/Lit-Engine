@@ -397,10 +397,18 @@ void SaveButton(json& jsonData, const LitButton& button) {
 
 
 
-std::string serializePythonScript(const std::string &scriptFilePath) {
-    std::ifstream inputFile(scriptFilePath);
+std::string serializePythonScript(const fs::path& path) {
+    fs::path resolvedPath = fs::canonical(path);
+    const fs::path baseDir = fs::current_path() / "project/";
+
+    if (!is_subpath(resolvedPath, baseDir)) {
+        std::cerr << "Error: Path traversal detected: " << path << std::endl;
+        return "";
+    }
+
+    std::ifstream inputFile(resolvedPath);
     if (!inputFile.is_open()) {
-        std::cerr << "Failed to open file: " << scriptFilePath << std::endl;
+        std::cerr << "Failed to open file: " << resolvedPath << std::endl;
         return "";
     }
 
