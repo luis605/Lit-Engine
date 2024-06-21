@@ -117,8 +117,8 @@ void MaterialsNodeEditor(SurfaceMaterial& material) {
                 if (ImNodes::GetNewConnection(&new_connection.InputNode, &new_connection.InputSlot,
                                               &new_connection.OutputNode, &new_connection.OutputSlot))
                 {
-                    ((MyNode*) new_connection.InputNode)->Connections.push_back(new_connection);
-                    ((MyNode*) new_connection.OutputNode)->Connections.push_back(new_connection);
+                    ((MyNode*) new_connection.InputNode)->Connections.emplace_back(new_connection);
+                    ((MyNode*) new_connection.OutputNode)->Connections.emplace_back(new_connection);
                 }
 
                 // Render output connections of this node
@@ -167,7 +167,7 @@ void MaterialsNodeEditor(SurfaceMaterial& material) {
         if (ImGui::BeginPopup("NodesContextMenu")) {
             for (const auto& desc : available_nodes) {
                 if (ImGui::MenuItem(desc.first.c_str())) {
-                    nodes.push_back(desc.second());
+                    nodes.emplace_back(desc.second());
                     ImNodes::AutoPositionNode(nodes.back());
                 }
             }

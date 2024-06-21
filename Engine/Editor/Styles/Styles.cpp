@@ -128,8 +128,8 @@ void CreateNewTheme()
         else
         {
             std::cout << "Selected Option '" << theme_create_selected_option <<"' Added!" << std::endl;
-            newThemeSavedOptions.push_back(theme_create_selected_option);
-            newThemeSavedOptionsColor.push_back(ImVec4(1.0f, 1.0f, 1.0f, 1.0f));
+            newThemeSavedOptions.emplace_back(theme_create_selected_option);
+            newThemeSavedOptionsColor.emplace_back(ImVec4(1.0f, 1.0f, 1.0f, 1.0f));
         }
     }
 
@@ -164,7 +164,7 @@ void CreateNewTheme()
 
             ImU32 color = ImGui::ColorConvertFloat4ToU32(newThemeSavedOptionsColor[i]);
             std::string color_hex = toHexString(color);
-            data["options"].push_back({
+            data["options"].emplace_back(nlohmann::json{
                 {"index", themes_colors_string[optionIndex]},
                 {"color", color_hex}
             });

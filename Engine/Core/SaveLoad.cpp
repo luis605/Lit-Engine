@@ -259,23 +259,24 @@ void SaveEntity(json& jsonData, const Entity& entity) {
     j["friction"]                = entity.friction;
     j["damping"]                 = entity.damping;
 
-    if (!entity.children.empty()) {
-        json childrenData;
+    json childrenData;
 
-        for (std::any child : entity.children) {
-            if (Entity** entityChild = std::any_cast<Entity*>(&child)) {
-                json childJson;
-                SaveEntity(childJson, **entityChild);
-                childrenData.emplace_back(childJson);
-            } else if (LightStruct** lightStructChild = std::any_cast<LightStruct*>(&child)) {
-                json childJson;
-                SaveLight(childJson, **lightStructChild);
-                childrenData.emplace_back(childJson);
-            }
-
+    if (!entity.entitiesChildren.empty()) {
+        for (Entity* entityChild : entity.entitiesChildren) {
+            json childJson;
+            SaveEntity(childJson, *entityChild);
+            childrenData.emplace_back(childJson);
         }
-        j["children"] = childrenData;
     }
+
+    if (!entity.lightsChildren.empty()) {
+        for (LightStruct* lightStructChild : entity.lightsChildren) {
+            json childJson;
+            SaveLight(childJson, *lightStructChild);
+            childrenData.emplace_back(childJson);
+        }
+    }
+    j["children"] = childrenData;
 
     jsonData.emplace_back(j);
 }
@@ -436,6 +437,7 @@ int SaveProject() {
     SaveWorldSetting(jsonData);
 
     for (const auto& entity : entitiesListPregame) {
+        if (entity.isChild) continue;
         SaveEntity(jsonData, entity);
     }
 
@@ -464,10 +466,8 @@ int SaveProject() {
     return 0;
 }
 
-void LoadEntity(const json& entityJson, Entity& entity);
+void LoadEntity(const json& entityJson, Entity& entity, std::vector<Entity>& entitiesVector);
 void LoadLight(const json& lightJson, LightStruct& lightStruct);
-
-
 
 void LoadCamera(const json& cameraJson, LitCamera& camera) {
     if (cameraJson.contains("position")) {
@@ -549,7 +549,7 @@ void LoadWorldSettings(const json& worldSettingsJson)
 
 
 
-void LoadEntity(const json& entityJson, Entity& entity) {
+void LoadEntity(const json& entityJson, Entity& entity, std::vector<Entity>& entitiesVector) {
     if (entityJson.contains("name")) {
         entity.setName(entityJson["name"].get<std::string>());
     }
@@ -680,9 +680,14 @@ void LoadEntity(const json& entityJson, Entity& entity) {
                     std::string type = childJson["type"].get<std::string>();
                     if (type == "entity") {
                         Entity child;
-                        LoadEntity(childJson, child);
+                        LoadEntity(childJson, child, entitiesVector);
                         child.parent = &entity;
-                        entity.addChild(child);
+                        child.isChild = true;
+
+                        entitiesVector.emplace_back(std::move(child));
+                        entitiesVector.back().reloadRigidBody();
+
+                        entity.addChild(&entitiesVector.back());
                     } else if (type == "light") {
                         lights.emplace_back();
 
@@ -741,7 +746,7 @@ void LoadLight(const json& lightJson, LightStruct& lightStruct) {
     lightStruct.light.cutOff             = lightJson["cutOff"].get<float>();
     lightStruct.light.specularStrength   = lightJson["specularStrength"].get<float>();
     lightStruct.light.attenuation        = lightJson["attenuation"].get<float>();
-    lightStruct.isChild            = lightJson["isChild"].get<bool>();
+    lightStruct.isChild                  = lightJson["isChild"].get<bool>();
     lightStruct.light.type               = lightJson["light_type"].get<int>();
 }
 
@@ -850,7 +855,7 @@ int LoadProject(std::vector<Entity>& entitiesVector, std::vector<LightStruct>& l
             std::string type = objectJson["type"].get<std::string>();
             if (type == "entity") {
                 Entity entity;
-                LoadEntity(objectJson, entity);
+                LoadEntity(objectJson, entity, entitiesVector);
                 entitiesVector.emplace_back(std::move(entity));
                 entitiesVector.back().reloadRigidBody();
             }

@@ -212,13 +212,11 @@ void RenderEntities() {
                 selectedGameObjectType = "entity";
             }
 
-            for (auto childVariant : entity.children) {
-                if (Entity** childEntity = std::any_cast<Entity*>(&childVariant)) {
-                    bool isEntitySelected = IsMouseHoveringModel((*childEntity)->model, (*childEntity)->position, (*childEntity)->rotation, (*childEntity)->scale);
-                    if (isEntitySelected) {
-                        selectedEntity = *childEntity;
-                        selectedGameObjectType = "entity";
-                    }
+            for (Entity* childEntity : entity.entitiesChildren) {
+                bool isEntitySelected = IsMouseHoveringModel(childEntity->model, childEntity->position, childEntity->rotation, childEntity->scale);
+                if (isEntitySelected) {
+                    selectedEntity = childEntity;
+                    selectedGameObjectType = "entity";
                 }
             }
         }
@@ -408,7 +406,7 @@ void ObjectsPopup() {
 void ProcessDeletion() {
     if (IsKeyPressed(KEY_DELETE)) {
         if (selectedGameObjectType == "entity" && selectedEntity) {
-            selectedEntity->remove();
+            entitiesListPregame.erase(std::remove(entitiesListPregame.begin(), entitiesListPregame.end(), *selectedEntity), entitiesListPregame.end());
             selectedEntity = nullptr;
             selectedGameObjectType = "";
         } else if (selectedGameObjectType == "light" && selectedLight) {
@@ -423,7 +421,7 @@ void EntityPaste(const std::shared_ptr<Entity>& entity) {
     if (entity) {
         Entity newEntity = *entity;
         newEntity.reloadRigidBody();
-        newEntity.id = GenerateUniqueID(entitiesListPregame);
+        newEntity.id = entitiesListPregame.size() + lights.size() + 1;
         entitiesListPregame.emplace_back(newEntity);
         selectedGameObjectType = "entity";
         selectedEntity = &entitiesListPregame.back();

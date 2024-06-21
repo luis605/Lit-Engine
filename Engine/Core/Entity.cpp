@@ -88,12 +88,8 @@ public:
 
     Entity* parent = nullptr;
 
-    std::vector<std::any> children;
-
-    template<typename T>
-    T* get_if(std::variant<Entity*, Light*, Text*, LitButton*>& var) {
-        return std::get_if<T>(&var);
-    }
+    std::vector<LightStruct*> lightsChildren;
+    std::vector<Entity*>      entitiesChildren;
 
 private:
     std::shared_ptr<btCollisionShape> rigidShape;
@@ -126,125 +122,8 @@ public:
         initialized = true;
     }
 
-    Entity(const Entity& other) {
-        if (!this || !other.initialized) return;
-
-        this->initialized = other.initialized;
-        this->name = other.name;
-        this->size = other.size;
-        this->position = other.position;
-        this->rotation = other.rotation;
-        this->scale = other.scale;
-        this->relativePosition = other.relativePosition;
-        this->relativeRotation = other.relativeRotation;
-        this->relativeScale = other.relativeScale;
-        this->script = other.script;
-        this->scriptIndex = other.scriptIndex;
-        this->modelPath = other.modelPath;
-        this->ObjectType = other.ObjectType;
-        this->model = other.model;
-        this->bounds = other.bounds;
-        this->constBounds = other.constBounds;
-        this->tiling[0] = other.tiling[0];
-        this->tiling[1] = other.tiling[1];
-        this->currentCollisionShapeType     = std::make_shared<CollisionShapeType>(*other.currentCollisionShapeType);
-
-        if (other.rigidBody && other.rigidBody != nullptr)
-            this->rigidBody = std::move(other.rigidBody);
-
-        if (other.boxMotionState && other.boxMotionState != nullptr)
-            this->boxMotionState = std::move(other.boxMotionState);
-
-        if (other.rigidShape && other.rigidShape != nullptr)
-            this->rigidShape = std::move(other.rigidShape);
-
-        if (other.customMeshShape && other.customMeshShape != nullptr)
-            this->customMeshShape = std::move(other.customMeshShape);
-
-        this->surfaceMaterialPath = other.surfaceMaterialPath;
-        this->surfaceMaterial = other.surfaceMaterial;
-        this->collider = other.collider;
-        this->visible = other.visible;
-        this->isChild = other.isChild;
-        this->isParent = other.isParent;
-        this->running = other.running;
-        this->running_first_time = other.running_first_time;
-        this->calcPhysics = other.calcPhysics;
-        this->isDynamic = other.isDynamic;
-        this->mass = other.mass;
-        this->inertia = other.inertia;
-        this->id = other.id;
-        this->parent = other.parent; 
-        this->scriptContent = other.scriptContent;
-        this->lodEnabled = other.lodEnabled;
-        for (int i = 0; i < sizeof(LodModels)/sizeof(LodModels[0]); i++)
-            this->LodModels[i] = other.LodModels[i];
-        this->children = other.children;
-    }
-
-
-    Entity& operator=(const Entity& other) {
-        if (!other.initialized) return *this;
-
-        if (this == &other) return *this;  // Handle self-assignment
-
-        this->initialized = other.initialized;
-        this->name = other.name;
-        this->size = other.size;
-        this->position = other.position;
-        this->rotation = other.rotation;
-        this->scale = other.scale;
-        this->relativePosition = other.relativePosition;
-        this->relativeRotation = other.relativeRotation;
-        this->relativeScale = other.relativeScale;
-        this->script = other.script;
-        this->scriptIndex = other.scriptIndex;
-        this->modelPath = other.modelPath;
-        this->ObjectType = other.ObjectType;
-        this->model = other.model;
-        this->bounds = other.bounds;
-        this->constBounds = other.constBounds;
-        this->tiling[0] = other.tiling[0];
-        this->tiling[1] = other.tiling[1];
-        this->currentCollisionShapeType     = std::make_shared<CollisionShapeType>(*other.currentCollisionShapeType);
-
-        if (other.rigidBody && other.rigidBody != nullptr)
-            this->rigidBody = std::move(other.rigidBody);
-
-        if (other.boxMotionState && other.boxMotionState != nullptr)
-            this->boxMotionState = std::move(other.boxMotionState);
-
-        if (other.rigidShape && other.rigidShape != nullptr)
-            this->rigidShape = std::move(other.rigidShape);
-
-        if (other.customMeshShape && other.customMeshShape != nullptr)
-            this->customMeshShape = std::move(other.customMeshShape);
-
-        this->surfaceMaterialPath = other.surfaceMaterialPath;
-        this->surfaceMaterial = other.surfaceMaterial;
-        this->collider = other.collider;
-        this->visible = other.visible;
-        this->isChild = other.isChild;
-        this->isParent = other.isParent;
-        this->running = other.running;
-        this->running_first_time = other.running_first_time;
-        this->calcPhysics = other.calcPhysics;
-        this->isDynamic = other.isDynamic;
-        this->mass = other.mass;
-        this->inertia = other.inertia;
-        this->id = other.id;
-        this->parent = other.parent; 
-        this->scriptContent = other.scriptContent;
-        this->lodEnabled = other.lodEnabled;
-        for (int i = 0; i < sizeof(LodModels)/sizeof(LodModels[0]); i++)
-            this->LodModels[i] = other.LodModels[i];
-        this->children = other.children;
-
-        return *this;
-    }
-
     Entity(std::vector<Entity>& entitiesListPregame) {
-        entitiesListPregame.push_back(*this);
+        entitiesListPregame.emplace_back(*this);
     }
 
     bool operator==(const Entity& other) const {
@@ -252,7 +131,7 @@ public:
     }
 
     void addInstance(Entity* instance) {
-        instances.push_back(instance);
+        instances.emplace_back(instance);
 
         if (transforms == nullptr) {
             transforms = (Matrix *)RL_CALLOC(instances.size(), sizeof(Matrix));
@@ -285,69 +164,75 @@ public:
         matInstances = LoadMaterialDefault();
     }
         
-    void addChild(Entity& entityChild) {
-        Entity* newChild = new Entity(entityChild);
+    void addChild(Entity* newEntity) {
+        if (newEntity == this) {
+            std::cerr << "newEntity is parent" << std::endl;
+            return;
+        }
 
-        newChild->isChild = true;
-        newChild->parent = this;
-        newChild->relativePosition = {
-            newChild->position.x - this->position.x,
-            newChild->position.y - this->position.y,
-            newChild->position.z - this->position.z
+        if (newEntity->isChild && newEntity->parent != nullptr) {
+            auto it = std::find(newEntity->parent->entitiesChildren.begin(), newEntity->parent->entitiesChildren.end(), newEntity);
+            if (it != newEntity->parent->entitiesChildren.end()) {
+                newEntity->parent->entitiesChildren.erase(it);
+            }
+        }
+
+        newEntity->isChild = true;
+        newEntity->parent = this;
+        newEntity->relativePosition = {
+            newEntity->position.x - this->position.x,
+            newEntity->position.y - this->position.y,
+            newEntity->position.z - this->position.z
         };
 
-        children.emplace_back(newChild);
+        entitiesChildren.emplace_back(newEntity);
     }
 
-    void addChild(Entity* entityChild) {
-        entityChild->isChild = true;
-        entityChild->parent = this;
-        entityChild->relativePosition = {
-            entityChild->position.x - this->position.x,
-            entityChild->position.y - this->position.y,
-            entityChild->position.z - this->position.z
+    void addChild(LightStruct* newLight) {
+        if (!newLight) {
+            std::cerr << "Error: newLight is null" << std::endl;
+            return;
+        }
+
+        if (newLight->isChild && newLight->parent != nullptr) {
+            auto it = std::find(newLight->parent->lightsChildren.begin(), newLight->parent->lightsChildren.end(), newLight);
+            
+            if (it != newLight->parent->lightsChildren.end()) {
+                newLight->parent->lightsChildren.erase(it);
+            }
+        }
+
+        newLight->isChild = true;
+        newLight->parent = this;
+        newLight->light.relativePosition = {
+            newLight->light.position.x - this->position.x,
+            newLight->light.position.y - this->position.y,
+            newLight->light.position.z - this->position.z
         };
 
-        children.emplace_back(entityChild);
-    }
-
-    void addChild(LightStruct* newChild) {
-        newChild->isChild = true;
-        newChild->light.relativePosition = {
-            newChild->light.position.x - this->position.x,
-            newChild->light.position.y - this->position.y,
-            newChild->light.position.z - this->position.z
-        };
-
-        // children.emplace_back(newChild);
-    }
-
-    void removeChild(void* childToRemove) {
+        lightsChildren.emplace_back(newLight);
     }
 
     void updateChildren() {
-        if (children.empty()) return;
+        for (Entity* entityChild : entitiesChildren) {
+            updateEntityChild(entityChild);
+        }
 
-        for (auto& child : children) {
-            if (Entity** entity = std::any_cast<Entity*>(&child)) {
-                updateEntityChild(*entity);
-            } else if (Light** light = std::any_cast<Light*>(&child)) {
-                int distance = 0;
-                updateLightChild(&lights[distance]);
-            }
+        for (LightStruct* lightChild : lightsChildren) {
+            updateLightChild(lightChild);
         }
     }
 
     void updateEntityChild(Entity* entity) {
         if (!entity) return;
-        entity->render();
 
     #ifndef GAME_SHIPPING
         if (entity == selectedEntity) return;
     #endif
 
         entity->position = this->position + entity->relativePosition;
-        entity->updateChildren();
+
+        entity->render();
     }
 
     void updateLightChild(LightStruct* lightStruct) {
@@ -361,33 +246,10 @@ public:
     }
 
     void makeChildrenInstances() {
-        for (auto child : children) {
-            if (Entity** entity = std::any_cast<Entity*>(&child)) {
-                addInstance(*entity);
-                (*entity)->makeChildrenInstances();
-            }
+        for (Entity* entity : entitiesChildren) {
+            addInstance(entity);
+            entity->makeChildrenInstances();
         }
-    }
-
-    void remove() {
-        for (auto& child : children) {
-            if (auto entity = std::any_cast<Entity*>(&child)) {
-                delete *entity;
-            } else if (auto light = std::any_cast<Light*>(&child)) {
-                delete *light;
-            } else if (auto text = std::any_cast<Text*>(&child)) {
-                delete *text;
-            } else if (auto litButton = std::any_cast<LitButton*>(&child)) {
-                delete *litButton;
-            }
-        }
-
-        entitiesListPregame.erase(
-            std::remove_if(entitiesListPregame.begin(), entitiesListPregame.end(),
-                [this](const Entity& entity) {
-                    return entity.id == this->id;
-                }),
-            entitiesListPregame.end());
     }
 
     Color getColor() {
@@ -531,9 +393,9 @@ public:
         entityOptimized = true;
     }
 
-    void setModel(const char* path = "", Model entityModel = Model(), Shader defaultShader = shader) {
+    void setModel(fs::path path = "", Model entityModel = Model(), Shader defaultShader = shader) {
         modelPath = path;
-        model = modelPath.empty() ? entityModel : LoadModel(path);
+        model = modelPath.empty() ? entityModel : LoadModel(path.c_str());
 
         if (!IsModelReady(model)) return;
 
@@ -552,8 +414,8 @@ public:
             if (model.meshes[0].indices) ix = model.meshes[0].indices[i];
             else                         ix = i;
 
-            vertices.push_back({x, y, z});
-            indices.push_back(ix);
+            vertices.emplace_back(Vector3{x, y, z});
+            indices.emplace_back(ix);
         }
 
         if (vertices.size() > 150 && lodEnabled) {
@@ -618,7 +480,7 @@ public:
                     if (!modelPath.empty()) entity.setModel(modelPath.c_str());
 
                     entity.setPos(position);
-                    entitiesListPregame.push_back(entity);
+                    entitiesListPregame.emplace_back(entity);
 
                     return entitiesListPregame.back();
                 }))
@@ -1037,6 +899,7 @@ public:
     }
 
     void render() {
+        if (!this->initialized) return; //delete this;
         if (!hasModel()) initializeDefaultModel();
 
         updateChildren();
@@ -1166,24 +1029,12 @@ bool operator==(const Entity& e, const Entity* ptr) {
 }
 
 #ifndef GAME_SHIPPING
-    int GenerateUniqueID(const std::vector<Entity>& entitiesList) {
-        int newID = 0;
-
-        while (std::find_if(entitiesList.begin(), entitiesList.end(),
-            [newID](const Entity& entity) { return entity.id == newID; }) != entitiesList.end())
-        {
-            newID++;
-        }
-
-        return newID;
-    }
-
     void AddEntity(
         bool createimmediatly = false,
         bool isChild = false,
-        const char* modelPath = "",
-        Model model = LoadModelFromMesh(GenMeshCube(1,1,1)),
-        std::string name = "Unnamed Entity"
+        const fs::path& modelPath = "",
+        const Model& model = LoadModelFromMesh(GenMeshCube(1,1,1)),
+        const std::string& name = "Unnamed Entity"
     ) {
         Entity entityCreate;
         entityCreate.setColor(WHITE);
@@ -1192,13 +1043,9 @@ bool operator==(const Entity& e, const Entity* ptr) {
         entityCreate.isChild = isChild;
         entityCreate.setModel(modelPath, model);
         entityCreate.setShader(shader);
+        entityCreate.id = entitiesListPregame.size() + lights.size() + 1;
 
-        if (!entitiesListPregame.empty()) {
-            entityCreate.id = GenerateUniqueID(entitiesListPregame);
-        } else
-            entityCreate.id = 0;
-
-        entitiesListPregame.emplace_back(entityCreate);
+        entitiesListPregame.emplace_back(std::move(entityCreate));
         selectedGameObjectType = "entity";
         selectedEntity = &entitiesListPregame.back();
     }

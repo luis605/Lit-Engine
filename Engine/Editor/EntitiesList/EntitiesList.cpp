@@ -73,18 +73,29 @@ void DrawEntityTree(Entity& entity) {
     if (rightClicked) showManipulateEntityPopup = true;
 
     if (ImGui::BeginDragDropSource(ImGuiDragDropFlags_None)) {
-        selectedEntity = &entity;
         draggingChildObject = entity.isChild;
 
-        ImGui::SetDragDropPayload("CHILD_ENTITY_PAYLOAD", &entity, sizeof(Entity*));
+        ImGui::SetDragDropPayload("CHILD_ENTITY_PAYLOAD", &entity, sizeof(Entity));
         ImGui::EndDragDropSource();
     }
 
     if (ImGui::BeginDragDropTarget()) {
         const ImGuiPayload* payload = ImGui::AcceptDragDropPayload("CHILD_LIGHT_PAYLOAD");
-        if (payload && payload->DataSize == sizeof(Light)) {
-            Light* droppedLight = static_cast<Light*>(payload->Data);
-            // TODO: Reimplement this entity.addLight(*droppedLight);
+        if (payload) {
+            if (payload->DataSize != sizeof(LightStruct)) {
+                std::cerr << "Invalid payload size!" << std::endl;
+                return;
+            }
+
+            LightStruct droppedLight = *static_cast<LightStruct*>(payload->Data);
+
+            auto it = std::find_if(lights.begin(), lights.end(), [&](const LightStruct& lightStruct) { return lightStruct.id == droppedLight.id; });
+            if (it != lights.end()) {
+                std::cout << "Light found!" << std::endl;
+                entity.addChild(&(*it));
+            } else {
+                std::cerr << "Light not found!" << std::endl;
+            }
         }
         ImGui::EndDragDropTarget();
     }
@@ -92,35 +103,37 @@ void DrawEntityTree(Entity& entity) {
     if (ImGui::BeginDragDropTarget()) {
         const ImGuiPayload* payload = ImGui::AcceptDragDropPayload("CHILD_ENTITY_PAYLOAD");
         if (payload) {
-            if (payload->DataSize != sizeof(Entity*)) {
+            if (payload->DataSize != sizeof(Entity)) {
                 std::cerr << "Invalid payload size!" << std::endl;
                 return;
             }
 
-            Entity* droppedEntity = static_cast<Entity*>(payload->Data);
-            auto it = std::find_if(entitiesListPregame.begin(), entitiesListPregame.end(), [&](const Entity& e) { return e.id == droppedEntity->id; });
+            Entity droppedEntity = *static_cast<Entity*>(payload->Data);
 
+            auto it = std::find_if(entitiesListPregame.begin(), entitiesListPregame.end(), [&](const Entity& entity) { return entity.id == droppedEntity.id; });
             if (it != entitiesListPregame.end()) {
-                Entity& foundEntity = *it;
-                foundEntity.isChild = true;
-                entity.addChild(foundEntity);
-                entitiesListPregame.erase(it);
+                std::cout << "Entity found!" << std::endl;
+                entity.addChild(&(*it));
+            } else {
+                std::cerr << "Entity not found!" << std::endl;
             }
         }
         ImGui::EndDragDropTarget();
     }
     if (isNodeOpen) {
-        for (auto& child : entity.children) {
-            if (Entity** entityChild = std::any_cast<Entity*>(&child)) {
-                DrawEntityTree(**entityChild);
-            } else if (Light** lightChild = std::any_cast<Light*>(&child)) {
-                    // DrawLightTree(lights[distance], lightsInfo[distance]);
-            } else if (Text** textChild = std::any_cast<Text*>(&child)) {
-                DrawTextElementsTree(**textChild);
-            } else if (LitButton** buttonChild = std::any_cast<LitButton*>(&child)) {
-                DrawButtonTree(**buttonChild);
+        for (Entity* entityChild : entity.entitiesChildren) {
+            if (!entityChild->initialized) {
+                ImGui::TreeNodeEx("ERROR: Entity child not initialized!", ImGuiTreeNodeFlags_NoTreePushOnOpen);
+                continue;
             }
+
+            DrawEntityTree(*entityChild);
         }
+
+        for (LightStruct* lightStruct : entity.lightsChildren) {
+            DrawLightTree(*lightStruct);
+        }
+
         ImGui::TreePop();
     }
 }
@@ -130,13 +143,12 @@ void DrawLightTree(LightStruct& lightStruct) {
     bool isSelected = (selectedLight == &lightStruct && selectedGameObjectType == "light");
 
     bool isNodeOpen = DrawTreeNodeWithRename(ICON_FA_LIGHTBULB, lightStruct.lightInfo.name, (void*)&lightStruct, nodeFlags, isSelected, [&]() {
-        selectedLight = &lightStruct;
         selectedGameObjectType = "light";
     });
 
     if (ImGui::BeginDragDropSource(ImGuiDragDropFlags_None)) {
         draggingChildObject = lightStruct.isChild;
-        ImGui::SetDragDropPayload("CHILD_LIGHT_PAYLOAD", &lightStruct, sizeof(lightStruct));
+        ImGui::SetDragDropPayload("CHILD_LIGHT_PAYLOAD", &lightStruct, sizeof(LightStruct));
         ImGui::EndDragDropSource();
     }
 
@@ -192,19 +204,28 @@ void UnchildObjects(ImVec2 childSize) {
     if (ImGui::BeginDragDropTarget()) {
         const ImGuiPayload* payload = ImGui::AcceptDragDropPayload("CHILD_LIGHT_PAYLOAD");
         if (payload) {
-            if (payload->DataSize != sizeof(Light)) {
+            if (payload->DataSize != sizeof(LightStruct)) {
                 std::cerr << "Invalid payload size!" << std::endl;
                 return;
             }
 
-            LightStruct* droppedLight = static_cast<LightStruct*>(payload->Data);
+            LightStruct droppedLight = *static_cast<LightStruct*>(payload->Data);
 
-            if (!droppedLight->isChild) {
+            if (!droppedLight.isChild) {
                 std::cerr << "Dropped light is not a child." << std::endl;
                 return;
             }
 
-            // Todo Reimplement addChild
+            auto it = std::find_if(lights.begin(), lights.end(), [&](const LightStruct& lightStruct) { return lightStruct.id == droppedLight.id; });
+            if (it != lights.end()) {
+                std::cout << "Light found!" << std::endl;
+                if (it->parent == nullptr) return;
+                it->parent->lightsChildren.erase(std::remove(it->parent->lightsChildren.begin(), it->parent->lightsChildren.end(), &(*it)), it->parent->lightsChildren.end());
+                it->parent = nullptr;
+                it->isChild = false;
+            } else {
+                std::cerr << "Light not found!" << std::endl;
+            }
         }
 
         ImGui::EndDragDropTarget();
@@ -213,22 +234,28 @@ void UnchildObjects(ImVec2 childSize) {
     if (ImGui::BeginDragDropTarget()) {
         const ImGuiPayload* payload = ImGui::AcceptDragDropPayload("CHILD_ENTITY_PAYLOAD");
         if (payload) {
-            if (payload->DataSize != sizeof(Entity*)) {
+            if (payload->DataSize != sizeof(Entity)) {
                 std::cerr << "Invalid payload size!" << std::endl;
                 return;
             }
 
-            Entity* droppedEntity = static_cast<Entity*>(payload->Data);
+            Entity droppedEntity = *static_cast<Entity*>(payload->Data);
 
-            if (!droppedEntity->isChild){
+            if (!droppedEntity.isChild) {
                 std::cerr << "Dropped entity is not a child." << std::endl;
                 return;
             }
 
-            droppedEntity->parent->removeChild(&droppedEntity);
-            droppedEntity->isChild = false;
-            droppedEntity->parent = nullptr;
-            entitiesListPregame.push_back(*droppedEntity);
+            auto it = std::find_if(entitiesListPregame.begin(), entitiesListPregame.end(), [&](const Entity& entity) { return entity.id == droppedEntity.id; });
+            if (it != entitiesListPregame.end()) {
+                std::cout << "Entity found!" << std::endl;
+                if (it->parent == nullptr) return;
+                it->parent->entitiesChildren.erase(std::remove(it->parent->entitiesChildren.begin(), it->parent->entitiesChildren.end(), &(*it)), it->parent->entitiesChildren.end());
+                it->parent = nullptr;
+                it->isChild = false;
+            } else {
+                std::cerr << "Entity not found!" << std::endl;
+            }
         }
         ImGui::EndDragDropTarget();
     }
@@ -265,6 +292,7 @@ void ImGuiListViewEx() {
     DrawCameraTree();
 
     for (Entity& entity : entitiesListPregame) {
+        if (entity.isChild || !entity.initialized) continue;
         DrawEntityTree(entity);
     }
 

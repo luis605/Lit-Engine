@@ -15,7 +15,7 @@ void InitStressTest() {
     mainEntity.setName("main");
     mainEntity.setModel("", LoadModelFromMesh(GenMeshCube(1, 1, 1)));
     mainEntity.setShader(instancingShader);
-    entitiesListPregame.push_back(mainEntity);
+    entitiesListPregame.emplace_back(mainEntity);
 
     model = LoadModelFromMesh(GenMeshCube(1, 1, 1));
 

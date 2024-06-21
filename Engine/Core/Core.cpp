@@ -145,10 +145,9 @@ void CleanUp() {
     inGamePreview = false;
     firstTimeGameplay = false;
 
-    for (Entity &entity : entitiesListPregame)
-        entity.remove();
-
     entitiesListPregame.clear();
+    entitiesList.clear();
+    lights.clear();
 
     UnloadShader(shader);
     UnloadImage(windowIconImage);
