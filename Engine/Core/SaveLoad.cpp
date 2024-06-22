@@ -106,15 +106,29 @@ namespace nlohmann {
     };
 }
 
-bool is_subpath(const std::filesystem::path &path,
-                const std::filesystem::path &base)
-{
-    auto rel = std::filesystem::relative(path, base);
+bool is_subpath(const fs::path &path, const fs::path &base);
+void SaveCamera(json& jsonData, const LitCamera camera);
+void SaveEntity(json& jsonData, const Entity& entity);
+void SaveLight(json& jsonData, const LightStruct& lightStruct);
+void SaveText(json& jsonData, const Text& text, bool emplaceBack = true);
+void SaveButton(json& jsonData, const LitButton& button);
+void LoadEntity(const json& entityJson, Entity& entity, std::vector<Entity>& entitiesVector);
+void LoadLight(const json& lightJson, LightStruct& lightStruct);
+
+std::map<std::string, std::string> scriptContents;
+
+bool is_subpath(const fs::path &path, const fs::path &base) {
+    auto rel = fs::relative(path, base);
     return !rel.empty() && rel.native()[0] != '.';
 }
 
-/* Material */
 void SerializeMaterial(SurfaceMaterial& material, const fs::path path) {
+    std::ofstream outfile(path);
+    if (!outfile.is_open()) {
+        std::cerr << "Error: Failed to open material file: " << path << std::endl;
+        return;
+    }
+
     json j;
     j["color"] = material.color;
     j["diffuseTexturePath"] = material.diffuseTexturePath;
@@ -126,19 +140,12 @@ void SerializeMaterial(SurfaceMaterial& material, const fs::path path) {
     j["roughness"] = material.Roughness;
     j["diffuse_intensity"] = material.DiffuseIntensity;
 
-    std::ofstream outfile(path);
-    if (!outfile.is_open()) {
-        std::cerr << "Error: Failed to open material file: " << path << std::endl;
-        return;
-    }
-
     outfile << std::setw(4) << j;
     outfile.close();
 }
 
 void DeserializeMaterial(SurfaceMaterial* material, const fs::path path) {
-    if (!material)
-        return;
+    if (!material) return;
 
     // Path Traversal Vulnerability Prevention
     fs::path resolvedPath = fs::canonical(path);
@@ -210,21 +217,12 @@ void DeserializeMaterial(SurfaceMaterial* material, const fs::path path) {
             material->DiffuseIntensity = j["diffuse_intensity"];
         }
 
-        // Close the input file
         infile.close();
     } catch (const json::parse_error& e) {
         std::cerr << "Error: Failed to parse material file (" << path << "): " << e.what() << std::endl;
-        return; // Return to avoid using an invalid material
+        return;
     }
 }
-
-
-/* Objects */
-void SaveCamera(json& jsonData, const LitCamera camera);
-void SaveEntity(json& jsonData, const Entity& entity);
-void SaveLight(json& jsonData, const LightStruct& lightStruct);
-void SaveText(json& jsonData, const Text& text, bool emplaceBack = true);
-void SaveButton(json& jsonData, const LitButton& button);
 
 void SaveCamera(json& jsonData, LitCamera camera) {
     json j;
@@ -243,8 +241,6 @@ void SaveCamera(json& jsonData, LitCamera camera) {
 
     jsonData.emplace_back(j);
 }
-
-
 
 void SaveEntity(json& jsonData, const Entity& entity) {
     json j;
@@ -270,7 +266,6 @@ void SaveEntity(json& jsonData, const Entity& entity) {
     j["is_dynamic"]              = entity.isDynamic;
     j["mass"]                    = entity.mass;
     j["lodEnabled"]              = entity.lodEnabled;
-
     j["mass"]                    = entity.mass;
     j["friction"]                = entity.friction;
     j["damping"]                 = entity.damping;
@@ -292,8 +287,8 @@ void SaveEntity(json& jsonData, const Entity& entity) {
             childrenData.emplace_back(childJson);
         }
     }
-    j["children"] = childrenData;
 
+    j["children"] = childrenData;
     jsonData.emplace_back(j);
 }
 
@@ -305,17 +300,14 @@ void SaveLight(json& jsonData, const LightStruct& lightStruct) {
     j["color"]["g"] = lightStruct.light.color.g * 255;
     j["color"]["b"] = lightStruct.light.color.b * 255;
     j["color"]["a"] = lightStruct.light.color.a * 255;
-    
     j["name"] = lightStruct.lightInfo.name;
     j["position"] = lightStruct.light.position;
     
-    if (lightStruct.isChild) {
-        j["relativePosition"] = lightStruct.light.relativePosition;
-    }else {
+    if (!lightStruct.isChild) {
         j["relativePosition"]["x"] = 0;
         j["relativePosition"]["y"] = 0;
         j["relativePosition"]["z"] = 0;
-    }
+    } else j["relativePosition"] = lightStruct.light.relativePosition;
     
     if (lightStruct.light.type == LIGHT_POINT) {
         j["target"]["x"] = 0;
@@ -335,7 +327,6 @@ void SaveLight(json& jsonData, const LightStruct& lightStruct) {
     jsonData.emplace_back(j);
 }
 
-
 void SaveText(json& jsonData, const Text& text, bool emplaceBack) {
     json j;
     j["type"] = "text";
@@ -349,37 +340,26 @@ void SaveText(json& jsonData, const Text& text, bool emplaceBack) {
     j["spacing"] = text.spacing;
     j["padding"] = text.padding;
 
-    if (emplaceBack)
-        jsonData.emplace_back(j);
-    else
-       jsonData = j;
-
+    jsonData.emplace_back(emplaceBack ? j : jsonData);
 }
 
 void SaveWorldSetting(json& jsonData) {
     json j;
     j["type"] = "world settings";
-    // j["gravity"] = gravity;
+    j["gravity"] = physics.gravity;
     j["bloom"] = bloomEnabled;
     j["bloomBrightness"] = bloomBrightness;
     j["bloomSamples"] = bloomSamples;
-    
     j["skyboxPath"] = skyboxPath;
-
     j["ambientColor"] = ambientLight;
     j["skyboxColor"] = skyboxColor;
+
     jsonData.emplace_back(j);
 }
 
 void SaveButton(json& jsonData, const LitButton& button) {
     json j;
     j["type"] = "button";
-    
-    // Create a JSON object for the "text" field
-    json textJson;
-    SaveText(textJson, button.text, false);
-    j["text"] = textJson;
-
     j["name"] = button.name;
     j["position"] = button.position;
     j["size"] = button.size;
@@ -392,10 +372,12 @@ void SaveButton(json& jsonData, const LitButton& button) {
     j["button roundness"] = button.roundness;
     j["auto resize"] = button.autoResize;
 
+    json textJson;
+    SaveText(textJson, button.text, false);
+    j["text"] = textJson;
+
     jsonData.emplace_back(j);
 }
-
-
 
 std::string serializePythonScript(const fs::path& path) {
     fs::path resolvedPath = fs::canonical(path);
@@ -418,8 +400,6 @@ std::string serializePythonScript(const fs::path& path) {
 
     return scriptContent;
 }
-
-std::map<std::string, std::string> scriptContents;
 
 void serializeScripts() {
     json scriptData;
@@ -490,35 +470,29 @@ int SaveProject() {
     return 0;
 }
 
-void LoadEntity(const json& entityJson, Entity& entity, std::vector<Entity>& entitiesVector);
-void LoadLight(const json& lightJson, LightStruct& lightStruct);
-
 void LoadCamera(const json& cameraJson, LitCamera& camera) {
     if (cameraJson.contains("position")) {
-        Vector3 position{
+        camera.position = Vector3{
             cameraJson["position"]["x"].get<float>(),
             cameraJson["position"]["y"].get<float>(),
             cameraJson["position"]["z"].get<float>()
         };
-        camera.position = position;
     }
 
     if (cameraJson.contains("target")) {
-        Vector3 target{
+        camera.target = Vector3{
             cameraJson["target"]["x"].get<float>(),
             cameraJson["target"]["y"].get<float>(),
             cameraJson["target"]["z"].get<float>()
         };
-        camera.target = target;
     }
 
     if (cameraJson.contains("up")) {
-        Vector3 up{
+        camera.up = Vector3{
             cameraJson["up"]["x"].get<float>(),
             cameraJson["up"]["y"].get<float>(),
             cameraJson["up"]["z"].get<float>()
         };
-        camera.up = up;
     }
 
     if (cameraJson.contains("fovy")) {
@@ -530,8 +504,7 @@ void LoadCamera(const json& cameraJson, LitCamera& camera) {
     }
 }
 
-void LoadWorldSettings(const json& worldSettingsJson)
-{
+void LoadWorldSettings(const json& worldSettingsJson) {
     if (worldSettingsJson.contains("bloom")) {
         bloomEnabled = worldSettingsJson["bloom"].get<bool>();
     }
@@ -550,15 +523,15 @@ void LoadWorldSettings(const json& worldSettingsJson)
         SetShaderValue(shader, GetShaderLocation(shader, "ambientLight"), &ambientLight, SHADER_UNIFORM_VEC4);
     }
 
-    if (worldSettingsJson.contains("skyboxColor")) {
-        skyboxColor = worldSettingsJson["skyboxColor"].get<Vector4>();
-        SetShaderValue(skybox.materials[0].shader, GetShaderLocation(skybox.materials[0].shader, "skyboxColor"), &skyboxColor, SHADER_UNIFORM_VEC4);
+    if (worldSettingsJson.contains("gravity")) {
+        physics.gravity.x = worldSettingsJson["gravity"]["x"].get<float>();
+        physics.gravity.y = worldSettingsJson["gravity"]["y"].get<float>();
+        physics.gravity.z = worldSettingsJson["gravity"]["z"].get<float>();
     }
-    else
-    {
-        skyboxColor = (Vector4){1,1,1,1};
-        SetShaderValue(skybox.materials[0].shader, GetShaderLocation(skybox.materials[0].shader, "skyboxColor"), &skyboxColor, SHADER_UNIFORM_VEC4);
-    }
+
+    if (worldSettingsJson.contains("skyboxColor"))  skyboxColor = worldSettingsJson["skyboxColor"].get<Vector4>();
+    else                                            skyboxColor = (Vector4){1,1,1,1};
+    SetShaderValue(skybox.materials[0].shader, GetShaderLocation(skybox.materials[0].shader, "skyboxColor"), &skyboxColor, SHADER_UNIFORM_VEC4);
 
     if (worldSettingsJson.contains("bloomSamples")) {
         bloomSamples = worldSettingsJson["bloomSamples"].get<int>();
@@ -569,9 +542,6 @@ void LoadWorldSettings(const json& worldSettingsJson)
         glUseProgram(0);
     }
 }
-
-
-
 
 void LoadEntity(const json& entityJson, Entity& entity, std::vector<Entity>& entitiesVector) {
     if (entityJson.contains("name")) {
@@ -588,30 +558,27 @@ void LoadEntity(const json& entityJson, Entity& entity, std::vector<Entity>& ent
     }
 
     if (entityJson.contains("position")) {
-        Vector3 position{
+        entity.position = Vector3{
             entityJson["position"]["x"].get<float>(),
             entityJson["position"]["y"].get<float>(),
             entityJson["position"]["z"].get<float>()
         };
-        entity.position = position;
     }
 
     if (entityJson.contains("rotation")) {
-        Vector3 rotation{
+        entity.rotation = Vector3{
             entityJson["rotation"]["x"].get<float>(),
             entityJson["rotation"]["y"].get<float>(),
             entityJson["rotation"]["z"].get<float>()
         };
-        entity.rotation = rotation;
     }
 
     if (entityJson.contains("relativePosition")) {
-        Vector3 relativePosition{
+        entity.relativePosition = Vector3{
             entityJson["relativePosition"]["x"].get<float>(),
             entityJson["relativePosition"]["y"].get<float>(),
             entityJson["relativePosition"]["z"].get<float>()
         };
-        entity.relativePosition = relativePosition;
     }
 
     if (entityJson.contains("mass")) {
@@ -644,26 +611,13 @@ void LoadEntity(const json& entityJson, Entity& entity, std::vector<Entity>& ent
             entityJson["modelPath"].get<std::string>().c_str(),
             LoadModel(entityJson["modelPath"].get<std::string>().c_str())
         );
-    }
-    else
-    {
-        if (entity.ObjectType == Entity::ObjectType_Cube)
-            entity.setModel("", LoadModelFromMesh(GenMeshCube(1, 1, 1)));
-
-        else if (entity.ObjectType == Entity::ObjectType_Cone)
-            entity.setModel("", LoadModelFromMesh(GenMeshCone(.5, 1, 10)));
-
-        else if (entity.ObjectType == Entity::ObjectType_Cylinder)
-            entity.setModel("", LoadModelFromMesh(GenMeshCylinder(.5, 2, 30)));
-
-        else if (entity.ObjectType == Entity::ObjectType_Plane)
-            entity.setModel("", LoadModelFromMesh(GenMeshPlane(1, 1, 1, 1)));
-
-        else if (entity.ObjectType == Entity::ObjectType_Sphere)
-            entity.setModel("", LoadModelFromMesh(GenMeshSphere(.5, 50, 50)));
-
-        else if (entity.ObjectType == Entity::ObjectType_Torus)
-            entity.setModel("", LoadModelFromMesh(GenMeshTorus(.5, 1, 30, 30)));
+    } else {
+        if (entity.ObjectType == Entity::ObjectType_Cube)           entity.setModel("", LoadModelFromMesh(GenMeshCube(1, 1, 1)));
+        else if (entity.ObjectType == Entity::ObjectType_Cone)      entity.setModel("", LoadModelFromMesh(GenMeshCone(.5, 1, 10)));
+        else if (entity.ObjectType == Entity::ObjectType_Cylinder)  entity.setModel("", LoadModelFromMesh(GenMeshCylinder(.5, 2, 30)));
+        else if (entity.ObjectType == Entity::ObjectType_Plane)     entity.setModel("", LoadModelFromMesh(GenMeshPlane(1, 1, 1, 1)));
+        else if (entity.ObjectType == Entity::ObjectType_Sphere)    entity.setModel("", LoadModelFromMesh(GenMeshSphere(.5, 50, 50)));
+        else if (entity.ObjectType == Entity::ObjectType_Torus)     entity.setModel("", LoadModelFromMesh(GenMeshTorus(.5, 1, 30, 30)));
     }
 
     if (entityJson.contains("is_dynamic"))
@@ -677,17 +631,18 @@ void LoadEntity(const json& entityJson, Entity& entity, std::vector<Entity>& ent
 
     if (entityJson.contains("collider"))
         entity.collider = entityJson["collider"].get<bool>();
+
     if (entityJson.contains("script_path"))
         entity.script = entityJson["script_path"].get<std::string>();
+
     if (entityJson.contains("scriptIndex"))
         entity.scriptIndex = entityJson["scriptIndex"].get<std::string>();
+
     if (entityJson.contains("id"))
         entity.id = entityJson["id"].get<int>();
-    else
-        entity.id = -1;
+    else entity.id = -1;
 
 
-    // Materials
     if (entityJson.contains("material_path")) {
         entity.surfaceMaterialPath = entityJson["material_path"].get<std::string>();
         if (!entity.surfaceMaterialPath.empty()) DeserializeMaterial(&entity.surfaceMaterial, entity.surfaceMaterialPath);
@@ -727,8 +682,6 @@ void LoadEntity(const json& entityJson, Entity& entity, std::vector<Entity>& ent
     }
 }
 
-
-
 void LoadLight(const json& lightJson, LightStruct& lightStruct) {
     lightStruct.light.color = (glm::vec4{
         lightJson["color"]["r"].get<float>() / 255,
@@ -757,15 +710,13 @@ void LoadLight(const json& lightJson, LightStruct& lightStruct) {
         lightJson["target"]["z"].get<float>()
     };
 
-    
     lightStruct.light.direction = glm::vec3{
         lightJson["direction"]["x"].get<float>(),
         lightJson["direction"]["y"].get<float>(),
         lightJson["direction"]["z"].get<float>()
     };
 
-    lightStruct.id      = lightJson["id"].get<int>();
-    
+    lightStruct.id      = lightJson["id"].get<int>();    
     lightStruct.light.intensity          = lightJson["intensity"].get<float>();
     lightStruct.light.cutOff             = lightJson["cutOff"].get<float>();
     lightStruct.light.specularStrength   = lightJson["specularStrength"].get<float>();
@@ -774,20 +725,19 @@ void LoadLight(const json& lightJson, LightStruct& lightStruct) {
     lightStruct.light.type               = lightJson["light_type"].get<int>();
 }
 
-
 void LoadText(const json& textJson, Text& text) {
     text.name                = textJson["name"].get<std::string>();
     text.text                = textJson["text"].get<std::string>();
 
-    text.color.a             = textJson["color"]["a"].get<unsigned char>();
     text.color.r             = textJson["color"]["r"].get<unsigned char>();
     text.color.g             = textJson["color"]["g"].get<unsigned char>();
     text.color.b             = textJson["color"]["b"].get<unsigned char>();
+    text.color.a             = textJson["color"]["a"].get<unsigned char>();
 
-    text.backgroundColor.a             = textJson["background color"]["a"].get<unsigned char>();
     text.backgroundColor.r             = textJson["background color"]["r"].get<unsigned char>();
     text.backgroundColor.g             = textJson["background color"]["g"].get<unsigned char>();
     text.backgroundColor.b             = textJson["background color"]["b"].get<unsigned char>();
+    text.backgroundColor.a             = textJson["background color"]["a"].get<unsigned char>();
 
     text.backgroundRoundness          = textJson["background roundiness"].get<float>();
     text.fontSize                      = textJson["font size"].get<float>();
@@ -801,7 +751,6 @@ void LoadText(const json& textJson, Text& text) {
     };
 }
 
-
 void LoadButton(const json& buttonJson, LitButton& button) {
     LoadText(buttonJson["text"], button.text);
 
@@ -811,46 +760,45 @@ void LoadButton(const json& buttonJson, LitButton& button) {
         buttonJson["position"]["y"].get<float>(),
         buttonJson["position"]["z"].get<float>()
     };
+
     button.size = {
         buttonJson["size"]["x"].get<float>(),
         buttonJson["size"]["y"].get<float>()
     };
 
-    button.color.a = buttonJson["color"]["a"].get<unsigned char>();
     button.color.r = buttonJson["color"]["r"].get<unsigned char>();
     button.color.g = buttonJson["color"]["g"].get<unsigned char>();
     button.color.b = buttonJson["color"]["b"].get<unsigned char>();
+    button.color.a = buttonJson["color"]["a"].get<unsigned char>();
 
-    button.pressedColor.a = buttonJson["pressed color"]["a"].get<unsigned char>();
     button.pressedColor.r = buttonJson["pressed color"]["r"].get<unsigned char>();
     button.pressedColor.g = buttonJson["pressed color"]["g"].get<unsigned char>();
     button.pressedColor.b = buttonJson["pressed color"]["b"].get<unsigned char>();
+    button.pressedColor.a = buttonJson["pressed color"]["a"].get<unsigned char>();
 
-    button.hoverColor.a = buttonJson["hover color"]["a"].get<unsigned char>();
     button.hoverColor.r = buttonJson["hover color"]["r"].get<unsigned char>();
     button.hoverColor.g = buttonJson["hover color"]["g"].get<unsigned char>();
     button.hoverColor.b = buttonJson["hover color"]["b"].get<unsigned char>();
+    button.hoverColor.a = buttonJson["hover color"]["a"].get<unsigned char>();
 
-    button.disabledButtonColor.a = buttonJson["disabled color"]["a"].get<unsigned char>();
     button.disabledButtonColor.r = buttonJson["disabled color"]["r"].get<unsigned char>();
     button.disabledButtonColor.g = buttonJson["disabled color"]["g"].get<unsigned char>();
     button.disabledButtonColor.b = buttonJson["disabled color"]["b"].get<unsigned char>();
+    button.disabledButtonColor.a = buttonJson["disabled color"]["a"].get<unsigned char>();
 
-    button.disabledText.a = buttonJson["disabled text color"]["a"].get<unsigned char>();
     button.disabledText.r = buttonJson["disabled text color"]["r"].get<unsigned char>();
     button.disabledText.g = buttonJson["disabled text color"]["g"].get<unsigned char>();
     button.disabledText.b = buttonJson["disabled text color"]["b"].get<unsigned char>();
+    button.disabledText.a = buttonJson["disabled text color"]["a"].get<unsigned char>();
 
-    button.disabledHoverColor.a = buttonJson["disabled hover color"]["a"].get<unsigned char>();
     button.disabledHoverColor.r = buttonJson["disabled hover color"]["r"].get<unsigned char>();
     button.disabledHoverColor.g = buttonJson["disabled hover color"]["g"].get<unsigned char>();
     button.disabledHoverColor.b = buttonJson["disabled hover color"]["b"].get<unsigned char>();
+    button.disabledHoverColor.a = buttonJson["disabled hover color"]["a"].get<unsigned char>();
 
     button.roundness = buttonJson["button roundness"].get<float>();
     button.autoResize = buttonJson["auto resize"].get<bool>();
 }
-
-
 
 int LoadProject(std::vector<Entity>& entitiesVector, std::vector<LightStruct>& lightsVector, LitCamera& camera) {
     std::ifstream infile("project.json");
@@ -882,26 +830,20 @@ int LoadProject(std::vector<Entity>& entitiesVector, std::vector<LightStruct>& l
                 LoadEntity(objectJson, entity, entitiesVector);
                 entitiesVector.emplace_back(std::move(entity));
                 entitiesVector.back().reloadRigidBody();
-            }
-            else if (type == "camera") {
+            } else if (type == "camera") {
                 LoadCamera(objectJson, camera);
-            }
-            else if (type == "world settings")
-            {
+            } else if (type == "world settings") {
                 LoadWorldSettings(objectJson);
-            }
-            else if (type == "light") {
+            } else if (type == "light") {
                 if (objectJson["isChild"].get<bool>() == true) continue;
                 LightStruct lightStruct;
                 LoadLight(objectJson, lightStruct);
                 lights.emplace_back(std::move(lightStruct));
-            }
-            else if (type == "text") {
+            } else if (type == "text") {
                 Text textElement;
                 LoadText(objectJson, textElement);
                 textElements.emplace_back(std::move(textElement));
-            }
-            else if (type == "button") {
+            } else if (type == "button") {
                 LitButton button;
                 LoadButton(objectJson, button);
                 litButtons.emplace_back(std::move(button));
