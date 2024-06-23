@@ -4,8 +4,8 @@
 class Entity;
 struct LightStruct;
 
-std::vector<Entity>  entitiesListPregame;
-std::vector<Entity>  entitiesList;
+std::vector<Entity> entitiesListPregame;
+std::vector<Entity> entitiesList;
 
 Entity*      selectedEntity      = nullptr;
 LightStruct* selectedLight       = nullptr;

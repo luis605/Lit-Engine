@@ -2,15 +2,15 @@
     {
         "fovy": 60.0,
         "position": {
-            "x": 35.0,
-            "y": 5.0,
-            "z": 0.0
+            "x": 5.930488586425781,
+            "y": 9.707219123840332,
+            "z": 0.2965102195739746
         },
         "projection": 0,
         "target": {
-            "x": 34.01005172729492,
-            "y": 4.858578681945801,
-            "z": 0.0
+            "x": 5.363337993621826,
+            "y": 8.88409423828125,
+            "z": 0.3248952627182007
         },
         "type": "camera",
         "up": {
@@ -29,6 +29,11 @@
         "bloom": false,
         "bloomBrightness": 0.0,
         "bloomSamples": 3.0,
+        "gravity": {
+            "x": 0.0,
+            "y": -9.8100004196167,
+            "z": 0.0
+        },
         "skyboxColor": {
             "w": 1.0,
             "x": 1.0,
@@ -42,57 +47,41 @@
         "children": [
             [
                 {
-                    "children": null,
-                    "collider": true,
-                    "collider_type": 2,
-                    "damping": 0.0,
-                    "friction": 1.0,
-                    "id": 2,
-                    "is_dynamic": false,
-                    "lodEnabled": true,
-                    "mass": 1.0,
-                    "material_path": "",
-                    "mesh_type": 1,
-                    "modelPath": "",
-                    "name": "B",
+                    "attenuation": 9.999999747378752e-05,
+                    "color": {
+                        "a": 255.0,
+                        "b": 255.0,
+                        "g": 255.0,
+                        "r": 255.0
+                    },
+                    "cutOff": 10.0,
+                    "direction": {
+                        "x": 0.4000000059604645,
+                        "y": 0.4000000059604645,
+                        "z": -0.4000000059604645
+                    },
+                    "id": 5,
+                    "intensity": 0.5,
+                    "isChild": true,
+                    "light_type": 1,
+                    "name": "BL",
                     "position": {
                         "x": 0.0,
                         "y": 0.0,
-                        "z": 0.0
+                        "z": 5.0
                     },
                     "relativePosition": {
                         "x": 0.0,
                         "y": 0.0,
-                        "z": 0.0
+                        "z": -2.199995517730713
                     },
-                    "rotation": {
-                        "x": 0.0,
-                        "y": 0.0,
-                        "z": 0.0
+                    "specularStrength": 0.5,
+                    "target": {
+                        "x": 0,
+                        "y": 0,
+                        "z": 0
                     },
-                    "scale": {
-                        "x": 1.0,
-                        "y": 1.0,
-                        "z": 1.0
-                    },
-                    "scriptIndex": "",
-                    "script_path": "",
-                    "surfaceMaterial": {
-                        "DiffuseIntensity": 0.5,
-                        "Roughness": 0.5,
-                        "SpecularIntensity": 0.5,
-                        "SpecularTint": {
-                            "x": 1.0,
-                            "y": 1.0,
-                            "z": 1.0
-                        },
-                        "shininess": 0.5
-                    },
-                    "tiling": [
-                        1.0,
-                        1.0
-                    ],
-                    "type": "entity"
+                    "type": "light"
                 }
             ]
         ],
@@ -111,7 +100,7 @@
         "position": {
             "x": 0.0,
             "y": 0.0,
-            "z": 0.0
+            "z": 7.199995517730713
         },
         "relativePosition": {
             "x": 0.0,
@@ -165,14 +154,14 @@
                     "modelPath": "",
                     "name": "D",
                     "position": {
-                        "x": 0.0,
+                        "x": -3.099999189376831,
                         "y": 0.0,
-                        "z": 0.0
+                        "z": 3.299999237060547
                     },
                     "relativePosition": {
                         "x": 0.0,
                         "y": 0.0,
-                        "z": 0.0
+                        "z": -3.7999963760375977
                     },
                     "rotation": {
                         "x": 0.0,
@@ -203,6 +192,45 @@
                     ],
                     "type": "entity"
                 }
+            ],
+            [
+                {
+                    "attenuation": 9.999999747378752e-05,
+                    "color": {
+                        "a": 255.0,
+                        "b": 255.0,
+                        "g": 255.0,
+                        "r": 255.0
+                    },
+                    "cutOff": 10.0,
+                    "direction": {
+                        "x": 0.4000000059604645,
+                        "y": 0.4000000059604645,
+                        "z": -0.4000000059604645
+                    },
+                    "id": 6,
+                    "intensity": 0.5,
+                    "isChild": true,
+                    "light_type": 1,
+                    "name": "DL",
+                    "position": {
+                        "x": -3.4999988079071045,
+                        "y": 2.000000238418579,
+                        "z": 3.100001811981201
+                    },
+                    "relativePosition": {
+                        "x": -0.39999961853027344,
+                        "y": 2.000000238418579,
+                        "z": -3.9999938011169434
+                    },
+                    "specularStrength": 0.5,
+                    "target": {
+                        "x": 0,
+                        "y": 0,
+                        "z": 0
+                    },
+                    "type": "light"
+                }
             ]
         ],
         "collider": true,
@@ -218,9 +246,9 @@
         "modelPath": "",
         "name": "C",
         "position": {
-            "x": 0.0,
+            "x": -3.099999189376831,
             "y": 0.0,
-            "z": 0.0
+            "z": 7.0999956130981445
         },
         "relativePosition": {
             "x": 0.0,

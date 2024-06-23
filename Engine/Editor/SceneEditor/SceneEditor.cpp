@@ -202,6 +202,8 @@ void RenderLight() {
 
 void RenderEntities() {
     for (Entity& entity : entitiesListPregame) {
+        if (entity.isChild) continue;
+
         entity.calcPhysics = false;
         entity.render();
 

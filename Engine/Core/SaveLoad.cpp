@@ -642,6 +642,7 @@ void LoadEntity(const json& entityJson, Entity& entity, std::vector<Entity>& ent
         entity.id = entityJson["id"].get<int>();
     else entity.id = -1;
 
+    entity.reloadRigidBody();
 
     if (entityJson.contains("material_path")) {
         entity.surfaceMaterialPath = entityJson["material_path"].get<std::string>();
@@ -658,15 +659,11 @@ void LoadEntity(const json& entityJson, Entity& entity, std::vector<Entity>& ent
                     const json& childJson = childArray[0];
                     std::string type = childJson["type"].get<std::string>();
                     if (type == "entity") {
-                        Entity child;
+                        entitiesVector.emplace_back();
+                        Entity& child = entitiesVector.back();
                         LoadEntity(childJson, child, entitiesVector);
-                        child.parent = &entity;
-                        child.isChild = true;
 
-                        entitiesVector.emplace_back(std::move(child));
-                        entitiesVector.back().reloadRigidBody();
-
-                        entity.addChild(&entitiesVector.back());
+                        entity.addChild(&child);
                     } else if (type == "light") {
                         lights.emplace_back();
 
@@ -821,15 +818,14 @@ int LoadProject(std::vector<Entity>& entitiesVector, std::vector<LightStruct>& l
     lightsVector.clear();
     textElements.clear();
     litButtons.clear();
-    
+
     try {
         for (const auto& objectJson : jsonData) {
             std::string type = objectJson["type"].get<std::string>();
             if (type == "entity") {
-                Entity entity;
+                entitiesVector.emplace_back();
+                Entity& entity = entitiesVector.back();
                 LoadEntity(objectJson, entity, entitiesVector);
-                entitiesVector.emplace_back(std::move(entity));
-                entitiesVector.back().reloadRigidBody();
             } else if (type == "camera") {
                 LoadCamera(objectJson, camera);
             } else if (type == "world settings") {

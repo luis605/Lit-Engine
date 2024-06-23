@@ -165,8 +165,13 @@ public:
     }
         
     void addChild(Entity* newEntity) {
+        if (!newEntity) {
+            std::cerr << "Error: newEntity is null" << std::endl;
+            return;
+        }
+
         if (newEntity == this) {
-            std::cerr << "newEntity is parent" << std::endl;
+            std::cerr << "Error: newEntity is parent" << std::endl;
             return;
         }
 
