@@ -91,6 +91,8 @@ public:
     std::vector<LightStruct*> lightsChildren;
     std::vector<Entity*>      entitiesChildren;
 
+    std::vector<Entity*>      instances;
+
 private:
     std::shared_ptr<btCollisionShape> rigidShape;
     std::shared_ptr<btConvexHullShape> customMeshShape;
@@ -98,11 +100,10 @@ private:
     std::shared_ptr<btRigidBody> rigidBody;
     LitVector3 backupPosition                      = position;
 
-    std::vector<Entity*> instances;
     Matrix *transforms                             = nullptr;
     Material matInstances;
 
-    Shader* entityShader;
+    Shader* entityShader = &shader;
 
     std::string scriptContent;
 
@@ -148,7 +149,7 @@ public:
     }
 
     bool hasInstances() {
-        return instances.empty();
+        return !instances.empty();
     }
 
     void calculateInstance(int index) {
@@ -398,32 +399,34 @@ public:
         entityOptimized = true;
     }
 
-    void setModel(fs::path path = "", Model entityModel = Model(), Shader defaultShader = shader) {
+    void setModel(fs::path path = "", Model entityModel = Model()) {
         modelPath = path;
         model = modelPath.empty() ? entityModel : LoadModel(path.c_str());
 
         if (!IsModelReady(model)) return;
 
+        setShader(*entityShader);
+
         constBounds = GetMeshBoundingBox(model.meshes[0]);
 
-        std::vector<uint32_t> indices;
-        std::vector<Vector3> vertices;
+        if (lodEnabled) {
+            std::vector<uint32_t> indices;
+            std::vector<Vector3> vertices;
 
-        for (size_t i = 0; i < model.meshes[0].vertexCount; ++i) {
-            size_t baseIndex = i * 3;
-            float x = model.meshes[0].vertices[baseIndex];
-            float y = model.meshes[0].vertices[baseIndex + 1];
-            float z = model.meshes[0].vertices[baseIndex + 2];
+            for (size_t i = 0; i < model.meshes[0].vertexCount; ++i) {
+                size_t baseIndex = i * 3;
+                float x = model.meshes[0].vertices[baseIndex];
+                float y = model.meshes[0].vertices[baseIndex + 1];
+                float z = model.meshes[0].vertices[baseIndex + 2];
 
-            size_t ix;
-            if (model.meshes[0].indices) ix = model.meshes[0].indices[i];
-            else                         ix = i;
+                size_t ix;
+                if (model.meshes[0].indices) ix = model.meshes[0].indices[i];
+                else                         ix = i;
 
-            vertices.emplace_back(Vector3{x, y, z});
-            indices.emplace_back(ix);
-        }
+                vertices.emplace_back(Vector3{x, y, z});
+                indices.emplace_back(ix);
+            }
 
-        if (vertices.size() > 150 && lodEnabled) {
             OptimizedMeshData data(indices, vertices);
 
             this->LodModels[0] = this->model;
@@ -436,27 +439,26 @@ public:
 
             data = OptimizeMesh(indices, vertices, 0.3f);
             this->LodModels[3] = LoadModelFromMesh(generateLODMesh(data.Vertices, data.Indices, model.meshes[0]));
-        }
 
+            OptimizeEntityMemory();
+        }
 
         isDynamic ? makePhysicsDynamic() : makePhysicsStatic();
 
         ReloadTextures();
-        setShader(defaultShader);
-        OptimizeEntityMemory();
     }
 
     bool hasModel() {
         return IsModelReady(model);
     }
 
-    void setShader(Shader shader) {
-        entityShader = &shader;
-        if (IsModelReady(model)) model.materials[0].shader = shader;
+    void setShader(Shader& newShader) {
+        entityShader = &newShader;
+        if (IsModelReady(model)) model.materials[0].shader = newShader;
 
         for (int index = 0; index < 4; index++) {
             if (IsModelReady(LodModels[index])) {
-                LodModels[index].materials[0].shader = shader;
+                LodModels[index].materials[0].shader = newShader;
             }
         }
     }
@@ -1018,10 +1020,10 @@ private:
 
         glBindBufferBase(GL_UNIFORM_BUFFER, bindingPoint, surfaceMaterialUBO);
 
-        glUseProgram(shader.id);
+        glUseProgram(entityShader->id);
 
-        glUniform1i(glGetUniformLocation(shader.id, "normalMapInit"), !surfaceMaterial.normalTexturePath.empty());
-        glUniform1i(glGetUniformLocation(shader.id, "roughnessMapInit"), !surfaceMaterial.roughnessTexturePath.empty());
+        glUniform1i(glGetUniformLocation(entityShader->id, "normalMapInit"), !surfaceMaterial.normalTexturePath.empty());
+        glUniform1i(glGetUniformLocation(entityShader->id, "roughnessMapInit"), !surfaceMaterial.roughnessTexturePath.empty());
 
         glBindBuffer(GL_UNIFORM_BUFFER, 0);
     }

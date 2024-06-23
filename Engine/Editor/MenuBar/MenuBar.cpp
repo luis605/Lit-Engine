@@ -47,7 +47,8 @@ void DebugWindow() {
         for (Entity& entity : entitiesListPregame) {
             if (IsModelReady(entity.model)) {
                 for (int meshIndex = 0; meshIndex < entity.model.meshCount; meshIndex++) {
-                    polygonCount += entity.model.meshes[meshIndex].vertexCount;
+                    if (entity.hasInstances()) polygonCount += entity.model.meshes[meshIndex].vertexCount * entity.instances.size();
+                    else                       polygonCount += entity.model.meshes[meshIndex].vertexCount;
                 }
             }
         }

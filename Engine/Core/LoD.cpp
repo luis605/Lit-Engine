@@ -28,8 +28,8 @@ OptimizedMeshData OptimizeMesh(std::vector<unsigned int>& Indices, std::vector<V
     size_t NumIndices = Indices.size();
     size_t NumVertices = Vertices.size();
 
-    if ((NumIndices % 3 != 0) || NumVertices < 100) {
-        std::cerr << "Error: Number of indices must be a multiple of 3 and vertices should be more than 100." << std::endl;
+    if ((NumIndices % 3 != 0) || NumVertices < 50) {
+        std::cerr << "Error: Number of indices must be a multiple of 3 and vertices should be more than 50." << std::endl;
         return data;
     }
 

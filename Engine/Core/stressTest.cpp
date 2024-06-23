@@ -5,21 +5,16 @@ float getRandomFloat(float min, float max) {
 }
 
 Entity mainEntity;
-Model model;
 
 void InitStressTest() {
-
     mainEntity.setColor(RED);
     mainEntity.position = {0, 0, 0};
-    mainEntity.setScale(Vector3{1, 1, 1});
     mainEntity.setName("main");
-    mainEntity.setModel("", LoadModelFromMesh(GenMeshCube(1, 1, 1)));
+    mainEntity.setModel("", LoadModelFromMesh(GenMeshCube(1,1,1)));
     mainEntity.setShader(instancingShader);
     entitiesListPregame.emplace_back(mainEntity);
 
-    model = LoadModelFromMesh(GenMeshCube(1, 1, 1));
-
-    for (int index = 0; index <= 500000; index++) {
+    for (int index = 0; index <= 1000000; index++) {
         CreateStressTest();
     }
 }
@@ -27,8 +22,8 @@ void InitStressTest() {
 
 void CreateStressTest() {
     Vector3 position;
-    float random_x = getRandomFloat(-1000.0f, 1000.0f);
-    float random_z = getRandomFloat(-1000.0f, 1000.0f);
+    float random_x = getRandomFloat(-3000.0f, 3000.0f);
+    float random_z = getRandomFloat(-3000.0f, 3000.0f);
 
     position.x = random_x;
     position.y = 0.0f;
@@ -36,10 +31,6 @@ void CreateStressTest() {
 
     Entity entity;
     entity.position = position;
-    entity.setScale(Vector3{1, 1, 1});
-    entity.setModel("", model, instancingShader);
-    entity.setShader(instancingShader);
-    entity.script = "project/game/stress.py";
 
     entitiesListPregame.back().addInstance(&entity);
 }
