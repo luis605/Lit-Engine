@@ -2,15 +2,15 @@
     {
         "fovy": 60.0,
         "position": {
-            "x": 5.930488586425781,
-            "y": 9.707219123840332,
-            "z": 0.2965102195739746
+            "x": 8.658408164978027,
+            "y": 11.636310577392578,
+            "z": -0.8305139541625977
         },
         "projection": 0,
         "target": {
-            "x": 5.363337993621826,
-            "y": 8.88409423828125,
-            "z": 0.3248952627182007
+            "x": 8.137598037719727,
+            "y": 10.783211708068848,
+            "z": -0.7992298007011414
         },
         "type": "camera",
         "up": {
@@ -47,41 +47,57 @@
         "children": [
             [
                 {
-                    "attenuation": 9.999999747378752e-05,
-                    "color": {
-                        "a": 255.0,
-                        "b": 255.0,
-                        "g": 255.0,
-                        "r": 255.0
-                    },
-                    "cutOff": 10.0,
-                    "direction": {
-                        "x": 0.4000000059604645,
-                        "y": 0.4000000059604645,
-                        "z": -0.4000000059604645
-                    },
-                    "id": 5,
-                    "intensity": 0.5,
-                    "isChild": true,
-                    "light_type": 1,
-                    "name": "BL",
+                    "children": null,
+                    "collider": true,
+                    "collider_type": 2,
+                    "damping": 0.0,
+                    "friction": 1.0,
+                    "id": 2,
+                    "is_dynamic": false,
+                    "lodEnabled": true,
+                    "mass": 1.0,
+                    "material_path": "",
+                    "mesh_type": 1,
+                    "modelPath": "",
+                    "name": "B",
                     "position": {
                         "x": 0.0,
                         "y": 0.0,
-                        "z": 5.0
+                        "z": 0.0
                     },
                     "relativePosition": {
                         "x": 0.0,
                         "y": 0.0,
-                        "z": -2.199995517730713
+                        "z": 0.0
                     },
-                    "specularStrength": 0.5,
-                    "target": {
-                        "x": 0,
-                        "y": 0,
-                        "z": 0
+                    "rotation": {
+                        "x": 0.0,
+                        "y": 0.0,
+                        "z": 0.0
                     },
-                    "type": "light"
+                    "scale": {
+                        "x": 1.0,
+                        "y": 1.0,
+                        "z": 1.0
+                    },
+                    "scriptIndex": "",
+                    "script_path": "",
+                    "surfaceMaterial": {
+                        "DiffuseIntensity": 0.5,
+                        "Roughness": 0.5,
+                        "SpecularIntensity": 0.5,
+                        "SpecularTint": {
+                            "x": 1.0,
+                            "y": 1.0,
+                            "z": 1.0
+                        },
+                        "shininess": 0.5
+                    },
+                    "tiling": [
+                        1.0,
+                        1.0
+                    ],
+                    "type": "entity"
                 }
             ]
         ],
@@ -100,7 +116,7 @@
         "position": {
             "x": 0.0,
             "y": 0.0,
-            "z": 7.199995517730713
+            "z": 0.0
         },
         "relativePosition": {
             "x": 0.0,
@@ -154,14 +170,14 @@
                     "modelPath": "",
                     "name": "D",
                     "position": {
-                        "x": -3.099999189376831,
+                        "x": 0.0,
                         "y": 0.0,
-                        "z": 3.299999237060547
+                        "z": 0.0
                     },
                     "relativePosition": {
                         "x": 0.0,
                         "y": 0.0,
-                        "z": -3.7999963760375977
+                        "z": 0.0
                     },
                     "rotation": {
                         "x": 0.0,
@@ -192,45 +208,6 @@
                     ],
                     "type": "entity"
                 }
-            ],
-            [
-                {
-                    "attenuation": 9.999999747378752e-05,
-                    "color": {
-                        "a": 255.0,
-                        "b": 255.0,
-                        "g": 255.0,
-                        "r": 255.0
-                    },
-                    "cutOff": 10.0,
-                    "direction": {
-                        "x": 0.4000000059604645,
-                        "y": 0.4000000059604645,
-                        "z": -0.4000000059604645
-                    },
-                    "id": 6,
-                    "intensity": 0.5,
-                    "isChild": true,
-                    "light_type": 1,
-                    "name": "DL",
-                    "position": {
-                        "x": -3.4999988079071045,
-                        "y": 2.000000238418579,
-                        "z": 3.100001811981201
-                    },
-                    "relativePosition": {
-                        "x": -0.39999961853027344,
-                        "y": 2.000000238418579,
-                        "z": -3.9999938011169434
-                    },
-                    "specularStrength": 0.5,
-                    "target": {
-                        "x": 0,
-                        "y": 0,
-                        "z": 0
-                    },
-                    "type": "light"
-                }
             ]
         ],
         "collider": true,
@@ -246,9 +223,9 @@
         "modelPath": "",
         "name": "C",
         "position": {
-            "x": -3.099999189376831,
+            "x": 0.0,
             "y": 0.0,
-            "z": 7.0999956130981445
+            "z": 0.0
         },
         "relativePosition": {
             "x": 0.0,

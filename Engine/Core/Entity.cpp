@@ -399,11 +399,14 @@ public:
         entityOptimized = true;
     }
 
-    void setModel(fs::path path = "", Model entityModel = Model()) {
+    void setModel(const fs::path& path = "", const Model& entityModel = Model()) {
         modelPath = path;
         model = modelPath.empty() ? entityModel : LoadModel(path.c_str());
 
-        if (!IsModelReady(model)) return;
+        if (!IsModelReady(model)) {
+            TraceLog(LOG_WARNING, "Could not set invalid model.");
+            return;
+        };
 
         setShader(*entityShader);
 
@@ -427,20 +430,22 @@ public:
                 indices.emplace_back(ix);
             }
 
-            OptimizedMeshData data(indices, vertices);
+            if (vertices.size() > 50) {
+                OptimizedMeshData data(indices, vertices);
 
-            this->LodModels[0] = this->model;
+                this->LodModels[0] = this->model;
 
-            data = OptimizeMesh(indices, vertices, 0.8f);
-            this->LodModels[1] = LoadModelFromMesh(generateLODMesh(data.Vertices, data.Indices, model.meshes[0]));
+                data = OptimizeMesh(indices, vertices, 0.8f);
+                this->LodModels[1] = LoadModelFromMesh(generateLODMesh(data.Vertices, data.Indices, model.meshes[0]));
 
-            data = OptimizeMesh(indices, vertices, 0.6f);
-            this->LodModels[2] = LoadModelFromMesh(generateLODMesh(data.Vertices, data.Indices, model.meshes[0]));
+                data = OptimizeMesh(indices, vertices, 0.6f);
+                this->LodModels[2] = LoadModelFromMesh(generateLODMesh(data.Vertices, data.Indices, model.meshes[0]));
 
-            data = OptimizeMesh(indices, vertices, 0.3f);
-            this->LodModels[3] = LoadModelFromMesh(generateLODMesh(data.Vertices, data.Indices, model.meshes[0]));
+                data = OptimizeMesh(indices, vertices, 0.3f);
+                this->LodModels[3] = LoadModelFromMesh(generateLODMesh(data.Vertices, data.Indices, model.meshes[0]));
 
-            OptimizeEntityMemory();
+                OptimizeEntityMemory();
+            }
         }
 
         isDynamic ? makePhysicsDynamic() : makePhysicsStatic();
