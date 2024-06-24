@@ -104,3 +104,14 @@ HitInfo raycast(LitVector3 origin, LitVector3 direction, bool debug, std::vector
 
     return hitInfo;
 }
+
+
+template <typename T>
+int findIndexInVector(const std::vector<T>& vec, const T& value) {
+    auto it = std::find(vec.begin(), vec.end(), value);
+    if (it != vec.end()) {
+        return std::distance(vec.begin(), it);
+    } else {
+        return -1; // Return -1 if the element is not found
+    }
+}

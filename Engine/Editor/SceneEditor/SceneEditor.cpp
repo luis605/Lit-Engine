@@ -214,10 +214,12 @@ void RenderEntities() {
                 selectedGameObjectType = "entity";
             }
 
-            for (Entity* childEntity : entity.entitiesChildren) {
-                bool isEntitySelected = IsMouseHoveringModel(childEntity->model, childEntity->position, childEntity->rotation, childEntity->scale);
+            for (int childEntityIndex : entity.entitiesChildren) {
+                Entity& childEntity = entitiesListPregame[childEntityIndex];
+
+                bool isEntitySelected = IsMouseHoveringModel(childEntity.model, childEntity.position, childEntity.rotation, childEntity.scale);
                 if (isEntitySelected) {
-                    selectedEntity = childEntity;
+                    selectedEntity = &childEntity;
                     selectedGameObjectType = "entity";
                 }
             }

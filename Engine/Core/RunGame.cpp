@@ -1,6 +1,9 @@
 void InitGameCamera() {
+    camera.pos = { 10.0f, 5.0f, 0.0f };
     camera.position = { 10.0f, 5.0f, 0.0f };
+    camera.look_at = { 0.0f, 0.0f, 0.0f };
     camera.target = { 0.0f, 0.0f, 0.0f };
+    camera.up_vector = { 0.0f, 1.0f, 0.0f };
     camera.up = { 0.0f, 1.0f, 0.0f };
 
     Vector3 front = Vector3Subtract(camera.target, camera.position);
@@ -46,7 +49,6 @@ void RunGame() {
             entity.runScript(&camera);
         }
 
-        
         firstTimeGameplay = false;
 
         UpdateLightsBuffer();

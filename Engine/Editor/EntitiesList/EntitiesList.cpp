@@ -92,7 +92,7 @@ void DrawEntityTree(Entity& entity) {
             auto it = std::find_if(lights.begin(), lights.end(), [&](const LightStruct& lightStruct) { return lightStruct.id == droppedLight.id; });
             if (it != lights.end()) {
                 std::cout << "Light found!" << std::endl;
-                entity.addChild(&(*it));
+                entity.addLightChild(findIndexInVector(lights, *it));
             } else {
                 std::cerr << "Light not found!" << std::endl;
             }
@@ -113,25 +113,28 @@ void DrawEntityTree(Entity& entity) {
             auto it = std::find_if(entitiesListPregame.begin(), entitiesListPregame.end(), [&](const Entity& entity) { return entity.id == droppedEntity.id; });
             if (it != entitiesListPregame.end()) {
                 std::cout << "Entity found!" << std::endl;
-                entity.addChild(&(*it));
+                entity.addEntityChild(findIndexInVector(entitiesListPregame, *it));
             } else {
                 std::cerr << "Entity not found!" << std::endl;
             }
         }
         ImGui::EndDragDropTarget();
     }
+
     if (isNodeOpen) {
-        for (Entity* entityChild : entity.entitiesChildren) {
-            if (!entityChild->initialized) {
+        for (int entityChildIndex : entity.entitiesChildren) {
+            Entity& entityChild = entitiesListPregame[entityChildIndex];
+            if (!entityChild.initialized) {
                 ImGui::TreeNodeEx("ERROR: Entity child not initialized!", ImGuiTreeNodeFlags_NoTreePushOnOpen);
                 continue;
             }
 
-            DrawEntityTree(*entityChild);
+            DrawEntityTree(entityChild);
         }
 
-        for (LightStruct* lightStruct : entity.lightsChildren) {
-            DrawLightTree(*lightStruct);
+        for (int lightStructIndex : entity.lightsChildren) {
+            LightStruct& lightStruct = lights[lightStructIndex];
+            DrawLightTree(lightStruct);
         }
 
         ImGui::TreePop();
@@ -143,6 +146,7 @@ void DrawLightTree(LightStruct& lightStruct) {
     bool isSelected = (selectedLight == &lightStruct && selectedGameObjectType == "light");
 
     bool isNodeOpen = DrawTreeNodeWithRename(ICON_FA_LIGHTBULB, lightStruct.lightInfo.name, (void*)&lightStruct, nodeFlags, isSelected, [&]() {
+        selectedLight = &lightStruct;
         selectedGameObjectType = "light";
     });
 
@@ -216,16 +220,19 @@ void UnchildObjects(ImVec2 childSize) {
                 return;
             }
 
-            auto it = std::find_if(lights.begin(), lights.end(), [&](const LightStruct& lightStruct) { return lightStruct.id == droppedLight.id; });
-            if (it != lights.end()) {
-                std::cout << "Light found!" << std::endl;
-                if (it->parent == nullptr) return;
-                it->parent->lightsChildren.erase(std::remove(it->parent->lightsChildren.begin(), it->parent->lightsChildren.end(), &(*it)), it->parent->lightsChildren.end());
-                it->parent = nullptr;
-                it->isChild = false;
-            } else {
-                std::cerr << "Light not found!" << std::endl;
+            int index = findIndexInVector(lights, droppedLight);
+            LightStruct& light = lights[index];
+
+            if (light.parent && light.parent->initialized) {
+                auto it = std::find(light.parent->lightsChildren.begin(), light.parent->lightsChildren.end(), index);
+
+                if (it != light.parent->lightsChildren.end()) { 
+                    light.parent->lightsChildren.erase(it); 
+                } 
             }
+
+            light.parent = nullptr;
+            light.isChild = false;
         }
 
         ImGui::EndDragDropTarget();
@@ -246,16 +253,19 @@ void UnchildObjects(ImVec2 childSize) {
                 return;
             }
 
-            auto it = std::find_if(entitiesListPregame.begin(), entitiesListPregame.end(), [&](const Entity& entity) { return entity.id == droppedEntity.id; });
-            if (it != entitiesListPregame.end()) {
-                std::cout << "Entity found!" << std::endl;
-                if (it->parent == nullptr) return;
-                it->parent->entitiesChildren.erase(std::remove(it->parent->entitiesChildren.begin(), it->parent->entitiesChildren.end(), &(*it)), it->parent->entitiesChildren.end());
-                it->parent = nullptr;
-                it->isChild = false;
-            } else {
-                std::cerr << "Entity not found!" << std::endl;
+            int index = findIndexInVector(entitiesListPregame, droppedEntity);
+            Entity& entity = entitiesListPregame[index];
+
+            if (entity.parent && entity.parent->initialized) {
+                auto it = std::find(entity.parent->entitiesChildren.begin(), entity.parent->entitiesChildren.end(), index);
+
+                if (it != entity.parent->entitiesChildren.end()) { 
+                    entity.parent->entitiesChildren.erase(it); 
+                } 
             }
+
+            entity.parent = nullptr;
+            entity.isChild = false;
         }
         ImGui::EndDragDropTarget();
     }

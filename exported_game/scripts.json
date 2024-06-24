@@ -1,1 +1,5 @@
-null
+[
+    {
+        "simpleMovement0": "def update():\n\tif IsKeyPressed(KeyboardKey.KEY_W):\n\t\tentity.position.x += 1 * time.dt\n\tif IsKeyPressed(KeyboardKey.KEY_S):\n\t\tentity.position.x -= 1 * time.dt\n\tif IsKeyPressed(KeyboardKey.KEY_A):\n\t\tentity.position.z += 1 * time.dt\n\tif IsKeyPressed(KeyboardKey.KEY_D):\n\t\tentity.position.z += 1 * time.dt\n\n"
+    }
+]

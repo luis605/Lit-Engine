@@ -2,15 +2,15 @@
     {
         "fovy": 60.0,
         "position": {
-            "x": 8.658408164978027,
-            "y": 11.636310577392578,
-            "z": -0.8305139541625977
+            "x": 8.634526252746582,
+            "y": 10.824945449829102,
+            "z": 7.55902099609375
         },
         "projection": 0,
         "target": {
-            "x": 8.137598037719727,
-            "y": 10.783211708068848,
-            "z": -0.7992298007011414
+            "x": 8.037199974060059,
+            "y": 10.025190353393555,
+            "z": 7.61896276473999
         },
         "type": "camera",
         "up": {
@@ -52,23 +52,23 @@
                     "collider_type": 2,
                     "damping": 0.0,
                     "friction": 1.0,
-                    "id": 2,
+                    "id": 3,
                     "is_dynamic": false,
                     "lodEnabled": true,
                     "mass": 1.0,
                     "material_path": "",
                     "mesh_type": 1,
                     "modelPath": "",
-                    "name": "B",
+                    "name": "Child 1",
                     "position": {
                         "x": 0.0,
                         "y": 0.0,
-                        "z": 0.0
+                        "z": 2.299999952316284
                     },
                     "relativePosition": {
                         "x": 0.0,
                         "y": 0.0,
-                        "z": 0.0
+                        "z": -3.7999966144561768
                     },
                     "rotation": {
                         "x": 0.0,
@@ -99,61 +99,7 @@
                     ],
                     "type": "entity"
                 }
-            ]
-        ],
-        "collider": true,
-        "collider_type": 2,
-        "damping": 0.0,
-        "friction": 1.0,
-        "id": 1,
-        "is_dynamic": false,
-        "lodEnabled": true,
-        "mass": 1.0,
-        "material_path": "",
-        "mesh_type": 1,
-        "modelPath": "",
-        "name": "A",
-        "position": {
-            "x": 0.0,
-            "y": 0.0,
-            "z": 0.0
-        },
-        "relativePosition": {
-            "x": 0.0,
-            "y": 0.0,
-            "z": 0.0
-        },
-        "rotation": {
-            "x": 0.0,
-            "y": 0.0,
-            "z": 0.0
-        },
-        "scale": {
-            "x": 1.0,
-            "y": 1.0,
-            "z": 1.0
-        },
-        "scriptIndex": "",
-        "script_path": "",
-        "surfaceMaterial": {
-            "DiffuseIntensity": 0.5,
-            "Roughness": 0.5,
-            "SpecularIntensity": 0.5,
-            "SpecularTint": {
-                "x": 1.0,
-                "y": 1.0,
-                "z": 1.0
-            },
-            "shininess": 0.5
-        },
-        "tiling": [
-            1.0,
-            1.0
-        ],
-        "type": "entity"
-    },
-    {
-        "children": [
+            ],
             [
                 {
                     "children": null,
@@ -168,16 +114,16 @@
                     "material_path": "",
                     "mesh_type": 1,
                     "modelPath": "",
-                    "name": "D",
+                    "name": "Child 2",
                     "position": {
                         "x": 0.0,
                         "y": 0.0,
-                        "z": 0.0
+                        "z": -0.39999961853027344
                     },
                     "relativePosition": {
                         "x": 0.0,
                         "y": 0.0,
-                        "z": 0.0
+                        "z": -6.499996185302734
                     },
                     "rotation": {
                         "x": 0.0,
@@ -208,24 +154,63 @@
                     ],
                     "type": "entity"
                 }
+            ],
+            [
+                {
+                    "attenuation": 9.999999747378752e-05,
+                    "color": {
+                        "a": 255.0,
+                        "b": 0.0,
+                        "g": 117.2177505493164,
+                        "r": 255.0
+                    },
+                    "cutOff": 10.0,
+                    "direction": {
+                        "x": 0.4000000059604645,
+                        "y": 0.4000000059604645,
+                        "z": -0.4000000059604645
+                    },
+                    "id": 2,
+                    "intensity": 12.277000427246094,
+                    "isChild": true,
+                    "light_type": 1,
+                    "name": "Light A",
+                    "position": {
+                        "x": -5.199997425079346,
+                        "y": 6.499996185302734,
+                        "z": -0.5999994277954102
+                    },
+                    "relativePosition": {
+                        "x": -5.199997425079346,
+                        "y": 6.499996185302734,
+                        "z": -6.699995994567871
+                    },
+                    "specularStrength": 0.5,
+                    "target": {
+                        "x": 0,
+                        "y": 0,
+                        "z": 0
+                    },
+                    "type": "light"
+                }
             ]
         ],
         "collider": true,
         "collider_type": 2,
         "damping": 0.0,
         "friction": 1.0,
-        "id": 3,
+        "id": 1,
         "is_dynamic": false,
         "lodEnabled": true,
         "mass": 1.0,
         "material_path": "",
         "mesh_type": 1,
         "modelPath": "",
-        "name": "C",
+        "name": "Parent A",
         "position": {
             "x": 0.0,
             "y": 0.0,
-            "z": 0.0
+            "z": 6.099996566772461
         },
         "relativePosition": {
             "x": 0.0,
@@ -238,12 +223,12 @@
             "z": 0.0
         },
         "scale": {
-            "x": 1.0,
-            "y": 1.0,
-            "z": 1.0
+            "x": 2.0,
+            "y": 2.0,
+            "z": 2.0
         },
-        "scriptIndex": "",
-        "script_path": "",
+        "scriptIndex": "simpleMovement0",
+        "script_path": "project/game/scripts/simpleMovement.py",
         "surfaceMaterial": {
             "DiffuseIntensity": 0.5,
             "Roughness": 0.5,

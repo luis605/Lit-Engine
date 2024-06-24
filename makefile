@@ -27,7 +27,7 @@ UNAME := $(shell uname)
 
 CXX := g++
 
-CXXFLAGS = -pipe -std=c++17 -fpermissive -Wno-unused-result
+CXXFLAGS = -pipe -std=c++17 -Wno-unused-result
 SRC_FILES = include/ImGuiColorTextEdit/TextEditor.o include/rlImGui.o include/ImNodes/ImNodes.o include/ImNodes/ImNodesEz.o
 INCLUDE_DIRS = -I./include -I./include/ImGuiColorTextEdit -I./include/ImNodes -I./include/ffmpeg -I./include/nlohmann/include
 INCLUDE_DIRS += -I./include/imgui -I./include/bullet3/src -L./include/raylib/src -I./include/raylib/src -L./include/meshoptimizer/build -I./include/meshoptimizer/src

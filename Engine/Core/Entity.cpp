@@ -88,8 +88,8 @@ public:
 
     Entity* parent = nullptr;
 
-    std::vector<LightStruct*> lightsChildren;
-    std::vector<Entity*>      entitiesChildren;
+    std::vector<int> lightsChildren;    // Store the indices
+    std::vector<int> entitiesChildren;  // Store the indices
 
     std::vector<Entity*>      instances;
 
@@ -116,15 +116,9 @@ private:
     bool entityOptimized = false;
 
 public:
-    Entity(LitVector3 scale = { 1, 1, 1 }, LitVector3 rotation = { 0, 0, 0 }, std::string name = "entity",
-    LitVector3 position = {0, 0, 0}, std::string script = "")
-        : scale(scale), rotation(rotation), name(name), position(position), script(script)
-    {
+    Entity(std::string name = "entity", LitVector3 position = {0, 0, 0}, LitVector3 scale = { 1, 1, 1 },
+    LitVector3 rotation = { 0, 0, 0 }) : name(name), position(position), scale(scale), rotation(rotation) {
         initialized = true;
-    }
-
-    Entity(std::vector<Entity>& entitiesListPregame) {
-        entitiesListPregame.emplace_back(*this);
     }
 
     bool operator==(const Entity& other) const {
@@ -165,97 +159,101 @@ public:
         matInstances = LoadMaterialDefault();
     }
         
-    void addChild(Entity* newEntity) {
-        if (!newEntity) {
-            std::cerr << "Error: newEntity is null" << std::endl;
-            return;
-        }
+    void addEntityChild(int newEntityIndex) {
+        Entity& newEntity = entitiesListPregame.at(newEntityIndex);
 
-        if (newEntity == this) {
+        if (&newEntity == this) {
             std::cerr << "Error: newEntity is parent" << std::endl;
             return;
         }
 
-        if (newEntity->isChild && newEntity->parent != nullptr) {
-            auto it = std::find(newEntity->parent->entitiesChildren.begin(), newEntity->parent->entitiesChildren.end(), newEntity);
-            if (it != newEntity->parent->entitiesChildren.end()) {
-                newEntity->parent->entitiesChildren.erase(it);
+        if (newEntity.isChild && newEntity.parent != nullptr) {
+            auto it = std::find(newEntity.parent->entitiesChildren.begin(), newEntity.parent->entitiesChildren.end(), newEntityIndex);
+
+            if (it != newEntity.parent->entitiesChildren.end()) {
+                newEntity.parent->entitiesChildren.erase(it);
             }
         }
 
-        newEntity->isChild = true;
-        newEntity->parent = this;
-        newEntity->relativePosition = {
-            newEntity->position.x - this->position.x,
-            newEntity->position.y - this->position.y,
-            newEntity->position.z - this->position.z
+        newEntity.isChild = true;
+        newEntity.parent = this;
+        newEntity.relativePosition = {
+            newEntity.position.x - this->position.x,
+            newEntity.position.y - this->position.y,
+            newEntity.position.z - this->position.z
         };
 
-        entitiesChildren.emplace_back(newEntity);
+       entitiesChildren.emplace_back(newEntityIndex);
     }
 
-    void addChild(LightStruct* newLight) {
-        if (!newLight) {
-            std::cerr << "Error: newLight is null" << std::endl;
-            return;
-        }
+    void addLightChild(int newLightIndex) {
+        LightStruct& newLight = lights.at(newLightIndex);
 
-        if (newLight->isChild && newLight->parent != nullptr) {
-            auto it = std::find(newLight->parent->lightsChildren.begin(), newLight->parent->lightsChildren.end(), newLight);
+        if (newLight.isChild && newLight.parent != nullptr) {
+            auto it = std::find(newLight.parent->lightsChildren.begin(), newLight.parent->lightsChildren.end(), newLightIndex);
             
-            if (it != newLight->parent->lightsChildren.end()) {
-                newLight->parent->lightsChildren.erase(it);
+            if (it != newLight.parent->lightsChildren.end()) {
+                newLight.parent->lightsChildren.erase(it);
             }
         }
 
-        newLight->isChild = true;
-        newLight->parent = this;
-        newLight->light.relativePosition = {
-            newLight->light.position.x - this->position.x,
-            newLight->light.position.y - this->position.y,
-            newLight->light.position.z - this->position.z
+        newLight.isChild = true;
+        newLight.parent = this;
+        newLight.light.relativePosition = {
+            newLight.light.position.x - this->position.x,
+            newLight.light.position.y - this->position.y,
+            newLight.light.position.z - this->position.z
         };
 
-        lightsChildren.emplace_back(newLight);
+        lightsChildren.emplace_back(newLightIndex);
     }
 
     void updateChildren() {
-        for (Entity* entityChild : entitiesChildren) {
-            updateEntityChild(entityChild);
+        for (int entityChildIndex : entitiesChildren) {
+#ifndef GAME_SHIPPING
+            if (!inGamePreview) updateEntityChild(entitiesListPregame.at(entityChildIndex));
+            else                updateEntityChild(entitiesList.at(entityChildIndex));
+#else
+            updateEntityChild(entitiesList.at(entityChildIndex));
+#endif
         }
 
-        for (LightStruct* lightChild : lightsChildren) {
-            updateLightChild(lightChild);
+        for (int lightChildIndex : lightsChildren) {
+            updateLightChild(lights.at(lightChildIndex));
         }
     }
 
-    void updateEntityChild(Entity* entity) {
-        if (!entity) return;
+    void updateEntityChild(Entity& entity) {
+        if (!entity.initialized) return;
 
     #ifndef GAME_SHIPPING
-        if (entity == selectedEntity) return;
+        if (&entity == selectedEntity) {
+            entity.render();
+            return;
+        };
     #endif
 
-        entity->position = this->position + entity->relativePosition;
+        if (entity.parent != this || !entity.parent->initialized) entity.parent = this;
 
-        entity->render();
+        entity.position = this->position + entity.relativePosition;
+        entity.render();
     }
 
-    void updateLightChild(LightStruct* lightStruct) {
-        if (!lightStruct) return;
-
+    void updateLightChild(LightStruct& lightStruct) {
     #ifndef GAME_SHIPPING
-        if (lightStruct == selectedLight && selectedGameObjectType == "light" && !inGamePreview) return;
+        if (&lightStruct == selectedLight && selectedGameObjectType == "light" && !inGamePreview) return;
     #endif
 
-        lightStruct->light.position = glm::vec3(this->position.x, this->position.y, this->position.z) + lightStruct->light.relativePosition;
+        if (lightStruct.parent != this || !lightStruct.parent->initialized) lightStruct.parent = this;
+
+        lightStruct.light.position = glm::vec3(this->position.x, this->position.y, this->position.z) + lightStruct.light.relativePosition;
     }
 
     void makeChildrenInstances() {
-        for (Entity* entity : entitiesChildren) {
-            addInstance(entity);
-            entity->makeChildrenInstances();
-        }
+        // for (Entity* entity : entitiesChildren) {
+        //     addInstance(entity);
+        //     entity->makeChildrenInstances();
+        // }
     }
 
     Color getColor() {
@@ -498,10 +496,7 @@ public:
                 }))
 
                 .def_property("name", &Entity::getName, &Entity::setName)
-                .def_property("position",
-                    [](const Entity& entity) { return entity.position; },
-                    [](Entity& entity, LitVector3& position) { entity.setPos(position); }
-                )
+                .def_readwrite("position", &Entity::position)
                 .def_readwrite("scale", &Entity::scale)
                 .def_property("rotation",
                     [](const Entity& entity) { return entity.rotation; },
@@ -918,6 +913,7 @@ public:
 
         if (calcPhysics) {
             if (*currentCollisionShapeType != CollisionShapeType::None && isDynamic) {
+                setPos(position);
                 calcPhysicsRotation();
                 calcPhysicsPosition();
             }

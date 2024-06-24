@@ -112,7 +112,7 @@ void SaveEntity(json& jsonData, const Entity& entity);
 void SaveLight(json& jsonData, const LightStruct& lightStruct);
 void SaveText(json& jsonData, const Text& text, bool emplaceBack = true);
 void SaveButton(json& jsonData, const LitButton& button);
-void LoadEntity(const json& entityJson, Entity& entity, std::vector<Entity>& entitiesVector);
+// Entity LoadEntity(const json& entityJson, std::vector<Entity>& entitiesVector);
 void LoadLight(const json& lightJson, LightStruct& lightStruct);
 
 std::map<std::string, std::string> scriptContents;
@@ -273,17 +273,17 @@ void SaveEntity(json& jsonData, const Entity& entity) {
     json childrenData;
 
     if (!entity.entitiesChildren.empty()) {
-        for (Entity* entityChild : entity.entitiesChildren) {
+        for (int entityChildIndex : entity.entitiesChildren) {
             json childJson;
-            SaveEntity(childJson, *entityChild);
+            SaveEntity(childJson, entitiesListPregame.at(entityChildIndex));
             childrenData.emplace_back(childJson);
         }
     }
 
     if (!entity.lightsChildren.empty()) {
-        for (LightStruct* lightStructChild : entity.lightsChildren) {
+        for (int lightStructChild : entity.lightsChildren) {
             json childJson;
-            SaveLight(childJson, *lightStructChild);
+            SaveLight(childJson, lights.at(lightStructChild));
             childrenData.emplace_back(childJson);
         }
     }
@@ -543,7 +543,9 @@ void LoadWorldSettings(const json& worldSettingsJson) {
     }
 }
 
-void LoadEntity(const json& entityJson, Entity& entity, std::vector<Entity>& entitiesVector) {
+Entity& LoadEntity(const json& entityJson, std::vector<Entity>& entitiesVector) {
+    Entity entity = Entity();
+
     if (entityJson.contains("name")) {
         entity.setName(entityJson["name"].get<std::string>());
     }
@@ -651,6 +653,7 @@ void LoadEntity(const json& entityJson, Entity& entity, std::vector<Entity>& ent
 
     entity.setShader(shader);
 
+    // Deserialize children
     if (entityJson.contains("children")) {
         const json& childrenData = entityJson["children"];
         if (childrenData.is_array()) {
@@ -659,24 +662,22 @@ void LoadEntity(const json& entityJson, Entity& entity, std::vector<Entity>& ent
                     const json& childJson = childArray[0];
                     std::string type = childJson["type"].get<std::string>();
                     if (type == "entity") {
-                        entitiesVector.emplace_back();
-                        Entity& child = entitiesVector.back();
-                        LoadEntity(childJson, child, entitiesVector);
-
-                        entity.addChild(&child);
+                        Entity* child = &LoadEntity(childJson, entitiesVector);
+                        std::cout << "Is child initialized 1? " << child->initialized << "\n";
+                        entity.addEntityChild(findIndexInVector(entitiesVector, *child));
                     } else if (type == "light") {
                         lights.emplace_back();
-
                         LightStruct& lightStruct = lights.back();
                         LoadLight(childJson, lightStruct);
-
-                        lightStruct.parent = &entity;
-                        entity.addChild(&lightStruct);
+                        entity.addLightChild(findIndexInVector(lights, lightStruct));
                     }
                 }
             }
         }
     }
+
+    entitiesListPregame.emplace_back(entity);
+    return entitiesVector.back();
 }
 
 void LoadLight(const json& lightJson, LightStruct& lightStruct) {
@@ -809,23 +810,16 @@ int LoadProject(std::vector<Entity>& entitiesVector, std::vector<LightStruct>& l
 
     infile.close();
 
-    entitiesVector.clear();
-
-#ifndef GAME_SHIPPING
-    entitiesListPregame.clear();
-#endif
-
-    lightsVector.clear();
-    textElements.clear();
-    litButtons.clear();
+    if (!entitiesVector.empty()) entitiesVector.clear();
+    if (!lightsVector.empty())   lightsVector.clear();
+    if (!textElements.empty())   textElements.clear();
+    if (!litButtons.empty())     litButtons.clear();
 
     try {
         for (const auto& objectJson : jsonData) {
             std::string type = objectJson["type"].get<std::string>();
             if (type == "entity") {
-                entitiesVector.emplace_back();
-                Entity& entity = entitiesVector.back();
-                LoadEntity(objectJson, entity, entitiesVector);
+                Entity& entity = LoadEntity(objectJson, entitiesVector);
             } else if (type == "camera") {
                 LoadCamera(objectJson, camera);
             } else if (type == "world settings") {
