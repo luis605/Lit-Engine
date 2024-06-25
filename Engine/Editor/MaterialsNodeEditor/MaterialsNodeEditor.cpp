@@ -72,17 +72,13 @@ void SetMaterial(SurfaceMaterial& material) {
         selectedEntity->surfaceMaterial.normalTexture = entityMaterial.normalTexturePath;
     }
     
-    selectedEntity->surfaceMaterial.shininess         = entityMaterial.shininess;
     selectedEntity->surfaceMaterial.SpecularIntensity = entityMaterial.SpecularIntensity;
-    selectedEntity->surfaceMaterial.Roughness         = entityMaterial.Roughness;
     selectedEntity->surfaceMaterial.DiffuseIntensity  = entityMaterial.DiffuseIntensity;
-    selectedEntity->surfaceMaterial.SpecularTint      = entityMaterial.SpecularTint;
+    selectedEntity->surfaceMaterial.Roughness         = entityMaterial.Roughness;
 
-    material.shininess         = entityMaterial.shininess;
     material.SpecularIntensity = entityMaterial.SpecularIntensity;
-    material.Roughness         = entityMaterial.Roughness;
     material.DiffuseIntensity  = entityMaterial.DiffuseIntensity;
-    material.SpecularTint      = entityMaterial.SpecularTint;
+    material.Roughness         = entityMaterial.Roughness;
 }
 
 void MaterialsNodeEditor(SurfaceMaterial& material) {

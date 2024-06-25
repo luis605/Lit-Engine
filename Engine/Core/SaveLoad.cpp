@@ -88,20 +88,16 @@ namespace nlohmann {
     struct adl_serializer<SurfaceMaterial> {
         static void to_json(json& j, const SurfaceMaterial& material) {
             j = json{
-                { "shininess", material.shininess },
                 { "SpecularIntensity", material.SpecularIntensity },
-                { "Roughness", material.Roughness },
                 { "DiffuseIntensity", material.DiffuseIntensity },
-                { "SpecularTint", material.SpecularTint }
+                { "Roughness", material.Roughness }
             };
         }
 
         static void from_json(const json& j, SurfaceMaterial& material) {
-            j.at("shininess").get_to(material.shininess);
             j.at("SpecularIntensity").get_to(material.SpecularIntensity);
-            j.at("Roughness").get_to(material.Roughness);
             j.at("DiffuseIntensity").get_to(material.DiffuseIntensity);
-            j.at("SpecularTint").get_to(material.SpecularTint);
+            j.at("Roughness").get_to(material.Roughness);
         }
     };
 }
@@ -135,10 +131,9 @@ void SerializeMaterial(SurfaceMaterial& material, const fs::path path) {
     j["normalTexturePath"] = material.normalTexturePath;
     j["roughnessTexturePath"] = material.roughnessTexturePath;
     j["aoTexturePath"] = material.aoTexturePath;
-    j["shininess"] = material.shininess;
     j["specular_intensity"] = material.SpecularIntensity;
-    j["roughness"] = material.Roughness;
     j["diffuse_intensity"] = material.DiffuseIntensity;
+    j["roughness"] = material.Roughness;
 
     outfile << std::setw(4) << j;
     outfile.close();
@@ -175,7 +170,6 @@ void DeserializeMaterial(SurfaceMaterial* material, const fs::path path) {
         material->normalTexturePath.clear();
         material->roughnessTexturePath.clear();
         material->aoTexturePath.clear();
-        material->shininess = 0.0f;
         material->SpecularIntensity = 0.0f;
         material->Roughness = 0.0f;
         material->DiffuseIntensity = 0.0f;
@@ -204,17 +198,14 @@ void DeserializeMaterial(SurfaceMaterial* material, const fs::path path) {
             if (material->aoTexture.isEmpty())
                 material->aoTexture = material->aoTexturePath;
         }
-        if (j.contains("shininess")) {
-            material->shininess = j["shininess"];
-        }
         if (j.contains("specular_intensity")) {
             material->SpecularIntensity = j["specular_intensity"];
         }
-        if (j.contains("roughness")) {
-            material->Roughness = j["roughness"];
-        }
         if (j.contains("diffuse_intensity")) {
             material->DiffuseIntensity = j["diffuse_intensity"];
+        }
+        if (j.contains("roughness")) {
+            material->Roughness = j["roughness"];
         }
 
         infile.close();
@@ -317,7 +308,6 @@ void SaveLight(json& jsonData, const LightStruct& lightStruct) {
 
     j["direction"] = lightStruct.light.direction;
     j["intensity"] = lightStruct.light.intensity;
-    j["cutOff"] = lightStruct.light.cutOff;
     j["specularStrength"] = lightStruct.light.specularStrength;
     j["attenuation"] = lightStruct.light.attenuation;
     j["isChild"] = lightStruct.isChild;
@@ -714,9 +704,8 @@ void LoadLight(const json& lightJson, LightStruct& lightStruct) {
         lightJson["direction"]["z"].get<float>()
     };
 
-    lightStruct.id      = lightJson["id"].get<int>();    
+    lightStruct.id                       = lightJson["id"].get<int>();    
     lightStruct.light.intensity          = lightJson["intensity"].get<float>();
-    lightStruct.light.cutOff             = lightJson["cutOff"].get<float>();
     lightStruct.light.specularStrength   = lightJson["specularStrength"].get<float>();
     lightStruct.light.attenuation        = lightJson["attenuation"].get<float>();
     lightStruct.isChild                  = lightJson["isChild"].get<bool>();

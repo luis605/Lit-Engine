@@ -19,7 +19,6 @@ bool ButtonRoundnessActiveInputMode          = false;
 bool AttenuationActiveInputMode              = false;
 bool IntensityActiveInputMode                = false;
 bool SpecularStrenghtActiveInputMode         = false;
-bool CutoffActiveInputMode                   = false;
 
 bool FontSizeActiveInputMode                 = false;
 bool TextSpacingActiveInputMode              = false;

@@ -120,9 +120,7 @@ void DrawMenus() {
             UnloadShader(shader);
             shader = LoadShader("Engine/Lighting/shaders/lighting_vertex.glsl", "Engine/Lighting/shaders/lighting_fragment.glsl");
             for (Entity& entity : entitiesListPregame) {
-                if (entity.hasInstances()) {
-                    entity.setShader(shader);
-                }
+                entity.setShader(shader);
             }
 
             for (int index = 0; index < NUM_GIZMO_ARROWS; index++)

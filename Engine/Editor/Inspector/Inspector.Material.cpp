@@ -210,25 +210,25 @@ void MaterialInspector(SurfaceMaterial* surfaceMaterial = nullptr, std::string p
     const float margin = 40.0f;
     const float spacing = ImGui::CalcTextSize("Specular Intensity:").x + margin;
 
-    ImGui::Text("Shininess:");
-    ImGui::SameLine(spacing);
-    ImGui::SetNextItemWidth(-1);
-    ImGui::SliderFloat("##Shininess", &material->shininess, 0.0f, 1.0f);
-
     ImGui::Text("Specular Intensity:");
     ImGui::SameLine(spacing);
     ImGui::SetNextItemWidth(-1);
     ImGui::SliderFloat("##Specular Intensity", &material->SpecularIntensity, 0.0f, 1.0f);
+
+    ImGui::Text("Diffuse Intensity:");
+    ImGui::SameLine(spacing);
+    ImGui::SetNextItemWidth(-1);
+    ImGui::SliderFloat("##Diffuse Intensity", &material->DiffuseIntensity, 0.0f, 1.0f);
 
     ImGui::Text("Roughness:");
     ImGui::SameLine(spacing);
     ImGui::SetNextItemWidth(-1);
     ImGui::SliderFloat("##Roughness", &material->Roughness, 0.0f, 1.0f);
 
-    ImGui::Text("Diffuse Intensity:");
+    ImGui::Text("Metalness:");
     ImGui::SameLine(spacing);
     ImGui::SetNextItemWidth(-1);
-    ImGui::SliderFloat("##Diffuse Intensity", &material->DiffuseIntensity, 0.0f, 1.0f);
+    ImGui::SliderFloat("##Metalness", &material->Metalness, 0.0f, 1.0f);
 
     if (ImGui::Button("View Material in Nodes Editor"))
         showMaterialInNodesEditor = !showMaterialInNodesEditor;

@@ -88,16 +88,6 @@ void LightInspector()
                 SpecularStrenghtActiveInputMode = false;
         }
 
-        if (!CutoffActiveInputMode) {
-            ImGui::SliderFloat("Range", &selectedLight->light.cutOff, 0.0f, 50.0f);
-            CutoffActiveInputMode = ImGui::IsItemHovered() && ImGui::IsMouseDoubleClicked(0);
-        }
-        else
-        {
-            if (ImGui::InputFloat("Range", &selectedLight->light.cutOff, 0.0f, 10000.0f, "%.3f", ImGuiInputTextFlags_EnterReturnsTrue))
-                CutoffActiveInputMode = false;
-        }
-
         ImGui::Unindent(30.0f);
     }
 

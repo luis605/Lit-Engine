@@ -46,14 +46,11 @@ struct Light {
     alignas(16) glm::vec3 position;
     alignas(16) glm::vec3 relativePosition;
     alignas(16) glm::vec3 target;
-    alignas(16) glm::vec4 color;
-    float attenuation = 0.0001;
-    float intensity = 0.5;
-    float specularStrength = 0.5;
-    float cutOff = 10;
-        
     alignas(16) glm::vec3 direction = {0.4, 0.4, -0.4};
-
+    alignas(16) glm::vec4 color;
+    float attenuation = 0.001;
+    float intensity = 3;
+    float specularStrength = 0.5;
 };
 
 struct LightInfo {
@@ -113,7 +110,6 @@ struct SurfaceMaterialTexture {
             if (other.hasTexture()) {
                 texture = std::get<Texture2D>(other.texture);
             } else if (other.hasVideoPlayer()) {
-                // Clone the unique_ptr<VideoPlayer>
                 texture = std::get<VideoPlayer>(other.texture);
             } else {
                 texture = std::monostate{};
@@ -166,12 +162,10 @@ struct SurfaceMaterialTexture {
 
 
 struct SurfaceMaterial {
-    float shininess = 0.5f;
     float SpecularIntensity = 0.5f;
-    float Roughness = 0.5f;
     float DiffuseIntensity = 0.5f;
-    alignas(16) glm::vec3 SpecularTint = { 1.0f, 1.0f, 1.0f };
-    alignas(16) glm::vec3 baseReflectance = { 1.0f, 1.0f, 1.0f };
+    float Roughness = 0.5f;
+    float Metalness = 0.5f;
     alignas(16) glm::vec4 color = { 1.0f, 1.0f, 1.0f, 1.0f };
 
     fs::path diffuseTexturePath;
@@ -209,8 +203,7 @@ void UpdateLightsBuffer(bool force, std::vector<LightStruct> lightsVector) {
     size_t bufferSize = sizeof(Light) * lightsVector.size();
     GLsizeiptr currentBufferSize;
     glGetBufferParameteri64v(GL_SHADER_STORAGE_BUFFER, GL_BUFFER_SIZE, &currentBufferSize);
-    if (bufferSize != static_cast<size_t>(currentBufferSize))
-    {
+    if (bufferSize != static_cast<size_t>(currentBufferSize)) {
         glBufferData(GL_SHADER_STORAGE_BUFFER, bufferSize, nullptr, GL_DYNAMIC_DRAW);
     }
 

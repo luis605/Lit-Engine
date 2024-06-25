@@ -304,7 +304,7 @@ public:
                 VideoPlayer& videoPlayer = surfaceMaterial.diffuseTexture.getVideoPlayer();
                 videoPlayer.Update();
                 model.materials[0].maps[MATERIAL_MAP_DIFFUSE].texture = videoPlayer.GetTexture();
-            } else model.materials[0].maps[MATERIAL_MAP_DIFFUSE].texture = Texture2D{ };
+            } else if (IsTextureReady(model.materials[0].maps[MATERIAL_MAP_DIFFUSE].texture)) UnloadTexture(model.materials[0].maps[MATERIAL_MAP_DIFFUSE].texture);
 
             if (lodEnabled) {
                 for (int i = 0; i < sizeof(LodModels)/sizeof(LodModels[0]); i++) {
@@ -323,7 +323,7 @@ public:
                 VideoPlayer& videoPlayer = surfaceMaterial.normalTexture.getVideoPlayer();
                 videoPlayer.Update();
                 model.materials[0].maps[MATERIAL_MAP_NORMAL].texture = videoPlayer.GetTexture();
-            } else model.materials[0].maps[MATERIAL_MAP_NORMAL].texture = Texture2D{ };
+            } else if (IsTextureReady(model.materials[0].maps[MATERIAL_MAP_NORMAL].texture)) UnloadTexture(model.materials[0].maps[MATERIAL_MAP_NORMAL].texture);
 
             if (lodEnabled) {
                 for (int i = 0; i < sizeof(LodModels)/sizeof(LodModels[0]); i++) {
@@ -342,7 +342,7 @@ public:
                 VideoPlayer& videoPlayer = surfaceMaterial.roughnessTexture.getVideoPlayer();
                 videoPlayer.Update();
                 model.materials[0].maps[MATERIAL_MAP_ROUGHNESS].texture = videoPlayer.GetTexture();
-            } else model.materials[0].maps[MATERIAL_MAP_ROUGHNESS].texture = Texture2D{ };
+            } else if (IsTextureReady(model.materials[0].maps[MATERIAL_MAP_ROUGHNESS].texture)) UnloadTexture(model.materials[0].maps[MATERIAL_MAP_ROUGHNESS].texture);
 
             if (lodEnabled) {
                 for (int i = 0; i < sizeof(LodModels)/sizeof(LodModels[0]); i++) {
@@ -361,7 +361,7 @@ public:
                 VideoPlayer& videoPlayer = surfaceMaterial.aoTexture.getVideoPlayer();
                 videoPlayer.Update();
                 model.materials[0].maps[MATERIAL_MAP_OCCLUSION].texture = videoPlayer.GetTexture();
-            } else model.materials[0].maps[MATERIAL_MAP_OCCLUSION].texture = Texture2D{ };
+            } else if (IsTextureReady(model.materials[0].maps[MATERIAL_MAP_OCCLUSION].texture)) UnloadTexture(model.materials[0].maps[MATERIAL_MAP_OCCLUSION].texture);
 
             if (lodEnabled) {
                 for (int i = 0; i < sizeof(LodModels)/sizeof(LodModels[0]); i++) {
