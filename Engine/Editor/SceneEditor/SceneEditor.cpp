@@ -20,60 +20,33 @@ void CalculateTextureRect(const Texture* texture, Rectangle& viewportRectangle) 
 
     viewportRectangle.x = windowPos.x;
     viewportRectangle.y = windowPos.y;
-
     viewportRectangle.width = windowSize.x;
     viewportRectangle.height = windowSize.y - GetImGuiWindowTitleHeight();
 }
 
 void DrawTextureOnViewportRectangle(const Texture* texture) {
     CalculateTextureRect(texture, viewportRectangle);
-
     ImGui::Image((ImTextureID)texture, ImVec2(viewportRectangle.width, viewportRectangle.height), ImVec2(0,1), ImVec2(1,0));
 }
 
 void EditorCameraMovement() {
     sceneCamera.calculateVectors();
-
     Vector3 DeltaTimeVec3 = { GetFrameTime(), GetFrameTime(), GetFrameTime() };
     movingEditorCamera = false;
 
-    if (IsKeyDown(KEY_W)) {
+    auto MoveCamera = [&](Vector3 direction, bool scaleNegative = false) {
         movingEditorCamera = true;
-        Vector3 movement = Vector3Scale(sceneCamera.front, movementSpeed);
+        Vector3 movement = Vector3Scale(direction, scaleNegative ? -movementSpeed : movementSpeed);
         sceneCamera.position = Vector3Add(sceneCamera.position, Vector3Multiply(movement, DeltaTimeVec3));
         sceneCamera.target = Vector3Add(sceneCamera.target, Vector3Multiply(movement, DeltaTimeVec3));
-    }
+    };
 
-    if (IsKeyDown(KEY_S)) {
-        movingEditorCamera = true;
-        Vector3 movement = Vector3Scale(sceneCamera.front, movementSpeed);
-        sceneCamera.position = Vector3Subtract(sceneCamera.position, Vector3Multiply(movement, DeltaTimeVec3));
-        sceneCamera.target = Vector3Subtract(sceneCamera.target, Vector3Multiply(movement, DeltaTimeVec3));
-    }
-
-    if (IsKeyDown(KEY_A)) {
-        movingEditorCamera = true;
-        Vector3 movement = Vector3Scale(sceneCamera.right, -movementSpeed);
-        sceneCamera.position = Vector3Add(sceneCamera.position, Vector3Multiply(movement, DeltaTimeVec3));
-    }
-
-    if (IsKeyDown(KEY_D)) {
-        movingEditorCamera = true;
-        Vector3 movement = Vector3Scale(sceneCamera.right, -movementSpeed);
-        sceneCamera.position = Vector3Subtract(sceneCamera.position, Vector3Multiply(movement, DeltaTimeVec3));
-    }
-
-    if (IsKeyDown(KEY_Q)) {
-        movingEditorCamera = true;
-        Vector3 movement = Vector3Scale(sceneCamera.up, movementSpeed);
-        sceneCamera.position = Vector3Subtract(sceneCamera.position, Vector3Multiply(movement, DeltaTimeVec3));
-    }
-
-    if (IsKeyDown(KEY_E)) {
-        movingEditorCamera = true;
-        Vector3 movement = Vector3Scale(sceneCamera.up, movementSpeed);
-        sceneCamera.position = Vector3Add(sceneCamera.position, Vector3Multiply(movement, DeltaTimeVec3));
-    }
+    if (IsKeyDown(KEY_W)) MoveCamera(sceneCamera.front);
+    if (IsKeyDown(KEY_S)) MoveCamera(sceneCamera.front, true);
+    if (IsKeyDown(KEY_A)) MoveCamera(sceneCamera.right);
+    if (IsKeyDown(KEY_D)) MoveCamera(sceneCamera.right, true);
+    if (IsKeyDown(KEY_Q)) MoveCamera(sceneCamera.up, true);
+    if (IsKeyDown(KEY_E)) MoveCamera(sceneCamera.up);
 
     if (GetMouseWheelMove() != 0 && ImGui::IsWindowHovered()) {
         movingEditorCamera = true;
@@ -135,8 +108,7 @@ void LocateEntity(Entity& entity) {
 }
 
 void ProcessCameraControls() {
-    if (IsKeyPressed(KEY_F))
-        LocateEntity(*selectedEntity);
+    if (IsKeyPressed(KEY_F)) LocateEntity(*selectedEntity);
 }
 
 void ProcessGizmo() {
@@ -182,7 +154,7 @@ void ApplyBloomEffect() {
     EndTextureMode();
 }
 
-void RenderLight() {
+void RenderLights() {
     for (LightStruct& lightStruct : lights) {
         lightModel.materials[0].maps[MATERIAL_MAP_DIFFUSE].texture = lightTexture;
 
@@ -205,21 +177,21 @@ void RenderEntities() {
         entity.calcPhysics = false;
         entity.render();
 
-        if (IsMouseButtonDown(MOUSE_LEFT_BUTTON) && ImGui::IsWindowHovered() && !dragging) {
-            bool isEntitySelected = IsMouseHoveringModel(entity.model, entity.position, entity.rotation, entity.scale, &entity);
+        if (!IsMouseButtonDown(MOUSE_LEFT_BUTTON) || !ImGui::IsWindowHovered() || dragging) continue;
+
+        bool isEntitySelected = IsMouseHoveringModel(entity.model, entity.position, entity.rotation, entity.scale, &entity);
+        if (isEntitySelected) {
+            selectedEntity = &entity;
+            selectedGameObjectType = "entity";
+        }
+
+        for (int childEntityIndex : entity.entitiesChildren) {
+            Entity& childEntity = entitiesListPregame[childEntityIndex];
+
+            bool isEntitySelected = IsMouseHoveringModel(childEntity.model, childEntity.position, childEntity.rotation, childEntity.scale);
             if (isEntitySelected) {
-                selectedEntity = &entity;
+                selectedEntity = &childEntity;
                 selectedGameObjectType = "entity";
-            }
-
-            for (int childEntityIndex : entity.entitiesChildren) {
-                Entity& childEntity = entitiesListPregame[childEntityIndex];
-
-                bool isEntitySelected = IsMouseHoveringModel(childEntity.model, childEntity.position, childEntity.rotation, childEntity.scale);
-                if (isEntitySelected) {
-                    selectedEntity = &childEntity;
-                    selectedGameObjectType = "entity";
-                }
             }
         }
     }
@@ -243,7 +215,7 @@ void RenderScene() {
     
             UpdateShader();
 
-            RenderLight();
+            RenderLights();
             RenderEntities();
 
             HandleUnselect();
@@ -407,40 +379,40 @@ void ObjectsPopup() {
 }
 
 void ProcessDeletion() {
-    if (IsKeyPressed(KEY_DELETE)) {
-        if (selectedGameObjectType == "entity" && selectedEntity) {
-            entitiesListPregame.erase(std::remove(entitiesListPregame.begin(), entitiesListPregame.end(), *selectedEntity), entitiesListPregame.end());
-            selectedEntity = nullptr;
-            selectedGameObjectType = "";
-        } else if (selectedGameObjectType == "light" && selectedLight) {
-            lights.erase(std::remove(lights.begin(), lights.end(), *selectedLight), lights.end());
-            selectedLight = nullptr;
-            selectedGameObjectType = "";
-        }
+    if (!IsKeyPressed(KEY_DELETE)) return;
+
+    if (selectedGameObjectType == "entity" && selectedEntity) {
+        entitiesListPregame.erase(std::remove(entitiesListPregame.begin(), entitiesListPregame.end(), *selectedEntity), entitiesListPregame.end());
+        selectedEntity = nullptr;
+        selectedGameObjectType = "";
+    } else if (selectedGameObjectType == "light" && selectedLight) {
+        lights.erase(std::remove(lights.begin(), lights.end(), *selectedLight), lights.end());
+        selectedLight = nullptr;
+        selectedGameObjectType = "";
     }
 }
 
 void EntityPaste(const std::shared_ptr<Entity>& entity) {
-    if (entity) {
-        Entity newEntity = *entity;
-        newEntity.reloadRigidBody();
-        newEntity.id = entitiesListPregame.size() + lights.size() + 1;
-        entitiesListPregame.emplace_back(newEntity);
-        selectedGameObjectType = "entity";
-        selectedEntity = &entitiesListPregame.back();
-    }
+    if (!entity) return;
+
+    Entity newEntity = *entity;
+    newEntity.reloadRigidBody();
+    newEntity.id = entitiesListPregame.size() + lights.size() + 1;
+    entitiesListPregame.emplace_back(newEntity);
+    selectedGameObjectType = "entity";
+    selectedEntity = &entitiesListPregame.back();
 }
 
 void LightPaste(const std::shared_ptr<LightStruct>& lightStruct) {
-    if (lightStruct) {
-        LightStruct newLightStruct = *lightStruct;
-        newLightStruct.id = lights.back().id+1;
+    if (!lightStruct) return;
 
-        lights.emplace_back(newLightStruct);
+    LightStruct newLightStruct = *lightStruct;
+    newLightStruct.id = lights.back().id+1;
 
-        selectedGameObjectType = "light";
-        selectedLight = &lights.back();
-    }
+    lights.emplace_back(newLightStruct);
+
+    selectedGameObjectType = "light";
+    selectedLight = &lights.back();
 }
 
 void DuplicateEntity(Entity& entity) {
