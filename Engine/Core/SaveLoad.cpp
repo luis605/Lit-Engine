@@ -140,7 +140,7 @@ void SerializeMaterial(SurfaceMaterial& material, const fs::path path) {
 }
 
 void DeserializeMaterial(SurfaceMaterial* material, const fs::path path) {
-    if (!material) return;
+    if (!material || !fs::exists(path)) return;
 
     // Path Traversal Vulnerability Prevention
     fs::path resolvedPath = fs::canonical(path);
@@ -370,6 +370,9 @@ void SaveButton(json& jsonData, const LitButton& button) {
 }
 
 std::string serializePythonScript(const fs::path& path) {
+    if (!fs::exists(path)) return "";
+
+    // Path Traversal Vulnerability Prevention
     fs::path resolvedPath = fs::canonical(path);
     const fs::path baseDir = fs::current_path() / "project/";
 
