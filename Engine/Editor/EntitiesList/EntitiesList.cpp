@@ -332,6 +332,7 @@ void PlayPause() {
     ImVec2 buttonSize = ImVec2(50, 50);
 
     if (ImGui::ImageButton((ImTextureID)&runTexture, buttonSize) && !inGamePreview) {
+        for (Entity& entity : entitiesListPregame) entity.reloadRigidBody();
         entitiesList.assign(entitiesListPregame.begin(), entitiesListPregame.end());
         
         physics.backup();
