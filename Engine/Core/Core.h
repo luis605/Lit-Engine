@@ -28,4 +28,6 @@ ImVec2 windowOriginalPos;
 ImVec2 ImLastMousePosition;
 ImVec2 windowPosition;
 
+ImGuiViewport* viewport;
+
 #endif // CORE_H

@@ -161,7 +161,7 @@ void HandleUnselect() {
 }
 
 void RenderViewportTexture() {
-    DrawTextureOnViewportRectangle(&viewportTexture);
+    bloomEnabled ? DrawTextureOnViewportRectangle(&upsamplerTexture.texture) : DrawTextureOnViewportRectangle(&viewportTexture);
 }
 
 void ApplyBloomEffect() {
@@ -180,8 +180,6 @@ void ApplyBloomEffect() {
         DrawTexture(downsamplerTexture.texture, 0, 0, WHITE);
     EndShaderMode();
     EndTextureMode();
-
-    viewportTexture = upsamplerTexture.texture;
 }
 
 void RenderLight() {

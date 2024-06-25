@@ -46,6 +46,7 @@ void InitImGui() {
     ImGui::CreateContext();
     ImGuiIO& io = ImGui::GetIO();
     io.ConfigFlags |= ImGuiConfigFlags_DockingEnable;
+    viewport = ImGui::GetMainViewport();
 
     SetStyleGray(&ImGui::GetStyle());
 
@@ -123,15 +124,14 @@ void EngineMainLoop() {
             ClearBackground(DARKGRAY);
 
             rlImGuiBegin();
-            const ImGuiViewport *viewport = ImGui::GetMainViewport();
             ImGui::DockSpaceOverViewport(viewport);
 
             MenuBar();
-            // AssetsExplorer();
-            // CodeEditor();
-            // EntitiesList();
-            // Inspector();
-            // EditorCamera();
+            AssetsExplorer();
+            CodeEditor();
+            EntitiesList();
+            Inspector();
+            EditorCamera();
 
             rlImGuiEnd();
         
