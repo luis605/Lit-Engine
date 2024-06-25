@@ -894,6 +894,8 @@ public:
 
             setPos(backupPosition);
         }
+
+        reloadRigidBody();
     }
 
     void printPosition() {
