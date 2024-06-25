@@ -127,11 +127,11 @@ void EngineMainLoop() {
             ImGui::DockSpaceOverViewport(viewport);
 
             MenuBar();
-            AssetsExplorer();
-            CodeEditor();
-            EntitiesList();
-            Inspector();
-            EditorCamera();
+            // AssetsExplorer();
+            // CodeEditor();
+            // EntitiesList();
+            // Inspector();
+            // EditorCamera();
 
             rlImGuiEnd();
         

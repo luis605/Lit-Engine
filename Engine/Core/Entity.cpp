@@ -142,7 +142,7 @@ public:
         instancingShader.locs[SHADER_LOC_MATRIX_MODEL] = GetShaderLocationAttrib(instancingShader, "instanceTransform");
     }
 
-    bool hasInstances() {
+    bool hasInstances() const {
         return !instances.empty();
     }
 

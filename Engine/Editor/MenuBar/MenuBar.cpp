@@ -1,25 +1,36 @@
+#include <iostream>
+#include <vector>
+#include <imgui.h>
+
+// Constants
+constexpr float BUTTON_PADDING = 30.0f;
+constexpr float BUTTON_HEIGHT = 30.0f;
+constexpr ImVec2 BUTTON_SIZE = ImVec2(120.0f, BUTTON_HEIGHT); // Assuming 120.0f is the max button width + padding
+
+// Global variables
 bool showAppearanceWindow = false;
 bool showDebugWindow = false;
+bool menuButtonClicked = false;
+
+// Function declarations
+void SetStyleHighContrast(ImGuiStyle* style);
+void SetStyleGray(ImGuiStyle* style);
 
 void Appearance() {
     ImGui::Begin("Appearance", &showAppearanceWindow);
 
-    float button_width = ImGui::CalcTextSize("High Contrast").x + 30;
-    float button_height = 30;
-    ImVec2 ButtonSize = ImVec2(button_width, button_height);
+    ImGui::Text("Themes:");
+    bool themeBlue = ImGui::Button("Blue", BUTTON_SIZE);
+    bool themeLight = ImGui::Button("Light", BUTTON_SIZE);
+    bool themeHighContrast = ImGui::Button("High Contrast", BUTTON_SIZE);
+    bool themeGray = ImGui::Button("Gray", BUTTON_SIZE);
+    bool themeCustom = ImGui::Button("Custom", BUTTON_SIZE);
 
-    ImGui::Text("Themes: ");
-    bool themeBlue = ImGui::Button("Blue", ButtonSize);
-    bool themeLight = ImGui::Button("Light", ButtonSize);
-    bool themeHighContrast = ImGui::Button("High Contrast", ButtonSize);
-    bool themeGray = ImGui::Button("Gray", ButtonSize);
-    bool themeCustom = ImGui::Button("Custom", ButtonSize);
-
-    if (themeBlue)              ImGui::StyleColorsDark();
-    else if (themeLight)        ImGui::StyleColorsLight();
+    if (themeBlue) ImGui::StyleColorsDark();
+    else if (themeLight) ImGui::StyleColorsLight();
     else if (themeHighContrast) SetStyleHighContrast(&ImGui::GetStyle());
-    else if (themeGray)         SetStyleGray(&ImGui::GetStyle());
-    else if (themeCustom)       createNewThemeWindowOpen = true;
+    else if (themeGray) SetStyleGray(&ImGui::GetStyle());
+    else if (themeCustom) createNewThemeWindowOpen = true;
 
     ImGui::End();
 }
@@ -31,25 +42,25 @@ void DebugWindow() {
     if (ImGui::CollapsingHeader("Performance")) {
         ImGui::Indent(15.0f);
 
-        ImGui::Text("FPS: %.2f", ImGui::GetIO().Framerate);
-        ImGui::Text("Frame Time: %.2f ms", 1000.0f / ImGui::GetIO().Framerate);
+        float framerate = ImGui::GetIO().Framerate;
+        ImGui::Text("FPS: %.2f", framerate);
+        ImGui::Text("Frame Time: %.2f ms", 1000.0f / framerate);
 
         ImGui::Dummy(ImVec2(0.0f, 10.0f));
-
         ImGui::Separator();
-
         ImGui::Dummy(ImVec2(0.0f, 10.0f));
 
         ImGui::Text("Scene Information");
         ImGui::Text("Number of Entities: %lu", entitiesListPregame.size());
 
         int polygonCount = 0;
-        for (Entity& entity : entitiesListPregame) {
+        for (const Entity& entity : entitiesListPregame) {
             if (IsModelReady(entity.model)) {
-                for (int meshIndex = 0; meshIndex < entity.model.meshCount; meshIndex++) {
-                    if (entity.hasInstances()) polygonCount += entity.model.meshes[meshIndex].vertexCount * entity.instances.size();
-                    else                       polygonCount += entity.model.meshes[meshIndex].vertexCount;
+                int vertexCount = 0;
+                for (int meshIndex = 0; meshIndex < entity.model.meshCount; ++meshIndex) {
+                    vertexCount += entity.model.meshes[meshIndex].vertexCount;
                 }
+                polygonCount += vertexCount * (entity.hasInstances() ? entity.instances.size() : 1);
             }
         }
 
@@ -71,22 +82,19 @@ void DebugWindow() {
     ImGui::End();
 }
 
-Vector2 offset = { 0.0f, 0.0f };
-bool menuButtonClicked = false;
-
 void DrawMenus() {
     if (ImGui::BeginMenu("Project")) {
         if (ImGui::MenuItem("Save", "Ctrl+S")) {
-            std::cout << "Saving Project..." << std::endl;
+            std::cout << "Saving Project...\n";
             SaveProject();
         }
 
         if (ImGui::MenuItem("Save as", "Ctrl+Shift+S")) {
-            std::cout << "Saving Project as..." << std::endl;
+            std::cout << "Saving Project as...\n";
         }
 
         if (ImGui::MenuItem("Open", "Ctrl+O")) {
-            std::cout << "Opening Project..." << std::endl;
+            std::cout << "Opening Project...\n";
             LoadProject(entitiesListPregame, lights, sceneCamera);
         }
 
@@ -115,7 +123,7 @@ void DrawMenus() {
     }
 
     if (ImGui::BeginMenu("Debug")) {
-        if (ImGui::MenuItem("Reload Lighting Shader", "")) {
+        if (ImGui::MenuItem("Reload Lighting Shader")) {
             std::cout << "\n\n\n\n\nReloading Lighting Shaders\n\n";
             UnloadShader(shader);
             shader = LoadShader("Engine/Lighting/shaders/lighting_vertex.glsl", "Engine/Lighting/shaders/lighting_fragment.glsl");
@@ -123,16 +131,16 @@ void DrawMenus() {
                 entity.setShader(shader);
             }
 
-            for (int index = 0; index < NUM_GIZMO_ARROWS; index++)
+            for (int index = 0; index < NUM_GIZMO_ARROWS; ++index)
                 gizmoArrow[index].model.materials[0].shader = shader;
 
-            for (int index = 0; index < NUM_GIZMO_CUBES; index++)
+            for (int index = 0; index < NUM_GIZMO_CUBES; ++index)
                 gizmoCube[index].model.materials[0].shader = shader;
 
             gizmoTorus[0].model.materials[0].shader = shader;
         }
 
-        if (ImGui::MenuItem("Reload Skybox Shader", "")) {
+        if (ImGui::MenuItem("Reload Skybox Shader")) {
             std::cout << "\n\n\n\n\nReloading Skybox Shaders\n\n";
             InitSkybox();
         }
@@ -167,9 +175,10 @@ void openManualPage() {
 
 void MenuBar() {
     float originalFramePaddingY = ImGui::GetStyle().FramePadding.y;
+    float framePaddingY = 19.0f;
     ImVec2 windowPadding = ImVec2(0, 0);
 
-    ImGui::GetStyle().FramePadding.y = 19.0f;
+    ImGui::GetStyle().FramePadding.y = framePaddingY;
 
     float titleBarHeight = ImGui::GetFrameHeight();
     float titlebarVerticalOffset = isWindowMaximized ? -6.0f : 0.0f;
@@ -181,33 +190,6 @@ void MenuBar() {
         float centeredHeight = (titleBarHeight - imageSize.y) * 0.5f;
         ImVec2 imagePos = ImVec2(centeredHeight + 10, centeredHeight);
 
-        ImGuiWindow* window = ImGui::GetCurrentWindow();
-
-        // Left polygon
-        window->DrawList->PathClear();
-        window->DrawList->PathLineTo(window->Pos + ImVec2(0, titleBarHeight / 1.5));
-        window->DrawList->PathLineTo(window->Pos + ImVec2(75, titleBarHeight / 3.5));
-        window->DrawList->PathLineTo(window->Pos + ImVec2(75, titleBarHeight));
-        window->DrawList->PathLineTo(window->Pos + ImVec2(0, titleBarHeight));
-        window->DrawList->PathLineTo(window->Pos + ImVec2(0, titleBarHeight / 1.5));
-        window->DrawList->PathFillConvex(ImColor(50, 50, 50));
-
-        // Middle rectangle
-        window->DrawList->PathClear();
-        window->DrawList->PathRect(window->Pos + ImVec2(75, titleBarHeight / 3.5), window->Pos + ImVec2(windowSize.x - 75, titleBarHeight));
-        window->DrawList->PathFillConvex(ImColor(50, 50, 50));
-
-        // Right polygon
-        window->DrawList->PathClear();
-        window->DrawList->PathLineTo(window->Pos + ImVec2(windowSize.x - 75, titleBarHeight));
-        window->DrawList->PathLineTo(window->Pos + ImVec2(windowSize.x - 75, titleBarHeight / 3.5));
-        window->DrawList->PathLineTo(window->Pos + ImVec2(windowSize.x, titleBarHeight / 1.5));
-        window->DrawList->PathLineTo(window->Pos + ImVec2(windowSize.x, titleBarHeight));
-        window->DrawList->PathLineTo(window->Pos + ImVec2(windowSize.x / 2, titleBarHeight));
-        window->DrawList->PathFillConvex(ImColor(50, 50, 50));
-
-        // Clear Path
-        window->DrawList->PathClear();
 
         ImGui::SetCursorPos(imagePos);
         ImGui::Image((ImTextureID)&windowIconTexture, imageSize);
@@ -245,8 +227,9 @@ void MenuBar() {
 
         ImGui::PopFont();
 
-        ImGui::SetCursorPosX(ImGui::GetWindowSize().x - 35);
-        
+        float buttonWidth = 30.0f;
+        ImGui::SetCursorPosX(ImGui::GetWindowSize().x - buttonWidth);
+
         ImGui::PushStyleColor(ImGuiCol_Button, ImVec4(0, 0, 0, 0));
         ImGui::PushStyleColor(ImGuiCol_ButtonHovered, ImVec4(0, 0, 0, 0));
         ImGui::PushStyleColor(ImGuiCol_ButtonActive, ImVec4(.3, .3, .3, .3));
@@ -254,22 +237,20 @@ void MenuBar() {
 
         ImGui::GetStyle().FramePadding.y = originalFramePaddingY;
 
-        if (ImGui::Button("x", ImVec2(30, 30)) || (IsKeyDown(KEY_LEFT_ALT) && IsKeyDown(KEY_F4))) exitWindowRequested = true;
+        if (ImGui::Button("x", ImVec2(buttonWidth, buttonWidth)) || (IsKeyDown(KEY_LEFT_ALT) && IsKeyDown(KEY_F4))) exitWindowRequested = true;
 
+        ImGui::SetCursorPosX(ImGui::GetWindowSize().x - buttonWidth * 2);
 
-        ImGui::SetCursorPosX(ImGui::GetWindowSize().x - 35 * 2);
+        if (ImGui::Button(ICON_FA_WINDOW_MAXIMIZE, ImVec2(buttonWidth, buttonWidth))) ToggleMaximization();
 
-        if (ImGui::Button(ICON_FA_WINDOW_MAXIMIZE, ImVec2(30, 30))) ToggleMaximization();
+        ImGui::SetCursorPosX(ImGui::GetWindowSize().x - buttonWidth * 3);
 
-        
-        ImGui::SetCursorPosX(ImGui::GetWindowSize().x - 35 * 3);
-
-        if (ImGui::Button(ICON_FA_WINDOW_MINIMIZE, ImVec2(30, 30))) MinimizeWindow();
+        if (ImGui::Button(ICON_FA_WINDOW_MINIMIZE, ImVec2(buttonWidth, buttonWidth))) MinimizeWindow();
 
         ImGui::PopStyleColor(4);
 
         ImGui::SetCursorPosX(imageSize.x + imagePos.x + ImGui::CalcTextSize("File   Edit   Preferences").x + 40);
-        ImGui::InvisibleButton("EMPTY", ImVec2(ImGui::GetWindowSize().x - 35 * 3 - ImGui::GetCursorPosX(), 40));
+        ImGui::InvisibleButton("EMPTY", ImVec2(ImGui::GetWindowSize().x - buttonWidth * 3 - ImGui::GetCursorPosX(), 40));
         DraggableWindow();
 
         ImGui::EndMainMenuBar();
