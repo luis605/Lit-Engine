@@ -199,20 +199,31 @@ void UpdateLightsBuffer(bool force, std::vector<LightStruct>& lightsVector) {
 
     glBindBuffer(GL_SHADER_STORAGE_BUFFER, lightsBuffer);
 
-    // Resize the buffer if the size has changed
     size_t bufferSize = sizeof(Light) * lightsVector.size();
     GLsizeiptr currentBufferSize;
     glGetBufferParameteri64v(GL_SHADER_STORAGE_BUFFER, GL_BUFFER_SIZE, &currentBufferSize);
+
     if (bufferSize != static_cast<size_t>(currentBufferSize)) {
         glBufferData(GL_SHADER_STORAGE_BUFFER, bufferSize, nullptr, GL_DYNAMIC_DRAW);
     }
 
-    // Update the buffer data
-    glBufferSubData(GL_SHADER_STORAGE_BUFFER, 0, bufferSize, lightsVector.data());
+    if (!lightsVector.empty()) {
+        std::vector<Light> lights;
+        lights.reserve(lightsVector.size());
+
+        for (const auto& lightStruct : lightsVector) {
+            lights.push_back(lightStruct.light);
+        }
+
+        glBufferSubData(GL_SHADER_STORAGE_BUFFER, 0, bufferSize, lights.data());
+    }
+
     glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 0, lightsBuffer);
 
-    int lightsCount = lightsVector.size();
+    int lightsCount = static_cast<int>(lightsVector.size());
     SetShaderValue(shader, GetShaderLocation(shader, "lightsCount"), &lightsCount, SHADER_UNIFORM_INT);
 }
+
+
 
 #endif
