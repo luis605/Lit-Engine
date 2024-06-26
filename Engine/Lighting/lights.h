@@ -13,6 +13,7 @@ struct AdditionalLightInfo;
 struct LightStruct;
 
 std::vector<LightStruct> lights;
+std::vector<LightStruct> renderModelPreviewerLights;
 
 Texture2D lightTexture;
 
@@ -30,6 +31,7 @@ Shader instancingShader;
 Shader downsamplerShader;
 Shader upsamplerShader;
 GLuint lightsBuffer;
+GLuint renderPrevierLightsBuffer;
 GLuint surfaceMaterialUBO;
 
 Vector4 ambientLight = {1.0f, 1.0f, 1.0f, 1.0f};
@@ -37,7 +39,7 @@ Vector4 ambientLight = {1.0f, 1.0f, 1.0f, 1.0f};
 RenderTexture downsamplerTexture;
 RenderTexture upsamplerTexture;
 
-void UpdateLightsBuffer(bool force=false, std::vector<LightStruct>& lightsVector = lights);
+void UpdateLightsBuffer(bool force, std::vector<LightStruct>& lightsVector, GLuint& buffer = lightsBuffer);
 LightStruct& NewLight(const Vector3 position, const Color color, int type = LIGHT_POINT);
 
 struct Light {
@@ -193,11 +195,11 @@ LightStruct& NewLight(const Vector3 position, const Color color, int type) {
     return lights.back();
 }
 
-void UpdateLightsBuffer(bool force, std::vector<LightStruct>& lightsVector) {
+void UpdateLightsBuffer(bool force, std::vector<LightStruct>& lightsVector, GLuint& buffer) {
     if (lightsVector.empty() && !force)
         return;
 
-    glBindBuffer(GL_SHADER_STORAGE_BUFFER, lightsBuffer);
+    glBindBuffer(GL_SHADER_STORAGE_BUFFER, buffer);
 
     size_t bufferSize = sizeof(Light) * lightsVector.size();
     GLsizeiptr currentBufferSize;
@@ -207,23 +209,19 @@ void UpdateLightsBuffer(bool force, std::vector<LightStruct>& lightsVector) {
         glBufferData(GL_SHADER_STORAGE_BUFFER, bufferSize, nullptr, GL_DYNAMIC_DRAW);
     }
 
-    if (!lightsVector.empty()) {
-        std::vector<Light> lights;
-        lights.reserve(lightsVector.size());
+    std::vector<Light> lightsData;
+    lightsData.reserve(lightsVector.size());
 
-        for (const auto& lightStruct : lightsVector) {
-            lights.push_back(lightStruct.light);
-        }
-
-        glBufferSubData(GL_SHADER_STORAGE_BUFFER, 0, bufferSize, lights.data());
+    for (const auto& lightStruct : lightsVector) {
+        lightsData.push_back(lightStruct.light);
     }
 
-    glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 0, lightsBuffer);
+    glBufferSubData(GL_SHADER_STORAGE_BUFFER, 0, bufferSize, lightsData.data());
+
+    glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 0, buffer);
 
     int lightsCount = static_cast<int>(lightsVector.size());
     SetShaderValue(shader, GetShaderLocation(shader, "lightsCount"), &lightsCount, SHADER_UNIFORM_INT);
 }
-
-
 
 #endif

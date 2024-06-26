@@ -5,6 +5,22 @@ void InitRenderModelPreviewer() {
     modelPreviewerCamera.fovy = 60.0f;
     modelPreviewerCamera.projection = CAMERA_PERSPECTIVE;
 
+    LightStruct lightStructA;
+    LightStruct lightStructB;
+
+    lightStructA.light.type = LIGHT_POINT;
+    lightStructA.light.position = { 11.0f, 6.0f, 15.0f };
+    lightStructA.light.color = { 1.0f, 0.75f, 0.75f, 1.0f };
+    lightStructA.light.intensity = 10.0f;
+
+    lightStructB.light.type = LIGHT_POINT;
+    lightStructB.light.position = { 20.0f, 10.0f, -25.0f };
+    lightStructB.light.color = { 1.0f, 0.16f, 0.16f, 1.0f };
+    lightStructB.light.intensity = 6.0f;
+
+    renderModelPreviewerLights.push_back(lightStructA);
+    renderModelPreviewerLights.push_back(lightStructB);
+
     modelPreviewRT = LoadRenderTexture(thumbnailSize, thumbnailSize);
 }
 
@@ -20,10 +36,12 @@ Texture2D RenderModelPreview(const char* modelFile) {
 
     BeginTextureMode(modelPreviewRT);
         BeginMode3D(modelPreviewerCamera);
+        BeginShaderMode(shader);
             ClearBackground(GRAY);
             DrawSkybox();
 
             DrawModel(model, (Vector3){ 0.0f, 0.0f, 0.0f }, 1.0f, WHITE);
+        EndShaderMode();
         EndMode3D();
     EndTextureMode();
 
@@ -128,6 +146,31 @@ FileTextureItem createFileTextureItem(const fs::path& file, const fs::directory_
 
 void UpdateFileFolderStructures() {
     if (dirPath.empty() || !fs::exists(dirPath)) return;
+
+    {
+        if (surfaceMaterialUBO != 0) {
+            glDeleteBuffers(1, &surfaceMaterialUBO);
+            surfaceMaterialUBO = 0;
+        }
+
+        glGenBuffers(1, &surfaceMaterialUBO);
+        glBindBuffer(GL_UNIFORM_BUFFER, surfaceMaterialUBO);
+        glBufferData(GL_UNIFORM_BUFFER, sizeof(SurfaceMaterial), &gizmoMaterial, GL_DYNAMIC_DRAW);
+        glBindBuffer(GL_UNIFORM_BUFFER, 0);
+
+        constexpr GLuint bindingPoint = 0;
+
+        glBindBufferBase(GL_UNIFORM_BUFFER, bindingPoint, surfaceMaterialUBO);
+
+        glUseProgram(shader.id);
+
+        glUniform1i(glGetUniformLocation(shader.id, "normalMapInit"), false);
+        glUniform1i(glGetUniformLocation(shader.id, "roughnessMapInit"), false);
+
+        glBindBuffer(GL_UNIFORM_BUFFER, 0);
+
+        UpdateLightsBuffer(true, renderModelPreviewerLights, renderPrevierLightsBuffer);
+    }
 
     for (const fs::directory_entry& entry : fs::directory_iterator(dirPath)) {
         fs::path file = entry.path().filename();

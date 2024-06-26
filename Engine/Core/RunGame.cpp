@@ -51,7 +51,7 @@ void RunGame() {
 
         firstTimeGameplay = false;
 
-        UpdateLightsBuffer();
+        UpdateLightsBuffer(false, lights);
         UpdateInGameGlobals();
 
     EndShaderMode();

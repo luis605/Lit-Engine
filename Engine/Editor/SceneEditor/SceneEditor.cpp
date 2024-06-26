@@ -211,6 +211,9 @@ void RenderScene() {
             DrawSkybox();
             DrawGrid(GRID_SIZE, GRID_SCALE);
 
+            UpdateLightsBuffer(true, lights);
+            UpdateInGameGlobals();
+
             ProcessGizmo();
     
             UpdateShader();
@@ -219,9 +222,6 @@ void RenderScene() {
             RenderEntities();
 
             HandleUnselect();
-
-            UpdateInGameGlobals();
-            UpdateLightsBuffer(true);
         EndMode3D();
 
         DrawTextElements();
