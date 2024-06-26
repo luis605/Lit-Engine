@@ -14,7 +14,7 @@ void InitLighting()
     glGenBuffers(1, &lightsBuffer);
     glBindBuffer(GL_SHADER_STORAGE_BUFFER, lightsBuffer);
     glBufferData(GL_SHADER_STORAGE_BUFFER, sizeof(Light) * lights.size(), lights.data(), GL_DYNAMIC_DRAW);
-    glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 0, lightsBuffer); // Update the binding point to 3
+    glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 0, lightsBuffer);
 
     // Set the lightsCount uniform
     int lightsCount = lights.size();

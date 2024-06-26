@@ -1,4 +1,3 @@
-// Engine/Ui/AssetsExplorer.h
 #ifndef ASSETSEXPLORER_H
 #define ASSETSEXPLORER_H
 

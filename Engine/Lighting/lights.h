@@ -37,7 +37,7 @@ Vector4 ambientLight = {1.0f, 1.0f, 1.0f, 1.0f};
 RenderTexture downsamplerTexture;
 RenderTexture upsamplerTexture;
 
-void UpdateLightsBuffer(bool force=false, std::vector<LightStruct> lightsVector = lights);
+void UpdateLightsBuffer(bool force=false, std::vector<LightStruct>& lightsVector = lights);
 LightStruct& NewLight(const Vector3 position, const Color color, int type = LIGHT_POINT);
 
 struct Light {
@@ -193,7 +193,7 @@ LightStruct& NewLight(const Vector3 position, const Color color, int type) {
     return lights.back();
 }
 
-void UpdateLightsBuffer(bool force, std::vector<LightStruct> lightsVector) {
+void UpdateLightsBuffer(bool force, std::vector<LightStruct>& lightsVector) {
     if (lightsVector.empty() && !force)
         return;
 
@@ -209,7 +209,7 @@ void UpdateLightsBuffer(bool force, std::vector<LightStruct> lightsVector) {
 
     // Update the buffer data
     glBufferSubData(GL_SHADER_STORAGE_BUFFER, 0, bufferSize, lightsVector.data());
-    glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 0, lightsBuffer);  // Bind the SSBO to binding point 0
+    glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 0, lightsBuffer);
 
     int lightsCount = lightsVector.size();
     SetShaderValue(shader, GetShaderLocation(shader, "lightsCount"), &lightsCount, SHADER_UNIFORM_INT);

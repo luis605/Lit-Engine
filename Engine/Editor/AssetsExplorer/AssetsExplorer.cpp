@@ -1,5 +1,3 @@
-std::unordered_map<std::string, Texture2D> modelIconCache;
-
 void InitRenderModelPreviewer() {
     modelPreviewerCamera.position = (Vector3){ 10.0f, 10.0f, 2.0f };
     modelPreviewerCamera.target = (Vector3){ 0.0f, 0.0f, 0.0f };
@@ -11,23 +9,26 @@ void InitRenderModelPreviewer() {
 }
 
 Texture2D RenderModelPreview(const char* modelFile) {
-    if (modelIconCache.find(modelFile) != modelIconCache.end()) {
-        return modelIconCache[modelFile];
+    Model model = LoadModel(modelFile);
+    model.materials[0].shader = shader;
+    if (!IsModelReady(model)) {
+        TraceLog(LOG_WARNING, "Failed to load model.");
+        return { };
     }
 
-    Model model = LoadModel(modelFile);
+    modelPreviewRT = LoadRenderTexture( thumbnailSize, thumbnailSize );
 
     BeginTextureMode(modelPreviewRT);
-    ClearBackground(GRAY);
+        BeginMode3D(modelPreviewerCamera);
+            ClearBackground(GRAY);
+            DrawSkybox();
 
-    BeginMode3D(modelPreviewerCamera);
-    DrawModel(model, (Vector3){ 0.0f, 0.0f, 0.0f }, 1.0f, WHITE);
-    EndMode3D();
-
+            DrawModel(model, (Vector3){ 0.0f, 0.0f, 0.0f }, 1.0f, WHITE);
+        EndMode3D();
     EndTextureMode();
+
     UnloadModel(model);
 
-    modelIconCache[modelFile] = modelPreviewRT.texture;
     return modelPreviewRT.texture;
 }
 
@@ -106,7 +107,7 @@ FileTextureItem createFileTextureItem(const fs::path& file, const fs::directory_
     const std::string fileExtension = getFileExtension(file.filename().string());
 
     if (fileExtension == ".fbx" || fileExtension == ".obj" || fileExtension == ".gltf" || fileExtension == ".ply") {
-        auto iter = modelsIcons.find(file.string());
+        auto iter = modelsIcons.find(entry.path().string());
         if (iter != modelsIcons.end()) {
             return {file.string(), iter->second, file};
         } else {
@@ -117,7 +118,7 @@ FileTextureItem createFileTextureItem(const fs::path& file, const fs::directory_
             EndTextureMode();
 
             Texture2D flippedIcon = modelPreviewRT.texture;
-            modelsIcons[file.string()] = flippedIcon;
+            modelsIcons[entry.path().string()] = flippedIcon;
             return {file.string(), flippedIcon, file, entry.path()};
         }
     }
