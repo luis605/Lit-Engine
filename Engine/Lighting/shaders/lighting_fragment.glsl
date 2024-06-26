@@ -108,6 +108,12 @@ vec4 CalculateDiffuseLighting() {
     return vec4(resultColor, 1.0);
 }
 
+vec4 toneMap(vec4 hdrColor, float exposure) {
+    vec3 mapped = hdrColor.rgb / (hdrColor.rgb + vec3(1.0));
+    mapped = pow(mapped, vec3(1.0 / exposure));
+    return vec4(mapped, 1.0);
+}
+
 vec4 CalculateLight(Light light, vec3 viewDir, vec3 norm, vec3 fragPosition, vec4 texColor, vec3 F0) {
     vec3 lightDir;
     float attenuation = 1.0;
@@ -131,14 +137,15 @@ vec4 CalculateLight(Light light, vec3 viewDir, vec3 norm, vec3 fragPosition, vec
 
 vec4 CalculateLighting(vec3 fragPosition, vec3 fragNormal, vec3 viewDir, vec2 texCoord, SurfaceMaterial material, vec4 texColor) {
     vec4 result = vec4(0.0);
-    vec3 F0 = vec3(0.04);
-    F0 = mix(F0, colDiffuse.rgb, material.Metalness);
+    vec3 F0 = vec3(material.Metalness);
 
     for (int i = 0; i < lightsCount; i++) {
         if (!lights[i].enabled) continue;
         result += CalculateLight(lights[i], viewDir, fragNormal, fragPosition, texColor, F0);
     }
-    return result + CalculateDiffuseLighting();
+
+    result += CalculateDiffuseLighting();
+    return toneMap(result, 0.5);
 }
 
 void main() {
@@ -162,8 +169,7 @@ void main() {
 
     float roughness = roughnessMapInit ? texture(texture3, texCoord).r : surfaceMaterial.Roughness;
     vec3 viewDir = normalize(viewPos - fragPosition);
-    vec3 lighting = CalculateLighting(fragPosition, norm, viewDir, texCoord, surfaceMaterial, texColor).rgb;
+    vec4 lighting = CalculateLighting(fragPosition, norm, viewDir, texCoord, surfaceMaterial, texColor);
 
-    vec4 result = vec4(colDiffuse.rgb / 1.8 - ambientLight.rgb * 0.5, colDiffuse.a);
-    finalColor = mix(result, vec4(lighting, colDiffuse.a), step(0.0, length(lighting)));
+    finalColor = lighting;
 }
