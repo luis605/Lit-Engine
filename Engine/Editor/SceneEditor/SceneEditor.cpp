@@ -43,8 +43,8 @@ void EditorCameraMovement() {
 
     if (IsKeyDown(KEY_W)) MoveCamera(sceneCamera.front);
     if (IsKeyDown(KEY_S)) MoveCamera(sceneCamera.front, true);
-    if (IsKeyDown(KEY_A)) MoveCamera(sceneCamera.right);
-    if (IsKeyDown(KEY_D)) MoveCamera(sceneCamera.right, true);
+    if (IsKeyDown(KEY_D)) MoveCamera(sceneCamera.right);
+    if (IsKeyDown(KEY_A)) MoveCamera(sceneCamera.right, true);
     if (IsKeyDown(KEY_Q)) MoveCamera(sceneCamera.up, true);
     if (IsKeyDown(KEY_E)) MoveCamera(sceneCamera.up);
 
