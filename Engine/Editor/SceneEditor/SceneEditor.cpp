@@ -160,12 +160,12 @@ void RenderLights() {
 
         float rotation = DrawBillboardRotation(sceneCamera, lightTexture, { lightStruct.light.position.x, lightStruct.light.position.y, lightStruct.light.position.z }, 1.0f, WHITE);
 
-        if (IsMouseButtonDown(MOUSE_LEFT_BUTTON) && ImGui::IsWindowHovered() && !dragging) {
-            bool isLightSelected = IsMouseHoveringModel(lightModel, { lightStruct.light.position.x, lightStruct.light.position.y, lightStruct.light.position.z }, { 0, rotation, 0 }, {1,1,1});
-            if (isLightSelected) {
-                selectedLight = &lightStruct;
-                selectedGameObjectType = "light";
-            }
+        if (!IsMouseButtonDown(MOUSE_LEFT_BUTTON) || !ImGui::IsWindowHovered() || dragging) continue;
+
+        bool isLightSelected = IsMouseHoveringModel(lightModel, { lightStruct.light.position.x, lightStruct.light.position.y, lightStruct.light.position.z }, { 0, rotation, 0 }, {1,1,1});
+        if (isLightSelected) {
+            selectedLight = &lightStruct;
+            selectedGameObjectType = "light";
         }
     }
 }
