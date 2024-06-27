@@ -274,28 +274,17 @@ public:
 
 };
 
-
-void print_hi()
-{
-    std::cout << "Pressed\n";
-}
-
-LitButton &AddButton(const char* button_text, Vector3 position, Vector2 size, float text_size)
-{
+LitButton &AddButton(const char* button_text, Vector3 position, Vector2 size, float text_size) {
     LitButton button = LitButton(position, size);
     button.SetText(button_text, text_size);
     button.SetTooltip("This is a tooltip!");
-    button.SetOnClickCallback(print_hi);
 
     litButtons.emplace_back(button);
     return litButtons.back();
 }
 
-void DrawButtons()
-{
-
-    for (LitButton &button : litButtons)
-    {
+void DrawButtons() {
+    for (LitButton &button : litButtons) {
         button.Draw();
     }
 }

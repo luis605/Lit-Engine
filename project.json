@@ -2,15 +2,15 @@
     {
         "fovy": 60.0,
         "position": {
-            "x": -4.202348709106445,
-            "y": 4.266304969787598,
-            "z": 3.3253843784332275
+            "x": 12.401957511901855,
+            "y": 6.330389976501465,
+            "z": 7.935048580169678
         },
         "projection": 0,
         "target": {
-            "x": -3.7391366958618164,
-            "y": 3.5267062187194824,
-            "z": 2.837092876434326
+            "x": 11.54104232788086,
+            "y": 5.822810173034668,
+            "z": 7.96950626373291
         },
         "type": "camera",
         "up": {
@@ -44,70 +44,160 @@
         "type": "world settings"
     },
     {
-        "children": null,
-        "collider": true,
-        "collider_type": 2,
-        "damping": 0.0,
-        "friction": 1.0,
-        "id": 2,
-        "is_dynamic": false,
-        "lodEnabled": true,
-        "mass": 1.0,
-        "material_path": "",
-        "mesh_type": 5,
-        "modelPath": "",
-        "name": "Unnamed Entity",
-        "position": {
-            "x": 0.0,
-            "y": 0.0,
-            "z": 0.0
-        },
-        "relativePosition": {
-            "x": 0.0,
-            "y": 0.0,
-            "z": 0.0
-        },
-        "rotation": {
-            "x": 0.0,
-            "y": 0.0,
-            "z": 0.0
-        },
-        "scale": {
-            "x": 300.0,
-            "y": 300.0,
-            "z": 300.0
-        },
-        "scriptIndex": "",
-        "script_path": "",
-        "surfaceMaterial": {
-            "DiffuseIntensity": 0.5,
-            "Roughness": 0.5,
-            "SpecularIntensity": 0.5
-        },
-        "tiling": [
-            1.0,
-            1.0
+        "children": [
+            [
+                {
+                    "children": null,
+                    "collider": true,
+                    "collider_type": 2,
+                    "damping": 0.0,
+                    "friction": 1.0,
+                    "id": 3,
+                    "is_dynamic": false,
+                    "lodEnabled": true,
+                    "mass": 1.0,
+                    "material_path": "",
+                    "mesh_type": 1,
+                    "modelPath": "",
+                    "name": "Child A",
+                    "position": {
+                        "x": 0.0,
+                        "y": 0.0,
+                        "z": 6.899996280670166
+                    },
+                    "relativePosition": {
+                        "x": 0.0,
+                        "y": 0.0,
+                        "z": -6.000016689300537
+                    },
+                    "rotation": {
+                        "x": 0.0,
+                        "y": 0.0,
+                        "z": 0.0
+                    },
+                    "scale": {
+                        "x": 1.0,
+                        "y": 1.0,
+                        "z": 1.0
+                    },
+                    "scriptIndex": "",
+                    "script_path": "",
+                    "surfaceMaterial": {
+                        "DiffuseIntensity": 0.5,
+                        "Roughness": 0.5,
+                        "SpecularIntensity": 0.5
+                    },
+                    "tiling": [
+                        1.0,
+                        1.0
+                    ],
+                    "type": "entity"
+                }
+            ],
+            [
+                {
+                    "children": null,
+                    "collider": true,
+                    "collider_type": 2,
+                    "damping": 0.0,
+                    "friction": 1.0,
+                    "id": 4,
+                    "is_dynamic": false,
+                    "lodEnabled": true,
+                    "mass": 1.0,
+                    "material_path": "",
+                    "mesh_type": 1,
+                    "modelPath": "",
+                    "name": "Child B",
+                    "position": {
+                        "x": 0.0,
+                        "y": 0.0,
+                        "z": 0.0
+                    },
+                    "relativePosition": {
+                        "x": 0.0,
+                        "y": 0.0,
+                        "z": -12.900012969970703
+                    },
+                    "rotation": {
+                        "x": 0.0,
+                        "y": 0.0,
+                        "z": 0.0
+                    },
+                    "scale": {
+                        "x": 1.0,
+                        "y": 1.0,
+                        "z": 1.0
+                    },
+                    "scriptIndex": "",
+                    "script_path": "",
+                    "surfaceMaterial": {
+                        "DiffuseIntensity": 0.5,
+                        "Roughness": 0.5,
+                        "SpecularIntensity": 0.5
+                    },
+                    "tiling": [
+                        1.0,
+                        1.0
+                    ],
+                    "type": "entity"
+                }
+            ],
+            [
+                {
+                    "attenuation": 0.0010000000474974513,
+                    "color": {
+                        "a": 255.0,
+                        "b": 91.29235076904297,
+                        "g": 187.563720703125,
+                        "r": 233.40725708007813
+                    },
+                    "direction": {
+                        "x": 0.4000000059604645,
+                        "y": 0.4000000059604645,
+                        "z": -0.4000000059604645
+                    },
+                    "id": 2,
+                    "intensity": 16.170000076293945,
+                    "isChild": true,
+                    "light_type": 1,
+                    "name": "Light Child 1",
+                    "position": {
+                        "x": 0.0,
+                        "y": 7.399996757507324,
+                        "z": 5.399997234344482
+                    },
+                    "relativePosition": {
+                        "x": 0.0,
+                        "y": 7.399996757507324,
+                        "z": -7.500015735626221
+                    },
+                    "specularStrength": 0.5,
+                    "target": {
+                        "x": 0,
+                        "y": 0,
+                        "z": 0
+                    },
+                    "type": "light"
+                }
+            ]
         ],
-        "type": "entity"
-    },
-    {
-        "children": null,
         "collider": true,
         "collider_type": 2,
         "damping": 0.0,
         "friction": 1.0,
-        "id": 3,
+        "id": 1,
         "is_dynamic": false,
         "lodEnabled": true,
         "mass": 1.0,
         "material_path": "",
         "mesh_type": 1,
         "modelPath": "",
-        "name": "Unnamed Entity",
+        "name": "Parent",
         "position": {
             "x": 0.0,
             "y": 0.0,
-            "z": 0.0
+            "z": 12.900012969970703
         },
         "relativePosition": {
             "x": 0.0,
@@ -120,9 +210,9 @@
             "z": 0.0
         },
         "scale": {
-            "x": 1.0,
-            "y": 1.0,
-            "z": 1.0
+            "x": 2.0,
+            "y": 2.0,
+            "z": 2.0
         },
         "scriptIndex": "",
         "script_path": "",
@@ -136,41 +226,5 @@
             1.0
         ],
         "type": "entity"
-    },
-    {
-        "attenuation": 0.0010000000474974513,
-        "color": {
-            "a": 255.0,
-            "b": 114.3818359375,
-            "g": 181.18588256835938,
-            "r": 234.43548583984375
-        },
-        "direction": {
-            "x": 0.4820000231266022,
-            "y": -0.5540000200271606,
-            "z": 0.41100001335144043
-        },
-        "id": 2,
-        "intensity": 9.152000427246094,
-        "isChild": false,
-        "light_type": 0,
-        "name": "New Light",
-        "position": {
-            "x": 0.0,
-            "y": 17.400014877319336,
-            "z": 5.0
-        },
-        "relativePosition": {
-            "x": 0,
-            "y": 0,
-            "z": 0
-        },
-        "specularStrength": 0.5,
-        "target": {
-            "x": 1.0802490575305122e+25,
-            "y": 3.604560039782727e-41,
-            "z": 8.218334390138044e+26
-        },
-        "type": "light"
     }
 ]

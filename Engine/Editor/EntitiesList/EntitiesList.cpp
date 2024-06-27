@@ -83,7 +83,7 @@ void DrawEntityTree(Entity& entity) {
         const ImGuiPayload* payload = ImGui::AcceptDragDropPayload("CHILD_LIGHT_PAYLOAD");
         if (payload) {
             if (payload->DataSize != sizeof(LightStruct)) {
-                std::cerr << "Invalid payload size!" << std::endl;
+                TraceLog(LOG_WARNING, "Invalid payload size.");
                 return;
             }
 
@@ -91,10 +91,7 @@ void DrawEntityTree(Entity& entity) {
 
             auto it = std::find_if(lights.begin(), lights.end(), [&](const LightStruct& lightStruct) { return lightStruct.id == droppedLight.id; });
             if (it != lights.end()) {
-                std::cout << "Light found!" << std::endl;
                 entity.addLightChild(findIndexInVector(lights, *it));
-            } else {
-                std::cerr << "Light not found!" << std::endl;
             }
         }
         ImGui::EndDragDropTarget();
@@ -104,7 +101,7 @@ void DrawEntityTree(Entity& entity) {
         const ImGuiPayload* payload = ImGui::AcceptDragDropPayload("CHILD_ENTITY_PAYLOAD");
         if (payload) {
             if (payload->DataSize != sizeof(Entity)) {
-                std::cerr << "Invalid payload size!" << std::endl;
+                TraceLog(LOG_WARNING, "Invalid payload size.");
                 return;
             }
 
@@ -112,10 +109,7 @@ void DrawEntityTree(Entity& entity) {
 
             auto it = std::find_if(entitiesListPregame.begin(), entitiesListPregame.end(), [&](const Entity& entity) { return entity.id == droppedEntity.id; });
             if (it != entitiesListPregame.end()) {
-                std::cout << "Entity found!" << std::endl;
                 entity.addEntityChild(findIndexInVector(entitiesListPregame, *it));
-            } else {
-                std::cerr << "Entity not found!" << std::endl;
             }
         }
         ImGui::EndDragDropTarget();
@@ -209,14 +203,13 @@ void UnchildObjects(ImVec2 childSize) {
         const ImGuiPayload* payload = ImGui::AcceptDragDropPayload("CHILD_LIGHT_PAYLOAD");
         if (payload) {
             if (payload->DataSize != sizeof(LightStruct)) {
-                std::cerr << "Invalid payload size!" << std::endl;
+                TraceLog(LOG_WARNING, "Invalid payload size.");
                 return;
             }
 
             LightStruct droppedLight = *static_cast<LightStruct*>(payload->Data);
 
             if (!droppedLight.isChild) {
-                std::cerr << "Dropped light is not a child." << std::endl;
                 return;
             }
 
@@ -242,14 +235,13 @@ void UnchildObjects(ImVec2 childSize) {
         const ImGuiPayload* payload = ImGui::AcceptDragDropPayload("CHILD_ENTITY_PAYLOAD");
         if (payload) {
             if (payload->DataSize != sizeof(Entity)) {
-                std::cerr << "Invalid payload size!" << std::endl;
+                TraceLog(LOG_WARNING, "Invalid payload size.");
                 return;
             }
 
             Entity droppedEntity = *static_cast<Entity*>(payload->Data);
 
             if (!droppedEntity.isChild) {
-                std::cerr << "Dropped entity is not a child." << std::endl;
                 return;
             }
 

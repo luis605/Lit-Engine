@@ -6,10 +6,6 @@ PYBIND11_EMBEDDED_MODULE(timeModule, m) {
         .def_readwrite("dt", &Time::dt);
 }
 
-
-
-
-
 PYBIND11_EMBEDDED_MODULE(mathModule, m) {
     py::class_<LitVector3>(m, "Vector3")
         .def(py::init<float, float, float>())
@@ -331,20 +327,11 @@ std::string colorToString(const Color& color) {
   return ss.str();
 }
 
-
-void printColor(const Color& color) {
-  std::string color_text = colorToString(color);
-  std::cout << color_text.c_str() << std::endl;
-}
-
 PYBIND11_EMBEDDED_MODULE(colorModule, m) {
     py::class_<Color>(m, "Color")
         .def(py::init<unsigned char, unsigned char, unsigned char, unsigned char>())
         .def_readwrite("r", &Color::r)
         .def_readwrite("g", &Color::g)
         .def_readwrite("b", &Color::b)
-        .def_readwrite("a", &Color::a)
-        .def("print", [](const Color& color) {
-            printColor(color);
-        });
+        .def_readwrite("a", &Color::a);
 }

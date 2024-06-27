@@ -85,16 +85,16 @@ void DebugWindow() {
 void DrawMenus() {
     if (ImGui::BeginMenu("Project")) {
         if (ImGui::MenuItem("Save", "Ctrl+S")) {
-            std::cout << "Saving Project...\n";
+            TraceLog(LOG_INFO, "Saving project.");
             SaveProject();
         }
 
         if (ImGui::MenuItem("Save as", "Ctrl+Shift+S")) {
-            std::cout << "Saving Project as...\n";
+            TraceLog(LOG_INFO, "Saving project as.");
         }
 
         if (ImGui::MenuItem("Open", "Ctrl+O")) {
-            std::cout << "Opening Project...\n";
+            TraceLog(LOG_INFO, "Opening project.");
             LoadProject(entitiesListPregame, lights, sceneCamera);
         }
 
@@ -124,7 +124,6 @@ void DrawMenus() {
 
     if (ImGui::BeginMenu("Debug")) {
         if (ImGui::MenuItem("Reload Lighting Shader")) {
-            std::cout << "\n\n\n\n\nReloading Lighting Shaders\n\n";
             UnloadShader(shader);
             shader = LoadShader("Engine/Lighting/shaders/lighting_vertex.glsl", "Engine/Lighting/shaders/lighting_fragment.glsl");
             for (Entity& entity : entitiesListPregame) {
@@ -141,7 +140,6 @@ void DrawMenus() {
         }
 
         if (ImGui::MenuItem("Reload Skybox Shader")) {
-            std::cout << "\n\n\n\n\nReloading Skybox Shaders\n\n";
             InitSkybox();
         }
 

@@ -12,7 +12,7 @@ const char* encryptFileString(const std::string& inputFile, const std::string& k
     std::ifstream inFile(inputFile, std::ios::binary);
 
     if (!inFile) {
-        std::cerr << "Failed to open encrypted file." << std::endl;
+        TraceLog(LOG_ERROR, (std::string("Failed to open encryption file: ") + inputFile).c_str());
         return nullptr;
     }
 

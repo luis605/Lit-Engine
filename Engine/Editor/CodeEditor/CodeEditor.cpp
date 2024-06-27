@@ -9,13 +9,12 @@ bool RenderImageButtonWithTooltip(ImTextureID textureID, const ImVec2& size, con
 }
 
 void SaveCodeToFile(const std::string& filePath, const std::string& code) {
-    std::cout << "Saving file..." << std::endl;
     std::ofstream file(filePath);
     if (file.is_open()) {
         file << code;
         file.close();
     } else {
-        std::cout << "Unable to open file." << std::endl;
+        TraceLog(LOG_WARNING, (std::string("Failed to save: ") + filePath).c_str());
     }
 }
 

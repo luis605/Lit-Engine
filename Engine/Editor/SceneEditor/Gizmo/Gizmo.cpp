@@ -28,7 +28,7 @@ void LoadGizmoModel(Gizmo& gizmo, const Model& model, const fs::path& modelPath,
         gizmo.model = LoadModel(modelPath.c_str());
 
     if (!IsModelReady(gizmo.model)) {
-        std::cerr << "Error: Gizmo model is not ready" << std::endl;
+        TraceLog(LOG_WARNING, "Gizmo model is not ready");
         return;
     }
 

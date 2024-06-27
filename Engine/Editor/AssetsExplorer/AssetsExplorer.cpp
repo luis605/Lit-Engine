@@ -210,10 +210,10 @@ void AssetsExplorerTopBar() {
                 try {
                     fs::rename(sourceFilePath, destinationFilePath);
                 } catch (const fs::filesystem_error& e) {
-                    std::cerr << "Error renaming file: " << e.what() << std::endl;
+                    TraceLog(LOG_ERROR, (std::string("Failed to rename file: ") + std::string(e.what())).c_str());
                 }
             } else {
-                std::cerr << "Error: Cannot move a file to a folder where a file with the same name already exists." << std::endl;
+                TraceLog(LOG_ERROR, "Failed to move file, because file already exists.");
             }
         }
 
@@ -295,7 +295,7 @@ void AssetsExplorer() {
                     try {
                         fs::rename(sourceFilePath, destinationFilePath);
                     } catch (const fs::filesystem_error& e) {
-                        std::cerr << "Error renaming file: " << e.what() << std::endl;
+                        TraceLog(LOG_ERROR, (std::string("Failed to rename file: ") + std::string(e.what())).c_str());
                     }
                 }
             }
@@ -321,12 +321,12 @@ void AssetsExplorer() {
                 fs::path newFolderPath = dirPath / renameFolderBuffer;
 
                 if (fs::exists(newFolderPath)) {
-                    std::cerr << "Error: Directory already exists!" << std::endl;
+                    TraceLog(LOG_ERROR, "Directory already exists.");
                 } else {
                     try {
                         fs::rename(dirPath / folderItem.name, newFolderPath);
                     } catch (const fs::filesystem_error& e) {
-                        std::cerr << "Error renaming folder: " << e.what() << std::endl;
+                        TraceLog(LOG_ERROR, (std::string("Failed to rename directory: ") + std::string(e.what())).c_str());
                     }
                 }
 
@@ -404,12 +404,12 @@ void AssetsExplorer() {
                 fs::path newFilename = dirPath / renameFileBuffer;
 
                 if (fs::exists(newFilename)) {
-                    std::cerr << "Error: Directory already exists!" << std::endl;
+                    TraceLog(LOG_ERROR, "File already exists.");
                 } else {
                     try {
                         fs::rename(dirPath / fileItem.name, newFilename);
                     } catch (const fs::filesystem_error& e) {
-                        std::cerr << "Error renaming file: " << e.what() << std::endl;
+                        TraceLog(LOG_ERROR, (std::string("Failed to rename file: ") + std::string(e.what())).c_str());
                     }
                 }
 

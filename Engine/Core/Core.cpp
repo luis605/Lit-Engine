@@ -140,7 +140,7 @@ void EngineMainLoop() {
 }
 
 void CleanUp() {
-    std::cout << "Exiting..." << std::endl;
+    TraceLog(LOG_INFO, "Cleaning up...");
 
     inGamePreview = false;
     firstTimeGameplay = false;

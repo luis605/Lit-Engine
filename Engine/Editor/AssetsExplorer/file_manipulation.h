@@ -21,10 +21,9 @@ bool createNumberedFile(const fs::path& directoryPath, const std::string& extens
     
     if (outputFile.is_open()) {
         outputFile.close();
-        std::cout << "File created: " << filePathString << std::endl;
         return true;
     } else {
-        std::cerr << "Failed to create the file: " << filePathString << std::endl;
+        TraceLog(LOG_ERROR, (std::string("Failed to create the file: ") + std::string(filePathString)).c_str());
         return false;
     }
 }
@@ -38,15 +37,12 @@ bool createNumberedFolder(const fs::path& directoryPath) {
         try {
             if (!fs::exists(folderPath)) {
                 fs::create_directory(folderPath);
-                std::cout << "Directory created successfully.\n";
                 return true; // Indicate success
             } else {
-                std::cout << "Directory already exists.\n";
-                // Increment folderNumber for the next iteration
                 ++folderNumber;
             }
         } catch (const fs::filesystem_error& e) {
-            std::cerr << "Error creating directory: " << e.what() << '\n';
+            TraceLog(LOG_ERROR, (std::string("Failed to create directory: ") + std::string(e.what())).c_str());
             return false; // Indicate failure to create the directory
         }
     }

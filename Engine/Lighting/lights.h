@@ -67,13 +67,11 @@ struct LightStruct {
     bool isChild = false;
 
     LightStruct() {
-        std::cout << "LightStruct created" << std::endl;
     }
 
     LightStruct(std::string newName, int id) {
         lightInfo.name = newName;
         this->id = id;
-        std::cout << "LightStruct created" << std::endl;
     }
 
     bool operator==(const LightStruct& other) const {

@@ -163,7 +163,7 @@ public:
         Entity& newEntity = entitiesListPregame.at(newEntityIndex);
 
         if (&newEntity == this) {
-            std::cerr << "Error: newEntity is parent" << std::endl;
+            TraceLog(LOG_WARNING, "Entity = parent");
             return;
         }
 
@@ -504,7 +504,6 @@ public:
                 .def_readwrite("visible", &Entity::visible)
                 .def_readwrite("id", &Entity::id)
                 .def_readwrite("collider", &Entity::collider)
-                .def("printPosition", &Entity::printPosition)
                 .def("applyForce", &Entity::applyForce)
                 .def("applyImpulse", &Entity::applyImpulse)
                 .def("setFriction", &Entity::setFriction)
@@ -554,7 +553,7 @@ public:
 #else
     std::ifstream infile("encryptedScripts.json");
     if (!infile.is_open()) {
-        std::cout << "Error: Failed to open scripts file." << std::endl;
+        TraceLog(LOG_ERROR, "Failed to open scripts file.");
         return;
     }
 
@@ -575,10 +574,7 @@ public:
             if (element.is_object()) {
                 if (element.contains(scriptIndex)) {
                     scriptContent = element[scriptIndex].get<std::string>();
-                    std::cout << "Script loaded successfully." << std::endl;
-                } else {
                 }
-            } else {
             }
         }
     } else {
@@ -611,7 +607,7 @@ public:
                 rendering_camera->update();
             }
         } catch (const py::error_already_set& e) {
-            std::cerr << "Error running script: " << e.what() << std::endl;
+            TraceLog(LOG_ERROR, (std::string("Failed to run script: ") + std::string(e.what())).c_str());
         }
     }
 
@@ -892,10 +888,6 @@ public:
 
             setPos(backupPosition);
         }
-    }
-
-    void printPosition() {
-        std::cout << "Position: " << position.x << ", " << position.y << ", " << position.z << "\n";
     }
 
     bool inFrustum() {

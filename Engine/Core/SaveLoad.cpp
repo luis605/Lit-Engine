@@ -121,7 +121,7 @@ bool is_subpath(const fs::path &path, const fs::path &base) {
 void SerializeMaterial(SurfaceMaterial& material, const fs::path path) {
     std::ofstream outfile(path);
     if (!outfile.is_open()) {
-        std::cerr << "Error: Failed to open material file: " << path << std::endl;
+        TraceLog(LOG_ERROR, (std::string("Failed to open material file: ") + std::string(path)).c_str());
         return;
     }
 
@@ -147,14 +147,14 @@ void DeserializeMaterial(SurfaceMaterial* material, const fs::path path) {
     const fs::path baseDir = fs::current_path() / "project/";
 
     if (!is_subpath(resolvedPath, baseDir)) {
-        std::cerr << "Error: Path traversal detected: " << path << std::endl;
+        TraceLog(LOG_ERROR, (std::string("Path traversal detected: ") + std::string(path)).c_str());
         return;
     }
 
     std::ifstream infile(resolvedPath);
 
     if (!infile.is_open()) {
-        std::cerr << "Error: Failed to open material file for reading: " << path << std::endl;
+        TraceLog(LOG_ERROR, (std::string("Failed to open material file for reading: ") + std::string(path)).c_str());
         return;
     }
 
@@ -210,7 +210,7 @@ void DeserializeMaterial(SurfaceMaterial* material, const fs::path path) {
 
         infile.close();
     } catch (const json::parse_error& e) {
-        std::cerr << "Error: Failed to parse material file (" << path << "): " << e.what() << std::endl;
+        TraceLog(LOG_ERROR, (std::string("Failed to parse material file (") + std::string(path) + std::string("): ") + std::string(e.what())).c_str());
         return;
     }
 }
@@ -377,13 +377,13 @@ std::string serializePythonScript(const fs::path& path) {
     const fs::path baseDir = fs::current_path() / "project/";
 
     if (!is_subpath(resolvedPath, baseDir)) {
-        std::cerr << "Error: Path traversal detected: " << path << std::endl;
+        TraceLog(LOG_ERROR, (std::string("Path traversal detected: ") + std::string(path)).c_str());
         return "";
     }
 
     std::ifstream inputFile(resolvedPath);
     if (!inputFile.is_open()) {
-        std::cerr << "Failed to open file: " << resolvedPath << std::endl;
+        TraceLog(LOG_ERROR, (std::string("Failed to open file: " + std::string(resolvedPath)).c_str()));
         return "";
     }
 
@@ -417,7 +417,7 @@ void serializeScripts() {
 
     std::ofstream outfile("exported_game/scripts.json");
     if (!outfile.is_open()) {
-        std::cerr << "Error: Failed to open project file." << std::endl;
+        TraceLog(LOG_ERROR, "Failed to open exported_game/scripts.json file.");
         return;
     }
 
@@ -453,7 +453,7 @@ int SaveProject() {
 
     std::ofstream outfile("project.json");
     if (!outfile.is_open()) {
-        std::cerr << "Error: Failed to open project file." << std::endl;
+        TraceLog(LOG_ERROR, "Failed to open project file.");
         return 1;
     }
 
@@ -656,7 +656,6 @@ Entity& LoadEntity(const json& entityJson, std::vector<Entity>& entitiesVector) 
                     std::string type = childJson["type"].get<std::string>();
                     if (type == "entity") {
                         Entity* child = &LoadEntity(childJson, entitiesVector);
-                        std::cout << "Is child initialized 1? " << child->initialized << "\n";
                         entity.addEntityChild(findIndexInVector(entitiesVector, *child));
                     } else if (type == "light") {
                         lights.emplace_back();
@@ -793,7 +792,7 @@ void LoadButton(const json& buttonJson, LitButton& button) {
 int LoadProject(std::vector<Entity>& entitiesVector, std::vector<LightStruct>& lightsVector, LitCamera& camera) {
     std::ifstream infile("project.json");
     if (!infile.is_open()) {
-        std::cout << "Error: Failed to open project file." << std::endl;
+        TraceLog(LOG_ERROR, "Failed to open project file.");
         return 1;
     }
 
@@ -832,7 +831,7 @@ int LoadProject(std::vector<Entity>& entitiesVector, std::vector<LightStruct>& l
             }
         }
     } catch (const json::type_error& e) {
-        std::cout << "JSON type error: " << e.what() << std::endl;
+        TraceLog(LOG_ERROR, (std::string("JSON type error: ") + std::string(e.what())).c_str());
         return 1;
     }
 
