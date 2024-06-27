@@ -428,22 +428,20 @@ public:
                 indices.emplace_back(ix);
             }
 
-            if (vertices.size() > 50) {
-                OptimizedMeshData data(indices, vertices);
+            OptimizedMeshData data(indices, vertices);
 
-                this->LodModels[0] = this->model;
+            this->LodModels[0] = this->model;
 
-                data = OptimizeMesh(indices, vertices, 0.8f);
-                this->LodModels[1] = LoadModelFromMesh(generateLODMesh(data.Vertices, data.Indices, model.meshes[0]));
+            data = OptimizeMesh(indices, vertices, 0.8f);
+            this->LodModels[1] = LoadModelFromMesh(generateLODMesh(data.vertices, data.indices, model.meshes[0]));
 
-                data = OptimizeMesh(indices, vertices, 0.6f);
-                this->LodModels[2] = LoadModelFromMesh(generateLODMesh(data.Vertices, data.Indices, model.meshes[0]));
+            data = OptimizeMesh(indices, vertices, 0.6f);
+            this->LodModels[2] = LoadModelFromMesh(generateLODMesh(data.vertices, data.indices, model.meshes[0]));
 
-                data = OptimizeMesh(indices, vertices, 0.3f);
-                this->LodModels[3] = LoadModelFromMesh(generateLODMesh(data.Vertices, data.Indices, model.meshes[0]));
+            data = OptimizeMesh(indices, vertices, 0.3f);
+            this->LodModels[3] = LoadModelFromMesh(generateLODMesh(data.vertices, data.indices, model.meshes[0]));
 
-                OptimizeEntityMemory();
-            }
+            OptimizeEntityMemory();
         }
 
         isDynamic ? makePhysicsDynamic() : makePhysicsStatic();
@@ -991,10 +989,10 @@ private:
             lodModel.transform = transformMatrix;
         }
 
-        int lodLevel = (distance < LOD_DISTANCE_HIGH) ? 0
-                    : (distance < LOD_DISTANCE_MEDIUM) ? 1
-                    : (distance < LOD_DISTANCE_LOW) ? 2
-                    : 3;
+        // int lodLevel = (distance < LOD_DISTANCE_HIGH) ? 0
+        //             : (distance < LOD_DISTANCE_MEDIUM) ? 1
+        //             : (distance < LOD_DISTANCE_LOW) ? 2
+        //             : 3;
 
         DrawModel(lodEnabled && IsModelReady(LodModels[lodLevel]) ? LodModels[lodLevel] : model,
                 Vector3Zero(),

@@ -3,61 +3,61 @@ const float LOD_DISTANCE_MEDIUM = 25.0f;
 const float LOD_DISTANCE_LOW = 35.0f;
 
 struct OptimizedMeshData {
-	std::vector<unsigned int> Indices;
-    std::vector<Vector3> Vertices;
+	std::vector<unsigned int> indices;
+    std::vector<Vector3> vertices;
 
     OptimizedMeshData() {}
 
     OptimizedMeshData(std::vector<unsigned int> indices, std::vector<Vector3> vertices)
-        : Indices(indices), Vertices(vertices) {}
+        : indices(indices), vertices(vertices) {}
 
     OptimizedMeshData(const OptimizedMeshData& other)
-        : Indices(other.Indices), Vertices(other.Vertices) {}
+        : indices(other.indices), vertices(other.vertices) {}
 
     OptimizedMeshData& operator=(const OptimizedMeshData& other) {
         if (this != &other) {
-            Indices = other.Indices;
-            Vertices = other.Vertices;
+            indices = other.indices;
+            vertices = other.vertices;
         }
         return *this;
     }
 };
 
-OptimizedMeshData OptimizeMesh(std::vector<unsigned int>& Indices, std::vector<Vector3>& Vertices, float threshold) {
+OptimizedMeshData OptimizeMesh(std::vector<unsigned int>& indices, std::vector<Vector3>& vertices, float threshold) {
     OptimizedMeshData data;
-    size_t NumIndices = Indices.size();
-    size_t NumVertices = Vertices.size();
+    size_t numIndices = indices.size();
+    size_t numVertices = vertices.size();
 
-    if ((NumIndices % 3 != 0) || NumVertices < 50) {
-        std::cerr << "Error: Number of indices must be a multiple of 3 and vertices should be more than 50." << std::endl;
+    if ((numIndices % 3 != 0) || numVertices <= 48) {
+        TraceLog(LOG_WARNING, "Number of indices must be a multiple of 3 and greater than 48.");
         return data;
     }
 
-    size_t target_index_count = static_cast<size_t>(NumIndices * threshold);
+    size_t target_index_count = static_cast<size_t>(numIndices * threshold);
     float target_error = 1e-2f;
 
-    data.Indices.resize(Indices.size());
+    data.indices.resize(indices.size());
 
     size_t optimized_index_count = meshopt_simplify(
-        &data.Indices[0], &Indices[0], NumIndices, &Vertices[0].x, NumVertices, 
+        &data.indices[0], &indices[0], numIndices, &vertices[0].x, numVertices, 
         sizeof(Vector3), target_index_count, target_error);
 
-    data.Indices.resize(optimized_index_count);
+    data.indices.resize(optimized_index_count);
 
-    std::vector<unsigned int> remap(NumVertices);
+    std::vector<unsigned int> remap(numVertices);
     size_t optimized_vertex_count = meshopt_generateVertexRemap(
-        remap.data(), &data.Indices[0], optimized_index_count, 
-        &Vertices[0], NumVertices, sizeof(Vector3)
+        remap.data(), &data.indices[0], optimized_index_count, 
+        &vertices[0], numVertices, sizeof(Vector3)
     );
 
-    data.Vertices.resize(optimized_vertex_count);
+    data.vertices.resize(optimized_vertex_count);
 
-    meshopt_remapVertexBuffer(&data.Vertices[0], &Vertices[0], NumVertices, sizeof(Vector3), remap.data());
-    meshopt_remapIndexBuffer(&data.Indices[0], &data.Indices[0], optimized_index_count, remap.data());
+    meshopt_remapVertexBuffer(&data.vertices[0], &vertices[0], numVertices, sizeof(Vector3), remap.data());
+    meshopt_remapIndexBuffer(&data.indices[0], &data.indices[0], optimized_index_count, remap.data());
 
-    meshopt_optimizeVertexCache(&data.Indices[0], &data.Indices[0], optimized_index_count, optimized_vertex_count);
-    meshopt_optimizeOverdraw(&data.Indices[0], &data.Indices[0], optimized_index_count, &data.Vertices[0].x, optimized_vertex_count, sizeof(Vector3), 1.05f);
-    meshopt_optimizeVertexFetch(&data.Vertices[0], &data.Indices[0], optimized_index_count, &data.Vertices[0], optimized_vertex_count, sizeof(Vector3));
+    meshopt_optimizeVertexCache(&data.indices[0], &data.indices[0], optimized_index_count, optimized_vertex_count);
+    meshopt_optimizeOverdraw(&data.indices[0], &data.indices[0], optimized_index_count, &data.vertices[0].x, optimized_vertex_count, sizeof(Vector3), 1.05f);
+    meshopt_optimizeVertexFetch(&data.vertices[0], &data.indices[0], optimized_index_count, &data.vertices[0], optimized_vertex_count, sizeof(Vector3));
 
     return data;
 }

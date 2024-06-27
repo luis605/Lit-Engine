@@ -2,15 +2,15 @@
     {
         "fovy": 60.0,
         "position": {
-            "x": 47.34920883178711,
-            "y": 30.612028121948242,
-            "z": 8.234254837036133
+            "x": -4.202348709106445,
+            "y": 4.266304969787598,
+            "z": 3.3253843784332275
         },
         "projection": 0,
         "target": {
-            "x": 46.41849136352539,
-            "y": 30.248188018798828,
-            "z": 8.197009086608887
+            "x": -3.7391366958618164,
+            "y": 3.5267062187194824,
+            "z": 2.837092876434326
         },
         "type": "camera",
         "up": {
@@ -22,9 +22,9 @@
     {
         "ambientColor": {
             "w": 1.0,
-            "x": 0.0,
-            "y": 0.0,
-            "z": 0.0
+            "x": 1.0,
+            "y": 1.0,
+            "z": 1.0
         },
         "bloom": false,
         "bloomBrightness": 0.0,
@@ -40,26 +40,73 @@
             "y": 1.0,
             "z": 1.0
         },
-        "skyboxPath": "project/game/images/kloppenheim_02_puresky_4k.hdr",
+        "skyboxPath": "assets/images/skybox/default skybox.hdr",
         "type": "world settings"
     },
     {
         "children": null,
         "collider": true,
-        "collider_type": 0,
+        "collider_type": 2,
         "damping": 0.0,
         "friction": 1.0,
-        "id": 1,
-        "is_dynamic": true,
+        "id": 2,
+        "is_dynamic": false,
         "lodEnabled": true,
         "mass": 1.0,
-        "material_path": "project/game/materials/file2.mat",
-        "mesh_type": 1,
+        "material_path": "",
+        "mesh_type": 5,
         "modelPath": "",
-        "name": "Player",
+        "name": "Unnamed Entity",
         "position": {
             "x": 0.0,
-            "y": 17.200056076049805,
+            "y": 0.0,
+            "z": 0.0
+        },
+        "relativePosition": {
+            "x": 0.0,
+            "y": 0.0,
+            "z": 0.0
+        },
+        "rotation": {
+            "x": 0.0,
+            "y": 0.0,
+            "z": 0.0
+        },
+        "scale": {
+            "x": 300.0,
+            "y": 300.0,
+            "z": 300.0
+        },
+        "scriptIndex": "",
+        "script_path": "",
+        "surfaceMaterial": {
+            "DiffuseIntensity": 0.5,
+            "Roughness": 0.5,
+            "SpecularIntensity": 0.5
+        },
+        "tiling": [
+            1.0,
+            1.0
+        ],
+        "type": "entity"
+    },
+    {
+        "children": null,
+        "collider": true,
+        "collider_type": 2,
+        "damping": 0.0,
+        "friction": 1.0,
+        "id": 3,
+        "is_dynamic": false,
+        "lodEnabled": true,
+        "mass": 1.0,
+        "material_path": "",
+        "mesh_type": 1,
+        "modelPath": "",
+        "name": "Unnamed Entity",
+        "position": {
+            "x": 0.0,
+            "y": 0.0,
             "z": 0.0
         },
         "relativePosition": {
@@ -77,53 +124,6 @@
             "y": 1.0,
             "z": 1.0
         },
-        "scriptIndex": "player0",
-        "script_path": "project/game/scripts/player.py",
-        "surfaceMaterial": {
-            "DiffuseIntensity": 1.0,
-            "Roughness": 0.42500001192092896,
-            "SpecularIntensity": 0.0
-        },
-        "tiling": [
-            1.0,
-            1.0
-        ],
-        "type": "entity"
-    },
-    {
-        "children": null,
-        "collider": true,
-        "collider_type": 0,
-        "damping": 0.0,
-        "friction": 1.0,
-        "id": 0,
-        "is_dynamic": false,
-        "lodEnabled": true,
-        "mass": 1.0,
-        "material_path": "",
-        "mesh_type": 1,
-        "modelPath": "",
-        "name": "Planet",
-        "position": {
-            "x": 0.0,
-            "y": 0.0,
-            "z": 0.0
-        },
-        "relativePosition": {
-            "x": 0.0,
-            "y": 0.0,
-            "z": 0.0
-        },
-        "rotation": {
-            "x": -7.383799076080322,
-            "y": -37.187896728515625,
-            "z": -1.5240483283996582
-        },
-        "scale": {
-            "x": 24.0,
-            "y": 24.0,
-            "z": 24.0
-        },
         "scriptIndex": "",
         "script_path": "",
         "surfaceMaterial": {
@@ -138,38 +138,38 @@
         "type": "entity"
     },
     {
-        "attenuation": 9.999999747378752e-05,
+        "attenuation": 0.0010000000474974513,
         "color": {
             "a": 255.0,
-            "b": 255.0,
-            "g": 255.0,
-            "r": 255.0
+            "b": 114.3818359375,
+            "g": 181.18588256835938,
+            "r": 234.43548583984375
         },
         "direction": {
-            "x": 0.8299999833106995,
-            "y": -1.0,
-            "z": 1.0
+            "x": 0.4820000231266022,
+            "y": -0.5540000200271606,
+            "z": 0.41100001335144043
         },
         "id": 2,
-        "intensity": 1.7410000562667847,
+        "intensity": 9.152000427246094,
         "isChild": false,
-        "light_type": 1,
-        "name": "Light",
+        "light_type": 0,
+        "name": "New Light",
         "position": {
-            "x": 4.0,
-            "y": 27.100051879882813,
-            "z": 3.0
+            "x": 0.0,
+            "y": 17.400014877319336,
+            "z": 5.0
         },
         "relativePosition": {
             "x": 0,
             "y": 0,
             "z": 0
         },
-        "specularStrength": 0.0,
+        "specularStrength": 0.5,
         "target": {
-            "x": 0,
-            "y": 0,
-            "z": 0
+            "x": 1.0802490575305122e+25,
+            "y": 3.604560039782727e-41,
+            "z": 8.218334390138044e+26
         },
         "type": "light"
     }
