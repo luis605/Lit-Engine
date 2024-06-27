@@ -329,19 +329,19 @@ void ObjectsPopup() {
 
         if (ImGui::BeginMenu("Light")) {
             if (ImGui::MenuItem("Point Light")) {
-                selectedLight = &NewLight({0, 0, 5}, WHITE, LIGHT_POINT);
+                selectedLight = &NewLight({0, 0, 0}, WHITE, LIGHT_POINT);
                 selectedGameObjectType = "light";
                 showObjectTypePopup = false;
             }
 
             if (ImGui::MenuItem("Directional Light")) {
-                selectedLight = &NewLight({0, 0, 5}, WHITE, LIGHT_DIRECTIONAL);
+                selectedLight = &NewLight({0, 0, 0}, WHITE, LIGHT_DIRECTIONAL);
                 selectedGameObjectType = "light";
                 showObjectTypePopup = false;
             }
 
             if (ImGui::MenuItem("Spot Light")) {
-                selectedLight = &NewLight({0, 0, 5}, WHITE, LIGHT_SPOT);
+                selectedLight = &NewLight({0, 0, 0}, WHITE, LIGHT_SPOT);
                 selectedLight = &lights.back();
                 selectedGameObjectType = "light";
                 showObjectTypePopup = false;
