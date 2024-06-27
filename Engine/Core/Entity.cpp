@@ -410,7 +410,7 @@ public:
 
         constBounds = GetMeshBoundingBox(model.meshes[0]);
 
-        if (lodEnabled) {
+        if (lodEnabled && model.meshes[0].vertexCount > 48) {
             std::vector<uint32_t> indices;
             std::vector<Vector3> vertices;
 
@@ -989,10 +989,10 @@ private:
             lodModel.transform = transformMatrix;
         }
 
-        // int lodLevel = (distance < LOD_DISTANCE_HIGH) ? 0
-        //             : (distance < LOD_DISTANCE_MEDIUM) ? 1
-        //             : (distance < LOD_DISTANCE_LOW) ? 2
-        //             : 3;
+        int lodLevel = (distance < LOD_DISTANCE_HIGH) ? 0
+                    : (distance < LOD_DISTANCE_MEDIUM) ? 1
+                    : (distance < LOD_DISTANCE_LOW) ? 2
+                    : 3;
 
         DrawModel(lodEnabled && IsModelReady(LodModels[lodLevel]) ? LodModels[lodLevel] : model,
                 Vector3Zero(),

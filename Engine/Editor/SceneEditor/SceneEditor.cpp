@@ -204,9 +204,6 @@ void UpdateShader() {
 }
 
 void RenderScene() {
-    if (IsKeyPressed(KEY_LEFT) && lodLevel >= 0) lodLevel -= 1;
-    if (IsKeyPressed(KEY_RIGHT) && lodLevel < 3) lodLevel += 1;
-
     BeginTextureMode(viewportRenderTexture);
         BeginMode3D(sceneCamera);
             ClearBackground(GRAY);
