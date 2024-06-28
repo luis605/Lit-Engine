@@ -43,9 +43,6 @@ PYBIND11_EMBEDDED_MODULE(mathModule, m) {
             return std::to_string(a.x) + " " + std::to_string(a.y) + " " + std::to_string(a.z);
         });
 
-
-
-
     py::class_<Vector2>(m, "Vector2")
         .def(py::init<float, float>())
         .def_readwrite("x", &Vector2::x)

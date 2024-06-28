@@ -494,7 +494,12 @@ public:
                 }))
 
                 .def_property("name", &Entity::getName, &Entity::setName)
-                .def_readwrite("position", &Entity::position)
+                .def_property("position",
+                    [](const Entity& entity) { return entity.position; },
+                    [](Entity& entity, LitVector3& position) { entity.setPos(position); })
+
+                // TODO: Call setPos when position.x/y/z is called and not just when position = newPosition
+
                 .def_readwrite("scale", &Entity::scale)
                 .def_property("rotation",
                     [](const Entity& entity) { return entity.rotation; },
@@ -611,18 +616,10 @@ public:
         }
     }
 
-
     void calcPhysicsPosition() {
         if (!isDynamic) return;
-        
-        if (CollisionShapeType::Box == *currentCollisionShapeType) {
-            btTransform trans;
-            if (rigidBody && rigidBody->getMotionState()) {
-                rigidBody->getMotionState()->getWorldTransform(trans);
-                btVector3 rigidBodyPosition = trans.getOrigin();
-                position = { rigidBodyPosition.getX(), rigidBodyPosition.getY(), rigidBodyPosition.getZ() };
-            }
-        } else if (*currentCollisionShapeType == CollisionShapeType::HighPolyMesh) {
+
+        if (*currentCollisionShapeType == CollisionShapeType::Box || *currentCollisionShapeType == CollisionShapeType::HighPolyMesh) {
             btTransform trans;
             if (rigidBody && rigidBody->getMotionState()) {
                 rigidBody->getMotionState()->getWorldTransform(trans);
@@ -635,27 +632,15 @@ public:
     void calcPhysicsRotation() {
         if (!isDynamic) return;
 
-        if (CollisionShapeType::Box == *currentCollisionShapeType) {
-            if (rigidBody) {
-                btTransform trans;
-                if (rigidBody->getMotionState()) {
-                    rigidBody->getMotionState()->getWorldTransform(trans);
-                    btQuaternion objectRotation = trans.getRotation();
-                    btScalar Roll, Yaw, Pitch;
-                    objectRotation.getEulerZYX(Roll, Yaw, Pitch);
+        if (*currentCollisionShapeType == CollisionShapeType::Box && rigidBody) {
+            btTransform trans;
+            if (rigidBody->getMotionState()) {
+                rigidBody->getMotionState()->getWorldTransform(trans);
+                btQuaternion objectRotation = trans.getRotation();
+                btScalar roll, yaw, pitch;
+                objectRotation.getEulerZYX(roll, yaw, pitch);
 
-                    rotation = (Vector3){ Pitch * RAD2DEG, Yaw * RAD2DEG, Roll * RAD2DEG };
-                }
-            } else if (rigidBody) {
-                btTransform trans;
-                if (rigidBody->getMotionState()) {
-                    rigidBody->getMotionState()->getWorldTransform(trans);
-                    btQuaternion objectRotation = trans.getRotation();
-                    btScalar Roll, Yaw, Pitch;
-                    objectRotation.getEulerZYX(Roll, Yaw, Pitch);
-
-                    rotation = (Vector3){ Pitch * RAD2DEG, Yaw * RAD2DEG, Roll * RAD2DEG };
-                }
+                rotation = Vector3{ pitch * RAD2DEG, yaw * RAD2DEG, roll * RAD2DEG };
             }
         }
     }
@@ -767,42 +752,53 @@ public:
         currentCollisionShapeType = std::make_shared<CollisionShapeType>(CollisionShapeType::Box);
     }
 
-
     void createStaticMesh(bool generateShape = true) {
         isDynamic = false;
 
-        if (rigidBody.get()) physics.dynamicsWorld->removeRigidBody(rigidBody.get());
+        // Remove the existing rigid body if it exists
+        if (rigidBody) {
+            physics.dynamicsWorld->removeRigidBody(rigidBody.get());
+        }
 
-        if (generateShape || !customMeshShape.get()) {
+        // Generate the collision shape if required or if it doesn't exist
+        if (generateShape || !customMeshShape) {
             customMeshShape = std::make_shared<btConvexHullShape>();
 
             for (int m = 0; m < model.meshCount; m++) {
-                Mesh mesh = model.meshes[m];
+                Mesh& mesh = model.meshes[m];
                 float* meshVertices = reinterpret_cast<float*>(mesh.vertices);
 
-                for (int v = 0; v < mesh.vertexCount; v += 3) {
+                // Add each vertex to the convex hull shape
+                for (int v = 0; v < mesh.vertexCount; v++) {
                     btVector3 scaledVertex(
-                        meshVertices[v]     * scale.x, 
-                        meshVertices[v + 1] * scale.y,
-                        meshVertices[v + 2] * scale.z
+                        meshVertices[v * 3]     * scale.x, 
+                        meshVertices[v * 3 + 1] * scale.y,
+                        meshVertices[v * 3 + 2] * scale.z
                     );
-                    customMeshShape.get()->addPoint(scaledVertex);
+                    customMeshShape->addPoint(scaledVertex);
                 }
             }
         }
 
+        // Set the transform for the rigid body
         btTransform rigidTransform;
         rigidTransform.setIdentity();
         rigidTransform.setOrigin(btVector3(position.x, position.y, position.z));
 
+        // Mass and inertia for a static object (mass = 0)
         btScalar rigidMass = 0.0f;
         btVector3 rigidInertia(0, 0, 0);
-        customMeshShape.get()->calculateLocalInertia(rigidMass, rigidInertia);
+        customMeshShape->calculateLocalInertia(rigidMass, rigidInertia);
+
+        // Create the motion state and rigid body construction info
         boxMotionState = std::make_shared<btDefaultMotionState>(rigidTransform);
         btRigidBody::btRigidBodyConstructionInfo rigidBodyCI(rigidMass, boxMotionState.get(), customMeshShape.get(), rigidInertia);
+
+        // Create the rigid body and add it to the physics world
         rigidBody = std::make_shared<btRigidBody>(rigidBodyCI);
-        
         physics.dynamicsWorld->addRigidBody(rigidBody.get());
+
+        // Update the current collision shape type
         currentCollisionShapeType = std::make_shared<CollisionShapeType>(CollisionShapeType::HighPolyMesh);
     }
 
@@ -835,16 +831,21 @@ public:
         currentCollisionShapeType = std::make_shared<CollisionShapeType>(CollisionShapeType::HighPolyMesh);
         if (rigidBody.get()) physics.dynamicsWorld->removeRigidBody(rigidBody.get());
 
-        if (generateShape || !customMeshShape.get()) {
+        if (generateShape || !customMeshShape) {
             customMeshShape = std::make_shared<btConvexHullShape>();
 
             for (int m = 0; m < model.meshCount; m++) {
-                Mesh mesh = model.meshes[m];
+                Mesh& mesh = model.meshes[m];
                 float* meshVertices = reinterpret_cast<float*>(mesh.vertices);
 
-                for (int v = 0; v < mesh.vertexCount; v += 3) {
-                    btVector3 scaledVertex(meshVertices[v] * scale.x, meshVertices[v + 1] * scale.y, meshVertices[v + 2] * scale.z);
-                    customMeshShape.get()->addPoint(scaledVertex);
+                // Add each vertex to the convex hull shape
+                for (int v = 0; v < mesh.vertexCount; v++) {
+                    btVector3 scaledVertex(
+                        meshVertices[v * 3]     * scale.x, 
+                        meshVertices[v * 3 + 1] * scale.y,
+                        meshVertices[v * 3 + 2] * scale.z
+                    );
+                    customMeshShape->addPoint(scaledVertex);
                 }
             }
         }
@@ -903,7 +904,6 @@ public:
 
         if (calcPhysics) {
             if (*currentCollisionShapeType != CollisionShapeType::None && isDynamic) {
-                setPos(position);
                 calcPhysicsRotation();
                 calcPhysicsPosition();
             }

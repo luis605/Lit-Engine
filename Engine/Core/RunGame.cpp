@@ -30,6 +30,8 @@ void RunGame() {
         DrawSkybox();
 
         physics.Update(GetFrameTime());
+        UpdateLightsBuffer(true, lights);
+        UpdateInGameGlobals();
 
         if (firstTimeGameplay) {
             #pragma omp parallel for
@@ -50,9 +52,6 @@ void RunGame() {
         }
 
         firstTimeGameplay = false;
-
-        UpdateLightsBuffer(false, lights);
-        UpdateInGameGlobals();
 
     EndShaderMode();
     EndMode3D();

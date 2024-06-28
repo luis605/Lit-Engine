@@ -133,7 +133,7 @@ struct SurfaceMaterialTexture {
                 UnloadTexture(fileTexture);
             }
         } else {
-            throw std::runtime_error("File does not exist");
+            TraceLog(LOG_WARNING, "Texture file does not exist.");
         }
         return *this;
     }
