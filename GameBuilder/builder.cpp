@@ -1,5 +1,4 @@
 #pragma once
-#include "../include_all.h"
 
 void encryptFile(const std::string& inputFile, const std::string& outputFile, const std::string& key) {
     std::ifstream inFile(inputFile, std::ios::binary);

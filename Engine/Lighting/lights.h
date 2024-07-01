@@ -80,7 +80,7 @@ struct LightStruct {
 };
 
 struct SurfaceMaterialTexture {
-    std::variant<std::monostate, Texture2D, VideoPlayer> texture;
+    std::variant<std::monostate, Texture2D, std::unique_ptr<VideoPlayer>> texture;
     int activatedMode = -1;
 
     // Default constructor
@@ -95,7 +95,7 @@ struct SurfaceMaterialTexture {
                 texture = fileTexture;
                 activatedMode = 0; // Texture mode
             } else {
-                texture = filePath.c_str();
+                texture = std::make_unique<VideoPlayer>(filePath.string().c_str());
                 activatedMode = 1; // Video mode
                 UnloadTexture(fileTexture);
             }
@@ -104,13 +104,18 @@ struct SurfaceMaterialTexture {
         }
     }
 
+    // Copy constructor
+    SurfaceMaterialTexture(const SurfaceMaterialTexture& other) {
+        *this = other;
+    }
+
     // Copy assignment operator
     SurfaceMaterialTexture& operator=(const SurfaceMaterialTexture& other) {
         if (this != &other) {
             if (other.hasTexture()) {
                 texture = std::get<Texture2D>(other.texture);
             } else if (other.hasVideoPlayer()) {
-                texture = std::get<VideoPlayer>(other.texture);
+                texture = std::make_unique<VideoPlayer>(*std::get<std::unique_ptr<VideoPlayer>>(other.texture));
             } else {
                 texture = std::monostate{};
             }
@@ -128,7 +133,7 @@ struct SurfaceMaterialTexture {
                 texture = fileTexture;
                 activatedMode = 0; // Texture mode
             } else {
-                texture = filePath.c_str();
+                texture = std::make_unique<VideoPlayer>(filePath.string().c_str());
                 activatedMode = 1; // Video mode
                 UnloadTexture(fileTexture);
             }
@@ -143,7 +148,7 @@ struct SurfaceMaterialTexture {
     }
 
     bool hasVideoPlayer() const {
-        return std::holds_alternative<VideoPlayer>(texture);
+        return std::holds_alternative<std::unique_ptr<VideoPlayer>>(texture);
     }
 
     bool isEmpty() const {
@@ -156,7 +161,7 @@ struct SurfaceMaterialTexture {
     }
 
     VideoPlayer& getVideoPlayer() {
-        return *std::get_if<VideoPlayer>(&texture);
+        return *std::get_if<std::unique_ptr<VideoPlayer>>(&texture)->get();
     }
 };
 

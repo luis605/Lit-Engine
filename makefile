@@ -51,7 +51,7 @@ run:
 
 build: $(IMGUI_OBJECTS)
 	@$(call echo_success, "Building Demo")
-	@$(CXX) $(CXXFLAGS) main.cpp $(SRC_FILES) $(INCLUDE_DIRS) $(IMGUI_OBJECTS) $(LIB_FLAGS) -Wl,-rpath,'$$ORIGIN:.' -lavformat -lavcodec -lavutil -lswscale -lswresample -o lit_engine.out
+	@$(CXX) $(CXXFLAGS) Engine/main.cpp $(SRC_FILES) $(INCLUDE_DIRS) $(IMGUI_OBJECTS) $(LIB_FLAGS) -Wl,-rpath,'$$ORIGIN:.' -lavformat -lavcodec -lavutil -lswscale -lswresample -o lit_engine.out
 	@$(call echo_success, "Success!")
 
 brun: CXXFLAGS += -O3 -funroll-loops -ftree-vectorize -fno-math-errno -freciprocal-math -fvect-cost-model -fgraphite-identity
