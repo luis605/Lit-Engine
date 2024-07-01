@@ -411,6 +411,10 @@ void LightPaste(const std::shared_ptr<LightStruct>& lightStruct) {
 
     lights.emplace_back(newLightStruct);
 
+    if (newLightStruct.isChild) {
+        newLightStruct.parent->addLightChild(findIndexInVector(lights, lights.back()));
+    }
+
     selectedGameObjectType = "light";
     selectedLight = &lights.back();
 }
