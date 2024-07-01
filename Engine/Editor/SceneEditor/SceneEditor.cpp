@@ -250,7 +250,7 @@ void DropEntity() {
             size_t lastDotIndex = modelFilePath.find_last_of('.');
             std::string entityName = modelFilePath.substr(0, lastDotIndex);
 
-            AddEntity(true, false, modelFilePath.c_str(), Model(), entityName);
+            AddEntity(modelFilePath.c_str(), Model(), entityName);
         }
 
         ImGui::EndDragDropTarget();
@@ -287,37 +287,37 @@ void ObjectsPopup() {
 
         if (ImGui::BeginMenu("Entity")) {
             if (ImGui::MenuItem("Cube")) {
-                AddEntity(true, false, "", LoadModelFromMesh(GenMeshCube(1, 1, 1)));
+                AddEntity("", LoadModelFromMesh(GenMeshCube(1, 1, 1)));
                 entitiesListPregame.back().ObjectType = Entity::ObjectType_Cube;
                 showObjectTypePopup = false;
             }
 
             if (ImGui::MenuItem("Cone")) {
-                AddEntity(true, false, "", LoadModelFromMesh(GenMeshCone(.5, 1, 30)));
+                AddEntity("", LoadModelFromMesh(GenMeshCone(.5, 1, 30)));
                 entitiesListPregame.back().ObjectType = Entity::ObjectType_Cone;
                 showObjectTypePopup = false;
             }
 
             if (ImGui::MenuItem("Cylinder")) {
-                AddEntity(true, false, "", LoadModelFromMesh(GenMeshCylinder(1.5, 2, 30)));
+                AddEntity("", LoadModelFromMesh(GenMeshCylinder(1.5, 2, 30)));
                 entitiesListPregame.back().ObjectType = Entity::ObjectType_Cylinder;
                 showObjectTypePopup = false;
             }
 
             if (ImGui::MenuItem("Plane")) {
-                AddEntity(true, false, "", LoadModelFromMesh(GenMeshPlane(1, 1, 1, 1)));
+                AddEntity("", LoadModelFromMesh(GenMeshPlane(1, 1, 1, 1)));
                 entitiesListPregame.back().ObjectType = Entity::ObjectType_Plane;
                 showObjectTypePopup = false;
             }
 
             if (ImGui::MenuItem("Sphere")) {
-                AddEntity(true, false, "", LoadModelFromMesh(GenMeshSphere(.5, 50, 50)));
+                AddEntity("", LoadModelFromMesh(GenMeshSphere(.5, 50, 50)));
                 entitiesListPregame.back().ObjectType = Entity::ObjectType_Sphere;
                 showObjectTypePopup = false;
             }
 
             if (ImGui::MenuItem("Torus")) {
-                AddEntity(true, false, "", LoadModelFromMesh(GenMeshTorus(.5, 1, 30, 30)));
+                AddEntity("", LoadModelFromMesh(GenMeshTorus(.5, 1, 30, 30)));
                 entitiesListPregame.back().ObjectType = Entity::ObjectType_Torus;
                 showObjectTypePopup = false;
             }
@@ -382,7 +382,7 @@ void ProcessDeletion() {
     if (!IsKeyPressed(KEY_DELETE)) return;
 
     if (selectedGameObjectType == "entity" && selectedEntity) {
-        entitiesListPregame.erase(std::remove(entitiesListPregame.begin(), entitiesListPregame.end(), *selectedEntity), entitiesListPregame.end());
+        removeEntity(selectedEntity->id);
         selectedEntity = nullptr;
         selectedGameObjectType = "";
     } else if (selectedGameObjectType == "light" && selectedLight) {

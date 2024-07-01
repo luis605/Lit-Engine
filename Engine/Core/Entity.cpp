@@ -160,27 +160,32 @@ public:
     }
         
     void addEntityChild(int newEntityIndex) {
-        Entity& newEntity = entitiesListPregame.at(newEntityIndex);
+        Entity* newEntity = getEntityById(newEntityIndex);
 
-        if (&newEntity == this) {
+        if (!newEntity) {
+            TraceLog(LOG_WARNING, "Cannot add child, since child is not found");
+            return;
+        }
+
+        if (newEntity == this) {
             TraceLog(LOG_WARNING, "Entity = parent");
             return;
         }
 
-        if (newEntity.isChild && newEntity.parent != nullptr) {
-            auto it = std::find(newEntity.parent->entitiesChildren.begin(), newEntity.parent->entitiesChildren.end(), newEntityIndex);
+        if (newEntity->isChild && newEntity->parent != nullptr) {
+            auto it = std::find(newEntity->parent->entitiesChildren.begin(), newEntity->parent->entitiesChildren.end(), newEntityIndex);
 
-            if (it != newEntity.parent->entitiesChildren.end()) {
-                newEntity.parent->entitiesChildren.erase(it);
+            if (it != newEntity->parent->entitiesChildren.end()) {
+                newEntity->parent->entitiesChildren.erase(it);
             }
         }
 
-        newEntity.isChild = true;
-        newEntity.parent = this;
-        newEntity.relativePosition = {
-            newEntity.position.x - this->position.x,
-            newEntity.position.y - this->position.y,
-            newEntity.position.z - this->position.z
+        newEntity->isChild = true;
+        newEntity->parent = this;
+        newEntity->relativePosition = {
+            newEntity->position.x - this->position.x,
+            newEntity->position.y - this->position.y,
+            newEntity->position.z - this->position.z
         };
 
        entitiesChildren.emplace_back(newEntityIndex);
@@ -209,10 +214,11 @@ public:
     }
 
     void updateChildren() {
+        // std::cout << entitiesChildren.size() << std::endl;
         for (int entityChildIndex : entitiesChildren) {
 #ifndef GAME_SHIPPING
-            if (!inGamePreview) updateEntityChild(entitiesListPregame.at(entityChildIndex));
-            else                updateEntityChild(entitiesList.at(entityChildIndex));
+            if (!inGamePreview) updateEntityChild(getEntityById(entityChildIndex), entityChildIndex);
+            else                updateEntityChild(getEntityById(entityChildIndex), entityChildIndex);
 #else
             updateEntityChild(entitiesList.at(entityChildIndex));
 #endif
@@ -223,20 +229,32 @@ public:
         }
     }
 
-    void updateEntityChild(Entity& entity) {
-        if (!entity.initialized) return;
+    void updateEntityChild(Entity* entity, int entityIndex) {
+        if (!entity) {
+            TraceLog(LOG_WARNING, "Cannot update child, since child is not found.");
+            
+            auto it = entitiesChildren.erase(std::find(entitiesChildren.begin(), entitiesChildren.end(), 
+                                entityIndex)); 
+        
+            return;
+        }
+
+        if (!entity->initialized) {
+            TraceLog(LOG_WARNING, "Cannot update child, since child is not initialized.");
+            return;
+        }
 
     #ifndef GAME_SHIPPING
-        if (&entity == selectedEntity) {
-            entity.render();
+        if (entity == selectedEntity) {
+            entity->render();
             return;
         };
     #endif
 
-        if (entity.parent != this || !entity.parent->initialized) entity.parent = this;
+        if (entity->parent != this || !entity->parent->initialized) entity->parent = this;
 
-        entity.position = this->position + entity.relativePosition;
-        entity.render();
+        entity->position = this->position + entity->relativePosition;
+        entity->render();
     }
 
     void updateLightChild(LightStruct& lightStruct) {
@@ -1026,10 +1044,38 @@ bool operator==(const Entity& e, const Entity* ptr) {
     return &e == ptr;
 }
 
+void removeEntity(int id) {
+    auto it = entityIdToIndexMap.find(id);
+    if (it != entityIdToIndexMap.end()) {
+        size_t index = it->second;
+        entityIdToIndexMap.erase(it);
+
+        if (index != entitiesListPregame.size() - 1) {
+            std::swap(entitiesListPregame[index], entitiesListPregame.back());
+            entityIdToIndexMap[entitiesListPregame[index].id] = index;
+        }
+        entitiesListPregame.pop_back();
+    }
+}
+
+int getIdFromEntity(const Entity& entity) {
+    auto it = std::find(entitiesListPregame.begin(), entitiesListPregame.end(), entity);
+    if (it != entitiesListPregame.end()) {
+        return it->id;
+    }
+    return -1;
+}
+
+Entity* getEntityById(int id) {
+    auto it = entityIdToIndexMap.find(id);
+    if (it != entityIdToIndexMap.end()) {
+        return &entitiesListPregame[it->second];
+    }
+    return nullptr;
+}
+
 #ifndef GAME_SHIPPING
-    void AddEntity(
-        bool createimmediatly = false,
-        bool isChild = false,
+    Entity* AddEntity(
         const fs::path& modelPath = "",
         const Model& model = LoadModelFromMesh(GenMeshCube(1,1,1)),
         const std::string& name = "Unnamed Entity"
@@ -1038,13 +1084,16 @@ bool operator==(const Entity& e, const Entity* ptr) {
         entityCreate.setColor(WHITE);
         entityCreate.setScale(Vector3{1, 1, 1});
         entityCreate.setName(name);
-        entityCreate.isChild = isChild;
         entityCreate.setModel(modelPath, model);
         entityCreate.setShader(shader);
-        entityCreate.id = entitiesListPregame.size() + lights.size() + 1;
+        entityCreate.id = entitiesListPregame.size() + lights.size();
+
+        entityIdToIndexMap[entityCreate.id] = entitiesListPregame.size();
 
         entitiesListPregame.emplace_back(std::move(entityCreate));
         selectedGameObjectType = "entity";
         selectedEntity = &entitiesListPregame.back();
+
+        return &entitiesListPregame.back();
     }
 #endif

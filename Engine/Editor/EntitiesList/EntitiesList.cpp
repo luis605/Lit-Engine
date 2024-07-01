@@ -16,7 +16,7 @@ void ManipulateEntityPopup() {
             copiedEntity = std::make_shared<Entity>(*selectedEntity);
             showManipulateEntityPopup = false;
         } else if (ImGui::Button("Delete Entity", buttonScale)) {
-            entitiesListPregame.erase(std::remove(entitiesListPregame.begin(), entitiesListPregame.end(), *selectedEntity), entitiesListPregame.end());
+            removeEntity(selectedEntity->id);
             selectedEntity = nullptr;
             selectedGameObjectType = "";
             showManipulateEntityPopup = false;
@@ -107,10 +107,7 @@ void DrawEntityTree(Entity& entity) {
 
             Entity droppedEntity = *static_cast<Entity*>(payload->Data);
 
-            auto it = std::find_if(entitiesListPregame.begin(), entitiesListPregame.end(), [&](const Entity& entity) { return entity.id == droppedEntity.id; });
-            if (it != entitiesListPregame.end()) {
-                entity.addEntityChild(findIndexInVector(entitiesListPregame, *it));
-            }
+            entity.addEntityChild(droppedEntity.id);
         }
         ImGui::EndDragDropTarget();
     }

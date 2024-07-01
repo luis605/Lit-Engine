@@ -536,11 +536,11 @@ void LoadWorldSettings(const json& worldSettingsJson) {
     }
 }
 
-Entity& LoadEntity(const json& entityJson, std::vector<Entity>& entitiesVector) {
-    Entity entity = Entity();
+Entity* LoadEntity(const json& entityJson) {
+    Entity* entity = AddEntity();
 
     if (entityJson.contains("name")) {
-        entity.setName(entityJson["name"].get<std::string>());
+        entity->setName(entityJson["name"].get<std::string>());
     }
 
     if (entityJson.contains("scale")) {
@@ -549,11 +549,11 @@ Entity& LoadEntity(const json& entityJson, std::vector<Entity>& entitiesVector) 
             entityJson["scale"]["y"].get<float>(),
             entityJson["scale"]["z"].get<float>()
         };
-        entity.setScale(scale);
+        entity->setScale(scale);
     }
 
     if (entityJson.contains("position")) {
-        entity.position = Vector3{
+        entity->position = Vector3{
             entityJson["position"]["x"].get<float>(),
             entityJson["position"]["y"].get<float>(),
             entityJson["position"]["z"].get<float>()
@@ -561,7 +561,7 @@ Entity& LoadEntity(const json& entityJson, std::vector<Entity>& entitiesVector) 
     }
 
     if (entityJson.contains("rotation")) {
-        entity.rotation = Vector3{
+        entity->rotation = Vector3{
             entityJson["rotation"]["x"].get<float>(),
             entityJson["rotation"]["y"].get<float>(),
             entityJson["rotation"]["z"].get<float>()
@@ -569,7 +569,7 @@ Entity& LoadEntity(const json& entityJson, std::vector<Entity>& entitiesVector) 
     }
 
     if (entityJson.contains("relativePosition")) {
-        entity.relativePosition = Vector3{
+        entity->relativePosition = Vector3{
             entityJson["relativePosition"]["x"].get<float>(),
             entityJson["relativePosition"]["y"].get<float>(),
             entityJson["relativePosition"]["z"].get<float>()
@@ -577,74 +577,74 @@ Entity& LoadEntity(const json& entityJson, std::vector<Entity>& entitiesVector) 
     }
 
     if (entityJson.contains("mass")) {
-        entity.mass = entityJson["mass"].get<float>();
+        entity->mass = entityJson["mass"].get<float>();
     }
 
     if (entityJson.contains("friction")) {
-        entity.friction = entityJson["friction"].get<float>();
+        entity->friction = entityJson["friction"].get<float>();
     }
 
     if (entityJson.contains("damping")) {
-        entity.damping = entityJson["damping"].get<float>();
+        entity->damping = entityJson["damping"].get<float>();
     }
 
     if (entityJson.contains("lodEnabled")) {
-        entity.lodEnabled = entityJson["lodEnabled"].get<bool>();
+        entity->lodEnabled = entityJson["lodEnabled"].get<bool>();
     }
     
     if (entityJson.contains("tiling")) {
-        entity.tiling[0] = entityJson["tiling"][0].get<float>();
-        entity.tiling[1] = entityJson["tiling"][1].get<float>();
+        entity->tiling[0] = entityJson["tiling"][0].get<float>();
+        entity->tiling[1] = entityJson["tiling"][1].get<float>();
     }
 
     if (entityJson.contains("mesh_type")) {
-        entity.ObjectType = entityJson["mesh_type"].get<Entity::ObjectTypeEnum>();
+        entity->ObjectType = entityJson["mesh_type"].get<Entity::ObjectTypeEnum>();
     }
 
     if (entityJson.contains("modelPath") && !entityJson["modelPath"].get<std::string>().empty()) {
-        entity.setModel(
+        entity->setModel(
             entityJson["modelPath"].get<std::string>().c_str(),
             LoadModel(entityJson["modelPath"].get<std::string>().c_str())
         );
     } else {
-        if (entity.ObjectType == Entity::ObjectType_Cube)           entity.setModel("", LoadModelFromMesh(GenMeshCube(1, 1, 1)));
-        else if (entity.ObjectType == Entity::ObjectType_Cone)      entity.setModel("", LoadModelFromMesh(GenMeshCone(.5, 1, 10)));
-        else if (entity.ObjectType == Entity::ObjectType_Cylinder)  entity.setModel("", LoadModelFromMesh(GenMeshCylinder(.5, 2, 30)));
-        else if (entity.ObjectType == Entity::ObjectType_Plane)     entity.setModel("", LoadModelFromMesh(GenMeshPlane(1, 1, 1, 1)));
-        else if (entity.ObjectType == Entity::ObjectType_Sphere)    entity.setModel("", LoadModelFromMesh(GenMeshSphere(.5, 50, 50)));
-        else if (entity.ObjectType == Entity::ObjectType_Torus)     entity.setModel("", LoadModelFromMesh(GenMeshTorus(.5, 1, 30, 30)));
+        if (entity->ObjectType == Entity::ObjectType_Cube)           entity->setModel("", LoadModelFromMesh(GenMeshCube(1, 1, 1)));
+        else if (entity->ObjectType == Entity::ObjectType_Cone)      entity->setModel("", LoadModelFromMesh(GenMeshCone(.5, 1, 10)));
+        else if (entity->ObjectType == Entity::ObjectType_Cylinder)  entity->setModel("", LoadModelFromMesh(GenMeshCylinder(.5, 2, 30)));
+        else if (entity->ObjectType == Entity::ObjectType_Plane)     entity->setModel("", LoadModelFromMesh(GenMeshPlane(1, 1, 1, 1)));
+        else if (entity->ObjectType == Entity::ObjectType_Sphere)    entity->setModel("", LoadModelFromMesh(GenMeshSphere(.5, 50, 50)));
+        else if (entity->ObjectType == Entity::ObjectType_Torus)     entity->setModel("", LoadModelFromMesh(GenMeshTorus(.5, 1, 30, 30)));
     }
 
     if (entityJson.contains("is_dynamic"))
-        entity.isDynamic = entityJson["is_dynamic"].get<bool>();
+        entity->isDynamic = entityJson["is_dynamic"].get<bool>();
 
     if (entityJson.contains("mass"))
-        entity.mass = entityJson["mass"].get<float>();
+        entity->mass = entityJson["mass"].get<float>();
 
     if (entityJson.contains("collider_type"))
-        entity.currentCollisionShapeType = std::make_shared<Entity::CollisionShapeType>(entityJson["collider_type"].get<Entity::CollisionShapeType>());
+        entity->currentCollisionShapeType = std::make_shared<Entity::CollisionShapeType>(entityJson["collider_type"].get<Entity::CollisionShapeType>());
 
     if (entityJson.contains("collider"))
-        entity.collider = entityJson["collider"].get<bool>();
+        entity->collider = entityJson["collider"].get<bool>();
 
     if (entityJson.contains("script_path"))
-        entity.script = entityJson["script_path"].get<std::string>();
+        entity->script = entityJson["script_path"].get<std::string>();
 
     if (entityJson.contains("scriptIndex"))
-        entity.scriptIndex = entityJson["scriptIndex"].get<std::string>();
+        entity->scriptIndex = entityJson["scriptIndex"].get<std::string>();
 
     if (entityJson.contains("id"))
-        entity.id = entityJson["id"].get<int>();
-    else entity.id = -1;
+        entity->id = entityJson["id"].get<int>();
+    else entity->id = -1;
 
-    entity.reloadRigidBody();
+    entity->reloadRigidBody();
 
     if (entityJson.contains("material_path")) {
-        entity.surfaceMaterialPath = entityJson["material_path"].get<std::string>();
-        if (!entity.surfaceMaterialPath.empty()) DeserializeMaterial(&entity.surfaceMaterial, entity.surfaceMaterialPath);
+        entity->surfaceMaterialPath = entityJson["material_path"].get<std::string>();
+        if (!entity->surfaceMaterialPath.empty()) DeserializeMaterial(&entity->surfaceMaterial, entity->surfaceMaterialPath);
     }
 
-    entity.setShader(shader);
+    entity->setShader(shader);
 
     // Deserialize children
     if (entityJson.contains("children")) {
@@ -655,21 +655,22 @@ Entity& LoadEntity(const json& entityJson, std::vector<Entity>& entitiesVector) 
                     const json& childJson = childArray[0];
                     std::string type = childJson["type"].get<std::string>();
                     if (type == "entity") {
-                        Entity* child = &LoadEntity(childJson, entitiesVector);
-                        entity.addEntityChild(findIndexInVector(entitiesVector, *child));
+                        int id = entity->id;
+                        Entity* child = LoadEntity(childJson);
+                        Entity* reloadedEntity = getEntityById(id); // Reload necessary because entity* gets invalid after entitiesListPregame gets resized!
+                        reloadedEntity->addEntityChild(findIndexInVector(entitiesListPregame, *child));
                     } else if (type == "light") {
                         lights.emplace_back();
                         LightStruct& lightStruct = lights.back();
                         LoadLight(childJson, lightStruct);
-                        entity.addLightChild(findIndexInVector(lights, lightStruct));
+                        entity->addLightChild(findIndexInVector(lights, lightStruct));
                     }
                 }
             }
         }
     }
 
-    entitiesListPregame.emplace_back(entity);
-    return entitiesVector.back();
+    return entity;
 }
 
 void LoadLight(const json& lightJson, LightStruct& lightStruct) {
@@ -810,7 +811,7 @@ int LoadProject(std::vector<Entity>& entitiesVector, std::vector<LightStruct>& l
         for (const auto& objectJson : jsonData) {
             std::string type = objectJson["type"].get<std::string>();
             if (type == "entity") {
-                Entity& entity = LoadEntity(objectJson, entitiesVector);
+                LoadEntity(objectJson);
             } else if (type == "camera") {
                 LoadCamera(objectJson, camera);
             } else if (type == "world settings") {

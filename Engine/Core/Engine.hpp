@@ -6,6 +6,7 @@ struct LightStruct;
 
 std::vector<Entity> entitiesListPregame;
 std::vector<Entity> entitiesList;
+std::unordered_map<int, size_t> entityIdToIndexMap;
 
 Entity*      selectedEntity      = nullptr;
 LightStruct* selectedLight       = nullptr;
