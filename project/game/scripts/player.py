@@ -15,6 +15,8 @@ entity.visible = True
 
 LockMouse()
 
+planetsPosition = [Vector3(0,0,0), Vector3( 540, 130, 30)]
+
 def spherical_to_cartesian(radius, yaw, pitch):
     x = radius * math.cos(math.radians(yaw)) * math.cos(math.radians(pitch))
     y = radius * math.sin(math.radians(pitch))
@@ -49,11 +51,28 @@ def update_camera_position():
     camera.look_at = entity.position
 
 def change_gravity():
-    GRAVITY_STRENGTH = 9.8
-    center_point = Vector3(0, 0, 0)
-    direction_to_center = center_point - entity.position
+    GRAVITY_STRENGTH = 9.8  # Gravitational constant similar to Earth's gravity
+    gravity = Vector3(0, 0, 0)  # Initialize gravity vector
 
-    physics.gravity = direction_to_center / 5
+    # Initialize minimum distance to a large number
+    min_distance = float('inf')
+    closest_planet_pos = None
+
+    # Find the closest planet
+    for planet_pos in planetsPosition:
+        distance = Vector3Distance(entity.position, planet_pos)
+        if distance < min_distance:
+            min_distance = distance
+            closest_planet_pos = planet_pos
+
+    if closest_planet_pos is not None:
+        # Calculate the gravity vector as if the player is on the closest planet
+        direction_to_planet = closest_planet_pos - entity.position
+        direction_to_planet = direction_to_planet.normalized()  # Ensure the direction is a unit vector
+        gravity = direction_to_planet * GRAVITY_STRENGTH
+
+    # Set the computed gravity in the physics engine
+    physics.gravity = gravity
 
 def handle_movement():
     global yaw, pitch
@@ -76,6 +95,9 @@ def update():
     update_camera_rotation()
     update_camera_position()
     change_gravity()
+
+
+
 
 
 

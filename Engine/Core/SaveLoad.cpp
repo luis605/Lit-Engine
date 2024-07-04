@@ -266,7 +266,7 @@ void SaveEntity(json& jsonData, const Entity& entity) {
     if (!entity.entitiesChildren.empty()) {
         for (int entityChildIndex : entity.entitiesChildren) {
             json childJson;
-            SaveEntity(childJson, entitiesListPregame.at(entityChildIndex));
+            SaveEntity(childJson, *getEntityById(entityChildIndex));
             childrenData.emplace_back(childJson);
         }
     }
@@ -274,7 +274,7 @@ void SaveEntity(json& jsonData, const Entity& entity) {
     if (!entity.lightsChildren.empty()) {
         for (int lightStructChild : entity.lightsChildren) {
             json childJson;
-            SaveLight(childJson, lights.at(lightStructChild));
+            SaveLight(childJson, *getLightById(lightStructChild));
             childrenData.emplace_back(childJson);
         }
     }
@@ -658,12 +658,12 @@ Entity* LoadEntity(const json& entityJson) {
                         int id = entity->id;
                         Entity* child = LoadEntity(childJson);
                         Entity* reloadedEntity = getEntityById(id); // Reload necessary because entity* gets invalid after entitiesListPregame gets resized!
-                        reloadedEntity->addEntityChild(findIndexInVector(entitiesListPregame, *child));
+                        reloadedEntity->addEntityChild(child->id);
                     } else if (type == "light") {
                         lights.emplace_back();
                         LightStruct& lightStruct = lights.back();
                         LoadLight(childJson, lightStruct);
-                        entity->addLightChild(findIndexInVector(lights, lightStruct));
+                        entity->addLightChild(lightStruct.id);
                     }
                 }
             }
@@ -707,7 +707,8 @@ void LoadLight(const json& lightJson, LightStruct& lightStruct) {
         lightJson["direction"]["z"].get<float>()
     };
 
-    lightStruct.id                       = lightJson["id"].get<int>();    
+    lightStruct.id                       = lightJson["id"].get<int>();
+    lightIdToIndexMap[lightStruct.id]    = lights.size() - 1;
     lightStruct.light.intensity          = lightJson["intensity"].get<float>();
     lightStruct.light.specularStrength   = lightJson["specularStrength"].get<float>();
     lightStruct.light.attenuation        = lightJson["attenuation"].get<float>();

@@ -162,6 +162,12 @@ void RenderLights() {
 
         if (!IsMouseButtonDown(MOUSE_LEFT_BUTTON) || !ImGui::IsWindowHovered() || dragging) continue;
 
+        Matrix transformMatrix = MatrixMultiply(MatrixMultiply(MatrixScale(1, 1, 1),
+                                                            MatrixRotateXYZ(Vector3Scale({0, rotation, 0}, DEG2RAD))),
+                                                MatrixTranslate(lightStruct.light.position.x, lightStruct.light.position.y, lightStruct.light.position.z));
+
+        lightModel.transform = transformMatrix;
+
         bool isLightSelected = IsMouseHoveringModel(lightModel, { lightStruct.light.position.x, lightStruct.light.position.y, lightStruct.light.position.z }, { 0, rotation, 0 }, {1,1,1});
         if (isLightSelected) {
             selectedLight = &lightStruct;
@@ -186,7 +192,7 @@ void RenderEntities() {
         }
 
         for (int childEntityIndex : entity.entitiesChildren) {
-            Entity& childEntity = entitiesListPregame[childEntityIndex];
+            Entity& childEntity = *getEntityById(childEntityIndex);
 
             bool isEntitySelected = IsMouseHoveringModel(childEntity.model, childEntity.position, childEntity.rotation, childEntity.scale);
             if (isEntitySelected) {
@@ -386,44 +392,110 @@ void ProcessDeletion() {
         selectedEntity = nullptr;
         selectedGameObjectType = "";
     } else if (selectedGameObjectType == "light" && selectedLight) {
-        lights.erase(std::remove(lights.begin(), lights.end(), *selectedLight), lights.end());
+        removeLight(selectedLight->id);
         selectedLight = nullptr;
         selectedGameObjectType = "";
     }
-}
-
-void EntityPaste(const std::shared_ptr<Entity>& entity) {
-    if (!entity) return;
-
-    Entity newEntity = *entity;
-    newEntity.reloadRigidBody();
-    newEntity.id = entitiesListPregame.size() + lights.size() + 1;
-    entitiesListPregame.emplace_back(newEntity);
-    selectedGameObjectType = "entity";
-    selectedEntity = &entitiesListPregame.back();
 }
 
 void LightPaste(const std::shared_ptr<LightStruct>& lightStruct) {
     if (!lightStruct) return;
 
     LightStruct newLightStruct = *lightStruct;
-    newLightStruct.id = lights.back().id+1;
+    newLightStruct.id = entitiesListPregame.size() + lights.size();
 
-    lights.emplace_back(newLightStruct);
+    lightIdToIndexMap[newLightStruct.id] = lights.size();
+
+    lights.emplace_back(std::move(newLightStruct));
 
     if (newLightStruct.isChild) {
-        newLightStruct.parent->addLightChild(findIndexInVector(lights, lights.back()));
+        newLightStruct.parent->addLightChild(lights.back().id);
     }
 
     selectedGameObjectType = "light";
     selectedLight = &lights.back();
 }
 
-void DuplicateEntity(Entity& entity) {
+void DuplicateLight(LightStruct& lightStruct, Entity* parent = nullptr) {
+    LightStruct newLightStruct = lightStruct;
+    newLightStruct.id = entitiesListPregame.size() + lights.size();
+
+    lightIdToIndexMap[newLightStruct.id] = lights.size();
+
+    lights.reserve(1);
+    lights.emplace_back(std::move(newLightStruct));
+
+    if (parent) {
+        parent->addLightChild(lights.back().id);
+    } else if (newLightStruct.isChild) {
+        newLightStruct.parent->addLightChild(lights.back().id);
+    }
+
+    selectedGameObjectType = "light";
+    selectedLight = &lights.back();
+}
+
+void DuplicateEntity(Entity& entity, Entity* parent = nullptr) {
     Entity newEntity = entity;
+    std::vector<int> oldEntityChildrenIds = newEntity.entitiesChildren;
+    std::vector<int> oldLightChildrenIds  = newEntity.lightsChildren;
     newEntity.reloadRigidBody();
+    newEntity.entitiesChildren.clear();
+    newEntity.lightsChildren.clear();
+    newEntity.id = entitiesListPregame.size() + lights.size();
+
+    entityIdToIndexMap[newEntity.id] = entitiesListPregame.size();
+
     entitiesListPregame.reserve(1);
-    entitiesListPregame.emplace_back(newEntity);
+    entitiesListPregame.emplace_back(std::move(newEntity));
+    Entity* newEntityRef = &entitiesListPregame.back();
+
+    if (parent) {
+        parent->addEntityChild(newEntity.id);
+    }
+
+    for (int childIndex : oldEntityChildrenIds) {
+        DuplicateEntity(*getEntityById(childIndex), newEntityRef);
+    }
+
+    for (int childIndex : oldLightChildrenIds) {
+        DuplicateLight(*getLightById(childIndex), newEntityRef);
+    }
+
+    selectedGameObjectType = "entity";
+    selectedEntity = &entitiesListPregame.back();
+}
+
+void EntityPaste(const std::shared_ptr<Entity>& entity, Entity* parent = nullptr) {
+    if (!entity) return;
+
+    Entity newEntity = *entity;
+    std::vector<int> oldEntityChildrenIds = newEntity.entitiesChildren;
+    std::vector<int> oldLightChildrenIds  = newEntity.lightsChildren;
+    newEntity.entitiesChildren.clear();
+    newEntity.lightsChildren.clear();
+    newEntity.reloadRigidBody();
+    newEntity.id = entitiesListPregame.size() + lights.size();
+
+    entityIdToIndexMap[newEntity.id] = entitiesListPregame.size();
+
+    entitiesListPregame.reserve(1);
+    entitiesListPregame.emplace_back(std::move(newEntity));
+    Entity* newEntityRef = &entitiesListPregame.back();
+
+    if (parent) {
+        parent->addEntityChild(newEntity.id);
+    }
+
+    for (int childIndex : oldEntityChildrenIds) {
+        DuplicateEntity(*getEntityById(childIndex), newEntityRef);
+    }
+
+    for (int childIndex : oldLightChildrenIds) {
+        DuplicateLight(*getLightById(childIndex), newEntityRef);
+    }
+    
+    selectedGameObjectType = "entity";
     selectedEntity = &entitiesListPregame.back();
 }
 

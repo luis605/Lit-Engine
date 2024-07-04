@@ -211,8 +211,6 @@ void MenuBar() {
 
         DrawMenus();
 
-        ImGui::PushFont(s_Fonts["Bold"]);
-
         ImVec2 currentCursorPos = ImGui::GetCursorPos();
         ImVec2 textSize = ImGui::CalcTextSize("Lit Engine");
         ImGui::SetCursorPos(ImVec2(
@@ -222,8 +220,6 @@ void MenuBar() {
 
         ImGui::Text("Lit Engine");
         ImGui::SetCursorPos(currentCursorPos);
-
-        ImGui::PopFont();
 
         float buttonWidth = 30.0f;
         ImGui::SetCursorPosX(ImGui::GetWindowSize().x - buttonWidth);

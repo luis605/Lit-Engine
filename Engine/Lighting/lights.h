@@ -69,18 +69,13 @@ struct LightStruct {
     LightStruct() {
     }
 
-    LightStruct(std::string newName, int id) {
-        lightInfo.name = newName;
-        this->id = id;
-    }
-
     bool operator==(const LightStruct& other) const {
         return (int)this->id == (int)other.id;
     }
 };
 
 struct SurfaceMaterialTexture {
-    std::variant<std::monostate, Texture2D, std::unique_ptr<VideoPlayer>> texture;
+    std::variant<std::monostate, Texture2D, VideoPlayer> texture;
     int activatedMode = -1;
 
     // Default constructor
@@ -95,7 +90,7 @@ struct SurfaceMaterialTexture {
                 texture = fileTexture;
                 activatedMode = 0; // Texture mode
             } else {
-                texture = std::make_unique<VideoPlayer>(filePath.string().c_str());
+                texture = VideoPlayer(filePath.string().c_str());
                 activatedMode = 1; // Video mode
                 UnloadTexture(fileTexture);
             }
@@ -115,7 +110,7 @@ struct SurfaceMaterialTexture {
             if (other.hasTexture()) {
                 texture = std::get<Texture2D>(other.texture);
             } else if (other.hasVideoPlayer()) {
-                texture = std::make_unique<VideoPlayer>(*std::get<std::unique_ptr<VideoPlayer>>(other.texture));
+                texture = std::get<VideoPlayer>(other.texture);
             } else {
                 texture = std::monostate{};
             }
@@ -133,7 +128,7 @@ struct SurfaceMaterialTexture {
                 texture = fileTexture;
                 activatedMode = 0; // Texture mode
             } else {
-                texture = std::make_unique<VideoPlayer>(filePath.string().c_str());
+                texture = VideoPlayer(filePath.string().c_str());
                 activatedMode = 1; // Video mode
                 UnloadTexture(fileTexture);
             }
@@ -148,7 +143,7 @@ struct SurfaceMaterialTexture {
     }
 
     bool hasVideoPlayer() const {
-        return std::holds_alternative<std::unique_ptr<VideoPlayer>>(texture);
+        return std::holds_alternative<VideoPlayer>(texture);
     }
 
     bool isEmpty() const {
@@ -161,7 +156,7 @@ struct SurfaceMaterialTexture {
     }
 
     VideoPlayer& getVideoPlayer() {
-        return *std::get_if<std::unique_ptr<VideoPlayer>>(&texture)->get();
+        return *std::get_if<VideoPlayer>(&texture);
     }
 };
 
@@ -188,12 +183,16 @@ LightStruct& NewLight(const Vector3 position, const Color color, int type) {
     glm::vec3 lightsPosition = glm::vec3(position.x, position.y, position.z);
     glm::vec4 lightsColor = glm::vec4(color.r/255, color.g/255, color.b/255, color.a/255);
 
-    LightStruct lightStruct{"New Light", (int)(lights.size() + entitiesListPregame.size() + 1)};
+    LightStruct lightStruct;
+    lightStruct.lightInfo.name = "New Light";
+    lightStruct.id = lights.size() + entitiesListPregame.size();
     lightStruct.light.type = type;
     lightStruct.light.position = lightsPosition;
     lightStruct.light.color = lightsColor;
 
-    lights.emplace_back(lightStruct);
+    lightIdToIndexMap[lightStruct.id] = lights.size();
+
+    lights.emplace_back(std::move(lightStruct));
 
     return lights.back();
 }
@@ -225,6 +224,36 @@ void UpdateLightsBuffer(bool force, std::vector<LightStruct>& lightsVector, GLui
 
     int lightsCount = static_cast<int>(lightsVector.size());
     SetShaderValue(shader, GetShaderLocation(shader, "lightsCount"), &lightsCount, SHADER_UNIFORM_INT);
+}
+
+void removeLight(int id) {
+    auto it = lightIdToIndexMap.find(id);
+    if (it != lightIdToIndexMap.end()) {
+        size_t index = it->second;
+        lightIdToIndexMap.erase(it);
+
+        if (index != lights.size() - 1) {
+            std::swap(lights[index], lights.back());
+            lightIdToIndexMap[lights[index].id] = index;
+        }
+        lights.pop_back();
+    }
+}
+
+int getIdFromLight(const LightStruct& lightStruct) {
+    auto it = std::find(lights.begin(), lights.end(), lightStruct);
+    if (it != lights.end()) {
+        return it->id;
+    }
+    return -1;
+}
+
+LightStruct* getLightById(int id) {
+    auto it = lightIdToIndexMap.find(id);
+    if (it != lightIdToIndexMap.end()) {
+        return &lights[it->second];
+    }
+    return nullptr;
 }
 
 #endif

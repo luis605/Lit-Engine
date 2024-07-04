@@ -65,12 +65,12 @@ bool UpdateGizmoObjectProperties() {
 }
 
 void UpdateGizmoProperties(float maxObjectScale = 0) {
-    gizmoArrow[0].position = { selectedObjectPosition.x, selectedObjectPosition.y + selectedObjectScale.y, selectedObjectPosition.z };
-    gizmoArrow[1].position = { selectedObjectPosition.x, selectedObjectPosition.y - selectedObjectScale.y, selectedObjectPosition.z };
-    gizmoArrow[2].position = { selectedObjectPosition.x, selectedObjectPosition.y, selectedObjectPosition.z + selectedObjectScale.z };
-    gizmoArrow[3].position = { selectedObjectPosition.x, selectedObjectPosition.y, selectedObjectPosition.z - selectedObjectScale.z };
-    gizmoArrow[4].position = { selectedObjectPosition.x + selectedObjectScale.x, selectedObjectPosition.y, selectedObjectPosition.z };
-    gizmoArrow[5].position = { selectedObjectPosition.x - selectedObjectScale.x, selectedObjectPosition.y, selectedObjectPosition.z };
+    gizmoArrow[0].position = { selectedObjectPosition.x, selectedObjectPosition.y + maxObjectScale + 6.0f, selectedObjectPosition.z };
+    gizmoArrow[1].position = { selectedObjectPosition.x, selectedObjectPosition.y - maxObjectScale - 6.0f, selectedObjectPosition.z };
+    gizmoArrow[2].position = { selectedObjectPosition.x, selectedObjectPosition.y, selectedObjectPosition.z + maxObjectScale + 6.0f };
+    gizmoArrow[3].position = { selectedObjectPosition.x, selectedObjectPosition.y, selectedObjectPosition.z - maxObjectScale - 6.0f };
+    gizmoArrow[4].position = { selectedObjectPosition.x + maxObjectScale + 6.0f, selectedObjectPosition.y, selectedObjectPosition.z };
+    gizmoArrow[5].position = { selectedObjectPosition.x - maxObjectScale - 6.0f, selectedObjectPosition.y, selectedObjectPosition.z };
 
     for (int index = 0; index < 6; ++index) {
         gizmoArrow[index].position = Vector3Add(gizmoArrow[index].position, gizmoArrowOffsets[index].position);
@@ -165,7 +165,10 @@ void DrawGizmo(Gizmo& gizmo, Color color, bool wireframe = false, bool applyRota
 
 void GizmoPosition() {
     if (!UpdateGizmoObjectProperties()) return;
-    UpdateGizmoProperties();
+    float maxObjectScale = 1.0f;
+    if (selectedGameObjectType == "entity" && selectedEntity) maxObjectScale= std::max(std::max(selectedEntity->scale.x, selectedEntity->scale.y), selectedEntity->scale.z) / 2 + 3;
+
+    UpdateGizmoProperties(maxObjectScale);
 
     for (int index = 0; index < NUM_GIZMO_ARROWS; index++) {
         Color color1 = RED;

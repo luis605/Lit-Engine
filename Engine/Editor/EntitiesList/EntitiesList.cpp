@@ -89,10 +89,7 @@ void DrawEntityTree(Entity& entity) {
 
             LightStruct droppedLight = *static_cast<LightStruct*>(payload->Data);
 
-            auto it = std::find_if(lights.begin(), lights.end(), [&](const LightStruct& lightStruct) { return lightStruct.id == droppedLight.id; });
-            if (it != lights.end()) {
-                entity.addLightChild(findIndexInVector(lights, *it));
-            }
+            entity.addLightChild(droppedLight.id);
         }
         ImGui::EndDragDropTarget();
     }
@@ -114,18 +111,22 @@ void DrawEntityTree(Entity& entity) {
 
     if (isNodeOpen) {
         for (int entityChildIndex : entity.entitiesChildren) {
-            Entity& entityChild = entitiesListPregame[entityChildIndex];
-            if (!entityChild.initialized) {
+            Entity* entityChild = getEntityById(entityChildIndex);
+            if (!entityChild) {
                 ImGui::TreeNodeEx("ERROR: Entity child not initialized!", ImGuiTreeNodeFlags_NoTreePushOnOpen);
                 continue;
             }
 
-            DrawEntityTree(entityChild);
+            DrawEntityTree(*entityChild);
         }
 
         for (int lightStructIndex : entity.lightsChildren) {
-            LightStruct& lightStruct = lights[lightStructIndex];
-            DrawLightTree(lightStruct);
+            LightStruct* lightStruct = getLightById(lightStructIndex);
+            if (!lightStruct) {
+                ImGui::TreeNodeEx("ERROR: Light child not found!", ImGuiTreeNodeFlags_NoTreePushOnOpen);
+                continue;
+            }
+            DrawLightTree(*lightStruct);
         }
 
         ImGui::TreePop();
