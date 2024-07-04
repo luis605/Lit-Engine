@@ -12,7 +12,8 @@ PYBIND11_EMBEDDED_MODULE(mathModule, m) {
         .def_readwrite("x", &LitVector3::x)
         .def_readwrite("y", &LitVector3::y)
         .def_readwrite("z", &LitVector3::z)
-        .def("normalize", &LitVector3::normalize)
+        .def("normalized", &LitVector3::normalized)
+        .def("lengthSquared", &LitVector3::lengthSquared)
         .def("crossProduct", &LitVector3::CrossProduct)
         .def("pos", &LitVector3::pos)
         .def("__sub__", [](const LitVector3 &a, const LitVector3 &b) {
@@ -52,6 +53,8 @@ PYBIND11_EMBEDDED_MODULE(mathModule, m) {
         });
 
     m.def("vector3Scale", &LitVector3Scale);
+    m.def("vector3Length", &LitVector3Length);
+    m.def("vector3LengthSqr", &LitVector3LengthSqr);
     m.def("vector3Distance", &LitVector3Distance);
     m.def("lerp", static_cast<float(*)(float, float, float)>(&lerp<float>), "Lerp function for float and double types");
     m.def("lerp", static_cast<int(*)(int, int, float)>(&lerp_int), "Lerp function for integer types");

@@ -39,24 +39,28 @@ struct LitVector3 : Vector3 {
         : Vector3{v.x, v.y, v.z} {}
         
     // Normalize function
-    void normalize() {
+    LitVector3 normalized() {
         Vector3 vector = (Vector3){ x, y, z };
         Vector3 normalizedVector = Vector3Normalize(vector);
         x = normalizedVector.x;
         y = normalizedVector.y;
         z = normalizedVector.z;
+
+        return *this;
     }
 
-    LitVector3 CrossProduct(LitVector3 v2)
-    {
+    LitVector3 lengthSquared() {
+        return x * x + y * y + z * z;
+    }
+
+    LitVector3 CrossProduct(LitVector3 v2) {
         x = y * v2.z - z * v2.y;
         y = z * v2.x - x * v2.z;
         z = x * v2.y - y * v2.x;
         return LitVector3(x, y, z);
     }
 
-    LitVector3 pos()
-    {
+    LitVector3 pos() {
         return LitVector3(x, y, z);
     }
 
@@ -92,8 +96,7 @@ LitVector3 multiplyAll(const Args&... args) {
     return result;
 }
 
-float LitVector3Distance(LitVector3 v1, LitVector3 v2)
-{
+float LitVector3Distance(LitVector3 v1, LitVector3 v2) {
     float result = 0.0f;
 
     float dx = v2.x - v1.x;
@@ -105,7 +108,18 @@ float LitVector3Distance(LitVector3 v1, LitVector3 v2)
 }
 
 
-LitVector3 LitVector3Scale(LitVector3 v, float scalar)
-{
+LitVector3 LitVector3Scale(LitVector3 v, float scalar) {
     return { v.x*scalar, v.y*scalar, v.z*scalar };
+}
+
+float LitVector3Length(const LitVector3 v) {
+    float result = sqrtf(v.x*v.x + v.y*v.y + v.z*v.z);
+
+    return result;
+}
+
+float LitVector3LengthSqr(const LitVector3 v) {
+    float result = v.x*v.x + v.y*v.y + v.z*v.z;
+
+    return result;
 }

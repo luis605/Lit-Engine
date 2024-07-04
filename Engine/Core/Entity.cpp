@@ -163,7 +163,7 @@ public:
         Entity* newEntity = getEntityById(newEntityIndex);
 
         if (!newEntity) {
-            TraceLog(LOG_WARNING, "Cannot add child, since child is not found");
+            TraceLog(LOG_WARNING, "Cannot add child, since child was not found.");
             return;
         }
 
@@ -192,22 +192,27 @@ public:
     }
 
     void addLightChild(int newLightIndex) {
-        LightStruct& newLight = lights.at(newLightIndex);
+        LightStruct* newLight = getLightById(newLightIndex);
 
-        if (newLight.isChild && newLight.parent != nullptr) {
-            auto it = std::find(newLight.parent->lightsChildren.begin(), newLight.parent->lightsChildren.end(), newLightIndex);
+        if (!newLight) {
+            TraceLog(LOG_WARNING, "Cannot add child, since child was not found.");
+            return;
+        }
+
+        if (newLight->isChild && newLight->parent != nullptr) {
+            auto it = std::find(newLight->parent->lightsChildren.begin(), newLight->parent->lightsChildren.end(), newLightIndex);
             
-            if (it != newLight.parent->lightsChildren.end()) {
-                newLight.parent->lightsChildren.erase(it);
+            if (it != newLight->parent->lightsChildren.end()) {
+                newLight->parent->lightsChildren.erase(it);
             }
         }
 
-        newLight.isChild = true;
-        newLight.parent = this;
-        newLight.light.relativePosition = {
-            newLight.light.position.x - this->position.x,
-            newLight.light.position.y - this->position.y,
-            newLight.light.position.z - this->position.z
+        newLight->isChild = true;
+        newLight->parent = this;
+        newLight->light.relativePosition = {
+            newLight->light.position.x - this->position.x,
+            newLight->light.position.y - this->position.y,
+            newLight->light.position.z - this->position.z
         };
 
         lightsChildren.emplace_back(newLightIndex);
@@ -225,7 +230,7 @@ public:
         }
 
         for (int lightChildIndex : lightsChildren) {
-            updateLightChild(lights.at(lightChildIndex));
+            updateLightChild(getLightById(lightChildIndex), lightChildIndex);
         }
     }
 
@@ -244,12 +249,12 @@ public:
             return;
         }
 
-    #ifndef GAME_SHIPPING
+#ifndef GAME_SHIPPING
         if (entity == selectedEntity) {
             entity->render();
             return;
         };
-    #endif
+#endif
 
         if (entity->parent != this || !entity->parent->initialized) entity->parent = this;
 
@@ -257,14 +262,23 @@ public:
         entity->render();
     }
 
-    void updateLightChild(LightStruct& lightStruct) {
-    #ifndef GAME_SHIPPING
-        if (&lightStruct == selectedLight && selectedGameObjectType == "light" && !inGamePreview) return;
-    #endif
+    void updateLightChild(LightStruct* lightStruct, int lightIndex) {
+        if (!lightStruct) {
+            TraceLog(LOG_WARNING, "Cannot update child, since child is not found.");
 
-        if (lightStruct.parent != this || !lightStruct.parent->initialized) lightStruct.parent = this;
+            auto it = lightsChildren.erase(std::find(lightsChildren.begin(), lightsChildren.end(),
+                                lightIndex));
 
-        lightStruct.light.position = glm::vec3(this->position.x, this->position.y, this->position.z) + lightStruct.light.relativePosition;
+            return;
+        }
+
+#ifndef GAME_SHIPPING
+        if (lightStruct == selectedLight && selectedGameObjectType == "light" && !inGamePreview) return;
+#endif
+
+        if (lightStruct->parent != this || !lightStruct->parent->initialized) lightStruct->parent = this;
+
+        lightStruct->light.position = glm::vec3(this->position.x, this->position.y, this->position.z) + lightStruct->light.relativePosition;
     }
 
     void makeChildrenInstances() {
@@ -559,6 +573,8 @@ public:
             "Vector2"_a = mathModule.attr("Vector2"),
             "Vector3Scale"_a = mathModule.attr("vector3Scale"),
             "Vector3Distance"_a = mathModule.attr("vector3Distance"),
+            "Vector3Length"_a = mathModule.attr("vector3Length"),
+            "Vector3LengthSqr"_a = mathModule.attr("vector3LengthSqr"),
             "Color"_a = colorModule.attr("Color"),
             "LockMouse"_a = mouseModule.attr("LockMouse"),
             "UnlockMouse"_a = mouseModule.attr("UnlockMouse"),
