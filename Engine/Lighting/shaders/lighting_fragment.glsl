@@ -121,7 +121,11 @@ vec4 CalculateLight(Light light, vec3 viewDir, vec3 norm, vec3 fragPosition, vec
     if (light.type == LIGHT_DIRECTIONAL) {
         lightDir = normalize(-light.direction);
     } else {
-        lightDir = normalize(light.position - fragPosition);
+        if ((light.position.x < 1 && light.position.y < 1 && light.position.z < 1) && 
+            (light.position.x > -1 && light.position.y > -1 && light.position.z > -1)) {
+            lightDir = normalize((light.position + vec3(.1)) - fragPosition);
+        } else lightDir = normalize(light.position - fragPosition);
+
         float lightToFragDist = length(light.position - fragPosition);
         attenuation = 1.0 / (1.0 + light.attenuation * lightToFragDist * lightToFragDist);
         if (light.type == LIGHT_SPOT) {
