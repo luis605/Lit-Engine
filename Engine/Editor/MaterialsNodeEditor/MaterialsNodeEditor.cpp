@@ -137,7 +137,7 @@ void MaterialsNodeEditor(SurfaceMaterial& material) {
             // Node rendering is done. This call will render node background based on size of content inside node.
             ImNodes::Ez::EndNode();
 
-            if (node->Selected && ImGui::IsKeyPressedMap(ImGuiKey_Delete) && ImGui::IsWindowFocused()) {
+            if (node->Selected && ImGui::IsKeyPressed(ImGuiKey_Delete) && ImGui::IsWindowFocused()) {
                 // Deletion order is critical: first we delete connections to us
                 for (auto& connection : node->Connections) {
                     if (connection.OutputNode == node) {

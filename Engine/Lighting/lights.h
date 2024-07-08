@@ -75,88 +75,98 @@ struct LightStruct {
 };
 
 struct SurfaceMaterialTexture {
-    std::variant<std::monostate, Texture2D, VideoPlayer> texture;
+    Texture2D staticTexture = { 0 };
+    Video videoTexture;
     int activatedMode = -1;
 
-    // Default constructor
     SurfaceMaterialTexture() = default;
 
-    // Constructor from path (or const char*)
-    SurfaceMaterialTexture(const fs::path& filePath) {
-        if (fs::exists(filePath)) {
-            Texture2D fileTexture = LoadTexture(filePath.c_str());
+    SurfaceMaterialTexture(fs::path& filePath) {
+        loadFromFile(filePath);
+    }
 
-            if (IsTextureReady(fileTexture)) {
-                texture = fileTexture;
-                activatedMode = 0; // Texture mode
-            } else {
-                texture = VideoPlayer(filePath.string().c_str());
-                activatedMode = 1; // Video mode
-                UnloadTexture(fileTexture);
+    // Destructor
+    ~SurfaceMaterialTexture() {
+        cleanup();
+    }
+
+    SurfaceMaterialTexture& operator=(const SurfaceMaterialTexture& other) {
+        if (this != &other) {
+            cleanup();
+
+            staticTexture = other.staticTexture;
+            videoTexture = other.videoTexture;
+            activatedMode = other.activatedMode;
+        }
+        return *this;
+    }
+
+    SurfaceMaterialTexture& operator=(const fs::path& filePath) {
+        loadFromFile(filePath);
+        return *this;
+    }
+
+    // Load from file
+    void loadFromFile(const fs::path& filePath) {
+        if (fs::exists(filePath)) {
+            try {
+                Texture2D fileTexture = LoadTexture(filePath.c_str());
+
+                if (IsTextureReady(fileTexture)) {
+                    staticTexture = fileTexture;
+                    activatedMode = 0; // Texture mode
+                } else {
+                    UnloadTexture(fileTexture);
+                    videoTexture = Video();
+                    videoTexture.openVideo(filePath.string().c_str());
+                    activatedMode = 1; // Video mode
+
+                    if (!videoTexture.hasVideoStream()) {
+                        std::cerr << "Failure on loading video stream" << std::endl;
+                    }
+                }
+            } catch (const std::exception &e) {
+                std::cerr << "Error loading file: " << e.what() << std::endl;
             }
         } else {
             throw std::runtime_error("File does not exist");
         }
     }
 
-    // Copy constructor
-    SurfaceMaterialTexture(const SurfaceMaterialTexture& other) {
-        *this = other;
-    }
-
-    // Copy assignment operator
-    SurfaceMaterialTexture& operator=(const SurfaceMaterialTexture& other) {
-        if (this != &other) {
-            if (other.hasTexture()) {
-                texture = std::get<Texture2D>(other.texture);
-            } else if (other.hasVideoPlayer()) {
-                texture = std::get<VideoPlayer>(other.texture);
-            } else {
-                texture = std::monostate{};
-            }
-            activatedMode = other.activatedMode;
-        }
-        return *this;
-    }
-
-    // Assignment from path (or const char*)
-    SurfaceMaterialTexture& operator=(const fs::path& filePath) {
-        if (fs::exists(filePath)) {
-            Texture2D fileTexture = LoadTexture(filePath.c_str());
-
-            if (IsTextureReady(fileTexture)) {
-                texture = fileTexture;
-                activatedMode = 0; // Texture mode
-            } else {
-                texture = VideoPlayer(filePath.string().c_str());
-                activatedMode = 1; // Video mode
-                UnloadTexture(fileTexture);
-            }
-        } else {
-            TraceLog(LOG_WARNING, "Texture file does not exist.");
-        }
-        return *this;
-    }
-
+    // Check if it has a texture
     bool hasTexture() const {
-        return std::holds_alternative<Texture2D>(texture);
+        return IsTextureReady(staticTexture);
     }
 
-    bool hasVideoPlayer() const {
-        return std::holds_alternative<VideoPlayer>(texture);
+    // Check if it has a video
+    bool hasVideo() const {
+        return videoTexture.hasVideoStream();
     }
 
+    // Check if it is empty
     bool isEmpty() const {
-        return this->texture.valueless_by_exception() || std::holds_alternative<std::monostate>(this->texture);
+        return activatedMode == -1;
     }
 
-    // Getter functions
+    // Get texture
     Texture2D& getTexture2D() {
-        return *std::get_if<Texture2D>(&texture);
+        return staticTexture;
     }
 
-    VideoPlayer& getVideoPlayer() {
-        return *std::get_if<VideoPlayer>(&texture);
+    // Get video
+    Video& getVideo() {
+        return videoTexture;
+    }
+
+    // Cleanup resources
+    void cleanup() {
+        if (hasTexture()) {
+            UnloadTexture(staticTexture);
+            staticTexture = { 0 };
+        } else if (hasVideo()) {
+            videoTexture.cleanup();
+        }
+        activatedMode = -1;
     }
 };
 
