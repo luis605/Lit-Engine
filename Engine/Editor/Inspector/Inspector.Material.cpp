@@ -1,23 +1,18 @@
-void MaterialInspector(SurfaceMaterial* surfaceMaterial = nullptr, std::string path = "")
+void MaterialInspector(SurfaceMaterial* surfaceMaterial = nullptr, fs::path path = "")
 {
-    SurfaceMaterial* material = nullptr;
-    if (surfaceMaterial != nullptr)
-        material = surfaceMaterial;
+    if (path.empty()) path = selectedMaterial;
 
-    
-    if (path.empty())
-        path = selectedMaterial.string();
+    DeserializeMaterial(surfaceMaterial, path.c_str());
 
-    DeserializeMaterial(material, path.c_str());
-    if (!material) {
-        SurfaceMaterial emptySurfaceMaterial;
-        material = &emptySurfaceMaterial;
-    }
+    if (!surfaceMaterial) {
+        SurfaceMaterial emptyMaterial;
+        surfaceMaterial = &emptyMaterial;
+    };
 
     ImGui::Text("Color: ");
-    ImVec4 material_color(material->color.r, material->color.g, material->color.b, material->color.a);
+    ImVec4 material_color(surfaceMaterial->color.r, surfaceMaterial->color.g, surfaceMaterial->color.b, surfaceMaterial->color.a);
     if (ImGui::ColorEdit4("##MaterialColor", (float*)&material_color, ImGuiColorEditFlags_NoInputs)) {
-        material->color = {
+        surfaceMaterial->color = {
             material_color.x,
             material_color.y,
             material_color.z,
@@ -27,11 +22,18 @@ void MaterialInspector(SurfaceMaterial* surfaceMaterial = nullptr, std::string p
 
     ImGui::Dummy(ImVec2(0.0f, 10.0f));
 
-
     if (ImGui::CollapsingHeader("Maps")) {
         ImGui::Indent(10);
-        
-        float tiling_value[2] = { selectedEntity->tiling[0], selectedEntity->tiling[1] };
+
+        float tiling_value[2];
+        if (selectedEntity) {
+            tiling_value[0] = selectedEntity->tiling[0];
+            tiling_value[1] = selectedEntity->tiling[1];
+        } else {
+            tiling_value[0] = 1.0f;
+            tiling_value[1] = 1.0f;
+        }
+
         ImGui::Text("Tiling: ");
 
         ImGui::Indent(20.0f);
@@ -67,13 +69,11 @@ void MaterialInspector(SurfaceMaterial* surfaceMaterial = nullptr, std::string p
                 IM_ASSERT(payload->DataSize == sizeof(int));
                 int payload_n = *(const int*)payload->Data;
 
-                std::string path = dirPath.string();
+                fs::path path = dirPath;
                 path += "/" + fileStruct[payload_n].name;
 
                 surfaceMaterial->diffuseTexturePath = path;
                 surfaceMaterial->diffuseTexture = path;
-
-                selectedEntity->ReloadTextures();
             }
 
             ImGui::EndDragDropTarget();
@@ -82,7 +82,7 @@ void MaterialInspector(SurfaceMaterial* surfaceMaterial = nullptr, std::string p
         ImGui::SameLine();
         if (ImGui::Button("x##DiffuseEmptyButton", ImVec2(25, 25))) {
             surfaceMaterial->diffuseTexture.activatedMode = -1;
-            surfaceMaterial->diffuseTexture.texture = std::monostate{};
+            surfaceMaterial->diffuseTexture.cleanup();
             surfaceMaterial->diffuseTexturePath = "";
             selectedEntity->ReloadTextures(true);
         }
@@ -105,7 +105,7 @@ void MaterialInspector(SurfaceMaterial* surfaceMaterial = nullptr, std::string p
                 IM_ASSERT(payload->DataSize == sizeof(int));
                 int payload_n = *(const int*)payload->Data;
 
-                std::string path = dirPath.string();
+                fs::path path = dirPath;
                 path += "/" + fileStruct[payload_n].name;
 
                 surfaceMaterial->normalTexturePath = path;
@@ -120,7 +120,7 @@ void MaterialInspector(SurfaceMaterial* surfaceMaterial = nullptr, std::string p
         
         if (ImGui::Button("x##NormalEmptyButton", ImVec2(25, 25))) {
             surfaceMaterial->normalTexture.activatedMode = -1;
-            surfaceMaterial->normalTexture.texture = std::monostate{};
+            surfaceMaterial->diffuseTexture.cleanup();
             surfaceMaterial->normalTexturePath = "";
             selectedEntity->ReloadTextures(true);
         }
@@ -143,7 +143,7 @@ void MaterialInspector(SurfaceMaterial* surfaceMaterial = nullptr, std::string p
                 IM_ASSERT(payload->DataSize == sizeof(int));
                 int payload_n = *(const int*)payload->Data;
 
-                std::string path = dirPath.string();
+                fs::path path = dirPath;
                 path += "/" + fileStruct[payload_n].name;
 
                 surfaceMaterial->roughnessTexture = path;
@@ -158,7 +158,7 @@ void MaterialInspector(SurfaceMaterial* surfaceMaterial = nullptr, std::string p
         ImGui::SameLine();
         if (ImGui::Button("x##RoughnessEmptyButton", ImVec2(25, 25))) {
             surfaceMaterial->roughnessTexture.activatedMode = -1;
-            surfaceMaterial->roughnessTexture.texture = std::monostate{};
+            surfaceMaterial->diffuseTexture.cleanup();
             surfaceMaterial->roughnessTexturePath = "";
             selectedEntity->ReloadTextures(true);
         }
@@ -180,7 +180,7 @@ void MaterialInspector(SurfaceMaterial* surfaceMaterial = nullptr, std::string p
                 IM_ASSERT(payload->DataSize == sizeof(int));
                 int payload_n = *(const int*)payload->Data;
 
-                std::string path = dirPath.string();
+                fs::path path = dirPath;
                 path += "/" + fileStruct[payload_n].name;
 
                 surfaceMaterial->aoTexturePath = path;
@@ -195,7 +195,7 @@ void MaterialInspector(SurfaceMaterial* surfaceMaterial = nullptr, std::string p
         ImGui::SameLine();
         if (ImGui::Button("x##AOEmptyButton", ImVec2(25, 25))) {
             surfaceMaterial->aoTexture.activatedMode = -1;
-            surfaceMaterial->aoTexture.texture = std::monostate{};
+            surfaceMaterial->diffuseTexture.cleanup();
             surfaceMaterial->aoTexturePath = "";
             selectedEntity->ReloadTextures(true);
         }
@@ -213,28 +213,28 @@ void MaterialInspector(SurfaceMaterial* surfaceMaterial = nullptr, std::string p
     ImGui::Text("Specular Intensity:");
     ImGui::SameLine(spacing);
     ImGui::SetNextItemWidth(-1);
-    ImGui::SliderFloat("##Specular Intensity", &material->SpecularIntensity, 0.0f, 1.0f);
+    ImGui::SliderFloat("##Specular Intensity", &surfaceMaterial->SpecularIntensity, 0.0f, 1.0f);
 
     ImGui::Text("Diffuse Intensity:");
     ImGui::SameLine(spacing);
     ImGui::SetNextItemWidth(-1);
-    ImGui::SliderFloat("##Diffuse Intensity", &material->DiffuseIntensity, 0.0f, 1.0f);
+    ImGui::SliderFloat("##Diffuse Intensity", &surfaceMaterial->DiffuseIntensity, 0.0f, 1.0f);
 
     ImGui::Text("Roughness:");
     ImGui::SameLine(spacing);
     ImGui::SetNextItemWidth(-1);
-    ImGui::SliderFloat("##Roughness", &material->Roughness, 0.0f, 1.0f);
+    ImGui::SliderFloat("##Roughness", &surfaceMaterial->Roughness, 0.0f, 1.0f);
 
     ImGui::Text("Metalness:");
     ImGui::SameLine(spacing);
     ImGui::SetNextItemWidth(-1);
-    ImGui::SliderFloat("##Metalness", &material->Metalness, 0.0f, 1.0f);
+    ImGui::SliderFloat("##Metalness", &surfaceMaterial->Metalness, 0.0f, 1.0f);
 
     if (ImGui::Button("View Material in Nodes Editor"))
         showMaterialInNodesEditor = !showMaterialInNodesEditor;
 
-    MaterialsNodeEditor(*material);
+    MaterialsNodeEditor(*surfaceMaterial);
 
 
-    SerializeMaterial(*material, path.c_str());
+    SerializeMaterial(*surfaceMaterial, path.c_str());
 }

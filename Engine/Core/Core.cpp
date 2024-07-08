@@ -124,7 +124,7 @@ void EngineMainLoop() {
             ClearBackground(DARKGRAY);
 
             rlImGuiBegin();
-            ImGui::DockSpaceOverViewport(viewport);
+            ImGui::DockSpaceOverViewport(ImGui::GetID("MyDockSpace"), viewport);
 
             MenuBar();
             AssetsExplorer();

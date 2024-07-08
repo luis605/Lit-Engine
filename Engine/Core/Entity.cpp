@@ -333,9 +333,9 @@ public:
                 Texture2D& diffuse = surfaceMaterial.diffuseTexture.getTexture2D();
                 model.materials[0].maps[MATERIAL_MAP_DIFFUSE].texture = diffuse;
             } else if (surfaceMaterial.diffuseTexture.activatedMode == 1) {
-                VideoPlayer& videoPlayer = surfaceMaterial.diffuseTexture.getVideoPlayer();
-                videoPlayer.Update();
-                model.materials[0].maps[MATERIAL_MAP_DIFFUSE].texture = videoPlayer.GetTexture();
+                Video& videoPlayer = surfaceMaterial.diffuseTexture.getVideo();
+                videoPlayer.processVideoFrame();
+                model.materials[0].maps[MATERIAL_MAP_DIFFUSE].texture = videoPlayer.getTexture();
             } else if (IsTextureReady(model.materials[0].maps[MATERIAL_MAP_DIFFUSE].texture)) UnloadTexture(model.materials[0].maps[MATERIAL_MAP_DIFFUSE].texture);
 
             if (lodEnabled) {
@@ -352,9 +352,9 @@ public:
                 Texture2D& normal = surfaceMaterial.normalTexture.getTexture2D();
                 model.materials[0].maps[MATERIAL_MAP_NORMAL].texture = normal;
             } else if (surfaceMaterial.normalTexture.activatedMode == 1) {
-                VideoPlayer& videoPlayer = surfaceMaterial.normalTexture.getVideoPlayer();
-                videoPlayer.Update();
-                model.materials[0].maps[MATERIAL_MAP_NORMAL].texture = videoPlayer.GetTexture();
+                Video& videoPlayer = surfaceMaterial.normalTexture.getVideo();
+                videoPlayer.processVideoFrame();
+                model.materials[0].maps[MATERIAL_MAP_NORMAL].texture = videoPlayer.getTexture();
             } else if (IsTextureReady(model.materials[0].maps[MATERIAL_MAP_NORMAL].texture)) UnloadTexture(model.materials[0].maps[MATERIAL_MAP_NORMAL].texture);
 
             if (lodEnabled) {
@@ -371,9 +371,9 @@ public:
                 Texture2D& roughness = surfaceMaterial.roughnessTexture.getTexture2D();
                 model.materials[0].maps[MATERIAL_MAP_ROUGHNESS].texture = roughness;
             } else if (surfaceMaterial.roughnessTexture.activatedMode == 1) {
-                VideoPlayer& videoPlayer = surfaceMaterial.roughnessTexture.getVideoPlayer();
-                videoPlayer.Update();
-                model.materials[0].maps[MATERIAL_MAP_ROUGHNESS].texture = videoPlayer.GetTexture();
+                Video& videoPlayer = surfaceMaterial.roughnessTexture.getVideo();
+                videoPlayer.processVideoFrame();
+                model.materials[0].maps[MATERIAL_MAP_ROUGHNESS].texture = videoPlayer.getTexture();
             } else if (IsTextureReady(model.materials[0].maps[MATERIAL_MAP_ROUGHNESS].texture)) UnloadTexture(model.materials[0].maps[MATERIAL_MAP_ROUGHNESS].texture);
 
             if (lodEnabled) {
@@ -390,9 +390,9 @@ public:
                 Texture2D& ao = surfaceMaterial.aoTexture.getTexture2D();
                 model.materials[0].maps[MATERIAL_MAP_OCCLUSION].texture = ao;
             } else if (surfaceMaterial.aoTexture.activatedMode == 1) {
-                VideoPlayer& videoPlayer = surfaceMaterial.aoTexture.getVideoPlayer();
-                videoPlayer.Update();
-                model.materials[0].maps[MATERIAL_MAP_OCCLUSION].texture = videoPlayer.GetTexture();
+                Video& videoPlayer = surfaceMaterial.aoTexture.getVideo();
+                videoPlayer.processVideoFrame();
+                model.materials[0].maps[MATERIAL_MAP_OCCLUSION].texture = videoPlayer.getTexture();
             } else if (IsTextureReady(model.materials[0].maps[MATERIAL_MAP_OCCLUSION].texture)) UnloadTexture(model.materials[0].maps[MATERIAL_MAP_OCCLUSION].texture);
 
             if (lodEnabled) {
@@ -1096,20 +1096,22 @@ Entity* getEntityById(int id) {
         const Model& model = LoadModelFromMesh(GenMeshCube(1,1,1)),
         const std::string& name = "Unnamed Entity"
     ) {
-        Entity entityCreate;
+
+        entitiesListPregame.emplace_back();
+        Entity& entityCreate = entitiesListPregame.back();
         entityCreate.setColor(WHITE);
         entityCreate.setScale(Vector3{1, 1, 1});
         entityCreate.setName(name);
         entityCreate.setModel(modelPath, model);
         entityCreate.setShader(shader);
+        entityCreate.surfaceMaterial;
         entityCreate.id = entitiesListPregame.size() + lights.size();
 
         entityIdToIndexMap[entityCreate.id] = entitiesListPregame.size();
 
-        entitiesListPregame.emplace_back(std::move(entityCreate));
-        selectedGameObjectType = "entity";
-        selectedEntity = &entitiesListPregame.back();
+        // selectedGameObjectType = "entity";
+        // selectedEntity = &entityCreate;
 
-        return &entitiesListPregame.back();
+        return &entityCreate;
     }
 #endif
