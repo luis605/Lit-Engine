@@ -158,6 +158,14 @@ struct SurfaceMaterialTexture {
         return videoTexture;
     }
 
+    void updateVideo() {
+        videoTexture.PlayCurrentFrame();
+    }
+
+    Texture& getVideoTexture() {
+        return videoTexture.getTexture();
+    }
+
     // Cleanup resources
     void cleanup() {
         if (hasTexture()) {

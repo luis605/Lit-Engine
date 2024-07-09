@@ -81,7 +81,6 @@ void MaterialInspector(SurfaceMaterial* surfaceMaterial = nullptr, fs::path path
 
         ImGui::SameLine();
         if (ImGui::Button("x##DiffuseEmptyButton", ImVec2(25, 25))) {
-            surfaceMaterial->diffuseTexture.activatedMode = -1;
             surfaceMaterial->diffuseTexture.cleanup();
             surfaceMaterial->diffuseTexturePath = "";
             selectedEntity->ReloadTextures(true);
@@ -119,8 +118,7 @@ void MaterialInspector(SurfaceMaterial* surfaceMaterial = nullptr, fs::path path
         ImGui::SameLine();
         
         if (ImGui::Button("x##NormalEmptyButton", ImVec2(25, 25))) {
-            surfaceMaterial->normalTexture.activatedMode = -1;
-            surfaceMaterial->diffuseTexture.cleanup();
+            surfaceMaterial->normalTexture.cleanup();
             surfaceMaterial->normalTexturePath = "";
             selectedEntity->ReloadTextures(true);
         }
@@ -157,8 +155,7 @@ void MaterialInspector(SurfaceMaterial* surfaceMaterial = nullptr, fs::path path
 
         ImGui::SameLine();
         if (ImGui::Button("x##RoughnessEmptyButton", ImVec2(25, 25))) {
-            surfaceMaterial->roughnessTexture.activatedMode = -1;
-            surfaceMaterial->diffuseTexture.cleanup();
+            surfaceMaterial->roughnessTexture.cleanup();
             surfaceMaterial->roughnessTexturePath = "";
             selectedEntity->ReloadTextures(true);
         }
@@ -194,8 +191,7 @@ void MaterialInspector(SurfaceMaterial* surfaceMaterial = nullptr, fs::path path
 
         ImGui::SameLine();
         if (ImGui::Button("x##AOEmptyButton", ImVec2(25, 25))) {
-            surfaceMaterial->aoTexture.activatedMode = -1;
-            surfaceMaterial->diffuseTexture.cleanup();
+            surfaceMaterial->aoTexture.cleanup();
             surfaceMaterial->aoTexturePath = "";
             selectedEntity->ReloadTextures(true);
         }

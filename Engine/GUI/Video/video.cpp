@@ -129,13 +129,12 @@ public:
     }
 
     void cleanup() noexcept {
-        avformat_close_input(&formatCtx);
-        avcodec_free_context(&codecCtx);
-        av_frame_free(&frame);
-        av_frame_free(&pRGBFrame);
-        sws_freeContext(sws_ctx);
-        UnloadTexture(texture);
-        CloseWindow();
+        avformat_close_input(&this->formatCtx);
+        avcodec_free_context(&this->codecCtx);
+        av_frame_free(&this->frame);
+        av_frame_free(&this->pRGBFrame);
+        sws_freeContext(this->sws_ctx);
+        UnloadTexture(this->texture);
     }
 
     void PlayCurrentFrame() noexcept {

@@ -29,9 +29,9 @@ CXX := g++
 
 CXXFLAGS = -pipe -std=c++17 -Wno-unused-result
 SRC_FILES = include/ImGuiColorTextEdit/TextEditor.o include/rlImGui.o include/ImNodes/ImNodes.o include/ImNodes/ImNodesEz.o
-INCLUDE_DIRS = -I./include -I./include/ImGuiColorTextEdit -I./include/ImNodes -I./include/ffmpeg -I./include/nlohmann/include
+INCLUDE_DIRS = -I./include -I./include/ImGuiColorTextEdit -I./include/ImNodes -I./include/nlohmann/include
 INCLUDE_DIRS += -I./include/imgui -I./include/bullet3/src -L./include/raylib/src -I./include/raylib/src -L./include/meshoptimizer/build -I./include/meshoptimizer/src
-LIB_FLAGS = -lraylib -lBulletDynamics -lBulletCollision -lLinearMath -lpthread -lmeshoptimizer
+LIB_FLAGS = -lavformat -lavcodec -lavutil -lswscale -lswresample -lm -lraylib -lBulletDynamics -lBulletCollision -lLinearMath -lpthread -lmeshoptimizer
 
 ifeq ($(UNAME), Linux)
 	PYTHON_INCLUDE_DIR := $(shell python3 -c "import sys; print(sys.prefix + '/include')")
@@ -51,7 +51,7 @@ run:
 
 build: $(IMGUI_OBJECTS)
 	@$(call echo_success, "Building Demo")
-	@$(CXX) $(CXXFLAGS) Engine/main.cpp $(SRC_FILES) $(INCLUDE_DIRS) $(IMGUI_OBJECTS) $(LIB_FLAGS) -Wl,-rpath,'$$ORIGIN:.' -lavformat -lavcodec -lavutil -lswscale -lswresample -o lit_engine.out
+	@$(CXX) $(CXXFLAGS) Engine/main.cpp $(SRC_FILES) $(INCLUDE_DIRS) $(IMGUI_OBJECTS) $(LIB_FLAGS) -o lit_engine.out
 	@$(call echo_success, "Success!")
 
 brun: CXXFLAGS += -O3 -funroll-loops -ftree-vectorize -fno-math-errno -freciprocal-math -fvect-cost-model -fgraphite-identity
