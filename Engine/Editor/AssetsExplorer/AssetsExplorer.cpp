@@ -385,10 +385,7 @@ void AssetsExplorer() {
         if (isButtonHovered) {
             const std::string fileExtension = getFileExtension(fileItem.path.filename().string());
 
-            if (fileExtension == ".mat" && ImGui::IsMouseDoubleClicked(ImGuiMouseButton_Left)) {
-                selectedGameObjectType = "material";
-                selectedMaterial = fileItem.full_path;
-            } else if (ImGui::IsMouseDoubleClicked(ImGuiMouseButton_Left)) {
+            if (ImGui::IsMouseDoubleClicked(ImGuiMouseButton_Left)) {
                 code = readFileToString((dirPath / fileItem.name).string());
                 codeEditorScriptPath = (dirPath / fileItem.name).string();
                 editor.SetText(code);

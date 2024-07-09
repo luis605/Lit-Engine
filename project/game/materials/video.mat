@@ -1,15 +1,15 @@
 {
-    "aoTexturePath": "project/game/textures/video/metro.mp4",
+    "aoTexturePath": "",
     "color": {
         "a": 1.0,
         "b": 1.0,
-        "g": 1.0,
-        "r": 1.0
+        "g": 0.0,
+        "r": 4.484155085839415e-44
     },
-    "diffuseTexturePath": "project/game/textures/video/metro.mp4",
-    "diffuse_intensity": 1.0,
-    "normalTexturePath": "project/game/textures/video/metro.mp4",
-    "roughness": 0.0,
-    "roughnessTexturePath": "project/game/textures/video/metro.mp4",
-    "specular_intensity": 0.0
+    "diffuseTexturePath": "",
+    "diffuse_intensity": 3.061136495317563e-41,
+    "normalTexturePath": "",
+    "roughness": 4.484155085839415e-44,
+    "roughnessTexturePath": "",
+    "specular_intensity": 158032247914496.0
 }
