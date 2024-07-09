@@ -1,5 +1,5 @@
 {
-    "aoTexturePath": "",
+    "aoTexturePath": "project/game/textures/video/metro.mp4",
     "color": {
         "a": 1.0,
         "b": 1.0,
@@ -8,8 +8,8 @@
     },
     "diffuseTexturePath": "project/game/textures/video/metro.mp4",
     "diffuse_intensity": 1.0,
-    "normalTexturePath": "",
+    "normalTexturePath": "project/game/textures/video/metro.mp4",
     "roughness": 0.0,
-    "roughnessTexturePath": "",
+    "roughnessTexturePath": "project/game/textures/video/metro.mp4",
     "specular_intensity": 0.0
 }

@@ -333,10 +333,9 @@ public:
                 Texture2D& diffuse = surfaceMaterial.diffuseTexture.getTexture2D();
                 model.materials[0].maps[MATERIAL_MAP_DIFFUSE].texture = diffuse;
             } else if (surfaceMaterial.diffuseTexture.activatedMode == 1) {
-                Video& videoPlayer = surfaceMaterial.diffuseTexture.getVideo();
-                videoPlayer.processVideoFrame();
-                model.materials[0].maps[MATERIAL_MAP_DIFFUSE].texture = videoPlayer.getTexture();
-            } else if (IsTextureReady(model.materials[0].maps[MATERIAL_MAP_DIFFUSE].texture)) UnloadTexture(model.materials[0].maps[MATERIAL_MAP_DIFFUSE].texture);
+                surfaceMaterial.diffuseTexture.updateVideo();
+                model.materials[0].maps[MATERIAL_MAP_DIFFUSE].texture = surfaceMaterial.diffuseTexture.getVideoTexture();
+            } else model.materials[0].maps[MATERIAL_MAP_DIFFUSE].texture = { 0 };
 
             if (lodEnabled) {
                 for (int i = 0; i < sizeof(LodModels)/sizeof(LodModels[0]); i++) {
@@ -352,10 +351,9 @@ public:
                 Texture2D& normal = surfaceMaterial.normalTexture.getTexture2D();
                 model.materials[0].maps[MATERIAL_MAP_NORMAL].texture = normal;
             } else if (surfaceMaterial.normalTexture.activatedMode == 1) {
-                Video& videoPlayer = surfaceMaterial.normalTexture.getVideo();
-                videoPlayer.processVideoFrame();
-                model.materials[0].maps[MATERIAL_MAP_NORMAL].texture = videoPlayer.getTexture();
-            } else if (IsTextureReady(model.materials[0].maps[MATERIAL_MAP_NORMAL].texture)) UnloadTexture(model.materials[0].maps[MATERIAL_MAP_NORMAL].texture);
+                surfaceMaterial.normalTexture.updateVideo();
+                model.materials[0].maps[MATERIAL_MAP_NORMAL].texture = surfaceMaterial.normalTexture.getVideoTexture();
+            } else model.materials[0].maps[MATERIAL_MAP_NORMAL].texture = { 0 };
 
             if (lodEnabled) {
                 for (int i = 0; i < sizeof(LodModels)/sizeof(LodModels[0]); i++) {
@@ -371,10 +369,9 @@ public:
                 Texture2D& roughness = surfaceMaterial.roughnessTexture.getTexture2D();
                 model.materials[0].maps[MATERIAL_MAP_ROUGHNESS].texture = roughness;
             } else if (surfaceMaterial.roughnessTexture.activatedMode == 1) {
-                Video& videoPlayer = surfaceMaterial.roughnessTexture.getVideo();
-                videoPlayer.processVideoFrame();
-                model.materials[0].maps[MATERIAL_MAP_ROUGHNESS].texture = videoPlayer.getTexture();
-            } else if (IsTextureReady(model.materials[0].maps[MATERIAL_MAP_ROUGHNESS].texture)) UnloadTexture(model.materials[0].maps[MATERIAL_MAP_ROUGHNESS].texture);
+                surfaceMaterial.roughnessTexture.updateVideo();
+                model.materials[0].maps[MATERIAL_MAP_ROUGHNESS].texture = surfaceMaterial.roughnessTexture.getVideoTexture();
+            } else model.materials[0].maps[MATERIAL_MAP_ROUGHNESS].texture = { 0 };
 
             if (lodEnabled) {
                 for (int i = 0; i < sizeof(LodModels)/sizeof(LodModels[0]); i++) {
@@ -390,10 +387,9 @@ public:
                 Texture2D& ao = surfaceMaterial.aoTexture.getTexture2D();
                 model.materials[0].maps[MATERIAL_MAP_OCCLUSION].texture = ao;
             } else if (surfaceMaterial.aoTexture.activatedMode == 1) {
-                Video& videoPlayer = surfaceMaterial.aoTexture.getVideo();
-                videoPlayer.processVideoFrame();
-                model.materials[0].maps[MATERIAL_MAP_OCCLUSION].texture = videoPlayer.getTexture();
-            } else if (IsTextureReady(model.materials[0].maps[MATERIAL_MAP_OCCLUSION].texture)) UnloadTexture(model.materials[0].maps[MATERIAL_MAP_OCCLUSION].texture);
+                surfaceMaterial.aoTexture.updateVideo();
+                model.materials[0].maps[MATERIAL_MAP_OCCLUSION].texture = surfaceMaterial.aoTexture.getVideoTexture();
+            } else model.materials[0].maps[MATERIAL_MAP_OCCLUSION].texture = { 0 };
 
             if (lodEnabled) {
                 for (int i = 0; i < sizeof(LodModels)/sizeof(LodModels[0]); i++) {
@@ -955,6 +951,8 @@ public:
         int tilingLocation = GetShaderLocation(shader, "tiling");
         SetShaderValue(shader, tilingLocation, tiling, SHADER_UNIFORM_VEC2);
 
+        ReloadTextures(true);
+
         instances.empty() ? renderSingleModel() : renderInstanced();
     }
 
@@ -997,7 +995,6 @@ private:
         if (!inFrustum()) return;
 
         PassSurfaceMaterials();
-        ReloadTextures();
         glUseProgram((GLuint)shader.id);
 
         float distance;
@@ -1109,8 +1106,8 @@ Entity* getEntityById(int id) {
 
         entityIdToIndexMap[entityCreate.id] = entitiesListPregame.size();
 
-        // selectedGameObjectType = "entity";
-        // selectedEntity = &entityCreate;
+        selectedGameObjectType = "entity";
+        selectedEntity = &entityCreate;
 
         return &entityCreate;
     }

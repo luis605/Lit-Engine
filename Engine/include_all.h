@@ -44,12 +44,11 @@
 #endif
 
 extern "C" {
-    #include <libavcodec/avcodec.h>
-    #include <libavutil/pixfmt.h>
     #include <libavformat/avformat.h>
+    #include <libavcodec/avcodec.h>
     #include <libswscale/swscale.h>
-    #include <libavutil/imgutils.h>
 }
+
 
 #ifndef GAME_SHIPPING
     #include <nlohmann/json.hpp>
