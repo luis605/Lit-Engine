@@ -194,8 +194,8 @@ void SetStyleHighContrast(ImGuiStyle* dst)
     colors[ImGuiCol_Tab]                = ImVec4(0.4f, 0.4f, 0.4f, 1.0f);
     colors[ImGuiCol_TabHovered]         = ImVec4(0.6f, 0.6f, 0.6f, 1.0f);
     colors[ImGuiCol_TabActive]          = ImVec4(0.8f, 0.8f, 0.8f, 1.0f);
-    colors[ImGuiCol_TabUnfocused]       = ImVec4(0.4f, 0.4f, 0.4f, 1.0f);
-    colors[ImGuiCol_TabUnfocusedActive] = ImVec4(0.5f, 0.5f, 0.5f, 1.0f);
+    colors[ImGuiCol_TabDimmed]          = ImVec4(0.4f, 0.4f, 0.4f, 1.0f);
+    colors[ImGuiCol_TabDimmedSelected]  = ImVec4(0.5f, 0.5f, 0.5f, 1.0f);
     colors[ImGuiCol_MenuBarBg]          = ImVec4(0.4f, 0.4f, 0.4f, 1.0f);
     colors[ImGuiCol_ScrollbarBg]        = ImVec4(0.4f, 0.4f, 0.4f, 1.0f);
     colors[ImGuiCol_ScrollbarGrab]      = ImVec4(0.8f, 0.8f, 0.8f, 1.0f);
