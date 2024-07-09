@@ -1,5 +1,6 @@
-void MaterialInspector(SurfaceMaterial* surfaceMaterial = nullptr, fs::path path = "")
-{
+void MaterialInspector(SurfaceMaterial* surfaceMaterial = nullptr, fs::path path = "") {
+    if (!selectedEntity) return;
+    
     if (path.empty()) path = selectedMaterial;
 
     DeserializeMaterial(surfaceMaterial, path.c_str());
@@ -49,12 +50,17 @@ void MaterialInspector(SurfaceMaterial* surfaceMaterial = nullptr, fs::path path
         
         if (ImGui::SliderFloat("##TextureTiling1", (float*)&tiling_value[1], 0.01f, 100.0f, "%.1f"))
             selectedEntity->tiling[1] = tiling_value[1];
-        
+
+        ImGui::SameLine();
+        if (ImGui::Button("X")) {
+            selectedEntity->tiling[0] = 1.0f;
+            selectedEntity->tiling[1] = 1.0f;
+        }
+
         ImGui::Unindent(20.0f);
         
         ImGui::Dummy(ImVec2(0.0f, 10.0f));
 
-        
         ImGui::Text("Diffuse Texture: ");
 
         ImGui::Indent(20.0f);
