@@ -74,12 +74,13 @@ void EditorCameraMovement() {
 bool IsMouseHoveringModel(const Model& model, const Vector3& position, const Vector3& rotation, const Vector3& scale, const Entity* entity, bool bypassOptimization) {
     if (!IsModelReady(model)) return false;
 
+    Vector2 mousePosition = GetMousePosition();
     Vector2 relativeMousePosition = {
-        (float)GetMousePosition().x - (float)viewportRectangle.x,
-        (float)GetMousePosition().y - (float)viewportRectangle.y - (float)GetImGuiWindowTitleHeight()
+        (float)mousePosition.x - (float)viewportRectangle.x,
+        (float)mousePosition.y - (float)viewportRectangle.y - (float)GetImGuiWindowTitleHeight()
     };
 
-    Ray mouseRay = GetScreenToWorldRayEx(relativeMousePosition, sceneCamera, viewportRectangle.width, viewportRectangle.height);    
+    Ray mouseRay = GetScreenToWorldRayEx(relativeMousePosition, sceneCamera, viewportRectangle.width, viewportRectangle.height);
 
     for (int meshIndex = 0; meshIndex < model.meshCount; meshIndex++) {
         BoundingBox meshBounds = (entity == nullptr) ? GetMeshBoundingBox(model.meshes[meshIndex]) : entity->bounds;
@@ -88,8 +89,9 @@ bool IsMouseHoveringModel(const Model& model, const Vector3& position, const Vec
         meshBounds.max = Vector3Transform(meshBounds.max, model.transform);
 
         if (bypassOptimization || GetRayCollisionBox(mouseRay, meshBounds).hit) {
-            if (GetRayCollisionMesh(mouseRay, model.meshes[meshIndex], model.transform).hit)
+            if (GetRayCollisionMesh(mouseRay, model.meshes[meshIndex], model.transform).hit) {
                 return true;
+            }
         }
     }
 
