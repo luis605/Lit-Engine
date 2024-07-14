@@ -126,10 +126,10 @@ struct SurfaceMaterialTexture {
                     }
                 }
             } catch (const std::exception &e) {
-                std::cerr << "Error loading file: " << e.what() << std::endl;
+                TraceLog(LOG_WARNING, "Error loading texture or video file.");
             }
         } else {
-            throw std::runtime_error("File does not exist");
+            TraceLog(LOG_WARNING, "Texture or video does not exist.");
         }
     }
 
