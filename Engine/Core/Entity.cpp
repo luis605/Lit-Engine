@@ -1094,21 +1094,19 @@ Entity* getEntityById(int id) {
         const std::string& name = "Unnamed Entity"
     ) {
 
-        entitiesListPregame.emplace_back();
-        Entity& entityCreate = entitiesListPregame.back();
+        Entity entityCreate;
         entityCreate.setColor(WHITE);
         entityCreate.setScale(Vector3{1, 1, 1});
         entityCreate.setName(name);
         entityCreate.setModel(modelPath, model);
         entityCreate.setShader(shader);
-        entityCreate.surfaceMaterial;
         entityCreate.id = entitiesListPregame.size() + lights.size();
-
         entityIdToIndexMap[entityCreate.id] = entitiesListPregame.size();
 
+        entitiesListPregame.emplace_back(std::move(entityCreate));
         selectedGameObjectType = "entity";
-        selectedEntity = &entityCreate;
+        selectedEntity = &entitiesListPregame.back();
 
-        return &entityCreate;
+        return &entitiesListPregame.back();
     }
 #endif
