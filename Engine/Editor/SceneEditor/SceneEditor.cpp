@@ -211,28 +211,41 @@ void UpdateShader() {
     SetShaderValue(instancingShader, instancingShader.locs[SHADER_LOC_VECTOR_VIEW], cameraPos, SHADER_UNIFORM_VEC3);
 }
 
+void RenderGrid() {
+    float halfGridSize = (GRID_SIZE * 0.5f) * GRID_SCALE;
+
+    for (int x = 0; x <= GRID_SIZE; x++) {
+        float xScaled = (x * GRID_SCALE) - halfGridSize;
+
+        DrawLine3D({ xScaled, 0.0f, -halfGridSize }, { xScaled, 0.0f, halfGridSize }, RAYWHITE);
+        DrawLine3D({ -halfGridSize, 0.0f, xScaled }, { halfGridSize, 0.0f, xScaled }, RAYWHITE);
+    }
+}
+
 void RenderScene() {
     BeginTextureMode(viewportRenderTexture);
         BeginMode3D(sceneCamera);
             ClearBackground(GRAY);
 
+            glClear(GL_DEPTH_BUFFER_BIT);
+            
             DrawSkybox();
-            DrawGrid(GRID_SIZE, GRID_SCALE);
-
+            
             UpdateLightsBuffer(true, lights);
             UpdateInGameGlobals();
 
             ProcessGizmo();
-
             UpdateShader();
 
             RenderLights();
             RenderEntities();
 
-            glClear(GL_DEPTH_BUFFER_BIT);
             DrawGizmos();
 
             HandleUnselect();
+            
+            RenderGrid();
+
         EndMode3D();
 
         DrawTextElements();
@@ -242,6 +255,7 @@ void RenderScene() {
     ApplyBloomEffect();
     RenderViewportTexture();
 }
+
 
 void DropEntity() {
     ImVec2 windowPos = ImGui::GetWindowPos();
