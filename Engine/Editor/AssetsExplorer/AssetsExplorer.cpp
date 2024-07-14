@@ -29,7 +29,7 @@ Texture2D RenderModelPreview(const char* modelFile) {
     model.materials[0].shader = shader;
     if (!IsModelReady(model)) {
         TraceLog(LOG_WARNING, "Failed to load model.");
-        return { };
+        return { 0 };
     }
 
     modelPreviewRT = LoadRenderTexture( thumbnailSize, thumbnailSize );
@@ -130,7 +130,10 @@ FileTextureItem createFileTextureItem(const fs::path& file, const fs::directory_
             return {file.string(), iter->second, file};
         } else {
             Texture2D icon = RenderModelPreview(entry.path().string().c_str());
-
+            if (!IsTextureReady(icon)) {
+                modelsIcons[entry.path().string()] = emptyTexture;
+                return {file.string(), emptyTexture, file, entry.path()};
+            }
             BeginTextureMode(modelPreviewRT);
             DrawTextureEx(icon, {0, 0}, 0.0f, 1.0f, RAYWHITE);
             EndTextureMode();
