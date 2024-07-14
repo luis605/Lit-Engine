@@ -12,7 +12,7 @@ struct Gizmo {
     Vector3 position;
     Vector3 rotation;
     Vector3 scale = {1, 1, 1};
-    std::string dragDirections;
+    Color color;
 };
 
 Gizmo gizmoArrow[NUM_GIZMO_ARROWS];
@@ -50,6 +50,22 @@ GizmoArrow gizmoArrowOffsets[] = {
     {{-6, 0, 0}, {0, 0, 90}}    // Backward
 };
 
-SurfaceMaterial gizmoMaterial;
+Color gizmoArrowColorsUnselected[] = {
+    { 0, 0, 100, 255 },
+    { 0, 0, 100, 255 },
+    { 0, 100, 0, 255 },
+    { 0, 100, 0, 255 },
+    { 100, 0, 0, 255 },
+    { 100, 0, 0, 255 }
+};
+
+Color gizmoArrowColorsSelected[] = {
+    { 0, 0, 150, 255 },
+    { 0, 0, 150, 255 },
+    { 0, 150, 0, 255 },
+    { 0, 150, 0, 255 },
+    { 150, 0, 0, 255 },
+    { 150, 0, 0, 255 }
+};
 
 #endif // GIZMO_H

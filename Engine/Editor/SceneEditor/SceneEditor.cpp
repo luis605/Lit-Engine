@@ -117,12 +117,10 @@ void ProcessCameraControls() {
 
 void ProcessGizmo() {
     if (selectedGameObjectType == "entity" && selectedEntity) {
-        PassGizmoMaterial();
         GizmoPosition();
         GizmoRotation();
         GizmoScale();
     } else if (selectedGameObjectType == "light" && selectedLight) {
-        PassGizmoMaterial();
         GizmoPosition();
         GizmoRotation();
     } else {

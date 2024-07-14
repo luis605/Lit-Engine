@@ -1,27 +1,4 @@
-void PassGizmoMaterial() {
-    if (surfaceMaterialUBO != 0) {
-        glDeleteBuffers(1, &surfaceMaterialUBO);
-        surfaceMaterialUBO = 0;
-    }
-
-    glGenBuffers(1, &surfaceMaterialUBO);
-    glBindBuffer(GL_UNIFORM_BUFFER, surfaceMaterialUBO);
-    glBufferData(GL_UNIFORM_BUFFER, sizeof(SurfaceMaterial), &gizmoMaterial, GL_DYNAMIC_DRAW);
-    glBindBuffer(GL_UNIFORM_BUFFER, 0);
-
-    constexpr GLuint bindingPoint = 0;
-
-    glBindBufferBase(GL_UNIFORM_BUFFER, bindingPoint, surfaceMaterialUBO);
-
-    glUseProgram(shader.id);
-
-    glUniform1i(glGetUniformLocation(shader.id, "normalMapReady"), GL_FALSE);
-    glUniform1i(glGetUniformLocation(shader.id, "roughnessMapReady"), GL_FALSE);
-
-    glBindBuffer(GL_UNIFORM_BUFFER, 0);
-}
-
-void LoadGizmoModel(Gizmo& gizmo, const Model& model, const fs::path& modelPath, const Shader& shader, const Vector3& rotation = {0,0,0}) {
+void LoadGizmoModel(Gizmo& gizmo, const Model& model, const fs::path& modelPath, const Vector3& rotation = {0,0,0}) {
     if (modelPath.empty())
         gizmo.model = model;
     else
@@ -33,20 +10,17 @@ void LoadGizmoModel(Gizmo& gizmo, const Model& model, const fs::path& modelPath,
     }
 
     gizmo.rotation = rotation;
-    gizmo.model.materials[0].shader = shader;
 }
 
 void InitGizmo() {
-    gizmoMaterial.DiffuseIntensity = 1.0f;
-
     for (int index = 0; index < NUM_GIZMO_ARROWS; ++index) {
-        LoadGizmoModel(gizmoArrow[index], { 0 }, "assets/models/gizmo/arrow.obj", shader, gizmoArrowOffsets[index].rotation);
+        LoadGizmoModel(gizmoArrow[index], { 0 }, "assets/models/gizmo/arrow.obj", gizmoArrowOffsets[index].rotation);
     }
 
-    LoadGizmoModel(gizmoTorus[0], LoadModelFromMesh(GenMeshSphere(1, 15, 15)), "", shader);
+    LoadGizmoModel(gizmoTorus[0], LoadModelFromMesh(GenMeshSphere(1, 15, 15)), "");
 
     for (int index = 0; index < NUM_GIZMO_CUBES; ++index) {
-        LoadGizmoModel(gizmoCube[index], LoadModelFromMesh(GenMeshCube(1, 1, 1)), "", shader);
+        LoadGizmoModel(gizmoCube[index], LoadModelFromMesh(GenMeshCube(1, 1, 1)), "");
     }
 }
 
@@ -84,7 +58,7 @@ void UpdateGizmoProperties(float maxObjectScale = 0) {
     gizmoCube[5].position = { selectedObjectPosition.x - maxObjectScale - 3.75f, selectedObjectPosition.y, selectedObjectPosition.z };
 }
 
-void IsGizmoBeingInteracted(Gizmo& gizmo, int index, Color& color, int& selectedGizmoIndex) {
+void IsGizmoBeingInteracted(const Gizmo& gizmo, const int& index, int& selectedGizmoIndex) {
     const ImGuiPayload* payload = ImGui::GetDragDropPayload(); // Check if any payload is being dragged
     if (dragging || payload || !ImGui::IsWindowHovered()) {
         isHoveringGizmo = false;
@@ -93,10 +67,7 @@ void IsGizmoBeingInteracted(Gizmo& gizmo, int index, Color& color, int& selected
 
     isHoveringGizmo = IsMouseHoveringModel(gizmo.model, gizmo.position, gizmo.rotation, gizmo.scale);
 
-    if (!isHoveringGizmo) return;
-
-    color = GREEN;
-    selectedGizmoIndex = index;
+    if (isHoveringGizmo) selectedGizmoIndex = index;
 }
 
 bool HandleGizmo(bool& draggingGizmoProperty, Vector3& selectedObjectProperty, int& selectedGizmoIndex) {
@@ -143,7 +114,7 @@ bool HandleGizmo(bool& draggingGizmoProperty, Vector3& selectedObjectProperty, i
     return true; // Success
 }
 
-void DrawGizmo(Gizmo& gizmo, Color color, bool wireframe = false, bool applyRotation = false) {
+void DrawGizmo(Gizmo& gizmo, const Color& color, const bool& wireframe = false, const bool& applyRotation = false) {
     Matrix rotationMat = MatrixRotateXYZ((Vector3){
         DEG2RAD * (gizmo.rotation.x + (applyRotation ? selectedObjectRotation.x : 0)),
         DEG2RAD * (gizmo.rotation.y + (applyRotation ? selectedObjectRotation.y : 0)),
@@ -171,11 +142,12 @@ void GizmoPosition() {
     UpdateGizmoProperties(maxObjectScale);
 
     for (int index = 0; index < NUM_GIZMO_ARROWS; index++) {
-        Color color1 = RED;
-        IsGizmoBeingInteracted(gizmoArrow[index], index, color1, selectedGizmoArrow);
+        Color color = gizmoArrowColorsUnselected[index];
+        IsGizmoBeingInteracted(gizmoArrow[index], index, selectedGizmoArrow);
+        if (isHoveringGizmo) color = gizmoArrowColorsSelected[index];
         if (!HandleGizmo(draggingGizmoPosition, selectedObjectPosition, selectedGizmoArrow) && !isHoveringGizmo) 
             draggingGizmoPosition = false;   // Reset draggingGizmoPosition if not interacting
-        DrawGizmo(gizmoArrow[index], color1);
+        DrawGizmo(gizmoArrow[index], color);
     }
 
     if (selectedGameObjectType == "entity" && selectedEntity != nullptr) {
@@ -207,11 +179,12 @@ void GizmoScale() {
     UpdateGizmoProperties(maxObjectScale);
 
     for (int cubeIndex = 0; cubeIndex < NUM_GIZMO_CUBES; cubeIndex++) {
-        Color color1 = { 40, 180, 40, 250 };
+        Color color = { 0, 100, 0, 255 };
 
-        IsGizmoBeingInteracted(gizmoCube[cubeIndex], cubeIndex, color1, selectedGizmoCube);
+        IsGizmoBeingInteracted(gizmoCube[cubeIndex], cubeIndex, selectedGizmoCube);
+        if (isHoveringGizmo) color = { 0, 150, 0, 255 };
         if (!HandleGizmo(draggingGizmoScale, selectedObjectScale, selectedGizmoCube) && !isHoveringGizmo) draggingGizmoScale = false;   // Reset draggingGizmoScale if the left mouse button isn't pressed or the gizmo isn't hovered
-        DrawGizmo(gizmoCube[cubeIndex], color1);
+        DrawGizmo(gizmoCube[cubeIndex], color);
     }
 
     selectedEntity->scale = selectedObjectScale;
@@ -231,7 +204,7 @@ void GizmoRotation() {
 
     isHoveringGizmo = IsMouseHoveringModel(torus.model, torus.position, torus.rotation, torus.scale);
 
-    Color color1 = !dragging && ImGui::IsWindowHovered
+    Color color = !dragging && ImGui::IsWindowHovered
         ? isHoveringGizmo
             ? Color{150, 150, 150, 255} : Color{100, 100, 100, 120}
         : Color{100, 0, 0, 120};
@@ -261,7 +234,7 @@ void GizmoRotation() {
     }
     else draggingGizmoRotation = false;
 
-    DrawGizmo(torus, color1, true, true);
+    DrawGizmo(torus, color, true, true);
 
     if (selectedGameObjectType == "entity")      selectedEntity->rotation = selectedObjectRotation;
     else if (selectedGameObjectType == "light")  selectedLight->light.direction = {selectedObjectRotation.x / 360, selectedObjectRotation.y / 360, selectedObjectRotation.z / 360};

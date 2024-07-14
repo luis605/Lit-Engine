@@ -22,6 +22,8 @@ void InitRenderModelPreviewer() {
     renderModelPreviewerLights.push_back(lightStructB);
 
     modelPreviewRT = LoadRenderTexture(thumbnailSize, thumbnailSize);
+
+    assetsMaterial.DiffuseIntensity = 1.0f;
 }
 
 Texture2D RenderModelPreview(const char* modelFile) {
@@ -158,7 +160,7 @@ void UpdateFileFolderStructures() {
 
         glGenBuffers(1, &surfaceMaterialUBO);
         glBindBuffer(GL_UNIFORM_BUFFER, surfaceMaterialUBO);
-        glBufferData(GL_UNIFORM_BUFFER, sizeof(SurfaceMaterial), &gizmoMaterial, GL_DYNAMIC_DRAW);
+        glBufferData(GL_UNIFORM_BUFFER, sizeof(SurfaceMaterial), &assetsMaterial, GL_DYNAMIC_DRAW);
         glBindBuffer(GL_UNIFORM_BUFFER, 0);
 
         constexpr GLuint bindingPoint = 0;
