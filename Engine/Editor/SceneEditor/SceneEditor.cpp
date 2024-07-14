@@ -83,10 +83,12 @@ bool IsMouseHoveringModel(const Model& model, const Vector3& position, const Vec
     Ray mouseRay = GetScreenToWorldRayEx(relativeMousePosition, sceneCamera, viewportRectangle.width, viewportRectangle.height);
 
     for (int meshIndex = 0; meshIndex < model.meshCount; meshIndex++) {
-        BoundingBox meshBounds = (entity == nullptr) ? GetMeshBoundingBox(model.meshes[meshIndex]) : entity->bounds;
-
-        meshBounds.min = Vector3Transform(meshBounds.min, model.transform);
-        meshBounds.max = Vector3Transform(meshBounds.max, model.transform);
+        BoundingBox meshBounds;
+        if (entity == nullptr) {
+            meshBounds =  GetMeshBoundingBox(model.meshes[meshIndex]);
+            meshBounds.min = Vector3Transform(meshBounds.min, model.transform);
+            meshBounds.max = Vector3Transform(meshBounds.max, model.transform);
+        } else meshBounds = entity->bounds;
 
         if (bypassOptimization || GetRayCollisionBox(mouseRay, meshBounds).hit) {
             if (GetRayCollisionMesh(mouseRay, model.meshes[meshIndex], model.transform).hit) {
