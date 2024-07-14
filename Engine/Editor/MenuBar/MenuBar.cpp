@@ -231,13 +231,15 @@ void MenuBar() {
 
         ImGui::GetStyle().FramePadding.y = originalFramePaddingY;
 
-        if (ImGui::Button("x", ImVec2(buttonWidth, buttonWidth)) || (IsKeyDown(KEY_LEFT_ALT) && IsKeyDown(KEY_F4))) exitWindowRequested = true;
+        ImGui::SetCursorPosX(ImGui::GetWindowSize().x - 10 - buttonWidth);
 
-        ImGui::SetCursorPosX(ImGui::GetWindowSize().x - buttonWidth * 2);
+        if (ImGui::Button(ICON_FA_XMARK, ImVec2(buttonWidth, buttonWidth)) || (IsKeyDown(KEY_LEFT_ALT) && IsKeyDown(KEY_F4))) exitWindowRequested = true;
+
+        ImGui::SetCursorPosX(ImGui::GetWindowSize().x - 20 - buttonWidth * 2);
 
         if (ImGui::Button(ICON_FA_WINDOW_MAXIMIZE, ImVec2(buttonWidth, buttonWidth))) ToggleMaximization();
 
-        ImGui::SetCursorPosX(ImGui::GetWindowSize().x - buttonWidth * 3);
+        ImGui::SetCursorPosX(ImGui::GetWindowSize().x - 30 - buttonWidth * 3);
 
         if (ImGui::Button(ICON_FA_WINDOW_MINIMIZE, ImVec2(buttonWidth, buttonWidth))) MinimizeWindow();
 
