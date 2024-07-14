@@ -167,8 +167,8 @@ void UpdateFileFolderStructures() {
 
         glUseProgram(shader.id);
 
-        glUniform1i(glGetUniformLocation(shader.id, "normalMapInit"), false);
-        glUniform1i(glGetUniformLocation(shader.id, "roughnessMapInit"), false);
+        glUniform1i(glGetUniformLocation(shader.id, "normalMapReady"), false);
+        glUniform1i(glGetUniformLocation(shader.id, "roughnessMapReady"), false);
 
         glBindBuffer(GL_UNIFORM_BUFFER, 0);
 

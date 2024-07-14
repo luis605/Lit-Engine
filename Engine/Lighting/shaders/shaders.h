@@ -19,10 +19,10 @@ vec2 texCoord;
 
 uniform sampler2D texture0;
 
-uniform bool normalMapInit;
+uniform bool normalMapReady;
 uniform sampler2D texture2;
 
-uniform bool roughnessMapInit;
+uniform bool roughnessMapReady;
 uniform sampler2D texture3;
 
 uniform sampler2D texture4;
@@ -154,7 +154,7 @@ vec4 CalculateSpotLight(Light light, vec3 viewDir, vec3 norm, float roughness, f
     float energyFactor = 1.0 / (k_d + (1.0 - k_d) * 0.5);
 
     float NdotL;
-    if (normalMapInit)
+    if (normalMapReady)
     {
         vec3 normalMap = texture(texture2, texCoord).rgb;
         vec3 sampledNormal = norm;
@@ -268,11 +268,11 @@ void main() {
     mat3 TBN = mat3(normalize(tangent), normalize(bitangent), normalize(fragNormal));
 
     // Calculate normal
-    vec3 normalMap = normalMapInit ? texture(texture2, texCoord).rgb * 2.0 - 1.0 : vec3(0.0);
-    vec3 norm = normalize(normalMapInit ? TBN * normalMap : fragNormal);
+    vec3 normalMap = normalMapReady ? texture(texture2, texCoord).rgb * 2.0 - 1.0 : vec3(0.0);
+    vec3 norm = normalize(normalMapReady ? TBN * normalMap : fragNormal);
 
     // Calculate roughness
-    float roughness = roughnessMapInit ? texture(texture3, texCoord).r : surfaceMaterial.Roughness;
+    float roughness = roughnessMapReady ? texture(texture3, texCoord).r : surfaceMaterial.Roughness;
 
     // Calculate view direction
     vec3 viewDir = normalize(viewPos - fragPosition);

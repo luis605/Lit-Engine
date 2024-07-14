@@ -1044,8 +1044,9 @@ private:
 
         glUseProgram(entityShader->id);
 
-        glUniform1i(glGetUniformLocation(entityShader->id, "normalMapInit"), !surfaceMaterial.normalTexturePath.empty());
-        glUniform1i(glGetUniformLocation(entityShader->id, "roughnessMapInit"), !surfaceMaterial.roughnessTexturePath.empty());
+        glUniform1i(glGetUniformLocation(entityShader->id, "diffuseMapReady"),   !surfaceMaterial.diffuseTexturePath.empty());
+        glUniform1i(glGetUniformLocation(entityShader->id, "normalMapReady"),    !surfaceMaterial.normalTexturePath.empty());
+        glUniform1i(glGetUniformLocation(entityShader->id, "roughnessMapReady"), !surfaceMaterial.roughnessTexturePath.empty());
 
         glBindBuffer(GL_UNIFORM_BUFFER, 0);
     }

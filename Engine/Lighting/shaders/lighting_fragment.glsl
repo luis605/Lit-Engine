@@ -14,10 +14,11 @@ uniform mat4 projectionMatrix;
 uniform vec2 tiling;
 
 // pbr
+uniform bool diffuseMapReady;
+uniform bool normalMapReady;
+uniform bool roughnessMapReady;
 uniform sampler2D texture0;
-uniform bool normalMapInit;
 uniform sampler2D texture2;
-uniform bool roughnessMapInit;
 uniform sampler2D texture3;
 uniform sampler2D texture4;
 
@@ -154,7 +155,9 @@ vec4 CalculateLighting(vec3 fragPosition, vec3 fragNormal, vec3 viewDir, vec2 te
 
 void main() {
     vec2 texCoord = fragTexCoord * tiling;
-    vec4 texColor = texture(texture0, texCoord);
+
+    vec4 texColor = vec4(1);
+    if (diffuseMapReady) texColor = texture(texture0, texCoord);
 
     vec3 dp1 = dFdx(fragPosition);
     vec3 dp2 = dFdy(fragPosition);
@@ -165,13 +168,13 @@ void main() {
     vec3 bitangent = normalize(dp2 * duv1.x - dp1 * duv2.x);
 
     vec3 norm = fragNormal;
-    if (normalMapInit) {
+    if (normalMapReady) {
         mat3 TBN = mat3(normalize(tangent), normalize(bitangent), normalize(fragNormal));
         vec3 normalMap = texture(texture2, texCoord).rgb;
         norm = normalize(TBN * (normalMap * 2.0 - 1.0));
     }
 
-    float roughness = roughnessMapInit ? texture(texture3, texCoord).r : surfaceMaterial.Roughness;
+    float roughness = roughnessMapReady ? texture(texture3, texCoord).r : surfaceMaterial.Roughness;
     vec3 viewDir = normalize(viewPos - fragPosition);
     vec4 lighting = CalculateLighting(fragPosition, norm, viewDir, texCoord, surfaceMaterial, texColor);
 
