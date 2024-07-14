@@ -20,14 +20,6 @@ void DisplayEntityNameInput() {
 }
 
 void DisplayTransformControls() {
-    ImGui::Text("Scale:");
-    ImGui::Indent(20.0f);
-
-    if (ImGui::InputFloat3("##Scale", &selectedEntity->scale.x)) {
-        selectedEntity->reloadRigidBody();
-    }
-    ImGui::Unindent(20.0f);
-
     ImGui::Text("Position:");
     ImGui::Indent(20.0f);
 
@@ -43,6 +35,14 @@ void DisplayTransformControls() {
             selectedEntity->position = selectedEntityPosition;
         }
     }
+
+    ImGui::Text("Scale:");
+    ImGui::Indent(20.0f);
+
+    if (ImGui::InputFloat3("##Scale", &selectedEntity->scale.x)) {
+        selectedEntity->reloadRigidBody();
+    }
+    ImGui::Unindent(20.0f);
 
     ImGui::Text("Rotation:");
     ImGui::Indent(20.0f);
@@ -213,6 +213,22 @@ void DisplayPhysicsSettings() {
     }
 }
 
+void DisplayOtherProperties() {
+    const float LODWidth = ImGui::CalcTextSize("Level of Detail: ").x + 50.0f;
+
+    ImGui::Text("Collisions: ");
+    ImGui::SameLine(LODWidth);
+    ImGui::Checkbox("##Collisions", &selectedEntity->collider);
+
+    ImGui::Text("Visible: ");
+    ImGui::SameLine(LODWidth);
+    ImGui::Checkbox("##Visible", &selectedEntity->visible);
+
+    ImGui::Text("Level of Detail: ");
+    ImGui::SameLine(LODWidth);
+    ImGui::Checkbox("##Lod", &selectedEntity->lodEnabled);
+}
+
 void EntityInspector() {
     ImVec2 windowSize = ImGui::GetWindowSize();
     if (selectedEntity == nullptr || !selectedEntity->initialized) return;
@@ -228,6 +244,7 @@ void EntityInspector() {
         DisplayModelDragDrop();
         DisplayScriptDragDrop();
         DisplayTransformControls();
+        DisplayOtherProperties();
         ImGui::Unindent(30.0f);
     }
 
