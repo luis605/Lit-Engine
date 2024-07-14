@@ -223,11 +223,14 @@ void RenderScene() {
             UpdateInGameGlobals();
 
             ProcessGizmo();
-    
+
             UpdateShader();
 
             RenderLights();
             RenderEntities();
+
+            glClear(GL_DEPTH_BUFFER_BIT);
+            DrawGizmos();
 
             HandleUnselect();
         EndMode3D();

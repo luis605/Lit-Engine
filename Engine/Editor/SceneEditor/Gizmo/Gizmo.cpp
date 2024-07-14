@@ -114,7 +114,7 @@ bool HandleGizmo(bool& draggingGizmoProperty, Vector3& selectedObjectProperty, i
     return true; // Success
 }
 
-void DrawGizmo(Gizmo& gizmo, const Color& color, const bool& wireframe = false, const bool& applyRotation = false) {
+void DrawGizmo(Gizmo& gizmo, const bool& wireframe = false, const bool& applyRotation = false) {
     Matrix rotationMat = MatrixRotateXYZ((Vector3){
         DEG2RAD * (gizmo.rotation.x + (applyRotation ? selectedObjectRotation.x : 0)),
         DEG2RAD * (gizmo.rotation.y + (applyRotation ? selectedObjectRotation.y : 0)),
@@ -129,9 +129,21 @@ void DrawGizmo(Gizmo& gizmo, const Color& color, const bool& wireframe = false, 
     gizmo.model.transform = transformMatrix;
 
     if (wireframe)
-        DrawModelWires(gizmo.model, Vector3Zero(), 1, color);
+        DrawModelWires(gizmo.model, Vector3Zero(), 1, gizmo.color);
     else
-        DrawModel(gizmo.model, Vector3Zero(), 1, color);
+        DrawModel(gizmo.model, Vector3Zero(), 1, gizmo.color);
+}
+
+void DrawGizmos() {
+    for (int index = 0; index < NUM_GIZMO_ARROWS; ++index) {
+        DrawGizmo(gizmoArrow[index]);
+    }
+
+    for (int index = 0; index < NUM_GIZMO_CUBES; ++index) {
+        DrawGizmo(gizmoCube[index]);
+    }
+
+    DrawGizmo(gizmoTorus[0], true, true);
 }
 
 void GizmoPosition() {
@@ -147,7 +159,8 @@ void GizmoPosition() {
         if (isHoveringGizmo) color = gizmoArrowColorsSelected[index];
         if (!HandleGizmo(draggingGizmoPosition, selectedObjectPosition, selectedGizmoArrow) && !isHoveringGizmo) 
             draggingGizmoPosition = false;   // Reset draggingGizmoPosition if not interacting
-        DrawGizmo(gizmoArrow[index], color);
+
+        gizmoArrow[index].color = color;
     }
 
     if (selectedGameObjectType == "entity" && selectedEntity != nullptr) {
@@ -167,7 +180,6 @@ void GizmoPosition() {
     }
 }
 
-
 void GizmoScale() {
     if (!UpdateGizmoObjectProperties()) return;
 
@@ -184,12 +196,11 @@ void GizmoScale() {
         IsGizmoBeingInteracted(gizmoCube[cubeIndex], cubeIndex, selectedGizmoCube);
         if (isHoveringGizmo) color = { 0, 150, 0, 255 };
         if (!HandleGizmo(draggingGizmoScale, selectedObjectScale, selectedGizmoCube) && !isHoveringGizmo) draggingGizmoScale = false;   // Reset draggingGizmoScale if the left mouse button isn't pressed or the gizmo isn't hovered
-        DrawGizmo(gizmoCube[cubeIndex], color);
+        gizmoCube[cubeIndex].color = color;
     }
 
     selectedEntity->scale = selectedObjectScale;
 }
-
 
 void GizmoRotation() {
     if (!UpdateGizmoObjectProperties()) return;
@@ -208,7 +219,8 @@ void GizmoRotation() {
         ? isHoveringGizmo
             ? Color{150, 150, 150, 255} : Color{100, 100, 100, 120}
         : Color{100, 0, 0, 120};
-        
+    
+    torus.color = color;
         
     if (ImGui::IsWindowHovered() && IsMouseButtonDown(MOUSE_LEFT_BUTTON)) {
         if (isHoveringGizmo && !dragging) {
@@ -233,8 +245,6 @@ void GizmoRotation() {
         }
     }
     else draggingGizmoRotation = false;
-
-    DrawGizmo(torus, color, true, true);
 
     if (selectedGameObjectType == "entity")      selectedEntity->rotation = selectedObjectRotation;
     else if (selectedGameObjectType == "light")  selectedLight->light.direction = {selectedObjectRotation.x / 360, selectedObjectRotation.y / 360, selectedObjectRotation.z / 360};
