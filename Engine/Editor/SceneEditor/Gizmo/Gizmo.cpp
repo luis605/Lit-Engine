@@ -76,6 +76,7 @@ bool HandleGizmo(bool& draggingGizmoProperty, Vector3& selectedObjectProperty, i
     if (isHoveringGizmo && !dragging) {
         mouseDragStart = GetMousePosition();
         draggingGizmoProperty = true;
+        dragging = true;
     }
 
     if (draggingGizmoProperty) {
@@ -135,15 +136,21 @@ void DrawGizmo(Gizmo& gizmo, const bool& wireframe = false, const bool& applyRot
 }
 
 void DrawGizmos() {
-    for (int index = 0; index < NUM_GIZMO_ARROWS; ++index) {
-        DrawGizmo(gizmoArrow[index]);
-    }
+    bool entitySelected = (selectedGameObjectType == "entity" && selectedEntity);
+    bool lightSelected = (selectedGameObjectType == "light" && selectedLight);
+    if (entitySelected || lightSelected) {
+        for (int index = 0; index < NUM_GIZMO_ARROWS; ++index) {
+            DrawGizmo(gizmoArrow[index]);
+        }
 
-    for (int index = 0; index < NUM_GIZMO_CUBES; ++index) {
-        DrawGizmo(gizmoCube[index]);
-    }
+        if (entitySelected) {
+            for (int index = 0; index < NUM_GIZMO_CUBES; ++index) {
+                DrawGizmo(gizmoCube[index]);
+            }
+        }
 
-    DrawGizmo(gizmoTorus[0], true, true);
+        DrawGizmo(gizmoTorus[0], true, true);
+    }
 }
 
 void GizmoPosition() {
@@ -226,6 +233,7 @@ void GizmoRotation() {
         if (isHoveringGizmo && !dragging) {
             mouseDragStart = GetMousePosition();
             draggingGizmoRotation = true;
+            dragging = true;
         }
 
         if (draggingGizmoRotation) {

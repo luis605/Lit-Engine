@@ -2,15 +2,15 @@
     {
         "fovy": 60.0,
         "position": {
-            "x": 5.926247596740723,
-            "y": 0.7284479737281799,
-            "z": -0.9441648721694946
+            "x": 1.910814881324768,
+            "y": 8.210975646972656,
+            "z": -5.640504360198975
         },
         "projection": 0,
         "target": {
-            "x": 5.169439792633057,
-            "y": 0.09818130731582642,
-            "z": -0.7709425687789917
+            "x": 1.716808557510376,
+            "y": 7.455156326293945,
+            "z": -5.015125274658203
         },
         "type": "camera",
         "up": {
@@ -53,13 +53,13 @@
         "is_dynamic": false,
         "lodEnabled": true,
         "mass": 1.0,
-        "material_path": "project/game/materials/video.mat",
-        "mesh_type": 4,
+        "material_path": "",
+        "mesh_type": 1,
         "modelPath": "",
         "name": "Unnamed Entity",
         "position": {
             "x": 0.0,
-            "y": -3.0,
+            "y": 0.0,
             "z": 0.0
         },
         "relativePosition": {
@@ -73,16 +73,63 @@
             "z": 0.0
         },
         "scale": {
-            "x": 10.0,
+            "x": 1.0,
             "y": 1.0,
-            "z": 10.0
+            "z": 1.0
         },
         "scriptIndex": "",
         "script_path": "",
         "surfaceMaterial": {
-            "DiffuseIntensity": 1.0,
-            "Roughness": 0.0,
-            "SpecularIntensity": 0.0
+            "DiffuseIntensity": 0.5,
+            "Roughness": 0.5,
+            "SpecularIntensity": 0.5
+        },
+        "tiling": [
+            1.0,
+            1.0
+        ],
+        "type": "entity"
+    },
+    {
+        "children": null,
+        "collider": true,
+        "collider_type": 2,
+        "damping": 0.0,
+        "friction": 1.0,
+        "id": 1,
+        "is_dynamic": false,
+        "lodEnabled": true,
+        "mass": 1.0,
+        "material_path": "",
+        "mesh_type": 1,
+        "modelPath": "",
+        "name": "Unnamed Entity",
+        "position": {
+            "x": -1.9000002145767212,
+            "y": 3.099999189376831,
+            "z": 0.0
+        },
+        "relativePosition": {
+            "x": 0.0,
+            "y": 0.0,
+            "z": 0.0
+        },
+        "rotation": {
+            "x": 0.0,
+            "y": 0.0,
+            "z": 0.0
+        },
+        "scale": {
+            "x": 1.0,
+            "y": 1.0,
+            "z": 1.0
+        },
+        "scriptIndex": "",
+        "script_path": "",
+        "surfaceMaterial": {
+            "DiffuseIntensity": 0.5,
+            "Roughness": 0.5,
+            "SpecularIntensity": 0.5
         },
         "tiling": [
             1.0,
@@ -103,14 +150,14 @@
             "y": 0.4000000059604645,
             "z": -0.4000000059604645
         },
-        "id": 1,
-        "intensity": 33.70500183105469,
+        "id": 2,
+        "intensity": 3.0,
         "isChild": false,
         "light_type": 1,
         "name": "New Light",
         "position": {
             "x": 0.0,
-            "y": 0.0,
+            "y": 2.6999995708465576,
             "z": 0.0
         },
         "relativePosition": {
