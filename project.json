@@ -2,15 +2,15 @@
     {
         "fovy": 60.0,
         "position": {
-            "x": 1.910814881324768,
-            "y": 8.210975646972656,
-            "z": -5.640504360198975
+            "x": 109.76908111572266,
+            "y": 65.55110168457031,
+            "z": -53.733238220214844
         },
         "projection": 0,
         "target": {
-            "x": 1.716808557510376,
-            "y": 7.455156326293945,
-            "z": -5.015125274658203
+            "x": 108.97373962402344,
+            "y": 65.07441711425781,
+            "z": -53.358795166015625
         },
         "type": "camera",
         "up": {
@@ -54,9 +54,8 @@
         "lodEnabled": true,
         "mass": 1.0,
         "material_path": "",
-        "mesh_type": 1,
-        "modelPath": "",
-        "name": "Unnamed Entity",
+        "modelPath": "project/game/models/sand.obj",
+        "name": "project/game/models/sand",
         "position": {
             "x": 0.0,
             "y": 0.0,
@@ -68,61 +67,14 @@
             "z": 0.0
         },
         "rotation": {
-            "x": 0.0,
-            "y": 0.0,
-            "z": 0.0
+            "x": 0.0599621906876564,
+            "y": 0.03410952538251877,
+            "z": -0.07239528745412827
         },
         "scale": {
-            "x": 1.0,
-            "y": 1.0,
-            "z": 1.0
-        },
-        "scriptIndex": "",
-        "script_path": "",
-        "surfaceMaterial": {
-            "DiffuseIntensity": 0.5,
-            "Roughness": 0.5,
-            "SpecularIntensity": 0.5
-        },
-        "tiling": [
-            1.0,
-            1.0
-        ],
-        "type": "entity"
-    },
-    {
-        "children": null,
-        "collider": true,
-        "collider_type": 2,
-        "damping": 0.0,
-        "friction": 1.0,
-        "id": 1,
-        "is_dynamic": false,
-        "lodEnabled": true,
-        "mass": 1.0,
-        "material_path": "",
-        "mesh_type": 1,
-        "modelPath": "",
-        "name": "Unnamed Entity",
-        "position": {
-            "x": -1.9000002145767212,
-            "y": 3.099999189376831,
-            "z": 0.0
-        },
-        "relativePosition": {
-            "x": 0.0,
-            "y": 0.0,
-            "z": 0.0
-        },
-        "rotation": {
-            "x": 0.0,
-            "y": 0.0,
-            "z": 0.0
-        },
-        "scale": {
-            "x": 1.0,
-            "y": 1.0,
-            "z": 1.0
+            "x": 100.0,
+            "y": 100.0,
+            "z": 100.0
         },
         "scriptIndex": "",
         "script_path": "",
@@ -150,14 +102,14 @@
             "y": 0.4000000059604645,
             "z": -0.4000000059604645
         },
-        "id": 2,
+        "id": 1,
         "intensity": 3.0,
         "isChild": false,
         "light_type": 1,
         "name": "New Light",
         "position": {
             "x": 0.0,
-            "y": 2.6999995708465576,
+            "y": 33.8000373840332,
             "z": 0.0
         },
         "relativePosition": {
