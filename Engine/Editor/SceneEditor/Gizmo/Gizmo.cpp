@@ -15,8 +15,8 @@ void PassGizmoMaterial() {
 
     glUseProgram(shader.id);
 
-    glUniform1i(glGetUniformLocation(shader.id, "normalMapInit"), GL_FALSE);
-    glUniform1i(glGetUniformLocation(shader.id, "roughnessMapInit"), GL_FALSE);
+    glUniform1i(glGetUniformLocation(shader.id, "normalMapReady"), GL_FALSE);
+    glUniform1i(glGetUniformLocation(shader.id, "roughnessMapReady"), GL_FALSE);
 
     glBindBuffer(GL_UNIFORM_BUFFER, 0);
 }
