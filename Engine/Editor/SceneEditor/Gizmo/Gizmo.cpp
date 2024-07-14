@@ -166,7 +166,7 @@ void DrawGizmo(Gizmo& gizmo, Color color, bool wireframe = false, bool applyRota
 void GizmoPosition() {
     if (!UpdateGizmoObjectProperties()) return;
     float maxObjectScale = 1.0f;
-    if (selectedGameObjectType == "entity" && selectedEntity) maxObjectScale= std::max(std::max(selectedEntity->scale.x, selectedEntity->scale.y), selectedEntity->scale.z) / 2 + 3;
+    if (selectedGameObjectType == "entity" && selectedEntity) maxObjectScale= std::max(std::max(std::abs(selectedEntity->scale.x), std::abs(selectedEntity->scale.y)), std::abs(selectedEntity->scale.z)) / 2 + 3;
 
     UpdateGizmoProperties(maxObjectScale);
 
@@ -201,7 +201,7 @@ void GizmoScale() {
 
     float maxObjectScale;
     selectedObjectPosition = selectedEntity->position;
-    maxObjectScale = std::max(std::max(selectedEntity->scale.x, selectedEntity->scale.y), selectedEntity->scale.z) / 2 + 3;
+    maxObjectScale = std::max(std::max(std::abs(selectedEntity->scale.x), std::abs(selectedEntity->scale.y)), std::abs(selectedEntity->scale.z)) / 2 + 3;
     selectedObjectScale = selectedEntity->scale;
 
     UpdateGizmoProperties(maxObjectScale);
@@ -222,7 +222,7 @@ void GizmoRotation() {
     if (!UpdateGizmoObjectProperties()) return;
 
     float maxObjectScale = (selectedGameObjectType == "entity") ? 
-                           std::max({selectedEntity->scale.x, selectedEntity->scale.y, selectedEntity->scale.z}) / 2 + 3 : 
+                           std::max({std::abs(selectedEntity->scale.x), std::abs(selectedEntity->scale.y), std::abs(selectedEntity->scale.z)}) / 2 + 3 : 
                            3;
     Gizmo& torus = gizmoTorus[0];
 
