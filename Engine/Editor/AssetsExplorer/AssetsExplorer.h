@@ -42,4 +42,6 @@ ImVec2 assetsExplorerWindowSize = {cellSize, cellSize};
 
 Camera3D modelPreviewerCamera = { 0 };
 
+SurfaceMaterial assetsMaterial;
+
 #endif // ASSETSEXPLORER_H

@@ -1050,8 +1050,6 @@ private:
 
         glBindBuffer(GL_UNIFORM_BUFFER, 0);
     }
-
-
 };
 
 bool operator==(const Entity& e, const Entity* ptr) {
