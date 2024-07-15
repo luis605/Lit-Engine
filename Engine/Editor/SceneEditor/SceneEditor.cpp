@@ -118,8 +118,8 @@ void ProcessCameraControls() {
 void ProcessGizmo() {
     if (selectedGameObjectType == "entity" && selectedEntity) {
         GizmoPosition();
-        GizmoRotation();
         GizmoScale();
+        GizmoRotation();
     } else if (selectedGameObjectType == "light" && selectedLight) {
         GizmoPosition();
         GizmoRotation();
@@ -212,23 +212,22 @@ void UpdateShader() {
 }
 
 void RenderGrid() {
-    float halfGridSize = (GRID_SIZE * 0.5f) * GRID_SCALE;
+    constexpr float halfGridSize = (GRID_SIZE * 0.5f) * GRID_SCALE;
 
     for (int x = 0; x <= GRID_SIZE; x++) {
-        float xScaled = (x * GRID_SCALE) - halfGridSize;
+        const float xScaled = (x * GRID_SCALE) - halfGridSize;
 
-        DrawLine3D({ xScaled, 0.0f, -halfGridSize }, { xScaled, 0.0f, halfGridSize }, RAYWHITE);
-        DrawLine3D({ -halfGridSize, 0.0f, xScaled }, { halfGridSize, 0.0f, xScaled }, RAYWHITE);
+        DrawLine3D({ xScaled, 0.0f, -halfGridSize }, { xScaled, 0.0f, halfGridSize }, WHITE);
+        DrawLine3D({ -halfGridSize, 0.0f, xScaled }, { halfGridSize, 0.0f, xScaled }, WHITE);
     }
 }
+
 
 void RenderScene() {
     BeginTextureMode(viewportRenderTexture);
         BeginMode3D(sceneCamera);
             ClearBackground(GRAY);
 
-            glClear(GL_DEPTH_BUFFER_BIT);
-            
             DrawSkybox();
             
             UpdateLightsBuffer(true, lights);
@@ -237,15 +236,18 @@ void RenderScene() {
             ProcessGizmo();
             UpdateShader();
 
+            glDepthRange(0, 0.001);
+            DrawGizmos();
+            glDepthRange(0.001, 1.0);
+
+            RenderGrid();
             RenderLights();
             RenderEntities();
 
-            DrawGizmos();
+            glDepthRange(0, 1.0);
 
             HandleUnselect();
             
-            RenderGrid();
-
         EndMode3D();
 
         DrawTextElements();
