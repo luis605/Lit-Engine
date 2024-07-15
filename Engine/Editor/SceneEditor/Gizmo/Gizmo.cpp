@@ -46,16 +46,12 @@ void UpdateGizmoProperties(float maxObjectScale = 0) {
     gizmoArrow[4].position = { selectedObjectPosition.x + maxObjectScale + 6.0f, selectedObjectPosition.y, selectedObjectPosition.z };
     gizmoArrow[5].position = { selectedObjectPosition.x - maxObjectScale - 6.0f, selectedObjectPosition.y, selectedObjectPosition.z };
 
-    for (int index = 0; index < 6; ++index) {
-        gizmoArrow[index].position = Vector3Add(gizmoArrow[index].position, gizmoArrowOffsets[index].position);
-    }
-
-    gizmoCube[0].position = { selectedObjectPosition.x, selectedObjectPosition.y + maxObjectScale + 3.75f, selectedObjectPosition.z };
-    gizmoCube[1].position = { selectedObjectPosition.x, selectedObjectPosition.y - maxObjectScale - 3.75f, selectedObjectPosition.z };
-    gizmoCube[2].position = { selectedObjectPosition.x, selectedObjectPosition.y, selectedObjectPosition.z + maxObjectScale + 3.75f };
-    gizmoCube[3].position = { selectedObjectPosition.x, selectedObjectPosition.y, selectedObjectPosition.z - maxObjectScale - 3.75f };
-    gizmoCube[4].position = { selectedObjectPosition.x + maxObjectScale + 3.75f, selectedObjectPosition.y, selectedObjectPosition.z };
-    gizmoCube[5].position = { selectedObjectPosition.x - maxObjectScale - 3.75f, selectedObjectPosition.y, selectedObjectPosition.z };
+    gizmoCube[0].position = { selectedObjectPosition.x, selectedObjectPosition.y + maxObjectScale + 2.0f, selectedObjectPosition.z };
+    gizmoCube[1].position = { selectedObjectPosition.x, selectedObjectPosition.y - maxObjectScale - 2.0f, selectedObjectPosition.z };
+    gizmoCube[2].position = { selectedObjectPosition.x, selectedObjectPosition.y, selectedObjectPosition.z + maxObjectScale + 2.0f };
+    gizmoCube[3].position = { selectedObjectPosition.x, selectedObjectPosition.y, selectedObjectPosition.z - maxObjectScale - 2.0f };
+    gizmoCube[4].position = { selectedObjectPosition.x + maxObjectScale + 2.0f, selectedObjectPosition.y, selectedObjectPosition.z };
+    gizmoCube[5].position = { selectedObjectPosition.x - maxObjectScale - 2.0f, selectedObjectPosition.y, selectedObjectPosition.z };
 }
 
 void IsGizmoBeingInteracted(const Gizmo& gizmo, const int& index, int& selectedGizmoIndex) {
