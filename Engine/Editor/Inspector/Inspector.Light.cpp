@@ -88,16 +88,20 @@ void LightInspector()
                 SpecularStrenghtActiveInputMode = false;
         }
 
-        ImGui::Unindent(30.0f);
-    }
+        ImGui::Dummy(ImVec2(0.0f, 15.0f));
 
-    ImGui::Dummy(ImVec2(0.0f, 5.0f));
+        Vector3 direction = Vector3Multiply(glm3ToVec3(selectedLight->light.direction), {360, 360, 360});
 
-    if (ImGui::CollapsingHeader(ICON_FA_ARROWS_UP_DOWN_LEFT_RIGHT " Light Direction")) {
-        ImGui::Indent(30.0f);
-        ImGui::SliderFloat("X", &selectedLight->light.direction.x, -1.0f, 1.0f);
-        ImGui::SliderFloat("Y", &selectedLight->light.direction.y, -1.0f, 1.0f);
-        ImGui::SliderFloat("Z", &selectedLight->light.direction.z, -1.0f, 1.0f);
+        ImGui::SliderFloat("X", &direction.x, -360.0f, 360.0f);
+        ImGui::SliderFloat("Y", &direction.y, -360.0f, 360.0f);
+        ImGui::SliderFloat("Z", &direction.z, -360.0f, 360.0f);
+
+        selectedLight->light.direction = vec3ToGlm3([](Vector3& vec) -> Vector3& {
+            static Vector3 result;
+            result = Vector3Divide(vec, {360, 360, 360});
+            return result;
+        }(direction));
+
         ImGui::Unindent(30.0f);
     }
 }
