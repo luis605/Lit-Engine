@@ -225,7 +225,7 @@ public:
             if (!inGamePreview) updateEntityChild(getEntityById(entityChildIndex), entityChildIndex);
             else                updateEntityChild(getEntityById(entityChildIndex), entityChildIndex);
 #else
-            updateEntityChild(entitiesList.at(entityChildIndex));
+            updateEntityChild(getEntityById(entityChildIndex), entityChildIndex);
 #endif
         }
 
@@ -1062,50 +1062,75 @@ void removeEntity(int id) {
         size_t index = it->second;
         entityIdToIndexMap.erase(it);
 
+#ifndef GAME_SHIPPING
         if (index != entitiesListPregame.size() - 1) {
             std::swap(entitiesListPregame[index], entitiesListPregame.back());
             entityIdToIndexMap[entitiesListPregame[index].id] = index;
         }
         entitiesListPregame.pop_back();
+#else
+        if (index != entitiesList.size() - 1) {
+            std::swap(entitiesList[index], entitiesList.back());
+            entityIdToIndexMap[entitiesList[index].id] = index;
+        }
+        entitiesList.pop_back();
+#endif
     }
 }
 
 int getIdFromEntity(const Entity& entity) {
+#ifndef GAME_SHIPPING
     auto it = std::find(entitiesListPregame.begin(), entitiesListPregame.end(), entity);
     if (it != entitiesListPregame.end()) {
         return it->id;
     }
+#else
+    auto it = std::find(entitiesList.begin(), entitiesList.end(), entity);
+    if (it != entitiesList.end()) {
+        return it->id;
+    }
+#endif
     return -1;
 }
 
 Entity* getEntityById(int id) {
     auto it = entityIdToIndexMap.find(id);
     if (it != entityIdToIndexMap.end()) {
+#ifndef GAME_SHIPPING
         return &entitiesListPregame[it->second];
+#else
+        return &entitiesList[it->second];
+#endif
     }
     return nullptr;
 }
 
+Entity* AddEntity(
+    const fs::path& modelPath = "",
+    const Model& model = LoadModelFromMesh(GenMeshCube(1,1,1)),
+    const std::string& name = "Unnamed Entity"
+) {
+
+    Entity entityCreate;
+    entityCreate.setColor(WHITE);
+    entityCreate.setScale(Vector3{1, 1, 1});
+    entityCreate.setName(name);
+    entityCreate.setModel(modelPath, model);
+    entityCreate.setShader(shader);
 #ifndef GAME_SHIPPING
-    Entity* AddEntity(
-        const fs::path& modelPath = "",
-        const Model& model = LoadModelFromMesh(GenMeshCube(1,1,1)),
-        const std::string& name = "Unnamed Entity"
-    ) {
+    entityCreate.id = entitiesListPregame.size() + lights.size();
+    entityIdToIndexMap[entityCreate.id] = entitiesListPregame.size();
 
-        Entity entityCreate;
-        entityCreate.setColor(WHITE);
-        entityCreate.setScale(Vector3{1, 1, 1});
-        entityCreate.setName(name);
-        entityCreate.setModel(modelPath, model);
-        entityCreate.setShader(shader);
-        entityCreate.id = entitiesListPregame.size() + lights.size();
-        entityIdToIndexMap[entityCreate.id] = entitiesListPregame.size();
+    entitiesListPregame.emplace_back(std::move(entityCreate));
+    selectedGameObjectType = "entity";
+    selectedEntity = &entitiesListPregame.back();
 
-        entitiesListPregame.emplace_back(std::move(entityCreate));
-        selectedGameObjectType = "entity";
-        selectedEntity = &entitiesListPregame.back();
+    return &entitiesListPregame.back();
+#else
+    entityCreate.id = entitiesList.size() + lights.size();
+    entityIdToIndexMap[entityCreate.id] = entitiesList.size();
 
-        return &entitiesListPregame.back();
-    }
+    entitiesList.emplace_back(std::move(entityCreate));
+    return &entitiesList.back();
 #endif
+}
