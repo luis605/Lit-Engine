@@ -1,15 +1,15 @@
 {
-    "aoTexturePath": "",
+    "aoTexturePath": "project/game/textures/space/qwantani_puresky_8k.hdr",
     "color": {
         "a": 1.0,
         "b": 0.7822580337524414,
         "g": 0.7822580337524414,
         "r": 0.7822580337524414
     },
-    "diffuseTexturePath": "",
+    "diffuseTexturePath": "project/game/textures/space/qwantani_puresky_8k.hdr",
     "diffuse_intensity": 1.0,
-    "normalTexturePath": "",
-    "roughness": 0.0,
-    "roughnessTexturePath": "",
+    "normalTexturePath": "project/game/textures/space/qwantani_puresky_8k.hdr",
+    "roughness": 0.3540000021457672,
+    "roughnessTexturePath": "project/game/textures/space/qwantani_puresky_8k.hdr",
     "specular_intensity": 1.0
 }
