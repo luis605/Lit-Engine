@@ -58,7 +58,7 @@ void DebugWindow() {
             if (IsModelReady(entity.model)) {
                 int privateVertexCount = 0;
                 for (int meshIndex = 0; meshIndex < entity.model.meshCount; ++meshIndex) {
-                    privateVertexCount += entity.model.meshes[meshIndex].privateVertexCount;
+                    privateVertexCount += entity.model.meshes[meshIndex].vertexCount;
                 }
                 vertexCount += privateVertexCount * (entity.hasInstances() ? entity.instances.size() : 1);
             }

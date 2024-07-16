@@ -123,7 +123,7 @@ Texture2D& getTextureForFileExtension(const std::string& extension) {
     return emptyTexture;
 }
 
-FileTextureItem createFileTextureItem(const fs::path& file, const fs::directory_entry& entry) {
+FileTextureItem createFileTextureItem(const fs::path&& file, const fs::directory_entry& entry) {
     const std::string fileExtension = getFileExtension(file.filename().string());
 
     if (fileExtension == ".fbx" || fileExtension == ".obj" || fileExtension == ".gltf" || fileExtension == ".ply") {
@@ -180,10 +180,9 @@ void UpdateFileFolderStructures() {
     for (const fs::directory_entry& entry : fs::directory_iterator(dirPath)) {
         fs::path file = entry.path().filename();
         if (entry.is_directory()) {
-            folderStruct.emplace_back(file.string(), folderTexture, entry.path());
+            folderStruct.emplace_back(file.string(), folderTexture, std::move(entry.path()));
         } else if (entry.is_regular_file()) {
-            FileTextureItem fileTextureItem = createFileTextureItem(file, entry);
-            fileStruct.emplace_back(std::move(fileTextureItem));
+            fileStruct.emplace_back(createFileTextureItem(std::move(file), entry));
         }
     }
 }

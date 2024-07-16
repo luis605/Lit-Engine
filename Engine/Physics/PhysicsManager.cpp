@@ -13,13 +13,11 @@ public:
     LitVector3 backupGravity;
 
 public:
-    PhysicsManager()
-    {
+    PhysicsManager() {
         Init();
     }
 
-    void Init()
-    {
+    void Init() {
         broadphase = new btDbvtBroadphase();
         collisionConfiguration = new btDefaultCollisionConfiguration();
         dispatcher = new btCollisionDispatcher(collisionConfiguration);
@@ -31,8 +29,7 @@ public:
         gravity.z = dynamicsWorld->getGravity().z();
     }
 
-    void Update(float deltaTime)
-    {
+    void Update(float deltaTime) {
         dynamicsWorld->stepSimulation(deltaTime, 10);
     }
     
