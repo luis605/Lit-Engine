@@ -53,18 +53,18 @@ void DebugWindow() {
         ImGui::Text("Scene Information");
         ImGui::Text("Number of Entities: %lu", entitiesListPregame.size());
 
-        int polygonCount = 0;
+        int vertexCount = 0;
         for (const Entity& entity : entitiesListPregame) {
             if (IsModelReady(entity.model)) {
-                int vertexCount = 0;
+                int privateVertexCount = 0;
                 for (int meshIndex = 0; meshIndex < entity.model.meshCount; ++meshIndex) {
-                    vertexCount += entity.model.meshes[meshIndex].vertexCount;
+                    privateVertexCount += entity.model.meshes[meshIndex].privateVertexCount;
                 }
-                polygonCount += vertexCount * (entity.hasInstances() ? entity.instances.size() : 1);
+                vertexCount += privateVertexCount * (entity.hasInstances() ? entity.instances.size() : 1);
             }
         }
 
-        ImGui::Text("Polygon count: %d", polygonCount);
+        ImGui::Text("Vertex count: %d", vertexCount);
         ImGui::Unindent(15.0f);
     }
 
