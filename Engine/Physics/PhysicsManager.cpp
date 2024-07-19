@@ -30,7 +30,11 @@ public:
     }
 
     void Update(float deltaTime) {
-        dynamicsWorld->stepSimulation(deltaTime, 10);
+        if (dynamicsWorld) dynamicsWorld->stepSimulation(deltaTime, 10);
+        else {
+            dynamicsWorld = new btDiscreteDynamicsWorld(dispatcher, broadphase, solver, collisionConfiguration);
+            dynamicsWorld->setGravity(btVector3(0, -9.81, 0));
+        }
     }
     
     void setGravity(LitVector3 gravity)
@@ -54,6 +58,7 @@ public:
 
     ~PhysicsManager()
     {
+        TraceLog(LOG_INFO, "PhysicsManager: Unloading Physics Manager");
         delete dynamicsWorld;
         delete solver;
         delete dispatcher;

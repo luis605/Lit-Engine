@@ -1,10 +1,10 @@
 import math
 
 # Constants
-VELOCITY = 100
+VELOCITY = 10
 SENSITIVITY = 0.3
 ENTITY_DISTANCE = 5
-JUMP_FORCE = 100
+JUMP_FORCE = 5
 FOV_FORWARD = 80
 FOV_NORMAL = 60
 FOV_BACKWARD = 40
@@ -99,6 +99,7 @@ def update():
     check_ground()
     set_entity_rotation()
     change_gravity()
+
 
 
 

@@ -2,15 +2,15 @@
     {
         "fovy": 60.0,
         "position": {
-            "x": 17.950763702392578,
-            "y": 4.090784072875977,
-            "z": 42.57679748535156
+            "x": -4.542422294616699,
+            "y": 8.032294273376465,
+            "z": 2.975062131881714
         },
         "projection": 0,
         "target": {
-            "x": 18.377656936645508,
-            "y": 3.82222318649292,
-            "z": 41.713294982910156
+            "x": -4.169729709625244,
+            "y": 7.151884078979492,
+            "z": 2.681842088699341
         },
         "type": "camera",
         "up": {
@@ -22,9 +22,9 @@
     {
         "ambientColor": {
             "w": 1.0,
-            "x": 1.0,
-            "y": 1.0,
-            "z": 1.0
+            "x": 0.3237704634666443,
+            "y": 0.3237704634666443,
+            "z": 0.3237704634666443
         },
         "bloom": false,
         "bloomBrightness": 0.0,
@@ -36,9 +36,9 @@
         },
         "skyboxColor": {
             "w": 1.0,
-            "x": 1.0,
-            "y": 1.0,
-            "z": 1.0
+            "x": 0.0,
+            "y": 0.0,
+            "z": 0.0
         },
         "skyboxPath": "assets/images/skybox/default skybox.hdr",
         "type": "world settings"
@@ -46,7 +46,7 @@
     {
         "children": null,
         "collider": true,
-        "collider_type": 2,
+        "collider_type": 0,
         "damping": 0.0,
         "friction": 1.0,
         "id": 0,
@@ -93,7 +93,7 @@
     {
         "children": null,
         "collider": true,
-        "collider_type": 2,
+        "collider_type": 0,
         "damping": 0.0,
         "friction": 1.0,
         "id": 2,
@@ -138,12 +138,239 @@
         "type": "entity"
     },
     {
+        "children": null,
+        "collider": true,
+        "collider_type": 0,
+        "damping": 0.0,
+        "friction": 1.0,
+        "id": 3,
+        "is_dynamic": false,
+        "lodEnabled": true,
+        "mass": 1.0,
+        "material_path": "",
+        "mesh_type": 1,
+        "modelPath": "",
+        "name": "Wall 2",
+        "position": {
+            "x": -74.5,
+            "y": 4.5,
+            "z": 0.0
+        },
+        "relativePosition": {
+            "x": 0.0,
+            "y": 0.0,
+            "z": 0.0
+        },
+        "rotation": {
+            "x": 0.0,
+            "y": 0.0,
+            "z": 0.0
+        },
+        "scale": {
+            "x": 1.0,
+            "y": 10.0,
+            "z": 150.0
+        },
+        "scriptIndex": "",
+        "script_path": "",
+        "surfaceMaterial": {
+            "DiffuseIntensity": 0.5,
+            "Roughness": 0.5,
+            "SpecularIntensity": 0.5
+        },
+        "tiling": [
+            1.0,
+            1.0
+        ],
+        "type": "entity"
+    },
+    {
+        "children": null,
+        "collider": true,
+        "collider_type": 0,
+        "damping": 0.0,
+        "friction": 1.0,
+        "id": 4,
+        "is_dynamic": false,
+        "lodEnabled": true,
+        "mass": 1.0,
+        "material_path": "",
+        "mesh_type": 1,
+        "modelPath": "",
+        "name": "Wall 3",
+        "position": {
+            "x": 0.0,
+            "y": 4.5,
+            "z": -74.5
+        },
+        "relativePosition": {
+            "x": 0.0,
+            "y": 0.0,
+            "z": 0.0
+        },
+        "rotation": {
+            "x": 0.0,
+            "y": 90.0,
+            "z": 0.0
+        },
+        "scale": {
+            "x": 1.0,
+            "y": 10.0,
+            "z": 150.0
+        },
+        "scriptIndex": "",
+        "script_path": "",
+        "surfaceMaterial": {
+            "DiffuseIntensity": 0.5,
+            "Roughness": 0.5,
+            "SpecularIntensity": 0.5
+        },
+        "tiling": [
+            1.0,
+            1.0
+        ],
+        "type": "entity"
+    },
+    {
+        "children": null,
+        "collider": true,
+        "collider_type": 0,
+        "damping": 0.0,
+        "friction": 1.0,
+        "id": 5,
+        "is_dynamic": false,
+        "lodEnabled": true,
+        "mass": 1.0,
+        "material_path": "",
+        "mesh_type": 1,
+        "modelPath": "",
+        "name": "Wall 4",
+        "position": {
+            "x": 0.0,
+            "y": 4.5,
+            "z": 74.5
+        },
+        "relativePosition": {
+            "x": 0.0,
+            "y": 0.0,
+            "z": 0.0
+        },
+        "rotation": {
+            "x": 0.0,
+            "y": 90.0,
+            "z": 0.0
+        },
+        "scale": {
+            "x": 1.0,
+            "y": 10.0,
+            "z": 150.0
+        },
+        "scriptIndex": "",
+        "script_path": "",
+        "surfaceMaterial": {
+            "DiffuseIntensity": 0.5,
+            "Roughness": 0.5,
+            "SpecularIntensity": 0.5
+        },
+        "tiling": [
+            1.0,
+            1.0
+        ],
+        "type": "entity"
+    },
+    {
+        "children": [
+            [
+                {
+                    "attenuation": 0.024000000208616257,
+                    "color": {
+                        "a": 255.0,
+                        "b": 255.0,
+                        "g": 0.0,
+                        "r": 10.282187461853027
+                    },
+                    "direction": {
+                        "x": 0.4000000059604645,
+                        "y": 0.4000000059604645,
+                        "z": -0.4000000059604645
+                    },
+                    "id": 7,
+                    "intensity": 3.0,
+                    "isChild": true,
+                    "light_type": 1,
+                    "name": "Player's Light",
+                    "position": {
+                        "x": 0.0,
+                        "y": 0.8999999761581421,
+                        "z": 0.0
+                    },
+                    "relativePosition": {
+                        "x": 0.0,
+                        "y": 0.8999999761581421,
+                        "z": 0.0
+                    },
+                    "specularStrength": 0.5,
+                    "target": {
+                        "x": 0,
+                        "y": 0,
+                        "z": 0
+                    },
+                    "type": "light"
+                }
+            ]
+        ],
+        "collider": true,
+        "collider_type": 0,
+        "damping": 0.0,
+        "friction": 1.0,
+        "id": 6,
+        "is_dynamic": true,
+        "lodEnabled": true,
+        "mass": 1.0,
+        "material_path": "",
+        "mesh_type": 1,
+        "modelPath": "",
+        "name": "Player",
+        "position": {
+            "x": 0.0,
+            "y": 0.0,
+            "z": 0.0
+        },
+        "relativePosition": {
+            "x": 0.0,
+            "y": 0.0,
+            "z": 0.0
+        },
+        "rotation": {
+            "x": 0.0,
+            "y": 0.0,
+            "z": 0.0
+        },
+        "scale": {
+            "x": 1.0,
+            "y": 1.0,
+            "z": 1.0
+        },
+        "scriptIndex": "player0",
+        "script_path": "project/game/scripts/player.py",
+        "surfaceMaterial": {
+            "DiffuseIntensity": 0.5,
+            "Roughness": 0.5,
+            "SpecularIntensity": 0.5
+        },
+        "tiling": [
+            1.0,
+            1.0
+        ],
+        "type": "entity"
+    },
+    {
         "attenuation": 0.0010000000474974513,
         "color": {
             "a": 255.0,
-            "b": 160.87586975097656,
-            "g": 218.8108673095703,
-            "r": 229.29434204101563
+            "b": 255.0,
+            "g": 248.0,
+            "r": 222.0
         },
         "direction": {
             "x": 0.125,
@@ -151,10 +378,10 @@
             "z": 0.3125
         },
         "id": 1,
-        "intensity": 18.304000854492188,
+        "intensity": 1.5,
         "isChild": false,
         "light_type": 0,
-        "name": "New Light",
+        "name": "Moonlight",
         "position": {
             "x": 0.0,
             "y": 18.30002212524414,
