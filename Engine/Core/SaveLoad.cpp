@@ -108,8 +108,7 @@ void SaveEntity(json& jsonData, const Entity& entity);
 void SaveLight(json& jsonData, const LightStruct& lightStruct);
 void SaveText(json& jsonData, const Text& text, bool emplaceBack = true);
 void SaveButton(json& jsonData, const LitButton& button);
-// Entity LoadEntity(const json& entityJson, std::vector<Entity>& entitiesVector);
-void LoadLight(const json& lightJson, LightStruct& lightStruct);
+LightStruct& LoadLight(const json& lightJson);
 
 std::map<std::string, std::string> scriptContents;
 
@@ -537,7 +536,11 @@ void LoadWorldSettings(const json& worldSettingsJson) {
 }
 
 Entity* LoadEntity(const json& entityJson) {
-    Entity* entity = AddEntity();
+    int id = -1;
+    if (entityJson.contains("id"))
+        id = entityJson["id"].get<int>();
+
+    Entity* entity = AddEntity("", LoadModelFromMesh(GenMeshCube(1,1,1)), "Unnamed Entity", id);
 
     if (entityJson.contains("name")) {
         entity->setName(entityJson["name"].get<std::string>());
@@ -633,10 +636,6 @@ Entity* LoadEntity(const json& entityJson) {
     if (entityJson.contains("scriptIndex"))
         entity->scriptIndex = entityJson["scriptIndex"].get<std::string>();
 
-    if (entityJson.contains("id"))
-        entity->id = entityJson["id"].get<int>();
-    else entity->id = -1;
-
     entity->reloadRigidBody();
 
     if (entityJson.contains("material_path")) {
@@ -660,9 +659,7 @@ Entity* LoadEntity(const json& entityJson) {
                         Entity* reloadedEntity = getEntityById(id); // Reload necessary because entity* gets invalid after entitiesListPregame gets resized!
                         reloadedEntity->addEntityChild(child->id);
                     } else if (type == "light") {
-                        lights.emplace_back();
-                        LightStruct& lightStruct = lights.back();
-                        LoadLight(childJson, lightStruct);
+                        LightStruct& lightStruct = LoadLight(childJson);
                         entity->addLightChild(lightStruct.id);
                     }
                 }
@@ -673,7 +670,9 @@ Entity* LoadEntity(const json& entityJson) {
     return entity;
 }
 
-void LoadLight(const json& lightJson, LightStruct& lightStruct) {
+LightStruct& LoadLight(const json& lightJson) {
+    int id = lightJson["id"].get<int>();
+    LightStruct& lightStruct = NewLight({0,0,0}, WHITE, LIGHT_POINT, id);
     lightStruct.light.color = (glm::vec4{
         lightJson["color"]["r"].get<float>() / 255,
         lightJson["color"]["g"].get<float>() / 255,
@@ -707,13 +706,13 @@ void LoadLight(const json& lightJson, LightStruct& lightStruct) {
         lightJson["direction"]["z"].get<float>()
     };
 
-    lightStruct.id                       = lightJson["id"].get<int>();
-    lightIdToIndexMap[lightStruct.id]    = lights.size() - 1;
     lightStruct.light.intensity          = lightJson["intensity"].get<float>();
     lightStruct.light.specularStrength   = lightJson["specularStrength"].get<float>();
     lightStruct.light.attenuation        = lightJson["attenuation"].get<float>();
     lightStruct.isChild                  = lightJson["isChild"].get<bool>();
     lightStruct.light.type               = lightJson["light_type"].get<int>();
+
+    return lightStruct;
 }
 
 void LoadText(const json& textJson, Text& text) {
@@ -819,9 +818,7 @@ int LoadProject(std::vector<Entity>& entitiesVector, std::vector<LightStruct>& l
                 LoadWorldSettings(objectJson);
             } else if (type == "light") {
                 if (objectJson["isChild"].get<bool>() == true) continue;
-                LightStruct lightStruct;
-                LoadLight(objectJson, lightStruct);
-                lights.emplace_back(std::move(lightStruct));
+                LoadLight(objectJson);
             } else if (type == "text") {
                 Text textElement;
                 LoadText(objectJson, textElement);

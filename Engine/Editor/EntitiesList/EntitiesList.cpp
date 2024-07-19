@@ -211,19 +211,18 @@ void UnchildObjects(ImVec2 childSize) {
                 return;
             }
 
-            int index = findIndexInVector(lights, droppedLight);
-            LightStruct& light = lights[index];
+            LightStruct* light = getLightById(droppedLight.id);
 
-            if (light.parent && light.parent->initialized) {
-                auto it = std::find(light.parent->lightsChildren.begin(), light.parent->lightsChildren.end(), index);
+            if (light->parent && light->parent->initialized) {
+                auto it = std::find(light->parent->lightsChildren.begin(), light->parent->lightsChildren.end(), light->id);
 
-                if (it != light.parent->lightsChildren.end()) { 
-                    light.parent->lightsChildren.erase(it); 
+                if (it != light->parent->lightsChildren.end()) { 
+                    light->parent->lightsChildren.erase(it); 
                 } 
             }
 
-            light.parent = nullptr;
-            light.isChild = false;
+            light->parent = nullptr;
+            light->isChild = false;
         }
 
         ImGui::EndDragDropTarget();
@@ -243,19 +242,19 @@ void UnchildObjects(ImVec2 childSize) {
                 return;
             }
 
-            int index = findIndexInVector(entitiesListPregame, droppedEntity);
-            Entity& entity = entitiesListPregame[index];
+            Entity* entity = getEntityById(droppedEntity.id);
+            if (!entity) return;
 
-            if (entity.parent && entity.parent->initialized) {
-                auto it = std::find(entity.parent->entitiesChildren.begin(), entity.parent->entitiesChildren.end(), index);
+            if (entity->parent && entity->parent->initialized) {
+                auto it = std::find(entity->parent->entitiesChildren.begin(), entity->parent->entitiesChildren.end(), entity->id);
 
-                if (it != entity.parent->entitiesChildren.end()) { 
-                    entity.parent->entitiesChildren.erase(it); 
+                if (it != entity->parent->entitiesChildren.end()) { 
+                    entity->parent->entitiesChildren.erase(it); 
                 } 
             }
 
-            entity.parent = nullptr;
-            entity.isChild = false;
+            entity->parent = nullptr;
+            entity->isChild = false;
         }
         ImGui::EndDragDropTarget();
     }

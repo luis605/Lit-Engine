@@ -40,7 +40,7 @@ RenderTexture downsamplerTexture;
 RenderTexture upsamplerTexture;
 
 void UpdateLightsBuffer(bool force, std::vector<LightStruct>& lightsVector, GLuint& buffer = lightsBuffer);
-LightStruct& NewLight(const Vector3 position, const Color color, int type = LIGHT_POINT);
+LightStruct& NewLight(const Vector3 position, const Color color, int type = LIGHT_POINT, int id = -1);
 
 struct Light {
     int type = LIGHT_POINT;
@@ -197,13 +197,16 @@ struct SurfaceMaterial {
     SurfaceMaterialTexture aoTexture;
 };
 
-LightStruct& NewLight(const Vector3 position, const Color color, int type) {
+LightStruct& NewLight(const Vector3 position, const Color color, int type, int id) {
     glm::vec3 lightsPosition = glm::vec3(position.x, position.y, position.z);
     glm::vec4 lightsColor = glm::vec4(color.r/255, color.g/255, color.b/255, color.a/255);
 
     LightStruct lightStruct;
     lightStruct.lightInfo.name = "New Light";
-    lightStruct.id = lights.size() + entitiesListPregame.size();
+
+    if (id == -1) lightStruct.id = lights.size() + entitiesListPregame.size();
+    else          lightStruct.id = id;
+
     lightStruct.light.type = type;
     lightStruct.light.position = lightsPosition;
     lightStruct.light.color = lightsColor;

@@ -1108,7 +1108,8 @@ Entity* getEntityById(int id) {
 Entity* AddEntity(
     const fs::path& modelPath = "",
     const Model& model = LoadModelFromMesh(GenMeshCube(1,1,1)),
-    const std::string& name = "Unnamed Entity"
+    const std::string& name = "Unnamed Entity",
+    const int id = -1
 ) {
 
     Entity entityCreate;
@@ -1118,7 +1119,8 @@ Entity* AddEntity(
     entityCreate.setModel(modelPath, model);
     entityCreate.setShader(shader);
 #ifndef GAME_SHIPPING
-    entityCreate.id = entitiesListPregame.size() + lights.size();
+    if (id == -1) entityCreate.id = entitiesListPregame.size() + lights.size();
+    else          entityCreate.id = id;
     entityIdToIndexMap[entityCreate.id] = entitiesListPregame.size();
 
     entitiesListPregame.emplace_back(std::move(entityCreate));
@@ -1127,7 +1129,8 @@ Entity* AddEntity(
 
     return &entitiesListPregame.back();
 #else
-    entityCreate.id = entitiesList.size() + lights.size();
+    if (id == -1) entityCreate.id = entitiesList.size() + lights.size();
+    else          entityCreate.id = id;
     entityIdToIndexMap[entityCreate.id] = entitiesList.size();
 
     entitiesList.emplace_back(std::move(entityCreate));
