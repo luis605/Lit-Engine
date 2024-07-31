@@ -322,79 +322,46 @@ public:
         model = LoadModel(filename);
     }
 
-    void ReloadTextures(bool force_reload = false) {
-        if (!surfaceMaterial.diffuseTexturePath.empty() || force_reload) {
-            if (surfaceMaterial.diffuseTexture.activatedMode == 0) {
-                Texture2D& diffuse = surfaceMaterial.diffuseTexture.getTexture2D();
-                model.materials[0].maps[MATERIAL_MAP_DIFFUSE].texture = diffuse;
-            } else if (surfaceMaterial.diffuseTexture.activatedMode == 1) {
-                surfaceMaterial.diffuseTexture.updateVideo();
-                model.materials[0].maps[MATERIAL_MAP_DIFFUSE].texture = surfaceMaterial.diffuseTexture.getVideoTexture();
-            } else model.materials[0].maps[MATERIAL_MAP_DIFFUSE].texture = { 0 };
+    void UpdateTextureMap(int mapType, const SurfaceMaterialTexture& texture, bool lodEnabled) {
+        auto& targetTexture = model.materials[0].maps[mapType].texture;
+        SurfaceMaterialTexture mutableTexture;
 
-            if (lodEnabled) {
-                for (int i = 0; i < sizeof(LodModels)/sizeof(LodModels[0]); i++) {
-                    if (IsModelReady(LodModels[i])) {
-                        LodModels[i].materials[0].maps[MATERIAL_MAP_DIFFUSE].texture = model.materials[0].maps[MATERIAL_MAP_DIFFUSE].texture;
-                    }
-                }
-            }
+        switch (texture.activatedMode) {
+            case 0:
+                targetTexture = texture.getTexture2D();
+                break;
+            case 1:
+                mutableTexture = texture;
+                mutableTexture.updateVideo();
+                targetTexture = mutableTexture.getVideoTexture();
+                break;
+            default:
+                targetTexture = { 0 };
+                break;
         }
 
-        if (!surfaceMaterial.normalTexturePath.empty() || force_reload) {
-            if (surfaceMaterial.normalTexture.activatedMode == 0) {
-                Texture2D& normal = surfaceMaterial.normalTexture.getTexture2D();
-                model.materials[0].maps[MATERIAL_MAP_NORMAL].texture = normal;
-            } else if (surfaceMaterial.normalTexture.activatedMode == 1) {
-                surfaceMaterial.normalTexture.updateVideo();
-                model.materials[0].maps[MATERIAL_MAP_NORMAL].texture = surfaceMaterial.normalTexture.getVideoTexture();
-            } else model.materials[0].maps[MATERIAL_MAP_NORMAL].texture = { 0 };
-
-            if (lodEnabled) {
-                for (int i = 0; i < sizeof(LodModels)/sizeof(LodModels[0]); i++) {
-                    if (IsModelReady(LodModels[i])) {
-                        LodModels[i].materials[0].maps[MATERIAL_MAP_NORMAL].texture = model.materials[0].maps[MATERIAL_MAP_NORMAL].texture;
-                    }
-                }
-            }
-        }
-
-        if (!surfaceMaterial.roughnessTexturePath.empty() || !force_reload) {
-            if (surfaceMaterial.roughnessTexture.activatedMode == 0) {
-                Texture2D& roughness = surfaceMaterial.roughnessTexture.getTexture2D();
-                model.materials[0].maps[MATERIAL_MAP_ROUGHNESS].texture = roughness;
-            } else if (surfaceMaterial.roughnessTexture.activatedMode == 1) {
-                surfaceMaterial.roughnessTexture.updateVideo();
-                model.materials[0].maps[MATERIAL_MAP_ROUGHNESS].texture = surfaceMaterial.roughnessTexture.getVideoTexture();
-            } else model.materials[0].maps[MATERIAL_MAP_ROUGHNESS].texture = { 0 };
-
-            if (lodEnabled) {
-                for (int i = 0; i < sizeof(LodModels)/sizeof(LodModels[0]); i++) {
-                    if (IsModelReady(LodModels[i])) {
-                        LodModels[i].materials[0].maps[MATERIAL_MAP_ROUGHNESS].texture = model.materials[0].maps[MATERIAL_MAP_ROUGHNESS].texture;
-                    }
-                }
-            }
-        }
-
-        if (!surfaceMaterial.aoTexturePath.empty() || !force_reload) {
-            if (surfaceMaterial.aoTexture.activatedMode == 0) {
-                Texture2D& ao = surfaceMaterial.aoTexture.getTexture2D();
-                model.materials[0].maps[MATERIAL_MAP_OCCLUSION].texture = ao;
-            } else if (surfaceMaterial.aoTexture.activatedMode == 1) {
-                surfaceMaterial.aoTexture.updateVideo();
-                model.materials[0].maps[MATERIAL_MAP_OCCLUSION].texture = surfaceMaterial.aoTexture.getVideoTexture();
-            } else model.materials[0].maps[MATERIAL_MAP_OCCLUSION].texture = { 0 };
-
-            if (lodEnabled) {
-                for (int i = 0; i < sizeof(LodModels)/sizeof(LodModels[0]); i++) {
-                    if (IsModelReady(LodModels[i])) {
-                        LodModels[i].materials[0].maps[MATERIAL_MAP_OCCLUSION].texture = model.materials[0].maps[MATERIAL_MAP_OCCLUSION].texture;
-                    }
+        if (lodEnabled) {
+            for (auto& lodModel : LodModels) {
+                if (IsModelReady(lodModel)) {
+                    lodModel.materials[0].maps[mapType].texture = targetTexture;
                 }
             }
         }
     }
+
+    void ReloadTextures(bool force_reload = false) {
+        auto updateIfNeeded = [&](int mapType, const SurfaceMaterialTexture& texture, bool condition) {
+            if (condition || force_reload) {
+                UpdateTextureMap(mapType, texture, lodEnabled);
+            }
+        };
+
+        updateIfNeeded(MATERIAL_MAP_DIFFUSE, surfaceMaterial.diffuseTexture, !surfaceMaterial.diffuseTexturePath.empty());
+        updateIfNeeded(MATERIAL_MAP_NORMAL, surfaceMaterial.normalTexture, !surfaceMaterial.normalTexturePath.empty());
+        updateIfNeeded(MATERIAL_MAP_ROUGHNESS, surfaceMaterial.roughnessTexture, !surfaceMaterial.roughnessTexturePath.empty());
+        updateIfNeeded(MATERIAL_MAP_OCCLUSION, surfaceMaterial.aoTexture, !surfaceMaterial.aoTexturePath.empty());
+    }
+
 
     void OptimizeEntityMemory() {
         for (int modelsIndex = 0; modelsIndex < sizeof(LodModels)/sizeof(LodModels[0]); modelsIndex++) {
@@ -929,13 +896,15 @@ public:
     }
 
     bool inFrustum() {
-        UpdateFrustum();
         return AABBoxInFrustum(bounds.min, bounds.max);
     }
 
     void render() {
-        if (!this->initialized) return; //delete this;
-        if (!hasModel()) initializeDefaultModel();
+        if (!initialized) return;
+
+        if (!hasModel()) {
+            initializeDefaultModel();
+        }
 
         updateChildren();
 
@@ -945,20 +914,23 @@ public:
                 calcPhysicsPosition();
             }
         } else {
-            setPos(position);
-            updateMass();
             backupPosition = position;
-
+            setPos(position);
             setRot(rotation);
             setScale(scale);
+            updateMass();
         }
 
         if (!visible) return;
 
-        int tilingLocation = GetShaderLocation(shader, "tiling");
+        static int tilingLocation = GetShaderLocation(shader, "tiling");
         SetShaderValue(shader, tilingLocation, tiling, SHADER_UNIFORM_VEC2);
 
-        ReloadTextures(true);
+        static bool texturesNeedReload = true;
+        if (texturesNeedReload) {
+            ReloadTextures();
+            texturesNeedReload = false;
+        }
 
         instances.empty() ? renderSingleModel() : renderInstanced();
     }
@@ -990,9 +962,13 @@ private:
             return;
         }
 
-        Matrix transformMatrix = MatrixMultiply(MatrixMultiply(MatrixScale(scale.x, scale.y, scale.z),
-                                                            MatrixRotateXYZ(Vector3Scale(rotation, DEG2RAD))),
-                                                MatrixTranslate(position.x, position.y, position.z));
+        const Matrix scaleMatrix = MatrixScale(scale.x, scale.y, scale.z);
+        const Matrix rotationMatrix = MatrixRotateXYZ(Vector3Scale(rotation, DEG2RAD));
+        const Matrix translationMatrix = MatrixTranslate(position.x, position.y, position.z);
+
+        const Matrix transformMatrix = MatrixMultiply(MatrixMultiply(scaleMatrix, rotationMatrix), translationMatrix);
+
+        model.transform = transformMatrix;
 
         if (model.meshes != nullptr) {
             bounds.min = Vector3Transform(constBounds.min, transformMatrix);
@@ -1004,29 +980,24 @@ private:
         PassSurfaceMaterials();
         glUseProgram((GLuint)shader.id);
 
-        float distance;
+        const Vector3& camPosition = inGamePreview ? camera.position : sceneCamera.position;
+        const float distance = Vector3Distance(this->position, camPosition);
 
-    #ifndef GAME_SHIPPING
-        distance = inGamePreview ? Vector3Distance(this->position, camera.position)
-                                : Vector3Distance(this->position, sceneCamera.position);
-    #else
-        distance = Vector3Distance(this->position, camera.position);
-    #endif
+        Model& modelToDraw = model;
+        if (lodEnabled) {
+            const int lodLevel = (distance < LOD_DISTANCE_HIGH) ? 0
+                            : (distance < LOD_DISTANCE_MEDIUM) ? 1
+                            : (distance < LOD_DISTANCE_LOW) ? 2
+                            : 3;
 
-        model.transform = transformMatrix;
+            for (Model& lodModel : LodModels) {
+                lodModel.transform = transformMatrix;
+            }
 
-        for (Model& lodModel : LodModels) {
-            lodModel.transform = transformMatrix;
+            if (IsModelReady(LodModels[lodLevel])) modelToDraw = LodModels[lodLevel];
         }
 
-        int lodLevel = (distance < LOD_DISTANCE_HIGH) ? 0
-                    : (distance < LOD_DISTANCE_MEDIUM) ? 1
-                    : (distance < LOD_DISTANCE_LOW) ? 2
-                    : 3;
-
-        DrawModel(lodEnabled && IsModelReady(LodModels[lodLevel]) ? LodModels[lodLevel] : model,
-                Vector3Zero(),
-                1,
+        DrawModel(modelToDraw, Vector3Zero(), 1,
                 (Color){
                     static_cast<unsigned char>(surfaceMaterial.color.x * 255),
                     static_cast<unsigned char>(surfaceMaterial.color.y * 255),
@@ -1056,10 +1027,6 @@ private:
         glUniform1i(glGetUniformLocation(entityShader->id, "roughnessMapReady"), !surfaceMaterial.roughnessTexturePath.empty());
 
         glBindBuffer(GL_UNIFORM_BUFFER, 0);
-    }
-
-    std::shared_ptr<CollisionShapeType> intToCollisionShapeType(int value) {
-        return std::make_shared<CollisionShapeType>(static_cast<CollisionShapeType>(value));
     }
 };
 

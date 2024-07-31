@@ -1,12 +1,14 @@
 #version 430 core
 
+precision mediump float;
+
 // Input vertex attributes (from vertex shader)
 in vec3 fragPosition;
 in vec2 fragTexCoord;
 in vec3 fragNormal;
 
 // Input uniform values
-uniform vec4 colDiffuse; // Entity Color
+uniform vec4 colDiffuse;
 uniform vec4 ambientLight;
 uniform vec3 viewPos;
 uniform mat4 viewMatrix;

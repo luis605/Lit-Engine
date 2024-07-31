@@ -32,6 +32,7 @@ void RunGame() {
         physics.Update(GetFrameTime());
         UpdateLightsBuffer(true, lights);
         UpdateInGameGlobals();
+        UpdateFrustum();
 
         if (firstTimeGameplay) {
             #pragma omp parallel for

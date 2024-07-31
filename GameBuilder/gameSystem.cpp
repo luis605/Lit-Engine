@@ -81,6 +81,7 @@ void UpdateShader() {
 
 void Run() {
     physics.Update(GetFrameTime());
+    UpdateFrustum();
 
     BeginDrawing();
         ClearBackground(GRAY);

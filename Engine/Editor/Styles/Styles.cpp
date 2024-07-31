@@ -112,7 +112,8 @@ void CreateNewTheme() {
 
     ImGui::Combo("##OptionsCombo", (int*)&theme_create_selected_option, themes_colors_string, IM_ARRAYSIZE(themes_colors_string));
     ImGui::SameLine();
-    bool addToList = ImGui::Button("Add Selected Option", {ImGui::CalcTextSize("Add Selected Option").x + 30, 30});
+    static ImVec2 buttonSize = { ImGui::CalcTextSize("Add Selected Option").x + 30, 30 };
+    bool addToList = ImGui::Button("Add Selected Option", buttonSize);
     if (addToList) {
         auto checker_algorithm = std::find(newThemeSavedOptions.begin(), newThemeSavedOptions.end(), theme_create_selected_option);
         if (checker_algorithm == newThemeSavedOptions.end()) {

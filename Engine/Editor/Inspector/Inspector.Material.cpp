@@ -210,7 +210,7 @@ void MaterialInspector(SurfaceMaterial* surfaceMaterial = nullptr, fs::path path
     ImGui::Dummy(ImVec2(0.0f, 10.0f));
     
     const float margin = 40.0f;
-    const float spacing = ImGui::CalcTextSize("Specular Intensity:").x + margin;
+    static float spacing = ImGui::CalcTextSize("Specular Intensity:").x + margin;
 
     ImGui::Text("Specular Intensity:");
     ImGui::SameLine(spacing);

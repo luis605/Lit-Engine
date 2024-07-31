@@ -1,12 +1,15 @@
 {
+    "aoTexturePath": "project/game/images/kloppenheim_02_puresky_4k.hdr",
     "color": {
         "a": 1.0,
-        "b": 0.0,
-        "g": 0.0,
+        "b": 1.0,
+        "g": 1.0,
         "r": 1.0
     },
+    "diffuseTexturePath": "",
     "diffuse_intensity": 1.0,
+    "normalTexturePath": "",
     "roughness": 1.0,
-    "shininess": 1.0,
+    "roughnessTexturePath": "project/game/images/kloppenheim_02_puresky_4k.hdr",
     "specular_intensity": 1.0
 }
