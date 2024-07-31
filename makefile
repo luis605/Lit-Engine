@@ -59,6 +59,15 @@ brun:
 	@make --no-print-directory build -j8
 	@make --no-print-directory run
 
+prof: CXXFLAGS += -O3 -funroll-loops -ftree-vectorize -fno-math-errno -freciprocal-math -fvect-cost-model -fgraphite-identity -pg
+prof: $(IMGUI_OBJECTS)
+	@$(call echo_success, "Building gprof Executable")
+	@$(CXX) $(CXXFLAGS) Engine/main.cpp $(SRC_FILES) $(INCLUDE_DIRS) $(IMGUI_OBJECTS) $(LIB_FLAGS) -o profiled
+	@$(call echo_success, "Success!")
+	./profiled
+	gprof ./profiled gmon.out > analysis.txt
+	cat analysis.txt
+
 debug:
 	@echo "Debugging Lit Engine"
 	@$(call echo_success, $(subst $(newline),\n,$$BANNER_TEXT))

@@ -179,16 +179,18 @@ void RenderLights() {
 }
 
 void RenderEntities() {
+    bool isMouseDown = IsMouseButtonDown(MOUSE_LEFT_BUTTON);
+    bool isWindowHovered = ImGui::IsWindowHovered();
+
     for (Entity& entity : entitiesListPregame) {
         if (entity.isChild) continue;
 
         entity.calcPhysics = false;
         entity.render();
 
-        if (!IsMouseButtonDown(MOUSE_LEFT_BUTTON) || !ImGui::IsWindowHovered() || dragging) continue;
+        if (!isMouseDown || !isWindowHovered || dragging) continue;
 
-        bool isEntitySelected = IsMouseHoveringModel(entity.model, entity.position, entity.rotation, entity.scale, &entity);
-        if (isEntitySelected) {
+        if (IsMouseHoveringModel(entity.model, entity.position, entity.rotation, entity.scale, &entity)) {
             selectedEntity = &entity;
             selectedGameObjectType = "entity";
         }
@@ -196,8 +198,7 @@ void RenderEntities() {
         for (int childEntityIndex : entity.entitiesChildren) {
             Entity& childEntity = *getEntityById(childEntityIndex);
 
-            bool isEntitySelected = IsMouseHoveringModel(childEntity.model, childEntity.position, childEntity.rotation, childEntity.scale);
-            if (isEntitySelected) {
+            if (IsMouseHoveringModel(childEntity.model, childEntity.position, childEntity.rotation, childEntity.scale)) {
                 selectedEntity = &childEntity;
                 selectedGameObjectType = "entity";
             }
@@ -222,7 +223,6 @@ void RenderGrid() {
     }
 }
 
-
 void RenderScene() {
     BeginTextureMode(viewportRenderTexture);
         BeginMode3D(sceneCamera);
@@ -232,6 +232,7 @@ void RenderScene() {
             
             UpdateLightsBuffer(true, lights);
             UpdateInGameGlobals();
+            UpdateFrustum();
 
             ProcessGizmo();
             UpdateShader();

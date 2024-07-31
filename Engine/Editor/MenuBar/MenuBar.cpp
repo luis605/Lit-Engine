@@ -212,7 +212,7 @@ void MenuBar() {
         DrawMenus();
 
         ImVec2 currentCursorPos = ImGui::GetCursorPos();
-        ImVec2 textSize = ImGui::CalcTextSize("Lit Engine");
+        static ImVec2 textSize = ImGui::CalcTextSize("Lit Engine");
         ImGui::SetCursorPos(ImVec2(
             ImGui::GetWindowWidth() * 0.5f - textSize.x * 0.5f,
             centeredHeight - textSize.y * 0.5f
@@ -245,7 +245,7 @@ void MenuBar() {
 
         ImGui::PopStyleColor(4);
 
-        ImGui::SetCursorPosX(imageSize.x + imagePos.x + ImGui::CalcTextSize("File   Edit   Preferences").x + 40);
+        ImGui::SetCursorPosX(imageSize.x + imagePos.x + 40);
         ImGui::InvisibleButton("EMPTY", ImVec2(ImGui::GetWindowSize().x - buttonWidth * 3 - ImGui::GetCursorPosX(), 40));
         DraggableWindow();
 

@@ -139,17 +139,17 @@ struct SurfaceMaterialTexture {
     }
 
     // Check if it has a video
-    bool hasVideo() const {
+    const bool hasVideo() const {
         return videoTexture.hasVideoStream();
     }
 
     // Check if it is empty
-    bool isEmpty() const {
+    const bool isEmpty() const {
         return activatedMode == -1;
     }
 
     // Get texture
-    Texture2D& getTexture2D() {
+    const Texture2D& getTexture2D() const {
         return staticTexture;
     }
 
@@ -162,7 +162,7 @@ struct SurfaceMaterialTexture {
         videoTexture.PlayCurrentFrame();
     }
 
-    Texture& getVideoTexture() {
+    Texture2D& getVideoTexture() {
         return videoTexture.getTexture();
     }
 

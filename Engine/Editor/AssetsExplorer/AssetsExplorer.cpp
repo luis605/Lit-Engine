@@ -338,12 +338,11 @@ void AssetsExplorer() {
                 renameFolderIndex = -1;
             }
         } else {
-            float textWidth = ImGui::CalcTextSize(folderItem.name.c_str()).x;
-            float buttonWidth = thumbnailSize;
-            float offset = (buttonWidth - textWidth / 2) / 2;
-            float centerPosX = (ImGui::GetCursorPosX() + offset);
+            static float averageCharWidth = 3.0f;
+            float textWidth = averageCharWidth * folderItem.name.size();
+            float textXPos = ImGui::GetCursorPosX() + (thumbnailSize - textWidth) * 0.5f;
 
-            ImGui::SetCursorPosX(centerPosX);
+            ImGui::SetCursorPosX(textXPos);
             ImGui::Text("%s", folderItem.name.c_str());
         }
 
@@ -418,12 +417,11 @@ void AssetsExplorer() {
                 renameFileIndex = -1;
             }
         } else {
-            float textWidth = ImGui::CalcTextSize(fileItem.name.c_str()).x;
-            float buttonWidth = thumbnailSize;
-            float offset = (buttonWidth - textWidth / 2) / 2;
-            float centerPosX = (ImGui::GetCursorPosX() + offset);
+            static float averageCharWidth = 3.0f;
+            float textWidth = averageCharWidth * fileItem.name.size();
+            float textXPos = ImGui::GetCursorPosX() + (thumbnailSize - textWidth) * 0.5f;
 
-            ImGui::SetCursorPosX(centerPosX);
+            ImGui::SetCursorPosX(textXPos);
             ImGui::Text("%s", fileItem.name.c_str());
         }
 

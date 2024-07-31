@@ -6,7 +6,7 @@ void ManipulateEntityPopup() {
     ImGui::OpenPopup("Entity");
 
     if (ImGui::BeginPopup("Entity")) {
-        ImVec2 buttonScale = ImGui::CalcTextSize("Duplicate Entity") + ImVec2(20.0f, 20.0f);
+        static ImVec2 buttonScale = ImGui::CalcTextSize("Duplicate Entity") + ImVec2(20.0f, 20.0f);
 
         if (ImGui::Button("Duplicate Entity", buttonScale)) {
             DuplicateEntity(*selectedEntity);
@@ -261,32 +261,33 @@ void UnchildObjects(ImVec2 childSize) {
 }
 
 void ImGuiListViewEx() {
-    ImVec2 childSize = ImVec2(
-        ImGui::GetWindowSize().x - 30,
-        ImGui::GetWindowSize().y - 150);
+    const ImVec2 windowSize = ImGui::GetWindowSize();
+    const ImVec2 childSize(windowSize.x - 30, windowSize.y - 150);
 
     ImGui::BeginChild("Entities List", childSize, true, ImGuiWindowFlags_HorizontalScrollbar);
 
     UnchildObjects(childSize);
 
-    if ((ImGui::IsWindowFocused() || ImGui::IsWindowHovered() || ImGui::IsItemHovered()) && IsKeyDown(KEY_F2))
+    const bool windowFocused = ImGui::IsWindowFocused();
+    const bool windowHovered = ImGui::IsWindowHovered();
+    const bool itemHovered = ImGui::IsItemHovered();
+
+    if ((windowFocused || windowHovered || itemHovered) && IsKeyDown(KEY_F2))
         shouldChangeObjectName = true;
 
-    if (ImGui::IsWindowFocused() && IsKeyDown(KEY_ESCAPE))
+    if (windowFocused && IsKeyDown(KEY_ESCAPE))
         shouldChangeObjectName = false;
 
     ImGui::PushStyleVar(ImGuiStyleVar_FrameBorderSize, 3.0f);
+    ImGui::PushStyleVar(ImGuiStyleVar_ItemSpacing, ImVec2(0, 10));
+    ImGui::PushStyleVar(ImGuiStyleVar_ItemInnerSpacing, ImVec2(10, 10));
     ImGui::PushStyleColor(ImGuiCol_Button, ImVec4(0.9f, 0.9f, 0.9f, 0.9f));
-    ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(0.0f, 0.0f, 0.0f, 1.0f));
+    ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(0.85f, 0.85f, 0.85f, 1.0f));
     ImGui::PushStyleColor(ImGuiCol_FrameBg, ImVec4(0.5f, 0.5f, 0.5f, 0.5f));
 
     ImGui::PushItemWidth(-1);
-    ImGui::PushStyleVar(ImGuiStyleVar_ItemSpacing, ImVec2(0, 10));
-    ImGui::PushStyleVar(ImGuiStyleVar_ItemInnerSpacing, ImVec2(10, 10));
 
     entitiesListTreeNodeIndex = 0;
-
-    ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(0.85f, 0.85f, 0.85f, 1.0f));
 
     DrawCameraTree();
 
@@ -310,7 +311,7 @@ void ImGuiListViewEx() {
 
     ImGui::PopStyleVar(3);
     ImGui::PopItemWidth();
-    ImGui::PopStyleColor(4);
+    ImGui::PopStyleColor(3);
 
     ImGui::EndChild();
 

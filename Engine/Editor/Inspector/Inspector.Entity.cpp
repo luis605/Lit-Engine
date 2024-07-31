@@ -8,7 +8,7 @@ void DisplayEntityNameInput() {
     ImGui::Text("Inspecting '");
     ImGui::SameLine();
     
-    float textWidth = std::max(ImGui::CalcTextSize(entityName.c_str()).x + 10.0f, 100.0f);
+    static float textWidth = std::max(ImGui::CalcTextSize(entityName.c_str()).x + 10.0f, 100.0f);
     ImGui::SetNextItemWidth(textWidth);
 
     if (ImGui::InputText("##Title Part 2", inputBuffer, sizeof(inputBuffer))) {
@@ -214,7 +214,7 @@ void DisplayPhysicsSettings() {
 }
 
 void DisplayOtherProperties() {
-    const float LODWidth = ImGui::CalcTextSize("Level of Detail: ").x + 50.0f;
+    static float LODWidth = ImGui::CalcTextSize("Level of Detail: ").x + 50.0f;
 
     ImGui::Text("Collisions: ");
     ImGui::SameLine(LODWidth);
