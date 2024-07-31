@@ -239,19 +239,19 @@ void SaveEntity(json& jsonData, const Entity& entity) {
     j["scale"]                   = entity.scale;
     j["position"]                = entity.position;
     j["rotation"]                = entity.rotation;
-    j["relativePosition"]       = entity.relativePosition;
-    j["modelPath"]              = entity.modelPath;
+    j["relativePosition"]        = entity.relativePosition;
+    j["modelPath"]               = entity.modelPath;
     j["tiling"]                  = entity.tiling;
     
     if (IsModelReady(entity.model) && entity.modelPath.empty())
         j["mesh_type"]           = entity.ObjectType;
 
-    j["collider_type"]           = *entity.currentCollisionShapeType;
+    j["collider_type"]           = entity.currentCollisionShapeType;
     j["collider"]                = entity.collider;
     j["script_path"]             = entity.script;
-    j["scriptIndex"]            = entity.scriptIndex;
+    j["scriptIndex"]             = entity.scriptIndex;
     j["material_path"]           = entity.surfaceMaterialPath;
-    j["surfaceMaterial"]        = entity.surfaceMaterial;
+    j["surfaceMaterial"]         = entity.surfaceMaterial;
     j["id"]                      = entity.id;
     j["is_dynamic"]              = entity.isDynamic;
     j["mass"]                    = entity.mass;
@@ -625,7 +625,7 @@ Entity* LoadEntity(const json& entityJson) {
         entity->mass = entityJson["mass"].get<float>();
 
     if (entityJson.contains("collider_type"))
-        entity->currentCollisionShapeType = std::make_shared<Entity::CollisionShapeType>(entityJson["collider_type"].get<Entity::CollisionShapeType>());
+        entity->currentCollisionShapeType = entityJson["collider_type"].get<CollisionShapeType>();
 
     if (entityJson.contains("collider"))
         entity->collider = entityJson["collider"].get<bool>();

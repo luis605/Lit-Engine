@@ -164,14 +164,14 @@ void DisplayPhysicsSettings() {
     ImGui::SameLine();
     
     const char* collisionShapeNames[] = {"Box", "HighPolyMesh", "None"};
-    int currentItem = static_cast<int>(*selectedEntity->currentCollisionShapeType);
+    int currentItem = static_cast<int>(selectedEntity->currentCollisionShapeType);
 
     if (ImGui::BeginCombo("##CollisionType", collisionShapeNames[currentItem])) {
         for (int i = 0; i < IM_ARRAYSIZE(collisionShapeNames); i++) {
             const bool isSelected = (currentItem == i);
 
             if (ImGui::Selectable(collisionShapeNames[i], isSelected)) {
-                *selectedEntity->currentCollisionShapeType = static_cast<Entity::CollisionShapeType>(i);
+                selectedEntity->currentCollisionShapeType = static_cast<CollisionShapeType>(i);
                 selectedEntity->reloadRigidBody();
             }
 

@@ -149,27 +149,20 @@ void EditFileManipulation()
             }
         }
 
-        if (!showEditFilePopup) {
-            ImGui::EndPopup();
-            return;
-        }
+        if (ImGui::Button("Run", ImVec2(buttonWidth, 0))) {
+            entitiesList.assign(entitiesListPregame.begin(), entitiesListPregame.end());
 
-        std::string file_extension = getFileExtension(fileStruct[fileIndex].path.filename().string());
-        if (file_extension == ".py") {
-            if (ImGui::Button("Run", ImVec2(buttonWidth, 0))) {
-                entitiesList.assign(entitiesListPregame.begin(), entitiesListPregame.end());
+            Entity runScriptEntity = Entity();
+            runScriptEntity.script = fileStruct[fileIndex].full_path.string();
+            runScriptEntity.scriptIndex = "script not defined";
+            runScriptEntity.calcPhysics = true;
 
-                Entity run_script_entity = Entity();
-                run_script_entity.script = fileStruct[fileIndex].full_path.string();
+            LitCamera* sceneCamera_reference = &sceneCamera;
+            runScriptEntity.setupScript(sceneCamera_reference);
+            runScriptEntity.runScript(sceneCamera_reference);
 
-                LitCamera* sceneCamera_reference = &sceneCamera;
-                run_script_entity.setupScript(sceneCamera_reference);
-                run_script_entity.runScript(sceneCamera_reference);
-
-                fileIndex = -1;
-                showEditFilePopup = false;
-                showAddFilePopup = false;
-            }
+            fileIndex = -1;
+            showEditFilePopup = false;
         }
 
         ImGui::EndPopup();

@@ -1,6 +1,6 @@
 py::scoped_interpreter guard{};
 
-py::module entity_module = py::module_::create_extension_module("entity_module", nullptr, new PyModuleDef());
+py::module entityModule = py::module_::create_extension_module("entityModule", nullptr, new PyModuleDef());
 
 RLFrustum cameraFrustum;
 void InitFrustum() {
@@ -77,12 +77,7 @@ public:
     };
     ObjectTypeEnum ObjectType;
 
-    enum CollisionShapeType {
-        Box           = 0,
-        HighPolyMesh  = 1,
-        None          = 2
-    };
-    std::shared_ptr<CollisionShapeType> currentCollisionShapeType = std::make_shared<CollisionShapeType>(None);
+    CollisionShapeType currentCollisionShapeType = CollisionShapeType::None;
 
     int id = 0;
 
@@ -315,7 +310,7 @@ public:
     }
 
     void initializeDefaultModel() {
-        Mesh mesh = GenMeshCube(scale.x, scale.y, scale.z);
+        Mesh mesh = GenMeshCube(1, 1, 1);
         model = LoadModelFromMesh(mesh);
         if (entityShader == nullptr)
             model.materials[0].shader = shader;
@@ -498,7 +493,8 @@ public:
 
         if (!Entity_already_registered) {
             Entity_already_registered = true;
-            py::class_<Entity>(entity_module, "Entity")
+
+            py::class_<Entity>(entityModule, "Entity")
                 .def(py::init([](py::args args, py::kwargs kwargs) {
                     LitVector3 position{0, 0, 0};
                     std::string modelPath = "";
@@ -508,11 +504,14 @@ public:
 
                     Entity entity;
                     entity.setColor(RAYWHITE);
-                    entity.setScale(LitVector3{1, 1, 1});
-                    entity.setName("New Entity");
+                    if (kwargs.contains("scale")) entity.setScale(py::cast<LitVector3>(kwargs["scale"]));
+                    else entity.setScale(LitVector3{1, 1, 1});
 
-                    if (kwargs.contains("collider"))   entity.collider = py::cast<bool>(kwargs["collider"]);
+                    if (kwargs.contains("name")) entity.setName(py::cast<std::string>(kwargs["name"]));
+                    else entity.setName("New Entity");
 
+                    if (kwargs.contains("collisions"))   entity.collider = py::cast<bool>(kwargs["collisions"]);
+                    if (kwargs.contains("collider"))     entity.currentCollisionShapeType = py::cast<CollisionShapeType>(kwargs["collider"]);
                     if (!modelPath.empty()) entity.setModel(modelPath.c_str());
 
                     entity.setPos(position);
@@ -529,6 +528,7 @@ public:
                 // TODO: Call setPos when position.x/y/z is called and not just when position = newPosition
 
                 .def_readwrite("scale", &Entity::scale)
+                .def_readwrite("collider", &Entity::currentCollisionShapeType)
                 .def_property("rotation",
                     [](const Entity& entity) { return entity.rotation; },
                     [](Entity& entity, LitVector3& rotation) { entity.setRot(rotation); }
@@ -536,7 +536,7 @@ public:
                 .def_property("color", &Entity::getColor, &Entity::setColor)
                 .def_readwrite("visible", &Entity::visible)
                 .def_readwrite("id", &Entity::id)
-                .def_readwrite("collider", &Entity::collider)
+                .def_readwrite("collisions", &Entity::collider)
                 .def("applyForce", &Entity::applyForce)
                 .def("applyImpulse", &Entity::applyImpulse)
                 .def("setFriction", &Entity::setFriction)
@@ -565,6 +565,7 @@ public:
             "KeyboardKey"_a = inputModule.attr("KeyboardKey"),
             "MouseButton"_a = inputModule.attr("MouseButton"),
             "Raycast"_a = collisionModule.attr("raycast"),
+            "CollisionShape"_a = collisionModule.attr("CollisionShape"),
             "Vector3"_a = mathModule.attr("Vector3"),
             "Vector2"_a = mathModule.attr("Vector2"),
             "Vector3Scale"_a = mathModule.attr("vector3Scale"),
@@ -581,7 +582,7 @@ public:
             "camera"_a = py::cast(rendering_camera)
         );
 
-        locals["Entity"] = entity_module.attr("Entity");
+        locals["Entity"] = entityModule.attr("Entity");
 
 #ifndef GAME_SHIPPING
         scriptContent = readFileToString(script);
@@ -649,7 +650,7 @@ public:
     void calcPhysicsPosition() {
         if (!isDynamic) return;
 
-        if (*currentCollisionShapeType == CollisionShapeType::Box || *currentCollisionShapeType == CollisionShapeType::HighPolyMesh) {
+        if (currentCollisionShapeType == CollisionShapeType::Box || currentCollisionShapeType == CollisionShapeType::HighPolyMesh) {
             btTransform trans;
             if (rigidBody && rigidBody->getMotionState()) {
                 rigidBody->getMotionState()->getWorldTransform(trans);
@@ -662,7 +663,7 @@ public:
     void calcPhysicsRotation() {
         if (!isDynamic) return;
 
-        if (*currentCollisionShapeType == CollisionShapeType::Box && rigidBody) {
+        if (currentCollisionShapeType == CollisionShapeType::Box && rigidBody) {
             btTransform trans;
             if (rigidBody->getMotionState()) {
                 rigidBody->getMotionState()->getWorldTransform(trans);
@@ -690,12 +691,18 @@ public:
     void setRot(LitVector3 newRot) {
         rotation = newRot;
 
-        if (CollisionShapeType::Box == *currentCollisionShapeType) {
+        if (CollisionShapeType::Box == currentCollisionShapeType) {
             if (rigidBody) {
                 btTransform currentTransform = rigidBody->getWorldTransform();
 
+
+                float rollRad = glm::radians(rotation.x);
+                float pitchRad = glm::radians(rotation.y);
+                float yawRad = glm::radians(rotation.z);
+
                 btQuaternion newRotation;
-                newRotation.setEulerZYX(newRot.z * DEG2RAD, newRot.y * DEG2RAD, newRot.x * DEG2RAD);
+                newRotation.setEulerZYX(yawRad, pitchRad, rollRad);
+
                 currentTransform.setRotation(newRotation);
                 rigidBody->setWorldTransform(currentTransform);
             }
@@ -705,11 +712,11 @@ public:
     void setScale(Vector3 newScale) {
         scale = newScale;
 
-        if (CollisionShapeType::Box == *currentCollisionShapeType) {
+        if (CollisionShapeType::Box == currentCollisionShapeType) {
             isDynamic ? createDynamicBox() : createStaticBox();
         }
 
-        else if (CollisionShapeType::HighPolyMesh == *currentCollisionShapeType && this->running) {
+        else if (CollisionShapeType::HighPolyMesh == currentCollisionShapeType && this->running) {
             isDynamic ? createDynamicMesh(false) : createStaticMesh(true);
         }
     }
@@ -748,9 +755,9 @@ public:
         btScalar btMass = mass;
         btVector3 boxInertia(inertia.x, inertia.y, inertia.z);
         rigidShape->calculateLocalInertia(btMass, boxInertia);
-        if (*currentCollisionShapeType == CollisionShapeType::Box && rigidBody && rigidBody != nullptr)
+        if (currentCollisionShapeType == CollisionShapeType::Box && rigidBody && rigidBody != nullptr)
             rigidBody->setMassProps(btMass, boxInertia);
-        else if (*currentCollisionShapeType == CollisionShapeType::HighPolyMesh && rigidBody && rigidBody != nullptr)
+        else if (currentCollisionShapeType == CollisionShapeType::HighPolyMesh && rigidBody && rigidBody != nullptr)
             rigidBody->setMassProps(btMass, boxInertia);
     }
 
@@ -779,7 +786,7 @@ public:
         rigidBody = std::make_unique<btRigidBody>(highPolyStaticRigidBodyCI);
         physics.dynamicsWorld->addRigidBody(rigidBody.get());
 
-        currentCollisionShapeType = std::make_shared<CollisionShapeType>(CollisionShapeType::Box);
+        currentCollisionShapeType = CollisionShapeType::Box;
     }
 
     void createStaticMesh(bool generateShape = true) {
@@ -829,7 +836,7 @@ public:
         physics.dynamicsWorld->addRigidBody(rigidBody.get());
 
         // Update the current collision shape type
-        currentCollisionShapeType = std::make_shared<CollisionShapeType>(CollisionShapeType::HighPolyMesh);
+        currentCollisionShapeType = CollisionShapeType::HighPolyMesh;
     }
 
     void createDynamicBox() {
@@ -852,13 +859,13 @@ public:
         rigidBody = std::make_unique<btRigidBody>(rigidBodyCI);
         
         physics.dynamicsWorld->addRigidBody(rigidBody.get());
-        currentCollisionShapeType = std::make_shared<CollisionShapeType>(CollisionShapeType::Box);
+        currentCollisionShapeType = CollisionShapeType::Box;
     }
 
     void createDynamicMesh(bool generateShape = true) {
         isDynamic = true;
 
-        currentCollisionShapeType = std::make_shared<CollisionShapeType>(CollisionShapeType::HighPolyMesh);
+        currentCollisionShapeType = CollisionShapeType::HighPolyMesh;
         if (rigidBody.get()) physics.dynamicsWorld->removeRigidBody(rigidBody.get());
 
         if (generateShape || !customMeshShape) {
@@ -909,7 +916,7 @@ public:
     }
 
     void reloadRigidBody() {
-        isDynamic ? makePhysicsDynamic(*currentCollisionShapeType) : makePhysicsStatic(*currentCollisionShapeType);
+        isDynamic ? makePhysicsDynamic(currentCollisionShapeType) : makePhysicsStatic(currentCollisionShapeType);
     }
 
     void resetPhysics() {
@@ -933,7 +940,7 @@ public:
         updateChildren();
 
         if (calcPhysics) {
-            if (*currentCollisionShapeType != CollisionShapeType::None && isDynamic) {
+            if (currentCollisionShapeType != CollisionShapeType::None && isDynamic) {
                 calcPhysicsRotation();
                 calcPhysicsPosition();
             }
@@ -1049,6 +1056,10 @@ private:
         glUniform1i(glGetUniformLocation(entityShader->id, "roughnessMapReady"), !surfaceMaterial.roughnessTexturePath.empty());
 
         glBindBuffer(GL_UNIFORM_BUFFER, 0);
+    }
+
+    std::shared_ptr<CollisionShapeType> intToCollisionShapeType(int value) {
+        return std::make_shared<CollisionShapeType>(static_cast<CollisionShapeType>(value));
     }
 };
 
