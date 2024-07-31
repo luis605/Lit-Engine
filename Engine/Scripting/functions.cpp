@@ -61,17 +61,10 @@ PYBIND11_EMBEDDED_MODULE(mathModule, m) {
     m.def("lerp", &lerp_Vector3, "Lerp function for Vector3 type");
 }
 
-
-
-
 PYBIND11_EMBEDDED_MODULE(mouseModule, m) {
     m.def("LockMouse", &DisableCursor);
     m.def("UnlockMouse", &EnableCursor);
 }
-
-
-
-
 
 PYBIND11_EMBEDDED_MODULE(physicsModule, m) {
     py::class_<PhysicsManager>(m, "physics")
@@ -285,6 +278,11 @@ HitInfo raycast(LitVector3 origin, LitVector3 direction, bool debug=false, std::
 
 
 PYBIND11_EMBEDDED_MODULE(collisionModule, m) {
+    py::enum_<CollisionShapeType>(m, "CollisionShape")
+        .value("Box", CollisionShapeType::Box)
+        .value("HighPolyMesh", CollisionShapeType::HighPolyMesh)
+        .value("None", CollisionShapeType::None);
+
     py::class_<HitInfo>(m, "HitInfo")
         .def(py::init<>())
         .def_readwrite("hit", &HitInfo::hit)

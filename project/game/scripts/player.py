@@ -15,7 +15,7 @@ grounded = False
 entity.visible = True
 
 
-#LockMouse()
+LockMouse()
 
 # Helper functions
 def spherical_to_cartesian(radius, yaw, pitch):
@@ -42,15 +42,15 @@ def update_camera_fovy():
 
 def update_camera_rotation():
     global yaw, pitch
-    yaw -= GetMouseMovement().x * SENSITIVITY
+    yaw += GetMouseMovement().x * SENSITIVITY
     pitch -= GetMouseMovement().y * SENSITIVITY
-    pitch = max(-89, min(0, pitch))
+    pitch = max(-89, min(89, pitch))
 
 def update_camera_position():
     global yaw, pitch
-    front = spherical_to_cartesian(ENTITY_DISTANCE, -yaw, -pitch)
-    camera.position = entity.position + front
-    camera.look_at = entity.position
+    front = spherical_to_cartesian(ENTITY_DISTANCE, yaw, pitch)
+    camera.position = entity.position
+    camera.look_at = entity.position + front
     camera.up = Vector3(0, 1, 0)
 
 def change_gravity():
@@ -99,6 +99,7 @@ def update():
     check_ground()
     set_entity_rotation()
     change_gravity()
+
 
 
 

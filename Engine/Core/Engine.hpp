@@ -1,7 +1,7 @@
 #ifndef ENGINE_H
 #define ENGINE_H
+#include "Entity.hpp"
 
-class Entity;
 struct LightStruct;
 
 std::vector<Entity> entitiesListPregame;
