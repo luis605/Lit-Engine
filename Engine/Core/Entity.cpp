@@ -489,18 +489,16 @@ public:
 
                 .def_property("name", &Entity::getName, &Entity::setName)
                 .def_property("position",
-                    [](const Entity& entity) { return entity.position; },
+                    [](Entity& entity) { return entity.position },
                     [](Entity& entity, LitVector3& position) { entity.setPos(position); })
-
-                // TODO: Call setPos when position.x/y/z is called and not just when position = newPosition
-
-                .def_readwrite("scale", &Entity::scale)
-                .def_readwrite("collider", &Entity::currentCollisionShapeType)
+                .def_property("scale",
+                    [](Entity& entity) { return entity.scale },
+                    [](Entity& entity, LitVector3& scale) { entity.setScale(scale); })
                 .def_property("rotation",
-                    [](const Entity& entity) { return entity.rotation; },
-                    [](Entity& entity, LitVector3& rotation) { entity.setRot(rotation); }
-                )
+                    [](Entity& entity) { return entity.rotation },
+                    [](Entity& entity, LitVector3& rotation) { entity.setRot(rotation); })
                 .def_property("color", &Entity::getColor, &Entity::setColor)
+                .def_readwrite("collider", &Entity::currentCollisionShapeType)
                 .def_readwrite("visible", &Entity::visible)
                 .def_readwrite("id", &Entity::id)
                 .def_readwrite("collisions", &Entity::collider)

@@ -9,9 +9,20 @@ PYBIND11_EMBEDDED_MODULE(timeModule, m) {
 PYBIND11_EMBEDDED_MODULE(mathModule, m) {
     py::class_<LitVector3>(m, "Vector3")
         .def(py::init<float, float, float>())
-        .def_readwrite("x", &LitVector3::x)
-        .def_readwrite("y", &LitVector3::y)
-        .def_readwrite("z", &LitVector3::z)
+        .def_property("x",
+            [](LitVector3& position) { return position.x; },
+            [](LitVector3& position, float value) { position.x = value; })
+        .def_property("y",
+            [](LitVector3& position) { return position.y; },
+            [](LitVector3& position, float value) { position.y = value; })
+        .def_property("z",
+            [](LitVector3& position) { return position.z; },
+            [](LitVector3& position, float value) { position.z = value; })
+        .def("__repr__",
+            [](LitVector3& position) {
+                return "(" + std::to_string(position.x) + ", " + std::to_string(position.y) + ", " + std::to_string(position.z) +  ")";
+            })
+
         .def("normalized", &LitVector3::normalized)
         .def("lengthSquared", &LitVector3::lengthSquared)
         .def("crossProduct", &LitVector3::CrossProduct)
