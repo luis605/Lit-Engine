@@ -1,5 +1,0 @@
-[
-    {
-        "file10": "def update():\n    if IsKeyDown(KeyboardKey.KEY_W):\n        entity.position.x += 1 * time.dt\n\n"
-    }
-]
