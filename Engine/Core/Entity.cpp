@@ -356,10 +356,10 @@ public:
             }
         };
 
-        updateIfNeeded(MATERIAL_MAP_DIFFUSE, surfaceMaterial.diffuseTexture, !surfaceMaterial.diffuseTexturePath.empty());
-        updateIfNeeded(MATERIAL_MAP_NORMAL, surfaceMaterial.normalTexture, !surfaceMaterial.normalTexturePath.empty());
-        updateIfNeeded(MATERIAL_MAP_ROUGHNESS, surfaceMaterial.roughnessTexture, !surfaceMaterial.roughnessTexturePath.empty());
-        updateIfNeeded(MATERIAL_MAP_OCCLUSION, surfaceMaterial.aoTexture, !surfaceMaterial.aoTexturePath.empty());
+        updateIfNeeded(MATERIAL_MAP_DIFFUSE,   surfaceMaterial.diffuseTexture,    !surfaceMaterial.diffuseTexturePath.empty());
+        updateIfNeeded(MATERIAL_MAP_NORMAL,    surfaceMaterial.normalTexture,     !surfaceMaterial.normalTexturePath.empty());
+        updateIfNeeded(MATERIAL_MAP_ROUGHNESS, surfaceMaterial.roughnessTexture,  !surfaceMaterial.roughnessTexturePath.empty());
+        updateIfNeeded(MATERIAL_MAP_OCCLUSION, surfaceMaterial.aoTexture,         !surfaceMaterial.aoTexturePath.empty());
     }
 
 
@@ -489,13 +489,13 @@ public:
 
                 .def_property("name", &Entity::getName, &Entity::setName)
                 .def_property("position",
-                    [](Entity& entity) { return entity.position },
+                    [](Entity& entity) { return entity.position; },
                     [](Entity& entity, LitVector3& position) { entity.setPos(position); })
                 .def_property("scale",
-                    [](Entity& entity) { return entity.scale },
+                    [](Entity& entity) { return entity.scale; },
                     [](Entity& entity, LitVector3& scale) { entity.setScale(scale); })
                 .def_property("rotation",
-                    [](Entity& entity) { return entity.rotation },
+                    [](Entity& entity) { return entity.rotation; },
                     [](Entity& entity, LitVector3& rotation) { entity.setRot(rotation); })
                 .def_property("color", &Entity::getColor, &Entity::setColor)
                 .def_readwrite("collider", &Entity::currentCollisionShapeType)
@@ -917,6 +917,7 @@ public:
             setRot(rotation);
             setScale(scale);
             updateMass();
+            ReloadTextures(true);
         }
 
         if (!visible) return;
@@ -924,11 +925,7 @@ public:
         static int tilingLocation = GetShaderLocation(shader, "tiling");
         SetShaderValue(shader, tilingLocation, tiling, SHADER_UNIFORM_VEC2);
 
-        static bool texturesNeedReload = true;
-        if (texturesNeedReload) {
-            ReloadTextures();
-            texturesNeedReload = false;
-        }
+        ReloadTextures();
 
         instances.empty() ? renderSingleModel() : renderInstanced();
     }
