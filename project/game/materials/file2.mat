@@ -1,15 +1,12 @@
 {
-    "aoTexturePath": "project/game/images/kloppenheim_02_puresky_4k.hdr",
     "color": {
         "a": 1.0,
-        "b": 1.0,
-        "g": 1.0,
-        "r": 1.0
+        "b": 0.3336121439933777,
+        "g": 0.9074074029922485,
+        "r": 0.24533607065677643
     },
-    "diffuseTexturePath": "project/game/images/kloppenheim_02_puresky_4k.hdr",
     "diffuse_intensity": 1.0,
-    "normalTexturePath": "project/game/images/kloppenheim_02_puresky_4k.hdr",
     "roughness": 0.42500001192092896,
-    "roughnessTexturePath": "project/game/images/kloppenheim_02_puresky_4k.hdr",
+    "shininess": 1.0,
     "specular_intensity": 0.0
 }

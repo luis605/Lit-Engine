@@ -503,7 +503,7 @@ void LoadWorldSettings(const json& worldSettingsJson) {
 
     if (worldSettingsJson.contains("bloomBrightness")) {
         bloomBrightness = worldSettingsJson["bloomBrightness"].get<float>();
-        SetShaderValue(downsamplerShader, GetShaderLocation(downsamplerShader, "bloomBrightness"), &bloomBrightness, SHADER_ATTRIB_FLOAT);
+        SetShaderValue(downsamplerShader, GetUniformLocation(downsamplerShader, "bloomBrightness"), &bloomBrightness, SHADER_ATTRIB_FLOAT);
     }
 
     if (worldSettingsJson.contains("skyboxPath")) {
@@ -512,7 +512,7 @@ void LoadWorldSettings(const json& worldSettingsJson) {
 
     if (worldSettingsJson.contains("ambientColor")) {
         ambientLight = worldSettingsJson["ambientColor"].get<Vector4>();
-        SetShaderValue(shader, GetShaderLocation(shader, "ambientLight"), &ambientLight, SHADER_UNIFORM_VEC4);
+        SetShaderValue(shader, GetUniformLocation(shader, "ambientLight"), &ambientLight, SHADER_UNIFORM_VEC4);
     }
 
     if (worldSettingsJson.contains("gravity")) {
@@ -523,7 +523,7 @@ void LoadWorldSettings(const json& worldSettingsJson) {
 
     if (worldSettingsJson.contains("skyboxColor"))  skyboxColor = worldSettingsJson["skyboxColor"].get<Vector4>();
     else                                            skyboxColor = (Vector4){1,1,1,1};
-    SetShaderValue(skybox.materials[0].shader, GetShaderLocation(skybox.materials[0].shader, "skyboxColor"), &skyboxColor, SHADER_UNIFORM_VEC4);
+    SetShaderValue(skybox.materials[0].shader, GetUniformLocation(skybox.materials[0].shader, "skyboxColor"), &skyboxColor, SHADER_UNIFORM_VEC4);
 
     if (worldSettingsJson.contains("bloomSamples")) {
         bloomSamples = worldSettingsJson["bloomSamples"].get<int>();

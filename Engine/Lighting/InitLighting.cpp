@@ -3,7 +3,7 @@ void SetupShadowMapping() {
 
 
 void InitLighting() {
-    SetShaderValue(shader, GetShaderLocation(shader, "ambientLight"), &ambientLight, SHADER_UNIFORM_VEC4);
+    SetShaderValue(shader, GetUniformLocation(shader, "ambientLight"), &ambientLight, SHADER_UNIFORM_VEC4);
 
     glGenBuffers(1, &lightsBuffer);
     glBindBuffer(GL_SHADER_STORAGE_BUFFER, lightsBuffer);
@@ -16,5 +16,5 @@ void InitLighting() {
     glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 0, renderPrevierLightsBuffer);
 
     int lightsCount = lights.size();
-    glUniform1i(GetShaderLocation(shader, "lightsCount"), lightsCount);
+    glUniform1i(GetUniformLocation(shader, "lightsCount"), lightsCount);
 }
