@@ -75,13 +75,12 @@ void WindowMainloop() {
 }
 
 void UpdateShader() {
-    float cameraPos[3] = { sceneCamera.position.x, sceneCamera.position.y, sceneCamera.position.z };
+    float cameraPos[3] = { inGameCamera.position.x, inGameCamera.position.y, inGameCamera.position.z };
     SetShaderValue(shader, shader.locs[SHADER_LOC_VECTOR_VIEW], cameraPos, SHADER_UNIFORM_VEC3);
 }
 
 void Run() {
     physics.Update(GetFrameTime());
-    UpdateFrustum();
 
     BeginDrawing();
         ClearBackground(GRAY);
@@ -93,6 +92,7 @@ void Run() {
             UpdateLightsBuffer(false, lights);
             UpdateInGameGlobals();
             UpdateShader();
+            UpdateFrustum();
 
             if (first_time) {
                 for (Entity& entity : entitiesList) {

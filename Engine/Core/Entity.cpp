@@ -974,8 +974,13 @@ private:
         PassSurfaceMaterials();
         glUseProgram((GLuint)shader.id);
 
-        const Vector3& camPosition = inGamePreview ? camera.position : sceneCamera.position;
-        const float distance = Vector3Distance(this->position, camPosition);
+        float distance;
+    #ifndef GAME_SHIPPING
+        distance = inGamePreview ? Vector3Distance(this->position, camera.position)
+                                : Vector3Distance(this->position, sceneCamera.position);
+    #else
+        distance = Vector3Distance(this->position, camera.position);
+    #endif
 
         Model& modelToDraw = model;
         if (lodEnabled) {
