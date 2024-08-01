@@ -132,9 +132,9 @@ public:
         int lastIndex = instances.size() - 1;
         calculateInstance(lastIndex);
 
-        instancingShader.locs[SHADER_LOC_MATRIX_MVP] = GetShaderLocation(instancingShader, "mvp");
-        instancingShader.locs[SHADER_LOC_VECTOR_VIEW] = GetShaderLocation(instancingShader, "viewPos");
-        instancingShader.locs[SHADER_LOC_MATRIX_MODEL] = GetShaderLocationAttrib(instancingShader, "instanceTransform");
+        instancingShader.locs[SHADER_LOC_MATRIX_MVP] = GetUniformLocation(instancingShader, "mvp");
+        instancingShader.locs[SHADER_LOC_VECTOR_VIEW] = GetUniformLocation(instancingShader, "viewPos");
+        instancingShader.locs[SHADER_LOC_MATRIX_MODEL] = GetAttribLocation(instancingShader, "instanceTransform");
     }
 
     bool hasInstances() const {
@@ -911,6 +911,7 @@ public:
                 calcPhysicsRotation();
                 calcPhysicsPosition();
             }
+            ReloadTextures();
         } else {
             backupPosition = position;
             setPos(position);
@@ -922,10 +923,8 @@ public:
 
         if (!visible) return;
 
-        static int tilingLocation = GetShaderLocation(shader, "tiling");
+        static int tilingLocation = GetUniformLocation(shader, "tiling");
         SetShaderValue(shader, tilingLocation, tiling, SHADER_UNIFORM_VEC2);
-
-        ReloadTextures();
 
         instances.empty() ? renderSingleModel() : renderInstanced();
     }
@@ -938,9 +937,9 @@ private:
 
         matInstances = LoadMaterialDefault();
 
-        instancingShader.locs[SHADER_LOC_MATRIX_MVP] = GetShaderLocation(instancingShader, "mvp");
-        instancingShader.locs[SHADER_LOC_VECTOR_VIEW] = GetShaderLocation(instancingShader, "viewPos");
-        instancingShader.locs[SHADER_LOC_MATRIX_MODEL] = GetShaderLocationAttrib(instancingShader, "instanceTransform");
+        instancingShader.locs[SHADER_LOC_MATRIX_MVP] = GetUniformLocation(instancingShader, "mvp");
+        instancingShader.locs[SHADER_LOC_VECTOR_VIEW] = GetUniformLocation(instancingShader, "viewPos");
+        instancingShader.locs[SHADER_LOC_MATRIX_MODEL] = GetAttribLocation(instancingShader, "instanceTransform");
 
         model.materials[0].maps[MATERIAL_MAP_DIFFUSE].color = {
             static_cast<unsigned char>(surfaceMaterial.color.x * 255),

@@ -143,14 +143,14 @@ void ApplyBloomEffect() {
 
     BeginTextureMode(downsamplerTexture);
     BeginShaderMode(downsamplerShader);
-    SetShaderValueTexture(downsamplerShader, GetShaderLocation(downsamplerShader, "srcTexture"), viewportTexture);
+    SetShaderValueTexture(downsamplerShader, GetUniformLocation(downsamplerShader, "srcTexture"), viewportTexture);
         DrawTexture(viewportTexture, 0, 0, WHITE);
     EndShaderMode();
     EndTextureMode();
 
     BeginTextureMode(upsamplerTexture);
     BeginShaderMode(upsamplerShader);
-    SetShaderValueTexture(upsamplerShader, GetShaderLocation(upsamplerShader, "srcTexture"), downsamplerTexture.texture);
+    SetShaderValueTexture(upsamplerShader, GetUniformLocation(upsamplerShader, "srcTexture"), downsamplerTexture.texture);
         DrawTexture(downsamplerTexture.texture, 0, 0, WHITE);
     EndShaderMode();
     EndTextureMode();

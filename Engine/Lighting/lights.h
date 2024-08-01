@@ -244,7 +244,7 @@ void UpdateLightsBuffer(bool force, std::vector<LightStruct>& lightsVector, GLui
     glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 0, buffer);
 
     int lightsCount = static_cast<int>(lightsVector.size());
-    SetShaderValue(shader, GetShaderLocation(shader, "lightsCount"), &lightsCount, SHADER_UNIFORM_INT);
+    SetShaderValue(shader, GetUniformLocation(shader, "lightsCount"), &lightsCount, SHADER_UNIFORM_INT);
 }
 
 void removeLight(int id) {

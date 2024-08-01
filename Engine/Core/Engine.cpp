@@ -112,3 +112,21 @@ int findIndexInVector(const std::vector<T>& vec, const T& value) {
         return -1; // Return -1 if the element is not found
     }
 }
+
+GLint GetUniformLocation(Shader& shader, const char* name) {
+    if (uniformLocationCache.find(name) != uniformLocationCache.end())
+        return uniformLocationCache[name];
+
+    GLint location = glGetUniformLocation(shader.id, name);
+    uniformLocationCache[name] = location;
+    return location;
+}
+
+GLint GetAttribLocation(Shader& shader, const char* name) {
+    if (uniformLocationCache.find(name) != uniformLocationCache.end())
+        return uniformLocationCache[name];
+
+    GLint location = glGetAttribLocation(shader.id, name);
+    uniformLocationCache[name] = location;
+    return location;
+}

@@ -30,7 +30,7 @@ void WorldInspector()
             ImGui::SetNextItemWidth(-1);
             if (ImGui::SliderFloat("##BrightnessControl", &bloomBrightness, -2.0f, 2.0f))
             {
-                SetShaderValue(downsamplerShader, GetShaderLocation(downsamplerShader, "bloomBrightness"), &bloomBrightness, SHADER_ATTRIB_FLOAT);
+                SetShaderValue(downsamplerShader, GetUniformLocation(downsamplerShader, "bloomBrightness"), &bloomBrightness, SHADER_ATTRIB_FLOAT);
             }
 
             // Samples Slider
@@ -80,7 +80,7 @@ void WorldInspector()
             {
                 ImGui::ColorPicker4("##AmbientLightColor", (float*)&light_colorImGui);
                 ambientLight = { light_colorImGui.x, light_colorImGui.y, light_colorImGui.z, light_colorImGui.w };
-                SetShaderValue(shader, GetShaderLocation(shader, "ambientLight"), &ambientLight, SHADER_UNIFORM_VEC4);
+                SetShaderValue(shader, GetUniformLocation(shader, "ambientLight"), &ambientLight, SHADER_UNIFORM_VEC4);
                 ImGui::EndPopup();
             }
 
@@ -90,7 +90,7 @@ void WorldInspector()
             ambientLight.z = light_colorImGui.z;
             ambientLight.w = light_colorImGui.w;
 
-            SetShaderValue(shader, GetShaderLocation(shader, "ambientLight"), &ambientLight, SHADER_UNIFORM_VEC4);
+            SetShaderValue(shader, GetUniformLocation(shader, "ambientLight"), &ambientLight, SHADER_UNIFORM_VEC4);
 
             ImGui::Unindent(20.0f);
         }
@@ -117,7 +117,7 @@ void WorldInspector()
             {
                 ImGui::ColorPicker4("##SkyboxColor", (float*)&light_colorImGui);
                 skyboxColor = { light_colorImGui.x, light_colorImGui.y, light_colorImGui.z, light_colorImGui.w };
-                SetShaderValue(skybox.materials[0].shader, GetShaderLocation(skybox.materials[0].shader, "skyboxColor"), &skyboxColor, SHADER_UNIFORM_VEC4);
+                SetShaderValue(skybox.materials[0].shader, GetUniformLocation(skybox.materials[0].shader, "skyboxColor"), &skyboxColor, SHADER_UNIFORM_VEC4);
                 ImGui::EndPopup();
             }
 

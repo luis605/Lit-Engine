@@ -65,9 +65,9 @@ void RunGame() {
     if (bloomEnabled) {
         BeginTextureMode(downsamplerTexture);
         BeginShaderMode(downsamplerShader);
-            SetShaderValueTexture(downsamplerShader, GetShaderLocation(downsamplerShader, "srcTexture"), viewportTexture);
+            SetShaderValueTexture(downsamplerShader, GetUniformLocation(downsamplerShader, "srcTexture"), viewportTexture);
             Vector2 screenResolution = { static_cast<float>(viewportTexture.width), static_cast<float>(viewportTexture.height) };
-            SetShaderValue(downsamplerShader, GetShaderLocation(downsamplerShader, "srcResolution"), &screenResolution, SHADER_UNIFORM_VEC2);
+            SetShaderValue(downsamplerShader, GetUniformLocation(downsamplerShader, "srcResolution"), &screenResolution, SHADER_UNIFORM_VEC2);
 
             DrawTexture(viewportTexture,0,0,WHITE);
         EndShaderMode();
@@ -75,9 +75,9 @@ void RunGame() {
 
         BeginTextureMode(upsamplerTexture);
         BeginShaderMode(upsamplerShader);
-            SetShaderValueTexture(downsamplerShader, GetShaderLocation(downsamplerShader, "srcTexture"), downsamplerTexture.texture);
+            SetShaderValueTexture(downsamplerShader, GetUniformLocation(downsamplerShader, "srcTexture"), downsamplerTexture.texture);
             float filter = 100.0f;
-            SetShaderValue(downsamplerShader, GetShaderLocation(downsamplerShader, "filterRadius"), &filter, SHADER_UNIFORM_FLOAT);
+            SetShaderValue(downsamplerShader, GetUniformLocation(downsamplerShader, "filterRadius"), &filter, SHADER_UNIFORM_FLOAT);
 
             DrawTexture(downsamplerTexture.texture,0,0,WHITE);
         EndShaderMode();

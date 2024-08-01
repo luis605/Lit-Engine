@@ -45,15 +45,15 @@ void InitSkybox(
     int temp_array1[1] = { MATERIAL_MAP_CUBEMAP };
     int use_hdr[1] = { useHDR ? 1 : 0 };
 
-    SetShaderValue(skybox.materials[0].shader, GetShaderLocation(skybox.materials[0].shader, "environmentMap"), temp_array1, SHADER_UNIFORM_INT);
-    SetShaderValue(skybox.materials[0].shader, GetShaderLocation(skybox.materials[0].shader, "doGamma"), use_hdr, SHADER_UNIFORM_INT);
-    SetShaderValue(skybox.materials[0].shader, GetShaderLocation(skybox.materials[0].shader, "vflipped"), use_hdr, SHADER_UNIFORM_INT);
+    SetShaderValue(skybox.materials[0].shader, GetUniformLocation(skybox.materials[0].shader, "environmentMap"), temp_array1, SHADER_UNIFORM_INT);
+    SetShaderValue(skybox.materials[0].shader, GetUniformLocation(skybox.materials[0].shader, "doGamma"), use_hdr, SHADER_UNIFORM_INT);
+    SetShaderValue(skybox.materials[0].shader, GetUniformLocation(skybox.materials[0].shader, "vflipped"), use_hdr, SHADER_UNIFORM_INT);
 
     // Load cubemap shader and setup required shader locations
     shdrCubemap = cubemapShader;
 
     int array0[1] = { 0 };
-    SetShaderValue(shdrCubemap, GetShaderLocation(shdrCubemap, "equirectangularMap"), array0, SHADER_UNIFORM_INT);
+    SetShaderValue(shdrCubemap, GetUniformLocation(shdrCubemap, "equirectangularMap"), array0, SHADER_UNIFORM_INT);
 
 
     skyboxPanorama = LoadTexture(skyboxFileName);
