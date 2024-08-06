@@ -1,89 +1,107 @@
-cmake_minimum_required(VERSION 3.15)
+cmake_minimum_required(VERSION 3.12)
 project(LitEngine)
 
+# Set C++ standard
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
-set(CMAKE_WIN32_EXECUTABLE OFF)
-set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -w")
-set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -w")
-
-execute_process(
-    COMMAND python -c "import sys; print(sys.prefix + '/include/python3.11')"
-    OUTPUT_VARIABLE PYTHON_INCLUDE_DIR
-    OUTPUT_STRIP_TRAILING_WHITESPACE
-)
-
-message("PYTHON DIR: " ${PYTHON_INCLUDE_DIR})
-
-include_directories(
-    ./include
-    ./include/raylib/src
-    ./include/raylib/src/external/glfw/include
-    /mingw64/include/python3.11
-    ./include/nlohmann/include
-    ./include/imgui
-    ./include/bullet3/src
-    ./include/ffmpeg
-    ./include/meshoptimizer/src
-    ./include/pybind11/include
-    ./include/ImGuiColorTextEdit
-    ./include/pybind11
-)
-
-link_directories(
-    ./build/libs
-    /mingw64/lib
-)
-
-file(GLOB IMGUI_SOURCES include/imgui/*.cpp)
-foreach (IMGUI_SOURCE ${IMGUI_SOURCES})
-    get_filename_component(IMGUI_SOURCE_NAME ${IMGUI_SOURCE} NAME_WE)
-    set(IMGUI_OBJECT "include/imgui/${IMGUI_SOURCE_NAME}.o")
-    add_custom_command(
-        OUTPUT ${IMGUI_OBJECT}
-        COMMAND ${CMAKE_CXX_COMPILER} ${CMAKE_CXX_FLAGS} -DIMGUI_IMPL_OPENGL_LOADER_GLAD -c ${IMGUI_SOURCE} -o ${IMGUI_OBJECT}
-        DEPENDS ${IMGUI_SOURCE}
-    )
-    list(APPEND IMGUI_OBJECTS ${IMGUI_OBJECT})
-endforeach ()
-
+# Define source files
 set(SRC_FILES
-    main.cpp
-    include/ImGuiColorTextEdit/TextEditor.o
-    include/rlImGui.o
-    include/ImNodes/ImNodes.o
-    include/ImNodes/ImNodesEz.o
+    include/ImGuiColorTextEdit/TextEditor.cpp
+    include/rlImGui.cpp
+    include/ImNodes/ImNodes.cpp
+    include/ImNodes/ImNodesEz.cpp
 )
 
-add_executable(lit_engine ${SRC_FILES} ${IMGUI_OBJECTS})
+if(UNIX)
+    set(DEBUGGER gdb)
+endif()
 
-target_link_libraries(lit_engine
-    meshoptimizer
-    stdc++fs
-    stdc++
-    raylib
-    libBulletCollision.dll.a
-    libBulletDynamics.dll.a
-    libLinearMath.dll.a
+file(GLOB IMGUI_SRC_FILES
+    ${CMAKE_SOURCE_DIR}/include/imgui/*.cpp
+)
+
+# Include directories
+include_directories(
+    ${CMAKE_SOURCE_DIR}/include
+    ${CMAKE_SOURCE_DIR}/include/ImGuiColorTextEdit
+    ${CMAKE_SOURCE_DIR}/include/ImNodes
+    ${CMAKE_SOURCE_DIR}/include/nlohmann/include
+    ${CMAKE_SOURCE_DIR}/include/imgui
+    ${CMAKE_SOURCE_DIR}/include/bullet3/src
+    ${CMAKE_SOURCE_DIR}/include/raylib/src
+    ${CMAKE_SOURCE_DIR}/include/meshoptimizer/src
+    ${CMAKE_SOURCE_DIR}/include/pybind11/include
+)
+
+# Link directories
+link_directories(
+    ${CMAKE_SOURCE_DIR}/include/meshoptimizer/build
+)
+
+# Libraries to link against
+find_package(PkgConfig REQUIRED)
+pkg_check_modules(AVFORMAT REQUIRED libavformat)
+pkg_check_modules(AVCODEC REQUIRED libavcodec)
+pkg_check_modules(AVUTIL REQUIRED libavutil)
+pkg_check_modules(SWSCALE REQUIRED libswscale)
+pkg_check_modules(SWRESAMPLE REQUIRED libswresample)
+pkg_check_modules(RAYLIB REQUIRED raylib)
+pkg_check_modules(BULLET REQUIRED bullet)
+pkg_check_modules(LZMA REQUIRED liblzma)
+
+set(LIB_FLAGS
+    ${AVFORMAT_LIBRARIES}
+    ${AVCODEC_LIBRARIES}
+    ${AVUTIL_LIBRARIES}
+    ${SWSCALE_LIBRARIES}
+    ${SWRESAMPLE_LIBRARIES}
+    ${CMAKE_SOURCE_DIR}/include/raylib/src/libraylib.a
+    ${BULLET_LIBRARIES}
+    ${LZMA_LIBRARIES}
     pthread
-    bcrypt
-    winmm
-    strmiids
-    avcodec
-    avformat
-    avutil
-    swscale
-    swresample
-    opengl32
-    gdi32
-    kernel32
-    user32
-    libpython3.11.dll.a
+    ${CMAKE_SOURCE_DIR}/include/meshoptimizer/build/libmeshoptimizer.a
 )
 
-add_custom_target(run COMMAND ./lit_engine)
-add_custom_target(brun COMMAND make --no-print-directory build -j8 && make --no-print-directory run)
-add_custom_target(debug COMMAND gdb lit_engine)
-add_custom_target(bdb DEPENDS build debug)
-add_custom_target(clean_all COMMAND find . -name "*.out" | xargs rm -f && find . -name "*.o" | xargs rm -f)
+if(UNIX)
+    # Assuming Python 3.11 is installed
+    find_package(Python3 COMPONENTS Interpreter Development)
+    include_directories(${Python3_INCLUDE_DIRS})
+    list(APPEND LIB_FLAGS ${Python3_LIBRARIES})
+endif()
+
+# Add source files and create executable
+add_executable(LitEngine ${SRC_FILES} ${IMGUI_SRC_FILES} Engine/main.cpp)
+add_executable(LitEngineProfile ${SRC_FILES} ${IMGUI_SRC_FILES} Engine/main.cpp)
+add_executable(LitEngineDebug ${SRC_FILES} ${IMGUI_SRC_FILES} Engine/main.cpp)
+
+target_link_libraries(LitEngine ${LIB_FLAGS} -O3 -funroll-loops -ftree-vectorize -fno-math-errno -freciprocal-math -fvect-cost-model -fgraphite-identity)
+target_link_libraries(LitEngineProfile ${LIB_FLAGS} -pg)
+target_link_libraries(LitEngineDebug ${LIB_FLAGS} -g -O0)
+
+# Optionally add compilation flags
+target_compile_options(LitEngine PRIVATE
+    -pipe
+    -Wno-unused-result
+)
+
+# Add custom commands for run, profile, debug
+add_custom_target(run
+    COMMAND LitEngine
+    DEPENDS LitEngine
+    WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}
+)
+
+add_custom_target(debug
+    COMMAND ${DEBUGGER} ${CMAKE_BINARY_DIR}/LitEngineDebug
+    DEPENDS LitEngineDebug
+    WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}
+)
+
+add_custom_target(profile
+    COMMAND LitEngineProfile
+    DEPENDS LitEngineProfile
+    WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}
+    COMMAND gprof ${CMAKE_BINARY_DIR}/LitEngineProfile gmon.out > analysis.txt
+    COMMAND cat analysis.txt
+)
