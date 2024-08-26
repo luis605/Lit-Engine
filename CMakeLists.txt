@@ -3,7 +3,6 @@ project(LitEngine)
 
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
-SET(BUILD_SHARED_LIBS OFF)
 
 add_definitions(-w)
 
@@ -22,10 +21,22 @@ endif()
 if(WIN32)
     set(Bullet_DIR "${CMAKE_SOURCE_DIR}/install/bin/vcpkg/installed/x64-mingw-static/share/bullet")
     set(CMAKE_MODULE_PATH "${CMAKE_SOURCE_DIR}/install/bin/vcpkg/installed/x64-mingw-static/share/ffmpeg")
+
+    find_package(Bullet CONFIG REQUIRED)
+    find_package(FFMPEG REQUIRED)
 endif()
 
-find_package(Bullet CONFIG REQUIRED)
-find_package(FFMPEG REQUIRED)
+if(UNIX)
+    find_package(PkgConfig REQUIRED)
+    pkg_check_modules(AVFORMAT REQUIRED libavformat)
+    pkg_check_modules(AVCODEC REQUIRED libavcodec)
+    pkg_check_modules(AVUTIL REQUIRED libavutil)
+    pkg_check_modules(SWSCALE REQUIRED libswscale)
+    pkg_check_modules(SWRESAMPLE REQUIRED libswresample)
+    pkg_check_modules(RAYLIB REQUIRED raylib)
+    pkg_check_modules(BULLET REQUIRED bullet)
+    pkg_check_modules(LZMA REQUIRED liblzma)
+endif()
 
 execute_process(
     COMMAND python -c "import sys; print(sys.prefix + '/include')"
@@ -39,10 +50,13 @@ execute_process(
     OUTPUT_STRIP_TRAILING_WHITESPACE
 )
 
-message(STATUS "Bullet_DIR: ${Bullet_DIR}")
-message(STATUS "BULLET_LIBRARIES: ${BULLET_LIBRARIES}")
-message(STATUS "BULLET_INCLUDE_DIRS: ${BULLET_INCLUDE_DIRS}")
-message(STATUS "BULLET_LIBRARY_DIRS: ${BULLET_LIBRARY_DIRS}")
+if(WIN32)
+    message(STATUS "Bullet_DIR: ${Bullet_DIR}")
+    message(STATUS "BULLET_LIBRARIES: ${BULLET_LIBRARIES}")
+    message(STATUS "BULLET_INCLUDE_DIRS: ${BULLET_INCLUDE_DIRS}")
+    message(STATUS "BULLET_LIBRARY_DIRS: ${BULLET_LIBRARY_DIRS}")
+endif()
+
 message(STATUS "PYTHON DIR: ${PYTHON_INCLUDE_DIR}")
 
 file(GLOB IMGUI_SRC_FILES
@@ -57,6 +71,7 @@ include_directories(
     ${CMAKE_SOURCE_DIR}/include/nlohmann/include
     ${CMAKE_SOURCE_DIR}/include/imgui
     ${CMAKE_SOURCE_DIR}/include/ffmpeg
+    ${CMAKE_SOURCE_DIR}/include/bullet3/src
     ${CMAKE_SOURCE_DIR}/include/meshoptimizer/src
     ${CMAKE_SOURCE_DIR}/include/pybind11/include
     ${CMAKE_SOURCE_DIR}/include/ImGuiColorTextEdit
@@ -72,13 +87,32 @@ link_directories(
     ${BULLET_LIBRARY_DIRS}
 )
 
-set(LIB_FLAGS
+if(UNIX)
+    find_package(Python3 COMPONENTS Interpreter Development)
+    set(LIB_FLAGS
+        ${AVFORMAT_LIBRARIES}
+        ${AVCODEC_LIBRARIES}
+        ${AVUTIL_LIBRARIES}
+        ${SWSCALE_LIBRARIES}
+        ${BULLET_LIBRARIES}
+        ${SWRESAMPLE_LIBRARIES}
+        ${Python3_LIBRARIES}
+    )
+endif()
+
+if(WIN32)
+    set(LIB_FLAGS
+        ${FFMPEG_LIBRARIES}
+        ${BULLET_LIBRARIES}
+        winmm
+        python311
+    )
+endif()
+
+list(APPEND LIB_FLAGS
     meshoptimizer
     raylib
     pthread
-    ${BULLET_LIBRARIES}
-    python311
-    ${FFMPEG_LIBRARIES}
     -funroll-loops
     -ftree-vectorize
     -fno-math-errno
@@ -87,42 +121,39 @@ set(LIB_FLAGS
 )
 
 if(UNIX)
-    find_package(Python3 COMPONENTS Interpreter Development)
     include_directories(
         ${Python3_INCLUDE_DIRS}
         ${CMAKE_SOURCE_DIR}/include/bullet3/src
-    )
-    list(APPEND LIB_FLAGS ${Python3_LIBRARIES})
+        ${AVFORMAT_LIBRARIES}
+        ${AVCODEC_LIBRARIES}
+        ${AVUTIL_LIBRARIES}
+        ${SWSCALE_LIBRARIES}
+        ${SWRESAMPLE_LIBRARIES}
+        ${CMAKE_SOURCE_DIR}/include/raylib/src/libraylib.a
+        ${LZMA_LIBRARIES}
+        ${CMAKE_SOURCE_DIR}/include/meshoptimizer/build/libmeshoptimizer.a
+        )
 elseif(WIN32)
-    list(APPEND LIB_FLAGS
-        winmm
-        ${BULLET_LIBRARIES}    
-    )
     include_directories(${BULLET_INCLUDE_DIRS})
 endif()
 
 add_executable(LitEngine ${SRC_FILES} ${IMGUI_SRC_FILES})
-add_executable(LitEngineDebug ${SRC_FILES} ${IMGUI_SRC_FILES})
-if(UNIX)
-    add_executable(LitEngineProfile ${SRC_FILES} ${IMGUI_SRC_FILES})
-endif()
 
 target_compile_definitions(LitEngine PRIVATE IMGUI_IMPL_OPENGL_LOADER_GLAD)
-target_compile_definitions(LitEngineDebug PRIVATE IMGUI_IMPL_OPENGL_LOADER_GLAD)
-if(UNIX)
-    target_compile_definitions(LitEngineProfile PRIVATE IMGUI_IMPL_OPENGL_LOADER_GLAD)
-endif()
 
-target_link_libraries(LitEngine ${LIB_FLAGS} -O3)
-target_link_libraries(LitEngineDebug ${LIB_FLAGS} -g -O0)
-if(UNIX)
-    target_link_libraries(LitEngineProfile ${LIB_FLAGS} -pg)
-endif()
-
+# Link libraries with flags based on the build type
+target_link_libraries(LitEngine ${LIB_FLAGS})
 target_compile_options(LitEngine PRIVATE
     -pipe
     -Wno-unused-result
 )
+
+# Set the different build types
+set(CMAKE_CXX_FLAGS_RELEASE "-O3")
+set(CMAKE_CXX_FLAGS_DEBUG "-g -O0")
+if(UNIX)
+    set(CMAKE_CXX_FLAGS_PROFILE "-pg")
+endif()
 
 add_custom_target(run
     COMMAND LitEngine
@@ -131,17 +162,8 @@ add_custom_target(run
 )
 
 add_custom_target(debug
-    COMMAND ${DEBUGGER} ${CMAKE_BINARY_DIR}/LitEngineDebug
-    DEPENDS LitEngineDebug
+    COMMAND ${CMAKE_COMMAND} -E echo "Make sure you set -DCMAKE_BUILD_TYPE=Debug in your cmake command"
+    COMMAND ${DEBUGGER} ${CMAKE_BINARY_DIR}/LitEngine
+    DEPENDS LitEngine
     WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}
 )
-
-if(UNIX)
-    add_custom_target(profile
-        COMMAND LitEngineProfile
-        DEPENDS LitEngineProfile
-        WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}
-        COMMAND gprof ${CMAKE_BINARY_DIR}/LitEngineProfile gmon.out > analysis.txt
-        COMMAND cat analysis.txt
-    )
-endif()
