@@ -22,7 +22,7 @@ void CodeEditor() {
     ImGui::Begin(ICON_FA_CODE " Code Editor", NULL);
 
     if (RenderImageButtonWithTooltip((ImTextureID)&saveTexture, ImVec2(34, 34), "Save file")) {
-        SaveCodeToFile(codeEditorScriptPath, code);
+        SaveCodeToFile(codeEditorScriptPath.string(), code);
     }
 
     ImGui::SameLine();

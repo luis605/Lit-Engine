@@ -389,7 +389,7 @@ public:
 
     void setModel(const fs::path& path = "", const Model& entityModel = Model()) {
         modelPath = path;
-        model = modelPath.empty() ? entityModel : LoadModel(path.c_str());
+        model = modelPath.empty() ? entityModel : LoadModel(path.string().c_str());
 
         if (!IsModelReady(model)) {
             TraceLog(LOG_WARNING, "Could not set invalid model.");
