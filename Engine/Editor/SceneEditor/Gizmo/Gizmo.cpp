@@ -2,7 +2,7 @@ void LoadGizmoModel(Gizmo& gizmo, const Model& model, const fs::path& modelPath,
     if (modelPath.empty())
         gizmo.model = model;
     else
-        gizmo.model = LoadModel(modelPath.c_str());
+        gizmo.model = LoadModel(modelPath.string().c_str());
 
     if (!IsModelReady(gizmo.model)) {
         TraceLog(LOG_WARNING, "Gizmo model is not ready");

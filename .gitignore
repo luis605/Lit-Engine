@@ -7,3 +7,4 @@
 build/
 profiled
 analysis.txt
+install/bin
