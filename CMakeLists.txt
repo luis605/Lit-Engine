@@ -98,13 +98,10 @@ if(UNIX)
         ${SWRESAMPLE_LIBRARIES}
         ${Python3_LIBRARIES}
     )
-endif()
-
-if(WIN32)
+else()
     set(LIB_FLAGS
         ${FFMPEG_LIBRARIES}
         ${BULLET_LIBRARIES}
-        winmm
         python311
     )
 endif()
@@ -134,6 +131,9 @@ if(UNIX)
         ${CMAKE_SOURCE_DIR}/include/meshoptimizer/build/libmeshoptimizer.a
         )
 elseif(WIN32)
+    list(APPEND LIB_FLAGS
+        winmm
+    )
     include_directories(${BULLET_INCLUDE_DIRS})
 endif()
 
