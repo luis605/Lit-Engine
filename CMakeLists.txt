@@ -167,3 +167,14 @@ add_custom_target(debug
     DEPENDS LitEngine
     WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}
 )
+
+############# GAME BUILDER #############
+
+add_executable(MyApp GameBuilder/gameSystem.cpp)
+target_link_libraries(MyApp ${LIB_FLAGS})
+
+add_custom_target(gameBuilder
+    COMMAND MyApp
+    DEPENDS MyApp
+    WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}
+)
