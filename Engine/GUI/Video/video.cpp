@@ -8,8 +8,9 @@ private:
     struct SwsContext* sws_ctx = nullptr;
     AVFormatContext* formatCtx = nullptr;
     Texture2D texture = { 0 };
-    std::chrono::_V2::system_clock::time_point currentTime;
-    std::chrono::_V2::system_clock::time_point lastFrameTime;
+
+    std::chrono::time_point<std::chrono::high_resolution_clock> currentTime;
+    std::chrono::time_point<std::chrono::high_resolution_clock> lastFrameTime;
     double elapsedTime;
     double frameDuration;
 

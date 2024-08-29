@@ -110,7 +110,7 @@ struct SurfaceMaterialTexture {
     void loadFromFile(const fs::path& filePath) {
         if (fs::exists(filePath)) {
             try {
-                Texture2D fileTexture = LoadTexture(filePath.c_str());
+                Texture2D fileTexture = LoadTexture(filePath.string().c_str());
 
                 if (IsTextureReady(fileTexture)) {
                     staticTexture = fileTexture;

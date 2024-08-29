@@ -120,7 +120,7 @@ bool is_subpath(const fs::path &path, const fs::path &base) {
 void SerializeMaterial(SurfaceMaterial& material, const fs::path path) {
     std::ofstream outfile(path);
     if (!outfile.is_open()) {
-        TraceLog(LOG_ERROR, (std::string("Failed to open material file: ") + std::string(path)).c_str());
+        TraceLog(LOG_ERROR, (std::string("Failed to open material file: ") + path.string()).c_str());
         return;
     }
 
@@ -146,14 +146,14 @@ void DeserializeMaterial(SurfaceMaterial* material, const fs::path path) {
     const fs::path baseDir = fs::current_path() / "project/";
 
     if (!is_subpath(resolvedPath, baseDir)) {
-        TraceLog(LOG_ERROR, (std::string("Path traversal detected: ") + std::string(path)).c_str());
+        TraceLog(LOG_ERROR, (std::string("Path traversal detected: ") + path.string()).c_str());
         return;
     }
 
     std::ifstream infile(resolvedPath);
 
     if (!infile.is_open()) {
-        TraceLog(LOG_ERROR, (std::string("Failed to open material file for reading: ") + std::string(path)).c_str());
+        TraceLog(LOG_ERROR, (std::string("Failed to open material file for reading: ") + path.string()).c_str());
         return;
     }
 
@@ -209,7 +209,7 @@ void DeserializeMaterial(SurfaceMaterial* material, const fs::path path) {
 
         infile.close();
     } catch (const json::parse_error& e) {
-        TraceLog(LOG_ERROR, (std::string("Failed to parse material file (") + std::string(path) + std::string("): ") + std::string(e.what())).c_str());
+        TraceLog(LOG_ERROR, (std::string("Failed to parse material file (") + path.string() + std::string("): ") + std::string(e.what())).c_str());
         return;
     }
 }
@@ -376,13 +376,13 @@ std::string serializePythonScript(const fs::path& path) {
     const fs::path baseDir = fs::current_path() / "project/";
 
     if (!is_subpath(resolvedPath, baseDir)) {
-        TraceLog(LOG_ERROR, (std::string("Path traversal detected: ") + std::string(path)).c_str());
+        TraceLog(LOG_ERROR, (std::string("Path traversal detected: ") + path.string()).c_str());
         return "";
     }
 
     std::ifstream inputFile(resolvedPath);
     if (!inputFile.is_open()) {
-        TraceLog(LOG_ERROR, (std::string("Failed to open file: " + std::string(resolvedPath)).c_str()));
+        TraceLog(LOG_ERROR, (std::string("Failed to open file: " + resolvedPath.string()).c_str()));
         return "";
     }
 

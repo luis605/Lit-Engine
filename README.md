@@ -47,53 +47,30 @@ Then, you can build the remaining dependencies by running:
 ```
 
 ### Windows
-To compile Lit Engine on Windows, you need some dependencies, such as CMake, Make, MSYS2.
 
-1) Make sure you have git installed on your machine. Otherwise, go to https://gitforwindows.org and install the git terminal.
+Before building the engine, ensure that you have all the dependencies installed. They can be installed by opening the install directory and running *install.sh*:
 
-2) Open the Git CMD and clone Lit Engine: `git clone --recurse-submodules -j8 https://github.com/luis605/Lit-Engine`
-
-3) To install the MSYS2 installer, visit https://www.msys2.org/ and follow their installation guide.
-
-4) Lanch MSYS2 MINGW64 and run `pacman -S make cmake nasm diffutils mingw-w64-x86_64-toolchain mingw-w64-x86_64-python mingw-w64-x86_64-ffmpeg mingw-w64-x86_64-bullet msys/msys2-runtime-devel`. If any installation option pops out, use the default option.
-
-5) Open the Lit-Engine directory inside the MSYS2 MINGW console and run:
 ```bash
-cd include/ffmpeg
-./configure --disable-iconv --disable-zlib --disable-network --disable-programs --disable-encoders --disable-demuxers --disable-filters --disable-protocols --disable-openssl --disable-libxml2 --disable-indevs --disable-outdevs # It may take a while
-cd ../..
+cd install
+.\install.bat
 ```
 
-6) Build all the dependencies by opening the project main directory and running:
+Then, you can build the remaining dependencies by running:
 ```bash
-make build_dependencies
-```
-
-7) And finally generate the Makefile and executable by running:
-```bash
-cd build
-cmake -G "Unix Makefiles" .. --fresh
+.\build_dependencies.bat
 ```
 
 #
 
-After successfully cloning the repository and setting up the project, you can build and run Lit Engine using our **Makefile**:
-```bash
-make build
-```
+After successfully cloning the repository and setting up the project, you can build and run Lit Engine using our **CMake setup**:
 
 ```bash
+mkdir build
+cd build
+cmake .. # Linux
+cmake .. -G "MinGW Makefiles" --fresh # Windows 
+make
 make run
-```
-
-Alternatively, you can build and run the engine in a single step using the **brun** target:
-```bash
-make brun
-```
-
-Please note that if you used `make brun` and the build step wasn't executed, you can force a complete rebuild with the following command:
-```bash
-make -B brun
 ```
 
 ### Debugging
@@ -101,10 +78,8 @@ If you encounter any strange behavior and need to debug the engine, you can star
 ```bash
 make debug
 ```
-If you need to rebuild the engine, you can run the build and debug target in a single command
-```bash
-make bdb
-```
+
+Make sure you have built the project in debug mode: `cmake .. -DCMAKE_BUILD_TYPE=Debug`
 
 # Documentation
 
