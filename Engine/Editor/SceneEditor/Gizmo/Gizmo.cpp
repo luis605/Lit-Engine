@@ -66,6 +66,10 @@ void IsGizmoBeingInteracted(const Gizmo& gizmo, const int& index, int& selectedG
     if (isHoveringGizmo) selectedGizmoIndex = index;
 }
 
+static float accumulatedDeltaX = 0.0f;
+static float accumulatedDeltaY = 0.0f;
+static float accumulatedDeltaZ = 0.0f;
+
 bool HandleGizmo(bool& draggingGizmoProperty, Vector3& selectedObjectProperty, int& selectedGizmoIndex) {
     if (!IsMouseButtonDown(MOUSE_LEFT_BUTTON)) return false; // Failure
 
@@ -80,28 +84,42 @@ bool HandleGizmo(bool& draggingGizmoProperty, Vector3& selectedObjectProperty, i
         float deltaX = (mouseDragEnd.x - mouseDragStart.x) * gizmoDragSensitivityFactor;
         float deltaY = (mouseDragEnd.y - mouseDragStart.y) * gizmoDragSensitivityFactor;
 
+        // Accumulate deltas
+        accumulatedDeltaX += deltaX;
+        accumulatedDeltaY += deltaY;
+
         // Determine the direction of the camera
         Vector3 cameraDirection = Vector3Normalize(Vector3Subtract(sceneCamera.position, selectedObjectProperty));
 
+        // Apply movement based on selected gizmo index
         switch (selectedGizmoIndex) {
             case 0:
             case 1:
                 // Adjust Y movement relative to camera direction
-                selectedObjectProperty.y -= deltaY;
+                if (fabs(accumulatedDeltaY) >= gridSnappingFactor) {
+                    selectedObjectProperty.y -= round(accumulatedDeltaY / gridSnappingFactor) * gridSnappingFactor;
+                    accumulatedDeltaY = 0.0f; // Reset the accumulated delta after snapping
+                }
                 break;
 
             case 2:
             case 3:
                 // Adjust Z movement relative to camera direction
-                if (cameraDirection.x > 0) deltaX = -deltaX;
-                selectedObjectProperty.z += deltaX + deltaY;
+                if (cameraDirection.x > 0) accumulatedDeltaX = -accumulatedDeltaX;
+                if (fabs(accumulatedDeltaX + accumulatedDeltaY) >= gridSnappingFactor) {
+                    selectedObjectProperty.z += round((accumulatedDeltaX + accumulatedDeltaY) / gridSnappingFactor) * gridSnappingFactor;
+                    accumulatedDeltaX = accumulatedDeltaY = 0.0f; // Reset the accumulated deltas after snapping
+                }
                 break;
 
             case 4:
             case 5:
                 // Adjust X movement relative to camera direction
-                if (cameraDirection.z > 0) deltaX = -deltaX;
-                selectedObjectProperty.x -= deltaX;
+                if (cameraDirection.z > 0) accumulatedDeltaX = -accumulatedDeltaX;
+                if (fabs(accumulatedDeltaX) >= gridSnappingFactor) {
+                    selectedObjectProperty.x -= round(accumulatedDeltaX / gridSnappingFactor) * gridSnappingFactor;
+                    accumulatedDeltaX = 0.0f; // Reset the accumulated delta after snapping
+                }
                 break;
         }
 

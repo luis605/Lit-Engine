@@ -63,6 +63,7 @@ namespace py = pybind11;
 using namespace py::literals;
 using json = nlohmann::json;
 
+#include "Editor/MenuBar/Settings.h"
 #include "Core/LoD.cpp"
 #include "Scripting/math.cpp"
 #include "Physics/PhysicsManager.cpp"

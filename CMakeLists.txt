@@ -3,6 +3,9 @@ project(LitEngine)
 
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
+SET(BUILD_SHARED_LIBS OFF)
+set(CMAKE_EXE_LINKER_FLAGS "-static-libstdc++ -static-libgcc")
+set (CMAKE_CXX_FLAGS "-no-pie")
 
 add_definitions(-w)
 
@@ -27,6 +30,8 @@ if(WIN32)
 endif()
 
 if(UNIX)
+    find_package(Python3 REQUIRED COMPONENTS Interpreter Development)
+    find_package(X11 REQUIRED)
     find_package(PkgConfig REQUIRED)
     pkg_check_modules(AVFORMAT REQUIRED libavformat)
     pkg_check_modules(AVCODEC REQUIRED libavcodec)
@@ -76,6 +81,7 @@ include_directories(
     ${CMAKE_SOURCE_DIR}/include/pybind11/include
     ${CMAKE_SOURCE_DIR}/include/ImGuiColorTextEdit
     ${CMAKE_SOURCE_DIR}/include/ImNodes
+    ${Python3_INCLUDE_DIRS}
 )
 
 # Link directories
@@ -85,18 +91,26 @@ link_directories(
     ${PYTHON_LIBS_DIR}
     ${FFMPEG_LIBRARY_DIRS}
     ${BULLET_LIBRARY_DIRS}
+    ${CMAKE_SOURCE_DIR}/include/libs/linux
 )
 
 if(UNIX)
-    find_package(Python3 COMPONENTS Interpreter Development)
     set(LIB_FLAGS
-        ${AVFORMAT_LIBRARIES}
-        ${AVCODEC_LIBRARIES}
-        ${AVUTIL_LIBRARIES}
-        ${SWSCALE_LIBRARIES}
-        ${BULLET_LIBRARIES}
-        ${SWRESAMPLE_LIBRARIES}
-        ${Python3_LIBRARIES}
+        avformat
+        avcodec
+        avutil
+        swscale
+        libBulletDynamics.a
+        libBulletCollision.a
+        libLinearMath.a
+        python3.11.a
+        OpenCL
+        libz.a
+        libm.a
+        libc.a
+        libexpat.a
+        libdl.a
+        libxcb.a
     )
 else()
     set(LIB_FLAGS
