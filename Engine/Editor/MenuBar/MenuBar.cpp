@@ -1,16 +1,14 @@
-#include <iostream>
-#include <vector>
-#include <imgui.h>
+#include "Settings.cpp"
 
 // Constants
 constexpr float BUTTON_PADDING = 30.0f;
-constexpr float BUTTON_HEIGHT = 30.0f;
-constexpr ImVec2 BUTTON_SIZE = ImVec2(120.0f, BUTTON_HEIGHT); // Assuming 120.0f is the max button width + padding
+constexpr float BUTTON_HEIGHT  = 30.0f;
+constexpr ImVec2 BUTTON_SIZE   = ImVec2(120.0f, BUTTON_HEIGHT);
 
 // Global variables
 bool showAppearanceWindow = false;
-bool showDebugWindow = false;
-bool menuButtonClicked = false;
+bool showDebugWindow      = false;
+bool menuButtonClicked    = false;
 
 // Function declarations
 void SetStyleHighContrast(ImGuiStyle* style);
@@ -112,6 +110,8 @@ void DrawMenus() {
 
             ImGui::EndMenu();
         }
+
+        if (ImGui::MenuItem("Settings")) showSettingsWindow = true;
 
         ImGui::EndMenu();
     }
@@ -259,6 +259,8 @@ void MenuBar() {
         IsKeyPressed(KEY_D)) showAppearanceWindow = true;
 
     if (showAppearanceWindow && !movingEditorCamera) Appearance();
+    if (showSettingsWindow   && !movingEditorCamera) Settings();
+
     CreateNewTheme();
 
     if (exitWindowRequested) ExitWindowRequested();
