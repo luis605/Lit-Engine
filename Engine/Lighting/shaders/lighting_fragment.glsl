@@ -15,7 +15,7 @@ uniform mat4 viewMatrix;
 uniform mat4 projectionMatrix;
 uniform vec2 tiling;
 
-// pbr
+// PBR Textures
 uniform bool diffuseMapReady;
 uniform bool normalMapReady;
 uniform bool roughnessMapReady;
@@ -49,7 +49,7 @@ layout(std430, binding = 0) buffer LightsBuffer {
 
 uniform int lightsCount;
 
-// Materials
+// Material properties
 struct SurfaceMaterial {
     float SpecularIntensity;
     float DiffuseIntensity;
@@ -65,14 +65,8 @@ layout(std140) uniform MaterialBlock {
 out vec4 finalColor;
 
 // Helper Functions
-vec3 CalculateFresnelReflection(vec3 baseReflectance, vec3 viewDirection, vec3 halfVector) {
-    float cosTheta = max(dot(viewDirection, halfVector), 0.0);
-    float fresnel = pow(1.0 - cosTheta, 5.0);
-    return mix(baseReflectance, vec3(1.0), fresnel);
-}
-
-vec3 FresnelSchlick(float cosTheta, vec3 F0) {
-    return F0 + (vec3(1.0) - F0) * pow(1.0 - cosTheta, 5.0);
+vec3 FresnelSchlick(float cosTheta, vec3 F0, float roughness) {
+    return F0 + (max(vec3(1.0 - roughness), F0) - F0) * pow(1.0 - cosTheta, 5.0);
 }
 
 float DistributionGGX(float NdotH, float roughness) {
@@ -88,6 +82,12 @@ float GeometrySchlickGGX(float NdotV, float roughness) {
     return NdotV / (NdotV * (1.0 - k) + k);
 }
 
+float GeometrySmith(float NdotL, float NdotV, float roughness) {
+    float ggx2 = GeometrySchlickGGX(NdotL, roughness);
+    float ggx1 = GeometrySchlickGGX(NdotV, roughness);
+    return ggx1 * ggx2;
+}
+
 vec3 CookTorrance(vec3 L, vec3 V, vec3 N, float roughness, vec3 F0) {
     float NdotL = max(dot(N, L), 0.0);
     float NdotV = max(dot(N, V), 0.0);
@@ -97,37 +97,38 @@ vec3 CookTorrance(vec3 L, vec3 V, vec3 N, float roughness, vec3 F0) {
     float NdotH = max(dot(N, H), 0.0);
     float VdotH = max(dot(V, H), 0.0);
 
-    vec3 F = FresnelSchlick(VdotH, F0);
+    vec3 F = FresnelSchlick(VdotH, F0, roughness);
     float D = DistributionGGX(NdotH, roughness);
-    float G = GeometrySchlickGGX(NdotL, roughness) * GeometrySchlickGGX(NdotV, roughness);
+    float G = GeometrySmith(NdotL, NdotV, roughness);
 
     return F * D * G / max(4.0 * NdotL * NdotV, 0.001);
 }
 
-vec4 CalculateDiffuseLighting() {
-    vec3 diffuseComponent = colDiffuse.rgb;
-    vec3 ambientComponent = colDiffuse.rgb * ambientLight.rgb * surfaceMaterial.DiffuseIntensity;
-    vec3 resultColor = ambientComponent * diffuseComponent;
-    return vec4(resultColor, 1.0);
+vec4 CalculateDiffuseLighting(vec3 norm, vec3 lightDir, vec4 lightColor, float diffuseIntensity) {
+    float NdotL = max(dot(norm, lightDir), 0.0);
+    return lightColor * colDiffuse * NdotL * diffuseIntensity / PI;
 }
 
-vec4 toneMap(vec4 hdrColor, float exposure) {
-    vec3 mapped = hdrColor.rgb / (hdrColor.rgb + vec3(1.0));
-    mapped = pow(mapped, vec3(1.0 / exposure));
-    return vec4(mapped, 1.0);
+vec4 CalculateAmbientLighting(vec4 texColor, float diffuseIntensity) {
+    float ambientOcclusion = 1.0; // Placeholder for AO factor
+    return ambientLight * texColor * ambientOcclusion * diffuseIntensity;
 }
 
-vec4 CalculateLight(Light light, vec3 viewDir, vec3 norm, vec3 fragPosition, vec4 texColor, vec3 F0) {
+vec4 toneMapFilmic(vec4 hdrColor) {
+    vec3 x = max(vec3(0.0), hdrColor.rgb - vec3(0.004));
+    vec3 result = (x * (6.2 * x + 0.5)) / (x * (6.2 * x + 1.7) + 0.06);
+    return vec4(result, hdrColor.a);
+}
+
+vec4 CalculateLight(Light light, vec3 viewDir, vec3 norm, vec3 fragPosition, vec4 texColor, vec3 F0, SurfaceMaterial material) {
     vec3 lightDir;
     float attenuation = 1.0;
     float spot = 1.0;
+
     if (light.type == LIGHT_DIRECTIONAL) {
         lightDir = normalize(-light.direction);
     } else {
-        if ((light.position.x < 1 && light.position.y < 1 && light.position.z < 1) && 
-            (light.position.x > -1 && light.position.y > -1 && light.position.z > -1)) {
-            lightDir = normalize((light.position + vec3(.1)) - fragPosition);
-        } else lightDir = normalize(light.position - fragPosition);
+        lightDir = normalize(light.position - fragPosition);
 
         float lightToFragDist = length(light.position - fragPosition);
         attenuation = 1.0 / (1.0 + light.attenuation * lightToFragDist * lightToFragDist);
@@ -135,24 +136,24 @@ vec4 CalculateLight(Light light, vec3 viewDir, vec3 norm, vec3 fragPosition, vec
             spot = smoothstep(0.6, 0.8, dot(lightDir, light.direction));
         }
     }
-    float NdotL = max(dot(norm, lightDir), 0.0);
-    vec4 diffuseTerm = colDiffuse * surfaceMaterial.DiffuseIntensity * NdotL * texColor;
-    vec3 specular = CookTorrance(lightDir, viewDir, norm, surfaceMaterial.Roughness, F0) * light.specularStrength * surfaceMaterial.SpecularIntensity;
 
-    return (diffuseTerm / PI + vec4(specular, 1.0)) * vec4(light.color.rgb, 1.0) * attenuation * spot * light.intensity;
+    vec4 diffuse = CalculateDiffuseLighting(norm, lightDir, light.color, material.DiffuseIntensity);
+    vec3 specular = CookTorrance(lightDir, viewDir, norm, material.Roughness, F0) * light.specularStrength * material.SpecularIntensity;
+
+    return (diffuse + vec4(specular, 1.0)) * attenuation * spot * light.intensity;
 }
 
 vec4 CalculateLighting(vec3 fragPosition, vec3 fragNormal, vec3 viewDir, vec2 texCoord, SurfaceMaterial material, vec4 texColor) {
     vec4 result = vec4(0.0);
-    vec3 F0 = vec3(material.Metalness);
+    vec3 F0 = mix(vec3(0.04), texColor.rgb, material.Metalness);
 
     for (int i = 0; i < lightsCount; i++) {
         if (!lights[i].enabled) continue;
-        result += CalculateLight(lights[i], viewDir, fragNormal, fragPosition, texColor, F0);
+        result += CalculateLight(lights[i], viewDir, fragNormal, fragPosition, texColor, F0, material);
     }
 
-    result += CalculateDiffuseLighting();
-    return toneMap(result, 0.5);
+    result += CalculateAmbientLighting(texColor, material.DiffuseIntensity);
+    return toneMapFilmic(result);
 }
 
 void main() {
