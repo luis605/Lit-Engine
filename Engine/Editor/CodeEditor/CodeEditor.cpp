@@ -21,11 +21,15 @@ void SaveCodeToFile(const std::string& filePath, const std::string& code) {
 void CodeEditor() {
     ImGui::Begin(ICON_FA_CODE " Code Editor", NULL);
 
-    if (RenderImageButtonWithTooltip((ImTextureID)&saveTexture, ImVec2(34, 34), "Save file")) {
+    if (autoSaveCode) {
         SaveCodeToFile(codeEditorScriptPath.string(), code);
+    } else {
+        if (RenderImageButtonWithTooltip((ImTextureID)&saveTexture, ImVec2(34, 34), "Save file")) {
+            SaveCodeToFile(codeEditorScriptPath.string(), code);
+        }
+        ImGui::SameLine();
     }
 
-    ImGui::SameLine();
 
     if (RenderImageButtonWithTooltip((ImTextureID)&hotReloadTexture, ImVec2(34, 34), "Reload all scripts")) {
         if (ImGui::IsMouseDoubleClicked(ImGuiMouseButton_Left)) {

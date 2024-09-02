@@ -229,7 +229,7 @@ void RenderScene() {
             ClearBackground(GRAY);
 
             DrawSkybox();
-            
+
             UpdateLightsBuffer(true, lights);
             UpdateInGameGlobals();
             UpdateFrustum();
@@ -248,7 +248,7 @@ void RenderScene() {
             glDepthRange(0, 1.0);
 
             HandleUnselect();
-            
+
         EndMode3D();
 
         DrawTextElements();
@@ -310,7 +310,7 @@ void ObjectsPopup() {
 
     if (ImGui::BeginPopup("popup")) {
         ImGui::Text("Add an Object");
-        
+
         ImGui::Separator();
 
         if (ImGui::BeginMenu("Entity")) {
@@ -516,7 +516,7 @@ void EntityPaste(const std::shared_ptr<Entity>& entity, Entity* parent = nullptr
     for (int childIndex : oldLightChildrenIds) {
         DuplicateLight(*getLightById(childIndex), newEntityRef);
     }
-    
+
     selectedGameObjectType = "entity";
     selectedEntity = &entitiesListPregame.back();
 }

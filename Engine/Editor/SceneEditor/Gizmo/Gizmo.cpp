@@ -68,10 +68,14 @@ void IsGizmoBeingInteracted(const Gizmo& gizmo, const int& index, int& selectedG
 
 static float accumulatedDeltaX = 0.0f;
 static float accumulatedDeltaY = 0.0f;
-static float accumulatedDeltaZ = 0.0f;
 
 bool HandleGizmo(bool& draggingGizmoProperty, Vector3& selectedObjectProperty, int& selectedGizmoIndex) {
-    if (!IsMouseButtonDown(MOUSE_LEFT_BUTTON)) return false; // Failure
+    if (!IsMouseButtonDown(MOUSE_LEFT_BUTTON)) {
+        accumulatedDeltaX = accumulatedDeltaY = 0.0f;
+        draggingGizmoProperty = false;
+        dragging = false;
+        return false;
+    }
 
     if (isHoveringGizmo && !dragging) {
         mouseDragStart = GetMousePosition();
@@ -84,41 +88,47 @@ bool HandleGizmo(bool& draggingGizmoProperty, Vector3& selectedObjectProperty, i
         float deltaX = (mouseDragEnd.x - mouseDragStart.x) * gizmoDragSensitivityFactor;
         float deltaY = (mouseDragEnd.y - mouseDragStart.y) * gizmoDragSensitivityFactor;
 
-        // Accumulate deltas
         accumulatedDeltaX += deltaX;
         accumulatedDeltaY += deltaY;
 
-        // Determine the direction of the camera
         Vector3 cameraDirection = Vector3Normalize(Vector3Subtract(sceneCamera.position, selectedObjectProperty));
 
-        // Apply movement based on selected gizmo index
         switch (selectedGizmoIndex) {
-            case 0:
+            case 0: // Y-axis movement
             case 1:
-                // Adjust Y movement relative to camera direction
-                if (fabs(accumulatedDeltaY) >= gridSnappingFactor) {
+                if (!gridSnappingEnabled) {
+                    selectedObjectProperty.y += deltaY;
+                } else if (fabs(accumulatedDeltaY) >= gridSnappingFactor) {
                     selectedObjectProperty.y -= round(accumulatedDeltaY / gridSnappingFactor) * gridSnappingFactor;
-                    accumulatedDeltaY = 0.0f; // Reset the accumulated delta after snapping
+                    accumulatedDeltaY = 0.0f;
                 }
                 break;
 
-            case 2:
+            case 2: // Z-axis movement
             case 3:
-                // Adjust Z movement relative to camera direction
-                if (cameraDirection.x > 0) accumulatedDeltaX = -accumulatedDeltaX;
-                if (fabs(accumulatedDeltaX + accumulatedDeltaY) >= gridSnappingFactor) {
+                if (cameraDirection.x > 0) {
+                    accumulatedDeltaX = -accumulatedDeltaX;
+                    deltaX = -deltaX;
+                }
+                if (!gridSnappingEnabled) {
+                    selectedObjectProperty.z += (deltaX + deltaY);
+                } else if (fabs(accumulatedDeltaX + accumulatedDeltaY) >= gridSnappingFactor) {
                     selectedObjectProperty.z += round((accumulatedDeltaX + accumulatedDeltaY) / gridSnappingFactor) * gridSnappingFactor;
-                    accumulatedDeltaX = accumulatedDeltaY = 0.0f; // Reset the accumulated deltas after snapping
+                    accumulatedDeltaX = accumulatedDeltaY = 0.0f;
                 }
                 break;
 
-            case 4:
+            case 4: // X-axis movement
             case 5:
-                // Adjust X movement relative to camera direction
-                if (cameraDirection.z > 0) accumulatedDeltaX = -accumulatedDeltaX;
-                if (fabs(accumulatedDeltaX) >= gridSnappingFactor) {
+                if (cameraDirection.z > 0) {
+                    accumulatedDeltaX = -accumulatedDeltaX;
+                    deltaX = -deltaX;
+                }
+                if (!gridSnappingEnabled) {
+                    selectedObjectProperty.x += deltaX;
+                } else if (fabs(accumulatedDeltaX) >= gridSnappingFactor) {
                     selectedObjectProperty.x -= round(accumulatedDeltaX / gridSnappingFactor) * gridSnappingFactor;
-                    accumulatedDeltaX = 0.0f; // Reset the accumulated delta after snapping
+                    accumulatedDeltaX = 0.0f;
                 }
                 break;
         }
@@ -126,8 +136,9 @@ bool HandleGizmo(bool& draggingGizmoProperty, Vector3& selectedObjectProperty, i
         mouseDragStart = mouseDragEnd;
     }
 
-    return true; // Success
+    return true;
 }
+
 
 void DrawGizmo(Gizmo& gizmo, const bool& wireframe = false, const bool& applyRotation = false) {
     Matrix rotationMat = MatrixRotateXYZ((Vector3){
