@@ -40,23 +40,11 @@ void LoadTextures() {
     SetWindowIcon(windowIconImage);
 }
 
-void InitImGui() {
-    rlImGuiSetup(true);
-
-    ImGui::CreateContext();
-    ImGuiIO& io = ImGui::GetIO();
-    io.ConfigFlags |= ImGuiConfigFlags_DockingEnable;
-    viewport = ImGui::GetMainViewport();
-
-    SetStyleGray(&ImGui::GetStyle());
-
-    ImGuiStyle& style = ImGui::GetStyle();
-    style.WindowMinSize.x = 370.0f;
+void UpdateFonts(float fontSize, ImGuiIO& io) {
+    s_Fonts.clear();
 
     fs::path fontPath = GetWorkingDirectory();
     fontPath += "/assets/fonts/";
-
-    float fontSize = 17.0f * io.FontGlobalScale;
 
     auto addFont = [&](const std::string& fontName, const std::string& fileName, float sizeModifier = 0) {
         s_Fonts[fontName] = io.Fonts->AddFontFromFileTTF((fontPath.string() + fileName).c_str(), fontSize + sizeModifier);
@@ -73,6 +61,32 @@ void InitImGui() {
     io.FontDefault = s_Fonts["Regular"];
 
     rlImGuiReloadFonts();
+}
+
+void HandleFontUpdateIfNeeded() {
+    if (fontsNeedUpdate) {
+        ImGuiIO& io = ImGui::GetIO();
+        UpdateFonts(editorFontSize, io);
+        fontsNeedUpdate = false;
+    }
+}
+
+void InitImGui() {
+    rlImGuiSetup(true);
+
+    ImGui::CreateContext();
+    ImGuiIO& io = ImGui::GetIO();
+    io.ConfigFlags |= ImGuiConfigFlags_DockingEnable;
+    viewport = ImGui::GetMainViewport();
+
+    SetStyleGray(&ImGui::GetStyle());
+
+    ImGuiStyle& style = ImGui::GetStyle();
+    style.WindowMinSize.x = 370.0f;
+
+    float fontSize = 17.0f * io.FontGlobalScale;
+
+    UpdateFonts(fontSize, io);
 }
 
 void InitShaders() {
@@ -119,6 +133,8 @@ void EngineMainLoop() {
     while ((!exitWindow)) {
         if (WindowShouldClose()) exitWindowRequested = true;
 
+        HandleFontUpdateIfNeeded();
+
         BeginDrawing();
 
             ClearBackground(DARKGRAY);
@@ -134,7 +150,7 @@ void EngineMainLoop() {
             EditorCamera();
 
             rlImGuiEnd();
-        
+
         EndDrawing();
     }
 }

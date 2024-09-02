@@ -52,12 +52,12 @@ std::string ShowFileExplorer(const char* folderPath, nlohmann::json fileContent,
     if (showSaveThemeWindow || showLoadThemeWindow)
     {
         showFileExplorer = true;
-        
+
         ImGui::Begin("File Explorer", &showFileExplorer, ImGuiConfigFlags_ViewportsEnable);
 
         // Display the folder path
         ImGui::Text("Folder: %s", folderPath);
-        
+
 
         static char fileName[256] = "";
 
@@ -69,10 +69,10 @@ std::string ShowFileExplorer(const char* folderPath, nlohmann::json fileContent,
             }
         }
         ImGui::EndChild();
-        
+
         // Input field for new file name
         ImGui::InputText("File name", fileName, 256);
-        
+
         if ( (type == FileExplorerType::Save) || (type == FileExplorerType::SaveLoad) )
         {
             if (ImGui::Button("Save file")) {
@@ -151,7 +151,7 @@ void CreateNewTheme() {
                 {"color", color_hex}
             });
         }
-        
+
         ShowFileExplorer(themesFolder.c_str(), data, FileExplorerType::Save);
     }
 
@@ -219,12 +219,12 @@ void SetStyleHighContrast(ImGuiStyle* dst)
 
 ImVec4 rgbaToImguiColor(int red, int green, int blue, int alpha) {
     ImVec4 normalizedRGBA;
-    
+
     normalizedRGBA.x = red / 255.0f;
     normalizedRGBA.y = green / 255.0f;
     normalizedRGBA.z = blue / 255.0f;
     normalizedRGBA.w = alpha / 255.0f;
-    
+
     return normalizedRGBA;
 }
 
@@ -237,16 +237,16 @@ void SetStyleGray(ImGuiStyle* dst)
     style->GrabRounding = 5.0f;
 
     style->FrameBorderSize = 1.0f;
-    
+
     // Text
     colors[ImGuiCol_Text] = ImVec4(0.95f, 0.95f, 0.95f, 1.00f);
     colors[ImGuiCol_TextDisabled] = ImVec4(0.97f, 0.97f, 0.97f, 1.00f);
-    
+
     // Frames
     colors[ImGuiCol_FrameBg]            = ImVec4(0.4f, 0.4f, 0.4f, 1.0f);
     colors[ImGuiCol_FrameBgHovered]     = ImVec4{ 0.3f, 0.3f, 0.3f, 1.0f };
     colors[ImGuiCol_FrameBgActive]      = ImVec4{ 0.15f, 0.15f, 0.15f, 1.0f };
-    
+
     // Windows && Tabs && MenuBar
     colors[ImGuiCol_WindowBg]           = ImVec4{ 0.094f, 0.098f, 0.1f, 1.0f };
 	colors[ImGuiCol_ChildBg]            = ImVec4{ 0.094f, 0.098f, 0.1f, 1.0f };
@@ -266,7 +266,7 @@ void SetStyleGray(ImGuiStyle* dst)
     colors[ImGuiCol_TitleBg]            = ImVec4{ 0.125f, 0.125f, 0.125f, 1.0f };
     colors[ImGuiCol_TitleBgActive]      = ImVec4{ 0.25f, 0.25f, 0.25f, 1.0f };
     colors[ImGuiCol_TitleBgCollapsed]   = ImVec4{ 0.15f, 0.1505f, 0.151f, 1.0f };
-    
+
     // Others
     colors[ImGuiCol_Button]             = ImVec4(0.30f, 0.30f, 0.30f, 1.00f);
     colors[ImGuiCol_ButtonHovered]      = ImVec4(0.50f, 0.50f, 0.50f, 1.00f);

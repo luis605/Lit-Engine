@@ -21,6 +21,7 @@ bool isWindowMaximized = false;
 bool exitWindowRequested = false;
 bool exitWindow = false;
 bool isDraggingWindow = false;
+bool fontsNeedUpdate = false;
 
 static std::unordered_map<std::string, ImFont*> s_Fonts;
 
