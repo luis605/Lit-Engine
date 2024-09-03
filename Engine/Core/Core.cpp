@@ -34,7 +34,8 @@ void LoadTextures() {
     lightTexture = LoadTexture("assets/images/light_bulb.png");
     windowIconImage = LoadImage("assets/images/window_icon.png");
     windowIconTexture = LoadTextureFromImage(windowIconImage);
-    downsamplerTexture = LoadRenderTexture(GetScreenWidth(), GetScreenHeight());
+    verticalBlurTexture = LoadRenderTexture(GetScreenWidth(), GetScreenHeight());
+    horizontalBlurTexture = LoadRenderTexture(GetScreenWidth(), GetScreenHeight());
     upsamplerTexture = LoadRenderTexture(GetScreenWidth(), GetScreenHeight());
 
     SetWindowIcon(windowIconImage);
@@ -90,10 +91,11 @@ void InitImGui() {
 }
 
 void InitShaders() {
-    shader =            LoadShaderFromMemory(lightingVert, lightingFrag);
-    instancingShader =  LoadShaderFromMemory(lightingVert, lightingFrag);
-    downsamplerShader = LoadShaderFromMemory(lightingVert, downsamplerFrag);
-    upsamplerShader =   LoadShaderFromMemory(lightingVert, upsamplerFrag);
+    shader               = LoadShader("Engine/Lighting/shaders/lighting_vertex.glsl", "Engine/Lighting/shaders/lighting_fragment.glsl");
+    instancingShader     = LoadShader("Engine/Lighting/shaders/lighting_vertex.glsl", "Engine/Lighting/shaders/lighting_fragment.glsl");
+    horizontalBlurShader = LoadShader("Engine/Lighting/shaders/lighting_vertex.glsl", "Engine/Lighting/shaders/blurHorizontal.fs");
+    verticalBlurShader   = LoadShader("Engine/Lighting/shaders/lighting_vertex.glsl", "Engine/Lighting/shaders/blurVertical.fs");
+    upsamplerShader      = LoadShader("Engine/Lighting/shaders/lighting_vertex.glsl", "Engine/Lighting/shaders/upsampler.glsl");
 }
 
 void InitCodeEditor() {

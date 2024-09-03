@@ -139,6 +139,12 @@ void DrawMenus() {
             gizmoTorus[0].model.materials[0].shader = shader;
         }
 
+        if (ImGui::MenuItem("Reload Bloom Shader")) {
+            verticalBlurShader   = LoadShader("Engine/Lighting/shaders/lighting_vertex.glsl", "Engine/Lighting/shaders/blurVertical.fs");
+            horizontalBlurShader = LoadShader("Engine/Lighting/shaders/lighting_vertex.glsl", "Engine/Lighting/shaders/blurHorizontal.fs");
+            verticalBlurShader   = LoadShader("Engine/Lighting/shaders/lighting_vertex.glsl", "Engine/Lighting/shaders/blurVertical.fs");
+        }
+
         if (ImGui::MenuItem("Reload Skybox Shader")) {
             InitSkybox();
         }

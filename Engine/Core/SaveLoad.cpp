@@ -61,7 +61,7 @@ namespace nlohmann {
         static void to_json(json& j, const Vector3& vec) {
             j = json{{"x", vec.x}, {"y", vec.y}, {"z", vec.z}};
         }
-        
+
         static void from_json(const json& j, Vector3& vec) {
             vec.x = j["x"];
             vec.y = j["y"];
@@ -242,7 +242,7 @@ void SaveEntity(json& jsonData, const Entity& entity) {
     j["relativePosition"]        = entity.relativePosition;
     j["modelPath"]               = entity.modelPath;
     j["tiling"]                  = entity.tiling;
-    
+
     if (IsModelReady(entity.model) && entity.modelPath.empty())
         j["mesh_type"]           = entity.ObjectType;
 
@@ -292,13 +292,13 @@ void SaveLight(json& jsonData, const LightStruct& lightStruct) {
     j["color"]["a"] = lightStruct.light.color.a * 255;
     j["name"] = lightStruct.lightInfo.name;
     j["position"] = lightStruct.light.position;
-    
+
     if (!lightStruct.isChild) {
         j["relativePosition"]["x"] = 0;
         j["relativePosition"]["y"] = 0;
         j["relativePosition"]["z"] = 0;
     } else j["relativePosition"] = lightStruct.light.relativePosition;
-    
+
     if (lightStruct.light.type == LIGHT_POINT) {
         j["target"]["x"] = 0;
         j["target"]["y"] = 0;
@@ -337,8 +337,8 @@ void SaveWorldSetting(json& jsonData) {
     j["type"] = "world settings";
     j["gravity"] = physics.gravity;
     j["bloom"] = bloomEnabled;
-    j["bloomBrightness"] = bloomBrightness;
-    j["bloomSamples"] = bloomSamples;
+    j["bloomThreshold"] = bloomThreshold;
+    j["kernelSize"] = kernelSize;
     j["skyboxPath"] = skyboxPath;
     j["ambientColor"] = ambientLight;
     j["skyboxColor"] = skyboxColor;
@@ -501,9 +501,9 @@ void LoadWorldSettings(const json& worldSettingsJson) {
         bloomEnabled = worldSettingsJson["bloom"].get<bool>();
     }
 
-    if (worldSettingsJson.contains("bloomBrightness")) {
-        bloomBrightness = worldSettingsJson["bloomBrightness"].get<float>();
-        SetShaderValue(downsamplerShader, GetUniformLocation(downsamplerShader, "bloomBrightness"), &bloomBrightness, SHADER_ATTRIB_FLOAT);
+    if (worldSettingsJson.contains("bloomThreshold")) {
+        bloomThreshold = worldSettingsJson["bloomThreshold"].get<float>();
+        SetShaderValue(upsamplerShader, GetUniformLocation(upsamplerShader, "threshold"), &bloomThreshold, SHADER_ATTRIB_FLOAT);
     }
 
     if (worldSettingsJson.contains("skyboxPath")) {
@@ -524,15 +524,6 @@ void LoadWorldSettings(const json& worldSettingsJson) {
     if (worldSettingsJson.contains("skyboxColor"))  skyboxColor = worldSettingsJson["skyboxColor"].get<Vector4>();
     else                                            skyboxColor = (Vector4){1,1,1,1};
     SetShaderValue(skybox.materials[0].shader, GetUniformLocation(skybox.materials[0].shader, "skyboxColor"), &skyboxColor, SHADER_UNIFORM_VEC4);
-
-    if (worldSettingsJson.contains("bloomSamples")) {
-        bloomSamples = worldSettingsJson["bloomSamples"].get<int>();
-        int shaderLocation = glGetUniformLocation(downsamplerShader.id, "samples");
-
-        glUseProgram(downsamplerShader.id);
-        glUniform1i(shaderLocation, bloomSamples);
-        glUseProgram(0);
-    }
 }
 
 Entity* LoadEntity(const json& entityJson) {
@@ -594,7 +585,7 @@ Entity* LoadEntity(const json& entityJson) {
     if (entityJson.contains("lodEnabled")) {
         entity->lodEnabled = entityJson["lodEnabled"].get<bool>();
     }
-    
+
     if (entityJson.contains("tiling")) {
         entity->tiling[0] = entityJson["tiling"][0].get<float>();
         entity->tiling[1] = entityJson["tiling"][1].get<float>();
@@ -679,7 +670,7 @@ LightStruct& LoadLight(const json& lightJson) {
         lightJson["color"]["b"].get<float>() / 255,
         lightJson["color"]["a"].get<float>() / 255
     });
-    
+
     lightStruct.lightInfo.name = lightJson["name"].get<std::string>();
 
     lightStruct.light.position = glm::vec3{
@@ -835,6 +826,6 @@ int LoadProject(std::vector<Entity>& entitiesVector, std::vector<LightStruct>& l
     }
 
     UpdateLightsBuffer(false, lightsVector);
-    
+
     return 0;
 }

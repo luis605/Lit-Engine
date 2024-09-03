@@ -23,12 +23,14 @@ int shadowMapHeight = 1024;
 unsigned int depthMapFBO;
 
 bool bloomEnabled = false;
-float bloomBrightness = 0.0f;
-float bloomSamples = 3.0f;
+float bloomThreshold = 0.2f;
+float bloomIntensity = 0.5f;
+int kernelSize = 1;
 
 Shader shader;
 Shader instancingShader;
-Shader downsamplerShader;
+Shader horizontalBlurShader;
+Shader verticalBlurShader;
 Shader upsamplerShader;
 GLuint lightsBuffer;
 GLuint renderPrevierLightsBuffer;
@@ -36,7 +38,8 @@ GLuint surfaceMaterialUBO;
 
 Vector4 ambientLight = {1.0f, 1.0f, 1.0f, 1.0f};
 
-RenderTexture downsamplerTexture;
+RenderTexture verticalBlurTexture;
+RenderTexture horizontalBlurTexture;
 RenderTexture upsamplerTexture;
 
 void UpdateLightsBuffer(bool force, std::vector<LightStruct>& lightsVector, GLuint& buffer = lightsBuffer);

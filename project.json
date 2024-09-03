@@ -2,15 +2,15 @@
     {
         "fovy": 60.0,
         "position": {
-            "x": -32.76521682739258,
-            "y": 13.190119743347168,
-            "z": -25.372941970825195
+            "x": -7.82828950881958,
+            "y": 15.442718505859375,
+            "z": -20.671432495117188
         },
         "projection": 0,
         "target": {
-            "x": -32.087806701660156,
-            "y": 12.854840278625488,
-            "z": -24.718189239501953
+            "x": -7.329524993896484,
+            "y": 15.003413200378418,
+            "z": -19.924274444580078
         },
         "type": "camera",
         "up": {
@@ -22,11 +22,11 @@
     {
         "ambientColor": {
             "w": 1.0,
-            "x": 0.007843137718737125,
-            "y": 0.007843137718737125,
-            "z": 0.007843137718737125
+            "x": 0.0,
+            "y": 0.0,
+            "z": 0.0
         },
-        "bloom": false,
+        "bloom": true,
         "bloomBrightness": 0.0,
         "bloomSamples": 3.0,
         "gravity": {
@@ -53,7 +53,7 @@
         "is_dynamic": false,
         "lodEnabled": true,
         "mass": 1.0,
-        "material_path": "",
+        "material_path": "project/game/materials/file1.mat",
         "mesh_type": 4,
         "modelPath": "",
         "name": "Unnamed Entity",
@@ -68,9 +68,9 @@
             "z": 0.0
         },
         "rotation": {
-            "x": 1.322271466255188,
-            "y": 1.2752805948257446,
-            "z": -0.23837387561798096
+            "x": 0.48219752311706543,
+            "y": 0.18756915628910065,
+            "z": -1.029890537261963
         },
         "scale": {
             "x": 1000.0,
@@ -80,13 +80,13 @@
         "scriptIndex": "",
         "script_path": "",
         "surfaceMaterial": {
-            "DiffuseIntensity": 0.5,
-            "Roughness": 0.5,
-            "SpecularIntensity": 0.5
+            "DiffuseIntensity": 1.0,
+            "Roughness": 0.2070000022649765,
+            "SpecularIntensity": 1.0
         },
         "tiling": [
-            1.0,
-            1.0
+            37.599998474121094,
+            37.5
         ],
         "type": "entity"
     },
@@ -145,9 +145,9 @@
         "friction": 1.0,
         "id": 3,
         "is_dynamic": false,
-        "lodEnabled": true,
+        "lodEnabled": false,
         "mass": 1.0,
-        "material_path": "",
+        "material_path": "project/game/materials/file1.mat",
         "mesh_type": 6,
         "modelPath": "",
         "name": "Unnamed Entity",
@@ -162,9 +162,9 @@
             "z": 0.0
         },
         "rotation": {
-            "x": 66.69375610351563,
-            "y": -31.96466636657715,
-            "z": -34.653709411621094
+            "x": 66.70057678222656,
+            "y": -32.01999282836914,
+            "z": -34.87025833129883
         },
         "scale": {
             "x": 5.0,
@@ -174,9 +174,9 @@
         "scriptIndex": "",
         "script_path": "",
         "surfaceMaterial": {
-            "DiffuseIntensity": 0.5,
-            "Roughness": 0.5,
-            "SpecularIntensity": 0.5
+            "DiffuseIntensity": 1.0,
+            "Roughness": 0.2070000022649765,
+            "SpecularIntensity": 1.0
         },
         "tiling": [
             1.0,
@@ -185,7 +185,7 @@
         "type": "entity"
     },
     {
-        "attenuation": 0.035999998450279236,
+        "attenuation": 0.05999999865889549,
         "color": {
             "a": 255.0,
             "b": 255.0,
@@ -198,7 +198,7 @@
             "z": -0.4000000059604645
         },
         "id": 1,
-        "intensity": 1.1160000562667847,
+        "intensity": 10.937999725341797,
         "isChild": false,
         "light_type": 1,
         "name": "New Light",
@@ -221,7 +221,7 @@
         "type": "light"
     },
     {
-        "attenuation": 0.006000000052154064,
+        "attenuation": 0.0010000000474974513,
         "color": {
             "a": 255.0,
             "b": 0.0,
@@ -257,7 +257,7 @@
         "type": "light"
     },
     {
-        "attenuation": 0.019999999552965164,
+        "attenuation": 0.05900000035762787,
         "color": {
             "a": 255.0,
             "b": 97.68144989013672,
@@ -270,7 +270,7 @@
             "z": -0.4000000059604645
         },
         "id": 5,
-        "intensity": 1.3389999866485596,
+        "intensity": 3.7939999103546143,
         "isChild": false,
         "light_type": 1,
         "name": "New Light",

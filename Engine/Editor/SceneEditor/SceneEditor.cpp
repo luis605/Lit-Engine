@@ -141,17 +141,25 @@ void RenderViewportTexture() {
 void ApplyBloomEffect() {
     if (!bloomEnabled) return;
 
-    BeginTextureMode(downsamplerTexture);
-    BeginShaderMode(downsamplerShader);
-    SetShaderValueTexture(downsamplerShader, GetUniformLocation(downsamplerShader, "srcTexture"), viewportTexture);
+    BeginTextureMode(horizontalBlurTexture);
+    BeginShaderMode(horizontalBlurShader);
+    SetShaderValueTexture(horizontalBlurShader, GetUniformLocation(horizontalBlurShader, "srcTexture"), viewportTexture);
         DrawTexture(viewportTexture, 0, 0, WHITE);
+    EndShaderMode();
+    EndTextureMode();
+
+    BeginTextureMode(verticalBlurTexture);
+    BeginShaderMode(verticalBlurShader);
+    SetShaderValueTexture(verticalBlurShader, GetUniformLocation(verticalBlurShader, "srcTexture"), horizontalBlurTexture.texture);
+        DrawTexture(horizontalBlurTexture.texture, 0, 0, WHITE);
     EndShaderMode();
     EndTextureMode();
 
     BeginTextureMode(upsamplerTexture);
     BeginShaderMode(upsamplerShader);
-    SetShaderValueTexture(upsamplerShader, GetUniformLocation(upsamplerShader, "srcTexture"), downsamplerTexture.texture);
-        DrawTexture(downsamplerTexture.texture, 0, 0, WHITE);
+    SetShaderValueTexture(upsamplerShader, GetUniformLocation(upsamplerShader, "downsampledTexture"), verticalBlurTexture.texture);
+    SetShaderValueTexture(upsamplerShader, GetUniformLocation(upsamplerShader, "originalTexture"), viewportTexture);
+        DrawTexture(verticalBlurTexture.texture, 0, 0, WHITE);
     EndShaderMode();
     EndTextureMode();
 }
@@ -556,11 +564,13 @@ void ScaleViewport() {
         viewportRenderTexture = LoadRenderTexture(currentWindowSize.x, currentWindowSize.y);
         viewportTexture = viewportRenderTexture.texture;
 
-        UnloadRenderTexture(downsamplerTexture);
+        UnloadRenderTexture(verticalBlurTexture);
+        UnloadRenderTexture(horizontalBlurTexture);
         UnloadRenderTexture(upsamplerTexture);
 
-        downsamplerTexture = LoadRenderTexture(currentWindowSize.x, currentWindowSize.y);
-        upsamplerTexture = LoadRenderTexture(currentWindowSize.x, currentWindowSize.y);
+        verticalBlurTexture   = LoadRenderTexture(currentWindowSize.x, currentWindowSize.y);
+        horizontalBlurTexture = LoadRenderTexture(currentWindowSize.x, currentWindowSize.y);
+        upsamplerTexture      = LoadRenderTexture(currentWindowSize.x, currentWindowSize.y);
 
         prevEditorWindowSize = currentWindowSize;
     }

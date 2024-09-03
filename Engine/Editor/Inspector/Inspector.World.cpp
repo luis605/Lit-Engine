@@ -25,24 +25,33 @@ void WorldInspector()
             ImGui::Checkbox("##BloomToggle", &bloomEnabled);
 
             // Brightness Slider
-            ImGui::Text(ICON_FA_ADJUST " Brightness:");
+            ImGui::Text(ICON_FA_ADJUST " Threshold:");
             ImGui::SameLine(inputWidth);
             ImGui::SetNextItemWidth(-1);
-            if (ImGui::SliderFloat("##BrightnessControl", &bloomBrightness, -2.0f, 2.0f))
-            {
-                SetShaderValue(downsamplerShader, GetUniformLocation(downsamplerShader, "bloomBrightness"), &bloomBrightness, SHADER_ATTRIB_FLOAT);
+            if (ImGui::SliderFloat("##ThresholdControl", &bloomThreshold, 0.0f, 1.0f)) {
+                SetShaderValue(upsamplerShader, GetUniformLocation(upsamplerShader, "threshold"), &bloomThreshold, SHADER_ATTRIB_FLOAT);
+            }
+
+            ImGui::Text(ICON_FA_ADJUST " Intensity:");
+            ImGui::SameLine(inputWidth);
+            ImGui::SetNextItemWidth(-1);
+            if (ImGui::SliderFloat("##IntensityControl", &bloomIntensity, 0.0f, 2.0f)) {
+                SetShaderValue(upsamplerShader, GetUniformLocation(upsamplerShader, "bloomIntensity"), &bloomIntensity, SHADER_ATTRIB_FLOAT);
             }
 
             // Samples Slider
-            ImGui::Text(ICON_FA_CUBE " Samples:");
-            ImGui::SameLine(inputWidth);
+            ImGui::Text(ICON_FA_CUBE " Kernel Size:");
+            ImGui::SameLine(inputWidth+ 40.0f);
             ImGui::SetNextItemWidth(-1);
-            if (ImGui::SliderFloat("##SamplesControl", &bloomSamples, 1.0f, 8.0f, "%1.f"))
-            {
-                int shaderLocation = glGetUniformLocation(downsamplerShader.id, "samples");
+            if (ImGui::SliderInt("##KernelSize", &kernelSize, 1.0f, 60.0f)) {
+                int shaderLocation = glGetUniformLocation(verticalBlurShader.id, "kernelSize");
+                glUseProgram(verticalBlurShader.id);
+                glUniform1i(shaderLocation, kernelSize);
+                glUseProgram(0);
 
-                glUseProgram(downsamplerShader.id);
-                glUniform1i(shaderLocation, bloomSamples);
+                shaderLocation = glGetUniformLocation(horizontalBlurShader.id, "kernelSize");
+                glUseProgram(horizontalBlurShader.id);
+                glUniform1i(shaderLocation, kernelSize);
                 glUseProgram(0);
             }
 
