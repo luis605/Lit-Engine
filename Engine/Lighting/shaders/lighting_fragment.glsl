@@ -104,14 +104,14 @@ vec3 CookTorrance(vec3 L, vec3 V, vec3 N, float roughness, vec3 F0) {
     return F * D * G / max(4.0 * NdotL * NdotV, 0.001);
 }
 
-vec4 CalculateDiffuseLighting(vec3 norm, vec3 lightDir, vec4 lightColor, float diffuseIntensity) {
+vec4 CalculateDiffuseLighting(vec3 norm, vec3 lightDir, vec4 lightColor, float diffuseIntensity, vec4 texColor) {
     float NdotL = max(dot(norm, lightDir), 0.0);
-    return lightColor * colDiffuse * NdotL * diffuseIntensity / PI;
+    return lightColor * colDiffuse * NdotL * diffuseIntensity / PI * texColor;
 }
 
-vec4 CalculateAmbientLighting(vec4 texColor, float diffuseIntensity) {
+vec4 CalculateAmbientLighting(float diffuseIntensity) {
     float ambientOcclusion = 1.0; // Placeholder for AO factor
-    return ambientLight * texColor * ambientOcclusion * diffuseIntensity;
+    return ambientLight * ambientOcclusion * diffuseIntensity;
 }
 
 vec4 toneMapFilmic(vec4 hdrColor) {
@@ -137,7 +137,7 @@ vec4 CalculateLight(Light light, vec3 viewDir, vec3 norm, vec3 fragPosition, vec
         }
     }
 
-    vec4 diffuse = CalculateDiffuseLighting(norm, lightDir, light.color, material.DiffuseIntensity);
+    vec4 diffuse = CalculateDiffuseLighting(norm, lightDir, light.color, material.DiffuseIntensity, texColor);
     vec3 specular = CookTorrance(lightDir, viewDir, norm, material.Roughness, F0) * light.specularStrength * material.SpecularIntensity;
 
     return (diffuse + vec4(specular, 1.0)) * attenuation * spot * light.intensity;
@@ -152,7 +152,7 @@ vec4 CalculateLighting(vec3 fragPosition, vec3 fragNormal, vec3 viewDir, vec2 te
         result += CalculateLight(lights[i], viewDir, fragNormal, fragPosition, texColor, F0, material);
     }
 
-    result += CalculateAmbientLighting(texColor, material.DiffuseIntensity);
+    result += CalculateAmbientLighting(material.DiffuseIntensity);
     return toneMapFilmic(result);
 }
 

@@ -228,10 +228,10 @@ const float stepSize = 6.0;
 in vec2 fragTexCoord;
 out vec4 FragColor;
 uniform sampler2D srcTexture;
-uniform float bloomBrightness;
+uniform float bloomThreshold;
 
 const float weightConstant = 0.0007;
-float weight = weightConstant * (1.0 + bloomBrightness) * 10;
+float weight = weightConstant * (1.0 + bloomThreshold) * 10;
 float attenuation = 1.0 - 6.0 * weight;
 vec2 texelSize = vec2(1.0) / textureSize(srcTexture, 0);
 

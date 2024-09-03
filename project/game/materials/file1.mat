@@ -1,15 +1,15 @@
 {
-    "aoTexturePath": "",
+    "aoTexturePath": "project/game/images/textures/disp.png",
     "color": {
         "a": 1.0,
         "b": 1.0,
         "g": 1.0,
         "r": 1.0
     },
-    "diffuseTexturePath": "",
-    "diffuse_intensity": 0.5569999814033508,
-    "normalTexturePath": "",
-    "roughness": 0.43700000643730164,
-    "roughnessTexturePath": "",
+    "diffuseTexturePath": "project/game/images/textures/diff.png",
+    "diffuse_intensity": 1.0,
+    "normalTexturePath": "project/game/images/textures/norm.png",
+    "roughness": 0.2070000022649765,
+    "roughnessTexturePath": "project/game/images/textures/rough.png",
     "specular_intensity": 1.0
 }
