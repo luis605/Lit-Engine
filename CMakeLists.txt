@@ -164,10 +164,7 @@ target_compile_options(LitEngine PRIVATE
 
 # Set the different build types
 set(CMAKE_CXX_FLAGS_RELEASE "-O3")
-set(CMAKE_CXX_FLAGS_DEBUG "-g -O0")
-if(UNIX)
-    set(CMAKE_CXX_FLAGS_PROFILE "-pg")
-endif()
+set(CMAKE_CXX_FLAGS_DEBUG "-g -O0 -pg")
 
 add_custom_target(run
     COMMAND LitEngine
@@ -181,6 +178,23 @@ add_custom_target(debug
     DEPENDS LitEngine
     WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}
 )
+
+if(UNIX)
+    add_custom_target(profile
+        COMMAND ${CMAKE_COMMAND} -E echo "Running LitEngine..."
+        COMMAND LitEngine
+        COMMAND ${CMAKE_COMMAND} -E echo "Moving gmon.out to binary directory..."
+        COMMAND ${CMAKE_COMMAND} -E rename ${CMAKE_SOURCE_DIR}/gmon.out ${CMAKE_BINARY_DIR}/gmon.out
+        COMMAND ${CMAKE_COMMAND} -E echo "Profiling with gprof..."
+        COMMAND gprof ${CMAKE_BINARY_DIR}/LitEngine ${CMAKE_BINARY_DIR}/gmon.out > ${CMAKE_BINARY_DIR}/analysis.txt
+        COMMAND ${CMAKE_COMMAND} -E echo "Analysis results:"
+        COMMAND cat ${CMAKE_BINARY_DIR}/analysis.txt
+        DEPENDS LitEngine
+        WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}
+    )
+endif()
+
+
 
 ############# GAME BUILDER #############
 

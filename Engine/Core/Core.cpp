@@ -226,7 +226,7 @@ void DraggableWindow() {
 }
 
 void ToggleMaximization() {
-    isWindowMaximized ? RestoreWindow() : MaximizeWindow();    
+    isWindowMaximized ? RestoreWindow() : MaximizeWindow();
     isWindowMaximized = !isWindowMaximized;
 }
 
@@ -235,44 +235,47 @@ static int currentExitMenuButton = 1;
 void ExitWindowRequested() {
     showManipulateEntityPopup = false;
 
-    const ImVec2 windowSize(200, 90);
-    const ImVec2 windowPos((GetScreenWidth() - windowSize.x) * 0.5f, (GetScreenHeight() - windowSize.y) * 0.5f);
+    if (exitWindowRequested) ImGui::OpenPopup("Exit App");
 
-    ImGuiWindowFlags windowFlags = ImGuiWindowFlags_NoCollapse | ImGuiWindowFlags_NoDocking | ImGuiWindowFlags_Modal | ImGuiWindowFlags_NoResize;
+    ImVec2 center(ImGui::GetIO().DisplaySize.x * 0.5f, ImGui::GetIO().DisplaySize.y * 0.5f);
+    ImGui::SetNextWindowPos(center, ImGuiCond_Appearing, ImVec2(0.5f, 0.5f));
 
-    ImGui::SetNextWindowPos(windowPos);
-    ImGui::SetNextWindowSize(windowSize);
+    const ImVec2 p = ImVec2(24.0f, 24.0f);
+    ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, p);
+    ImGui::PushStyleVar(ImGuiStyleVar_FrameRounding, 10.0f);
 
-    ImGui::OpenPopup("Are you sure you want to exit?");
+    if (ImGui::BeginPopupModal("Exit App", NULL, ImGuiWindowFlags_AlwaysAutoResize | ImGuiWindowFlags_NoTitleBar)) {
+        ImGuiContext& g = *GImGui;
+        const ImGuiStyle& style = g.Style;
+        float margin = (style.WindowPadding.x) * 2.0f;
+        float w = ImGui::GetWindowWidth() - margin;
+        float h = 35.0f;
 
-    if (ImGui::BeginPopupModal("Are you sure you want to exit?", nullptr, windowFlags)) {
-        ImGui::Separator();
+        ImGui::CenteredText("Do you want to save the project", ImVec2(w, 20));
+        ImGui::CenteredText("before exiting?", ImVec2(w, 20));
+        ImGui::CenteredText("\nYou can revert to undo the changes\n \n", ImVec2(w, 40));
 
-        ImVec2 buttonSize(100, 30);
+        if (ImGui::Button("Save", ImVec2(w, h))) {
+            SaveProject();
+            exitWindow = true;
+        }
 
-        ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(1, 0, 0, 1));
+        const ImVec2 spc = ImVec2(7.0f, 16.0f);
+        ImGui::PushStyleVar(ImGuiStyleVar_ItemSpacing, spc);
 
-        if (currentExitMenuButton == 0) ImGui::PushStyleColor(ImGuiCol_Button, ImVec4(0.6, 0.6, 0.6, 1));
+        if(ImGui::Button("Revert Changes", ImVec2(w, h))) {
+            exitWindow = true;
+        }
 
-        if (ImGui::Button("Yes", buttonSize) || (ImGui::IsKeyPressed(ImGui::GetKeyIndex(ImGuiKey_Enter)) && currentExitMenuButton == 0)) exitWindow = true;
-        ImGui::PopStyleColor(1);
-
-        if (currentExitMenuButton == 0) ImGui::PopStyleColor(1);
-
-        ImGui::SameLine();
-
-        if (currentExitMenuButton == 1) ImGui::PushStyleColor(ImGuiCol_Button, ImVec4(0.6, 0.6, 0.6, 1));
-
-        if (ImGui::Button("No", buttonSize) || ImGui::IsKeyPressed(ImGui::GetKeyIndex(ImGuiKey_Escape)) || (ImGui::IsKeyPressed(ImGui::GetKeyIndex(ImGuiKey_Enter)) && currentExitMenuButton == 1))
+        if(ImGui::Button("Cancel", ImVec2(w, h))) {
             exitWindowRequested = false;
+        }
 
-        if (currentExitMenuButton == 1) ImGui::PopStyleColor(1);
-
-        if (ImGui::IsKeyPressed(ImGui::GetKeyIndex(ImGuiKey_RightArrow)) || ImGui::IsKeyPressed(ImGui::GetKeyIndex(ImGuiKey_LeftArrow)))
-            currentExitMenuButton = (currentExitMenuButton + 1) % 2;
-
+        ImGui::PopStyleVar(1);
         ImGui::EndPopup();
     }
+
+    ImGui::PopStyleVar(2);
 }
 
 Vector3 glm3ToVec3(glm::vec3& vec3) {

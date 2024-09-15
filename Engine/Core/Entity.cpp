@@ -147,13 +147,13 @@ public:
         Entity* entity = instances.at(index);
 
         Matrix translation = MatrixTranslate(entity->position.x, entity->position.y, entity->position.z);
-        Matrix rotation = MatrixRotateXYZ(Vector3{ DEG2RAD * entity->rotation.x, DEG2RAD * entity->rotation.y, DEG2RAD * entity->rotation.z });    
+        Matrix rotation = MatrixRotateXYZ(Vector3{ DEG2RAD * entity->rotation.x, DEG2RAD * entity->rotation.y, DEG2RAD * entity->rotation.z });
 
         transforms[index] = MatrixMultiply(rotation, translation);
 
         matInstances = LoadMaterialDefault();
     }
-        
+
     void addEntityChild(int newEntityIndex) {
         Entity* newEntity = getEntityById(newEntityIndex);
 
@@ -196,7 +196,7 @@ public:
 
         if (newLight->isChild && newLight->parent != nullptr) {
             auto it = std::find(newLight->parent->lightsChildren.begin(), newLight->parent->lightsChildren.end(), newLightIndex);
-            
+
             if (it != newLight->parent->lightsChildren.end()) {
                 newLight->parent->lightsChildren.erase(it);
             }
@@ -232,10 +232,10 @@ public:
     void updateEntityChild(Entity* entity, int entityIndex) {
         if (!entity) {
             TraceLog(LOG_WARNING, "Cannot update child, since child is not found.");
-            
-            auto it = entitiesChildren.erase(std::find(entitiesChildren.begin(), entitiesChildren.end(), 
-                                entityIndex)); 
-        
+
+            auto it = entitiesChildren.erase(std::find(entitiesChildren.begin(), entitiesChildren.end(),
+                                entityIndex));
+
             return;
         }
 
@@ -519,7 +519,7 @@ public:
         py::module mathModule = py::module::import("mathModule");
         py::module_::import("__main__").attr("entitiesList") = py::cast(entitiesList);
         entityObj = py::cast(this);
-    
+
         locals = py::dict(
             "entity"_a = entityObj,
             "IsMouseButtonPressed"_a = inputModule.attr("isMouseButtonPressed"),
@@ -773,7 +773,7 @@ public:
                 // Add each vertex to the convex hull shape
                 for (int v = 0; v < mesh.vertexCount; v++) {
                     btVector3 scaledVertex(
-                        meshVertices[v * 3]     * scale.x, 
+                        meshVertices[v * 3]     * scale.x,
                         meshVertices[v * 3 + 1] * scale.y,
                         meshVertices[v * 3 + 2] * scale.z
                     );
@@ -822,7 +822,7 @@ public:
         boxMotionState = std::make_shared<btDefaultMotionState>(startTransform);
         btRigidBody::btRigidBodyConstructionInfo rigidBodyCI(btMass, boxMotionState.get(), rigidShape.get(), localInertia);
         rigidBody = std::make_unique<btRigidBody>(rigidBodyCI);
-        
+
         physics.dynamicsWorld->addRigidBody(rigidBody.get());
         currentCollisionShapeType = CollisionShapeType::Box;
     }
@@ -843,7 +843,7 @@ public:
                 // Add each vertex to the convex hull shape
                 for (int v = 0; v < mesh.vertexCount; v++) {
                     btVector3 scaledVertex(
-                        meshVertices[v * 3]     * scale.x, 
+                        meshVertices[v * 3]     * scale.x,
                         meshVertices[v * 3 + 1] * scale.y,
                         meshVertices[v * 3 + 2] * scale.z
                     );
@@ -861,7 +861,7 @@ public:
         customMeshShape.get()->calculateLocalInertia(rigidMass, rigidInertia);
         btDefaultMotionState* boxMotionState = new btDefaultMotionState(rigidTransform);
         btRigidBody::btRigidBodyConstructionInfo highPolyStaticRigidBodyCI(rigidMass, boxMotionState, customMeshShape.get(), rigidInertia);
-        
+
         rigidBody = std::make_shared<btRigidBody>(highPolyStaticRigidBodyCI);
         physics.dynamicsWorld->addRigidBody(rigidBody.get());
     }
@@ -875,7 +875,7 @@ public:
 
     void makePhysicsStatic(CollisionShapeType shapeType = CollisionShapeType::None) {
         isDynamic = false;
- 
+
         if (shapeType == CollisionShapeType::Box)                createStaticBox();
         else if (shapeType == CollisionShapeType::HighPolyMesh)  createStaticMesh();
     }
@@ -1003,7 +1003,7 @@ private:
                     static_cast<unsigned char>(surfaceMaterial.color.z * 255),
                     static_cast<unsigned char>(surfaceMaterial.color.w * 255)});
     }
-    
+
     void PassSurfaceMaterials() {
         if (surfaceMaterialUBO != 0) {
             glDeleteBuffers(1, &surfaceMaterialUBO);

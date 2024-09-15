@@ -267,7 +267,6 @@ void RenderScene() {
     RenderViewportTexture();
 }
 
-
 void DropEntity() {
     ImVec2 windowPos = ImGui::GetWindowPos();
     ImVec2 windowSize = ImGui::GetWindowSize();
@@ -281,7 +280,7 @@ void DropEntity() {
 
             int payloadIndex = *(const int*)payload->Data;
 
-            std::string modelFilePath = dirPath.string() + "/" + fileStruct[payloadIndex].name;
+            std::string modelFilePath = fs::path(dirPath / fileStruct[payloadIndex].name).string();
 
             size_t lastDotIndex = modelFilePath.find_last_of('.');
             std::string entityName = modelFilePath.substr(0, lastDotIndex);

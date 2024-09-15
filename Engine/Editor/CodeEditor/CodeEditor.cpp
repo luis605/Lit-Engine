@@ -27,9 +27,8 @@ void CodeEditor() {
         if (RenderImageButtonWithTooltip((ImTextureID)&saveTexture, ImVec2(34, 34), "Save file")) {
             SaveCodeToFile(codeEditorScriptPath.string(), code);
         }
-        ImGui::SameLine();
+        ImGui::SameLine(0, 10);
     }
-
 
     if (RenderImageButtonWithTooltip((ImTextureID)&hotReloadTexture, ImVec2(34, 34), "Reload all scripts")) {
         if (ImGui::IsMouseDoubleClicked(ImGuiMouseButton_Left)) {
@@ -40,11 +39,13 @@ void CodeEditor() {
         }
     }
 
-    ImGui::SameLine();
+    ImGui::SameLine(0, 10);
 
     ImGui::BeginDisabled();
     ImGui::Button((codeEditorScriptPath.string() + std::string("##Script Path")).c_str(), ImVec2(ImGui::GetContentRegionAvail().x, 34));
     ImGui::EndDisabled();
+
+    ImGui::Spacing();
 
     editor.Render("TextEditor");
     code = editor.GetText();

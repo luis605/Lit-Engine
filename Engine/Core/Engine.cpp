@@ -1,13 +1,3 @@
-std::string getFileExtension(const std::string& filePath) {
-    size_t dotPos = filePath.find_last_of('.');
-    size_t slashPos = filePath.find_last_of("/\\");
-
-    if (dotPos != std::string::npos && (slashPos == std::string::npos || dotPos > slashPos))
-        return filePath.substr(dotPos);
- 
-    return "no file extension";
-}
-
 const char* encryptFileString(const std::string& inputFile, const std::string& key) {
     std::ifstream inFile(inputFile, std::ios::binary);
 

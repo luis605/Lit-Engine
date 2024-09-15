@@ -26,7 +26,6 @@ struct HitInfo {
     Entity* entity;
 };
 
-std::string getFileExtension(const std::string& filePath);
 std::string colorToString(const Color& color);
 std::string readFileToString(const std::string& filename);
 const char* decryptFileString(const std::string& inputFile, const std::string& key);

@@ -89,7 +89,7 @@ profile: $(IMGUI_OBJECTS)
 	@$(call echo_success, "Success!")
 	./profiled
 	gprof ./profiled gmon > analysis.txt
-	cat analysis.txt
+	cat analysis.txt | less
 
 debug:
 	@echo "Debugging Lit Engine"

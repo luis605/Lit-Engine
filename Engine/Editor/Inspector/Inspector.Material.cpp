@@ -75,8 +75,7 @@ void MaterialInspector(SurfaceMaterial* surfaceMaterial = nullptr, fs::path path
                 IM_ASSERT(payload->DataSize == sizeof(int));
                 int payload_n = *(const int*)payload->Data;
 
-                fs::path path = dirPath;
-                path += "/" + fileStruct[payload_n].name;
+                fs::path path = dirPath / fileStruct[payload_n].name;
 
                 surfaceMaterial->diffuseTexturePath = path;
                 surfaceMaterial->diffuseTexture = path;
@@ -110,8 +109,7 @@ void MaterialInspector(SurfaceMaterial* surfaceMaterial = nullptr, fs::path path
                 IM_ASSERT(payload->DataSize == sizeof(int));
                 int payload_n = *(const int*)payload->Data;
 
-                fs::path path = dirPath;
-                path += "/" + fileStruct[payload_n].name;
+                fs::path path = dirPath / fileStruct[payload_n].name;
 
                 surfaceMaterial->normalTexturePath = path;
                 surfaceMaterial->normalTexture = path;
@@ -147,8 +145,7 @@ void MaterialInspector(SurfaceMaterial* surfaceMaterial = nullptr, fs::path path
                 IM_ASSERT(payload->DataSize == sizeof(int));
                 int payload_n = *(const int*)payload->Data;
 
-                fs::path path = dirPath;
-                path += "/" + fileStruct[payload_n].name;
+                fs::path path = dirPath / fileStruct[payload_n].name;
 
                 surfaceMaterial->roughnessTexture = path;
                 surfaceMaterial->roughnessTexturePath = path;
@@ -183,8 +180,7 @@ void MaterialInspector(SurfaceMaterial* surfaceMaterial = nullptr, fs::path path
                 IM_ASSERT(payload->DataSize == sizeof(int));
                 int payload_n = *(const int*)payload->Data;
 
-                fs::path path = dirPath;
-                path += "/" + fileStruct[payload_n].name;
+                fs::path path = dirPath / fileStruct[payload_n].name;
 
                 surfaceMaterial->aoTexturePath = path;
                 surfaceMaterial->aoTexture = path;

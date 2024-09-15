@@ -138,7 +138,7 @@ void SerializeMaterial(SurfaceMaterial& material, const fs::path path) {
     outfile.close();
 }
 
-void DeserializeMaterial(SurfaceMaterial* material, const fs::path path) {
+void DeserializeMaterial(SurfaceMaterial* material, const fs::path& path) {
     if (!material || !fs::exists(path)) return;
 
     // Path Traversal Vulnerability Prevention
