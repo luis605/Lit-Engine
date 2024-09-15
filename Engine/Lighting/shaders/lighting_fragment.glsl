@@ -14,6 +14,7 @@ uniform vec3 viewPos;
 uniform mat4 viewMatrix;
 uniform mat4 projectionMatrix;
 uniform vec2 tiling;
+uniform float exposure = 1.0;
 
 // PBR Textures
 uniform bool diffuseMapReady;
@@ -65,8 +66,8 @@ layout(std140) uniform MaterialBlock {
 out vec4 finalColor;
 
 // Helper Functions
-vec3 FresnelSchlick(float cosTheta, vec3 F0, float roughness) {
-    return F0 + (max(vec3(1.0 - roughness), F0) - F0) * pow(1.0 - cosTheta, 5.0);
+vec3 FresnelSchlick(float cosTheta, vec3 F0) {
+    return F0 + (1.0 - F0) * pow(1.0 - cosTheta, 5.0);
 }
 
 float DistributionGGX(float NdotH, float roughness) {
@@ -97,7 +98,7 @@ vec3 CookTorrance(vec3 L, vec3 V, vec3 N, float roughness, vec3 F0) {
     float NdotH = max(dot(N, H), 0.0);
     float VdotH = max(dot(V, H), 0.0);
 
-    vec3 F = FresnelSchlick(VdotH, F0, roughness);
+    vec3 F = FresnelSchlick(VdotH, F0);
     float D = DistributionGGX(NdotH, roughness);
     float G = GeometrySmith(NdotL, NdotV, roughness);
 
@@ -109,9 +110,10 @@ vec4 CalculateDiffuseLighting(vec3 norm, vec3 lightDir, vec4 lightColor, float d
     return lightColor * colDiffuse * NdotL * diffuseIntensity / PI * texColor;
 }
 
-vec4 CalculateAmbientLighting(float diffuseIntensity) {
-    float ambientOcclusion = 1.0; // Placeholder for AO factor
-    return ambientLight * ambientOcclusion * diffuseIntensity;
+vec4 CalculateAmbientLighting(float roughness) {
+    float occlusion = 1.0;
+    float ambientFactor = mix(0.2, 1.0, 1.0 - roughness);
+    return vec4(vec3(ambientLight.rgb * colDiffuse.rgb * occlusion * ambientFactor), colDiffuse.a);
 }
 
 vec4 toneMapFilmic(vec4 hdrColor) {
@@ -140,7 +142,7 @@ vec4 CalculateLight(Light light, vec3 viewDir, vec3 norm, vec3 fragPosition, vec
     vec4 diffuse = CalculateDiffuseLighting(norm, lightDir, light.color, material.DiffuseIntensity, texColor);
     vec3 specular = CookTorrance(lightDir, viewDir, norm, material.Roughness, F0) * light.specularStrength * material.SpecularIntensity;
 
-    return (diffuse + vec4(specular, 1.0)) * attenuation * spot * light.intensity;
+    return vec4(vec3((diffuse.rgb + specular) * attenuation * spot * light.intensity), 1);
 }
 
 vec4 CalculateLighting(vec3 fragPosition, vec3 fragNormal, vec3 viewDir, vec2 texCoord, SurfaceMaterial material, vec4 texColor) {
@@ -152,7 +154,7 @@ vec4 CalculateLighting(vec3 fragPosition, vec3 fragNormal, vec3 viewDir, vec2 te
         result += CalculateLight(lights[i], viewDir, fragNormal, fragPosition, texColor, F0, material);
     }
 
-    result += CalculateAmbientLighting(material.DiffuseIntensity);
+    result += CalculateAmbientLighting(material.Roughness);
     return toneMapFilmic(result);
 }
 
@@ -162,16 +164,16 @@ void main() {
     vec4 texColor = vec4(1);
     if (diffuseMapReady) texColor = texture(texture0, texCoord);
 
-    vec3 dp1 = dFdx(fragPosition);
-    vec3 dp2 = dFdy(fragPosition);
-    vec2 duv1 = dFdx(fragTexCoord);
-    vec2 duv2 = dFdy(fragTexCoord);
-
-    vec3 tangent = normalize(dp1 * duv2.y - dp2 * duv1.y);
-    vec3 bitangent = normalize(dp2 * duv1.x - dp1 * duv2.x);
-
     vec3 norm = fragNormal;
     if (normalMapReady) {
+        vec3 dp1 = dFdx(fragPosition);
+        vec3 dp2 = dFdy(fragPosition);
+        vec2 duv1 = dFdx(fragTexCoord);
+        vec2 duv2 = dFdy(fragTexCoord);
+
+        vec3 tangent = normalize(dp1 * duv2.y - dp2 * duv1.y);
+        vec3 bitangent = normalize(dp2 * duv1.x - dp1 * duv2.x);
+
         mat3 TBN = mat3(normalize(tangent), normalize(bitangent), normalize(fragNormal));
         vec3 normalMap = texture(texture2, texCoord).rgb;
         norm = normalize(TBN * (normalMap * 2.0 - 1.0));

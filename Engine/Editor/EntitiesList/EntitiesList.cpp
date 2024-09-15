@@ -2,7 +2,7 @@
 
 void ManipulateEntityPopup() {
     if (!showManipulateEntityPopup) return;
-    
+
     ImGui::OpenPopup("Entity");
 
     if (ImGui::BeginPopup("Entity")) {
@@ -27,7 +27,7 @@ void ManipulateEntityPopup() {
             shouldChangeObjectName = true;
             showManipulateEntityPopup = false;
         }
-        
+
         ImGui::PushStyleColor(ImGuiCol_Button, ImVec4(0.5f, 0.1f, 0.1f, 1.0f));
         if (ImGui::Button("Close", buttonScale - ImVec2(0, 10))) showManipulateEntityPopup = false;
         ImGui::PopStyleColor();
@@ -216,9 +216,9 @@ void UnchildObjects(ImVec2 childSize) {
             if (light->parent && light->parent->initialized) {
                 auto it = std::find(light->parent->lightsChildren.begin(), light->parent->lightsChildren.end(), light->id);
 
-                if (it != light->parent->lightsChildren.end()) { 
-                    light->parent->lightsChildren.erase(it); 
-                } 
+                if (it != light->parent->lightsChildren.end()) {
+                    light->parent->lightsChildren.erase(it);
+                }
             }
 
             light->parent = nullptr;
@@ -248,9 +248,9 @@ void UnchildObjects(ImVec2 childSize) {
             if (entity->parent && entity->parent->initialized) {
                 auto it = std::find(entity->parent->entitiesChildren.begin(), entity->parent->entitiesChildren.end(), entity->id);
 
-                if (it != entity->parent->entitiesChildren.end()) { 
-                    entity->parent->entitiesChildren.erase(it); 
-                } 
+                if (it != entity->parent->entitiesChildren.end()) {
+                    entity->parent->entitiesChildren.erase(it);
+                }
             }
 
             entity->parent = nullptr;
@@ -261,12 +261,12 @@ void UnchildObjects(ImVec2 childSize) {
 }
 
 void ImGuiListViewEx() {
-    const ImVec2 windowSize = ImGui::GetWindowSize();
-    const ImVec2 childSize(windowSize.x - 30, windowSize.y - 150);
+    static ImVec2 entitiesListWindowSize = ImGui::GetWindowSize();
+    ImGui::PushStyleVar(ImGuiStyleVar_ChildBorderSize, 0.0f);
+        ImGui::BeginChild("Entities List", entitiesListWindowSize, true, ImGuiWindowFlags_HorizontalScrollbar);
+    ImGui::PopStyleVar();
 
-    ImGui::BeginChild("Entities List", childSize, true, ImGuiWindowFlags_HorizontalScrollbar);
-
-    UnchildObjects(childSize);
+    UnchildObjects(entitiesListWindowSize);
 
     const bool windowFocused = ImGui::IsWindowFocused();
     const bool windowHovered = ImGui::IsWindowHovered();
@@ -318,33 +318,6 @@ void ImGuiListViewEx() {
     ManipulateEntityPopup();
 }
 
-void PlayPause() {
-    ImVec2 buttonSize = ImVec2(50, 50);
-
-    if (ImGui::ImageButton((ImTextureID)&runTexture, buttonSize) && !inGamePreview) {
-        for (Entity& entity : entitiesListPregame) entity.reloadRigidBody();
-        entitiesList.assign(entitiesListPregame.begin(), entitiesListPregame.end());
-        
-        physics.backup();
-
-        InitGameCamera();
-        inGamePreview = true;
-    }
-
-    ImGui::SameLine();
-
-    if ((ImGui::ImageButton((ImTextureID)&pauseTexture, buttonSize)) && inGamePreview || IsKeyDown(KEY_ESCAPE)) {
-        EnableCursor();
-
-        inGamePreview = false;
-        firstTimeGameplay = true;
-
-        physics.unBackup();
-        for (Entity& entity : entitiesListPregame) entity.resetPhysics();
-        for (Entity& entity : entitiesList) entity.resetPhysics();
-    }
-}
-
 void OpenWebpages() {
     if (inGamePreview || ImGui::IsWindowFocused(ImGuiFocusedFlags_ChildWindows)) return;
 
@@ -356,19 +329,7 @@ void EntitiesList() {
     ImGui::Begin((std::string(ICON_FA_BARS) + " Objects List").c_str());
 
     ImGuiListViewEx();
-
-    ImGui::PushStyleColor(ImGuiCol_Button, ImVec4(0.3f, 0.3f, 0.3f, 0.0f));
-    ImGui::PushStyleColor(ImGuiCol_ButtonHovered, ImVec4(0.3f, 0.3f, 0.3f, 0.1f));
-    ImGui::PushStyleColor(ImGuiCol_ButtonActive, ImVec4(0.3f, 0.3f, 0.3f, 0.2f));
-    ImGui::PushStyleColor(ImGuiCol_Border, ImVec4(0.25f, 0.25f, 0.3f, 1.0f));
-    ImGui::PushStyleVar(ImGuiStyleVar_FramePadding, ImVec2(0, 0));
-    ImGui::PushStyleVar(ImGuiStyleVar_FrameBorderSize, 0.0f);
-
-    PlayPause();
     OpenWebpages();
-
-    ImGui::PopStyleColor(4);
-    ImGui::PopStyleVar(2);
 
     ImGui::End();
 }

@@ -22,6 +22,7 @@
     #include <TextEditor.h>
     #include <ImNodes.h>
     #include <ImNodesEz.h>
+    #include <future>
 #endif
 
 #include "../include/glad/glad.h"
@@ -92,6 +93,7 @@ using json = nlohmann::json;
     #include "Editor/UiScripts/UiScripts.cpp"
     #include "Editor/Styles/Styles.h"
     #include "Editor/Styles/Styles.cpp"
+    #include "Editor/Styles/ImGuiExtras.cpp"
 #endif
 
 #include "Lighting/InitLighting.cpp"

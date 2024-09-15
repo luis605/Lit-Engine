@@ -1,0 +1,15 @@
+{
+    "aoTexturePath": "",
+    "color": {
+        "a": 1.0,
+        "b": 0.23900887370109558,
+        "g": 0.6507208347320557,
+        "r": 0.8467742204666138
+    },
+    "diffuseTexturePath": "",
+    "diffuse_intensity": 0.8330000042915344,
+    "normalTexturePath": "",
+    "roughness": 1.0,
+    "roughnessTexturePath": "",
+    "specular_intensity": 1.0
+}

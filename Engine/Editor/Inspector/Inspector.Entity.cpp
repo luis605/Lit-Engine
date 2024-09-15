@@ -103,7 +103,7 @@ void DisplayModelDragDrop() {
             IM_ASSERT(payload->DataSize == sizeof(int));
             int payloadIndex = *(const int*)payload->Data;
 
-            std::string path = dirPath.string() + "/" + fileStruct[payloadIndex].name;
+            fs::path path = dirPath / fileStruct[payloadIndex].name;
             selectedEntity->modelPath = path;
             selectedEntity->setModel(selectedEntity->modelPath.c_str());
         }
@@ -122,23 +122,22 @@ void DisplayMaterialDragDrop() {
             IM_ASSERT(payload->DataSize == sizeof(int));
             int payloadIndex = *(const int*)payload->Data;
 
-            std::string path = dirPath.string();
-            path += "/" + fileStruct[payloadIndex].name;
+            fs::path path = dirPath / fileStruct[payloadIndex].name;
 
             selectedEntity->surfaceMaterialPath = path;
-            DeserializeMaterial(&selectedEntity->surfaceMaterial, selectedEntity->surfaceMaterialPath.string().c_str());
+            DeserializeMaterial(&selectedEntity->surfaceMaterial, selectedEntity->surfaceMaterialPath);
         }
         ImGui::EndDragDropTarget();
     }
 
     if (!selectedEntity->surfaceMaterialPath.empty())
-        MaterialInspector(&selectedEntity->surfaceMaterial, selectedEntity->surfaceMaterialPath.string());
+        MaterialInspector(&selectedEntity->surfaceMaterial, selectedEntity->surfaceMaterialPath);
 }
 
 void DisplayScriptDragDrop() {
     ImGui::Text("Script: ");
     ImGui::SameLine();
-    
+
     const char* scriptName = selectedEntity->script.empty() ? "##ScriptPath" : selectedEntity->script.c_str();
     ImGui::Button(scriptName, ImVec2(200, 25));
 
@@ -147,7 +146,7 @@ void DisplayScriptDragDrop() {
             IM_ASSERT(payload->DataSize == sizeof(int));
             int payload_n = *(const int*)payload->Data;
 
-            std::string path = dirPath.string() + "/" + fileStruct[payload_n].name;
+            fs::path path = dirPath / fileStruct[payload_n].name;
             selectedEntity->script = path;
         }
         ImGui::EndDragDropTarget();
