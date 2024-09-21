@@ -10,8 +10,8 @@ void InitEditorCamera() {
     sceneCamera.projection = CAMERA_PERSPECTIVE;
 }
 
-float GetImGuiWindowTitleHeight() {
-    return ImGui::GetTextLineHeight() + ImGui::GetStyle().FramePadding.y * 2.0f;
+static inline double GetImGuiWindowTitleHeight() {
+    return static_cast<float>(ImGui::GetTextLineHeight()) + ImGui::GetStyle().FramePadding.y * 2.0;
 }
 
 void CalculateTextureRect(const Texture* texture, Rectangle& viewportRectangle) {
@@ -21,11 +21,12 @@ void CalculateTextureRect(const Texture* texture, Rectangle& viewportRectangle) 
     viewportRectangle.x = windowPos.x;
     viewportRectangle.y = windowPos.y;
     viewportRectangle.width = windowSize.x;
-    viewportRectangle.height = windowSize.y - GetImGuiWindowTitleHeight();
+    viewportRectangle.height = windowSize.y - GetImGuiWindowTitleHeight() - 60.0;
 }
 
 void DrawTextureOnViewportRectangle(const Texture* texture) {
     CalculateTextureRect(texture, viewportRectangle);
+    ImGui::SetCursorPos(ImVec2(0, GetImGuiWindowTitleHeight() + 60.0));
     ImGui::Image((ImTextureID)texture, ImVec2(viewportRectangle.width, viewportRectangle.height), ImVec2(0,1), ImVec2(1,0));
 }
 
@@ -575,10 +576,73 @@ void ScaleViewport() {
     }
 }
 
+void drawEditorCameraMenu() {
+    float windowWidth = ImGui::GetWindowWidth();
+
+    const float buttonPadding = 5.0f;
+    constexpr ImVec2 imgButtonSize(20, 20);
+    static float buttonOffsetY = GetImGuiWindowTitleHeight() + 60.0f * 0.5f - imgButtonSize.y * 0.5f - buttonPadding * 2;
+
+    ImGui::PushStyleVar(ImGuiStyleVar_FramePadding, ImVec2(10, 10));
+    ImGui::PushStyleVar(ImGuiStyleVar_ItemSpacing, ImVec2(buttonPadding, 10));
+    ImGui::PushStyleColor(ImGuiCol_Button, ImVec4(0.1f, 0.1f, 0.1f, 1.0f));
+    ImGui::PushStyleColor(ImGuiCol_ButtonHovered, ImVec4(0.15f, 0.15f, 0.15f, 1.0f));
+    ImGui::PushStyleColor(ImGuiCol_ButtonActive, ImVec4(0.2f, 0.2f, 0.2f, 1.0f));
+
+    ImGui::SetCursorPos(ImVec2(0, GetImGuiWindowTitleHeight()));
+    ImGui::BeginGroup();
+
+    ImGui::Dummy(ImVec2(0, 60.0f));
+    ImGui::SameLine();
+
+    ImGui::SetCursorPosY(buttonOffsetY);
+
+    if (ImGui::ImageButton("runTex", (ImTextureID)&runTexture, imgButtonSize) && !inGamePreview) {
+        for (Entity& entity : entitiesListPregame) entity.reloadRigidBody();
+        entitiesList.assign(entitiesListPregame.begin(), entitiesList.end());
+
+        physics.backup();
+        InitGameCamera();
+        inGamePreview = true;
+    }
+    if (ImGui::IsItemHovered()) ImGui::SetTooltip("Play the game");
+
+    ImGui::SameLine();
+    ImGui::SetCursorPosY(buttonOffsetY);
+
+    if ((ImGui::ImageButton("pauseTex", (ImTextureID)&pauseTexture, imgButtonSize)) && inGamePreview || IsKeyDown(KEY_ESCAPE)) {
+        EnableCursor();
+        inGamePreview = false;
+        firstTimeGameplay = true;
+
+        physics.unBackup();
+        for (Entity& entity : entitiesListPregame) entity.resetPhysics();
+        for (Entity& entity : entitiesList) entity.resetPhysics();
+    }
+    if (ImGui::IsItemHovered()) ImGui::SetTooltip("Stop the game");
+
+    ImGui::SameLine();
+    ImGui::SetCursorPosY(buttonOffsetY);
+
+    static ImVec2 buttonSize = ImVec2(imgButtonSize.x + ImGui::GetStyle().FramePadding.x * 2.0f,
+                                        imgButtonSize.y + ImGui::GetStyle().FramePadding.y * 2.0f);
+
+    if ((ImGui::Button("+", buttonSize)) && !inGamePreview) {
+        showObjectTypePopup = true;
+    }
+    if (ImGui::IsItemHovered()) ImGui::SetTooltip("Add objects");
+
+    ImGui::EndGroup();
+
+    ImGui::PopStyleVar(2);
+    ImGui::PopStyleColor(3);
+}
+
 void EditorCamera() {
     ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(0.0f, 0.0f));
     ImGui::Begin(ICON_FA_VIDEO " Scene Editor", NULL);
 
+    drawEditorCameraMenu();
     std::chrono::high_resolution_clock::time_point sceneEditorStart = std::chrono::high_resolution_clock::now();
 
     if (ImGui::IsWindowHovered() && !dragging && !inGamePreview) {

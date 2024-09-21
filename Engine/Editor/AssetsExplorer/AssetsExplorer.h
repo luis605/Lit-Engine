@@ -44,7 +44,7 @@ std::unordered_map<fs::path, fs::file_time_type> directoriesLastModify;
 
 fs::path dirPath = "project/game";
 float padding = 10.0f;
-float thumbnailSize = 128.0f;
+float thumbnailSize = 64.0f;
 float cellSize = thumbnailSize + padding;
 
 ImVec2 assetsExplorerWindowSize = {cellSize, cellSize};

@@ -38,7 +38,7 @@ void DebugWindow() {
     ImGui::Begin("Debug", &showDebugWindow);
 
     if (ImGui::CollapsingHeader("Performance")) {
-        ImGui::Indent(15.0f);
+        ImGui::Indent();
 
         float framerate = ImGui::GetIO().Framerate;
         ImGui::Text("FPS: %.2f", framerate);
@@ -63,18 +63,18 @@ void DebugWindow() {
         }
 
         ImGui::Text("Vertex count: %d", vertexCount);
-        ImGui::Unindent(15.0f);
+        ImGui::Unindent();
     }
 
     ImGui::Dummy(ImVec2(0.0f, 10.0f));
 
     if (ImGui::CollapsingHeader("Editor Profiler")) {
-        ImGui::Indent(15.0f);
+        ImGui::Indent();
 
         ImGui::Text("Scene Editor %ld ms", sceneEditorProfilerDuration.count());
         ImGui::Text("Assets Explorer %ld ms", assetsExplorerProfilerDuration.count());
 
-        ImGui::Unindent(15.0f);
+        ImGui::Unindent();
     }
 
     ImGui::End();
@@ -153,45 +153,6 @@ void DrawMenus() {
     }
 }
 
-void DrawPlayPause() {
-    ImGui::PushStyleColor(ImGuiCol_Button, ImVec4(0.3f, 0.3f, 0.3f, 0.0f));
-    ImGui::PushStyleColor(ImGuiCol_ButtonHovered, ImVec4(0.3f, 0.3f, 0.3f, 0.15f));
-    ImGui::PushStyleColor(ImGuiCol_ButtonActive, ImVec4(0.3f, 0.3f, 0.3f, 0.25f));
-    ImGui::PushStyleVar(ImGuiStyleVar_FramePadding, ImVec2(0, 0));
-    ImGui::PushStyleVar(ImGuiStyleVar_FrameBorderSize, 0.0f);
-
-    int cursorX = ImGui::GetWindowWidth() * 0.4f - 5.0f;
-    ImGui::SetCursorPosX(cursorX);
-
-    ImVec2 buttonSize = ImVec2(40, 40);
-
-    if (ImGui::ImageButton((ImTextureID)&runTexture, buttonSize) && !inGamePreview) {
-        for (Entity& entity : entitiesListPregame) entity.reloadRigidBody();
-        entitiesList.assign(entitiesListPregame.begin(), entitiesListPregame.end());
-
-        physics.backup();
-
-        InitGameCamera();
-        inGamePreview = true;
-    }
-
-    ImGui::SameLine(0, 10);
-
-    if ((ImGui::ImageButton((ImTextureID)&pauseTexture, buttonSize)) && inGamePreview || IsKeyDown(KEY_ESCAPE)) {
-        EnableCursor();
-
-        inGamePreview = false;
-        firstTimeGameplay = true;
-
-        physics.unBackup();
-        for (Entity& entity : entitiesListPregame) entity.resetPhysics();
-        for (Entity& entity : entitiesList) entity.resetPhysics();
-    }
-
-    ImGui::PopStyleColor(3);
-    ImGui::PopStyleVar(2);
-}
-
 void openAboutPage() {
     menuButtonClicked = false;
 
@@ -254,7 +215,6 @@ void MenuBar() {
         ImGui::SetCursorPosX(ImGui::GetCursorPosX() + 20);
 
         DrawMenus();
-        DrawPlayPause();
 
         ImVec2 currentCursorPos = ImGui::GetCursorPos();
         static ImVec2 textSize = ImGui::CalcTextSize("Lit Engine");

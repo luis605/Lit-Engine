@@ -1,5 +1,5 @@
 bool RenderImageButtonWithTooltip(ImTextureID textureID, const ImVec2& size, const char* tooltip) {
-    bool buttonClicked = ImGui::ImageButton(textureID, size);
+    bool buttonClicked = ImGui::ImageButton(tooltip, textureID, size);
     if (ImGui::IsItemHovered()) {
         ImGui::BeginTooltip();
         ImGui::Text("%s", tooltip);
@@ -27,7 +27,7 @@ void CodeEditor() {
         if (RenderImageButtonWithTooltip((ImTextureID)&saveTexture, ImVec2(34, 34), "Save file")) {
             SaveCodeToFile(codeEditorScriptPath.string(), code);
         }
-        ImGui::SameLine(0, 10);
+        ImGui::SameLine();
     }
 
     if (RenderImageButtonWithTooltip((ImTextureID)&hotReloadTexture, ImVec2(34, 34), "Reload all scripts")) {
@@ -39,10 +39,10 @@ void CodeEditor() {
         }
     }
 
-    ImGui::SameLine(0, 10);
+    ImGui::SameLine();
 
     ImGui::BeginDisabled();
-    ImGui::Button((codeEditorScriptPath.string() + std::string("##Script Path")).c_str(), ImVec2(ImGui::GetContentRegionAvail().x, 34));
+    ImGui::Button((codeEditorScriptPath.string() + std::string("##Script Path")).c_str(), ImVec2(ImGui::GetContentRegionAvail().x, 34 + ImGui::GetStyle().FramePadding.y * 2.0f));
     ImGui::EndDisabled();
 
     ImGui::Spacing();
