@@ -8,7 +8,7 @@ void ButtonInspector()
     float labelWidth = 100.0f;
 
     ImGui::Text("Name:");
-    ImGui::SameLine(labelWidth);
+    ImGui::SameLine();
     ImGui::SetNextItemWidth(-1);
 
 //    size_t bufferSize = selectedButton->name.length() + 100;
@@ -29,10 +29,10 @@ void ButtonInspector()
 
     if (ImGui::CollapsingHeader("Button Proprieties"))
     {
-        ImGui::Indent(10.0f);
+        ImGui::Indent();
 
         ImGui::Text("Enabled:");
-        ImGui::SameLine(labelWidth);
+        ImGui::SameLine();
         ImGui::SetNextItemWidth(-1);
         ImGui::Checkbox("##Enabled", &selectedButton->enabled);
 
@@ -40,7 +40,7 @@ void ButtonInspector()
 
 
         ImGui::Text("Auto-resize:");
-        ImGui::SameLine(labelWidth);
+        ImGui::SameLine();
         ImGui::SetNextItemWidth(-1);
         ImGui::Checkbox("##AutoResize", &selectedButton->autoResize);
 
@@ -52,14 +52,14 @@ void ButtonInspector()
 
         ImGui::Text("Size:");
         ImGui::Text("X:");
-        ImGui::SameLine(labelWidth);
+        ImGui::SameLine();
         ImGui::SetNextItemWidth(-1);
         ImGui::PushID("##Scale Name X"); 
         ImGui::SliderFloat("##Scale X", &selectedButton->size.x, 0, GetScreenWidth());
         ImGui::PopID(); 
 
         ImGui::Text("Y:");
-        ImGui::SameLine(labelWidth);
+        ImGui::SameLine();
         ImGui::SetNextItemWidth(-1);
         ImGui::PushID("##Scale Name Y"); 
         ImGui::SliderFloat("##Scale Y", &selectedButton->size.y, 0, GetScreenHeight());
@@ -73,21 +73,21 @@ void ButtonInspector()
 
         ImGui::Text("Position:");
         ImGui::Text("X:");
-        ImGui::SameLine(labelWidth);
+        ImGui::SameLine();
         ImGui::SetNextItemWidth(-1);
         ImGui::PushID("##Position Name X"); 
         ImGui::SliderFloat("##Position X", &selectedButton->position.x, -(GetScreenWidth()*2), GetScreenWidth()*2);
         ImGui::PopID(); 
 
         ImGui::Text("Y:");
-        ImGui::SameLine(labelWidth);
+        ImGui::SameLine();
         ImGui::SetNextItemWidth(-1);
         ImGui::PushID("##Position Name Y"); 
         ImGui::SliderFloat("##Position Y", &selectedButton->position.y, -(GetScreenHeight()*2), GetScreenHeight()*2);
         ImGui::PopID(); 
 
         ImGui::Text("Z-Index:");
-        ImGui::SameLine(labelWidth);
+        ImGui::SameLine();
         ImGui::SetNextItemWidth(-1);
         ImGui::PushID("##Position Name Z"); 
         ImGui::SliderFloat("##Position Z", &selectedButton->position.z, -(500), 500);
@@ -97,7 +97,7 @@ void ButtonInspector()
 
 
         ImGui::Text("Roundness:");
-        ImGui::SameLine(labelWidth);
+        ImGui::SameLine();
         ImGui::SetNextItemWidth(-1);
 
         if (!ButtonRoundnessActiveInputMode) {
@@ -114,13 +114,13 @@ void ButtonInspector()
 
         if (ImGui::CollapsingHeader("Color"))
         {
-            ImGui::Indent(30.0f);
+            ImGui::Indent();
             labelWidth += 30;
             // Button Color
             {
 
                 ImGui::Text("Button Color: ");
-                ImGui::SameLine(labelWidth);
+                ImGui::SameLine();
                 ImGui::SetNextItemWidth(-1);
 
                 ImVec4 defaultButtonColorImGui = ImVec4(
@@ -146,7 +146,7 @@ void ButtonInspector()
             // Button Hover Color
             {
                 ImGui::Text("Hover Color: ");
-                ImGui::SameLine(labelWidth);
+                ImGui::SameLine();
                 ImGui::SetNextItemWidth(-1);
 
                 ImVec4 buttonHoverColorImGui = ImVec4(
@@ -173,7 +173,7 @@ void ButtonInspector()
             // Button Pressed Color
             {
                 ImGui::Text("Pressed Color: ");
-                ImGui::SameLine(labelWidth);
+                ImGui::SameLine();
                 ImGui::SetNextItemWidth(-1);
 
                 ImVec4 buttonPressedColorImGui = ImVec4(
@@ -199,20 +199,20 @@ void ButtonInspector()
 
 
             labelWidth -= 30;
-            ImGui::Unindent(30.0f);
+            ImGui::Unindent();
 
         }
 
         ImGui::Dummy(ImVec2(0.0f, 10.0f));
 
-        ImGui::Unindent(10.0f);
+        ImGui::Unindent();
 
     }
 
     if (ImGui::CollapsingHeader("Text Proprieties"))
     {
         ImGui::Text("Text:");
-        ImGui::SameLine(labelWidth);
+        ImGui::SameLine();
         ImGui::SetNextItemWidth(-1);
 
         size_t bufferSize = selectedButton->text.text.length() + 100;
@@ -227,7 +227,7 @@ void ButtonInspector()
         }
 
         ImGui::Text("Font Size:");
-        ImGui::SameLine(labelWidth);
+        ImGui::SameLine();
         ImGui::SetNextItemWidth(-1);
 
         if (!FontSizeActiveInputMode) {
@@ -242,7 +242,7 @@ void ButtonInspector()
 
 
         ImGui::Text("Spacing:");
-        ImGui::SameLine(labelWidth);
+        ImGui::SameLine();
         ImGui::SetNextItemWidth(-1);
 
         if (!TextSpacingActiveInputMode) {
@@ -259,7 +259,7 @@ void ButtonInspector()
 
 
         ImGui::Text("Color: ");
-        ImGui::SameLine(labelWidth);
+        ImGui::SameLine();
         ImGui::SetNextItemWidth(-1);
 
         ImVec4 text_colorImGui = ImVec4(

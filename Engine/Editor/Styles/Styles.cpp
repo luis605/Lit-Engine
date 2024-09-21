@@ -173,12 +173,18 @@ void CreateNewTheme() {
     ImGui::End();
 }
 
+ImVec4 rgbaToImguiColor(int red, int green, int blue, int alpha) {
+    ImVec4 normalizedRGBA;
 
+    normalizedRGBA.x = red / 255.0f;
+    normalizedRGBA.y = green / 255.0f;
+    normalizedRGBA.z = blue / 255.0f;
+    normalizedRGBA.w = alpha / 255.0f;
 
+    return normalizedRGBA;
+}
 
-
-void SetStyleHighContrast(ImGuiStyle* dst)
-{
+void SetStyleHighContrast(ImGuiStyle* dst) {
     ImGuiStyle* style = dst ? dst : &ImGui::GetStyle();
     ImVec4* colors = style->Colors;
 
@@ -214,29 +220,30 @@ void SetStyleHighContrast(ImGuiStyle* dst)
 }
 
 
-
-
-
-ImVec4 rgbaToImguiColor(int red, int green, int blue, int alpha) {
-    ImVec4 normalizedRGBA;
-
-    normalizedRGBA.x = red / 255.0f;
-    normalizedRGBA.y = green / 255.0f;
-    normalizedRGBA.z = blue / 255.0f;
-    normalizedRGBA.w = alpha / 255.0f;
-
-    return normalizedRGBA;
-}
-
-void SetStyleGray(ImGuiStyle* dst)
-{
+void SetStyleGray(ImGuiStyle* dst) {
     ImGuiStyle* style = dst ? dst : &ImGui::GetStyle();
     ImVec4* colors = style->Colors;
 
-    style->FrameRounding = 4.0f;
-    style->GrabRounding = 5.0f;
-
-    style->FrameBorderSize = 1.0f;
+    style->WindowPadding        = ImVec2(12.0f, 12.0f);
+    style->FramePadding         = ImVec2(6.0f, 6.0f);
+    style->ItemSpacing          = ImVec2(6.0f, 6.0f);
+    style->SeparatorTextPadding = ImVec2(6.0f, 6.0f);
+    style->CellPadding          = ImVec2(6.0f, 6.0f);
+    style->WindowTitleAlign     = ImVec2(0.5f, 0.5f);
+    style->SelectableTextAlign  = ImVec2(0.5f, 0.5f);
+    style->FrameRounding        = 8.0f;
+    style->GrabRounding         = 8.0f;
+    style->WindowRounding       = 8.0f;
+    style->TabRounding          = 8.0f;
+    style->ChildRounding        = 8.0f;
+    style->IndentSpacing        = 30.0f;
+    style->ColumnsMinSpacing    = 14.0f;
+    style->ScrollbarSize        = 10.0f;
+    style->FrameBorderSize      = 1.0f;
+    style->WindowBorderSize     = 1.0f;
+    style->ChildBorderSize      = 1.0f;
+    style->PopupBorderSize      = 1.0f;
+    style->DockingSeparatorSize = 1.0f;
 
     // Text
     colors[ImGuiCol_Text] = ImVec4(0.95f, 0.95f, 0.95f, 1.00f);
@@ -248,8 +255,8 @@ void SetStyleGray(ImGuiStyle* dst)
     colors[ImGuiCol_FrameBgActive]      = ImVec4{ 0.15f, 0.15f, 0.15f, 1.0f };
 
     // Windows && Tabs && MenuBar
-    colors[ImGuiCol_WindowBg]           = ImVec4{ 0.094f, 0.098f, 0.1f, 1.0f };
-	colors[ImGuiCol_ChildBg]            = ImVec4{ 0.094f, 0.098f, 0.1f, 1.0f };
+    colors[ImGuiCol_WindowBg]           = ImVec4{ 0.094f, 0.098f, 0.1f, 0.95f };
+	colors[ImGuiCol_ChildBg]            = ImVec4{ 0.f, 0.f, 0.f , 0.f };
 	colors[ImGuiCol_PopupBg]            = ImVec4( 0.090f, 0.090f, 0.090f, 0.95f);
     colors[ImGuiCol_Tab]                = ImVec4{ 0.15f, 0.1505f, 0.151f, 1.0f };
     colors[ImGuiCol_TabHovered]         = ImVec4{ 0.38f, 0.3805f, 0.381f, 1.0f };
@@ -274,9 +281,9 @@ void SetStyleGray(ImGuiStyle* dst)
     colors[ImGuiCol_DragDropTarget]     = ImVec4(0.60f, 0.60f, 0.60f, 1.00f);
     colors[ImGuiCol_Border]             = ImVec4(0.20f, 0.20f, 0.20f, 1.00f);
 
-    colors[ImGuiCol_Header]             = ImVec4(0.35f, 0.35f, 0.35f, 1.0f);
-    colors[ImGuiCol_HeaderActive]       = ImVec4(0.4f, 0.4f, 0.4f, 1.0f);
-    colors[ImGuiCol_HeaderHovered]      = ImVec4(0.5f, 0.5f, 0.5f, 1.0f);
+    colors[ImGuiCol_Header]             = ImVec4(0.30f, 0.30f, 0.30f, 1.00f);
+    colors[ImGuiCol_HeaderHovered]      = ImVec4(0.50f, 0.50f, 0.50f, 1.00f);
+    colors[ImGuiCol_HeaderActive]       = ImVec4(0.40f, 0.40f, 0.40f, 1.00f);
     colors[ImGuiCol_CheckMark]          = ImVec4(0.2f, 0.2f, 0.2f, 1.0f);
 
     colors[ImGuiCol_DockingPreview]     = ImVec4(0.8f, 0.8f, 0.8f, 0.7f);

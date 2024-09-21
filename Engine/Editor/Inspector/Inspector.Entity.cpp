@@ -21,10 +21,10 @@ void DisplayEntityNameInput() {
 
 void DisplayTransformControls() {
     ImGui::Text("Position:");
-    ImGui::Indent(20.0f);
+    ImGui::Indent();
 
     ImGui::InputFloat3("##Position", &selectedEntityPosition.x);
-    ImGui::Unindent(20.0f);
+    ImGui::Unindent();
 
     if (selectedEntity->isChild) {
         selectedEntity->relativePosition = selectedEntityPosition;
@@ -37,15 +37,15 @@ void DisplayTransformControls() {
     }
 
     ImGui::Text("Scale:");
-    ImGui::Indent(20.0f);
+    ImGui::Indent();
 
     if (ImGui::InputFloat3("##Scale", &selectedEntity->scale.x)) {
         selectedEntity->reloadRigidBody();
     }
-    ImGui::Unindent(20.0f);
+    ImGui::Unindent();
 
     ImGui::Text("Rotation:");
-    ImGui::Indent(20.0f);
+    ImGui::Indent();
 
     ImGui::Text("X:");
     ImGui::SameLine();
@@ -90,7 +90,7 @@ void DisplayTransformControls() {
     }
     
     selectedEntity->setRot(selectedEntity->rotation);
-    ImGui::Unindent(20.0f);
+    ImGui::Unindent();
 }
 
 void DisplayModelDragDrop() {
@@ -216,15 +216,15 @@ void DisplayOtherProperties() {
     static float LODWidth = ImGui::CalcTextSize("Level of Detail: ").x + 50.0f;
 
     ImGui::Text("Collisions: ");
-    ImGui::SameLine(LODWidth);
+    ImGui::SameLine();
     ImGui::Checkbox("##Collisions", &selectedEntity->collider);
 
     ImGui::Text("Visible: ");
-    ImGui::SameLine(LODWidth);
+    ImGui::SameLine();
     ImGui::Checkbox("##Visible", &selectedEntity->visible);
 
     ImGui::Text("Level of Detail: ");
-    ImGui::SameLine(LODWidth);
+    ImGui::SameLine();
     ImGui::Checkbox("##Lod", &selectedEntity->lodEnabled);
 }
 
@@ -239,39 +239,39 @@ void EntityInspector() {
     ImGui::Dummy(ImVec2(0.0f, 15.0f));
 
     if (ImGui::CollapsingHeader(ICON_FA_SLIDERS " Entity Properties")) {
-        ImGui::Indent(30.0f);
+        ImGui::Indent();
         DisplayModelDragDrop();
         DisplayScriptDragDrop();
         DisplayTransformControls();
         DisplayOtherProperties();
-        ImGui::Unindent(30.0f);
+        ImGui::Unindent();
     }
 
     ImGui::Dummy(ImVec2(0.0f, 5.0f));
 
     if (ImGui::CollapsingHeader(ICON_FA_CIRCLE_NOTCH " Materials")) {
-        ImGui::Indent(30.0f);
+        ImGui::Indent();
         DisplayMaterialDragDrop();
-        ImGui::Unindent(30.0f);
+        ImGui::Unindent();
     }
 
     ImGui::Dummy(ImVec2(0.0f, 5.0f));
 
     if (ImGui::CollapsingHeader(ICON_FA_GLOBE " Physics")) {
-        ImGui::Indent(30.0f);
+        ImGui::Indent();
         DisplayPhysicsSettings();
-        ImGui::Unindent(30.0f);
+        ImGui::Unindent();
     }
 
     ImGui::Dummy(ImVec2(0.0f, 5.0f));
 
     if (ImGui::CollapsingHeader(ICON_FA_COG " Advanced Settings")) {
-        ImGui::Indent(30.0f);
+        ImGui::Indent();
         ImGui::TextWrapped("Warning!\nThese experimental features won't save or load.\nAvoid Advanced Settings until the alpha state.");
 
         if (ImGui::Button("Set all children instanced")) {
             selectedEntity->makeChildrenInstances();
         }
-        ImGui::Unindent(30.0f);
+        ImGui::Unindent();
     }
 }

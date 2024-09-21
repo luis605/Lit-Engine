@@ -10,30 +10,30 @@ void WorldInspector()
 
     if (ImGui::CollapsingHeader((std::string(ICON_FA_FILTER) + " Post Processing").c_str(), false))
     {
-        ImGui::Indent(20.0f);
+        ImGui::Indent();
 
         // Bloom Panel
         ImGui::SetNextItemWidth(-1);
         if (ImGui::CollapsingHeader(ICON_FA_STAR " Bloom", false))
         {
-            ImGui::Indent(20.0f);
+            ImGui::Indent();
 
             // Bloom Enabled Checkbox
             ImGui::Text("Enabled:");
-            ImGui::SameLine(inputWidth);
+            ImGui::SameLine();
             ImGui::SetNextItemWidth(-1);
             ImGui::Checkbox("##BloomToggle", &bloomEnabled);
 
             // Brightness Slider
             ImGui::Text(ICON_FA_ADJUST " Threshold:");
-            ImGui::SameLine(inputWidth);
+            ImGui::SameLine();
             ImGui::SetNextItemWidth(-1);
             if (ImGui::SliderFloat("##ThresholdControl", &bloomThreshold, 0.0f, 1.0f)) {
                 SetShaderValue(upsamplerShader, GetUniformLocation(upsamplerShader, "threshold"), &bloomThreshold, SHADER_ATTRIB_FLOAT);
             }
 
             ImGui::Text(ICON_FA_ADJUST " Intensity:");
-            ImGui::SameLine(inputWidth);
+            ImGui::SameLine();
             ImGui::SetNextItemWidth(-1);
             if (ImGui::SliderFloat("##IntensityControl", &bloomIntensity, 0.0f, 2.0f)) {
                 SetShaderValue(upsamplerShader, GetUniformLocation(upsamplerShader, "bloomIntensity"), &bloomIntensity, SHADER_ATTRIB_FLOAT);
@@ -41,7 +41,7 @@ void WorldInspector()
 
             // Samples Slider
             ImGui::Text(ICON_FA_CUBE " Kernel Size:");
-            ImGui::SameLine(inputWidth+ 40.0f);
+            ImGui::SameLine();
             ImGui::SetNextItemWidth(-1);
             if (ImGui::SliderInt("##KernelSize", &kernelSize, 1.0f, 60.0f)) {
                 int shaderLocation = glGetUniformLocation(verticalBlurShader.id, "kernelSize");
@@ -55,10 +55,10 @@ void WorldInspector()
                 glUseProgram(0);
             }
 
-            ImGui::Unindent(20.0f);
+            ImGui::Unindent();
         }
 
-        ImGui::Unindent(20.0f);
+        ImGui::Unindent();
     }
 
     ImGui::Spacing();
@@ -66,14 +66,14 @@ void WorldInspector()
 
     if (ImGui::CollapsingHeader(ICON_FA_LIGHTBULB " Lighting", false))
     {
-        ImGui::Indent(20.0f);
+        ImGui::Indent();
 
         // Ambient Light Panel
         ImGui::SetNextItemWidth(-1);
 
         if (ImGui::CollapsingHeader(ICON_FA_SUN " Ambient Light", false))
         {
-            ImGui::Indent(20.0f);
+            ImGui::Indent();
 
             ImGui::Text("Color:");
             ImGui::SameLine();
@@ -101,14 +101,14 @@ void WorldInspector()
 
             SetShaderValue(shader, GetUniformLocation(shader, "ambientLight"), &ambientLight, SHADER_UNIFORM_VEC4);
 
-            ImGui::Unindent(20.0f);
+            ImGui::Unindent();
         }
 
         // Skybox Panel
         ImGui::SetNextItemWidth(-1);
         if (ImGui::CollapsingHeader(ICON_FA_CLOUD " Skybox", false))
         {
-            ImGui::Indent(20.0f);
+            ImGui::Indent();
 
             // Skybox Color Picker
 
@@ -133,9 +133,9 @@ void WorldInspector()
 
             ImGui::Text("Texture:");
 
-            ImGui::Indent(20.0f);
+            ImGui::Indent();
 
-            if (ImGui::ImageButton((ImTextureID)&skyboxPanorama, ImVec2(200, 200)))
+            if (ImGui::ImageButton("skyboxTex", (ImTextureID)&skyboxPanorama, ImVec2(200, 200)))
             {
                 showSkyboxTexture = !showSkyboxTexture;
             }
@@ -160,12 +160,12 @@ void WorldInspector()
                 InitSkybox();
             }
 
-            ImGui::Unindent(20.0f);
+            ImGui::Unindent();
 
-            ImGui::Unindent(20.0f);
+            ImGui::Unindent();
         }
 
-        ImGui::Unindent(20.0f);
+        ImGui::Unindent();
     }
 
     ImGui::Spacing();
@@ -173,11 +173,11 @@ void WorldInspector()
 
     if (ImGui::CollapsingHeader(ICON_FA_GLOBE " Physics", false))
     {
-        ImGui::Indent(20.0f);
+        ImGui::Indent();
 
         ImGui::Text("Gravity:");
 
-        ImGui::Indent(20.0f);
+        ImGui::Indent();
 
         ImGui::Text("X:");
         ImGui::SameLine();
@@ -239,9 +239,9 @@ void WorldInspector()
         }
 
 
-        ImGui::Unindent(20.0f);
+        ImGui::Unindent();
 
-        ImGui::Unindent(20.0f);
+        ImGui::Unindent();
 
     }
 }

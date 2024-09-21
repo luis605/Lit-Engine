@@ -12,8 +12,8 @@ int TextureNode(MyNode* node) {
 
     for (const ImNodes::Ez::SlotInfo& outputSlot : node->OutputSlots) {
         if (outputSlot.title != "Diffuse Texture") return -1;
-    
-        ImGui::ImageButton((ImTextureID)&selectedEntity->surfaceMaterial.diffuseTexture, ImVec2(100, 100));
+
+        ImGui::ImageButton("", (ImTextureID)&selectedEntity->surfaceMaterial.diffuseTexture, ImVec2(100, 100));
 
         if (!ImGui::BeginDragDropTarget())
             return -1;
@@ -43,7 +43,7 @@ int NormalMapTextureNode(MyNode* node) {
         if (outputSlot.title != "Normal Map Texture") return -1;
 
 
-        ImGui::ImageButton((ImTextureID)&selectedEntity->surfaceMaterial.normalTexture, ImVec2(100, 100));
+        ImGui::ImageButton("", (ImTextureID)&selectedEntity->surfaceMaterial.normalTexture, ImVec2(100, 100));
 
         if (!ImGui::BeginDragDropTarget()) return -1;
 
@@ -77,23 +77,23 @@ int SurfaceMaterialNode(MyNode* node) {
 
     for (const ImNodes::Ez::SlotInfo& outputSlot : node->OutputSlots) {
         ImGui::Text("Shininess");
-        ImGui::SameLine(inputWidth);
+        ImGui::SameLine();
         ImGui::SliderFloat("##Shininess", &entityMaterial.shininess, 0.0f, 100.0f);
 
         ImGui::Text("Specular Intensity");
-        ImGui::SameLine(inputWidth);
+        ImGui::SameLine();
         ImGui::SliderFloat("##SpecularIntensity", &entityMaterial.SpecularIntensity, 0.0f, 100.0f);
 
         ImGui::Text("Roughness");
-        ImGui::SameLine(inputWidth);
+        ImGui::SameLine();
         ImGui::SliderFloat("##Roughness", &entityMaterial.Roughness, 0.0f, 100.0f);
 
         ImGui::Text("Diffuse Intensity");
-        ImGui::SameLine(inputWidth);
+        ImGui::SameLine();
         ImGui::SliderFloat("##DiffuseIntensity", &entityMaterial.DiffuseIntensity, 0.0f, 1.0f);
 
         ImGui::Text("Specular Tint");
-        ImGui::SameLine(inputWidth);
+        ImGui::SameLine();
         ImVec4 specular_tint = {entityMaterial.SpecularTint.x, entityMaterial.SpecularTint.y, entityMaterial.SpecularTint.z, 1};
         ImGui::ColorEdit4("Color Picker", (float*)&specular_tint, ImGuiColorEditFlags_NoInputs);
         entityMaterial.SpecularTint = { specular_tint.x, specular_tint.y, specular_tint.z};

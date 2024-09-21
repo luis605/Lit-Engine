@@ -12,13 +12,13 @@ void CameraInspector()
 
     if (ImGui::CollapsingHeader(ICON_FA_SLIDERS " Camera Properties"))
     {
-        ImGui::Indent(30.0f);
+        ImGui::Indent();
 
         bool isOrthographic = (sceneCamera.projection == 1) ? true : false;
 
         // Set the width for the text and combo box
         ImGui::Text("Camera Projection: ");
-        ImGui::SameLine(spacingWidth);
+        ImGui::SameLine();
         ImGui::SetNextItemWidth(inputWidth);
         if (ImGui::BeginCombo("##Projection", isOrthographic ? "Orthographic" : "Perspective")) {
             if (ImGui::Selectable("Orthographic", isOrthographic)) {
@@ -34,10 +34,10 @@ void CameraInspector()
 
         // Set the width for the text and slider
         ImGui::Text("Fovy: ");
-        ImGui::SameLine(spacingWidth);
+        ImGui::SameLine();
         ImGui::SetNextItemWidth(inputWidth);
         ImGui::SliderFloat("##FovySlider", &sceneCamera.fovy, 1.0f, 180.0f, "%.1f");
 
-        ImGui::Unindent(30.0f);
+        ImGui::Unindent();
     }
 }

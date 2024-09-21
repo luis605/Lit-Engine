@@ -264,9 +264,6 @@ void AssetsExplorer() {
     static const char* assetsExplorerName_cstr = assetsExplorerName.c_str();
     ImGui::Begin(assetsExplorerName_cstr, nullptr);
 
-    ImGui::PushStyleVar(ImGuiStyleVar_FrameBorderSize, 0);
-    ImGui::PushStyleVar(ImGuiStyleVar_FrameRounding, 5);
-
     UpdateFileFolderStructures();
     AssetsExplorerTopBar();
 
@@ -289,8 +286,10 @@ void AssetsExplorer() {
 
     // FOLDERS List
     ImGui::PushStyleVar(ImGuiStyleVar_FrameBorderSize, 0.0f);
-    ImGui::PushStyleVar(ImGuiStyleVar_FramePadding, ImVec2(cellSize / 8, cellSize / 8));
+    ImGui::PushStyleVar(ImGuiStyleVar_FramePadding, ImVec2(cellSize * .12f, cellSize * .12f));
     ImGui::PushStyleColor(ImGuiCol_Button, ImVec4(0, 0, 0, 0));
+    ImGui::PushStyleColor(ImGuiCol_ButtonHovered, ImVec4(0.4, 0.4, 0.4, 1));
+    ImGui::PushStyleColor(ImGuiCol_ButtonActive, ImVec4(0.35, 0.35, 0.35, 1));
 
     float buttonWidth = thumbnailSize;
     float halfButton = buttonWidth / 2.0f;
@@ -301,7 +300,7 @@ void AssetsExplorer() {
 
         ImGui::PushID(index);
 
-        ImGui::ImageButton((ImTextureID)&folderTexture, ImVec2(thumbnailSize, thumbnailSize));
+        ImGui::ImageButton("", (ImTextureID)&folderTexture, ImVec2(thumbnailSize, thumbnailSize));
 
         if (renameFolderIndex == index) folderItem.rename = true;
 
@@ -364,11 +363,6 @@ void AssetsExplorer() {
                 renameFolderIndex = -1;
             }
         } else {
-            static float averageCharWidth = 3.0f;
-            float textWidth = averageCharWidth * folderItem.name.native().length();;
-            float textXPos = ImGui::GetCursorPosX() + (thumbnailSize - textWidth) * 0.5f;
-
-            ImGui::SetCursorPosX(textXPos);
             ImGui::Text("%s", folderItem.name.c_str());
         }
 
@@ -384,9 +378,9 @@ void AssetsExplorer() {
 
     for (int index = 0; index < numFiles; index++) {
         FileTextureItem& fileItem = fileStruct[index];
-        ImGui::PushID(index);
+        ImGui::PushID(numFolders + index);
 
-        ImGui::ImageButton((ImTextureID)&fileItem.texture, ImVec2(thumbnailSize, thumbnailSize));
+        ImGui::ImageButton("", (ImTextureID)&fileItem.texture, ImVec2(thumbnailSize, thumbnailSize));
 
         bool isButtonHovered = ImGui::IsItemHovered();
 
@@ -437,11 +431,6 @@ void AssetsExplorer() {
                 renameFileIndex = -1;
             }
         } else {
-            static float averageCharWidth = 3.0f;
-            float textWidth = averageCharWidth * fileItem.name.native().length();
-            float textXPos = ImGui::GetCursorPosX() + (thumbnailSize - textWidth) * 0.5f;
-
-            ImGui::SetCursorPosX(textXPos);
             ImGui::Text("%s", fileItem.name.c_str());
         }
 
@@ -453,8 +442,8 @@ void AssetsExplorer() {
     EditFolderManipulation();
     EditFileManipulation();
 
-    ImGui::PopStyleVar(4);
-    ImGui::PopStyleColor();
+    ImGui::PopStyleVar(2);
+    ImGui::PopStyleColor(3);
     ImGui::EndChild();
     ImGui::End();
 

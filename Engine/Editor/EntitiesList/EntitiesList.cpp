@@ -43,10 +43,10 @@ bool DrawNodeTree(const char* icon, const std::string& name, ImGuiTreeNodeFlags 
     if (ImGui::IsItemClicked(ImGuiMouseButton_Left)) callback();
     if (rightClicked && ImGui::IsItemClicked(ImGuiMouseButton_Right)) *rightClicked = true;
 
-    entitiesListTreeNodeIndex += 1;
-
+    entitiesListTreeNodeIndex++;
     return isNodeOpen;
 }
+
 bool DrawTreeNodeWithRename(const char* icon, std::string& name, void* ptr, ImGuiTreeNodeFlags flags, bool isSelected, const std::function<void()>& callback, bool* rightClicked = nullptr) {
     if (isSelected && shouldChangeObjectName) {
         char nameBuffer[256];
@@ -261,9 +261,9 @@ void UnchildObjects(ImVec2 childSize) {
 }
 
 void ImGuiListViewEx() {
-    static ImVec2 entitiesListWindowSize = ImGui::GetWindowSize();
+    ImVec2 entitiesListWindowSize = ImGui::GetContentRegionAvail();
     ImGui::PushStyleVar(ImGuiStyleVar_ChildBorderSize, 0.0f);
-        ImGui::BeginChild("Entities List", entitiesListWindowSize, true, ImGuiWindowFlags_HorizontalScrollbar);
+        ImGui::BeginChild("Entities List", entitiesListWindowSize);
     ImGui::PopStyleVar();
 
     UnchildObjects(entitiesListWindowSize);
@@ -278,7 +278,6 @@ void ImGuiListViewEx() {
     if (windowFocused && IsKeyDown(KEY_ESCAPE))
         shouldChangeObjectName = false;
 
-    ImGui::PushStyleVar(ImGuiStyleVar_FrameBorderSize, 3.0f);
     ImGui::PushStyleVar(ImGuiStyleVar_ItemSpacing, ImVec2(0, 10));
     ImGui::PushStyleVar(ImGuiStyleVar_ItemInnerSpacing, ImVec2(10, 10));
     ImGui::PushStyleColor(ImGuiCol_Button, ImVec4(0.9f, 0.9f, 0.9f, 0.9f));
@@ -309,9 +308,9 @@ void ImGuiListViewEx() {
         DrawButtonTree(button);
     }
 
-    ImGui::PopStyleVar(3);
-    ImGui::PopItemWidth();
+    ImGui::PopStyleVar(2);
     ImGui::PopStyleColor(3);
+    ImGui::PopItemWidth();
 
     ImGui::EndChild();
 

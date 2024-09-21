@@ -8,7 +8,7 @@ void TextInspector()
     const float inputWidth = 200.0f;
 
     ImGui::Text("Name:");
-    ImGui::SameLine(labelWidth);
+    ImGui::SameLine();
     ImGui::SetNextItemWidth(-1);
 
     size_t bufferSize = selectedTextElement->name.length() + 100;
@@ -21,14 +21,14 @@ void TextInspector()
         selectedTextElement->name = name_buffer;
 
     ImGui::Text("Position:");
-    ImGui::SameLine(labelWidth);
+    ImGui::SameLine();
     ImGui::SetNextItemWidth(-1);
     float position[3] = { selectedTextElement->position.x, selectedTextElement->position.y, selectedTextElement->position.z };
     if (ImGui::InputFloat3("##Position", position))
         selectedTextElement->position = LitVector3{ position[0], position[1], position[2] };
 
     ImGui::Text("Text:");
-    ImGui::SameLine(labelWidth);
+    ImGui::SameLine();
     ImGui::SetNextItemWidth(-1);
 
     bufferSize = selectedTextElement->text.length() + 100;
@@ -41,7 +41,7 @@ void TextInspector()
         selectedTextElement->text = text_buffer;
 
     ImGui::Text("Font Size:");
-    ImGui::SameLine(labelWidth);
+    ImGui::SameLine();
     ImGui::SetNextItemWidth(-1);
 
     if (!FontSizeActiveInputMode) {
@@ -56,7 +56,7 @@ void TextInspector()
 
 
     ImGui::Text("Spacing:");
-    ImGui::SameLine(labelWidth);
+    ImGui::SameLine();
     ImGui::SetNextItemWidth(-1);
 
     if (!TextSpacingActiveInputMode) {
@@ -71,7 +71,7 @@ void TextInspector()
 
 
     ImGui::Text("BG Roundiness:");
-    ImGui::SameLine(labelWidth);
+    ImGui::SameLine();
     ImGui::SetNextItemWidth(-1);
 
     if (!TextBackgroundRoundinessActiveInputMode) {
@@ -86,7 +86,7 @@ void TextInspector()
 
 
     ImGui::Text("Padding:");
-    ImGui::SameLine(labelWidth);
+    ImGui::SameLine();
     ImGui::SetNextItemWidth(-1);
 
     if (!TextPaddingActiveInputMode) {
@@ -101,7 +101,7 @@ void TextInspector()
 
 
     ImGui::Text("Color: ");
-    ImGui::SameLine(labelWidth);
+    ImGui::SameLine();
     ImGui::SetNextItemWidth(-1);
 
     ImVec4 text_colorImGui = ImVec4(
@@ -128,7 +128,7 @@ void TextInspector()
 
 
     ImGui::Text("BG Color: ");
-    ImGui::SameLine(labelWidth);
+    ImGui::SameLine();
     ImGui::SetNextItemWidth(-1);
 
     ImVec4 textBG_colorImGui = ImVec4(

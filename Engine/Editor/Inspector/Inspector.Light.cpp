@@ -7,7 +7,7 @@ void LightInspector()
     ImGui::Dummy(ImVec2(0.0f, 15.0f));
 
     if (ImGui::CollapsingHeader(ICON_FA_SLIDERS " Light Properties", false)) {
-        ImGui::Indent(30.0f);
+        ImGui::Indent();
 
         static const char* lights_types[] = { "Directional Light", "Point Light", "Spot Light" };
         static int currentItem = selectedLight->light.type;
@@ -28,13 +28,13 @@ void LightInspector()
         ImGui::Dummy(ImVec2(0.0f, 15.0f));
 
         ImGui::Text("Position:");
-        ImGui::Indent(20.0f);
+        ImGui::Indent();
 
         float lightPos[3] = { selectedLight->light.position.x, selectedLight->light.position.y, selectedLight->light.position.z };
         if (ImGui::InputFloat3("##Position", lightPos))
             selectedLight->light.position = glm::vec3(lightPos[0], lightPos[1], lightPos[2]);
 
-        ImGui::Unindent(20.0f);
+        ImGui::Unindent();
 
         ImGui::Dummy(ImVec2(0.0f, 15.0f));
 
@@ -102,6 +102,6 @@ void LightInspector()
             return result;
         }(direction));
 
-        ImGui::Unindent(30.0f);
+        ImGui::Unindent();
     }
 }

@@ -24,7 +24,7 @@ void MaterialInspector(SurfaceMaterial* surfaceMaterial = nullptr, fs::path path
     ImGui::Dummy(ImVec2(0.0f, 10.0f));
 
     if (ImGui::CollapsingHeader("Maps")) {
-        ImGui::Indent(10);
+        ImGui::Indent();
 
         float tiling_value[2];
         if (selectedEntity) {
@@ -37,7 +37,7 @@ void MaterialInspector(SurfaceMaterial* surfaceMaterial = nullptr, fs::path path
 
         ImGui::Text("Tiling: ");
 
-        ImGui::Indent(20.0f);
+        ImGui::Indent();
         
         ImGui::Text("X:");
         ImGui::SameLine();
@@ -57,15 +57,15 @@ void MaterialInspector(SurfaceMaterial* surfaceMaterial = nullptr, fs::path path
             selectedEntity->tiling[1] = 1.0f;
         }
 
-        ImGui::Unindent(20.0f);
-        
+        ImGui::Unindent();
+
         ImGui::Dummy(ImVec2(0.0f, 10.0f));
 
         ImGui::Text("Diffuse Texture: ");
 
-        ImGui::Indent(20.0f);
+        ImGui::Indent();
 
-        if (ImGui::ImageButton((ImTextureID)&selectedEntity->model.materials[0].maps[MATERIAL_MAP_DIFFUSE].texture, ImVec2(64, 64)))
+        if (ImGui::ImageButton("diffuseTex", (ImTextureID)&selectedEntity->model.materials[0].maps[MATERIAL_MAP_DIFFUSE].texture, ImVec2(64, 64)))
             showTexture = !showTexture;
 
         if (ImGui::BeginDragDropTarget()) {
@@ -91,15 +91,15 @@ void MaterialInspector(SurfaceMaterial* surfaceMaterial = nullptr, fs::path path
             selectedEntity->ReloadTextures(true);
         }
 
-        ImGui::Unindent(20.0f);
+        ImGui::Unindent();
 
         ImGui::Dummy(ImVec2(0.0f, 10.0f));
 
         ImGui::Text("Normal Map Texture: ");
-        
-        ImGui::Indent(20.0f);
 
-        if (ImGui::ImageButton((ImTextureID)&selectedEntity->model.materials[0].maps[MATERIAL_MAP_NORMAL].texture, ImVec2(64, 64)))
+        ImGui::Indent();
+
+        if (ImGui::ImageButton("normalTex", (ImTextureID)&selectedEntity->model.materials[0].maps[MATERIAL_MAP_NORMAL].texture, ImVec2(64, 64)))
             showNormalTexture = !showNormalTexture;
 
         if (ImGui::BeginDragDropTarget()) {
@@ -120,22 +120,22 @@ void MaterialInspector(SurfaceMaterial* surfaceMaterial = nullptr, fs::path path
         }
 
         ImGui::SameLine();
-        
+
         if (ImGui::Button("x##NormalEmptyButton", ImVec2(25, 25))) {
             surfaceMaterial->normalTexture.cleanup();
             surfaceMaterial->normalTexturePath = "";
             selectedEntity->ReloadTextures(true);
         }
 
-        ImGui::Unindent(20.0f);
+        ImGui::Unindent();
 
         ImGui::Dummy(ImVec2(0.0f, 10.0f));
 
         ImGui::Text("RoughnessMap Texture: ");
 
-        ImGui::Indent(20.0f);
+        ImGui::Indent();
 
-        if (ImGui::ImageButton((ImTextureID)&selectedEntity->model.materials[0].maps[MATERIAL_MAP_ROUGHNESS].texture, ImVec2(64, 64)))
+        if (ImGui::ImageButton("roughnessTex", (ImTextureID)&selectedEntity->model.materials[0].maps[MATERIAL_MAP_ROUGHNESS].texture, ImVec2(64, 64)))
             showRoughnessTexture = !showRoughnessTexture;
 
         if (ImGui::BeginDragDropTarget()) {
@@ -163,14 +163,14 @@ void MaterialInspector(SurfaceMaterial* surfaceMaterial = nullptr, fs::path path
             selectedEntity->ReloadTextures(true);
         }
 
-        ImGui::Unindent(20.0f);
+        ImGui::Unindent();
         ImGui::Dummy(ImVec2(0.0f, 10.0f));
 
         ImGui::Text("Ambient Occlusion Texture: ");
 
-        ImGui::Indent(20.0f);
+        ImGui::Indent();
 
-        if (ImGui::ImageButton((ImTextureID)&selectedEntity->model.materials[0].maps[MATERIAL_MAP_OCCLUSION].texture, ImVec2(64, 64)))
+        if (ImGui::ImageButton("aoTex", (ImTextureID)&selectedEntity->model.materials[0].maps[MATERIAL_MAP_OCCLUSION].texture, ImVec2(64, 64)))
             showAOTexture = !showAOTexture;
 
         if (ImGui::BeginDragDropTarget()) {
@@ -198,8 +198,8 @@ void MaterialInspector(SurfaceMaterial* surfaceMaterial = nullptr, fs::path path
             selectedEntity->ReloadTextures(true);
         }
 
-        ImGui::Unindent(20.0f);
-        ImGui::Unindent(10);
+        ImGui::Unindent();
+        ImGui::Unindent();
     }
 
 
@@ -209,22 +209,22 @@ void MaterialInspector(SurfaceMaterial* surfaceMaterial = nullptr, fs::path path
     static float spacing = ImGui::CalcTextSize("Specular Intensity:").x + margin;
 
     ImGui::Text("Specular Intensity:");
-    ImGui::SameLine(spacing);
+    ImGui::SameLine();
     ImGui::SetNextItemWidth(-1);
     ImGui::SliderFloat("##Specular Intensity", &surfaceMaterial->SpecularIntensity, 0.0f, 1.0f);
 
     ImGui::Text("Diffuse Intensity:");
-    ImGui::SameLine(spacing);
+    ImGui::SameLine();
     ImGui::SetNextItemWidth(-1);
     ImGui::SliderFloat("##Diffuse Intensity", &surfaceMaterial->DiffuseIntensity, 0.0f, 1.0f);
 
     ImGui::Text("Roughness:");
-    ImGui::SameLine(spacing);
+    ImGui::SameLine();
     ImGui::SetNextItemWidth(-1);
     ImGui::SliderFloat("##Roughness", &surfaceMaterial->Roughness, 0.0f, 1.0f);
 
     ImGui::Text("Metalness:");
-    ImGui::SameLine(spacing);
+    ImGui::SameLine();
     ImGui::SetNextItemWidth(-1);
     ImGui::SliderFloat("##Metalness", &surfaceMaterial->Metalness, 0.0f, 1.0f);
 
