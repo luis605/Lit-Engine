@@ -3,13 +3,24 @@
 
 void Plugin::initialize() {
     try {
-        py::module pluginScriptingModule = py::module::import("pluginScriptingModule");
         py::module::import("sys").attr("path").attr("append")(m_path.c_str());
-        m_module = py::module::import("main");
+        py::module mathModule            = py::module::import("mathModule"); // Include LitVector3
+        py::module pluginScriptingModule = py::module::import("pluginScriptingModule");
+        py::module inputModule           = py::module::import("inputModule");
+        m_module                         = py::module::import("main");
 
         py::dict locals = py::dict(
-            "initWindow"_a = pluginScriptingModule.attr("initWindow"),
-            "closeWindow"_a = pluginScriptingModule.attr("closeWindow")
+            "Vector3"_a              = mathModule.attr("Vector3"),
+            "initWindow"_a           = pluginScriptingModule.attr("initWindow"),
+            "closeWindow"_a          = pluginScriptingModule.attr("closeWindow"),
+            "drawText"_a             = pluginScriptingModule.attr("drawText"),
+            "IsMouseButtonPressed"_a = inputModule.attr("isMouseButtonPressed"),
+            "IsKeyDown"_a            = inputModule.attr("isKeyDown"),
+            "IsKeyPressed"_a         = inputModule.attr("isKeyPressed"),
+            "IsKeyUp"_a              = inputModule.attr("isKeyUp"),
+            "GetMouseMovement"_a     = inputModule.attr("getMouseMovement"),
+            "Keys"_a                 = inputModule.attr("Keys"),
+            "MouseButton"_a          = inputModule.attr("MouseButton")
         );
 
         for (auto item : locals) {

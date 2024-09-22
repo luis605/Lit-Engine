@@ -192,7 +192,7 @@ PYBIND11_EMBEDDED_MODULE(inputModule, m) {
         .value("MOUSE_BUTTON_FORWARD", MOUSE_BUTTON_FORWARD)
         .value("MOUSE_BUTTON_BACK", MOUSE_BUTTON_BACK);
 
-    py::enum_<KeyboardKey>(m, "KeyboardKey")
+    py::enum_<KeyboardKey>(m, "Keys")
         .value("KEY_NULL", KEY_NULL)
         .value("KEY_APOSTROPHE", KEY_APOSTROPHE)
         .value("KEY_COMMA", KEY_COMMA)

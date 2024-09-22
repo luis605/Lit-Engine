@@ -8,4 +8,4 @@ build/
 profiled/
 analysis.txt
 install/bin/
-.profile/
+#.profile/
