@@ -19,15 +19,16 @@ class Plugin {
 public:
     std::string m_name;
     std::string m_path;
+    py::object m_module;
 
     Plugin(const std::string& name, const std::string& path) : m_name(name), m_path(path) {}
 
     const std::string& getName() const { return m_name; }
     const std::string& getPath() const { return m_path; }
 
-    void load();
     void unload();
     void reload();
+    void initialize();
 
     ~Plugin() {}
 };
@@ -42,6 +43,7 @@ public:
     void reload(const std::string& name);
     void reloadAll();
     void unloadAll();
+    void initializeAllPlugins();
     bool isPluginLoaded(const std::string& name) const;
 
 private:
