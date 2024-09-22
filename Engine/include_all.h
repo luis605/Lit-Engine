@@ -1,3 +1,5 @@
+// TODO: Include only headers in here (CMAKE already supports this change)
+
 #ifndef INCLUDE_ALL_H_
 #define INCLUDE_ALL_H_
 
@@ -82,6 +84,12 @@ using json = nlohmann::json;
 #include "GUI/Tooltip/Tooltip.cpp"
 #include "GUI/Text/Text.cpp"
 #include "GUI/Button/Button.cpp"
+
+#ifndef GAME_SHIPPING
+    #include "Plugins/Scripting.cpp"
+    #include "Plugins/Loader.cpp"
+#endif
+
 #include "Core/Entity.hpp"
 #include "Core/Entity.cpp"
 #include "Core/Engine.cpp"
@@ -118,8 +126,6 @@ using json = nlohmann::json;
     #include "Editor/AssetsExplorer/AssetsExplorer.cpp"
     #include "Core/Core.cpp"
     #include "Editor/MenuBar/MenuBar.cpp"
-
-    #include "Plugins/Loader.cpp"
 
     #include "../GameBuilder/builder.cpp"
 #endif

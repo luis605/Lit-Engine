@@ -1,10 +1,20 @@
 #include "Loader.h"
+#include "Scripting.h"
 
 void Plugin::initialize() {
     try {
+        py::module pluginScriptingModule = py::module::import("pluginScriptingModule");
         py::module::import("sys").attr("path").attr("append")(m_path.c_str());
-
         m_module = py::module::import("main");
+
+        py::dict locals = py::dict(
+            "initWindow"_a = pluginScriptingModule.attr("initWindow"),
+            "closeWindow"_a = pluginScriptingModule.attr("closeWindow")
+        );
+
+        for (auto item : locals) {
+            m_module.attr(item.first) = item.second;
+        }
 
         if (m_module.attr("initPlugin")) {
             m_module.attr("initPlugin")();
@@ -42,8 +52,6 @@ void Plugin::reloadIfChanged() {
 
 void Plugin::unload() {
     try {
-        py::scoped_interpreter guard{};
-
         if (m_module.attr("unloadPlugin")) {
             m_module.attr("unloadPlugin")();
         } else {
