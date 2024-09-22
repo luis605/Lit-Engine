@@ -24,13 +24,13 @@ void CodeEditor() {
     if (autoSaveCode) {
         SaveCodeToFile(codeEditorScriptPath.string(), code);
     } else {
-        if (RenderImageButtonWithTooltip((ImTextureID)&saveTexture, ImVec2(34, 34), "Save file")) {
+        if (RenderImageButtonWithTooltip((ImTextureID)&saveTexture, ImVec2(22, 22), "Save file")) {
             SaveCodeToFile(codeEditorScriptPath.string(), code);
         }
         ImGui::SameLine();
     }
 
-    if (RenderImageButtonWithTooltip((ImTextureID)&hotReloadTexture, ImVec2(34, 34), "Reload all scripts")) {
+    if (RenderImageButtonWithTooltip((ImTextureID)&hotReloadTexture, ImVec2(22, 22), "Reload all scripts")) {
         if (ImGui::IsMouseDoubleClicked(ImGuiMouseButton_Left)) {
             firstTimeGameplay = true;
             for (Entity& entity : entitiesList) {
@@ -42,7 +42,7 @@ void CodeEditor() {
     ImGui::SameLine();
 
     ImGui::BeginDisabled();
-    ImGui::Button((codeEditorScriptPath.string() + std::string("##Script Path")).c_str(), ImVec2(ImGui::GetContentRegionAvail().x, 34 + ImGui::GetStyle().FramePadding.y * 2.0f));
+    ImGui::Button((codeEditorScriptPath.string() + std::string("##Script Path")).c_str(), ImVec2(ImGui::GetContentRegionAvail().x, 22 + ImGui::GetStyle().FramePadding.y * 2.0f));
     ImGui::EndDisabled();
 
     ImGui::Spacing();
