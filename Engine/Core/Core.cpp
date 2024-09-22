@@ -126,7 +126,7 @@ void Startup() {
     InitCodeEditor();
     InitSceneEditor();
     InitRenderModelPreviewer();
-    checkPluginsConfigIntegrity();
+    loadAllPlugins();
 
     #if STRESS_TEST
         InitStressTest();
