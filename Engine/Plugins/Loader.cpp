@@ -1,29 +1,59 @@
 #include "Loader.h"
 
 void loadPlugin(const std::string& pluginName) {
-    // Search .profile/plugins.json for pluginName
-    // If found, load pluginPath
-    // If not found, log warning
-}
-
-void unloadPlugin(const std::string& pluginName) {
-    // Search for pluginName in Plugins, using Plugins.isPluginLoaded();
-    // If found, unload plugin
-    // If not found, log warning
+    // Example implementation of loading a plugin
+    std::cout << "LOADING: " << pluginName << std::endl;
 }
 
 void loadAllPlugins() {
-    // Load all plugins in .profile/plugins.json
+    if (!checkPluginsConfigIntegrity()) {
+        TraceLog(LOG_ERROR, "Plugins configuration integrityPassed check failed. Could not load plugins.");
+        return;
+    }
+
+    std::ifstream file(".profile/plugins.json");
+    json pluginsConfig;
+
+    try {
+        file >> pluginsConfig;
+    } catch (json::parse_error& e) {
+        TraceLog(LOG_ERROR, "Failed to parse plugins.json");
+        return;
+    }
+
+    for (const auto& [pluginName, pluginData] : pluginsConfig["plugins"].items()) {
+        if (!pluginData.contains("path") || !pluginData["path"].is_string()) {
+            TraceLog(LOG_WARNING, ("Plugin '" + pluginName + "' is missing a valid 'path' field. Skipping.").c_str());
+            continue;
+        }
+
+        std::string pluginPath = pluginData["path"];
+
+        if (!fs::exists(pluginPath)) {
+            TraceLog(LOG_WARNING, ("Plugin path '" + pluginPath + "' for '" + pluginName + "' does not exist. Skipping.").c_str());
+            continue;
+        }
+
+        try {
+            loadPlugin(pluginName);
+        } catch (const std::exception& e) {
+            std::string message = "Failed to load plugin '" + pluginName + "': " + e.what();
+            TraceLog(LOG_ERROR, message.c_str());
+        }
+    }
 }
 
 void unloadAllPlugins() {
     // Unload all plugins using Plugins.unloadAll();
 }
 
-void checkPluginsConfigIntegrity() {
+bool checkPluginsConfigIntegrity() {
+    bool integrityPassed = true;
+
     if (!fs::exists(".profile/")) {
         TraceLog(LOG_WARNING, "No .profile/ directory found! Creating it.");
         fs::create_directory(".profile/");
+        integrityPassed = false;
     }
 
     if (!fs::exists(".profile/plugins.json")) {
@@ -33,7 +63,9 @@ void checkPluginsConfigIntegrity() {
         json emptyPlugins = { {"plugins", json::object()} };
         file << emptyPlugins.dump(4);
         file.close();
-        return;
+
+        integrityPassed = false;
+        return integrityPassed;
     }
 
     std::ifstream file(".profile/plugins.json");
@@ -42,12 +74,14 @@ void checkPluginsConfigIntegrity() {
         file >> pluginsConfig; // Attempt to parse the JSON
     } catch (json::parse_error& e) {
         TraceLog(LOG_ERROR, ".profile/plugins.json is not valid JSON!");
-        return;
+        integrityPassed = false;
+        return integrityPassed;
     }
 
     if (!pluginsConfig.contains("plugins") || !pluginsConfig["plugins"].is_object()) {
         TraceLog(LOG_WARNING, "Invalid structure in .profile/plugins.json. Expecting 'plugins' object.");
-        return;
+        integrityPassed = false;
+        return integrityPassed;
     }
 
     // Check if all pluginPaths exist
@@ -83,5 +117,10 @@ void checkPluginsConfigIntegrity() {
     if (!fs::exists(".profile/plugins/")) {
         TraceLog(LOG_WARNING, "No plugins directory found at .profile/plugins/! Creating it.");
         fs::create_directory(".profile/plugins/");
+
+        integrityPassed = false;
+        return integrityPassed;
     }
+
+    return integrityPassed;
 }

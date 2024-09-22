@@ -13,7 +13,7 @@ void loadPlugin(const std::string& pluginName);
 void unloadPlugin(const std::string& pluginName);
 void loadAllPlugins();
 void unloadAllPlugins();
-void checkPluginsConfigIntegrity();
+bool checkPluginsConfigIntegrity();
 
 class Plugin {
 public:
@@ -47,5 +47,7 @@ public:
 private:
     std::unordered_map<std::string, std::shared_ptr<Plugin>> m_plugins;
 };
+
+Plugins pluginManager;
 
 #endif // PLUGINS_LOADER_H
