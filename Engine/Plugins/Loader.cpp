@@ -16,6 +16,29 @@ void Plugin::initialize() {
     }
 }
 
+void Plugin::update() {
+    try {
+        if (m_module.attr("updatePlugin")) {
+            m_module.attr("updatePlugin")();
+        } else {
+            TraceLog(LOG_WARNING, ("Update function not found in plugin: " + m_name).c_str());
+        }
+    } catch (const py::error_already_set& e) {
+        TraceLog(LOG_ERROR, ("Failed to update plugin '" + m_name + "': " + std::string(e.what())).c_str());
+    }
+}
+
+void Plugin::reload() {
+    unload();
+    initialize();
+}
+
+void Plugin::reloadIfChanged() {
+    if (fs::last_write_time(m_path) > m_lastWriteTime) {
+        reload();
+        m_lastWriteTime = fs::last_write_time(m_path);
+    }
+}
 
 void Plugin::unload() {
     try {
@@ -39,6 +62,12 @@ void Plugins::load(const std::string& name, const std::string& path) {
 void Plugins::initializeAllPlugins() {
     for (const auto& [name, plugin] : m_plugins) {
         plugin->initialize();
+    }
+}
+
+void Plugins::updateAll() {
+    for (const auto& [name, plugin] : m_plugins) {
+        plugin->update();
     }
 }
 
