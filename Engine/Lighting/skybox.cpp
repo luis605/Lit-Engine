@@ -23,14 +23,7 @@ Vector4 skyboxColor = (Vector4){1,1,1,1};
 
 Texture2D skyboxPanorama;
 
-void InitSkybox(
-    const char* skyboxFileName = "assets/images/skybox/default skybox.hdr",
-    Shader skyboxShader = LoadShaderFromMemory(skyboxVert, skyboxFrag),
-    Shader cubemapShader = LoadShaderFromMemory(cubemapVert, cubemapFrag)
-    )
-    
-{
-
+void InitSkybox(const char* skyboxFileName, Shader skyboxShader, Shader cubemapShader) {
     skyboxPath = std::string(skyboxFileName);
 
     Mesh cube = GenMeshCube(1.0f, 1.0f, 1.0f);

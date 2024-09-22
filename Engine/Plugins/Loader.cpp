@@ -13,7 +13,9 @@ void Plugin::initialize() {
             "Vector3"_a              = mathModule.attr("Vector3"),
             "initWindow"_a           = pluginScriptingModule.attr("initWindow"),
             "closeWindow"_a          = pluginScriptingModule.attr("closeWindow"),
+            "setSkybox"_a            = pluginScriptingModule.attr("setSkybox"),
             "drawText"_a             = pluginScriptingModule.attr("drawText"),
+            "drawButton"_a           = pluginScriptingModule.attr("drawButton"),
             "IsMouseButtonPressed"_a = inputModule.attr("isMouseButtonPressed"),
             "IsKeyDown"_a            = inputModule.attr("isKeyDown"),
             "IsKeyPressed"_a         = inputModule.attr("isKeyPressed"),
@@ -39,6 +41,8 @@ void Plugin::initialize() {
 
 void Plugin::update() {
     try {
+        if (!m_module) return;
+
         if (m_module.attr("updatePlugin")) {
             m_module.attr("updatePlugin")();
         } else {
