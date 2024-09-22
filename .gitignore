@@ -5,6 +5,7 @@
 *.o
 *CMakeCache.txt
 build/
-profiled
+profiled/
 analysis.txt
-install/bin
+install/bin/
+.profile/
