@@ -580,7 +580,7 @@ void drawEditorCameraMenu() {
     float windowWidth = ImGui::GetWindowWidth();
 
     const float buttonPadding = 5.0f;
-    constexpr ImVec2 imgButtonSize(20, 20);
+    constexpr ImVec2 imgButtonSize(17, 17);
     static float buttonOffsetY = GetImGuiWindowTitleHeight() + 60.0f * 0.5f - imgButtonSize.y * 0.5f - buttonPadding * 2;
 
     ImGui::PushStyleVar(ImGuiStyleVar_FramePadding, ImVec2(10, 10));
