@@ -527,7 +527,7 @@ public:
             "IsKeyPressed"_a = inputModule.attr("isKeyPressed"),
             "IsKeyUp"_a = inputModule.attr("isKeyUp"),
             "GetMouseMovement"_a = inputModule.attr("getMouseMovement"),
-            "KeyboardKey"_a = inputModule.attr("KeyboardKey"),
+            "Keys"_a = inputModule.attr("Keys"),
             "MouseButton"_a = inputModule.attr("MouseButton"),
             "Raycast"_a = collisionModule.attr("raycast"),
             "CollisionShape"_a = collisionModule.attr("CollisionShape"),

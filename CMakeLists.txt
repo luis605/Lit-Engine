@@ -10,12 +10,18 @@ set (CMAKE_CXX_FLAGS "-no-pie")
 add_definitions(-w)
 
 set(SRC_FILES
-    Engine/main.cpp
     include/ImGuiColorTextEdit/TextEditor.cpp
     include/rlImGui.cpp
     include/ImNodes/ImNodes.cpp
     include/ImNodes/ImNodesEz.cpp
 )
+
+file(GLOB ENGINE_SRC_FILES
+    ${CMAKE_SOURCE_DIR}/Engine/*.cpp
+)
+
+list(APPEND SRC_FILES ${ENGINE_SRC_FILES})
+
 
 if(UNIX)
     set(DEBUGGER gdb)
