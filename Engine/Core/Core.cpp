@@ -152,6 +152,7 @@ void EngineMainLoop() {
             EntitiesList();
             Inspector();
             EditorCamera();
+            pluginManager.updateAll();
 
             rlImGuiEnd();
 
