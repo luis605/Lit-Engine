@@ -119,6 +119,8 @@ using json = nlohmann::json;
     #include "Core/Core.cpp"
     #include "Editor/MenuBar/MenuBar.cpp"
 
+    #include "Plugins/Loader.cpp"
+
     #include "../GameBuilder/builder.cpp"
 #endif
 
