@@ -25,11 +25,11 @@ public:
     const std::string& getName() const { return m_name; }
     const std::string& getPath() const { return m_path; }
 
-    virtual void load() = 0;
-    virtual void unload() = 0;
-    virtual void reload() = 0;
+    void load();
+    void unload();
+    void reload();
 
-    virtual ~Plugin() {}
+    ~Plugin() {}
 };
 
 class Plugins {

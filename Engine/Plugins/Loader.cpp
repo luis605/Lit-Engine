@@ -1,8 +1,8 @@
 #include "Loader.h"
 
-void loadPlugin(const std::string& pluginName) {
-    // Example implementation of loading a plugin
-    std::cout << "LOADING: " << pluginName << std::endl;
+void Plugins::load(const std::string& name, const std::string& path) {
+    m_plugins.insert({name, std::make_unique<Plugin>(name, path)});
+    TraceLog(LOG_INFO, ("Loaded plugin: " + name).c_str());
 }
 
 void loadAllPlugins() {
@@ -35,7 +35,7 @@ void loadAllPlugins() {
         }
 
         try {
-            loadPlugin(pluginName);
+            pluginManager.load(pluginName, pluginPath);
         } catch (const std::exception& e) {
             std::string message = "Failed to load plugin '" + pluginName + "': " + e.what();
             TraceLog(LOG_ERROR, message.c_str());
