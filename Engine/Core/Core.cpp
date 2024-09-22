@@ -1,4 +1,5 @@
 #include "Core.h"
+#include "../Plugins/Loader.h"
 
 #define STRESS_TEST false
 #if STRESS_TEST
@@ -125,6 +126,7 @@ void Startup() {
     InitCodeEditor();
     InitSceneEditor();
     InitRenderModelPreviewer();
+    checkPluginsConfigIntegrity();
 
     #if STRESS_TEST
         InitStressTest();

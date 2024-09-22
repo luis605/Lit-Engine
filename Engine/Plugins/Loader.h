@@ -4,6 +4,16 @@
 #include <string>
 #include <unordered_map>
 #include <memory>
+#include <filesystem>
+#include <fstream>
+#include <iostream>
+#include <nlohmann/json.hpp>
+
+void loadPlugin(const std::string& pluginName);
+void unloadPlugin(const std::string& pluginName);
+void loadAllPlugins();
+void unloadAllPlugins();
+void checkPluginsConfigIntegrity();
 
 class Plugin {
 public:
