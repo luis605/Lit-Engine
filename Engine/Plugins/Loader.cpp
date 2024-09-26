@@ -77,8 +77,38 @@ void Plugin::unload() {
     }
 }
 
-void Plugins::load(const std::string& name, const std::string& path) {
-    m_plugins.insert({name, std::make_unique<Plugin>(name, path)});
+void Plugin::saveEnabledState() {
+    std::ifstream inputFile(".profile/plugins.json");
+    json pluginsConfig;
+
+    try {
+        inputFile >> pluginsConfig;
+    } catch (json::parse_error& e) {
+        TraceLog(LOG_ERROR, "Failed to parse plugins.json");
+        return;
+    }
+
+    inputFile.close();
+
+    for (auto& [pluginName, pluginData] : pluginsConfig["plugins"].items()) {
+        if (pluginName == m_name) {
+            pluginData["enabled"] = m_enabled;
+            break;
+        }
+    }
+
+    std::ofstream outputFile(".profile/plugins.json");
+    if (!outputFile) {
+        TraceLog(LOG_ERROR, "Failed to open plugins.json for writing");
+        return;
+    }
+
+    outputFile << pluginsConfig.dump(4);
+    outputFile.close();
+}
+
+void Plugins::load(const std::string& name, const std::string& path, const bool& enabled) {
+    m_plugins.insert({name, std::make_unique<Plugin>(name, path, enabled)});
     TraceLog(LOG_INFO, ("Loaded plugin: " + name).c_str());
 }
 
@@ -90,7 +120,7 @@ void Plugins::initializeAllPlugins() {
 
 void Plugins::updateAll() {
     for (const auto& [name, plugin] : m_plugins) {
-        plugin->update();
+        if (plugin->m_enabled) plugin->update();
     }
 }
 
@@ -124,6 +154,7 @@ void loadAllPlugins() {
         }
 
         std::string pluginPath = pluginData["path"];
+        bool enabled = pluginData["enabled"];
 
         if (!fs::exists(pluginPath)) {
             TraceLog(LOG_WARNING, ("Plugin path '" + pluginPath + "' for '" + pluginName + "' does not exist. Skipping.").c_str());
@@ -131,7 +162,7 @@ void loadAllPlugins() {
         }
 
         try {
-            pluginManager.load(pluginName, pluginPath);
+            pluginManager.load(pluginName, pluginPath, enabled);
         } catch (const std::exception& e) {
             std::string message = "Failed to load plugin '" + pluginName + "': " + e.what();
             TraceLog(LOG_ERROR, message.c_str());

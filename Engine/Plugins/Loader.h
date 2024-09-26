@@ -17,12 +17,13 @@ bool checkPluginsConfigIntegrity();
 
 class Plugin {
 public:
+    bool        m_enabled;
     std::string m_name;
     std::string m_path;
-    py::object m_module;
+    py::object  m_module;
     fs::file_time_type m_lastWriteTime;
 
-    Plugin(const std::string& name, const std::string& path) : m_name(name), m_path(path) {}
+    Plugin(const std::string& name, const std::string& path, const bool& enabled) : m_name(name), m_path(path), m_enabled(enabled) {}
 
     const std::string& getName() const { return m_name; }
     const std::string& getPath() const { return m_path; }
@@ -32,6 +33,7 @@ public:
     void unload();
     void reload();
     void reloadIfChanged();
+    void saveEnabledState();
 
     ~Plugin() {}
 };
@@ -41,7 +43,7 @@ public:
     Plugins() = default;
     ~Plugins() = default;
 
-    void load(const std::string& name, const std::string& path);
+    void load(const std::string& name, const std::string& path, const bool& enabled);
     void unload(const std::string& name);
     void reload(const std::string& name);
     void reloadAll();
@@ -49,6 +51,7 @@ public:
     void updateAll();
     void initializeAllPlugins();
     bool isPluginLoaded(const std::string& name) const;
+    std::unordered_map<std::string, std::shared_ptr<Plugin>>& getPlugins() { return m_plugins; }
 
 private:
     std::unordered_map<std::string, std::shared_ptr<Plugin>> m_plugins;
