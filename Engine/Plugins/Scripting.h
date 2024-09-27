@@ -6,6 +6,7 @@ void closeWindow();
 void drawText(std::string& text, int x = -1, int y = -1, LitVector3 color = LitVector3(255.0f, 255.0f, 255.0f));
 bool drawButton(std::string& text, int x = -1, int y = -1, int width = -1, int height = -1, LitVector3 buttonColor = LitVector3(-1, -1, -1), LitVector3 textColor = LitVector3(-1, -1, -1));
 void setSkybox(const std::string& skyboxPath);
+void onEntityCreation(const std::string& listenerName, const std::function<void()>& callback);
 
 PYBIND11_EMBEDDED_MODULE(pluginScriptingModule, m) {
     m.def("initWindow", &initWindow, "Initialize a window with given parameters",
@@ -42,6 +43,10 @@ PYBIND11_EMBEDDED_MODULE(pluginScriptingModule, m) {
             setSkybox(fullPath);
     }, "Set the skybox of the scene", py::arg("skyboxPath"));
 
+    m.def("onEntityCreation", &onEntityCreation,
+          "Register a callback for entity creation events",
+          py::arg("listenerName"),
+          py::arg("callback"));
 }
 
 

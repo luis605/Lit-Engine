@@ -43,3 +43,10 @@ bool drawButton(std::string& text, int x, int y, int width, int height, LitVecto
 void setSkybox(const std::string& skyboxPath) {
     InitSkybox(skyboxPath.c_str());
 }
+
+void onEntityCreation(const std::string& listenerName, const std::function<void()>& callback) {
+    ConcreteListener listener(listenerName);
+    listener.addCallback(callback);
+    eventManager.onEntityCreation.addListener(listener);
+    std::cout << "Listener added: " << listenerName << std::endl;
+}
