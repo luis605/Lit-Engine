@@ -1,8 +1,12 @@
 import random
 import os
 
+def entityCreated():
+    print("Entity created!")
+
 def initPlugin():
     print("Hello, Plugins!")
+    onEntityCreation("pythonListener", entityCreated)
 
 def updatePlugin():
     initWindow("Plugin", 200, 200, True)

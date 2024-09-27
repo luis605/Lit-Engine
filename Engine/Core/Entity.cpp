@@ -1088,6 +1088,7 @@ Entity* AddEntity(
     const std::string& name = "Unnamed Entity",
     const int id = -1
 ) {
+    eventManager.onEntityCreation.triggerEvent();
 
     Entity entityCreate;
     entityCreate.setColor(WHITE);

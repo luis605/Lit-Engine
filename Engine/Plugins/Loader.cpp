@@ -16,6 +16,7 @@ void Plugin::initialize() {
             "setSkybox"_a            = pluginScriptingModule.attr("setSkybox"),
             "drawText"_a             = pluginScriptingModule.attr("drawText"),
             "drawButton"_a           = pluginScriptingModule.attr("drawButton"),
+            "onEntityCreation"_a     = pluginScriptingModule.attr("onEntityCreation"),
             "IsMouseButtonPressed"_a = inputModule.attr("isMouseButtonPressed"),
             "IsKeyDown"_a            = inputModule.attr("isKeyDown"),
             "IsKeyPressed"_a         = inputModule.attr("isKeyPressed"),
