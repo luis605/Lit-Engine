@@ -1036,6 +1036,7 @@ bool operator==(const Entity& e, const Entity* ptr) {
 void removeEntity(int id) {
     auto it = entityIdToIndexMap.find(id);
     if (it != entityIdToIndexMap.end()) {
+        eventManager.onEntityDestruction.triggerEvent();
         size_t index = it->second;
         entityIdToIndexMap.erase(it);
 

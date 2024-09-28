@@ -432,6 +432,8 @@ int SaveProject() {
     SaveCamera(jsonData, sceneCamera);
     SaveWorldSetting(jsonData);
 
+    eventManager.onSceneSave.triggerEvent();
+
     for (const auto& entity : entitiesListPregame) {
         if (entity.isChild) continue;
         SaveEntity(jsonData, entity);
@@ -797,6 +799,8 @@ int LoadProject(std::vector<Entity>& entitiesVector, std::vector<LightStruct>& l
     if (!lightsVector.empty())   lightsVector.clear();
     if (!textElements.empty())   textElements.clear();
     if (!litButtons.empty())     litButtons.clear();
+
+    eventManager.onSceneLoad.triggerEvent();
 
     try {
         for (const auto& objectJson : jsonData) {

@@ -6,8 +6,6 @@
 #include <vector>
 #include <algorithm>
 #include <functional>
-#include <unordered_map>
-#include <stdexcept>
 #include <memory>
 
 class ConcreteListener {
@@ -36,6 +34,11 @@ private:
 class EventManager {
 public:
     EventSource onEntityCreation;
+    EventSource onEntityDestruction;
+    EventSource onSceneSave;
+    EventSource onSceneLoad;
+    EventSource onScenePlay;
+    EventSource onSceneStop;
 };
 
 extern EventManager eventManager;

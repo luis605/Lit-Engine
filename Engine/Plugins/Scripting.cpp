@@ -48,5 +48,34 @@ void onEntityCreation(const std::string& listenerName, const std::function<void(
     ConcreteListener listener(listenerName);
     listener.addCallback(callback);
     eventManager.onEntityCreation.addListener(listener);
-    std::cout << "Listener added: " << listenerName << std::endl;
+}
+
+void onEntityDestruction(const std::string& listenerName, const std::function<void()>& callback) {
+    ConcreteListener listener(listenerName);
+    listener.addCallback(callback);
+    eventManager.onEntityDestruction.addListener(listener);
+}
+
+void onSceneSave(const std::string& listenerName, const std::function<void()>& callback) {
+    ConcreteListener listener(listenerName);
+    listener.addCallback(callback);
+    eventManager.onSceneSave.addListener(listener);
+}
+
+void onSceneLoad(const std::string& listenerName, const std::function<void()>& callback) {
+    ConcreteListener listener(listenerName);
+    listener.addCallback(callback);
+    eventManager.onSceneLoad.addListener(listener);
+}
+
+void onScenePlay(const std::string& listenerName, const std::function<void()>& callback) {
+    ConcreteListener listener(listenerName);
+    listener.addCallback(callback);
+    eventManager.onScenePlay.addListener(listener);
+}
+
+void onSceneStop(const std::string& listenerName, const std::function<void()>& callback) {
+    ConcreteListener listener(listenerName);
+    listener.addCallback(callback);
+    eventManager.onSceneStop.addListener(listener);
 }
