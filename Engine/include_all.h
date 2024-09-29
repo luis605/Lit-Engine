@@ -37,12 +37,14 @@
 #ifdef _WIN32
     #include "pybind11/embed.h"
     #include "pybind11/pybind11.h"
+    #include "pybind11/functional.h"
     #include "pybind11/stl.h"
 #else
     #include <python3.11/Python.h>
 
     #include <pybind11/embed.h>
     #include <pybind11/pybind11.h>
+    #include <pybind11/functional.h>
     #include <pybind11/stl.h>
 #endif
 
@@ -66,6 +68,7 @@ namespace py = pybind11;
 using namespace py::literals;
 using json = nlohmann::json;
 
+#include "Core/Events.h"
 #include "Editor/MenuBar/Settings.h"
 #include "Core/LoD.cpp"
 #include "Scripting/math.cpp"

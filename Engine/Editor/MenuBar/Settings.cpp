@@ -6,7 +6,8 @@ enum class SettingsCategory {
     Editor,
     Rendering,
     Audio,
-    Controls
+    Controls,
+    Plugins
 };
 
 static SettingsCategory selectedCategory = SettingsCategory::Profile;
@@ -37,6 +38,9 @@ void Settings() {
         }
         if (ImGui::Selectable("Controls", selectedCategory == SettingsCategory::Controls, ImGuiSelectableFlags_SpanAllColumns | ImGuiSelectableFlags_AllowItemOverlap)) {
             selectedCategory = SettingsCategory::Controls;
+        }
+        if (ImGui::Selectable("Plugins", selectedCategory == SettingsCategory::Plugins, ImGuiSelectableFlags_SpanAllColumns | ImGuiSelectableFlags_AllowItemOverlap)) {
+            selectedCategory = SettingsCategory::Plugins;
         }
 
         ImGui::EndChild();
@@ -93,6 +97,19 @@ void Settings() {
                 ImGui::Separator();
                 ImGui::Text("Keybindings and control settings will be here.");
                 break;
+
+            case SettingsCategory::Plugins:
+                ImGui::TextWrapped("Plugins Settings:");
+                ImGui::Separator();
+
+                ImGui::Text("Enabled Plugins:");
+                for (auto& pair : pluginManager.getPlugins()) {
+                    ImGui::Checkbox(pair.first.c_str(), &pair.second->m_enabled);
+                    pair.second->saveEnabledState();
+                }
+
+                break;
+
         }
 
         ImGui::EndChild();
