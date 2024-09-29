@@ -598,6 +598,8 @@ void drawEditorCameraMenu() {
     ImGui::SetCursorPosY(buttonOffsetY);
 
     if (ImGui::ImageButton("runTex", (ImTextureID)&runTexture, imgButtonSize) && !inGamePreview) {
+        eventManager.onScenePlay.triggerEvent();
+
         for (Entity& entity : entitiesListPregame) entity.reloadRigidBody();
         entitiesList.assign(entitiesListPregame.begin(), entitiesList.end());
 
@@ -611,7 +613,9 @@ void drawEditorCameraMenu() {
     ImGui::SetCursorPosY(buttonOffsetY);
 
     if ((ImGui::ImageButton("pauseTex", (ImTextureID)&pauseTexture, imgButtonSize)) && inGamePreview || IsKeyDown(KEY_ESCAPE)) {
+        eventManager.onSceneStop.triggerEvent();
         EnableCursor();
+
         inGamePreview = false;
         firstTimeGameplay = true;
 

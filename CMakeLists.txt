@@ -16,11 +16,16 @@ set(SRC_FILES
     include/ImNodes/ImNodesEz.cpp
 )
 
+# Use GLOB_RECURSE when all headers are fixed
 file(GLOB ENGINE_SRC_FILES
     ${CMAKE_SOURCE_DIR}/Engine/*.cpp
+    ${CMAKE_SOURCE_DIR}/Engine/Core/Events.cpp
 )
 
+
 list(APPEND SRC_FILES ${ENGINE_SRC_FILES})
+
+message(STATUS "Engine Source Files: ${ENGINE_SRC_FILES}")
 
 
 if(UNIX)

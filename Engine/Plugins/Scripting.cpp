@@ -43,3 +43,39 @@ bool drawButton(std::string& text, int x, int y, int width, int height, LitVecto
 void setSkybox(const std::string& skyboxPath) {
     InitSkybox(skyboxPath.c_str());
 }
+
+void onEntityCreation(const std::string& listenerName, const std::function<void()>& callback) {
+    ConcreteListener listener(listenerName);
+    listener.addCallback(callback);
+    eventManager.onEntityCreation.addListener(listener);
+}
+
+void onEntityDestruction(const std::string& listenerName, const std::function<void()>& callback) {
+    ConcreteListener listener(listenerName);
+    listener.addCallback(callback);
+    eventManager.onEntityDestruction.addListener(listener);
+}
+
+void onSceneSave(const std::string& listenerName, const std::function<void()>& callback) {
+    ConcreteListener listener(listenerName);
+    listener.addCallback(callback);
+    eventManager.onSceneSave.addListener(listener);
+}
+
+void onSceneLoad(const std::string& listenerName, const std::function<void()>& callback) {
+    ConcreteListener listener(listenerName);
+    listener.addCallback(callback);
+    eventManager.onSceneLoad.addListener(listener);
+}
+
+void onScenePlay(const std::string& listenerName, const std::function<void()>& callback) {
+    ConcreteListener listener(listenerName);
+    listener.addCallback(callback);
+    eventManager.onScenePlay.addListener(listener);
+}
+
+void onSceneStop(const std::string& listenerName, const std::function<void()>& callback) {
+    ConcreteListener listener(listenerName);
+    listener.addCallback(callback);
+    eventManager.onSceneStop.addListener(listener);
+}
