@@ -601,7 +601,7 @@ void drawEditorCameraMenu() {
         eventManager.onScenePlay.triggerEvent();
 
         for (Entity& entity : entitiesListPregame) entity.reloadRigidBody();
-        entitiesList.assign(entitiesListPregame.begin(), entitiesList.end());
+        entitiesList.assign(entitiesListPregame.begin(), entitiesListPregame.end());
 
         physics.backup();
         InitGameCamera();
