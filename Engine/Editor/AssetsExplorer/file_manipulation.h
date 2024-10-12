@@ -80,7 +80,7 @@ void EditFolderManipulation() {
                 renameFolderIndex = folderIndex;
 
                 size_t bufferSize = sizeof(renameFolderBuffer);
-                const char* source = folderStruct[folderIndex].name.c_str();
+                const char* source = folderStruct[folderIndex].name.string().c_str();
 
                 strncpy(renameFolderBuffer, source, bufferSize - 1);
                 renameFolderBuffer[bufferSize - 1] = '\0';
@@ -127,7 +127,7 @@ void EditFileManipulation()
                 renameFileIndex = fileIndex;
 
                 size_t bufferSize = sizeof(renameFileBuffer);
-                const char* source = fileStruct[fileIndex].name.c_str();
+                const char* source = fileStruct[fileIndex].name.string().c_str();
 
                 strncpy(renameFileBuffer, source, bufferSize - 1);
                 renameFileBuffer[bufferSize - 1] = '\0';
