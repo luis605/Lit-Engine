@@ -209,7 +209,9 @@ endif()
 
 ############# GAME BUILDER #############
 
-add_executable(MyApp GameBuilder/gameSystem.cpp)
+list(REMOVE_ITEM SRC_FILES ${CMAKE_SOURCE_DIR}/Engine/main.cpp)
+
+add_executable(MyApp ${SRC_FILES} ${IMGUI_SRC_FILES} GameBuilder/gameSystem.cpp)
 target_link_libraries(MyApp ${LIB_FLAGS})
 
 add_custom_target(gameBuilder
