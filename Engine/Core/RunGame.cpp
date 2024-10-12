@@ -27,7 +27,7 @@ void RunGame() {
 
         ClearBackground(GRAY);
 
-        DrawSkybox();
+        skybox.drawSkybox(camera);
 
         physics.Update(GetFrameTime());
         UpdateLightsBuffer(true, lights);

@@ -237,7 +237,7 @@ void RenderScene() {
         BeginMode3D(sceneCamera);
             ClearBackground(GRAY);
 
-            DrawSkybox();
+            skybox.drawSkybox(sceneCamera);
 
             UpdateLightsBuffer(true, lights);
             UpdateInGameGlobals();

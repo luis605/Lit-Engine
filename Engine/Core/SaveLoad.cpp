@@ -339,9 +339,9 @@ void SaveWorldSetting(json& jsonData) {
     j["bloom"] = bloomEnabled;
     j["bloomThreshold"] = bloomThreshold;
     j["kernelSize"] = kernelSize;
-    j["skyboxPath"] = skyboxPath;
+    j["skyboxPath"] = skybox.skyboxTexturePath;
     j["ambientColor"] = ambientLight;
-    j["skyboxColor"] = skyboxColor;
+    j["skyboxColor"] = skybox.color;
 
     jsonData.emplace_back(j);
 }
@@ -509,7 +509,7 @@ void LoadWorldSettings(const json& worldSettingsJson) {
     }
 
     if (worldSettingsJson.contains("skyboxPath")) {
-        InitSkybox(worldSettingsJson["skyboxPath"].get<std::string>().c_str());
+        skybox.loadSkybox(worldSettingsJson["skyboxPath"].get<fs::path>());
     }
 
     if (worldSettingsJson.contains("ambientColor")) {
@@ -523,9 +523,9 @@ void LoadWorldSettings(const json& worldSettingsJson) {
         physics.gravity.z = worldSettingsJson["gravity"]["z"].get<float>();
     }
 
-    if (worldSettingsJson.contains("skyboxColor"))  skyboxColor = worldSettingsJson["skyboxColor"].get<Vector4>();
-    else                                            skyboxColor = (Vector4){1,1,1,1};
-    SetShaderValue(skybox.materials[0].shader, GetUniformLocation(skybox.materials[0].shader, "skyboxColor"), &skyboxColor, SHADER_UNIFORM_VEC4);
+    if (worldSettingsJson.contains("skyboxColor"))  skybox.color = worldSettingsJson["skyboxColor"].get<Vector4>();
+    else                                            skybox.color = { 1, 1, 1, 1 };
+    SetShaderValue(skybox.cubeModel.materials[0].shader, GetUniformLocation(skybox.cubeModel.materials[0].shader, "skyboxColor"), &skybox.color, SHADER_UNIFORM_VEC4);
 }
 
 Entity* LoadEntity(const json& entityJson) {

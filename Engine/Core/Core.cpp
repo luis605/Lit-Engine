@@ -115,7 +115,7 @@ void Startup() {
     glEnable(GL_CULL_FACE);
     glCullFace(GL_BACK);
 
-    InitSkybox();
+    skybox.loadSkybox("assets/images/skybox/default skybox.hdr");
     Py_Initialize();
     InitImGui();
     LoadTextures();

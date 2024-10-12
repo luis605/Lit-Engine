@@ -145,10 +145,6 @@ void DrawMenus() {
             verticalBlurShader   = LoadShader("Engine/Lighting/shaders/lighting_vertex.glsl", "Engine/Lighting/shaders/blurVertical.fs");
         }
 
-        if (ImGui::MenuItem("Reload Skybox Shader")) {
-            InitSkybox();
-        }
-
         ImGui::EndMenu();
     }
 }
