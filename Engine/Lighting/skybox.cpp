@@ -19,7 +19,7 @@ void Skybox::loadSkybox(const fs::path& texturePath) {
     int array0[1] = { 0 };
     SetShaderValue(cubemapShader, GetUniformLocation(cubemapShader, "equirectangularMap"), array0, SHADER_UNIFORM_INT);
 
-    cubemap = LoadTexture(texturePath.c_str());
+    cubemap = LoadTexture(texturePath.string().c_str());
     cubeModel.materials[0].maps[MATERIAL_MAP_CUBEMAP].texture = GenTextureCubemap(cubemapShader, cubemap, 500, PIXELFORMAT_UNCOMPRESSED_R8G8B8A8);
 
     glGenBuffers(1, &objectsBuffer);
