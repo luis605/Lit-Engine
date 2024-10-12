@@ -40,7 +40,7 @@ Texture2D RenderModelPreview(const char* modelFile) {
         BeginMode3D(modelPreviewerCamera);
         BeginShaderMode(shader);
             ClearBackground(GRAY);
-            DrawSkybox();
+            skybox.drawSkybox(modelPreviewerCamera);
 
             DrawModel(model, (Vector3){ 0.0f, 0.0f, 0.0f }, 1.0f, WHITE);
         EndShaderMode();

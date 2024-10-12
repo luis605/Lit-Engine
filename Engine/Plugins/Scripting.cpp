@@ -41,7 +41,7 @@ bool drawButton(std::string& text, int x, int y, int width, int height, LitVecto
 }
 
 void setSkybox(const std::string& skyboxPath) {
-    InitSkybox(skyboxPath.c_str());
+    skybox.loadSkybox(fs::path(skyboxPath));
 }
 
 void onEntityCreation(const std::string& listenerName, const std::function<void()>& callback) {
