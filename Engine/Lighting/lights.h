@@ -90,12 +90,12 @@ struct SurfaceMaterialTexture {
 
     // Destructor
     ~SurfaceMaterialTexture() {
-        cleanup();
+        // cleanup();  // Commented: Would be called when not needed. Happened when adding a new entity
     }
 
     SurfaceMaterialTexture& operator=(const SurfaceMaterialTexture& other) {
         if (this != &other) {
-            cleanup();
+            // cleanup(); // Commented: Would be called when not needed. Requires review. Happened when running game (assign operator) and when adding a new entity
 
             staticTexture = other.staticTexture;
             videoTexture = other.videoTexture;

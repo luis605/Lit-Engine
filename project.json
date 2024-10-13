@@ -2,15 +2,15 @@
     {
         "fovy": 60.0,
         "position": {
-            "x": 6.347133636474609,
-            "y": 27.411314010620117,
-            "z": 14.140908241271973
+            "x": 5.415100574493408,
+            "y": 4.264934539794922,
+            "z": -1.654798150062561
         },
         "projection": 0,
         "target": {
-            "x": 6.441838264465332,
-            "y": 26.50822639465332,
-            "z": 13.72202205657959
+            "x": 4.5905303955078125,
+            "y": 3.7363827228546143,
+            "z": -1.45301353931427
         },
         "type": "camera",
         "up": {
@@ -22,9 +22,9 @@
     {
         "ambientColor": {
             "w": 1.0,
-            "x": 1.0,
-            "y": 1.0,
-            "z": 1.0
+            "x": 0.0,
+            "y": 0.0,
+            "z": 0.0
         },
         "bloom": false,
         "bloomThreshold": 0.20000000298023224,
@@ -36,11 +36,94 @@
         "kernelSize": 1,
         "skyboxColor": {
             "w": 1.0,
+            "x": 0.05882352590560913,
+            "y": 0.05882352590560913,
+            "z": 0.05882352590560913
+        },
+        "skyboxPath": "assets/images/skybox/default skybox.hdr",
+        "type": "world settings"
+    },
+    {
+        "children": null,
+        "collider": true,
+        "collider_type": 2,
+        "damping": 0.0,
+        "friction": 1.0,
+        "id": 0,
+        "is_dynamic": false,
+        "lodEnabled": true,
+        "mass": 1.0,
+        "material_path": "project/game/materials/file3.mat",
+        "mesh_type": 1,
+        "modelPath": "",
+        "name": "Unnamed Entity",
+        "position": {
+            "x": 0.0,
+            "y": 0.0,
+            "z": 0.0
+        },
+        "relativePosition": {
+            "x": 0.0,
+            "y": 0.0,
+            "z": 0.0
+        },
+        "rotation": {
+            "x": 0.0,
+            "y": 0.0,
+            "z": 0.0
+        },
+        "scale": {
             "x": 1.0,
             "y": 1.0,
             "z": 1.0
         },
-        "skyboxPath": "assets/images/skybox/default skybox.hdr",
-        "type": "world settings"
+        "scriptIndex": "",
+        "script_path": "",
+        "surfaceMaterial": {
+            "DiffuseIntensity": 1.0,
+            "Roughness": 0.5,
+            "SpecularIntensity": 0.5
+        },
+        "tiling": [
+            1.0,
+            1.0
+        ],
+        "type": "entity"
+    },
+    {
+        "attenuation": 0.0010000000474974513,
+        "color": {
+            "a": 255.0,
+            "b": 255.0,
+            "g": 255.0,
+            "r": 255.0
+        },
+        "direction": {
+            "x": 0.4000000059604645,
+            "y": 0.4000000059604645,
+            "z": -0.4000000059604645
+        },
+        "id": 1,
+        "intensity": 3.0,
+        "isChild": false,
+        "light_type": 1,
+        "name": "New Light",
+        "position": {
+            "x": 4.299998760223389,
+            "y": 3.4999988079071045,
+            "z": -2.9999992847442627
+        },
+        "relativePosition": {
+            "x": 0,
+            "y": 0,
+            "z": 0
+        },
+        "specularStrength": 0.5,
+        "target": {
+            "x": 0,
+            "y": 0,
+            "z": 0
+        },
+        "type": "light"
     }
 ]
