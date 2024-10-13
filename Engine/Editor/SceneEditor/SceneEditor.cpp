@@ -605,7 +605,7 @@ void drawEditorCameraMenu() {
 
         physics.backup();
         InitGameCamera();
-        inGamePreview = true;
+//        inGamePreview = true;
     }
     if (ImGui::IsItemHovered()) ImGui::SetTooltip("Play the game");
 

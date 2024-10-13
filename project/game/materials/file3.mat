@@ -6,7 +6,7 @@
         "g": 1.0,
         "r": 1.0
     },
-    "diffuseTexturePath": "",
+    "diffuseTexturePath": "project/game/images/kloppenheim_02_puresky_4k.hdr",
     "diffuse_intensity": 1.0,
     "normalTexturePath": "",
     "roughness": 0.5,
