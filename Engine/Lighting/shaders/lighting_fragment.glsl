@@ -110,10 +110,10 @@ vec4 CalculateDiffuseLighting(vec3 norm, vec3 lightDir, vec4 lightColor, float d
     return lightColor * colDiffuse * NdotL * diffuseIntensity / PI * texColor;
 }
 
-vec4 CalculateAmbientLighting(float roughness) {
+vec4 CalculateAmbientLighting(float roughness, vec4 texColor) {
     float occlusion = 1.0;
     float ambientFactor = mix(0.2, 1.0, 1.0 - roughness);
-    return vec4(vec3(ambientLight.rgb * colDiffuse.rgb * occlusion * ambientFactor), colDiffuse.a);
+    return vec4(ambientLight.rgb * colDiffuse.rgb * texColor.rgb * occlusion * ambientFactor, colDiffuse.a * texColor.a);
 }
 
 vec4 toneMapFilmic(vec4 hdrColor) {
@@ -154,7 +154,7 @@ vec4 CalculateLighting(vec3 fragPosition, vec3 fragNormal, vec3 viewDir, vec2 te
         result += CalculateLight(lights[i], viewDir, fragNormal, fragPosition, texColor, F0, material);
     }
 
-    result += CalculateAmbientLighting(material.Roughness);
+    result += CalculateAmbientLighting(material.Roughness, texColor);
     return toneMapFilmic(result);
 }
 
