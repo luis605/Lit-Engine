@@ -76,10 +76,17 @@ bool IsMouseHoveringModel(const Model& model, const Vector3& position, const Vec
     if (!IsModelReady(model)) return false;
 
     Vector2 mousePosition = GetMousePosition();
+#ifndef GAME_SHIPPING
+    Vector2 relativeMousePosition = {
+        (float)mousePosition.x - (float)viewportRectangle.x,
+        (float)mousePosition.y - (float)viewportRectangle.y - (float)GetImGuiWindowTitleHeight() - 60.0f
+    };
+#elif GAME_SHIPPING
     Vector2 relativeMousePosition = {
         (float)mousePosition.x - (float)viewportRectangle.x,
         (float)mousePosition.y - (float)viewportRectangle.y - (float)GetImGuiWindowTitleHeight()
     };
+#endif
 
     Ray mouseRay = GetScreenToWorldRayEx(relativeMousePosition, sceneCamera, viewportRectangle.width, viewportRectangle.height);
 
