@@ -132,10 +132,10 @@ void ProcessGizmo() {
         GizmoPosition();
         GizmoRotation();
     } else {
-        draggingGizmoPosition = draggingGizmoRotation = draggingGizmoScale = false;
+        draggingPositionGizmo = draggingRotationGizmo = draggingScaleGizmo = false;
     }
 
-    dragging = (draggingGizmoScale || draggingGizmoPosition || draggingGizmoRotation);
+    dragging = (draggingScaleGizmo || draggingPositionGizmo || draggingRotationGizmo);
 }
 
 void HandleUnselect() {
@@ -250,8 +250,8 @@ void RenderScene() {
             UpdateInGameGlobals();
             UpdateFrustum();
 
-            ProcessGizmo();
             UpdateShader();
+            ProcessGizmo();
 
             glDepthRange(0, 0.001);
             DrawGizmos();

@@ -2,15 +2,15 @@
     {
         "fovy": 60.0,
         "position": {
-            "x": 5.415100574493408,
-            "y": 4.264934539794922,
-            "z": -1.654798150062561
+            "x": 12.736164093017578,
+            "y": 9.747727394104004,
+            "z": -20.95547103881836
         },
         "projection": 0,
         "target": {
-            "x": 4.5905303955078125,
-            "y": 3.7363827228546143,
-            "z": -1.45301353931427
+            "x": 12.44857406616211,
+            "y": 9.40774917602539,
+            "z": -20.060091018676758
         },
         "type": "camera",
         "up": {
@@ -22,9 +22,9 @@
     {
         "ambientColor": {
             "w": 1.0,
-            "x": 0.0,
-            "y": 0.0,
-            "z": 0.0
+            "x": 0.0378151535987854,
+            "y": 0.0378151535987854,
+            "z": 0.0378151535987854
         },
         "bloom": false,
         "bloomThreshold": 0.20000000298023224,
@@ -36,9 +36,9 @@
         "kernelSize": 1,
         "skyboxColor": {
             "w": 1.0,
-            "x": 0.05882352590560913,
-            "y": 0.05882352590560913,
-            "z": 0.05882352590560913
+            "x": 0.08823531866073608,
+            "y": 0.08823531866073608,
+            "z": 0.08823531866073608
         },
         "skyboxPath": "assets/images/skybox/default skybox.hdr",
         "type": "world settings"
@@ -53,14 +53,14 @@
         "is_dynamic": false,
         "lodEnabled": true,
         "mass": 1.0,
-        "material_path": "project/game/materials/file3.mat",
+        "material_path": "",
         "mesh_type": 1,
         "modelPath": "",
         "name": "Unnamed Entity",
         "position": {
             "x": 0.0,
             "y": 0.0,
-            "z": 0.0
+            "z": 3.7999980449676514
         },
         "relativePosition": {
             "x": 0.0,
@@ -73,14 +73,14 @@
             "z": 0.0
         },
         "scale": {
-            "x": 1.0,
-            "y": 1.0,
+            "x": -12.100006103515625,
+            "y": -16.69997787475586,
             "z": 1.0
         },
         "scriptIndex": "",
         "script_path": "",
         "surfaceMaterial": {
-            "DiffuseIntensity": 1.0,
+            "DiffuseIntensity": 0.5,
             "Roughness": 0.5,
             "SpecularIntensity": 0.5
         },
@@ -109,9 +109,9 @@
         "light_type": 1,
         "name": "New Light",
         "position": {
-            "x": 4.299998760223389,
-            "y": 3.4999988079071045,
-            "z": -2.9999992847442627
+            "x": 0.0,
+            "y": 2.999999523162842,
+            "z": -0.8000001907348633
         },
         "relativePosition": {
             "x": 0,
