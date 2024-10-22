@@ -14,7 +14,6 @@ uniform vec3 viewPos;
 uniform mat4 viewMatrix;
 uniform mat4 projectionMatrix;
 uniform vec2 tiling;
-uniform float exposure = 1.0;
 
 // PBR Textures
 uniform bool diffuseMapReady;
@@ -24,6 +23,9 @@ uniform sampler2D texture0;
 uniform sampler2D texture2;
 uniform sampler2D texture3;
 uniform sampler2D texture4;
+
+// Exposure
+uniform float exposure = 1.0;
 
 // Lights
 #define PI 3.1415926
@@ -117,7 +119,7 @@ vec4 CalculateAmbientLighting(float roughness, vec4 texColor) {
 }
 
 vec4 toneMapFilmic(vec4 hdrColor) {
-    vec3 x = max(vec3(0.0), hdrColor.rgb - vec3(0.004));
+    vec3 x = max(vec3(0.0), hdrColor.rgb * exposure - vec3(0.004));
     vec3 result = (x * (6.2 * x + 0.5)) / (x * (6.2 * x + 1.7) + 0.06);
     return vec4(result, hdrColor.a);
 }

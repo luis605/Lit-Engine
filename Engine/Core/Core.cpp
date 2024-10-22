@@ -38,6 +38,7 @@ void LoadTextures() {
     verticalBlurTexture = LoadRenderTexture(GetScreenWidth(), GetScreenHeight());
     horizontalBlurTexture = LoadRenderTexture(GetScreenWidth(), GetScreenHeight());
     upsamplerTexture = LoadRenderTexture(GetScreenWidth(), GetScreenHeight());
+    downsamplerTexture = LoadRenderTexture(GetScreenWidth() / downsamplerFactor, GetScreenHeight() / downsamplerFactor);
 
     SetWindowIcon(windowIconImage);
 }
@@ -97,6 +98,7 @@ void InitShaders() {
     horizontalBlurShader = LoadShader("Engine/Lighting/shaders/lighting_vertex.glsl", "Engine/Lighting/shaders/blurHorizontal.fs");
     verticalBlurShader   = LoadShader("Engine/Lighting/shaders/lighting_vertex.glsl", "Engine/Lighting/shaders/blurVertical.fs");
     upsamplerShader      = LoadShader("Engine/Lighting/shaders/lighting_vertex.glsl", "Engine/Lighting/shaders/upsampler.glsl");
+    downsamplerShader    = LoadShader("Engine/Lighting/shaders/lighting_vertex.glsl", "Engine/Lighting/shaders/downsampler.glsl");
 }
 
 void InitCodeEditor() {
