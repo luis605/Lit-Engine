@@ -1,4 +1,4 @@
-#version 330
+#version 330 core
 
 in highp vec3 fragPosition;
 in vec2 fragTexCoord;
@@ -8,6 +8,7 @@ uniform samplerCube environmentMap;
 uniform bool vflipped;
 uniform bool doGamma;
 uniform vec4 skyboxColor = vec4(1.0);
+uniform float skyboxExposure = 0.0;
 
 const int MAX_OBJECTS = 32;
 
@@ -77,7 +78,7 @@ void main() {
         }
     }
 
-    color *= skyboxColor.rgb;
+    color *= skyboxColor.rgb * skyboxExposure;
 
     if (doGamma) {
         color = pow(color, vec3(1.0 / 2.2));

@@ -239,18 +239,60 @@ void RenderGrid() {
     }
 }
 
+void ComputeSceneLuminance() {
+    BeginTextureMode(downsamplerTexture);
+    BeginShaderMode(downsamplerShader);
+    SetShaderValue(downsamplerShader, GetUniformLocation(downsamplerShader, "uDownsampleFactor"), &downsamplerFactor, SHADER_UNIFORM_INT);
+    SetShaderValueTexture(downsamplerShader, GetUniformLocation(downsamplerShader, "srcTexture"), viewportRenderTexture.texture);
+        DrawTexture(viewportRenderTexture.texture, 0, 0, WHITE);
+
+        GLuint pixelCount = 0;
+        GLuint totalLuminance = 0;
+        constexpr GLuint zero = 0;
+
+        glBindBuffer(GL_ATOMIC_COUNTER_BUFFER, downsamplerPixelCountBuffer);
+        glGetBufferSubData(GL_ATOMIC_COUNTER_BUFFER, 0, sizeof(GLuint), &pixelCount);
+
+        glBufferSubData(GL_ATOMIC_COUNTER_BUFFER, 0, sizeof(GLuint), &zero);
+        glBindBuffer(GL_ATOMIC_COUNTER_BUFFER, 0);
+
+
+        glBindBuffer(GL_ATOMIC_COUNTER_BUFFER, downsamplerLuminanceBuffer);
+        glGetBufferSubData(GL_ATOMIC_COUNTER_BUFFER, 0, sizeof(GLuint), &totalLuminance);
+
+        glBufferSubData(GL_ATOMIC_COUNTER_BUFFER, 0, sizeof(GLuint), &zero);
+        glBindBuffer(GL_ATOMIC_COUNTER_BUFFER, 0);
+
+        if (pixelCount > 0) {
+            float avgLuminance = (totalLuminance / float(pixelCount)) / 1000.0f;
+
+            static float targetLuminance = 0.6f;
+            static float exposureSpeed = 2.8f;
+            float deltaTime = GetFrameTime();
+            float exposure = targetLuminance / (avgLuminance + 0.0001f);
+            exposure = Lerp(prevExposure, exposure, deltaTime * exposureSpeed);
+            prevExposure = exposure;
+        }
+
+    EndShaderMode();
+    EndTextureMode();
+}
+
 void RenderScene() {
     BeginTextureMode(viewportRenderTexture);
         BeginMode3D(sceneCamera);
             ClearBackground(GRAY);
 
+            SetShaderValue(shader, GetUniformLocation(shader, "exposure"), &prevExposure, SHADER_UNIFORM_FLOAT);
+
+            skybox.setExposure(prevExposure);
             skybox.drawSkybox(sceneCamera);
 
             UpdateLightsBuffer(true, lights);
             UpdateInGameGlobals();
             UpdateFrustum();
-
             UpdateShader();
+
             ProcessGizmo();
 
             glDepthRange(0, 0.001);
@@ -271,6 +313,7 @@ void RenderScene() {
         DrawButtons();
     EndTextureMode();
 
+    ComputeSceneLuminance();
     ApplyBloomEffect();
     RenderViewportTexture();
 }
@@ -578,6 +621,8 @@ void ScaleViewport() {
         verticalBlurTexture   = LoadRenderTexture(currentWindowSize.x, currentWindowSize.y);
         horizontalBlurTexture = LoadRenderTexture(currentWindowSize.x, currentWindowSize.y);
         upsamplerTexture      = LoadRenderTexture(currentWindowSize.x, currentWindowSize.y);
+        downsamplerTexture    = LoadRenderTexture(currentWindowSize.x / downsamplerFactor,
+                                                  currentWindowSize.y / downsamplerFactor);
 
         prevEditorWindowSize = currentWindowSize;
     }

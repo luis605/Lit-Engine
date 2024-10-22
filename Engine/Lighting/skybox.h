@@ -34,6 +34,7 @@ public:
     void addSkyboxObject(const SkyboxObject& object);
     void updateBuffer();
     void drawSkybox(LitCamera& camera);
+    void setExposure(float exposure);
     TextureCubemap GenTextureCubemap(Shader shader, Texture2D panorama, int size, int format);
 };
 

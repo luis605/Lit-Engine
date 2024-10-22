@@ -67,6 +67,10 @@ void Skybox::drawSkybox(LitCamera& camera) {
     rlEnableDepthMask();
 }
 
+void Skybox::setExposure(float skyboxExposure) {
+    SetShaderValue(this->skyboxShader, GetUniformLocation(skyboxShader, "skyboxExposure"), &skyboxExposure, SHADER_UNIFORM_FLOAT);
+}
+
 TextureCubemap Skybox::GenTextureCubemap(Shader shader, Texture2D panorama, int size, int format) {
     TextureCubemap cubemap = { 0 };
 
