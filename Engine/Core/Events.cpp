@@ -25,4 +25,14 @@ void ConcreteListener::onEvent() {
     std::cout << "Listener " << m_name << " received the event notification!" << std::endl;
 }
 
+void EventManager::createEvent(const std::string& eventName) {
+    if (customEvents.find(eventName) == customEvents.end())
+        customEvents.emplace(eventName, EventSource{});
+}
+
+EventSource* EventManager::getEvent(const std::string& eventName) {
+    auto it = customEvents.find(eventName);
+    return (it != customEvents.end()) ? &it->second : nullptr;
+}
+
 EventManager eventManager;

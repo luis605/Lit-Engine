@@ -38,6 +38,9 @@ def onStop():
     print("Experience stopped!")
     onStopFlag = True
 
+def callCustomEvent():
+    print("Received custom event")
+
 def initPlugin():
     print("Hello, Plugins!")
     onEntityCreation("pythonListener", entityCreated)
@@ -46,6 +49,8 @@ def initPlugin():
     onSceneLoad("pythonListener", sceneLoaded)
     onScenePlay("pythonListener", onPlay)
     onSceneStop("pythonListener", onStop)
+    createEvent("customEvent")
+    onCustomEvent("customEvent", callCustomEvent)
 
 def updatePlugin():
     initWindow("Plugin " + str(entityAddedFlag), 200, 200, True)
@@ -67,6 +72,9 @@ def updatePlugin():
 
     if onStopFlag:
         drawText("Experience stopped!", -1, -1, Vector3(255, 0, 0))
+
+    if IsKeyPressed(Keys.KEY_C):
+        triggerCustomEvent("customEvent")
 
     if (drawButton("Change Skybox", -1, -1, -1, -1, Vector3(-1, -1, -1), Vector3(255, 255, 0))):
         filesList = os.listdir(os.path.dirname(os.path.realpath(__file__)) + "/skybox/")

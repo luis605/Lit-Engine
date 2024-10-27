@@ -12,6 +12,9 @@ void onSceneSave(const std::string& listenerName, const std::function<void()>& c
 void onSceneLoad(const std::string& listenerName, const std::function<void()>& callback);
 void onScenePlay(const std::string& listenerName, const std::function<void()>& callback);
 void onSceneStop(const std::string& listenerName, const std::function<void()>& callback);
+void createEvent(const std::string& eventName);
+void onCustomEvent(const std::string& eventName, const std::function<void()>& callback);
+void triggerCustomEvent(const std::string& eventName);
 
 PYBIND11_EMBEDDED_MODULE(pluginScriptingModule, m) {
     m.def("initWindow", &initWindow, "Initialize a window with given parameters",
@@ -46,37 +49,51 @@ PYBIND11_EMBEDDED_MODULE(pluginScriptingModule, m) {
             std::string fullPath = relativePath + "/" + skyboxPath;
 
             setSkybox(fullPath);
-    }, "Set the skybox of the scene", py::arg("skyboxPath"));
+      }, "Set the skybox of the scene", py::arg("skyboxPath"));
 
-    m.def("onEntityCreation", &onEntityCreation,
-          "Register a callback for entity creation events",
-          py::arg("listenerName"),
+      m.def("onEntityCreation", &onEntityCreation,
+            "Register a callback for entity creation events",
+            py::arg("listenerName"),
+            py::arg("callback"));
+
+      m.def("onEntityDestruction", &onEntityDestruction,
+            "Register a callback for entity destruction events",
+            py::arg("listenerName"),
+            py::arg("callback"));
+
+      m.def("onSceneSave", &onSceneSave,
+            "Register a callback for scene saving events",
+            py::arg("listenerName"),
+            py::arg("callback"));
+
+      m.def("onSceneLoad", &onSceneLoad,
+            "Register a callback for scene loading events",
+            py::arg("listenerName"),
+            py::arg("callback"));
+
+      m.def("onScenePlay", &onScenePlay,
+            "Register a callback for scene play events",
+            py::arg("listenerName"),
+            py::arg("callback"));
+
+      m.def("onSceneStop", &onSceneStop,
+            "Register a callback for scene stop events",
+            py::arg("listenerName"),
+            py::arg("callback"));
+
+      m.def("createEvent", &createEvent,
+          "Create a custom event",
+          py::arg("eventName"));
+
+      m.def("onCustomEvent", &onCustomEvent,
+          "Register a callback for a custom event",
+          py::arg("eventName"),
           py::arg("callback"));
 
-    m.def("onEntityDestruction", &onEntityDestruction,
-          "Register a callback for entity destruction events",
-          py::arg("listenerName"),
-          py::arg("callback"));
+      m.def("triggerCustomEvent", &triggerCustomEvent,
+          "Trigger a custom event",
+          py::arg("eventName"));
 
-    m.def("onSceneSave", &onSceneSave,
-          "Register a callback for scene saving events",
-          py::arg("listenerName"),
-          py::arg("callback"));
-
-    m.def("onSceneLoad", &onSceneLoad,
-          "Register a callback for scene loading events",
-          py::arg("listenerName"),
-          py::arg("callback"));
-
-    m.def("onScenePlay", &onScenePlay,
-          "Register a callback for scene play events",
-          py::arg("listenerName"),
-          py::arg("callback"));
-
-    m.def("onSceneStop", &onSceneStop,
-          "Register a callback for scene stop events",
-          py::arg("listenerName"),
-          py::arg("callback"));
 }
 
 
