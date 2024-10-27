@@ -21,16 +21,21 @@ int shadowMapWidth = 1024;
 int shadowMapHeight = 1024;
 
 unsigned int depthMapFBO;
+GLuint downsamplerPixelCountBuffer;
+GLuint downsamplerLuminanceBuffer;
 
 bool bloomEnabled = false;
 float bloomThreshold = 0.2f;
 float bloomIntensity = 0.5f;
 int kernelSize = 1;
+float prevExposure = 0.0f;
+int downsamplerFactor = 4;
 
 Shader shader;
 Shader instancingShader;
 Shader horizontalBlurShader;
 Shader verticalBlurShader;
+Shader downsamplerShader;
 Shader upsamplerShader;
 GLuint lightsBuffer;
 GLuint renderPrevierLightsBuffer;
@@ -41,6 +46,7 @@ Vector4 ambientLight = {1.0f, 1.0f, 1.0f, 1.0f};
 RenderTexture verticalBlurTexture;
 RenderTexture horizontalBlurTexture;
 RenderTexture upsamplerTexture;
+RenderTexture downsamplerTexture;
 
 void UpdateLightsBuffer(bool force, std::vector<LightStruct>& lightsVector, GLuint& buffer = lightsBuffer);
 LightStruct& NewLight(const Vector3 position, const Color color, int type = LIGHT_POINT, int id = -1);
@@ -90,12 +96,12 @@ struct SurfaceMaterialTexture {
 
     // Destructor
     ~SurfaceMaterialTexture() {
-        cleanup();
+        // cleanup();  // Commented: Would be called when not needed. Happened when adding a new entity
     }
 
     SurfaceMaterialTexture& operator=(const SurfaceMaterialTexture& other) {
         if (this != &other) {
-            cleanup();
+            // cleanup(); // Commented: Would be called when not needed. Requires review. Happened when running game (assign operator) and when adding a new entity
 
             staticTexture = other.staticTexture;
             videoTexture = other.videoTexture;

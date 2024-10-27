@@ -63,7 +63,7 @@ void InitWindow() {
     glEnable(GL_CULL_FACE);
     glCullFace(GL_BACK);
 
-    InitSkybox("assets/default skybox.hdr", LoadShader("shaders/skybox.vs", "shaders/skybox.fs"), LoadShader("shaders/cubemap.vs", "shaders/cubemap.fs"));
+    skybox.loadSkybox("assets/default skybox.hdr");
     Py_Initialize();
     InitLighting();
 }
@@ -87,7 +87,7 @@ void Run() {
 
         BeginMode3D(inGameCamera);
 
-            DrawSkybox();
+            skybox.drawSkybox(inGameCamera);
 
             UpdateLightsBuffer(false, lights);
             UpdateInGameGlobals();

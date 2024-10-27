@@ -49,7 +49,7 @@ float cellSize = thumbnailSize + padding;
 
 ImVec2 assetsExplorerWindowSize = {cellSize, cellSize};
 
-Camera3D modelPreviewerCamera = { 0 };
+LitCamera modelPreviewerCamera = { 0 };
 
 SurfaceMaterial assetsMaterial;
 
