@@ -1,7 +1,7 @@
 {
     "plugins": {
         "Plugin1": {
-            "enabled": false,
+            "enabled": true,
             "path": "./.profile/plugins/Plugin1"
         }
     }

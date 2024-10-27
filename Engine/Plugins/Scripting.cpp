@@ -79,3 +79,17 @@ void onSceneStop(const std::string& listenerName, const std::function<void()>& c
     listener.addCallback(callback);
     eventManager.onSceneStop.addListener(listener);
 }
+
+void createEvent(const std::string& eventName) {
+    eventManager.createEvent(eventName);
+}
+
+void onCustomEvent(const std::string& eventName, const std::function<void()>& callback) {
+    ConcreteListener listener(eventName);
+    listener.addCallback(callback);
+    eventManager.getEvent(eventName)->addListener(listener);
+}
+
+void triggerCustomEvent(const std::string& eventName) {
+    eventManager.getEvent(eventName)->triggerEvent();
+}

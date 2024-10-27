@@ -6,6 +6,7 @@
 #include <vector>
 #include <algorithm>
 #include <functional>
+#include <unordered_map>
 #include <memory>
 
 class ConcreteListener {
@@ -33,12 +34,19 @@ private:
 
 class EventManager {
 public:
+    void createEvent(const std::string& eventName);
+    EventSource* getEvent(const std::string& eventName);
+
+public:
     EventSource onEntityCreation;
     EventSource onEntityDestruction;
     EventSource onSceneSave;
     EventSource onSceneLoad;
     EventSource onScenePlay;
     EventSource onSceneStop;
+
+private:
+    std::unordered_map<std::string, EventSource> customEvents;
 };
 
 extern EventManager eventManager;
