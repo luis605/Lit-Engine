@@ -14,7 +14,6 @@ uniform vec3 viewPos;
 uniform mat4 viewMatrix;
 uniform mat4 projectionMatrix;
 uniform vec2 tiling;
-uniform float exposure = 1.0;
 
 // PBR Textures
 uniform bool diffuseMapReady;
@@ -24,6 +23,9 @@ uniform sampler2D texture0;
 uniform sampler2D texture2;
 uniform sampler2D texture3;
 uniform sampler2D texture4;
+
+// Exposure
+uniform float exposure = 1.0;
 
 // Lights
 #define PI 3.1415926
@@ -110,14 +112,14 @@ vec4 CalculateDiffuseLighting(vec3 norm, vec3 lightDir, vec4 lightColor, float d
     return lightColor * colDiffuse * NdotL * diffuseIntensity / PI * texColor;
 }
 
-vec4 CalculateAmbientLighting(float roughness) {
+vec4 CalculateAmbientLighting(float roughness, vec4 texColor) {
     float occlusion = 1.0;
     float ambientFactor = mix(0.2, 1.0, 1.0 - roughness);
-    return vec4(vec3(ambientLight.rgb * colDiffuse.rgb * occlusion * ambientFactor), colDiffuse.a);
+    return vec4(ambientLight.rgb * colDiffuse.rgb * texColor.rgb * occlusion * ambientFactor, colDiffuse.a * texColor.a);
 }
 
 vec4 toneMapFilmic(vec4 hdrColor) {
-    vec3 x = max(vec3(0.0), hdrColor.rgb - vec3(0.004));
+    vec3 x = max(vec3(0.0), hdrColor.rgb * exposure - vec3(0.004));
     vec3 result = (x * (6.2 * x + 0.5)) / (x * (6.2 * x + 1.7) + 0.06);
     return vec4(result, hdrColor.a);
 }
@@ -154,7 +156,7 @@ vec4 CalculateLighting(vec3 fragPosition, vec3 fragNormal, vec3 viewDir, vec2 te
         result += CalculateLight(lights[i], viewDir, fragNormal, fragPosition, texColor, F0, material);
     }
 
-    result += CalculateAmbientLighting(material.Roughness);
+    result += CalculateAmbientLighting(material.Roughness, texColor);
     return toneMapFilmic(result);
 }
 

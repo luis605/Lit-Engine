@@ -1,23 +1,29 @@
 #ifndef GIZMO_H
 #define GIZMO_H
 
-// Define constants for gizmo arrow and cube count
-constexpr int NUM_GIZMO_ARROWS = 6;
-constexpr int NUM_GIZMO_TORUS = 1;
-constexpr int NUM_GIZMO_CUBES = 6;
+constexpr int NUM_GIZMO_POSITION = 6;
+constexpr int NUM_GIZMO_SCALE    = 6;
+constexpr int NUM_GIZMO_ROTATION = 1;
 
-// Gizmos
+enum GizmoAxis {
+    UNDEFINED_AXIS = 0,
+    X_AXIS         = 1,
+    Y_AXIS         = 2,
+    Z_AXIS         = 3
+};
+
 struct Gizmo {
     Model model;
     Vector3 position;
     Vector3 rotation;
     Vector3 scale = {1, 1, 1};
     Color color;
+    GizmoAxis axis;
 };
 
-Gizmo gizmoArrow[NUM_GIZMO_ARROWS];
-Gizmo gizmoTorus[NUM_GIZMO_TORUS];
-Gizmo gizmoCube[NUM_GIZMO_CUBES];
+Gizmo gizmoPosition[NUM_GIZMO_POSITION];
+Gizmo gizmoScale[NUM_GIZMO_SCALE];
+Gizmo gizmoRotation[NUM_GIZMO_ROTATION];
 
 // Declare selected object variables and flags
 Vector3 selectedObjectPosition;
@@ -26,46 +32,50 @@ Vector3 selectedObjectScale;
 Vector2 mouseDragStart;
 Vector2 mousePosition;
 Vector2 mousePositionPrev;
-int selectedGizmoArrow            = -1;
-int selectedGizmoCube             = -1;
+Vector3 gizmoRotationDelta;
+int selectedPositionGizmo            = -1;
+int selectedScaleGizmo             = -1;
 bool dragging                     = false;
-bool draggingGizmoPosition        = false;
-bool draggingGizmoRotation        = false;
-bool draggingGizmoScale           = false;
+bool draggingPositionGizmo        = false;
+bool draggingRotationGizmo        = false;
+bool draggingScaleGizmo           = false;
 bool isHoveringGizmo;
+bool lockRotationX                = false;
+bool lockRotationY                = false;
+bool lockRotationZ                = false;
 
 float gizmoDragSensitivityFactor = 0.1f;
 
-struct GizmoArrow {
+struct GizmoPosition {
     Vector3 position;
     Vector3 rotation;
 };
 
-GizmoArrow gizmoArrowOffsets[] = {
-    {{0, 6, 0}, {0, 0, 0}},     // Up
-    {{0, -6, 0}, {180, 0, 0}},  // Down
-    {{0, 0, 6}, {90, 0, 0}},    // Right
-    {{0, 0, -6}, {-90, 0, 0}},  // Left
-    {{6, 0, 0}, {0, 0, -90}},   // Forward
-    {{-6, 0, 0}, {0, 0, 90}}    // Backward
+GizmoPosition gizmoPositionOffsets[] = {
+    {{6, 0, 0}, {0, 0, -90}},
+    {{-6, 0, 0}, {0, 0, 90}},
+    {{0, 6, 0}, {0, 0, 0}},
+    {{0, -6, 0}, {180, 0, 0}},
+    {{0, 0, 6}, {90, 0, 0}},
+    {{0, 0, -6}, {-90, 0, 0}}
 };
 
-Color gizmoArrowColorsUnselected[] = {
-    { 0, 0, 100, 255 },
-    { 0, 0, 100, 255 },
-    { 0, 100, 0, 255 },
-    { 0, 100, 0, 255 },
+Color gizmoPositionColorsUnselected[] = {
     { 100, 0, 0, 255 },
-    { 100, 0, 0, 255 }
+    { 100, 0, 0, 255 },
+    { 0, 0, 100, 255 },
+    { 0, 0, 100, 255 },
+    { 0, 100, 0, 255 },
+    { 0, 100, 0, 255 }
 };
 
-Color gizmoArrowColorsSelected[] = {
-    { 0, 0, 150, 255 },
-    { 0, 0, 150, 255 },
-    { 0, 150, 0, 255 },
-    { 0, 150, 0, 255 },
+Color gizmoPositionColorsSelected[] = {
     { 150, 0, 0, 255 },
-    { 150, 0, 0, 255 }
+    { 150, 0, 0, 255 },
+    { 0, 0, 150, 255 },
+    { 0, 0, 150, 255 },
+    { 0, 150, 0, 255 },
+    { 0, 150, 0, 255 }
 };
 
 #endif // GIZMO_H

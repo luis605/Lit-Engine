@@ -53,7 +53,7 @@ int NormalMapTextureNode(MyNode* node) {
 
             fs::path path = dirPath / fileStruct[payload_n].name;
 
-            entityMaterial.normalTexture = LoadTexture(path.c_str());
+            entityMaterial.normalTexture = LoadTexture(path.string().c_str());
             entityMaterial.normalTexturePath = path;
         }
 

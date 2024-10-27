@@ -147,7 +147,7 @@ void DisplayScriptDragDrop() {
             int payload_n = *(const int*)payload->Data;
 
             fs::path path = dirPath / fileStruct[payload_n].name;
-            selectedEntity->script = path;
+            selectedEntity->script = path.string();
         }
         ImGui::EndDragDropTarget();
     }

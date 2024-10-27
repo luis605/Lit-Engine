@@ -2,14 +2,14 @@
     "aoTexturePath": "",
     "color": {
         "a": 1.0,
-        "b": 1.0,
-        "g": 1.0,
-        "r": 1.0
+        "b": 0.01592355966567993,
+        "g": 0.01592355966567993,
+        "r": 0.01592355966567993
     },
     "diffuseTexturePath": "",
-    "diffuse_intensity": 1.0,
+    "diffuse_intensity": 0.0,
     "normalTexturePath": "",
-    "roughness": 0.5,
+    "roughness": 0.0,
     "roughnessTexturePath": "",
-    "specular_intensity": 0.5
+    "specular_intensity": 0.0
 }

@@ -1,33 +1,88 @@
-#version 330
+#version 330 core
 
-// Input vertex attributes (from vertex shader)
-in vec3 fragPosition;
+in highp vec3 fragPosition;
+in vec2 fragTexCoord;
+flat in int objectIndex;
 
-// Input uniform values
 uniform samplerCube environmentMap;
 uniform bool vflipped;
 uniform bool doGamma;
-
 uniform vec4 skyboxColor = vec4(1.0);
+uniform float skyboxExposure = 0.0;
 
-// Output fragment color
+const int MAX_OBJECTS = 32;
+
+struct Object {
+    bool enabled;
+    vec2 scale;
+    vec2 rotation;
+};
+
+uniform sampler2D objectTextures[MAX_OBJECTS];
+uniform Object objects[MAX_OBJECTS];
+uniform int objectsCount;
+
 out vec4 finalColor;
 
-void main()
-{
-    // Fetch color from texture map
-    vec3 color = vec3(0.0);
+vec3 sphericalToCartesian(float pitch, float yaw) {
+    float x = cos(pitch) * cos(yaw);
+    float y = sin(pitch);
+    float z = cos(pitch) * sin(yaw);
+    return vec3(x, y, z);
+}
 
-    if (vflipped) color = texture(environmentMap, vec3(fragPosition.x, -fragPosition.y, fragPosition.z)).rgb;
-    else color = texture(environmentMap, fragPosition).rgb;
+vec2 calculateCubeUV(vec3 fragPos) {
+    vec3 absFragPos = abs(fragPos);
+    vec2 uv;
 
-    color *= skyboxColor.rgb;
-    if (doGamma)
-    {
-        color = color/(color + vec3(1.0));
-        color = pow(color, vec3(1.0/2.2));
+    if (absFragPos.x >= absFragPos.y && absFragPos.x >= absFragPos.z) {
+        uv = fragPos.zx / absFragPos.x * 0.5 + 0.5;
+    } else if (absFragPos.y >= absFragPos.x && absFragPos.y >= absFragPos.z) {
+        uv = fragPos.xy / absFragPos.y * 0.5 + 0.5;
+    } else {
+        uv = fragPos.xy / absFragPos.z * 0.5 + 0.5;
     }
 
-    // Calculate final fragment color
+    return uv;
+}
+
+void main() {
+    highp vec3 color = vec3(0.0);
+
+    if (vflipped)
+        color = texture(environmentMap, vec3(fragPosition.x, -fragPosition.y, fragPosition.z)).rgb;
+    else
+        color = texture(environmentMap, fragPosition).rgb;
+
+    for (int i = 0; i < objectsCount; i++) {
+        Object obj = objects[i];
+        if (obj.enabled) {
+            float pitch = radians(obj.rotation.x);
+            float yaw = radians(obj.rotation.y);
+
+            vec3 objectDir = sphericalToCartesian(pitch, yaw);
+            float dotProduct = dot(normalize(fragPosition), objectDir);
+
+            if (dotProduct > 0.95) {
+                // Calculate UV for the cube face
+                vec2 uv = calculateCubeUV(normalize(fragPosition - objectDir));
+
+                float aspectRatio = textureSize(objectTextures[i], 0).x / textureSize(objectTextures[i], 0).y;
+                uv.x *= aspectRatio;
+                uv *= obj.scale;
+                uv = clamp(uv, 0.0, 1.0);
+
+                vec4 objectColor = texture(objectTextures[i], uv);
+                color = mix(color, objectColor.rgb, objectColor.a);
+            }
+        }
+    }
+
+    color *= skyboxColor.rgb * skyboxExposure;
+
+    if (doGamma) {
+        color = pow(color, vec3(1.0 / 2.2));
+    }
+
     finalColor = vec4(color, 1.0);
 }

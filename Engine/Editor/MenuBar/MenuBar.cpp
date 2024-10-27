@@ -130,23 +130,19 @@ void DrawMenus() {
                 entity.setShader(shader);
             }
 
-            for (int index = 0; index < NUM_GIZMO_ARROWS; ++index)
-                gizmoArrow[index].model.materials[0].shader = shader;
+            for (int index = 0; index < NUM_GIZMO_POSITION; ++index)
+                gizmoPosition[index].model.materials[0].shader = shader;
 
-            for (int index = 0; index < NUM_GIZMO_CUBES; ++index)
-                gizmoCube[index].model.materials[0].shader = shader;
+            for (int index = 0; index < NUM_GIZMO_SCALE; ++index)
+                gizmoScale[index].model.materials[0].shader = shader;
 
-            gizmoTorus[0].model.materials[0].shader = shader;
+            gizmoRotation[0].model.materials[0].shader = shader;
         }
 
         if (ImGui::MenuItem("Reload Bloom Shader")) {
             verticalBlurShader   = LoadShader("Engine/Lighting/shaders/lighting_vertex.glsl", "Engine/Lighting/shaders/blurVertical.fs");
             horizontalBlurShader = LoadShader("Engine/Lighting/shaders/lighting_vertex.glsl", "Engine/Lighting/shaders/blurHorizontal.fs");
             verticalBlurShader   = LoadShader("Engine/Lighting/shaders/lighting_vertex.glsl", "Engine/Lighting/shaders/blurVertical.fs");
-        }
-
-        if (ImGui::MenuItem("Reload Skybox Shader")) {
-            InitSkybox();
         }
 
         ImGui::EndMenu();
