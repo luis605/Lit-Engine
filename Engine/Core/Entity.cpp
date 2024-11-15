@@ -356,10 +356,13 @@ public:
             }
         };
 
-        updateIfNeeded(MATERIAL_MAP_DIFFUSE,   surfaceMaterial.diffuseTexture,    !surfaceMaterial.diffuseTexturePath.empty());
+        updateIfNeeded(MATERIAL_MAP_DIFFUSE,   surfaceMaterial.albedoTexture,     !surfaceMaterial.albedoTexturePath.empty());
         updateIfNeeded(MATERIAL_MAP_NORMAL,    surfaceMaterial.normalTexture,     !surfaceMaterial.normalTexturePath.empty());
         updateIfNeeded(MATERIAL_MAP_ROUGHNESS, surfaceMaterial.roughnessTexture,  !surfaceMaterial.roughnessTexturePath.empty());
         updateIfNeeded(MATERIAL_MAP_OCCLUSION, surfaceMaterial.aoTexture,         !surfaceMaterial.aoTexturePath.empty());
+        updateIfNeeded(MATERIAL_MAP_HEIGHT,    surfaceMaterial.heightTexture,     !surfaceMaterial.heightTexturePath.empty());
+        updateIfNeeded(MATERIAL_MAP_METALNESS, surfaceMaterial.metallicTexture,   !surfaceMaterial.metallicTexturePath.empty());
+        updateIfNeeded(MATERIAL_MAP_EMISSION,  surfaceMaterial.emissiveTexture,   !surfaceMaterial.emissiveTexturePath.empty());
     }
 
 
@@ -1021,9 +1024,13 @@ private:
 
         glUseProgram(entityShader->id);
 
-        glUniform1i(glGetUniformLocation(entityShader->id, "diffuseMapReady"),   !surfaceMaterial.diffuseTexturePath.empty());
+        glUniform1i(glGetUniformLocation(entityShader->id, "diffuseMapReady"),   !surfaceMaterial.albedoTexturePath.empty());
         glUniform1i(glGetUniformLocation(entityShader->id, "normalMapReady"),    !surfaceMaterial.normalTexturePath.empty());
         glUniform1i(glGetUniformLocation(entityShader->id, "roughnessMapReady"), !surfaceMaterial.roughnessTexturePath.empty());
+        glUniform1i(glGetUniformLocation(entityShader->id, "aoMapReady"),        !surfaceMaterial.aoTexturePath.empty());
+        glUniform1i(glGetUniformLocation(entityShader->id, "heightMapReady"),    !surfaceMaterial.heightTexturePath.empty());
+        glUniform1i(glGetUniformLocation(entityShader->id, "metallicMapReady"),  !surfaceMaterial.metallicTexturePath.empty());
+        glUniform1i(glGetUniformLocation(entityShader->id, "emissiveMapReady"),  !surfaceMaterial.emissiveTexturePath.empty());
 
         glBindBuffer(GL_UNIFORM_BUFFER, 0);
     }

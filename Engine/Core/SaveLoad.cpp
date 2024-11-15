@@ -88,16 +88,16 @@ namespace nlohmann {
     struct adl_serializer<SurfaceMaterial> {
         static void to_json(json& j, const SurfaceMaterial& material) {
             j = json{
-                { "SpecularIntensity", material.SpecularIntensity },
-                { "DiffuseIntensity", material.DiffuseIntensity },
-                { "Roughness", material.Roughness }
+                { "specularIntensity", material.specularIntensity },
+                { "albedoIntensity", material.albedoIntensity },
+                { "roughness", material.roughness }
             };
         }
 
         static void from_json(const json& j, SurfaceMaterial& material) {
-            j.at("SpecularIntensity").get_to(material.SpecularIntensity);
-            j.at("DiffuseIntensity").get_to(material.DiffuseIntensity);
-            j.at("Roughness").get_to(material.Roughness);
+            j.at("specularIntensity").get_to(material.specularIntensity);
+            j.at("albedoIntensity").get_to(material.albedoIntensity);
+            j.at("roughness").get_to(material.roughness);
         }
     };
 }
@@ -126,13 +126,13 @@ void SerializeMaterial(SurfaceMaterial& material, const fs::path path) {
 
     json j;
     j["color"] = material.color;
-    j["diffuseTexturePath"] = material.diffuseTexturePath;
+    j["albedoTexturePath"] = material.albedoTexturePath;
     j["normalTexturePath"] = material.normalTexturePath;
     j["roughnessTexturePath"] = material.roughnessTexturePath;
     j["aoTexturePath"] = material.aoTexturePath;
-    j["specular_intensity"] = material.SpecularIntensity;
-    j["diffuse_intensity"] = material.DiffuseIntensity;
-    j["roughness"] = material.Roughness;
+    j["specular_intensity"] = material.specularIntensity;
+    j["diffuse_intensity"] = material.albedoIntensity;
+    j["roughness"] = material.roughness;
 
     outfile << std::setw(4) << j;
     outfile.close();
@@ -165,19 +165,19 @@ void DeserializeMaterial(SurfaceMaterial* material, const fs::path& path) {
             material->color = j["color"];
         }
 
-        material->diffuseTexturePath.clear();
+        material->albedoTexturePath.clear();
         material->normalTexturePath.clear();
         material->roughnessTexturePath.clear();
         material->aoTexturePath.clear();
-        material->SpecularIntensity = 0.0f;
-        material->Roughness = 0.0f;
-        material->DiffuseIntensity = 0.0f;
+        material->specularIntensity = 0.0f;
+        material->roughness = 0.0f;
+        material->albedoIntensity = 0.0f;
 
-        if (j.contains("diffuseTexturePath") && !j["diffuseTexturePath"].get<std::string>().empty()) {
-            material->diffuseTexturePath = j["diffuseTexturePath"].get<std::string>();
+        if (j.contains("albedoTexturePath") && !j["albedoTexturePath"].get<std::string>().empty()) {
+            material->albedoTexturePath = j["albedoTexturePath"].get<std::string>();
 
-            if (material->diffuseTexture.isEmpty())
-                material->diffuseTexture = material->diffuseTexturePath;
+            if (material->albedoTexture.isEmpty())
+                material->albedoTexture = material->albedoTexturePath;
         }
         if (j.contains("normalTexturePath") && !j["normalTexturePath"].get<std::string>().empty()) {
             material->normalTexturePath = j["normalTexturePath"].get<std::string>();
@@ -198,13 +198,13 @@ void DeserializeMaterial(SurfaceMaterial* material, const fs::path& path) {
                 material->aoTexture = material->aoTexturePath;
         }
         if (j.contains("specular_intensity")) {
-            material->SpecularIntensity = j["specular_intensity"];
+            material->specularIntensity = j["specular_intensity"];
         }
         if (j.contains("diffuse_intensity")) {
-            material->DiffuseIntensity = j["diffuse_intensity"];
+            material->albedoIntensity = j["diffuse_intensity"];
         }
         if (j.contains("roughness")) {
-            material->Roughness = j["roughness"];
+            material->roughness = j["roughness"];
         }
 
         infile.close();
@@ -285,13 +285,13 @@ void SaveEntity(json& jsonData, const Entity& entity) {
 
 void SaveLight(json& jsonData, const LightStruct& lightStruct) {
     json j;
-    j["type"] = "light";
-    j["color"]["r"] = lightStruct.light.color.r * 255;
-    j["color"]["g"] = lightStruct.light.color.g * 255;
-    j["color"]["b"] = lightStruct.light.color.b * 255;
-    j["color"]["a"] = lightStruct.light.color.a * 255;
-    j["name"] = lightStruct.lightInfo.name;
-    j["position"] = lightStruct.light.position;
+    j["type"]       = "light";
+    j["name"]       = lightStruct.lightInfo.name;
+    j["isChild"]    = lightStruct.isChild;
+    j["id"]         = lightStruct.id;
+    j["light_type"] = lightStruct.light.type;
+
+    j["position"]   = lightStruct.light.position;
 
     if (!lightStruct.isChild) {
         j["relativePosition"]["x"] = 0;
@@ -305,13 +305,18 @@ void SaveLight(json& jsonData, const LightStruct& lightStruct) {
         j["target"]["z"] = 0;
     } else j["target"] = lightStruct.light.target;
 
-    j["direction"] = lightStruct.light.direction;
-    j["intensity"] = lightStruct.light.intensity;
+    j["direction"]  = lightStruct.light.direction;
+    j["color"]["r"] = lightStruct.light.color.r * 255;
+    j["color"]["g"] = lightStruct.light.color.g * 255;
+    j["color"]["b"] = lightStruct.light.color.b * 255;
+    j["color"]["a"] = lightStruct.light.color.a * 255;
+
+    j["attenuation"]      = lightStruct.light.attenuation;
+    j["intensity"]        = lightStruct.light.intensity;
     j["specularStrength"] = lightStruct.light.specularStrength;
-    j["attenuation"] = lightStruct.light.attenuation;
-    j["isChild"] = lightStruct.isChild;
-    j["id"] = lightStruct.id;
-    j["light_type"] = lightStruct.light.type;
+    j["radius"]           = lightStruct.light.radius;
+    j["innerCutoff"]      = lightStruct.light.innerCutoff;
+    j["outerCutoff"]      = lightStruct.light.outerCutoff;
 
     jsonData.emplace_back(j);
 }
@@ -664,46 +669,60 @@ Entity* LoadEntity(const json& entityJson) {
 }
 
 LightStruct& LoadLight(const json& lightJson) {
-    int id = lightJson["id"].get<int>();
-    LightStruct& lightStruct = NewLight({0,0,0}, WHITE, LIGHT_POINT, id);
-    lightStruct.light.color = (glm::vec4{
-        lightJson["color"]["r"].get<float>() / 255,
-        lightJson["color"]["g"].get<float>() / 255,
-        lightJson["color"]["b"].get<float>() / 255,
-        lightJson["color"]["a"].get<float>() / 255
-    });
+    // Initialize default values in case some JSON fields are missing or invalid
+    int id = lightJson.contains("id") && lightJson["id"].is_number_integer() ? lightJson["id"].get<int>() : 0;
 
-    lightStruct.lightInfo.name = lightJson["name"].get<std::string>();
+    LightStruct& lightStruct = NewLight({0, 0, 0}, WHITE, LIGHT_POINT, id);
 
-    lightStruct.light.position = glm::vec3{
-        lightJson["position"]["x"].get<float>(),
-        lightJson["position"]["y"].get<float>(),
-        lightJson["position"]["z"].get<float>()
+    lightStruct.lightInfo.name = lightJson.contains("name") && lightJson["name"].is_string() 
+        ? lightJson["name"].get<std::string>() 
+        : "Unnamed Light";
+
+    lightStruct.isChild = lightJson.contains("isChild") && lightJson["isChild"].is_boolean() 
+        ? lightJson["isChild"].get<bool>() 
+        : false;
+
+    lightStruct.light.type = lightJson.contains("light_type") && lightJson["light_type"].is_number_integer() 
+        ? lightJson["light_type"].get<int>() 
+        : LIGHT_POINT;
+
+    auto getVec3 = [](const json& j, const std::string& key) -> glm::vec3 {
+        if (j.contains(key) && j[key].is_object()) {
+            return glm::vec3{
+                j[key].contains("x") && j[key]["x"].is_number() ? j[key]["x"].get<float>() : 0.0f,
+                j[key].contains("y") && j[key]["y"].is_number() ? j[key]["y"].get<float>() : 0.0f,
+                j[key].contains("z") && j[key]["z"].is_number() ? j[key]["z"].get<float>() : 0.0f
+            };
+        }
+        return glm::vec3{0.0f, 0.0f, 0.0f};
     };
 
-    lightStruct.light.relativePosition = glm::vec3{
-        lightJson["relativePosition"]["x"].get<float>(),
-        lightJson["relativePosition"]["y"].get<float>(),
-        lightJson["relativePosition"]["z"].get<float>()
+    lightStruct.light.position = getVec3(lightJson, "position");
+    lightStruct.light.relativePosition = getVec3(lightJson, "relativePosition");
+    lightStruct.light.target = getVec3(lightJson, "target");
+    lightStruct.light.direction = getVec3(lightJson, "direction");
+
+    if (lightJson.contains("color") && lightJson["color"].is_object()) {
+        lightStruct.light.color = glm::vec4{
+            lightJson["color"].contains("r") && lightJson["color"]["r"].is_number() ? lightJson["color"]["r"].get<float>() / 255 : 1.0f,
+            lightJson["color"].contains("g") && lightJson["color"]["g"].is_number() ? lightJson["color"]["g"].get<float>() / 255 : 1.0f,
+            lightJson["color"].contains("b") && lightJson["color"]["b"].is_number() ? lightJson["color"]["b"].get<float>() / 255 : 1.0f,
+            lightJson["color"].contains("a") && lightJson["color"]["a"].is_number() ? lightJson["color"]["a"].get<float>() / 255 : 1.0f
+        };
+    } else {
+        lightStruct.light.color = glm::vec4{1.0f, 1.0f, 1.0f, 1.0f};
+    }
+
+    auto getFloat = [](const json& j, const std::string& key, float defaultValue) -> float {
+        return j.contains(key) && j[key].is_number() ? j[key].get<float>() : defaultValue;
     };
 
-    lightStruct.light.target = glm::vec3{
-        lightJson["target"]["x"].get<float>(),
-        lightJson["target"]["y"].get<float>(),
-        lightJson["target"]["z"].get<float>()
-    };
-
-    lightStruct.light.direction = glm::vec3{
-        lightJson["direction"]["x"].get<float>(),
-        lightJson["direction"]["y"].get<float>(),
-        lightJson["direction"]["z"].get<float>()
-    };
-
-    lightStruct.light.intensity          = lightJson["intensity"].get<float>();
-    lightStruct.light.specularStrength   = lightJson["specularStrength"].get<float>();
-    lightStruct.light.attenuation        = lightJson["attenuation"].get<float>();
-    lightStruct.isChild                  = lightJson["isChild"].get<bool>();
-    lightStruct.light.type               = lightJson["light_type"].get<int>();
+    lightStruct.light.attenuation = getFloat(lightJson, "attenuation", 1.0f);
+    lightStruct.light.intensity = getFloat(lightJson, "intensity", 1.0f);
+    lightStruct.light.specularStrength = getFloat(lightJson, "specularStrength", 0.5f);
+    lightStruct.light.radius = getFloat(lightJson, "radius", 10.0f);
+    lightStruct.light.innerCutoff = getFloat(lightJson, "innerCutoff", 0.0f);
+    lightStruct.light.outerCutoff = getFloat(lightJson, "outerCutoff", 45.0f);
 
     return lightStruct;
 }

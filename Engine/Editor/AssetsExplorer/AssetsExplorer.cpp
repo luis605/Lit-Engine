@@ -23,7 +23,7 @@ void InitRenderModelPreviewer() {
 
     modelPreviewRT = LoadRenderTexture(thumbnailSize, thumbnailSize);
 
-    assetsMaterial.DiffuseIntensity = 1.0f;
+    assetsMaterial.albedoIntensity = 1.0f;
 }
 
 Texture2D RenderModelPreview(const char* modelFile) {

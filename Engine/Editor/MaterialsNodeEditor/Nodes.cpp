@@ -13,7 +13,7 @@ int TextureNode(MyNode* node) {
     for (const ImNodes::Ez::SlotInfo& outputSlot : node->OutputSlots) {
         if (outputSlot.title != "Diffuse Texture") return -1;
 
-        ImGui::ImageButton("", (ImTextureID)&selectedEntity->surfaceMaterial.diffuseTexture, ImVec2(100, 100));
+        ImGui::ImageButton("", (ImTextureID)&selectedEntity->surfaceMaterial.albedoTexture, ImVec2(100, 100));
 
         if (!ImGui::BeginDragDropTarget())
             return -1;
@@ -82,15 +82,15 @@ int SurfaceMaterialNode(MyNode* node) {
 
         ImGui::Text("Specular Intensity");
         ImGui::SameLine();
-        ImGui::SliderFloat("##SpecularIntensity", &entityMaterial.SpecularIntensity, 0.0f, 100.0f);
+        ImGui::SliderFloat("##SpecularIntensity", &entityMaterial.specularIntensity, 0.0f, 100.0f);
 
         ImGui::Text("Roughness");
         ImGui::SameLine();
-        ImGui::SliderFloat("##Roughness", &entityMaterial.Roughness, 0.0f, 100.0f);
+        ImGui::SliderFloat("##Roughness", &entityMaterial.roughness, 0.0f, 100.0f);
 
         ImGui::Text("Diffuse Intensity");
         ImGui::SameLine();
-        ImGui::SliderFloat("##DiffuseIntensity", &entityMaterial.DiffuseIntensity, 0.0f, 1.0f);
+        ImGui::SliderFloat("##DiffuseIntensity", &entityMaterial.albedoIntensity, 0.0f, 1.0f);
 
         ImGui::Text("Specular Tint");
         ImGui::SameLine();

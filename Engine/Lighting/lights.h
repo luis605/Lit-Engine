@@ -53,19 +53,22 @@ LightStruct& NewLight(const Vector3 position, const Color color, int type = LIGH
 
 struct Light {
     int type = LIGHT_POINT;
-    bool enabled = true;
     alignas(16) glm::vec3 position;
     alignas(16) glm::vec3 relativePosition;
     alignas(16) glm::vec3 target;
     alignas(16) glm::vec3 direction = {0.4, 0.4, -0.4};
     alignas(16) glm::vec4 color;
-    float attenuation = 0.001;
-    float intensity = 3;
-    float specularStrength = 0.5;
+    alignas(4) float attenuation = 0.001f;
+    alignas(4) float intensity = 3.0f;
+    alignas(4) float specularStrength = 0.5f;
+    alignas(4) float radius = 1.5f;
+    alignas(4) float innerCutoff = 1.0f;
+    alignas(4) float outerCutoff = 3.0f;
 };
 
 struct LightInfo {
     std::string name;
+    bool enabled = true;
 };
 
 struct LightStruct {
@@ -189,21 +192,38 @@ struct SurfaceMaterialTexture {
 
 
 struct SurfaceMaterial {
-    float SpecularIntensity = 0.5f;
-    float DiffuseIntensity = 0.5f;
-    float Roughness = 0.5f;
-    float Metalness = 0.5f;
+    alignas(4) float specularIntensity = 0.5f;
+    alignas(4) float albedoIntensity = 0.5f;
+    alignas(4) float roughness = 0.5f;
+    alignas(4) float metalness = 0.5f;
+    alignas(4) float clearCoat = 0.0f;
+    alignas(4) float clearCoatRoughness = 0.0f;
+    alignas(4) float subsurface = 0.0f;
+    alignas(4) float anisotropy = 0.0f;
+    alignas(4) float transmission = 0.0f;
+    alignas(4) float ior = 0.0f;
+    alignas(4) float thickness = 0.0f;
+    alignas(4) float heightScale = 0.0f;
+    alignas(4) float emissiveIntensity = 0.0f;
+    alignas(4) float aoStrength = 0.5f;
+
     alignas(16) glm::vec4 color = { 1.0f, 1.0f, 1.0f, 1.0f };
 
-    fs::path diffuseTexturePath;
+    fs::path albedoTexturePath;
     fs::path normalTexturePath;
     fs::path roughnessTexturePath;
     fs::path aoTexturePath;
+    fs::path heightTexturePath;
+    fs::path metallicTexturePath;
+    fs::path emissiveTexturePath;
 
-    SurfaceMaterialTexture diffuseTexture;
+    SurfaceMaterialTexture albedoTexture;
     SurfaceMaterialTexture normalTexture;
     SurfaceMaterialTexture roughnessTexture;
     SurfaceMaterialTexture aoTexture;
+    SurfaceMaterialTexture heightTexture;
+    SurfaceMaterialTexture metallicTexture;
+    SurfaceMaterialTexture emissiveTexture;
 };
 
 LightStruct& NewLight(const Vector3 position, const Color color, int type, int id) {
@@ -245,7 +265,8 @@ void UpdateLightsBuffer(bool force, std::vector<LightStruct>& lightsVector, GLui
     lightsData.reserve(lightsVector.size());
 
     for (const auto& lightStruct : lightsVector) {
-        lightsData.push_back(lightStruct.light);
+        if (lightStruct.lightInfo.enabled)
+            lightsData.push_back(lightStruct.light);
     }
 
     glBufferSubData(GL_SHADER_STORAGE_BUFFER, 0, bufferSize, lightsData.data());

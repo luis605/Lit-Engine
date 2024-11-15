@@ -29,7 +29,7 @@ struct Connection {
 enum NodeSlotTypes {
     NodeSlotColor              = 1,   // ID can not be 0
     NodeSlotTexture            = 2,
-    NodeSlotDiffuseTexture     = 3,
+    NodeSlotAlbedoTexture      = 3,
     NodeSlotRoughnessTexture   = 4,
     NodeSlotAoTexture          = 5,
     NodeSlotNormalTexture      = 6,
@@ -54,9 +54,9 @@ struct EntityMaterial {
     
     // Surface Material
     float shininess = 0.5f;
-    float SpecularIntensity = 0.5f;
-    float Roughness = 0.5f;
-    float DiffuseIntensity = 0.5f;
+    float specularIntensity = 0.5f;
+    float albedoIntensity = 0.5f;
+    float roughness = 0.5f;
     alignas(16) glm::vec3 SpecularTint = { 1.0f, 0.2f, 0.1f };
 
 };
