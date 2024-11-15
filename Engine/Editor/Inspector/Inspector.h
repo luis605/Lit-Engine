@@ -4,10 +4,13 @@
 Vector3 selectedEntityScale                  = {1, 1, 1};
 Vector3 selectedEntityPosition               = {0, 0, 0};
 
-bool showTexture                             = false;
+bool showAlbedoTexture                       = false;
 bool showNormalTexture                       = false;
 bool showRoughnessTexture                    = false;
 bool showAOTexture                           = false;
+bool showHeightTexture                       = false;
+bool showMetallicTexture                     = false;
+bool showEmissiveTexture                     = false;
 bool showSkyboxTexture                       = false;
 
 bool EntityRotationXInputModel               = false;
@@ -19,6 +22,9 @@ bool ButtonRoundnessActiveInputMode          = false;
 bool AttenuationActiveInputMode              = false;
 bool IntensityActiveInputMode                = false;
 bool SpecularStrenghtActiveInputMode         = false;
+bool RadiusActiveInputMode                   = false;
+bool InnerCutoffActiveInputMode              = false;
+bool OuterCutoffActiveInputMode              = false;
 
 bool FontSizeActiveInputMode                 = false;
 bool TextSpacingActiveInputMode              = false;

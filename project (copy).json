@@ -1,0 +1,480 @@
+[
+    {
+        "fovy": 60.0,
+        "position": {
+            "x": 1.4675694704055786,
+            "y": 16.623764038085938,
+            "z": -5.055713653564453
+        },
+        "projection": 0,
+        "target": {
+            "x": 1.2286088466644287,
+            "y": 17.509523391723633,
+            "z": -4.657808780670166
+        },
+        "type": "camera",
+        "up": {
+            "x": 0.0,
+            "y": 1.0,
+            "z": 0.0
+        }
+    },
+    {
+        "ambientColor": {
+            "w": 1.0,
+            "x": 0.13445377349853516,
+            "y": 0.13445377349853516,
+            "z": 0.13445377349853516
+        },
+        "bloom": false,
+        "bloomThreshold": 0.20000000298023224,
+        "gravity": {
+            "x": 0.0,
+            "y": 0.0,
+            "z": 0.0
+        },
+        "kernelSize": 1,
+        "skyboxColor": {
+            "w": 1.0,
+            "x": 1.0,
+            "y": 1.0,
+            "z": 1.0
+        },
+        "skyboxPath": "assets/images/skybox/default skybox.hdr",
+        "type": "world settings"
+    },
+    {
+        "children": null,
+        "collider": true,
+        "collider_type": 2,
+        "damping": 0.0,
+        "friction": 1.0,
+        "id": 0,
+        "is_dynamic": false,
+        "lodEnabled": false,
+        "mass": 1.0,
+        "material_path": "project/game/models/plastic thing/textures/file1.mat",
+        "modelPath": "project/game/models/plastic thing/a.obj",
+        "name": "project/game/models/plastic thing/a",
+        "position": {
+            "x": -7.399994373321533,
+            "y": 0.0,
+            "z": 0.0
+        },
+        "relativePosition": {
+            "x": 0.0,
+            "y": 0.0,
+            "z": 0.0
+        },
+        "rotation": {
+            "x": 0.0,
+            "y": 0.0,
+            "z": 0.0
+        },
+        "scale": {
+            "x": 6.0,
+            "y": 6.0,
+            "z": 6.0
+        },
+        "scriptIndex": "",
+        "script_path": "",
+        "surfaceMaterial": {
+            "albedoIntensity": 0.7739999890327454,
+            "roughness": 0.0949999988079071,
+            "specularIntensity": 0.4909999966621399
+        },
+        "tiling": [
+            1.0,
+            1.0
+        ],
+        "type": "entity"
+    },
+    {
+        "children": null,
+        "collider": true,
+        "collider_type": 2,
+        "damping": 0.0,
+        "friction": 1.0,
+        "id": 2,
+        "is_dynamic": false,
+        "lodEnabled": true,
+        "mass": 1.0,
+        "material_path": "project/game/models/dirt/file1.mat",
+        "mesh_type": 4,
+        "modelPath": "",
+        "name": "Unnamed Entity",
+        "position": {
+            "x": 0.0,
+            "y": 0.10000000149011612,
+            "z": 0.0
+        },
+        "relativePosition": {
+            "x": 0.0,
+            "y": 0.0,
+            "z": 0.0
+        },
+        "rotation": {
+            "x": 0.0,
+            "y": 0.0,
+            "z": 0.0
+        },
+        "scale": {
+            "x": 30.0,
+            "y": 30.0,
+            "z": 30.0
+        },
+        "scriptIndex": "",
+        "script_path": "",
+        "surfaceMaterial": {
+            "albedoIntensity": 0.5849999785423279,
+            "roughness": 1.0,
+            "specularIntensity": 0.0
+        },
+        "tiling": [
+            1.0,
+            1.0
+        ],
+        "type": "entity"
+    },
+    {
+        "children": null,
+        "collider": true,
+        "collider_type": 2,
+        "damping": 0.0,
+        "friction": 1.0,
+        "id": 5,
+        "is_dynamic": false,
+        "lodEnabled": false,
+        "mass": 1.0,
+        "material_path": "project/game/models/sofa/textures/file1.mat",
+        "modelPath": "project/game/models/sofa/sofa_03_8k.obj",
+        "name": "project/game/models/sofa/sofa_03_8k",
+        "position": {
+            "x": 0.0,
+            "y": 0.0,
+            "z": 6.7999958992004395
+        },
+        "relativePosition": {
+            "x": 0.0,
+            "y": 0.0,
+            "z": 0.0
+        },
+        "rotation": {
+            "x": 0.0,
+            "y": 152.01400756835938,
+            "z": 0.0
+        },
+        "scale": {
+            "x": 5.0,
+            "y": 5.0,
+            "z": 5.0
+        },
+        "scriptIndex": "",
+        "script_path": "",
+        "surfaceMaterial": {
+            "albedoIntensity": 0.8500000238418579,
+            "roughness": 0.656000018119812,
+            "specularIntensity": 0.16699999570846558
+        },
+        "tiling": [
+            1.0,
+            1.0
+        ],
+        "type": "entity"
+    },
+    {
+        "children": null,
+        "collider": true,
+        "collider_type": 2,
+        "damping": 0.0,
+        "friction": 1.0,
+        "id": 6,
+        "is_dynamic": false,
+        "lodEnabled": false,
+        "mass": 1.0,
+        "material_path": "project/game/models/box/textures/file1.mat",
+        "modelPath": "project/game/models/box/utility_box_02_8k.obj",
+        "name": "project/game/models/box/utility_box_02_8k",
+        "position": {
+            "x": -11.000008583068848,
+            "y": 0.0,
+            "z": -6.499996185302734
+        },
+        "relativePosition": {
+            "x": 0.0,
+            "y": 0.0,
+            "z": 0.0
+        },
+        "rotation": {
+            "x": 0.0,
+            "y": 90.0,
+            "z": 0.0
+        },
+        "scale": {
+            "x": 4.0,
+            "y": 4.0,
+            "z": 4.0
+        },
+        "scriptIndex": "",
+        "script_path": "",
+        "surfaceMaterial": {
+            "albedoIntensity": 0.2919999957084656,
+            "roughness": 0.3889999985694885,
+            "specularIntensity": 0.5879999995231628
+        },
+        "tiling": [
+            1.0,
+            1.0
+        ],
+        "type": "entity"
+    },
+    {
+        "children": null,
+        "collider": true,
+        "collider_type": 2,
+        "damping": 0.0,
+        "friction": 1.0,
+        "id": 7,
+        "is_dynamic": false,
+        "lodEnabled": true,
+        "mass": 1.0,
+        "material_path": "project/game/models/metal_sheet/metal_sheet.mat",
+        "mesh_type": 4,
+        "modelPath": "",
+        "name": "Unnamed Entity",
+        "position": {
+            "x": 0.0,
+            "y": 15.0,
+            "z": 15.0
+        },
+        "relativePosition": {
+            "x": 0.0,
+            "y": 0.0,
+            "z": 0.0
+        },
+        "rotation": {
+            "x": -90.0,
+            "y": 0.0,
+            "z": 0.0
+        },
+        "scale": {
+            "x": 30.0,
+            "y": 30.0,
+            "z": 30.0
+        },
+        "scriptIndex": "",
+        "script_path": "",
+        "surfaceMaterial": {
+            "albedoIntensity": 0.5680000185966492,
+            "roughness": 0.050999999046325684,
+            "specularIntensity": 0.49300000071525574
+        },
+        "tiling": [
+            1.0,
+            1.0
+        ],
+        "type": "entity"
+    },
+    {
+        "children": null,
+        "collider": true,
+        "collider_type": 2,
+        "damping": 0.0,
+        "friction": 1.0,
+        "id": 8,
+        "is_dynamic": false,
+        "lodEnabled": true,
+        "mass": 1.0,
+        "material_path": "project/game/models/metal_sheet/metal_sheet.mat",
+        "mesh_type": 4,
+        "modelPath": "",
+        "name": "Unnamed Entity",
+        "position": {
+            "x": -15.0,
+            "y": 15.0,
+            "z": 0.0
+        },
+        "relativePosition": {
+            "x": 0.0,
+            "y": 0.0,
+            "z": 0.0
+        },
+        "rotation": {
+            "x": 90.0,
+            "y": 0.0,
+            "z": -90.0
+        },
+        "scale": {
+            "x": 30.0,
+            "y": 30.0,
+            "z": 30.0
+        },
+        "scriptIndex": "",
+        "script_path": "",
+        "surfaceMaterial": {
+            "albedoIntensity": 0.5680000185966492,
+            "roughness": 0.050999999046325684,
+            "specularIntensity": 0.49300000071525574
+        },
+        "tiling": [
+            1.0,
+            1.0
+        ],
+        "type": "entity"
+    },
+    {
+        "children": null,
+        "collider": true,
+        "collider_type": 2,
+        "damping": 0.0,
+        "friction": 1.0,
+        "id": 9,
+        "is_dynamic": false,
+        "lodEnabled": true,
+        "mass": 1.0,
+        "material_path": "project/game/models/rusty metal grid/file1.mat",
+        "mesh_type": 4,
+        "modelPath": "",
+        "name": "Unnamed Entity",
+        "position": {
+            "x": 0.0,
+            "y": 30.0,
+            "z": 0.0
+        },
+        "relativePosition": {
+            "x": 0.0,
+            "y": 0.0,
+            "z": 0.0
+        },
+        "rotation": {
+            "x": 90.0,
+            "y": -90.0,
+            "z": -90.0
+        },
+        "scale": {
+            "x": 30.0,
+            "y": 30.0,
+            "z": 30.0
+        },
+        "scriptIndex": "",
+        "script_path": "",
+        "surfaceMaterial": {
+            "albedoIntensity": 0.5,
+            "roughness": 0.5,
+            "specularIntensity": 0.5
+        },
+        "tiling": [
+            1.0,
+            1.0
+        ],
+        "type": "entity"
+    },
+    {
+        "attenuation": 0.18700000643730164,
+        "color": {
+            "a": 255.0,
+            "b": 176.23648071289063,
+            "g": 176.23648071289063,
+            "r": 224.9522247314453
+        },
+        "direction": {
+            "x": 0.40021657943725586,
+            "y": 0.39941829442977905,
+            "z": -0.3999776542186737
+        },
+        "id": 1,
+        "intensity": 10.954000473022461,
+        "isChild": false,
+        "light_type": 1,
+        "name": "New Light",
+        "position": {
+            "x": -1.0999915599822998,
+            "y": 2.5000033378601074,
+            "z": 0.0
+        },
+        "relativePosition": {
+            "x": 0,
+            "y": 0,
+            "z": 0
+        },
+        "specularStrength": 0.5,
+        "target": {
+            "x": 0,
+            "y": 0,
+            "z": 0
+        },
+        "type": "light"
+    },
+    {
+        "attenuation": 0.03099999949336052,
+        "color": {
+            "a": 255.0,
+            "b": 147.80255126953125,
+            "g": 215.3983917236328,
+            "r": 255.0
+        },
+        "direction": {
+            "x": -0.003533333307132125,
+            "y": 0.413023978471756,
+            "z": -0.6269694566726685
+        },
+        "id": 3,
+        "intensity": 10.954000473022461,
+        "isChild": false,
+        "light_type": 2,
+        "name": "New Light",
+        "position": {
+            "x": -7.999996662139893,
+            "y": 7.399994373321533,
+            "z": -7.299995422363281
+        },
+        "relativePosition": {
+            "x": 0,
+            "y": 0,
+            "z": 0
+        },
+        "specularStrength": 0.5,
+        "target": {
+            "x": 0.0,
+            "y": 0.0,
+            "z": 20.0
+        },
+        "type": "light"
+    },
+    {
+        "attenuation": 0.004000000189989805,
+        "color": {
+            "a": 255.0,
+            "b": 77.59710693359375,
+            "g": 77.59710693359375,
+            "r": 177.85031127929688
+        },
+        "direction": {
+            "x": 0.4000000059604645,
+            "y": 0.4000000059604645,
+            "z": -0.4000000059604645
+        },
+        "id": 4,
+        "intensity": 2.947000026702881,
+        "isChild": false,
+        "light_type": 1,
+        "name": "New Light",
+        "position": {
+            "x": 0.0,
+            "y": 19.600006103515625,
+            "z": 0.0
+        },
+        "relativePosition": {
+            "x": 0,
+            "y": 0,
+            "z": 0
+        },
+        "specularStrength": 0.5,
+        "target": {
+            "x": 0,
+            "y": 0,
+            "z": 0
+        },
+        "type": "light"
+    }
+]

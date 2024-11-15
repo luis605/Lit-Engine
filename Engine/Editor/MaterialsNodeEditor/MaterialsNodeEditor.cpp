@@ -8,7 +8,7 @@ std::map<std::string, MyNode*(*)()> available_nodes{
     }},
     {"Texture", []() -> MyNode* {
         return new MyNode("Texture", {
-            {"Diffuse Map", NodeSlotDiffuseTexture},
+            {"Albedo Map", NodeSlotAlbedoTexture},
             {"Normal Map", NodeSlotNormalTexture},
             {"Roughness Map", NodeSlotRoughnessTexture},
             {"AO Map", NodeSlotAoTexture},
@@ -17,10 +17,10 @@ std::map<std::string, MyNode*(*)()> available_nodes{
             {"Texture", NodeSlotTexture},
         });
     }},
-    {"Diffuse Texture", []() -> MyNode* {
-        return new MyNode("Diffuse Texture", {},
+    {"Albedo Texture", []() -> MyNode* {
+        return new MyNode("Albedo Texture", {},
         {
-            {"Diffuse Texture", NodeSlotDiffuseTexture},
+            {"Albedo Texture", NodeSlotAlbedoTexture},
         });
     }},
     {"Normal Map Texture", []() -> MyNode* {
@@ -63,22 +63,22 @@ void SetMaterial(SurfaceMaterial& material) {
 
     // Textures
     if (IsTextureReady(entityMaterial.texture)) {
-        selectedEntity->surfaceMaterial.diffuseTexturePath = entityMaterial.texturePath;
-        selectedEntity->surfaceMaterial.diffuseTexture = entityMaterial.texturePath;
+        selectedEntity->surfaceMaterial.albedoTexturePath = entityMaterial.texturePath;
+        selectedEntity->surfaceMaterial.albedoTexture = entityMaterial.texturePath;
     }
 
     if (IsTextureReady(entityMaterial.normalTexture)) {
         selectedEntity->surfaceMaterial.normalTexturePath = entityMaterial.normalTexturePath;
         selectedEntity->surfaceMaterial.normalTexture = entityMaterial.normalTexturePath;
     }
-    
-    selectedEntity->surfaceMaterial.SpecularIntensity = entityMaterial.SpecularIntensity;
-    selectedEntity->surfaceMaterial.DiffuseIntensity  = entityMaterial.DiffuseIntensity;
-    selectedEntity->surfaceMaterial.Roughness         = entityMaterial.Roughness;
 
-    material.SpecularIntensity = entityMaterial.SpecularIntensity;
-    material.DiffuseIntensity  = entityMaterial.DiffuseIntensity;
-    material.Roughness         = entityMaterial.Roughness;
+    selectedEntity->surfaceMaterial.specularIntensity = entityMaterial.specularIntensity;
+    selectedEntity->surfaceMaterial.albedoIntensity   = entityMaterial.albedoIntensity;
+    selectedEntity->surfaceMaterial.roughness         = entityMaterial.roughness;
+
+    material.specularIntensity = entityMaterial.specularIntensity;
+    material.albedoIntensity   = entityMaterial.albedoIntensity;
+    material.roughness         = entityMaterial.roughness;
 }
 
 void MaterialsNodeEditor(SurfaceMaterial& material) {

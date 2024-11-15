@@ -8,4 +8,5 @@ build/
 profiled/
 analysis.txt
 install/bin/
+project/
 #.profile/

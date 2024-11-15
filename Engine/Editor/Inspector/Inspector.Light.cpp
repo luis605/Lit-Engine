@@ -61,9 +61,7 @@ void LightInspector()
         if (!AttenuationActiveInputMode) {
             ImGui::SliderFloat("Attenuation", &selectedLight->light.attenuation, 0.0f, 0.3f);
             AttenuationActiveInputMode = ImGui::IsItemHovered() && ImGui::IsMouseDoubleClicked(0);
-        }
-        else
-        {
+        } else {
             if (ImGui::InputFloat("Attenuation", &selectedLight->light.attenuation, 0.0f, 1.0f, "%.3f", ImGuiInputTextFlags_EnterReturnsTrue))
                 AttenuationActiveInputMode = false;
         }
@@ -71,9 +69,7 @@ void LightInspector()
         if (!IntensityActiveInputMode) {
             ImGui::SliderFloat("Intensity", &selectedLight->light.intensity, 0.0f, 50.0f);
             IntensityActiveInputMode = ImGui::IsItemHovered() && ImGui::IsMouseDoubleClicked(0);
-        }
-        else
-        {
+        } else {
             if (ImGui::InputFloat("Intensity", &selectedLight->light.intensity, 0.0f, 100000.0f, "%.3f", ImGuiInputTextFlags_EnterReturnsTrue))
                 IntensityActiveInputMode = false;
         }
@@ -81,11 +77,33 @@ void LightInspector()
         if (!SpecularStrenghtActiveInputMode) {
             ImGui::SliderFloat("Specular Strenght", &selectedLight->light.specularStrength, 0.0f, 1.0f);
             SpecularStrenghtActiveInputMode = ImGui::IsItemHovered() && ImGui::IsMouseDoubleClicked(0);
-        }
-        else
-        {
+        } else {
             if (ImGui::InputFloat("Specular Strenght", &selectedLight->light.specularStrength, 0.0f, 1.0f, "%.3f", ImGuiInputTextFlags_EnterReturnsTrue))
                 SpecularStrenghtActiveInputMode = false;
+        }
+
+        if (!RadiusActiveInputMode) {
+            ImGui::SliderFloat("Radius", &selectedLight->light.radius, 0.0f, 100.0f);
+            RadiusActiveInputMode = ImGui::IsItemHovered() && ImGui::IsMouseDoubleClicked(0);
+        } else {
+            if (ImGui::InputFloat("Radius", &selectedLight->light.radius, 0.0f, 100000.0f, "%.3f", ImGuiInputTextFlags_EnterReturnsTrue))
+                RadiusActiveInputMode = false;
+        }
+
+        if (!InnerCutoffActiveInputMode) {
+            ImGui::SliderFloat("Inner Cutoff", &selectedLight->light.innerCutoff, 0.0f, 50.0f);
+            InnerCutoffActiveInputMode = ImGui::IsItemHovered() && ImGui::IsMouseDoubleClicked(0);
+        } else {
+            if (ImGui::InputFloat("Inner Cutoff", &selectedLight->light.innerCutoff, 0.0f, 100000.0f, "%.3f", ImGuiInputTextFlags_EnterReturnsTrue))
+                InnerCutoffActiveInputMode = false;
+        }
+
+        if (!OuterCutoffActiveInputMode) {
+            ImGui::SliderFloat("Outer Cutoff", &selectedLight->light.outerCutoff, 0.0f, 50.0f);
+            OuterCutoffActiveInputMode = ImGui::IsItemHovered() && ImGui::IsMouseDoubleClicked(0);
+        } else {
+            if (ImGui::InputFloat("Outer Cutoff", &selectedLight->light.outerCutoff, 0.0f, 100000.0f, "%.3f", ImGuiInputTextFlags_EnterReturnsTrue))
+                OuterCutoffActiveInputMode = false;
         }
 
         ImGui::Dummy(ImVec2(0.0f, 15.0f));
