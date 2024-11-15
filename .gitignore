@@ -9,4 +9,9 @@ profiled/
 analysis.txt
 install/bin/
 project/
-#.profile/
+gmon.out
+# executable:
+LitEngine
+project.json
+./project*
+.profile/
