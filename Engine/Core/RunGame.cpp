@@ -35,21 +35,20 @@ void RunGame() {
         UpdateFrustum();
 
         if (firstTimeGameplay) {
-            #pragma omp parallel for
             for (Entity& entity : entitiesList) {
                 entity.running_first_time = true;
-
-                #pragma omp critical
                 RenderAndRunEntity(entity);
             }
+            firstTimeGameplay = false;
         }
 
         #pragma omp parallel for
         for (Entity& entity : entitiesList) {
             entity.render();
-
             #pragma omp critical
-            entity.runScript(&camera);
+            {
+                entity.runScript(&camera);
+            }
         }
 
         firstTimeGameplay = false;

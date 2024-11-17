@@ -2,15 +2,15 @@
     {
         "fovy": 60.0,
         "position": {
-            "x": 19.74217987060547,
-            "y": 8.811748504638672,
-            "z": -14.441040992736816
+            "x": 151.6626739501953,
+            "y": -140.22042846679688,
+            "z": 368.6441345214844
         },
         "projection": 0,
         "target": {
-            "x": 18.8485050201416,
-            "y": 8.829914093017578,
-            "z": -13.992691993713379
+            "x": 152.6181182861328,
+            "y": -140.28025817871094,
+            "z": 368.3551025390625
         },
         "type": "camera",
         "up": {
@@ -22,45 +22,45 @@
     {
         "ambientColor": {
             "w": 1.0,
-            "x": 0.36554622650146484,
-            "y": 0.36554622650146484,
-            "z": 0.36554622650146484
+            "x": 0.0,
+            "y": 0.0,
+            "z": 0.0
         },
         "bloom": false,
         "bloomThreshold": 0.20000000298023224,
         "gravity": {
             "x": 0.0,
-            "y": 0.0,
+            "y": -9.0,
             "z": 0.0
         },
         "kernelSize": 1,
         "skyboxColor": {
             "w": 1.0,
-            "x": 1.0,
-            "y": 1.0,
-            "z": 1.0
+            "x": 0.012605071067810059,
+            "y": 0.012605071067810059,
+            "z": 0.012605071067810059
         },
-        "skyboxPath": "assets/images/skybox/default skybox.hdr",
+        "skyboxPath": "project/game/Images/Skybox/night.hdr",
         "type": "world settings"
     },
     {
         "children": null,
         "collider": true,
-        "collider_type": 2,
+        "collider_type": 0,
         "damping": 0.0,
-        "friction": 1.0,
-        "id": 7,
+        "friction": 0.30000001192092896,
+        "id": 0,
         "is_dynamic": false,
-        "lodEnabled": true,
+        "lodEnabled": false,
         "mass": 1.0,
-        "material_path": "project/game/models/metal_sheet/metal_sheet.mat",
-        "mesh_type": 4,
+        "material_path": "project/game/Materials/1/lvl1.mat",
+        "mesh_type": 1,
         "modelPath": "",
-        "name": "Unnamed Entity",
+        "name": "1 - Base",
         "position": {
             "x": 0.0,
-            "y": 15.0,
-            "z": 15.0
+            "y": 0.0,
+            "z": 0.0
         },
         "relativePosition": {
             "x": 0.0,
@@ -68,21 +68,21 @@
             "z": 0.0
         },
         "rotation": {
-            "x": -90.0,
+            "x": 0.0,
             "y": 0.0,
             "z": 0.0
         },
         "scale": {
-            "x": 30.0,
-            "y": 30.0,
-            "z": 30.0
+            "x": 10.0,
+            "y": 1.0,
+            "z": 10.0
         },
         "scriptIndex": "",
         "script_path": "",
         "surfaceMaterial": {
-            "albedoIntensity": 0.41200000047683716,
-            "roughness": 0.07900000363588333,
-            "specularIntensity": 0.4449999928474426
+            "albedoIntensity": 0.3149999976158142,
+            "roughness": 0.0729999989271164,
+            "specularIntensity": 0.3089999854564667
         },
         "tiling": [
             1.0,
@@ -93,20 +93,20 @@
     {
         "children": null,
         "collider": true,
-        "collider_type": 2,
+        "collider_type": 0,
         "damping": 0.0,
-        "friction": 1.0,
-        "id": 8,
-        "is_dynamic": false,
+        "friction": 0.5,
+        "id": 2,
+        "is_dynamic": true,
         "lodEnabled": true,
-        "mass": 1.0,
-        "material_path": "project/game/models/metal_sheet/metal_sheet.mat",
-        "mesh_type": 4,
+        "mass": 1.2999999523162842,
+        "material_path": "",
+        "mesh_type": 1,
         "modelPath": "",
-        "name": "Unnamed Entity",
+        "name": "Player",
         "position": {
-            "x": -15.0,
-            "y": 15.0,
+            "x": 0.0,
+            "y": 4.899997711181641,
             "z": 0.0
         },
         "relativePosition": {
@@ -115,21 +115,21 @@
             "z": 0.0
         },
         "rotation": {
-            "x": 90.0,
-            "y": 0.0,
-            "z": -90.0
+            "x": 0.046391163021326065,
+            "y": -0.15388621389865875,
+            "z": 0.23273783922195435
         },
         "scale": {
-            "x": 30.0,
-            "y": 30.0,
-            "z": 30.0
+            "x": 1.0,
+            "y": 2.0,
+            "z": 1.0
         },
-        "scriptIndex": "",
-        "script_path": "",
+        "scriptIndex": "player0",
+        "script_path": "project/game/Scripts/player.py",
         "surfaceMaterial": {
-            "albedoIntensity": 0.41200000047683716,
-            "roughness": 0.07900000363588333,
-            "specularIntensity": 0.4449999928474426
+            "albedoIntensity": 0.5,
+            "roughness": 0.5,
+            "specularIntensity": 0.5
         },
         "tiling": [
             1.0,
@@ -138,70 +138,219 @@
         "type": "entity"
     },
     {
-        "attenuation": 0.18700000643730164,
-        "color": {
-            "a": 255.0,
-            "b": 176.23648071289063,
-            "g": 176.23648071289063,
-            "r": 224.9522247314453
-        },
-        "direction": {
-            "x": 0.40021657943725586,
-            "y": 0.39941829442977905,
-            "z": -0.3999776542186737
-        },
-        "id": 1,
-        "innerCutoff": 0.0,
-        "intensity": 10.954000473022461,
-        "isChild": false,
-        "light_type": 1,
-        "name": "New Light",
-        "outerCutoff": 45.0,
+        "children": null,
+        "collider": true,
+        "collider_type": 0,
+        "damping": 0.0,
+        "friction": 0.0,
+        "id": 3,
+        "is_dynamic": false,
+        "lodEnabled": false,
+        "mass": 1.0,
+        "material_path": "project/game/Materials/1/lvl1.mat",
+        "mesh_type": 1,
+        "modelPath": "",
+        "name": "1 - Block 1",
         "position": {
-            "x": -1.0999915599822998,
-            "y": 2.5000033378601074,
+            "x": 0.0,
+            "y": 0.0,
+            "z": 18.80003547668457
+        },
+        "relativePosition": {
+            "x": 0.0,
+            "y": 0.0,
             "z": 0.0
         },
-        "radius": 100.0,
-        "relativePosition": {
-            "x": 0,
-            "y": 0,
-            "z": 0
+        "rotation": {
+            "x": -0.061082225292921066,
+            "y": -0.0045881750993430614,
+            "z": -0.07904373854398727
         },
-        "specularStrength": 0.5,
-        "target": {
-            "x": 0,
-            "y": 0,
-            "z": 0
+        "scale": {
+            "x": 1.5,
+            "y": 1.0,
+            "z": 10.0
         },
-        "type": "light"
+        "scriptIndex": "",
+        "script_path": "",
+        "surfaceMaterial": {
+            "albedoIntensity": 0.3149999976158142,
+            "roughness": 0.0729999989271164,
+            "specularIntensity": 0.3089999854564667
+        },
+        "tiling": [
+            1.0,
+            1.0
+        ],
+        "type": "entity"
     },
     {
-        "attenuation": 0.03099999949336052,
+        "children": null,
+        "collider": true,
+        "collider_type": 0,
+        "damping": 0.0,
+        "friction": 0.0,
+        "id": 5,
+        "is_dynamic": false,
+        "lodEnabled": false,
+        "mass": 1.0,
+        "material_path": "project/game/Materials/1/lvl1.mat",
+        "mesh_type": 1,
+        "modelPath": "",
+        "name": "1 - Block 2",
+        "position": {
+            "x": -4.5999979972839355,
+            "y": 0.0,
+            "z": 21.600046157836914
+        },
+        "relativePosition": {
+            "x": 0.0,
+            "y": 0.0,
+            "z": 0.0
+        },
+        "rotation": {
+            "x": 0.0,
+            "y": 0.0,
+            "z": 0.0
+        },
+        "scale": {
+            "x": 4.0,
+            "y": 1.0,
+            "z": 4.0
+        },
+        "scriptIndex": "mov_platf_z1",
+        "script_path": "project/game/Scripts/mov_platf_z.py",
+        "surfaceMaterial": {
+            "albedoIntensity": 0.3149999976158142,
+            "roughness": 0.0729999989271164,
+            "specularIntensity": 0.3089999854564667
+        },
+        "tiling": [
+            1.0,
+            1.0
+        ],
+        "type": "entity"
+    },
+    {
+        "children": null,
+        "collider": true,
+        "collider_type": 0,
+        "damping": 0.0,
+        "friction": 0.0,
+        "id": 9,
+        "is_dynamic": false,
+        "lodEnabled": false,
+        "mass": 1.0,
+        "material_path": "project/game/Materials/1/lvl1.mat",
+        "mesh_type": 1,
+        "modelPath": "",
+        "name": "1 - Block 3",
+        "position": {
+            "x": 0.0,
+            "y": 0.0,
+            "z": 70.0
+        },
+        "relativePosition": {
+            "x": 0.0,
+            "y": 0.0,
+            "z": 0.0
+        },
+        "rotation": {
+            "x": -22.56100082397461,
+            "y": -0.0045881750993430614,
+            "z": 0.0
+        },
+        "scale": {
+            "x": 4.0,
+            "y": 1.0,
+            "z": 30.0
+        },
+        "scriptIndex": "",
+        "script_path": "",
+        "surfaceMaterial": {
+            "albedoIntensity": 0.3149999976158142,
+            "roughness": 0.0729999989271164,
+            "specularIntensity": 0.3089999854564667
+        },
+        "tiling": [
+            1.0,
+            1.0
+        ],
+        "type": "entity"
+    },
+    {
+        "children": null,
+        "collider": true,
+        "collider_type": 0,
+        "damping": 0.0,
+        "friction": 0.0,
+        "id": 11,
+        "is_dynamic": false,
+        "lodEnabled": false,
+        "mass": 1.0,
+        "material_path": "project/game/Materials/1/lvl1.mat",
+        "mesh_type": 1,
+        "modelPath": "",
+        "name": "1 - Block 4",
+        "position": {
+            "x": 0.0,
+            "y": 3.09999942779541,
+            "z": 87.4999008178711
+        },
+        "relativePosition": {
+            "x": 0.0,
+            "y": 0.0,
+            "z": 0.0
+        },
+        "rotation": {
+            "x": 0.0,
+            "y": 0.0,
+            "z": 0.0
+        },
+        "scale": {
+            "x": 4.0,
+            "y": 1.0,
+            "z": 4.0
+        },
+        "scriptIndex": "mov_platf_y2",
+        "script_path": "project/game/Scripts/mov_platf_y.py",
+        "surfaceMaterial": {
+            "albedoIntensity": 0.3149999976158142,
+            "roughness": 0.0729999989271164,
+            "specularIntensity": 0.3089999854564667
+        },
+        "tiling": [
+            1.0,
+            1.0
+        ],
+        "type": "entity"
+    },
+    {
+        "attenuation": 0.0010000000474974513,
         "color": {
             "a": 255.0,
-            "b": 147.80255126953125,
-            "g": 215.3983917236328,
+            "b": 255.0,
+            "g": 255.0,
             "r": 255.0
         },
         "direction": {
-            "x": -0.003533333307132125,
-            "y": 0.413023978471756,
-            "z": -0.6269694566726685
+            "x": 0.4000000059604645,
+            "y": 0.4000000059604645,
+            "z": -0.4000000059604645
         },
-        "id": 3,
-        "innerCutoff": 0.0,
-        "intensity": 10.954000473022461,
+        "id": 1,
+        "innerCutoff": 1.0,
+        "intensity": 3.0,
         "isChild": false,
-        "light_type": 2,
+        "light_type": 1,
         "name": "New Light",
-        "outerCutoff": 45.0,
+        "outerCutoff": 3.0,
         "position": {
-            "x": -7.999996662139893,
-            "y": 7.399994373321533,
-            "z": -7.299995422363281
+            "x": 0.0,
+            "y": 5.599997043609619,
+            "z": 0.0
         },
-        "radius": 100.0,
+        "radius": 82.58899688720703,
         "relativePosition": {
             "x": 0,
             "y": 0,
@@ -209,19 +358,19 @@
         },
         "specularStrength": 0.5,
         "target": {
-            "x": 0.0,
-            "y": 0.0,
-            "z": 20.0
+            "x": 0,
+            "y": 0,
+            "z": 0
         },
         "type": "light"
     },
     {
-        "attenuation": 0.004000000189989805,
+        "attenuation": 0.0010000000474974513,
         "color": {
             "a": 255.0,
-            "b": 77.59710693359375,
-            "g": 77.59710693359375,
-            "r": 177.85031127929688
+            "b": 84.30085754394531,
+            "g": 215.20701599121094,
+            "r": 186.02410888671875
         },
         "direction": {
             "x": 0.4000000059604645,
@@ -229,16 +378,172 @@
             "z": -0.4000000059604645
         },
         "id": 4,
-        "innerCutoff": 0.0,
-        "intensity": 2.947000026702881,
+        "innerCutoff": 1.0,
+        "intensity": 3.0,
         "isChild": false,
         "light_type": 1,
         "name": "New Light",
-        "outerCutoff": 45.0,
+        "outerCutoff": 3.0,
         "position": {
             "x": 0.0,
-            "y": 19.600006103515625,
+            "y": 8.299996376037598,
+            "z": 20.200035095214844
+        },
+        "radius": 46.42900085449219,
+        "relativePosition": {
+            "x": 0,
+            "y": 0,
+            "z": 0
+        },
+        "specularStrength": 0.5,
+        "target": {
+            "x": 0,
+            "y": 0,
+            "z": 0
+        },
+        "type": "light"
+    },
+    {
+        "attenuation": 0.0010000000474974513,
+        "color": {
+            "a": 255.0,
+            "b": 91.41578674316406,
+            "g": 91.41578674316406,
+            "r": 222.51593017578125
+        },
+        "direction": {
+            "x": 0.4000000059604645,
+            "y": 0.4000000059604645,
+            "z": -0.4000000059604645
+        },
+        "id": 6,
+        "innerCutoff": 1.0,
+        "intensity": 3.0,
+        "isChild": false,
+        "light_type": 1,
+        "name": "New Light",
+        "outerCutoff": 3.0,
+        "position": {
+            "x": 0.0,
+            "y": 4.2999982833862305,
+            "z": -10.300003051757813
+        },
+        "radius": 45.5359992980957,
+        "relativePosition": {
+            "x": 0,
+            "y": 0,
+            "z": 0
+        },
+        "specularStrength": 0.5,
+        "target": {
+            "x": 0,
+            "y": 0,
+            "z": 0
+        },
+        "type": "light"
+    },
+    {
+        "attenuation": 0.0010000000474974513,
+        "color": {
+            "a": 255.0,
+            "b": 255.0,
+            "g": 255.0,
+            "r": 255.0
+        },
+        "direction": {
+            "x": 0.4000000059604645,
+            "y": 0.4000000059604645,
+            "z": -0.4000000059604645
+        },
+        "id": 7,
+        "innerCutoff": 1.0,
+        "intensity": 3.0,
+        "isChild": false,
+        "light_type": 1,
+        "name": "New Light",
+        "outerCutoff": 3.0,
+        "position": {
+            "x": -13.700017929077148,
+            "y": 0.0,
             "z": 0.0
+        },
+        "radius": 66.51799774169922,
+        "relativePosition": {
+            "x": 0,
+            "y": 0,
+            "z": 0
+        },
+        "specularStrength": 0.5,
+        "target": {
+            "x": 0,
+            "y": 0,
+            "z": 0
+        },
+        "type": "light"
+    },
+    {
+        "attenuation": 0.0010000000474974513,
+        "color": {
+            "a": 255.0,
+            "b": 94.07207489013672,
+            "g": 237.94586181640625,
+            "r": 74.26335144042969
+        },
+        "direction": {
+            "x": 0.4000000059604645,
+            "y": 0.4000000059604645,
+            "z": -0.4000000059604645
+        },
+        "id": 8,
+        "innerCutoff": 1.0,
+        "intensity": 3.0,
+        "isChild": false,
+        "light_type": 1,
+        "name": "New Light",
+        "outerCutoff": 3.0,
+        "position": {
+            "x": 8.900004386901855,
+            "y": 0.0,
+            "z": 0.0
+        },
+        "radius": 64.28600311279297,
+        "relativePosition": {
+            "x": 0,
+            "y": 0,
+            "z": 0
+        },
+        "specularStrength": 0.5,
+        "target": {
+            "x": 0,
+            "y": 0,
+            "z": 0
+        },
+        "type": "light"
+    },
+    {
+        "attenuation": 0.0010000000474974513,
+        "color": {
+            "a": 255.0,
+            "b": 255.0,
+            "g": 255.0,
+            "r": 255.0
+        },
+        "direction": {
+            "x": 0.4000000059604645,
+            "y": 0.4000000059604645,
+            "z": -0.4000000059604645
+        },
+        "id": 10,
+        "innerCutoff": 1.0,
+        "intensity": 20.98200035095215,
+        "isChild": false,
+        "light_type": 1,
+        "name": "New Light",
+        "outerCutoff": 3.0,
+        "position": {
+            "x": 0.0,
+            "y": 25.700057983398438,
+            "z": 68.19969177246094
         },
         "radius": 100.0,
         "relativePosition": {
@@ -246,7 +551,7 @@
             "y": 0,
             "z": 0
         },
-        "specularStrength": 0.5,
+        "specularStrength": 0.0,
         "target": {
             "x": 0,
             "y": 0,

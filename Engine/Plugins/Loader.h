@@ -23,7 +23,10 @@ public:
     py::object  m_module;
     fs::file_time_type m_lastWriteTime;
 
-    Plugin(const std::string& name, const std::string& path, const bool& enabled) : m_name(name), m_path(path), m_enabled(enabled) {}
+    Plugin(const std::string& name, const std::string& path, const bool& enabled)
+        : m_name(name), m_path(path), m_enabled(enabled) {
+        m_module = py::none();
+    }
 
     const std::string& getName() const { return m_name; }
     const std::string& getPath() const { return m_path; }
@@ -35,13 +38,22 @@ public:
     void reloadIfChanged();
     void saveEnabledState();
 
-    ~Plugin() {}
+    ~Plugin() {
+        try {
+            if (this) this->unload();
+            else TraceLog(LOG_WARNING, ("Plugin " + m_name + " already unloaded").c_str());
+        } catch (...) {
+            TraceLog(LOG_ERROR, ("Error during plugin destruction: " + m_name).c_str());
+        }
+    }
 };
 
 class Plugins {
 public:
     Plugins() = default;
-    ~Plugins() = default;
+    ~Plugins() {
+        unloadAll();
+    }
 
     void load(const std::string& name, const std::string& path, const bool& enabled);
     void unload(const std::string& name);
