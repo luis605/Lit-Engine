@@ -103,9 +103,10 @@ private:
     std::string scriptContent;
 
     #pragma GCC visibility push(default)
-    py::object entityObj;
-    py::dict locals;
-    py::module scriptModule;
+        py::dict localNamespace;
+        bool pythonModulesInitialized;
+        py::module inputModule, collisionModule, cameraModule, physicsModule,
+                        mouseModule, timeModule, colorModule, mathModule;
     #pragma GCC visibility pop
 
     bool entityOptimized = false;
@@ -457,6 +458,18 @@ public:
         }
     }
 
+    void initializeSharedModules() {
+        inputModule = py::module::import("inputModule");
+        collisionModule = py::module::import("collisionModule");
+        cameraModule = py::module::import("cameraModule");
+        physicsModule = py::module::import("physicsModule");
+        mouseModule = py::module::import("mouseModule");
+        timeModule = py::module::import("timeModule");
+        colorModule = py::module::import("colorModule");
+        mathModule = py::module::import("mathModule");
+        py::module_::import("__main__").attr("entitiesList") = py::cast(entitiesList);
+    }
+
     void setupScript(LitCamera* rendering_camera) {
         if (script.empty() && scriptIndex.empty()) return;
         running = true;
@@ -512,91 +525,76 @@ public:
                 .def("makeDynamic", &Entity::makePhysicsDynamic);
         }
 
-        py::module inputModule = py::module::import("inputModule");
-        py::module collisionModule = py::module::import("collisionModule");
-        py::module cameraModule = py::module::import("cameraModule");
-        py::module physicsModule = py::module::import("physicsModule");
-        py::module mouseModule = py::module::import("mouseModule");
-        py::module timeModule = py::module::import("timeModule");
-        py::module colorModule = py::module::import("colorModule");
-        py::module mathModule = py::module::import("mathModule");
-        py::module_::import("__main__").attr("entitiesList") = py::cast(entitiesList);
-        entityObj = py::cast(this);
+        initializeSharedModules();
 
-        locals = py::dict(
-            "entity"_a = entityObj,
-            "IsMouseButtonPressed"_a = inputModule.attr("isMouseButtonPressed"),
-            "IsKeyDown"_a = inputModule.attr("isKeyDown"),
-            "IsKeyPressed"_a = inputModule.attr("isKeyPressed"),
-            "IsKeyUp"_a = inputModule.attr("isKeyUp"),
-            "GetMouseMovement"_a = inputModule.attr("getMouseMovement"),
-            "Keys"_a = inputModule.attr("Keys"),
-            "MouseButton"_a = inputModule.attr("MouseButton"),
-            "Raycast"_a = collisionModule.attr("raycast"),
-            "CollisionShape"_a = collisionModule.attr("CollisionShape"),
-            "Vector3"_a = mathModule.attr("Vector3"),
-            "Vector2"_a = mathModule.attr("Vector2"),
-            "Vector3Scale"_a = mathModule.attr("vector3Scale"),
-            "Vector3Distance"_a = mathModule.attr("vector3Distance"),
-            "Vector3Length"_a = mathModule.attr("vector3Length"),
-            "Vector3LengthSqr"_a = mathModule.attr("vector3LengthSqr"),
-            "Color"_a = colorModule.attr("Color"),
-            "LockMouse"_a = mouseModule.attr("LockMouse"),
-            "UnlockMouse"_a = mouseModule.attr("UnlockMouse"),
-            "time"_a = py::cast(&time_instance),
-            "physics"_a = py::cast(&physics),
-            "Lerp"_a = mathModule.attr("lerp"),
-            "entitiesList"_a = entitiesList,
-            "camera"_a = py::cast(rendering_camera)
-        );
-
-        locals["Entity"] = entityModule.attr("Entity");
-
-#ifndef GAME_SHIPPING
-        scriptContent = readFileToString(script);
-#else
-    std::ifstream infile("encryptedScripts.json");
-    if (!infile.is_open()) {
-        TraceLog(LOG_ERROR, "Failed to open scripts file.");
-        return;
-    }
-
-    const char* decryptedScripts = decryptFileString("encryptedScripts.json", "141b5aceaaa5582ec3efb9a17cac2da5e52bbc1057f776e99a56a064f5ea40d5f8689b7542c4d0e9d6d7163b9dee7725369742a54905ac95c74be5cb1435fdb726fead2437675eaa13bc77ced8fb9cc6108d4a247a2b37b76a6e0bf41916fcc98ee5f85db11ecb52b0d94b5fbab58b1f4814ed49e761a7fb9dfb0960f00ecf8c87989b8e92a630680128688fa7606994e3be12734868716f9df27674700a2cb37440afe131e570a4ee9e7e867aab18a44ee972956b7bd728f9b937c973b9726f6bdd56090d720e6fa31c70b31e0216739cde4210bcd93671c1e8edb752b32f782b62eab4d77a51e228a6b6ac185d7639bd037f9195c3f05c5d2198947621814827f2d99dd7c2821e76635a845203f42060e5a9a494482afab1c42c23ba5f317f250321c7713c2ce19fe7a3957ce439f4782dbee3d418aebe08314a4d6ac7b3d987696d39600c5777f555a8dc99f2953ab45b0687efa1a77d8e5b448b37a137f2849c9b76fec98765523869c22a3453c214ec8e8827acdded27c37d96017fbf862a405b4b06fe0e815e09ed5288ccd9139e67c7feed3e7306f621976b9d3ba917d19ef4a13490f9e2af925996f59a87uihjoklas9emyuikw75igeturf7unftyngl635n4554hs23d2453pfds");
-    json json_data;
-
-    try {
-        json_data = json::parse(decryptedScripts);
-    } catch (const json::parse_error& e) {
-        return;
-    }
-
-    infile.close();
-
-    if (json_data.is_array() && !json_data.empty()) {
-        for (const auto& element : json_data) {
-
-            if (element.is_object()) {
-                if (element.contains(scriptIndex)) {
-                    scriptContent = element[scriptIndex].get<std::string>();
-                }
-            }
-        }
-    } else {
-        return;
-    }
-
-#endif
         try {
-            scriptModule = py::module::import("__main__");
+            localNamespace = py::dict();
 
-            for (auto item : locals) {
-                scriptModule.attr(item.first) = item.second;
-            }
+            localNamespace["entity"] = py::cast(this);
+            localNamespace["IsMouseButtonPressed"] = inputModule.attr("isMouseButtonPressed");
+            localNamespace["IsKeyDown"] = inputModule.attr("isKeyDown");
+            localNamespace["IsKeyPressed"] = inputModule.attr("isKeyPressed");
+            localNamespace["IsKeyUp"] = inputModule.attr("isKeyUp");
+            localNamespace["GetMouseMovement"] = inputModule.attr("getMouseMovement");
+            localNamespace["Keys"] = inputModule.attr("Keys");
+            localNamespace["MouseButton"] = inputModule.attr("MouseButton");
+            localNamespace["Raycast"] = collisionModule.attr("raycast");
+            localNamespace["CollisionShape"] = collisionModule.attr("CollisionShape");
+            localNamespace["Vector3"] = mathModule.attr("Vector3");
+            localNamespace["Vector2"] = mathModule.attr("Vector2");
+            localNamespace["Vector3Scale"] = mathModule.attr("vector3Scale");
+            localNamespace["Vector3Distance"] = mathModule.attr("vector3Distance");
+            localNamespace["Vector3Length"] = mathModule.attr("vector3Length");
+            localNamespace["Vector3LengthSqr"] = mathModule.attr("vector3LengthSqr");
+            localNamespace["Color"] = colorModule.attr("Color");
+            localNamespace["LockMouse"] = mouseModule.attr("LockMouse");
+            localNamespace["UnlockMouse"] = mouseModule.attr("UnlockMouse");
+            localNamespace["time"] = py::cast(&time_instance);
+            localNamespace["physics"] = py::cast(&physics);
+            localNamespace["Lerp"] = mathModule.attr("lerp");
+            localNamespace["entitiesList"] = entitiesList;
+            localNamespace["camera"] = py::cast(rendering_camera);
+            localNamespace["Entity"] = entityModule.attr("Entity");
+            localNamespace["Entity"] = entityModule.attr("Entity");
 
-            std::string scriptContent_copy = scriptContent;
-            py::eval<py::eval_statements>(scriptContent_copy, scriptModule.attr("__dict__"));
+            // Load and execute the script in its own namespace
+            #ifndef GAME_SHIPPING
+                scriptContent = readFileToString(script);
+            #else
+                std::ifstream infile("encryptedScripts.json");
+                if (!infile.is_open()) {
+                    TraceLog(LOG_ERROR, "Failed to open scripts file.");
+                    return;
+                }
+
+                const char* decryptedScripts = decryptFileString("encryptedScripts.json", "141b5aceaaa5582ec3efb9a17cac2da5e52bbc1057f776e99a56a064f5ea40d5f8689b7542c4d0e9d6d7163b9dee7725369742a54905ac95c74be5cb1435fdb726fead2437675eaa13bc77ced8fb9cc6108d4a247a2b37b76a6e0bf41916fcc98ee5f85db11ecb52b0d94b5fbab58b1f4814ed49e761a7fb9dfb0960f00ecf8c87989b8e92a630680128688fa7606994e3be12734868716f9df27674700a2cb37440afe131e570a4ee9e7e867aab18a44ee972956b7bd728f9b937c973b9726f6bdd56090d720e6fa31c70b31e0216739cde4210bcd93671c1e8edb752b32f782b62eab4d77a51e228a6b6ac185d7639bd037f9195c3f05c5d2198947621814827f2d99dd7c2821e76635a845203f42060e5a9a494482afab1c42c23ba5f317f250321c7713c2ce19fe7a3957ce439f4782dbee3d418aebe08314a4d6ac7b3d987696d39600c5777f555a8dc99f2953ab45b0687efa1a77d8e5b448b37a137f2849c9b76fec98765523869c22a3453c214ec8e8827acdded27c37d96017fbf862a405b4b06fe0e815e09ed5288ccd9139e67c7feed3e7306f621976b9d3ba917d19ef4a13490f9e2af925996f59a87uihjoklas9emyuikw75igeturf7unftyngl635n4554hs23d2453pfds");
+                json json_data;
+
+                try {
+                    json_data = json::parse(decryptedScripts);
+                } catch (const json::parse_error& e) {
+                    return;
+                }
+
+                infile.close();
+
+                if (json_data.is_array() && !json_data.empty()) {
+                    for (const auto& element : json_data) {
+
+                        if (element.is_object()) {
+                            if (element.contains(scriptIndex)) {
+                                scriptContent = element[scriptIndex].get<std::string>();
+                            }
+                        }
+                    }
+                } else {
+                    return;
+                }
+            #endif
+
+            py::exec(scriptContent, localNamespace);
         } catch (const py::error_already_set& e) {
-            py::print(e.what());
+            py::print("Error in setupScript for entity ", id, ": ", e.what());
         }
     }
 
@@ -604,14 +602,16 @@ public:
         if (script.empty() && scriptIndex.empty()) return;
 
         try {
-            if (py::hasattr(scriptModule, "update")) {
-                py::object update_func = scriptModule.attr("update");
-                locals["time"] = py::cast(&time_instance);
+            localNamespace["time"] = py::cast(&time_instance);
+
+            if (py::hasattr(localNamespace["update"], "__call__")) {
+                py::object update_func = localNamespace["update"];
                 update_func();
                 rendering_camera->update();
             }
         } catch (const py::error_already_set& e) {
-            TraceLog(LOG_ERROR, (std::string("Failed to run script: ") + std::string(e.what())).c_str());
+            TraceLog(LOG_ERROR, (std::string("Failed to run script for entity ") + 
+                    std::to_string(id) + ": " + std::string(e.what())).c_str());
         }
     }
 

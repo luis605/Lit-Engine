@@ -75,16 +75,32 @@ void Plugin::reloadIfChanged() {
 }
 
 void Plugin::unload() {
+    if (m_module.is_none()) {
+        return;
+    }
+
     try {
-        if (m_module.attr("unloadPlugin")) {
-            m_module.attr("unloadPlugin")();
-        } else {
-            TraceLog(LOG_WARNING, ("Unload function not found in plugin: " + m_name).c_str());
+        if (m_module.attr("cleanup").ptr()) {
+            m_module.attr("cleanup")();
         }
-    } catch (const py::error_already_set& e) {
-        TraceLog(LOG_ERROR, ("Failed to unload plugin '" + m_name + "': " + std::string(e.what())).c_str());
+    } catch (const py::error_already_set&) {
+        // Ignore if cleanup function doesn't exist
+    } catch (const std::exception& e) {
+        TraceLog(LOG_ERROR, ("Error during plugin cleanup " + m_name + ": " + e.what()).c_str());
+    }
+
+    try {
+        py::object none = py::none();
+        std::swap(m_module, none);
+
+        TraceLog(LOG_INFO, ("Successfully unloaded plugin: " + m_name).c_str());
+    } catch (const std::exception& e) {
+        TraceLog(LOG_ERROR, ("Error unloading plugin " + m_name + ": " + e.what()).c_str());
+    } catch (...) {
+        TraceLog(LOG_ERROR, ("Unknown error unloading plugin: " + m_name).c_str());
     }
 }
+
 
 void Plugin::saveEnabledState() {
     std::ifstream inputFile(".profile/plugins.json");
@@ -134,10 +150,7 @@ void Plugins::updateAll() {
 }
 
 void Plugins::unloadAll() {
-    for (const auto& [name, plugin] : m_plugins) {
-        plugin->unload();
-    }
-    m_plugins.clear();
+    m_plugins.clear(); // This calls plugins deconstructor which calls unload itself
 }
 
 void loadAllPlugins() {

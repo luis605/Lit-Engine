@@ -657,7 +657,7 @@ void drawEditorCameraMenu() {
 
         physics.backup();
         InitGameCamera();
-//        inGamePreview = true;
+       inGamePreview = true;
     }
     if (ImGui::IsItemHovered()) ImGui::SetTooltip("Play the game");
 
@@ -709,6 +709,7 @@ void EditorCamera() {
     if (ImGui::IsWindowFocused() || (ImGui::IsWindowHovered() && IsMouseButtonDown(MOUSE_BUTTON_RIGHT)) && !inGamePreview) {
         ProcessCameraControls();
         ProcessCopy();
+        ProcessDeletion();
 
         if (!showObjectTypePopup) EditorCameraMovement();
     }
@@ -725,7 +726,6 @@ void EditorCamera() {
         return;
     }
 
-    ProcessDeletion();
     RenderScene();
     ScaleViewport();
     ObjectsPopup();
