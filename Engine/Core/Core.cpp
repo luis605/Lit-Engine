@@ -33,6 +33,7 @@ void LoadTextures() {
     saveTexture = LoadTexture("assets/images/save_file.png");
     hotReloadTexture = LoadTexture("assets/images/hot_reload.png");
     lightTexture = LoadTexture("assets/images/light_bulb.png");
+    noiseTexture = LoadTexture("assets/images/noise.png");
     windowIconImage = LoadImage("assets/images/window_icon.png");
     windowIconTexture = LoadTextureFromImage(windowIconImage);
     verticalBlurTexture = LoadRenderTexture(GetScreenWidth(), GetScreenHeight());
