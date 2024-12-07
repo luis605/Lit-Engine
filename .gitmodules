@@ -1,9 +1,9 @@
 [submodule "include/ImGuiColorTextEdit"]
 	path = include/ImGuiColorTextEdit
 	url = https://github.com/luis605/ImGuiColorTextEdit.git
-[submodule "include/ImNodes"]
-	path = include/ImNodes
-	url = https://github.com/luis605/ImNodes.git
+[submodule "include/NodeEditor"]
+	path = include/NodeEditor
+	url = https://github.com/thedmd/imgui-node-editor
 [submodule "include/imgui"]
 	path = include/imgui
 	url = https://github.com/ocornut/imgui.git
