@@ -1,5 +1,6 @@
 #include "MaterialNodeEditor.h"
 #include "Drawing.cpp"
+#include "Utilities.cpp"
 
 static inline ImRect ImGui_GetItemRect() {
     return ImRect(ImGui::GetItemRectMin(), ImGui::GetItemRectMax());
@@ -225,6 +226,41 @@ void MaterialNodeSystem::DrawNode(Node& node) {
         ed::EndNode();
 }
 
+bool MaterialNodeSystem::ArePinsValid(Pin* startPin, Pin* endPin) {
+    if (!startPin || !endPin) return false;
+    if (startPin == endPin) return false;
+
+    if (startPin->Type != endPin->Type) {
+        DrawTextInNodeEditor("Pin Types Do Not Match.", true);
+        return false;
+    }
+
+    if (startPin->Kind == endPin->Kind) {
+        DrawTextInNodeEditor("Pin Kinds Are The Same.", true);
+        return false;
+    }
+
+    return true;
+}
+
+void MaterialNodeSystem::HandleNewLink(ed::PinId& startPinId, ed::PinId& endPinId) {
+    Pin* startPin = FindPin(startPinId);
+    Pin* endPin = FindPin(endPinId);
+
+    if (!ArePinsValid(startPin, endPin)) return;
+
+    newLinkPin = startPin ? startPin : endPin;
+
+    if (startPin->Kind == PinKind::Input) {
+        std::swap(startPin, endPin);
+        std::swap(startPinId, endPinId);
+    }
+
+    if (ed::AcceptNewItem(ImColor(128, 255, 128), 4.0f)) {
+        m_Links.emplace_back(Link(GetNextId(), startPinId, endPinId));
+    }
+}
+
 void MaterialNodeSystem::DrawMaterialNodeEditor(SurfaceMaterial& surfaceMaterial) {
     if (!m_Context)
         this->Init();
@@ -253,7 +289,6 @@ void MaterialNodeSystem::DrawMaterialNodeEditor(SurfaceMaterial& surfaceMaterial
         this->DrawNode(node);
     }
 
-
     ed::PopStyleVar(5);
     ed::PopStyleColor(3);
 
@@ -263,31 +298,16 @@ void MaterialNodeSystem::DrawMaterialNodeEditor(SurfaceMaterial& surfaceMaterial
 
     if (ed::BeginCreate(ImColor(255, 255, 255), 2.0f)) {
         ed::PinId startPinId = 0, endPinId = 0;
+
         if (ed::QueryNewLink(&startPinId, &endPinId)) {
-            auto startPin = FindPin(startPinId);
-            auto endPin   = FindPin(endPinId);
-
-            newLinkPin = startPin ? startPin : endPin;
-
-            if (startPin->Kind == PinKind::Input) {
-                std::swap(startPin, endPin);
-                std::swap(startPinId, endPinId);
-            }
-
-            if (startPin && endPin) {
-                if (ed::AcceptNewItem(ImColor(128, 255, 128), 4.0f)) {
-                    m_Links.emplace_back(Link(GetNextId(), startPinId, endPinId));
-                }
-            }
-        }
-        else
+            HandleNewLink(startPinId, endPinId);
+        } else {
             newLinkPin = nullptr;
-
+        }
     }
 
     ed::EndCreate();
 
-    // Show the popup menu for adding nodes
     this->ShowPopup();
 
     ed::End();
@@ -374,6 +394,7 @@ Node* MaterialNodeSystem::SpawnColorNode() {
     ColorNode colorNode{ ImColor(255, 255, 255, 255) };
     m_Nodes.emplace_back(GetNextId(), "Color", colorNode, NodeType::Color, ImColor(255, 100, 100));
     m_Nodes.back().Outputs.emplace_back(GetNextId(), "Out", PinType::TextureOrColor, PinKind::Output);
+    m_Nodes.back().Inputs.emplace_back(GetNextId(), "in", PinType::Bool, PinKind::Input);
 
     BuildNode(&m_Nodes.back());
 
