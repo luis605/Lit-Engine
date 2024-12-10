@@ -126,6 +126,9 @@ public:
     Node* SpawnSliderNode();
     Node* SpawnOneMinusXNode();
     Node* SpawnMultiplyNode();
+    void HandleNewLink(ed::PinId& startPinId, ed::PinId& endPinId);
+    bool ArePinsValid(Pin* startPin, Pin* endPin);
+
 };
 
 MaterialNodeSystem materialNodeSystem;
