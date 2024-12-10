@@ -180,7 +180,7 @@ void MaterialNodeSystem::DrawNode(Node& node) {
                 ImVec2(static_cast<float>(m_PinIconSize), static_cast<float>(m_PinIconSize)),
                 MaterialDrawing::IconType::Circle,
                 false,
-                ImColor(255, 80, 80, 255),
+                ImColor(100, 100, 100, 255),
                 ImColor(32, 32, 32, 100)
             );
 
@@ -188,6 +188,9 @@ void MaterialNodeSystem::DrawNode(Node& node) {
             ed::PinPivotRect(rect.Min, rect.Max);
             ed::PinRect(rect.Min, rect.Max);
             ed::EndPin();
+
+            ImGui::SameLine(100.0f - ImGui::CalcTextSize(inputPin.Name.c_str()).x - 5.0f);
+            ImGui::Text(inputPin.Name.c_str());
         }
 
         ImGui::NextColumn();
@@ -196,6 +199,10 @@ void MaterialNodeSystem::DrawNode(Node& node) {
 
         for (size_t i = 0; i < node.Outputs.size(); ++i) {
             auto& outputPin = node.Outputs[i];
+
+            ImGui::Text(outputPin.Name.c_str());
+            ImGui::SameLine(100.0f - m_PinIconSize - 5.0f);
+
             ed::BeginPin(outputPin.ID, ed::PinKind::Output);
 
             DrawPinIcon(
@@ -366,7 +373,6 @@ Node* MaterialNodeSystem::SpawnMaterialNode() {
 Node* MaterialNodeSystem::SpawnColorNode() {
     ColorNode colorNode{ ImColor(255, 255, 255, 255) };
     m_Nodes.emplace_back(GetNextId(), "Color", colorNode, NodeType::Color, ImColor(255, 100, 100));
-
     m_Nodes.back().Outputs.emplace_back(GetNextId(), "Out", PinType::TextureOrColor, PinKind::Output);
 
     BuildNode(&m_Nodes.back());
