@@ -118,7 +118,7 @@ public:
     void BuildNodes();
     void DrawNodeMiddleSection(Node& node);
     void DrawNode(Node& node);
-    void DrawMaterialNodeEditor(SurfaceMaterial& surfaceMaterial); // OnFrame
+    void DrawMaterialNodeEditor(SurfaceMaterial& surfaceMaterial);
     void ShowPopup();
     Node* SpawnMaterialNode();
     Node* SpawnColorNode();

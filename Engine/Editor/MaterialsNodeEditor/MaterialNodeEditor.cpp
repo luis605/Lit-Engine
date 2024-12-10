@@ -84,7 +84,7 @@ void MaterialNodeSystem::BuildNodes() {
         BuildNode(&node);
 }
 
-void DrawNodeTitle(const std::string& title, const float& width, const ImColor& bgColor) {
+void DrawNodeTitle(const std::string& title, const float& width, const ImColor& bgColor, const ed::NodeId& id) {
     ImVec2 cursorPos = ImGui::GetCursorScreenPos();
     constexpr float height = 30.0f;
 
@@ -126,7 +126,8 @@ void DrawNodeTitle(const std::string& title, const float& width, const ImColor& 
     );
 
     ImGui::SetCursorScreenPos(cursorPos);
-    ImGui::InvisibleButton("NodeTitleInvisibleButton", ImVec2(width, height)); // Ensures the node has the correct width
+    std::string invisibleButtonText = "NodeTitleInvisibleButton_" + id.Get();
+    ImGui::InvisibleButton(invisibleButtonText.c_str(), ImVec2(width, 0.1)); // Ensures the node has the correct width
 
     ImGui::SetCursorScreenPos(ImVec2(rectMin.x, rectMax.y));
 }
@@ -160,7 +161,9 @@ void MaterialNodeSystem::DrawNodeMiddleSection(Node& node) {
 
 void MaterialNodeSystem::DrawNode(Node& node) {
         ed::BeginNode(node.ID);
-        DrawNodeTitle(node.Name, node.Size.x, node.Color);
+        DrawNodeTitle(node.Name, node.Size.x, node.Color, node.ID);
+
+        ImGui::Dummy(ImVec2(0, 10.0f));
 
         ImGui::Columns(3, nullptr, false);
 
@@ -223,6 +226,9 @@ void MaterialNodeSystem::DrawNode(Node& node) {
         ed::PopStyleVar(3);
         ImGui::NextColumn();
         ImGui::Columns(1);
+
+        ImGui::Dummy(ImVec2(0, 10.0f));
+
         ed::EndNode();
 }
 
@@ -394,7 +400,6 @@ Node* MaterialNodeSystem::SpawnColorNode() {
     ColorNode colorNode{ ImColor(255, 255, 255, 255) };
     m_Nodes.emplace_back(GetNextId(), "Color", colorNode, NodeType::Color, ImColor(255, 100, 100));
     m_Nodes.back().Outputs.emplace_back(GetNextId(), "Out", PinType::TextureOrColor, PinKind::Output);
-    m_Nodes.back().Inputs.emplace_back(GetNextId(), "in", PinType::Bool, PinKind::Input);
 
     BuildNode(&m_Nodes.back());
 
