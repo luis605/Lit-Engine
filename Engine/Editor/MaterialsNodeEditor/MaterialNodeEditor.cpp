@@ -160,77 +160,76 @@ void MaterialNodeSystem::DrawNodeMiddleSection(Node& node) {
 }
 
 void MaterialNodeSystem::DrawNode(Node& node) {
-        ed::BeginNode(node.ID);
-        DrawNodeTitle(node.Name, node.Size.x, node.Color, node.ID);
+    ed::BeginNode(node.ID);
+    DrawNodeTitle(node.Name, node.Size.x, node.Color, node.ID);
 
-        ImGui::Dummy(ImVec2(0, 10.0f));
+    ImGui::Dummy(ImVec2(0, 10.0f));
 
-        ImGui::Columns(3, nullptr, false);
+    ImVec2 nodeStartPos = ImGui::GetCursorScreenPos();
 
-        ImGui::SetColumnWidth(0, 100.0f);
-        ImGui::SetColumnWidth(1, node.Size.x - 100.0f * 2.0f);
-        ImGui::SetColumnWidth(2, 100.0f);
+    ed::PushStyleVar(ed::StyleVar_PinArrowSize, 10.0f);
+    ed::PushStyleVar(ed::StyleVar_PinArrowWidth, 10.0f);
+    ed::PushStyleVar(ed::StyleVar_PinCorners, ImDrawFlags_RoundCornersBottom);
 
-        ed::PushStyleVar(ed::StyleVar_PinArrowSize, 10.0f);
-        ed::PushStyleVar(ed::StyleVar_PinArrowWidth, 10.0f);
-        ed::PushStyleVar(ed::StyleVar_PinCorners, ImDrawFlags_RoundCornersBottom);
+    for (size_t i = 0; i < node.Inputs.size(); ++i) {
+        auto& inputPin = node.Inputs[i];
+        ImGui::SetCursorScreenPos(nodeStartPos + ImVec2(10.0f, i * (m_PinIconSize + 5.0f)));
 
-        // Draw Input Pins
-        for (size_t i = 0; i < node.Inputs.size(); ++i) {
-            auto& inputPin = node.Inputs[i];
-            ed::BeginPin(inputPin.ID, ed::PinKind::Input);
+        ed::BeginPin(inputPin.ID, ed::PinKind::Input);
 
-            DrawPinIcon(
-                ImVec2(static_cast<float>(m_PinIconSize), static_cast<float>(m_PinIconSize)),
-                MaterialDrawing::IconType::Circle,
-                false,
-                ImColor(100, 100, 100, 255),
-                ImColor(32, 32, 32, 100)
-            );
+        DrawPinIcon(
+            ImVec2(static_cast<float>(m_PinIconSize), static_cast<float>(m_PinIconSize)),
+            MaterialDrawing::IconType::Circle,
+            false,
+            ImColor(100, 100, 100, 255),
+            ImColor(32, 32, 32, 100)
+        );
 
-            auto rect = ImGui_GetItemRect();
-            ed::PinPivotRect(rect.Min, rect.Max);
-            ed::PinRect(rect.Min, rect.Max);
-            ed::EndPin();
+        auto rect = ImGui_GetItemRect();
+        ed::PinPivotRect(rect.Min, rect.Max);
+        ed::PinRect(rect.Min, rect.Max);
+        ed::EndPin();
 
-            ImGui::SameLine(100.0f - ImGui::CalcTextSize(inputPin.Name.c_str()).x - 5.0f);
-            ImGui::Text(inputPin.Name.c_str());
-        }
+        ImGui::SameLine(100.0f - ImGui::CalcTextSize(inputPin.Name.c_str()).x);
+        ImGui::Text(inputPin.Name.c_str());
+    }
 
-        ImGui::NextColumn();
-        this->DrawNodeMiddleSection(node);
-        ImGui::NextColumn();
+    ImGui::SetCursorScreenPos(nodeStartPos + ImVec2(100.0f, 10.0f));
+    this->DrawNodeMiddleSection(node);
 
-        for (size_t i = 0; i < node.Outputs.size(); ++i) {
-            auto& outputPin = node.Outputs[i];
+    const ImVec2 outputStartPos    = nodeStartPos   + ImVec2(node.Size.x - 110.0f, 0.0f);
+    const float outputPinStartPosX = nodeStartPos.x + node.Size.x - m_PinIconSize - 10.0f;
+    for (size_t i = 0; i < node.Outputs.size(); ++i) {
+        auto& outputPin = node.Outputs[i];
 
-            ImGui::Text(outputPin.Name.c_str());
-            ImGui::SameLine(100.0f - m_PinIconSize - 5.0f);
+        ImGui::SetCursorScreenPos(outputStartPos + ImVec2(0.0f, i * (m_PinIconSize + 5.0f)));
 
-            ed::BeginPin(outputPin.ID, ed::PinKind::Output);
+        ImGui::Text(outputPin.Name.c_str());
+        ImGui::SameLine();
+        ImGui::SetCursorPosX(outputPinStartPosX);
 
-            DrawPinIcon(
-                ImVec2(static_cast<float>(m_PinIconSize), static_cast<float>(m_PinIconSize)),
-                MaterialDrawing::IconType::Circle,
-                false,
-                ImColor(100, 100, 100, 255),
-                ImColor(32, 32, 32, 100)
-            );
+        ed::BeginPin(outputPin.ID, ed::PinKind::Output);
 
-            auto rect = ImGui_GetItemRect();
-            ed::PinPivotRect(rect.Min, rect.Max);
-            ed::PinRect(rect.Min, rect.Max);
-            ed::EndPin();
-        }
+        DrawPinIcon(
+            ImVec2(static_cast<float>(m_PinIconSize), static_cast<float>(m_PinIconSize)),
+            MaterialDrawing::IconType::Circle,
+            false,
+            ImColor(100, 100, 100, 255),
+            ImColor(32, 32, 32, 100)
+        );
 
-        ed::PopStyleVar(3);
-        ImGui::NextColumn();
-        ImGui::Columns(1);
+        auto rect = ImGui_GetItemRect();
+        ed::PinPivotRect(rect.Min, rect.Max);
+        ed::PinRect(rect.Min, rect.Max);
+        ed::EndPin();
+    }
 
-        ImGui::Dummy(ImVec2(0, 10.0f));
+    ImGui::Dummy(ImVec2(0, 10.0f));
 
-        ed::EndNode();
+    ed::PopStyleVar(3);
+    ed::EndNode();
 }
+
 
 bool MaterialNodeSystem::ArePinsValid(Pin* startPin, Pin* endPin) {
     if (!startPin || !endPin) return false;
