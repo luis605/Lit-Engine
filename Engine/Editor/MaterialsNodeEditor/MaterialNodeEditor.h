@@ -19,9 +19,10 @@ enum class PinKind {
 enum class NodeType {
     Material,
     Color,
-    Slider,
     Texture,
-    OneMinusX
+    Slider,
+    OneMinusX,
+    Multiply
 };
 
 struct ColorNode {
@@ -29,11 +30,24 @@ struct ColorNode {
 };
 
 struct TextureNode {
-    Texture2D texture;
+    SurfaceMaterialTexture texture;
+};
+
+struct SliderNode {
+    float value  = 0;
+    bool onlyInt = false;
+};
+
+struct OneMinusXNode {
+    float x = 0;
+};
+
+struct MultiplyNode {
+    float value = 0;
 };
 
 struct Node;
-using NodeData = std::variant<ColorNode, TextureNode>;
+using NodeData = std::variant<ColorNode, TextureNode, SliderNode, OneMinusXNode, MultiplyNode>;
 
 struct Pin {
     ed::PinId   ID;
@@ -48,17 +62,18 @@ struct Pin {
 };
 
 struct Node {
-    ed::NodeId ID;
-    std::string Name;
     std::vector<Pin> Inputs;
     std::vector<Pin> Outputs;
+    float InputSectionWidth;
+    std::string Name;
+    ed::NodeId ID;
     ImColor Color;
-    ImVec2 Size;
     NodeType type;
     NodeData data;
+    ImVec2 Size;
 
-    Node(int id, const char* name, NodeData nodeData, NodeType nodeType, ImColor color = ImColor(255, 255, 255))
-        : ID(id), Name(name), data(std::move(nodeData)), type(std::move(nodeType)), Color(color), Size(600, -1) {}
+    Node(int id, const char* name, NodeData nodeData, NodeType nodeType, ImColor color = ImColor(255, 255, 255), ImVec2 size = ImVec2(600, -1), float inputSectionWidth = 100.0f)
+        : ID(id), Name(name), data(std::move(nodeData)), type(std::move(nodeType)), Color(std::move(color)), Size(std::move(size)), InputSectionWidth(inputSectionWidth) {}
 };
 
 template <typename T>
@@ -116,7 +131,7 @@ public:
     bool CanCreateLink(Pin* a, Pin* b);
     void BuildNode(Node* node);
     void BuildNodes();
-    void DrawNodeMiddleSection(Node& node);
+    void DrawNodeMiddleSection(Node& node, const ImVec2& cursorStartPos);
     void DrawNode(Node& node);
     void DrawMaterialNodeEditor(SurfaceMaterial& surfaceMaterial);
     void ShowPopup();

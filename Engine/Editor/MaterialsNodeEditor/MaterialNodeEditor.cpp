@@ -142,7 +142,7 @@ void DrawPinIcon(const ImVec2& size, MaterialDrawing::IconType type, bool filled
     ImGui::Dummy(size);
 }
 
-void MaterialNodeSystem::DrawNodeMiddleSection(Node& node) {
+void MaterialNodeSystem::DrawNodeMiddleSection(Node& node, const ImVec2& cursorStartPos) {
     if (node.type == NodeType::Color) {
         ColorNode* nodeData = GetNodeData<ColorNode>(node).value_or(nullptr);
 
@@ -153,8 +153,87 @@ void MaterialNodeSystem::DrawNodeMiddleSection(Node& node) {
                 ImGuiColorEditFlags_NoInputs |
                 ImGuiColorEditFlags_PickerHueBar;
 
+            ImGui::SetCursorPosX(cursorStartPos.x + 10.0f);
             ImGui::SetNextItemWidth(200.0f);
             ImGui::ColorPicker4("Color", (float*)&nodeData->color, colorEditFlags);
+        }
+    } else if (node.type == NodeType::Texture) {
+        TextureNode* nodeData = GetNodeData<TextureNode>(node).value_or(nullptr);
+
+        if (nodeData) {
+            const std::string imageButtonId = "##textureButtonID_" + node.ID.Get();
+
+            ImGui::SetCursorPosX(cursorStartPos.x + 10.0f);
+            ImGui::ImageButton(imageButtonId.c_str(), (ImTextureID)&nodeData->texture.getTexture2D(), ImVec2(140, 140));
+
+            if (ImGui::BeginDragDropTarget()) {
+                const ImGuiPayload* payload = ImGui::AcceptDragDropPayload("TEXTURE_PAYLOAD");
+
+                if (payload) {
+                    IM_ASSERT(payload->DataSize == sizeof(int));
+                    int payload_n = *(const int*)payload->Data;
+
+                    nodeData->texture = dirPath / fileStruct[payload_n].name;
+                }
+
+                ImGui::EndDragDropTarget();
+            }
+
+            ImGui::SameLine();
+            const std::string emptyButtonName = std::string("x##CleanupTexture" + node.Name + "EmptyButton");
+            if (ImGui::Button(emptyButtonName.c_str(), ImVec2(25, 25))) {
+                nodeData->texture.cleanup();
+            }
+
+        }
+    } else if (node.type == NodeType::Slider) {
+        SliderNode* nodeData = GetNodeData<SliderNode>(node).value_or(nullptr);
+
+        if (nodeData) {
+            ImGui::SetCursorPosX(cursorStartPos.x + 10.0f);
+            ImGui::SetNextItemWidth(370.0f);
+            ImGui::PushID(node.ID.Get());
+
+            if (nodeData->onlyInt) {
+                int intValue = static_cast<int>(nodeData->value);
+                if (ImGui::SliderInt("", &intValue, -100, 100)) {
+                    nodeData->value = static_cast<float>(intValue);
+                }
+            } else {
+                ImGui::SliderFloat("", &nodeData->value, -100, 100);
+            }
+
+            ImGui::PopID();
+
+            ImGui::SetCursorPosX(cursorStartPos.x + 10.0f);
+            ImGui::Text("Only Int: ");
+            ImGui::SameLine();
+            ImGui::PushID(std::string("OnlyInt_" + node.ID.Get()).c_str());
+            ImGui::Checkbox("", &nodeData->onlyInt);
+            ImGui::PopID();
+        }
+    } else if (node.type == NodeType::OneMinusX) {
+        OneMinusXNode* nodeData = GetNodeData<OneMinusXNode>(node).value_or(nullptr);
+
+        if (nodeData) {
+            if (IsPinLinked(node.Inputs.at(0).ID)) {
+                ImGui::Text("One Minus X value");
+            } else {
+                ImGui::SetCursorPosX(cursorStartPos.x + 10.0f);
+                ImGui::SetNextItemWidth(370.0f);
+                ImGui::SliderFloat("", &nodeData->x, 0, 1);
+            }
+        }
+    } else if (node.type == NodeType::Multiply) {
+        OneMinusXNode* nodeData = GetNodeData<OneMinusXNode>(node).value_or(nullptr);
+
+        if (nodeData) {
+            if (IsPinLinked(node.Inputs.at(0).ID)) {
+                ImGui::Text("One Minus X value");
+            } else {
+                // const std::string sliderName = "##Slider_NodeID_" + node.ID.Get();
+                // ImGui::SliderFloat(sliderName.c_str(), &nodeData->x, 0, 1);
+            }
         }
     }
 }
@@ -165,7 +244,8 @@ void MaterialNodeSystem::DrawNode(Node& node) {
 
     ImGui::Dummy(ImVec2(0, 10.0f));
 
-    ImVec2 nodeStartPos = ImGui::GetCursorScreenPos();
+    ImVec2 nodeStartPos = ImGui::GetCursorScreenPos() + ImVec2(0, 10);
+    ImVec2 inputSectionWidth = ImVec2(node.InputSectionWidth, 0.0f);
 
     ed::PushStyleVar(ed::StyleVar_PinArrowSize, 10.0f);
     ed::PushStyleVar(ed::StyleVar_PinArrowWidth, 10.0f);
@@ -190,12 +270,14 @@ void MaterialNodeSystem::DrawNode(Node& node) {
         ed::PinRect(rect.Min, rect.Max);
         ed::EndPin();
 
-        ImGui::SameLine(100.0f - ImGui::CalcTextSize(inputPin.Name.c_str()).x);
+        ImGui::SameLine(inputSectionWidth.x - ImGui::CalcTextSize(inputPin.Name.c_str()).x);
         ImGui::Text(inputPin.Name.c_str());
     }
 
-    ImGui::SetCursorScreenPos(nodeStartPos + ImVec2(100.0f, 10.0f));
-    this->DrawNodeMiddleSection(node);
+    if (node.Inputs.empty())
+        inputSectionWidth = ImVec2(0.0f, 0.0f);
+
+    this->DrawNodeMiddleSection(node, nodeStartPos + inputSectionWidth);
 
     const ImVec2 outputStartPos    = nodeStartPos   + ImVec2(node.Size.x - 110.0f, 0.0f);
     const float outputPinStartPosX = nodeStartPos.x + node.Size.x - m_PinIconSize - 10.0f;
@@ -224,6 +306,7 @@ void MaterialNodeSystem::DrawNode(Node& node) {
         ed::EndPin();
     }
 
+    ImGui::SetCursorPosY(nodeStartPos.y + node.Size.y);
     ImGui::Dummy(ImVec2(0, 10.0f));
 
     ed::PopStyleVar(3);
@@ -397,8 +480,8 @@ Node* MaterialNodeSystem::SpawnMaterialNode() {
 
 Node* MaterialNodeSystem::SpawnColorNode() {
     ColorNode colorNode{ ImColor(255, 255, 255, 255) };
-    m_Nodes.emplace_back(GetNextId(), "Color", colorNode, NodeType::Color, ImColor(255, 100, 100));
-    m_Nodes.back().Outputs.emplace_back(GetNextId(), "Out", PinType::TextureOrColor, PinKind::Output);
+    m_Nodes.emplace_back(GetNextId(), "Color", colorNode, NodeType::Color, ImColor(255, 100, 100), ImVec2(450.0f, -1.0f));
+    m_Nodes.back().Outputs.emplace_back(GetNextId(), "Color", PinType::TextureOrColor, PinKind::Output);
 
     BuildNode(&m_Nodes.back());
 
@@ -407,8 +490,8 @@ Node* MaterialNodeSystem::SpawnColorNode() {
 
 Node* MaterialNodeSystem::SpawnTextureNode() {
     TextureNode textureNode;
-    m_Nodes.emplace_back(GetNextId(), "Texture", textureNode, NodeType::Texture, ImColor(100, 255, 100));
-    m_Nodes.back().Outputs.emplace_back(GetNextId(), "Out", PinType::TextureOrColor, PinKind::Output);
+    m_Nodes.emplace_back(GetNextId(), "Texture", textureNode, NodeType::Texture, ImColor(100, 255, 100), ImVec2(400.0f, -1.0f));
+    m_Nodes.back().Outputs.emplace_back(GetNextId(), "Texture", PinType::TextureOrColor, PinKind::Output);
 
     BuildNode(&m_Nodes.back());
 
@@ -416,13 +499,34 @@ Node* MaterialNodeSystem::SpawnTextureNode() {
 }
 
 Node* MaterialNodeSystem::SpawnSliderNode() {
+    SliderNode sliderNode;
+    m_Nodes.emplace_back(GetNextId(), "Slider", sliderNode, NodeType::Slider, ImColor(100, 100, 255), ImVec2(500.0f, -1.0f));
+    m_Nodes.back().Outputs.emplace_back(GetNextId(), "Number", PinType::Number, PinKind::Output);
 
+    BuildNode(&m_Nodes.back());
+
+    return &m_Nodes.back();
 }
 
 Node* MaterialNodeSystem::SpawnOneMinusXNode() {
+    OneMinusXNode oneMinusXNode;
+    m_Nodes.emplace_back(GetNextId(), "1-x", oneMinusXNode, NodeType::OneMinusX, ImColor(100, 255, 255));
+    m_Nodes.back().Inputs.emplace_back(GetNextId(), "X", PinType::Number, PinKind::Input);
+    m_Nodes.back().Outputs.emplace_back(GetNextId(), "1-x", PinType::Number, PinKind::Output);
 
+    BuildNode(&m_Nodes.back());
+
+    return &m_Nodes.back();
 }
 
 Node* MaterialNodeSystem::SpawnMultiplyNode() {
+    MultiplyNode multiplyNode;
+    m_Nodes.emplace_back(GetNextId(), "Multiply", multiplyNode, NodeType::Multiply, ImColor(255, 255, 100), ImVec2(300, -1), 150.0f);
+    m_Nodes.back().Inputs.emplace_back(GetNextId(), "Value", PinType::Number, PinKind::Input);
+    m_Nodes.back().Inputs.emplace_back(GetNextId(), "Multiplier", PinType::Number, PinKind::Input);
+    m_Nodes.back().Outputs.emplace_back(GetNextId(), "Out", PinType::Number, PinKind::Output);
 
+    BuildNode(&m_Nodes.back());
+
+    return &m_Nodes.back();
 }
