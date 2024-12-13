@@ -4,6 +4,8 @@
 namespace ed = ax::NodeEditor;
 
 bool showMaterialInNodesEditor;
+constexpr float SLIDER_MIN = -100.0f;
+constexpr float SLIDER_MAX = 100.0f;
 
 enum class PinType {
     Bool,

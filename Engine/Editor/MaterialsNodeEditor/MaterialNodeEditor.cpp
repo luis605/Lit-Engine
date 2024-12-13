@@ -15,11 +15,11 @@ ed::LinkId MaterialNodeSystem::GetNextLinkId() {
 }
 
 Node* MaterialNodeSystem::FindNode(ed::NodeId id) {
-    for (auto& node : m_Nodes)
-        if (node.ID == id)
-            return &node;
+    auto it = std::find_if(m_Nodes.begin(), m_Nodes.end(), [&](const Node& node) {
+        return node.ID == id;
+    });
 
-    return nullptr;
+    return it != m_Nodes.end() ? &(*it) : nullptr;
 }
 
 Link* MaterialNodeSystem::FindLink(ed::LinkId id) {
@@ -153,7 +153,7 @@ void MaterialNodeSystem::DrawNodeMiddleSection(Node& node, const ImVec2& cursorS
                 ImGuiColorEditFlags_NoInputs |
                 ImGuiColorEditFlags_PickerHueBar;
 
-            ImGui::SetCursorPosX(cursorStartPos.x + 10.0f);
+            ImGui::SetCursorPosX(cursorStartPos.x + padding);
             ImGui::SetNextItemWidth(200.0f);
             ImGui::ColorPicker4("Color", (float*)&nodeData->color, colorEditFlags);
         }
@@ -163,7 +163,7 @@ void MaterialNodeSystem::DrawNodeMiddleSection(Node& node, const ImVec2& cursorS
         if (nodeData) {
             const std::string imageButtonId = "##textureButtonID_" + node.ID.Get();
 
-            ImGui::SetCursorPosX(cursorStartPos.x + 10.0f);
+            ImGui::SetCursorPosX(cursorStartPos.x + padding);
             ImGui::ImageButton(imageButtonId.c_str(), (ImTextureID)&nodeData->texture.getTexture2D(), ImVec2(140, 140));
 
             if (ImGui::BeginDragDropTarget()) {
@@ -190,22 +190,22 @@ void MaterialNodeSystem::DrawNodeMiddleSection(Node& node, const ImVec2& cursorS
         SliderNode* nodeData = GetNodeData<SliderNode>(node).value_or(nullptr);
 
         if (nodeData) {
-            ImGui::SetCursorPosX(cursorStartPos.x + 10.0f);
+            ImGui::SetCursorPosX(cursorStartPos.x + padding);
             ImGui::SetNextItemWidth(370.0f);
             ImGui::PushID(node.ID.Get());
 
             if (nodeData->onlyInt) {
                 int intValue = static_cast<int>(nodeData->value);
-                if (ImGui::SliderInt("", &intValue, -100, 100)) {
+                if (ImGui::SliderInt("", &intValue, SLIDER_MIN, SLIDER_MAX)) {
                     nodeData->value = static_cast<float>(intValue);
                 }
             } else {
-                ImGui::SliderFloat("", &nodeData->value, -100, 100);
+                ImGui::SliderFloat("", &nodeData->value, SLIDER_MIN, SLIDER_MAX);
             }
 
             ImGui::PopID();
 
-            ImGui::SetCursorPosX(cursorStartPos.x + 10.0f);
+            ImGui::SetCursorPosX(cursorStartPos.x + padding);
             ImGui::Text("Only Int: ");
             ImGui::SameLine();
             ImGui::PushID(std::string("OnlyInt_" + node.ID.Get()).c_str());
@@ -219,7 +219,7 @@ void MaterialNodeSystem::DrawNodeMiddleSection(Node& node, const ImVec2& cursorS
             if (IsPinLinked(node.Inputs.at(0).ID)) {
                 ImGui::Text("One Minus X value");
             } else {
-                ImGui::SetCursorPosX(cursorStartPos.x + 10.0f);
+                ImGui::SetCursorPosX(cursorStartPos.x + padding);
                 ImGui::SetNextItemWidth(370.0f);
                 ImGui::SliderFloat("", &nodeData->x, 0, 1);
             }
@@ -242,7 +242,9 @@ void MaterialNodeSystem::DrawNode(Node& node) {
     ed::BeginNode(node.ID);
     DrawNodeTitle(node.Name, node.Size.x, node.Color, node.ID);
 
-    ImGui::Dummy(ImVec2(0, 10.0f));
+    constexpr float padding = 10.0f;
+
+    ImGui::Dummy(ImVec2(0, padding));
 
     ImVec2 nodeStartPos = ImGui::GetCursorScreenPos() + ImVec2(0, 10);
     ImVec2 inputSectionWidth = ImVec2(node.InputSectionWidth, 0.0f);
@@ -253,7 +255,7 @@ void MaterialNodeSystem::DrawNode(Node& node) {
 
     for (size_t i = 0; i < node.Inputs.size(); ++i) {
         auto& inputPin = node.Inputs[i];
-        ImGui::SetCursorScreenPos(nodeStartPos + ImVec2(10.0f, i * (m_PinIconSize + 5.0f)));
+        ImGui::SetCursorScreenPos(nodeStartPos + ImVec2(padding, i * (m_PinIconSize + 5.0f)));
 
         ed::BeginPin(inputPin.ID, ed::PinKind::Input);
 
@@ -279,8 +281,9 @@ void MaterialNodeSystem::DrawNode(Node& node) {
 
     this->DrawNodeMiddleSection(node, nodeStartPos + inputSectionWidth);
 
-    const ImVec2 outputStartPos    = nodeStartPos   + ImVec2(node.Size.x - 110.0f, 0.0f);
-    const float outputPinStartPosX = nodeStartPos.x + node.Size.x - m_PinIconSize - 10.0f;
+    const ImVec2 outputStartPos    = nodeStartPos   + ImVec2(node.Size.x - 100.0f - padding, 0.0f);
+    const float outputPinStartPosX = nodeStartPos.x + node.Size.x - m_PinIconSize - padding;
+
     for (size_t i = 0; i < node.Outputs.size(); ++i) {
         auto& outputPin = node.Outputs[i];
 
@@ -307,7 +310,7 @@ void MaterialNodeSystem::DrawNode(Node& node) {
     }
 
     ImGui::SetCursorPosY(nodeStartPos.y + node.Size.y);
-    ImGui::Dummy(ImVec2(0, 10.0f));
+    ImGui::Dummy(ImVec2(0, padding));
 
     ed::PopStyleVar(3);
     ed::EndNode();
