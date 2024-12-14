@@ -258,6 +258,8 @@ void MaterialNodeSystem::DrawNode(Node& node) {
         ImGui::SetCursorScreenPos(nodeStartPos + ImVec2(padding, i * (m_PinIconSize + 5.0f)));
 
         ed::BeginPin(inputPin.ID, ed::PinKind::Input);
+        ed::PinPivotAlignment(ImVec2(0.5f, 0.5f));
+        ed::PinPivotSize(ImVec2(0, 0));
 
         DrawPinIcon(
             ImVec2(static_cast<float>(m_PinIconSize), static_cast<float>(m_PinIconSize)),
@@ -267,9 +269,6 @@ void MaterialNodeSystem::DrawNode(Node& node) {
             ImColor(32, 32, 32, 100)
         );
 
-        auto rect = ImGui_GetItemRect();
-        ed::PinPivotRect(rect.Min, rect.Max);
-        ed::PinRect(rect.Min, rect.Max);
         ed::EndPin();
 
         ImGui::SameLine(inputSectionWidth.x - ImGui::CalcTextSize(inputPin.Name.c_str()).x);
@@ -294,6 +293,8 @@ void MaterialNodeSystem::DrawNode(Node& node) {
         ImGui::SetCursorPosX(outputPinStartPosX);
 
         ed::BeginPin(outputPin.ID, ed::PinKind::Output);
+        ed::PinPivotAlignment(ImVec2(0.5f, 0.5f));
+        ed::PinPivotSize(ImVec2(0, 0));
 
         DrawPinIcon(
             ImVec2(static_cast<float>(m_PinIconSize), static_cast<float>(m_PinIconSize)),
@@ -303,9 +304,6 @@ void MaterialNodeSystem::DrawNode(Node& node) {
             ImColor(32, 32, 32, 100)
         );
 
-        auto rect = ImGui_GetItemRect();
-        ed::PinPivotRect(rect.Min, rect.Max);
-        ed::PinRect(rect.Min, rect.Max);
         ed::EndPin();
     }
 
@@ -373,6 +371,9 @@ void MaterialNodeSystem::DrawMaterialNodeEditor(SurfaceMaterial& surfaceMaterial
     ed::PushStyleVar(ed::StyleVar_PinBorderWidth,  1.0f);
     ed::PushStyleVar(ed::StyleVar_PinRadius,       5.0f);
     ed::PushStyleVar(ed::StyleVar_NodeBorderWidth, 0.0f);
+    ed::PushStyleVar(ed::StyleVar_SourceDirection, ImVec2(0.0f,  1.0f));
+    ed::PushStyleVar(ed::StyleVar_TargetDirection, ImVec2(0.0f, -1.0f));
+    ed::PushStyleVar(ed::StyleVar_LinkStrength, 0.0f);
 
     ImColor pinBackground = ImColor(128, 128, 128, 200);
 
@@ -380,7 +381,7 @@ void MaterialNodeSystem::DrawMaterialNodeEditor(SurfaceMaterial& surfaceMaterial
         this->DrawNode(node);
     }
 
-    ed::PopStyleVar(5);
+    ed::PopStyleVar(8);
     ed::PopStyleColor(3);
 
     for (auto& link : m_Links) {
