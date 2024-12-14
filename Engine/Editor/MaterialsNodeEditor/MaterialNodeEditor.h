@@ -57,6 +57,7 @@ struct Pin {
     std::string Name;
     PinType     Type;
     PinKind     Kind;
+    void*       Value;
 
     Pin(int id, const char* name, PinType type, PinKind kind):
         ID(id), Node(nullptr), Name(name), Type(type), Kind(kind)
