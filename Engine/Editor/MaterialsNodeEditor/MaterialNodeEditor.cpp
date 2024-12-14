@@ -205,7 +205,7 @@ void MaterialNodeSystem::DrawNodeMiddleSection(Node& node, const ImVec2& cursorS
                 ImGui::SliderFloat("", &nodeData->value, SLIDER_MIN, SLIDER_MAX);
             }
 
-            node.Outputs.at(0).Value = (void*)&nodeData->value;
+            node.Outputs.at(0).Value = new float(nodeData->value);
 
             ImGui::PopID();
 
@@ -220,29 +220,45 @@ void MaterialNodeSystem::DrawNodeMiddleSection(Node& node, const ImVec2& cursorS
         OneMinusXNode* nodeData = GetNodeData<OneMinusXNode>(node).value_or(nullptr);
 
         if (nodeData) {
+            float oneMinusXValue = 0.0f;
+            float xValue = 1.0f;
+
             if (IsPinLinked(node.Inputs.at(0).ID)) {
-                if (node.Inputs.at(0).Value)
-                    ImGui::Text(std::to_string(1.0f - *static_cast<float*>(node.Inputs.at(0).Value)).c_str());
+                if (node.Inputs.at(0).Value) {
+                    xValue = *static_cast<float*>(node.Inputs.at(0).Value);
+                    oneMinusXValue = 1.0f - xValue;
+                    ImGui::Text(std::to_string(oneMinusXValue).c_str());
+                }
             } else {
                 ImGui::SetCursorPosX(cursorStartPos.x + padding);
                 ImGui::SetNextItemWidth(370.0f);
                 ImGui::SliderFloat("", &nodeData->x, 0, 1);
+                xValue = nodeData->x;
+                oneMinusXValue = 1.0f - xValue;
             }
 
-            const float oneMinusXValue = 1.0f - nodeData->x;
-            node.Outputs.at(0).Value = (void*)&oneMinusXValue;
+            nodeData->x = xValue;
+
+            node.Outputs.at(0).Value = new float(oneMinusXValue);
         }
     } else if (node.type == NodeType::Multiply) {
-        OneMinusXNode* nodeData = GetNodeData<OneMinusXNode>(node).value_or(nullptr);
+        MultiplyNode* nodeData = GetNodeData<MultiplyNode>(node).value_or(nullptr);
 
         if (nodeData) {
-            if (IsPinLinked(node.Inputs.at(0).ID)) {
-                if (node.Inputs.at(0).Value)
-                    ImGui::Text(std::to_string(*static_cast<float*>(node.Inputs.at(0).Value)).c_str());
-            } else {
-                // const std::string sliderName = "##Slider_NodeID_" + node.ID.Get();
-                // ImGui::SliderFloat(sliderName.c_str(), &nodeData->x, 0, 1);
-            }
+            float value, multiplier = 1.0f;
+
+            if (IsPinLinked(node.Inputs.at(0).ID) && node.Inputs.at(0).Value)
+                value = *static_cast<float*>(node.Inputs.at(0).Value);
+
+            if (IsPinLinked(node.Inputs.at(1).ID) && node.Inputs.at(1).Value)
+                multiplier = *static_cast<float*>(node.Inputs.at(1).Value);
+
+
+            const float multipliedValue = value * multiplier;
+            node.Outputs.at(0).Value = new float(multipliedValue);
+
+            ImGui::SetCursorPosX(cursorStartPos.x + padding);
+            ImGui::Text("Multiplied value: %f", multipliedValue);
         }
     }
 }
@@ -554,7 +570,7 @@ Node* MaterialNodeSystem::SpawnOneMinusXNode() {
 
 Node* MaterialNodeSystem::SpawnMultiplyNode() {
     MultiplyNode multiplyNode;
-    m_Nodes.emplace_back(GetNextId(), "Multiply", multiplyNode, NodeType::Multiply, ImColor(255, 255, 100), ImVec2(300, -1), 150.0f);
+    m_Nodes.emplace_back(GetNextId(), "Multiply", multiplyNode, NodeType::Multiply, ImColor(255, 255, 100), ImVec2(500, -1), 150.0f);
     m_Nodes.back().Inputs.emplace_back(GetNextId(), "Value", PinType::Number, PinKind::Input);
     m_Nodes.back().Inputs.emplace_back(GetNextId(), "Multiplier", PinType::Number, PinKind::Input);
     m_Nodes.back().Outputs.emplace_back(GetNextId(), "Out", PinType::Number, PinKind::Output);
