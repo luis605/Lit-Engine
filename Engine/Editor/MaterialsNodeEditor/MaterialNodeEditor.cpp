@@ -156,6 +156,7 @@ void MaterialNodeSystem::DrawNodeMiddleSection(Node& node, const ImVec2& cursorS
             ImGui::SetCursorPosX(cursorStartPos.x + padding);
             ImGui::SetNextItemWidth(200.0f);
             ImGui::ColorPicker4("Color", (float*)&nodeData->color, colorEditFlags);
+            node.Outputs.at(0).Value = (void*)&nodeData->color;
         }
     } else if (node.type == NodeType::Texture) {
         TextureNode* nodeData = GetNodeData<TextureNode>(node).value_or(nullptr);
@@ -185,6 +186,7 @@ void MaterialNodeSystem::DrawNodeMiddleSection(Node& node, const ImVec2& cursorS
                 nodeData->texture.cleanup();
             }
 
+            node.Outputs.at(0).Value = (void*)&nodeData->texture;
         }
     } else if (node.type == NodeType::Slider) {
         SliderNode* nodeData = GetNodeData<SliderNode>(node).value_or(nullptr);
@@ -203,6 +205,8 @@ void MaterialNodeSystem::DrawNodeMiddleSection(Node& node, const ImVec2& cursorS
                 ImGui::SliderFloat("", &nodeData->value, SLIDER_MIN, SLIDER_MAX);
             }
 
+            node.Outputs.at(0).Value = (void*)&nodeData->value;
+
             ImGui::PopID();
 
             ImGui::SetCursorPosX(cursorStartPos.x + padding);
@@ -217,25 +221,42 @@ void MaterialNodeSystem::DrawNodeMiddleSection(Node& node, const ImVec2& cursorS
 
         if (nodeData) {
             if (IsPinLinked(node.Inputs.at(0).ID)) {
-                ImGui::Text("One Minus X value");
+                if (node.Inputs.at(0).Value)
+                    ImGui::Text(std::to_string(1.0f - *static_cast<float*>(node.Inputs.at(0).Value)).c_str());
             } else {
                 ImGui::SetCursorPosX(cursorStartPos.x + padding);
                 ImGui::SetNextItemWidth(370.0f);
                 ImGui::SliderFloat("", &nodeData->x, 0, 1);
             }
+
+            const float oneMinusXValue = 1.0f - nodeData->x;
+            node.Outputs.at(0).Value = (void*)&oneMinusXValue;
         }
     } else if (node.type == NodeType::Multiply) {
         OneMinusXNode* nodeData = GetNodeData<OneMinusXNode>(node).value_or(nullptr);
 
         if (nodeData) {
             if (IsPinLinked(node.Inputs.at(0).ID)) {
-                ImGui::Text("One Minus X value");
+                if (node.Inputs.at(0).Value)
+                    ImGui::Text(std::to_string(*static_cast<float*>(node.Inputs.at(0).Value)).c_str());
             } else {
                 // const std::string sliderName = "##Slider_NodeID_" + node.ID.Get();
                 // ImGui::SliderFloat(sliderName.c_str(), &nodeData->x, 0, 1);
             }
         }
     }
+}
+
+std::vector<ed::PinId> GetConnectedInputPins(ed::PinId outputPinId) {
+    std::vector<ed::PinId> connectedInputsId;
+
+    for (const auto& link : materialNodeSystem.m_Links) {
+        if (link.StartPinID == outputPinId) {
+            connectedInputsId.push_back(link.EndPinID);
+        }
+    }
+
+    return connectedInputsId;
 }
 
 void MaterialNodeSystem::DrawNode(Node& node) {
@@ -305,6 +326,14 @@ void MaterialNodeSystem::DrawNode(Node& node) {
         );
 
         ed::EndPin();
+
+        if (IsPinLinked(outputPin.ID)) {
+            std::vector<ed::PinId> inputPinsId = GetConnectedInputPins(outputPin.ID);
+            for (ed::PinId pinID : inputPinsId) {
+                Pin* inputPin = FindPin(pinID);
+                inputPin->Value = outputPin.Value;
+            }
+        }
     }
 
     ImGui::SetCursorPosY(nodeStartPos.y + node.Size.y);
