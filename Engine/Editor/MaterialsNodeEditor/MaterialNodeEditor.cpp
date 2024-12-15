@@ -156,7 +156,7 @@ void MaterialNodeSystem::DrawNodeMiddleSection(Node& node, const ImVec2& cursorS
             ImGui::SetCursorPosX(cursorStartPos.x + padding);
             ImGui::SetNextItemWidth(200.0f);
             ImGui::ColorPicker4("Color", (float*)&nodeData->color, colorEditFlags);
-            node.Outputs.at(0).Value = (void*)&nodeData->color;
+            node.Outputs.at(0).Value = std::any(nodeData->color);
         }
     } else if (node.type == NodeType::Texture) {
         TextureNode* nodeData = GetNodeData<TextureNode>(node).value_or(nullptr);
@@ -186,7 +186,7 @@ void MaterialNodeSystem::DrawNodeMiddleSection(Node& node, const ImVec2& cursorS
                 nodeData->texture.cleanup();
             }
 
-            node.Outputs.at(0).Value = (void*)&nodeData->texture;
+            node.Outputs.at(0).Value = std::any(nodeData->texture);
         }
     } else if (node.type == NodeType::Slider) {
         SliderNode* nodeData = GetNodeData<SliderNode>(node).value_or(nullptr);
@@ -200,12 +200,13 @@ void MaterialNodeSystem::DrawNodeMiddleSection(Node& node, const ImVec2& cursorS
                 int intValue = static_cast<int>(nodeData->value);
                 if (ImGui::SliderInt("", &intValue, SLIDER_MIN, SLIDER_MAX)) {
                     nodeData->value = static_cast<float>(intValue);
+                    node.Outputs.at(0).Value = std::any(nodeData->value);
                 }
             } else {
-                ImGui::SliderFloat("", &nodeData->value, SLIDER_MIN, SLIDER_MAX);
+                if (ImGui::SliderFloat("", &nodeData->value, SLIDER_MIN, SLIDER_MAX)) {
+                    node.Outputs.at(0).Value = std::any(nodeData->value);
+                }
             }
-
-            node.Outputs.at(0).Value = new float(nodeData->value);
 
             ImGui::PopID();
 
@@ -223,12 +224,10 @@ void MaterialNodeSystem::DrawNodeMiddleSection(Node& node, const ImVec2& cursorS
             float oneMinusXValue = 0.0f;
             float xValue = 1.0f;
 
-            if (IsPinLinked(node.Inputs.at(0).ID)) {
-                if (node.Inputs.at(0).Value) {
-                    xValue = *static_cast<float*>(node.Inputs.at(0).Value);
-                    oneMinusXValue = 1.0f - xValue;
-                    ImGui::Text(std::to_string(oneMinusXValue).c_str());
-                }
+            if (IsPinLinked(node.Inputs.at(0).ID) && node.Inputs.at(0).Value.type() == typeid(float)) {
+                xValue = std::any_cast<float>(node.Inputs.at(0).Value);
+                oneMinusXValue = 1.0f - xValue;
+                ImGui::Text(std::to_string(oneMinusXValue).c_str());
             } else {
                 ImGui::SetCursorPosX(cursorStartPos.x + padding);
                 ImGui::SetNextItemWidth(370.0f);
@@ -239,7 +238,7 @@ void MaterialNodeSystem::DrawNodeMiddleSection(Node& node, const ImVec2& cursorS
 
             nodeData->x = xValue;
 
-            node.Outputs.at(0).Value = new float(oneMinusXValue);
+            node.Outputs.at(0).Value = std::any(oneMinusXValue);
         }
     } else if (node.type == NodeType::Multiply) {
         MultiplyNode* nodeData = GetNodeData<MultiplyNode>(node).value_or(nullptr);
@@ -247,15 +246,15 @@ void MaterialNodeSystem::DrawNodeMiddleSection(Node& node, const ImVec2& cursorS
         if (nodeData) {
             float value, multiplier = 1.0f;
 
-            if (IsPinLinked(node.Inputs.at(0).ID) && node.Inputs.at(0).Value)
-                value = *static_cast<float*>(node.Inputs.at(0).Value);
+            if (IsPinLinked(node.Inputs.at(0).ID) && node.Inputs.at(0).Value.type() == typeid(float))
+                value = std::any_cast<float>(node.Inputs.at(0).Value);
 
-            if (IsPinLinked(node.Inputs.at(1).ID) && node.Inputs.at(1).Value)
-                multiplier = *static_cast<float*>(node.Inputs.at(1).Value);
+            if (IsPinLinked(node.Inputs.at(1).ID) && node.Inputs.at(0).Value.type() == typeid(float))
+                multiplier = std::any_cast<float>(node.Inputs.at(1).Value);
 
 
             const float multipliedValue = value * multiplier;
-            node.Outputs.at(0).Value = new float(multipliedValue);
+            node.Outputs.at(0).Value = std::any(multipliedValue);
 
             ImGui::SetCursorPosX(cursorStartPos.x + padding);
             ImGui::Text("Multiplied value: %f", multipliedValue);
