@@ -22,8 +22,10 @@
     #include <imgui/imgui_internal.h>
     #include <rlImGui.h>
     #include <TextEditor.h>
-    #include <ImNodes.h>
-    #include <ImNodesEz.h>
+    #include "../include/NodeEditor/imgui_node_editor.h"
+    #include "../include/NodeEditor/imgui_canvas.h"
+    #include "../include/NodeEditor/examples/application/include/application.h"
+
     #include <future>
 #endif
 
@@ -33,6 +35,7 @@
 #include <iostream>
 #include <fstream>
 #include <thread>
+#include <any>
 
 #ifdef _WIN32
     #include "pybind11/embed.h"
@@ -119,9 +122,7 @@ using json = nlohmann::json;
     #include "Editor/SceneEditor/Gizmo/Gizmo.cpp"
     #include "Editor/SceneEditor/SceneEditor.cpp"
     #include "Editor/EntitiesList/EntitiesList.cpp"
-    #include "Editor/MaterialsNodeEditor/MaterialsNodeEditor.h"
-    #include "Editor/MaterialsNodeEditor/Nodes.cpp"
-    #include "Editor/MaterialsNodeEditor/MaterialsNodeEditor.cpp"
+    #include "Editor/MaterialsNodeEditor/MaterialNodeEditor.cpp"
     #include "Editor/Inspector/Inspector.h"
     #include "Editor/Inspector/Inspector.cpp"
     #include "Editor/AssetsExplorer/AssetsExplorer.h"

@@ -7,13 +7,15 @@ SET(BUILD_SHARED_LIBS OFF)
 set(CMAKE_EXE_LINKER_FLAGS "-static-libstdc++ -static-libgcc")
 set (CMAKE_CXX_FLAGS "-no-pie")
 
-add_definitions(-w)
+add_definitions(-w -g)
 
 set(SRC_FILES
-    include/ImGuiColorTextEdit/TextEditor.cpp
-    include/rlImGui.cpp
-    include/ImNodes/ImNodes.cpp
-    include/ImNodes/ImNodesEz.cpp
+    ${CMAKE_SOURCE_DIR}/include/ImGuiColorTextEdit/TextEditor.cpp
+    ${CMAKE_SOURCE_DIR}/include/rlImGui.cpp
+    ${CMAKE_SOURCE_DIR}/include/NodeEditor/crude_json.cpp
+    ${CMAKE_SOURCE_DIR}/include/NodeEditor/imgui_node_editor.cpp
+    ${CMAKE_SOURCE_DIR}/include/NodeEditor/imgui_canvas.cpp
+    ${CMAKE_SOURCE_DIR}/include/NodeEditor/imgui_node_editor_api.cpp
 )
 
 # Use GLOB_RECURSE when all headers are fixed
@@ -22,10 +24,9 @@ file(GLOB ENGINE_SRC_FILES
     ${CMAKE_SOURCE_DIR}/Engine/Core/Events.cpp
 )
 
-
 list(APPEND SRC_FILES ${ENGINE_SRC_FILES})
 
-message(STATUS "Engine Source Files: ${ENGINE_SRC_FILES}")
+message(STATUS "Source Files: ${SRC_FILES}")
 
 
 if(UNIX)
@@ -91,7 +92,9 @@ include_directories(
     ${CMAKE_SOURCE_DIR}/include/meshoptimizer/src
     ${CMAKE_SOURCE_DIR}/include/pybind11/include
     ${CMAKE_SOURCE_DIR}/include/ImGuiColorTextEdit
-    ${CMAKE_SOURCE_DIR}/include/ImNodes
+    ${CMAKE_SOURCE_DIR}/include/NodeEditor
+    ${CMAKE_SOURCE_DIR}/include/NodeEditor/external/stb_image
+    ${CMAKE_SOURCE_DIR}/include/NodeEditor/misc
     ${Python3_INCLUDE_DIRS}
 )
 
@@ -162,6 +165,9 @@ elseif(WIN32)
     include_directories(${BULLET_INCLUDE_DIRS})
 endif()
 
+set(CMAKE_CXX_FLAGS_RELEASE "-O3")
+set(CMAKE_CXX_FLAGS_DEBUG "-g -O0 -pg")
+
 add_executable(LitEngine ${SRC_FILES} ${IMGUI_SRC_FILES})
 
 target_compile_definitions(LitEngine PRIVATE IMGUI_IMPL_OPENGL_LOADER_GLAD)
@@ -172,10 +178,6 @@ target_compile_options(LitEngine PRIVATE
     -pipe
     -Wno-unused-result
 )
-
-# Set the different build types
-set(CMAKE_CXX_FLAGS_RELEASE "-O3")
-set(CMAKE_CXX_FLAGS_DEBUG "-g -O0 -pg")
 
 add_custom_target(run
     COMMAND LitEngine
