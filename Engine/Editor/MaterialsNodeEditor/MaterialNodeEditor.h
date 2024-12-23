@@ -31,6 +31,18 @@ struct ColorNode {
     ImColor color;
 };
 
+struct MaterialNode {
+    SurfaceMaterialTexture diffuse;
+    SurfaceMaterialTexture normal;
+    SurfaceMaterialTexture roughness;
+    SurfaceMaterialTexture ambientOcclusion;
+    SurfaceMaterialTexture height;
+    SurfaceMaterialTexture metallic;
+    SurfaceMaterialTexture emissive;
+
+    alignas(4) float clearCoat = 0.0f;
+};
+
 struct TextureNode {
     SurfaceMaterialTexture texture;
 };
@@ -49,7 +61,7 @@ struct MultiplyNode {
 };
 
 struct Node;
-using NodeData = std::variant<ColorNode, TextureNode, SliderNode, OneMinusXNode, MultiplyNode>;
+using NodeData = std::variant<MaterialNode, ColorNode, TextureNode, SliderNode, OneMinusXNode, MultiplyNode>;
 
 struct Pin {
     ed::PinId   ID;
@@ -104,6 +116,12 @@ struct Link {
     Link(ed::LinkId id, ed::PinId startPinId, ed::PinId endPinId):
         ID(id), StartPinID(startPinId), EndPinID(endPinId), Color(255, 255, 255)
     { }
+};
+
+struct Connection {
+    int nodeID;
+    int pinID;
+    Connection(int n, int p) : nodeID(n), pinID(p) {}
 };
 
 struct MaterialNodeSystem {
