@@ -1,6 +1,7 @@
 #include "MaterialNodeEditor.h"
 #include "Drawing.cpp"
-#include "Utilities.cpp"
+#include "Helpers.cpp"
+#include "MaterialGraph.cpp"
 
 static inline ImRect ImGui_GetItemRect() {
     return ImRect(ImGui::GetItemRectMin(), ImGui::GetItemRectMax());
@@ -112,7 +113,8 @@ void DrawNodeTitle(const std::string& title, const float& width, const ImColor& 
     );
 
     ImGui::SetCursorScreenPos(textPos);
-    ImGui::Text(title.c_str());
+    const std::string titleFinal = title + std::to_string(id.Get());
+    ImGui::Text(titleFinal.c_str());
 
     const float halfBorderWidth = ed::GetStyle().NodeBorderWidth * 0.5f;
 
@@ -259,19 +261,21 @@ void MaterialNodeSystem::DrawNodeMiddleSection(Node& node, const ImVec2& cursorS
             ImGui::SetCursorPosX(cursorStartPos.x + padding);
             ImGui::Text("Multiplied value: %f", multipliedValue);
         }
-    }
-}
+    } else if (node.type == NodeType::Material) {
+        MaterialNode* nodeData = GetNodeData<MaterialNode>(node).value_or(nullptr);
 
-std::vector<ed::PinId> GetConnectedInputPins(ed::PinId outputPinId) {
-    std::vector<ed::PinId> connectedInputsId;
+        if (nodeData) {
+            auto graph = buildGraph(m_Nodes, m_Links);
+            printGraph(graph);
+            auto sortedNodeIDs = topologicalSort(graph);
 
-    for (const auto& link : materialNodeSystem.m_Links) {
-        if (link.StartPinID == outputPinId) {
-            connectedInputsId.push_back(link.EndPinID);
+            std::cout << "Topologically Sorted Nodes: ";
+            for (int id : sortedNodeIDs) {
+                std::cout << id << " ";
+            }
+            std::cout << std::endl;
         }
     }
-
-    return connectedInputsId;
 }
 
 void MaterialNodeSystem::DrawNode(Node& node) {
@@ -308,7 +312,8 @@ void MaterialNodeSystem::DrawNode(Node& node) {
         ed::EndPin();
 
         ImGui::SameLine(inputSectionWidth.x - ImGui::CalcTextSize(inputPin.Name.c_str()).x);
-        ImGui::Text(inputPin.Name.c_str());
+        std::string pinName = inputPin.Name + "_" + std::to_string(inputPin.ID.Get());
+        ImGui::Text(pinName.c_str());
     }
 
     if (node.Inputs.empty())
@@ -324,7 +329,8 @@ void MaterialNodeSystem::DrawNode(Node& node) {
 
         ImGui::SetCursorScreenPos(outputStartPos + ImVec2(0.0f, i * (m_PinIconSize + 5.0f)));
 
-        ImGui::Text(outputPin.Name.c_str());
+        std::string pinName = outputPin.Name + "_" + std::to_string(outputPin.ID.Get());
+        ImGui::Text(pinName.c_str());
         ImGui::SameLine();
         ImGui::SetCursorPosX(outputPinStartPosX);
 
@@ -523,7 +529,17 @@ void MaterialNodeSystem::ShowPopup() {
 }
 
 Node* MaterialNodeSystem::SpawnMaterialNode() {
+    MaterialNode materialNode;
+    m_Nodes.emplace_back(GetNextId(), "Color", materialNode, NodeType::Material, ImColor(255, 100, 100), ImVec2(450.0f, -1.0f));
 
+    m_Nodes.back().Inputs.emplace_back(GetNextId(), "Diffuse",           PinType::TextureOrColor, PinKind::Input);
+    m_Nodes.back().Inputs.emplace_back(GetNextId(), "Normal",            PinType::TextureOrColor, PinKind::Input);
+    m_Nodes.back().Inputs.emplace_back(GetNextId(), "Roughness",         PinType::TextureOrColor, PinKind::Input);
+    m_Nodes.back().Inputs.emplace_back(GetNextId(), "Ambient Occlusion", PinType::TextureOrColor, PinKind::Input);
+    m_Nodes.back().Inputs.emplace_back(GetNextId(), "Height",            PinType::TextureOrColor, PinKind::Input);
+    m_Nodes.back().Inputs.emplace_back(GetNextId(), "Metallic",          PinType::TextureOrColor, PinKind::Input);
+    m_Nodes.back().Inputs.emplace_back(GetNextId(), "Emissive",          PinType::TextureOrColor, PinKind::Input);
+    m_Nodes.back().Inputs.emplace_back(GetNextId(), "Clear Coat",        PinType::Number,         PinKind::Input);
 }
 
 Node* MaterialNodeSystem::SpawnColorNode() {

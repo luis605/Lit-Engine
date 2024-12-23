@@ -36,6 +36,7 @@
 #include <fstream>
 #include <thread>
 #include <any>
+#include <queue>
 
 #ifdef _WIN32
     #include "pybind11/embed.h"
