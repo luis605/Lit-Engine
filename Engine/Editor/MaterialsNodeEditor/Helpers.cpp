@@ -31,7 +31,7 @@ std::vector<ed::PinId> GetConnectedInputPins(ed::PinId outputPinId) {
     return connectedInputsId;
 }
 
-std::vector<Pin*> findConnectedPins(const Node& materialNode, const std::vector<Link>& links) {
+std::vector<Pin*> FindConnectedPins(const Node& materialNode, const std::vector<Link>& links) {
     std::vector<Pin*> connectedPins;
     for (const auto& pin : materialNode.Inputs) {
         for (const auto& link : links) {
@@ -47,7 +47,7 @@ std::vector<Pin*> findConnectedPins(const Node& materialNode, const std::vector<
     return connectedPins;
 }
 
-int findNodeByPinID(const std::vector<Node>& nodes, int pinID) {
+int FindNodeByPinID(const std::vector<Node>& nodes, int pinID) {
     for (const auto& node : nodes) {
         for (const auto& pin : node.Outputs) {
             if (pin.ID.Get() == pinID) {

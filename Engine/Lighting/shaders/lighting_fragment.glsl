@@ -306,6 +306,7 @@ vec4 CalculateLighting(vec3 fragPosition, vec3 fragNormal, vec3 viewDir, vec2 te
 
     return toneMapACES(result);
 }
+
 void main() {
     vec3 viewDir = normalize(viewPos - fragPosition);
     vec2 texCoord = fragTexCoord * tiling;

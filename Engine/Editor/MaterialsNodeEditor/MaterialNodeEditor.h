@@ -64,17 +64,24 @@ struct Node;
 using NodeData = std::variant<MaterialNode, ColorNode, TextureNode, SliderNode, OneMinusXNode, MultiplyNode>;
 
 struct Pin {
-    ed::PinId   ID;
-    ::Node*     Node;
-    std::string Name;
-    PinType     Type;
-    PinKind     Kind;
-    std::any    Value;
+    ed::PinId          ID;
+    ::Node*            Node;
+    std::string        Name;
+    std::list<PinType> Type;
+    PinKind            Kind;
+    std::any           Value;
 
-    Pin(int id, const char* name, PinType type, PinKind kind):
-        ID(id), Node(nullptr), Name(name), Type(type), Kind(kind)
+    Pin(int id, const char* name, PinType type, PinKind kind)
+        : ID(id), Node(nullptr), Name(name), Kind(kind)
+    {
+        Type.push_back(type);
+    }
+
+    Pin(int id, const char* name, std::list<PinType> type, PinKind kind)
+        : ID(id), Node(nullptr), Name(name), Type(type), Kind(kind)
     {}
 };
+
 
 struct Node {
     std::vector<Pin> Inputs;
@@ -86,6 +93,7 @@ struct Node {
     NodeType type;
     NodeData data;
     ImVec2 Size;
+    bool isRoot = false;
 
     Node(int id, const char* name, NodeData nodeData, NodeType nodeType, ImColor color = ImColor(255, 255, 255), ImVec2 size = ImVec2(600, -1), float inputSectionWidth = 100.0f)
         : ID(id), Name(name), data(std::move(nodeData)), type(std::move(nodeType)), Color(std::move(color)), Size(std::move(size)), InputSectionWidth(inputSectionWidth) {}
@@ -147,6 +155,7 @@ public:
     ed::LinkId GetNextLinkId();
     Node* FindNode(ed::NodeId id);
     Link* FindLink(ed::LinkId id);
+    Link* FindLink(ed::PinId pinId);
     Pin* FindPin(ed::PinId id);
     bool IsPinLinked(ed::PinId id);
     bool CanCreateLink(Pin* a, Pin* b);
