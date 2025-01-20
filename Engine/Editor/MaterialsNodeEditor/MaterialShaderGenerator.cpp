@@ -31,6 +31,16 @@ std::string GenerateMaterialShader() {
         }
 
         switch (node->type) {
+            case NodeType::Texture: {
+                return "texture0";
+            }
+            case NodeType::Color: {
+                ColorNode* nodeData = GetNodeData<ColorNode>(*node).value_or(nullptr);
+                if (nodeData) {
+                    return std::string("vec4(" + std::to_string(nodeData->color.Value.x) + ", " + std::to_string(nodeData->color.Value.x) + ", " + std::to_string(nodeData->color.Value.x) + ", " + std::to_string(nodeData->color.Value.w) + ")");
+                }
+                return "";
+            }
             case NodeType::Slider: {
                 SliderNode* nodeData = GetNodeData<SliderNode>(*node).value_or(nullptr);
                 if (nodeData) {
@@ -67,7 +77,7 @@ std::string GenerateMaterialShader() {
         return connections;
     };
 
-    std::function<std::string(TreeNode*)> ProcessTreeNode = [&](TreeNode* treeNode) -> std::string {
+    std::function<std::string(TreeNode*, const ed::PinId&)> ProcessTreeNode = [&](TreeNode* treeNode, const ed::PinId& nodePinId) -> std::string {
         if (!treeNode) {
             TraceLog(LOG_WARNING, "[ProcessTreeNode] Invalid tree node.");
             return "ERROR";
@@ -79,6 +89,8 @@ std::string GenerateMaterialShader() {
         std::vector<std::pair<int, Connection>> allConnections = ExtractConnections(treeNode);
 
         for (const auto& [pinId, conn] : allConnections) {
+            if ((nodePinId.Get() != -1) && (pinId != nodePinId.Get())) continue;
+
             auto it = tree.nodes.find(conn.nodeID);
             if (it == tree.nodes.end()) {
                 TraceLog(LOG_WARNING, "[ProcessTreeNode] Node with ID %d not found.", conn.nodeID);
@@ -86,19 +98,23 @@ std::string GenerateMaterialShader() {
             }
 
             accumulatedCode += GenerateNodeShaderCode(it->second.get());
-            ProcessTreeNode(it->second.get());
+            ProcessTreeNode(it->second.get(), ed::PinId(-1));
         }
 
         return accumulatedCode;
     };
 
-    std::string shaderCode = ProcessTreeNode(tree.root);
-
     // Final assembly of shader code
     std::stringstream shaderStream;
-    shaderStream << "float magicNumber() { return ";
-    shaderStream << shaderCode;
-    shaderStream << "; }";
+
+    // Clear Coat
+    shaderStream << "vec4 diffuseMap() {\nreturn ";
+    shaderStream << ProcessTreeNode(tree.root, materialNodeSystem.FindNode(tree.root->GetId())->Inputs.at(0).ID);
+    shaderStream << ";\n}\n\n";
+
+    shaderStream << "float magicNumber() {\nreturn ";
+    shaderStream << ProcessTreeNode(tree.root, materialNodeSystem.FindNode(tree.root->GetId())->Inputs.back().ID);
+    shaderStream << ";\n}\n\n";
 
     return shaderStream.str();
 }
