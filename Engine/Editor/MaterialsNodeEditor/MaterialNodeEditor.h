@@ -45,6 +45,7 @@ struct MaterialNode {
 
 struct TextureNode {
     SurfaceMaterialTexture texture;
+    fs::path texturePath;
 };
 
 struct SliderNode {

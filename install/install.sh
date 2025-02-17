@@ -23,7 +23,7 @@ if [ "$selectedPackageManager" = "apt" ]; then
     sudo add-apt-repository ppa:deadsnakes/ppa universe
     sudo apt update
     sudo apt install python3.11-dev python3.11 g++ libglm-dev make cmake libwayland-dev libxkbcommon-dev
-    sudo apt-get install libtbb-dev libbullet-dev build-essential cmake xorg-dev libglu1-mesa-dev libavutil-dev libavcodec-dev libavformat-dev libswscale-dev
+    sudo apt-get install libtbb-dev libglfw3-dev libbullet-dev build-essential cmake xorg-dev libglu1-mesa-dev libavutil-dev libavcodec-dev libavformat-dev libswscale-dev
 elif [ "$selectedPackageManager" = "yum" ]; then
     sudo yum install epel-release
     sudo yum update

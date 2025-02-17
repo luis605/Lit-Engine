@@ -458,6 +458,15 @@ public:
         }
     }
 
+    Shader& getShader() {
+        if (entityShader == nullptr) {
+            TraceLog(LOG_WARNING, "Shader is null, returning default shader.");
+            return shader;
+        }
+
+        return *entityShader;
+    }
+
     void initializeSharedModules() {
         inputModule = py::module::import("inputModule");
         collisionModule = py::module::import("collisionModule");
@@ -926,8 +935,8 @@ public:
 
         if (!visible) return;
 
-        static int tilingLocation = GetUniformLocation(shader, "tiling");
-        SetShaderValue(shader, tilingLocation, tiling, SHADER_UNIFORM_VEC2);
+        static int tilingLocation = glGetUniformLocation(entityShader->id, "tiling");
+        SetShaderValue(*entityShader, tilingLocation, tiling, SHADER_UNIFORM_VEC2);
 
         instances.empty() ? renderSingleModel() : renderInstanced();
     }
@@ -975,7 +984,7 @@ private:
         if (!inFrustum()) return;
 
         PassSurfaceMaterials();
-        glUseProgram((GLuint)shader.id);
+        glUseProgram((GLuint)entityShader->id);
 
         float distance;
     #ifndef GAME_SHIPPING

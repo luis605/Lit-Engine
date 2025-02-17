@@ -8,7 +8,7 @@ std::vector<Entity> entitiesListPregame;
 std::vector<Entity> entitiesList;
 std::unordered_map<int, size_t> entityIdToIndexMap;
 std::unordered_map<int, size_t> lightIdToIndexMap;
-std::unordered_map<const char*, GLint> uniformLocationCache;
+std::unordered_map<GLuint, std::unordered_map<std::string, GLint>> uniformLocationCache;
 
 Entity*      selectedEntity      = nullptr;
 LightStruct* selectedLight       = nullptr;

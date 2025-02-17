@@ -94,6 +94,10 @@ void WorldInspector() {
 
             SetShaderValue(shader, GetUniformLocation(shader, "ambientLight"), &ambientLight, SHADER_UNIFORM_VEC4);
 
+            for (Entity& entity : entitiesListPregame) {
+                SetShaderValue(entity.getShader(), GetUniformLocation(entity.getShader(), "ambientLight"), &ambientLight, SHADER_UNIFORM_VEC4);
+            }
+
             ImGui::Unindent();
         }
 

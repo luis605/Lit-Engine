@@ -225,6 +225,13 @@ void RenderEntities() {
 void UpdateShader() {
     float cameraPos[3] = { sceneCamera.position.x, sceneCamera.position.y, sceneCamera.position.z };
     SetShaderValue(shader, GetShaderLocation(shader, "viewPos"), cameraPos, SHADER_UNIFORM_VEC3);
+    SetShaderValue(shader, GetUniformLocation(shader, "exposure"), &prevExposure, SHADER_UNIFORM_FLOAT);
+
+    for (Entity& entity : entitiesListPregame) {
+        SetShaderValue(entity.getShader(), GetShaderLocation(entity.getShader(), "viewPos"), cameraPos, SHADER_UNIFORM_VEC3);
+        SetShaderValue(entity.getShader(), GetUniformLocation(entity.getShader(), "exposure"), &prevExposure, SHADER_UNIFORM_FLOAT);
+    }
+
     SetShaderValue(instancingShader, instancingShader.locs[SHADER_LOC_VECTOR_VIEW], cameraPos, SHADER_UNIFORM_VEC3);
 }
 
@@ -282,8 +289,6 @@ void RenderScene() {
     BeginTextureMode(viewportRenderTexture);
         BeginMode3D(sceneCamera);
             ClearBackground(GRAY);
-
-            SetShaderValue(shader, GetUniformLocation(shader, "exposure"), &prevExposure, SHADER_UNIFORM_FLOAT);
 
             skybox.setExposure(prevExposure);
             skybox.drawSkybox(sceneCamera);

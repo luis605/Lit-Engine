@@ -189,6 +189,7 @@ void MaterialNodeSystem::DrawNodeMiddleSection(Node& node, const ImVec2& cursorS
                     int payload_n = *(const int*)payload->Data;
 
                     nodeData->texture = dirPath / fileStruct[payload_n].name;
+                    nodeData->texturePath = dirPath / fileStruct[payload_n].name;
                 }
 
                 ImGui::EndDragDropTarget();
@@ -255,8 +256,10 @@ void MaterialNodeSystem::DrawNodeMiddleSection(Node& node, const ImVec2& cursorS
     } else if (node.type == NodeType::Material) {
         MaterialNode* nodeData = GetNodeData<MaterialNode>(node).value_or(nullptr);
 
-        if (nodeData) {
+        if (nodeData && IsKeyDown(KEY_O)) {
             std::cout << GenerateMaterialShader() << "\n";
+            shader = LoadShaderFromMemory(lightingShaderVertexCode, GenerateMaterialShader().c_str());
+            selectedEntity->setShader(shader);
         }
     }
 }
@@ -537,6 +540,8 @@ Node* MaterialNodeSystem::SpawnMaterialNode() {
     m_Nodes.back().Inputs.emplace_back(GetNextId(), "Clear Coat",        PinType::Number,         PinKind::Input);
 
     m_Nodes.back().isRoot = true;
+
+    return &m_Nodes.back();
 }
 
 Node* MaterialNodeSystem::SpawnColorNode() {

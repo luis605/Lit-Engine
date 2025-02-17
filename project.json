@@ -2,15 +2,15 @@
     {
         "fovy": 60.0,
         "position": {
-            "x": 35.0,
-            "y": 5.0,
-            "z": 0.0
+            "x": 18.54425621032715,
+            "y": 22.397350311279297,
+            "z": 0.4223971664905548
         },
         "projection": 0,
         "target": {
-            "x": 34.01005172729492,
-            "y": 4.858578681945801,
-            "z": 0.0
+            "x": 17.916702270507813,
+            "y": 21.61908721923828,
+            "z": 0.4443697929382324
         },
         "type": "camera",
         "up": {
@@ -22,9 +22,9 @@
     {
         "ambientColor": {
             "w": 1.0,
-            "x": 1.0,
-            "y": 1.0,
-            "z": 1.0
+            "x": 0.680672287940979,
+            "y": 0.680672287940979,
+            "z": 0.680672287940979
         },
         "bloom": false,
         "bloomThreshold": 0.20000000298023224,
@@ -36,9 +36,9 @@
         "kernelSize": 1,
         "skyboxColor": {
             "w": 1.0,
-            "x": 1.0,
-            "y": 1.0,
-            "z": 1.0
+            "x": 0.0,
+            "y": 0.0,
+            "z": 0.0
         },
         "skyboxPath": "assets/images/skybox/default skybox.hdr",
         "type": "world settings"
@@ -51,15 +51,15 @@
         "friction": 1.0,
         "id": 0,
         "is_dynamic": false,
-        "lodEnabled": true,
+        "lodEnabled": false,
         "mass": 1.0,
         "material_path": "project/game/Materials/master.mat",
-        "mesh_type": 1,
+        "mesh_type": 4,
         "modelPath": "",
         "name": "Unnamed Entity",
         "position": {
             "x": 0.0,
-            "y": 0.0,
+            "y": 1.0,
             "z": 0.0
         },
         "relativePosition": {
@@ -73,9 +73,9 @@
             "z": 0.0
         },
         "scale": {
-            "x": 1.0,
+            "x": 30.0,
             "y": 1.0,
-            "z": 1.0
+            "z": 30.0
         },
         "scriptIndex": "",
         "script_path": "",
@@ -89,5 +89,44 @@
             1.0
         ],
         "type": "entity"
+    },
+    {
+        "attenuation": 0.0010000000474974513,
+        "color": {
+            "a": 255.0,
+            "b": 255.0,
+            "g": 255.0,
+            "r": 255.0
+        },
+        "direction": {
+            "x": 0.4000000059604645,
+            "y": 0.4000000059604645,
+            "z": -0.4000000059604645
+        },
+        "id": 1,
+        "innerCutoff": 1.0,
+        "intensity": 3.0,
+        "isChild": false,
+        "light_type": 1,
+        "name": "New Light",
+        "outerCutoff": 3.0,
+        "position": {
+            "x": 0.0,
+            "y": 7.799996376037598,
+            "z": 0.0
+        },
+        "radius": 100.0,
+        "relativePosition": {
+            "x": 0,
+            "y": 0,
+            "z": 0
+        },
+        "specularStrength": 0.5,
+        "target": {
+            "x": 0,
+            "y": 0,
+            "z": 0
+        },
+        "type": "light"
     }
 ]
