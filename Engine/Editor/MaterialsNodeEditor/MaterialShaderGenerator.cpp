@@ -166,19 +166,13 @@ highp float saturatePow5(float x) {
     return x2 * x2 * clampedX;
 }
 
-vec3 Fresnel(float cosTheta, vec3 F0, float roughness, float subsurface) {
-    float pow5Term = saturatePow5(cosTheta);
-    vec3 roughF0Term = mix(
-        vec3(1.0 - roughness) + F0 * roughness,
-        F0 * vec3(clamp(50.0 * F0.g, 0.0, 1.0)) * (1.0 - roughness) + vec3(roughness),
-        step(subsurface, 0.0)
-    );
-    return F0 + (roughF0Term - F0) * pow5Term;
+vec3 Fresnel(float cosTheta, vec3 F0) {
+    return F0 + (vec3(1.0) - F0) * pow(1.0 - cosTheta, 5.0);
 }
 
-highp float DistributionGGX(float NdotH2, float roughness2) {
-    float denom = NdotH2 * (roughness2 - 1.0) + 1.0;
-    return (roughness2 * INV_PI) / max(denom * denom, EPSILON);
+float DistributionGGX(float NdotH2, float roughness2) {
+    float denom = (NdotH2 * roughness2 - NdotH2) * NdotH2 + 1.0;
+    return roughness2 * INV_PI * denom * denom;
 }
 
 highp float GeometrySmith(float NdotL, float NdotV, float k) {
@@ -347,8 +341,8 @@ vec4 CalculateLighting(vec3 fragPosition, vec3 fragNormal, vec3 viewDir, vec2 te
 // [ INSERT GENERATED CODE BELOW ]
 
 void main() {
-    vec2 texCoord = fragTexCoord * tiling;
-    vec3 viewDir = normalize(viewPos - fragPosition);
+    mediump vec2 texCoord = fragTexCoord * tiling;
+    highp vec3 viewDir = normalize(viewPos - fragPosition);
     vec3 dp1 = dFdx(fragPosition);
     vec3 dp2 = dFdy(fragPosition);
     vec2 duv1 = dFdx(fragTexCoord);
@@ -516,7 +510,10 @@ std::string GenerateMaterialShader() {
     shaderStream << ProcessTreeNode(tree.root, materialNodeSystem.FindNode(tree.root->GetId())->Inputs.at(7).ID, "0.0");
     shaderStream << ";\n}\n\n";
 
-    std::string defaultShaderCode(lightingShaderDefaultCode);
+    std::ifstream ifs("Engine/Lighting/shaders/lighting_fragment.glsl");
+    std::string defaultShaderCode( (std::istreambuf_iterator<char>(ifs) ),
+                         (std::istreambuf_iterator<char>()    ) );
+
     static const std::string placeholder = "// [ INSERT GENERATED CODE BELOW ]";
 
     size_t pos = defaultShaderCode.find(placeholder);

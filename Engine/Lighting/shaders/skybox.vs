@@ -1,4 +1,4 @@
-#version 330
+#version 460 core
 
 in vec3 vertexPosition;
 in vec2 vertexTexCoord;

@@ -11,6 +11,6 @@ public:
 
 inline void UpdateInGameGlobals();
 
-Time timeInstance;
+extern Time timeInstance;
 
 #endif // TIME_H

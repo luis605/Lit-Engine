@@ -558,7 +558,7 @@ public:
             localNamespace["Color"] = colorModule.attr("Color");
             localNamespace["LockMouse"] = mouseModule.attr("LockMouse");
             localNamespace["UnlockMouse"] = mouseModule.attr("UnlockMouse");
-            localNamespace["time"] = py::cast(&time_instance);
+            localNamespace["time"] = py::cast(&timeInstance);
             localNamespace["physics"] = py::cast(&physics);
             localNamespace["Lerp"] = mathModule.attr("lerp");
             localNamespace["entitiesList"] = entitiesList;
@@ -611,7 +611,7 @@ public:
         if (script.empty() && scriptIndex.empty()) return;
 
         try {
-            localNamespace["time"] = py::cast(&time_instance);
+            localNamespace["time"] = py::cast(&timeInstance);
 
             if (py::hasattr(localNamespace["update"], "__call__")) {
                 py::object update_func = localNamespace["update"];

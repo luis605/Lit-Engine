@@ -6,9 +6,8 @@ public:
         dt = GetFrameTime();
     }
 };
-Time time_instance;
+Time timeInstance;
 
-void UpdateInGameGlobals()
-{
-    time_instance.update();
+void UpdateInGameGlobals() {
+    timeInstance.update();
 }
