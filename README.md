@@ -28,7 +28,8 @@ git clone --recurse-submodules -j8 https://github.com/luis605/Lit-Engine
 If the submodules weren't downloaded, you can intialize them by running:
 
 ```bash
-git submodule update --init --recursive
+git submodule update --init --recursive --depth 1
+
 ```
 
 ## Building and Installing Dependencies
