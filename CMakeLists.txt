@@ -22,6 +22,7 @@ set(SRC_FILES
 file(GLOB ENGINE_SRC_FILES
     ${CMAKE_SOURCE_DIR}/Engine/*.cpp
     ${CMAKE_SOURCE_DIR}/Engine/Core/Events.cpp
+    ${CMAKE_SOURCE_DIR}/Engine/Core/Textures.cpp
 )
 
 list(APPEND SRC_FILES ${ENGINE_SRC_FILES})
@@ -83,6 +84,7 @@ file(GLOB IMGUI_SRC_FILES
 include_directories(
     ${CMAKE_SOURCE_DIR}/include
     ${CMAKE_SOURCE_DIR}/include/raylib/src
+    ${CMAKE_SOURCE_DIR}/include/raylib/src/external/
     ${CMAKE_SOURCE_DIR}/include/raylib/src/external/glfw/include
     ${PYTHON_INCLUDE_DIR}
     ${CMAKE_SOURCE_DIR}/include/nlohmann/include
@@ -96,6 +98,7 @@ include_directories(
     ${CMAKE_SOURCE_DIR}/include/NodeEditor/external/stb_image
     ${CMAKE_SOURCE_DIR}/include/NodeEditor/misc
     ${Python3_INCLUDE_DIRS}
+    ${CMAKE_SOURCE_DIR}
 )
 
 # Link directories
@@ -169,8 +172,6 @@ set(CMAKE_CXX_FLAGS_RELEASE "-O3")
 set(CMAKE_CXX_FLAGS_DEBUG "-g -O0 -pg")
 
 add_executable(LitEngine ${SRC_FILES} ${IMGUI_SRC_FILES})
-
-target_compile_definitions(LitEngine PRIVATE IMGUI_IMPL_OPENGL_LOADER_GLAD)
 
 # Link libraries with flags based on the build type
 target_link_libraries(LitEngine ${LIB_FLAGS})

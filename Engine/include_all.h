@@ -29,13 +29,14 @@
     #include <future>
 #endif
 
-#include "../include/glad/glad.h"
+#include <glad.h>
 #include "../include/glm/glm/glm.hpp"
 #include <btBulletDynamicsCommon.h>
 #include <iostream>
 #include <fstream>
 #include <thread>
 #include <any>
+#include <queue>
 
 #ifdef _WIN32
     #include "pybind11/embed.h"

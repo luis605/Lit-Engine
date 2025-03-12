@@ -1,6 +1,8 @@
 #include "MaterialNodeEditor.h"
 #include "Drawing.cpp"
-#include "Utilities.cpp"
+#include "Helpers.cpp"
+#include "MaterialGraph.cpp"
+#include "MaterialShaderGenerator.cpp"
 
 static inline ImRect ImGui_GetItemRect() {
     return ImRect(ImGui::GetItemRectMin(), ImGui::GetItemRectMax());
@@ -27,6 +29,17 @@ Link* MaterialNodeSystem::FindLink(ed::LinkId id) {
         if (link.ID == id)
             return &link;
 
+    return nullptr;
+}
+
+Link* MaterialNodeSystem::FindLink(ed::PinId pinId) {
+    auto it = std::find_if(m_Links.begin(), m_Links.end(), [pinId](const Link& link) {
+        return link.StartPinID == pinId || link.EndPinID == pinId;
+    });
+
+    if (it != m_Links.end()) {
+        return &(*it);
+    }
     return nullptr;
 }
 
@@ -112,7 +125,8 @@ void DrawNodeTitle(const std::string& title, const float& width, const ImColor& 
     );
 
     ImGui::SetCursorScreenPos(textPos);
-    ImGui::Text(title.c_str());
+    const std::string titleFinal = title + std::to_string(id.Get());
+    ImGui::Text(titleFinal.c_str());
 
     const float halfBorderWidth = ed::GetStyle().NodeBorderWidth * 0.5f;
 
@@ -175,6 +189,7 @@ void MaterialNodeSystem::DrawNodeMiddleSection(Node& node, const ImVec2& cursorS
                     int payload_n = *(const int*)payload->Data;
 
                     nodeData->texture = dirPath / fileStruct[payload_n].name;
+                    nodeData->texturePath = dirPath / fileStruct[payload_n].name;
                 }
 
                 ImGui::EndDragDropTarget();
@@ -216,62 +231,37 @@ void MaterialNodeSystem::DrawNodeMiddleSection(Node& node, const ImVec2& cursorS
             ImGui::PushID(std::string("OnlyInt_" + node.ID.Get()).c_str());
             ImGui::Checkbox("", &nodeData->onlyInt);
             ImGui::PopID();
+
         }
     } else if (node.type == NodeType::OneMinusX) {
         OneMinusXNode* nodeData = GetNodeData<OneMinusXNode>(node).value_or(nullptr);
 
         if (nodeData) {
             float oneMinusXValue = 0.0f;
-            float xValue = 1.0f;
 
-            if (IsPinLinked(node.Inputs.at(0).ID) && node.Inputs.at(0).Value.type() == typeid(float)) {
-                xValue = std::any_cast<float>(node.Inputs.at(0).Value);
-                oneMinusXValue = 1.0f - xValue;
-                ImGui::Text(std::to_string(oneMinusXValue).c_str());
-            } else {
+            if (!IsPinLinked(node.Inputs.at(0).ID)) {
                 ImGui::SetCursorPosX(cursorStartPos.x + padding);
                 ImGui::SetNextItemWidth(370.0f);
                 ImGui::SliderFloat("", &nodeData->x, 0, 1);
-                xValue = nodeData->x;
-                oneMinusXValue = 1.0f - xValue;
+
+                oneMinusXValue = 1.0f - static_cast<float>(nodeData->x);
+                ImGui::Text(std::to_string(oneMinusXValue).c_str());
             }
-
-            nodeData->x = xValue;
-
-            node.Outputs.at(0).Value = std::any(oneMinusXValue);
         }
     } else if (node.type == NodeType::Multiply) {
         MultiplyNode* nodeData = GetNodeData<MultiplyNode>(node).value_or(nullptr);
 
         if (nodeData) {
-            float value, multiplier = 1.0f;
+        }
+    } else if (node.type == NodeType::Material) {
+        MaterialNode* nodeData = GetNodeData<MaterialNode>(node).value_or(nullptr);
 
-            if (IsPinLinked(node.Inputs.at(0).ID) && node.Inputs.at(0).Value.type() == typeid(float))
-                value = std::any_cast<float>(node.Inputs.at(0).Value);
-
-            if (IsPinLinked(node.Inputs.at(1).ID) && node.Inputs.at(0).Value.type() == typeid(float))
-                multiplier = std::any_cast<float>(node.Inputs.at(1).Value);
-
-
-            const float multipliedValue = value * multiplier;
-            node.Outputs.at(0).Value = std::any(multipliedValue);
-
-            ImGui::SetCursorPosX(cursorStartPos.x + padding);
-            ImGui::Text("Multiplied value: %f", multipliedValue);
+        if (nodeData && IsKeyDown(KEY_O)) {
+            std::cout << GenerateMaterialShader() << "\n";
+            shader = LoadShaderFromMemory(lightingShaderVertexCode, GenerateMaterialShader().c_str());
+            selectedEntity->setShader(shader);
         }
     }
-}
-
-std::vector<ed::PinId> GetConnectedInputPins(ed::PinId outputPinId) {
-    std::vector<ed::PinId> connectedInputsId;
-
-    for (const auto& link : materialNodeSystem.m_Links) {
-        if (link.StartPinID == outputPinId) {
-            connectedInputsId.push_back(link.EndPinID);
-        }
-    }
-
-    return connectedInputsId;
 }
 
 void MaterialNodeSystem::DrawNode(Node& node) {
@@ -308,7 +298,8 @@ void MaterialNodeSystem::DrawNode(Node& node) {
         ed::EndPin();
 
         ImGui::SameLine(inputSectionWidth.x - ImGui::CalcTextSize(inputPin.Name.c_str()).x);
-        ImGui::Text(inputPin.Name.c_str());
+        std::string pinName = inputPin.Name + "_" + std::to_string(inputPin.ID.Get());
+        ImGui::Text(pinName.c_str());
     }
 
     if (node.Inputs.empty())
@@ -324,7 +315,8 @@ void MaterialNodeSystem::DrawNode(Node& node) {
 
         ImGui::SetCursorScreenPos(outputStartPos + ImVec2(0.0f, i * (m_PinIconSize + 5.0f)));
 
-        ImGui::Text(outputPin.Name.c_str());
+        std::string pinName = outputPin.Name + "_" + std::to_string(outputPin.ID.Get());
+        ImGui::Text(pinName.c_str());
         ImGui::SameLine();
         ImGui::SetCursorPosX(outputPinStartPosX);
 
@@ -363,7 +355,19 @@ bool MaterialNodeSystem::ArePinsValid(Pin* startPin, Pin* endPin) {
     if (!startPin || !endPin) return false;
     if (startPin == endPin) return false;
 
-    if (startPin->Type != endPin->Type) {
+    bool typeMatch = false;
+
+    for (const auto& startType : startPin->Type) {
+        for (const auto& endType : endPin->Type) {
+            if (startType == endType) {
+                typeMatch = true;
+                break;
+            }
+        }
+        if (typeMatch) break;
+    }
+
+    if (!typeMatch) {
         DrawTextInNodeEditor("Pin Types Do Not Match.", true);
         return false;
     }
@@ -523,7 +527,20 @@ void MaterialNodeSystem::ShowPopup() {
 }
 
 Node* MaterialNodeSystem::SpawnMaterialNode() {
+    MaterialNode materialNode;
+    m_Nodes.emplace_back(GetNextId(), "Color", materialNode, NodeType::Material, ImColor(255, 100, 100), ImVec2(450.0f, -1.0f));
 
+    m_Nodes.back().Inputs.emplace_back(GetNextId(), "Diffuse",           PinType::TextureOrColor, PinKind::Input);
+    m_Nodes.back().Inputs.emplace_back(GetNextId(), "Normal",            PinType::TextureOrColor, PinKind::Input);
+    m_Nodes.back().Inputs.emplace_back(GetNextId(), "Roughness",         PinType::TextureOrColor, PinKind::Input);
+    m_Nodes.back().Inputs.emplace_back(GetNextId(), "Ambient Occlusion", PinType::TextureOrColor, PinKind::Input);
+    m_Nodes.back().Inputs.emplace_back(GetNextId(), "Height",            PinType::TextureOrColor, PinKind::Input);
+    m_Nodes.back().Inputs.emplace_back(GetNextId(), "Metallic",          PinType::TextureOrColor, PinKind::Input);
+    m_Nodes.back().Inputs.emplace_back(GetNextId(), "Emissive",          PinType::TextureOrColor, PinKind::Input);
+
+    m_Nodes.back().isRoot = true;
+
+    return &m_Nodes.back();
 }
 
 Node* MaterialNodeSystem::SpawnColorNode() {
@@ -570,9 +587,9 @@ Node* MaterialNodeSystem::SpawnOneMinusXNode() {
 Node* MaterialNodeSystem::SpawnMultiplyNode() {
     MultiplyNode multiplyNode;
     m_Nodes.emplace_back(GetNextId(), "Multiply", multiplyNode, NodeType::Multiply, ImColor(255, 255, 100), ImVec2(500, -1), 150.0f);
-    m_Nodes.back().Inputs.emplace_back(GetNextId(), "Value", PinType::Number, PinKind::Input);
-    m_Nodes.back().Inputs.emplace_back(GetNextId(), "Multiplier", PinType::Number, PinKind::Input);
-    m_Nodes.back().Outputs.emplace_back(GetNextId(), "Out", PinType::Number, PinKind::Output);
+    m_Nodes.back().Inputs.emplace_back(GetNextId(), "Value",      std::list<PinType>{PinType::Number, PinType::TextureOrColor}, PinKind::Input);
+    m_Nodes.back().Inputs.emplace_back(GetNextId(), "Multiplier", std::list<PinType>{PinType::Number, PinType::TextureOrColor}, PinKind::Input);
+    m_Nodes.back().Outputs.emplace_back(GetNextId(), "Out",       std::list<PinType>{PinType::Number, PinType::TextureOrColor}, PinKind::Output);
 
     BuildNode(&m_Nodes.back());
 

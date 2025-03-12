@@ -21,25 +21,24 @@ void InitLitWindow() {
 }
 
 void LoadTextures() {
-    folderTexture = LoadTexture("assets/images/folder.png");
-    imageTexture = LoadTexture("assets/images/image_file_type.png");
-    cppTexture = LoadTexture("assets/images/cpp_file_type.png");
-    pythonTexture = LoadTexture("assets/images/python_file_type.png");
-    modelTexture = LoadTexture("assets/images/model_file_type.png");
-    materialTexture = LoadTexture("assets/images/material_file_type.png");
-    emptyTexture = LoadTexture("assets/images/empty_file_file_type.png");
-    runTexture = LoadTexture("assets/images/run_game.png");
-    pauseTexture = LoadTexture("assets/images/pause_game.png");
-    saveTexture = LoadTexture("assets/images/save_file.png");
+    folderTexture    = LoadTexture("assets/images/folder.png");
+    imageTexture     = LoadTexture("assets/images/image_file_type.png");
+    cppTexture       = LoadTexture("assets/images/cpp_file_type.png");
+    pythonTexture    = LoadTexture("assets/images/python_file_type.png");
+    modelTexture     = LoadTexture("assets/images/model_file_type.png");
+    materialTexture  = LoadTexture("assets/images/material_file_type.png");
+    emptyTexture     = LoadTexture("assets/images/empty_file_file_type.png");
+    runTexture       = LoadTexture("assets/images/run_game.png");
+    pauseTexture     = LoadTexture("assets/images/pause_game.png");
+    saveTexture      = LoadTexture("assets/images/save_file.png");
     hotReloadTexture = LoadTexture("assets/images/hot_reload.png");
-    lightTexture = LoadTexture("assets/images/light_bulb.png");
-    noiseTexture = LoadTexture("assets/images/noise.png");
-    windowIconImage = LoadImage("assets/images/window_icon.png");
-    windowIconTexture = LoadTextureFromImage(windowIconImage);
-    verticalBlurTexture = LoadRenderTexture(GetScreenWidth(), GetScreenHeight());
+    lightTexture     = LoadTexture("assets/images/light_bulb.png");
+    noiseTexture     = LoadTexture("assets/images/noise.png");
+    windowIconImage       = LoadImage("assets/images/window_icon.png");
+    windowIconTexture     = LoadTextureFromImage(windowIconImage);
+    verticalBlurTexture   = LoadRenderTexture(GetScreenWidth(), GetScreenHeight());
     horizontalBlurTexture = LoadRenderTexture(GetScreenWidth(), GetScreenHeight());
-    upsamplerTexture = LoadRenderTexture(GetScreenWidth(), GetScreenHeight());
-    downsamplerTexture = LoadRenderTexture(GetScreenWidth() / downsamplerFactor, GetScreenHeight() / downsamplerFactor);
+    upsamplerTexture      = LoadRenderTexture(GetScreenWidth(), GetScreenHeight());
 
     SetWindowIcon(windowIconImage);
 }
@@ -99,7 +98,12 @@ void InitShaders() {
     horizontalBlurShader = LoadShader("Engine/Lighting/shaders/lighting_vertex.glsl", "Engine/Lighting/shaders/blurHorizontal.fs");
     verticalBlurShader   = LoadShader("Engine/Lighting/shaders/lighting_vertex.glsl", "Engine/Lighting/shaders/blurVertical.fs");
     upsamplerShader      = LoadShader("Engine/Lighting/shaders/lighting_vertex.glsl", "Engine/Lighting/shaders/upsampler.glsl");
-    downsamplerShader    = LoadShader("Engine/Lighting/shaders/lighting_vertex.glsl", "Engine/Lighting/shaders/downsampler.glsl");
+    downsampleShader     = LoadShader("Engine/Lighting/shaders/lighting_vertex.glsl", "Engine/Lighting/shaders/downsampler.glsl");
+
+    char* shaderCode = LoadFileText("Engine/Lighting/shaders/luminanceCompute.glsl");
+    unsigned int shaderData = rlCompileShader(shaderCode, RL_COMPUTE_SHADER);
+    exposureShaderProgram = rlLoadComputeShaderProgram(shaderData);
+    UnloadFileText(shaderCode);
 }
 
 void InitCodeEditor() {
@@ -117,6 +121,7 @@ void Startup() {
 
     glEnable(GL_CULL_FACE);
     glCullFace(GL_BACK);
+    glDisable(GL_STENCIL_TEST);
 
     skybox.loadSkybox("assets/images/skybox/default skybox.hdr");
     Py_Initialize();
@@ -191,12 +196,11 @@ void CleanUp() {
     for (auto it = modelsIcons.begin(); it != modelsIcons.end(); ++it)
         UnloadTexture(it->second);
 
+    UnloadModel(lightModel);
     modelsIcons.clear();
-
     lights.clear();
 
-    UnloadModel(lightModel);
-
+    pluginManager.unloadAll();
     rlImGuiShutdown();
     CloseWindow();
 }

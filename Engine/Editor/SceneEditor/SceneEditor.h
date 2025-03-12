@@ -27,7 +27,7 @@ std::shared_ptr<Entity> copiedEntity;
 std::shared_ptr<LightStruct> copiedLight;
 
 #ifndef GAME_SHIPPING
-    ImVec2 prevEditorWindowSize = {0.0f, 0.0f};
+    ImVec2 prevEditorWindowSize = {-1.0f, -1.0f};
 #endif // GAME_SHIPPING
 
 #endif // SCENE_EDITOR_H

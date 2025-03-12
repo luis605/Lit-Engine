@@ -162,13 +162,13 @@ Vector2 GetMouseMovement()
 {
     static Vector2 lastMousePosition = { 0 };
 
-    if (time_instance.dt - last_frame_count != 0)
+    if (timeInstance.dt - last_frame_count != 0)
     {
         Vector2 mousePosition = GetMousePosition();
         mouseMove = { mousePosition.x - lastMousePosition.x, mousePosition.y - lastMousePosition.y };
 
         lastMousePosition = mousePosition;
-        last_frame_count = time_instance.dt;
+        last_frame_count = timeInstance.dt;
     }
         
     return mouseMove;
