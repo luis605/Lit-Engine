@@ -22,7 +22,7 @@ Lit Engine is an **open-source high-level game engine** powered by raylib. Made 
 Do you want to give Lit Engine a quick run on your machine? You can clone the repository by running the following command on your terminal:
 
 ```bash
-git clone --recurse-submodules --shallow-submodules -j8 https://github.com/luis605/Lit-Engine
+git clone --recurse-submodules --shallow-submodules -j2 https://github.com/luis605/Lit-Engine
 ```
 
 If the submodules weren't downloaded, you can do so by running:
