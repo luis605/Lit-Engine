@@ -79,12 +79,6 @@ HitInfo raycast(LitVector3 origin, LitVector3 direction, bool debug, std::vector
                 hitInfo.entity = const_cast<Entity*>(&entity);
                 hitInfo.worldPoint = meshHitInfo.point;
                 hitInfo.worldNormal = meshHitInfo.normal;
-                hitInfo.hitColor = {
-                    static_cast<unsigned char>(entity.surfaceMaterial.color.x * 255),
-                    static_cast<unsigned char>(entity.surfaceMaterial.color.w * 255),
-                    static_cast<unsigned char>(entity.surfaceMaterial.color.y * 255),
-                    static_cast<unsigned char>(entity.surfaceMaterial.color.z * 255)
-                };
             }
         }
     }

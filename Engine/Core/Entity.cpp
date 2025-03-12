@@ -205,7 +205,7 @@ public:
 
         newLight->isChild = true;
         newLight->parent = this;
-        newLight->light.relativePosition = {
+        newLight->lightInfo.relativePosition = {
             newLight->light.position.x - this->position.x,
             newLight->light.position.y - this->position.y,
             newLight->light.position.z - this->position.z
@@ -274,7 +274,7 @@ public:
 
         if (lightStruct->parent != this || !lightStruct->parent->initialized) lightStruct->parent = this;
 
-        lightStruct->light.position = glm::vec3(this->position.x, this->position.y, this->position.z) + lightStruct->light.relativePosition;
+        lightStruct->light.position = glm::vec3(this->position.x, this->position.y, this->position.z) + lightStruct->lightInfo.relativePosition;
     }
 
     void makeChildrenInstances() {
@@ -282,24 +282,6 @@ public:
         //     addInstance(entity);
         //     entity->makeChildrenInstances();
         // }
-    }
-
-    Color getColor() {
-        return (Color) {
-            static_cast<unsigned char>(surfaceMaterial.color.x * 255),
-            static_cast<unsigned char>(surfaceMaterial.color.y * 255),
-            static_cast<unsigned char>(surfaceMaterial.color.z * 255),
-            static_cast<unsigned char>(surfaceMaterial.color.w * 255)
-        };
-    }
-
-    void setColor(Color newColor) {
-        surfaceMaterial.color = {
-            newColor.r / 255,
-            newColor.g / 255,
-            newColor.b / 255,
-            newColor.a / 255
-        };
     }
 
     void setName(const std::string& newName) {
@@ -495,7 +477,7 @@ public:
                     if (kwargs.contains("modelPath"))  modelPath = py::cast<std::string>(kwargs["modelPath"]);
 
                     Entity entity;
-                    entity.setColor(RAYWHITE);
+
                     if (kwargs.contains("scale")) entity.setScale(py::cast<LitVector3>(kwargs["scale"]));
                     else entity.setScale(LitVector3{1, 1, 1});
 
@@ -522,7 +504,6 @@ public:
                 .def_property("rotation",
                     [](Entity& entity) { return entity.rotation; },
                     [](Entity& entity, LitVector3& rotation) { entity.setRot(rotation); })
-                .def_property("color", &Entity::getColor, &Entity::setColor)
                 .def_readwrite("collider", &Entity::currentCollisionShapeType)
                 .def_readwrite("visible", &Entity::visible)
                 .def_readwrite("id", &Entity::id)
@@ -953,12 +934,7 @@ private:
         instancingShader.locs[SHADER_LOC_VECTOR_VIEW] = GetUniformLocation(instancingShader, "viewPos");
         instancingShader.locs[SHADER_LOC_MATRIX_MODEL] = GetAttribLocation(instancingShader, "instanceTransform");
 
-        model.materials[0].maps[MATERIAL_MAP_DIFFUSE].color = {
-            static_cast<unsigned char>(surfaceMaterial.color.x * 255),
-            static_cast<unsigned char>(surfaceMaterial.color.y * 255),
-            static_cast<unsigned char>(surfaceMaterial.color.z * 255),
-            static_cast<unsigned char>(surfaceMaterial.color.w * 255)
-        };
+        model.materials[0].maps[MATERIAL_MAP_DIFFUSE].color = RAYWHITE;
 
         DrawMeshInstanced(model.meshes[0], model.materials[0], transforms, instances.size());
     }
@@ -1008,29 +984,10 @@ private:
             if (IsModelReady(LodModels[lodLevel])) modelToDraw = LodModels[lodLevel];
         }
 
-        DrawModel(modelToDraw, Vector3Zero(), 1,
-                (Color){
-                    static_cast<unsigned char>(surfaceMaterial.color.x * 255),
-                    static_cast<unsigned char>(surfaceMaterial.color.y * 255),
-                    static_cast<unsigned char>(surfaceMaterial.color.z * 255),
-                    static_cast<unsigned char>(surfaceMaterial.color.w * 255)});
+        DrawModel(modelToDraw, Vector3Zero(), 1, RAYWHITE);
     }
 
     void PassSurfaceMaterials() {
-        if (surfaceMaterialUBO != 0) {
-            glDeleteBuffers(1, &surfaceMaterialUBO);
-            surfaceMaterialUBO = 0;
-        }
-
-        glGenBuffers(1, &surfaceMaterialUBO);
-        glBindBuffer(GL_UNIFORM_BUFFER, surfaceMaterialUBO);
-        glBufferData(GL_UNIFORM_BUFFER, sizeof(SurfaceMaterial), &this->surfaceMaterial, GL_DYNAMIC_DRAW);
-        glBindBuffer(GL_UNIFORM_BUFFER, 0);
-
-        constexpr GLuint bindingPoint = 0;
-
-        glBindBufferBase(GL_UNIFORM_BUFFER, bindingPoint, surfaceMaterialUBO);
-
         glUseProgram(entityShader->id);
 
         glUniform1i(glGetUniformLocation(entityShader->id, "diffuseMapReady"),   !surfaceMaterial.albedoTexturePath.empty());
@@ -1040,8 +997,6 @@ private:
         glUniform1i(glGetUniformLocation(entityShader->id, "heightMapReady"),    !surfaceMaterial.heightTexturePath.empty());
         glUniform1i(glGetUniformLocation(entityShader->id, "metallicMapReady"),  !surfaceMaterial.metallicTexturePath.empty());
         glUniform1i(glGetUniformLocation(entityShader->id, "emissiveMapReady"),  !surfaceMaterial.emissiveTexturePath.empty());
-
-        glBindBuffer(GL_UNIFORM_BUFFER, 0);
     }
 };
 
@@ -1108,7 +1063,6 @@ Entity* AddEntity(
     eventManager.onEntityCreation.triggerEvent();
 
     Entity entityCreate;
-    entityCreate.setColor(WHITE);
     entityCreate.setScale(Vector3{1, 1, 1});
     entityCreate.setName(name);
     entityCreate.setModel(modelPath, model);

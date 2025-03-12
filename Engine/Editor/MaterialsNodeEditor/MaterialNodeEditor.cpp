@@ -537,7 +537,6 @@ Node* MaterialNodeSystem::SpawnMaterialNode() {
     m_Nodes.back().Inputs.emplace_back(GetNextId(), "Height",            PinType::TextureOrColor, PinKind::Input);
     m_Nodes.back().Inputs.emplace_back(GetNextId(), "Metallic",          PinType::TextureOrColor, PinKind::Input);
     m_Nodes.back().Inputs.emplace_back(GetNextId(), "Emissive",          PinType::TextureOrColor, PinKind::Input);
-    m_Nodes.back().Inputs.emplace_back(GetNextId(), "Clear Coat",        PinType::Number,         PinKind::Input);
 
     m_Nodes.back().isRoot = true;
 

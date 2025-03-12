@@ -29,7 +29,6 @@ Shader upsamplerShader;
 GLuint exposureShaderProgram;
 GLuint lightsBuffer;
 GLuint renderPrevierLightsBuffer;
-GLuint surfaceMaterialUBO;
 GLuint exposureSSBO;
 
 Vector4 ambientLight = {1.0f, 1.0f, 1.0f, 1.0f};
@@ -47,21 +46,19 @@ LightStruct &NewLight(const Vector3 position, const Color color,
 struct Light {
   int type = LIGHT_POINT;
   alignas(16) glm::vec3 position;
-  alignas(16) glm::vec3 relativePosition;
-  alignas(16) glm::vec3 target;
   alignas(16) glm::vec3 direction = {0.4, 0.4, -0.4};
   alignas(16) glm::vec4 color;
-  alignas(4) float attenuation = 0.001f;
-  alignas(4) float intensity = 3.0f;
-  alignas(4) float specularStrength = 0.5f;
-  alignas(4) float radius = 1.5f;
-  alignas(4) float innerCutoff = 1.0f;
-  alignas(4) float outerCutoff = 3.0f;
+  // aisr.x = attenuation, aisr.y = intensity, aisr.z = specular Strength, aisr.w = radius
+  alignas(16) glm::vec4 aisr = {0.001f, 3.0f, 0.5f, 100.0f};
 };
 
 struct LightInfo {
   std::string name;
   bool enabled = true;
+  alignas(16) glm::vec3 relativePosition;
+  alignas(16) glm::vec3 target;
+  alignas(4) float innerCutoff = 1.0f;
+  alignas(4) float outerCutoff = 3.0f;
 };
 
 struct LightStruct {
@@ -171,24 +168,6 @@ struct SurfaceMaterialTexture {
 };
 
 struct SurfaceMaterial {
-  alignas(4) float specularIntensity =
-      0.5f;                                // Can be replace with multiply node
-  alignas(4) float albedoIntensity = 0.5f; // To remove
-  alignas(4) float roughness = 0.5f;       // To remove
-  alignas(4) float metalness = 0.5f;       // To remove
-  alignas(4) float clearCoat = 0.0f;
-  alignas(4) float clearCoatRoughness = 0.0f; // To remove
-  alignas(4) float subsurface = 0.0f;         // To remove
-  alignas(4) float anisotropy = 0.0f;         // To remove
-  alignas(4) float transmission = 0.0f;       // To remove
-  alignas(4) float ior = 0.0f;                // To remove
-  alignas(4) float thickness = 0.0f;          // To remove
-  alignas(4) float heightScale = 0.0f;        // To remove
-  alignas(4) float emissiveIntensity = 0.0f;  // To remove
-  alignas(4) float aoStrength = 0.5f;         // To remove
-
-  alignas(16) glm::vec4 color = {1.0f, 1.0f, 1.0f, 1.0f}; // To remove
-
   fs::path albedoTexturePath;
   fs::path normalTexturePath;
   fs::path roughnessTexturePath;

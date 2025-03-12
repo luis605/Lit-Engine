@@ -257,7 +257,7 @@ void GizmoPosition() {
     } else if (selectedGameObjectType == "light" && selectedLight) {
         selectedLight->light.position = vec3ToGlm3(selectedObjectPosition);
         if (selectedLight->isChild) {
-            selectedLight->light.relativePosition = glm::vec3(
+            selectedLight->lightInfo.relativePosition = glm::vec3(
                 selectedLight->light.position.x - selectedLight->parent->position.x,
                 selectedLight->light.position.y - selectedLight->parent->position.y,
                 selectedLight->light.position.z - selectedLight->parent->position.z

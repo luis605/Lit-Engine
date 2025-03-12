@@ -56,16 +56,9 @@ layout(std430, binding = 1) buffer ExposureBuffer {
 struct Light {
     int type;
     vec3 position;
-    vec3 relativePosition;
-    vec3 target;
     vec3 direction;
     vec4 color;
-    float attenuation;
-    float intensity;
-    float specularStrength;
-    float radius;
-    float innerCutoff;
-    float outerCutoff;
+    vec4 aisr; // aisr.x = attenuation, aisr.y = intensity, aisr.z = specular Strength, aisr.w = radius
 };
 
 layout(std430, binding = 0) buffer LightsBuffer {
@@ -74,35 +67,13 @@ layout(std430, binding = 0) buffer LightsBuffer {
 
 uniform int lightsCount;
 
-// Material properties
-struct SurfaceMaterial {
-    float specularIntensity;
-    float albedoIntensity;
-    float roughness;
-    float metalness;
-    float clearCoat;
-    float clearCoatRoughness;
-    float subsurface;
-    float anisotropy;
-    float transmission;
-    float ior;
-    float thickness;
-    float heightScale;
-    float emissiveIntensity;
-    float aoStrength;
-};
-
-layout(std140) uniform MaterialBlock {
-    SurfaceMaterial surfaceMaterial;
-};
-
 out vec4 finalColor;
 
-float saturate(float x) {
+lowp float saturate(float x) {
     return clamp(x, 0.0, 1.0);
 }
 
-vec3 saturate(vec3 x) {
+lowp vec3 saturate(vec3 x) {
     return clamp(x, vec3(0.0), vec3(1.0));
 }
 
@@ -112,12 +83,12 @@ lowp float pow5(float x) {
     return x4 * x; // x^5
 }
 
-vec3 Fresnel(float cosTheta, vec3 F0) {
-    return F0 + (vec3(1.0) - F0) * pow5(1.0 - cosTheta);
+lowp vec3 Fresnel(float cosTheta, vec3 F0) {
+    return fma((vec3(1.0) - F0), vec3(pow5(1.0 - cosTheta)), F0);
 }
 
-float DistributionGGX(float NdotH2, float roughness2) {
-    float denom = fma(NdotH2, roughness2 - 1.0, 1.0) * NdotH2 + 1.0;
+lowp float DistributionGGX(lowp float NdotH2, lowp float roughness2) {
+    lowp float denom = fma(fma(NdotH2, roughness2 - 1.0, 1.0), NdotH2, 1.0);
     return roughness2 * INV_PI * denom * denom;
 }
 
@@ -141,56 +112,40 @@ highp float DistributionGGXAnisotropic(float NdotH2, vec3 H, vec3 T, vec3 B, flo
     return at_ab * at_ab * INV_PI / max(v2 * v2, EPSILON);
 }
 
-highp vec3 CookTorrance(vec3 L, vec3 V, vec3 N, vec3 T, vec3 B, float roughness, vec3 F0, float specularAO) {
+mediump vec3 CookTorrance(vec3 L, vec3 V, vec3 N, vec3 T, vec3 B, float roughness, vec3 F0, float specularAO) {
     // Early exit if specular AO is too low
-    float specularAO_mask = step(EPSILON, specularAO);
-    vec3 H = normalize(L + V);
+    mediump float specularAO_mask = step(EPSILON, specularAO);
+    mediump vec3 H = normalize(L + V);
 
     // dots.x = NdotL, dots.y = NdotV, dots.z = NdotH, dots.w = VdotH
-    vec4 dots = vec4(dot(N, L), dot(N, V), dot(N, H), dot(V, H));
+    mediump vec4 dots = vec4(dot(N, L), dot(N, V), dot(N, H), dot(V, H));
 
-    float common_div = dots.x * dots.y;
-    float commonDiv_mask = step(EPSILON, common_div);
+    mediump float common_div = dots.x * dots.y;
+    mediump float commonDiv_mask = step(EPSILON, common_div);
     if (specularAO_mask * commonDiv_mask == 0.0)
         return vec3(0.0);
 
     // Compute half-vector and related dot products
-    float NdotH2 = dots.z * dots.z;
-    float roughness2 = roughness * roughness;
-
-    // Calculate k parameters for geometry term
-    float k = roughness2 * HALF;
-    float k_clear = (surfaceMaterial.clearCoatRoughness * surfaceMaterial.clearCoatRoughness) * HALF;
+    mediump float NdotH2 = dots.z * dots.z;
+    mediump float roughness2 = roughness * roughness;
 
     // Fresnel term using the half-vector
-    vec3 fresnel = Fresnel(dots.w, F0);
+    lowp vec3 fresnel = Fresnel(dots.w, F0);
 
     // Choose between anisotropic and isotropic distributions
-    float anisotropyMask = step(EPSILON, abs(surfaceMaterial.anisotropy));
-    float D_aniso = DistributionGGXAnisotropic(NdotH2, H, T, B, roughness, surfaceMaterial.anisotropy);
-    float D_iso = DistributionGGX(NdotH2, roughness2);
+    lowp float anisotropyMask = step(EPSILON, roughness);
+    lowp float D_aniso = DistributionGGXAnisotropic(NdotH2, H, T, B, roughness, 0.0);
+    lowp float D_iso = DistributionGGX(NdotH2, roughness2);
 
     // Geometry term
-    vec2 DG = vec2(
+    lowp float k = fma(roughness, 0.5, 0.5);
+    mediump vec2 DG = vec2(
         mix(D_iso, D_aniso, anisotropyMask),
         GeometrySmith(dots.x, dots.y, k)
     );
 
     // Main specular calculation
-    vec3 specular = (fresnel * DG.x * DG.y * specularAO * INV_4) / max(common_div, EPSILON);
-
-    // Clear coat specular branch
-    // clearCoatData.x = clear_d, clearCoatData.y = clear_g, clearCoatData.z = mix_val
-    vec3 clearCoatData = vec3(
-        DistributionGGX(NdotH2, k_clear),
-        GeometrySmith(dots.x, dots.y, k_clear),
-        mix(fresnel.r, 0.04, step(surfaceMaterial.subsurface, 0.0))
-    );
-
-    vec3 clearCoatSpecular = vec3(clearCoatData.x * clearCoatData.y * clearCoatData.z) * specularAO;
-
-    // Blend between primary and clear coat specular
-    specular = mix(specular, clearCoatSpecular, surfaceMaterial.clearCoat);
+    mediump vec3 specular = (fresnel * DG.x * DG.y * specularAO * INV_4) / max(common_div, EPSILON);
 
     float maxSpecular = max(dot(specular, vec3(1.0)), EPSILON);
     return specular * min(1.0, ENERGY_CONSERVATION_THRESHOLD / maxSpecular);
@@ -207,25 +162,9 @@ float PhysicalLightAttenuation(float distance, float radius, float attenuation) 
     return att * saturate(1.0 - t);
 }
 
-vec3 calculateChromaticAberration(vec3 refractedDir, float ior) {
-    vec3 wavelengthOffsets = vec3(0.0, 0.01, 0.02);
-    vec3 color;
-    color.r = refract(refractedDir, vec3(0.0, 0.0, 1.0), ior + wavelengthOffsets.r).x;
-    color.g = refract(refractedDir, vec3(0.0, 0.0, 1.0), ior + wavelengthOffsets.g).x;
-    color.b = refract(refractedDir, vec3(0.0, 0.0, 1.0), ior + wavelengthOffsets.b).x;
-    return color;
-}
-
-vec3 calculateVolumetricScattering(vec3 lightDir, vec3 viewDir, float thickness) {
-    float cosTheta = dot(lightDir, -viewDir);
-    vec3 scatteringCoeff = vec3(0.8, 0.5, 0.2);
-
-    return exp(fma(-thickness, (1.0 - cosTheta), 0.0) * scatteringCoeff);
-}
-
-vec4 CalculateDiffuseLighting(vec3 norm, vec3 lightDir, vec4 lightColor, float albedoIntensity, vec4 texColor) {
+vec4 CalculateDiffuseLighting(vec3 norm, vec3 lightDir, vec4 lightColor, vec4 texColor) {
     float NdotL = max(dot(norm, lightDir), 0.0);
-    return lightColor * colDiffuse * NdotL * albedoIntensity / PI * texColor;
+    return lightColor * colDiffuse * NdotL / PI * texColor;
 }
 
 vec4 CalculateAmbientLighting(float roughness, vec4 texColor) {
@@ -236,23 +175,21 @@ vec4 CalculateAmbientLighting(float roughness, vec4 texColor) {
 
 vec4 toneMapFilmic(vec4 hdrColor) {
     vec3 x = max(vec3(0.0), hdrColor.rgb * exposure - vec3(0.004));
-    vec3 result = (x * (6.2 * x + 0.5)) / (x * (6.2 * x + 1.7) + 0.06);
+    vec3 numerator = x * fma(vec3(6.2), x, vec3(0.5));
+    vec3 denominator = fma(x, fma(vec3(6.2), x, vec3(1.7)), vec3(0.06));
+    vec3 result = numerator / denominator;
+
     return vec4(result, hdrColor.a);
 }
 
 vec4 toneMapACES(vec4 hdrColor) {
-    const float a = 2.51;
-    const float b = 0.03;
-    const float c = 2.43;
-    const float d = 0.59;
-    const float e = 0.14;
     vec3 x = hdrColor.rgb * exposure;
-    vec3 result = (x * (a * x + b)) / (x * (c * x + d) + e);
+    vec3 result = ((2.51 * x + 0.03) * x) / (((2.43 * x + 0.59) * x) + 0.14);
     return vec4(clamp(result, 0.0, 1.0), hdrColor.a);
 }
 
 vec4 CalculateLight(Light light, vec3 viewDir, vec3 norm, vec3 fragPosition, vec4 texColor, vec3 F0,
-                    SurfaceMaterial material, vec3 T, vec3 B, float roughness) {
+                    vec3 T, vec3 B, float roughness, float specular) {
 
     float attenuation = 1.0;
     float spot = 1.0;
@@ -261,30 +198,32 @@ vec4 CalculateLight(Light light, vec3 viewDir, vec3 norm, vec3 fragPosition, vec
     vec3 lightDir = normalize(mix(toLight, -light.direction, step(light.type, LIGHT_DIRECTIONAL)));
 
     float lightToFragDist = length(toLight);
-    float attenuationFactor = PhysicalLightAttenuation(lightToFragDist, light.radius, light.attenuation);
+    float attenuationFactor = PhysicalLightAttenuation(lightToFragDist, light.aisr.w, light.aisr.x);
     float spotFactor = smoothstep(0.6, 0.8, dot(lightDir, light.direction));
 
-    attenuation = mix(attenuationFactor * mix(spotFactor, 1.0, step(light.type, LIGHT_POINT)), 1.0, step(light.type, LIGHT_DIRECTIONAL));
+    float attenuationMix = mix(spotFactor, 1.0, step(light.type, LIGHT_POINT));
+    attenuation = mix(attenuationFactor * attenuationMix, 1.0, step(light.type, LIGHT_DIRECTIONAL));
 
-    vec4 diffuse = CalculateDiffuseLighting(norm, lightDir, light.color, material.albedoIntensity, texColor);
-    vec3 specular = CookTorrance(lightDir, viewDir, norm, T, B, roughness, F0, light.specularStrength * material.specularIntensity);
+    vec4 diffuse = CalculateDiffuseLighting(norm, lightDir, light.color, texColor);
+    vec3 specularFactor = CookTorrance(lightDir, viewDir, norm, T, B, roughness, F0, light.aisr.z * specular);
 
-    return vec4(vec3((diffuse.rgb + specular) * attenuation * spot * light.intensity), 1);
+    vec3 finalColor = (diffuse.rgb + specularFactor) * (attenuation * spot * light.aisr.y);
+    return vec4(finalColor, 1.0);
 }
 
 vec4 CalculateLighting(vec3 fragPosition, vec3 fragNormal, vec3 viewDir, vec2 texCoord,
-                      SurfaceMaterial material, vec4 texColor, vec3 T, vec3 B, float roughness) {
+                      vec4 texColor, vec3 T, vec3 B, float roughness, float specular, float metalness) {
 
-    vec3 F0 = mix(vec3(0.04), texColor.rgb, material.metalness);
-    float oneMinusMetalness = 1.0 - material.metalness;
+    vec3 F0 = mix(vec3(0.04), texColor.rgb, metalness);
+    float oneMinusMetalness = 1.0 - metalness;
 
     vec4 result = CalculateAmbientLighting(roughness, texColor);
 
     vec3 multiBounce = (vec3(1.0) - F0) * oneMinusMetalness;
-    result.rgb += multiBounce * ambientLight.rgb * 0.1;
+    result.rgb = fma(multiBounce, ambientLight.rgb * 0.1, result.rgb);
 
     for (int i = 0; i < lightsCount; i++) {
-        result += CalculateLight(lights[i], viewDir, fragNormal, fragPosition, texColor, F0, material, T, B, roughness);
+        result += CalculateLight(lights[i], viewDir, fragNormal, fragPosition, texColor, F0, T, B, roughness, specular);
     }
 
     return toneMapACES(result);
@@ -294,6 +233,14 @@ vec4 CalculateLighting(vec3 fragPosition, vec3 fragNormal, vec3 viewDir, vec2 te
 
 void main() {
     mediump vec2 texCoord = fragTexCoord * tiling;
+
+    vec4 texColor   = diffuseMapReady ? texture(texture0, texCoord) : vec4(1.0);
+    vec3 normalMap  = normalMapReady ? texture(texture2, texCoord).rgb : vec3(0.0);
+    float roughness = roughnessMapReady ? texture(texture3, texCoord).r : 0.5;
+    float ao        = aoMapReady ? texture(texture4, texCoord).r : 1.0;
+    float specular  = 0.5; // metallicMapReady ? texture(texture5, texCoord).r : 0.5;
+    float metalness = 0.5; //metallicMapReady ? texture(texture6, texCoord).r : 0.5;
+
     highp vec3 viewDir = normalize(viewPos - fragPosition);
     vec3 dp1 = dFdx(fragPosition);
     vec3 dp2 = dFdy(fragPosition);
@@ -303,28 +250,17 @@ void main() {
     vec3 tangent = normalize(dp1 * duv2.y - dp2 * duv1.y);
     vec3 bitangent = normalize(dp2 * duv1.x - dp1 * duv2.x);
 
-    vec4 texColor = diffuseMapReady ? texture(texture0, texCoord) : vec4(1.0);
 
     vec3 norm = fragNormal;
     if (normalMapReady) {
-        vec3 normalMap = texture(texture2, texCoord).rgb;
         mat3 TBN = mat3(tangent, bitangent, fragNormal);
         norm = normalize(TBN * (normalMap * 2.0 - 1.0));
     }
 
-    float roughness = roughnessMapReady ? texture(texture3, texCoord).r : surfaceMaterial.roughness;
-    float ao = aoMapReady ? texture(texture4, texCoord).r : 1.0;
+    vec4 lighting = CalculateLighting(fragPosition, norm, viewDir, texCoord, texColor, tangent, bitangent, roughness, specular, metalness);
 
-    vec4 lighting = CalculateLighting(fragPosition, norm, viewDir, texCoord, surfaceMaterial, texColor, tangent, bitangent, roughness);
-
-    if (surfaceMaterial.transmission > 0.0) {
-        vec3 transmissionColor = calculateChromaticAberration(viewDir, surfaceMaterial.ior);
-        vec3 scattering = calculateVolumetricScattering(-viewDir, norm, surfaceMaterial.thickness);
-        lighting.rgb = mix(lighting.rgb, transmissionColor * scattering, surfaceMaterial.transmission);
-    }
-
-    if (aoMapReady && surfaceMaterial.aoStrength > 0.0) {
-        lighting.rgb *= mix(1.0, ao, surfaceMaterial.aoStrength);
+    if (aoMapReady) {
+        lighting.rgb *= ao;
     }
 
     finalColor = lighting;
