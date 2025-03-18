@@ -1,3 +1,31 @@
+# Attempt to set the C compiler to gcc-11
+find_program(GCC_11_PATH NAMES gcc-11)
+if(GCC_11_PATH)
+    set(CMAKE_C_COMPILER ${GCC_11_PATH})
+else()
+    # Fallback to gcc if gcc-11 is not found
+    find_program(GCC_PATH NAMES gcc)
+    if(GCC_PATH)
+        set(CMAKE_C_COMPILER ${GCC_PATH})
+    else()
+        message(FATAL_ERROR "No suitable C compiler found.")
+    endif()
+endif()
+
+# Attempt to set the C++ compiler to g++-11
+find_program(GXX_11_PATH NAMES g++-11)
+if(GXX_11_PATH)
+    set(CMAKE_CXX_COMPILER ${GXX_11_PATH})
+else()
+    # Fallback to g++ if g++-11 is not found
+    find_program(GXX_PATH NAMES g++)
+    if(GXX_PATH)
+        set(CMAKE_CXX_COMPILER ${GXX_PATH})
+    else()
+        message(FATAL_ERROR "No suitable C++ compiler found.")
+    endif()
+endif()
+
 # CMake Settings
 cmake_minimum_required(VERSION 3.12)
 project(LitEngine)
