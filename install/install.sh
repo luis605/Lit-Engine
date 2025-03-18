@@ -25,7 +25,7 @@ if [ "$selectedPackageManager" = "apt" ]; then
     sudo add-apt-repository universe -y
     sudo add-apt-repository multiverse -y
     sudo apt update
-    sudo apt install python3.13-dev python3.13 g++ libglm-dev make cmake libwayland-dev libxkbcommon-dev -y
+    sudo apt install python3.12-dev python3.12 g++ libglm-dev make cmake libwayland-dev libxkbcommon-dev -y
     sudo apt-get install libtbb-dev liblzma-dev libglfw3-dev libbullet-dev build-essential cmake xorg-dev libglu1-mesa-dev libavutil-dev libavcodec-dev libavformat-dev libswscale-dev -y
 elif [ "$selectedPackageManager" = "yum" ]; then
     sudo yum install epel-release
