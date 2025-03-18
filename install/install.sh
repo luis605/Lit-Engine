@@ -20,10 +20,13 @@ else
 fi
 
 if [ "$selectedPackageManager" = "apt" ]; then
-    sudo add-apt-repository ppa:deadsnakes/ppa universe
+    sudo apt install software-properties-common gnupg python3-launchpadlib -y
+    sudo add-apt-repository ppa:deadsnakes/nightly -y
+    sudo add-apt-repository universe -y
+    sudo add-apt-repository multiverse -y
     sudo apt update
-    sudo apt install python3.11-dev python3.11 g++ libglm-dev make cmake libwayland-dev libxkbcommon-dev
-    sudo apt-get install libtbb-dev libglfw3-dev libbullet-dev build-essential cmake xorg-dev libglu1-mesa-dev libavutil-dev libavcodec-dev libavformat-dev libswscale-dev
+    sudo apt install python3.13-dev python3.13 g++ libglm-dev make cmake libwayland-dev libxkbcommon-dev -y
+    sudo apt-get install libtbb-dev liblzma-dev libglfw3-dev libbullet-dev build-essential cmake xorg-dev libglu1-mesa-dev libavutil-dev libavcodec-dev libavformat-dev libswscale-dev -y
 elif [ "$selectedPackageManager" = "yum" ]; then
     sudo yum install epel-release
     sudo yum update

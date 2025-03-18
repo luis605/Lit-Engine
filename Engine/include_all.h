@@ -44,7 +44,7 @@
     #include "pybind11/functional.h"
     #include "pybind11/stl.h"
 #else
-    #include <python3.11/Python.h>
+    #include <python3.12/Python.h>
 
     #include <pybind11/embed.h>
     #include <pybind11/pybind11.h>
