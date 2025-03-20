@@ -103,7 +103,6 @@ if(UNIX)
         ${CMAKE_SOURCE_DIR}/include/raylib/src/
         ${LZMA_LIBRARIES}
         ${CMAKE_SOURCE_DIR}/include/meshoptimizer/build/
-        ${CMAKE_SOURCE_DIR}/include/bullet3/build/libs
     )
 endif()
 
@@ -160,6 +159,10 @@ link_directories(
 
 # Library Flags
 if(UNIX)
+    link_directories(
+        ${CMAKE_SOURCE_DIR}/include/bullet3/build/libs
+    )
+
     set(LIB_FLAGS
         avformat
         avcodec
