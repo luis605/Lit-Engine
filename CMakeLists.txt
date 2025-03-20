@@ -2,6 +2,8 @@
 find_program(GCC_11_PATH NAMES gcc-11)
 if(GCC_11_PATH)
     set(CMAKE_C_COMPILER ${GCC_11_PATH})
+    add_compile_options(-fno-lto)
+    add_link_options(-fno-lto)
 else()
     # Fallback to gcc if gcc-11 is not found
     find_program(GCC_PATH NAMES gcc)
@@ -16,6 +18,8 @@ endif()
 find_program(GXX_11_PATH NAMES g++-11)
 if(GXX_11_PATH)
     set(CMAKE_CXX_COMPILER ${GXX_11_PATH})
+    add_compile_options(-fno-lto)
+    add_link_options(-fno-lto)
 else()
     # Fallback to g++ if g++-11 is not found
     find_program(GXX_PATH NAMES g++)
