@@ -1,5 +1,11 @@
-cd ..
-cd include/NodeEditor
+cd ../include/bullet3
+mkdir -p build && cd build
+cmake .. -DBUILD_SHARED_LIBS=OFF -DCMAKE_BUILD_TYPE=Release
+make -j$(nproc)
+mkdir libs
+find . -type f -name "*.a" -exec mv {} ./libs/ \;
+
+cd ../../NodeEditor
 cmake -S examples -B build -G "Unix Makefiles"
 cmake --build build --config Release
 

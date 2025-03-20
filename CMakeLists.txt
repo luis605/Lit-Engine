@@ -94,15 +94,16 @@ if(UNIX)
     pkg_check_modules(LZMA REQUIRED liblzma)
 
     include_directories(
-        ${CMAKE_SOURCE_DIR}/include/bullet3/src
+        ${CMAKE_SOURCE_DIR}/include/bullet3/src/
         ${AVFORMAT_LIBRARIES}
         ${AVCODEC_LIBRARIES}
         ${AVUTIL_LIBRARIES}
         ${SWSCALE_LIBRARIES}
         ${SWRESAMPLE_LIBRARIES}
-        ${CMAKE_SOURCE_DIR}/include/raylib/src/libraylib.a
+        ${CMAKE_SOURCE_DIR}/include/raylib/src/
         ${LZMA_LIBRARIES}
-        ${CMAKE_SOURCE_DIR}/include/meshoptimizer/build/libmeshoptimizer.a
+        ${CMAKE_SOURCE_DIR}/include/meshoptimizer/build/
+        ${CMAKE_SOURCE_DIR}/include/bullet3/build/libs
     )
 endif()
 
