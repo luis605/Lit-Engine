@@ -1,6 +1,15 @@
 #ifndef VIDEO_H
 #define VIDEO_H
 
+extern "C" {
+    #include <libavformat/avformat.h>
+    #include <libavcodec/avcodec.h>
+    #include <libswscale/swscale.h>
+}
+
+#include <chrono>
+#include <raylib.h>
+
 class Video {
 private:
     AVStream* videoStream       = nullptr;

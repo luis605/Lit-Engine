@@ -1,18 +1,22 @@
-#include "Settings.cpp"
+#define IMGUI_DEFINE_MATH_OPERATORS
+#include <imgui.h>
+#include <imgui_internal.h>
 
-// Constants
-constexpr float BUTTON_PADDING = 30.0f;
-constexpr float BUTTON_HEIGHT  = 30.0f;
-constexpr ImVec2 BUTTON_SIZE   = ImVec2(120.0f, BUTTON_HEIGHT);
+#include <Engine/../GameBuilder/builder.hpp>
+#include <Engine/Core/Core.hpp>
+#include <Engine/Core/Engine.hpp>
+#include <Engine/Core/Entity.hpp>
+#include <Engine/Core/SaveLoad.hpp>
+#include <Engine/Core/global_variables.hpp>
+#include <Engine/Editor/MenuBar/MenuBar.hpp>
+#include <Engine/Editor/SceneEditor/SceneEditor.hpp>
+#include <Engine/Editor/Styles/Styles.hpp>
+#include <extras/IconsFontAwesome6.h>
+#include <Engine/Editor/MenuBar/Settings.hpp>
 
-// Global variables
 bool showAppearanceWindow = false;
 bool showDebugWindow      = false;
 bool menuButtonClicked    = false;
-
-// Function declarations
-void SetStyleHighContrast(ImGuiStyle* style);
-void SetStyleGray(ImGuiStyle* style);
 
 void Appearance() {
     ImGui::Begin("Appearance", &showAppearanceWindow);
@@ -24,17 +28,23 @@ void Appearance() {
     bool themeGray = ImGui::Button("Gray", BUTTON_SIZE);
     bool themeCustom = ImGui::Button("Custom", BUTTON_SIZE);
 
-    if (themeBlue) ImGui::StyleColorsDark();
-    else if (themeLight) ImGui::StyleColorsLight();
-    else if (themeHighContrast) SetStyleHighContrast(&ImGui::GetStyle());
-    else if (themeGray) SetStyleGray(&ImGui::GetStyle());
-    else if (themeCustom) createNewThemeWindowOpen = true;
+    if (themeBlue)
+        ImGui::StyleColorsDark();
+    else if (themeLight)
+        ImGui::StyleColorsLight();
+    else if (themeHighContrast)
+        SetStyleHighContrast(&ImGui::GetStyle());
+    else if (themeGray)
+        SetStyleGray(&ImGui::GetStyle());
+    else if (themeCustom)
+        createNewThemeWindowOpen = true;
 
     ImGui::End();
 }
 
 void DebugWindow() {
-    if (!showDebugWindow) return;
+    if (!showDebugWindow)
+        return;
     ImGui::Begin("Debug", &showDebugWindow);
 
     if (ImGui::CollapsingHeader("Performance")) {
@@ -55,10 +65,14 @@ void DebugWindow() {
         for (const Entity& entity : entitiesListPregame) {
             if (IsModelReady(entity.model)) {
                 int privateVertexCount = 0;
-                for (int meshIndex = 0; meshIndex < entity.model.meshCount; ++meshIndex) {
-                    privateVertexCount += entity.model.meshes[meshIndex].vertexCount;
+                for (int meshIndex = 0; meshIndex < entity.model.meshCount;
+                     ++meshIndex) {
+                    privateVertexCount +=
+                        entity.model.meshes[meshIndex].vertexCount;
                 }
-                vertexCount += privateVertexCount * (entity.hasInstances() ? entity.instances.size() : 1);
+                vertexCount +=
+                    privateVertexCount *
+                    (entity.hasInstances() ? entity.instances.size() : 1);
             }
         }
 
@@ -72,7 +86,8 @@ void DebugWindow() {
         ImGui::Indent();
 
         ImGui::Text("Scene Editor %ld ms", sceneEditorProfilerDuration.count());
-        ImGui::Text("Assets Explorer %ld ms", assetsExplorerProfilerDuration.count());
+        ImGui::Text("Assets Explorer %ld ms",
+                    assetsExplorerProfilerDuration.count());
 
         ImGui::Unindent();
     }
@@ -106,18 +121,21 @@ void DrawMenus() {
 
     if (ImGui::BeginMenu("Edit")) {
         if (ImGui::BeginMenu("Preferences")) {
-            if (ImGui::MenuItem("Appearance", "Ctrl+Shift+D")) showAppearanceWindow = true;
+            if (ImGui::MenuItem("Appearance", "Ctrl+Shift+D"))
+                showAppearanceWindow = true;
 
             ImGui::EndMenu();
         }
 
-        if (ImGui::MenuItem("Settings")) showSettingsWindow = true;
+        if (ImGui::MenuItem("Settings"))
+            showSettingsWindow = true;
 
         ImGui::EndMenu();
     }
 
     if (ImGui::BeginMenu("View")) {
-        if (ImGui::MenuItem("Debug")) showDebugWindow = !showDebugWindow;
+        if (ImGui::MenuItem("Debug"))
+            showDebugWindow = !showDebugWindow;
 
         ImGui::EndMenu();
     }
@@ -125,24 +143,25 @@ void DrawMenus() {
     if (ImGui::BeginMenu("Debug")) {
         if (ImGui::MenuItem("Reload Lighting Shader")) {
             UnloadShader(shader);
-            shader = LoadShader("Engine/Lighting/shaders/lighting_vertex.glsl", "Engine/Lighting/shaders/lighting_fragment.glsl");
+            shader =
+                LoadShader("Engine/Lighting/shaders/lighting_vertex.glsl",
+                           "Engine/Lighting/shaders/lighting_fragment.glsl");
+
             for (Entity& entity : entitiesListPregame) {
                 entity.setShader(shader);
             }
-
-            for (int index = 0; index < NUM_GIZMO_POSITION; ++index)
-                gizmoPosition[index].model.materials[0].shader = shader;
-
-            for (int index = 0; index < NUM_GIZMO_SCALE; ++index)
-                gizmoScale[index].model.materials[0].shader = shader;
-
-            gizmoRotation[0].model.materials[0].shader = shader;
         }
 
         if (ImGui::MenuItem("Reload Bloom Shader")) {
-            verticalBlurShader   = LoadShader("Engine/Lighting/shaders/lighting_vertex.glsl", "Engine/Lighting/shaders/blurVertical.fs");
-            horizontalBlurShader = LoadShader("Engine/Lighting/shaders/lighting_vertex.glsl", "Engine/Lighting/shaders/blurHorizontal.fs");
-            verticalBlurShader   = LoadShader("Engine/Lighting/shaders/lighting_vertex.glsl", "Engine/Lighting/shaders/blurVertical.fs");
+            verticalBlurShader =
+                LoadShader("Engine/Lighting/shaders/lighting_vertex.glsl",
+                           "Engine/Lighting/shaders/blurVertical.fs");
+            horizontalBlurShader =
+                LoadShader("Engine/Lighting/shaders/lighting_vertex.glsl",
+                           "Engine/Lighting/shaders/blurHorizontal.fs");
+            verticalBlurShader =
+                LoadShader("Engine/Lighting/shaders/lighting_vertex.glsl",
+                           "Engine/Lighting/shaders/blurVertical.fs");
         }
 
         ImGui::EndMenu();
@@ -152,25 +171,25 @@ void DrawMenus() {
 void openAboutPage() {
     menuButtonClicked = false;
 
-    #ifdef __linux__
-        system("xdg-open https://www.litengine.org");
-    #elif _WIN32
-        system("start https://www.litengine.org");
-    #elif __APPLE__
-        system("open https://www.litengine.org");
-    #endif
+#ifdef __linux__
+    system("xdg-open https://www.litengine.org");
+#elif _WIN32
+    system("start https://www.litengine.org");
+#elif __APPLE__
+    system("open https://www.litengine.org");
+#endif
 }
 
 void openManualPage() {
     menuButtonClicked = false;
 
-    #ifdef __linux__
-        system("xdg-open https://www.litengine.org/manual");
-    #elif _WIN32
-        system("start https://www.litengine.org/manual");
-    #elif __APPLE__
-        system("open https://www.litengine.org/manual");
-    #endif
+#ifdef __linux__
+    system("xdg-open https://www.litengine.org/manual");
+#elif _WIN32
+    system("start https://www.litengine.org/manual");
+#elif __APPLE__
+    system("open https://www.litengine.org/manual");
+#endif
 }
 
 void MenuBar() {
@@ -193,17 +212,23 @@ void MenuBar() {
         ImGui::SetCursorPos(imagePos);
         ImGui::Image((ImTextureID)&windowIconTexture, imageSize);
 
-        if (ImGui::IsItemClicked()) menuButtonClicked = true;
-        if (menuButtonClicked) ImGui::OpenPopup("Menu");
+        if (ImGui::IsItemClicked())
+            menuButtonClicked = true;
+        if (menuButtonClicked)
+            ImGui::OpenPopup("Menu");
 
         if (ImGui::BeginPopup("Menu")) {
-            if (ImGui::MenuItem("About", "F1"))  openAboutPage();
-            if (ImGui::MenuItem("Manual", "F2")) openManualPage();
+            if (ImGui::MenuItem("About", "F1"))
+                openAboutPage();
+            if (ImGui::MenuItem("Manual", "F2"))
+                openManualPage();
             if (ImGui::MenuItem("Exit", "Alt + F4")) {
                 menuButtonClicked = false;
                 exitWindowRequested = true;
             }
-            if (!ImGui::IsItemHovered() && ImGui::IsMouseClicked(ImGuiMouseButton_Left)) menuButtonClicked = false;
+            if (!ImGui::IsItemHovered() &&
+                ImGui::IsMouseClicked(ImGuiMouseButton_Left))
+                menuButtonClicked = false;
 
             ImGui::EndPopup();
         }
@@ -214,10 +239,9 @@ void MenuBar() {
 
         ImVec2 currentCursorPos = ImGui::GetCursorPos();
         static ImVec2 textSize = ImGui::CalcTextSize("Lit Engine");
-        ImGui::SetCursorPos(ImVec2(
-            ImGui::GetWindowWidth() * 0.5f - textSize.x * 0.5f,
-            centeredHeight - textSize.y * 0.5f
-            ));
+        ImGui::SetCursorPos(
+            ImVec2(ImGui::GetWindowWidth() * 0.5f - textSize.x * 0.5f,
+                   centeredHeight - textSize.y * 0.5f));
 
         ImGui::Text("Lit Engine");
         ImGui::SetCursorPos(currentCursorPos);
@@ -234,20 +258,29 @@ void MenuBar() {
 
         ImGui::SetCursorPosX(ImGui::GetWindowSize().x - 10 - buttonWidth);
 
-        if (ImGui::Button(ICON_FA_XMARK, ImVec2(buttonWidth, buttonWidth)) || (IsKeyDown(KEY_LEFT_ALT) && IsKeyDown(KEY_F4))) exitWindowRequested = true;
+        if (ImGui::Button(ICON_FA_XMARK, ImVec2(buttonWidth, buttonWidth)) ||
+            (IsKeyDown(KEY_LEFT_ALT) && IsKeyDown(KEY_F4)))
+            exitWindowRequested = true;
 
         ImGui::SetCursorPosX(ImGui::GetWindowSize().x - 20 - buttonWidth * 2);
 
-        if (ImGui::Button(ICON_FA_WINDOW_MAXIMIZE, ImVec2(buttonWidth, buttonWidth))) ToggleMaximization();
+        if (ImGui::Button(ICON_FA_WINDOW_MAXIMIZE,
+                          ImVec2(buttonWidth, buttonWidth)))
+            ToggleMaximization();
 
         ImGui::SetCursorPosX(ImGui::GetWindowSize().x - 30 - buttonWidth * 3);
 
-        if (ImGui::Button(ICON_FA_WINDOW_MINIMIZE, ImVec2(buttonWidth, buttonWidth))) MinimizeWindow();
+        if (ImGui::Button(ICON_FA_WINDOW_MINIMIZE,
+                          ImVec2(buttonWidth, buttonWidth)))
+            MinimizeWindow();
 
         ImGui::PopStyleColor(4);
 
         ImGui::SetCursorPosX(imageSize.x + imagePos.x + 40);
-        ImGui::InvisibleButton("EMPTY", ImVec2(ImGui::GetWindowSize().x - buttonWidth * 3 - ImGui::GetCursorPosX(), 40));
+        ImGui::InvisibleButton("EMPTY", ImVec2(ImGui::GetWindowSize().x -
+                                                   buttonWidth * 3 -
+                                                   ImGui::GetCursorPosX(),
+                                               40));
         DraggableWindow();
 
         ImGui::EndMainMenuBar();
@@ -257,14 +290,18 @@ void MenuBar() {
 
     if ((IsKeyDown(KEY_LEFT_CONTROL) || IsKeyDown(KEY_RIGHT_CONTROL)) &&
         (IsKeyDown(KEY_LEFT_SHIFT) || IsKeyDown(KEY_RIGHT_SHIFT)) &&
-        IsKeyPressed(KEY_D)) showAppearanceWindow = true;
+        IsKeyPressed(KEY_D))
+        showAppearanceWindow = true;
 
-    if (showAppearanceWindow && !movingEditorCamera) Appearance();
-    if (showSettingsWindow   && !movingEditorCamera) Settings();
+    if (showAppearanceWindow && !movingEditorCamera)
+        Appearance();
+    if (showSettingsWindow && !movingEditorCamera)
+        Settings();
 
     CreateNewTheme();
 
-    if (exitWindowRequested) ExitWindowRequested();
+    if (exitWindowRequested)
+        ExitWindowRequested();
 
     DebugWindow();
 }

@@ -1,4 +1,10 @@
-#include "include_all.h"
+#include "Core/Core.hpp"
+#include <iostream>
+#include <pybind11/embed.h>
+
+namespace py = pybind11;
+
+py::scoped_interpreter guard{};
 
 int LitEngine() {
     Startup();

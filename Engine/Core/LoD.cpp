@@ -1,27 +1,12 @@
-const float LOD_DISTANCE_HIGH = 10.0f;
-const float LOD_DISTANCE_MEDIUM = 25.0f;
-const float LOD_DISTANCE_LOW = 35.0f;
+#include <vector>
+#include <cstddef>
+#include <cmath>
+#include <meshoptimizer.h>
+#include <Engine/Core/LoD.hpp>
 
-struct OptimizedMeshData {
-	std::vector<unsigned int> indices;
-    std::vector<Vector3> vertices;
-
-    OptimizedMeshData() {}
-
-    OptimizedMeshData(std::vector<unsigned int> indices, std::vector<Vector3> vertices)
-        : indices(indices), vertices(vertices) {}
-
-    OptimizedMeshData(const OptimizedMeshData& other)
-        : indices(other.indices), vertices(other.vertices) {}
-
-    OptimizedMeshData& operator=(const OptimizedMeshData& other) {
-        if (this != &other) {
-            indices = other.indices;
-            vertices = other.vertices;
-        }
-        return *this;
-    }
-};
+#define RAYMATH_IMPLEMENTATION
+#include <raylib.h>
+#include <raymath.h>
 
 OptimizedMeshData OptimizeMesh(std::vector<unsigned int>& indices, std::vector<Vector3>& vertices, float threshold) {
     OptimizedMeshData data;
@@ -39,14 +24,14 @@ OptimizedMeshData OptimizeMesh(std::vector<unsigned int>& indices, std::vector<V
     data.indices.resize(indices.size());
 
     size_t optimized_index_count = meshopt_simplify(
-        &data.indices[0], &indices[0], numIndices, &vertices[0].x, numVertices, 
+        &data.indices[0], &indices[0], numIndices, &vertices[0].x, numVertices,
         sizeof(Vector3), target_index_count, target_error);
 
     data.indices.resize(optimized_index_count);
 
     std::vector<unsigned int> remap(numVertices);
     size_t optimized_vertex_count = meshopt_generateVertexRemap(
-        remap.data(), &data.indices[0], optimized_index_count, 
+        remap.data(), &data.indices[0], optimized_index_count,
         &vertices[0], numVertices, sizeof(Vector3)
     );
 

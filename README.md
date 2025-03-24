@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="https://github.com/luis605/Lit-Engine/blob/main/icon.png" width=30% height=30%>
+  <img src="https://github.com/luis605/Lit-Engine/blob/main/Docs/images/icon.png" width=30% height=30%>
 </p>
 
 Lit Engine is an **open-source high-level game engine** powered by raylib. Made with the speed and portability of C++, Lit Engine allows you to build 3D experiences with minimal effort, and our intuitive interface will quickly launch you into the development world.
@@ -35,10 +35,10 @@ git submodule update --init --recursive --depth 1
 ## Building and Installing Dependencies
 ### Linux
 
-Before building the engine, ensure that you have all the dependencies installed. They can be installed by opening the install directory and running *install.sh*:
+Before building the engine, ensure that you have all the dependencies installed. They can be installed by opening the Install directory and running *install.sh*:
 
 ```bash
-cd install
+cd Install
 ./install.sh
 ```
 
@@ -49,10 +49,10 @@ Then, you can build the remaining dependencies by running:
 
 ### Windows
 
-Before building the engine, ensure that you have all the dependencies installed. They can be installed by opening the install directory and running *install.sh*:
+Before building the engine, ensure that you have all the dependencies installed. They can be installed by opening the Install directory and running *install.sh*:
 
 ```bash
-cd install
+cd Install
 .\install.bat
 ```
 
@@ -69,7 +69,7 @@ After successfully cloning the repository and setting up the project, you can bu
 mkdir build
 cd build
 cmake .. # Linux
-cmake .. -G "MinGW Makefiles" --fresh # Windows 
+cmake .. -G "MinGW Makefiles" --fresh # Windows
 make
 make run
 ```

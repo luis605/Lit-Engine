@@ -1,7 +1,21 @@
 #ifndef SAVE_LOAD_H
 #define SAVE_LOAD_H
 
-std::map<std::string, std::string> scriptContents;
+#include <nlohmann/json.hpp>
+#include <Engine/Lighting/lights.hpp>
+#include <Engine/GUI/Text/Text.hpp>
+#include <Engine/GUI/Button/Button.hpp>
+#include <Engine/Scripting/functions.hpp>
+#include <Engine/Core/Entity.hpp>
+#include <raylib.h>
+#include <glm/glm.hpp>
+#include <filesystem>
+#include <string>
+
+namespace fs = std::filesystem;
+using json = nlohmann::json;
+
+extern std::map<std::string, std::string> scriptContents;
 
 namespace nlohmann {
     template<>
@@ -45,6 +59,7 @@ namespace nlohmann {
         }
     };
 
+
     template<>
     struct adl_serializer<Vector4> {
         static void to_json(json& j, const Vector4& vec) {
@@ -59,6 +74,7 @@ namespace nlohmann {
         }
     };
 
+
     template<>
     struct adl_serializer<LitVector3> {
         static void to_json(json& j, const Vector3& vec) {
@@ -72,6 +88,7 @@ namespace nlohmann {
         }
     };
 
+
     template<>
     struct adl_serializer<glm::vec3> {
         static void to_json(json& j, const glm::vec3& vec) {
@@ -84,37 +101,19 @@ namespace nlohmann {
             vec.z = j["z"];
         }
     };
-
-
-    template<>
-    struct adl_serializer<SurfaceMaterial> {
-        static void to_json(json& j, const SurfaceMaterial& material) {
-            j = json{
-                { "SpecularIntensity", material.SpecularIntensity },
-                { "DiffuseIntensity", material.DiffuseIntensity },
-                { "Roughness", material.Roughness }
-            };
-        }
-
-        static void from_json(const json& j, SurfaceMaterial& material) {
-            j.at("SpecularIntensity").get_to(material.SpecularIntensity);
-            j.at("DiffuseIntensity").get_to(material.DiffuseIntensity);
-            j.at("Roughness").get_to(material.Roughness);
-        }
-    };
 }
 
-inline bool isSubpath(const fs::path &path, const fs::path &base);
 void SerializeMaterial(SurfaceMaterial& material, const fs::path path);
 void DeserializeMaterial(SurfaceMaterial* material, const fs::path& path);
 std::string serializePythonScript(const fs::path& path);
 void serializeScripts();
 
+bool isSubPath(const fs::path &path, const fs::path &base);
 void SaveCamera(json& jsonData, const LitCamera camera);
 void SaveEntity(json& jsonData, const Entity& entity);
 void SaveLight(json& jsonData, const LightStruct& lightStruct);
-void SaveText(json& jsonData, const Text& text, bool emplaceBack = true);
 void SaveWorldSetting(json& jsonData);
+void SaveText(json& jsonData, const Text& text, bool emplaceBack = true);
 void SaveButton(json& jsonData, const LitButton& button);
 int SaveProject();
 

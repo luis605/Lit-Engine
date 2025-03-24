@@ -1,14 +1,22 @@
-#include "include_all.h"
+#include "ObjectsList.hpp"
+#include <Engine/Editor/MenuBar/MenuBar.hpp>
+#include <Engine/Editor/SceneEditor/SceneEditor.hpp>
+#include <extras/IconsFontAwesome6.h>
 
-#include "ObjectsList.h"
+bool draggingChildObject = false;
+bool shouldChangeObjectName = false;
+bool showManipulateEntityPopup = false;
+int entitiesListTreeNodeIndex;
 
 void ManipulateEntityPopup() {
-    if (!showManipulateEntityPopup) return;
+    if (!showManipulateEntityPopup)
+        return;
 
     ImGui::OpenPopup("Entity");
 
     if (ImGui::BeginPopup("Entity")) {
-        static ImVec2 buttonScale = ImGui::CalcTextSize("Duplicate Entity") + ImVec2(20.0f, 20.0f);
+        static ImVec2 buttonScale =
+            ImGui::CalcTextSize("Duplicate Entity") + ImVec2(20.0f, 20.0f);
 
         if (ImGui::Button("Duplicate Entity", buttonScale)) {
             DuplicateEntity(*selectedEntity);
@@ -31,65 +39,89 @@ void ManipulateEntityPopup() {
         }
 
         ImGui::PushStyleColor(ImGuiCol_Button, ImVec4(0.5f, 0.1f, 0.1f, 1.0f));
-        if (ImGui::Button("Close", buttonScale - ImVec2(0, 10))) showManipulateEntityPopup = false;
+        if (ImGui::Button("Close", buttonScale - ImVec2(0, 10)))
+            showManipulateEntityPopup = false;
         ImGui::PopStyleColor();
 
         ImGui::EndPopup();
     }
 }
 
-bool DrawNodeTree(const char* icon, const std::string& name, ImGuiTreeNodeFlags flags, void* ptr, bool isSelected, const std::function<void()>& callback, bool* rightClicked) {
-    if (isSelected) flags |= ImGuiTreeNodeFlags_Selected;
+bool DrawNodeTree(const char* icon, const std::string& name,
+                  ImGuiTreeNodeFlags flags, void* ptr, bool isSelected,
+                  const std::function<void()>& callback, bool* rightClicked) {
+    if (isSelected)
+        flags |= ImGuiTreeNodeFlags_Selected;
 
-    bool isNodeOpen = ImGui::TreeNodeEx((std::string(icon) + " " + name + " ##" + std::to_string(entitiesListTreeNodeIndex)).c_str(), flags);
-    if (ImGui::IsItemClicked(ImGuiMouseButton_Left)) callback();
-    if (rightClicked && ImGui::IsItemClicked(ImGuiMouseButton_Right)) *rightClicked = true;
+    bool isNodeOpen =
+        ImGui::TreeNodeEx((std::string(icon) + " " + name + " ##" +
+                           std::to_string(entitiesListTreeNodeIndex))
+                              .c_str(),
+                          flags);
+    if (ImGui::IsItemClicked(ImGuiMouseButton_Left))
+        callback();
+    if (rightClicked && ImGui::IsItemClicked(ImGuiMouseButton_Right))
+        *rightClicked = true;
 
     entitiesListTreeNodeIndex++;
     return isNodeOpen;
 }
 
-bool DrawTreeNodeWithRename(const char* icon, std::string& name, void* ptr, ImGuiTreeNodeFlags flags, bool isSelected, const std::function<void()>& callback, bool* rightClicked) {
+bool DrawTreeNodeWithRename(const char* icon, std::string& name, void* ptr,
+                            ImGuiTreeNodeFlags flags, bool isSelected,
+                            const std::function<void()>& callback,
+                            bool* rightClicked) {
     if (isSelected && shouldChangeObjectName) {
         char nameBuffer[256];
         std::strncpy(nameBuffer, name.c_str(), sizeof(nameBuffer) - 1);
-        if (ImGui::InputText("##Name", nameBuffer, sizeof(nameBuffer), ImGuiInputTextFlags_EnterReturnsTrue)) {
+        if (ImGui::InputText("##Name", nameBuffer, sizeof(nameBuffer),
+                             ImGuiInputTextFlags_EnterReturnsTrue)) {
             name = std::string(nameBuffer);
             shouldChangeObjectName = false;
         }
     }
 
-    return DrawNodeTree(icon, name, flags, ptr, isSelected, callback, rightClicked);
+    return DrawNodeTree(icon, name, flags, ptr, isSelected, callback,
+                        rightClicked);
 }
 
 void DrawEntityTree(Entity& entity) {
-    ImGuiTreeNodeFlags nodeFlags = ImGuiTreeNodeFlags_OpenOnArrow | ImGuiTreeNodeFlags_OpenOnDoubleClick;
-    bool isSelected = (selectedEntity == &entity && selectedGameObjectType == "entity");
+    ImGuiTreeNodeFlags nodeFlags =
+        ImGuiTreeNodeFlags_OpenOnArrow | ImGuiTreeNodeFlags_OpenOnDoubleClick;
+    bool isSelected =
+        (selectedEntity == &entity && selectedGameObjectType == "entity");
     bool rightClicked = false;
 
-    bool isNodeOpen = DrawTreeNodeWithRename(ICON_FA_CUBE, entity.name, (void*)&entity, nodeFlags, isSelected, [&]() {
-        selectedEntity = &entity;
-        selectedGameObjectType = "entity";
-    }, &rightClicked);
+    bool isNodeOpen = DrawTreeNodeWithRename(
+        ICON_FA_CUBE, entity.name, (void*)&entity, nodeFlags, isSelected,
+        [&]() {
+            selectedEntity = &entity;
+            selectedGameObjectType = "entity";
+        },
+        &rightClicked);
 
-    if (rightClicked) showManipulateEntityPopup = true;
+    if (rightClicked)
+        showManipulateEntityPopup = true;
 
     if (ImGui::BeginDragDropSource(ImGuiDragDropFlags_None)) {
         draggingChildObject = entity.isChild;
 
-        ImGui::SetDragDropPayload("CHILD_ENTITY_PAYLOAD", &entity, sizeof(Entity));
+        ImGui::SetDragDropPayload("CHILD_ENTITY_PAYLOAD", &entity,
+                                  sizeof(Entity));
         ImGui::EndDragDropSource();
     }
 
     if (ImGui::BeginDragDropTarget()) {
-        const ImGuiPayload* payload = ImGui::AcceptDragDropPayload("CHILD_LIGHT_PAYLOAD");
+        const ImGuiPayload* payload =
+            ImGui::AcceptDragDropPayload("CHILD_LIGHT_PAYLOAD");
         if (payload) {
             if (payload->DataSize != sizeof(LightStruct)) {
                 TraceLog(LOG_WARNING, "Invalid payload size.");
                 return;
             }
 
-            LightStruct droppedLight = *static_cast<LightStruct*>(payload->Data);
+            LightStruct droppedLight =
+                *static_cast<LightStruct*>(payload->Data);
 
             entity.addLightChild(droppedLight.id);
         }
@@ -97,7 +129,8 @@ void DrawEntityTree(Entity& entity) {
     }
 
     if (ImGui::BeginDragDropTarget()) {
-        const ImGuiPayload* payload = ImGui::AcceptDragDropPayload("CHILD_ENTITY_PAYLOAD");
+        const ImGuiPayload* payload =
+            ImGui::AcceptDragDropPayload("CHILD_ENTITY_PAYLOAD");
         if (payload) {
             if (payload->DataSize != sizeof(Entity)) {
                 TraceLog(LOG_WARNING, "Invalid payload size.");
@@ -115,7 +148,8 @@ void DrawEntityTree(Entity& entity) {
         for (int entityChildIndex : entity.entitiesChildren) {
             Entity* entityChild = getEntityById(entityChildIndex);
             if (!entityChild) {
-                ImGui::TreeNodeEx("ERROR: Entity child not initialized!", ImGuiTreeNodeFlags_NoTreePushOnOpen);
+                ImGui::TreeNodeEx("ERROR: Entity child not initialized!",
+                                  ImGuiTreeNodeFlags_NoTreePushOnOpen);
                 continue;
             }
 
@@ -125,7 +159,8 @@ void DrawEntityTree(Entity& entity) {
         for (int lightStructIndex : entity.lightsChildren) {
             LightStruct* lightStruct = getLightById(lightStructIndex);
             if (!lightStruct) {
-                ImGui::TreeNodeEx("ERROR: Light child not found!", ImGuiTreeNodeFlags_NoTreePushOnOpen);
+                ImGui::TreeNodeEx("ERROR: Light child not found!",
+                                  ImGuiTreeNodeFlags_NoTreePushOnOpen);
                 continue;
             }
             DrawLightTree(*lightStruct);
@@ -136,60 +171,79 @@ void DrawEntityTree(Entity& entity) {
 }
 
 void DrawLightTree(LightStruct& lightStruct) {
-    ImGuiTreeNodeFlags nodeFlags = ImGuiTreeNodeFlags_OpenOnArrow | ImGuiTreeNodeFlags_OpenOnDoubleClick;
-    bool isSelected = (selectedLight == &lightStruct && selectedGameObjectType == "light");
+    ImGuiTreeNodeFlags nodeFlags =
+        ImGuiTreeNodeFlags_OpenOnArrow | ImGuiTreeNodeFlags_OpenOnDoubleClick;
+    bool isSelected =
+        (selectedLight == &lightStruct && selectedGameObjectType == "light");
 
-    bool isNodeOpen = DrawTreeNodeWithRename(ICON_FA_LIGHTBULB, lightStruct.lightInfo.name, (void*)&lightStruct, nodeFlags, isSelected, [&]() {
-        selectedLight = &lightStruct;
-        selectedGameObjectType = "light";
-    });
+    bool isNodeOpen = DrawTreeNodeWithRename(
+        ICON_FA_LIGHTBULB, lightStruct.lightInfo.name, (void*)&lightStruct,
+        nodeFlags, isSelected, [&]() {
+            selectedLight = &lightStruct;
+            selectedGameObjectType = "light";
+        });
 
     if (ImGui::BeginDragDropSource(ImGuiDragDropFlags_None)) {
         draggingChildObject = lightStruct.isChild;
-        ImGui::SetDragDropPayload("CHILD_LIGHT_PAYLOAD", &lightStruct, sizeof(LightStruct));
+        ImGui::SetDragDropPayload("CHILD_LIGHT_PAYLOAD", &lightStruct,
+                                  sizeof(LightStruct));
         ImGui::EndDragDropSource();
     }
 
-    if (isNodeOpen) ImGui::TreePop();
+    if (isNodeOpen)
+        ImGui::TreePop();
 }
 
 void DrawTextElementsTree(Text& text) {
-    ImGuiTreeNodeFlags nodeFlags = ImGuiTreeNodeFlags_OpenOnArrow | ImGuiTreeNodeFlags_OpenOnDoubleClick;
-    bool isSelected = (selectedTextElement == &text && selectedGameObjectType == "text");
+    ImGuiTreeNodeFlags nodeFlags =
+        ImGuiTreeNodeFlags_OpenOnArrow | ImGuiTreeNodeFlags_OpenOnDoubleClick;
+    bool isSelected =
+        (selectedTextElement == &text && selectedGameObjectType == "text");
 
-    bool isNodeOpen = DrawTreeNodeWithRename(ICON_FA_QUOTE_LEFT, text.name, (void*)&text, nodeFlags, isSelected, [&]() {
-        selectedTextElement = &text;
-        selectedGameObjectType = "text";
-    });
+    bool isNodeOpen =
+        DrawTreeNodeWithRename(ICON_FA_QUOTE_LEFT, text.name, (void*)&text,
+                               nodeFlags, isSelected, [&]() {
+                                   selectedTextElement = &text;
+                                   selectedGameObjectType = "text";
+                               });
 
-    if (isNodeOpen) ImGui::TreePop();
+    if (isNodeOpen)
+        ImGui::TreePop();
 }
 
 void DrawButtonTree(LitButton& button) {
-    ImGuiTreeNodeFlags nodeFlags = ImGuiTreeNodeFlags_OpenOnArrow | ImGuiTreeNodeFlags_OpenOnDoubleClick;
-    bool isSelected = (selectedButton == &button && selectedGameObjectType == "button");
+    ImGuiTreeNodeFlags nodeFlags =
+        ImGuiTreeNodeFlags_OpenOnArrow | ImGuiTreeNodeFlags_OpenOnDoubleClick;
+    bool isSelected =
+        (selectedButton == &button && selectedGameObjectType == "button");
 
-    bool isNodeOpen = DrawTreeNodeWithRename(ICON_FA_SQUARE, button.name, (void*)&button, nodeFlags, isSelected, [&]() {
-        selectedButton = &button;
-        selectedGameObjectType = "button";
-    });
+    bool isNodeOpen =
+        DrawTreeNodeWithRename(ICON_FA_SQUARE, button.name, (void*)&button,
+                               nodeFlags, isSelected, [&]() {
+                                   selectedButton = &button;
+                                   selectedGameObjectType = "button";
+                               });
 
-    if (isNodeOpen) ImGui::TreePop();
+    if (isNodeOpen)
+        ImGui::TreePop();
 }
 
 void DrawCameraTree() {
-    ImGuiTreeNodeFlags nodeFlags = ImGuiTreeNodeFlags_OpenOnArrow | ImGuiTreeNodeFlags_OpenOnDoubleClick;
+    ImGuiTreeNodeFlags nodeFlags =
+        ImGuiTreeNodeFlags_OpenOnArrow | ImGuiTreeNodeFlags_OpenOnDoubleClick;
     bool isSelected = (selectedGameObjectType == "camera");
 
-    bool isNodeOpen = DrawNodeTree(ICON_FA_VIDEO, sceneCamera.name, nodeFlags, (void*)&sceneCamera, isSelected, [&]() {
-        selectedGameObjectType = "camera";
-    });
+    bool isNodeOpen = DrawNodeTree(
+        ICON_FA_VIDEO, sceneCamera.name, nodeFlags, (void*)&sceneCamera,
+        isSelected, [&]() { selectedGameObjectType = "camera"; });
 
-    if (isNodeOpen) ImGui::TreePop();
+    if (isNodeOpen)
+        ImGui::TreePop();
 }
 
 void UnchildObjects(ImVec2 childSize) {
-    if (!draggingChildObject) return;
+    if (!draggingChildObject)
+        return;
 
     ImVec2 padding = ImGui::GetStyle().WindowPadding;
     ImVec2 pos = ImGui::GetCursorScreenPos();
@@ -200,14 +254,16 @@ void UnchildObjects(ImVec2 childSize) {
     ImGui::SetCursorScreenPos(pos);
 
     if (ImGui::BeginDragDropTarget()) {
-        const ImGuiPayload* payload = ImGui::AcceptDragDropPayload("CHILD_LIGHT_PAYLOAD");
+        const ImGuiPayload* payload =
+            ImGui::AcceptDragDropPayload("CHILD_LIGHT_PAYLOAD");
         if (payload) {
             if (payload->DataSize != sizeof(LightStruct)) {
                 TraceLog(LOG_WARNING, "Invalid payload size.");
                 return;
             }
 
-            LightStruct droppedLight = *static_cast<LightStruct*>(payload->Data);
+            LightStruct droppedLight =
+                *static_cast<LightStruct*>(payload->Data);
 
             if (!droppedLight.isChild) {
                 return;
@@ -216,7 +272,9 @@ void UnchildObjects(ImVec2 childSize) {
             LightStruct* light = getLightById(droppedLight.id);
 
             if (light->parent && light->parent->initialized) {
-                auto it = std::find(light->parent->lightsChildren.begin(), light->parent->lightsChildren.end(), light->id);
+                auto it =
+                    std::find(light->parent->lightsChildren.begin(),
+                              light->parent->lightsChildren.end(), light->id);
 
                 if (it != light->parent->lightsChildren.end()) {
                     light->parent->lightsChildren.erase(it);
@@ -231,7 +289,8 @@ void UnchildObjects(ImVec2 childSize) {
     }
 
     if (ImGui::BeginDragDropTarget()) {
-        const ImGuiPayload* payload = ImGui::AcceptDragDropPayload("CHILD_ENTITY_PAYLOAD");
+        const ImGuiPayload* payload =
+            ImGui::AcceptDragDropPayload("CHILD_ENTITY_PAYLOAD");
         if (payload) {
             if (payload->DataSize != sizeof(Entity)) {
                 TraceLog(LOG_WARNING, "Invalid payload size.");
@@ -245,10 +304,13 @@ void UnchildObjects(ImVec2 childSize) {
             }
 
             Entity* entity = getEntityById(droppedEntity.id);
-            if (!entity) return;
+            if (!entity)
+                return;
 
             if (entity->parent && entity->parent->initialized) {
-                auto it = std::find(entity->parent->entitiesChildren.begin(), entity->parent->entitiesChildren.end(), entity->id);
+                auto it = std::find(entity->parent->entitiesChildren.begin(),
+                                    entity->parent->entitiesChildren.end(),
+                                    entity->id);
 
                 if (it != entity->parent->entitiesChildren.end()) {
                     entity->parent->entitiesChildren.erase(it);
@@ -265,7 +327,7 @@ void UnchildObjects(ImVec2 childSize) {
 void ImGuiListViewEx() {
     ImVec2 entitiesListWindowSize = ImGui::GetContentRegionAvail();
     ImGui::PushStyleVar(ImGuiStyleVar_ChildBorderSize, 0.0f);
-        ImGui::BeginChild("Entities List", entitiesListWindowSize);
+    ImGui::BeginChild("Entities List", entitiesListWindowSize);
     ImGui::PopStyleVar();
 
     UnchildObjects(entitiesListWindowSize);
@@ -293,12 +355,14 @@ void ImGuiListViewEx() {
     DrawCameraTree();
 
     for (Entity& entity : entitiesListPregame) {
-        if (entity.isChild || !entity.initialized) continue;
+        if (entity.isChild || !entity.initialized)
+            continue;
         DrawEntityTree(entity);
     }
 
     for (LightStruct& lightStruct : lights) {
-        if (lightStruct.isChild) continue;
+        if (lightStruct.isChild)
+            continue;
         DrawLightTree(lightStruct);
     }
 
@@ -320,10 +384,13 @@ void ImGuiListViewEx() {
 }
 
 void OpenWebpages() {
-    if (inGamePreview || ImGui::IsWindowFocused(ImGuiFocusedFlags_ChildWindows)) return;
+    if (inGamePreview || ImGui::IsWindowFocused(ImGuiFocusedFlags_ChildWindows))
+        return;
 
-    if (IsKeyPressed(KEY_F1)) openAboutPage();
-    if (IsKeyPressed(KEY_F2)) openManualPage();
+    if (IsKeyPressed(KEY_F1))
+        openAboutPage();
+    if (IsKeyPressed(KEY_F2))
+        openManualPage();
 }
 
 void EntitiesList() {

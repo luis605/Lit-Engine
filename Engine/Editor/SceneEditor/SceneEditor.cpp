@@ -1,3 +1,31 @@
+#include <Engine/Core/Events.hpp>
+#include <Engine/Core/RunGame.hpp>
+#include <Engine/Editor/AssetsExplorer/AssetsExplorer.hpp>
+#include <Engine/Editor/SceneEditor/Gizmo/Gizmo.hpp>
+#include <Engine/Editor/SceneEditor/SceneEditor.hpp>
+#include <Engine/Lighting/skybox.hpp>
+#include <Engine/Lighting/Shaders.hpp>
+#include <Engine/Lighting/lights.hpp>
+#include <custom.h>
+#include <extras/IconsFontAwesome6.h>
+#include <rcamera.h>
+#include <rlgl.h>
+
+float slowCameraSpeed = 15.0f;
+float defaultCameraSpeed = 25.0f;
+float fastCameraSpeed = 50.0f;
+float movementSpeed = defaultCameraSpeed;
+Model lightModel;
+LitCamera sceneCamera;
+bool movingEditorCamera = false;
+CopyType currentCopyType = (CopyType)CopyType_None;
+std::shared_ptr<Entity> copiedEntity = nullptr;
+std::shared_ptr<LightStruct> copiedLight = nullptr;
+
+#ifndef GAME_SHIPPING
+    ImVec2 prevEditorWindowSize = {-1.0f, -1.0f};
+#endif
+
 void InitEditorCamera() {
     viewportRenderTexture = LoadRenderTexture(1, 1);
     viewportTexture = viewportRenderTexture.texture;
@@ -15,8 +43,8 @@ static inline double GetImGuiWindowTitleHeight() {
            ImGui::GetStyle().FramePadding.y * 2.0;
 }
 
-void CalculateTextureRect(const Texture *texture,
-                          Rectangle &viewportRectangle) {
+void CalculateTextureRect(const Texture* texture,
+                          Rectangle& viewportRectangle) {
     ImVec2 windowPos = ImGui::GetWindowPos();
     ImVec2 windowSize = ImGui::GetWindowSize();
 
@@ -27,7 +55,7 @@ void CalculateTextureRect(const Texture *texture,
         windowSize.y - GetImGuiWindowTitleHeight() - 60.0;
 }
 
-void DrawTextureOnViewportRectangle(const Texture *texture) {
+void DrawTextureOnViewportRectangle(const Texture* texture) {
     CalculateTextureRect(texture, viewportRectangle);
     ImGui::SetCursorPos(ImVec2(0, GetImGuiWindowTitleHeight() + 60.0));
     ImGui::Image((ImTextureID)texture,
@@ -90,9 +118,9 @@ void EditorCameraMovement() {
         rlLastMousePosition = GetMousePosition();
 }
 
-bool IsMouseHoveringModel(const Model &model, const Vector3 &position,
-                          const Vector3 &rotation, const Vector3 &scale,
-                          const Entity *entity, bool bypassOptimization) {
+bool IsMouseHoveringModel(const Model& model, const Vector3& position,
+                          const Vector3& rotation, const Vector3& scale,
+                          const Entity* entity, bool bypassOptimization) {
     if (!IsModelReady(model))
         return false;
 
@@ -135,7 +163,7 @@ bool IsMouseHoveringModel(const Model &model, const Vector3 &position,
     return false;
 }
 
-void LocateEntity(Entity &entity) {
+void LocateEntity(Entity& entity) {
     if (selectedGameObjectType == "entity") {
         sceneCamera.target = entity.position;
         sceneCamera.position = {entity.position.x + 10, entity.position.y + 2,
@@ -214,7 +242,7 @@ void ApplyBloomEffect() {
 }
 
 void RenderLights() {
-    for (LightStruct &lightStruct : lights) {
+    for (LightStruct& lightStruct : lights) {
         lightModel.materials[0].maps[MATERIAL_MAP_DIFFUSE].texture =
             lightTexture;
 
@@ -254,7 +282,7 @@ void RenderEntities() {
     bool isMouseDown = IsMouseButtonDown(MOUSE_LEFT_BUTTON);
     bool isWindowHovered = ImGui::IsWindowHovered();
 
-    for (Entity &entity : entitiesListPregame) {
+    for (Entity& entity : entitiesListPregame) {
         if (entity.isChild)
             continue;
 
@@ -271,7 +299,7 @@ void RenderEntities() {
         }
 
         for (int childEntityIndex : entity.entitiesChildren) {
-            Entity &childEntity = *getEntityById(childEntityIndex);
+            Entity& childEntity = *getEntityById(childEntityIndex);
 
             if (IsMouseHoveringModel(childEntity.model, childEntity.position,
                                      childEntity.rotation, childEntity.scale)) {
@@ -288,7 +316,7 @@ void UpdateShader() {
     SetShaderValue(shader, GetShaderLocation(shader, "viewPos"), cameraPos,
                    SHADER_UNIFORM_VEC3);
 
-    for (Entity &entity : entitiesListPregame) {
+    for (Entity& entity : entitiesListPregame) {
         SetShaderValue(entity.getShader(),
                        GetShaderLocation(entity.getShader(), "viewPos"),
                        cameraPos, SHADER_UNIFORM_VEC3);
@@ -391,11 +419,11 @@ void DropEntity() {
     ImGuiID windowID = ImGui::GetID(ImGui::GetCurrentWindow()->Name);
 
     if (ImGui::BeginDragDropTargetCustom(dropTargetArea, windowID)) {
-        if (const ImGuiPayload *payload =
+        if (const ImGuiPayload* payload =
                 ImGui::AcceptDragDropPayload("MODEL_PAYLOAD")) {
             IM_ASSERT(payload->DataSize == sizeof(int));
 
-            int payloadIndex = *(const int *)payload->Data;
+            int payloadIndex = *(const int*)payload->Data;
 
             std::string modelFilePath =
                 fs::path(dirPath / fileStruct[payloadIndex].name).string();
@@ -555,7 +583,7 @@ void ProcessDeletion() {
     }
 }
 
-void LightPaste(const std::shared_ptr<LightStruct> &lightStruct) {
+void LightPaste(const std::shared_ptr<LightStruct>& lightStruct) {
     if (!lightStruct)
         return;
 
@@ -574,7 +602,7 @@ void LightPaste(const std::shared_ptr<LightStruct> &lightStruct) {
     selectedLight = &lights.back();
 }
 
-void DuplicateLight(LightStruct &lightStruct, Entity *parent = nullptr) {
+void DuplicateLight(LightStruct& lightStruct, Entity* parent) {
     LightStruct newLightStruct = lightStruct;
     newLightStruct.id = entitiesListPregame.size() + lights.size();
 
@@ -593,7 +621,7 @@ void DuplicateLight(LightStruct &lightStruct, Entity *parent = nullptr) {
     selectedLight = &lights.back();
 }
 
-void DuplicateEntity(Entity &entity, Entity *parent = nullptr) {
+void DuplicateEntity(Entity& entity, Entity* parent) {
     Entity newEntity = entity;
     std::vector<int> oldEntityChildrenIds = newEntity.entitiesChildren;
     std::vector<int> oldLightChildrenIds = newEntity.lightsChildren;
@@ -606,7 +634,7 @@ void DuplicateEntity(Entity &entity, Entity *parent = nullptr) {
 
     entitiesListPregame.reserve(1);
     entitiesListPregame.emplace_back(std::move(newEntity));
-    Entity *newEntityRef = &entitiesListPregame.back();
+    Entity* newEntityRef = &entitiesListPregame.back();
 
     if (parent) {
         parent->addEntityChild(newEntity.id);
@@ -624,8 +652,7 @@ void DuplicateEntity(Entity &entity, Entity *parent = nullptr) {
     selectedEntity = &entitiesListPregame.back();
 }
 
-void EntityPaste(const std::shared_ptr<Entity> &entity,
-                 Entity *parent = nullptr) {
+void EntityPaste(const std::shared_ptr<Entity>& entity, Entity* parent) {
     if (!entity)
         return;
 
@@ -641,7 +668,7 @@ void EntityPaste(const std::shared_ptr<Entity> &entity,
 
     entitiesListPregame.reserve(1);
     entitiesListPregame.emplace_back(std::move(newEntity));
-    Entity *newEntityRef = &entitiesListPregame.back();
+    Entity* newEntityRef = &entitiesListPregame.back();
 
     if (parent) {
         parent->addEntityChild(newEntity.id);
@@ -765,12 +792,12 @@ void drawEditorCameraMenu() {
         !inGamePreview) {
         eventManager.onScenePlay.triggerEvent();
 
-        for (Entity &entity : entitiesListPregame)
+        for (Entity& entity : entitiesListPregame)
             entity.reloadRigidBody();
         entitiesList.assign(entitiesListPregame.begin(),
                             entitiesListPregame.end());
 
-        physics.backup();
+        physics.Backup();
         InitGameCamera();
         inGamePreview = true;
     }
@@ -790,10 +817,10 @@ void drawEditorCameraMenu() {
         inGamePreview = false;
         firstTimeGameplay = true;
 
-        physics.unBackup();
-        for (Entity &entity : entitiesListPregame)
+        physics.UnBackup();
+        for (Entity& entity : entitiesListPregame)
             entity.resetPhysics();
-        for (Entity &entity : entitiesList)
+        for (Entity& entity : entitiesList)
             entity.resetPhysics();
     }
     if (ImGui::IsItemHovered())

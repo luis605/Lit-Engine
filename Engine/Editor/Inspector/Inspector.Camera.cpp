@@ -1,5 +1,11 @@
-void CameraInspector()
-{
+#define IMGUI_DEFINE_MATH_OPERATORS
+#include <imgui_internal.h>
+#include <imgui.h>
+
+#include <Engine/Editor/SceneEditor/SceneEditor.hpp>
+#include <extras/IconsFontAwesome6.h>
+
+void CameraInspector() {
     ImVec2 window_size = ImGui::GetWindowSize();
     const float spacingWidth = 200.0f;
 
@@ -10,8 +16,7 @@ void CameraInspector()
     ImGui::Text("Inspecting Camera");
     ImGui::Dummy(ImVec2(0.0f, 10.0f));
 
-    if (ImGui::CollapsingHeader(ICON_FA_SLIDERS " Camera Properties"))
-    {
+    if (ImGui::CollapsingHeader(ICON_FA_SLIDERS " Camera Properties")) {
         ImGui::Indent();
 
         bool isOrthographic = (sceneCamera.projection == 1) ? true : false;
@@ -20,7 +25,8 @@ void CameraInspector()
         ImGui::Text("Camera Projection: ");
         ImGui::SameLine();
         ImGui::SetNextItemWidth(inputWidth);
-        if (ImGui::BeginCombo("##Projection", isOrthographic ? "Orthographic" : "Perspective")) {
+        if (ImGui::BeginCombo("##Projection", isOrthographic ? "Orthographic"
+                                                             : "Perspective")) {
             if (ImGui::Selectable("Orthographic", isOrthographic)) {
                 isOrthographic = true;
                 sceneCamera.projection = 1;
@@ -36,7 +42,8 @@ void CameraInspector()
         ImGui::Text("Fovy: ");
         ImGui::SameLine();
         ImGui::SetNextItemWidth(inputWidth);
-        ImGui::SliderFloat("##FovySlider", &sceneCamera.fovy, 1.0f, 180.0f, "%.1f");
+        ImGui::SliderFloat("##FovySlider", &sceneCamera.fovy, 1.0f, 180.0f,
+                           "%.1f");
 
         ImGui::Unindent();
     }

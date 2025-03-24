@@ -1,3 +1,5 @@
+#include <raylib.h>
+
 class Time {
 public:
     float dt;

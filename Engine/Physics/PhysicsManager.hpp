@@ -1,7 +1,16 @@
 #ifndef PHYSICS_MANAGER_H
 #define PHYSICS_MANAGER_H
 
-float scaleFactorRaylibBullet = 0.5f;
+#include <btBulletDynamicsCommon.h>
+#include <Engine/Scripting/math.hpp>
+
+extern float scaleFactorRaylibBullet;
+
+enum CollisionShapeType {
+    Box           = 0,
+    HighPolyMesh  = 1,
+    None          = 2
+};
 
 class PhysicsManager {
 public:
@@ -15,13 +24,13 @@ public:
     LitVector3 backupGravity;
 
 public:
-    PhysicsManager() { init(); }
+    PhysicsManager() { Init(); }
 
-    void init();
-    void update(float deltaTime);
-    void setGravity(LitVector3 gravity);
-    void backup();
-    void unBackup();
+    void Init();
+    void Update(float deltaTime);
+    void SetGravity(const LitVector3& gravity);
+    void Backup();
+    void UnBackup();
 
     ~PhysicsManager() {
         TraceLog(LOG_INFO, "PhysicsManager: Unloading Physics Manager");
@@ -33,6 +42,6 @@ public:
     }
 };
 
-PhysicsManager physics;
+extern PhysicsManager physics;
 
 #endif // PHYSICS_MANAGER_H

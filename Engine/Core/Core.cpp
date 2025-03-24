@@ -1,10 +1,48 @@
-#include "Core.h"
-#include "../Plugins/Loader.h"
+#include "Core.hpp"
+#include "global_variables.hpp"
+
+#include <Engine/Core/SaveLoad.hpp>
+#include <extras/IconsFontAwesome6.h>
+#include <rlImGui.h>
+#include <rlgl.h>
+
+#include <Engine/Core/Entity.hpp>
+#include <Engine/Editor/AssetsExplorer/AssetsExplorer.hpp>
+#include <Engine/Editor/CodeEditor/CodeEditor.hpp>
+#include <Engine/Editor/ObjectsList/ObjectsList.hpp>
+#include <Engine/Editor/Inspector/Inspector.hpp>
+#include <Engine/Editor/MaterialsNodeEditor/MaterialNodeEditor.hpp>
+#include <Engine/Editor/MenuBar/MenuBar.hpp>
+#include <Engine/Editor/MenuBar/Settings.hpp>
+#include <Engine/Editor/SceneEditor/Gizmo/Gizmo.hpp>
+#include <Engine/Editor/SceneEditor/SceneEditor.hpp>
+#include <Engine/Editor/Styles/ImGuiExtras.hpp>
+#include <Engine/Editor/Styles/Styles.hpp>
+#include <Engine/Lighting/InitLighting.hpp>
+#include <Engine/Lighting/lights.hpp>
+#include <Engine/Lighting/skybox.hpp>
+#include <Engine/Plugins/Loader.hpp>
+#include <Engine/Scripting/functions.hpp> // Ensure functions.hpp is included
+#include <Engine/Scripting/math.hpp>
 
 #define STRESS_TEST false
 #if STRESS_TEST
-    #include "stressTest.cpp"
+#include "stressTest.cpp"
 #endif
+
+int windowWidth = 100;
+int windowHeight = 50;
+Texture2D windowIconTexture = { 0 };
+bool isWindowMaximized = false;
+bool exitWindowRequested = false;
+bool exitWindow = false;
+bool isDraggingWindow = false;
+bool fontsNeedUpdate = false;
+ImVec2 windowOriginalPos = ImVec2(0, 0);
+ImVec2 ImLastMousePosition = ImVec2(0, 0);
+ImVec2 windowPosition = ImVec2(0, 0);
+
+ImGuiViewport* viewport = nullptr;
 
 void InitLitWindow() {
     SetTraceLogLevel(LOG_WARNING);
@@ -14,31 +52,34 @@ void InitLitWindow() {
     windowHeight = GetMonitorHeight(0) * 0.9;
     CloseWindow();
 
-    SetConfigFlags(FLAG_MSAA_4X_HINT | FLAG_WINDOW_RESIZABLE | FLAG_WINDOW_UNDECORATED);
+    SetConfigFlags(FLAG_MSAA_4X_HINT | FLAG_WINDOW_RESIZABLE |
+                   FLAG_WINDOW_UNDECORATED);
     InitWindow(windowWidth, windowHeight, "Lit Engine");
 
     SetExitKey(KEY_NULL);
 }
 
 void LoadTextures() {
-    folderTexture    = LoadTexture("assets/images/folder.png");
-    imageTexture     = LoadTexture("assets/images/image_file_type.png");
-    cppTexture       = LoadTexture("assets/images/cpp_file_type.png");
-    pythonTexture    = LoadTexture("assets/images/python_file_type.png");
-    modelTexture     = LoadTexture("assets/images/model_file_type.png");
-    materialTexture  = LoadTexture("assets/images/material_file_type.png");
-    emptyTexture     = LoadTexture("assets/images/empty_file_file_type.png");
-    runTexture       = LoadTexture("assets/images/run_game.png");
-    pauseTexture     = LoadTexture("assets/images/pause_game.png");
-    saveTexture      = LoadTexture("assets/images/save_file.png");
-    hotReloadTexture = LoadTexture("assets/images/hot_reload.png");
-    lightTexture     = LoadTexture("assets/images/light_bulb.png");
-    noiseTexture     = LoadTexture("assets/images/noise.png");
-    windowIconImage       = LoadImage("assets/images/window_icon.png");
-    windowIconTexture     = LoadTextureFromImage(windowIconImage);
-    verticalBlurTexture   = LoadRenderTexture(GetScreenWidth(), GetScreenHeight());
-    horizontalBlurTexture = LoadRenderTexture(GetScreenWidth(), GetScreenHeight());
-    upsamplerTexture      = LoadRenderTexture(GetScreenWidth(), GetScreenHeight());
+    folderTexture = LoadTexture("Assets/images/folder.png");
+    imageTexture = LoadTexture("Assets/images/image_file_type.png");
+    cppTexture = LoadTexture("Assets/images/cpp_file_type.png");
+    pythonTexture = LoadTexture("Assets/images/python_file_type.png");
+    modelTexture = LoadTexture("Assets/images/model_file_type.png");
+    materialTexture = LoadTexture("Assets/images/material_file_type.png");
+    emptyTexture = LoadTexture("Assets/images/empty_file_file_type.png");
+    runTexture = LoadTexture("Assets/images/run_game.png");
+    pauseTexture = LoadTexture("Assets/images/pause_game.png");
+    saveTexture = LoadTexture("Assets/images/save_file.png");
+    hotReloadTexture = LoadTexture("Assets/images/hot_reload.png");
+    lightTexture = LoadTexture("Assets/images/light_bulb.png");
+    noiseTexture = LoadTexture("Assets/images/noise.png");
+    windowIconImage = LoadImage("Assets/images/window_icon.png");
+    windowIconTexture = LoadTextureFromImage(windowIconImage);
+    verticalBlurTexture =
+        LoadRenderTexture(GetScreenWidth(), GetScreenHeight());
+    horizontalBlurTexture =
+        LoadRenderTexture(GetScreenWidth(), GetScreenHeight());
+    upsamplerTexture = LoadRenderTexture(GetScreenWidth(), GetScreenHeight());
 
     SetWindowIcon(windowIconImage);
 }
@@ -47,10 +88,12 @@ void UpdateFonts(float fontSize, ImGuiIO& io) {
     s_Fonts.clear();
 
     fs::path fontPath = GetWorkingDirectory();
-    fontPath += "/assets/fonts/";
+    fontPath += "/Assets/fonts/";
 
-    auto addFont = [&](const std::string& fontName, const std::string& fileName, float sizeModifier = 0) {
-        s_Fonts[fontName] = io.Fonts->AddFontFromFileTTF((fontPath.string() + fileName).c_str(), fontSize + sizeModifier);
+    auto addFont = [&](const std::string& fontName, const std::string& fileName,
+                       float sizeModifier = 0) {
+        s_Fonts[fontName] = io.Fonts->AddFontFromFileTTF(
+            (fontPath.string() + fileName).c_str(), fontSize + sizeModifier);
     };
 
     addFont("Regular", "JetBrainsMono-Regular.ttf");
@@ -58,8 +101,10 @@ void UpdateFonts(float fontSize, ImGuiIO& io) {
     // Enable MergeMode and add Font Awesome icons
     ImFontConfig config;
     config.MergeMode = true;
-    static const ImWchar icon_ranges[] = { ICON_MIN_FA, ICON_MAX_FA, 0 };
-    io.Fonts->AddFontFromFileTTF((fontPath.string() + "fontawesome-webfont.ttf").c_str(), fontSize, &config, icon_ranges);
+    static const ImWchar icon_ranges[] = {ICON_MIN_FA, ICON_MAX_FA, 0};
+    io.Fonts->AddFontFromFileTTF(
+        (fontPath.string() + "fontawesome-webfont.ttf").c_str(), fontSize,
+        &config, icon_ranges);
 
     io.FontDefault = s_Fonts["Regular"];
 
@@ -93,14 +138,25 @@ void InitImGui() {
 }
 
 void InitShaders() {
-    shader               = LoadShader("Engine/Lighting/shaders/lighting_vertex.glsl", "Engine/Lighting/shaders/lighting_fragment.glsl");
-    instancingShader     = LoadShader("Engine/Lighting/shaders/lighting_vertex.glsl", "Engine/Lighting/shaders/lighting_fragment.glsl");
-    horizontalBlurShader = LoadShader("Engine/Lighting/shaders/lighting_vertex.glsl", "Engine/Lighting/shaders/blurHorizontal.fs");
-    verticalBlurShader   = LoadShader("Engine/Lighting/shaders/lighting_vertex.glsl", "Engine/Lighting/shaders/blurVertical.fs");
-    upsamplerShader      = LoadShader("Engine/Lighting/shaders/lighting_vertex.glsl", "Engine/Lighting/shaders/upsampler.glsl");
-    downsampleShader     = LoadShader("Engine/Lighting/shaders/lighting_vertex.glsl", "Engine/Lighting/shaders/downsampler.glsl");
+    shader = LoadShader("Engine/Lighting/shaders/lighting_vertex.glsl",
+                        "Engine/Lighting/shaders/lighting_fragment.glsl");
+    instancingShader =
+        LoadShader("Engine/Lighting/shaders/lighting_vertex.glsl",
+                   "Engine/Lighting/shaders/lighting_fragment.glsl");
+    horizontalBlurShader =
+        LoadShader("Engine/Lighting/shaders/lighting_vertex.glsl",
+                   "Engine/Lighting/shaders/blurHorizontal.fs");
+    verticalBlurShader =
+        LoadShader("Engine/Lighting/shaders/lighting_vertex.glsl",
+                   "Engine/Lighting/shaders/blurVertical.fs");
+    upsamplerShader = LoadShader("Engine/Lighting/shaders/lighting_vertex.glsl",
+                                 "Engine/Lighting/shaders/upsampler.glsl");
+    downsampleShader =
+        LoadShader("Engine/Lighting/shaders/lighting_vertex.glsl",
+                   "Engine/Lighting/shaders/downsampler.glsl");
 
-    char* shaderCode = LoadFileText("Engine/Lighting/shaders/luminanceCompute.glsl");
+    char* shaderCode =
+        LoadFileText("Engine/Lighting/shaders/luminanceCompute.glsl");
     unsigned int shaderData = rlCompileShader(shaderCode, RL_COMPUTE_SHADER);
     exposureShaderProgram = rlLoadComputeShaderProgram(shaderData);
     UnloadFileText(shaderCode);
@@ -116,6 +172,25 @@ void InitSceneEditor() {
     lightModel = LoadModelFromMesh(GenMeshPlane(4, 4, 1, 1));
 }
 
+void LoadFilesystem() {
+    fs::path path = GetWorkingDirectory();
+    path += "/project/";
+
+    if (!fs::exists(path)) {
+        fs::create_directory(path);
+    }
+
+    fs::path gameProjectPath = path / "game";
+    if (!fs::exists(gameProjectPath)) {
+        fs::create_directory(gameProjectPath);
+    }
+
+    fs::path themesPath = gameProjectPath / "themes";
+    if (!fs::exists(themesPath)) {
+        fs::create_directory(themesPath);
+    }
+}
+
 void Startup() {
     InitLitWindow();
 
@@ -123,7 +198,7 @@ void Startup() {
     glCullFace(GL_BACK);
     glDisable(GL_STENCIL_TEST);
 
-    skybox.loadSkybox("assets/images/skybox/default skybox.hdr");
+    skybox.loadSkybox("Assets/images/skybox/default skybox.hdr");
     Py_Initialize();
     InitImGui();
     LoadTextures();
@@ -135,34 +210,36 @@ void Startup() {
     InitSceneEditor();
     InitRenderModelPreviewer();
     loadAllPlugins();
+    LoadFilesystem();
 
-    #if STRESS_TEST
-        InitStressTest();
-    #endif
+#if STRESS_TEST
+    InitStressTest();
+#endif
 }
 
 void EngineMainLoop() {
     while ((!exitWindow)) {
-        if (WindowShouldClose()) exitWindowRequested = true;
+        if (WindowShouldClose())
+            exitWindowRequested = true;
 
         HandleFontUpdateIfNeeded();
 
         BeginDrawing();
 
-            ClearBackground(DARKGRAY);
+        ClearBackground(DARKGRAY);
 
-            rlImGuiBegin();
-            ImGui::DockSpaceOverViewport(ImGui::GetID("MyDockSpace"), viewport);
+        rlImGuiBegin();
+        ImGui::DockSpaceOverViewport(ImGui::GetID("MyDockSpace"), viewport);
 
-            MenuBar();
-            AssetsExplorer();
-            CodeEditor();
-            EntitiesList();
-            Inspector();
-            EditorCamera();
-            pluginManager.updateAll();
+        MenuBar();
+        AssetsExplorer();
+        CodeEditor();
+        EntitiesList();
+        Inspector();
+        EditorCamera();
+        pluginManager.updateAll();
 
-            rlImGuiEnd();
+        rlImGuiEnd();
 
         EndDrawing();
     }
@@ -208,27 +285,36 @@ void CleanUp() {
 void DraggableWindow() {
     bool isTitleBarHovered = ImGui::IsItemHovered();
     ImVec2 currentMousePos = ImGui::GetMousePos();
-    ImVec2 mouseDelta = ImVec2(currentMousePos.x - ImLastMousePosition.x, currentMousePos.y - ImLastMousePosition.y);
+    ImVec2 mouseDelta = ImVec2(currentMousePos.x - ImLastMousePosition.x,
+                               currentMousePos.y - ImLastMousePosition.y);
 
     float moveThreshold = 3.f;
 
     if (isTitleBarHovered && ImGui::IsMouseDown(ImGuiMouseButton_Left)) {
-        if (!isDraggingWindow && (fabs(mouseDelta.x) > moveThreshold || fabs(mouseDelta.y) > moveThreshold)) {
+        if (!isDraggingWindow && (fabs(mouseDelta.x) > moveThreshold ||
+                                  fabs(mouseDelta.y) > moveThreshold)) {
             isDraggingWindow = true;
             ImVec2 windowPos = ImGui::GetWindowPos();
-            windowOriginalPos = ImVec2(currentMousePos.x - windowPos.x, currentMousePos.y - windowPos.y);
+            windowOriginalPos = ImVec2(currentMousePos.x - windowPos.x,
+                                       currentMousePos.y - windowPos.y);
         }
-    } else if (isDraggingWindow && ImGui::IsMouseReleased(ImGuiMouseButton_Left)) {
+    } else if (isDraggingWindow &&
+               ImGui::IsMouseReleased(ImGuiMouseButton_Left)) {
         isDraggingWindow = false;
     }
 
     if (isDraggingWindow) {
-        if (isWindowMaximized) ToggleMaximization();
+        if (isWindowMaximized)
+            ToggleMaximization();
 
-        ImVec2 newPosition = ImVec2(ImGui::GetMousePos().x - windowOriginalPos.x, ImGui::GetMousePos().y - windowOriginalPos.y);
+        ImVec2 newPosition =
+            ImVec2(ImGui::GetMousePos().x - windowOriginalPos.x,
+                   ImGui::GetMousePos().y - windowOriginalPos.y);
         float smoothFactor = 0.3f;
-        newPosition.x = lerp(ImGui::GetWindowPos().x, newPosition.x * 2.f, smoothFactor);
-        newPosition.y = lerp(ImGui::GetWindowPos().y, newPosition.y * 2.f, smoothFactor);
+        newPosition.x =
+            LitLerp(ImGui::GetWindowPos().x, newPosition.x * 2.f, smoothFactor);
+        newPosition.y =
+            LitLerp(ImGui::GetWindowPos().y, newPosition.y * 2.f, smoothFactor);
         SetWindowPosition(newPosition.x, newPosition.y);
     }
 
@@ -245,16 +331,20 @@ static int currentExitMenuButton = 1;
 void ExitWindowRequested() {
     showManipulateEntityPopup = false;
 
-    if (exitWindowRequested) ImGui::OpenPopup("Exit App");
+    if (exitWindowRequested)
+        ImGui::OpenPopup("Exit App");
 
-    ImVec2 center(ImGui::GetIO().DisplaySize.x * 0.5f, ImGui::GetIO().DisplaySize.y * 0.5f);
+    ImVec2 center(ImGui::GetIO().DisplaySize.x * 0.5f,
+                  ImGui::GetIO().DisplaySize.y * 0.5f);
     ImGui::SetNextWindowPos(center, ImGuiCond_Appearing, ImVec2(0.5f, 0.5f));
 
     const ImVec2 p = ImVec2(24.0f, 24.0f);
     ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, p);
     ImGui::PushStyleVar(ImGuiStyleVar_FrameRounding, 10.0f);
 
-    if (ImGui::BeginPopupModal("Exit App", NULL, ImGuiWindowFlags_AlwaysAutoResize | ImGuiWindowFlags_NoTitleBar)) {
+    if (ImGui::BeginPopupModal("Exit App", NULL,
+                               ImGuiWindowFlags_AlwaysAutoResize |
+                                   ImGuiWindowFlags_NoTitleBar)) {
         ImGuiContext& g = *GImGui;
         const ImGuiStyle& style = g.Style;
         float margin = (style.WindowPadding.x) * 2.0f;
@@ -263,7 +353,8 @@ void ExitWindowRequested() {
 
         ImGui::CenteredText("Do you want to save the project", ImVec2(w, 20));
         ImGui::CenteredText("before exiting?", ImVec2(w, 20));
-        ImGui::CenteredText("\nYou can revert to undo the changes\n \n", ImVec2(w, 40));
+        ImGui::CenteredText("\nYou can revert to undo the changes\n \n",
+                            ImVec2(w, 40));
 
         if (ImGui::Button("Save", ImVec2(w, h))) {
             SaveProject();
@@ -273,11 +364,11 @@ void ExitWindowRequested() {
         const ImVec2 spc = ImVec2(7.0f, 16.0f);
         ImGui::PushStyleVar(ImGuiStyleVar_ItemSpacing, spc);
 
-        if(ImGui::Button("Revert Changes", ImVec2(w, h))) {
+        if (ImGui::Button("Revert Changes", ImVec2(w, h))) {
             exitWindow = true;
         }
 
-        if(ImGui::Button("Cancel", ImVec2(w, h))) {
+        if (ImGui::Button("Cancel", ImVec2(w, h))) {
             exitWindowRequested = false;
         }
 
@@ -289,9 +380,9 @@ void ExitWindowRequested() {
 }
 
 Vector3 glm3ToVec3(glm::vec3& vec3) {
-    return (Vector3){ vec3.x, vec3.y, vec3.z };
+    return (Vector3){vec3.x, vec3.y, vec3.z};
 }
 
 glm::vec3 vec3ToGlm3(Vector3& vec3) {
-    return (glm::vec3){ vec3.x, vec3.y, vec3.z };
+    return (glm::vec3){vec3.x, vec3.y, vec3.z};
 }

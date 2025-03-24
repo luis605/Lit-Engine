@@ -1,100 +1,12 @@
-namespace nlohmann {
-    template<>
-    struct adl_serializer<Color> {
-        static void to_json(json& j, const Color& color) {
-            j = json{{"r", color.r}, {"g", color.g}, {"b", color.b}, {"a", color.a}};
-        }
-
-        static void from_json(const json& j, Color& color) {
-            color.r = j["r"];
-            color.g = j["g"];
-            color.b = j["b"];
-            color.a = j["a"];
-        }
-    };
-
-    template<>
-    struct adl_serializer<glm::vec4> {
-        static void to_json(json& j, const glm::vec4& vec) {
-            j = json{{"r", vec.r}, {"g", vec.g}, {"b", vec.b}, {"a", vec.a}};
-        }
-
-        static void from_json(const json& j, glm::vec4& vec) {
-            vec.r = j["r"];
-            vec.g = j["g"];
-            vec.b = j["b"];
-            vec.a = j["a"];
-        }
-    };
-
-
-    template<>
-    struct adl_serializer<Vector2> {
-        static void to_json(json& j, const Vector2& vec) {
-            j = json{{"x", vec.x}, {"y", vec.y}};
-        }
-
-        static void from_json(const json& j, Vector2& vec) {
-            vec.x = j["x"];
-            vec.y = j["y"];
-        }
-    };
-
-
-    template<>
-    struct adl_serializer<Vector4> {
-        static void to_json(json& j, const Vector4& vec) {
-            j = json{{"x", vec.x}, {"y", vec.y}, {"z", vec.z}, {"w", vec.w}};
-        }
-
-        static void from_json(const json& j, Vector4& vec) {
-            vec.x = j["x"];
-            vec.y = j["y"];
-            vec.z = j["z"];
-            vec.w = j["w"];
-        }
-    };
-
-
-    template<>
-    struct adl_serializer<LitVector3> {
-        static void to_json(json& j, const Vector3& vec) {
-            j = json{{"x", vec.x}, {"y", vec.y}, {"z", vec.z}};
-        }
-
-        static void from_json(const json& j, Vector3& vec) {
-            vec.x = j["x"];
-            vec.y = j["y"];
-            vec.z = j["z"];
-        }
-    };
-
-
-    template<>
-    struct adl_serializer<glm::vec3> {
-        static void to_json(json& j, const glm::vec3& vec) {
-            j = json{{"x", vec.x}, {"y", vec.y}, {"z", vec.z}};
-        }
-
-        static void from_json(const json& j, glm::vec3& vec) {
-            vec.x = j["x"];
-            vec.y = j["y"];
-            vec.z = j["z"];
-        }
-    };
-}
-
-bool is_subpath(const fs::path &path, const fs::path &base);
-void SaveCamera(json& jsonData, const LitCamera camera);
-void SaveEntity(json& jsonData, const Entity& entity);
-void SaveLight(json& jsonData, const LightStruct& lightStruct);
-void SaveText(json& jsonData, const Text& text, bool emplaceBack = true);
-void SaveButton(json& jsonData, const LitButton& button);
-LightStruct& LoadLight(const json& lightJson);
+#include "SaveLoad.hpp"
+#include <fstream>
+#include <Engine/Lighting/skybox.hpp>
+#include <Engine/Editor/SceneEditor/SceneEditor.hpp>
+#include <Engine/Core/Events.hpp>
 
 std::map<std::string, std::string> scriptContents;
 
-bool is_subpath(const fs::path &path, const fs::path &base) {
+bool isSubPath(const fs::path &path, const fs::path &base) {
     auto rel = fs::relative(path, base);
     return !rel.empty() && rel.native()[0] != '.';
 }
@@ -126,7 +38,7 @@ void DeserializeMaterial(SurfaceMaterial* material, const fs::path& path) {
     fs::path resolvedPath = fs::canonical(path);
     const fs::path baseDir = fs::current_path() / "project/";
 
-    if (!is_subpath(resolvedPath, baseDir)) {
+    if (!isSubPath(resolvedPath, baseDir)) {
         TraceLog(LOG_ERROR, (std::string("Path traversal detected: ") + path.string()).c_str());
         return;
     }
@@ -363,7 +275,7 @@ std::string serializePythonScript(const fs::path& path) {
     fs::path resolvedPath = fs::canonical(path);
     const fs::path baseDir = fs::current_path() / "project/";
 
-    if (!is_subpath(resolvedPath, baseDir)) {
+    if (!isSubPath(resolvedPath, baseDir)) {
         TraceLog(LOG_ERROR, (std::string("Path traversal detected: ") + path.string()).c_str());
         return "";
     }
@@ -657,16 +569,16 @@ LightStruct& LoadLight(const json& lightJson) {
 
     LightStruct& lightStruct = NewLight({0, 0, 0}, WHITE, LIGHT_POINT, id);
 
-    lightStruct.lightInfo.name = lightJson.contains("name") && lightJson["name"].is_string() 
-        ? lightJson["name"].get<std::string>() 
+    lightStruct.lightInfo.name = lightJson.contains("name") && lightJson["name"].is_string()
+        ? lightJson["name"].get<std::string>()
         : "Unnamed Light";
 
-    lightStruct.isChild = lightJson.contains("isChild") && lightJson["isChild"].is_boolean() 
-        ? lightJson["isChild"].get<bool>() 
+    lightStruct.isChild = lightJson.contains("isChild") && lightJson["isChild"].is_boolean()
+        ? lightJson["isChild"].get<bool>()
         : false;
 
-    lightStruct.light.type = lightJson.contains("light_type") && lightJson["light_type"].is_number_integer() 
-        ? lightJson["light_type"].get<int>() 
+    lightStruct.light.type = lightJson.contains("light_type") && lightJson["light_type"].is_number_integer()
+        ? lightJson["light_type"].get<int>()
         : LIGHT_POINT;
 
     auto getVec3 = [](const json& j, const std::string& key) -> glm::vec3 {

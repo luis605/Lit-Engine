@@ -1,33 +1,23 @@
-# Attempt to set the C compiler to gcc-11
-find_program(GCC_11_PATH NAMES gcc-11)
-if(GCC_11_PATH)
-    set(CMAKE_C_COMPILER ${GCC_11_PATH})
+# Set C compiler (prefer gcc-11, fallback to gcc)
+find_program(COMPILER_C NAMES gcc-11 gcc)
+if(NOT COMPILER_C)
+    message(FATAL_ERROR "No suitable C compiler found.")
+endif()
+set(CMAKE_C_COMPILER ${COMPILER_C})
+if(COMPILER_C MATCHES "gcc-11")
     add_compile_options(-fno-lto)
     add_link_options(-fno-lto)
-else()
-    # Fallback to gcc if gcc-11 is not found
-    find_program(GCC_PATH NAMES gcc)
-    if(GCC_PATH)
-        set(CMAKE_C_COMPILER ${GCC_PATH})
-    else()
-        message(FATAL_ERROR "No suitable C compiler found.")
-    endif()
 endif()
 
-# Attempt to set the C++ compiler to g++-11
-find_program(GXX_11_PATH NAMES g++-11)
-if(GXX_11_PATH)
-    set(CMAKE_CXX_COMPILER ${GXX_11_PATH})
+# Set C++ compiler (prefer g++-11, fallback to g++)
+find_program(COMPILER_CXX NAMES g++-11 g++)
+if(NOT COMPILER_CXX)
+    message(FATAL_ERROR "No suitable C++ compiler found.")
+endif()
+set(CMAKE_CXX_COMPILER ${COMPILER_CXX})
+if(COMPILER_CXX MATCHES "g\\+\\+\\-11")
     add_compile_options(-fno-lto)
     add_link_options(-fno-lto)
-else()
-    # Fallback to g++ if g++-11 is not found
-    find_program(GXX_PATH NAMES g++)
-    if(GXX_PATH)
-        set(CMAKE_CXX_COMPILER ${GXX_PATH})
-    else()
-        message(FATAL_ERROR "No suitable C++ compiler found.")
-    endif()
 endif()
 
 # CMake Settings
@@ -42,31 +32,30 @@ set(CMAKE_EXE_LINKER_FLAGS "-static-libstdc++ -static-libgcc")
 set(CMAKE_CXX_FLAGS "-no-pie")
 set(CMAKE_CXX_FLAGS_RELEASE "-O3")
 set(CMAKE_CXX_FLAGS_DEBUG "-g -O0 -pg")
+set(CMAKE_CXX_COMPILER_LAUNCHER ccache)
 add_definitions(-w -g)
 
 # Source Files
 set(SRC_FILES
-    ${CMAKE_SOURCE_DIR}/include/ImGuiColorTextEdit/TextEditor.cpp
-    ${CMAKE_SOURCE_DIR}/include/rlImGui.cpp
-    ${CMAKE_SOURCE_DIR}/include/NodeEditor/crude_json.cpp
-    ${CMAKE_SOURCE_DIR}/include/NodeEditor/imgui_node_editor.cpp
-    ${CMAKE_SOURCE_DIR}/include/NodeEditor/imgui_canvas.cpp
-    ${CMAKE_SOURCE_DIR}/include/NodeEditor/imgui_node_editor_api.cpp
+    ${CMAKE_SOURCE_DIR}/Include/ImGuiColorTextEdit/TextEditor.cpp
+    ${CMAKE_SOURCE_DIR}/Include/rlImGui.cpp
+    ${CMAKE_SOURCE_DIR}/Include/rlFrustum.cpp
+    ${CMAKE_SOURCE_DIR}/Include/NodeEditor/crude_json.cpp
+    ${CMAKE_SOURCE_DIR}/Include/NodeEditor/imgui_node_editor.cpp
+    ${CMAKE_SOURCE_DIR}/Include/NodeEditor/imgui_canvas.cpp
+    ${CMAKE_SOURCE_DIR}/Include/NodeEditor/imgui_node_editor_api.cpp
 )
 
 # Use GLOB_RECURSE when all headers are fixed
-file(GLOB ENGINE_SRC_FILES
+file(GLOB_RECURSE ENGINE_SRC_FILES
     ${CMAKE_SOURCE_DIR}/Engine/*.cpp
-    ${CMAKE_SOURCE_DIR}/Engine/Core/Events.cpp
-    ${CMAKE_SOURCE_DIR}/Engine/Core/Textures.cpp
-    ${CMAKE_SOURCE_DIR}/Engine/Core/PythonLinkIssueWorkaround.cpp
+    ${CMAKE_SOURCE_DIR}/GameBuilder/builder.cpp
 )
+
 list(APPEND SRC_FILES ${ENGINE_SRC_FILES})
 
-# Debugger Configuration
-if(UNIX)
-    set(DEBUGGER gdb)
-endif()
+file(GLOB IMGUI_SRC_FILES ${CMAKE_SOURCE_DIR}/Include/imgui/*.cpp)
+list(APPEND SRC_FILES ${IMGUI_SRC_FILES})
 
 # Platform-Specific Configuration
 if(WIN32)
@@ -76,17 +65,18 @@ if(WIN32)
     find_package(Bullet CONFIG REQUIRED)
     find_package(FFMPEG REQUIRED)
 
-    message(STATUS "BULLET INCLUDE: ${Bullet_DIR}")
-    message(STATUS "BULLET LIBRARIES: ${BULLET_LIBRARIES}")
-    message(STATUS "BULLET INCLUDE DIR: ${BULLET_INCLUDE_DIRS}")
-    message(STATUS "BULLET LIBRARIES DIR: ${BULLET_LIBRARY_DIRS}")
-
     include_directories(
         ${BULLET_INCLUDE_DIRS}
     )
-endif()
 
-if(UNIX)
+    set(LIB_FLAGS
+        ${FFMPEG_LIBRARIES}
+        ${BULLET_LIBRARIES}
+        python312
+        winmm
+    )
+elseif(UNIX)
+    set(DEBUGGER gdb)
     find_package(X11 REQUIRED)
     find_package(PkgConfig REQUIRED)
     pkg_check_modules(AVFORMAT REQUIRED libavformat)
@@ -98,73 +88,17 @@ if(UNIX)
     pkg_check_modules(LZMA REQUIRED liblzma)
 
     include_directories(
-        ${CMAKE_SOURCE_DIR}/include/bullet3/src/
+        ${CMAKE_SOURCE_DIR}/Include/bullet3/src/
         ${AVFORMAT_LIBRARIES}
         ${AVCODEC_LIBRARIES}
         ${AVUTIL_LIBRARIES}
         ${SWSCALE_LIBRARIES}
         ${SWRESAMPLE_LIBRARIES}
-        ${CMAKE_SOURCE_DIR}/include/raylib/src/
         ${LZMA_LIBRARIES}
-        ${CMAKE_SOURCE_DIR}/include/meshoptimizer/build/
     )
-endif()
 
-# Python Configuration
-execute_process(
-    COMMAND python3.12 -c "import sys; print(sys.prefix + '/include/python3.12')"
-    OUTPUT_VARIABLE PYTHON_INCLUDE_DIR
-    OUTPUT_STRIP_TRAILING_WHITESPACE
-)
-
-execute_process(
-    COMMAND python3.12 -c "import sysconfig; print(sysconfig.get_config_var('LIBDIR'))"
-    OUTPUT_VARIABLE PYTHON_LIBS_DIR
-    OUTPUT_STRIP_TRAILING_WHITESPACE
-)
-
-message(STATUS "PYTHON INCLUDE: ${PYTHON_INCLUDE_DIR}")
-message(STATUS "PYTHON LIBRARY: ${PYTHON_LIBS_DIR}")
-
-# Dear ImGui Files
-file(GLOB IMGUI_SRC_FILES
-    ${CMAKE_SOURCE_DIR}/include/imgui/*.cpp
-)
-
-# Include Directories
-include_directories(
-    ${CMAKE_SOURCE_DIR}/include
-    ${CMAKE_SOURCE_DIR}/include/raylib/src
-    ${CMAKE_SOURCE_DIR}/include/raylib/src/external/
-    ${CMAKE_SOURCE_DIR}/include/raylib/src/external/glfw/include
-    ${CMAKE_SOURCE_DIR}/include/nlohmann/include
-    ${CMAKE_SOURCE_DIR}/include/imgui
-    ${CMAKE_SOURCE_DIR}/include/ffmpeg
-    ${CMAKE_SOURCE_DIR}/include/bullet3/src
-    ${CMAKE_SOURCE_DIR}/include/meshoptimizer/src
-    ${CMAKE_SOURCE_DIR}/include/pybind11/include
-    ${CMAKE_SOURCE_DIR}/include/ImGuiColorTextEdit
-    ${CMAKE_SOURCE_DIR}/include/NodeEditor
-    ${CMAKE_SOURCE_DIR}/include/NodeEditor/external/stb_image
-    ${CMAKE_SOURCE_DIR}/include/NodeEditor/misc
-    ${PYTHON_INCLUDE_DIR}
-    ${CMAKE_SOURCE_DIR}
-)
-
-# Link directories
-link_directories(
-    ${CMAKE_SOURCE_DIR}/include/meshoptimizer/build
-    ${CMAKE_SOURCE_DIR}/include/raylib/src
-    ${PYTHON_LIBS_DIR}
-    ${FFMPEG_LIBRARY_DIRS}
-    ${BULLET_LIBRARY_DIRS}
-    ${CMAKE_SOURCE_DIR}/include/libs/linux
-)
-
-# Library Flags
-if(UNIX)
     link_directories(
-        ${CMAKE_SOURCE_DIR}/include/bullet3/build/libs
+        ${CMAKE_SOURCE_DIR}/Include/bullet3/build/libs
     )
 
     set(LIB_FLAGS
@@ -184,14 +118,45 @@ if(UNIX)
         libdl.a
         libxcb.a
     )
-else()
-    set(LIB_FLAGS
-        ${FFMPEG_LIBRARIES}
-        ${BULLET_LIBRARIES}
-        python312
-    )
 endif()
 
+execute_process(COMMAND python3.12 -c "import sys; print(sys.prefix + '/include/python3.12')"       OUTPUT_STRIP_TRAILING_WHITESPACE OUTPUT_VARIABLE PYTHON_INCLUDE_DIR)
+execute_process(COMMAND python3.12 -c "import sysconfig; print(sysconfig.get_config_var('LIBDIR'))" OUTPUT_STRIP_TRAILING_WHITESPACE OUTPUT_VARIABLE PYTHON_LIBS_DIR)
+
+message(STATUS "PYTHON INCLUDE: ${PYTHON_INCLUDE_DIR}")
+message(STATUS "PYTHON LIBRARY: ${PYTHON_LIBS_DIR}")
+
+# Include Directories
+include_directories(
+    ${CMAKE_SOURCE_DIR}/Include
+    ${CMAKE_SOURCE_DIR}/Include/raylib/src
+    ${CMAKE_SOURCE_DIR}/Include/raylib/src/external/
+    ${CMAKE_SOURCE_DIR}/Include/raylib/src/external/glfw/include
+    ${CMAKE_SOURCE_DIR}/Include/nlohmann/include
+    ${CMAKE_SOURCE_DIR}/Include/imgui
+    ${CMAKE_SOURCE_DIR}/Include/ffmpeg
+    ${CMAKE_SOURCE_DIR}/Include/bullet3/src
+    ${CMAKE_SOURCE_DIR}/Include/meshoptimizer/src
+    ${CMAKE_SOURCE_DIR}/Include/pybind11/include
+    ${CMAKE_SOURCE_DIR}/Include/ImGuiColorTextEdit
+    ${CMAKE_SOURCE_DIR}/Include/NodeEditor
+    ${CMAKE_SOURCE_DIR}/Include/NodeEditor/external/stb_image
+    ${CMAKE_SOURCE_DIR}/Include/NodeEditor/misc
+    ${CMAKE_SOURCE_DIR}/Include/glm/glm
+    ${PYTHON_INCLUDE_DIR}
+    ${CMAKE_SOURCE_DIR}
+)
+
+# Link directories
+link_directories(
+    ${CMAKE_SOURCE_DIR}/Include/meshoptimizer/build
+    ${CMAKE_SOURCE_DIR}/Include/raylib/src
+    ${PYTHON_LIBS_DIR}
+    ${FFMPEG_LIBRARY_DIRS}
+    ${BULLET_LIBRARY_DIRS}
+)
+
+# Library Flags
 list(APPEND LIB_FLAGS
     meshoptimizer
     raylib
@@ -203,13 +168,7 @@ list(APPEND LIB_FLAGS
     -fvect-cost-model
 )
 
-if(WIN32)
-    list(APPEND LIB_FLAGS
-        winmm
-    )
-endif()
-
-add_executable(LitEngine ${SRC_FILES} ${IMGUI_SRC_FILES})
+add_executable(LitEngine ${SRC_FILES})
 
 target_link_libraries(LitEngine ${LIB_FLAGS})
 target_compile_options(LitEngine PRIVATE
@@ -251,7 +210,7 @@ endif()
 
 list(REMOVE_ITEM SRC_FILES ${CMAKE_SOURCE_DIR}/Engine/main.cpp)
 
-add_executable(MyApp ${SRC_FILES} ${IMGUI_SRC_FILES} GameBuilder/gameSystem.cpp)
+add_executable(MyApp ${SRC_FILES} GameBuilder/gameSystem.cpp)
 target_link_libraries(MyApp ${LIB_FLAGS})
 
 add_custom_target(gameBuilder

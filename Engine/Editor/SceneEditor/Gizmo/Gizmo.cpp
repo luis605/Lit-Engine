@@ -1,8 +1,52 @@
-#include "Gizmo.h"
+#include "Gizmo.hpp"
+#include <Engine/Core/Core.hpp>
+#include <Engine/Editor/SceneEditor/SceneEditor.hpp>
+#include <Engine/Editor/MenuBar/Settings.hpp>
 
-void LoadGizmoModel(Gizmo& gizmo, const Model& model, const fs::path& modelPath, const int& gizmoAxis, const Vector3& rotation) {
-    if (modelPath.empty()) gizmo.model = model;
-    else gizmo.model = LoadModel(modelPath.string().c_str());
+Gizmo gizmoPosition[NUM_GIZMO_POSITION];
+Gizmo gizmoScale[NUM_GIZMO_SCALE];
+Gizmo gizmoRotation[NUM_GIZMO_ROTATION];
+
+// Declare selected object variables and flags
+Vector3 selectedObjectPosition;
+Vector3 selectedObjectRotation;
+Vector3 selectedObjectScale;
+Vector2 mouseDragStart;
+Vector2 mousePosition;
+Vector2 mousePositionPrev;
+Vector3 gizmoRotationDelta;
+int selectedPositionGizmo = -1;
+int selectedScaleGizmo = -1;
+bool dragging = false;
+bool draggingPositionGizmo = false;
+bool draggingRotationGizmo = false;
+bool draggingScaleGizmo = false;
+bool isHoveringGizmo;
+bool lockRotationX = false;
+bool lockRotationY = false;
+bool lockRotationZ = false;
+
+float gizmoDragSensitivityFactor = 0.1f;
+
+GizmoPositionStructure gizmoPositionOffsets[6] = {
+    {{6, 0, 0}, {0, 0, -90}}, {{-6, 0, 0}, {0, 0, 90}},
+    {{0, 6, 0}, {0, 0, 0}},   {{0, -6, 0}, {180, 0, 0}},
+    {{0, 0, 6}, {90, 0, 0}},  {{0, 0, -6}, {-90, 0, 0}}};
+
+Color gizmoPositionColorsUnselected[6] = {{100, 0, 0, 255}, {100, 0, 0, 255},
+                                         {0, 0, 100, 255}, {0, 0, 100, 255},
+                                         {0, 100, 0, 255}, {0, 100, 0, 255}};
+
+Color gizmoPositionColorsSelected[6] = {{150, 0, 0, 255}, {150, 0, 0, 255},
+                                       {0, 0, 150, 255}, {0, 0, 150, 255},
+                                       {0, 150, 0, 255}, {0, 150, 0, 255}};
+
+void LoadGizmoModel(Gizmo& gizmo, const Model& model, const fs::path& modelPath,
+                    const int& gizmoAxis, const Vector3& rotation) {
+    if (modelPath.empty())
+        gizmo.model = model;
+    else
+        gizmo.model = LoadModel(modelPath.string().c_str());
 
     if (!IsModelReady(gizmo.model)) {
         TraceLog(LOG_WARNING, "Gizmo model is not ready");
@@ -15,13 +59,19 @@ void LoadGizmoModel(Gizmo& gizmo, const Model& model, const fs::path& modelPath,
 
 void InitGizmo() {
     for (int index = 0; index < NUM_GIZMO_POSITION; ++index) {
-        LoadGizmoModel(gizmoPosition[index], { 0 }, "assets/models/gizmo/arrow.obj", (int)((index * 0.5) + 1), gizmoPositionOffsets[index].rotation);
+        LoadGizmoModel(
+            gizmoPosition[index], {0}, "Assets/models/gizmo/arrow.obj",
+            (int)((index * 0.5) + 1), gizmoPositionOffsets[index].rotation);
     }
 
-    LoadGizmoModel(gizmoRotation[0], LoadModelFromMesh(GenMeshSphere(1, 15, 15)), "", 0, { 0, 0, 0 });
+    LoadGizmoModel(gizmoRotation[0],
+                   LoadModelFromMesh(GenMeshSphere(1, 15, 15)), "", 0,
+                   {0, 0, 0});
 
     for (int index = 0; index < NUM_GIZMO_SCALE; ++index) {
-        LoadGizmoModel(gizmoScale[index], LoadModelFromMesh(GenMeshCube(1, 1, 1)), "", (int)((index * 0.5) + 1), { 0, 0, 0 });
+        LoadGizmoModel(gizmoScale[index],
+                       LoadModelFromMesh(GenMeshCube(1, 1, 1)), "",
+                       (int)((index * 0.5) + 1), {0, 0, 0});
     }
 }
 
@@ -33,8 +83,10 @@ bool UpdateGizmoObjectProperties() {
     } else if (selectedGameObjectType == "light" && selectedLight) {
         selectedObjectPosition = glm3ToVec3(selectedLight->light.position);
         selectedObjectScale = {1, 1, 1};
-        selectedObjectRotation = Vector3Multiply(glm3ToVec3(selectedLight->light.direction), Vector3{ 360, 360, 360 });
-    } else return false; // Failure
+        selectedObjectRotation = Vector3Multiply(
+            glm3ToVec3(selectedLight->light.direction), Vector3{360, 360, 360});
+    } else
+        return false; // Failure
 
     return true; // Success
 }
@@ -43,31 +95,35 @@ void UpdateGizmoProperties(const float& maxObjectScale = 0) {
     constexpr float gizmoPositionOffset = 6.0f;
     constexpr float gizmoScaleOffset = 2.0f;
 
-    gizmoPosition[0].position = { selectedObjectPosition.x + maxObjectScale + gizmoPositionOffset, selectedObjectPosition.y, selectedObjectPosition.z };
-    gizmoPosition[1].position = { selectedObjectPosition.x - maxObjectScale - gizmoPositionOffset, selectedObjectPosition.y, selectedObjectPosition.z };
-    gizmoPosition[2].position = { selectedObjectPosition.x, selectedObjectPosition.y + maxObjectScale + gizmoPositionOffset, selectedObjectPosition.z };
-    gizmoPosition[3].position = { selectedObjectPosition.x, selectedObjectPosition.y - maxObjectScale - gizmoPositionOffset, selectedObjectPosition.z };
-    gizmoPosition[4].position = { selectedObjectPosition.x, selectedObjectPosition.y, selectedObjectPosition.z + maxObjectScale + gizmoPositionOffset };
-    gizmoPosition[5].position = { selectedObjectPosition.x, selectedObjectPosition.y, selectedObjectPosition.z - maxObjectScale - gizmoPositionOffset };
+    gizmoPosition[0].position = {selectedObjectPosition.x + maxObjectScale + gizmoPositionOffset, selectedObjectPosition.y, selectedObjectPosition.z};
+    gizmoPosition[1].position = {selectedObjectPosition.x - maxObjectScale - gizmoPositionOffset, selectedObjectPosition.y, selectedObjectPosition.z};
+    gizmoPosition[2].position = {selectedObjectPosition.x, selectedObjectPosition.y + maxObjectScale + gizmoPositionOffset, selectedObjectPosition.z};
+    gizmoPosition[3].position = {selectedObjectPosition.x, selectedObjectPosition.y - maxObjectScale - gizmoPositionOffset, selectedObjectPosition.z};
+    gizmoPosition[4].position = {selectedObjectPosition.x, selectedObjectPosition.y, selectedObjectPosition.z + maxObjectScale + gizmoPositionOffset};
+    gizmoPosition[5].position = {selectedObjectPosition.x, selectedObjectPosition.y, selectedObjectPosition.z - maxObjectScale - gizmoPositionOffset};
 
-    gizmoScale[0].position = { selectedObjectPosition.x + maxObjectScale + gizmoScaleOffset, selectedObjectPosition.y, selectedObjectPosition.z };
-    gizmoScale[1].position = { selectedObjectPosition.x - maxObjectScale - gizmoScaleOffset, selectedObjectPosition.y, selectedObjectPosition.z };
-    gizmoScale[2].position = { selectedObjectPosition.x, selectedObjectPosition.y + maxObjectScale + gizmoScaleOffset, selectedObjectPosition.z };
-    gizmoScale[3].position = { selectedObjectPosition.x, selectedObjectPosition.y - maxObjectScale - gizmoScaleOffset, selectedObjectPosition.z };
-    gizmoScale[4].position = { selectedObjectPosition.x, selectedObjectPosition.y, selectedObjectPosition.z + maxObjectScale + gizmoScaleOffset };
-    gizmoScale[5].position = { selectedObjectPosition.x, selectedObjectPosition.y, selectedObjectPosition.z - maxObjectScale - gizmoScaleOffset };
+    gizmoScale[0].position = {selectedObjectPosition.x + maxObjectScale + gizmoScaleOffset, selectedObjectPosition.y, selectedObjectPosition.z};
+    gizmoScale[1].position = {selectedObjectPosition.x - maxObjectScale - gizmoScaleOffset, selectedObjectPosition.y, selectedObjectPosition.z};
+    gizmoScale[2].position = {selectedObjectPosition.x, selectedObjectPosition.y + maxObjectScale + gizmoScaleOffset, selectedObjectPosition.z};
+    gizmoScale[3].position = {selectedObjectPosition.x, selectedObjectPosition.y - maxObjectScale - gizmoScaleOffset, selectedObjectPosition.z};
+    gizmoScale[4].position = {selectedObjectPosition.x, selectedObjectPosition.y, selectedObjectPosition.z + maxObjectScale + gizmoScaleOffset};
+    gizmoScale[5].position = {selectedObjectPosition.x, selectedObjectPosition.y, selectedObjectPosition.z - maxObjectScale - gizmoScaleOffset};
 }
 
-void IsGizmoBeingInteracted(const Gizmo& gizmo, const int& index, int& selectedGizmoIndex) {
-    const ImGuiPayload* payload = ImGui::GetDragDropPayload(); // Check if any payload is being dragged
+void IsGizmoBeingInteracted(const Gizmo& gizmo, const int& index,
+                            int& selectedGizmoIndex) {
+    const ImGuiPayload* payload =
+        ImGui::GetDragDropPayload(); // Check if any payload is being dragged
     if (dragging || payload || !ImGui::IsWindowHovered()) {
         isHoveringGizmo = false;
         return;
     }
 
-    isHoveringGizmo = IsMouseHoveringModel(gizmo.model, gizmo.position, gizmo.rotation, gizmo.scale);
+    isHoveringGizmo = IsMouseHoveringModel(gizmo.model, gizmo.position,
+                                           gizmo.rotation, gizmo.scale);
 
-    if (isHoveringGizmo) selectedGizmoIndex = index;
+    if (isHoveringGizmo)
+        selectedGizmoIndex = index;
 }
 
 static float accumulatedDeltaX = 0.0f;
@@ -85,13 +141,15 @@ void UpdateGizmoVisibilityAndScaling(Gizmo& gizmo, const Camera& camera) {
     Vector3 camToGizmo = Vector3Subtract(gizmo.position, camera.position);
     float distance = Vector3Length(camToGizmo);
 
-    gizmo.scale = { distance * 0.05f, distance * 0.05f, distance * 0.05f };
+    gizmo.scale = {distance * 0.05f, distance * 0.05f, distance * 0.05f};
 
     bool isVisible = (distance < 50.0f || isHoveringGizmo);
     SetGizmoVisibility(gizmo, isVisible);
 }
 
-bool HandleGizmo(bool& draggingGizmoProperty, Vector3& selectedObjectProperty, const GizmoAxis& axis, const bool& applyMinimumConstraint = false) {
+bool HandleGizmo(bool& draggingGizmoProperty, Vector3& selectedObjectProperty,
+                 const GizmoAxis& axis,
+                 const bool& applyMinimumConstraint) {
     if (!IsMouseButtonDown(MOUSE_LEFT_BUTTON)) {
         accumulatedDeltaX = accumulatedDeltaY = 0.0f;
         draggingGizmoProperty = false;
@@ -107,55 +165,69 @@ bool HandleGizmo(bool& draggingGizmoProperty, Vector3& selectedObjectProperty, c
 
     if (draggingGizmoProperty) {
         Vector2 mouseDragEnd = GetMousePosition();
-        float deltaX = (mouseDragEnd.x - mouseDragStart.x) * gizmoDragSensitivityFactor;
-        float deltaY = (mouseDragEnd.y - mouseDragStart.y) * gizmoDragSensitivityFactor;
+        float deltaX =
+            (mouseDragEnd.x - mouseDragStart.x) * gizmoDragSensitivityFactor;
+        float deltaY =
+            (mouseDragEnd.y - mouseDragStart.y) * gizmoDragSensitivityFactor;
 
         accumulatedDeltaX += deltaX;
         accumulatedDeltaY += deltaY;
 
-        Vector3 cameraDirection = Vector3Normalize(Vector3Subtract(sceneCamera.position, selectedObjectProperty));
+        Vector3 cameraDirection = Vector3Normalize(
+            Vector3Subtract(sceneCamera.position, selectedObjectProperty));
 
         switch (axis) {
-            case GizmoAxis::X_AXIS:
-                if (cameraDirection.z > 0) {
-                    accumulatedDeltaX = -accumulatedDeltaX;
-                    deltaX = -deltaX;
-                }
-                if (!gridSnappingEnabled) {
-                    selectedObjectProperty.x += deltaX;
-                } else if (fabs(accumulatedDeltaX) >= gridSnappingFactor) {
-                    selectedObjectProperty.x -= round(accumulatedDeltaX / gridSnappingFactor) * gridSnappingFactor;
-                    accumulatedDeltaX = 0.0f;
-                }
-                break;
+        case GizmoAxis::X_AXIS:
+            if (cameraDirection.z > 0) {
+                accumulatedDeltaX = -accumulatedDeltaX;
+                deltaX = -deltaX;
+            }
+            if (!gridSnappingEnabled) {
+                selectedObjectProperty.x += deltaX;
+            } else if (fabs(accumulatedDeltaX) >= gridSnappingFactor) {
+                selectedObjectProperty.x -=
+                    round(accumulatedDeltaX / gridSnappingFactor) *
+                    gridSnappingFactor;
+                accumulatedDeltaX = 0.0f;
+            }
+            break;
 
-            case GizmoAxis::Y_AXIS:
-                if (!gridSnappingEnabled) {
-                    selectedObjectProperty.y += deltaY;
-                } else if (fabs(accumulatedDeltaY) >= gridSnappingFactor) {
-                    selectedObjectProperty.y -= round(accumulatedDeltaY / gridSnappingFactor) * gridSnappingFactor;
-                    accumulatedDeltaY = 0.0f;
-                }
-                break;
+        case GizmoAxis::Y_AXIS:
+            if (!gridSnappingEnabled) {
+                selectedObjectProperty.y += deltaY;
+            } else if (fabs(accumulatedDeltaY) >= gridSnappingFactor) {
+                selectedObjectProperty.y -=
+                    round(accumulatedDeltaY / gridSnappingFactor) *
+                    gridSnappingFactor;
+                accumulatedDeltaY = 0.0f;
+            }
+            break;
 
-            case GizmoAxis::Z_AXIS:
-                if (cameraDirection.x > 0) {
-                    accumulatedDeltaX = -accumulatedDeltaX;
-                    deltaX = -deltaX;
-                }
-                if (!gridSnappingEnabled) {
-                    selectedObjectProperty.z += (deltaX + deltaY);
-                } else if (fabs(accumulatedDeltaX + accumulatedDeltaY) >= gridSnappingFactor) {
-                    selectedObjectProperty.z += round((accumulatedDeltaX + accumulatedDeltaY) / gridSnappingFactor) * gridSnappingFactor;
-                    accumulatedDeltaX = accumulatedDeltaY = 0.0f;
-                }
-                break;
+        case GizmoAxis::Z_AXIS:
+            if (cameraDirection.x > 0) {
+                accumulatedDeltaX = -accumulatedDeltaX;
+                deltaX = -deltaX;
+            }
+            if (!gridSnappingEnabled) {
+                selectedObjectProperty.z += (deltaX + deltaY);
+            } else if (fabs(accumulatedDeltaX + accumulatedDeltaY) >=
+                       gridSnappingFactor) {
+                selectedObjectProperty.z +=
+                    round((accumulatedDeltaX + accumulatedDeltaY) /
+                          gridSnappingFactor) *
+                    gridSnappingFactor;
+                accumulatedDeltaX = accumulatedDeltaY = 0.0f;
+            }
+            break;
         }
 
         if (applyMinimumConstraint) {
-            if (selectedObjectProperty.x < 0.0f) selectedObjectProperty.x = 0.0f;
-            if (selectedObjectProperty.y < 0.0f) selectedObjectProperty.y = 0.0f;
-            if (selectedObjectProperty.z < 0.0f) selectedObjectProperty.z = 0.0f;
+            if (selectedObjectProperty.x < 0.0f)
+                selectedObjectProperty.x = 0.0f;
+            if (selectedObjectProperty.y < 0.0f)
+                selectedObjectProperty.y = 0.0f;
+            if (selectedObjectProperty.z < 0.0f)
+                selectedObjectProperty.z = 0.0f;
         }
 
         mouseDragStart = mouseDragEnd;
@@ -164,8 +236,8 @@ bool HandleGizmo(bool& draggingGizmoProperty, Vector3& selectedObjectProperty, c
     return true;
 }
 
-
-void DrawGizmo(Gizmo& gizmo, const bool& wireframe = false, const bool& applyRotation = false) {
+void DrawGizmo(Gizmo& gizmo, const bool& wireframe,
+               const bool& applyRotation) {
     if (dragging) {
         Ray ray;
         Color rayColor;
@@ -174,30 +246,36 @@ void DrawGizmo(Gizmo& gizmo, const bool& wireframe = false, const bool& applyRot
 
         if (gizmo.axis == GizmoAxis::X_AXIS) {
             rayColor = RED;
-            ray.direction = Vector3{1,0,0};
+            ray.direction = Vector3{1, 0, 0};
         } else if (gizmo.axis == GizmoAxis::Y_AXIS) {
             rayColor = BLUE;
-            ray.direction = Vector3{0,1,0};
+            ray.direction = Vector3{0, 1, 0};
         } else if (gizmo.axis == GizmoAxis::Z_AXIS) {
             rayColor = GREEN;
-            ray.direction = Vector3{0,0,1};
+            ray.direction = Vector3{0, 0, 1};
         }
 
         DrawRay(ray, rayColor);
     }
 
     Matrix rotationMat = MatrixRotateXYZ((Vector3){
-        DEG2RAD * (gizmo.rotation.x + (applyRotation ? selectedObjectRotation.x : 0)),
-        DEG2RAD * (gizmo.rotation.y + (applyRotation ? selectedObjectRotation.y : 0)),
-        DEG2RAD * (gizmo.rotation.z + (applyRotation ? selectedObjectRotation.z : 0))
-    });
+        DEG2RAD *
+            (gizmo.rotation.x + (applyRotation ? selectedObjectRotation.x : 0)),
+        DEG2RAD *
+            (gizmo.rotation.y + (applyRotation ? selectedObjectRotation.y : 0)),
+        DEG2RAD * (gizmo.rotation.z +
+                   (applyRotation ? selectedObjectRotation.z : 0))});
 
     UpdateGizmoVisibilityAndScaling(gizmo, sceneCamera);
 
     Matrix transformMatrix = MatrixIdentity();
-    transformMatrix = MatrixMultiply(transformMatrix, MatrixScale(gizmo.scale.x, gizmo.scale.y, gizmo.scale.z));
+    transformMatrix = MatrixMultiply(
+        transformMatrix,
+        MatrixScale(gizmo.scale.x, gizmo.scale.y, gizmo.scale.z));
     transformMatrix = MatrixMultiply(transformMatrix, rotationMat);
-    transformMatrix = MatrixMultiply(transformMatrix, MatrixTranslate(gizmo.position.x, gizmo.position.y, gizmo.position.z));
+    transformMatrix = MatrixMultiply(
+        transformMatrix,
+        MatrixTranslate(gizmo.position.x, gizmo.position.y, gizmo.position.z));
 
     gizmo.model.transform = transformMatrix;
 
@@ -208,42 +286,58 @@ void DrawGizmo(Gizmo& gizmo, const bool& wireframe = false, const bool& applyRot
 }
 
 void DrawGizmos() {
-    bool entitySelected = (selectedGameObjectType == "entity" && selectedEntity);
+    bool entitySelected =
+        (selectedGameObjectType == "entity" && selectedEntity);
     bool lightSelected = (selectedGameObjectType == "light" && selectedLight);
     if (entitySelected || lightSelected) {
         if (!dragging || draggingPositionGizmo) {
             for (int index = 0; index < NUM_GIZMO_POSITION; ++index) {
-                if (index == selectedPositionGizmo || !draggingPositionGizmo) DrawGizmo(gizmoPosition[index]);
+                if (index == selectedPositionGizmo || !draggingPositionGizmo)
+                    DrawGizmo(gizmoPosition[index]);
             }
         }
 
         if (entitySelected) {
             if (!dragging || draggingScaleGizmo) {
                 for (int index = 0; index < NUM_GIZMO_POSITION; ++index) {
-                    if (index == selectedScaleGizmo || !draggingScaleGizmo) DrawGizmo(gizmoScale[index]);
+                    if (index == selectedScaleGizmo || !draggingScaleGizmo)
+                        DrawGizmo(gizmoScale[index]);
                 }
             }
         }
 
-        if (!dragging || draggingRotationGizmo) DrawGizmo(gizmoRotation[0], true, true);
+        if (!dragging || draggingRotationGizmo)
+            DrawGizmo(gizmoRotation[0], true, true);
     }
 }
 
 void GizmoPosition() {
-    if (!UpdateGizmoObjectProperties()) return;
+    if (!UpdateGizmoObjectProperties())
+        return;
     float maxObjectScale = 1.0f;
-    if (selectedGameObjectType == "entity" && selectedEntity) maxObjectScale= std::max(std::max(std::abs(selectedEntity->scale.x), std::abs(selectedEntity->scale.y)), std::abs(selectedEntity->scale.z)) / 2 + 3;
+    if (selectedGameObjectType == "entity" && selectedEntity)
+        maxObjectScale = std::max(std::max(std::abs(selectedEntity->scale.x),
+                                           std::abs(selectedEntity->scale.y)),
+                                  std::abs(selectedEntity->scale.z)) /
+                             2 +
+                         3;
 
     UpdateGizmoProperties(maxObjectScale);
 
     for (int index = 0; index < NUM_GIZMO_POSITION; index++) {
         Color color = gizmoPositionColorsUnselected[index];
-        IsGizmoBeingInteracted(gizmoPosition[index], index, selectedPositionGizmo);
-        if (isHoveringGizmo) color = gizmoPositionColorsSelected[index];
+        IsGizmoBeingInteracted(gizmoPosition[index], index,
+                               selectedPositionGizmo);
+        if (isHoveringGizmo)
+            color = gizmoPositionColorsSelected[index];
 
-        if (!draggingPositionGizmo || (draggingPositionGizmo && selectedPositionGizmo == index)) {
-            if (!HandleGizmo(draggingPositionGizmo, selectedObjectPosition, gizmoPosition[index].axis) && !isHoveringGizmo)
-                draggingPositionGizmo = false;   // Reset draggingPositionGizmo if not interacting
+        if (!draggingPositionGizmo ||
+            (draggingPositionGizmo && selectedPositionGizmo == index)) {
+            if (!HandleGizmo(draggingPositionGizmo, selectedObjectPosition,
+                             gizmoPosition[index].axis) &&
+                !isHoveringGizmo)
+                draggingPositionGizmo =
+                    false; // Reset draggingPositionGizmo if not interacting
         }
 
         gizmoPosition[index].color = color;
@@ -251,38 +345,55 @@ void GizmoPosition() {
 
     if (selectedGameObjectType == "entity" && selectedEntity != nullptr) {
         selectedEntity->position = selectedObjectPosition;
-        if (selectedEntity->isChild && selectedEntity->parent && selectedEntity->initialized) {
-            selectedEntity->relativePosition = Vector3Subtract(selectedEntity->position, selectedEntity->parent->position);
+        if (selectedEntity->isChild && selectedEntity->parent &&
+            selectedEntity->initialized) {
+            selectedEntity->relativePosition = Vector3Subtract(
+                selectedEntity->position, selectedEntity->parent->position);
         }
     } else if (selectedGameObjectType == "light" && selectedLight) {
         selectedLight->light.position = vec3ToGlm3(selectedObjectPosition);
         if (selectedLight->isChild) {
-            selectedLight->lightInfo.relativePosition = glm::vec3(
-                selectedLight->light.position.x - selectedLight->parent->position.x,
-                selectedLight->light.position.y - selectedLight->parent->position.y,
-                selectedLight->light.position.z - selectedLight->parent->position.z
-            );
+            selectedLight->lightInfo.relativePosition =
+                glm::vec3(selectedLight->light.position.x -
+                              selectedLight->parent->position.x,
+                          selectedLight->light.position.y -
+                              selectedLight->parent->position.y,
+                          selectedLight->light.position.z -
+                              selectedLight->parent->position.z);
         }
     }
 }
 
 void GizmoScale() {
-    if (!UpdateGizmoObjectProperties()) return;
+    if (!UpdateGizmoObjectProperties())
+        return;
 
     float maxObjectScale;
     selectedObjectPosition = selectedEntity->position;
-    maxObjectScale = std::max(std::max(std::abs(selectedEntity->scale.x), std::abs(selectedEntity->scale.y)), std::abs(selectedEntity->scale.z)) / 2 + 3;
+    maxObjectScale = std::max(std::max(std::abs(selectedEntity->scale.x),
+                                       std::abs(selectedEntity->scale.y)),
+                              std::abs(selectedEntity->scale.z)) /
+                         2 +
+                     3;
     selectedObjectScale = selectedEntity->scale;
 
     UpdateGizmoProperties(maxObjectScale);
 
     for (int cubeIndex = 0; cubeIndex < NUM_GIZMO_SCALE; cubeIndex++) {
-        Color color = { 0, 100, 0, 255 };
+        Color color = {0, 100, 0, 255};
 
-        IsGizmoBeingInteracted(gizmoScale[cubeIndex], cubeIndex, selectedScaleGizmo);
-        if (isHoveringGizmo) color = { 0, 150, 0, 255 };
-        if (!draggingScaleGizmo || (draggingScaleGizmo && selectedScaleGizmo == cubeIndex)) {
-            if (!HandleGizmo(draggingScaleGizmo, selectedObjectScale, gizmoScale[cubeIndex].axis, true) && !isHoveringGizmo) draggingScaleGizmo = false;   // Reset draggingScaleGizmo if the left mouse button isn't pressed or the gizmo isn't hovered
+        IsGizmoBeingInteracted(gizmoScale[cubeIndex], cubeIndex,
+                               selectedScaleGizmo);
+        if (isHoveringGizmo)
+            color = {0, 150, 0, 255};
+        if (!draggingScaleGizmo ||
+            (draggingScaleGizmo && selectedScaleGizmo == cubeIndex)) {
+            if (!HandleGizmo(draggingScaleGizmo, selectedObjectScale,
+                             gizmoScale[cubeIndex].axis, true) &&
+                !isHoveringGizmo)
+                draggingScaleGizmo =
+                    false; // Reset draggingScaleGizmo if the left mouse button
+                           // isn't pressed or the gizmo isn't hovered
         }
         gizmoScale[cubeIndex].color = color;
     }
@@ -290,29 +401,41 @@ void GizmoScale() {
     selectedEntity->scale = selectedObjectScale;
 }
 
-void ApplyRotationConstraints(Vector3& rotationDelta, const Vector3& gizmoRotationDeltaPrevious, const bool& lockX, const bool& lockY, const bool& lockZ) {
-    if (lockX) rotationDelta.x = gizmoRotationDeltaPrevious.x;
-    if (lockY) rotationDelta.y = gizmoRotationDeltaPrevious.y;
-    if (lockZ) rotationDelta.z = gizmoRotationDeltaPrevious.z;
+void ApplyRotationConstraints(Vector3& rotationDelta,
+                              const Vector3& gizmoRotationDeltaPrevious,
+                              const bool& lockX, const bool& lockY,
+                              const bool& lockZ) {
+    if (lockX)
+        rotationDelta.x = gizmoRotationDeltaPrevious.x;
+    if (lockY)
+        rotationDelta.y = gizmoRotationDeltaPrevious.y;
+    if (lockZ)
+        rotationDelta.z = gizmoRotationDeltaPrevious.z;
 }
 
 void GizmoRotation() {
-    if (!UpdateGizmoObjectProperties()) return;
+    if (!UpdateGizmoObjectProperties())
+        return;
 
-    float maxObjectScale = (selectedGameObjectType == "entity") ?
-                           std::max({std::abs(selectedEntity->scale.x), std::abs(selectedEntity->scale.y), std::abs(selectedEntity->scale.z)}) / 2 + 3 : 
-                           3;
+    float maxObjectScale = (selectedGameObjectType == "entity")
+                               ? std::max({std::abs(selectedEntity->scale.x),
+                                           std::abs(selectedEntity->scale.y),
+                                           std::abs(selectedEntity->scale.z)}) /
+                                         2 +
+                                     3
+                               : 3;
     Gizmo& torus = gizmoRotation[0];
 
-    torus.scale = { maxObjectScale, maxObjectScale, maxObjectScale };
+    torus.scale = {maxObjectScale, maxObjectScale, maxObjectScale};
     torus.position = selectedObjectPosition;
 
-    isHoveringGizmo = IsMouseHoveringModel(torus.model, torus.position, torus.rotation, torus.scale);
+    isHoveringGizmo = IsMouseHoveringModel(torus.model, torus.position,
+                                           torus.rotation, torus.scale);
 
     Color color = !dragging && ImGui::IsWindowHovered
-        ? isHoveringGizmo
-            ? Color{150, 150, 150, 255} : Color{100, 100, 100, 120}
-        : Color{100, 0, 0, 120};
+                      ? isHoveringGizmo ? Color{150, 150, 150, 255}
+                                        : Color{100, 100, 100, 120}
+                      : Color{100, 0, 0, 120};
 
     torus.color = color;
 
@@ -327,27 +450,41 @@ void GizmoRotation() {
             Vector2 mouseDragEnd = GetMousePosition();
             Vector3 gizmoRotationDeltaPrevious = gizmoRotationDelta;
 
-            gizmoRotationDelta = Vector3Transform(
-                {-(mouseDragEnd.y - mouseDragStart.y) * gizmoDragSensitivityFactor,
-                 -(mouseDragEnd.x - mouseDragStart.x) * gizmoDragSensitivityFactor,
-                 0.0f},
-                QuaternionToMatrix((Vector4){sceneCamera.front.x, sceneCamera.front.y, sceneCamera.front.z, 0})
-            );
+            gizmoRotationDelta =
+                Vector3Transform({-(mouseDragEnd.y - mouseDragStart.y) *
+                                      gizmoDragSensitivityFactor,
+                                  -(mouseDragEnd.x - mouseDragStart.x) *
+                                      gizmoDragSensitivityFactor,
+                                  0.0f},
+                                 QuaternionToMatrix((Vector4){
+                                     sceneCamera.front.x, sceneCamera.front.y,
+                                     sceneCamera.front.z, 0}));
 
-            if (IsKeyPressed(KEY_X)) lockRotationX = !lockRotationX;
-            if (IsKeyPressed(KEY_Y)) lockRotationY = !lockRotationY;
-            if (IsKeyPressed(KEY_Z)) lockRotationZ = !lockRotationZ;
+            if (IsKeyPressed(KEY_X))
+                lockRotationX = !lockRotationX;
+            if (IsKeyPressed(KEY_Y))
+                lockRotationY = !lockRotationY;
+            if (IsKeyPressed(KEY_Z))
+                lockRotationZ = !lockRotationZ;
 
-            ApplyRotationConstraints(gizmoRotationDelta, gizmoRotationDeltaPrevious, lockRotationX, lockRotationY, lockRotationZ);
+            ApplyRotationConstraints(gizmoRotationDelta,
+                                     gizmoRotationDeltaPrevious, lockRotationX,
+                                     lockRotationY, lockRotationZ);
 
-            selectedObjectRotation = {fmod(selectedObjectRotation.x + gizmoRotationDelta.x, 360.0f),
-                                      fmod(selectedObjectRotation.y + gizmoRotationDelta.y, 360.0f),
-                                      fmod(selectedObjectRotation.z + gizmoRotationDelta.z, 360.0f)};
+            selectedObjectRotation = {
+                fmod(selectedObjectRotation.x + gizmoRotationDelta.x, 360.0f),
+                fmod(selectedObjectRotation.y + gizmoRotationDelta.y, 360.0f),
+                fmod(selectedObjectRotation.z + gizmoRotationDelta.z, 360.0f)};
 
             mouseDragStart = mouseDragEnd;
         }
-    } else draggingRotationGizmo = false;
+    } else
+        draggingRotationGizmo = false;
 
-    if (selectedGameObjectType == "entity")      selectedEntity->rotation = selectedObjectRotation;
-    else if (selectedGameObjectType == "light")  selectedLight->light.direction = {selectedObjectRotation.x / 360, selectedObjectRotation.y / 360, selectedObjectRotation.z / 360};
+    if (selectedGameObjectType == "entity")
+        selectedEntity->rotation = selectedObjectRotation;
+    else if (selectedGameObjectType == "light")
+        selectedLight->light.direction = {selectedObjectRotation.x / 360,
+                                          selectedObjectRotation.y / 360,
+                                          selectedObjectRotation.z / 360};
 }

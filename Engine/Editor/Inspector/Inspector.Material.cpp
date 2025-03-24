@@ -1,13 +1,32 @@
-void MapInspector(const char* title, const MaterialMapIndex& materialMapIndex, bool& showTexture, fs::path& texturePath, SurfaceMaterialTexture& texture) {
+#define IMGUI_DEFINE_MATH_OPERATORS
+#include <imgui_internal.h>
+#include <imgui.h>
+
+#include <Engine/Core/Engine.hpp>
+#include <Engine/Core/Entity.hpp>
+#include <Engine/Core/SaveLoad.hpp>
+#include <Engine/Editor/AssetsExplorer/AssetsExplorer.hpp>
+#include <Engine/Editor/Inspector/Inspector.hpp>
+#include <Engine/Editor/MaterialsNodeEditor/MaterialNodeEditor.hpp>
+#include <cmath>
+
+void MapInspector(const char* title, const MaterialMapIndex& materialMapIndex,
+                  bool& showTexture, fs::path& texturePath,
+                  SurfaceMaterialTexture& texture) {
     ImGui::Text(title);
 
     ImGui::Indent();
 
-    if (ImGui::ImageButton(title, (ImTextureID)&selectedEntity->model.materials[0].maps[materialMapIndex].texture, ImVec2(64, 64)))
+    if (ImGui::ImageButton(title,
+                           (ImTextureID)&selectedEntity->model.materials[0]
+                               .maps[materialMapIndex]
+                               .texture,
+                           ImVec2(64, 64)))
         showTexture = !showTexture;
 
     if (ImGui::BeginDragDropTarget()) {
-        const ImGuiPayload* payload = ImGui::AcceptDragDropPayload("TEXTURE_PAYLOAD");
+        const ImGuiPayload* payload =
+            ImGui::AcceptDragDropPayload("TEXTURE_PAYLOAD");
 
         if (payload) {
             IM_ASSERT(payload->DataSize == sizeof(int));
@@ -23,7 +42,8 @@ void MapInspector(const char* title, const MaterialMapIndex& materialMapIndex, b
     }
 
     ImGui::SameLine();
-    std::string emptyButtonName = std::string("x##" + std::string(title) + "EmptyButton").c_str();
+    std::string emptyButtonName =
+        std::string("x##" + std::string(title) + "EmptyButton").c_str();
     if (ImGui::Button(emptyButtonName.c_str(), ImVec2(25, 25))) {
         texture.cleanup();
         texturePath = "";
@@ -33,10 +53,13 @@ void MapInspector(const char* title, const MaterialMapIndex& materialMapIndex, b
     ImGui::Unindent();
 }
 
-void MaterialInspector(SurfaceMaterial* surfaceMaterial = nullptr, fs::path path = "") {
-    if (!selectedEntity) return;
+void MaterialInspector(SurfaceMaterial* surfaceMaterial,
+                       fs::path path) {
+    if (!selectedEntity)
+        return;
 
-    if (path.empty()) path = selectedMaterial;
+    if (path.empty())
+        path = selectedMaterial;
 
     DeserializeMaterial(surfaceMaterial, path.c_str());
 
@@ -49,7 +72,6 @@ void MaterialInspector(SurfaceMaterial* surfaceMaterial = nullptr, fs::path path
         showMaterialInNodesEditor = !showMaterialInNodesEditor;
     showMaterialInNodesEditor = true;
     materialNodeSystem.DrawMaterialNodeEditor(*surfaceMaterial);
-
 
     SerializeMaterial(*surfaceMaterial, path.c_str());
 }

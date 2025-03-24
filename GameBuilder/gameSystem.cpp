@@ -1,6 +1,24 @@
 #define GAME_SHIPPING
 
-#include "../Engine/include_all.h"
+#include <Engine/Core/Engine.hpp>
+#include <Engine/Core/Entity.hpp>
+#include <Engine/Core/RunGame.hpp>
+#include <Engine/Core/SaveLoad.hpp>
+#include <Engine/Lighting/InitLighting.hpp>
+#include <Engine/Lighting/lights.hpp>
+#include <Engine/Lighting/Shaders.hpp>
+#include <Engine/Lighting/skybox.hpp>
+#include <Engine/Physics/PhysicsManager.hpp>
+#include <Engine/Scripting/functions.hpp>
+#include <Engine/Scripting/time.hpp>
+#include <cstddef>
+#include <fstream>
+#include <glad.h>
+#include <ios>
+#include <iostream>
+#include <python3.12/Python.h>
+#include <raylib.h>
+#include <string>
 
 void InitWindow();
 void WindowMainloop();
@@ -12,7 +30,7 @@ void StartGame();
 
 std::string gameTitle = "Game";
 bool first_time = true;
-LitCamera inGameCamera = { 0 };
+LitCamera inGameCamera = {0};
 
 const char* encryptFile(const std::string& inputFile, const std::string& key) {
     std::ifstream inFile(inputFile, std::ios::binary);
@@ -42,7 +60,6 @@ const char* encryptFile(const std::string& inputFile, const std::string& key) {
         encryptedData.append(buffer, bytesRead);
     }
 
-    
     char* encryptedCString = new char[encryptedData.size() + 1];
     std::strcpy(encryptedCString, encryptedData.c_str());
 
@@ -50,14 +67,15 @@ const char* encryptFile(const std::string& inputFile, const std::string& key) {
 }
 
 const char* decryptFile(const std::string& inputFile, const std::string& key) {
-    return encryptFile(inputFile, key); 
+    return encryptFile(inputFile, key);
 }
 
 void InitWindow() {
     SetTraceLogLevel(LOG_WARNING);
     InitWindow(WindowWidth, WindowHeight, gameTitle.c_str());
 
-    shader = LoadShader("shaders/lighting_vertex.glsl", "shaders/lighting_fragment.glsl");
+    shader = LoadShader("shaders/lighting_vertex.glsl",
+                        "shaders/lighting_fragment.glsl");
 
     // Face Culling
     glEnable(GL_CULL_FACE);
@@ -74,50 +92,51 @@ void WindowMainloop() {
     }
 }
 
-void UpdateShader() {
-    float cameraPos[3] = { inGameCamera.position.x, inGameCamera.position.y, inGameCamera.position.z };
-    SetShaderValue(shader, shader.locs[SHADER_LOC_VECTOR_VIEW], cameraPos, SHADER_UNIFORM_VEC3);
+void UpdateGameShader() {
+    float cameraPos[3] = {inGameCamera.position.x, inGameCamera.position.y,
+                          inGameCamera.position.z};
+    SetShaderValue(shader, shader.locs[SHADER_LOC_VECTOR_VIEW], cameraPos,
+                   SHADER_UNIFORM_VEC3);
 }
 
 void Run() {
     physics.Update(GetFrameTime());
 
     BeginDrawing();
-        ClearBackground(GRAY);
+    ClearBackground(GRAY);
 
-        BeginMode3D(inGameCamera);
+    BeginMode3D(inGameCamera);
 
-            skybox.drawSkybox(inGameCamera);
+    skybox.drawSkybox(inGameCamera);
 
-            UpdateLightsBuffer(false, lights);
-            UpdateInGameGlobals();
-            UpdateShader();
-            UpdateFrustum();
+    UpdateLightsBuffer(false, lights);
+    UpdateInGameGlobals();
+    UpdateGameShader();
+    UpdateFrustum();
 
-            if (first_time) {
-                for (Entity& entity : entitiesList) {
-                    entity.running_first_time = true;
+    if (first_time) {
+        for (Entity& entity : entitiesList) {
+            entity.running_first_time = true;
 
-                    RenderAndRunEntity(entity, &inGameCamera);
-                }
-            }
+            RenderAndRunEntity(entity, &inGameCamera);
+        }
+    }
 
-            for (Entity& entity : entitiesList) {
-                entity.render();
+    for (Entity& entity : entitiesList) {
+        entity.render();
 
-                entity.runScript(&inGameCamera);
-            }
+        entity.runScript(&inGameCamera);
+    }
 
-            first_time = false;
+    first_time = false;
 
-        EndMode3D();
+    EndMode3D();
 
     DrawTextElements();
     DrawButtons();
 
     EndDrawing();
 }
-
 
 int main() {
     InitWindow();

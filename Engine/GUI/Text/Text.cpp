@@ -1,8 +1,16 @@
+#include <Engine/GUI/Text/Text.hpp>
+#include <raylib.h>
+#include <sstream>
+#include <string>
+#include <Engine/Core/Engine.hpp>
+#include <algorithm>
+
+std::vector<Text> textElements;
+
 bool Text::IsPressed() {
-    // Assuming you have a way to get mouse input, you can check if the mouse
-    // is within the bounds of the text element.
     Vector2 mousePos = GetMousePosition();
-    return CheckCollisionPointRec(mousePos, bounds) && IsMouseButtonDown(MOUSE_BUTTON_LEFT);
+    return CheckCollisionPointRec(mousePos, bounds) &&
+           IsMouseButtonDown(MOUSE_BUTTON_LEFT);
 }
 
 void Text::Draw() {
@@ -20,48 +28,49 @@ void Text::Draw() {
         numLines++;
     }
 
-    bounds = {
-        currentPosition.x - backgroundRoundness - padding / 2,
-        currentPosition.y - backgroundRoundness - padding / 2,
-        static_cast<float>(textWidth + 2 * backgroundRoundness + padding),
-        static_cast<float>(numLines * (lineHeight + spacing) + 2 * backgroundRoundness + padding)
-    };
+    bounds = {currentPosition.x - backgroundRoundness - padding / 2,
+              currentPosition.y - backgroundRoundness - padding / 2,
+              static_cast<float>(textWidth + 2 * backgroundRoundness + padding),
+              static_cast<float>(numLines * (lineHeight + spacing) +
+                                 2 * backgroundRoundness + padding)};
 
     if (backgroundColor.a > 0) {
-        DrawRectangleRounded(bounds, backgroundRoundness / 10, 30, backgroundColor);
+        DrawRectangleRounded(bounds, backgroundRoundness / 10, 30,
+                             backgroundColor);
     }
 
     ss.clear();
     ss.seekg(0);
 
     while (std::getline(ss, line, '\n')) {
-        DrawText(line.c_str(), static_cast<int>(currentPosition.x), static_cast<int>(currentPosition.y), fontSize, color);
+        DrawText(line.c_str(), static_cast<int>(currentPosition.x),
+                 static_cast<int>(currentPosition.y), fontSize, color);
         currentPosition.y += lineHeight;
     }
 
 #ifndef GAME_SHIPPING
-    selected = (selectedTextElement == this && selectedGameObjectType == "text");
+    selected =
+        (selectedTextElement == this && selectedGameObjectType == "text");
 
     if (selectable && selected) {
-        DrawRectangleLines(bounds.x, bounds.y, bounds.width, bounds.height, BLUE);
+        DrawRectangleLines(bounds.x, bounds.y, bounds.width, bounds.height,
+                           BLUE);
     }
 #endif
 }
 
 void DrawTextElements() {
-    std::sort(textElements.begin(), textElements.end(), [](const Text& a, const Text& b) {
-        return a.position.z < b.position.z;
-    });
+    std::sort(textElements.begin(), textElements.end(),
+              [](const Text& a, const Text& b) {
+                  return a.position.z < b.position.z;
+              });
 
     for (Text& element : textElements) {
         element.Draw();
     }
 }
 
-
-
-Text& AddText(const char* text, Vector3 position, int fontSize, Color color)
-{
+Text& AddText(const char* text, Vector3 position, int fontSize, Color color) {
     textElements.emplace_back();
     Text& element = textElements.back();
     element.text = text;
@@ -70,4 +79,3 @@ Text& AddText(const char* text, Vector3 position, int fontSize, Color color)
     element.color = color;
     return element;
 }
-

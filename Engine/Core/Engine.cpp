@@ -1,3 +1,21 @@
+#include <Engine/Core/Entity.hpp>
+#include <Engine/Lighting/lights.hpp>
+#include "Engine.hpp"
+#include <fstream>
+#include <stdio.h>
+
+std::vector<Entity> entitiesListPregame;
+std::vector<Entity> entitiesList;
+std::unordered_map<int, size_t> entityIdToIndexMap;
+std::unordered_map<int, size_t> lightIdToIndexMap;
+std::unordered_map<GLuint, std::unordered_map<std::string, GLint>> uniformLocationCache;
+
+fs::path     selectedMaterial;
+Entity*      selectedEntity      = nullptr;
+LightStruct* selectedLight       = nullptr;
+LitButton*   selectedButton      = nullptr;
+Text*        selectedTextElement = nullptr;
+
 const char* encryptFileString(const std::string& inputFile, const std::string& key) {
     std::ifstream inFile(inputFile, std::ios::binary);
 
@@ -27,7 +45,7 @@ const char* encryptFileString(const std::string& inputFile, const std::string& k
     }
 
     inFile.close();
-    
+
     char* encryptedCString = new char[encryptedData.size() + 1];
     std::strcpy(encryptedCString, encryptedData.c_str());
 
@@ -35,7 +53,7 @@ const char* encryptFileString(const std::string& inputFile, const std::string& k
 }
 
 const char* decryptFileString(const std::string& inputFile, const std::string& key) {
-    return encryptFileString(inputFile, key); 
+    return encryptFileString(inputFile, key);
 }
 
 std::string readFileToString(const std::string& filename) {
@@ -44,48 +62,6 @@ std::string readFileToString(const std::string& filename) {
     buffer << file.rdbuf();
     return buffer.str();
 }
-
-HitInfo raycast(LitVector3 origin, LitVector3 direction, bool debug, std::vector<Entity> ignore) {
-    HitInfo hitInfo;
-    hitInfo.hit = false;
-
-    Ray ray{origin, direction};
-
-    if (debug)
-        DrawRay(ray, RED);
-
-    if (entitiesList.empty())
-        return hitInfo;
-
-    float minDistance = FLT_MAX;
-
-    for (const Entity& entity : entitiesList) {
-        if (std::find(ignore.begin(), ignore.end(), entity) != ignore.end())
-            continue;
-        
-        if (!entity.collider)
-            continue;
-
-        RayCollision entityBounds = GetRayCollisionBox(ray, entity.bounds);
-
-        for (int mesh_i = 0; mesh_i < entity.model.meshCount && entityBounds.hit; mesh_i++) {
-            RayCollision meshHitInfo = GetRayCollisionMesh(ray, entity.model.meshes[mesh_i], entity.model.transform);
-
-            if (meshHitInfo.hit && meshHitInfo.distance < minDistance) {
-                minDistance = meshHitInfo.distance;
-
-                hitInfo.hit = true;
-                hitInfo.distance = minDistance;
-                hitInfo.entity = const_cast<Entity*>(&entity);
-                hitInfo.worldPoint = meshHitInfo.point;
-                hitInfo.worldNormal = meshHitInfo.normal;
-            }
-        }
-    }
-
-    return hitInfo;
-}
-
 
 template <typename T>
 int findIndexInVector(const std::vector<T>& vec, const T& value) {
@@ -99,7 +75,7 @@ int findIndexInVector(const std::vector<T>& vec, const T& value) {
 
 GLint GetUniformLocation(Shader& shader, const char* name) {
     auto& shaderCache = uniformLocationCache[shader.id];
-    
+
     auto it = shaderCache.find(name);
     if (it != shaderCache.end())
         return it->second;
@@ -111,7 +87,7 @@ GLint GetUniformLocation(Shader& shader, const char* name) {
 
 GLint GetAttribLocation(Shader& shader, const char* name) {
     auto& shaderCache = uniformLocationCache[shader.id];
-    
+
     auto it = shaderCache.find(name);
     if (it != shaderCache.end())
         return it->second;

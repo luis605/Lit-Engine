@@ -1,38 +1,56 @@
-#include "Loader.h"
-#include "Scripting.h"
+#include "Loader.hpp"
+#include "Scripting.hpp"
+#include <filesystem>
+#include <fstream>
+#include <iostream>
+#include <nlohmann/json.hpp>
+#include <pybind11/embed.h>
+#include <pybind11/functional.h>
+#include <pybind11/pybind11.h>
+#include <pybind11/stl.h>
+#include <pybind11/attr.h>
+#include <raylib.h>
+
+namespace py = pybind11;
+namespace fs = std::filesystem;
+using json = nlohmann::json;
+
+Plugins pluginManager;
 
 void Plugin::initialize() {
     try {
         py::module::import("sys").attr("path").attr("append")(m_path.c_str());
-        py::module mathModule            = py::module::import("mathModule"); // Include LitVector3
-        py::module pluginScriptingModule = py::module::import("pluginScriptingModule");
-        py::module inputModule           = py::module::import("inputModule");
-        m_module                         = py::module::import("main");
+        py::module mathModule =
+            py::module::import("mathModule"); // Include LitVector3
+        py::module pluginScriptingModule =
+            py::module::import("pluginScriptingModule");
+        py::module inputModule = py::module::import("inputModule");
+        m_module = py::module::import("main");
 
-        py::dict locals = py::dict(
-            "Vector3"_a              = mathModule.attr("Vector3"),
-            "initWindow"_a           = pluginScriptingModule.attr("initWindow"),
-            "closeWindow"_a          = pluginScriptingModule.attr("closeWindow"),
-            "setSkybox"_a            = pluginScriptingModule.attr("setSkybox"),
-            "drawText"_a             = pluginScriptingModule.attr("drawText"),
-            "drawButton"_a           = pluginScriptingModule.attr("drawButton"),
-            "onEntityCreation"_a     = pluginScriptingModule.attr("onEntityCreation"),
-            "onEntityDestruction"_a  = pluginScriptingModule.attr("onEntityDestruction"),
-            "onSceneSave"_a          = pluginScriptingModule.attr("onSceneSave"),
-            "onSceneLoad"_a          = pluginScriptingModule.attr("onSceneLoad"),
-            "onScenePlay"_a          = pluginScriptingModule.attr("onScenePlay"),
-            "onSceneStop"_a          = pluginScriptingModule.attr("onSceneStop"),
-            "createEvent"_a          = pluginScriptingModule.attr("createEvent"),
-            "onCustomEvent"_a        = pluginScriptingModule.attr("onCustomEvent"),
-            "triggerCustomEvent"_a   = pluginScriptingModule.attr("triggerCustomEvent"),
-            "IsMouseButtonPressed"_a = inputModule.attr("isMouseButtonPressed"),
-            "IsKeyDown"_a            = inputModule.attr("isKeyDown"),
-            "IsKeyPressed"_a         = inputModule.attr("isKeyPressed"),
-            "IsKeyUp"_a              = inputModule.attr("isKeyUp"),
-            "GetMouseMovement"_a     = inputModule.attr("getMouseMovement"),
-            "Keys"_a                 = inputModule.attr("Keys"),
-            "MouseButton"_a          = inputModule.attr("MouseButton")
-        );
+        py::dict locals = py::dict();
+
+        locals["IsMouseButtonPressed"] = inputModule.attr("isMouseButtonPressed");
+        locals["onEntityDestruction"]  = pluginScriptingModule.attr("onEntityDestruction");
+        locals["triggerCustomEvent"]   = pluginScriptingModule.attr("triggerCustomEvent");
+        locals["GetMouseMovement"] = inputModule.attr("getMouseMovement");
+        locals["onEntityCreation"] = pluginScriptingModule.attr("onEntityCreation");
+        locals["onCustomEvent"]    = pluginScriptingModule.attr("onCustomEvent");
+        locals["IsKeyPressed"] = inputModule.attr("isKeyPressed");
+        locals["closeWindow"]  = pluginScriptingModule.attr("closeWindow");
+        locals["onSceneSave"]  = pluginScriptingModule.attr("onSceneSave");
+        locals["onSceneLoad"]  = pluginScriptingModule.attr("onSceneLoad");
+        locals["onScenePlay"]  = pluginScriptingModule.attr("onScenePlay");
+        locals["onSceneStop"]  = pluginScriptingModule.attr("onSceneStop");
+        locals["createEvent"]  = pluginScriptingModule.attr("createEvent");
+        locals["MouseButton"]  = inputModule.attr("MouseButton");
+        locals["initWindow"] = pluginScriptingModule.attr("initWindow");
+        locals["drawButton"] = pluginScriptingModule.attr("drawButton");
+        locals["setSkybox"]  = pluginScriptingModule.attr("setSkybox");
+        locals["IsKeyDown"]  = inputModule.attr("isKeyDown");
+        locals["drawText"]   = pluginScriptingModule.attr("drawText");
+        locals["IsKeyUp"] = inputModule.attr("isKeyUp");
+        locals["Vector3"] = mathModule.attr("Vector3");
+        locals["Keys"]    = inputModule.attr("Keys");
 
         for (auto item : locals) {
             m_module.attr(item.first) = item.second;
@@ -41,7 +59,9 @@ void Plugin::initialize() {
         if (m_module.attr("initPlugin")) {
             m_module.attr("initPlugin")();
         } else {
-            TraceLog(LOG_WARNING, ("Initialization function not found in plugin: " + m_name).c_str());
+            TraceLog(LOG_WARNING,
+                     ("Initialization function not found in plugin: " + m_name)
+                         .c_str());
         }
     } catch (const py::error_already_set& e) {
         TraceLog(LOG_ERROR, ("Failed to initialize plugin '" + m_name + "': " + std::string(e.what())).c_str());
@@ -50,15 +70,20 @@ void Plugin::initialize() {
 
 void Plugin::update() {
     try {
-        if (!m_module) return;
+        if (!m_module)
+            return;
 
         if (m_module.attr("updatePlugin")) {
             m_module.attr("updatePlugin")();
         } else {
-            TraceLog(LOG_WARNING, ("Update function not found in plugin: " + m_name).c_str());
+            TraceLog(
+                LOG_WARNING,
+                ("Update function not found in plugin: " + m_name).c_str());
         }
     } catch (const py::error_already_set& e) {
-        TraceLog(LOG_ERROR, ("Failed to update plugin '" + m_name + "': " + std::string(e.what())).c_str());
+        TraceLog(LOG_ERROR, ("Failed to update plugin '" + m_name +
+                             "': " + std::string(e.what()))
+                                .c_str());
     }
 }
 
@@ -86,7 +111,9 @@ void Plugin::unload() {
     } catch (const py::error_already_set&) {
         // Ignore if cleanup function doesn't exist
     } catch (const std::exception& e) {
-        TraceLog(LOG_ERROR, ("Error during plugin cleanup " + m_name + ": " + e.what()).c_str());
+        TraceLog(LOG_ERROR,
+                 ("Error during plugin cleanup " + m_name + ": " + e.what())
+                     .c_str());
     }
 
     try {
@@ -95,12 +122,14 @@ void Plugin::unload() {
 
         TraceLog(LOG_INFO, ("Successfully unloaded plugin: " + m_name).c_str());
     } catch (const std::exception& e) {
-        TraceLog(LOG_ERROR, ("Error unloading plugin " + m_name + ": " + e.what()).c_str());
+        TraceLog(
+            LOG_ERROR,
+            ("Error unloading plugin " + m_name + ": " + e.what()).c_str());
     } catch (...) {
-        TraceLog(LOG_ERROR, ("Unknown error unloading plugin: " + m_name).c_str());
+        TraceLog(LOG_ERROR,
+                 ("Unknown error unloading plugin: " + m_name).c_str());
     }
 }
-
 
 void Plugin::saveEnabledState() {
     std::ifstream inputFile(".profile/plugins.json");
@@ -132,7 +161,8 @@ void Plugin::saveEnabledState() {
     outputFile.close();
 }
 
-void Plugins::load(const std::string& name, const std::string& path, const bool& enabled) {
+void Plugins::load(const std::string& name, const std::string& path,
+                   const bool& enabled) {
     m_plugins.insert({name, std::make_unique<Plugin>(name, path, enabled)});
     TraceLog(LOG_INFO, ("Loaded plugin: " + name).c_str());
 }
@@ -145,17 +175,20 @@ void Plugins::initializeAllPlugins() {
 
 void Plugins::updateAll() {
     for (const auto& [name, plugin] : m_plugins) {
-        if (plugin->m_enabled) plugin->update();
+        if (plugin->m_enabled)
+            plugin->update();
     }
 }
 
 void Plugins::unloadAll() {
-    m_plugins.clear(); // This calls plugins deconstructor which calls unload itself
+    m_plugins
+        .clear(); // This calls plugins deconstructor which calls unload itself
 }
 
 void loadAllPlugins() {
     if (!checkPluginsConfigIntegrity()) {
-        TraceLog(LOG_ERROR, "Plugins configuration integrityPassed check failed. Could not load plugins.");
+        TraceLog(LOG_ERROR, "Plugins configuration integrityPassed check "
+                            "failed. Could not load plugins.");
         return;
     }
 
@@ -169,9 +202,13 @@ void loadAllPlugins() {
         return;
     }
 
-    for (const auto& [pluginName, pluginData] : pluginsConfig["plugins"].items()) {
+    for (const auto& [pluginName, pluginData] :
+         pluginsConfig["plugins"].items()) {
         if (!pluginData.contains("path") || !pluginData["path"].is_string()) {
-            TraceLog(LOG_WARNING, ("Plugin '" + pluginName + "' is missing a valid 'path' field. Skipping.").c_str());
+            TraceLog(LOG_WARNING,
+                     ("Plugin '" + pluginName +
+                      "' is missing a valid 'path' field. Skipping.")
+                         .c_str());
             continue;
         }
 
@@ -179,14 +216,17 @@ void loadAllPlugins() {
         bool enabled = pluginData["enabled"];
 
         if (!fs::exists(pluginPath)) {
-            TraceLog(LOG_WARNING, ("Plugin path '" + pluginPath + "' for '" + pluginName + "' does not exist. Skipping.").c_str());
+            TraceLog(LOG_WARNING, ("Plugin path '" + pluginPath + "' for '" +
+                                   pluginName + "' does not exist. Skipping.")
+                                      .c_str());
             continue;
         }
 
         try {
             pluginManager.load(pluginName, pluginPath, enabled);
         } catch (const std::exception& e) {
-            std::string message = "Failed to load plugin '" + pluginName + "': " + e.what();
+            std::string message =
+                "Failed to load plugin '" + pluginName + "': " + e.what();
             TraceLog(LOG_ERROR, message.c_str());
         }
     }
@@ -208,10 +248,11 @@ bool checkPluginsConfigIntegrity() {
     }
 
     if (!fs::exists(".profile/plugins.json")) {
-        TraceLog(LOG_WARNING, "No plugins.json found in .profile! Creating an empty file.");
+        TraceLog(LOG_WARNING,
+                 "No plugins.json found in .profile! Creating an empty file.");
         std::ofstream file(".profile/plugins.json");
         // Write empty JSON structure
-        json emptyPlugins = { {"plugins", json::object()} };
+        json emptyPlugins = {{"plugins", json::object()}};
         file << emptyPlugins.dump(4);
         file.close();
 
@@ -229,16 +270,21 @@ bool checkPluginsConfigIntegrity() {
         return integrityPassed;
     }
 
-    if (!pluginsConfig.contains("plugins") || !pluginsConfig["plugins"].is_object()) {
-        TraceLog(LOG_WARNING, "Invalid structure in .profile/plugins.json. Expecting 'plugins' object.");
+    if (!pluginsConfig.contains("plugins") ||
+        !pluginsConfig["plugins"].is_object()) {
+        TraceLog(LOG_WARNING, "Invalid structure in .profile/plugins.json. "
+                              "Expecting 'plugins' object.");
         integrityPassed = false;
         return integrityPassed;
     }
 
     // Check if all pluginPaths exist
-    for (const auto& [pluginName, pluginData] : pluginsConfig["plugins"].items()) {
+    for (const auto& [pluginName, pluginData] :
+         pluginsConfig["plugins"].items()) {
         if (!pluginData.contains("path") || !pluginData["path"].is_string()) {
-            std::string message = "Invalid plugin configuration for '" + pluginName + "'. 'path' field is missing or not a string.";
+            std::string message = "Invalid plugin configuration for '" +
+                                  pluginName +
+                                  "'. 'path' field is missing or not a string.";
             TraceLog(LOG_WARNING, message.c_str());
             continue; // Skip to next plugin
         }
@@ -247,16 +293,20 @@ bool checkPluginsConfigIntegrity() {
 
         // Check if pluginPath exists
         if (!fs::exists(pluginPath)) {
-            std::string message = "Plugin Path '" + pluginPath + "' for '" + pluginName + "' does not exist.";
+            std::string message = "Plugin Path '" + pluginPath + "' for '" +
+                                  pluginName + "' does not exist.";
             TraceLog(LOG_WARNING, message.c_str());
 
             continue; // Skip further checks for this plugin
         }
 
-        // Check if pluginName is in pluginPath (example: looking for a main.py file for a Python plugin)
+        // Check if pluginName is in pluginPath (example: looking for a main.py
+        // file for a Python plugin)
         std::string pluginMainFile = pluginPath + "/main.py";
         if (!fs::exists(pluginMainFile)) {
-            std::string message = "Plugin '" + pluginName + "' main file not found at '" + pluginMainFile + "'.";
+            std::string message = "Plugin '" + pluginName +
+                                  "' main file not found at '" +
+                                  pluginMainFile + "'.";
             TraceLog(LOG_WARNING, message.c_str());
         } else {
             std::string message = "Plugin '" + pluginName + "' is valid.";
@@ -266,7 +316,9 @@ bool checkPluginsConfigIntegrity() {
 
     // Check if .profile/plugins/ directory exists
     if (!fs::exists(".profile/plugins/")) {
-        TraceLog(LOG_WARNING, "No plugins directory found at .profile/plugins/! Creating it.");
+        TraceLog(
+            LOG_WARNING,
+            "No plugins directory found at .profile/plugins/! Creating it.");
         fs::create_directory(".profile/plugins/");
 
         integrityPassed = false;

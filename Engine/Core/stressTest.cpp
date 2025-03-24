@@ -1,16 +1,20 @@
+#include <Engine/Core/Engine.hpp>
+#include <Engine/Core/Entity.hpp>
+#include <cmath>
+#include <raylib.h>
+
 void CreateStressTest();
 
 float getRandomFloat(float min, float max) {
-    return min + static_cast<float>(rand()) / static_cast<float>(RAND_MAX / (max - min));
+    return min + static_cast<float>(rand()) /
+                     static_cast<float>(RAND_MAX / (max - min));
 }
 
-Entity mainEntity;
-
 void InitStressTest() {
-    mainEntity.setColor(RED);
+    Entity mainEntity;
     mainEntity.position = {0, 0, 0};
     mainEntity.setName("main");
-    mainEntity.setModel("", LoadModelFromMesh(GenMeshCube(1,1,1)));
+    mainEntity.setModel("", LoadModelFromMesh(GenMeshCube(1, 1, 1)));
     mainEntity.setShader(instancingShader);
     entitiesListPregame.emplace_back(mainEntity);
 
@@ -18,7 +22,6 @@ void InitStressTest() {
         CreateStressTest();
     }
 }
-
 
 void CreateStressTest() {
     Vector3 position;

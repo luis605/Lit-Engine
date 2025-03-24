@@ -1,6 +1,9 @@
 #ifndef TOOLTIP_H
 #define TOOLTIP_H
 
+#include <string>
+#include <raylib.h>
+
 class Tooltip {
 public:
     std::string text;

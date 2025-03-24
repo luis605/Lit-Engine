@@ -1,6 +1,17 @@
+#define IMGUI_DEFINE_MATH_OPERATORS
+#include <imgui.h>
+#include <imgui_internal.h>
+
+#include "Helpers.hpp"
+#include <Engine/Editor/MaterialsNodeEditor/MaterialNodeEditor.hpp>
+#include <NodeEditor/examples/application/include/application.h>
+#include <NodeEditor/imgui_canvas.h>
+#include <NodeEditor/imgui_node_editor.h>
+#include <vector>
+
 void DrawTextInNodeEditor(const char* label, bool isWarning) {
-    ImColor labelColor = isWarning ? ImColor(200, 20, 20, 255)
-                         : ImColor(30, 30, 30, 255);
+    ImColor labelColor =
+        isWarning ? ImColor(200, 20, 20, 255) : ImColor(30, 30, 30, 255);
 
     ImGui::SetCursorPosY(ImGui::GetCursorPosY() - ImGui::GetTextLineHeight());
     auto size = ImGui::CalcTextSize(label);
@@ -18,7 +29,6 @@ void DrawTextInNodeEditor(const char* label, bool isWarning) {
     ImGui::TextUnformatted(label);
 }
 
-
 std::vector<ed::PinId> GetConnectedInputPins(ed::PinId outputPinId) {
     std::vector<ed::PinId> connectedInputsId;
 
@@ -31,7 +41,8 @@ std::vector<ed::PinId> GetConnectedInputPins(ed::PinId outputPinId) {
     return connectedInputsId;
 }
 
-std::vector<Pin*> FindConnectedPins(const Node& materialNode, const std::vector<Link>& links) {
+std::vector<Pin*> FindConnectedPins(const Node& materialNode,
+                                    const std::vector<Link>& links) {
     std::vector<Pin*> connectedPins;
     for (const auto& pin : materialNode.Inputs) {
         for (const auto& link : links) {

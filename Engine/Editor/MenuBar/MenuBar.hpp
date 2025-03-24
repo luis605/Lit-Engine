@@ -4,9 +4,9 @@
 constexpr float BUTTON_PADDING = 30.0f;
 constexpr float BUTTON_HEIGHT  = 30.0f;
 constexpr ImVec2 BUTTON_SIZE   = ImVec2(120.0f, BUTTON_HEIGHT);
-bool showAppearanceWindow = false;
-bool showDebugWindow      = false;
-bool menuButtonClicked    = false;
+extern bool showAppearanceWindow;
+extern bool showDebugWindow;
+extern bool menuButtonClicked;
 
 void Appearance();
 void DebugWindow();

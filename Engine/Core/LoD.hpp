@@ -1,9 +1,14 @@
 #ifndef LOD_H
 #define LOD_H
 
-const float LOD_DISTANCE_HIGH = 10.0f;
-const float LOD_DISTANCE_MEDIUM = 25.0f;
-const float LOD_DISTANCE_LOW = 35.0f;
+#define RAYMATH_IMPLEMENTATION
+#include <raylib.h>
+#include <raymath.h>
+#include <vector>
+
+constexpr float LOD_DISTANCE_HIGH = 10.0f;
+constexpr float LOD_DISTANCE_MEDIUM = 25.0f;
+constexpr float LOD_DISTANCE_LOW = 35.0f;
 
 struct OptimizedMeshData {
 	std::vector<unsigned int> indices;

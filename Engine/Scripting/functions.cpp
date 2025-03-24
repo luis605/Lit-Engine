@@ -1,4 +1,43 @@
-#pragma once
+#include <Engine/Scripting/functions.hpp>
+#include <btBulletDynamicsCommon.h>
+#include <pybind11/embed.h>
+#include <pybind11/functional.h>
+#include <pybind11/pybind11.h>
+#include <pybind11/stl.h>
+#include <raylib.h>
+
+class PhysicsManager;
+struct HitInfo;
+class Entity;
+
+#include <Engine/Core/Entity.hpp>
+#include <Engine/Core/Raycast.hpp>
+#include <Engine/Scripting/math.hpp>
+#include <Engine/Scripting/time.hpp>
+
+namespace py = pybind11;
+
+class PhysicsManager;
+struct HitInfo;
+
+Vector2 mouseMove;
+float lastFrameCount = 0.0f;
+
+void LitCamera::update() {
+    position = pos;
+    target = look_at;
+    up = up_vector;
+    calculateVectors();
+}
+
+void LitCamera::calculateVectors() {
+    front = Vector3Normalize(Vector3Subtract(target, position));
+    right = Vector3Normalize(Vector3CrossProduct(front, up));
+    left = Vector3Negate(right);
+    back = Vector3Negate(front);
+}
+
+LitCamera camera;
 
 PYBIND11_EMBEDDED_MODULE(timeModule, m) {
     py::class_<Time>(m, "Time")
@@ -9,57 +48,62 @@ PYBIND11_EMBEDDED_MODULE(timeModule, m) {
 PYBIND11_EMBEDDED_MODULE(mathModule, m) {
     py::class_<LitVector3>(m, "Vector3")
         .def(py::init<float, float, float>())
-        .def_property("x",
-            [](LitVector3& position) { return position.x; },
+        .def_property(
+            "x", [](LitVector3& position) { return position.x; },
             [](LitVector3& position, float value) { position.x = value; })
-        .def_property("y",
-            [](LitVector3& position) { return position.y; },
+        .def_property(
+            "y", [](LitVector3& position) { return position.y; },
             [](LitVector3& position, float value) { position.y = value; })
-        .def_property("z",
-            [](LitVector3& position) { return position.z; },
+        .def_property(
+            "z", [](LitVector3& position) { return position.z; },
             [](LitVector3& position, float value) { position.z = value; })
         .def("__repr__",
-            [](LitVector3& position) {
-                return "(" + std::to_string(position.x) + ", " + std::to_string(position.y) + ", " + std::to_string(position.z) +  ")";
-            })
+             [](LitVector3& position) {
+                 return "(" + std::to_string(position.x) + ", " +
+                        std::to_string(position.y) + ", " +
+                        std::to_string(position.z) + ")";
+             })
 
         .def("normalized", &LitVector3::normalized)
         .def("lengthSquared", &LitVector3::lengthSquared)
         .def("crossProduct", &LitVector3::CrossProduct)
         .def("pos", &LitVector3::pos)
-        .def("__sub__", [](const LitVector3 &a, const LitVector3 &b) {
-            return LitVector3(a.x - b.x, a.y - b.y, a.z - b.z);
-        })
-        .def("__add__", [](const LitVector3 &a, const LitVector3 &b) {
-            return LitVector3(a.x + b.x, a.y + b.y, a.z + b.z);
-        })
-        .def("__mul__", [](const LitVector3 &a, const LitVector3 &b) {
-            return a * b;
-        })
-        .def("__mul__", [](const LitVector3 &a, float scalar) {
-            return a * scalar;
-        })
-        .def("__mul__", [](const LitVector3 &a, int scalar) {
-            return a * scalar;
-        })
-        .def("__truediv__", [](const LitVector3 &a, const LitVector3 &b) {
-            return LitVector3(a.x / b.x, a.y / b.y, a.z / b.z);
-        })
-        .def("__truediv__", [](const LitVector3 &a, float scalar) {
-            return LitVector3(a.x / scalar, a.y / scalar, a.z / scalar);
-        })
-        .def("__truediv__", [](const LitVector3 &a, int scalar) {
-            return LitVector3(a.x / scalar, a.y / scalar, a.z / scalar);
-        })
-        .def("__str__", [](const LitVector3 &a) {
-            return std::to_string(a.x) + " " + std::to_string(a.y) + " " + std::to_string(a.z);
+        .def("__sub__",
+             [](const LitVector3& a, const LitVector3& b) {
+                 return LitVector3(a.x - b.x, a.y - b.y, a.z - b.z);
+             })
+        .def("__add__",
+             [](const LitVector3& a, const LitVector3& b) {
+                 return LitVector3(a.x + b.x, a.y + b.y, a.z + b.z);
+             })
+        .def("__mul__",
+             [](const LitVector3& a, const LitVector3& b) { return a * b; })
+        .def("__mul__",
+             [](const LitVector3& a, float scalar) { return a * scalar; })
+        .def("__mul__",
+             [](const LitVector3& a, int scalar) { return a * scalar; })
+        .def("__truediv__",
+             [](const LitVector3& a, const LitVector3& b) {
+                 return LitVector3(a.x / b.x, a.y / b.y, a.z / b.z);
+             })
+        .def("__truediv__",
+             [](const LitVector3& a, float scalar) {
+                 return LitVector3(a.x / scalar, a.y / scalar, a.z / scalar);
+             })
+        .def("__truediv__",
+             [](const LitVector3& a, int scalar) {
+                 return LitVector3(a.x / scalar, a.y / scalar, a.z / scalar);
+             })
+        .def("__str__", [](const LitVector3& a) {
+            return std::to_string(a.x) + " " + std::to_string(a.y) + " " +
+                   std::to_string(a.z);
         });
 
     py::class_<Vector2>(m, "Vector2")
         .def(py::init<float, float>())
         .def_readwrite("x", &Vector2::x)
         .def_readwrite("y", &Vector2::y)
-        .def("__str__", [](const Vector2 &a) {
+        .def("__str__", [](const Vector2& a) {
             return std::to_string(a.x) + " " + std::to_string(a.y);
         });
 
@@ -67,9 +111,11 @@ PYBIND11_EMBEDDED_MODULE(mathModule, m) {
     m.def("vector3Length", &LitVector3Length);
     m.def("vector3LengthSqr", &LitVector3LengthSqr);
     m.def("vector3Distance", &LitVector3Distance);
-    m.def("lerp", static_cast<float(*)(float, float, float)>(&lerp<float>), "Lerp function for float and double types");
-    m.def("lerp", static_cast<int(*)(int, int, float)>(&lerp_int), "Lerp function for integer types");
-    m.def("lerp", &lerp_Vector3, "Lerp function for Vector3 type");
+    m.def("lerp", static_cast<float (*)(float, float, float)>(&LitLerp<float>),
+          "Lerp function for float and double types");
+    m.def("lerp", static_cast<int (*)(int, int, float)>(&LitLerpInt),
+          "Lerp function for integer types");
+    m.def("lerp", &lerpVector3, "Lerp function for Vector3 type");
 }
 
 PYBIND11_EMBEDDED_MODULE(mouseModule, m) {
@@ -79,49 +125,13 @@ PYBIND11_EMBEDDED_MODULE(mouseModule, m) {
 
 PYBIND11_EMBEDDED_MODULE(physicsModule, m) {
     py::class_<PhysicsManager>(m, "physics")
-        .def_property("gravity",
+        .def_property(
+            "gravity",
             [](const PhysicsManager& physics) { return physics.gravity; },
-            [](PhysicsManager& physics, const LitVector3& gravity) { physics.setGravity(gravity); }
-        );
+            [](PhysicsManager& physics, const LitVector3& gravity) {
+                physics.SetGravity(gravity);
+            });
 }
-
-struct LitCamera : Camera3D {
-    LitVector3 front;
-    LitVector3 right;
-    LitVector3 left;
-    LitVector3 back;
-
-    LitVector3 pos = LitVector3{};
-    LitVector3 look_at = LitVector3{};
-    LitVector3 up_vector = LitVector3{};
-
-    std::string name = "Camera";
-
-    LitCamera(LitVector3 pos = LitVector3{}, LitVector3 look_at = LitVector3{},
-              LitVector3 up_vector = LitVector3{ 0.0f, 1.0f, 0.0f }, float _fovy = 0.0f, int _projection = 0)
-        : Camera3D{},
-          front{Vector3Subtract(look_at, pos)},
-          up_vector{up_vector}
-    {
-        update();
-    }
-
-    void update() {
-        position = pos;
-        target = look_at;
-        up = up_vector;
-        calculateVectors();
-    }
-
-    void calculateVectors() {
-        front = Vector3Normalize(Vector3Subtract(target, position));
-        right = Vector3Normalize(Vector3CrossProduct(front, up));
-        left = Vector3Negate(right);
-        back = Vector3Negate(front);
-    }
-};
-
-LitCamera camera;
 
 PYBIND11_EMBEDDED_MODULE(cameraModule, m) {
     py::class_<LitCamera>(m, "LitCamera")
@@ -135,10 +145,9 @@ PYBIND11_EMBEDDED_MODULE(cameraModule, m) {
         .def_readwrite("back", &LitCamera::back)
         .def_readwrite("left", &LitCamera::left)
         .def_readwrite("right", &LitCamera::right);
-
 }
 
-pybind11::object export_camera() {
+pybind11::object exportCamera() {
     pybind11::module_ m = pybind11::module_::import("raylib_camera");
     pybind11::class_<LitCamera>(m, "LitCamera")
         .def(pybind11::init<>())
@@ -154,26 +163,6 @@ pybind11::object export_camera() {
 
     return camera_obj;
 }
-
-Vector2 mouseMove;
-float last_frame_count = 0;
-
-Vector2 GetMouseMovement()
-{
-    static Vector2 lastMousePosition = { 0 };
-
-    if (timeInstance.dt - last_frame_count != 0)
-    {
-        Vector2 mousePosition = GetMousePosition();
-        mouseMove = { mousePosition.x - lastMousePosition.x, mousePosition.y - lastMousePosition.y };
-
-        lastMousePosition = mousePosition;
-        last_frame_count = timeInstance.dt;
-    }
-        
-    return mouseMove;
-}
-
 
 PYBIND11_EMBEDDED_MODULE(inputModule, m) {
     m.def("isMouseButtonPressed", &IsMouseButtonPressed);
@@ -284,10 +273,6 @@ PYBIND11_EMBEDDED_MODULE(inputModule, m) {
         .value("KEY_SPACE", KEY_SPACE);
 }
 
-
-HitInfo raycast(LitVector3 origin, LitVector3 direction, bool debug=false, std::vector<Entity> ignore = {});
-
-
 PYBIND11_EMBEDDED_MODULE(collisionModule, m) {
     py::enum_<CollisionShapeType>(m, "CollisionShape")
         .value("Box", CollisionShapeType::Box)
@@ -302,38 +287,25 @@ PYBIND11_EMBEDDED_MODULE(collisionModule, m) {
         .def_readwrite("worldNormal", &HitInfo::worldNormal)
         .def_readwrite("distance", &HitInfo::distance)
         .def_readwrite("hitColor", &HitInfo::hitColor)
-        .def_property("entity", 
-            [](const HitInfo& info) -> py::object { 
-                // Convert raw pointer to Python object
+        .def_property(
+            "entity",
+            [](const HitInfo& info) -> py::object {
                 if (info.entity) {
-                    // If the pointer is not null, create a Python object from it
                     return py::cast(info.entity);
                 } else {
-                    // If the pointer is null, return None
                     return py::none();
                 }
-            }, // Getter
-            [](HitInfo& info, py::object pyEntity) { 
-                // Convert Python object to raw pointer
+            },
+            [](HitInfo& info, py::object pyEntity) {
                 if (!pyEntity.is_none()) {
-                    // If the Python object is not None, extract the raw pointer
                     info.entity = pyEntity.cast<Entity*>();
                 } else {
-                    // If the Python object is None, set the pointer to null
                     info.entity = nullptr;
                 }
-            } // Setter
-        );
+            });
 
-        
-    m.def("raycast", &raycast, py::arg("origin"), py::arg("direction"), py::arg("debug") = false, py::arg("ignore") = std::vector<Entity>());
-}
-
-
-std::string colorToString(const Color& color) {
-  std::stringstream ss;
-  ss << "(" << (int)color.r << ", " << (int)color.g << ", " << (int)color.b << ", " << (int)color.a << ")";
-  return ss.str();
+    m.def("raycast", &raycast, py::arg("origin"), py::arg("direction"),
+          py::arg("debug") = false, py::arg("ignore") = std::vector<Entity>());
 }
 
 PYBIND11_EMBEDDED_MODULE(colorModule, m) {
@@ -343,4 +315,19 @@ PYBIND11_EMBEDDED_MODULE(colorModule, m) {
         .def_readwrite("g", &Color::g)
         .def_readwrite("b", &Color::b)
         .def_readwrite("a", &Color::a);
+}
+
+Vector2 GetMouseMovement() {
+    static Vector2 lastMousePosition = {0};
+
+    if (timeInstance.dt - lastFrameCount != 0) {
+        Vector2 mousePosition = GetMousePosition();
+        mouseMove = {mousePosition.x - lastMousePosition.x,
+                     mousePosition.y - lastMousePosition.y};
+
+        lastMousePosition = mousePosition;
+        lastFrameCount = timeInstance.dt;
+    }
+
+    return mouseMove;
 }

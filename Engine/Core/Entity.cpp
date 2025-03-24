@@ -1,6 +1,19 @@
-py::scoped_interpreter guard{};
+#include "Entity.hpp"
+#include <rlFrustum.h>
+#include <Engine/Core/LoD.hpp>
+#include <Engine/Core/Events.hpp>
+#include <Engine/Lighting/lights.hpp>
+#include <Engine/Core/Textures.hpp>
 
-py::module entityModule = py::module_::create_extension_module("entityModule", nullptr, new PyModuleDef());
+#ifndef GAME_SHIPPING
+    #include <Engine/Editor/SceneEditor/SceneEditor.hpp>
+#endif // GAME_SHIPPING
+
+bool Entity_already_registered = false;
+
+py::module createEntityModule() {
+    return py::module_::create_extension_module("entityModule", nullptr, new PyModuleDef());
+}
 
 RLFrustum cameraFrustum;
 void InitFrustum() {
@@ -23,982 +36,883 @@ bool AABBoxInFrustum(const Vector3& min, const Vector3& max) {
     return cameraFrustum.AABBoxIn(min, max);
 }
 
-class __attribute__((visibility("default"))) Entity {
-public:
-    bool initialized = false;
-    std::string name = "Entity";
-    float size = 1;
-    LitVector3 position = { 0, 0, 0 };
-    LitVector3 rotation = { 0, 0, 0 };
-    LitVector3 scale = { 1, 1, 1 };
+void Entity::addInstance(Entity* instance) {
+    instances.emplace_back(instance);
 
-    LitVector3 relativePosition = { 0, 0, 0 };
-    LitVector3 relativeRotation = { 0, 0, 0 };
-    LitVector3 relativeScale = { 1, 1, 1 };
+    if (transforms == nullptr) {
+        transforms = (Matrix *)RL_CALLOC(instances.size(), sizeof(Matrix));
+    } else {
+        transforms = (Matrix *)RL_REALLOC(transforms, instances.size() * sizeof(Matrix));
+    }
 
-    LitVector3 inertia = {0, 0, 0};
+    int lastIndex = instances.size() - 1;
+    calculateInstance(lastIndex);
 
-    std::string script;
-    std::string scriptIndex;
-    fs::path modelPath;
+    instancingShader.locs[SHADER_LOC_MATRIX_MVP] = GetUniformLocation(instancingShader, "mvp");
+    instancingShader.locs[SHADER_LOC_VECTOR_VIEW] = GetUniformLocation(instancingShader, "viewPos");
+    instancingShader.locs[SHADER_LOC_MATRIX_MODEL] = GetAttribLocation(instancingShader, "instanceTransform");
+}
 
-    Model model;
-    Model LodModels[4] = { };
+bool Entity::hasInstances() const {
+    return !instances.empty();
+}
 
-    BoundingBox bounds;
-    BoundingBox constBounds;
+void Entity::calculateInstance(int index) {
+    if (index < 0 || index >= instances.size()) return;
 
-    fs::path surfaceMaterialPath;
-    SurfaceMaterial surfaceMaterial;
+    Entity* entity = instances.at(index);
 
-    float tiling[2] = { 1.0f, 1.0f };
-    float mass = 1;
-    float friction = 1;
-    float damping = 0;
+    Matrix translation = MatrixTranslate(entity->position.x, entity->position.y, entity->position.z);
+    Matrix rotation = MatrixRotateXYZ(Vector3{ DEG2RAD * entity->rotation.x, DEG2RAD * entity->rotation.y, DEG2RAD * entity->rotation.z });
 
-    bool collider = true;
-    bool visible = true;
-    bool isChild = false;
-    bool isParent = false;
-    bool running = false;
-    bool running_first_time = false;
-    bool calcPhysics = false;
-    bool isDynamic = false;
-    bool lodEnabled = true;
+    transforms[index] = MatrixMultiply(rotation, translation);
 
-    enum ObjectTypeEnum {
-        ObjectType_None,
-        ObjectType_Cube,
-        ObjectType_Cone,
-        ObjectType_Cylinder,
-        ObjectType_Plane,
-        ObjectType_Sphere,
-        ObjectType_Torus
+    matInstances = LoadMaterialDefault();
+}
+
+void Entity::addEntityChild(int newEntityIndex) {
+    Entity* newEntity = getEntityById(newEntityIndex);
+
+    if (!newEntity) {
+        TraceLog(LOG_WARNING, "Cannot add child, since child was not found.");
+        return;
+    }
+
+    if (newEntity == this) {
+        TraceLog(LOG_WARNING, "Entity = parent");
+        return;
+    }
+
+    if (newEntity->isChild && newEntity->parent != nullptr) {
+        auto it = std::find(newEntity->parent->entitiesChildren.begin(), newEntity->parent->entitiesChildren.end(), newEntityIndex);
+
+        if (it != newEntity->parent->entitiesChildren.end()) {
+            newEntity->parent->entitiesChildren.erase(it);
+        }
+    }
+
+    newEntity->isChild = true;
+    newEntity->parent = this;
+    newEntity->relativePosition = {
+        newEntity->position.x - this->position.x,
+        newEntity->position.y - this->position.y,
+        newEntity->position.z - this->position.z
     };
-    ObjectTypeEnum ObjectType;
 
-    CollisionShapeType currentCollisionShapeType = CollisionShapeType::None;
+    entitiesChildren.emplace_back(newEntityIndex);
+}
 
-    int id = 0;
+void Entity::addLightChild(int newLightIndex) {
+    LightStruct* newLight = getLightById(newLightIndex);
 
-    Entity* parent = nullptr;
-
-    std::vector<int> lightsChildren;    // Store the indices
-    std::vector<int> entitiesChildren;  // Store the indices
-
-    std::vector<Entity*>      instances;
-
-private:
-    std::shared_ptr<btCollisionShape> rigidShape;
-    std::shared_ptr<btConvexHullShape> customMeshShape;
-    std::shared_ptr<btDefaultMotionState> boxMotionState;
-    std::shared_ptr<btRigidBody> rigidBody;
-    LitVector3 backupPosition                      = position;
-
-    Matrix *transforms                             = nullptr;
-    Material matInstances;
-
-    Shader* entityShader = &shader;
-
-    std::string scriptContent;
-
-    #pragma GCC visibility push(default)
-        py::dict localNamespace;
-        bool pythonModulesInitialized;
-        py::module inputModule, collisionModule, cameraModule, physicsModule,
-                        mouseModule, timeModule, colorModule, mathModule;
-    #pragma GCC visibility pop
-
-    bool entityOptimized = false;
-
-public:
-    Entity(std::string name = "entity", LitVector3 position = {0, 0, 0}, LitVector3 scale = { 1, 1, 1 },
-    LitVector3 rotation = { 0, 0, 0 }) : name(name), position(position), scale(scale), rotation(rotation) {
-        initialized = true;
+    if (!newLight) {
+        TraceLog(LOG_WARNING, "Cannot add child, since child was not found.");
+        return;
     }
 
-    bool operator==(const Entity& other) const {
-        return this->id == other.id;
-    }
+    if (newLight->isChild && newLight->parent != nullptr) {
+        auto it = std::find(newLight->parent->lightsChildren.begin(), newLight->parent->lightsChildren.end(), newLightIndex);
 
-    void addInstance(Entity* instance) {
-        instances.emplace_back(instance);
-
-        if (transforms == nullptr) {
-            transforms = (Matrix *)RL_CALLOC(instances.size(), sizeof(Matrix));
-        } else {
-            transforms = (Matrix *)RL_REALLOC(transforms, instances.size() * sizeof(Matrix));
+        if (it != newLight->parent->lightsChildren.end()) {
+            newLight->parent->lightsChildren.erase(it);
         }
-
-        int lastIndex = instances.size() - 1;
-        calculateInstance(lastIndex);
-
-        instancingShader.locs[SHADER_LOC_MATRIX_MVP] = GetUniformLocation(instancingShader, "mvp");
-        instancingShader.locs[SHADER_LOC_VECTOR_VIEW] = GetUniformLocation(instancingShader, "viewPos");
-        instancingShader.locs[SHADER_LOC_MATRIX_MODEL] = GetAttribLocation(instancingShader, "instanceTransform");
     }
 
-    bool hasInstances() const {
-        return !instances.empty();
-    }
+    newLight->isChild = true;
+    newLight->parent = this;
+    newLight->lightInfo.relativePosition = {
+        newLight->light.position.x - this->position.x,
+        newLight->light.position.y - this->position.y,
+        newLight->light.position.z - this->position.z
+    };
 
-    void calculateInstance(int index) {
-        if (index < 0 || index >= instances.size()) return;
+    lightsChildren.emplace_back(newLightIndex);
+}
 
-        Entity* entity = instances.at(index);
-
-        Matrix translation = MatrixTranslate(entity->position.x, entity->position.y, entity->position.z);
-        Matrix rotation = MatrixRotateXYZ(Vector3{ DEG2RAD * entity->rotation.x, DEG2RAD * entity->rotation.y, DEG2RAD * entity->rotation.z });
-
-        transforms[index] = MatrixMultiply(rotation, translation);
-
-        matInstances = LoadMaterialDefault();
-    }
-
-    void addEntityChild(int newEntityIndex) {
-        Entity* newEntity = getEntityById(newEntityIndex);
-
-        if (!newEntity) {
-            TraceLog(LOG_WARNING, "Cannot add child, since child was not found.");
-            return;
-        }
-
-        if (newEntity == this) {
-            TraceLog(LOG_WARNING, "Entity = parent");
-            return;
-        }
-
-        if (newEntity->isChild && newEntity->parent != nullptr) {
-            auto it = std::find(newEntity->parent->entitiesChildren.begin(), newEntity->parent->entitiesChildren.end(), newEntityIndex);
-
-            if (it != newEntity->parent->entitiesChildren.end()) {
-                newEntity->parent->entitiesChildren.erase(it);
-            }
-        }
-
-        newEntity->isChild = true;
-        newEntity->parent = this;
-        newEntity->relativePosition = {
-            newEntity->position.x - this->position.x,
-            newEntity->position.y - this->position.y,
-            newEntity->position.z - this->position.z
-        };
-
-       entitiesChildren.emplace_back(newEntityIndex);
-    }
-
-    void addLightChild(int newLightIndex) {
-        LightStruct* newLight = getLightById(newLightIndex);
-
-        if (!newLight) {
-            TraceLog(LOG_WARNING, "Cannot add child, since child was not found.");
-            return;
-        }
-
-        if (newLight->isChild && newLight->parent != nullptr) {
-            auto it = std::find(newLight->parent->lightsChildren.begin(), newLight->parent->lightsChildren.end(), newLightIndex);
-
-            if (it != newLight->parent->lightsChildren.end()) {
-                newLight->parent->lightsChildren.erase(it);
-            }
-        }
-
-        newLight->isChild = true;
-        newLight->parent = this;
-        newLight->lightInfo.relativePosition = {
-            newLight->light.position.x - this->position.x,
-            newLight->light.position.y - this->position.y,
-            newLight->light.position.z - this->position.z
-        };
-
-        lightsChildren.emplace_back(newLightIndex);
-    }
-
-    void updateChildren() {
-        // std::cout << entitiesChildren.size() << std::endl;
-        for (int entityChildIndex : entitiesChildren) {
+void Entity::updateChildren() {
+    // std::cout << entitiesChildren.size() << std::endl;
+    for (int entityChildIndex : entitiesChildren) {
 #ifndef GAME_SHIPPING
-            if (!inGamePreview) updateEntityChild(getEntityById(entityChildIndex), entityChildIndex);
-            else                updateEntityChild(getEntityById(entityChildIndex), entityChildIndex);
+        if (!inGamePreview) updateEntityChild(getEntityById(entityChildIndex), entityChildIndex);
+        else                updateEntityChild(getEntityById(entityChildIndex), entityChildIndex);
 #else
-            updateEntityChild(getEntityById(entityChildIndex), entityChildIndex);
+        updateEntityChild(getEntityById(entityChildIndex), entityChildIndex);
 #endif
-        }
-
-        for (int lightChildIndex : lightsChildren) {
-            updateLightChild(getLightById(lightChildIndex), lightChildIndex);
-        }
     }
 
-    void updateEntityChild(Entity* entity, int entityIndex) {
-        if (!entity) {
-            TraceLog(LOG_WARNING, "Cannot update child, since child is not found.");
+    for (int lightChildIndex : lightsChildren) {
+        updateLightChild(getLightById(lightChildIndex), lightChildIndex);
+    }
+}
 
-            auto it = entitiesChildren.erase(std::find(entitiesChildren.begin(), entitiesChildren.end(),
-                                entityIndex));
+void Entity::updateEntityChild(Entity* entity, int entityIndex) {
+    if (!entity) {
+        TraceLog(LOG_WARNING, "Cannot update child, since child is not found.");
 
-            return;
-        }
+        auto it = entitiesChildren.erase(std::find(entitiesChildren.begin(), entitiesChildren.end(),
+                            entityIndex));
 
-        if (!entity->initialized) {
-            TraceLog(LOG_WARNING, "Cannot update child, since child is not initialized.");
-            return;
-        }
+        return;
+    }
+
+    if (!entity->initialized) {
+        TraceLog(LOG_WARNING, "Cannot update child, since child is not initialized.");
+        return;
+    }
 
 #ifndef GAME_SHIPPING
-        if (entity == selectedEntity) {
-            entity->render();
-            return;
-        };
-#endif
-
-        if (entity->parent != this || !entity->parent->initialized) entity->parent = this;
-
-        entity->position = this->position + entity->relativePosition;
+    if (entity == selectedEntity) {
         entity->render();
-    }
-
-    void updateLightChild(LightStruct* lightStruct, int lightIndex) {
-        if (!lightStruct) {
-            TraceLog(LOG_WARNING, "Cannot update child, since child is not found.");
-
-            auto it = lightsChildren.erase(std::find(lightsChildren.begin(), lightsChildren.end(),
-                                lightIndex));
-
-            return;
-        }
-
-#ifndef GAME_SHIPPING
-        if (lightStruct == selectedLight && selectedGameObjectType == "light" && !inGamePreview) return;
+        return;
+    };
 #endif
 
-        if (lightStruct->parent != this || !lightStruct->parent->initialized) lightStruct->parent = this;
+    if (entity->parent != this || !entity->parent->initialized) entity->parent = this;
 
-        lightStruct->light.position = glm::vec3(this->position.x, this->position.y, this->position.z) + lightStruct->lightInfo.relativePosition;
+    entity->position = this->position + entity->relativePosition;
+    entity->render();
+}
+
+void Entity::updateLightChild(LightStruct* lightStruct, int lightIndex) {
+    if (!lightStruct) {
+        TraceLog(LOG_WARNING, "Cannot update child, since child is not found.");
+
+        auto it = lightsChildren.erase(std::find(lightsChildren.begin(), lightsChildren.end(),
+                            lightIndex));
+
+        return;
     }
 
-    void makeChildrenInstances() {
-        // for (Entity* entity : entitiesChildren) {
-        //     addInstance(entity);
-        //     entity->makeChildrenInstances();
-        // }
+#ifndef GAME_SHIPPING
+    if (lightStruct == selectedLight && selectedGameObjectType == "light" && !inGamePreview) return;
+#endif
+
+    if (lightStruct->parent != this || !lightStruct->parent->initialized) lightStruct->parent = this;
+
+    lightStruct->light.position = glm::vec3(this->position.x, this->position.y, this->position.z) + lightStruct->lightInfo.relativePosition;
+}
+
+void Entity::makeChildrenInstances() {
+    // for (Entity* entity : entitiesChildren) {
+    //     addInstance(entity);
+    //     entity->makeChildrenInstances();
+    // }
+}
+
+void Entity::setName(const std::string& newName) {
+    name = newName;
+}
+
+std::string Entity::getName() const {
+    return name;
+}
+
+void Entity::initializeDefaultModel() {
+    Mesh mesh = GenMeshCube(1, 1, 1);
+    model = LoadModelFromMesh(mesh);
+    if (entityShader == nullptr)
+        model.materials[0].shader = shader;
+    else
+        model.materials[0].shader = *entityShader;
+}
+
+void Entity::loadModel(const char* filename, const char* textureFilename) {
+    model = LoadModel(filename);
+}
+
+void Entity::UpdateTextureMap(int mapType, const SurfaceMaterialTexture& texture, bool lodEnabled) {
+    auto& targetTexture = model.materials[0].maps[mapType].texture;
+    SurfaceMaterialTexture mutableTexture;
+
+    switch (texture.activatedMode) {
+        case 0:
+            targetTexture = texture.getTexture2D();
+            break;
+        case 1:
+            mutableTexture = texture;
+            mutableTexture.updateVideo();
+            targetTexture = mutableTexture.getVideoTexture();
+            break;
+        default:
+            targetTexture = { 0 };
+            break;
     }
 
-    void setName(const std::string& newName) {
-        name = newName;
-    }
-
-    std::string getName() const {
-        return name;
-    }
-
-    void initializeDefaultModel() {
-        Mesh mesh = GenMeshCube(1, 1, 1);
-        model = LoadModelFromMesh(mesh);
-        if (entityShader == nullptr)
-            model.materials[0].shader = shader;
-        else
-            model.materials[0].shader = *entityShader;
-    }
-
-    void loadModel(const char* filename, const char* textureFilename = NULL) {
-        model = LoadModel(filename);
-    }
-
-    void UpdateTextureMap(int mapType, const SurfaceMaterialTexture& texture, bool lodEnabled) {
-        auto& targetTexture = model.materials[0].maps[mapType].texture;
-        SurfaceMaterialTexture mutableTexture;
-
-        switch (texture.activatedMode) {
-            case 0:
-                targetTexture = texture.getTexture2D();
-                break;
-            case 1:
-                mutableTexture = texture;
-                mutableTexture.updateVideo();
-                targetTexture = mutableTexture.getVideoTexture();
-                break;
-            default:
-                targetTexture = { 0 };
-                break;
-        }
-
-        if (lodEnabled) {
-            for (auto& lodModel : LodModels) {
-                if (IsModelReady(lodModel)) {
-                    lodModel.materials[0].maps[mapType].texture = targetTexture;
-                }
+    if (lodEnabled) {
+        for (auto& lodModel : LodModels) {
+            if (IsModelReady(lodModel)) {
+                lodModel.materials[0].maps[mapType].texture = targetTexture;
             }
         }
     }
+}
 
-    void ReloadTextures(bool force_reload = false) {
-        auto updateIfNeeded = [&](int mapType, const SurfaceMaterialTexture& texture, bool condition) {
-            if (condition || force_reload) {
-                UpdateTextureMap(mapType, texture, lodEnabled);
+void Entity::ReloadTextures(bool force_reload) {
+    auto updateIfNeeded = [&](int mapType, const SurfaceMaterialTexture& texture, bool condition) {
+        if (condition || force_reload) {
+            UpdateTextureMap(mapType, texture, lodEnabled);
+        }
+    };
+
+    updateIfNeeded(MATERIAL_MAP_DIFFUSE,   surfaceMaterial.albedoTexture,     !surfaceMaterial.albedoTexturePath.empty());
+    updateIfNeeded(MATERIAL_MAP_NORMAL,    surfaceMaterial.normalTexture,     !surfaceMaterial.normalTexturePath.empty());
+    updateIfNeeded(MATERIAL_MAP_ROUGHNESS, surfaceMaterial.roughnessTexture,  !surfaceMaterial.roughnessTexturePath.empty());
+    updateIfNeeded(MATERIAL_MAP_OCCLUSION, surfaceMaterial.aoTexture,         !surfaceMaterial.aoTexturePath.empty());
+    updateIfNeeded(MATERIAL_MAP_HEIGHT,    surfaceMaterial.heightTexture,     !surfaceMaterial.heightTexturePath.empty());
+    updateIfNeeded(MATERIAL_MAP_METALNESS, surfaceMaterial.metallicTexture,   !surfaceMaterial.metallicTexturePath.empty());
+    updateIfNeeded(MATERIAL_MAP_EMISSION,  surfaceMaterial.emissiveTexture,   !surfaceMaterial.emissiveTexturePath.empty());
+}
+
+
+void Entity::OptimizeEntityMemory() {
+    for (int modelsIndex = 0; modelsIndex < sizeof(LodModels)/sizeof(LodModels[0]); modelsIndex++) {
+        if (IsModelReady(LodModels[modelsIndex])) continue;
+        for (int index = 0; index < LodModels[modelsIndex].meshCount; index++) {
+            free(LodModels[modelsIndex].meshes[index].vertices);
+            free(LodModels[modelsIndex].meshes[index].indices);
+            free(LodModels[modelsIndex].meshes[index].colors);
+            free(LodModels[modelsIndex].meshes[index].normals);
+            free(LodModels[modelsIndex].meshes[index].tangents);
+            free(LodModels[modelsIndex].meshes[index].texcoords);
+            free(LodModels[modelsIndex].meshes[index].boneIds);
+            free(LodModels[modelsIndex].meshes[index].boneWeights);
+            free(LodModels[modelsIndex].meshes[index].animVertices);
+            free(LodModels[modelsIndex].meshes[index].animNormals);
+            free(LodModels[modelsIndex].meshes[index].texcoords2);
+        }
+
+        free(LodModels[modelsIndex].bindPose);
+        free(LodModels[modelsIndex].bones);
+    }
+
+    entityOptimized = true;
+}
+
+void Entity::setModel(const fs::path& path, const Model& entityModel) {
+    modelPath = path;
+    model = modelPath.empty() ? entityModel : LoadModel(path.string().c_str());
+
+    if (!IsModelReady(model)) {
+        TraceLog(LOG_WARNING, "Could not set invalid model.");
+        return;
+    };
+
+    setShader(*entityShader);
+
+    constBounds = GetMeshBoundingBox(model.meshes[0]);
+
+    if (lodEnabled && model.meshes[0].vertexCount > 48) {
+        std::vector<uint32_t> indices;
+        std::vector<Vector3> vertices;
+
+        for (size_t i = 0; i < model.meshes[0].vertexCount; ++i) {
+            size_t baseIndex = i * 3;
+            float x = model.meshes[0].vertices[baseIndex];
+            float y = model.meshes[0].vertices[baseIndex + 1];
+            float z = model.meshes[0].vertices[baseIndex + 2];
+
+            size_t ix;
+            if (model.meshes[0].indices) ix = model.meshes[0].indices[i];
+            else                         ix = i;
+
+            vertices.emplace_back(Vector3{x, y, z});
+            indices.emplace_back(ix);
+        }
+
+        OptimizedMeshData data(indices, vertices);
+
+        this->LodModels[0] = this->model;
+
+        data = OptimizeMesh(indices, vertices, 0.8f);
+        this->LodModels[1] = LoadModelFromMesh(generateLODMesh(data.vertices, data.indices, model.meshes[0]));
+
+        data = OptimizeMesh(indices, vertices, 0.6f);
+        this->LodModels[2] = LoadModelFromMesh(generateLODMesh(data.vertices, data.indices, model.meshes[0]));
+
+        data = OptimizeMesh(indices, vertices, 0.3f);
+        this->LodModels[3] = LoadModelFromMesh(generateLODMesh(data.vertices, data.indices, model.meshes[0]));
+
+        OptimizeEntityMemory();
+    }
+
+    isDynamic ? makePhysicsDynamic() : makePhysicsStatic();
+
+    ReloadTextures();
+}
+
+bool Entity::hasModel() {
+    return IsModelReady(model);
+}
+
+void Entity::setShader(Shader& newShader) {
+    entityShader = &newShader;
+    if (IsModelReady(model)) model.materials[0].shader = newShader;
+
+    for (int index = 0; index < 4; index++) {
+        if (IsModelReady(LodModels[index])) {
+            LodModels[index].materials[0].shader = newShader;
+        }
+    }
+}
+
+Shader& Entity::getShader() {
+    if (entityShader == nullptr) {
+        TraceLog(LOG_WARNING, "Shader is null, returning default shader.");
+        return shader;
+    }
+
+    return *entityShader;
+}
+
+void Entity::initializeSharedModules() {
+    inputModule = py::module::import("inputModule");
+    collisionModule = py::module::import("collisionModule");
+    cameraModule = py::module::import("cameraModule");
+    physicsModule = py::module::import("physicsModule");
+    mouseModule = py::module::import("mouseModule");
+    timeModule = py::module::import("timeModule");
+    colorModule = py::module::import("colorModule");
+    mathModule = py::module::import("mathModule");
+    py::module_::import("__main__").attr("entitiesList") = py::cast(entitiesList);
+}
+
+void Entity::setupScript(LitCamera* rendering_camera) {
+    if (script.empty() && scriptIndex.empty()) return;
+    running = true;
+
+    if (!Entity_already_registered) {
+        Entity_already_registered = true;
+
+        py::class_<Entity>(entityModule, "Entity")
+            .def(py::init([](py::args args, py::kwargs kwargs) {
+                LitVector3 position{0, 0, 0};
+                std::string modelPath = "";
+
+                if (args.size() > 0)               position = py::cast<LitVector3>(args[0]);
+                if (kwargs.contains("modelPath"))  modelPath = py::cast<std::string>(kwargs["modelPath"]);
+
+                Entity entity;
+
+                if (kwargs.contains("scale")) entity.setScale(py::cast<LitVector3>(kwargs["scale"]));
+                else entity.setScale(LitVector3{1, 1, 1});
+
+                if (kwargs.contains("name")) entity.setName(py::cast<std::string>(kwargs["name"]));
+                else entity.setName("New Entity");
+
+                if (kwargs.contains("collisions"))   entity.collider = py::cast<bool>(kwargs["collisions"]);
+                if (kwargs.contains("collider"))     entity.currentCollisionShapeType = py::cast<CollisionShapeType>(kwargs["collider"]);
+                if (!modelPath.empty()) entity.setModel(modelPath.c_str());
+
+                entity.setPos(position);
+                entitiesListPregame.emplace_back(entity);
+
+                return entitiesListPregame.back();
+            }))
+
+            .def_property("name", &Entity::getName, &Entity::setName)
+            .def_property("position",
+                [](Entity& entity) { return entity.position; },
+                [](Entity& entity, LitVector3& position) { entity.setPos(position); })
+            .def_property("scale",
+                [](Entity& entity) { return entity.scale; },
+                [](Entity& entity, LitVector3& scale) { entity.setScale(scale); })
+            .def_property("rotation",
+                [](Entity& entity) { return entity.rotation; },
+                [](Entity& entity, LitVector3& rotation) { entity.setRot(rotation); })
+            .def_readwrite("collider", &Entity::currentCollisionShapeType)
+            .def_readwrite("visible", &Entity::visible)
+            .def_readwrite("id", &Entity::id)
+            .def_readwrite("collisions", &Entity::collider)
+            .def("applyForce", &Entity::applyForce)
+            .def("applyImpulse", &Entity::applyImpulse)
+            .def("setFriction", &Entity::setFriction)
+            .def("makeStatic", &Entity::makePhysicsStatic)
+            .def("makeDynamic", &Entity::makePhysicsDynamic);
+    }
+
+    initializeSharedModules();
+
+    try {
+        localNamespace = py::dict();
+
+        localNamespace["entity"] = py::cast(this);
+        localNamespace["IsMouseButtonPressed"] = inputModule.attr("isMouseButtonPressed");
+        localNamespace["IsKeyDown"] = inputModule.attr("isKeyDown");
+        localNamespace["IsKeyPressed"] = inputModule.attr("isKeyPressed");
+        localNamespace["IsKeyUp"] = inputModule.attr("isKeyUp");
+        localNamespace["GetMouseMovement"] = inputModule.attr("getMouseMovement");
+        localNamespace["Keys"] = inputModule.attr("Keys");
+        localNamespace["MouseButton"] = inputModule.attr("MouseButton");
+        localNamespace["Raycast"] = collisionModule.attr("raycast");
+        localNamespace["CollisionShape"] = collisionModule.attr("CollisionShape");
+        localNamespace["Vector3"] = mathModule.attr("Vector3");
+        localNamespace["Vector2"] = mathModule.attr("Vector2");
+        localNamespace["Vector3Scale"] = mathModule.attr("vector3Scale");
+        localNamespace["Vector3Distance"] = mathModule.attr("vector3Distance");
+        localNamespace["Vector3Length"] = mathModule.attr("vector3Length");
+        localNamespace["Vector3LengthSqr"] = mathModule.attr("vector3LengthSqr");
+        localNamespace["Color"] = colorModule.attr("Color");
+        localNamespace["LockMouse"] = mouseModule.attr("LockMouse");
+        localNamespace["UnlockMouse"] = mouseModule.attr("UnlockMouse");
+        localNamespace["time"] = py::cast(&timeInstance);
+        localNamespace["physics"] = py::cast(&physics);
+        localNamespace["Lerp"] = mathModule.attr("lerp");
+        localNamespace["entitiesList"] = entitiesList;
+        localNamespace["camera"] = py::cast(rendering_camera);
+        localNamespace["Entity"] = entityModule.attr("Entity");
+        localNamespace["Entity"] = entityModule.attr("Entity");
+
+        // Load and execute the script in its own namespace
+        #ifndef GAME_SHIPPING
+            scriptContent = readFileToString(script);
+        #else
+            std::ifstream infile("encryptedScripts.json");
+            if (!infile.is_open()) {
+                TraceLog(LOG_ERROR, "Failed to open scripts file.");
+                return;
             }
-        };
 
-        updateIfNeeded(MATERIAL_MAP_DIFFUSE,   surfaceMaterial.albedoTexture,     !surfaceMaterial.albedoTexturePath.empty());
-        updateIfNeeded(MATERIAL_MAP_NORMAL,    surfaceMaterial.normalTexture,     !surfaceMaterial.normalTexturePath.empty());
-        updateIfNeeded(MATERIAL_MAP_ROUGHNESS, surfaceMaterial.roughnessTexture,  !surfaceMaterial.roughnessTexturePath.empty());
-        updateIfNeeded(MATERIAL_MAP_OCCLUSION, surfaceMaterial.aoTexture,         !surfaceMaterial.aoTexturePath.empty());
-        updateIfNeeded(MATERIAL_MAP_HEIGHT,    surfaceMaterial.heightTexture,     !surfaceMaterial.heightTexturePath.empty());
-        updateIfNeeded(MATERIAL_MAP_METALNESS, surfaceMaterial.metallicTexture,   !surfaceMaterial.metallicTexturePath.empty());
-        updateIfNeeded(MATERIAL_MAP_EMISSION,  surfaceMaterial.emissiveTexture,   !surfaceMaterial.emissiveTexturePath.empty());
-    }
+            const char* decryptedScripts = decryptFileString("encryptedScripts.json", "141b5aceaaa5582ec3efb9a17cac2da5e52bbc1057f776e99a56a064f5ea40d5f8689b7542c4d0e9d6d7163b9dee7725369742a54905ac95c74be5cb1435fdb726fead2437675eaa13bc77ced8fb9cc6108d4a247a2b37b76a6e0bf41916fcc98ee5f85db11ecb52b0d94b5fbab58b1f4814ed49e761a7fb9dfb0960f00ecf8c87989b8e92a630680128688fa7606994e3be12734868716f9df27674700a2cb37440afe131e570a4ee9e7e867aab18a44ee972956b7bd728f9b937c973b9726f6bdd56090d720e6fa31c70b31e0216739cde4210bcd93671c1e8edb752b32f782b62eab4d77a51e228a6b6ac185d7639bd037f9195c3f05c5d2198947621814827f2d99dd7c2821e76635a845203f42060e5a9a494482afab1c42c23ba5f317f250321c7713c2ce19fe7a3957ce439f4782dbee3d418aebe08314a4d6ac7b3d987696d39600c5777f555a8dc99f2953ab45b0687efa1a77d8e5b448b37a137f2849c9b76fec98765523869c22a3453c214ec8e8827acdded27c37d96017fbf862a405b4b06fe0e815e09ed5288ccd9139e67c7feed3e7306f621976b9d3ba917d19ef4a13490f9e2af925996f59a87uihjoklas9emyuikw75igeturf7unftyngl635n4554hs23d2453pfds");
+            json json_data;
 
-
-    void OptimizeEntityMemory() {
-        for (int modelsIndex = 0; modelsIndex < sizeof(LodModels)/sizeof(LodModels[0]); modelsIndex++) {
-            if (IsModelReady(LodModels[modelsIndex])) continue;
-            for (int index = 0; index < LodModels[modelsIndex].meshCount; index++) {
-                free(LodModels[modelsIndex].meshes[index].vertices);
-                free(LodModels[modelsIndex].meshes[index].indices);
-                free(LodModels[modelsIndex].meshes[index].colors);
-                free(LodModels[modelsIndex].meshes[index].normals);
-                free(LodModels[modelsIndex].meshes[index].tangents);
-                free(LodModels[modelsIndex].meshes[index].texcoords);
-                free(LodModels[modelsIndex].meshes[index].boneIds);
-                free(LodModels[modelsIndex].meshes[index].boneWeights);
-                free(LodModels[modelsIndex].meshes[index].animVertices);
-                free(LodModels[modelsIndex].meshes[index].animNormals);
-                free(LodModels[modelsIndex].meshes[index].texcoords2);
+            try {
+                json_data = json::parse(decryptedScripts);
+            } catch (const json::parse_error& e) {
+                return;
             }
 
-            free(LodModels[modelsIndex].bindPose);
-            free(LodModels[modelsIndex].bones);
-        }
+            infile.close();
 
-        entityOptimized = true;
-    }
+            if (json_data.is_array() && !json_data.empty()) {
+                for (const auto& element : json_data) {
 
-    void setModel(const fs::path& path = "", const Model& entityModel = Model()) {
-        modelPath = path;
-        model = modelPath.empty() ? entityModel : LoadModel(path.string().c_str());
-
-        if (!IsModelReady(model)) {
-            TraceLog(LOG_WARNING, "Could not set invalid model.");
-            return;
-        };
-
-        setShader(*entityShader);
-
-        constBounds = GetMeshBoundingBox(model.meshes[0]);
-
-        if (lodEnabled && model.meshes[0].vertexCount > 48) {
-            std::vector<uint32_t> indices;
-            std::vector<Vector3> vertices;
-
-            for (size_t i = 0; i < model.meshes[0].vertexCount; ++i) {
-                size_t baseIndex = i * 3;
-                float x = model.meshes[0].vertices[baseIndex];
-                float y = model.meshes[0].vertices[baseIndex + 1];
-                float z = model.meshes[0].vertices[baseIndex + 2];
-
-                size_t ix;
-                if (model.meshes[0].indices) ix = model.meshes[0].indices[i];
-                else                         ix = i;
-
-                vertices.emplace_back(Vector3{x, y, z});
-                indices.emplace_back(ix);
-            }
-
-            OptimizedMeshData data(indices, vertices);
-
-            this->LodModels[0] = this->model;
-
-            data = OptimizeMesh(indices, vertices, 0.8f);
-            this->LodModels[1] = LoadModelFromMesh(generateLODMesh(data.vertices, data.indices, model.meshes[0]));
-
-            data = OptimizeMesh(indices, vertices, 0.6f);
-            this->LodModels[2] = LoadModelFromMesh(generateLODMesh(data.vertices, data.indices, model.meshes[0]));
-
-            data = OptimizeMesh(indices, vertices, 0.3f);
-            this->LodModels[3] = LoadModelFromMesh(generateLODMesh(data.vertices, data.indices, model.meshes[0]));
-
-            OptimizeEntityMemory();
-        }
-
-        isDynamic ? makePhysicsDynamic() : makePhysicsStatic();
-
-        ReloadTextures();
-    }
-
-    bool hasModel() {
-        return IsModelReady(model);
-    }
-
-    void setShader(Shader& newShader) {
-        entityShader = &newShader;
-        if (IsModelReady(model)) model.materials[0].shader = newShader;
-
-        for (int index = 0; index < 4; index++) {
-            if (IsModelReady(LodModels[index])) {
-                LodModels[index].materials[0].shader = newShader;
-            }
-        }
-    }
-
-    Shader& getShader() {
-        if (entityShader == nullptr) {
-            TraceLog(LOG_WARNING, "Shader is null, returning default shader.");
-            return shader;
-        }
-
-        return *entityShader;
-    }
-
-    void initializeSharedModules() {
-        inputModule = py::module::import("inputModule");
-        collisionModule = py::module::import("collisionModule");
-        cameraModule = py::module::import("cameraModule");
-        physicsModule = py::module::import("physicsModule");
-        mouseModule = py::module::import("mouseModule");
-        timeModule = py::module::import("timeModule");
-        colorModule = py::module::import("colorModule");
-        mathModule = py::module::import("mathModule");
-        py::module_::import("__main__").attr("entitiesList") = py::cast(entitiesList);
-    }
-
-    void setupScript(LitCamera* rendering_camera) {
-        if (script.empty() && scriptIndex.empty()) return;
-        running = true;
-
-        if (!Entity_already_registered) {
-            Entity_already_registered = true;
-
-            py::class_<Entity>(entityModule, "Entity")
-                .def(py::init([](py::args args, py::kwargs kwargs) {
-                    LitVector3 position{0, 0, 0};
-                    std::string modelPath = "";
-
-                    if (args.size() > 0)               position = py::cast<LitVector3>(args[0]);
-                    if (kwargs.contains("modelPath"))  modelPath = py::cast<std::string>(kwargs["modelPath"]);
-
-                    Entity entity;
-
-                    if (kwargs.contains("scale")) entity.setScale(py::cast<LitVector3>(kwargs["scale"]));
-                    else entity.setScale(LitVector3{1, 1, 1});
-
-                    if (kwargs.contains("name")) entity.setName(py::cast<std::string>(kwargs["name"]));
-                    else entity.setName("New Entity");
-
-                    if (kwargs.contains("collisions"))   entity.collider = py::cast<bool>(kwargs["collisions"]);
-                    if (kwargs.contains("collider"))     entity.currentCollisionShapeType = py::cast<CollisionShapeType>(kwargs["collider"]);
-                    if (!modelPath.empty()) entity.setModel(modelPath.c_str());
-
-                    entity.setPos(position);
-                    entitiesListPregame.emplace_back(entity);
-
-                    return entitiesListPregame.back();
-                }))
-
-                .def_property("name", &Entity::getName, &Entity::setName)
-                .def_property("position",
-                    [](Entity& entity) { return entity.position; },
-                    [](Entity& entity, LitVector3& position) { entity.setPos(position); })
-                .def_property("scale",
-                    [](Entity& entity) { return entity.scale; },
-                    [](Entity& entity, LitVector3& scale) { entity.setScale(scale); })
-                .def_property("rotation",
-                    [](Entity& entity) { return entity.rotation; },
-                    [](Entity& entity, LitVector3& rotation) { entity.setRot(rotation); })
-                .def_readwrite("collider", &Entity::currentCollisionShapeType)
-                .def_readwrite("visible", &Entity::visible)
-                .def_readwrite("id", &Entity::id)
-                .def_readwrite("collisions", &Entity::collider)
-                .def("applyForce", &Entity::applyForce)
-                .def("applyImpulse", &Entity::applyImpulse)
-                .def("setFriction", &Entity::setFriction)
-                .def("makeStatic", &Entity::makePhysicsStatic)
-                .def("makeDynamic", &Entity::makePhysicsDynamic);
-        }
-
-        initializeSharedModules();
-
-        try {
-            localNamespace = py::dict();
-
-            localNamespace["entity"] = py::cast(this);
-            localNamespace["IsMouseButtonPressed"] = inputModule.attr("isMouseButtonPressed");
-            localNamespace["IsKeyDown"] = inputModule.attr("isKeyDown");
-            localNamespace["IsKeyPressed"] = inputModule.attr("isKeyPressed");
-            localNamespace["IsKeyUp"] = inputModule.attr("isKeyUp");
-            localNamespace["GetMouseMovement"] = inputModule.attr("getMouseMovement");
-            localNamespace["Keys"] = inputModule.attr("Keys");
-            localNamespace["MouseButton"] = inputModule.attr("MouseButton");
-            localNamespace["Raycast"] = collisionModule.attr("raycast");
-            localNamespace["CollisionShape"] = collisionModule.attr("CollisionShape");
-            localNamespace["Vector3"] = mathModule.attr("Vector3");
-            localNamespace["Vector2"] = mathModule.attr("Vector2");
-            localNamespace["Vector3Scale"] = mathModule.attr("vector3Scale");
-            localNamespace["Vector3Distance"] = mathModule.attr("vector3Distance");
-            localNamespace["Vector3Length"] = mathModule.attr("vector3Length");
-            localNamespace["Vector3LengthSqr"] = mathModule.attr("vector3LengthSqr");
-            localNamespace["Color"] = colorModule.attr("Color");
-            localNamespace["LockMouse"] = mouseModule.attr("LockMouse");
-            localNamespace["UnlockMouse"] = mouseModule.attr("UnlockMouse");
-            localNamespace["time"] = py::cast(&timeInstance);
-            localNamespace["physics"] = py::cast(&physics);
-            localNamespace["Lerp"] = mathModule.attr("lerp");
-            localNamespace["entitiesList"] = entitiesList;
-            localNamespace["camera"] = py::cast(rendering_camera);
-            localNamespace["Entity"] = entityModule.attr("Entity");
-            localNamespace["Entity"] = entityModule.attr("Entity");
-
-            // Load and execute the script in its own namespace
-            #ifndef GAME_SHIPPING
-                scriptContent = readFileToString(script);
-            #else
-                std::ifstream infile("encryptedScripts.json");
-                if (!infile.is_open()) {
-                    TraceLog(LOG_ERROR, "Failed to open scripts file.");
-                    return;
-                }
-
-                const char* decryptedScripts = decryptFileString("encryptedScripts.json", "141b5aceaaa5582ec3efb9a17cac2da5e52bbc1057f776e99a56a064f5ea40d5f8689b7542c4d0e9d6d7163b9dee7725369742a54905ac95c74be5cb1435fdb726fead2437675eaa13bc77ced8fb9cc6108d4a247a2b37b76a6e0bf41916fcc98ee5f85db11ecb52b0d94b5fbab58b1f4814ed49e761a7fb9dfb0960f00ecf8c87989b8e92a630680128688fa7606994e3be12734868716f9df27674700a2cb37440afe131e570a4ee9e7e867aab18a44ee972956b7bd728f9b937c973b9726f6bdd56090d720e6fa31c70b31e0216739cde4210bcd93671c1e8edb752b32f782b62eab4d77a51e228a6b6ac185d7639bd037f9195c3f05c5d2198947621814827f2d99dd7c2821e76635a845203f42060e5a9a494482afab1c42c23ba5f317f250321c7713c2ce19fe7a3957ce439f4782dbee3d418aebe08314a4d6ac7b3d987696d39600c5777f555a8dc99f2953ab45b0687efa1a77d8e5b448b37a137f2849c9b76fec98765523869c22a3453c214ec8e8827acdded27c37d96017fbf862a405b4b06fe0e815e09ed5288ccd9139e67c7feed3e7306f621976b9d3ba917d19ef4a13490f9e2af925996f59a87uihjoklas9emyuikw75igeturf7unftyngl635n4554hs23d2453pfds");
-                json json_data;
-
-                try {
-                    json_data = json::parse(decryptedScripts);
-                } catch (const json::parse_error& e) {
-                    return;
-                }
-
-                infile.close();
-
-                if (json_data.is_array() && !json_data.empty()) {
-                    for (const auto& element : json_data) {
-
-                        if (element.is_object()) {
-                            if (element.contains(scriptIndex)) {
-                                scriptContent = element[scriptIndex].get<std::string>();
-                            }
+                    if (element.is_object()) {
+                        if (element.contains(scriptIndex)) {
+                            scriptContent = element[scriptIndex].get<std::string>();
                         }
                     }
-                } else {
-                    return;
                 }
-            #endif
-
-            py::exec(scriptContent, localNamespace);
-        } catch (const py::error_already_set& e) {
-            py::print("Error in setupScript for entity ", id, ": ", e.what());
-        }
-    }
-
-    void runScript(LitCamera* rendering_camera) {
-        if (script.empty() && scriptIndex.empty()) return;
-
-        try {
-            localNamespace["time"] = py::cast(&timeInstance);
-
-            if (py::hasattr(localNamespace["update"], "__call__")) {
-                py::object update_func = localNamespace["update"];
-                update_func();
-                rendering_camera->update();
+            } else {
+                return;
             }
-        } catch (const py::error_already_set& e) {
-            TraceLog(LOG_ERROR, (std::string("Failed to run script for entity ") + 
-                    std::to_string(id) + ": " + std::string(e.what())).c_str());
+        #endif
+
+        py::exec(scriptContent, localNamespace);
+    } catch (const py::error_already_set& e) {
+        py::print("Error in setupScript for entity ", id, ": ", e.what());
+    }
+}
+
+void Entity::runScript(LitCamera* rendering_camera) {
+    if (script.empty() && scriptIndex.empty()) return;
+
+    try {
+        localNamespace["time"] = py::cast(&timeInstance);
+
+        if (py::hasattr(localNamespace["update"], "__call__")) {
+            py::object update_func = localNamespace["update"];
+            update_func();
+            rendering_camera->update();
+        }
+    } catch (const py::error_already_set& e) {
+        TraceLog(LOG_ERROR, (std::string("Failed to run script for entity ") +
+                std::to_string(id) + ": " + std::string(e.what())).c_str());
+    }
+}
+
+void Entity::calcPhysicsPosition() {
+    if (!isDynamic) return;
+
+    if (currentCollisionShapeType == CollisionShapeType::Box || currentCollisionShapeType == CollisionShapeType::HighPolyMesh) {
+        btTransform trans;
+        if (rigidBody && rigidBody->getMotionState()) {
+            rigidBody->getMotionState()->getWorldTransform(trans);
+            btVector3 rigidBodyPosition = trans.getOrigin();
+            position = { rigidBodyPosition.getX(), rigidBodyPosition.getY(), rigidBodyPosition.getZ() };
         }
     }
+}
 
-    void calcPhysicsPosition() {
-        if (!isDynamic) return;
+void Entity::calcPhysicsRotation() {
+    if (!isDynamic) return;
 
-        if (currentCollisionShapeType == CollisionShapeType::Box || currentCollisionShapeType == CollisionShapeType::HighPolyMesh) {
-            btTransform trans;
-            if (rigidBody && rigidBody->getMotionState()) {
-                rigidBody->getMotionState()->getWorldTransform(trans);
-                btVector3 rigidBodyPosition = trans.getOrigin();
-                position = { rigidBodyPosition.getX(), rigidBodyPosition.getY(), rigidBodyPosition.getZ() };
-            }
+    if (currentCollisionShapeType == CollisionShapeType::Box && rigidBody) {
+        btTransform trans;
+        if (rigidBody->getMotionState()) {
+            rigidBody->getMotionState()->getWorldTransform(trans);
+            btQuaternion objectRotation = trans.getRotation();
+            btScalar roll, yaw, pitch;
+            objectRotation.getEulerZYX(roll, yaw, pitch);
+
+            rotation = Vector3{ pitch * RAD2DEG, yaw * RAD2DEG, roll * RAD2DEG };
         }
     }
+}
 
-    void calcPhysicsRotation() {
-        if (!isDynamic) return;
+void Entity::setPos(LitVector3 newPos) {
+    position = newPos;
 
-        if (currentCollisionShapeType == CollisionShapeType::Box && rigidBody) {
-            btTransform trans;
-            if (rigidBody->getMotionState()) {
-                rigidBody->getMotionState()->getWorldTransform(trans);
-                btQuaternion objectRotation = trans.getRotation();
-                btScalar roll, yaw, pitch;
-                objectRotation.getEulerZYX(roll, yaw, pitch);
+    if (rigidBody) {
+        btTransform transform;
+        transform.setIdentity();
+        transform.setOrigin(btVector3(newPos.x, newPos.y, newPos.z));
 
-                rotation = Vector3{ pitch * RAD2DEG, yaw * RAD2DEG, roll * RAD2DEG };
-            }
-        }
+        rigidBody->setWorldTransform(transform);
     }
+}
 
-    void setPos(LitVector3 newPos) {
-        position = newPos;
+void Entity::setRot(LitVector3 newRot) {
+    rotation = newRot;
 
+    if (CollisionShapeType::Box == currentCollisionShapeType) {
         if (rigidBody) {
-            btTransform transform;
-            transform.setIdentity();
-            transform.setOrigin(btVector3(newPos.x, newPos.y, newPos.z));
+            btTransform currentTransform = rigidBody->getWorldTransform();
 
-            rigidBody->setWorldTransform(transform);
+
+            float rollRad = glm::radians(rotation.x);
+            float pitchRad = glm::radians(rotation.y);
+            float yawRad = glm::radians(rotation.z);
+
+            btQuaternion newRotation;
+            newRotation.setEulerZYX(yawRad, pitchRad, rollRad);
+
+            currentTransform.setRotation(newRotation);
+            rigidBody->setWorldTransform(currentTransform);
         }
     }
+}
 
-    void setRot(LitVector3 newRot) {
-        rotation = newRot;
+void Entity::setScale(Vector3 newScale) {
+    scale = newScale;
 
-        if (CollisionShapeType::Box == currentCollisionShapeType) {
-            if (rigidBody) {
-                btTransform currentTransform = rigidBody->getWorldTransform();
+    if (CollisionShapeType::Box == currentCollisionShapeType) {
+        isDynamic ? createDynamicBox() : createStaticBox();
+    }
 
+    else if (CollisionShapeType::HighPolyMesh == currentCollisionShapeType && this->running) {
+        isDynamic ? createDynamicMesh(false) : createStaticMesh(true);
+    }
+}
 
-                float rollRad = glm::radians(rotation.x);
-                float pitchRad = glm::radians(rotation.y);
-                float yawRad = glm::radians(rotation.z);
+void Entity::applyForce(const LitVector3& force) {
+    if (rigidBody && isDynamic) {
+        rigidBody->setActivationState(ACTIVE_TAG);
+        btVector3 btForce(force.x, force.y, force.z);
+        rigidBody->applyCentralForce(btForce);
+    }
+}
 
-                btQuaternion newRotation;
-                newRotation.setEulerZYX(yawRad, pitchRad, rollRad);
+void Entity::applyImpulse(const LitVector3& impulse) {
+    if (rigidBody && isDynamic) {
+        rigidBody->setActivationState(ACTIVE_TAG);
+        btVector3 btImpulse(impulse.x, impulse.y, impulse.z);
+        rigidBody->applyCentralImpulse(btImpulse);
+    }
+}
 
-                currentTransform.setRotation(newRotation);
-                rigidBody->setWorldTransform(currentTransform);
+void Entity::setFriction(const float& friction) {
+    if (rigidBody && isDynamic) {
+        rigidBody->setFriction(friction);
+    }
+}
+
+void Entity::applyDamping(const float& damping) {
+    if (rigidBody && isDynamic) {
+        rigidBody->setDamping(damping, damping);
+    }
+}
+
+void Entity::updateMass() {
+    if (!isDynamic || rigidShape == nullptr) return;
+
+    btScalar btMass = mass;
+    btVector3 boxInertia(inertia.x, inertia.y, inertia.z);
+    rigidShape->calculateLocalInertia(btMass, boxInertia);
+    if (currentCollisionShapeType == CollisionShapeType::Box && rigidBody && rigidBody != nullptr)
+        rigidBody->setMassProps(btMass, boxInertia);
+    else if (currentCollisionShapeType == CollisionShapeType::HighPolyMesh && rigidBody && rigidBody != nullptr)
+        rigidBody->setMassProps(btMass, boxInertia);
+}
+
+void Entity::createStaticBox() {
+    isDynamic = false;
+
+    rigidShape = std::make_shared<btBoxShape>(btVector3(scale.x * scaleFactorRaylibBullet, scale.y * scaleFactorRaylibBullet, scale.z * scaleFactorRaylibBullet));
+    if (rigidBody) physics.dynamicsWorld->removeRigidBody(rigidBody.get());
+
+    btTransform rigidTransform;
+    rigidTransform.setIdentity();
+
+    float rollRad = glm::radians(rotation.x);
+    float pitchRad = glm::radians(rotation.y);
+    float yawRad = glm::radians(rotation.z);
+
+    btQuaternion quaternion;
+    quaternion.setEulerZYX(yawRad, pitchRad, rollRad);
+
+    rigidTransform.setRotation(quaternion);
+    rigidTransform.setOrigin(btVector3(position.x, position.y, position.z));
+
+    btDefaultMotionState boxMotionState(rigidTransform);
+    btRigidBody::btRigidBodyConstructionInfo highPolyStaticRigidBodyCI(0, &boxMotionState, rigidShape.get(), btVector3(0, 0, 0));
+
+    rigidBody = std::make_unique<btRigidBody>(highPolyStaticRigidBodyCI);
+    physics.dynamicsWorld->addRigidBody(rigidBody.get());
+
+    currentCollisionShapeType = CollisionShapeType::Box;
+}
+
+void Entity::createStaticMesh(bool generateShape) {
+    isDynamic = false;
+
+    // Remove the existing rigid body if it exists
+    if (rigidBody) {
+        physics.dynamicsWorld->removeRigidBody(rigidBody.get());
+    }
+
+    // Generate the collision shape if required or if it doesn't exist
+    if (generateShape || !customMeshShape) {
+        customMeshShape = std::make_shared<btConvexHullShape>();
+
+        for (int m = 0; m < model.meshCount; m++) {
+            Mesh& mesh = model.meshes[m];
+            float* meshVertices = reinterpret_cast<float*>(mesh.vertices);
+
+            // Add each vertex to the convex hull shape
+            for (int v = 0; v < mesh.vertexCount; v++) {
+                btVector3 scaledVertex(
+                    meshVertices[v * 3]     * scale.x,
+                    meshVertices[v * 3 + 1] * scale.y,
+                    meshVertices[v * 3 + 2] * scale.z
+                );
+                customMeshShape->addPoint(scaledVertex);
             }
         }
     }
 
-    void setScale(Vector3 newScale) {
-        scale = newScale;
+    // Set the transform for the rigid body
+    btTransform rigidTransform;
+    rigidTransform.setIdentity();
+    rigidTransform.setOrigin(btVector3(position.x, position.y, position.z));
 
-        if (CollisionShapeType::Box == currentCollisionShapeType) {
-            isDynamic ? createDynamicBox() : createStaticBox();
-        }
+    // Mass and inertia for a static object (mass = 0)
+    btScalar rigidMass = 0.0f;
+    btVector3 rigidInertia(0, 0, 0);
+    customMeshShape->calculateLocalInertia(rigidMass, rigidInertia);
 
-        else if (CollisionShapeType::HighPolyMesh == currentCollisionShapeType && this->running) {
-            isDynamic ? createDynamicMesh(false) : createStaticMesh(true);
-        }
-    }
+    // Create the motion state and rigid body construction info
+    boxMotionState = std::make_shared<btDefaultMotionState>(rigidTransform);
+    btRigidBody::btRigidBodyConstructionInfo rigidBodyCI(rigidMass, boxMotionState.get(), customMeshShape.get(), rigidInertia);
 
-    void applyForce(const LitVector3& force) {
-        if (rigidBody && isDynamic) {
-            rigidBody->setActivationState(ACTIVE_TAG);
-            btVector3 btForce(force.x, force.y, force.z);
-            rigidBody->applyCentralForce(btForce);
-        }
-    }
+    // Create the rigid body and add it to the physics world
+    rigidBody = std::make_shared<btRigidBody>(rigidBodyCI);
+    physics.dynamicsWorld->addRigidBody(rigidBody.get());
 
-    void applyImpulse(const LitVector3& impulse) {
-        if (rigidBody && isDynamic) {
-            rigidBody->setActivationState(ACTIVE_TAG);
-            btVector3 btImpulse(impulse.x, impulse.y, impulse.z);
-            rigidBody->applyCentralImpulse(btImpulse);
-        }
-    }
+    // Update the current collision shape type
+    currentCollisionShapeType = CollisionShapeType::HighPolyMesh;
+}
 
-    void setFriction(const float& friction) {
-        if (rigidBody && isDynamic) {
-            rigidBody->setFriction(friction);
-        }
-    }
+void Entity::createDynamicBox() {
+    isDynamic = true;
 
-    void applyDamping(const float& damping) {
-        if (rigidBody && isDynamic) {
-            rigidBody->setDamping(damping, damping);
-        }
-    }
+    if (rigidBody.get()) physics.dynamicsWorld->removeRigidBody(rigidBody.get());
 
-    void updateMass() {
-        if (!isDynamic || rigidShape == nullptr) return;
+    rigidShape = std::make_shared<btBoxShape>(btVector3(scale.x * scaleFactorRaylibBullet, scale.y * scaleFactorRaylibBullet, scale.z * scaleFactorRaylibBullet));
 
-        btScalar btMass = mass;
-        btVector3 boxInertia(inertia.x, inertia.y, inertia.z);
-        rigidShape->calculateLocalInertia(btMass, boxInertia);
-        if (currentCollisionShapeType == CollisionShapeType::Box && rigidBody && rigidBody != nullptr)
-            rigidBody->setMassProps(btMass, boxInertia);
-        else if (currentCollisionShapeType == CollisionShapeType::HighPolyMesh && rigidBody && rigidBody != nullptr)
-            rigidBody->setMassProps(btMass, boxInertia);
-    }
+    btTransform startTransform;
+    startTransform.setIdentity();
+    startTransform.setOrigin(btVector3(position.x, position.y, position.z));
 
-    void createStaticBox() {
-        isDynamic = false;
+    btScalar btMass = mass;
+    btVector3 localInertia(inertia.x, inertia.y, inertia.z);
+    rigidShape->calculateLocalInertia(btMass, localInertia);
 
-        rigidShape = std::make_shared<btBoxShape>(btVector3(scale.x * scaleFactorRaylibBullet, scale.y * scaleFactorRaylibBullet, scale.z * scaleFactorRaylibBullet));
-        if (rigidBody) physics.dynamicsWorld->removeRigidBody(rigidBody.get());
+    boxMotionState = std::make_shared<btDefaultMotionState>(startTransform);
+    btRigidBody::btRigidBodyConstructionInfo rigidBodyCI(btMass, boxMotionState.get(), rigidShape.get(), localInertia);
+    rigidBody = std::make_unique<btRigidBody>(rigidBodyCI);
 
-        btTransform rigidTransform;
-        rigidTransform.setIdentity();
+    physics.dynamicsWorld->addRigidBody(rigidBody.get());
+    currentCollisionShapeType = CollisionShapeType::Box;
+}
 
-        float rollRad = glm::radians(rotation.x);
-        float pitchRad = glm::radians(rotation.y);
-        float yawRad = glm::radians(rotation.z);
+void Entity::createDynamicMesh(bool generateShape) {
+    isDynamic = true;
 
-        btQuaternion quaternion;
-        quaternion.setEulerZYX(yawRad, pitchRad, rollRad);
+    currentCollisionShapeType = CollisionShapeType::HighPolyMesh;
+    if (rigidBody.get()) physics.dynamicsWorld->removeRigidBody(rigidBody.get());
 
-        rigidTransform.setRotation(quaternion);
-        rigidTransform.setOrigin(btVector3(position.x, position.y, position.z));
+    if (generateShape || !customMeshShape) {
+        customMeshShape = std::make_shared<btConvexHullShape>();
 
-        btDefaultMotionState boxMotionState(rigidTransform);
-        btRigidBody::btRigidBodyConstructionInfo highPolyStaticRigidBodyCI(0, &boxMotionState, rigidShape.get(), btVector3(0, 0, 0));
+        for (int m = 0; m < model.meshCount; m++) {
+            Mesh& mesh = model.meshes[m];
+            float* meshVertices = reinterpret_cast<float*>(mesh.vertices);
 
-        rigidBody = std::make_unique<btRigidBody>(highPolyStaticRigidBodyCI);
-        physics.dynamicsWorld->addRigidBody(rigidBody.get());
-
-        currentCollisionShapeType = CollisionShapeType::Box;
-    }
-
-    void createStaticMesh(bool generateShape = true) {
-        isDynamic = false;
-
-        // Remove the existing rigid body if it exists
-        if (rigidBody) {
-            physics.dynamicsWorld->removeRigidBody(rigidBody.get());
-        }
-
-        // Generate the collision shape if required or if it doesn't exist
-        if (generateShape || !customMeshShape) {
-            customMeshShape = std::make_shared<btConvexHullShape>();
-
-            for (int m = 0; m < model.meshCount; m++) {
-                Mesh& mesh = model.meshes[m];
-                float* meshVertices = reinterpret_cast<float*>(mesh.vertices);
-
-                // Add each vertex to the convex hull shape
-                for (int v = 0; v < mesh.vertexCount; v++) {
-                    btVector3 scaledVertex(
-                        meshVertices[v * 3]     * scale.x,
-                        meshVertices[v * 3 + 1] * scale.y,
-                        meshVertices[v * 3 + 2] * scale.z
-                    );
-                    customMeshShape->addPoint(scaledVertex);
-                }
+            // Add each vertex to the convex hull shape
+            for (int v = 0; v < mesh.vertexCount; v++) {
+                btVector3 scaledVertex(
+                    meshVertices[v * 3]     * scale.x,
+                    meshVertices[v * 3 + 1] * scale.y,
+                    meshVertices[v * 3 + 2] * scale.z
+                );
+                customMeshShape->addPoint(scaledVertex);
             }
         }
-
-        // Set the transform for the rigid body
-        btTransform rigidTransform;
-        rigidTransform.setIdentity();
-        rigidTransform.setOrigin(btVector3(position.x, position.y, position.z));
-
-        // Mass and inertia for a static object (mass = 0)
-        btScalar rigidMass = 0.0f;
-        btVector3 rigidInertia(0, 0, 0);
-        customMeshShape->calculateLocalInertia(rigidMass, rigidInertia);
-
-        // Create the motion state and rigid body construction info
-        boxMotionState = std::make_shared<btDefaultMotionState>(rigidTransform);
-        btRigidBody::btRigidBodyConstructionInfo rigidBodyCI(rigidMass, boxMotionState.get(), customMeshShape.get(), rigidInertia);
-
-        // Create the rigid body and add it to the physics world
-        rigidBody = std::make_shared<btRigidBody>(rigidBodyCI);
-        physics.dynamicsWorld->addRigidBody(rigidBody.get());
-
-        // Update the current collision shape type
-        currentCollisionShapeType = CollisionShapeType::HighPolyMesh;
     }
 
-    void createDynamicBox() {
-        isDynamic = true;
+    btTransform rigidTransform;
+    rigidTransform.setIdentity();
+    rigidTransform.setOrigin(btVector3(position.x, position.y, position.z));
 
-        if (rigidBody.get()) physics.dynamicsWorld->removeRigidBody(rigidBody.get());
+    btScalar rigidMass = mass;
+    btVector3 rigidInertia(0, 0, 0);
+    customMeshShape.get()->calculateLocalInertia(rigidMass, rigidInertia);
+    btDefaultMotionState* boxMotionState = new btDefaultMotionState(rigidTransform);
+    btRigidBody::btRigidBodyConstructionInfo highPolyStaticRigidBodyCI(rigidMass, boxMotionState, customMeshShape.get(), rigidInertia);
 
-        rigidShape = std::make_shared<btBoxShape>(btVector3(scale.x * scaleFactorRaylibBullet, scale.y * scaleFactorRaylibBullet, scale.z * scaleFactorRaylibBullet));
+    rigidBody = std::make_shared<btRigidBody>(highPolyStaticRigidBodyCI);
+    physics.dynamicsWorld->addRigidBody(rigidBody.get());
+}
 
-        btTransform startTransform;
-        startTransform.setIdentity();
-        startTransform.setOrigin(btVector3(position.x, position.y, position.z));
+void Entity::makePhysicsDynamic(CollisionShapeType shapeType) {
+    isDynamic = true;
 
-        btScalar btMass = mass;
-        btVector3 localInertia(inertia.x, inertia.y, inertia.z);
-        rigidShape->calculateLocalInertia(btMass, localInertia);
+    if (shapeType == CollisionShapeType::Box)                createDynamicBox();
+    else if (shapeType == CollisionShapeType::HighPolyMesh)  createDynamicMesh();
+}
 
-        boxMotionState = std::make_shared<btDefaultMotionState>(startTransform);
-        btRigidBody::btRigidBodyConstructionInfo rigidBodyCI(btMass, boxMotionState.get(), rigidShape.get(), localInertia);
-        rigidBody = std::make_unique<btRigidBody>(rigidBodyCI);
+void Entity::makePhysicsStatic(CollisionShapeType shapeType) {
+    isDynamic = false;
 
-        physics.dynamicsWorld->addRigidBody(rigidBody.get());
-        currentCollisionShapeType = CollisionShapeType::Box;
+    if (shapeType == CollisionShapeType::Box)                createStaticBox();
+    else if (shapeType == CollisionShapeType::HighPolyMesh)  createStaticMesh();
+}
+
+void Entity::reloadRigidBody() {
+    isDynamic ? makePhysicsDynamic(currentCollisionShapeType) : makePhysicsStatic(currentCollisionShapeType);
+}
+
+void Entity::resetPhysics() {
+    if (rigidBody && rigidBody != nullptr) {
+        rigidBody->setLinearVelocity(btVector3(0, 0, 0));
+        rigidBody->setAngularVelocity(btVector3(0, 0, 0));
+
+        setPos(backupPosition);
+    }
+}
+
+bool Entity::inFrustum() {
+    return AABBoxInFrustum(bounds.min, bounds.max);
+}
+
+void Entity::render() {
+    if (!initialized) return;
+
+    if (!hasModel()) {
+        initializeDefaultModel();
     }
 
-    void createDynamicMesh(bool generateShape = true) {
-        isDynamic = true;
+    updateChildren();
 
-        currentCollisionShapeType = CollisionShapeType::HighPolyMesh;
-        if (rigidBody.get()) physics.dynamicsWorld->removeRigidBody(rigidBody.get());
+    if (calcPhysics) {
+        if (currentCollisionShapeType != CollisionShapeType::None && isDynamic) {
+            calcPhysicsRotation();
+            calcPhysicsPosition();
+        }
+        ReloadTextures();
+    } else {
+        backupPosition = position;
+        setPos(position);
+        setRot(rotation);
+        setScale(scale);
+        updateMass();
+        ReloadTextures(true);
+    }
 
-        if (generateShape || !customMeshShape) {
-            customMeshShape = std::make_shared<btConvexHullShape>();
+    if (!visible) return;
 
-            for (int m = 0; m < model.meshCount; m++) {
-                Mesh& mesh = model.meshes[m];
-                float* meshVertices = reinterpret_cast<float*>(mesh.vertices);
+    static int tilingLocation = glGetUniformLocation(entityShader->id, "tiling");
+    SetShaderValue(*entityShader, tilingLocation, tiling, SHADER_UNIFORM_VEC2);
 
-                // Add each vertex to the convex hull shape
-                for (int v = 0; v < mesh.vertexCount; v++) {
-                    btVector3 scaledVertex(
-                        meshVertices[v * 3]     * scale.x,
-                        meshVertices[v * 3 + 1] * scale.y,
-                        meshVertices[v * 3 + 2] * scale.z
-                    );
-                    customMeshShape->addPoint(scaledVertex);
-                }
-            }
+    instances.empty() ? renderSingleModel() : renderInstanced();
+}
+
+void Entity::renderInstanced() {
+    PassSurfaceMaterials();
+
+    glUseProgram((GLuint)instancingShader.id);
+
+    matInstances = LoadMaterialDefault();
+
+    instancingShader.locs[SHADER_LOC_MATRIX_MVP] = GetUniformLocation(instancingShader, "mvp");
+    instancingShader.locs[SHADER_LOC_VECTOR_VIEW] = GetUniformLocation(instancingShader, "viewPos");
+    instancingShader.locs[SHADER_LOC_MATRIX_MODEL] = GetAttribLocation(instancingShader, "instanceTransform");
+
+    model.materials[0].maps[MATERIAL_MAP_DIFFUSE].color = RAYWHITE;
+
+    DrawMeshInstanced(model.meshes[0], model.materials[0], transforms, instances.size());
+}
+
+void Entity::renderSingleModel() {
+    if (!hasModel()) {
+        return;
+    }
+
+    const Matrix scaleMatrix = MatrixScale(scale.x, scale.y, scale.z);
+    const Matrix rotationMatrix = MatrixRotateXYZ(Vector3Scale(rotation, DEG2RAD));
+    const Matrix translationMatrix = MatrixTranslate(position.x, position.y, position.z);
+
+    const Matrix transformMatrix = MatrixMultiply(MatrixMultiply(scaleMatrix, rotationMatrix), translationMatrix);
+
+    model.transform = transformMatrix;
+
+    if (model.meshes != nullptr) {
+        bounds.min = Vector3Transform(constBounds.min, transformMatrix);
+        bounds.max = Vector3Transform(constBounds.max, transformMatrix);
+    }
+
+    if (!inFrustum()) return;
+
+    PassSurfaceMaterials();
+    glUseProgram((GLuint)entityShader->id);
+
+    float distance;
+#ifndef GAME_SHIPPING
+    distance = inGamePreview ? Vector3Distance(this->position, camera.position)
+                            : Vector3Distance(this->position, sceneCamera.position);
+#else
+    distance = Vector3Distance(this->position, camera.position);
+#endif
+
+    Model& modelToDraw = model;
+    if (lodEnabled) {
+        const int lodLevel = (distance < LOD_DISTANCE_HIGH) ? 0
+                        : (distance < LOD_DISTANCE_MEDIUM) ? 1
+                        : (distance < LOD_DISTANCE_LOW) ? 2
+                        : 3;
+
+        for (Model& lodModel : LodModels) {
+            lodModel.transform = transformMatrix;
         }
 
-        btTransform rigidTransform;
-        rigidTransform.setIdentity();
-        rigidTransform.setOrigin(btVector3(position.x, position.y, position.z));
-
-        btScalar rigidMass = mass;
-        btVector3 rigidInertia(0, 0, 0);
-        customMeshShape.get()->calculateLocalInertia(rigidMass, rigidInertia);
-        btDefaultMotionState* boxMotionState = new btDefaultMotionState(rigidTransform);
-        btRigidBody::btRigidBodyConstructionInfo highPolyStaticRigidBodyCI(rigidMass, boxMotionState, customMeshShape.get(), rigidInertia);
-
-        rigidBody = std::make_shared<btRigidBody>(highPolyStaticRigidBodyCI);
-        physics.dynamicsWorld->addRigidBody(rigidBody.get());
+        if (IsModelReady(LodModels[lodLevel])) modelToDraw = LodModels[lodLevel];
     }
 
-    void makePhysicsDynamic(CollisionShapeType shapeType = CollisionShapeType::Box) {
-        isDynamic = true;
+    DrawModel(modelToDraw, Vector3Zero(), 1, RAYWHITE);
+}
 
-        if (shapeType == CollisionShapeType::Box)                createDynamicBox();
-        else if (shapeType == CollisionShapeType::HighPolyMesh)  createDynamicMesh();
-    }
+void Entity::PassSurfaceMaterials() {
+    glUseProgram(entityShader->id);
 
-    void makePhysicsStatic(CollisionShapeType shapeType = CollisionShapeType::None) {
-        isDynamic = false;
+    glUniform1i(glGetUniformLocation(entityShader->id, "diffuseMapReady"),   !surfaceMaterial.albedoTexturePath.empty());
+    glUniform1i(glGetUniformLocation(entityShader->id, "normalMapReady"),    !surfaceMaterial.normalTexturePath.empty());
+    glUniform1i(glGetUniformLocation(entityShader->id, "roughnessMapReady"), !surfaceMaterial.roughnessTexturePath.empty());
+    glUniform1i(glGetUniformLocation(entityShader->id, "aoMapReady"),        !surfaceMaterial.aoTexturePath.empty());
+    glUniform1i(glGetUniformLocation(entityShader->id, "heightMapReady"),    !surfaceMaterial.heightTexturePath.empty());
+    glUniform1i(glGetUniformLocation(entityShader->id, "metallicMapReady"),  !surfaceMaterial.metallicTexturePath.empty());
+    glUniform1i(glGetUniformLocation(entityShader->id, "emissiveMapReady"),  !surfaceMaterial.emissiveTexturePath.empty());
+}
 
-        if (shapeType == CollisionShapeType::Box)                createStaticBox();
-        else if (shapeType == CollisionShapeType::HighPolyMesh)  createStaticMesh();
-    }
-
-    void reloadRigidBody() {
-        isDynamic ? makePhysicsDynamic(currentCollisionShapeType) : makePhysicsStatic(currentCollisionShapeType);
-    }
-
-    void resetPhysics() {
-        if (rigidBody && rigidBody != nullptr) {
-            rigidBody->setLinearVelocity(btVector3(0, 0, 0));
-            rigidBody->setAngularVelocity(btVector3(0, 0, 0));
-
-            setPos(backupPosition);
-        }
-    }
-
-    bool inFrustum() {
-        return AABBoxInFrustum(bounds.min, bounds.max);
-    }
-
-    void render() {
-        if (!initialized) return;
-
-        if (!hasModel()) {
-            initializeDefaultModel();
-        }
-
-        updateChildren();
-
-        if (calcPhysics) {
-            if (currentCollisionShapeType != CollisionShapeType::None && isDynamic) {
-                calcPhysicsRotation();
-                calcPhysicsPosition();
-            }
-            ReloadTextures();
-        } else {
-            backupPosition = position;
-            setPos(position);
-            setRot(rotation);
-            setScale(scale);
-            updateMass();
-            ReloadTextures(true);
-        }
-
-        if (!visible) return;
-
-        static int tilingLocation = glGetUniformLocation(entityShader->id, "tiling");
-        SetShaderValue(*entityShader, tilingLocation, tiling, SHADER_UNIFORM_VEC2);
-
-        instances.empty() ? renderSingleModel() : renderInstanced();
-    }
-
-private:
-    void renderInstanced() {
-        PassSurfaceMaterials();
-
-        glUseProgram((GLuint)instancingShader.id);
-
-        matInstances = LoadMaterialDefault();
-
-        instancingShader.locs[SHADER_LOC_MATRIX_MVP] = GetUniformLocation(instancingShader, "mvp");
-        instancingShader.locs[SHADER_LOC_VECTOR_VIEW] = GetUniformLocation(instancingShader, "viewPos");
-        instancingShader.locs[SHADER_LOC_MATRIX_MODEL] = GetAttribLocation(instancingShader, "instanceTransform");
-
-        model.materials[0].maps[MATERIAL_MAP_DIFFUSE].color = RAYWHITE;
-
-        DrawMeshInstanced(model.meshes[0], model.materials[0], transforms, instances.size());
-    }
-
-    void renderSingleModel() {
-        if (!hasModel()) {
-            return;
-        }
-
-        const Matrix scaleMatrix = MatrixScale(scale.x, scale.y, scale.z);
-        const Matrix rotationMatrix = MatrixRotateXYZ(Vector3Scale(rotation, DEG2RAD));
-        const Matrix translationMatrix = MatrixTranslate(position.x, position.y, position.z);
-
-        const Matrix transformMatrix = MatrixMultiply(MatrixMultiply(scaleMatrix, rotationMatrix), translationMatrix);
-
-        model.transform = transformMatrix;
-
-        if (model.meshes != nullptr) {
-            bounds.min = Vector3Transform(constBounds.min, transformMatrix);
-            bounds.max = Vector3Transform(constBounds.max, transformMatrix);
-        }
-
-        if (!inFrustum()) return;
-
-        PassSurfaceMaterials();
-        glUseProgram((GLuint)entityShader->id);
-
-        float distance;
-    #ifndef GAME_SHIPPING
-        distance = inGamePreview ? Vector3Distance(this->position, camera.position)
-                                : Vector3Distance(this->position, sceneCamera.position);
-    #else
-        distance = Vector3Distance(this->position, camera.position);
-    #endif
-
-        Model& modelToDraw = model;
-        if (lodEnabled) {
-            const int lodLevel = (distance < LOD_DISTANCE_HIGH) ? 0
-                            : (distance < LOD_DISTANCE_MEDIUM) ? 1
-                            : (distance < LOD_DISTANCE_LOW) ? 2
-                            : 3;
-
-            for (Model& lodModel : LodModels) {
-                lodModel.transform = transformMatrix;
-            }
-
-            if (IsModelReady(LodModels[lodLevel])) modelToDraw = LodModels[lodLevel];
-        }
-
-        DrawModel(modelToDraw, Vector3Zero(), 1, RAYWHITE);
-    }
-
-    void PassSurfaceMaterials() {
-        glUseProgram(entityShader->id);
-
-        glUniform1i(glGetUniformLocation(entityShader->id, "diffuseMapReady"),   !surfaceMaterial.albedoTexturePath.empty());
-        glUniform1i(glGetUniformLocation(entityShader->id, "normalMapReady"),    !surfaceMaterial.normalTexturePath.empty());
-        glUniform1i(glGetUniformLocation(entityShader->id, "roughnessMapReady"), !surfaceMaterial.roughnessTexturePath.empty());
-        glUniform1i(glGetUniformLocation(entityShader->id, "aoMapReady"),        !surfaceMaterial.aoTexturePath.empty());
-        glUniform1i(glGetUniformLocation(entityShader->id, "heightMapReady"),    !surfaceMaterial.heightTexturePath.empty());
-        glUniform1i(glGetUniformLocation(entityShader->id, "metallicMapReady"),  !surfaceMaterial.metallicTexturePath.empty());
-        glUniform1i(glGetUniformLocation(entityShader->id, "emissiveMapReady"),  !surfaceMaterial.emissiveTexturePath.empty());
-    }
-};
 
 bool operator==(const Entity& e, const Entity* ptr) {
     return &e == ptr;
@@ -1055,10 +969,10 @@ Entity* getEntityById(int id) {
 }
 
 Entity* AddEntity(
-    const fs::path& modelPath = "",
-    const Model& model = LoadModelFromMesh(GenMeshCube(1,1,1)),
-    const std::string& name = "Unnamed Entity",
-    const int id = -1
+    const fs::path& modelPath,
+    const Model& model,
+    const std::string& name,
+    const int id
 ) {
     eventManager.onEntityCreation.triggerEvent();
 

@@ -1,25 +1,41 @@
-#include "MaterialNodeEditor.h"
-#include "Drawing.cpp"
-#include "Helpers.cpp"
-#include "MaterialGraph.cpp"
-#include "MaterialShaderGenerator.cpp"
+#include <Engine/Editor/MaterialsNodeEditor/MaterialNodeEditor.hpp>
+#include <Engine/Editor/MaterialsNodeEditor/Drawing.hpp>
+#include <Engine/Editor/MaterialsNodeEditor/Helpers.hpp>
+#include <Engine/Editor/MaterialsNodeEditor/MaterialGraph.hpp>
+#include <Engine/Editor/MaterialsNodeEditor/MaterialShaderGenerator.hpp>
+#include <Engine/Editor/AssetsExplorer/AssetsExplorer.hpp>
+
+MaterialNodeSystem materialNodeSystem;
+Texture2D noiseTexture;
+bool showMaterialInNodesEditor;
+
+template <typename T>
+std::optional<T*> GetNodeData(Node& node) {
+    return std::visit(
+        [](auto& data) -> std::optional<T*> {
+            using U = std::decay_t<decltype(data)>;
+            if constexpr (std::is_same_v<U, T>) {
+                return &data;
+            } else {
+                return std::nullopt;
+            }
+        },
+        node.data);
+}
 
 static inline ImRect ImGui_GetItemRect() {
     return ImRect(ImGui::GetItemRectMin(), ImGui::GetItemRectMax());
 }
 
-int MaterialNodeSystem::GetNextId() {
-    return m_NextId++;
-}
+int MaterialNodeSystem::GetNextId() { return m_NextId++; }
 
 ed::LinkId MaterialNodeSystem::GetNextLinkId() {
     return ed::LinkId(GetNextId());
 }
 
 Node* MaterialNodeSystem::FindNode(ed::NodeId id) {
-    auto it = std::find_if(m_Nodes.begin(), m_Nodes.end(), [&](const Node& node) {
-        return node.ID == id;
-    });
+    auto it = std::find_if(m_Nodes.begin(), m_Nodes.end(),
+                           [&](const Node& node) { return node.ID == id; });
 
     return it != m_Nodes.end() ? &(*it) : nullptr;
 }
@@ -33,9 +49,10 @@ Link* MaterialNodeSystem::FindLink(ed::LinkId id) {
 }
 
 Link* MaterialNodeSystem::FindLink(ed::PinId pinId) {
-    auto it = std::find_if(m_Links.begin(), m_Links.end(), [pinId](const Link& link) {
-        return link.StartPinID == pinId || link.EndPinID == pinId;
-    });
+    auto it =
+        std::find_if(m_Links.begin(), m_Links.end(), [pinId](const Link& link) {
+            return link.StartPinID == pinId || link.EndPinID == pinId;
+        });
 
     if (it != m_Links.end()) {
         return &(*it);
@@ -72,21 +89,20 @@ bool MaterialNodeSystem::IsPinLinked(ed::PinId id) {
 }
 
 bool MaterialNodeSystem::CanCreateLink(Pin* a, Pin* b) {
-    if (!a || !b || a == b || a->Kind == b->Kind || a->Type != b->Type || a->Node == b->Node)
+    if (!a || !b || a == b || a->Kind == b->Kind || a->Type != b->Type ||
+        a->Node == b->Node)
         return false;
 
     return true;
 }
 
 void MaterialNodeSystem::BuildNode(Node* node) {
-    for (auto& input : node->Inputs)
-    {
+    for (auto& input : node->Inputs) {
         input.Node = node;
         input.Kind = PinKind::Input;
     }
 
-    for (auto& output : node->Outputs)
-    {
+    for (auto& output : node->Outputs) {
         output.Node = node;
         output.Kind = PinKind::Output;
     }
@@ -97,7 +113,8 @@ void MaterialNodeSystem::BuildNodes() {
         BuildNode(&node);
 }
 
-void DrawNodeTitle(const std::string& title, const float& width, const ImColor& bgColor, const ed::NodeId& id) {
+void DrawNodeTitle(const std::string& title, const float& width,
+                   const ImColor& bgColor, const ed::NodeId& id) {
     ImVec2 cursorPos = ImGui::GetCursorScreenPos();
     constexpr float height = 30.0f;
 
@@ -111,18 +128,13 @@ void DrawNodeTitle(const std::string& title, const float& width, const ImColor& 
     const ImVec2 uvMax(uvWidth, uvHeight);
 
     ImGui::GetWindowDrawList()->AddImageRounded(
-        (ImTextureID)&noiseTexture,
-        rectMin, rectMax,
-        uvMin, uvMax,
-        ImGui::ColorConvertFloat4ToU32(bgColor),
-        5.0f, ImDrawFlags_RoundCornersTop
-    );
+        (ImTextureID)&noiseTexture, rectMin, rectMax, uvMin, uvMax,
+        ImGui::ColorConvertFloat4ToU32(bgColor), 5.0f,
+        ImDrawFlags_RoundCornersTop);
 
     ImVec2 textSize = ImGui::CalcTextSize(title.c_str());
-    ImVec2 textPos(
-        rectMin.x + (width  - textSize.x) * 0.5f,
-        rectMin.y + (height - textSize.y) * 0.5f
-    );
+    ImVec2 textPos(rectMin.x + (width - textSize.x) * 0.5f,
+                   rectMin.y + (height - textSize.y) * 0.5f);
 
     ImGui::SetCursorScreenPos(textPos);
     const std::string titleFinal = title + std::to_string(id.Get());
@@ -132,71 +144,78 @@ void DrawNodeTitle(const std::string& title, const float& width, const ImColor& 
 
     constexpr ImColor borderColor(100, 100, 100, 250);
 
-    ImGui::GetWindowDrawList()->AddLine(
-        ImVec2(rectMin.x, rectMax.y),
-        rectMax,
-        borderColor,
-        1.0f
-    );
+    ImGui::GetWindowDrawList()->AddLine(ImVec2(rectMin.x, rectMax.y), rectMax,
+                                        borderColor, 1.0f);
 
     ImGui::SetCursorScreenPos(cursorPos);
     std::string invisibleButtonText = "NodeTitleInvisibleButton_" + id.Get();
-    ImGui::InvisibleButton(invisibleButtonText.c_str(), ImVec2(width, 0.1)); // Ensures the node has the correct width
+    ImGui::InvisibleButton(
+        invisibleButtonText.c_str(),
+        ImVec2(width, 0.1)); // Ensures the node has the correct width
 
     ImGui::SetCursorScreenPos(ImVec2(rectMin.x, rectMax.y));
 }
 
-void DrawPinIcon(const ImVec2& size, MaterialDrawing::IconType type, bool filled, const ImVec4& color, const ImVec4& innerColor) {
+void DrawPinIcon(const ImVec2& size, MaterialIconType type,
+                 bool filled, const ImVec4& color, const ImVec4& innerColor) {
     if (ImGui::IsRectVisible(size)) {
         auto cursorPos = ImGui::GetCursorScreenPos();
-        auto drawList  = ImGui::GetWindowDrawList();
-        MaterialDrawing::DrawIcon(drawList, cursorPos, cursorPos + size, type, filled, ImColor(color), ImColor(innerColor));
+        auto drawList = ImGui::GetWindowDrawList();
+        DrawMaterialNodeIcon(drawList, cursorPos, cursorPos + size, type,
+                                  filled, ImColor(color), ImColor(innerColor));
     }
 
     ImGui::Dummy(size);
 }
 
-void MaterialNodeSystem::DrawNodeMiddleSection(Node& node, const ImVec2& cursorStartPos) {
+void MaterialNodeSystem::DrawNodeMiddleSection(Node& node,
+                                               const ImVec2& cursorStartPos) {
     if (node.type == NodeType::Color) {
         ColorNode* nodeData = GetNodeData<ColorNode>(node).value_or(nullptr);
 
         if (nodeData) {
             ImGuiColorEditFlags colorEditFlags =
-                ImGuiColorEditFlags_NoTooltip |
-                ImGuiColorEditFlags_NoLabel |
-                ImGuiColorEditFlags_NoInputs |
-                ImGuiColorEditFlags_PickerHueBar;
+                ImGuiColorEditFlags_NoTooltip | ImGuiColorEditFlags_NoLabel |
+                ImGuiColorEditFlags_NoInputs | ImGuiColorEditFlags_PickerHueBar;
 
             ImGui::SetCursorPosX(cursorStartPos.x + padding);
             ImGui::SetNextItemWidth(200.0f);
-            ImGui::ColorPicker4("Color", (float*)&nodeData->color, colorEditFlags);
+            ImGui::ColorPicker4("Color", (float*)&nodeData->color,
+                                colorEditFlags);
             node.Outputs.at(0).Value = std::any(nodeData->color);
         }
     } else if (node.type == NodeType::Texture) {
-        TextureNode* nodeData = GetNodeData<TextureNode>(node).value_or(nullptr);
+        TextureNode* nodeData =
+            GetNodeData<TextureNode>(node).value_or(nullptr);
 
         if (nodeData) {
-            const std::string imageButtonId = "##textureButtonID_" + node.ID.Get();
+            const std::string imageButtonId =
+                "##textureButtonID_" + node.ID.Get();
 
             ImGui::SetCursorPosX(cursorStartPos.x + padding);
-            ImGui::ImageButton(imageButtonId.c_str(), (ImTextureID)&nodeData->texture.getTexture2D(), ImVec2(140, 140));
+            ImGui::ImageButton(imageButtonId.c_str(),
+                               (ImTextureID)&nodeData->texture.getTexture2D(),
+                               ImVec2(140, 140));
 
             if (ImGui::BeginDragDropTarget()) {
-                const ImGuiPayload* payload = ImGui::AcceptDragDropPayload("TEXTURE_PAYLOAD");
+                const ImGuiPayload* payload =
+                    ImGui::AcceptDragDropPayload("TEXTURE_PAYLOAD");
 
                 if (payload) {
                     IM_ASSERT(payload->DataSize == sizeof(int));
                     int payload_n = *(const int*)payload->Data;
 
                     nodeData->texture = dirPath / fileStruct[payload_n].name;
-                    nodeData->texturePath = dirPath / fileStruct[payload_n].name;
+                    nodeData->texturePath =
+                        dirPath / fileStruct[payload_n].name;
                 }
 
                 ImGui::EndDragDropTarget();
             }
 
             ImGui::SameLine();
-            const std::string emptyButtonName = std::string("x##CleanupTexture" + node.Name + "EmptyButton");
+            const std::string emptyButtonName =
+                std::string("x##CleanupTexture" + node.Name + "EmptyButton");
             if (ImGui::Button(emptyButtonName.c_str(), ImVec2(25, 25))) {
                 nodeData->texture.cleanup();
             }
@@ -218,7 +237,8 @@ void MaterialNodeSystem::DrawNodeMiddleSection(Node& node, const ImVec2& cursorS
                     node.Outputs.at(0).Value = std::any(nodeData->value);
                 }
             } else {
-                if (ImGui::SliderFloat("", &nodeData->value, SLIDER_MIN, SLIDER_MAX)) {
+                if (ImGui::SliderFloat("", &nodeData->value, SLIDER_MIN,
+                                       SLIDER_MAX)) {
                     node.Outputs.at(0).Value = std::any(nodeData->value);
                 }
             }
@@ -231,10 +251,10 @@ void MaterialNodeSystem::DrawNodeMiddleSection(Node& node, const ImVec2& cursorS
             ImGui::PushID(std::string("OnlyInt_" + node.ID.Get()).c_str());
             ImGui::Checkbox("", &nodeData->onlyInt);
             ImGui::PopID();
-
         }
     } else if (node.type == NodeType::OneMinusX) {
-        OneMinusXNode* nodeData = GetNodeData<OneMinusXNode>(node).value_or(nullptr);
+        OneMinusXNode* nodeData =
+            GetNodeData<OneMinusXNode>(node).value_or(nullptr);
 
         if (nodeData) {
             float oneMinusXValue = 0.0f;
@@ -249,16 +269,17 @@ void MaterialNodeSystem::DrawNodeMiddleSection(Node& node, const ImVec2& cursorS
             }
         }
     } else if (node.type == NodeType::Multiply) {
-        MultiplyNode* nodeData = GetNodeData<MultiplyNode>(node).value_or(nullptr);
+        MultiplyNode* nodeData =
+            GetNodeData<MultiplyNode>(node).value_or(nullptr);
 
         if (nodeData) {
         }
     } else if (node.type == NodeType::Material) {
-        MaterialNode* nodeData = GetNodeData<MaterialNode>(node).value_or(nullptr);
+        MaterialNode* nodeData =
+            GetNodeData<MaterialNode>(node).value_or(nullptr);
 
         if (nodeData && IsKeyDown(KEY_O)) {
-            std::cout << GenerateMaterialShader() << "\n";
-            shader = LoadShaderFromMemory(lightingShaderVertexCode, GenerateMaterialShader().c_str());
+            shader = GenerateMaterialShader();
             selectedEntity->setShader(shader);
         }
     }
@@ -281,24 +302,24 @@ void MaterialNodeSystem::DrawNode(Node& node) {
 
     for (size_t i = 0; i < node.Inputs.size(); ++i) {
         auto& inputPin = node.Inputs[i];
-        ImGui::SetCursorScreenPos(nodeStartPos + ImVec2(padding, i * (m_PinIconSize + 5.0f)));
+        ImGui::SetCursorScreenPos(nodeStartPos +
+                                  ImVec2(padding, i * (m_PinIconSize + 5.0f)));
 
         ed::BeginPin(inputPin.ID, ed::PinKind::Input);
         ed::PinPivotAlignment(ImVec2(0.5f, 0.5f));
         ed::PinPivotSize(ImVec2(0, 0));
 
-        DrawPinIcon(
-            ImVec2(static_cast<float>(m_PinIconSize), static_cast<float>(m_PinIconSize)),
-            MaterialDrawing::IconType::Circle,
-            false,
-            ImColor(100, 100, 100, 255),
-            ImColor(32, 32, 32, 100)
-        );
+        DrawPinIcon(ImVec2(static_cast<float>(m_PinIconSize),
+                           static_cast<float>(m_PinIconSize)),
+                    MaterialIconType::Circle, false,
+                    ImColor(100, 100, 100, 255), ImColor(32, 32, 32, 100));
 
         ed::EndPin();
 
-        ImGui::SameLine(inputSectionWidth.x - ImGui::CalcTextSize(inputPin.Name.c_str()).x);
-        std::string pinName = inputPin.Name + "_" + std::to_string(inputPin.ID.Get());
+        ImGui::SameLine(inputSectionWidth.x -
+                        ImGui::CalcTextSize(inputPin.Name.c_str()).x);
+        std::string pinName =
+            inputPin.Name + "_" + std::to_string(inputPin.ID.Get());
         ImGui::Text(pinName.c_str());
     }
 
@@ -307,15 +328,19 @@ void MaterialNodeSystem::DrawNode(Node& node) {
 
     this->DrawNodeMiddleSection(node, nodeStartPos + inputSectionWidth);
 
-    const ImVec2 outputStartPos    = nodeStartPos   + ImVec2(node.Size.x - 100.0f - padding, 0.0f);
-    const float outputPinStartPosX = nodeStartPos.x + node.Size.x - m_PinIconSize - padding;
+    const ImVec2 outputStartPos =
+        nodeStartPos + ImVec2(node.Size.x - 100.0f - padding, 0.0f);
+    const float outputPinStartPosX =
+        nodeStartPos.x + node.Size.x - m_PinIconSize - padding;
 
     for (size_t i = 0; i < node.Outputs.size(); ++i) {
         auto& outputPin = node.Outputs[i];
 
-        ImGui::SetCursorScreenPos(outputStartPos + ImVec2(0.0f, i * (m_PinIconSize + 5.0f)));
+        ImGui::SetCursorScreenPos(outputStartPos +
+                                  ImVec2(0.0f, i * (m_PinIconSize + 5.0f)));
 
-        std::string pinName = outputPin.Name + "_" + std::to_string(outputPin.ID.Get());
+        std::string pinName =
+            outputPin.Name + "_" + std::to_string(outputPin.ID.Get());
         ImGui::Text(pinName.c_str());
         ImGui::SameLine();
         ImGui::SetCursorPosX(outputPinStartPosX);
@@ -324,18 +349,16 @@ void MaterialNodeSystem::DrawNode(Node& node) {
         ed::PinPivotAlignment(ImVec2(0.5f, 0.5f));
         ed::PinPivotSize(ImVec2(0, 0));
 
-        DrawPinIcon(
-            ImVec2(static_cast<float>(m_PinIconSize), static_cast<float>(m_PinIconSize)),
-            MaterialDrawing::IconType::Circle,
-            false,
-            ImColor(100, 100, 100, 255),
-            ImColor(32, 32, 32, 100)
-        );
+        DrawPinIcon(ImVec2(static_cast<float>(m_PinIconSize),
+                           static_cast<float>(m_PinIconSize)),
+                    MaterialIconType::Circle, false,
+                    ImColor(100, 100, 100, 255), ImColor(32, 32, 32, 100));
 
         ed::EndPin();
 
         if (IsPinLinked(outputPin.ID)) {
-            std::vector<ed::PinId> inputPinsId = GetConnectedInputPins(outputPin.ID);
+            std::vector<ed::PinId> inputPinsId =
+                GetConnectedInputPins(outputPin.ID);
             for (ed::PinId pinID : inputPinsId) {
                 Pin* inputPin = FindPin(pinID);
                 inputPin->Value = outputPin.Value;
@@ -350,10 +373,11 @@ void MaterialNodeSystem::DrawNode(Node& node) {
     ed::EndNode();
 }
 
-
 bool MaterialNodeSystem::ArePinsValid(Pin* startPin, Pin* endPin) {
-    if (!startPin || !endPin) return false;
-    if (startPin == endPin) return false;
+    if (!startPin || !endPin)
+        return false;
+    if (startPin == endPin)
+        return false;
 
     bool typeMatch = false;
 
@@ -364,7 +388,8 @@ bool MaterialNodeSystem::ArePinsValid(Pin* startPin, Pin* endPin) {
                 break;
             }
         }
-        if (typeMatch) break;
+        if (typeMatch)
+            break;
     }
 
     if (!typeMatch) {
@@ -380,11 +405,13 @@ bool MaterialNodeSystem::ArePinsValid(Pin* startPin, Pin* endPin) {
     return true;
 }
 
-void MaterialNodeSystem::HandleNewLink(ed::PinId& startPinId, ed::PinId& endPinId) {
+void MaterialNodeSystem::HandleNewLink(ed::PinId& startPinId,
+                                       ed::PinId& endPinId) {
     Pin* startPin = FindPin(startPinId);
     Pin* endPin = FindPin(endPinId);
 
-    if (!ArePinsValid(startPin, endPin)) return;
+    if (!ArePinsValid(startPin, endPin))
+        return;
 
     newLinkPin = startPin ? startPin : endPin;
 
@@ -398,7 +425,8 @@ void MaterialNodeSystem::HandleNewLink(ed::PinId& startPinId, ed::PinId& endPinI
     }
 }
 
-void MaterialNodeSystem::DrawMaterialNodeEditor(SurfaceMaterial& surfaceMaterial) {
+void MaterialNodeSystem::DrawMaterialNodeEditor(
+    SurfaceMaterial& surfaceMaterial) {
     if (!m_Context)
         this->Init();
 
@@ -410,16 +438,17 @@ void MaterialNodeSystem::DrawMaterialNodeEditor(SurfaceMaterial& surfaceMaterial
     ed::SetCurrentEditor(m_Context);
     ed::Begin("Material Editor", ImVec2(0.0, 0.0f));
 
-    ed::PushStyleColor(ed::StyleColor_NodeBg,        ImColor(128, 128, 128, 200));
-    ed::PushStyleColor(ed::StyleColor_PinRect,       ImColor( 60, 180, 255, 150));
-    ed::PushStyleColor(ed::StyleColor_PinRectBorder, ImColor( 60, 180, 255, 150));
+    ed::PushStyleColor(ed::StyleColor_NodeBg, ImColor(128, 128, 128, 200));
+    ed::PushStyleColor(ed::StyleColor_PinRect, ImColor(60, 180, 255, 150));
+    ed::PushStyleColor(ed::StyleColor_PinRectBorder,
+                       ImColor(60, 180, 255, 150));
 
-    ed::PushStyleVar(ed::StyleVar_NodePadding,     ImVec4(0, 0, 0, 0));
-    ed::PushStyleVar(ed::StyleVar_NodeRounding,    5.0f);
-    ed::PushStyleVar(ed::StyleVar_PinBorderWidth,  1.0f);
-    ed::PushStyleVar(ed::StyleVar_PinRadius,       5.0f);
+    ed::PushStyleVar(ed::StyleVar_NodePadding, ImVec4(0, 0, 0, 0));
+    ed::PushStyleVar(ed::StyleVar_NodeRounding, 5.0f);
+    ed::PushStyleVar(ed::StyleVar_PinBorderWidth, 1.0f);
+    ed::PushStyleVar(ed::StyleVar_PinRadius, 5.0f);
     ed::PushStyleVar(ed::StyleVar_NodeBorderWidth, 0.0f);
-    ed::PushStyleVar(ed::StyleVar_SourceDirection, ImVec2(0.0f,  1.0f));
+    ed::PushStyleVar(ed::StyleVar_SourceDirection, ImVec2(0.0f, 1.0f));
     ed::PushStyleVar(ed::StyleVar_TargetDirection, ImVec2(0.0f, -1.0f));
     ed::PushStyleVar(ed::StyleVar_LinkStrength, 0.0f);
 
@@ -457,7 +486,6 @@ void MaterialNodeSystem::DrawMaterialNodeEditor(SurfaceMaterial& surfaceMaterial
 void MaterialNodeSystem::ShowPopup() {
     ImVec2 openPopupPosition = ImGui::GetMousePos();
 
-
     if (IsMouseButtonPressed(MOUSE_BUTTON_RIGHT)) {
         showAddNode = true;
     }
@@ -467,7 +495,7 @@ void MaterialNodeSystem::ShowPopup() {
         ImGui::OpenPopup("Add Node");
     }
 
-    if(ImGui::BeginPopup("Add Node")) {
+    if (ImGui::BeginPopup("Add Node")) {
         Node* node = nullptr;
 
         if (ImGui::BeginMenu("Input")) {
@@ -487,7 +515,8 @@ void MaterialNodeSystem::ShowPopup() {
                 node = SpawnSliderNode();
             }
 
-            if (ImGui::MenuItem("Clamp"));// node = SpawnClampNode();
+            if (ImGui::MenuItem("Clamp"))
+                ; // node = SpawnClampNode();
 
             if (ImGui::MenuItem("Multiply")) {
                 node = SpawnMultiplyNode();
@@ -503,7 +532,6 @@ void MaterialNodeSystem::ShowPopup() {
         if (ImGui::BeginMenu("Logic")) {
 
             ImGui::EndMenu();
-
         }
 
         if (ImGui::BeginMenu("Output")) {
@@ -528,15 +556,23 @@ void MaterialNodeSystem::ShowPopup() {
 
 Node* MaterialNodeSystem::SpawnMaterialNode() {
     MaterialNode materialNode;
-    m_Nodes.emplace_back(GetNextId(), "Color", materialNode, NodeType::Material, ImColor(255, 100, 100), ImVec2(450.0f, -1.0f));
+    m_Nodes.emplace_back(GetNextId(), "Color", materialNode, NodeType::Material,
+                         ImColor(255, 100, 100), ImVec2(450.0f, -1.0f));
 
-    m_Nodes.back().Inputs.emplace_back(GetNextId(), "Diffuse",           PinType::TextureOrColor, PinKind::Input);
-    m_Nodes.back().Inputs.emplace_back(GetNextId(), "Normal",            PinType::TextureOrColor, PinKind::Input);
-    m_Nodes.back().Inputs.emplace_back(GetNextId(), "Roughness",         PinType::TextureOrColor, PinKind::Input);
-    m_Nodes.back().Inputs.emplace_back(GetNextId(), "Ambient Occlusion", PinType::TextureOrColor, PinKind::Input);
-    m_Nodes.back().Inputs.emplace_back(GetNextId(), "Height",            PinType::TextureOrColor, PinKind::Input);
-    m_Nodes.back().Inputs.emplace_back(GetNextId(), "Metallic",          PinType::TextureOrColor, PinKind::Input);
-    m_Nodes.back().Inputs.emplace_back(GetNextId(), "Emissive",          PinType::TextureOrColor, PinKind::Input);
+    m_Nodes.back().Inputs.emplace_back(GetNextId(), "Diffuse",
+                                       PinType::TextureOrColor, PinKind::Input);
+    m_Nodes.back().Inputs.emplace_back(GetNextId(), "Normal",
+                                       PinType::TextureOrColor, PinKind::Input);
+    m_Nodes.back().Inputs.emplace_back(GetNextId(), "Roughness",
+                                       PinType::TextureOrColor, PinKind::Input);
+    m_Nodes.back().Inputs.emplace_back(GetNextId(), "Ambient Occlusion",
+                                       PinType::TextureOrColor, PinKind::Input);
+    m_Nodes.back().Inputs.emplace_back(GetNextId(), "Height",
+                                       PinType::TextureOrColor, PinKind::Input);
+    m_Nodes.back().Inputs.emplace_back(GetNextId(), "Metallic",
+                                       PinType::TextureOrColor, PinKind::Input);
+    m_Nodes.back().Inputs.emplace_back(GetNextId(), "Emissive",
+                                       PinType::TextureOrColor, PinKind::Input);
 
     m_Nodes.back().isRoot = true;
 
@@ -544,9 +580,11 @@ Node* MaterialNodeSystem::SpawnMaterialNode() {
 }
 
 Node* MaterialNodeSystem::SpawnColorNode() {
-    ColorNode colorNode{ ImColor(255, 255, 255, 255) };
-    m_Nodes.emplace_back(GetNextId(), "Color", colorNode, NodeType::Color, ImColor(255, 100, 100), ImVec2(450.0f, -1.0f));
-    m_Nodes.back().Outputs.emplace_back(GetNextId(), "Color", PinType::TextureOrColor, PinKind::Output);
+    ColorNode colorNode{ImColor(255, 255, 255, 255)};
+    m_Nodes.emplace_back(GetNextId(), "Color", colorNode, NodeType::Color,
+                         ImColor(255, 100, 100), ImVec2(450.0f, -1.0f));
+    m_Nodes.back().Outputs.emplace_back(
+        GetNextId(), "Color", PinType::TextureOrColor, PinKind::Output);
 
     BuildNode(&m_Nodes.back());
 
@@ -555,8 +593,10 @@ Node* MaterialNodeSystem::SpawnColorNode() {
 
 Node* MaterialNodeSystem::SpawnTextureNode() {
     TextureNode textureNode;
-    m_Nodes.emplace_back(GetNextId(), "Texture", textureNode, NodeType::Texture, ImColor(100, 255, 100), ImVec2(400.0f, -1.0f));
-    m_Nodes.back().Outputs.emplace_back(GetNextId(), "Texture", PinType::TextureOrColor, PinKind::Output);
+    m_Nodes.emplace_back(GetNextId(), "Texture", textureNode, NodeType::Texture,
+                         ImColor(100, 255, 100), ImVec2(400.0f, -1.0f));
+    m_Nodes.back().Outputs.emplace_back(
+        GetNextId(), "Texture", PinType::TextureOrColor, PinKind::Output);
 
     BuildNode(&m_Nodes.back());
 
@@ -565,8 +605,10 @@ Node* MaterialNodeSystem::SpawnTextureNode() {
 
 Node* MaterialNodeSystem::SpawnSliderNode() {
     SliderNode sliderNode;
-    m_Nodes.emplace_back(GetNextId(), "Slider", sliderNode, NodeType::Slider, ImColor(100, 100, 255), ImVec2(500.0f, -1.0f));
-    m_Nodes.back().Outputs.emplace_back(GetNextId(), "Number", PinType::Number, PinKind::Output);
+    m_Nodes.emplace_back(GetNextId(), "Slider", sliderNode, NodeType::Slider,
+                         ImColor(100, 100, 255), ImVec2(500.0f, -1.0f));
+    m_Nodes.back().Outputs.emplace_back(GetNextId(), "Number", PinType::Number,
+                                        PinKind::Output);
 
     BuildNode(&m_Nodes.back());
 
@@ -575,9 +617,12 @@ Node* MaterialNodeSystem::SpawnSliderNode() {
 
 Node* MaterialNodeSystem::SpawnOneMinusXNode() {
     OneMinusXNode oneMinusXNode;
-    m_Nodes.emplace_back(GetNextId(), "1-x", oneMinusXNode, NodeType::OneMinusX, ImColor(100, 255, 255));
-    m_Nodes.back().Inputs.emplace_back(GetNextId(), "X", PinType::Number, PinKind::Input);
-    m_Nodes.back().Outputs.emplace_back(GetNextId(), "1-x", PinType::Number, PinKind::Output);
+    m_Nodes.emplace_back(GetNextId(), "1-x", oneMinusXNode, NodeType::OneMinusX,
+                         ImColor(100, 255, 255));
+    m_Nodes.back().Inputs.emplace_back(GetNextId(), "X", PinType::Number,
+                                       PinKind::Input);
+    m_Nodes.back().Outputs.emplace_back(GetNextId(), "1-x", PinType::Number,
+                                        PinKind::Output);
 
     BuildNode(&m_Nodes.back());
 
@@ -586,10 +631,21 @@ Node* MaterialNodeSystem::SpawnOneMinusXNode() {
 
 Node* MaterialNodeSystem::SpawnMultiplyNode() {
     MultiplyNode multiplyNode;
-    m_Nodes.emplace_back(GetNextId(), "Multiply", multiplyNode, NodeType::Multiply, ImColor(255, 255, 100), ImVec2(500, -1), 150.0f);
-    m_Nodes.back().Inputs.emplace_back(GetNextId(), "Value",      std::list<PinType>{PinType::Number, PinType::TextureOrColor}, PinKind::Input);
-    m_Nodes.back().Inputs.emplace_back(GetNextId(), "Multiplier", std::list<PinType>{PinType::Number, PinType::TextureOrColor}, PinKind::Input);
-    m_Nodes.back().Outputs.emplace_back(GetNextId(), "Out",       std::list<PinType>{PinType::Number, PinType::TextureOrColor}, PinKind::Output);
+    m_Nodes.emplace_back(GetNextId(), "Multiply", multiplyNode,
+                         NodeType::Multiply, ImColor(255, 255, 100),
+                         ImVec2(500, -1), 150.0f);
+    m_Nodes.back().Inputs.emplace_back(
+        GetNextId(), "Value",
+        std::list<PinType>{PinType::Number, PinType::TextureOrColor},
+        PinKind::Input);
+    m_Nodes.back().Inputs.emplace_back(
+        GetNextId(), "Multiplier",
+        std::list<PinType>{PinType::Number, PinType::TextureOrColor},
+        PinKind::Input);
+    m_Nodes.back().Outputs.emplace_back(
+        GetNextId(), "Out",
+        std::list<PinType>{PinType::Number, PinType::TextureOrColor},
+        PinKind::Output);
 
     BuildNode(&m_Nodes.back());
 

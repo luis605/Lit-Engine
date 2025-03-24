@@ -1,36 +1,40 @@
 #ifndef ENGINE_H
 #define ENGINE_H
-#include "Entity.hpp"
+
+#include <Engine/Core/Entity.hpp>
+#include <Engine/Core/Raycast.hpp>
+#include <Engine/GUI/Button/Button.hpp>
+#include <Engine/GUI/Text/Text.hpp>
+#include <Engine/Lighting/lights.hpp>
+#include <filesystem>
+#include <glad.h>
+#include <string>
+#include <unordered_map>
+
+namespace fs = std::filesystem;
 
 struct LightStruct;
+struct SurfaceMaterial;
+struct SurfaceMaterialTexture;
 
-std::vector<Entity> entitiesListPregame;
-std::vector<Entity> entitiesList;
-std::unordered_map<int, size_t> entityIdToIndexMap;
-std::unordered_map<int, size_t> lightIdToIndexMap;
-std::unordered_map<GLuint, std::unordered_map<std::string, GLint>> uniformLocationCache;
+extern std::vector<Entity> entitiesListPregame;
+extern std::vector<Entity> entitiesList;
+extern std::unordered_map<int, size_t> entityIdToIndexMap;
+extern std::unordered_map<int, size_t> lightIdToIndexMap;
+extern std::unordered_map<GLuint, std::unordered_map<std::string, GLint>>
+    uniformLocationCache;
 
-Entity*      selectedEntity      = nullptr;
-LightStruct* selectedLight       = nullptr;
-LitButton*   selectedButton      = nullptr;
-Text*        selectedTextElement = nullptr;
-fs::path     selectedMaterial;
+extern Entity* selectedEntity;
+extern LightStruct* selectedLight;
+extern LitButton* selectedButton;
+extern Text* selectedTextElement;
+extern fs::path selectedMaterial;
 
-struct HitInfo {
-    bool hit;
-    LitVector3 worldPoint;
-    LitVector3 relativePoint; // Relative Hit Position from Origin
-    LitVector3 worldNormal;
-    float distance;
-    Color hitColor;
-    Entity* entity;
-};
-
-std::string colorToString(const Color& color);
 std::string readFileToString(const std::string& filename);
-const char* decryptFileString(const std::string& inputFile, const std::string& key);
-const char* encryptFileString(const std::string& inputFile, const std::string& key);
-HitInfo raycast(LitVector3 origin, LitVector3 direction, bool debug, std::vector<Entity> ignore);
+const char* decryptFileString(const std::string& inputFile,
+                              const std::string& key);
+const char* encryptFileString(const std::string& inputFile,
+                              const std::string& key);
 GLint GetUniformLocation(Shader& shader, const char* name);
 GLint GetAttribLocation(Shader& shader, const char* name);
 
