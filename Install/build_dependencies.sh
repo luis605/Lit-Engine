@@ -1,4 +1,4 @@
-cd ../include/bullet3
+cd ../Include/bullet3
 mkdir -p build && cd build
 cmake .. -DBUILD_SHARED_LIBS=OFF -DCMAKE_BUILD_TYPE=Release
 make -j$(nproc)
