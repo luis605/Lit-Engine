@@ -1,0 +1,24 @@
+name: CI Pipeline
+
+on: [push, pull_request]
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Install dependencies
+        run: |
+          chmod +x Install/install.sh Install/build_dependencies.sh
+          ./Install/install.sh
+          ./Install/build_dependencies.sh
+
+      - name: Build Engine
+        run: |
+          mkdir -p build
+          cd build
+          cmake ..
+          make -j$(nproc)
