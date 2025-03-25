@@ -21,7 +21,7 @@ jobs:
         run: |
           chmod +x Install/install.sh Install/build_dependencies.sh
           ./Install/install.sh
-          ./Install/build_dependencies.sh
+          cd Install && ./build_dependencies.sh
 
       - name: Build Engine
         run: |
