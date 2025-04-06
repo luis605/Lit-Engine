@@ -9,12 +9,11 @@
     #include <Engine/Editor/SceneEditor/SceneEditor.hpp>
 #endif // GAME_SHIPPING
 
-bool Entity_already_registered = false;
-
 py::module createEntityModule() {
     return py::module_::create_extension_module("entityModule", nullptr, new PyModuleDef());
 }
 
+py::module entityModule;
 RLFrustum cameraFrustum;
 void InitFrustum() {
     cameraFrustum = RLFrustum();
@@ -28,7 +27,7 @@ bool PointInFrustum(const Vector3& point) {
     return cameraFrustum.PointIn(point);
 }
 
-bool SphereInFrustum(const Vector3& position, float radius) {
+bool SphereInFrustum(const Vector3& position, const float& radius) {
     return cameraFrustum.SphereIn(position, radius);
 }
 
@@ -38,39 +37,31 @@ bool AABBoxInFrustum(const Vector3& min, const Vector3& max) {
 
 void Entity::addInstance(Entity* instance) {
     instances.emplace_back(instance);
+    transforms.reserve(1);
 
-    if (transforms == nullptr) {
-        transforms = (Matrix *)RL_CALLOC(instances.size(), sizeof(Matrix));
-    } else {
-        transforms = (Matrix *)RL_REALLOC(transforms, instances.size() * sizeof(Matrix));
-    }
+    calculateInstance();
 
-    int lastIndex = instances.size() - 1;
-    calculateInstance(lastIndex);
-
-    instancingShader.locs[SHADER_LOC_MATRIX_MVP] = GetUniformLocation(instancingShader, "mvp");
-    instancingShader.locs[SHADER_LOC_VECTOR_VIEW] = GetUniformLocation(instancingShader, "viewPos");
-    instancingShader.locs[SHADER_LOC_MATRIX_MODEL] = GetAttribLocation(instancingShader, "instanceTransform");
+    instancingShader.locs[SHADER_LOC_MATRIX_MVP] = GetUniformLocation(instancingShader.id, "mvp");
+    instancingShader.locs[SHADER_LOC_VECTOR_VIEW] = GetUniformLocation(instancingShader.id, "viewPos");
+    instancingShader.locs[SHADER_LOC_MATRIX_MODEL] = GetAttribLocation(instancingShader.id, "instanceTransform");
 }
 
 bool Entity::hasInstances() const {
     return !instances.empty();
 }
 
-void Entity::calculateInstance(int index) {
-    if (index < 0 || index >= instances.size()) return;
-
-    Entity* entity = instances.at(index);
+void Entity::calculateInstance() {
+    Entity* entity = instances.back();
 
     Matrix translation = MatrixTranslate(entity->position.x, entity->position.y, entity->position.z);
     Matrix rotation = MatrixRotateXYZ(Vector3{ DEG2RAD * entity->rotation.x, DEG2RAD * entity->rotation.y, DEG2RAD * entity->rotation.z });
 
-    transforms[index] = MatrixMultiply(rotation, translation);
+    transforms.back() = MatrixMultiply(rotation, translation);
 
     matInstances = LoadMaterialDefault();
 }
 
-void Entity::addEntityChild(int newEntityIndex) {
+void Entity::addEntityChild(const int& newEntityIndex) {
     Entity* newEntity = getEntityById(newEntityIndex);
 
     if (!newEntity) {
@@ -83,7 +74,7 @@ void Entity::addEntityChild(int newEntityIndex) {
         return;
     }
 
-    if (newEntity->isChild && newEntity->parent != nullptr) {
+    if (newEntity->getFlag(Entity::Flag::IS_CHILD) && newEntity->parent != nullptr) {
         auto it = std::find(newEntity->parent->entitiesChildren.begin(), newEntity->parent->entitiesChildren.end(), newEntityIndex);
 
         if (it != newEntity->parent->entitiesChildren.end()) {
@@ -91,7 +82,7 @@ void Entity::addEntityChild(int newEntityIndex) {
         }
     }
 
-    newEntity->isChild = true;
+    newEntity->setFlag(Entity::Flag::IS_CHILD, true);
     newEntity->parent = this;
     newEntity->relativePosition = {
         newEntity->position.x - this->position.x,
@@ -102,7 +93,7 @@ void Entity::addEntityChild(int newEntityIndex) {
     entitiesChildren.emplace_back(newEntityIndex);
 }
 
-void Entity::addLightChild(int newLightIndex) {
+void Entity::addLightChild(const int& newLightIndex) {
     LightStruct* newLight = getLightById(newLightIndex);
 
     if (!newLight) {
@@ -145,7 +136,7 @@ void Entity::updateChildren() {
     }
 }
 
-void Entity::updateEntityChild(Entity* entity, int entityIndex) {
+void Entity::updateEntityChild(Entity* entity, const int& entityIndex) {
     if (!entity) {
         TraceLog(LOG_WARNING, "Cannot update child, since child is not found.");
 
@@ -155,7 +146,7 @@ void Entity::updateEntityChild(Entity* entity, int entityIndex) {
         return;
     }
 
-    if (!entity->initialized) {
+    if (!entity->getFlag(Entity::Flag::INITIALIZED)) {
         TraceLog(LOG_WARNING, "Cannot update child, since child is not initialized.");
         return;
     }
@@ -167,13 +158,13 @@ void Entity::updateEntityChild(Entity* entity, int entityIndex) {
     };
 #endif
 
-    if (entity->parent != this || !entity->parent->initialized) entity->parent = this;
+    if (entity->parent != this || !entity->parent->getFlag(Entity::Flag::INITIALIZED)) entity->parent = this;
 
     entity->position = this->position + entity->relativePosition;
     entity->render();
 }
 
-void Entity::updateLightChild(LightStruct* lightStruct, int lightIndex) {
+void Entity::updateLightChild(LightStruct* lightStruct, const int& lightIndex) {
     if (!lightStruct) {
         TraceLog(LOG_WARNING, "Cannot update child, since child is not found.");
 
@@ -187,7 +178,7 @@ void Entity::updateLightChild(LightStruct* lightStruct, int lightIndex) {
     if (lightStruct == selectedLight && selectedGameObjectType == "light" && !inGamePreview) return;
 #endif
 
-    if (lightStruct->parent != this || !lightStruct->parent->initialized) lightStruct->parent = this;
+    if (lightStruct->parent != this || !lightStruct->parent->getFlag(Entity::Flag::INITIALIZED)) lightStruct->parent = this;
 
     lightStruct->light.position = glm::vec3(this->position.x, this->position.y, this->position.z) + lightStruct->lightInfo.relativePosition;
 }
@@ -220,7 +211,7 @@ void Entity::loadModel(const char* filename, const char* textureFilename) {
     model = LoadModel(filename);
 }
 
-void Entity::UpdateTextureMap(int mapType, const SurfaceMaterialTexture& texture, bool lodEnabled) {
+void Entity::UpdateTextureMap(const int& mapType, const SurfaceMaterialTexture& texture, const bool& lodEnabled) {
     auto& targetTexture = model.materials[0].maps[mapType].texture;
     SurfaceMaterialTexture mutableTexture;
 
@@ -247,10 +238,10 @@ void Entity::UpdateTextureMap(int mapType, const SurfaceMaterialTexture& texture
     }
 }
 
-void Entity::ReloadTextures(bool force_reload) {
+void Entity::ReloadTextures(const bool& force_reload) {
     auto updateIfNeeded = [&](int mapType, const SurfaceMaterialTexture& texture, bool condition) {
         if (condition || force_reload) {
-            UpdateTextureMap(mapType, texture, lodEnabled);
+            UpdateTextureMap(mapType, texture, this->getFlag(Entity::Flag::LOD_ENABLED));
         }
     };
 
@@ -301,7 +292,7 @@ void Entity::setModel(const fs::path& path, const Model& entityModel) {
 
     constBounds = GetMeshBoundingBox(model.meshes[0]);
 
-    if (lodEnabled && model.meshes[0].vertexCount > 48) {
+    if (this->getFlag(Entity::Flag::LOD_ENABLED) && model.meshes[0].vertexCount > 48) {
         std::vector<uint32_t> indices;
         std::vector<Vector3> vertices;
 
@@ -335,7 +326,7 @@ void Entity::setModel(const fs::path& path, const Model& entityModel) {
         OptimizeEntityMemory();
     }
 
-    isDynamic ? makePhysicsDynamic() : makePhysicsStatic();
+    this->getFlag(Entity::Flag::IS_DYNAMIC) ? makePhysicsDynamic() : makePhysicsStatic();
 
     ReloadTextures();
 }
@@ -365,24 +356,23 @@ Shader& Entity::getShader() {
 }
 
 void Entity::initializeSharedModules() {
-    inputModule = py::module::import("inputModule");
+    inputModule     = py::module::import("inputModule");
     collisionModule = py::module::import("collisionModule");
-    cameraModule = py::module::import("cameraModule");
-    physicsModule = py::module::import("physicsModule");
-    mouseModule = py::module::import("mouseModule");
-    timeModule = py::module::import("timeModule");
-    colorModule = py::module::import("colorModule");
-    mathModule = py::module::import("mathModule");
+    cameraModule    = py::module::import("cameraModule");
+    physicsModule   = py::module::import("physicsModule");
+    mouseModule     = py::module::import("mouseModule");
+    timeModule      = py::module::import("timeModule");
+    colorModule     = py::module::import("colorModule");
+    mathModule      = py::module::import("mathModule");
+    eventsModule    = py::module::import("eventsModule");
     py::module_::import("__main__").attr("entitiesList") = py::cast(entitiesList);
 }
 
 void Entity::setupScript(LitCamera* rendering_camera) {
-    if (script.empty() && scriptIndex.empty()) return;
-    running = true;
+    if (scriptPath.empty()) return;
+    this->setFlag(Entity::Flag::RUNNING, true);
 
-    if (!Entity_already_registered) {
-        Entity_already_registered = true;
-
+    if (!py::hasattr(entityModule, "Entity")) {
         py::class_<Entity>(entityModule, "Entity")
             .def(py::init([](py::args args, py::kwargs kwargs) {
                 LitVector3 position{0, 0, 0};
@@ -399,7 +389,7 @@ void Entity::setupScript(LitCamera* rendering_camera) {
                 if (kwargs.contains("name")) entity.setName(py::cast<std::string>(kwargs["name"]));
                 else entity.setName("New Entity");
 
-                if (kwargs.contains("collisions"))   entity.collider = py::cast<bool>(kwargs["collisions"]);
+                if (kwargs.contains("collisions"))   entity.setFlag(Entity::Flag::COLLIDER, py::cast<bool>(kwargs["collisions"]));
                 if (kwargs.contains("collider"))     entity.currentCollisionShapeType = py::cast<CollisionShapeType>(kwargs["collider"]);
                 if (!modelPath.empty()) entity.setModel(modelPath.c_str());
 
@@ -418,11 +408,16 @@ void Entity::setupScript(LitCamera* rendering_camera) {
                 [](Entity& entity, LitVector3& scale) { entity.setScale(scale); })
             .def_property("rotation",
                 [](Entity& entity) { return entity.rotation; },
-                [](Entity& entity, LitVector3& rotation) { entity.setRot(rotation); })
+            [](Entity& entity, LitVector3& rotation) { entity.setRot(rotation); })
+            .def_property("visible",
+                [](Entity& entity) { return entity.getFlag(Entity::Flag::VISIBLE); },
+                [](Entity& entity, bool& visible) { entity.setFlag(Entity::Flag::VISIBLE, visible); })
+            .def_property("collision",
+                [](Entity& entity) { return entity.getFlag(Entity::Flag::COLLIDER); },
+                [](Entity& entity, bool& collision) { entity.setFlag(Entity::Flag::COLLIDER, collision); })
             .def_readwrite("collider", &Entity::currentCollisionShapeType)
-            .def_readwrite("visible", &Entity::visible)
             .def_readwrite("id", &Entity::id)
-            .def_readwrite("collisions", &Entity::collider)
+            .def("setLinearVelocity", &Entity::setLinearVelocity)
             .def("applyForce", &Entity::applyForce)
             .def("applyImpulse", &Entity::applyImpulse)
             .def("setFriction", &Entity::setFriction)
@@ -441,7 +436,7 @@ void Entity::setupScript(LitCamera* rendering_camera) {
         localNamespace["IsKeyPressed"] = inputModule.attr("isKeyPressed");
         localNamespace["IsKeyUp"] = inputModule.attr("isKeyUp");
         localNamespace["GetMouseMovement"] = inputModule.attr("getMouseMovement");
-        localNamespace["Keys"] = inputModule.attr("Keys");
+        localNamespace["Key"] = inputModule.attr("Key");
         localNamespace["MouseButton"] = inputModule.attr("MouseButton");
         localNamespace["Raycast"] = collisionModule.attr("raycast");
         localNamespace["CollisionShape"] = collisionModule.attr("CollisionShape");
@@ -454,17 +449,22 @@ void Entity::setupScript(LitCamera* rendering_camera) {
         localNamespace["Color"] = colorModule.attr("Color");
         localNamespace["LockMouse"] = mouseModule.attr("LockMouse");
         localNamespace["UnlockMouse"] = mouseModule.attr("UnlockMouse");
-        localNamespace["time"] = py::cast(&timeInstance);
+        localNamespace["time"] = py::cast(&timeInstance, py::return_value_policy::reference);
         localNamespace["physics"] = py::cast(&physics);
         localNamespace["Lerp"] = mathModule.attr("lerp");
+        localNamespace["Clamp"] = mathModule.attr("clamp");
         localNamespace["entitiesList"] = entitiesList;
         localNamespace["camera"] = py::cast(rendering_camera);
-        localNamespace["Entity"] = entityModule.attr("Entity");
+        localNamespace["onEntityCreation"] = eventsModule.attr("onEntityCreation");
+        localNamespace["onEntityDestruction"] = eventsModule.attr("onEntityDestruction");
+        localNamespace["createEvent"] = eventsModule.attr("createEvent");
+        localNamespace["onCustomEvent"] = eventsModule.attr("onCustomEvent");
+        localNamespace["triggerCustomEvent"] = eventsModule.attr("triggerCustomEvent");
         localNamespace["Entity"] = entityModule.attr("Entity");
 
         // Load and execute the script in its own namespace
         #ifndef GAME_SHIPPING
-            scriptContent = readFileToString(script);
+            scriptContent = readFileToString(scriptPath);
         #else
             std::ifstream infile("encryptedScripts.json");
             if (!infile.is_open()) {
@@ -504,11 +504,9 @@ void Entity::setupScript(LitCamera* rendering_camera) {
 }
 
 void Entity::runScript(LitCamera* rendering_camera) {
-    if (script.empty() && scriptIndex.empty()) return;
+    if (scriptPath.empty() || scriptContent.empty()) return;
 
     try {
-        localNamespace["time"] = py::cast(&timeInstance);
-
         if (py::hasattr(localNamespace["update"], "__call__")) {
             py::object update_func = localNamespace["update"];
             update_func();
@@ -521,7 +519,7 @@ void Entity::runScript(LitCamera* rendering_camera) {
 }
 
 void Entity::calcPhysicsPosition() {
-    if (!isDynamic) return;
+    if (!this->getFlag(Entity::Flag::IS_DYNAMIC)) return;
 
     if (currentCollisionShapeType == CollisionShapeType::Box || currentCollisionShapeType == CollisionShapeType::HighPolyMesh) {
         btTransform trans;
@@ -534,7 +532,7 @@ void Entity::calcPhysicsPosition() {
 }
 
 void Entity::calcPhysicsRotation() {
-    if (!isDynamic) return;
+    if (!this->getFlag(Entity::Flag::IS_DYNAMIC)) return;
 
     if (currentCollisionShapeType == CollisionShapeType::Box && rigidBody) {
         btTransform trans;
@@ -549,7 +547,7 @@ void Entity::calcPhysicsRotation() {
     }
 }
 
-void Entity::setPos(LitVector3 newPos) {
+void Entity::setPos(const LitVector3& newPos) {
     position = newPos;
 
     if (rigidBody) {
@@ -561,7 +559,7 @@ void Entity::setPos(LitVector3 newPos) {
     }
 }
 
-void Entity::setRot(LitVector3 newRot) {
+void Entity::setRot(const LitVector3& newRot) {
     rotation = newRot;
 
     if (CollisionShapeType::Box == currentCollisionShapeType) {
@@ -582,20 +580,28 @@ void Entity::setRot(LitVector3 newRot) {
     }
 }
 
-void Entity::setScale(Vector3 newScale) {
+void Entity::setScale(const LitVector3& newScale) {
     scale = newScale;
 
     if (CollisionShapeType::Box == currentCollisionShapeType) {
-        isDynamic ? createDynamicBox() : createStaticBox();
+        this->getFlag(Entity::Flag::IS_DYNAMIC) ? createDynamicBox() : createStaticBox();
     }
 
-    else if (CollisionShapeType::HighPolyMesh == currentCollisionShapeType && this->running) {
-        isDynamic ? createDynamicMesh(false) : createStaticMesh(true);
+    else if (CollisionShapeType::HighPolyMesh == currentCollisionShapeType && this->getFlag(Entity::Flag::RUNNING)) {
+        this->getFlag(Entity::Flag::IS_DYNAMIC) ? createDynamicMesh(false) : createStaticMesh(true);
+    }
+}
+
+void Entity::setLinearVelocity(const LitVector3& velocity) {
+    if (rigidBody && this->getFlag(Entity::Flag::IS_DYNAMIC)) {
+        rigidBody->setActivationState(ACTIVE_TAG);
+        btVector3 btVelocity(velocity.x, velocity.y, velocity.z);
+        rigidBody->setLinearVelocity(btVelocity);
     }
 }
 
 void Entity::applyForce(const LitVector3& force) {
-    if (rigidBody && isDynamic) {
+    if (rigidBody && this->getFlag(Entity::Flag::IS_DYNAMIC)) {
         rigidBody->setActivationState(ACTIVE_TAG);
         btVector3 btForce(force.x, force.y, force.z);
         rigidBody->applyCentralForce(btForce);
@@ -603,7 +609,7 @@ void Entity::applyForce(const LitVector3& force) {
 }
 
 void Entity::applyImpulse(const LitVector3& impulse) {
-    if (rigidBody && isDynamic) {
+    if (rigidBody && this->getFlag(Entity::Flag::IS_DYNAMIC)) {
         rigidBody->setActivationState(ACTIVE_TAG);
         btVector3 btImpulse(impulse.x, impulse.y, impulse.z);
         rigidBody->applyCentralImpulse(btImpulse);
@@ -611,19 +617,19 @@ void Entity::applyImpulse(const LitVector3& impulse) {
 }
 
 void Entity::setFriction(const float& friction) {
-    if (rigidBody && isDynamic) {
+    if (rigidBody && this->getFlag(Entity::Flag::IS_DYNAMIC)) {
         rigidBody->setFriction(friction);
     }
 }
 
 void Entity::applyDamping(const float& damping) {
-    if (rigidBody && isDynamic) {
+    if (rigidBody && this->getFlag(Entity::Flag::IS_DYNAMIC)) {
         rigidBody->setDamping(damping, damping);
     }
 }
 
 void Entity::updateMass() {
-    if (!isDynamic || rigidShape == nullptr) return;
+    if (!this->getFlag(Entity::Flag::IS_DYNAMIC) || rigidShape == nullptr) return;
 
     btScalar btMass = mass;
     btVector3 boxInertia(inertia.x, inertia.y, inertia.z);
@@ -635,7 +641,7 @@ void Entity::updateMass() {
 }
 
 void Entity::createStaticBox() {
-    isDynamic = false;
+    this->setFlag(Entity::Flag::IS_DYNAMIC, false);
 
     rigidShape = std::make_shared<btBoxShape>(btVector3(scale.x * scaleFactorRaylibBullet, scale.y * scaleFactorRaylibBullet, scale.z * scaleFactorRaylibBullet));
     if (rigidBody) physics.dynamicsWorld->removeRigidBody(rigidBody.get());
@@ -662,8 +668,8 @@ void Entity::createStaticBox() {
     currentCollisionShapeType = CollisionShapeType::Box;
 }
 
-void Entity::createStaticMesh(bool generateShape) {
-    isDynamic = false;
+void Entity::createStaticMesh(const bool& generateShape) {
+    this->setFlag(Entity::Flag::IS_DYNAMIC, false);
 
     // Remove the existing rigid body if it exists
     if (rigidBody) {
@@ -701,8 +707,8 @@ void Entity::createStaticMesh(bool generateShape) {
     customMeshShape->calculateLocalInertia(rigidMass, rigidInertia);
 
     // Create the motion state and rigid body construction info
-    boxMotionState = std::make_shared<btDefaultMotionState>(rigidTransform);
-    btRigidBody::btRigidBodyConstructionInfo rigidBodyCI(rigidMass, boxMotionState.get(), customMeshShape.get(), rigidInertia);
+    btDefaultMotionState boxMotionState = btDefaultMotionState(rigidTransform);
+    btRigidBody::btRigidBodyConstructionInfo rigidBodyCI(rigidMass, &boxMotionState, customMeshShape.get(), rigidInertia);
 
     // Create the rigid body and add it to the physics world
     rigidBody = std::make_shared<btRigidBody>(rigidBodyCI);
@@ -713,9 +719,9 @@ void Entity::createStaticMesh(bool generateShape) {
 }
 
 void Entity::createDynamicBox() {
-    isDynamic = true;
+    this->setFlag(Entity::Flag::IS_DYNAMIC, true);
 
-    if (rigidBody.get()) physics.dynamicsWorld->removeRigidBody(rigidBody.get());
+    if (rigidBody) physics.dynamicsWorld->removeRigidBody(rigidBody.get());
 
     rigidShape = std::make_shared<btBoxShape>(btVector3(scale.x * scaleFactorRaylibBullet, scale.y * scaleFactorRaylibBullet, scale.z * scaleFactorRaylibBullet));
 
@@ -727,16 +733,16 @@ void Entity::createDynamicBox() {
     btVector3 localInertia(inertia.x, inertia.y, inertia.z);
     rigidShape->calculateLocalInertia(btMass, localInertia);
 
-    boxMotionState = std::make_shared<btDefaultMotionState>(startTransform);
-    btRigidBody::btRigidBodyConstructionInfo rigidBodyCI(btMass, boxMotionState.get(), rigidShape.get(), localInertia);
-    rigidBody = std::make_unique<btRigidBody>(rigidBodyCI);
+    static btDefaultMotionState boxMotionState = btDefaultMotionState(startTransform);
+    btRigidBody::btRigidBodyConstructionInfo rigidBodyCI(btMass, &boxMotionState, rigidShape.get(), localInertia);
+    rigidBody = std::make_shared<btRigidBody>(rigidBodyCI);
 
     physics.dynamicsWorld->addRigidBody(rigidBody.get());
     currentCollisionShapeType = CollisionShapeType::Box;
 }
 
-void Entity::createDynamicMesh(bool generateShape) {
-    isDynamic = true;
+void Entity::createDynamicMesh(const bool& generateShape) {
+    this->setFlag(Entity::Flag::IS_DYNAMIC, true);
 
     currentCollisionShapeType = CollisionShapeType::HighPolyMesh;
     if (rigidBody.get()) physics.dynamicsWorld->removeRigidBody(rigidBody.get());
@@ -767,29 +773,29 @@ void Entity::createDynamicMesh(bool generateShape) {
     btScalar rigidMass = mass;
     btVector3 rigidInertia(0, 0, 0);
     customMeshShape.get()->calculateLocalInertia(rigidMass, rigidInertia);
-    btDefaultMotionState* boxMotionState = new btDefaultMotionState(rigidTransform);
-    btRigidBody::btRigidBodyConstructionInfo highPolyStaticRigidBodyCI(rigidMass, boxMotionState, customMeshShape.get(), rigidInertia);
+    btDefaultMotionState boxMotionState = btDefaultMotionState(rigidTransform);
+    btRigidBody::btRigidBodyConstructionInfo highPolyStaticRigidBodyCI(rigidMass, &boxMotionState, customMeshShape.get(), rigidInertia);
 
     rigidBody = std::make_shared<btRigidBody>(highPolyStaticRigidBodyCI);
     physics.dynamicsWorld->addRigidBody(rigidBody.get());
 }
 
-void Entity::makePhysicsDynamic(CollisionShapeType shapeType) {
-    isDynamic = true;
+void Entity::makePhysicsDynamic(const CollisionShapeType& shapeType) {
+    this->setFlag(Entity::Flag::IS_DYNAMIC, true);
 
     if (shapeType == CollisionShapeType::Box)                createDynamicBox();
     else if (shapeType == CollisionShapeType::HighPolyMesh)  createDynamicMesh();
 }
 
-void Entity::makePhysicsStatic(CollisionShapeType shapeType) {
-    isDynamic = false;
+void Entity::makePhysicsStatic(const CollisionShapeType& shapeType) {
+    this->setFlag(Entity::Flag::IS_DYNAMIC, false);
 
     if (shapeType == CollisionShapeType::Box)                createStaticBox();
     else if (shapeType == CollisionShapeType::HighPolyMesh)  createStaticMesh();
 }
 
 void Entity::reloadRigidBody() {
-    isDynamic ? makePhysicsDynamic(currentCollisionShapeType) : makePhysicsStatic(currentCollisionShapeType);
+    getFlag(Entity::Flag::IS_DYNAMIC) ? makePhysicsDynamic(currentCollisionShapeType) : makePhysicsStatic(currentCollisionShapeType);
 }
 
 void Entity::resetPhysics() {
@@ -806,7 +812,7 @@ bool Entity::inFrustum() {
 }
 
 void Entity::render() {
-    if (!initialized) return;
+    if (!getFlag(Entity::Flag::INITIALIZED)) return;
 
     if (!hasModel()) {
         initializeDefaultModel();
@@ -814,8 +820,8 @@ void Entity::render() {
 
     updateChildren();
 
-    if (calcPhysics) {
-        if (currentCollisionShapeType != CollisionShapeType::None && isDynamic) {
+    if (getFlag(Entity::Flag::CALC_PHYSICS)) {
+        if (currentCollisionShapeType != CollisionShapeType::None && getFlag(Entity::Flag::IS_DYNAMIC)) {
             calcPhysicsRotation();
             calcPhysicsPosition();
         }
@@ -829,13 +835,19 @@ void Entity::render() {
         ReloadTextures(true);
     }
 
-    if (!visible) return;
-
-    static int tilingLocation = glGetUniformLocation(entityShader->id, "tiling");
-    SetShaderValue(*entityShader, tilingLocation, tiling, SHADER_UNIFORM_VEC2);
+    if (!getFlag(Entity::Flag::VISIBLE)) return;
 
     instances.empty() ? renderSingleModel() : renderInstanced();
 }
+
+void Entity::setFlag(const Flag& f, const bool& value) {
+    flags.set(f, value);
+}
+
+bool Entity::getFlag(const Flag& f) const {
+    return flags.test(f);
+}
+
 
 void Entity::renderInstanced() {
     PassSurfaceMaterials();
@@ -844,13 +856,14 @@ void Entity::renderInstanced() {
 
     matInstances = LoadMaterialDefault();
 
-    instancingShader.locs[SHADER_LOC_MATRIX_MVP] = GetUniformLocation(instancingShader, "mvp");
-    instancingShader.locs[SHADER_LOC_VECTOR_VIEW] = GetUniformLocation(instancingShader, "viewPos");
-    instancingShader.locs[SHADER_LOC_MATRIX_MODEL] = GetAttribLocation(instancingShader, "instanceTransform");
+    instancingShader.locs[SHADER_LOC_MATRIX_MVP] = GetUniformLocation(instancingShader.id, "mvp");
+    instancingShader.locs[SHADER_LOC_VECTOR_VIEW] = GetUniformLocation(instancingShader.id, "viewPos");
+    instancingShader.locs[SHADER_LOC_MATRIX_MODEL] = GetAttribLocation(instancingShader.id, "instanceTransform");
 
     model.materials[0].maps[MATERIAL_MAP_DIFFUSE].color = RAYWHITE;
 
-    DrawMeshInstanced(model.meshes[0], model.materials[0], transforms, instances.size());
+    transforms.resize(instances.size());
+    DrawMeshInstanced(model.meshes[0], model.materials[0], transforms.data(), instances.size());
 }
 
 void Entity::renderSingleModel() {
@@ -885,7 +898,7 @@ void Entity::renderSingleModel() {
 #endif
 
     Model& modelToDraw = model;
-    if (lodEnabled) {
+    if (this->getFlag(Entity::Flag::LOD_ENABLED)) {
         const int lodLevel = (distance < LOD_DISTANCE_HIGH) ? 0
                         : (distance < LOD_DISTANCE_MEDIUM) ? 1
                         : (distance < LOD_DISTANCE_LOW) ? 2
@@ -904,13 +917,16 @@ void Entity::renderSingleModel() {
 void Entity::PassSurfaceMaterials() {
     glUseProgram(entityShader->id);
 
-    glUniform1i(glGetUniformLocation(entityShader->id, "diffuseMapReady"),   !surfaceMaterial.albedoTexturePath.empty());
-    glUniform1i(glGetUniformLocation(entityShader->id, "normalMapReady"),    !surfaceMaterial.normalTexturePath.empty());
-    glUniform1i(glGetUniformLocation(entityShader->id, "roughnessMapReady"), !surfaceMaterial.roughnessTexturePath.empty());
-    glUniform1i(glGetUniformLocation(entityShader->id, "aoMapReady"),        !surfaceMaterial.aoTexturePath.empty());
-    glUniform1i(glGetUniformLocation(entityShader->id, "heightMapReady"),    !surfaceMaterial.heightTexturePath.empty());
-    glUniform1i(glGetUniformLocation(entityShader->id, "metallicMapReady"),  !surfaceMaterial.metallicTexturePath.empty());
-    glUniform1i(glGetUniformLocation(entityShader->id, "emissiveMapReady"),  !surfaceMaterial.emissiveTexturePath.empty());
+    static int tilingLocation = GetUniformLocation(entityShader->id, "tiling");
+    SetShaderValue(*entityShader, tilingLocation, surfaceMaterial.tiling, SHADER_UNIFORM_VEC2);
+
+    glUniform1i(GetUniformLocation(entityShader->id, "diffuseMapReady"),   !surfaceMaterial.albedoTexturePath.empty());
+    glUniform1i(GetUniformLocation(entityShader->id, "normalMapReady"),    !surfaceMaterial.normalTexturePath.empty());
+    glUniform1i(GetUniformLocation(entityShader->id, "roughnessMapReady"), !surfaceMaterial.roughnessTexturePath.empty());
+    glUniform1i(GetUniformLocation(entityShader->id, "aoMapReady"),        !surfaceMaterial.aoTexturePath.empty());
+    glUniform1i(GetUniformLocation(entityShader->id, "heightMapReady"),    !surfaceMaterial.heightTexturePath.empty());
+    glUniform1i(GetUniformLocation(entityShader->id, "metallicMapReady"),  !surfaceMaterial.metallicTexturePath.empty());
+    glUniform1i(GetUniformLocation(entityShader->id, "emissiveMapReady"),  !surfaceMaterial.emissiveTexturePath.empty());
 }
 
 
@@ -918,7 +934,7 @@ bool operator==(const Entity& e, const Entity* ptr) {
     return &e == ptr;
 }
 
-void removeEntity(int id) {
+void removeEntity(const int& id) {
     auto it = entityIdToIndexMap.find(id);
     if (it != entityIdToIndexMap.end()) {
         eventManager.onEntityDestruction.triggerEvent();
@@ -956,7 +972,7 @@ int getIdFromEntity(const Entity& entity) {
     return -1;
 }
 
-Entity* getEntityById(int id) {
+Entity* getEntityById(const int& id) {
     auto it = entityIdToIndexMap.find(id);
     if (it != entityIdToIndexMap.end()) {
 #ifndef GAME_SHIPPING
@@ -972,7 +988,7 @@ Entity* AddEntity(
     const fs::path& modelPath,
     const Model& model,
     const std::string& name,
-    const int id
+    const int& id
 ) {
     eventManager.onEntityCreation.triggerEvent();
 

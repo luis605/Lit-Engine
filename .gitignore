@@ -2,6 +2,9 @@
 *.exe
 *.out
 *.ini
+callgrind.out.*
+exported_game/
+NodeEditor.json
 *.o
 *CMakeCache.txt
 build/

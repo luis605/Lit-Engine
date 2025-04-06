@@ -46,6 +46,13 @@ void EditorCamera();
 
 enum CopyType { CopyType_None = 0, CopyType_Entity = 1, CopyType_Light = 2 };
 
+struct CacheEntry {
+    Matrix transform;
+    std::vector<BoundingBox> bounds;
+};
+
+bool MatrixEquals(const Matrix& a, const Matrix& b, float tolerance = 0.0001f);
+
 constexpr float GRID_SIZE = 30.0f;
 constexpr float GRID_SCALE = 1.0f;
 static Vector2 rlLastMousePosition = { 0 };

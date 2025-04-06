@@ -10,7 +10,7 @@
 #include <string>
 #include <raylib.h>
 
-bool firstTimeGameplay;
+bool firstTimeGameplay = true;
 
 #ifndef GAME_SHIPPING
     std::string selectedGameObjectType;

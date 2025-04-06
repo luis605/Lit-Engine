@@ -17,8 +17,8 @@ void DraggableWindow();
 void ToggleMaximization();
 void ExitWindowRequested();
 Vector2 GetGlobalMousePosition();
-Vector3 glm3ToVec3(glm::vec3& vec3);
-glm::vec3 vec3ToGlm3(Vector3& vec3);
+Vector3 glm3ToVec3(const glm::vec3& vec3);
+glm::vec3 vec3ToGlm3(const Vector3& vec3);
 
 static std::unordered_map<std::string, ImFont*> s_Fonts;
 static Image windowIconImage;

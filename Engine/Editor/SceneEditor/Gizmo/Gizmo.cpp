@@ -345,8 +345,8 @@ void GizmoPosition() {
 
     if (selectedGameObjectType == "entity" && selectedEntity != nullptr) {
         selectedEntity->position = selectedObjectPosition;
-        if (selectedEntity->isChild && selectedEntity->parent &&
-            selectedEntity->initialized) {
+        if (selectedEntity->getFlag(Entity::Flag::IS_CHILD) && selectedEntity->parent &&
+            selectedEntity->getFlag(Entity::Flag::INITIALIZED)) {
             selectedEntity->relativePosition = Vector3Subtract(
                 selectedEntity->position, selectedEntity->parent->position);
         }

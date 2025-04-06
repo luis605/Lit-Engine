@@ -124,63 +124,61 @@ Shader GenerateMaterialShader() {
         return accumulatedCode;
     };
 
-    // Final assembly of shader code
+    Node* rootNode = materialNodeSystem.FindNode(tree.root->GetId());
+    if (!rootNode)
+        return { 0 };
+
     std::stringstream shaderStream;
 
-    shaderStream << "vec4 diffuseMap(vec4 textureRGBA) {\n  return ";
+    shaderStream << "#define NORMAL_SUPPORT\n\n";
+
+    shaderStream << "vec4 calcDiffuseMap(vec4 textureRGBA) {\n  return ";
     shaderStream << ProcessTreeNode(
         tree.root,
-        materialNodeSystem.FindNode(tree.root->GetId())->Inputs.at(0).ID,
+        rootNode->Inputs.at(0).ID,
         "textureRGBA");
     shaderStream << ";\n}\n\n";
 
-    shaderStream << "vec4 normalMap(vec4 textureRGBA) {\n  return ";
+    shaderStream << "vec4 calcNormalMap(vec4 textureRGBA) {\n  return ";
     shaderStream << ProcessTreeNode(
         tree.root,
-        materialNodeSystem.FindNode(tree.root->GetId())->Inputs.at(1).ID,
+        rootNode->Inputs.at(1).ID,
         "textureRGBA");
     shaderStream << ";\n}\n\n";
 
-    shaderStream << "vec4 roughnessMap(vec4 textureRGBA) {\n  return ";
+    shaderStream << "vec4 calcRoughnessMap(vec4 textureRGBA) {\n  return ";
     shaderStream << ProcessTreeNode(
         tree.root,
-        materialNodeSystem.FindNode(tree.root->GetId())->Inputs.at(2).ID,
+        rootNode->Inputs.at(2).ID,
         "textureRGBA");
     shaderStream << ";\n}\n\n";
 
-    shaderStream << "vec4 ambientOcclusionMap(vec4 textureRGBA) {\n  return ";
+    shaderStream << "vec4 calcAmbientOcclusionMap(vec4 textureRGBA) {\n  return ";
     shaderStream << ProcessTreeNode(
         tree.root,
-        materialNodeSystem.FindNode(tree.root->GetId())->Inputs.at(3).ID,
+        rootNode->Inputs.at(3).ID,
         "textureRGBA");
     shaderStream << ";\n}\n\n";
 
-    shaderStream << "vec4 heightMap(vec4 textureRGBA) {\n  return ";
+    shaderStream << "vec4 calcHeightMap(vec4 textureRGBA) {\n  return ";
     shaderStream << ProcessTreeNode(
         tree.root,
-        materialNodeSystem.FindNode(tree.root->GetId())->Inputs.at(4).ID,
+        rootNode->Inputs.at(4).ID,
         "textureRGBA");
     shaderStream << ";\n}\n\n";
 
-    shaderStream << "vec4 metallicMap(vec4 textureRGBA) {\n  return ";
+    shaderStream << "vec4 calcMetallicMap(vec4 textureRGBA) {\n  return ";
     shaderStream << ProcessTreeNode(
         tree.root,
-        materialNodeSystem.FindNode(tree.root->GetId())->Inputs.at(5).ID,
+        rootNode->Inputs.at(5).ID,
         "textureRGBA");
     shaderStream << ";\n}\n\n";
 
-    shaderStream << "vec4 emissionMap(vec4 textureRGBA) {\n  return ";
+    shaderStream << "vec4 calcEmissionMap(vec4 textureRGBA) {\n  return ";
     shaderStream << ProcessTreeNode(
         tree.root,
-        materialNodeSystem.FindNode(tree.root->GetId())->Inputs.at(6).ID,
+        rootNode->Inputs.at(6).ID,
         "textureRGBA");
-    shaderStream << ";\n}\n\n";
-
-    shaderStream << "float magicNumber() {\n    return ";
-    shaderStream << ProcessTreeNode(
-        tree.root,
-        materialNodeSystem.FindNode(tree.root->GetId())->Inputs.at(7).ID,
-        "0.0");
     shaderStream << ";\n}\n\n";
 
     std::ifstream fragStream("Engine/Lighting/shaders/lighting_fragment.glsl");
@@ -200,113 +198,109 @@ Shader GenerateMaterialShader() {
                                   shaderStream.str());
     }
 
-    std::function<Node*(TreeNode*)> findTextureNode =
-        [&](TreeNode* treeNode) -> Node* {
-        if (!treeNode)
-            return nullptr;
+    std::function<Node*(TreeNode*, std::function<bool(const Node*)>)> findNode =
+        [&](TreeNode* treeNode, std::function<bool(const Node*)> predicate) -> Node* {
+            if (!treeNode)
+                return nullptr;
 
-        Node* currentNode = materialNodeSystem.FindNode(treeNode->GetId());
-        if (!currentNode)
-            return nullptr;
+            Node* currentNode = materialNodeSystem.FindNode(treeNode->GetId());
+            if (currentNode && predicate(currentNode))
+                return currentNode;
 
-        if (currentNode->type == NodeType::Texture) {
-            return currentNode;
-        }
-
-        // Traverse all input connections to find a Texture Node
-        for (const auto& [pinId, connections] : treeNode->GetInputs()) {
-            for (const auto& conn : connections) {
-                auto it = tree.nodes.find(conn.nodeID);
-                if (it != tree.nodes.end()) {
-                    Node* foundNode = findTextureNode(it->second.get());
-                    if (foundNode)
-                        return foundNode;
-                }
-            }
-        }
-        return nullptr;
-    };
-
-    Node* rootNode = materialNodeSystem.FindNode(tree.root->GetId());
-    if (rootNode) {
-        for (size_t pinIndex = 0; pinIndex < rootNode->Inputs.size();
-             ++pinIndex) {
-            const Pin& pin = rootNode->Inputs[pinIndex];
-            auto inputConns = tree.root->GetInputs().find(pin.ID.Get());
-
-            if (inputConns != tree.root->GetInputs().end() &&
-                !inputConns->second.empty()) {
-                const Connection& conn = inputConns->second.front();
-                auto connectedNodeIt = tree.nodes.find(conn.nodeID);
-
-                if (connectedNodeIt != tree.nodes.end()) {
-                    TreeNode* connectedTreeNode = connectedNodeIt->second.get();
-                    Node* textureNode = findTextureNode(connectedTreeNode);
-
-                    if (textureNode && textureNode->type == NodeType::Texture) {
-                        TextureNode* nodeData =
-                            GetNodeData<TextureNode>(*textureNode)
-                                .value_or(nullptr);
-                        if (!nodeData)
-                            break;
-
-                        std::cout
-                            << "Assigning texture for pin index: " << pinIndex
-                            << ", " << textureNode->Name << std::endl;
-
-                        switch (pinIndex) {
-                        case 0:
-                            selectedEntity->surfaceMaterial.albedoTexture =
-                                nodeData->texture;
-                            selectedEntity->surfaceMaterial.albedoTexturePath =
-                                nodeData->texturePath;
-                            break;
-                        case 1:
-                            selectedEntity->surfaceMaterial.normalTexture =
-                                nodeData->texture;
-                            selectedEntity->surfaceMaterial.normalTexturePath =
-                                nodeData->texturePath;
-                            break;
-                        case 2:
-                            selectedEntity->surfaceMaterial.roughnessTexture =
-                                nodeData->texture;
-                            selectedEntity->surfaceMaterial
-                                .roughnessTexturePath = nodeData->texturePath;
-                            break;
-                        case 3:
-                            selectedEntity->surfaceMaterial.aoTexture =
-                                nodeData->texture;
-                            selectedEntity->surfaceMaterial.aoTexturePath =
-                                nodeData->texturePath;
-                            break;
-                        case 4:
-                            selectedEntity->surfaceMaterial.heightTexture =
-                                nodeData->texture;
-                            selectedEntity->surfaceMaterial.heightTexturePath =
-                                nodeData->texturePath;
-                            break;
-                        case 5:
-                            selectedEntity->surfaceMaterial.metallicTexture =
-                                nodeData->texture;
-                            selectedEntity->surfaceMaterial
-                                .metallicTexturePath = nodeData->texturePath;
-                            break;
-                        case 6:
-                            selectedEntity->surfaceMaterial.emissiveTexture =
-                                nodeData->texture;
-                            selectedEntity->surfaceMaterial
-                                .emissiveTexturePath = nodeData->texturePath;
-                            break;
-                        // case 7 corresponds to magicNumber, which isn't a
-                        // texture
-                        default:
-                            break;
-                        }
+            // Traverse all input connections to find a matching node.
+            for (const auto& [pinId, connections] : treeNode->GetInputs()) {
+                for (const auto& conn : connections) {
+                    auto it = tree.nodes.find(conn.nodeID);
+                    if (it != tree.nodes.end()) {
+                        Node* foundNode = findNode(it->second.get(), predicate);
+                        if (foundNode)
+                            return foundNode;
                     }
                 }
             }
+            return nullptr;
+        };
+
+    for (size_t pinIndex = 0; pinIndex < rootNode->Inputs.size(); ++pinIndex) {
+        const Pin& pin = rootNode->Inputs[pinIndex];
+        auto inputConnsIt = tree.root->GetInputs().find(pin.ID.Get());
+        if (inputConnsIt == tree.root->GetInputs().end() || inputConnsIt->second.empty())
+            continue;
+
+        const Connection& conn = inputConnsIt->second.front();
+        auto connectedNodeIt = tree.nodes.find(conn.nodeID);
+        if (connectedNodeIt == tree.nodes.end())
+            continue;
+
+        TreeNode* connectedTreeNode = connectedNodeIt->second.get();
+        Node* node = nullptr;
+
+        switch (pinIndex) {
+            case 0:
+            case 1:
+            case 2:
+            case 3:
+            case 4:
+            case 5:
+            case 6:
+                node = findNode(connectedTreeNode, [](const Node* n) {
+                    return n->type == NodeType::Texture;
+                });
+                if (!node)
+                    continue;
+
+                if (TextureNode* textureData = GetNodeData<TextureNode>(*node).value_or(nullptr)) {
+                    switch (pinIndex) {
+                        case 0:
+                            selectedEntity->surfaceMaterial.albedoTexture     = textureData->texture;
+                            selectedEntity->surfaceMaterial.albedoTexturePath = textureData->texturePath;
+                            break;
+                        case 1:
+                            selectedEntity->surfaceMaterial.normalTexture     = textureData->texture;
+                            selectedEntity->surfaceMaterial.normalTexturePath = textureData->texturePath;
+                            break;
+                        case 2:
+                            selectedEntity->surfaceMaterial.roughnessTexture     = textureData->texture;
+                            selectedEntity->surfaceMaterial.roughnessTexturePath = textureData->texturePath;
+                            break;
+                        case 3:
+                            selectedEntity->surfaceMaterial.aoTexture     = textureData->texture;
+                            selectedEntity->surfaceMaterial.aoTexturePath = textureData->texturePath;
+                            break;
+                        case 4:
+                            selectedEntity->surfaceMaterial.heightTexture     = textureData->texture;
+                            selectedEntity->surfaceMaterial.heightTexturePath = textureData->texturePath;
+                            break;
+                        case 5:
+                            selectedEntity->surfaceMaterial.metallicTexture     = textureData->texture;
+                            selectedEntity->surfaceMaterial.metallicTexturePath = textureData->texturePath;
+                            break;
+                        case 6:
+                            selectedEntity->surfaceMaterial.emissiveTexture     = textureData->texture;
+                            selectedEntity->surfaceMaterial.emissiveTexturePath = textureData->texturePath;
+                            break;
+                        default:
+                            break;
+                    }
+                }
+                break;
+            case 7:
+                node = findNode(connectedTreeNode, [](const Node* n) {
+                    return n->type == NodeType::Vector2;
+                });
+                if (!node)
+                    continue;
+
+                if (Vector2Node* vec2NodeData = GetNodeData<Vector2Node>(*node).value_or(nullptr)) {
+                    selectedEntity->surfaceMaterial.tiling[0] = vec2NodeData->vec[0];
+                    selectedEntity->surfaceMaterial.tiling[1] = vec2NodeData->vec[1];
+                }
+                break;
+            default:
+                break;
         }
     }
+
 
     return LoadShaderFromMemory(lightingShaderVertexCode.c_str(),
                                 defaultShaderCode.c_str());

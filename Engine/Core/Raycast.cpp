@@ -2,7 +2,7 @@
 #include <Engine/Core/Entity.hpp>
 #include <Engine/Core/Engine.hpp>
 
-HitInfo raycast(LitVector3 origin, LitVector3 direction, bool debug, std::vector<Entity> ignore) {
+HitInfo raycast(const LitVector3& origin, const LitVector3& direction, const bool& debug, const std::vector<Entity>& ignore) {
     HitInfo hitInfo;
     hitInfo.hit = false;
 
@@ -20,7 +20,7 @@ HitInfo raycast(LitVector3 origin, LitVector3 direction, bool debug, std::vector
         if (std::find(ignore.begin(), ignore.end(), entity) != ignore.end())
             continue;
 
-        if (!entity.collider)
+        if (!entity.getFlag(Entity::Flag::COLLIDER))
             continue;
 
         RayCollision entityBounds = GetRayCollisionBox(ray, entity.bounds);

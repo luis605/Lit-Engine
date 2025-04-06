@@ -1,3 +1,5 @@
+#include <Engine/Scripting/time.hpp>
+#include <Engine/Scripting/math.hpp>
 #include <Engine/Scripting/functions.hpp>
 #include <btBulletDynamicsCommon.h>
 #include <pybind11/embed.h>
@@ -7,18 +9,11 @@
 #include <raylib.h>
 
 class PhysicsManager;
-struct HitInfo;
-class Entity;
 
 #include <Engine/Core/Entity.hpp>
 #include <Engine/Core/Raycast.hpp>
-#include <Engine/Scripting/math.hpp>
-#include <Engine/Scripting/time.hpp>
 
 namespace py = pybind11;
-
-class PhysicsManager;
-struct HitInfo;
 
 Vector2 mouseMove;
 float lastFrameCount = 0.0f;
@@ -64,7 +59,7 @@ PYBIND11_EMBEDDED_MODULE(mathModule, m) {
                         std::to_string(position.z) + ")";
              })
 
-        .def("normalized", &LitVector3::normalized)
+        .def("normalize", &LitVector3::normalized)
         .def("lengthSquared", &LitVector3::lengthSquared)
         .def("crossProduct", &LitVector3::CrossProduct)
         .def("pos", &LitVector3::pos)
@@ -79,9 +74,9 @@ PYBIND11_EMBEDDED_MODULE(mathModule, m) {
         .def("__mul__",
              [](const LitVector3& a, const LitVector3& b) { return a * b; })
         .def("__mul__",
-             [](const LitVector3& a, float scalar) { return a * scalar; })
+             [](const LitVector3& a, float scalar) { return a * LitVector3(scalar, scalar, scalar); })
         .def("__mul__",
-             [](const LitVector3& a, int scalar) { return a * scalar; })
+             [](const LitVector3& a, int scalar) { return a * LitVector3(scalar, scalar, scalar); })
         .def("__truediv__",
              [](const LitVector3& a, const LitVector3& b) {
                  return LitVector3(a.x / b.x, a.y / b.y, a.z / b.z);
@@ -115,7 +110,30 @@ PYBIND11_EMBEDDED_MODULE(mathModule, m) {
           "Lerp function for float and double types");
     m.def("lerp", static_cast<int (*)(int, int, float)>(&LitLerpInt),
           "Lerp function for integer types");
-    m.def("lerp", &lerpVector3, "Lerp function for Vector3 type");
+    m.def("lerp", static_cast<LitVector3 (*)(const LitVector3&, const LitVector3&, float)>(&lerpVector3),
+          "Lerp function for LitVector3 type");
+
+    // Adding clamp overloads using lambda wrappers
+    m.def("clamp", [](float value, float low, float high) {
+        return customClamp<float>(value, low, high);
+    });
+
+    m.def("clamp", [](LitVector3 value, LitVector3 low, LitVector3 high) -> LitVector3 {
+        return LitVector3(customClamp(value.x, low.x, high.x),
+                          customClamp(value.y, low.y, high.y),
+                          customClamp(value.z, low.z, high.z));
+    });
+    m.def("clamp", [](LitVector3 value, LitVector3 low, float high) -> LitVector3 {
+        return LitVector3(customClamp(value.x, low.x, high),
+                          customClamp(value.y, low.y, high),
+                          customClamp(value.z, low.z, high));
+    });
+    m.def("clamp", [](LitVector3 value, LitVector3 low, int high) -> LitVector3 {
+        float high_f = static_cast<float>(high);
+        return LitVector3(customClamp(value.x, low.x, high_f),
+                          customClamp(value.y, low.y, high_f),
+                          customClamp(value.z, low.z, high_f));
+    });
 }
 
 PYBIND11_EMBEDDED_MODULE(mouseModule, m) {
@@ -181,96 +199,96 @@ PYBIND11_EMBEDDED_MODULE(inputModule, m) {
         .value("MOUSE_BUTTON_FORWARD", MOUSE_BUTTON_FORWARD)
         .value("MOUSE_BUTTON_BACK", MOUSE_BUTTON_BACK);
 
-    py::enum_<KeyboardKey>(m, "Keys")
-        .value("KEY_NULL", KEY_NULL)
-        .value("KEY_APOSTROPHE", KEY_APOSTROPHE)
-        .value("KEY_COMMA", KEY_COMMA)
-        .value("KEY_MINUS", KEY_MINUS)
-        .value("KEY_PERIOD", KEY_PERIOD)
-        .value("KEY_SLASH", KEY_SLASH)
-        .value("KEY_ZERO", KEY_ZERO)
-        .value("KEY_ONE", KEY_ONE)
-        .value("KEY_TWO", KEY_TWO)
-        .value("KEY_THREE", KEY_THREE)
-        .value("KEY_FOUR", KEY_FOUR)
-        .value("KEY_FIVE", KEY_FIVE)
-        .value("KEY_SIX", KEY_SIX)
-        .value("KEY_SEVEN", KEY_SEVEN)
-        .value("KEY_EIGHT", KEY_EIGHT)
-        .value("KEY_NINE", KEY_NINE)
-        .value("KEY_SEMICOLON", KEY_SEMICOLON)
-        .value("KEY_EQUAL", KEY_EQUAL)
-        .value("KEY_A", KEY_A)
-        .value("KEY_B", KEY_B)
-        .value("KEY_C", KEY_C)
-        .value("KEY_D", KEY_D)
-        .value("KEY_E", KEY_E)
-        .value("KEY_F", KEY_F)
-        .value("KEY_G", KEY_G)
-        .value("KEY_H", KEY_H)
-        .value("KEY_I", KEY_I)
-        .value("KEY_J", KEY_J)
-        .value("KEY_K", KEY_K)
-        .value("KEY_L", KEY_L)
-        .value("KEY_M", KEY_M)
-        .value("KEY_N", KEY_N)
-        .value("KEY_O", KEY_O)
-        .value("KEY_P", KEY_P)
-        .value("KEY_Q", KEY_Q)
-        .value("KEY_R", KEY_R)
-        .value("KEY_S", KEY_S)
-        .value("KEY_T", KEY_T)
-        .value("KEY_U", KEY_U)
-        .value("KEY_V", KEY_V)
-        .value("KEY_W", KEY_W)
-        .value("KEY_X", KEY_X)
-        .value("KEY_Y", KEY_Y)
-        .value("KEY_Z", KEY_Z)
-        .value("KEY_LEFT_BRACKET", KEY_LEFT_BRACKET)
-        .value("KEY_BACKSLASH", KEY_BACKSLASH)
-        .value("KEY_RIGHT_BRACKET", KEY_RIGHT_BRACKET)
-        .value("KEY_GRAVE", KEY_GRAVE)
-        .value("KEY_ESCAPE", KEY_ESCAPE)
-        .value("KEY_ENTER", KEY_ENTER)
-        .value("KEY_TAB", KEY_TAB)
-        .value("KEY_BACKSPACE", KEY_BACKSPACE)
-        .value("KEY_INSERT", KEY_INSERT)
-        .value("KEY_DELETE", KEY_DELETE)
-        .value("KEY_RIGHT", KEY_RIGHT)
-        .value("KEY_LEFT", KEY_LEFT)
-        .value("KEY_DOWN", KEY_DOWN)
-        .value("KEY_UP", KEY_UP)
-        .value("KEY_PAGE_UP", KEY_PAGE_UP)
-        .value("KEY_PAGE_DOWN", KEY_PAGE_DOWN)
-        .value("KEY_HOME", KEY_HOME)
-        .value("KEY_END", KEY_END)
-        .value("KEY_CAPS_LOCK", KEY_CAPS_LOCK)
-        .value("KEY_SCROLL_LOCK", KEY_SCROLL_LOCK)
-        .value("KEY_NUM_LOCK", KEY_NUM_LOCK)
-        .value("KEY_PRINT_SCREEN", KEY_PRINT_SCREEN)
-        .value("KEY_PAUSE", KEY_PAUSE)
-        .value("KEY_F1", KEY_F1)
-        .value("KEY_F2", KEY_F2)
-        .value("KEY_F3", KEY_F3)
-        .value("KEY_F4", KEY_F4)
-        .value("KEY_F5", KEY_F5)
-        .value("KEY_F6", KEY_F6)
-        .value("KEY_F7", KEY_F7)
-        .value("KEY_F8", KEY_F8)
-        .value("KEY_F9", KEY_F9)
-        .value("KEY_F10", KEY_F10)
-        .value("KEY_F11", KEY_F11)
-        .value("KEY_F12", KEY_F12)
-        .value("KEY_LEFT_SHIFT", KEY_LEFT_SHIFT)
-        .value("KEY_LEFT_CONTROL", KEY_LEFT_CONTROL)
-        .value("KEY_LEFT_ALT", KEY_LEFT_ALT)
-        .value("KEY_LEFT_SUPER", KEY_LEFT_SUPER)
-        .value("KEY_RIGHT_SHIFT", KEY_RIGHT_SHIFT)
-        .value("KEY_RIGHT_CONTROL", KEY_RIGHT_CONTROL)
-        .value("KEY_RIGHT_ALT", KEY_RIGHT_ALT)
-        .value("KEY_RIGHT_SUPER", KEY_RIGHT_SUPER)
-        .value("KEY_KB_MENU", KEY_KB_MENU)
-        .value("KEY_SPACE", KEY_SPACE);
+    py::enum_<KeyboardKey>(m, "Key")
+        .value("NULL", KEY_NULL)
+        .value("APOSTROPHE", KEY_APOSTROPHE)
+        .value("COMMA", KEY_COMMA)
+        .value("MINUS", KEY_MINUS)
+        .value("PERIOD", KEY_PERIOD)
+        .value("SLASH", KEY_SLASH)
+        .value("ZERO", KEY_ZERO)
+        .value("ONE", KEY_ONE)
+        .value("TWO", KEY_TWO)
+        .value("THREE", KEY_THREE)
+        .value("FOUR", KEY_FOUR)
+        .value("FIVE", KEY_FIVE)
+        .value("SIX", KEY_SIX)
+        .value("SEVEN", KEY_SEVEN)
+        .value("EIGHT", KEY_EIGHT)
+        .value("NINE", KEY_NINE)
+        .value("SEMICOLON", KEY_SEMICOLON)
+        .value("EQUAL", KEY_EQUAL)
+        .value("A", KEY_A)
+        .value("B", KEY_B)
+        .value("C", KEY_C)
+        .value("D", KEY_D)
+        .value("E", KEY_E)
+        .value("F", KEY_F)
+        .value("G", KEY_G)
+        .value("H", KEY_H)
+        .value("I", KEY_I)
+        .value("J", KEY_J)
+        .value("K", KEY_K)
+        .value("L", KEY_L)
+        .value("M", KEY_M)
+        .value("N", KEY_N)
+        .value("O", KEY_O)
+        .value("P", KEY_P)
+        .value("Q", KEY_Q)
+        .value("R", KEY_R)
+        .value("S", KEY_S)
+        .value("T", KEY_T)
+        .value("U", KEY_U)
+        .value("V", KEY_V)
+        .value("W", KEY_W)
+        .value("X", KEY_X)
+        .value("Y", KEY_Y)
+        .value("Z", KEY_Z)
+        .value("LEFT_BRACKET", KEY_LEFT_BRACKET)
+        .value("BACKSLASH", KEY_BACKSLASH)
+        .value("RIGHT_BRACKET", KEY_RIGHT_BRACKET)
+        .value("GRAVE", KEY_GRAVE)
+        .value("ESCAPE", KEY_ESCAPE)
+        .value("ENTER", KEY_ENTER)
+        .value("TAB", KEY_TAB)
+        .value("BACKSPACE", KEY_BACKSPACE)
+        .value("INSERT", KEY_INSERT)
+        .value("DELETE", KEY_DELETE)
+        .value("RIGHT", KEY_RIGHT)
+        .value("LEFT", KEY_LEFT)
+        .value("DOWN", KEY_DOWN)
+        .value("UP", KEY_UP)
+        .value("PAGE_UP", KEY_PAGE_UP)
+        .value("PAGE_DOWN", KEY_PAGE_DOWN)
+        .value("HOME", KEY_HOME)
+        .value("END", KEY_END)
+        .value("CAPS_LOCK", KEY_CAPS_LOCK)
+        .value("SCROLL_LOCK", KEY_SCROLL_LOCK)
+        .value("NUM_LOCK", KEY_NUM_LOCK)
+        .value("PRINT_SCREEN", KEY_PRINT_SCREEN)
+        .value("PAUSE", KEY_PAUSE)
+        .value("F1", KEY_F1)
+        .value("F2", KEY_F2)
+        .value("F3", KEY_F3)
+        .value("F4", KEY_F4)
+        .value("F5", KEY_F5)
+        .value("F6", KEY_F6)
+        .value("F7", KEY_F7)
+        .value("F8", KEY_F8)
+        .value("F9", KEY_F9)
+        .value("F10", KEY_F10)
+        .value("F11", KEY_F11)
+        .value("F12", KEY_F12)
+        .value("LEFT_SHIFT", KEY_LEFT_SHIFT)
+        .value("LEFT_CONTROL", KEY_LEFT_CONTROL)
+        .value("LEFT_ALT", KEY_LEFT_ALT)
+        .value("LEFT_SUPER", KEY_LEFT_SUPER)
+        .value("RIGHT_SHIFT", KEY_RIGHT_SHIFT)
+        .value("RIGHT_CONTROL", KEY_RIGHT_CONTROL)
+        .value("RIGHT_ALT", KEY_RIGHT_ALT)
+        .value("RIGHT_SUPER", KEY_RIGHT_SUPER)
+        .value("KB_MENU", KEY_KB_MENU)
+        .value("SPACE", KEY_SPACE);
 }
 
 PYBIND11_EMBEDDED_MODULE(collisionModule, m) {

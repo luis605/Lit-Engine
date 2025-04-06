@@ -22,7 +22,8 @@ constexpr float SLIDER_MAX = 100.0f;
 enum class PinType {
     Bool,
     Number,
-    TextureOrColor
+    TextureOrColor,
+    Vector2
 };
 
 enum class PinKind {
@@ -36,7 +37,8 @@ enum class NodeType {
     Texture,
     Slider,
     OneMinusX,
-    Multiply
+    Multiply,
+    Vector2
 };
 
 struct ColorNode {
@@ -73,8 +75,12 @@ struct MultiplyNode {
     float value = 0;
 };
 
+struct Vector2Node {
+    float vec[2] = { 1.0f, 1.0f };
+};
+
 struct Node;
-using NodeData = std::variant<MaterialNode, ColorNode, TextureNode, SliderNode, OneMinusXNode, MultiplyNode>;
+using NodeData = std::variant<MaterialNode, ColorNode, TextureNode, SliderNode, OneMinusXNode, MultiplyNode, Vector2Node>;
 
 struct Pin {
     ed::PinId          ID;
@@ -173,6 +179,7 @@ public:
     Node* SpawnSliderNode();
     Node* SpawnOneMinusXNode();
     Node* SpawnMultiplyNode();
+    Node* SpawnVector2Node();
     void HandleNewLink(ed::PinId& startPinId, ed::PinId& endPinId);
     bool ArePinsValid(Pin* startPin, Pin* endPin);
 

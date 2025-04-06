@@ -17,6 +17,6 @@ struct HitInfo {
     Entity* entity;
 };
 
-HitInfo raycast(LitVector3 origin, LitVector3 direction, bool debug, std::vector<Entity> ignore);
+HitInfo raycast(const LitVector3& origin, const LitVector3& direction, const bool& debug, const std::vector<Entity>& ignore);
 
 #endif // RAYCAST_HPP

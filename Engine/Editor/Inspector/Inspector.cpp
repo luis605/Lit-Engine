@@ -83,7 +83,7 @@ void Inspector() {
                  NULL);
 
     if (selectedGameObjectType == "entity" && selectedEntity) {
-        if (selectedEntity->initialized)
+        if (selectedEntity->getFlag(Entity::Flag::INITIALIZED))
             EntityInspector();
     } else if (selectedGameObjectType == "light") {
         LightInspector();

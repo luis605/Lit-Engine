@@ -40,10 +40,10 @@ void DisplayTransformControls() {
     ImGui::InputFloat3("##Position", &selectedEntityPosition.x);
     ImGui::Unindent();
 
-    if (selectedEntity->isChild) {
+    if (selectedEntity->getFlag(Entity::Flag::IS_CHILD)) {
         selectedEntity->relativePosition = selectedEntityPosition;
     } else {
-        if (selectedEntity->isDynamic && selectedEntity->calcPhysics) {
+        if (selectedEntity->getFlag(Entity::Flag::IS_DYNAMIC) && selectedEntity->getFlag(Entity::Flag::CALC_PHYSICS)) {
             selectedEntity->applyForce(selectedEntityPosition);
         } else {
             selectedEntity->position = selectedEntityPosition;
@@ -170,9 +170,8 @@ void DisplayScriptDragDrop() {
     ImGui::Text("Script: ");
     ImGui::SameLine();
 
-    const char* scriptName = selectedEntity->script.empty()
-                                 ? "##ScriptPath"
-                                 : selectedEntity->script.c_str();
+    static std::string scriptNameStr = selectedEntity->scriptPath.string() + "##ScriptPath";
+    static const char* scriptName = scriptNameStr.c_str();
     ImGui::Button(scriptName, ImVec2(200, 25));
 
     if (ImGui::BeginDragDropTarget()) {
@@ -182,14 +181,14 @@ void DisplayScriptDragDrop() {
             int payload_n = *(const int*)payload->Data;
 
             fs::path path = dirPath / fileStruct[payload_n].name;
-            selectedEntity->script = path.string();
+            selectedEntity->scriptPath = path;
         }
         ImGui::EndDragDropTarget();
     }
 
     ImGui::SameLine();
     if (ImGui::Button("x##ScriptEmptyButton", ImVec2(25, 25))) {
-        selectedEntity->script.clear();
+        selectedEntity->scriptPath.clear();
     }
 }
 
@@ -222,8 +221,11 @@ void DisplayPhysicsSettings() {
 
     ImGui::Text("Is Dynamic");
     ImGui::SameLine();
-    if (ImGui::Checkbox("##doPhysics", &selectedEntity->isDynamic)) {
-        if (selectedEntity->isDynamic)
+    bool isDynamic = selectedEntity->getFlag(Entity::Flag::IS_DYNAMIC);
+
+    if (ImGui::Checkbox("##doPhysics", &isDynamic)) {
+        selectedEntity->setFlag(Entity::Flag::IS_DYNAMIC, isDynamic);
+        if (selectedEntity->getFlag(Entity::Flag::IS_DYNAMIC))
             selectedEntity->makePhysicsDynamic();
         else
             selectedEntity->makePhysicsStatic();
@@ -258,23 +260,32 @@ void DisplayOtherProperties() {
 
     ImGui::Text("Collisions: ");
     ImGui::SameLine();
-    ImGui::Checkbox("##Collisions", &selectedEntity->collider);
+    bool hasCollider = selectedEntity->getFlag(Entity::Flag::COLLIDER);
+    if (ImGui::Checkbox("##Collisions", &hasCollider)) {
+        selectedEntity->setFlag(Entity::Flag::COLLIDER, hasCollider);
+    }
 
     ImGui::Text("Visible: ");
     ImGui::SameLine();
-    ImGui::Checkbox("##Visible", &selectedEntity->visible);
+    bool isVisible = selectedEntity->getFlag(Entity::Flag::VISIBLE);
+    if (ImGui::Checkbox("##Visible", &isVisible)) {
+        selectedEntity->setFlag(Entity::Flag::VISIBLE, isVisible);
+    }
 
     ImGui::Text("Level of Detail: ");
     ImGui::SameLine();
-    ImGui::Checkbox("##Lod", &selectedEntity->lodEnabled);
+    bool lodEnabled = selectedEntity->getFlag(Entity::Flag::LOD_ENABLED);
+    if (ImGui::Checkbox("##Lod", &lodEnabled)) {
+        selectedEntity->setFlag(Entity::Flag::LOD_ENABLED, lodEnabled);
+    }
 }
 
 void EntityInspector() {
     ImVec2 windowSize = ImGui::GetWindowSize();
-    if (selectedEntity == nullptr || !selectedEntity->initialized)
+    if (selectedEntity == nullptr || !selectedEntity->getFlag(Entity::Flag::INITIALIZED))
         return;
 
-    selectedEntityPosition = selectedEntity->isChild
+    selectedEntityPosition = selectedEntity->getFlag(Entity::Flag::IS_CHILD)
                                  ? selectedEntity->relativePosition
                                  : selectedEntity->position;
     selectedEntityScale = selectedEntity->scale;

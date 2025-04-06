@@ -15,7 +15,7 @@ LitVector3 LitVector3::normalized() {
     return *this;
 }
 
-LitVector3 LitVector3::lengthSquared() { return x * x + y * y + z * z; }
+float LitVector3::lengthSquared() { return x * x + y * y + z * z; }
 
 LitVector3 LitVector3::CrossProduct(LitVector3 v2) {
     x = y * v2.z - z * v2.y;
@@ -53,15 +53,11 @@ LitVector3 LitVector3Scale(LitVector3 v, float scalar) {
 }
 
 float LitVector3Length(const LitVector3 v) {
-    float result = sqrtf(v.x * v.x + v.y * v.y + v.z * v.z);
-
-    return result;
+    return sqrtf(v.x * v.x + v.y * v.y + v.z * v.z);
 }
 
 float LitVector3LengthSqr(const LitVector3 v) {
-    float result = v.x * v.x + v.y * v.y + v.z * v.z;
-
-    return result;
+    return v.x * v.x + v.y * v.y + v.z * v.z;
 }
 
 template <typename T>
@@ -79,8 +75,8 @@ template <typename T> T LitLerp(T start, T end, float t) {
     return start + t * (end - start);
 }
 
-Vector3 lerpVector3(Vector3 start, Vector3 end, float t) {
+LitVector3 lerpVector3(const LitVector3& start, const LitVector3& end, float t) {
     t = customClamp(t, 0.0f, 1.0f);
-    return Vector3{LitLerp(start.x, end.x, t), LitLerp(start.y, end.y, t),
+    return LitVector3{LitLerp(start.x, end.x, t), LitLerp(start.y, end.y, t),
                    LitLerp(start.z, end.z, t)};
 }

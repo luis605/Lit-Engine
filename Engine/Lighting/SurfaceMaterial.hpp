@@ -2,6 +2,7 @@
 #define SURFACE_MAT_HPP
 
 #include <Engine/GUI/Video/video.hpp>
+#include <Engine/Core/Textures.hpp>
 #include <filesystem>
 #include <raylib.h>
 
@@ -9,28 +10,18 @@ namespace fs = std::filesystem;
 
 struct SurfaceMaterialTexture {
     int activatedMode = -1;
-    Texture2D staticTexture = {0};
+    AsyncTexture* staticTexture = nullptr;
     Video videoTexture;
 
     SurfaceMaterialTexture() = default;
     SurfaceMaterialTexture(fs::path& filePath) { loadFromFile(filePath); }
 
-    ~SurfaceMaterialTexture() {
-        /*
-          cleanup();
-          Commented: Would be called when not needed.
-          Happened when adding a new entity
-        */
-    }
+    ~SurfaceMaterialTexture() { }
 
     SurfaceMaterialTexture& operator=(const SurfaceMaterialTexture& other) {
         if (this != &other) {
-            // cleanup(); // Commented: Would be called when not needed.
-            // Requires review. Happened when running game (assign operator) and
-            // when adding a new entity
-
             staticTexture = other.staticTexture;
-            videoTexture = other.videoTexture;
+            videoTexture  = other.videoTexture;
             activatedMode = other.activatedMode;
         }
 
@@ -70,6 +61,8 @@ struct SurfaceMaterial {
     SurfaceMaterialTexture heightTexture;
     SurfaceMaterialTexture metallicTexture;
     SurfaceMaterialTexture emissiveTexture;
+
+    float tiling[2] = { 1.0f, 1.0f };
 };
 
 #endif // SURFACE_MAT_HPP

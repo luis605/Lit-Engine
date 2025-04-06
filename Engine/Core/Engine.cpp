@@ -73,26 +73,26 @@ int findIndexInVector(const std::vector<T>& vec, const T& value) {
     }
 }
 
-GLint GetUniformLocation(Shader& shader, const char* name) {
-    auto& shaderCache = uniformLocationCache[shader.id];
+GLint GetUniformLocation(const unsigned int& shaderId, const char* name) {
+    auto& shaderCache = uniformLocationCache[shaderId];
 
     auto it = shaderCache.find(name);
     if (it != shaderCache.end())
         return it->second;
 
-    GLint location = glGetUniformLocation(shader.id, name);
+    GLint location = glGetUniformLocation(shaderId, name);
     shaderCache[name] = location;
     return location;
 }
 
-GLint GetAttribLocation(Shader& shader, const char* name) {
-    auto& shaderCache = uniformLocationCache[shader.id];
+GLint GetAttribLocation(const unsigned int& shaderId, const char* name) {
+    auto& shaderCache = uniformLocationCache[shaderId];
 
     auto it = shaderCache.find(name);
     if (it != shaderCache.end())
         return it->second;
 
-    GLint location = glGetAttribLocation(shader.id, name);
+    GLint location = glGetAttribLocation(shaderId, name);
     shaderCache[name] = location;
     return location;
 }

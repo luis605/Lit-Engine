@@ -116,7 +116,7 @@ void Run() {
 
     if (first_time) {
         for (Entity& entity : entitiesList) {
-            entity.running_first_time = true;
+            entity.setFlag(Entity::Flag::RUNNING_FIRST_TIME, true);
 
             RenderAndRunEntity(entity, &inGameCamera);
         }

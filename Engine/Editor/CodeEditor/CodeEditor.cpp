@@ -6,6 +6,7 @@
 #include <Engine/Core/Entity.hpp>
 #include <Engine/Core/Engine.hpp>
 #include <Engine/Core/global_variables.hpp>
+#include <Engine/Core/RunGame.hpp>
 #include <Engine/Editor/MenuBar/Settings.hpp>
 #include <cstddef>
 #include <fstream>
@@ -19,7 +20,7 @@ std::string code;
 fs::path codeEditorScriptPath;
 TextEditor editor;
 
-bool RenderImageButtonWithTooltip(ImTextureID textureID, const ImVec2& size,
+bool RenderImageButtonWithTooltip(const ImTextureID& textureID, const ImVec2& size,
                                   const char* tooltip) {
     bool buttonClicked = ImGui::ImageButton(tooltip, textureID, size);
     if (ImGui::IsItemHovered()) {
@@ -57,9 +58,8 @@ void CodeEditor() {
     if (RenderImageButtonWithTooltip((ImTextureID)&hotReloadTexture,
                                      ImVec2(22, 22), "Reload all scripts")) {
         if (ImGui::IsMouseDoubleClicked(ImGuiMouseButton_Left)) {
-            firstTimeGameplay = true;
             for (Entity& entity : entitiesList) {
-                entity.running = false;
+                RenderAndRunEntity(entity);
             }
         }
     }

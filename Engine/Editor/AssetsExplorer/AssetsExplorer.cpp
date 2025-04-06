@@ -192,9 +192,9 @@ void EditFileManipulation() {
                                 entitiesListPregame.end());
 
             Entity runScriptEntity = Entity();
-            runScriptEntity.script = fileStruct[fileIndex].full_path.string();
+            runScriptEntity.scriptPath = fileStruct[fileIndex].full_path;
             runScriptEntity.scriptIndex = "script not defined";
-            runScriptEntity.calcPhysics = true;
+            runScriptEntity.setFlag(Entity::Flag::CALC_PHYSICS, true);
 
             LitCamera* sceneCamera_reference = &sceneCamera;
             runScriptEntity.setupScript(sceneCamera_reference);
@@ -487,9 +487,7 @@ void AssetsExplorer() {
         ImGui::SetNextWindowSize({assetsExplorerWindowSize.y, cellSize});
     }
 
-    static const std::string assetsExplorerName =
-        (std::string(ICON_FA_FOLDER_OPEN) + " Assets Explorer");
-    static const char* assetsExplorerName_cstr = assetsExplorerName.c_str();
+    constexpr const char* assetsExplorerName_cstr = ICON_FA_FOLDER_OPEN " Assets Explorer";
     ImGui::Begin(assetsExplorerName_cstr, nullptr);
 
     UpdateFileFolderStructures();

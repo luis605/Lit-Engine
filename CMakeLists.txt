@@ -4,10 +4,6 @@ if(NOT COMPILER_C)
     message(FATAL_ERROR "No suitable C compiler found.")
 endif()
 set(CMAKE_C_COMPILER ${COMPILER_C})
-if(COMPILER_C MATCHES "gcc-11")
-    add_compile_options(-fno-lto)
-    add_link_options(-fno-lto)
-endif()
 
 # Set C++ compiler (prefer g++-11, fallback to g++)
 find_program(COMPILER_CXX NAMES g++-11 g++)
@@ -15,10 +11,6 @@ if(NOT COMPILER_CXX)
     message(FATAL_ERROR "No suitable C++ compiler found.")
 endif()
 set(CMAKE_CXX_COMPILER ${COMPILER_CXX})
-if(COMPILER_CXX MATCHES "g\\+\\+\\-11")
-    add_compile_options(-fno-lto)
-    add_link_options(-fno-lto)
-endif()
 
 # CMake Settings
 cmake_minimum_required(VERSION 3.12)
@@ -29,10 +21,12 @@ set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(BUILD_SHARED_LIBS OFF)
 set(CMAKE_EXE_LINKER_FLAGS "-static-libstdc++ -static-libgcc")
-set(CMAKE_CXX_FLAGS "-no-pie")
+set(CMAKE_CXX_FLAGS "-no-pie -fdiagnostics-color=always")
 set(CMAKE_CXX_FLAGS_RELEASE "-O3")
 set(CMAKE_CXX_FLAGS_DEBUG "-g -O0 -pg")
 set(CMAKE_CXX_COMPILER_LAUNCHER ccache)
+set(CMAKE_EXE_LINKER_FLAGS "-fuse-ld=gold")
+
 add_definitions(-w -g)
 
 # Source Files
@@ -191,22 +185,19 @@ add_custom_target(debug
 
 if(UNIX)
     add_custom_target(profile
+        COMMAND ${CMAKE_COMMAND} -E echo "Make sure you set -DCMAKE_BUILD_TYPE=Debug in your cmake command"
         COMMAND ${CMAKE_COMMAND} -E echo "Running LitEngine..."
         COMMAND LitEngine
         COMMAND ${CMAKE_COMMAND} -E echo "Moving gmon.out to binary directory..."
         COMMAND ${CMAKE_COMMAND} -E rename ${CMAKE_SOURCE_DIR}/gmon.out ${CMAKE_BINARY_DIR}/gmon.out
         COMMAND ${CMAKE_COMMAND} -E echo "Profiling with gprof..."
-        COMMAND gprof ${CMAKE_BINARY_DIR}/LitEngine ${CMAKE_BINARY_DIR}/gmon.out > ${CMAKE_BINARY_DIR}/analysis.txt
-        COMMAND ${CMAKE_COMMAND} -E echo "Analysis results:"
-        COMMAND cat ${CMAKE_BINARY_DIR}/analysis.txt
+        COMMAND gprof ${CMAKE_BINARY_DIR}/LitEngine ${CMAKE_BINARY_DIR}/gmon.out
+        COMMAND ${CMAKE_COMMAND} -E echo "Analysis results is launching..."
+        COMMAND gprof ${CMAKE_BINARY_DIR}/LitEngine ${CMAKE_BINARY_DIR}/gmon.out | gprof2dot -w | dot -Tpng -o ${CMAKE_BINARY_DIR}/profiled.png
         DEPENDS LitEngine
         WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}
     )
 endif()
-
-
-
-############# GAME BUILDER #############
 
 list(REMOVE_ITEM SRC_FILES ${CMAKE_SOURCE_DIR}/Engine/main.cpp)
 

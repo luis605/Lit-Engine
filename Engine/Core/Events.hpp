@@ -24,7 +24,7 @@ public:
 
 class EventSource {
 public:
-    void addListener(ConcreteListener& listener);
+    void addListener(const ConcreteListener& listener);
     void removeListener(const std::string& listenerId);
     void triggerEvent();
 
@@ -48,6 +48,13 @@ public:
 private:
     std::unordered_map<std::string, EventSource> customEvents;
 };
+
+// For scripts (plugins, game scripts, etc.)
+void createEvent(const std::string& eventName);
+void onCustomEvent(const std::string& eventName, const std::function<void()>& callback);
+void triggerCustomEvent(const std::string& eventName);
+void onEntityCreation(const std::string& listenerName, const std::function<void()>& callback);
+void onEntityDestruction(const std::string& listenerName, const std::function<void()>& callback);
 
 extern EventManager eventManager;
 

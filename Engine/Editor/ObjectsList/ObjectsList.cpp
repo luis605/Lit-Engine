@@ -48,8 +48,8 @@ void ManipulateEntityPopup() {
 }
 
 bool DrawNodeTree(const char* icon, const std::string& name,
-                  ImGuiTreeNodeFlags flags, void* ptr, bool isSelected,
-                  const std::function<void()>& callback, bool* rightClicked) {
+                  ImGuiTreeNodeFlags& flags, void* ptr, const bool& isSelected,
+                  const std::function<void()>& callback, bool rightClicked) {
     if (isSelected)
         flags |= ImGuiTreeNodeFlags_Selected;
 
@@ -61,16 +61,16 @@ bool DrawNodeTree(const char* icon, const std::string& name,
     if (ImGui::IsItemClicked(ImGuiMouseButton_Left))
         callback();
     if (rightClicked && ImGui::IsItemClicked(ImGuiMouseButton_Right))
-        *rightClicked = true;
+        rightClicked = true;
 
     entitiesListTreeNodeIndex++;
     return isNodeOpen;
 }
 
 bool DrawTreeNodeWithRename(const char* icon, std::string& name, void* ptr,
-                            ImGuiTreeNodeFlags flags, bool isSelected,
+                            ImGuiTreeNodeFlags& flags, const bool& isSelected,
                             const std::function<void()>& callback,
-                            bool* rightClicked) {
+                            bool rightClicked) {
     if (isSelected && shouldChangeObjectName) {
         char nameBuffer[256];
         std::strncpy(nameBuffer, name.c_str(), sizeof(nameBuffer) - 1);
@@ -98,16 +98,17 @@ void DrawEntityTree(Entity& entity) {
             selectedEntity = &entity;
             selectedGameObjectType = "entity";
         },
-        &rightClicked);
+        rightClicked);
 
     if (rightClicked)
         showManipulateEntityPopup = true;
 
     if (ImGui::BeginDragDropSource(ImGuiDragDropFlags_None)) {
-        draggingChildObject = entity.isChild;
+        draggingChildObject = entity.getFlag(Entity::Flag::IS_CHILD);
 
-        ImGui::SetDragDropPayload("CHILD_ENTITY_PAYLOAD", &entity,
-                                  sizeof(Entity));
+        int entityId = entity.id;
+        ImGui::SetDragDropPayload("CHILD_ENTITY_PAYLOAD", &entityId,
+                                  sizeof(int));
         ImGui::EndDragDropSource();
     }
 
@@ -132,14 +133,14 @@ void DrawEntityTree(Entity& entity) {
         const ImGuiPayload* payload =
             ImGui::AcceptDragDropPayload("CHILD_ENTITY_PAYLOAD");
         if (payload) {
-            if (payload->DataSize != sizeof(Entity)) {
+            if (payload->DataSize != sizeof(int)) {
                 TraceLog(LOG_WARNING, "Invalid payload size.");
                 return;
             }
 
-            Entity droppedEntity = *static_cast<Entity*>(payload->Data);
+            int droppedEntityId = *static_cast<int*>(payload->Data);
 
-            entity.addEntityChild(droppedEntity.id);
+            entity.addEntityChild(droppedEntityId);
         }
         ImGui::EndDragDropTarget();
     }
@@ -271,7 +272,7 @@ void UnchildObjects(ImVec2 childSize) {
 
             LightStruct* light = getLightById(droppedLight.id);
 
-            if (light->parent && light->parent->initialized) {
+            if (light->parent && light->parent->getFlag(Entity::Flag::INITIALIZED)) {
                 auto it =
                     std::find(light->parent->lightsChildren.begin(),
                               light->parent->lightsChildren.end(), light->id);
@@ -289,25 +290,24 @@ void UnchildObjects(ImVec2 childSize) {
     }
 
     if (ImGui::BeginDragDropTarget()) {
-        const ImGuiPayload* payload =
-            ImGui::AcceptDragDropPayload("CHILD_ENTITY_PAYLOAD");
+        const ImGuiPayload* payload = ImGui::AcceptDragDropPayload("CHILD_ENTITY_PAYLOAD");
         if (payload) {
-            if (payload->DataSize != sizeof(Entity)) {
+            if (payload->DataSize != sizeof(int)) {
                 TraceLog(LOG_WARNING, "Invalid payload size.");
                 return;
             }
 
-            Entity droppedEntity = *static_cast<Entity*>(payload->Data);
+            int droppedEntityId = *static_cast<int*>(payload->Data);
 
-            if (!droppedEntity.isChild) {
-                return;
-            }
-
-            Entity* entity = getEntityById(droppedEntity.id);
+            Entity* entity = getEntityById(droppedEntityId);
             if (!entity)
                 return;
 
-            if (entity->parent && entity->parent->initialized) {
+            if (!entity->getFlag(Entity::Flag::IS_CHILD)) {
+                return;
+            }
+
+            if (entity->parent && entity->parent->getFlag(Entity::Flag::INITIALIZED)) {
                 auto it = std::find(entity->parent->entitiesChildren.begin(),
                                     entity->parent->entitiesChildren.end(),
                                     entity->id);
@@ -318,7 +318,7 @@ void UnchildObjects(ImVec2 childSize) {
             }
 
             entity->parent = nullptr;
-            entity->isChild = false;
+            entity->setFlag(Entity::Flag::IS_CHILD, false);
         }
         ImGui::EndDragDropTarget();
     }
@@ -355,7 +355,7 @@ void ImGuiListViewEx() {
     DrawCameraTree();
 
     for (Entity& entity : entitiesListPregame) {
-        if (entity.isChild || !entity.initialized)
+        if (entity.getFlag(Entity::Flag::IS_CHILD) || !entity.getFlag(Entity::Flag::INITIALIZED))
             continue;
         DrawEntityTree(entity);
     }
@@ -394,7 +394,9 @@ void OpenWebpages() {
 }
 
 void EntitiesList() {
-    ImGui::Begin((std::string(ICON_FA_BARS) + " Objects List").c_str());
+    constexpr const char* entitiesListName_cstr = ICON_FA_BARS " Objects List";
+
+    ImGui::Begin(entitiesListName_cstr);
 
     ImGuiListViewEx();
     OpenWebpages();

@@ -27,8 +27,8 @@ void InitGameCamera() {
 }
 
 void RenderAndRunEntity(Entity& entity, LitCamera* rendering_camera) {
-    entity.calcPhysics = true;
     entity.setupScript(rendering_camera);
+    entity.setFlag(Entity::Flag::CALC_PHYSICS, true);
 }
 
 #ifndef GAME_SHIPPING
@@ -49,8 +49,8 @@ void RunGame() {
 
     if (firstTimeGameplay) {
         for (Entity& entity : entitiesList) {
-            entity.running_first_time = true;
             RenderAndRunEntity(entity);
+            entity.setFlag(Entity::Flag::RUNNING_FIRST_TIME, true);
         }
         firstTimeGameplay = false;
     }
@@ -72,6 +72,8 @@ void RunGame() {
 
     EndTextureMode();
 
+    ComputeSceneLuminance();
+    ApplyBloomEffect();
     RenderViewportTexture();
 }
 #endif

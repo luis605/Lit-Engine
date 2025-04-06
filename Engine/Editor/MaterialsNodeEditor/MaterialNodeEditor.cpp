@@ -205,9 +205,8 @@ void MaterialNodeSystem::DrawNodeMiddleSection(Node& node,
                     IM_ASSERT(payload->DataSize == sizeof(int));
                     int payload_n = *(const int*)payload->Data;
 
-                    nodeData->texture = dirPath / fileStruct[payload_n].name;
-                    nodeData->texturePath =
-                        dirPath / fileStruct[payload_n].name;
+                    nodeData->texture = fileStruct[payload_n].full_path;
+                    nodeData->texturePath = fileStruct[payload_n].full_path;
                 }
 
                 ImGui::EndDragDropTarget();
@@ -272,7 +271,14 @@ void MaterialNodeSystem::DrawNodeMiddleSection(Node& node,
         MultiplyNode* nodeData =
             GetNodeData<MultiplyNode>(node).value_or(nullptr);
 
+    } else if (node.type == NodeType::Vector2) {
+        Vector2Node* nodeData =
+            GetNodeData<Vector2Node>(node).value_or(nullptr);
+
         if (nodeData) {
+            std::string labelStr = "##Vector2" + node.Name;
+            const char* label = labelStr.c_str();
+            ImGui::SliderFloat2(label, nodeData->vec, -10.0f, 10.0f);
         }
     } else if (node.type == NodeType::Material) {
         MaterialNode* nodeData =
@@ -526,6 +532,10 @@ void MaterialNodeSystem::ShowPopup() {
                 node = SpawnOneMinusXNode();
             }
 
+            if (ImGui::MenuItem("Vector 2")) {
+                node = SpawnVector2Node();
+            }
+
             ImGui::EndMenu();
         }
 
@@ -573,6 +583,8 @@ Node* MaterialNodeSystem::SpawnMaterialNode() {
                                        PinType::TextureOrColor, PinKind::Input);
     m_Nodes.back().Inputs.emplace_back(GetNextId(), "Emissive",
                                        PinType::TextureOrColor, PinKind::Input);
+    m_Nodes.back().Inputs.emplace_back(GetNextId(), "Tiling",
+                                       PinType::Vector2, PinKind::Input);
 
     m_Nodes.back().isRoot = true;
 
@@ -646,6 +658,18 @@ Node* MaterialNodeSystem::SpawnMultiplyNode() {
         GetNextId(), "Out",
         std::list<PinType>{PinType::Number, PinType::TextureOrColor},
         PinKind::Output);
+
+    BuildNode(&m_Nodes.back());
+
+    return &m_Nodes.back();
+}
+
+Node* MaterialNodeSystem::SpawnVector2Node() {
+    Vector2Node vector2Node;
+    m_Nodes.emplace_back(GetNextId(), "Vector 2", vector2Node, NodeType::Vector2,
+                         ImColor(100, 255, 255));
+    m_Nodes.back().Outputs.emplace_back(GetNextId(), "Vector", PinType::Vector2,
+                                       PinKind::Output);
 
     BuildNode(&m_Nodes.back());
 

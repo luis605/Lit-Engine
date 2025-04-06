@@ -137,20 +137,6 @@ void setSkybox(const std::string& skyboxPath) {
     skybox.loadSkybox(fs::path(skyboxPath));
 }
 
-void onEntityCreation(const std::string& listenerName,
-                      const std::function<void()>& callback) {
-    ConcreteListener listener(listenerName);
-    listener.addCallback(callback);
-    eventManager.onEntityCreation.addListener(listener);
-}
-
-void onEntityDestruction(const std::string& listenerName,
-                         const std::function<void()>& callback) {
-    ConcreteListener listener(listenerName);
-    listener.addCallback(callback);
-    eventManager.onEntityDestruction.addListener(listener);
-}
-
 void onSceneSave(const std::string& listenerName,
                  const std::function<void()>& callback) {
     ConcreteListener listener(listenerName);
@@ -177,19 +163,4 @@ void onSceneStop(const std::string& listenerName,
     ConcreteListener listener(listenerName);
     listener.addCallback(callback);
     eventManager.onSceneStop.addListener(listener);
-}
-
-void createEvent(const std::string& eventName) {
-    eventManager.createEvent(eventName);
-}
-
-void onCustomEvent(const std::string& eventName,
-                   const std::function<void()>& callback) {
-    ConcreteListener listener(eventName);
-    listener.addCallback(callback);
-    eventManager.getEvent(eventName)->addListener(listener);
-}
-
-void triggerCustomEvent(const std::string& eventName) {
-    eventManager.getEvent(eventName)->triggerEvent();
 }

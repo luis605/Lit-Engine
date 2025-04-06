@@ -7,6 +7,7 @@
 #include <rlgl.h>
 
 #include <Engine/Core/Entity.hpp>
+#include <Engine/Core/Textures.hpp>
 #include <Engine/Editor/AssetsExplorer/AssetsExplorer.hpp>
 #include <Engine/Editor/CodeEditor/CodeEditor.hpp>
 #include <Engine/Editor/ObjectsList/ObjectsList.hpp>
@@ -22,7 +23,7 @@
 #include <Engine/Lighting/lights.hpp>
 #include <Engine/Lighting/skybox.hpp>
 #include <Engine/Plugins/Loader.hpp>
-#include <Engine/Scripting/functions.hpp> // Ensure functions.hpp is included
+#include <Engine/Scripting/functions.hpp>
 #include <Engine/Scripting/math.hpp>
 
 #define STRESS_TEST false
@@ -84,7 +85,7 @@ void LoadTextures() {
     SetWindowIcon(windowIconImage);
 }
 
-void UpdateFonts(float fontSize, ImGuiIO& io) {
+void UpdateFonts(const float& fontSize, ImGuiIO& io) {
     s_Fonts.clear();
 
     fs::path fontPath = GetWorkingDirectory();
@@ -185,10 +186,14 @@ void LoadFilesystem() {
         fs::create_directory(gameProjectPath);
     }
 
-    fs::path themesPath = gameProjectPath / "themes";
+    fs::path themesPath = path / "themes";
     if (!fs::exists(themesPath)) {
         fs::create_directory(themesPath);
     }
+}
+
+void InitEngine() {
+    entityModule = createEntityModule();
 }
 
 void Startup() {
@@ -211,6 +216,7 @@ void Startup() {
     InitRenderModelPreviewer();
     loadAllPlugins();
     LoadFilesystem();
+    InitEngine();
 
 #if STRESS_TEST
     InitStressTest();
@@ -223,6 +229,7 @@ void EngineMainLoop() {
             exitWindowRequested = true;
 
         HandleFontUpdateIfNeeded();
+        AsyncTextureManager::ProcessPendingUpdates();
 
         BeginDrawing();
 
@@ -379,10 +386,10 @@ void ExitWindowRequested() {
     ImGui::PopStyleVar(2);
 }
 
-Vector3 glm3ToVec3(glm::vec3& vec3) {
+Vector3 glm3ToVec3(const glm::vec3& vec3) {
     return (Vector3){vec3.x, vec3.y, vec3.z};
 }
 
-glm::vec3 vec3ToGlm3(Vector3& vec3) {
+glm::vec3 vec3ToGlm3(const Vector3& vec3) {
     return (glm::vec3){vec3.x, vec3.y, vec3.z};
 }

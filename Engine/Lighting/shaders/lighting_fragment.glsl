@@ -8,11 +8,8 @@ in vec2 fragTexCoord;
 in vec3 fragNormal;
 
 // Input uniform values
-uniform vec4 colDiffuse;
 uniform vec4 ambientLight;
 uniform vec3 viewPos;
-uniform mat4 viewMatrix;
-uniform mat4 projectionMatrix;
 uniform vec2 tiling = vec2(1.0, 1.0);
 
 // PBR Textures
@@ -38,7 +35,6 @@ uniform sampler2D texture6;
 #define INV_PI 0.31830988618
 #define EPSILON 1e-5
 #define INV_4 0.25
-#define POW5_CONST 5.0
 const float MIN_ROUGHNESS = 0.001;
 const float HALF = 0.5;
 const vec3 ONE = vec3(1.0);
@@ -164,13 +160,13 @@ float PhysicalLightAttenuation(float distance, float radius, float attenuation) 
 
 vec4 CalculateDiffuseLighting(vec3 norm, vec3 lightDir, vec4 lightColor, vec4 texColor) {
     float NdotL = max(dot(norm, lightDir), 0.0);
-    return lightColor * colDiffuse * NdotL / PI * texColor;
+    return lightColor * NdotL / PI * texColor;
 }
 
 vec4 CalculateAmbientLighting(float roughness, vec4 texColor) {
     float occlusion = 1.0;
     float ambientFactor = mix(0.2, 1.0, 1.0 - roughness);
-    return vec4(ambientLight.rgb * colDiffuse.rgb * texColor.rgb * occlusion * ambientFactor, colDiffuse.a * texColor.a);
+    return vec4(clamp(ambientLight.rgb, vec3(0), vec3(1)) * texColor.rgb * occlusion * ambientFactor, texColor.a);
 }
 
 vec4 toneMapFilmic(vec4 hdrColor) {
@@ -226,7 +222,17 @@ vec4 CalculateLighting(vec3 fragPosition, vec3 fragNormal, vec3 viewDir, vec2 te
         result += CalculateLight(lights[i], viewDir, fragNormal, fragPosition, texColor, F0, T, B, roughness, specular);
     }
 
-    return toneMapACES(result);
+    return result; //toneMapACES(result);
+}
+
+float Q_rsqrt(float number) {
+    float x2 = number * 0.5;
+    float y  = number;
+    uint i = floatBitsToUint(y);
+    i = 0x5f3759dfu - (i >> 1);
+    y = uintBitsToFloat(i);
+    y = y * (1.5 - (x2 * y * y));  // one iteration of Newton's method
+    return y;
 }
 
 // [ INSERT GENERATED CODE BELOW ]
@@ -237,7 +243,7 @@ void main() {
     vec4 texColor   = diffuseMapReady ? texture(texture0, texCoord) : vec4(1.0);
     vec3 normalMap  = normalMapReady ? texture(texture2, texCoord).rgb : vec3(0.0);
     float roughness = roughnessMapReady ? texture(texture3, texCoord).r : 0.5;
-    float ao        = aoMapReady ? texture(texture4, texCoord).r : 1.0;
+    float ao        = 1.0; //aoMapReady ? texture(texture4, texCoord).r : 1.0;
     float specular  = 0.5; // metallicMapReady ? texture(texture5, texCoord).r : 0.5;
     float metalness = 0.5; //metallicMapReady ? texture(texture6, texCoord).r : 0.5;
 
@@ -254,8 +260,17 @@ void main() {
     vec3 norm = fragNormal;
     if (normalMapReady) {
         mat3 TBN = mat3(tangent, bitangent, fragNormal);
+#ifdef NORMAL_SUPPORT
+        vec2 nxy = normalMap.xy * 2.0 - 1.0;
+        vec3 nm = calcNormalMap(vec4(nxy, 1.0, 1.0)).rgb;
+        nm.z = Q_rsqrt(max(1.0 - dot(nm.xy, nm.xy), 0.0));
+
+        norm = normalize(TBN * nm);
+#else
         norm = normalize(TBN * (normalMap * 2.0 - 1.0));
+#endif
     }
+
 
     vec4 lighting = CalculateLighting(fragPosition, norm, viewDir, texCoord, texColor, tangent, bitangent, roughness, specular, metalness);
 

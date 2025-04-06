@@ -3,9 +3,9 @@
 #include <Engine/Editor/AssetsExplorer/AssetsExplorer.hpp>
 #include <Engine/Editor/SceneEditor/Gizmo/Gizmo.hpp>
 #include <Engine/Editor/SceneEditor/SceneEditor.hpp>
-#include <Engine/Lighting/skybox.hpp>
 #include <Engine/Lighting/Shaders.hpp>
 #include <Engine/Lighting/lights.hpp>
+#include <Engine/Lighting/skybox.hpp>
 #include <custom.h>
 #include <extras/IconsFontAwesome6.h>
 #include <rcamera.h>
@@ -23,7 +23,7 @@ std::shared_ptr<Entity> copiedEntity = nullptr;
 std::shared_ptr<LightStruct> copiedLight = nullptr;
 
 #ifndef GAME_SHIPPING
-    ImVec2 prevEditorWindowSize = {-1.0f, -1.0f};
+ImVec2 prevEditorWindowSize = {-1.0f, -1.0f};
 #endif
 
 void InitEditorCamera() {
@@ -118,40 +118,81 @@ void EditorCameraMovement() {
         rlLastMousePosition = GetMousePosition();
 }
 
+bool MatrixEquals(const Matrix& a, const Matrix& b, float tolerance) {
+    const float* aFloats = reinterpret_cast<const float*>(&a);
+    const float* bFloats = reinterpret_cast<const float*>(&b);
+    for (int i = 0; i < 16; i++) {
+        if (fabs(aFloats[i] - bFloats[i]) > tolerance)
+            return false;
+    }
+    return true;
+}
+
 bool IsMouseHoveringModel(const Model& model, const Vector3& position,
                           const Vector3& rotation, const Vector3& scale,
                           const Entity* entity, bool bypassOptimization) {
     if (!IsModelReady(model))
         return false;
 
+    static std::unordered_map<const Model*, CacheEntry> cache;
+
     Vector2 mousePosition = GetMousePosition();
 #ifndef GAME_SHIPPING
-    Vector2 relativeMousePosition = {
-        (float)mousePosition.x - (float)viewportRectangle.x,
-        (float)mousePosition.y - (float)viewportRectangle.y -
-            (float)GetImGuiWindowTitleHeight() - 60.0f};
-#elif GAME_SHIPPING
-    Vector2 relativeMousePosition = {
-        (float)mousePosition.x - (float)viewportRectangle.x,
-        (float)mousePosition.y - (float)viewportRectangle.y -
-            (float)GetImGuiWindowTitleHeight()};
+    Vector2 relativeMousePosition = {mousePosition.x - viewportRectangle.x,
+                                     mousePosition.y - viewportRectangle.y -
+                                         GetImGuiWindowTitleHeight() - 60.0f};
+#else
+    Vector2 relativeMousePosition = {mousePosition.x - viewportRectangle.x,
+                                     mousePosition.y - viewportRectangle.y -
+                                         GetImGuiWindowTitleHeight()};
 #endif
 
     Ray mouseRay = GetScreenToWorldRayEx(relativeMousePosition, sceneCamera,
                                          viewportRectangle.width,
                                          viewportRectangle.height);
 
+    CacheEntry* cacheEntry = nullptr;
+    auto it = cache.find(&model);
+    if (it == cache.end()) {
+        CacheEntry newEntry;
+        newEntry.transform = model.transform;
+        newEntry.bounds.resize(model.meshCount);
+        for (int i = 0; i < model.meshCount; i++) {
+            BoundingBox meshBB = GetMeshBoundingBox(model.meshes[i]);
+            newEntry.bounds[i].min =
+                Vector3Transform(meshBB.min, model.transform);
+            newEntry.bounds[i].max =
+                Vector3Transform(meshBB.max, model.transform);
+        }
+        // Insert new entry into cache.
+        auto result = cache.emplace(&model, std::move(newEntry));
+        cacheEntry = &result.first->second;
+    } else {
+        cacheEntry = &it->second;
+        if (!MatrixEquals(cacheEntry->transform, model.transform)) {
+            cacheEntry->transform = model.transform;
+            cacheEntry->bounds.resize(model.meshCount);
+            for (int i = 0; i < model.meshCount; i++) {
+                BoundingBox meshBB = GetMeshBoundingBox(model.meshes[i]);
+                cacheEntry->bounds[i].min =
+                    Vector3Transform(meshBB.min, model.transform);
+                cacheEntry->bounds[i].max =
+                    Vector3Transform(meshBB.max, model.transform);
+            }
+        }
+    }
+
     for (int meshIndex = 0; meshIndex < model.meshCount; meshIndex++) {
         BoundingBox meshBounds;
         if (entity == nullptr) {
-            meshBounds = GetMeshBoundingBox(model.meshes[meshIndex]);
-            meshBounds.min = Vector3Transform(meshBounds.min, model.transform);
-            meshBounds.max = Vector3Transform(meshBounds.max, model.transform);
-        } else
+            meshBounds = cacheEntry->bounds[meshIndex];
+        } else {
             meshBounds = entity->bounds;
+        }
 
         if (bypassOptimization ||
             GetRayCollisionBox(mouseRay, meshBounds).hit) {
+            // Expensive mesh test.
             if (GetRayCollisionMesh(mouseRay, model.meshes[meshIndex],
                                     model.transform)
                     .hit) {
@@ -212,7 +253,7 @@ void ApplyBloomEffect() {
     BeginShaderMode(horizontalBlurShader);
     SetShaderValueTexture(
         horizontalBlurShader,
-        GetUniformLocation(horizontalBlurShader, "srcTexture"),
+        GetUniformLocation(horizontalBlurShader.id, "srcTexture"),
         viewportTexture);
     DrawTexture(viewportTexture, 0, 0, WHITE);
     EndShaderMode();
@@ -221,7 +262,7 @@ void ApplyBloomEffect() {
     BeginTextureMode(verticalBlurTexture);
     BeginShaderMode(verticalBlurShader);
     SetShaderValueTexture(verticalBlurShader,
-                          GetUniformLocation(verticalBlurShader, "srcTexture"),
+                          GetUniformLocation(verticalBlurShader.id, "srcTexture"),
                           horizontalBlurTexture.texture);
     DrawTexture(horizontalBlurTexture.texture, 0, 0, WHITE);
     EndShaderMode();
@@ -231,10 +272,10 @@ void ApplyBloomEffect() {
     BeginShaderMode(upsamplerShader);
     SetShaderValueTexture(
         upsamplerShader,
-        GetUniformLocation(upsamplerShader, "downsampledTexture"),
+        GetUniformLocation(upsamplerShader.id, "downsampledTexture"),
         verticalBlurTexture.texture);
     SetShaderValueTexture(
-        upsamplerShader, GetUniformLocation(upsamplerShader, "originalTexture"),
+        upsamplerShader, GetUniformLocation(upsamplerShader.id, "originalTexture"),
         viewportTexture);
     DrawTexture(verticalBlurTexture.texture, 0, 0, WHITE);
     EndShaderMode();
@@ -283,10 +324,10 @@ void RenderEntities() {
     bool isWindowHovered = ImGui::IsWindowHovered();
 
     for (Entity& entity : entitiesListPregame) {
-        if (entity.isChild)
+        if (entity.getFlag(Entity::Flag::IS_CHILD))
             continue;
 
-        entity.calcPhysics = false;
+        entity.setFlag(Entity::Flag::CALC_PHYSICS, false);
         entity.render();
 
         if (!isMouseDown || !isWindowHovered || dragging)
@@ -471,41 +512,41 @@ void ObjectsPopup() {
         if (ImGui::BeginMenu("Entity")) {
             if (ImGui::MenuItem("Cube")) {
                 AddEntity("", LoadModelFromMesh(GenMeshCube(1, 1, 1)));
-                entitiesListPregame.back().ObjectType = Entity::ObjectType_Cube;
+                entitiesListPregame.back().ObjectType = ObjectTypeEnum::ObjectType_Cube;
                 showObjectTypePopup = false;
             }
 
             if (ImGui::MenuItem("Cone")) {
                 AddEntity("", LoadModelFromMesh(GenMeshCone(.5, 1, 30)));
-                entitiesListPregame.back().ObjectType = Entity::ObjectType_Cone;
+                entitiesListPregame.back().ObjectType = ObjectTypeEnum::ObjectType_Cone;
                 showObjectTypePopup = false;
             }
 
             if (ImGui::MenuItem("Cylinder")) {
                 AddEntity("", LoadModelFromMesh(GenMeshCylinder(1.5, 2, 30)));
                 entitiesListPregame.back().ObjectType =
-                    Entity::ObjectType_Cylinder;
+                    ObjectTypeEnum::ObjectType_Cylinder;
                 showObjectTypePopup = false;
             }
 
             if (ImGui::MenuItem("Plane")) {
                 AddEntity("", LoadModelFromMesh(GenMeshPlane(1, 1, 1, 1)));
                 entitiesListPregame.back().ObjectType =
-                    Entity::ObjectType_Plane;
+                    ObjectTypeEnum::ObjectType_Plane;
                 showObjectTypePopup = false;
             }
 
             if (ImGui::MenuItem("Sphere")) {
                 AddEntity("", LoadModelFromMesh(GenMeshSphere(.5, 50, 50)));
                 entitiesListPregame.back().ObjectType =
-                    Entity::ObjectType_Sphere;
+                    ObjectTypeEnum::ObjectType_Sphere;
                 showObjectTypePopup = false;
             }
 
             if (ImGui::MenuItem("Torus")) {
                 AddEntity("", LoadModelFromMesh(GenMeshTorus(.5, 1, 30, 30)));
                 entitiesListPregame.back().ObjectType =
-                    Entity::ObjectType_Torus;
+                    ObjectTypeEnum::ObjectType_Torus;
                 showObjectTypePopup = false;
             }
 
@@ -792,8 +833,11 @@ void drawEditorCameraMenu() {
         !inGamePreview) {
         eventManager.onScenePlay.triggerEvent();
 
+        entitiesList.clear();
+
         for (Entity& entity : entitiesListPregame)
             entity.reloadRigidBody();
+
         entitiesList.assign(entitiesListPregame.begin(),
                             entitiesListPregame.end());
 

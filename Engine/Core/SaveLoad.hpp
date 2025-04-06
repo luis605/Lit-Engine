@@ -103,17 +103,17 @@ namespace nlohmann {
     };
 }
 
-void SerializeMaterial(SurfaceMaterial& material, const fs::path path);
+void SerializeMaterial(const SurfaceMaterial& material, const fs::path& path);
 void DeserializeMaterial(SurfaceMaterial* material, const fs::path& path);
 std::string serializePythonScript(const fs::path& path);
 void serializeScripts();
 
 bool isSubPath(const fs::path &path, const fs::path &base);
-void SaveCamera(json& jsonData, const LitCamera camera);
+void SaveCamera(json& jsonData, const LitCamera& camera);
 void SaveEntity(json& jsonData, const Entity& entity);
 void SaveLight(json& jsonData, const LightStruct& lightStruct);
 void SaveWorldSetting(json& jsonData);
-void SaveText(json& jsonData, const Text& text, bool emplaceBack = true);
+void SaveText(json& jsonData, const Text& text, const bool& emplaceBack = true);
 void SaveButton(json& jsonData, const LitButton& button);
 int SaveProject();
 

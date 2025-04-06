@@ -1,6 +1,7 @@
 #include "SurfaceMaterial.hpp"
 #include "lights.hpp"
 #include <Engine/Core/Textures.hpp>
+#include <Engine/Core/Filesystem.hpp>
 #include <Engine/GUI/Video/video.hpp>
 #include <Engine/Lighting/lights.hpp>
 #include <filesystem>
@@ -14,21 +15,13 @@ namespace fs = std::filesystem;
 void SurfaceMaterialTexture::loadFromFile(const fs::path& filePath) {
     if (fs::exists(filePath)) {
         try {
-            Texture2D fileTexture = LoadTexture(filePath.string().c_str());
-            CompressAndStoreTexture(&fileTexture);
-
-            if (IsTextureReady(fileTexture)) {
-                staticTexture = fileTexture;
-                activatedMode = 0; // Texture mode
-            } else {
-                UnloadTexture(fileTexture);
+            if (IsImageFile(filePath)) {
+                activatedMode = 0;
+                staticTexture = AsyncTextureManager::LoadTextureAsync(filePath.string());
+            } else if (IsVideoFile(filePath)) {
+                activatedMode = 1;
                 videoTexture = Video();
                 videoTexture.openVideo(filePath.string().c_str());
-                activatedMode = 1; // Video mode
-
-                if (!videoTexture.hasVideoStream()) {
-                    std::cerr << "Failure on loading video stream" << std::endl;
-                }
             }
         } catch (const std::exception& e) {
             TraceLog(LOG_WARNING, "Error loading texture or video file.");
@@ -38,27 +31,22 @@ void SurfaceMaterialTexture::loadFromFile(const fs::path& filePath) {
     }
 }
 
-// Check if it has a texture
 bool SurfaceMaterialTexture::hasTexture() const {
-    return IsTextureReady(staticTexture);
+    return IsTextureReady(staticTexture->texture);
 }
 
-// Check if it has a video
 const bool SurfaceMaterialTexture::hasVideo() const {
     return videoTexture.hasVideoStream();
 }
 
-// Check if it is empty
 const bool SurfaceMaterialTexture::isEmpty() const {
     return activatedMode == -1;
 }
 
-// Get texture
 const Texture2D& SurfaceMaterialTexture::getTexture2D() const {
-    return staticTexture;
+    return staticTexture->texture;
 }
 
-// Get video
 Video& SurfaceMaterialTexture::getVideo() { return videoTexture; }
 
 void SurfaceMaterialTexture::updateVideo() { videoTexture.PlayCurrentFrame(); }
@@ -67,16 +55,20 @@ Texture2D& SurfaceMaterialTexture::getVideoTexture() {
     return videoTexture.getTexture();
 }
 
-// Cleanup resources
 void SurfaceMaterialTexture::cleanup() {
     if (hasTexture()) {
-        UnloadTexture(staticTexture);
-        staticTexture = {0};
+        AsyncTextureManager::UnloadAsyncTexture(staticTexture);
+        staticTexture = nullptr;
     } else if (hasVideo()) {
         videoTexture.cleanup();
     }
     activatedMode = -1;
 }
+
+struct TextureNode {
+    SurfaceMaterialTexture texture;
+    fs::path texturePath;
+};
 
 void UpdateLightsBuffer(bool force, std::vector<LightStruct>& lightsVector,
                         GLuint& buffer) {
@@ -108,6 +100,6 @@ void UpdateLightsBuffer(bool force, std::vector<LightStruct>& lightsVector,
     glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 0, buffer);
 
     int lightsCount = static_cast<int>(lightsVector.size());
-    SetShaderValue(shader, GetUniformLocation(shader, "lightsCount"),
+    SetShaderValue(shader, GetUniformLocation(shader.id, "lightsCount"),
                    &lightsCount, SHADER_UNIFORM_INT);
 }

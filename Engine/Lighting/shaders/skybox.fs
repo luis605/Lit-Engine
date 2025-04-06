@@ -13,7 +13,7 @@ layout(std430, binding = 1) buffer ExposureBuffer {
     float exposure;
 };
 
-const int MAX_OBJECTS = 32;
+const int MAX_OBJECTS = 1;
 
 struct Object {
     bool enabled;

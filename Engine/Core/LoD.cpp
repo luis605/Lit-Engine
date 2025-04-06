@@ -8,7 +8,7 @@
 #include <raylib.h>
 #include <raymath.h>
 
-OptimizedMeshData OptimizeMesh(std::vector<unsigned int>& indices, std::vector<Vector3>& vertices, float threshold) {
+OptimizedMeshData OptimizeMesh(const std::vector<unsigned int>& indices, const std::vector<Vector3>& vertices, const float& threshold) {
     OptimizedMeshData data;
     size_t numIndices = indices.size();
     size_t numVertices = vertices.size();
@@ -78,7 +78,7 @@ void calculateNormals(const std::vector<Vector3>& vertices, const std::vector<un
     }
 }
 
-Mesh generateLODMesh(const std::vector<Vector3>& vertices, const std::vector<unsigned int>& indices, Mesh sourceMesh) {
+Mesh generateLODMesh(const std::vector<Vector3>& vertices, const std::vector<unsigned int>& indices, const Mesh& sourceMesh) {
     Mesh lodMesh = { 0 };
 
     if (vertices.empty() || indices.empty()) {

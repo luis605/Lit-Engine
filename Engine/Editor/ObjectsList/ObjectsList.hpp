@@ -21,13 +21,13 @@ void updateListViewExList(std::vector<Entity>& entities,
                           std::vector<Light>& lights);
 void ManipulateEntityPopup();
 bool DrawNodeTree(const char* icon, const std::string& name,
-                  ImGuiTreeNodeFlags flags, void* ptr, bool isSelected,
+                  ImGuiTreeNodeFlags& flags, void* ptr, const bool& isSelected,
                   const std::function<void()>& callback,
-                  bool* rightClicked = nullptr);
+                  bool rightClicked = false);
 bool DrawTreeNodeWithRename(const char* icon, std::string& name, void* ptr,
-                            ImGuiTreeNodeFlags flags, bool isSelected,
+                            ImGuiTreeNodeFlags& flags, const bool& isSelected,
                             const std::function<void()>& callback,
-                            bool* rightClicked = nullptr);
+                            bool rightClicked = false);
 void UnchildObjects(ImVec2 childSize);
 void ImGuiListViewEx();
 void OpenWebpages();

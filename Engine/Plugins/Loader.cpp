@@ -1,3 +1,4 @@
+#include <Engine/Core/Events.hpp>
 #include "Loader.hpp"
 #include "Scripting.hpp"
 #include <filesystem>
@@ -24,24 +25,26 @@ void Plugin::initialize() {
             py::module::import("mathModule"); // Include LitVector3
         py::module pluginScriptingModule =
             py::module::import("pluginScriptingModule");
+        py::module eventsModule =
+            py::module::import("eventsModule");
         py::module inputModule = py::module::import("inputModule");
         m_module = py::module::import("main");
 
         py::dict locals = py::dict();
 
         locals["IsMouseButtonPressed"] = inputModule.attr("isMouseButtonPressed");
-        locals["onEntityDestruction"]  = pluginScriptingModule.attr("onEntityDestruction");
-        locals["triggerCustomEvent"]   = pluginScriptingModule.attr("triggerCustomEvent");
+        locals["onEntityDestruction"]  = eventsModule.attr("onEntityDestruction");
+        locals["triggerCustomEvent"]   = eventsModule.attr("triggerCustomEvent");
         locals["GetMouseMovement"] = inputModule.attr("getMouseMovement");
-        locals["onEntityCreation"] = pluginScriptingModule.attr("onEntityCreation");
-        locals["onCustomEvent"]    = pluginScriptingModule.attr("onCustomEvent");
+        locals["onEntityCreation"] = eventsModule.attr("onEntityCreation");
+        locals["onCustomEvent"]    = eventsModule.attr("onCustomEvent");
         locals["IsKeyPressed"] = inputModule.attr("isKeyPressed");
         locals["closeWindow"]  = pluginScriptingModule.attr("closeWindow");
         locals["onSceneSave"]  = pluginScriptingModule.attr("onSceneSave");
         locals["onSceneLoad"]  = pluginScriptingModule.attr("onSceneLoad");
         locals["onScenePlay"]  = pluginScriptingModule.attr("onScenePlay");
         locals["onSceneStop"]  = pluginScriptingModule.attr("onSceneStop");
-        locals["createEvent"]  = pluginScriptingModule.attr("createEvent");
+        locals["createEvent"]  = eventsModule.attr("createEvent");
         locals["MouseButton"]  = inputModule.attr("MouseButton");
         locals["initWindow"] = pluginScriptingModule.attr("initWindow");
         locals["drawButton"] = pluginScriptingModule.attr("drawButton");

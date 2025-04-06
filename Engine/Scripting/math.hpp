@@ -11,7 +11,7 @@ struct LitVector3 : Vector3 {
     LitVector3(const Vector3& v) : Vector3{v.x, v.y, v.z} {}
 
     LitVector3 normalized();
-    LitVector3 lengthSquared();
+    float lengthSquared();
     LitVector3 CrossProduct(LitVector3 v2);
     LitVector3 pos();
 
@@ -42,6 +42,6 @@ float LitVector3LengthSqr(const LitVector3 v);
 template <typename T> constexpr const T& customClamp(const T& value, const T& low, const T& high);
 template <typename T> T LitLerp(T start, T end, float t);
 int LitLerpInt(int start, int end, float t);
-Vector3 lerpVector3(Vector3 start, Vector3 end, float t);
+LitVector3 lerpVector3(const LitVector3& start, const LitVector3& end, float t);
 
 #endif // MATH_H

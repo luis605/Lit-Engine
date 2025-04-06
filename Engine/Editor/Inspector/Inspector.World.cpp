@@ -22,8 +22,10 @@ void WorldInspector() {
     ImGui::Spacing();
     ImGui::SetNextItemWidth(-1);
 
+    constexpr const char* postProcessing_cstr = ICON_FA_FILTER " Post Processing";
+
     if (ImGui::CollapsingHeader(
-            (std::string(ICON_FA_FILTER) + " Post Processing").c_str(),
+            postProcessing_cstr,
             false)) {
         ImGui::Indent();
 
@@ -45,7 +47,7 @@ void WorldInspector() {
             if (ImGui::SliderFloat("##ThresholdControl", &bloomThreshold, 0.0f,
                                    1.0f)) {
                 SetShaderValue(upsamplerShader,
-                               GetUniformLocation(upsamplerShader, "threshold"),
+                               GetUniformLocation(upsamplerShader.id, "threshold"),
                                &bloomThreshold, SHADER_ATTRIB_FLOAT);
             }
 
@@ -56,7 +58,7 @@ void WorldInspector() {
                                    2.0f)) {
                 SetShaderValue(
                     upsamplerShader,
-                    GetUniformLocation(upsamplerShader, "bloomIntensity"),
+                    GetUniformLocation(upsamplerShader.id, "bloomIntensity"),
                     &bloomIntensity, SHADER_ATTRIB_FLOAT);
             }
 
@@ -66,13 +68,13 @@ void WorldInspector() {
             ImGui::SetNextItemWidth(-1);
             if (ImGui::SliderInt("##KernelSize", &kernelSize, 1.0f, 60.0f)) {
                 int shaderLocation =
-                    glGetUniformLocation(verticalBlurShader.id, "kernelSize");
+                    GetUniformLocation(verticalBlurShader.id, "kernelSize");
                 glUseProgram(verticalBlurShader.id);
                 glUniform1i(shaderLocation, kernelSize);
                 glUseProgram(0);
 
                 shaderLocation =
-                    glGetUniformLocation(horizontalBlurShader.id, "kernelSize");
+                    GetUniformLocation(horizontalBlurShader.id, "kernelSize");
                 glUseProgram(horizontalBlurShader.id);
                 glUniform1i(shaderLocation, kernelSize);
                 glUseProgram(0);
@@ -113,7 +115,7 @@ void WorldInspector() {
                 ambientLight = {lightColorImGUI.x, lightColorImGUI.y,
                                 lightColorImGUI.z, lightColorImGUI.w};
                 SetShaderValue(shader,
-                               GetUniformLocation(shader, "ambientLight"),
+                               GetUniformLocation(shader.id, "ambientLight"),
                                &ambientLight, SHADER_UNIFORM_VEC4);
                 ImGui::EndPopup();
             }
@@ -123,13 +125,13 @@ void WorldInspector() {
             ambientLight.z = lightColorImGUI.z;
             ambientLight.w = lightColorImGUI.w;
 
-            SetShaderValue(shader, GetUniformLocation(shader, "ambientLight"),
+            SetShaderValue(shader, GetUniformLocation(shader.id, "ambientLight"),
                            &ambientLight, SHADER_UNIFORM_VEC4);
 
             for (Entity& entity : entitiesListPregame) {
                 SetShaderValue(
                     entity.getShader(),
-                    GetUniformLocation(entity.getShader(), "ambientLight"),
+                    GetUniformLocation(entity.getShader().id, "ambientLight"),
                     &ambientLight, SHADER_UNIFORM_VEC4);
             }
 
@@ -159,7 +161,7 @@ void WorldInspector() {
                                 lightColorImGUI.z, lightColorImGUI.w};
                 SetShaderValue(
                     skybox.cubeModel.materials[0].shader,
-                    GetUniformLocation(skybox.cubeModel.materials[0].shader,
+                    GetUniformLocation(skybox.cubeModel.materials[0].shader.id,
                                        "skyboxColor"),
                     &skybox.color, SHADER_UNIFORM_VEC4);
                 ImGui::EndPopup();
