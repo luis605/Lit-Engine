@@ -12,7 +12,8 @@
 #include <Engine/Editor/CodeEditor/CodeEditor.hpp>
 #include <Engine/Editor/ObjectsList/ObjectsList.hpp>
 #include <Engine/Editor/Inspector/Inspector.hpp>
-#include <Engine/Editor/MaterialsNodeEditor/MaterialNodeEditor.hpp>
+#include <Engine/Editor/MaterialNodeEditor/MaterialNodeEditor.hpp>
+#include <Engine/Editor/MaterialNodeEditor/Editor.hpp>
 #include <Engine/Editor/MenuBar/MenuBar.hpp>
 #include <Engine/Editor/MenuBar/Settings.hpp>
 #include <Engine/Editor/SceneEditor/Gizmo/Gizmo.hpp>
@@ -22,6 +23,7 @@
 #include <Engine/Lighting/InitLighting.hpp>
 #include <Engine/Lighting/lights.hpp>
 #include <Engine/Lighting/skybox.hpp>
+#include <Engine/Lighting/Shaders.hpp>
 #include <Engine/Plugins/Loader.hpp>
 #include <Engine/Scripting/functions.hpp>
 #include <Engine/Scripting/math.hpp>
@@ -138,31 +140,6 @@ void InitImGui() {
     UpdateFonts(fontSize, io);
 }
 
-void InitShaders() {
-    shader = LoadShader("Engine/Lighting/shaders/lighting_vertex.glsl",
-                        "Engine/Lighting/shaders/lighting_fragment.glsl");
-    instancingShader =
-        LoadShader("Engine/Lighting/shaders/lighting_vertex.glsl",
-                   "Engine/Lighting/shaders/lighting_fragment.glsl");
-    horizontalBlurShader =
-        LoadShader("Engine/Lighting/shaders/lighting_vertex.glsl",
-                   "Engine/Lighting/shaders/blurHorizontal.fs");
-    verticalBlurShader =
-        LoadShader("Engine/Lighting/shaders/lighting_vertex.glsl",
-                   "Engine/Lighting/shaders/blurVertical.fs");
-    upsamplerShader = LoadShader("Engine/Lighting/shaders/lighting_vertex.glsl",
-                                 "Engine/Lighting/shaders/upsampler.glsl");
-    downsampleShader =
-        LoadShader("Engine/Lighting/shaders/lighting_vertex.glsl",
-                   "Engine/Lighting/shaders/downsampler.glsl");
-
-    char* shaderCode =
-        LoadFileText("Engine/Lighting/shaders/luminanceCompute.glsl");
-    unsigned int shaderData = rlCompileShader(shaderCode, RL_COMPUTE_SHADER);
-    exposureShaderProgram = rlLoadComputeShaderProgram(shaderData);
-    UnloadFileText(shaderCode);
-}
-
 void InitCodeEditor() {
     code.resize(10);
     auto lang = TextEditor::LanguageDefinition::Python();
@@ -207,7 +184,7 @@ void Startup() {
     Py_Initialize();
     InitImGui();
     LoadTextures();
-    InitShaders();
+    shaderManager.InitShaders();
     InitLighting();
     InitGizmo();
     InitEditorCamera();
@@ -244,6 +221,7 @@ void EngineMainLoop() {
         EntitiesList();
         Inspector();
         EditorCamera();
+        MaterialEditor();
         pluginManager.updateAll();
 
         rlImGuiEnd();
@@ -262,7 +240,7 @@ void CleanUp() {
     entitiesList.clear();
     lights.clear();
 
-    UnloadShader(shader);
+    UnloadShader(shaderManager.m_defaultShader);
     UnloadImage(windowIconImage);
     UnloadTexture(folderTexture);
     UnloadTexture(imageTexture);

@@ -3,7 +3,7 @@
 #include <imgui_internal.h>
 
 #include "Helpers.hpp"
-#include <Engine/Editor/MaterialsNodeEditor/MaterialNodeEditor.hpp>
+#include <Engine/Editor/MaterialNodeEditor/MaterialNodeEditor.hpp>
 #include <NodeEditor/examples/application/include/application.h>
 #include <NodeEditor/imgui_canvas.h>
 #include <NodeEditor/imgui_node_editor.h>
@@ -29,10 +29,10 @@ void DrawTextInNodeEditor(const char* label, bool isWarning) {
     ImGui::TextUnformatted(label);
 }
 
-std::vector<ed::PinId> GetConnectedInputPins(ed::PinId outputPinId) {
+std::vector<ed::PinId> GetConnectedInputPins(MaterialNodeSystem& nodeSystem, ed::PinId outputPinId) {
     std::vector<ed::PinId> connectedInputsId;
 
-    for (const auto& link : materialNodeSystem.m_Links) {
+    for (const auto& link : nodeSystem.m_Links) {
         if (link.StartPinID == outputPinId) {
             connectedInputsId.push_back(link.EndPinID);
         }
@@ -41,14 +41,15 @@ std::vector<ed::PinId> GetConnectedInputPins(ed::PinId outputPinId) {
     return connectedInputsId;
 }
 
-std::vector<Pin*> FindConnectedPins(const Node& materialNode,
+std::vector<Pin*> FindConnectedPins(MaterialNodeSystem& nodeSystem,
+                                    const Node& materialNode,
                                     const std::vector<Link>& links) {
     std::vector<Pin*> connectedPins;
     for (const auto& pin : materialNode.Inputs) {
         for (const auto& link : links) {
             if (link.EndPinID == pin.ID) {
                 // Find the corresponding pin from the start node
-                Pin* connectedPin = materialNodeSystem.FindPin(link.StartPinID);
+                Pin* connectedPin = nodeSystem.FindPin(link.StartPinID);
                 if (connectedPin) {
                     connectedPins.push_back(connectedPin);
                 }

@@ -2,6 +2,11 @@
 #include "file_manipulation.hpp"
 #include <Engine/Lighting/skybox.hpp>
 #include <extras/IconsFontAwesome6.h>
+#include <Engine/Editor/MaterialNodeEditor/MaterialBlueprints.hpp>
+#include <Engine/Editor/MaterialNodeEditor/Editor.hpp>
+#include <nlohmann/json.hpp>
+
+using json = nlohmann::json;
 
 Texture2D folderTexture;
 Texture2D imageTexture;
@@ -174,6 +179,30 @@ void EditFileManipulation() {
             }
         }
 
+        if (dirPath == "project/Materials" && fileIndex != -1 && fileStruct[fileIndex].extension == ".matblueprint") {
+            if (ImGui::Button("Create Child Material", ImVec2(buttonWidth, 0))) {
+                fs::path currentPath = fs::current_path();
+                fs::path blueprintPath = fileStruct[fileIndex].full_path;
+
+                std::string materialFileName = generateNumberedFileName(dirPath, "mat");
+
+                json materialData;
+                materialData["Blueprint"] = blueprintPath.string();
+
+                std::ofstream materialFile(materialFileName);
+                if (materialFile.is_open()) {
+                    materialFile << materialData.dump(2);
+                    materialFile.close();
+                    TraceLog(LOG_INFO, "Created child material: %s", materialFileName.c_str());
+                } else {
+                    TraceLog(LOG_ERROR, "Failed to create child material file: %s", materialFileName.c_str());
+                }
+
+                fileIndex = -1;
+                showEditFilePopup = false;
+            }
+        }
+
         if (ImGui::Button("Delete", ImVec2(buttonWidth, 0))) {
             if (fileIndex != -1) {
                 fs::path currentPath = fs::current_path();
@@ -228,9 +257,11 @@ void AddFileManipulation() {
                 showAddFilePopup = false;
             }
 
-            if (ImGui::MenuItem("Material")) {
-                createNumberedFile(dirPath, "mat");
-                showAddFilePopup = false;
+            if (dirPath == "project/Materials") {
+                if (ImGui::MenuItem("Material Blueprint")) {
+                    createNumberedFile(dirPath, "matblueprint");
+                    showAddFilePopup = false;
+                }
             }
 
             ImGui::EndMenu();
@@ -280,7 +311,7 @@ void InitRenderModelPreviewer() {
 
 Texture2D RenderModelPreview(const char* modelFile) {
     Model model = LoadModel(modelFile);
-    model.materials[0].shader = shader;
+    model.materials[0].shader = shaderManager.m_defaultShader;
     if (!IsModelReady(model)) {
         TraceLog(LOG_WARNING, "Failed to load model.");
         return {0};
@@ -290,7 +321,7 @@ Texture2D RenderModelPreview(const char* modelFile) {
 
     BeginTextureMode(modelPreviewRT);
     BeginMode3D(modelPreviewerCamera);
-    BeginShaderMode(shader);
+    BeginShaderMode(shaderManager.m_defaultShader);
     ClearBackground(GRAY);
     skybox.drawSkybox(modelPreviewerCamera);
 
@@ -312,7 +343,7 @@ std::unordered_map<std::string, Texture2D&> extensionToTextureMap = {
     {".c++", cppTexture},     {".cxx", cppTexture},   {".hpp", cppTexture},
     {".cc", cppTexture},      {".h", cppTexture},     {".hh", cppTexture},
     {".hxx", cppTexture},     {".py", pythonTexture}, {".mtl", materialTexture},
-    {".mat", materialTexture}};
+    {".mat", materialTexture},{".matblueprint", materialTexture}};
 
 std::unordered_map<std::string, const char*> dragTypeMap = {
     {".py", "SCRIPT_PAYLOAD"},    {".cpp", "SCRIPT_PAYLOAD"},
@@ -323,6 +354,7 @@ std::unordered_map<std::string, const char*> dragTypeMap = {
     {".obj", "MODEL_PAYLOAD"},    {".glb", "MODEL_PAYLOAD"},
     {".gltf", "MODEL_PAYLOAD"},   {".ply", "MODEL_PAYLOAD"},
     {".mtl", "MODEL_PAYLOAD"},    {".mat", "MATERIAL_PAYLOAD"},
+    {".matblueprint", "MASTER_MATERIAL_PAYLOAD"},
     {".png", "TEXTURE_PAYLOAD"},  {".jpg", "TEXTURE_PAYLOAD"},
     {".jpeg", "TEXTURE_PAYLOAD"}, {".hdr", "TEXTURE_PAYLOAD"},
     {".avi", "TEXTURE_PAYLOAD"},  {".mp4", "TEXTURE_PAYLOAD"},
@@ -395,9 +427,9 @@ void UpdateFileFolderStructures() {
     if (dirPath.empty() || !fs::exists(dirPath))
         return;
 
-    glUseProgram(shader.id);
-    glUniform1i(glGetUniformLocation(shader.id, "normalMapReady"), false);
-    glUniform1i(glGetUniformLocation(shader.id, "roughnessMapReady"), false);
+    glUseProgram(shaderManager.m_defaultShader.id);
+    glUniform1i(glGetUniformLocation(shaderManager.m_defaultShader.id, "normalMapReady"), false);
+    glUniform1i(glGetUniformLocation(shaderManager.m_defaultShader.id, "roughnessMapReady"), false);
 
     static bool lightsUpdated = false;
     if (!lightsUpdated) {
@@ -650,6 +682,29 @@ void AssetsExplorer() {
 
         if (isButtonHovered) {
             if (ImGui::IsMouseDoubleClicked(ImGuiMouseButton_Left)) {
+                if (fileItem.extension == ".matblueprint") {
+                    fs::path blueprintPath = fileItem.full_path;
+
+                    auto it = materialBlueprints.find(blueprintPath);
+
+                    if (it != materialBlueprints.end()) {
+                        selectedMaterialBlueprintPath = it->first;
+                        isMaterialEditorOpen = true;
+                    } else {
+                        LoadMaterialBlueprint(blueprintPath);
+
+                        it = materialBlueprints.find(blueprintPath);
+
+                        if (!materialBlueprints.empty() && materialBlueprints.contains(blueprintPath)) {
+                            selectedMaterialBlueprintPath = it->first;
+                            isMaterialEditorOpen = true;
+                        } else {
+                            TraceLog(LOG_ERROR, "Failed to load material blueprint: %s",
+                                    blueprintPath.string().c_str());
+                        }
+                    }
+                }
+
                 code = readFileToString((dirPath / fileItem.name).string());
                 codeEditorScriptPath = (dirPath / fileItem.name).string();
                 editor.SetText(code);

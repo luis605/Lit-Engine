@@ -91,11 +91,6 @@ void Inspector() {
         TextInspector();
     } else if (selectedGameObjectType == "button") {
         ButtonInspector();
-    } else if (selectedGameObjectType == "material") {
-        ImGui::Text("Inspecting Material");
-        ImGui::Dummy(ImVec2(0.0f, 10.0f));
-
-        MaterialInspector();
     } else if (selectedGameObjectType == "camera")
         CameraInspector();
     else {

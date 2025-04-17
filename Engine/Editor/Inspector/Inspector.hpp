@@ -1,6 +1,11 @@
 #ifndef INSPECTOR_H
 #define INSPECTOR_H
 
+#include <filesystem>
+#include <Engine/Editor/MaterialNodeEditor/ChildMaterial.hpp>
+
+namespace fs = std::filesystem;
+
 extern Vector3 selectedEntityScale;
 extern Vector3 selectedEntityPosition;
 
@@ -42,7 +47,6 @@ void TextInspector();
 void ButtonInspector();
 void CameraInspector();
 void WorldInspector();
-void MaterialInspector(SurfaceMaterial* surfaceMaterial = nullptr,
-                       fs::path path = "");
+void MaterialInspector(ChildMaterial& material);
 
 #endif // INSPECTOR_H

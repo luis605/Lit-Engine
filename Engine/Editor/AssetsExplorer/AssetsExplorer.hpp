@@ -15,7 +15,6 @@
 
 namespace fs = std::filesystem;
 
-
 struct FolderTextureItem {
     fs::path name;
     Texture2D texture;

@@ -8,6 +8,7 @@
 #include <NodeEditor/imgui_canvas.h>
 #include <NodeEditor/examples/application/include/application.h>
 #include <Engine/Lighting/SurfaceMaterial.hpp>
+#include <Engine/Core/UUID.hpp>
 #include <any>
 #include <list>
 #include <variant>
@@ -110,16 +111,15 @@ struct Node {
     ed::NodeId ID;
     ImColor Color;
     NodeType type;
-    NodeData data;
     ImVec2 Size;
     bool isRoot = false;
+    std::string UUID;
 
-    Node(int id, const char* name, NodeData nodeData, NodeType nodeType, ImColor color = ImColor(255, 255, 255), ImVec2 size = ImVec2(600, -1), float inputSectionWidth = 100.0f)
-        : ID(id), Name(name), data(std::move(nodeData)), type(std::move(nodeType)), Color(std::move(color)), Size(std::move(size)), InputSectionWidth(inputSectionWidth) {}
+    Node(int id, const char* name, NodeType nodeType, ImColor color = ImColor(255, 255, 255), ImVec2 size = ImVec2(600, -1), float inputSectionWidth = 100.0f)
+        : ID(id), Name(name), type(std::move(nodeType)), Color(std::move(color)), Size(std::move(size)), InputSectionWidth(inputSectionWidth) {
+            UUID = GenUUID();
+        }
 };
-
-template <typename T>
-std::optional<T*> GetNodeData(Node& node);
 
 struct Link {
     ed::LinkId ID;
@@ -169,10 +169,13 @@ public:
     bool CanCreateLink(Pin* a, Pin* b);
     void BuildNode(Node* node);
     void BuildNodes();
-    void DrawNodeMiddleSection(Node& node, const ImVec2& cursorStartPos);
     void DrawNode(Node& node);
-    void DrawMaterialNodeEditor(SurfaceMaterial& surfaceMaterial);
+    void DrawMaterialNodeEditor();
     void ShowPopup();
+    void DeleteNode(ed::NodeId nodeId);
+    void DeleteLink(ed::LinkId linkId);
+    void DeleteNodeLinks(ed::NodeId nodeId);
+    void DeletePinLinks(ed::PinId pinId);
     Node* SpawnMaterialNode();
     Node* SpawnColorNode();
     Node* SpawnTextureNode();
@@ -185,7 +188,6 @@ public:
 
 };
 
-extern MaterialNodeSystem materialNodeSystem;
 extern Texture2D noiseTexture;
 extern bool showMaterialInNodesEditor;
 

@@ -30,19 +30,19 @@ void Skybox::loadSkybox(const fs::path& texturePath) {
 
     SetShaderValue(
         cubeModel.materials[0].shader,
-        GetUniformLocation(cubeModel.materials[0].shader.id, "environmentMap"),
+        shaderManager.GetUniformLocation(cubeModel.materials[0].shader.id, "environmentMap"),
         temp_array1, SHADER_UNIFORM_INT);
     SetShaderValue(cubeModel.materials[0].shader,
-                   GetUniformLocation(cubeModel.materials[0].shader.id, "doGamma"),
+                   shaderManager.GetUniformLocation(cubeModel.materials[0].shader.id, "doGamma"),
                    useHDR, SHADER_UNIFORM_INT);
     SetShaderValue(
         cubeModel.materials[0].shader,
-        GetUniformLocation(cubeModel.materials[0].shader.id, "vflipped"), useHDR,
+        shaderManager.GetUniformLocation(cubeModel.materials[0].shader.id, "vflipped"), useHDR,
         SHADER_UNIFORM_INT);
 
     int array0[1] = {0};
     SetShaderValue(cubemapShader,
-                   GetUniformLocation(cubemapShader.id, "equirectangularMap"),
+                   shaderManager.GetUniformLocation(cubemapShader.id, "equirectangularMap"),
                    array0, SHADER_UNIFORM_INT);
 
     cubemap = LoadTexture(texturePath.string().c_str());
@@ -81,28 +81,28 @@ void Skybox::updateBuffer() {
 
         SetShaderValueTexture(
             skyboxShader,
-            GetUniformLocation(skyboxShader.id, textureUniformName.c_str()),
+            shaderManager.GetUniformLocation(skyboxShader.id, textureUniformName.c_str()),
             object.texture);
 
         SetShaderValue(
             skyboxShader,
-            GetUniformLocation(skyboxShader.id,
+            shaderManager.GetUniformLocation(skyboxShader.id,
                                TextFormat("objects[%i].enabled", index)),
             &object.enabled, SHADER_UNIFORM_INT);
         SetShaderValue(
             skyboxShader,
-            GetUniformLocation(skyboxShader.id,
+            shaderManager.GetUniformLocation(skyboxShader.id,
                                TextFormat("objects[%i].scale", index)),
             &object.scale, SHADER_UNIFORM_VEC2);
         SetShaderValue(
             skyboxShader,
-            GetUniformLocation(skyboxShader.id,
+            shaderManager.GetUniformLocation(skyboxShader.id,
                                TextFormat("objects[%i].rotation", index)),
             &object.rotation, SHADER_UNIFORM_VEC2);
     }
 
     SetShaderValue(skyboxShader,
-                   GetUniformLocation(skyboxShader.id, "objectsCount"),
+                   shaderManager.GetUniformLocation(skyboxShader.id, "objectsCount"),
                    &objectsCount, SHADER_UNIFORM_INT);
 }
 
@@ -119,7 +119,7 @@ void Skybox::drawSkybox(LitCamera& camera) {
 
 void Skybox::setExposure(float skyboxExposure) {
     SetShaderValue(this->skyboxShader,
-                   GetUniformLocation(skyboxShader.id, "skyboxExposure"),
+                   shaderManager.GetUniformLocation(skyboxShader.id, "skyboxExposure"),
                    &skyboxExposure, SHADER_UNIFORM_FLOAT);
 }
 

@@ -6,7 +6,7 @@
 #include <glad.h>
 
 void InitLighting() {
-    SetShaderValue(shader, GetUniformLocation(shader.id, "ambientLight"),
+    SetShaderValue(shaderManager.m_defaultShader, shaderManager.GetUniformLocation(shaderManager.m_defaultShader.id, "ambientLight"),
                    &ambientLight, SHADER_UNIFORM_VEC4);
 
     glGenBuffers(1, &lightsBuffer);
@@ -23,7 +23,7 @@ void InitLighting() {
     glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 0, renderPrevierLightsBuffer);
 
     int lightsCount = lights.size();
-    glUniform1i(GetUniformLocation(shader.id, "lightsCount"), lightsCount);
+    glUniform1i(shaderManager.GetUniformLocation(shaderManager.m_defaultShader.id, "lightsCount"), lightsCount);
 
     float initialExposure = 1.0f;
     glGenBuffers(1, &exposureSSBO);

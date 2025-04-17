@@ -41,9 +41,9 @@ void Entity::addInstance(Entity* instance) {
 
     calculateInstance();
 
-    instancingShader.locs[SHADER_LOC_MATRIX_MVP] = GetUniformLocation(instancingShader.id, "mvp");
-    instancingShader.locs[SHADER_LOC_VECTOR_VIEW] = GetUniformLocation(instancingShader.id, "viewPos");
-    instancingShader.locs[SHADER_LOC_MATRIX_MODEL] = GetAttribLocation(instancingShader.id, "instanceTransform");
+    shaderManager.m_instancingShader.locs[SHADER_LOC_MATRIX_MVP] = shaderManager.GetUniformLocation(shaderManager.m_instancingShader.id, "mvp");
+    shaderManager.m_instancingShader.locs[SHADER_LOC_VECTOR_VIEW] = shaderManager.GetUniformLocation(shaderManager.m_instancingShader.id, "viewPos");
+    shaderManager.m_instancingShader.locs[SHADER_LOC_MATRIX_MODEL] = shaderManager.GetAttribLocation(shaderManager.m_instancingShader.id, "instanceTransform");
 }
 
 bool Entity::hasInstances() const {
@@ -202,7 +202,7 @@ void Entity::initializeDefaultModel() {
     Mesh mesh = GenMeshCube(1, 1, 1);
     model = LoadModelFromMesh(mesh);
     if (entityShader == nullptr)
-        model.materials[0].shader = shader;
+        model.materials[0].shader = shaderManager.m_defaultShader;
     else
         model.materials[0].shader = *entityShader;
 }
@@ -349,7 +349,7 @@ void Entity::setShader(Shader& newShader) {
 Shader& Entity::getShader() {
     if (entityShader == nullptr) {
         TraceLog(LOG_WARNING, "Shader is null, returning default shader.");
-        return shader;
+        return shaderManager.m_defaultShader;
     }
 
     return *entityShader;
@@ -852,13 +852,13 @@ bool Entity::getFlag(const Flag& f) const {
 void Entity::renderInstanced() {
     PassSurfaceMaterials();
 
-    glUseProgram((GLuint)instancingShader.id);
+    glUseProgram((GLuint)shaderManager.m_instancingShader.id);
 
     matInstances = LoadMaterialDefault();
 
-    instancingShader.locs[SHADER_LOC_MATRIX_MVP] = GetUniformLocation(instancingShader.id, "mvp");
-    instancingShader.locs[SHADER_LOC_VECTOR_VIEW] = GetUniformLocation(instancingShader.id, "viewPos");
-    instancingShader.locs[SHADER_LOC_MATRIX_MODEL] = GetAttribLocation(instancingShader.id, "instanceTransform");
+    shaderManager.m_instancingShader.locs[SHADER_LOC_MATRIX_MVP] = shaderManager.GetUniformLocation(shaderManager.m_instancingShader.id, "mvp");
+    shaderManager.m_instancingShader.locs[SHADER_LOC_VECTOR_VIEW] = shaderManager.GetUniformLocation(shaderManager.m_instancingShader.id, "viewPos");
+    shaderManager.m_instancingShader.locs[SHADER_LOC_MATRIX_MODEL] = shaderManager.GetAttribLocation(shaderManager.m_instancingShader.id, "instanceTransform");
 
     model.materials[0].maps[MATERIAL_MAP_DIFFUSE].color = RAYWHITE;
 
@@ -917,16 +917,16 @@ void Entity::renderSingleModel() {
 void Entity::PassSurfaceMaterials() {
     glUseProgram(entityShader->id);
 
-    static int tilingLocation = GetUniformLocation(entityShader->id, "tiling");
+    static int tilingLocation = shaderManager.GetUniformLocation(entityShader->id, "tiling");
     SetShaderValue(*entityShader, tilingLocation, surfaceMaterial.tiling, SHADER_UNIFORM_VEC2);
 
-    glUniform1i(GetUniformLocation(entityShader->id, "diffuseMapReady"),   !surfaceMaterial.albedoTexturePath.empty());
-    glUniform1i(GetUniformLocation(entityShader->id, "normalMapReady"),    !surfaceMaterial.normalTexturePath.empty());
-    glUniform1i(GetUniformLocation(entityShader->id, "roughnessMapReady"), !surfaceMaterial.roughnessTexturePath.empty());
-    glUniform1i(GetUniformLocation(entityShader->id, "aoMapReady"),        !surfaceMaterial.aoTexturePath.empty());
-    glUniform1i(GetUniformLocation(entityShader->id, "heightMapReady"),    !surfaceMaterial.heightTexturePath.empty());
-    glUniform1i(GetUniformLocation(entityShader->id, "metallicMapReady"),  !surfaceMaterial.metallicTexturePath.empty());
-    glUniform1i(GetUniformLocation(entityShader->id, "emissiveMapReady"),  !surfaceMaterial.emissiveTexturePath.empty());
+    glUniform1i(shaderManager.GetUniformLocation(entityShader->id, "diffuseMapReady"),   !surfaceMaterial.albedoTexturePath.empty());
+    glUniform1i(shaderManager.GetUniformLocation(entityShader->id, "normalMapReady"),    !surfaceMaterial.normalTexturePath.empty());
+    glUniform1i(shaderManager.GetUniformLocation(entityShader->id, "roughnessMapReady"), !surfaceMaterial.roughnessTexturePath.empty());
+    glUniform1i(shaderManager.GetUniformLocation(entityShader->id, "aoMapReady"),        !surfaceMaterial.aoTexturePath.empty());
+    glUniform1i(shaderManager.GetUniformLocation(entityShader->id, "heightMapReady"),    !surfaceMaterial.heightTexturePath.empty());
+    glUniform1i(shaderManager.GetUniformLocation(entityShader->id, "metallicMapReady"),  !surfaceMaterial.metallicTexturePath.empty());
+    glUniform1i(shaderManager.GetUniformLocation(entityShader->id, "emissiveMapReady"),  !surfaceMaterial.emissiveTexturePath.empty());
 }
 
 
@@ -996,7 +996,7 @@ Entity* AddEntity(
     entityCreate.setScale(Vector3{1, 1, 1});
     entityCreate.setName(name);
     entityCreate.setModel(modelPath, model);
-    entityCreate.setShader(shader);
+    entityCreate.setShader(shaderManager.m_defaultShader);
 #ifndef GAME_SHIPPING
     if (id == -1) entityCreate.id = entitiesListPregame.size() + lights.size();
     else          entityCreate.id = id;

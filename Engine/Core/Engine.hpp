@@ -35,7 +35,5 @@ const char* decryptFileString(const std::string& inputFile,
                               const std::string& key);
 const char* encryptFileString(const std::string& inputFile,
                               const std::string& key);
-GLint GetUniformLocation(const unsigned int& shader, const char* name);
-GLint GetAttribLocation(const unsigned int& shader, const char* name);
 
 #endif // ENGINE_H

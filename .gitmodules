@@ -29,3 +29,9 @@
 [submodule "Include/raylib"]
 	path = Include/raylib
 	url = https://github.com/raysan5/raylib.git
+[submodule "Include/stduuid"]
+	path = Include/stduuid
+	url = https://github.com/mariusbancila/stduuid.git
+[submodule "Include/squish"]
+	path = Include/squish
+	url = https://github.com/tito/libsquish

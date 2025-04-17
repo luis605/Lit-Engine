@@ -250,32 +250,32 @@ void ApplyBloomEffect() {
         return;
 
     BeginTextureMode(horizontalBlurTexture);
-    BeginShaderMode(horizontalBlurShader);
+    BeginShaderMode(shaderManager.m_horizontalBlurShader);
     SetShaderValueTexture(
-        horizontalBlurShader,
-        GetUniformLocation(horizontalBlurShader.id, "srcTexture"),
+        shaderManager.m_horizontalBlurShader,
+        shaderManager.GetUniformLocation(shaderManager.m_horizontalBlurShader.id, "srcTexture"),
         viewportTexture);
     DrawTexture(viewportTexture, 0, 0, WHITE);
     EndShaderMode();
     EndTextureMode();
 
     BeginTextureMode(verticalBlurTexture);
-    BeginShaderMode(verticalBlurShader);
-    SetShaderValueTexture(verticalBlurShader,
-                          GetUniformLocation(verticalBlurShader.id, "srcTexture"),
+    BeginShaderMode(shaderManager.m_verticalBlurShader);
+    SetShaderValueTexture(shaderManager.m_verticalBlurShader,
+                          shaderManager.GetUniformLocation(shaderManager.m_verticalBlurShader.id, "srcTexture"),
                           horizontalBlurTexture.texture);
     DrawTexture(horizontalBlurTexture.texture, 0, 0, WHITE);
     EndShaderMode();
     EndTextureMode();
 
     BeginTextureMode(upsamplerTexture);
-    BeginShaderMode(upsamplerShader);
+    BeginShaderMode(shaderManager.m_upsamplerShader);
     SetShaderValueTexture(
-        upsamplerShader,
-        GetUniformLocation(upsamplerShader.id, "downsampledTexture"),
+        shaderManager.m_upsamplerShader,
+        shaderManager.GetUniformLocation(shaderManager.m_upsamplerShader.id, "downsampledTexture"),
         verticalBlurTexture.texture);
     SetShaderValueTexture(
-        upsamplerShader, GetUniformLocation(upsamplerShader.id, "originalTexture"),
+        shaderManager.m_upsamplerShader, shaderManager.GetUniformLocation(shaderManager.m_upsamplerShader.id, "originalTexture"),
         viewportTexture);
     DrawTexture(verticalBlurTexture.texture, 0, 0, WHITE);
     EndShaderMode();
@@ -354,7 +354,7 @@ void RenderEntities() {
 void UpdateShader() {
     float cameraPos[3] = {sceneCamera.position.x, sceneCamera.position.y,
                           sceneCamera.position.z};
-    SetShaderValue(shader, GetShaderLocation(shader, "viewPos"), cameraPos,
+    SetShaderValue(shaderManager.m_defaultShader, GetShaderLocation(shaderManager.m_defaultShader, "viewPos"), cameraPos,
                    SHADER_UNIFORM_VEC3);
 
     for (Entity& entity : entitiesListPregame) {
@@ -363,8 +363,8 @@ void UpdateShader() {
                        cameraPos, SHADER_UNIFORM_VEC3);
     }
 
-    SetShaderValue(instancingShader,
-                   instancingShader.locs[SHADER_LOC_VECTOR_VIEW], cameraPos,
+    SetShaderValue(shaderManager.m_instancingShader,
+                   shaderManager.m_instancingShader.locs[SHADER_LOC_VECTOR_VIEW], cameraPos,
                    SHADER_UNIFORM_VEC3);
 }
 
@@ -387,15 +387,15 @@ void ComputeSceneLuminance() {
 
     for (size_t i = 0; i < downsampledTextures.size(); i++) {
         BeginTextureMode(downsampledTextures[i]);
-        BeginShaderMode(downsampleShader);
+        BeginShaderMode(shaderManager.m_downsampleShader);
         SetShaderValueTexture(
-            downsampleShader, GetShaderLocation(downsampleShader, "srcTexture"),
+            shaderManager.m_downsampleShader, shaderManager.GetUniformLocation(shaderManager.m_downsampleShader.id, "srcTexture"),
             i == 0 ? viewportTexture : downsampledTextures[i - 1].texture);
 
         Vector2 srcResolution = {(float)downsampledTextures[i].texture.width,
                                  (float)downsampledTextures[i].texture.height};
-        SetShaderValue(downsampleShader,
-                       GetShaderLocation(downsampleShader, "srcResolution"),
+        SetShaderValue(shaderManager.m_downsampleShader,
+                       shaderManager.GetUniformLocation(shaderManager.m_downsampleShader.id, "srcResolution"),
                        &srcResolution, SHADER_UNIFORM_VEC2);
         DrawTexture(i == 0 ? viewportTexture
                            : downsampledTextures[i - 1].texture,
@@ -404,7 +404,7 @@ void ComputeSceneLuminance() {
         EndTextureMode();
     }
 
-    rlEnableShader(exposureShaderProgram);
+    rlEnableShader(shaderManager.m_exposureShaderProgram);
 
     rlBindShaderBuffer(exposureSSBO, 1);
     rlSetUniformSampler(0, downsampledTextures[9].texture.id);

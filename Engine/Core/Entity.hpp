@@ -82,7 +82,7 @@ class __attribute__((visibility("default"))) Entity {
 
     fs::path scriptPath;
     fs::path modelPath;
-    fs::path surfaceMaterialPath;
+    fs::path childMaterialPath;
 
     Model model;
     Model LodModels[4] = {};
@@ -102,7 +102,7 @@ class __attribute__((visibility("default"))) Entity {
     std::vector<Matrix> transforms;
     Material matInstances;
 
-    Shader* entityShader = &shader;
+    Shader* entityShader = &shaderManager.m_defaultShader;
 
     std::string scriptContent;
     py::dict localNamespace;

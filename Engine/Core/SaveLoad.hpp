@@ -103,8 +103,6 @@ namespace nlohmann {
     };
 }
 
-void SerializeMaterial(const SurfaceMaterial& material, const fs::path& path);
-void DeserializeMaterial(SurfaceMaterial* material, const fs::path& path);
 std::string serializePythonScript(const fs::path& path);
 void serializeScripts();
 

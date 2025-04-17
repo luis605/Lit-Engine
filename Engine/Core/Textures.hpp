@@ -5,45 +5,39 @@
 #include <string>
 #include <pthread.h>
 #include <vector>
+#include <memory>
+#include <glad.h>
 
 void CompressAndStoreTexture(Texture2D* texture);
 
-
 struct AsyncTextureData {
-    std::string filePath;         // File path of the texture to load.
-    Image image;                  // CPU-side image loaded from disk.
-    std::string errorMessage;     // Error message if loading fails.
-    bool error;                   // Flag indicating an error occurred.
-    bool loaded;                  // Flag indicating the image is loaded.
-    bool textureCreated;          // Flag indicating the GPU texture was created.
-    pthread_mutex_t mutex;        // Mutex for thread-safe access.
+    bool textureCreated = false;
+    bool compressed     = false;
+    bool loaded         = false;
+    bool error          = false;
+    std::vector<uint8_t> compressedData;
+    GLint compressedFormat = GL_RGBA;
+    std::string errorMessage;
+    std::string filePath;
+    pthread_mutex_t mutex;
+    Image image;
 };
 
 struct AsyncTexture {
-    Texture2D texture;       // The texture used for rendering (dummy until real texture is loaded).
-    AsyncTextureData* data;  // Pointer to async load data.
-    pthread_t thread;        // Thread handle for the IO thread.
+    std::shared_ptr<AsyncTextureData> data;
+    Texture2D texture;
+    pthread_t thread;
 };
 
 namespace AsyncTextureManager {
-    // Global container of all active async textures.
-    static std::vector<AsyncTexture*> asyncTextures;
+    extern std::vector<std::shared_ptr<AsyncTexture>> asyncTextures;
 
-    // Thread function that loads the image from disk into system memory.
     void* LoadImageThread(void* arg);
-
-    // Load a texture asynchronously.
-    // Returns an AsyncTexture handle that immediately contains a dummy texture.
-    AsyncTexture* LoadTextureAsync(const std::string& filePath);
-
-    // Processes all pending async texture updates.
-    // Should be called once per frame on the main thread.
+    std::shared_ptr<AsyncTexture> LoadTextureAsync(const std::string& filePath);
+    void* LoadImageThread(void* arg);
     void ProcessPendingUpdates();
-
-    // Free the resources associated with an AsyncTexture.
-    void UnloadAsyncTexture(AsyncTexture* asyncTex);
-
+    void UnloadAsyncTexture(std::shared_ptr<AsyncTexture> asyncTex);
     void UnloadAll();
+} // namespace AsyncTextureManager
 
-    } // namespace AsyncTextureManager
 #endif // TEXTURES_HPP

@@ -9,6 +9,7 @@
 #include <iostream>
 #include <raylib.h>
 #include <string>
+#include <memory>
 
 namespace fs = std::filesystem;
 
@@ -27,12 +28,12 @@ void SurfaceMaterialTexture::loadFromFile(const fs::path& filePath) {
             TraceLog(LOG_WARNING, "Error loading texture or video file.");
         }
     } else {
-        TraceLog(LOG_WARNING, "Texture or video does not exist.");
+        TraceLog(LOG_WARNING, "Media %s does not exist.", filePath);
     }
 }
 
 bool SurfaceMaterialTexture::hasTexture() const {
-    return IsTextureReady(staticTexture->texture);
+    return staticTexture && IsTextureReady(staticTexture->texture); // Left to right evaluation -> Memory Safe
 }
 
 const bool SurfaceMaterialTexture::hasVideo() const {
@@ -69,37 +70,3 @@ struct TextureNode {
     SurfaceMaterialTexture texture;
     fs::path texturePath;
 };
-
-void UpdateLightsBuffer(bool force, std::vector<LightStruct>& lightsVector,
-                        GLuint& buffer) {
-    if (lightsVector.empty() && !force)
-        return;
-
-    glBindBuffer(GL_SHADER_STORAGE_BUFFER, buffer);
-
-    size_t bufferSize = sizeof(Light) * lightsVector.size();
-    GLsizeiptr currentBufferSize;
-    glGetBufferParameteri64v(GL_SHADER_STORAGE_BUFFER, GL_BUFFER_SIZE,
-                             &currentBufferSize);
-
-    if (bufferSize != static_cast<size_t>(currentBufferSize)) {
-        glBufferData(GL_SHADER_STORAGE_BUFFER, bufferSize, nullptr,
-                     GL_DYNAMIC_DRAW);
-    }
-
-    std::vector<Light> lightsData;
-    lightsData.reserve(lightsVector.size());
-
-    for (const auto& lightStruct : lightsVector) {
-        if (lightStruct.lightInfo.enabled)
-            lightsData.push_back(lightStruct.light);
-    }
-
-    glBufferSubData(GL_SHADER_STORAGE_BUFFER, 0, bufferSize, lightsData.data());
-
-    glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 0, buffer);
-
-    int lightsCount = static_cast<int>(lightsVector.size());
-    SetShaderValue(shader, GetUniformLocation(shader.id, "lightsCount"),
-                   &lightsCount, SHADER_UNIFORM_INT);
-}

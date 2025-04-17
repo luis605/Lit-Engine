@@ -1,7 +1,7 @@
 #ifndef MATERIAL_GRAPH_HPP
 #define MATERIAL_GRAPH_HPP
 
-#include <Engine/Editor/MaterialsNodeEditor/MaterialNodeEditor.hpp>
+#include <Engine/Editor/MaterialNodeEditor/MaterialNodeEditor.hpp>
 #include <NodeEditor/examples/application/include/application.h>
 #include <NodeEditor/imgui_canvas.h>
 #include <NodeEditor/imgui_node_editor.h>

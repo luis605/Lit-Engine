@@ -394,9 +394,9 @@ void OpenWebpages() {
 }
 
 void EntitiesList() {
-    constexpr const char* entitiesListName_cstr = ICON_FA_BARS " Objects List";
+    constexpr const char* objectsListName_cstr = ICON_FA_BARS " Objects List";
 
-    ImGui::Begin(entitiesListName_cstr);
+    ImGui::Begin(objectsListName_cstr);
 
     ImGuiListViewEx();
     OpenWebpages();

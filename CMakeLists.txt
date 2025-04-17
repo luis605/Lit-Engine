@@ -4,6 +4,10 @@ if(NOT COMPILER_C)
     message(FATAL_ERROR "No suitable C compiler found.")
 endif()
 set(CMAKE_C_COMPILER ${COMPILER_C})
+if(COMPILER_C MATCHES "gcc-11")
+    add_compile_options(-fno-lto)
+    add_link_options(-fno-lto)
+endif()
 
 # Set C++ compiler (prefer g++-11, fallback to g++)
 find_program(COMPILER_CXX NAMES g++-11 g++)
@@ -11,13 +15,17 @@ if(NOT COMPILER_CXX)
     message(FATAL_ERROR "No suitable C++ compiler found.")
 endif()
 set(CMAKE_CXX_COMPILER ${COMPILER_CXX})
+if(COMPILER_CXX MATCHES "g\\+\\+\\-11")
+    add_compile_options(-fno-lto)
+    add_link_options(-fno-lto)
+endif()
 
 # CMake Settings
 cmake_minimum_required(VERSION 3.12)
 project(LitEngine)
 
 # Global Configuration
-set(CMAKE_CXX_STANDARD 17)
+set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(BUILD_SHARED_LIBS OFF)
 set(CMAKE_EXE_LINKER_FLAGS "-static-libstdc++ -static-libgcc")
@@ -26,8 +34,14 @@ set(CMAKE_CXX_FLAGS_RELEASE "-O3")
 set(CMAKE_CXX_FLAGS_DEBUG "-g -O0 -pg")
 set(CMAKE_CXX_COMPILER_LAUNCHER ccache)
 set(CMAKE_EXE_LINKER_FLAGS "-fuse-ld=gold")
-
 add_definitions(-w -g)
+
+if (CMAKE_CXX_COMPILER_ID STREQUAL "GNU")
+    if (CMAKE_CXX_STANDARD EQUAL 11)
+        add_compile_options(-fno-lto)
+        add_link_options(-fno-lto)
+    endif()
+endif()
 
 # Source Files
 set(SRC_FILES
@@ -137,6 +151,7 @@ include_directories(
     ${CMAKE_SOURCE_DIR}/Include/NodeEditor/external/stb_image
     ${CMAKE_SOURCE_DIR}/Include/NodeEditor/misc
     ${CMAKE_SOURCE_DIR}/Include/glm/glm
+    ${CMAKE_SOURCE_DIR}/Include/squish
     ${PYTHON_INCLUDE_DIR}
     ${CMAKE_SOURCE_DIR}
 )
@@ -145,6 +160,7 @@ include_directories(
 link_directories(
     ${CMAKE_SOURCE_DIR}/Include/meshoptimizer/build
     ${CMAKE_SOURCE_DIR}/Include/raylib/src
+    ${CMAKE_SOURCE_DIR}/Include/squish/build
     ${PYTHON_LIBS_DIR}
     ${FFMPEG_LIBRARY_DIRS}
     ${BULLET_LIBRARY_DIRS}
@@ -155,9 +171,11 @@ list(APPEND LIB_FLAGS
     meshoptimizer
     raylib
     pthread
+    squish
     -funroll-loops
     -ftree-vectorize
     -fno-math-errno
+    -ffast-math
     -freciprocal-math
     -fvect-cost-model
 )

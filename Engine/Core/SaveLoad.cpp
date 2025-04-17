@@ -4,113 +4,14 @@
 #include <Engine/Editor/SceneEditor/SceneEditor.hpp>
 #include <Engine/Core/Events.hpp>
 #include <Engine/Core/Entity.hpp>
+#include <Engine/Editor/MaterialNodeEditor/ChildMaterial.hpp>
+#include <Engine/Editor/MaterialNodeEditor/MaterialShaderGenerator.hpp>
 
 std::map<std::string, std::string> scriptContents;
 
 bool isSubPath(const fs::path& path, const fs::path& base) {
     auto rel = fs::relative(path, base);
     return !rel.empty() && rel.native()[0] != '.';
-}
-
-void SerializeMaterial(const SurfaceMaterial& material, const fs::path& path) {
-    std::ofstream outfile(path);
-    if (!outfile.is_open()) {
-        TraceLog(LOG_ERROR, (std::string("Failed to open material file: ") + path.string()).c_str());
-        return;
-    }
-
-    json j;
-    j["albedoTexturePath"]    = material.albedoTexturePath;
-    j["normalTexturePath"]    = material.normalTexturePath;
-    j["roughnessTexturePath"] = material.roughnessTexturePath;
-    j["aoTexturePath"]        = material.aoTexturePath;
-    j["heightTexturePath"]    = material.heightTexturePath;
-    j["metallicTexturePath"]  = material.metallicTexturePath;
-    j["emissiveTexturePath"]      = material.emissiveTexturePath;
-
-    outfile << std::setw(4) << j;
-    outfile.close();
-}
-
-void DeserializeMaterial(SurfaceMaterial* material, const fs::path& path) {
-    if (!material || !fs::exists(path)) return;
-
-    // Path Traversal Vulnerability Prevention
-    fs::path resolvedPath = fs::canonical(path);
-    const fs::path baseDir = fs::current_path() / "project/";
-
-    if (!isSubPath(resolvedPath, baseDir)) {
-        TraceLog(LOG_ERROR, (std::string("Path traversal detected: ") + path.string()).c_str());
-        return;
-    }
-
-    std::ifstream infile(resolvedPath);
-
-    if (!infile.is_open()) {
-        TraceLog(LOG_ERROR, (std::string("Failed to open material file for reading: ") + path.string()).c_str());
-        return;
-    }
-
-    try {
-        json j;
-        infile >> j;
-
-        material->albedoTexturePath.clear();
-        material->normalTexturePath.clear();
-        material->roughnessTexturePath.clear();
-        material->aoTexturePath.clear();
-        material->heightTexturePath.clear();
-        material->metallicTexturePath.clear();
-        material->emissiveTexturePath.clear();
-
-        if (j.contains("albedoTexturePath") && !j["albedoTexturePath"].get<std::string>().empty()) {
-            material->albedoTexturePath = j["albedoTexturePath"].get<std::string>();
-
-            if (material->albedoTexture.isEmpty())
-                material->albedoTexture = material->albedoTexturePath;
-        }
-        if (j.contains("normalTexturePath") && !j["normalTexturePath"].get<std::string>().empty()) {
-            material->normalTexturePath = j["normalTexturePath"].get<std::string>();
-
-            if (material->normalTexture.isEmpty())
-                material->normalTexture = material->normalTexturePath;
-        }
-        if (j.contains("roughnessTexturePath") && !j["roughnessTexturePath"].get<std::string>().empty()) {
-            material->roughnessTexturePath = j["roughnessTexturePath"].get<std::string>();
-
-            if (material->roughnessTexture.isEmpty())
-                material->roughnessTexture = material->roughnessTexturePath;
-        }
-        if (j.contains("aoTexturePath") && !j["aoTexturePath"].get<std::string>().empty()) {
-            material->aoTexturePath = j["aoTexturePath"].get<std::string>();
-
-            if (material->aoTexture.isEmpty())
-                material->aoTexture = material->aoTexturePath;
-        }
-        if (j.contains("heightTexturePath") && !j["heightTexturePath"].get<std::string>().empty()) {
-            material->heightTexturePath = j["heightTexturePath"].get<std::string>();
-
-            if (material->heightTexture.isEmpty())
-                material->heightTexture = material->heightTexturePath;
-        }
-        if (j.contains("metallicTexturePath") && !j["metallicTexturePath"].get<std::string>().empty()) {
-            material->metallicTexturePath = j["metallicTexturePath"].get<std::string>();
-
-            if (material->metallicTexture.isEmpty())
-                material->metallicTexture = material->metallicTexturePath;
-        }
-        if (j.contains("emissiveTexturePath") && !j["emissiveTexturePath"].get<std::string>().empty()) {
-            material->emissiveTexturePath = j["emissiveTexturePath"].get<std::string>();
-
-            if (material->emissiveTexture.isEmpty())
-                material->emissiveTexture = material->emissiveTexturePath;
-        }
-
-        infile.close();
-    } catch (const json::parse_error& e) {
-        TraceLog(LOG_ERROR, (std::string("Failed to parse material file (") + path.string() + std::string("): ") + std::string(e.what())).c_str());
-        return;
-    }
 }
 
 void SaveCamera(json& jsonData, const LitCamera& camera) {
@@ -149,7 +50,7 @@ void SaveEntity(json& jsonData, const Entity& entity) {
     j["collider"]                = entity.getFlag(Entity::Flag::COLLIDER);
     j["script_path"]             = entity.scriptPath;
     j["scriptIndex"]             = entity.scriptIndex;
-    j["material_path"]           = entity.surfaceMaterialPath;
+    j["childMaterialPath"]       = entity.childMaterialPath;
     j["visible"]                 = entity.getFlag(Entity::Flag::VISIBLE);
     j["id"]                      = entity.id;
     j["is_dynamic"]              = entity.getFlag(Entity::Flag::IS_DYNAMIC);
@@ -406,7 +307,7 @@ void LoadWorldSettings(const json& worldSettingsJson) {
 
     if (worldSettingsJson.contains("bloomThreshold")) {
         bloomThreshold = worldSettingsJson["bloomThreshold"].get<float>();
-        SetShaderValue(upsamplerShader, GetUniformLocation(upsamplerShader.id, "threshold"), &bloomThreshold, SHADER_ATTRIB_FLOAT);
+        SetShaderValue(shaderManager.m_upsamplerShader, shaderManager.GetUniformLocation(shaderManager.m_upsamplerShader.id, "threshold"), &bloomThreshold, SHADER_ATTRIB_FLOAT);
     }
 
     if (worldSettingsJson.contains("skyboxPath")) {
@@ -415,7 +316,7 @@ void LoadWorldSettings(const json& worldSettingsJson) {
 
     if (worldSettingsJson.contains("ambientColor")) {
         ambientLight = worldSettingsJson["ambientColor"].get<Vector4>();
-        SetShaderValue(shader, GetUniformLocation(shader.id, "ambientLight"), &ambientLight, SHADER_UNIFORM_VEC4);
+        SetShaderValue(shaderManager.m_defaultShader, shaderManager.GetUniformLocation(shaderManager.m_defaultShader.id, "ambientLight"), &ambientLight, SHADER_UNIFORM_VEC4);
     }
 
     if (worldSettingsJson.contains("gravity")) {
@@ -426,7 +327,7 @@ void LoadWorldSettings(const json& worldSettingsJson) {
 
     if (worldSettingsJson.contains("skyboxColor"))  skybox.color = worldSettingsJson["skyboxColor"].get<Vector4>();
     else                                            skybox.color = { 1, 1, 1, 1 };
-    SetShaderValue(skybox.cubeModel.materials[0].shader, GetUniformLocation(skybox.cubeModel.materials[0].shader.id, "skyboxColor"), &skybox.color, SHADER_UNIFORM_VEC4);
+    SetShaderValue(skybox.cubeModel.materials[0].shader, shaderManager.GetUniformLocation(skybox.cubeModel.materials[0].shader.id, "skyboxColor"), &skybox.color, SHADER_UNIFORM_VEC4);
 }
 
 Entity* LoadEntity(const json& entityJson) {
@@ -532,12 +433,26 @@ Entity* LoadEntity(const json& entityJson) {
 
     entity->reloadRigidBody();
 
-    if (entityJson.contains("material_path")) {
-        entity->surfaceMaterialPath = entityJson["material_path"].get<std::string>();
-        if (!entity->surfaceMaterialPath.empty()) DeserializeMaterial(&entity->surfaceMaterial, entity->surfaceMaterialPath);
-    }
+    if (entityJson.contains("childMaterialPath")) {
+        entity->childMaterialPath = entityJson["childMaterialPath"].get<std::string>();
+        if (!entity->childMaterialPath.empty()) LoadChildMaterial(entity->childMaterialPath);
 
-    entity->setShader(shader);
+        if (childMaterials.find(entity->childMaterialPath) != childMaterials.end()) {
+            ChildMaterial& material = childMaterials[entity->childMaterialPath];
+            std::ifstream stream("Engine/Lighting/shaders/lighting_vertex.glsl");
+            if (!stream.is_open()) {
+                TraceLog(LOG_ERROR, "Failed to open default vertex shader file");
+            }
+
+            std::string vertexShaderCode = std::string((std::istreambuf_iterator<char>(stream)),
+                                                        std::istreambuf_iterator<char>());
+
+            std::shared_ptr<Shader> shader = shaderManager.LoadShaderProgramFromMemory(vertexShaderCode.c_str(), GenerateMaterialShader(material).c_str());
+            if (IsShaderReady(*shader.get())) entity->setShader(*shader.get());
+            else TraceLog(LOG_ERROR, "Failed to generate shader for material: %s", material.name.c_str());
+        } else entity->setShader(shaderManager.m_defaultShader);
+
+    } else entity->setShader(shaderManager.m_defaultShader);
 
     if (entityJson.contains("visible"))
         entity->setFlag(Entity::Flag::VISIBLE, entityJson["visible"].get<bool>());

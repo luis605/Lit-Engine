@@ -36,7 +36,7 @@ void RunGame() {
     BeginTextureMode(viewportRenderTexture);
     BeginMode3D(camera);
 
-    BeginShaderMode(shader);
+    BeginShaderMode(shaderManager.m_defaultShader);
 
     ClearBackground(GRAY);
 

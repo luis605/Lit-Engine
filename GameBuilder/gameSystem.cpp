@@ -74,8 +74,8 @@ void InitWindow() {
     SetTraceLogLevel(LOG_WARNING);
     InitWindow(WindowWidth, WindowHeight, gameTitle.c_str());
 
-    shader = LoadShader("shaders/lighting_vertex.glsl",
-                        "shaders/lighting_fragment.glsl");
+    shaderManager.m_defaultShader = LoadShader("shaders/lighting_vertex.glsl",
+                                  "shaders/lighting_fragment.glsl");
 
     // Face Culling
     glEnable(GL_CULL_FACE);
@@ -95,7 +95,7 @@ void WindowMainloop() {
 void UpdateGameShader() {
     float cameraPos[3] = {inGameCamera.position.x, inGameCamera.position.y,
                           inGameCamera.position.z};
-    SetShaderValue(shader, shader.locs[SHADER_LOC_VECTOR_VIEW], cameraPos,
+    SetShaderValue(shaderManager.m_defaultShader, shaderManager.m_defaultShader.locs[SHADER_LOC_VECTOR_VIEW], cameraPos,
                    SHADER_UNIFORM_VEC3);
 }
 

@@ -1,11 +1,47 @@
-#include "lights.hpp"
-#include "Shaders.hpp"
-
+#include <Engine/Lighting/lights.hpp>
+#include <Engine/Lighting/Shaders.hpp>
 std::vector<LightStruct> lights;
 std::vector<LightStruct> renderModelPreviewerLights;
 
 Texture2D lightTexture;
 Vector4 ambientLight = {1.0f, 1.0f, 1.0f, 1.0f};
+
+void UpdateLightsBuffer(bool force, std::vector<LightStruct>& lightsVector,
+    GLuint& buffer) {
+    if (lightsVector.empty() && !force)
+    return;
+
+    glBindBuffer(GL_SHADER_STORAGE_BUFFER, buffer);
+
+    size_t bufferSize = sizeof(Light) * lightsVector.size();
+    GLsizeiptr currentBufferSize;
+    glGetBufferParameteri64v(GL_SHADER_STORAGE_BUFFER, GL_BUFFER_SIZE,
+            &currentBufferSize);
+
+    if (bufferSize != static_cast<size_t>(currentBufferSize)) {
+        glBufferData(GL_SHADER_STORAGE_BUFFER, bufferSize, nullptr,
+        GL_DYNAMIC_DRAW);
+    }
+
+    std::vector<Light> lightsData;
+    lightsData.reserve(lightsVector.size());
+
+    for (const auto& lightStruct : lightsVector) {
+        if (lightStruct.lightInfo.enabled)
+            lightsData.push_back(lightStruct.light);
+    }
+
+    glBufferSubData(GL_SHADER_STORAGE_BUFFER, 0, bufferSize, lightsData.data());
+
+    glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 0, buffer);
+
+    int lightsCount = static_cast<int>(lightsVector.size());
+    SetShaderValue(shaderManager.m_defaultShader, shaderManager.GetUniformLocation(shaderManager.m_defaultShader.id, "lightsCount"), &lightsCount, SHADER_UNIFORM_INT);
+
+    for (std::shared_ptr<Shader> shader : shaderManager.m_shaders) {
+        SetShaderValue(*shader.get(), shaderManager.GetUniformLocation(shader.get()->id, "lightsCount"), &lightsCount, SHADER_UNIFORM_INT);
+    }
+}
 
 LightStruct& NewLight(const Vector3 position, const Color color, int type,
                       int id) {

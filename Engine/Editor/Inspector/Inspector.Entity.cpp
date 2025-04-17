@@ -4,6 +4,7 @@
 
 #include <Engine/Core/Engine.hpp>
 #include <Engine/Core/SaveLoad.hpp>
+#include <Engine/Editor/MaterialNodeEditor/ChildMaterial.hpp>
 #include <Engine/Editor/AssetsExplorer/AssetsExplorer.hpp>
 #include <Engine/Editor/Inspector/Inspector.hpp>
 #include <extras/IconsFontAwesome6.h>
@@ -143,27 +144,31 @@ void DisplayMaterialDragDrop() {
     ImGui::Text("Material:");
     ImGui::SameLine();
 
-    if (ImGui::Button("##Drag'nDropMaterialPath", ImVec2(200, 25)))
-        ;
+    if (ImGui::Button("##Drag'nDropMaterialPath", ImVec2(200, 25)));
 
     if (ImGui::BeginDragDropTarget()) {
         if (const ImGuiPayload* payload =
                 ImGui::AcceptDragDropPayload("MATERIAL_PAYLOAD")) {
             IM_ASSERT(payload->DataSize == sizeof(int));
-            int payloadIndex = *(const int*)payload->Data;
 
-            fs::path path = dirPath / fileStruct[payloadIndex].name;
+            const int payloadIndex = *(const int*)payload->Data;
+            const fs::path path = fileStruct[payloadIndex].full_path;
 
-            selectedEntity->surfaceMaterialPath = path;
-            DeserializeMaterial(&selectedEntity->surfaceMaterial,
-                                selectedEntity->surfaceMaterialPath);
+            if (!childMaterials.contains(path)) {
+                LoadChildMaterial(path);
+                if (childMaterials.contains(path))
+                    selectedEntity->childMaterialPath = path;
+            } else {
+                selectedEntity->childMaterialPath = path;
+            }
         }
         ImGui::EndDragDropTarget();
     }
 
-    if (!selectedEntity->surfaceMaterialPath.empty())
-        MaterialInspector(&selectedEntity->surfaceMaterial,
-                          selectedEntity->surfaceMaterialPath);
+    if (!selectedEntity->childMaterialPath.empty()) {
+        auto it = childMaterials.find(selectedEntity->childMaterialPath);
+        if (it != childMaterials.end()) MaterialInspector(it->second);
+    }
 }
 
 void DisplayScriptDragDrop() {
@@ -320,7 +325,9 @@ void EntityInspector() {
 
     ImGui::Dummy(ImVec2(0.0f, 5.0f));
 
-    if (ImGui::CollapsingHeader(ICON_FA_COG " Advanced Settings")) {
+    constexpr const char* advancedSettings_cstr = "\uf013" " Advanced Settings"; // COG
+
+    if (ImGui::CollapsingHeader(advancedSettings_cstr)) {
         ImGui::Indent();
         ImGui::TextWrapped(
             "Warning!\nThese experimental features won't save or load.\nAvoid "

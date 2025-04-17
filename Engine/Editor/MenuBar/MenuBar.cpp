@@ -142,24 +142,24 @@ void DrawMenus() {
 
     if (ImGui::BeginMenu("Debug")) {
         if (ImGui::MenuItem("Reload Lighting Shader")) {
-            UnloadShader(shader);
-            shader =
+            UnloadShader(shaderManager.m_defaultShader);
+            shaderManager.m_defaultShader =
                 LoadShader("Engine/Lighting/shaders/lighting_vertex.glsl",
                            "Engine/Lighting/shaders/lighting_fragment.glsl");
 
             for (Entity& entity : entitiesListPregame) {
-                entity.setShader(shader);
+                entity.setShader(shaderManager.m_defaultShader);
             }
         }
 
         if (ImGui::MenuItem("Reload Bloom Shader")) {
-            verticalBlurShader =
+            shaderManager.m_verticalBlurShader =
                 LoadShader("Engine/Lighting/shaders/lighting_vertex.glsl",
                            "Engine/Lighting/shaders/blurVertical.fs");
-            horizontalBlurShader =
+            shaderManager.m_horizontalBlurShader =
                 LoadShader("Engine/Lighting/shaders/lighting_vertex.glsl",
                            "Engine/Lighting/shaders/blurHorizontal.fs");
-            verticalBlurShader =
+            shaderManager.m_verticalBlurShader =
                 LoadShader("Engine/Lighting/shaders/lighting_vertex.glsl",
                            "Engine/Lighting/shaders/blurVertical.fs");
         }

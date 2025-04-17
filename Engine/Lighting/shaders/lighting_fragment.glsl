@@ -239,14 +239,6 @@ float Q_rsqrt(float number) {
 
 void main() {
     mediump vec2 texCoord = fragTexCoord * tiling;
-
-    vec4 texColor   = diffuseMapReady ? texture(texture0, texCoord) : vec4(1.0);
-    vec3 normalMap  = normalMapReady ? texture(texture2, texCoord).rgb : vec3(0.0);
-    float roughness = roughnessMapReady ? texture(texture3, texCoord).r : 0.5;
-    float ao        = 1.0; //aoMapReady ? texture(texture4, texCoord).r : 1.0;
-    float specular  = 0.5; // metallicMapReady ? texture(texture5, texCoord).r : 0.5;
-    float metalness = 0.5; //metallicMapReady ? texture(texture6, texCoord).r : 0.5;
-
     highp vec3 viewDir = normalize(viewPos - fragPosition);
     vec3 dp1 = dFdx(fragPosition);
     vec3 dp2 = dFdy(fragPosition);
@@ -257,26 +249,47 @@ void main() {
     vec3 bitangent = normalize(dp2 * duv1.x - dp1 * duv2.x);
 
 
-    vec3 norm = fragNormal;
-    if (normalMapReady) {
-        mat3 TBN = mat3(tangent, bitangent, fragNormal);
-#ifdef NORMAL_SUPPORT
-        vec2 nxy = normalMap.xy * 2.0 - 1.0;
-        vec3 nm = calcNormalMap(vec4(nxy, 1.0, 1.0)).rgb;
-        nm.z = Q_rsqrt(max(1.0 - dot(nm.xy, nm.xy), 0.0));
-
-        norm = normalize(TBN * nm);
+#ifdef ALBEDO
+    vec4 texColor = texture(texture0, texCoord);
 #else
-        norm = normalize(TBN * (normalMap * 2.0 - 1.0));
+    vec4 texColor = vec4(1.0);
 #endif
-    }
 
+#ifdef NORMAL
+    mat3 TBN = mat3(tangent, bitangent, fragNormal);
+
+    vec2 nxy = texture(texture2, texCoord).rg * 2.0 - 1.0;
+    vec3 nm = calcNormalMap(vec4(nxy, 1.0, 1.0)).rgb;
+    nm.z = Q_rsqrt(max(1.0 - dot(nm.xy, nm.xy), 0.0));
+
+    vec3 norm = normalize(TBN * nm);
+#else
+    vec3 norm = normalize(fragNormal);
+#endif
+
+#ifdef ROUGHNESS
+    float roughness = texture(texture3, texCoord).r;
+#else
+    float roughness = 0.5;
+#endif
+
+#ifdef SPECULAR
+    float specular = texture(texture5, texCoord).r;
+#else
+    float specular = 0.5;
+#endif
+
+#ifdef METALNESS
+    float metalness = texture(texture6, texCoord).r;
+#else
+    float metalness = 0.5;
+#endif
 
     vec4 lighting = CalculateLighting(fragPosition, norm, viewDir, texCoord, texColor, tangent, bitangent, roughness, specular, metalness);
 
-    if (aoMapReady) {
-        lighting.rgb *= ao;
-    }
+#ifdef AMBIENT_OCCLUSION
+    lighting.rgb *= texture(texture4, texCoord).r;
+#endif
 
     finalColor = lighting;
 }

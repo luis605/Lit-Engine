@@ -8,7 +8,6 @@ std::vector<Entity> entitiesListPregame;
 std::vector<Entity> entitiesList;
 std::unordered_map<int, size_t> entityIdToIndexMap;
 std::unordered_map<int, size_t> lightIdToIndexMap;
-std::unordered_map<GLuint, std::unordered_map<std::string, GLint>> uniformLocationCache;
 
 fs::path     selectedMaterial;
 Entity*      selectedEntity      = nullptr;
@@ -71,28 +70,4 @@ int findIndexInVector(const std::vector<T>& vec, const T& value) {
     } else {
         return -1; // Return -1 if the element is not found
     }
-}
-
-GLint GetUniformLocation(const unsigned int& shaderId, const char* name) {
-    auto& shaderCache = uniformLocationCache[shaderId];
-
-    auto it = shaderCache.find(name);
-    if (it != shaderCache.end())
-        return it->second;
-
-    GLint location = glGetUniformLocation(shaderId, name);
-    shaderCache[name] = location;
-    return location;
-}
-
-GLint GetAttribLocation(const unsigned int& shaderId, const char* name) {
-    auto& shaderCache = uniformLocationCache[shaderId];
-
-    auto it = shaderCache.find(name);
-    if (it != shaderCache.end())
-        return it->second;
-
-    GLint location = glGetAttribLocation(shaderId, name);
-    shaderCache[name] = location;
-    return location;
 }

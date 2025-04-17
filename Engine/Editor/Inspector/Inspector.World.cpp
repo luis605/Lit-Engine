@@ -31,7 +31,10 @@ void WorldInspector() {
 
         // Bloom Panel
         ImGui::SetNextItemWidth(-1);
-        if (ImGui::CollapsingHeader(ICON_FA_STAR " Bloom", false)) {
+
+        constexpr const char* bloom_cstr = ICON_FA_STAR " Bloom";
+
+        if (ImGui::CollapsingHeader(bloom_cstr, false)) {
             ImGui::Indent();
 
             // Bloom Enabled Checkbox
@@ -41,41 +44,45 @@ void WorldInspector() {
             ImGui::Checkbox("##BloomToggle", &bloomEnabled);
 
             // Brightness Slider
-            ImGui::Text(ICON_FA_ADJUST " Threshold:");
+            constexpr const char* threshold_cstr = "\uf042" " Threshold:"; // ADJUST
+
+            ImGui::Text(threshold_cstr);
             ImGui::SameLine();
             ImGui::SetNextItemWidth(-1);
             if (ImGui::SliderFloat("##ThresholdControl", &bloomThreshold, 0.0f,
                                    1.0f)) {
-                SetShaderValue(upsamplerShader,
-                               GetUniformLocation(upsamplerShader.id, "threshold"),
+                SetShaderValue(shaderManager.m_upsamplerShader,
+                               shaderManager.GetUniformLocation(shaderManager.m_upsamplerShader.id, "threshold"),
                                &bloomThreshold, SHADER_ATTRIB_FLOAT);
             }
 
-            ImGui::Text(ICON_FA_ADJUST " Intensity:");
+            constexpr const char* intensity_cstr = "\uf042" " Intensity:"; // ADJUST
+
+            ImGui::Text(intensity_cstr);
             ImGui::SameLine();
             ImGui::SetNextItemWidth(-1);
             if (ImGui::SliderFloat("##IntensityControl", &bloomIntensity, 0.0f,
                                    2.0f)) {
                 SetShaderValue(
-                    upsamplerShader,
-                    GetUniformLocation(upsamplerShader.id, "bloomIntensity"),
+                    shaderManager.m_upsamplerShader,
+                    shaderManager.GetUniformLocation(shaderManager.m_upsamplerShader.id, "bloomIntensity"),
                     &bloomIntensity, SHADER_ATTRIB_FLOAT);
             }
 
             // Samples Slider
-            ImGui::Text(ICON_FA_CUBE " Kernel Size:");
+            constexpr const char* kernelSize_cstr = ICON_FA_CUBE " Kernel Size:";
+
+            ImGui::Text(kernelSize_cstr);
             ImGui::SameLine();
             ImGui::SetNextItemWidth(-1);
             if (ImGui::SliderInt("##KernelSize", &kernelSize, 1.0f, 60.0f)) {
-                int shaderLocation =
-                    GetUniformLocation(verticalBlurShader.id, "kernelSize");
-                glUseProgram(verticalBlurShader.id);
+                int shaderLocation = shaderManager.GetUniformLocation(shaderManager.m_verticalBlurShader.id, "kernelSize");
+                glUseProgram(shaderManager.m_verticalBlurShader.id);
                 glUniform1i(shaderLocation, kernelSize);
                 glUseProgram(0);
 
-                shaderLocation =
-                    GetUniformLocation(horizontalBlurShader.id, "kernelSize");
-                glUseProgram(horizontalBlurShader.id);
+                shaderLocation = shaderManager.GetUniformLocation(shaderManager.m_horizontalBlurShader.id, "kernelSize");
+                glUseProgram(shaderManager.m_horizontalBlurShader.id);
                 glUniform1i(shaderLocation, kernelSize);
                 glUseProgram(0);
             }
@@ -89,13 +96,17 @@ void WorldInspector() {
     ImGui::Spacing();
     ImGui::SetNextItemWidth(-1);
 
-    if (ImGui::CollapsingHeader(ICON_FA_LIGHTBULB " Lighting", false)) {
+    constexpr const char* lighting_cstr = ICON_FA_LIGHTBULB " Lighting";
+
+    if (ImGui::CollapsingHeader(lighting_cstr, false)) {
         ImGui::Indent();
 
         // Ambient Light Panel
         ImGui::SetNextItemWidth(-1);
 
-        if (ImGui::CollapsingHeader(ICON_FA_SUN " Ambient Light", false)) {
+        constexpr const char* ambientLight_cstr = ICON_FA_SUN " Ambient Light";
+
+        if (ImGui::CollapsingHeader(ambientLight_cstr, false)) {
             ImGui::Indent();
 
             ImGui::Text("Color:");
@@ -114,8 +125,8 @@ void WorldInspector() {
                                     (float*)&lightColorImGUI);
                 ambientLight = {lightColorImGUI.x, lightColorImGUI.y,
                                 lightColorImGUI.z, lightColorImGUI.w};
-                SetShaderValue(shader,
-                               GetUniformLocation(shader.id, "ambientLight"),
+                SetShaderValue(shaderManager.m_defaultShader,
+                               shaderManager.GetUniformLocation(shaderManager.m_defaultShader.id, "ambientLight"),
                                &ambientLight, SHADER_UNIFORM_VEC4);
                 ImGui::EndPopup();
             }
@@ -125,13 +136,13 @@ void WorldInspector() {
             ambientLight.z = lightColorImGUI.z;
             ambientLight.w = lightColorImGUI.w;
 
-            SetShaderValue(shader, GetUniformLocation(shader.id, "ambientLight"),
+            SetShaderValue(shaderManager.m_defaultShader, shaderManager.GetUniformLocation(shaderManager.m_defaultShader.id, "ambientLight"),
                            &ambientLight, SHADER_UNIFORM_VEC4);
 
             for (Entity& entity : entitiesListPregame) {
                 SetShaderValue(
                     entity.getShader(),
-                    GetUniformLocation(entity.getShader().id, "ambientLight"),
+                    shaderManager.GetUniformLocation(entity.getShader().id, "ambientLight"),
                     &ambientLight, SHADER_UNIFORM_VEC4);
             }
 
@@ -161,7 +172,7 @@ void WorldInspector() {
                                 lightColorImGUI.z, lightColorImGUI.w};
                 SetShaderValue(
                     skybox.cubeModel.materials[0].shader,
-                    GetUniformLocation(skybox.cubeModel.materials[0].shader.id,
+                    shaderManager.GetUniformLocation(skybox.cubeModel.materials[0].shader.id,
                                        "skyboxColor"),
                     &skybox.color, SHADER_UNIFORM_VEC4);
                 ImGui::EndPopup();
@@ -225,7 +236,9 @@ void WorldInspector() {
     ImGui::Spacing();
     ImGui::SetNextItemWidth(-1);
 
-    if (ImGui::CollapsingHeader(ICON_FA_GLOBE " Physics", false)) {
+    constexpr const char* physics_cstr = ICON_FA_GLOBE " Physics";
+
+    if (ImGui::CollapsingHeader(physics_cstr, false)) {
         ImGui::Indent();
 
         ImGui::Text("Gravity:");

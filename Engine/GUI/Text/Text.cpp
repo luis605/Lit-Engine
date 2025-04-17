@@ -4,6 +4,7 @@
 #include <string>
 #include <Engine/Core/Engine.hpp>
 #include <algorithm>
+#include <vector>
 
 std::vector<Text> textElements;
 

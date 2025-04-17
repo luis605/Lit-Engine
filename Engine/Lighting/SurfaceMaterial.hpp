@@ -5,12 +5,13 @@
 #include <Engine/Core/Textures.hpp>
 #include <filesystem>
 #include <raylib.h>
+#include <memory>
 
 namespace fs = std::filesystem;
 
 struct SurfaceMaterialTexture {
-    int activatedMode = -1;
-    AsyncTexture* staticTexture = nullptr;
+    int activatedMode        = -1;
+    std::shared_ptr<AsyncTexture> staticTexture;
     Video videoTexture;
 
     SurfaceMaterialTexture() = default;
