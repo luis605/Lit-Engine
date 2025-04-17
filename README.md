@@ -14,6 +14,8 @@ Lit Engine is an **open-source high-level game engine** powered by raylib. Made 
 [![Website](https://img.shields.io/website-up-down-green-red/http/shields.io.svg)](https://litengine.org/)
 [![Number of GitHub stars](https://img.shields.io/github/stars/luis605/Lit-Engine)](https://github.com/luis605/Lit-Engine/stargazers)
 
+*Lit Engine is in active development. Contributions and feedback are highly appreciated!*
+
 <hr>
 
 # Quickstart
@@ -81,6 +83,10 @@ make debug
 ```
 
 Make sure you have built the project in debug mode: `cmake .. -DCMAKE_BUILD_TYPE=Debug`
+
+# Screenshots
+
+![Lit Engine Screenshot 1](https://github.com/luis605/Lit-Engine/blob/main/Docs/images/screenshot1.webp?raw=true)
 
 # Documentation
 
