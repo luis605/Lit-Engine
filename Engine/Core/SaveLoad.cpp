@@ -41,7 +41,6 @@ void SaveEntity(json& jsonData, const Entity& entity) {
     j["rotation"]                = entity.rotation;
     j["relativePosition"]        = entity.relativePosition;
     j["modelPath"]               = entity.modelPath;
-    j["tiling"]                  = entity.surfaceMaterial.tiling;
 
     if (IsModelReady(entity.model) && entity.modelPath.empty())
         j["mesh_type"]           = entity.ObjectType;
@@ -388,11 +387,6 @@ Entity* LoadEntity(const json& entityJson) {
 
     if (entityJson.contains("lodEnabled")) {
         entity->setFlag(Entity::Flag::LOD_ENABLED, entityJson["lodEnabled"].get<bool>());
-    }
-
-    if (entityJson.contains("tiling")) {
-        entity->surfaceMaterial.tiling[0] = entityJson["tiling"][0].get<float>();
-        entity->surfaceMaterial.tiling[1] = entityJson["tiling"][1].get<float>();
     }
 
     if (entityJson.contains("mesh_type")) {

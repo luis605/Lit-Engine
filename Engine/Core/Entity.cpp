@@ -917,9 +917,6 @@ void Entity::renderSingleModel() {
 void Entity::PassSurfaceMaterials() {
     glUseProgram(entityShader->id);
 
-    static int tilingLocation = shaderManager.GetUniformLocation(entityShader->id, "tiling");
-    SetShaderValue(*entityShader, tilingLocation, surfaceMaterial.tiling, SHADER_UNIFORM_VEC2);
-
     glUniform1i(shaderManager.GetUniformLocation(entityShader->id, "diffuseMapReady"),   !surfaceMaterial.albedoTexturePath.empty());
     glUniform1i(shaderManager.GetUniformLocation(entityShader->id, "normalMapReady"),    !surfaceMaterial.normalTexturePath.empty());
     glUniform1i(shaderManager.GetUniformLocation(entityShader->id, "roughnessMapReady"), !surfaceMaterial.roughnessTexturePath.empty());

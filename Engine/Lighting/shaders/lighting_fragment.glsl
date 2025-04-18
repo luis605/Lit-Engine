@@ -10,7 +10,6 @@ in vec3 fragNormal;
 // Input uniform values
 uniform vec4 ambientLight;
 uniform vec3 viewPos;
-uniform vec2 tiling = vec2(1.0, 1.0);
 
 // PBR Textures
 uniform bool diffuseMapReady;
@@ -238,7 +237,12 @@ float Q_rsqrt(float number) {
 // [ INSERT GENERATED CODE BELOW ]
 
 void main() {
+#ifdef TILING
     mediump vec2 texCoord = fragTexCoord * tiling;
+#else
+    mediump vec2 texCoord = fragTexCoord;
+#endif
+
     highp vec3 viewDir = normalize(viewPos - fragPosition);
     vec3 dp1 = dFdx(fragPosition);
     vec3 dp2 = dFdy(fragPosition);

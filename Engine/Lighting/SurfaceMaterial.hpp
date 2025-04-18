@@ -62,8 +62,6 @@ struct SurfaceMaterial {
     SurfaceMaterialTexture heightTexture;
     SurfaceMaterialTexture metallicTexture;
     SurfaceMaterialTexture emissiveTexture;
-
-    float tiling[2] = { 1.0f, 1.0f };
 };
 
 #endif // SURFACE_MAT_HPP

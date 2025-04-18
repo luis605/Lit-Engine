@@ -222,8 +222,9 @@ std::string GenerateMaterialShader(ChildMaterial& material) {
             if (!node) continue;
 
             if (std::optional<Vector2Node*> vec2NodeData = material.GetNodeData<Vector2Node>(node->UUID)) {
-                selectedEntity->surfaceMaterial.tiling[0] = vec2NodeData.value()->vec[0];
-                selectedEntity->surfaceMaterial.tiling[1] = vec2NodeData.value()->vec[1];
+                shaderStream << "#define TILING\n";
+                shaderStream << "vec2 tiling = vec2(" << vec2NodeData.value()->vec[0] << ", "
+                             << vec2NodeData.value()->vec[1] << ");\n";
             }
         }
     }
