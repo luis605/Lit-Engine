@@ -10,6 +10,7 @@
 #include <extras/IconsFontAwesome6.h>
 #include <rcamera.h>
 #include <rlgl.h>
+#include <raylib.h>
 
 float slowCameraSpeed = 15.0f;
 float defaultCameraSpeed = 25.0f;
@@ -241,8 +242,12 @@ void HandleUnselect() {
 }
 
 void RenderViewportTexture() {
-    bloomEnabled ? DrawTextureOnViewportRectangle(&upsamplerTexture.texture)
-                 : DrawTextureOnViewportRectangle(&viewportTexture);
+    if (vignetteEnabled)
+        DrawTextureOnViewportRectangle(&vignetteTexture.texture);
+    else if (bloomEnabled)
+        DrawTextureOnViewportRectangle(&upsamplerTexture.texture);
+    else
+        DrawTextureOnViewportRectangle(&viewportTexture);
 }
 
 void ApplyBloomEffect() {
@@ -278,6 +283,24 @@ void ApplyBloomEffect() {
         shaderManager.m_upsamplerShader, shaderManager.GetUniformLocation(shaderManager.m_upsamplerShader.id, "originalTexture"),
         viewportTexture);
     DrawTexture(verticalBlurTexture.texture, 0, 0, WHITE);
+    EndShaderMode();
+    EndTextureMode();
+}
+
+void ApplyVignetteEffect() {
+    if (!vignetteEnabled)
+        return;
+
+    BeginTextureMode(vignetteTexture);
+    BeginShaderMode(shaderManager.m_vignetteShader);
+
+    const Texture& inputTex = bloomEnabled ? upsamplerTexture.texture : viewportTexture;
+    SetShaderValueTexture(
+        shaderManager.m_vignetteShader,
+        shaderManager.GetUniformLocation(shaderManager.m_vignetteShader.id, "screenTexture"),
+        inputTex);
+    DrawTexture(inputTex, 0, 0, WHITE);
+
     EndShaderMode();
     EndTextureMode();
 }
@@ -449,6 +472,7 @@ void RenderScene() {
 
     ComputeSceneLuminance();
     ApplyBloomEffect();
+    ApplyVignetteEffect();
     RenderViewportTexture();
 }
 
@@ -768,21 +792,18 @@ void ScaleViewport() {
         currentWindowSize.y != prevEditorWindowSize.y) {
         prevEditorWindowSize = currentWindowSize;
 
-        UnloadRenderTexture(viewportRenderTexture);
-        viewportRenderTexture =
-            LoadRenderTexture(currentWindowSize.x, currentWindowSize.y);
-        viewportTexture = viewportRenderTexture.texture;
 
+        UnloadRenderTexture(viewportRenderTexture);
         UnloadRenderTexture(verticalBlurTexture);
         UnloadRenderTexture(horizontalBlurTexture);
         UnloadRenderTexture(upsamplerTexture);
 
-        verticalBlurTexture =
-            LoadRenderTexture(currentWindowSize.x, currentWindowSize.y);
-        horizontalBlurTexture =
-            LoadRenderTexture(currentWindowSize.x, currentWindowSize.y);
-        upsamplerTexture =
-            LoadRenderTexture(currentWindowSize.x, currentWindowSize.y);
+        viewportRenderTexture = LoadRenderTexture(currentWindowSize.x, currentWindowSize.y);
+        verticalBlurTexture   = LoadRenderTexture(currentWindowSize.x, currentWindowSize.y);
+        horizontalBlurTexture = LoadRenderTexture(currentWindowSize.x, currentWindowSize.y);
+        upsamplerTexture      = LoadRenderTexture(currentWindowSize.x, currentWindowSize.y);
+        vignetteTexture       = LoadRenderTexture(currentWindowSize.x, currentWindowSize.y);
+        viewportTexture       = viewportRenderTexture.texture;
 
         int index = 0;
         downsampledTextures.clear();
@@ -793,13 +814,10 @@ void ScaleViewport() {
             if (currentWindowSize.y > 1)
                 currentWindowSize.y /= 2;
 
-            // Ensure minimum size of 1x1
             currentWindowSize.x = std::max(currentWindowSize.x, 1.0f);
             currentWindowSize.y = std::max(currentWindowSize.y, 1.0f);
 
-            downsampledTextures.push_back(
-                LoadRenderTexture(static_cast<int>(currentWindowSize.x),
-                                  static_cast<int>(currentWindowSize.y)));
+            downsampledTextures.emplace_back(LoadRenderTexture(static_cast<int>(currentWindowSize.x), static_cast<int>(currentWindowSize.y)));
             index++;
         }
     }

@@ -78,11 +78,10 @@ void LoadTextures() {
     noiseTexture = LoadTexture("Assets/images/noise.png");
     windowIconImage = LoadImage("Assets/images/window_icon.png");
     windowIconTexture = LoadTextureFromImage(windowIconImage);
-    verticalBlurTexture =
-        LoadRenderTexture(GetScreenWidth(), GetScreenHeight());
-    horizontalBlurTexture =
-        LoadRenderTexture(GetScreenWidth(), GetScreenHeight());
+    verticalBlurTexture = LoadRenderTexture(GetScreenWidth(), GetScreenHeight());
+    horizontalBlurTexture = LoadRenderTexture(GetScreenWidth(), GetScreenHeight());
     upsamplerTexture = LoadRenderTexture(GetScreenWidth(), GetScreenHeight());
+    vignetteTexture = LoadRenderTexture(GetScreenWidth(), GetScreenHeight());
 
     SetWindowIcon(windowIconImage);
 }

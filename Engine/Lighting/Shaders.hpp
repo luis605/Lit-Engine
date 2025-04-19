@@ -14,6 +14,11 @@ extern GLuint lightsBuffer;
 extern GLuint renderPrevierLightsBuffer;
 extern GLuint exposureSSBO;
 
+extern bool vignetteEnabled;
+extern float vignetteStrength;
+extern float vignetteRadius;
+extern Vector4 vignetteColor;
+
 extern bool bloomEnabled;
 extern float bloomThreshold;
 extern float bloomIntensity;
@@ -23,6 +28,7 @@ extern int kernelSize;
 extern RenderTexture verticalBlurTexture;
 extern RenderTexture horizontalBlurTexture;
 extern RenderTexture upsamplerTexture;
+extern RenderTexture vignetteTexture;
 extern std::vector<RenderTexture2D> downsampledTextures;
 
 struct ShaderManager {
@@ -38,6 +44,7 @@ public:
     Shader m_verticalBlurShader;
     Shader m_downsampleShader;
     Shader m_upsamplerShader;
+    Shader m_vignetteShader;
     GLuint m_exposureShaderProgram;
 
 public:

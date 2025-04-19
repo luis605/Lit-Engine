@@ -15,9 +15,15 @@ float prevExposure   = 1.0f;
 int kernelSize       = 1;
 bool bloomEnabled    = false;
 
+bool vignetteEnabled   = false;
+float vignetteStrength = 0.5;
+float vignetteRadius   = 0.5;
+Vector4 vignetteColor  = Vector4(0,0,0,1);
+
 RenderTexture verticalBlurTexture;
 RenderTexture horizontalBlurTexture;
 RenderTexture upsamplerTexture;
+RenderTexture vignetteTexture;
 std::vector<RenderTexture2D> downsampledTextures;
 
 void ShaderManager::InitShaders() {
@@ -27,11 +33,21 @@ void ShaderManager::InitShaders() {
     m_verticalBlurShader    = LoadShader("Engine/Lighting/shaders/lighting_vertex.glsl", "Engine/Lighting/shaders/blurVertical.fs");
     m_upsamplerShader       = LoadShader("Engine/Lighting/shaders/lighting_vertex.glsl", "Engine/Lighting/shaders/upsampler.glsl");
     m_downsampleShader      = LoadShader("Engine/Lighting/shaders/lighting_vertex.glsl", "Engine/Lighting/shaders/downsampler.glsl");
+    m_vignetteShader        = LoadShader("Engine/Lighting/shaders/lighting_vertex.glsl",          "Engine/Lighting/shaders/vignette.fs");
 
     char* shaderCode = LoadFileText("Engine/Lighting/shaders/luminanceCompute.glsl");
     unsigned int shaderData = rlCompileShader(shaderCode, RL_COMPUTE_SHADER);
     m_exposureShaderProgram = rlLoadComputeShaderProgram(shaderData);
     UnloadFileText(shaderCode);
+
+    const float strength = 0.5f;
+    const float radius = 0.75f;
+    const Vector3 color = Vector3(0,0,0);
+
+    SetShaderValue(shaderManager.m_vignetteShader, shaderManager.GetUniformLocation(shaderManager.m_vignetteShader.id, "strength"), &strength, SHADER_UNIFORM_FLOAT);
+    SetShaderValue(shaderManager.m_vignetteShader, shaderManager.GetUniformLocation(shaderManager.m_vignetteShader.id, "radius"),   &radius,   SHADER_UNIFORM_FLOAT);
+    SetShaderValue(shaderManager.m_vignetteShader, shaderManager.GetUniformLocation(shaderManager.m_vignetteShader.id, "color"),    &color,    SHADER_UNIFORM_VEC3);
+
 }
 
 std::shared_ptr<Shader> ShaderManager::LoadShaderProgram(const fs::path& vertexShaderPath, const fs::path& fragmentShaderPath) {

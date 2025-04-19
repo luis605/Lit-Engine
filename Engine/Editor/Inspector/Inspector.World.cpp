@@ -24,9 +24,7 @@ void WorldInspector() {
 
     constexpr const char* postProcessing_cstr = ICON_FA_FILTER " Post Processing";
 
-    if (ImGui::CollapsingHeader(
-            postProcessing_cstr,
-            false)) {
+    if (ImGui::CollapsingHeader(postProcessing_cstr, false)) {
         ImGui::Indent();
 
         // Bloom Panel
@@ -90,6 +88,51 @@ void WorldInspector() {
             ImGui::Unindent();
         }
 
+        constexpr const char* vignette_cstr = ICON_FA_IMAGE " Vignette";
+
+        if (ImGui::CollapsingHeader(vignette_cstr, false)) {
+            ImGui::Text("Enabled:");
+            ImGui::SameLine();
+            ImGui::SetNextItemWidth(-1);
+            ImGui::Checkbox("##VignetteToggle", &vignetteEnabled);
+
+            constexpr const char* strength_cstr = "\uf042" " Strength:"; // ADJUST
+
+            ImGui::Text(strength_cstr);
+            ImGui::SameLine();
+            ImGui::SetNextItemWidth(-1);
+            if (ImGui::SliderFloat("##StrengthControl", &vignetteStrength, 0.0f, 1.0f)) {
+                SetShaderValue(shaderManager.m_vignetteShader,
+                               shaderManager.GetUniformLocation(shaderManager.m_vignetteShader.id, "strength"),
+                               &vignetteStrength, SHADER_UNIFORM_FLOAT);
+            }
+
+            constexpr const char* radius_cstr = "\uf042" " Radius:"; // ADJUST
+
+            ImGui::Text(radius_cstr);
+            ImGui::SameLine();
+            ImGui::SetNextItemWidth(-1);
+            if (ImGui::SliderFloat("##RadiusControl", &vignetteRadius, 0.0f, 1.0f)) {
+                SetShaderValue(
+                    shaderManager.m_vignetteShader,
+                    shaderManager.GetUniformLocation(shaderManager.m_vignetteShader.id, "radius"),
+                    &vignetteRadius, SHADER_UNIFORM_FLOAT);
+            }
+
+            constexpr const char* vignetteColor_cstr = ICON_FA_PALETTE " Color:";
+
+            ImGui::Text(vignetteColor_cstr);
+            ImGui::SameLine();
+            ImGui::SetNextItemWidth(-1);
+
+            float colorValue[4] = { vignetteColor.x, vignetteColor.y, vignetteColor.z, vignetteColor.w };
+            if (ImGui::ColorEdit4("##ColorValue", colorValue, ImGuiColorEditFlags_AlphaBar)) {
+                vignetteColor = Vector4(colorValue[0], colorValue[1], colorValue[2], colorValue[3]);
+                SetShaderValue(shaderManager.m_vignetteShader,
+                    shaderManager.GetUniformLocation(shaderManager.m_vignetteShader.id, "color"),
+                    &vignetteColor, SHADER_UNIFORM_VEC4);
+    }
+        }
         ImGui::Unindent();
     }
 
