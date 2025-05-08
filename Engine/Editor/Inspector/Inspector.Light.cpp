@@ -1,3 +1,8 @@
+/*
+This file is licensed under the PolyForm Noncommercial License 1.0.0.
+See the LICENSE file in the project root for full license information.
+*/
+
 #define IMGUI_DEFINE_MATH_OPERATORS
 #include <imgui_internal.h>
 #include <imgui.h>

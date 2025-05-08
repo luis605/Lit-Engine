@@ -1,3 +1,8 @@
+/*
+This file is licensed under the PolyForm Noncommercial License 1.0.0.
+See the LICENSE file in the project root for full license information.
+*/
+
 #include "AssetsExplorer.hpp"
 #include "file_manipulation.hpp"
 #include <Engine/Lighting/skybox.hpp>
@@ -311,7 +316,7 @@ void InitRenderModelPreviewer() {
 
 Texture2D RenderModelPreview(const char* modelFile) {
     Model model = LoadModel(modelFile);
-    model.materials[0].shader = shaderManager.m_defaultShader;
+    model.materials[0].shader = *shaderManager.m_defaultShader;
     if (!IsModelReady(model)) {
         TraceLog(LOG_WARNING, "Failed to load model.");
         return {0};
@@ -321,7 +326,7 @@ Texture2D RenderModelPreview(const char* modelFile) {
 
     BeginTextureMode(modelPreviewRT);
     BeginMode3D(modelPreviewerCamera);
-    BeginShaderMode(shaderManager.m_defaultShader);
+    BeginShaderMode(*shaderManager.m_defaultShader);
     ClearBackground(GRAY);
     skybox.drawSkybox(modelPreviewerCamera);
 
@@ -427,9 +432,9 @@ void UpdateFileFolderStructures() {
     if (dirPath.empty() || !fs::exists(dirPath))
         return;
 
-    glUseProgram(shaderManager.m_defaultShader.id);
-    glUniform1i(glGetUniformLocation(shaderManager.m_defaultShader.id, "normalMapReady"), false);
-    glUniform1i(glGetUniformLocation(shaderManager.m_defaultShader.id, "roughnessMapReady"), false);
+    glUseProgram((*shaderManager.m_defaultShader).id);
+    glUniform1i(glGetUniformLocation((*shaderManager.m_defaultShader).id, "normalMapReady"), false);
+    glUniform1i(glGetUniformLocation((*shaderManager.m_defaultShader).id, "roughnessMapReady"), false);
 
     static bool lightsUpdated = false;
     if (!lightsUpdated) {

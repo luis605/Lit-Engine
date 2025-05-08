@@ -1,3 +1,8 @@
+/*
+This file is licensed under the PolyForm Noncommercial License 1.0.0.
+See the LICENSE file in the project root for full license information.
+*/
+
 #version 460 core
 
 precision mediump float;
@@ -8,7 +13,6 @@ in vec2 fragTexCoord;
 in vec3 fragNormal;
 
 // Input uniform values
-uniform vec4 ambientLight;
 uniform vec3 viewPos;
 
 // PBR Textures
@@ -26,6 +30,7 @@ uniform sampler2D texture3;
 uniform sampler2D texture4;
 uniform sampler2D texture5;
 uniform sampler2D texture6;
+uniform samplerCube irradiance;
 
 // Constants
 #define PI 3.14159265359
@@ -162,12 +167,6 @@ vec4 CalculateDiffuseLighting(vec3 norm, vec3 lightDir, vec4 lightColor, vec4 te
     return lightColor * NdotL / PI * texColor;
 }
 
-vec4 CalculateAmbientLighting(float roughness, vec4 texColor) {
-    float occlusion = 1.0;
-    float ambientFactor = mix(0.2, 1.0, 1.0 - roughness);
-    return vec4(clamp(ambientLight.rgb, vec3(0), vec3(1)) * texColor.rgb * occlusion * ambientFactor, texColor.a);
-}
-
 vec4 toneMapFilmic(vec4 hdrColor) {
     vec3 x = max(vec3(0.0), hdrColor.rgb * exposure - vec3(0.004));
     vec3 numerator = x * fma(vec3(6.2), x, vec3(0.5));
@@ -212,10 +211,11 @@ vec4 CalculateLighting(vec3 fragPosition, vec3 fragNormal, vec3 viewDir, vec2 te
     vec3 F0 = mix(vec3(0.04), texColor.rgb, metalness);
     float oneMinusMetalness = 1.0 - metalness;
 
-    vec4 result = CalculateAmbientLighting(roughness, texColor);
+    vec4 result = vec4(0);//texColor;
+    result.a = 1;
 
     vec3 multiBounce = (vec3(1.0) - F0) * oneMinusMetalness;
-    result.rgb = fma(multiBounce, ambientLight.rgb * 0.1, result.rgb);
+    result.rgb += multiBounce;
 
     for (int i = 0; i < lightsCount; i++) {
         result += CalculateLight(lights[i], viewDir, fragNormal, fragPosition, texColor, F0, T, B, roughness, specular);
@@ -252,11 +252,10 @@ void main() {
     vec3 tangent = normalize(dp1 * duv2.y - dp2 * duv1.y);
     vec3 bitangent = normalize(dp2 * duv1.x - dp1 * duv2.x);
 
-
 #ifdef ALBEDO
     vec4 texColor = texture(texture0, texCoord);
 #else
-    vec4 texColor = vec4(1.0);
+    vec4 texColor = vec4(vec3(.2), 1);
 #endif
 
 #ifdef NORMAL
@@ -266,9 +265,9 @@ void main() {
     vec3 nm = calcNormalMap(vec4(nxy, 1.0, 1.0)).rgb;
     nm.z = Q_rsqrt(max(1.0 - dot(nm.xy, nm.xy), 0.0));
 
-    vec3 norm = normalize(TBN * nm);
+    vec3 normal = normalize(TBN * nm);
 #else
-    vec3 norm = normalize(fragNormal);
+    vec3 normal = normalize(fragNormal);
 #endif
 
 #ifdef ROUGHNESS
@@ -289,11 +288,14 @@ void main() {
     float metalness = 0.5;
 #endif
 
-    vec4 lighting = CalculateLighting(fragPosition, norm, viewDir, texCoord, texColor, tangent, bitangent, roughness, specular, metalness);
+    texColor.rgb *= texture(irradiance, normal).rgb;
+
+    vec4 lighting = CalculateLighting(fragPosition, normal, viewDir, texCoord, texColor, tangent, bitangent, roughness, specular, metalness);
 
 #ifdef AMBIENT_OCCLUSION
     lighting.rgb *= texture(texture4, texCoord).r;
 #endif
 
-    finalColor = lighting;
+    finalColor = vec4(texture(irradiance, normal).rgb, 1);
+//    finalColor = lighting;
 }

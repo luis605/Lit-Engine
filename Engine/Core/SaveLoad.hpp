@@ -1,3 +1,8 @@
+/*
+This file is licensed under the PolyForm Noncommercial License 1.0.0.
+See the LICENSE file in the project root for full license information.
+*/
+
 #ifndef SAVE_LOAD_H
 #define SAVE_LOAD_H
 
@@ -117,7 +122,7 @@ int SaveProject();
 
 void LoadCamera(const json& cameraJson, LitCamera& camera);
 void LoadWorldSettings(const json& worldSettingsJson);
-Entity* LoadEntity(const json& entityJson);
+Entity LoadEntity(const json& entityJson);
 LightStruct& LoadLight(const json& lightJson);
 void LoadText(const json& textJson, Text& text);
 void LoadButton(const json& buttonJson, LitButton& button);

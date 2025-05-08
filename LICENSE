@@ -1,40 +1,133 @@
-LIT ENGINE PROPRIETARY LICENSE
+Required Notice: Copyright (c) 2025 Luís Tomás Cabete de Almeida
 
-1. GRANT OF LICENSE:
+# PolyForm Noncommercial License 1.0.0
 
-Subject to the terms and conditions of this License, Luís Almeida ("Licensor") hereby grants you ("Licensee") a non-exclusive, non-transferable license to use the Lit Engine ("Software").
+<https://polyformproject.org/licenses/noncommercial/1.0.0>
 
-2. RESTRICTIONS:
+## Acceptance
 
-(a) Licensee may not distribute, sublicense, lease, rent, or lend the Software to any third party without prior written consent from Licensor, except that Licensee may fork the Software on GitHub, provided that the forked repository clearly indicates that it is a fork and retains this license in its entirety.
+In order to get any license under these terms, you must agree
+to them as both strict obligations and conditions to all
+your licenses.
 
-(b) Licensee may not remove or alter any proprietary notices, labels, or marks from the Software.
+## Copyright License
 
-3. THIRD-PARTY COMPONENTS:
+The licensor grants you a copyright license for the
+software to do everything you might do with the software
+that would otherwise infringe the licensor's copyright
+in it for any permitted purpose.  However, you may
+only distribute the software according to [Distribution
+License](#distribution-license) and make changes or new works
+based on the software according to [Changes and New Works
+License](#changes-and-new-works-license).
 
-The Software includes third-party components, including but not limited to Mesh Optimizer, raylib, FFmpeg, ImGui, Bullet3, ImNodes, and Pybind11. Each third-party component is subject to its respective license terms. Licensor makes no warranties or representations regarding these third-party components and disclaims any liability arising from their use.
+## Distribution License
 
-4. SUPPORT AND UPDATES:
+The licensor grants you an additional copyright license
+to distribute copies of the software.  Your license
+to distribute covers distributing the software with
+changes and new works permitted by [Changes and New Works
+License](#changes-and-new-works-license).
 
-This license does not entitle Licensee to any support, maintenance, or updates. Licensor may, at its discretion, provide support and updates separately and may require additional fees.
+## Notices
 
-6. TERMINATION:
+You must ensure that anyone who gets a copy of any part of
+the software from you also gets a copy of these terms or the
+URL for them above, as well as copies of any plain-text lines
+beginning with `Required Notice:` that the licensor provided
+with the software.  For example:
 
-This License is effective until terminated. Licensor may terminate this License at any time if Licensee breaches any terms or conditions. Upon termination, Licensee must cease using the Software and destroy all copies.
+> Required Notice: Copyright Yoyodyne, Inc. (http://example.com)
 
-7. DISCLAIMER OF WARRANTY:
+## Changes and New Works License
 
-THE SOFTWARE IS PROVIDED "AS IS," WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED. LICENSOR DISCLAIMS ALL WARRANTIES, INCLUDING BUT NOT LIMITED TO THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE.
+The licensor grants you an additional copyright license to
+make changes and new works based on the software for any
+permitted purpose.
 
-8. LIMITATION OF LIABILITY:
+## Patent License
 
-IN NO EVENT SHALL LICENSOR BE LIABLE FOR ANY INCIDENTAL, SPECIAL, INDIRECT, OR CONSEQUENTIAL DAMAGES ARISING OUT OF OR RELATING TO THE USE OR INABILITY TO USE THE SOFTWARE.
+The licensor grants you a patent license for the software that
+covers patent claims the licensor can license, or becomes able
+to license, that you would infringe by using the software.
 
-9. GOVERNING LAW:
+## Noncommercial Purposes
 
-This License shall be governed by and construed in accordance with the laws of Portugal.
+Any noncommercial purpose is a permitted purpose.
 
----
+## Personal Uses
 
-Lit Engine
-litengine.main@gmail.com
+Personal use for research, experiment, and testing for
+the benefit of public knowledge, personal study, private
+entertainment, hobby projects, amateur pursuits, or religious
+observance, without any anticipated commercial application,
+is use for a permitted purpose.
+
+## Noncommercial Organizations
+
+Use by any charitable organization, educational institution,
+public research organization, public safety or health
+organization, environmental protection organization,
+or government institution is use for a permitted purpose
+regardless of the source of funding or obligations resulting
+from the funding.
+
+## Fair Use
+
+You may have "fair use" rights for the software under the
+law. These terms do not limit them.
+
+## No Other Rights
+
+These terms do not allow you to sublicense or transfer any of
+your licenses to anyone else, or prevent the licensor from
+granting licenses to anyone else.  These terms do not imply
+any other licenses.
+
+## Patent Defense
+
+If you make any written claim that the software infringes or
+contributes to infringement of any patent, your patent license
+for the software granted under these terms ends immediately. If
+your company makes such a claim, your patent license ends
+immediately for work on behalf of your company.
+
+## Violations
+
+The first time you are notified in writing that you have
+violated any of these terms, or done anything with the software
+not covered by your licenses, your licenses can nonetheless
+continue if you come into full compliance with these terms,
+and take practical steps to correct past violations, within
+32 days of receiving notice.  Otherwise, all your licenses
+end immediately.
+
+## No Liability
+
+***As far as the law allows, the software comes as is, without
+any warranty or condition, and the licensor will not be liable
+to you for any damages arising out of these terms or the use
+or nature of the software, under any kind of legal claim.***
+
+## Definitions
+
+The **licensor** is the individual or entity offering these
+terms, and the **software** is the software the licensor makes
+available under these terms.
+
+**You** refers to the individual or entity agreeing to these
+terms.
+
+**Your company** is any legal entity, sole proprietorship,
+or other kind of organization that you work for, plus all
+organizations that have control over, are under the control of,
+or are under common control with that organization.  **Control**
+means ownership of substantially all the assets of an entity,
+or the power to direct its management and policies by vote,
+contract, or otherwise.  Control can be direct or indirect.
+
+**Your licenses** are all the licenses granted to you for the
+software under these terms.
+
+**Use** means anything you do with the software requiring one
+of your licenses.

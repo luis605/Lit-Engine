@@ -1,3 +1,8 @@
+/*
+This file is licensed under the PolyForm Noncommercial License 1.0.0.
+See the LICENSE file in the project root for full license information.
+*/
+
 #include "Core.hpp"
 #include "global_variables.hpp"
 
@@ -179,11 +184,11 @@ void Startup() {
     glCullFace(GL_BACK);
     glDisable(GL_STENCIL_TEST);
 
-    skybox.loadSkybox("Assets/images/skybox/default skybox.hdr");
     Py_Initialize();
     InitImGui();
     LoadTextures();
     shaderManager.InitShaders();
+    skybox.loadSkybox("Assets/images/skybox/default skybox.hdr");
     InitLighting();
     InitGizmo();
     InitEditorCamera();
@@ -239,7 +244,7 @@ void CleanUp() {
     entitiesList.clear();
     lights.clear();
 
-    UnloadShader(shaderManager.m_defaultShader);
+    UnloadShader(*shaderManager.m_defaultShader);
     UnloadImage(windowIconImage);
     UnloadTexture(folderTexture);
     UnloadTexture(imageTexture);

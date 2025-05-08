@@ -1,3 +1,8 @@
+/*
+This file is licensed under the PolyForm Noncommercial License 1.0.0.
+See the LICENSE file in the project root for full license information.
+*/
+
 #include "ObjectsList.hpp"
 #include <Engine/Editor/MenuBar/MenuBar.hpp>
 #include <Engine/Editor/SceneEditor/SceneEditor.hpp>
@@ -53,11 +58,9 @@ bool DrawNodeTree(const char* icon, const std::string& name,
     if (isSelected)
         flags |= ImGuiTreeNodeFlags_Selected;
 
-    bool isNodeOpen =
-        ImGui::TreeNodeEx((std::string(icon) + " " + name + " ##" +
-                           std::to_string(entitiesListTreeNodeIndex))
-                              .c_str(),
-                          flags);
+    const std::string label = std::string(icon) + " " + name + " ##" + std::to_string(entitiesListTreeNodeIndex);
+    bool isNodeOpen = ImGui::TreeNodeEx(label.c_str(), flags);
+
     if (ImGui::IsItemClicked(ImGuiMouseButton_Left))
         callback();
     if (rightClicked && ImGui::IsItemClicked(ImGuiMouseButton_Right))
@@ -81,8 +84,7 @@ bool DrawTreeNodeWithRename(const char* icon, std::string& name, void* ptr,
         }
     }
 
-    return DrawNodeTree(icon, name, flags, ptr, isSelected, callback,
-                        rightClicked);
+    return DrawNodeTree(icon, name, flags, ptr, isSelected, callback, rightClicked);
 }
 
 void DrawEntityTree(Entity& entity) {

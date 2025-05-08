@@ -1,3 +1,8 @@
+/*
+This file is licensed under the PolyForm Noncommercial License 1.0.0.
+See the LICENSE file in the project root for full license information.
+*/
+
 #define IMGUI_DEFINE_MATH_OPERATORS
 #include <imgui.h>
 #include <imgui_internal.h>
@@ -142,10 +147,9 @@ void DrawMenus() {
 
     if (ImGui::BeginMenu("Debug")) {
         if (ImGui::MenuItem("Reload Lighting Shader")) {
-            UnloadShader(shaderManager.m_defaultShader);
-            shaderManager.m_defaultShader =
-                LoadShader("Engine/Lighting/shaders/lighting_vertex.glsl",
-                           "Engine/Lighting/shaders/lighting_fragment.glsl");
+            shaderManager.m_defaultShader = std::make_shared<Shader>(
+                LoadShader("Engine/Lighting/shaders/lighting_vertex.glsl", "Engine/Lighting/shaders/lighting_fragment.glsl")
+            );
 
             for (Entity& entity : entitiesListPregame) {
                 entity.setShader(shaderManager.m_defaultShader);

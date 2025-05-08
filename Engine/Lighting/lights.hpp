@@ -1,3 +1,8 @@
+/*
+This file is licensed under the PolyForm Noncommercial License 1.0.0.
+See the LICENSE file in the project root for full license information.
+*/
+
 #ifndef LIGHTS_H
 #define LIGHTS_H
 
@@ -21,7 +26,6 @@ extern std::vector<LightStruct> lights;
 extern std::vector<LightStruct> renderModelPreviewerLights;
 
 extern Texture2D lightTexture;
-extern Vector4 ambientLight;
 
 void UpdateLightsBuffer(bool force, std::vector<LightStruct>& lightsVector,
                         GLuint& buffer = lightsBuffer);

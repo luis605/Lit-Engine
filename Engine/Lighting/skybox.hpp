@@ -1,3 +1,8 @@
+/*
+This file is licensed under the PolyForm Noncommercial License 1.0.0.
+See the LICENSE file in the project root for full license information.
+*/
+
 #ifndef SKYBOX_H
 #define SKYBOX_H
 
@@ -39,11 +44,13 @@ class Skybox {
     Model cubeModel;
     Shader skyboxShader;
     Shader cubemapShader;
-    TextureCubemap cubemap;
+    Texture irradianceTex;
+    TextureCubemap cubeMap;
     GLuint objectsBuffer;
 
   public:
     void loadSkybox(const fs::path& texturePath);
+    void GenerateIrradianceMap(GLuint envCubemap, Shader& irradianceShader, GLuint& outIrradianceMap);
     void addSkyboxObject(const Texture2D& texture, const Vector2& scale,
                          const Vector2& velocity, const Vector2& rotation);
     void addSkyboxObject(const SkyboxObject& object);

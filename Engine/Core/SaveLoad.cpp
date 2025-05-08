@@ -1,3 +1,8 @@
+/*
+This file is licensed under the PolyForm Noncommercial License 1.0.0.
+See the LICENSE file in the project root for full license information.
+*/
+
 #include "SaveLoad.hpp"
 #include <fstream>
 #include <Engine/Lighting/skybox.hpp>
@@ -141,7 +146,6 @@ void SaveWorldSetting(json& jsonData) {
     j["bloomThreshold"] = bloomThreshold;
     j["kernelSize"] = kernelSize;
     j["skyboxPath"] = skybox.skyboxTexturePath;
-    j["ambientColor"] = ambientLight;
     j["skyboxColor"] = skybox.color;
 
     jsonData.emplace_back(j);
@@ -313,11 +317,6 @@ void LoadWorldSettings(const json& worldSettingsJson) {
         skybox.loadSkybox(worldSettingsJson["skyboxPath"].get<fs::path>());
     }
 
-    if (worldSettingsJson.contains("ambientColor")) {
-        ambientLight = worldSettingsJson["ambientColor"].get<Vector4>();
-        SetShaderValue(shaderManager.m_defaultShader, shaderManager.GetUniformLocation(shaderManager.m_defaultShader.id, "ambientLight"), &ambientLight, SHADER_UNIFORM_VEC4);
-    }
-
     if (worldSettingsJson.contains("gravity")) {
         physics.gravity.x = worldSettingsJson["gravity"]["x"].get<float>();
         physics.gravity.y = worldSettingsJson["gravity"]["y"].get<float>();
@@ -329,15 +328,16 @@ void LoadWorldSettings(const json& worldSettingsJson) {
     SetShaderValue(skybox.cubeModel.materials[0].shader, shaderManager.GetUniformLocation(skybox.cubeModel.materials[0].shader.id, "skyboxColor"), &skybox.color, SHADER_UNIFORM_VEC4);
 }
 
-Entity* LoadEntity(const json& entityJson) {
+Entity LoadEntity(const json& entityJson) {
     int id = -1;
     if (entityJson.contains("id"))
         id = entityJson["id"].get<int>();
 
-    Entity* entity = AddEntity("", LoadModelFromMesh(GenMeshCube(1,1,1)), "Unnamed Entity", id);
+    AddEntity("", LoadModelFromMesh(GenMeshCube(1,1,1)), "Unnamed Entity", id);
+    Entity& entity = entitiesListPregame.back();
 
     if (entityJson.contains("name")) {
-        entity->setName(entityJson["name"].get<std::string>());
+        entity.setName(entityJson["name"].get<std::string>());
     }
 
     if (entityJson.contains("scale")) {
@@ -346,11 +346,11 @@ Entity* LoadEntity(const json& entityJson) {
             entityJson["scale"]["y"].get<float>(),
             entityJson["scale"]["z"].get<float>()
         };
-        entity->setScale(scale);
+        entity.setScale(scale);
     }
 
     if (entityJson.contains("position")) {
-        entity->position = Vector3{
+        entity.position = Vector3{
             entityJson["position"]["x"].get<float>(),
             entityJson["position"]["y"].get<float>(),
             entityJson["position"]["z"].get<float>()
@@ -358,7 +358,7 @@ Entity* LoadEntity(const json& entityJson) {
     }
 
     if (entityJson.contains("rotation")) {
-        entity->rotation = Vector3{
+        entity.rotation = Vector3{
             entityJson["rotation"]["x"].get<float>(),
             entityJson["rotation"]["y"].get<float>(),
             entityJson["rotation"]["z"].get<float>()
@@ -366,7 +366,7 @@ Entity* LoadEntity(const json& entityJson) {
     }
 
     if (entityJson.contains("relativePosition")) {
-        entity->relativePosition = Vector3{
+        entity.relativePosition = Vector3{
             entityJson["relativePosition"]["x"].get<float>(),
             entityJson["relativePosition"]["y"].get<float>(),
             entityJson["relativePosition"]["z"].get<float>()
@@ -374,84 +374,99 @@ Entity* LoadEntity(const json& entityJson) {
     }
 
     if (entityJson.contains("mass")) {
-        entity->mass = entityJson["mass"].get<float>();
+        entity.mass = entityJson["mass"].get<float>();
     }
 
     if (entityJson.contains("friction")) {
-        entity->friction = entityJson["friction"].get<float>();
+        entity.friction = entityJson["friction"].get<float>();
     }
 
     if (entityJson.contains("damping")) {
-        entity->damping = entityJson["damping"].get<float>();
+        entity.damping = entityJson["damping"].get<float>();
     }
 
     if (entityJson.contains("lodEnabled")) {
-        entity->setFlag(Entity::Flag::LOD_ENABLED, entityJson["lodEnabled"].get<bool>());
+        entity.setFlag(Entity::Flag::LOD_ENABLED, entityJson["lodEnabled"].get<bool>());
     }
 
     if (entityJson.contains("mesh_type")) {
-        entity->ObjectType = entityJson["mesh_type"].get<ObjectTypeEnum>();
+        entity.ObjectType = entityJson["mesh_type"].get<ObjectTypeEnum>();
     }
 
     if (entityJson.contains("modelPath") && !entityJson["modelPath"].get<std::string>().empty()) {
-        entity->setModel(
+        entity.setModel(
             entityJson["modelPath"].get<std::string>().c_str(),
             LoadModel(entityJson["modelPath"].get<std::string>().c_str())
         );
     } else {
-        if (entity->ObjectType == ObjectTypeEnum::ObjectType_Cube)           entity->setModel("", LoadModelFromMesh(GenMeshCube(1, 1, 1)));
-        else if (entity->ObjectType == ObjectTypeEnum::ObjectType_Cone)      entity->setModel("", LoadModelFromMesh(GenMeshCone(.5, 1, 10)));
-        else if (entity->ObjectType == ObjectTypeEnum::ObjectType_Cylinder)  entity->setModel("", LoadModelFromMesh(GenMeshCylinder(.5, 2, 30)));
-        else if (entity->ObjectType == ObjectTypeEnum::ObjectType_Plane)     entity->setModel("", LoadModelFromMesh(GenMeshPlane(1, 1, 1, 1)));
-        else if (entity->ObjectType == ObjectTypeEnum::ObjectType_Sphere)    entity->setModel("", LoadModelFromMesh(GenMeshSphere(.5, 50, 50)));
-        else if (entity->ObjectType == ObjectTypeEnum::ObjectType_Torus)     entity->setModel("", LoadModelFromMesh(GenMeshTorus(.5, 1, 30, 30)));
+        if (entity.ObjectType == ObjectTypeEnum::ObjectType_Cube)           entity.setModel("", LoadModelFromMesh(GenMeshCube(1, 1, 1)));
+        else if (entity.ObjectType == ObjectTypeEnum::ObjectType_Cone)      entity.setModel("", LoadModelFromMesh(GenMeshCone(.5, 1, 10)));
+        else if (entity.ObjectType == ObjectTypeEnum::ObjectType_Cylinder)  entity.setModel("", LoadModelFromMesh(GenMeshCylinder(.5, 2, 30)));
+        else if (entity.ObjectType == ObjectTypeEnum::ObjectType_Plane)     entity.setModel("", LoadModelFromMesh(GenMeshPlane(1, 1, 1, 1)));
+        else if (entity.ObjectType == ObjectTypeEnum::ObjectType_Sphere)    entity.setModel("", LoadModelFromMesh(GenMeshSphere(.5, 50, 50)));
+        else if (entity.ObjectType == ObjectTypeEnum::ObjectType_Torus)     entity.setModel("", LoadModelFromMesh(GenMeshTorus(.5, 1, 30, 30)));
     }
 
     if (entityJson.contains("is_dynamic"))
-        entity->setFlag(Entity::Flag::IS_DYNAMIC, entityJson["is_dynamic"].get<bool>());
+        entity.setFlag(Entity::Flag::IS_DYNAMIC, entityJson["is_dynamic"].get<bool>());
 
     if (entityJson.contains("mass"))
-        entity->mass = entityJson["mass"].get<float>();
+        entity.mass = entityJson["mass"].get<float>();
 
     if (entityJson.contains("collider_type"))
-        entity->currentCollisionShapeType = entityJson["collider_type"].get<CollisionShapeType>();
+        entity.currentCollisionShapeType = entityJson["collider_type"].get<CollisionShapeType>();
 
     if (entityJson.contains("collider"))
-        entity->setFlag(Entity::Flag::COLLIDER, entityJson["collider"].get<bool>());
+        entity.setFlag(Entity::Flag::COLLIDER, entityJson["collider"].get<bool>());
 
     if (entityJson.contains("script_path"))
-        entity->scriptPath = entityJson["script_path"].get<fs::path>();
+        entity.scriptPath = entityJson["script_path"].get<fs::path>();
 
     if (entityJson.contains("scriptIndex"))
-        entity->scriptIndex = entityJson["scriptIndex"].get<std::string>();
+        entity.scriptIndex = entityJson["scriptIndex"].get<std::string>();
 
-    entity->reloadRigidBody();
+    entity.reloadRigidBody();
 
-    if (entityJson.contains("childMaterialPath")) {
-        entity->childMaterialPath = entityJson["childMaterialPath"].get<std::string>();
-        if (!entity->childMaterialPath.empty()) LoadChildMaterial(entity->childMaterialPath);
+    const bool hasChildMaterial = entityJson.contains("childMaterialPath");
+    if (hasChildMaterial) {
+        entity.childMaterialPath = entityJson["childMaterialPath"].get<std::string>();
+    }
 
-        if (childMaterials.find(entity->childMaterialPath) != childMaterials.end()) {
-            ChildMaterial& material = childMaterials[entity->childMaterialPath];
-            std::ifstream stream("Engine/Lighting/shaders/lighting_vertex.glsl");
-            if (!stream.is_open()) {
-                TraceLog(LOG_ERROR, "Failed to open default vertex shader file");
-            }
+    bool validPath = hasChildMaterial && !entity.childMaterialPath.empty();
+    if (validPath && !childMaterials.contains(entity.childMaterialPath)) {
+        LoadChildMaterial(entity.childMaterialPath);
+    }
 
-            std::string vertexShaderCode = std::string((std::istreambuf_iterator<char>(stream)),
-                                                        std::istreambuf_iterator<char>());
+    const bool materialLoaded = validPath && (childMaterials.contains(entity.childMaterialPath));
+    if (materialLoaded) {
+        ChildMaterial& material = childMaterials[selectedEntity->childMaterialPath];
 
-            std::shared_ptr<Shader> shader = shaderManager.LoadShaderProgramFromMemory(vertexShaderCode.c_str(), GenerateMaterialShader(material).c_str());
-            if (IsShaderReady(*shader.get())) entity->setShader(*shader.get());
-            else TraceLog(LOG_ERROR, "Failed to generate shader for material: %s", material.name.c_str());
-        } else entity->setShader(shaderManager.m_defaultShader);
+        std::ifstream stream("Engine/Lighting/shaders/lighting_vertex.glsl");
+        if (!stream) {
+            TraceLog(LOG_ERROR, "Failed to open default vertex shader file");
+        }
 
-    } else entity->setShader(shaderManager.m_defaultShader);
+        std::string vertexShaderCode = std::string((std::istreambuf_iterator<char>(stream)), std::istreambuf_iterator<char>());
+
+        std::shared_ptr<Shader> shader = shaderManager.LoadShaderProgramFromMemory(
+            vertexShaderCode.c_str(),
+            GenerateMaterialShader(entity, material).c_str()
+        );
+
+        if (shader && IsShaderReady(*shader)) {
+            entity.setShader(shader);
+        } else {
+            TraceLog(LOG_ERROR, "Failed to generate shader for material: %s", material.name.c_str());
+            entity.setShader(shaderManager.m_defaultShader);
+        }
+    } else {
+        entity.setShader(shaderManager.m_defaultShader);
+    }
 
     if (entityJson.contains("visible"))
-        entity->setFlag(Entity::Flag::VISIBLE, entityJson["visible"].get<bool>());
+        entity.setFlag(Entity::Flag::VISIBLE, entityJson["visible"].get<bool>());
     else
-        entity->setFlag(Entity::Flag::VISIBLE, true);
+        entity.setFlag(Entity::Flag::VISIBLE, true);
 
     // Deserialize children
     if (entityJson.contains("children")) {
@@ -462,13 +477,13 @@ Entity* LoadEntity(const json& entityJson) {
                     const json& childJson = childArray[0];
                     std::string type = childJson["type"].get<std::string>();
                     if (type == "entity") {
-                        int id = entity->id;
-                        Entity* child = LoadEntity(childJson);
+                        int id = entity.id;
+                        const Entity& child = LoadEntity(childJson);
                         Entity* reloadedEntity = getEntityById(id); // Reload necessary because entity* gets invalid after entitiesListPregame gets resized!
-                        reloadedEntity->addEntityChild(child->id);
+                        reloadedEntity->addEntityChild(child.id);
                     } else if (type == "light") {
                         LightStruct& lightStruct = LoadLight(childJson);
-                        entity->addLightChild(lightStruct.id);
+                        entity.addLightChild(lightStruct.id);
                     }
                 }
             }

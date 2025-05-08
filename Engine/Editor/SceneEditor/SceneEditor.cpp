@@ -1,3 +1,8 @@
+/*
+This file is licensed under the PolyForm Noncommercial License 1.0.0.
+See the LICENSE file in the project root for full license information.
+*/
+
 #include <Engine/Core/Events.hpp>
 #include <Engine/Core/RunGame.hpp>
 #include <Engine/Editor/AssetsExplorer/AssetsExplorer.hpp>
@@ -307,8 +312,7 @@ void ApplyVignetteEffect() {
 
 void RenderLights() {
     for (LightStruct& lightStruct : lights) {
-        lightModel.materials[0].maps[MATERIAL_MAP_DIFFUSE].texture =
-            lightTexture;
+        lightModel.materials[0].maps[MATERIAL_MAP_DIFFUSE].texture = lightTexture;
 
         float rotation = DrawBillboardRotation(sceneCamera, lightTexture,
                                                {lightStruct.light.position.x,
@@ -375,19 +379,17 @@ void RenderEntities() {
 }
 
 void UpdateShader() {
-    float cameraPos[3] = {sceneCamera.position.x, sceneCamera.position.y,
-                          sceneCamera.position.z};
-    SetShaderValue(shaderManager.m_defaultShader, GetShaderLocation(shaderManager.m_defaultShader, "viewPos"), cameraPos,
-                   SHADER_UNIFORM_VEC3);
+    float cameraPos[3] = { sceneCamera.position.x, sceneCamera.position.y, sceneCamera.position.z };
+
+    SetShaderValue(*shaderManager.m_defaultShader, shaderManager.GetUniformLocation((*shaderManager.m_defaultShader).id, "viewPos"), cameraPos, SHADER_UNIFORM_VEC3);
 
     for (Entity& entity : entitiesListPregame) {
-        SetShaderValue(entity.getShader(),
-                       GetShaderLocation(entity.getShader(), "viewPos"),
-                       cameraPos, SHADER_UNIFORM_VEC3);
+        std::shared_ptr<Shader> shader = entity.getShader();
+        SetShaderValue(*shader, shaderManager.GetUniformLocation((*shader).id, "viewPos"), cameraPos, SHADER_UNIFORM_VEC3);
     }
 
-    SetShaderValue(shaderManager.m_instancingShader,
-                   shaderManager.m_instancingShader.locs[SHADER_LOC_VECTOR_VIEW], cameraPos,
+    SetShaderValue((*shaderManager.m_instancingShader),
+                   (*shaderManager.m_instancingShader).locs[SHADER_LOC_VECTOR_VIEW], cameraPos,
                    SHADER_UNIFORM_VEC3);
 }
 

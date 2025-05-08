@@ -1,3 +1,8 @@
+/*
+This file is licensed under the PolyForm Noncommercial License 1.0.0.
+See the LICENSE file in the project root for full license information.
+*/
+
 #define IMGUI_DEFINE_MATH_OPERATORS
 #include <imgui_internal.h>
 #include <imgui.h>
@@ -144,54 +149,6 @@ void WorldInspector() {
     if (ImGui::CollapsingHeader(lighting_cstr, false)) {
         ImGui::Indent();
 
-        // Ambient Light Panel
-        ImGui::SetNextItemWidth(-1);
-
-        constexpr const char* ambientLight_cstr = ICON_FA_SUN " Ambient Light";
-
-        if (ImGui::CollapsingHeader(ambientLight_cstr, false)) {
-            ImGui::Indent();
-
-            ImGui::Text("Color:");
-            ImGui::SameLine();
-
-            // Ambient Light Color Picker
-            ImVec4 lightColorImGUI = ImVec4(ambientLight.x, ambientLight.y,
-                                            ambientLight.z, ambientLight.w);
-            if (ImGui::ColorButton(ICON_FA_PALETTE " Ambient Light Color",
-                                   lightColorImGUI)) {
-                ImGui::OpenPopup("##AmbientLightColorPicker");
-            }
-
-            if (ImGui::BeginPopupContextItem("##AmbientLightColorPicker")) {
-                ImGui::ColorPicker4("##AmbientLightColor",
-                                    (float*)&lightColorImGUI);
-                ambientLight = {lightColorImGUI.x, lightColorImGUI.y,
-                                lightColorImGUI.z, lightColorImGUI.w};
-                SetShaderValue(shaderManager.m_defaultShader,
-                               shaderManager.GetUniformLocation(shaderManager.m_defaultShader.id, "ambientLight"),
-                               &ambientLight, SHADER_UNIFORM_VEC4);
-                ImGui::EndPopup();
-            }
-
-            ambientLight.x = lightColorImGUI.x;
-            ambientLight.y = lightColorImGUI.y;
-            ambientLight.z = lightColorImGUI.z;
-            ambientLight.w = lightColorImGUI.w;
-
-            SetShaderValue(shaderManager.m_defaultShader, shaderManager.GetUniformLocation(shaderManager.m_defaultShader.id, "ambientLight"),
-                           &ambientLight, SHADER_UNIFORM_VEC4);
-
-            for (Entity& entity : entitiesListPregame) {
-                SetShaderValue(
-                    entity.getShader(),
-                    shaderManager.GetUniformLocation(entity.getShader().id, "ambientLight"),
-                    &ambientLight, SHADER_UNIFORM_VEC4);
-            }
-
-            ImGui::Unindent();
-        }
-
         // Skybox Panel
         ImGui::SetNextItemWidth(-1);
         if (ImGui::CollapsingHeader(ICON_FA_CLOUD " Skybox", false)) {
@@ -225,7 +182,7 @@ void WorldInspector() {
 
             ImGui::Indent();
 
-            if (ImGui::ImageButton("skyboxTex", (ImTextureID)&skybox.cubemap,
+            if (ImGui::ImageButton("skyboxTex", (ImTextureID)&skybox.cubeMap,
                                    ImVec2(200, 200))) {
                 showSkyboxTexture = !showSkyboxTexture;
             }
@@ -245,7 +202,7 @@ void WorldInspector() {
 
             ImGui::SameLine();
             if (ImGui::Button("x##SkuboxEmptyButton", ImVec2(25, 25)))
-                UnloadTexture(skybox.cubemap);
+                UnloadTexture(skybox.cubeMap);
 
             ImGui::Unindent();
 

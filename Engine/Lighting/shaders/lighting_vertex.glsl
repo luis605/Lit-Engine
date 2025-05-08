@@ -1,3 +1,8 @@
+/*
+This file is licensed under the PolyForm Noncommercial License 1.0.0.
+See the LICENSE file in the project root for full license information.
+*/
+
 #version 460 core
 
 // Input vertex attributes
@@ -25,7 +30,7 @@ void main() {
     fragTexCoord = vertexTexCoord;
     fragColor = vertexColor;
     fragNormal = normalize(vec3(matNormal*vec4(vertexNormal, 1.0)));
-    
+
     fragUV = uv;
 
     // Calculate final vertex position

@@ -1,3 +1,8 @@
+/*
+This file is licensed under the PolyForm Noncommercial License 1.0.0.
+See the LICENSE file in the project root for full license information.
+*/
+
 #ifndef ENTITY_H
 #define ENTITY_H
 
@@ -102,7 +107,7 @@ class __attribute__((visibility("default"))) Entity {
     std::vector<Matrix> transforms;
     Material matInstances;
 
-    Shader* entityShader = &shaderManager.m_defaultShader;
+    std::shared_ptr<Shader> entityShader = shaderManager.m_defaultShader;
 
     std::string scriptContent;
     py::dict localNamespace;
@@ -143,8 +148,8 @@ class __attribute__((visibility("default"))) Entity {
     void setModel(const fs::path& path = "",
                   const Model& entityModel = Model());
     bool hasModel();
-    void setShader(Shader& newShader);
-    Shader& getShader();
+    void setShader(std::shared_ptr<Shader> newShader);
+    std::shared_ptr<Shader> getShader();
     void initializeSharedModules();
     void setupScript(LitCamera* rendering_camera);
     void runScript(LitCamera* rendering_camera);
@@ -188,7 +193,7 @@ bool AABBoxInFrustum(const Vector3& min, const Vector3& max);
 void removeEntity(const int& id);
 Entity* getEntityById(const int& id);
 int getIdFromEntity(const Entity& entity);
-Entity* AddEntity(const fs::path& modelPath = "",
+void AddEntity(const fs::path& modelPath = "",
                   const Model& model = LoadModelFromMesh(GenMeshCube(1, 1, 1)),
                   const std::string& name = "Unnamed Entity",
                   const int& id = -1);

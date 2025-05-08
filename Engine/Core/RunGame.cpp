@@ -1,3 +1,8 @@
+/*
+This file is licensed under the PolyForm Noncommercial License 1.0.0.
+See the LICENSE file in the project root for full license information.
+*/
+
 #include "RunGame.hpp"
 #include <Engine/Core/Entity.hpp>
 #include <Engine/Editor/SceneEditor/SceneEditor.hpp>
@@ -36,7 +41,7 @@ void RunGame() {
     BeginTextureMode(viewportRenderTexture);
     BeginMode3D(camera);
 
-    BeginShaderMode(shaderManager.m_defaultShader);
+    BeginShaderMode(*shaderManager.m_defaultShader);
 
     ClearBackground(GRAY);
 

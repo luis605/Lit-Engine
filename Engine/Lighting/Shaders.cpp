@@ -1,3 +1,8 @@
+/*
+This file is licensed under the PolyForm Noncommercial License 1.0.0.
+See the LICENSE file in the project root for full license information.
+*/
+
 #include <Engine/Lighting/Shaders.hpp>
 #include <raylib.h>
 #include <rlgl.h>
@@ -27,13 +32,20 @@ RenderTexture vignetteTexture;
 std::vector<RenderTexture2D> downsampledTextures;
 
 void ShaderManager::InitShaders() {
-    m_defaultShader         = LoadShader("Engine/Lighting/shaders/lighting_vertex.glsl", "Engine/Lighting/shaders/lighting_fragment.glsl");
-    m_instancingShader      = LoadShader("Engine/Lighting/shaders/lighting_vertex.glsl", "Engine/Lighting/shaders/lighting_fragment.glsl");
+    m_defaultShader = std::make_shared<Shader>(
+        LoadShader("Engine/Lighting/shaders/lighting_vertex.glsl", "Engine/Lighting/shaders/lighting_fragment.glsl")
+    );
+
+    m_instancingShader = std::make_shared<Shader>(
+        LoadShader("Engine/Lighting/shaders/lighting_vertex.glsl", "Engine/Lighting/shaders/lighting_fragment.glsl")
+    );
+
     m_horizontalBlurShader  = LoadShader("Engine/Lighting/shaders/lighting_vertex.glsl", "Engine/Lighting/shaders/blurHorizontal.fs");
     m_verticalBlurShader    = LoadShader("Engine/Lighting/shaders/lighting_vertex.glsl", "Engine/Lighting/shaders/blurVertical.fs");
     m_upsamplerShader       = LoadShader("Engine/Lighting/shaders/lighting_vertex.glsl", "Engine/Lighting/shaders/upsampler.glsl");
     m_downsampleShader      = LoadShader("Engine/Lighting/shaders/lighting_vertex.glsl", "Engine/Lighting/shaders/downsampler.glsl");
-    m_vignetteShader        = LoadShader("Engine/Lighting/shaders/lighting_vertex.glsl",          "Engine/Lighting/shaders/vignette.fs");
+    m_vignetteShader        = LoadShader("Engine/Lighting/shaders/lighting_vertex.glsl", "Engine/Lighting/shaders/vignette.fs");
+    m_irradianceShader      = LoadShader("Engine/Lighting/shaders/cubemap.vs",           "Engine/Lighting/shaders/irradiance.fs");
 
     char* shaderCode = LoadFileText("Engine/Lighting/shaders/luminanceCompute.glsl");
     unsigned int shaderData = rlCompileShader(shaderCode, RL_COMPUTE_SHADER);
@@ -71,8 +83,9 @@ std::shared_ptr<Shader> ShaderManager::LoadShaderProgramFromMemory(const char* v
         return nullptr;
     }
 
-    auto shader = std::make_shared<Shader>(std::move(loaded));
+    auto shader = std::make_shared<Shader>(loaded);
     m_shaders.emplace_back(shader);
+
     return m_shaders.back();
 }
 
@@ -96,7 +109,7 @@ const GLint ShaderManager::GetUniformLocation(const GLuint& shaderId, const char
     if (auto it = shaderCache.find(name); it != shaderCache.end())
         return it->second;
 
-    GLint location = glGetUniformLocation(shaderId, name);
+    GLint location = rlGetLocationUniform(shaderId, name);
     shaderCache[name] = location;
     return location;
 }
@@ -109,7 +122,7 @@ const GLint ShaderManager::GetAttribLocation(const GLuint& shaderId, const char*
     if (auto it = shaderCache.find(name); it != shaderCache.end())
         return it->second;
 
-    GLint location = glGetAttribLocation(shaderId, name);
+    GLint location = rlGetLocationAttrib(shaderId, name);
     shaderCache[name] = location;
     return location;
 }

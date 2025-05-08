@@ -1,3 +1,8 @@
+/*
+This file is licensed under the PolyForm Noncommercial License 1.0.0.
+See the LICENSE file in the project root for full license information.
+*/
+
 #include <Engine/Core/Engine.hpp>
 #include <Engine/Lighting/InitLighting.hpp>
 #include <Engine/Lighting/Shaders.hpp>
@@ -6,9 +11,6 @@
 #include <glad.h>
 
 void InitLighting() {
-    SetShaderValue(shaderManager.m_defaultShader, shaderManager.GetUniformLocation(shaderManager.m_defaultShader.id, "ambientLight"),
-                   &ambientLight, SHADER_UNIFORM_VEC4);
-
     glGenBuffers(1, &lightsBuffer);
     glBindBuffer(GL_SHADER_STORAGE_BUFFER, lightsBuffer);
     glBufferData(GL_SHADER_STORAGE_BUFFER, sizeof(Light) * lights.size(),
@@ -23,7 +25,7 @@ void InitLighting() {
     glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 0, renderPrevierLightsBuffer);
 
     int lightsCount = lights.size();
-    glUniform1i(shaderManager.GetUniformLocation(shaderManager.m_defaultShader.id, "lightsCount"), lightsCount);
+    glUniform1i(shaderManager.GetUniformLocation((*shaderManager.m_defaultShader).id, "lightsCount"), lightsCount);
 
     float initialExposure = 1.0f;
     glGenBuffers(1, &exposureSSBO);
