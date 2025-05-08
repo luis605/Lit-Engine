@@ -252,12 +252,6 @@ void main() {
     vec3 tangent = normalize(dp1 * duv2.y - dp2 * duv1.y);
     vec3 bitangent = normalize(dp2 * duv1.x - dp1 * duv2.x);
 
-#ifdef ALBEDO
-    vec4 texColor = texture(texture0, texCoord);
-#else
-    vec4 texColor = vec4(vec3(.2), 1);
-#endif
-
 #ifdef NORMAL
     mat3 TBN = mat3(tangent, bitangent, fragNormal);
 
@@ -268,6 +262,12 @@ void main() {
     vec3 normal = normalize(TBN * nm);
 #else
     vec3 normal = normalize(fragNormal);
+#endif
+
+#ifdef ALBEDO
+    vec4 texColor = texture(texture0, texCoord) * vec4(texture(irradiance, normal).rgb, 1);
+#else
+    vec4 texColor = vec4(texture(irradiance, normal).rgb, 1);
 #endif
 
 #ifdef ROUGHNESS
@@ -288,14 +288,11 @@ void main() {
     float metalness = 0.5;
 #endif
 
-    texColor.rgb *= texture(irradiance, normal).rgb;
-
     vec4 lighting = CalculateLighting(fragPosition, normal, viewDir, texCoord, texColor, tangent, bitangent, roughness, specular, metalness);
 
 #ifdef AMBIENT_OCCLUSION
     lighting.rgb *= texture(texture4, texCoord).r;
 #endif
 
-    finalColor = vec4(texture(irradiance, normal).rgb, 1);
-//    finalColor = lighting;
+    finalColor = lighting;
 }
