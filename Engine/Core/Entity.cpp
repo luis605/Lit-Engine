@@ -944,6 +944,11 @@ void Entity::PassSurfaceMaterials() {
     SetShaderValue(*entityShader,
         shaderManager.GetUniformLocation(entityShader->id, "irradiance"),
         &irrUnit, SHADER_UNIFORM_INT);
+
+    const int lightsCount = lights.size();
+    SetShaderValue(*entityShader,
+        shaderManager.GetUniformLocation(entityShader->id, "lightsCount"),
+        &lightsCount, SHADER_UNIFORM_INT);
 }
 
 

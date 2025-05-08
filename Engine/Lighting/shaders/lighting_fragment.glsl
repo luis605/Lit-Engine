@@ -211,7 +211,7 @@ vec4 CalculateLighting(vec3 fragPosition, vec3 fragNormal, vec3 viewDir, vec2 te
     vec3 F0 = mix(vec3(0.04), texColor.rgb, metalness);
     float oneMinusMetalness = 1.0 - metalness;
 
-    vec4 result = vec4(0);//texColor;
+    vec4 result = vec4(0);
     result.a = 1;
 
     vec3 multiBounce = (vec3(1.0) - F0) * oneMinusMetalness;
