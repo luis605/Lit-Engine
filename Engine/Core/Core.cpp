@@ -29,6 +29,7 @@ See the LICENSE file in the project root for full license information.
 #include <Engine/Lighting/lights.hpp>
 #include <Engine/Lighting/skybox.hpp>
 #include <Engine/Lighting/Shaders.hpp>
+#include <Engine/Lighting/BRDF.hpp>
 #include <Engine/Plugins/Loader.hpp>
 #include <Engine/Scripting/functions.hpp>
 #include <Engine/Scripting/math.hpp>
@@ -189,6 +190,7 @@ void Startup() {
     LoadTextures();
     shaderManager.InitShaders();
     skybox.loadSkybox("Assets/images/skybox/default skybox.hdr");
+    brdf.GenLUT();
     InitLighting();
     InitGizmo();
     InitEditorCamera();

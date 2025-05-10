@@ -40,9 +40,9 @@ struct Light {
     alignas(16) glm::vec3 position;
     alignas(16) glm::vec3 direction = {0.4, 0.4, -0.4};
     alignas(16) glm::vec4 color;
-    // aisr.x = attenuation, aisr.y = intensity, aisr.z = specular Strength,
-    // aisr.w = radius
-    alignas(16) glm::vec4 aisr = {0.001f, 3.0f, 0.5f, 100.0f};
+    // params.x = attenuation coeff, params.y = intensity, params.z = SPOT inner cone angle cos
+    // params.w = SPOT outer cone angle cos. For point lights, params.w is radius
+    alignas(16) glm::vec4 params = {0.001f, 3.0f, 45.0f, 100.0f};
 };
 
 struct LightInfo {

@@ -8,8 +8,8 @@ See the LICENSE file in the project root for full license information.
 uniform sampler2D srcTexture;
 uniform vec2 srcResolution;
 
-in vec2 fragTexCoord;
-out vec4 FragColor;
+layout(location = 1) in vec2 fragTexCoord;
+layout(location = 0) out vec4 FragColor;
 
 void main() {
     vec2 texelSize = 1.0 / srcResolution;

@@ -3,10 +3,10 @@ This file is licensed under the PolyForm Noncommercial License 1.0.0.
 See the LICENSE file in the project root for full license information.
 */
 
-#version 330 core
+#version 460 core
 
-in vec2 fragTexCoord;
-out vec4 FragColor;
+layout(location = 1) in vec2 fragTexCoord;
+layout(location = 0) out vec4 FragColor;
 
 uniform sampler2D screenTexture; // the rendered scene
 uniform float strength;          // vignette strength, e.g. 0.5

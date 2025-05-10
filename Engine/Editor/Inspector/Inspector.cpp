@@ -31,7 +31,6 @@ bool ButtonRoundnessActiveInputMode = false;
 
 bool AttenuationActiveInputMode = false;
 bool IntensityActiveInputMode = false;
-bool SpecularStrenghtActiveInputMode = false;
 bool RadiusActiveInputMode = false;
 bool InnerCutoffActiveInputMode = false;
 bool OuterCutoffActiveInputMode = false;

@@ -114,10 +114,10 @@ void SaveLight(json& jsonData, const LightStruct& lightStruct) {
     j["color"]["b"] = lightStruct.light.color.b * 255;
     j["color"]["a"] = lightStruct.light.color.a * 255;
 
-    j["attenuation"]      = lightStruct.light.aisr.x;
-    j["intensity"]        = lightStruct.light.aisr.y;
-    j["specularStrength"] = lightStruct.light.aisr.z;
-    j["radius"]           = lightStruct.light.aisr.w;
+    j["attenuation"]      = lightStruct.light.params.x;
+    j["intensity"]        = lightStruct.light.params.y;
+    j["specularStrength"] = lightStruct.light.params.z;
+    j["radius"]           = lightStruct.light.params.w;
 
     jsonData.emplace_back(j);
 }
@@ -542,10 +542,10 @@ LightStruct& LoadLight(const json& lightJson) {
         return j.contains(key) && j[key].is_number() ? j[key].get<float>() : defaultValue;
     };
 
-    lightStruct.light.aisr.x = getFloat(lightJson, "attenuation", 1.0f);
-    lightStruct.light.aisr.y = getFloat(lightJson, "intensity", 1.0f);
-    lightStruct.light.aisr.z = getFloat(lightJson, "specularStrength", 0.5f);
-    lightStruct.light.aisr.w = getFloat(lightJson, "radius", 10.0f);
+    lightStruct.light.params.x = getFloat(lightJson, "attenuation", 1.0f);
+    lightStruct.light.params.y = getFloat(lightJson, "intensity", 1.0f);
+    lightStruct.light.params.z = getFloat(lightJson, "specularStrength", 0.5f);
+    lightStruct.light.params.w = getFloat(lightJson, "radius", 10.0f);
 
     return lightStruct;
 }

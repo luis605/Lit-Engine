@@ -3,10 +3,10 @@ This file is licensed under the PolyForm Noncommercial License 1.0.0.
 See the LICENSE file in the project root for full license information.
 */
 
-#version 330
+#version 460 core
 
-in vec3 fragPosition;
-out vec4 finalColor;
+layout(location = 0) in vec3 fragPosition;
+layout(location = 0) out vec4 finalColor;
 
 uniform sampler2D equirectangularMap;
 

@@ -9,6 +9,7 @@ See the LICENSE file in the project root for full license information.
 #include <Engine/Core/Events.hpp>
 #include <Engine/Lighting/lights.hpp>
 #include <Engine/Lighting/skybox.hpp>
+#include <Engine/Lighting/BRDF.hpp>
 #include <Engine/Core/Textures.hpp>
 
 #ifndef GAME_SHIPPING
@@ -949,8 +950,27 @@ void Entity::PassSurfaceMaterials() {
     SetShaderValue(*entityShader,
         shaderManager.GetUniformLocation(entityShader->id, "lightsCount"),
         &lightsCount, SHADER_UNIFORM_INT);
-}
 
+    if (IsTextureReady(brdf.m_brdfLut)) {
+        GLuint texID = brdf.m_brdfLut.id;
+        GLint loc = shaderManager.GetUniformLocation(entityShader->id, "brdfLUT");
+
+        if (texID == 0) {
+            // TraceLog(LOG_WARNING, "BRDF LUT is not ready.");
+            return;
+        }
+        if (loc == -1) {
+            // TraceLog(LOG_WARNING, "BRDF LUT uniform not found.");
+            return;
+        }
+
+        glActiveTexture(GL_TEXTURE7);
+        glBindTexture(GL_TEXTURE_2D, texID);
+        glUniform1i(loc, 7);
+    } else {
+        TraceLog(LOG_WARNING, "BRDF LUT is not ready!");
+    }
+}
 
 bool operator==(const Entity& e, const Entity* ptr) {
     return &e == ptr;

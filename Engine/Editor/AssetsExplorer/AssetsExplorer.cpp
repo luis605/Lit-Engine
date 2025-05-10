@@ -301,12 +301,12 @@ void InitRenderModelPreviewer() {
     lightStructA.light.type = LIGHT_POINT;
     lightStructA.light.position = {11.0f, 6.0f, 15.0f};
     lightStructA.light.color = {1.0f, 0.75f, 0.75f, 1.0f};
-    lightStructA.light.aisr.y = 10.0f;
+    lightStructA.light.params.y = 10.0f;
 
     lightStructB.light.type = LIGHT_POINT;
     lightStructB.light.position = {20.0f, 10.0f, -25.0f};
     lightStructB.light.color = {1.0f, 0.16f, 0.16f, 1.0f};
-    lightStructB.light.aisr.y = 6.0f;
+    lightStructB.light.params.y = 6.0f;
 
     renderModelPreviewerLights.push_back(lightStructA);
     renderModelPreviewerLights.push_back(lightStructB);

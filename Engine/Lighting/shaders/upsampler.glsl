@@ -5,8 +5,8 @@ See the LICENSE file in the project root for full license information.
 
 #version 460 core
 
-in vec2 fragTexCoord;
-out vec4 FragColor;
+layout(location = 1) in vec2 fragTexCoord;
+layout(location = 0) out vec4 FragColor;
 
 uniform sampler2D downsampledTexture; // The bloom texture at lower resolution
 uniform sampler2D originalTexture;    // The original scene texture
