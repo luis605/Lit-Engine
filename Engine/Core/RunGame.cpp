@@ -78,7 +78,6 @@ void RunGame() {
     EndTextureMode();
 
     ComputeSceneLuminance();
-    ApplyBloomEffect(viewportTexture);
     RenderViewportTexture();
 }
 #endif
