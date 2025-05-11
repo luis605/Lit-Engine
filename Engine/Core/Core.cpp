@@ -185,6 +185,10 @@ void Startup() {
     glCullFace(GL_BACK);
     glDisable(GL_STENCIL_TEST);
 
+    glEnable(GL_DEPTH_TEST); // Tells the GPU to enable early-z (which on modern GPUs automatically enables depth testing)
+    glDepthMask(GL_TRUE);
+    glDepthFunc(GL_LESS);
+
     Py_Initialize();
     InitImGui();
     LoadTextures();
