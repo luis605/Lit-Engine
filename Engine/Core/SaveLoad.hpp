@@ -35,22 +35,8 @@ namespace nlohmann {
             color.b = j["b"];
             color.a = j["a"];
         }
+
     };
-
-    template<>
-    struct adl_serializer<glm::vec4> {
-        static void to_json(json& j, const glm::vec4& vec) {
-            j = json{{"r", vec.r}, {"g", vec.g}, {"b", vec.b}, {"a", vec.a}};
-        }
-
-        static void from_json(const json& j, glm::vec4& vec) {
-            vec.r = j["r"];
-            vec.g = j["g"];
-            vec.b = j["b"];
-            vec.a = j["a"];
-        }
-    };
-
 
     template<>
     struct adl_serializer<Vector2> {
@@ -64,21 +50,18 @@ namespace nlohmann {
         }
     };
 
-
     template<>
-    struct adl_serializer<Vector4> {
-        static void to_json(json& j, const Vector4& vec) {
-            j = json{{"x", vec.x}, {"y", vec.y}, {"z", vec.z}, {"w", vec.w}};
+    struct adl_serializer<Vector3> {
+        static void to_json(json& j, const Vector3& vec3) {
+            j = json{{"x", vec3.x}, {"y", vec3.y}, {"z", vec3.z}};
         }
 
-        static void from_json(const json& j, Vector4& vec) {
-            vec.x = j["x"];
-            vec.y = j["y"];
-            vec.z = j["z"];
-            vec.w = j["w"];
+        static void from_json(const json& j, Vector3& vec3) {
+            vec3.x = j["x"];
+            vec3.y = j["y"];
+            vec3.z = j["z"];
         }
     };
-
 
     template<>
     struct adl_serializer<LitVector3> {
@@ -93,7 +76,6 @@ namespace nlohmann {
         }
     };
 
-
     template<>
     struct adl_serializer<glm::vec3> {
         static void to_json(json& j, const glm::vec3& vec) {
@@ -104,6 +86,34 @@ namespace nlohmann {
             vec.x = j["x"];
             vec.y = j["y"];
             vec.z = j["z"];
+        }
+    };
+
+    template<>
+    struct adl_serializer<Vector4> {
+        static void to_json(json& j, const Vector4& vec4) {
+            j = json{{"x", vec4.x}, {"y", vec4.y}, {"z", vec4.z}, {"w", vec4.w}};
+        }
+
+        static void from_json(const json& j, Vector4& vec4) {
+            vec4.x = j["x"];
+            vec4.y = j["y"];
+            vec4.z = j["z"];
+            vec4.w = j["w"];
+        }
+    };
+
+    template<>
+    struct adl_serializer<glm::vec4> {
+        static void to_json(json& j, const glm::vec4& vec) {
+            j = json{{"r", vec.r}, {"g", vec.g}, {"b", vec.b}, {"a", vec.a}};
+        }
+
+        static void from_json(const json& j, glm::vec4& vec) {
+            vec.r = j["r"];
+            vec.g = j["g"];
+            vec.b = j["b"];
+            vec.a = j["a"];
         }
     };
 }

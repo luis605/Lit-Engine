@@ -140,12 +140,19 @@ void SaveText(json& jsonData, const Text& text, const bool& emplaceBack) {
 
 void SaveWorldSetting(json& jsonData) {
     json j;
-    j["type"] = "world settings";
+    j["type"]    = "world settings";
     j["gravity"] = physics.gravity;
-    j["bloom"] = bloomEnabled;
+    j["bloom"]   = bloomEnabled;
     j["bloomThreshold"] = bloomThreshold;
-    j["kernelSize"] = kernelSize;
-    j["skyboxPath"] = skybox.skyboxTexturePath;
+    j["bloomIntensity"] = bloomIntensity;
+    j["kernelSize"]     = kernelSize;
+    j["vignetteEnabled"]  = vignetteEnabled;
+    j["vignetteStrength"] = vignetteStrength;
+    j["vignetteRadius"] = vignetteRadius;
+    j["vignetteColor"]  = vignetteColor;
+    j["aberrationEnabled"] = aberrationEnabled;
+    j["aberrationOffset"]  = aberrationOffset;
+    j["skyboxPath"]  = skybox.skyboxTexturePath;
     j["skyboxColor"] = skybox.color;
 
     jsonData.emplace_back(j);
@@ -310,6 +317,44 @@ void LoadWorldSettings(const json& worldSettingsJson) {
 
     if (worldSettingsJson.contains("bloomThreshold")) {
         bloomThreshold = worldSettingsJson["bloomThreshold"].get<float>();
+        SetShaderValue(shaderManager.m_upsamplerShader, shaderManager.GetUniformLocation(shaderManager.m_upsamplerShader.id, "threshold"), &bloomThreshold, SHADER_ATTRIB_FLOAT);
+    }
+
+    if (worldSettingsJson.contains("bloomIntensity")) {
+        bloomIntensity = worldSettingsJson["bloomIntensity"].get<float>();
+        SetShaderValue(shaderManager.m_upsamplerShader, shaderManager.GetUniformLocation(shaderManager.m_upsamplerShader.id, "bloomIntensity"), &bloomThreshold, SHADER_ATTRIB_FLOAT);
+    }
+
+    if (worldSettingsJson.contains("kernelSize")) {
+        kernelSize = worldSettingsJson["kernelSize"].get<int>();
+        SetShaderValue(shaderManager.m_upsamplerShader, shaderManager.GetUniformLocation(shaderManager.m_upsamplerShader.id, "bloomIntensity"), &bloomThreshold, SHADER_ATTRIB_FLOAT);
+    }
+
+    if (worldSettingsJson.contains("vignetteEnabled")) {
+        vignetteEnabled = worldSettingsJson["vignetteEnabled"].get<bool>();
+    }
+
+    if (worldSettingsJson.contains("vignetteStrength")) {
+        vignetteStrength = worldSettingsJson["vignetteStrength"].get<float>();
+        SetShaderValue(shaderManager.m_upsamplerShader, shaderManager.GetUniformLocation(shaderManager.m_upsamplerShader.id, "threshold"), &bloomThreshold, SHADER_ATTRIB_FLOAT);
+    }
+
+    if (worldSettingsJson.contains("vignetteRadius")) {
+        vignetteRadius = worldSettingsJson["vignetteRadius"].get<float>();
+        SetShaderValue(shaderManager.m_upsamplerShader, shaderManager.GetUniformLocation(shaderManager.m_upsamplerShader.id, "bloomIntensity"), &bloomThreshold, SHADER_ATTRIB_FLOAT);
+    }
+
+    if (worldSettingsJson.contains("vignetteColor")) {
+        vignetteColor = worldSettingsJson["vignetteColor"].get<Vector4>();
+        SetShaderValue(shaderManager.m_upsamplerShader, shaderManager.GetUniformLocation(shaderManager.m_upsamplerShader.id, "bloomIntensity"), &bloomThreshold, SHADER_ATTRIB_FLOAT);
+    }
+
+    if (worldSettingsJson.contains("aberrationEnabled")) {
+        aberrationEnabled = worldSettingsJson["aberrationEnabled"].get<bool>();
+    }
+
+    if (worldSettingsJson.contains("aberrationOffset")) {
+        aberrationOffset = worldSettingsJson["aberrationOffset"].get<Vector3>();
         SetShaderValue(shaderManager.m_upsamplerShader, shaderManager.GetUniformLocation(shaderManager.m_upsamplerShader.id, "threshold"), &bloomThreshold, SHADER_ATTRIB_FLOAT);
     }
 
