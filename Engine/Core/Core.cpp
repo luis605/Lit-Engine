@@ -70,24 +70,25 @@ void InitLitWindow() {
 
 void LoadTextures() {
     folderTexture = LoadTexture("Assets/images/folder.png");
-    imageTexture = LoadTexture("Assets/images/image_file_type.png");
-    cppTexture = LoadTexture("Assets/images/cpp_file_type.png");
-    pythonTexture = LoadTexture("Assets/images/python_file_type.png");
-    modelTexture = LoadTexture("Assets/images/model_file_type.png");
+    imageTexture  = LoadTexture("Assets/images/image_file_type.png");
+    cppTexture    = LoadTexture("Assets/images/cpp_file_type.png");
+    pythonTexture   = LoadTexture("Assets/images/python_file_type.png");
+    modelTexture    = LoadTexture("Assets/images/model_file_type.png");
     materialTexture = LoadTexture("Assets/images/material_file_type.png");
     emptyTexture = LoadTexture("Assets/images/empty_file_file_type.png");
-    runTexture = LoadTexture("Assets/images/run_game.png");
+    runTexture   = LoadTexture("Assets/images/run_game.png");
     pauseTexture = LoadTexture("Assets/images/pause_game.png");
-    saveTexture = LoadTexture("Assets/images/save_file.png");
-    hotReloadTexture = LoadTexture("Assets/images/hot_reload.png");
-    lightTexture = LoadTexture("Assets/images/light_bulb.png");
-    noiseTexture = LoadTexture("Assets/images/noise.png");
-    windowIconImage = LoadImage("Assets/images/window_icon.png");
+    saveTexture  = LoadTexture("Assets/images/save_file.png");
+    hotReloadTexture  = LoadTexture("Assets/images/hot_reload.png");
+    lightTexture      = LoadTexture("Assets/images/light_bulb.png");
+    noiseTexture      = LoadTexture("Assets/images/noise.png");
+    windowIconImage   = LoadImage("Assets/images/window_icon.png");
     windowIconTexture = LoadTextureFromImage(windowIconImage);
-    verticalBlurTexture = LoadRenderTexture(GetScreenWidth(), GetScreenHeight());
+    verticalBlurTexture   = LoadRenderTexture(GetScreenWidth(), GetScreenHeight());
     horizontalBlurTexture = LoadRenderTexture(GetScreenWidth(), GetScreenHeight());
-    upsamplerTexture = LoadRenderTexture(GetScreenWidth(), GetScreenHeight());
-    vignetteTexture = LoadRenderTexture(GetScreenWidth(), GetScreenHeight());
+    upsamplerTexture      = LoadRenderTexture(GetScreenWidth(), GetScreenHeight());
+    vignetteTexture       = LoadRenderTexture(GetScreenWidth(), GetScreenHeight());
+    chromaticAberrationTexture = LoadRenderTexture(GetScreenWidth(), GetScreenHeight());
 
     SetWindowIcon(windowIconImage);
 }
@@ -111,7 +112,7 @@ void UpdateFonts(const float& fontSize, ImGuiIO& io) {
     config.MergeMode = true;
     static const ImWchar icon_ranges[] = {ICON_MIN_FA, ICON_MAX_FA, 0};
     io.Fonts->AddFontFromFileTTF(
-        (fontPath.string() + "fontawesome-webfont.ttf").c_str(), fontSize,
+        (fontPath.string() + "fontawesome-webfont.otf").c_str(), fontSize,
         &config, icon_ranges);
 
     io.FontDefault = s_Fonts["Regular"];

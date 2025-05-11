@@ -25,10 +25,14 @@ float vignetteStrength = 0.5;
 float vignetteRadius   = 0.5;
 Vector4 vignetteColor  = Vector4(0,0,0,1);
 
+bool aberrationEnabled   = false;
+Vector3 aberrationOffset = { 0.009, 0.006, -0.006 };
+
 RenderTexture verticalBlurTexture;
 RenderTexture horizontalBlurTexture;
 RenderTexture upsamplerTexture;
 RenderTexture vignetteTexture;
+RenderTexture chromaticAberrationTexture;
 std::vector<RenderTexture2D> downsampledTextures;
 
 void ShaderManager::InitShaders() {
@@ -46,6 +50,7 @@ void ShaderManager::InitShaders() {
     m_downsampleShader      = LoadShader("Engine/Lighting/shaders/lighting_vertex.glsl", "Engine/Lighting/shaders/downsampler.glsl");
     m_vignetteShader        = LoadShader("Engine/Lighting/shaders/lighting_vertex.glsl", "Engine/Lighting/shaders/vignette.fs");
     m_irradianceShader      = LoadShader("Engine/Lighting/shaders/cubemap.vs",           "Engine/Lighting/shaders/irradiance.fs");
+    m_chromaticAberration   = LoadShader("Engine/Lighting/shaders/lighting_vertex.glsl", "Engine/Lighting/shaders/chromaticAberration.fs");
 
     char* shaderCode = LoadFileText("Engine/Lighting/shaders/luminanceCompute.glsl");
     unsigned int shaderData = rlCompileShader(shaderCode, RL_COMPUTE_SHADER);

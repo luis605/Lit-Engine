@@ -52,11 +52,11 @@ void WorldInspector() {
             ImGui::Text(threshold_cstr);
             ImGui::SameLine();
             ImGui::SetNextItemWidth(-1);
-            if (ImGui::SliderFloat("##ThresholdControl", &bloomThreshold, 0.0f,
-                                   1.0f)) {
-                SetShaderValue(shaderManager.m_upsamplerShader,
-                               shaderManager.GetUniformLocation(shaderManager.m_upsamplerShader.id, "threshold"),
-                               &bloomThreshold, SHADER_ATTRIB_FLOAT);
+            if (ImGui::SliderFloat("##ThresholdControl", &bloomThreshold, 0.0f, 1.0f)) {
+                const int shaderLocation = shaderManager.GetUniformLocation(shaderManager.m_upsamplerShader.id, "threshold");
+                glUseProgram(shaderManager.m_upsamplerShader.id);
+                glUniform1f(shaderLocation, bloomThreshold);
+                glUseProgram(0);
             }
 
             constexpr const char* intensity_cstr = "\uf042" " Intensity:"; // ADJUST
@@ -64,16 +64,15 @@ void WorldInspector() {
             ImGui::Text(intensity_cstr);
             ImGui::SameLine();
             ImGui::SetNextItemWidth(-1);
-            if (ImGui::SliderFloat("##IntensityControl", &bloomIntensity, 0.0f,
-                                   2.0f)) {
-                SetShaderValue(
-                    shaderManager.m_upsamplerShader,
-                    shaderManager.GetUniformLocation(shaderManager.m_upsamplerShader.id, "bloomIntensity"),
-                    &bloomIntensity, SHADER_ATTRIB_FLOAT);
+            if (ImGui::SliderFloat("##IntensityControl", &bloomIntensity, 0.0f, 2.0f)) {
+                const int shaderLocation = shaderManager.GetUniformLocation(shaderManager.m_upsamplerShader.id, "bloomIntensity");
+                glUseProgram(shaderManager.m_upsamplerShader.id);
+                glUniform1f(shaderLocation, bloomIntensity);
+                glUseProgram(0);
             }
 
             // Samples Slider
-            constexpr const char* kernelSize_cstr = ICON_FA_CUBE " Kernel Size:";
+            constexpr const char* kernelSize_cstr = ICON_FA_UP_RIGHT_AND_DOWN_LEFT_FROM_CENTER " Kernel Size:";
 
             ImGui::Text(kernelSize_cstr);
             ImGui::SameLine();
@@ -124,7 +123,7 @@ void WorldInspector() {
                     &vignetteRadius, SHADER_UNIFORM_FLOAT);
             }
 
-            constexpr const char* vignetteColor_cstr = ICON_FA_PALETTE " Color:";
+            constexpr const char* vignetteColor_cstr = ICON_FA_PAINTBRUSH " Color:"; // BRUSH
 
             ImGui::Text(vignetteColor_cstr);
             ImGui::SameLine();
@@ -138,6 +137,40 @@ void WorldInspector() {
                     &vignetteColor, SHADER_UNIFORM_VEC4);
     }
         }
+
+        constexpr const char* aberration_cstr = ICON_FA_FILM " Chromatic Aberration";
+
+        if (ImGui::CollapsingHeader(aberration_cstr, false)) {
+            ImGui::Text("Enabled:");
+            ImGui::SameLine();
+            ImGui::SetNextItemWidth(-1);
+            ImGui::Checkbox("##AberrationToggle", &aberrationEnabled);
+
+            constexpr const char* offset_cstr = ICON_FA_SLIDERS " Offset:";
+
+            ImGui::Text(offset_cstr);
+            ImGui::SameLine();
+            ImGui::SetNextItemWidth(-1);
+
+            float channelOffset[3] = {
+                aberrationOffset.x,
+                aberrationOffset.y,
+                aberrationOffset.z
+            };
+
+            if (ImGui::SliderFloat3("##ChannelOffset", channelOffset, -0.1f, .1f)) {
+                aberrationOffset = {
+                    channelOffset[0],
+                    channelOffset[1],
+                    channelOffset[2]
+                };
+
+                SetShaderValue(shaderManager.m_chromaticAberration,
+                               shaderManager.GetUniformLocation(shaderManager.m_chromaticAberration.id, "offset"),
+                               &aberrationOffset, SHADER_UNIFORM_VEC3);
+            }
+        }
+
         ImGui::Unindent();
     }
 

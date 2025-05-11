@@ -18,7 +18,7 @@ See the LICENSE file in the project root for full license information.
 void InitEditorCamera();
 static inline double GetImGuiWindowTitleHeight();
 void CalculateTextureRect(const Texture* texture, Rectangle& viewportRectangle);
-void DrawTextureOnViewportRectangle(const Texture* texture);
+void DrawTextureOnViewportRectangle(const Texture& texture);
 void EditorCameraMovement();
 bool IsMouseHoveringModel(const Model& model, const Vector3& position,
                           const Vector3& rotation, const Vector3& scale,
@@ -28,7 +28,9 @@ void ProcessCameraControls();
 void ProcessGizmo();
 void HandleUnselect();
 void RenderViewportTexture();
-void ApplyBloomEffect();
+Texture2D ApplyBloomEffect(const Texture2D& sceneTexture);
+Texture2D ApplyChromaticAberration(const Texture2D& sceneTexture);
+Texture2D ApplyVignetteEffect(const Texture2D& sceneTexture);
 void RenderLights();
 void RenderEntities();
 void UpdateShader();
@@ -69,6 +71,7 @@ extern float defaultCameraSpeed;
 extern Model lightModel;
 extern LitCamera sceneCamera;
 extern bool movingEditorCamera;
+extern bool textureViewportFlip;
 extern CopyType currentCopyType;
 extern std::shared_ptr<Entity> copiedEntity;
 extern std::shared_ptr<LightStruct> copiedLight;

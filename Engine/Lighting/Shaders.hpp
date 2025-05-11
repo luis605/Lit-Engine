@@ -24,6 +24,9 @@ extern float vignetteStrength;
 extern float vignetteRadius;
 extern Vector4 vignetteColor;
 
+extern bool aberrationEnabled;
+extern Vector3 aberrationOffset;
+
 extern bool bloomEnabled;
 extern float bloomThreshold;
 extern float bloomIntensity;
@@ -34,6 +37,7 @@ extern RenderTexture verticalBlurTexture;
 extern RenderTexture horizontalBlurTexture;
 extern RenderTexture upsamplerTexture;
 extern RenderTexture vignetteTexture;
+extern RenderTexture chromaticAberrationTexture;
 extern std::vector<RenderTexture2D> downsampledTextures;
 
 struct ShaderManager {
@@ -51,6 +55,7 @@ public:
     Shader m_upsamplerShader;
     Shader m_vignetteShader;
     Shader m_irradianceShader;
+    Shader m_chromaticAberration;
     GLuint m_exposureShaderProgram;
 
 public:

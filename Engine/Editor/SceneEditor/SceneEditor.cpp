@@ -20,13 +20,14 @@ See the LICENSE file in the project root for full license information.
 float slowCameraSpeed = 15.0f;
 float defaultCameraSpeed = 25.0f;
 float fastCameraSpeed = 50.0f;
-float movementSpeed = defaultCameraSpeed;
+float movementSpeed   = defaultCameraSpeed;
 Model lightModel;
 LitCamera sceneCamera;
-bool movingEditorCamera = false;
+bool movingEditorCamera  = false;
+bool textureViewportFlip = false;
 CopyType currentCopyType = (CopyType)CopyType_None;
-std::shared_ptr<Entity> copiedEntity = nullptr;
-std::shared_ptr<LightStruct> copiedLight = nullptr;
+std::shared_ptr<Entity>      copiedEntity = nullptr;
+std::shared_ptr<LightStruct> copiedLight  = nullptr;
 
 #ifndef GAME_SHIPPING
 ImVec2 prevEditorWindowSize = {-1.0f, -1.0f};
@@ -61,12 +62,15 @@ void CalculateTextureRect(const Texture* texture,
         windowSize.y - GetImGuiWindowTitleHeight() - 60.0;
 }
 
-void DrawTextureOnViewportRectangle(const Texture* texture) {
-    CalculateTextureRect(texture, viewportRectangle);
+void DrawTextureOnViewportRectangle(const Texture& texture) {
+    CalculateTextureRect(&texture, viewportRectangle);
     ImGui::SetCursorPos(ImVec2(0, GetImGuiWindowTitleHeight() + 60.0));
-    ImGui::Image((ImTextureID)texture,
+    ImVec2 uv1 = ImVec2(1, 0);
+    if (textureViewportFlip) uv1.y = -uv1.y;
+
+    ImGui::Image((ImTextureID)&texture,
                  ImVec2(viewportRectangle.width, viewportRectangle.height),
-                 ImVec2(0, 1), ImVec2(1, 0));
+                 ImVec2(0, 1), uv1);
 }
 
 void EditorCameraMovement() {
@@ -246,26 +250,17 @@ void HandleUnselect() {
         selectedGameObjectType = "none";
 }
 
-void RenderViewportTexture() {
-    if (vignetteEnabled)
-        DrawTextureOnViewportRectangle(&vignetteTexture.texture);
-    else if (bloomEnabled)
-        DrawTextureOnViewportRectangle(&upsamplerTexture.texture);
-    else
-        DrawTextureOnViewportRectangle(&viewportTexture);
-}
-
-void ApplyBloomEffect() {
-    if (!bloomEnabled)
-        return;
+Texture2D ApplyBloomEffect(const Texture2D& sceneTexture) {
+    textureViewportFlip = !textureViewportFlip;
 
     BeginTextureMode(horizontalBlurTexture);
+    ClearBackground(BLANK);
     BeginShaderMode(shaderManager.m_horizontalBlurShader);
     SetShaderValueTexture(
         shaderManager.m_horizontalBlurShader,
         shaderManager.GetUniformLocation(shaderManager.m_horizontalBlurShader.id, "srcTexture"),
-        viewportTexture);
-    DrawTexture(viewportTexture, 0, 0, WHITE);
+        sceneTexture);
+    DrawTexture(sceneTexture, 0, 0, WHITE);
     EndShaderMode();
     EndTextureMode();
 
@@ -286,28 +281,61 @@ void ApplyBloomEffect() {
         verticalBlurTexture.texture);
     SetShaderValueTexture(
         shaderManager.m_upsamplerShader, shaderManager.GetUniformLocation(shaderManager.m_upsamplerShader.id, "originalTexture"),
-        viewportTexture);
+        sceneTexture);
     DrawTexture(verticalBlurTexture.texture, 0, 0, WHITE);
     EndShaderMode();
     EndTextureMode();
+
+    return upsamplerTexture.texture;
 }
 
-void ApplyVignetteEffect() {
-    if (!vignetteEnabled)
-        return;
+Texture2D ApplyChromaticAberration(const Texture2D& sceneTexture) {
+    textureViewportFlip = !textureViewportFlip;
+    BeginTextureMode(chromaticAberrationTexture);
+    ClearBackground(BLANK);
+    BeginShaderMode(shaderManager.m_chromaticAberration);
 
-    BeginTextureMode(vignetteTexture);
-    BeginShaderMode(shaderManager.m_vignetteShader);
+    SetShaderValue(shaderManager.m_chromaticAberration, shaderManager.GetUniformLocation(shaderManager.m_chromaticAberration.id, "offset"), &aberrationOffset, SHADER_UNIFORM_VEC3);
 
-    const Texture& inputTex = bloomEnabled ? upsamplerTexture.texture : viewportTexture;
     SetShaderValueTexture(
-        shaderManager.m_vignetteShader,
-        shaderManager.GetUniformLocation(shaderManager.m_vignetteShader.id, "screenTexture"),
-        inputTex);
-    DrawTexture(inputTex, 0, 0, WHITE);
+        shaderManager.m_chromaticAberration,
+        shaderManager.GetUniformLocation(shaderManager.m_chromaticAberration.id, "screenTexture"),
+        sceneTexture);
+    DrawTexture(sceneTexture, 0, 0, WHITE);
 
     EndShaderMode();
     EndTextureMode();
+
+    return chromaticAberrationTexture.texture;
+}
+
+Texture2D ApplyVignetteEffect(const Texture2D& sceneTexture) {
+    textureViewportFlip = !textureViewportFlip;
+
+    BeginTextureMode(vignetteTexture);
+    ClearBackground(BLANK);
+    BeginShaderMode(shaderManager.m_vignetteShader);
+
+    SetShaderValueTexture(
+        shaderManager.m_vignetteShader,
+        shaderManager.GetUniformLocation(shaderManager.m_vignetteShader.id, "screenTexture"),
+        sceneTexture);
+    DrawTexture(sceneTexture, 0, 0, WHITE);
+
+    EndShaderMode();
+    EndTextureMode();
+
+    return vignetteTexture.texture;
+}
+
+Texture current;
+void RenderViewportTexture() {
+     current = viewportTexture;
+    if (bloomEnabled)      current = ApplyBloomEffect(current);
+    if (aberrationEnabled) current = ApplyChromaticAberration(current);
+    if (vignetteEnabled)   current = ApplyVignetteEffect(current);
+
+    DrawTextureOnViewportRectangle(current);
 }
 
 void RenderLights() {
@@ -473,8 +501,6 @@ void RenderScene() {
     EndTextureMode();
 
     ComputeSceneLuminance();
-    ApplyBloomEffect();
-    ApplyVignetteEffect();
     RenderViewportTexture();
 }
 
@@ -800,6 +826,7 @@ void ScaleViewport() {
         UnloadRenderTexture(horizontalBlurTexture);
         UnloadRenderTexture(upsamplerTexture);
 
+        chromaticAberrationTexture = LoadRenderTexture(currentWindowSize.x, currentWindowSize.y);
         viewportRenderTexture = LoadRenderTexture(currentWindowSize.x, currentWindowSize.y);
         verticalBlurTexture   = LoadRenderTexture(currentWindowSize.x, currentWindowSize.y);
         horizontalBlurTexture = LoadRenderTexture(currentWindowSize.x, currentWindowSize.y);
