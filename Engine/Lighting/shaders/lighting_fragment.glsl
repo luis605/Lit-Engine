@@ -9,9 +9,14 @@ See the LICENSE file in the project root for full license information.
 layout(location = 0) in vec3 fragPosition;
 layout(location = 1) in vec2 fragTexCoord;
 layout(location = 3) in vec3 fragNormal;
-vec3 fragView;
+
+layout(location = 0) out vec4 finalColor;
+layout(location = 1) out vec4 finalNormal;
+
 
 layout(location = 13) uniform vec3 viewPos;
+
+vec3 fragView;
 
 // PBR Textures
 uniform sampler2D texture0;
@@ -55,8 +60,6 @@ layout(std430, binding = 0) buffer LightsBuffer {
 };
 
 layout(location = 14) uniform int lightsCount;
-
-layout(location = 0) out vec4 finalColor;
 
 float saturate(const float x) {
     return clamp(x, 0.0, 1.0);
@@ -277,4 +280,5 @@ void main() {
     mediump const vec3 hdrColor = toneMapACES(exposure * Lo);
 
     finalColor = vec4(hdrColor, alpha);
+    finalNormal = vec4(N,1);
 }

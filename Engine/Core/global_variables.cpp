@@ -18,6 +18,8 @@ See the LICENSE file in the project root for full license information.
 bool firstTimeGameplay = true;
 
 #ifndef GAME_SHIPPING
+    #include <Engine/Core/Textures.hpp>
+
     std::string selectedGameObjectType;
     std::string themesFolder = "project/themes/";
 
@@ -29,7 +31,7 @@ bool firstTimeGameplay = true;
     Texture2D pauseTexture;
     Texture2D viewportTexture;
 
-    RenderTexture2D viewportRenderTexture;
+    GBuffer viewportMRT;
 
     Rectangle viewportRectangle;
 

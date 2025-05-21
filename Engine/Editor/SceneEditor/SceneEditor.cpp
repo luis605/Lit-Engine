@@ -5,6 +5,7 @@ See the LICENSE file in the project root for full license information.
 
 #include <Engine/Core/Events.hpp>
 #include <Engine/Core/RunGame.hpp>
+#include <Engine/Core/Textures.hpp>
 #include <Engine/Editor/AssetsExplorer/AssetsExplorer.hpp>
 #include <Engine/Editor/SceneEditor/Gizmo/Gizmo.hpp>
 #include <Engine/Editor/SceneEditor/SceneEditor.hpp>
@@ -34,8 +35,9 @@ ImVec2 prevEditorWindowSize = {-1.0f, -1.0f};
 #endif
 
 void InitEditorCamera() {
-    viewportRenderTexture = LoadRenderTexture(1, 1);
-    viewportTexture = viewportRenderTexture.texture;
+    viewportMRT = LoadMRT(1, 1);
+
+    viewportTexture = viewportMRT.color;
 
     sceneCamera.position = {35.0f, 5.0f, 0.0f};
     sceneCamera.target = {0.0f, 0.0f, 0.0f};
@@ -65,12 +67,17 @@ void CalculateTextureRect(const Texture* texture,
 void DrawTextureOnViewportRectangle(const Texture& texture) {
     CalculateTextureRect(&texture, viewportRectangle);
     ImGui::SetCursorPos(ImVec2(0, GetImGuiWindowTitleHeight() + 60.0));
+
+    ImVec2 uv0 = ImVec2(0, 1);
     ImVec2 uv1 = ImVec2(1, 0);
-    if (textureViewportFlip) uv1.y = -uv1.y;
+
+    if (textureViewportFlip) {
+        std::swap(uv0.y, uv1.y);
+    }
 
     ImGui::Image((ImTextureID)&texture,
                  ImVec2(viewportRectangle.width, viewportRectangle.height),
-                 ImVec2(0, 1), uv1);
+                 uv0, uv1);
 }
 
 void EditorCameraMovement() {
@@ -250,6 +257,65 @@ void HandleUnselect() {
         selectedGameObjectType = "none";
 }
 
+Texture2D ApplySSGI(const Texture2D& sceneTexture, const Texture2D& depthTexture, const LitCamera& camera) {
+    // textureViewportFlip = !textureViewportFlip;
+
+    const Matrix P = MatrixPerspective(
+        DEG2RAD * camera.fovy,
+        sceneTexture.width / sceneTexture.height,
+        rlGetCullDistanceNear(),
+        rlGetCullDistanceFar()
+    );
+
+    const Matrix  invP       = MatrixInvert(P);
+    const Vector2 screenSize = Vector2(sceneTexture.width, sceneTexture.height);
+
+    const Matrix view = GetCameraMatrix(camera);
+    const Matrix invView = MatrixInvert(view);
+
+    BeginTextureMode(ssgiTexture);
+    ClearBackground(BLANK);
+    BeginShaderMode(shaderManager.m_SSGIShader);
+
+    const int locProjection = shaderManager.GetUniformLocation(shaderManager.m_SSGIShader.id, "uProjection");
+    const int locInvProj    = shaderManager.GetUniformLocation(shaderManager.m_SSGIShader.id, "uInvProj");
+    const int locScreen     = shaderManager.GetUniformLocation(shaderManager.m_SSGIShader.id, "uScreenSize");
+    const int locInvView    = shaderManager.GetUniformLocation(shaderManager.m_SSGIShader.id, "uInvView");
+    SetShaderValueMatrix(shaderManager.m_SSGIShader, locProjection, P);
+    SetShaderValueMatrix(shaderManager.m_SSGIShader, locInvProj, invP);
+    SetShaderValueMatrix(shaderManager.m_SSGIShader, locInvView, invView);
+    SetShaderValue(shaderManager.m_SSGIShader, locScreen, &screenSize, SHADER_UNIFORM_VEC2);
+
+    const int colorLoc  = rlGetLocationUniform(shaderManager.m_SSGIShader.id, "uColorTex");
+    const int normalLoc = rlGetLocationUniform(shaderManager.m_SSGIShader.id, "uNormalTex");
+    const int depthLoc  = rlGetLocationUniform(shaderManager.m_SSGIShader.id, "uDepthTex");
+
+    if (colorLoc == -1) {
+        //TraceLog(LOG_WARNING, "SSGI: Invalid uniform location for uColorTex.");
+    }
+    if (depthLoc == -1) {
+        //TraceLog(LOG_WARNING, "SSGI: Invalid uniform location for uDepthTex.");
+    }
+
+    if (sceneTexture.id == 0) {
+        //TraceLog(LOG_WARNING, "SSGI: sceneTexture.id is 0 (invalid).");
+    }
+    if (viewportMRT.depth.id == 0) {
+        //TraceLog(LOG_WARNING, "SSGI: depthTexture.id is 0 (invalid).");
+    }
+
+    SetShaderValueTexture(shaderManager.m_SSGIShader, colorLoc,  viewportMRT.color);
+    SetShaderValueTexture(shaderManager.m_SSGIShader, normalLoc, viewportMRT.normal);
+    SetShaderValueTexture(shaderManager.m_SSGIShader, depthLoc,  viewportMRT.depth);
+
+    DrawTexture(sceneTexture, 0, 0, WHITE);
+
+    EndShaderMode();
+    EndTextureMode();
+
+    return viewportMRT.normal; //ssgiTexture.texture;
+}
+
 Texture2D ApplyBloomEffect(const Texture2D& sceneTexture) {
     textureViewportFlip = !textureViewportFlip;
 
@@ -329,8 +395,16 @@ Texture2D ApplyVignetteEffect(const Texture2D& sceneTexture) {
 }
 
 Texture current;
-void RenderViewportTexture() {
-     current = viewportTexture;
+Texture depthTexture;
+bool ssgiEnabled = true;
+
+void RenderViewportTexture(const LitCamera& camera) {
+    current = viewportMRT.color;
+    depthTexture = viewportMRT.depth;
+
+    if (ssgiEnabled) {
+        current = ApplySSGI(current, depthTexture, camera);
+    }
     if (bloomEnabled)      current = ApplyBloomEffect(current);
     if (aberrationEnabled) current = ApplyChromaticAberration(current);
     if (vignetteEnabled)   current = ApplyVignetteEffect(current);
@@ -469,7 +543,9 @@ void ComputeSceneLuminance() {
 }
 
 void RenderScene() {
-    BeginTextureMode(viewportRenderTexture);
+    textureViewportFlip = false;
+    BeginMRTMode(viewportMRT);
+
     BeginMode3D(sceneCamera);
     ClearBackground(GRAY);
 
@@ -498,10 +574,11 @@ void RenderScene() {
 
     DrawTextElements();
     DrawButtons();
-    EndTextureMode();
+    EndMRTMode();
 
     ComputeSceneLuminance();
-    RenderViewportTexture();
+    DrawTextureOnViewportRectangle(viewportMRT.normal);
+    // RenderViewportTexture(sceneCamera);
 }
 
 void DropEntity() {
@@ -821,18 +898,22 @@ void ScaleViewport() {
         prevEditorWindowSize = currentWindowSize;
 
 
-        UnloadRenderTexture(viewportRenderTexture);
+        UnloadMRT(viewportMRT);
+        UnloadRenderTexture(chromaticAberrationTexture);
         UnloadRenderTexture(verticalBlurTexture);
         UnloadRenderTexture(horizontalBlurTexture);
         UnloadRenderTexture(upsamplerTexture);
+        UnloadRenderTexture(vignetteTexture);
+        UnloadRenderTexture(ssgiTexture);
 
+        viewportMRT = LoadMRT(currentWindowSize.x, currentWindowSize.y);
         chromaticAberrationTexture = LoadRenderTexture(currentWindowSize.x, currentWindowSize.y);
-        viewportRenderTexture = LoadRenderTexture(currentWindowSize.x, currentWindowSize.y);
         verticalBlurTexture   = LoadRenderTexture(currentWindowSize.x, currentWindowSize.y);
         horizontalBlurTexture = LoadRenderTexture(currentWindowSize.x, currentWindowSize.y);
         upsamplerTexture      = LoadRenderTexture(currentWindowSize.x, currentWindowSize.y);
         vignetteTexture       = LoadRenderTexture(currentWindowSize.x, currentWindowSize.y);
-        viewportTexture       = viewportRenderTexture.texture;
+        ssgiTexture           = LoadRenderTexture(currentWindowSize.x, currentWindowSize.y);
+        viewportTexture       = viewportMRT.color;
 
         int index = 0;
         downsampledTextures.clear();

@@ -3,7 +3,8 @@ This file is licensed under the PolyForm Noncommercial License 1.0.0.
 See the LICENSE file in the project root for full license information.
 */
 
-#include "raylib.h"
+#include <raylib.h>
+#include <rlgl.h>
 #include <glad.h>
 #include <iostream>
 #include <Engine/Core/Textures.hpp>
@@ -11,6 +12,71 @@ See the LICENSE file in the project root for full license information.
 #include <algorithm>
 #include <memory>
 #include <squish.h>
+
+GBuffer LoadMRT(const int width, const int height) {
+    GBuffer target = { 0 };
+
+    target.id = rlLoadFramebuffer();
+
+    if (target.id > 0) {
+        rlEnableFramebuffer(target.id);
+
+        target.color.id = rlLoadTexture(NULL, width, height, PIXELFORMAT_UNCOMPRESSED_R8G8B8A8, 1);
+        target.color.width = width;
+        target.color.height = height;
+        target.color.format = PIXELFORMAT_UNCOMPRESSED_R8G8B8A8;
+        target.color.mipmaps = 1;
+
+        target.normal.id = rlLoadTexture(NULL, width, height, PIXELFORMAT_UNCOMPRESSED_R8G8B8A8, 1);
+        target.normal.width = width;
+        target.normal.height = height;
+        target.normal.format = PIXELFORMAT_UNCOMPRESSED_R8G8B8A8;
+        target.normal.mipmaps = 1;
+
+        target.depth.id = rlLoadTextureDepth(width, height, false);
+        target.depth.width = width;
+        target.depth.height = height;
+        target.depth.format = -1;
+        target.depth.mipmaps = 1;
+
+        rlActiveDrawBuffers(2);
+
+        rlFramebufferAttach(target.id, target.color.id,  RL_ATTACHMENT_COLOR_CHANNEL0, RL_ATTACHMENT_TEXTURE2D, 0);
+        rlFramebufferAttach(target.id, target.normal.id, RL_ATTACHMENT_COLOR_CHANNEL1, RL_ATTACHMENT_TEXTURE2D, 0);
+        rlFramebufferAttach(target.id, target.depth.id,  RL_ATTACHMENT_DEPTH, RL_ATTACHMENT_TEXTURE2D, 0);
+
+        if (rlFramebufferComplete(target.id)) TRACELOG(LOG_INFO, "FBO: [ID %i] Framebuffer object created successfully", target.id);
+
+        rlDisableFramebuffer();
+    } else TRACELOG(LOG_WARNING, "FBO: Framebuffer object can not be created");
+
+    return target;
+}
+
+void UnloadMRT(const GBuffer& gBuffer) {
+    if (gBuffer.id > 0) {
+        if (gBuffer.color.id > 0)  rlUnloadTexture(gBuffer.color.id);
+        if (gBuffer.normal.id > 0) rlUnloadTexture(gBuffer.normal.id);
+        if (gBuffer.depth.id > 0)  rlUnloadTexture(gBuffer.depth.id);
+
+        rlUnloadFramebuffer(gBuffer.id);
+    }
+}
+
+void BeginMRTMode(const GBuffer& gBuffer) {
+    rlEnableFramebuffer(gBuffer.id);
+    rlClearScreenBuffers();
+}
+
+void EndMRTMode() {
+    rlDisableFramebuffer();
+}
+
+void GBuffer::BindGBufferTexturesForRead() {
+    rlActiveTextureSlot(0); rlEnableTexture(color.id);
+    rlActiveTextureSlot(1); rlEnableTexture(normal.id);
+    rlActiveTextureSlot(2); rlEnableTexture(depth.id);
+};
 
 GLint g_compressedFormat = GL_COMPRESSED_RGBA_S3TC_DXT5_EXT;
 

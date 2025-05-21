@@ -5,6 +5,8 @@ See the LICENSE file in the project root for full license information.
 
 #include "RunGame.hpp"
 #include <Engine/Core/Entity.hpp>
+#include <Engine/Core/Textures.hpp>
+#include <Engine/Core/global_variables.hpp>
 #include <Engine/Editor/SceneEditor/SceneEditor.hpp>
 #include <Engine/GUI/Text/Text.hpp>
 #include <Engine/Lighting/lights.hpp>
@@ -38,7 +40,7 @@ void RenderAndRunEntity(Entity& entity, LitCamera* rendering_camera) {
 
 #ifndef GAME_SHIPPING
 void RunGame() {
-    BeginTextureMode(viewportRenderTexture);
+    BeginMRTMode(viewportMRT);
     BeginMode3D(camera);
 
     BeginShaderMode(*shaderManager.m_defaultShader);
@@ -78,6 +80,6 @@ void RunGame() {
     EndTextureMode();
 
     ComputeSceneLuminance();
-    RenderViewportTexture();
+    RenderViewportTexture(camera);
 }
 #endif

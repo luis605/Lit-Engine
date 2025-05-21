@@ -27,7 +27,7 @@ void LocateEntity(Entity& entity);
 void ProcessCameraControls();
 void ProcessGizmo();
 void HandleUnselect();
-void RenderViewportTexture();
+void RenderViewportTexture(const LitCamera& camera);
 Texture2D ApplyBloomEffect(const Texture2D& sceneTexture);
 Texture2D ApplyChromaticAberration(const Texture2D& sceneTexture);
 Texture2D ApplyVignetteEffect(const Texture2D& sceneTexture);

@@ -13,7 +13,19 @@ See the LICENSE file in the project root for full license information.
 #include <memory>
 #include <glad.h>
 
-void CompressAndStoreTexture(Texture2D* texture);
+struct GBuffer {
+    unsigned int id;        // OpenGL framebuffer object id
+    Texture color;          // Color  buffer attachment texture
+    Texture normal;         // Normal buffer attachment texture
+    Texture depth;          // Depth  buffer attachment texture
+
+    void BindGBufferTexturesForRead();
+};
+
+GBuffer LoadMRT(const int width, const int height);
+void UnloadMRT(const GBuffer& gBuffer);
+void BeginMRTMode(const GBuffer& gBuffer);
+void EndMRTMode();
 
 struct AsyncTextureData {
     bool textureCreated = false;

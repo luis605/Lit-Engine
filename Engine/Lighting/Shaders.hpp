@@ -38,6 +38,7 @@ extern RenderTexture horizontalBlurTexture;
 extern RenderTexture upsamplerTexture;
 extern RenderTexture vignetteTexture;
 extern RenderTexture chromaticAberrationTexture;
+extern RenderTexture ssgiTexture;
 extern std::vector<RenderTexture2D> downsampledTextures;
 
 struct ShaderManager {
@@ -56,6 +57,7 @@ public:
     Shader m_vignetteShader;
     Shader m_irradianceShader;
     Shader m_chromaticAberration;
+    Shader m_SSGIShader;
     GLuint m_exposureShaderProgram;
 
 public:
