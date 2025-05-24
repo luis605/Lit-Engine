@@ -1,42 +1,40 @@
+/*
+This file is licensed under the PolyForm Noncommercial License 1.0.0.
+See the LICENSE file in the project root for full license information.
+*/
+
 #version 460 core
+#pragma optimize(on)
 
-precision mediump float;
+layout(location = 0) in vec3 fragPosition;
+layout(location = 1) in vec2 fragTexCoord;
+layout(location = 3) in vec3 fragNormal;
 
-// Input vertex attributes
-in vec3 fragPosition;
-in vec2 fragTexCoord;
-in vec3 fragNormal;
+layout(location = 0) out vec4 finalColor;
+layout(location = 1) out vec4 finalNormal;
 
-// Input uniform values
-uniform vec4 ambientLight;
-uniform vec3 viewPos;
+
+layout(location = 13) uniform vec3 viewPos;
+
+vec3 fragView;
 
 // PBR Textures
-uniform bool diffuseMapReady;
-uniform bool normalMapReady;
-uniform bool roughnessMapReady;
-uniform bool aoMapReady;
-uniform bool heightMapReady;
-uniform bool metallicMapReady;
-uniform bool emissiveMapReady;
 uniform sampler2D texture0;
 uniform sampler2D texture1;
 uniform sampler2D texture2;
 uniform sampler2D texture3;
 uniform sampler2D texture4;
 uniform sampler2D texture5;
-uniform sampler2D texture6;
+uniform sampler2D brdfLUT;
+uniform samplerCube irradiance;
 
 // Constants
 #define PI 3.14159265359
-#define EPSILON 1e-5
-#define ENERGY_CONSERVATION_THRESHOLD 0.995
 #define INV_PI 0.31830988618
+#define INV_EIGHT 0.125
 #define EPSILON 1e-5
-#define INV_4 0.25
-const float MIN_ROUGHNESS = 0.001;
-const float HALF = 0.5;
-const vec3 ONE = vec3(1.0);
+const float MIN_ROUGHNESS = 0.045;
+const vec3 DEFAULT_DIELECTRIC_F0 = vec3(0.04);
 
 // Exposure
 layout(std430, binding = 1) buffer ExposureBuffer {
@@ -53,247 +51,234 @@ struct Light {
     vec3 position;
     vec3 direction;
     vec4 color;
-    vec4 aisr; // aisr.x = attenuation, aisr.y = intensity, aisr.z = specular Strength, aisr.w = radius
+    vec4 params;  // params.x = attenuation coeff, params.y = intensity, params.z = SPOT inner cone angle cos
+                // params.w = SPOT outer cone angle cos. For point lights, params.w is radius
 };
 
 layout(std430, binding = 0) buffer LightsBuffer {
     Light lights[];
 };
 
-uniform int lightsCount;
+layout(location = 14) uniform int lightsCount;
 
-out vec4 finalColor;
-
-lowp float saturate(float x) {
+float saturate(const float x) {
     return clamp(x, 0.0, 1.0);
 }
 
-lowp vec3 saturate(vec3 x) {
+vec3 saturate(const vec3 x) {
     return clamp(x, vec3(0.0), vec3(1.0));
 }
 
-lowp float pow5(float x) {
-    float x2 = x * x;
-    float x4 = x2 * x2;
-    return x4 * x; // x^5
+float pow5(const float value) {
+    float x = value * value;
+    return x * x * value;
 }
 
-lowp vec3 Fresnel(float cosTheta, vec3 F0) {
-    return fma((vec3(1.0) - F0), vec3(pow5(1.0 - cosTheta)), F0);
+float DistributionGGX(const float NdotH, const float roughness) {
+    const float a = roughness * roughness;
+    const float a2 = a * a;
+    const float NdotH2 = NdotH * NdotH;
+
+    const float num = a2;
+    float den = (NdotH2 * (a2 - 1.0) + 1.0);
+    den = PI * den * den;
+    return num / max(den, EPSILON);
 }
 
-lowp float DistributionGGX(lowp float NdotH2, lowp float roughness2) {
-    lowp float denom = fma(fma(NdotH2, roughness2 - 1.0, 1.0), NdotH2, 1.0);
-    return roughness2 * INV_PI * denom * denom;
+float GeometrySchlickGGX(const float NdotV, const float roughness) {
+    const float r = (roughness + 1.0);
+    const float k = (r * r) * INV_EIGHT;
+    const float num = NdotV;
+    const float den = NdotV * (1.0 - k) + k;
+    return num / max(den, EPSILON);
 }
 
-highp float GeometrySmith(float NdotL, float NdotV, float k) {
-    NdotL = clamp(NdotL, 0.0, 1.0);
-    NdotV = clamp(NdotV, 0.0, 1.0);
-    float invK = 1.0 - k;
-    float visL = NdotL / (NdotL * invK + k);
-    float visV = NdotV / (NdotV * invK + k);
-    return visL * visV;
+float GetSpotlightFactor(const vec3 spotParams /*theta, outerConeCos, innerConeCos*/) {
+    const float lo = min(spotParams.y, spotParams.z);
+    const float hi = max(spotParams.y, spotParams.z);
+
+    return smoothstep(lo, hi, spotParams.x);
 }
 
-highp float DistributionGGXAnisotropic(float NdotH2, vec3 H, vec3 T, vec3 B, float roughness, float anisotropy) {
-    float at = max(roughness * (1.0 + anisotropy), MIN_ROUGHNESS);
-    float ab = max(roughness * (1.0 - anisotropy), MIN_ROUGHNESS);
-    float at_ab = at * ab;
-    float dotTH = dot(T, H);
-    float dotBH = dot(B, H);
-    float v2 = fma(ab * ab, dotTH * dotTH, fma(at * at, dotBH * dotBH, at_ab * NdotH2));
+vec3 CalculateDirectLighting(const int lightIndex, const vec3 N, const vec3 F0, const vec3 albedo,
+                             const vec3 specularEnv, const vec3 pbrParams /*roughness, metalness, NdotV*/) {
+    const Light light = lights[lightIndex];
 
-    return at_ab * at_ab * INV_PI / max(v2 * v2, EPSILON);
-}
+    const float isDir   = float(light.type == LIGHT_DIRECTIONAL);
+    const float isPoint = float(light.type == LIGHT_POINT);
+    const float isSpot  = float(light.type == LIGHT_SPOT);
 
-mediump vec3 CookTorrance(vec3 L, vec3 V, vec3 N, vec3 T, vec3 B, float roughness, vec3 F0, float specularAO) {
-    // Early exit if specular AO is too low
-    mediump float specularAO_mask = step(EPSILON, specularAO);
-    mediump vec3 H = normalize(L + V);
+    const vec3  rawDir = mix(light.position - fragPosition, -light.direction, isDir);
+    const vec3  L      = normalize(rawDir);
+    const float NdotL  = max(dot(N, L), 0.0);
+    if (NdotL <= 0.0) return vec3(0.0);
 
-    // dots.x = NdotL, dots.y = NdotV, dots.z = NdotH, dots.w = VdotH
-    mediump vec4 dots = vec4(dot(N, L), dot(N, V), dot(N, H), dot(V, H));
+    const vec3  H     = normalize(fragView + L);
+    const float HdotV = max(dot(H, fragView), 0.0);
 
-    mediump float common_div = dots.x * dots.y;
-    mediump float commonDiv_mask = step(EPSILON, common_div);
-    if (specularAO_mask * commonDiv_mask == 0.0)
-        return vec3(0.0);
+    const float radius  = light.params.w * isPoint;
 
-    // Compute half-vector and related dot products
-    mediump float NdotH2 = dots.z * dots.z;
-    mediump float roughness2 = roughness * roughness;
+    mediump const float distance  = length(light.position - fragPosition);
+    lowp const    float fragDist  = length(viewPos - fragPosition);
+    mediump       float distAtt   = 1.0 / (1.0 + light.params.x * distance * distance);
 
-    // Fresnel term using the half-vector
-    lowp vec3 fresnel = Fresnel(dots.w, F0);
-
-    // Choose between anisotropic and isotropic distributions
-    lowp float anisotropyMask = step(EPSILON, roughness);
-    lowp float D_aniso = DistributionGGXAnisotropic(NdotH2, H, T, B, roughness, 0.0);
-    lowp float D_iso = DistributionGGX(NdotH2, roughness2);
-
-    // Geometry term
-    lowp float k = fma(roughness, 0.5, 0.5);
-    mediump vec2 DG = vec2(
-        mix(D_iso, D_aniso, anisotropyMask),
-        GeometrySmith(dots.x, dots.y, k)
-    );
-
-    // Main specular calculation
-    mediump vec3 specular = (fresnel * DG.x * DG.y * specularAO * INV_4) / max(common_div, EPSILON);
-
-    float maxSpecular = max(dot(specular, vec3(1.0)), EPSILON);
-    return specular * min(1.0, ENERGY_CONSERVATION_THRESHOLD / maxSpecular);
-}
-
-float PhysicalLightAttenuation(float distance, float radius, float attenuation) {
-    float smoothRadius = max(radius, 0.01);
-    float distanceSquared = distance * distance;
-    float att = 1.0 / fma(attenuation, distanceSquared, 1.0);
-
-    float radiusRatio = distanceSquared / (smoothRadius * smoothRadius);
-    float t = fma(radiusRatio, 1.0 / 0.2, -0.8 / 0.2);
-
-    return att * saturate(1.0 - t);
-}
-
-vec4 CalculateDiffuseLighting(vec3 norm, vec3 lightDir, vec4 lightColor, vec4 texColor) {
-    float NdotL = max(dot(norm, lightDir), 0.0);
-    return lightColor * NdotL / PI * texColor;
-}
-
-vec4 CalculateAmbientLighting(float roughness, vec4 texColor) {
-    float occlusion = 1.0;
-    float ambientFactor = mix(0.2, 1.0, 1.0 - roughness);
-    return vec4(clamp(ambientLight.rgb, vec3(0), vec3(1)) * texColor.rgb * occlusion * ambientFactor, texColor.a);
-}
-
-vec4 toneMapFilmic(vec4 hdrColor) {
-    vec3 x = max(vec3(0.0), hdrColor.rgb * exposure - vec3(0.004));
-    vec3 numerator = x * fma(vec3(6.2), x, vec3(0.5));
-    vec3 denominator = fma(x, fma(vec3(6.2), x, vec3(1.7)), vec3(0.06));
-    vec3 result = numerator / denominator;
-
-    return vec4(result, hdrColor.a);
-}
-
-vec4 toneMapACES(vec4 hdrColor) {
-    vec3 x = hdrColor.rgb * exposure;
-    vec3 result = ((2.51 * x + 0.03) * x) / (((2.43 * x + 0.59) * x) + 0.14);
-    return vec4(clamp(result, 0.0, 1.0), hdrColor.a);
-}
-
-vec4 CalculateLight(Light light, vec3 viewDir, vec3 norm, vec3 fragPosition, vec4 texColor, vec3 F0,
-                    vec3 T, vec3 B, float roughness, float specular) {
-
-    float attenuation = 1.0;
-    float spot = 1.0;
-
-    vec3 toLight = light.position - fragPosition;
-    vec3 lightDir = normalize(mix(toLight, -light.direction, step(light.type, LIGHT_DIRECTIONAL)));
-
-    float lightToFragDist = length(toLight);
-    float attenuationFactor = PhysicalLightAttenuation(lightToFragDist, light.aisr.w, light.aisr.x);
-    float spotFactor = smoothstep(0.6, 0.8, dot(lightDir, light.direction));
-
-    float attenuationMix = mix(spotFactor, 1.0, step(light.type, LIGHT_POINT));
-    attenuation = mix(attenuationFactor * attenuationMix, 1.0, step(light.type, LIGHT_DIRECTIONAL));
-
-    vec4 diffuse = CalculateDiffuseLighting(norm, lightDir, light.color, texColor);
-    vec3 specularFactor = CookTorrance(lightDir, viewDir, norm, T, B, roughness, F0, light.aisr.z * specular);
-
-    vec3 finalColor = (diffuse.rgb + specularFactor) * (attenuation * spot * light.aisr.y);
-    return vec4(finalColor, 1.0);
-}
-
-vec4 CalculateLighting(vec3 fragPosition, vec3 fragNormal, vec3 viewDir, vec2 texCoord,
-                      vec4 texColor, vec3 T, vec3 B, float roughness, float specular, float metalness) {
-
-    vec3 F0 = mix(vec3(0.04), texColor.rgb, metalness);
-    float oneMinusMetalness = 1.0 - metalness;
-
-    vec4 result = CalculateAmbientLighting(roughness, texColor);
-
-    vec3 multiBounce = (vec3(1.0) - F0) * oneMinusMetalness;
-    result.rgb = fma(multiBounce, ambientLight.rgb * 0.1, result.rgb);
-
-    for (int i = 0; i < lightsCount; i++) {
-        result += CalculateLight(lights[i], viewDir, fragNormal, fragPosition, texColor, F0, T, B, roughness, specular);
+    if (radius > 0.0) {
+        float distOverRadiusSq = (distance * distance) / (radius * radius);
+        float factor = distOverRadiusSq * distOverRadiusSq;
+        float smoothFactor = saturate(1.0 - factor);
+        distAtt *= smoothFactor * smoothFactor;
     }
 
-    return result; //toneMapACES(result);
+    mediump const float spotFactor = mix(
+        1.0,
+        GetSpotlightFactor(vec3(dot(-L, light.direction), light.params.w, light.params.z)),
+        isSpot
+    );
+
+    mediump const float attenuation = mix(distAtt * spotFactor, 1.0, isDir);
+    mediump const vec3 lightColor   = light.color.rgb * light.params.y;
+
+    const vec3  F = F0 + (vec3(1.0) - F0) * pow5(clamp(1.0 - HdotV, 0.0, 1.0));
+    const vec3 kS = F;
+    const vec3 kD = (vec3(1.0) - kS) * (1.0 - pbrParams.y);
+    const vec3 diff     = kD * albedo * INV_PI;
+
+    if ((radius > 0.0 && distance > radius) || fragDist > 100.0) {
+        vec3 Ldir   = normalize(isDir > 0.5 ? -light.direction : rawDir);
+        float NL    = max(dot(N, Ldir), 0.0);
+        vec3 diffuse = albedo * lightColor * NL * attenuation;
+
+        vec3 ambient = texture(irradiance, N).rgb * albedo * 0.1;
+
+        return (diffuse + ambient) * 0.3;
+    }
+
+    const float D = DistributionGGX(max(dot(N, H), 0.0), pbrParams.x);
+    const float ggxV = GeometrySchlickGGX(pbrParams.z, pbrParams.x);
+    const float ggxL = GeometrySchlickGGX(NdotL, pbrParams.x);
+    const float G = ggxV * ggxL; // Geometry smith inlined
+
+    const float denom   = 1.0 / (4.0 * pbrParams.z * NdotL + EPSILON);
+    const vec3 specBRDF = D * G * F * denom;
+
+    const vec3 Lo = (diff + specBRDF * specularEnv) * lightColor * NdotL * attenuation;
+
+    return Lo;
 }
 
-float Q_rsqrt(float number) {
-    float x2 = number * 0.5;
-    float y  = number;
-    uint i = floatBitsToUint(y);
-    i = 0x5f3759dfu - (i >> 1);
-    y = uintBitsToFloat(i);
-    y = y * (1.5 - (x2 * y * y));  // one iteration of Newton's method
-    return y;
+vec3 CalculateSpecularIBL(const vec3 F0, const float roughness, const vec3 N, const float NdotV, const vec3 specularEnv) {
+    mediump const vec2 brdf = texture(brdfLUT, vec2(NdotV, roughness)).rg;
+    return specularEnv * (F0 * brdf.x + brdf.y);
+}
+
+vec3 toneMapACES(mediump const vec3 color) {
+    mediump const float a = 2.51;
+    mediump const float b = 0.03;
+    mediump const float c = 2.43;
+    mediump const float d = 0.59;
+    mediump const float e = 0.14;
+    return clamp((color * (a * color + b)) / (color * (c * color + d) + e), 0.0, 1.0);
+}
+
+mediump float invSqrtFast(float x) {
+    mediump float xhalf = 0.5 * x;
+    int i = floatBitsToInt(x);
+    i = 0x5f3759df - (i >> 1);
+    x = intBitsToFloat(i);
+    return x * (1.5 - xhalf * x * x);
 }
 
 // [ INSERT GENERATED CODE BELOW ]
 
 void main() {
 #ifdef TILING
-    mediump vec2 texCoord = fragTexCoord * tiling;
+    mediump const vec2 texCoord = fragTexCoord * tiling;
 #else
-    mediump vec2 texCoord = fragTexCoord;
+    mediump const vec2 texCoord = fragTexCoord;
 #endif
 
-    highp vec3 viewDir = normalize(viewPos - fragPosition);
-    vec3 dp1 = dFdx(fragPosition);
-    vec3 dp2 = dFdy(fragPosition);
-    vec2 duv1 = dFdx(fragTexCoord);
-    vec2 duv2 = dFdy(fragTexCoord);
-
-    vec3 tangent = normalize(dp1 * duv2.y - dp2 * duv1.y);
-    vec3 bitangent = normalize(dp2 * duv1.x - dp1 * duv2.x);
-
-
-#ifdef ALBEDO
-    vec4 texColor = texture(texture0, texCoord);
-#else
-    vec4 texColor = vec4(1.0);
-#endif
+    vec3 N       = fragNormal;
+    fragView     = normalize(viewPos - fragPosition);
 
 #ifdef NORMAL
-    mat3 TBN = mat3(tangent, bitangent, fragNormal);
+    const vec3 dp1   = dFdx(fragPosition);
+    const vec3 dp2   = dFdy(fragPosition);
+    const vec2 duv1  = dFdx(texCoord);
+    const vec2 duv2  = dFdy(texCoord);
 
-    vec2 nxy = texture(texture2, texCoord).rg * 2.0 - 1.0;
+    const vec3 dPds  = dp1 * duv2.t - dp2 * duv1.t;
+    const vec3 dPdt  = dp2 * duv1.s - dp1 * duv2.s;
+
+    const vec3 T     = normalize(dPds - N * dot(N, dPds));
+    const vec3 B     = normalize(cross(N, T));
+    const mat3 TBN   = mat3(T, B, N);
+
+    const vec2 nxy = texture(texture2, texCoord).rg * 2.0 - 1.0;
     vec3 nm = calcNormalMap(vec4(nxy, 1.0, 1.0)).rgb;
-    nm.z = Q_rsqrt(max(1.0 - dot(nm.xy, nm.xy), 0.0));
+    const float xyLenSq = dot(nm.xy, nm.xy);
+    nm.z = invSqrtFast(max(1.0 - xyLenSq, EPSILON));
 
-    vec3 norm = normalize(TBN * nm);
-#else
-    vec3 norm = normalize(fragNormal);
+
+
+    N = normalize(TBN * nm);
 #endif
 
-#ifdef ROUGHNESS
-    float roughness = texture(texture3, texCoord).r;
-#else
+
+    vec4 albedoSample = vec4(1.0);
+#ifdef ALBEDO
+    albedoSample = calcDiffuseMap(texture(texture0, texCoord));
+#endif
+    vec3 albedo = albedoSample.rgb;
+    float alpha = albedoSample.a;
+
     float roughness = 0.5;
+#ifdef ROUGHNESS
+    roughness = calcRoughnessMap(texture(texture3, texCoord)).r;
 #endif
+    roughness = max(roughness, MIN_ROUGHNESS);
 
-#ifdef SPECULAR
-    float specular = texture(texture5, texCoord).r;
-#else
-    float specular = 0.5;
-#endif
-
+    float metalness = 0.0;
 #ifdef METALNESS
-    float metalness = texture(texture6, texCoord).r;
-#else
-    float metalness = 0.5;
+    metalness = calcMetallicMap(texture(texture1, texCoord)).r;
 #endif
 
-    vec4 lighting = CalculateLighting(fragPosition, norm, viewDir, texCoord, texColor, tangent, bitangent, roughness, specular, metalness);
-
-#ifdef AMBIENT_OCCLUSION
-    lighting.rgb *= texture(texture4, texCoord).r;
+    mediump float ao = 1.0;
+#ifdef AO
+    ao = calcAmbientOcclusionMap(texture(texture4, texCoord)).r;
 #endif
 
-    finalColor = lighting;
+    const float specularIntensity = 1.0;
+
+    const vec3 dielectricF0 = DEFAULT_DIELECTRIC_F0 * specularIntensity;
+    const vec3 F0 = mix(dielectricF0, albedo, metalness);
+
+    const float Ni = dot(N, -fragView);
+    const vec3  R  = -fragView - 2.0 * Ni * N;
+
+    const vec3 specularEnv = texture(irradiance, R).rgb;
+    const float NdotV = saturate(dot(N, fragView));
+
+    vec3 Lo = vec3(0.0);
+    for (int i = 0; i < lightsCount; ++i) {
+        Lo += CalculateDirectLighting(i, N, F0, albedo, specularEnv, vec3(roughness, metalness, NdotV));
+    }
+
+    const vec3 F_ibl = F0 + (vec3(1.0) - F0) * pow5(clamp(1.0 - NdotV, 0.0, 1.0));
+
+    const vec3 kD_ibl = (vec3(1.0) - F_ibl) * (1.0 - metalness);
+    const vec3 diffuseIBL = texture(irradiance, N).rgb * albedo * kD_ibl;
+
+    const vec3 specularIBL = CalculateSpecularIBL(F0, roughness, N, NdotV, specularEnv);
+
+    const vec3 ambient = (diffuseIBL + specularIBL) * ao;
+    Lo += ambient;
+
+#ifdef EMISSION_MAP
+    Lo += calcEmissionMap(texture(texture5, texCoord));
+#endif
+
+    mediump const vec3 hdrColor = toneMapACES(exposure * Lo);
+
+    finalColor = vec4(hdrColor, alpha);
+    finalNormal = vec4(N,1);
 }

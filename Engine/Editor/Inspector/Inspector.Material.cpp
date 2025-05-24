@@ -1,3 +1,8 @@
+/*
+This file is licensed under the PolyForm Noncommercial License 1.0.0.
+See the LICENSE file in the project root for full license information.
+*/
+
 #define IMGUI_DEFINE_MATH_OPERATORS
 #include <imgui_internal.h>
 #include <imgui.h>
@@ -162,15 +167,18 @@ void MaterialInspector(ChildMaterial& material) {
 
     if (updateMaterial && ImGui::IsMouseReleased(ImGuiMouseButton_Left)) {
         std::ifstream stream("Engine/Lighting/shaders/lighting_vertex.glsl");
-        if (!stream.is_open()) {
+        if (!stream) {
             TraceLog(LOG_ERROR, "Failed to open default vertex shader file");
         }
 
-        std::string vertexShaderCode = std::string((std::istreambuf_iterator<char>(stream)),
-                                                     std::istreambuf_iterator<char>());
+        std::string vertexShaderCode = std::string((std::istreambuf_iterator<char>(stream)), std::istreambuf_iterator<char>());
 
-        std::shared_ptr<Shader> shader = shaderManager.LoadShaderProgramFromMemory(vertexShaderCode.c_str(), GenerateMaterialShader(material).c_str());
-        if (IsShaderReady(*shader.get())) selectedEntity->setShader(*shader.get());
+        std::shared_ptr<Shader> shader = shaderManager.LoadShaderProgramFromMemory(
+            vertexShaderCode.c_str(),
+            GenerateMaterialShader(*selectedEntity, material).c_str()
+        );
+
+        if (shader && IsShaderReady(*shader)) selectedEntity->setShader(shader);
         else TraceLog(LOG_ERROR, "Failed to generate shader for material: %s", material.name.c_str());
 
         updateMaterial = false;

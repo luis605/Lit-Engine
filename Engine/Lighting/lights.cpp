@@ -1,47 +1,54 @@
+/*
+This file is licensed under the PolyForm Noncommercial License 1.0.0.
+See the LICENSE file in the project root for full license information.
+*/
+
 #include <Engine/Lighting/lights.hpp>
 #include <Engine/Lighting/Shaders.hpp>
 std::vector<LightStruct> lights;
 std::vector<LightStruct> renderModelPreviewerLights;
 
 Texture2D lightTexture;
-Vector4 ambientLight = {1.0f, 1.0f, 1.0f, 1.0f};
 
-void UpdateLightsBuffer(bool force, std::vector<LightStruct>& lightsVector,
-    GLuint& buffer) {
-    if (lightsVector.empty() && !force)
-    return;
-
-    glBindBuffer(GL_SHADER_STORAGE_BUFFER, buffer);
-
-    size_t bufferSize = sizeof(Light) * lightsVector.size();
-    GLsizeiptr currentBufferSize;
-    glGetBufferParameteri64v(GL_SHADER_STORAGE_BUFFER, GL_BUFFER_SIZE,
-            &currentBufferSize);
-
-    if (bufferSize != static_cast<size_t>(currentBufferSize)) {
-        glBufferData(GL_SHADER_STORAGE_BUFFER, bufferSize, nullptr,
-        GL_DYNAMIC_DRAW);
-    }
-
+void UpdateLightsBuffer(bool force, std::vector<LightStruct>& lightsVector, GLuint& buffer) {
     std::vector<Light> lightsData;
     lightsData.reserve(lightsVector.size());
 
     for (const auto& lightStruct : lightsVector) {
         if (lightStruct.lightInfo.enabled)
-            lightsData.push_back(lightStruct.light);
+            lightsData.emplace_back(lightStruct.light);
+    }
+
+    if (lightsData.empty() && !force)
+        return;
+
+    size_t bufferSize = sizeof(Light) * lightsData.size();
+    GLsizeiptr currentBufferSize;
+    glBindBuffer(GL_SHADER_STORAGE_BUFFER, buffer);
+    glGetBufferParameteri64v(GL_SHADER_STORAGE_BUFFER, GL_BUFFER_SIZE, &currentBufferSize);
+
+    if (bufferSize != static_cast<size_t>(currentBufferSize)) {
+        glBufferData(GL_SHADER_STORAGE_BUFFER, bufferSize, nullptr, GL_DYNAMIC_DRAW);
     }
 
     glBufferSubData(GL_SHADER_STORAGE_BUFFER, 0, bufferSize, lightsData.data());
 
     glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 0, buffer);
 
-    int lightsCount = static_cast<int>(lightsVector.size());
-    SetShaderValue(shaderManager.m_defaultShader, shaderManager.GetUniformLocation(shaderManager.m_defaultShader.id, "lightsCount"), &lightsCount, SHADER_UNIFORM_INT);
+    int lightsCount = static_cast<int>(lightsData.size());
 
-    for (std::shared_ptr<Shader> shader : shaderManager.m_shaders) {
-        SetShaderValue(*shader.get(), shaderManager.GetUniformLocation(shader.get()->id, "lightsCount"), &lightsCount, SHADER_UNIFORM_INT);
+    // Only update shaders that are valid and expect lights
+    for (const std::shared_ptr<Shader>& shader : shaderManager.m_shaders) {
+        if (!shader || shader->id == 0)
+            continue;
+
+        int location = shaderManager.GetUniformLocation(shader->id, "lightsCount");
+        if (location != -1) {
+            SetShaderValue(*shader.get(), location, &lightsCount, SHADER_UNIFORM_INT);
+        }
     }
 }
+
 
 LightStruct& NewLight(const Vector3 position, const Color color, int type,
                       int id) {

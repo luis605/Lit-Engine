@@ -1,3 +1,8 @@
+/*
+This file is licensed under the PolyForm Noncommercial License 1.0.0.
+See the LICENSE file in the project root for full license information.
+*/
+
 #include "AssetsExplorer.hpp"
 #include "file_manipulation.hpp"
 #include <Engine/Lighting/skybox.hpp>
@@ -296,12 +301,12 @@ void InitRenderModelPreviewer() {
     lightStructA.light.type = LIGHT_POINT;
     lightStructA.light.position = {11.0f, 6.0f, 15.0f};
     lightStructA.light.color = {1.0f, 0.75f, 0.75f, 1.0f};
-    lightStructA.light.aisr.y = 10.0f;
+    lightStructA.light.params.y = 10.0f;
 
     lightStructB.light.type = LIGHT_POINT;
     lightStructB.light.position = {20.0f, 10.0f, -25.0f};
     lightStructB.light.color = {1.0f, 0.16f, 0.16f, 1.0f};
-    lightStructB.light.aisr.y = 6.0f;
+    lightStructB.light.params.y = 6.0f;
 
     renderModelPreviewerLights.push_back(lightStructA);
     renderModelPreviewerLights.push_back(lightStructB);
@@ -311,7 +316,7 @@ void InitRenderModelPreviewer() {
 
 Texture2D RenderModelPreview(const char* modelFile) {
     Model model = LoadModel(modelFile);
-    model.materials[0].shader = shaderManager.m_defaultShader;
+    model.materials[0].shader = *shaderManager.m_defaultShader;
     if (!IsModelReady(model)) {
         TraceLog(LOG_WARNING, "Failed to load model.");
         return {0};
@@ -321,7 +326,7 @@ Texture2D RenderModelPreview(const char* modelFile) {
 
     BeginTextureMode(modelPreviewRT);
     BeginMode3D(modelPreviewerCamera);
-    BeginShaderMode(shaderManager.m_defaultShader);
+    BeginShaderMode(*shaderManager.m_defaultShader);
     ClearBackground(GRAY);
     skybox.drawSkybox(modelPreviewerCamera);
 
@@ -427,9 +432,9 @@ void UpdateFileFolderStructures() {
     if (dirPath.empty() || !fs::exists(dirPath))
         return;
 
-    glUseProgram(shaderManager.m_defaultShader.id);
-    glUniform1i(glGetUniformLocation(shaderManager.m_defaultShader.id, "normalMapReady"), false);
-    glUniform1i(glGetUniformLocation(shaderManager.m_defaultShader.id, "roughnessMapReady"), false);
+    glUseProgram((*shaderManager.m_defaultShader).id);
+    glUniform1i(glGetUniformLocation((*shaderManager.m_defaultShader).id, "normalMapReady"), false);
+    glUniform1i(glGetUniformLocation((*shaderManager.m_defaultShader).id, "roughnessMapReady"), false);
 
     static bool lightsUpdated = false;
     if (!lightsUpdated) {

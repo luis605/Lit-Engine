@@ -1,15 +1,19 @@
+/*
+This file is licensed under the PolyForm Noncommercial License 1.0.0.
+See the LICENSE file in the project root for full license information.
+*/
+
 #version 460 core
 
-in vec2 fragTexCoord;
-out vec4 FragColor;
+layout(location = 1) in vec2 fragTexCoord;
+layout(location = 0) out vec4 FragColor;
 
-uniform sampler2D downsampledTexture; // The bloom texture at lower resolution
-uniform sampler2D originalTexture;    // The original scene texture
-uniform float threshold = 0.2;        // Brightness threshold to extract bloom
-uniform float bloomIntensity = 1.0;   // Intensity of the bloom effect
-uniform float smoothness = 0.1;       // Smoothness factor for the threshold
+uniform sampler2D downsampledTexture;
+uniform sampler2D originalTexture;
+uniform float threshold;
+uniform float bloomIntensity;
+const float smoothness = 0.1;
 
-// Smooth step function for gradual thresholding
 float smoothStep(float edge0, float edge1, float x) {
     float t = clamp((x - edge0) / (edge1 - edge0), 0.0, 1.0);
     return t * t * (3.0 - 2.0 * t);

@@ -1,14 +1,19 @@
+/*
+This file is licensed under the PolyForm Noncommercial License 1.0.0.
+See the LICENSE file in the project root for full license information.
+*/
+
 #version 460 core
 
-in vec3 vertexPosition;
-in vec2 vertexTexCoord;
+layout(location = 0) in vec3 vertexPosition;
+layout(location = 1) in vec2 vertexTexCoord;
 
 uniform mat4 matProjection;
 uniform mat4 matView;
 uniform mat4 matModel;
 
-out vec3 fragPosition;
-out vec2 fragTexCoord;
+layout(location = 0) out vec3 fragPosition;
+layout(location = 1) out vec2 fragTexCoord;
 
 void main() {
     fragPosition = vertexPosition;

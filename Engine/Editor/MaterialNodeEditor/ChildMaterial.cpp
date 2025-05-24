@@ -1,3 +1,8 @@
+/*
+This file is licensed under the PolyForm Noncommercial License 1.0.0.
+See the LICENSE file in the project root for full license information.
+*/
+
 #include <Engine/Editor/MaterialNodeEditor/MaterialBlueprints.hpp>
 #include <Engine/Editor/MaterialNodeEditor/ChildMaterial.hpp>
 #include <NodeEditor/imgui_node_editor.h>
@@ -243,7 +248,7 @@ void ParseNodeData(const std::string& uuid, const json& nodeJson, ChildMaterial&
             childMaterial.nodes[uuid] = node;
         } else if (type == "Slider") {
             SliderNode node;
-            node.value = (data.is_number()) ? data.get<float>() : 0.0f;
+            node.value = (!data.is_array() || data[0].is_null()) ? 0.0f : data[0].get<float>();
             childMaterial.nodes[uuid] = node;
         } else if (type == "Vector2") {
             Vector2Node node;

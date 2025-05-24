@@ -1,14 +1,19 @@
-#version 330
+/*
+This file is licensed under the PolyForm Noncommercial License 1.0.0.
+See the LICENSE file in the project root for full license information.
+*/
+
+#version 460 core
 
 // Input vertex attributes
-in vec3 vertexPosition;
+layout(location = 0) in vec3 vertexPosition;
 
 // Input uniform values
 uniform mat4 matProjection;
 uniform mat4 matView;
 
 // Output vertex attributes (to fragment shader)
-out vec3 fragPosition;
+layout(location = 0) out vec3 fragPosition;
 
 void main()
 {

@@ -1,3 +1,8 @@
+/*
+This file is licensed under the PolyForm Noncommercial License 1.0.0.
+See the LICENSE file in the project root for full license information.
+*/
+
 #define IMGUI_DEFINE_MATH_OPERATORS
 #include <imgui_internal.h>
 #include <imgui.h>
@@ -68,51 +73,65 @@ void LightInspector() {
         ImGui::Dummy(ImVec2(0.0f, 15.0f));
 
         if (!AttenuationActiveInputMode) {
-            ImGui::SliderFloat("Attenuation", &selectedLight->light.aisr.x,
+            ImGui::SliderFloat("Attenuation", &selectedLight->light.params.x,
                                0.0f, 0.3f);
             AttenuationActiveInputMode =
                 ImGui::IsItemHovered() && ImGui::IsMouseDoubleClicked(0);
         } else {
-            if (ImGui::InputFloat("Attenuation", &selectedLight->light.aisr.x,
+            if (ImGui::InputFloat("Attenuation", &selectedLight->light.params.x,
                                   0.0f, 1.0f, "%.3f",
                                   ImGuiInputTextFlags_EnterReturnsTrue))
                 AttenuationActiveInputMode = false;
         }
 
         if (!IntensityActiveInputMode) {
-            ImGui::SliderFloat("Intensity", &selectedLight->light.aisr.y, 0.0f,
+            ImGui::SliderFloat("Intensity", &selectedLight->light.params.y, 0.0f,
                                50.0f);
             IntensityActiveInputMode =
                 ImGui::IsItemHovered() && ImGui::IsMouseDoubleClicked(0);
         } else {
-            if (ImGui::InputFloat("Intensity", &selectedLight->light.aisr.y,
+            if (ImGui::InputFloat("Intensity", &selectedLight->light.params.y,
                                   0.0f, 100000.0f, "%.3f",
                                   ImGuiInputTextFlags_EnterReturnsTrue))
                 IntensityActiveInputMode = false;
         }
 
-        if (!SpecularStrenghtActiveInputMode) {
-            ImGui::SliderFloat("Specular Strenght",
-                               &selectedLight->light.aisr.z, 0.0f, 1.0f);
-            SpecularStrenghtActiveInputMode =
-                ImGui::IsItemHovered() && ImGui::IsMouseDoubleClicked(0);
-        } else {
-            if (ImGui::InputFloat("Specular Strenght",
-                                  &selectedLight->light.aisr.z, 0.0f, 1.0f,
-                                  "%.3f", ImGuiInputTextFlags_EnterReturnsTrue))
-                SpecularStrenghtActiveInputMode = false;
+        if (selectedLight->light.type == LIGHT_SPOT) {
+            if (!InnerCutoffActiveInputMode) {
+                ImGui::SliderFloat("Inner Cutoff",
+                                &selectedLight->light.params.z, 0.0f, 1.0f);
+                InnerCutoffActiveInputMode =
+                    ImGui::IsItemHovered() && ImGui::IsMouseDoubleClicked(0);
+            } else {
+                if (ImGui::InputFloat("Inner Cutoff",
+                                    &selectedLight->light.params.z, 0.0f, 1.0f,
+                                    "%.3f", ImGuiInputTextFlags_EnterReturnsTrue))
+                    InnerCutoffActiveInputMode = false;
+            }
         }
 
-        if (!RadiusActiveInputMode) {
-            ImGui::SliderFloat("Radius", &selectedLight->light.aisr.w, 0.0f,
-                               100.0f);
-            RadiusActiveInputMode =
-                ImGui::IsItemHovered() && ImGui::IsMouseDoubleClicked(0);
+        if (selectedLight->light.type == LIGHT_SPOT) {
+            if (!OuterCutoffActiveInputMode) {
+                ImGui::SliderFloat("Outer Cutoff", &selectedLight->light.params.w, 0.0f, 10.0f);
+                OuterCutoffActiveInputMode = ImGui::IsItemHovered() && ImGui::IsMouseDoubleClicked(0);
+            } else {
+                if (ImGui::InputFloat("Outer Cutoff", &selectedLight->light.params.w, 0.0f,
+                                    1000.0f, "%.3f",
+                                    ImGuiInputTextFlags_EnterReturnsTrue))
+                    OuterCutoffActiveInputMode = false;
+            }
         } else {
-            if (ImGui::InputFloat("Radius", &selectedLight->light.aisr.w, 0.0f,
-                                  100000.0f, "%.3f",
-                                  ImGuiInputTextFlags_EnterReturnsTrue))
-                RadiusActiveInputMode = false;
+            if (!RadiusActiveInputMode) {
+                ImGui::SliderFloat("Radius", &selectedLight->light.params.w, 0.0f,
+                                100.0f);
+                RadiusActiveInputMode =
+                    ImGui::IsItemHovered() && ImGui::IsMouseDoubleClicked(0);
+            } else {
+                if (ImGui::InputFloat("Radius", &selectedLight->light.params.w, 0.0f,
+                                    100000.0f, "%.3f",
+                                    ImGuiInputTextFlags_EnterReturnsTrue))
+                    RadiusActiveInputMode = false;
+            }
         }
 
         ImGui::Dummy(ImVec2(0.0f, 15.0f));

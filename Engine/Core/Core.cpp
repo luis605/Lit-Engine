@@ -1,3 +1,8 @@
+/*
+This file is licensed under the PolyForm Noncommercial License 1.0.0.
+See the LICENSE file in the project root for full license information.
+*/
+
 #include "Core.hpp"
 #include "global_variables.hpp"
 
@@ -24,6 +29,7 @@
 #include <Engine/Lighting/lights.hpp>
 #include <Engine/Lighting/skybox.hpp>
 #include <Engine/Lighting/Shaders.hpp>
+#include <Engine/Lighting/BRDF.hpp>
 #include <Engine/Plugins/Loader.hpp>
 #include <Engine/Scripting/functions.hpp>
 #include <Engine/Scripting/math.hpp>
@@ -64,25 +70,26 @@ void InitLitWindow() {
 
 void LoadTextures() {
     folderTexture = LoadTexture("Assets/images/folder.png");
-    imageTexture = LoadTexture("Assets/images/image_file_type.png");
-    cppTexture = LoadTexture("Assets/images/cpp_file_type.png");
-    pythonTexture = LoadTexture("Assets/images/python_file_type.png");
-    modelTexture = LoadTexture("Assets/images/model_file_type.png");
+    imageTexture  = LoadTexture("Assets/images/image_file_type.png");
+    cppTexture    = LoadTexture("Assets/images/cpp_file_type.png");
+    pythonTexture   = LoadTexture("Assets/images/python_file_type.png");
+    modelTexture    = LoadTexture("Assets/images/model_file_type.png");
     materialTexture = LoadTexture("Assets/images/material_file_type.png");
     emptyTexture = LoadTexture("Assets/images/empty_file_file_type.png");
-    runTexture = LoadTexture("Assets/images/run_game.png");
+    runTexture   = LoadTexture("Assets/images/run_game.png");
     pauseTexture = LoadTexture("Assets/images/pause_game.png");
-    saveTexture = LoadTexture("Assets/images/save_file.png");
-    hotReloadTexture = LoadTexture("Assets/images/hot_reload.png");
-    lightTexture = LoadTexture("Assets/images/light_bulb.png");
-    noiseTexture = LoadTexture("Assets/images/noise.png");
-    windowIconImage = LoadImage("Assets/images/window_icon.png");
+    saveTexture  = LoadTexture("Assets/images/save_file.png");
+    hotReloadTexture  = LoadTexture("Assets/images/hot_reload.png");
+    lightTexture      = LoadTexture("Assets/images/light_bulb.png");
+    noiseTexture      = LoadTexture("Assets/images/noise.png");
+    windowIconImage   = LoadImage("Assets/images/window_icon.png");
     windowIconTexture = LoadTextureFromImage(windowIconImage);
-    verticalBlurTexture =
-        LoadRenderTexture(GetScreenWidth(), GetScreenHeight());
-    horizontalBlurTexture =
-        LoadRenderTexture(GetScreenWidth(), GetScreenHeight());
-    upsamplerTexture = LoadRenderTexture(GetScreenWidth(), GetScreenHeight());
+    verticalBlurTexture   = LoadRenderTexture(GetScreenWidth(), GetScreenHeight());
+    horizontalBlurTexture = LoadRenderTexture(GetScreenWidth(), GetScreenHeight());
+    upsamplerTexture      = LoadRenderTexture(GetScreenWidth(), GetScreenHeight());
+    vignetteTexture       = LoadRenderTexture(GetScreenWidth(), GetScreenHeight());
+    ssgiTexture           = LoadRenderTexture(GetScreenWidth(), GetScreenHeight());
+    chromaticAberrationTexture = LoadRenderTexture(GetScreenWidth(), GetScreenHeight());
 
     SetWindowIcon(windowIconImage);
 }
@@ -106,7 +113,7 @@ void UpdateFonts(const float& fontSize, ImGuiIO& io) {
     config.MergeMode = true;
     static const ImWchar icon_ranges[] = {ICON_MIN_FA, ICON_MAX_FA, 0};
     io.Fonts->AddFontFromFileTTF(
-        (fontPath.string() + "fontawesome-webfont.ttf").c_str(), fontSize,
+        (fontPath.string() + "fontawesome-webfont.otf").c_str(), fontSize,
         &config, icon_ranges);
 
     io.FontDefault = s_Fonts["Regular"];
@@ -180,11 +187,16 @@ void Startup() {
     glCullFace(GL_BACK);
     glDisable(GL_STENCIL_TEST);
 
-    skybox.loadSkybox("Assets/images/skybox/default skybox.hdr");
+    glEnable(GL_DEPTH_TEST); // Tells the GPU to enable early-z (which on modern GPUs automatically enables depth testing)
+    glDepthMask(GL_TRUE);
+    glDepthFunc(GL_LESS);
+
     Py_Initialize();
     InitImGui();
     LoadTextures();
     shaderManager.InitShaders();
+    skybox.loadSkybox("Assets/images/skybox/default skybox.hdr");
+    brdf.GenLUT();
     InitLighting();
     InitGizmo();
     InitEditorCamera();
@@ -240,7 +252,7 @@ void CleanUp() {
     entitiesList.clear();
     lights.clear();
 
-    UnloadShader(shaderManager.m_defaultShader);
+    UnloadShader(*shaderManager.m_defaultShader);
     UnloadImage(windowIconImage);
     UnloadTexture(folderTexture);
     UnloadTexture(imageTexture);

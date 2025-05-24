@@ -1,3 +1,8 @@
+/*
+This file is licensed under the PolyForm Noncommercial License 1.0.0.
+See the LICENSE file in the project root for full license information.
+*/
+
 #define IMGUI_DEFINE_MATH_OPERATORS
 #include <imgui_internal.h>
 #include <imgui.h>
@@ -24,9 +29,7 @@ void WorldInspector() {
 
     constexpr const char* postProcessing_cstr = ICON_FA_FILTER " Post Processing";
 
-    if (ImGui::CollapsingHeader(
-            postProcessing_cstr,
-            false)) {
+    if (ImGui::CollapsingHeader(postProcessing_cstr, false)) {
         ImGui::Indent();
 
         // Bloom Panel
@@ -49,11 +52,11 @@ void WorldInspector() {
             ImGui::Text(threshold_cstr);
             ImGui::SameLine();
             ImGui::SetNextItemWidth(-1);
-            if (ImGui::SliderFloat("##ThresholdControl", &bloomThreshold, 0.0f,
-                                   1.0f)) {
-                SetShaderValue(shaderManager.m_upsamplerShader,
-                               shaderManager.GetUniformLocation(shaderManager.m_upsamplerShader.id, "threshold"),
-                               &bloomThreshold, SHADER_ATTRIB_FLOAT);
+            if (ImGui::SliderFloat("##ThresholdControl", &bloomThreshold, 0.0f, 1.0f)) {
+                const int shaderLocation = shaderManager.GetUniformLocation(shaderManager.m_upsamplerShader.id, "threshold");
+                glUseProgram(shaderManager.m_upsamplerShader.id);
+                glUniform1f(shaderLocation, bloomThreshold);
+                glUseProgram(0);
             }
 
             constexpr const char* intensity_cstr = "\uf042" " Intensity:"; // ADJUST
@@ -61,16 +64,15 @@ void WorldInspector() {
             ImGui::Text(intensity_cstr);
             ImGui::SameLine();
             ImGui::SetNextItemWidth(-1);
-            if (ImGui::SliderFloat("##IntensityControl", &bloomIntensity, 0.0f,
-                                   2.0f)) {
-                SetShaderValue(
-                    shaderManager.m_upsamplerShader,
-                    shaderManager.GetUniformLocation(shaderManager.m_upsamplerShader.id, "bloomIntensity"),
-                    &bloomIntensity, SHADER_ATTRIB_FLOAT);
+            if (ImGui::SliderFloat("##IntensityControl", &bloomIntensity, 0.0f, 2.0f)) {
+                const int shaderLocation = shaderManager.GetUniformLocation(shaderManager.m_upsamplerShader.id, "bloomIntensity");
+                glUseProgram(shaderManager.m_upsamplerShader.id);
+                glUniform1f(shaderLocation, bloomIntensity);
+                glUseProgram(0);
             }
 
             // Samples Slider
-            constexpr const char* kernelSize_cstr = ICON_FA_CUBE " Kernel Size:";
+            constexpr const char* kernelSize_cstr = ICON_FA_UP_RIGHT_AND_DOWN_LEFT_FROM_CENTER " Kernel Size:";
 
             ImGui::Text(kernelSize_cstr);
             ImGui::SameLine();
@@ -90,6 +92,85 @@ void WorldInspector() {
             ImGui::Unindent();
         }
 
+        constexpr const char* vignette_cstr = ICON_FA_IMAGE " Vignette";
+
+        if (ImGui::CollapsingHeader(vignette_cstr, false)) {
+            ImGui::Text("Enabled:");
+            ImGui::SameLine();
+            ImGui::SetNextItemWidth(-1);
+            ImGui::Checkbox("##VignetteToggle", &vignetteEnabled);
+
+            constexpr const char* strength_cstr = "\uf042" " Strength:"; // ADJUST
+
+            ImGui::Text(strength_cstr);
+            ImGui::SameLine();
+            ImGui::SetNextItemWidth(-1);
+            if (ImGui::SliderFloat("##StrengthControl", &vignetteStrength, 0.0f, 1.0f)) {
+                SetShaderValue(shaderManager.m_vignetteShader,
+                               shaderManager.GetUniformLocation(shaderManager.m_vignetteShader.id, "strength"),
+                               &vignetteStrength, SHADER_UNIFORM_FLOAT);
+            }
+
+            constexpr const char* radius_cstr = "\uf042" " Radius:"; // ADJUST
+
+            ImGui::Text(radius_cstr);
+            ImGui::SameLine();
+            ImGui::SetNextItemWidth(-1);
+            if (ImGui::SliderFloat("##RadiusControl", &vignetteRadius, 0.0f, 1.0f)) {
+                SetShaderValue(
+                    shaderManager.m_vignetteShader,
+                    shaderManager.GetUniformLocation(shaderManager.m_vignetteShader.id, "radius"),
+                    &vignetteRadius, SHADER_UNIFORM_FLOAT);
+            }
+
+            constexpr const char* vignetteColor_cstr = ICON_FA_PAINTBRUSH " Color:"; // BRUSH
+
+            ImGui::Text(vignetteColor_cstr);
+            ImGui::SameLine();
+            ImGui::SetNextItemWidth(-1);
+
+            float colorValue[4] = { vignetteColor.x, vignetteColor.y, vignetteColor.z, vignetteColor.w };
+            if (ImGui::ColorEdit4("##ColorValue", colorValue, ImGuiColorEditFlags_AlphaBar)) {
+                vignetteColor = Vector4(colorValue[0], colorValue[1], colorValue[2], colorValue[3]);
+                SetShaderValue(shaderManager.m_vignetteShader,
+                    shaderManager.GetUniformLocation(shaderManager.m_vignetteShader.id, "color"),
+                    &vignetteColor, SHADER_UNIFORM_VEC4);
+    }
+        }
+
+        constexpr const char* aberration_cstr = ICON_FA_FILM " Chromatic Aberration";
+
+        if (ImGui::CollapsingHeader(aberration_cstr, false)) {
+            ImGui::Text("Enabled:");
+            ImGui::SameLine();
+            ImGui::SetNextItemWidth(-1);
+            ImGui::Checkbox("##AberrationToggle", &aberrationEnabled);
+
+            constexpr const char* offset_cstr = ICON_FA_SLIDERS " Offset:";
+
+            ImGui::Text(offset_cstr);
+            ImGui::SameLine();
+            ImGui::SetNextItemWidth(-1);
+
+            float channelOffset[3] = {
+                aberrationOffset.x,
+                aberrationOffset.y,
+                aberrationOffset.z
+            };
+
+            if (ImGui::SliderFloat3("##ChannelOffset", channelOffset, -0.1f, .1f)) {
+                aberrationOffset = {
+                    channelOffset[0],
+                    channelOffset[1],
+                    channelOffset[2]
+                };
+
+                SetShaderValue(shaderManager.m_chromaticAberration,
+                               shaderManager.GetUniformLocation(shaderManager.m_chromaticAberration.id, "offset"),
+                               &aberrationOffset, SHADER_UNIFORM_VEC3);
+            }
+        }
+
         ImGui::Unindent();
     }
 
@@ -100,54 +181,6 @@ void WorldInspector() {
 
     if (ImGui::CollapsingHeader(lighting_cstr, false)) {
         ImGui::Indent();
-
-        // Ambient Light Panel
-        ImGui::SetNextItemWidth(-1);
-
-        constexpr const char* ambientLight_cstr = ICON_FA_SUN " Ambient Light";
-
-        if (ImGui::CollapsingHeader(ambientLight_cstr, false)) {
-            ImGui::Indent();
-
-            ImGui::Text("Color:");
-            ImGui::SameLine();
-
-            // Ambient Light Color Picker
-            ImVec4 lightColorImGUI = ImVec4(ambientLight.x, ambientLight.y,
-                                            ambientLight.z, ambientLight.w);
-            if (ImGui::ColorButton(ICON_FA_PALETTE " Ambient Light Color",
-                                   lightColorImGUI)) {
-                ImGui::OpenPopup("##AmbientLightColorPicker");
-            }
-
-            if (ImGui::BeginPopupContextItem("##AmbientLightColorPicker")) {
-                ImGui::ColorPicker4("##AmbientLightColor",
-                                    (float*)&lightColorImGUI);
-                ambientLight = {lightColorImGUI.x, lightColorImGUI.y,
-                                lightColorImGUI.z, lightColorImGUI.w};
-                SetShaderValue(shaderManager.m_defaultShader,
-                               shaderManager.GetUniformLocation(shaderManager.m_defaultShader.id, "ambientLight"),
-                               &ambientLight, SHADER_UNIFORM_VEC4);
-                ImGui::EndPopup();
-            }
-
-            ambientLight.x = lightColorImGUI.x;
-            ambientLight.y = lightColorImGUI.y;
-            ambientLight.z = lightColorImGUI.z;
-            ambientLight.w = lightColorImGUI.w;
-
-            SetShaderValue(shaderManager.m_defaultShader, shaderManager.GetUniformLocation(shaderManager.m_defaultShader.id, "ambientLight"),
-                           &ambientLight, SHADER_UNIFORM_VEC4);
-
-            for (Entity& entity : entitiesListPregame) {
-                SetShaderValue(
-                    entity.getShader(),
-                    shaderManager.GetUniformLocation(entity.getShader().id, "ambientLight"),
-                    &ambientLight, SHADER_UNIFORM_VEC4);
-            }
-
-            ImGui::Unindent();
-        }
 
         // Skybox Panel
         ImGui::SetNextItemWidth(-1);
@@ -182,7 +215,7 @@ void WorldInspector() {
 
             ImGui::Indent();
 
-            if (ImGui::ImageButton("skyboxTex", (ImTextureID)&skybox.cubemap,
+            if (ImGui::ImageButton("skyboxTex", (ImTextureID)&skybox.cubeMap,
                                    ImVec2(200, 200))) {
                 showSkyboxTexture = !showSkyboxTexture;
             }
@@ -202,7 +235,7 @@ void WorldInspector() {
 
             ImGui::SameLine();
             if (ImGui::Button("x##SkuboxEmptyButton", ImVec2(25, 25)))
-                UnloadTexture(skybox.cubemap);
+                UnloadTexture(skybox.cubeMap);
 
             ImGui::Unindent();
 

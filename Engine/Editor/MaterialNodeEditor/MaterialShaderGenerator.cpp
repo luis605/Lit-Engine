@@ -1,3 +1,8 @@
+/*
+This file is licensed under the PolyForm Noncommercial License 1.0.0.
+See the LICENSE file in the project root for full license information.
+*/
+
 #include <Engine/Core/Engine.hpp>
 #include <Engine/Editor/MaterialNodeEditor/MaterialGraph.hpp>
 #include <Engine/Editor/MaterialNodeEditor/ChildMaterial.hpp>
@@ -22,7 +27,7 @@ namespace {
     };
 }
 
-std::string GenerateMaterialShader(ChildMaterial& material) {
+std::string GenerateMaterialShader(Entity& entity, ChildMaterial& material) {
     std::optional<std::reference_wrapper<MaterialBlueprint>> blueprintRef;
 
     auto it = materialBlueprints.find(material.blueprintPath);
@@ -178,38 +183,38 @@ std::string GenerateMaterialShader(ChildMaterial& material) {
             if (std::optional<TextureNode*> textureData = material.GetNodeData<TextureNode>(node->UUID)) {
                 switch (pinIndex) {
                     case MaterialProperty::Albedo:
-                        selectedEntity->surfaceMaterial.albedoTexture = textureData.value()->texture;
-                        selectedEntity->surfaceMaterial.albedoTexturePath = textureData.value()->texturePath;
+                        entity.surfaceMaterial.albedoTexture = textureData.value()->texture;
+                        entity.surfaceMaterial.albedoTexturePath = textureData.value()->texturePath;
                         shaderStream << "#define ALBEDO\n";
                         break;
                     case MaterialProperty::Normal:
-                        selectedEntity->surfaceMaterial.normalTexture = textureData.value()->texture;
-                        selectedEntity->surfaceMaterial.normalTexturePath = textureData.value()->texturePath;
+                        entity.surfaceMaterial.normalTexture = textureData.value()->texture;
+                        entity.surfaceMaterial.normalTexturePath = textureData.value()->texturePath;
                         shaderStream << "#define NORMAL\n";
                         break;
                     case MaterialProperty::Roughness:
-                        selectedEntity->surfaceMaterial.roughnessTexture = textureData.value()->texture;
-                        selectedEntity->surfaceMaterial.roughnessTexturePath = textureData.value()->texturePath;
+                        entity.surfaceMaterial.roughnessTexture = textureData.value()->texture;
+                        entity.surfaceMaterial.roughnessTexturePath = textureData.value()->texturePath;
                         shaderStream << "#define ROUGHNESS\n";
                         break;
                     case MaterialProperty::AmbientOcclusion:
-                        selectedEntity->surfaceMaterial.aoTexture = textureData.value()->texture;
-                        selectedEntity->surfaceMaterial.aoTexturePath = textureData.value()->texturePath;
+                        entity.surfaceMaterial.aoTexture = textureData.value()->texture;
+                        entity.surfaceMaterial.aoTexturePath = textureData.value()->texturePath;
                         shaderStream << "#define AMBIENT_OCCLUSION\n";
                         break;
                     case MaterialProperty::Height:
-                        selectedEntity->surfaceMaterial.heightTexture = textureData.value()->texture;
-                        selectedEntity->surfaceMaterial.heightTexturePath = textureData.value()->texturePath;
+                        entity.surfaceMaterial.heightTexture = textureData.value()->texture;
+                        entity.surfaceMaterial.heightTexturePath = textureData.value()->texturePath;
                         shaderStream << "#define HEIGHT\n";
                         break;
                     case MaterialProperty::Metallic:
-                        selectedEntity->surfaceMaterial.metallicTexture = textureData.value()->texture;
-                        selectedEntity->surfaceMaterial.metallicTexturePath = textureData.value()->texturePath;
+                        entity.surfaceMaterial.metallicTexture = textureData.value()->texture;
+                        entity.surfaceMaterial.metallicTexturePath = textureData.value()->texturePath;
                         shaderStream << "#define METALNESS\n";
                         break;
                     case MaterialProperty::Emission:
-                        selectedEntity->surfaceMaterial.emissiveTexture = textureData.value()->texture;
-                        selectedEntity->surfaceMaterial.emissiveTexturePath = textureData.value()->texturePath;
+                        entity.surfaceMaterial.emissiveTexture = textureData.value()->texture;
+                        entity.surfaceMaterial.emissiveTexturePath = textureData.value()->texturePath;
                         shaderStream << "#define EMISSIVE\n";
                         break;
                 }
@@ -244,8 +249,6 @@ std::string GenerateMaterialShader(ChildMaterial& material) {
                     << ProcessTreeNode(tree.root, rootNode->Inputs.at(inputIdx).ID, "textureRGBA")
                     << ";\n}\n\n";
     }
-
-
 
     std::ifstream stream("Engine/Lighting/shaders/lighting_fragment.glsl");
     if (!stream.is_open()) {

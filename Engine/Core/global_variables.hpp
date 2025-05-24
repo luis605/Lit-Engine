@@ -1,3 +1,8 @@
+/*
+This file is licensed under the PolyForm Noncommercial License 1.0.0.
+See the LICENSE file in the project root for full license information.
+*/
+
 #ifndef GLOBALS_H
 #define GLOBALS_H
 
@@ -12,6 +17,8 @@
 extern bool firstTimeGameplay;
 
 #ifndef GAME_SHIPPING
+    #include <Engine/Core/Textures.hpp>
+
     extern std::string selectedGameObjectType;
     extern std::string themesFolder;
     extern std::chrono::milliseconds sceneEditorProfilerDuration;
@@ -24,7 +31,7 @@ extern bool firstTimeGameplay;
     extern Texture2D runTexture;
     extern Texture2D pauseTexture;
     extern Texture2D viewportTexture;
-    extern RenderTexture2D viewportRenderTexture;
+    extern GBuffer   viewportMRT;
     extern Rectangle viewportRectangle;
 
     extern bool showFileExplorer;

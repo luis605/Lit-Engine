@@ -3,18 +3,19 @@ This file is licensed under the PolyForm Noncommercial License 1.0.0.
 See the LICENSE file in the project root for full license information.
 */
 
+#ifndef BRDF_HPP
+#define BRDF_HPP
+
 #include <raylib.h>
 
-class Time {
+struct BRDF {
 public:
-    float dt;
+    Texture2D m_brdfLut;
 
-    void update() {
-        dt = GetFrameTime();
-    }
+public:
+    void GenLUT();
 };
-Time timeInstance;
 
-void UpdateInGameGlobals() {
-    timeInstance.update();
-}
+extern BRDF brdf;
+
+#endif // BRDF_HPP

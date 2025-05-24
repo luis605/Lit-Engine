@@ -1,8 +1,12 @@
+/*
+This file is licensed under the PolyForm Noncommercial License 1.0.0.
+See the LICENSE file in the project root for full license information.
+*/
+
 #version 460 core
 
-in highp vec3 fragPosition;
-in vec2 fragTexCoord;
-flat in int objectIndex;
+layout(location = 0) in highp vec3 fragPosition;
+layout(location = 1) in vec2 fragTexCoord;
 
 uniform samplerCube environmentMap;
 uniform bool vflipped;

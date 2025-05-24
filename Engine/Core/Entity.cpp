@@ -1,8 +1,15 @@
+/*
+This file is licensed under the PolyForm Noncommercial License 1.0.0.
+See the LICENSE file in the project root for full license information.
+*/
+
 #include "Entity.hpp"
 #include <rlFrustum.h>
 #include <Engine/Core/LoD.hpp>
 #include <Engine/Core/Events.hpp>
 #include <Engine/Lighting/lights.hpp>
+#include <Engine/Lighting/skybox.hpp>
+#include <Engine/Lighting/BRDF.hpp>
 #include <Engine/Core/Textures.hpp>
 
 #ifndef GAME_SHIPPING
@@ -41,9 +48,9 @@ void Entity::addInstance(Entity* instance) {
 
     calculateInstance();
 
-    shaderManager.m_instancingShader.locs[SHADER_LOC_MATRIX_MVP] = shaderManager.GetUniformLocation(shaderManager.m_instancingShader.id, "mvp");
-    shaderManager.m_instancingShader.locs[SHADER_LOC_VECTOR_VIEW] = shaderManager.GetUniformLocation(shaderManager.m_instancingShader.id, "viewPos");
-    shaderManager.m_instancingShader.locs[SHADER_LOC_MATRIX_MODEL] = shaderManager.GetAttribLocation(shaderManager.m_instancingShader.id, "instanceTransform");
+    (*shaderManager.m_instancingShader).locs[SHADER_LOC_MATRIX_MVP] = shaderManager.GetUniformLocation((*shaderManager.m_instancingShader).id, "mvp");
+    (*shaderManager.m_instancingShader).locs[SHADER_LOC_VECTOR_VIEW] = shaderManager.GetUniformLocation((*shaderManager.m_instancingShader).id, "viewPos");
+    (*shaderManager.m_instancingShader).locs[SHADER_LOC_MATRIX_MODEL] = shaderManager.GetAttribLocation((*shaderManager.m_instancingShader).id, "instanceTransform");
 }
 
 bool Entity::hasInstances() const {
@@ -202,7 +209,7 @@ void Entity::initializeDefaultModel() {
     Mesh mesh = GenMeshCube(1, 1, 1);
     model = LoadModelFromMesh(mesh);
     if (entityShader == nullptr)
-        model.materials[0].shader = shaderManager.m_defaultShader;
+        model.materials[0].shader = *shaderManager.m_defaultShader;
     else
         model.materials[0].shader = *entityShader;
 }
@@ -288,7 +295,7 @@ void Entity::setModel(const fs::path& path, const Model& entityModel) {
         return;
     };
 
-    setShader(*entityShader);
+    setShader(entityShader);
 
     constBounds = GetMeshBoundingBox(model.meshes[0]);
 
@@ -335,24 +342,38 @@ bool Entity::hasModel() {
     return IsModelReady(model);
 }
 
-void Entity::setShader(Shader& newShader) {
-    entityShader = &newShader;
-    if (IsModelReady(model)) model.materials[0].shader = newShader;
+void Entity::setShader(std::shared_ptr<Shader> newShader) {
+    if (!newShader || !IsShaderReady(*newShader)) {
+        TraceLog(LOG_ERROR, "Shader is invalid! Could not set shader to entity.");
+        if (shaderManager.m_defaultShader && IsShaderReady(*shaderManager.m_defaultShader) && IsModelReady(model)) {
+            entityShader = shaderManager.m_defaultShader;
+            model.materials[0].shader = *shaderManager.m_defaultShader;
+            TraceLog(LOG_INFO, "Using default shader for entity.");
+        } else {
+            TraceLog(LOG_ERROR, "Default shader is also invalid or model not ready!");
+        }
+        return;
+    }\
+
+    entityShader = newShader;
+    if (IsModelReady(model)) {
+        model.materials[0].shader = *newShader;
+    }
 
     for (int index = 0; index < 4; index++) {
         if (IsModelReady(LodModels[index])) {
-            LodModels[index].materials[0].shader = newShader;
+            LodModels[index].materials[0].shader = *newShader;
         }
     }
 }
 
-Shader& Entity::getShader() {
-    if (entityShader == nullptr) {
+std::shared_ptr<Shader> Entity::getShader() {
+    if (!entityShader.get()) {
         TraceLog(LOG_WARNING, "Shader is null, returning default shader.");
         return shaderManager.m_defaultShader;
     }
 
-    return *entityShader;
+    return entityShader;
 }
 
 void Entity::initializeSharedModules() {
@@ -852,13 +873,13 @@ bool Entity::getFlag(const Flag& f) const {
 void Entity::renderInstanced() {
     PassSurfaceMaterials();
 
-    glUseProgram((GLuint)shaderManager.m_instancingShader.id);
+    glUseProgram((GLuint)(*shaderManager.m_instancingShader).id);
 
     matInstances = LoadMaterialDefault();
 
-    shaderManager.m_instancingShader.locs[SHADER_LOC_MATRIX_MVP] = shaderManager.GetUniformLocation(shaderManager.m_instancingShader.id, "mvp");
-    shaderManager.m_instancingShader.locs[SHADER_LOC_VECTOR_VIEW] = shaderManager.GetUniformLocation(shaderManager.m_instancingShader.id, "viewPos");
-    shaderManager.m_instancingShader.locs[SHADER_LOC_MATRIX_MODEL] = shaderManager.GetAttribLocation(shaderManager.m_instancingShader.id, "instanceTransform");
+    (*shaderManager.m_instancingShader).locs[SHADER_LOC_MATRIX_MVP] = shaderManager.GetUniformLocation((*shaderManager.m_instancingShader).id, "mvp");
+    (*shaderManager.m_instancingShader).locs[SHADER_LOC_VECTOR_VIEW] = shaderManager.GetUniformLocation((*shaderManager.m_instancingShader).id, "viewPos");
+    (*shaderManager.m_instancingShader).locs[SHADER_LOC_MATRIX_MODEL] = shaderManager.GetAttribLocation((*shaderManager.m_instancingShader).id, "instanceTransform");
 
     model.materials[0].maps[MATERIAL_MAP_DIFFUSE].color = RAYWHITE;
 
@@ -917,15 +938,39 @@ void Entity::renderSingleModel() {
 void Entity::PassSurfaceMaterials() {
     glUseProgram(entityShader->id);
 
-    glUniform1i(shaderManager.GetUniformLocation(entityShader->id, "diffuseMapReady"),   !surfaceMaterial.albedoTexturePath.empty());
-    glUniform1i(shaderManager.GetUniformLocation(entityShader->id, "normalMapReady"),    !surfaceMaterial.normalTexturePath.empty());
-    glUniform1i(shaderManager.GetUniformLocation(entityShader->id, "roughnessMapReady"), !surfaceMaterial.roughnessTexturePath.empty());
-    glUniform1i(shaderManager.GetUniformLocation(entityShader->id, "aoMapReady"),        !surfaceMaterial.aoTexturePath.empty());
-    glUniform1i(shaderManager.GetUniformLocation(entityShader->id, "heightMapReady"),    !surfaceMaterial.heightTexturePath.empty());
-    glUniform1i(shaderManager.GetUniformLocation(entityShader->id, "metallicMapReady"),  !surfaceMaterial.metallicTexturePath.empty());
-    glUniform1i(shaderManager.GetUniformLocation(entityShader->id, "emissiveMapReady"),  !surfaceMaterial.emissiveTexturePath.empty());
-}
+    glActiveTexture(GL_TEXTURE8);
+    glBindTexture(GL_TEXTURE_CUBE_MAP, skybox.irradianceTex.id);
 
+    constexpr int irrUnit = 8;
+    SetShaderValue(*entityShader,
+        shaderManager.GetUniformLocation(entityShader->id, "irradiance"),
+        &irrUnit, SHADER_UNIFORM_INT);
+
+    const int lightsCount = lights.size();
+    SetShaderValue(*entityShader,
+        shaderManager.GetUniformLocation(entityShader->id, "lightsCount"),
+        &lightsCount, SHADER_UNIFORM_INT);
+
+    if (IsTextureReady(brdf.m_brdfLut)) {
+        GLuint texID = brdf.m_brdfLut.id;
+        GLint loc = shaderManager.GetUniformLocation(entityShader->id, "brdfLUT");
+
+        if (texID == 0) {
+            // TraceLog(LOG_WARNING, "BRDF LUT is not ready.");
+            return;
+        }
+        if (loc == -1) {
+            // TraceLog(LOG_WARNING, "BRDF LUT uniform not found.");
+            return;
+        }
+
+        glActiveTexture(GL_TEXTURE7);
+        glBindTexture(GL_TEXTURE_2D, texID);
+        glUniform1i(loc, 7);
+    } else {
+        TraceLog(LOG_WARNING, "BRDF LUT is not ready!");
+    }
+}
 
 bool operator==(const Entity& e, const Entity* ptr) {
     return &e == ptr;
@@ -981,7 +1026,7 @@ Entity* getEntityById(const int& id) {
     return nullptr;
 }
 
-Entity* AddEntity(
+void AddEntity(
     const fs::path& modelPath,
     const Model& model,
     const std::string& name,
@@ -994,7 +1039,8 @@ Entity* AddEntity(
     entityCreate.setName(name);
     entityCreate.setModel(modelPath, model);
     entityCreate.setShader(shaderManager.m_defaultShader);
-#ifndef GAME_SHIPPING
+
+    #ifndef GAME_SHIPPING
     if (id == -1) entityCreate.id = entitiesListPregame.size() + lights.size();
     else          entityCreate.id = id;
     entityIdToIndexMap[entityCreate.id] = entitiesListPregame.size();
@@ -1002,14 +1048,11 @@ Entity* AddEntity(
     entitiesListPregame.emplace_back(std::move(entityCreate));
     selectedGameObjectType = "entity";
     selectedEntity = &entitiesListPregame.back();
-
-    return &entitiesListPregame.back();
 #else
     if (id == -1) entityCreate.id = entitiesList.size() + lights.size();
     else          entityCreate.id = id;
     entityIdToIndexMap[entityCreate.id] = entitiesList.size();
 
     entitiesList.emplace_back(std::move(entityCreate));
-    return &entitiesList.back();
 #endif
 }

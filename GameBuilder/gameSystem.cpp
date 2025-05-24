@@ -1,3 +1,8 @@
+/*
+This file is licensed under the PolyForm Noncommercial License 1.0.0.
+See the LICENSE file in the project root for full license information.
+*/
+
 #define GAME_SHIPPING
 
 #include <Engine/Core/Engine.hpp>
@@ -74,10 +79,6 @@ void InitWindow() {
     SetTraceLogLevel(LOG_WARNING);
     InitWindow(WindowWidth, WindowHeight, gameTitle.c_str());
 
-    shaderManager.m_defaultShader = LoadShader("shaders/lighting_vertex.glsl",
-                                  "shaders/lighting_fragment.glsl");
-
-    // Face Culling
     glEnable(GL_CULL_FACE);
     glCullFace(GL_BACK);
 
@@ -95,8 +96,7 @@ void WindowMainloop() {
 void UpdateGameShader() {
     float cameraPos[3] = {inGameCamera.position.x, inGameCamera.position.y,
                           inGameCamera.position.z};
-    SetShaderValue(shaderManager.m_defaultShader, shaderManager.m_defaultShader.locs[SHADER_LOC_VECTOR_VIEW], cameraPos,
-                   SHADER_UNIFORM_VEC3);
+    SetShaderValue(*shaderManager.m_defaultShader, shaderManager.m_defaultShader.get()->locs[SHADER_LOC_VECTOR_VIEW], cameraPos, SHADER_UNIFORM_VEC3);
 }
 
 void Run() {

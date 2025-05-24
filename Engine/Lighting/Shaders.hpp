@@ -1,3 +1,8 @@
+/*
+This file is licensed under the PolyForm Noncommercial License 1.0.0.
+See the LICENSE file in the project root for full license information.
+*/
+
 #ifndef SHADERS_HPP
 #define SHADERS_HPP
 
@@ -14,6 +19,14 @@ extern GLuint lightsBuffer;
 extern GLuint renderPrevierLightsBuffer;
 extern GLuint exposureSSBO;
 
+extern bool vignetteEnabled;
+extern float vignetteStrength;
+extern float vignetteRadius;
+extern Vector4 vignetteColor;
+
+extern bool aberrationEnabled;
+extern Vector3 aberrationOffset;
+
 extern bool bloomEnabled;
 extern float bloomThreshold;
 extern float bloomIntensity;
@@ -23,21 +36,28 @@ extern int kernelSize;
 extern RenderTexture verticalBlurTexture;
 extern RenderTexture horizontalBlurTexture;
 extern RenderTexture upsamplerTexture;
+extern RenderTexture vignetteTexture;
+extern RenderTexture chromaticAberrationTexture;
+extern RenderTexture ssgiTexture;
 extern std::vector<RenderTexture2D> downsampledTextures;
 
 struct ShaderManager {
 private:
-std::unordered_map<GLuint, std::unordered_map<std::string, GLint>> uniformLocationCache;
-std::unordered_map<GLuint, std::unordered_map<std::string, GLint>> attribLocationCache;
+    std::unordered_map<GLuint, std::unordered_map<std::string, GLint>> uniformLocationCache;
+    std::unordered_map<GLuint, std::unordered_map<std::string, GLint>> attribLocationCache;
 
 public:
     std::vector<std::shared_ptr<Shader>> m_shaders;
-    Shader m_defaultShader;
-    Shader m_instancingShader;
+    std::shared_ptr<Shader> m_defaultShader;
+    std::shared_ptr<Shader> m_instancingShader;
     Shader m_horizontalBlurShader;
     Shader m_verticalBlurShader;
     Shader m_downsampleShader;
     Shader m_upsamplerShader;
+    Shader m_vignetteShader;
+    Shader m_irradianceShader;
+    Shader m_chromaticAberration;
+    Shader m_SSGIShader;
     GLuint m_exposureShaderProgram;
 
 public:
