@@ -11,7 +11,7 @@ See the LICENSE file in the project root for full license information.
 #include <raymath.h>
 
 LitVector3 LitVector3::normalized() {
-    Vector3 vector = (Vector3){x, y, z};
+    Vector3 vector = {x, y, z};
     Vector3 normalizedVector = Vector3Normalize(vector);
     x = normalizedVector.x;
     y = normalizedVector.y;
@@ -65,19 +65,9 @@ float LitVector3LengthSqr(const LitVector3 v) {
     return v.x * v.x + v.y * v.y + v.z * v.z;
 }
 
-template <typename T>
-constexpr const T& customClamp(const T& value, const T& low, const T& high) {
-    return (value < low) ? low : ((value > high) ? high : value);
-}
-
 int LitLerpInt(int start, int end, float t) {
     t = customClamp(t, 0.0f, 1.0f);
     return static_cast<int>(std::round(start + t * (end - start)));
-}
-
-template <typename T> T LitLerp(T start, T end, float t) {
-    t = customClamp(t, 0.0f, 1.0f);
-    return start + t * (end - start);
 }
 
 LitVector3 lerpVector3(const LitVector3& start, const LitVector3& end, float t) {

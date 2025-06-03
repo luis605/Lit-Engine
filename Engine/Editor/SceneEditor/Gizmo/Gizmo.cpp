@@ -263,7 +263,7 @@ void DrawGizmo(Gizmo& gizmo, const bool& wireframe,
         DrawRay(ray, rayColor);
     }
 
-    Matrix rotationMat = MatrixRotateXYZ((Vector3){
+    Matrix rotationMat = MatrixRotateXYZ({
         DEG2RAD *
             (gizmo.rotation.x + (applyRotation ? selectedObjectRotation.x : 0)),
         DEG2RAD *
@@ -461,7 +461,7 @@ void GizmoRotation() {
                                   -(mouseDragEnd.x - mouseDragStart.x) *
                                       gizmoDragSensitivityFactor,
                                   0.0f},
-                                 QuaternionToMatrix((Vector4){
+                                 QuaternionToMatrix({
                                      sceneCamera.front.x, sceneCamera.front.y,
                                      sceneCamera.front.z, 0}));
 

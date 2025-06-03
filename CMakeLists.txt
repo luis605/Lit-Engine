@@ -1,229 +1,122 @@
-# Set C compiler (prefer gcc-11, fallback to gcc)
-find_program(COMPILER_C NAMES gcc-11 gcc)
-if(NOT COMPILER_C)
-    message(FATAL_ERROR "No suitable C compiler found.")
-endif()
-set(CMAKE_C_COMPILER ${COMPILER_C})
-if(COMPILER_C MATCHES "gcc-11")
-    add_compile_options(-fno-lto)
-    add_link_options(-fno-lto)
+cmake_minimum_required(VERSION 3.18)
+cmake_policy(SET CMP0091 NEW)
+
+if(NOT DEFINED CMAKE_TOOLCHAIN_FILE AND EXISTS "${CMAKE_SOURCE_DIR}/Install/bin/vcpkg/scripts/buildsystems/vcpkg.cmake")
+    set(CMAKE_TOOLCHAIN_FILE "${CMAKE_SOURCE_DIR}/Install/bin/vcpkg/scripts/buildsystems/vcpkg.cmake"
+        CACHE FILEPATH "Vcpkg toolchain file - prefer setting via -D CMAKE_TOOLCHAIN_FILE=")
+    message(STATUS "Using Vcpkg toolchain from CMakeLists.txt: ${CMAKE_TOOLCHAIN_FILE}")
+else()
+    message(STATUS "Using Vcpkg toolchain (presumably from command line or cache): ${CMAKE_TOOLCHAIN_FILE}")
 endif()
 
-# Set C++ compiler (prefer g++-11, fallback to g++)
-find_program(COMPILER_CXX NAMES g++-11 g++)
-if(NOT COMPILER_CXX)
-    message(FATAL_ERROR "No suitable C++ compiler found.")
-endif()
-set(CMAKE_CXX_COMPILER ${COMPILER_CXX})
-if(COMPILER_CXX MATCHES "g\\+\\+\\-11")
-    add_compile_options(-fno-lto)
-    add_link_options(-fno-lto)
+set(VCPKG_TARGET_TRIPLET "x64-windows-static" CACHE STRING "Vcpkg target triplet")
+
+set(CMAKE_MSVC_RUNTIME_LIBRARY "MultiThreaded$<$<CONFIG:Debug>:Debug>" CACHE STRING "" FORCE)
+message(STATUS "Attempting to force MSVC Runtime Library to: ${CMAKE_MSVC_RUNTIME_LIBRARY} (Static)")
+
+project(LitEngine LANGUAGES CXX)
+
+if(MSVC)
+    message(STATUS "MSVC Runtime Library (after project command): ${CMAKE_MSVC_RUNTIME_LIBRARY}")
+    if(NOT CMAKE_MSVC_RUNTIME_LIBRARY MATCHES "^MultiThreaded")
+        message(WARNING "CMAKE_MSVC_RUNTIME_LIBRARY is NOT set to static as expected after project() command!")
+    endif()
+    message(STATUS "Initial CMAKE_CXX_FLAGS_RELEASE: ${CMAKE_CXX_FLAGS_RELEASE_INIT}")
+    message(STATUS "Initial CMAKE_CXX_FLAGS_DEBUG: ${CMAKE_CXX_FLAGS_DEBUG_INIT}")
 endif()
 
-# CMake Settings
-cmake_minimum_required(VERSION 3.12)
-project(LitEngine)
-
-# Global Configuration
 set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
-set(BUILD_SHARED_LIBS OFF)
-set(CMAKE_EXE_LINKER_FLAGS "-static-libstdc++ -static-libgcc")
-set(CMAKE_CXX_FLAGS "-no-pie -fdiagnostics-color=always")
-set(CMAKE_CXX_FLAGS_RELEASE "-O3")
-set(CMAKE_CXX_FLAGS_DEBUG "-g -O0 -pg")
-set(CMAKE_CXX_COMPILER_LAUNCHER ccache)
-set(CMAKE_EXE_LINKER_FLAGS "-fuse-ld=gold")
-add_definitions(-w -g)
+set(CMAKE_CXX_EXTENSIONS OFF)
 
-if (CMAKE_CXX_COMPILER_ID STREQUAL "GNU")
-    if (CMAKE_CXX_STANDARD EQUAL 11)
-        add_compile_options(-fno-lto)
-        add_link_options(-fno-lto)
-    endif()
+find_package(Bullet CONFIG REQUIRED)
+if(Bullet_FOUND)
+    message(STATUS "Found Bullet: Version ${Bullet_VERSION}")
+    message(STATUS "Bullet include dirs: ${Bullet_INCLUDE_DIRS}")
+else()
+    message(FATAL_ERROR "Bullet not found! Ensure it's installed via vcpkg for triplet ${VCPKG_TARGET_TRIPLET}.")
 endif()
 
-# Source Files
-set(SRC_FILES
-    ${CMAKE_SOURCE_DIR}/Include/ImGuiColorTextEdit/TextEditor.cpp
-    ${CMAKE_SOURCE_DIR}/Include/rlImGui.cpp
-    ${CMAKE_SOURCE_DIR}/Include/rlFrustum.cpp
-    ${CMAKE_SOURCE_DIR}/Include/NodeEditor/crude_json.cpp
-    ${CMAKE_SOURCE_DIR}/Include/NodeEditor/imgui_node_editor.cpp
-    ${CMAKE_SOURCE_DIR}/Include/NodeEditor/imgui_canvas.cpp
-    ${CMAKE_SOURCE_DIR}/Include/NodeEditor/imgui_node_editor_api.cpp
+find_path(FFMPEG_INCLUDE_DIR NAMES libavcodec/avcodec.h libavformat/avformat.h)
+find_library(FFMPEG_AVCODEC_LIBRARY NAMES avcodec)
+find_library(FFMPEG_AVFORMAT_LIBRARY NAMES avformat)
+find_library(FFMPEG_AVUTIL_LIBRARY NAMES avutil)
+find_library(FFMPEG_SWSCALE_LIBRARY NAMES swscale)
+find_library(FFMPEG_SWRESAMPLE_LIBRARY NAMES swresample)
+
+set(FFMPEG_INCLUDE_DIRS ${FFMPEG_INCLUDE_DIR})
+set(FFMPEG_LIBRARIES
+    ${FFMPEG_AVCODEC_LIBRARY} ${FFMPEG_AVFORMAT_LIBRARY} ${FFMPEG_AVUTIL_LIBRARY}
+    ${FFMPEG_SWSCALE_LIBRARY} ${FFMPEG_SWRESAMPLE_LIBRARY}
 )
 
-# Use GLOB_RECURSE when all headers are fixed
-file(GLOB_RECURSE ENGINE_SRC_FILES
-    ${CMAKE_SOURCE_DIR}/Engine/*.cpp
-    ${CMAKE_SOURCE_DIR}/GameBuilder/builder.cpp
-)
+include(FindPackageHandleStandardArgs)
+find_package_handle_standard_args(FFMPEG REQUIRED_VARS FFMPEG_LIBRARIES FFMPEG_INCLUDE_DIRS)
 
-list(APPEND SRC_FILES ${ENGINE_SRC_FILES})
-
-file(GLOB IMGUI_SRC_FILES ${CMAKE_SOURCE_DIR}/Include/imgui/*.cpp)
-list(APPEND SRC_FILES ${IMGUI_SRC_FILES})
-
-# Platform-Specific Configuration
-if(WIN32)
-    set(Bullet_DIR "${CMAKE_SOURCE_DIR}/install/bin/vcpkg/installed/x64-mingw-static/share/bullet")
-    set(CMAKE_MODULE_PATH "${CMAKE_SOURCE_DIR}/install/bin/vcpkg/installed/x64-mingw-static/share/ffmpeg")
-
-    find_package(Bullet CONFIG REQUIRED)
-    find_package(FFMPEG REQUIRED)
-
-    include_directories(
-        ${BULLET_INCLUDE_DIRS}
-    )
-
-    set(LIB_FLAGS
-        ${FFMPEG_LIBRARIES}
-        ${BULLET_LIBRARIES}
-        python312
-        winmm
-    )
-elseif(UNIX)
-    set(DEBUGGER gdb)
-    find_package(X11 REQUIRED)
-    find_package(PkgConfig REQUIRED)
-    pkg_check_modules(AVFORMAT REQUIRED libavformat)
-    pkg_check_modules(AVCODEC REQUIRED libavcodec)
-    pkg_check_modules(AVUTIL REQUIRED libavutil)
-    pkg_check_modules(SWSCALE REQUIRED libswscale)
-    pkg_check_modules(SWRESAMPLE REQUIRED libswresample)
-    pkg_check_modules(BULLET REQUIRED bullet)
-    pkg_check_modules(LZMA REQUIRED liblzma)
-
-    include_directories(
-        ${CMAKE_SOURCE_DIR}/Include/bullet3/src/
-        ${AVFORMAT_LIBRARIES}
-        ${AVCODEC_LIBRARIES}
-        ${AVUTIL_LIBRARIES}
-        ${SWSCALE_LIBRARIES}
-        ${SWRESAMPLE_LIBRARIES}
-        ${LZMA_LIBRARIES}
-    )
-
-    link_directories(
-        ${CMAKE_SOURCE_DIR}/Include/bullet3/build/libs
-    )
-
-    set(LIB_FLAGS
-        avformat
-        avcodec
-        avutil
-        swscale
-        libBulletDynamics.a
-        libBulletCollision.a
-        libLinearMath.a
-        libpython3.12.a
-        OpenCL
-        libz.a
-        libm.a
-        libc.a
-        libexpat.a
-        libdl.a
-        libxcb.a
-    )
+if(NOT FFMPEG_FOUND)
+    message(FATAL_ERROR "Could not find all required FFmpeg components via find_path/find_library. "
+                        "Ensure FFmpeg (avcodec, avformat, avutil, swscale, swresample) is installed via Vcpkg "
+                        "for triplet ${VCPKG_TARGET_TRIPLET}.")
+else()
+    message(STATUS "Found FFmpeg libraries: ${FFMPEG_LIBRARIES}")
+    message(STATUS "Found FFmpeg includes: ${FFMPEG_INCLUDE_DIRS}")
 endif()
 
-execute_process(COMMAND python3.12 -c "import sys; print(sys.prefix + '/include/python3.12')"       OUTPUT_STRIP_TRAILING_WHITESPACE OUTPUT_VARIABLE PYTHON_INCLUDE_DIR)
-execute_process(COMMAND python3.12 -c "import sysconfig; print(sysconfig.get_config_var('LIBDIR'))" OUTPUT_STRIP_TRAILING_WHITESPACE OUTPUT_VARIABLE PYTHON_LIBS_DIR)
+file(GLOB_RECURSE SRC_FILES
+    "${CMAKE_SOURCE_DIR}/Engine/*.cpp"
+    )
 
-message(STATUS "PYTHON INCLUDE: ${PYTHON_INCLUDE_DIR}")
-message(STATUS "PYTHON LIBRARY: ${PYTHON_LIBS_DIR}")
+    file(GLOB IMGUI_SRC_FILES "${CMAKE_SOURCE_DIR}/Include/imgui/*.cpp")
+list(APPEND SRC_FILES
+    ${IMGUI_SRC_FILES}
+    "${CMAKE_SOURCE_DIR}/GameBuilder/builder.cpp"
+    "${CMAKE_SOURCE_DIR}/Include/ImGuiColorTextEdit/TextEditor.cpp"
+    "${CMAKE_SOURCE_DIR}/Include/rlImGui.cpp"
+    "${CMAKE_SOURCE_DIR}/Include/rlFrustum.cpp"
+    "${CMAKE_SOURCE_DIR}/Include/NodeEditor/crude_json.cpp"
+    "${CMAKE_SOURCE_DIR}/Include/NodeEditor/imgui_node_editor.cpp"
+    "${CMAKE_SOURCE_DIR}/Include/NodeEditor/imgui_canvas.cpp"
+    "${CMAKE_SOURCE_DIR}/Include/NodeEditor/imgui_node_editor_api.cpp"
+)
 
-# Include Directories
-include_directories(
+add_executable(LitEngine ${SRC_FILES})
+set_target_properties(LitEngine PROPERTIES VS_DEBUGGER_WORKING_DIRECTORY "${CMAKE_SOURCE_DIR}")
+
+if(MSVC)
+    set_target_properties(LitEngine PROPERTIES MSVC_RUNTIME_LIBRARY "MultiThreaded$<$<CONFIG:Debug>:Debug>")
+    get_target_property(LitEngine_MSVC_RT LitEngine MSVC_RUNTIME_LIBRARY)
+    message(STATUS "LitEngine target MSVC_RUNTIME_LIBRARY set to: ${LitEngine_MSVC_RT}")
+endif()
+
+target_include_directories(LitEngine PRIVATE
     ${CMAKE_SOURCE_DIR}/Include
-    ${CMAKE_SOURCE_DIR}/Include/raylib/src
-    ${CMAKE_SOURCE_DIR}/Include/raylib/src/external/
-    ${CMAKE_SOURCE_DIR}/Include/raylib/src/external/glfw/include
     ${CMAKE_SOURCE_DIR}/Include/nlohmann/include
     ${CMAKE_SOURCE_DIR}/Include/imgui
-    ${CMAKE_SOURCE_DIR}/Include/ffmpeg
-    ${CMAKE_SOURCE_DIR}/Include/bullet3/src
-    ${CMAKE_SOURCE_DIR}/Include/meshoptimizer/src
-    ${CMAKE_SOURCE_DIR}/Include/pybind11/include
     ${CMAKE_SOURCE_DIR}/Include/ImGuiColorTextEdit
     ${CMAKE_SOURCE_DIR}/Include/NodeEditor
     ${CMAKE_SOURCE_DIR}/Include/NodeEditor/external/stb_image
     ${CMAKE_SOURCE_DIR}/Include/NodeEditor/misc
-    ${CMAKE_SOURCE_DIR}/Include/glm/glm
-    ${CMAKE_SOURCE_DIR}/Include/squish
-    ${PYTHON_INCLUDE_DIR}
-    ${CMAKE_SOURCE_DIR}
-)
-
-# Link directories
-link_directories(
-    ${CMAKE_SOURCE_DIR}/Include/meshoptimizer/build
+    ${CMAKE_SOURCE_DIR}/Include/glm
+    ${CMAKE_SOURCE_DIR}/Include/raylib/src/external
     ${CMAKE_SOURCE_DIR}/Include/raylib/src
-    ${CMAKE_SOURCE_DIR}/Include/squish/build
-    ${PYTHON_LIBS_DIR}
-    ${FFMPEG_LIBRARY_DIRS}
-    ${BULLET_LIBRARY_DIRS}
+    ${CMAKE_SOURCE_DIR}/Include/squish
+    ${CMAKE_SOURCE_DIR}/Include/meshoptimizer
+    ${CMAKE_SOURCE_DIR}/Include/pybind11/include
+    ${CMAKE_SOURCE_DIR}
+    ${FFMPEG_INCLUDE_DIRS}
 )
 
-# Library Flags
-list(APPEND LIB_FLAGS
-    meshoptimizer
+add_subdirectory("${CMAKE_SOURCE_DIR}/Include/pybind11"        pybind11_build)
+add_subdirectory("${CMAKE_SOURCE_DIR}/Include/raylib"          raylib_build)
+add_subdirectory("${CMAKE_SOURCE_DIR}/Include/meshoptimizer"   meshoptimizer_build)
+add_subdirectory("${CMAKE_SOURCE_DIR}/Include/squish"          squish_build)
+
+target_link_libraries(LitEngine PRIVATE
+    ${BULLET_LIBRARIES}
+    ${FFMPEG_LIBRARIES}
     raylib
-    pthread
+    meshoptimizer
+    pybind11::embed
     squish
-    -funroll-loops
-    -ftree-vectorize
-    -fno-math-errno
-    -ffast-math
-    -freciprocal-math
-    -fvect-cost-model
-)
-
-add_executable(LitEngine ${SRC_FILES})
-
-target_link_libraries(LitEngine ${LIB_FLAGS})
-target_compile_options(LitEngine PRIVATE
-    -pipe
-    -Wno-unused-result
-)
-
-add_custom_target(run
-    COMMAND LitEngine
-    DEPENDS LitEngine
-    WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}
-)
-
-add_custom_target(debug
-    COMMAND ${CMAKE_COMMAND} -E echo "Make sure you set -DCMAKE_BUILD_TYPE=Debug in your cmake command"
-    COMMAND ${DEBUGGER} ${CMAKE_BINARY_DIR}/LitEngine
-    DEPENDS LitEngine
-    WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}
-)
-
-if(UNIX)
-    add_custom_target(profile
-        COMMAND ${CMAKE_COMMAND} -E echo "Make sure you set -DCMAKE_BUILD_TYPE=Debug in your cmake command"
-        COMMAND ${CMAKE_COMMAND} -E echo "Running LitEngine..."
-        COMMAND LitEngine
-        COMMAND ${CMAKE_COMMAND} -E echo "Moving gmon.out to binary directory..."
-        COMMAND ${CMAKE_COMMAND} -E rename ${CMAKE_SOURCE_DIR}/gmon.out ${CMAKE_BINARY_DIR}/gmon.out
-        COMMAND ${CMAKE_COMMAND} -E echo "Profiling with gprof..."
-        COMMAND gprof ${CMAKE_BINARY_DIR}/LitEngine ${CMAKE_BINARY_DIR}/gmon.out
-        COMMAND ${CMAKE_COMMAND} -E echo "Analysis results is launching..."
-        COMMAND gprof ${CMAKE_BINARY_DIR}/LitEngine ${CMAKE_BINARY_DIR}/gmon.out | gprof2dot -w | dot -Tpng -o ${CMAKE_BINARY_DIR}/profiled.png
-        DEPENDS LitEngine
-        WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}
-    )
-endif()
-
-list(REMOVE_ITEM SRC_FILES ${CMAKE_SOURCE_DIR}/Engine/main.cpp)
-
-add_executable(MyApp ${SRC_FILES} GameBuilder/gameSystem.cpp)
-target_link_libraries(MyApp ${LIB_FLAGS})
-
-add_custom_target(gameBuilder
-    COMMAND MyApp
-    DEPENDS MyApp
-    WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}
+    Mfplat Mfuuid mfreadwrite strmiids ole32 Ws2_32 bcrypt secur32 crypt32 Rpcrt4
 )

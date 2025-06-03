@@ -21,7 +21,6 @@ See the LICENSE file in the project root for full license information.
 #include <glad.h>
 #include <ios>
 #include <iostream>
-#include <python3.12/Python.h>
 #include <raylib.h>
 #include <string>
 

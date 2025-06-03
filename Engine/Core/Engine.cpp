@@ -60,9 +60,11 @@ const char* decryptFileString(const std::string& inputFile, const std::string& k
     return encryptFileString(inputFile, key);
 }
 
-std::string readFileToString(const std::string& filename) {
-    std::ifstream file(filename);
-    std::stringstream buffer;
+std::string readFileToString(const fs::path& filename) {
+    std::ifstream file(filename, std::ios::in | std::ios::binary);
+    if (!file) return {};
+
+    std::ostringstream buffer{};
     buffer << file.rdbuf();
     return buffer.str();
 }

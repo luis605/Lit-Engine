@@ -16,7 +16,7 @@ See the LICENSE file in the project root for full license information.
 
 namespace fs = std::filesystem;
 
-enum { LIGHT_DIRECTIONAL = 0, LIGHT_POINT = 1, LIGHT_SPOT = 2 } LightType;
+enum LightType { LIGHT_DIRECTIONAL = 0, LIGHT_POINT = 1, LIGHT_SPOT = 2 };
 
 struct SurfaceMaterial;
 struct AdditionalLightInfo;

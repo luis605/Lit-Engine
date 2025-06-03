@@ -396,7 +396,7 @@ Texture2D ApplyVignetteEffect(const Texture2D& sceneTexture) {
 
 Texture current;
 Texture depthTexture;
-bool ssgiEnabled = true;
+bool ssgiEnabled = false;
 
 void RenderViewportTexture(const LitCamera& camera) {
     current = viewportMRT.color;
@@ -577,8 +577,8 @@ void RenderScene() {
     EndMRTMode();
 
     ComputeSceneLuminance();
-    DrawTextureOnViewportRectangle(viewportMRT.normal);
-    // RenderViewportTexture(sceneCamera);
+    // DrawTextureOnViewportRectangle(viewportMRT.normal);
+    RenderViewportTexture(sceneCamera);
 }
 
 void DropEntity() {

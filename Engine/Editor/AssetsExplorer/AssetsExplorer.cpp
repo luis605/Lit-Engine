@@ -289,9 +289,9 @@ void AddFileManipulation() {
 // END FILE MANIPULATION
 
 void InitRenderModelPreviewer() {
-    modelPreviewerCamera.position = (Vector3){10.0f, 10.0f, 2.0f};
-    modelPreviewerCamera.target = (Vector3){0.0f, 0.0f, 0.0f};
-    modelPreviewerCamera.up = (Vector3){0.0f, 1.0f, 0.0f};
+    modelPreviewerCamera.position = {10.0f, 10.0f, 2.0f};
+    modelPreviewerCamera.target = {0.0f, 0.0f, 0.0f};
+    modelPreviewerCamera.up = {0.0f, 1.0f, 0.0f};
     modelPreviewerCamera.fovy = 60.0f;
     modelPreviewerCamera.projection = CAMERA_PERSPECTIVE;
 
@@ -330,7 +330,7 @@ Texture2D RenderModelPreview(const char* modelFile) {
     ClearBackground(GRAY);
     skybox.drawSkybox(modelPreviewerCamera);
 
-    DrawModel(model, (Vector3){0.0f, 0.0f, 0.0f}, 1.0f, WHITE);
+    DrawModel(model, {0.0f, 0.0f, 0.0f}, 1.0f, WHITE);
     EndShaderMode();
     EndMode3D();
     EndTextureMode();

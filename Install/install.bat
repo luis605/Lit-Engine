@@ -1,43 +1,77 @@
 @echo off
-if not exist "bin" md "bin"
-
-echo Please ensure the path to this directory contains no spaces, otherwise ffmpeg will fail to build. Please use a directory without spaces in the name.
-
-powershell -Command "Invoke-WebRequest -Uri https://github.com/Kitware/CMake/releases/download/v3.30.0/cmake-3.30.0-windows-x86_64.msi -OutFile bin/cmake.msi"
-powershell -Command "Start-Process .\bin\cmake.msi"
-
-curl -L -o "bin/mingw.zip" "https://github.com/mstorsjo/llvm-mingw/releases/download/20240805/llvm-mingw-20240805-msvcrt-x86_64.zip"
-powershell -Command "Expand-Archive -Force bin/mingw.zip bin"
-start "" "bin\llvm-mingw-20240805-msvcrt-x86_64\bin"
-
-powershell -Command "Add-Type -assembly System.Windows.Forms; $main_form = New-Object System.Windows.Forms.Form; $main_form.Text ='GUI for my PowerShell script'; $Label = New-Object System.Windows.Forms.Label; $Label.Text = 'To add mingw to PATH, open the start menu, type `system variables`, and press Enter. Click `Environment Variables`. In the User section`s top table double click in `Path` to open Path`s window. We also opened a file explorer window inside mingw`s bin folder for you, please copy the full path, get back to the environment path window, click `New,` paste the copied path, and press Enter. Finally, click `OK` to exit and save all changes in all the windows, then restart the current shell and/or editor.'; $Label.AutoSize = $true; $Label.MaximumSize = New-Object System.Drawing.Size(580, 0); $Label.Location = New-Object System.Drawing.Point(0,10); $Label.AutoSize = $true; $main_form.Controls.Add($Label); $main_form.AutoSize = $true; $main_form.ShowDialog();"
-
 setlocal
 
-if exist .\bin\vcpkg (
-    rd /s /q .\bin\vcpkg
+set SCRIPT_DIR=%~dp0
+set VCPKG_ROOT=%SCRIPT_DIR%bin\vcpkg
+set VCPKG_EXE=%VCPKG_ROOT%\vcpkg.exe
+set VCPKG_BOOTSTRAP_SCRIPT=%VCPKG_ROOT%\bootstrap-vcpkg.bat
+set VCPKG_TOOLCHAIN_FILE=%VCPKG_ROOT%\scripts\buildsystems\vcpkg.cmake
+
+echo Current script directory: %SCRIPT_DIR%
+echo Vcpkg root will be: %VCPKG_ROOT%
+
+if not exist "%SCRIPT_DIR%bin" md "%SCRIPT_DIR%bin"
+
+:: Check for Git
+git --version >nul 2>&1
+if %ERRORLEVEL% neq 0 (
+    echo Git is not installed or not in PATH. Please install Git and add it to your PATH.
+    powershell -Command "Write-Host 'You can download Git from https://git-scm.com/download/win' -ForegroundColor Yellow"
+    goto :eof
 )
 
-set VCPKG_PATH=./bin/vcpkg
+:: CMake Installation (Optional, user might have it)
+cmake --version >nul 2>&1
+if %ERRORLEVEL% neq 0 (
+    echo CMake is not found. Attempting to download and install...
+    powershell -Command "Invoke-WebRequest -Uri https://github.com/Kitware/CMake/releases/download/v3.29.3/cmake-3.29.3-windows-x86_64.msi -OutFile %SCRIPT_DIR%bin\cmake.msi"
+    echo Starting CMake installer... Please follow the prompts.
+    echo Ensure CMake is added to your PATH during installation.
+    start /wait "" "%SCRIPT_DIR%bin\cmake.msi"
+    cmake --version >nul 2>&1
+    if %ERRORLEVEL% neq 0 (
+        echo CMake installation failed or was cancelled. Please install CMake manually and ensure it's in PATH.
+        goto :eof
+    )
+    echo CMake installed.
+) else (
+    echo CMake found.
+)
 
-echo Cloning vcpkg repository...
-git clone https://github.com/Microsoft/vcpkg.git %VCPKG_PATH%
+:: Vcpkg Installation and Setup
+if not exist "%VCPKG_BOOTSTRAP_SCRIPT%" (
+    echo "Cloning vcpkg repository to %VCPKG_ROOT%..."
+    git clone https://github.com/Microsoft/vcpkg.git "%VCPKG_ROOT%"
+    if %ERRORLEVEL% neq 0 (
+        echo "Failed to clone vcpkg. Please check your internet connection and Git setup."
+        goto :eof
+    )
+) else (
+    echo "Vcpkg directory already exists. Skipping clone."
+)
 
-echo Changing directory to vcpkg...
-cd %VCPKG_PATH%
+if not exist "%VCPKG_EXE%" (
+    echo "Bootstrapping vcpkg..."
+    call "%VCPKG_BOOTSTRAP_SCRIPT%" -disableMetrics
+    if %ERRORLEVEL% neq 0 (
+        echo "Failed to bootstrap vcpkg."
+        goto :eof
+    )
+) else (
+    echo "Vcpkg already bootstrapped."
+)
 
-echo Bootstrapping vcpkg...
-call bootstrap-vcpkg.bat
+echo "Installing dependencies via vcpkg..."
+echo "This may take a very long time."
 
-echo Integrating vcpkg...
-.\vcpkg integrate install
+:: Install for MSVC (static linkage)
+echo "Installing libraries for MSVC (x64-windows-static)..."
+"%VCPKG_EXE%" install bullet3:x64-windows-static --recurse
+"%VCPKG_EXE%" install ffmpeg:x64-windows-static --recurse  --allow-unsupported
 
-echo Installing Bullet3...
-.\vcpkg install bullet3 --triplet=x64-mingw-static --host-triplet=x64-mingw-static
 
-echo Installing FFmpeg
-.\vcpkg install ffmpeg --triplet=x64-mingw-static --host-triplet=x64-mingw-static
+echo.
+echo --- Installation Complete ---
+echo ---   Please run cmake.   ---
 
 endlocal
-
-cd ../..

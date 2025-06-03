@@ -8,6 +8,7 @@ See the LICENSE file in the project root for full license information.
 #include <rlgl.h>
 #include <glad.h>
 #include <vector>
+#include <algorithm>
 
 GLuint exposureShaderProgram;
 GLuint lightsBuffer;
@@ -23,7 +24,7 @@ bool bloomEnabled    = false;
 bool vignetteEnabled   = false;
 float vignetteStrength = 0.5;
 float vignetteRadius   = 0.5;
-Vector4 vignetteColor  = Vector4(0,0,0,1);
+Vector4 vignetteColor = { 0,0,0,1 };
 
 bool aberrationEnabled   = false;
 Vector3 aberrationOffset = { 0.009, 0.006, -0.006 };
@@ -61,7 +62,7 @@ void ShaderManager::InitShaders() {
 
     const float strength = 0.5f;
     const float radius = 0.75f;
-    const Vector3 color = Vector3(0,0,0);
+    const Vector3 color = { 0,0,0 };
 
     SetShaderValue(shaderManager.m_vignetteShader, shaderManager.GetUniformLocation(shaderManager.m_vignetteShader.id, "strength"), &strength, SHADER_UNIFORM_FLOAT);
     SetShaderValue(shaderManager.m_vignetteShader, shaderManager.GetUniformLocation(shaderManager.m_vignetteShader.id, "radius"),   &radius,   SHADER_UNIFORM_FLOAT);

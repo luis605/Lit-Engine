@@ -7,9 +7,9 @@ See the LICENSE file in the project root for full license information.
 #define VIDEO_H
 
 extern "C" {
-    #include <libavformat/avformat.h>
-    #include <libavcodec/avcodec.h>
-    #include <libswscale/swscale.h>
+    #include <Include/ffmpeg/libavformat/avformat.h>
+    #include <Include/ffmpeg/libavcodec/avcodec.h>
+    #include <Include/ffmpeg/libswscale/swscale.h>
 }
 
 #include <chrono>

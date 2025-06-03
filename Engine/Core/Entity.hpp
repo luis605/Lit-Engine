@@ -41,7 +41,13 @@ enum ObjectTypeEnum {
   ObjectType_Torus
 };
 
-class __attribute__((visibility("default"))) Entity {
+#ifdef _WIN32
+#define EXPORT_API __declspec(dllexport)
+#else
+#define EXPORT_API __attribute__((visibility("default")))
+#endif
+
+class EXPORT_API Entity {
   public:
     int id = 0;
     ObjectTypeEnum ObjectType;
