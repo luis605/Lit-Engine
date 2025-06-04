@@ -29,7 +29,12 @@ set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_EXTENSIONS OFF)
 
-find_package(Bullet CONFIG REQUIRED)
+if(MSVC)
+    find_package(Bullet CONFIG REQUIRED)
+else()
+    find_package(Bullet REQUIRED)
+endif()
+
 if(Bullet_FOUND)
     message(STATUS "Found Bullet: Version ${Bullet_VERSION}")
     message(STATUS "Bullet include dirs: ${Bullet_INCLUDE_DIRS}")
@@ -102,7 +107,9 @@ target_include_directories(LitEngine PRIVATE
     ${CMAKE_SOURCE_DIR}/Include/squish
     ${CMAKE_SOURCE_DIR}/Include/meshoptimizer
     ${CMAKE_SOURCE_DIR}/Include/pybind11/include
+    ${CMAKE_SOURCE_DIR}/Include/bullet3/src/
     ${CMAKE_SOURCE_DIR}
+    ${BULLET_}
     ${FFMPEG_INCLUDE_DIRS}
 )
 
@@ -112,11 +119,22 @@ add_subdirectory("${CMAKE_SOURCE_DIR}/Include/meshoptimizer"   meshoptimizer_bui
 add_subdirectory("${CMAKE_SOURCE_DIR}/Include/squish"          squish_build)
 
 target_link_libraries(LitEngine PRIVATE
-    ${BULLET_LIBRARIES}
+    BulletDynamics BulletCollision LinearMath
     ${FFMPEG_LIBRARIES}
     raylib
     meshoptimizer
     pybind11::embed
     squish
-    Mfplat Mfuuid mfreadwrite strmiids ole32 Ws2_32 bcrypt secur32 crypt32 Rpcrt4
 )
+
+if (MSVC)
+    target_link_libraries(LitEngine PRIVATE
+        Mfplat Mfuuid mfreadwrite strmiids ole32 Ws2_32 bcrypt secur32 crypt32 Rpcrt4
+    )
+else()
+    add_custom_target(run
+        COMMAND "${CMAKE_SOURCE_DIR}/build/LitEngine"
+        WORKING_DIRECTORY "${CMAKE_SOURCE_DIR}"
+        DEPENDS LitEngine
+    )
+endif()
