@@ -24,14 +24,15 @@ void TextInspector() {
     ImGui::SameLine();
     ImGui::SetNextItemWidth(-1);
 
-    size_t bufferSize = selectedTextElement->name.length() + 100;
-    char name_buffer[bufferSize];
+    size_t nameBufferSize = selectedTextElement->name.length() + 100;
+    std::vector<char> name_buffer(nameBufferSize);
 
-    strncpy(name_buffer, selectedTextElement->name.c_str(), bufferSize - 1);
-    name_buffer[bufferSize - 1] = '\0';
+    strncpy(name_buffer.data(), selectedTextElement->name.c_str(), nameBufferSize - 1);
+    name_buffer[nameBufferSize - 1] = '\0';
 
-    if (ImGui::InputText("##Name", name_buffer, IM_ARRAYSIZE(name_buffer)))
-        selectedTextElement->name = name_buffer;
+    if (ImGui::InputText("##Name", name_buffer.data(), static_cast<int>(name_buffer.size()))) {
+        selectedTextElement->name = name_buffer.data();
+    }
 
     ImGui::Text("Position:");
     ImGui::SameLine();
@@ -47,15 +48,17 @@ void TextInspector() {
     ImGui::SameLine();
     ImGui::SetNextItemWidth(-1);
 
-    bufferSize = selectedTextElement->text.length() + 100;
-    char text_buffer[bufferSize];
+    size_t textBufferSize = selectedTextElement->text.length() + 100;
+    std::vector<char> text_buffer(textBufferSize);
 
-    strncpy(text_buffer, selectedTextElement->text.c_str(), bufferSize - 1);
-    text_buffer[bufferSize - 1] = '\0';
+    strncpy(text_buffer.data(), selectedTextElement->text.c_str(), textBufferSize - 1);
+    text_buffer[textBufferSize - 1] = '\0';
 
-    if (ImGui::InputTextMultiline("##Text", text_buffer,
-                                  IM_ARRAYSIZE(text_buffer), ImVec2(-1, 115)))
-        selectedTextElement->text = text_buffer;
+    if (ImGui::InputTextMultiline("##Text", text_buffer.data(),
+        static_cast<int>(text_buffer.size()), ImVec2(-1, 115))) {
+        selectedTextElement->text = text_buffer.data();
+    }
+
 
     ImGui::Text("Font Size:");
     ImGui::SameLine();

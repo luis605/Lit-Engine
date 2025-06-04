@@ -118,7 +118,7 @@ void MaterialInspector(ChildMaterial& material) {
                 else if constexpr (std::is_same_v<T, TextureNode>) {
                     ImVec2 previewSize(64, 64);
                     ImGui::ImageButton(uuid.c_str(),
-                                       arg.texture.hasTexture() ? (ImTextureID)&arg.texture.getTexture2D() : (ImTextureID){0},
+                                       arg.texture.hasTexture() ? (ImTextureID)&arg.texture.getTexture2D() : (ImTextureID)0,
                                        previewSize,
                                        ImVec2(0, 0), ImVec2(1, 1),
                                        ImVec4(0.0f, 0.0f, 0.0f, 0.0f),

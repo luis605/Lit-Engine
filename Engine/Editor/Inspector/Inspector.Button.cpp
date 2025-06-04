@@ -216,16 +216,17 @@ void ButtonInspector() {
         ImGui::SetNextItemWidth(-1);
 
         size_t bufferSize = selectedButton->text.text.length() + 100;
-        char text_buffer[bufferSize];
+        std::vector<char> text_buffer(bufferSize);
 
-        strncpy(text_buffer, selectedButton->text.text.c_str(), bufferSize - 1);
+        strncpy(text_buffer.data(), selectedButton->text.text.c_str(), bufferSize - 1);
         text_buffer[bufferSize - 1] = '\0';
 
-        if (ImGui::InputTextMultiline("##Text", text_buffer,
-                                      IM_ARRAYSIZE(text_buffer),
-                                      ImVec2(-1, 115))) {
-            selectedButton->text.text = text_buffer;
+        if (ImGui::InputTextMultiline("##Text", text_buffer.data(),
+            static_cast<int>(text_buffer.size()),
+            ImVec2(-1, 115))) {
+            selectedButton->text.text = text_buffer.data();
         }
+
 
         ImGui::Text("Font Size:");
         ImGui::SameLine();

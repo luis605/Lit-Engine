@@ -3,7 +3,8 @@ name: CI Pipeline
 on: [push, pull_request]
 
 jobs:
-  build:
+  # ──────────── LINUX BUILD ────────────
+  build-linux:
     runs-on: ubuntu-latest
 
     steps:
@@ -17,15 +18,46 @@ jobs:
           git submodule sync
           git submodule update --init --recursive
 
-      - name: Install dependencies
+      - name: Install dependencies (Linux)
         run: |
           chmod +x Install/install.sh Install/build_dependencies.sh
           ./Install/install.sh
           cd Install && ./build_dependencies.sh
 
-      - name: Build Engine
+      - name: Build Engine (Linux)
         run: |
           mkdir -p build
           cd build
           cmake ..
           make -j$(nproc)
+
+  # ──────────── WINDOWS BUILD ────────────
+  build-windows:
+    runs-on: windows-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      - name: Checkout submodules
+        shell: bash
+        run: |
+          git submodule sync
+          git submodule update --init --recursive
+
+      - name: Install dependencies (Windows)
+        shell: pwsh
+        run: |
+          cd Install
+          .\install.bat
+
+      - name: Build Engine (Windows)
+        shell: pwsh
+        run: |
+          mkdir build
+          cd build
+
+          cmake .. -DCMAKE_BUILD_TYPE=Release
+          cmake --build . --config Release

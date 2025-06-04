@@ -44,8 +44,16 @@ float LitVector3Distance(LitVector3 v1, LitVector3 v2);
 LitVector3 LitVector3Scale(LitVector3 v, float scalar);
 float LitVector3Length(const LitVector3 v);
 float LitVector3LengthSqr(const LitVector3 v);
-template <typename T> constexpr const T& customClamp(const T& value, const T& low, const T& high);
-template <typename T> T LitLerp(T start, T end, float t);
+template <typename T>
+constexpr const T& customClamp(const T& value, const T& low, const T& high) {
+    return (value < low) ? low : ((value > high) ? high : value);
+}
+
+template <typename T> T LitLerp(T start, T end, float t) {
+    t = customClamp(t, 0.0f, 1.0f);
+    return start + t * (end - start);
+}
+
 int LitLerpInt(int start, int end, float t);
 LitVector3 lerpVector3(const LitVector3& start, const LitVector3& end, float t);
 
