@@ -88,7 +88,6 @@ void LoadTextures() {
     horizontalBlurTexture = LoadRenderTexture(GetScreenWidth(), GetScreenHeight());
     upsamplerTexture      = LoadRenderTexture(GetScreenWidth(), GetScreenHeight());
     vignetteTexture       = LoadRenderTexture(GetScreenWidth(), GetScreenHeight());
-    ssgiTexture           = LoadRenderTexture(GetScreenWidth(), GetScreenHeight());
     chromaticAberrationTexture = LoadRenderTexture(GetScreenWidth(), GetScreenHeight());
 
     SetWindowIcon(windowIconImage);

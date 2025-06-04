@@ -34,7 +34,6 @@ RenderTexture horizontalBlurTexture;
 RenderTexture upsamplerTexture;
 RenderTexture vignetteTexture;
 RenderTexture chromaticAberrationTexture;
-RenderTexture ssgiTexture;
 std::vector<RenderTexture2D> downsampledTextures;
 
 void ShaderManager::InitShaders() {
@@ -53,7 +52,6 @@ void ShaderManager::InitShaders() {
     m_vignetteShader        = LoadShader("Engine/Lighting/shaders/lighting_vertex.glsl", "Engine/Lighting/shaders/vignette.fs");
     m_irradianceShader      = LoadShader("Engine/Lighting/shaders/cubemap.vs",           "Engine/Lighting/shaders/irradiance.fs");
     m_chromaticAberration   = LoadShader("Engine/Lighting/shaders/lighting_vertex.glsl", "Engine/Lighting/shaders/chromaticAberration.fs");
-    m_SSGIShader            = LoadShader("Engine/Lighting/shaders/lighting_vertex.glsl", "Engine/Lighting/shaders/SSGI.fs");
 
     char* shaderCode = LoadFileText("Engine/Lighting/shaders/luminanceCompute.glsl");
     unsigned int shaderData = rlCompileShader(shaderCode, RL_COMPUTE_SHADER);

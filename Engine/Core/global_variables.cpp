@@ -31,7 +31,7 @@ bool firstTimeGameplay = true;
     Texture2D pauseTexture;
     Texture2D viewportTexture;
 
-    GBuffer viewportMRT;
+    RenderTexture viewportRT;
 
     Rectangle viewportRectangle;
 

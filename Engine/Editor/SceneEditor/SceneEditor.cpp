@@ -35,9 +35,9 @@ ImVec2 prevEditorWindowSize = {-1.0f, -1.0f};
 #endif
 
 void InitEditorCamera() {
-    viewportMRT = LoadMRT(1, 1);
+    viewportRT = LoadRenderTexture(1, 1);
 
-    viewportTexture = viewportMRT.color;
+    viewportTexture = viewportRT.texture;
 
     sceneCamera.position = {35.0f, 5.0f, 0.0f};
     sceneCamera.target = {0.0f, 0.0f, 0.0f};
@@ -257,65 +257,6 @@ void HandleUnselect() {
         selectedGameObjectType = "none";
 }
 
-Texture2D ApplySSGI(const Texture2D& sceneTexture, const Texture2D& depthTexture, const LitCamera& camera) {
-    // textureViewportFlip = !textureViewportFlip;
-
-    const Matrix P = MatrixPerspective(
-        DEG2RAD * camera.fovy,
-        sceneTexture.width / sceneTexture.height,
-        rlGetCullDistanceNear(),
-        rlGetCullDistanceFar()
-    );
-
-    const Matrix  invP       = MatrixInvert(P);
-    const Vector2 screenSize = Vector2(sceneTexture.width, sceneTexture.height);
-
-    const Matrix view = GetCameraMatrix(camera);
-    const Matrix invView = MatrixInvert(view);
-
-    BeginTextureMode(ssgiTexture);
-    ClearBackground(BLANK);
-    BeginShaderMode(shaderManager.m_SSGIShader);
-
-    const int locProjection = shaderManager.GetUniformLocation(shaderManager.m_SSGIShader.id, "uProjection");
-    const int locInvProj    = shaderManager.GetUniformLocation(shaderManager.m_SSGIShader.id, "uInvProj");
-    const int locScreen     = shaderManager.GetUniformLocation(shaderManager.m_SSGIShader.id, "uScreenSize");
-    const int locInvView    = shaderManager.GetUniformLocation(shaderManager.m_SSGIShader.id, "uInvView");
-    SetShaderValueMatrix(shaderManager.m_SSGIShader, locProjection, P);
-    SetShaderValueMatrix(shaderManager.m_SSGIShader, locInvProj, invP);
-    SetShaderValueMatrix(shaderManager.m_SSGIShader, locInvView, invView);
-    SetShaderValue(shaderManager.m_SSGIShader, locScreen, &screenSize, SHADER_UNIFORM_VEC2);
-
-    const int colorLoc  = rlGetLocationUniform(shaderManager.m_SSGIShader.id, "uColorTex");
-    const int normalLoc = rlGetLocationUniform(shaderManager.m_SSGIShader.id, "uNormalTex");
-    const int depthLoc  = rlGetLocationUniform(shaderManager.m_SSGIShader.id, "uDepthTex");
-
-    if (colorLoc == -1) {
-        //TraceLog(LOG_WARNING, "SSGI: Invalid uniform location for uColorTex.");
-    }
-    if (depthLoc == -1) {
-        //TraceLog(LOG_WARNING, "SSGI: Invalid uniform location for uDepthTex.");
-    }
-
-    if (sceneTexture.id == 0) {
-        //TraceLog(LOG_WARNING, "SSGI: sceneTexture.id is 0 (invalid).");
-    }
-    if (viewportMRT.depth.id == 0) {
-        //TraceLog(LOG_WARNING, "SSGI: depthTexture.id is 0 (invalid).");
-    }
-
-    SetShaderValueTexture(shaderManager.m_SSGIShader, colorLoc,  viewportMRT.color);
-    SetShaderValueTexture(shaderManager.m_SSGIShader, normalLoc, viewportMRT.normal);
-    SetShaderValueTexture(shaderManager.m_SSGIShader, depthLoc,  viewportMRT.depth);
-
-    DrawTexture(sceneTexture, 0, 0, WHITE);
-
-    EndShaderMode();
-    EndTextureMode();
-
-    return viewportMRT.normal; //ssgiTexture.texture;
-}
-
 Texture2D ApplyBloomEffect(const Texture2D& sceneTexture) {
     textureViewportFlip = !textureViewportFlip;
 
@@ -395,16 +336,10 @@ Texture2D ApplyVignetteEffect(const Texture2D& sceneTexture) {
 }
 
 Texture current;
-Texture depthTexture;
-bool ssgiEnabled = false;
 
 void RenderViewportTexture(const LitCamera& camera) {
-    current = viewportMRT.color;
-    depthTexture = viewportMRT.depth;
+    current = viewportRT.texture;
 
-    if (ssgiEnabled) {
-        current = ApplySSGI(current, depthTexture, camera);
-    }
     if (bloomEnabled)      current = ApplyBloomEffect(current);
     if (aberrationEnabled) current = ApplyChromaticAberration(current);
     if (vignetteEnabled)   current = ApplyVignetteEffect(current);
@@ -544,7 +479,7 @@ void ComputeSceneLuminance() {
 
 void RenderScene() {
     textureViewportFlip = false;
-    BeginMRTMode(viewportMRT);
+    BeginTextureMode(viewportRT);
 
     BeginMode3D(sceneCamera);
     ClearBackground(GRAY);
@@ -577,7 +512,6 @@ void RenderScene() {
     EndMRTMode();
 
     ComputeSceneLuminance();
-    // DrawTextureOnViewportRectangle(viewportMRT.normal);
     RenderViewportTexture(sceneCamera);
 }
 
@@ -898,22 +832,20 @@ void ScaleViewport() {
         prevEditorWindowSize = currentWindowSize;
 
 
-        UnloadMRT(viewportMRT);
+        UnloadRenderTexture(viewportRT);
         UnloadRenderTexture(chromaticAberrationTexture);
         UnloadRenderTexture(verticalBlurTexture);
         UnloadRenderTexture(horizontalBlurTexture);
         UnloadRenderTexture(upsamplerTexture);
         UnloadRenderTexture(vignetteTexture);
-        UnloadRenderTexture(ssgiTexture);
 
-        viewportMRT = LoadMRT(currentWindowSize.x, currentWindowSize.y);
+        viewportRT = LoadRenderTexture(currentWindowSize.x, currentWindowSize.y);
         chromaticAberrationTexture = LoadRenderTexture(currentWindowSize.x, currentWindowSize.y);
         verticalBlurTexture   = LoadRenderTexture(currentWindowSize.x, currentWindowSize.y);
         horizontalBlurTexture = LoadRenderTexture(currentWindowSize.x, currentWindowSize.y);
         upsamplerTexture      = LoadRenderTexture(currentWindowSize.x, currentWindowSize.y);
         vignetteTexture       = LoadRenderTexture(currentWindowSize.x, currentWindowSize.y);
-        ssgiTexture           = LoadRenderTexture(currentWindowSize.x, currentWindowSize.y);
-        viewportTexture       = viewportMRT.color;
+        viewportTexture       = viewportRT.texture;
 
         int index = 0;
         downsampledTextures.clear();

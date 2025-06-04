@@ -31,7 +31,7 @@ extern bool firstTimeGameplay;
     extern Texture2D runTexture;
     extern Texture2D pauseTexture;
     extern Texture2D viewportTexture;
-    extern GBuffer   viewportMRT;
+    extern RenderTexture viewportRT;
     extern Rectangle viewportRectangle;
 
     extern bool showFileExplorer;

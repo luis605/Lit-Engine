@@ -40,7 +40,7 @@ void RenderAndRunEntity(Entity& entity, LitCamera* rendering_camera) {
 
 #ifndef GAME_SHIPPING
 void RunGame() {
-    BeginMRTMode(viewportMRT);
+    BeginTextureMode(viewportRT);
     BeginMode3D(camera);
 
     BeginShaderMode(*shaderManager.m_defaultShader);
