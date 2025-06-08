@@ -71,9 +71,9 @@ void DrawTextureOnViewportRectangle(const Texture& texture) {
     ImVec2 uv0 = ImVec2(0, 1);
     ImVec2 uv1 = ImVec2(1, 0);
 
-    if (textureViewportFlip) {
-        std::swap(uv0.y, uv1.y);
-    }
+    // if (textureViewportFlip) {
+    //     std::swap(uv0.y, uv1.y);
+    // }
 
     ImGui::Image((ImTextureID)&texture,
                  ImVec2(viewportRectangle.width, viewportRectangle.height),

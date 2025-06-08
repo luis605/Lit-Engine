@@ -22,9 +22,9 @@ int kernelSize       = 1;
 bool bloomEnabled    = false;
 
 bool vignetteEnabled   = false;
-float vignetteStrength = 0.5;
-float vignetteRadius   = 0.5;
-Vector4 vignetteColor = { 0,0,0,1 };
+float vignetteStrength = 0.5f;
+float vignetteRadius   = 0.5f;
+Vector4 vignetteColor = { 0, 0, 0, 1 };
 
 bool aberrationEnabled   = false;
 Vector3 aberrationOffset = { 0.009, 0.006, -0.006 };

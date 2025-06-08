@@ -9,6 +9,7 @@ See the LICENSE file in the project root for full license information.
 #include <imgui.h>
 
 namespace ImGui {
+    void ToggleButton(const char* str_id, bool& v);
     void CenteredText(const char* label, const ImVec2& sizeArg);
 }
 

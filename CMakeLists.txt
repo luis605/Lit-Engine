@@ -33,6 +33,7 @@ if(MSVC)
     find_package(Bullet CONFIG REQUIRED)
 else()
     find_package(Bullet REQUIRED)
+    include(ExternalProject)
 endif()
 
 if(Bullet_FOUND)
@@ -114,14 +115,42 @@ target_include_directories(LitEngine PRIVATE
 )
 
 add_subdirectory("${CMAKE_SOURCE_DIR}/Include/pybind11"        pybind11_build)
-add_subdirectory("${CMAKE_SOURCE_DIR}/Include/raylib"          raylib_build)
 add_subdirectory("${CMAKE_SOURCE_DIR}/Include/meshoptimizer"   meshoptimizer_build)
 add_subdirectory("${CMAKE_SOURCE_DIR}/Include/squish"          squish_build)
+
+if (MSVC)
+    add_subdirectory("${CMAKE_SOURCE_DIR}/Include/raylib"          raylib_build)
+
+    target_link_libraries(LitEngine PRIVATE
+        raylib
+    )
+else()
+    set(RAYLIB_SRC_DIR   "${CMAKE_SOURCE_DIR}/Include/raylib/src")
+    set(RAYLIB_BUILD_DIR "${CMAKE_BINARY_DIR}/raylib_build")
+
+    ExternalProject_Add(raylib_project
+        PREFIX            "${RAYLIB_BUILD_DIR}"
+        SOURCE_DIR        "${RAYLIB_SRC_DIR}"
+        BINARY_DIR        "${RAYLIB_SRC_DIR}"
+        DOWNLOAD_COMMAND    ""
+        CONFIGURE_COMMAND   ""
+        BUILD_COMMAND
+            make
+            -B
+            GRAPHICS=GRAPHICS_API_OPENGL_43
+            CUSTOM_CFLAGS+=-DSUPPORT_FILEFORMAT_BMP\ -DSUPPORT_FILEFORMAT_TGA\ -DSUPPORT_FILEFORMAT_JPG\ -DSUPPORT_FILEFORMAT_PSD\ -DSUPPORT_FILEFORMAT_HDR\ -DSUPPORT_FILEFORMAT_PIC\ -DSUPPORT_FILEFORMAT_KTX\ -DSUPPORT_FILEFORMAT_ASTC\ -DSUPPORT_FILEFORMAT_PKM\ -DSUPPORT_FILEFORMAT_PVR\ -DSUPPORT_FILEFORMAT_SVG
+        INSTALL_COMMAND     ""
+        BUILD_BYPRODUCTS    "${RAYLIB_BUILD_DIR}/libraylib.a"
+    )
+
+    target_link_libraries(LitEngine PRIVATE
+        ${RAYLIB_SRC_DIR}/libraylib.a
+    )
+endif()
 
 target_link_libraries(LitEngine PRIVATE
     BulletDynamics BulletCollision LinearMath
     ${FFMPEG_LIBRARIES}
-    raylib
     meshoptimizer
     pybind11::embed
     squish
@@ -132,9 +161,18 @@ if (MSVC)
         Mfplat Mfuuid mfreadwrite strmiids ole32 Ws2_32 bcrypt secur32 crypt32 Rpcrt4
     )
 else()
+    set(DEBUGGER gdb)
+
     add_custom_target(run
         COMMAND "${CMAKE_SOURCE_DIR}/build/LitEngine"
         WORKING_DIRECTORY "${CMAKE_SOURCE_DIR}"
         DEPENDS LitEngine
+    )
+
+    add_custom_target(debug
+        COMMAND ${CMAKE_COMMAND} -E echo "Make sure you set -DCMAKE_BUILD_TYPE=Debug in your cmake command"
+        COMMAND ${DEBUGGER} ${CMAKE_BINARY_DIR}/LitEngine
+        DEPENDS LitEngine
+        WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}
     )
 endif()
