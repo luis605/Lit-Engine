@@ -81,6 +81,7 @@ void MaterialInspector(ChildMaterial& material) {
     static bool updateMaterial = false;
 
     if (ImGui::BeginTable("MaterialProps", 2, ImGuiTableFlags_BordersInnerV | ImGuiTableFlags_Resizable | ImGuiTableFlags_RowBg)) {
+        ImGui::Indent(10.0f);
         ImGui::TableSetupColumn("Property", ImGuiTableColumnFlags_WidthFixed, 80.0f);
         ImGui::TableSetupColumn("Value", ImGuiTableColumnFlags_WidthStretch);
         ImGui::TableHeadersRow();
@@ -96,13 +97,11 @@ void MaterialInspector(ChildMaterial& material) {
                 ImGui::TableSetColumnIndex(0);
 
                 std::string nodeLabel = "Unknown";
-                static float offset = ImGui::GetCursorPosX();
 
                 if constexpr (std::is_same_v<T, ColorNode>) nodeLabel = "Color";
                 else if constexpr (std::is_same_v<T, TextureNode>) nodeLabel = "Texture";
                 else if constexpr (std::is_same_v<T, SliderNode>) nodeLabel = "Slider";
                 else if constexpr (std::is_same_v<T, Vector2Node>) nodeLabel = "Vector2";
-                ImGui::SetCursorPosX(offset + 10.0f);
                 ImGui::TextUnformatted(nodeLabel.c_str());
 
                 ImGui::TableSetColumnIndex(1);
@@ -162,6 +161,7 @@ void MaterialInspector(ChildMaterial& material) {
             ImGui::PopID();
         }
 
+        ImGui::Unindent(10.0f);
         ImGui::EndTable();
     }
 
