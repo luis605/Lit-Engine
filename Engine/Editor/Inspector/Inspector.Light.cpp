@@ -13,143 +13,237 @@ See the LICENSE file in the project root for full license information.
 #include <extras/IconsFontAwesome6.h>
 #include <glm/glm.hpp>
 
-#define RAYMATH_IMPLEMENTATION
-#include <raylib.h>
-#include <raymath.h>
+namespace DefaultLight {
+    const glm::vec4 Color       = glm::vec4(1.0f, 1.0f, 1.0f, 1.0f);
+    const float     Intensity   = 3.0f;
+    const float     Attenuation = 0.001f;
+    const float     Radius      = 100.0f;
+    const float     InnerAngle  = 12.5f;
+    const float     OuterAngle  = 17.5f;
+}
+
+bool ResetButton(const char* id, const char* tooltip) {
+    ImGui::SameLine();
+    ImGui::Dummy(ImVec2(ImGui::GetContentRegionAvail().x - 25.0f, 0));
+    ImGui::SameLine();
+
+    bool clicked = ImGui::Button((std::string(ICON_FA_ROTATE_LEFT) + "##" + id).c_str());
+
+    if (ImGui::IsItemHovered(ImGuiHoveredFlags_AllowWhenDisabled)) {
+        ImGui::SetTooltip("%s", tooltip);
+    }
+
+    return clicked;
+}
+
+void LightProperty_Type(Light& light) {
+    ImGui::PushID("LIGHT-TYPE-ROW");
+    ImGui::TableNextRow();
+    ImGui::TableSetColumnIndex(0);
+    ImGui::TextUnformatted("Type");
+
+    ImGui::TableSetColumnIndex(1);
+    ImGui::SetNextItemWidth(-FLT_MIN);
+
+    static const char* light_types[] = {"Directional", "Point", "Spot"};
+    int currentItem = light.type;
+
+    if (ImGui::BeginCombo("##LightType", light_types[currentItem])) {
+        for (int i = 0; i < IM_ARRAYSIZE(light_types); i++) {
+            if (ImGui::Selectable(light_types[i], currentItem == i)) {
+                light.type = i;
+            }
+            if (currentItem == i) {
+                ImGui::SetItemDefaultFocus();
+            }
+        }
+        ImGui::EndCombo();
+    }
+    ImGui::PopID();
+}
+
+void LightProperty_Position(glm::vec3& position) {
+    ImGui::PushID("LIGHT-POSITION-ROW");
+    ImGui::TableNextRow();
+    ImGui::TableSetColumnIndex(0);
+    ImGui::TextUnformatted("Position");
+
+    ImGui::TableSetColumnIndex(1);
+    ImGui::SetNextItemWidth(-FLT_MIN);
+    ImGui::DragFloat3("##Position", &position.x, 0.1f);
+    ImGui::PopID();
+}
+
+void LightProperty_Direction(glm::vec3& direction) {
+    ImGui::PushID("LIGHT-DIRECTION-ROW");
+
+    ImGui::TableNextRow();
+    ImGui::TableSetColumnIndex(0);
+
+    ImGui::TextUnformatted("Direction");
+
+    ImGui::TableSetColumnIndex(1);
+    ImGui::SetNextItemWidth(-FLT_MIN);
+
+    float lightDirection[3] = { selectedLight->light.direction.x * 180.0f, selectedLight->light.direction.y * 180.0f, selectedLight->light.direction.z * 180.0f };
+    constexpr float INV_180 = 1.0f / 180.0f;
+
+    ImGui::DragFloat3("##Direction", lightDirection, 0.1f, -180.0f, 180.0f, "%.1f°");
+
+    selectedLight->light.direction = glm::vec3(
+        lightDirection[0] * INV_180,
+        lightDirection[1] * INV_180,
+        lightDirection[2] * INV_180
+    );
+
+    ImGui::PopID();
+}
+
+void LightProperty_Color(glm::vec4& color) {
+    ImGui::PushID("LIGHT-COLOR-ROW");
+    ImGui::TableNextRow();
+    ImGui::TableSetColumnIndex(0);
+    ImGui::TextUnformatted("Color");
+    if (color != DefaultLight::Color) {
+        if (ResetButton("##ResetColor", "Reset light's color to white")) color = DefaultLight::Color;
+    }
+
+    ImGui::TableSetColumnIndex(1);
+    ImGui::SetNextItemWidth(-FLT_MIN);
+    ImGui::ColorEdit4("##Color", &color.r, ImGuiColorEditFlags_Float);
+    ImGui::PopID();
+}
+
+void LightProperty_Intensity(float& intensity) {
+    ImGui::PushID("LIGHT-INTENSITY-ROW");
+
+    ImGui::TableNextRow();
+    ImGui::TableSetColumnIndex(0);
+
+    ImGui::TextUnformatted("Intensity");
+
+    if (intensity != DefaultLight::Intensity) {
+        if (ResetButton("##ResetColor", "Reset light's intensity to the default value")) intensity = DefaultLight::Intensity;
+    }
+
+    ImGui::TableSetColumnIndex(1);
+    ImGui::SetNextItemWidth(-FLT_MIN);
+
+    ImGui::DragFloat("##Intensity", &intensity, 0.1f, 0.0f, 1000.0f, "%.2f");
+
+    ImGui::PopID();
+}
+
+void LightProperty_Attenuation(float& attenuation) {
+    ImGui::PushID("LIGHT-ATTENUATION-ROW");
+
+    ImGui::TableNextRow();
+    ImGui::TableSetColumnIndex(0);
+
+    ImGui::TextUnformatted("Attenuation");
+
+    if (attenuation != DefaultLight::Attenuation) {
+        if (ResetButton("##ResetAttenuation", "Reset light's attenuation to the default value")) attenuation = DefaultLight::Attenuation;
+    }
+
+    ImGui::TableSetColumnIndex(1);
+    ImGui::SetNextItemWidth(-FLT_MIN);
+
+    ImGui::DragFloat("##Attenuation", &attenuation, 0.001f, 0.0f, 1.0f, "%.3f");
+
+    ImGui::PopID();
+}
+
+void LightProperty_SpotAngles(float& innerAngle, float& outerAngle) {
+    ImGui::PushID("LIGHT-INNER-ANGLE-ROW");
+    ImGui::TableNextRow();
+    ImGui::TableSetColumnIndex(0);
+    ImGui::TextUnformatted("Inner Angle");
+    if (innerAngle != DefaultLight::InnerAngle) {
+        if (ResetButton("##ResetInner", "Reset spot light's inner angle to the default value")) innerAngle = DefaultLight::InnerAngle;
+    }
+    ImGui::TableSetColumnIndex(1);
+    ImGui::SetNextItemWidth(-FLT_MIN);
+
+    ImGui::SliderFloat("##InnerAngle", &innerAngle, 0.0f, 90.0f, "%.1f°");
+x
+    ImGui::PopID();
+
+    ImGui::PushID("LIGHT-OUTER-ANGLE-ROW");
+    ImGui::TableNextRow();
+    ImGui::TableSetColumnIndex(0);
+    ImGui::TextUnformatted("Outer Angle");
+    if (outerAngle != DefaultLight::OuterAngle) {
+        if (ResetButton("##ResetOuter", "Reset spot light's outer angle to the default value")) innerAngle = DefaultLight::OuterAngle;
+    }
+    ImGui::TableSetColumnIndex(1);
+    ImGui::SetNextItemWidth(-FLT_MIN);
+
+    ImGui::SliderFloat("##OuterAngle", &outerAngle, 0.0f, 90.0f, "%.1f°");
+
+    ImGui::PopID();
+}
+
+void LightProperty_Radius(float& radius) {
+    ImGui::PushID("LIGHT-RADIUS-ROW");
+    ImGui::TableNextRow();
+    ImGui::TableSetColumnIndex(0);
+    ImGui::TextUnformatted("Radius");
+    if (radius != DefaultLight::Radius) {
+        if (ResetButton("##ResetRadius", "Reset point light's radius to the default value")) radius = DefaultLight::Radius;
+    }
+    ImGui::TableSetColumnIndex(1);
+    ImGui::SetNextItemWidth(-FLT_MIN);
+    ImGui::DragFloat("##Radius", &radius, 0.1f, 0.0f, 1000.0f);
+    ImGui::PopID();
+}
+
 
 void LightInspector() {
+    if (selectedLight == nullptr) {
+        ImGui::Text("No light selected.");
+        return;
+    }
+
     ImGui::Text("Inspecting Light");
+    ImGui::Dummy(ImVec2(0.0f, 10.0f));
 
-    ImGui::Dummy(ImVec2(0.0f, 15.0f));
+    constexpr const char* light_props_cstr = ICON_FA_LIGHTBULB " Light Properties";
+    if (ImGui::CollapsingHeader(light_props_cstr)) {
+        ImGui::Indent(20.0f);
 
-    if (ImGui::CollapsingHeader(ICON_FA_SLIDERS " Light Properties", false)) {
-        ImGui::Indent();
+        if (ImGui::BeginTable("Light", 2, ImGuiTableFlags_NoBordersInBody | ImGuiTableFlags_Resizable | ImGuiTableFlags_RowBg)) {
+            ImGui::Indent(10.0f);
 
-        static const char* lights_types[] = {"Directional Light", "Point Light",
-                                             "Spot Light"};
-        static int currentItem = selectedLight->light.type;
+            ImGui::TableSetupColumn("Property", ImGuiTableColumnFlags_WidthFixed, 120.0f);
+            ImGui::TableSetupColumn("Value", ImGuiTableColumnFlags_WidthStretch);
+            ImGui::TableHeadersRow();
+            ImGui::PushStyleVar(ImGuiStyleVar_FramePadding, ImVec2(3.0f, 3.0f));
 
-        if (ImGui::BeginCombo("Light Types", lights_types[currentItem])) {
-            for (int index = 0; index < IM_ARRAYSIZE(lights_types); index++) {
-                const bool isSelected = (currentItem == index);
-                if (ImGui::Selectable(lights_types[index], isSelected))
-                    currentItem = index;
-                selectedLight->light.type = currentItem;
-                if (isSelected)
-                    ImGui::SetItemDefaultFocus();
+            LightProperty_Type(selectedLight->light);
+            LightProperty_Color(selectedLight->light.color);
+            LightProperty_Intensity(selectedLight->light.params.y);
+            LightProperty_Attenuation(selectedLight->light.params.x);
+
+            switch (selectedLight->light.type) {
+                case LIGHT_DIRECTIONAL:
+                    LightProperty_Direction(selectedLight->light.direction);
+                    break;
+                case LIGHT_POINT:
+                    LightProperty_Position(selectedLight->light.position);
+                    LightProperty_Radius(selectedLight->light.params.w);
+                    break;
+                case LIGHT_SPOT:
+                    LightProperty_Position(selectedLight->light.position);
+                    LightProperty_Direction(selectedLight->light.direction);
+                    LightProperty_SpotAngles(selectedLight->light.params.z, selectedLight->light.params.w);
+                    break;
             }
-            ImGui::EndCombo();
+
+            ImGui::PopStyleVar();
+            ImGui::Unindent(10.0f);
+            ImGui::EndTable();
         }
-
-        ImGui::Dummy(ImVec2(0.0f, 15.0f));
-
-        ImGui::Text("Position:");
-        ImGui::Indent();
-
-        float lightPos[3] = {selectedLight->light.position.x,
-                             selectedLight->light.position.y,
-                             selectedLight->light.position.z};
-        if (ImGui::InputFloat3("##Position", lightPos))
-            selectedLight->light.position =
-                glm::vec3(lightPos[0], lightPos[1], lightPos[2]);
-
-        ImGui::Unindent();
-
-        ImGui::Dummy(ImVec2(0.0f, 15.0f));
-
-        ImVec4 light_colorImGui =
-            ImVec4(selectedLight->light.color.r, selectedLight->light.color.g,
-                   selectedLight->light.color.b, selectedLight->light.color.a);
-
-        ImGui::Text("Color: ");
-        ImGui::ColorEdit4("##Change_Light_Color", (float*)&light_colorImGui,
-                          ImGuiColorEditFlags_NoInputs);
-        glm::vec4 light_color = {
-            (float)(light_colorImGui.x), (float)(light_colorImGui.y),
-            (float)(light_colorImGui.z), (float)(light_colorImGui.w)};
-
-        selectedLight->light.color = light_color;
-
-        ImGui::Dummy(ImVec2(0.0f, 15.0f));
-
-        if (!AttenuationActiveInputMode) {
-            ImGui::SliderFloat("Attenuation", &selectedLight->light.params.x,
-                               0.0f, 0.3f);
-            AttenuationActiveInputMode =
-                ImGui::IsItemHovered() && ImGui::IsMouseDoubleClicked(0);
-        } else {
-            if (ImGui::InputFloat("Attenuation", &selectedLight->light.params.x,
-                                  0.0f, 1.0f, "%.3f",
-                                  ImGuiInputTextFlags_EnterReturnsTrue))
-                AttenuationActiveInputMode = false;
-        }
-
-        if (!IntensityActiveInputMode) {
-            ImGui::SliderFloat("Intensity", &selectedLight->light.params.y, 0.0f,
-                               50.0f);
-            IntensityActiveInputMode =
-                ImGui::IsItemHovered() && ImGui::IsMouseDoubleClicked(0);
-        } else {
-            if (ImGui::InputFloat("Intensity", &selectedLight->light.params.y,
-                                  0.0f, 100000.0f, "%.3f",
-                                  ImGuiInputTextFlags_EnterReturnsTrue))
-                IntensityActiveInputMode = false;
-        }
-
-        if (selectedLight->light.type == LIGHT_SPOT) {
-            if (!InnerCutoffActiveInputMode) {
-                ImGui::SliderFloat("Inner Cutoff",
-                                &selectedLight->light.params.z, 0.0f, 1.0f);
-                InnerCutoffActiveInputMode =
-                    ImGui::IsItemHovered() && ImGui::IsMouseDoubleClicked(0);
-            } else {
-                if (ImGui::InputFloat("Inner Cutoff",
-                                    &selectedLight->light.params.z, 0.0f, 1.0f,
-                                    "%.3f", ImGuiInputTextFlags_EnterReturnsTrue))
-                    InnerCutoffActiveInputMode = false;
-            }
-        }
-
-        if (selectedLight->light.type == LIGHT_SPOT) {
-            if (!OuterCutoffActiveInputMode) {
-                ImGui::SliderFloat("Outer Cutoff", &selectedLight->light.params.w, 0.0f, 10.0f);
-                OuterCutoffActiveInputMode = ImGui::IsItemHovered() && ImGui::IsMouseDoubleClicked(0);
-            } else {
-                if (ImGui::InputFloat("Outer Cutoff", &selectedLight->light.params.w, 0.0f,
-                                    1000.0f, "%.3f",
-                                    ImGuiInputTextFlags_EnterReturnsTrue))
-                    OuterCutoffActiveInputMode = false;
-            }
-        } else {
-            if (!RadiusActiveInputMode) {
-                ImGui::SliderFloat("Radius", &selectedLight->light.params.w, 0.0f,
-                                100.0f);
-                RadiusActiveInputMode =
-                    ImGui::IsItemHovered() && ImGui::IsMouseDoubleClicked(0);
-            } else {
-                if (ImGui::InputFloat("Radius", &selectedLight->light.params.w, 0.0f,
-                                    100000.0f, "%.3f",
-                                    ImGuiInputTextFlags_EnterReturnsTrue))
-                    RadiusActiveInputMode = false;
-            }
-        }
-
-        ImGui::Dummy(ImVec2(0.0f, 15.0f));
-
-        Vector3 direction = Vector3Multiply(
-            glm3ToVec3(selectedLight->light.direction), {360, 360, 360});
-
-        ImGui::SliderFloat("X", &direction.x, -360.0f, 360.0f);
-        ImGui::SliderFloat("Y", &direction.y, -360.0f, 360.0f);
-        ImGui::SliderFloat("Z", &direction.z, -360.0f, 360.0f);
-
-        selectedLight->light.direction =
-            vec3ToGlm3([](Vector3& vec) -> Vector3& {
-                static Vector3 result;
-                result = Vector3Divide(vec, {360, 360, 360});
-                return result;
-            }(direction));
-
-        ImGui::Unindent();
+        ImGui::Unindent(20.0f);
     }
 }

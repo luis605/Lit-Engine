@@ -38,7 +38,7 @@ LightStruct* getLightById(int id);
 struct Light {
     int type = LIGHT_POINT;
     alignas(16) glm::vec3 position;
-    alignas(16) glm::vec3 direction = {0.4, 0.4, -0.4};
+    alignas(16) glm::vec3 direction = {0.4, -0.4, -0.4};
     alignas(16) glm::vec4 color;
     // params.x = attenuation coeff, params.y = intensity, params.z = SPOT inner cone angle cos
     // params.w = SPOT outer cone angle cos. For point lights, params.w is radius

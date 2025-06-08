@@ -11,44 +11,77 @@ See the LICENSE file in the project root for full license information.
 #include <extras/IconsFontAwesome6.h>
 
 void CameraInspector() {
-    ImVec2 window_size = ImGui::GetWindowSize();
-    const float spacingWidth = 200.0f;
-
-    const float remainingWidth = window_size.x - spacingWidth;
-    const float margin = 30.0f;
-    const float inputWidth = remainingWidth - margin;
-
     ImGui::Text("Inspecting Camera");
     ImGui::Dummy(ImVec2(0.0f, 10.0f));
 
-    if (ImGui::CollapsingHeader(ICON_FA_SLIDERS " Camera Properties")) {
-        ImGui::Indent();
+    constexpr const char* camera_props_cstr = ICON_FA_VIDEO " Properties";
+    if (ImGui::CollapsingHeader(camera_props_cstr)) {
+        ImGui::Indent(20.0f);
 
-        bool isOrthographic = (sceneCamera.projection == 1) ? true : false;
+        if (ImGui::BeginTable("Camera", 2, ImGuiTableFlags_NoBordersInBody | ImGuiTableFlags_Resizable | ImGuiTableFlags_RowBg)) {
+            ImGui::Indent(10.0f);
+            ImGui::TableSetupColumn("Property", ImGuiTableColumnFlags_WidthFixed, 120.0f);
+            ImGui::TableSetupColumn("Value", ImGuiTableColumnFlags_WidthStretch);
+            ImGui::TableHeadersRow();
 
-        // Set the width for the text and combo box
-        ImGui::Text("Camera Projection: ");
-        ImGui::SameLine();
-        ImGui::SetNextItemWidth(inputWidth);
-        if (ImGui::BeginCombo("##Projection", isOrthographic ? "Orthographic"
-                                                             : "Perspective")) {
-            if (ImGui::Selectable("Orthographic", isOrthographic)) {
-                isOrthographic = true;
-                sceneCamera.projection = 1;
+            ImGui::PushStyleVar(ImGuiStyleVar_FramePadding, ImVec2(3.0f, 3.0f));
+
+            {
+                ImGui::PushID("CAMERA-PROJECTION-ROW");
+                ImGui::TableNextRow();
+
+                ImGui::TableSetColumnIndex(0);
+                ImGui::TextUnformatted("Projection");
+
+                ImGui::TableSetColumnIndex(1);
+                ImGui::SetNextItemWidth(-FLT_MIN);
+
+                const char* currentProjectionName = (sceneCamera.projection == 1) ? "Orthographic" : "Perspective";
+                if (ImGui::BeginCombo("##Projection", currentProjectionName)) {
+                    if (ImGui::Selectable("Perspective", sceneCamera.projection == 0)) {
+                        sceneCamera.projection = 0;
+                    }
+                    if (ImGui::Selectable("Orthographic", sceneCamera.projection == 1)) {
+                        sceneCamera.projection = 1;
+                    }
+                    ImGui::EndCombo();
+                }
+                ImGui::PopID();
             }
-            if (ImGui::Selectable("Perspective", !isOrthographic)) {
-                isOrthographic = false;
-                sceneCamera.projection = 0;
+
+            {
+                ImGui::PushID("CAMERA-FOVY-ROW");
+                ImGui::TableNextRow();
+
+                ImGui::TableSetColumnIndex(0);
+                ImGui::TextUnformatted("Field of View");
+
+                constexpr float DEFAULT_FOVY = 60.0f;
+                if (sceneCamera.fovy != DEFAULT_FOVY) {
+                    ImGui::SameLine();
+                    ImGui::Dummy(ImVec2(ImGui::GetContentRegionAvail().x - 25.0f, 0));
+                    ImGui::SameLine();
+
+                    if (ImGui::Button(ICON_FA_ROTATE_LEFT "##ResetFOVY")) {
+                        sceneCamera.fovy = DEFAULT_FOVY;
+                    }
+
+                    if (ImGui::IsItemHovered(ImGuiHoveredFlags_AllowWhenDisabled)) {
+                        ImGui::SetTooltip("Reset Field of View to 60°");
+                    }
+                }
+
+                ImGui::TableSetColumnIndex(1);
+                ImGui::SetNextItemWidth(-FLT_MIN);
+                ImGui::SliderFloat("##FovySlider", &sceneCamera.fovy, 1.0f, 179.0f, "%.1f°");
+
+                ImGui::PopID();
             }
-            ImGui::EndCombo();
+
+            ImGui::PopStyleVar();
+            ImGui::Unindent(10.0f);
+            ImGui::EndTable();
         }
-
-        // Set the width for the text and slider
-        ImGui::Text("Fovy: ");
-        ImGui::SameLine();
-        ImGui::SetNextItemWidth(inputWidth);
-        ImGui::SliderFloat("##FovySlider", &sceneCamera.fovy, 1.0f, 180.0f,
-                           "%.1f");
 
         ImGui::Unindent();
     }
