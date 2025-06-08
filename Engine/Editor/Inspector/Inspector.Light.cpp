@@ -166,7 +166,7 @@ void LightProperty_SpotAngles(float& innerAngle, float& outerAngle) {
     ImGui::SetNextItemWidth(-FLT_MIN);
 
     ImGui::SliderFloat("##InnerAngle", &innerAngle, 0.0f, 90.0f, "%.1f°");
-x
+
     ImGui::PopID();
 
     ImGui::PushID("LIGHT-OUTER-ANGLE-ROW");
