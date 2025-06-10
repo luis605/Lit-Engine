@@ -1,3 +1,6 @@
+# This file is licensed under the PolyForm Noncommercial License 1.0.0.
+# See the LICENSE file in the project root for full license information.
+
 cmake_minimum_required(VERSION 3.18)
 cmake_policy(SET CMP0091 NEW)
 
@@ -70,14 +73,15 @@ endif()
 
 file(GLOB_RECURSE SRC_FILES
     "${CMAKE_SOURCE_DIR}/Engine/*.cpp"
-    )
+)
 
-    file(GLOB IMGUI_SRC_FILES "${CMAKE_SOURCE_DIR}/Include/imgui/*.cpp")
+file(GLOB IMGUI_SRC_FILES "${CMAKE_SOURCE_DIR}/Include/imgui/*.cpp")
 list(APPEND SRC_FILES
     ${IMGUI_SRC_FILES}
     "${CMAKE_SOURCE_DIR}/GameBuilder/builder.cpp"
     "${CMAKE_SOURCE_DIR}/Include/ImGuiColorTextEdit/TextEditor.cpp"
     "${CMAKE_SOURCE_DIR}/Include/rlImGui.cpp"
+    "${CMAKE_SOURCE_DIR}/Include/imgui/misc/cpp/imgui_stdlib.cpp"
     "${CMAKE_SOURCE_DIR}/Include/rlFrustum.cpp"
     "${CMAKE_SOURCE_DIR}/Include/NodeEditor/crude_json.cpp"
     "${CMAKE_SOURCE_DIR}/Include/NodeEditor/imgui_node_editor.cpp"
@@ -98,6 +102,7 @@ target_include_directories(LitEngine PRIVATE
     ${CMAKE_SOURCE_DIR}/Include
     ${CMAKE_SOURCE_DIR}/Include/nlohmann/include
     ${CMAKE_SOURCE_DIR}/Include/imgui
+    ${CMAKE_SOURCE_DIR}/Include/imgui/misc/cpp
     ${CMAKE_SOURCE_DIR}/Include/ImGuiColorTextEdit
     ${CMAKE_SOURCE_DIR}/Include/NodeEditor
     ${CMAKE_SOURCE_DIR}/Include/NodeEditor/external/stb_image

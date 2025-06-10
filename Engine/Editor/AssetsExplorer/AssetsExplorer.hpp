@@ -24,10 +24,9 @@ struct FolderTextureItem {
     fs::path name;
     Texture2D texture;
     fs::path full_path;
-    bool rename;
 
-    FolderTextureItem(const fs::path& name, const Texture2D& texture, const fs::path& full_path, bool rename = false)
-        : name(name), texture(texture), full_path(full_path), rename(rename) {}
+    FolderTextureItem(const fs::path& name, const Texture2D& texture, const fs::path& full_path)
+        : name(name), texture(texture), full_path(full_path) {}
 };
 
 struct FileTextureItem {
@@ -36,7 +35,6 @@ struct FileTextureItem {
     fs::path path;
     fs::path full_path;
     std::string extension;
-    bool rename;
 };
 
 struct FileInfo {
