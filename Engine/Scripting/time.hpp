@@ -14,7 +14,7 @@ public:
     void update();
 };
 
-inline void UpdateInGameGlobals();
+void UpdateInGameGlobals();
 
 extern Time timeInstance;
 

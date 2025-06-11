@@ -8,6 +8,7 @@ See the LICENSE file in the project root for full license information.
 
 struct LitCamera;
 
+#include <Engine/Core/Macros.hpp>
 #include <Engine/Lighting/Shaders.hpp>
 #include <Engine/Lighting/SurfaceMaterial.hpp>
 #include <Engine/Physics/PhysicsManager.hpp>
@@ -40,12 +41,6 @@ enum ObjectTypeEnum {
   ObjectType_Sphere,
   ObjectType_Torus
 };
-
-#ifdef _WIN32
-#define EXPORT_API __declspec(dllexport)
-#else
-#define EXPORT_API __attribute__((visibility("default")))
-#endif
 
 class EXPORT_API Entity {
   public:

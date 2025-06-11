@@ -26,7 +26,7 @@ namespace fs = std::filesystem;
 void MapInspector(const char* title, const MaterialMapIndex& materialMapIndex,
                   bool& showTexture, fs::path& texturePath,
                   SurfaceMaterialTexture& texture) {
-    ImGui::Text(title);
+    ImGui::Text("%s", title);
 
     ImGui::Indent();
 

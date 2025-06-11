@@ -64,7 +64,7 @@ void Plugin::initialize() {
             m_module.attr(item.first) = item.second;
         }
 
-        if (m_module.attr("initPlugin")) {
+        if (pybind11::hasattr(m_module, "initPlugin")) {
             m_module.attr("initPlugin")();
         } else {
             TraceLog(LOG_WARNING,
@@ -81,7 +81,8 @@ void Plugin::update() {
         if (!m_module)
             return;
 
-        if (m_module.attr("updatePlugin")) {
+
+        if (pybind11::hasattr(m_module, "updatePlugin")) {
             m_module.attr("updatePlugin")();
         } else {
             TraceLog(

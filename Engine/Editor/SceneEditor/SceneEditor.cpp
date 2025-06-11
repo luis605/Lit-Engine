@@ -155,13 +155,15 @@ bool IsMouseHoveringModel(const Model& model, const Vector3& position,
 
     Vector2 mousePosition = GetMousePosition();
 #ifndef GAME_SHIPPING
-    Vector2 relativeMousePosition = {mousePosition.x - viewportRectangle.x,
-                                     mousePosition.y - viewportRectangle.y -
-                                         GetImGuiWindowTitleHeight() - 60.0f};
+    Vector2 relativeMousePosition = {
+        static_cast<float>(mousePosition.x - viewportRectangle.x),
+        static_cast<float>(mousePosition.y - viewportRectangle.y -
+                        GetImGuiWindowTitleHeight() - 60.0f)};
 #else
-    Vector2 relativeMousePosition = {mousePosition.x - viewportRectangle.x,
-                                     mousePosition.y - viewportRectangle.y -
-                                         GetImGuiWindowTitleHeight()};
+    Vector2 relativeMousePosition = {
+        static_cast<float>(mousePosition.x - viewportRectangle.x),
+        static_cast<float>(mousePosition.y - viewportRectangle.y -
+                        GetImGuiWindowTitleHeight())};
 #endif
 
     Ray mouseRay = GetScreenToWorldRayEx(relativeMousePosition, sceneCamera,

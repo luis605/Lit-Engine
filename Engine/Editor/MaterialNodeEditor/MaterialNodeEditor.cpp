@@ -129,7 +129,7 @@ void DrawNodeTitle(const std::string& title, const float& width,
 
     ImGui::SetCursorScreenPos(textPos);
     const std::string titleFinal = title + std::to_string(id.Get());
-    ImGui::Text(titleFinal.c_str());
+    ImGui::Text("%s", titleFinal.c_str());
 
     const float halfBorderWidth = ed::GetStyle().NodeBorderWidth * 0.5f;
 
@@ -194,7 +194,7 @@ void MaterialNodeSystem::DrawNode(Node& node) {
                         ImGui::CalcTextSize(inputPin.Name.c_str()).x);
         std::string pinName =
             inputPin.Name + "_" + std::to_string(inputPin.ID.Get());
-        ImGui::Text(pinName.c_str());
+        ImGui::Text("%s", pinName.c_str());
     }
 
     if (node.Inputs.empty())
@@ -213,7 +213,7 @@ void MaterialNodeSystem::DrawNode(Node& node) {
 
         std::string pinName =
             outputPin.Name + "_" + std::to_string(outputPin.ID.Get());
-        ImGui::Text(pinName.c_str());
+        ImGui::Text("%s", pinName.c_str());
         ImGui::SameLine();
         ImGui::SetCursorPosX(outputPinStartPosX);
 

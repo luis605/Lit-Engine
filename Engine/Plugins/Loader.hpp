@@ -19,6 +19,7 @@ See the LICENSE file in the project root for full license information.
 #include <pybind11/stl.h>
 #include <filesystem>
 #include <raylib.h>
+#include <Engine/Core/Macros.hpp>
 
 namespace py = pybind11;
 namespace fs = std::filesystem;
@@ -29,7 +30,7 @@ void loadAllPlugins();
 void unloadAllPlugins();
 bool checkPluginsConfigIntegrity();
 
-class Plugin {
+class EXPORT_API Plugin {
 public:
     bool        m_enabled;
     std::string m_name;
