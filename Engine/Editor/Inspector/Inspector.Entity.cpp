@@ -271,7 +271,7 @@ void EntityInspector() {
                 MaterialInspector(it->second);
             }
         } else {
-            constexpr char* info_text = "No material assigned. Drag a material asset here from the Assets Explorer to apply it.";
+            constexpr const char* info_text = "No material assigned. Drag a material asset here from the Assets Explorer to apply it.";
             ImGui::DrawMessageBox(info_text, MessageBoxType::Info);
         }
 
