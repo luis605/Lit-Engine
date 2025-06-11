@@ -45,7 +45,7 @@ void MapInspector(const char* title, const MaterialMapIndex& materialMapIndex,
             IM_ASSERT(payload->DataSize == sizeof(int));
             int payload_n = *(const int*)payload->Data;
 
-            fs::path path = dirPath / fileStruct[payload_n].name;
+            fs::path path = dirPath / allItems[payload_n].name;
 
             texturePath = path;
             texture = path;
@@ -128,9 +128,9 @@ void MaterialInspector(ChildMaterial& material) {
                         if (payload) {
                             if (payload->Data && payload->DataSize == sizeof(int)) {
                                 int payload_n = *(const int*)payload->Data;
-                                if (payload_n >= 0 && payload_n < fileStruct.size()) {
-                                    arg.texturePath = fileStruct[payload_n].full_path;
-                                    arg.texture = fileStruct[payload_n].full_path;
+                                if (payload_n >= 0 && payload_n < allItems.size()) {
+                                    arg.texturePath = allItems[payload_n].path;
+                                    arg.texture = allItems[payload_n].path;
                                     updateMaterial = true;
                                 }
                             }

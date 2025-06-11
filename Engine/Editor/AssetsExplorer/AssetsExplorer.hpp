@@ -20,27 +20,18 @@ See the LICENSE file in the project root for full license information.
 
 namespace fs = std::filesystem;
 
-struct FolderTextureItem {
-    fs::path name;
-    Texture2D texture;
-    fs::path full_path;
-
-    FolderTextureItem(const fs::path& name, const Texture2D& texture, const fs::path& full_path)
-        : name(name), texture(texture), full_path(full_path) {}
-};
-
-struct FileTextureItem {
-    fs::path name;
-    Texture2D texture;
+struct DirectoryEntry {
     fs::path path;
-    fs::path full_path;
+    fs::path name;
     std::string extension;
-};
+    Texture2D texture;
+    bool isFolder;
+    bool isModel;
 
-struct FileInfo {
-    fs::path path;
-    std::string extension;
-    fs::file_time_type lastModified;
+    DirectoryEntry() {}
+
+    DirectoryEntry(const fs::path& path, const fs::path& name, const std::string& extension, Texture2D& texture, const bool isFolder, const bool isModel)
+        : path(path), name(name), extension(extension), texture(texture), isFolder(isFolder), isModel(isModel) {}
 };
 
 extern Texture2D folderTexture;
@@ -53,7 +44,6 @@ extern Texture2D materialTexture;
 extern RenderTexture2D modelPreviewRT;
 
 extern std::unordered_map<fs::path, Texture2D> modelsIcons;
-extern std::unordered_map<fs::path, Texture2D> textureCache;
 extern std::unordered_map<fs::path, fs::file_time_type> directoriesLastModify;
 
 extern fs::path dirPath;
@@ -65,8 +55,7 @@ extern ImVec2 assetsExplorerWindowSize;
 extern LitCamera modelPreviewerCamera;
 extern SurfaceMaterial assetsMaterial;
 
-extern std::vector<FolderTextureItem> folderStruct;
-extern std::vector<FileTextureItem> fileStruct;
+extern std::vector<DirectoryEntry> allItems;
 
 void InitRenderModelPreviewer();
 void AssetsExplorer();

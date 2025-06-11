@@ -475,7 +475,7 @@ inline void Lighting() {
                             IM_ASSERT(payload->DataSize == sizeof(int));
                             int payload_n = *(const int*)payload->Data;
 
-                            fs::path path = dirPath / fileStruct[payload_n].name;
+                            fs::path path = dirPath / allItems[payload_n].name;
 
                             skybox.loadSkybox(path);
                         }

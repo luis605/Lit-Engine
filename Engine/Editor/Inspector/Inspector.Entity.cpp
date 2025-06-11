@@ -194,7 +194,7 @@ void EntityInspector() {
                 if (const ImGuiPayload* payload = ImGui::AcceptDragDropPayload("MODEL_PAYLOAD")) {
                     IM_ASSERT(payload->DataSize == sizeof(int));
                     int payloadIndex = *(const int*)payload->Data;
-                    fs::path path = dirPath / fileStruct[payloadIndex].name;
+                    fs::path path = dirPath / allItems[payloadIndex].name;
                     selectedEntity->modelPath = path;
                     selectedEntity->setModel(selectedEntity->modelPath.c_str());
                 }
@@ -215,7 +215,7 @@ void EntityInspector() {
                 if (const ImGuiPayload* payload = ImGui::AcceptDragDropPayload("MATERIAL_PAYLOAD")) {
                     IM_ASSERT(payload->DataSize == sizeof(int));
                     const int payloadIndex = *(const int*)payload->Data;
-                    const fs::path path = fileStruct[payloadIndex].full_path;
+                    const fs::path path = allItems[payloadIndex].path;
                     if (!childMaterials.contains(path)) {
                         LoadChildMaterial(path);
                     }
@@ -241,7 +241,7 @@ void EntityInspector() {
                 if (const ImGuiPayload* payload = ImGui::AcceptDragDropPayload("SCRIPT_PAYLOAD")) {
                     IM_ASSERT(payload->DataSize == sizeof(int));
                     int payload_n = *(const int*)payload->Data;
-                    fs::path path = dirPath / fileStruct[payload_n].name;
+                    fs::path path = dirPath / allItems[payload_n].name;
                     selectedEntity->scriptPath = path;
                 }
                 ImGui::EndDragDropTarget();
