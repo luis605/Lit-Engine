@@ -433,7 +433,7 @@ void EntityInspector() {
     constexpr const char* advanced_cstr = ICON_FA_COG_UTF8 " Advanced";
     if (ImGui::CollapsingHeader(advanced_cstr)) {
         ImGui::Indent(20.0f);
-        constexpr char* warning_text = "These settings are experimental. They will not be saved with the project and may cause unexpected behavior.";
+        constexpr const char* warning_text = "These settings are experimental. They will not be saved with the project and may cause unexpected behavior.";
         ImGui::DrawMessageBox(warning_text, MessageBoxType::Warning);
         ImGui::Spacing();
         if (ImGui::Button("Set all children instanced", ImVec2(-FLT_MIN, 0))) {
