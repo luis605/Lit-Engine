@@ -40,6 +40,11 @@ extern RenderTexture vignetteTexture;
 extern RenderTexture chromaticAberrationTexture;
 extern std::vector<RenderTexture2D> downsampledTextures;
 
+extern bool filmGrainEnabled;
+extern float filmGrainStrength;
+extern float filmGrainSize;
+extern float filmGrainTime;
+
 struct ShaderManager {
 private:
     std::unordered_map<GLuint, std::unordered_map<std::string, GLint>> uniformLocationCache;
@@ -56,6 +61,7 @@ public:
     Shader m_vignetteShader;
     Shader m_irradianceShader;
     Shader m_chromaticAberration;
+    Shader m_filmGrainShader;
     GLuint m_exposureShaderProgram;
 
 public:

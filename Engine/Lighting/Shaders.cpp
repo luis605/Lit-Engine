@@ -29,6 +29,11 @@ Vector4 vignetteColor = { 0, 0, 0, 1 };
 bool aberrationEnabled   = false;
 Vector3 aberrationOffset = { 0.009, 0.006, -0.006 };
 
+bool filmGrainEnabled = false;
+float filmGrainStrength = 0.25f;
+float filmGrainSize = 1.0f;
+float filmGrainTime = 0.0f;
+
 RenderTexture verticalBlurTexture;
 RenderTexture horizontalBlurTexture;
 RenderTexture upsamplerTexture;
@@ -52,6 +57,7 @@ void ShaderManager::InitShaders() {
     m_vignetteShader        = LoadShader("Engine/Lighting/shaders/lighting_vertex.glsl", "Engine/Lighting/shaders/vignette.fs");
     m_irradianceShader      = LoadShader("Engine/Lighting/shaders/cubemap.vs",           "Engine/Lighting/shaders/irradiance.fs");
     m_chromaticAberration   = LoadShader("Engine/Lighting/shaders/lighting_vertex.glsl", "Engine/Lighting/shaders/chromaticAberration.fs");
+    m_filmGrainShader       = LoadShader("Engine/Lighting/shaders/lighting_vertex.glsl",       "Engine/Lighting/shaders/filmGrain.fs");
 
     char* shaderCode = LoadFileText("Engine/Lighting/shaders/luminanceCompute.glsl");
     unsigned int shaderData = rlCompileShader(shaderCode, RL_COMPUTE_SHADER);
@@ -66,6 +72,9 @@ void ShaderManager::InitShaders() {
     SetShaderValue(shaderManager.m_vignetteShader, shaderManager.GetUniformLocation(shaderManager.m_vignetteShader.id, "radius"),   &radius,   SHADER_UNIFORM_FLOAT);
     SetShaderValue(shaderManager.m_vignetteShader, shaderManager.GetUniformLocation(shaderManager.m_vignetteShader.id, "color"),    &color,    SHADER_UNIFORM_VEC3);
 
+    SetShaderValue(m_filmGrainShader, GetUniformLocation(m_filmGrainShader.id, "grainStrength"), &filmGrainStrength, SHADER_UNIFORM_FLOAT);
+    SetShaderValue(m_filmGrainShader, GetUniformLocation(m_filmGrainShader.id, "grainSize"), &filmGrainSize, SHADER_UNIFORM_FLOAT);
+    SetShaderValue(m_filmGrainShader, GetUniformLocation(m_filmGrainShader.id, "time"), &filmGrainTime, SHADER_UNIFORM_FLOAT);
 }
 
 std::shared_ptr<Shader> ShaderManager::LoadShaderProgram(const fs::path& vertexShaderPath, const fs::path& fragmentShaderPath) {

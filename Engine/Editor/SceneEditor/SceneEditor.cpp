@@ -71,9 +71,9 @@ void DrawTextureOnViewportRectangle(const Texture& texture) {
     ImVec2 uv0 = ImVec2(0, 1);
     ImVec2 uv1 = ImVec2(1, 0);
 
-    // if (textureViewportFlip) {
-    //     std::swap(uv0.y, uv1.y);
-    // }
+    if (textureViewportFlip) {
+        std::swap(uv0.y, uv1.y);
+    }
 
     ImGui::Image((ImTextureID)&texture,
                  ImVec2(viewportRectangle.width, viewportRectangle.height),
@@ -260,8 +260,6 @@ void HandleUnselect() {
 }
 
 Texture2D ApplyBloomEffect(const Texture2D& sceneTexture) {
-    textureViewportFlip = !textureViewportFlip;
-
     BeginTextureMode(horizontalBlurTexture);
     ClearBackground(BLANK);
     BeginShaderMode(shaderManager.m_horizontalBlurShader);
@@ -299,7 +297,6 @@ Texture2D ApplyBloomEffect(const Texture2D& sceneTexture) {
 }
 
 Texture2D ApplyChromaticAberration(const Texture2D& sceneTexture) {
-    textureViewportFlip = !textureViewportFlip;
     BeginTextureMode(chromaticAberrationTexture);
     ClearBackground(BLANK);
     BeginShaderMode(shaderManager.m_chromaticAberration);
@@ -318,9 +315,27 @@ Texture2D ApplyChromaticAberration(const Texture2D& sceneTexture) {
     return chromaticAberrationTexture.texture;
 }
 
-Texture2D ApplyVignetteEffect(const Texture2D& sceneTexture) {
+Texture2D ApplyFilmGrainEffect(const Texture2D& sceneTexture) {
+    filmGrainTime += GetFrameTime();
     textureViewportFlip = !textureViewportFlip;
 
+    BeginTextureMode(verticalBlurTexture); // reuse verticalBlurTexture as temp
+    ClearBackground(BLANK);
+    BeginShaderMode(shaderManager.m_filmGrainShader);
+    SetShaderValueTexture(shaderManager.m_filmGrainShader, shaderManager.GetUniformLocation(shaderManager.m_filmGrainShader.id, "sceneTexture"), sceneTexture);
+    SetShaderValue(shaderManager.m_filmGrainShader, shaderManager.GetUniformLocation(shaderManager.m_filmGrainShader.id, "grainStrength"), &filmGrainStrength, SHADER_UNIFORM_FLOAT);
+    SetShaderValue(shaderManager.m_filmGrainShader, shaderManager.GetUniformLocation(shaderManager.m_filmGrainShader.id, "grainSize"), &filmGrainSize, SHADER_UNIFORM_FLOAT);
+    SetShaderValue(shaderManager.m_filmGrainShader, shaderManager.GetUniformLocation(shaderManager.m_filmGrainShader.id, "time"), &filmGrainTime, SHADER_UNIFORM_FLOAT);
+
+    DrawTexture(sceneTexture, 0, 0, WHITE);
+
+    EndShaderMode();
+    EndTextureMode();
+
+    return verticalBlurTexture.texture;
+}
+
+Texture2D ApplyVignetteEffect(const Texture2D& sceneTexture) {
     BeginTextureMode(vignetteTexture);
     ClearBackground(BLANK);
     BeginShaderMode(shaderManager.m_vignetteShader);
@@ -344,6 +359,7 @@ void RenderViewportTexture(const LitCamera& camera) {
 
     if (bloomEnabled)      current = ApplyBloomEffect(current);
     if (aberrationEnabled) current = ApplyChromaticAberration(current);
+    if (filmGrainEnabled)  current = ApplyFilmGrainEffect(current);
     if (vignetteEnabled)   current = ApplyVignetteEffect(current);
 
     DrawTextureOnViewportRectangle(current);

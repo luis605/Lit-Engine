@@ -27,6 +27,7 @@ inline void PostProcessing() {
         constexpr const char* bloom_cstr      = ICON_FA_STAR  " Bloom";
         constexpr const char* vignette_cstr   = ICON_FA_IMAGE " Vignette";
         constexpr const char* aberration_cstr = ICON_FA_FILM  " Chromatic Aberration";
+        constexpr const char* filmgrain_cstr  = ICON_FA_BRAILLE " Film Grain";
 
         if (ImGui::CollapsingHeader(bloom_cstr)) {
             ImGui::Indent(20.0f);
@@ -393,6 +394,51 @@ inline void PostProcessing() {
                 ImGui::EndTable();
             }
 
+            ImGui::Unindent(20.0f);
+        }
+
+        if (ImGui::CollapsingHeader(filmgrain_cstr)) {
+            ImGui::Indent(20.0f);
+            if (ImGui::BeginTable("FilmGrain", 2, ImGuiTableFlags_NoBordersInBody | ImGuiTableFlags_Resizable | ImGuiTableFlags_RowBg)) {
+                ImGui::Indent(10.0f);
+                ImGui::TableSetupColumn("Property", ImGuiTableColumnFlags_WidthFixed | ImGuiTableColumnFlags_IndentEnable, 80.0f);
+                ImGui::TableSetupColumn("Value", ImGuiTableColumnFlags_WidthStretch);
+                ImGui::TableHeadersRow();
+                ImGui::PushStyleVar(ImGuiStyleVar_FramePadding, ImVec2(3.0f, 3.0f));
+                {
+                    ImGui::PushID("FILMGRAIN-ENABLED-ROW");
+                    ImGui::TableNextRow();
+                    ImGui::TableSetColumnIndex(0);
+                    ImGui::TextUnformatted("Enabled");
+                    ImGui::TableSetColumnIndex(1);
+                    ImGui::SetNextItemWidth(-FLT_MIN);
+                    ImGui::ToggleButton("##FilmGrainToggle", filmGrainEnabled);
+                    ImGui::PopID();
+                }
+                {
+                    ImGui::PushID("FILMGRAIN-STRENGTH-ROW");
+                    ImGui::TableNextRow();
+                    ImGui::TableSetColumnIndex(0);
+                    ImGui::TextUnformatted("Strength");
+                    ImGui::TableSetColumnIndex(1);
+                    ImGui::SetNextItemWidth(-FLT_MIN);
+                    if (ImGui::DragFloat("##FilmGrainStrength", &filmGrainStrength, 0.01f, 0.0f, 1.0f)) {}
+                    ImGui::PopID();
+                }
+                {
+                    ImGui::PushID("FILMGRAIN-SIZE-ROW");
+                    ImGui::TableNextRow();
+                    ImGui::TableSetColumnIndex(0);
+                    ImGui::TextUnformatted("Size");
+                    ImGui::TableSetColumnIndex(1);
+                    ImGui::SetNextItemWidth(-FLT_MIN);
+                    if (ImGui::DragFloat("##FilmGrainSize", &filmGrainSize, 0.01f, 0.5f, 2.0f)) {}
+                    ImGui::PopID();
+                }
+                ImGui::PopStyleVar(1);
+                ImGui::Unindent(10.0f);
+                ImGui::EndTable();
+            }
             ImGui::Unindent(20.0f);
         }
 
