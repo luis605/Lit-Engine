@@ -278,6 +278,8 @@ void EntityInspector() {
         ImGui::Unindent(20.0f);
     }
 
+    ImGui::Spacing();
+
     // --- Physics Section ---
     constexpr const char* physics_cstr = ICON_FA_GLOBE " Physics";
     if (ImGui::CollapsingHeader(physics_cstr)) {
