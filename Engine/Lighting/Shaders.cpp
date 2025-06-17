@@ -36,7 +36,8 @@ float filmGrainTime = 0.0f;
 
 RenderTexture verticalBlurTexture;
 RenderTexture horizontalBlurTexture;
-RenderTexture upsamplerTexture;
+RenderTexture brightPassTexture;
+RenderTexture bloomCompositorTexture;
 RenderTexture vignetteTexture;
 RenderTexture chromaticAberrationTexture;
 std::vector<RenderTexture2D> downsampledTextures;
@@ -52,12 +53,13 @@ void ShaderManager::InitShaders() {
 
     m_horizontalBlurShader  = LoadShader("Engine/Lighting/shaders/lighting_vertex.glsl", "Engine/Lighting/shaders/blurHorizontal.fs");
     m_verticalBlurShader    = LoadShader("Engine/Lighting/shaders/lighting_vertex.glsl", "Engine/Lighting/shaders/blurVertical.fs");
-    m_upsamplerShader       = LoadShader("Engine/Lighting/shaders/lighting_vertex.glsl", "Engine/Lighting/shaders/upsampler.glsl");
+    m_bloomCompositorShader = LoadShader("Engine/Lighting/shaders/lighting_vertex.glsl", "Engine/Lighting/shaders/bloomCompositor.glsl");
     m_downsampleShader      = LoadShader("Engine/Lighting/shaders/lighting_vertex.glsl", "Engine/Lighting/shaders/downsampler.glsl");
     m_vignetteShader        = LoadShader("Engine/Lighting/shaders/lighting_vertex.glsl", "Engine/Lighting/shaders/vignette.fs");
     m_irradianceShader      = LoadShader("Engine/Lighting/shaders/cubemap.vs",           "Engine/Lighting/shaders/irradiance.fs");
     m_chromaticAberration   = LoadShader("Engine/Lighting/shaders/lighting_vertex.glsl", "Engine/Lighting/shaders/chromaticAberration.fs");
-    m_filmGrainShader       = LoadShader("Engine/Lighting/shaders/lighting_vertex.glsl",       "Engine/Lighting/shaders/filmGrain.fs");
+    m_filmGrainShader       = LoadShader("Engine/Lighting/shaders/lighting_vertex.glsl", "Engine/Lighting/shaders/filmGrain.fs");
+    m_brightFilterShader    = LoadShader("Engine/Lighting/shaders/lighting_vertex.glsl", "Engine/Lighting/shaders/brightFilter.fs");
 
     char* shaderCode = LoadFileText("Engine/Lighting/shaders/luminanceCompute.glsl");
     unsigned int shaderData = rlCompileShader(shaderCode, RL_COMPUTE_SHADER);

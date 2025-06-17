@@ -35,7 +35,8 @@ extern int kernelSize;
 
 extern RenderTexture verticalBlurTexture;
 extern RenderTexture horizontalBlurTexture;
-extern RenderTexture upsamplerTexture;
+extern RenderTexture brightPassTexture;
+extern RenderTexture bloomCompositorTexture;
 extern RenderTexture vignetteTexture;
 extern RenderTexture chromaticAberrationTexture;
 extern std::vector<RenderTexture2D> downsampledTextures;
@@ -57,11 +58,12 @@ public:
     Shader m_horizontalBlurShader;
     Shader m_verticalBlurShader;
     Shader m_downsampleShader;
-    Shader m_upsamplerShader;
+    Shader m_bloomCompositorShader;
     Shader m_vignetteShader;
     Shader m_irradianceShader;
     Shader m_chromaticAberration;
     Shader m_filmGrainShader;
+    Shader m_brightFilterShader;
     GLuint m_exposureShaderProgram;
 
 public:

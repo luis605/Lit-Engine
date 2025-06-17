@@ -317,17 +317,17 @@ void LoadWorldSettings(const json& worldSettingsJson) {
 
     if (worldSettingsJson.contains("bloomThreshold")) {
         bloomThreshold = worldSettingsJson["bloomThreshold"].get<float>();
-        SetShaderValue(shaderManager.m_upsamplerShader, shaderManager.GetUniformLocation(shaderManager.m_upsamplerShader.id, "threshold"), &bloomThreshold, SHADER_ATTRIB_FLOAT);
+        SetShaderValue(shaderManager.m_bloomCompositorShader, shaderManager.GetUniformLocation(shaderManager.m_bloomCompositorShader.id, "threshold"), &bloomThreshold, SHADER_ATTRIB_FLOAT);
     }
 
     if (worldSettingsJson.contains("bloomIntensity")) {
         bloomIntensity = worldSettingsJson["bloomIntensity"].get<float>();
-        SetShaderValue(shaderManager.m_upsamplerShader, shaderManager.GetUniformLocation(shaderManager.m_upsamplerShader.id, "bloomIntensity"), &bloomThreshold, SHADER_ATTRIB_FLOAT);
+        SetShaderValue(shaderManager.m_bloomCompositorShader, shaderManager.GetUniformLocation(shaderManager.m_bloomCompositorShader.id, "bloomIntensity"), &bloomThreshold, SHADER_ATTRIB_FLOAT);
     }
 
     if (worldSettingsJson.contains("kernelSize")) {
         kernelSize = worldSettingsJson["kernelSize"].get<int>();
-        SetShaderValue(shaderManager.m_upsamplerShader, shaderManager.GetUniformLocation(shaderManager.m_upsamplerShader.id, "bloomIntensity"), &bloomThreshold, SHADER_ATTRIB_FLOAT);
+        SetShaderValue(shaderManager.m_bloomCompositorShader, shaderManager.GetUniformLocation(shaderManager.m_bloomCompositorShader.id, "bloomIntensity"), &bloomThreshold, SHADER_ATTRIB_FLOAT);
     }
 
     if (worldSettingsJson.contains("vignetteEnabled")) {
@@ -336,17 +336,17 @@ void LoadWorldSettings(const json& worldSettingsJson) {
 
     if (worldSettingsJson.contains("vignetteStrength")) {
         vignetteStrength = worldSettingsJson["vignetteStrength"].get<float>();
-        SetShaderValue(shaderManager.m_upsamplerShader, shaderManager.GetUniformLocation(shaderManager.m_upsamplerShader.id, "threshold"), &bloomThreshold, SHADER_ATTRIB_FLOAT);
+        SetShaderValue(shaderManager.m_bloomCompositorShader, shaderManager.GetUniformLocation(shaderManager.m_bloomCompositorShader.id, "threshold"), &bloomThreshold, SHADER_ATTRIB_FLOAT);
     }
 
     if (worldSettingsJson.contains("vignetteRadius")) {
         vignetteRadius = worldSettingsJson["vignetteRadius"].get<float>();
-        SetShaderValue(shaderManager.m_upsamplerShader, shaderManager.GetUniformLocation(shaderManager.m_upsamplerShader.id, "bloomIntensity"), &bloomThreshold, SHADER_ATTRIB_FLOAT);
+        SetShaderValue(shaderManager.m_bloomCompositorShader, shaderManager.GetUniformLocation(shaderManager.m_bloomCompositorShader.id, "bloomIntensity"), &bloomThreshold, SHADER_ATTRIB_FLOAT);
     }
 
     if (worldSettingsJson.contains("vignetteColor")) {
         vignetteColor = worldSettingsJson["vignetteColor"].get<Vector4>();
-        SetShaderValue(shaderManager.m_upsamplerShader, shaderManager.GetUniformLocation(shaderManager.m_upsamplerShader.id, "bloomIntensity"), &bloomThreshold, SHADER_ATTRIB_FLOAT);
+        SetShaderValue(shaderManager.m_bloomCompositorShader, shaderManager.GetUniformLocation(shaderManager.m_bloomCompositorShader.id, "bloomIntensity"), &bloomThreshold, SHADER_ATTRIB_FLOAT);
     }
 
     if (worldSettingsJson.contains("aberrationEnabled")) {
@@ -355,7 +355,7 @@ void LoadWorldSettings(const json& worldSettingsJson) {
 
     if (worldSettingsJson.contains("aberrationOffset")) {
         aberrationOffset = worldSettingsJson["aberrationOffset"].get<Vector3>();
-        SetShaderValue(shaderManager.m_upsamplerShader, shaderManager.GetUniformLocation(shaderManager.m_upsamplerShader.id, "threshold"), &bloomThreshold, SHADER_ATTRIB_FLOAT);
+        SetShaderValue(shaderManager.m_bloomCompositorShader, shaderManager.GetUniformLocation(shaderManager.m_bloomCompositorShader.id, "threshold"), &bloomThreshold, SHADER_ATTRIB_FLOAT);
     }
 
     if (worldSettingsJson.contains("skyboxPath")) {

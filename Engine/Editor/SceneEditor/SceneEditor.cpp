@@ -260,40 +260,51 @@ void HandleUnselect() {
 }
 
 Texture2D ApplyBloomEffect(const Texture2D& sceneTexture) {
+    BeginTextureMode(brightPassTexture);
+    ClearBackground(BLANK);
+    BeginShaderMode(shaderManager.m_brightFilterShader);
+
+    const int thresholdLoc = shaderManager.GetUniformLocation(shaderManager.m_brightFilterShader.id, "threshold");
+    SetShaderValue(shaderManager.m_brightFilterShader, thresholdLoc, &bloomThreshold, SHADER_UNIFORM_FLOAT);
+
+    SetShaderValueTexture(
+        shaderManager.m_brightFilterShader,
+        shaderManager.GetUniformLocation(shaderManager.m_brightFilterShader.id, "sceneTexture"),
+        sceneTexture);
+    DrawTexture(sceneTexture, 0, 0, WHITE);
+    EndShaderMode();
+    EndTextureMode();
+
     BeginTextureMode(horizontalBlurTexture);
     ClearBackground(BLANK);
     BeginShaderMode(shaderManager.m_horizontalBlurShader);
     SetShaderValueTexture(
         shaderManager.m_horizontalBlurShader,
         shaderManager.GetUniformLocation(shaderManager.m_horizontalBlurShader.id, "srcTexture"),
-        sceneTexture);
+        brightPassTexture.texture);
     DrawTexture(sceneTexture, 0, 0, WHITE);
     EndShaderMode();
     EndTextureMode();
 
     BeginTextureMode(verticalBlurTexture);
     BeginShaderMode(shaderManager.m_verticalBlurShader);
-    SetShaderValueTexture(shaderManager.m_verticalBlurShader,
-                          shaderManager.GetUniformLocation(shaderManager.m_verticalBlurShader.id, "srcTexture"),
-                          horizontalBlurTexture.texture);
+    SetShaderValueTexture(shaderManager.m_verticalBlurShader, shaderManager.GetUniformLocation(shaderManager.m_verticalBlurShader.id, "srcTexture"), horizontalBlurTexture.texture);
     DrawTexture(horizontalBlurTexture.texture, 0, 0, WHITE);
     EndShaderMode();
     EndTextureMode();
 
-    BeginTextureMode(upsamplerTexture);
-    BeginShaderMode(shaderManager.m_upsamplerShader);
-    SetShaderValueTexture(
-        shaderManager.m_upsamplerShader,
-        shaderManager.GetUniformLocation(shaderManager.m_upsamplerShader.id, "downsampledTexture"),
-        verticalBlurTexture.texture);
-    SetShaderValueTexture(
-        shaderManager.m_upsamplerShader, shaderManager.GetUniformLocation(shaderManager.m_upsamplerShader.id, "originalTexture"),
-        sceneTexture);
-    DrawTexture(verticalBlurTexture.texture, 0, 0, WHITE);
+    BeginTextureMode(bloomCompositorTexture);
+    BeginShaderMode(shaderManager.m_bloomCompositorShader);
+
+        SetShaderValueTexture(shaderManager.m_bloomCompositorShader, shaderManager.GetUniformLocation(shaderManager.m_bloomCompositorShader.id, "blurredBrightPassTexture"), verticalBlurTexture.texture);
+        SetShaderValueTexture(shaderManager.m_bloomCompositorShader, shaderManager.GetUniformLocation(shaderManager.m_bloomCompositorShader.id, "sceneTexture"), sceneTexture);
+
+        DrawTexture(bloomCompositorTexture.texture, 0, 0, WHITE);
+
     EndShaderMode();
     EndTextureMode();
 
-    return upsamplerTexture.texture;
+    return bloomCompositorTexture.texture;
 }
 
 Texture2D ApplyChromaticAberration(const Texture2D& sceneTexture) {
@@ -853,15 +864,17 @@ void ScaleViewport() {
         UnloadRenderTexture(chromaticAberrationTexture);
         UnloadRenderTexture(verticalBlurTexture);
         UnloadRenderTexture(horizontalBlurTexture);
-        UnloadRenderTexture(upsamplerTexture);
+        UnloadRenderTexture(bloomCompositorTexture);
         UnloadRenderTexture(vignetteTexture);
+        UnloadRenderTexture(brightPassTexture);
 
         viewportRT = LoadRenderTexture(currentWindowSize.x, currentWindowSize.y);
         chromaticAberrationTexture = LoadRenderTexture(currentWindowSize.x, currentWindowSize.y);
         verticalBlurTexture   = LoadRenderTexture(currentWindowSize.x, currentWindowSize.y);
         horizontalBlurTexture = LoadRenderTexture(currentWindowSize.x, currentWindowSize.y);
-        upsamplerTexture      = LoadRenderTexture(currentWindowSize.x, currentWindowSize.y);
+        bloomCompositorTexture      = LoadRenderTexture(currentWindowSize.x, currentWindowSize.y);
         vignetteTexture       = LoadRenderTexture(currentWindowSize.x, currentWindowSize.y);
+        brightPassTexture     = LoadRenderTexture(currentWindowSize.x, currentWindowSize.y);
         viewportTexture       = viewportRT.texture;
 
         int index = 0;

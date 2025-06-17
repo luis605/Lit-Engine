@@ -85,12 +85,7 @@ inline void PostProcessing() {
                     ImGui::TableSetColumnIndex(1);
                     ImGui::SetNextItemWidth(-FLT_MIN);
 
-                    if (ImGui::DragFloat("##ThresholdControl", &bloomThreshold, 0.001f, 0.0f, 1.0f)) {
-                        const int shaderLocation = shaderManager.GetUniformLocation(shaderManager.m_upsamplerShader.id, "threshold");
-                        glUseProgram(shaderManager.m_upsamplerShader.id);
-                        glUniform1f(shaderLocation, bloomThreshold);
-                        glUseProgram(0);
-                    }
+                    if (ImGui::DragFloat("##ThresholdControl", &bloomThreshold, 0.001f, 0.0f, 1.0f));
 
                     ImGui::PopID();
                 }
@@ -123,8 +118,8 @@ inline void PostProcessing() {
                     ImGui::SetNextItemWidth(-FLT_MIN);
 
                     if (ImGui::DragFloat("##IntensityControl", &bloomIntensity, 0.001f, 0.0f, 2.0f)) {
-                        const int shaderLocation = shaderManager.GetUniformLocation(shaderManager.m_upsamplerShader.id, "bloomIntensity");
-                        glUseProgram(shaderManager.m_upsamplerShader.id);
+                        const int shaderLocation = shaderManager.GetUniformLocation(shaderManager.m_bloomCompositorShader.id, "bloomIntensity");
+                        glUseProgram(shaderManager.m_bloomCompositorShader.id);
                         glUniform1f(shaderLocation, bloomIntensity);
                         glUseProgram(0);
                     }

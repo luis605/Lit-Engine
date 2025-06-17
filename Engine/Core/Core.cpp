@@ -86,9 +86,10 @@ void LoadTextures() {
     windowIconTexture = LoadTextureFromImage(windowIconImage);
     verticalBlurTexture   = LoadRenderTexture(GetScreenWidth(), GetScreenHeight());
     horizontalBlurTexture = LoadRenderTexture(GetScreenWidth(), GetScreenHeight());
-    upsamplerTexture      = LoadRenderTexture(GetScreenWidth(), GetScreenHeight());
+    bloomCompositorTexture      = LoadRenderTexture(GetScreenWidth(), GetScreenHeight());
     vignetteTexture       = LoadRenderTexture(GetScreenWidth(), GetScreenHeight());
     chromaticAberrationTexture = LoadRenderTexture(GetScreenWidth(), GetScreenHeight());
+    brightPassTexture = LoadRenderTexture(GetScreenWidth(), GetScreenHeight());
 
     SetWindowIcon(windowIconImage);
 }
