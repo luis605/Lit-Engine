@@ -97,7 +97,9 @@ void initWindow(std::string& windowName, int width, int height,
     ImGui::Begin(windowName.c_str());
 }
 
-void closeWindow() { ImGui::End(); }
+void closeWindow() {
+    ImGui::End();
+}
 
 void drawText(std::string& text, int x, int y, LitVector3 color) {
     if (x >= 0 && y >= 0) ImGui::SetCursorPos(ImVec2(x, y));

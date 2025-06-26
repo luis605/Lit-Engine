@@ -218,8 +218,6 @@ void main() {
     const float xyLenSq = dot(nm.xy, nm.xy);
     nm.z = invSqrtFast(max(1.0 - xyLenSq, EPSILON));
 
-
-
     N = normalize(TBN * nm);
 #endif
 

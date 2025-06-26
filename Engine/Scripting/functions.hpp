@@ -59,4 +59,6 @@ extern LitCamera camera;
 extern Vector2 mouseMove;
 extern float lastFrameCount;
 
+Entity* findEntityById(const int id);
+
 #endif // FUNCTIONS_H

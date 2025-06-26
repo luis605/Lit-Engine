@@ -12,10 +12,13 @@ See the LICENSE file in the project root for full license information.
 #include <pybind11/pybind11.h>
 #include <pybind11/stl.h>
 #include <raylib.h>
+#include <list>
+#include <algorithm>
 
 class PhysicsManager;
 
 #include <Engine/Core/Entity.hpp>
+#include <Engine/Core/Engine.hpp>
 #include <Engine/Core/Raycast.hpp>
 
 namespace py = pybind11;
@@ -353,4 +356,56 @@ Vector2 GetMouseMovement() {
     }
 
     return mouseMove;
+}
+
+std::list<int> filterEntitiesByName(const std::string& targetName) {
+    std::list<int> foundIds;
+
+    std::for_each(entitiesList.begin(), entitiesList.end(),
+        [&](const Entity& entity) {
+            if (entity.name == targetName) {
+                foundIds.push_back(entity.id);
+            }
+        }
+    );
+
+    return foundIds;
+}
+
+Entity* findEntityById(const int id) {
+    auto it = std::find_if(entitiesList.begin(), entitiesList.end(),
+        [id](const Entity& entity) {
+            return entity.id == id;
+        }
+    );
+
+    if (it != entitiesList.end()) {
+        return &(*it);
+    }
+
+    return nullptr;
+}
+
+PYBIND11_EMBEDDED_MODULE(engineModule, m) {
+    m.def("filterEntitiesByName", &filterEntitiesByName);
+    m.def("findEntityById",       &findEntityById, py::return_value_policy::reference);
+    m.def("removeEntity", [](const int id) {
+        Entity* entity = findEntityById(id);
+        if (entity) {
+            entitiesList.erase(
+                std::remove_if(entitiesList.begin(), entitiesList.end(),
+                    [id](const Entity& e) { return e.id == id; }),
+                entitiesList.end()
+            );
+        } else {
+            TraceLog(LOG_WARNING, "Entity with ID %d not found.", id);
+        }
+    });
+    m.def("getAllEntities", []() {
+        py::list handle_list;
+        for (const auto& entity : entitiesList) {
+            handle_list.append(py::cast(EntityHandle(entity.id)));
+        }
+        return handle_list;
+    }, "Returns a list of handles to all existing entities.");
 }

@@ -11,6 +11,7 @@ See the LICENSE file in the project root for full license information.
 #include <Engine/Lighting/skybox.hpp>
 #include <Engine/Lighting/BRDF.hpp>
 #include <Engine/Core/Textures.hpp>
+#include <Engine/Scripting/functions.hpp>
 
 #ifndef GAME_SHIPPING
     #include <Engine/Editor/SceneEditor/SceneEditor.hpp>
@@ -42,6 +43,17 @@ bool AABBoxInFrustum(const Vector3& min, const Vector3& max) {
     return cameraFrustum.AABBoxIn(min, max);
 }
 
+Entity* EntityHandle::get() const {
+    Entity* entity = findEntityById(id);
+
+    if (!entity) {
+        TraceLog(LOG_WARNING, ("Entity with ID " + std::to_string(id) + " no longer exists. ID invalidation error.").c_str());
+        return nullptr;
+    }
+
+    return entity;
+}
+
 void Entity::addInstance(Entity* instance) {
     instances.emplace_back(instance);
     transforms.reserve(1);
@@ -68,8 +80,8 @@ void Entity::calculateInstance() {
     matInstances = LoadMaterialDefault();
 }
 
-void Entity::addEntityChild(const int& newEntityIndex) {
-    Entity* newEntity = getEntityById(newEntityIndex);
+void Entity::addEntityChild(const int& id) {
+    Entity* newEntity = getEntityById(id);
 
     if (!newEntity) {
         TraceLog(LOG_WARNING, "Cannot add child, since child was not found.");
@@ -82,7 +94,7 @@ void Entity::addEntityChild(const int& newEntityIndex) {
     }
 
     if (newEntity->getFlag(Entity::Flag::IS_CHILD) && newEntity->parent != nullptr) {
-        auto it = std::find(newEntity->parent->entitiesChildren.begin(), newEntity->parent->entitiesChildren.end(), newEntityIndex);
+        auto it = std::find(newEntity->parent->entitiesChildren.begin(), newEntity->parent->entitiesChildren.end(), id);
 
         if (it != newEntity->parent->entitiesChildren.end()) {
             newEntity->parent->entitiesChildren.erase(it);
@@ -97,7 +109,36 @@ void Entity::addEntityChild(const int& newEntityIndex) {
         newEntity->position.z - this->position.z
     };
 
-    entitiesChildren.emplace_back(newEntityIndex);
+    entitiesChildren.emplace_back(id);
+}
+
+void Entity::removeEntityChild(const int& id) {
+    auto it = std::find(this->entitiesChildren.begin(), this->entitiesChildren.end(), id);
+
+    if (it == this->entitiesChildren.end()) {
+        TraceLog(LOG_WARNING, "Cannot remove child with ID %d, because it is not a child of this entity.", id);
+        return;
+    }
+
+    Entity* childToRemove = getEntityById(id);
+    if (!childToRemove) {
+        TraceLog(LOG_ERROR, "Cannot remove child with ID %d: entity not found, but was in children list. Data corruption?", id);
+        this->entitiesChildren.erase(it);
+        return;
+    }
+
+    childToRemove->parent = nullptr;
+    childToRemove->setFlag(Entity::Flag::IS_CHILD, false);
+
+    childToRemove->position = {
+        this->position.x + childToRemove->relativePosition.x,
+        this->position.y + childToRemove->relativePosition.y,
+        this->position.z + childToRemove->relativePosition.z
+    };
+
+    childToRemove->relativePosition = { 0.0f, 0.0f, 0.0f };
+
+    this->entitiesChildren.erase(it);
 }
 
 void Entity::addLightChild(const int& newLightIndex) {
@@ -130,12 +171,7 @@ void Entity::addLightChild(const int& newLightIndex) {
 void Entity::updateChildren() {
     // std::cout << entitiesChildren.size() << std::endl;
     for (int entityChildIndex : entitiesChildren) {
-#ifndef GAME_SHIPPING
-        if (!inGamePreview) updateEntityChild(getEntityById(entityChildIndex), entityChildIndex);
-        else                updateEntityChild(getEntityById(entityChildIndex), entityChildIndex);
-#else
         updateEntityChild(getEntityById(entityChildIndex), entityChildIndex);
-#endif
     }
 
     for (int lightChildIndex : lightsChildren) {
@@ -386,7 +422,7 @@ void Entity::initializeSharedModules() {
     colorModule     = py::module::import("colorModule");
     mathModule      = py::module::import("mathModule");
     eventsModule    = py::module::import("eventsModule");
-    py::module_::import("__main__").attr("entitiesList") = py::cast(entitiesList);
+    engineModule    = py::module::import("engineModule");
 }
 
 void Entity::setupScript(LitCamera* rendering_camera) {
@@ -394,15 +430,13 @@ void Entity::setupScript(LitCamera* rendering_camera) {
     this->setFlag(Entity::Flag::RUNNING, true);
 
     if (!py::hasattr(entityModule, "Entity")) {
-        py::class_<Entity>(entityModule, "Entity")
+        py::class_<EntityHandle>(entityModule, "Entity")
             .def(py::init([](py::args args, py::kwargs kwargs) {
+                eventManager.onEntityCreation.triggerEvent();
+                Entity& entity = entitiesList.emplace_back();
+
                 LitVector3 position{0, 0, 0};
                 std::string modelPath = "";
-
-                if (args.size() > 0)               position = py::cast<LitVector3>(args[0]);
-                if (kwargs.contains("modelPath"))  modelPath = py::cast<std::string>(kwargs["modelPath"]);
-
-                Entity entity;
 
                 if (kwargs.contains("scale")) entity.setScale(py::cast<LitVector3>(kwargs["scale"]));
                 else entity.setScale(LitVector3{1, 1, 1});
@@ -410,48 +444,71 @@ void Entity::setupScript(LitCamera* rendering_camera) {
                 if (kwargs.contains("name")) entity.setName(py::cast<std::string>(kwargs["name"]));
                 else entity.setName("New Entity");
 
-                if (kwargs.contains("collisions"))   entity.setFlag(Entity::Flag::COLLIDER, py::cast<bool>(kwargs["collisions"]));
-                if (kwargs.contains("collider"))     entity.currentCollisionShapeType = py::cast<CollisionShapeType>(kwargs["collider"]);
+                if (args.size() > 0) position = py::cast<LitVector3>(args[0]);
+                if (kwargs.contains("modelPath")) modelPath = py::cast<std::string>(kwargs["modelPath"]);
+
                 if (!modelPath.empty()) entity.setModel(modelPath.c_str());
+                else entity.initializeDefaultModel();
 
-                entity.setPos(position);
-                entitiesListPregame.emplace_back(entity);
+                entity.setShader(shaderManager.m_defaultShader);
 
-                return entitiesListPregame.back();
+                if (kwargs.contains("collisions")) entity.setFlag(Entity::Flag::COLLIDER, py::cast<bool>(kwargs["collisions"]));
+                if (kwargs.contains("collider")) entity.currentCollisionShapeType = py::cast<CollisionShapeType>(kwargs["collider"]);
+                else entity.currentCollisionShapeType = CollisionShapeType::Box;
+
+                entity.position = position;
+
+                entity.id = entityIdToIndexMap.size();
+
+                entity.setFlag(Entity::Flag::INITIALIZED, true);
+                entity.setFlag(Entity::Flag::VISIBLE, true);
+                entity.setFlag(Entity::Flag::IS_DYNAMIC, false);
+                entity.setFlag(Entity::Flag::LOD_ENABLED, false);
+                entity.setFlag(Entity::Flag::CALC_PHYSICS, true);
+                entity.setFlag(Entity::Flag::RUNNING, true);
+                entity.setFlag(Entity::Flag::RUNNING_FIRST_TIME, true);
+
+                entityIdToIndexMap[entity.id] = entitiesList.size() - 1;
+
+                return EntityHandle(entity.id);
             }))
-
-            .def_property("name", &Entity::getName, &Entity::setName)
+            .def_property("name",
+                [](const EntityHandle& h) { return h.get()->getName(); },
+                [](EntityHandle& h, const std::string& name) { h.get()->setName(name); })
             .def_property("position",
-                [](Entity& entity) { return entity.position; },
-                [](Entity& entity, LitVector3& position) { entity.setPos(position); })
+                [](const EntityHandle& h) { return h.get()->position; },
+                [](EntityHandle& h, const LitVector3& position) { if (h.get()->getFlag(Entity::Flag::INITIALIZED)) h.get()->setPos(position); })
             .def_property("scale",
-                [](Entity& entity) { return entity.scale; },
-                [](Entity& entity, LitVector3& scale) { entity.setScale(scale); })
+                [](const EntityHandle& h) { return h.get()->scale; },
+                [](EntityHandle& h, const LitVector3& scale) { if (h.get()->getFlag(Entity::Flag::INITIALIZED)) h.get()->setScale(scale); })
             .def_property("rotation",
-                [](Entity& entity) { return entity.rotation; },
-            [](Entity& entity, LitVector3& rotation) { entity.setRot(rotation); })
+                [](const EntityHandle& h) { return h.get()->rotation; },
+                [](EntityHandle& h, const LitVector3& rotation) { if (h.get()->getFlag(Entity::Flag::INITIALIZED)) h.get()->setRot(rotation); })
             .def_property("visible",
-                [](Entity& entity) { return entity.getFlag(Entity::Flag::VISIBLE); },
-                [](Entity& entity, bool& visible) { entity.setFlag(Entity::Flag::VISIBLE, visible); })
+                [](const EntityHandle& h) { return h.get()->getFlag(Entity::Flag::VISIBLE); },
+                [](EntityHandle& h, bool visible) { h.get()->setFlag(Entity::Flag::VISIBLE, visible); })
             .def_property("collision",
-                [](Entity& entity) { return entity.getFlag(Entity::Flag::COLLIDER); },
-                [](Entity& entity, bool& collision) { entity.setFlag(Entity::Flag::COLLIDER, collision); })
-            .def_readwrite("collider", &Entity::currentCollisionShapeType)
-            .def_readwrite("id", &Entity::id)
-            .def("setLinearVelocity", &Entity::setLinearVelocity)
-            .def("applyForce", &Entity::applyForce)
-            .def("applyImpulse", &Entity::applyImpulse)
-            .def("setFriction", &Entity::setFriction)
-            .def("makeStatic", &Entity::makePhysicsStatic)
-            .def("makeDynamic", &Entity::makePhysicsDynamic);
+                [](const EntityHandle& h) { return h.get()->getFlag(Entity::Flag::COLLIDER); },
+                [](EntityHandle& h, bool collision) { h.get()->setFlag(Entity::Flag::COLLIDER, collision); })
+            .def_property("collider",
+                [](const EntityHandle& h) { return h.get()->currentCollisionShapeType; },
+                [](EntityHandle& h, CollisionShapeType type) { h.get()->currentCollisionShapeType = type; })
+            .def_readonly("id", &EntityHandle::id)
+            .def("setLinearVelocity", [](EntityHandle& h, const LitVector3& vel) { h.get()->setLinearVelocity(vel); })
+            .def("applyForce",   [](EntityHandle& h, const LitVector3& force) { h.get()->applyForce(force); })
+            .def("applyImpulse", [](EntityHandle& h, const LitVector3& impulse) { h.get()->applyImpulse(impulse); })
+            .def("setFriction",  [](EntityHandle& h, float friction) { h.get()->setFriction(friction); })
+            .def("makeStatic",   [](EntityHandle& h) { h.get()->makePhysicsStatic(); })
+            .def("makeDynamic",  [](EntityHandle& h) { h.get()->makePhysicsDynamic(); })
+            .def("addChild",     [](EntityHandle& h, int childID) { h.get()->addEntityChild(childID); })
+            .def("removeChild",  [](EntityHandle& h, int childID) { h.get()->removeEntityChild(childID); });
     }
 
     initializeSharedModules();
 
     try {
         localNamespace = py::dict();
-
-        localNamespace["entity"] = py::cast(this);
+        localNamespace["entity"] = py::cast(EntityHandle(this->id));
         localNamespace["IsMouseButtonPressed"] = inputModule.attr("isMouseButtonPressed");
         localNamespace["IsKeyDown"] = inputModule.attr("isKeyDown");
         localNamespace["IsKeyPressed"] = inputModule.attr("isKeyPressed");
@@ -474,16 +531,18 @@ void Entity::setupScript(LitCamera* rendering_camera) {
         localNamespace["physics"] = py::cast(&physics);
         localNamespace["Lerp"] = mathModule.attr("lerp");
         localNamespace["Clamp"] = mathModule.attr("clamp");
-        localNamespace["entitiesList"] = entitiesList;
         localNamespace["camera"] = py::cast(rendering_camera);
-        localNamespace["onEntityCreation"] = eventsModule.attr("onEntityCreation");
-        localNamespace["onEntityDestruction"] = eventsModule.attr("onEntityDestruction");
-        localNamespace["createEvent"] = eventsModule.attr("createEvent");
-        localNamespace["onCustomEvent"] = eventsModule.attr("onCustomEvent");
-        localNamespace["triggerCustomEvent"] = eventsModule.attr("triggerCustomEvent");
+        localNamespace["OnEntityCreation"] = eventsModule.attr("onEntityCreation");
+        localNamespace["OnEntityDestruction"] = eventsModule.attr("onEntityDestruction");
+        localNamespace["CreateEvent"] = eventsModule.attr("createEvent");
+        localNamespace["OnCustomEvent"] = eventsModule.attr("onCustomEvent");
+        localNamespace["TriggerCustomEvent"] = eventsModule.attr("triggerCustomEvent");
+        localNamespace["FilterEntitiesByName"] = engineModule.attr("filterEntitiesByName");
+        localNamespace["RemoveEntity"] = engineModule.attr("removeEntity");
+        localNamespace["GetAllEntities"] = engineModule.attr("getAllEntities");
+        localNamespace["FindEntityById"] = engineModule.attr("findEntityById");
         localNamespace["Entity"] = entityModule.attr("Entity");
 
-        // Load and execute the script in its own namespace
         #ifndef GAME_SHIPPING
             scriptContent = readFileToString(scriptPath);
         #else
@@ -506,7 +565,6 @@ void Entity::setupScript(LitCamera* rendering_camera) {
 
             if (json_data.is_array() && !json_data.empty()) {
                 for (const auto& element : json_data) {
-
                     if (element.is_object()) {
                         if (element.contains(scriptIndex)) {
                             scriptContent = element[scriptIndex].get<std::string>();
@@ -891,6 +949,10 @@ void Entity::renderSingleModel() {
     if (!hasModel()) {
         return;
     }
+    if (!entityShader) {
+        TraceLog(LOG_WARNING, "Entity has invalid shader! Loading default shader.");
+        this->setShader(shaderManager.m_defaultShader);
+    }
 
     const Matrix scaleMatrix = MatrixScale(scale.x, scale.y, scale.z);
     const Matrix rotationMatrix = MatrixRotateXYZ(Vector3Scale(rotation, DEG2RAD));
@@ -932,7 +994,7 @@ void Entity::renderSingleModel() {
         if (IsModelReady(LodModels[lodLevel])) modelToDraw = LodModels[lodLevel];
     }
 
-    DrawModel(modelToDraw, Vector3Zero(), 1, RAYWHITE);
+    if (IsModelReady(modelToDraw)) DrawModel(modelToDraw, Vector3Zero(), 1, RAYWHITE);
 }
 
 void Entity::PassSurfaceMaterials() {
@@ -1018,9 +1080,10 @@ Entity* getEntityById(const int& id) {
     auto it = entityIdToIndexMap.find(id);
     if (it != entityIdToIndexMap.end()) {
 #ifndef GAME_SHIPPING
-        return &entitiesListPregame[it->second];
+        if (!inGamePreview) return &entitiesListPregame[it->second];
+        else return &entitiesList[it->second];
 #else
-        return &entitiesList[it->second];
+    return &entitiesList[it->second];
 #endif
     }
     return nullptr;
@@ -1040,7 +1103,7 @@ void AddEntity(
     entityCreate.setModel(modelPath, model);
     entityCreate.setShader(shaderManager.m_defaultShader);
 
-    #ifndef GAME_SHIPPING
+#ifndef GAME_SHIPPING
     if (id == -1) entityCreate.id = entitiesListPregame.size() + lights.size();
     else          entityCreate.id = id;
     entityIdToIndexMap[entityCreate.id] = entitiesListPregame.size();

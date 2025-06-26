@@ -6,6 +6,8 @@ See the LICENSE file in the project root for full license information.
 #ifndef FUNCS_H
 #define FUNCS_H
 
+class Entity;
+
 void InitGameCamera();
 void RunGame();
 void Inspector();

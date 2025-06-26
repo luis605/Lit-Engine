@@ -26,9 +26,6 @@ void InitGameCamera() {
     camera.up_vector = {0.0f, 1.0f, 0.0f};
     camera.up = {0.0f, 1.0f, 0.0f};
 
-    Vector3 front = Vector3Subtract(camera.target, camera.position);
-    front = Vector3Normalize(front);
-
     camera.fovy = sceneCamera.fovy;
     camera.projection = CAMERA_PERSPECTIVE;
 }

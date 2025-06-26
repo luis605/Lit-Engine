@@ -185,11 +185,11 @@ void AsyncTextureManager::ProcessPendingUpdates() {
                 glGenTextures(1, &texID);
                 glBindTexture(GL_TEXTURE_2D, texID);
                 glCompressedTexImage2D(
-                    GL_TEXTURE_2D, 
-                    0, 
+                    GL_TEXTURE_2D,
+                    0,
                     data->compressedFormat,
                     data->image.width, data->image.height,
-                    0, 
+                    0,
                     static_cast<GLsizei>(data->compressedData.size()),
                     data->compressedData.data()
                 );

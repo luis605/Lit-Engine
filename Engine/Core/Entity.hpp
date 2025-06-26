@@ -115,7 +115,7 @@ class EXPORT_API Entity {
 
     bool pythonModulesInitialized;
     py::module inputModule, collisionModule, cameraModule, physicsModule,
-        mouseModule, timeModule, colorModule, mathModule, eventsModule;
+        mouseModule, timeModule, colorModule, mathModule, eventsModule, engineModule;
 
     bool entityOptimized = false;
 
@@ -132,7 +132,8 @@ class EXPORT_API Entity {
     void addInstance(Entity* instance);
     bool hasInstances() const;
     void calculateInstance();
-    void addEntityChild(const int& newEntityIndex);
+    void addEntityChild(const int& id);
+    void removeEntityChild(const int& id);
     void addLightChild(const int& newLightIndex);
     void updateChildren();
     void updateEntityChild(Entity* entity, const int& entityIndex);
@@ -169,10 +170,8 @@ class EXPORT_API Entity {
     void createStaticMesh(const bool& generateShape = true);
     void createDynamicBox();
     void createDynamicMesh(const bool& generateShape = true);
-    void
-    makePhysicsDynamic(const CollisionShapeType& shapeType = CollisionShapeType::Box);
-    void
-    makePhysicsStatic(const CollisionShapeType& shapeType = CollisionShapeType::None);
+    void makePhysicsDynamic(const CollisionShapeType& shapeType = CollisionShapeType::Box);
+    void makePhysicsStatic(const CollisionShapeType& shapeType = CollisionShapeType::None);
     void reloadRigidBody();
     void resetPhysics();
     bool inFrustum();
@@ -184,6 +183,12 @@ class EXPORT_API Entity {
     void renderInstanced();
     void renderSingleModel();
     void PassSurfaceMaterials();
+};
+
+struct EntityHandle {
+    int id;
+    EntityHandle(int entityId) : id(entityId) {}
+    Entity* get() const;
 };
 
 void InitFrustum();
