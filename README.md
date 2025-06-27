@@ -19,70 +19,74 @@ Lit Engine is an **open-source high-level game engine** powered by raylib. Made 
 <hr>
 
 # Quickstart
-## Cloning the Repository
+## 1. Clone the Repository
 
-Do you want to give Lit Engine a quick run on your machine? You can clone the repository by running the following command on your terminal:
+First, clone the repository and its submodules.
 
 ```bash
 git clone --recurse-submodules --shallow-submodules -j2 https://github.com/luis605/Lit-Engine
+cd Lit-Engine
 ```
 
-If the submodules weren't downloaded, you can do so by running:
-
+If you cloned without `--recurse-submodules`, you can fetch them with:
 ```bash
 git submodule update --init --recursive --depth 1
 
 ```
 
-## Building and Installing Dependencies
+## 2. Install, Build, and Run
 ### Linux
 
-Before building the engine, ensure that you have all the dependencies installed. They can be installed by opening the Install directory and running *install.sh*:
+Choose the instructions for your operating system.
+
+<details>
+<summary><b>Linux</b></summary>
 
 ```bash
+
+# 1. Install dependencies
 cd Install
-./install.sh
+sudo ./install.sh
+cd ..
+
+# 2. Configure and build the project
+mkdir build && cd build
+cmake -DCMAKE_POLICY_VERSION_MINIMUM=3.5 ..
+make -j4
+
+# 3. Run the engine
+make run
+
+# Optional: To run the debugger
+# First, build in debug mode: cmake .. -DCMAKE_BUILD_TYPE=Debug
+# Then, run: make debug
 ```
 
-Then, you can build the remaining dependencies by running:
-```bash
-./build_dependencies.sh
-```
-
-### Windows
-
-Before building the engine, ensure that you have all the dependencies installed. They can be installed by opening the Install directory and running *install.sh*:
+</details>
+<details>
+<summary><b>Windows</b></summary>
 
 ```bash
+
+# 1. Install dependencies
 cd Install
 .\install.bat
-```
+cd ..
 
-Then, you can build the remaining dependencies by running:
-```bash
-.\build_dependencies.bat
-```
+# 2. Configure and build the project
+mkdir build && cd build
+cmake -DCMAKE_POLICY_VERSION_MINIMUM=3.5 .. # Both MinGW Makefiles and Microsoft Visual Studio are supported.
+make -j4
 
-#
-
-After successfully cloning the repository and setting up the project, you can build and run Lit Engine using our **CMake setup**:
-
-```bash
-mkdir build
-cd build
-cmake .. # Linux
-cmake .. -G "MinGW Makefiles" --fresh # Windows
-make
+# 3. Run the engine
 make run
+
+# Optional: If you are using MinGW Makefiles and you want to run the debugger (using GDB)
+# First, build in debug mode: cmake .. -G "MinGW Makefiles" -DCMAKE_BUILD_TYPE=Debug
+# Then, run: make debug
 ```
 
-### Debugging
-If you encounter any strange behavior and need to debug the engine, you can start the debugger with the following command:
-```bash
-make debug
-```
-
-Make sure you have built the project in debug mode: `cmake .. -DCMAKE_BUILD_TYPE=Debug`
+</details>
 
 # Screenshots
 
@@ -103,8 +107,6 @@ Documentation is available at https://litengine.org/manual.
 # Socials
 ### Find us here!
 
-[![X(Twitter](https://img.shields.io/badge/X-000000?style=for-the-badge&logo=x&logoColor=white)](https://twitter.com/TheLitEngine)
-
 [![YouTube](https://img.shields.io/badge/YouTube-FF0000?style=for-the-badge&logo=youtube&logoColor=white)](https://www.youtube.com/channel/UCP38rM1LFbABOVdd67p2-NQ)
 
 [![Discord](https://img.shields.io/badge/Discord-5865F2?style=for-the-badge&logo=discord&logoColor=white)](https://discord.gg/XqUZQCxrs6)
@@ -112,4 +114,4 @@ Documentation is available at https://litengine.org/manual.
 [![LitEngine](https://img.shields.io/badge/LitEngine-orange?style=for-the-badge&logo=data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy533cub3JnLzIwMDAvc3ZnIiB2aWV3Qm94PSIwIDAgNDkgNDkiIHhtbGnsPSJodHRwOi8vd3d3LnczLm9yZy8xOTk5L3dlaHRlLWxpdmUiPgogIDxwYXRoIGQ9Ik0zMS42NiAzNy4zMyYjM4MzgzOCA0OS42NiAxNi45OSYjMzgzODAwIDI0LjMxNyAwJiM0MWM2LjU0LTYuNTQgMTUuNzEtNy42NyAyMy4xMi0wLjkydjMwLjE2Yy03LjQxLTAuNjgtMTMuNTQtMi44Ni0xOS42Ni02LjU0eiIgZmlsbD0iI2ZmZmZmZiIvPjwvc3ZnPg==)](https://litengine.org)
 
 # License
-Check LICENSE.md for more information.
+Check [LICENSE.md](https://github.com/luis605/Lit-Engine/blob/main/LICENSE) for more information.

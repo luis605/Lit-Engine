@@ -180,7 +180,7 @@ void AsyncTextureManager::ProcessPendingUpdates() {
 
         if (ready) {
             std::lock_guard<std::mutex> lock(data->mutex);
-            if (data->compressed) {
+            if (!data->compressed) {
                 GLuint texID;
                 glGenTextures(1, &texID);
                 glBindTexture(GL_TEXTURE_2D, texID);

@@ -498,7 +498,7 @@ void ComputeSceneLuminance() {
     rlEnableShader(shaderManager.m_exposureShaderProgram);
 
     rlBindShaderBuffer(exposureSSBO, 1);
-    rlSetUniformSampler(0, downsampledTextures[9].texture.id);
+    rlSetUniformSampler(0, downsampledTextures[downsampledTextures.size() - 1].texture.id);
     rlSetUniform(1, &timeInstance.dt, SHADER_UNIFORM_FLOAT, 1);
 
     rlComputeShaderDispatch(1, 1, 1);
