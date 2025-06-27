@@ -20,9 +20,8 @@ jobs:
 
       - name: Install dependencies (Linux)
         run: |
-          chmod +x Install/install.sh Install/build_dependencies.sh
+          chmod +x Install/install.sh
           ./Install/install.sh
-          cd Install && ./build_dependencies.sh
 
       - name: Build Engine (Linux)
         run: |
