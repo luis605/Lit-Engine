@@ -82,7 +82,7 @@ void InitRenderModelPreviewer() {
 
 Texture2D RenderModelPreview(const char* modelFile) {
     Model model = LoadModel(modelFile);
-    if (!IsModelReady(model)) {
+    if (!IsModelValid(model)) {
         TraceLog(LOG_WARNING, "Failed to load model: %s", modelFile);
         UnloadModel(model);
         return emptyTexture;

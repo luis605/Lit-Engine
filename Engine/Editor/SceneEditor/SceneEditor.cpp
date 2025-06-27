@@ -148,7 +148,7 @@ bool MatrixEquals(const Matrix& a, const Matrix& b, float tolerance) {
 bool IsMouseHoveringModel(const Model& model, const Vector3& position,
                           const Vector3& rotation, const Vector3& scale,
                           const Entity* entity, bool bypassOptimization) {
-    if (!IsModelReady(model))
+    if (!IsModelValid(model))
         return false;
 
     static std::unordered_map<const Model*, CacheEntry> cache;

@@ -47,7 +47,7 @@ void SaveEntity(json& jsonData, const Entity& entity) {
     j["relativePosition"]        = entity.relativePosition;
     j["modelPath"]               = entity.modelPath;
 
-    if (IsModelReady(entity.model) && entity.modelPath.empty())
+    if (IsModelValid(entity.model) && entity.modelPath.empty())
         j["mesh_type"]           = entity.ObjectType;
 
     j["collider_type"]           = entity.currentCollisionShapeType;
@@ -498,7 +498,7 @@ Entity LoadEntity(const json& entityJson) {
             GenerateMaterialShader(entity, material).c_str()
         );
 
-        if (shader && IsShaderReady(*shader)) {
+        if (shader && IsShaderValid(*shader)) {
             entity.setShader(shader);
         } else {
             TraceLog(LOG_ERROR, "Failed to generate shader for material: %s", material.name.c_str());

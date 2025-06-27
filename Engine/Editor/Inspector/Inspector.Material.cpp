@@ -178,7 +178,7 @@ void MaterialInspector(ChildMaterial& material) {
             GenerateMaterialShader(*selectedEntity, material).c_str()
         );
 
-        if (shader && IsShaderReady(*shader)) selectedEntity->setShader(shader);
+        if (shader && IsShaderValid(*shader)) selectedEntity->setShader(shader);
         else TraceLog(LOG_ERROR, "Failed to generate shader for material: %s", material.name.c_str());
 
         updateMaterial = false;

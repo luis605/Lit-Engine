@@ -287,7 +287,7 @@ TextureCubemap Skybox::GenTextureCubemap(Shader shader, Texture2D panorama,
     rlDisableBackfaceCulling();
 
     unsigned int rbo = rlLoadTextureDepth(size, size, true);
-    cubemap.id = rlLoadTextureCubemap(0, size, format);
+    cubemap.id = rlLoadTextureCubemap(0, size, format, 1);
 
     unsigned int fbo = rlLoadFramebuffer();
     rlFramebufferAttach(fbo, rbo, RL_ATTACHMENT_DEPTH,

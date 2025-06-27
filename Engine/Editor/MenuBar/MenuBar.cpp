@@ -68,7 +68,7 @@ void DebugWindow() {
 
         int vertexCount = 0;
         for (const Entity& entity : entitiesListPregame) {
-            if (IsModelReady(entity.model)) {
+            if (IsModelValid(entity.model)) {
                 int privateVertexCount = 0;
                 for (int meshIndex = 0; meshIndex < entity.model.meshCount;
                      ++meshIndex) {

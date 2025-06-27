@@ -82,7 +82,7 @@ void ShaderManager::InitShaders() {
 std::shared_ptr<Shader> ShaderManager::LoadShaderProgram(const fs::path& vertexShaderPath, const fs::path& fragmentShaderPath) {
     Shader loaded = LoadShader(vertexShaderPath.string().c_str(), fragmentShaderPath.string().c_str());
 
-    if (!IsShaderReady(loaded)) {
+    if (!IsShaderValid(loaded)) {
         TraceLog(LOG_ERROR, "Failed to load shader program.");
         return nullptr;
     }
@@ -95,7 +95,7 @@ std::shared_ptr<Shader> ShaderManager::LoadShaderProgram(const fs::path& vertexS
 std::shared_ptr<Shader> ShaderManager::LoadShaderProgramFromMemory(const char* vertexShader, const char* fragmentShader) {
     Shader loaded = LoadShaderFromMemory(vertexShader, fragmentShader);
 
-    if (!IsShaderReady(loaded)) {
+    if (!IsShaderValid(loaded)) {
         TraceLog(LOG_ERROR, "Failed to load shader program from memory.");
         return nullptr;
     }

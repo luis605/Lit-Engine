@@ -47,7 +47,7 @@ void LitButton::SetTooltip(const char* tooltipText, Font font,
 void LitButton::SetOnClickCallback(void (*callback)()) { onClick = callback; }
 
 void LitButton::PlayClickSound() {
-    if (enabled && IsSoundReady(clickSound)) {
+    if (enabled && IsSoundValid(clickSound)) {
         PlaySound(clickSound);
     }
 }

@@ -38,7 +38,7 @@ void SurfaceMaterialTexture::loadFromFile(const fs::path& filePath) {
 }
 
 bool SurfaceMaterialTexture::hasTexture() const {
-    return staticTexture && IsTextureReady(staticTexture->texture); // Left to right evaluation -> Memory Safe
+    return staticTexture && IsTextureValid(staticTexture->texture); // Left to right evaluation -> Memory Safe
 }
 
 const bool SurfaceMaterialTexture::hasVideo() const {

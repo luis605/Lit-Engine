@@ -274,7 +274,7 @@ void Entity::UpdateTextureMap(const int& mapType, const SurfaceMaterialTexture& 
 
     if (lodEnabled) {
         for (auto& lodModel : LodModels) {
-            if (IsModelReady(lodModel)) {
+            if (IsModelValid(lodModel)) {
                 lodModel.materials[0].maps[mapType].texture = targetTexture;
             }
         }
@@ -300,7 +300,7 @@ void Entity::ReloadTextures(const bool& force_reload) {
 
 void Entity::OptimizeEntityMemory() {
     for (int modelsIndex = 0; modelsIndex < sizeof(LodModels)/sizeof(LodModels[0]); modelsIndex++) {
-        if (IsModelReady(LodModels[modelsIndex])) continue;
+        if (IsModelValid(LodModels[modelsIndex])) continue;
         for (int index = 0; index < LodModels[modelsIndex].meshCount; index++) {
             free(LodModels[modelsIndex].meshes[index].vertices);
             free(LodModels[modelsIndex].meshes[index].indices);
@@ -326,7 +326,7 @@ void Entity::setModel(const fs::path& path, const Model& entityModel) {
     modelPath = path;
     model = modelPath.empty() ? entityModel : LoadModel(path.string().c_str());
 
-    if (!IsModelReady(model)) {
+    if (!IsModelValid(model)) {
         TraceLog(LOG_WARNING, "Could not set invalid model.");
         return;
     };
@@ -375,13 +375,13 @@ void Entity::setModel(const fs::path& path, const Model& entityModel) {
 }
 
 bool Entity::hasModel() {
-    return IsModelReady(model);
+    return IsModelValid(model);
 }
 
 void Entity::setShader(std::shared_ptr<Shader> newShader) {
-    if (!newShader || !IsShaderReady(*newShader)) {
+    if (!newShader || !IsShaderValid(*newShader)) {
         TraceLog(LOG_ERROR, "Shader is invalid! Could not set shader to entity.");
-        if (shaderManager.m_defaultShader && IsShaderReady(*shaderManager.m_defaultShader) && IsModelReady(model)) {
+        if (shaderManager.m_defaultShader && IsShaderValid(*shaderManager.m_defaultShader) && IsModelValid(model)) {
             entityShader = shaderManager.m_defaultShader;
             model.materials[0].shader = *shaderManager.m_defaultShader;
             TraceLog(LOG_INFO, "Using default shader for entity.");
@@ -392,12 +392,12 @@ void Entity::setShader(std::shared_ptr<Shader> newShader) {
     }\
 
     entityShader = newShader;
-    if (IsModelReady(model)) {
+    if (IsModelValid(model)) {
         model.materials[0].shader = *newShader;
     }
 
     for (int index = 0; index < 4; index++) {
-        if (IsModelReady(LodModels[index])) {
+        if (IsModelValid(LodModels[index])) {
             LodModels[index].materials[0].shader = *newShader;
         }
     }
@@ -991,10 +991,10 @@ void Entity::renderSingleModel() {
             lodModel.transform = transformMatrix;
         }
 
-        if (IsModelReady(LodModels[lodLevel])) modelToDraw = LodModels[lodLevel];
+        if (IsModelValid(LodModels[lodLevel])) modelToDraw = LodModels[lodLevel];
     }
 
-    if (IsModelReady(modelToDraw)) DrawModel(modelToDraw, Vector3Zero(), 1, RAYWHITE);
+    if (IsModelValid(modelToDraw)) DrawModel(modelToDraw, Vector3Zero(), 1, RAYWHITE);
 }
 
 void Entity::PassSurfaceMaterials() {
@@ -1013,7 +1013,7 @@ void Entity::PassSurfaceMaterials() {
         shaderManager.GetUniformLocation(entityShader->id, "lightsCount"),
         &lightsCount, SHADER_UNIFORM_INT);
 
-    if (IsTextureReady(brdf.m_brdfLut)) {
+    if (IsTextureValid(brdf.m_brdfLut)) {
         GLuint texID = brdf.m_brdfLut.id;
         GLint loc = shaderManager.GetUniformLocation(entityShader->id, "brdfLUT");
 
