@@ -87,7 +87,20 @@ void EntityInspector() {
             ImGui::TextUnformatted("Scale");
             ImGui::TableSetColumnIndex(1);
             ImGui::SetNextItemWidth(-FLT_MIN);
-            if (ImGui::DragFloat3("##Scale", &selectedEntity->scale.x, 0.1f)) {
+
+            float scale[] = {
+                selectedEntity->scale.x,
+                selectedEntity->scale.y,
+                selectedEntity->scale.z
+            };
+
+            if (ImGui::DragFloat3("##Scale", scale, 0.1f)) {
+                selectedEntity->scale = LitVector3(
+                    std::max(0.0001f, scale[0]),
+                    std::max(0.0001f, scale[1]),
+                    std::max(0.0001f, scale[2])
+                );
+
                 selectedEntity->reloadRigidBody();
             }
             ImGui::PopID();
