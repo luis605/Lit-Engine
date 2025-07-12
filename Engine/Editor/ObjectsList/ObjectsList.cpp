@@ -24,11 +24,11 @@ void ManipulateEntityPopup() {
             ImGui::CalcTextSize("Duplicate Entity") + ImVec2(20.0f, 20.0f);
 
         if (ImGui::Button("Duplicate Entity", buttonScale)) {
-            DuplicateEntity(*selectedEntity);
+            sceneEditor.DuplicateEntity(*selectedEntity);
             showManipulateEntityPopup = false;
         } else if (ImGui::Button("Copy Entity", buttonScale)) {
-            currentCopyType = CopyType_Entity;
-            copiedEntity = std::make_shared<Entity>(*selectedEntity);
+            sceneEditor.currentCopyType = sceneEditor.CopyType::CopyType_Entity;
+            sceneEditor.copiedEntity = std::make_shared<Entity>(*selectedEntity);
             showManipulateEntityPopup = false;
         } else if (ImGui::Button("Delete Entity", buttonScale)) {
             removeEntity(selectedEntity->id);
@@ -36,7 +36,7 @@ void ManipulateEntityPopup() {
             selectedGameObjectType = "";
             showManipulateEntityPopup = false;
         } else if (ImGui::Button("Locate Entity", buttonScale)) {
-            LocateEntity(*selectedEntity);
+            sceneEditor.LocateEntity(selectedEntity->position);
             showManipulateEntityPopup = false;
         } else if (ImGui::Button("Rename Entity", buttonScale)) {
             shouldChangeObjectName = true;
@@ -237,7 +237,7 @@ void DrawCameraTree() {
     bool isSelected = (selectedGameObjectType == "camera");
 
     bool isNodeOpen = DrawNodeTree(
-        ICON_FA_VIDEO, sceneCamera.name, nodeFlags, (void*)&sceneCamera,
+        ICON_FA_VIDEO, sceneEditor.sceneCamera.name, nodeFlags, (void*)&sceneEditor.sceneCamera,
         isSelected, [&]() { selectedGameObjectType = "camera"; });
 
     if (isNodeOpen)

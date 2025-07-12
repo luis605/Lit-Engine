@@ -113,7 +113,7 @@ void DrawMenus() {
 
         if (ImGui::MenuItem("Open", "Ctrl+O")) {
             TraceLog(LOG_INFO, "Opening project.");
-            LoadProject(entitiesListPregame, lights, sceneCamera);
+            LoadProject(entitiesListPregame, lights, sceneEditor.sceneCamera);
         }
 
         if (ImGui::MenuItem("Export")) {
@@ -297,9 +297,9 @@ void MenuBar() {
         IsKeyPressed(KEY_D))
         showAppearanceWindow = true;
 
-    if (showAppearanceWindow && !movingEditorCamera)
+    if (showAppearanceWindow && !sceneEditor.movingEditorCamera)
         Appearance();
-    if (showSettingsWindow && !movingEditorCamera)
+    if (showSettingsWindow && !sceneEditor.movingEditorCamera)
         Settings();
 
     CreateNewTheme();

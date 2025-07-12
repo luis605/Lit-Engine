@@ -3,80 +3,99 @@ This file is licensed under the PolyForm Noncommercial License 1.0.0.
 See the LICENSE file in the project root for full license information.
 */
 
-#ifndef GIZMO_H
-#define GIZMO_H
+#ifndef GIZMO_HPP
+#define GIZMO_HPP
 
-#include <Engine/Core/Engine.hpp>
-#include <Engine/Core/Entity.hpp>
-#include <Engine/Lighting/lights.hpp>
-#include <filesystem>
 #include <raylib.h>
+#include <array>
+#include <cstdint>
+#include <optional>
 
-namespace fs = std::filesystem;
+struct LitCamera;
 
-void InitGizmo();
+class Gizmo {
+public:
+    enum class Type : std::uint8_t {
+        Position,
+        Scale,
+        Rotation
+    };
 
-constexpr int NUM_GIZMO_POSITION = 6;
-constexpr int NUM_GIZMO_SCALE = 6;
-constexpr int NUM_GIZMO_ROTATION = 1;
+    Gizmo() noexcept = default;
 
-enum GizmoAxis { UNDEFINED_AXIS = 0, X_AXIS = 1, Y_AXIS = 2, Z_AXIS = 3 };
+    void beginFrame();
+    void endFrame();
+    void updateAndDraw(Type type, Vector3& objPosition, Vector3& objScale, Quaternion& objRotation, const LitCamera& camera, const Rectangle& viewport);
+    inline bool isGizmoActive() const noexcept { return gizmoActive; };
 
-struct Gizmo {
-    Model model;
-    Vector3 position;
-    Vector3 rotation;
-    Vector3 scale = {1, 1, 1};
-    Color color;
-    GizmoAxis axis;
+private:
+    int m_activeAxis{-1};
+    int m_hoveredAxis{-1};
+
+    bool gizmoActive = false;
+    const bool trackBallEnabled = false;
+
+    std::optional<Type> m_dragContextType;
+
+    static constexpr float PARALLEL_DOT_PRODUCT_THRESHOLD = 0.99f;
+    static constexpr float MINIMUM_LEGAL_SCALE = 0.001f;
+    static constexpr float GIMBAL_LOCK_PITCH_LIMIT = 89.9f;
+    static constexpr int segments = 32;
+    static constexpr int TRACKBALL_AXIS_INDEX = 3;
+
+    Vector3 m_startDragEuler;
+    Vector3 m_startDragValue{};
+    Quaternion m_startDragRotation{};
+    Vector3 m_initialIntersectionPoint{};
+    Vector3 m_dragPlaneNormal{};
+    Vector2 m_startDragMousePos{};
+
+    void updateState(Type type, Vector3& targetValue, const Vector3& gizmoPosition, const LitCamera& camera, const Ray& mouseRay);
+    void beginDrag(Type type, const Ray& mouseRay, const Vector3& currentTargetValue, const Vector3& gizmoPosition, const LitCamera& camera);
+    void processDrag(Vector3& targetValue, const Ray& mouseRay);
+
+    void updateRotationState(Quaternion& targetRotation, const Vector3& gizmoPosition, const LitCamera& camera, const Ray& mouseRay);
+    void beginRotationDrag(const Ray& mouseRay, const Quaternion& currentRotation, const Vector3& gizmoPosition, const LitCamera& camera);
+    void processRotationDrag(Quaternion& targetRotation, const Vector3& gizmoPosition, const LitCamera& camera);
+
+    void endDrag() noexcept;
+
+    void drawPositionGizmo(const Vector3& position, const LitCamera& camera) const;
+    void drawScaleGizmo(const Vector3& position, const LitCamera& camera) const;
+    void drawRotationGizmo(const Vector3& position, const Quaternion& rotation, const LitCamera& camera) const;
+
+    [[nodiscard]] bool isPositionAxisHovered(const Ray& mouseRay, const Vector3& start, const Vector3& end, float handleSize) const;
+    [[nodiscard]] bool isScaleHandleHovered(const Ray& mouseRay, const Vector3& handlePosition, float handleSize) const;
+    [[nodiscard]] bool isRotationHandleHovered(const Ray& mouseRay, const Vector3& center, const Vector3& axis, float radius, float thickness) const;
+
+    static void drawPositionAxis(const Vector3& start, const Vector3& end, const Vector3& direction, float handleSize, const Color& color);
+    static void drawScaleHandle(const Vector3& position, float sideLength, const Color& color);
+
+    static constexpr int AXIS_COUNT = 3;
+    static constexpr int AXIS_DIRECTIONS_COUNT = AXIS_COUNT * 2;
+    static constexpr int ROTATION_AXIS_COUNT = 4;
+    static constexpr float LENGTH_SCALE = 0.20f;
+    static constexpr float HANDLE_SCALE = 0.02f;
+    static constexpr float MIN_LENGTH = 3.5f;
+    static constexpr float MIN_HANDLE_SIZE = 0.1f;
+    static constexpr float SCALE_GIZMO_OFFSET_SCALE = 0.30f;
+    static constexpr float MIN_SCALE_GIZMO_OFFSET = 4.5f;
+    static constexpr float SCALE_HANDLE_SIZE_SCALE = 0.025f;
+    static constexpr float MIN_SCALE_HANDLE_SIZE = 0.15f;
+    static constexpr float ROTATION_RADIUS_SCALE = 0.265f;
+    static constexpr float MIN_ROTATION_RADIUS = 4.1f;
+    static constexpr float ROTATION_RING_THICKNESS = 0.1f;
+    static constexpr float AXIS_LINE_WIDTH = 5.0f;
+    static constexpr float DEFAULT_LINE_WIDTH = 1.0f;
+    static constexpr float GIZMO_INTERSECTION_EPSILON = 1e-6f;
+
+    static const std::array<Vector3, AXIS_DIRECTIONS_COUNT> AXIS_DIRECTIONS;
+    static const std::array<Color, AXIS_COUNT> AXIS_BASE_COLORS;
+    static const std::array<Color, AXIS_COUNT> AXIS_HIGHLIGHT_COLORS;
+    static const std::array<Vector3, AXIS_COUNT> ROTATION_AXES;
+    static const std::array<Vector3, AXIS_COUNT> ROTATION_DIRECTIONS;
 };
 
-extern Gizmo gizmoPosition[NUM_GIZMO_POSITION];
-extern Gizmo gizmoScale[NUM_GIZMO_SCALE];
-extern Gizmo gizmoRotation[NUM_GIZMO_ROTATION];
+extern Gizmo editorGizmo;
 
-// Declare selected object variables and flags
-extern Vector3 selectedObjectPosition;
-extern Vector3 selectedObjectRotation;
-extern Vector3 selectedObjectScale;
-extern Vector2 mouseDragStart;
-extern Vector2 mousePosition;
-extern Vector2 mousePositionPrev;
-extern Vector3 gizmoRotationDelta;
-extern int selectedPositionGizmo;
-extern int selectedScaleGizmo;
-extern bool dragging;
-extern bool draggingPositionGizmo;
-extern bool draggingRotationGizmo;
-extern bool draggingScaleGizmo;
-extern bool isHoveringGizmo;
-extern bool lockRotationX;
-extern bool lockRotationY;
-extern bool lockRotationZ;
-
-extern float gizmoDragSensitivityFactor;
-
-struct GizmoPositionStructure {
-    Vector3 position;
-    Vector3 rotation;
-};
-
-extern GizmoPositionStructure gizmoPositionOffsets[6];
-extern Color gizmoPositionColorsUnselected[6];
-extern Color gizmoPositionColorsSelected[6];
-
-void IsGizmoBeingInteracted(const Gizmo& gizmo, const int& index,
-                            int& selectedGizmoIndex);
-void SetGizmoVisibility(Gizmo& gizmo, const bool& isVisible);
-void UpdateGizmoVisibilityAndScaling(Gizmo& gizmo, const Camera& camera);
-bool HandleGizmo(bool& draggingGizmoProperty, Vector3& selectedObjectProperty,
-                 const GizmoAxis& axis,
-                 const bool& applyMinimumConstraint = false);
-void DrawGizmo(Gizmo& gizmo, const bool& wireframe = false,
-               const bool& applyRotation = false);
-void DrawGizmos();
-void GizmoPosition();
-void GizmoScale();
-void GizmoRotation();
-
-#endif // GIZMO_H
+#endif // GIZMO_HPP

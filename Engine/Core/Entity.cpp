@@ -483,7 +483,7 @@ void Entity::setupScript(LitCamera* rendering_camera) {
                 [](EntityHandle& h, const LitVector3& scale) { if (h.get()->getFlag(Entity::Flag::INITIALIZED)) h.get()->setScale(scale); })
             .def_property("rotation",
                 [](const EntityHandle& h) { return h.get()->rotation; },
-                [](EntityHandle& h, const LitVector3& rotation) { if (h.get()->getFlag(Entity::Flag::INITIALIZED)) h.get()->setRot(rotation); })
+                [](EntityHandle& h, const LitVector3& rotation) { if (h.get()->getFlag(Entity::Flag::INITIALIZED)) h.get()->setRot(QuaternionFromEuler(rotation.x, rotation.y, rotation.z)); })
             .def_property("visible",
                 [](const EntityHandle& h) { return h.get()->getFlag(Entity::Flag::VISIBLE); },
                 [](EntityHandle& h, bool visible) { h.get()->setFlag(Entity::Flag::VISIBLE, visible); })
@@ -618,10 +618,7 @@ void Entity::calcPhysicsRotation() {
         if (rigidBody->getMotionState()) {
             rigidBody->getMotionState()->getWorldTransform(trans);
             btQuaternion objectRotation = trans.getRotation();
-            btScalar roll, yaw, pitch;
-            objectRotation.getEulerZYX(roll, yaw, pitch);
-
-            rotation = Vector3{ pitch * RAD2DEG, yaw * RAD2DEG, roll * RAD2DEG };
+            rotation = Quaternion{ objectRotation.getX(), objectRotation.getY(), objectRotation.getZ(), objectRotation.getW() };
         }
     }
 }
@@ -638,7 +635,7 @@ void Entity::setPos(const LitVector3& newPos) {
     }
 }
 
-void Entity::setRot(const LitVector3& newRot) {
+void Entity::setRot(const Quaternion& newRot) {
     rotation = newRot;
 
     if (CollisionShapeType::Box == currentCollisionShapeType) {
@@ -646,9 +643,9 @@ void Entity::setRot(const LitVector3& newRot) {
             btTransform currentTransform = rigidBody->getWorldTransform();
 
 
-            float rollRad = glm::radians(rotation.x);
-            float pitchRad = glm::radians(rotation.y);
-            float yawRad = glm::radians(rotation.z);
+            float rollRad = glm::radians(newRot.x);
+            float pitchRad = glm::radians(newRot.y);
+            float yawRad = glm::radians(newRot.z);
 
             btQuaternion newRotation;
             newRotation.setEulerZYX(yawRad, pitchRad, rollRad);
@@ -955,7 +952,7 @@ void Entity::renderSingleModel() {
     }
 
     const Matrix scaleMatrix = MatrixScale(scale.x, scale.y, scale.z);
-    const Matrix rotationMatrix = MatrixRotateXYZ(Vector3Scale(rotation, DEG2RAD));
+    const Matrix rotationMatrix = MatrixRotateXYZ(QuaternionToEuler(rotation));
     const Matrix translationMatrix = MatrixTranslate(position.x, position.y, position.z);
 
     const Matrix transformMatrix = MatrixMultiply(MatrixMultiply(scaleMatrix, rotationMatrix), translationMatrix);
@@ -975,7 +972,7 @@ void Entity::renderSingleModel() {
     float distance;
 #ifndef GAME_SHIPPING
     distance = inGamePreview ? Vector3Distance(this->position, camera.position)
-                            : Vector3Distance(this->position, sceneCamera.position);
+                             : Vector3Distance(this->position, sceneEditor.sceneCamera.position);
 #else
     distance = Vector3Distance(this->position, camera.position);
 #endif

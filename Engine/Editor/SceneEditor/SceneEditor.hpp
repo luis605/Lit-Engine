@@ -15,67 +15,83 @@ See the LICENSE file in the project root for full license information.
 #include <memory>
 #include <raylib.h>
 
-void InitEditorCamera();
-static inline double GetImGuiWindowTitleHeight();
-void CalculateTextureRect(const Texture* texture, Rectangle& viewportRectangle);
-void DrawTextureOnViewportRectangle(const Texture& texture);
-void EditorCameraMovement();
-bool IsMouseHoveringModel(const Model& model, const Vector3& position,
-                          const Vector3& rotation, const Vector3& scale,
-                          const Entity* entity = nullptr, bool bypassOptimization = false);
-void LocateEntity(Entity& entity);
-void ProcessCameraControls();
-void ProcessGizmo();
-void HandleUnselect();
+class SceneEditor {
+private:
+    struct CacheEntry {
+        Matrix transform;
+        std::vector<BoundingBox> bounds;
+    };
+
+    float slowCameraSpeed    = 15.0f;
+    float defaultCameraSpeed = 25.0f;
+    float fastCameraSpeed    = 50.0f;
+    float movementSpeed      = defaultCameraSpeed;
+    bool textureViewportFlip = false;
+    float sceneEditorMenuHeight = 0.0f;
+    Vector2 lastMousePosition = { 0 };
+    Texture currentTexturePostProcessing;
+    static constexpr float GRID_SIZE = 30.0f;
+    static constexpr float GRID_SCALE = 1.0f;
+
+public:
+    enum CopyType { CopyType_None = 0, CopyType_Entity = 1, CopyType_Light = 2 };
+    bool movingEditorCamera = false;
+    Model lightModel;
+    LitCamera sceneCamera;
+    CopyType currentCopyType = (CopyType)CopyType_None;
+    std::shared_ptr<Entity>      copiedEntity = nullptr;
+    std::shared_ptr<LightStruct> copiedLight  = nullptr;
+
+private:
+    const float GetImGuiWindowTitleHeight();
+    void CalculateTextureRect(Rectangle& viewportRectangle);
+    void DrawTextureOnViewportRectangle(const Texture& texture);
+    void EditorCameraMovement();
+    void ProcessGizmo();
+    void HandleUnselect();
+    void RenderLights();
+    void RenderEntities();
+    void UpdateShader();
+    void DropEntity();
+    void ProcessObjectControls();
+    void ObjectsPopup();
+    void ProcessDeletion();
+    void LightPaste(const std::shared_ptr<LightStruct>& lightStruct);
+    void EntityPaste(const std::shared_ptr<Entity>& entity, Entity* parent = nullptr);
+    void ProcessCopy();
+    void ScaleViewport();
+    void HandleScenePlay();
+    void HandleSceneStop();
+    void DrawTooltip(const char* text);
+    void PushMenuBarStyle();
+    void PopMenuBarStyle();
+    void DrawSceneEditorMenu();
+    void RenderGrid();
+    void RenderScene();
+
+public:
+    void LocateEntity(const LitVector3& entityPosition);
+    void ComputeSceneLuminance();
+    void RenderViewportTexture(const LitCamera& camera);
+    Texture2D ApplyBloomEffect(const Texture2D& sceneTexture);
+    Texture2D ApplyChromaticAberration(const Texture2D& sceneTexture);
+    Texture2D ApplyVignetteEffect(const Texture2D& sceneTexture);
+    Texture2D ApplyFilmGrainEffect(const Texture2D& sceneTexture);
+    void InitEditorCamera();
+    void EditorCamera();
+    void DuplicateLight(LightStruct& lightStruct, Entity* parent = nullptr);
+    void DuplicateEntity(Entity& entity, Entity* parent = nullptr);
+    bool IsMouseHoveringModel(const Model& model, const Entity* entity = nullptr, bool bypassOptimization = false);
+};
+
+extern SceneEditor sceneEditor;
+
 void RenderViewportTexture(const LitCamera& camera);
 Texture2D ApplyBloomEffect(const Texture2D& sceneTexture);
 Texture2D ApplyChromaticAberration(const Texture2D& sceneTexture);
 Texture2D ApplyVignetteEffect(const Texture2D& sceneTexture);
 Texture2D ApplyFilmGrainEffect(const Texture2D& sceneTexture);
-void RenderLights();
-void RenderEntities();
-void UpdateShader();
-void RenderGrid();
 void ComputeSceneLuminance();
-void RenderScene();
-void DropEntity();
-void ProcessObjectControls();
-void ObjectsPopup();
-void ProcessDeletion();
-void LightPaste(const std::shared_ptr<LightStruct>& lightStruct);
-void DuplicateLight(LightStruct& lightStruct, Entity* parent = nullptr);
-void DuplicateEntity(Entity& entity, Entity* parent = nullptr);
-void EntityPaste(const std::shared_ptr<Entity>& entity,
-                 Entity* parent = nullptr);
-void ProcessCopy();
-void ScaleViewport();
-void drawEditorCameraMenu();
-void EditorCamera();
-
-enum CopyType { CopyType_None = 0, CopyType_Entity = 1, CopyType_Light = 2 };
-
-struct CacheEntry {
-    Matrix transform;
-    std::vector<BoundingBox> bounds;
-};
-
-bool MatrixEquals(const Matrix& a, const Matrix& b, float tolerance = 0.0001f);
-
-constexpr float GRID_SIZE = 30.0f;
-constexpr float GRID_SCALE = 1.0f;
-static Vector2 rlLastMousePosition = { 0 };
-
-extern float movementSpeed;
-extern float slowCameraSpeed;
-extern float fastCameraSpeed;
-extern float defaultCameraSpeed;
-extern Model lightModel;
-extern LitCamera sceneCamera;
-extern bool movingEditorCamera;
-extern bool textureViewportFlip;
-extern CopyType currentCopyType;
-extern std::shared_ptr<Entity> copiedEntity;
-extern std::shared_ptr<LightStruct> copiedLight;
 
 #ifndef GAME_SHIPPING
     extern ImVec2 prevEditorWindowSize;

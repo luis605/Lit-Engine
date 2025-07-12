@@ -45,6 +45,8 @@ extern bool WorldGravityXInputMode;
 extern bool WorldGravityYInputMode;
 extern bool WorldGravityZInputMode;
 
+extern Vector3 entityRotationEuler;
+
 void Inspector();
 void EntityInspector();
 void LightInspector();

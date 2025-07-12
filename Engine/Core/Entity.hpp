@@ -71,11 +71,11 @@ class EXPORT_API Entity {
 
     LitVector3 backupPosition = {0, 0, 0};
     LitVector3 position = {0, 0, 0};
-    LitVector3 rotation = {0, 0, 0};
+    Quaternion rotation = {0, 0, 0, 1};
     LitVector3 scale    = {1, 1, 1};
 
     LitVector3 relativePosition = {0, 0, 0};
-    LitVector3 relativeRotation = {0, 0, 0};
+    Quaternion relativeRotation = {0, 0, 0};
     LitVector3 relativeScale = {1, 1, 1};
 
     LitVector3 inertia = {0, 0, 0};
@@ -121,7 +121,7 @@ class EXPORT_API Entity {
 
   public:
     Entity(std::string name = "entity", LitVector3 position = {0, 0, 0},
-           LitVector3 scale = {1, 1, 1}, LitVector3 rotation = {0, 0, 0})
+           LitVector3 scale = {1, 1, 1}, Quaternion rotation = {0, 0, 0, 1})
         : name(name), position(position), scale(scale), rotation(rotation) {
           this->setFlag(Flag::INITIALIZED, true);
           this->setFlag(Flag::VISIBLE, true);
@@ -158,7 +158,7 @@ class EXPORT_API Entity {
     void calcPhysicsPosition();
     void calcPhysicsRotation();
     void setPos(const LitVector3& newPos);
-    void setRot(const LitVector3& newRot);
+    void setRot(const Quaternion& newRot);
     void setLinearVelocity(const LitVector3& velocity);
     void setScale(const LitVector3& newScale);
     void applyForce(const LitVector3& force);

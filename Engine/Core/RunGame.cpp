@@ -26,7 +26,7 @@ void InitGameCamera() {
     camera.up_vector = {0.0f, 1.0f, 0.0f};
     camera.up = {0.0f, 1.0f, 0.0f};
 
-    camera.fovy = sceneCamera.fovy;
+    camera.fovy = sceneEditor.sceneCamera.fovy;
     camera.projection = CAMERA_PERSPECTIVE;
 }
 
@@ -76,7 +76,7 @@ void RunGame() {
 
     EndTextureMode();
 
-    ComputeSceneLuminance();
-    RenderViewportTexture(camera);
+    sceneEditor.ComputeSceneLuminance();
+    sceneEditor.RenderViewportTexture(camera);
 }
 #endif

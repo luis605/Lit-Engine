@@ -36,13 +36,13 @@ void CameraInspector() {
                 ImGui::TableSetColumnIndex(1);
                 ImGui::SetNextItemWidth(-FLT_MIN);
 
-                const char* currentProjectionName = (sceneCamera.projection == 1) ? "Orthographic" : "Perspective";
+                const char* currentProjectionName = (sceneEditor.sceneCamera.projection == 1) ? "Orthographic" : "Perspective";
                 if (ImGui::BeginCombo("##Projection", currentProjectionName)) {
-                    if (ImGui::Selectable("Perspective", sceneCamera.projection == 0)) {
-                        sceneCamera.projection = 0;
+                    if (ImGui::Selectable("Perspective", sceneEditor.sceneCamera.projection == 0)) {
+                        sceneEditor.sceneCamera.projection = 0;
                     }
-                    if (ImGui::Selectable("Orthographic", sceneCamera.projection == 1)) {
-                        sceneCamera.projection = 1;
+                    if (ImGui::Selectable("Orthographic", sceneEditor.sceneCamera.projection == 1)) {
+                        sceneEditor.sceneCamera.projection = 1;
                     }
                     ImGui::EndCombo();
                 }
@@ -57,13 +57,13 @@ void CameraInspector() {
                 ImGui::TextUnformatted("Field of View");
 
                 constexpr float DEFAULT_FOVY = 60.0f;
-                if (sceneCamera.fovy != DEFAULT_FOVY) {
+                if (sceneEditor.sceneCamera.fovy != DEFAULT_FOVY) {
                     ImGui::SameLine();
                     ImGui::Dummy(ImVec2(ImGui::GetContentRegionAvail().x - 25.0f, 0));
                     ImGui::SameLine();
 
                     if (ImGui::Button(ICON_FA_ROTATE_LEFT "##ResetFOVY")) {
-                        sceneCamera.fovy = DEFAULT_FOVY;
+                        sceneEditor.sceneCamera.fovy = DEFAULT_FOVY;
                     }
 
                     if (ImGui::IsItemHovered(ImGuiHoveredFlags_AllowWhenDisabled)) {
@@ -73,7 +73,7 @@ void CameraInspector() {
 
                 ImGui::TableSetColumnIndex(1);
                 ImGui::SetNextItemWidth(-FLT_MIN);
-                ImGui::SliderFloat("##FovySlider", &sceneCamera.fovy, 1.0f, 179.0f, "%.1f°");
+                ImGui::SliderFloat("##FovySlider", &sceneEditor.sceneCamera.fovy, 1.0f, 179.0f, "%.1f°");
 
                 ImGui::PopID();
             }

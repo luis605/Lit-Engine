@@ -149,7 +149,7 @@ void EditFileManipulation() {
                 runScriptEntity.scriptIndex = "script not defined";
                 runScriptEntity.setFlag(Entity::Flag::CALC_PHYSICS, true);
 
-                LitCamera* sceneCamera_reference = &sceneCamera;
+                LitCamera* sceneCamera_reference = &sceneEditor.sceneCamera;
                 runScriptEntity.setupScript(sceneCamera_reference);
                 runScriptEntity.runScript(sceneCamera_reference);
 

@@ -154,7 +154,7 @@ void InitCodeEditor() {
 }
 
 void InitSceneEditor() {
-    lightModel = LoadModelFromMesh(GenMeshPlane(4, 4, 1, 1));
+    sceneEditor.lightModel = LoadModelFromMesh(GenMeshPlane(4, 4, 1, 1));
 }
 
 void LoadFilesystem() {
@@ -198,8 +198,7 @@ void Startup() {
     skybox.loadSkybox("Assets/images/skybox/default skybox.hdr");
     brdf.GenLUT();
     InitLighting();
-    InitGizmo();
-    InitEditorCamera();
+    sceneEditor.InitEditorCamera();
     InitCodeEditor();
     InitSceneEditor();
     InitRenderModelPreviewer();
@@ -232,7 +231,7 @@ void EngineMainLoop() {
         CodeEditor();
         EntitiesList();
         Inspector();
-        EditorCamera();
+        sceneEditor.EditorCamera();
         MaterialEditor();
         pluginManager.updateAll();
 
@@ -270,7 +269,7 @@ void CleanUp() {
     for (auto it = modelsIcons.begin(); it != modelsIcons.end(); ++it)
         UnloadTexture(it->second);
 
-    UnloadModel(lightModel);
+    UnloadModel(sceneEditor.lightModel);
     modelsIcons.clear();
     lights.clear();
 

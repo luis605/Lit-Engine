@@ -241,7 +241,7 @@ int SaveProject() {
     serializeScripts();
     json jsonData;
 
-    SaveCamera(jsonData, sceneCamera);
+    SaveCamera(jsonData, sceneEditor.sceneCamera);
     SaveWorldSetting(jsonData);
 
     eventManager.onSceneSave.triggerEvent();
@@ -403,10 +403,11 @@ Entity LoadEntity(const json& entityJson) {
     }
 
     if (entityJson.contains("rotation")) {
-        entity.rotation = Vector3{
+        entity.rotation = Quaternion{
             entityJson["rotation"]["x"].get<float>(),
             entityJson["rotation"]["y"].get<float>(),
-            entityJson["rotation"]["z"].get<float>()
+            entityJson["rotation"]["z"].get<float>(),
+            entityJson["rotation"]["w"].get<float>()
         };
     }
 

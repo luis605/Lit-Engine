@@ -10,16 +10,20 @@ See the LICENSE file in the project root for full license information.
 #include <Engine/Core/Core.hpp>
 #include <Engine/Core/Engine.hpp>
 #include <Engine/Core/SaveLoad.hpp>
+#include <Engine/Core/Math.hpp>
 #include <Engine/Editor/AssetsExplorer/AssetsExplorer.hpp>
 #include <Engine/Editor/Inspector/Inspector.hpp>
 #include <Engine/Editor/MaterialNodeEditor/ChildMaterial.hpp>
 #include <Engine/Editor/Styles/ImGuiExtras.hpp>
 #include <extras/IconsFontAwesome6.h>
 #include <filesystem>
+#include <array>
 
 namespace fs = std::filesystem;
 
 #define ICON_FA_COG_UTF8 "\xEF\x80\x93"
+
+Vector3 currentRotationDisplayEuler(0.0f, 0.0f, 0.0f);
 
 void EntityInspector() {
     if (selectedEntity == nullptr || !selectedEntity->getFlag(Entity::Flag::INITIALIZED)) {
@@ -88,90 +92,44 @@ void EntityInspector() {
             ImGui::TableSetColumnIndex(1);
             ImGui::SetNextItemWidth(-FLT_MIN);
 
-            float scale[] = {
-                selectedEntity->scale.x,
-                selectedEntity->scale.y,
-                selectedEntity->scale.z
-            };
-
-            if (ImGui::DragFloat3("##Scale", scale, 0.1f)) {
-                selectedEntity->scale = LitVector3(
-                    std::max(0.0001f, scale[0]),
-                    std::max(0.0001f, scale[1]),
-                    std::max(0.0001f, scale[2])
-                );
-
+            if (ImGui::DragFloat3("##Scale", &selectedEntity->scale.x, 0.1f)) {
+                selectedEntity->scale.x = std::max(0.0001f, selectedEntity->scale.x);
+                selectedEntity->scale.y = std::max(0.0001f, selectedEntity->scale.y);
+                selectedEntity->scale.z = std::max(0.0001f, selectedEntity->scale.z);
                 selectedEntity->reloadRigidBody();
             }
             ImGui::PopID();
 
-            // Rotation X
-            ImGui::PushID("TRANSFORM-ROTATION-X-ROW");
+
+            // Rotation
+            ImGui::PushID("TRANSFORM-ROTATION-ROW");
             ImGui::TableNextRow();
             ImGui::TableSetColumnIndex(0);
-            ImGui::TextUnformatted("Rotation X");
+            ImGui::TextUnformatted("Rotation");
             ImGui::TableSetColumnIndex(1);
             ImGui::SetNextItemWidth(-FLT_MIN);
-            if (EntityRotationXInputModel) {
-                if (ImGui::InputFloat("##RotationX", &selectedEntity->rotation.x, -180.0f, 180.0f, "%.3f", ImGuiInputTextFlags_EnterReturnsTrue)) {
-                    EntityRotationXInputModel = false;
-                    selectedEntity->reloadRigidBody();
+
+            currentRotationDisplayEuler = GetContinuousEulerFromQuaternion(selectedEntity->rotation, currentRotationDisplayEuler);
+
+            if (ImGui::DragFloat3("##Rotation", &currentRotationDisplayEuler.x, 0.5f, 0.0f, 0.0f, "%.2f")) {
+                float y = currentRotationDisplayEuler.y;
+                float absY = std::abs(y);
+
+                if (std::abs(absY - 90.0f) < 0.2f) {
+                    currentRotationDisplayEuler.y = std::copysignf(90.5f, y);
+                } else if (std::abs(absY - 180.0f) < 0.2f) {
+                    currentRotationDisplayEuler.y = std::copysignf(180.5f, y);
+                } else if (std::abs(absY - 270.0f) < 0.2f) {
+                    currentRotationDisplayEuler.y = std::copysignf(270.5f, y);
+                } else if (absY < 0.2f) {
+                    currentRotationDisplayEuler.y = std::copysignf(0.5f, y);
                 }
-            } else {
-                if (ImGui::SliderFloat("##RotationX", &selectedEntity->rotation.x, -180.0f, 180.0f, "%.3f")) {
-                    selectedEntity->reloadRigidBody();
-                }
-                if (ImGui::IsItemHovered() && ImGui::IsMouseDoubleClicked(0)) {
-                    EntityRotationXInputModel = true;
-                }
+
+                Quaternion newRotation = QuaternionFromEuler(currentRotationDisplayEuler);
+                selectedEntity->setRot(newRotation);
+                selectedEntity->reloadRigidBody();
             }
             ImGui::PopID();
-
-            // Rotation Y
-            ImGui::PushID("TRANSFORM-ROTATION-Y-ROW");
-            ImGui::TableNextRow();
-            ImGui::TableSetColumnIndex(0);
-            ImGui::TextUnformatted("Rotation Y");
-            ImGui::TableSetColumnIndex(1);
-            ImGui::SetNextItemWidth(-FLT_MIN);
-            if (EntityRotationYInputModel) {
-                if (ImGui::InputFloat("##RotationY", &selectedEntity->rotation.y, -180.0f, 180.0f, "%.3f", ImGuiInputTextFlags_EnterReturnsTrue)) {
-                    EntityRotationYInputModel = false;
-                    selectedEntity->reloadRigidBody();
-                }
-            } else {
-                if (ImGui::SliderFloat("##RotationY", &selectedEntity->rotation.y, -180.0f, 180.0f, "%.3f")) {
-                    selectedEntity->reloadRigidBody();
-                }
-                if (ImGui::IsItemHovered() && ImGui::IsMouseDoubleClicked(0)) {
-                    EntityRotationYInputModel = true;
-                }
-            }
-            ImGui::PopID();
-
-            // Rotation Z
-            ImGui::PushID("TRANSFORM-ROTATION-Z-ROW");
-            ImGui::TableNextRow();
-            ImGui::TableSetColumnIndex(0);
-            ImGui::TextUnformatted("Rotation Z");
-            ImGui::TableSetColumnIndex(1);
-            ImGui::SetNextItemWidth(-FLT_MIN);
-            if (EntityRotationZInputModel) {
-                if (ImGui::InputFloat("##RotationZ", &selectedEntity->rotation.z, -180.0f, 180.0f, "%.3f", ImGuiInputTextFlags_EnterReturnsTrue)) {
-                    EntityRotationZInputModel = false;
-                    selectedEntity->reloadRigidBody();
-                }
-            } else {
-                if (ImGui::SliderFloat("##RotationZ", &selectedEntity->rotation.z, -180.0f, 180.0f, "%.3f")) {
-                    selectedEntity->reloadRigidBody();
-                }
-                if (ImGui::IsItemHovered() && ImGui::IsMouseDoubleClicked(0)) {
-                    EntityRotationZInputModel = true;
-                }
-            }
-            ImGui::PopID();
-
-            selectedEntity->setRot(selectedEntity->rotation);
 
             ImGui::PopStyleVar();
             ImGui::Unindent(10.0f);

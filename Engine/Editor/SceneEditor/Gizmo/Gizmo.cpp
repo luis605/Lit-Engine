@@ -3,493 +3,436 @@ This file is licensed under the PolyForm Noncommercial License 1.0.0.
 See the LICENSE file in the project root for full license information.
 */
 
-#include "Gizmo.hpp"
-#include <Engine/Core/Core.hpp>
-#include <Engine/Editor/SceneEditor/SceneEditor.hpp>
+#include <Engine/Editor/SceneEditor/Gizmo/Gizmo.hpp>
+#include <Engine/Core/Engine.hpp>
+#include <Engine/Scripting/functions.hpp>
+#include <Engine/Core/Math.hpp>
 #include <Engine/Editor/MenuBar/Settings.hpp>
 
-Gizmo gizmoPosition[NUM_GIZMO_POSITION];
-Gizmo gizmoScale[NUM_GIZMO_SCALE];
-Gizmo gizmoRotation[NUM_GIZMO_ROTATION];
+#include <raymath.h>
+#include <rlgl.h>
+#include <algorithm>
+#include <cmath>
 
-// Declare selected object variables and flags
-Vector3 selectedObjectPosition;
-Vector3 selectedObjectRotation;
-Vector3 selectedObjectScale;
-Vector2 mouseDragStart;
-Vector2 mousePosition;
-Vector2 mousePositionPrev;
-Vector3 gizmoRotationDelta;
-int selectedPositionGizmo = -1;
-int selectedScaleGizmo = -1;
-bool dragging = false;
-bool draggingPositionGizmo = false;
-bool draggingRotationGizmo = false;
-bool draggingScaleGizmo = false;
-bool isHoveringGizmo;
-bool lockRotationX = false;
-bool lockRotationY = false;
-bool lockRotationZ = false;
+Gizmo editorGizmo;
 
-float gizmoDragSensitivityFactor = 0.1f;
+const std::array<Vector3, Gizmo::AXIS_DIRECTIONS_COUNT> Gizmo::AXIS_DIRECTIONS = {{
+    { 1.0f, 0.0f, 0.0f }, { -1.0f, 0.0f, 0.0f },
+    { 0.0f, 1.0f, 0.0f }, {  0.0f, -1.0f, 0.0f },
+    { 0.0f, 0.0f, 1.0f }, {  0.0f,  0.0f, -1.0f }
+}};
 
-GizmoPositionStructure gizmoPositionOffsets[6] = {
-    {{6, 0, 0}, {0, 0, -90}}, {{-6, 0, 0}, {0, 0, 90}},
-    {{0, 6, 0}, {0, 0, 0}},   {{0, -6, 0}, {180, 0, 0}},
-    {{0, 0, 6}, {90, 0, 0}},  {{0, 0, -6}, {-90, 0, 0}}};
+const std::array<Color, Gizmo::AXIS_COUNT> Gizmo::AXIS_BASE_COLORS = {{
+    {210,  50,  50, 255},
+    { 50, 210,  50, 255},
+    { 50,  50, 210, 255}
+}};
 
-Color gizmoPositionColorsUnselected[6] = {{100, 0, 0, 255}, {100, 0, 0, 255},
-                                         {0, 0, 100, 255}, {0, 0, 100, 255},
-                                         {0, 100, 0, 255}, {0, 100, 0, 255}};
+const std::array<Color, Gizmo::AXIS_COUNT> Gizmo::AXIS_HIGHLIGHT_COLORS = {{
+    {255,  80,  80, 255},
+    { 80, 255,  80, 255},
+    { 80,  80, 255, 255}
+}};
 
-Color gizmoPositionColorsSelected[6] = {{150, 0, 0, 255}, {150, 0, 0, 255},
-                                       {0, 0, 150, 255}, {0, 0, 150, 255},
-                                       {0, 150, 0, 255}, {0, 150, 0, 255}};
+const std::array<Vector3, Gizmo::AXIS_COUNT> Gizmo::ROTATION_AXES = {{
+    { 1.0f, 0.0f, 0.0f },
+    { 0.0f, 1.0f, 0.0f },
+    { 0.0f, 0.0f, 1.0f }
+}};
 
-void LoadGizmoModel(Gizmo& gizmo, const Model& model, const fs::path& modelPath,
-                    const int& gizmoAxis, const Vector3& rotation) {
-    if (modelPath.empty())
-        gizmo.model = model;
-    else
-        gizmo.model = LoadModel(modelPath.string().c_str());
+const std::array<Vector3, Gizmo::AXIS_COUNT> Gizmo::ROTATION_DIRECTIONS = {{
+    { 0.0f, 90.0f, 0.0f },
+    { 90.0f, 0.0f, 0.0f },
+    { 0.0f, 0.0f, 90.0f }
+}};
 
-    if (!IsModelValid(gizmo.model)) {
-        TraceLog(LOG_WARNING, "Gizmo model is not ready");
+void Gizmo::beginFrame() {
+    rlSetLineWidth(AXIS_LINE_WIDTH);
+
+    if (IsMouseButtonReleased(MOUSE_LEFT_BUTTON)) {
+        endDrag();
+    }
+}
+
+void Gizmo::endFrame() {
+    rlDrawRenderBatchActive();
+    rlSetLineWidth(DEFAULT_LINE_WIDTH);
+}
+
+void Gizmo::updateAndDraw(Type type, Vector3& objPosition, Vector3& objScale, Quaternion& objRotation, const LitCamera& camera, const Rectangle& viewport) {
+    const Vector2 mousePosition = GetMousePosition();
+    const Vector2 relativeMousePos = {
+        .x = mousePosition.x - viewport.x,
+        .y = mousePosition.y - viewport.y
+    };
+    const Ray mouseRay = GetScreenToWorldRayEx(relativeMousePos, camera, viewport.width, viewport.height);
+
+    switch (type) {
+        case Type::Position:
+            updateState(Type::Position, objPosition, objPosition, camera, mouseRay);
+            drawPositionGizmo(objPosition, camera);
+            break;
+        case Type::Scale:
+            updateState(Type::Scale, objScale, objPosition, camera, mouseRay);
+            drawScaleGizmo(objPosition, camera);
+            objScale.x = std::max(MINIMUM_LEGAL_SCALE, objScale.x);
+            objScale.y = std::max(MINIMUM_LEGAL_SCALE, objScale.y);
+            objScale.z = std::max(MINIMUM_LEGAL_SCALE, objScale.z);
+            break;
+        case Type::Rotation:
+            updateRotationState(objRotation, objPosition, camera, mouseRay);
+            drawRotationGizmo(objPosition, objRotation, camera);
+            break;
+    }
+}
+
+void Gizmo::updateState(Type type, Vector3& targetValue, const Vector3& gizmoPosition, const LitCamera& camera, const Ray& mouseRay) {
+    if (m_dragContextType.has_value() && m_dragContextType.value() != type) {
+        m_hoveredAxis = -1;
         return;
     }
 
-    gizmo.rotation = rotation;
-    gizmo.axis = static_cast<GizmoAxis>(gizmoAxis);
-}
-
-void InitGizmo() {
-    for (int index = 0; index < NUM_GIZMO_POSITION; ++index) {
-        LoadGizmoModel(
-            gizmoPosition[index], {0}, "Assets/models/gizmo/arrow.obj",
-            (int)((index * 0.5) + 1), gizmoPositionOffsets[index].rotation);
-    }
-
-    LoadGizmoModel(gizmoRotation[0],
-                   LoadModelFromMesh(GenMeshSphere(1, 15, 15)), "", 0,
-                   {0, 0, 0});
-
-    for (int index = 0; index < NUM_GIZMO_SCALE; ++index) {
-        LoadGizmoModel(gizmoScale[index],
-                       LoadModelFromMesh(GenMeshCube(1, 1, 1)), "",
-                       (int)((index * 0.5) + 1), {0, 0, 0});
-    }
-}
-
-bool UpdateGizmoObjectProperties() {
-    if (selectedGameObjectType == "entity" && selectedEntity) {
-        selectedObjectPosition = selectedEntity->position;
-        selectedObjectScale = selectedEntity->scale;
-        selectedObjectRotation = selectedEntity->rotation;
-    } else if (selectedGameObjectType == "light" && selectedLight) {
-        selectedObjectPosition = glm3ToVec3(selectedLight->light.position);
-        selectedObjectScale = {1, 1, 1};
-        selectedObjectRotation = Vector3Multiply(
-            glm3ToVec3(selectedLight->light.direction), Vector3{360, 360, 360});
-    } else
-        return false; // Failure
-
-    return true; // Success
-}
-
-void UpdateGizmoProperties(const float& maxObjectScale = 0) {
-    constexpr float gizmoPositionOffset = 6.0f;
-    constexpr float gizmoScaleOffset = 2.0f;
-
-    gizmoPosition[0].position = {selectedObjectPosition.x + maxObjectScale + gizmoPositionOffset, selectedObjectPosition.y, selectedObjectPosition.z};
-    gizmoPosition[1].position = {selectedObjectPosition.x - maxObjectScale - gizmoPositionOffset, selectedObjectPosition.y, selectedObjectPosition.z};
-    gizmoPosition[2].position = {selectedObjectPosition.x, selectedObjectPosition.y + maxObjectScale + gizmoPositionOffset, selectedObjectPosition.z};
-    gizmoPosition[3].position = {selectedObjectPosition.x, selectedObjectPosition.y - maxObjectScale - gizmoPositionOffset, selectedObjectPosition.z};
-    gizmoPosition[4].position = {selectedObjectPosition.x, selectedObjectPosition.y, selectedObjectPosition.z + maxObjectScale + gizmoPositionOffset};
-    gizmoPosition[5].position = {selectedObjectPosition.x, selectedObjectPosition.y, selectedObjectPosition.z - maxObjectScale - gizmoPositionOffset};
-
-    gizmoScale[0].position = {selectedObjectPosition.x + maxObjectScale + gizmoScaleOffset, selectedObjectPosition.y, selectedObjectPosition.z};
-    gizmoScale[1].position = {selectedObjectPosition.x - maxObjectScale - gizmoScaleOffset, selectedObjectPosition.y, selectedObjectPosition.z};
-    gizmoScale[2].position = {selectedObjectPosition.x, selectedObjectPosition.y + maxObjectScale + gizmoScaleOffset, selectedObjectPosition.z};
-    gizmoScale[3].position = {selectedObjectPosition.x, selectedObjectPosition.y - maxObjectScale - gizmoScaleOffset, selectedObjectPosition.z};
-    gizmoScale[4].position = {selectedObjectPosition.x, selectedObjectPosition.y, selectedObjectPosition.z + maxObjectScale + gizmoScaleOffset};
-    gizmoScale[5].position = {selectedObjectPosition.x, selectedObjectPosition.y, selectedObjectPosition.z - maxObjectScale - gizmoScaleOffset};
-}
-
-void IsGizmoBeingInteracted(const Gizmo& gizmo, const int& index,
-                            int& selectedGizmoIndex) {
-    const ImGuiPayload* payload =
-        ImGui::GetDragDropPayload(); // Check if any payload is being dragged
-    if (dragging || payload || !ImGui::IsWindowHovered()) {
-        isHoveringGizmo = false;
-        return;
-    }
-
-    isHoveringGizmo = IsMouseHoveringModel(gizmo.model, gizmo.position,
-                                           gizmo.rotation, gizmo.scale);
-
-    if (isHoveringGizmo)
-        selectedGizmoIndex = index;
-}
-
-static float accumulatedDeltaX = 0.0f;
-static float accumulatedDeltaY = 0.0f;
-
-void SetGizmoVisibility(Gizmo& gizmo, const bool& isVisible) {
-    if (isVisible) {
-        gizmo.color.a = 255;
+    if (m_activeAxis != -1) {
+        if (IsMouseButtonDown(MOUSE_LEFT_BUTTON)) {
+            processDrag(targetValue, mouseRay);
+        }
     } else {
-        gizmo.color.a = 100;
-    }
-}
+        m_hoveredAxis = -1;
+        const float distanceToCamera = Vector3Distance(camera.position, gizmoPosition);
 
-void UpdateGizmoVisibilityAndScaling(Gizmo& gizmo, const Camera& camera) {
-    Vector3 camToGizmo = Vector3Subtract(gizmo.position, camera.position);
-    float distance = Vector3Length(camToGizmo);
+        if (type == Type::Position) {
+            const float gizmoLength = std::max(distanceToCamera * LENGTH_SCALE, MIN_LENGTH);
+            const float handleSize = std::max(distanceToCamera * HANDLE_SCALE, MIN_HANDLE_SIZE);
+            const float coneHeight = 2.0f * std::max(distanceToCamera * HANDLE_SCALE, MIN_HANDLE_SIZE);
 
-    gizmo.scale = {distance * 0.05f, distance * 0.05f, distance * 0.05f};
-
-    bool isVisible = (distance < 50.0f || isHoveringGizmo);
-    SetGizmoVisibility(gizmo, isVisible);
-}
-
-bool HandleGizmo(bool& draggingGizmoProperty, Vector3& selectedObjectProperty,
-                 const GizmoAxis& axis,
-                 const bool& applyMinimumConstraint) {
-    if (!IsMouseButtonDown(MOUSE_LEFT_BUTTON)) {
-        accumulatedDeltaX = accumulatedDeltaY = 0.0f;
-        draggingGizmoProperty = false;
-        dragging = false;
-        return false;
-    }
-
-    if (isHoveringGizmo && !dragging) {
-        mouseDragStart = GetMousePosition();
-        draggingGizmoProperty = true;
-        dragging = true;
-    }
-
-    if (draggingGizmoProperty) {
-        Vector2 mouseDragEnd = GetMousePosition();
-        float deltaX =
-            (mouseDragEnd.x - mouseDragStart.x) * gizmoDragSensitivityFactor;
-        float deltaY =
-            (mouseDragEnd.y - mouseDragStart.y) * gizmoDragSensitivityFactor;
-
-        accumulatedDeltaX += deltaX;
-        accumulatedDeltaY += deltaY;
-
-        Vector3 cameraDirection = Vector3Normalize(
-            Vector3Subtract(sceneCamera.position, selectedObjectProperty));
-
-        switch (axis) {
-        case GizmoAxis::X_AXIS:
-            if (cameraDirection.z > 0) {
-                accumulatedDeltaX = -accumulatedDeltaX;
-                deltaX = -deltaX;
+            for (int i = 0; i < AXIS_COUNT; ++i) {
+                const Vector3 endPosition = Vector3Add(gizmoPosition, Vector3Scale(AXIS_DIRECTIONS[i * 2], gizmoLength));
+                if (isPositionAxisHovered(mouseRay, gizmoPosition, endPosition, handleSize + coneHeight)) {
+                    m_hoveredAxis = i * 2;
+                    break;
+                }
             }
-            if (!gridSnappingEnabled) {
-                selectedObjectProperty.x += deltaX;
-            } else if (fabs(accumulatedDeltaX) >= gridSnappingFactor) {
-                selectedObjectProperty.x -=
-                    round(accumulatedDeltaX / gridSnappingFactor) *
-                    gridSnappingFactor;
-                accumulatedDeltaX = 0.0f;
-            }
-            break;
-
-        case GizmoAxis::Y_AXIS:
-            if (!gridSnappingEnabled) {
-                selectedObjectProperty.y += deltaY;
-            } else if (fabs(accumulatedDeltaY) >= gridSnappingFactor) {
-                selectedObjectProperty.y -=
-                    round(accumulatedDeltaY / gridSnappingFactor) *
-                    gridSnappingFactor;
-                accumulatedDeltaY = 0.0f;
-            }
-            break;
-
-        case GizmoAxis::Z_AXIS:
-            if (cameraDirection.x > 0) {
-                accumulatedDeltaX = -accumulatedDeltaX;
-                deltaX = -deltaX;
-            }
-            if (!gridSnappingEnabled) {
-                selectedObjectProperty.z += (deltaX + deltaY);
-            } else if (fabs(accumulatedDeltaX + accumulatedDeltaY) >=
-                       gridSnappingFactor) {
-                selectedObjectProperty.z +=
-                    round((accumulatedDeltaX + accumulatedDeltaY) /
-                          gridSnappingFactor) *
-                    gridSnappingFactor;
-                accumulatedDeltaX = accumulatedDeltaY = 0.0f;
-            }
-            break;
-        }
-
-        if (applyMinimumConstraint) {
-            if (selectedObjectProperty.x < 0.0f)
-                selectedObjectProperty.x = 0.0f;
-            if (selectedObjectProperty.y < 0.0f)
-                selectedObjectProperty.y = 0.0f;
-            if (selectedObjectProperty.z < 0.0f)
-                selectedObjectProperty.z = 0.0f;
-        }
-
-        mouseDragStart = mouseDragEnd;
-    }
-
-    return true;
-}
-
-void DrawGizmo(Gizmo& gizmo, const bool& wireframe,
-               const bool& applyRotation) {
-    if (dragging) {
-        Ray ray;
-        Color rayColor;
-
-        ray.position = gizmo.position;
-
-        if (gizmo.axis == GizmoAxis::X_AXIS) {
-            rayColor = RED;
-            ray.direction = Vector3{1, 0, 0};
-        } else if (gizmo.axis == GizmoAxis::Y_AXIS) {
-            rayColor = BLUE;
-            ray.direction = Vector3{0, 1, 0};
-        } else if (gizmo.axis == GizmoAxis::Z_AXIS) {
-            rayColor = GREEN;
-            ray.direction = Vector3{0, 0, 1};
-        }
-
-        DrawRay(ray, rayColor);
-    }
-
-    Matrix rotationMat = MatrixRotateXYZ({
-        DEG2RAD *
-            (gizmo.rotation.x + (applyRotation ? selectedObjectRotation.x : 0)),
-        DEG2RAD *
-            (gizmo.rotation.y + (applyRotation ? selectedObjectRotation.y : 0)),
-        DEG2RAD * (gizmo.rotation.z +
-                   (applyRotation ? selectedObjectRotation.z : 0))});
-
-    UpdateGizmoVisibilityAndScaling(gizmo, sceneCamera);
-
-    Matrix transformMatrix = MatrixIdentity();
-    transformMatrix = MatrixMultiply(
-        transformMatrix,
-        MatrixScale(gizmo.scale.x, gizmo.scale.y, gizmo.scale.z));
-    transformMatrix = MatrixMultiply(transformMatrix, rotationMat);
-    transformMatrix = MatrixMultiply(
-        transformMatrix,
-        MatrixTranslate(gizmo.position.x, gizmo.position.y, gizmo.position.z));
-
-    gizmo.model.transform = transformMatrix;
-
-    if (wireframe)
-        DrawModelWires(gizmo.model, Vector3Zero(), 1, gizmo.color);
-    else
-        DrawModel(gizmo.model, Vector3Zero(), 1, gizmo.color);
-}
-
-void DrawGizmos() {
-    bool entitySelected =
-        (selectedGameObjectType == "entity" && selectedEntity);
-    bool lightSelected = (selectedGameObjectType == "light" && selectedLight);
-    if (entitySelected || lightSelected) {
-        if (!dragging || draggingPositionGizmo) {
-            for (int index = 0; index < NUM_GIZMO_POSITION; ++index) {
-                if (index == selectedPositionGizmo || !draggingPositionGizmo)
-                    DrawGizmo(gizmoPosition[index]);
-            }
-        }
-
-        if (entitySelected) {
-            if (!dragging || draggingScaleGizmo) {
-                for (int index = 0; index < NUM_GIZMO_POSITION; ++index) {
-                    if (index == selectedScaleGizmo || !draggingScaleGizmo)
-                        DrawGizmo(gizmoScale[index]);
+        } else if (type == Type::Scale) {
+            const float gizmoOffset = std::max(distanceToCamera * SCALE_GIZMO_OFFSET_SCALE, MIN_SCALE_GIZMO_OFFSET);
+            const float handleSize = std::max(distanceToCamera * SCALE_HANDLE_SIZE_SCALE, MIN_SCALE_HANDLE_SIZE);
+            for (int i = 0; i < AXIS_COUNT; ++i) {
+                const Vector3 handlePosition = Vector3Add(gizmoPosition, Vector3Scale(AXIS_DIRECTIONS[i * 2], gizmoOffset));
+                if (isScaleHandleHovered(mouseRay, handlePosition, handleSize)) {
+                    m_hoveredAxis = i * 2;
+                    break;
                 }
             }
         }
 
-        if (!dragging || draggingRotationGizmo)
-            DrawGizmo(gizmoRotation[0], true, true);
+        if (m_hoveredAxis != -1 && IsMouseButtonPressed(MOUSE_LEFT_BUTTON) && !m_dragContextType.has_value()) {
+            beginDrag(type, mouseRay, targetValue, gizmoPosition, camera);
+        }
     }
+
+    gizmoActive = m_activeAxis != -1;
 }
 
-void GizmoPosition() {
-    if (!UpdateGizmoObjectProperties())
+void Gizmo::updateRotationState(Quaternion& targetRotation, const Vector3& gizmoPosition, const LitCamera& camera, const Ray& mouseRay) {
+    if (m_dragContextType.has_value() && m_dragContextType.value() != Type::Rotation) {
+        m_hoveredAxis = -1;
         return;
-    float maxObjectScale = 1.0f;
-    if (selectedGameObjectType == "entity" && selectedEntity)
-        maxObjectScale = std::max(std::max(std::abs(selectedEntity->scale.x),
-                                           std::abs(selectedEntity->scale.y)),
-                                  std::abs(selectedEntity->scale.z)) /
-                             2 +
-                         3;
-
-    UpdateGizmoProperties(maxObjectScale);
-
-    for (int index = 0; index < NUM_GIZMO_POSITION; index++) {
-        Color color = gizmoPositionColorsUnselected[index];
-        IsGizmoBeingInteracted(gizmoPosition[index], index,
-                               selectedPositionGizmo);
-        if (isHoveringGizmo)
-            color = gizmoPositionColorsSelected[index];
-
-        if (!draggingPositionGizmo ||
-            (draggingPositionGizmo && selectedPositionGizmo == index)) {
-            if (!HandleGizmo(draggingPositionGizmo, selectedObjectPosition,
-                             gizmoPosition[index].axis) &&
-                !isHoveringGizmo)
-                draggingPositionGizmo =
-                    false; // Reset draggingPositionGizmo if not interacting
-        }
-
-        gizmoPosition[index].color = color;
     }
 
-    if (selectedGameObjectType == "entity" && selectedEntity != nullptr) {
-        selectedEntity->position = selectedObjectPosition;
-        if (selectedEntity->getFlag(Entity::Flag::IS_CHILD) && selectedEntity->parent &&
-            selectedEntity->getFlag(Entity::Flag::INITIALIZED)) {
-            selectedEntity->relativePosition = Vector3Subtract(
-                selectedEntity->position, selectedEntity->parent->position);
+    if (m_activeAxis != -1) {
+        if (IsMouseButtonDown(MOUSE_LEFT_BUTTON)) {
+            processRotationDrag(targetRotation, gizmoPosition, camera);
         }
-    } else if (selectedGameObjectType == "light" && selectedLight) {
-        selectedLight->light.position = vec3ToGlm3(selectedObjectPosition);
-        if (selectedLight->isChild) {
-            selectedLight->lightInfo.relativePosition =
-                glm::vec3(selectedLight->light.position.x -
-                              selectedLight->parent->position.x,
-                          selectedLight->light.position.y -
-                              selectedLight->parent->position.y,
-                          selectedLight->light.position.z -
-                              selectedLight->parent->position.z);
+    } else {
+        m_hoveredAxis = -1;
+        const float distanceToCamera = Vector3Distance(camera.position, gizmoPosition);
+        const float radius = std::max(distanceToCamera * ROTATION_RADIUS_SCALE, MIN_ROTATION_RADIUS);
+        const float trackballRadius = radius + 0.1 * distanceToCamera;
+        const float ringThickness = radius * ROTATION_RING_THICKNESS;
+
+        for (int i = 0; i < AXIS_COUNT + 1; ++i) {
+            if (i == TRACKBALL_AXIS_INDEX && !trackBallEnabled) continue;
+
+            Vector3 axis;
+            if (i < AXIS_COUNT) {
+                axis = ROTATION_AXES[i];
+            } else {
+                axis = Vector3Normalize(Vector3Subtract(camera.position, gizmoPosition));
+            }
+
+            if (isRotationHandleHovered(mouseRay, gizmoPosition, axis, (i == TRACKBALL_AXIS_INDEX) ? trackballRadius : radius, ringThickness)) {
+                m_hoveredAxis = i;
+                break;
+            }
+        }
+
+        if (m_hoveredAxis != -1 && IsMouseButtonPressed(MOUSE_LEFT_BUTTON) && !m_dragContextType.has_value()) {
+            beginRotationDrag(mouseRay, targetRotation, gizmoPosition, camera);
+        }
+    }
+
+    gizmoActive = m_activeAxis != -1;
+}
+
+void Gizmo::beginDrag(Type type, const Ray& mouseRay, const Vector3& currentTargetValue, const Vector3& gizmoPosition, const LitCamera& camera) {
+    m_dragContextType = type;
+    m_activeAxis = m_hoveredAxis;
+    m_startDragValue = currentTargetValue;
+
+    const Vector3 dragAxis = AXIS_DIRECTIONS[m_activeAxis];
+    const Vector3 camToObject = Vector3Subtract(gizmoPosition, camera.position);
+    Vector3 planeBasis = Vector3CrossProduct(camToObject, dragAxis);
+    if (Vector3LengthSqr(planeBasis) < GIZMO_INTERSECTION_EPSILON * GIZMO_INTERSECTION_EPSILON) {
+        Vector3 up = {0.0f, 1.0f, 0.0f};
+        if (std::abs(Vector3DotProduct(dragAxis, up)) > PARALLEL_DOT_PRODUCT_THRESHOLD) up = {1.0f, 0.0f, 0.0f};
+        planeBasis = Vector3CrossProduct(dragAxis, up);
+    }
+    m_dragPlaneNormal = Vector3Normalize(Vector3CrossProduct(planeBasis, dragAxis));
+    const float rayPlaneDot = Vector3DotProduct(m_dragPlaneNormal, mouseRay.direction);
+    if (std::abs(rayPlaneDot) > GIZMO_INTERSECTION_EPSILON) {
+        const float t = Vector3DotProduct(Vector3Subtract(gizmoPosition, mouseRay.position), m_dragPlaneNormal) / rayPlaneDot;
+        m_initialIntersectionPoint = Vector3Add(mouseRay.position, Vector3Scale(mouseRay.direction, t));
+    } else {
+        m_initialIntersectionPoint = gizmoPosition;
+    }
+}
+
+void Gizmo::beginRotationDrag(const Ray& mouseRay, const Quaternion& currentRotation, const Vector3& gizmoPosition, const LitCamera& camera) {
+    m_dragContextType = Type::Rotation;
+    m_activeAxis = m_hoveredAxis;
+    m_startDragRotation = currentRotation;
+    m_startDragMousePos = GetMousePosition();
+
+    m_startDragEuler = GetContinuousEulerFromQuaternion(currentRotation, m_startDragEuler);
+
+    if (m_activeAxis < AXIS_COUNT) {
+        m_dragPlaneNormal = ROTATION_AXES[m_activeAxis];
+    } else if (trackBallEnabled) {
+        m_dragPlaneNormal = Vector3Normalize(Vector3Subtract(camera.position, gizmoPosition));
+    }
+
+    const float rayPlaneDot = Vector3DotProduct(m_dragPlaneNormal, mouseRay.direction);
+    if (std::abs(rayPlaneDot) > GIZMO_INTERSECTION_EPSILON) {
+        const float t = Vector3DotProduct(Vector3Subtract(gizmoPosition, mouseRay.position), m_dragPlaneNormal) / rayPlaneDot;
+        m_initialIntersectionPoint = Vector3Add(mouseRay.position, Vector3Scale(mouseRay.direction, t));
+    } else {
+        m_initialIntersectionPoint = gizmoPosition;
+    }
+}
+
+void Gizmo::processDrag(Vector3& targetValue, const Ray& mouseRay) {
+    const float rayPlaneDot = Vector3DotProduct(m_dragPlaneNormal, mouseRay.direction);
+    if (std::abs(rayPlaneDot) <= GIZMO_INTERSECTION_EPSILON) return;
+
+    const float t = Vector3DotProduct(Vector3Subtract(m_initialIntersectionPoint, mouseRay.position), m_dragPlaneNormal) / rayPlaneDot;
+    const Vector3 currentIntersection = Vector3Add(mouseRay.position, Vector3Scale(mouseRay.direction, t));
+    const Vector3 planeDisplacement = Vector3Subtract(currentIntersection, m_initialIntersectionPoint);
+    const Vector3 dragAxis = AXIS_DIRECTIONS[m_activeAxis];
+    const Vector3 projectedDisplacement = Vector3Scale(dragAxis, Vector3DotProduct(planeDisplacement, dragAxis));
+    targetValue = Vector3Add(m_startDragValue, projectedDisplacement);
+
+    if (gridSnappingEnabled) {
+        if (m_dragContextType.has_value()) {
+            if (m_dragContextType.value() == Type::Position) {
+                targetValue.x = roundf(targetValue.x / gridSnappingFactor) * gridSnappingFactor;
+                targetValue.y = roundf(targetValue.y / gridSnappingFactor) * gridSnappingFactor;
+                targetValue.z = roundf(targetValue.z / gridSnappingFactor) * gridSnappingFactor;
+            } else if (m_dragContextType.value() == Type::Scale) {
+                Vector3 scaleFactor = Vector3Subtract(targetValue, m_startDragValue);
+                scaleFactor.x = roundf(scaleFactor.x / gridSnappingFactor) * gridSnappingFactor;
+                scaleFactor.y = roundf(scaleFactor.y / gridSnappingFactor) * gridSnappingFactor;
+                scaleFactor.z = roundf(scaleFactor.z / gridSnappingFactor) * gridSnappingFactor;
+                targetValue = Vector3Add(m_startDragValue, scaleFactor);
+            }
         }
     }
 }
 
-void GizmoScale() {
-    if (!UpdateGizmoObjectProperties())
-        return;
+void Gizmo::processRotationDrag(Quaternion& targetRotation, const Vector3& gizmoPosition, const LitCamera& camera) {
+    if (m_activeAxis < AXIS_COUNT) {
+        Ray mouseRay = GetMouseRay(GetMousePosition(), camera);
+        const float rayPlaneDot = Vector3DotProduct(m_dragPlaneNormal, mouseRay.direction);
+        if (std::abs(rayPlaneDot) <= GIZMO_INTERSECTION_EPSILON) return;
 
-    float maxObjectScale;
-    selectedObjectPosition = selectedEntity->position;
-    maxObjectScale = std::max(std::max(std::abs(selectedEntity->scale.x),
-                                       std::abs(selectedEntity->scale.y)),
-                              std::abs(selectedEntity->scale.z)) /
-                         2 +
-                     3;
-    selectedObjectScale = selectedEntity->scale;
+        const float t = Vector3DotProduct(Vector3Subtract(gizmoPosition, mouseRay.position), m_dragPlaneNormal) / rayPlaneDot;
+        Vector3 currentIntersection = Vector3Add(mouseRay.position, Vector3Scale(mouseRay.direction, t));
 
-    UpdateGizmoProperties(maxObjectScale);
+        Vector3 startVec = Vector3Normalize(Vector3Subtract(m_initialIntersectionPoint, gizmoPosition));
+        Vector3 currentVec = Vector3Normalize(Vector3Subtract(currentIntersection, gizmoPosition));
 
-    for (int cubeIndex = 0; cubeIndex < NUM_GIZMO_SCALE; cubeIndex++) {
-        Color color = {0, 100, 0, 255};
+        float angleRad = Vector3Angle(startVec, currentVec);
+        Vector3 cross = Vector3CrossProduct(startVec, currentVec);
 
-        IsGizmoBeingInteracted(gizmoScale[cubeIndex], cubeIndex,
-                               selectedScaleGizmo);
-        if (isHoveringGizmo)
-            color = {0, 150, 0, 255};
-        if (!draggingScaleGizmo ||
-            (draggingScaleGizmo && selectedScaleGizmo == cubeIndex)) {
-            if (!HandleGizmo(draggingScaleGizmo, selectedObjectScale,
-                             gizmoScale[cubeIndex].axis, true) &&
-                !isHoveringGizmo)
-                draggingScaleGizmo =
-                    false; // Reset draggingScaleGizmo if the left mouse button
-                           // isn't pressed or the gizmo isn't hovered
+        if (Vector3DotProduct(m_dragPlaneNormal, cross) < 0) {
+            angleRad = -angleRad;
         }
-        gizmoScale[cubeIndex].color = color;
+
+        Vector3 euler = m_startDragEuler;
+        float angleDeg = angleRad * RAD2DEG;
+
+        if (m_activeAxis == 0)      euler.x += angleDeg;
+        else if (m_activeAxis == 1) euler.y += angleDeg;
+        else if (m_activeAxis == 2) euler.z += angleDeg;
+
+        euler.x = NormalizeDegrees(euler.x);
+        euler.z = NormalizeDegrees(euler.z);
+        euler.y = std::clamp(euler.y, -GIMBAL_LOCK_PITCH_LIMIT, GIMBAL_LOCK_PITCH_LIMIT);
+
+        targetRotation = QuaternionFromEuler(euler);
+    } else if (trackBallEnabled) {
+        Vector2 mouseDelta = Vector2Subtract(GetMousePosition(), m_startDragMousePos);
+        m_startDragMousePos = GetMousePosition();
+
+        constexpr float rotationSpeed = 0.004f;
+        Quaternion rotX = QuaternionFromAxisAngle(camera.up, -mouseDelta.x * rotationSpeed);
+        Quaternion rotY = QuaternionFromAxisAngle(camera.right, -mouseDelta.y * rotationSpeed);
+
+        Quaternion untrustedRotation = QuaternionMultiply(rotX, targetRotation);
+        untrustedRotation = QuaternionMultiply(rotY, untrustedRotation);
+
+        Vector3 lastEuler = GetContinuousEulerFromQuaternion(targetRotation, m_startDragEuler);
+        Vector3 newEuler = GetContinuousEulerFromQuaternion(untrustedRotation, lastEuler);
+
+        newEuler.y = std::clamp(newEuler.y, -GIMBAL_LOCK_PITCH_LIMIT, GIMBAL_LOCK_PITCH_LIMIT);
+
+        targetRotation = QuaternionFromEuler(newEuler);
+        m_startDragEuler = newEuler;
+    }
+}
+
+void Gizmo::endDrag() noexcept {
+    m_dragContextType.reset();
+    m_activeAxis = -1;
+}
+
+[[nodiscard]] bool Gizmo::isPositionAxisHovered(const Ray& mouseRay, const Vector3& start, const Vector3& end, float handleSize) const {
+    constexpr float SHAFT_THICKNESS_SCALE = 0.5f;
+    const float shaftThickness = handleSize * SHAFT_THICKNESS_SCALE;
+    const float handleHalfSize = handleSize * SHAFT_THICKNESS_SCALE;
+    const BoundingBox handleBBox = { Vector3SubtractValue(end, handleHalfSize), Vector3AddValue(end, handleHalfSize) };
+    const BoundingBox shaftBBox = {
+        { std::min(start.x, end.x) - shaftThickness, std::min(start.y, end.y) - shaftThickness, std::min(start.z, end.z) - shaftThickness },
+        { std::max(start.x, end.x) + shaftThickness, std::max(start.y, end.y) + shaftThickness, std::max(start.z, end.z) + shaftThickness }
+    };
+    return GetRayCollisionBox(mouseRay, handleBBox).hit || GetRayCollisionBox(mouseRay, shaftBBox).hit;
+}
+
+[[nodiscard]] bool Gizmo::isScaleHandleHovered(const Ray& mouseRay, const Vector3& handlePosition, float handleSize) const {
+    const float handleHalfSize = handleSize * 0.5f;
+    const BoundingBox handleBBox = { Vector3SubtractValue(handlePosition, handleHalfSize), Vector3AddValue(handlePosition, handleHalfSize) };
+    return GetRayCollisionBox(mouseRay, handleBBox).hit;
+}
+
+[[nodiscard]] bool Gizmo::isRotationHandleHovered(const Ray& mouseRay, const Vector3& center, const Vector3& axis, float radius, float thickness) const {
+    const float innerRadius = radius - (thickness / 2.0f);
+    const float outerRadius = radius + (thickness / 2.0f);
+
+    Vector3 up = {0.0f, 1.0f, 0.0f};
+
+    if (std::abs(Vector3DotProduct(axis, up)) > PARALLEL_DOT_PRODUCT_THRESHOLD) {
+        up = {1.0f, 0.0f, 0.0f};
     }
 
-    selectedEntity->scale = selectedObjectScale;
+    const Vector3 right = Vector3Normalize(Vector3CrossProduct(axis, up));
+    const Vector3 localUp = Vector3Normalize(Vector3CrossProduct(right, axis));
+
+    for (int i = 0; i < segments; ++i) {
+        const float angle1 = ((float)i / segments) * 2.0f * PI;
+        const float angle2 = ((float)(i + 1) / segments) * 2.0f * PI;
+
+        const Vector3 dir1 = Vector3Add(Vector3Scale(right, cosf(angle1)), Vector3Scale(localUp, sinf(angle1)));
+        const Vector3 dir2 = Vector3Add(Vector3Scale(right, cosf(angle2)), Vector3Scale(localUp, sinf(angle2)));
+
+        const Vector3 p1 = Vector3Add(center, Vector3Scale(dir1, outerRadius));
+        const Vector3 p2 = Vector3Add(center, Vector3Scale(dir1, innerRadius));
+        const Vector3 p3 = Vector3Add(center, Vector3Scale(dir2, innerRadius));
+        const Vector3 p4 = Vector3Add(center, Vector3Scale(dir2, outerRadius));
+
+        if (GetRayCollisionQuad(mouseRay, p1, p2, p3, p4).hit) {
+            return true;
+        }
+    }
+
+    return false;
 }
 
-void ApplyRotationConstraints(Vector3& rotationDelta,
-                              const Vector3& gizmoRotationDeltaPrevious,
-                              const bool& lockX, const bool& lockY,
-                              const bool& lockZ) {
-    if (lockX)
-        rotationDelta.x = gizmoRotationDeltaPrevious.x;
-    if (lockY)
-        rotationDelta.y = gizmoRotationDeltaPrevious.y;
-    if (lockZ)
-        rotationDelta.z = gizmoRotationDeltaPrevious.z;
+void Gizmo::drawPositionAxis(const Vector3& start, const Vector3& end, const Vector3& direction, float coneHeight, const Color& color) {
+    DrawLine3D(start, end, color);
+
+    const float startRadius = coneHeight * 0.5f;
+    const Vector3 coneTip = Vector3Add(end, Vector3Scale(direction, coneHeight));
+
+    DrawCylinderEx(end, coneTip, startRadius, 0.0f, 12, color);
 }
 
-void GizmoRotation() {
-    if (!UpdateGizmoObjectProperties())
-        return;
+void Gizmo::drawScaleHandle(const Vector3& position, float sideLength, const Color& color) {
+    DrawCube(position, sideLength, sideLength, sideLength, color);
+}
 
-    float maxObjectScale = (selectedGameObjectType == "entity")
-                               ? std::max({std::abs(selectedEntity->scale.x),
-                                           std::abs(selectedEntity->scale.y),
-                                           std::abs(selectedEntity->scale.z)}) /
-                                         2 +
-                                     3
-                               : 3;
-    Gizmo& torus = gizmoRotation[0];
+void Gizmo::drawPositionGizmo(const Vector3& position, const LitCamera& camera) const {
+    const float distance = Vector3Distance(camera.position, position);
+    const float length = std::max(distance * LENGTH_SCALE, MIN_LENGTH);
+    const float coneHeight = 2.0f * std::max(distance * HANDLE_SCALE, MIN_HANDLE_SIZE);
 
-    torus.scale = {maxObjectScale, maxObjectScale, maxObjectScale};
-    torus.position = selectedObjectPosition;
+    for (int index = 0; index < AXIS_COUNT; ++index) {
+        const int direction = index * 2;
+        const bool active = (m_dragContextType.value_or(Type::Position) == Type::Position) &&
+                      (direction == m_activeAxis || direction == m_hoveredAxis);
+        if (gizmoActive && !active) continue;
 
-    isHoveringGizmo = IsMouseHoveringModel(torus.model, torus.position,
-                                           torus.rotation, torus.scale);
+        const Vector3 end = Vector3Add(position, Vector3Scale(AXIS_DIRECTIONS[direction], length));
+        drawPositionAxis(position, end, AXIS_DIRECTIONS[direction], coneHeight, active ? AXIS_HIGHLIGHT_COLORS[index] : AXIS_BASE_COLORS[index]);
+    }
+}
 
-    Color color = !dragging && ImGui::IsWindowHovered
-                      ? isHoveringGizmo ? Color{150, 150, 150, 255}
-                                        : Color{100, 100, 100, 120}
-                      : Color{100, 0, 0, 120};
+void Gizmo::drawScaleGizmo(const Vector3& position, const LitCamera& camera) const {
+    const float distanceToCamera = Vector3Distance(camera.position, position);
+    const float gizmoOffset = std::max(distanceToCamera * SCALE_GIZMO_OFFSET_SCALE, MIN_SCALE_GIZMO_OFFSET);
+    const float handleSize  = std::max(distanceToCamera * SCALE_HANDLE_SIZE_SCALE, MIN_SCALE_HANDLE_SIZE);
 
-    torus.color = color;
+    for (int index = 0; index < AXIS_COUNT; ++index) {
+        const int direction = index * 2;
+        const bool active = (m_dragContextType.value_or(Type::Scale) == Type::Scale) &&
+                      (direction == m_activeAxis || direction == m_hoveredAxis);
+        if (gizmoActive && !active) continue;
 
-    if (ImGui::IsWindowHovered() && IsMouseButtonDown(MOUSE_LEFT_BUTTON)) {
-        if (isHoveringGizmo && !dragging) {
-            mouseDragStart = GetMousePosition();
-            draggingRotationGizmo = true;
-            dragging = true;
-        }
+        const Color gizmoColor = active ? AXIS_HIGHLIGHT_COLORS[index] : AXIS_BASE_COLORS[index];
+        const Vector3 scaleGizmoPosition = Vector3Add(position, Vector3Scale(AXIS_DIRECTIONS[direction], gizmoOffset));
+        drawScaleHandle(scaleGizmoPosition, handleSize, gizmoColor);
+    }
+}
 
-        if (draggingRotationGizmo) {
-            Vector2 mouseDragEnd = GetMousePosition();
-            Vector3 gizmoRotationDeltaPrevious = gizmoRotationDelta;
+void Gizmo::drawRotationGizmo(const Vector3& position, const Quaternion& rotation, const LitCamera& camera) const {
+    const float distanceToCamera = Vector3Distance(camera.position, position);
+    const float radius = std::max(distanceToCamera * ROTATION_RADIUS_SCALE, MIN_ROTATION_RADIUS);
+    const float trackballRadius = radius + 0.1 * distanceToCamera;
+    const Vector3 defaultCircleNormal = {0.0f, 0.0f, 1.0f};
 
-            gizmoRotationDelta =
-                Vector3Transform({-(mouseDragEnd.y - mouseDragStart.y) *
-                                      gizmoDragSensitivityFactor,
-                                  -(mouseDragEnd.x - mouseDragStart.x) *
-                                      gizmoDragSensitivityFactor,
-                                  0.0f},
-                                 QuaternionToMatrix({
-                                     sceneCamera.front.x, sceneCamera.front.y,
-                                     sceneCamera.front.z, 0}));
+    for (int i = 0; i < AXIS_COUNT; ++i) {
+        const bool active = (m_dragContextType.value_or(Type::Rotation) == Type::Rotation) && (i == m_activeAxis || i == m_hoveredAxis);
+        if (gizmoActive && !active) continue;
 
-            if (IsKeyPressed(KEY_X))
-                lockRotationX = !lockRotationX;
-            if (IsKeyPressed(KEY_Y))
-                lockRotationY = !lockRotationY;
-            if (IsKeyPressed(KEY_Z))
-                lockRotationZ = !lockRotationZ;
+        const Color ringColor = active ? AXIS_HIGHLIGHT_COLORS[i] : AXIS_BASE_COLORS[i];
+        DrawCircle3D(position, radius, ROTATION_DIRECTIONS[i], 90, ringColor);
+    }
 
-            ApplyRotationConstraints(gizmoRotationDelta,
-                                     gizmoRotationDeltaPrevious, lockRotationX,
-                                     lockRotationY, lockRotationZ);
+    const int trackballAxis = AXIS_COUNT;
+    const bool isTrackballActive = (m_dragContextType.value_or(Type::Rotation) == Type::Rotation) && (trackballAxis == m_activeAxis || trackballAxis == m_hoveredAxis);
+    if ((!trackBallEnabled) || (gizmoActive && !isTrackballActive)) return;
 
-            selectedObjectRotation = {
-                fmod(selectedObjectRotation.x + gizmoRotationDelta.x, 360.0f),
-                fmod(selectedObjectRotation.y + gizmoRotationDelta.y, 360.0f),
-                fmod(selectedObjectRotation.z + gizmoRotationDelta.z, 360.0f)};
+    const Vector3 camDir = Vector3Normalize(Vector3Subtract(camera.position, position));
+    Vector3 trackballRotationAxis = Vector3CrossProduct(defaultCircleNormal, camDir);
+    float trackballRotationAngle = acosf(Vector3DotProduct(defaultCircleNormal, camDir)) * RAD2DEG;
 
-            mouseDragStart = mouseDragEnd;
-        }
-    } else
-        draggingRotationGizmo = false;
+    if (Vector3LengthSqr(trackballRotationAxis) < GIZMO_INTERSECTION_EPSILON) {
+        trackballRotationAxis = (Vector3DotProduct(defaultCircleNormal, camDir) > 0.0f) ?
+                            (Vector3){0.0f, 0.0f, 1.0f} :
+                            (Vector3){1.0f, 0.0f, 0.0f};
+        if (Vector3DotProduct(defaultCircleNormal, camDir) < 0.0f) trackballRotationAngle = 180.0f;
+    }
 
-    if (selectedGameObjectType == "entity")
-        selectedEntity->rotation = selectedObjectRotation;
-    else if (selectedGameObjectType == "light")
-        selectedLight->light.direction = {selectedObjectRotation.x / 360,
-                                          selectedObjectRotation.y / 360,
-                                          selectedObjectRotation.z / 360};
+    DrawCircle3D(position, trackballRadius, trackballRotationAxis, trackballRotationAngle, isTrackballActive ? YELLOW : WHITE);
+
+    if (m_dragContextType.value_or(Type::Position) == Type::Rotation && m_activeAxis == trackballAxis) {
+        DrawSphere(position, trackballRadius, {128, 128, 128, 50});
+    }
 }
