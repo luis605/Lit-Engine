@@ -236,8 +236,8 @@ void SceneEditor::ProcessGizmo() {
 
         editorGizmo.beginFrame();
         glDepthRange(0, 0.001);
-        editorGizmo.updateAndDraw(Gizmo::Type::Position, lightPosition, vec3zero, lightRotation, sceneCamera, viewportRectangle);
-        editorGizmo.updateAndDraw(Gizmo::Type::Rotation, lightPosition, vec3zero, lightRotation, sceneCamera, viewportRectangle);
+        editorGizmo.updateAndDraw(Gizmo::Type::Position, lightPosition, lightScale, lightRotation, sceneCamera, viewportRectangle);
+        editorGizmo.updateAndDraw(Gizmo::Type::Rotation, lightPosition, lightScale, lightRotation, sceneCamera, viewportRectangle);
         glDepthRange(0.001, 1.0);
         editorGizmo.endFrame();
 
