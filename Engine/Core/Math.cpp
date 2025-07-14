@@ -2,12 +2,12 @@
 #include <cmath>
 #include <array>
 
-inline float NormalizeDegrees(float deg) {
+float NormalizeDegrees(float deg) {
     const float remainder = fmod(deg, 360.0);
     return (remainder < 0) ? remainder + 360.0 : remainder;
 }
 
-inline float NormalizeDegreesHalf(float d) {
+float NormalizeDegreesHalf(float d) {
     d = fmodf(d + 180.0f, 360.0f);
     if (d < 0) d += 360.0f;
     d -= 180.0f;
@@ -16,7 +16,7 @@ inline float NormalizeDegreesHalf(float d) {
     return (d == 90.0f || d == -90.0f) ? std::copysignf(89.5f, d) : d;
 }
 
-inline float ShortestAngularDistance(float a, float b) {
+float ShortestAngularDistance(float a, float b) {
     float diff = fmod(b - a, 360.0);
     if (diff > 180.0) {
         diff -= 360.0;
