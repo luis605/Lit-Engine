@@ -425,8 +425,8 @@ void Gizmo::drawRotationGizmo(const Vector3& position, const Quaternion& rotatio
 
     if (Vector3LengthSqr(trackballRotationAxis) < GIZMO_INTERSECTION_EPSILON) {
         trackballRotationAxis = (Vector3DotProduct(defaultCircleNormal, camDir) > 0.0f) ?
-                            (Vector3){0.0f, 0.0f, 1.0f} :
-                            (Vector3){1.0f, 0.0f, 0.0f};
+                                {0.0f, 0.0f, 1.0f} :
+                                {1.0f, 0.0f, 0.0f};
         if (Vector3DotProduct(defaultCircleNormal, camDir) < 0.0f) trackballRotationAngle = 180.0f;
     }
 
