@@ -37,9 +37,9 @@ void DrawTextInNodeEditor(const char* label, bool isWarning) {
 std::vector<ed::PinId> GetConnectedInputPins(MaterialNodeSystem& nodeSystem, ed::PinId outputPinId) {
     std::vector<ed::PinId> connectedInputsId;
 
-    for (const auto& link : nodeSystem.m_Links) {
-        if (link.StartPinID == outputPinId) {
-            connectedInputsId.push_back(link.EndPinID);
+    for (const auto& [linkId, link] : nodeSystem.m_links) {
+        if (link.m_startPinId == outputPinId) {
+            connectedInputsId.push_back(link.m_endPinId);
         }
     }
 
@@ -50,11 +50,11 @@ std::vector<Pin*> FindConnectedPins(MaterialNodeSystem& nodeSystem,
                                     const Node& materialNode,
                                     const std::vector<Link>& links) {
     std::vector<Pin*> connectedPins;
-    for (const auto& pin : materialNode.Inputs) {
+    for (const auto& pinId : materialNode.m_inputs) {
         for (const auto& link : links) {
-            if (link.EndPinID == pin.ID) {
+            if (link.m_endPinId == pinId) {
                 // Find the corresponding pin from the start node
-                Pin* connectedPin = nodeSystem.FindPin(link.StartPinID);
+                Pin* connectedPin = nodeSystem.FindPin(link.m_startPinId);
                 if (connectedPin) {
                     connectedPins.push_back(connectedPin);
                 }
@@ -66,15 +66,15 @@ std::vector<Pin*> FindConnectedPins(MaterialNodeSystem& nodeSystem,
 
 int FindNodeByPinID(const std::vector<Node>& nodes, int pinID) {
     for (const auto& node : nodes) {
-        for (const auto& pin : node.Outputs) {
-            if (pin.ID.Get() == pinID) {
-                return node.ID.Get();
+        for (const auto& pinId : node.m_outputs) {
+            if (pinId.Get() == pinID) {
+                return node.m_id.Get();
             }
         }
 
-        for (const auto& pin : node.Inputs) {
-            if (pin.ID.Get() == pinID) {
-                return node.ID.Get();
+        for (const auto& pinId : node.m_inputs) {
+            if (pinId.Get() == pinID) {
+                return node.m_id.Get();
             }
         }
     }

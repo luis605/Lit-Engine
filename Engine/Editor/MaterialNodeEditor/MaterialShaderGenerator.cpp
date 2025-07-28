@@ -13,6 +13,7 @@ See the LICENSE file in the project root for full license information.
 #include <string>
 #include <optional>
 #include <functional>
+#include <sstream>
 
 namespace {
     enum MaterialProperty {
@@ -35,16 +36,15 @@ std::string GenerateMaterialShader(Entity& entity, ChildMaterial& material) {
         blueprintRef = std::ref(it->second);
     } else {
         TraceLog(LOG_ERROR, "Child Material does not inherit any blueprint.");
-        return {0};
+        return {};
     }
 
     MaterialBlueprint& blueprint = blueprintRef->get();
-
-    MaterialTree tree = MaterialTree::BuildTree(blueprint.nodeSystem.m_Nodes, blueprint.nodeSystem.m_Links);
+    MaterialTree tree = MaterialTree::BuildTree(blueprint.nodeSystem.m_nodes, blueprint.nodeSystem.m_links);
 
     if (!tree.root) {
         TraceLog(LOG_ERROR, "Material tree has no valid root node.");
-        return {0};
+        return {};
     }
 
     std::function<std::string(TreeNode*)> GenerateNodeShaderCode =
@@ -56,57 +56,71 @@ std::string GenerateMaterialShader(Entity& entity, ChildMaterial& material) {
 
         Node* node = blueprint.nodeSystem.FindNode(treeNode->GetId());
         if (!node) {
-            TraceLog(LOG_WARNING, "Null node encountered.");
+            TraceLog(LOG_WARNING, "Null blueprint node encountered.");
             return "vec4(0.0)";
         }
 
-        const std::string& hash = node->UUID;
-        switch (node->type) {
+        const std::string& hash = node->m_uuid;
+        switch (node->m_type) {
             case NodeType::Texture:
                 return "textureRGBA";
 
             case NodeType::Color: {
-                std::optional<ColorNode*> nodeData = material.GetNodeData<ColorNode>(hash);
+                auto nodeData = material.GetNodeData<ColorNode>(hash);
                 if (!nodeData) return "vec4(0.0)";
-                return std::string("vec4(" +
+                return "vec4(" +
                        std::to_string(nodeData.value()->color.Value.x) + ", " +
                        std::to_string(nodeData.value()->color.Value.y) + ", " +
                        std::to_string(nodeData.value()->color.Value.z) + ", " +
-                       std::to_string(nodeData.value()->color.Value.w) + ")");
+                       std::to_string(nodeData.value()->color.Value.w) + ")";
             }
 
             case NodeType::Slider: {
-                std::optional<SliderNode*> nodeData = material.GetNodeData<SliderNode>(hash);
+                auto nodeData = material.GetNodeData<SliderNode>(hash);
                 return nodeData ? std::to_string(nodeData.value()->value) : "0.0";
             }
 
             case NodeType::OneMinusX: {
-                auto inputNode = treeNode->GetInputs().begin()->second.front().nodeID;
-                return "1.0 - " + GenerateNodeShaderCode(tree.nodes[inputNode].get());
+                if (node->m_inputs.empty()) return "1.0";
+                const auto& inputs = treeNode->GetInputs();
+                auto pinIt = inputs.find(node->m_inputs[0].Get());
+                if (pinIt == inputs.end() || pinIt->second.empty()) return "1.0";
+
+                auto inputNodeId = pinIt->second.front().nodeID;
+                auto inputTreeNodeIt = tree.nodes.find(inputNodeId);
+                if (inputTreeNodeIt == tree.nodes.end()) return "1.0";
+
+                return "1.0 - " + GenerateNodeShaderCode(inputTreeNodeIt->second.get());
             }
 
             case NodeType::Multiply: {
-                auto inputIter = treeNode->GetInputs().begin();
-                auto input1NodeId = inputIter->second.front().nodeID;
-                auto input2NodeId = (++inputIter)->second.front().nodeID;
-                return "(" + GenerateNodeShaderCode(tree.nodes[input1NodeId].get()) +
-                       " * " + GenerateNodeShaderCode(tree.nodes[input2NodeId].get()) + ")";
+                if (node->m_inputs.size() < 2) return "0.0";
+                const auto& inputs = treeNode->GetInputs();
+
+                auto pinIt1 = inputs.find(node->m_inputs[0].Get());
+                auto pinIt2 = inputs.find(node->m_inputs[1].Get());
+
+                if (pinIt1 == inputs.end() || pinIt1->second.empty() ||
+                    pinIt2 == inputs.end() || pinIt2->second.empty()) {
+                    return "0.0";
+                }
+
+                auto input1NodeId = pinIt1->second.front().nodeID;
+                auto input2NodeId = pinIt2->second.front().nodeID;
+
+                auto inputTreeNodeIt1 = tree.nodes.find(input1NodeId);
+                auto inputTreeNodeIt2 = tree.nodes.find(input2NodeId);
+
+                if (inputTreeNodeIt1 == tree.nodes.end() || inputTreeNodeIt2 == tree.nodes.end()) return "0.0";
+
+                return "(" + GenerateNodeShaderCode(inputTreeNodeIt1->second.get()) +
+                       " * " + GenerateNodeShaderCode(inputTreeNodeIt2->second.get()) + ")";
             }
 
             default:
                 TraceLog(LOG_WARNING, "Unsupported node type.");
                 return "vec4(0.0)";
         }
-    };
-
-    auto ExtractConnections = [](TreeNode* node) -> std::vector<std::pair<int, Connection>> {
-        std::vector<std::pair<int, Connection>> connections;
-        for (const auto& [pinId, connList] : node->GetInputs()) {
-            for (const auto& conn : connList) {
-                connections.emplace_back(pinId, conn);
-            }
-        }
-        return connections;
     };
 
     std::function<std::string(TreeNode*, const ed::PinId&, const std::string&)>
@@ -117,27 +131,25 @@ std::string GenerateMaterialShader(Entity& entity, ChildMaterial& material) {
             return defaultCode;
         }
 
-        std::string accumulatedCode;
-        auto allConnections = ExtractConnections(treeNode);
+        const auto& inputs = treeNode->GetInputs();
+        auto pinIt = inputs.find(nodePinId.Get());
 
-        for (const auto& [pinId, conn] : allConnections) {
-            if ((nodePinId.Get() != -1) && (pinId != nodePinId.Get())) continue;
-
-            auto it = tree.nodes.find(conn.nodeID);
-            if (it == tree.nodes.end()) {
-                TraceLog(LOG_WARNING, "Node with ID %d not found.", conn.nodeID);
-                continue;
-            }
-
-            accumulatedCode += GenerateNodeShaderCode(it->second.get());
-            ProcessTreeNode(it->second.get(), ed::PinId(-1), "");
+        if (pinIt == inputs.end() || pinIt->second.empty()) {
+            return defaultCode;
         }
 
-        return accumulatedCode.empty() ? defaultCode : accumulatedCode;
+        const Connection& conn = pinIt->second.front();
+        auto connectedNodeIt = tree.nodes.find(conn.nodeID);
+        if (connectedNodeIt == tree.nodes.end()) {
+            TraceLog(LOG_WARNING, "Node with ID %d not found.", conn.nodeID);
+            return defaultCode;
+        }
+
+        return GenerateNodeShaderCode(connectedNodeIt->second.get());
     };
 
     Node* rootNode = blueprint.nodeSystem.FindNode(tree.root->GetId());
-    if (!rootNode) return {0};
+    if (!rootNode) return {};
 
     std::stringstream shaderStream;
 
@@ -160,9 +172,9 @@ std::string GenerateMaterialShader(Entity& entity, ChildMaterial& material) {
             return nullptr;
         };
 
-    for (size_t pinIndex = 0; pinIndex < rootNode->Inputs.size(); ++pinIndex) {
-        const Pin& pin = rootNode->Inputs[pinIndex];
-        auto inputConnsIt = tree.root->GetInputs().find(pin.ID.Get());
+    for (size_t pinIndex = 0; pinIndex < rootNode->m_inputs.size(); ++pinIndex) {
+        const ed::PinId& pinId = rootNode->m_inputs[pinIndex];
+        auto inputConnsIt = tree.root->GetInputs().find(pinId.Get());
         if (inputConnsIt == tree.root->GetInputs().end() || inputConnsIt->second.empty())
             continue;
 
@@ -176,11 +188,11 @@ std::string GenerateMaterialShader(Entity& entity, ChildMaterial& material) {
 
         if (pinIndex <= MaterialProperty::Emission) {
             node = findNode(connectedTreeNode, [](const Node* n) {
-                return n->type == NodeType::Texture;
+                return n->m_type == NodeType::Texture;
             });
             if (!node) continue;
 
-            if (std::optional<TextureNode*> textureData = material.GetNodeData<TextureNode>(node->UUID)) {
+            if (auto textureData = material.GetNodeData<TextureNode>(node->m_uuid)) {
                 switch (pinIndex) {
                     case MaterialProperty::Albedo:
                         entity.surfaceMaterial.albedoTexture = textureData.value()->texture;
@@ -221,12 +233,12 @@ std::string GenerateMaterialShader(Entity& entity, ChildMaterial& material) {
             }
         }
         else if (pinIndex == MaterialProperty::Tiling) {
-            node = findNode(connectedTreeNode, [](const Node* n) {
-                return n->type == NodeType::Vector2;
+            node = findNode(connectedTreeNode, [](const Node* node) {
+                return node->m_type == NodeType::Vector2;
             });
             if (!node) continue;
 
-            if (std::optional<Vector2Node*> vec2NodeData = material.GetNodeData<Vector2Node>(node->UUID)) {
+            if (auto vec2NodeData = material.GetNodeData<Vector2Node>(node->m_uuid)) {
                 shaderStream << "#define TILING\n";
                 shaderStream << "vec2 tiling = vec2(" << vec2NodeData.value()->vec[0] << ", "
                              << vec2NodeData.value()->vec[1] << ");\n";
@@ -235,29 +247,29 @@ std::string GenerateMaterialShader(Entity& entity, ChildMaterial& material) {
     }
 
     const std::pair<const char*, size_t> materialFuncs[] = {
-        {"calcDiffuseMap", 0},
-        {"calcNormalMap", 1},
-        {"calcRoughnessMap", 2},
-        {"calcAmbientOcclusionMap", 3},
-        {"calcHeightMap", 4},
-        {"calcMetallicMap", 5},
-        {"calcEmissionMap", 6}
+        {"calcDiffuseMap", MaterialProperty::Albedo},
+        {"calcNormalMap", MaterialProperty::Normal},
+        {"calcRoughnessMap", MaterialProperty::Roughness},
+        {"calcAmbientOcclusionMap", MaterialProperty::AmbientOcclusion},
+        {"calcHeightMap", MaterialProperty::Height},
+        {"calcMetallicMap", MaterialProperty::Metallic},
+        {"calcEmissionMap", MaterialProperty::Emission}
     };
 
     for (const auto& [funcName, inputIdx] : materialFuncs) {
         shaderStream << "vec4 " << funcName << "(vec4 textureRGBA) {\n  return "
-                    << ProcessTreeNode(tree.root, rootNode->Inputs.at(inputIdx).ID, "textureRGBA")
+                    << ProcessTreeNode(tree.root, rootNode->m_inputs.at(inputIdx), "textureRGBA")
                     << ";\n}\n\n";
     }
 
     std::ifstream stream("Engine/Lighting/shaders/lighting_fragment.glsl");
     if (!stream.is_open()) {
         TraceLog(LOG_ERROR, "Failed to open default fragment shader file.");
-        return { 0 };
+        return {};
     }
 
-    std::string defaultShaderCode = std::string((std::istreambuf_iterator<char>(stream)),
-                                    std::istreambuf_iterator<char>());
+    std::string defaultShaderCode((std::istreambuf_iterator<char>(stream)),
+                                   std::istreambuf_iterator<char>());
 
     static const std::string placeholder = "// [ INSERT GENERATED CODE BELOW ]";
     size_t pos = defaultShaderCode.find(placeholder);

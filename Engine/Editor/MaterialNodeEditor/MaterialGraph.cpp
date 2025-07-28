@@ -6,6 +6,8 @@ See the LICENSE file in the project root for full license information.
 #include "MaterialGraph.hpp"
 #include "Helpers.hpp"
 #include <iostream>
+#include <stdexcept>
+#include <unordered_set>
 
 void TreeNode::AddInput(int pinId, const Connection& connection) {
     inputs[pinId].push_back(connection);
@@ -23,10 +25,16 @@ const std::unordered_map<int, std::vector<Connection>>& TreeNode::GetInputs() co
 const std::unordered_map<int, std::vector<Connection>>& TreeNode::GetOutputs() const { return outputs; }
 
 TreeNode* MaterialTree::FindRoot() {
-    if (!root) {
-        throw std::runtime_error("No root node found in the material tree.");
+    if (root) {
+        return root;
     }
-    return root;
+    for (auto& [id, node] : nodes) {
+        if (node->GetOutputs().empty()) {
+            root = node.get();
+            return root;
+        }
+    }
+    return nullptr;
 }
 
 void MaterialTree::ForwardTraversal(
@@ -38,7 +46,6 @@ void MaterialTree::ForwardTraversal(
     visited.insert(node->GetId().Get());
     visitor(node, node->GetDepth());
 
-    // Traverse upstream: iterate over node inputs
     for (const auto& [pinId, connections] : node->GetInputs()) {
         for (const auto& conn : connections) {
             auto it = nodes.find(conn.nodeID);
@@ -59,7 +66,6 @@ void MaterialTree::BackwardTraversal(
     visited.insert(node->GetId().Get());
     visitor(node, node->GetDepth());
 
-    // Traverse downstream: iterate over node outputs
     for (const auto& [pinId, connections] : node->GetOutputs()) {
         for (const auto& conn : connections) {
             auto it = nodes.find(conn.nodeID);
@@ -72,10 +78,10 @@ void MaterialTree::BackwardTraversal(
 }
 
 void MaterialTree::AddNode(const Node& node) {
-    auto& newNode = nodes[node.ID.Get()];
-    newNode = std::make_unique<TreeNode>(node.ID);
+    auto& newNode = nodes[node.m_id.Get()];
+    newNode = std::make_unique<TreeNode>(node.m_id);
 
-    if (node.isRoot) {
+    if (node.m_isRoot) {
         if (root) {
             throw std::runtime_error("Multiple nodes marked as root.");
         }
@@ -84,14 +90,21 @@ void MaterialTree::AddNode(const Node& node) {
 }
 
 void MaterialTree::AddLink(const Link& link, int startNodeId, int endNodeId) {
-    auto& startNode = nodes[startNodeId];
-    auto& endNode = nodes[endNodeId];
+    auto itStart = nodes.find(startNodeId);
+    auto itEnd = nodes.find(endNodeId);
 
-    startNode->AddOutput(link.StartPinID.Get(),
-                         Connection(endNodeId, link.EndPinID.Get()));
+    if (itStart == nodes.end() || itEnd == nodes.end()) {
+        return;
+    }
 
-    endNode->AddInput(link.EndPinID.Get(),
-                      Connection(startNodeId, link.StartPinID.Get()));
+    auto& startNode = itStart->second;
+    auto& endNode = itEnd->second;
+
+    startNode->AddOutput(link.m_startPinId.Get(),
+                         Connection(endNodeId, link.m_endPinId.Get()));
+
+    endNode->AddInput(link.m_endPinId.Get(),
+                      Connection(startNodeId, link.m_startPinId.Get()));
 }
 
 void MaterialTree::Initialize() {
@@ -100,25 +113,36 @@ void MaterialTree::Initialize() {
         throw std::runtime_error("No root node found in the material tree");
     }
 
-    // Initialize depths
     std::unordered_set<int> visited;
     ForwardTraversal(root, visited,
-                     [](TreeNode* node, int depth) { node->SetDepth(depth); });
+                     [](TreeNode* node, int depth) { node->SetDepth(0); });
 }
 
-MaterialTree MaterialTree::BuildTree(const std::vector<Node>& nodes,
-                                            const std::vector<Link>& links) {
+MaterialTree MaterialTree::BuildTree(const std::unordered_map<ed::NodeId, Node>& nodes,
+                                            const std::unordered_map<ed::LinkId, Link>& links) {
     MaterialTree tree;
 
-    for (const auto& node : nodes) {
+    for (const auto& [nodeId, node] : nodes) {
         tree.AddNode(node);
     }
 
-    for (const auto& link : links) {
-        int startNodeId = FindNodeByPinID(nodes, link.StartPinID.Get());
-        int endNodeId = FindNodeByPinID(nodes, link.EndPinID.Get());
+    std::unordered_map<ed::PinId, ed::NodeId> pinToNodeMap;
+    for (const auto& [nodeId, node] : nodes) {
+        for (const auto& pinId : node.m_inputs) {
+            pinToNodeMap[pinId] = nodeId;
+        }
+        for (const auto& pinId : node.m_outputs) {
+            pinToNodeMap[pinId] = nodeId;
+        }
+    }
 
-        if (startNodeId != -1 && endNodeId != -1) {
+    for (const auto& [linkId, link] : links) {
+        auto startNodeIt = pinToNodeMap.find(link.m_startPinId);
+        auto endNodeIt = pinToNodeMap.find(link.m_endPinId);
+
+        if (startNodeIt != pinToNodeMap.end() && endNodeIt != pinToNodeMap.end()) {
+            int startNodeId = startNodeIt->second.Get();
+            int endNodeId = endNodeIt->second.Get();
             tree.AddLink(link, startNodeId, endNodeId);
         }
     }
@@ -133,43 +157,36 @@ void MaterialTree::Print() const {
         return;
     }
 
-    std::cout << "Node " << root->GetId().Get() << std::endl;
+    std::cout << "Root Node " << root->GetId().Get() << std::endl;
 
-    std::function<void(TreeNode*, const std::string&, bool)> PrintNode =
-        [&](TreeNode* node, const std::string& prefix, bool isLast) {
-            if (!node)
-                return;
+    std::function<void(TreeNode*, const std::string&)> PrintNode =
+        [&](TreeNode* node, const std::string& prefix) {
+            if (!node) return;
 
-            // Precompute connections
-            const auto& inputs = node->GetInputs();
             std::vector<std::pair<int, Connection>> allConnections;
-            for (const auto& [pinId, connections] : inputs) {
+            const auto& outputs = node->GetOutputs();
+            for (const auto& [pinId, connections] : outputs) {
                 for (const auto& conn : connections) {
                     allConnections.emplace_back(pinId, conn);
                 }
             }
 
+            if (allConnections.empty()) return;
+
             for (size_t i = 0; i < allConnections.size(); ++i) {
                 const auto& [pinId, conn] = allConnections[i];
-                bool isLastConnection = (i == allConnections.size() - 1);
+                bool isLast = (i == allConnections.size() - 1);
 
-                // Print prefix and connection
-                std::cout << prefix << (isLastConnection ? "└─ " : "├─ ")
-                          << "(Pin: " << pinId << ") -> Node " << conn.nodeID
+                std::cout << prefix << (isLast ? "└─ " : "├─ ")
+                          << "Pin " << pinId << " connects to Node " << conn.nodeID
                           << " (Pin: " << conn.pinID << ")" << std::endl;
 
-                // Recursive call
-                auto it = nodes.find(conn.nodeID);
-                if (it != nodes.end()) {
-                    PrintNode(it->second.get(),
-                              prefix + (isLastConnection ? "   " : "│  "),
-                              isLastConnection);
-                } else {
-                    std::cerr << "Warning: Node " << conn.nodeID
-                              << " not found." << std::endl;
+                auto childIt = nodes.find(conn.nodeID);
+                if (childIt != nodes.end()) {
+                    PrintNode(childIt->second.get(), prefix + (isLast ? "    " : "│   "));
                 }
             }
         };
 
-    PrintNode(root, "", false);
+    PrintNode(root, "");
 }

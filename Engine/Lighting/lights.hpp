@@ -62,10 +62,10 @@ struct LightStruct {
     bool isChild = false;
 
     LightStruct() {}
-
-    bool operator==(const LightStruct& other) const {
-        return (int)this->id == (int)other.id;
-    }
 };
+
+inline bool operator==(const LightStruct& lhs, const LightStruct& rhs) {
+    return lhs.id == rhs.id;
+}
 
 #endif

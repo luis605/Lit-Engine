@@ -47,7 +47,7 @@ namespace {
     }
 
     inline void RenderBlueprintEditor(MaterialBlueprint& blueprint) noexcept {
-        blueprint.nodeSystem.DrawMaterialNodeEditor();
+        blueprint.nodeSystem.DrawEditor();
 
         if (IsKeyPressed(KEY_P)) {
             SaveMaterialBlueprints(blueprint.materialPath, blueprint);

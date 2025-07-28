@@ -15,8 +15,14 @@ See the LICENSE file in the project root for full license information.
 #include <unordered_map>
 #include <unordered_set>
 
+struct Connection {
+    int nodeID;
+    int pinID;
+    Connection(int n, int p) : nodeID(n), pinID(p) {}
+};
+
 class TreeNode {
-  private:
+private:
     ed::NodeId id;
 
     // pinID -> vector of in/out connections
@@ -24,7 +30,7 @@ class TreeNode {
     std::unordered_map<int, std::vector<Connection>> outputs;
     int depth;
 
-  public:
+public:
     TreeNode(ed::NodeId nodeId) : id(nodeId), depth(0) {}
 
     void AddInput(int pinId, const Connection& connection);
@@ -37,24 +43,26 @@ class TreeNode {
 };
 
 class MaterialTree {
-  public:
+public:
     std::unordered_map<int, std::unique_ptr<TreeNode>> nodes;
     TreeNode* root = nullptr;
 
-  private:
+private:
     TreeNode* FindRoot();
 
-  public:
+public:
     MaterialTree() {}
     void ForwardTraversal(TreeNode* node, std::unordered_set<int>& visited,
-                          const std::function<void(TreeNode*, int)>& visitor);
+                        const std::function<void(TreeNode*, int)>& visitor);
     void BackwardTraversal(TreeNode* node, std::unordered_set<int>& visited,
-                           const std::function<void(TreeNode*, int)>& visitor);
+                            const std::function<void(TreeNode*, int)>& visitor);
     void AddNode(const Node& node);
     void AddLink(const Link& link, int startNodeId, int endNodeId);
     void Initialize();
-    static MaterialTree BuildTree(const std::vector<Node>& nodes,
-                                  const std::vector<Link>& links);
+    static MaterialTree BuildTree(
+        const std::unordered_map<ed::NodeId, Node>& nodes,
+        const std::unordered_map<ed::LinkId, Link>& links
+    );
     void Print() const;
 };
 

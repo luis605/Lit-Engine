@@ -4,13 +4,11 @@ See the LICENSE file in the project root for full license information.
 */
 
 #include "SurfaceMaterial.hpp"
-#include "lights.hpp"
 #include <Engine/Core/Textures.hpp>
 #include <Engine/Core/Filesystem.hpp>
 #include <Engine/GUI/Video/video.hpp>
 #include <Engine/Lighting/lights.hpp>
 #include <filesystem>
-#include <glad.h>
 #include <iostream>
 #include <raylib.h>
 #include <string>
@@ -33,7 +31,7 @@ void SurfaceMaterialTexture::loadFromFile(const fs::path& filePath) {
             TraceLog(LOG_WARNING, "Error loading texture or video file.");
         }
     } else {
-        TraceLog(LOG_WARNING, "Media %s does not exist.", filePath);
+        TraceLog(LOG_WARNING, "Media %s does not exist.", filePath.string().c_str());
     }
 }
 

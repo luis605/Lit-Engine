@@ -18,7 +18,7 @@ struct MaterialBlueprint {
     std::string name;
     MaterialNodeSystem nodeSystem;
     fs::path materialPath;
-    std::string UUID;
+    std::string m_uuid;
 };
 
 extern std::unordered_map<fs::path, MaterialBlueprint> materialBlueprints;

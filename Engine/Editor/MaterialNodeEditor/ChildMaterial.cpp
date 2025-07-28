@@ -66,31 +66,31 @@ void ChildMaterial::SyncWithBlueprint() {
         return;
     }
 
-    const auto& blueprintNodes = bpIt->second.nodeSystem.m_Nodes;
+    const auto& blueprintNodes = bpIt->second.nodeSystem.m_nodes;
 
     std::unordered_set<std::string> blueprintUUIDs;
     blueprintUUIDs.reserve(blueprintNodes.size());
-    for (auto const& node : blueprintNodes) {
-        blueprintUUIDs.insert(node.UUID);
+    for (const auto& [nodeId, blueprintNode] : blueprintNodes) {
+        blueprintUUIDs.insert(blueprintNode.m_uuid);
     }
 
     std::erase_if(nodes, [&](auto const& entry) {
         return !blueprintUUIDs.contains(entry.first);
     });
 
-    for (auto const& bpNode : blueprintNodes) {
-        switch (bpNode.type) {
+    for (const auto& [nodeId, blueprintNode] : blueprintNodes) {
+        switch (blueprintNode.m_type) {
             case NodeType::Color:
-                nodes.try_emplace(bpNode.UUID, ColorNode{});
+                nodes.try_emplace(blueprintNode.m_uuid, ColorNode{});
                 break;
             case NodeType::Texture:
-                nodes.try_emplace(bpNode.UUID, TextureNode{});
+                nodes.try_emplace(blueprintNode.m_uuid, TextureNode{});
                 break;
             case NodeType::Slider:
-                nodes.try_emplace(bpNode.UUID, SliderNode{});
+                nodes.try_emplace(blueprintNode.m_uuid, SliderNode{});
                 break;
             case NodeType::Vector2:
-                nodes.try_emplace(bpNode.UUID, Vector2Node{});
+                nodes.try_emplace(blueprintNode.m_uuid, Vector2Node{});
                 break;
             default:
                 break;
@@ -100,10 +100,10 @@ void ChildMaterial::SyncWithBlueprint() {
 
 json SerializeNodeData(const Node& blueprintNode, const ChildMaterial& childMaterial) {
     json nodeJson;
-    auto typeIt = nodeTypeToString.find(blueprintNode.type);
+    auto typeIt = nodeTypeToString.find(blueprintNode.m_type);
     nodeJson["type"] = (typeIt != nodeTypeToString.end()) ? typeIt->second : "Unknown";
 
-    auto it = childMaterial.nodes.find(blueprintNode.UUID);
+    auto it = childMaterial.nodes.find(blueprintNode.m_uuid);
     if (it == childMaterial.nodes.end()) {
         nodeJson["data"] = {};
     } else {
@@ -132,14 +132,14 @@ json SerializeNodeData(const Node& blueprintNode, const ChildMaterial& childMate
 json SerializeMaterialNodes(const MaterialBlueprint& blueprint, const ChildMaterial& childMaterial) {
     json nodesJson;
 
-    for (const Node& blueprintNode : blueprint.nodeSystem.m_Nodes) {
-        if (blueprintNode.type == NodeType::Material ||
-            blueprintNode.type == NodeType::OneMinusX ||
-            blueprintNode.type == NodeType::Multiply) {
+    for (const auto& [nodeId, blueprintNode] : blueprint.nodeSystem.m_nodes) {
+        if (blueprintNode.m_type == NodeType::Material ||
+            blueprintNode.m_type == NodeType::OneMinusX ||
+            blueprintNode.m_type == NodeType::Multiply) {
             continue;
         }
 
-        nodesJson[blueprintNode.UUID] = SerializeNodeData(blueprintNode, childMaterial);
+        nodesJson[blueprintNode.m_uuid] = SerializeNodeData(blueprintNode, childMaterial);
     }
 
     return nodesJson;
@@ -283,17 +283,16 @@ void LoadChildMaterial(const fs::path& path) {
     childMaterial.path = path;
     childMaterial.blueprintPath = blueprintPath;
     childMaterial.name = jsonData.value("name", "Unnamed Child Material");
-    childMaterial.materialBlueprintUUID = blueprint.UUID;
+    childMaterial.materialBlueprintUUID = blueprint.m_uuid;
 
     if (jsonData.contains("nodeData") && jsonData["nodeData"].is_object()) {
-        for (const auto& [uuid, nodeJson] : jsonData["nodeData"].items()) {
-            bool foundInBlueprint = std::any_of(
-                blueprint.nodeSystem.m_Nodes.begin(),
-                blueprint.nodeSystem.m_Nodes.end(),
-                [&](const Node& n) { return n.UUID == uuid; }
-            );
+        std::unordered_map<std::string, const Node*> uuidToNodeMap;
+        for (const auto& [nodeId, node] : blueprint.nodeSystem.m_nodes) {
+            uuidToNodeMap[node.m_uuid] = &node;
+        }
 
-            if (!foundInBlueprint) {
+        for (const auto& [uuid, nodeJson] : jsonData["nodeData"].items()) {
+            if (uuidToNodeMap.count(uuid) == 0) {
                 TraceLog(LOG_WARNING, "Node UUID %s from material not found in blueprint", uuid.c_str());
                 continue;
             }
