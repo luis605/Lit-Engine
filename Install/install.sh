@@ -39,8 +39,8 @@ elif [ "$selectedPackageManager" = "dnf" ]; then
     sudo dnf install tbb-devel bullet-devel @development-tools cmake mesa-libGLU-devel ffmpeg-devel
 elif [ "$selectedPackageManager" = "pacman" ]; then
     sudo pacman -Sy
-    sudo pacman -S python python-pip binutils gcc glm make cmake wayland xorg-server xorg-xinit libxkbcommon
-    sudo pacman -S onetbb bullet mesa glu ffmpeg
+    sudo pacman -S --needed python python-pip binutils gcc glm make cmake wayland xorg-server xorg-xinit libxkbcommon
+    sudo pacman -S --needed onetbb bullet mesa glu ffmpeg
 else
     echo "No supported package manager found. Please install the dependencies manually."
 fi
