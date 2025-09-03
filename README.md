@@ -16,7 +16,7 @@ Lit Engine is an **open-source high-level game engine** powered by raylib. Made 
 
 ~~*Lit Engine is in active development. Contributions and feedback are highly appreciated!*~~
 
-*Lit Engine's development is paused due (probably for just some months) to personal burnout and lack of motivation. Contributions and feedback are highly appreciated! If you want to see future development, let me know! :)*
+**IMPORTANT NOTE:** *Lit Engine's development is paused due (probably for just some months) to personal burnout and lack of motivation. Contributions and feedback are highly appreciated! If you want to see future development, let me know! :)*
 
 <hr>
 
