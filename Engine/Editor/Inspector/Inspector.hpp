@@ -7,7 +7,6 @@ See the LICENSE file in the project root for full license information.
 #define INSPECTOR_H
 
 #include <filesystem>
-#include <Engine/Editor/MaterialNodeEditor/ChildMaterial.hpp>
 
 namespace fs = std::filesystem;
 
@@ -54,6 +53,5 @@ void TextInspector();
 void ButtonInspector();
 void CameraInspector();
 void WorldInspector();
-void MaterialInspector(ChildMaterial& material);
 
 #endif // INSPECTOR_H

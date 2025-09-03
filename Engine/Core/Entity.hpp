@@ -88,7 +88,7 @@ class EXPORT_API Entity {
 
     fs::path scriptPath;
     fs::path modelPath;
-    fs::path childMaterialPath;
+    fs::path materialPath;
 
     Model model;
     Model LodModels[4] = {};
@@ -175,14 +175,14 @@ class EXPORT_API Entity {
     void reloadRigidBody();
     void resetPhysics();
     bool inFrustum();
-    void render();
+    void render(int lightCount = -1);
     void setFlag(const Flag& f, const bool& value);
     bool getFlag(const Flag& f) const;
 
   private:
     void renderInstanced();
-    void renderSingleModel();
-    void PassSurfaceMaterials();
+    void renderSingleModel(int lightCount = -1);
+    void PassSurfaceMaterials(int lightCount = -1);
 };
 
 struct EntityHandle {

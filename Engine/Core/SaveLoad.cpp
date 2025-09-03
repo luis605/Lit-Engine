@@ -9,8 +9,6 @@ See the LICENSE file in the project root for full license information.
 #include <Engine/Editor/SceneEditor/SceneEditor.hpp>
 #include <Engine/Core/Events.hpp>
 #include <Engine/Core/Entity.hpp>
-#include <Engine/Editor/MaterialNodeEditor/ChildMaterial.hpp>
-#include <Engine/Editor/MaterialNodeEditor/MaterialShaderGenerator.hpp>
 
 std::map<std::string, std::string> scriptContents;
 
@@ -54,7 +52,7 @@ void SaveEntity(json& jsonData, const Entity& entity) {
     j["collider"]                = entity.getFlag(Entity::Flag::COLLIDER);
     j["script_path"]             = entity.scriptPath;
     j["scriptIndex"]             = entity.scriptIndex;
-    j["childMaterialPath"]       = entity.childMaterialPath;
+    j["materialPath"]            = entity.materialPath;
     j["visible"]                 = entity.getFlag(Entity::Flag::VISIBLE);
     j["id"]                      = entity.id;
     j["is_dynamic"]              = entity.getFlag(Entity::Flag::IS_DYNAMIC);
@@ -472,42 +470,6 @@ Entity LoadEntity(const json& entityJson) {
         entity.scriptIndex = entityJson["scriptIndex"].get<std::string>();
 
     entity.reloadRigidBody();
-
-    const bool hasChildMaterial = entityJson.contains("childMaterialPath");
-    if (hasChildMaterial) {
-        entity.childMaterialPath = entityJson["childMaterialPath"].get<std::string>();
-    }
-
-    bool validPath = hasChildMaterial && !entity.childMaterialPath.empty();
-    if (validPath && !childMaterials.contains(entity.childMaterialPath)) {
-        LoadChildMaterial(entity.childMaterialPath);
-    }
-
-    const bool materialLoaded = validPath && (childMaterials.contains(entity.childMaterialPath));
-    if (materialLoaded) {
-        ChildMaterial& material = childMaterials[selectedEntity->childMaterialPath];
-
-        std::ifstream stream("Engine/Lighting/shaders/lighting_vertex.glsl");
-        if (!stream) {
-            TraceLog(LOG_ERROR, "Failed to open default vertex shader file");
-        }
-
-        std::string vertexShaderCode = std::string((std::istreambuf_iterator<char>(stream)), std::istreambuf_iterator<char>());
-
-        std::shared_ptr<Shader> shader = shaderManager.LoadShaderProgramFromMemory(
-            vertexShaderCode.c_str(),
-            GenerateMaterialShader(entity, material).c_str()
-        );
-
-        if (shader && IsShaderValid(*shader)) {
-            entity.setShader(shader);
-        } else {
-            TraceLog(LOG_ERROR, "Failed to generate shader for material: %s", material.name.c_str());
-            entity.setShader(shaderManager.m_defaultShader);
-        }
-    } else {
-        entity.setShader(shaderManager.m_defaultShader);
-    }
 
     if (entityJson.contains("visible"))
         entity.setFlag(Entity::Flag::VISIBLE, entityJson["visible"].get<bool>());

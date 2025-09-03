@@ -14,7 +14,9 @@ Lit Engine is an **open-source high-level game engine** powered by raylib. Made 
 [![Website](https://img.shields.io/website-up-down-green-red/http/shields.io.svg)](https://litengine.org/)
 [![Number of GitHub stars](https://img.shields.io/github/stars/luis605/Lit-Engine)](https://github.com/luis605/Lit-Engine/stargazers)
 
-*Lit Engine is in active development. Contributions and feedback are highly appreciated!*
+~~*Lit Engine is in active development. Contributions and feedback are highly appreciated!*~~
+
+*Lit Engine's development is paused due (probably for just some months) to personal burnout and lack of motivation. Contributions and feedback are highly appreciated! If you want to see future development, let me know! :)*
 
 <hr>
 

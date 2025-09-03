@@ -33,7 +33,6 @@ extern Entity* selectedEntity;
 extern LightStruct* selectedLight;
 extern LitButton* selectedButton;
 extern Text* selectedTextElement;
-extern fs::path selectedMaterial;
 
 std::string readFileToString(const fs::path& filename);
 const char* decryptFileString(const std::string& inputFile,

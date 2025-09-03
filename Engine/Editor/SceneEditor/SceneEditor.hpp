@@ -51,7 +51,6 @@ private:
     void HandleUnselect();
     void RenderLights();
     void RenderEntities();
-    void UpdateShader();
     void DropEntity();
     void ProcessObjectControls();
     void ObjectsPopup();
@@ -59,7 +58,6 @@ private:
     void LightPaste(const std::shared_ptr<LightStruct>& lightStruct);
     void EntityPaste(const std::shared_ptr<Entity>& entity, Entity* parent = nullptr);
     void ProcessCopy();
-    void ScaleViewport();
     void HandleScenePlay();
     void HandleSceneStop();
     void DrawTooltip(const char* text);
@@ -69,7 +67,7 @@ private:
     void RenderGrid();
     void RenderScene();
 
-public:
+    public:
     void LocateEntity(const LitVector3& entityPosition);
     void ComputeSceneLuminance();
     void RenderViewportTexture(const LitCamera& camera);
@@ -81,7 +79,9 @@ public:
     void EditorCamera();
     void DuplicateLight(LightStruct& lightStruct, Entity* parent = nullptr);
     void DuplicateEntity(Entity& entity, Entity* parent = nullptr);
+    void ScaleViewport();
     bool IsMouseHoveringModel(const Model& model, const Entity* entity = nullptr, bool bypassOptimization = false);
+    void UpdateShader(const Camera3D& camera);
 };
 
 extern SceneEditor sceneEditor;

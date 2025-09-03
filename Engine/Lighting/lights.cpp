@@ -50,11 +50,9 @@ void UpdateLightsBuffer(bool force, std::vector<LightStruct>& lightsVector, GLui
 }
 
 
-LightStruct& NewLight(const Vector3 position, const Color color, int type,
-                      int id) {
+LightStruct& NewLight(const Vector3 position, const Color color, int type, int id) {
     glm::vec3 lightsPosition = glm::vec3(position.x, position.y, position.z);
-    glm::vec4 lightsColor =
-        glm::vec4(color.r / 255, color.g / 255, color.b / 255, color.a / 255);
+    glm::vec4 lightsColor = glm::vec4(color.r / 255, color.g / 255, color.b / 255, color.a / 255);
 
     LightStruct lightStruct;
     lightStruct.lightInfo.name = "New Light";

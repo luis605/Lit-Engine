@@ -28,6 +28,12 @@ glm::vec3 vec3ToGlm3(const Vector3& vec3);
 static std::unordered_map<std::string, ImFont*> s_Fonts;
 static Image windowIconImage;
 
+enum class EditorState {
+    SceneEditor,
+    MaterialEditor
+};
+
+extern EditorState currentEditorState;
 extern int windowWidth;
 extern int windowHeight;
 extern Texture2D windowIconTexture;

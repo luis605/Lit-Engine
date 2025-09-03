@@ -1,6 +1,7 @@
 #ifndef CORE_MATH_HPP
 #define CORE_MATH_HPP
 
+#include <raylib.h>
 #include <raymath.h>
 
 float NormalizeDegrees(float deg);

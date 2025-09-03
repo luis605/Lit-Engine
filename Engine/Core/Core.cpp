@@ -3,8 +3,8 @@ This file is licensed under the PolyForm Noncommercial License 1.0.0.
 See the LICENSE file in the project root for full license information.
 */
 
-#include "Core.hpp"
-#include "global_variables.hpp"
+#include <Engine/Core/Core.hpp>
+#include <Engine/Core/global_variables.hpp>
 
 #include <Engine/Core/SaveLoad.hpp>
 #include <extras/IconsFontAwesome6.h>
@@ -17,8 +17,7 @@ See the LICENSE file in the project root for full license information.
 #include <Engine/Editor/CodeEditor/CodeEditor.hpp>
 #include <Engine/Editor/ObjectsList/ObjectsList.hpp>
 #include <Engine/Editor/Inspector/Inspector.hpp>
-#include <Engine/Editor/MaterialNodeEditor/MaterialNodeEditor.hpp>
-#include <Engine/Editor/MaterialNodeEditor/Editor.hpp>
+#include <Engine/Editor/MaterialEditor/Editor.hpp>
 #include <Engine/Editor/MenuBar/MenuBar.hpp>
 #include <Engine/Editor/MenuBar/Settings.hpp>
 #include <Engine/Editor/SceneEditor/Gizmo/Gizmo.hpp>
@@ -52,6 +51,7 @@ ImVec2 ImLastMousePosition = ImVec2(0, 0);
 ImVec2 windowPosition = ImVec2(0, 0);
 
 ImGuiViewport* viewport = nullptr;
+EditorState currentEditorState = EditorState::SceneEditor;
 
 void InitLitWindow() {
     SetTraceLogLevel(LOG_WARNING);
@@ -69,6 +69,9 @@ void InitLitWindow() {
 }
 
 void LoadTextures() {
+    float width  = GetScreenWidth();
+    float height = GetScreenHeight();
+
     folderTexture = LoadTexture("Assets/images/folder.png");
     imageTexture  = LoadTexture("Assets/images/image_file_type.png");
     cppTexture    = LoadTexture("Assets/images/cpp_file_type.png");
@@ -81,15 +84,34 @@ void LoadTextures() {
     saveTexture  = LoadTexture("Assets/images/save_file.png");
     hotReloadTexture  = LoadTexture("Assets/images/hot_reload.png");
     lightTexture      = LoadTexture("Assets/images/light_bulb.png");
-    noiseTexture      = LoadTexture("Assets/images/noise.png");
     windowIconImage   = LoadImage("Assets/images/window_icon.png");
     windowIconTexture = LoadTextureFromImage(windowIconImage);
-    verticalBlurTexture   = LoadRenderTexture(GetScreenWidth(), GetScreenHeight());
-    horizontalBlurTexture = LoadRenderTexture(GetScreenWidth(), GetScreenHeight());
-    bloomCompositorTexture      = LoadRenderTexture(GetScreenWidth(), GetScreenHeight());
-    vignetteTexture       = LoadRenderTexture(GetScreenWidth(), GetScreenHeight());
-    chromaticAberrationTexture = LoadRenderTexture(GetScreenWidth(), GetScreenHeight());
-    brightPassTexture = LoadRenderTexture(GetScreenWidth(), GetScreenHeight());
+    viewportRT        = LoadRenderTexture(width, height);
+    chromaticAberrationTexture = LoadRenderTexture(width, height);
+    verticalBlurTexture    = LoadRenderTexture(width, height);
+    horizontalBlurTexture  = LoadRenderTexture(width, height);
+    bloomCompositorTexture = LoadRenderTexture(width, height);
+    vignetteTexture        = LoadRenderTexture(width, height);
+    brightPassTexture = LoadRenderTexture(width, height);
+    viewportTexture   = viewportRT.texture;
+    viewportRectangle.x = 0;
+    viewportRectangle.y = 0;
+    viewportRectangle.width  = width;
+    viewportRectangle.height = height;
+
+    downsampledTextures.clear();
+
+    while (width > 1 && height > 1) {
+        if (width > 1)
+            width /= 2;
+        if (height > 1)
+            height /= 2;
+
+        width  = std::max(width, 1.0f);
+        height = std::max(height, 1.0f);
+
+        downsampledTextures.emplace_back(LoadRenderTexture(static_cast<int>(width), static_cast<int>(height)));
+    }
 
     SetWindowIcon(windowIconImage);
 }
@@ -199,6 +221,7 @@ void Startup() {
     brdf.GenLUT();
     InitLighting();
     sceneEditor.InitEditorCamera();
+    materialEditor.Init();
     InitCodeEditor();
     InitSceneEditor();
     InitRenderModelPreviewer();
@@ -227,12 +250,23 @@ void EngineMainLoop() {
         ImGui::DockSpaceOverViewport(ImGui::GetID("MyDockSpace"), viewport);
 
         MenuBar();
-        AssetsExplorer();
-        CodeEditor();
-        EntitiesList();
-        Inspector();
-        sceneEditor.EditorCamera();
-        MaterialEditor();
+
+        switch (currentEditorState) {
+            case EditorState::SceneEditor:
+                AssetsExplorer();
+                CodeEditor();
+                EntitiesList();
+                Inspector();
+                sceneEditor.EditorCamera();
+                break;
+            case EditorState::MaterialEditor:
+                materialEditor.Render();
+                // Calling Begin/EndMode3D fixes an issue where rlImGui fails to render without it.
+                BeginMode3D(sceneEditor.sceneCamera);
+                EndMode3D();
+                break;
+        }
+
         pluginManager.updateAll();
 
         rlImGuiEnd();

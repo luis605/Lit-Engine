@@ -5,8 +5,9 @@ See the LICENSE file in the project root for full license information.
 
 #include <Engine/Editor/AssetsExplorer/AssetsExplorer.hpp>
 #include <Engine/Editor/AssetsExplorer/FileManipulation.hpp>
-#include <Engine/Editor/MaterialNodeEditor/MaterialBlueprints.hpp>
-#include <Engine/Editor/MaterialNodeEditor/Editor.hpp>
+#include <Engine/Editor/MaterialEditor/Editor.hpp>
+#include <Engine/Editor/MaterialEditor/MaterialFile.hpp>
+#include <Engine/Core/Core.hpp>
 #include <Engine/Lighting/skybox.hpp>
 #include <Engine/Lighting/BRDF.hpp>
 #include <extras/IconsFontAwesome6.h>
@@ -141,7 +142,8 @@ std::unordered_map<std::string, Texture2D&> extensionToTextureMap = {
     {".c++", cppTexture},     {".cxx", cppTexture},   {".hpp", cppTexture},
     {".cc", cppTexture},      {".h", cppTexture},     {".hh", cppTexture},
     {".hxx", cppTexture},     {".py", pythonTexture}, {".mtl", materialTexture},
-    {".mat", materialTexture},{".matblueprint", materialTexture}};
+    {".mat", materialTexture}
+};
 
 std::unordered_map<std::string, const char*> dragTypeMap = {
     {".py", "SCRIPT_PAYLOAD"},    {".cpp", "SCRIPT_PAYLOAD"},
@@ -152,7 +154,6 @@ std::unordered_map<std::string, const char*> dragTypeMap = {
     {".obj", "MODEL_PAYLOAD"},    {".glb", "MODEL_PAYLOAD"},
     {".gltf", "MODEL_PAYLOAD"},   {".ply", "MODEL_PAYLOAD"},
     {".mtl", "MODEL_PAYLOAD"},    {".mat", "MATERIAL_PAYLOAD"},
-    {".matblueprint", "MASTER_MATERIAL_PAYLOAD"},
     {".png", "TEXTURE_PAYLOAD"},  {".jpg", "TEXTURE_PAYLOAD"},
     {".jpeg", "TEXTURE_PAYLOAD"}, {".hdr", "TEXTURE_PAYLOAD"},
     {".avi", "TEXTURE_PAYLOAD"},  {".mp4", "TEXTURE_PAYLOAD"},
@@ -522,19 +523,9 @@ void AssetsExplorer() {
 
                             auto it = directoriesLastModify.find(dirPath);
                             if (it != directoriesLastModify.end()) directoriesLastModify.erase(it);
-                        } else if (item.extension == ".matblueprint") {
-                            fs::path blueprintPath = item.path;
-                            auto it = materialBlueprints.find(blueprintPath);
-                            if (it == materialBlueprints.end()) {
-                                LoadMaterialBlueprint(blueprintPath);
-                                it = materialBlueprints.find(blueprintPath);
-                            }
-                            if (it != materialBlueprints.end()) {
-                                selectedMaterialBlueprintPath = it->first;
-                                isMaterialEditorOpen = true;
-                            } else {
-                                TraceLog(LOG_ERROR, "Failed to load material blueprint: %s", blueprintPath.string().c_str());
-                            }
+                        } else if (item.extension == ".mat") {
+                            currentEditorState = EditorState::MaterialEditor;
+                            MaterialFile::Load(item.path);
                         } else {
                             code = readFileToString(item.path.string());
                             codeEditorScriptPath = item.path.string();

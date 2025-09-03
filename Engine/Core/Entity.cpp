@@ -887,7 +887,7 @@ bool Entity::inFrustum() {
     return AABBoxInFrustum(bounds.min, bounds.max);
 }
 
-void Entity::render() {
+void Entity::render(int lightCount) {
     if (!getFlag(Entity::Flag::INITIALIZED)) return;
 
     if (!hasModel()) {
@@ -942,7 +942,7 @@ void Entity::renderInstanced() {
     DrawMeshInstanced(model.meshes[0], model.materials[0], transforms.data(), instances.size());
 }
 
-void Entity::renderSingleModel() {
+void Entity::renderSingleModel(int lightCount) {
     if (!hasModel()) {
         return;
     }
@@ -994,7 +994,7 @@ void Entity::renderSingleModel() {
     if (IsModelValid(modelToDraw)) DrawModel(modelToDraw, Vector3Zero(), 1, RAYWHITE);
 }
 
-void Entity::PassSurfaceMaterials() {
+void Entity::PassSurfaceMaterials(int lightCount) {
     glUseProgram(entityShader->id);
 
     glActiveTexture(GL_TEXTURE8);
@@ -1005,10 +1005,11 @@ void Entity::PassSurfaceMaterials() {
         shaderManager.GetUniformLocation(entityShader->id, "irradiance"),
         &irrUnit, SHADER_UNIFORM_INT);
 
-    const int lightsCount = lights.size();
+    if (lightCount == -1) lightCount = lights.size();
+
     SetShaderValue(*entityShader,
         shaderManager.GetUniformLocation(entityShader->id, "lightsCount"),
-        &lightsCount, SHADER_UNIFORM_INT);
+        &lightCount, SHADER_UNIFORM_INT);
 
     if (IsTextureValid(brdf.m_brdfLut)) {
         GLuint texID = brdf.m_brdfLut.id;

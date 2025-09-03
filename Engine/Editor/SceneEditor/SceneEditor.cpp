@@ -427,8 +427,8 @@ void SceneEditor::RenderEntities() {
     }
 }
 
-void SceneEditor::UpdateShader() {
-    float cameraPos[3] = { sceneCamera.position.x, sceneCamera.position.y, sceneCamera.position.z };
+void SceneEditor::UpdateShader(const Camera3D& camera) {
+    float cameraPos[3] = { camera.position.x, camera.position.y, camera.position.z };
 
     SetShaderValue(*shaderManager.m_defaultShader, shaderManager.GetUniformLocation((*shaderManager.m_defaultShader).id, "viewPos"), cameraPos, SHADER_UNIFORM_VEC3);
 
@@ -499,7 +499,7 @@ void SceneEditor::RenderScene() {
     UpdateLightsBuffer(true, lights);
     UpdateInGameGlobals();
     UpdateFrustum();
-    UpdateShader();
+    UpdateShader(sceneCamera);
 
     skybox.drawSkybox(sceneCamera);
 
@@ -517,7 +517,7 @@ void SceneEditor::RenderScene() {
 
     DrawTextElements();
     DrawButtons();
-    EndMRTMode();
+    EndTextureMode();
 
     ComputeSceneLuminance();
     RenderViewportTexture(sceneCamera);
@@ -846,26 +846,27 @@ void SceneEditor::ScaleViewport() {
 
         viewportRT = LoadRenderTexture(viewportRectangle.width, viewportRectangle.height);
         chromaticAberrationTexture = LoadRenderTexture(viewportRectangle.width, viewportRectangle.height);
-        verticalBlurTexture   = LoadRenderTexture(viewportRectangle.width, viewportRectangle.height);
-        horizontalBlurTexture = LoadRenderTexture(viewportRectangle.width, viewportRectangle.height);
-        bloomCompositorTexture      = LoadRenderTexture(viewportRectangle.width, viewportRectangle.height);
-        vignetteTexture       = LoadRenderTexture(viewportRectangle.width, viewportRectangle.height);
-        brightPassTexture     = LoadRenderTexture(viewportRectangle.width, viewportRectangle.height);
-        viewportTexture       = viewportRT.texture;
+        verticalBlurTexture    = LoadRenderTexture(viewportRectangle.width, viewportRectangle.height);
+        horizontalBlurTexture  = LoadRenderTexture(viewportRectangle.width, viewportRectangle.height);
+        bloomCompositorTexture = LoadRenderTexture(viewportRectangle.width, viewportRectangle.height);
+        vignetteTexture        = LoadRenderTexture(viewportRectangle.width, viewportRectangle.height);
+        brightPassTexture = LoadRenderTexture(viewportRectangle.width, viewportRectangle.height);
+        viewportTexture   = viewportRT.texture;
 
         int index = 0;
         downsampledTextures.clear();
 
-        while (viewportRectangle.width > 1 && viewportRectangle.height > 1) {
-            if (viewportRectangle.width > 1)
-                viewportRectangle.width /= 2;
-            if (viewportRectangle.height > 1)
-                viewportRectangle.height /= 2;
+        float width = viewportRectangle.width;
+        float height = viewportRectangle.height;
 
-            viewportRectangle.width = std::max(viewportRectangle.width, 1.0f);
-            viewportRectangle.height = std::max(viewportRectangle.height, 1.0f);
+        while (width > 1 && height > 1) {
+            if (width > 1)  width  /= 2;
+            if (height > 1) height /= 2;
 
-            downsampledTextures.emplace_back(LoadRenderTexture(static_cast<int>(viewportRectangle.width), static_cast<int>(viewportRectangle.height)));
+            width  = std::max(width,  1.0f);
+            height = std::max(height, 1.0f);
+
+            downsampledTextures.emplace_back(LoadRenderTexture(static_cast<int>(width), static_cast<int>(height)));
             index++;
         }
     }

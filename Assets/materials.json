@@ -1,0 +1,152 @@
+{
+    "Albedo": {
+        "albedo": "",
+        "parameters": {
+            "ColorTint": [1.0, 1.0, 1.0, 1.0]
+        }
+    },
+    "Normal": {
+        "albedo": "",
+        "normal": "",
+        "parameters": {
+            "ColorTint": [1.0, 1.0, 1.0, 1.0],
+            "NormalIntensity": 1.0
+        }
+    },
+    "PBR": {
+        "albedo": "",
+        "normal": "",
+        "roughness": "",
+        "metalness": "",
+        "ambient": "",
+        "parameters": {
+            "ColorTint": [1.0, 1.0, 1.0, 1.0],
+            "NormalIntensity": 1.0
+        }
+    },
+    "Peeling Paint": {
+        "albedo": "",
+        "normal": "",
+        "roughness": "",
+        "parameters": {
+            "ColorTint": [1.0, 1.0, 1.0, 1.0],
+            "PeelAmount": [0.5, 0.0, 0.0, 0.0]
+        }
+    },
+    "Rust": {
+        "albedo": "",
+        "normal": "",
+        "roughness": "",
+        "metalness": "",
+        "ambient": "",
+        "mask": "",
+        "parameters": {
+            "ColorTint": [0.8, 0.35, 0.1, 1.0],
+            "RustAmount": 0.7,
+            "RustScale": 1.0,
+            "EdgeBias": 0.6,
+            "Pitting": 0.5,
+            "NormalIntensity": 1.0,
+            "BaseBlend": 1.0
+        }
+    },
+    "Dirt": {
+        "albedo": "",
+        "normal": "",
+        "roughness": "",
+        "ambient": "",
+        "mask": "",
+        "parameters": {
+            "ColorTint": [0.25, 0.2, 0.15, 1.0],
+            "DirtAmount": 0.5,
+            "GrungeScale": 1.0,
+            "CavityBias": 0.7,
+            "NormalIntensity": 0.3,
+            "BaseBlend": 1.0
+        }
+    },
+    "Moss": {
+        "albedo": "",
+        "normal": "",
+        "roughness": "",
+        "ambient": "",
+        "mask": "",
+        "parameters": {
+            "ColorTint": [0.25, 0.4, 0.2, 1.0],
+            "MossAmount": 0.4,
+            "Moisture": 0.6,
+            "UpwardBias": 0.8,
+            "GrungeScale": 1.0,
+            "NormalIntensity": 0.6,
+            "BaseBlend": 1.0
+        }
+    },
+    "Edge Wear": {
+        "albedo": "",
+        "normal": "",
+        "roughness": "",
+        "metalness": "",
+        "mask": "",
+        "parameters": {
+            "ColorTint": [1.0, 1.0, 1.0, 1.0],
+            "WearAmount": 0.5,
+            "Radius": 0.4,
+            "Contrast": 0.7,
+            "ExposeMetal": 1.0,
+            "NormalIntensity": 0.0,
+            "BaseBlend": 1.0
+        }
+    },
+    "Dust": {
+        "albedo": "",
+        "roughness": "",
+        "ambient": "",
+        "mask": "",
+        "parameters": {
+            "ColorTint": [0.9, 0.85, 0.8, 1.0],
+            "DustAmount": 0.35,
+            "TopDownBias": 0.9,
+            "GrainScale": 1.0,
+            "BaseBlend": 1.0
+        }
+    },
+    "Scratches": {
+        "normal": "",
+        "roughness": "",
+        "mask": "",
+        "parameters": {
+            "Density": 0.6,
+            "Depth": 0.4,
+            "Direction": 0.0,
+            "Anisotropy": 0.8,
+            "RandomSeed": 0.0,
+            "BaseBlend": 1.0
+        }
+    },
+    "Grime": {
+        "albedo": "",
+        "roughness": "",
+        "ambient": "",
+        "mask": "",
+        "parameters": {
+            "ColorTint": [0.2, 0.2, 0.2, 1.0],
+            "GrimeAmount": 0.5,
+            "Streakiness": 0.6,
+            "FlowDirection": 270.0,
+            "BaseBlend": 1.0
+        }
+    },
+    "Water Stains": {
+        "albedo": "",
+        "roughness": "",
+        "ambient": "",
+        "mask": "",
+        "parameters": {
+            "ColorTint": [0.7, 0.7, 0.75, 1.0],
+            "StainAmount": 0.4,
+            "EdgeDarkening": 0.6,
+            "DripLength": 0.5,
+            "BaseBlend": 1.0
+        }
+    }
+}

@@ -6,27 +6,22 @@ See the LICENSE file in the project root for full license information.
 #version 460 core
 #pragma optimize(on)
 
+// In/Out
 layout(location = 0) in vec3 fragPosition;
 layout(location = 1) in vec2 fragTexCoord;
 layout(location = 3) in vec3 fragNormal;
-
 layout(location = 0) out vec4 finalColor;
-layout(location = 1) out vec4 finalNormal;
-
-
 layout(location = 13) uniform vec3 viewPos;
 
+// Globals
 vec3 fragView;
 
 // PBR Textures
-uniform sampler2D texture0;
-uniform sampler2D texture1;
-uniform sampler2D texture2;
-uniform sampler2D texture3;
-uniform sampler2D texture4;
-uniform sampler2D texture5;
 uniform sampler2D brdfLUT;
 uniform samplerCube irradiance;
+
+// Uniforms and Samplers
+// [INJECT UNIFORMS HERE]
 
 // Constants
 #define PI 3.14159265359
@@ -51,8 +46,8 @@ struct Light {
     vec3 position;
     vec3 direction;
     vec4 color;
-    vec4 params;  // params.x = attenuation coeff, params.y = intensity, params.z = SPOT inner cone angle cos
-                // params.w = SPOT outer cone angle cos. For point lights, params.w is radius
+    vec4 params; // params.x = attenuation coeff, params.y = intensity, params.z = SPOT inner cone angle cos
+                 // params.w = SPOT outer cone angle cos. For point lights, params.w is radius
 };
 
 layout(std430, binding = 0) buffer LightsBuffer {
@@ -188,7 +183,7 @@ mediump float invSqrtFast(float x) {
     return x * (1.5 - xhalf * x * x);
 }
 
-// [ INSERT GENERATED CODE BELOW ]
+// [ INJECT FUNCTIONS HERE ]
 
 void main() {
 #ifdef TILING
@@ -245,6 +240,10 @@ void main() {
     ao = calcAmbientOcclusionMap(texture(texture4, texCoord)).r;
 #endif
 
+#ifdef LAYERED_MATERIAL
+    EvaluateLayeredMaterial(texCoord, fragPosition, normalize(fragNormal), N, albedo, roughness, metalness, ao, alpha);
+#endif
+
     const float specularIntensity = 1.0;
 
     const vec3 dielectricF0 = DEFAULT_DIELECTRIC_F0 * specularIntensity;
@@ -278,5 +277,4 @@ void main() {
     mediump const vec3 hdrColor = toneMapACES(exposure * Lo);
 
     finalColor = vec4(hdrColor, alpha);
-    finalNormal = vec4(N,1);
 }

@@ -114,26 +114,6 @@ void EditFileManipulation() {
                 ImGui::CloseCurrentPopup();
             }
 
-            if (dirPath == "project/Materials" && allItems[fileIndex].extension == ".matblueprint") {
-                if (ImGui::Button("Create Child Material", ImVec2(buttonWidth, 0))) {
-                    const fs::path blueprintPath = allItems[fileIndex].path;
-                    const std::string materialFileName = generateNumberedFileName(dirPath, "mat");
-
-                    json materialData;
-                    materialData["Blueprint"] = blueprintPath.string();
-
-                    if (std::ofstream materialFile(materialFileName); materialFile.is_open()) {
-                        materialFile << materialData.dump(2);
-                        materialFile.close();
-                        TraceLog(LOG_INFO, "Created child material: %s", materialFileName.c_str());
-                    } else {
-                        TraceLog(LOG_ERROR, "Failed to create child material file: %s", materialFileName.c_str());
-                    }
-                    fileIndex = -1;
-                    ImGui::CloseCurrentPopup();
-                }
-            }
-
             if (ImGui::Button("Delete", ImVec2(buttonWidth, 0))) {
                 const fs::path pathToDelete = allItems[fileIndex].path;
                 fs::remove_all(pathToDelete);
@@ -173,6 +153,12 @@ void AddFileManipulation() {
         ImGui::Text("Add");
         ImGui::Separator();
 
+        if (ImGui::MenuItem("Folder")) {
+            if (createNumberedFolder(dirPath)) {
+                ImGui::CloseCurrentPopup();
+            }
+        }
+
         if (ImGui::BeginMenu("File")) {
             if (ImGui::MenuItem("Python")) {
                 if (createNumberedFile(dirPath, "py")) {
@@ -180,24 +166,14 @@ void AddFileManipulation() {
                 }
             }
 
-            if (dirPath == "project/Materials") {
-                if (ImGui::MenuItem("Material Blueprint")) {
-                    if (createNumberedFile(dirPath, "matblueprint")) {
-                        ImGui::CloseCurrentPopup();
-                    }
-                }
-            }
-            ImGui::EndMenu();
-        }
-
-        if (ImGui::BeginMenu("Folder")) {
-            if (ImGui::MenuItem("Folder")) {
-                if (createNumberedFolder(dirPath)) {
+            if (ImGui::MenuItem("Material")) {
+                if (createNumberedFile(dirPath, "mat")) {
                     ImGui::CloseCurrentPopup();
                 }
             }
             ImGui::EndMenu();
         }
+
         ImGui::EndPopup();
     }
 }

@@ -13,7 +13,6 @@ See the LICENSE file in the project root for full license information.
 #include <Engine/Core/Math.hpp>
 #include <Engine/Editor/AssetsExplorer/AssetsExplorer.hpp>
 #include <Engine/Editor/Inspector/Inspector.hpp>
-#include <Engine/Editor/MaterialNodeEditor/ChildMaterial.hpp>
 #include <Engine/Editor/Styles/ImGuiExtras.hpp>
 #include <extras/IconsFontAwesome6.h>
 #include <filesystem>
@@ -180,19 +179,14 @@ void EntityInspector() {
             ImGui::TextUnformatted("Material");
             ImGui::TableSetColumnIndex(1);
             ImGui::SetNextItemWidth(-FLT_MIN);
-            std::string materialName = selectedEntity->childMaterialPath.empty() ? "Drag Material Here" : selectedEntity->childMaterialPath.stem().string();
+            std::string materialName = selectedEntity->materialPath.empty() ? "Drag Material Here" : selectedEntity->materialPath.stem().string();
             ImGui::Button(materialName.c_str(), ImVec2(-FLT_MIN, 25));
             if (ImGui::BeginDragDropTarget()) {
                 if (const ImGuiPayload* payload = ImGui::AcceptDragDropPayload("MATERIAL_PAYLOAD")) {
                     IM_ASSERT(payload->DataSize == sizeof(int));
                     const int payloadIndex = *(const int*)payload->Data;
                     const fs::path path = allItems[payloadIndex].path;
-                    if (!childMaterials.contains(path)) {
-                        LoadChildMaterial(path);
-                    }
-                    if (childMaterials.contains(path)) {
-                        selectedEntity->childMaterialPath = path;
-                    }
+                    // LOAD
                 }
                 ImGui::EndDragDropTarget();
             }
@@ -227,25 +221,6 @@ void EntityInspector() {
             ImGui::Unindent(10.0f);
             ImGui::EndTable();
         }
-        ImGui::Unindent(20.0f);
-    }
-
-    ImGui::Spacing();
-
-    constexpr const char* material_cstr = ICON_FA_BRUSH " Material";
-    if (ImGui::CollapsingHeader(material_cstr)) {
-        ImGui::Indent(20.0f);
-
-        if (!selectedEntity->childMaterialPath.empty()) {
-            auto it = childMaterials.find(selectedEntity->childMaterialPath);
-            if (it != childMaterials.end()) {
-                MaterialInspector(it->second);
-            }
-        } else {
-            constexpr const char* info_text = "No material assigned. Drag a material asset here from the Assets Explorer to apply it.";
-            ImGui::DrawMessageBox(info_text, MessageBoxType::Info);
-        }
-
         ImGui::Unindent(20.0f);
     }
 
