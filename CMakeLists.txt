@@ -1,14 +1,15 @@
 cmake_minimum_required(VERSION 3.28)
-project(LitEngine CXX)
+project(LitEditor LANGUAGES CXX C)
 
 set(CMAKE_CXX_STANDARD 23)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_EXTENSIONS OFF)
+set(GLFW_BUILD_WAYLAND OFF CACHE BOOL "Disable Wayland backend" FORCE)
+set(GLFW_BUILD_X11   ON  CACHE BOOL "Build X11 backend" FORCE)
 
-if (CMAKE_CXX_COMPILER_ID MATCHES "Clang|GNU")
-    add_compile_options(-fdiagnostics-color=always)
-endif()
+set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fmodules-ts -fdiagnostics-color=always -g")
 
+add_subdirectory(src/vendors/glfw)
 add_subdirectory(src/Engine)
 add_subdirectory(src/Editor)
 

@@ -1,22 +1,28 @@
-file(GLOB_RECURSE EDITOR_MODULES
-    CONFIGURE_DEPENDS
-    "${CMAKE_CURRENT_SOURCE_DIR}/*.cppm"
-    "${CMAKE_CURRENT_SOURCE_DIR}/*.ixx"
-)
+cmake_minimum_required(VERSION 3.28)
+project(LitEditor LANGUAGES CXX)
 
-file(GLOB_RECURSE EDITOR_SOURCES
-    CONFIGURE_DEPENDS
-    "${CMAKE_CURRENT_SOURCE_DIR}/*.cpp"
-)
+set(GLFW_BUILD_WAYLAND ON CACHE BOOL "Build Wayland backend" FORCE)
+set(GLFW_BUILD_X11   OFF CACHE BOOL "Disable X11 backend" FORCE)
+set(CMAKE_CXX_STANDARD 23)
+set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
-add_executable(Editor ${EDITOR_SOURCES})
+add_executable(Editor)
 
-# Ensure module interface units are compiled as CXX modules and produced
 target_sources(Editor
     PUBLIC
-        FILE_SET cxx_modules TYPE CXX_MODULES
-        FILES ${EDITOR_MODULES}
+        FILE_SET CXX_MODULES
+        BASE_DIRS "${CMAKE_CURRENT_SOURCE_DIR}"
+        FILES
+            Application.cppm
+    PRIVATE
+        Application/Application.cpp
+        main.cpp
+        ${PROJECT_SOURCE_DIR}/../vendors/glad/src/glad.c
 )
 
-target_link_libraries(Editor PRIVATE Engine)
-target_compile_features(Editor PRIVATE cxx_std_23)
+target_include_directories(Editor PRIVATE
+    "${PROJECT_SOURCE_DIR}/../vendors/glfw/include"
+    "${PROJECT_SOURCE_DIR}/../vendors/glad/include"
+)
+
+target_link_libraries(Editor PRIVATE Engine glfw)

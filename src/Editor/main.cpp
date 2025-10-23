@@ -1,14 +1,10 @@
-module;
-
-#include <format>
+import application;
 #include <print>
 
-import engine;
-import application;
-
 int main() {
-    run_engine();
     Application app;
-    app.greet();
+    while (app.isRunning()) {
+        app.update();
+    }
     return 0;
 }
