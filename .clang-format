@@ -1,0 +1,28 @@
+BasedOnStyle: LLVM
+
+Language: Cpp
+
+IndentWidth: 4
+UseTab: Never
+
+PointerAlignment: Left
+ReferenceAlignment: Left
+
+BreakBeforeBraces: Attach
+BraceWrapping:
+  AfterControlStatement: false
+  AfterFunction: false
+  AfterNamespace: false
+  AfterClass: false
+  AfterStruct: false
+  AfterEnum: false
+  AfterUnion: false
+  BeforeCatch: false
+  BeforeElse: false
+
+AllowAllParametersOfDeclarationOnNextLine: false
+BinPackParameters: true
+
+ColumnLimit: 100
+
+SpaceBeforeParens: ControlStatements

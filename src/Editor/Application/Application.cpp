@@ -2,14 +2,18 @@
 #include <GLFW/glfw3.h>
 
 import application;
+import engine;
 #include <print>
-#include <cmath>
 
 Application::Application() {
     if (!glfwInit()) {
         std::println("Failed to initialize GLFW");
         return;
     }
+
+    glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 3);
+    glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 3);
+    glfwWindowHint(GLFW_OPENGL_PROFILE, GLFW_OPENGL_CORE_PROFILE);
 
     m_window = glfwCreateWindow(1280, 720, "Lit Engine", nullptr, nullptr);
     if (!m_window) {
@@ -19,10 +23,14 @@ Application::Application() {
     }
 
     glfwMakeContextCurrent(m_window);
-    if (!gladLoadGL()) {
-        std::println("Failed to initialize OpenGL");
+
+    if (!gladLoadGLLoader((GLADloadproc)glfwGetProcAddress)) {
+        std::println("Failed to initialize GLAD");
         return;
     }
+
+    m_engine.init();
+
     std::println("Application created");
 }
 
@@ -33,18 +41,10 @@ Application::~Application() {
 }
 
 void Application::update() {
-    double time = glfwGetTime();
-    float r = (sin(time) + 1.0f) / 2.0f;
-    float g = (cos(time) + 1.0f) / 2.0f;
-    float b = 0.5f;
-
-    glClearColor(r, g, b, 1.0f);
-    glClear(GL_COLOR_BUFFER_BIT);
+    m_engine.update();
 
     glfwSwapBuffers(m_window);
     glfwPollEvents();
 }
 
-bool Application::isRunning() const {
-    return !glfwWindowShouldClose(m_window);
-}
+bool Application::isRunning() const { return !glfwWindowShouldClose(m_window); }
