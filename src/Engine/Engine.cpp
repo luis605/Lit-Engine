@@ -1,4 +1,3 @@
-
 import engine;
 import renderer;
 import camera;
@@ -10,3 +9,5 @@ Engine::~Engine() {}
 void Engine::init() { m_renderer.init(); }
 
 void Engine::update(Camera& camera) { m_renderer.drawScene(camera); }
+
+void Engine::cleanup() { m_renderer.cleanup(); }

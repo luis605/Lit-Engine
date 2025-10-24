@@ -35,6 +35,7 @@ Application::Application() {
 }
 
 Application::~Application() {
+    m_engine.cleanup();
     glfwDestroyWindow(m_window);
     glfwTerminate();
     std::println("Application destroyed");

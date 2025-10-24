@@ -1,4 +1,3 @@
-
 export module engine;
 
 import renderer;
@@ -10,6 +9,7 @@ export class Engine {
 
     void init();
     void update(Camera& camera);
+    void cleanup();
 
   private:
     Renderer m_renderer;

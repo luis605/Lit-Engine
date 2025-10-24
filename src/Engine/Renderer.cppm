@@ -1,4 +1,3 @@
-// Renderer.cppm
 export module renderer;
 
 import camera;
@@ -10,6 +9,7 @@ export class Renderer {
 
     void init();
     void drawScene(const Camera& camera);
+    void cleanup();
 
   private:
     void setupShaders();
@@ -23,4 +23,6 @@ export class Renderer {
     int m_modelLoc;
     int m_viewLoc;
     int m_projectionLoc;
+
+    bool m_initialized = false;
 };

@@ -1,4 +1,3 @@
-
 #include <glad/glad.h>
 #include <GLFW/glfw3.h>
 #include <glm/glm.hpp>
@@ -46,16 +45,26 @@ Renderer::Renderer()
       m_projectionLoc(-1) {}
 
 void Renderer::init() {
+    if (m_initialized) return;
+    m_initialized = true;
+
     setupShaders();
     setupCubeMesh();
     glEnable(GL_DEPTH_TEST);
 }
 
-Renderer::~Renderer() {
+void Renderer::cleanup() {
+    if (!m_initialized) return;
+    m_initialized = false;
+
     glDeleteProgram(m_shaderProgram);
     glDeleteVertexArrays(1, &m_cubeVAO);
     glDeleteBuffers(1, &m_cubeVBO);
     glDeleteBuffers(1, &m_cubeEBO);
+}
+
+Renderer::~Renderer() {
+    cleanup();
 }
 
 void Renderer::drawScene(const Camera& camera) {
