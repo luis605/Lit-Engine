@@ -11,9 +11,11 @@ target_sources(Engine
     FILES
         Engine.cppm
         Renderer.cppm
+        Camera.cppm
     PRIVATE
         Engine.cpp
         Renderer.cpp
+        Camera.cpp
         ${PROJECT_SOURCE_DIR}/src/vendors/glad/src/glad.c
 )
 

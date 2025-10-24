@@ -1,9 +1,11 @@
-export module application;
-import engine;
+module;
+#include <GLFW/glfw3.h>
 
-extern "C" {
-#include "GLFW/glfw3.h"
-}
+export module application;
+
+import engine;
+import camera;
+
 export class Application {
   public:
     Application();
@@ -15,4 +17,5 @@ export class Application {
   private:
     GLFWwindow* m_window;
     Engine m_engine;
+    Camera camera;
 };

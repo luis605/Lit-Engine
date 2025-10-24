@@ -1,9 +1,9 @@
 #include <glad/glad.h>
 #include <GLFW/glfw3.h>
+#include <print>
 
 import application;
 import engine;
-#include <print>
 
 Application::Application() {
     if (!glfwInit()) {
@@ -41,7 +41,7 @@ Application::~Application() {
 }
 
 void Application::update() {
-    m_engine.update();
+    m_engine.update(camera);
 
     glfwSwapBuffers(m_window);
     glfwPollEvents();

@@ -1,5 +1,5 @@
-import application;
 #include <print>
+import application;
 
 int main() {
     Application app;

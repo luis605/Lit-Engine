@@ -1,13 +1,15 @@
 // Renderer.cppm
 export module renderer;
 
+import camera;
+
 export class Renderer {
   public:
     Renderer();
     ~Renderer();
 
     void init();
-    void drawScene();
+    void drawScene(const Camera& camera);
 
   private:
     void setupShaders();

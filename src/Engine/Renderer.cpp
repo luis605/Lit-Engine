@@ -1,10 +1,11 @@
 
-#include <GLFW/glfw3.h>
 #include <glad/glad.h>
+#include <GLFW/glfw3.h>
 #include <glm/glm.hpp>
 #include <glm/gtc/matrix_transform.hpp>
 #include <glm/gtc/type_ptr.hpp>
 
+import camera;
 import renderer;
 #include <print>
 
@@ -57,19 +58,16 @@ Renderer::~Renderer() {
     glDeleteBuffers(1, &m_cubeEBO);
 }
 
-void Renderer::drawScene() {
+void Renderer::drawScene(const Camera& camera) {
     glClearColor(0.1f, 0.1f, 0.1f, 1.0f);
     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
     glUseProgram(m_shaderProgram);
 
-    glm::mat4 projection = glm::perspective(glm::radians(45.0f), 1280.0f / 720.0f, 0.1f, 100.0f);
-
-    glm::mat4 view = glm::lookAt(glm::vec3(0.0f, 0.0f, 3.0f), glm::vec3(0.0f, 0.0f, 0.0f),
-                                 glm::vec3(0.0f, 1.0f, 0.0f));
+    glm::mat4 projection = camera.getProjectionMatrix();
+    glm::mat4 view = camera.getViewMatrix();
 
     glm::mat4 model = glm::mat4(1.0f);
-
     float angle = (float)glfwGetTime() * glm::radians(50.0f);
     model = glm::rotate(model, angle, glm::normalize(glm::vec3(1.0f, 0.5f, 0.2f)));
 
@@ -81,7 +79,6 @@ void Renderer::drawScene() {
     glDrawElements(GL_TRIANGLES, 36, GL_UNSIGNED_INT, 0);
     glBindVertexArray(0);
 }
-
 void Renderer::setupShaders() {
 
     unsigned int vertexShader = glCreateShader(GL_VERTEX_SHADER);
