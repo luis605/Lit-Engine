@@ -16,11 +16,17 @@ target_sources(Engine
         Camera.cppm
         Shader.cppm
         GLM.cppm
+        Mesh.cppm
+        Model.cppm
+        Scene.cppm
     PRIVATE
         Engine.cpp
         Renderer.cpp
         Camera.cpp
         Shader.cpp
+        Mesh.cpp
+        Model.cpp
+        Scene.cpp
         ${PROJECT_SOURCE_DIR}/src/vendors/glad/src/glad.c
 )
 

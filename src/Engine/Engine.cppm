@@ -2,6 +2,7 @@ export module engine;
 
 import renderer;
 import camera;
+import scene;
 
 export class Engine {
   public:
@@ -9,7 +10,7 @@ export class Engine {
     ~Engine();
 
     void init();
-    void update(Camera& camera);
+    void update(const Scene& scene, Camera& camera);
     void cleanup();
 
   private:

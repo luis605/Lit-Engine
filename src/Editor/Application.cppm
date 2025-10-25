@@ -6,6 +6,7 @@ export module application;
 
 import engine;
 import camera;
+import scene;
 
 export class Application {
   public:
@@ -19,4 +20,5 @@ export class Application {
     GLFWwindow* m_window;
     Engine m_engine;
     Camera camera;
+    Scene m_scene;
 };

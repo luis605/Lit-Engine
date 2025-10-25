@@ -3,6 +3,10 @@
 
 import application;
 import engine;
+import mesh;
+import model;
+import scene;
+import camera;
 import std;
 
 Application::Application() {
@@ -31,6 +35,18 @@ Application::Application() {
 
     m_engine.init();
 
+    std::vector<float> vertices = {-0.5f, -0.5f, -0.5f, 0.5f,  -0.5f, -0.5f, 0.5f, 0.5f,
+                        -0.5f, -0.5f, 0.5f,  -0.5f, -0.5f, -0.5f, 0.5f, 0.5f,
+                        -0.5f, 0.5f,  0.5f,  0.5f,  0.5f,  -0.5f, 0.5f, 0.5f};
+
+    std::vector<unsigned int> indices = {0, 1, 2, 2, 3, 0, 1, 5, 6, 6, 2, 1, 7, 6, 5, 5, 4, 7,
+                              4, 0, 3, 3, 7, 4, 3, 2, 6, 6, 7, 3, 4, 5, 1, 1, 0, 4};
+
+    std::vector<Mesh> meshes;
+    meshes.emplace_back(vertices, indices);
+
+    m_scene.addModel(Model(std::move(meshes)));
+
     std::println("Application created");
 }
 
@@ -42,8 +58,7 @@ Application::~Application() {
 }
 
 void Application::update() {
-    m_engine.update(camera);
-
+    m_engine.update(m_scene, camera);
     glfwSwapBuffers(m_window);
     glfwPollEvents();
 }
