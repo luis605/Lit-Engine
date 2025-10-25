@@ -12,23 +12,23 @@ target_sources(Engine
     PUBLIC FILE_SET cxx_modules TYPE CXX_MODULES
     FILES
         Engine.cppm
-        Renderer.cppm
-        Camera.cppm
-        Shader.cppm
+        Render/Renderer.cppm
+        Render/Camera.cppm
+        Render/Shader.cppm
         GLM.cppm
-        Mesh.cppm
-        Model.cppm
-        Scene.cppm
-        Input.cppm
+        Render/Mesh.cppm
+        Render/Model.cppm
+        Render/Scene.cppm
+        Input/Input.cppm
     PRIVATE
         Engine.cpp
-        Renderer.cpp
-        Camera.cpp
-        Shader.cpp
-        Mesh.cpp
-        Model.cpp
-        Scene.cpp
-        Input.cpp
+        Render/Renderer.cpp
+        Render/Camera.cpp
+        Render/Shader.cpp
+        Render/Mesh.cpp
+        Render/Model.cpp
+        Render/Scene.cpp
+        Input/Input.cpp
         ${PROJECT_SOURCE_DIR}/src/vendors/glad/src/glad.c
 )
 
