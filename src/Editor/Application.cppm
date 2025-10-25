@@ -7,6 +7,7 @@ export module application;
 import engine;
 import camera;
 import scene;
+import input;
 
 export class Application {
   public:
@@ -17,6 +18,8 @@ export class Application {
     bool isRunning() const;
 
   private:
+    void processInput(float deltaTime);
+
     GLFWwindow* m_window;
     Engine m_engine;
     Camera camera;

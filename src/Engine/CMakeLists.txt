@@ -19,6 +19,7 @@ target_sources(Engine
         Mesh.cppm
         Model.cppm
         Scene.cppm
+        Input.cppm
     PRIVATE
         Engine.cpp
         Renderer.cpp
@@ -27,6 +28,7 @@ target_sources(Engine
         Mesh.cpp
         Model.cpp
         Scene.cpp
+        Input.cpp
         ${PROJECT_SOURCE_DIR}/src/vendors/glad/src/glad.c
 )
 
