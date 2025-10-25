@@ -9,6 +9,7 @@ export class Model {
   public:
     Model(std::vector<Mesh>&& meshes);
 
+    void cleanup();
     void draw(Shader& shader) const;
 
     glm::mat4 getTransform() const;

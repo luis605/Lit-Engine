@@ -54,6 +54,7 @@ Application::Application() {
 }
 
 Application::~Application() {
+    m_scene.cleanup();
     m_engine.cleanup();
     glfwDestroyWindow(m_window);
     glfwTerminate();

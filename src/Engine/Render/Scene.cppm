@@ -8,6 +8,7 @@ export class Scene {
   public:
     Scene();
 
+    void cleanup();
     void addModel(Model&& model);
     void draw(Shader& shader) const;
 

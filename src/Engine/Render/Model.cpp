@@ -8,6 +8,13 @@ import Engine.glm;
 Model::Model(std::vector<Mesh>&& meshes)
     : m_meshes(std::move(meshes)), m_transform(glm::mat4(1.0f)) {}
 
+void Model::cleanup() {
+    for (auto& mesh : m_meshes) {
+        mesh.release();
+    }
+    m_meshes.clear();
+}
+
 void Model::draw(Shader& shader) const {
     shader.setUniform("model", m_transform);
     for (const auto& mesh : m_meshes) {

@@ -16,6 +16,13 @@ void Scene::draw(Shader& shader) const {
     }
 }
 
+void Scene::cleanup() {
+    for (auto& model : m_models) {
+        model.cleanup();
+    }
+    m_models.clear();
+}
+
 std::vector<Model>& Scene::getModels() {
     return m_models;
 }
