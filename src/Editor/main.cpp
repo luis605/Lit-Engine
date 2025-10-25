@@ -1,4 +1,4 @@
-#include <print>
+import std;
 import application;
 
 int main() {

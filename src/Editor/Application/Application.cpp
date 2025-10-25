@@ -1,9 +1,9 @@
 #include <glad/glad.h>
 #include <GLFW/glfw3.h>
-#include <print>
 
 import application;
 import engine;
+import std;
 
 Application::Application() {
     if (!glfwInit()) {

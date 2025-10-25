@@ -1,12 +1,10 @@
 cmake_minimum_required(VERSION 3.28)
-project(LitEditor LANGUAGES CXX)
-
-set(GLFW_BUILD_WAYLAND ON CACHE BOOL "Build Wayland backend" FORCE)
-set(GLFW_BUILD_X11   OFF CACHE BOOL "Disable X11 backend" FORCE)
-set(CMAKE_CXX_STANDARD 23)
-set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
 add_executable(Editor)
+
+set_target_properties(Editor PROPERTIES
+    CXX_MODULE_STD ON
+)
 
 target_sources(Editor
     PUBLIC
@@ -17,12 +15,24 @@ target_sources(Editor
     PRIVATE
         Application/Application.cpp
         main.cpp
-        ${PROJECT_SOURCE_DIR}/../vendors/glad/src/glad.c
+        ${PROJECT_SOURCE_DIR}/src/vendors/glad/src/glad.c
 )
 
+target_compile_features(Editor PRIVATE cxx_std_23)
+
 target_include_directories(Editor PRIVATE
-    "${PROJECT_SOURCE_DIR}/../vendors/glfw/include"
-    "${PROJECT_SOURCE_DIR}/../vendors/glad/include"
+    "${PROJECT_SOURCE_DIR}/src/vendors/glfw/include"
+    "${PROJECT_SOURCE_DIR}/src/vendors/glad/include"
 )
 
 target_link_libraries(Editor PRIVATE Engine glfw)
+
+set(RESOURCES_DIR "${CMAKE_SOURCE_DIR}/resources")
+set(DESTINATION_DIR "${CMAKE_BINARY_DIR}/shaders")
+
+add_custom_command(
+    TARGET Editor POST_BUILD
+    COMMAND ${CMAKE_COMMAND} -E copy_directory
+            "${RESOURCES_DIR}/shaders"
+            "${DESTINATION_DIR}"
+)

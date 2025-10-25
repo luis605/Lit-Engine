@@ -1,8 +1,10 @@
 cmake_minimum_required(VERSION 3.28)
 add_library(Engine STATIC)
 
-set(GLFW_BUILD_WAYLAND ON CACHE BOOL "Build Wayland backend" FORCE)
-set(GLFW_BUILD_X11   OFF CACHE BOOL "Disable X11 backend" FORCE)
+set_target_properties(Engine PROPERTIES
+    CXX_MODULE_STD ON
+)
+
 set(CMAKE_CXX_STANDARD 23)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
@@ -12,10 +14,13 @@ target_sources(Engine
         Engine.cppm
         Renderer.cppm
         Camera.cppm
+        Shader.cppm
+        GLM.cppm
     PRIVATE
         Engine.cpp
         Renderer.cpp
         Camera.cpp
+        Shader.cpp
         ${PROJECT_SOURCE_DIR}/src/vendors/glad/src/glad.c
 )
 

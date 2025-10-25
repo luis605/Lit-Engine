@@ -1,6 +1,8 @@
 export module renderer;
 
+import shader;
 import camera;
+import std;
 
 export class Renderer {
   public:
@@ -15,14 +17,11 @@ export class Renderer {
     void setupShaders();
     void setupCubeMesh();
 
-    unsigned int m_shaderProgram;
+    std::unique_ptr<Shader> m_shader;
+
     unsigned int m_cubeVAO;
     unsigned int m_cubeVBO;
     unsigned int m_cubeEBO;
-
-    int m_modelLoc;
-    int m_viewLoc;
-    int m_projectionLoc;
 
     bool m_initialized = false;
 };

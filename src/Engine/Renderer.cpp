@@ -1,77 +1,59 @@
+module;
+
 #include <glad/glad.h>
 #include <GLFW/glfw3.h>
-#include <glm/glm.hpp>
-#include <glm/gtc/matrix_transform.hpp>
-#include <glm/gtc/type_ptr.hpp>
 
+module renderer;
+
+import glm;
 import camera;
-import renderer;
-#include <print>
-
-const char* vertexShaderSource = R"(
-    #version 330 core
-    layout (location = 0) in vec3 aPos;
-
-    uniform mat4 model;
-    uniform mat4 view;
-    uniform mat4 projection;
-
-    out vec3 fragPos;
-
-    void main() {
-        gl_Position = projection * view * model * vec4(aPos, 1.0);
-        fragPos = aPos;
-    }
-)";
-
-const char* fragmentShaderSource = R"(
-    #version 330 core
-    out vec4 FragColor;
-    in vec3 fragPos;
-
-    void main() {
-        vec3 colorA = vec3(0.1, 0.0, 0.5);
-        vec3 colorB = vec3(1.0, 0.0, 0.5);
-
-        float blendFactor = fragPos.y + 0.5;
-        vec3 finalColor = mix(colorA, colorB, blendFactor);
-
-        FragColor = vec4(finalColor, 1.0f);
-    }
-)";
+import shader;
+import std;
 
 Renderer::Renderer()
-    : m_shaderProgram(0), m_cubeVAO(0), m_cubeVBO(0), m_cubeEBO(0), m_modelLoc(-1), m_viewLoc(-1),
-      m_projectionLoc(-1) {}
+    : m_shader(nullptr), m_cubeVAO(0), m_cubeVBO(0), m_cubeEBO(0), m_initialized(false) {}
 
 void Renderer::init() {
-    if (m_initialized) return;
-    m_initialized = true;
+    if (m_initialized)
+        return;
 
     setupShaders();
+
+    if (!m_shader || !m_shader->isInitialized()) {
+        std::cerr << "Renderer failed to initialize: Shaders could not be loaded." << std::endl;
+        return;
+    }
+
     setupCubeMesh();
     glEnable(GL_DEPTH_TEST);
+    m_initialized = true;
 }
 
 void Renderer::cleanup() {
-    if (!m_initialized) return;
-    m_initialized = false;
+    if (!m_initialized)
+        return;
 
-    glDeleteProgram(m_shaderProgram);
     glDeleteVertexArrays(1, &m_cubeVAO);
     glDeleteBuffers(1, &m_cubeVBO);
     glDeleteBuffers(1, &m_cubeEBO);
+
+    m_shader.reset();
+    m_initialized = false;
 }
 
-Renderer::~Renderer() {
-    cleanup();
-}
+Renderer::~Renderer() { cleanup(); }
 
 void Renderer::drawScene(const Camera& camera) {
+    if (!m_initialized)
+        return;
+
     glClearColor(0.1f, 0.1f, 0.1f, 1.0f);
     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
-    glUseProgram(m_shaderProgram);
+    m_shader->bind();
+
+    m_shader->setUniform("u_colorA", glm::vec3(0.1f, 0.0f, 0.5f));
+    m_shader->setUniform("u_colorB", glm::vec3(1.0f, 0.0f, 0.2f));
 
     glm::mat4 projection = camera.getProjectionMatrix();
     glm::mat4 view = camera.getViewMatrix();
@@ -80,39 +62,23 @@ void Renderer::drawScene(const Camera& camera) {
     float angle = (float)glfwGetTime() * glm::radians(50.0f);
     model = glm::rotate(model, angle, glm::normalize(glm::vec3(1.0f, 0.5f, 0.2f)));
 
-    glUniformMatrix4fv(m_projectionLoc, 1, GL_FALSE, glm::value_ptr(projection));
-    glUniformMatrix4fv(m_viewLoc, 1, GL_FALSE, glm::value_ptr(view));
-    glUniformMatrix4fv(m_modelLoc, 1, GL_FALSE, glm::value_ptr(model));
+    m_shader->setUniform("projection", projection);
+    m_shader->setUniform("view", view);
+    m_shader->setUniform("model", model);
 
     glBindVertexArray(m_cubeVAO);
     glDrawElements(GL_TRIANGLES, 36, GL_UNSIGNED_INT, 0);
     glBindVertexArray(0);
+
+    m_shader->unbind();
 }
+
 void Renderer::setupShaders() {
 
-    unsigned int vertexShader = glCreateShader(GL_VERTEX_SHADER);
-    glShaderSource(vertexShader, 1, &vertexShaderSource, nullptr);
-    glCompileShader(vertexShader);
-
-    unsigned int fragmentShader = glCreateShader(GL_FRAGMENT_SHADER);
-    glShaderSource(fragmentShader, 1, &fragmentShaderSource, nullptr);
-    glCompileShader(fragmentShader);
-
-    m_shaderProgram = glCreateProgram();
-    glAttachShader(m_shaderProgram, vertexShader);
-    glAttachShader(m_shaderProgram, fragmentShader);
-    glLinkProgram(m_shaderProgram);
-
-    m_modelLoc = glGetUniformLocation(m_shaderProgram, "model");
-    m_viewLoc = glGetUniformLocation(m_shaderProgram, "view");
-    m_projectionLoc = glGetUniformLocation(m_shaderProgram, "projection");
-
-    glDeleteShader(vertexShader);
-    glDeleteShader(fragmentShader);
+    m_shader = std::make_unique<Shader>("shaders/cube.vert", "shaders/cube.frag");
 }
 
 void Renderer::setupCubeMesh() {
-
     float vertices[] = {-0.5f, -0.5f, -0.5f, 0.5f,  -0.5f, -0.5f, 0.5f, 0.5f,
                         -0.5f, -0.5f, 0.5f,  -0.5f, -0.5f, -0.5f, 0.5f, 0.5f,
                         -0.5f, 0.5f,  0.5f,  0.5f,  0.5f,  -0.5f, 0.5f, 0.5f};
