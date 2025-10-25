@@ -1,9 +1,9 @@
 module;
 
 import std;
-import glm;
+import Engine.glm;
 
-export module shader;
+export module Engine.shader;
 
 export class Shader {
   public:

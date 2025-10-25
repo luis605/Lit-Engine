@@ -3,13 +3,13 @@ module;
 #include <glad/glad.h>
 #include <GLFW/glfw3.h>
 
-module renderer;
+module Engine.renderer;
 
-import glm;
-import camera;
-import shader;
+import Engine.glm;
+import Engine.camera;
+import Engine.shader;
+import Engine.scene;
 import std;
-import scene;
 
 Renderer::Renderer() : m_shader(nullptr), m_initialized(false) {}
 

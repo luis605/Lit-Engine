@@ -1,8 +1,8 @@
-export module engine;
+export module Engine.engine;
 
-import renderer;
-import camera;
-import scene;
+import Engine.renderer;
+import Engine.camera;
+import Engine.scene;
 
 export class Engine {
   public:

@@ -1,8 +1,8 @@
-module scene;
+module Engine.scene;
 
 import std;
-import model;
-import shader;
+import Engine.model;
+import Engine.shader;
 
 Scene::Scene() {}
 

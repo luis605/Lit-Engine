@@ -1,5 +1,5 @@
 import std;
-import application;
+import Editor.application;
 
 int main() {
     Application app;

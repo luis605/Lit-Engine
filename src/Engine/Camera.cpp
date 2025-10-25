@@ -1,5 +1,5 @@
-import glm;
-import camera;
+import Engine.glm;
+import Engine.camera;
 
 Camera::Camera(glm::vec3 position, glm::vec3 up, float yaw, float pitch)
     : m_position(position), m_front(glm::vec3(0.0f, 0.0f, -1.0f)), m_worldUp(up), m_yaw(yaw),

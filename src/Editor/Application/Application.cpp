@@ -1,14 +1,14 @@
 #include <glad/glad.h>
 #include <GLFW/glfw3.h>
 
-import application;
-import engine;
-import mesh;
-import model;
-import scene;
-import camera;
-import input;
-import glm;
+import Editor.application;
+import Engine.engine;
+import Engine.mesh;
+import Engine.model;
+import Engine.scene;
+import Engine.camera;
+import Engine.input;
+import Engine.glm;
 import std;
 
 Application::Application() {

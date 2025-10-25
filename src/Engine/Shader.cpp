@@ -2,9 +2,9 @@ module;
 
 #include <glad/glad.h>
 
-module shader;
+module Engine.shader;
 
-import glm;
+import Engine.glm;
 import std;
 
 static std::string LoadSourceFromFile(const std::string& filepath) {

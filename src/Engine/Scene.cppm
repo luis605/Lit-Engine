@@ -1,8 +1,8 @@
-export module scene;
+export module Engine.scene;
 
+import Engine.model;
+import Engine.shader;
 import std;
-import model;
-import shader;
 
 export class Scene {
   public:

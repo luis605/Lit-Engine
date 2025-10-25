@@ -1,9 +1,9 @@
-export module model;
+export module Engine.model;
 
 import std;
-import mesh;
-import shader;
-import glm;
+import Engine.mesh;
+import Engine.shader;
+import Engine.glm;
 
 export class Model {
   public:

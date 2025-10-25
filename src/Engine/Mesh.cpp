@@ -2,7 +2,7 @@ module;
 
 #include <glad/glad.h>
 
-module mesh;
+module Engine.mesh;
 
 import std;
 

@@ -2,10 +2,10 @@ module;
 
 #include <GLFW/glfw3.h>
 
-import glm;
+import Engine.glm;
 import std;
 
-module input;
+module Engine.input;
 
 std::array<InputManager::KeyState, GLFW_KEY_LAST + 1> InputManager::m_keyStates;
 std::array<InputManager::KeyState, GLFW_MOUSE_BUTTON_LAST + 1> InputManager::m_mouseButtonStates;

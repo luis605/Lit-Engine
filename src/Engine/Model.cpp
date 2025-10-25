@@ -1,9 +1,9 @@
-module model;
+module Engine.model;
 
 import std;
-import mesh;
-import shader;
-import glm;
+import Engine.mesh;
+import Engine.shader;
+import Engine.glm;
 
 Model::Model(std::vector<Mesh>&& meshes)
     : m_meshes(std::move(meshes)), m_transform(glm::mat4(1.0f)) {}

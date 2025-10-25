@@ -2,10 +2,10 @@ module;
 
 #include <GLFW/glfw3.h>
 
-import glm;
+import Engine.glm;
 import std;
 
-export module input;
+export module Engine.input;
 
 export class InputManager {
   public:

@@ -1,7 +1,7 @@
-import engine;
-import renderer;
-import camera;
-import scene;
+import Engine.engine;
+import Engine.renderer;
+import Engine.camera;
+import Engine.scene;
 
 Engine::Engine() {}
 

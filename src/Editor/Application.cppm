@@ -2,12 +2,12 @@ module;
 
 #include <GLFW/glfw3.h>
 
-export module application;
+export module Editor.application;
 
-import engine;
-import camera;
-import scene;
-import input;
+import Engine.engine;
+import Engine.camera;
+import Engine.scene;
+import Engine.input;
 
 export class Application {
   public:

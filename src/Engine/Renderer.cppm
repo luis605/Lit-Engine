@@ -1,9 +1,9 @@
-export module renderer;
+export module Engine.renderer;
 
-import shader;
-import camera;
+import Engine.shader;
+import Engine.camera;
+import Engine.scene;
 import std;
-import scene;
 
 export class Renderer {
   public:

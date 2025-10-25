@@ -1,8 +1,8 @@
 module;
 
-import glm;
+import Engine.glm;
 
-export module camera;
+export module Engine.camera;
 
 export enum class CameraMovement { FORWARD, BACKWARD, LEFT, RIGHT, UP, DOWN };
 
