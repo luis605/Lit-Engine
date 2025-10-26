@@ -4,3 +4,6 @@
 [submodule "src/vendors/glfw"]
 	path = src/vendors/glfw
 	url = https://github.com/glfw/glfw.git
+[submodule "src/vendors/assimp"]
+	path = src/vendors/assimp
+	url = https://github.com/assimp/assimp.git
