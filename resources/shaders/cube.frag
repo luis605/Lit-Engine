@@ -1,11 +1,9 @@
-#version 330 core
+#version 460 core
+
 out vec4 FragColor;
 
-uniform vec3 u_colorA;
-uniform vec3 u_colorB;
-
 void main() {
-    float blendFactor = gl_FragCoord.y / 600.0;
-    vec3 finalColor = mix(u_colorA, u_colorB, blendFactor);
-    FragColor = vec4(finalColor, 1.0f);
+    float n = fract(sin(gl_PrimitiveID * 12.9898) * 43758.5453);
+    vec3 color = vec3(fract(n * 1.1), fract(n * 2.2), fract(n * 3.3));
+    FragColor = vec4(color, 1.0);
 }
