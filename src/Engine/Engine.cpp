@@ -11,6 +11,8 @@ Engine::~Engine() {}
 
 void Engine::init() { m_renderer.init(); }
 
-void Engine::update(const SceneDatabase& sceneDatabase, Camera& camera, const std::optional<Mesh>& mesh) { m_renderer.drawScene(sceneDatabase, camera, mesh); }
+void Engine::update(const SceneDatabase& sceneDatabase, Camera& camera) { m_renderer.drawScene(sceneDatabase, camera); }
 
 void Engine::cleanup() { m_renderer.cleanup(); }
+
+void Engine::uploadMesh(const Mesh& mesh) { m_renderer.uploadMesh(mesh); }

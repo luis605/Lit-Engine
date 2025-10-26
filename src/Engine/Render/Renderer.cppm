@@ -2,6 +2,7 @@ module;
 
 #include <memory>
 #include <optional>
+#include <vector>
 
 export module Engine.renderer;
 
@@ -16,12 +17,15 @@ export class Renderer {
     ~Renderer();
 
     void init();
-    void drawScene(const SceneDatabase& sceneDatabase, const Camera& camera,
-                   const std::optional<Mesh>& mesh);
+    void drawScene(const SceneDatabase& sceneDatabase, const Camera& camera);
     void cleanup();
+    void uploadMesh(const Mesh& mesh);
 
   private:
     void setupShaders();
+
+    struct GPUMesh;
+    std::vector<GPUMesh> m_gpuMeshes;
 
     std::unique_ptr<Shader> m_shader;
 

@@ -15,8 +15,9 @@ export class Engine {
     ~Engine();
 
     void init();
-    void update(const SceneDatabase& sceneDatabase, Camera& camera, const std::optional<Mesh>& mesh);
+    void update(const SceneDatabase& sceneDatabase, Camera& camera);
     void cleanup();
+    void uploadMesh(const Mesh& mesh);
 
   private:
     Renderer m_renderer;

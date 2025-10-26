@@ -52,6 +52,8 @@ Application::Application() {
     m_mesh = AssetManager::load("resources/assets/cube.asset");
     if (!m_mesh) {
         std::println("Failed to load asset. The application might not render anything.");
+    } else {
+        m_engine.uploadMesh(*m_mesh);
     }
 
     auto entity = m_sceneDatabase.createEntity();
@@ -66,8 +68,6 @@ Application::Application() {
 
 Application::~Application() {
     m_engine.cleanup();
-    if (m_mesh)
-        m_mesh->release();
     glfwDestroyWindow(m_window);
     glfwTerminate();
     std::println("Application destroyed");
@@ -81,7 +81,7 @@ void Application::update() {
 
     processInput(deltaTime);
 
-    m_engine.update(m_sceneDatabase, camera, m_mesh);
+    m_engine.update(m_sceneDatabase, camera);
 
     InputManager::Update();
     glfwSwapBuffers(m_window);

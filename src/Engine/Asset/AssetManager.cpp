@@ -111,5 +111,5 @@ std::optional<Mesh> AssetManager::load(const std::string& assetPath) {
 
     inFile.close();
 
-    return Mesh(vertices, indices);
+    return Mesh(std::move(vertices), std::move(indices));
 }
