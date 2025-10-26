@@ -52,6 +52,13 @@ Shader::Shader(const std::string& vertexShaderPath, const std::string& fragmentS
     }
 }
 
+Shader::Shader(const std::string& computeShaderPath) {
+    std::string computeSource = LoadSourceFromFile(computeShaderPath);
+    if (!computeSource.empty()) {
+        createAndLink(computeSource);
+    }
+}
+
 Shader::~Shader() {
     if (m_initialized) {
         release();
@@ -106,6 +113,10 @@ void Shader::unbind() const { glUseProgram(0); }
 
 void Shader::setUniform(const std::string& name, int value) const {
     glUniform1i(getUniformLocation(name), value);
+}
+
+void Shader::setUniform(const std::string& name, unsigned int value) const {
+    glUniform1ui(getUniformLocation(name), value);
 }
 
 void Shader::setUniform(const std::string& name, float value) const {
@@ -173,6 +184,34 @@ void Shader::createAndLink(const std::string& vertexSrc, const std::string& frag
 
     glDeleteShader(vertexShader);
     glDeleteShader(fragmentShader);
+}
+
+void Shader::createAndLink(const std::string& computeSrc) {
+    unsigned int computeShader = CompileShader(computeSrc, GL_COMPUTE_SHADER);
+    if (computeShader == 0) {
+        return;
+    }
+
+    m_shaderID = glCreateProgram();
+    glAttachShader(m_shaderID, computeShader);
+    glLinkProgram(m_shaderID);
+
+    int result;
+    glGetProgramiv(m_shaderID, GL_LINK_STATUS, &result);
+    if (result == GL_FALSE) {
+        int length;
+        glGetProgramiv(m_shaderID, GL_INFO_LOG_LENGTH, &length);
+        std::vector<char> message(length);
+        glGetProgramInfoLog(m_shaderID, length, &length, message.data());
+        std::cerr << "ERROR::SHADER::PROGRAM::LINKING_FAILED\n" << message.data() << std::endl;
+
+        glDeleteProgram(m_shaderID);
+        m_shaderID = 0;
+    } else {
+        m_initialized = true;
+    }
+
+    glDeleteShader(computeShader);
 }
 
 void Shader::release() {

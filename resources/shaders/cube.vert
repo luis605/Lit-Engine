@@ -1,10 +1,20 @@
 #version 330 core
 layout (location = 0) in vec3 aPos;
 
-uniform mat4 model;
-uniform mat4 view;
-uniform mat4 projection;
+layout(std430)
+layout(binding = 2) buffer ObjectBuffer {
+    mat4 model[];
+};
 
-void main() {
-    gl_Position = projection * view * model * vec4(aPos, 1.0);
+uniform mat4 projection;
+uniform mat4 view;
+
+out vec3 FragPos;
+
+void main()
+{
+    mat4 modelMatrix = model[gl_DrawID];
+    vec4 worldPos = modelMatrix * vec4(aPos, 1.0);
+    FragPos = worldPos.xyz;
+    gl_Position = projection * view * worldPos;
 }

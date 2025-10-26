@@ -1,0 +1,31 @@
+#version 460 core
+
+layout (local_size_x = 64, local_size_y = 1, local_size_z = 1) in;
+
+struct DrawElementsIndirectCommand {
+    uint count;
+    uint instanceCount;
+    uint firstIndex;
+    uint baseVertex;
+    uint baseInstance;
+};
+
+layout(binding = 0, offset = 0) uniform atomic_uint drawCount;
+layout(binding = 1, std430) buffer DrawCommandBuffer {
+    DrawElementsIndirectCommand commands[];
+};
+
+uniform uint u_indexCount;
+uniform uint u_baseVertex;
+uniform uint u_firstIndex;
+
+void main() {
+    if (gl_GlobalInvocationID.x == 0) {
+        uint index = atomicCounterIncrement(drawCount);
+        commands[index].count = u_indexCount;
+        commands[index].instanceCount = 1;
+        commands[index].firstIndex = u_firstIndex;
+        commands[index].baseVertex = u_baseVertex;
+        commands[index].baseInstance = 0;
+    }
+}

@@ -24,10 +24,16 @@ export class Renderer {
   private:
     void setupShaders();
 
-    struct GPUMesh;
-    std::vector<GPUMesh> m_gpuMeshes;
+    unsigned int m_vao = 0;
+    unsigned int m_vbo = 0;
+    unsigned int m_ebo = 0;
+
+    unsigned int m_drawCommandBuffer = 0;
+    unsigned int m_objectBuffer = 0;
+    unsigned int m_atomicCounterBuffer = 0;
 
     std::unique_ptr<Shader> m_shader;
+    std::unique_ptr<Shader> m_cullingShader;
 
     bool m_initialized = false;
 };

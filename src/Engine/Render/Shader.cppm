@@ -9,6 +9,7 @@ export module Engine.shader;
 
 export class Shader {
   public:
+    Shader(const std::string& computeShaderPath);
     Shader(const std::string& vertexShaderPath, const std::string& fragmentShaderPath);
     ~Shader();
 
@@ -25,12 +26,14 @@ export class Shader {
     bool isInitialized() const { return m_initialized; }
 
     void setUniform(const std::string& name, int value) const;
+    void setUniform(const std::string& name, unsigned int value) const;
     void setUniform(const std::string& name, float value) const;
     void setUniform(const std::string& name, const glm::vec3& vector) const;
     void setUniform(const std::string& name, const glm::mat4& matrix) const;
 
   private:
     int getUniformLocation(const std::string& name) const;
+    void createAndLink(const std::string& computeSrc);
     void createAndLink(const std::string& vertexSrc, const std::string& fragmentSrc);
     void release();
 
