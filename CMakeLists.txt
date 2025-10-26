@@ -12,6 +12,7 @@ set(GLFW_BUILD_X11   ON  CACHE BOOL "Build X11 backend" FORCE)
 
 set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fmodules -fdiagnostics-color=always -g")
 
+add_subdirectory(src/vendors/assimp)
 add_subdirectory(src/vendors/glfw)
 add_subdirectory(src/Engine)
 add_subdirectory(src/Editor)

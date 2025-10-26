@@ -40,7 +40,8 @@ void Renderer::cleanup() {
 
 Renderer::~Renderer() { cleanup(); }
 
-void Renderer::drawScene(const SceneDatabase& sceneDatabase, const Camera& camera) {
+void Renderer::drawScene(const SceneDatabase& sceneDatabase, const Camera& camera,
+                         const std::optional<Mesh>& mesh) {
     if (!m_initialized)
         return;
 
@@ -58,21 +59,19 @@ void Renderer::drawScene(const SceneDatabase& sceneDatabase, const Camera& camer
     m_shader->setUniform("projection", projection);
     m_shader->setUniform("view", view);
 
-    // This is a temporary drawing loop. It will be replaced by the GPU-driven pipeline.
-    for (size_t i = 0; i < sceneDatabase.renderables.size(); ++i) {
-        const auto& renderable = sceneDatabase.renderables[i];
-        const auto& transform = sceneDatabase.transforms[i];
-
-        // This is where the connection to the mesh is missing.
-        // For now, I can't draw anything yet.
-        // I will leave this empty until I have all the features.
-        // The next step is to implement the asset pipeline
-        // and then the opaque pass, which will fill this in.
+    if (mesh) {
+        // This is a temporary drawing loop. It will be replaced by the GPU-driven pipeline.
+        for (size_t i = 0; i < sceneDatabase.renderables.size(); ++i) {
+            const auto& transform = sceneDatabase.transforms[i];
+            m_shader->setUniform("model", transform.localMatrix);
+            mesh->draw();
+        }
     }
 
     m_shader->unbind();
 }
 
 void Renderer::setupShaders() {
-    m_shader = std::make_unique<Shader>("resources/shaders/cube.vert", "resources/shaders/cube.frag");
+    m_shader =
+        std::make_unique<Shader>("resources/shaders/cube.vert", "resources/shaders/cube.frag");
 }

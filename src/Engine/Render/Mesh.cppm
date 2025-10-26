@@ -1,6 +1,8 @@
-export module Engine.mesh;
+module;
 
-import std;
+#include <vector>
+
+export module Engine.mesh;
 
 export class Mesh {
   public:

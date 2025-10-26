@@ -28,11 +28,11 @@ target_include_directories(Editor PRIVATE
 target_link_libraries(Editor PRIVATE Engine glfw)
 
 set(RESOURCES_DIR "${CMAKE_SOURCE_DIR}/resources")
-set(DESTINATION_DIR "${CMAKE_BINARY_DIR}/shaders")
+set(DESTINATION_DIR "${CMAKE_BINARY_DIR}/resources")
 
 add_custom_command(
     TARGET Editor POST_BUILD
     COMMAND ${CMAKE_COMMAND} -E copy_directory
-            "${RESOURCES_DIR}/shaders"
+            "${RESOURCES_DIR}"
             "${DESTINATION_DIR}"
 )

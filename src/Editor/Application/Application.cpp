@@ -1,5 +1,9 @@
 #include <glad/glad.h>
 #include <GLFW/glfw3.h>
+#include <filesystem>
+#include <iostream>
+#include <string>
+#include <print>
 
 import Editor.application;
 import Engine.engine;
@@ -9,7 +13,7 @@ import Engine.Render.component;
 import Engine.camera;
 import Engine.input;
 import Engine.glm;
-import std;
+import Engine.asset;
 
 Application::Application() {
     if (!glfwInit()) {
@@ -17,8 +21,8 @@ Application::Application() {
         return;
     }
 
-    glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 3);
-    glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 3);
+    glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 4);
+    glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 6);
     glfwWindowHint(GLFW_OPENGL_PROFILE, GLFW_OPENGL_CORE_PROFILE);
 
     m_window = glfwCreateWindow(1280, 720, "Lit Engine", nullptr, nullptr);
@@ -38,11 +42,23 @@ Application::Application() {
     InputManager::Init(m_window);
     m_engine.init();
 
+    std::filesystem::create_directories("resources/models");
+    std::filesystem::create_directories("resources/assets");
+
+    std::println("Attempting to bake cube.obj. Please ensure 'resources/models/cube.obj' exists.");
+    if (!AssetManager::bake("resources/models/cube.obj", "resources/assets/cube.asset")) {
+        std::println("Failed to bake asset. The application might not render anything.");
+    }
+    m_mesh = AssetManager::load("resources/assets/cube.asset");
+    if (!m_mesh) {
+        std::println("Failed to load asset. The application might not render anything.");
+    }
+
     auto entity = m_sceneDatabase.createEntity();
     m_sceneDatabase.transforms[entity].localMatrix = glm::mat4(1.0f);
-    m_sceneDatabase.renderables[entity].mesh_uuid = 0; // Placeholder
-    m_sceneDatabase.renderables[entity].material_uuid = 0; // Placeholder
-    m_sceneDatabase.renderables[entity].shaderId = 0; // Placeholder
+    m_sceneDatabase.renderables[entity].mesh_uuid = 0;
+    m_sceneDatabase.renderables[entity].material_uuid = 0;
+    m_sceneDatabase.renderables[entity].shaderId = 0;
     m_sceneDatabase.renderables[entity].objectId = entity;
 
     std::println("Application created");
@@ -50,6 +66,8 @@ Application::Application() {
 
 Application::~Application() {
     m_engine.cleanup();
+    if (m_mesh)
+        m_mesh->release();
     glfwDestroyWindow(m_window);
     glfwTerminate();
     std::println("Application destroyed");
@@ -63,7 +81,7 @@ void Application::update() {
 
     processInput(deltaTime);
 
-    m_engine.update(m_sceneDatabase, camera);
+    m_engine.update(m_sceneDatabase, camera, m_mesh);
 
     InputManager::Update();
     glfwSwapBuffers(m_window);

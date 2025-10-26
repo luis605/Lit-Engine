@@ -1,9 +1,9 @@
 module;
 
 #include <GLFW/glfw3.h>
+#include <array>
 
 import Engine.glm;
-import std;
 
 export module Engine.input;
 

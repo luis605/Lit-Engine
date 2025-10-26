@@ -1,9 +1,14 @@
+module;
+
+#include <memory>
+#include <optional>
+
 export module Engine.renderer;
 
 import Engine.shader;
 import Engine.camera;
 import Engine.Render.scenedatabase;
-import std;
+import Engine.mesh;
 
 export class Renderer {
   public:
@@ -11,7 +16,8 @@ export class Renderer {
     ~Renderer();
 
     void init();
-    void drawScene(const SceneDatabase& sceneDatabase, const Camera& camera);
+    void drawScene(const SceneDatabase& sceneDatabase, const Camera& camera,
+                   const std::optional<Mesh>& mesh);
     void cleanup();
 
   private:

@@ -1,8 +1,11 @@
+module;
+
+#include <cstdint>
+
 export module Engine.Render.component;
 
 import Engine.Render.entity;
 import Engine.glm;
-import std;
 
 export struct TransformComponent {
     glm::mat4 localMatrix{1.0f};

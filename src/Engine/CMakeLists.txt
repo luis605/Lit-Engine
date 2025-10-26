@@ -23,8 +23,10 @@ target_sources(Engine
         Render/Model.cppm
         Render/Scene.cppm
         Input/Input.cppm
+        Asset/AssetManager.cppm
     PRIVATE
         Engine.cpp
+        Asset/AssetManager.cpp
         Render/Renderer.cpp
         Render/Camera.cpp
         Render/Shader.cpp
@@ -39,8 +41,9 @@ target_compile_features(Engine PUBLIC cxx_std_23)
 
 target_include_directories(Engine PRIVATE
     "${PROJECT_SOURCE_DIR}/src/vendors/glfw/include"
+    "${PROJECT_SOURCE_DIR}/src/vendors/assimp/include"
     "${PROJECT_SOURCE_DIR}/src/vendors/glad/include"
     "${PROJECT_SOURCE_DIR}/src/vendors/glm"
 )
 
-target_link_libraries(Engine PRIVATE glfw)
+target_link_libraries(Engine PRIVATE glfw assimp)

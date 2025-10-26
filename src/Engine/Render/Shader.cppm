@@ -1,6 +1,8 @@
 module;
 
-import std;
+#include <string>
+#include <unordered_map>
+
 import Engine.glm;
 
 export module Engine.shader;

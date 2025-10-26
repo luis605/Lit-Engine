@@ -1,11 +1,14 @@
+module;
+
+#include <vector>
+
 export module Engine.Render.scenedatabase;
 
 import Engine.Render.entity;
 import Engine.Render.component;
-import std;
 
 export class SceneDatabase {
-public:
+  public:
     std::vector<TransformComponent> transforms;
     std::vector<HierarchyComponent> hierarchies;
     std::vector<RenderableComponent> renderables;
