@@ -8,7 +8,9 @@ module Engine.renderer;
 import Engine.glm;
 import Engine.camera;
 import Engine.shader;
-import Engine.scene;
+import Engine.Render.scenedatabase;
+import Engine.Render.component;
+import Engine.mesh;
 import std;
 
 Renderer::Renderer() : m_shader(nullptr), m_initialized(false) {}
@@ -38,7 +40,7 @@ void Renderer::cleanup() {
 
 Renderer::~Renderer() { cleanup(); }
 
-void Renderer::drawScene(const Scene& scene, const Camera& camera) {
+void Renderer::drawScene(const SceneDatabase& sceneDatabase, const Camera& camera) {
     if (!m_initialized)
         return;
 
@@ -56,11 +58,21 @@ void Renderer::drawScene(const Scene& scene, const Camera& camera) {
     m_shader->setUniform("projection", projection);
     m_shader->setUniform("view", view);
 
-    scene.draw(*m_shader);
+    // This is a temporary drawing loop. It will be replaced by the GPU-driven pipeline.
+    for (size_t i = 0; i < sceneDatabase.renderables.size(); ++i) {
+        const auto& renderable = sceneDatabase.renderables[i];
+        const auto& transform = sceneDatabase.transforms[i];
+
+        // This is where the connection to the mesh is missing.
+        // For now, I can't draw anything yet.
+        // I will leave this empty until I have all the features.
+        // The next step is to implement the asset pipeline
+        // and then the opaque pass, which will fill this in.
+    }
 
     m_shader->unbind();
 }
 
 void Renderer::setupShaders() {
-    m_shader = std::make_unique<Shader>("shaders/cube.vert", "shaders/cube.frag");
+    m_shader = std::make_unique<Shader>("resources/shaders/cube.vert", "resources/shaders/cube.frag");
 }

@@ -2,7 +2,7 @@ export module Engine.renderer;
 
 import Engine.shader;
 import Engine.camera;
-import Engine.scene;
+import Engine.Render.scenedatabase;
 import std;
 
 export class Renderer {
@@ -11,7 +11,7 @@ export class Renderer {
     ~Renderer();
 
     void init();
-    void drawScene(const Scene& scene, const Camera& camera);
+    void drawScene(const SceneDatabase& sceneDatabase, const Camera& camera);
     void cleanup();
 
   private:

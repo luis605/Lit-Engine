@@ -6,7 +6,7 @@ export module Editor.application;
 
 import Engine.engine;
 import Engine.camera;
-import Engine.scene;
+import Engine.Render.scenedatabase;
 import Engine.input;
 
 export class Application {
@@ -23,5 +23,5 @@ export class Application {
     GLFWwindow* m_window;
     Engine m_engine;
     Camera camera;
-    Scene m_scene;
+    SceneDatabase m_sceneDatabase;
 };

@@ -1,7 +1,7 @@
 import Engine.engine;
 import Engine.renderer;
 import Engine.camera;
-import Engine.scene;
+import Engine.Render.scenedatabase;
 
 Engine::Engine() {}
 
@@ -9,6 +9,6 @@ Engine::~Engine() {}
 
 void Engine::init() { m_renderer.init(); }
 
-void Engine::update(const Scene& scene, Camera& camera) { m_renderer.drawScene(scene, camera); }
+void Engine::update(const SceneDatabase& sceneDatabase, Camera& camera) { m_renderer.drawScene(sceneDatabase, camera); }
 
 void Engine::cleanup() { m_renderer.cleanup(); }

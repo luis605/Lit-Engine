@@ -4,8 +4,8 @@
 import Editor.application;
 import Engine.engine;
 import Engine.mesh;
-import Engine.model;
-import Engine.scene;
+import Engine.Render.scenedatabase;
+import Engine.Render.component;
 import Engine.camera;
 import Engine.input;
 import Engine.glm;
@@ -38,23 +38,17 @@ Application::Application() {
     InputManager::Init(m_window);
     m_engine.init();
 
-    std::vector<float> vertices = {-0.5f, -0.5f, -0.5f, 0.5f,  -0.5f, -0.5f, 0.5f, 0.5f,
-                                   -0.5f, -0.5f, 0.5f,  -0.5f, -0.5f, -0.5f, 0.5f, 0.5f,
-                                   -0.5f, 0.5f,  0.5f,  0.5f,  0.5f,  -0.5f, 0.5f, 0.5f};
-
-    std::vector<unsigned int> indices = {0, 1, 2, 2, 3, 0, 1, 5, 6, 6, 2, 1, 7, 6, 5, 5, 4, 7,
-                                         4, 0, 3, 3, 7, 4, 3, 2, 6, 6, 7, 3, 4, 5, 1, 1, 0, 4};
-
-    std::vector<Mesh> meshes;
-    meshes.emplace_back(vertices, indices);
-
-    m_scene.addModel(Model(std::move(meshes)));
+    auto entity = m_sceneDatabase.createEntity();
+    m_sceneDatabase.transforms[entity].localMatrix = glm::mat4(1.0f);
+    m_sceneDatabase.renderables[entity].mesh_uuid = 0; // Placeholder
+    m_sceneDatabase.renderables[entity].material_uuid = 0; // Placeholder
+    m_sceneDatabase.renderables[entity].shaderId = 0; // Placeholder
+    m_sceneDatabase.renderables[entity].objectId = entity;
 
     std::println("Application created");
 }
 
 Application::~Application() {
-    m_scene.cleanup();
     m_engine.cleanup();
     glfwDestroyWindow(m_window);
     glfwTerminate();
@@ -69,7 +63,7 @@ void Application::update() {
 
     processInput(deltaTime);
 
-    m_engine.update(m_scene, camera);
+    m_engine.update(m_sceneDatabase, camera);
 
     InputManager::Update();
     glfwSwapBuffers(m_window);

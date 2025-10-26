@@ -12,10 +12,13 @@ target_sources(Engine
     PUBLIC FILE_SET cxx_modules TYPE CXX_MODULES
     FILES
         Engine.cppm
+        GLM.cppm
         Render/Renderer.cppm
         Render/Camera.cppm
         Render/Shader.cppm
-        GLM.cppm
+        Render/Component.cppm
+        Render/Entity.cppm
+        Render/SceneDatabase.cppm
         Render/Mesh.cppm
         Render/Model.cppm
         Render/Scene.cppm
