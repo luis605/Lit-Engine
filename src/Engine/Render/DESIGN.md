@@ -83,3 +83,39 @@ This pass runs after the opaque pass and renders all transparent geometry correc
 3.  **Draw Command Generation (Compute Shader)**: A third, simple compute shader runs over the now-sorted list of objects. It generates a final `DrawCommandBuffer` for these objects.
 4.  **Memory Barrier**: Issue a memory barrier to ensure all compute work is finished.
 5.  **Single MDI Draw**: Issue a single `glMultiDrawElementsIndirect` call to draw all transparent objects in the correct order using a shader with alpha blending enabled.
+
+
+# 4. Roadmap
+
+This section outlines a phased implementation plan. Each milestone builds upon the previous one, focusing on delivering a core set of capabilities before moving to more advanced features.
+
+## V0.1: Foundational Core - "The First Triangle"
+**Goal:** Prove the viability of the core GPU-driven pipeline by rendering a single, static, opaque mesh.
+
+- **Implement Basic ECS:** Create the core `SceneDatabase` and component structures (`TransformComponent`, `RenderableComponent`).
+- **Implement Asset Pipeline:** Build the offline "baking" tool to convert a simple model format (.obj, etc.) into the engine's native binary format.
+- **Implement Opaque Pass (Single Shader):** Implement the core of Stage 2. Focus on the compute shader for culling and a single `glMultiDrawElementsIndirect` call for one shader type. Don't implement binning for now.
+- **Implement Basic Camera:** A simple camera to view the scene.
+
+## V0.2: A Dynamic Scene - "The Engine Loop"
+**Goal:** Expand the core to support a fully dynamic scene with multiple object types and basic lighting.
+
+- **Implement Transform System:** Implement the Flattened Hierarchy sort and the per-frame transform update (Stage 1).
+- **Implement Multi-MDI Pipeline:** Enhance the Opaque Pass to support "binning" by `shaderId`, allowing for multiple materials and shaders in the scene.
+- **Implement Basic Lighting:** Implement a simple forward lighting model (a single directional light or point light) using the `SceneUBO`.
+
+## V0.3: Modern Visuals - "Fidelity and Performance"
+**Goal:** Add key visual and performance features expected in a modern render engine.
+
+- **Implement Transparency Pass:** Implement the full GPU-sorted transparency pipeline (Stage 3).
+- **Implement Shadow Mapping:** Re-use the Opaque Pass architecture to render scenes from the perspective of light sources to generate dynamic shadow maps.
+- **Implement Automatic LoD:** Integrate the GPU-based Level of Detail selection system into the culling compute shaders.
+- **Develop PBR Materials:** Evolve the material system and shaders to support a full Physically Based Rendering (PBR) workflow (Albedo, Metallic, Roughness, AO).
+
+## V0.4: Engine Completeness - "Supporting Systems"
+**Goal:** Build the essential rendering systems that exist outside the core 3D world pipeline, making the engine versatile and usable.
+
+- **Implement Post-Processing Stack:** Create a framebuffer system and pipeline for applying full-screen effects like Bloom, SSAO, Tone Mapping, and Color Grading.
+- **Implement Sky/Atmosphere Rendering:** Create a dedicated pass for rendering a skybox or a more advanced atmospheric scattering model.
+- **Implement Debug Rendering:** Build a simple, immediate-mode style renderer for debug shapes (lines, boxes, spheres) that can be used for visualization and diagnostics.
+- **Implement UI Rendering:** Build a dedicated 2D batch renderer for user interface elements, which will run as the final stage in the frame pipeline.
