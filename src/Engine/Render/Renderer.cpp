@@ -26,12 +26,14 @@ struct MeshInfo {
     unsigned int indexCount;
     unsigned int firstIndex;
     unsigned int baseVertex;
+    float boundingRadius;
+
+    glm::vec4 boundingCenter;
 };
 std::vector<MeshInfo> s_meshInfos;
 size_t s_totalVertexCount = 0;
 size_t s_totalIndexCount = 0;
 
-const int MAX_DRAW_COMMANDS = 1024;
 } // namespace
 
 Renderer::Renderer() : m_shader(nullptr), m_cullingShader(nullptr), m_initialized(false) {}
@@ -50,20 +52,13 @@ void Renderer::init() {
 
     glEnable(GL_DEPTH_TEST);
 
-    glGenBuffers(1, &m_drawCommandBuffer);
-    glBindBuffer(GL_DRAW_INDIRECT_BUFFER, m_drawCommandBuffer);
-    glBufferData(GL_DRAW_INDIRECT_BUFFER, sizeof(DrawElementsIndirectCommand) * MAX_DRAW_COMMANDS,
-                 nullptr, GL_DYNAMIC_DRAW);
-
-    glGenBuffers(1, &m_objectBuffer);
-    glBindBuffer(GL_SHADER_STORAGE_BUFFER, m_objectBuffer);
-    glBufferData(GL_SHADER_STORAGE_BUFFER, sizeof(glm::mat4) * MAX_DRAW_COMMANDS, nullptr,
-                 GL_DYNAMIC_DRAW);
-
     glGenBuffers(1, &m_atomicCounterBuffer);
     glBindBuffer(GL_ATOMIC_COUNTER_BUFFER, m_atomicCounterBuffer);
     glBufferData(GL_ATOMIC_COUNTER_BUFFER, sizeof(unsigned int), nullptr, GL_DYNAMIC_DRAW);
 
+    glGenBuffers(1, &m_drawCommandBuffer);
+    glGenBuffers(1, &m_objectBuffer);
+    glGenBuffers(1, &m_meshInfoBuffer);
     glGenBuffers(1, &m_vbo);
     glGenBuffers(1, &m_ebo);
 
@@ -88,6 +83,7 @@ void Renderer::cleanup() {
     glDeleteBuffers(1, &m_drawCommandBuffer);
     glDeleteBuffers(1, &m_objectBuffer);
     glDeleteBuffers(1, &m_atomicCounterBuffer);
+    glDeleteBuffers(1, &m_meshInfoBuffer);
 
     m_shader.reset();
     m_cullingShader.reset();
@@ -101,9 +97,32 @@ void Renderer::uploadMesh(const Mesh& mesh) {
         return;
     }
 
+    glm::vec3 center(0.0f);
+    const size_t numVertices = mesh.vertices.size() / 3;
+    if (numVertices > 0) {
+        for (size_t i = 0; i < mesh.vertices.size(); i += 3) {
+            center.x += mesh.vertices[i];
+            center.y += mesh.vertices[i + 1];
+            center.z += mesh.vertices[i + 2];
+        }
+        center /= static_cast<float>(numVertices);
+    }
+
+    float maxRadiusSq = 0.0f;
+    for (size_t i = 0; i < mesh.vertices.size(); i += 3) {
+        const glm::vec3 vertex(mesh.vertices[i], mesh.vertices[i + 1], mesh.vertices[i + 2]);
+        const float distSq = glm::distance(center, vertex);
+        if (distSq > maxRadiusSq) {
+            maxRadiusSq = distSq;
+        }
+    }
+    const float radius = glm::sqrt(maxRadiusSq);
+
     s_meshInfos.push_back({.indexCount = static_cast<unsigned int>(mesh.indices.size()),
                            .firstIndex = static_cast<unsigned int>(s_totalIndexCount),
-                           .baseVertex = static_cast<unsigned int>(s_totalVertexCount) / 3});
+                           .baseVertex = static_cast<unsigned int>(s_totalVertexCount) / 3,
+                           .boundingRadius = radius,
+                           .boundingCenter = glm::vec4(center, 1.0f)});
 
     glBindBuffer(GL_ARRAY_BUFFER, m_vbo);
     glBufferData(GL_ARRAY_BUFFER, (s_totalVertexCount + mesh.vertices.size()) * sizeof(float),
@@ -131,23 +150,39 @@ void Renderer::drawScene(const SceneDatabase& sceneDatabase, const Camera& camer
     glBufferSubData(GL_ATOMIC_COUNTER_BUFFER, 0, sizeof(unsigned int), &zero);
 
     std::vector<glm::mat4> modelMatrices;
+    modelMatrices.reserve(sceneDatabase.transforms.size());
     for (const auto& transform : sceneDatabase.transforms) {
         modelMatrices.push_back(transform.localMatrix);
     }
     glBindBuffer(GL_SHADER_STORAGE_BUFFER, m_objectBuffer);
-    glBufferSubData(GL_SHADER_STORAGE_BUFFER, 0, modelMatrices.size() * sizeof(glm::mat4),
-                    modelMatrices.data());
+    glBufferData(GL_SHADER_STORAGE_BUFFER, modelMatrices.size() * sizeof(glm::mat4),
+                 modelMatrices.data(), GL_DYNAMIC_DRAW);
+
+    glBindBuffer(GL_SHADER_STORAGE_BUFFER, m_meshInfoBuffer);
+    glBufferData(GL_SHADER_STORAGE_BUFFER, s_meshInfos.size() * sizeof(MeshInfo),
+                 s_meshInfos.data(), GL_STATIC_DRAW);
+
+    glBindBuffer(GL_DRAW_INDIRECT_BUFFER, m_drawCommandBuffer);
+    glBufferData(GL_DRAW_INDIRECT_BUFFER,
+                 sizeof(DrawElementsIndirectCommand) * sceneDatabase.renderables.size(), nullptr,
+                 GL_DYNAMIC_DRAW);
+
+    glm::mat4 viewProjection = camera.getProjectionMatrix() * camera.getViewMatrix();
 
     m_cullingShader->bind();
-
-    m_cullingShader->setUniform("u_indexCount", s_meshInfos[0].indexCount);
-    m_cullingShader->setUniform("u_baseVertex", s_meshInfos[0].baseVertex);
-    m_cullingShader->setUniform("u_firstIndex", s_meshInfos[0].firstIndex);
+    m_cullingShader->setUniform("u_objectCount",
+                                static_cast<unsigned int>(sceneDatabase.renderables.size()));
+    m_cullingShader->setUniform("u_viewProjection", viewProjection);
 
     glBindBufferBase(GL_ATOMIC_COUNTER_BUFFER, 0, m_atomicCounterBuffer);
     glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 1, m_drawCommandBuffer);
+    glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 2, m_objectBuffer);
+    glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 3, m_meshInfoBuffer);
 
-    glDispatchCompute(1, 1, 1);
+    const unsigned int numObjects = sceneDatabase.renderables.size();
+    const unsigned int workgroupSize = 64;
+    const unsigned int numWorkgroups = (numObjects + workgroupSize - 1) / workgroupSize;
+    glDispatchCompute(numWorkgroups, 1, 1);
 
     glMemoryBarrier(GL_COMMAND_BARRIER_BIT | GL_SHADER_STORAGE_BARRIER_BIT);
 
@@ -164,7 +199,10 @@ void Renderer::drawScene(const SceneDatabase& sceneDatabase, const Camera& camer
 
     glBindVertexArray(m_vao);
     glBindBuffer(GL_DRAW_INDIRECT_BUFFER, m_drawCommandBuffer);
-    glMultiDrawElementsIndirect(GL_TRIANGLES, GL_UNSIGNED_INT, (void*)0, 1, 0);
+
+    glBindBuffer(GL_PARAMETER_BUFFER, m_atomicCounterBuffer);
+    glMultiDrawElementsIndirectCount(GL_TRIANGLES, GL_UNSIGNED_INT, (void*)0, 0,
+                                     sceneDatabase.renderables.size(), 0);
     glBindVertexArray(0);
 }
 
