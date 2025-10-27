@@ -18,6 +18,13 @@ struct MeshInfo {
     vec4 boundingCenter;
 };
 
+struct RenderableComponent {
+    uint mesh_uuid;
+    uint material_uuid;
+    uint shaderId;
+    uint objectId;
+};
+
 layout(binding = 0, offset = 0) uniform atomic_uint drawCount;
 layout(binding = 1, std430) buffer DrawCommandBuffer {
     DrawElementsIndirectCommand commands[];
@@ -29,6 +36,10 @@ layout(binding = 2, std430) readonly buffer ObjectBuffer {
 
 layout(binding = 3, std430) readonly buffer MeshInfoBuffer {
     MeshInfo meshInfos[];
+};
+
+layout(binding = 4, std430) readonly buffer RenderableBuffer {
+    RenderableComponent renderables[];
 };
 
 uniform uint u_objectCount;
@@ -44,8 +55,8 @@ void main() {
     uint objectId = gl_GlobalInvocationID.x;
     if (objectId >= u_objectCount) return;
 
-    MeshInfo mesh = meshInfos[0];
     mat4 modelMatrix = models[objectId];
+    MeshInfo mesh = meshInfos[renderables[objectId].mesh_uuid];
 
     vec4 world_pos = modelMatrix * mesh.boundingCenter;
     vec4 clip_pos = u_viewProjection * world_pos;

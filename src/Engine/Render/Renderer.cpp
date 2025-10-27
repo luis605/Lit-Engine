@@ -44,8 +44,7 @@ void Renderer::init() {
 
     setupShaders();
 
-    if (!m_shader || !m_shader->isInitialized() || !m_cullingShader ||
-        !m_cullingShader->isInitialized()) {
+    if (!m_shader || !m_shader->isInitialized() || !m_cullingShader || !m_cullingShader->isInitialized()) {
         std::cerr << "Renderer failed to initialize: Shaders could not be loaded." << std::endl;
         return;
     }
@@ -59,6 +58,7 @@ void Renderer::init() {
     glGenBuffers(1, &m_drawCommandBuffer);
     glGenBuffers(1, &m_objectBuffer);
     glGenBuffers(1, &m_meshInfoBuffer);
+    glGenBuffers(1, &m_renderableBuffer);
     glGenBuffers(1, &m_vbo);
     glGenBuffers(1, &m_ebo);
 
@@ -84,6 +84,7 @@ void Renderer::cleanup() {
     glDeleteBuffers(1, &m_objectBuffer);
     glDeleteBuffers(1, &m_atomicCounterBuffer);
     glDeleteBuffers(1, &m_meshInfoBuffer);
+    glDeleteBuffers(1, &m_renderableBuffer);
 
     m_shader.reset();
     m_cullingShader.reset();
@@ -125,17 +126,35 @@ void Renderer::uploadMesh(const Mesh& mesh) {
                            .boundingCenter = glm::vec4(center, 1.0f)});
 
     glBindBuffer(GL_ARRAY_BUFFER, m_vbo);
-    glBufferData(GL_ARRAY_BUFFER, (s_totalVertexCount + mesh.vertices.size()) * sizeof(float),
-                 nullptr, GL_STATIC_DRAW);
-    glBufferSubData(GL_ARRAY_BUFFER, s_totalVertexCount * sizeof(float),
-                    mesh.vertices.size() * sizeof(float), mesh.vertices.data());
-
     glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, m_ebo);
-    glBufferData(GL_ELEMENT_ARRAY_BUFFER,
-                 (s_totalIndexCount + mesh.indices.size()) * sizeof(unsigned int), nullptr,
-                 GL_STATIC_DRAW);
-    glBufferSubData(GL_ELEMENT_ARRAY_BUFFER, s_totalIndexCount * sizeof(unsigned int),
-                    mesh.indices.size() * sizeof(unsigned int), mesh.indices.data());
+
+    GLuint temp_vbo, temp_ebo;
+    glGenBuffers(1, &temp_vbo);
+    glGenBuffers(1, &temp_ebo);
+
+    glBindBuffer(GL_COPY_READ_BUFFER, m_vbo);
+    glBindBuffer(GL_COPY_WRITE_BUFFER, temp_vbo);
+    glBufferData(GL_COPY_WRITE_BUFFER, s_totalVertexCount * sizeof(float), nullptr, GL_STATIC_DRAW);
+    glCopyBufferSubData(GL_COPY_READ_BUFFER, GL_COPY_WRITE_BUFFER, 0, 0, s_totalVertexCount * sizeof(float));
+
+    glBindBuffer(GL_COPY_READ_BUFFER, m_ebo);
+    glBindBuffer(GL_COPY_WRITE_BUFFER, temp_ebo);
+    glBufferData(GL_COPY_WRITE_BUFFER, s_totalIndexCount * sizeof(unsigned int), nullptr, GL_STATIC_DRAW);
+    glCopyBufferSubData(GL_COPY_READ_BUFFER, GL_COPY_WRITE_BUFFER, 0, 0, s_totalIndexCount * sizeof(unsigned int));
+
+    glBufferData(GL_ARRAY_BUFFER, (s_totalVertexCount + mesh.vertices.size()) * sizeof(float), nullptr, GL_STATIC_DRAW);
+    glBufferData(GL_ELEMENT_ARRAY_BUFFER, (s_totalIndexCount + mesh.indices.size()) * sizeof(unsigned int), nullptr, GL_STATIC_DRAW);
+
+    glBindBuffer(GL_COPY_READ_BUFFER, temp_vbo);
+    glCopyBufferSubData(GL_COPY_READ_BUFFER, GL_ARRAY_BUFFER, 0, 0, s_totalVertexCount * sizeof(float));
+    glBindBuffer(GL_COPY_READ_BUFFER, temp_ebo);
+    glCopyBufferSubData(GL_COPY_READ_BUFFER, GL_ELEMENT_ARRAY_BUFFER, 0, 0, s_totalIndexCount * sizeof(unsigned int));
+
+    glBufferSubData(GL_ARRAY_BUFFER, s_totalVertexCount * sizeof(float), mesh.vertices.size() * sizeof(float), mesh.vertices.data());
+    glBufferSubData(GL_ELEMENT_ARRAY_BUFFER, s_totalIndexCount * sizeof(unsigned int), mesh.indices.size() * sizeof(unsigned int), mesh.indices.data());
+
+    glDeleteBuffers(1, &temp_vbo);
+    glDeleteBuffers(1, &temp_ebo);
 
     s_totalVertexCount += mesh.vertices.size();
     s_totalIndexCount += mesh.indices.size();
@@ -155,29 +174,28 @@ void Renderer::drawScene(const SceneDatabase& sceneDatabase, const Camera& camer
         modelMatrices.push_back(transform.localMatrix);
     }
     glBindBuffer(GL_SHADER_STORAGE_BUFFER, m_objectBuffer);
-    glBufferData(GL_SHADER_STORAGE_BUFFER, modelMatrices.size() * sizeof(glm::mat4),
-                 modelMatrices.data(), GL_DYNAMIC_DRAW);
+    glBufferData(GL_SHADER_STORAGE_BUFFER, modelMatrices.size() * sizeof(glm::mat4), modelMatrices.data(), GL_DYNAMIC_DRAW);
+
+    glBindBuffer(GL_SHADER_STORAGE_BUFFER, m_renderableBuffer);
+    glBufferData(GL_SHADER_STORAGE_BUFFER, sceneDatabase.renderables.size() * sizeof(RenderableComponent), sceneDatabase.renderables.data(), GL_DYNAMIC_DRAW);
 
     glBindBuffer(GL_SHADER_STORAGE_BUFFER, m_meshInfoBuffer);
-    glBufferData(GL_SHADER_STORAGE_BUFFER, s_meshInfos.size() * sizeof(MeshInfo),
-                 s_meshInfos.data(), GL_STATIC_DRAW);
+    glBufferData(GL_SHADER_STORAGE_BUFFER, s_meshInfos.size() * sizeof(MeshInfo), s_meshInfos.data(), GL_STATIC_DRAW);
 
     glBindBuffer(GL_DRAW_INDIRECT_BUFFER, m_drawCommandBuffer);
-    glBufferData(GL_DRAW_INDIRECT_BUFFER,
-                 sizeof(DrawElementsIndirectCommand) * sceneDatabase.renderables.size(), nullptr,
-                 GL_DYNAMIC_DRAW);
+    glBufferData(GL_DRAW_INDIRECT_BUFFER, sizeof(DrawElementsIndirectCommand) * sceneDatabase.renderables.size(), nullptr, GL_DYNAMIC_DRAW);
 
     glm::mat4 viewProjection = camera.getProjectionMatrix() * camera.getViewMatrix();
 
     m_cullingShader->bind();
-    m_cullingShader->setUniform("u_objectCount",
-                                static_cast<unsigned int>(sceneDatabase.renderables.size()));
+    m_cullingShader->setUniform("u_objectCount", static_cast<unsigned int>(sceneDatabase.renderables.size()));
     m_cullingShader->setUniform("u_viewProjection", viewProjection);
 
     glBindBufferBase(GL_ATOMIC_COUNTER_BUFFER, 0, m_atomicCounterBuffer);
     glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 1, m_drawCommandBuffer);
     glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 2, m_objectBuffer);
     glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 3, m_meshInfoBuffer);
+    glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 4, m_renderableBuffer);
 
     const unsigned int numObjects = sceneDatabase.renderables.size();
     const unsigned int workgroupSize = 64;
@@ -201,13 +219,11 @@ void Renderer::drawScene(const SceneDatabase& sceneDatabase, const Camera& camer
     glBindBuffer(GL_DRAW_INDIRECT_BUFFER, m_drawCommandBuffer);
 
     glBindBuffer(GL_PARAMETER_BUFFER, m_atomicCounterBuffer);
-    glMultiDrawElementsIndirectCount(GL_TRIANGLES, GL_UNSIGNED_INT, (void*)0, 0,
-                                     sceneDatabase.renderables.size(), 0);
+    glMultiDrawElementsIndirectCount(GL_TRIANGLES, GL_UNSIGNED_INT, (void*)0, 0, sceneDatabase.renderables.size(), 0);
     glBindVertexArray(0);
 }
 
 void Renderer::setupShaders() {
-    m_shader =
-        std::make_unique<Shader>("resources/shaders/cube.vert", "resources/shaders/cube.frag");
+    m_shader = std::make_unique<Shader>("resources/shaders/cube.vert", "resources/shaders/cube.frag");
     m_cullingShader = std::make_unique<Shader>("resources/shaders/cull.comp");
 }

@@ -32,6 +32,7 @@ export class Renderer {
     unsigned int m_objectBuffer = 0;
     unsigned int m_atomicCounterBuffer = 0;
     unsigned int m_meshInfoBuffer = 0;
+    unsigned int m_renderableBuffer = 0;
 
     std::unique_ptr<Shader> m_shader;
     std::unique_ptr<Shader> m_cullingShader;

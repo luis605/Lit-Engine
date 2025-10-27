@@ -23,7 +23,7 @@ BraceWrapping:
 AllowAllParametersOfDeclarationOnNextLine: false
 BinPackParameters: true
 
-ColumnLimit: 100
+ColumnLimit: 170
 
 SpaceBeforeParens: ControlStatements
 

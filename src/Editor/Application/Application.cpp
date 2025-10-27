@@ -4,6 +4,7 @@
 #include <iostream>
 #include <string>
 #include <print>
+#include <random>
 
 import Editor.application;
 import Engine.engine;
@@ -56,12 +57,34 @@ Application::Application() {
         m_engine.uploadMesh(*m_mesh);
     }
 
-    auto entity = m_sceneDatabase.createEntity();
-    m_sceneDatabase.transforms[entity].localMatrix = glm::mat4(1.0f);
-    m_sceneDatabase.renderables[entity].mesh_uuid = 0;
-    m_sceneDatabase.renderables[entity].material_uuid = 0;
-    m_sceneDatabase.renderables[entity].shaderId = 0;
-    m_sceneDatabase.renderables[entity].objectId = entity;
+    if (!AssetManager::bake("resources/models/sphere.obj", "resources/assets/sphere.asset")) {
+        std::println("Failed to bake sphere asset.");
+    }
+    auto sphereMesh = AssetManager::load("resources/assets/sphere.asset");
+    if (sphereMesh) {
+        m_engine.uploadMesh(*sphereMesh);
+    }
+
+    const int numObjects = 500;
+    std::println("Creating {} random objects...", numObjects);
+
+    std::random_device rd;
+    std::mt19937 gen(rd());
+    std::uniform_real_distribution<float> distribPos(-50.0f, 50.0f);
+    std::uniform_int_distribution<unsigned int> distribMesh(0, 1);
+
+    for (int i = 0; i < numObjects; ++i) {
+        auto entity = m_sceneDatabase.createEntity();
+
+        glm::vec3 position(distribPos(gen), distribPos(gen), distribPos(gen));
+        glm::mat4 model = glm::translate(glm::mat4(1.0f), position);
+        m_sceneDatabase.transforms[entity].localMatrix = model;
+
+        m_sceneDatabase.renderables[entity].mesh_uuid = distribMesh(gen);
+        m_sceneDatabase.renderables[entity].material_uuid = 0;
+        m_sceneDatabase.renderables[entity].shaderId = 0;
+        m_sceneDatabase.renderables[entity].objectId = entity;
+    }
 
     std::println("Application created");
 }
