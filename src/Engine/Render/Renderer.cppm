@@ -17,7 +17,7 @@ export class Renderer {
     ~Renderer();
 
     void init();
-    void drawScene(const SceneDatabase& sceneDatabase, const Camera& camera);
+    void drawScene(SceneDatabase& sceneDatabase, const Camera& camera);
     void cleanup();
     void uploadMesh(const Mesh& mesh);
 
@@ -33,6 +33,9 @@ export class Renderer {
     unsigned int m_atomicCounterBuffer = 0;
     unsigned int m_meshInfoBuffer = 0;
     unsigned int m_renderableBuffer = 0;
+
+    size_t m_vboSize = 0;
+    size_t m_eboSize = 0;
 
     std::unique_ptr<Shader> m_shader;
     std::unique_ptr<Shader> m_cullingShader;

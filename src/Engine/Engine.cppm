@@ -15,7 +15,7 @@ export class Engine {
     ~Engine();
 
     void init();
-    void update(const SceneDatabase& sceneDatabase, Camera& camera);
+    void update(SceneDatabase& sceneDatabase, Camera& camera);
     void cleanup();
     void uploadMesh(const Mesh& mesh);
 
