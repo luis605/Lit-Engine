@@ -83,7 +83,16 @@ Application::Application() {
         m_sceneDatabase.renderables[entity].mesh_uuid = distribMesh(gen);
         m_sceneDatabase.renderables[entity].material_uuid = 0;
         m_sceneDatabase.renderables[entity].shaderId = 0;
-        m_sceneDatabase.renderables[entity].objectId = entity;
+    }
+
+    m_parentEntity = m_sceneDatabase.createEntity();
+    m_sceneDatabase.transforms[m_parentEntity].localMatrix = glm::mat4(1.0f);
+    m_sceneDatabase.renderables[m_parentEntity].mesh_uuid = 0;
+    m_sceneDatabase.renderables[m_parentEntity].material_uuid = 0;
+    m_sceneDatabase.renderables[m_parentEntity].shaderId = 0;
+
+    for (int i = 0; i < numObjects / 2; ++i) {
+        m_sceneDatabase.hierarchies[i].parent = m_parentEntity;
     }
 
     std::println("Application created");
@@ -123,6 +132,31 @@ void Application::processInput(float deltaTime) {
     }
     if (InputManager::IsKeyHeld(GLFW_KEY_D)) {
         camera.processKeyboard(CameraMovement::RIGHT, deltaTime);
+    }
+
+    if (InputManager::IsKeyHeld(GLFW_KEY_J)) {
+        m_sceneDatabase.transforms[m_parentEntity].localMatrix =
+            glm::translate(m_sceneDatabase.transforms[m_parentEntity].localMatrix, glm::vec3(-10.0f * deltaTime, 0.0f, 0.0f));
+    }
+    if (InputManager::IsKeyHeld(GLFW_KEY_L)) {
+        m_sceneDatabase.transforms[m_parentEntity].localMatrix =
+            glm::translate(m_sceneDatabase.transforms[m_parentEntity].localMatrix, glm::vec3(10.0f * deltaTime, 0.0f, 0.0f));
+    }
+    if (InputManager::IsKeyHeld(GLFW_KEY_I)) {
+        m_sceneDatabase.transforms[m_parentEntity].localMatrix =
+            glm::translate(m_sceneDatabase.transforms[m_parentEntity].localMatrix, glm::vec3(0.0f, 0.0f, -10.0f * deltaTime));
+    }
+    if (InputManager::IsKeyHeld(GLFW_KEY_K)) {
+        m_sceneDatabase.transforms[m_parentEntity].localMatrix =
+            glm::translate(m_sceneDatabase.transforms[m_parentEntity].localMatrix, glm::vec3(0.0f, 0.0f, 10.0f * deltaTime));
+    }
+    if (InputManager::IsKeyHeld(GLFW_KEY_U)) {
+        m_sceneDatabase.transforms[m_parentEntity].localMatrix =
+            glm::translate(m_sceneDatabase.transforms[m_parentEntity].localMatrix, glm::vec3(0.0f, 10.0f * deltaTime, 0.0f));
+    }
+    if (InputManager::IsKeyHeld(GLFW_KEY_O)) {
+        m_sceneDatabase.transforms[m_parentEntity].localMatrix =
+            glm::translate(m_sceneDatabase.transforms[m_parentEntity].localMatrix, glm::vec3(0.0f, -10.0f * deltaTime, 0.0f));
     }
 
     glm::vec2 mouseDelta = InputManager::GetMouseDelta();

@@ -10,6 +10,7 @@ import Engine.camera;
 import Engine.Render.scenedatabase;
 import Engine.input;
 import Engine.mesh;
+import Engine.Render.entity;
 
 export class Application {
   public:
@@ -27,4 +28,5 @@ export class Application {
     Camera camera;
     SceneDatabase m_sceneDatabase;
     std::optional<Mesh> m_mesh;
+    Entity m_parentEntity;
 };

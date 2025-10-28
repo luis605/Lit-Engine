@@ -11,7 +11,10 @@ Engine::~Engine() {}
 
 void Engine::init() { m_renderer.init(); }
 
-void Engine::update(SceneDatabase& sceneDatabase, Camera& camera) { m_renderer.drawScene(sceneDatabase, camera); }
+void Engine::update(SceneDatabase& sceneDatabase, Camera& camera) {
+    sceneDatabase.updateHierarchy();
+    m_renderer.drawScene(sceneDatabase, camera);
+}
 
 void Engine::cleanup() { m_renderer.cleanup(); }
 

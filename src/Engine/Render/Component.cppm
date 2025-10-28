@@ -13,7 +13,7 @@ export struct TransformComponent {
 };
 
 export struct HierarchyComponent {
-    Entity parent;
+    Entity parent = INVALID_ENTITY;
 };
 
 export struct RenderableComponent {

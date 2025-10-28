@@ -8,6 +8,7 @@ module Engine.renderer;
 import Engine.glm;
 import Engine.camera;
 import Engine.shader;
+import Engine.Render.entity;
 import Engine.Render.scenedatabase;
 import Engine.Render.component;
 import Engine.mesh;
@@ -195,11 +196,18 @@ void Renderer::drawScene(SceneDatabase& sceneDatabase, const Camera& camera) {
     glBufferSubData(GL_ATOMIC_COUNTER_BUFFER, 0, sizeof(unsigned int), &zero);
 
     std::vector<glm::mat4> modelMatrices;
+    modelMatrices.resize(sceneDatabase.transforms.size());
 
-    modelMatrices.reserve(sceneDatabase.transforms.size());
-    for (auto& transform : sceneDatabase.transforms) {
-        transform.worldMatrix = transform.localMatrix;
-        modelMatrices.push_back(transform.worldMatrix);
+    for (const auto& entity : sceneDatabase.sortedHierarchyList) {
+        auto& transform = sceneDatabase.transforms[entity];
+        const auto& hierarchy = sceneDatabase.hierarchies[entity];
+
+        if (hierarchy.parent != INVALID_ENTITY) {
+            transform.worldMatrix = sceneDatabase.transforms[hierarchy.parent].worldMatrix * transform.localMatrix;
+        } else {
+            transform.worldMatrix = transform.localMatrix;
+        }
+        modelMatrices[entity] = transform.worldMatrix;
     }
     glBindBuffer(GL_SHADER_STORAGE_BUFFER, m_objectBuffer);
     glBufferData(GL_SHADER_STORAGE_BUFFER, modelMatrices.size() * sizeof(glm::mat4), modelMatrices.data(), GL_DYNAMIC_DRAW);
