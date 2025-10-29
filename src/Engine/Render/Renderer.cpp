@@ -2,6 +2,12 @@ module;
 
 #include <glad/glad.h>
 #include <GLFW/glfw3.h>
+#include <vector>
+#include <iostream>
+#include <optional>
+#include <unordered_map>
+#include <cmath>
+#include <filesystem>
 
 module Engine.renderer;
 
@@ -10,9 +16,9 @@ import Engine.camera;
 import Engine.shader;
 import Engine.Render.entity;
 import Engine.Render.scenedatabase;
+import Engine.Render.shaderManager;
 import Engine.Render.component;
 import Engine.mesh;
-import std;
 
 namespace {
 struct DrawElementsIndirectCommand {
@@ -37,7 +43,7 @@ size_t s_totalIndexSize = 0;
 
 } // namespace
 
-Renderer::Renderer() : m_shader(nullptr), m_cullingShader(nullptr), m_initialized(false), m_vboSize(0), m_eboSize(0) {}
+Renderer::Renderer() : m_cullingShader(nullptr), m_initialized(false), m_vboSize(0), m_eboSize(0) {}
 
 void Renderer::init() {
     if (m_initialized)
@@ -45,7 +51,7 @@ void Renderer::init() {
 
     setupShaders();
 
-    if (!m_shader || !m_shader->isInitialized() || !m_cullingShader || !m_cullingShader->isInitialized()) {
+    if (!m_cullingShader || !m_cullingShader->isInitialized()) {
         std::cerr << "Renderer failed to initialize: Shaders could not be loaded." << std::endl;
         return;
     }
@@ -54,16 +60,15 @@ void Renderer::init() {
 
     glGenBuffers(1, &m_atomicCounterBuffer);
     glBindBuffer(GL_ATOMIC_COUNTER_BUFFER, m_atomicCounterBuffer);
-    glBufferData(GL_ATOMIC_COUNTER_BUFFER, sizeof(unsigned int), nullptr, GL_DYNAMIC_DRAW);
+    glBufferData(GL_ATOMIC_COUNTER_BUFFER, sizeof(unsigned int) * m_shaderManager.getShaderCount(), nullptr, GL_DYNAMIC_DRAW);
 
     glGenBuffers(1, &m_drawCommandBuffer);
     glGenBuffers(1, &m_objectBuffer);
     glGenBuffers(1, &m_meshInfoBuffer);
     glGenBuffers(1, &m_renderableBuffer);
 
-    // Pre-allocate buffers
-    m_vboSize = 1024 * 1024 * 10; // 10 MB
-    m_eboSize = 1024 * 1024 * 4;  // 4 MB
+    m_vboSize = 1024 * 1024 * 10;
+    m_eboSize = 1024 * 1024 * 4;
 
     glGenBuffers(1, &m_vbo);
     glBindBuffer(GL_ARRAY_BUFFER, m_vbo);
@@ -97,8 +102,8 @@ void Renderer::cleanup() {
     glDeleteBuffers(1, &m_meshInfoBuffer);
     glDeleteBuffers(1, &m_renderableBuffer);
 
-    m_shader.reset();
-    m_cullingShader.reset();
+    m_shaderManager.cleanup();
+    m_cullingShader = nullptr;
     m_initialized = false;
 }
 
@@ -113,7 +118,7 @@ void Renderer::uploadMesh(const Mesh& mesh) {
     const size_t indexDataSize = mesh.indices.size() * sizeof(unsigned int);
 
     if (s_totalVertexSize + vertexDataSize > m_vboSize || s_totalIndexSize + indexDataSize > m_eboSize) {
-        // Resize buffers
+
         m_vboSize = std::max(m_vboSize * 2, s_totalVertexSize + vertexDataSize);
         m_eboSize = std::max(m_eboSize * 2, s_totalIndexSize + indexDataSize);
 
@@ -191,9 +196,10 @@ void Renderer::drawScene(SceneDatabase& sceneDatabase, const Camera& camera) {
         return;
     }
 
-    unsigned int zero = 0;
+    const unsigned int numShaders = m_shaderManager.getShaderCount();
+    std::vector<unsigned int> zeros(numShaders, 0);
     glBindBuffer(GL_ATOMIC_COUNTER_BUFFER, m_atomicCounterBuffer);
-    glBufferSubData(GL_ATOMIC_COUNTER_BUFFER, 0, sizeof(unsigned int), &zero);
+    glBufferSubData(GL_ATOMIC_COUNTER_BUFFER, 0, sizeof(unsigned int) * numShaders, zeros.data());
 
     std::vector<glm::mat4> modelMatrices;
     modelMatrices.resize(sceneDatabase.transforms.size());
@@ -243,23 +249,50 @@ void Renderer::drawScene(SceneDatabase& sceneDatabase, const Camera& camera) {
     glClearColor(0.3f, 0.3f, 0.3f, 1.0f);
     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
-    m_shader->bind();
+    std::vector<DrawElementsIndirectCommand> commands(sceneDatabase.renderables.size());
+    glBindBuffer(GL_DRAW_INDIRECT_BUFFER, m_drawCommandBuffer);
+    glGetBufferSubData(GL_DRAW_INDIRECT_BUFFER, 0, sizeof(DrawElementsIndirectCommand) * sceneDatabase.renderables.size(), commands.data());
+
+    std::vector<unsigned int> drawCounts(numShaders);
+    glBindBuffer(GL_ATOMIC_COUNTER_BUFFER, m_atomicCounterBuffer);
+    glGetBufferSubData(GL_ATOMIC_COUNTER_BUFFER, 0, sizeof(unsigned int) * numShaders, drawCounts.data());
+
+    std::unordered_map<uint32_t, std::vector<DrawElementsIndirectCommand>> shaderBuckets;
+    unsigned int processedDraws = 0;
+    for (uint32_t shaderId = 0; shaderId < numShaders; ++shaderId) {
+        unsigned int drawCount = drawCounts[shaderId];
+        if (drawCount > 0) {
+            shaderBuckets[shaderId].assign(commands.begin() + processedDraws, commands.begin() + processedDraws + drawCount);
+            processedDraws += drawCount;
+        }
+    }
+
     glm::mat4 projection = camera.getProjectionMatrix();
     glm::mat4 view = camera.getViewMatrix();
-    m_shader->setUniform("projection", projection);
-    m_shader->setUniform("view", view);
-
-    glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 2, m_objectBuffer);
 
     glBindVertexArray(m_vao);
-    glBindBuffer(GL_DRAW_INDIRECT_BUFFER, m_drawCommandBuffer);
+    glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 2, m_objectBuffer);
 
-    glBindBuffer(GL_PARAMETER_BUFFER, m_atomicCounterBuffer);
-    glMultiDrawElementsIndirectCount(GL_TRIANGLES, GL_UNSIGNED_INT, (void*)0, 0, sceneDatabase.renderables.size(), 0);
+    for (const auto& [shaderId, drawCommands] : shaderBuckets) {
+        Shader* shader = m_shaderManager.getShader(shaderId);
+        if (shader) {
+            shader->bind();
+            shader->setUniform("projection", projection);
+            shader->setUniform("view", view);
+
+            glBindBuffer(GL_DRAW_INDIRECT_BUFFER, m_drawCommandBuffer);
+            glBufferSubData(GL_DRAW_INDIRECT_BUFFER, 0, sizeof(DrawElementsIndirectCommand) * drawCommands.size(), drawCommands.data());
+
+            glMultiDrawElementsIndirect(GL_TRIANGLES, GL_UNSIGNED_INT, (void*)0, drawCommands.size(), 0);
+        }
+    }
+
     glBindVertexArray(0);
 }
 
 void Renderer::setupShaders() {
-    m_shader = std::make_unique<Shader>("resources/shaders/cube.vert", "resources/shaders/cube.frag");
-    m_cullingShader = std::make_unique<Shader>("resources/shaders/cull.comp");
+    m_shaderManager.loadShader("resources/shaders/cube.vert", "resources/shaders/cube.frag");
+    m_shaderManager.loadShader("resources/shaders/cube.vert", "resources/shaders/red.frag");
+    const auto cullingShaderId = m_shaderManager.loadComputeShader("resources/shaders/cull.comp");
+    m_cullingShader = m_shaderManager.getShader(cullingShaderId);
 }

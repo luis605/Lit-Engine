@@ -19,6 +19,7 @@ target_sources(Engine
         Render/Component.cppm
         Render/Entity.cppm
         Render/SceneDatabase.cppm
+        Render/ShaderManager.cppm
         Render/Mesh.cppm
         Input/Input.cppm
         Asset/AssetManager.cppm
@@ -27,6 +28,7 @@ target_sources(Engine
         Asset/AssetManager.cpp
         Render/Renderer.cpp
         Render/Camera.cpp
+        Render/ShaderManager.cpp
         Render/Shader.cpp
         Input/Input.cpp
         ${PROJECT_SOURCE_DIR}/src/vendors/glad/src/glad.c

@@ -9,6 +9,7 @@ export module Engine.renderer;
 import Engine.shader;
 import Engine.camera;
 import Engine.Render.scenedatabase;
+import Engine.Render.shaderManager;
 import Engine.mesh;
 
 export class Renderer {
@@ -37,8 +38,8 @@ export class Renderer {
     size_t m_vboSize = 0;
     size_t m_eboSize = 0;
 
-    std::unique_ptr<Shader> m_shader;
-    std::unique_ptr<Shader> m_cullingShader;
+    ShaderManager m_shaderManager;
+    Shader* m_cullingShader;
 
     bool m_initialized = false;
 };

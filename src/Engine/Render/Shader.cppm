@@ -30,12 +30,12 @@ export class Shader {
     void setUniform(const std::string& name, float value) const;
     void setUniform(const std::string& name, const glm::vec3& vector) const;
     void setUniform(const std::string& name, const glm::mat4& matrix) const;
+    void release();
 
   private:
     int getUniformLocation(const std::string& name) const;
     void createAndLink(const std::string& computeSrc);
     void createAndLink(const std::string& vertexSrc, const std::string& fragmentSrc);
-    void release();
 
     unsigned int m_shaderID = 0;
     bool m_initialized = false;

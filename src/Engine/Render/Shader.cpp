@@ -33,8 +33,7 @@ static unsigned int CompileShader(const std::string& source, GLenum type) {
         glGetShaderInfoLog(id, length, &length, message.data());
 
         const char* shaderTypeStr = (type == GL_VERTEX_SHADER) ? "VERTEX" : "FRAGMENT";
-        std::cerr << "ERROR::SHADER::" << shaderTypeStr << "::COMPILATION_FAILED\n"
-                  << message.data() << std::endl;
+        std::cerr << "ERROR::SHADER::" << shaderTypeStr << "::COMPILATION_FAILED\n" << message.data() << std::endl;
 
         glDeleteShader(id);
         return 0;
@@ -65,9 +64,7 @@ Shader::~Shader() {
     }
 }
 
-Shader::Shader(Shader&& other) noexcept
-    : m_shaderID(other.m_shaderID), m_initialized(other.m_initialized),
-      m_uniformLocations(std::move(other.m_uniformLocations)) {
+Shader::Shader(Shader&& other) noexcept : m_shaderID(other.m_shaderID), m_initialized(other.m_initialized), m_uniformLocations(std::move(other.m_uniformLocations)) {
 
     other.m_shaderID = 0;
     other.m_initialized = false;
@@ -111,25 +108,15 @@ void Shader::bind() const {
 
 void Shader::unbind() const { glUseProgram(0); }
 
-void Shader::setUniform(const std::string& name, int value) const {
-    glUniform1i(getUniformLocation(name), value);
-}
+void Shader::setUniform(const std::string& name, int value) const { glUniform1i(getUniformLocation(name), value); }
 
-void Shader::setUniform(const std::string& name, unsigned int value) const {
-    glUniform1ui(getUniformLocation(name), value);
-}
+void Shader::setUniform(const std::string& name, unsigned int value) const { glUniform1ui(getUniformLocation(name), value); }
 
-void Shader::setUniform(const std::string& name, float value) const {
-    glUniform1f(getUniformLocation(name), value);
-}
+void Shader::setUniform(const std::string& name, float value) const { glUniform1f(getUniformLocation(name), value); }
 
-void Shader::setUniform(const std::string& name, const glm::vec3& vector) const {
-    glUniform3fv(getUniformLocation(name), 1, glm::value_ptr(vector));
-}
+void Shader::setUniform(const std::string& name, const glm::vec3& vector) const { glUniform3fv(getUniformLocation(name), 1, glm::value_ptr(vector)); }
 
-void Shader::setUniform(const std::string& name, const glm::mat4& matrix) const {
-    glUniformMatrix4fv(getUniformLocation(name), 1, GL_FALSE, glm::value_ptr(matrix));
-}
+void Shader::setUniform(const std::string& name, const glm::mat4& matrix) const { glUniformMatrix4fv(getUniformLocation(name), 1, GL_FALSE, glm::value_ptr(matrix)); }
 
 int Shader::getUniformLocation(const std::string& name) const {
     if (!m_initialized)
@@ -154,7 +141,6 @@ void Shader::createAndLink(const std::string& vertexSrc, const std::string& frag
     unsigned int fragmentShader = CompileShader(fragmentSrc, GL_FRAGMENT_SHADER);
 
     if (vertexShader == 0 || fragmentShader == 0) {
-
         if (vertexShader != 0)
             glDeleteShader(vertexShader);
         if (fragmentShader != 0)
