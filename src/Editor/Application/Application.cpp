@@ -1,9 +1,6 @@
 #include <glad/glad.h>
 #include <GLFW/glfw3.h>
 #include <filesystem>
-#include <iostream>
-#include <string>
-#include <print>
 #include <random>
 
 import Editor.application;
@@ -15,10 +12,12 @@ import Engine.camera;
 import Engine.input;
 import Engine.glm;
 import Engine.asset;
+import Log;
 
 Application::Application() {
+    Lit::Log::Init();
     if (!glfwInit()) {
-        std::println("Failed to initialize GLFW");
+        Lit::Log::Fatal("Failed to initialize GLFW");
         return;
     }
 
@@ -28,7 +27,7 @@ Application::Application() {
 
     m_window = glfwCreateWindow(1280, 720, "Lit Engine", nullptr, nullptr);
     if (!m_window) {
-        std::println("Failed to create GLFW window");
+        Lit::Log::Fatal("Failed to create GLFW window");
         glfwTerminate();
         return;
     }
@@ -36,7 +35,7 @@ Application::Application() {
     glfwMakeContextCurrent(m_window);
 
     if (!gladLoadGLLoader((GLADloadproc)glfwGetProcAddress)) {
-        std::println("Failed to initialize GLAD");
+        Lit::Log::Fatal("Failed to initialize GLAD");
         return;
     }
 
@@ -46,19 +45,19 @@ Application::Application() {
     std::filesystem::create_directories("resources/models");
     std::filesystem::create_directories("resources/assets");
 
-    std::println("Attempting to bake cube.obj. Please ensure 'resources/models/cube.obj' exists.");
+    Lit::Log::Info("Attempting to bake cube.obj. Please ensure 'resources/models/cube.obj' exists.");
     if (!AssetManager::bake("resources/models/cube.obj", "resources/assets/cube.asset")) {
-        std::println("Failed to bake asset. The application might not render anything.");
+        Lit::Log::Warn("Failed to bake asset. The application might not render anything.");
     }
     m_mesh = AssetManager::load("resources/assets/cube.asset");
     if (!m_mesh) {
-        std::println("Failed to load asset. The application might not render anything.");
+        Lit::Log::Warn("Failed to load asset. The application might not render anything.");
     } else {
         m_engine.uploadMesh(*m_mesh);
     }
 
     if (!AssetManager::bake("resources/models/sphere.obj", "resources/assets/sphere.asset")) {
-        std::println("Failed to bake sphere asset.");
+        Lit::Log::Warn("Failed to bake sphere asset.");
     }
     auto sphereMesh = AssetManager::load("resources/assets/sphere.asset");
     if (sphereMesh) {
@@ -66,7 +65,7 @@ Application::Application() {
     }
 
     const int numObjects = 500;
-    std::println("Creating {} random objects...", numObjects);
+    Lit::Log::Info("Creating {} random objects...", numObjects);
 
     std::random_device rd;
     std::mt19937 gen(rd());
@@ -95,14 +94,14 @@ Application::Application() {
         m_sceneDatabase.hierarchies[i].parent = m_parentEntity;
     }
 
-    std::println("Application created");
+    Lit::Log::Info("Application created");
 }
 
 Application::~Application() {
     m_engine.cleanup();
     glfwDestroyWindow(m_window);
     glfwTerminate();
-    std::println("Application destroyed");
+    Lit::Log::Info("Application destroyed");
 }
 
 void Application::update() {

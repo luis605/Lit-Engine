@@ -23,6 +23,7 @@ target_sources(Engine
         Render/Mesh.cppm
         Input/Input.cppm
         Asset/AssetManager.cppm
+        Log/Log.cppm
     PRIVATE
         Engine.cpp
         Asset/AssetManager.cpp
@@ -31,6 +32,7 @@ target_sources(Engine
         Render/ShaderManager.cpp
         Render/Shader.cpp
         Input/Input.cpp
+        Log/Log.cpp
         ${PROJECT_SOURCE_DIR}/src/vendors/glad/src/glad.c
 )
 
