@@ -25,6 +25,11 @@ void processMesh(aiMesh* mesh, std::vector<float>& vertices, std::vector<unsigne
         vertices.push_back(mesh->mVertices[i].x);
         vertices.push_back(mesh->mVertices[i].y);
         vertices.push_back(mesh->mVertices[i].z);
+        if (mesh->HasNormals()) {
+            vertices.push_back(mesh->mNormals[i].x);
+            vertices.push_back(mesh->mNormals[i].y);
+            vertices.push_back(mesh->mNormals[i].z);
+        }
     }
 
     for (unsigned int i = 0; i < mesh->mNumFaces; i++) {

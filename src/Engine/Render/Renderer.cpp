@@ -82,7 +82,9 @@ void Renderer::init() {
     glBindBuffer(GL_ARRAY_BUFFER, m_vbo);
     glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, m_ebo);
     glEnableVertexAttribArray(0);
-    glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 3 * sizeof(float), (void*)0);
+    glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 6 * sizeof(float), (void*)0);
+    glEnableVertexAttribArray(1);
+    glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, 6 * sizeof(float), (void*)(3 * sizeof(float)));
     glBindVertexArray(0);
 
     m_initialized = true;
@@ -148,8 +150,6 @@ void Renderer::uploadMesh(const Mesh& mesh) {
         glBindVertexArray(m_vao);
         glBindBuffer(GL_ARRAY_BUFFER, m_vbo);
         glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, m_ebo);
-        glEnableVertexAttribArray(0);
-        glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 3 * sizeof(float), (void*)0);
         glBindVertexArray(0);
     }
 
@@ -274,6 +274,9 @@ void Renderer::drawScene(SceneDatabase& sceneDatabase, const Camera& camera) {
                 shader->bind();
                 shader->setUniform("projection", projection);
                 shader->setUniform("view", view);
+                shader->setUniform("lightPos", glm::vec3(0.0f, 10.0f, 0.0f));
+                shader->setUniform("viewPos", camera.getPosition());
+                shader->setUniform("lightColor", glm::vec3(1.0f, 1.0f, 1.0f));
 
                 const void* indirect_offset = (const void*)(uintptr_t)(shaderId * numObjects * sizeof(DrawElementsIndirectCommand));
                 glMultiDrawElementsIndirect(GL_TRIANGLES, GL_UNSIGNED_INT, indirect_offset, drawCount, sizeof(DrawElementsIndirectCommand));
