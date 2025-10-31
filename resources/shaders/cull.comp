@@ -25,7 +25,9 @@ struct RenderableComponent {
     uint objectId;
 };
 
-layout(binding = 0, offset = 0) uniform atomic_uint drawCount;
+layout(binding = 0, std430) buffer AtomicCounterBuffer {
+    uint drawCounts[];
+};
 layout(binding = 1, std430) buffer DrawCommandBuffer {
     DrawElementsIndirectCommand commands[];
 };
@@ -43,6 +45,7 @@ layout(binding = 4, std430) readonly buffer RenderableBuffer {
 };
 
 uniform uint u_objectCount;
+uniform uint u_maxDraws;
 uniform mat4 u_viewProjection;
 
 bool isVisible(vec4 clip_pos, float radius) {
@@ -55,8 +58,9 @@ void main() {
     uint objectId = gl_GlobalInvocationID.x;
     if (objectId >= u_objectCount) return;
 
+    RenderableComponent renderable = renderables[objectId];
     mat4 modelMatrix = models[objectId];
-    MeshInfo mesh = meshInfos[renderables[objectId].mesh_uuid];
+    MeshInfo mesh = meshInfos[renderable.mesh_uuid];
 
     vec4 world_pos = modelMatrix * mesh.boundingCenter;
     vec4 clip_pos = u_viewProjection * world_pos;
@@ -64,11 +68,16 @@ void main() {
     float world_radius = mesh.boundingRadius * max(length(modelMatrix[0]), max(length(modelMatrix[1]), length(modelMatrix[2])));
 
     if (isVisible(clip_pos, world_radius)) {
-        uint index = atomicCounterIncrement(drawCount);
-        commands[index].instanceCount = 1;
-        commands[index].baseInstance = objectId;
-        commands[index].count = mesh.indexCount;
-        commands[index].firstIndex = mesh.firstIndex;
-        commands[index].baseVertex = mesh.baseVertex;
+        uint shaderId = renderable.shaderId;
+        uint indexInBin = atomicAdd(drawCounts[shaderId], 1);
+
+        if (indexInBin < u_maxDraws) {
+            uint writeIndex = shaderId * u_maxDraws + indexInBin;
+            commands[writeIndex].instanceCount = 1;
+            commands[writeIndex].baseInstance = objectId;
+            commands[writeIndex].count = mesh.indexCount;
+            commands[writeIndex].firstIndex = mesh.firstIndex;
+            commands[writeIndex].baseVertex = mesh.baseVertex;
+        }
     }
 }

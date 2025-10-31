@@ -196,6 +196,13 @@ void Renderer::drawScene(SceneDatabase& sceneDatabase, const Camera& camera) {
     }
 
     const unsigned int numShaders = m_shaderManager.getShaderCount();
+    const unsigned int numObjects = sceneDatabase.renderables.size();
+    if (numObjects == 0) {
+        glClearColor(0.3f, 0.3f, 0.3f, 1.0f);
+        glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+        return;
+    }
+
     std::vector<unsigned int> zeros(numShaders, 0);
     glBindBuffer(GL_ATOMIC_COUNTER_BUFFER, m_atomicCounterBuffer);
     glBufferSubData(GL_ATOMIC_COUNTER_BUFFER, 0, sizeof(unsigned int) * numShaders, zeros.data());
@@ -224,65 +231,53 @@ void Renderer::drawScene(SceneDatabase& sceneDatabase, const Camera& camera) {
     glBufferData(GL_SHADER_STORAGE_BUFFER, s_meshInfos.size() * sizeof(MeshInfo), s_meshInfos.data(), GL_STATIC_DRAW);
 
     glBindBuffer(GL_DRAW_INDIRECT_BUFFER, m_drawCommandBuffer);
-    glBufferData(GL_DRAW_INDIRECT_BUFFER, sizeof(DrawElementsIndirectCommand) * sceneDatabase.renderables.size(), nullptr, GL_DYNAMIC_DRAW);
+    glBufferData(GL_DRAW_INDIRECT_BUFFER, sizeof(DrawElementsIndirectCommand) * numObjects * numShaders, nullptr, GL_DYNAMIC_DRAW);
 
     glm::mat4 viewProjection = camera.getProjectionMatrix() * camera.getViewMatrix();
 
     m_cullingShader->bind();
-    m_cullingShader->setUniform("u_objectCount", static_cast<unsigned int>(sceneDatabase.renderables.size()));
+    m_cullingShader->setUniform("u_objectCount", numObjects);
+    m_cullingShader->setUniform("u_maxDraws", numObjects);
     m_cullingShader->setUniform("u_viewProjection", viewProjection);
 
-    glBindBufferBase(GL_ATOMIC_COUNTER_BUFFER, 0, m_atomicCounterBuffer);
+    glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 0, m_atomicCounterBuffer);
     glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 1, m_drawCommandBuffer);
     glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 2, m_objectBuffer);
     glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 3, m_meshInfoBuffer);
     glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 4, m_renderableBuffer);
 
-    const unsigned int numObjects = sceneDatabase.renderables.size();
     const unsigned int workgroupSize = 64;
     const unsigned int numWorkgroups = (numObjects + workgroupSize - 1) / workgroupSize;
     glDispatchCompute(numWorkgroups, 1, 1);
 
-    glMemoryBarrier(GL_COMMAND_BARRIER_BIT | GL_SHADER_STORAGE_BARRIER_BIT);
+    glMemoryBarrier(GL_COMMAND_BARRIER_BIT | GL_SHADER_STORAGE_BARRIER_BIT | GL_ATOMIC_COUNTER_BARRIER_BIT);
 
     glClearColor(0.3f, 0.3f, 0.3f, 1.0f);
     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
-
-    std::vector<DrawElementsIndirectCommand> commands(sceneDatabase.renderables.size());
-    glBindBuffer(GL_DRAW_INDIRECT_BUFFER, m_drawCommandBuffer);
-    glGetBufferSubData(GL_DRAW_INDIRECT_BUFFER, 0, sizeof(DrawElementsIndirectCommand) * sceneDatabase.renderables.size(), commands.data());
 
     std::vector<unsigned int> drawCounts(numShaders);
     glBindBuffer(GL_ATOMIC_COUNTER_BUFFER, m_atomicCounterBuffer);
     glGetBufferSubData(GL_ATOMIC_COUNTER_BUFFER, 0, sizeof(unsigned int) * numShaders, drawCounts.data());
 
-    std::unordered_map<uint32_t, std::vector<DrawElementsIndirectCommand>> shaderBuckets;
-    unsigned int processedDraws = 0;
-    for (uint32_t shaderId = 0; shaderId < numShaders; ++shaderId) {
-        unsigned int drawCount = drawCounts[shaderId];
-        if (drawCount > 0) {
-            shaderBuckets[shaderId].assign(commands.begin() + processedDraws, commands.begin() + processedDraws + drawCount);
-            processedDraws += drawCount;
-        }
-    }
-
     glm::mat4 projection = camera.getProjectionMatrix();
     glm::mat4 view = camera.getViewMatrix();
 
     glBindVertexArray(m_vao);
+    glBindBuffer(GL_DRAW_INDIRECT_BUFFER, m_drawCommandBuffer);
     glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 2, m_objectBuffer);
 
-    for (const auto& [shaderId, drawCommands] : shaderBuckets) {
-        Shader* shader = m_shaderManager.getShader(shaderId);
-        if (shader) {
-            shader->bind();
-            shader->setUniform("projection", projection);
-            shader->setUniform("view", view);
+    for (uint32_t shaderId = 0; shaderId < numShaders; ++shaderId) {
+        const unsigned int drawCount = drawCounts[shaderId];
+        if (drawCount > 0) {
+            Shader* shader = m_shaderManager.getShader(shaderId);
+            if (shader) {
+                shader->bind();
+                shader->setUniform("projection", projection);
+                shader->setUniform("view", view);
 
-            glBindBuffer(GL_DRAW_INDIRECT_BUFFER, m_drawCommandBuffer);
-            glBufferSubData(GL_DRAW_INDIRECT_BUFFER, 0, sizeof(DrawElementsIndirectCommand) * drawCommands.size(), drawCommands.data());
-
-            glMultiDrawElementsIndirect(GL_TRIANGLES, GL_UNSIGNED_INT, (void*)0, drawCommands.size(), 0);
+                const void* indirect_offset = (const void*)(uintptr_t)(shaderId * numObjects * sizeof(DrawElementsIndirectCommand));
+                glMultiDrawElementsIndirect(GL_TRIANGLES, GL_UNSIGNED_INT, indirect_offset, drawCount, sizeof(DrawElementsIndirectCommand));
+            }
         }
     }
 
