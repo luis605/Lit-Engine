@@ -1,9 +1,12 @@
+module;
+
 #include <glad/glad.h>
 #include <GLFW/glfw3.h>
 #include <filesystem>
 #include <random>
 
-import Editor.application;
+module Editor.application;
+
 import Engine.engine;
 import Engine.mesh;
 import Engine.Render.scenedatabase;
@@ -12,7 +15,7 @@ import Engine.camera;
 import Engine.input;
 import Engine.glm;
 import Engine.asset;
-import Log;
+import Engine.Log;
 
 Application::Application() {
     Lit::Log::Init();

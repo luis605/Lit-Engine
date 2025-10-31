@@ -3,11 +3,9 @@ module;
 #include <glad/glad.h>
 #include <GLFW/glfw3.h>
 #include <vector>
-#include <iostream>
 #include <optional>
 #include <unordered_map>
 #include <cmath>
-#include <filesystem>
 
 module Engine.renderer;
 
@@ -19,6 +17,7 @@ import Engine.Render.scenedatabase;
 import Engine.Render.shaderManager;
 import Engine.Render.component;
 import Engine.mesh;
+import Engine.Log;
 
 namespace {
 struct DrawElementsIndirectCommand {
@@ -52,7 +51,7 @@ void Renderer::init() {
     setupShaders();
 
     if (!m_cullingShader || !m_cullingShader->isInitialized()) {
-        std::cerr << "Renderer failed to initialize: Shaders could not be loaded." << std::endl;
+        Lit::Log::Error("Renderer failed to initialize: Culling shader could not be loaded.");
         return;
     }
 

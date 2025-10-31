@@ -1,8 +1,6 @@
 module;
 
-#include <memory>
-#include <optional>
-#include <vector>
+#include <cstddef>
 
 export module Engine.renderer;
 

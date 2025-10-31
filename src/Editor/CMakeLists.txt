@@ -2,10 +2,6 @@ cmake_minimum_required(VERSION 3.28)
 
 add_executable(Editor)
 
-set_target_properties(Editor PROPERTIES
-    CXX_MODULE_STD ON
-)
-
 target_sources(Editor
     PUBLIC
         FILE_SET CXX_MODULES

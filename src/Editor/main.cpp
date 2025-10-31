@@ -1,4 +1,3 @@
-import std;
 import Editor.application;
 
 int main() {

@@ -1,16 +1,20 @@
 module;
 
 #include <glad/glad.h>
+#include <string>
+#include <vector>
+#include <fstream>
+#include <sstream>
 
 module Engine.shader;
 
 import Engine.glm;
-import std;
+import Engine.Log;
 
 static std::string LoadSourceFromFile(const std::string& filepath) {
     std::ifstream file(filepath);
     if (!file.is_open()) {
-        std::cerr << "ERROR::SHADER: Failed to open file: " << filepath << std::endl;
+        Lit::Log::Error("Failed to open shader file: {}", filepath);
         return "";
     }
     std::stringstream buffer;
@@ -33,7 +37,7 @@ static unsigned int CompileShader(const std::string& source, GLenum type) {
         glGetShaderInfoLog(id, length, &length, message.data());
 
         const char* shaderTypeStr = (type == GL_VERTEX_SHADER) ? "VERTEX" : "FRAGMENT";
-        std::cerr << "ERROR::SHADER::" << shaderTypeStr << "::COMPILATION_FAILED\n" << message.data() << std::endl;
+        Lit::Log::Error("Failed to compile {} shader:{}", shaderTypeStr, message.data());
 
         glDeleteShader(id);
         return 0;
@@ -128,8 +132,8 @@ int Shader::getUniformLocation(const std::string& name) const {
 
     int location = glGetUniformLocation(m_shaderID, name.c_str());
     if (location == -1) {
-
-        std::cerr << "WARNING::SHADER: Uniform '" << name << "' not found!" << std::endl;
+        Lit::Log::Warn("Uniform '{}' not found!", name);
+        return -1;
     }
 
     m_uniformLocations[name] = location;
@@ -160,7 +164,7 @@ void Shader::createAndLink(const std::string& vertexSrc, const std::string& frag
         glGetProgramiv(m_shaderID, GL_INFO_LOG_LENGTH, &length);
         std::vector<char> message(length);
         glGetProgramInfoLog(m_shaderID, length, &length, message.data());
-        std::cerr << "ERROR::SHADER::PROGRAM::LINKING_FAILED\n" << message.data() << std::endl;
+        Lit::Log::Error("Failed to link shader program:\n{}", message.data());
 
         glDeleteProgram(m_shaderID);
         m_shaderID = 0;
@@ -189,7 +193,7 @@ void Shader::createAndLink(const std::string& computeSrc) {
         glGetProgramiv(m_shaderID, GL_INFO_LOG_LENGTH, &length);
         std::vector<char> message(length);
         glGetProgramInfoLog(m_shaderID, length, &length, message.data());
-        std::cerr << "ERROR::SHADER::PROGRAM::LINKING_FAILED\n" << message.data() << std::endl;
+        Lit::Log::Error("Failed to link shader program:{}", message.data());
 
         glDeleteProgram(m_shaderID);
         m_shaderID = 0;

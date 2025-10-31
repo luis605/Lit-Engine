@@ -1,8 +1,8 @@
 module;
 #include <string>
 #include <vector>
-#include <iostream>
 #include <optional>
+
 import Engine.mesh;
 
 export module Engine.asset;

@@ -3,7 +3,6 @@ import Engine.renderer;
 import Engine.camera;
 import Engine.Render.scenedatabase;
 import Engine.mesh;
-import std;
 
 Engine::Engine() {}
 

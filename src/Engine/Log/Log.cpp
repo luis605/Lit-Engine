@@ -1,11 +1,11 @@
 module;
 
-#include <iostream>
 #include <chrono>
-#include <format>
 #include <source_location>
+#include <iostream>
+#include <iomanip>
 
-module Log;
+module Engine.Log;
 
 namespace Lit {
 void Log::Init() {}
@@ -41,12 +41,13 @@ void Log::Print(LogLevel level, const std::string& message, const std::source_lo
         break;
     }
 
-    std::cout << std::format("[{:02d}:{:02d}:{:02d}] {}[{}] {}:{}:{} {}\033[0m", tm.tm_hour, tm.tm_min, tm.tm_sec, color, levelString, location.file_name(),
-                             location.line(), location.column(), message)
-              << std::endl;
+    std::cout << '[' << std::setfill('0') << std::setw(2) << tm.tm_hour << ':'
+              << std::setw(2) << tm.tm_min << ':' << std::setw(2) << tm.tm_sec << "] "
+              << color << '[' << levelString << "] " << location.file_name() << ':'
+              << location.line() << ':' << location.column() << ' ' << message << "\033[0m\n";
 
     if (level == LogLevel::Fatal) {
         exit(1);
     }
 }
-} 
+}
