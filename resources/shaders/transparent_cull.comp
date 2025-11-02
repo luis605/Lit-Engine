@@ -1,0 +1,80 @@
+#version 460 core
+
+layout (local_size_x = 64, local_size_y = 1, local_size_z = 1) in;
+
+struct DrawElementsIndirectCommand {
+    uint count;
+    uint instanceCount;
+    uint firstIndex;
+    uint baseVertex;
+    uint baseInstance;
+};
+
+struct MeshInfo {
+    uint indexCount;
+    uint firstIndex;
+    uint baseVertex;
+    float boundingRadius;
+    vec4 boundingCenter;
+};
+
+struct RenderableComponent {
+    uint mesh_uuid;
+    uint material_uuid;
+    uint shaderId;
+    uint objectId;
+    float alpha;
+};
+
+struct VisibleTransparentObject {
+    uint objectId;
+    float distance;
+};
+
+layout(binding = 0, std430) buffer AtomicCounterBuffer {
+    uint visibleTransparentCount;
+};
+layout(binding = 1, std430) buffer VisibleTransparentObjectBuffer {
+    VisibleTransparentObject visibleObjects[];
+};
+layout(binding = 2, std430) readonly buffer ObjectBuffer {
+    mat4 models[];
+};
+layout(binding = 3, std430) readonly buffer MeshInfoBuffer {
+    MeshInfo meshInfos[];
+};
+layout(binding = 4, std430) readonly buffer RenderableBuffer {
+    RenderableComponent renderables[];
+};
+
+uniform uint u_objectCount;
+uniform mat4 u_viewProjection;
+uniform vec3 u_cameraPos;
+
+bool isVisible(vec4 clip_pos, float radius) {
+    return clip_pos.x >= -clip_pos.w - radius && clip_pos.x <= clip_pos.w + radius &&
+           clip_pos.y >= -clip_pos.w - radius && clip_pos.y <= clip_pos.w + radius &&
+           clip_pos.z >= -clip_pos.w - radius && clip_pos.z <= clip_pos.w + radius;
+}
+
+void main() {
+    uint objectId = gl_GlobalInvocationID.x;
+    if (objectId >= u_objectCount) return;
+
+    RenderableComponent renderable = renderables[objectId];
+    if (renderable.alpha == 1.0) return;
+
+    mat4 modelMatrix = models[objectId];
+    MeshInfo mesh = meshInfos[renderable.mesh_uuid];
+
+    vec4 world_pos = modelMatrix * mesh.boundingCenter;
+    vec4 clip_pos = u_viewProjection * world_pos;
+
+    float world_radius = mesh.boundingRadius * max(length(modelMatrix[0]), max(length(modelMatrix[1]), length(modelMatrix[2])));
+
+    if (isVisible(clip_pos, world_radius)) {
+        uint index = atomicAdd(visibleTransparentCount, 1);
+        visibleObjects[index].objectId = objectId;
+        visibleObjects[index].distance = distance(world_pos.xyz, u_cameraPos);
+    }
+}

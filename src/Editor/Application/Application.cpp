@@ -67,7 +67,7 @@ Application::Application() {
         m_engine.uploadMesh(*sphereMesh);
     }
 
-    const int numObjects = 500;
+    const int numObjects = 50000;
     Lit::Log::Info("Creating {} random objects...", numObjects);
 
     std::random_device rd;
@@ -84,7 +84,14 @@ Application::Application() {
 
         m_sceneDatabase.renderables[entity].mesh_uuid = distribMesh(gen);
         m_sceneDatabase.renderables[entity].material_uuid = 0;
-        m_sceneDatabase.renderables[entity].shaderId = 0;
+
+        if (i % 2 == 0) {
+            m_sceneDatabase.renderables[entity].shaderId = 2;
+            m_sceneDatabase.renderables[entity].alpha = 0.5f;
+        } else {
+            m_sceneDatabase.renderables[entity].shaderId = i % 4 == 0 ? 1 : 0;
+            m_sceneDatabase.renderables[entity].alpha = 1.0f;
+        }
     }
 
     m_parentEntity = m_sceneDatabase.createEntity();

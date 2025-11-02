@@ -38,6 +38,15 @@ export class Renderer {
 
     ShaderManager m_shaderManager;
     Shader* m_cullingShader;
+    Shader* m_transparentCullShader;
+    Shader* m_bitonicSortShader;
+    Shader* m_transparentCommandGenShader;
+
+    unsigned int m_visibleTransparentObjectBuffer = 0;
+    unsigned int m_transparentAtomicCounter = 0;
+    unsigned int m_transparentDrawCommandBuffer = 0;
+
+    size_t m_numDrawingShaders = 0;
 
     bool m_initialized = false;
 };

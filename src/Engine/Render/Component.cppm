@@ -17,8 +17,9 @@ export struct HierarchyComponent {
 };
 
 export struct RenderableComponent {
-    std::uint64_t mesh_uuid;
-    std::uint64_t material_uuid;
+    std::uint32_t mesh_uuid;
+    std::uint32_t material_uuid;
     std::uint32_t shaderId;
     std::uint32_t objectId;
+    float alpha = 1.0f;
 };

@@ -1,0 +1,61 @@
+#version 460 core
+layout (local_size_x = 64, local_size_y = 1, local_size_z = 1) in;
+
+struct DrawElementsIndirectCommand {
+    uint count;
+    uint instanceCount;
+    uint firstIndex;
+    uint baseVertex;
+    uint baseInstance;
+};
+
+struct MeshInfo {
+    uint indexCount;
+    uint firstIndex;
+    uint baseVertex;
+    float boundingRadius;
+    vec4 boundingCenter;
+};
+
+struct RenderableComponent {
+    uint mesh_uuid;
+    uint material_uuid;
+    uint shaderId;
+    uint objectId;
+    float alpha;
+};
+
+struct VisibleTransparentObject {
+    uint objectId;
+    float distance;
+};
+
+layout(binding = 1, std430) readonly buffer VisibleTransparentObjectBuffer {
+    VisibleTransparentObject visibleObjects[];
+};
+layout(binding = 3, std430) readonly buffer MeshInfoBuffer {
+    MeshInfo meshInfos[];
+};
+layout(binding = 4, std430) readonly buffer RenderableBuffer {
+    RenderableComponent renderables[];
+};
+layout(binding = 5, std430) buffer TransparentDrawCommandBuffer {
+    DrawElementsIndirectCommand commands[];
+};
+
+uniform uint u_visibleTransparentCount;
+
+void main() {
+    uint i = gl_GlobalInvocationID.x;
+    if (i >= u_visibleTransparentCount) return;
+
+    uint objectId = visibleObjects[i].objectId;
+    RenderableComponent renderable = renderables[objectId];
+    MeshInfo mesh = meshInfos[renderable.mesh_uuid];
+
+    commands[i].instanceCount = 1;
+    commands[i].baseInstance = objectId;
+    commands[i].count = mesh.indexCount;
+    commands[i].firstIndex = mesh.firstIndex;
+    commands[i].baseVertex = mesh.baseVertex;
+}

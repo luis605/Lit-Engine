@@ -40,9 +40,22 @@ std::vector<MeshInfo> s_meshInfos;
 size_t s_totalVertexSize = 0;
 size_t s_totalIndexSize = 0;
 
+unsigned int nextPowerOfTwo(unsigned int n) {
+    n--;
+    n |= n >> 1;
+    n |= n >> 2;
+    n |= n >> 4;
+    n |= n >> 8;
+    n |= n >> 16;
+    n++;
+    return n;
+}
+
 } // namespace
 
-Renderer::Renderer() : m_cullingShader(nullptr), m_initialized(false), m_vboSize(0), m_eboSize(0) {}
+Renderer::Renderer()
+    : m_cullingShader(nullptr), m_transparentCullShader(nullptr), m_bitonicSortShader(nullptr),
+      m_transparentCommandGenShader(nullptr), m_initialized(false), m_vboSize(0), m_eboSize(0) {}
 
 void Renderer::init() {
     if (m_initialized)
@@ -56,6 +69,7 @@ void Renderer::init() {
     }
 
     glEnable(GL_DEPTH_TEST);
+    glEnable(GL_CULL_FACE);
 
     glGenBuffers(1, &m_atomicCounterBuffer);
     glBindBuffer(GL_ATOMIC_COUNTER_BUFFER, m_atomicCounterBuffer);
@@ -87,6 +101,12 @@ void Renderer::init() {
     glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, 6 * sizeof(float), (void*)(3 * sizeof(float)));
     glBindVertexArray(0);
 
+    glGenBuffers(1, &m_visibleTransparentObjectBuffer);
+    glGenBuffers(1, &m_transparentAtomicCounter);
+    glBindBuffer(GL_ATOMIC_COUNTER_BUFFER, m_transparentAtomicCounter);
+    glBufferData(GL_ATOMIC_COUNTER_BUFFER, sizeof(unsigned int), nullptr, GL_DYNAMIC_DRAW);
+    glGenBuffers(1, &m_transparentDrawCommandBuffer);
+
     m_initialized = true;
 }
 
@@ -103,8 +123,15 @@ void Renderer::cleanup() {
     glDeleteBuffers(1, &m_meshInfoBuffer);
     glDeleteBuffers(1, &m_renderableBuffer);
 
+    glDeleteBuffers(1, &m_visibleTransparentObjectBuffer);
+    glDeleteBuffers(1, &m_transparentAtomicCounter);
+    glDeleteBuffers(1, &m_transparentDrawCommandBuffer);
+
     m_shaderManager.cleanup();
     m_cullingShader = nullptr;
+    m_transparentCullShader = nullptr;
+    m_bitonicSortShader = nullptr;
+    m_transparentCommandGenShader = nullptr;
     m_initialized = false;
 }
 
@@ -195,7 +222,6 @@ void Renderer::drawScene(SceneDatabase& sceneDatabase, const Camera& camera) {
         return;
     }
 
-    const unsigned int numShaders = m_shaderManager.getShaderCount();
     const unsigned int numObjects = sceneDatabase.renderables.size();
     if (numObjects == 0) {
         glClearColor(0.3f, 0.3f, 0.3f, 1.0f);
@@ -203,9 +229,9 @@ void Renderer::drawScene(SceneDatabase& sceneDatabase, const Camera& camera) {
         return;
     }
 
-    std::vector<unsigned int> zeros(numShaders, 0);
+    std::vector<unsigned int> zeros(m_numDrawingShaders, 0);
     glBindBuffer(GL_ATOMIC_COUNTER_BUFFER, m_atomicCounterBuffer);
-    glBufferSubData(GL_ATOMIC_COUNTER_BUFFER, 0, sizeof(unsigned int) * numShaders, zeros.data());
+    glBufferSubData(GL_ATOMIC_COUNTER_BUFFER, 0, sizeof(unsigned int) * m_numDrawingShaders, zeros.data());
 
     std::vector<glm::mat4> modelMatrices;
     modelMatrices.resize(sceneDatabase.transforms.size());
@@ -231,7 +257,7 @@ void Renderer::drawScene(SceneDatabase& sceneDatabase, const Camera& camera) {
     glBufferData(GL_SHADER_STORAGE_BUFFER, s_meshInfos.size() * sizeof(MeshInfo), s_meshInfos.data(), GL_STATIC_DRAW);
 
     glBindBuffer(GL_DRAW_INDIRECT_BUFFER, m_drawCommandBuffer);
-    glBufferData(GL_DRAW_INDIRECT_BUFFER, sizeof(DrawElementsIndirectCommand) * numObjects * numShaders, nullptr, GL_DYNAMIC_DRAW);
+    glBufferData(GL_DRAW_INDIRECT_BUFFER, sizeof(DrawElementsIndirectCommand) * numObjects * m_numDrawingShaders, nullptr, GL_DYNAMIC_DRAW);
 
     glm::mat4 viewProjection = camera.getProjectionMatrix() * camera.getViewMatrix();
 
@@ -255,9 +281,9 @@ void Renderer::drawScene(SceneDatabase& sceneDatabase, const Camera& camera) {
     glClearColor(0.3f, 0.3f, 0.3f, 1.0f);
     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
-    std::vector<unsigned int> drawCounts(numShaders);
+    std::vector<unsigned int> drawCounts(m_numDrawingShaders);
     glBindBuffer(GL_ATOMIC_COUNTER_BUFFER, m_atomicCounterBuffer);
-    glGetBufferSubData(GL_ATOMIC_COUNTER_BUFFER, 0, sizeof(unsigned int) * numShaders, drawCounts.data());
+    glGetBufferSubData(GL_ATOMIC_COUNTER_BUFFER, 0, sizeof(unsigned int) * m_numDrawingShaders, drawCounts.data());
 
     glm::mat4 projection = camera.getProjectionMatrix();
     glm::mat4 view = camera.getViewMatrix();
@@ -266,7 +292,7 @@ void Renderer::drawScene(SceneDatabase& sceneDatabase, const Camera& camera) {
     glBindBuffer(GL_DRAW_INDIRECT_BUFFER, m_drawCommandBuffer);
     glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 2, m_objectBuffer);
 
-    for (uint32_t shaderId = 0; shaderId < numShaders; ++shaderId) {
+    for (uint32_t shaderId = 0; shaderId < m_numDrawingShaders; ++shaderId) {
         const unsigned int drawCount = drawCounts[shaderId];
         if (drawCount > 0) {
             Shader* shader = m_shaderManager.getShader(shaderId);
@@ -284,12 +310,102 @@ void Renderer::drawScene(SceneDatabase& sceneDatabase, const Camera& camera) {
         }
     }
 
+    unsigned int zero = 0;
+    glBindBuffer(GL_ATOMIC_COUNTER_BUFFER, m_transparentAtomicCounter);
+    glBufferSubData(GL_ATOMIC_COUNTER_BUFFER, 0, sizeof(unsigned int), &zero);
+
+    glBindBuffer(GL_SHADER_STORAGE_BUFFER, m_visibleTransparentObjectBuffer);
+    glBufferData(GL_SHADER_STORAGE_BUFFER, sizeof(unsigned int) * 2 * numObjects, nullptr, GL_DYNAMIC_DRAW);
+
+    m_transparentCullShader->bind();
+    m_transparentCullShader->setUniform("u_objectCount", numObjects);
+    m_transparentCullShader->setUniform("u_viewProjection", viewProjection);
+    m_transparentCullShader->setUniform("u_cameraPos", camera.getPosition());
+
+    glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 0, m_transparentAtomicCounter);
+    glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 1, m_visibleTransparentObjectBuffer);
+    glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 2, m_objectBuffer);
+    glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 3, m_meshInfoBuffer);
+    glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 4, m_renderableBuffer);
+
+    glDispatchCompute(numWorkgroups, 1, 1);
+    glMemoryBarrier(GL_SHADER_STORAGE_BARRIER_BIT | GL_ATOMIC_COUNTER_BARRIER_BIT);
+
+    unsigned int visibleTransparentCount = 0;
+    glBindBuffer(GL_ATOMIC_COUNTER_BUFFER, m_transparentAtomicCounter);
+    glGetBufferSubData(GL_ATOMIC_COUNTER_BUFFER, 0, sizeof(unsigned int), &visibleTransparentCount);
+
+    if (visibleTransparentCount > 1) {
+        m_bitonicSortShader->bind();
+        glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 1, m_visibleTransparentObjectBuffer);
+
+        const unsigned int numElements = nextPowerOfTwo(visibleTransparentCount);
+
+        for (unsigned int k = 2; k <= numElements; k <<= 1) {
+            for (unsigned int j = k >> 1; j > 0; j >>= 1) {
+                m_bitonicSortShader->setUniform("u_sort_k", k);
+                m_bitonicSortShader->setUniform("u_sort_j", j);
+                const unsigned int numWorkgroups = (numElements + 511) / 512;
+                glDispatchCompute(numWorkgroups, 1, 1);
+                glMemoryBarrier(GL_SHADER_STORAGE_BARRIER_BIT);
+            }
+        }
+    }
+
+    glBindBuffer(GL_DRAW_INDIRECT_BUFFER, m_transparentDrawCommandBuffer);
+    glBufferData(GL_DRAW_INDIRECT_BUFFER, sizeof(DrawElementsIndirectCommand) * visibleTransparentCount, nullptr, GL_DYNAMIC_DRAW);
+
+    m_transparentCommandGenShader->bind();
+    m_transparentCommandGenShader->setUniform("u_visibleTransparentCount", visibleTransparentCount);
+    glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 1, m_visibleTransparentObjectBuffer);
+    glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 3, m_meshInfoBuffer);
+    glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 4, m_renderableBuffer);
+    glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 5, m_transparentDrawCommandBuffer);
+
+    const unsigned int transparentWorkgroups = (visibleTransparentCount + workgroupSize - 1) / workgroupSize;
+    if (visibleTransparentCount > 0) {
+        glDispatchCompute(transparentWorkgroups, 1, 1);
+    }
+    glMemoryBarrier(GL_COMMAND_BARRIER_BIT | GL_SHADER_STORAGE_BARRIER_BIT);
+
+    glEnable(GL_BLEND);
+    glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+    glDepthMask(GL_FALSE);
+
+    Shader* transparentShader = m_shaderManager.getShader(2);
+    if (transparentShader && visibleTransparentCount > 0) {
+        transparentShader->bind();
+        transparentShader->setUniform("projection", projection);
+        transparentShader->setUniform("view", view);
+        transparentShader->setUniform("lightPos", glm::vec3(0.0f, 10.0f, 0.0f));
+        transparentShader->setUniform("viewPos", camera.getPosition());
+        transparentShader->setUniform("lightColor", glm::vec3(1.0f, 1.0f, 1.0f));
+
+        glBindBuffer(GL_DRAW_INDIRECT_BUFFER, m_transparentDrawCommandBuffer);
+        glMultiDrawElementsIndirect(GL_TRIANGLES, GL_UNSIGNED_INT, 0, visibleTransparentCount, sizeof(DrawElementsIndirectCommand));
+    }
+
+    glDepthMask(GL_TRUE);
+    glDisable(GL_BLEND);
+
     glBindVertexArray(0);
 }
 
 void Renderer::setupShaders() {
     m_shaderManager.loadShader("resources/shaders/cube.vert", "resources/shaders/cube.frag");
     m_shaderManager.loadShader("resources/shaders/cube.vert", "resources/shaders/red.frag");
+    m_shaderManager.loadShader("resources/shaders/cube.vert", "resources/shaders/transparent.frag");
+    m_numDrawingShaders = m_shaderManager.getShaderCount();
+
     const auto cullingShaderId = m_shaderManager.loadComputeShader("resources/shaders/cull.comp");
     m_cullingShader = m_shaderManager.getShader(cullingShaderId);
+
+    const auto transparentCullId = m_shaderManager.loadComputeShader("resources/shaders/transparent_cull.comp");
+    m_transparentCullShader = m_shaderManager.getShader(transparentCullId);
+
+    const auto bitonicSortId = m_shaderManager.loadComputeShader("resources/shaders/bitonic_sort.comp");
+    m_bitonicSortShader = m_shaderManager.getShader(bitonicSortId);
+
+    const auto transparentCommandGenId = m_shaderManager.loadComputeShader("resources/shaders/transparent_command_gen.comp");
+    m_transparentCommandGenShader = m_shaderManager.getShader(transparentCommandGenId);
 }
