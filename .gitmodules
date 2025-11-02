@@ -7,3 +7,6 @@
 [submodule "src/vendors/assimp"]
 	path = src/vendors/assimp
 	url = https://github.com/assimp/assimp.git
+[submodule "src/vendors/freetype"]
+	path = src/vendors/freetype
+	url = https://github.com/freetype/freetype.git

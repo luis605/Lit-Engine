@@ -21,6 +21,7 @@ set(ASSIMP_BUILD_ALL_EXPORTERS_BY_DEFAULT OFF CACHE BOOL "Disable all exporters"
 
 add_subdirectory(src/vendors/assimp)
 add_subdirectory(src/vendors/glfw)
+add_subdirectory(src/vendors/freetype)
 add_subdirectory(src/Engine)
 add_subdirectory(src/Editor)
 

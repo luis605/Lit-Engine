@@ -6,6 +6,7 @@ module;
 #include <optional>
 #include <unordered_map>
 #include <cmath>
+#include <string>
 
 module Engine.renderer;
 
@@ -57,9 +58,12 @@ Renderer::Renderer()
     : m_cullingShader(nullptr), m_transparentCullShader(nullptr), m_bitonicSortShader(nullptr),
       m_transparentCommandGenShader(nullptr), m_initialized(false), m_vboSize(0), m_eboSize(0) {}
 
-void Renderer::init() {
+void Renderer::init(const int windowWidth, const int windowHeight) {
     if (m_initialized)
         return;
+
+    m_uiManager = new UIManager();
+    m_uiManager->init(windowWidth, windowHeight);
 
     setupShaders();
 
@@ -389,6 +393,8 @@ void Renderer::drawScene(SceneDatabase& sceneDatabase, const Camera& camera) {
     glDisable(GL_BLEND);
 
     glBindVertexArray(0);
+
+    m_uiManager->render();
 }
 
 void Renderer::setupShaders() {
@@ -408,4 +414,8 @@ void Renderer::setupShaders() {
 
     const auto transparentCommandGenId = m_shaderManager.loadComputeShader("resources/shaders/transparent_command_gen.comp");
     m_transparentCommandGenShader = m_shaderManager.getShader(transparentCommandGenId);
+}
+
+void Renderer::AddText(const std::string& text, float x, float y, float scale, const glm::vec3& color) {
+    m_uiManager->addText(text, x, y, scale, color);
 }

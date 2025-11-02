@@ -24,11 +24,14 @@ Application::Application() {
         return;
     }
 
+    const int windowWidth = 1280;
+    const int windowHeight = 720;
+
     glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 4);
     glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 6);
     glfwWindowHint(GLFW_OPENGL_PROFILE, GLFW_OPENGL_CORE_PROFILE);
 
-    m_window = glfwCreateWindow(1280, 720, "Lit Engine", nullptr, nullptr);
+    m_window = glfwCreateWindow(windowWidth, windowHeight, "Lit Engine", nullptr, nullptr);
     if (!m_window) {
         Lit::Log::Fatal("Failed to create GLFW window");
         glfwTerminate();
@@ -43,7 +46,7 @@ Application::Application() {
     }
 
     InputManager::Init(m_window);
-    m_engine.init();
+    m_engine.init(windowWidth, windowHeight);
 
     std::filesystem::create_directories("resources/models");
     std::filesystem::create_directories("resources/assets");
@@ -123,6 +126,9 @@ void Application::update() {
     processInput(deltaTime);
 
     m_engine.update(m_sceneDatabase, camera);
+
+    std::string frameTimeText = "Frame time: " + std::to_string(deltaTime * 1000.0f) + " ms (" + std::to_string(1.0f / deltaTime) + " FPS)";
+    m_engine.AddText(frameTimeText, 10.0f, 690.0f, 0.5f, glm::vec3(1.0f, 1.0f, 1.0f));
 
     InputManager::Update();
     glfwSwapBuffers(m_window);

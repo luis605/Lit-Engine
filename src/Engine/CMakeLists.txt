@@ -20,6 +20,8 @@ target_sources(Engine
         Input/Input.cppm
         Asset/AssetManager.cppm
         Log/Log.cppm
+        UI/Manager.cppm
+        UI/Text.cppm
     PRIVATE
         Engine.cpp
         Asset/AssetManager.cpp
@@ -29,6 +31,8 @@ target_sources(Engine
         Render/Shader.cpp
         Input/Input.cpp
         Log/Log.cpp
+        UI/Manager.cpp
+        UI/Text.cpp
         ${PROJECT_SOURCE_DIR}/src/vendors/glad/src/glad.c
 )
 
@@ -39,6 +43,7 @@ target_include_directories(Engine PRIVATE
     "${PROJECT_SOURCE_DIR}/src/vendors/assimp/include"
     "${PROJECT_SOURCE_DIR}/src/vendors/glad/include"
     "${PROJECT_SOURCE_DIR}/src/vendors/glm"
+    "${PROJECT_SOURCE_DIR}/src/vendors/freetype/include"
 )
 
-target_link_libraries(Engine PRIVATE glfw assimp)
+target_link_libraries(Engine PRIVATE glfw assimp freetype)

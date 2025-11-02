@@ -1,6 +1,8 @@
 module;
 
 #include <cstddef>
+#include <vector>
+#include <string>
 
 export module Engine.renderer;
 
@@ -9,16 +11,19 @@ import Engine.camera;
 import Engine.Render.scenedatabase;
 import Engine.Render.shaderManager;
 import Engine.mesh;
+import Engine.UI.manager;
+import Engine.glm;
 
 export class Renderer {
   public:
     Renderer();
     ~Renderer();
 
-    void init();
+    void init(const int windowWidth, const int windowHeight);
     void drawScene(SceneDatabase& sceneDatabase, const Camera& camera);
     void cleanup();
     void uploadMesh(const Mesh& mesh);
+    void AddText(const std::string& text, float x, float y, float scale, const glm::vec3& color);
 
   private:
     void setupShaders();
@@ -49,4 +54,6 @@ export class Renderer {
     size_t m_numDrawingShaders = 0;
 
     bool m_initialized = false;
+
+    UIManager* m_uiManager;
 };
