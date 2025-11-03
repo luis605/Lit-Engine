@@ -1,16 +1,14 @@
-module;
-
-#include <chrono>
-#include <source_location>
+#include "Engine/Log/Log.hpp"
 #include <iostream>
 #include <iomanip>
-
-module Engine.Log;
+#include <chrono>
 
 namespace Lit {
-void Log::Init() {}
 
-void Log::Print(LogLevel level, const std::string& message, const std::source_location& location) {
+void Log::Init() {
+}
+
+void Log::LogInternal(LogLevel level, const std::source_location& location, const std::string& message) {
     auto now = std::chrono::system_clock::now();
     auto time = std::chrono::system_clock::to_time_t(now);
     std::tm tm = *std::localtime(&time);
@@ -44,10 +42,11 @@ void Log::Print(LogLevel level, const std::string& message, const std::source_lo
     std::cout << '[' << std::setfill('0') << std::setw(2) << tm.tm_hour << ':'
               << std::setw(2) << tm.tm_min << ':' << std::setw(2) << tm.tm_sec << "] "
               << color << '[' << levelString << "] " << location.file_name() << ':'
-              << location.line() << ':' << location.column() << ' ' << message << "\033[0m\n";
+              << location.line() << ' ' << message << "\033[0m\n";
 
     if (level == LogLevel::Fatal) {
         exit(1);
     }
 }
-}
+
+} // namespace Lit

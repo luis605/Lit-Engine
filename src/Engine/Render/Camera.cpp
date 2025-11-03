@@ -1,10 +1,10 @@
 import Engine.glm;
 import Engine.camera;
 
-Camera::Camera(glm::vec3 position, glm::vec3 up, float yaw, float pitch)
+Camera::Camera(glm::vec3 position, glm::vec3 up, float yaw, float pitch, float nearPlane, float farPlane)
     : m_position(position), m_front(glm::vec3(0.0f, 0.0f, -1.0f)), m_worldUp(up), m_yaw(yaw),
       m_pitch(pitch), m_movementSpeed(2.5f), m_mouseSensitivity(0.1f), m_fov(45.0f),
-      m_aspectRatio(1280.0f / 720.0f), m_nearPlane(0.1f), m_farPlane(100.0f) {
+      m_aspectRatio(1280.0f / 720.0f), m_nearPlane(nearPlane), m_farPlane(farPlane) {
     updateCameraVectors();
 }
 

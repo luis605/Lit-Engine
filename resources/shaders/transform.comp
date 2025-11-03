@@ -1,0 +1,43 @@
+#version 460 core
+
+layout (local_size_x = 64, local_size_y = 1, local_size_z = 1) in;
+
+struct TransformComponent {
+    mat4 localMatrix;
+    mat4 worldMatrix;
+};
+
+struct HierarchyComponent {
+    uint parent;
+    uint _padding1;
+    uint _padding2;
+    uint _padding3;
+};
+
+layout(binding = 0, std430) buffer TransformBuffer {
+    TransformComponent transforms[];
+};
+
+layout(binding = 1, std430) readonly buffer HierarchyBuffer {
+    HierarchyComponent hierarchies[];
+};
+
+layout(binding = 2, std430) readonly buffer SortedHierarchyBuffer {
+    uint sortedHierarchyList[];
+};
+
+uniform uint u_objectCount;
+
+void main() {
+    uint index = gl_GlobalInvocationID.x;
+    if (index >= u_objectCount) return;
+
+    uint objectId = sortedHierarchyList[index];
+
+    HierarchyComponent hierarchy = hierarchies[objectId];
+    if (hierarchy.parent != 0xFFFFFFFF) { // INVALID_ENTITY
+        transforms[objectId].worldMatrix = transforms[hierarchy.parent].worldMatrix * transforms[objectId].localMatrix;
+    } else {
+        transforms[objectId].worldMatrix = transforms[objectId].localMatrix;
+    }
+}

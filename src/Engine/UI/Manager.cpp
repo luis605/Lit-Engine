@@ -6,12 +6,12 @@ module;
 #include <glad/glad.h>
 #include <map>
 #include <memory>
+#include "Engine/Log/Log.hpp"
 
 module Engine.UI.manager;
 
 import Engine.glm;
 import Engine.shader;
-import Engine.Log;
 
 UIManager::UIManager() {}
 

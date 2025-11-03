@@ -19,6 +19,7 @@ target_compile_features(Editor PRIVATE cxx_std_23)
 target_include_directories(Editor PRIVATE
     "${PROJECT_SOURCE_DIR}/src/vendors/glfw/include"
     "${PROJECT_SOURCE_DIR}/src/vendors/glad/include"
+    "${PROJECT_SOURCE_DIR}/src"
 )
 
 target_link_libraries(Editor PRIVATE Engine glfw)

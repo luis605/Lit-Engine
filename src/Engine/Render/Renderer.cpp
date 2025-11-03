@@ -7,6 +7,8 @@ module;
 #include <unordered_map>
 #include <cmath>
 #include <string>
+#include <cstring>
+#include "Engine/Log/Log.hpp"
 
 module Engine.renderer;
 
@@ -18,7 +20,6 @@ import Engine.Render.scenedatabase;
 import Engine.Render.shaderManager;
 import Engine.Render.component;
 import Engine.mesh;
-import Engine.Log;
 
 namespace {
 struct DrawElementsIndirectCommand {
@@ -37,6 +38,23 @@ struct MeshInfo {
 
     glm::vec4 boundingCenter;
 };
+
+struct SceneUniforms {
+    glm::mat4 projection;
+    glm::mat4 view;
+    glm::vec3 lightPos;
+    float _padding1;
+    glm::vec3 viewPos;
+    float _padding2;
+    glm::vec3 lightColor;
+    float _padding3;
+};
+
+struct VisibleTransparentObject {
+    unsigned int objectId;
+    float distance;
+};
+
 std::vector<MeshInfo> s_meshInfos;
 size_t s_totalVertexSize = 0;
 size_t s_totalIndexSize = 0;
@@ -55,8 +73,9 @@ unsigned int nextPowerOfTwo(unsigned int n) {
 } // namespace
 
 Renderer::Renderer()
-    : m_cullingShader(nullptr), m_transparentCullShader(nullptr), m_bitonicSortShader(nullptr),
-      m_transparentCommandGenShader(nullptr), m_initialized(false), m_vboSize(0), m_eboSize(0) {}
+    : m_cullingShader(nullptr), m_transformShader(nullptr), m_transparentCullShader(nullptr), m_bitonicSortShader(nullptr),
+      m_transparentCommandGenShader(nullptr), m_initialized(false), m_vboSize(0), m_eboSize(0),
+      m_numDrawingShaders(0) {}
 
 void Renderer::init(const int windowWidth, const int windowHeight) {
     if (m_initialized)
@@ -75,14 +94,31 @@ void Renderer::init(const int windowWidth, const int windowHeight) {
     glEnable(GL_DEPTH_TEST);
     glEnable(GL_CULL_FACE);
 
+    m_maxObjects = 2000000;
+    reallocateBuffers(m_maxObjects);
+
     glGenBuffers(1, &m_atomicCounterBuffer);
     glBindBuffer(GL_ATOMIC_COUNTER_BUFFER, m_atomicCounterBuffer);
     glBufferData(GL_ATOMIC_COUNTER_BUFFER, sizeof(unsigned int) * m_shaderManager.getShaderCount(), nullptr, GL_DYNAMIC_DRAW);
 
-    glGenBuffers(1, &m_drawCommandBuffer);
-    glGenBuffers(1, &m_objectBuffer);
     glGenBuffers(1, &m_meshInfoBuffer);
-    glGenBuffers(1, &m_renderableBuffer);
+
+    glGenQueries(NUM_FRAMES_IN_FLIGHT, m_queryStart);
+    glGenQueries(NUM_FRAMES_IN_FLIGHT, m_queryEnd);
+    glGenQueries(NUM_FRAMES_IN_FLIGHT, m_queryTransformStart);
+    glGenQueries(NUM_FRAMES_IN_FLIGHT, m_queryTransformEnd);
+    glGenQueries(NUM_FRAMES_IN_FLIGHT, m_queryCullStart);
+    glGenQueries(NUM_FRAMES_IN_FLIGHT, m_queryCullEnd);
+    glGenQueries(NUM_FRAMES_IN_FLIGHT, m_queryTransparentCullStart);
+    glGenQueries(NUM_FRAMES_IN_FLIGHT, m_queryTransparentCullEnd);
+    glGenQueries(NUM_FRAMES_IN_FLIGHT, m_queryTransparentSortStart);
+    glGenQueries(NUM_FRAMES_IN_FLIGHT, m_queryTransparentSortEnd);
+    glGenQueries(NUM_FRAMES_IN_FLIGHT, m_queryTransparentCommandGenStart);
+    glGenQueries(NUM_FRAMES_IN_FLIGHT, m_queryTransparentCommandGenEnd);
+    glGenQueries(NUM_FRAMES_IN_FLIGHT, m_queryOpaqueDrawStart);
+    glGenQueries(NUM_FRAMES_IN_FLIGHT, m_queryOpaqueDrawEnd);
+    glGenQueries(NUM_FRAMES_IN_FLIGHT, m_queryTransparentDrawStart);
+    glGenQueries(NUM_FRAMES_IN_FLIGHT, m_queryTransparentDrawEnd);
 
     m_vboSize = 1024 * 1024 * 10;
     m_eboSize = 1024 * 1024 * 4;
@@ -105,34 +141,97 @@ void Renderer::init(const int windowWidth, const int windowHeight) {
     glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, 6 * sizeof(float), (void*)(3 * sizeof(float)));
     glBindVertexArray(0);
 
-    glGenBuffers(1, &m_visibleTransparentObjectBuffer);
     glGenBuffers(1, &m_transparentAtomicCounter);
     glBindBuffer(GL_ATOMIC_COUNTER_BUFFER, m_transparentAtomicCounter);
     glBufferData(GL_ATOMIC_COUNTER_BUFFER, sizeof(unsigned int), nullptr, GL_DYNAMIC_DRAW);
-    glGenBuffers(1, &m_transparentDrawCommandBuffer);
 
     m_initialized = true;
+}
+
+void Renderer::reallocateBuffers(size_t numObjects) {
+    m_maxObjects = numObjects;
+
+    const GLbitfield flags = GL_MAP_WRITE_BIT | GL_MAP_PERSISTENT_BIT;
+
+    auto reallocate = [&](GLuint& buffer, size_t& currentSize, void*& mappedPtr, size_t objectSize) {
+        if (mappedPtr) {
+            glBindBuffer(GL_SHADER_STORAGE_BUFFER, buffer);
+            glUnmapBuffer(GL_SHADER_STORAGE_BUFFER);
+        }
+        glDeleteBuffers(1, &buffer);
+        glGenBuffers(1, &buffer);
+        glBindBuffer(GL_SHADER_STORAGE_BUFFER, buffer);
+        currentSize = m_maxObjects * objectSize * NUM_FRAMES_IN_FLIGHT;
+        glBufferStorage(GL_SHADER_STORAGE_BUFFER, currentSize, nullptr, flags);
+        mappedPtr = glMapBufferRange(GL_SHADER_STORAGE_BUFFER, 0, currentSize, flags | GL_MAP_FLUSH_EXPLICIT_BIT);
+    };
+
+    reallocate(m_objectBuffer, m_objectBufferSize, m_objectBufferPtr, sizeof(TransformComponent));
+    reallocate(m_hierarchyBuffer, m_hierarchyBufferSize, m_hierarchyBufferPtr, sizeof(HierarchyComponent));
+    reallocate(m_renderableBuffer, m_renderableBufferSize, m_renderableBufferPtr, sizeof(RenderableComponent));
+    reallocate(m_sortedHierarchyBuffer, m_sortedHierarchyBufferSize, m_sortedHierarchyBufferPtr, sizeof(unsigned int));
+    reallocate(m_drawCommandBuffer, m_drawCommandBufferSize, m_drawCommandBufferPtr, sizeof(DrawElementsIndirectCommand) * m_numDrawingShaders);
+    reallocate(m_visibleTransparentObjectBuffer, m_visibleTransparentObjectBufferSize, m_visibleTransparentObjectBufferPtr, sizeof(VisibleTransparentObject));
+    reallocate(m_transparentDrawCommandBuffer, m_transparentDrawCommandBufferSize, m_transparentDrawCommandBufferPtr, sizeof(DrawElementsIndirectCommand));
+
+    if (m_sceneUBOPtr)
+        glUnmapBuffer(GL_UNIFORM_BUFFER);
+    glDeleteBuffers(1, &m_sceneUBO);
+    glGenBuffers(1, &m_sceneUBO);
+    glBindBuffer(GL_UNIFORM_BUFFER, m_sceneUBO);
+    m_sceneUBOSize = sizeof(SceneUniforms) * NUM_FRAMES_IN_FLIGHT;
+    glBufferStorage(GL_UNIFORM_BUFFER, m_sceneUBOSize, nullptr, flags);
+    m_sceneUBOPtr = glMapBufferRange(GL_UNIFORM_BUFFER, 0, m_sceneUBOSize, flags | GL_MAP_FLUSH_EXPLICIT_BIT);
+    glBindBufferBase(GL_UNIFORM_BUFFER, 0, m_sceneUBO);
 }
 
 void Renderer::cleanup() {
     if (!m_initialized)
         return;
 
+    for (int i = 0; i < NUM_FRAMES_IN_FLIGHT; ++i) {
+        if (m_fences[i]) {
+            glDeleteSync(m_fences[i]);
+        }
+    }
+
+    glUnmapBuffer(GL_SHADER_STORAGE_BUFFER);
+    glUnmapBuffer(GL_UNIFORM_BUFFER);
+
     glDeleteVertexArrays(1, &m_vao);
     glDeleteBuffers(1, &m_vbo);
     glDeleteBuffers(1, &m_ebo);
     glDeleteBuffers(1, &m_drawCommandBuffer);
     glDeleteBuffers(1, &m_objectBuffer);
+    glDeleteBuffers(1, &m_hierarchyBuffer);
     glDeleteBuffers(1, &m_atomicCounterBuffer);
     glDeleteBuffers(1, &m_meshInfoBuffer);
     glDeleteBuffers(1, &m_renderableBuffer);
-
+    glDeleteBuffers(1, &m_sortedHierarchyBuffer);
     glDeleteBuffers(1, &m_visibleTransparentObjectBuffer);
     glDeleteBuffers(1, &m_transparentAtomicCounter);
     glDeleteBuffers(1, &m_transparentDrawCommandBuffer);
+    glDeleteBuffers(1, &m_sceneUBO);
+    glDeleteQueries(NUM_FRAMES_IN_FLIGHT, m_queryStart);
+    glDeleteQueries(NUM_FRAMES_IN_FLIGHT, m_queryEnd);
+    glDeleteQueries(NUM_FRAMES_IN_FLIGHT, m_queryTransformStart);
+    glDeleteQueries(NUM_FRAMES_IN_FLIGHT, m_queryTransformEnd);
+    glDeleteQueries(NUM_FRAMES_IN_FLIGHT, m_queryCullStart);
+    glDeleteQueries(NUM_FRAMES_IN_FLIGHT, m_queryCullEnd);
+    glDeleteQueries(NUM_FRAMES_IN_FLIGHT, m_queryTransparentCullStart);
+    glDeleteQueries(NUM_FRAMES_IN_FLIGHT, m_queryTransparentCullEnd);
+    glDeleteQueries(NUM_FRAMES_IN_FLIGHT, m_queryTransparentSortStart);
+    glDeleteQueries(NUM_FRAMES_IN_FLIGHT, m_queryTransparentSortEnd);
+    glDeleteQueries(NUM_FRAMES_IN_FLIGHT, m_queryTransparentCommandGenStart);
+    glDeleteQueries(NUM_FRAMES_IN_FLIGHT, m_queryTransparentCommandGenEnd);
+    glDeleteQueries(NUM_FRAMES_IN_FLIGHT, m_queryOpaqueDrawStart);
+    glDeleteQueries(NUM_FRAMES_IN_FLIGHT, m_queryOpaqueDrawEnd);
+    glDeleteQueries(NUM_FRAMES_IN_FLIGHT, m_queryTransparentDrawStart);
+    glDeleteQueries(NUM_FRAMES_IN_FLIGHT, m_queryTransparentDrawEnd);
 
     m_shaderManager.cleanup();
     m_cullingShader = nullptr;
+    m_transformShader = nullptr;
     m_transparentCullShader = nullptr;
     m_bitonicSortShader = nullptr;
     m_transparentCommandGenShader = nullptr;
@@ -213,7 +312,7 @@ void Renderer::uploadMesh(const Mesh& mesh) {
 
     s_meshInfos.push_back({.indexCount = static_cast<unsigned int>(mesh.indices.size()),
                            .firstIndex = static_cast<unsigned int>(s_totalIndexSize / sizeof(unsigned int)),
-                           .baseVertex = static_cast<unsigned int>(s_totalVertexSize / (3 * sizeof(float))),
+                           .baseVertex = static_cast<unsigned int>(s_totalVertexSize / (6 * sizeof(float))),
                            .boundingRadius = radius,
                            .boundingCenter = glm::vec4(center, 1.0f)});
 
@@ -222,6 +321,66 @@ void Renderer::uploadMesh(const Mesh& mesh) {
 }
 
 void Renderer::drawScene(SceneDatabase& sceneDatabase, const Camera& camera) {
+    m_currentFrame = (m_currentFrame + 1) % NUM_FRAMES_IN_FLIGHT;
+    const int previousFrame = (m_currentFrame + NUM_FRAMES_IN_FLIGHT - 1) % NUM_FRAMES_IN_FLIGHT;
+
+    if (m_fences[m_currentFrame]) {
+        GLenum waitResult = glClientWaitSync(m_fences[m_currentFrame], GL_SYNC_FLUSH_COMMANDS_BIT, 1000000000);
+        if (waitResult == GL_TIMEOUT_EXPIRED) {
+            Lit::Log::Warn("Timeout expired while waiting for fence.");
+        } else if (waitResult == GL_WAIT_FAILED) {
+            Lit::Log::Error("Failed to wait for fence.");
+        }
+        glDeleteSync(m_fences[m_currentFrame]);
+    }
+
+    long startTime, endTime;
+    long transformStartTime, transformEndTime;
+    long cullStartTime, cullEndTime;
+    long opaqueDrawStartTime, opaqueDrawEndTime;
+    long transparentCullStartTime, transparentCullEndTime;
+    long transparentSortStartTime, transparentSortEndTime;
+    long transparentCommandGenStartTime, transparentCommandGenEndTime;
+    long transparentDrawStartTime, transparentDrawEndTime;
+
+    int done = 0;
+    glGetQueryObjectiv(m_queryEnd[previousFrame], GL_QUERY_RESULT_AVAILABLE, &done);
+    if (done) {
+        glGetQueryObjecti64v(m_queryStart[previousFrame], GL_QUERY_RESULT, &startTime);
+        glGetQueryObjecti64v(m_queryEnd[previousFrame], GL_QUERY_RESULT, &endTime);
+        glGetQueryObjecti64v(m_queryTransformStart[previousFrame], GL_QUERY_RESULT, &transformStartTime);
+        glGetQueryObjecti64v(m_queryTransformEnd[previousFrame], GL_QUERY_RESULT, &transformEndTime);
+        glGetQueryObjecti64v(m_queryCullStart[previousFrame], GL_QUERY_RESULT, &cullStartTime);
+        glGetQueryObjecti64v(m_queryCullEnd[previousFrame], GL_QUERY_RESULT, &cullEndTime);
+        glGetQueryObjecti64v(m_queryOpaqueDrawStart[previousFrame], GL_QUERY_RESULT, &opaqueDrawStartTime);
+        glGetQueryObjecti64v(m_queryOpaqueDrawEnd[previousFrame], GL_QUERY_RESULT, &opaqueDrawEndTime);
+        glGetQueryObjecti64v(m_queryTransparentCullStart[previousFrame], GL_QUERY_RESULT, &transparentCullStartTime);
+        glGetQueryObjecti64v(m_queryTransparentCullEnd[previousFrame], GL_QUERY_RESULT, &transparentCullEndTime);
+        glGetQueryObjecti64v(m_queryTransparentSortStart[previousFrame], GL_QUERY_RESULT, &transparentSortStartTime);
+        glGetQueryObjecti64v(m_queryTransparentSortEnd[previousFrame], GL_QUERY_RESULT, &transparentSortEndTime);
+        glGetQueryObjecti64v(m_queryTransparentCommandGenStart[previousFrame], GL_QUERY_RESULT, &transparentCommandGenStartTime);
+        glGetQueryObjecti64v(m_queryTransparentCommandGenEnd[previousFrame], GL_QUERY_RESULT, &transparentCommandGenEndTime);
+        glGetQueryObjecti64v(m_queryTransparentDrawStart[previousFrame], GL_QUERY_RESULT, &transparentDrawStartTime);
+        glGetQueryObjecti64v(m_queryTransparentDrawEnd[previousFrame], GL_QUERY_RESULT, &transparentDrawEndTime);
+
+        constexpr bool debugMode = true;
+        if (debugMode) {
+            Lit::Log::Debug("GPU Frame Time: {} ms", (endTime - startTime) / 1000000.0);
+            Lit::Log::Debug("  Transform: {} ms", (transformEndTime - transformStartTime) / 1000000.0);
+            Lit::Log::Debug("  Cull: {} ms", (cullEndTime - cullStartTime) / 1000000.0);
+            Lit::Log::Debug("  Opaque Draw: {} ms", (opaqueDrawEndTime - opaqueDrawStartTime) / 1000000.0);
+            Lit::Log::Debug("  Transparent Cull: {} ms", (transparentCullEndTime - transparentCullStartTime) / 1000000.0);
+            Lit::Log::Debug("  Transparent Sort: {} ms", (transparentSortEndTime - transparentSortStartTime) / 1000000.0);
+            Lit::Log::Debug("  Transparent Command Gen: {} ms", (transparentCommandGenEndTime - transparentCommandGenStartTime) / 1000000.0);
+            Lit::Log::Debug("  Transparent Draw: {} ms", (transparentDrawEndTime - transparentDrawStartTime) / 1000000.0);
+        }
+    }
+
+    glQueryCounter(m_queryStart[m_currentFrame], GL_TIMESTAMP);
+    if (sceneDatabase.m_isHierarchyDirty) {
+        sceneDatabase.updateHierarchy();
+    }
+
     if (!m_initialized || s_meshInfos.empty()) {
         return;
     }
@@ -233,48 +392,60 @@ void Renderer::drawScene(SceneDatabase& sceneDatabase, const Camera& camera) {
         return;
     }
 
+    if (numObjects > m_maxObjects) {
+        reallocateBuffers(numObjects * 1.5);
+    }
+
+    const size_t frameOffset = m_currentFrame * m_maxObjects;
+    const size_t uboFrameOffset = m_currentFrame * sizeof(SceneUniforms);
+
+    auto updateBuffer = [&](void* ptr, size_t bufferSize, const auto& data, size_t objectSize) {
+        const size_t dataSize = data.size() * objectSize;
+        const size_t frameOffsetBytes = m_currentFrame * (bufferSize / NUM_FRAMES_IN_FLIGHT);
+        memcpy(static_cast<char*>(ptr) + frameOffsetBytes, data.data(), dataSize);
+        glFlushMappedBufferRange(GL_SHADER_STORAGE_BUFFER, frameOffsetBytes, dataSize);
+    };
+
+    glQueryCounter(m_queryTransformStart[m_currentFrame], GL_TIMESTAMP);
+    m_transformShader->bind();
+    m_transformShader->setUniform("u_objectCount", (unsigned int)sceneDatabase.sortedHierarchyList.size());
+
+    updateBuffer(m_objectBufferPtr, m_objectBufferSize, sceneDatabase.transforms, sizeof(TransformComponent));
+    updateBuffer(m_hierarchyBufferPtr, m_hierarchyBufferSize, sceneDatabase.hierarchies, sizeof(HierarchyComponent));
+    updateBuffer(m_sortedHierarchyBufferPtr, m_sortedHierarchyBufferSize, sceneDatabase.sortedHierarchyList, sizeof(unsigned int));
+
+    glBindBufferRange(GL_SHADER_STORAGE_BUFFER, 0, m_objectBuffer, frameOffset * sizeof(TransformComponent), m_maxObjects * sizeof(TransformComponent));
+    glBindBufferRange(GL_SHADER_STORAGE_BUFFER, 1, m_hierarchyBuffer, frameOffset * sizeof(HierarchyComponent), m_maxObjects * sizeof(HierarchyComponent));
+    glBindBufferRange(GL_SHADER_STORAGE_BUFFER, 2, m_sortedHierarchyBuffer, frameOffset * sizeof(unsigned int), m_maxObjects * sizeof(unsigned int));
+
+    const unsigned int transformWorkgroupSize = 64;
+    const unsigned int transformNumWorkgroups = (sceneDatabase.sortedHierarchyList.size() + transformWorkgroupSize - 1) / transformWorkgroupSize;
+    glDispatchCompute(transformNumWorkgroups, 1, 1);
+    glMemoryBarrier(GL_SHADER_STORAGE_BARRIER_BIT);
+    glQueryCounter(m_queryTransformEnd[m_currentFrame], GL_TIMESTAMP);
+
+    updateBuffer(m_renderableBufferPtr, m_renderableBufferSize, sceneDatabase.renderables, sizeof(RenderableComponent));
+    glBindBuffer(GL_SHADER_STORAGE_BUFFER, m_meshInfoBuffer);
+    glBufferData(GL_SHADER_STORAGE_BUFFER, s_meshInfos.size() * sizeof(MeshInfo), s_meshInfos.data(), GL_STATIC_DRAW);
+
+    glm::mat4 viewProjection = camera.getProjectionMatrix() * camera.getViewMatrix();
+
+    glQueryCounter(m_queryCullStart[m_currentFrame], GL_TIMESTAMP);
+
     std::vector<unsigned int> zeros(m_numDrawingShaders, 0);
     glBindBuffer(GL_ATOMIC_COUNTER_BUFFER, m_atomicCounterBuffer);
     glBufferSubData(GL_ATOMIC_COUNTER_BUFFER, 0, sizeof(unsigned int) * m_numDrawingShaders, zeros.data());
 
-    std::vector<glm::mat4> modelMatrices;
-    modelMatrices.resize(sceneDatabase.transforms.size());
-
-    for (const auto& entity : sceneDatabase.sortedHierarchyList) {
-        auto& transform = sceneDatabase.transforms[entity];
-        const auto& hierarchy = sceneDatabase.hierarchies[entity];
-
-        if (hierarchy.parent != INVALID_ENTITY) {
-            transform.worldMatrix = sceneDatabase.transforms[hierarchy.parent].worldMatrix * transform.localMatrix;
-        } else {
-            transform.worldMatrix = transform.localMatrix;
-        }
-        modelMatrices[entity] = transform.worldMatrix;
-    }
-    glBindBuffer(GL_SHADER_STORAGE_BUFFER, m_objectBuffer);
-    glBufferData(GL_SHADER_STORAGE_BUFFER, modelMatrices.size() * sizeof(glm::mat4), modelMatrices.data(), GL_DYNAMIC_DRAW);
-
-    glBindBuffer(GL_SHADER_STORAGE_BUFFER, m_renderableBuffer);
-    glBufferData(GL_SHADER_STORAGE_BUFFER, sceneDatabase.renderables.size() * sizeof(RenderableComponent), sceneDatabase.renderables.data(), GL_DYNAMIC_DRAW);
-
-    glBindBuffer(GL_SHADER_STORAGE_BUFFER, m_meshInfoBuffer);
-    glBufferData(GL_SHADER_STORAGE_BUFFER, s_meshInfos.size() * sizeof(MeshInfo), s_meshInfos.data(), GL_STATIC_DRAW);
-
-    glBindBuffer(GL_DRAW_INDIRECT_BUFFER, m_drawCommandBuffer);
-    glBufferData(GL_DRAW_INDIRECT_BUFFER, sizeof(DrawElementsIndirectCommand) * numObjects * m_numDrawingShaders, nullptr, GL_DYNAMIC_DRAW);
-
-    glm::mat4 viewProjection = camera.getProjectionMatrix() * camera.getViewMatrix();
-
     m_cullingShader->bind();
     m_cullingShader->setUniform("u_objectCount", numObjects);
-    m_cullingShader->setUniform("u_maxDraws", numObjects);
+    m_cullingShader->setUniform("u_maxDraws", (unsigned int)m_maxObjects);
     m_cullingShader->setUniform("u_viewProjection", viewProjection);
 
     glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 0, m_atomicCounterBuffer);
-    glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 1, m_drawCommandBuffer);
-    glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 2, m_objectBuffer);
+    glBindBufferRange(GL_SHADER_STORAGE_BUFFER, 1, m_drawCommandBuffer, frameOffset * sizeof(DrawElementsIndirectCommand) * m_numDrawingShaders, m_maxObjects * sizeof(DrawElementsIndirectCommand) * m_numDrawingShaders);
+    glBindBufferRange(GL_SHADER_STORAGE_BUFFER, 2, m_objectBuffer, frameOffset * sizeof(TransformComponent), m_maxObjects * sizeof(TransformComponent));
     glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 3, m_meshInfoBuffer);
-    glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 4, m_renderableBuffer);
+    glBindBufferRange(GL_SHADER_STORAGE_BUFFER, 4, m_renderableBuffer, frameOffset * sizeof(RenderableComponent), m_maxObjects * sizeof(RenderableComponent));
 
     const unsigned int workgroupSize = 64;
     const unsigned int numWorkgroups = (numObjects + workgroupSize - 1) / workgroupSize;
@@ -289,59 +460,65 @@ void Renderer::drawScene(SceneDatabase& sceneDatabase, const Camera& camera) {
     glBindBuffer(GL_ATOMIC_COUNTER_BUFFER, m_atomicCounterBuffer);
     glGetBufferSubData(GL_ATOMIC_COUNTER_BUFFER, 0, sizeof(unsigned int) * m_numDrawingShaders, drawCounts.data());
 
-    glm::mat4 projection = camera.getProjectionMatrix();
-    glm::mat4 view = camera.getViewMatrix();
+    glQueryCounter(m_queryCullEnd[m_currentFrame], GL_TIMESTAMP);
+
+    SceneUniforms sceneUniforms;
+    sceneUniforms.projection = camera.getProjectionMatrix();
+    sceneUniforms.view = camera.getViewMatrix();
+    sceneUniforms.lightPos = glm::vec3(0.0f, 10.0f, 0.0f);
+    sceneUniforms.viewPos = camera.getPosition();
+    sceneUniforms.lightColor = glm::vec3(1.0f, 1.0f, 1.0f);
+
+    memcpy(static_cast<char*>(m_sceneUBOPtr) + uboFrameOffset, &sceneUniforms, sizeof(SceneUniforms));
+    glFlushMappedBufferRange(GL_UNIFORM_BUFFER, uboFrameOffset, sizeof(SceneUniforms));
+    glBindBufferRange(GL_UNIFORM_BUFFER, 0, m_sceneUBO, uboFrameOffset, sizeof(SceneUniforms));
 
     glBindVertexArray(m_vao);
     glBindBuffer(GL_DRAW_INDIRECT_BUFFER, m_drawCommandBuffer);
-    glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 2, m_objectBuffer);
+    glBindBufferRange(GL_SHADER_STORAGE_BUFFER, 2, m_objectBuffer, frameOffset * sizeof(TransformComponent), m_maxObjects * sizeof(TransformComponent));
 
+    glQueryCounter(m_queryOpaqueDrawStart[m_currentFrame], GL_TIMESTAMP);
     for (uint32_t shaderId = 0; shaderId < m_numDrawingShaders; ++shaderId) {
         const unsigned int drawCount = drawCounts[shaderId];
         if (drawCount > 0) {
             Shader* shader = m_shaderManager.getShader(shaderId);
             if (shader) {
                 shader->bind();
-                shader->setUniform("projection", projection);
-                shader->setUniform("view", view);
-                shader->setUniform("lightPos", glm::vec3(0.0f, 10.0f, 0.0f));
-                shader->setUniform("viewPos", camera.getPosition());
-                shader->setUniform("lightColor", glm::vec3(1.0f, 1.0f, 1.0f));
-
-                const void* indirect_offset = (const void*)(uintptr_t)(shaderId * numObjects * sizeof(DrawElementsIndirectCommand));
-                glMultiDrawElementsIndirect(GL_TRIANGLES, GL_UNSIGNED_INT, indirect_offset, drawCount, sizeof(DrawElementsIndirectCommand));
+                const size_t indirect_offset = (frameOffset * m_numDrawingShaders + shaderId * m_maxObjects) * sizeof(DrawElementsIndirectCommand);
+                glMultiDrawElementsIndirect(GL_TRIANGLES, GL_UNSIGNED_INT, (const void*)indirect_offset, drawCount, sizeof(DrawElementsIndirectCommand));
             }
         }
     }
+    glQueryCounter(m_queryOpaqueDrawEnd[m_currentFrame], GL_TIMESTAMP);
 
     unsigned int zero = 0;
     glBindBuffer(GL_ATOMIC_COUNTER_BUFFER, m_transparentAtomicCounter);
     glBufferSubData(GL_ATOMIC_COUNTER_BUFFER, 0, sizeof(unsigned int), &zero);
 
-    glBindBuffer(GL_SHADER_STORAGE_BUFFER, m_visibleTransparentObjectBuffer);
-    glBufferData(GL_SHADER_STORAGE_BUFFER, sizeof(unsigned int) * 2 * numObjects, nullptr, GL_DYNAMIC_DRAW);
-
+    glQueryCounter(m_queryTransparentCullStart[m_currentFrame], GL_TIMESTAMP);
     m_transparentCullShader->bind();
     m_transparentCullShader->setUniform("u_objectCount", numObjects);
     m_transparentCullShader->setUniform("u_viewProjection", viewProjection);
     m_transparentCullShader->setUniform("u_cameraPos", camera.getPosition());
 
     glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 0, m_transparentAtomicCounter);
-    glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 1, m_visibleTransparentObjectBuffer);
-    glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 2, m_objectBuffer);
+    glBindBufferRange(GL_SHADER_STORAGE_BUFFER, 1, m_visibleTransparentObjectBuffer, frameOffset * sizeof(VisibleTransparentObject), m_maxObjects * sizeof(VisibleTransparentObject));
+    glBindBufferRange(GL_SHADER_STORAGE_BUFFER, 2, m_objectBuffer, frameOffset * sizeof(TransformComponent), m_maxObjects * sizeof(TransformComponent));
     glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 3, m_meshInfoBuffer);
-    glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 4, m_renderableBuffer);
+    glBindBufferRange(GL_SHADER_STORAGE_BUFFER, 4, m_renderableBuffer, frameOffset * sizeof(RenderableComponent), m_maxObjects * sizeof(RenderableComponent));
 
     glDispatchCompute(numWorkgroups, 1, 1);
     glMemoryBarrier(GL_SHADER_STORAGE_BARRIER_BIT | GL_ATOMIC_COUNTER_BARRIER_BIT);
+    glQueryCounter(m_queryTransparentCullEnd[m_currentFrame], GL_TIMESTAMP);
 
     unsigned int visibleTransparentCount = 0;
     glBindBuffer(GL_ATOMIC_COUNTER_BUFFER, m_transparentAtomicCounter);
     glGetBufferSubData(GL_ATOMIC_COUNTER_BUFFER, 0, sizeof(unsigned int), &visibleTransparentCount);
 
     if (visibleTransparentCount > 1) {
+        glQueryCounter(m_queryTransparentSortStart[m_currentFrame], GL_TIMESTAMP);
         m_bitonicSortShader->bind();
-        glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 1, m_visibleTransparentObjectBuffer);
+        glBindBufferRange(GL_SHADER_STORAGE_BUFFER, 1, m_visibleTransparentObjectBuffer, frameOffset * sizeof(VisibleTransparentObject), m_maxObjects * sizeof(VisibleTransparentObject));
 
         const unsigned int numElements = nextPowerOfTwo(visibleTransparentCount);
 
@@ -354,40 +531,36 @@ void Renderer::drawScene(SceneDatabase& sceneDatabase, const Camera& camera) {
                 glMemoryBarrier(GL_SHADER_STORAGE_BARRIER_BIT);
             }
         }
+        glQueryCounter(m_queryTransparentSortEnd[m_currentFrame], GL_TIMESTAMP);
     }
 
-    glBindBuffer(GL_DRAW_INDIRECT_BUFFER, m_transparentDrawCommandBuffer);
-    glBufferData(GL_DRAW_INDIRECT_BUFFER, sizeof(DrawElementsIndirectCommand) * visibleTransparentCount, nullptr, GL_DYNAMIC_DRAW);
-
+    glQueryCounter(m_queryTransparentCommandGenStart[m_currentFrame], GL_TIMESTAMP);
     m_transparentCommandGenShader->bind();
     m_transparentCommandGenShader->setUniform("u_visibleTransparentCount", visibleTransparentCount);
-    glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 1, m_visibleTransparentObjectBuffer);
+    glBindBufferRange(GL_SHADER_STORAGE_BUFFER, 1, m_visibleTransparentObjectBuffer, frameOffset * sizeof(VisibleTransparentObject), m_maxObjects * sizeof(VisibleTransparentObject));
     glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 3, m_meshInfoBuffer);
-    glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 4, m_renderableBuffer);
-    glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 5, m_transparentDrawCommandBuffer);
+    glBindBufferRange(GL_SHADER_STORAGE_BUFFER, 4, m_renderableBuffer, frameOffset * sizeof(RenderableComponent), m_maxObjects * sizeof(RenderableComponent));
+    glBindBufferRange(GL_SHADER_STORAGE_BUFFER, 5, m_transparentDrawCommandBuffer, frameOffset * sizeof(DrawElementsIndirectCommand), m_maxObjects * sizeof(DrawElementsIndirectCommand));
 
     const unsigned int transparentWorkgroups = (visibleTransparentCount + workgroupSize - 1) / workgroupSize;
     if (visibleTransparentCount > 0) {
         glDispatchCompute(transparentWorkgroups, 1, 1);
     }
     glMemoryBarrier(GL_COMMAND_BARRIER_BIT | GL_SHADER_STORAGE_BARRIER_BIT);
+    glQueryCounter(m_queryTransparentCommandGenEnd[m_currentFrame], GL_TIMESTAMP);
 
     glEnable(GL_BLEND);
     glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
     glDepthMask(GL_FALSE);
 
+    glQueryCounter(m_queryTransparentDrawStart[m_currentFrame], GL_TIMESTAMP);
     Shader* transparentShader = m_shaderManager.getShader(2);
     if (transparentShader && visibleTransparentCount > 0) {
         transparentShader->bind();
-        transparentShader->setUniform("projection", projection);
-        transparentShader->setUniform("view", view);
-        transparentShader->setUniform("lightPos", glm::vec3(0.0f, 10.0f, 0.0f));
-        transparentShader->setUniform("viewPos", camera.getPosition());
-        transparentShader->setUniform("lightColor", glm::vec3(1.0f, 1.0f, 1.0f));
-
         glBindBuffer(GL_DRAW_INDIRECT_BUFFER, m_transparentDrawCommandBuffer);
-        glMultiDrawElementsIndirect(GL_TRIANGLES, GL_UNSIGNED_INT, 0, visibleTransparentCount, sizeof(DrawElementsIndirectCommand));
+        glMultiDrawElementsIndirect(GL_TRIANGLES, GL_UNSIGNED_INT, (const void*)(frameOffset * sizeof(DrawElementsIndirectCommand)), visibleTransparentCount, sizeof(DrawElementsIndirectCommand));
     }
+    glQueryCounter(m_queryTransparentDrawEnd[m_currentFrame], GL_TIMESTAMP);
 
     glDepthMask(GL_TRUE);
     glDisable(GL_BLEND);
@@ -395,8 +568,11 @@ void Renderer::drawScene(SceneDatabase& sceneDatabase, const Camera& camera) {
     glBindVertexArray(0);
 
     m_uiManager->render();
-}
 
+    glQueryCounter(m_queryEnd[m_currentFrame], GL_TIMESTAMP);
+
+    m_fences[m_currentFrame] = glFenceSync(GL_SYNC_GPU_COMMANDS_COMPLETE, 0);
+}
 void Renderer::setupShaders() {
     m_shaderManager.loadShader("resources/shaders/cube.vert", "resources/shaders/cube.frag");
     m_shaderManager.loadShader("resources/shaders/cube.vert", "resources/shaders/red.frag");
@@ -405,6 +581,9 @@ void Renderer::setupShaders() {
 
     const auto cullingShaderId = m_shaderManager.loadComputeShader("resources/shaders/cull.comp");
     m_cullingShader = m_shaderManager.getShader(cullingShaderId);
+
+    const auto transformShaderId = m_shaderManager.loadComputeShader("resources/shaders/transform.comp");
+    m_transformShader = m_shaderManager.getShader(transformShaderId);
 
     const auto transparentCullId = m_shaderManager.loadComputeShader("resources/shaders/transparent_cull.comp");
     m_transparentCullShader = m_shaderManager.getShader(transparentCullId);

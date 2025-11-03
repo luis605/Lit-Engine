@@ -5,11 +5,11 @@ module;
 #include <vector>
 #include <fstream>
 #include <sstream>
+#include "Engine/Log/Log.hpp"
 
 module Engine.shader;
 
 import Engine.glm;
-import Engine.Log;
 
 static std::string LoadSourceFromFile(const std::string& filepath) {
     std::ifstream file(filepath);
@@ -170,6 +170,10 @@ void Shader::createAndLink(const std::string& vertexSrc, const std::string& frag
         m_shaderID = 0;
     } else {
         m_initialized = true;
+        unsigned int uniformBlockIndex = glGetUniformBlockIndex(m_shaderID, "SceneData");
+        if (uniformBlockIndex != GL_INVALID_INDEX) {
+            glUniformBlockBinding(m_shaderID, uniformBlockIndex, 0);
+        }
     }
 
     glDeleteShader(vertexShader);
@@ -199,6 +203,10 @@ void Shader::createAndLink(const std::string& computeSrc) {
         m_shaderID = 0;
     } else {
         m_initialized = true;
+        unsigned int uniformBlockIndex = glGetUniformBlockIndex(m_shaderID, "SceneData");
+        if (uniformBlockIndex != GL_INVALID_INDEX) {
+            glUniformBlockBinding(m_shaderID, uniformBlockIndex, 0);
+        }
     }
 
     glDeleteShader(computeShader);

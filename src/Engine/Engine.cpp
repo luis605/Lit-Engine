@@ -14,7 +14,6 @@ Engine::~Engine() {}
 void Engine::init(const int windowWidth, const int windowHeight) { m_renderer.init(windowWidth, windowHeight); }
 
 void Engine::update(SceneDatabase& sceneDatabase, Camera& camera) {
-    sceneDatabase.updateHierarchy();
     m_renderer.drawScene(sceneDatabase, camera);
 }
 

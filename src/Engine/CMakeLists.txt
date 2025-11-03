@@ -19,7 +19,6 @@ target_sources(Engine
         Render/Mesh.cppm
         Input/Input.cppm
         Asset/AssetManager.cppm
-        Log/Log.cppm
         UI/Manager.cppm
         UI/Text.cppm
     PRIVATE
@@ -44,6 +43,7 @@ target_include_directories(Engine PRIVATE
     "${PROJECT_SOURCE_DIR}/src/vendors/glad/include"
     "${PROJECT_SOURCE_DIR}/src/vendors/glm"
     "${PROJECT_SOURCE_DIR}/src/vendors/freetype/include"
+    "${PROJECT_SOURCE_DIR}/src"
 )
 
 target_link_libraries(Engine PRIVATE glfw assimp freetype)

@@ -4,6 +4,7 @@ module;
 #include <assimp/scene.h>
 #include <assimp/postprocess.h>
 
+#include "Engine/Log/Log.hpp"
 #include <string>
 #include <vector>
 #include <optional>
@@ -11,7 +12,6 @@ module;
 
 module Engine.asset;
 import Engine.mesh;
-import Engine.Log;
 
 namespace {
 

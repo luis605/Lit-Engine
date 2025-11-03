@@ -4,6 +4,7 @@ module;
 #include <GLFW/glfw3.h>
 #include <filesystem>
 #include <random>
+#include "Engine/Log/Log.hpp"
 
 module Editor.application;
 
@@ -15,7 +16,6 @@ import Engine.camera;
 import Engine.input;
 import Engine.glm;
 import Engine.asset;
-import Engine.Log;
 
 Application::Application() {
     Lit::Log::Init();
@@ -39,6 +39,7 @@ Application::Application() {
     }
 
     glfwMakeContextCurrent(m_window);
+    glfwSwapInterval(0);
 
     if (!gladLoadGLLoader((GLADloadproc)glfwGetProcAddress)) {
         Lit::Log::Fatal("Failed to initialize GLAD");
@@ -75,7 +76,7 @@ Application::Application() {
 
     std::random_device rd;
     std::mt19937 gen(rd());
-    std::uniform_real_distribution<float> distribPos(-50.0f, 50.0f);
+    std::uniform_real_distribution<float> distribPos(-65.0f, 65.0f);
     std::uniform_int_distribution<unsigned int> distribMesh(0, 1);
 
     for (int i = 0; i < numObjects; ++i) {
@@ -88,13 +89,8 @@ Application::Application() {
         m_sceneDatabase.renderables[entity].mesh_uuid = distribMesh(gen);
         m_sceneDatabase.renderables[entity].material_uuid = 0;
 
-        if (i % 2 == 0) {
-            m_sceneDatabase.renderables[entity].shaderId = 2;
-            m_sceneDatabase.renderables[entity].alpha = 0.5f;
-        } else {
-            m_sceneDatabase.renderables[entity].shaderId = i % 4 == 0 ? 1 : 0;
-            m_sceneDatabase.renderables[entity].alpha = 1.0f;
-        }
+        m_sceneDatabase.renderables[entity].shaderId = i % 4 == 0 ? 1 : 0;
+        m_sceneDatabase.renderables[entity].alpha = 1.0f;
     }
 
     m_parentEntity = m_sceneDatabase.createEntity();
@@ -106,6 +102,8 @@ Application::Application() {
     for (int i = 0; i < numObjects / 2; ++i) {
         m_sceneDatabase.hierarchies[i].parent = m_parentEntity;
     }
+
+    camera.setFarPlane(1000.0f);
 
     Lit::Log::Info("Application created");
 }
@@ -127,8 +125,12 @@ void Application::update() {
 
     m_engine.update(m_sceneDatabase, camera);
 
-    std::string frameTimeText = "Frame time: " + std::to_string(deltaTime * 1000.0f) + " ms (" + std::to_string(1.0f / deltaTime) + " FPS)";
-    m_engine.AddText(frameTimeText, 10.0f, 690.0f, 0.5f, glm::vec3(1.0f, 1.0f, 1.0f));
+    m_textUpdateTimer += deltaTime;
+    if (m_textUpdateTimer >= 0.5f) {
+        m_frameTimeText = "Frame time: " + std::to_string(deltaTime * 1000.0f) + " ms (" + std::to_string(1.0f / deltaTime) + " FPS)";
+        m_textUpdateTimer = 0.0f;
+    }
+    m_engine.AddText(m_frameTimeText, 10.0f, 690.0f, 0.5f, glm::vec3(1.0f, 1.0f, 1.0f));
 
     InputManager::Update();
     glfwSwapBuffers(m_window);

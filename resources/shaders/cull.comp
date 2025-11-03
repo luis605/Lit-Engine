@@ -32,8 +32,13 @@ layout(binding = 1, std430) buffer DrawCommandBuffer {
     DrawElementsIndirectCommand commands[];
 };
 
+struct TransformComponent {
+    mat4 localMatrix;
+    mat4 worldMatrix;
+};
+
 layout(binding = 2, std430) readonly buffer ObjectBuffer {
-    mat4 models[];
+    TransformComponent transforms[];
 };
 
 layout(binding = 3, std430) readonly buffer MeshInfoBuffer {
@@ -59,7 +64,7 @@ void main() {
     if (objectId >= u_objectCount) return;
 
     RenderableComponent renderable = renderables[objectId];
-    mat4 modelMatrix = models[objectId];
+    mat4 modelMatrix = transforms[objectId].worldMatrix;
     MeshInfo mesh = meshInfos[renderable.mesh_uuid];
 
     vec4 world_pos = modelMatrix * mesh.boundingCenter;
