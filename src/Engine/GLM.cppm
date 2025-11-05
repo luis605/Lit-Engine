@@ -1,8 +1,10 @@
 module;
 
+#define GLM_ENABLE_EXPERIMENTAL
 #include <glm/glm.hpp>
 #include <glm/gtc/matrix_transform.hpp>
 #include <glm/gtc/type_ptr.hpp>
+#include <glm/gtx/norm.hpp>
 
 export module Engine.glm;
 
@@ -15,6 +17,7 @@ using ::glm::ivec2;
 using ::glm::ortho;
 using ::glm::lookAt;
 using ::glm::distance;
+using ::glm::distance2;
 using ::glm::sqrt;
 using ::glm::normalize;
 using ::glm::perspective;

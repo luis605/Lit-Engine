@@ -48,6 +48,7 @@ struct SceneUniforms {
     float _padding2;
     glm::vec3 lightColor;
     float _padding3;
+    glm::vec4 frustumPlanes[6];
 };
 
 struct VisibleTransparentObject {
@@ -68,6 +69,25 @@ unsigned int nextPowerOfTwo(unsigned int n) {
     n |= n >> 16;
     n++;
     return n;
+}
+
+void extractFrustumPlanes(const glm::mat4& vp, glm::vec4* planes) {
+    // Left
+    planes[0] = glm::vec4(vp[0][3] + vp[0][0], vp[1][3] + vp[1][0], vp[2][3] + vp[2][0], vp[3][3] + vp[3][0]);
+    // Right
+    planes[1] = glm::vec4(vp[0][3] - vp[0][0], vp[1][3] - vp[1][0], vp[2][3] - vp[2][0], vp[3][3] - vp[3][0]);
+    // Bottom
+    planes[2] = glm::vec4(vp[0][3] + vp[0][1], vp[1][3] + vp[1][1], vp[2][3] + vp[2][1], vp[3][3] + vp[3][1]);
+    // Top
+    planes[3] = glm::vec4(vp[0][3] - vp[0][1], vp[1][3] - vp[1][1], vp[2][3] - vp[2][1], vp[3][3] - vp[3][1]);
+    // Near
+    planes[4] = glm::vec4(vp[0][3] + vp[0][2], vp[1][3] + vp[1][2], vp[2][3] + vp[2][2], vp[3][3] + vp[3][2]);
+    // Far
+    planes[5] = glm::vec4(vp[0][3] - vp[0][2], vp[1][3] - vp[1][2], vp[2][3] - vp[2][2], vp[3][3] - vp[3][2]);
+
+    for (int i = 0; i < 6; i++) {
+        planes[i] = glm::normalize(planes[i]);
+    }
 }
 
 } // namespace
@@ -195,8 +215,26 @@ void Renderer::cleanup() {
         }
     }
 
+    glBindBuffer(GL_SHADER_STORAGE_BUFFER, m_objectBuffer);
     glUnmapBuffer(GL_SHADER_STORAGE_BUFFER);
+    glBindBuffer(GL_SHADER_STORAGE_BUFFER, m_hierarchyBuffer);
+    glUnmapBuffer(GL_SHADER_STORAGE_BUFFER);
+    glBindBuffer(GL_SHADER_STORAGE_BUFFER, m_renderableBuffer);
+    glUnmapBuffer(GL_SHADER_STORAGE_BUFFER);
+    glBindBuffer(GL_SHADER_STORAGE_BUFFER, m_sortedHierarchyBuffer);
+    glUnmapBuffer(GL_SHADER_STORAGE_BUFFER);
+    glBindBuffer(GL_SHADER_STORAGE_BUFFER, m_drawCommandBuffer);
+    glUnmapBuffer(GL_SHADER_STORAGE_BUFFER);
+    glBindBuffer(GL_SHADER_STORAGE_BUFFER, m_visibleTransparentObjectBuffer);
+    glUnmapBuffer(GL_SHADER_STORAGE_BUFFER);
+    glBindBuffer(GL_SHADER_STORAGE_BUFFER, m_transparentDrawCommandBuffer);
+    glUnmapBuffer(GL_SHADER_STORAGE_BUFFER);
+
+    glBindBuffer(GL_UNIFORM_BUFFER, m_sceneUBO);
     glUnmapBuffer(GL_UNIFORM_BUFFER);
+
+    glBindBuffer(GL_SHADER_STORAGE_BUFFER, 0);
+    glBindBuffer(GL_UNIFORM_BUFFER, 0);
 
     glDeleteVertexArrays(1, &m_vao);
     glDeleteBuffers(1, &m_vbo);
@@ -235,6 +273,11 @@ void Renderer::cleanup() {
     m_transparentCullShader = nullptr;
     m_bitonicSortShader = nullptr;
     m_transparentCommandGenShader = nullptr;
+
+    m_shaderManager.cleanup();
+    delete m_uiManager;
+    m_uiManager = nullptr;
+
     m_initialized = false;
 }
 
@@ -279,6 +322,10 @@ void Renderer::uploadMesh(const Mesh& mesh) {
 
         glBindVertexArray(m_vao);
         glBindBuffer(GL_ARRAY_BUFFER, m_vbo);
+        glEnableVertexAttribArray(0);
+        glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 6 * sizeof(float), (void*)0);
+        glEnableVertexAttribArray(1);
+        glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, 6 * sizeof(float), (void*)(3 * sizeof(float)));
         glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, m_ebo);
         glBindVertexArray(0);
     }
@@ -290,9 +337,9 @@ void Renderer::uploadMesh(const Mesh& mesh) {
     glBufferSubData(GL_ELEMENT_ARRAY_BUFFER, s_totalIndexSize, indexDataSize, mesh.indices.data());
 
     glm::vec3 center(0.0f);
-    const size_t numVertices = mesh.vertices.size() / 3;
+    const size_t numVertices = mesh.vertices.size() / 6;
     if (numVertices > 0) {
-        for (size_t i = 0; i < mesh.vertices.size(); i += 3) {
+        for (size_t i = 0; i < mesh.vertices.size(); i += 6) {
             center.x += mesh.vertices[i];
             center.y += mesh.vertices[i + 1];
             center.z += mesh.vertices[i + 2];
@@ -301,9 +348,9 @@ void Renderer::uploadMesh(const Mesh& mesh) {
     }
 
     float maxRadiusSq = 0.0f;
-    for (size_t i = 0; i < mesh.vertices.size(); i += 3) {
+    for (size_t i = 0; i < mesh.vertices.size(); i += 6) {
         const glm::vec3 vertex(mesh.vertices[i], mesh.vertices[i + 1], mesh.vertices[i + 2]);
-        const float distSq = glm::distance(center, vertex);
+        const float distSq = glm::distance2(center, vertex);
         if (distSq > maxRadiusSq) {
             maxRadiusSq = distSq;
         }
@@ -321,6 +368,18 @@ void Renderer::uploadMesh(const Mesh& mesh) {
 }
 
 void Renderer::drawScene(SceneDatabase& sceneDatabase, const Camera& camera) {
+    const unsigned int numObjects = sceneDatabase.renderables.size();
+    if (numObjects > m_maxObjects) {
+        for (int i = 0; i < NUM_FRAMES_IN_FLIGHT; ++i) {
+            if (m_fences[i]) {
+                glClientWaitSync(m_fences[i], GL_SYNC_FLUSH_COMMANDS_BIT, 1000000000);
+                glDeleteSync(m_fences[i]);
+                m_fences[i] = nullptr;
+            }
+        }
+        reallocateBuffers(numObjects * 1.5);
+    }
+
     m_currentFrame = (m_currentFrame + 1) % NUM_FRAMES_IN_FLIGHT;
     const int previousFrame = (m_currentFrame + NUM_FRAMES_IN_FLIGHT - 1) % NUM_FRAMES_IN_FLIGHT;
 
@@ -385,15 +444,10 @@ void Renderer::drawScene(SceneDatabase& sceneDatabase, const Camera& camera) {
         return;
     }
 
-    const unsigned int numObjects = sceneDatabase.renderables.size();
     if (numObjects == 0) {
         glClearColor(0.3f, 0.3f, 0.3f, 1.0f);
         glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
         return;
-    }
-
-    if (numObjects > m_maxObjects) {
-        reallocateBuffers(numObjects * 1.5);
     }
 
     const size_t frameOffset = m_currentFrame * m_maxObjects;
@@ -439,7 +493,6 @@ void Renderer::drawScene(SceneDatabase& sceneDatabase, const Camera& camera) {
     m_cullingShader->bind();
     m_cullingShader->setUniform("u_objectCount", numObjects);
     m_cullingShader->setUniform("u_maxDraws", (unsigned int)m_maxObjects);
-    m_cullingShader->setUniform("u_viewProjection", viewProjection);
 
     glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 0, m_atomicCounterBuffer);
     glBindBufferRange(GL_SHADER_STORAGE_BUFFER, 1, m_drawCommandBuffer, frameOffset * sizeof(DrawElementsIndirectCommand) * m_numDrawingShaders, m_maxObjects * sizeof(DrawElementsIndirectCommand) * m_numDrawingShaders);
@@ -468,12 +521,14 @@ void Renderer::drawScene(SceneDatabase& sceneDatabase, const Camera& camera) {
     sceneUniforms.lightPos = glm::vec3(0.0f, 10.0f, 0.0f);
     sceneUniforms.viewPos = camera.getPosition();
     sceneUniforms.lightColor = glm::vec3(1.0f, 1.0f, 1.0f);
+    extractFrustumPlanes(sceneUniforms.projection * sceneUniforms.view, sceneUniforms.frustumPlanes);
 
     memcpy(static_cast<char*>(m_sceneUBOPtr) + uboFrameOffset, &sceneUniforms, sizeof(SceneUniforms));
     glFlushMappedBufferRange(GL_UNIFORM_BUFFER, uboFrameOffset, sizeof(SceneUniforms));
     glBindBufferRange(GL_UNIFORM_BUFFER, 0, m_sceneUBO, uboFrameOffset, sizeof(SceneUniforms));
 
     glBindVertexArray(m_vao);
+
     glBindBuffer(GL_DRAW_INDIRECT_BUFFER, m_drawCommandBuffer);
     glBindBufferRange(GL_SHADER_STORAGE_BUFFER, 2, m_objectBuffer, frameOffset * sizeof(TransformComponent), m_maxObjects * sizeof(TransformComponent));
 
@@ -484,7 +539,7 @@ void Renderer::drawScene(SceneDatabase& sceneDatabase, const Camera& camera) {
             Shader* shader = m_shaderManager.getShader(shaderId);
             if (shader) {
                 shader->bind();
-                const size_t indirect_offset = (frameOffset * m_numDrawingShaders + shaderId * m_maxObjects) * sizeof(DrawElementsIndirectCommand);
+                const size_t indirect_offset = (m_currentFrame * m_numDrawingShaders * m_maxObjects + shaderId * m_maxObjects) * sizeof(DrawElementsIndirectCommand);
                 glMultiDrawElementsIndirect(GL_TRIANGLES, GL_UNSIGNED_INT, (const void*)indirect_offset, drawCount, sizeof(DrawElementsIndirectCommand));
             }
         }
@@ -498,7 +553,6 @@ void Renderer::drawScene(SceneDatabase& sceneDatabase, const Camera& camera) {
     glQueryCounter(m_queryTransparentCullStart[m_currentFrame], GL_TIMESTAMP);
     m_transparentCullShader->bind();
     m_transparentCullShader->setUniform("u_objectCount", numObjects);
-    m_transparentCullShader->setUniform("u_viewProjection", viewProjection);
     m_transparentCullShader->setUniform("u_cameraPos", camera.getPosition());
 
     glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 0, m_transparentAtomicCounter);
