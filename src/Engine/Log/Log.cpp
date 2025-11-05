@@ -42,7 +42,8 @@ void Log::LogInternal(LogLevel level, const std::source_location& location, cons
     std::cout << '[' << std::setfill('0') << std::setw(2) << tm.tm_hour << ':'
               << std::setw(2) << tm.tm_min << ':' << std::setw(2) << tm.tm_sec << "] "
               << color << '[' << levelString << "] " << location.file_name() << ':'
-              << location.line() << ' ' << message << "\033[0m\n";
+              << location.line() << ' ' << message << "\033[0m"
+              << std::endl;
 
     if (level == LogLevel::Fatal) {
         exit(1);

@@ -406,14 +406,15 @@ void Renderer::drawScene(SceneDatabase& sceneDatabase, const Camera& camera) {
     m_currentFrame = (m_currentFrame + 1) % NUM_FRAMES_IN_FLIGHT;
     const int previousFrame = (m_currentFrame + NUM_FRAMES_IN_FLIGHT - 1) % NUM_FRAMES_IN_FLIGHT;
 
-    if (m_fences[m_currentFrame]) {
-        GLenum waitResult = glClientWaitSync(m_fences[m_currentFrame], GL_SYNC_FLUSH_COMMANDS_BIT, 1000000000);
+    if (m_fences[previousFrame]) {
+        GLenum waitResult = glClientWaitSync(m_fences[previousFrame], GL_SYNC_FLUSH_COMMANDS_BIT, 1000000000);
         if (waitResult == GL_TIMEOUT_EXPIRED) {
-            Lit::Log::Warn("Timeout expired while waiting for fence.");
+            Lit::Log::Warn("Timeout expired while waiting for fence of previous frame.");
         } else if (waitResult == GL_WAIT_FAILED) {
-            Lit::Log::Error("Failed to wait for fence.");
+            Lit::Log::Error("Failed to wait for fence of previous frame.");
         }
-        glDeleteSync(m_fences[m_currentFrame]);
+        glDeleteSync(m_fences[previousFrame]);
+        m_fences[previousFrame] = nullptr;
     }
 
     long startTime, endTime;

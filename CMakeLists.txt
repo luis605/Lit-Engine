@@ -24,11 +24,11 @@ add_subdirectory(src/vendors/glfw)
 add_subdirectory(src/vendors/freetype)
 add_subdirectory(src/Engine)
 add_subdirectory(src/Editor)
-
 add_custom_target(run
     DEPENDS Editor
     COMMAND ${CMAKE_COMMAND} -E echo "Running Editor..."
-    COMMAND $<TARGET_FILE:Editor>
+    COMMAND ${CMAKE_COMMAND} -E env $<TARGET_FILE:Editor>
+    USES_TERMINAL
     WORKING_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}
     COMMENT "Builds and runs the Editor executable"
 )
