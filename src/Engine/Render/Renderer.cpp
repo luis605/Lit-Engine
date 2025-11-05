@@ -453,7 +453,8 @@ void Renderer::drawScene(SceneDatabase& sceneDatabase, const Camera& camera) {
     const size_t frameOffset = m_currentFrame * m_maxObjects;
     const size_t uboFrameOffset = m_currentFrame * sizeof(SceneUniforms);
 
-    auto updateBuffer = [&](void* ptr, size_t bufferSize, const auto& data, size_t objectSize) {
+    auto updateBuffer = [&](GLuint buffer, void* ptr, size_t bufferSize, const auto& data, size_t objectSize) {
+        glBindBuffer(GL_SHADER_STORAGE_BUFFER, buffer);
         const size_t dataSize = data.size() * objectSize;
         const size_t frameOffsetBytes = m_currentFrame * (bufferSize / NUM_FRAMES_IN_FLIGHT);
         memcpy(static_cast<char*>(ptr) + frameOffsetBytes, data.data(), dataSize);
@@ -464,9 +465,9 @@ void Renderer::drawScene(SceneDatabase& sceneDatabase, const Camera& camera) {
     m_transformShader->bind();
     m_transformShader->setUniform("u_objectCount", (unsigned int)sceneDatabase.sortedHierarchyList.size());
 
-    updateBuffer(m_objectBufferPtr, m_objectBufferSize, sceneDatabase.transforms, sizeof(TransformComponent));
-    updateBuffer(m_hierarchyBufferPtr, m_hierarchyBufferSize, sceneDatabase.hierarchies, sizeof(HierarchyComponent));
-    updateBuffer(m_sortedHierarchyBufferPtr, m_sortedHierarchyBufferSize, sceneDatabase.sortedHierarchyList, sizeof(unsigned int));
+    updateBuffer(m_objectBuffer, m_objectBufferPtr, m_objectBufferSize, sceneDatabase.transforms, sizeof(TransformComponent));
+    updateBuffer(m_hierarchyBuffer, m_hierarchyBufferPtr, m_hierarchyBufferSize, sceneDatabase.hierarchies, sizeof(HierarchyComponent));
+    updateBuffer(m_sortedHierarchyBuffer, m_sortedHierarchyBufferPtr, m_sortedHierarchyBufferSize, sceneDatabase.sortedHierarchyList, sizeof(unsigned int));
 
     glBindBufferRange(GL_SHADER_STORAGE_BUFFER, 0, m_objectBuffer, frameOffset * sizeof(TransformComponent), m_maxObjects * sizeof(TransformComponent));
     glBindBufferRange(GL_SHADER_STORAGE_BUFFER, 1, m_hierarchyBuffer, frameOffset * sizeof(HierarchyComponent), m_maxObjects * sizeof(HierarchyComponent));
@@ -478,7 +479,7 @@ void Renderer::drawScene(SceneDatabase& sceneDatabase, const Camera& camera) {
     glMemoryBarrier(GL_SHADER_STORAGE_BARRIER_BIT);
     glQueryCounter(m_queryTransformEnd[m_currentFrame], GL_TIMESTAMP);
 
-    updateBuffer(m_renderableBufferPtr, m_renderableBufferSize, sceneDatabase.renderables, sizeof(RenderableComponent));
+    updateBuffer(m_renderableBuffer, m_renderableBufferPtr, m_renderableBufferSize, sceneDatabase.renderables, sizeof(RenderableComponent));
     glBindBuffer(GL_SHADER_STORAGE_BUFFER, m_meshInfoBuffer);
     glBufferData(GL_SHADER_STORAGE_BUFFER, s_meshInfos.size() * sizeof(MeshInfo), s_meshInfos.data(), GL_STATIC_DRAW);
 
@@ -524,6 +525,7 @@ void Renderer::drawScene(SceneDatabase& sceneDatabase, const Camera& camera) {
     extractFrustumPlanes(sceneUniforms.projection * sceneUniforms.view, sceneUniforms.frustumPlanes);
 
     memcpy(static_cast<char*>(m_sceneUBOPtr) + uboFrameOffset, &sceneUniforms, sizeof(SceneUniforms));
+    glBindBuffer(GL_UNIFORM_BUFFER, m_sceneUBO);
     glFlushMappedBufferRange(GL_UNIFORM_BUFFER, uboFrameOffset, sizeof(SceneUniforms));
     glBindBufferRange(GL_UNIFORM_BUFFER, 0, m_sceneUBO, uboFrameOffset, sizeof(SceneUniforms));
 

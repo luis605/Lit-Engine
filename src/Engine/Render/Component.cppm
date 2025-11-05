@@ -14,6 +14,7 @@ export struct TransformComponent {
 
 export struct HierarchyComponent {
     Entity parent = INVALID_ENTITY;
+    uint32_t _padding1, _padding2, _padding3;
 };
 
 export struct RenderableComponent {
