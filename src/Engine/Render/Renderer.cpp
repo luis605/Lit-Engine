@@ -95,17 +95,17 @@ unsigned int nextPowerOfTwo(unsigned int n) {
 }
 
 void extractFrustumPlanes(const glm::mat4& vp, glm::vec4* planes) {
-    // Left
+
     planes[0] = glm::vec4(vp[0][3] + vp[0][0], vp[1][3] + vp[1][0], vp[2][3] + vp[2][0], vp[3][3] + vp[3][0]);
-    // Right
+
     planes[1] = glm::vec4(vp[0][3] - vp[0][0], vp[1][3] - vp[1][0], vp[2][3] - vp[2][0], vp[3][3] - vp[3][0]);
-    // Bottom
+
     planes[2] = glm::vec4(vp[0][3] + vp[0][1], vp[1][3] + vp[1][1], vp[2][3] + vp[2][1], vp[3][3] + vp[3][1]);
-    // Top
+
     planes[3] = glm::vec4(vp[0][3] - vp[0][1], vp[1][3] - vp[1][1], vp[2][3] - vp[2][1], vp[3][3] - vp[3][1]);
-    // Near
+
     planes[4] = glm::vec4(vp[0][3] + vp[0][2], vp[1][3] + vp[1][2], vp[2][3] + vp[2][2], vp[3][3] + vp[3][2]);
-    // Far
+
     planes[5] = glm::vec4(vp[0][3] - vp[0][2], vp[1][3] - vp[1][2], vp[2][3] - vp[2][2], vp[3][3] - vp[3][2]);
 
     for (int i = 0; i < 6; i++) {
@@ -498,8 +498,12 @@ void Renderer::drawScene(SceneDatabase& sceneDatabase, const Camera& camera) {
 
     const unsigned int transformWorkgroupSize = 64;
     const unsigned int transformNumWorkgroups = (sceneDatabase.sortedHierarchyList.size() + transformWorkgroupSize - 1) / transformWorkgroupSize;
-    glDispatchCompute(transformNumWorkgroups, 1, 1);
-    glMemoryBarrier(GL_SHADER_STORAGE_BARRIER_BIT);
+
+    for (uint32_t level = 0; level <= sceneDatabase.m_maxHierarchyDepth; ++level) {
+        m_transformShader->setUniform("u_currentHierarchyLevel", level);
+        glDispatchCompute(transformNumWorkgroups, 1, 1);
+        glMemoryBarrier(GL_SHADER_STORAGE_BARRIER_BIT);
+    }
     glQueryCounter(m_queryTransformEnd[m_currentFrame], GL_TIMESTAMP);
 
     updateBuffer(m_renderableBuffer, m_renderableBufferPtr, m_renderableBufferSize, sceneDatabase.renderables, sizeof(RenderableComponent));

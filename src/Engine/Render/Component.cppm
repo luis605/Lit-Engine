@@ -19,10 +19,12 @@ static_assert(sizeof(TransformComponent) == 128, "Size mismatch for TransformCom
 
 export struct HierarchyComponent {
     Entity parent = INVALID_ENTITY;
+    uint32_t level = 0;
 };
 
 static_assert(offsetof(HierarchyComponent, parent) == 0, "Offset mismatch for parent");
-static_assert(sizeof(HierarchyComponent) == 4, "Size mismatch for HierarchyComponent");
+static_assert(offsetof(HierarchyComponent, level) == 4, "Offset mismatch for level");
+static_assert(sizeof(HierarchyComponent) == 8, "Size mismatch for HierarchyComponent");
 
 export struct RenderableComponent {
     std::uint32_t mesh_uuid;

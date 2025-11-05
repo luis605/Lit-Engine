@@ -9,9 +9,7 @@ struct TransformComponent {
 
 struct HierarchyComponent {
     uint parent;
-    uint _padding1;
-    uint _padding2;
-    uint _padding3;
+    uint level;
 };
 
 layout(binding = 0, std430) buffer TransformBuffer {
@@ -27,6 +25,7 @@ layout(binding = 2, std430) readonly buffer SortedHierarchyBuffer {
 };
 
 uniform uint u_objectCount;
+uniform uint u_currentHierarchyLevel;
 
 void main() {
     uint index = gl_GlobalInvocationID.x;
@@ -35,6 +34,9 @@ void main() {
     uint objectId = sortedHierarchyList[index];
 
     HierarchyComponent hierarchy = hierarchies[objectId];
+
+    if (hierarchy.level != u_currentHierarchyLevel) return;
+
     if (hierarchy.parent != 0xFFFFFFFF) { // INVALID_ENTITY
         transforms[objectId].worldMatrix = transforms[hierarchy.parent].worldMatrix * transforms[objectId].localMatrix;
     } else {

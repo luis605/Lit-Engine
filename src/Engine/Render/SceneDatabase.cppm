@@ -1,8 +1,10 @@
 module;
 
+#include <cstdint>
 #include <vector>
 #include <stack>
 #include <algorithm>
+#include <stack>
 
 export module Engine.Render.scenedatabase;
 
@@ -16,10 +18,11 @@ export class SceneDatabase {
     std::vector<RenderableComponent> renderables;
     std::vector<Entity> sortedHierarchyList;
     bool m_isHierarchyDirty = true;
+    uint32_t m_maxHierarchyDepth = 0;
 
     Entity createEntity() {
         transforms.emplace_back();
-        hierarchies.emplace_back(HierarchyComponent{INVALID_ENTITY});
+        hierarchies.emplace_back(HierarchyComponent{INVALID_ENTITY, 0});
         renderables.emplace_back();
         const auto entity = static_cast<Entity>(transforms.size() - 1);
         renderables.back().objectId = entity;
@@ -34,6 +37,7 @@ export class SceneDatabase {
 
         if (transforms.empty()) {
             sortedHierarchyList.clear();
+            m_maxHierarchyDepth = 0;
             return;
         }
 
@@ -48,6 +52,7 @@ export class SceneDatabase {
         roots.reserve(numEntities);
 
         for (Entity i = 0; i < numEntities; ++i) {
+            hierarchies[i].level = 0;
             const auto& hier = hierarchies[i];
             if (hier.parent != INVALID_ENTITY && hier.parent < numEntities) {
                 children[hier.parent].push_back(i);
@@ -56,18 +61,23 @@ export class SceneDatabase {
             }
         }
 
-        std::stack<Entity> stack;
+        m_maxHierarchyDepth = 0;
+        std::stack<std::pair<Entity, uint32_t>> stack;
+
         for (auto it = roots.rbegin(); it != roots.rend(); ++it) {
-            stack.push(*it);
+            stack.push({*it, 0});
         }
 
         while (!stack.empty()) {
-            Entity current = stack.top();
+            auto [current, currentLevel] = stack.top();
             stack.pop();
+
+            hierarchies[current].level = currentLevel;
             sortedHierarchyList.push_back(current);
+            m_maxHierarchyDepth = std::max(m_maxHierarchyDepth, currentLevel);
 
             for (auto it = children[current].rbegin(); it != children[current].rend(); ++it) {
-                stack.push(*it);
+                stack.push({*it, currentLevel + 1});
             }
         }
         m_isHierarchyDirty = false;
