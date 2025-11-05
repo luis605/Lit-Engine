@@ -40,6 +40,7 @@ Application::Application() {
 
     glfwMakeContextCurrent(m_window);
     glfwSwapInterval(0);
+    glfwSetInputMode(m_window, GLFW_CURSOR, GLFW_CURSOR_NORMAL);
 
     if (!gladLoadGLLoader((GLADloadproc)glfwGetProcAddress)) {
         Lit::Log::Fatal("Failed to initialize GLAD");
@@ -138,6 +139,16 @@ void Application::update() {
 }
 
 void Application::processInput(float deltaTime) {
+    static bool mouseLocked = false;
+    if (InputManager::IsKeyPressed(GLFW_KEY_T)) {
+        mouseLocked = !mouseLocked;
+        if (mouseLocked) {
+            glfwSetInputMode(m_window, GLFW_CURSOR, GLFW_CURSOR_DISABLED);
+        } else {
+            glfwSetInputMode(m_window, GLFW_CURSOR, GLFW_CURSOR_NORMAL);
+        }
+    }
+
     if (InputManager::IsKeyHeld(GLFW_KEY_W)) {
         camera.processKeyboard(CameraMovement::FORWARD, deltaTime);
     }
