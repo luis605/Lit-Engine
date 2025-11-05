@@ -23,6 +23,7 @@ struct RenderableComponent {
     uint material_uuid;
     uint shaderId;
     uint objectId;
+    float alpha;
 };
 
 layout (std140, binding = 0) uniform SceneData {
