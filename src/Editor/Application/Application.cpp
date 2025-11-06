@@ -72,12 +72,12 @@ Application::Application() {
         m_engine.uploadMesh(*sphereMesh);
     }
 
-    const int numObjects = 50000;
+    const int numObjects = 500000;
     Lit::Log::Info("Creating {} random objects...", numObjects);
 
     std::random_device rd;
     std::mt19937 gen(rd());
-    std::uniform_real_distribution<float> distribPos(-65.0f, 65.0f);
+    std::uniform_real_distribution<float> distribPos(-200.0f, 200.0f);
     std::uniform_int_distribution<unsigned int> distribMesh(0, 1);
 
     for (int i = 0; i < numObjects; ++i) {
@@ -124,14 +124,17 @@ void Application::update() {
 
     processInput(deltaTime);
 
+    m_engine.setSmallObjectThreshold(m_smallObjectThreshold);
     m_engine.update(m_sceneDatabase, camera);
 
     m_textUpdateTimer += deltaTime;
     if (m_textUpdateTimer >= 0.5f) {
         m_frameTimeText = "Frame time: " + std::to_string(deltaTime * 1000.0f) + " ms (" + std::to_string(1.0f / deltaTime) + " FPS)";
+        m_smallObjectThresholdText = "smallObjectThreshold: " + std::to_string(m_smallObjectThreshold);
         m_textUpdateTimer = 0.0f;
     }
     m_engine.AddText(m_frameTimeText, 10.0f, 690.0f, 0.5f, glm::vec3(1.0f, 1.0f, 1.0f));
+    m_engine.AddText(m_smallObjectThresholdText, 10.0f, 670.0f, 0.5f, glm::vec3(1.0f, 1.0f, 1.0f));
 
     InputManager::Update();
     glfwSwapBuffers(m_window);
@@ -185,6 +188,18 @@ void Application::processInput(float deltaTime) {
     if (InputManager::IsKeyHeld(GLFW_KEY_O)) {
         m_sceneDatabase.transforms[m_parentEntity].localMatrix =
             glm::translate(m_sceneDatabase.transforms[m_parentEntity].localMatrix, glm::vec3(0.0f, -10.0f * deltaTime, 0.0f));
+    }
+
+    if (InputManager::IsKeyPressed(GLFW_KEY_1)) {
+        m_smallObjectThreshold -= 0.001f;
+        if (m_smallObjectThreshold < 0.0f) {
+            m_smallObjectThreshold = 0.0f;
+        }
+        Lit::Log::Info("smallObjectThreshold: {}", m_smallObjectThreshold);
+    }
+    if (InputManager::IsKeyPressed(GLFW_KEY_2)) {
+        m_smallObjectThreshold += 0.001f;
+        Lit::Log::Info("smallObjectThreshold: {}", m_smallObjectThreshold);
     }
 
     glm::vec2 mouseDelta = InputManager::GetMouseDelta();

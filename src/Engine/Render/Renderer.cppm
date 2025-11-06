@@ -26,6 +26,7 @@ export class Renderer {
     void cleanup();
     void uploadMesh(const Mesh& mesh);
     void AddText(const std::string& text, float x, float y, float scale, const glm::vec3& color);
+    void setSmallObjectThreshold(float threshold);
 
   private:
     void setupShaders();
@@ -105,4 +106,6 @@ export class Renderer {
     void* m_visibleTransparentObjectBufferPtr = nullptr;
     void* m_transparentDrawCommandBufferPtr = nullptr;
     void* m_sceneUBOPtr = nullptr;
+
+    float m_smallObjectThreshold = 0.005f;
 };

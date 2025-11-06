@@ -31,7 +31,9 @@ export class Application {
     std::optional<Mesh> m_mesh;
     Entity m_parentEntity;
     std::string m_frameTimeText;
+    std::string m_smallObjectThresholdText;
     float m_textUpdateTimer = 0.0f;
     float m_nearPlane = 0.1f;
     float m_farPlane = 1000.0f;
+    float m_smallObjectThreshold = 0.005f;
 };

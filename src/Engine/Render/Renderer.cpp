@@ -390,6 +390,8 @@ void Renderer::uploadMesh(const Mesh& mesh) {
     s_totalIndexSize += indexDataSize;
 }
 
+void Renderer::setSmallObjectThreshold(float threshold) { m_smallObjectThreshold = threshold; }
+
 void Renderer::drawScene(SceneDatabase& sceneDatabase, const Camera& camera) {
     const unsigned int numObjects = sceneDatabase.renderables.size();
     if (numObjects > m_maxObjects) {
@@ -522,6 +524,7 @@ void Renderer::drawScene(SceneDatabase& sceneDatabase, const Camera& camera) {
     m_cullingShader->bind();
     m_cullingShader->setUniform("u_objectCount", numObjects);
     m_cullingShader->setUniform("u_maxDraws", (unsigned int)m_maxObjects);
+    m_cullingShader->setUniform("u_smallObjectThreshold", m_smallObjectThreshold);
 
     glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 0, m_atomicCounterBuffer);
     glBindBufferRange(GL_SHADER_STORAGE_BUFFER, 1, m_drawCommandBuffer, frameOffset * sizeof(DrawElementsIndirectCommand) * m_numDrawingShaders, m_maxObjects * sizeof(DrawElementsIndirectCommand) * m_numDrawingShaders);

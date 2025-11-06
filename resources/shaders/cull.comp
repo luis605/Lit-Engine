@@ -61,6 +61,7 @@ layout(binding = 4, std430) readonly buffer RenderableBuffer {
 
 uniform uint u_objectCount;
 uniform uint u_maxDraws;
+uniform float u_smallObjectThreshold;
 
 bool isVisible(vec3 world_pos, float radius) {
     for (int i = 0; i < 6; i++) {
@@ -85,6 +86,14 @@ void main() {
     float world_radius = mesh.boundingRadius * max(length(modelMatrix[0]), max(length(modelMatrix[1]), length(modelMatrix[2])));
 
     if (isVisible(world_pos, world_radius)) {
+        float dist = distance(world_pos, sceneData.viewPos);
+        if (dist > 0.0) {
+            float projectedSize = world_radius / dist;
+            if (projectedSize < u_smallObjectThreshold) {
+                return;
+            }
+        }
+
         uint shaderId = renderable.shaderId;
         uint indexInBin = atomicAdd(drawCounts[shaderId], 1);
 
