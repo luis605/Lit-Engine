@@ -26,3 +26,4 @@ void Engine::AddText(const std::string& text, float x, float y, float scale, con
 }
 
 void Engine::setSmallObjectThreshold(float threshold) { m_renderer.setSmallObjectThreshold(threshold); }
+void Engine::setLargeObjectThreshold(float threshold) { m_renderer.setLargeObjectThreshold(threshold); }

@@ -4,7 +4,7 @@ module;
 #include <vector>
 #include <string>
 
-typedef struct __GLsync *GLsync;
+typedef struct __GLsync* GLsync;
 
 export module Engine.renderer;
 
@@ -27,6 +27,7 @@ export class Renderer {
     void uploadMesh(const Mesh& mesh);
     void AddText(const std::string& text, float x, float y, float scale, const glm::vec3& color);
     void setSmallObjectThreshold(float threshold);
+    void setLargeObjectThreshold(float threshold);
 
   private:
     void setupShaders();
@@ -58,6 +59,17 @@ export class Renderer {
     unsigned int m_transparentAtomicCounter = 0;
     unsigned int m_transparentDrawCommandBuffer = 0;
     unsigned int m_sceneUBO = 0;
+
+    unsigned int m_depthFbo = 0;
+    unsigned int m_depthTexture = 0;
+    Shader* m_largeObjectCullShader = nullptr;
+    Shader* m_depthPrepassShader = nullptr;
+    unsigned int m_depthPrepassAtomicCounter = 0;
+    unsigned int m_depthPrepassDrawCommandBuffer = 0;
+
+    unsigned int m_debugQuadVao = 0;
+    unsigned int m_debugQuadVbo = 0;
+    Shader* m_debugDepthShader = nullptr;
 
     size_t m_numDrawingShaders = 0;
 
@@ -95,6 +107,7 @@ export class Renderer {
     size_t m_drawCommandBufferSize = 0;
     size_t m_visibleTransparentObjectBufferSize = 0;
     size_t m_transparentDrawCommandBufferSize = 0;
+    size_t m_depthPrepassDrawCommandBufferSize = 0;
     size_t m_sceneUBOSize = 0;
     size_t m_maxObjects = 0;
 
@@ -105,7 +118,15 @@ export class Renderer {
     void* m_drawCommandBufferPtr = nullptr;
     void* m_visibleTransparentObjectBufferPtr = nullptr;
     void* m_transparentDrawCommandBufferPtr = nullptr;
+    void* m_depthPrepassDrawCommandBufferPtr = nullptr;
     void* m_sceneUBOPtr = nullptr;
 
     float m_smallObjectThreshold = 0.005f;
+    float m_largeObjectThreshold = 0.1f;
+    int m_windowWidth = 0;
+    int m_windowHeight = 0;
+
+    bool m_renderPrePass = true;
+    float m_prePassToggleTimer = 0.0f;
+    float m_lastFrameTime = 0.0f;
 };
