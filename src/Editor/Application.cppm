@@ -30,6 +30,7 @@ export class Application {
     SceneDatabase m_sceneDatabase;
     std::optional<Mesh> m_mesh;
     Entity m_parentEntity;
+    std::string m_frameTimeText;
     std::string m_smallObjectThresholdText;
     std::string m_largeObjectThresholdText;
     float m_textUpdateTimer = 0.0f;
