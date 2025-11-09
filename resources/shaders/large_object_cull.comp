@@ -36,10 +36,10 @@ layout (std140, binding = 0) uniform SceneData {
 } sceneData;
 
 layout(binding = 0, std430) buffer AtomicCounterBuffer {
-    uint drawCount;
+    uint visibleLargeObjectCount;
 };
-layout(binding = 1, std430) buffer DrawCommandBuffer {
-    DrawElementsIndirectCommand commands[];
+layout(binding = 1, std430) buffer VisibleLargeObjectBuffer {
+    uint visibleLargeObjects[];
 };
 
 struct TransformComponent {
@@ -98,14 +98,10 @@ void main() {
             }
         }
 
-        uint indexInBin = atomicAdd(drawCount, 1);
+        uint index = atomicAdd(visibleLargeObjectCount, 1);
 
-        if (indexInBin < u_maxDraws) {
-            commands[indexInBin].instanceCount = 1;
-            commands[indexInBin].baseInstance = objectId;
-            commands[indexInBin].count = mesh.indexCount;
-            commands[indexInBin].firstIndex = mesh.firstIndex;
-            commands[indexInBin].baseVertex = mesh.baseVertex;
+        if (index < u_maxDraws) {
+            visibleLargeObjects[index] = objectId;
         }
     }
 }

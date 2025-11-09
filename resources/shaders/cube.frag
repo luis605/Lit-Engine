@@ -6,6 +6,7 @@ layout (std140, binding = 0) uniform SceneData {
     vec3 lightPos;
     vec3 viewPos;
     vec3 lightColor;
+    vec4 frustumPlanes[6];
 } sceneData;
 
 out vec4 FragColor;

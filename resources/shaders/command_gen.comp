@@ -1,0 +1,101 @@
+#version 460 core
+
+layout (local_size_x = 1, local_size_y = 1, local_size_z = 1) in;
+
+struct DrawElementsIndirectCommand {
+    uint count;
+    uint instanceCount;
+    uint firstIndex;
+    uint baseVertex;
+    uint baseInstance;
+};
+
+struct MeshInfo {
+    uint indexCount;
+    uint firstIndex;
+    uint baseVertex;
+    float boundingRadius;
+    vec4 boundingCenter;
+};
+
+struct RenderableComponent {
+    uint mesh_uuid;
+    uint material_uuid;
+    uint shaderId;
+    uint objectId;
+    float alpha;
+};
+
+layout(binding = 0, std430) buffer AtomicCounterBuffer {
+    uint drawCounts[];
+};
+
+layout(binding = 1, std430) buffer DrawCommandBuffer {
+    DrawElementsIndirectCommand commands[];
+};
+
+layout(binding = 3, std430) readonly buffer MeshInfoBuffer {
+    MeshInfo meshInfos[];
+};
+
+layout(binding = 4, std430) readonly buffer RenderableBuffer {
+    RenderableComponent renderables[];
+};
+
+layout(binding = 5, std430) readonly buffer VisibleObjectBuffer {
+    uint visibleObjects[];
+};
+
+uniform uint u_visibleObjectCount;
+uniform uint u_maxDraws;
+
+void main() {
+    if (u_visibleObjectCount == 0) {
+        return;
+    }
+
+    uint currentObjectId = visibleObjects[0];
+    RenderableComponent currentRenderable = renderables[currentObjectId];
+    uint currentMeshId = currentRenderable.mesh_uuid;
+    uint currentShaderId = currentRenderable.shaderId;
+    uint currentInstanceCount = 1;
+    uint baseInstance = 0;
+
+    for (uint i = 1; i < u_visibleObjectCount; ++i) {
+        uint objectId = visibleObjects[i];
+        RenderableComponent renderable = renderables[objectId];
+        uint meshId = renderable.mesh_uuid;
+        uint shaderId = renderable.shaderId;
+
+        if (meshId == currentMeshId && shaderId == currentShaderId) {
+            currentInstanceCount++;
+        } else {
+            MeshInfo mesh = meshInfos[currentMeshId];
+            uint indexInBin = atomicAdd(drawCounts[currentShaderId], 1);
+            if (indexInBin < u_maxDraws) {
+                uint writeIndex = currentShaderId * u_maxDraws + indexInBin;
+                commands[writeIndex].instanceCount = currentInstanceCount;
+                commands[writeIndex].baseInstance = baseInstance;
+                commands[writeIndex].count = mesh.indexCount;
+                commands[writeIndex].firstIndex = mesh.firstIndex;
+                commands[writeIndex].baseVertex = mesh.baseVertex;
+            }
+
+            currentMeshId = meshId;
+            currentShaderId = shaderId;
+            currentInstanceCount = 1;
+            baseInstance = i;
+        }
+    }
+
+    MeshInfo mesh = meshInfos[currentMeshId];
+    uint indexInBin = atomicAdd(drawCounts[currentShaderId], 1);
+    if (indexInBin < u_maxDraws) {
+        uint writeIndex = currentShaderId * u_maxDraws + indexInBin;
+        commands[writeIndex].instanceCount = currentInstanceCount;
+        commands[writeIndex].baseInstance = baseInstance;
+        commands[writeIndex].count = mesh.indexCount;
+        commands[writeIndex].firstIndex = mesh.firstIndex;
+        commands[writeIndex].baseVertex = mesh.baseVertex;
+    }
+}

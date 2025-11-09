@@ -26,6 +26,11 @@ struct RenderableComponent {
     float alpha;
 };
 
+struct TransformComponent {
+    mat4 localMatrix;
+    mat4 worldMatrix;
+};
+
 layout (std140, binding = 0) uniform SceneData {
     mat4 projection;
     mat4 view;
@@ -36,16 +41,11 @@ layout (std140, binding = 0) uniform SceneData {
 } sceneData;
 
 layout(binding = 0, std430) buffer AtomicCounterBuffer {
-    uint drawCounts[];
+    uint visibleObjectCount;
 };
 
-layout(binding = 1, std430) buffer DrawCommandBuffer {
-    DrawElementsIndirectCommand commands[];
-};
-
-struct TransformComponent {
-    mat4 localMatrix;
-    mat4 worldMatrix;
+layout(binding = 1, std430) buffer VisibleObjectBuffer {
+    uint visibleObjects[];
 };
 
 layout(binding = 2, std430) readonly buffer ObjectBuffer {
@@ -150,15 +150,8 @@ void main() {
         return;
     }
 
-    uint shaderId = renderable.shaderId;
-    uint indexInBin = atomicAdd(drawCounts[shaderId], 1);
-
-    if (indexInBin < u_maxDraws) {
-        uint writeIndex = shaderId * u_maxDraws + indexInBin;
-        commands[writeIndex].instanceCount = 1;
-        commands[writeIndex].baseInstance = objectId;
-        commands[writeIndex].count = mesh.indexCount;
-        commands[writeIndex].firstIndex = mesh.firstIndex;
-        commands[writeIndex].baseVertex = mesh.baseVertex;
+    uint index = atomicAdd(visibleObjectCount, 1);
+    if (index < u_maxDraws) {
+        visibleObjects[index] = objectId;
     }
 }
