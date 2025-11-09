@@ -38,6 +38,7 @@ layout (std140, binding = 0) uniform SceneData {
 layout(binding = 0, std430) buffer AtomicCounterBuffer {
     uint drawCounts[];
 };
+
 layout(binding = 1, std430) buffer DrawCommandBuffer {
     DrawElementsIndirectCommand commands[];
 };
@@ -63,6 +64,12 @@ uniform uint u_objectCount;
 uniform uint u_maxDraws;
 uniform float u_smallObjectThreshold;
 
+uniform sampler2D u_hizTexture;
+uniform vec2 u_hizTextureSize;
+uniform float u_hizMaxMipLevel;
+
+const float FRUSTUM_PADDING_FACTOR = 1.05f;
+
 bool isVisible(vec3 world_pos, float radius) {
     for (int i = 0; i < 6; i++) {
         if (dot(sceneData.frustumPlanes[i].xyz, world_pos) + sceneData.frustumPlanes[i].w < -radius) {
@@ -70,6 +77,47 @@ bool isVisible(vec3 world_pos, float radius) {
         }
     }
     return true;
+}
+
+float getMinClipZ(vec3 worldPos, float worldRadius) {
+    vec4 clipCenter = sceneData.projection * sceneData.view * vec4(worldPos, 1.0);
+    if (clipCenter.w <= 0.0) return 1.0;
+
+    vec4 viewPos = sceneData.view * vec4(worldPos, 1.0);
+    float closestViewZ = viewPos.z + worldRadius;
+    vec4 clipClosestPoint = sceneData.projection * vec4(viewPos.xy, closestViewZ, 1.0);
+    return clipClosestPoint.z / clipClosestPoint.w;
+}
+
+float getMipLevel(vec3 worldPos, float worldRadius) {
+    vec4 clipCenter = sceneData.projection * sceneData.view * vec4(worldPos, 1.0);
+
+    if (clipCenter.w <= 0.0) return u_hizMaxMipLevel;
+    float projectedRadiusNDC = worldRadius * abs(sceneData.projection[1][1]) / abs(clipCenter.w);
+    float pixelDiameter = projectedRadiusNDC * u_hizTextureSize.y;
+    float mipLevel = u_hizMaxMipLevel - log2(pixelDiameter);
+    return clamp(mipLevel, 0.0, u_hizMaxMipLevel);
+}
+
+bool testHiZ(vec3 worldPos, float worldRadius, float minClipZ) {
+    vec4 clipCenter = sceneData.projection * sceneData.view * vec4(worldPos, 1.0);
+    if (clipCenter.w <= 0.0) return false;
+
+    float mipLevel = getMipLevel(worldPos, worldRadius);
+
+    vec2 ndcPos = clipCenter.xy / clipCenter.w;
+    float projectedRadiusNDC = worldRadius * abs(sceneData.projection[1][1]) / abs(clipCenter.w);
+
+    vec2 uv_center = ndcPos * 0.5 + 0.5;
+    vec2 uv_radius = vec2(projectedRadiusNDC * 0.5, projectedRadiusNDC * 0.5);
+
+    if (minClipZ <= textureLod(u_hizTexture, uv_center, mipLevel).r) return true;
+    if (minClipZ <= textureLod(u_hizTexture, uv_center + vec2(-uv_radius.x, -uv_radius.y), mipLevel).r) return true;
+    if (minClipZ <= textureLod(u_hizTexture, uv_center + vec2(uv_radius.x, -uv_radius.y), mipLevel).r) return true;
+    if (minClipZ <= textureLod(u_hizTexture, uv_center + vec2(-uv_radius.x, uv_radius.y), mipLevel).r) return true;
+    if (minClipZ <= textureLod(u_hizTexture, uv_center + vec2(uv_radius.x, uv_radius.y), mipLevel).r) return true;
+
+    return false;
 }
 
 void main() {
@@ -85,25 +133,32 @@ void main() {
 
     float world_radius = mesh.boundingRadius * max(length(modelMatrix[0]), max(length(modelMatrix[1]), length(modelMatrix[2])));
 
-    if (isVisible(world_pos, world_radius)) {
-        float dist = distance(world_pos, sceneData.viewPos);
-        if (dist > 0.0) {
-            float projectedSize = world_radius / dist;
-            if (projectedSize < u_smallObjectThreshold) {
-                return;
-            }
-        }
+    if (!isVisible(world_pos, world_radius * FRUSTUM_PADDING_FACTOR)) {
+        return;
+    }
 
-        uint shaderId = renderable.shaderId;
-        uint indexInBin = atomicAdd(drawCounts[shaderId], 1);
-
-        if (indexInBin < u_maxDraws) {
-            uint writeIndex = shaderId * u_maxDraws + indexInBin;
-            commands[writeIndex].instanceCount = 1;
-            commands[writeIndex].baseInstance = objectId;
-            commands[writeIndex].count = mesh.indexCount;
-            commands[writeIndex].firstIndex = mesh.firstIndex;
-            commands[writeIndex].baseVertex = mesh.baseVertex;
+    float dist = distance(world_pos, sceneData.viewPos);
+    if (dist > 0.0) {
+        float projectedSize = world_radius / dist;
+        if (projectedSize < u_smallObjectThreshold) {
+            return;
         }
+    }
+
+    float minClipZ = getMinClipZ(world_pos, world_radius);
+    if (!testHiZ(world_pos, world_radius, minClipZ)) {
+        return;
+    }
+
+    uint shaderId = renderable.shaderId;
+    uint indexInBin = atomicAdd(drawCounts[shaderId], 1);
+
+    if (indexInBin < u_maxDraws) {
+        uint writeIndex = shaderId * u_maxDraws + indexInBin;
+        commands[writeIndex].instanceCount = 1;
+        commands[writeIndex].baseInstance = objectId;
+        commands[writeIndex].count = mesh.indexCount;
+        commands[writeIndex].firstIndex = mesh.firstIndex;
+        commands[writeIndex].baseVertex = mesh.baseVertex;
     }
 }

@@ -38,6 +38,6 @@ export class Application {
     float m_nearPlane = 0.1f;
     float m_farPlane = 1000.0f;
     float m_smallObjectThreshold = 0.005f;
-    float m_largeObjectThreshold = 0.1f;
+    float m_largeObjectThreshold = 0.05f;
     int m_debugMipLevel = 0;
 };

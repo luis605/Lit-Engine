@@ -63,6 +63,8 @@ uniform uint u_objectCount;
 uniform uint u_maxDraws;
 uniform float u_largeObjectThreshold;
 
+const float FRUSTUM_PADDING_FACTOR = 1.05f;
+
 bool isVisible(vec3 world_pos, float radius) {
     for (int i = 0; i < 6; i++) {
         if (dot(sceneData.frustumPlanes[i].xyz, world_pos) + sceneData.frustumPlanes[i].w < -radius) {
@@ -87,7 +89,7 @@ void main() {
 
     float world_radius = mesh.boundingRadius * max(length(modelMatrix[0]), max(length(modelMatrix[1]), length(modelMatrix[2])));
 
-    if (isVisible(world_pos, world_radius)) {
+    if (isVisible(world_pos, world_radius * FRUSTUM_PADDING_FACTOR)) {
         float dist = distance(world_pos, sceneData.viewPos);
         if (dist > 0.0) {
             float projectedSize = world_radius / dist;

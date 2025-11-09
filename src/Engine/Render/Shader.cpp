@@ -118,6 +118,8 @@ void Shader::setUniform(const std::string& name, unsigned int value) const { glU
 
 void Shader::setUniform(const std::string& name, float value) const { glUniform1f(getUniformLocation(name), value); }
 
+void Shader::setUniform(const std::string& name, const glm::vec2& vector) const { glUniform2fv(getUniformLocation(name), 1, glm::value_ptr(vector)); }
+
 void Shader::setUniform(const std::string& name, const glm::vec3& vector) const { glUniform3fv(getUniformLocation(name), 1, glm::value_ptr(vector)); }
 
 void Shader::setUniform(const std::string& name, const glm::mat4& matrix) const { glUniformMatrix4fv(getUniformLocation(name), 1, GL_FALSE, glm::value_ptr(matrix)); }

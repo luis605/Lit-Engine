@@ -104,6 +104,10 @@ export class Renderer {
     unsigned int m_queryOpaqueDrawEnd[NUM_FRAMES_IN_FLIGHT] = {0};
     unsigned int m_queryTransparentDrawStart[NUM_FRAMES_IN_FLIGHT] = {0};
     unsigned int m_queryTransparentDrawEnd[NUM_FRAMES_IN_FLIGHT] = {0};
+    unsigned int m_queryHizMipmapStart[NUM_FRAMES_IN_FLIGHT] = {0};
+    unsigned int m_queryHizMipmapEnd[NUM_FRAMES_IN_FLIGHT] = {0};
+    unsigned int m_queryUiStart[NUM_FRAMES_IN_FLIGHT] = {0};
+    unsigned int m_queryUiEnd[NUM_FRAMES_IN_FLIGHT] = {0};
 
     unsigned int m_currentFrame = 0;
     GLsync m_fences[NUM_FRAMES_IN_FLIGHT] = {nullptr};

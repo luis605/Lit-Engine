@@ -72,12 +72,12 @@ Application::Application() {
         m_engine.uploadMesh(*sphereMesh);
     }
 
-    const int numObjects = 500000;
+    const int numObjects = 200000;
     Lit::Log::Info("Creating {} random objects...", numObjects);
 
     std::random_device rd;
     std::mt19937 gen(rd());
-    std::uniform_real_distribution<float> distribPos(-200.0f, 200.0f);
+    std::uniform_real_distribution<float> distribPos(-120.0f, 120.0f);
     std::uniform_int_distribution<unsigned int> distribMesh(0, 1);
 
     for (int i = 0; i < numObjects; ++i) {
