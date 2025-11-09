@@ -23,6 +23,7 @@ export class Engine {
     void AddText(const std::string& text, float x, float y, float scale, const glm::vec3& color);
     void setSmallObjectThreshold(float threshold);
     void setLargeObjectThreshold(float threshold);
+    void setDebugMipLevel(int mipLevel);
 
   private:
     Renderer m_renderer;

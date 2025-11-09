@@ -1,6 +1,8 @@
-#version 460 core
+#version 430 core
+
+layout(location = 0) out float FragColor;
 
 void main()
 {
-    // No color output needed for depth pre-pass
+    FragColor = gl_FragCoord.z;
 }

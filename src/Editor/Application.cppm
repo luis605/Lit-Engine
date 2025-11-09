@@ -33,9 +33,11 @@ export class Application {
     std::string m_frameTimeText;
     std::string m_smallObjectThresholdText;
     std::string m_largeObjectThresholdText;
+    std::string m_debugMipLevelText;
     float m_textUpdateTimer = 0.0f;
     float m_nearPlane = 0.1f;
     float m_farPlane = 1000.0f;
     float m_smallObjectThreshold = 0.005f;
     float m_largeObjectThreshold = 0.1f;
+    int m_debugMipLevel = 0;
 };

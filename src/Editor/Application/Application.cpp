@@ -126,6 +126,7 @@ void Application::update() {
 
     m_engine.setSmallObjectThreshold(m_smallObjectThreshold);
     m_engine.setLargeObjectThreshold(m_largeObjectThreshold);
+    m_engine.setDebugMipLevel(m_debugMipLevel);
     m_engine.update(m_sceneDatabase, camera);
 
     m_textUpdateTimer += deltaTime;
@@ -133,11 +134,13 @@ void Application::update() {
         m_frameTimeText = "Frame time: " + std::to_string(deltaTime * 1000.0f) + " ms (" + std::to_string(1.0f / deltaTime) + " FPS)";
         m_smallObjectThresholdText = "smallObjectThreshold: " + std::to_string(m_smallObjectThreshold);
         m_largeObjectThresholdText = "largeObjectThreshold: " + std::to_string(m_largeObjectThreshold);
+        m_debugMipLevelText = "debugMipLevel: " + std::to_string(m_debugMipLevel);
         m_textUpdateTimer = 0.0f;
     }
     m_engine.AddText(m_frameTimeText, 10.0f, 690.0f, 0.5f, glm::vec3(1.0f, 1.0f, 1.0f));
     m_engine.AddText(m_smallObjectThresholdText, 10.0f, 670.0f, 0.5f, glm::vec3(1.0f, 1.0f, 1.0f));
     m_engine.AddText(m_largeObjectThresholdText, 10.0f, 650.0f, 0.5f, glm::vec3(1.0f, 1.0f, 1.0f));
+    m_engine.AddText(m_debugMipLevelText, 10.0f, 630.0f, 0.5f, glm::vec3(1.0f, 1.0f, 1.0f));
 
     InputManager::Update();
     glfwSwapBuffers(m_window);
@@ -215,6 +218,18 @@ void Application::processInput(float deltaTime) {
     if (InputManager::IsKeyPressed(GLFW_KEY_4)) {
         m_largeObjectThreshold += 0.01f;
         Lit::Log::Info("largeObjectThreshold: {}", m_largeObjectThreshold);
+    }
+
+    if (InputManager::IsKeyPressed(GLFW_KEY_5)) {
+        m_debugMipLevel--;
+        if (m_debugMipLevel < 0) {
+            m_debugMipLevel = 0;
+        }
+        Lit::Log::Info("debugMipLevel: {}", m_debugMipLevel);
+    }
+    if (InputManager::IsKeyPressed(GLFW_KEY_6)) {
+        m_debugMipLevel++;
+        Lit::Log::Info("debugMipLevel: {}", m_debugMipLevel);
     }
 
     glm::vec2 mouseDelta = InputManager::GetMouseDelta();

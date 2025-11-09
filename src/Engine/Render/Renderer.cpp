@@ -118,7 +118,7 @@ void extractFrustumPlanes(const glm::mat4& vp, glm::vec4* planes) {
 Renderer::Renderer()
     : m_cullingShader(nullptr), m_transformShader(nullptr), m_transparentCullShader(nullptr), m_bitonicSortShader(nullptr),
       m_transparentCommandGenShader(nullptr), m_largeObjectCullShader(nullptr), m_depthPrepassShader(nullptr),
-      m_debugDepthShader(nullptr), m_initialized(false), m_vboSize(0), m_eboSize(0), m_numDrawingShaders(0) {}
+      m_debugDepthShader(nullptr), m_hizMipmapShader(nullptr), m_initialized(false), m_vboSize(0), m_eboSize(0), m_numDrawingShaders(0) {}
 
 void Renderer::init(const int windowWidth, const int windowHeight) {
     if (m_initialized)
@@ -191,20 +191,74 @@ void Renderer::init(const int windowWidth, const int windowHeight) {
     glBindBuffer(GL_ATOMIC_COUNTER_BUFFER, m_transparentAtomicCounter);
     glBufferData(GL_ATOMIC_COUNTER_BUFFER, sizeof(unsigned int), nullptr, GL_DYNAMIC_DRAW);
 
+    m_maxMipLevel = static_cast<int>(std::floor(std::log2(std::max(windowWidth, windowHeight))));
+    glGenTextures(1, &m_hizTexture);
+    glBindTexture(GL_TEXTURE_2D, m_hizTexture);
+
+    glTexStorage2D(GL_TEXTURE_2D, m_maxMipLevel, GL_R32F, windowWidth, windowHeight);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST_MIPMAP_NEAREST);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+
     glGenFramebuffers(1, &m_depthFbo);
     glBindFramebuffer(GL_FRAMEBUFFER, m_depthFbo);
-    glGenTextures(1, &m_depthTexture);
-    glBindTexture(GL_TEXTURE_2D, m_depthTexture);
-    glTexImage2D(GL_TEXTURE_2D, 0, GL_DEPTH_COMPONENT, windowWidth, windowHeight, 0, GL_DEPTH_COMPONENT, GL_FLOAT, NULL);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
-    glFramebufferTexture2D(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, GL_TEXTURE_2D, m_depthTexture, 0);
-    glDrawBuffer(GL_NONE);
+    glGenRenderbuffers(1, &m_depthRenderbuffer);
+    glBindRenderbuffer(GL_RENDERBUFFER, m_depthRenderbuffer);
+    glRenderbufferStorage(GL_RENDERBUFFER, GL_DEPTH_COMPONENT32F, windowWidth, windowHeight);
+    glFramebufferRenderbuffer(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, GL_RENDERBUFFER, m_depthRenderbuffer);
+    glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, m_hizTexture, 0);
+
+    const GLenum drawBuffers[] = {GL_COLOR_ATTACHMENT0};
+    glDrawBuffers(1, drawBuffers);
+
+    if (glCheckFramebufferStatus(GL_FRAMEBUFFER) != GL_FRAMEBUFFER_COMPLETE) {
+        Lit::Log::Error("Depth Pre-Pass FBO is not complete!");
+    }
+    glBindFramebuffer(GL_FRAMEBUFFER, 0);
+
+    glGenFramebuffers(1, &m_hizFbo);
+    glBindFramebuffer(GL_FRAMEBUFFER, m_hizFbo);
+    glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, m_hizTexture, 0);
+    glDrawBuffer(GL_COLOR_ATTACHMENT0);
     glReadBuffer(GL_NONE);
+    GLenum status = glCheckFramebufferStatus(GL_FRAMEBUFFER);
+    if (status != GL_FRAMEBUFFER_COMPLETE) {
+        std::string error;
+        switch (status) {
+        case GL_FRAMEBUFFER_UNDEFINED:
+            error = "GL_FRAMEBUFFER_UNDEFINED";
+            break;
+        case GL_FRAMEBUFFER_INCOMPLETE_ATTACHMENT:
+            error = "GL_FRAMEBUFFER_INCOMPLETE_ATTACHMENT";
+            break;
+        case GL_FRAMEBUFFER_INCOMPLETE_MISSING_ATTACHMENT:
+            error = "GL_FRAMEBUFFER_INCOMPLETE_MISSING_ATTACHMENT";
+            break;
+        case GL_FRAMEBUFFER_INCOMPLETE_DRAW_BUFFER:
+            error = "GL_FRAMEBUFFER_INCOMPLETE_DRAW_BUFFER";
+            break;
+        case GL_FRAMEBUFFER_INCOMPLETE_READ_BUFFER:
+            error = "GL_FRAMEBUFFER_INCOMPLETE_READ_BUFFER";
+            break;
+        case GL_FRAMEBUFFER_UNSUPPORTED:
+            error = "GL_FRAMEBUFFER_UNSUPPORTED";
+            break;
+        case GL_FRAMEBUFFER_INCOMPLETE_MULTISAMPLE:
+            error = "GL_FRAMEBUFFER_INCOMPLETE_MULTISAMPLE";
+            break;
+        case GL_FRAMEBUFFER_INCOMPLETE_LAYER_TARGETS:
+            error = "GL_FRAMEBUFFER_INCOMPLETE_LAYER_TARGETS";
+            break;
+        default:
+            error = "Unknown error";
+            break;
+        }
+        Lit::Log::Error("Hi-Z FBO is not complete! Error: {}", error);
+    }
     glBindFramebuffer(GL_FRAMEBUFFER, 0);
 
     float quadVertices[] = {
-        // positions        // texture Coords
         -1.0f,
         1.0f,
         0.0f,
@@ -348,7 +402,9 @@ void Renderer::cleanup() {
     glDeleteQueries(NUM_FRAMES_IN_FLIGHT, m_queryTransparentDrawEnd);
 
     glDeleteFramebuffers(1, &m_depthFbo);
-    glDeleteTextures(1, &m_depthTexture);
+    glDeleteFramebuffers(1, &m_hizFbo);
+    glDeleteRenderbuffers(1, &m_depthRenderbuffer);
+    glDeleteTextures(1, &m_hizTexture);
     glDeleteVertexArrays(1, &m_debugQuadVao);
     glDeleteBuffers(1, &m_debugQuadVbo);
 
@@ -361,6 +417,7 @@ void Renderer::cleanup() {
     m_largeObjectCullShader = nullptr;
     m_depthPrepassShader = nullptr;
     m_debugDepthShader = nullptr;
+    m_hizMipmapShader = nullptr;
 
     m_shaderManager.cleanup();
     delete m_uiManager;
@@ -457,6 +514,11 @@ void Renderer::uploadMesh(const Mesh& mesh) {
 
 void Renderer::setSmallObjectThreshold(float threshold) { m_smallObjectThreshold = threshold; }
 void Renderer::setLargeObjectThreshold(float threshold) { m_largeObjectThreshold = threshold; }
+void Renderer::setDebugMipLevel(int mipLevel) {
+    if (mipLevel >= 0 && mipLevel < m_maxMipLevel) {
+        m_debugMipLevel = mipLevel;
+    }
+}
 
 void Renderer::drawScene(SceneDatabase& sceneDatabase, const Camera& camera) {
     float currentFrameTime = glfwGetTime();
@@ -524,7 +586,7 @@ void Renderer::drawScene(SceneDatabase& sceneDatabase, const Camera& camera) {
         glGetQueryObjecti64v(m_queryTransparentDrawStart[previousFrame], GL_QUERY_RESULT, &transparentDrawStartTime);
         glGetQueryObjecti64v(m_queryTransparentDrawEnd[previousFrame], GL_QUERY_RESULT, &transparentDrawEndTime);
 
-        constexpr bool debugMode = true;
+        constexpr bool debugMode = false;
         if (debugMode) {
             Lit::Log::Debug("GPU Frame Time: {} ms", (endTime - startTime) / 1000000.0);
             Lit::Log::Debug("  Transform: {} ms", (transformEndTime - transformStartTime) / 1000000.0);
@@ -608,7 +670,6 @@ void Renderer::drawScene(SceneDatabase& sceneDatabase, const Camera& camera) {
         const unsigned int workgroupSize = 64;
         const unsigned int numWorkgroups = (numObjects + workgroupSize - 1) / workgroupSize;
 
-        // Depth pre-pass
         glQueryCounter(m_queryDepthPrePassStart[m_currentFrame], GL_TIMESTAMP);
         unsigned int zero = 0;
         glBindBuffer(GL_ATOMIC_COUNTER_BUFFER, m_depthPrepassAtomicCounter);
@@ -633,9 +694,10 @@ void Renderer::drawScene(SceneDatabase& sceneDatabase, const Camera& camera) {
         glGetBufferSubData(GL_ATOMIC_COUNTER_BUFFER, 0, sizeof(unsigned int), &largeObjectDrawCount);
 
         glBindFramebuffer(GL_FRAMEBUFFER, m_depthFbo);
-        glClear(GL_DEPTH_BUFFER_BIT);
+        glClearColor(1.0f, 1.0f, 1.0f, 1.0f);
+        glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
         glEnable(GL_DEPTH_TEST);
-        glColorMask(GL_FALSE, GL_FALSE, GL_FALSE, GL_FALSE);
+        glColorMask(GL_TRUE, GL_TRUE, GL_TRUE, GL_TRUE);
 
         if (largeObjectDrawCount > 0) {
             m_depthPrepassShader->bind();
@@ -645,10 +707,33 @@ void Renderer::drawScene(SceneDatabase& sceneDatabase, const Camera& camera) {
             glMultiDrawElementsIndirect(GL_TRIANGLES, GL_UNSIGNED_INT, (const void*)(frameOffset * sizeof(DrawElementsIndirectCommand)), largeObjectDrawCount, sizeof(DrawElementsIndirectCommand));
         }
 
-        glColorMask(GL_TRUE, GL_TRUE, GL_TRUE, GL_TRUE);
+        glEnable(GL_DEPTH_TEST);
+
         glQueryCounter(m_queryDepthPrePassEnd[m_currentFrame], GL_TIMESTAMP);
 
-        // Render debug quad
+        glBindFramebuffer(GL_FRAMEBUFFER, 0);
+        glMemoryBarrier(GL_SHADER_IMAGE_ACCESS_BARRIER_BIT);
+
+        m_hizMipmapShader->bind();
+        Lit::Log::Info("Generating Hi-Z mipmaps for texture ID: {}", m_hizTexture);
+        Lit::Log::Info("Generating Hi-Z mipmaps for texture ID: {}", m_hizTexture);
+        for (int i = 1; i < m_maxMipLevel; ++i) {
+
+            glBindImageTexture(0, m_hizTexture, i - 1, GL_FALSE, 0, GL_READ_ONLY, GL_R32F);
+
+            glBindImageTexture(1, m_hizTexture, i, GL_FALSE, 0, GL_WRITE_ONLY, GL_R32F);
+
+            const int currentMipWidth = std::max(1, m_windowWidth >> i);
+            const int currentMipHeight = std::max(1, m_windowHeight >> i);
+
+            const unsigned int numWorkgroupsX = static_cast<unsigned int>(std::ceil(currentMipWidth / 8.0f));
+            const unsigned int numWorkgroupsY = static_cast<unsigned int>(std::ceil(currentMipHeight / 8.0f));
+
+            glDispatchCompute(numWorkgroupsX, numWorkgroupsY, 1);
+
+            glMemoryBarrier(GL_SHADER_IMAGE_ACCESS_BARRIER_BIT);
+        }
+
         glBindFramebuffer(GL_FRAMEBUFFER, 0);
         glClearColor(0.3f, 0.3f, 0.3f, 1.0f);
         glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
@@ -656,11 +741,17 @@ void Renderer::drawScene(SceneDatabase& sceneDatabase, const Camera& camera) {
 
         m_debugDepthShader->bind();
         glActiveTexture(GL_TEXTURE0);
-        glBindTexture(GL_TEXTURE_2D, m_depthTexture);
+        glBindTexture(GL_TEXTURE_2D, m_hizTexture);
+
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_BASE_LEVEL, m_debugMipLevel);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAX_LEVEL, m_debugMipLevel);
         m_debugDepthShader->setUniform("depthTexture", 0);
 
         glBindVertexArray(m_debugQuadVao);
         glDrawArrays(GL_TRIANGLE_STRIP, 0, 4);
+
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_BASE_LEVEL, 0);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAX_LEVEL, m_maxMipLevel - 1);
 
         glEnable(GL_DEPTH_TEST);
     } else {
@@ -826,6 +917,18 @@ void Renderer::setupShaders() {
 
     const auto debugDepthId = m_shaderManager.loadShader("resources/shaders/depth_debug.vert", "resources/shaders/depth_debug.frag");
     m_debugDepthShader = m_shaderManager.getShader(debugDepthId);
+
+    const auto hizMipmapId = m_shaderManager.loadComputeShader("resources/shaders/hiz_mipmap.comp");
+    m_hizMipmapShader = m_shaderManager.getShader(hizMipmapId);
+    if (hizMipmapId == static_cast<uint32_t>(-1)) {
+        Lit::Log::Error("Failed to load Hi-Z Mipmap compute shader (loadComputeShader returned -1).");
+    } else if (m_hizMipmapShader == nullptr) {
+        Lit::Log::Error("Hi-Z Mipmap shader pointer is null after successful load ID.");
+    } else if (!m_hizMipmapShader->isInitialized()) {
+        Lit::Log::Error("Hi-Z Mipmap shader object is not initialized after loading.");
+    } else {
+        Lit::Log::Info("Hi-Z Mipmap shader initialized successfully (ID: {}).", hizMipmapId);
+    }
 }
 
 void Renderer::AddText(const std::string& text, float x, float y, float scale, const glm::vec3& color) {
