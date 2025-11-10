@@ -17,7 +17,8 @@ export class SceneDatabase {
     std::vector<HierarchyComponent> hierarchies;
     std::vector<RenderableComponent> renderables;
     std::vector<Entity> sortedHierarchyList;
-    bool m_isHierarchyDirty = true;
+    uint64_t m_hierarchyVersion = 1;
+    uint64_t m_dataVersion = 1;
     uint32_t m_maxHierarchyDepth = 0;
 
     Entity createEntity() {
@@ -26,15 +27,15 @@ export class SceneDatabase {
         renderables.emplace_back();
         const auto entity = static_cast<Entity>(transforms.size() - 1);
         renderables.back().objectId = entity;
-        m_isHierarchyDirty = true;
+        m_hierarchyVersion++;
+        m_dataVersion++;
         return entity;
     }
 
-    void updateHierarchy() {
-        if (!m_isHierarchyDirty) {
-            return;
-        }
+    void markHierarchyDirty() { m_hierarchyVersion++; }
+    void markDataDirty() { m_dataVersion++; }
 
+    void updateHierarchy() {
         if (transforms.empty()) {
             sortedHierarchyList.clear();
             m_maxHierarchyDepth = 0;
@@ -80,6 +81,5 @@ export class SceneDatabase {
                 stack.push({*it, currentLevel + 1});
             }
         }
-        m_isHierarchyDirty = false;
     }
 };

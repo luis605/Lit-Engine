@@ -552,6 +552,14 @@ void Renderer::setDebugMipLevel(int mipLevel) {
 }
 
 void Renderer::drawScene(SceneDatabase& sceneDatabase, const Camera& camera) {
+    auto updateBuffer = [&](GLuint buffer, void* ptr, size_t bufferSize, const auto& data, size_t objectSize) {
+        glBindBuffer(GL_SHADER_STORAGE_BUFFER, buffer);
+        const size_t dataSize = data.size() * objectSize;
+        const size_t frameOffsetBytes = m_currentFrame * (bufferSize / NUM_FRAMES_IN_FLIGHT);
+        memcpy(static_cast<char*>(ptr) + frameOffsetBytes, data.data(), dataSize);
+        glFlushMappedBufferRange(GL_SHADER_STORAGE_BUFFER, frameOffsetBytes, dataSize);
+    };
+
     float currentFrameTime = glfwGetTime();
     float deltaTime = currentFrameTime - m_lastFrameTime;
     m_lastFrameTime = currentFrameTime;
@@ -653,8 +661,10 @@ void Renderer::drawScene(SceneDatabase& sceneDatabase, const Camera& camera) {
     }
 
     glQueryCounter(m_queryStart[m_currentFrame], GL_TIMESTAMP);
-    if (sceneDatabase.m_isHierarchyDirty) {
+    if (m_processedHierarchyVersion < sceneDatabase.m_hierarchyVersion) {
         sceneDatabase.updateHierarchy();
+        m_hierarchyUpdateCounter = NUM_FRAMES_IN_FLIGHT;
+        m_processedHierarchyVersion = sceneDatabase.m_hierarchyVersion;
     }
 
     if (!m_initialized || s_meshInfos.empty()) {
@@ -670,21 +680,26 @@ void Renderer::drawScene(SceneDatabase& sceneDatabase, const Camera& camera) {
     const size_t frameOffset = m_currentFrame * m_maxObjects;
     const size_t uboFrameOffset = m_currentFrame * sizeof(SceneUniforms);
 
-    auto updateBuffer = [&](GLuint buffer, void* ptr, size_t bufferSize, const auto& data, size_t objectSize) {
-        glBindBuffer(GL_SHADER_STORAGE_BUFFER, buffer);
-        const size_t dataSize = data.size() * objectSize;
-        const size_t frameOffsetBytes = m_currentFrame * (bufferSize / NUM_FRAMES_IN_FLIGHT);
-        memcpy(static_cast<char*>(ptr) + frameOffsetBytes, data.data(), dataSize);
-        glFlushMappedBufferRange(GL_SHADER_STORAGE_BUFFER, frameOffsetBytes, dataSize);
-    };
-
     glQueryCounter(m_queryTransformStart[m_currentFrame], GL_TIMESTAMP);
     m_transformShader->bind();
     m_transformShader->setUniform("u_objectCount", (unsigned int)sceneDatabase.sortedHierarchyList.size());
 
-    updateBuffer(m_objectBuffer, m_objectBufferPtr, m_objectBufferSize, sceneDatabase.transforms, sizeof(TransformComponent));
-    updateBuffer(m_hierarchyBuffer, m_hierarchyBufferPtr, m_hierarchyBufferSize, sceneDatabase.hierarchies, sizeof(HierarchyComponent));
-    updateBuffer(m_sortedHierarchyBuffer, m_sortedHierarchyBufferPtr, m_sortedHierarchyBufferSize, sceneDatabase.sortedHierarchyList, sizeof(unsigned int));
+    if (m_processedDataVersion < sceneDatabase.m_dataVersion) {
+        m_dataUpdateCounter = NUM_FRAMES_IN_FLIGHT;
+        m_processedDataVersion = sceneDatabase.m_dataVersion;
+    }
+
+    if (m_hierarchyUpdateCounter > 0) {
+        updateBuffer(m_hierarchyBuffer, m_hierarchyBufferPtr, m_hierarchyBufferSize, sceneDatabase.hierarchies, sizeof(HierarchyComponent));
+        updateBuffer(m_sortedHierarchyBuffer, m_sortedHierarchyBufferPtr, m_sortedHierarchyBufferSize, sceneDatabase.sortedHierarchyList, sizeof(unsigned int));
+        m_hierarchyUpdateCounter--;
+    }
+
+    if (m_dataUpdateCounter > 0) {
+        updateBuffer(m_objectBuffer, m_objectBufferPtr, m_objectBufferSize, sceneDatabase.transforms, sizeof(TransformComponent));
+        updateBuffer(m_renderableBuffer, m_renderableBufferPtr, m_renderableBufferSize, sceneDatabase.renderables, sizeof(RenderableComponent));
+        m_dataUpdateCounter--;
+    }
 
     glBindBufferRange(GL_SHADER_STORAGE_BUFFER, 0, m_objectBuffer, frameOffset * sizeof(TransformComponent), m_maxObjects * sizeof(TransformComponent));
     glBindBufferRange(GL_SHADER_STORAGE_BUFFER, 1, m_hierarchyBuffer, frameOffset * sizeof(HierarchyComponent), m_maxObjects * sizeof(HierarchyComponent));
@@ -700,7 +715,6 @@ void Renderer::drawScene(SceneDatabase& sceneDatabase, const Camera& camera) {
     }
     glQueryCounter(m_queryTransformEnd[m_currentFrame], GL_TIMESTAMP);
 
-    updateBuffer(m_renderableBuffer, m_renderableBufferPtr, m_renderableBufferSize, sceneDatabase.renderables, sizeof(RenderableComponent));
     glBindBuffer(GL_SHADER_STORAGE_BUFFER, m_meshInfoBuffer);
     glBufferData(GL_SHADER_STORAGE_BUFFER, s_meshInfos.size() * sizeof(MeshInfo), s_meshInfos.data(), GL_STATIC_DRAW);
 

@@ -72,12 +72,12 @@ Application::Application() {
         m_engine.uploadMesh(*sphereMesh);
     }
 
-    const int numObjects = 200000;
+    const int numObjects = 400000;
     Lit::Log::Info("Creating {} random objects...", numObjects);
 
     std::random_device rd;
     std::mt19937 gen(rd());
-    std::uniform_real_distribution<float> distribPos(-120.0f, 120.0f);
+    std::uniform_real_distribution<float> distribPos(-180.0f, 180.0f);
     std::uniform_int_distribution<unsigned int> distribMesh(0, 1);
 
     for (int i = 0; i < numObjects; ++i) {
@@ -103,6 +103,7 @@ Application::Application() {
     for (int i = 0; i < numObjects / 2; ++i) {
         m_sceneDatabase.hierarchies[i].parent = m_parentEntity;
     }
+    m_sceneDatabase.markHierarchyDirty();
 
     camera.setFarPlane(1000.0f);
 
@@ -171,29 +172,41 @@ void Application::processInput(float deltaTime) {
         camera.processKeyboard(CameraMovement::RIGHT, deltaTime);
     }
 
+    bool dataChanged = false;
     if (InputManager::IsKeyHeld(GLFW_KEY_J)) {
         m_sceneDatabase.transforms[m_parentEntity].localMatrix =
             glm::translate(m_sceneDatabase.transforms[m_parentEntity].localMatrix, glm::vec3(-10.0f * deltaTime, 0.0f, 0.0f));
+        dataChanged = true;
     }
     if (InputManager::IsKeyHeld(GLFW_KEY_L)) {
         m_sceneDatabase.transforms[m_parentEntity].localMatrix =
             glm::translate(m_sceneDatabase.transforms[m_parentEntity].localMatrix, glm::vec3(10.0f * deltaTime, 0.0f, 0.0f));
+        dataChanged = true;
     }
     if (InputManager::IsKeyHeld(GLFW_KEY_I)) {
         m_sceneDatabase.transforms[m_parentEntity].localMatrix =
             glm::translate(m_sceneDatabase.transforms[m_parentEntity].localMatrix, glm::vec3(0.0f, 0.0f, -10.0f * deltaTime));
+        dataChanged = true;
     }
     if (InputManager::IsKeyHeld(GLFW_KEY_K)) {
         m_sceneDatabase.transforms[m_parentEntity].localMatrix =
             glm::translate(m_sceneDatabase.transforms[m_parentEntity].localMatrix, glm::vec3(0.0f, 0.0f, 10.0f * deltaTime));
+        dataChanged = true;
     }
     if (InputManager::IsKeyHeld(GLFW_KEY_U)) {
         m_sceneDatabase.transforms[m_parentEntity].localMatrix =
             glm::translate(m_sceneDatabase.transforms[m_parentEntity].localMatrix, glm::vec3(0.0f, 10.0f * deltaTime, 0.0f));
+        dataChanged = true;
     }
     if (InputManager::IsKeyHeld(GLFW_KEY_O)) {
         m_sceneDatabase.transforms[m_parentEntity].localMatrix =
             glm::translate(m_sceneDatabase.transforms[m_parentEntity].localMatrix, glm::vec3(0.0f, -10.0f * deltaTime, 0.0f));
+        dataChanged = true;
+    }
+
+    if (dataChanged) {
+        m_sceneDatabase.markDataDirty();
+        Lit::Log::Info("markDataDirty() called due to input.");
     }
 
     if (InputManager::IsKeyPressed(GLFW_KEY_1)) {

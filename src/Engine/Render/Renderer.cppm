@@ -3,6 +3,7 @@ module;
 #include <cstddef>
 #include <vector>
 #include <string>
+#include <cstdint>
 
 typedef struct __GLsync* GLsync;
 
@@ -140,6 +141,11 @@ export class Renderer {
     size_t m_visibleLargeObjectBufferSize = 0;
     size_t m_sceneUBOSize = 0;
     size_t m_maxObjects = 0;
+
+    uint64_t m_processedHierarchyVersion = 0;
+    uint64_t m_processedDataVersion = 0;
+    int m_hierarchyUpdateCounter = 0;
+    int m_dataUpdateCounter = 0;
 
     void* m_objectBufferPtr = nullptr;
     void* m_hierarchyBufferPtr = nullptr;
