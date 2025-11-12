@@ -705,7 +705,7 @@ void Renderer::drawScene(SceneDatabase& sceneDatabase, const Camera& camera) {
     glBindBufferRange(GL_SHADER_STORAGE_BUFFER, 1, m_hierarchyBuffer, frameOffset * sizeof(HierarchyComponent), m_maxObjects * sizeof(HierarchyComponent));
     glBindBufferRange(GL_SHADER_STORAGE_BUFFER, 2, m_sortedHierarchyBuffer, frameOffset * sizeof(unsigned int), m_maxObjects * sizeof(unsigned int));
 
-    const unsigned int transformWorkgroupSize = 64;
+    const unsigned int transformWorkgroupSize = 256;
     const unsigned int transformNumWorkgroups = (sceneDatabase.sortedHierarchyList.size() + transformWorkgroupSize - 1) / transformWorkgroupSize;
 
     for (uint32_t level = 0; level <= sceneDatabase.m_maxHierarchyDepth; ++level) {
@@ -733,7 +733,7 @@ void Renderer::drawScene(SceneDatabase& sceneDatabase, const Camera& camera) {
     glFlushMappedBufferRange(GL_UNIFORM_BUFFER, uboFrameOffset, sizeof(SceneUniforms));
     glBindBufferRange(GL_UNIFORM_BUFFER, 0, m_sceneUBO, uboFrameOffset, sizeof(SceneUniforms));
 
-    const unsigned int workgroupSize = 64;
+    const unsigned int workgroupSize = 256;
     const unsigned int numWorkgroups = (numObjects + workgroupSize - 1) / workgroupSize;
 
     glQueryCounter(m_queryDepthPrePassStart[m_currentFrame], GL_TIMESTAMP);
@@ -771,7 +771,7 @@ void Renderer::drawScene(SceneDatabase& sceneDatabase, const Camera& camera) {
             for (unsigned int j = k >> 1; j > 0; j >>= 1) {
                 m_largeObjectSortShader->setUniform("u_sort_k", k);
                 m_largeObjectSortShader->setUniform("u_sort_j", j);
-                const unsigned int numSortWorkgroups = (numElements + 512 - 1) / 512;
+                const unsigned int numSortWorkgroups = (numElements + 1023) / 1024;
                 glDispatchCompute(numSortWorkgroups, 1, 1);
                 glMemoryBarrier(GL_SHADER_STORAGE_BARRIER_BIT);
             }
@@ -842,7 +842,6 @@ void Renderer::drawScene(SceneDatabase& sceneDatabase, const Camera& camera) {
 
     glQueryCounter(m_queryHizMipmapEnd[m_currentFrame], GL_TIMESTAMP);
 
-    glQueryCounter(m_queryCullStart[m_currentFrame], GL_TIMESTAMP);
 
     glQueryCounter(m_queryCullStart[m_currentFrame], GL_TIMESTAMP);
 
@@ -887,8 +886,7 @@ void Renderer::drawScene(SceneDatabase& sceneDatabase, const Camera& camera) {
         for (unsigned int k = 2; k <= numElements; k <<= 1) {
             for (unsigned int j = k >> 1; j > 0; j >>= 1) {
                 m_opaqueSortShader->setUniform("u_sort_k", k);
-                m_opaqueSortShader->setUniform("u_sort_j", j);
-                const unsigned int numSortWorkgroups = (numElements + 512 - 1) / 512;
+                const unsigned int numSortWorkgroups = (numElements + 1023) / 1024;
                 glDispatchCompute(numSortWorkgroups, 1, 1);
                 glMemoryBarrier(GL_SHADER_STORAGE_BARRIER_BIT);
             }
@@ -977,7 +975,7 @@ void Renderer::drawScene(SceneDatabase& sceneDatabase, const Camera& camera) {
             for (unsigned int j = k >> 1; j > 0; j >>= 1) {
                 m_bitonicSortShader->setUniform("u_sort_k", k);
                 m_bitonicSortShader->setUniform("u_sort_j", j);
-                const unsigned int numWorkgroups = (numElements + 511) / 512;
+                const unsigned int numWorkgroups = (numElements + 1023) / 1024;
                 glDispatchCompute(numWorkgroups, 1, 1);
                 glMemoryBarrier(GL_SHADER_STORAGE_BARRIER_BIT);
             }
