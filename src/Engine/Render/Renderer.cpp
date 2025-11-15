@@ -608,7 +608,6 @@ void Renderer::drawScene(SceneDatabase& sceneDatabase, const Camera& camera) {
             Lit::Log::Debug("  Opaque Sort: {} ms", (opaqueSortEndTime - opaqueSortStartTime) / 1000000.0);
             Lit::Log::Debug("  Command Gen: {} ms", (commandGenEndTime - commandGenStartTime) / 1000000.0);
             Lit::Log::Debug("  Depth Pre-Pass: {} ms", (depthPrePassEndTime - depthPrePassStartTime) / 1000000.0);
-            Lit::Log::Debug("  Hi-Z Mipmap Gen: {} ms", (hizMipmapEndTime - hizMipmapStartTime) / 1000000.0);
             Lit::Log::Debug("  Opaque Draw: {} ms", (opaqueDrawEndTime - opaqueDrawStartTime) / 1000000.0);
             Lit::Log::Debug("  Large Object Sort: {} ms", (largeObjectSortEndTime - largeObjectSortStartTime) / 1000000.0);
             Lit::Log::Debug("  Large Object Command Gen: {} ms", (largeObjectCommandGenEndTime - largeObjectCommandGenStartTime) / 1000000.0);
@@ -617,6 +616,7 @@ void Renderer::drawScene(SceneDatabase& sceneDatabase, const Camera& camera) {
             Lit::Log::Debug("  Transparent Command Gen: {} ms", (transparentCommandGenEndTime - transparentCommandGenStartTime) / 1000000.0);
             Lit::Log::Debug("  Transparent Draw: {} ms", (transparentDrawEndTime - transparentDrawStartTime) / 1000000.0);
             Lit::Log::Debug("  UI Render: {} ms", (uiEndTime - uiStartTime) / 1000000.0);
+            Lit::Log::Debug("  Hi-Z Mipmap Gen: {} ms", (hizMipmapEndTime - hizMipmapStartTime) / 1000000.0);
         }
     }
 
@@ -695,9 +695,81 @@ void Renderer::drawScene(SceneDatabase& sceneDatabase, const Camera& camera) {
 
     const unsigned int workgroupSize = 256;
     const unsigned int numWorkgroups = (numObjects + workgroupSize - 1) / workgroupSize;
+    unsigned int zero = 0;
+
+    glQueryCounter(m_queryCullStart[m_currentFrame], GL_TIMESTAMP);
+
+    glBindBuffer(GL_ATOMIC_COUNTER_BUFFER, m_visibleObjectAtomicCounter);
+    glBufferSubData(GL_ATOMIC_COUNTER_BUFFER, 0, sizeof(unsigned int), &zero);
+
+    m_cullingShader->bind();
+    m_cullingShader->setUniform("u_objectCount", numObjects);
+    m_cullingShader->setUniform("u_maxDraws", (unsigned int)m_maxObjects);
+    m_cullingShader->setUniform("u_smallObjectThreshold", m_smallObjectThreshold);
+
+    glActiveTexture(GL_TEXTURE0);
+    glBindTexture(GL_TEXTURE_2D, m_hizTexture[previousFrame]);
+    m_cullingShader->setUniform("u_hizTexture", 0);
+    m_cullingShader->setUniform("u_hizTextureSize", glm::vec2(m_windowWidth, m_windowHeight));
+    m_cullingShader->setUniform("u_hizMaxMipLevel", static_cast<float>(m_maxMipLevel - 1));
+
+    glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 0, m_visibleObjectAtomicCounter);
+    glBindBufferRange(GL_SHADER_STORAGE_BUFFER, 1, m_visibleObjectBuffer, frameOffset * sizeof(unsigned int), m_maxObjects * sizeof(unsigned int));
+    glBindBufferRange(GL_SHADER_STORAGE_BUFFER, 2, m_objectBuffer, frameOffset * sizeof(TransformComponent), m_maxObjects * sizeof(TransformComponent));
+    glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 3, m_meshInfoBuffer);
+    glBindBufferRange(GL_SHADER_STORAGE_BUFFER, 4, m_renderableBuffer, frameOffset * sizeof(RenderableComponent), m_maxObjects * sizeof(RenderableComponent));
+
+    glDispatchCompute(numWorkgroups, 1, 1);
+
+    glMemoryBarrier(GL_COMMAND_BARRIER_BIT | GL_SHADER_STORAGE_BARRIER_BIT | GL_ATOMIC_COUNTER_BARRIER_BIT);
+
+    unsigned int visibleObjectCount = 0;
+    glBindBuffer(GL_ATOMIC_COUNTER_BUFFER, m_visibleObjectAtomicCounter);
+    glGetBufferSubData(GL_ATOMIC_COUNTER_BUFFER, 0, sizeof(unsigned int), &visibleObjectCount);
+
+    glQueryCounter(m_queryCullEnd[m_currentFrame], GL_TIMESTAMP);
+
+    glQueryCounter(m_queryOpaqueSortStart[m_currentFrame], GL_TIMESTAMP);
+    if (visibleObjectCount > 1) {
+        m_opaqueSortShader->bind();
+        glBindBufferRange(GL_SHADER_STORAGE_BUFFER, 1, m_visibleObjectBuffer, frameOffset * sizeof(unsigned int), m_maxObjects * sizeof(unsigned int));
+        glBindBufferRange(GL_SHADER_STORAGE_BUFFER, 4, m_renderableBuffer, frameOffset * sizeof(RenderableComponent), m_maxObjects * sizeof(RenderableComponent));
+
+        const unsigned int numElements = nextPowerOfTwo(visibleObjectCount);
+
+        for (unsigned int k = 2; k <= numElements; k <<= 1) {
+            for (unsigned int j = k >> 1; j > 0; j >>= 1) {
+                m_opaqueSortShader->setUniform("u_sort_k", k);
+                const unsigned int numSortWorkgroups = (numElements + 1023) / 1024;
+                glDispatchCompute(numSortWorkgroups, 1, 1);
+                glMemoryBarrier(GL_SHADER_STORAGE_BARRIER_BIT);
+            }
+        }
+    }
+    glQueryCounter(m_queryOpaqueSortEnd[m_currentFrame], GL_TIMESTAMP);
+
+    glQueryCounter(m_queryCommandGenStart[m_currentFrame], GL_TIMESTAMP);
+    std::vector<unsigned int> drawZeros(m_numDrawingShaders, 0);
+    glBindBuffer(GL_ATOMIC_COUNTER_BUFFER, m_drawAtomicCounterBuffer);
+    glBufferSubData(GL_ATOMIC_COUNTER_BUFFER, 0, sizeof(unsigned int) * m_numDrawingShaders, drawZeros.data());
+
+    m_commandGenShader->bind();
+    m_commandGenShader->setUniform("u_visibleObjectCount", visibleObjectCount);
+    m_commandGenShader->setUniform("u_maxDraws", (unsigned int)m_maxObjects);
+
+    glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 0, m_drawAtomicCounterBuffer);
+    glBindBufferRange(GL_SHADER_STORAGE_BUFFER, 1, m_drawCommandBuffer, frameOffset * sizeof(DrawElementsIndirectCommand) * m_numDrawingShaders, m_maxObjects * sizeof(DrawElementsIndirectCommand) * m_numDrawingShaders);
+    glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 3, m_meshInfoBuffer);
+    glBindBufferRange(GL_SHADER_STORAGE_BUFFER, 4, m_renderableBuffer, frameOffset * sizeof(RenderableComponent), m_maxObjects * sizeof(RenderableComponent));
+    glBindBufferRange(GL_SHADER_STORAGE_BUFFER, 5, m_visibleObjectBuffer, frameOffset * sizeof(unsigned int), m_maxObjects * sizeof(unsigned int));
+
+    if (visibleObjectCount > 0) {
+        glDispatchCompute(1, 1, 1);
+    }
+    glMemoryBarrier(GL_COMMAND_BARRIER_BIT | GL_SHADER_STORAGE_BARRIER_BIT | GL_ATOMIC_COUNTER_BARRIER_BIT);
+    glQueryCounter(m_queryCommandGenEnd[m_currentFrame], GL_TIMESTAMP);
 
     glQueryCounter(m_queryDepthPrePassStart[m_currentFrame], GL_TIMESTAMP);
-    unsigned int zero = 0;
     glBindBuffer(GL_ATOMIC_COUNTER_BUFFER, m_visibleLargeObjectAtomicCounter);
     glBufferSubData(GL_ATOMIC_COUNTER_BUFFER, 0, sizeof(unsigned int), &zero);
 
@@ -778,97 +850,6 @@ void Renderer::drawScene(SceneDatabase& sceneDatabase, const Camera& camera) {
 
     glQueryCounter(m_queryDepthPrePassEnd[m_currentFrame], GL_TIMESTAMP);
     glBindFramebuffer(GL_FRAMEBUFFER, 0);
-    glQueryCounter(m_queryHizMipmapStart[m_currentFrame], GL_TIMESTAMP);
-    glMemoryBarrier(GL_SHADER_IMAGE_ACCESS_BARRIER_BIT);
-
-    m_hizMipmapShader->bind();
-    for (int i = 1; i < m_maxMipLevel; ++i) {
-        glBindImageTexture(0, m_hizTexture[m_currentFrame], i - 1, GL_FALSE, 0, GL_READ_ONLY, GL_R32F);
-        glBindImageTexture(1, m_hizTexture[m_currentFrame], i, GL_FALSE, 0, GL_WRITE_ONLY, GL_R32F);
-
-        const int currentMipWidth = std::max(1, m_windowWidth >> i);
-        const int currentMipHeight = std::max(1, m_windowHeight >> i);
-
-        const unsigned int numWorkgroupsX = static_cast<unsigned int>(std::ceil(currentMipWidth / 8.0f));
-        const unsigned int numWorkgroupsY = static_cast<unsigned int>(std::ceil(currentMipHeight / 8.0f));
-
-        glDispatchCompute(numWorkgroupsX, numWorkgroupsY, 1);
-        glMemoryBarrier(GL_SHADER_IMAGE_ACCESS_BARRIER_BIT);
-    }
-
-    glQueryCounter(m_queryHizMipmapEnd[m_currentFrame], GL_TIMESTAMP);
-
-    glQueryCounter(m_queryCullStart[m_currentFrame], GL_TIMESTAMP);
-
-    glBindBuffer(GL_ATOMIC_COUNTER_BUFFER, m_visibleObjectAtomicCounter);
-    glBufferSubData(GL_ATOMIC_COUNTER_BUFFER, 0, sizeof(unsigned int), &zero);
-
-    m_cullingShader->bind();
-    m_cullingShader->setUniform("u_objectCount", numObjects);
-    m_cullingShader->setUniform("u_maxDraws", (unsigned int)m_maxObjects);
-    m_cullingShader->setUniform("u_smallObjectThreshold", m_smallObjectThreshold);
-
-    glActiveTexture(GL_TEXTURE0);
-    glBindTexture(GL_TEXTURE_2D, m_hizTexture[previousFrame]);
-    m_cullingShader->setUniform("u_hizTexture", 0);
-    m_cullingShader->setUniform("u_hizTextureSize", glm::vec2(m_windowWidth, m_windowHeight));
-    m_cullingShader->setUniform("u_hizMaxMipLevel", static_cast<float>(m_maxMipLevel - 1));
-
-    glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 0, m_visibleObjectAtomicCounter);
-    glBindBufferRange(GL_SHADER_STORAGE_BUFFER, 1, m_visibleObjectBuffer, frameOffset * sizeof(unsigned int), m_maxObjects * sizeof(unsigned int));
-    glBindBufferRange(GL_SHADER_STORAGE_BUFFER, 2, m_objectBuffer, frameOffset * sizeof(TransformComponent), m_maxObjects * sizeof(TransformComponent));
-    glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 3, m_meshInfoBuffer);
-    glBindBufferRange(GL_SHADER_STORAGE_BUFFER, 4, m_renderableBuffer, frameOffset * sizeof(RenderableComponent), m_maxObjects * sizeof(RenderableComponent));
-
-    glDispatchCompute(numWorkgroups, 1, 1);
-
-    glMemoryBarrier(GL_COMMAND_BARRIER_BIT | GL_SHADER_STORAGE_BARRIER_BIT | GL_ATOMIC_COUNTER_BARRIER_BIT);
-
-    unsigned int visibleObjectCount = 0;
-    glBindBuffer(GL_ATOMIC_COUNTER_BUFFER, m_visibleObjectAtomicCounter);
-    glGetBufferSubData(GL_ATOMIC_COUNTER_BUFFER, 0, sizeof(unsigned int), &visibleObjectCount);
-
-    glQueryCounter(m_queryCullEnd[m_currentFrame], GL_TIMESTAMP);
-
-    glQueryCounter(m_queryOpaqueSortStart[m_currentFrame], GL_TIMESTAMP);
-    if (visibleObjectCount > 1) {
-        m_opaqueSortShader->bind();
-        glBindBufferRange(GL_SHADER_STORAGE_BUFFER, 1, m_visibleObjectBuffer, frameOffset * sizeof(unsigned int), m_maxObjects * sizeof(unsigned int));
-        glBindBufferRange(GL_SHADER_STORAGE_BUFFER, 4, m_renderableBuffer, frameOffset * sizeof(RenderableComponent), m_maxObjects * sizeof(RenderableComponent));
-
-        const unsigned int numElements = nextPowerOfTwo(visibleObjectCount);
-
-        for (unsigned int k = 2; k <= numElements; k <<= 1) {
-            for (unsigned int j = k >> 1; j > 0; j >>= 1) {
-                m_opaqueSortShader->setUniform("u_sort_k", k);
-                const unsigned int numSortWorkgroups = (numElements + 1023) / 1024;
-                glDispatchCompute(numSortWorkgroups, 1, 1);
-                glMemoryBarrier(GL_SHADER_STORAGE_BARRIER_BIT);
-            }
-        }
-    }
-    glQueryCounter(m_queryOpaqueSortEnd[m_currentFrame], GL_TIMESTAMP);
-
-    glQueryCounter(m_queryCommandGenStart[m_currentFrame], GL_TIMESTAMP);
-    std::vector<unsigned int> drawZeros(m_numDrawingShaders, 0);
-    glBindBuffer(GL_ATOMIC_COUNTER_BUFFER, m_drawAtomicCounterBuffer);
-    glBufferSubData(GL_ATOMIC_COUNTER_BUFFER, 0, sizeof(unsigned int) * m_numDrawingShaders, drawZeros.data());
-
-    m_commandGenShader->bind();
-    m_commandGenShader->setUniform("u_visibleObjectCount", visibleObjectCount);
-    m_commandGenShader->setUniform("u_maxDraws", (unsigned int)m_maxObjects);
-
-    glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 0, m_drawAtomicCounterBuffer);
-    glBindBufferRange(GL_SHADER_STORAGE_BUFFER, 1, m_drawCommandBuffer, frameOffset * sizeof(DrawElementsIndirectCommand) * m_numDrawingShaders, m_maxObjects * sizeof(DrawElementsIndirectCommand) * m_numDrawingShaders);
-    glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 3, m_meshInfoBuffer);
-    glBindBufferRange(GL_SHADER_STORAGE_BUFFER, 4, m_renderableBuffer, frameOffset * sizeof(RenderableComponent), m_maxObjects * sizeof(RenderableComponent));
-    glBindBufferRange(GL_SHADER_STORAGE_BUFFER, 5, m_visibleObjectBuffer, frameOffset * sizeof(unsigned int), m_maxObjects * sizeof(unsigned int));
-
-    if (visibleObjectCount > 0) {
-        glDispatchCompute(1, 1, 1);
-    }
-    glMemoryBarrier(GL_COMMAND_BARRIER_BIT | GL_SHADER_STORAGE_BARRIER_BIT | GL_ATOMIC_COUNTER_BARRIER_BIT);
-    glQueryCounter(m_queryCommandGenEnd[m_currentFrame], GL_TIMESTAMP);
 
     glClearColor(0.3f, 0.3f, 0.3f, 1.0f);
     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
@@ -964,6 +945,25 @@ void Renderer::drawScene(SceneDatabase& sceneDatabase, const Camera& camera) {
     glDisable(GL_BLEND);
 
     glBindVertexArray(0);
+    glQueryCounter(m_queryHizMipmapStart[m_currentFrame], GL_TIMESTAMP);
+    glMemoryBarrier(GL_SHADER_IMAGE_ACCESS_BARRIER_BIT);
+
+    m_hizMipmapShader->bind();
+    for (int i = 1; i < m_maxMipLevel; ++i) {
+        glBindImageTexture(0, m_hizTexture[m_currentFrame], i - 1, GL_FALSE, 0, GL_READ_ONLY, GL_R32F);
+        glBindImageTexture(1, m_hizTexture[m_currentFrame], i, GL_FALSE, 0, GL_WRITE_ONLY, GL_R32F);
+
+        const int currentMipWidth = std::max(1, m_windowWidth >> i);
+        const int currentMipHeight = std::max(1, m_windowHeight >> i);
+
+        const unsigned int numWorkgroupsX = static_cast<unsigned int>(std::ceil(currentMipWidth / 8.0f));
+        const unsigned int numWorkgroupsY = static_cast<unsigned int>(std::ceil(currentMipHeight / 8.0f));
+
+        glDispatchCompute(numWorkgroupsX, numWorkgroupsY, 1);
+        glTextureBarrier();
+    }
+
+    glQueryCounter(m_queryHizMipmapEnd[m_currentFrame], GL_TIMESTAMP);
 
     glQueryCounter(m_queryUiStart[m_currentFrame], GL_TIMESTAMP);
     m_uiManager->render();
