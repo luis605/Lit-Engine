@@ -141,7 +141,7 @@ void Renderer::init(const int windowWidth, const int windowHeight) {
     glEnable(GL_DEPTH_TEST);
     glEnable(GL_CULL_FACE);
 
-    m_maxObjects = 2000000;
+    m_maxObjects = 10000000;
     reallocateBuffers(m_maxObjects);
 
     glGenBuffers(1, &m_visibleObjectAtomicCounter);
@@ -215,69 +215,30 @@ void Renderer::init(const int windowWidth, const int windowHeight) {
     glBufferData(GL_ATOMIC_COUNTER_BUFFER, sizeof(unsigned int), nullptr, GL_DYNAMIC_DRAW);
 
     m_maxMipLevel = static_cast<int>(std::floor(std::log2(std::max(windowWidth, windowHeight))));
-    glGenTextures(1, &m_hizTexture);
-    glBindTexture(GL_TEXTURE_2D, m_hizTexture);
+    glGenTextures(NUM_FRAMES_IN_FLIGHT, m_hizTexture);
+    glGenFramebuffers(NUM_FRAMES_IN_FLIGHT, m_depthFbo);
+    glGenRenderbuffers(NUM_FRAMES_IN_FLIGHT, m_depthRenderbuffer);
 
-    glTexStorage2D(GL_TEXTURE_2D, m_maxMipLevel, GL_R32F, windowWidth, windowHeight);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST_MIPMAP_NEAREST);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+    for (int i = 0; i < NUM_FRAMES_IN_FLIGHT; ++i) {
+        glBindTexture(GL_TEXTURE_2D, m_hizTexture[i]);
+        glTexStorage2D(GL_TEXTURE_2D, m_maxMipLevel, GL_R32F, windowWidth, windowHeight);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST_MIPMAP_NEAREST);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
 
-    glGenFramebuffers(1, &m_depthFbo);
-    glBindFramebuffer(GL_FRAMEBUFFER, m_depthFbo);
-    glGenRenderbuffers(1, &m_depthRenderbuffer);
-    glBindRenderbuffer(GL_RENDERBUFFER, m_depthRenderbuffer);
-    glRenderbufferStorage(GL_RENDERBUFFER, GL_DEPTH_COMPONENT32F, windowWidth, windowHeight);
-    glFramebufferRenderbuffer(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, GL_RENDERBUFFER, m_depthRenderbuffer);
-    glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, m_hizTexture, 0);
+        glBindFramebuffer(GL_FRAMEBUFFER, m_depthFbo[i]);
+        glBindRenderbuffer(GL_RENDERBUFFER, m_depthRenderbuffer[i]);
+        glRenderbufferStorage(GL_RENDERBUFFER, GL_DEPTH_COMPONENT32F, windowWidth, windowHeight);
+        glFramebufferRenderbuffer(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, GL_RENDERBUFFER, m_depthRenderbuffer[i]);
+        glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, m_hizTexture[i], 0);
 
-    const GLenum drawBuffers[] = {GL_COLOR_ATTACHMENT0};
-    glDrawBuffers(1, drawBuffers);
+        const GLenum drawBuffers[] = {GL_COLOR_ATTACHMENT0};
+        glDrawBuffers(1, drawBuffers);
 
-    if (glCheckFramebufferStatus(GL_FRAMEBUFFER) != GL_FRAMEBUFFER_COMPLETE) {
-        Lit::Log::Error("Depth Pre-Pass FBO is not complete!");
-    }
-    glBindFramebuffer(GL_FRAMEBUFFER, 0);
-
-    glGenFramebuffers(1, &m_hizFbo);
-    glBindFramebuffer(GL_FRAMEBUFFER, m_hizFbo);
-    glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, m_hizTexture, 0);
-    glDrawBuffer(GL_COLOR_ATTACHMENT0);
-    glReadBuffer(GL_NONE);
-    GLenum status = glCheckFramebufferStatus(GL_FRAMEBUFFER);
-    if (status != GL_FRAMEBUFFER_COMPLETE) {
-        std::string error;
-        switch (status) {
-        case GL_FRAMEBUFFER_UNDEFINED:
-            error = "GL_FRAMEBUFFER_UNDEFINED";
-            break;
-        case GL_FRAMEBUFFER_INCOMPLETE_ATTACHMENT:
-            error = "GL_FRAMEBUFFER_INCOMPLETE_ATTACHMENT";
-            break;
-        case GL_FRAMEBUFFER_INCOMPLETE_MISSING_ATTACHMENT:
-            error = "GL_FRAMEBUFFER_INCOMPLETE_MISSING_ATTACHMENT";
-            break;
-        case GL_FRAMEBUFFER_INCOMPLETE_DRAW_BUFFER:
-            error = "GL_FRAMEBUFFER_INCOMPLETE_DRAW_BUFFER";
-            break;
-        case GL_FRAMEBUFFER_INCOMPLETE_READ_BUFFER:
-            error = "GL_FRAMEBUFFER_INCOMPLETE_READ_BUFFER";
-            break;
-        case GL_FRAMEBUFFER_UNSUPPORTED:
-            error = "GL_FRAMEBUFFER_UNSUPPORTED";
-            break;
-        case GL_FRAMEBUFFER_INCOMPLETE_MULTISAMPLE:
-            error = "GL_FRAMEBUFFER_INCOMPLETE_MULTISAMPLE";
-            break;
-        case GL_FRAMEBUFFER_INCOMPLETE_LAYER_TARGETS:
-            error = "GL_FRAMEBUFFER_INCOMPLETE_LAYER_TARGETS";
-            break;
-        default:
-            error = "Unknown error";
-            break;
+        if (glCheckFramebufferStatus(GL_FRAMEBUFFER) != GL_FRAMEBUFFER_COMPLETE) {
+            Lit::Log::Error("Depth Pre-Pass FBO {} is not complete!", i);
         }
-        Lit::Log::Error("Hi-Z FBO is not complete! Error: {}", error);
     }
     glBindFramebuffer(GL_FRAMEBUFFER, 0);
 
@@ -432,10 +393,9 @@ void Renderer::cleanup() {
     glDeleteQueries(NUM_FRAMES_IN_FLIGHT, m_queryUiStart);
     glDeleteQueries(NUM_FRAMES_IN_FLIGHT, m_queryUiEnd);
 
-    glDeleteFramebuffers(1, &m_depthFbo);
-    glDeleteFramebuffers(1, &m_hizFbo);
-    glDeleteRenderbuffers(1, &m_depthRenderbuffer);
-    glDeleteTextures(1, &m_hizTexture);
+    glDeleteFramebuffers(NUM_FRAMES_IN_FLIGHT, m_depthFbo);
+    glDeleteRenderbuffers(NUM_FRAMES_IN_FLIGHT, m_depthRenderbuffer);
+    glDeleteTextures(NUM_FRAMES_IN_FLIGHT, m_hizTexture);
     glDeleteVertexArrays(1, &m_debugQuadVao);
     glDeleteBuffers(1, &m_debugQuadVbo);
 
@@ -644,11 +604,11 @@ void Renderer::drawScene(SceneDatabase& sceneDatabase, const Camera& camera) {
         if (debugMode) {
             Lit::Log::Debug("GPU Frame Time: {} ms", (endTime - startTime) / 1000000.0);
             Lit::Log::Debug("  Transform: {} ms", (transformEndTime - transformStartTime) / 1000000.0);
-            Lit::Log::Debug("  Depth Pre-Pass: {} ms", (depthPrePassEndTime - depthPrePassStartTime) / 1000000.0);
-            Lit::Log::Debug("  Hi-Z Mipmap Gen: {} ms", (hizMipmapEndTime - hizMipmapStartTime) / 1000000.0);
             Lit::Log::Debug("  Opaque Cull: {} ms", (cullEndTime - cullStartTime) / 1000000.0);
             Lit::Log::Debug("  Opaque Sort: {} ms", (opaqueSortEndTime - opaqueSortStartTime) / 1000000.0);
             Lit::Log::Debug("  Command Gen: {} ms", (commandGenEndTime - commandGenStartTime) / 1000000.0);
+            Lit::Log::Debug("  Depth Pre-Pass: {} ms", (depthPrePassEndTime - depthPrePassStartTime) / 1000000.0);
+            Lit::Log::Debug("  Hi-Z Mipmap Gen: {} ms", (hizMipmapEndTime - hizMipmapStartTime) / 1000000.0);
             Lit::Log::Debug("  Opaque Draw: {} ms", (opaqueDrawEndTime - opaqueDrawStartTime) / 1000000.0);
             Lit::Log::Debug("  Large Object Sort: {} ms", (largeObjectSortEndTime - largeObjectSortStartTime) / 1000000.0);
             Lit::Log::Debug("  Large Object Command Gen: {} ms", (largeObjectCommandGenEndTime - largeObjectCommandGenStartTime) / 1000000.0);
@@ -799,24 +759,20 @@ void Renderer::drawScene(SceneDatabase& sceneDatabase, const Camera& camera) {
     glMemoryBarrier(GL_COMMAND_BARRIER_BIT | GL_SHADER_STORAGE_BARRIER_BIT | GL_ATOMIC_COUNTER_BARRIER_BIT);
     glQueryCounter(m_queryLargeObjectCommandGenEnd[m_currentFrame], GL_TIMESTAMP);
 
-    glBindFramebuffer(GL_FRAMEBUFFER, m_depthFbo);
+    glBindFramebuffer(GL_FRAMEBUFFER, m_depthFbo[m_currentFrame]);
     glClearColor(1.0f, 1.0f, 1.0f, 1.0f);
     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
     glEnable(GL_DEPTH_TEST);
     glColorMask(GL_TRUE, GL_TRUE, GL_TRUE, GL_TRUE);
 
-    unsigned int largeObjectDrawCount = 0;
-    glBindBuffer(GL_ATOMIC_COUNTER_BUFFER, m_depthPrepassAtomicCounter);
-    glGetBufferSubData(GL_ATOMIC_COUNTER_BUFFER, 0, sizeof(unsigned int), &largeObjectDrawCount);
+    glBindBuffer(GL_PARAMETER_BUFFER, m_depthPrepassAtomicCounter);
 
-    if (largeObjectDrawCount > 0) {
-        m_depthPrepassShader->bind();
-        glBindVertexArray(m_vao);
-        glBindBuffer(GL_DRAW_INDIRECT_BUFFER, m_depthPrepassDrawCommandBuffer);
-        glBindBufferRange(GL_SHADER_STORAGE_BUFFER, 2, m_objectBuffer, frameOffset * sizeof(TransformComponent), m_maxObjects * sizeof(TransformComponent));
-        glBindBufferRange(GL_SHADER_STORAGE_BUFFER, 5, m_visibleLargeObjectBuffer, frameOffset * sizeof(unsigned int), m_maxObjects * sizeof(unsigned int));
-        glMultiDrawElementsIndirect(GL_TRIANGLES, GL_UNSIGNED_INT, (const void*)(frameOffset * sizeof(DrawElementsIndirectCommand)), largeObjectDrawCount, sizeof(DrawElementsIndirectCommand));
-    }
+    m_depthPrepassShader->bind();
+    glBindVertexArray(m_vao);
+    glBindBuffer(GL_DRAW_INDIRECT_BUFFER, m_depthPrepassDrawCommandBuffer);
+    glBindBufferRange(GL_SHADER_STORAGE_BUFFER, 2, m_objectBuffer, frameOffset * sizeof(TransformComponent), m_maxObjects * sizeof(TransformComponent));
+    glBindBufferRange(GL_SHADER_STORAGE_BUFFER, 5, m_visibleLargeObjectBuffer, frameOffset * sizeof(unsigned int), m_maxObjects * sizeof(unsigned int));
+    glMultiDrawElementsIndirectCount(GL_TRIANGLES, GL_UNSIGNED_INT, (const void*)(frameOffset * sizeof(DrawElementsIndirectCommand)), 0, m_maxObjects, sizeof(DrawElementsIndirectCommand));
 
     glEnable(GL_DEPTH_TEST);
 
@@ -827,8 +783,8 @@ void Renderer::drawScene(SceneDatabase& sceneDatabase, const Camera& camera) {
 
     m_hizMipmapShader->bind();
     for (int i = 1; i < m_maxMipLevel; ++i) {
-        glBindImageTexture(0, m_hizTexture, i - 1, GL_FALSE, 0, GL_READ_ONLY, GL_R32F);
-        glBindImageTexture(1, m_hizTexture, i, GL_FALSE, 0, GL_WRITE_ONLY, GL_R32F);
+        glBindImageTexture(0, m_hizTexture[m_currentFrame], i - 1, GL_FALSE, 0, GL_READ_ONLY, GL_R32F);
+        glBindImageTexture(1, m_hizTexture[m_currentFrame], i, GL_FALSE, 0, GL_WRITE_ONLY, GL_R32F);
 
         const int currentMipWidth = std::max(1, m_windowWidth >> i);
         const int currentMipHeight = std::max(1, m_windowHeight >> i);
@@ -842,7 +798,6 @@ void Renderer::drawScene(SceneDatabase& sceneDatabase, const Camera& camera) {
 
     glQueryCounter(m_queryHizMipmapEnd[m_currentFrame], GL_TIMESTAMP);
 
-
     glQueryCounter(m_queryCullStart[m_currentFrame], GL_TIMESTAMP);
 
     glBindBuffer(GL_ATOMIC_COUNTER_BUFFER, m_visibleObjectAtomicCounter);
@@ -854,7 +809,7 @@ void Renderer::drawScene(SceneDatabase& sceneDatabase, const Camera& camera) {
     m_cullingShader->setUniform("u_smallObjectThreshold", m_smallObjectThreshold);
 
     glActiveTexture(GL_TEXTURE0);
-    glBindTexture(GL_TEXTURE_2D, m_hizTexture);
+    glBindTexture(GL_TEXTURE_2D, m_hizTexture[previousFrame]);
     m_cullingShader->setUniform("u_hizTexture", 0);
     m_cullingShader->setUniform("u_hizTextureSize", glm::vec2(m_windowWidth, m_windowHeight));
     m_cullingShader->setUniform("u_hizMaxMipLevel", static_cast<float>(m_maxMipLevel - 1));
@@ -918,10 +873,6 @@ void Renderer::drawScene(SceneDatabase& sceneDatabase, const Camera& camera) {
     glClearColor(0.3f, 0.3f, 0.3f, 1.0f);
     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
-    std::vector<unsigned int> drawCounts(m_numDrawingShaders);
-    glBindBuffer(GL_ATOMIC_COUNTER_BUFFER, m_drawAtomicCounterBuffer);
-    glGetBufferSubData(GL_ATOMIC_COUNTER_BUFFER, 0, sizeof(unsigned int) * m_numDrawingShaders, drawCounts.data());
-
     glBindVertexArray(m_vao);
 
     glBindBuffer(GL_DRAW_INDIRECT_BUFFER, m_drawCommandBuffer);
@@ -930,14 +881,12 @@ void Renderer::drawScene(SceneDatabase& sceneDatabase, const Camera& camera) {
 
     glQueryCounter(m_queryOpaqueDrawStart[m_currentFrame], GL_TIMESTAMP);
     for (uint32_t shaderId = 0; shaderId < m_numDrawingShaders; ++shaderId) {
-        const unsigned int drawCount = drawCounts[shaderId];
-        if (drawCount > 0) {
-            Shader* shader = m_shaderManager.getShader(shaderId);
-            if (shader) {
-                shader->bind();
-                const size_t indirect_offset = (m_currentFrame * m_numDrawingShaders * m_maxObjects + shaderId * m_maxObjects) * sizeof(DrawElementsIndirectCommand);
-                glMultiDrawElementsIndirect(GL_TRIANGLES, GL_UNSIGNED_INT, (const void*)(indirect_offset), drawCount, sizeof(DrawElementsIndirectCommand));
-            }
+        Shader* shader = m_shaderManager.getShader(shaderId);
+        if (shader) {
+            shader->bind();
+            const size_t indirect_offset = (m_currentFrame * m_numDrawingShaders * m_maxObjects + shaderId * m_maxObjects) * sizeof(DrawElementsIndirectCommand);
+            glBindBuffer(GL_PARAMETER_BUFFER, m_drawAtomicCounterBuffer);
+            glMultiDrawElementsIndirectCount(GL_TRIANGLES, GL_UNSIGNED_INT, (const void*)(indirect_offset), shaderId * sizeof(unsigned int), m_maxObjects, sizeof(DrawElementsIndirectCommand));
         }
     }
     glQueryCounter(m_queryOpaqueDrawEnd[m_currentFrame], GL_TIMESTAMP);

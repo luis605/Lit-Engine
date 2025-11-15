@@ -48,6 +48,7 @@ export class Renderer {
     unsigned int m_renderableBuffer = 0;
     unsigned int m_sortedHierarchyBuffer = 0;
 
+    static constexpr int NUM_FRAMES_IN_FLIGHT = 3;
     size_t m_vboSize = 0;
     size_t m_eboSize = 0;
 
@@ -66,11 +67,11 @@ export class Renderer {
     unsigned int m_transparentDrawCommandBuffer = 0;
     unsigned int m_sceneUBO = 0;
 
-    unsigned int m_depthFbo = 0;
-    unsigned int m_depthRenderbuffer = 0;
+    unsigned int m_depthFbo[NUM_FRAMES_IN_FLIGHT] = {0};
+    unsigned int m_depthRenderbuffer[NUM_FRAMES_IN_FLIGHT] = {0};
     unsigned int m_depthRbo = 0;
     unsigned int m_hizFbo = 0;
-    unsigned int m_hizTexture = 0;
+    unsigned int m_hizTexture[NUM_FRAMES_IN_FLIGHT] = {0};
 
     Shader* m_largeObjectCullShader = nullptr;
     Shader* m_largeObjectSortShader = nullptr;
@@ -94,7 +95,6 @@ export class Renderer {
 
     UIManager* m_uiManager;
 
-    static constexpr int NUM_FRAMES_IN_FLIGHT = 3;
     unsigned int m_queryStart[NUM_FRAMES_IN_FLIGHT] = {0};
     unsigned int m_queryEnd[NUM_FRAMES_IN_FLIGHT] = {0};
     unsigned int m_queryTransformStart[NUM_FRAMES_IN_FLIGHT] = {0};
