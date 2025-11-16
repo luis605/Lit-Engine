@@ -92,6 +92,7 @@ export class Renderer {
     size_t m_numDrawingShaders = 0;
 
     bool m_initialized = false;
+    bool m_meshInfoDirty = true;
 
     UIManager* m_uiManager;
 

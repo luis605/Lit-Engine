@@ -283,6 +283,7 @@ void Renderer::init(const int windowWidth, const int windowHeight) {
 
 void Renderer::reallocateBuffers(size_t numObjects) {
     m_maxObjects = numObjects;
+    Lit::Log::Info("Reallocating renderer buffers for {} objects.", m_maxObjects);
 
     const GLbitfield flags = GL_MAP_WRITE_BIT | GL_MAP_PERSISTENT_BIT;
 
@@ -427,8 +428,10 @@ void Renderer::uploadMesh(const Mesh& mesh) {
     const size_t vertexDataSize = mesh.vertices.size() * sizeof(float);
     const size_t indexDataSize = mesh.indices.size() * sizeof(unsigned int);
 
-    if (s_totalVertexSize + vertexDataSize > m_vboSize || s_totalIndexSize + indexDataSize > m_eboSize) {
+    Lit::Log::Info("Uploading mesh: {} vertices ({} bytes), {} indices ({} bytes)", mesh.vertices.size() / 6,
+                   vertexDataSize, mesh.indices.size(), indexDataSize);
 
+    if (s_totalVertexSize + vertexDataSize > m_vboSize || s_totalIndexSize + indexDataSize > m_eboSize) {
         m_vboSize = std::max(m_vboSize * 2, s_totalVertexSize + vertexDataSize);
         m_eboSize = std::max(m_eboSize * 2, s_totalIndexSize + indexDataSize);
 
@@ -501,6 +504,8 @@ void Renderer::uploadMesh(const Mesh& mesh) {
 
     s_totalVertexSize += vertexDataSize;
     s_totalIndexSize += indexDataSize;
+
+    m_meshInfoDirty = true;
 }
 
 void Renderer::setSmallObjectThreshold(float threshold) { m_smallObjectThreshold = threshold; }
@@ -513,6 +518,7 @@ void Renderer::setDebugMipLevel(int mipLevel) {
 
 void Renderer::drawScene(SceneDatabase& sceneDatabase, const Camera& camera) {
     auto updateBuffer = [&](GLuint buffer, void* ptr, size_t bufferSize, const auto& data, size_t objectSize) {
+        Lit::Log::Info("Updating buffer with {} objects of size {} bytes each.", data.size(), objectSize);
         glBindBuffer(GL_SHADER_STORAGE_BUFFER, buffer);
         const size_t dataSize = data.size() * objectSize;
         const size_t frameOffsetBytes = m_currentFrame * (bufferSize / NUM_FRAMES_IN_FLIGHT);
@@ -675,8 +681,11 @@ void Renderer::drawScene(SceneDatabase& sceneDatabase, const Camera& camera) {
     }
     glQueryCounter(m_queryTransformEnd[m_currentFrame], GL_TIMESTAMP);
 
-    glBindBuffer(GL_SHADER_STORAGE_BUFFER, m_meshInfoBuffer);
-    glBufferData(GL_SHADER_STORAGE_BUFFER, s_meshInfos.size() * sizeof(MeshInfo), s_meshInfos.data(), GL_STATIC_DRAW);
+    if (m_meshInfoDirty) {
+        glBindBuffer(GL_SHADER_STORAGE_BUFFER, m_meshInfoBuffer);
+        glBufferData(GL_SHADER_STORAGE_BUFFER, s_meshInfos.size() * sizeof(MeshInfo), s_meshInfos.data(), GL_STATIC_DRAW);
+        m_meshInfoDirty = false;
+    }
 
     glm::mat4 viewProjection = camera.getProjectionMatrix() * camera.getViewMatrix();
 
