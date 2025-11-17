@@ -93,6 +93,7 @@ export class Renderer {
 
     bool m_initialized = false;
     bool m_meshInfoDirty = true;
+    bool fullProfiling;
 
     UIManager* m_uiManager;
 
