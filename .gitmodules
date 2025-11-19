@@ -10,3 +10,6 @@
 [submodule "src/vendors/freetype"]
 	path = src/vendors/freetype
 	url = https://github.com/freetype/freetype.git
+[submodule "src/vendors/DiligentEngine"]
+	path = src/vendors/DiligentEngine
+	url = https://github.com/DiligentGraphics/DiligentEngine.git
