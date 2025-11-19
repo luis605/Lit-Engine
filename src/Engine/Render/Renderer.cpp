@@ -785,6 +785,7 @@ void Renderer::drawScene(SceneDatabase& sceneDatabase, const Camera& camera) {
         for (unsigned int k = 2; k <= numElements; k <<= 1) {
             for (unsigned int j = k >> 1; j > 0; j >>= 1) {
                 m_opaqueSortShader->setUniform("u_sort_k", k);
+                m_opaqueSortShader->setUniform("u_sort_j", j);
                 const unsigned int numSortWorkgroups = (numElements + 1023) / 1024;
                 glDispatchCompute(numSortWorkgroups, 1, 1);
                 glMemoryBarrier(GL_SHADER_STORAGE_BARRIER_BIT);
