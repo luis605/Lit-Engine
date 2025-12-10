@@ -1,3 +1,4 @@
+struct GLFWwindow;
 #include <string>
 
 import Engine.engine;
@@ -11,7 +12,7 @@ Engine::Engine() {}
 
 Engine::~Engine() {}
 
-void Engine::init(const int windowWidth, const int windowHeight) { m_renderer.init(windowWidth, windowHeight); }
+void Engine::init(GLFWwindow* window, const int windowWidth, const int windowHeight) { m_renderer.init(window, windowWidth, windowHeight); }
 
 void Engine::update(SceneDatabase& sceneDatabase, Camera& camera) {
     m_renderer.drawScene(sceneDatabase, camera);

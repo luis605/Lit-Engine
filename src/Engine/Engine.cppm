@@ -3,6 +3,8 @@ module;
 #include <optional>
 #include <string>
 
+struct GLFWwindow;
+
 export module Engine.engine;
 
 import Engine.renderer;
@@ -16,7 +18,7 @@ export class Engine {
     Engine();
     ~Engine();
 
-    void init(const int windowWidth, const int windowHeight);
+    void init(GLFWwindow* window, const int windowWidth, const int windowHeight);
     void update(SceneDatabase& sceneDatabase, Camera& camera);
     void cleanup();
     void uploadMesh(const Mesh& mesh);

@@ -48,7 +48,7 @@ Application::Application() {
     }
 
     InputManager::Init(m_window);
-    m_engine.init(windowWidth, windowHeight);
+    m_engine.init(m_window, windowWidth, windowHeight);
 
     std::filesystem::create_directories("resources/models");
     std::filesystem::create_directories("resources/assets");

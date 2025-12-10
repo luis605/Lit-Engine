@@ -6,6 +6,8 @@ module;
 #include <cstdint>
 
 typedef struct __GLsync* GLsync;
+struct GLFWwindow;
+struct DiligentData;
 
 export module Engine.renderer;
 
@@ -22,7 +24,7 @@ export class Renderer {
     Renderer();
     ~Renderer();
 
-    void init(const int windowWidth, const int windowHeight);
+    void init(GLFWwindow* window, const int windowWidth, const int windowHeight);
     void drawScene(SceneDatabase& sceneDatabase, const Camera& camera);
     void cleanup();
     void uploadMesh(const Mesh& mesh);
@@ -169,4 +171,6 @@ export class Renderer {
     bool m_renderPrePass = true;
     float m_prePassToggleTimer = 0.0f;
     float m_lastFrameTime = 0.0f;
+
+    DiligentData* m_diligent = nullptr;
 };

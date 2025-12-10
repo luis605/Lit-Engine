@@ -43,7 +43,22 @@ target_include_directories(Engine PRIVATE
     "${PROJECT_SOURCE_DIR}/src/vendors/glad/include"
     "${PROJECT_SOURCE_DIR}/src/vendors/glm"
     "${PROJECT_SOURCE_DIR}/src/vendors/freetype/include"
+    "${PROJECT_SOURCE_DIR}/src/vendors/DiligentEngine"
     "${PROJECT_SOURCE_DIR}/src"
 )
 
+if(WIN32)
+    target_compile_definitions(Engine PUBLIC PLATFORM_WIN32=1)
+elseif(APPLE)
+    target_compile_definitions(Engine PUBLIC PLATFORM_MACOS=1)
+elseif(UNIX)
+    target_compile_definitions(Engine PUBLIC PLATFORM_LINUX=1)
+endif()
+
 target_link_libraries(Engine PRIVATE glfw assimp freetype)
+target_link_libraries(Engine PUBLIC
+    Diligent-GraphicsEngineOpenGL-static
+    Diligent-GraphicsEngineVk-static
+    $<$<BOOL:${WIN32}>:Diligent-GraphicsEngineD3D11-static>
+    $<$<BOOL:${WIN32}>:Diligent-GraphicsEngineD3D12-static>
+)

@@ -1,7 +1,29 @@
 module;
 
+#include "DiligentCore/Graphics/GraphicsEngine/interface/RenderDevice.h"
+#include "DiligentCore/Graphics/GraphicsEngine/interface/DeviceContext.h"
+#include "DiligentCore/Graphics/GraphicsEngine/interface/SwapChain.h"
+#include "DiligentCore/Graphics/GraphicsEngineOpenGL/interface/EngineFactoryOpenGL.h"
+#include "DiligentCore/Common/interface/RefCntAutoPtr.hpp"
+
 #include <glad/glad.h>
 #include <GLFW/glfw3.h>
+
+#if defined(__linux__)
+#undef Bool
+#undef True
+#undef False
+#define GLFW_EXPOSE_NATIVE_X11
+#define GLFW_EXPOSE_NATIVE_GLX
+#elif defined(_WIN32)
+#define GLFW_EXPOSE_NATIVE_WIN32
+#define GLFW_EXPOSE_NATIVE_WGL
+#elif defined(__APPLE__)
+#define GLFW_EXPOSE_NATIVE_COCOA
+#define GLFW_EXPOSE_NATIVE_NSGL
+#endif
+#include <GLFW/glfw3native.h>
+
 #include <vector>
 #include <optional>
 #include <unordered_map>
@@ -96,17 +118,11 @@ unsigned int nextPowerOfTwo(unsigned int n) {
 }
 
 void extractFrustumPlanes(const glm::mat4& vp, glm::vec4* planes) {
-
     planes[0] = glm::vec4(vp[0][3] + vp[0][0], vp[1][3] + vp[1][0], vp[2][3] + vp[2][0], vp[3][3] + vp[3][0]);
-
     planes[1] = glm::vec4(vp[0][3] - vp[0][0], vp[1][3] - vp[1][0], vp[2][3] - vp[2][0], vp[3][3] - vp[3][0]);
-
     planes[2] = glm::vec4(vp[0][3] + vp[0][1], vp[1][3] + vp[1][1], vp[2][3] + vp[2][1], vp[3][3] + vp[3][1]);
-
     planes[3] = glm::vec4(vp[0][3] - vp[0][1], vp[1][3] - vp[1][1], vp[2][3] - vp[2][1], vp[3][3] - vp[3][1]);
-
     planes[4] = glm::vec4(vp[0][3] + vp[0][2], vp[1][3] + vp[1][2], vp[2][3] + vp[2][2], vp[3][3] + vp[3][2]);
-
     planes[5] = glm::vec4(vp[0][3] - vp[0][2], vp[1][3] - vp[1][2], vp[2][3] - vp[2][2], vp[3][3] - vp[3][2]);
 
     for (int i = 0; i < 6; i++) {
@@ -116,6 +132,13 @@ void extractFrustumPlanes(const glm::mat4& vp, glm::vec4* planes) {
 
 } // namespace
 
+struct DiligentData {
+    Diligent::RefCntAutoPtr<Diligent::IRenderDevice> pDevice;
+    Diligent::RefCntAutoPtr<Diligent::IDeviceContext> pImmediateContext;
+    Diligent::RefCntAutoPtr<Diligent::ISwapChain> pSwapChain;
+    Diligent::IEngineFactoryOpenGL* pFactoryGL = nullptr;
+};
+
 Renderer::Renderer()
     : m_cullingShader(nullptr), m_transformShader(nullptr), m_transparentCullShader(nullptr), m_bitonicSortShader(nullptr),
       m_opaqueSortShader(nullptr), m_transparentCommandGenShader(nullptr), m_commandGenShader(nullptr), m_largeObjectCullShader(nullptr),
@@ -123,12 +146,32 @@ Renderer::Renderer()
       m_debugDepthShader(nullptr), m_hizMipmapShader(nullptr), m_initialized(false), m_vboSize(0), m_eboSize(0), m_numDrawingShaders(0),
       fullProfiling(true) {}
 
-void Renderer::init(const int windowWidth, const int windowHeight) {
+void Renderer::init(GLFWwindow* window, const int windowWidth, const int windowHeight) {
     if (m_initialized)
         return;
 
     m_windowWidth = windowWidth;
     m_windowHeight = windowHeight;
+
+    m_diligent = new DiligentData();
+
+    m_diligent->pFactoryGL = Diligent::GetEngineFactoryOpenGL();
+
+    Diligent::EngineGLCreateInfo EngineCI;
+#if defined(_WIN32)
+    EngineCI.Window.hWnd = glfwGetWin32Window(window);
+#elif defined(__linux__)
+    EngineCI.Window.WindowId = glfwGetX11Window(window);
+    EngineCI.Window.pDisplay = glfwGetX11Display();
+#elif defined(__APPLE__)
+    EngineCI.Window.pNSView = glfwGetCocoaWindow(window);
+#endif
+
+#ifndef NDEBUG
+    m_diligent->pFactoryGL->SetMessageCallback(nullptr);
+#endif
+
+    m_diligent->pFactoryGL->AttachToActiveGLContext(EngineCI, &m_diligent->pDevice, &m_diligent->pImmediateContext);
 
     m_uiManager = new UIManager();
     m_uiManager->init(windowWidth, windowHeight);
@@ -143,7 +186,7 @@ void Renderer::init(const int windowWidth, const int windowHeight) {
     glEnable(GL_DEPTH_TEST);
     glEnable(GL_CULL_FACE);
 
-    m_maxObjects = 10000000;
+    m_maxObjects = 1000000;
     reallocateBuffers(m_maxObjects);
 
     glGenBuffers(1, &m_visibleObjectAtomicCounter);
@@ -414,8 +457,14 @@ void Renderer::cleanup() {
     m_hizMipmapShader = nullptr;
 
     m_shaderManager.cleanup();
+
     delete m_uiManager;
     m_uiManager = nullptr;
+
+    if (m_diligent) {
+        delete m_diligent;
+        m_diligent = nullptr;
+    }
 
     m_initialized = false;
 }
@@ -1177,6 +1226,7 @@ void Renderer::drawScene(SceneDatabase& sceneDatabase, const Camera& camera) {
         Lit::Log::Debug("UI Rendering: {} ms", uiTime);
     }
 }
+
 void Renderer::setupShaders() {
     m_shaderManager.loadShader("resources/shaders/cube.vert", "resources/shaders/cube.frag");
     m_shaderManager.loadShader("resources/shaders/cube.vert", "resources/shaders/red.frag");
