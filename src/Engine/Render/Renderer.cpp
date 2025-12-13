@@ -3,6 +3,7 @@ module;
 #include "DiligentCore/Graphics/GraphicsEngine/interface/RenderDevice.h"
 #include "DiligentCore/Graphics/GraphicsEngine/interface/DeviceContext.h"
 #include "DiligentCore/Graphics/GraphicsEngine/interface/SwapChain.h"
+#include "DiligentCore/Graphics/GraphicsEngine/interface/Fence.h"
 #include "DiligentCore/Graphics/GraphicsEngineOpenGL/interface/EngineFactoryOpenGL.h"
 #include "DiligentCore/Common/interface/RefCntAutoPtr.hpp"
 
@@ -137,6 +138,11 @@ struct DiligentData {
     Diligent::RefCntAutoPtr<Diligent::IDeviceContext> pImmediateContext;
     Diligent::RefCntAutoPtr<Diligent::ISwapChain> pSwapChain;
     Diligent::IEngineFactoryOpenGL* pFactoryGL = nullptr;
+
+    static constexpr int NumFrames = 3;
+    Diligent::RefCntAutoPtr<Diligent::IFence> pFences[NumFrames];
+    Diligent::Uint64 FenceValues[NumFrames] = {0};
+    Diligent::Uint64 CurrentFenceValue = 0;
 };
 
 Renderer::Renderer()
@@ -323,6 +329,14 @@ void Renderer::init(GLFWwindow* window, const int windowWidth, const int windowH
     glBindBuffer(GL_ATOMIC_COUNTER_BUFFER, m_depthPrepassAtomicCounter);
     glBufferData(GL_ATOMIC_COUNTER_BUFFER, sizeof(unsigned int), nullptr, GL_DYNAMIC_DRAW);
 
+    Diligent::FenceDesc FenceCI;
+    FenceCI.Type = Diligent::FENCE_TYPE_CPU_WAIT_ONLY;
+    for (int i = 0; i < DiligentData::NumFrames; ++i) {
+        m_diligent->pDevice->CreateFence(FenceCI, &m_diligent->pFences[i]);
+        m_diligent->FenceValues[i] = 0;
+    }
+    m_diligent->CurrentFenceValue = 0;
+
     m_initialized = true;
 }
 
@@ -372,9 +386,7 @@ void Renderer::cleanup() {
         return;
 
     for (int i = 0; i < NUM_FRAMES_IN_FLIGHT; ++i) {
-        if (m_fences[i]) {
-            glDeleteSync(m_fences[i]);
-        }
+        m_diligent->pFences[i].Release();
     }
 
     glBindBuffer(GL_SHADER_STORAGE_BUFFER, m_depthPrepassDrawCommandBuffer);
@@ -590,28 +602,17 @@ void Renderer::drawScene(SceneDatabase& sceneDatabase, const Camera& camera) {
 
     const unsigned int numObjects = sceneDatabase.renderables.size();
     if (numObjects > m_maxObjects) {
-        for (int i = 0; i < NUM_FRAMES_IN_FLIGHT; ++i) {
-            if (m_fences[i]) {
-                glClientWaitSync(m_fences[i], GL_SYNC_FLUSH_COMMANDS_BIT, 1000000000);
-                glDeleteSync(m_fences[i]);
-                m_fences[i] = nullptr;
-            }
-        }
+        m_diligent->pImmediateContext->WaitForIdle();
+
         reallocateBuffers(numObjects * 1.5);
     }
 
     m_currentFrame = (m_currentFrame + 1) % NUM_FRAMES_IN_FLIGHT;
     const int previousFrame = (m_currentFrame + NUM_FRAMES_IN_FLIGHT - 1) % NUM_FRAMES_IN_FLIGHT;
 
-    if (m_fences[previousFrame]) {
-        GLenum waitResult = glClientWaitSync(m_fences[previousFrame], GL_SYNC_FLUSH_COMMANDS_BIT, 1000000000);
-        if (waitResult == GL_TIMEOUT_EXPIRED) {
-            Lit::Log::Warn("Timeout expired while waiting for fence of previous frame.");
-        } else if (waitResult == GL_WAIT_FAILED) {
-            Lit::Log::Error("Failed to wait for fence of previous frame.");
-        }
-        glDeleteSync(m_fences[previousFrame]);
-        m_fences[previousFrame] = nullptr;
+    {
+        Diligent::Uint64 FenceValue = m_diligent->FenceValues[previousFrame];
+        m_diligent->pFences[previousFrame]->Wait(FenceValue);
     }
 
     if (!fullProfiling) {
@@ -1204,7 +1205,12 @@ void Renderer::drawScene(SceneDatabase& sceneDatabase, const Camera& camera) {
         glQueryCounter(m_queryEnd[m_currentFrame], GL_TIMESTAMP);
     }
 
-    m_fences[m_currentFrame] = glFenceSync(GL_SYNC_GPU_COMMANDS_COMPLETE, 0);
+    while (glGetError() != GL_NO_ERROR) {
+    }
+
+    m_diligent->CurrentFenceValue++;
+    m_diligent->pImmediateContext->EnqueueSignal(m_diligent->pFences[m_currentFrame], m_diligent->CurrentFenceValue);
+    m_diligent->FenceValues[m_currentFrame] = m_diligent->CurrentFenceValue;
 
     if (fullProfiling) {
         Lit::Log::Debug("--- Full Profiling ---");

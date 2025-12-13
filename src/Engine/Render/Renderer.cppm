@@ -5,7 +5,6 @@ module;
 #include <string>
 #include <cstdint>
 
-typedef struct __GLsync* GLsync;
 struct GLFWwindow;
 struct DiligentData;
 
@@ -131,7 +130,6 @@ export class Renderer {
     unsigned int m_queryUiEnd[NUM_FRAMES_IN_FLIGHT] = {0};
 
     unsigned int m_currentFrame = 0;
-    GLsync m_fences[NUM_FRAMES_IN_FLIGHT] = {nullptr};
 
     size_t m_objectBufferSize = 0;
     size_t m_hierarchyBufferSize = 0;
