@@ -145,6 +145,7 @@ struct DiligentData {
     Diligent::Uint64 FenceValues[NumFrames] = {0};
     Diligent::Uint64 CurrentFenceValue = 0;
     Diligent::RefCntAutoPtr<Diligent::IBuffer> pObjectBuffer;
+    Diligent::RefCntAutoPtr<Diligent::IBuffer> pHierarchyBuffer;
 };
 
 Renderer::Renderer()
@@ -362,18 +363,29 @@ void Renderer::reallocateBuffers(size_t numObjects) {
     };
 
     m_objectBufferSize = m_maxObjects * sizeof(TransformComponent) * NUM_FRAMES_IN_FLIGHT;
-    Diligent::BufferDesc BuffDesc;
-    BuffDesc.Name = "Object Buffer";
-    BuffDesc.Usage = Diligent::USAGE_DEFAULT;
-    BuffDesc.BindFlags = Diligent::BIND_SHADER_RESOURCE | Diligent::BIND_UNORDERED_ACCESS;
-    BuffDesc.Mode = Diligent::BUFFER_MODE_STRUCTURED;
-    BuffDesc.ElementByteStride = sizeof(TransformComponent);
-    BuffDesc.Size = m_objectBufferSize;
+    Diligent::BufferDesc ObjBuffDesc;
+    ObjBuffDesc.Name = "Object Buffer";
+    ObjBuffDesc.Usage = Diligent::USAGE_DEFAULT;
+    ObjBuffDesc.BindFlags = Diligent::BIND_SHADER_RESOURCE | Diligent::BIND_UNORDERED_ACCESS;
+    ObjBuffDesc.Mode = Diligent::BUFFER_MODE_STRUCTURED;
+    ObjBuffDesc.ElementByteStride = sizeof(TransformComponent);
+    ObjBuffDesc.Size = m_objectBufferSize;
     m_diligent->pObjectBuffer.Release();
-    m_diligent->pDevice->CreateBuffer(BuffDesc, nullptr, &m_diligent->pObjectBuffer);
+    m_diligent->pDevice->CreateBuffer(ObjBuffDesc, nullptr, &m_diligent->pObjectBuffer);
     m_objectBuffer = (GLuint)(size_t)m_diligent->pObjectBuffer->GetNativeHandle();
 
-    reallocate(m_hierarchyBuffer, m_hierarchyBufferSize, m_hierarchyBufferPtr, sizeof(HierarchyComponent));
+    m_hierarchyBufferSize = m_maxObjects * sizeof(HierarchyComponent) * NUM_FRAMES_IN_FLIGHT;
+    Diligent::BufferDesc HierarchyBuffDesc;
+    HierarchyBuffDesc.Name = "Hierarchy Buffer";
+    HierarchyBuffDesc.Usage = Diligent::USAGE_DEFAULT;
+    HierarchyBuffDesc.BindFlags = Diligent::BIND_SHADER_RESOURCE | Diligent::BIND_UNORDERED_ACCESS;
+    HierarchyBuffDesc.Mode = Diligent::BUFFER_MODE_STRUCTURED;
+    HierarchyBuffDesc.ElementByteStride = sizeof(HierarchyComponent);
+    HierarchyBuffDesc.Size = m_hierarchyBufferSize;
+    m_diligent->pHierarchyBuffer.Release();
+    m_diligent->pDevice->CreateBuffer(HierarchyBuffDesc, nullptr, &m_diligent->pHierarchyBuffer);
+    m_hierarchyBuffer = (GLuint)(size_t)m_diligent->pHierarchyBuffer->GetNativeHandle();
+
     reallocate(m_renderableBuffer, m_renderableBufferSize, m_renderableBufferPtr, sizeof(RenderableComponent));
     reallocate(m_sortedHierarchyBuffer, m_sortedHierarchyBufferSize, m_sortedHierarchyBufferPtr, sizeof(unsigned int));
     reallocate(m_visibleObjectBuffer, m_visibleObjectBufferSize, m_visibleObjectBufferPtr, sizeof(unsigned int));
@@ -417,7 +429,6 @@ void Renderer::cleanup() {
     glDeleteBuffers(1, &m_vbo);
     glDeleteBuffers(1, &m_ebo);
     glDeleteBuffers(1, &m_drawCommandBuffer);
-    glDeleteBuffers(1, &m_hierarchyBuffer);
     glDeleteBuffers(1, &m_visibleObjectAtomicCounter);
     glDeleteBuffers(1, &m_drawAtomicCounterBuffer);
     glDeleteBuffers(1, &m_meshInfoBuffer);
@@ -678,7 +689,7 @@ void Renderer::drawScene(SceneDatabase& sceneDatabase, const Camera& camera) {
             glGetQueryObjecti64v(m_queryUiStart[previousFrame], GL_QUERY_RESULT, &uiStartTime);
             glGetQueryObjecti64v(m_queryUiEnd[previousFrame], GL_QUERY_RESULT, &uiEndTime);
 
-            constexpr bool debugMode = true;
+            constexpr bool debugMode = false;
             if (debugMode) {
                 Lit::Log::Debug("GPU Frame Time: {} ms", (endTime - startTime) / 1000000.0);
                 Lit::Log::Debug("  Transform: {} ms", (transformEndTime - transformStartTime) / 1000000.0);
@@ -739,7 +750,10 @@ void Renderer::drawScene(SceneDatabase& sceneDatabase, const Camera& camera) {
     while (glGetError() != GL_NO_ERROR);
 
     if (m_hierarchyUpdateCounter > 0) {
-        updateBuffer(m_hierarchyBuffer, m_hierarchyBufferPtr, m_hierarchyBufferSize, sceneDatabase.hierarchies, sizeof(HierarchyComponent));
+        const size_t dataSize = sceneDatabase.hierarchies.size() * sizeof(HierarchyComponent);
+        const size_t frameOffsetBytes = m_currentFrame * m_maxObjects * sizeof(HierarchyComponent);
+        m_diligent->pImmediateContext->UpdateBuffer(m_diligent->pHierarchyBuffer, frameOffsetBytes, dataSize, sceneDatabase.hierarchies.data(), Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
+
         updateBuffer(m_sortedHierarchyBuffer, m_sortedHierarchyBufferPtr, m_sortedHierarchyBufferSize, sceneDatabase.sortedHierarchyList, sizeof(unsigned int));
         m_hierarchyUpdateCounter--;
     }
