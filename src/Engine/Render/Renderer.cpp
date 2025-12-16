@@ -6,6 +6,7 @@ module;
 #include "DiligentCore/Graphics/GraphicsEngine/interface/Fence.h"
 #include "DiligentCore/Graphics/GraphicsEngineOpenGL/interface/EngineFactoryOpenGL.h"
 #include "DiligentCore/Common/interface/RefCntAutoPtr.hpp"
+#include "DiligentCore/Graphics/GraphicsEngine/interface/Buffer.h"
 
 #include <glad/glad.h>
 #include <GLFW/glfw3.h>
@@ -143,6 +144,7 @@ struct DiligentData {
     Diligent::RefCntAutoPtr<Diligent::IFence> pFences[NumFrames];
     Diligent::Uint64 FenceValues[NumFrames] = {0};
     Diligent::Uint64 CurrentFenceValue = 0;
+    Diligent::RefCntAutoPtr<Diligent::IBuffer> pObjectBuffer;
 };
 
 Renderer::Renderer()
@@ -150,7 +152,7 @@ Renderer::Renderer()
       m_opaqueSortShader(nullptr), m_transparentCommandGenShader(nullptr), m_commandGenShader(nullptr), m_largeObjectCullShader(nullptr),
       m_largeObjectSortShader(nullptr), m_largeObjectCommandGenShader(nullptr), m_depthPrepassShader(nullptr),
       m_debugDepthShader(nullptr), m_hizMipmapShader(nullptr), m_initialized(false), m_vboSize(0), m_eboSize(0), m_numDrawingShaders(0),
-      fullProfiling(true) {}
+      fullProfiling(false) {}
 
 void Renderer::init(GLFWwindow* window, const int windowWidth, const int windowHeight) {
     if (m_initialized)
@@ -359,7 +361,18 @@ void Renderer::reallocateBuffers(size_t numObjects) {
         mappedPtr = glMapBufferRange(GL_SHADER_STORAGE_BUFFER, 0, currentSize, flags | GL_MAP_FLUSH_EXPLICIT_BIT);
     };
 
-    reallocate(m_objectBuffer, m_objectBufferSize, m_objectBufferPtr, sizeof(TransformComponent));
+    m_objectBufferSize = m_maxObjects * sizeof(TransformComponent) * NUM_FRAMES_IN_FLIGHT;
+    Diligent::BufferDesc BuffDesc;
+    BuffDesc.Name = "Object Buffer";
+    BuffDesc.Usage = Diligent::USAGE_DEFAULT;
+    BuffDesc.BindFlags = Diligent::BIND_SHADER_RESOURCE | Diligent::BIND_UNORDERED_ACCESS;
+    BuffDesc.Mode = Diligent::BUFFER_MODE_STRUCTURED;
+    BuffDesc.ElementByteStride = sizeof(TransformComponent);
+    BuffDesc.Size = m_objectBufferSize;
+    m_diligent->pObjectBuffer.Release();
+    m_diligent->pDevice->CreateBuffer(BuffDesc, nullptr, &m_diligent->pObjectBuffer);
+    m_objectBuffer = (GLuint)(size_t)m_diligent->pObjectBuffer->GetNativeHandle();
+
     reallocate(m_hierarchyBuffer, m_hierarchyBufferSize, m_hierarchyBufferPtr, sizeof(HierarchyComponent));
     reallocate(m_renderableBuffer, m_renderableBufferSize, m_renderableBufferPtr, sizeof(RenderableComponent));
     reallocate(m_sortedHierarchyBuffer, m_sortedHierarchyBufferSize, m_sortedHierarchyBufferPtr, sizeof(unsigned int));
@@ -404,7 +417,6 @@ void Renderer::cleanup() {
     glDeleteBuffers(1, &m_vbo);
     glDeleteBuffers(1, &m_ebo);
     glDeleteBuffers(1, &m_drawCommandBuffer);
-    glDeleteBuffers(1, &m_objectBuffer);
     glDeleteBuffers(1, &m_hierarchyBuffer);
     glDeleteBuffers(1, &m_visibleObjectAtomicCounter);
     glDeleteBuffers(1, &m_drawAtomicCounterBuffer);
@@ -721,6 +733,11 @@ void Renderer::drawScene(SceneDatabase& sceneDatabase, const Camera& camera) {
         m_processedDataVersion = sceneDatabase.m_dataVersion;
     }
 
+    glBindVertexArray(0);
+    glBindBuffer(GL_SHADER_STORAGE_BUFFER, 0);
+    glBindBuffer(GL_ARRAY_BUFFER, 0);
+    while (glGetError() != GL_NO_ERROR);
+
     if (m_hierarchyUpdateCounter > 0) {
         updateBuffer(m_hierarchyBuffer, m_hierarchyBufferPtr, m_hierarchyBufferSize, sceneDatabase.hierarchies, sizeof(HierarchyComponent));
         updateBuffer(m_sortedHierarchyBuffer, m_sortedHierarchyBufferPtr, m_sortedHierarchyBufferSize, sceneDatabase.sortedHierarchyList, sizeof(unsigned int));
@@ -728,7 +745,10 @@ void Renderer::drawScene(SceneDatabase& sceneDatabase, const Camera& camera) {
     }
 
     if (m_dataUpdateCounter > 0) {
-        updateBuffer(m_objectBuffer, m_objectBufferPtr, m_objectBufferSize, sceneDatabase.transforms, sizeof(TransformComponent));
+        const size_t dataSize = sceneDatabase.transforms.size() * sizeof(TransformComponent);
+        const size_t frameOffsetBytes = m_currentFrame * m_maxObjects * sizeof(TransformComponent);
+        m_diligent->pImmediateContext->UpdateBuffer(m_diligent->pObjectBuffer, frameOffsetBytes, dataSize, sceneDatabase.transforms.data(), Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
+
         updateBuffer(m_renderableBuffer, m_renderableBufferPtr, m_renderableBufferSize, sceneDatabase.renderables, sizeof(RenderableComponent));
         m_dataUpdateCounter--;
     }
