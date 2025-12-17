@@ -148,6 +148,7 @@ struct DiligentData {
     Diligent::RefCntAutoPtr<Diligent::IBuffer> pHierarchyBuffer;
     Diligent::RefCntAutoPtr<Diligent::IBuffer> pRenderableBuffer;
     Diligent::RefCntAutoPtr<Diligent::IBuffer> pSortedHierarchyBuffer;
+    Diligent::RefCntAutoPtr<Diligent::IBuffer> pVisibleObjectBuffer;
 };
 
 Renderer::Renderer()
@@ -399,7 +400,7 @@ void Renderer::reallocateBuffers(size_t numObjects) {
     m_diligent->pRenderableBuffer.Release();
     m_diligent->pDevice->CreateBuffer(RenderableBuffDesc, nullptr, &m_diligent->pRenderableBuffer);
     m_renderableBuffer = (GLuint)(size_t)m_diligent->pRenderableBuffer->GetNativeHandle();
-    
+
     m_sortedHierarchyBufferSize = m_maxObjects * sizeof(unsigned int) * NUM_FRAMES_IN_FLIGHT;
     Diligent::BufferDesc SortedHierarchyBuffDesc;
     SortedHierarchyBuffDesc.Name = "Sorted Hierarchy Buffer";
@@ -412,7 +413,18 @@ void Renderer::reallocateBuffers(size_t numObjects) {
     m_diligent->pDevice->CreateBuffer(SortedHierarchyBuffDesc, nullptr, &m_diligent->pSortedHierarchyBuffer);
     m_sortedHierarchyBuffer = (GLuint)(size_t)m_diligent->pSortedHierarchyBuffer->GetNativeHandle();
 
-    reallocate(m_visibleObjectBuffer, m_visibleObjectBufferSize, m_visibleObjectBufferPtr, sizeof(unsigned int));
+    m_visibleObjectBufferSize = m_maxObjects * sizeof(unsigned int) * NUM_FRAMES_IN_FLIGHT;
+    Diligent::BufferDesc VisibleObjectsBuffDesc;
+    VisibleObjectsBuffDesc.Name = "Visible Objects Buffer";
+    VisibleObjectsBuffDesc.Usage = Diligent::USAGE_DEFAULT;
+    VisibleObjectsBuffDesc.BindFlags = Diligent::BIND_SHADER_RESOURCE | Diligent::BIND_UNORDERED_ACCESS;
+    VisibleObjectsBuffDesc.Mode = Diligent::BUFFER_MODE_STRUCTURED;
+    VisibleObjectsBuffDesc.ElementByteStride = sizeof(unsigned int);
+    VisibleObjectsBuffDesc.Size = m_visibleObjectBufferSize;
+    m_diligent->pVisibleObjectBuffer.Release();
+    m_diligent->pDevice->CreateBuffer(VisibleObjectsBuffDesc, nullptr, &m_diligent->pVisibleObjectBuffer);
+    m_visibleObjectBuffer = (GLuint)(size_t)m_diligent->pVisibleObjectBuffer->GetNativeHandle();
+
     reallocate(m_drawCommandBuffer, m_drawCommandBufferSize, m_drawCommandBufferPtr, sizeof(DrawElementsIndirectCommand) * m_numDrawingShaders);
     reallocate(m_visibleTransparentObjectIdsBuffer, m_visibleTransparentObjectIdsBufferSize, m_visibleTransparentObjectIdsBufferPtr, sizeof(VisibleTransparentObject));
     reallocate(m_transparentDrawCommandBuffer, m_transparentDrawCommandBufferSize, m_transparentDrawCommandBufferPtr, sizeof(DrawElementsIndirectCommand));
@@ -456,7 +468,6 @@ void Renderer::cleanup() {
     glDeleteBuffers(1, &m_visibleObjectAtomicCounter);
     glDeleteBuffers(1, &m_drawAtomicCounterBuffer);
     glDeleteBuffers(1, &m_meshInfoBuffer);
-    glDeleteBuffers(1, &m_visibleObjectBuffer);
     glDeleteBuffers(1, &m_visibleTransparentObjectIdsBuffer);
     glDeleteBuffers(1, &m_transparentAtomicCounter);
     glDeleteBuffers(1, &m_transparentDrawCommandBuffer);
