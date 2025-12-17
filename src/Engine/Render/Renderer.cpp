@@ -150,6 +150,7 @@ struct DiligentData {
     Diligent::RefCntAutoPtr<Diligent::IBuffer> pSortedHierarchyBuffer;
     Diligent::RefCntAutoPtr<Diligent::IBuffer> pVisibleObjectBuffer;
     Diligent::RefCntAutoPtr<Diligent::IBuffer> pDrawCommandBuffer;
+    Diligent::RefCntAutoPtr<Diligent::IBuffer> pVisibleTransparentObjectIdsBuffer;
 };
 
 Renderer::Renderer()
@@ -438,7 +439,18 @@ void Renderer::reallocateBuffers(size_t numObjects) {
     m_diligent->pDevice->CreateBuffer(DrawCommandsBuffDesc, nullptr, &m_diligent->pDrawCommandBuffer);
     m_drawCommandBuffer = (GLuint)(size_t)m_diligent->pDrawCommandBuffer->GetNativeHandle();
 
-    reallocate(m_visibleTransparentObjectIdsBuffer, m_visibleTransparentObjectIdsBufferSize, m_visibleTransparentObjectIdsBufferPtr, sizeof(VisibleTransparentObject));
+    m_visibleTransparentObjectIdsBufferSize = m_maxObjects * sizeof(VisibleTransparentObject) * NUM_FRAMES_IN_FLIGHT;
+    Diligent::BufferDesc TransparentIdsBuffDesc;
+    TransparentIdsBuffDesc.Name = "Visible Transparent Object IDs Buffer";
+    TransparentIdsBuffDesc.Usage = Diligent::USAGE_DEFAULT;
+    TransparentIdsBuffDesc.BindFlags = Diligent::BIND_SHADER_RESOURCE | Diligent::BIND_UNORDERED_ACCESS;
+    TransparentIdsBuffDesc.Mode = Diligent::BUFFER_MODE_STRUCTURED;
+    TransparentIdsBuffDesc.ElementByteStride = sizeof(VisibleTransparentObject);
+    TransparentIdsBuffDesc.Size = m_visibleTransparentObjectIdsBufferSize;
+    m_diligent->pVisibleTransparentObjectIdsBuffer.Release();
+    m_diligent->pDevice->CreateBuffer(TransparentIdsBuffDesc, nullptr, &m_diligent->pVisibleTransparentObjectIdsBuffer);
+    m_visibleTransparentObjectIdsBuffer = (GLuint)(size_t)m_diligent->pVisibleTransparentObjectIdsBuffer->GetNativeHandle();
+
     reallocate(m_transparentDrawCommandBuffer, m_transparentDrawCommandBufferSize, m_transparentDrawCommandBufferPtr, sizeof(DrawElementsIndirectCommand));
     reallocate(m_depthPrepassDrawCommandBuffer, m_depthPrepassDrawCommandBufferSize, m_depthPrepassDrawCommandBufferPtr, sizeof(DrawElementsIndirectCommand));
     reallocate(m_visibleLargeObjectBuffer, m_visibleLargeObjectBufferSize, m_visibleLargeObjectBufferPtr, sizeof(unsigned int));
@@ -479,7 +491,6 @@ void Renderer::cleanup() {
     glDeleteBuffers(1, &m_visibleObjectAtomicCounter);
     glDeleteBuffers(1, &m_drawAtomicCounterBuffer);
     glDeleteBuffers(1, &m_meshInfoBuffer);
-    glDeleteBuffers(1, &m_visibleTransparentObjectIdsBuffer);
     glDeleteBuffers(1, &m_transparentAtomicCounter);
     glDeleteBuffers(1, &m_transparentDrawCommandBuffer);
     glDeleteBuffers(1, &m_depthPrepassDrawCommandBuffer);
