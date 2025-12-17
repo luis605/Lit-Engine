@@ -161,6 +161,8 @@ struct DiligentData {
     Diligent::RefCntAutoPtr<Diligent::IBuffer> pVisibleLargeObjectAtomicCounter;
     Diligent::RefCntAutoPtr<Diligent::IBuffer> pTransparentAtomicCounter;
     Diligent::RefCntAutoPtr<Diligent::IBuffer> pDepthPrepassAtomicCounter;
+    Diligent::RefCntAutoPtr<Diligent::IBuffer> pVBO;
+    Diligent::RefCntAutoPtr<Diligent::IBuffer> pEBO;
 };
 
 Renderer::Renderer()
@@ -292,13 +294,26 @@ void Renderer::init(GLFWwindow* window, const int windowWidth, const int windowH
     m_vboSize = 1024 * 1024 * 10;
     m_eboSize = 1024 * 1024 * 4;
 
-    glGenBuffers(1, &m_vbo);
-    glBindBuffer(GL_ARRAY_BUFFER, m_vbo);
-    glBufferData(GL_ARRAY_BUFFER, m_vboSize, nullptr, GL_STATIC_DRAW);
+    m_vboSize = 1024 * 1024 * 10;
+    m_eboSize = 1024 * 1024 * 4;
 
-    glGenBuffers(1, &m_ebo);
-    glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, m_ebo);
-    glBufferData(GL_ELEMENT_ARRAY_BUFFER, m_eboSize, nullptr, GL_STATIC_DRAW);
+    Diligent::BufferDesc VBODesc;
+    VBODesc.Name = "VBO";
+    VBODesc.Usage = Diligent::USAGE_DEFAULT;
+    VBODesc.BindFlags = Diligent::BIND_VERTEX_BUFFER;
+    VBODesc.Size = m_vboSize;
+    m_diligent->pVBO.Release();
+    m_diligent->pDevice->CreateBuffer(VBODesc, nullptr, &m_diligent->pVBO);
+    m_vbo = (GLuint)(size_t)m_diligent->pVBO->GetNativeHandle();
+
+    Diligent::BufferDesc EBODesc;
+    EBODesc.Name = "EBO";
+    EBODesc.Usage = Diligent::USAGE_DEFAULT;
+    EBODesc.BindFlags = Diligent::BIND_INDEX_BUFFER;
+    EBODesc.Size = m_eboSize;
+    m_diligent->pEBO.Release();
+    m_diligent->pDevice->CreateBuffer(EBODesc, nullptr, &m_diligent->pEBO);
+    m_ebo = (GLuint)(size_t)m_diligent->pEBO->GetNativeHandle();
 
     glGenVertexArrays(1, &m_vao);
     glBindVertexArray(m_vao);
@@ -581,7 +596,6 @@ void Renderer::cleanup() {
     glBindBuffer(GL_UNIFORM_BUFFER, 0);
 
     glDeleteVertexArrays(1, &m_vao);
-    glDeleteBuffers(1, &m_vbo);
     glDeleteQueries(NUM_FRAMES_IN_FLIGHT, m_queryStart);
     glDeleteQueries(NUM_FRAMES_IN_FLIGHT, m_queryEnd);
     glDeleteQueries(NUM_FRAMES_IN_FLIGHT, m_queryTransformStart);
@@ -660,27 +674,36 @@ void Renderer::uploadMesh(const Mesh& mesh) {
         m_vboSize = std::max(m_vboSize * 2, s_totalVertexSize + vertexDataSize);
         m_eboSize = std::max(m_eboSize * 2, s_totalIndexSize + indexDataSize);
 
-        GLuint new_vbo, new_ebo;
-        glGenBuffers(1, &new_vbo);
-        glGenBuffers(1, &new_ebo);
+        Diligent::RefCntAutoPtr<Diligent::IBuffer> pNewVBO;
+        Diligent::BufferDesc VBODesc;
+        VBODesc.Name = "VBO";
+        VBODesc.Usage = Diligent::USAGE_DEFAULT;
+        VBODesc.BindFlags = Diligent::BIND_VERTEX_BUFFER;
+        VBODesc.Size = m_vboSize;
+        m_diligent->pDevice->CreateBuffer(VBODesc, nullptr, &pNewVBO);
+        GLuint new_vbo = (GLuint)(size_t)pNewVBO->GetNativeHandle();
 
-        glBindBuffer(GL_ARRAY_BUFFER, new_vbo);
-        glBufferData(GL_ARRAY_BUFFER, m_vboSize, nullptr, GL_STATIC_DRAW);
-
-        glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, new_ebo);
-        glBufferData(GL_ELEMENT_ARRAY_BUFFER, m_eboSize, nullptr, GL_STATIC_DRAW);
+        Diligent::RefCntAutoPtr<Diligent::IBuffer> pNewEBO;
+        Diligent::BufferDesc EBODesc;
+        EBODesc.Name = "EBO";
+        EBODesc.Usage = Diligent::USAGE_DEFAULT;
+        EBODesc.BindFlags = Diligent::BIND_INDEX_BUFFER;
+        EBODesc.Size = m_eboSize;
+        m_diligent->pDevice->CreateBuffer(EBODesc, nullptr, &pNewEBO);
+        GLuint new_ebo = (GLuint)(size_t)pNewEBO->GetNativeHandle();
 
         glBindBuffer(GL_COPY_READ_BUFFER, m_vbo);
         glBindBuffer(GL_COPY_WRITE_BUFFER, new_vbo);
-        glCopyBufferSubData(GL_COPY_READ_BUFFER, GL_COPY_WRITE_BUFFER, 0, 0, s_totalVertexSize);
+        if (s_totalVertexSize > 0)
+            glCopyBufferSubData(GL_COPY_READ_BUFFER, GL_COPY_WRITE_BUFFER, 0, 0, s_totalVertexSize);
 
         glBindBuffer(GL_COPY_READ_BUFFER, m_ebo);
         glBindBuffer(GL_COPY_WRITE_BUFFER, new_ebo);
-        glCopyBufferSubData(GL_COPY_READ_BUFFER, GL_COPY_WRITE_BUFFER, 0, 0, s_totalIndexSize);
+        if (s_totalIndexSize > 0)
+            glCopyBufferSubData(GL_COPY_READ_BUFFER, GL_COPY_WRITE_BUFFER, 0, 0, s_totalIndexSize);
 
-        glDeleteBuffers(1, &m_vbo);
-        glDeleteBuffers(1, &m_ebo);
-
+        m_diligent->pVBO = pNewVBO;
+        m_diligent->pEBO = pNewEBO;
         m_vbo = new_vbo;
         m_ebo = new_ebo;
 
@@ -694,11 +717,8 @@ void Renderer::uploadMesh(const Mesh& mesh) {
         glBindVertexArray(0);
     }
 
-    glBindBuffer(GL_ARRAY_BUFFER, m_vbo);
-    glBufferSubData(GL_ARRAY_BUFFER, s_totalVertexSize, vertexDataSize, mesh.vertices.data());
-
-    glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, m_ebo);
-    glBufferSubData(GL_ELEMENT_ARRAY_BUFFER, s_totalIndexSize, indexDataSize, mesh.indices.data());
+    m_diligent->pImmediateContext->UpdateBuffer(m_diligent->pVBO, s_totalVertexSize, vertexDataSize, mesh.vertices.data(), Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
+    m_diligent->pImmediateContext->UpdateBuffer(m_diligent->pEBO, s_totalIndexSize, indexDataSize, mesh.indices.data(), Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
 
     glm::vec3 center(0.0f);
     const size_t numVertices = mesh.vertices.size() / 6;
