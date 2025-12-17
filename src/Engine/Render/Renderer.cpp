@@ -156,6 +156,11 @@ struct DiligentData {
     Diligent::RefCntAutoPtr<Diligent::IBuffer> pDepthPrepassDrawCommandBuffer;
     Diligent::RefCntAutoPtr<Diligent::IBuffer> pSceneUBO;
     Diligent::RefCntAutoPtr<Diligent::IBuffer> pMeshInfoBuffer;
+    Diligent::RefCntAutoPtr<Diligent::IBuffer> pVisibleObjectAtomicCounter;
+    Diligent::RefCntAutoPtr<Diligent::IBuffer> pDrawAtomicCounterBuffer;
+    Diligent::RefCntAutoPtr<Diligent::IBuffer> pVisibleLargeObjectAtomicCounter;
+    Diligent::RefCntAutoPtr<Diligent::IBuffer> pTransparentAtomicCounter;
+    Diligent::RefCntAutoPtr<Diligent::IBuffer> pDepthPrepassAtomicCounter;
 };
 
 Renderer::Renderer()
@@ -208,13 +213,38 @@ void Renderer::init(GLFWwindow* window, const int windowWidth, const int windowH
     m_maxObjects = 1000000;
     reallocateBuffers(m_maxObjects);
 
-    glGenBuffers(1, &m_visibleObjectAtomicCounter);
+    const unsigned int zero = 0;
+    Diligent::BufferDesc AtomicCounterDesc;
+    AtomicCounterDesc.Name = "Visible Object Atomic Counter";
+    AtomicCounterDesc.Usage = Diligent::USAGE_DEFAULT;
+    AtomicCounterDesc.BindFlags = Diligent::BIND_SHADER_RESOURCE | Diligent::BIND_UNORDERED_ACCESS;
+    AtomicCounterDesc.Mode = Diligent::BUFFER_MODE_STRUCTURED;
+    AtomicCounterDesc.ElementByteStride = sizeof(unsigned int);
+    AtomicCounterDesc.Size = sizeof(unsigned int);
+    Diligent::BufferData AtomicCounterData;
+    AtomicCounterData.pData = &zero;
+    AtomicCounterData.DataSize = sizeof(unsigned int);
+    m_diligent->pVisibleObjectAtomicCounter.Release();
+    m_diligent->pDevice->CreateBuffer(AtomicCounterDesc, &AtomicCounterData, &m_diligent->pVisibleObjectAtomicCounter);
+    m_visibleObjectAtomicCounter = (GLuint)(size_t)m_diligent->pVisibleObjectAtomicCounter->GetNativeHandle();
     glBindBuffer(GL_ATOMIC_COUNTER_BUFFER, m_visibleObjectAtomicCounter);
-    glBufferData(GL_ATOMIC_COUNTER_BUFFER, sizeof(unsigned int), nullptr, GL_DYNAMIC_DRAW);
 
-    glGenBuffers(1, &m_drawAtomicCounterBuffer);
+    Diligent::BufferDesc DrawAtomicCounterDesc;
+    DrawAtomicCounterDesc.Name = "Draw Atomic Counter Buffer";
+    DrawAtomicCounterDesc.Usage = Diligent::USAGE_DEFAULT;
+    DrawAtomicCounterDesc.BindFlags = Diligent::BIND_SHADER_RESOURCE | Diligent::BIND_UNORDERED_ACCESS;
+    DrawAtomicCounterDesc.Mode = Diligent::BUFFER_MODE_STRUCTURED;
+    DrawAtomicCounterDesc.ElementByteStride = sizeof(unsigned int);
+    DrawAtomicCounterDesc.Size = sizeof(unsigned int) * m_shaderManager.getShaderCount();
+
+    std::vector<unsigned int> drawZeros(m_shaderManager.getShaderCount(), 0);
+    Diligent::BufferData DrawAtomicCounterData;
+    DrawAtomicCounterData.pData = drawZeros.data();
+    DrawAtomicCounterData.DataSize = drawZeros.size() * sizeof(unsigned int);
+    m_diligent->pDrawAtomicCounterBuffer.Release();
+    m_diligent->pDevice->CreateBuffer(DrawAtomicCounterDesc, &DrawAtomicCounterData, &m_diligent->pDrawAtomicCounterBuffer);
+    m_drawAtomicCounterBuffer = (GLuint)(size_t)m_diligent->pDrawAtomicCounterBuffer->GetNativeHandle();
     glBindBuffer(GL_ATOMIC_COUNTER_BUFFER, m_drawAtomicCounterBuffer);
-    glBufferData(GL_ATOMIC_COUNTER_BUFFER, sizeof(unsigned int) * m_shaderManager.getShaderCount(), nullptr, GL_DYNAMIC_DRAW);
 
     glGenQueries(NUM_FRAMES_IN_FLIGHT, m_queryStart);
     glGenQueries(NUM_FRAMES_IN_FLIGHT, m_queryEnd);
@@ -247,9 +277,17 @@ void Renderer::init(GLFWwindow* window, const int windowWidth, const int windowH
     glGenQueries(NUM_FRAMES_IN_FLIGHT, m_queryUiStart);
     glGenQueries(NUM_FRAMES_IN_FLIGHT, m_queryUiEnd);
 
-    glGenBuffers(1, &m_visibleLargeObjectAtomicCounter);
+    Diligent::BufferDesc LargeObjectAtomicCounterDesc;
+    LargeObjectAtomicCounterDesc.Name = "Visible Large Object Atomic Counter";
+    LargeObjectAtomicCounterDesc.Usage = Diligent::USAGE_DEFAULT;
+    LargeObjectAtomicCounterDesc.BindFlags = Diligent::BIND_SHADER_RESOURCE | Diligent::BIND_UNORDERED_ACCESS;
+    LargeObjectAtomicCounterDesc.Mode = Diligent::BUFFER_MODE_STRUCTURED;
+    LargeObjectAtomicCounterDesc.ElementByteStride = sizeof(unsigned int);
+    LargeObjectAtomicCounterDesc.Size = sizeof(unsigned int);
+    m_diligent->pVisibleLargeObjectAtomicCounter.Release();
+    m_diligent->pDevice->CreateBuffer(LargeObjectAtomicCounterDesc, &AtomicCounterData, &m_diligent->pVisibleLargeObjectAtomicCounter);
+    m_visibleLargeObjectAtomicCounter = (GLuint)(size_t)m_diligent->pVisibleLargeObjectAtomicCounter->GetNativeHandle();
     glBindBuffer(GL_ATOMIC_COUNTER_BUFFER, m_visibleLargeObjectAtomicCounter);
-    glBufferData(GL_ATOMIC_COUNTER_BUFFER, sizeof(unsigned int), nullptr, GL_DYNAMIC_DRAW);
 
     m_vboSize = 1024 * 1024 * 10;
     m_eboSize = 1024 * 1024 * 4;
@@ -272,9 +310,17 @@ void Renderer::init(GLFWwindow* window, const int windowWidth, const int windowH
     glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, 6 * sizeof(float), (void*)(3 * sizeof(float)));
     glBindVertexArray(0);
 
-    glGenBuffers(1, &m_transparentAtomicCounter);
+    Diligent::BufferDesc TransparentAtomicCounterDesc;
+    TransparentAtomicCounterDesc.Name = "Transparent Atomic Counter";
+    TransparentAtomicCounterDesc.Usage = Diligent::USAGE_DEFAULT;
+    TransparentAtomicCounterDesc.BindFlags = Diligent::BIND_SHADER_RESOURCE | Diligent::BIND_UNORDERED_ACCESS;
+    TransparentAtomicCounterDesc.Mode = Diligent::BUFFER_MODE_STRUCTURED;
+    TransparentAtomicCounterDesc.ElementByteStride = sizeof(unsigned int);
+    TransparentAtomicCounterDesc.Size = sizeof(unsigned int);
+    m_diligent->pTransparentAtomicCounter.Release();
+    m_diligent->pDevice->CreateBuffer(TransparentAtomicCounterDesc, &AtomicCounterData, &m_diligent->pTransparentAtomicCounter);
+    m_transparentAtomicCounter = (GLuint)(size_t)m_diligent->pTransparentAtomicCounter->GetNativeHandle();
     glBindBuffer(GL_ATOMIC_COUNTER_BUFFER, m_transparentAtomicCounter);
-    glBufferData(GL_ATOMIC_COUNTER_BUFFER, sizeof(unsigned int), nullptr, GL_DYNAMIC_DRAW);
 
     m_maxMipLevel = static_cast<int>(std::floor(std::log2(std::max(windowWidth, windowHeight))));
     glGenTextures(NUM_FRAMES_IN_FLIGHT, m_hizTexture);
@@ -336,9 +382,17 @@ void Renderer::init(GLFWwindow* window, const int windowWidth, const int windowH
     glEnableVertexAttribArray(1);
     glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE, 5 * sizeof(float), (void*)(3 * sizeof(float)));
 
-    glGenBuffers(1, &m_depthPrepassAtomicCounter);
+    Diligent::BufferDesc DepthPrepassAtomicCounterDesc;
+    DepthPrepassAtomicCounterDesc.Name = "Depth Prepass Atomic Counter";
+    DepthPrepassAtomicCounterDesc.Usage = Diligent::USAGE_DEFAULT;
+    DepthPrepassAtomicCounterDesc.BindFlags = Diligent::BIND_SHADER_RESOURCE | Diligent::BIND_UNORDERED_ACCESS;
+    DepthPrepassAtomicCounterDesc.Mode = Diligent::BUFFER_MODE_STRUCTURED;
+    DepthPrepassAtomicCounterDesc.ElementByteStride = sizeof(unsigned int);
+    DepthPrepassAtomicCounterDesc.Size = sizeof(unsigned int);
+    m_diligent->pDepthPrepassAtomicCounter.Release();
+    m_diligent->pDevice->CreateBuffer(DepthPrepassAtomicCounterDesc, &AtomicCounterData, &m_diligent->pDepthPrepassAtomicCounter);
+    m_depthPrepassAtomicCounter = (GLuint)(size_t)m_diligent->pDepthPrepassAtomicCounter->GetNativeHandle();
     glBindBuffer(GL_ATOMIC_COUNTER_BUFFER, m_depthPrepassAtomicCounter);
-    glBufferData(GL_ATOMIC_COUNTER_BUFFER, sizeof(unsigned int), nullptr, GL_DYNAMIC_DRAW);
 
     Diligent::FenceDesc FenceCI;
     FenceCI.Type = Diligent::FENCE_TYPE_CPU_WAIT_ONLY;
@@ -528,12 +582,6 @@ void Renderer::cleanup() {
 
     glDeleteVertexArrays(1, &m_vao);
     glDeleteBuffers(1, &m_vbo);
-    glDeleteBuffers(1, &m_ebo);
-    glDeleteBuffers(1, &m_visibleObjectAtomicCounter);
-    glDeleteBuffers(1, &m_drawAtomicCounterBuffer);
-    glDeleteBuffers(1, &m_transparentAtomicCounter);
-    glDeleteBuffers(1, &m_depthPrepassAtomicCounter);
-    glDeleteBuffers(1, &m_visibleLargeObjectAtomicCounter);
     glDeleteQueries(NUM_FRAMES_IN_FLIGHT, m_queryStart);
     glDeleteQueries(NUM_FRAMES_IN_FLIGHT, m_queryEnd);
     glDeleteQueries(NUM_FRAMES_IN_FLIGHT, m_queryTransformStart);
