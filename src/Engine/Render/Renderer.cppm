@@ -149,18 +149,6 @@ export class Renderer {
     int m_hierarchyUpdateCounter = 0;
     int m_dataUpdateCounter = 0;
 
-    void* m_objectBufferPtr = nullptr;
-    void* m_hierarchyBufferPtr = nullptr;
-    void* m_renderableBufferPtr = nullptr;
-    void* m_sortedHierarchyBufferPtr = nullptr;
-    void* m_drawCommandBufferPtr = nullptr;
-    void* m_visibleObjectBufferPtr = nullptr;
-    void* m_visibleTransparentObjectIdsBufferPtr = nullptr;
-    void* m_transparentDrawCommandBufferPtr = nullptr;
-    void* m_depthPrepassDrawCommandBufferPtr = nullptr;
-    void* m_visibleLargeObjectBufferPtr = nullptr;
-    void* m_sceneUBOPtr = nullptr;
-
     float m_smallObjectThreshold = 0.005f;
     float m_largeObjectThreshold = 0.1f;
     int m_windowWidth = 0;

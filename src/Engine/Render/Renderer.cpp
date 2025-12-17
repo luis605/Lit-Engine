@@ -154,6 +154,8 @@ struct DiligentData {
     Diligent::RefCntAutoPtr<Diligent::IBuffer> pTransparentDrawCommandBuffer;
     Diligent::RefCntAutoPtr<Diligent::IBuffer> pVisibleLargeObjectBuffer;
     Diligent::RefCntAutoPtr<Diligent::IBuffer> pDepthPrepassDrawCommandBuffer;
+    Diligent::RefCntAutoPtr<Diligent::IBuffer> pSceneUBO;
+    Diligent::RefCntAutoPtr<Diligent::IBuffer> pMeshInfoBuffer;
 };
 
 Renderer::Renderer()
@@ -213,8 +215,6 @@ void Renderer::init(GLFWwindow* window, const int windowWidth, const int windowH
     glGenBuffers(1, &m_drawAtomicCounterBuffer);
     glBindBuffer(GL_ATOMIC_COUNTER_BUFFER, m_drawAtomicCounterBuffer);
     glBufferData(GL_ATOMIC_COUNTER_BUFFER, sizeof(unsigned int) * m_shaderManager.getShaderCount(), nullptr, GL_DYNAMIC_DRAW);
-
-    glGenBuffers(1, &m_meshInfoBuffer);
 
     glGenQueries(NUM_FRAMES_IN_FLIGHT, m_queryStart);
     glGenQueries(NUM_FRAMES_IN_FLIGHT, m_queryEnd);
@@ -490,14 +490,28 @@ void Renderer::reallocateBuffers(size_t numObjects) {
     m_diligent->pDevice->CreateBuffer(VisibleLargeObjectsBuffDesc, nullptr, &m_diligent->pVisibleLargeObjectBuffer);
     m_visibleLargeObjectBuffer = (GLuint)(size_t)m_diligent->pVisibleLargeObjectBuffer->GetNativeHandle();
 
-    if (m_sceneUBOPtr)
-        glUnmapBuffer(GL_UNIFORM_BUFFER);
-    glDeleteBuffers(1, &m_sceneUBO);
-    glGenBuffers(1, &m_sceneUBO);
-    glBindBuffer(GL_UNIFORM_BUFFER, m_sceneUBO);
     m_sceneUBOSize = sizeof(SceneUniforms) * NUM_FRAMES_IN_FLIGHT;
-    glBufferStorage(GL_UNIFORM_BUFFER, m_sceneUBOSize, nullptr, flags);
-    m_sceneUBOPtr = glMapBufferRange(GL_UNIFORM_BUFFER, 0, m_sceneUBOSize, flags | GL_MAP_FLUSH_EXPLICIT_BIT);
+    Diligent::BufferDesc SceneUBODesc;
+    SceneUBODesc.Name = "Scene UBO";
+    SceneUBODesc.Usage = Diligent::USAGE_DEFAULT;
+    SceneUBODesc.BindFlags = Diligent::BIND_UNIFORM_BUFFER;
+    SceneUBODesc.Size = m_sceneUBOSize;
+    m_diligent->pSceneUBO.Release();
+    m_diligent->pDevice->CreateBuffer(SceneUBODesc, nullptr, &m_diligent->pSceneUBO);
+    m_sceneUBO = (GLuint)(size_t)m_diligent->pSceneUBO->GetNativeHandle();
+
+    Diligent::BufferDesc MeshInfoDesc;
+    MeshInfoDesc.Name = "Mesh Info Buffer";
+    MeshInfoDesc.Usage = Diligent::USAGE_DEFAULT;
+    MeshInfoDesc.BindFlags = Diligent::BIND_SHADER_RESOURCE;
+    MeshInfoDesc.Mode = Diligent::BUFFER_MODE_STRUCTURED;
+    MeshInfoDesc.ElementByteStride = sizeof(MeshInfo);
+    MeshInfoDesc.Size = m_maxObjects * sizeof(MeshInfo);
+    m_diligent->pMeshInfoBuffer.Release();
+    m_diligent->pDevice->CreateBuffer(MeshInfoDesc, nullptr, &m_diligent->pMeshInfoBuffer);
+    m_meshInfoBuffer = (GLuint)(size_t)m_diligent->pMeshInfoBuffer->GetNativeHandle();
+
+    glBindBuffer(GL_UNIFORM_BUFFER, m_sceneUBO);
     glBindBufferBase(GL_UNIFORM_BUFFER, 0, m_sceneUBO);
 }
 
@@ -509,9 +523,6 @@ void Renderer::cleanup() {
         m_diligent->pFences[i].Release();
     }
 
-    glBindBuffer(GL_UNIFORM_BUFFER, m_sceneUBO);
-    glUnmapBuffer(GL_UNIFORM_BUFFER);
-
     glBindBuffer(GL_SHADER_STORAGE_BUFFER, 0);
     glBindBuffer(GL_UNIFORM_BUFFER, 0);
 
@@ -520,11 +531,9 @@ void Renderer::cleanup() {
     glDeleteBuffers(1, &m_ebo);
     glDeleteBuffers(1, &m_visibleObjectAtomicCounter);
     glDeleteBuffers(1, &m_drawAtomicCounterBuffer);
-    glDeleteBuffers(1, &m_meshInfoBuffer);
     glDeleteBuffers(1, &m_transparentAtomicCounter);
     glDeleteBuffers(1, &m_depthPrepassAtomicCounter);
     glDeleteBuffers(1, &m_visibleLargeObjectAtomicCounter);
-    glDeleteBuffers(1, &m_sceneUBO);
     glDeleteQueries(NUM_FRAMES_IN_FLIGHT, m_queryStart);
     glDeleteQueries(NUM_FRAMES_IN_FLIGHT, m_queryEnd);
     glDeleteQueries(NUM_FRAMES_IN_FLIGHT, m_queryTransformStart);
@@ -829,7 +838,8 @@ void Renderer::drawScene(SceneDatabase& sceneDatabase, const Camera& camera) {
     glBindVertexArray(0);
     glBindBuffer(GL_SHADER_STORAGE_BUFFER, 0);
     glBindBuffer(GL_ARRAY_BUFFER, 0);
-    while (glGetError() != GL_NO_ERROR);
+    while (glGetError() != GL_NO_ERROR)
+        ;
 
     if (m_hierarchyUpdateCounter > 0) {
         const size_t dataSize = sceneDatabase.hierarchies.size() * sizeof(HierarchyComponent);
@@ -876,8 +886,8 @@ void Renderer::drawScene(SceneDatabase& sceneDatabase, const Camera& camera) {
         glQueryCounter(m_queryTransformEnd[m_currentFrame], GL_TIMESTAMP);
 
     if (m_meshInfoDirty) {
-        glBindBuffer(GL_SHADER_STORAGE_BUFFER, m_meshInfoBuffer);
-        glBufferData(GL_SHADER_STORAGE_BUFFER, s_meshInfos.size() * sizeof(MeshInfo), s_meshInfos.data(), GL_STATIC_DRAW);
+        const size_t dataSize = s_meshInfos.size() * sizeof(MeshInfo);
+        m_diligent->pImmediateContext->UpdateBuffer(m_diligent->pMeshInfoBuffer, 0, dataSize, s_meshInfos.data(), Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
         m_meshInfoDirty = false;
     }
 
@@ -889,9 +899,7 @@ void Renderer::drawScene(SceneDatabase& sceneDatabase, const Camera& camera) {
     sceneUniforms.lightColor = glm::vec3(1.0f, 1.0f, 1.0f);
     extractFrustumPlanes(sceneUniforms.projection * sceneUniforms.view, sceneUniforms.frustumPlanes);
 
-    memcpy(static_cast<char*>(m_sceneUBOPtr) + uboFrameOffset, &sceneUniforms, sizeof(SceneUniforms));
-    glBindBuffer(GL_UNIFORM_BUFFER, m_sceneUBO);
-    glFlushMappedBufferRange(GL_UNIFORM_BUFFER, uboFrameOffset, sizeof(SceneUniforms));
+    m_diligent->pImmediateContext->UpdateBuffer(m_diligent->pSceneUBO, uboFrameOffset, sizeof(SceneUniforms), &sceneUniforms, Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
     glBindBufferRange(GL_UNIFORM_BUFFER, 0, m_sceneUBO, uboFrameOffset, sizeof(SceneUniforms));
 
     const unsigned int workgroupSize = 256;
