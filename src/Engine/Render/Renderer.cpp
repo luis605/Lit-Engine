@@ -152,6 +152,8 @@ struct DiligentData {
     Diligent::RefCntAutoPtr<Diligent::IBuffer> pDrawCommandBuffer;
     Diligent::RefCntAutoPtr<Diligent::IBuffer> pVisibleTransparentObjectIdsBuffer;
     Diligent::RefCntAutoPtr<Diligent::IBuffer> pTransparentDrawCommandBuffer;
+    Diligent::RefCntAutoPtr<Diligent::IBuffer> pVisibleLargeObjectBuffer;
+    Diligent::RefCntAutoPtr<Diligent::IBuffer> pDepthPrepassDrawCommandBuffer;
 };
 
 Renderer::Renderer()
@@ -464,8 +466,29 @@ void Renderer::reallocateBuffers(size_t numObjects) {
     m_diligent->pDevice->CreateBuffer(TransparentDrawBuffDesc, nullptr, &m_diligent->pTransparentDrawCommandBuffer);
     m_transparentDrawCommandBuffer = (GLuint)(size_t)m_diligent->pTransparentDrawCommandBuffer->GetNativeHandle();
 
-    reallocate(m_depthPrepassDrawCommandBuffer, m_depthPrepassDrawCommandBufferSize, m_depthPrepassDrawCommandBufferPtr, sizeof(DrawElementsIndirectCommand));
-    reallocate(m_visibleLargeObjectBuffer, m_visibleLargeObjectBufferSize, m_visibleLargeObjectBufferPtr, sizeof(unsigned int));
+    m_depthPrepassDrawCommandBufferSize = m_maxObjects * sizeof(DrawElementsIndirectCommand) * NUM_FRAMES_IN_FLIGHT;
+    Diligent::BufferDesc DepthPrepassDrawBuffDesc;
+    DepthPrepassDrawBuffDesc.Name = "Depth Pre-pass Draw Command Buffer";
+    DepthPrepassDrawBuffDesc.Usage = Diligent::USAGE_DEFAULT;
+    DepthPrepassDrawBuffDesc.BindFlags = Diligent::BIND_SHADER_RESOURCE | Diligent::BIND_UNORDERED_ACCESS;
+    DepthPrepassDrawBuffDesc.Mode = Diligent::BUFFER_MODE_STRUCTURED;
+    DepthPrepassDrawBuffDesc.ElementByteStride = sizeof(DrawElementsIndirectCommand);
+    DepthPrepassDrawBuffDesc.Size = m_depthPrepassDrawCommandBufferSize;
+    m_diligent->pDepthPrepassDrawCommandBuffer.Release();
+    m_diligent->pDevice->CreateBuffer(DepthPrepassDrawBuffDesc, nullptr, &m_diligent->pDepthPrepassDrawCommandBuffer);
+    m_depthPrepassDrawCommandBuffer = (GLuint)(size_t)m_diligent->pDepthPrepassDrawCommandBuffer->GetNativeHandle();
+
+    m_visibleLargeObjectBufferSize = m_maxObjects * sizeof(unsigned int) * NUM_FRAMES_IN_FLIGHT;
+    Diligent::BufferDesc VisibleLargeObjectsBuffDesc;
+    VisibleLargeObjectsBuffDesc.Name = "Visible Large Objects Buffer";
+    VisibleLargeObjectsBuffDesc.Usage = Diligent::USAGE_DEFAULT;
+    VisibleLargeObjectsBuffDesc.BindFlags = Diligent::BIND_SHADER_RESOURCE | Diligent::BIND_UNORDERED_ACCESS;
+    VisibleLargeObjectsBuffDesc.Mode = Diligent::BUFFER_MODE_STRUCTURED;
+    VisibleLargeObjectsBuffDesc.ElementByteStride = sizeof(unsigned int);
+    VisibleLargeObjectsBuffDesc.Size = m_visibleLargeObjectBufferSize;
+    m_diligent->pVisibleLargeObjectBuffer.Release();
+    m_diligent->pDevice->CreateBuffer(VisibleLargeObjectsBuffDesc, nullptr, &m_diligent->pVisibleLargeObjectBuffer);
+    m_visibleLargeObjectBuffer = (GLuint)(size_t)m_diligent->pVisibleLargeObjectBuffer->GetNativeHandle();
 
     if (m_sceneUBOPtr)
         glUnmapBuffer(GL_UNIFORM_BUFFER);
@@ -486,11 +509,6 @@ void Renderer::cleanup() {
         m_diligent->pFences[i].Release();
     }
 
-    glBindBuffer(GL_SHADER_STORAGE_BUFFER, m_depthPrepassDrawCommandBuffer);
-    glUnmapBuffer(GL_SHADER_STORAGE_BUFFER);
-    glBindBuffer(GL_SHADER_STORAGE_BUFFER, m_visibleLargeObjectBuffer);
-    glUnmapBuffer(GL_SHADER_STORAGE_BUFFER);
-
     glBindBuffer(GL_UNIFORM_BUFFER, m_sceneUBO);
     glUnmapBuffer(GL_UNIFORM_BUFFER);
 
@@ -504,9 +522,7 @@ void Renderer::cleanup() {
     glDeleteBuffers(1, &m_drawAtomicCounterBuffer);
     glDeleteBuffers(1, &m_meshInfoBuffer);
     glDeleteBuffers(1, &m_transparentAtomicCounter);
-    glDeleteBuffers(1, &m_depthPrepassDrawCommandBuffer);
     glDeleteBuffers(1, &m_depthPrepassAtomicCounter);
-    glDeleteBuffers(1, &m_visibleLargeObjectBuffer);
     glDeleteBuffers(1, &m_visibleLargeObjectAtomicCounter);
     glDeleteBuffers(1, &m_sceneUBO);
     glDeleteQueries(NUM_FRAMES_IN_FLIGHT, m_queryStart);
