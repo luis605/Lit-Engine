@@ -163,6 +163,8 @@ struct DiligentData {
     Diligent::RefCntAutoPtr<Diligent::IBuffer> pDepthPrepassAtomicCounter;
     Diligent::RefCntAutoPtr<Diligent::IBuffer> pVBO;
     Diligent::RefCntAutoPtr<Diligent::IBuffer> pEBO;
+    Diligent::RefCntAutoPtr<Diligent::ITexture> pHiZTextures[NumFrames];
+    Diligent::RefCntAutoPtr<Diligent::ITexture> pDepthRenderbuffers[NumFrames];
 };
 
 Renderer::Renderer()
@@ -338,22 +340,47 @@ void Renderer::init(GLFWwindow* window, const int windowWidth, const int windowH
     glBindBuffer(GL_ATOMIC_COUNTER_BUFFER, m_transparentAtomicCounter);
 
     m_maxMipLevel = static_cast<int>(std::floor(std::log2(std::max(windowWidth, windowHeight))));
-    glGenTextures(NUM_FRAMES_IN_FLIGHT, m_hizTexture);
+
     glGenFramebuffers(NUM_FRAMES_IN_FLIGHT, m_depthFbo);
-    glGenRenderbuffers(NUM_FRAMES_IN_FLIGHT, m_depthRenderbuffer);
 
     for (int i = 0; i < NUM_FRAMES_IN_FLIGHT; ++i) {
+        Diligent::TextureDesc HiZDesc;
+        HiZDesc.Name = "Hi-Z Texture";
+        HiZDesc.Type = Diligent::RESOURCE_DIM_TEX_2D;
+        HiZDesc.Width = windowWidth;
+        HiZDesc.Height = windowHeight;
+        HiZDesc.Format = Diligent::TEX_FORMAT_R32_FLOAT;
+        HiZDesc.Usage = Diligent::USAGE_DEFAULT;
+        HiZDesc.BindFlags = Diligent::BIND_SHADER_RESOURCE | Diligent::BIND_UNORDERED_ACCESS | Diligent::BIND_RENDER_TARGET;
+        HiZDesc.MipLevels = m_maxMipLevel;
+
+        m_diligent->pHiZTextures[i].Release();
+        m_diligent->pDevice->CreateTexture(HiZDesc, nullptr, &m_diligent->pHiZTextures[i]);
+        m_hizTexture[i] = (GLuint)(size_t)m_diligent->pHiZTextures[i]->GetNativeHandle();
+        Lit::Log::Info("Hi-Z Texture {}: native handle {}", i, m_hizTexture[i]);
+
+        Diligent::TextureDesc DepthDesc;
+        DepthDesc.Name = "Depth Pre-pass Renderbuffer";
+        DepthDesc.Type = Diligent::RESOURCE_DIM_TEX_2D;
+        DepthDesc.Width = windowWidth;
+        DepthDesc.Height = windowHeight;
+        DepthDesc.Format = Diligent::TEX_FORMAT_D32_FLOAT;
+        DepthDesc.Usage = Diligent::USAGE_DEFAULT;
+        DepthDesc.BindFlags = Diligent::BIND_DEPTH_STENCIL;
+
+        m_diligent->pDepthRenderbuffers[i].Release();
+        m_diligent->pDevice->CreateTexture(DepthDesc, nullptr, &m_diligent->pDepthRenderbuffers[i]);
+        m_depthRenderbuffer[i] = (GLuint)(size_t)m_diligent->pDepthRenderbuffers[i]->GetNativeHandle();
+        Lit::Log::Info("Depth Renderbuffer {}: native handle {}", i, m_depthRenderbuffer[i]);
+
         glBindTexture(GL_TEXTURE_2D, m_hizTexture[i]);
-        glTexStorage2D(GL_TEXTURE_2D, m_maxMipLevel, GL_R32F, windowWidth, windowHeight);
         glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST_MIPMAP_NEAREST);
         glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
         glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
         glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
 
         glBindFramebuffer(GL_FRAMEBUFFER, m_depthFbo[i]);
-        glBindRenderbuffer(GL_RENDERBUFFER, m_depthRenderbuffer[i]);
-        glRenderbufferStorage(GL_RENDERBUFFER, GL_DEPTH_COMPONENT32F, windowWidth, windowHeight);
-        glFramebufferRenderbuffer(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, GL_RENDERBUFFER, m_depthRenderbuffer[i]);
+        glFramebufferTexture2D(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, GL_TEXTURE_2D, m_depthRenderbuffer[i], 0);
         glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, m_hizTexture[i], 0);
 
         const GLenum drawBuffers[] = {GL_COLOR_ATTACHMENT0};
@@ -628,8 +655,6 @@ void Renderer::cleanup() {
     glDeleteQueries(NUM_FRAMES_IN_FLIGHT, m_queryUiEnd);
 
     glDeleteFramebuffers(NUM_FRAMES_IN_FLIGHT, m_depthFbo);
-    glDeleteRenderbuffers(NUM_FRAMES_IN_FLIGHT, m_depthRenderbuffer);
-    glDeleteTextures(NUM_FRAMES_IN_FLIGHT, m_hizTexture);
     glDeleteVertexArrays(1, &m_debugQuadVao);
     glDeleteBuffers(1, &m_debugQuadVbo);
 
