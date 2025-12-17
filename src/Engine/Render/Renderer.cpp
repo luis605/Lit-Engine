@@ -149,6 +149,7 @@ struct DiligentData {
     Diligent::RefCntAutoPtr<Diligent::IBuffer> pRenderableBuffer;
     Diligent::RefCntAutoPtr<Diligent::IBuffer> pSortedHierarchyBuffer;
     Diligent::RefCntAutoPtr<Diligent::IBuffer> pVisibleObjectBuffer;
+    Diligent::RefCntAutoPtr<Diligent::IBuffer> pDrawCommandBuffer;
 };
 
 Renderer::Renderer()
@@ -425,7 +426,18 @@ void Renderer::reallocateBuffers(size_t numObjects) {
     m_diligent->pDevice->CreateBuffer(VisibleObjectsBuffDesc, nullptr, &m_diligent->pVisibleObjectBuffer);
     m_visibleObjectBuffer = (GLuint)(size_t)m_diligent->pVisibleObjectBuffer->GetNativeHandle();
 
-    reallocate(m_drawCommandBuffer, m_drawCommandBufferSize, m_drawCommandBufferPtr, sizeof(DrawElementsIndirectCommand) * m_numDrawingShaders);
+    m_drawCommandBufferSize = m_maxObjects * m_numDrawingShaders * sizeof(DrawElementsIndirectCommand) * NUM_FRAMES_IN_FLIGHT;
+    Diligent::BufferDesc DrawCommandsBuffDesc;
+    DrawCommandsBuffDesc.Name = "Draw Command Buffer";
+    DrawCommandsBuffDesc.Usage = Diligent::USAGE_DEFAULT;
+    DrawCommandsBuffDesc.BindFlags = Diligent::BIND_SHADER_RESOURCE | Diligent::BIND_UNORDERED_ACCESS;
+    DrawCommandsBuffDesc.Mode = Diligent::BUFFER_MODE_STRUCTURED;
+    DrawCommandsBuffDesc.ElementByteStride = sizeof(DrawElementsIndirectCommand);
+    DrawCommandsBuffDesc.Size = m_drawCommandBufferSize;
+    m_diligent->pDrawCommandBuffer.Release();
+    m_diligent->pDevice->CreateBuffer(DrawCommandsBuffDesc, nullptr, &m_diligent->pDrawCommandBuffer);
+    m_drawCommandBuffer = (GLuint)(size_t)m_diligent->pDrawCommandBuffer->GetNativeHandle();
+
     reallocate(m_visibleTransparentObjectIdsBuffer, m_visibleTransparentObjectIdsBufferSize, m_visibleTransparentObjectIdsBufferPtr, sizeof(VisibleTransparentObject));
     reallocate(m_transparentDrawCommandBuffer, m_transparentDrawCommandBufferSize, m_transparentDrawCommandBufferPtr, sizeof(DrawElementsIndirectCommand));
     reallocate(m_depthPrepassDrawCommandBuffer, m_depthPrepassDrawCommandBufferSize, m_depthPrepassDrawCommandBufferPtr, sizeof(DrawElementsIndirectCommand));
@@ -464,7 +476,6 @@ void Renderer::cleanup() {
     glDeleteVertexArrays(1, &m_vao);
     glDeleteBuffers(1, &m_vbo);
     glDeleteBuffers(1, &m_ebo);
-    glDeleteBuffers(1, &m_drawCommandBuffer);
     glDeleteBuffers(1, &m_visibleObjectAtomicCounter);
     glDeleteBuffers(1, &m_drawAtomicCounterBuffer);
     glDeleteBuffers(1, &m_meshInfoBuffer);
