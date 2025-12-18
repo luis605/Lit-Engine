@@ -7,6 +7,9 @@ module;
 #include "DiligentCore/Graphics/GraphicsEngineOpenGL/interface/EngineFactoryOpenGL.h"
 #include "DiligentCore/Common/interface/RefCntAutoPtr.hpp"
 #include "DiligentCore/Graphics/GraphicsEngine/interface/Buffer.h"
+#include "DiligentCore/Graphics/GraphicsEngine/interface/Shader.h"
+#include "DiligentCore/Graphics/GraphicsEngine/interface/PipelineState.h"
+#include "DiligentCore/Graphics/GraphicsEngine/interface/ShaderResourceBinding.h"
 
 #include <glad/glad.h>
 #include <GLFW/glfw3.h>
@@ -33,6 +36,8 @@ module;
 #include <string>
 #include <cstring>
 #include <cstddef>
+#include <fstream>
+#include <sstream>
 #include <chrono>
 #include "Engine/Log/Log.hpp"
 
@@ -132,7 +137,18 @@ void extractFrustumPlanes(const glm::mat4& vp, glm::vec4* planes) {
     }
 }
 
-} // namespace
+static std::string LoadSourceFromFile(const std::string& filepath) {
+    std::ifstream file(filepath);
+    if (!file.is_open()) {
+        Lit::Log::Error("Failed to open shader file: {}", filepath);
+        return "";
+    }
+    std::stringstream buffer;
+    buffer << file.rdbuf();
+    return buffer.str();
+}
+
+}
 
 struct DiligentData {
     Diligent::RefCntAutoPtr<Diligent::IRenderDevice> pDevice;
@@ -156,6 +172,9 @@ struct DiligentData {
     Diligent::RefCntAutoPtr<Diligent::IBuffer> pDepthPrepassDrawCommandBuffer;
     Diligent::RefCntAutoPtr<Diligent::IBuffer> pSceneUBO;
     Diligent::RefCntAutoPtr<Diligent::IBuffer> pMeshInfoBuffer;
+    Diligent::RefCntAutoPtr<Diligent::IPipelineState> pTransformPSO;
+    Diligent::RefCntAutoPtr<Diligent::IShaderResourceBinding> pTransformSRB;
+    Diligent::RefCntAutoPtr<Diligent::IBuffer> pTransformUniforms;
     Diligent::RefCntAutoPtr<Diligent::IBuffer> pVisibleObjectAtomicCounter;
     Diligent::RefCntAutoPtr<Diligent::IBuffer> pDrawAtomicCounterBuffer;
     Diligent::RefCntAutoPtr<Diligent::IBuffer> pVisibleLargeObjectAtomicCounter;
@@ -182,7 +201,6 @@ void Renderer::init(GLFWwindow* window, const int windowWidth, const int windowH
     m_windowHeight = windowHeight;
 
     m_diligent = new DiligentData();
-
     m_diligent->pFactoryGL = Diligent::GetEngineFactoryOpenGL();
 
     Diligent::EngineGLCreateInfo EngineCI;
@@ -205,6 +223,7 @@ void Renderer::init(GLFWwindow* window, const int windowWidth, const int windowH
     m_uiManager->init(windowWidth, windowHeight);
 
     setupShaders();
+    createTransformPSO();
 
     if (!m_cullingShader || !m_cullingShader->isInitialized()) {
         Lit::Log::Error("Renderer failed to initialize: Culling shader could not be loaded.");
@@ -609,6 +628,29 @@ void Renderer::reallocateBuffers(size_t numObjects) {
 
     glBindBuffer(GL_UNIFORM_BUFFER, m_sceneUBO);
     glBindBufferBase(GL_UNIFORM_BUFFER, 0, m_sceneUBO);
+
+    if (m_diligent->pTransformPSO) {
+        m_diligent->pTransformSRB.Release();
+        m_diligent->pTransformPSO->CreateShaderResourceBinding(&m_diligent->pTransformSRB, true);
+        if (!m_diligent->pTransformSRB) {
+            Lit::Log::Error("Failed to create Transform SRB");
+            return;
+        }
+        auto* transformBuf = m_diligent->pTransformSRB->GetVariableByName(Diligent::SHADER_TYPE_COMPUTE, "TransformBuffer");
+        auto* hierarchyBuf = m_diligent->pTransformSRB->GetVariableByName(Diligent::SHADER_TYPE_COMPUTE, "HierarchyBuffer");
+        auto* sortedBuf = m_diligent->pTransformSRB->GetVariableByName(Diligent::SHADER_TYPE_COMPUTE, "SortedHierarchyBuffer");
+        auto* uniformsVar = m_diligent->pTransformSRB->GetVariableByName(Diligent::SHADER_TYPE_COMPUTE, "TransformUniforms");
+
+        if (!transformBuf || !hierarchyBuf || !sortedBuf || !uniformsVar) {
+            Lit::Log::Error("Failed to get transform shader variables");
+            return;
+        }
+
+        transformBuf->Set(m_diligent->pObjectBuffer->GetDefaultView(Diligent::BUFFER_VIEW_UNORDERED_ACCESS));
+        hierarchyBuf->Set(m_diligent->pHierarchyBuffer->GetDefaultView(Diligent::BUFFER_VIEW_SHADER_RESOURCE));
+        sortedBuf->Set(m_diligent->pSortedHierarchyBuffer->GetDefaultView(Diligent::BUFFER_VIEW_SHADER_RESOURCE));
+        uniformsVar->Set(m_diligent->pTransformUniforms);
+    }
 }
 
 void Renderer::cleanup() {
@@ -920,8 +962,6 @@ void Renderer::drawScene(SceneDatabase& sceneDatabase, const Camera& camera) {
     }
     if (!fullProfiling)
         glQueryCounter(m_queryTransformStart[m_currentFrame], GL_TIMESTAMP);
-    m_transformShader->bind();
-    m_transformShader->setUniform("u_objectCount", (unsigned int)sceneDatabase.sortedHierarchyList.size());
 
     if (m_processedDataVersion < sceneDatabase.m_dataVersion) {
         m_dataUpdateCounter = NUM_FRAMES_IN_FLIGHT;
@@ -958,15 +998,25 @@ void Renderer::drawScene(SceneDatabase& sceneDatabase, const Camera& camera) {
         m_dataUpdateCounter--;
     }
 
+    const unsigned int transformWorkgroupSize = 256;
+    const unsigned int transformNumWorkgroups = (sceneDatabase.sortedHierarchyList.size() + transformWorkgroupSize - 1) / transformWorkgroupSize;
+
+    struct TransformUniforms {
+        unsigned int objectCount;
+        unsigned int currentHierarchyLevel;
+        unsigned int padding[2];
+    } transformUniforms;
+    transformUniforms.objectCount = (unsigned int)sceneDatabase.sortedHierarchyList.size();
+
+    m_transformShader->bind();
     glBindBufferRange(GL_SHADER_STORAGE_BUFFER, 0, m_objectBuffer, frameOffset * sizeof(TransformComponent), m_maxObjects * sizeof(TransformComponent));
     glBindBufferRange(GL_SHADER_STORAGE_BUFFER, 1, m_hierarchyBuffer, frameOffset * sizeof(HierarchyComponent), m_maxObjects * sizeof(HierarchyComponent));
     glBindBufferRange(GL_SHADER_STORAGE_BUFFER, 2, m_sortedHierarchyBuffer, frameOffset * sizeof(unsigned int), m_maxObjects * sizeof(unsigned int));
 
-    const unsigned int transformWorkgroupSize = 256;
-    const unsigned int transformNumWorkgroups = (sceneDatabase.sortedHierarchyList.size() + transformWorkgroupSize - 1) / transformWorkgroupSize;
-
     for (uint32_t level = 0; level <= sceneDatabase.m_maxHierarchyDepth; ++level) {
-        m_transformShader->setUniform("u_currentHierarchyLevel", level);
+        transformUniforms.currentHierarchyLevel = level;
+        glBindBufferBase(GL_UNIFORM_BUFFER, 3, (GLuint)(size_t)m_diligent->pTransformUniforms->GetNativeHandle());
+        glBufferSubData(GL_UNIFORM_BUFFER, 0, sizeof(transformUniforms), &transformUniforms);
         glDispatchCompute(transformNumWorkgroups, 1, 1);
         glMemoryBarrier(GL_SHADER_STORAGE_BARRIER_BIT);
     }
@@ -1511,4 +1561,54 @@ void Renderer::setupShaders() {
 
 void Renderer::AddText(const std::string& text, float x, float y, float scale, const glm::vec3& color) {
     m_uiManager->addText(text, x, y, scale, color);
+}
+
+void Renderer::createTransformPSO() {
+    std::string source = LoadSourceFromFile("resources/shaders/transform.comp");
+    if (source.empty()) {
+        Lit::Log::Error("Failed to load transform compute shader source.");
+        return;
+    }
+
+
+    size_t versionPos = source.find("#version");
+    if (versionPos != std::string::npos) {
+        size_t nextLine = source.find('\n', versionPos);
+        if (nextLine != std::string::npos) {
+            source = source.substr(nextLine + 1);
+        }
+    }
+
+    Diligent::ShaderCreateInfo ShaderCI;
+    ShaderCI.Source = source.c_str();
+    ShaderCI.SourceLanguage = Diligent::SHADER_SOURCE_LANGUAGE_GLSL;
+    ShaderCI.Desc.ShaderType = Diligent::SHADER_TYPE_COMPUTE;
+    ShaderCI.Desc.Name = "Transform compute shader";
+
+    Diligent::RefCntAutoPtr<Diligent::IShader> pCS;
+    m_diligent->pDevice->CreateShader(ShaderCI, &pCS);
+    if (!pCS) {
+        Lit::Log::Error("Failed to create transform compute shader.");
+        return;
+    }
+
+    Diligent::ComputePipelineStateCreateInfo PSOCI;
+    PSOCI.PSODesc.Name = "Transform compute PSO";
+    PSOCI.PSODesc.PipelineType = Diligent::PIPELINE_TYPE_COMPUTE;
+    PSOCI.pCS = pCS;
+
+    PSOCI.PSODesc.ResourceLayout.DefaultVariableType = Diligent::SHADER_RESOURCE_VARIABLE_TYPE_MUTABLE;
+
+    m_diligent->pDevice->CreateComputePipelineState(PSOCI, &m_diligent->pTransformPSO);
+    if (!m_diligent->pTransformPSO) {
+        Lit::Log::Error("Failed to create transform compute PSO.");
+        return;
+    }
+
+    Diligent::BufferDesc BuffDesc;
+    BuffDesc.Name = "Transform parameters UBO";
+    BuffDesc.Usage = Diligent::USAGE_DEFAULT;
+    BuffDesc.BindFlags = Diligent::BIND_UNIFORM_BUFFER;
+    BuffDesc.Size = 256;
+    m_diligent->pDevice->CreateBuffer(BuffDesc, nullptr, &m_diligent->pTransformUniforms);
 }

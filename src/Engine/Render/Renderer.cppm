@@ -34,6 +34,7 @@ export class Renderer {
 
   private:
     void setupShaders();
+    void createTransformPSO();
     void reallocateBuffers(size_t numObjects);
 
     unsigned int m_vao = 0;

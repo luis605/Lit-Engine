@@ -24,8 +24,10 @@ layout(binding = 2, std430) readonly buffer SortedHierarchyBuffer {
     uint sortedHierarchyList[];
 };
 
-uniform uint u_objectCount;
-uniform uint u_currentHierarchyLevel;
+layout(binding = 3, std140) uniform TransformUniforms {
+    uint u_objectCount;
+    uint u_currentHierarchyLevel;
+};
 
 void main() {
     uint index = gl_GlobalInvocationID.x;
