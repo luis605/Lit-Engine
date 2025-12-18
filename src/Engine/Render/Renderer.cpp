@@ -613,7 +613,6 @@ void Renderer::reallocateBuffers(size_t numObjects) {
     SceneUBODesc.Size = m_sceneUBOSize;
     m_diligent->pSceneUBO.Release();
     m_diligent->pDevice->CreateBuffer(SceneUBODesc, nullptr, &m_diligent->pSceneUBO);
-    m_sceneUBO = (GLuint)(size_t)m_diligent->pSceneUBO->GetNativeHandle();
 
     Diligent::BufferDesc MeshInfoDesc;
     MeshInfoDesc.Name = "Mesh Info Buffer";
@@ -624,10 +623,6 @@ void Renderer::reallocateBuffers(size_t numObjects) {
     MeshInfoDesc.Size = m_maxObjects * sizeof(MeshInfo);
     m_diligent->pMeshInfoBuffer.Release();
     m_diligent->pDevice->CreateBuffer(MeshInfoDesc, nullptr, &m_diligent->pMeshInfoBuffer);
-    m_meshInfoBuffer = (GLuint)(size_t)m_diligent->pMeshInfoBuffer->GetNativeHandle();
-
-    glBindBuffer(GL_UNIFORM_BUFFER, m_sceneUBO);
-    glBindBufferBase(GL_UNIFORM_BUFFER, 0, m_sceneUBO);
 
     if (m_diligent->pTransformPSO) {
         m_diligent->pTransformSRB.Release();
@@ -1043,7 +1038,7 @@ void Renderer::drawScene(SceneDatabase& sceneDatabase, const Camera& camera) {
     extractFrustumPlanes(sceneUniforms.projection * sceneUniforms.view, sceneUniforms.frustumPlanes);
 
     m_diligent->pImmediateContext->UpdateBuffer(m_diligent->pSceneUBO, uboFrameOffset, sizeof(SceneUniforms), &sceneUniforms, Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
-    glBindBufferRange(GL_UNIFORM_BUFFER, 0, m_sceneUBO, uboFrameOffset, sizeof(SceneUniforms));
+    glBindBufferRange(GL_UNIFORM_BUFFER, 0, (GLuint)(size_t)m_diligent->pSceneUBO->GetNativeHandle(), uboFrameOffset, sizeof(SceneUniforms));
 
     const unsigned int workgroupSize = 256;
     const unsigned int numWorkgroups = (numObjects + workgroupSize - 1) / workgroupSize;
@@ -1073,7 +1068,7 @@ void Renderer::drawScene(SceneDatabase& sceneDatabase, const Camera& camera) {
     glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 0, m_visibleObjectAtomicCounter);
     glBindBufferRange(GL_SHADER_STORAGE_BUFFER, 1, m_visibleObjectBuffer, frameOffset * sizeof(unsigned int), m_maxObjects * sizeof(unsigned int));
     glBindBufferRange(GL_SHADER_STORAGE_BUFFER, 2, m_objectBuffer, frameOffset * sizeof(TransformComponent), m_maxObjects * sizeof(TransformComponent));
-    glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 3, m_meshInfoBuffer);
+    glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 3, (GLuint)(size_t)m_diligent->pMeshInfoBuffer->GetNativeHandle());
     glBindBufferRange(GL_SHADER_STORAGE_BUFFER, 4, m_renderableBuffer, frameOffset * sizeof(RenderableComponent), m_maxObjects * sizeof(RenderableComponent));
 
     glDispatchCompute(numWorkgroups, 1, 1);
@@ -1139,7 +1134,7 @@ void Renderer::drawScene(SceneDatabase& sceneDatabase, const Camera& camera) {
 
     glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 0, m_drawAtomicCounterBuffer);
     glBindBufferRange(GL_SHADER_STORAGE_BUFFER, 1, m_drawCommandBuffer, frameOffset * sizeof(DrawElementsIndirectCommand) * m_numDrawingShaders, m_maxObjects * sizeof(DrawElementsIndirectCommand) * m_numDrawingShaders);
-    glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 3, m_meshInfoBuffer);
+    glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 3, (GLuint)(size_t)m_diligent->pMeshInfoBuffer->GetNativeHandle());
     glBindBufferRange(GL_SHADER_STORAGE_BUFFER, 4, m_renderableBuffer, frameOffset * sizeof(RenderableComponent), m_maxObjects * sizeof(RenderableComponent));
     glBindBufferRange(GL_SHADER_STORAGE_BUFFER, 5, m_visibleObjectBuffer, frameOffset * sizeof(unsigned int), m_maxObjects * sizeof(unsigned int));
 
@@ -1172,7 +1167,7 @@ void Renderer::drawScene(SceneDatabase& sceneDatabase, const Camera& camera) {
     glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 0, m_visibleLargeObjectAtomicCounter);
     glBindBufferRange(GL_SHADER_STORAGE_BUFFER, 1, m_visibleLargeObjectBuffer, frameOffset * sizeof(unsigned int), m_maxObjects * sizeof(unsigned int));
     glBindBufferRange(GL_SHADER_STORAGE_BUFFER, 2, m_objectBuffer, frameOffset * sizeof(TransformComponent), m_maxObjects * sizeof(TransformComponent));
-    glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 3, m_meshInfoBuffer);
+    glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 3, (GLuint)(size_t)m_diligent->pMeshInfoBuffer->GetNativeHandle());
     glBindBufferRange(GL_SHADER_STORAGE_BUFFER, 4, m_renderableBuffer, frameOffset * sizeof(RenderableComponent), m_maxObjects * sizeof(RenderableComponent));
 
     glDispatchCompute(numWorkgroups, 1, 1);
@@ -1234,7 +1229,7 @@ void Renderer::drawScene(SceneDatabase& sceneDatabase, const Camera& camera) {
 
     glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 0, m_depthPrepassAtomicCounter);
     glBindBufferRange(GL_SHADER_STORAGE_BUFFER, 1, m_depthPrepassDrawCommandBuffer, frameOffset * sizeof(DrawElementsIndirectCommand), m_maxObjects * sizeof(DrawElementsIndirectCommand));
-    glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 3, m_meshInfoBuffer);
+    glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 3, (GLuint)(size_t)m_diligent->pMeshInfoBuffer->GetNativeHandle());
     glBindBufferRange(GL_SHADER_STORAGE_BUFFER, 4, m_renderableBuffer, frameOffset * sizeof(RenderableComponent), m_maxObjects * sizeof(RenderableComponent));
     glBindBufferRange(GL_SHADER_STORAGE_BUFFER, 5, m_visibleLargeObjectBuffer, frameOffset * sizeof(unsigned int), m_maxObjects * sizeof(unsigned int));
 
@@ -1328,7 +1323,7 @@ void Renderer::drawScene(SceneDatabase& sceneDatabase, const Camera& camera) {
     glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 0, m_transparentAtomicCounter);
     glBindBufferRange(GL_SHADER_STORAGE_BUFFER, 1, m_visibleTransparentObjectIdsBuffer, frameOffset * sizeof(VisibleTransparentObject), m_maxObjects * sizeof(VisibleTransparentObject));
     glBindBufferRange(GL_SHADER_STORAGE_BUFFER, 2, m_objectBuffer, frameOffset * sizeof(TransformComponent), m_maxObjects * sizeof(TransformComponent));
-    glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 3, m_meshInfoBuffer);
+    glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 3, (GLuint)(size_t)m_diligent->pMeshInfoBuffer->GetNativeHandle());
     glBindBufferRange(GL_SHADER_STORAGE_BUFFER, 4, m_renderableBuffer, frameOffset * sizeof(RenderableComponent), m_maxObjects * sizeof(RenderableComponent));
 
     glDispatchCompute(numWorkgroups, 1, 1);
@@ -1384,7 +1379,7 @@ void Renderer::drawScene(SceneDatabase& sceneDatabase, const Camera& camera) {
     m_transparentCommandGenShader->bind();
     m_transparentCommandGenShader->setUniform("u_visibleTransparentCount", visibleTransparentCount);
     glBindBufferRange(GL_SHADER_STORAGE_BUFFER, 1, m_visibleTransparentObjectIdsBuffer, frameOffset * sizeof(VisibleTransparentObject), m_maxObjects * sizeof(VisibleTransparentObject));
-    glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 3, m_meshInfoBuffer);
+    glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 3, (GLuint)(size_t)m_diligent->pMeshInfoBuffer->GetNativeHandle());
     glBindBufferRange(GL_SHADER_STORAGE_BUFFER, 4, m_renderableBuffer, frameOffset * sizeof(RenderableComponent), m_maxObjects * sizeof(RenderableComponent));
     glBindBufferRange(GL_SHADER_STORAGE_BUFFER, 5, m_transparentDrawCommandBuffer, frameOffset * sizeof(DrawElementsIndirectCommand), m_maxObjects * sizeof(DrawElementsIndirectCommand));
 
@@ -1569,7 +1564,6 @@ void Renderer::createTransformPSO() {
         Lit::Log::Error("Failed to load transform compute shader source.");
         return;
     }
-
 
     size_t versionPos = source.find("#version");
     if (versionPos != std::string::npos) {

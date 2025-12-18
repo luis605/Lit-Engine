@@ -46,7 +46,6 @@ export class Renderer {
     unsigned int m_hierarchyBuffer = 0;
     unsigned int m_visibleObjectAtomicCounter = 0;
     unsigned int m_drawAtomicCounterBuffer = 0;
-    unsigned int m_meshInfoBuffer = 0;
     unsigned int m_renderableBuffer = 0;
     unsigned int m_sortedHierarchyBuffer = 0;
 
@@ -67,7 +66,6 @@ export class Renderer {
     unsigned int m_visibleTransparentObjectIdsBuffer = 0;
     unsigned int m_transparentAtomicCounter = 0;
     unsigned int m_transparentDrawCommandBuffer = 0;
-    unsigned int m_sceneUBO = 0;
 
     unsigned int m_depthFbo[NUM_FRAMES_IN_FLIGHT] = {0};
     unsigned int m_depthRenderbuffer[NUM_FRAMES_IN_FLIGHT] = {0};
