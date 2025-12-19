@@ -4,6 +4,7 @@ module;
 #include "DiligentCore/Graphics/GraphicsEngine/interface/DeviceContext.h"
 #include "DiligentCore/Graphics/GraphicsEngine/interface/SwapChain.h"
 #include "DiligentCore/Graphics/GraphicsEngine/interface/Fence.h"
+#include "DiligentCore/Graphics/GraphicsEngine/interface/Query.h"
 #include "DiligentCore/Graphics/GraphicsEngineOpenGL/interface/EngineFactoryOpenGL.h"
 #include "DiligentCore/Common/interface/RefCntAutoPtr.hpp"
 #include "DiligentCore/Graphics/GraphicsEngine/interface/Buffer.h"
@@ -148,7 +149,7 @@ static std::string LoadSourceFromFile(const std::string& filepath) {
     return buffer.str();
 }
 
-}
+} // namespace
 
 struct DiligentData {
     Diligent::RefCntAutoPtr<Diligent::IRenderDevice> pDevice;
@@ -184,6 +185,43 @@ struct DiligentData {
     Diligent::RefCntAutoPtr<Diligent::IBuffer> pEBO;
     Diligent::RefCntAutoPtr<Diligent::ITexture> pHiZTextures[NumFrames];
     Diligent::RefCntAutoPtr<Diligent::ITexture> pDepthRenderbuffers[NumFrames];
+    Diligent::RefCntAutoPtr<Diligent::IQuery> pTransformStartQuery[NumFrames];
+    Diligent::RefCntAutoPtr<Diligent::IQuery> pTransformEndQuery[NumFrames];
+
+    Diligent::RefCntAutoPtr<Diligent::IQuery> pFrameStartQuery[NumFrames];
+    Diligent::RefCntAutoPtr<Diligent::IQuery> pFrameEndQuery[NumFrames];
+    Diligent::RefCntAutoPtr<Diligent::IQuery> pCullStartQuery[NumFrames];
+    Diligent::RefCntAutoPtr<Diligent::IQuery> pCullEndQuery[NumFrames];
+    Diligent::RefCntAutoPtr<Diligent::IQuery> pOpaqueSortStartQuery[NumFrames];
+    Diligent::RefCntAutoPtr<Diligent::IQuery> pOpaqueSortEndQuery[NumFrames];
+    Diligent::RefCntAutoPtr<Diligent::IQuery> pCommandGenStartQuery[NumFrames];
+    Diligent::RefCntAutoPtr<Diligent::IQuery> pCommandGenEndQuery[NumFrames];
+    Diligent::RefCntAutoPtr<Diligent::IQuery> pLargeObjectSortStartQuery[NumFrames];
+    Diligent::RefCntAutoPtr<Diligent::IQuery> pLargeObjectSortEndQuery[NumFrames];
+    Diligent::RefCntAutoPtr<Diligent::IQuery> pLargeObjectCommandGenStartQuery[NumFrames];
+    Diligent::RefCntAutoPtr<Diligent::IQuery> pLargeObjectCommandGenEndQuery[NumFrames];
+    Diligent::RefCntAutoPtr<Diligent::IQuery> pDepthPrePassStartQuery[NumFrames];
+    Diligent::RefCntAutoPtr<Diligent::IQuery> pDepthPrePassEndQuery[NumFrames];
+    Diligent::RefCntAutoPtr<Diligent::IQuery> pTransparentCullStartQuery[NumFrames];
+    Diligent::RefCntAutoPtr<Diligent::IQuery> pTransparentCullEndQuery[NumFrames];
+    Diligent::RefCntAutoPtr<Diligent::IQuery> pTransparentSortStartQuery[NumFrames];
+    Diligent::RefCntAutoPtr<Diligent::IQuery> pTransparentSortEndQuery[NumFrames];
+    Diligent::RefCntAutoPtr<Diligent::IQuery> pTransparentCommandGenStartQuery[NumFrames];
+    Diligent::RefCntAutoPtr<Diligent::IQuery> pTransparentCommandGenEndQuery[NumFrames];
+    Diligent::RefCntAutoPtr<Diligent::IQuery> pOpaqueDrawStartQuery[NumFrames];
+    Diligent::RefCntAutoPtr<Diligent::IQuery> pOpaqueDrawEndQuery[NumFrames];
+    Diligent::RefCntAutoPtr<Diligent::IQuery> pTransparentDrawStartQuery[NumFrames];
+    Diligent::RefCntAutoPtr<Diligent::IQuery> pTransparentDrawEndQuery[NumFrames];
+    Diligent::RefCntAutoPtr<Diligent::IQuery> pHizMipmapStartQuery[NumFrames];
+    Diligent::RefCntAutoPtr<Diligent::IQuery> pHizMipmapEndQuery[NumFrames];
+    Diligent::RefCntAutoPtr<Diligent::IQuery> pUiStartQuery[NumFrames];
+    Diligent::RefCntAutoPtr<Diligent::IQuery> pUiEndQuery[NumFrames];
+
+    bool QueryReady[NumFrames] = {false};
+    bool OpaqueSortActive[NumFrames] = {false};
+    bool LargeObjectSortActive[NumFrames] = {false};
+    bool TransparentSortActive[NumFrames] = {false};
+    bool TransparentDrawActive[NumFrames] = {false};
 };
 
 Renderer::Renderer()
@@ -269,36 +307,34 @@ void Renderer::init(GLFWwindow* window, const int windowWidth, const int windowH
     m_drawAtomicCounterBuffer = (GLuint)(size_t)m_diligent->pDrawAtomicCounterBuffer->GetNativeHandle();
     glBindBuffer(GL_ATOMIC_COUNTER_BUFFER, m_drawAtomicCounterBuffer);
 
-    glGenQueries(NUM_FRAMES_IN_FLIGHT, m_queryStart);
-    glGenQueries(NUM_FRAMES_IN_FLIGHT, m_queryEnd);
-    glGenQueries(NUM_FRAMES_IN_FLIGHT, m_queryTransformStart);
-    glGenQueries(NUM_FRAMES_IN_FLIGHT, m_queryTransformEnd);
-    glGenQueries(NUM_FRAMES_IN_FLIGHT, m_queryCullStart);
-    glGenQueries(NUM_FRAMES_IN_FLIGHT, m_queryCullEnd);
-    glGenQueries(NUM_FRAMES_IN_FLIGHT, m_queryOpaqueSortStart);
-    glGenQueries(NUM_FRAMES_IN_FLIGHT, m_queryOpaqueSortEnd);
-    glGenQueries(NUM_FRAMES_IN_FLIGHT, m_queryCommandGenStart);
-    glGenQueries(NUM_FRAMES_IN_FLIGHT, m_queryCommandGenEnd);
-    glGenQueries(NUM_FRAMES_IN_FLIGHT, m_queryLargeObjectSortStart);
-    glGenQueries(NUM_FRAMES_IN_FLIGHT, m_queryLargeObjectSortEnd);
-    glGenQueries(NUM_FRAMES_IN_FLIGHT, m_queryLargeObjectCommandGenStart);
-    glGenQueries(NUM_FRAMES_IN_FLIGHT, m_queryLargeObjectCommandGenEnd);
-    glGenQueries(NUM_FRAMES_IN_FLIGHT, m_queryDepthPrePassStart);
-    glGenQueries(NUM_FRAMES_IN_FLIGHT, m_queryDepthPrePassEnd);
-    glGenQueries(NUM_FRAMES_IN_FLIGHT, m_queryTransparentCullStart);
-    glGenQueries(NUM_FRAMES_IN_FLIGHT, m_queryTransparentCullEnd);
-    glGenQueries(NUM_FRAMES_IN_FLIGHT, m_queryTransparentSortStart);
-    glGenQueries(NUM_FRAMES_IN_FLIGHT, m_queryTransparentSortEnd);
-    glGenQueries(NUM_FRAMES_IN_FLIGHT, m_queryTransparentCommandGenStart);
-    glGenQueries(NUM_FRAMES_IN_FLIGHT, m_queryTransparentCommandGenEnd);
-    glGenQueries(NUM_FRAMES_IN_FLIGHT, m_queryOpaqueDrawStart);
-    glGenQueries(NUM_FRAMES_IN_FLIGHT, m_queryOpaqueDrawEnd);
-    glGenQueries(NUM_FRAMES_IN_FLIGHT, m_queryTransparentDrawStart);
-    glGenQueries(NUM_FRAMES_IN_FLIGHT, m_queryTransparentDrawEnd);
-    glGenQueries(NUM_FRAMES_IN_FLIGHT, m_queryHizMipmapStart);
-    glGenQueries(NUM_FRAMES_IN_FLIGHT, m_queryHizMipmapEnd);
-    glGenQueries(NUM_FRAMES_IN_FLIGHT, m_queryUiStart);
-    glGenQueries(NUM_FRAMES_IN_FLIGHT, m_queryUiEnd);
+    Diligent::QueryDesc queryDesc;
+    queryDesc.Type = Diligent::QUERY_TYPE_TIMESTAMP;
+
+#define CREATE_QUERY_PAIR(name, startPtr, endPtr)                              \
+    for (int i = 0; i < DiligentData::NumFrames; ++i) {                        \
+        queryDesc.Name = name " Start";                                        \
+        m_diligent->pDevice->CreateQuery(queryDesc, &m_diligent->startPtr[i]); \
+        queryDesc.Name = name " End";                                          \
+        m_diligent->pDevice->CreateQuery(queryDesc, &m_diligent->endPtr[i]);   \
+    }
+
+    CREATE_QUERY_PAIR("Frame", pFrameStartQuery, pFrameEndQuery);
+    CREATE_QUERY_PAIR("Transform", pTransformStartQuery, pTransformEndQuery);
+    CREATE_QUERY_PAIR("Cull", pCullStartQuery, pCullEndQuery);
+    CREATE_QUERY_PAIR("Opaque Sort", pOpaqueSortStartQuery, pOpaqueSortEndQuery);
+    CREATE_QUERY_PAIR("Command Gen", pCommandGenStartQuery, pCommandGenEndQuery);
+    CREATE_QUERY_PAIR("Large Object Sort", pLargeObjectSortStartQuery, pLargeObjectSortEndQuery);
+    CREATE_QUERY_PAIR("Large Object Command Gen", pLargeObjectCommandGenStartQuery, pLargeObjectCommandGenEndQuery);
+    CREATE_QUERY_PAIR("Depth Pre-Pass", pDepthPrePassStartQuery, pDepthPrePassEndQuery);
+    CREATE_QUERY_PAIR("Transparent Cull", pTransparentCullStartQuery, pTransparentCullEndQuery);
+    CREATE_QUERY_PAIR("Transparent Sort", pTransparentSortStartQuery, pTransparentSortEndQuery);
+    CREATE_QUERY_PAIR("Transparent Command Gen", pTransparentCommandGenStartQuery, pTransparentCommandGenEndQuery);
+    CREATE_QUERY_PAIR("Opaque Draw", pOpaqueDrawStartQuery, pOpaqueDrawEndQuery);
+    CREATE_QUERY_PAIR("Transparent Draw", pTransparentDrawStartQuery, pTransparentDrawEndQuery);
+    CREATE_QUERY_PAIR("Hi-Z Mipmap", pHizMipmapStartQuery, pHizMipmapEndQuery);
+    CREATE_QUERY_PAIR("UI", pUiStartQuery, pUiEndQuery);
+
+#undef CREATE_QUERY_PAIR
 
     Diligent::BufferDesc LargeObjectAtomicCounterDesc;
     LargeObjectAtomicCounterDesc.Name = "Visible Large Object Atomic Counter";
@@ -660,36 +696,7 @@ void Renderer::cleanup() {
     glBindBuffer(GL_UNIFORM_BUFFER, 0);
 
     glDeleteVertexArrays(1, &m_vao);
-    glDeleteQueries(NUM_FRAMES_IN_FLIGHT, m_queryStart);
-    glDeleteQueries(NUM_FRAMES_IN_FLIGHT, m_queryEnd);
-    glDeleteQueries(NUM_FRAMES_IN_FLIGHT, m_queryTransformStart);
-    glDeleteQueries(NUM_FRAMES_IN_FLIGHT, m_queryTransformEnd);
-    glDeleteQueries(NUM_FRAMES_IN_FLIGHT, m_queryCullStart);
-    glDeleteQueries(NUM_FRAMES_IN_FLIGHT, m_queryCullEnd);
-    glDeleteQueries(NUM_FRAMES_IN_FLIGHT, m_queryOpaqueSortStart);
-    glDeleteQueries(NUM_FRAMES_IN_FLIGHT, m_queryOpaqueSortEnd);
-    glDeleteQueries(NUM_FRAMES_IN_FLIGHT, m_queryCommandGenStart);
-    glDeleteQueries(NUM_FRAMES_IN_FLIGHT, m_queryCommandGenEnd);
-    glDeleteQueries(NUM_FRAMES_IN_FLIGHT, m_queryLargeObjectSortStart);
-    glDeleteQueries(NUM_FRAMES_IN_FLIGHT, m_queryLargeObjectSortEnd);
-    glDeleteQueries(NUM_FRAMES_IN_FLIGHT, m_queryLargeObjectCommandGenStart);
-    glDeleteQueries(NUM_FRAMES_IN_FLIGHT, m_queryLargeObjectCommandGenEnd);
-    glDeleteQueries(NUM_FRAMES_IN_FLIGHT, m_queryDepthPrePassStart);
-    glDeleteQueries(NUM_FRAMES_IN_FLIGHT, m_queryDepthPrePassEnd);
-    glDeleteQueries(NUM_FRAMES_IN_FLIGHT, m_queryTransparentCullStart);
-    glDeleteQueries(NUM_FRAMES_IN_FLIGHT, m_queryTransparentCullEnd);
-    glDeleteQueries(NUM_FRAMES_IN_FLIGHT, m_queryTransparentSortStart);
-    glDeleteQueries(NUM_FRAMES_IN_FLIGHT, m_queryTransparentSortEnd);
-    glDeleteQueries(NUM_FRAMES_IN_FLIGHT, m_queryTransparentCommandGenStart);
-    glDeleteQueries(NUM_FRAMES_IN_FLIGHT, m_queryTransparentCommandGenEnd);
-    glDeleteQueries(NUM_FRAMES_IN_FLIGHT, m_queryOpaqueDrawStart);
-    glDeleteQueries(NUM_FRAMES_IN_FLIGHT, m_queryOpaqueDrawEnd);
-    glDeleteQueries(NUM_FRAMES_IN_FLIGHT, m_queryTransparentDrawStart);
-    glDeleteQueries(NUM_FRAMES_IN_FLIGHT, m_queryTransparentDrawEnd);
-    glDeleteQueries(NUM_FRAMES_IN_FLIGHT, m_queryHizMipmapStart);
-    glDeleteQueries(NUM_FRAMES_IN_FLIGHT, m_queryHizMipmapEnd);
-    glDeleteQueries(NUM_FRAMES_IN_FLIGHT, m_queryUiStart);
-    glDeleteQueries(NUM_FRAMES_IN_FLIGHT, m_queryUiEnd);
+    glDeleteVertexArrays(1, &m_vao);
 
     glDeleteFramebuffers(NUM_FRAMES_IN_FLIGHT, m_depthFbo);
     glDeleteVertexArrays(1, &m_debugQuadVao);
@@ -859,79 +866,6 @@ void Renderer::drawScene(SceneDatabase& sceneDatabase, const Camera& camera) {
         m_diligent->pFences[previousFrame]->Wait(FenceValue);
     }
 
-    if (!fullProfiling) {
-        long startTime = 0, endTime = 0;
-        long transformStartTime = 0, transformEndTime = 0;
-        long cullStartTime = 0, cullEndTime = 0;
-        long opaqueSortStartTime = 0, opaqueSortEndTime = 0;
-        long commandGenStartTime = 0, commandGenEndTime = 0;
-        long opaqueDrawStartTime = 0, opaqueDrawEndTime = 0;
-        long largeObjectSortStartTime = 0, largeObjectSortEndTime = 0;
-        long largeObjectCommandGenStartTime = 0, largeObjectCommandGenEndTime = 0;
-        long transparentCullStartTime = 0, transparentCullEndTime = 0;
-        long transparentSortStartTime = 0, transparentSortEndTime = 0;
-        long transparentCommandGenStartTime = 0, transparentCommandGenEndTime = 0;
-        long transparentDrawStartTime = 0, transparentDrawEndTime = 0;
-        long depthPrePassStartTime = 0, depthPrePassEndTime = 0;
-        long hizMipmapStartTime = 0, hizMipmapEndTime = 0;
-        long uiStartTime = 0, uiEndTime = 0;
-
-        int done = 0;
-        glGetQueryObjectiv(m_queryEnd[previousFrame], GL_QUERY_RESULT_AVAILABLE, &done);
-        if (done) {
-            glGetQueryObjecti64v(m_queryStart[previousFrame], GL_QUERY_RESULT, &startTime);
-            glGetQueryObjecti64v(m_queryEnd[previousFrame], GL_QUERY_RESULT, &endTime);
-            glGetQueryObjecti64v(m_queryTransformStart[previousFrame], GL_QUERY_RESULT, &transformStartTime);
-            glGetQueryObjecti64v(m_queryTransformEnd[previousFrame], GL_QUERY_RESULT, &transformEndTime);
-            glGetQueryObjecti64v(m_queryCullStart[previousFrame], GL_QUERY_RESULT, &cullStartTime);
-            glGetQueryObjecti64v(m_queryCullEnd[previousFrame], GL_QUERY_RESULT, &cullEndTime);
-            glGetQueryObjecti64v(m_queryOpaqueSortStart[previousFrame], GL_QUERY_RESULT, &opaqueSortStartTime);
-            glGetQueryObjecti64v(m_queryOpaqueSortEnd[previousFrame], GL_QUERY_RESULT, &opaqueSortEndTime);
-            glGetQueryObjecti64v(m_queryCommandGenStart[previousFrame], GL_QUERY_RESULT, &commandGenStartTime);
-            glGetQueryObjecti64v(m_queryCommandGenEnd[previousFrame], GL_QUERY_RESULT, &commandGenEndTime);
-            glGetQueryObjecti64v(m_queryOpaqueDrawStart[previousFrame], GL_QUERY_RESULT, &opaqueDrawStartTime);
-            glGetQueryObjecti64v(m_queryOpaqueDrawEnd[previousFrame], GL_QUERY_RESULT, &opaqueDrawEndTime);
-            glGetQueryObjecti64v(m_queryLargeObjectSortStart[previousFrame], GL_QUERY_RESULT, &largeObjectSortStartTime);
-            glGetQueryObjecti64v(m_queryLargeObjectSortEnd[previousFrame], GL_QUERY_RESULT, &largeObjectSortEndTime);
-            glGetQueryObjecti64v(m_queryLargeObjectCommandGenStart[previousFrame], GL_QUERY_RESULT, &largeObjectCommandGenStartTime);
-            glGetQueryObjecti64v(m_queryLargeObjectCommandGenEnd[previousFrame], GL_QUERY_RESULT, &largeObjectCommandGenEndTime);
-            glGetQueryObjecti64v(m_queryTransparentCullStart[previousFrame], GL_QUERY_RESULT, &transparentCullStartTime);
-            glGetQueryObjecti64v(m_queryTransparentCullEnd[previousFrame], GL_QUERY_RESULT, &transparentCullEndTime);
-            glGetQueryObjecti64v(m_queryTransparentSortStart[previousFrame], GL_QUERY_RESULT, &transparentSortStartTime);
-            glGetQueryObjecti64v(m_queryTransparentSortEnd[previousFrame], GL_QUERY_RESULT, &transparentSortEndTime);
-            glGetQueryObjecti64v(m_queryTransparentCommandGenStart[previousFrame], GL_QUERY_RESULT, &transparentCommandGenStartTime);
-            glGetQueryObjecti64v(m_queryTransparentCommandGenEnd[previousFrame], GL_QUERY_RESULT, &transparentCommandGenEndTime);
-            glGetQueryObjecti64v(m_queryTransparentDrawStart[previousFrame], GL_QUERY_RESULT, &transparentDrawStartTime);
-            glGetQueryObjecti64v(m_queryTransparentDrawEnd[previousFrame], GL_QUERY_RESULT, &transparentDrawEndTime);
-            glGetQueryObjecti64v(m_queryDepthPrePassStart[previousFrame], GL_QUERY_RESULT, &depthPrePassStartTime);
-            glGetQueryObjecti64v(m_queryDepthPrePassEnd[previousFrame], GL_QUERY_RESULT, &depthPrePassEndTime);
-            glGetQueryObjecti64v(m_queryHizMipmapStart[previousFrame], GL_QUERY_RESULT, &hizMipmapStartTime);
-            glGetQueryObjecti64v(m_queryHizMipmapEnd[previousFrame], GL_QUERY_RESULT, &hizMipmapEndTime);
-            glGetQueryObjecti64v(m_queryUiStart[previousFrame], GL_QUERY_RESULT, &uiStartTime);
-            glGetQueryObjecti64v(m_queryUiEnd[previousFrame], GL_QUERY_RESULT, &uiEndTime);
-
-            constexpr bool debugMode = false;
-            if (debugMode) {
-                Lit::Log::Debug("GPU Frame Time: {} ms", (endTime - startTime) / 1000000.0);
-                Lit::Log::Debug("  Transform: {} ms", (transformEndTime - transformStartTime) / 1000000.0);
-                Lit::Log::Debug("  Opaque Cull: {} ms", (cullEndTime - cullStartTime) / 1000000.0);
-                Lit::Log::Debug("  Opaque Sort: {} ms", (opaqueSortEndTime - opaqueSortStartTime) / 1000000.0);
-                Lit::Log::Debug("  Command Gen: {} ms", (commandGenEndTime - commandGenStartTime) / 1000000.0);
-                Lit::Log::Debug("  Depth Pre-Pass: {} ms", (depthPrePassEndTime - depthPrePassStartTime) / 1000000.0);
-                Lit::Log::Debug("  Opaque Draw: {} ms", (opaqueDrawEndTime - opaqueDrawStartTime) / 1000000.0);
-                Lit::Log::Debug("  Large Object Sort: {} ms", (largeObjectSortEndTime - largeObjectSortStartTime) / 1000000.0);
-                Lit::Log::Debug("  Large Object Command Gen: {} ms", (largeObjectCommandGenEndTime - largeObjectCommandGenStartTime) / 1000000.0);
-                Lit::Log::Debug("  Transparent Cull: {} ms", (transparentCullEndTime - transparentCullStartTime) / 1000000.0);
-                Lit::Log::Debug("  Transparent Sort: {} ms", (transparentSortEndTime - transparentSortStartTime) / 1000000.0);
-                Lit::Log::Debug("  Transparent Command Gen: {} ms", (transparentCommandGenEndTime - transparentCommandGenStartTime) / 1000000.0);
-                Lit::Log::Debug("  Transparent Draw: {} ms", (transparentDrawEndTime - transparentDrawStartTime) / 1000000.0);
-                Lit::Log::Debug("  UI Render: {} ms", (uiEndTime - uiStartTime) / 1000000.0);
-                Lit::Log::Debug("  Hi-Z Mipmap Gen: {} ms", (hizMipmapEndTime - hizMipmapStartTime) / 1000000.0);
-            }
-        }
-        glQueryCounter(m_queryStart[m_currentFrame], GL_TIMESTAMP);
-    }
-
     if (m_processedHierarchyVersion < sceneDatabase.m_hierarchyVersion) {
         sceneDatabase.updateHierarchy();
         m_hierarchyUpdateCounter = NUM_FRAMES_IN_FLIGHT;
@@ -955,8 +889,12 @@ void Renderer::drawScene(SceneDatabase& sceneDatabase, const Camera& camera) {
         glFinish();
         start = std::chrono::high_resolution_clock::now();
     }
-    if (!fullProfiling)
-        glQueryCounter(m_queryTransformStart[m_currentFrame], GL_TIMESTAMP);
+    if (!fullProfiling) {
+
+        while (glGetError() != GL_NO_ERROR)
+            ;
+        m_diligent->pImmediateContext->EndQuery(m_diligent->pTransformStartQuery[m_currentFrame]);
+    }
 
     if (m_processedDataVersion < sceneDatabase.m_dataVersion) {
         m_dataUpdateCounter = NUM_FRAMES_IN_FLIGHT;
@@ -1020,8 +958,11 @@ void Renderer::drawScene(SceneDatabase& sceneDatabase, const Camera& camera) {
         end = std::chrono::high_resolution_clock::now();
         transformTime = std::chrono::duration<double, std::milli>(end - start).count();
     }
-    if (!fullProfiling)
-        glQueryCounter(m_queryTransformEnd[m_currentFrame], GL_TIMESTAMP);
+    if (!fullProfiling) {
+        while (glGetError() != GL_NO_ERROR)
+            ;
+        m_diligent->pImmediateContext->EndQuery(m_diligent->pTransformEndQuery[m_currentFrame]);
+    }
 
     if (m_meshInfoDirty) {
         const size_t dataSize = s_meshInfos.size() * sizeof(MeshInfo);
@@ -1048,8 +989,11 @@ void Renderer::drawScene(SceneDatabase& sceneDatabase, const Camera& camera) {
         glFinish();
         start = std::chrono::high_resolution_clock::now();
     }
-    if (!fullProfiling)
-        glQueryCounter(m_queryCullStart[m_currentFrame], GL_TIMESTAMP);
+    if (!fullProfiling) {
+        while (glGetError() != GL_NO_ERROR)
+            ;
+        m_diligent->pImmediateContext->EndQuery(m_diligent->pCullStartQuery[m_currentFrame]);
+    }
 
     glBindBuffer(GL_ATOMIC_COUNTER_BUFFER, m_visibleObjectAtomicCounter);
     glBufferSubData(GL_ATOMIC_COUNTER_BUFFER, 0, sizeof(unsigned int), &zero);
@@ -1084,16 +1028,22 @@ void Renderer::drawScene(SceneDatabase& sceneDatabase, const Camera& camera) {
         end = std::chrono::high_resolution_clock::now();
         opaqueCullTime = std::chrono::duration<double, std::milli>(end - start).count();
     }
-    if (!fullProfiling)
-        glQueryCounter(m_queryCullEnd[m_currentFrame], GL_TIMESTAMP);
+    if (!fullProfiling) {
+        while (glGetError() != GL_NO_ERROR)
+            ;
+        m_diligent->pImmediateContext->EndQuery(m_diligent->pCullEndQuery[m_currentFrame]);
+    }
 
     if (fullProfiling) {
         glFinish();
         start = std::chrono::high_resolution_clock::now();
     }
-    if (!fullProfiling)
-        glQueryCounter(m_queryOpaqueSortStart[m_currentFrame], GL_TIMESTAMP);
     if (visibleObjectCount > 1) {
+        if (!fullProfiling) {
+            while (glGetError() != GL_NO_ERROR)
+                ;
+            m_diligent->pImmediateContext->EndQuery(m_diligent->pOpaqueSortStartQuery[m_currentFrame]);
+        }
         m_opaqueSortShader->bind();
         glBindBufferRange(GL_SHADER_STORAGE_BUFFER, 1, m_visibleObjectBuffer, frameOffset * sizeof(unsigned int), m_maxObjects * sizeof(unsigned int));
         glBindBufferRange(GL_SHADER_STORAGE_BUFFER, 4, m_renderableBuffer, frameOffset * sizeof(RenderableComponent), m_maxObjects * sizeof(RenderableComponent));
@@ -1109,21 +1059,30 @@ void Renderer::drawScene(SceneDatabase& sceneDatabase, const Camera& camera) {
                 glMemoryBarrier(GL_SHADER_STORAGE_BARRIER_BIT);
             }
         }
+        if (fullProfiling) {
+            glFinish();
+            end = std::chrono::high_resolution_clock::now();
+            opaqueSortTime = std::chrono::duration<double, std::milli>(end - start).count();
+        }
+        if (!fullProfiling) {
+            while (glGetError() != GL_NO_ERROR)
+                ;
+            m_diligent->pImmediateContext->EndQuery(m_diligent->pOpaqueSortEndQuery[m_currentFrame]);
+        }
+        m_diligent->OpaqueSortActive[m_currentFrame] = true;
+    } else {
+        m_diligent->OpaqueSortActive[m_currentFrame] = false;
     }
-    if (fullProfiling) {
-        glFinish();
-        end = std::chrono::high_resolution_clock::now();
-        opaqueSortTime = std::chrono::duration<double, std::milli>(end - start).count();
-    }
-    if (!fullProfiling)
-        glQueryCounter(m_queryOpaqueSortEnd[m_currentFrame], GL_TIMESTAMP);
 
     if (fullProfiling) {
         glFinish();
         start = std::chrono::high_resolution_clock::now();
     }
-    if (!fullProfiling)
-        glQueryCounter(m_queryCommandGenStart[m_currentFrame], GL_TIMESTAMP);
+    if (!fullProfiling) {
+        while (glGetError() != GL_NO_ERROR)
+            ;
+        m_diligent->pImmediateContext->EndQuery(m_diligent->pCommandGenStartQuery[m_currentFrame]);
+    }
     std::vector<unsigned int> drawZeros(m_numDrawingShaders, 0);
     glBindBuffer(GL_ATOMIC_COUNTER_BUFFER, m_drawAtomicCounterBuffer);
     glBufferSubData(GL_ATOMIC_COUNTER_BUFFER, 0, sizeof(unsigned int) * m_numDrawingShaders, drawZeros.data());
@@ -1147,15 +1106,21 @@ void Renderer::drawScene(SceneDatabase& sceneDatabase, const Camera& camera) {
         end = std::chrono::high_resolution_clock::now();
         opaqueCommandGenTime = std::chrono::duration<double, std::milli>(end - start).count();
     }
-    if (!fullProfiling)
-        glQueryCounter(m_queryCommandGenEnd[m_currentFrame], GL_TIMESTAMP);
+    if (!fullProfiling) {
+        while (glGetError() != GL_NO_ERROR)
+            ;
+        m_diligent->pImmediateContext->EndQuery(m_diligent->pCommandGenEndQuery[m_currentFrame]);
+    }
 
     if (fullProfiling) {
         glFinish();
         start = std::chrono::high_resolution_clock::now();
     }
-    if (!fullProfiling)
-        glQueryCounter(m_queryDepthPrePassStart[m_currentFrame], GL_TIMESTAMP);
+    if (!fullProfiling) {
+        while (glGetError() != GL_NO_ERROR)
+            ;
+        m_diligent->pImmediateContext->EndQuery(m_diligent->pDepthPrePassStartQuery[m_currentFrame]);
+    }
     glBindBuffer(GL_ATOMIC_COUNTER_BUFFER, m_visibleLargeObjectAtomicCounter);
     glBufferSubData(GL_ATOMIC_COUNTER_BUFFER, 0, sizeof(unsigned int), &zero);
 
@@ -1187,9 +1152,12 @@ void Renderer::drawScene(SceneDatabase& sceneDatabase, const Camera& camera) {
         glFinish();
         start = std::chrono::high_resolution_clock::now();
     }
-    if (!fullProfiling)
-        glQueryCounter(m_queryLargeObjectSortStart[m_currentFrame], GL_TIMESTAMP);
     if (visibleLargeObjectCount > 1) {
+        if (!fullProfiling) {
+            while (glGetError() != GL_NO_ERROR)
+                ;
+            m_diligent->pImmediateContext->EndQuery(m_diligent->pLargeObjectSortStartQuery[m_currentFrame]);
+        }
         m_largeObjectSortShader->bind();
         glBindBufferRange(GL_SHADER_STORAGE_BUFFER, 1, m_visibleLargeObjectBuffer, frameOffset * sizeof(unsigned int), m_maxObjects * sizeof(unsigned int));
         glBindBufferRange(GL_SHADER_STORAGE_BUFFER, 4, m_renderableBuffer, frameOffset * sizeof(RenderableComponent), m_maxObjects * sizeof(RenderableComponent));
@@ -1205,21 +1173,30 @@ void Renderer::drawScene(SceneDatabase& sceneDatabase, const Camera& camera) {
                 glMemoryBarrier(GL_SHADER_STORAGE_BARRIER_BIT);
             }
         }
+        if (fullProfiling) {
+            glFinish();
+            end = std::chrono::high_resolution_clock::now();
+            largeObjectSortTime = std::chrono::duration<double, std::milli>(end - start).count();
+        }
+        if (!fullProfiling) {
+            while (glGetError() != GL_NO_ERROR)
+                ;
+            m_diligent->pImmediateContext->EndQuery(m_diligent->pLargeObjectSortEndQuery[m_currentFrame]);
+        }
+        m_diligent->LargeObjectSortActive[m_currentFrame] = true;
+    } else {
+        m_diligent->LargeObjectSortActive[m_currentFrame] = false;
     }
-    if (fullProfiling) {
-        glFinish();
-        end = std::chrono::high_resolution_clock::now();
-        largeObjectSortTime = std::chrono::duration<double, std::milli>(end - start).count();
-    }
-    if (!fullProfiling)
-        glQueryCounter(m_queryLargeObjectSortEnd[m_currentFrame], GL_TIMESTAMP);
 
     if (fullProfiling) {
         glFinish();
         start = std::chrono::high_resolution_clock::now();
     }
-    if (!fullProfiling)
-        glQueryCounter(m_queryLargeObjectCommandGenStart[m_currentFrame], GL_TIMESTAMP);
+    if (!fullProfiling) {
+        while (glGetError() != GL_NO_ERROR)
+            ;
+        m_diligent->pImmediateContext->EndQuery(m_diligent->pLargeObjectCommandGenStartQuery[m_currentFrame]);
+    }
     glBindBuffer(GL_ATOMIC_COUNTER_BUFFER, m_depthPrepassAtomicCounter);
     glBufferSubData(GL_ATOMIC_COUNTER_BUFFER, 0, sizeof(unsigned int), &zero);
 
@@ -1242,8 +1219,11 @@ void Renderer::drawScene(SceneDatabase& sceneDatabase, const Camera& camera) {
         end = std::chrono::high_resolution_clock::now();
         largeObjectCommandGenTime = std::chrono::duration<double, std::milli>(end - start).count();
     }
-    if (!fullProfiling)
-        glQueryCounter(m_queryLargeObjectCommandGenEnd[m_currentFrame], GL_TIMESTAMP);
+    if (!fullProfiling) {
+        while (glGetError() != GL_NO_ERROR)
+            ;
+        m_diligent->pImmediateContext->EndQuery(m_diligent->pLargeObjectCommandGenEndQuery[m_currentFrame]);
+    }
 
     if (fullProfiling) {
         glFinish();
@@ -1271,8 +1251,11 @@ void Renderer::drawScene(SceneDatabase& sceneDatabase, const Camera& camera) {
         end = std::chrono::high_resolution_clock::now();
         depthPrePassTime = std::chrono::duration<double, std::milli>(end - start).count();
     }
-    if (!fullProfiling)
-        glQueryCounter(m_queryDepthPrePassEnd[m_currentFrame], GL_TIMESTAMP);
+    if (!fullProfiling) {
+        while (glGetError() != GL_NO_ERROR)
+            ;
+        m_diligent->pImmediateContext->EndQuery(m_diligent->pDepthPrePassEndQuery[m_currentFrame]);
+    }
     glBindFramebuffer(GL_FRAMEBUFFER, 0);
 
     glClearColor(0.3f, 0.3f, 0.3f, 1.0f);
@@ -1288,8 +1271,11 @@ void Renderer::drawScene(SceneDatabase& sceneDatabase, const Camera& camera) {
         glFinish();
         start = std::chrono::high_resolution_clock::now();
     }
-    if (!fullProfiling)
-        glQueryCounter(m_queryOpaqueDrawStart[m_currentFrame], GL_TIMESTAMP);
+    if (!fullProfiling) {
+        while (glGetError() != GL_NO_ERROR)
+            ;
+        m_diligent->pImmediateContext->EndQuery(m_diligent->pOpaqueDrawStartQuery[m_currentFrame]);
+    }
     for (uint32_t shaderId = 0; shaderId < m_numDrawingShaders; ++shaderId) {
         Shader* shader = m_shaderManager.getShader(shaderId);
         if (shader) {
@@ -1304,8 +1290,11 @@ void Renderer::drawScene(SceneDatabase& sceneDatabase, const Camera& camera) {
         end = std::chrono::high_resolution_clock::now();
         opaqueDrawTime = std::chrono::duration<double, std::milli>(end - start).count();
     }
-    if (!fullProfiling)
-        glQueryCounter(m_queryOpaqueDrawEnd[m_currentFrame], GL_TIMESTAMP);
+    if (!fullProfiling) {
+        while (glGetError() != GL_NO_ERROR)
+            ;
+        m_diligent->pImmediateContext->EndQuery(m_diligent->pOpaqueDrawEndQuery[m_currentFrame]);
+    }
 
     glBindBuffer(GL_ATOMIC_COUNTER_BUFFER, m_transparentAtomicCounter);
     glBufferSubData(GL_ATOMIC_COUNTER_BUFFER, 0, sizeof(unsigned int), &zero);
@@ -1314,8 +1303,11 @@ void Renderer::drawScene(SceneDatabase& sceneDatabase, const Camera& camera) {
         glFinish();
         start = std::chrono::high_resolution_clock::now();
     }
-    if (!fullProfiling)
-        glQueryCounter(m_queryTransparentCullStart[m_currentFrame], GL_TIMESTAMP);
+    if (!fullProfiling) {
+        while (glGetError() != GL_NO_ERROR)
+            ;
+        m_diligent->pImmediateContext->EndQuery(m_diligent->pTransparentCullStartQuery[m_currentFrame]);
+    }
     m_transparentCullShader->bind();
     m_transparentCullShader->setUniform("u_objectCount", numObjects);
     m_transparentCullShader->setUniform("u_cameraPos", camera.getPosition());
@@ -1333,8 +1325,11 @@ void Renderer::drawScene(SceneDatabase& sceneDatabase, const Camera& camera) {
         end = std::chrono::high_resolution_clock::now();
         transparentCullTime = std::chrono::duration<double, std::milli>(end - start).count();
     }
-    if (!fullProfiling)
-        glQueryCounter(m_queryTransparentCullEnd[m_currentFrame], GL_TIMESTAMP);
+    if (!fullProfiling) {
+        while (glGetError() != GL_NO_ERROR)
+            ;
+        m_diligent->pImmediateContext->EndQuery(m_diligent->pTransparentCullEndQuery[m_currentFrame]);
+    }
 
     unsigned int visibleTransparentCount = 0;
     glBindBuffer(GL_ATOMIC_COUNTER_BUFFER, m_transparentAtomicCounter);
@@ -1345,8 +1340,11 @@ void Renderer::drawScene(SceneDatabase& sceneDatabase, const Camera& camera) {
             glFinish();
             start = std::chrono::high_resolution_clock::now();
         }
-        if (!fullProfiling)
-            glQueryCounter(m_queryTransparentSortStart[m_currentFrame], GL_TIMESTAMP);
+        if (!fullProfiling) {
+            while (glGetError() != GL_NO_ERROR)
+                ;
+            m_diligent->pImmediateContext->EndQuery(m_diligent->pTransparentSortStartQuery[m_currentFrame]);
+        }
         m_bitonicSortShader->bind();
         glBindBufferRange(GL_SHADER_STORAGE_BUFFER, 1, m_visibleTransparentObjectIdsBuffer, frameOffset * sizeof(VisibleTransparentObject), m_maxObjects * sizeof(VisibleTransparentObject));
 
@@ -1366,16 +1364,25 @@ void Renderer::drawScene(SceneDatabase& sceneDatabase, const Camera& camera) {
             end = std::chrono::high_resolution_clock::now();
             transparentSortTime = std::chrono::duration<double, std::milli>(end - start).count();
         }
-        if (!fullProfiling)
-            glQueryCounter(m_queryTransparentSortEnd[m_currentFrame], GL_TIMESTAMP);
+        if (!fullProfiling) {
+            while (glGetError() != GL_NO_ERROR)
+                ;
+            m_diligent->pImmediateContext->EndQuery(m_diligent->pTransparentSortEndQuery[m_currentFrame]);
+        }
+        m_diligent->TransparentSortActive[m_currentFrame] = true;
+    } else {
+        m_diligent->TransparentSortActive[m_currentFrame] = false;
     }
 
     if (fullProfiling) {
         glFinish();
         start = std::chrono::high_resolution_clock::now();
     }
-    if (!fullProfiling)
-        glQueryCounter(m_queryTransparentCommandGenStart[m_currentFrame], GL_TIMESTAMP);
+    if (!fullProfiling) {
+        while (glGetError() != GL_NO_ERROR)
+            ;
+        m_diligent->pImmediateContext->EndQuery(m_diligent->pTransparentCommandGenStartQuery[m_currentFrame]);
+    }
     m_transparentCommandGenShader->bind();
     m_transparentCommandGenShader->setUniform("u_visibleTransparentCount", visibleTransparentCount);
     glBindBufferRange(GL_SHADER_STORAGE_BUFFER, 1, m_visibleTransparentObjectIdsBuffer, frameOffset * sizeof(VisibleTransparentObject), m_maxObjects * sizeof(VisibleTransparentObject));
@@ -1393,8 +1400,11 @@ void Renderer::drawScene(SceneDatabase& sceneDatabase, const Camera& camera) {
         end = std::chrono::high_resolution_clock::now();
         transparentCommandGenTime = std::chrono::duration<double, std::milli>(end - start).count();
     }
-    if (!fullProfiling)
-        glQueryCounter(m_queryTransparentCommandGenEnd[m_currentFrame], GL_TIMESTAMP);
+    if (!fullProfiling) {
+        while (glGetError() != GL_NO_ERROR)
+            ;
+        m_diligent->pImmediateContext->EndQuery(m_diligent->pTransparentCommandGenEndQuery[m_currentFrame]);
+    }
 
     glEnable(GL_BLEND);
     glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
@@ -1404,21 +1414,30 @@ void Renderer::drawScene(SceneDatabase& sceneDatabase, const Camera& camera) {
         glFinish();
         start = std::chrono::high_resolution_clock::now();
     }
-    if (!fullProfiling)
-        glQueryCounter(m_queryTransparentDrawStart[m_currentFrame], GL_TIMESTAMP);
+    if (!fullProfiling) {
+        while (glGetError() != GL_NO_ERROR)
+            ;
+        m_diligent->pImmediateContext->EndQuery(m_diligent->pTransparentDrawStartQuery[m_currentFrame]);
+    }
     Shader* transparentShader = m_shaderManager.getShader(2);
     if (transparentShader && visibleTransparentCount > 0) {
         transparentShader->bind();
         glBindBuffer(GL_DRAW_INDIRECT_BUFFER, m_transparentDrawCommandBuffer);
         glMultiDrawElementsIndirect(GL_TRIANGLES, GL_UNSIGNED_INT, (const void*)(frameOffset * sizeof(DrawElementsIndirectCommand)), visibleTransparentCount, sizeof(DrawElementsIndirectCommand));
+        if (fullProfiling) {
+            glFinish();
+            end = std::chrono::high_resolution_clock::now();
+            transparentDrawTime = std::chrono::duration<double, std::milli>(end - start).count();
+        }
+        if (!fullProfiling) {
+            while (glGetError() != GL_NO_ERROR)
+                ;
+            m_diligent->pImmediateContext->EndQuery(m_diligent->pTransparentDrawEndQuery[m_currentFrame]);
+        }
+        m_diligent->TransparentDrawActive[m_currentFrame] = true;
+    } else {
+        m_diligent->TransparentDrawActive[m_currentFrame] = false;
     }
-    if (fullProfiling) {
-        glFinish();
-        end = std::chrono::high_resolution_clock::now();
-        transparentDrawTime = std::chrono::duration<double, std::milli>(end - start).count();
-    }
-    if (!fullProfiling)
-        glQueryCounter(m_queryTransparentDrawEnd[m_currentFrame], GL_TIMESTAMP);
 
     glDepthMask(GL_TRUE);
     glDisable(GL_BLEND);
@@ -1428,8 +1447,11 @@ void Renderer::drawScene(SceneDatabase& sceneDatabase, const Camera& camera) {
         glFinish();
         start = std::chrono::high_resolution_clock::now();
     }
-    if (!fullProfiling)
-        glQueryCounter(m_queryHizMipmapStart[m_currentFrame], GL_TIMESTAMP);
+    if (!fullProfiling) {
+        while (glGetError() != GL_NO_ERROR)
+            ;
+        m_diligent->pImmediateContext->EndQuery(m_diligent->pHizMipmapStartQuery[m_currentFrame]);
+    }
     glMemoryBarrier(GL_SHADER_IMAGE_ACCESS_BARRIER_BIT);
 
     m_hizMipmapShader->bind();
@@ -1452,15 +1474,21 @@ void Renderer::drawScene(SceneDatabase& sceneDatabase, const Camera& camera) {
         end = std::chrono::high_resolution_clock::now();
         hizMipmapTime = std::chrono::duration<double, std::milli>(end - start).count();
     }
-    if (!fullProfiling)
-        glQueryCounter(m_queryHizMipmapEnd[m_currentFrame], GL_TIMESTAMP);
+    if (!fullProfiling) {
+        while (glGetError() != GL_NO_ERROR)
+            ;
+        m_diligent->pImmediateContext->EndQuery(m_diligent->pHizMipmapEndQuery[m_currentFrame]);
+    }
 
     if (fullProfiling) {
         glFinish();
         start = std::chrono::high_resolution_clock::now();
     }
-    if (!fullProfiling)
-        glQueryCounter(m_queryUiStart[m_currentFrame], GL_TIMESTAMP);
+    if (!fullProfiling) {
+        while (glGetError() != GL_NO_ERROR)
+            ;
+        m_diligent->pImmediateContext->EndQuery(m_diligent->pUiStartQuery[m_currentFrame]);
+    }
     m_uiManager->render();
 
     if (fullProfiling) {
@@ -1469,8 +1497,15 @@ void Renderer::drawScene(SceneDatabase& sceneDatabase, const Camera& camera) {
         uiTime = std::chrono::duration<double, std::milli>(end - start).count();
     }
     if (!fullProfiling) {
-        glQueryCounter(m_queryUiEnd[m_currentFrame], GL_TIMESTAMP);
-        glQueryCounter(m_queryEnd[m_currentFrame], GL_TIMESTAMP);
+        while (glGetError() != GL_NO_ERROR)
+            ;
+        m_diligent->pImmediateContext->EndQuery(m_diligent->pUiEndQuery[m_currentFrame]);
+        while (glGetError() != GL_NO_ERROR)
+            ;
+        m_diligent->pImmediateContext->EndQuery(m_diligent->pFrameEndQuery[m_currentFrame]);
+        m_diligent->QueryReady[m_currentFrame] = true;
+    } else {
+        m_diligent->QueryReady[m_currentFrame] = false;
     }
 
     while (glGetError() != GL_NO_ERROR) {
