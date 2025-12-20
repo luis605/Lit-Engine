@@ -224,6 +224,7 @@ struct DiligentData {
     bool LargeObjectSortActive[NumFrames] = {false};
     bool TransparentSortActive[NumFrames] = {false};
     bool TransparentDrawActive[NumFrames] = {false};
+    Diligent::RefCntAutoPtr<Diligent::IBuffer> pStagingBuffer;
 };
 
 Renderer::Renderer()
@@ -492,6 +493,15 @@ void Renderer::init(GLFWwindow* window, const int windowWidth, const int windowH
     m_diligent->pDepthPrepassAtomicCounter.Release();
     m_diligent->pDevice->CreateBuffer(DepthPrepassAtomicCounterDesc, &AtomicCounterData, &m_diligent->pDepthPrepassAtomicCounter);
     m_depthPrepassAtomicCounter = (GLuint)(size_t)m_diligent->pDepthPrepassAtomicCounter->GetNativeHandle();
+
+    Diligent::BufferDesc StagingDesc;
+    StagingDesc.Name = "Staging Buffer";
+    StagingDesc.Usage = Diligent::USAGE_STAGING;
+    StagingDesc.BindFlags = Diligent::BIND_NONE;
+    StagingDesc.CPUAccessFlags = Diligent::CPU_ACCESS_READ;
+    StagingDesc.Size = sizeof(unsigned int);
+    m_diligent->pStagingBuffer.Release();
+    m_diligent->pDevice->CreateBuffer(StagingDesc, nullptr, &m_diligent->pStagingBuffer);
     glBindBuffer(GL_ATOMIC_COUNTER_BUFFER, m_depthPrepassAtomicCounter);
 
     Diligent::FenceDesc FenceCI;
@@ -888,8 +898,22 @@ void Renderer::drawScene(SceneDatabase& sceneDatabase, const Camera& camera) {
     const size_t frameOffset = m_currentFrame * m_maxObjects;
     const size_t uboFrameOffset = m_currentFrame * sizeof(SceneUniforms);
 
-    while (glGetError() != GL_NO_ERROR);
+    while (glGetError() != GL_NO_ERROR)
+        ;
     m_diligent->pImmediateContext->EndQuery(m_diligent->pTransformStartQuery[m_currentFrame]);
+
+    auto ReadAtomicCounter = [&](Diligent::IBuffer* pAtomicBuffer) -> unsigned int {
+        m_diligent->pImmediateContext->CopyBuffer(pAtomicBuffer, 0, Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION, m_diligent->pStagingBuffer, 0, sizeof(unsigned int), Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
+        m_diligent->pImmediateContext->WaitForIdle();
+        void* pData = nullptr;
+        m_diligent->pImmediateContext->MapBuffer(m_diligent->pStagingBuffer, Diligent::MAP_READ, Diligent::MAP_FLAG_NONE, pData);
+        unsigned int count = 0;
+        if (pData) {
+            count = *reinterpret_cast<unsigned int*>(pData);
+        }
+        m_diligent->pImmediateContext->UnmapBuffer(m_diligent->pStagingBuffer, Diligent::MAP_READ);
+        return count;
+    };
 
     if (m_processedDataVersion < sceneDatabase.m_dataVersion) {
         m_dataUpdateCounter = NUM_FRAMES_IN_FLIGHT;
@@ -899,7 +923,8 @@ void Renderer::drawScene(SceneDatabase& sceneDatabase, const Camera& camera) {
     glBindVertexArray(0);
     glBindBuffer(GL_SHADER_STORAGE_BUFFER, 0);
     glBindBuffer(GL_ARRAY_BUFFER, 0);
-    while (glGetError() != GL_NO_ERROR);
+    while (glGetError() != GL_NO_ERROR)
+        ;
 
     if (m_hierarchyUpdateCounter > 0) {
         const size_t dataSize = sceneDatabase.hierarchies.size() * sizeof(HierarchyComponent);
@@ -948,7 +973,8 @@ void Renderer::drawScene(SceneDatabase& sceneDatabase, const Camera& camera) {
         glMemoryBarrier(GL_SHADER_STORAGE_BARRIER_BIT);
     }
 
-    while (glGetError() != GL_NO_ERROR);
+    while (glGetError() != GL_NO_ERROR)
+        ;
     m_diligent->pImmediateContext->EndQuery(m_diligent->pTransformEndQuery[m_currentFrame]);
 
     if (m_meshInfoDirty) {
@@ -972,10 +998,10 @@ void Renderer::drawScene(SceneDatabase& sceneDatabase, const Camera& camera) {
     const unsigned int numWorkgroups = (numObjects + workgroupSize - 1) / workgroupSize;
     unsigned int zero = 0;
 
-    while (glGetError() != GL_NO_ERROR);
+    while (glGetError() != GL_NO_ERROR)
+        ;
     m_diligent->pImmediateContext->EndQuery(m_diligent->pCullStartQuery[m_currentFrame]);
 
-    glBindBuffer(GL_ATOMIC_COUNTER_BUFFER, m_visibleObjectAtomicCounter);
     m_diligent->pImmediateContext->UpdateBuffer(m_diligent->pVisibleObjectAtomicCounter, 0, sizeof(unsigned int), &zero, Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
 
     m_cullingShader->bind();
@@ -999,11 +1025,10 @@ void Renderer::drawScene(SceneDatabase& sceneDatabase, const Camera& camera) {
 
     glMemoryBarrier(GL_COMMAND_BARRIER_BIT | GL_SHADER_STORAGE_BARRIER_BIT | GL_ATOMIC_COUNTER_BARRIER_BIT);
 
-    unsigned int visibleObjectCount = 0;
-    glBindBuffer(GL_ATOMIC_COUNTER_BUFFER, m_visibleObjectAtomicCounter);
-    glGetBufferSubData(GL_ATOMIC_COUNTER_BUFFER, 0, sizeof(unsigned int), &visibleObjectCount);
+    unsigned int visibleObjectCount = ReadAtomicCounter(m_diligent->pVisibleObjectAtomicCounter);
 
-    while (glGetError() != GL_NO_ERROR);
+    while (glGetError() != GL_NO_ERROR)
+        ;
     m_diligent->pImmediateContext->EndQuery(m_diligent->pCullEndQuery[m_currentFrame]);
 
     if (visibleObjectCount > 1) {
@@ -1034,10 +1059,10 @@ void Renderer::drawScene(SceneDatabase& sceneDatabase, const Camera& camera) {
         m_diligent->OpaqueSortActive[m_currentFrame] = false;
     }
 
-    while (glGetError() != GL_NO_ERROR);
+    while (glGetError() != GL_NO_ERROR)
+        ;
     m_diligent->pImmediateContext->EndQuery(m_diligent->pCommandGenStartQuery[m_currentFrame]);
     std::vector<unsigned int> drawZeros(m_numDrawingShaders, 0);
-    glBindBuffer(GL_ATOMIC_COUNTER_BUFFER, m_drawAtomicCounterBuffer);
     m_diligent->pImmediateContext->UpdateBuffer(m_diligent->pDrawAtomicCounterBuffer, 0, sizeof(unsigned int) * m_numDrawingShaders, drawZeros.data(), Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
 
     m_commandGenShader->bind();
@@ -1055,12 +1080,13 @@ void Renderer::drawScene(SceneDatabase& sceneDatabase, const Camera& camera) {
     }
     glMemoryBarrier(GL_COMMAND_BARRIER_BIT | GL_SHADER_STORAGE_BARRIER_BIT | GL_ATOMIC_COUNTER_BARRIER_BIT);
 
-    while (glGetError() != GL_NO_ERROR);
+    while (glGetError() != GL_NO_ERROR)
+        ;
     m_diligent->pImmediateContext->EndQuery(m_diligent->pCommandGenEndQuery[m_currentFrame]);
 
-    while (glGetError() != GL_NO_ERROR);
+    while (glGetError() != GL_NO_ERROR)
+        ;
     m_diligent->pImmediateContext->EndQuery(m_diligent->pLargeObjectCullStartQuery[m_currentFrame]);
-    glBindBuffer(GL_ATOMIC_COUNTER_BUFFER, m_visibleLargeObjectAtomicCounter);
     m_diligent->pImmediateContext->UpdateBuffer(m_diligent->pVisibleLargeObjectAtomicCounter, 0, sizeof(unsigned int), &zero, Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
 
     m_largeObjectCullShader->bind();
@@ -1077,11 +1103,10 @@ void Renderer::drawScene(SceneDatabase& sceneDatabase, const Camera& camera) {
     glDispatchCompute(numWorkgroups, 1, 1);
     glMemoryBarrier(GL_COMMAND_BARRIER_BIT | GL_SHADER_STORAGE_BARRIER_BIT | GL_ATOMIC_COUNTER_BARRIER_BIT);
 
-    unsigned int visibleLargeObjectCount = 0;
-    glBindBuffer(GL_ATOMIC_COUNTER_BUFFER, m_visibleLargeObjectAtomicCounter);
-    glGetBufferSubData(GL_ATOMIC_COUNTER_BUFFER, 0, sizeof(unsigned int), &visibleLargeObjectCount);
+    unsigned int visibleLargeObjectCount = ReadAtomicCounter(m_diligent->pVisibleLargeObjectAtomicCounter);
 
-    while (glGetError() != GL_NO_ERROR);
+    while (glGetError() != GL_NO_ERROR)
+        ;
     m_diligent->pImmediateContext->EndQuery(m_diligent->pLargeObjectCullEndQuery[m_currentFrame]);
 
     if (visibleLargeObjectCount > 1) {
@@ -1112,9 +1137,9 @@ void Renderer::drawScene(SceneDatabase& sceneDatabase, const Camera& camera) {
         m_diligent->LargeObjectSortActive[m_currentFrame] = false;
     }
 
-    while (glGetError() != GL_NO_ERROR);
+    while (glGetError() != GL_NO_ERROR)
+        ;
     m_diligent->pImmediateContext->EndQuery(m_diligent->pLargeObjectCommandGenStartQuery[m_currentFrame]);
-    glBindBuffer(GL_ATOMIC_COUNTER_BUFFER, m_depthPrepassAtomicCounter);
     m_diligent->pImmediateContext->UpdateBuffer(m_diligent->pDepthPrepassAtomicCounter, 0, sizeof(unsigned int), &zero, Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
 
     m_largeObjectCommandGenShader->bind();
@@ -1132,10 +1157,12 @@ void Renderer::drawScene(SceneDatabase& sceneDatabase, const Camera& camera) {
     }
     glMemoryBarrier(GL_COMMAND_BARRIER_BIT | GL_SHADER_STORAGE_BARRIER_BIT | GL_ATOMIC_COUNTER_BARRIER_BIT);
 
-    while (glGetError() != GL_NO_ERROR);
+    while (glGetError() != GL_NO_ERROR)
+        ;
     m_diligent->pImmediateContext->EndQuery(m_diligent->pLargeObjectCommandGenEndQuery[m_currentFrame]);
 
-    while (glGetError() != GL_NO_ERROR);
+    while (glGetError() != GL_NO_ERROR)
+        ;
     m_diligent->pImmediateContext->EndQuery(m_diligent->pDepthPrePassStartQuery[m_currentFrame]);
     glBindFramebuffer(GL_FRAMEBUFFER, m_depthFbo[m_currentFrame]);
     glClearColor(1.0f, 1.0f, 1.0f, 1.0f);
@@ -1154,7 +1181,8 @@ void Renderer::drawScene(SceneDatabase& sceneDatabase, const Camera& camera) {
 
     glEnable(GL_DEPTH_TEST);
 
-    while (glGetError() != GL_NO_ERROR);
+    while (glGetError() != GL_NO_ERROR)
+        ;
     m_diligent->pImmediateContext->EndQuery(m_diligent->pDepthPrePassEndQuery[m_currentFrame]);
     glBindFramebuffer(GL_FRAMEBUFFER, 0);
 
@@ -1167,7 +1195,8 @@ void Renderer::drawScene(SceneDatabase& sceneDatabase, const Camera& camera) {
     glBindBufferRange(GL_SHADER_STORAGE_BUFFER, 2, m_objectBuffer, frameOffset * sizeof(TransformComponent), m_maxObjects * sizeof(TransformComponent));
     glBindBufferRange(GL_SHADER_STORAGE_BUFFER, 5, m_visibleObjectBuffer, frameOffset * sizeof(unsigned int), m_maxObjects * sizeof(unsigned int));
 
-    while (glGetError() != GL_NO_ERROR);
+    while (glGetError() != GL_NO_ERROR)
+        ;
     m_diligent->pImmediateContext->EndQuery(m_diligent->pOpaqueDrawStartQuery[m_currentFrame]);
     for (uint32_t shaderId = 0; shaderId < m_numDrawingShaders; ++shaderId) {
         Shader* shader = m_shaderManager.getShader(shaderId);
@@ -1179,13 +1208,14 @@ void Renderer::drawScene(SceneDatabase& sceneDatabase, const Camera& camera) {
         }
     }
 
-    while (glGetError() != GL_NO_ERROR);
+    while (glGetError() != GL_NO_ERROR)
+        ;
     m_diligent->pImmediateContext->EndQuery(m_diligent->pOpaqueDrawEndQuery[m_currentFrame]);
 
-    glBindBuffer(GL_ATOMIC_COUNTER_BUFFER, m_transparentAtomicCounter);
     m_diligent->pImmediateContext->UpdateBuffer(m_diligent->pTransparentAtomicCounter, 0, sizeof(unsigned int), &zero, Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
 
-    while (glGetError() != GL_NO_ERROR);
+    while (glGetError() != GL_NO_ERROR)
+        ;
     m_diligent->pImmediateContext->EndQuery(m_diligent->pTransparentCullStartQuery[m_currentFrame]);
     m_transparentCullShader->bind();
     m_transparentCullShader->setUniform("u_objectCount", numObjects);
@@ -1200,12 +1230,11 @@ void Renderer::drawScene(SceneDatabase& sceneDatabase, const Camera& camera) {
     glDispatchCompute(numWorkgroups, 1, 1);
     glMemoryBarrier(GL_SHADER_STORAGE_BARRIER_BIT | GL_ATOMIC_COUNTER_BARRIER_BIT);
 
-    while (glGetError() != GL_NO_ERROR);
+    while (glGetError() != GL_NO_ERROR)
+        ;
     m_diligent->pImmediateContext->EndQuery(m_diligent->pTransparentCullEndQuery[m_currentFrame]);
 
-    unsigned int visibleTransparentCount = 0;
-    glBindBuffer(GL_ATOMIC_COUNTER_BUFFER, m_transparentAtomicCounter);
-    glGetBufferSubData(GL_ATOMIC_COUNTER_BUFFER, 0, sizeof(unsigned int), &visibleTransparentCount);
+    unsigned int visibleTransparentCount = ReadAtomicCounter(m_diligent->pTransparentAtomicCounter);
 
     if (visibleTransparentCount > 1) {
         while (glGetError() != GL_NO_ERROR)
@@ -1234,7 +1263,8 @@ void Renderer::drawScene(SceneDatabase& sceneDatabase, const Camera& camera) {
         m_diligent->TransparentSortActive[m_currentFrame] = false;
     }
 
-    while (glGetError() != GL_NO_ERROR);
+    while (glGetError() != GL_NO_ERROR)
+        ;
     m_diligent->pImmediateContext->EndQuery(m_diligent->pTransparentCommandGenStartQuery[m_currentFrame]);
     m_transparentCommandGenShader->bind();
     m_transparentCommandGenShader->setUniform("u_visibleTransparentCount", visibleTransparentCount);
@@ -1249,14 +1279,16 @@ void Renderer::drawScene(SceneDatabase& sceneDatabase, const Camera& camera) {
     }
     glMemoryBarrier(GL_COMMAND_BARRIER_BIT | GL_SHADER_STORAGE_BARRIER_BIT);
 
-    while (glGetError() != GL_NO_ERROR);
+    while (glGetError() != GL_NO_ERROR)
+        ;
     m_diligent->pImmediateContext->EndQuery(m_diligent->pTransparentCommandGenEndQuery[m_currentFrame]);
 
     glEnable(GL_BLEND);
     glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
     glDepthMask(GL_FALSE);
 
-    while (glGetError() != GL_NO_ERROR);
+    while (glGetError() != GL_NO_ERROR)
+        ;
     m_diligent->pImmediateContext->EndQuery(m_diligent->pTransparentDrawStartQuery[m_currentFrame]);
     Shader* transparentShader = m_shaderManager.getShader(2);
     if (transparentShader && visibleTransparentCount > 0) {
@@ -1277,7 +1309,8 @@ void Renderer::drawScene(SceneDatabase& sceneDatabase, const Camera& camera) {
 
     glBindVertexArray(0);
 
-    while (glGetError() != GL_NO_ERROR);
+    while (glGetError() != GL_NO_ERROR)
+        ;
     m_diligent->pImmediateContext->EndQuery(m_diligent->pHizMipmapStartQuery[m_currentFrame]);
     glMemoryBarrier(GL_SHADER_IMAGE_ACCESS_BARRIER_BIT);
 
@@ -1296,10 +1329,12 @@ void Renderer::drawScene(SceneDatabase& sceneDatabase, const Camera& camera) {
         glTextureBarrier();
     }
 
-    while (glGetError() != GL_NO_ERROR);
+    while (glGetError() != GL_NO_ERROR)
+        ;
     m_diligent->pImmediateContext->EndQuery(m_diligent->pHizMipmapEndQuery[m_currentFrame]);
 
-    while (glGetError() != GL_NO_ERROR);
+    while (glGetError() != GL_NO_ERROR)
+        ;
     m_diligent->pImmediateContext->EndQuery(m_diligent->pUiStartQuery[m_currentFrame]);
 
     m_uiManager->render();
@@ -1309,9 +1344,11 @@ void Renderer::drawScene(SceneDatabase& sceneDatabase, const Camera& camera) {
         end = std::chrono::high_resolution_clock::now();
         uiTime = std::chrono::duration<double, std::milli>(end - start).count();
     }
-    while (glGetError() != GL_NO_ERROR);
+    while (glGetError() != GL_NO_ERROR)
+        ;
     m_diligent->pImmediateContext->EndQuery(m_diligent->pUiEndQuery[m_currentFrame]);
-    while (glGetError() != GL_NO_ERROR);
+    while (glGetError() != GL_NO_ERROR)
+        ;
     m_diligent->pImmediateContext->EndQuery(m_diligent->pFrameEndQuery[m_currentFrame]);
     m_diligent->QueryReady[m_currentFrame] = true;
 
@@ -1344,8 +1381,10 @@ void Renderer::drawScene(SceneDatabase& sceneDatabase, const Camera& camera) {
             Diligent::QueryDataTimestamp StartData = {};
             Diligent::QueryDataTimestamp EndData = {};
 
-            while (!pStartQuery->GetData(&StartData, sizeof(StartData))) { }
-            while (!pEndQuery->GetData(&EndData, sizeof(EndData))) { }
+            while (!pStartQuery->GetData(&StartData, sizeof(StartData))) {
+            }
+            while (!pEndQuery->GetData(&EndData, sizeof(EndData))) {
+            }
 
             if (EndData.Counter > StartData.Counter) {
                 return (double)(EndData.Counter - StartData.Counter) / (double)EndData.Frequency * 1000.0;
