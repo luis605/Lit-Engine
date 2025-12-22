@@ -11,6 +11,7 @@ module;
 #include "DiligentCore/Graphics/GraphicsEngine/interface/Shader.h"
 #include "DiligentCore/Graphics/GraphicsEngine/interface/PipelineState.h"
 #include "DiligentCore/Graphics/GraphicsEngine/interface/ShaderResourceBinding.h"
+#include "DiligentCore/Graphics/GraphicsEngine/interface/Sampler.h"
 
 #include <glad/glad.h>
 #include <GLFW/glfw3.h>
@@ -185,6 +186,7 @@ struct DiligentData {
     Diligent::RefCntAutoPtr<Diligent::IBuffer> pEBO;
     Diligent::RefCntAutoPtr<Diligent::ITexture> pHiZTextures[NumFrames];
     Diligent::RefCntAutoPtr<Diligent::ITexture> pDepthRenderbuffers[NumFrames];
+    Diligent::RefCntAutoPtr<Diligent::ISampler> pHiZSampler;
     Diligent::RefCntAutoPtr<Diligent::IQuery> pTransformStartQuery[NumFrames];
     Diligent::RefCntAutoPtr<Diligent::IQuery> pTransformEndQuery[NumFrames];
 
@@ -432,12 +434,6 @@ void Renderer::init(GLFWwindow* window, const int windowWidth, const int windowH
         m_depthRenderbuffer[i] = (GLuint)(size_t)m_diligent->pDepthRenderbuffers[i]->GetNativeHandle();
         Lit::Log::Info("Depth Renderbuffer {}: native handle {}", i, m_depthRenderbuffer[i]);
 
-        glBindTexture(GL_TEXTURE_2D, m_hizTexture[i]);
-        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST_MIPMAP_NEAREST);
-        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
-        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
-        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
-
         glBindFramebuffer(GL_FRAMEBUFFER, m_depthFbo[i]);
         glFramebufferTexture2D(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, GL_TEXTURE_2D, m_depthRenderbuffer[i], 0);
         glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, m_hizTexture[i], 0);
@@ -449,6 +445,24 @@ void Renderer::init(GLFWwindow* window, const int windowWidth, const int windowH
             Lit::Log::Error("Depth Pre-Pass FBO {} is not complete!", i);
         }
     }
+
+    Diligent::SamplerDesc SamplerCI;
+    SamplerCI.Name = "Hi-Z Sampler";
+    SamplerCI.MinFilter = Diligent::FILTER_TYPE_POINT;
+    SamplerCI.MagFilter = Diligent::FILTER_TYPE_POINT;
+    SamplerCI.MipFilter = Diligent::FILTER_TYPE_POINT;
+    SamplerCI.AddressU = Diligent::TEXTURE_ADDRESS_CLAMP;
+    SamplerCI.AddressV = Diligent::TEXTURE_ADDRESS_CLAMP;
+    m_diligent->pDevice->CreateSampler(SamplerCI, &m_diligent->pHiZSampler);
+
+    for (int i = 0; i < NUM_FRAMES_IN_FLIGHT; ++i) {
+        glBindTexture(GL_TEXTURE_2D, m_hizTexture[i]);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST_MIPMAP_NEAREST);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+    }
+
     glBindFramebuffer(GL_FRAMEBUFFER, 0);
 
     float quadVertices[] = {
