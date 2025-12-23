@@ -27,21 +27,26 @@ layout(binding = 2, std430) readonly buffer SortedHierarchyBuffer {
 layout(binding = 3, std140) uniform TransformUniforms {
     uint u_objectCount;
     uint u_currentHierarchyLevel;
+    uint u_baseIndex;
+    uint u_padding;
 };
 
 void main() {
     uint index = gl_GlobalInvocationID.x;
     if (index >= u_objectCount) return;
 
-    uint objectId = sortedHierarchyList[index];
+    uint sortedIndex = index + u_baseIndex;
+    uint objectId = sortedHierarchyList[sortedIndex];
+    uint physicalObjectId = objectId + u_baseIndex;
 
-    HierarchyComponent hierarchy = hierarchies[objectId];
+    HierarchyComponent hierarchy = hierarchies[physicalObjectId];
 
     if (hierarchy.level != u_currentHierarchyLevel) return;
 
     if (hierarchy.parent != 0xFFFFFFFF) { // INVALID_ENTITY
-        transforms[objectId].worldMatrix = transforms[hierarchy.parent].worldMatrix * transforms[objectId].localMatrix;
+        uint physicalParentId = hierarchy.parent + u_baseIndex;
+        transforms[physicalObjectId].worldMatrix = transforms[physicalParentId].worldMatrix * transforms[physicalObjectId].localMatrix;
     } else {
-        transforms[objectId].worldMatrix = transforms[objectId].localMatrix;
+        transforms[physicalObjectId].worldMatrix = transforms[physicalObjectId].localMatrix;
     }
 }

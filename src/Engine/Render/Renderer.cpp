@@ -163,9 +163,12 @@ struct DiligentData {
     Diligent::Uint64 FenceValues[NumFrames] = {0};
     Diligent::Uint64 CurrentFenceValue = 0;
     Diligent::RefCntAutoPtr<Diligent::IBuffer> pObjectBuffer;
+    Diligent::RefCntAutoPtr<Diligent::IBufferView> pObjectBufferViews[NumFrames];
     Diligent::RefCntAutoPtr<Diligent::IBuffer> pHierarchyBuffer;
+    Diligent::RefCntAutoPtr<Diligent::IBufferView> pHierarchyBufferViews[NumFrames];
     Diligent::RefCntAutoPtr<Diligent::IBuffer> pRenderableBuffer;
     Diligent::RefCntAutoPtr<Diligent::IBuffer> pSortedHierarchyBuffer;
+    Diligent::RefCntAutoPtr<Diligent::IBufferView> pSortedHierarchyBufferViews[NumFrames];
     Diligent::RefCntAutoPtr<Diligent::IBuffer> pVisibleObjectBuffer;
     Diligent::RefCntAutoPtr<Diligent::IBuffer> pDrawCommandBuffer;
     Diligent::RefCntAutoPtr<Diligent::IBuffer> pVisibleTransparentObjectIdsBuffer;
@@ -596,6 +599,24 @@ void Renderer::reallocateBuffers(size_t numObjects) {
     m_diligent->pDevice->CreateBuffer(SortedHierarchyBuffDesc, nullptr, &m_diligent->pSortedHierarchyBuffer);
     m_sortedHierarchyBuffer = (GLuint)(size_t)m_diligent->pSortedHierarchyBuffer->GetNativeHandle();
 
+    for (int i = 0; i < NUM_FRAMES_IN_FLIGHT; ++i) {
+        Diligent::BufferViewDesc ViewDesc;
+        ViewDesc.ViewType = Diligent::BUFFER_VIEW_UNORDERED_ACCESS;
+        ViewDesc.ByteOffset = i * m_maxObjects * sizeof(TransformComponent);
+        ViewDesc.ByteWidth = m_maxObjects * sizeof(TransformComponent);
+        m_diligent->pObjectBuffer->CreateView(ViewDesc, &m_diligent->pObjectBufferViews[i]);
+
+        ViewDesc.ViewType = Diligent::BUFFER_VIEW_SHADER_RESOURCE;
+        ViewDesc.ByteOffset = i * m_maxObjects * sizeof(HierarchyComponent);
+        ViewDesc.ByteWidth = m_maxObjects * sizeof(HierarchyComponent);
+        m_diligent->pHierarchyBuffer->CreateView(ViewDesc, &m_diligent->pHierarchyBufferViews[i]);
+
+        ViewDesc.ViewType = Diligent::BUFFER_VIEW_SHADER_RESOURCE;
+        ViewDesc.ByteOffset = i * m_maxObjects * sizeof(unsigned int);
+        ViewDesc.ByteWidth = m_maxObjects * sizeof(unsigned int);
+        m_diligent->pSortedHierarchyBuffer->CreateView(ViewDesc, &m_diligent->pSortedHierarchyBufferViews[i]);
+    }
+
     m_visibleObjectBufferSize = m_maxObjects * sizeof(unsigned int) * NUM_FRAMES_IN_FLIGHT;
     Diligent::BufferDesc VisibleObjectsBuffDesc;
     VisibleObjectsBuffDesc.Name = "Visible Objects Buffer";
@@ -668,7 +689,8 @@ void Renderer::reallocateBuffers(size_t numObjects) {
     m_diligent->pDevice->CreateBuffer(VisibleLargeObjectsBuffDesc, nullptr, &m_diligent->pVisibleLargeObjectBuffer);
     m_visibleLargeObjectBuffer = (GLuint)(size_t)m_diligent->pVisibleLargeObjectBuffer->GetNativeHandle();
 
-    m_sceneUBOSize = sizeof(SceneUniforms) * NUM_FRAMES_IN_FLIGHT;
+    const size_t alignedSceneUniformsSize = (sizeof(SceneUniforms) + 255) & ~255;
+    m_sceneUBOSize = alignedSceneUniformsSize * NUM_FRAMES_IN_FLIGHT;
     Diligent::BufferDesc SceneUBODesc;
     SceneUBODesc.Name = "Scene UBO";
     SceneUBODesc.Usage = Diligent::USAGE_DEFAULT;
@@ -709,6 +731,9 @@ void Renderer::reallocateBuffers(size_t numObjects) {
         sortedBuf->Set(m_diligent->pSortedHierarchyBuffer->GetDefaultView(Diligent::BUFFER_VIEW_SHADER_RESOURCE));
         uniformsVar->Set(m_diligent->pTransformUniforms);
     }
+
+    m_dataUpdateCounter = NUM_FRAMES_IN_FLIGHT;
+    m_hierarchyUpdateCounter = NUM_FRAMES_IN_FLIGHT;
 }
 
 void Renderer::cleanup() {
@@ -889,8 +914,8 @@ void Renderer::drawScene(SceneDatabase& sceneDatabase, const Camera& camera) {
     const int previousFrame = (m_currentFrame + NUM_FRAMES_IN_FLIGHT - 1) % NUM_FRAMES_IN_FLIGHT;
 
     {
-        Diligent::Uint64 FenceValue = m_diligent->FenceValues[previousFrame];
-        m_diligent->pFences[previousFrame]->Wait(FenceValue);
+        Diligent::Uint64 FenceValue = m_diligent->FenceValues[m_currentFrame];
+        m_diligent->pFences[m_currentFrame]->Wait(FenceValue);
     }
 
     if (m_processedHierarchyVersion < sceneDatabase.m_hierarchyVersion) {
@@ -910,7 +935,8 @@ void Renderer::drawScene(SceneDatabase& sceneDatabase, const Camera& camera) {
     }
 
     const size_t frameOffset = m_currentFrame * m_maxObjects;
-    const size_t uboFrameOffset = m_currentFrame * sizeof(SceneUniforms);
+    const size_t alignedSceneUniformsSize = (sizeof(SceneUniforms) + 255) & ~255;
+    const size_t uboFrameOffset = m_currentFrame * alignedSceneUniformsSize;
 
     while (glGetError() != GL_NO_ERROR)
         ;
@@ -970,20 +996,43 @@ void Renderer::drawScene(SceneDatabase& sceneDatabase, const Camera& camera) {
     struct TransformUniforms {
         unsigned int objectCount;
         unsigned int currentHierarchyLevel;
-        unsigned int padding[2];
+        unsigned int baseIndex;
+        unsigned int padding;
     } transformUniforms;
     transformUniforms.objectCount = (unsigned int)sceneDatabase.sortedHierarchyList.size();
 
-    m_transformShader->bind();
-    glBindBufferRange(GL_SHADER_STORAGE_BUFFER, 0, m_objectBuffer, frameOffset * sizeof(TransformComponent), m_maxObjects * sizeof(TransformComponent));
-    glBindBufferRange(GL_SHADER_STORAGE_BUFFER, 1, m_hierarchyBuffer, frameOffset * sizeof(HierarchyComponent), m_maxObjects * sizeof(HierarchyComponent));
-    glBindBufferRange(GL_SHADER_STORAGE_BUFFER, 2, m_sortedHierarchyBuffer, frameOffset * sizeof(unsigned int), m_maxObjects * sizeof(unsigned int));
+    m_diligent->pImmediateContext->InvalidateState();
 
-    for (uint32_t level = 0; level <= sceneDatabase.m_maxHierarchyDepth; ++level) {
-        transformUniforms.currentHierarchyLevel = level;
-        m_diligent->pImmediateContext->UpdateBuffer(m_diligent->pTransformUniforms, 0, sizeof(transformUniforms), &transformUniforms, Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
-        glBindBufferBase(GL_UNIFORM_BUFFER, 3, (GLuint)(size_t)m_diligent->pTransformUniforms->GetNativeHandle());
-        glDispatchCompute(transformNumWorkgroups, 1, 1);
+    {
+        auto* pTransformVar = m_diligent->pTransformSRB->GetVariableByName(Diligent::SHADER_TYPE_COMPUTE, "TransformBuffer");
+        if (pTransformVar)
+            pTransformVar->Set(m_diligent->pObjectBuffer->GetDefaultView(Diligent::BUFFER_VIEW_UNORDERED_ACCESS), Diligent::SET_SHADER_RESOURCE_FLAG_ALLOW_OVERWRITE);
+
+        auto* pHierarchyVar = m_diligent->pTransformSRB->GetVariableByName(Diligent::SHADER_TYPE_COMPUTE, "HierarchyBuffer");
+        if (pHierarchyVar)
+            pHierarchyVar->Set(m_diligent->pHierarchyBuffer->GetDefaultView(Diligent::BUFFER_VIEW_SHADER_RESOURCE), Diligent::SET_SHADER_RESOURCE_FLAG_ALLOW_OVERWRITE);
+
+        auto* pSortedVar = m_diligent->pTransformSRB->GetVariableByName(Diligent::SHADER_TYPE_COMPUTE, "SortedHierarchyBuffer");
+        if (pSortedVar)
+            pSortedVar->Set(m_diligent->pSortedHierarchyBuffer->GetDefaultView(Diligent::BUFFER_VIEW_SHADER_RESOURCE), Diligent::SET_SHADER_RESOURCE_FLAG_ALLOW_OVERWRITE);
+
+        for (uint32_t level = 0; level <= sceneDatabase.m_maxHierarchyDepth; ++level) {
+            transformUniforms.currentHierarchyLevel = level;
+            transformUniforms.baseIndex = m_currentFrame * m_maxObjects;
+            m_diligent->pImmediateContext->UpdateBuffer(m_diligent->pTransformUniforms, 0, sizeof(transformUniforms), &transformUniforms, Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
+
+            m_diligent->pImmediateContext->SetPipelineState(m_diligent->pTransformPSO);
+            m_diligent->pImmediateContext->CommitShaderResources(m_diligent->pTransformSRB, Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
+
+            Diligent::DispatchComputeAttribs DispatchAttrs;
+            DispatchAttrs.ThreadGroupCountX = transformNumWorkgroups;
+            DispatchAttrs.ThreadGroupCountY = 1;
+            DispatchAttrs.ThreadGroupCountZ = 1;
+            m_diligent->pImmediateContext->DispatchCompute(DispatchAttrs);
+        }
+
+        m_diligent->pImmediateContext->WaitForIdle();
+
         glMemoryBarrier(GL_SHADER_STORAGE_BARRIER_BIT);
     }
 
@@ -1006,7 +1055,7 @@ void Renderer::drawScene(SceneDatabase& sceneDatabase, const Camera& camera) {
     extractFrustumPlanes(sceneUniforms.projection * sceneUniforms.view, sceneUniforms.frustumPlanes);
 
     m_diligent->pImmediateContext->UpdateBuffer(m_diligent->pSceneUBO, uboFrameOffset, sizeof(SceneUniforms), &sceneUniforms, Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
-    glBindBufferRange(GL_UNIFORM_BUFFER, 0, (GLuint)(size_t)m_diligent->pSceneUBO->GetNativeHandle(), uboFrameOffset, sizeof(SceneUniforms));
+    m_diligent->pImmediateContext->UpdateBuffer(m_diligent->pSceneUBO, uboFrameOffset, sizeof(SceneUniforms), &sceneUniforms, Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
 
     const unsigned int workgroupSize = 256;
     const unsigned int numWorkgroups = (numObjects + workgroupSize - 1) / workgroupSize;
@@ -1018,7 +1067,30 @@ void Renderer::drawScene(SceneDatabase& sceneDatabase, const Camera& camera) {
 
     m_diligent->pImmediateContext->UpdateBuffer(m_diligent->pVisibleObjectAtomicCounter, 0, sizeof(unsigned int), &zero, Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
 
+    m_diligent->pImmediateContext->WaitForIdle();
+
+    m_objectBuffer = (unsigned int)(size_t)m_diligent->pObjectBuffer->GetNativeHandle();
+    m_renderableBuffer = (unsigned int)(size_t)m_diligent->pRenderableBuffer->GetNativeHandle();
+    m_visibleObjectBuffer = (unsigned int)(size_t)m_diligent->pVisibleObjectBuffer->GetNativeHandle();
+    m_visibleObjectAtomicCounter = (unsigned int)(size_t)m_diligent->pVisibleObjectAtomicCounter->GetNativeHandle();
+    m_hierarchyBuffer = (unsigned int)(size_t)m_diligent->pHierarchyBuffer->GetNativeHandle();
+    m_sortedHierarchyBuffer = (unsigned int)(size_t)m_diligent->pSortedHierarchyBuffer->GetNativeHandle();
+    m_visibleTransparentObjectIdsBuffer = (unsigned int)(size_t)m_diligent->pVisibleTransparentObjectIdsBuffer->GetNativeHandle();
+    m_transparentAtomicCounter = (unsigned int)(size_t)m_diligent->pTransparentAtomicCounter->GetNativeHandle();
+    m_drawAtomicCounterBuffer = (unsigned int)(size_t)m_diligent->pDrawAtomicCounterBuffer->GetNativeHandle();
+    m_drawCommandBuffer = (unsigned int)(size_t)m_diligent->pDrawCommandBuffer->GetNativeHandle();
+    m_transparentDrawCommandBuffer = (unsigned int)(size_t)m_diligent->pTransparentDrawCommandBuffer->GetNativeHandle();
+    m_depthPrepassDrawCommandBuffer = (unsigned int)(size_t)m_diligent->pDepthPrepassDrawCommandBuffer->GetNativeHandle();
+    m_visibleLargeObjectBuffer = (unsigned int)(size_t)m_diligent->pVisibleLargeObjectBuffer->GetNativeHandle();
+    m_visibleLargeObjectAtomicCounter = (unsigned int)(size_t)m_diligent->pVisibleLargeObjectAtomicCounter->GetNativeHandle();
+    m_depthPrepassAtomicCounter = (unsigned int)(size_t)m_diligent->pDepthPrepassAtomicCounter->GetNativeHandle();
+
+    for (int i = 0; i < NUM_FRAMES_IN_FLIGHT; ++i) {
+        m_hizTexture[i] = (unsigned int)(size_t)m_diligent->pHiZTextures[i]->GetNativeHandle();
+    }
+
     m_cullingShader->bind();
+    glBindBufferRange(GL_UNIFORM_BUFFER, 0, (GLuint)(size_t)m_diligent->pSceneUBO->GetNativeHandle(), uboFrameOffset, sizeof(SceneUniforms));
     m_cullingShader->setUniform("u_objectCount", numObjects);
     m_cullingShader->setUniform("u_maxDraws", (unsigned int)m_maxObjects);
     m_cullingShader->setUniform("u_smallObjectThreshold", m_smallObjectThreshold);
