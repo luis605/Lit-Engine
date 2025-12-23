@@ -813,15 +813,11 @@ void Renderer::uploadMesh(const Mesh& mesh) {
         m_diligent->pDevice->CreateBuffer(EBODesc, nullptr, &pNewEBO);
         GLuint new_ebo = (GLuint)(size_t)pNewEBO->GetNativeHandle();
 
-        glBindBuffer(GL_COPY_READ_BUFFER, m_vbo);
-        glBindBuffer(GL_COPY_WRITE_BUFFER, new_vbo);
         if (s_totalVertexSize > 0)
-            glCopyBufferSubData(GL_COPY_READ_BUFFER, GL_COPY_WRITE_BUFFER, 0, 0, s_totalVertexSize);
+            m_diligent->pImmediateContext->CopyBuffer(m_diligent->pVBO, 0, Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION, pNewVBO, 0, s_totalVertexSize, Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
 
-        glBindBuffer(GL_COPY_READ_BUFFER, m_ebo);
-        glBindBuffer(GL_COPY_WRITE_BUFFER, new_ebo);
         if (s_totalIndexSize > 0)
-            glCopyBufferSubData(GL_COPY_READ_BUFFER, GL_COPY_WRITE_BUFFER, 0, 0, s_totalIndexSize);
+            m_diligent->pImmediateContext->CopyBuffer(m_diligent->pEBO, 0, Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION, pNewEBO, 0, s_totalIndexSize, Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
 
         m_diligent->pVBO = pNewVBO;
         m_diligent->pEBO = pNewEBO;
