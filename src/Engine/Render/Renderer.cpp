@@ -230,6 +230,8 @@ struct DiligentData {
     bool TransparentSortActive[NumFrames] = {false};
     bool TransparentDrawActive[NumFrames] = {false};
     Diligent::RefCntAutoPtr<Diligent::IBuffer> pStagingBuffer;
+    Diligent::RefCntAutoPtr<Diligent::IPipelineState> pHiZMipmapPSO;
+    Diligent::RefCntAutoPtr<Diligent::IShaderResourceBinding> pHiZMipmapSRB;
 };
 
 Renderer::Renderer()
@@ -270,6 +272,7 @@ void Renderer::init(GLFWwindow* window, const int windowWidth, const int windowH
 
     setupShaders();
     createTransformPSO();
+    createHiZPSO();
 
     if (!m_cullingShader || !m_cullingShader->isInitialized()) {
         Lit::Log::Error("Renderer failed to initialize: Culling shader could not be loaded.");
@@ -1396,19 +1399,48 @@ void Renderer::drawScene(SceneDatabase& sceneDatabase, const Camera& camera) {
     m_diligent->pImmediateContext->EndQuery(m_diligent->pHizMipmapStartQuery[m_currentFrame]);
     glMemoryBarrier(GL_SHADER_IMAGE_ACCESS_BARRIER_BIT);
 
-    m_hizMipmapShader->bind();
-    for (int i = 1; i < m_maxMipLevel; ++i) {
-        glBindImageTexture(0, m_hizTexture[m_currentFrame], i - 1, GL_FALSE, 0, GL_READ_ONLY, GL_R32F);
-        glBindImageTexture(1, m_hizTexture[m_currentFrame], i, GL_FALSE, 0, GL_WRITE_ONLY, GL_R32F);
+    if (m_diligent->pHiZMipmapPSO) {
+        m_diligent->pImmediateContext->SetPipelineState(m_diligent->pHiZMipmapPSO);
+        for (int i = 1; i < m_maxMipLevel; ++i) {
+            Diligent::TextureViewDesc SourceViewDesc;
+            SourceViewDesc.ViewType = Diligent::TEXTURE_VIEW_UNORDERED_ACCESS;
+            SourceViewDesc.AccessFlags = Diligent::UAV_ACCESS_FLAG_READ;
+            SourceViewDesc.MostDetailedMip = i - 1;
+            SourceViewDesc.NumMipLevels = 1;
+            Diligent::RefCntAutoPtr<Diligent::ITextureView> pSourceView;
+            m_diligent->pHiZTextures[m_currentFrame]->CreateView(SourceViewDesc, &pSourceView);
 
-        const int currentMipWidth = std::max(1, m_windowWidth >> i);
-        const int currentMipHeight = std::max(1, m_windowHeight >> i);
+            Diligent::TextureViewDesc DestViewDesc;
+            DestViewDesc.ViewType = Diligent::TEXTURE_VIEW_UNORDERED_ACCESS;
+            DestViewDesc.AccessFlags = Diligent::UAV_ACCESS_FLAG_WRITE;
+            DestViewDesc.MostDetailedMip = i;
+            DestViewDesc.NumMipLevels = 1;
+            Diligent::RefCntAutoPtr<Diligent::ITextureView> pDestView;
+            m_diligent->pHiZTextures[m_currentFrame]->CreateView(DestViewDesc, &pDestView);
 
-        const unsigned int numWorkgroupsX = static_cast<unsigned int>(std::ceil(currentMipWidth / 8.0f));
-        const unsigned int numWorkgroupsY = static_cast<unsigned int>(std::ceil(currentMipHeight / 8.0f));
+            m_diligent->pHiZMipmapSRB->GetVariableByName(Diligent::SHADER_TYPE_COMPUTE, "u_sourceMip")->Set(pSourceView);
+            m_diligent->pHiZMipmapSRB->GetVariableByName(Diligent::SHADER_TYPE_COMPUTE, "u_destMip")->Set(pDestView);
 
-        glDispatchCompute(numWorkgroupsX, numWorkgroupsY, 1);
-        glTextureBarrier();
+            m_diligent->pImmediateContext->CommitShaderResources(m_diligent->pHiZMipmapSRB, Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
+
+            const int currentMipWidth = std::max(1, m_windowWidth >> i);
+            const int currentMipHeight = std::max(1, m_windowHeight >> i);
+
+            Diligent::DispatchComputeAttribs DispatchAttrs;
+            DispatchAttrs.ThreadGroupCountX = (currentMipWidth + 7) / 8;
+            DispatchAttrs.ThreadGroupCountY = (currentMipHeight + 7) / 8;
+            DispatchAttrs.ThreadGroupCountZ = 1;
+
+            m_diligent->pImmediateContext->DispatchCompute(DispatchAttrs);
+
+            Diligent::StateTransitionDesc Barrier;
+            Barrier.pResource = m_diligent->pHiZTextures[m_currentFrame];
+            Barrier.OldState = Diligent::RESOURCE_STATE_UNORDERED_ACCESS;
+            Barrier.NewState = Diligent::RESOURCE_STATE_UNORDERED_ACCESS;
+            Barrier.TransitionType = Diligent::STATE_TRANSITION_TYPE_IMMEDIATE;
+            Barrier.Flags = Diligent::STATE_TRANSITION_FLAG_UPDATE_STATE;
+            m_diligent->pImmediateContext->TransitionResourceStates(1, &Barrier);
+        }
     }
 
     while (glGetError() != GL_NO_ERROR)
@@ -1633,4 +1665,53 @@ void Renderer::createTransformPSO() {
     BuffDesc.BindFlags = Diligent::BIND_UNIFORM_BUFFER;
     BuffDesc.Size = 256;
     m_diligent->pDevice->CreateBuffer(BuffDesc, nullptr, &m_diligent->pTransformUniforms);
+}
+
+void Renderer::createHiZPSO() {
+    Diligent::ComputePipelineStateCreateInfo PSOCreateInfo;
+    PSOCreateInfo.PSODesc.Name = "Hi-Z Mipmap PSO";
+    PSOCreateInfo.PSODesc.PipelineType = Diligent::PIPELINE_TYPE_COMPUTE;
+
+    Diligent::ShaderResourceVariableDesc Vars[] = {
+        {Diligent::SHADER_TYPE_COMPUTE, "u_sourceMip", Diligent::SHADER_RESOURCE_VARIABLE_TYPE_DYNAMIC},
+        {Diligent::SHADER_TYPE_COMPUTE, "u_destMip", Diligent::SHADER_RESOURCE_VARIABLE_TYPE_DYNAMIC}};
+
+    PSOCreateInfo.PSODesc.ResourceLayout.Variables = Vars;
+    PSOCreateInfo.PSODesc.ResourceLayout.NumVariables = _countof(Vars);
+
+    std::string source = LoadSourceFromFile("resources/shaders/hiz_mipmap.comp");
+    if (source.empty()) {
+        Lit::Log::Error("Failed to load Hi-Z Mipmap compute shader source.");
+        return;
+    }
+
+    size_t versionPos = source.find("#version");
+    if (versionPos != std::string::npos) {
+        size_t nextLine = source.find('\n', versionPos);
+        if (nextLine != std::string::npos) {
+            source = source.substr(nextLine + 1);
+        }
+    }
+
+    Diligent::ShaderCreateInfo ShaderCI;
+    ShaderCI.Source = source.c_str();
+    ShaderCI.SourceLanguage = Diligent::SHADER_SOURCE_LANGUAGE_GLSL;
+    ShaderCI.Desc.UseCombinedTextureSamplers = true;
+    ShaderCI.Desc.ShaderType = Diligent::SHADER_TYPE_COMPUTE;
+    ShaderCI.Desc.Name = "Hi-Z Mipmap CS";
+
+    Diligent::RefCntAutoPtr<Diligent::IShader> pCS;
+    m_diligent->pDevice->CreateShader(ShaderCI, &pCS);
+    if (!pCS) {
+        Lit::Log::Error("Failed to create Hi-Z Mipmap shader.");
+        return;
+    }
+    PSOCreateInfo.pCS = pCS;
+
+    m_diligent->pDevice->CreateComputePipelineState(PSOCreateInfo, &m_diligent->pHiZMipmapPSO);
+    if (!m_diligent->pHiZMipmapPSO) {
+        Lit::Log::Error("Failed to create Hi-Z Mipmap PSO.");
+        return;
+    }
+    m_diligent->pHiZMipmapPSO->CreateShaderResourceBinding(&m_diligent->pHiZMipmapSRB, true);
 }

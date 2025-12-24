@@ -35,6 +35,7 @@ export class Renderer {
   private:
     void setupShaders();
     void createTransformPSO();
+    void createHiZPSO();
     void reallocateBuffers(size_t numObjects);
 
     unsigned int m_vao = 0;
