@@ -1005,7 +1005,6 @@ void Renderer::drawScene(SceneDatabase& sceneDatabase, const Camera& camera) {
     extractFrustumPlanes(sceneUniforms.projection * sceneUniforms.view, sceneUniforms.frustumPlanes);
 
     m_diligent->pImmediateContext->UpdateBuffer(m_diligent->pSceneUBO, uboFrameOffset, sizeof(SceneUniforms), &sceneUniforms, Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
-    m_diligent->pImmediateContext->UpdateBuffer(m_diligent->pSceneUBO, uboFrameOffset, sizeof(SceneUniforms), &sceneUniforms, Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
 
     const unsigned int workgroupSize = 256;
     const unsigned int numWorkgroups = (numObjects + workgroupSize - 1) / workgroupSize;
