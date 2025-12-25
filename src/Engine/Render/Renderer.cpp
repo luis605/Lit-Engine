@@ -905,6 +905,11 @@ void Renderer::drawScene(SceneDatabase& sceneDatabase, const Camera& camera) {
         return count;
     };
 
+    auto ResetAtomicCounter = [&](Diligent::IBuffer* pBuffer) {
+        unsigned int zero = 0;
+        m_diligent->pImmediateContext->UpdateBuffer(pBuffer, 0, sizeof(unsigned int), &zero, Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
+    };
+
     if (m_processedDataVersion < sceneDatabase.m_dataVersion) {
         m_dataUpdateCounter = NUM_FRAMES_IN_FLIGHT;
         m_processedDataVersion = sceneDatabase.m_dataVersion;
@@ -1009,13 +1014,12 @@ void Renderer::drawScene(SceneDatabase& sceneDatabase, const Camera& camera) {
 
     const unsigned int workgroupSize = 256;
     const unsigned int numWorkgroups = (numObjects + workgroupSize - 1) / workgroupSize;
-    unsigned int zero = 0;
 
     while (glGetError() != GL_NO_ERROR)
         ;
     m_diligent->pImmediateContext->EndQuery(m_diligent->pCullStartQuery[m_currentFrame]);
 
-    m_diligent->pImmediateContext->UpdateBuffer(m_diligent->pVisibleObjectAtomicCounter, 0, sizeof(unsigned int), &zero, Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
+    ResetAtomicCounter(m_diligent->pVisibleObjectAtomicCounter);
 
     m_diligent->pImmediateContext->WaitForIdle();
 
@@ -1123,7 +1127,7 @@ void Renderer::drawScene(SceneDatabase& sceneDatabase, const Camera& camera) {
     while (glGetError() != GL_NO_ERROR)
         ;
     m_diligent->pImmediateContext->EndQuery(m_diligent->pLargeObjectCullStartQuery[m_currentFrame]);
-    m_diligent->pImmediateContext->UpdateBuffer(m_diligent->pVisibleLargeObjectAtomicCounter, 0, sizeof(unsigned int), &zero, Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
+    ResetAtomicCounter(m_diligent->pVisibleLargeObjectAtomicCounter);
 
     m_largeObjectCullShader->bind();
     m_largeObjectCullShader->setUniform("u_objectCount", numObjects);
@@ -1176,7 +1180,7 @@ void Renderer::drawScene(SceneDatabase& sceneDatabase, const Camera& camera) {
     while (glGetError() != GL_NO_ERROR)
         ;
     m_diligent->pImmediateContext->EndQuery(m_diligent->pLargeObjectCommandGenStartQuery[m_currentFrame]);
-    m_diligent->pImmediateContext->UpdateBuffer(m_diligent->pDepthPrepassAtomicCounter, 0, sizeof(unsigned int), &zero, Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
+    ResetAtomicCounter(m_diligent->pDepthPrepassAtomicCounter);
 
     m_largeObjectCommandGenShader->bind();
     m_largeObjectCommandGenShader->setUniform("u_visibleLargeObjectCount", visibleLargeObjectCount);
@@ -1248,7 +1252,7 @@ void Renderer::drawScene(SceneDatabase& sceneDatabase, const Camera& camera) {
         ;
     m_diligent->pImmediateContext->EndQuery(m_diligent->pOpaqueDrawEndQuery[m_currentFrame]);
 
-    m_diligent->pImmediateContext->UpdateBuffer(m_diligent->pTransparentAtomicCounter, 0, sizeof(unsigned int), &zero, Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
+    ResetAtomicCounter(m_diligent->pTransparentAtomicCounter);
 
     while (glGetError() != GL_NO_ERROR)
         ;
