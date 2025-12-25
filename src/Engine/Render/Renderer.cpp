@@ -461,16 +461,6 @@ void Renderer::init(GLFWwindow* window, const int windowWidth, const int windowH
     SamplerCI.AddressV = Diligent::TEXTURE_ADDRESS_CLAMP;
     m_diligent->pDevice->CreateSampler(SamplerCI, &m_diligent->pHiZSampler);
 
-    for (int i = 0; i < NUM_FRAMES_IN_FLIGHT; ++i) {
-        glBindTexture(GL_TEXTURE_2D, m_hizTexture[i]);
-        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST_MIPMAP_NEAREST);
-        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
-        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
-        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
-    }
-
-    glBindFramebuffer(GL_FRAMEBUFFER, 0);
-
     Diligent::BufferDesc DepthPrepassAtomicCounterDesc;
     DepthPrepassAtomicCounterDesc.Name = "Depth Prepass Atomic Counter";
     DepthPrepassAtomicCounterDesc.Usage = Diligent::USAGE_DEFAULT;
