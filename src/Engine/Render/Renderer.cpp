@@ -299,7 +299,6 @@ void Renderer::init(GLFWwindow* window, const int windowWidth, const int windowH
     m_diligent->pVisibleObjectAtomicCounter.Release();
     m_diligent->pDevice->CreateBuffer(AtomicCounterDesc, &AtomicCounterData, &m_diligent->pVisibleObjectAtomicCounter);
     m_visibleObjectAtomicCounter = (GLuint)(size_t)m_diligent->pVisibleObjectAtomicCounter->GetNativeHandle();
-    glBindBuffer(GL_ATOMIC_COUNTER_BUFFER, m_visibleObjectAtomicCounter);
 
     Diligent::BufferDesc DrawAtomicCounterDesc;
     DrawAtomicCounterDesc.Name = "Draw Atomic Counter Buffer";
@@ -316,7 +315,6 @@ void Renderer::init(GLFWwindow* window, const int windowWidth, const int windowH
     m_diligent->pDrawAtomicCounterBuffer.Release();
     m_diligent->pDevice->CreateBuffer(DrawAtomicCounterDesc, &DrawAtomicCounterData, &m_diligent->pDrawAtomicCounterBuffer);
     m_drawAtomicCounterBuffer = (GLuint)(size_t)m_diligent->pDrawAtomicCounterBuffer->GetNativeHandle();
-    glBindBuffer(GL_ATOMIC_COUNTER_BUFFER, m_drawAtomicCounterBuffer);
 
     Diligent::QueryDesc queryDesc;
     queryDesc.Type = Diligent::QUERY_TYPE_TIMESTAMP;
@@ -358,7 +356,6 @@ void Renderer::init(GLFWwindow* window, const int windowWidth, const int windowH
     m_diligent->pVisibleLargeObjectAtomicCounter.Release();
     m_diligent->pDevice->CreateBuffer(LargeObjectAtomicCounterDesc, &AtomicCounterData, &m_diligent->pVisibleLargeObjectAtomicCounter);
     m_visibleLargeObjectAtomicCounter = (GLuint)(size_t)m_diligent->pVisibleLargeObjectAtomicCounter->GetNativeHandle();
-    glBindBuffer(GL_ATOMIC_COUNTER_BUFFER, m_visibleLargeObjectAtomicCounter);
 
     m_vboSize = 1024 * 1024 * 10;
     m_eboSize = 1024 * 1024 * 4;
@@ -404,7 +401,6 @@ void Renderer::init(GLFWwindow* window, const int windowWidth, const int windowH
     m_diligent->pTransparentAtomicCounter.Release();
     m_diligent->pDevice->CreateBuffer(TransparentAtomicCounterDesc, &AtomicCounterData, &m_diligent->pTransparentAtomicCounter);
     m_transparentAtomicCounter = (GLuint)(size_t)m_diligent->pTransparentAtomicCounter->GetNativeHandle();
-    glBindBuffer(GL_ATOMIC_COUNTER_BUFFER, m_transparentAtomicCounter);
 
     m_maxMipLevel = static_cast<int>(std::floor(std::log2(std::max(windowWidth, windowHeight))));
 
@@ -480,7 +476,6 @@ void Renderer::init(GLFWwindow* window, const int windowWidth, const int windowH
     StagingDesc.Size = sizeof(unsigned int);
     m_diligent->pStagingBuffer.Release();
     m_diligent->pDevice->CreateBuffer(StagingDesc, nullptr, &m_diligent->pStagingBuffer);
-    glBindBuffer(GL_ATOMIC_COUNTER_BUFFER, m_depthPrepassAtomicCounter);
 
     Diligent::FenceDesc FenceCI;
     FenceCI.Type = Diligent::FENCE_TYPE_CPU_WAIT_ONLY;
