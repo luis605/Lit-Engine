@@ -55,7 +55,6 @@ export class Renderer {
 
     ShaderManager m_shaderManager;
     Shader* m_cullingShader;
-    Shader* m_transformShader;
     Shader* m_transparentCullShader;
     Shader* m_bitonicSortShader;
     Shader* m_opaqueSortShader;

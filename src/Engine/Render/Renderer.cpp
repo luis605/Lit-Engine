@@ -235,7 +235,7 @@ struct DiligentData {
 };
 
 Renderer::Renderer()
-    : m_cullingShader(nullptr), m_transformShader(nullptr), m_transparentCullShader(nullptr), m_bitonicSortShader(nullptr),
+    : m_cullingShader(nullptr), m_transparentCullShader(nullptr), m_bitonicSortShader(nullptr),
       m_opaqueSortShader(nullptr), m_transparentCommandGenShader(nullptr), m_commandGenShader(nullptr), m_largeObjectCullShader(nullptr),
       m_largeObjectSortShader(nullptr), m_largeObjectCommandGenShader(nullptr), m_depthPrepassShader(nullptr),
       m_hizMipmapShader(nullptr), m_initialized(false), m_vboSize(0), m_eboSize(0), m_numDrawingShaders(0),
@@ -710,7 +710,6 @@ void Renderer::cleanup() {
 
     m_shaderManager.cleanup();
     m_cullingShader = nullptr;
-    m_transformShader = nullptr;
     m_transparentCullShader = nullptr;
     m_bitonicSortShader = nullptr;
     m_transparentCommandGenShader = nullptr;
@@ -1518,9 +1517,6 @@ void Renderer::setupShaders() {
 
     const auto cullingShaderId = m_shaderManager.loadComputeShader("resources/shaders/cull.comp");
     m_cullingShader = m_shaderManager.getShader(cullingShaderId);
-
-    const auto transformShaderId = m_shaderManager.loadComputeShader("resources/shaders/transform.comp");
-    m_transformShader = m_shaderManager.getShader(transformShaderId);
 
     const auto transparentCullId = m_shaderManager.loadComputeShader("resources/shaders/transparent_cull.comp");
     m_transparentCullShader = m_shaderManager.getShader(transparentCullId);
