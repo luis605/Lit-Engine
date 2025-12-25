@@ -150,6 +150,40 @@ static std::string LoadSourceFromFile(const std::string& filepath) {
     return buffer.str();
 }
 
+Diligent::RefCntAutoPtr<Diligent::IBuffer> CreateStructuredBuffer(Diligent::IRenderDevice* pDevice, const char* name, Diligent::Uint32 elementSize, Diligent::Uint32 elementCount, void* pInitData = nullptr) {
+    Diligent::BufferDesc Desc;
+    Desc.Name = name;
+    Desc.Usage = Diligent::USAGE_DEFAULT;
+    Desc.BindFlags = Diligent::BIND_SHADER_RESOURCE | Diligent::BIND_UNORDERED_ACCESS;
+    Desc.Mode = Diligent::BUFFER_MODE_STRUCTURED;
+    Desc.ElementByteStride = elementSize;
+    Desc.Size = elementSize * elementCount;
+
+    Diligent::BufferData InitData;
+    if (pInitData) {
+        InitData.pData = pInitData;
+        InitData.DataSize = Desc.Size;
+    }
+
+    Diligent::RefCntAutoPtr<Diligent::IBuffer> pBuffer;
+    pDevice->CreateBuffer(Desc, pInitData ? &InitData : nullptr, &pBuffer);
+    return pBuffer;
+}
+
+Diligent::RefCntAutoPtr<Diligent::IBuffer> CreateIndirectBuffer(Diligent::IRenderDevice* pDevice, const char* name, size_t size) {
+    Diligent::BufferDesc Desc;
+    Desc.Name = name;
+    Desc.Usage = Diligent::USAGE_DEFAULT;
+    Desc.BindFlags = Diligent::BIND_INDIRECT_DRAW_ARGS | Diligent::BIND_SHADER_RESOURCE | Diligent::BIND_UNORDERED_ACCESS;
+    Desc.Mode = Diligent::BUFFER_MODE_STRUCTURED;
+    Desc.ElementByteStride = 20;
+    Desc.Size = size;
+
+    Diligent::RefCntAutoPtr<Diligent::IBuffer> pBuffer;
+    pDevice->CreateBuffer(Desc, nullptr, &pBuffer);
+    return pBuffer;
+}
+
 } // namespace
 
 struct DiligentData {
@@ -286,34 +320,11 @@ void Renderer::init(GLFWwindow* window, const int windowWidth, const int windowH
     reallocateBuffers(m_maxObjects);
 
     const unsigned int zero = 0;
-    Diligent::BufferDesc AtomicCounterDesc;
-    AtomicCounterDesc.Name = "Visible Object Atomic Counter";
-    AtomicCounterDesc.Usage = Diligent::USAGE_DEFAULT;
-    AtomicCounterDesc.BindFlags = Diligent::BIND_SHADER_RESOURCE | Diligent::BIND_UNORDERED_ACCESS;
-    AtomicCounterDesc.Mode = Diligent::BUFFER_MODE_STRUCTURED;
-    AtomicCounterDesc.ElementByteStride = sizeof(unsigned int);
-    AtomicCounterDesc.Size = sizeof(unsigned int);
-    Diligent::BufferData AtomicCounterData;
-    AtomicCounterData.pData = &zero;
-    AtomicCounterData.DataSize = sizeof(unsigned int);
-    m_diligent->pVisibleObjectAtomicCounter.Release();
-    m_diligent->pDevice->CreateBuffer(AtomicCounterDesc, &AtomicCounterData, &m_diligent->pVisibleObjectAtomicCounter);
+    m_diligent->pVisibleObjectAtomicCounter = CreateStructuredBuffer(m_diligent->pDevice, "Visible Object Atomic Counter", sizeof(unsigned int), 1, (void*)&zero);
     m_visibleObjectAtomicCounter = (GLuint)(size_t)m_diligent->pVisibleObjectAtomicCounter->GetNativeHandle();
 
-    Diligent::BufferDesc DrawAtomicCounterDesc;
-    DrawAtomicCounterDesc.Name = "Draw Atomic Counter Buffer";
-    DrawAtomicCounterDesc.Usage = Diligent::USAGE_DEFAULT;
-    DrawAtomicCounterDesc.BindFlags = Diligent::BIND_SHADER_RESOURCE | Diligent::BIND_UNORDERED_ACCESS;
-    DrawAtomicCounterDesc.Mode = Diligent::BUFFER_MODE_STRUCTURED;
-    DrawAtomicCounterDesc.ElementByteStride = sizeof(unsigned int);
-    DrawAtomicCounterDesc.Size = sizeof(unsigned int) * m_shaderManager.getShaderCount();
-
     std::vector<unsigned int> drawZeros(m_shaderManager.getShaderCount(), 0);
-    Diligent::BufferData DrawAtomicCounterData;
-    DrawAtomicCounterData.pData = drawZeros.data();
-    DrawAtomicCounterData.DataSize = drawZeros.size() * sizeof(unsigned int);
-    m_diligent->pDrawAtomicCounterBuffer.Release();
-    m_diligent->pDevice->CreateBuffer(DrawAtomicCounterDesc, &DrawAtomicCounterData, &m_diligent->pDrawAtomicCounterBuffer);
+    m_diligent->pDrawAtomicCounterBuffer = CreateStructuredBuffer(m_diligent->pDevice, "Draw Atomic Counter Buffer", sizeof(unsigned int), m_shaderManager.getShaderCount(), drawZeros.data());
     m_drawAtomicCounterBuffer = (GLuint)(size_t)m_diligent->pDrawAtomicCounterBuffer->GetNativeHandle();
 
     Diligent::QueryDesc queryDesc;
@@ -346,15 +357,7 @@ void Renderer::init(GLFWwindow* window, const int windowWidth, const int windowH
 
 #undef CREATE_QUERY_PAIR
 
-    Diligent::BufferDesc LargeObjectAtomicCounterDesc;
-    LargeObjectAtomicCounterDesc.Name = "Visible Large Object Atomic Counter";
-    LargeObjectAtomicCounterDesc.Usage = Diligent::USAGE_DEFAULT;
-    LargeObjectAtomicCounterDesc.BindFlags = Diligent::BIND_SHADER_RESOURCE | Diligent::BIND_UNORDERED_ACCESS;
-    LargeObjectAtomicCounterDesc.Mode = Diligent::BUFFER_MODE_STRUCTURED;
-    LargeObjectAtomicCounterDesc.ElementByteStride = sizeof(unsigned int);
-    LargeObjectAtomicCounterDesc.Size = sizeof(unsigned int);
-    m_diligent->pVisibleLargeObjectAtomicCounter.Release();
-    m_diligent->pDevice->CreateBuffer(LargeObjectAtomicCounterDesc, &AtomicCounterData, &m_diligent->pVisibleLargeObjectAtomicCounter);
+    m_diligent->pVisibleLargeObjectAtomicCounter = CreateStructuredBuffer(m_diligent->pDevice, "Visible Large Object Atomic Counter", sizeof(unsigned int), 1, (void*)&zero);
     m_visibleLargeObjectAtomicCounter = (GLuint)(size_t)m_diligent->pVisibleLargeObjectAtomicCounter->GetNativeHandle();
 
     m_vboSize = 1024 * 1024 * 10;
@@ -391,15 +394,7 @@ void Renderer::init(GLFWwindow* window, const int windowWidth, const int windowH
     glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, 6 * sizeof(float), (void*)(3 * sizeof(float)));
     glBindVertexArray(0);
 
-    Diligent::BufferDesc TransparentAtomicCounterDesc;
-    TransparentAtomicCounterDesc.Name = "Transparent Atomic Counter";
-    TransparentAtomicCounterDesc.Usage = Diligent::USAGE_DEFAULT;
-    TransparentAtomicCounterDesc.BindFlags = Diligent::BIND_SHADER_RESOURCE | Diligent::BIND_UNORDERED_ACCESS;
-    TransparentAtomicCounterDesc.Mode = Diligent::BUFFER_MODE_STRUCTURED;
-    TransparentAtomicCounterDesc.ElementByteStride = sizeof(unsigned int);
-    TransparentAtomicCounterDesc.Size = sizeof(unsigned int);
-    m_diligent->pTransparentAtomicCounter.Release();
-    m_diligent->pDevice->CreateBuffer(TransparentAtomicCounterDesc, &AtomicCounterData, &m_diligent->pTransparentAtomicCounter);
+    m_diligent->pTransparentAtomicCounter = CreateStructuredBuffer(m_diligent->pDevice, "Transparent Atomic Counter", sizeof(unsigned int), 1, (void*)&zero);
     m_transparentAtomicCounter = (GLuint)(size_t)m_diligent->pTransparentAtomicCounter->GetNativeHandle();
 
     m_maxMipLevel = static_cast<int>(std::floor(std::log2(std::max(windowWidth, windowHeight))));
@@ -457,15 +452,7 @@ void Renderer::init(GLFWwindow* window, const int windowWidth, const int windowH
     SamplerCI.AddressV = Diligent::TEXTURE_ADDRESS_CLAMP;
     m_diligent->pDevice->CreateSampler(SamplerCI, &m_diligent->pHiZSampler);
 
-    Diligent::BufferDesc DepthPrepassAtomicCounterDesc;
-    DepthPrepassAtomicCounterDesc.Name = "Depth Prepass Atomic Counter";
-    DepthPrepassAtomicCounterDesc.Usage = Diligent::USAGE_DEFAULT;
-    DepthPrepassAtomicCounterDesc.BindFlags = Diligent::BIND_SHADER_RESOURCE | Diligent::BIND_UNORDERED_ACCESS;
-    DepthPrepassAtomicCounterDesc.Mode = Diligent::BUFFER_MODE_STRUCTURED;
-    DepthPrepassAtomicCounterDesc.ElementByteStride = sizeof(unsigned int);
-    DepthPrepassAtomicCounterDesc.Size = sizeof(unsigned int);
-    m_diligent->pDepthPrepassAtomicCounter.Release();
-    m_diligent->pDevice->CreateBuffer(DepthPrepassAtomicCounterDesc, &AtomicCounterData, &m_diligent->pDepthPrepassAtomicCounter);
+    m_diligent->pDepthPrepassAtomicCounter = CreateStructuredBuffer(m_diligent->pDevice, "Depth Prepass Atomic Counter", sizeof(unsigned int), 1, (void*)&zero);
     m_depthPrepassAtomicCounter = (GLuint)(size_t)m_diligent->pDepthPrepassAtomicCounter->GetNativeHandle();
 
     Diligent::BufferDesc StagingDesc;
@@ -508,51 +495,19 @@ void Renderer::reallocateBuffers(size_t numObjects) {
     };
 
     m_objectBufferSize = m_maxObjects * sizeof(TransformComponent) * NUM_FRAMES_IN_FLIGHT;
-    Diligent::BufferDesc ObjBuffDesc;
-    ObjBuffDesc.Name = "Object Buffer";
-    ObjBuffDesc.Usage = Diligent::USAGE_DEFAULT;
-    ObjBuffDesc.BindFlags = Diligent::BIND_SHADER_RESOURCE | Diligent::BIND_UNORDERED_ACCESS;
-    ObjBuffDesc.Mode = Diligent::BUFFER_MODE_STRUCTURED;
-    ObjBuffDesc.ElementByteStride = sizeof(TransformComponent);
-    ObjBuffDesc.Size = m_objectBufferSize;
-    m_diligent->pObjectBuffer.Release();
-    m_diligent->pDevice->CreateBuffer(ObjBuffDesc, nullptr, &m_diligent->pObjectBuffer);
+    m_diligent->pObjectBuffer = CreateStructuredBuffer(m_diligent->pDevice, "Object Buffer", sizeof(TransformComponent), m_maxObjects * NUM_FRAMES_IN_FLIGHT);
     m_objectBuffer = (GLuint)(size_t)m_diligent->pObjectBuffer->GetNativeHandle();
 
     m_hierarchyBufferSize = m_maxObjects * sizeof(HierarchyComponent) * NUM_FRAMES_IN_FLIGHT;
-    Diligent::BufferDesc HierarchyBuffDesc;
-    HierarchyBuffDesc.Name = "Hierarchy Buffer";
-    HierarchyBuffDesc.Usage = Diligent::USAGE_DEFAULT;
-    HierarchyBuffDesc.BindFlags = Diligent::BIND_SHADER_RESOURCE | Diligent::BIND_UNORDERED_ACCESS;
-    HierarchyBuffDesc.Mode = Diligent::BUFFER_MODE_STRUCTURED;
-    HierarchyBuffDesc.ElementByteStride = sizeof(HierarchyComponent);
-    HierarchyBuffDesc.Size = m_hierarchyBufferSize;
-    m_diligent->pHierarchyBuffer.Release();
-    m_diligent->pDevice->CreateBuffer(HierarchyBuffDesc, nullptr, &m_diligent->pHierarchyBuffer);
+    m_diligent->pHierarchyBuffer = CreateStructuredBuffer(m_diligent->pDevice, "Hierarchy Buffer", sizeof(HierarchyComponent), m_maxObjects * NUM_FRAMES_IN_FLIGHT);
     m_hierarchyBuffer = (GLuint)(size_t)m_diligent->pHierarchyBuffer->GetNativeHandle();
 
     m_renderableBufferSize = m_maxObjects * sizeof(RenderableComponent) * NUM_FRAMES_IN_FLIGHT;
-    Diligent::BufferDesc RenderableBuffDesc;
-    RenderableBuffDesc.Name = "Renderable Buffer";
-    RenderableBuffDesc.Usage = Diligent::USAGE_DEFAULT;
-    RenderableBuffDesc.BindFlags = Diligent::BIND_SHADER_RESOURCE | Diligent::BIND_UNORDERED_ACCESS;
-    RenderableBuffDesc.Mode = Diligent::BUFFER_MODE_STRUCTURED;
-    RenderableBuffDesc.ElementByteStride = sizeof(RenderableComponent);
-    RenderableBuffDesc.Size = m_renderableBufferSize;
-    m_diligent->pRenderableBuffer.Release();
-    m_diligent->pDevice->CreateBuffer(RenderableBuffDesc, nullptr, &m_diligent->pRenderableBuffer);
+    m_diligent->pRenderableBuffer = CreateStructuredBuffer(m_diligent->pDevice, "Renderable Buffer", sizeof(RenderableComponent), m_maxObjects * NUM_FRAMES_IN_FLIGHT);
     m_renderableBuffer = (GLuint)(size_t)m_diligent->pRenderableBuffer->GetNativeHandle();
 
     m_sortedHierarchyBufferSize = m_maxObjects * sizeof(unsigned int) * NUM_FRAMES_IN_FLIGHT;
-    Diligent::BufferDesc SortedHierarchyBuffDesc;
-    SortedHierarchyBuffDesc.Name = "Sorted Hierarchy Buffer";
-    SortedHierarchyBuffDesc.Usage = Diligent::USAGE_DEFAULT;
-    SortedHierarchyBuffDesc.BindFlags = Diligent::BIND_SHADER_RESOURCE | Diligent::BIND_UNORDERED_ACCESS;
-    SortedHierarchyBuffDesc.Mode = Diligent::BUFFER_MODE_STRUCTURED;
-    SortedHierarchyBuffDesc.ElementByteStride = sizeof(unsigned int);
-    SortedHierarchyBuffDesc.Size = m_sortedHierarchyBufferSize;
-    m_diligent->pSortedHierarchyBuffer.Release();
-    m_diligent->pDevice->CreateBuffer(SortedHierarchyBuffDesc, nullptr, &m_diligent->pSortedHierarchyBuffer);
+    m_diligent->pSortedHierarchyBuffer = CreateStructuredBuffer(m_diligent->pDevice, "Sorted Hierarchy Buffer", sizeof(unsigned int), m_maxObjects * NUM_FRAMES_IN_FLIGHT);
     m_sortedHierarchyBuffer = (GLuint)(size_t)m_diligent->pSortedHierarchyBuffer->GetNativeHandle();
 
     for (int i = 0; i < NUM_FRAMES_IN_FLIGHT; ++i) {
@@ -574,75 +529,27 @@ void Renderer::reallocateBuffers(size_t numObjects) {
     }
 
     m_visibleObjectBufferSize = m_maxObjects * sizeof(unsigned int) * NUM_FRAMES_IN_FLIGHT;
-    Diligent::BufferDesc VisibleObjectsBuffDesc;
-    VisibleObjectsBuffDesc.Name = "Visible Objects Buffer";
-    VisibleObjectsBuffDesc.Usage = Diligent::USAGE_DEFAULT;
-    VisibleObjectsBuffDesc.BindFlags = Diligent::BIND_SHADER_RESOURCE | Diligent::BIND_UNORDERED_ACCESS;
-    VisibleObjectsBuffDesc.Mode = Diligent::BUFFER_MODE_STRUCTURED;
-    VisibleObjectsBuffDesc.ElementByteStride = sizeof(unsigned int);
-    VisibleObjectsBuffDesc.Size = m_visibleObjectBufferSize;
-    m_diligent->pVisibleObjectBuffer.Release();
-    m_diligent->pDevice->CreateBuffer(VisibleObjectsBuffDesc, nullptr, &m_diligent->pVisibleObjectBuffer);
+    m_diligent->pVisibleObjectBuffer = CreateStructuredBuffer(m_diligent->pDevice, "Visible Objects Buffer", sizeof(unsigned int), m_maxObjects * NUM_FRAMES_IN_FLIGHT);
     m_visibleObjectBuffer = (GLuint)(size_t)m_diligent->pVisibleObjectBuffer->GetNativeHandle();
 
     m_drawCommandBufferSize = m_maxObjects * m_numDrawingShaders * sizeof(DrawElementsIndirectCommand) * NUM_FRAMES_IN_FLIGHT;
-    Diligent::BufferDesc DrawCommandsBuffDesc;
-    DrawCommandsBuffDesc.Name = "Draw Command Buffer";
-    DrawCommandsBuffDesc.Usage = Diligent::USAGE_DEFAULT;
-    DrawCommandsBuffDesc.BindFlags = Diligent::BIND_SHADER_RESOURCE | Diligent::BIND_UNORDERED_ACCESS;
-    DrawCommandsBuffDesc.Mode = Diligent::BUFFER_MODE_STRUCTURED;
-    DrawCommandsBuffDesc.ElementByteStride = sizeof(DrawElementsIndirectCommand);
-    DrawCommandsBuffDesc.Size = m_drawCommandBufferSize;
-    m_diligent->pDrawCommandBuffer.Release();
-    m_diligent->pDevice->CreateBuffer(DrawCommandsBuffDesc, nullptr, &m_diligent->pDrawCommandBuffer);
+    m_diligent->pDrawCommandBuffer = CreateIndirectBuffer(m_diligent->pDevice, "Draw Command Buffer", m_drawCommandBufferSize);
     m_drawCommandBuffer = (GLuint)(size_t)m_diligent->pDrawCommandBuffer->GetNativeHandle();
 
     m_visibleTransparentObjectIdsBufferSize = m_maxObjects * sizeof(VisibleTransparentObject) * NUM_FRAMES_IN_FLIGHT;
-    Diligent::BufferDesc TransparentIdsBuffDesc;
-    TransparentIdsBuffDesc.Name = "Visible Transparent Object IDs Buffer";
-    TransparentIdsBuffDesc.Usage = Diligent::USAGE_DEFAULT;
-    TransparentIdsBuffDesc.BindFlags = Diligent::BIND_SHADER_RESOURCE | Diligent::BIND_UNORDERED_ACCESS;
-    TransparentIdsBuffDesc.Mode = Diligent::BUFFER_MODE_STRUCTURED;
-    TransparentIdsBuffDesc.ElementByteStride = sizeof(VisibleTransparentObject);
-    TransparentIdsBuffDesc.Size = m_visibleTransparentObjectIdsBufferSize;
-    m_diligent->pVisibleTransparentObjectIdsBuffer.Release();
-    m_diligent->pDevice->CreateBuffer(TransparentIdsBuffDesc, nullptr, &m_diligent->pVisibleTransparentObjectIdsBuffer);
+    m_diligent->pVisibleTransparentObjectIdsBuffer = CreateStructuredBuffer(m_diligent->pDevice, "Visible Transparent Object IDs Buffer", sizeof(VisibleTransparentObject), m_maxObjects * NUM_FRAMES_IN_FLIGHT);
     m_visibleTransparentObjectIdsBuffer = (GLuint)(size_t)m_diligent->pVisibleTransparentObjectIdsBuffer->GetNativeHandle();
 
     m_transparentDrawCommandBufferSize = m_maxObjects * m_numDrawingShaders * sizeof(DrawElementsIndirectCommand) * NUM_FRAMES_IN_FLIGHT;
-    Diligent::BufferDesc TransparentDrawBuffDesc;
-    TransparentDrawBuffDesc.Name = "Transparent Draw Command Buffer";
-    TransparentDrawBuffDesc.Usage = Diligent::USAGE_DEFAULT;
-    TransparentDrawBuffDesc.BindFlags = Diligent::BIND_SHADER_RESOURCE | Diligent::BIND_UNORDERED_ACCESS;
-    TransparentDrawBuffDesc.Mode = Diligent::BUFFER_MODE_STRUCTURED;
-    TransparentDrawBuffDesc.ElementByteStride = sizeof(DrawElementsIndirectCommand);
-    TransparentDrawBuffDesc.Size = m_transparentDrawCommandBufferSize;
-    m_diligent->pTransparentDrawCommandBuffer.Release();
-    m_diligent->pDevice->CreateBuffer(TransparentDrawBuffDesc, nullptr, &m_diligent->pTransparentDrawCommandBuffer);
+    m_diligent->pTransparentDrawCommandBuffer = CreateIndirectBuffer(m_diligent->pDevice, "Transparent Draw Command Buffer", m_transparentDrawCommandBufferSize);
     m_transparentDrawCommandBuffer = (GLuint)(size_t)m_diligent->pTransparentDrawCommandBuffer->GetNativeHandle();
 
     m_depthPrepassDrawCommandBufferSize = m_maxObjects * sizeof(DrawElementsIndirectCommand) * NUM_FRAMES_IN_FLIGHT;
-    Diligent::BufferDesc DepthPrepassDrawBuffDesc;
-    DepthPrepassDrawBuffDesc.Name = "Depth Pre-pass Draw Command Buffer";
-    DepthPrepassDrawBuffDesc.Usage = Diligent::USAGE_DEFAULT;
-    DepthPrepassDrawBuffDesc.BindFlags = Diligent::BIND_SHADER_RESOURCE | Diligent::BIND_UNORDERED_ACCESS;
-    DepthPrepassDrawBuffDesc.Mode = Diligent::BUFFER_MODE_STRUCTURED;
-    DepthPrepassDrawBuffDesc.ElementByteStride = sizeof(DrawElementsIndirectCommand);
-    DepthPrepassDrawBuffDesc.Size = m_depthPrepassDrawCommandBufferSize;
-    m_diligent->pDepthPrepassDrawCommandBuffer.Release();
-    m_diligent->pDevice->CreateBuffer(DepthPrepassDrawBuffDesc, nullptr, &m_diligent->pDepthPrepassDrawCommandBuffer);
+    m_diligent->pDepthPrepassDrawCommandBuffer = CreateIndirectBuffer(m_diligent->pDevice, "Depth Pre-pass Draw Command Buffer", m_depthPrepassDrawCommandBufferSize);
     m_depthPrepassDrawCommandBuffer = (GLuint)(size_t)m_diligent->pDepthPrepassDrawCommandBuffer->GetNativeHandle();
 
     m_visibleLargeObjectBufferSize = m_maxObjects * sizeof(unsigned int) * NUM_FRAMES_IN_FLIGHT;
-    Diligent::BufferDesc VisibleLargeObjectsBuffDesc;
-    VisibleLargeObjectsBuffDesc.Name = "Visible Large Objects Buffer";
-    VisibleLargeObjectsBuffDesc.Usage = Diligent::USAGE_DEFAULT;
-    VisibleLargeObjectsBuffDesc.BindFlags = Diligent::BIND_SHADER_RESOURCE | Diligent::BIND_UNORDERED_ACCESS;
-    VisibleLargeObjectsBuffDesc.Mode = Diligent::BUFFER_MODE_STRUCTURED;
-    VisibleLargeObjectsBuffDesc.ElementByteStride = sizeof(unsigned int);
-    VisibleLargeObjectsBuffDesc.Size = m_visibleLargeObjectBufferSize;
-    m_diligent->pVisibleLargeObjectBuffer.Release();
-    m_diligent->pDevice->CreateBuffer(VisibleLargeObjectsBuffDesc, nullptr, &m_diligent->pVisibleLargeObjectBuffer);
+    m_diligent->pVisibleLargeObjectBuffer = CreateStructuredBuffer(m_diligent->pDevice, "Visible Large Objects Buffer", sizeof(unsigned int), m_maxObjects * NUM_FRAMES_IN_FLIGHT);
     m_visibleLargeObjectBuffer = (GLuint)(size_t)m_diligent->pVisibleLargeObjectBuffer->GetNativeHandle();
 
     const size_t alignedSceneUniformsSize = (sizeof(SceneUniforms) + 255) & ~255;
@@ -655,15 +562,7 @@ void Renderer::reallocateBuffers(size_t numObjects) {
     m_diligent->pSceneUBO.Release();
     m_diligent->pDevice->CreateBuffer(SceneUBODesc, nullptr, &m_diligent->pSceneUBO);
 
-    Diligent::BufferDesc MeshInfoDesc;
-    MeshInfoDesc.Name = "Mesh Info Buffer";
-    MeshInfoDesc.Usage = Diligent::USAGE_DEFAULT;
-    MeshInfoDesc.BindFlags = Diligent::BIND_SHADER_RESOURCE;
-    MeshInfoDesc.Mode = Diligent::BUFFER_MODE_STRUCTURED;
-    MeshInfoDesc.ElementByteStride = sizeof(MeshInfo);
-    MeshInfoDesc.Size = m_maxObjects * sizeof(MeshInfo);
-    m_diligent->pMeshInfoBuffer.Release();
-    m_diligent->pDevice->CreateBuffer(MeshInfoDesc, nullptr, &m_diligent->pMeshInfoBuffer);
+    m_diligent->pMeshInfoBuffer = CreateStructuredBuffer(m_diligent->pDevice, "Mesh Info Buffer", sizeof(MeshInfo), m_maxObjects);
 
     if (m_diligent->pTransformPSO) {
         m_diligent->pTransformSRB.Release();
