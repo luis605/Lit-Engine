@@ -186,6 +186,28 @@ Diligent::RefCntAutoPtr<Diligent::IBuffer> CreateIndirectBuffer(Diligent::IRende
 
 } // namespace
 
+Diligent::RefCntAutoPtr<Diligent::IBuffer> CreateVertexBuffer(Diligent::IRenderDevice* pDevice, size_t size) {
+    Diligent::BufferDesc Desc;
+    Desc.Name = "VBO";
+    Desc.Usage = Diligent::USAGE_DEFAULT;
+    Desc.BindFlags = Diligent::BIND_VERTEX_BUFFER;
+    Desc.Size = size;
+    Diligent::RefCntAutoPtr<Diligent::IBuffer> pBuffer;
+    pDevice->CreateBuffer(Desc, nullptr, &pBuffer);
+    return pBuffer;
+}
+
+Diligent::RefCntAutoPtr<Diligent::IBuffer> CreateIndexBuffer(Diligent::IRenderDevice* pDevice, size_t size) {
+    Diligent::BufferDesc Desc;
+    Desc.Name = "EBO";
+    Desc.Usage = Diligent::USAGE_DEFAULT;
+    Desc.BindFlags = Diligent::BIND_INDEX_BUFFER;
+    Desc.Size = size;
+    Diligent::RefCntAutoPtr<Diligent::IBuffer> pBuffer;
+    pDevice->CreateBuffer(Desc, nullptr, &pBuffer);
+    return pBuffer;
+}
+
 struct DiligentData {
     Diligent::RefCntAutoPtr<Diligent::IRenderDevice> pDevice;
     Diligent::RefCntAutoPtr<Diligent::IDeviceContext> pImmediateContext;
@@ -643,38 +665,30 @@ void Renderer::uploadMesh(const Mesh& mesh) {
     Lit::Log::Info("Uploading mesh: {} vertices ({} bytes), {} indices ({} bytes)", mesh.vertices.size() / 6,
                    vertexDataSize, mesh.indices.size(), indexDataSize);
 
+    auto resizeBuffer = [&](Diligent::RefCntAutoPtr<Diligent::IBuffer>& pBuffer, size_t currentSize, size_t newSize,
+                            GLuint& nativeHandle, bool isIndexBuffer) {
+        Diligent::RefCntAutoPtr<Diligent::IBuffer> pNewBuffer;
+        if (isIndexBuffer) {
+            pNewBuffer = CreateIndexBuffer(m_diligent->pDevice, newSize);
+        } else {
+            pNewBuffer = CreateVertexBuffer(m_diligent->pDevice, newSize);
+        }
+
+        if (currentSize > 0) {
+            m_diligent->pImmediateContext->CopyBuffer(pBuffer, 0, Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION,
+                                                      pNewBuffer, 0, currentSize, Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
+        }
+
+        pBuffer = pNewBuffer;
+        nativeHandle = (GLuint)(size_t)pBuffer->GetNativeHandle();
+    };
+
     if (s_totalVertexSize + vertexDataSize > m_vboSize || s_totalIndexSize + indexDataSize > m_eboSize) {
         m_vboSize = std::max(m_vboSize * 2, s_totalVertexSize + vertexDataSize);
         m_eboSize = std::max(m_eboSize * 2, s_totalIndexSize + indexDataSize);
 
-        Diligent::RefCntAutoPtr<Diligent::IBuffer> pNewVBO;
-        Diligent::BufferDesc VBODesc;
-        VBODesc.Name = "VBO";
-        VBODesc.Usage = Diligent::USAGE_DEFAULT;
-        VBODesc.BindFlags = Diligent::BIND_VERTEX_BUFFER;
-        VBODesc.Size = m_vboSize;
-        m_diligent->pDevice->CreateBuffer(VBODesc, nullptr, &pNewVBO);
-        GLuint new_vbo = (GLuint)(size_t)pNewVBO->GetNativeHandle();
-
-        Diligent::RefCntAutoPtr<Diligent::IBuffer> pNewEBO;
-        Diligent::BufferDesc EBODesc;
-        EBODesc.Name = "EBO";
-        EBODesc.Usage = Diligent::USAGE_DEFAULT;
-        EBODesc.BindFlags = Diligent::BIND_INDEX_BUFFER;
-        EBODesc.Size = m_eboSize;
-        m_diligent->pDevice->CreateBuffer(EBODesc, nullptr, &pNewEBO);
-        GLuint new_ebo = (GLuint)(size_t)pNewEBO->GetNativeHandle();
-
-        if (s_totalVertexSize > 0)
-            m_diligent->pImmediateContext->CopyBuffer(m_diligent->pVBO, 0, Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION, pNewVBO, 0, s_totalVertexSize, Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
-
-        if (s_totalIndexSize > 0)
-            m_diligent->pImmediateContext->CopyBuffer(m_diligent->pEBO, 0, Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION, pNewEBO, 0, s_totalIndexSize, Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
-
-        m_diligent->pVBO = pNewVBO;
-        m_diligent->pEBO = pNewEBO;
-        m_vbo = new_vbo;
-        m_ebo = new_ebo;
+        resizeBuffer(m_diligent->pVBO, s_totalVertexSize, m_vboSize, m_vbo, false);
+        resizeBuffer(m_diligent->pEBO, s_totalIndexSize, m_eboSize, m_ebo, true);
 
         glBindVertexArray(m_vao);
         glBindBuffer(GL_ARRAY_BUFFER, m_vbo);
@@ -686,8 +700,14 @@ void Renderer::uploadMesh(const Mesh& mesh) {
         glBindVertexArray(0);
     }
 
-    m_diligent->pImmediateContext->UpdateBuffer(m_diligent->pVBO, s_totalVertexSize, vertexDataSize, mesh.vertices.data(), Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
-    m_diligent->pImmediateContext->UpdateBuffer(m_diligent->pEBO, s_totalIndexSize, indexDataSize, mesh.indices.data(), Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
+    if (vertexDataSize > 0) {
+        m_diligent->pImmediateContext->UpdateBuffer(m_diligent->pVBO, s_totalVertexSize, vertexDataSize,
+                                                    mesh.vertices.data(), Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
+    }
+    if (indexDataSize > 0) {
+        m_diligent->pImmediateContext->UpdateBuffer(m_diligent->pEBO, s_totalIndexSize, indexDataSize,
+                                                    mesh.indices.data(), Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
+    }
 
     glm::vec3 center(0.0f);
     const size_t numVertices = mesh.vertices.size() / 6;
@@ -697,6 +717,7 @@ void Renderer::uploadMesh(const Mesh& mesh) {
             center.y += mesh.vertices[i + 1];
             center.z += mesh.vertices[i + 2];
         }
+
         center /= static_cast<float>(numVertices);
     }
 
