@@ -238,7 +238,7 @@ Renderer::Renderer()
     : m_cullingShader(nullptr), m_transformShader(nullptr), m_transparentCullShader(nullptr), m_bitonicSortShader(nullptr),
       m_opaqueSortShader(nullptr), m_transparentCommandGenShader(nullptr), m_commandGenShader(nullptr), m_largeObjectCullShader(nullptr),
       m_largeObjectSortShader(nullptr), m_largeObjectCommandGenShader(nullptr), m_depthPrepassShader(nullptr),
-      m_debugDepthShader(nullptr), m_hizMipmapShader(nullptr), m_initialized(false), m_vboSize(0), m_eboSize(0), m_numDrawingShaders(0),
+      m_hizMipmapShader(nullptr), m_initialized(false), m_vboSize(0), m_eboSize(0), m_numDrawingShaders(0),
       fullProfiling(false) {}
 
 void Renderer::init(GLFWwindow* window, const int windowWidth, const int windowHeight) {
@@ -470,38 +470,6 @@ void Renderer::init(GLFWwindow* window, const int windowWidth, const int windowH
     }
 
     glBindFramebuffer(GL_FRAMEBUFFER, 0);
-
-    float quadVertices[] = {
-        -1.0f,
-        1.0f,
-        0.0f,
-        0.0f,
-        1.0f,
-        -1.0f,
-        -1.0f,
-        0.0f,
-        0.0f,
-        0.0f,
-        1.0f,
-        1.0f,
-        0.0f,
-        1.0f,
-        1.0f,
-        1.0f,
-        -1.0f,
-        0.0f,
-        1.0f,
-        0.0f,
-    };
-    glGenVertexArrays(1, &m_debugQuadVao);
-    glGenBuffers(1, &m_debugQuadVbo);
-    glBindVertexArray(m_debugQuadVao);
-    glBindBuffer(GL_ARRAY_BUFFER, m_debugQuadVbo);
-    glBufferData(GL_ARRAY_BUFFER, sizeof(quadVertices), &quadVertices, GL_STATIC_DRAW);
-    glEnableVertexAttribArray(0);
-    glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 5 * sizeof(float), (void*)0);
-    glEnableVertexAttribArray(1);
-    glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE, 5 * sizeof(float), (void*)(3 * sizeof(float)));
 
     Diligent::BufferDesc DepthPrepassAtomicCounterDesc;
     DepthPrepassAtomicCounterDesc.Name = "Depth Prepass Atomic Counter";
@@ -754,8 +722,6 @@ void Renderer::cleanup() {
     glDeleteVertexArrays(1, &m_vao);
 
     glDeleteFramebuffers(NUM_FRAMES_IN_FLIGHT, m_depthFbo);
-    glDeleteVertexArrays(1, &m_debugQuadVao);
-    glDeleteBuffers(1, &m_debugQuadVbo);
 
     m_shaderManager.cleanup();
     m_cullingShader = nullptr;
@@ -765,7 +731,7 @@ void Renderer::cleanup() {
     m_transparentCommandGenShader = nullptr;
     m_largeObjectCullShader = nullptr;
     m_depthPrepassShader = nullptr;
-    m_debugDepthShader = nullptr;
+
     m_hizMipmapShader = nullptr;
 
     m_shaderManager.cleanup();
@@ -875,11 +841,6 @@ void Renderer::uploadMesh(const Mesh& mesh) {
 
 void Renderer::setSmallObjectThreshold(float threshold) { m_smallObjectThreshold = threshold; }
 void Renderer::setLargeObjectThreshold(float threshold) { m_largeObjectThreshold = threshold; }
-void Renderer::setDebugMipLevel(int mipLevel) {
-    if (mipLevel >= 0 && mipLevel < m_maxMipLevel) {
-        m_debugMipLevel = mipLevel;
-    }
-}
 
 void Renderer::drawScene(SceneDatabase& sceneDatabase, const Camera& camera) {
     double transformTime = 0, opaqueCullTime = 0, opaqueSortTime = 0, opaqueCommandGenTime = 0;
@@ -1596,9 +1557,6 @@ void Renderer::setupShaders() {
 
     const auto depthPrepassId = m_shaderManager.loadShader("resources/shaders/depth_prepass.vert", "resources/shaders/depth_prepass.frag");
     m_depthPrepassShader = m_shaderManager.getShader(depthPrepassId);
-
-    const auto debugDepthId = m_shaderManager.loadShader("resources/shaders/depth_debug.vert", "resources/shaders/depth_debug.frag");
-    m_debugDepthShader = m_shaderManager.getShader(debugDepthId);
 
     const auto hizMipmapId = m_shaderManager.loadComputeShader("resources/shaders/hiz_mipmap.comp");
     m_hizMipmapShader = m_shaderManager.getShader(hizMipmapId);

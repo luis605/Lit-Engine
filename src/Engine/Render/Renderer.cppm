@@ -30,7 +30,6 @@ export class Renderer {
     void AddText(const std::string& text, float x, float y, float scale, const glm::vec3& color);
     void setSmallObjectThreshold(float threshold);
     void setLargeObjectThreshold(float threshold);
-    void setDebugMipLevel(int mipLevel);
 
   private:
     void setupShaders();
@@ -83,11 +82,7 @@ export class Renderer {
     unsigned int m_visibleLargeObjectBuffer = 0;
     unsigned int m_visibleLargeObjectAtomicCounter = 0;
 
-    unsigned int m_debugQuadVao = 0;
-    unsigned int m_debugQuadVbo = 0;
-    Shader* m_debugDepthShader = nullptr;
     Shader* m_hizMipmapShader = nullptr;
-    int m_debugMipLevel = 0;
     int m_maxMipLevel = 0;
 
     size_t m_numDrawingShaders = 0;
