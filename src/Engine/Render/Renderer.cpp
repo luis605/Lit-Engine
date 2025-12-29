@@ -288,6 +288,9 @@ struct DiligentData {
     Diligent::RefCntAutoPtr<Diligent::IBuffer> pStagingBuffer;
     Diligent::RefCntAutoPtr<Diligent::IPipelineState> pHiZMipmapPSO;
     Diligent::RefCntAutoPtr<Diligent::IShaderResourceBinding> pHiZMipmapSRB;
+    Diligent::RefCntAutoPtr<Diligent::IPipelineState> pCullingPSO;
+    Diligent::RefCntAutoPtr<Diligent::IShaderResourceBinding> pCullingSRB;
+    Diligent::RefCntAutoPtr<Diligent::IBuffer> pCullingUniforms;
 };
 
 Renderer::Renderer()
@@ -329,17 +332,10 @@ void Renderer::init(GLFWwindow* window, const int windowWidth, const int windowH
     setupShaders();
     createTransformPSO();
     createHiZPSO();
-
-    if (!m_cullingShader || !m_cullingShader->isInitialized()) {
-        Lit::Log::Error("Renderer failed to initialize: Culling shader could not be loaded.");
-        return;
-    }
+    createCullingPSO();
 
     glEnable(GL_DEPTH_TEST);
     glEnable(GL_CULL_FACE);
-
-    m_maxObjects = 1000000;
-    reallocateBuffers(m_maxObjects);
 
     const unsigned int zero = 0;
     m_diligent->pVisibleObjectAtomicCounter = CreateStructuredBuffer(m_diligent->pDevice, "Visible Object Atomic Counter", sizeof(unsigned int), 1, (void*)&zero);
@@ -348,6 +344,9 @@ void Renderer::init(GLFWwindow* window, const int windowWidth, const int windowH
     std::vector<unsigned int> drawZeros(m_shaderManager.getShaderCount(), 0);
     m_diligent->pDrawAtomicCounterBuffer = CreateStructuredBuffer(m_diligent->pDevice, "Draw Atomic Counter Buffer", sizeof(unsigned int), m_shaderManager.getShaderCount(), drawZeros.data());
     m_drawAtomicCounterBuffer = (GLuint)(size_t)m_diligent->pDrawAtomicCounterBuffer->GetNativeHandle();
+
+    m_maxObjects = 1000000;
+    reallocateBuffers(m_maxObjects);
 
     Diligent::QueryDesc queryDesc;
     queryDesc.Type = Diligent::QUERY_TYPE_TIMESTAMP;
@@ -607,6 +606,38 @@ void Renderer::reallocateBuffers(size_t numObjects) {
         hierarchyBuf->Set(m_diligent->pHierarchyBuffer->GetDefaultView(Diligent::BUFFER_VIEW_SHADER_RESOURCE));
         sortedBuf->Set(m_diligent->pSortedHierarchyBuffer->GetDefaultView(Diligent::BUFFER_VIEW_SHADER_RESOURCE));
         uniformsVar->Set(m_diligent->pTransformUniforms);
+    }
+
+    if (m_diligent->pCullingPSO) {
+        m_diligent->pCullingSRB.Release();
+        m_diligent->pCullingPSO->CreateShaderResourceBinding(&m_diligent->pCullingSRB, true);
+        if (!m_diligent->pCullingSRB) {
+            Lit::Log::Error("Failed to create Culling SRB");
+            return;
+        }
+
+        auto* sceneDataVar = m_diligent->pCullingSRB->GetVariableByName(Diligent::SHADER_TYPE_COMPUTE, "SceneData");
+        auto* cullingUniformsVar = m_diligent->pCullingSRB->GetVariableByName(Diligent::SHADER_TYPE_COMPUTE, "CullingUniforms");
+        auto* atomicCounterVar = m_diligent->pCullingSRB->GetVariableByName(Diligent::SHADER_TYPE_COMPUTE, "AtomicCounterBuffer");
+        auto* visibleObjectVar = m_diligent->pCullingSRB->GetVariableByName(Diligent::SHADER_TYPE_COMPUTE, "VisibleObjectBuffer");
+        auto* objectVar = m_diligent->pCullingSRB->GetVariableByName(Diligent::SHADER_TYPE_COMPUTE, "ObjectBuffer");
+        auto* meshInfoVar = m_diligent->pCullingSRB->GetVariableByName(Diligent::SHADER_TYPE_COMPUTE, "MeshInfoBuffer");
+        auto* renderableVar = m_diligent->pCullingSRB->GetVariableByName(Diligent::SHADER_TYPE_COMPUTE, "RenderableBuffer");
+
+        if (sceneDataVar && m_diligent->pSceneUBO)
+            sceneDataVar->Set(m_diligent->pSceneUBO);
+        if (cullingUniformsVar && m_diligent->pCullingUniforms)
+            cullingUniformsVar->Set(m_diligent->pCullingUniforms);
+        if (atomicCounterVar && m_diligent->pVisibleObjectAtomicCounter)
+            atomicCounterVar->Set(m_diligent->pVisibleObjectAtomicCounter->GetDefaultView(Diligent::BUFFER_VIEW_UNORDERED_ACCESS));
+        if (visibleObjectVar && m_diligent->pVisibleObjectBuffer)
+            visibleObjectVar->Set(m_diligent->pVisibleObjectBuffer->GetDefaultView(Diligent::BUFFER_VIEW_UNORDERED_ACCESS));
+        if (objectVar && m_diligent->pObjectBuffer)
+            objectVar->Set(m_diligent->pObjectBuffer->GetDefaultView(Diligent::BUFFER_VIEW_SHADER_RESOURCE));
+        if (meshInfoVar && m_diligent->pMeshInfoBuffer)
+            meshInfoVar->Set(m_diligent->pMeshInfoBuffer->GetDefaultView(Diligent::BUFFER_VIEW_SHADER_RESOURCE));
+        if (renderableVar && m_diligent->pRenderableBuffer)
+            renderableVar->Set(m_diligent->pRenderableBuffer->GetDefaultView(Diligent::BUFFER_VIEW_SHADER_RESOURCE));
     }
 
     m_dataUpdateCounter = NUM_FRAMES_IN_FLIGHT;
@@ -956,26 +987,45 @@ void Renderer::drawScene(SceneDatabase& sceneDatabase, const Camera& camera) {
         m_hizTexture[i] = (unsigned int)(size_t)m_diligent->pHiZTextures[i]->GetNativeHandle();
     }
 
-    m_cullingShader->bind();
-    glBindBufferRange(GL_UNIFORM_BUFFER, 0, (GLuint)(size_t)m_diligent->pSceneUBO->GetNativeHandle(), uboFrameOffset, sizeof(SceneUniforms));
-    m_cullingShader->setUniform("u_objectCount", numObjects);
-    m_cullingShader->setUniform("u_maxDraws", (unsigned int)m_maxObjects);
-    m_cullingShader->setUniform("u_smallObjectThreshold", m_smallObjectThreshold);
+    m_diligent->pImmediateContext->InvalidateState();
 
-    glActiveTexture(GL_TEXTURE0);
-    glBindTexture(GL_TEXTURE_2D, m_hizTexture[previousFrame]);
-    m_cullingShader->setUniform("u_hizTexture", 0);
-    m_cullingShader->setUniform("u_hizTextureSize", glm::vec2(m_windowWidth, m_windowHeight));
-    m_cullingShader->setUniform("u_hizMaxMipLevel", static_cast<float>(m_maxMipLevel - 1));
+    struct CullingUniforms {
+        uint32_t objectCount;
+        uint32_t maxDraws;
+        uint32_t baseIndex;
+        float smallObjectThreshold;
+        float hizMaxMipLevel;
+        float hizTextureSizeX;
+        float hizTextureSizeY;
+        uint32_t padding;
+    } cullingUniforms;
 
-    glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 0, m_visibleObjectAtomicCounter);
-    glBindBufferRange(GL_SHADER_STORAGE_BUFFER, 1, m_visibleObjectBuffer, frameOffset * sizeof(unsigned int), m_maxObjects * sizeof(unsigned int));
-    glBindBufferRange(GL_SHADER_STORAGE_BUFFER, 2, m_objectBuffer, frameOffset * sizeof(TransformComponent), m_maxObjects * sizeof(TransformComponent));
-    glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 3, (GLuint)(size_t)m_diligent->pMeshInfoBuffer->GetNativeHandle());
-    glBindBufferRange(GL_SHADER_STORAGE_BUFFER, 4, m_renderableBuffer, frameOffset * sizeof(RenderableComponent), m_maxObjects * sizeof(RenderableComponent));
+    cullingUniforms.objectCount = numObjects;
+    cullingUniforms.maxDraws = static_cast<uint32_t>(m_maxObjects);
+    cullingUniforms.baseIndex = m_currentFrame * m_maxObjects;
+    cullingUniforms.smallObjectThreshold = m_smallObjectThreshold;
+    cullingUniforms.hizMaxMipLevel = static_cast<float>(m_maxMipLevel - 1);
+    cullingUniforms.hizTextureSizeX = static_cast<float>(m_windowWidth);
+    cullingUniforms.hizTextureSizeY = static_cast<float>(m_windowHeight);
+    cullingUniforms.padding = 0;
 
-    glDispatchCompute(numWorkgroups, 1, 1);
+    m_diligent->pImmediateContext->UpdateBuffer(m_diligent->pCullingUniforms, 0, sizeof(cullingUniforms), &cullingUniforms, Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
 
+    auto* pHiZVar = m_diligent->pCullingSRB->GetVariableByName(Diligent::SHADER_TYPE_COMPUTE, "u_hizTexture");
+    if (pHiZVar) {
+        pHiZVar->Set(m_diligent->pHiZTextures[previousFrame]->GetDefaultView(Diligent::TEXTURE_VIEW_SHADER_RESOURCE));
+    }
+
+    m_diligent->pImmediateContext->SetPipelineState(m_diligent->pCullingPSO);
+    m_diligent->pImmediateContext->CommitShaderResources(m_diligent->pCullingSRB, Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
+
+    Diligent::DispatchComputeAttribs CullDispatchAttrs;
+    CullDispatchAttrs.ThreadGroupCountX = numWorkgroups;
+    CullDispatchAttrs.ThreadGroupCountY = 1;
+    CullDispatchAttrs.ThreadGroupCountZ = 1;
+    m_diligent->pImmediateContext->DispatchCompute(CullDispatchAttrs);
+
+    m_diligent->pImmediateContext->WaitForIdle();
     glMemoryBarrier(GL_COMMAND_BARRIER_BIT | GL_SHADER_STORAGE_BARRIER_BIT | GL_ATOMIC_COUNTER_BARRIER_BIT);
 
     unsigned int visibleObjectCount = ReadAtomicCounter(m_diligent->pVisibleObjectAtomicCounter);
@@ -1141,6 +1191,8 @@ void Renderer::drawScene(SceneDatabase& sceneDatabase, const Camera& camera) {
 
     glClearColor(0.3f, 0.3f, 0.3f, 1.0f);
     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+
+    glBindBufferRange(GL_UNIFORM_BUFFER, 0, (GLuint)(size_t)m_diligent->pSceneUBO->GetNativeHandle(), uboFrameOffset, sizeof(SceneUniforms));
 
     glBindVertexArray(m_vao);
 
@@ -1576,4 +1628,58 @@ void Renderer::createHiZPSO() {
         return;
     }
     m_diligent->pHiZMipmapPSO->CreateShaderResourceBinding(&m_diligent->pHiZMipmapSRB, true);
+}
+
+void Renderer::createCullingPSO() {
+    std::string source = LoadSourceFromFile("resources/shaders/cull.comp");
+    if (source.empty()) {
+        Lit::Log::Error("Failed to load culling compute shader source.");
+        return;
+    }
+
+    size_t versionPos = source.find("#version");
+    if (versionPos != std::string::npos) {
+        size_t nextLine = source.find('\n', versionPos);
+        if (nextLine != std::string::npos) {
+            source = source.substr(nextLine + 1);
+        }
+    }
+
+    Diligent::ShaderCreateInfo ShaderCI;
+    ShaderCI.Source = source.c_str();
+    ShaderCI.SourceLanguage = Diligent::SHADER_SOURCE_LANGUAGE_GLSL;
+    ShaderCI.Desc.UseCombinedTextureSamplers = true;
+    ShaderCI.Desc.ShaderType = Diligent::SHADER_TYPE_COMPUTE;
+    ShaderCI.Desc.Name = "Culling compute shader";
+
+    Diligent::RefCntAutoPtr<Diligent::IShader> pCS;
+    m_diligent->pDevice->CreateShader(ShaderCI, &pCS);
+    if (!pCS) {
+        Lit::Log::Error("Failed to create culling compute shader.");
+        return;
+    }
+
+    Diligent::ShaderResourceVariableDesc Vars[] = {
+        {Diligent::SHADER_TYPE_COMPUTE, "u_hizTexture", Diligent::SHADER_RESOURCE_VARIABLE_TYPE_DYNAMIC}};
+
+    Diligent::ComputePipelineStateCreateInfo PSOCI;
+    PSOCI.PSODesc.Name = "Culling compute PSO";
+    PSOCI.PSODesc.PipelineType = Diligent::PIPELINE_TYPE_COMPUTE;
+    PSOCI.pCS = pCS;
+    PSOCI.PSODesc.ResourceLayout.DefaultVariableType = Diligent::SHADER_RESOURCE_VARIABLE_TYPE_MUTABLE;
+    PSOCI.PSODesc.ResourceLayout.Variables = Vars;
+    PSOCI.PSODesc.ResourceLayout.NumVariables = _countof(Vars);
+
+    m_diligent->pDevice->CreateComputePipelineState(PSOCI, &m_diligent->pCullingPSO);
+    if (!m_diligent->pCullingPSO) {
+        Lit::Log::Error("Failed to create culling compute PSO.");
+        return;
+    }
+
+    Diligent::BufferDesc BuffDesc;
+    BuffDesc.Name = "Culling parameters UBO";
+    BuffDesc.Usage = Diligent::USAGE_DEFAULT;
+    BuffDesc.BindFlags = Diligent::BIND_UNIFORM_BUFFER;
+    BuffDesc.Size = 256;
+    m_diligent->pDevice->CreateBuffer(BuffDesc, nullptr, &m_diligent->pCullingUniforms);
 }

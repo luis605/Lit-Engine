@@ -40,6 +40,17 @@ layout (std140, binding = 0) uniform SceneData {
     vec4 frustumPlanes[6];
 } sceneData;
 
+layout (std140, binding = 1) uniform CullingUniforms {
+    uint u_objectCount;
+    uint u_maxDraws;
+    uint u_baseIndex;
+    float u_smallObjectThreshold;
+    float u_hizMaxMipLevel;
+    float u_hizTextureSizeX;
+    float u_hizTextureSizeY;
+    uint u_padding;
+};
+
 layout(binding = 0, std430) buffer AtomicCounterBuffer {
     uint visibleObjectCount;
 };
@@ -60,13 +71,7 @@ layout(binding = 4, std430) readonly buffer RenderableBuffer {
     RenderableComponent renderables[];
 };
 
-uniform uint u_objectCount;
-uniform uint u_maxDraws;
-uniform float u_smallObjectThreshold;
-
 uniform sampler2D u_hizTexture;
-uniform vec2 u_hizTextureSize;
-uniform float u_hizMaxMipLevel;
 
 const float FRUSTUM_PADDING_FACTOR = 1.05f;
 
@@ -94,7 +99,7 @@ float getMipLevel(vec3 worldPos, float worldRadius) {
 
     if (clipCenter.w <= 0.0) return u_hizMaxMipLevel;
     float projectedRadiusNDC = worldRadius * abs(sceneData.projection[1][1]) / abs(clipCenter.w);
-    float pixelDiameter = projectedRadiusNDC * u_hizTextureSize.y;
+    float pixelDiameter = projectedRadiusNDC * u_hizTextureSizeY;
     float mipLevel = u_hizMaxMipLevel - log2(pixelDiameter);
     return clamp(mipLevel, 0.0, u_hizMaxMipLevel);
 }
@@ -124,8 +129,10 @@ void main() {
     uint objectId = gl_GlobalInvocationID.x;
     if (objectId >= u_objectCount) return;
 
-    RenderableComponent renderable = renderables[objectId];
-    mat4 modelMatrix = transforms[objectId].worldMatrix;
+    uint physicalIndex = objectId + u_baseIndex;
+
+    RenderableComponent renderable = renderables[physicalIndex];
+    mat4 modelMatrix = transforms[physicalIndex].worldMatrix;
     MeshInfo mesh = meshInfos[renderable.mesh_uuid];
 
     vec4 world_pos_vec4 = modelMatrix * mesh.boundingCenter;
@@ -152,6 +159,7 @@ void main() {
 
     uint index = atomicAdd(visibleObjectCount, 1);
     if (index < u_maxDraws) {
-        visibleObjects[index] = objectId;
+        // Write at frame offset location - glBindBufferRange reads from frameOffset
+        visibleObjects[index + u_baseIndex] = objectId;
     }
 }
