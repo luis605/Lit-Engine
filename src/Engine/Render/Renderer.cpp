@@ -111,6 +111,17 @@ static_assert(offsetof(VisibleTransparentObject, objectId) == 0, "Offset mismatc
 static_assert(offsetof(VisibleTransparentObject, distance) == 4, "Offset mismatch for distance");
 static_assert(sizeof(VisibleTransparentObject) == 8, "Size mismatch for VisibleTransparentObject");
 
+struct CullingUniforms {
+    uint32_t objectCount;
+    uint32_t maxDraws;
+    uint32_t baseIndex;
+    float smallObjectThreshold;
+    float hizMaxMipLevel;
+    float hizTextureSizeX;
+    float hizTextureSizeY;
+    uint32_t padding;
+};
+
 std::vector<MeshInfo> s_meshInfos;
 size_t s_totalVertexSize = 0;
 size_t s_totalIndexSize = 0;
@@ -989,16 +1000,7 @@ void Renderer::drawScene(SceneDatabase& sceneDatabase, const Camera& camera) {
 
     m_diligent->pImmediateContext->InvalidateState();
 
-    struct CullingUniforms {
-        uint32_t objectCount;
-        uint32_t maxDraws;
-        uint32_t baseIndex;
-        float smallObjectThreshold;
-        float hizMaxMipLevel;
-        float hizTextureSizeX;
-        float hizTextureSizeY;
-        uint32_t padding;
-    } cullingUniforms;
+    CullingUniforms cullingUniforms;
 
     cullingUniforms.objectCount = numObjects;
     cullingUniforms.maxDraws = static_cast<uint32_t>(m_maxObjects);
@@ -1097,6 +1099,8 @@ void Renderer::drawScene(SceneDatabase& sceneDatabase, const Camera& camera) {
     m_largeObjectCullShader->setUniform("u_maxDraws", (unsigned int)m_maxObjects);
     m_largeObjectCullShader->setUniform("u_largeObjectThreshold", m_largeObjectThreshold);
 
+    glBindBufferRange(GL_UNIFORM_BUFFER, 0, (GLuint)(size_t)m_diligent->pSceneUBO->GetNativeHandle(), uboFrameOffset, sizeof(SceneUniforms));
+
     glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 0, m_visibleLargeObjectAtomicCounter);
     glBindBufferRange(GL_SHADER_STORAGE_BUFFER, 1, m_visibleLargeObjectBuffer, frameOffset * sizeof(unsigned int), m_maxObjects * sizeof(unsigned int));
     glBindBufferRange(GL_SHADER_STORAGE_BUFFER, 2, m_objectBuffer, frameOffset * sizeof(TransformComponent), m_maxObjects * sizeof(TransformComponent));
@@ -1176,6 +1180,9 @@ void Renderer::drawScene(SceneDatabase& sceneDatabase, const Camera& camera) {
     glBindBuffer(GL_PARAMETER_BUFFER, m_depthPrepassAtomicCounter);
 
     m_depthPrepassShader->bind();
+
+    glBindBufferRange(GL_UNIFORM_BUFFER, 0, (GLuint)(size_t)m_diligent->pSceneUBO->GetNativeHandle(), uboFrameOffset, sizeof(SceneUniforms));
+
     glBindVertexArray(m_vao);
     glBindBuffer(GL_DRAW_INDIRECT_BUFFER, m_depthPrepassDrawCommandBuffer);
     glBindBufferRange(GL_SHADER_STORAGE_BUFFER, 2, m_objectBuffer, frameOffset * sizeof(TransformComponent), m_maxObjects * sizeof(TransformComponent));
