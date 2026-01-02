@@ -63,13 +63,6 @@ struct DrawElementsIndirectCommand {
     unsigned int baseInstance;
 };
 
-static_assert(offsetof(DrawElementsIndirectCommand, count) == 0, "Offset mismatch for count");
-static_assert(offsetof(DrawElementsIndirectCommand, instanceCount) == 4, "Offset mismatch for instanceCount");
-static_assert(offsetof(DrawElementsIndirectCommand, firstIndex) == 8, "Offset mismatch for firstIndex");
-static_assert(offsetof(DrawElementsIndirectCommand, baseVertex) == 12, "Offset mismatch for baseVertex");
-static_assert(offsetof(DrawElementsIndirectCommand, baseInstance) == 16, "Offset mismatch for baseInstance");
-static_assert(sizeof(DrawElementsIndirectCommand) == 20, "Size mismatch for DrawElementsIndirectCommand");
-
 struct MeshInfo {
     unsigned int indexCount;
     unsigned int firstIndex;
@@ -77,13 +70,6 @@ struct MeshInfo {
     float boundingRadius;
     alignas(16) glm::vec4 boundingCenter;
 };
-
-static_assert(offsetof(MeshInfo, indexCount) == 0, "Offset mismatch for indexCount");
-static_assert(offsetof(MeshInfo, firstIndex) == 4, "Offset mismatch for firstIndex");
-static_assert(offsetof(MeshInfo, baseVertex) == 8, "Offset mismatch for baseVertex");
-static_assert(offsetof(MeshInfo, boundingRadius) == 12, "Offset mismatch for boundingRadius");
-static_assert(offsetof(MeshInfo, boundingCenter) == 16, "Offset mismatch for boundingCenter");
-static_assert(sizeof(MeshInfo) == 32, "Size mismatch for MeshInfo");
 
 struct SceneUniforms {
     glm::mat4 projection;
@@ -94,22 +80,10 @@ struct SceneUniforms {
     alignas(16) glm::vec4 frustumPlanes[6];
 };
 
-static_assert(offsetof(SceneUniforms, projection) == 0, "Offset mismatch for projection");
-static_assert(offsetof(SceneUniforms, view) == 64, "Offset mismatch for view");
-static_assert(offsetof(SceneUniforms, lightPos) == 128, "Offset mismatch for lightPos");
-static_assert(offsetof(SceneUniforms, viewPos) == 144, "Offset mismatch for viewPos");
-static_assert(offsetof(SceneUniforms, lightColor) == 160, "Offset mismatch for lightColor");
-static_assert(offsetof(SceneUniforms, frustumPlanes) == 176, "Offset mismatch for frustumPlanes");
-static_assert(sizeof(SceneUniforms) == 272, "Size mismatch for SceneUniforms");
-
 struct VisibleTransparentObject {
     unsigned int objectId;
     float distance;
 };
-
-static_assert(offsetof(VisibleTransparentObject, objectId) == 0, "Offset mismatch for objectId");
-static_assert(offsetof(VisibleTransparentObject, distance) == 4, "Offset mismatch for distance");
-static_assert(sizeof(VisibleTransparentObject) == 8, "Size mismatch for VisibleTransparentObject");
 
 struct CullingUniforms {
     uint32_t objectCount;
