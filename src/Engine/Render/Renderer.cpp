@@ -118,6 +118,13 @@ struct LargeObjectCullUniforms {
     uint32_t padding;
 };
 
+struct LargeObjectCommandGenUniforms {
+    unsigned int visibleLargeObjectCount;
+    unsigned int maxDraws;
+    unsigned int padding0;
+    unsigned int padding1;
+};
+
 struct TransparentCommandGenUniforms {
     unsigned int visibleTransparentCount;
     unsigned int padding0;
@@ -336,6 +343,10 @@ struct DiligentData {
     Diligent::RefCntAutoPtr<Diligent::IShaderResourceBinding> pTransparentCommandGenSRB;
     Diligent::RefCntAutoPtr<Diligent::IPipelineState> pTransparentCommandGenPSO;
     Diligent::RefCntAutoPtr<Diligent::IBuffer> pTransparentCommandGenUniforms;
+
+    Diligent::RefCntAutoPtr<Diligent::IShaderResourceBinding> pLargeObjectCommandGenSRB;
+    Diligent::RefCntAutoPtr<Diligent::IPipelineState> pLargeObjectCommandGenPSO;
+    Diligent::RefCntAutoPtr<Diligent::IBuffer> pLargeObjectCommandGenUniforms;
     Diligent::RefCntAutoPtr<Diligent::IBuffer> pLargeObjectCullConstants;
     Diligent::RefCntAutoPtr<Diligent::IBuffer> pLargeObjectSortConstants;
     Diligent::RefCntAutoPtr<Diligent::IBuffer> pTransparentCullUniforms;
@@ -385,6 +396,16 @@ void Renderer::init(GLFWwindow* window, const int windowWidth, const int windowH
     createCommandGenPSO();
     createLargeObjectCullPSO();
     createLargeObjectSortPSO();
+
+    createLargeObjectCommandGenPSO();
+    if (m_diligent->pLargeObjectCommandGenUniforms == nullptr) {
+        Diligent::BufferDesc CBDesc;
+        CBDesc.Name = "Large Object Command Gen Uniforms";
+        CBDesc.Usage = Diligent::USAGE_DEFAULT;
+        CBDesc.BindFlags = Diligent::BIND_UNIFORM_BUFFER;
+        CBDesc.Size = sizeof(LargeObjectCommandGenUniforms);
+        m_diligent->pDevice->CreateBuffer(CBDesc, nullptr, &m_diligent->pLargeObjectCommandGenUniforms);
+    }
     createTransparentCullPSO();
 
     if (m_diligent->pTransparentCullUniforms == nullptr) {
@@ -1397,20 +1418,68 @@ void Renderer::drawScene(SceneDatabase& sceneDatabase, const Camera& camera) {
     m_diligent->pImmediateContext->EndQuery(m_diligent->pLargeObjectCommandGenStartQuery[m_currentFrame]);
     ResetAtomicCounter(m_diligent->pDepthPrepassAtomicCounter);
 
-    m_largeObjectCommandGenShader->bind();
-    m_largeObjectCommandGenShader->setUniform("u_visibleLargeObjectCount", visibleLargeObjectCount);
-    m_largeObjectCommandGenShader->setUniform("u_maxDraws", (unsigned int)m_maxObjects);
+    m_diligent->pImmediateContext->SetPipelineState(m_diligent->pLargeObjectCommandGenPSO);
 
-    glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 0, m_depthPrepassAtomicCounter);
-    glBindBufferRange(GL_SHADER_STORAGE_BUFFER, 1, m_depthPrepassDrawCommandBuffer, frameOffset * sizeof(DrawElementsIndirectCommand), m_maxObjects * sizeof(DrawElementsIndirectCommand));
-    glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 3, (GLuint)(size_t)m_diligent->pMeshInfoBuffer->GetNativeHandle());
-    glBindBufferRange(GL_SHADER_STORAGE_BUFFER, 4, m_renderableBuffer, frameOffset * sizeof(RenderableComponent), m_maxObjects * sizeof(RenderableComponent));
-    glBindBufferRange(GL_SHADER_STORAGE_BUFFER, 5, m_visibleLargeObjectBuffer, frameOffset * sizeof(unsigned int), m_maxObjects * sizeof(unsigned int));
+    {
+        LargeObjectCommandGenUniforms uniforms;
+        uniforms.visibleLargeObjectCount = visibleLargeObjectCount;
+        uniforms.maxDraws = (unsigned int)m_maxObjects;
+        m_diligent->pImmediateContext->UpdateBuffer(m_diligent->pLargeObjectCommandGenUniforms, 0, sizeof(LargeObjectCommandGenUniforms), &uniforms, Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
+    }
+
+    if (auto* var = m_diligent->pLargeObjectCommandGenSRB->GetVariableByName(Diligent::SHADER_TYPE_COMPUTE, "LargeObjectCommandGenUniforms"))
+        var->Set(m_diligent->pLargeObjectCommandGenUniforms, Diligent::SET_SHADER_RESOURCE_FLAG_ALLOW_OVERWRITE);
+
+    if (auto* var = m_diligent->pLargeObjectCommandGenSRB->GetVariableByName(Diligent::SHADER_TYPE_COMPUTE, "AtomicCounterBuffer"))
+        var->Set(m_diligent->pDepthPrepassAtomicCounter->GetDefaultView(Diligent::BUFFER_VIEW_UNORDERED_ACCESS), Diligent::SET_SHADER_RESOURCE_FLAG_ALLOW_OVERWRITE);
+
+    Diligent::BufferViewDesc DrawCmdViewDesc;
+    DrawCmdViewDesc.ViewType = Diligent::BUFFER_VIEW_UNORDERED_ACCESS;
+    DrawCmdViewDesc.ByteOffset = frameOffset * sizeof(DrawElementsIndirectCommand);
+    DrawCmdViewDesc.ByteWidth = m_maxObjects * sizeof(DrawElementsIndirectCommand);
+    Diligent::RefCntAutoPtr<Diligent::IBufferView> pDrawCmdView;
+    m_diligent->pDepthPrepassDrawCommandBuffer->CreateView(DrawCmdViewDesc, &pDrawCmdView);
+    if (auto* var = m_diligent->pLargeObjectCommandGenSRB->GetVariableByName(Diligent::SHADER_TYPE_COMPUTE, "DrawCommandBuffer"))
+        var->Set(pDrawCmdView, Diligent::SET_SHADER_RESOURCE_FLAG_ALLOW_OVERWRITE);
+
+    if (auto* var = m_diligent->pLargeObjectCommandGenSRB->GetVariableByName(Diligent::SHADER_TYPE_COMPUTE, "MeshInfoBuffer"))
+        var->Set(m_diligent->pMeshInfoBuffer->GetDefaultView(Diligent::BUFFER_VIEW_SHADER_RESOURCE), Diligent::SET_SHADER_RESOURCE_FLAG_ALLOW_OVERWRITE);
+
+    RenderableViewDesc.ViewType = Diligent::BUFFER_VIEW_SHADER_RESOURCE;
+    RenderableViewDesc.ByteOffset = frameOffset * sizeof(RenderableComponent);
+    RenderableViewDesc.ByteWidth = m_maxObjects * sizeof(RenderableComponent);
+    pRenderableView.Release();
+    m_diligent->pRenderableBuffer->CreateView(RenderableViewDesc, &pRenderableView);
+    if (auto* var = m_diligent->pLargeObjectCommandGenSRB->GetVariableByName(Diligent::SHADER_TYPE_COMPUTE, "RenderableBuffer"))
+        var->Set(pRenderableView, Diligent::SET_SHADER_RESOURCE_FLAG_ALLOW_OVERWRITE);
+
+    VisLargeObjViewDesc.ViewType = Diligent::BUFFER_VIEW_SHADER_RESOURCE;
+    VisLargeObjViewDesc.ByteOffset = frameOffset * sizeof(unsigned int);
+    VisLargeObjViewDesc.ByteWidth = m_maxObjects * sizeof(unsigned int);
+    pVisLargeObjView.Release();
+    m_diligent->pVisibleLargeObjectBuffer->CreateView(VisLargeObjViewDesc, &pVisLargeObjView);
+    if (auto* var = m_diligent->pLargeObjectCommandGenSRB->GetVariableByName(Diligent::SHADER_TYPE_COMPUTE, "VisibleLargeObjectBuffer"))
+        var->Set(pVisLargeObjView, Diligent::SET_SHADER_RESOURCE_FLAG_ALLOW_OVERWRITE);
+
+    m_diligent->pImmediateContext->CommitShaderResources(m_diligent->pLargeObjectCommandGenSRB, Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
 
     if (visibleLargeObjectCount > 0) {
-        glDispatchCompute(1, 1, 1);
+        m_diligent->pImmediateContext->DispatchCompute(Diligent::DispatchComputeAttribs(1, 1, 1));
     }
-    glMemoryBarrier(GL_COMMAND_BARRIER_BIT | GL_SHADER_STORAGE_BARRIER_BIT | GL_ATOMIC_COUNTER_BARRIER_BIT);
+
+    Barrier.pResource = m_diligent->pDepthPrepassDrawCommandBuffer;
+    Barrier.OldState = Diligent::RESOURCE_STATE_UNORDERED_ACCESS;
+    Barrier.NewState = Diligent::RESOURCE_STATE_INDIRECT_ARGUMENT;
+    Barrier.TransitionType = Diligent::STATE_TRANSITION_TYPE_IMMEDIATE;
+    Barrier.Flags = Diligent::STATE_TRANSITION_FLAG_UPDATE_STATE;
+    m_diligent->pImmediateContext->TransitionResourceStates(1, &Barrier);
+
+    Barrier.pResource = m_diligent->pDepthPrepassAtomicCounter;
+    Barrier.OldState = Diligent::RESOURCE_STATE_UNORDERED_ACCESS;
+    Barrier.NewState = Diligent::RESOURCE_STATE_INDIRECT_ARGUMENT;
+    Barrier.TransitionType = Diligent::STATE_TRANSITION_TYPE_IMMEDIATE;
+    Barrier.Flags = Diligent::STATE_TRANSITION_FLAG_UPDATE_STATE;
+    m_diligent->pImmediateContext->TransitionResourceStates(1, &Barrier);
 
     while (glGetError() != GL_NO_ERROR)
         ;
@@ -2104,6 +2173,61 @@ void Renderer::createTransparentCommandGenPSO() {
         Lit::Log::Error("Failed to create Transparent Command Gen PSO");
     } else {
         m_diligent->pTransparentCommandGenPSO->CreateShaderResourceBinding(&m_diligent->pTransparentCommandGenSRB, true);
+    }
+}
+
+void Renderer::createLargeObjectCommandGenPSO() {
+    std::string source = LoadSourceFromFile("resources/shaders/large_object_command_gen.comp");
+    if (source.empty()) {
+        Lit::Log::Error("Failed to load large object command gen compute shader source.");
+        return;
+    }
+
+    size_t versionPos = source.find("#version");
+    if (versionPos != std::string::npos) {
+        size_t nextLine = source.find('\n', versionPos);
+        if (nextLine != std::string::npos) {
+            source = source.substr(nextLine + 1);
+        }
+    }
+
+    Diligent::ShaderCreateInfo ShaderCI;
+    ShaderCI.Source = source.c_str();
+    ShaderCI.Desc.ShaderType = Diligent::SHADER_TYPE_COMPUTE;
+    ShaderCI.Desc.Name = "Large Object Command Gen CS";
+    ShaderCI.SourceLanguage = Diligent::SHADER_SOURCE_LANGUAGE_GLSL;
+    ShaderCI.Desc.UseCombinedTextureSamplers = true;
+
+    Diligent::RefCntAutoPtr<Diligent::IShader> pCS;
+    m_diligent->pDevice->CreateShader(ShaderCI, &pCS);
+    if (!pCS) {
+        Lit::Log::Error("Failed to create large object command gen shader");
+        return;
+    }
+
+    Diligent::ComputePipelineStateCreateInfo PSODesc;
+    PSODesc.PSODesc.Name = "Large Object Command Gen PSO";
+    PSODesc.PSODesc.PipelineType = Diligent::PIPELINE_TYPE_COMPUTE;
+    PSODesc.pCS = pCS;
+
+    PSODesc.PSODesc.ResourceLayout.DefaultVariableType = Diligent::SHADER_RESOURCE_VARIABLE_TYPE_MUTABLE;
+
+    std::vector<Diligent::ShaderResourceVariableDesc> Vars = {
+        {Diligent::SHADER_TYPE_COMPUTE, "LargeObjectCommandGenUniforms", Diligent::SHADER_RESOURCE_VARIABLE_TYPE_MUTABLE},
+        {Diligent::SHADER_TYPE_COMPUTE, "AtomicCounterBuffer", Diligent::SHADER_RESOURCE_VARIABLE_TYPE_MUTABLE},
+        {Diligent::SHADER_TYPE_COMPUTE, "DrawCommandBuffer", Diligent::SHADER_RESOURCE_VARIABLE_TYPE_MUTABLE},
+        {Diligent::SHADER_TYPE_COMPUTE, "MeshInfoBuffer", Diligent::SHADER_RESOURCE_VARIABLE_TYPE_MUTABLE},
+        {Diligent::SHADER_TYPE_COMPUTE, "RenderableBuffer", Diligent::SHADER_RESOURCE_VARIABLE_TYPE_MUTABLE},
+        {Diligent::SHADER_TYPE_COMPUTE, "VisibleLargeObjectBuffer", Diligent::SHADER_RESOURCE_VARIABLE_TYPE_MUTABLE}};
+    PSODesc.PSODesc.ResourceLayout.Variables = Vars.data();
+    PSODesc.PSODesc.ResourceLayout.NumVariables = Vars.size();
+
+    m_diligent->pLargeObjectCommandGenPSO.Release();
+    m_diligent->pDevice->CreateComputePipelineState(PSODesc, &m_diligent->pLargeObjectCommandGenPSO);
+    if (!m_diligent->pLargeObjectCommandGenPSO) {
+        Lit::Log::Error("Failed to create Large Object Command Gen PSO");
+    } else {
+        m_diligent->pLargeObjectCommandGenPSO->CreateShaderResourceBinding(&m_diligent->pLargeObjectCommandGenSRB, true);
     }
 }
 

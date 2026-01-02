@@ -46,11 +46,15 @@ layout(binding = 5, std430) readonly buffer VisibleLargeObjectBuffer {
     uint visibleLargeObjects[];
 };
 
-uniform uint u_visibleLargeObjectCount;
-uniform uint u_maxDraws;
+layout(std140, binding = 0) uniform LargeObjectCommandGenUniforms {
+    uint visibleLargeObjectCount;
+    uint maxDraws;
+    uint padding0;
+    uint padding1;
+} uniforms;
 
 void main() {
-    if (u_visibleLargeObjectCount == 0) {
+    if (uniforms.visibleLargeObjectCount == 0) {
         return;
     }
 
@@ -60,7 +64,7 @@ void main() {
     uint currentInstanceCount = 1;
     uint baseInstance = 0;
 
-    for (uint i = 1; i < u_visibleLargeObjectCount; ++i) {
+    for (uint i = 1; i < uniforms.visibleLargeObjectCount; ++i) {
         uint objectId = visibleLargeObjects[i];
         RenderableComponent renderable = renderables[objectId];
         uint meshId = renderable.mesh_uuid;
@@ -70,7 +74,7 @@ void main() {
         } else {
             MeshInfo mesh = meshInfos[currentMeshId];
             uint indexInBin = atomicAdd(drawCount, 1);
-            if (indexInBin < u_maxDraws) {
+            if (indexInBin < uniforms.maxDraws) {
                 commands[indexInBin].instanceCount = currentInstanceCount;
                 commands[indexInBin].baseInstance = baseInstance;
                 commands[indexInBin].count = mesh.indexCount;
@@ -86,7 +90,7 @@ void main() {
 
     MeshInfo mesh = meshInfos[currentMeshId];
     uint indexInBin = atomicAdd(drawCount, 1);
-    if (indexInBin < u_maxDraws) {
+    if (indexInBin < uniforms.maxDraws) {
         commands[indexInBin].instanceCount = currentInstanceCount;
         commands[indexInBin].baseInstance = baseInstance;
         commands[indexInBin].count = mesh.indexCount;
