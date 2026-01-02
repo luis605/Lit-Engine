@@ -298,18 +298,21 @@ struct DiligentData {
     Diligent::RefCntAutoPtr<Diligent::IShaderResourceBinding> pOpaqueSortSRB;
     Diligent::RefCntAutoPtr<Diligent::IShaderResourceBinding> pCommandGenSRB;
     Diligent::RefCntAutoPtr<Diligent::IShaderResourceBinding> pLargeObjectCullSRB;
+    Diligent::RefCntAutoPtr<Diligent::IShaderResourceBinding> pLargeObjectSortSRB;
 
     Diligent::RefCntAutoPtr<Diligent::IPipelineState> pHiZMipmapPSO;
     Diligent::RefCntAutoPtr<Diligent::IPipelineState> pCullingPSO;
     Diligent::RefCntAutoPtr<Diligent::IPipelineState> pOpaqueSortPSO;
     Diligent::RefCntAutoPtr<Diligent::IPipelineState> pCommandGenPSO;
     Diligent::RefCntAutoPtr<Diligent::IPipelineState> pLargeObjectCullPSO;
+    Diligent::RefCntAutoPtr<Diligent::IPipelineState> pLargeObjectSortPSO;
 
     Diligent::RefCntAutoPtr<Diligent::IBuffer> pStagingBuffer;
     Diligent::RefCntAutoPtr<Diligent::IBuffer> pOpaqueSortConstants;
     Diligent::RefCntAutoPtr<Diligent::IBuffer> pCullingUniforms;
     Diligent::RefCntAutoPtr<Diligent::IBuffer> pCommandGenConstants;
     Diligent::RefCntAutoPtr<Diligent::IBuffer> pLargeObjectCullConstants;
+    Diligent::RefCntAutoPtr<Diligent::IBuffer> pLargeObjectSortConstants;
 };
 
 Renderer::Renderer()
@@ -355,6 +358,7 @@ void Renderer::init(GLFWwindow* window, const int windowWidth, const int windowH
     createOpaqueSortPSO();
     createCommandGenPSO();
     createLargeObjectCullPSO();
+    createLargeObjectSortPSO();
 
     glEnable(GL_DEPTH_TEST);
     glEnable(GL_CULL_FACE);
@@ -1275,19 +1279,52 @@ void Renderer::drawScene(SceneDatabase& sceneDatabase, const Camera& camera) {
         while (glGetError() != GL_NO_ERROR)
             ;
         m_diligent->pImmediateContext->EndQuery(m_diligent->pLargeObjectSortStartQuery[m_currentFrame]);
-        m_largeObjectSortShader->bind();
-        glBindBufferRange(GL_SHADER_STORAGE_BUFFER, 1, m_visibleLargeObjectBuffer, frameOffset * sizeof(unsigned int), m_maxObjects * sizeof(unsigned int));
-        glBindBufferRange(GL_SHADER_STORAGE_BUFFER, 4, m_renderableBuffer, frameOffset * sizeof(RenderableComponent), m_maxObjects * sizeof(RenderableComponent));
+
+        m_diligent->pImmediateContext->SetPipelineState(m_diligent->pLargeObjectSortPSO);
+
+        Diligent::BufferViewDesc VisObjViewDesc;
+        VisObjViewDesc.ViewType = Diligent::BUFFER_VIEW_UNORDERED_ACCESS;
+        VisObjViewDesc.ByteOffset = frameOffset * sizeof(unsigned int);
+        VisObjViewDesc.ByteWidth = m_maxObjects * sizeof(unsigned int);
+        Diligent::RefCntAutoPtr<Diligent::IBufferView> pVisObjView;
+        m_diligent->pVisibleLargeObjectBuffer->CreateView(VisObjViewDesc, &pVisObjView);
+
+        if (auto* var = m_diligent->pLargeObjectSortSRB->GetVariableByName(Diligent::SHADER_TYPE_COMPUTE, "VisibleLargeObjectBuffer"))
+            var->Set(pVisObjView, Diligent::SET_SHADER_RESOURCE_FLAG_ALLOW_OVERWRITE);
+
+        Diligent::BufferViewDesc RenderableViewDesc;
+        RenderableViewDesc.ViewType = Diligent::BUFFER_VIEW_SHADER_RESOURCE;
+        RenderableViewDesc.ByteOffset = frameOffset * sizeof(RenderableComponent);
+        RenderableViewDesc.ByteWidth = m_maxObjects * sizeof(RenderableComponent);
+        Diligent::RefCntAutoPtr<Diligent::IBufferView> pRenderableView;
+        m_diligent->pRenderableBuffer->CreateView(RenderableViewDesc, &pRenderableView);
+
+        if (auto* var = m_diligent->pLargeObjectSortSRB->GetVariableByName(Diligent::SHADER_TYPE_COMPUTE, "RenderableBuffer"))
+            var->Set(pRenderableView, Diligent::SET_SHADER_RESOURCE_FLAG_ALLOW_OVERWRITE);
 
         const unsigned int numElements = nextPowerOfTwo(visibleLargeObjectCount);
 
         for (unsigned int k = 2; k <= numElements; k <<= 1) {
             for (unsigned int j = k >> 1; j > 0; j >>= 1) {
-                m_largeObjectSortShader->setUniform("u_sort_k", k);
-                m_largeObjectSortShader->setUniform("u_sort_j", j);
+
+                {
+                    Diligent::MapHelper<SortConstants> Constants(m_diligent->pImmediateContext, m_diligent->pLargeObjectSortConstants, Diligent::MAP_WRITE, Diligent::MAP_FLAG_DISCARD);
+                    Constants->k = k;
+                    Constants->j = j;
+                }
+
+                m_diligent->pImmediateContext->CommitShaderResources(m_diligent->pLargeObjectSortSRB, Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
+
                 const unsigned int numSortWorkgroups = (numElements + 1023) / 1024;
-                glDispatchCompute(numSortWorkgroups, 1, 1);
-                glMemoryBarrier(GL_SHADER_STORAGE_BARRIER_BIT);
+                m_diligent->pImmediateContext->DispatchCompute(Diligent::DispatchComputeAttribs(numSortWorkgroups, 1, 1));
+
+                Diligent::StateTransitionDesc Barrier;
+                Barrier.pResource = m_diligent->pVisibleLargeObjectBuffer;
+                Barrier.OldState = Diligent::RESOURCE_STATE_UNORDERED_ACCESS;
+                Barrier.NewState = Diligent::RESOURCE_STATE_UNORDERED_ACCESS;
+                Barrier.TransitionType = Diligent::STATE_TRANSITION_TYPE_IMMEDIATE;
+                Barrier.Flags = Diligent::STATE_TRANSITION_FLAG_UPDATE_STATE;
+                m_diligent->pImmediateContext->TransitionResourceStates(1, &Barrier);
             }
         }
 
@@ -2000,4 +2037,61 @@ void Renderer::createLargeObjectCullPSO() {
     CBDesc.CPUAccessFlags = Diligent::CPU_ACCESS_WRITE;
     CBDesc.Size = sizeof(LargeObjectCullUniforms);
     m_diligent->pDevice->CreateBuffer(CBDesc, nullptr, &m_diligent->pLargeObjectCullConstants);
+}
+
+void Renderer::createLargeObjectSortPSO() {
+    std::string source = LoadSourceFromFile("resources/shaders/large_object_sort.comp");
+    if (source.empty())
+        return;
+
+    size_t versionPos = source.find("#version");
+    if (versionPos != std::string::npos) {
+        size_t nextLine = source.find('\n', versionPos);
+        if (nextLine != std::string::npos)
+            source = source.substr(nextLine + 1);
+    }
+
+    Diligent::ShaderCreateInfo ShaderCI;
+    ShaderCI.Source = source.c_str();
+    ShaderCI.SourceLanguage = Diligent::SHADER_SOURCE_LANGUAGE_GLSL;
+    ShaderCI.Desc.ShaderType = Diligent::SHADER_TYPE_COMPUTE;
+    ShaderCI.Desc.Name = "Large Object Sort CS";
+
+    Diligent::RefCntAutoPtr<Diligent::IShader> pCS;
+    m_diligent->pDevice->CreateShader(ShaderCI, &pCS);
+    if (!pCS) {
+        Lit::Log::Error("Failed to compile Large Object Sort Shader");
+        return;
+    }
+
+    Diligent::ShaderResourceVariableDesc Vars[] = {
+        {Diligent::SHADER_TYPE_COMPUTE, "VisibleLargeObjectBuffer", Diligent::SHADER_RESOURCE_VARIABLE_TYPE_MUTABLE},
+        {Diligent::SHADER_TYPE_COMPUTE, "RenderableBuffer", Diligent::SHADER_RESOURCE_VARIABLE_TYPE_MUTABLE},
+        {Diligent::SHADER_TYPE_COMPUTE, "SortConstants", Diligent::SHADER_RESOURCE_VARIABLE_TYPE_MUTABLE}};
+
+    Diligent::ComputePipelineStateCreateInfo PSOCI;
+    PSOCI.PSODesc.Name = "Large Object Sort PSO";
+    PSOCI.PSODesc.PipelineType = Diligent::PIPELINE_TYPE_COMPUTE;
+    PSOCI.pCS = pCS;
+    PSOCI.PSODesc.ResourceLayout.Variables = Vars;
+    PSOCI.PSODesc.ResourceLayout.NumVariables = _countof(Vars);
+
+    m_diligent->pDevice->CreateComputePipelineState(PSOCI, &m_diligent->pLargeObjectSortPSO);
+    if (!m_diligent->pLargeObjectSortPSO) {
+        Lit::Log::Error("Failed to create Large Object Sort PSO");
+        return;
+    }
+
+    Diligent::BufferDesc CBDesc;
+    CBDesc.Name = "Large Object Sort Constants";
+    CBDesc.Usage = Diligent::USAGE_DYNAMIC;
+    CBDesc.BindFlags = Diligent::BIND_UNIFORM_BUFFER;
+    CBDesc.CPUAccessFlags = Diligent::CPU_ACCESS_WRITE;
+    CBDesc.Size = sizeof(SortConstants);
+    m_diligent->pDevice->CreateBuffer(CBDesc, nullptr, &m_diligent->pLargeObjectSortConstants);
+
+    m_diligent->pLargeObjectSortPSO->CreateShaderResourceBinding(&m_diligent->pLargeObjectSortSRB, true);
+
+    if (auto* var = m_diligent->pLargeObjectSortSRB->GetVariableByName(Diligent::SHADER_TYPE_COMPUTE, "SortConstants"))
+        var->Set(m_diligent->pLargeObjectSortConstants);
 }

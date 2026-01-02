@@ -9,16 +9,18 @@ struct RenderableComponent {
     float alpha;
 };
 
-layout(binding = 1, std430) buffer VisibleLargeObjectBuffer {
+layout(std430) buffer VisibleLargeObjectBuffer {
     uint visibleLargeObjects[];
 };
 
-layout(binding = 4, std430) readonly buffer RenderableBuffer {
+layout(std430) readonly buffer RenderableBuffer {
     RenderableComponent renderables[];
 };
 
-uniform uint u_sort_j;
-uniform uint u_sort_k;
+layout(std140) uniform SortConstants {
+    uint u_sort_k;
+    uint u_sort_j;
+};
 
 bool is_less(uint a, uint b) {
     RenderableComponent r_a = renderables[a];
