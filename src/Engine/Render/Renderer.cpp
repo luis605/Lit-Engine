@@ -347,6 +347,10 @@ struct DiligentData {
     Diligent::RefCntAutoPtr<Diligent::IShaderResourceBinding> pLargeObjectCommandGenSRB;
     Diligent::RefCntAutoPtr<Diligent::IPipelineState> pLargeObjectCommandGenPSO;
     Diligent::RefCntAutoPtr<Diligent::IBuffer> pLargeObjectCommandGenUniforms;
+
+    Diligent::RefCntAutoPtr<Diligent::IShaderResourceBinding> pDepthPrepassSRB;
+    Diligent::RefCntAutoPtr<Diligent::IPipelineState> pDepthPrepassPSO;
+
     Diligent::RefCntAutoPtr<Diligent::IBuffer> pLargeObjectCullConstants;
     Diligent::RefCntAutoPtr<Diligent::IBuffer> pLargeObjectSortConstants;
     Diligent::RefCntAutoPtr<Diligent::IBuffer> pTransparentCullUniforms;
@@ -389,6 +393,7 @@ void Renderer::init(GLFWwindow* window, const int windowWidth, const int windowH
     m_uiManager->init(windowWidth, windowHeight);
 
     setupShaders();
+    createDepthPrepassPSO();
     createTransformPSO();
     createHiZPSO();
     createCullingPSO();
@@ -1488,29 +1493,54 @@ void Renderer::drawScene(SceneDatabase& sceneDatabase, const Camera& camera) {
     while (glGetError() != GL_NO_ERROR)
         ;
     m_diligent->pImmediateContext->EndQuery(m_diligent->pDepthPrePassStartQuery[m_currentFrame]);
-    glBindFramebuffer(GL_FRAMEBUFFER, m_depthFbo[m_currentFrame]);
-    glClearColor(1.0f, 1.0f, 1.0f, 1.0f);
-    glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
-    glEnable(GL_DEPTH_TEST);
-    glColorMask(GL_TRUE, GL_TRUE, GL_TRUE, GL_TRUE);
+    Diligent::ITextureView* pRTVs[] = {m_diligent->pHiZTextures[m_currentFrame]->GetDefaultView(Diligent::TEXTURE_VIEW_RENDER_TARGET)};
+    m_diligent->pImmediateContext->SetRenderTargets(1, pRTVs, m_diligent->pDepthRenderbuffers[m_currentFrame]->GetDefaultView(Diligent::TEXTURE_VIEW_DEPTH_STENCIL), Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
+    m_diligent->pImmediateContext->ClearRenderTarget(pRTVs[0], glm::value_ptr(glm::vec4(1.0f, 1.0f, 1.0f, 1.0f)), Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
+    m_diligent->pImmediateContext->ClearDepthStencil(m_diligent->pDepthRenderbuffers[m_currentFrame]->GetDefaultView(Diligent::TEXTURE_VIEW_DEPTH_STENCIL), Diligent::CLEAR_DEPTH_FLAG, 1.0f, 0, Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
 
-    glBindBuffer(GL_PARAMETER_BUFFER, m_depthPrepassAtomicCounter);
+    unsigned int depthPrepassDrawCount = ReadAtomicCounter(m_diligent->pDepthPrepassAtomicCounter);
 
-    m_depthPrepassShader->bind();
+    if (depthPrepassDrawCount > 0) {
+        m_diligent->pImmediateContext->SetPipelineState(m_diligent->pDepthPrepassPSO);
 
-    glBindBufferRange(GL_UNIFORM_BUFFER, 0, (GLuint)(size_t)m_diligent->pSceneUBO->GetNativeHandle(), uboFrameOffset, sizeof(SceneUniforms));
+        if (auto* var = m_diligent->pDepthPrepassSRB->GetVariableByName(Diligent::SHADER_TYPE_VERTEX, "SceneData"))
+            var->Set(m_diligent->pSceneUBO, Diligent::SET_SHADER_RESOURCE_FLAG_ALLOW_OVERWRITE);
 
-    glBindVertexArray(m_vao);
-    glBindBuffer(GL_DRAW_INDIRECT_BUFFER, m_depthPrepassDrawCommandBuffer);
-    glBindBufferRange(GL_SHADER_STORAGE_BUFFER, 2, m_objectBuffer, frameOffset * sizeof(TransformComponent), m_maxObjects * sizeof(TransformComponent));
-    glBindBufferRange(GL_SHADER_STORAGE_BUFFER, 5, m_visibleLargeObjectBuffer, frameOffset * sizeof(unsigned int), m_maxObjects * sizeof(unsigned int));
-    glMultiDrawElementsIndirectCount(GL_TRIANGLES, GL_UNSIGNED_INT, (const void*)(frameOffset * sizeof(DrawElementsIndirectCommand)), 0, m_maxObjects, sizeof(DrawElementsIndirectCommand));
+        Diligent::BufferViewDesc ObjViewDesc;
+        ObjViewDesc.ViewType = Diligent::BUFFER_VIEW_SHADER_RESOURCE;
+        ObjViewDesc.ByteOffset = frameOffset * sizeof(TransformComponent);
+        ObjViewDesc.ByteWidth = m_maxObjects * sizeof(TransformComponent);
+        Diligent::RefCntAutoPtr<Diligent::IBufferView> pObjView;
+        m_diligent->pObjectBuffer->CreateView(ObjViewDesc, &pObjView);
+        if (auto* var = m_diligent->pDepthPrepassSRB->GetVariableByName(Diligent::SHADER_TYPE_VERTEX, "ObjectBuffer"))
+            var->Set(pObjView, Diligent::SET_SHADER_RESOURCE_FLAG_ALLOW_OVERWRITE);
 
-    glEnable(GL_DEPTH_TEST);
+        Diligent::BufferViewDesc VisLargeObjViewDesc;
+        VisLargeObjViewDesc.ViewType = Diligent::BUFFER_VIEW_SHADER_RESOURCE;
+        VisLargeObjViewDesc.ByteOffset = frameOffset * sizeof(unsigned int);
+        VisLargeObjViewDesc.ByteWidth = m_maxObjects * sizeof(unsigned int);
+        Diligent::RefCntAutoPtr<Diligent::IBufferView> pVisLargeObjView;
+        m_diligent->pVisibleLargeObjectBuffer->CreateView(VisLargeObjViewDesc, &pVisLargeObjView);
+        if (auto* var = m_diligent->pDepthPrepassSRB->GetVariableByName(Diligent::SHADER_TYPE_VERTEX, "VisibleLargeObjectBuffer"))
+            var->Set(pVisLargeObjView, Diligent::SET_SHADER_RESOURCE_FLAG_ALLOW_OVERWRITE);
 
-    while (glGetError() != GL_NO_ERROR)
-        ;
-    m_diligent->pImmediateContext->EndQuery(m_diligent->pDepthPrePassEndQuery[m_currentFrame]);
+        m_diligent->pImmediateContext->CommitShaderResources(m_diligent->pDepthPrepassSRB, Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
+
+        Diligent::IBuffer* pVBs[] = {m_diligent->pVBO};
+        m_diligent->pImmediateContext->SetVertexBuffers(0, 1, pVBs, nullptr, Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION, Diligent::SET_VERTEX_BUFFERS_FLAG_RESET);
+        m_diligent->pImmediateContext->SetIndexBuffer(m_diligent->pEBO, 0, Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
+
+        for (unsigned int i = 0; i < depthPrepassDrawCount; ++i) {
+            Diligent::DrawIndexedIndirectAttribs DrawAttrs;
+            DrawAttrs.IndexType = Diligent::VT_UINT32;
+            DrawAttrs.Flags = Diligent::DRAW_FLAG_VERIFY_ALL;
+            DrawAttrs.DrawArgsOffset = (frameOffset * sizeof(DrawElementsIndirectCommand)) + (i * sizeof(DrawElementsIndirectCommand));
+            DrawAttrs.pAttribsBuffer = m_diligent->pDepthPrepassDrawCommandBuffer;
+            m_diligent->pImmediateContext->DrawIndexedIndirect(DrawAttrs);
+        }
+    }
+
+    m_diligent->pImmediateContext->SetRenderTargets(0, nullptr, nullptr, Diligent::RESOURCE_STATE_TRANSITION_MODE_NONE);
     glBindFramebuffer(GL_FRAMEBUFFER, 0);
 
     glClearColor(0.3f, 0.3f, 0.3f, 1.0f);
@@ -2228,6 +2258,90 @@ void Renderer::createLargeObjectCommandGenPSO() {
         Lit::Log::Error("Failed to create Large Object Command Gen PSO");
     } else {
         m_diligent->pLargeObjectCommandGenPSO->CreateShaderResourceBinding(&m_diligent->pLargeObjectCommandGenSRB, true);
+    }
+}
+
+void Renderer::createDepthPrepassPSO() {
+    Diligent::GraphicsPipelineStateCreateInfo PSOCreateInfo;
+    PSOCreateInfo.PSODesc.Name = "Depth Prepass PSO";
+    PSOCreateInfo.PSODesc.PipelineType = Diligent::PIPELINE_TYPE_GRAPHICS;
+    PSOCreateInfo.GraphicsPipeline.NumRenderTargets = 1;
+    PSOCreateInfo.GraphicsPipeline.RTVFormats[0] = Diligent::TEX_FORMAT_R32_FLOAT;
+    PSOCreateInfo.GraphicsPipeline.DSVFormat = Diligent::TEX_FORMAT_D32_FLOAT;
+    PSOCreateInfo.GraphicsPipeline.PrimitiveTopology = Diligent::PRIMITIVE_TOPOLOGY_TRIANGLE_LIST;
+    PSOCreateInfo.GraphicsPipeline.RasterizerDesc.CullMode = Diligent::CULL_MODE_BACK;
+    PSOCreateInfo.GraphicsPipeline.RasterizerDesc.FrontCounterClockwise = true;
+    PSOCreateInfo.GraphicsPipeline.DepthStencilDesc.DepthEnable = true;
+    PSOCreateInfo.GraphicsPipeline.DepthStencilDesc.DepthWriteEnable = true;
+
+    Diligent::ShaderCreateInfo ShaderCI;
+    ShaderCI.SourceLanguage = Diligent::SHADER_SOURCE_LANGUAGE_GLSL;
+    ShaderCI.Desc.UseCombinedTextureSamplers = true;
+
+    std::string vertSource = LoadSourceFromFile("resources/shaders/depth_prepass.vert");
+    std::string fragSource = LoadSourceFromFile("resources/shaders/depth_prepass.frag");
+
+    Diligent::RefCntAutoPtr<Diligent::IShader> pVS;
+    {
+        ShaderCI.Desc.ShaderType = Diligent::SHADER_TYPE_VERTEX;
+        ShaderCI.Desc.Name = "Depth Prepass VS";
+        size_t versionPos = vertSource.find("#version");
+        if (versionPos != std::string::npos) {
+            size_t nextLine = vertSource.find('\n', versionPos);
+            if (nextLine != std::string::npos)
+                vertSource = vertSource.substr(nextLine + 1);
+        }
+        ShaderCI.Source = vertSource.c_str();
+        m_diligent->pDevice->CreateShader(ShaderCI, &pVS);
+        if (!pVS) {
+            Lit::Log::Error("Failed to create Depth Prepass VS");
+            return;
+        }
+    }
+
+    Diligent::RefCntAutoPtr<Diligent::IShader> pPS;
+    {
+        ShaderCI.Desc.ShaderType = Diligent::SHADER_TYPE_PIXEL;
+        ShaderCI.Desc.Name = "Depth Prepass PS";
+        size_t versionPos = fragSource.find("#version");
+        if (versionPos != std::string::npos) {
+            size_t nextLine = fragSource.find('\n', versionPos);
+            if (nextLine != std::string::npos)
+                fragSource = fragSource.substr(nextLine + 1);
+        }
+        ShaderCI.Source = fragSource.c_str();
+        m_diligent->pDevice->CreateShader(ShaderCI, &pPS);
+        if (!pPS) {
+            Lit::Log::Error("Failed to create Depth Prepass PS");
+            return;
+        }
+    }
+
+    PSOCreateInfo.pVS = pVS;
+    PSOCreateInfo.pPS = pPS;
+
+    Diligent::LayoutElement LayoutElems[] = {
+        Diligent::LayoutElement{0, 0, 3, Diligent::VT_FLOAT32, false},
+        Diligent::LayoutElement{1, 0, 3, Diligent::VT_FLOAT32, false}};
+    PSOCreateInfo.GraphicsPipeline.InputLayout.LayoutElements = LayoutElems;
+    PSOCreateInfo.GraphicsPipeline.InputLayout.NumElements = _countof(LayoutElems);
+
+    PSOCreateInfo.PSODesc.ResourceLayout.DefaultVariableType = Diligent::SHADER_RESOURCE_VARIABLE_TYPE_MUTABLE;
+
+    std::vector<Diligent::ShaderResourceVariableDesc> Vars = {
+        {Diligent::SHADER_TYPE_VERTEX, "SceneData", Diligent::SHADER_RESOURCE_VARIABLE_TYPE_MUTABLE},
+        {Diligent::SHADER_TYPE_VERTEX, "ObjectBuffer", Diligent::SHADER_RESOURCE_VARIABLE_TYPE_MUTABLE},
+        {Diligent::SHADER_TYPE_VERTEX, "VisibleLargeObjectBuffer", Diligent::SHADER_RESOURCE_VARIABLE_TYPE_MUTABLE}};
+    PSOCreateInfo.PSODesc.ResourceLayout.Variables = Vars.data();
+    PSOCreateInfo.PSODesc.ResourceLayout.NumVariables = Vars.size();
+
+    m_diligent->pDepthPrepassPSO.Release();
+    m_diligent->pDevice->CreateGraphicsPipelineState(PSOCreateInfo, &m_diligent->pDepthPrepassPSO);
+
+    if (!m_diligent->pDepthPrepassPSO) {
+        Lit::Log::Error("Failed to create Depth Prepass PSO");
+    } else {
+        m_diligent->pDepthPrepassPSO->CreateShaderResourceBinding(&m_diligent->pDepthPrepassSRB, true);
     }
 }
 
