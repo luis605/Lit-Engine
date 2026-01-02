@@ -26,7 +26,12 @@ struct RenderableComponent {
     float alpha;
 };
 
-layout (std140, binding = 0) uniform SceneData {
+struct TransformComponent {
+    mat4 localMatrix;
+    mat4 worldMatrix;
+};
+
+layout (std140) uniform SceneUniforms {
     mat4 projection;
     mat4 view;
     vec3 lightPos;
@@ -35,33 +40,31 @@ layout (std140, binding = 0) uniform SceneData {
     vec4 frustumPlanes[6];
 } sceneData;
 
-layout(binding = 0, std430) buffer AtomicCounterBuffer {
+layout(std140) uniform LargeObjectCullConstants {
+    uint u_objectCount;
+    uint u_maxDraws;
+    float u_largeObjectThreshold;
+};
+
+layout(std430) buffer VisibleLargeObjectAtomicCounter {
     uint visibleLargeObjectCount;
 };
-layout(binding = 1, std430) buffer VisibleLargeObjectBuffer {
+
+layout(std430) buffer VisibleLargeObjectBuffer {
     uint visibleLargeObjects[];
 };
 
-struct TransformComponent {
-    mat4 localMatrix;
-    mat4 worldMatrix;
-};
-
-layout(binding = 2, std430) readonly buffer ObjectBuffer {
+layout(std430) readonly buffer ObjectBuffer {
     TransformComponent transforms[];
 };
 
-layout(binding = 3, std430) readonly buffer MeshInfoBuffer {
+layout(std430) readonly buffer MeshInfoBuffer {
     MeshInfo meshInfos[];
 };
 
-layout(binding = 4, std430) readonly buffer RenderableBuffer {
+layout(std430) readonly buffer RenderableBuffer {
     RenderableComponent renderables[];
 };
-
-uniform uint u_objectCount;
-uniform uint u_maxDraws;
-uniform float u_largeObjectThreshold;
 
 const float FRUSTUM_PADDING_FACTOR = 1.05f;
 

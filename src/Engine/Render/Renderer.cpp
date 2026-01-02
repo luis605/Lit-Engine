@@ -111,6 +111,13 @@ struct SortConstants {
     uint32_t padding1;
 };
 
+struct LargeObjectCullUniforms {
+    uint32_t objectCount;
+    uint32_t maxDraws;
+    float largeObjectThreshold;
+    uint32_t padding;
+};
+
 std::vector<MeshInfo> s_meshInfos;
 size_t s_totalVertexSize = 0;
 size_t s_totalIndexSize = 0;
@@ -290,16 +297,19 @@ struct DiligentData {
     Diligent::RefCntAutoPtr<Diligent::IShaderResourceBinding> pCullingSRB;
     Diligent::RefCntAutoPtr<Diligent::IShaderResourceBinding> pOpaqueSortSRB;
     Diligent::RefCntAutoPtr<Diligent::IShaderResourceBinding> pCommandGenSRB;
+    Diligent::RefCntAutoPtr<Diligent::IShaderResourceBinding> pLargeObjectCullSRB;
 
     Diligent::RefCntAutoPtr<Diligent::IPipelineState> pHiZMipmapPSO;
     Diligent::RefCntAutoPtr<Diligent::IPipelineState> pCullingPSO;
     Diligent::RefCntAutoPtr<Diligent::IPipelineState> pOpaqueSortPSO;
     Diligent::RefCntAutoPtr<Diligent::IPipelineState> pCommandGenPSO;
+    Diligent::RefCntAutoPtr<Diligent::IPipelineState> pLargeObjectCullPSO;
 
     Diligent::RefCntAutoPtr<Diligent::IBuffer> pStagingBuffer;
     Diligent::RefCntAutoPtr<Diligent::IBuffer> pOpaqueSortConstants;
     Diligent::RefCntAutoPtr<Diligent::IBuffer> pCullingUniforms;
     Diligent::RefCntAutoPtr<Diligent::IBuffer> pCommandGenConstants;
+    Diligent::RefCntAutoPtr<Diligent::IBuffer> pLargeObjectCullConstants;
 };
 
 Renderer::Renderer()
@@ -344,6 +354,7 @@ void Renderer::init(GLFWwindow* window, const int windowWidth, const int windowH
     createCullingPSO();
     createOpaqueSortPSO();
     createCommandGenPSO();
+    createLargeObjectCullPSO();
 
     glEnable(GL_DEPTH_TEST);
     glEnable(GL_CULL_FACE);
@@ -355,6 +366,9 @@ void Renderer::init(GLFWwindow* window, const int windowWidth, const int windowH
     std::vector<unsigned int> drawZeros(m_shaderManager.getShaderCount(), 0);
     m_diligent->pDrawAtomicCounterBuffer = CreateStructuredBuffer(m_diligent->pDevice, "Draw Atomic Counter Buffer", sizeof(unsigned int), m_shaderManager.getShaderCount(), drawZeros.data());
     m_drawAtomicCounterBuffer = (GLuint)(size_t)m_diligent->pDrawAtomicCounterBuffer->GetNativeHandle();
+
+    m_diligent->pVisibleLargeObjectAtomicCounter = CreateStructuredBuffer(m_diligent->pDevice, "Visible Large Object Atomic Counter", sizeof(unsigned int), 1, (void*)&zero);
+    m_visibleLargeObjectAtomicCounter = (GLuint)(size_t)m_diligent->pVisibleLargeObjectAtomicCounter->GetNativeHandle();
 
     m_maxObjects = 1000000;
     reallocateBuffers(m_maxObjects);
@@ -388,9 +402,6 @@ void Renderer::init(GLFWwindow* window, const int windowWidth, const int windowH
     CREATE_QUERY_PAIR("Large Object Cull", pLargeObjectCullStartQuery, pLargeObjectCullEndQuery);
 
 #undef CREATE_QUERY_PAIR
-
-    m_diligent->pVisibleLargeObjectAtomicCounter = CreateStructuredBuffer(m_diligent->pDevice, "Visible Large Object Atomic Counter", sizeof(unsigned int), 1, (void*)&zero);
-    m_visibleLargeObjectAtomicCounter = (GLuint)(size_t)m_diligent->pVisibleLargeObjectAtomicCounter->GetNativeHandle();
 
     m_vboSize = 1024 * 1024 * 10;
     m_eboSize = 1024 * 1024 * 4;
@@ -675,6 +686,26 @@ void Renderer::reallocateBuffers(size_t numObjects) {
 
             if (auto* var = m_diligent->pCommandGenSRB->GetVariableByName(Diligent::SHADER_TYPE_COMPUTE, "CommandGenConstants"))
                 var->Set(m_diligent->pCommandGenConstants);
+        }
+    }
+
+    if (m_diligent->pLargeObjectCullPSO) {
+        m_diligent->pLargeObjectCullSRB.Release();
+        m_diligent->pLargeObjectCullPSO->CreateShaderResourceBinding(&m_diligent->pLargeObjectCullSRB, true);
+
+        if (m_diligent->pLargeObjectCullSRB) {
+
+            if (auto* var = m_diligent->pLargeObjectCullSRB->GetVariableByName(Diligent::SHADER_TYPE_COMPUTE, "SceneUniforms"))
+                var->Set(m_diligent->pSceneUBO);
+
+            if (auto* var = m_diligent->pLargeObjectCullSRB->GetVariableByName(Diligent::SHADER_TYPE_COMPUTE, "MeshInfoBuffer"))
+                var->Set(m_diligent->pMeshInfoBuffer->GetDefaultView(Diligent::BUFFER_VIEW_SHADER_RESOURCE));
+
+            if (auto* var = m_diligent->pLargeObjectCullSRB->GetVariableByName(Diligent::SHADER_TYPE_COMPUTE, "VisibleLargeObjectAtomicCounter"))
+                var->Set(m_diligent->pVisibleLargeObjectAtomicCounter->GetDefaultView(Diligent::BUFFER_VIEW_UNORDERED_ACCESS));
+
+            if (auto* var = m_diligent->pLargeObjectCullSRB->GetVariableByName(Diligent::SHADER_TYPE_COMPUTE, "LargeObjectCullConstants"))
+                var->Set(m_diligent->pLargeObjectCullConstants);
         }
     }
 
@@ -1181,24 +1212,58 @@ void Renderer::drawScene(SceneDatabase& sceneDatabase, const Camera& camera) {
 
     while (glGetError() != GL_NO_ERROR)
         ;
+    while (glGetError() != GL_NO_ERROR)
+        ;
     m_diligent->pImmediateContext->EndQuery(m_diligent->pLargeObjectCullStartQuery[m_currentFrame]);
+
     ResetAtomicCounter(m_diligent->pVisibleLargeObjectAtomicCounter);
 
-    m_largeObjectCullShader->bind();
-    m_largeObjectCullShader->setUniform("u_objectCount", numObjects);
-    m_largeObjectCullShader->setUniform("u_maxDraws", (unsigned int)m_maxObjects);
-    m_largeObjectCullShader->setUniform("u_largeObjectThreshold", m_largeObjectThreshold);
+    m_diligent->pImmediateContext->SetPipelineState(m_diligent->pLargeObjectCullPSO);
 
-    glBindBufferRange(GL_UNIFORM_BUFFER, 0, (GLuint)(size_t)m_diligent->pSceneUBO->GetNativeHandle(), uboFrameOffset, sizeof(SceneUniforms));
+    {
+        Diligent::MapHelper<LargeObjectCullUniforms> Constants(m_diligent->pImmediateContext, m_diligent->pLargeObjectCullConstants, Diligent::MAP_WRITE, Diligent::MAP_FLAG_DISCARD);
+        Constants->objectCount = numObjects;
+        Constants->maxDraws = (uint32_t)m_maxObjects;
+        Constants->largeObjectThreshold = m_largeObjectThreshold;
+    }
 
-    glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 0, m_visibleLargeObjectAtomicCounter);
-    glBindBufferRange(GL_SHADER_STORAGE_BUFFER, 1, m_visibleLargeObjectBuffer, frameOffset * sizeof(unsigned int), m_maxObjects * sizeof(unsigned int));
-    glBindBufferRange(GL_SHADER_STORAGE_BUFFER, 2, m_objectBuffer, frameOffset * sizeof(TransformComponent), m_maxObjects * sizeof(TransformComponent));
-    glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 3, (GLuint)(size_t)m_diligent->pMeshInfoBuffer->GetNativeHandle());
-    glBindBufferRange(GL_SHADER_STORAGE_BUFFER, 4, m_renderableBuffer, frameOffset * sizeof(RenderableComponent), m_maxObjects * sizeof(RenderableComponent));
+    Diligent::BufferViewDesc ObjViewDesc;
+    ObjViewDesc.ViewType = Diligent::BUFFER_VIEW_SHADER_RESOURCE;
+    ObjViewDesc.ByteOffset = frameOffset * sizeof(TransformComponent);
+    ObjViewDesc.ByteWidth = m_maxObjects * sizeof(TransformComponent);
+    Diligent::RefCntAutoPtr<Diligent::IBufferView> pObjView;
+    m_diligent->pObjectBuffer->CreateView(ObjViewDesc, &pObjView);
+    if (auto* var = m_diligent->pLargeObjectCullSRB->GetVariableByName(Diligent::SHADER_TYPE_COMPUTE, "ObjectBuffer"))
+        var->Set(pObjView, Diligent::SET_SHADER_RESOURCE_FLAG_ALLOW_OVERWRITE);
 
-    glDispatchCompute(numWorkgroups, 1, 1);
-    glMemoryBarrier(GL_COMMAND_BARRIER_BIT | GL_SHADER_STORAGE_BARRIER_BIT | GL_ATOMIC_COUNTER_BARRIER_BIT);
+    Diligent::BufferViewDesc RenderableViewDesc;
+    RenderableViewDesc.ViewType = Diligent::BUFFER_VIEW_SHADER_RESOURCE;
+    RenderableViewDesc.ByteOffset = frameOffset * sizeof(RenderableComponent);
+    RenderableViewDesc.ByteWidth = m_maxObjects * sizeof(RenderableComponent);
+    Diligent::RefCntAutoPtr<Diligent::IBufferView> pRenderableView;
+    m_diligent->pRenderableBuffer->CreateView(RenderableViewDesc, &pRenderableView);
+    if (auto* var = m_diligent->pLargeObjectCullSRB->GetVariableByName(Diligent::SHADER_TYPE_COMPUTE, "RenderableBuffer"))
+        var->Set(pRenderableView, Diligent::SET_SHADER_RESOURCE_FLAG_ALLOW_OVERWRITE);
+
+    Diligent::BufferViewDesc VisLargeObjViewDesc;
+    VisLargeObjViewDesc.ViewType = Diligent::BUFFER_VIEW_UNORDERED_ACCESS;
+    VisLargeObjViewDesc.ByteOffset = frameOffset * sizeof(unsigned int);
+    VisLargeObjViewDesc.ByteWidth = m_maxObjects * sizeof(unsigned int);
+    Diligent::RefCntAutoPtr<Diligent::IBufferView> pVisLargeObjView;
+    m_diligent->pVisibleLargeObjectBuffer->CreateView(VisLargeObjViewDesc, &pVisLargeObjView);
+    if (auto* var = m_diligent->pLargeObjectCullSRB->GetVariableByName(Diligent::SHADER_TYPE_COMPUTE, "VisibleLargeObjectBuffer"))
+        var->Set(pVisLargeObjView, Diligent::SET_SHADER_RESOURCE_FLAG_ALLOW_OVERWRITE);
+
+    m_diligent->pImmediateContext->CommitShaderResources(m_diligent->pLargeObjectCullSRB, Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
+    m_diligent->pImmediateContext->DispatchCompute(Diligent::DispatchComputeAttribs(numWorkgroups, 1, 1));
+
+    Diligent::StateTransitionDesc Barrier;
+    Barrier.pResource = m_diligent->pVisibleLargeObjectAtomicCounter;
+    Barrier.OldState = Diligent::RESOURCE_STATE_UNORDERED_ACCESS;
+    Barrier.NewState = Diligent::RESOURCE_STATE_COPY_SOURCE;
+    Barrier.TransitionType = Diligent::STATE_TRANSITION_TYPE_IMMEDIATE;
+    Barrier.Flags = Diligent::STATE_TRANSITION_FLAG_UPDATE_STATE;
+    m_diligent->pImmediateContext->TransitionResourceStates(1, &Barrier);
 
     unsigned int visibleLargeObjectCount = ReadAtomicCounter(m_diligent->pVisibleLargeObjectAtomicCounter);
 
@@ -1883,4 +1948,56 @@ void Renderer::createCommandGenPSO() {
     CBDesc.CPUAccessFlags = Diligent::CPU_ACCESS_WRITE;
     CBDesc.Size = sizeof(CommandGenUniforms);
     m_diligent->pDevice->CreateBuffer(CBDesc, nullptr, &m_diligent->pCommandGenConstants);
+}
+
+void Renderer::createLargeObjectCullPSO() {
+    std::string source = LoadSourceFromFile("resources/shaders/large_object_cull.comp");
+    if (source.empty()) {
+        Lit::Log::Error("Failed to load large object cull compute shader source.");
+        return;
+    }
+
+    size_t versionPos = source.find("#version");
+    if (versionPos != std::string::npos) {
+        size_t nextLine = source.find('\n', versionPos);
+        if (nextLine != std::string::npos)
+            source = source.substr(nextLine + 1);
+    }
+
+    Diligent::ShaderCreateInfo ShaderCI;
+    ShaderCI.Source = source.c_str();
+    ShaderCI.SourceLanguage = Diligent::SHADER_SOURCE_LANGUAGE_GLSL;
+    ShaderCI.Desc.ShaderType = Diligent::SHADER_TYPE_COMPUTE;
+    ShaderCI.Desc.Name = "Large Object Cull CS";
+
+    Diligent::RefCntAutoPtr<Diligent::IShader> pCS;
+    m_diligent->pDevice->CreateShader(ShaderCI, &pCS);
+    if (!pCS)
+        return;
+
+    Diligent::ShaderResourceVariableDesc Vars[] = {
+        {Diligent::SHADER_TYPE_COMPUTE, "SceneUniforms", Diligent::SHADER_RESOURCE_VARIABLE_TYPE_MUTABLE},
+        {Diligent::SHADER_TYPE_COMPUTE, "VisibleLargeObjectAtomicCounter", Diligent::SHADER_RESOURCE_VARIABLE_TYPE_MUTABLE},
+        {Diligent::SHADER_TYPE_COMPUTE, "VisibleLargeObjectBuffer", Diligent::SHADER_RESOURCE_VARIABLE_TYPE_MUTABLE},
+        {Diligent::SHADER_TYPE_COMPUTE, "ObjectBuffer", Diligent::SHADER_RESOURCE_VARIABLE_TYPE_MUTABLE},
+        {Diligent::SHADER_TYPE_COMPUTE, "MeshInfoBuffer", Diligent::SHADER_RESOURCE_VARIABLE_TYPE_MUTABLE},
+        {Diligent::SHADER_TYPE_COMPUTE, "RenderableBuffer", Diligent::SHADER_RESOURCE_VARIABLE_TYPE_MUTABLE},
+        {Diligent::SHADER_TYPE_COMPUTE, "LargeObjectCullConstants", Diligent::SHADER_RESOURCE_VARIABLE_TYPE_MUTABLE}};
+
+    Diligent::ComputePipelineStateCreateInfo PSOCI;
+    PSOCI.PSODesc.Name = "Large Object Cull PSO";
+    PSOCI.PSODesc.PipelineType = Diligent::PIPELINE_TYPE_COMPUTE;
+    PSOCI.pCS = pCS;
+    PSOCI.PSODesc.ResourceLayout.Variables = Vars;
+    PSOCI.PSODesc.ResourceLayout.NumVariables = _countof(Vars);
+
+    m_diligent->pDevice->CreateComputePipelineState(PSOCI, &m_diligent->pLargeObjectCullPSO);
+
+    Diligent::BufferDesc CBDesc;
+    CBDesc.Name = "Large Object Cull Constants";
+    CBDesc.Usage = Diligent::USAGE_DYNAMIC;
+    CBDesc.BindFlags = Diligent::BIND_UNIFORM_BUFFER;
+    CBDesc.CPUAccessFlags = Diligent::CPU_ACCESS_WRITE;
+    CBDesc.Size = sizeof(LargeObjectCullUniforms);
+    m_diligent->pDevice->CreateBuffer(CBDesc, nullptr, &m_diligent->pLargeObjectCullConstants);
 }
