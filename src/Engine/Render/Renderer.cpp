@@ -118,6 +118,15 @@ struct LargeObjectCullUniforms {
     uint32_t padding;
 };
 
+struct TransparentCullUniforms {
+    uint32_t objectCount;
+    float padding0;
+    float padding1;
+    float padding2;
+    alignas(16) glm::vec3 cameraPos;
+    float padding3;
+};
+
 std::vector<MeshInfo> s_meshInfos;
 size_t s_totalVertexSize = 0;
 size_t s_totalIndexSize = 0;
@@ -299,6 +308,7 @@ struct DiligentData {
     Diligent::RefCntAutoPtr<Diligent::IShaderResourceBinding> pCommandGenSRB;
     Diligent::RefCntAutoPtr<Diligent::IShaderResourceBinding> pLargeObjectCullSRB;
     Diligent::RefCntAutoPtr<Diligent::IShaderResourceBinding> pLargeObjectSortSRB;
+    Diligent::RefCntAutoPtr<Diligent::IShaderResourceBinding> pTransparentCullSRB;
 
     Diligent::RefCntAutoPtr<Diligent::IPipelineState> pHiZMipmapPSO;
     Diligent::RefCntAutoPtr<Diligent::IPipelineState> pCullingPSO;
@@ -306,6 +316,7 @@ struct DiligentData {
     Diligent::RefCntAutoPtr<Diligent::IPipelineState> pCommandGenPSO;
     Diligent::RefCntAutoPtr<Diligent::IPipelineState> pLargeObjectCullPSO;
     Diligent::RefCntAutoPtr<Diligent::IPipelineState> pLargeObjectSortPSO;
+    Diligent::RefCntAutoPtr<Diligent::IPipelineState> pTransparentCullPSO;
 
     Diligent::RefCntAutoPtr<Diligent::IBuffer> pStagingBuffer;
     Diligent::RefCntAutoPtr<Diligent::IBuffer> pOpaqueSortConstants;
@@ -313,6 +324,7 @@ struct DiligentData {
     Diligent::RefCntAutoPtr<Diligent::IBuffer> pCommandGenConstants;
     Diligent::RefCntAutoPtr<Diligent::IBuffer> pLargeObjectCullConstants;
     Diligent::RefCntAutoPtr<Diligent::IBuffer> pLargeObjectSortConstants;
+    Diligent::RefCntAutoPtr<Diligent::IBuffer> pTransparentCullUniforms;
 };
 
 Renderer::Renderer()
@@ -359,6 +371,16 @@ void Renderer::init(GLFWwindow* window, const int windowWidth, const int windowH
     createCommandGenPSO();
     createLargeObjectCullPSO();
     createLargeObjectSortPSO();
+    createTransparentCullPSO();
+
+    if (m_diligent->pTransparentCullUniforms == nullptr) {
+        Diligent::BufferDesc CBDesc;
+        CBDesc.Name = "Transparent Cull Uniforms";
+        CBDesc.Usage = Diligent::USAGE_DEFAULT;
+        CBDesc.BindFlags = Diligent::BIND_UNIFORM_BUFFER;
+        CBDesc.Size = sizeof(TransparentCullUniforms);
+        m_diligent->pDevice->CreateBuffer(CBDesc, nullptr, &m_diligent->pTransparentCullUniforms);
+    }
 
     glEnable(GL_DEPTH_TEST);
     glEnable(GL_CULL_FACE);
@@ -1421,18 +1443,66 @@ void Renderer::drawScene(SceneDatabase& sceneDatabase, const Camera& camera) {
     while (glGetError() != GL_NO_ERROR)
         ;
     m_diligent->pImmediateContext->EndQuery(m_diligent->pTransparentCullStartQuery[m_currentFrame]);
-    m_transparentCullShader->bind();
-    m_transparentCullShader->setUniform("u_objectCount", numObjects);
-    m_transparentCullShader->setUniform("u_cameraPos", camera.getPosition());
+    {
+        TransparentCullUniforms uniforms;
+        uniforms.objectCount = numObjects;
+        uniforms.cameraPos = camera.getPosition();
+        m_diligent->pImmediateContext->UpdateBuffer(m_diligent->pTransparentCullUniforms, 0, sizeof(uniforms), &uniforms, Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
 
-    glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 0, m_transparentAtomicCounter);
-    glBindBufferRange(GL_SHADER_STORAGE_BUFFER, 1, m_visibleTransparentObjectIdsBuffer, frameOffset * sizeof(VisibleTransparentObject), m_maxObjects * sizeof(VisibleTransparentObject));
-    glBindBufferRange(GL_SHADER_STORAGE_BUFFER, 2, m_objectBuffer, frameOffset * sizeof(TransformComponent), m_maxObjects * sizeof(TransformComponent));
-    glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 3, (GLuint)(size_t)m_diligent->pMeshInfoBuffer->GetNativeHandle());
-    glBindBufferRange(GL_SHADER_STORAGE_BUFFER, 4, m_renderableBuffer, frameOffset * sizeof(RenderableComponent), m_maxObjects * sizeof(RenderableComponent));
+        m_diligent->pImmediateContext->SetPipelineState(m_diligent->pTransparentCullPSO);
 
-    glDispatchCompute(numWorkgroups, 1, 1);
-    glMemoryBarrier(GL_SHADER_STORAGE_BARRIER_BIT | GL_ATOMIC_COUNTER_BARRIER_BIT);
+        if (auto* var = m_diligent->pTransparentCullSRB->GetVariableByName(Diligent::SHADER_TYPE_COMPUTE, "AtomicCounterBuffer"))
+            var->Set(m_diligent->pTransparentAtomicCounter->GetDefaultView(Diligent::BUFFER_VIEW_UNORDERED_ACCESS), Diligent::SET_SHADER_RESOURCE_FLAG_ALLOW_OVERWRITE);
+
+        Diligent::BufferViewDesc VisTransObjViewDesc;
+        VisTransObjViewDesc.ViewType = Diligent::BUFFER_VIEW_UNORDERED_ACCESS;
+        VisTransObjViewDesc.ByteOffset = frameOffset * sizeof(VisibleTransparentObject);
+        VisTransObjViewDesc.ByteWidth = m_maxObjects * sizeof(VisibleTransparentObject);
+        Diligent::RefCntAutoPtr<Diligent::IBufferView> pVisTransObjView;
+        m_diligent->pVisibleTransparentObjectIdsBuffer->CreateView(VisTransObjViewDesc, &pVisTransObjView);
+        if (auto* var = m_diligent->pTransparentCullSRB->GetVariableByName(Diligent::SHADER_TYPE_COMPUTE, "VisibleTransparentObjectBuffer"))
+            var->Set(pVisTransObjView, Diligent::SET_SHADER_RESOURCE_FLAG_ALLOW_OVERWRITE);
+
+        Diligent::BufferViewDesc ObjViewDesc;
+        ObjViewDesc.ViewType = Diligent::BUFFER_VIEW_SHADER_RESOURCE;
+        ObjViewDesc.ByteOffset = frameOffset * sizeof(TransformComponent);
+        ObjViewDesc.ByteWidth = m_maxObjects * sizeof(TransformComponent);
+        Diligent::RefCntAutoPtr<Diligent::IBufferView> pObjView;
+        m_diligent->pObjectBuffer->CreateView(ObjViewDesc, &pObjView);
+        if (auto* var = m_diligent->pTransparentCullSRB->GetVariableByName(Diligent::SHADER_TYPE_COMPUTE, "ObjectBuffer"))
+            var->Set(pObjView, Diligent::SET_SHADER_RESOURCE_FLAG_ALLOW_OVERWRITE);
+
+        if (auto* var = m_diligent->pTransparentCullSRB->GetVariableByName(Diligent::SHADER_TYPE_COMPUTE, "MeshInfoBuffer"))
+            var->Set(m_diligent->pMeshInfoBuffer->GetDefaultView(Diligent::BUFFER_VIEW_SHADER_RESOURCE), Diligent::SET_SHADER_RESOURCE_FLAG_ALLOW_OVERWRITE);
+
+        Diligent::BufferViewDesc RenderableViewDesc;
+        RenderableViewDesc.ViewType = Diligent::BUFFER_VIEW_SHADER_RESOURCE;
+        RenderableViewDesc.ByteOffset = frameOffset * sizeof(RenderableComponent);
+        RenderableViewDesc.ByteWidth = m_maxObjects * sizeof(RenderableComponent);
+        Diligent::RefCntAutoPtr<Diligent::IBufferView> pRenderableView;
+        m_diligent->pRenderableBuffer->CreateView(RenderableViewDesc, &pRenderableView);
+        if (auto* var = m_diligent->pTransparentCullSRB->GetVariableByName(Diligent::SHADER_TYPE_COMPUTE, "RenderableBuffer"))
+            var->Set(pRenderableView, Diligent::SET_SHADER_RESOURCE_FLAG_ALLOW_OVERWRITE);
+
+        if (auto* var = m_diligent->pTransparentCullSRB->GetVariableByName(Diligent::SHADER_TYPE_COMPUTE, "TransparentCullUniforms"))
+            var->Set(m_diligent->pTransparentCullUniforms, Diligent::SET_SHADER_RESOURCE_FLAG_ALLOW_OVERWRITE);
+
+        m_diligent->pImmediateContext->CommitShaderResources(m_diligent->pTransparentCullSRB, Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
+
+        Diligent::DispatchComputeAttribs DispatchAttrs;
+        DispatchAttrs.ThreadGroupCountX = numWorkgroups;
+        DispatchAttrs.ThreadGroupCountY = 1;
+        DispatchAttrs.ThreadGroupCountZ = 1;
+        m_diligent->pImmediateContext->DispatchCompute(DispatchAttrs);
+
+        Diligent::StateTransitionDesc Barrier;
+        Barrier.pResource = m_diligent->pTransparentAtomicCounter;
+        Barrier.OldState = Diligent::RESOURCE_STATE_UNORDERED_ACCESS;
+        Barrier.NewState = Diligent::RESOURCE_STATE_COPY_SOURCE;
+        Barrier.TransitionType = Diligent::STATE_TRANSITION_TYPE_IMMEDIATE;
+        Barrier.Flags = Diligent::STATE_TRANSITION_FLAG_UPDATE_STATE;
+        m_diligent->pImmediateContext->TransitionResourceStates(1, &Barrier);
+    }
 
     while (glGetError() != GL_NO_ERROR)
         ;
@@ -1778,6 +1848,61 @@ void Renderer::createTransformPSO() {
     BuffDesc.BindFlags = Diligent::BIND_UNIFORM_BUFFER;
     BuffDesc.Size = 256;
     m_diligent->pDevice->CreateBuffer(BuffDesc, nullptr, &m_diligent->pTransformUniforms);
+}
+
+void Renderer::createTransparentCullPSO() {
+    std::string source = LoadSourceFromFile("resources/shaders/transparent_cull.comp");
+    if (source.empty()) {
+        Lit::Log::Error("Failed to load transparent cull compute shader source.");
+        return;
+    }
+
+    size_t versionPos = source.find("#version");
+    if (versionPos != std::string::npos) {
+        size_t nextLine = source.find('\n', versionPos);
+        if (nextLine != std::string::npos) {
+            source = source.substr(nextLine + 1);
+        }
+    }
+
+    Diligent::ShaderCreateInfo ShaderCI;
+    ShaderCI.Source = source.c_str();
+    ShaderCI.Desc.ShaderType = Diligent::SHADER_TYPE_COMPUTE;
+    ShaderCI.Desc.Name = "Transparent Cull CS";
+    ShaderCI.SourceLanguage = Diligent::SHADER_SOURCE_LANGUAGE_GLSL;
+    ShaderCI.Desc.UseCombinedTextureSamplers = true;
+
+    Diligent::RefCntAutoPtr<Diligent::IShader> pCS;
+    m_diligent->pDevice->CreateShader(ShaderCI, &pCS);
+    if (!pCS) {
+        Lit::Log::Error("Failed to create transparent cull shader");
+        return;
+    }
+
+    Diligent::ComputePipelineStateCreateInfo PSODesc;
+    PSODesc.PSODesc.Name = "Transparent Cull PSO";
+    PSODesc.PSODesc.PipelineType = Diligent::PIPELINE_TYPE_COMPUTE;
+    PSODesc.pCS = pCS;
+
+    PSODesc.PSODesc.ResourceLayout.DefaultVariableType = Diligent::SHADER_RESOURCE_VARIABLE_TYPE_MUTABLE;
+
+    std::vector<Diligent::ShaderResourceVariableDesc> Vars = {
+        {Diligent::SHADER_TYPE_COMPUTE, "TransparentCullUniforms", Diligent::SHADER_RESOURCE_VARIABLE_TYPE_MUTABLE},
+        {Diligent::SHADER_TYPE_COMPUTE, "AtomicCounterBuffer", Diligent::SHADER_RESOURCE_VARIABLE_TYPE_MUTABLE},
+        {Diligent::SHADER_TYPE_COMPUTE, "VisibleTransparentObjectBuffer", Diligent::SHADER_RESOURCE_VARIABLE_TYPE_MUTABLE},
+        {Diligent::SHADER_TYPE_COMPUTE, "ObjectBuffer", Diligent::SHADER_RESOURCE_VARIABLE_TYPE_MUTABLE},
+        {Diligent::SHADER_TYPE_COMPUTE, "MeshInfoBuffer", Diligent::SHADER_RESOURCE_VARIABLE_TYPE_MUTABLE},
+        {Diligent::SHADER_TYPE_COMPUTE, "RenderableBuffer", Diligent::SHADER_RESOURCE_VARIABLE_TYPE_MUTABLE}};
+    PSODesc.PSODesc.ResourceLayout.Variables = Vars.data();
+    PSODesc.PSODesc.ResourceLayout.NumVariables = Vars.size();
+
+    m_diligent->pTransparentCullPSO.Release();
+    m_diligent->pDevice->CreateComputePipelineState(PSODesc, &m_diligent->pTransparentCullPSO);
+    if (!m_diligent->pTransparentCullPSO) {
+        Lit::Log::Error("Failed to create Transparent Cull PSO");
+    } else {
+        m_diligent->pTransparentCullPSO->CreateShaderResourceBinding(&m_diligent->pTransparentCullSRB, true);
+    }
 }
 
 void Renderer::createHiZPSO() {

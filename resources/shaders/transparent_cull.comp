@@ -62,8 +62,14 @@ layout(binding = 4, std430) readonly buffer RenderableBuffer {
     RenderableComponent renderables[];
 };
 
-uniform uint u_objectCount;
-uniform vec3 u_cameraPos;
+layout(std140, binding = 1) uniform TransparentCullUniforms {
+    uint objectCount;
+    float padding0;
+    float padding1;
+    float padding2;
+    vec3 cameraPos;
+    float padding3;
+} uniforms;
 
 bool isVisible(vec3 world_pos, float radius) {
     for (int i = 0; i < 6; i++) {
@@ -76,7 +82,7 @@ bool isVisible(vec3 world_pos, float radius) {
 
 void main() {
     uint objectId = gl_GlobalInvocationID.x;
-    if (objectId >= u_objectCount) return;
+    if (objectId >= uniforms.objectCount) return;
 
     RenderableComponent renderable = renderables[objectId];
     if (renderable.alpha == 1.0) return;
@@ -92,6 +98,6 @@ void main() {
     if (isVisible(world_pos, world_radius)) {
         uint index = atomicAdd(visibleTransparentCount, 1);
         visibleObjects[index].objectId = objectId;
-        visibleObjects[index].distance = distance(world_pos.xyz, u_cameraPos);
+        visibleObjects[index].distance = distance(world_pos.xyz, uniforms.cameraPos);
     }
 }
