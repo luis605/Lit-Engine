@@ -42,6 +42,7 @@ export class Renderer {
     void createLargeObjectSortPSO();
     void createTransparentCullPSO();
     void createTransparentSortPSO();
+    void createTransparentCommandGenPSO();
     void reallocateBuffers(size_t numObjects);
 
     unsigned int m_vao = 0;

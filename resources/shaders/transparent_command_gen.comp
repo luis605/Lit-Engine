@@ -43,11 +43,16 @@ layout(binding = 5, std430) buffer TransparentDrawCommandBuffer {
     DrawElementsIndirectCommand commands[];
 };
 
-uniform uint u_visibleTransparentCount;
+layout(std140, binding = 0) uniform TransparentCommandGenUniforms {
+    uint visibleTransparentCount;
+    uint padding0;
+    uint padding1;
+    uint padding2;
+} uniforms;
 
 void main() {
     uint i = gl_GlobalInvocationID.x;
-    if (i >= u_visibleTransparentCount) return;
+    if (i >= uniforms.visibleTransparentCount) return;
 
     uint objectId = visibleObjects[i].objectId;
     RenderableComponent renderable = renderables[objectId];
