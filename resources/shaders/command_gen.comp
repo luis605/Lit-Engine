@@ -26,28 +26,30 @@ struct RenderableComponent {
     float alpha;
 };
 
-layout(binding = 0, std430) buffer AtomicCounterBuffer {
+layout(std430) buffer DrawAtomicCounterBuffer {
     uint drawCounts[];
 };
 
-layout(binding = 1, std430) buffer DrawCommandBuffer {
+layout(std430) buffer DrawCommandBuffer {
     DrawElementsIndirectCommand commands[];
 };
 
-layout(binding = 3, std430) readonly buffer MeshInfoBuffer {
+layout(std430) readonly buffer MeshInfoBuffer {
     MeshInfo meshInfos[];
 };
 
-layout(binding = 4, std430) readonly buffer RenderableBuffer {
+layout(std430) readonly buffer RenderableBuffer {
     RenderableComponent renderables[];
 };
 
-layout(binding = 5, std430) readonly buffer VisibleObjectBuffer {
+layout(std430) readonly buffer VisibleObjectBuffer {
     uint visibleObjects[];
 };
 
-uniform uint u_visibleObjectCount;
-uniform uint u_maxDraws;
+layout(std140) uniform CommandGenConstants {
+    uint u_visibleObjectCount;
+    uint u_maxDraws;
+};
 
 void main() {
     if (u_visibleObjectCount == 0) {
@@ -71,7 +73,9 @@ void main() {
             currentInstanceCount++;
         } else {
             MeshInfo mesh = meshInfos[currentMeshId];
+
             uint indexInBin = atomicAdd(drawCounts[currentShaderId], 1);
+
             if (indexInBin < u_maxDraws) {
                 uint writeIndex = currentShaderId * u_maxDraws + indexInBin;
                 commands[writeIndex].instanceCount = currentInstanceCount;
@@ -88,7 +92,7 @@ void main() {
         }
     }
 
-    MeshInfo mesh = meshInfos[currentMeshId];
+   MeshInfo mesh = meshInfos[currentMeshId];
     uint indexInBin = atomicAdd(drawCounts[currentShaderId], 1);
     if (indexInBin < u_maxDraws) {
         uint writeIndex = currentShaderId * u_maxDraws + indexInBin;
