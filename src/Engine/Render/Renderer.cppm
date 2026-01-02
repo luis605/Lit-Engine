@@ -36,6 +36,7 @@ export class Renderer {
     void createTransformPSO();
     void createHiZPSO();
     void createCullingPSO();
+    void createOpaqueSortPSO();
     void reallocateBuffers(size_t numObjects);
 
     unsigned int m_vao = 0;

@@ -12,6 +12,7 @@ module;
 #include "DiligentCore/Graphics/GraphicsEngine/interface/PipelineState.h"
 #include "DiligentCore/Graphics/GraphicsEngine/interface/ShaderResourceBinding.h"
 #include "DiligentCore/Graphics/GraphicsEngine/interface/Sampler.h"
+#include "DiligentCore/Graphics/GraphicsTools/interface/MapHelper.hpp"
 
 #include <glad/glad.h>
 #include <GLFW/glfw3.h>
@@ -169,6 +170,13 @@ Diligent::RefCntAutoPtr<Diligent::IBuffer> CreateIndirectBuffer(Diligent::IRende
     return pBuffer;
 }
 
+struct SortConstants {
+    uint32_t k;
+    uint32_t j;
+    uint32_t padding0;
+    uint32_t padding1;
+};
+
 } // namespace
 
 Diligent::RefCntAutoPtr<Diligent::IBuffer> CreateVertexBuffer(Diligent::IRenderDevice* pDevice, size_t size) {
@@ -270,11 +278,14 @@ struct DiligentData {
     bool LargeObjectSortActive[NumFrames] = {false};
     bool TransparentSortActive[NumFrames] = {false};
     bool TransparentDrawActive[NumFrames] = {false};
-    Diligent::RefCntAutoPtr<Diligent::IBuffer> pStagingBuffer;
-    Diligent::RefCntAutoPtr<Diligent::IPipelineState> pHiZMipmapPSO;
     Diligent::RefCntAutoPtr<Diligent::IShaderResourceBinding> pHiZMipmapSRB;
-    Diligent::RefCntAutoPtr<Diligent::IPipelineState> pCullingPSO;
     Diligent::RefCntAutoPtr<Diligent::IShaderResourceBinding> pCullingSRB;
+    Diligent::RefCntAutoPtr<Diligent::IShaderResourceBinding> pOpaqueSortSRB;
+    Diligent::RefCntAutoPtr<Diligent::IPipelineState> pHiZMipmapPSO;
+    Diligent::RefCntAutoPtr<Diligent::IPipelineState> pCullingPSO;
+    Diligent::RefCntAutoPtr<Diligent::IPipelineState> pOpaqueSortPSO;
+    Diligent::RefCntAutoPtr<Diligent::IBuffer> pStagingBuffer;
+    Diligent::RefCntAutoPtr<Diligent::IBuffer> pOpaqueSortConstants;
     Diligent::RefCntAutoPtr<Diligent::IBuffer> pCullingUniforms;
 };
 
@@ -318,6 +329,7 @@ void Renderer::init(GLFWwindow* window, const int windowWidth, const int windowH
     createTransformPSO();
     createHiZPSO();
     createCullingPSO();
+    createOpaqueSortPSO();
 
     glEnable(GL_DEPTH_TEST);
     glEnable(GL_CULL_FACE);
@@ -1014,19 +1026,44 @@ void Renderer::drawScene(SceneDatabase& sceneDatabase, const Camera& camera) {
         while (glGetError() != GL_NO_ERROR)
             ;
         m_diligent->pImmediateContext->EndQuery(m_diligent->pOpaqueSortStartQuery[m_currentFrame]);
-        m_opaqueSortShader->bind();
-        glBindBufferRange(GL_SHADER_STORAGE_BUFFER, 1, m_visibleObjectBuffer, frameOffset * sizeof(unsigned int), m_maxObjects * sizeof(unsigned int));
-        glBindBufferRange(GL_SHADER_STORAGE_BUFFER, 4, m_renderableBuffer, frameOffset * sizeof(RenderableComponent), m_maxObjects * sizeof(RenderableComponent));
+
+        {
+            auto* pVisibleBufVar = m_diligent->pOpaqueSortSRB->GetVariableByName(Diligent::SHADER_TYPE_COMPUTE, "VisibleObjectBuffer");
+            if (pVisibleBufVar)
+                pVisibleBufVar->Set(m_diligent->pVisibleObjectBuffer->GetDefaultView(Diligent::BUFFER_VIEW_UNORDERED_ACCESS));
+
+            auto* pRenderableBufVar = m_diligent->pOpaqueSortSRB->GetVariableByName(Diligent::SHADER_TYPE_COMPUTE, "RenderableBuffer");
+            if (pRenderableBufVar)
+                pRenderableBufVar->Set(m_diligent->pRenderableBuffer->GetDefaultView(Diligent::BUFFER_VIEW_SHADER_RESOURCE));
+        }
+
+        m_diligent->pImmediateContext->SetPipelineState(m_diligent->pOpaqueSortPSO);
 
         const unsigned int numElements = nextPowerOfTwo(visibleObjectCount);
 
         for (unsigned int k = 2; k <= numElements; k <<= 1) {
             for (unsigned int j = k >> 1; j > 0; j >>= 1) {
-                m_opaqueSortShader->setUniform("u_sort_k", k);
-                m_opaqueSortShader->setUniform("u_sort_j", j);
+
+                {
+                    Diligent::MapHelper<SortConstants> Constants(m_diligent->pImmediateContext, m_diligent->pOpaqueSortConstants, Diligent::MAP_WRITE, Diligent::MAP_FLAG_DISCARD);
+                    Constants->k = k;
+                    Constants->j = j;
+                }
+
+                m_diligent->pImmediateContext->CommitShaderResources(m_diligent->pOpaqueSortSRB, Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
+
                 const unsigned int numSortWorkgroups = (numElements + 1023) / 1024;
-                glDispatchCompute(numSortWorkgroups, 1, 1);
-                glMemoryBarrier(GL_SHADER_STORAGE_BARRIER_BIT);
+                Diligent::DispatchComputeAttribs SortDispatchAttrs;
+                SortDispatchAttrs.ThreadGroupCountX = numSortWorkgroups;
+                m_diligent->pImmediateContext->DispatchCompute(SortDispatchAttrs);
+
+                Diligent::StateTransitionDesc Barrier;
+                Barrier.pResource = m_diligent->pVisibleObjectBuffer;
+                Barrier.OldState = Diligent::RESOURCE_STATE_UNORDERED_ACCESS;
+                Barrier.NewState = Diligent::RESOURCE_STATE_UNORDERED_ACCESS;
+                Barrier.TransitionType = Diligent::STATE_TRANSITION_TYPE_IMMEDIATE;
+                Barrier.Flags = Diligent::STATE_TRANSITION_FLAG_UPDATE_STATE;
+                m_diligent->pImmediateContext->TransitionResourceStates(1, &Barrier);
             }
         }
 
@@ -1663,4 +1700,57 @@ void Renderer::createCullingPSO() {
     BuffDesc.BindFlags = Diligent::BIND_UNIFORM_BUFFER;
     BuffDesc.Size = 256;
     m_diligent->pDevice->CreateBuffer(BuffDesc, nullptr, &m_diligent->pCullingUniforms);
+}
+
+void Renderer::createOpaqueSortPSO() {
+    std::string source = LoadSourceFromFile("resources/shaders/opaque_sort.comp");
+    if (source.empty()) {
+        Lit::Log::Error("Failed to load opaque sort compute shader source");
+        return;
+    }
+
+    size_t versionPos = source.find("#version");
+    if (versionPos != std::string::npos) {
+        size_t nextLine = source.find('\n', versionPos);
+        if (nextLine != std::string::npos)
+            source = source.substr(nextLine + 1);
+    }
+
+    Diligent::ShaderCreateInfo ShaderCI;
+    ShaderCI.Source = source.c_str();
+    ShaderCI.SourceLanguage = Diligent::SHADER_SOURCE_LANGUAGE_GLSL;
+    ShaderCI.Desc.ShaderType = Diligent::SHADER_TYPE_COMPUTE;
+    ShaderCI.Desc.Name = "Opaque Sort CS";
+
+    Diligent::RefCntAutoPtr<Diligent::IShader> pCS;
+    m_diligent->pDevice->CreateShader(ShaderCI, &pCS);
+    if (!pCS)
+        return;
+
+    Diligent::ShaderResourceVariableDesc Vars[] = {
+        {Diligent::SHADER_TYPE_COMPUTE, "VisibleObjectBuffer", Diligent::SHADER_RESOURCE_VARIABLE_TYPE_MUTABLE},
+        {Diligent::SHADER_TYPE_COMPUTE, "RenderableBuffer", Diligent::SHADER_RESOURCE_VARIABLE_TYPE_MUTABLE},
+        {Diligent::SHADER_TYPE_COMPUTE, "SortConstants", Diligent::SHADER_RESOURCE_VARIABLE_TYPE_MUTABLE}};
+
+    Diligent::ComputePipelineStateCreateInfo PSOCI;
+    PSOCI.PSODesc.Name = "Opaque Sort PSO";
+    PSOCI.PSODesc.PipelineType = Diligent::PIPELINE_TYPE_COMPUTE;
+    PSOCI.pCS = pCS;
+    PSOCI.PSODesc.ResourceLayout.Variables = Vars;
+    PSOCI.PSODesc.ResourceLayout.NumVariables = _countof(Vars);
+
+    m_diligent->pDevice->CreateComputePipelineState(PSOCI, &m_diligent->pOpaqueSortPSO);
+
+    Diligent::BufferDesc CBDesc;
+    CBDesc.Name = "Sort Constants";
+    CBDesc.Usage = Diligent::USAGE_DYNAMIC;
+    CBDesc.BindFlags = Diligent::BIND_UNIFORM_BUFFER;
+    CBDesc.CPUAccessFlags = Diligent::CPU_ACCESS_WRITE;
+    CBDesc.Size = sizeof(SortConstants);
+    m_diligent->pDevice->CreateBuffer(CBDesc, nullptr, &m_diligent->pOpaqueSortConstants);
+
+    m_diligent->pOpaqueSortPSO->CreateShaderResourceBinding(&m_diligent->pOpaqueSortSRB, true);
+
+    if (auto* var = m_diligent->pOpaqueSortSRB->GetVariableByName(Diligent::SHADER_TYPE_COMPUTE, "SortConstants"))
+        var->Set(m_diligent->pOpaqueSortConstants);
 }
