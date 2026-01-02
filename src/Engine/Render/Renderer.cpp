@@ -322,6 +322,9 @@ struct DiligentData {
     Diligent::RefCntAutoPtr<Diligent::IBuffer> pOpaqueSortConstants;
     Diligent::RefCntAutoPtr<Diligent::IBuffer> pCullingUniforms;
     Diligent::RefCntAutoPtr<Diligent::IBuffer> pCommandGenConstants;
+    Diligent::RefCntAutoPtr<Diligent::IShaderResourceBinding> pTransparentSortSRB;
+    Diligent::RefCntAutoPtr<Diligent::IPipelineState> pTransparentSortPSO;
+    Diligent::RefCntAutoPtr<Diligent::IBuffer> pTransparentSortConstants;
     Diligent::RefCntAutoPtr<Diligent::IBuffer> pLargeObjectCullConstants;
     Diligent::RefCntAutoPtr<Diligent::IBuffer> pLargeObjectSortConstants;
     Diligent::RefCntAutoPtr<Diligent::IBuffer> pTransparentCullUniforms;
@@ -380,6 +383,16 @@ void Renderer::init(GLFWwindow* window, const int windowWidth, const int windowH
         CBDesc.BindFlags = Diligent::BIND_UNIFORM_BUFFER;
         CBDesc.Size = sizeof(TransparentCullUniforms);
         m_diligent->pDevice->CreateBuffer(CBDesc, nullptr, &m_diligent->pTransparentCullUniforms);
+    }
+
+    createTransparentSortPSO();
+    if (m_diligent->pTransparentSortConstants == nullptr) {
+        Diligent::BufferDesc CBDesc;
+        CBDesc.Name = "Transparent Sort Constants";
+        CBDesc.Usage = Diligent::USAGE_DEFAULT;
+        CBDesc.BindFlags = Diligent::BIND_UNIFORM_BUFFER;
+        CBDesc.Size = sizeof(SortConstants);
+        m_diligent->pDevice->CreateBuffer(CBDesc, nullptr, &m_diligent->pTransparentSortConstants);
     }
 
     glEnable(GL_DEPTH_TEST);
@@ -1514,18 +1527,36 @@ void Renderer::drawScene(SceneDatabase& sceneDatabase, const Camera& camera) {
         while (glGetError() != GL_NO_ERROR)
             ;
         m_diligent->pImmediateContext->EndQuery(m_diligent->pTransparentSortStartQuery[m_currentFrame]);
-        m_bitonicSortShader->bind();
-        glBindBufferRange(GL_SHADER_STORAGE_BUFFER, 1, m_visibleTransparentObjectIdsBuffer, frameOffset * sizeof(VisibleTransparentObject), m_maxObjects * sizeof(VisibleTransparentObject));
+        m_diligent->pImmediateContext->SetPipelineState(m_diligent->pTransparentSortPSO);
+
+        Diligent::BufferViewDesc VisTransObjViewDesc;
+        VisTransObjViewDesc.ViewType = Diligent::BUFFER_VIEW_UNORDERED_ACCESS;
+        VisTransObjViewDesc.ByteOffset = frameOffset * sizeof(VisibleTransparentObject);
+        VisTransObjViewDesc.ByteWidth = m_maxObjects * sizeof(VisibleTransparentObject);
+        Diligent::RefCntAutoPtr<Diligent::IBufferView> pVisTransObjView;
+        m_diligent->pVisibleTransparentObjectIdsBuffer->CreateView(VisTransObjViewDesc, &pVisTransObjView);
+        if (auto* var = m_diligent->pTransparentSortSRB->GetVariableByName(Diligent::SHADER_TYPE_COMPUTE, "VisibleTransparentObjectBuffer"))
+            var->Set(pVisTransObjView, Diligent::SET_SHADER_RESOURCE_FLAG_ALLOW_OVERWRITE);
+
+        if (auto* var = m_diligent->pTransparentSortSRB->GetVariableByName(Diligent::SHADER_TYPE_COMPUTE, "SortConstants"))
+            var->Set(m_diligent->pTransparentSortConstants, Diligent::SET_SHADER_RESOURCE_FLAG_ALLOW_OVERWRITE);
 
         const unsigned int numElements = nextPowerOfTwo(visibleTransparentCount);
 
         for (unsigned int k = 2; k <= numElements; k <<= 1) {
             for (unsigned int j = k >> 1; j > 0; j >>= 1) {
-                m_bitonicSortShader->setUniform("u_sort_k", k);
-                m_bitonicSortShader->setUniform("u_sort_j", j);
-                const unsigned int numWorkgroups = (numElements + 1023) / 1024;
-                glDispatchCompute(numWorkgroups, 1, 1);
-                glMemoryBarrier(GL_SHADER_STORAGE_BARRIER_BIT);
+                SortConstants constants;
+                constants.k = k;
+                constants.j = j;
+                m_diligent->pImmediateContext->UpdateBuffer(m_diligent->pTransparentSortConstants, 0, sizeof(SortConstants), &constants, Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
+
+                m_diligent->pImmediateContext->CommitShaderResources(m_diligent->pTransparentSortSRB, Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
+
+                Diligent::DispatchComputeAttribs DispatchAttrs;
+                DispatchAttrs.ThreadGroupCountX = (numElements + 511) / 512;
+                DispatchAttrs.ThreadGroupCountY = 1;
+                DispatchAttrs.ThreadGroupCountZ = 1;
+                m_diligent->pImmediateContext->DispatchCompute(DispatchAttrs);
             }
         }
 
@@ -1902,6 +1933,57 @@ void Renderer::createTransparentCullPSO() {
         Lit::Log::Error("Failed to create Transparent Cull PSO");
     } else {
         m_diligent->pTransparentCullPSO->CreateShaderResourceBinding(&m_diligent->pTransparentCullSRB, true);
+    }
+}
+
+void Renderer::createTransparentSortPSO() {
+    std::string source = LoadSourceFromFile("resources/shaders/bitonic_sort.comp");
+    if (source.empty()) {
+        Lit::Log::Error("Failed to load transparent sort compute shader source.");
+        return;
+    }
+
+    size_t versionPos = source.find("#version");
+    if (versionPos != std::string::npos) {
+        size_t nextLine = source.find('\n', versionPos);
+        if (nextLine != std::string::npos) {
+            source = source.substr(nextLine + 1);
+        }
+    }
+
+    Diligent::ShaderCreateInfo ShaderCI;
+    ShaderCI.Source = source.c_str();
+    ShaderCI.Desc.ShaderType = Diligent::SHADER_TYPE_COMPUTE;
+    ShaderCI.Desc.Name = "Transparent Sort CS";
+    ShaderCI.SourceLanguage = Diligent::SHADER_SOURCE_LANGUAGE_GLSL;
+    ShaderCI.Desc.UseCombinedTextureSamplers = true;
+
+    Diligent::RefCntAutoPtr<Diligent::IShader> pCS;
+    m_diligent->pDevice->CreateShader(ShaderCI, &pCS);
+    if (!pCS) {
+        Lit::Log::Error("Failed to create transparent sort shader");
+        return;
+    }
+
+    Diligent::ComputePipelineStateCreateInfo PSODesc;
+    PSODesc.PSODesc.Name = "Transparent Sort PSO";
+    PSODesc.PSODesc.PipelineType = Diligent::PIPELINE_TYPE_COMPUTE;
+    PSODesc.pCS = pCS;
+
+    PSODesc.PSODesc.ResourceLayout.DefaultVariableType = Diligent::SHADER_RESOURCE_VARIABLE_TYPE_MUTABLE;
+
+    std::vector<Diligent::ShaderResourceVariableDesc> Vars = {
+        {Diligent::SHADER_TYPE_COMPUTE, "SortConstants", Diligent::SHADER_RESOURCE_VARIABLE_TYPE_MUTABLE},
+        {Diligent::SHADER_TYPE_COMPUTE, "VisibleTransparentObjectBuffer", Diligent::SHADER_RESOURCE_VARIABLE_TYPE_MUTABLE}};
+    PSODesc.PSODesc.ResourceLayout.Variables = Vars.data();
+    PSODesc.PSODesc.ResourceLayout.NumVariables = Vars.size();
+
+    m_diligent->pTransparentSortPSO.Release();
+    m_diligent->pDevice->CreateComputePipelineState(PSODesc, &m_diligent->pTransparentSortPSO);
+    if (!m_diligent->pTransparentSortPSO) {
+        Lit::Log::Error("Failed to create Transparent Sort PSO");
+    } else {
+        m_diligent->pTransparentSortPSO->CreateShaderResourceBinding(&m_diligent->pTransparentSortSRB, true);
     }
 }
 
