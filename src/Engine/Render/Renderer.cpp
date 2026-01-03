@@ -14,7 +14,6 @@ module;
 #include "DiligentCore/Graphics/GraphicsEngine/interface/Sampler.h"
 #include "DiligentCore/Graphics/GraphicsTools/interface/MapHelper.hpp"
 
-#include <glad/glad.h>
 #include <GLFW/glfw3.h>
 
 #if defined(__linux__)
@@ -48,11 +47,10 @@ module Engine.renderer;
 
 import Engine.glm;
 import Engine.camera;
-import Engine.shader;
 import Engine.Render.entity;
 import Engine.Render.scenedatabase;
-import Engine.Render.shaderManager;
 import Engine.Render.component;
+
 import Engine.mesh;
 
 namespace {
@@ -363,10 +361,7 @@ struct DiligentData {
 };
 
 Renderer::Renderer()
-    : m_cullingShader(nullptr), m_transparentCullShader(nullptr), m_bitonicSortShader(nullptr),
-      m_opaqueSortShader(nullptr), m_transparentCommandGenShader(nullptr), m_commandGenShader(nullptr), m_largeObjectCullShader(nullptr),
-      m_largeObjectSortShader(nullptr), m_largeObjectCommandGenShader(nullptr), m_depthPrepassShader(nullptr),
-      m_hizMipmapShader(nullptr), m_initialized(false), m_vboSize(0), m_eboSize(0), m_numDrawingShaders(0),
+    : m_initialized(false), m_vboSize(0), m_eboSize(0), m_numDrawingShaders(0),
       fullProfiling(false) {}
 
 void Renderer::init(GLFWwindow* window, const int windowWidth, const int windowHeight) {
@@ -403,7 +398,6 @@ void Renderer::init(GLFWwindow* window, const int windowWidth, const int windowH
     m_uiManager = new UIManager();
     m_uiManager->init(m_diligent->pDevice, m_diligent->pImmediateContext, m_diligent->pSwapChain, windowWidth, windowHeight);
 
-    setupShaders();
     createDepthPrepassPSO();
     createOpaquePSOs();
     createTransparentPSO();
@@ -455,15 +449,13 @@ void Renderer::init(GLFWwindow* window, const int windowWidth, const int windowH
         m_diligent->pDevice->CreateBuffer(CBDesc, nullptr, &m_diligent->pTransparentCommandGenUniforms);
     }
 
-    glEnable(GL_DEPTH_TEST);
-    glEnable(GL_CULL_FACE);
-
     const unsigned int zero = 0;
     m_diligent->pVisibleObjectAtomicCounter = CreateStructuredBuffer(m_diligent->pDevice, "Visible Object Atomic Counter", sizeof(unsigned int), 1, (void*)&zero);
     m_visibleObjectAtomicCounter = (GLuint)(size_t)m_diligent->pVisibleObjectAtomicCounter->GetNativeHandle();
 
-    std::vector<unsigned int> drawZeros(m_shaderManager.getShaderCount(), 0);
-    m_diligent->pDrawAtomicCounterBuffer = CreateStructuredBuffer(m_diligent->pDevice, "Draw Atomic Counter Buffer", sizeof(unsigned int), m_shaderManager.getShaderCount(), drawZeros.data(), Diligent::BIND_INDIRECT_DRAW_ARGS);
+    m_numDrawingShaders = 16;
+    std::vector<unsigned int> drawZeros(m_numDrawingShaders, 0);
+    m_diligent->pDrawAtomicCounterBuffer = CreateStructuredBuffer(m_diligent->pDevice, "Draw Atomic Counter Buffer", sizeof(unsigned int), m_numDrawingShaders, drawZeros.data(), Diligent::BIND_INDIRECT_DRAW_ARGS);
     m_drawAtomicCounterBuffer = (GLuint)(size_t)m_diligent->pDrawAtomicCounterBuffer->GetNativeHandle();
 
     m_diligent->pVisibleLargeObjectAtomicCounter = CreateStructuredBuffer(m_diligent->pDevice, "Visible Large Object Atomic Counter", sizeof(unsigned int), 1, (void*)&zero);
@@ -526,22 +518,10 @@ void Renderer::init(GLFWwindow* window, const int windowWidth, const int windowH
     m_diligent->pDevice->CreateBuffer(EBODesc, nullptr, &m_diligent->pEBO);
     m_ebo = (GLuint)(size_t)m_diligent->pEBO->GetNativeHandle();
 
-    glGenVertexArrays(1, &m_vao);
-    glBindVertexArray(m_vao);
-    glBindBuffer(GL_ARRAY_BUFFER, m_vbo);
-    glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, m_ebo);
-    glEnableVertexAttribArray(0);
-    glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 6 * sizeof(float), (void*)0);
-    glEnableVertexAttribArray(1);
-    glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, 6 * sizeof(float), (void*)(3 * sizeof(float)));
-    glBindVertexArray(0);
-
     m_diligent->pTransparentAtomicCounter = CreateStructuredBuffer(m_diligent->pDevice, "Transparent Atomic Counter", sizeof(unsigned int), 1, (void*)&zero);
     m_transparentAtomicCounter = (GLuint)(size_t)m_diligent->pTransparentAtomicCounter->GetNativeHandle();
 
     m_maxMipLevel = static_cast<int>(std::floor(std::log2(std::max(windowWidth, windowHeight))));
-
-    glGenFramebuffers(NUM_FRAMES_IN_FLIGHT, m_depthFbo);
 
     for (int i = 0; i < NUM_FRAMES_IN_FLIGHT; ++i) {
         Diligent::TextureDesc HiZDesc;
@@ -572,17 +552,6 @@ void Renderer::init(GLFWwindow* window, const int windowWidth, const int windowH
         m_diligent->pDevice->CreateTexture(DepthDesc, nullptr, &m_diligent->pDepthRenderbuffers[i]);
         m_depthRenderbuffer[i] = (GLuint)(size_t)m_diligent->pDepthRenderbuffers[i]->GetNativeHandle();
         Lit::Log::Info("Depth Renderbuffer {}: native handle {}", i, m_depthRenderbuffer[i]);
-
-        glBindFramebuffer(GL_FRAMEBUFFER, m_depthFbo[i]);
-        glFramebufferTexture2D(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, GL_TEXTURE_2D, m_depthRenderbuffer[i], 0);
-        glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, m_hizTexture[i], 0);
-
-        const GLenum drawBuffers[] = {GL_COLOR_ATTACHMENT0};
-        glDrawBuffers(1, drawBuffers);
-
-        if (glCheckFramebufferStatus(GL_FRAMEBUFFER) != GL_FRAMEBUFFER_COMPLETE) {
-            Lit::Log::Error("Depth Pre-Pass FBO {} is not complete!", i);
-        }
     }
 
     Diligent::SamplerDesc SamplerCI;
@@ -621,36 +590,17 @@ void Renderer::reallocateBuffers(size_t numObjects) {
     m_maxObjects = numObjects;
     Lit::Log::Info("Reallocating renderer buffers for {} objects.", m_maxObjects);
 
-    const GLbitfield flags = GL_MAP_WRITE_BIT | GL_MAP_PERSISTENT_BIT;
-
-    auto reallocate = [&](GLuint& buffer, size_t& currentSize, void*& mappedPtr, size_t objectSize) {
-        if (mappedPtr) {
-            glBindBuffer(GL_SHADER_STORAGE_BUFFER, buffer);
-            glUnmapBuffer(GL_SHADER_STORAGE_BUFFER);
-        }
-        glDeleteBuffers(1, &buffer);
-        glGenBuffers(1, &buffer);
-        glBindBuffer(GL_SHADER_STORAGE_BUFFER, buffer);
-        currentSize = m_maxObjects * objectSize * NUM_FRAMES_IN_FLIGHT;
-        glBufferStorage(GL_SHADER_STORAGE_BUFFER, currentSize, nullptr, flags);
-        mappedPtr = glMapBufferRange(GL_SHADER_STORAGE_BUFFER, 0, currentSize, flags | GL_MAP_FLUSH_EXPLICIT_BIT);
-    };
-
     m_objectBufferSize = m_maxObjects * sizeof(TransformComponent) * NUM_FRAMES_IN_FLIGHT;
     m_diligent->pObjectBuffer = CreateStructuredBuffer(m_diligent->pDevice, "Object Buffer", sizeof(TransformComponent), m_maxObjects * NUM_FRAMES_IN_FLIGHT);
-    m_objectBuffer = (GLuint)(size_t)m_diligent->pObjectBuffer->GetNativeHandle();
 
     m_hierarchyBufferSize = m_maxObjects * sizeof(HierarchyComponent) * NUM_FRAMES_IN_FLIGHT;
     m_diligent->pHierarchyBuffer = CreateStructuredBuffer(m_diligent->pDevice, "Hierarchy Buffer", sizeof(HierarchyComponent), m_maxObjects * NUM_FRAMES_IN_FLIGHT);
-    m_hierarchyBuffer = (GLuint)(size_t)m_diligent->pHierarchyBuffer->GetNativeHandle();
 
     m_renderableBufferSize = m_maxObjects * sizeof(RenderableComponent) * NUM_FRAMES_IN_FLIGHT;
     m_diligent->pRenderableBuffer = CreateStructuredBuffer(m_diligent->pDevice, "Renderable Buffer", sizeof(RenderableComponent), m_maxObjects * NUM_FRAMES_IN_FLIGHT);
-    m_renderableBuffer = (GLuint)(size_t)m_diligent->pRenderableBuffer->GetNativeHandle();
 
     m_sortedHierarchyBufferSize = m_maxObjects * sizeof(unsigned int) * NUM_FRAMES_IN_FLIGHT;
     m_diligent->pSortedHierarchyBuffer = CreateStructuredBuffer(m_diligent->pDevice, "Sorted Hierarchy Buffer", sizeof(unsigned int), m_maxObjects * NUM_FRAMES_IN_FLIGHT);
-    m_sortedHierarchyBuffer = (GLuint)(size_t)m_diligent->pSortedHierarchyBuffer->GetNativeHandle();
 
     for (int i = 0; i < NUM_FRAMES_IN_FLIGHT; ++i) {
         Diligent::BufferViewDesc ViewDesc;
@@ -820,26 +770,6 @@ void Renderer::cleanup() {
         m_diligent->pFences[i].Release();
     }
 
-    glBindBuffer(GL_SHADER_STORAGE_BUFFER, 0);
-    glBindBuffer(GL_UNIFORM_BUFFER, 0);
-
-    glDeleteVertexArrays(1, &m_vao);
-    glDeleteVertexArrays(1, &m_vao);
-
-    glDeleteFramebuffers(NUM_FRAMES_IN_FLIGHT, m_depthFbo);
-
-    m_shaderManager.cleanup();
-    m_cullingShader = nullptr;
-    m_transparentCullShader = nullptr;
-    m_bitonicSortShader = nullptr;
-    m_transparentCommandGenShader = nullptr;
-    m_largeObjectCullShader = nullptr;
-    m_depthPrepassShader = nullptr;
-
-    m_hizMipmapShader = nullptr;
-
-    m_shaderManager.cleanup();
-
     delete m_uiManager;
     m_uiManager = nullptr;
 
@@ -865,7 +795,7 @@ void Renderer::uploadMesh(const Mesh& mesh) {
                    vertexDataSize, mesh.indices.size(), indexDataSize);
 
     auto resizeBuffer = [&](Diligent::RefCntAutoPtr<Diligent::IBuffer>& pBuffer, size_t currentSize, size_t newSize,
-                            GLuint& nativeHandle, bool isIndexBuffer) {
+                            bool isIndexBuffer) {
         Diligent::RefCntAutoPtr<Diligent::IBuffer> pNewBuffer;
         if (isIndexBuffer) {
             pNewBuffer = CreateIndexBuffer(m_diligent->pDevice, newSize);
@@ -879,24 +809,14 @@ void Renderer::uploadMesh(const Mesh& mesh) {
         }
 
         pBuffer = pNewBuffer;
-        nativeHandle = (GLuint)(size_t)pBuffer->GetNativeHandle();
     };
 
     if (s_totalVertexSize + vertexDataSize > m_vboSize || s_totalIndexSize + indexDataSize > m_eboSize) {
         m_vboSize = std::max(m_vboSize * 2, s_totalVertexSize + vertexDataSize);
         m_eboSize = std::max(m_eboSize * 2, s_totalIndexSize + indexDataSize);
 
-        resizeBuffer(m_diligent->pVBO, s_totalVertexSize, m_vboSize, m_vbo, false);
-        resizeBuffer(m_diligent->pEBO, s_totalIndexSize, m_eboSize, m_ebo, true);
-
-        glBindVertexArray(m_vao);
-        glBindBuffer(GL_ARRAY_BUFFER, m_vbo);
-        glEnableVertexAttribArray(0);
-        glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 6 * sizeof(float), (void*)0);
-        glEnableVertexAttribArray(1);
-        glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, 6 * sizeof(float), (void*)(3 * sizeof(float)));
-        glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, m_ebo);
-        glBindVertexArray(0);
+        resizeBuffer(m_diligent->pVBO, s_totalVertexSize, m_vboSize, false);
+        resizeBuffer(m_diligent->pEBO, s_totalIndexSize, m_eboSize, true);
     }
 
     if (vertexDataSize > 0) {
@@ -953,15 +873,6 @@ void Renderer::drawScene(SceneDatabase& sceneDatabase, const Camera& camera) {
     double largeObjectSortTime = 0;
     std::chrono::high_resolution_clock::time_point start, end;
 
-    auto updateBuffer = [&](GLuint buffer, void* ptr, size_t bufferSize, const auto& data, size_t objectSize) {
-        Lit::Log::Info("Updating buffer with {} objects of size {} bytes each.", data.size(), objectSize);
-        glBindBuffer(GL_SHADER_STORAGE_BUFFER, buffer);
-        const size_t dataSize = data.size() * objectSize;
-        const size_t frameOffsetBytes = m_currentFrame * (bufferSize / NUM_FRAMES_IN_FLIGHT);
-        memcpy(static_cast<char*>(ptr) + frameOffsetBytes, data.data(), dataSize);
-        glFlushMappedBufferRange(GL_SHADER_STORAGE_BUFFER, frameOffsetBytes, dataSize);
-    };
-
     float currentFrameTime = glfwGetTime();
     float deltaTime = currentFrameTime - m_lastFrameTime;
     m_lastFrameTime = currentFrameTime;
@@ -992,8 +903,8 @@ void Renderer::drawScene(SceneDatabase& sceneDatabase, const Camera& camera) {
     }
 
     if (numObjects == 0) {
-        glClearColor(0.3f, 0.3f, 0.3f, 1.0f);
-        glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+        m_diligent->pImmediateContext->ClearRenderTarget(m_diligent->pSwapChain->GetCurrentBackBufferRTV(), glm::value_ptr(glm::vec4(0.3f, 0.3f, 0.3f, 1.0f)), Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
+        m_diligent->pImmediateContext->ClearDepthStencil(m_diligent->pSwapChain->GetDepthBufferDSV(), Diligent::CLEAR_DEPTH_FLAG, 1.0f, 0, Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
         return;
     }
 
@@ -1001,8 +912,6 @@ void Renderer::drawScene(SceneDatabase& sceneDatabase, const Camera& camera) {
     const size_t alignedSceneUniformsSize = (sizeof(SceneUniforms) + 255) & ~255;
     const size_t uboFrameOffset = m_currentFrame * alignedSceneUniformsSize;
 
-    while (glGetError() != GL_NO_ERROR)
-        ;
     m_diligent->pImmediateContext->EndQuery(m_diligent->pTransformStartQuery[m_currentFrame]);
 
     auto ReadAtomicCounter = [&](Diligent::IBuffer* pAtomicBuffer) -> unsigned int {
@@ -1027,12 +936,6 @@ void Renderer::drawScene(SceneDatabase& sceneDatabase, const Camera& camera) {
         m_dataUpdateCounter = NUM_FRAMES_IN_FLIGHT;
         m_processedDataVersion = sceneDatabase.m_dataVersion;
     }
-
-    glBindVertexArray(0);
-    glBindBuffer(GL_SHADER_STORAGE_BUFFER, 0);
-    glBindBuffer(GL_ARRAY_BUFFER, 0);
-    while (glGetError() != GL_NO_ERROR)
-        ;
 
     if (m_hierarchyUpdateCounter > 0) {
         const size_t dataSize = sceneDatabase.hierarchies.size() * sizeof(HierarchyComponent);
@@ -1100,12 +1003,8 @@ void Renderer::drawScene(SceneDatabase& sceneDatabase, const Camera& camera) {
         }
 
         m_diligent->pImmediateContext->WaitForIdle();
-
-        glMemoryBarrier(GL_SHADER_STORAGE_BARRIER_BIT);
     }
 
-    while (glGetError() != GL_NO_ERROR)
-        ;
     m_diligent->pImmediateContext->EndQuery(m_diligent->pTransformEndQuery[m_currentFrame]);
 
     if (m_meshInfoDirty) {
@@ -1127,8 +1026,6 @@ void Renderer::drawScene(SceneDatabase& sceneDatabase, const Camera& camera) {
     const unsigned int workgroupSize = 256;
     const unsigned int numWorkgroups = (numObjects + workgroupSize - 1) / workgroupSize;
 
-    while (glGetError() != GL_NO_ERROR)
-        ;
     m_diligent->pImmediateContext->EndQuery(m_diligent->pCullStartQuery[m_currentFrame]);
 
     ResetAtomicCounter(m_diligent->pVisibleObjectAtomicCounter);
@@ -1185,16 +1082,13 @@ void Renderer::drawScene(SceneDatabase& sceneDatabase, const Camera& camera) {
     m_diligent->pImmediateContext->DispatchCompute(CullDispatchAttrs);
 
     m_diligent->pImmediateContext->WaitForIdle();
-    glMemoryBarrier(GL_COMMAND_BARRIER_BIT | GL_SHADER_STORAGE_BARRIER_BIT | GL_ATOMIC_COUNTER_BARRIER_BIT);
 
     unsigned int visibleObjectCount = ReadAtomicCounter(m_diligent->pVisibleObjectAtomicCounter);
 
-    while (glGetError() != GL_NO_ERROR)
-        ;
     m_diligent->pImmediateContext->EndQuery(m_diligent->pCullEndQuery[m_currentFrame]);
 
     if (visibleObjectCount > 1) {
-        while (glGetError() != GL_NO_ERROR)
+        if (false)
             ;
         m_diligent->pImmediateContext->EndQuery(m_diligent->pOpaqueSortStartQuery[m_currentFrame]);
 
@@ -1238,7 +1132,7 @@ void Renderer::drawScene(SceneDatabase& sceneDatabase, const Camera& camera) {
             }
         }
 
-        while (glGetError() != GL_NO_ERROR)
+        if (false)
             ;
         m_diligent->pImmediateContext->EndQuery(m_diligent->pOpaqueSortEndQuery[m_currentFrame]);
         m_diligent->OpaqueSortActive[m_currentFrame] = true;
@@ -1246,8 +1140,6 @@ void Renderer::drawScene(SceneDatabase& sceneDatabase, const Camera& camera) {
         m_diligent->OpaqueSortActive[m_currentFrame] = false;
     }
 
-    while (glGetError() != GL_NO_ERROR)
-        ;
     m_diligent->pImmediateContext->EndQuery(m_diligent->pCommandGenStartQuery[m_currentFrame]);
 
     std::vector<unsigned int> drawZeros(m_numDrawingShaders, 0);
@@ -1305,14 +1197,8 @@ void Renderer::drawScene(SceneDatabase& sceneDatabase, const Camera& camera) {
         m_diligent->pImmediateContext->TransitionResourceStates(1, &Barrier);
     }
 
-    while (glGetError() != GL_NO_ERROR)
-        ;
     m_diligent->pImmediateContext->EndQuery(m_diligent->pCommandGenEndQuery[m_currentFrame]);
 
-    while (glGetError() != GL_NO_ERROR)
-        ;
-    while (glGetError() != GL_NO_ERROR)
-        ;
     m_diligent->pImmediateContext->EndQuery(m_diligent->pLargeObjectCullStartQuery[m_currentFrame]);
 
     ResetAtomicCounter(m_diligent->pVisibleLargeObjectAtomicCounter);
@@ -1366,12 +1252,10 @@ void Renderer::drawScene(SceneDatabase& sceneDatabase, const Camera& camera) {
 
     unsigned int visibleLargeObjectCount = ReadAtomicCounter(m_diligent->pVisibleLargeObjectAtomicCounter);
 
-    while (glGetError() != GL_NO_ERROR)
-        ;
     m_diligent->pImmediateContext->EndQuery(m_diligent->pLargeObjectCullEndQuery[m_currentFrame]);
 
     if (visibleLargeObjectCount > 1) {
-        while (glGetError() != GL_NO_ERROR)
+        if (false)
             ;
         m_diligent->pImmediateContext->EndQuery(m_diligent->pLargeObjectSortStartQuery[m_currentFrame]);
 
@@ -1423,7 +1307,7 @@ void Renderer::drawScene(SceneDatabase& sceneDatabase, const Camera& camera) {
             }
         }
 
-        while (glGetError() != GL_NO_ERROR)
+        if (false)
             ;
         m_diligent->pImmediateContext->EndQuery(m_diligent->pLargeObjectSortEndQuery[m_currentFrame]);
         m_diligent->LargeObjectSortActive[m_currentFrame] = true;
@@ -1431,8 +1315,6 @@ void Renderer::drawScene(SceneDatabase& sceneDatabase, const Camera& camera) {
         m_diligent->LargeObjectSortActive[m_currentFrame] = false;
     }
 
-    while (glGetError() != GL_NO_ERROR)
-        ;
     m_diligent->pImmediateContext->EndQuery(m_diligent->pLargeObjectCommandGenStartQuery[m_currentFrame]);
     ResetAtomicCounter(m_diligent->pDepthPrepassAtomicCounter);
 
@@ -1499,12 +1381,8 @@ void Renderer::drawScene(SceneDatabase& sceneDatabase, const Camera& camera) {
     Barrier.Flags = Diligent::STATE_TRANSITION_FLAG_UPDATE_STATE;
     m_diligent->pImmediateContext->TransitionResourceStates(1, &Barrier);
 
-    while (glGetError() != GL_NO_ERROR)
-        ;
     m_diligent->pImmediateContext->EndQuery(m_diligent->pLargeObjectCommandGenEndQuery[m_currentFrame]);
 
-    while (glGetError() != GL_NO_ERROR)
-        ;
     m_diligent->pImmediateContext->EndQuery(m_diligent->pDepthPrePassStartQuery[m_currentFrame]);
     Diligent::ITextureView* pRTVs[] = {m_diligent->pHiZTextures[m_currentFrame]->GetDefaultView(Diligent::TEXTURE_VIEW_RENDER_TARGET)};
     m_diligent->pImmediateContext->SetRenderTargets(1, pRTVs, m_diligent->pDepthRenderbuffers[m_currentFrame]->GetDefaultView(Diligent::TEXTURE_VIEW_DEPTH_STENCIL), Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
@@ -1554,21 +1432,7 @@ void Renderer::drawScene(SceneDatabase& sceneDatabase, const Camera& camera) {
     }
 
     m_diligent->pImmediateContext->SetRenderTargets(0, nullptr, nullptr, Diligent::RESOURCE_STATE_TRANSITION_MODE_NONE);
-    glBindFramebuffer(GL_FRAMEBUFFER, 0);
 
-    glClearColor(0.3f, 0.3f, 0.3f, 1.0f);
-    glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
-
-    glBindBufferRange(GL_UNIFORM_BUFFER, 0, (GLuint)(size_t)m_diligent->pSceneUBO->GetNativeHandle(), uboFrameOffset, sizeof(SceneUniforms));
-
-    glBindVertexArray(m_vao);
-
-    glBindBuffer(GL_DRAW_INDIRECT_BUFFER, m_drawCommandBuffer);
-    glBindBufferRange(GL_SHADER_STORAGE_BUFFER, 2, m_objectBuffer, frameOffset * sizeof(TransformComponent), m_maxObjects * sizeof(TransformComponent));
-    glBindBufferRange(GL_SHADER_STORAGE_BUFFER, 5, m_visibleObjectBuffer, frameOffset * sizeof(unsigned int), m_maxObjects * sizeof(unsigned int));
-
-    while (glGetError() != GL_NO_ERROR)
-        ;
     m_diligent->pImmediateContext->EndQuery(m_diligent->pOpaqueDrawStartQuery[m_currentFrame]);
 
     Diligent::Viewport VP;
@@ -1583,6 +1447,8 @@ void Renderer::drawScene(SceneDatabase& sceneDatabase, const Camera& camera) {
     auto* pRTV = m_diligent->pSwapChain->GetCurrentBackBufferRTV();
     auto* pDSV = m_diligent->pSwapChain->GetDepthBufferDSV();
     m_diligent->pImmediateContext->SetRenderTargets(1, &pRTV, pDSV, Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
+    m_diligent->pImmediateContext->ClearRenderTarget(pRTV, glm::value_ptr(glm::vec4(0.3f, 0.3f, 0.3f, 1.0f)), Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
+    m_diligent->pImmediateContext->ClearDepthStencil(pDSV, Diligent::CLEAR_DEPTH_FLAG, 1.0f, 0, Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
 
     for (uint32_t shaderId = 0; shaderId < m_diligent->pOpaquePSOs.size(); ++shaderId) {
         if (!m_diligent->pOpaquePSOs[shaderId])
@@ -1630,14 +1496,10 @@ void Renderer::drawScene(SceneDatabase& sceneDatabase, const Camera& camera) {
         m_diligent->pImmediateContext->DrawIndexedIndirect(DrawAttrs);
     }
 
-    while (glGetError() != GL_NO_ERROR)
-        ;
     m_diligent->pImmediateContext->EndQuery(m_diligent->pOpaqueDrawEndQuery[m_currentFrame]);
 
     ResetAtomicCounter(m_diligent->pTransparentAtomicCounter);
 
-    while (glGetError() != GL_NO_ERROR)
-        ;
     m_diligent->pImmediateContext->EndQuery(m_diligent->pTransparentCullStartQuery[m_currentFrame]);
     {
         TransparentCullUniforms uniforms;
@@ -1700,14 +1562,12 @@ void Renderer::drawScene(SceneDatabase& sceneDatabase, const Camera& camera) {
         m_diligent->pImmediateContext->TransitionResourceStates(1, &Barrier);
     }
 
-    while (glGetError() != GL_NO_ERROR)
-        ;
     m_diligent->pImmediateContext->EndQuery(m_diligent->pTransparentCullEndQuery[m_currentFrame]);
 
     unsigned int visibleTransparentCount = ReadAtomicCounter(m_diligent->pTransparentAtomicCounter);
 
     if (visibleTransparentCount > 1) {
-        while (glGetError() != GL_NO_ERROR)
+        if (false)
             ;
         m_diligent->pImmediateContext->EndQuery(m_diligent->pTransparentSortStartQuery[m_currentFrame]);
         m_diligent->pImmediateContext->SetPipelineState(m_diligent->pTransparentSortPSO);
@@ -1743,7 +1603,7 @@ void Renderer::drawScene(SceneDatabase& sceneDatabase, const Camera& camera) {
             }
         }
 
-        while (glGetError() != GL_NO_ERROR)
+        if (false)
             ;
         m_diligent->pImmediateContext->EndQuery(m_diligent->pTransparentSortEndQuery[m_currentFrame]);
         m_diligent->TransparentSortActive[m_currentFrame] = true;
@@ -1751,8 +1611,6 @@ void Renderer::drawScene(SceneDatabase& sceneDatabase, const Camera& camera) {
         m_diligent->TransparentSortActive[m_currentFrame] = false;
     }
 
-    while (glGetError() != GL_NO_ERROR)
-        ;
     m_diligent->pImmediateContext->EndQuery(m_diligent->pTransparentCommandGenStartQuery[m_currentFrame]);
     m_diligent->pImmediateContext->EndQuery(m_diligent->pTransparentCommandGenStartQuery[m_currentFrame]);
 
@@ -1812,16 +1670,8 @@ void Renderer::drawScene(SceneDatabase& sceneDatabase, const Camera& camera) {
     Barrier.Flags = Diligent::STATE_TRANSITION_FLAG_UPDATE_STATE;
     m_diligent->pImmediateContext->TransitionResourceStates(1, &Barrier);
 
-    while (glGetError() != GL_NO_ERROR)
-        ;
     m_diligent->pImmediateContext->EndQuery(m_diligent->pTransparentCommandGenEndQuery[m_currentFrame]);
 
-    glEnable(GL_BLEND);
-    glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
-    glDepthMask(GL_FALSE);
-
-    while (glGetError() != GL_NO_ERROR)
-        ;
     m_diligent->pImmediateContext->EndQuery(m_diligent->pTransparentDrawStartQuery[m_currentFrame]);
     if (visibleTransparentCount > 0) {
         m_diligent->pImmediateContext->SetPipelineState(m_diligent->pTransparentPSO);
@@ -1860,7 +1710,7 @@ void Renderer::drawScene(SceneDatabase& sceneDatabase, const Camera& camera) {
 
         m_diligent->pImmediateContext->DrawIndexedIndirect(DrawAttrs);
 
-        while (glGetError() != GL_NO_ERROR)
+        if (false)
             ;
         m_diligent->pImmediateContext->EndQuery(m_diligent->pTransparentDrawEndQuery[m_currentFrame]);
         m_diligent->TransparentDrawActive[m_currentFrame] = true;
@@ -1868,13 +1718,6 @@ void Renderer::drawScene(SceneDatabase& sceneDatabase, const Camera& camera) {
         m_diligent->TransparentDrawActive[m_currentFrame] = false;
     }
 
-    glDepthMask(GL_TRUE);
-    glDisable(GL_BLEND);
-
-    glBindVertexArray(0);
-
-    while (glGetError() != GL_NO_ERROR)
-        ;
     m_diligent->pImmediateContext->EndQuery(m_diligent->pHizMipmapStartQuery[m_currentFrame]);
 
     if (m_diligent->pHiZMipmapPSO) {
@@ -1921,38 +1764,28 @@ void Renderer::drawScene(SceneDatabase& sceneDatabase, const Camera& camera) {
         }
     }
 
-    while (glGetError() != GL_NO_ERROR)
-        ;
     m_diligent->pImmediateContext->EndQuery(m_diligent->pHizMipmapEndQuery[m_currentFrame]);
 
-    while (glGetError() != GL_NO_ERROR)
-        ;
     m_diligent->pImmediateContext->EndQuery(m_diligent->pUiStartQuery[m_currentFrame]);
 
     m_uiManager->render();
 
     if (fullProfiling) {
-        glFinish();
+
         end = std::chrono::high_resolution_clock::now();
         uiTime = std::chrono::duration<double, std::milli>(end - start).count();
     }
-    while (glGetError() != GL_NO_ERROR)
-        ;
+
     m_diligent->pImmediateContext->EndQuery(m_diligent->pUiEndQuery[m_currentFrame]);
-    while (glGetError() != GL_NO_ERROR)
-        ;
+
     m_diligent->pImmediateContext->EndQuery(m_diligent->pFrameEndQuery[m_currentFrame]);
     m_diligent->QueryReady[m_currentFrame] = true;
-
-    while (glGetError() != GL_NO_ERROR) {
-    }
 
     m_diligent->CurrentFenceValue++;
     m_diligent->pImmediateContext->EnqueueSignal(m_diligent->pFences[m_currentFrame], m_diligent->CurrentFenceValue);
     m_diligent->FenceValues[m_currentFrame] = m_diligent->CurrentFenceValue;
 
     if (fullProfiling) {
-        glFinish();
 
         auto GetQueryData = [&](Diligent::IQuery* pStartQuery, Diligent::IQuery* pEndQuery) -> double {
             Diligent::QueryDataTimestamp StartData = {};
@@ -2036,53 +1869,6 @@ void Renderer::drawScene(SceneDatabase& sceneDatabase, const Camera& camera) {
         Lit::Log::Debug("Transparent Draw: {} ms", transparentDrawTime);
         Lit::Log::Debug("Hi-Z Mipmap Generation: {} ms", hizMipmapTime);
         Lit::Log::Debug("UI Rendering: {} ms", uiTime);
-    }
-}
-
-void Renderer::setupShaders() {
-    m_shaderManager.loadShader("resources/shaders/cube.vert", "resources/shaders/cube.frag");
-    m_shaderManager.loadShader("resources/shaders/cube.vert", "resources/shaders/red.frag");
-    m_shaderManager.loadShader("resources/shaders/cube.vert", "resources/shaders/transparent.frag");
-    m_numDrawingShaders = m_shaderManager.getShaderCount();
-
-    const auto cullingShaderId = m_shaderManager.loadComputeShader("resources/shaders/cull.comp");
-    m_cullingShader = m_shaderManager.getShader(cullingShaderId);
-
-    const auto transparentCullId = m_shaderManager.loadComputeShader("resources/shaders/transparent_cull.comp");
-    m_transparentCullShader = m_shaderManager.getShader(transparentCullId);
-
-    const auto bitonicSortId = m_shaderManager.loadComputeShader("resources/shaders/bitonic_sort.comp");
-    m_bitonicSortShader = m_shaderManager.getShader(bitonicSortId);
-
-    const auto transparentCommandGenId = m_shaderManager.loadComputeShader("resources/shaders/transparent_command_gen.comp");
-    m_transparentCommandGenShader = m_shaderManager.getShader(transparentCommandGenId);
-
-    const auto commandGenId = m_shaderManager.loadComputeShader("resources/shaders/command_gen.comp");
-    m_commandGenShader = m_shaderManager.getShader(commandGenId);
-
-    const auto largeObjectCullId = m_shaderManager.loadComputeShader("resources/shaders/large_object_cull.comp");
-    m_largeObjectCullShader = m_shaderManager.getShader(largeObjectCullId);
-
-    const auto largeObjectSortId = m_shaderManager.loadComputeShader("resources/shaders/large_object_sort.comp");
-    m_largeObjectSortShader = m_shaderManager.getShader(largeObjectSortId);
-
-    const auto largeObjectCommandGenId = m_shaderManager.loadComputeShader("resources/shaders/large_object_command_gen.comp");
-    m_largeObjectCommandGenShader = m_shaderManager.getShader(largeObjectCommandGenId);
-
-    const auto depthPrepassId = m_shaderManager.loadShader("resources/shaders/depth_prepass.vert", "resources/shaders/depth_prepass.frag");
-    m_depthPrepassShader = m_shaderManager.getShader(depthPrepassId);
-
-    const auto hizMipmapId = m_shaderManager.loadComputeShader("resources/shaders/hiz_mipmap.comp");
-    m_hizMipmapShader = m_shaderManager.getShader(hizMipmapId);
-
-    const auto opaqueSortId = m_shaderManager.loadComputeShader("resources/shaders/opaque_sort.comp");
-    m_opaqueSortShader = m_shaderManager.getShader(opaqueSortId);
-    if (hizMipmapId == static_cast<uint32_t>(-1)) {
-        Lit::Log::Error("Failed to load Hi-Z Mipmap compute shader (loadComputeShader returned -1).");
-    } else if (m_hizMipmapShader == nullptr) {
-        Lit::Log::Error("Hi-Z Mipmap shader pointer is null after successful load ID.");
-    } else if (!m_hizMipmapShader->isInitialized()) {
-        Lit::Log::Error("Hi-Z Mipmap shader object is not initialized after loading.");
     }
 }
 

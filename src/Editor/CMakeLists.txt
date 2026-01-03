@@ -11,14 +11,14 @@ target_sources(Editor
     PRIVATE
         Application/Application.cpp
         main.cpp
-        ${PROJECT_SOURCE_DIR}/src/vendors/glad/src/glad.c
+
 )
 
 target_compile_features(Editor PRIVATE cxx_std_23)
 
 target_include_directories(Editor PRIVATE
     "${PROJECT_SOURCE_DIR}/src/vendors/glfw/include"
-    "${PROJECT_SOURCE_DIR}/src/vendors/glad/include"
+
     "${PROJECT_SOURCE_DIR}/src"
 )
 

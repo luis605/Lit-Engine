@@ -10,10 +10,8 @@ struct DiligentData;
 
 export module Engine.renderer;
 
-import Engine.shader;
 import Engine.camera;
 import Engine.Render.scenedatabase;
-import Engine.Render.shaderManager;
 import Engine.mesh;
 import Engine.UI.manager;
 import Engine.glm;
@@ -32,7 +30,6 @@ export class Renderer {
     void setLargeObjectThreshold(float threshold);
 
   private:
-    void setupShaders();
     void createTransformPSO();
     void createHiZPSO();
     void createCullingPSO();
@@ -65,14 +62,6 @@ export class Renderer {
     size_t m_vboSize = 0;
     size_t m_eboSize = 0;
 
-    ShaderManager m_shaderManager;
-    Shader* m_cullingShader;
-    Shader* m_transparentCullShader;
-    Shader* m_bitonicSortShader;
-    Shader* m_opaqueSortShader;
-    Shader* m_transparentCommandGenShader;
-    Shader* m_commandGenShader;
-
     unsigned int m_visibleObjectBuffer = 0;
     unsigned int m_visibleTransparentObjectIdsBuffer = 0;
     unsigned int m_transparentAtomicCounter = 0;
@@ -84,16 +73,11 @@ export class Renderer {
     unsigned int m_hizFbo = 0;
     unsigned int m_hizTexture[NUM_FRAMES_IN_FLIGHT] = {0};
 
-    Shader* m_largeObjectCullShader = nullptr;
-    Shader* m_largeObjectSortShader = nullptr;
-    Shader* m_largeObjectCommandGenShader = nullptr;
-    Shader* m_depthPrepassShader = nullptr;
     unsigned int m_depthPrepassAtomicCounter = 0;
     unsigned int m_depthPrepassDrawCommandBuffer = 0;
     unsigned int m_visibleLargeObjectBuffer = 0;
     unsigned int m_visibleLargeObjectAtomicCounter = 0;
 
-    Shader* m_hizMipmapShader = nullptr;
     int m_maxMipLevel = 0;
 
     size_t m_numDrawingShaders = 0;

@@ -11,11 +11,9 @@ target_sources(Engine
         GLM.cppm
         Render/Renderer.cppm
         Render/Camera.cppm
-        Render/Shader.cppm
         Render/Component.cppm
         Render/Entity.cppm
         Render/SceneDatabase.cppm
-        Render/ShaderManager.cppm
         Render/Mesh.cppm
         Input/Input.cppm
         Asset/AssetManager.cppm
@@ -26,13 +24,11 @@ target_sources(Engine
         Asset/AssetManager.cpp
         Render/Renderer.cpp
         Render/Camera.cpp
-        Render/ShaderManager.cpp
-        Render/Shader.cpp
         Input/Input.cpp
         Log/Log.cpp
         UI/Manager.cpp
         UI/Text.cpp
-        ${PROJECT_SOURCE_DIR}/src/vendors/glad/src/glad.c
+
 )
 
 target_compile_features(Engine PUBLIC cxx_std_23)
@@ -40,7 +36,7 @@ target_compile_features(Engine PUBLIC cxx_std_23)
 target_include_directories(Engine PRIVATE
     "${PROJECT_SOURCE_DIR}/src/vendors/glfw/include"
     "${PROJECT_SOURCE_DIR}/src/vendors/assimp/include"
-    "${PROJECT_SOURCE_DIR}/src/vendors/glad/include"
+
     "${PROJECT_SOURCE_DIR}/src/vendors/glm"
     "${PROJECT_SOURCE_DIR}/src/vendors/freetype/include"
     "${PROJECT_SOURCE_DIR}/src/vendors/DiligentEngine"

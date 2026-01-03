@@ -1,6 +1,5 @@
 module;
 
-#include <glad/glad.h>
 #include <GLFW/glfw3.h>
 #include <filesystem>
 #include <random>
@@ -41,11 +40,6 @@ Application::Application() {
     glfwMakeContextCurrent(m_window);
     glfwSwapInterval(0);
     glfwSetInputMode(m_window, GLFW_CURSOR, GLFW_CURSOR_NORMAL);
-
-    if (!gladLoadGLLoader((GLADloadproc)glfwGetProcAddress)) {
-        Lit::Log::Fatal("Failed to initialize GLAD");
-        return;
-    }
 
     InputManager::Init(m_window);
     m_engine.init(m_window, windowWidth, windowHeight);
