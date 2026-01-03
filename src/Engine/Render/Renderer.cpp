@@ -401,7 +401,7 @@ void Renderer::init(GLFWwindow* window, const int windowWidth, const int windowH
     m_diligent->pFactoryGL->CreateDeviceAndSwapChainGL(EngineCI, &m_diligent->pDevice, &m_diligent->pImmediateContext, SCDesc, &m_diligent->pSwapChain);
 
     m_uiManager = new UIManager();
-    m_uiManager->init(windowWidth, windowHeight);
+    m_uiManager->init(m_diligent->pDevice, m_diligent->pImmediateContext, m_diligent->pSwapChain, windowWidth, windowHeight);
 
     setupShaders();
     createDepthPrepassPSO();
@@ -1876,7 +1876,6 @@ void Renderer::drawScene(SceneDatabase& sceneDatabase, const Camera& camera) {
     while (glGetError() != GL_NO_ERROR)
         ;
     m_diligent->pImmediateContext->EndQuery(m_diligent->pHizMipmapStartQuery[m_currentFrame]);
-    glMemoryBarrier(GL_SHADER_IMAGE_ACCESS_BARRIER_BIT);
 
     if (m_diligent->pHiZMipmapPSO) {
         m_diligent->pImmediateContext->SetPipelineState(m_diligent->pHiZMipmapPSO);

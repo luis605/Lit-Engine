@@ -3,7 +3,10 @@
 layout (location = 0) in vec4 vertex; // <vec2 pos, vec2 tex>
 out vec2 TexCoords;
 
-uniform mat4 projection;
+layout (std140) uniform TextConstants {
+    mat4 projection;
+    vec4 textColor;
+};
 
 void main()
 {

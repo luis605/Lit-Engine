@@ -4,10 +4,14 @@ module;
 #include <memory>
 #include <string>
 #include <map>
-#include <memory>
+
+namespace Diligent {
+struct IRenderDevice;
+struct IDeviceContext;
+struct ISwapChain;
+} // namespace Diligent
 
 import Engine.glm;
-import Engine.shader;
 
 export module Engine.UI.manager;
 
@@ -16,27 +20,15 @@ export class UIManager {
     UIManager();
     ~UIManager();
 
-    void init(const int windowWidth, const int windowHeight);
+    void init(Diligent::IRenderDevice* pDevice, Diligent::IDeviceContext* pContext, Diligent::ISwapChain* pSwapChain, const int windowWidth, const int windowHeight);
     void cleanup();
 
     void addText(const std::string& text, float x, float y, float scale, const glm::vec3& color);
     void render();
 
   private:
-    struct Character {
-        unsigned int textureID;
-        glm::ivec2 size;
-        glm::ivec2 bearing;
-        unsigned int advance;
-    };
-
-    std::map<char, Character> m_characters;
-    unsigned int m_vao = 0;
-    unsigned int m_vbo = 0;
     unsigned int m_windowWidth;
     unsigned int m_windowHeight;
-
-    std::unique_ptr<Shader> m_shader;
 
     struct TextData {
         std::string text;
@@ -44,4 +36,6 @@ export class UIManager {
         glm::vec3 color;
     };
     std::vector<TextData> m_texts;
+
+    void* m_diligent = nullptr;
 };
