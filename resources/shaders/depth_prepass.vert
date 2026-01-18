@@ -8,7 +8,7 @@ struct TransformComponent {
     mat4 worldMatrix;
 };
 
-layout(std430, binding = 2) buffer ObjectBuffer {
+layout(std430, binding = 2) readonly buffer ObjectBuffer {
     TransformComponent transforms[];
 };
 
@@ -28,8 +28,7 @@ layout(binding = 5) readonly buffer VisibleLargeObjectBuffer {
 
 void main()
 {
-    uint baseInstance = gl_BaseInstance;
-    uint objectId = visibleLargeObjects[baseInstance + gl_InstanceID];
+    uint objectId = visibleLargeObjects[gl_InstanceIndex];
     mat4 modelMatrix = transforms[objectId].worldMatrix;
     gl_Position = sceneData.projection * sceneData.view * modelMatrix * vec4(aPos, 1.0);
 }

@@ -26,9 +26,7 @@ Application::Application() {
     const int windowWidth = 1280;
     const int windowHeight = 720;
 
-    glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 4);
-    glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 6);
-    glfwWindowHint(GLFW_OPENGL_PROFILE, GLFW_OPENGL_CORE_PROFILE);
+    glfwWindowHint(GLFW_CLIENT_API, GLFW_NO_API);
 
     m_window = glfwCreateWindow(windowWidth, windowHeight, "Lit Engine", nullptr, nullptr);
     if (!m_window) {
@@ -37,8 +35,8 @@ Application::Application() {
         return;
     }
 
-    glfwMakeContextCurrent(m_window);
-    glfwSwapInterval(0);
+    // glfwMakeContextCurrent(m_window);
+    // glfwSwapInterval(0);
     glfwSetInputMode(m_window, GLFW_CURSOR, GLFW_CURSOR_NORMAL);
 
     InputManager::Init(m_window);
@@ -137,7 +135,7 @@ void Application::update() {
     m_engine.AddText(m_largeObjectThresholdText, 10.0f, 650.0f, 0.5f, glm::vec3(1.0f, 1.0f, 1.0f));
 
     InputManager::Update();
-    glfwSwapBuffers(m_window);
+    m_engine.present();
     glfwPollEvents();
 }
 
@@ -226,8 +224,13 @@ void Application::processInput(float deltaTime) {
         Lit::Log::Info("largeObjectThreshold: {}", m_largeObjectThreshold);
     }
 
+    if (InputManager::IsKeyPressed(GLFW_KEY_F1)) {
+        m_engine.setDebugDepthMode(!m_engine.isDebugDepthMode());
+        Lit::Log::Info("Debug Depth Mode: {}", m_engine.isDebugDepthMode() ? "ON" : "OFF");
+    }
+
     glm::vec2 mouseDelta = InputManager::GetMouseDelta();
-    camera.processMouseMovement(mouseDelta.x, -mouseDelta.y);
+    camera.processMouseMovement(mouseDelta.x, mouseDelta.y);
 }
 
 bool Application::isRunning() const { return !glfwWindowShouldClose(m_window); }

@@ -53,7 +53,6 @@ endif()
 
 target_link_libraries(Engine PRIVATE glfw assimp freetype)
 target_link_libraries(Engine PUBLIC
-    Diligent-GraphicsEngineOpenGL-static
     Diligent-GraphicsEngineVk-static
     $<$<BOOL:${WIN32}>:Diligent-GraphicsEngineD3D11-static>
     $<$<BOOL:${WIN32}>:Diligent-GraphicsEngineD3D12-static>

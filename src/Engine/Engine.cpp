@@ -18,6 +18,8 @@ void Engine::update(SceneDatabase& sceneDatabase, Camera& camera) {
     m_renderer.drawScene(sceneDatabase, camera);
 }
 
+void Engine::present() { m_renderer.present(); }
+
 void Engine::cleanup() { m_renderer.cleanup(); }
 
 void Engine::uploadMesh(const Mesh& mesh) { m_renderer.uploadMesh(mesh); }
@@ -28,3 +30,5 @@ void Engine::AddText(const std::string& text, float x, float y, float scale, con
 
 void Engine::setSmallObjectThreshold(float threshold) { m_renderer.setSmallObjectThreshold(threshold); }
 void Engine::setLargeObjectThreshold(float threshold) { m_renderer.setLargeObjectThreshold(threshold); }
+void Engine::setDebugDepthMode(bool enabled) { m_renderer.setDebugDepthMode(enabled); }
+bool Engine::isDebugDepthMode() const { return m_renderer.isDebugDepthMode(); }

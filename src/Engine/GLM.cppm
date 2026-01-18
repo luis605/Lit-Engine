@@ -21,6 +21,7 @@ using ::glm::distance2;
 using ::glm::sqrt;
 using ::glm::normalize;
 using ::glm::perspective;
+using ::glm::perspectiveRH_ZO;
 using ::glm::radians;
 using ::glm::rotate;
 using ::glm::scale;

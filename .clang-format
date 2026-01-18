@@ -1,5 +1,4 @@
-BasedOnStyle: LLVM
-
+BasedOnStyle: Google
 Language: Cpp
 
 IndentWidth: 4
@@ -7,6 +6,15 @@ UseTab: Never
 
 PointerAlignment: Left
 ReferenceAlignment: Left
+
+ColumnLimit: 680
+AlignArrayOfStructures: Left
+
+BreakBeforeBinaryOperators: None
+PenaltyBreakAssignment: 1000
+PenaltyBreakBeforeFirstCallParameter: 1000
+AlignOperands: DontAlign
+AllowShortBlocksOnASingleLine: Always
 
 BreakBeforeBraces: Attach
 BraceWrapping:
@@ -22,9 +30,6 @@ BraceWrapping:
 
 AllowAllParametersOfDeclarationOnNextLine: false
 BinPackParameters: true
-
-ColumnLimit: 0
-
-SpaceBeforeParens: ControlStatements
-
 SortIncludes: false
+
+KeepEmptyLinesAtTheStartOfBlocks: false

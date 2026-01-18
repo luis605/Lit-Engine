@@ -7,7 +7,7 @@ struct TransformComponent {
     mat4 worldMatrix;
 };
 
-layout(std430, binding = 2) buffer ObjectBuffer {
+layout(std430, binding = 2) readonly buffer ObjectBuffer {
     TransformComponent transforms[];
 };
 
@@ -20,8 +20,8 @@ layout (std140, binding = 0) uniform SceneData {
     vec4 frustumPlanes[6];
 } sceneData;
 
-out vec3 FragPos;
-out vec3 Normal;
+layout (location = 0) out vec3 FragPos;
+layout (location = 1) out vec3 Normal;
 
 layout(std430, binding = 5) readonly buffer VisibleObjectBuffer {
     uint visibleObjects[];
@@ -29,8 +29,7 @@ layout(std430, binding = 5) readonly buffer VisibleObjectBuffer {
 
 void main()
 {
-    uint baseInstance = gl_BaseInstance;
-    uint objectId = visibleObjects[baseInstance + gl_InstanceID];
+    uint objectId = visibleObjects[gl_InstanceIndex];
     mat4 modelMatrix = transforms[objectId].worldMatrix;
     vec4 worldPos = modelMatrix * vec4(aPos, 1.0);
     FragPos = worldPos.xyz;
