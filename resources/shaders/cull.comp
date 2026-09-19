@@ -1,13 +1,13 @@
-#version 460 core
+#version 450
 
 layout(local_size_x = 256, local_size_y = 1, local_size_z = 1) in;
 
-struct DrawElementsIndirectCommand {
-    uint count;
-    uint instanceCount;
-    uint firstIndex;
-    uint baseVertex;
-    uint baseInstance;
+struct RenderableComponent {
+    uint mesh_uuid;
+    uint material_uuid;
+    uint shaderId;
+    uint objectId;
+    float alpha;
 };
 
 struct MeshInfo {
@@ -18,29 +18,22 @@ struct MeshInfo {
     vec4 boundingCenter;
 };
 
-struct RenderableComponent {
-    uint mesh_uuid;
-    uint material_uuid;
-    uint shaderId;
-    uint objectId;
-    float alpha;
-};
-
-struct TransformComponent {
-    mat4 localMatrix;
-    mat4 worldMatrix;
-};
-
-layout (std140, binding = 0) uniform SceneData {
+layout(std140) uniform SceneData {
     mat4 projection;
     mat4 view;
     vec3 lightPos;
     vec3 viewPos;
     vec3 lightColor;
     vec4 frustumPlanes[6];
-} sceneData;
+    vec4 dirLightDir;
+    vec4 dirLightColor;
+    vec4 pointLight0Pos;
+    vec4 pointLight0Color;
+    vec4 pointLight1Pos;
+    vec4 pointLight1Color;
+};
 
-layout (std140, binding = 1) uniform CullingUniforms {
+layout(std140) uniform CullingUniforms {
     uint u_objectCount;
     uint u_maxDraws;
     uint u_baseIndex;
@@ -48,119 +41,109 @@ layout (std140, binding = 1) uniform CullingUniforms {
     float u_hizMaxMipLevel;
     float u_hizTextureSizeX;
     float u_hizTextureSizeY;
-    uint u_padding;
+    uint u_numShaders;
 };
 
-layout(binding = 0, std430) buffer AtomicCounterBuffer {
-    uint visibleObjectCount;
+layout(std430) buffer AtomicCounterBuffer {
+    uint u_atomicCounter;
 };
 
-layout(binding = 1, std430) buffer VisibleObjectBuffer {
-    uint visibleObjects[];
+layout(std430) writeonly buffer VisibleObjectBuffer {
+    uint u_visibleObjects[];
 };
 
-layout(binding = 2, std430) readonly buffer ObjectBuffer {
-    TransformComponent transforms[];
+layout(std430) readonly buffer WorldMatrixBuffer {
+    mat4 worldMatrices[];
 };
 
-layout(binding = 3, std430) readonly buffer MeshInfoBuffer {
+layout(std430) readonly buffer MeshInfoBuffer {
     MeshInfo meshInfos[];
 };
 
-layout(binding = 4, std430) readonly buffer RenderableBuffer {
+layout(std430) readonly buffer RenderableBuffer {
     RenderableComponent renderables[];
+};
+
+layout(std430) buffer BucketCountBuffer {
+    uint bucketCounts[];
 };
 
 uniform sampler2D u_hizTexture;
 
-const float FRUSTUM_PADDING_FACTOR = 1.05f;
-
-bool isVisible(vec3 world_pos, float radius) {
-    for (int i = 0; i < 6; i++) {
-        if (dot(sceneData.frustumPlanes[i].xyz, world_pos) + sceneData.frustumPlanes[i].w < -radius) {
-            return false;
-        }
-    }
-    return true;
-}
-
-float getMinClipZ(vec3 worldPos, float worldRadius) {
-    vec4 clipCenter = sceneData.projection * sceneData.view * vec4(worldPos, 1.0);
-    if (clipCenter.w <= 0.0) return 1.0;
-
-    vec4 viewPos = sceneData.view * vec4(worldPos, 1.0);
-    float closestViewZ = viewPos.z + worldRadius;
-    vec4 clipClosestPoint = sceneData.projection * vec4(viewPos.xy, closestViewZ, 1.0);
-    return clipClosestPoint.z / clipClosestPoint.w;
-}
-
-float getMipLevel(vec3 worldPos, float worldRadius) {
-    vec4 clipCenter = sceneData.projection * sceneData.view * vec4(worldPos, 1.0);
-
-    if (clipCenter.w <= 0.0) return u_hizMaxMipLevel;
-    float projectedRadiusNDC = worldRadius * abs(sceneData.projection[1][1]) / abs(clipCenter.w);
-    float pixelDiameter = projectedRadiusNDC * u_hizTextureSizeY;
-    float mipLevel = log2(pixelDiameter);
-    return clamp(mipLevel, 0.0, u_hizMaxMipLevel);
-}
-
-bool testHiZ(vec3 worldPos, float worldRadius, float minClipZ) {
-    vec4 clipCenter = sceneData.projection * sceneData.view * vec4(worldPos, 1.0);
-    if (clipCenter.w <= 0.0) return false;
-
-    float mipLevel = getMipLevel(worldPos, worldRadius);
-
-    vec2 ndcPos = clipCenter.xy / clipCenter.w;
-    float projectedRadiusNDC = worldRadius * abs(sceneData.projection[1][1]) / abs(clipCenter.w);
-
-    vec2 uv_center = ndcPos * 0.5 + 0.5;
-    uv_center.y = 1.0 - uv_center.y; // Flip Y to match inverted depth buffer from Vulkan projection
-    vec2 uv_radius = vec2(projectedRadiusNDC * 0.5, projectedRadiusNDC * 0.5);
-
-    if (minClipZ <= textureLod(u_hizTexture, uv_center, mipLevel).r) return true;
-    if (minClipZ <= textureLod(u_hizTexture, uv_center + vec2(-uv_radius.x, -uv_radius.y), mipLevel).r) return true;
-    if (minClipZ <= textureLod(u_hizTexture, uv_center + vec2(uv_radius.x, -uv_radius.y), mipLevel).r) return true;
-    if (minClipZ <= textureLod(u_hizTexture, uv_center + vec2(-uv_radius.x, uv_radius.y), mipLevel).r) return true;
-    if (minClipZ <= textureLod(u_hizTexture, uv_center + vec2(uv_radius.x, uv_radius.y), mipLevel).r) return true;
-
-    return false;
-}
-
 void main() {
-    uint objectId = gl_GlobalInvocationID.x;
-    if (objectId >= u_objectCount) return;
+    uint id = gl_GlobalInvocationID.x;
+    if (id >= u_objectCount) return;
 
-    uint physicalIndex = objectId + u_baseIndex;
+    RenderableComponent r = renderables[id];
+    uint baseMeshUuid = r.mesh_uuid;
+    MeshInfo mesh = meshInfos[baseMeshUuid];
+    mat4 model = worldMatrices[id];
 
-    RenderableComponent renderable = renderables[physicalIndex];
-    mat4 modelMatrix = transforms[physicalIndex].worldMatrix;
-    MeshInfo mesh = meshInfos[renderable.mesh_uuid];
+    vec3 worldCenter = (model * vec4(mesh.boundingCenter.xyz, 1.0)).xyz;
+    float scaleX = length(model[0].xyz);
+    float scaleY = length(model[1].xyz);
+    float scaleZ = length(model[2].xyz);
+    float maxScale = max(scaleX, max(scaleY, scaleZ));
+    float radius = mesh.boundingRadius * maxScale;
 
-    vec4 world_pos_vec4 = modelMatrix * mesh.boundingCenter;
-    vec3 world_pos = world_pos_vec4.xyz;
-
-    float world_radius = mesh.boundingRadius * max(length(modelMatrix[0]), max(length(modelMatrix[1]), length(modelMatrix[2])));
-
-    if (!isVisible(world_pos, world_radius * FRUSTUM_PADDING_FACTOR)) {
-        return;
+    for (int i = 0; i < 6; ++i) {
+        if (dot(frustumPlanes[i].xyz, worldCenter) + frustumPlanes[i].w < -radius) return;
     }
 
-    float dist = distance(world_pos, sceneData.viewPos);
-    if (dist > 0.0) {
-        float projectedSize = world_radius / dist;
-        if (projectedSize < u_smallObjectThreshold) {
-            return;
-        }
+    vec4 viewPosCenter = view * vec4(worldCenter, 1.0);
+    float dist = -viewPosCenter.z;
+    if (dist <= 0.0) dist = 0.001;
+    float pRadius = radius / dist;
+    if (pRadius < u_smallObjectThreshold) return;
+
+    if (viewPosCenter.z + radius < -0.1) {
+        vec4 clipCenter = projection * vec4(viewPosCenter.xyz, 1.0);
+        vec2 ndcCenter = clipCenter.xy / clipCenter.w;
+        vec2 pSize = vec2(radius * abs(projection[0][0]), radius * abs(projection[1][1])) / dist;
+
+        vec2 uvCenter = vec2(ndcCenter.x * 0.5 + 0.5, 0.5 - ndcCenter.y * 0.5);
+
+        float u0 = clamp(uvCenter.x - pSize.x * 0.5, 0.0, 1.0);
+        float u1 = clamp(uvCenter.x + pSize.x * 0.5, 0.0, 1.0);
+        float v0 = clamp(uvCenter.y - pSize.y * 0.5, 0.0, 1.0);
+        float v1 = clamp(uvCenter.y + pSize.y * 0.5, 0.0, 1.0);
+
+        vec2 uvMin = vec2(min(u0, u1), min(v0, v1));
+        vec2 uvMax = vec2(max(u0, u1), max(v0, v1));
+
+        vec2 sizePixels = (uvMax - uvMin) * vec2(u_hizTextureSizeX, u_hizTextureSizeY);
+        float maxPix = max(sizePixels.x, sizePixels.y);
+        float mip = clamp(ceil(log2(max(maxPix, 1.0))), 0.0, u_hizMaxMipLevel);
+
+        float d0 = textureLod(u_hizTexture, vec2(uvMin.x, uvMin.y), mip).r;
+        float d1 = textureLod(u_hizTexture, vec2(uvMax.x, uvMin.y), mip).r;
+        float d2 = textureLod(u_hizTexture, vec2(uvMin.x, uvMax.y), mip).r;
+        float d3 = textureLod(u_hizTexture, vec2(uvMax.x, uvMax.y), mip).r;
+        float maxHizDepth = max(max(d0, d1), max(d2, d3));
+
+        vec4 nearPos = viewPosCenter;
+        nearPos.z += radius;
+        vec4 clipNear = projection * nearPos;
+        float sphereNearDepth = clipNear.z / clipNear.w;
+
+        if (sphereNearDepth > maxHizDepth) return;
     }
 
-    float minClipZ = getMinClipZ(world_pos, world_radius);
-    if (!testHiZ(world_pos, world_radius, minClipZ)) {
-        return;
+    uint chosenLod = 0;
+    if (mesh.indexCount > 36) {
+        float distToCam = distance(worldCenter, viewPos);
+        if (distToCam > 280.0) chosenLod = 3;
+        else if (distToCam > 170.0) chosenLod = 2;
+        else if (distToCam > 85.0) chosenLod = 1;
     }
 
-    uint index = atomicAdd(visibleObjectCount, 1);
-    if (index < u_maxDraws) {
-        // Write at frame offset location - glBindBufferRange reads from frameOffset
-        visibleObjects[index + u_baseIndex] = objectId;
+    uint chosenMesh = baseMeshUuid + chosenLod;
+
+    uint slot = atomicAdd(u_atomicCounter, 1);
+    if (slot < u_maxDraws) {
+        u_visibleObjects[slot] = id | (chosenLod << 30u);
     }
+
+    uint bucketIndex = r.shaderId * 2048 + chosenMesh;
+    atomicAdd(bucketCounts[bucketIndex], 1);
 }

@@ -1,38 +1,59 @@
-#version 460 core
+#version 450
 
-layout (std140, binding = 0) uniform SceneData {
+layout(location = 0) in vec3 in_normal;
+layout(location = 1) in vec3 in_fragPos;
+
+layout(std140) uniform SceneData {
     mat4 projection;
     mat4 view;
     vec3 lightPos;
     vec3 viewPos;
     vec3 lightColor;
     vec4 frustumPlanes[6];
-} sceneData;
+    vec4 dirLightDir;
+    vec4 dirLightColor;
+    vec4 pointLight0Pos;
+    vec4 pointLight0Color;
+    vec4 pointLight1Pos;
+    vec4 pointLight1Color;
+};
 
+layout(location = 0) out vec4 out_color;
 
-layout (location = 0) out vec4 FragColor;
+void main() {
+    vec3 N = normalize(in_normal);
+    vec3 V = normalize(viewPos - in_fragPos);
 
-layout (location = 0) in vec3 FragPos;
-layout (location = 1) in vec3 Normal;
+    vec3 ambient = mix(vec3(0.06, 0.07, 0.10), vec3(0.16, 0.18, 0.22), N.y * 0.5 + 0.5);
 
-void main()
-{
-    float ambientStrength = 0.1;
-    vec3 ambient = ambientStrength * sceneData.lightColor;
+    vec3 sunL = normalize(dirLightDir.xyz);
+    float sunDiff = max(dot(N, sunL), 0.0);
+    vec3 sunH = normalize(sunL + V);
+    float sunSpec = pow(max(dot(N, sunH), 0.0), 32.0) * dirLightDir.w;
+    vec3 sunColor = (sunDiff + sunSpec) * dirLightColor.rgb;
 
-    vec3 norm = normalize(Normal);
-    vec3 lightDir = normalize(sceneData.lightPos - FragPos);
-    float diff = max(dot(norm, lightDir), 0.0);
-    vec3 diffuse = diff * sceneData.lightColor;
+    vec3 p0Dir = pointLight0Pos.xyz - in_fragPos;
+    float p0Dist = length(p0Dir);
+    float p0Atten = clamp(1.0 - p0Dist / pointLight0Pos.w, 0.0, 1.0);
+    p0Atten = p0Atten * p0Atten;
+    vec3 p0L = p0Dir / max(p0Dist, 0.001);
+    float p0Diff = max(dot(N, p0L), 0.0);
+    vec3 p0H = normalize(p0L + V);
+    float p0Spec = pow(max(dot(N, p0H), 0.0), 32.0);
+    vec3 p0Color = (p0Diff + p0Spec) * pointLight0Color.rgb * (pointLight0Color.w * p0Atten);
 
-    float specularStrength = 0.5;
-    vec3 viewDir = normalize(sceneData.viewPos - FragPos);
-    vec3 reflectDir = reflect(-lightDir, norm);
-    float spec = pow(max(dot(viewDir, reflectDir), 0.0), 32);
-    vec3 specular = specularStrength * spec * sceneData.lightColor;
+    vec3 p1Dir = pointLight1Pos.xyz - in_fragPos;
+    float p1Dist = length(p1Dir);
+    float p1Atten = clamp(1.0 - p1Dist / pointLight1Pos.w, 0.0, 1.0);
+    p1Atten = p1Atten * p1Atten;
+    vec3 p1L = p1Dir / max(p1Dist, 0.001);
+    float p1Diff = max(dot(N, p1L), 0.0);
+    vec3 p1H = normalize(p1L + V);
+    float p1Spec = pow(max(dot(N, p1H), 0.0), 32.0);
+    vec3 p1Color = (p1Diff + p1Spec) * pointLight1Color.rgb * (pointLight1Color.w * p1Atten);
 
-    vec3 color = vec3(1.0, 0.0, 0.0);
+    vec3 lighting = ambient + sunColor + p0Color + p1Color;
+    vec3 baseColor = vec3(0.85, 0.08, 0.08);
 
-    vec3 result = (ambient + diffuse + specular) * color;
-    FragColor = vec4(result, 1.0);
+    out_color = vec4(baseColor * lighting, 1.0);
 }

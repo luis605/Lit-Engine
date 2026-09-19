@@ -26,11 +26,6 @@ struct RenderableComponent {
     float alpha;
 };
 
-struct TransformComponent {
-    mat4 localMatrix;
-    mat4 worldMatrix;
-};
-
 layout (std140) uniform SceneUniforms {
     mat4 projection;
     mat4 view;
@@ -44,6 +39,14 @@ layout(std140) uniform LargeObjectCullConstants {
     uint u_objectCount;
     uint u_maxDraws;
     float u_largeObjectThreshold;
+    uint u_numShaders;
+};
+
+// Per-(shaderId, mesh_uuid) survivor counts. The depth pre-pass consumes these through the same
+// prefix-sum/scatter/command-gen chain the opaque pass uses, so it can issue one instanced draw
+// per bucket instead of one indirect draw per visible large object.
+layout(std430) buffer LargeBucketCountBuffer {
+    uint largeBucketCounts[];
 };
 
 layout(std430) buffer VisibleLargeObjectAtomicCounter {
@@ -54,8 +57,8 @@ layout(std430) buffer VisibleLargeObjectBuffer {
     uint visibleLargeObjects[];
 };
 
-layout(std430) readonly buffer ObjectBuffer {
-    TransformComponent transforms[];
+layout(std430) readonly buffer WorldMatrixBuffer {
+    mat4 worldMatrices[];
 };
 
 layout(std430) readonly buffer MeshInfoBuffer {
@@ -65,6 +68,9 @@ layout(std430) readonly buffer MeshInfoBuffer {
 layout(std430) readonly buffer RenderableBuffer {
     RenderableComponent renderables[];
 };
+
+// Must match MAX_MESHES in Renderer.cpp - meshInfos[] is sized by it.
+const uint MAX_MESHES = 2048;
 
 const float FRUSTUM_PADDING_FACTOR = 1.05f;
 
@@ -83,8 +89,9 @@ void main() {
 
     RenderableComponent renderable = renderables[objectId];
     if (renderable.alpha < 1.0) return;
+    if (renderable.mesh_uuid >= MAX_MESHES || renderable.shaderId >= u_numShaders) return;
 
-    mat4 modelMatrix = transforms[objectId].worldMatrix;
+    mat4 modelMatrix = worldMatrices[objectId];
     MeshInfo mesh = meshInfos[renderable.mesh_uuid];
 
     vec4 world_pos_vec4 = modelMatrix * mesh.boundingCenter;
@@ -105,6 +112,9 @@ void main() {
 
         if (index < u_maxDraws) {
             visibleLargeObjects[index] = objectId;
+
+            uint bucketKey = renderable.shaderId * MAX_MESHES + renderable.mesh_uuid;
+            atomicAdd(largeBucketCounts[bucketKey], 1);
         }
     }
 }

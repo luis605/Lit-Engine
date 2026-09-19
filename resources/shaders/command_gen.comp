@@ -1,6 +1,11 @@
-#version 460 core
+#version 450
 
-layout (local_size_x = 1, local_size_y = 1, local_size_z = 1) in;
+// One thread per (shaderId, mesh) bucket - fixed dispatch size regardless of scene/visible-object
+// count - emitting a single instanced draw command per non-empty bucket. Replaces the old one
+// draw-command-per-object scheme, which produced up to one indirect draw per visible object.
+layout(local_size_x = 256, local_size_y = 1, local_size_z = 1) in;
+
+const uint MAX_MESHES = 2048;
 
 struct DrawElementsIndirectCommand {
     uint count;
@@ -18,88 +23,49 @@ struct MeshInfo {
     vec4 boundingCenter;
 };
 
-struct RenderableComponent {
-    uint mesh_uuid;
-    uint material_uuid;
-    uint shaderId;
-    uint objectId;
-    float alpha;
+layout(std430, binding = 0) buffer DrawAtomicCounterBuffer {
+    uint drawCounters[];
 };
 
-layout(std430) buffer DrawAtomicCounterBuffer {
-    uint drawCounts[];
-};
-
-layout(std430) buffer DrawCommandBuffer {
+layout(std430, binding = 1) buffer DrawCommandBuffer {
     DrawElementsIndirectCommand commands[];
 };
 
-layout(std430) readonly buffer MeshInfoBuffer {
+layout(std430, binding = 2) readonly buffer MeshInfoBuffer {
     MeshInfo meshInfos[];
 };
 
-layout(std430) readonly buffer RenderableBuffer {
-    RenderableComponent renderables[];
+layout(std430, binding = 3) readonly buffer BucketCountBuffer {
+    uint bucketCounts[];
 };
 
-layout(std430) readonly buffer VisibleObjectBuffer {
-    uint visibleObjects[];
+layout(std430, binding = 4) readonly buffer BucketOffsetBuffer {
+    uint bucketOffsets[];
 };
 
-layout(std140) uniform CommandGenConstants {
-    uint u_visibleObjectCount;
-    uint u_maxDraws;
+layout(std140, binding = 5) uniform CommandGenConstants {
+    uint u_maxBucketsPerShader; // = MAX_MESHES
+    uint u_totalBuckets;        // = numDrawingShaders * MAX_MESHES
 };
 
 void main() {
-    if (u_visibleObjectCount == 0) {
-        return;
-    }
+    uint key = gl_GlobalInvocationID.x;
+    if (key >= u_totalBuckets) return;
 
-    uint currentObjectId = visibleObjects[0];
-    RenderableComponent currentRenderable = renderables[currentObjectId];
-    uint currentMeshId = currentRenderable.mesh_uuid;
-    uint currentShaderId = currentRenderable.shaderId;
-    uint currentInstanceCount = 1;
-    uint baseInstance = 0;
+    uint count = bucketCounts[key];
+    if (count == 0) return;
 
-    for (uint i = 1; i < u_visibleObjectCount; ++i) {
-        uint objectId = visibleObjects[i];
-        RenderableComponent renderable = renderables[objectId];
-        uint meshId = renderable.mesh_uuid;
-        uint shaderId = renderable.shaderId;
+    uint shaderId = key / MAX_MESHES;
+    uint meshId = key % MAX_MESHES;
+    MeshInfo mesh = meshInfos[meshId];
 
-        if (meshId == currentMeshId && shaderId == currentShaderId) {
-            currentInstanceCount++;
-        } else {
-            MeshInfo mesh = meshInfos[currentMeshId];
+    uint drawIdx = atomicAdd(drawCounters[shaderId], 1);
+    if (drawIdx >= u_maxBucketsPerShader) return;
 
-            uint indexInBin = atomicAdd(drawCounts[currentShaderId], 1);
-
-            if (indexInBin < u_maxDraws) {
-                uint writeIndex = currentShaderId * u_maxDraws + indexInBin;
-                commands[writeIndex].instanceCount = currentInstanceCount;
-                commands[writeIndex].baseInstance = baseInstance;
-                commands[writeIndex].count = mesh.indexCount;
-                commands[writeIndex].firstIndex = mesh.firstIndex;
-                commands[writeIndex].baseVertex = mesh.baseVertex;
-            }
-
-            currentMeshId = meshId;
-            currentShaderId = shaderId;
-            currentInstanceCount = 1;
-            baseInstance = i;
-        }
-    }
-
-   MeshInfo mesh = meshInfos[currentMeshId];
-    uint indexInBin = atomicAdd(drawCounts[currentShaderId], 1);
-    if (indexInBin < u_maxDraws) {
-        uint writeIndex = currentShaderId * u_maxDraws + indexInBin;
-        commands[writeIndex].instanceCount = currentInstanceCount;
-        commands[writeIndex].baseInstance = baseInstance;
-        commands[writeIndex].count = mesh.indexCount;
-        commands[writeIndex].firstIndex = mesh.firstIndex;
-        commands[writeIndex].baseVertex = mesh.baseVertex;
-    }
+    uint cmdOffset = shaderId * u_maxBucketsPerShader + drawIdx;
+    commands[cmdOffset].count = mesh.indexCount;
+    commands[cmdOffset].instanceCount = count;
+    commands[cmdOffset].firstIndex = mesh.firstIndex;
+    commands[cmdOffset].baseVertex = mesh.baseVertex;
+    commands[cmdOffset].baseInstance = bucketOffsets[key];
 }

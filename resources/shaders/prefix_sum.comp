@@ -1,0 +1,109 @@
+#version 460 core
+
+// Exclusive prefix sum over the (shaderId, mesh) bucket-count array, computed by a SINGLE
+// workgroup (the host dispatches exactly DispatchComputeAttribs(1,1,1) - do not change that
+// assumption here). Bucket space is numShaders * MAX_MESHES, a few thousand entries.
+//
+// This used to be one thread serially walking every bucket, which serialised a few thousand
+// dependent global loads onto a single lane. It is now a tiled in-workgroup scan: 256 lanes,
+// 4 elements each (1024-element tiles), a serial scan inside each lane, a Hillis-Steele scan
+// over the 256 per-lane sums in shared memory, and a running carry across tiles. Same single
+// workgroup, same bindings, same results.
+layout(local_size_x = 256, local_size_y = 1, local_size_z = 1) in;
+
+const uint THREADS = 256u;
+const uint ITEMS_PER_THREAD = 4u;
+const uint TILE = THREADS * ITEMS_PER_THREAD; // 1024
+
+layout(std140, binding = 0) uniform PrefixSumConstants {
+    uint u_bucketCount;
+};
+
+layout(binding = 1, std430) readonly buffer BucketCountBuffer {
+    uint bucketCounts[];
+};
+
+layout(binding = 2, std430) writeonly buffer BucketOffsetBuffer {
+    uint bucketOffsets[];
+};
+
+layout(binding = 3, std430) writeonly buffer BucketWriteHeadBuffer {
+    uint bucketWriteHeads[];
+};
+
+// Per-lane subtotals for the intra-tile scan.
+shared uint s_scan[THREADS];
+
+void main() {
+    const uint tid = gl_LocalInvocationID.x;
+
+    // Running exclusive offset of every tile already fully processed. Uniform across the
+    // workgroup: every lane derives it from the same shared-memory total.
+    uint carry = 0u;
+
+    // u_bucketCount is uniform, so this loop is uniform control flow and every lane reaches
+    // every barrier() the same number of times. bucketCount == 0 simply skips the body and
+    // writes nothing, exactly like the old serial loop did.
+    for (uint tileBase = 0u; tileBase < u_bucketCount; tileBase += TILE) {
+        const uint i0 = tileBase + tid * ITEMS_PER_THREAD;
+
+        // Out-of-range lanes contribute 0 so a bucketCount that is not a multiple of TILE (or
+        // of THREADS) still produces the right totals; they just skip the stores below.
+        const uint v0 = (i0 + 0u < u_bucketCount) ? bucketCounts[i0 + 0u] : 0u;
+        const uint v1 = (i0 + 1u < u_bucketCount) ? bucketCounts[i0 + 1u] : 0u;
+        const uint v2 = (i0 + 2u < u_bucketCount) ? bucketCounts[i0 + 2u] : 0u;
+        const uint v3 = (i0 + 3u < u_bucketCount) ? bucketCounts[i0 + 3u] : 0u;
+
+        // Serial exclusive scan over this lane's 4 elements (registers only).
+        const uint e0 = 0u;
+        const uint e1 = v0;
+        const uint e2 = e1 + v1;
+        const uint e3 = e2 + v2;
+        const uint laneSum = e3 + v3;
+
+        s_scan[tid] = laneSum;
+        barrier();
+
+        // Hillis-Steele inclusive scan over the 256 per-lane sums. 8 steps.
+        for (uint offset = 1u; offset < THREADS; offset <<= 1) {
+            const uint add = (tid >= offset) ? s_scan[tid - offset] : 0u;
+            barrier();
+            s_scan[tid] += add;
+            barrier();
+        }
+
+        const uint laneExclusive = s_scan[tid] - laneSum; // exclusive prefix within the tile
+        const uint tileTotal = s_scan[THREADS - 1u];
+
+        const uint base = carry + laneExclusive;
+
+        // Both buffers get the identical exclusive prefix sum: BucketOffsetBuffer is the
+        // immutable run start consumed by command gen, BucketWriteHeadBuffer is the same value
+        // used as the initial cursor that scatter.comp atomically bumps.
+        if (i0 + 0u < u_bucketCount) {
+            const uint o = base + e0;
+            bucketOffsets[i0 + 0u] = o;
+            bucketWriteHeads[i0 + 0u] = o;
+        }
+        if (i0 + 1u < u_bucketCount) {
+            const uint o = base + e1;
+            bucketOffsets[i0 + 1u] = o;
+            bucketWriteHeads[i0 + 1u] = o;
+        }
+        if (i0 + 2u < u_bucketCount) {
+            const uint o = base + e2;
+            bucketOffsets[i0 + 2u] = o;
+            bucketWriteHeads[i0 + 2u] = o;
+        }
+        if (i0 + 3u < u_bucketCount) {
+            const uint o = base + e3;
+            bucketOffsets[i0 + 3u] = o;
+            bucketWriteHeads[i0 + 3u] = o;
+        }
+
+        carry += tileTotal;
+
+        // Everyone has finished reading s_scan for this tile before the next tile overwrites it.
+        barrier();
+    }
+}

@@ -8,9 +8,10 @@ export module Engine.Render.component;
 import Engine.Render.entity;
 import Engine.glm;
 
+// World matrix is GPU-only (computed by transform.comp from the hierarchy each frame) and lives
+// in a separate GPU buffer - the CPU never owns or uploads it, only the local matrix.
 export struct TransformComponent {
     glm::mat4 localMatrix{1.0f};
-    glm::mat4 worldMatrix{1.0f};
 };
 
 export struct HierarchyComponent {

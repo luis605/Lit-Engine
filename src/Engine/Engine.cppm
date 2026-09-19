@@ -2,6 +2,8 @@ module;
 
 #include <optional>
 #include <string>
+#include <vector>
+#include <cstdint>
 
 struct GLFWwindow;
 
@@ -22,12 +24,16 @@ export class Engine {
     void update(SceneDatabase& sceneDatabase, Camera& camera);
     void present();
     void cleanup();
-    void uploadMesh(const Mesh& mesh);
+    uint32_t uploadMesh(const Mesh& mesh);
+    std::vector<uint32_t> uploadMeshWithLODs(const Mesh& baseMesh, const std::vector<float>& lodRatios);
+    void uploadBasePositions(const std::vector<glm::vec3>& basePositions);
+    void setAnimation(float time, uint32_t movingCount, uint32_t entityOffset);
     void AddText(const std::string& text, float x, float y, float scale, const glm::vec3& color);
     void setSmallObjectThreshold(float threshold);
     void setLargeObjectThreshold(float threshold);
     void setDebugDepthMode(bool enabled);
     bool isDebugDepthMode() const;
+    void setFullProfiling(bool enabled);
 
   private:
     Renderer m_renderer;

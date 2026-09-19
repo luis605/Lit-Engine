@@ -3,13 +3,8 @@
 layout (location = 0) in vec3 aPos;
 layout (location = 1) in vec3 aNormal;
 
-struct TransformComponent {
-    mat4 localMatrix;
-    mat4 worldMatrix;
-};
-
-layout(std430, binding = 2) readonly buffer ObjectBuffer {
-    TransformComponent transforms[];
+layout(std430, binding = 2) readonly buffer WorldMatrixBuffer {
+    mat4 worldMatrices[];
 };
 
 layout (std140, binding = 0) uniform SceneData {
@@ -29,6 +24,6 @@ layout(binding = 5) readonly buffer VisibleLargeObjectBuffer {
 void main()
 {
     uint objectId = visibleLargeObjects[gl_InstanceIndex];
-    mat4 modelMatrix = transforms[objectId].worldMatrix;
+    mat4 modelMatrix = worldMatrices[objectId];
     gl_Position = sceneData.projection * sceneData.view * modelMatrix * vec4(aPos, 1.0);
 }

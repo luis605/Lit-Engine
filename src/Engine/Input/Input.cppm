@@ -37,4 +37,5 @@ export class InputManager {
 
     static glm::vec2 m_currentMousePos;
     static glm::vec2 m_previousMousePos;
+    static bool m_firstMouseMove;
 };

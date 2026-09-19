@@ -1,5 +1,7 @@
 struct GLFWwindow;
 #include <string>
+#include <vector>
+#include <cstdint>
 
 import Engine.engine;
 import Engine.renderer;
@@ -22,7 +24,11 @@ void Engine::present() { m_renderer.present(); }
 
 void Engine::cleanup() { m_renderer.cleanup(); }
 
-void Engine::uploadMesh(const Mesh& mesh) { m_renderer.uploadMesh(mesh); }
+uint32_t Engine::uploadMesh(const Mesh& mesh) { return m_renderer.uploadMesh(mesh); }
+
+std::vector<uint32_t> Engine::uploadMeshWithLODs(const Mesh& baseMesh, const std::vector<float>& lodRatios) {
+    return m_renderer.uploadMeshWithLODs(baseMesh, lodRatios);
+}
 
 void Engine::AddText(const std::string& text, float x, float y, float scale, const glm::vec3& color) {
     m_renderer.AddText(text, x, y, scale, color);
@@ -32,3 +38,12 @@ void Engine::setSmallObjectThreshold(float threshold) { m_renderer.setSmallObjec
 void Engine::setLargeObjectThreshold(float threshold) { m_renderer.setLargeObjectThreshold(threshold); }
 void Engine::setDebugDepthMode(bool enabled) { m_renderer.setDebugDepthMode(enabled); }
 bool Engine::isDebugDepthMode() const { return m_renderer.isDebugDepthMode(); }
+void Engine::setFullProfiling(bool enabled) { m_renderer.setFullProfiling(enabled); }
+
+void Engine::uploadBasePositions(const std::vector<glm::vec3>& basePositions) {
+    m_renderer.uploadBasePositions(basePositions);
+}
+
+void Engine::setAnimation(float time, uint32_t movingCount, uint32_t entityOffset) {
+    m_renderer.setAnimation(time, movingCount, entityOffset);
+}

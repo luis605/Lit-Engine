@@ -14,7 +14,6 @@ glm::mat4 Camera::getViewMatrix() const {
 
 glm::mat4 Camera::getProjectionMatrix() const {
     glm::mat4 proj = glm::perspectiveRH_ZO(glm::radians(m_fov), m_aspectRatio, m_nearPlane, m_farPlane);
-    proj[1][1] *= -1;
     return proj;
 }
 

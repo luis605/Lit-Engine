@@ -1,0 +1,43 @@
+#version 460 core
+
+// Scatters only the entities that actually changed this frame into the GPU-resident local-matrix
+// buffer, instead of re-uploading the whole (possibly multi-million-entry) array every dirty
+// frame. CPU writes a small (dirtyCount-sized) index + payload pair; this pass does the rest.
+layout(local_size_x = 256, local_size_y = 1, local_size_z = 1) in;
+
+struct TransformComponent {
+    mat4 localMatrix;
+};
+
+layout(binding = 0, std430) readonly buffer DirtyIndexBuffer {
+    uint dirtyIndices[];
+};
+
+layout(binding = 1, std430) readonly buffer DirtyPayloadBuffer {
+    mat4 dirtyLocalMatrices[];
+};
+
+// Both of these are pure scatter targets in this pass; marking them writeonly (NonReadable in
+// SPIR-V) lets the driver skip read-for-ownership on the partially written cache lines. They stay
+// UAV-bound, exactly as before.
+layout(binding = 2, std430) writeonly buffer TransformBuffer {
+    TransformComponent transforms[];
+};
+
+layout(binding = 4, std430) writeonly buffer TouchedEpochBuffer {
+    uint touchedEpoch[];
+};
+
+layout(std140, binding = 3) uniform ApplyDirtyConstants {
+    uint u_dirtyCount;
+    uint u_epoch;
+};
+
+void main() {
+    uint i = gl_GlobalInvocationID.x;
+    if (i >= u_dirtyCount) return;
+
+    uint idx = dirtyIndices[i];
+    transforms[idx].localMatrix = dirtyLocalMatrices[i];
+    touchedEpoch[idx] = u_epoch;
+}

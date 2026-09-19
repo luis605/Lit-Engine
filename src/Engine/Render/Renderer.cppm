@@ -12,12 +12,13 @@ export module Engine.renderer;
 
 import Engine.camera;
 import Engine.Render.scenedatabase;
+import Engine.Render.entity;
 import Engine.mesh;
 import Engine.UI.manager;
 import Engine.glm;
 
 export class Renderer {
-  public:
+   public:
     Renderer();
     ~Renderer();
 
@@ -25,23 +26,30 @@ export class Renderer {
     void drawScene(SceneDatabase& sceneDatabase, const Camera& camera);
     void present();
     void cleanup();
-    void uploadMesh(const Mesh& mesh);
+    uint32_t uploadMesh(const Mesh& mesh);
+    std::vector<uint32_t> uploadMeshWithLODs(const Mesh& baseMesh, const std::vector<float>& lodRatios);
+    void uploadBasePositions(const std::vector<glm::vec3>& basePositions);
+    void setAnimation(float time, uint32_t movingCount, uint32_t entityOffset);
     void AddText(const std::string& text, float x, float y, float scale, const glm::vec3& color);
     void setSmallObjectThreshold(float threshold);
     void setLargeObjectThreshold(float threshold);
     void setDebugDepthMode(bool enabled);
     bool isDebugDepthMode() const;
+    void setFullProfiling(bool enabled);
 
-  private:
+   private:
     void createTransformPSO();
+    void createAnimPSO();
     void createHiZPSO();
     void createCullingPSO();
-    void createOpaqueSortPSO();
     void createCommandGenPSO();
+    void createPrefixSumPSO();
+    void createScatterPSO();
+    void createDispatchArgsPSO();
+    void createApplyDirtyPSO();
+    void createMarkTouchedPSO();
     void createLargeObjectCullPSO();
-    void createLargeObjectSortPSO();
     void createTransparentCullPSO();
-    void createTransparentSortPSO();
     void createTransparentCommandGenPSO();
     void createLargeObjectCommandGenPSO();
     void createDepthPrepassPSO();
@@ -57,12 +65,24 @@ export class Renderer {
     int m_maxMipLevel = 0;
 
     size_t m_numDrawingShaders = 0;
+    std::vector<unsigned int> m_bucketZeros;
+
+    std::vector<uint8_t> m_levelNeedsProcessing;
+
+    std::vector<Entity> m_pendingDirty[NUM_FRAMES_IN_FLIGHT];
+    std::vector<Entity> m_dirtyIndexScratch;
+    std::vector<glm::mat4> m_dirtyPayloadScratch;
+    uint32_t m_transformEpoch = 0;
+
+    float m_animTime = 0.0f;
+    uint32_t m_animMovingCount = 0;
+    uint32_t m_animEntityOffset = 0;
 
     bool m_initialized = false;
     bool m_meshInfoDirty = true;
     bool fullProfiling;
 
-    UIManager* m_uiManager;
+    UIManager* m_uiManager = nullptr;
 
     unsigned int m_currentFrame = 0;
 
@@ -81,10 +101,13 @@ export class Renderer {
 
     uint64_t m_processedHierarchyVersion = 0;
     uint64_t m_processedDataVersion = 0;
+    uint64_t m_processedTransformVersion = 0;
     int m_hierarchyUpdateCounter = 0;
-    int m_dataUpdateCounter = 0;
+    int m_fullTransformUpdateCounter = 0;
+    int m_transformUpdateCounter = 0;
+    int m_renderableUpdateCounter = 0;
 
-    float m_smallObjectThreshold = 0.005f;
+    float m_smallObjectThreshold = 0.0f;
     float m_largeObjectThreshold = 0.1f;
     int m_windowWidth = 0;
     int m_windowHeight = 0;

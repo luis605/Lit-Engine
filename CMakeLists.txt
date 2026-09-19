@@ -2,6 +2,14 @@ cmake_minimum_required(VERSION 3.28)
 
 project(LitEditor LANGUAGES CXX C)
 
+# An unqualified `cmake ..` previously produced an unoptimized (-O0) binary with no warning ever
+# given - every frame-time measurement taken against that build (including this engine's own
+# on-screen counter) was meaningless. Default to Release; pass -DCMAKE_BUILD_TYPE=Debug explicitly
+# for a debug build.
+if(NOT CMAKE_BUILD_TYPE AND NOT CMAKE_CONFIGURATION_TYPES)
+    set(CMAKE_BUILD_TYPE Release CACHE STRING "Build type" FORCE)
+endif()
+
 set(CMAKE_CXX_STANDARD 26)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_EXTENSIONS OFF)
@@ -18,6 +26,10 @@ set(ASSIMP_BUILD_ASSIMP_VIEW OFF CACHE BOOL "Disable Assimp viewer")
 set(BUILD_SHARED_LIBS OFF CACHE BOOL "Build static libraries")
 set(ASSIMP_INSTALL OFF CACHE BOOL "Disable Assimp install target")
 set(ASSIMP_BUILD_ALL_EXPORTERS_BY_DEFAULT OFF CACHE BOOL "Disable all exporters")
+# Assimp defaults this ON; its STEP/IFC importer trips -Werror=maybe-uninitialized under
+# GCC 15 in optimized (Release) builds, which otherwise fails the build for reasons unrelated
+# to this project's own code.
+set(ASSIMP_WARNINGS_AS_ERRORS OFF CACHE BOOL "Disable Assimp warnings-as-errors" FORCE)
 
 add_subdirectory(src/vendors/assimp)
 add_subdirectory(src/vendors/glfw)

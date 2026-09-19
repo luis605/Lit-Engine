@@ -7,6 +7,8 @@
 #include <string_view>
 #include <source_location>
 #include <format>
+#include <concepts>
+#include <type_traits>
 
 namespace Lit {
 
@@ -16,34 +18,44 @@ enum class LogLevel { Info,
                       Error,
                       Fatal };
 
+template <typename... Args>
+struct FormatStringWithLocation {
+    std::format_string<Args...> str;
+    std::source_location loc;
+
+    template <typename T>
+    requires std::constructible_from<std::format_string<Args...>, const T&>
+    consteval FormatStringWithLocation(const T& s, std::source_location l = std::source_location::current())
+        : str(s), loc(l) {}
+};
+
 class Log {
   public:
     static void Init();
 
     template <typename... Args>
-    static void Info(std::format_string<Args...> message, Args&&... args) {
-
-        LogInternal(LogLevel::Info, std::source_location::current(), std::format(message, std::forward<Args>(args)...));
+    static void Info(FormatStringWithLocation<std::type_identity_t<Args>...> message, Args&&... args) {
+        LogInternal(LogLevel::Info, message.loc, std::format(message.str, std::forward<Args>(args)...));
     }
 
     template <typename... Args>
-    static void Debug(std::format_string<Args...> message, Args&&... args) {
-        LogInternal(LogLevel::Debug, std::source_location::current(), std::format(message, std::forward<Args>(args)...));
+    static void Debug(FormatStringWithLocation<std::type_identity_t<Args>...> message, Args&&... args) {
+        LogInternal(LogLevel::Debug, message.loc, std::format(message.str, std::forward<Args>(args)...));
     }
 
     template <typename... Args>
-    static void Warn(std::format_string<Args...> message, Args&&... args) {
-        LogInternal(LogLevel::Warning, std::source_location::current(), std::format(message, std::forward<Args>(args)...));
+    static void Warn(FormatStringWithLocation<std::type_identity_t<Args>...> message, Args&&... args) {
+        LogInternal(LogLevel::Warning, message.loc, std::format(message.str, std::forward<Args>(args)...));
     }
 
     template <typename... Args>
-    static void Error(std::format_string<Args...> message, Args&&... args) {
-        LogInternal(LogLevel::Error, std::source_location::current(), std::format(message, std::forward<Args>(args)...));
+    static void Error(FormatStringWithLocation<std::type_identity_t<Args>...> message, Args&&... args) {
+        LogInternal(LogLevel::Error, message.loc, std::format(message.str, std::forward<Args>(args)...));
     }
 
     template <typename... Args>
-    static void Fatal(std::format_string<Args...> message, Args&&... args) {
-        LogInternal(LogLevel::Fatal, std::source_location::current(), std::format(message, std::forward<Args>(args)...));
+    static void Fatal(FormatStringWithLocation<std::type_identity_t<Args>...> message, Args&&... args) {
+        LogInternal(LogLevel::Fatal, message.loc, std::format(message.str, std::forward<Args>(args)...));
     }
 
   private:

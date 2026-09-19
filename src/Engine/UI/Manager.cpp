@@ -3,12 +3,13 @@ module;
 #include <ft2build.h>
 #include FT_FREETYPE_H
 
-#include <map>
-#include <memory>
-#include <vector>
+#include <algorithm>
+#include <cstdint>
 #include <cstring>
 #include <fstream>
+#include <memory>
 #include <sstream>
+#include <string_view>
 #include <vector>
 
 #include "DiligentCore/Graphics/GraphicsEngine/interface/RenderDevice.h"
@@ -27,11 +28,28 @@ module Engine.UI.manager;
 
 import Engine.glm;
 
-struct Character {
-    Diligent::RefCntAutoPtr<Diligent::ITextureView> pTextureView;
-    glm::ivec2 size;
-    glm::ivec2 bearing;
-    unsigned int advance;
+inline constexpr unsigned int kGlyphCount = 128;
+inline constexpr unsigned int kAtlasWidth = 1024;
+inline constexpr unsigned int kAtlasMaxHeight = 1024;
+inline constexpr unsigned int kAtlasPadding = 2;
+inline constexpr unsigned int kInitialGlyphCapacity = 2048;
+
+struct Glyph {
+    float u0 = 0.0f, v0 = 0.0f, u1 = 0.0f, v1 = 0.0f;
+    int sizeX = 0, sizeY = 0;
+    int bearingX = 0, bearingY = 0;
+    unsigned int advance = 0;
+    bool valid = false;
+};
+
+struct TextVertex {
+    float x, y, u, v;
+};
+
+struct DrawBatch {
+    Diligent::Uint32 firstVertex;
+    Diligent::Uint32 numVertices;
+    glm::vec3 color;
 };
 
 struct DiligentUIData {
@@ -43,8 +61,15 @@ struct DiligentUIData {
     Diligent::RefCntAutoPtr<Diligent::IShaderResourceBinding> pSRB;
     Diligent::RefCntAutoPtr<Diligent::IBuffer> pVertexBuffer;
     Diligent::RefCntAutoPtr<Diligent::IBuffer> pConstants;
+    Diligent::RefCntAutoPtr<Diligent::ITexture> pAtlas;
+    Diligent::RefCntAutoPtr<Diligent::ITextureView> pAtlasView;
 
-    std::map<char, Character> characters;
+    Glyph glyphs[kGlyphCount];
+
+    std::vector<TextVertex> vertexScratch;
+    std::vector<DrawBatch> batches;
+
+    Diligent::Uint32 vertexCapacity = 0;
 };
 
 struct TextConstantBuffer {
@@ -63,13 +88,33 @@ static std::string LoadSourceFromFile(const std::string& filepath) {
     return buffer.str();
 }
 
-UIManager::UIManager() {
-    m_diligent = new DiligentUIData();
+static bool CreateTextVertexBuffer(DiligentUIData* d, Diligent::Uint32 numVertices) {
+    Diligent::BufferDesc VertBuffDesc;
+    VertBuffDesc.Name = "Text Vertex Buffer";
+    VertBuffDesc.Usage = Diligent::USAGE_DYNAMIC;
+    VertBuffDesc.BindFlags = Diligent::BIND_VERTEX_BUFFER;
+    VertBuffDesc.CPUAccessFlags = Diligent::CPU_ACCESS_WRITE;
+    VertBuffDesc.Size = static_cast<Diligent::Uint64>(numVertices) * sizeof(TextVertex);
+
+    Diligent::RefCntAutoPtr<Diligent::IBuffer> pBuffer;
+    d->pDevice->CreateBuffer(VertBuffDesc, nullptr, &pBuffer);
+    if (!pBuffer) {
+        Lit::Log::Error("Failed to create Text Vertex Buffer ({} vertices)", numVertices);
+        return false;
+    }
+
+    d->pVertexBuffer = pBuffer;
+    d->vertexCapacity = numVertices;
+    return true;
 }
 
-UIManager::~UIManager() {
-    delete static_cast<DiligentUIData*>(m_diligent);
+UIManager::UIManager() {
+    m_diligent = new DiligentUIData();
+    m_texts.reserve(64);
+    m_textArena.reserve(4096);
 }
+
+UIManager::~UIManager() { delete static_cast<DiligentUIData*>(m_diligent); }
 
 void UIManager::init(Diligent::IRenderDevice* pDevice, Diligent::IDeviceContext* pContext, Diligent::ISwapChain* pSwapChain, const int windowWidth, const int windowHeight) {
     auto* d = static_cast<DiligentUIData*>(m_diligent);
@@ -93,65 +138,97 @@ void UIManager::init(Diligent::IRenderDevice* pDevice, Diligent::IDeviceContext*
 
     FT_Set_Pixel_Sizes(face, 0, 48);
 
-    for (unsigned char c = 0; c < 128; c++) {
+    std::vector<unsigned char> atlasPixels(static_cast<size_t>(kAtlasWidth) * kAtlasMaxHeight, 0);
+    unsigned int penX = 0;
+    unsigned int penY = 0;
+    unsigned int rowHeight = 0;
+    unsigned int usedHeight = 0;
+
+    for (unsigned char c = 0; c < kGlyphCount; c++) {
         if (FT_Load_Char(face, c, FT_LOAD_RENDER)) {
             Lit::Log::Warn("FREETYPE: Failed to load Glyph");
             continue;
         }
 
-        Diligent::TextureDesc TexDesc;
-        TexDesc.Type = Diligent::RESOURCE_DIM_TEX_2D;
-        TexDesc.Width = face->glyph->bitmap.width;
-        TexDesc.Height = face->glyph->bitmap.rows;
-        TexDesc.Format = Diligent::TEX_FORMAT_R8_UNORM;
-        TexDesc.Usage = Diligent::USAGE_IMMUTABLE;
-        TexDesc.BindFlags = Diligent::BIND_SHADER_RESOURCE;
-        TexDesc.MipLevels = 1;
+        Glyph& glyph = d->glyphs[c];
+        glyph.sizeX = static_cast<int>(face->glyph->bitmap.width);
+        glyph.sizeY = static_cast<int>(face->glyph->bitmap.rows);
+        glyph.bearingX = face->glyph->bitmap_left;
+        glyph.bearingY = face->glyph->bitmap_top;
+        glyph.advance = static_cast<unsigned int>(face->glyph->advance.x);
 
-        Diligent::RefCntAutoPtr<Diligent::ITexture> pTexture;
-        Diligent::RefCntAutoPtr<Diligent::ITextureView> pTextureView;
+        const unsigned int w = face->glyph->bitmap.width;
+        const unsigned int h = face->glyph->bitmap.rows;
+        if (w == 0 || h == 0)
+            continue;
 
-        if (TexDesc.Width > 0 && TexDesc.Height > 0) {
-
-            unsigned int alignedStride = (TexDesc.Width + 3) & ~3;
-            std::vector<unsigned char> alignedData(alignedStride * TexDesc.Height);
-
-            for (unsigned int r = 0; r < TexDesc.Height; ++r) {
-                memcpy(alignedData.data() + r * alignedStride,
-                       face->glyph->bitmap.buffer + r * face->glyph->bitmap.pitch,
-                       TexDesc.Width);
-            }
-
-            Diligent::TextureSubResData InitData;
-            InitData.pData = alignedData.data();
-            InitData.Stride = alignedStride;
-
-            Diligent::TextureData Data;
-            Data.NumSubresources = 1;
-            Data.pSubResources = &InitData;
-
-            d->pDevice->CreateTexture(TexDesc, &Data, &pTexture);
-            pTextureView = pTexture->GetDefaultView(Diligent::TEXTURE_VIEW_SHADER_RESOURCE);
+        if (penX + w + kAtlasPadding > kAtlasWidth) {
+            penX = 0;
+            penY += rowHeight + kAtlasPadding;
+            rowHeight = 0;
         }
 
-        Character character = {
-            pTextureView,
-            glm::ivec2(face->glyph->bitmap.width, face->glyph->bitmap.rows),
-            glm::ivec2(face->glyph->bitmap_left, face->glyph->bitmap_top),
-            static_cast<unsigned int>(face->glyph->advance.x)};
-        d->characters.insert(std::pair<char, Character>(c, character));
+        if (penY + h > kAtlasMaxHeight) {
+            Lit::Log::Warn("Font atlas is full, glyph {} was dropped", static_cast<int>(c));
+            continue;
+        }
+
+        for (unsigned int r = 0; r < h; ++r) { memcpy(atlasPixels.data() + static_cast<size_t>(penY + r) * kAtlasWidth + penX, face->glyph->bitmap.buffer + static_cast<ptrdiff_t>(r) * face->glyph->bitmap.pitch, w); }
+
+        glyph.u0 = static_cast<float>(penX);
+        glyph.v0 = static_cast<float>(penY);
+        glyph.u1 = static_cast<float>(penX + w);
+        glyph.v1 = static_cast<float>(penY + h);
+        glyph.valid = true;
+
+        penX += w + kAtlasPadding;
+        rowHeight = std::max(rowHeight, h);
+        usedHeight = std::max(usedHeight, penY + h);
     }
 
     FT_Done_Face(face);
     FT_Done_FreeType(ft);
 
-    Diligent::BufferDesc VertBuffDesc;
-    VertBuffDesc.Name = "Text Vertex Buffer";
-    VertBuffDesc.Usage = Diligent::USAGE_DYNAMIC;
-    VertBuffDesc.BindFlags = Diligent::BIND_VERTEX_BUFFER;
-    VertBuffDesc.CPUAccessFlags = Diligent::CPU_ACCESS_WRITE;
-    VertBuffDesc.Size = sizeof(float) * 6 * 4;
-    d->pDevice->CreateBuffer(VertBuffDesc, nullptr, &d->pVertexBuffer);
+    const unsigned int atlasHeight = std::max(usedHeight, 1u);
+    for (Glyph& glyph : d->glyphs) {
+        if (!glyph.valid)
+            continue;
+        glyph.u0 /= static_cast<float>(kAtlasWidth);
+        glyph.u1 /= static_cast<float>(kAtlasWidth);
+        glyph.v0 /= static_cast<float>(atlasHeight);
+        glyph.v1 /= static_cast<float>(atlasHeight);
+    }
+
+    {
+        Diligent::TextureDesc TexDesc;
+        TexDesc.Name = "Text Glyph Atlas";
+        TexDesc.Type = Diligent::RESOURCE_DIM_TEX_2D;
+        TexDesc.Width = kAtlasWidth;
+        TexDesc.Height = atlasHeight;
+        TexDesc.Format = Diligent::TEX_FORMAT_R8_UNORM;
+        TexDesc.Usage = Diligent::USAGE_IMMUTABLE;
+        TexDesc.BindFlags = Diligent::BIND_SHADER_RESOURCE;
+        TexDesc.MipLevels = 1;
+
+        Diligent::TextureSubResData InitData;
+        InitData.pData = atlasPixels.data();
+        InitData.Stride = kAtlasWidth;
+
+        Diligent::TextureData Data;
+        Data.NumSubresources = 1;
+        Data.pSubResources = &InitData;
+
+        d->pDevice->CreateTexture(TexDesc, &Data, &d->pAtlas);
+        if (!d->pAtlas) {
+            Lit::Log::Error("Failed to create the text glyph atlas");
+            return;
+        }
+        d->pAtlasView = d->pAtlas->GetDefaultView(Diligent::TEXTURE_VIEW_SHADER_RESOURCE);
+    }
+
+    CreateTextVertexBuffer(d, kInitialGlyphCapacity * 6);
+    d->vertexScratch.reserve(kInitialGlyphCapacity * 6);
+    d->batches.reserve(64);
 
     Diligent::BufferDesc CBDesc;
     CBDesc.Name = "Text Constants Buffer";
@@ -191,8 +268,7 @@ void UIManager::init(Diligent::IRenderDevice* pDevice, Diligent::IDeviceContext*
         size_t versionPos = vertSource.find("#version");
         if (versionPos != std::string::npos) {
             size_t nextLine = vertSource.find('\n', versionPos);
-            if (nextLine != std::string::npos)
-                vertSource = vertSource.substr(nextLine + 1);
+            if (nextLine != std::string::npos) vertSource = vertSource.substr(nextLine + 1);
         }
         ShaderCI.Source = vertSource.c_str();
         d->pDevice->CreateShader(ShaderCI, &pVS);
@@ -205,8 +281,7 @@ void UIManager::init(Diligent::IRenderDevice* pDevice, Diligent::IDeviceContext*
         size_t versionPos = fragSource.find("#version");
         if (versionPos != std::string::npos) {
             size_t nextLine = fragSource.find('\n', versionPos);
-            if (nextLine != std::string::npos)
-                fragSource = fragSource.substr(nextLine + 1);
+            if (nextLine != std::string::npos) fragSource = fragSource.substr(nextLine + 1);
         }
         ShaderCI.Source = fragSource.c_str();
         d->pDevice->CreateShader(ShaderCI, &pPS);
@@ -221,14 +296,16 @@ void UIManager::init(Diligent::IRenderDevice* pDevice, Diligent::IDeviceContext*
     PSOCreateInfo.pPS = pPS;
 
     Diligent::LayoutElement LayoutElems[] = {
-        Diligent::LayoutElement{0, 0, 4, Diligent::VT_FLOAT32, false}};
+        Diligent::LayoutElement{0, 0, 4, Diligent::VT_FLOAT32, false}
+    };
     PSOCreateInfo.GraphicsPipeline.InputLayout.LayoutElements = LayoutElems;
     PSOCreateInfo.GraphicsPipeline.InputLayout.NumElements = _countof(LayoutElems);
 
     PSOCreateInfo.PSODesc.ResourceLayout.DefaultVariableType = Diligent::SHADER_RESOURCE_VARIABLE_TYPE_STATIC;
 
     std::vector<Diligent::ShaderResourceVariableDesc> Vars = {
-        {Diligent::SHADER_TYPE_PIXEL, "text", Diligent::SHADER_RESOURCE_VARIABLE_TYPE_DYNAMIC}};
+        {Diligent::SHADER_TYPE_PIXEL, "text", Diligent::SHADER_RESOURCE_VARIABLE_TYPE_DYNAMIC}
+    };
     PSOCreateInfo.PSODesc.ResourceLayout.Variables = Vars.data();
     PSOCreateInfo.PSODesc.ResourceLayout.NumVariables = Vars.size();
 
@@ -240,16 +317,25 @@ void UIManager::init(Diligent::IRenderDevice* pDevice, Diligent::IDeviceContext*
     SamLinearClampDesc.AddressV = Diligent::TEXTURE_ADDRESS_CLAMP;
     SamLinearClampDesc.AddressW = Diligent::TEXTURE_ADDRESS_CLAMP;
     Diligent::ImmutableSamplerDesc ImtblSamplers[] = {
-        {Diligent::SHADER_TYPE_PIXEL, "text", SamLinearClampDesc}};
+        {Diligent::SHADER_TYPE_PIXEL, "text", SamLinearClampDesc}
+    };
     PSOCreateInfo.PSODesc.ResourceLayout.ImmutableSamplers = ImtblSamplers;
     PSOCreateInfo.PSODesc.ResourceLayout.NumImmutableSamplers = _countof(ImtblSamplers);
 
     d->pDevice->CreateGraphicsPipelineState(PSOCreateInfo, &d->pPSO);
 
     if (d->pPSO) {
-        d->pPSO->GetStaticVariableByName(Diligent::SHADER_TYPE_VERTEX, "TextConstants")->Set(d->pConstants);
-        d->pPSO->GetStaticVariableByName(Diligent::SHADER_TYPE_PIXEL, "TextConstants")->Set(d->pConstants);
+        if (auto* vsVar = d->pPSO->GetStaticVariableByName(Diligent::SHADER_TYPE_VERTEX, "TextConstants"))
+            vsVar->Set(d->pConstants);
+        if (auto* psVar = d->pPSO->GetStaticVariableByName(Diligent::SHADER_TYPE_PIXEL, "TextConstants"))
+            psVar->Set(d->pConstants);
+
         d->pPSO->CreateShaderResourceBinding(&d->pSRB, true);
+
+        if (d->pSRB) {
+            if (auto* var = d->pSRB->GetVariableByName(Diligent::SHADER_TYPE_PIXEL, "text"))
+                var->Set(d->pAtlasView);
+        }
     }
 }
 
@@ -260,83 +346,119 @@ void UIManager::cleanup() {
         d->pSRB.Release();
         d->pVertexBuffer.Release();
         d->pConstants.Release();
+        d->pAtlasView.Release();
+        d->pAtlas.Release();
         d->pDevice.Release();
         d->pContext.Release();
         d->pSwapChain.Release();
-        d->characters.clear();
+        d->vertexScratch.clear();
+        d->vertexScratch.shrink_to_fit();
+        d->batches.clear();
+        d->batches.shrink_to_fit();
+        d->vertexCapacity = 0;
     }
 }
 
-void UIManager::addText(const std::string& text, float x, float y, float scale, const glm::vec3& color) {
-    m_texts.push_back({text, x, y, scale, color});
+void UIManager::addText(std::string_view text, float x, float y, float scale, const glm::vec3& color) {
+    const std::uint32_t offset = static_cast<std::uint32_t>(m_textArena.size());
+    m_textArena.insert(m_textArena.end(), text.begin(), text.end());
+    m_texts.push_back({offset, static_cast<std::uint32_t>(text.size()), x, y, scale, color});
 }
 
 void UIManager::render() {
     auto* d = static_cast<DiligentUIData*>(m_diligent);
-    if (!d || !d->pPSO || !d->pSRB)
+    if (!d || !d->pPSO || !d->pSRB) {
+        m_texts.clear();
+        m_textArena.clear();
+        return;
+    }
+
+    d->vertexScratch.clear();
+    d->batches.clear();
+
+    const char* const arena = m_textArena.data();
+    for (const TextData& textData : m_texts) {
+        const Diligent::Uint32 firstVertex = static_cast<Diligent::Uint32>(d->vertexScratch.size());
+
+        float x = textData.x;
+        const char* const str = arena + textData.offset;
+        for (std::uint32_t i = 0; i < textData.length; ++i) {
+            const unsigned char code = static_cast<unsigned char>(str[i]);
+            if (code >= kGlyphCount)
+                continue;
+
+            const Glyph& ch = d->glyphs[code];
+            if (!ch.valid)
+                continue;
+
+            const float xpos = x + ch.bearingX * textData.scale;
+            const float ypos = textData.y - (ch.sizeY - ch.bearingY) * textData.scale;
+
+            const float w = ch.sizeX * textData.scale;
+            const float h = ch.sizeY * textData.scale;
+
+            d->vertexScratch.push_back({xpos,     ypos + h, ch.u0, ch.v0});
+            d->vertexScratch.push_back({xpos,     ypos,     ch.u0, ch.v1});
+            d->vertexScratch.push_back({xpos + w, ypos,     ch.u1, ch.v1});
+
+            d->vertexScratch.push_back({xpos,     ypos + h, ch.u0, ch.v0});
+            d->vertexScratch.push_back({xpos + w, ypos,     ch.u1, ch.v1});
+            d->vertexScratch.push_back({xpos + w, ypos + h, ch.u1, ch.v0});
+
+            x += (ch.advance >> 6) * textData.scale;
+        }
+
+        const Diligent::Uint32 numVertices = static_cast<Diligent::Uint32>(d->vertexScratch.size()) - firstVertex;
+        if (numVertices > 0)
+            d->batches.push_back({firstVertex, numVertices, textData.color});
+    }
+
+    m_texts.clear();
+    m_textArena.clear();
+
+    if (d->batches.empty())
         return;
 
-    d->pContext->SetPipelineState(d->pPSO);
+    const Diligent::Uint32 numVertices = static_cast<Diligent::Uint32>(d->vertexScratch.size());
+    if (numVertices > d->vertexCapacity) {
+        if (!CreateTextVertexBuffer(d, std::max(numVertices, d->vertexCapacity * 2)))
+            return;
+    }
 
-    glm::mat4 projection = glm::ortho(0.0f, static_cast<float>(m_windowWidth), 0.0f, static_cast<float>(m_windowHeight));
+    {
+        Diligent::MapHelper<TextVertex> Verts(d->pContext, d->pVertexBuffer, Diligent::MAP_WRITE, Diligent::MAP_FLAG_DISCARD);
+        memcpy(static_cast<TextVertex*>(Verts), d->vertexScratch.data(), static_cast<size_t>(numVertices) * sizeof(TextVertex));
+    }
+
+    d->pContext->SetPipelineState(d->pPSO);
 
     Diligent::IBuffer* pBuffs[] = {d->pVertexBuffer};
     Diligent::Uint64 offsets[] = {0};
     d->pContext->SetVertexBuffers(0, 1, pBuffs, offsets, Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION, Diligent::SET_VERTEX_BUFFERS_FLAG_RESET);
 
-    for (const auto& textData : m_texts) {
+    const glm::mat4 projection = glm::ortho(0.0f, static_cast<float>(m_windowWidth), 0.0f, static_cast<float>(m_windowHeight));
 
-        {
-            Diligent::MapHelper<TextConstantBuffer> CBConstants(d->pContext, d->pConstants, Diligent::MAP_WRITE, Diligent::MAP_FLAG_DISCARD);
-            CBConstants->projection = projection;
-            CBConstants->textColor = glm::vec4(textData.color, 1.0f);
-        }
-
-        float x = textData.x;
-        std::string::const_iterator c;
-        for (c = textData.text.begin(); c != textData.text.end(); c++) {
-            Character ch = d->characters[*c];
-
-            if (!ch.pTextureView)
-                continue;
-
-            float xpos = x + ch.bearing.x * textData.scale;
-            float ypos = textData.y - (ch.size.y - ch.bearing.y) * textData.scale;
-
-            float w = ch.size.x * textData.scale;
-            float h = ch.size.y * textData.scale;
-
-            struct Vertex {
-                float x, y, u, v;
-            };
-
-            Vertex vertices[6] = {
-                {xpos, ypos + h, 0.0f, 0.0f},
-                {xpos, ypos, 0.0f, 1.0f},
-                {xpos + w, ypos, 1.0f, 1.0f},
-
-                {xpos, ypos + h, 0.0f, 0.0f},
-                {xpos + w, ypos, 1.0f, 1.0f},
-                {xpos + w, ypos + h, 1.0f, 0.0f}};
-
+    glm::vec3 lastColor(0.0f);
+    bool colorValid = false;
+    for (const DrawBatch& batch : d->batches) {
+        const bool sameColor = colorValid && batch.color.x == lastColor.x && batch.color.y == lastColor.y && batch.color.z == lastColor.z;
+        if (!sameColor) {
             {
-                Diligent::MapHelper<Vertex> Verts(d->pContext, d->pVertexBuffer, Diligent::MAP_WRITE, Diligent::MAP_FLAG_DISCARD);
-                memcpy(Verts, vertices, sizeof(vertices));
-            }
-
-            if (auto* var = d->pSRB->GetVariableByName(Diligent::SHADER_TYPE_PIXEL, "text")) {
-                var->Set(ch.pTextureView);
+                Diligent::MapHelper<TextConstantBuffer> CBConstants(d->pContext, d->pConstants, Diligent::MAP_WRITE, Diligent::MAP_FLAG_DISCARD);
+                CBConstants->projection = projection;
+                CBConstants->textColor = glm::vec4(batch.color, 1.0f);
             }
 
             d->pContext->CommitShaderResources(d->pSRB, Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
 
-            Diligent::DrawAttribs DrawAttrs;
-            DrawAttrs.NumVertices = 6;
-            DrawAttrs.Flags = Diligent::DRAW_FLAG_VERIFY_ALL;
-            d->pContext->Draw(DrawAttrs);
-
-            x += (ch.advance >> 6) * textData.scale;
+            lastColor = batch.color;
+            colorValid = true;
         }
+
+        Diligent::DrawAttribs DrawAttrs;
+        DrawAttrs.NumVertices = batch.numVertices;
+        DrawAttrs.StartVertexLocation = batch.firstVertex;
+        DrawAttrs.Flags = Diligent::DRAW_FLAG_VERIFY_ALL;
+        d->pContext->Draw(DrawAttrs);
     }
-    m_texts.clear();
 }

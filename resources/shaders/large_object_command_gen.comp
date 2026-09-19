@@ -1,6 +1,10 @@
 #version 460 core
 
-layout (local_size_x = 1, local_size_y = 1, local_size_z = 1) in;
+// One thread per visible large object (was a single serial thread run-length-merging the whole
+// list, which cost 10-300ms and read out of bounds past the actual visible count). No adjacent-
+// mesh instancing merge here since large objects are a small early-occluder subset, not the bulk
+// of the scene - one draw per object is fine at this scale.
+layout (local_size_x = 256, local_size_y = 1, local_size_z = 1) in;
 
 struct DrawElementsIndirectCommand {
     uint count;
@@ -47,54 +51,31 @@ layout(binding = 5, std430) readonly buffer VisibleLargeObjectBuffer {
 };
 
 layout(std140, binding = 0) uniform LargeObjectCommandGenUniforms {
-    uint visibleLargeObjectCount;
     uint maxDraws;
     uint padding0;
     uint padding1;
+    uint padding2;
 } uniforms;
 
+layout(binding = 6, std430) readonly buffer VisibleLargeObjectAtomicCounter {
+    uint visibleLargeObjectCountGPU;
+};
+
 void main() {
-    if (uniforms.visibleLargeObjectCount == 0) {
-        return;
-    }
+    uint i = gl_GlobalInvocationID.x;
+    uint visibleCount = min(visibleLargeObjectCountGPU, uniforms.maxDraws);
+    if (i >= visibleCount) return;
 
-    uint currentObjectId = visibleLargeObjects[0];
-    RenderableComponent currentRenderable = renderables[currentObjectId];
-    uint currentMeshId = currentRenderable.mesh_uuid;
-    uint currentInstanceCount = 1;
-    uint baseInstance = 0;
+    uint objectId = visibleLargeObjects[i];
+    RenderableComponent renderable = renderables[objectId];
+    MeshInfo mesh = meshInfos[renderable.mesh_uuid];
 
-    for (uint i = 1; i < uniforms.visibleLargeObjectCount; ++i) {
-        uint objectId = visibleLargeObjects[i];
-        RenderableComponent renderable = renderables[objectId];
-        uint meshId = renderable.mesh_uuid;
-
-        if (meshId == currentMeshId) {
-            currentInstanceCount++;
-        } else {
-            MeshInfo mesh = meshInfos[currentMeshId];
-            uint indexInBin = atomicAdd(drawCount, 1);
-            if (indexInBin < uniforms.maxDraws) {
-                commands[indexInBin].instanceCount = currentInstanceCount;
-                commands[indexInBin].baseInstance = baseInstance;
-                commands[indexInBin].count = mesh.indexCount;
-                commands[indexInBin].firstIndex = mesh.firstIndex;
-                commands[indexInBin].baseVertex = mesh.baseVertex;
-            }
-
-            currentMeshId = meshId;
-            currentInstanceCount = 1;
-            baseInstance = i;
-        }
-    }
-
-    MeshInfo mesh = meshInfos[currentMeshId];
     uint indexInBin = atomicAdd(drawCount, 1);
     if (indexInBin < uniforms.maxDraws) {
-        commands[indexInBin].instanceCount = currentInstanceCount;
-        commands[indexInBin].baseInstance = baseInstance;
         commands[indexInBin].count = mesh.indexCount;
+        commands[indexInBin].instanceCount = 1;
         commands[indexInBin].firstIndex = mesh.firstIndex;
         commands[indexInBin].baseVertex = mesh.baseVertex;
+        commands[indexInBin].baseInstance = i;
     }
 }

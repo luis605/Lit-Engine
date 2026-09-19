@@ -19,6 +19,7 @@ export class Camera {
     void updateAspectRatio(float width, float height);
     void setNearPlane(float nearPlane) { m_nearPlane = nearPlane; }
     void setFarPlane(float farPlane) { m_farPlane = farPlane; }
+    void setPos(glm::vec3 pos) { m_position = pos; }
     float getNearPlane() const { return m_nearPlane; }
     float getFarPlane() const { return m_farPlane; }
 

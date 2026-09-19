@@ -3,6 +3,7 @@ module;
 #include <GLFW/glfw3.h>
 #include <optional>
 #include <string>
+#include <vector>
 
 export module Editor.application;
 
@@ -12,6 +13,7 @@ import Engine.Render.scenedatabase;
 import Engine.input;
 import Engine.mesh;
 import Engine.Render.entity;
+import Engine.glm;
 
 export class Application {
   public:
@@ -34,9 +36,19 @@ export class Application {
     std::string m_smallObjectThresholdText;
     std::string m_largeObjectThresholdText;
 
+    std::vector<glm::vec3> m_basePositions;
+    std::vector<float> m_cosI_x;
+    std::vector<float> m_sinI_x;
+    std::vector<float> m_cosI_y;
+    std::vector<float> m_sinI_y;
+    std::vector<float> m_cosI_z;
+    std::vector<float> m_sinI_z;
+    uint32_t m_movingObjectCount = 0;
+    double m_lastAnimMs = 0.0;
+
     float m_textUpdateTimer = 0.0f;
     float m_nearPlane = 0.1f;
     float m_farPlane = 1000.0f;
-    float m_smallObjectThreshold = 0.005f;
+    float m_smallObjectThreshold = 0.0f;
     float m_largeObjectThreshold = 0.05f;
 };

@@ -30,6 +30,9 @@ using ::glm::value_ptr;
 using ::glm::sin;
 using ::glm::cos;
 using ::glm::cross;
+using ::glm::length;
+using ::glm::dot;
+using ::glm::clamp;
 
 using ::glm::operator*;
 using ::glm::operator+;

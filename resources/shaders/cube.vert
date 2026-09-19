@@ -1,38 +1,50 @@
-#version 460 core
-layout (location = 0) in vec3 aPos;
-layout (location = 1) in vec3 aNormal;
+#version 450
 
-struct TransformComponent {
-    mat4 localMatrix;
-    mat4 worldMatrix;
-};
+layout(location = 0) in vec3 in_position;
+layout(location = 1) in vec3 in_normal;
 
-layout(std430, binding = 2) readonly buffer ObjectBuffer {
-    TransformComponent transforms[];
-};
-
-layout (std140, binding = 0) uniform SceneData {
+layout(std140) uniform SceneData {
     mat4 projection;
     mat4 view;
     vec3 lightPos;
     vec3 viewPos;
     vec3 lightColor;
     vec4 frustumPlanes[6];
-} sceneData;
-
-layout (location = 0) out vec3 FragPos;
-layout (location = 1) out vec3 Normal;
-
-layout(std430, binding = 5) readonly buffer VisibleObjectBuffer {
-    uint visibleObjects[];
+    vec4 dirLightDir;
+    vec4 dirLightColor;
+    vec4 pointLight0Pos;
+    vec4 pointLight0Color;
+    vec4 pointLight1Pos;
+    vec4 pointLight1Color;
 };
 
-void main()
-{
-    uint objectId = visibleObjects[gl_InstanceIndex];
-    mat4 modelMatrix = transforms[objectId].worldMatrix;
-    vec4 worldPos = modelMatrix * vec4(aPos, 1.0);
-    FragPos = worldPos.xyz;
-    Normal = mat3(transpose(inverse(modelMatrix))) * aNormal;
-    gl_Position = sceneData.projection * sceneData.view * worldPos;
+layout(std430) readonly buffer WorldMatrixBuffer {
+    mat4 worldMatrices[];
+};
+
+layout(std430) readonly buffer NormalMatrixBuffer {
+    mat3x4 normalMatrices[];
+};
+
+layout(std430) readonly buffer VisibleObjectBuffer {
+    uint visibleIndices[];
+};
+
+layout(location = 0) out vec3 out_normal;
+layout(location = 1) out vec3 out_fragPos;
+
+void main() {
+    uint objectId = visibleIndices[gl_InstanceIndex];
+    mat4 model = worldMatrices[objectId];
+    mat3 normalMatrix = mat3(
+        normalMatrices[objectId][0].xyz,
+        normalMatrices[objectId][1].xyz,
+        normalMatrices[objectId][2].xyz
+    );
+
+    vec4 worldPos = model * vec4(in_position, 1.0);
+    out_fragPos = worldPos.xyz;
+    out_normal = normalize(normalMatrix * in_normal);
+
+    gl_Position = projection * view * worldPos;
 }

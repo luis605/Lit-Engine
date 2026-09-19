@@ -1,0 +1,51 @@
+#version 450
+
+layout(local_size_x = 256, local_size_y = 1, local_size_z = 1) in;
+
+struct RenderableComponent {
+    uint mesh_uuid;
+    uint material_uuid;
+    uint shaderId;
+    uint objectId;
+    float alpha;
+};
+
+layout(std140) uniform ScatterConstants {
+    uint u_maxDraws;
+};
+
+layout(std430) readonly buffer AtomicCounterBuffer {
+    uint u_visibleCount;
+};
+
+layout(std430) readonly buffer VisibleObjectBuffer {
+    uint u_visibleObjects[];
+};
+
+layout(std430) readonly buffer RenderableBuffer {
+    RenderableComponent renderables[];
+};
+
+layout(std430) buffer BucketWriteHeadBuffer {
+    uint bucketWriteHeads[];
+};
+
+layout(std430) writeonly buffer SortedVisibleObjectBuffer {
+    uint sortedVisibleIndices[];
+};
+
+void main() {
+    uint idx = gl_GlobalInvocationID.x;
+    if (idx >= u_visibleCount || idx >= u_maxDraws) return;
+
+    uint val = u_visibleObjects[idx];
+    uint id = val & 0x3FFFFFFFu;
+    uint lod = (val >> 30u) & 3u;
+
+    uint shaderId = renderables[id].shaderId;
+    uint mesh_uuid = renderables[id].mesh_uuid + lod;
+
+    uint bucketIndex = shaderId * 2048 + mesh_uuid;
+    uint slot = atomicAdd(bucketWriteHeads[bucketIndex], 1);
+    sortedVisibleIndices[slot] = id;
+}

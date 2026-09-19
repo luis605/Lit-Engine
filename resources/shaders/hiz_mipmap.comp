@@ -22,5 +22,33 @@ void main() {
 
     float maxDepth = max(max(d0, d1), max(d2, d3));
 
+    // Floor-sized mips drop the last row/column when srcSize is odd; fold it back in at the
+    // boundary tile so the Hi-Z max doesn't under-estimate depth there (which would falsely
+    // occlude visible objects near the screen edge).
+    // Only the last row/column of the destination can ever need this, so the source's dimensions
+    // are queried inside that branch instead of for every texel of every mip.
+    bool lastCol = destCoord.x == destSize.x - 1;
+    bool lastRow = destCoord.y == destSize.y - 1;
+
+    bool oddX = false;
+    bool oddY = false;
+    if (lastCol || lastRow) {
+        ivec2 srcSize = imageSize(u_sourceMip);
+        oddX = lastCol && (srcSize.x & 1) != 0;
+        oddY = lastRow && (srcSize.y & 1) != 0;
+    }
+
+    if (oddX) {
+        maxDepth = max(maxDepth, imageLoad(u_sourceMip, sourceCoord + ivec2(2, 0)).r);
+        maxDepth = max(maxDepth, imageLoad(u_sourceMip, sourceCoord + ivec2(2, 1)).r);
+    }
+    if (oddY) {
+        maxDepth = max(maxDepth, imageLoad(u_sourceMip, sourceCoord + ivec2(0, 2)).r);
+        maxDepth = max(maxDepth, imageLoad(u_sourceMip, sourceCoord + ivec2(1, 2)).r);
+    }
+    if (oddX && oddY) {
+        maxDepth = max(maxDepth, imageLoad(u_sourceMip, sourceCoord + ivec2(2, 2)).r);
+    }
+
     imageStore(u_destMip, destCoord, vec4(maxDepth, 0.0, 0.0, 0.0));
 }

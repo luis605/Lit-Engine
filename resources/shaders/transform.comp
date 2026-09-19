@@ -1,10 +1,9 @@
-#version 460 core
+#version 450
 
 layout(local_size_x = 256, local_size_y = 1, local_size_z = 1) in;
 
 struct TransformComponent {
     mat4 localMatrix;
-    mat4 worldMatrix;
 };
 
 struct HierarchyComponent {
@@ -12,41 +11,61 @@ struct HierarchyComponent {
     uint level;
 };
 
-layout(binding = 0, std430) buffer TransformBuffer {
+layout(std140, binding = 0) uniform TransformUniforms {
+    uint u_objectCount;
+    uint u_currentHierarchyLevel;
+    uint u_sortedListOffset;
+    uint u_frameOffset;
+    uint u_epoch;
+    uint u_forceFullRecompute;
+};
+
+layout(std430, binding = 1) readonly buffer TransformBuffer {
     TransformComponent transforms[];
 };
 
-layout(binding = 1, std430) readonly buffer HierarchyBuffer {
+layout(std430, binding = 2) buffer WorldMatrixBuffer {
+    mat4 worldMatrices[];
+};
+
+layout(std430, binding = 3) buffer TouchedEpochBuffer {
+    uint touchedEpochs[];
+};
+
+layout(std430, binding = 4) readonly buffer HierarchyBuffer {
     HierarchyComponent hierarchies[];
 };
 
-layout(binding = 2, std430) readonly buffer SortedHierarchyBuffer {
-    uint sortedHierarchyList[];
+layout(std430, binding = 5) readonly buffer SortedHierarchyBuffer {
+    uint sortedEntities[];
 };
 
-layout(binding = 3, std140) uniform TransformUniforms {
-    uint u_objectCount;
-    uint u_currentHierarchyLevel;
-    uint u_baseIndex;
-    uint u_padding;
+layout(std430, binding = 6) writeonly buffer NormalMatrixBuffer {
+    mat3x4 normalMatrices[];
 };
 
 void main() {
-    uint index = gl_GlobalInvocationID.x;
-    if (index >= u_objectCount) return;
+    uint idx = gl_GlobalInvocationID.x;
+    if (idx >= u_objectCount) return;
 
-    uint sortedIndex = index + u_baseIndex;
-    uint objectId = sortedHierarchyList[sortedIndex];
-    uint physicalObjectId = objectId + u_baseIndex;
+    uint entity = sortedEntities[u_sortedListOffset + idx];
+    HierarchyComponent hier = hierarchies[entity];
+    mat4 localMat = transforms[entity].localMatrix;
 
-    HierarchyComponent hierarchy = hierarchies[physicalObjectId];
-
-    if (hierarchy.level != u_currentHierarchyLevel) return;
-
-    if (hierarchy.parent != 0xFFFFFFFF) { // INVALID_ENTITY
-        uint physicalParentId = hierarchy.parent + u_baseIndex;
-        transforms[physicalObjectId].worldMatrix = transforms[physicalParentId].worldMatrix * transforms[physicalObjectId].localMatrix;
+    mat4 worldMat;
+    if (hier.parent == 0xFFFFFFFFu || hier.level == 0u) {
+        worldMat = localMat;
     } else {
-        transforms[physicalObjectId].worldMatrix = transforms[physicalObjectId].localMatrix;
+        worldMat = worldMatrices[hier.parent] * localMat;
     }
+
+    worldMatrices[entity] = worldMat;
+    touchedEpochs[entity] = u_epoch;
+
+    mat3 normalMat = transpose(inverse(mat3(worldMat)));
+    normalMatrices[entity] = mat3x4(
+        vec4(normalMat[0], 0.0),
+        vec4(normalMat[1], 0.0),
+        vec4(normalMat[2], 0.0)
+    );
 }
