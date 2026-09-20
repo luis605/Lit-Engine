@@ -18,6 +18,11 @@ layout(std140, binding = 0) uniform TransformUniforms {
     uint u_frameOffset;
     uint u_epoch;
     uint u_forceFullRecompute;
+    // entities in [u_animEntityOffset, u_animEntityOffset + u_animMovingCount) get an animated translation
+    float u_animTime;
+    uint u_animMovingCount;
+    uint u_animEntityOffset;
+    uint u_animPadding;
 };
 
 layout(std430, binding = 1) readonly buffer TransformBuffer {
@@ -40,8 +45,63 @@ layout(std430, binding = 5) readonly buffer SortedHierarchyBuffer {
     uint sortedEntities[];
 };
 
-layout(std430, binding = 6) writeonly buffer NormalMatrixBuffer {
-    mat3x4 normalMatrices[];
+struct RenderableComponent {
+    uint mesh_uuid;
+    uint material_uuid;
+    uint shaderId;
+    uint objectId;
+    float alpha;
+};
+
+struct MeshInfo {
+    uint indexCount;
+    uint firstIndex;
+    uint baseVertex;
+    float boundingRadius;
+    vec4 boundingCenter;
+};
+
+// MAX_MESHES in Renderer.cpp
+const uint MAX_MESHES = 2048;
+
+layout(std430, binding = 7) readonly buffer RenderableBuffer {
+    RenderableComponent renderables[];
+};
+
+layout(std430, binding = 8) readonly buffer MeshInfoBuffer {
+    MeshInfo meshInfos[];
+};
+
+// world-space bounding sphere (xyz = centre, w = radius); w < 0 marks an object without a valid mesh
+layout(std430, binding = 9) writeonly buffer CullSphereBuffer {
+    vec4 cullSpheres[];
+};
+
+layout(std430, binding = 10) writeonly buffer CullOrientationBuffer {
+    vec4 cullOrientations[];
+};
+
+vec4 rotationToQuaternion(mat3 r) {
+    float trace = r[0][0] + r[1][1] + r[2][2];
+    vec4 q;
+    if (trace > 0.0) {
+        float s = sqrt(trace + 1.0) * 2.0;
+        q = vec4((r[1][2] - r[2][1]) / s, (r[2][0] - r[0][2]) / s, (r[0][1] - r[1][0]) / s, 0.25 * s);
+    } else if (r[0][0] > r[1][1] && r[0][0] > r[2][2]) {
+        float s = sqrt(1.0 + r[0][0] - r[1][1] - r[2][2]) * 2.0;
+        q = vec4(0.25 * s, (r[1][0] + r[0][1]) / s, (r[2][0] + r[0][2]) / s, (r[1][2] - r[2][1]) / s);
+    } else if (r[1][1] > r[2][2]) {
+        float s = sqrt(1.0 + r[1][1] - r[0][0] - r[2][2]) * 2.0;
+        q = vec4((r[1][0] + r[0][1]) / s, 0.25 * s, (r[2][1] + r[1][2]) / s, (r[2][0] - r[0][2]) / s);
+    } else {
+        float s = sqrt(1.0 + r[2][2] - r[0][0] - r[1][1]) * 2.0;
+        q = vec4((r[2][0] + r[0][2]) / s, (r[2][1] + r[1][2]) / s, 0.25 * s, (r[0][1] - r[1][0]) / s);
+    }
+    return q;
+}
+
+layout(std430, binding = 6) readonly buffer BasePositionBuffer {
+    vec4 g_basePositions[];
 };
 
 void main() {
@@ -50,7 +110,22 @@ void main() {
 
     uint entity = sortedEntities[u_sortedListOffset + idx];
     HierarchyComponent hier = hierarchies[entity];
+
+    // skip entities that cannot have changed; u_forceFullRecompute disables this when uploads or hierarchy changes touch the frame's buffers
+    bool animated = (entity - u_animEntityOffset) < u_animMovingCount;
+    if (u_forceFullRecompute == 0u && !animated) {
+        bool dirty = touchedEpochs[entity] == u_epoch;
+        bool parentRecomputed = hier.parent != 0xFFFFFFFFu && hier.level != 0u && touchedEpochs[hier.parent] == u_epoch;
+        if (!dirty && !parentRecomputed) return;
+    }
     mat4 localMat = transforms[entity].localMatrix;
+
+    uint animIdx = entity - u_animEntityOffset;
+    if (animated) {
+        vec3 args = u_animTime * vec3(1.3, 0.9, 0.7) + float(animIdx) * vec3(1.0, 0.5, 0.25);
+        vec3 offset = vec3(sin(args.x), cos(args.y), sin(args.z)) * 2.0;
+        localMat[3].xyz = g_basePositions[animIdx].xyz + offset;
+    }
 
     mat4 worldMat;
     if (hier.parent == 0xFFFFFFFFu || hier.level == 0u) {
@@ -60,12 +135,18 @@ void main() {
     }
 
     worldMatrices[entity] = worldMat;
-    touchedEpochs[entity] = u_epoch;
 
-    mat3 normalMat = transpose(inverse(mat3(worldMat)));
-    normalMatrices[entity] = mat3x4(
-        vec4(normalMat[0], 0.0),
-        vec4(normalMat[1], 0.0),
-        vec4(normalMat[2], 0.0)
-    );
+    vec3 axisLengths = vec3(length(worldMat[0].xyz), length(worldMat[1].xyz), length(worldMat[2].xyz));
+    mat3 rotation = mat3(worldMat[0].xyz / max(axisLengths.x, 1e-8), worldMat[1].xyz / max(axisLengths.y, 1e-8), worldMat[2].xyz / max(axisLengths.z, 1e-8));
+    cullOrientations[entity] = rotationToQuaternion(rotation);
+
+    uint meshUuid = renderables[entity].mesh_uuid;
+    if (meshUuid < MAX_MESHES) {
+        MeshInfo mesh = meshInfos[meshUuid];
+        float maxScale = max(length(worldMat[0].xyz), max(length(worldMat[1].xyz), length(worldMat[2].xyz)));
+        cullSpheres[entity] = vec4((worldMat * vec4(mesh.boundingCenter.xyz, 1.0)).xyz, mesh.boundingRadius * maxScale);
+    } else {
+        cullSpheres[entity] = vec4(worldMat[3].xyz, -1.0);
+    }
+    touchedEpochs[entity] = u_epoch;
 }

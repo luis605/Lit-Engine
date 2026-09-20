@@ -26,9 +26,9 @@ void Engine::cleanup() { m_renderer.cleanup(); }
 
 uint32_t Engine::uploadMesh(const Mesh& mesh) { return m_renderer.uploadMesh(mesh); }
 
-std::vector<uint32_t> Engine::uploadMeshWithLODs(const Mesh& baseMesh, const std::vector<float>& lodRatios) {
-    return m_renderer.uploadMeshWithLODs(baseMesh, lodRatios);
-}
+void Engine::setLodBias(float bias) { m_renderer.setLodBias(bias); }
+void Engine::setForcedLod(int lod) { m_renderer.setForcedLod(lod); }
+int Engine::getForcedLod() const { return m_renderer.getForcedLod(); }
 
 void Engine::AddText(const std::string& text, float x, float y, float scale, const glm::vec3& color) {
     m_renderer.AddText(text, x, y, scale, color);

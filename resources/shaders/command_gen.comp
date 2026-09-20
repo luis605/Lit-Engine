@@ -6,6 +6,7 @@
 layout(local_size_x = 256, local_size_y = 1, local_size_z = 1) in;
 
 const uint MAX_MESHES = 2048;
+const uint LOD_LEVEL_COUNT = 7;
 
 struct DrawElementsIndirectCommand {
     uint count;
@@ -43,6 +44,14 @@ layout(std430, binding = 4) readonly buffer BucketOffsetBuffer {
     uint bucketOffsets[];
 };
 
+layout(std430, binding = 6) buffer PointCounterBuffer {
+    uint pointCounters[];
+};
+
+layout(std430, binding = 7) buffer PointCommandBuffer {
+    DrawElementsIndirectCommand pointCommands[];
+};
+
 layout(std140, binding = 5) uniform CommandGenConstants {
     uint u_maxBucketsPerShader; // = MAX_MESHES
     uint u_totalBuckets;        // = numDrawingShaders * MAX_MESHES
@@ -57,6 +66,18 @@ void main() {
 
     uint shaderId = key / MAX_MESHES;
     uint meshId = key % MAX_MESHES;
+    if (meshId % LOD_LEVEL_COUNT == LOD_LEVEL_COUNT - 1) {
+        uint pointIdx = atomicAdd(pointCounters[shaderId], 1);
+        if (pointIdx >= u_maxBucketsPerShader) return;
+        uint pointOffset = shaderId * u_maxBucketsPerShader + pointIdx;
+        pointCommands[pointOffset].count = 1;
+        pointCommands[pointOffset].instanceCount = count;
+        pointCommands[pointOffset].firstIndex = meshId;
+        pointCommands[pointOffset].baseVertex = bucketOffsets[key];
+        pointCommands[pointOffset].baseInstance = 0;
+        return;
+    }
+
     MeshInfo mesh = meshInfos[meshId];
 
     uint drawIdx = atomicAdd(drawCounters[shaderId], 1);

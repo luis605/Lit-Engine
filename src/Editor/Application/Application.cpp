@@ -3,6 +3,9 @@ module;
 #include <GLFW/glfw3.h>
 #include <algorithm>
 #include <cmath>
+#include <cstdio>
+#include <cstdio>
+#include <cstdlib>
 #include <filesystem>
 #include <random>
 #include <thread>
@@ -58,18 +61,13 @@ Application::Application() {
 
     if (!AssetManager::bake("resources/models/sphere.obj", "resources/assets/sphere.asset")) { Lit::Log::Warn("Failed to bake sphere asset."); }
     auto sphereMesh = AssetManager::load("resources/assets/sphere.asset");
-    std::vector<uint32_t> sphereLODs;
-    if (sphereMesh) {
-        sphereLODs = m_engine.uploadMeshWithLODs(*sphereMesh, {0.35f, 0.10f, 0.03f});
-    } else {
-        sphereLODs.push_back(0);
-    }
+    const uint32_t sphereMeshUuid = sphereMesh ? m_engine.uploadMesh(*sphereMesh) : 0;
 
     const int numObjects = 2500000;
     Lit::Log::Info("Creating {} random objects...", numObjects);
 
     std::random_device rd;
-    std::mt19937 gen(rd());
+    std::mt19937 gen(std::getenv("LIT_SEED") ? static_cast<unsigned>(std::atoi(std::getenv("LIT_SEED"))) : rd());
     std::uniform_real_distribution<float> distribPosHeight(-900.0f, 900.0f);
     std::uniform_real_distribution<float> distribPosSides(-150.0f, 150.0f);
     std::uniform_int_distribution<unsigned int> distribType(0, 1);
@@ -92,7 +90,7 @@ Application::Application() {
 
         if (static_cast<uint32_t>(i) < m_movingObjectCount) { m_basePositions[i] = position; }
 
-        uint32_t assignedMesh = (distribType(gen) == 1) ? sphereLODs[0] : cubeMeshUuid;
+        uint32_t assignedMesh = (distribType(gen) == 1) ? sphereMeshUuid : cubeMeshUuid;
 
         m_sceneDatabase.renderables[entity].mesh_uuid = assignedMesh;
         m_sceneDatabase.renderables[entity].material_uuid = 0;
@@ -108,7 +106,7 @@ Application::Application() {
 
     m_engine.uploadBasePositions(m_basePositions);
 
-    m_smallObjectThreshold = 0.0009f;
+    m_smallObjectThreshold = 0.0f;
     m_largeObjectThreshold = 0.0055f;
 
     m_sceneDatabase.markHierarchyDirty();
@@ -117,6 +115,19 @@ Application::Application() {
     camera.setFarPlane(2000.0f);
     camera.setPos(glm::vec3(0.0f, 1000.0f, 0.0f));
     m_engine.setFullProfiling(true);
+
+    // benchmark overrides: LIT_CAM_POS=x,y,z  LIT_CAM_PITCH  LIT_CAM_YAW  LIT_FORCE_LOD  LIT_SEED
+    if (const char* camPos = std::getenv("LIT_CAM_POS")) {
+        float x = 0.0f, y = 0.0f, z = 0.0f;
+        if (std::sscanf(camPos, "%f,%f,%f", &x, &y, &z) == 3) { camera.setPos(glm::vec3(x, y, z)); }
+    }
+    if (const char* camPitch = std::getenv("LIT_CAM_PITCH")) {
+        const char* camYaw = std::getenv("LIT_CAM_YAW");
+        camera.setOrientation(camYaw ? static_cast<float>(std::atof(camYaw)) : -90.0f, static_cast<float>(std::atof(camPitch)));
+    }
+    if (const char* forceLod = std::getenv("LIT_FORCE_LOD")) { m_engine.setForcedLod(std::atoi(forceLod)); }
+    if (const char* lodBias = std::getenv("LIT_LOD_BIAS")) { m_lodBias = static_cast<float>(std::atof(lodBias)); }
+    m_engine.setLodBias(m_lodBias);
 
     Lit::Log::Info("Application created");
 }
@@ -152,6 +163,9 @@ void  Application::update() {
 
        m_textUpdateTimer = 0.0f;
    }
+   const glm::vec3 cameraPosition = camera.getPosition();
+   m_cameraText = "camera: " + std::to_string(static_cast<int>(cameraPosition.x)) + ", " + std::to_string(static_cast<int>(cameraPosition.y)) + ", " + std::to_string(static_cast<int>(cameraPosition.z)) + "  pitch " + std::to_string(static_cast<int>(camera.getPitch())) + "  yaw " + std::to_string(static_cast<int>(camera.getYaw()));
+   m_engine.AddText(m_cameraText, 10.0f, 90.0f, 0.5f, glm::vec3(1.0f, 1.0f, 1.0f));
    m_engine.AddText(m_frameTimeText, 10.0f, 30.0f, 0.5f, glm::vec3(1.0f, 1.0f, 1.0f));
    m_engine.AddText(m_smallObjectThresholdText, 10.0f, 50.0f, 0.5f, glm::vec3(1.0f, 1.0f, 1.0f));
    m_engine.AddText(m_largeObjectThresholdText, 10.0f, 70.0f, 0.5f, glm::vec3(1.0f, 1.0f, 1.0f));
@@ -172,7 +186,7 @@ void Application::processInput(float deltaTime) {
         }
     }
 
-    float moveSpeed = 1.0f;
+    float moveSpeed = 4.0f;
     if (InputManager::IsKeyHeld(GLFW_KEY_LEFT_SHIFT)) moveSpeed = 100.0f;
     if (InputManager::IsKeyHeld(GLFW_KEY_W)) { camera.processKeyboard(CameraMovement::FORWARD, moveSpeed * deltaTime); }
     if (InputManager::IsKeyHeld(GLFW_KEY_Q)) { camera.processKeyboard(CameraMovement::FORWARD, moveSpeed * deltaTime); }
@@ -208,6 +222,22 @@ void Application::processInput(float deltaTime) {
 
     if (dataChanged) { m_sceneDatabase.markTransformsDirty(m_movingObjectCount + 1); }
 
+    // 5 / 6 step the forced LOD: automatic <-> 0 ... 6
+    {
+        const int forcedLod = m_engine.getForcedLod();
+        int newLod = forcedLod;
+        if (InputManager::IsKeyPressed(GLFW_KEY_5)) newLod = std::max(forcedLod - 1, -1);
+        if (InputManager::IsKeyPressed(GLFW_KEY_6)) newLod = std::min(forcedLod + 1, static_cast<int>(kLodLevelCount) - 1);
+        if (newLod != forcedLod) {
+            m_engine.setForcedLod(newLod);
+            if (newLod < 0) {
+                Lit::Log::Info("LOD selection: automatic");
+            } else {
+                Lit::Log::Info("LOD selection: forced LOD {}", newLod);
+            }
+        }
+    }
+
     if (InputManager::IsKeyPressed(GLFW_KEY_1)) {
         m_smallObjectThreshold -= 0.0002f;
         if (m_smallObjectThreshold < 0.0f) { m_smallObjectThreshold = 0.0f; }
@@ -228,9 +258,25 @@ void Application::processInput(float deltaTime) {
         Lit::Log::Info("largeObjectThreshold: {:.5f}", m_largeObjectThreshold);
     }
 
+    if (InputManager::IsKeyPressed(GLFW_KEY_7) || InputManager::IsKeyPressed(GLFW_KEY_8)) {
+        m_lodBias *= InputManager::IsKeyPressed(GLFW_KEY_8) ? 1.25f : 0.8f;
+        m_engine.setLodBias(m_lodBias);
+        Lit::Log::Info("lodBias: {:.3f}", m_lodBias);
+    }
+
     if (InputManager::IsKeyPressed(GLFW_KEY_F1)) {
         m_engine.setDebugDepthMode(!m_engine.isDebugDepthMode());
         Lit::Log::Info("Debug Depth Mode: {}", m_engine.isDebugDepthMode() ? "ON" : "OFF");
+    }
+
+    if (InputManager::IsKeyPressed(GLFW_KEY_F2)) {
+        const glm::vec3 pos = camera.getPosition();
+        Lit::Log::Info("Camera position: LIT_CAM_POS={:.1f},{:.1f},{:.1f}", pos.x, pos.y, pos.z);
+    }
+
+    if (InputManager::IsKeyPressed(GLFW_KEY_F2)) {
+        const glm::vec3 pos = camera.getPosition();
+        Lit::Log::Info("Camera position: LIT_CAM_POS={:.1f},{:.1f},{:.1f}", pos.x, pos.y, pos.z);
     }
 
     glm::vec2 mouseDelta = InputManager::GetMouseDelta();

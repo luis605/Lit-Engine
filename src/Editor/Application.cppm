@@ -35,6 +35,7 @@ export class Application {
     std::string m_frameTimeText;
     std::string m_smallObjectThresholdText;
     std::string m_largeObjectThresholdText;
+    std::string m_cameraText;
 
     std::vector<glm::vec3> m_basePositions;
     std::vector<float> m_cosI_x;
@@ -51,4 +52,5 @@ export class Application {
     float m_farPlane = 1000.0f;
     float m_smallObjectThreshold = 0.0f;
     float m_largeObjectThreshold = 0.05f;
+    float m_lodBias = 1.0f;
 };

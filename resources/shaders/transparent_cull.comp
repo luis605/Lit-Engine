@@ -36,13 +36,14 @@ layout(std140) uniform SceneData {
     vec4 pointLight0Color;
     vec4 pointLight1Pos;
     vec4 pointLight1Color;
+    vec4 screenParams;
 };
 
 layout(std140) uniform TransparentCullUniforms {
     uint u_objectCount;
     uint u_maxDraws;
-    float u_padding1;
-    float u_padding2;
+    float u_lodBias;
+    int u_forcedLod;
     vec3 u_cameraPos;
     float u_padding3;
 };
@@ -55,36 +56,38 @@ layout(std430) writeonly buffer VisibleTransparentObjectBuffer {
     VisibleTransparentObject u_visibleTransparentObjects[];
 };
 
-layout(std430) readonly buffer WorldMatrixBuffer {
-    mat4 worldMatrices[];
+layout(std430) readonly buffer CullSphereBuffer {
+    vec4 cullSpheres[];
 };
 
-layout(std430) readonly buffer MeshInfoBuffer {
-    MeshInfo meshInfos[];
+layout(std430) readonly buffer TransparentIdBuffer {
+    uint transparentIds[];
 };
 
-layout(std430) readonly buffer RenderableBuffer {
-    RenderableComponent renderables[];
-};
+const uint LOD_LEVEL_COUNT = 7;
+const float LOD_DIAMETER_PX[6] = float[6](60.0, 40.0, 25.0, 8.0, 3.0, 1.5);
+
+uint selectLod(float radius, float dist) {
+    if (u_forcedLod >= 0) return min(uint(u_forcedLod), LOD_LEVEL_COUNT - 1);
+    if (dist <= radius) return 0u;
+    float diameterPx = u_lodBias * radius * projection[1][1] * screenParams.y / dist;
+    for (uint i = 0; i < LOD_LEVEL_COUNT - 1; ++i) {
+        if (diameterPx >= LOD_DIAMETER_PX[i]) return i;
+    }
+    return LOD_LEVEL_COUNT - 1;
+}
 
 uniform sampler2D u_hizTexture;
 
 void main() {
-    uint id = gl_GlobalInvocationID.x;
-    if (id >= u_objectCount) return;
+    uint listIndex = gl_GlobalInvocationID.x;
+    if (listIndex >= u_objectCount) return;
+    uint id = transparentIds[listIndex];
 
-    RenderableComponent r = renderables[id];
-    if (r.shaderId != 2) return;
-
-    MeshInfo mesh = meshInfos[r.mesh_uuid];
-    mat4 model = worldMatrices[id];
-
-    vec3 worldCenter = (model * vec4(mesh.boundingCenter.xyz, 1.0)).xyz;
-    float scaleX = length(model[0].xyz);
-    float scaleY = length(model[1].xyz);
-    float scaleZ = length(model[2].xyz);
-    float maxScale = max(scaleX, max(scaleY, scaleZ));
-    float radius = mesh.boundingRadius * maxScale;
+    vec4 boundingSphere = cullSpheres[id];
+    if (boundingSphere.w < 0.0) return;
+    vec3 worldCenter = boundingSphere.xyz;
+    float radius = boundingSphere.w;
 
     for (int i = 0; i < 6; ++i) {
         if (dot(frustumPlanes[i].xyz, worldCenter) + frustumPlanes[i].w < -radius) return;
@@ -125,7 +128,7 @@ void main() {
 
     uint slot = atomicAdd(u_atomicCounter, 1);
     if (slot < u_maxDraws) {
-        u_visibleTransparentObjects[slot].objectId = id;
+        u_visibleTransparentObjects[slot].objectId = id | (selectLod(radius, dist) << 29u);
         u_visibleTransparentObjects[slot].distance = dist;
     }
 }

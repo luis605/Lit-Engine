@@ -85,6 +85,7 @@ struct SceneUniforms {
     alignas(16) glm::vec4 pointLight0Color;
     alignas(16) glm::vec4 pointLight1Pos;
     alignas(16) glm::vec4 pointLight1Color;
+    alignas(16) glm::vec4 screenParams;
 };
 
 struct VisibleTransparentObject {
@@ -101,6 +102,8 @@ struct CullingUniforms {
     float hizTextureSizeX;
     float hizTextureSizeY;
     uint32_t numShaders;
+    float lodBias;
+    int32_t forcedLod;
 };
 
 constexpr uint32_t MAX_MESHES = 2048;
@@ -175,13 +178,15 @@ struct TransparentCommandGenUniforms {
 struct TransparentCullUniforms {
     uint32_t objectCount;
     uint32_t maxDraws;
-    float padding1;
-    float padding2;
+    float lodBias;
+    int32_t forcedLod;
     alignas(16) glm::vec3 cameraPos;
     float padding3;
 };
 
+constexpr uint32_t kNormalSamples = 64;
 std::vector<MeshInfo> s_meshInfos;
+std::vector<glm::vec4> s_normalSamples;
 size_t s_totalVertexSize = 0;
 size_t s_totalIndexSize = 0;
 
@@ -294,10 +299,11 @@ struct DiligentData {
 
     Diligent::RefCntAutoPtr<Diligent::IBuffer> pObjectBuffer[NumFrames];
     Diligent::RefCntAutoPtr<Diligent::IBuffer> pWorldMatrixBuffer[NumFrames];
+    Diligent::RefCntAutoPtr<Diligent::IBuffer> pCullSphereBuffer[NumFrames];
+    Diligent::RefCntAutoPtr<Diligent::IBuffer> pCullOrientationBuffer[NumFrames];
     Diligent::RefCntAutoPtr<Diligent::IBuffer> pDirtyIndexBuffer[NumFrames];
     Diligent::RefCntAutoPtr<Diligent::IBuffer> pDirtyPayloadBuffer[NumFrames];
     Diligent::RefCntAutoPtr<Diligent::IBuffer> pTouchedEpochBuffer[NumFrames];
-    Diligent::RefCntAutoPtr<Diligent::IBuffer> pNormalMatrixBuffer[NumFrames];
     Diligent::RefCntAutoPtr<Diligent::IBuffer> pHierarchyBuffer[NumFrames];
     Diligent::RefCntAutoPtr<Diligent::IBuffer> pRenderableBuffer[NumFrames];
     Diligent::RefCntAutoPtr<Diligent::IBuffer> pSortedHierarchyBuffer[NumFrames];
@@ -320,6 +326,7 @@ struct DiligentData {
     Diligent::RefCntAutoPtr<Diligent::IBuffer> pDepthPrepassAtomicCounter[NumFrames];
 
     Diligent::RefCntAutoPtr<Diligent::IBuffer> pMeshInfoBuffer;
+    Diligent::RefCntAutoPtr<Diligent::IBuffer> pNormalSampleBuffer;
     Diligent::RefCntAutoPtr<Diligent::IPipelineState> pTransformPSO;
     Diligent::RefCntAutoPtr<Diligent::IShaderResourceBinding> pTransformSRB[NumFrames];
     Diligent::RefCntAutoPtr<Diligent::IBuffer> pTransformUniforms;
@@ -414,6 +421,11 @@ struct DiligentData {
     Diligent::RefCntAutoPtr<Diligent::IPipelineState> pTransparentPSO;
     Diligent::RefCntAutoPtr<Diligent::IShaderResourceBinding> pTransparentSRB[NumFrames];
     std::vector<Diligent::RefCntAutoPtr<Diligent::IPipelineState>> pOpaquePSOs;
+    std::vector<Diligent::RefCntAutoPtr<Diligent::IPipelineState>> pPointPSOs;
+    std::vector<std::vector<Diligent::RefCntAutoPtr<Diligent::IShaderResourceBinding>>> pPointSRBs;
+    Diligent::RefCntAutoPtr<Diligent::IBuffer> pPointCommandBuffer[NumFrames];
+    Diligent::RefCntAutoPtr<Diligent::IBuffer> pTransparentIdBuffer[NumFrames];
+    Diligent::RefCntAutoPtr<Diligent::IBuffer> pPointDrawCounterBuffer[NumFrames];
 
     Diligent::RefCntAutoPtr<Diligent::IBuffer> pLargeObjectCullConstants;
     Diligent::RefCntAutoPtr<Diligent::IBuffer> pTransparentCullUniforms;
@@ -537,6 +549,7 @@ void Renderer::init(GLFWwindow* window, const int windowWidth, const int windowH
 
     for (int i = 0; i < DiligentData::NumFrames; ++i) {
         m_diligent->pVisibleObjectAtomicCounter[i] = CreateStructuredBuffer(m_diligent->pDevice, "Visible Object Atomic Counter", sizeof(unsigned int), 1, (void*)&zero);
+        m_diligent->pPointDrawCounterBuffer[i] = CreateStructuredBuffer(m_diligent->pDevice, "Point Draw Counter Buffer", sizeof(unsigned int), static_cast<Diligent::Uint32>(m_numDrawingShaders), drawZeros.data(), Diligent::BIND_INDIRECT_DRAW_ARGS);
         m_diligent->pDrawAtomicCounterBuffer[i] = CreateStructuredBuffer(m_diligent->pDevice, "Draw Atomic Counter Buffer", sizeof(unsigned int), static_cast<Diligent::Uint32>(m_numDrawingShaders), drawZeros.data(), Diligent::BIND_INDIRECT_DRAW_ARGS);
         m_diligent->pVisibleLargeObjectAtomicCounter[i] = CreateStructuredBuffer(m_diligent->pDevice, "Visible Large Object Atomic Counter", sizeof(unsigned int), 1, (void*)&zero);
         m_diligent->pTransparentAtomicCounter[i] = CreateStructuredBuffer(m_diligent->pDevice, "Transparent Atomic Counter", sizeof(unsigned int), 1, (void*)&zero, Diligent::BIND_INDIRECT_DRAW_ARGS);
@@ -687,6 +700,7 @@ void Renderer::reallocateBuffers(size_t numObjects) {
     Lit::Log::Info("Reallocating renderer buffers for {} objects.", m_maxObjects);
 
     m_diligent->pMeshInfoBuffer = CreateStructuredBuffer(m_diligent->pDevice, "Mesh Info Buffer", sizeof(MeshInfo), MAX_MESHES);
+    m_diligent->pNormalSampleBuffer = CreateStructuredBuffer(m_diligent->pDevice, "Normal Sample Buffer", sizeof(glm::vec4), MAX_MESHES * kNormalSamples);
     m_meshInfoDirty = true;
 
     const uint32_t totalBuckets = static_cast<uint32_t>(m_numDrawingShaders) * MAX_MESHES;
@@ -696,28 +710,34 @@ void Renderer::reallocateBuffers(size_t numObjects) {
 
     m_diligent->pOpaqueSRBs.clear();
     m_diligent->pOpaqueSRBs.resize(NUM_FRAMES_IN_FLIGHT);
+    m_diligent->pPointSRBs.clear();
+    m_diligent->pPointSRBs.resize(NUM_FRAMES_IN_FLIGHT);
     for (int f = 0; f < NUM_FRAMES_IN_FLIGHT; ++f) {
         m_diligent->pOpaqueSRBs[f].resize(m_diligent->pOpaquePSOs.size());
+        m_diligent->pPointSRBs[f].resize(m_diligent->pPointPSOs.size());
     }
 
     for (int i = 0; i < NUM_FRAMES_IN_FLIGHT; ++i) {
         m_diligent->pObjectBuffer[i] = CreateStructuredBuffer(m_diligent->pDevice, "Object Buffer", sizeof(TransformComponent), static_cast<Diligent::Uint32>(m_maxObjects));
         m_diligent->pWorldMatrixBuffer[i] = CreateStructuredBuffer(m_diligent->pDevice, "World Matrix Buffer", sizeof(glm::mat4), static_cast<Diligent::Uint32>(m_maxObjects));
-        m_diligent->pNormalMatrixBuffer[i] = CreateStructuredBuffer(m_diligent->pDevice, "Normal Matrix Buffer", sizeof(float) * 4 * 3, static_cast<Diligent::Uint32>(m_maxObjects));
+        m_diligent->pCullOrientationBuffer[i] = CreateStructuredBuffer(m_diligent->pDevice, "Cull Orientation Buffer", sizeof(glm::vec4), static_cast<Diligent::Uint32>(m_maxObjects));
+        m_diligent->pCullSphereBuffer[i] = CreateStructuredBuffer(m_diligent->pDevice, "Cull Sphere Buffer", sizeof(glm::vec4), static_cast<Diligent::Uint32>(m_maxObjects));
         m_diligent->pDirtyIndexBuffer[i] = CreateStructuredBuffer(m_diligent->pDevice, "Dirty Index Buffer", sizeof(unsigned int), MAX_DIRTY_PER_FRAME);
         m_diligent->pDirtyPayloadBuffer[i] = CreateStructuredBuffer(m_diligent->pDevice, "Dirty Payload Buffer", sizeof(glm::mat4), MAX_DIRTY_PER_FRAME);
         m_diligent->pTouchedEpochBuffer[i] = CreateStructuredBuffer(m_diligent->pDevice, "Touched Epoch Buffer", sizeof(unsigned int), static_cast<Diligent::Uint32>(m_maxObjects));
         m_diligent->pHierarchyBuffer[i] = CreateStructuredBuffer(m_diligent->pDevice, "Hierarchy Buffer", sizeof(HierarchyComponent), static_cast<Diligent::Uint32>(m_maxObjects));
         m_diligent->pRenderableBuffer[i] = CreateStructuredBuffer(m_diligent->pDevice, "Renderable Buffer", sizeof(RenderableComponent), static_cast<Diligent::Uint32>(m_maxObjects));
         m_diligent->pSortedHierarchyBuffer[i] = CreateStructuredBuffer(m_diligent->pDevice, "Sorted Hierarchy Buffer", sizeof(unsigned int), static_cast<Diligent::Uint32>(m_maxObjects));
-        m_diligent->pVisibleObjectBuffer[i] = CreateStructuredBuffer(m_diligent->pDevice, "Visible Objects Buffer", sizeof(unsigned int), static_cast<Diligent::Uint32>(m_maxObjects));
+        m_diligent->pVisibleObjectBuffer[i] = CreateStructuredBuffer(m_diligent->pDevice, "Visible Objects Buffer", sizeof(unsigned int) * 2, static_cast<Diligent::Uint32>(m_maxObjects));
         m_diligent->pSortedVisibleObjectBuffer[i] = CreateStructuredBuffer(m_diligent->pDevice, "Sorted Visible Objects Buffer", sizeof(unsigned int), static_cast<Diligent::Uint32>(m_maxObjects));
         m_diligent->pBucketCountBuffer[i] = CreateStructuredBuffer(m_diligent->pDevice, "Bucket Count Buffer", sizeof(unsigned int), totalBuckets);
         m_diligent->pBucketOffsetBuffer[i] = CreateStructuredBuffer(m_diligent->pDevice, "Bucket Offset Buffer", sizeof(unsigned int), totalBuckets);
         m_diligent->pBucketWriteHeadBuffer[i] = CreateStructuredBuffer(m_diligent->pDevice, "Bucket Write Head Buffer", sizeof(unsigned int), totalBuckets);
+        m_diligent->pTransparentIdBuffer[i] = CreateStructuredBuffer(m_diligent->pDevice, "Transparent Id Buffer", sizeof(unsigned int), static_cast<Diligent::Uint32>(m_maxObjects));
+        m_diligent->pPointCommandBuffer[i] = CreateIndirectBuffer(m_diligent->pDevice, "Point Command Buffer", static_cast<size_t>(MAX_MESHES) * m_numDrawingShaders * sizeof(DrawElementsIndirectCommand));
         m_diligent->pDrawCommandBuffer[i] = CreateIndirectBuffer(m_diligent->pDevice, "Draw Command Buffer", static_cast<size_t>(MAX_MESHES) * m_numDrawingShaders * sizeof(DrawElementsIndirectCommand));
 
-        m_diligent->pVisibleLargeObjectBuffer[i] = CreateStructuredBuffer(m_diligent->pDevice, "Visible Large Objects Buffer", sizeof(unsigned int), static_cast<Diligent::Uint32>(subPassMaxObjects));
+        m_diligent->pVisibleLargeObjectBuffer[i] = CreateStructuredBuffer(m_diligent->pDevice, "Visible Large Objects Buffer", sizeof(unsigned int) * 2, static_cast<Diligent::Uint32>(subPassMaxObjects));
         m_diligent->pSortedVisibleLargeObjectBuffer[i] = CreateStructuredBuffer(m_diligent->pDevice, "Sorted Visible Large Objects Buffer", sizeof(unsigned int), static_cast<Diligent::Uint32>(subPassMaxObjects));
         m_diligent->pLargeBucketCountBuffer[i] = CreateStructuredBuffer(m_diligent->pDevice, "Large Object Bucket Count Buffer", sizeof(unsigned int), totalBuckets);
         m_diligent->pLargeBucketOffsetBuffer[i] = CreateStructuredBuffer(m_diligent->pDevice, "Large Object Bucket Offset Buffer", sizeof(unsigned int), totalBuckets);
@@ -757,11 +777,11 @@ void Renderer::reallocateBuffers(size_t numObjects) {
     }
 
     for (int i = 0; i < NUM_FRAMES_IN_FLIGHT; ++i) {
-        const bool allocationsOk = m_diligent->pObjectBuffer[i] && m_diligent->pWorldMatrixBuffer[i] && m_diligent->pNormalMatrixBuffer[i] &&
+        const bool allocationsOk = m_diligent->pObjectBuffer[i] && m_diligent->pWorldMatrixBuffer[i] && m_diligent->pCullSphereBuffer[i] && m_diligent->pCullOrientationBuffer[i] &&
                                    m_diligent->pHierarchyBuffer[i] && m_diligent->pRenderableBuffer[i] && m_diligent->pSortedHierarchyBuffer[i] &&
                                    m_diligent->pVisibleObjectBuffer[i] && m_diligent->pSortedVisibleObjectBuffer[i] && m_diligent->pTouchedEpochBuffer[i] &&
                                    m_diligent->pDirtyIndexBuffer[i] && m_diligent->pDirtyPayloadBuffer[i] && m_diligent->pBucketCountBuffer[i] &&
-                                   m_diligent->pBucketOffsetBuffer[i] && m_diligent->pBucketWriteHeadBuffer[i] && m_diligent->pDrawCommandBuffer[i] &&
+                                   m_diligent->pBucketOffsetBuffer[i] && m_diligent->pBucketWriteHeadBuffer[i] && m_diligent->pDrawCommandBuffer[i] && m_diligent->pPointCommandBuffer[i] && m_diligent->pPointDrawCounterBuffer[i] && m_diligent->pTransparentIdBuffer[i] &&
                                    m_diligent->pVisibleLargeObjectBuffer[i] && m_diligent->pDepthPrepassDrawCommandBuffer[i] &&
                                    m_diligent->pVisibleTransparentObjectIdsBuffer[i] && m_diligent->pTransparentDrawCommandBuffer[i] && m_diligent->pSceneUBO[i];
         if (!allocationsOk) {
@@ -793,7 +813,6 @@ void Renderer::reallocateBuffers(size_t numObjects) {
             if (m_diligent->pTransformSRB[i]) {
                 auto* transformBuf = m_diligent->pTransformSRB[i]->GetVariableByName(Diligent::SHADER_TYPE_COMPUTE, "TransformBuffer");
                 auto* worldMatrixBuf = m_diligent->pTransformSRB[i]->GetVariableByName(Diligent::SHADER_TYPE_COMPUTE, "WorldMatrixBuffer");
-                auto* normalMatrixBuf = m_diligent->pTransformSRB[i]->GetVariableByName(Diligent::SHADER_TYPE_COMPUTE, "NormalMatrixBuffer");
                 auto* hierarchyBuf = m_diligent->pTransformSRB[i]->GetVariableByName(Diligent::SHADER_TYPE_COMPUTE, "HierarchyBuffer");
                 auto* sortedBuf = m_diligent->pTransformSRB[i]->GetVariableByName(Diligent::SHADER_TYPE_COMPUTE, "SortedHierarchyBuffer");
                 auto* uniformsVar = m_diligent->pTransformSRB[i]->GetVariableByName(Diligent::SHADER_TYPE_COMPUTE, "TransformUniforms");
@@ -801,11 +820,15 @@ void Renderer::reallocateBuffers(size_t numObjects) {
 
                 if (transformBuf && m_diligent->pObjectBuffer[i]) transformBuf->Set(m_diligent->pObjectBuffer[i]->GetDefaultView(Diligent::BUFFER_VIEW_SHADER_RESOURCE));
                 if (worldMatrixBuf && m_diligent->pWorldMatrixBuffer[i]) worldMatrixBuf->Set(m_diligent->pWorldMatrixBuffer[i]->GetDefaultView(Diligent::BUFFER_VIEW_UNORDERED_ACCESS));
-                if (normalMatrixBuf && m_diligent->pNormalMatrixBuffer[i]) normalMatrixBuf->Set(m_diligent->pNormalMatrixBuffer[i]->GetDefaultView(Diligent::BUFFER_VIEW_UNORDERED_ACCESS));
                 if (touchedEpochBuf && m_diligent->pTouchedEpochBuffer[i]) touchedEpochBuf->Set(m_diligent->pTouchedEpochBuffer[i]->GetDefaultView(Diligent::BUFFER_VIEW_UNORDERED_ACCESS));
                 if (hierarchyBuf && m_diligent->pHierarchyBuffer[i]) hierarchyBuf->Set(m_diligent->pHierarchyBuffer[i]->GetDefaultView(Diligent::BUFFER_VIEW_SHADER_RESOURCE));
                 if (sortedBuf && m_diligent->pSortedHierarchyBuffer[i]) sortedBuf->Set(m_diligent->pSortedHierarchyBuffer[i]->GetDefaultView(Diligent::BUFFER_VIEW_SHADER_RESOURCE));
                 if (uniformsVar && m_diligent->pTransformUniforms) uniformsVar->Set(m_diligent->pTransformUniforms);
+                if (auto* var = m_diligent->pTransformSRB[i]->GetVariableByName(Diligent::SHADER_TYPE_COMPUTE, "CullOrientationBuffer")) var->Set(m_diligent->pCullOrientationBuffer[i]->GetDefaultView(Diligent::BUFFER_VIEW_UNORDERED_ACCESS));
+                if (auto* var = m_diligent->pTransformSRB[i]->GetVariableByName(Diligent::SHADER_TYPE_COMPUTE, "CullSphereBuffer")) var->Set(m_diligent->pCullSphereBuffer[i]->GetDefaultView(Diligent::BUFFER_VIEW_UNORDERED_ACCESS));
+                if (auto* var = m_diligent->pTransformSRB[i]->GetVariableByName(Diligent::SHADER_TYPE_COMPUTE, "RenderableBuffer")) var->Set(m_diligent->pRenderableBuffer[i]->GetDefaultView(Diligent::BUFFER_VIEW_SHADER_RESOURCE));
+                if (auto* var = m_diligent->pTransformSRB[i]->GetVariableByName(Diligent::SHADER_TYPE_COMPUTE, "MeshInfoBuffer"); var && m_diligent->pMeshInfoBuffer) var->Set(m_diligent->pMeshInfoBuffer->GetDefaultView(Diligent::BUFFER_VIEW_SHADER_RESOURCE));
+                if (auto* baseVar = m_diligent->pTransformSRB[i]->GetVariableByName(Diligent::SHADER_TYPE_COMPUTE, "BasePositionBuffer"); baseVar && m_diligent->pBasePositionBuffer) baseVar->Set(m_diligent->pBasePositionBuffer->GetDefaultView(Diligent::BUFFER_VIEW_SHADER_RESOURCE));
             }
         }
 
@@ -826,6 +849,7 @@ void Renderer::reallocateBuffers(size_t numObjects) {
                 if (cullingUniformsVar && m_diligent->pCullingUniforms) cullingUniformsVar->Set(m_diligent->pCullingUniforms);
                 if (atomicCounterVar && m_diligent->pVisibleObjectAtomicCounter[i]) atomicCounterVar->Set(m_diligent->pVisibleObjectAtomicCounter[i]->GetDefaultView(Diligent::BUFFER_VIEW_UNORDERED_ACCESS));
                 if (visibleObjectVar && m_diligent->pVisibleObjectBuffer[i]) visibleObjectVar->Set(m_diligent->pVisibleObjectBuffer[i]->GetDefaultView(Diligent::BUFFER_VIEW_UNORDERED_ACCESS));
+                if (auto* sphereVar = m_diligent->pCullingSRB[i]->GetVariableByName(Diligent::SHADER_TYPE_COMPUTE, "CullSphereBuffer")) sphereVar->Set(m_diligent->pCullSphereBuffer[i]->GetDefaultView(Diligent::BUFFER_VIEW_SHADER_RESOURCE));
                 if (objectVar && m_diligent->pWorldMatrixBuffer[i]) objectVar->Set(m_diligent->pWorldMatrixBuffer[i]->GetDefaultView(Diligent::BUFFER_VIEW_SHADER_RESOURCE));
                 if (meshInfoVar && m_diligent->pMeshInfoBuffer) meshInfoVar->Set(m_diligent->pMeshInfoBuffer->GetDefaultView(Diligent::BUFFER_VIEW_SHADER_RESOURCE));
                 if (renderableVar && m_diligent->pRenderableBuffer[i]) renderableVar->Set(m_diligent->pRenderableBuffer[i]->GetDefaultView(Diligent::BUFFER_VIEW_SHADER_RESOURCE));
@@ -883,6 +907,8 @@ void Renderer::reallocateBuffers(size_t numObjects) {
             m_diligent->pCommandGenSRB[i].Release();
             m_diligent->pCommandGenPSO->CreateShaderResourceBinding(&m_diligent->pCommandGenSRB[i], true);
             if (m_diligent->pCommandGenSRB[i]) {
+                if (auto* var = m_diligent->pCommandGenSRB[i]->GetVariableByName(Diligent::SHADER_TYPE_COMPUTE, "PointCounterBuffer")) var->Set(m_diligent->pPointDrawCounterBuffer[i]->GetDefaultView(Diligent::BUFFER_VIEW_UNORDERED_ACCESS));
+                if (auto* var = m_diligent->pCommandGenSRB[i]->GetVariableByName(Diligent::SHADER_TYPE_COMPUTE, "PointCommandBuffer")) var->Set(m_diligent->pPointCommandBuffer[i]->GetDefaultView(Diligent::BUFFER_VIEW_UNORDERED_ACCESS));
                 if (auto* var = m_diligent->pCommandGenSRB[i]->GetVariableByName(Diligent::SHADER_TYPE_COMPUTE, "DrawAtomicCounterBuffer")) var->Set(m_diligent->pDrawAtomicCounterBuffer[i]->GetDefaultView(Diligent::BUFFER_VIEW_UNORDERED_ACCESS));
                 if (auto* var = m_diligent->pCommandGenSRB[i]->GetVariableByName(Diligent::SHADER_TYPE_COMPUTE, "DrawCommandBuffer")) var->Set(m_diligent->pDrawCommandBuffer[i]->GetDefaultView(Diligent::BUFFER_VIEW_UNORDERED_ACCESS));
                 if (auto* var = m_diligent->pCommandGenSRB[i]->GetVariableByName(Diligent::SHADER_TYPE_COMPUTE, "MeshInfoBuffer")) var->Set(m_diligent->pMeshInfoBuffer->GetDefaultView(Diligent::BUFFER_VIEW_SHADER_RESOURCE));
@@ -900,7 +926,7 @@ void Renderer::reallocateBuffers(size_t numObjects) {
                 if (auto* var = m_diligent->pLargeObjectCullSRB[i]->GetVariableByName(Diligent::SHADER_TYPE_COMPUTE, "MeshInfoBuffer")) var->Set(m_diligent->pMeshInfoBuffer->GetDefaultView(Diligent::BUFFER_VIEW_SHADER_RESOURCE));
                 if (auto* var = m_diligent->pLargeObjectCullSRB[i]->GetVariableByName(Diligent::SHADER_TYPE_COMPUTE, "VisibleLargeObjectAtomicCounter")) var->Set(m_diligent->pVisibleLargeObjectAtomicCounter[i]->GetDefaultView(Diligent::BUFFER_VIEW_UNORDERED_ACCESS));
                 if (auto* var = m_diligent->pLargeObjectCullSRB[i]->GetVariableByName(Diligent::SHADER_TYPE_COMPUTE, "LargeObjectCullConstants")) var->Set(m_diligent->pLargeObjectCullConstants);
-                if (auto* var = m_diligent->pLargeObjectCullSRB[i]->GetVariableByName(Diligent::SHADER_TYPE_COMPUTE, "WorldMatrixBuffer")) var->Set(m_diligent->pWorldMatrixBuffer[i]->GetDefaultView(Diligent::BUFFER_VIEW_SHADER_RESOURCE));
+                if (auto* var = m_diligent->pLargeObjectCullSRB[i]->GetVariableByName(Diligent::SHADER_TYPE_COMPUTE, "CullSphereBuffer")) var->Set(m_diligent->pCullSphereBuffer[i]->GetDefaultView(Diligent::BUFFER_VIEW_SHADER_RESOURCE));
                 if (auto* var = m_diligent->pLargeObjectCullSRB[i]->GetVariableByName(Diligent::SHADER_TYPE_COMPUTE, "RenderableBuffer")) var->Set(m_diligent->pRenderableBuffer[i]->GetDefaultView(Diligent::BUFFER_VIEW_SHADER_RESOURCE));
                 if (auto* var = m_diligent->pLargeObjectCullSRB[i]->GetVariableByName(Diligent::SHADER_TYPE_COMPUTE, "VisibleLargeObjectBuffer")) var->Set(m_diligent->pVisibleLargeObjectBuffer[i]->GetDefaultView(Diligent::BUFFER_VIEW_UNORDERED_ACCESS));
                 if (auto* var = m_diligent->pLargeObjectCullSRB[i]->GetVariableByName(Diligent::SHADER_TYPE_COMPUTE, "LargeBucketCountBuffer")) var->Set(m_diligent->pLargeBucketCountBuffer[i]->GetDefaultView(Diligent::BUFFER_VIEW_UNORDERED_ACCESS));
@@ -935,6 +961,8 @@ void Renderer::reallocateBuffers(size_t numObjects) {
             m_diligent->pLargeCommandGenSRB[i].Release();
             m_diligent->pCommandGenPSO->CreateShaderResourceBinding(&m_diligent->pLargeCommandGenSRB[i], true);
             if (m_diligent->pLargeCommandGenSRB[i]) {
+                if (auto* var = m_diligent->pLargeCommandGenSRB[i]->GetVariableByName(Diligent::SHADER_TYPE_COMPUTE, "PointCounterBuffer")) var->Set(m_diligent->pPointDrawCounterBuffer[i]->GetDefaultView(Diligent::BUFFER_VIEW_UNORDERED_ACCESS));
+                if (auto* var = m_diligent->pLargeCommandGenSRB[i]->GetVariableByName(Diligent::SHADER_TYPE_COMPUTE, "PointCommandBuffer")) var->Set(m_diligent->pPointCommandBuffer[i]->GetDefaultView(Diligent::BUFFER_VIEW_UNORDERED_ACCESS));
                 if (auto* var = m_diligent->pLargeCommandGenSRB[i]->GetVariableByName(Diligent::SHADER_TYPE_COMPUTE, "DrawAtomicCounterBuffer")) var->Set(m_diligent->pLargeDrawAtomicCounterBuffer[i]->GetDefaultView(Diligent::BUFFER_VIEW_UNORDERED_ACCESS));
                 if (auto* var = m_diligent->pLargeCommandGenSRB[i]->GetVariableByName(Diligent::SHADER_TYPE_COMPUTE, "DrawCommandBuffer")) var->Set(m_diligent->pDepthPrepassDrawCommandBuffer[i]->GetDefaultView(Diligent::BUFFER_VIEW_UNORDERED_ACCESS));
                 if (auto* var = m_diligent->pLargeCommandGenSRB[i]->GetVariableByName(Diligent::SHADER_TYPE_COMPUTE, "MeshInfoBuffer")) var->Set(m_diligent->pMeshInfoBuffer->GetDefaultView(Diligent::BUFFER_VIEW_SHADER_RESOURCE));
@@ -965,9 +993,9 @@ void Renderer::reallocateBuffers(size_t numObjects) {
                 if (auto* var = m_diligent->pTransparentCullSRB[i]->GetVariableByName(Diligent::SHADER_TYPE_COMPUTE, "SceneData")) var->Set(m_diligent->pSceneUBO[i]);
                 if (auto* var = m_diligent->pTransparentCullSRB[i]->GetVariableByName(Diligent::SHADER_TYPE_COMPUTE, "AtomicCounterBuffer")) var->Set(m_diligent->pTransparentAtomicCounter[i]->GetDefaultView(Diligent::BUFFER_VIEW_UNORDERED_ACCESS));
                 if (auto* var = m_diligent->pTransparentCullSRB[i]->GetVariableByName(Diligent::SHADER_TYPE_COMPUTE, "VisibleTransparentObjectBuffer")) var->Set(m_diligent->pVisibleTransparentObjectIdsBuffer[i]->GetDefaultView(Diligent::BUFFER_VIEW_UNORDERED_ACCESS));
-                if (auto* var = m_diligent->pTransparentCullSRB[i]->GetVariableByName(Diligent::SHADER_TYPE_COMPUTE, "WorldMatrixBuffer")) var->Set(m_diligent->pWorldMatrixBuffer[i]->GetDefaultView(Diligent::BUFFER_VIEW_SHADER_RESOURCE));
+                if (auto* var = m_diligent->pTransparentCullSRB[i]->GetVariableByName(Diligent::SHADER_TYPE_COMPUTE, "CullSphereBuffer")) var->Set(m_diligent->pCullSphereBuffer[i]->GetDefaultView(Diligent::BUFFER_VIEW_SHADER_RESOURCE));
                 if (auto* var = m_diligent->pTransparentCullSRB[i]->GetVariableByName(Diligent::SHADER_TYPE_COMPUTE, "MeshInfoBuffer")) var->Set(m_diligent->pMeshInfoBuffer->GetDefaultView(Diligent::BUFFER_VIEW_SHADER_RESOURCE));
-                if (auto* var = m_diligent->pTransparentCullSRB[i]->GetVariableByName(Diligent::SHADER_TYPE_COMPUTE, "RenderableBuffer")) var->Set(m_diligent->pRenderableBuffer[i]->GetDefaultView(Diligent::BUFFER_VIEW_SHADER_RESOURCE));
+                if (auto* var = m_diligent->pTransparentCullSRB[i]->GetVariableByName(Diligent::SHADER_TYPE_COMPUTE, "TransparentIdBuffer")) var->Set(m_diligent->pTransparentIdBuffer[i]->GetDefaultView(Diligent::BUFFER_VIEW_SHADER_RESOURCE));
                 if (auto* var = m_diligent->pTransparentCullSRB[i]->GetVariableByName(Diligent::SHADER_TYPE_COMPUTE, "TransparentCullUniforms")) var->Set(m_diligent->pTransparentCullUniforms);
             }
         }
@@ -1028,9 +1056,24 @@ void Renderer::reallocateBuffers(size_t numObjects) {
                 if (m_diligent->pOpaqueSRBs[i][s]) {
                     if (auto* var = m_diligent->pOpaqueSRBs[i][s]->GetVariableByName(Diligent::SHADER_TYPE_VERTEX, "SceneData")) var->Set(m_diligent->pSceneUBO[i]);
                     if (auto* var = m_diligent->pOpaqueSRBs[i][s]->GetVariableByName(Diligent::SHADER_TYPE_PIXEL, "SceneData")) var->Set(m_diligent->pSceneUBO[i]);
+                    if (auto* var = m_diligent->pOpaqueSRBs[i][s]->GetVariableByName(Diligent::SHADER_TYPE_VERTEX, "CullSphereBuffer")) var->Set(m_diligent->pCullSphereBuffer[i]->GetDefaultView(Diligent::BUFFER_VIEW_SHADER_RESOURCE));
                     if (auto* var = m_diligent->pOpaqueSRBs[i][s]->GetVariableByName(Diligent::SHADER_TYPE_VERTEX, "WorldMatrixBuffer")) var->Set(m_diligent->pWorldMatrixBuffer[i]->GetDefaultView(Diligent::BUFFER_VIEW_SHADER_RESOURCE));
-                    if (auto* var = m_diligent->pOpaqueSRBs[i][s]->GetVariableByName(Diligent::SHADER_TYPE_VERTEX, "NormalMatrixBuffer")) var->Set(m_diligent->pNormalMatrixBuffer[i]->GetDefaultView(Diligent::BUFFER_VIEW_SHADER_RESOURCE));
                     if (auto* var = m_diligent->pOpaqueSRBs[i][s]->GetVariableByName(Diligent::SHADER_TYPE_VERTEX, "VisibleObjectBuffer")) var->Set(m_diligent->pSortedVisibleObjectBuffer[i]->GetDefaultView(Diligent::BUFFER_VIEW_SHADER_RESOURCE));
+                }
+            }
+        }
+
+        for (size_t s = 0; s < m_diligent->pPointPSOs.size(); ++s) {
+            if (m_diligent->pPointPSOs[s]) {
+                m_diligent->pPointSRBs[i][s].Release();
+                m_diligent->pPointPSOs[s]->CreateShaderResourceBinding(&m_diligent->pPointSRBs[i][s], true);
+                if (m_diligent->pPointSRBs[i][s]) {
+                    if (auto* var = m_diligent->pPointSRBs[i][s]->GetVariableByName(Diligent::SHADER_TYPE_VERTEX, "SceneData")) var->Set(m_diligent->pSceneUBO[i]);
+                    if (auto* var = m_diligent->pPointSRBs[i][s]->GetVariableByName(Diligent::SHADER_TYPE_PIXEL, "SceneData")) var->Set(m_diligent->pSceneUBO[i]);
+                    if (auto* var = m_diligent->pPointSRBs[i][s]->GetVariableByName(Diligent::SHADER_TYPE_VERTEX, "CullSphereBuffer")) var->Set(m_diligent->pCullSphereBuffer[i]->GetDefaultView(Diligent::BUFFER_VIEW_SHADER_RESOURCE));
+                    if (auto* var = m_diligent->pPointSRBs[i][s]->GetVariableByName(Diligent::SHADER_TYPE_VERTEX, "CullOrientationBuffer")) var->Set(m_diligent->pCullOrientationBuffer[i]->GetDefaultView(Diligent::BUFFER_VIEW_SHADER_RESOURCE));
+                    if (auto* var = m_diligent->pPointSRBs[i][s]->GetVariableByName(Diligent::SHADER_TYPE_VERTEX, "NormalSampleBuffer")) var->Set(m_diligent->pNormalSampleBuffer->GetDefaultView(Diligent::BUFFER_VIEW_SHADER_RESOURCE));
+                    if (auto* var = m_diligent->pPointSRBs[i][s]->GetVariableByName(Diligent::SHADER_TYPE_VERTEX, "VisibleObjectBuffer")) var->Set(m_diligent->pSortedVisibleObjectBuffer[i]->GetDefaultView(Diligent::BUFFER_VIEW_SHADER_RESOURCE));
                 }
             }
         }
@@ -1041,8 +1084,8 @@ void Renderer::reallocateBuffers(size_t numObjects) {
             if (m_diligent->pTransparentSRB[i]) {
                 if (auto* var = m_diligent->pTransparentSRB[i]->GetVariableByName(Diligent::SHADER_TYPE_VERTEX, "SceneData")) var->Set(m_diligent->pSceneUBO[i]);
                 if (auto* var = m_diligent->pTransparentSRB[i]->GetVariableByName(Diligent::SHADER_TYPE_PIXEL, "SceneData")) var->Set(m_diligent->pSceneUBO[i]);
+                if (auto* var = m_diligent->pTransparentSRB[i]->GetVariableByName(Diligent::SHADER_TYPE_VERTEX, "CullSphereBuffer")) var->Set(m_diligent->pCullSphereBuffer[i]->GetDefaultView(Diligent::BUFFER_VIEW_SHADER_RESOURCE));
                 if (auto* var = m_diligent->pTransparentSRB[i]->GetVariableByName(Diligent::SHADER_TYPE_VERTEX, "WorldMatrixBuffer")) var->Set(m_diligent->pWorldMatrixBuffer[i]->GetDefaultView(Diligent::BUFFER_VIEW_SHADER_RESOURCE));
-                if (auto* var = m_diligent->pTransparentSRB[i]->GetVariableByName(Diligent::SHADER_TYPE_VERTEX, "NormalMatrixBuffer")) var->Set(m_diligent->pNormalMatrixBuffer[i]->GetDefaultView(Diligent::BUFFER_VIEW_SHADER_RESOURCE));
                 if (auto* var = m_diligent->pTransparentSRB[i]->GetVariableByName(Diligent::SHADER_TYPE_VERTEX, "VisibleTransparentObjectBuffer")) var->Set(m_diligent->pVisibleTransparentObjectIdsBuffer[i]->GetDefaultView(Diligent::BUFFER_VIEW_SHADER_RESOURCE));
             }
         }
@@ -1108,13 +1151,11 @@ void Renderer::cleanup() {
 
 Renderer::~Renderer() { cleanup(); }
 
-uint32_t Renderer::uploadMesh(const Mesh& mesh) {
+uint32_t Renderer::uploadMeshSlot(const Mesh& mesh) {
     if (s_meshInfos.size() >= MAX_MESHES) {
-        Lit::Log::Error("Mesh limit of {} reached; refusing to upload another mesh.", MAX_MESHES);
+        Lit::Log::Error("Mesh slot limit of {} reached; refusing to upload another mesh.", MAX_MESHES);
         return INVALID_MESH_UUID;
     }
-
-    if (mesh.vertices.empty() || mesh.indices.empty()) { return 0; }
 
     const size_t vertexDataSize = mesh.vertices.size() * sizeof(float);
     const size_t indexDataSize = mesh.indices.size() * sizeof(unsigned int);
@@ -1175,20 +1216,53 @@ uint32_t Renderer::uploadMesh(const Mesh& mesh) {
     return meshUuid;
 }
 
-std::vector<uint32_t> Renderer::uploadMeshWithLODs(const Mesh& baseMesh, const std::vector<float>& lodRatios) {
-    std::vector<uint32_t> uuids;
-    uuids.reserve(lodRatios.size() + 1);
-    uuids.push_back(uploadMesh(baseMesh));
+uint32_t Renderer::uploadMesh(const Mesh& source) {
+    if (source.vertices.empty() || source.indices.empty()) { return 0; }
+    const Mesh mesh = source.optimized();
 
-    for (float ratio : lodRatios) {
-        Mesh simplified = baseMesh.simplify(ratio);
-        uuids.push_back(uploadMesh(simplified));
+    if (s_meshInfos.size() + kLodLevelCount > MAX_MESHES) {
+        Lit::Log::Error("Mesh slot limit of {} reached ({} slots per mesh); refusing to upload another mesh.", MAX_MESHES, kLodLevelCount);
+        return INVALID_MESH_UUID;
     }
 
-    return uuids;
+    const uint32_t baseUuid = uploadMeshSlot(mesh);
+    if (baseUuid == INVALID_MESH_UUID) { return INVALID_MESH_UUID; }
+
+    if (s_normalSamples.empty()) { s_normalSamples.assign(static_cast<size_t>(MAX_MESHES) * kNormalSamples, glm::vec4(0.0f)); }
+    const std::vector<float> samples = mesh.normalSamples(kNormalSamples);
+    const float boundingRadius = s_meshInfos[baseUuid].boundingRadius;
+    const float silhouetteRatio = boundingRadius > 0.0f ? std::min(1.0f, std::sqrt(mesh.surfaceArea() / (4.0f * 3.14159265f)) / boundingRadius) : 1.0f;
+    const float packedShape = mesh.isRound() ? -silhouetteRatio : silhouetteRatio;
+    for (uint32_t i = 0; i < kNormalSamples; ++i) {
+        s_normalSamples[static_cast<size_t>(baseUuid) * kNormalSamples + i] = glm::vec4(samples[i * 4], samples[i * 4 + 1], samples[i * 4 + 2], packedShape);
+    }
+
+    const MeshInfo baseInfo = s_meshInfos[baseUuid];
+    size_t previousIndexCount = mesh.indices.size();
+
+    const std::vector<Mesh> chain = mesh.generateLODChain();
+    for (size_t level = 0; level < chain.size(); ++level) {
+        const Mesh& lod = chain[level];
+        const bool isImpostor = (level + 1 == chain.size());
+        if (!isImpostor && (lod.indices.empty() || lod.indices.size() >= previousIndexCount)) {
+            s_meshInfos.push_back(s_meshInfos.back());
+            continue;
+        }
+
+        const uint32_t slot = uploadMeshSlot(lod);
+        s_meshInfos[slot].boundingRadius = baseInfo.boundingRadius;
+        s_meshInfos[slot].boundingCenter = baseInfo.boundingCenter;
+        previousIndexCount = lod.indices.size();
+    }
+
+    Lit::Log::Info("Mesh {} uploaded with {} LOD levels (index counts: {} -> {})", baseUuid, kLodLevelCount, mesh.indices.size(), s_meshInfos.back().indexCount);
+    return baseUuid;
 }
 
 void Renderer::setSmallObjectThreshold(float threshold) { m_smallObjectThreshold = threshold; }
+void Renderer::setLodBias(float bias) { m_lodBias = std::max(bias, 0.0f); }
+void Renderer::setForcedLod(int lod) { m_forcedLod = (lod < 0) ? -1 : std::min(lod, static_cast<int>(kLodLevelCount) - 1); }
+int Renderer::getForcedLod() const { return m_forcedLod; }
 void Renderer::setLargeObjectThreshold(float threshold) { m_largeObjectThreshold = threshold; }
 void Renderer::setDebugDepthMode(bool enabled) { m_debugDepthMode = enabled; }
 bool Renderer::isDebugDepthMode() const { return m_debugDepthMode; }
@@ -1328,6 +1402,7 @@ void Renderer::drawScene(SceneDatabase& sceneDatabase, const Camera& camera) {
         m_renderableUpdateCounter = NUM_FRAMES_IN_FLIGHT;
         dirtyUsesBulkPath = true;
         m_processedDataVersion = sceneDatabase.m_dataVersion;
+        m_transparentIdsStale = true;
     }
 
     const std::vector<Entity>& newlyDirty = sceneDatabase.m_dirtyList;
@@ -1358,6 +1433,7 @@ void Renderer::drawScene(SceneDatabase& sceneDatabase, const Camera& camera) {
     }
 
     const bool fullTransformUpdateActive = (m_fullTransformUpdateCounter > 0);
+    const bool localMatricesUploading = (m_fullTransformUpdateCounter > 0) || (m_transformUpdateCounter > 0);
 
     if (m_fullTransformUpdateCounter > 0) {
         const size_t dataSize = sceneDatabase.transforms.size() * sizeof(TransformComponent);
@@ -1373,6 +1449,17 @@ void Renderer::drawScene(SceneDatabase& sceneDatabase, const Camera& camera) {
 
     if (m_renderableUpdateCounter > 0) {
         const size_t renderableDataSize = sceneDatabase.renderables.size() * sizeof(RenderableComponent);
+        if (m_transparentIdsStale) {
+            m_transparentIds.clear();
+            for (size_t e = 0; e < sceneDatabase.renderables.size(); ++e) {
+                if (sceneDatabase.renderables[e].shaderId == 2) { m_transparentIds.push_back(static_cast<uint32_t>(e)); }
+            }
+            m_transparentIdsStale = false;
+        }
+        m_transparentIdCounts[m_currentFrame] = static_cast<uint32_t>(m_transparentIds.size());
+        if (!m_transparentIds.empty()) {
+            m_diligent->pImmediateContext->UpdateBuffer(m_diligent->pTransparentIdBuffer[m_currentFrame], 0, m_transparentIds.size() * sizeof(uint32_t), m_transparentIds.data(), Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
+        }
         m_diligent->pImmediateContext->UpdateBuffer(m_diligent->pRenderableBuffer[m_currentFrame], 0, renderableDataSize, sceneDatabase.renderables.data(), Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
         m_renderableUpdateCounter--;
     }
@@ -1426,39 +1513,17 @@ void Renderer::drawScene(SceneDatabase& sceneDatabase, const Camera& camera) {
     Timestamp(m_diligent->pUploadEndQuery[m_currentFrame]);
     Timestamp(m_diligent->pAnimStartQuery[m_currentFrame]);
 
-    if (m_animMovingCount > 0 && m_diligent->pAnimPSO && m_diligent->pAnimSRB[m_currentFrame] && m_diligent->pBasePositionBuffer) {
-        struct AnimConstants {
-            float time;
-            uint32_t movingCount;
-            uint32_t entityOffset;
-            float padding;
-        };
-
-        {
-            Diligent::MapHelper<AnimConstants> pData(m_diligent->pImmediateContext, m_diligent->pAnimConstants, Diligent::MAP_WRITE, Diligent::MAP_FLAG_DISCARD);
-            pData->time = m_animTime;
-            pData->movingCount = m_animMovingCount;
-            pData->entityOffset = m_animEntityOffset;
-            pData->padding = 0.0f;
-        }
-
-        m_diligent->pImmediateContext->SetPipelineState(m_diligent->pAnimPSO);
-        m_diligent->pImmediateContext->CommitShaderResources(m_diligent->pAnimSRB[m_currentFrame], Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
-
-        const unsigned int animWorkgroups = (m_animMovingCount + 255) / 256;
-        m_diligent->pImmediateContext->DispatchCompute(Diligent::DispatchComputeAttribs(animWorkgroups, 1, 1));
-
-        Diligent::StateTransitionDesc AnimBarrier;
-        AnimBarrier.pResource = m_diligent->pObjectBuffer[m_currentFrame];
-        AnimBarrier.OldState = Diligent::RESOURCE_STATE_UNORDERED_ACCESS;
-        AnimBarrier.NewState = Diligent::RESOURCE_STATE_SHADER_RESOURCE;
-        AnimBarrier.TransitionType = Diligent::STATE_TRANSITION_TYPE_IMMEDIATE;
-        AnimBarrier.Flags = Diligent::STATE_TRANSITION_FLAG_UPDATE_STATE;
-        m_diligent->pImmediateContext->TransitionResourceStates(1, &AnimBarrier);
-    }
-
     Timestamp(m_diligent->pAnimEndQuery[m_currentFrame]);
     Timestamp(m_diligent->pTransformStartQuery[m_currentFrame]);
+
+    if (m_meshInfoDirty) {
+        const size_t meshInfoCount = std::min<size_t>(s_meshInfos.size(), MAX_MESHES);
+        m_diligent->pImmediateContext->UpdateBuffer(m_diligent->pMeshInfoBuffer, 0, meshInfoCount * sizeof(MeshInfo), s_meshInfos.data(), Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
+        if (!s_normalSamples.empty()) {
+            m_diligent->pImmediateContext->UpdateBuffer(m_diligent->pNormalSampleBuffer, 0, s_normalSamples.size() * sizeof(glm::vec4), s_normalSamples.data(), Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
+        }
+        m_meshInfoDirty = false;
+    }
 
     const unsigned int transformWorkgroupSize = 256;
 
@@ -1469,7 +1534,13 @@ void Renderer::drawScene(SceneDatabase& sceneDatabase, const Camera& camera) {
         unsigned int frameOffset;
         unsigned int epoch;
         unsigned int forceFullRecompute;
+        float animTime;
+        unsigned int animMovingCount;
+        unsigned int animEntityOffset;
+        unsigned int animPadding;
     } transformUniforms;
+
+    const bool animActive = m_animMovingCount > 0 && m_diligent->pBasePositionBuffer;
 
     {
         uint32_t currentBaseIndexOffset = 0;
@@ -1490,7 +1561,11 @@ void Renderer::drawScene(SceneDatabase& sceneDatabase, const Camera& camera) {
             transformUniforms.sortedListOffset = currentBaseIndexOffset;
             transformUniforms.frameOffset = 0;
             transformUniforms.epoch = m_transformEpoch;
-            transformUniforms.forceFullRecompute = (hierarchyJustChanged || dirtyUsesBulkPath || fullTransformUpdateActive || (m_animMovingCount > 0)) ? 1u : 0u;
+            transformUniforms.animTime = m_animTime;
+            transformUniforms.animMovingCount = animActive ? m_animMovingCount : 0u;
+            transformUniforms.animEntityOffset = m_animEntityOffset;
+            transformUniforms.animPadding = 0u;
+            transformUniforms.forceFullRecompute = (hierarchyJustChanged || dirtyUsesBulkPath || localMatricesUploading) ? 1u : 0u;
 
             m_diligent->pImmediateContext->UpdateBuffer(m_diligent->pTransformUniforms, 0, sizeof(transformUniforms), &transformUniforms, Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
 
@@ -1525,12 +1600,6 @@ void Renderer::drawScene(SceneDatabase& sceneDatabase, const Camera& camera) {
 
     Timestamp(m_diligent->pTransformEndQuery[m_currentFrame]);
 
-    if (m_meshInfoDirty) {
-        const size_t meshInfoCount = std::min<size_t>(s_meshInfos.size(), MAX_MESHES);
-        m_diligent->pImmediateContext->UpdateBuffer(m_diligent->pMeshInfoBuffer, 0, meshInfoCount * sizeof(MeshInfo), s_meshInfos.data(), Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
-        m_meshInfoDirty = false;
-    }
-
     SceneUniforms sceneUniforms;
     sceneUniforms.projection = camera.getProjectionMatrix();
     sceneUniforms.view = camera.getViewMatrix();
@@ -1547,6 +1616,8 @@ void Renderer::drawScene(SceneDatabase& sceneDatabase, const Camera& camera) {
 
     sceneUniforms.pointLight1Pos = glm::vec4(80.0f, -30.0f, 50.0f, 250.0f);
     sceneUniforms.pointLight1Color = glm::vec4(1.0f, 0.45f, 0.15f, 2.5f);
+    const auto& swapChainDesc = m_diligent->pSwapChain->GetDesc();
+    sceneUniforms.screenParams = glm::vec4(static_cast<float>(swapChainDesc.Width), static_cast<float>(swapChainDesc.Height), 0.0f, 0.0f);
 
     m_diligent->pImmediateContext->UpdateBuffer(m_diligent->pSceneUBO[m_currentFrame], 0, sizeof(SceneUniforms), &sceneUniforms, Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
 
@@ -1755,6 +1826,8 @@ void Renderer::drawScene(SceneDatabase& sceneDatabase, const Camera& camera) {
     cullingUniforms.hizTextureSizeX = static_cast<float>(m_windowWidth);
     cullingUniforms.hizTextureSizeY = static_cast<float>(m_windowHeight);
     cullingUniforms.numShaders = static_cast<uint32_t>(m_numDrawingShaders);
+    cullingUniforms.lodBias = m_lodBias;
+    cullingUniforms.forcedLod = m_forcedLod;
 
     m_diligent->pImmediateContext->UpdateBuffer(m_diligent->pCullingUniforms, 0, sizeof(cullingUniforms), &cullingUniforms, Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
 
@@ -1784,6 +1857,7 @@ void Renderer::drawScene(SceneDatabase& sceneDatabase, const Camera& camera) {
     m_diligent->pImmediateContext->TransitionResourceStates(2, CullBarriers);
 
     Timestamp(m_diligent->pCullEndQuery[m_currentFrame]);
+    Timestamp(m_diligent->pCommandGenStartQuery[m_currentFrame]);
 
     const uint32_t totalBuckets = static_cast<uint32_t>(m_numDrawingShaders) * MAX_MESHES;
 
@@ -1841,9 +1915,8 @@ void Renderer::drawScene(SceneDatabase& sceneDatabase, const Camera& camera) {
         m_diligent->pImmediateContext->TransitionResourceStates(1, ScatterBarriers);
     }
 
-    Timestamp(m_diligent->pCommandGenStartQuery[m_currentFrame]);
-
     m_diligent->pImmediateContext->UpdateBuffer(m_diligent->pDrawAtomicCounterBuffer[m_currentFrame], 0, sizeof(unsigned int) * m_numDrawingShaders, m_bucketZeros.data(), Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
+    m_diligent->pImmediateContext->UpdateBuffer(m_diligent->pPointDrawCounterBuffer[m_currentFrame], 0, sizeof(unsigned int) * m_numDrawingShaders, m_bucketZeros.data(), Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
 
     if (numObjects > 0) {
         m_diligent->pImmediateContext->SetPipelineState(m_diligent->pCommandGenPSO);
@@ -1860,7 +1933,17 @@ void Renderer::drawScene(SceneDatabase& sceneDatabase, const Camera& camera) {
         const unsigned int numCommandGenWorkgroups = (totalBuckets + commandGenWorkgroupSize - 1) / commandGenWorkgroupSize;
         m_diligent->pImmediateContext->DispatchCompute(Diligent::DispatchComputeAttribs(numCommandGenWorkgroups, 1, 1));
 
-        Diligent::StateTransitionDesc CmdGenBarriers[2];
+        Diligent::StateTransitionDesc CmdGenBarriers[4];
+        CmdGenBarriers[2].pResource = m_diligent->pPointCommandBuffer[m_currentFrame];
+        CmdGenBarriers[2].OldState = Diligent::RESOURCE_STATE_UNORDERED_ACCESS;
+        CmdGenBarriers[2].NewState = Diligent::RESOURCE_STATE_INDIRECT_ARGUMENT;
+        CmdGenBarriers[2].TransitionType = Diligent::STATE_TRANSITION_TYPE_IMMEDIATE;
+        CmdGenBarriers[2].Flags = Diligent::STATE_TRANSITION_FLAG_UPDATE_STATE;
+        CmdGenBarriers[3].pResource = m_diligent->pPointDrawCounterBuffer[m_currentFrame];
+        CmdGenBarriers[3].OldState = Diligent::RESOURCE_STATE_UNORDERED_ACCESS;
+        CmdGenBarriers[3].NewState = Diligent::RESOURCE_STATE_INDIRECT_ARGUMENT;
+        CmdGenBarriers[3].TransitionType = Diligent::STATE_TRANSITION_TYPE_IMMEDIATE;
+        CmdGenBarriers[3].Flags = Diligent::STATE_TRANSITION_FLAG_UPDATE_STATE;
         CmdGenBarriers[0].pResource = m_diligent->pDrawCommandBuffer[m_currentFrame];
         CmdGenBarriers[0].OldState = Diligent::RESOURCE_STATE_UNORDERED_ACCESS;
         CmdGenBarriers[0].NewState = Diligent::RESOURCE_STATE_INDIRECT_ARGUMENT;
@@ -1872,7 +1955,7 @@ void Renderer::drawScene(SceneDatabase& sceneDatabase, const Camera& camera) {
         CmdGenBarriers[1].NewState = Diligent::RESOURCE_STATE_INDIRECT_ARGUMENT;
         CmdGenBarriers[1].TransitionType = Diligent::STATE_TRANSITION_TYPE_IMMEDIATE;
         CmdGenBarriers[1].Flags = Diligent::STATE_TRANSITION_FLAG_UPDATE_STATE;
-        m_diligent->pImmediateContext->TransitionResourceStates(2, CmdGenBarriers);
+        m_diligent->pImmediateContext->TransitionResourceStates(4, CmdGenBarriers);
     }
 
     Timestamp(m_diligent->pCommandGenEndQuery[m_currentFrame]);
@@ -1914,6 +1997,24 @@ void Renderer::drawScene(SceneDatabase& sceneDatabase, const Camera& camera) {
         DrawAttrs.CounterBufferStateTransitionMode = Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION;
 
         m_diligent->pImmediateContext->DrawIndexedIndirect(DrawAttrs);
+
+        if (shaderId < m_diligent->pPointPSOs.size() && m_diligent->pPointPSOs[shaderId]) {
+            m_diligent->pImmediateContext->SetPipelineState(m_diligent->pPointPSOs[shaderId]);
+            m_diligent->pImmediateContext->CommitShaderResources(m_diligent->pPointSRBs[m_currentFrame][shaderId], Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
+
+            Diligent::DrawIndirectAttribs PointAttrs;
+            PointAttrs.Flags = Diligent::DRAW_FLAG_NONE;
+            PointAttrs.DrawArgsOffset = static_cast<Diligent::Uint64>(shaderId) * MAX_MESHES * sizeof(DrawElementsIndirectCommand);
+            PointAttrs.pAttribsBuffer = m_diligent->pPointCommandBuffer[m_currentFrame];
+            PointAttrs.DrawCount = MAX_MESHES;
+            PointAttrs.DrawArgsStride = sizeof(DrawElementsIndirectCommand);
+            PointAttrs.pCounterBuffer = m_diligent->pPointDrawCounterBuffer[m_currentFrame];
+            PointAttrs.CounterOffset = shaderId * sizeof(unsigned int);
+            PointAttrs.AttribsBufferStateTransitionMode = Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION;
+            PointAttrs.CounterBufferStateTransitionMode = Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION;
+
+            m_diligent->pImmediateContext->DrawIndirect(PointAttrs);
+        }
     }
 
     Timestamp(m_diligent->pOpaqueDrawEndQuery[m_currentFrame]);
@@ -1923,8 +2024,10 @@ void Renderer::drawScene(SceneDatabase& sceneDatabase, const Camera& camera) {
     Timestamp(m_diligent->pTransparentCullStartQuery[m_currentFrame]);
     {
         TransparentCullUniforms uniforms{};
-        uniforms.objectCount = numObjects;
+        uniforms.objectCount = m_transparentIdCounts[m_currentFrame];
         uniforms.maxDraws = static_cast<uint32_t>(subPassMaxObjects);
+        uniforms.lodBias = m_lodBias;
+        uniforms.forcedLod = m_forcedLod;
         uniforms.cameraPos = camera.getPosition();
         m_diligent->pImmediateContext->UpdateBuffer(m_diligent->pTransparentCullUniforms, 0, sizeof(uniforms), &uniforms, Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
 
@@ -1937,7 +2040,7 @@ void Renderer::drawScene(SceneDatabase& sceneDatabase, const Camera& camera) {
         m_diligent->pImmediateContext->CommitShaderResources(m_diligent->pTransparentCullSRB[m_currentFrame], Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
 
         Diligent::DispatchComputeAttribs DispatchAttrs;
-        DispatchAttrs.ThreadGroupCountX = numWorkgroups;
+        DispatchAttrs.ThreadGroupCountX = std::max(1u, (m_transparentIdCounts[m_currentFrame] + 255) / 256);
         DispatchAttrs.ThreadGroupCountY = 1;
         DispatchAttrs.ThreadGroupCountZ = 1;
         m_diligent->pImmediateContext->DispatchCompute(DispatchAttrs);
@@ -2190,9 +2293,8 @@ void Renderer::createTransparentCullPSO() {
         {Diligent::SHADER_TYPE_COMPUTE, "TransparentCullUniforms",        Diligent::SHADER_RESOURCE_VARIABLE_TYPE_MUTABLE},
         {Diligent::SHADER_TYPE_COMPUTE, "AtomicCounterBuffer",            Diligent::SHADER_RESOURCE_VARIABLE_TYPE_MUTABLE},
         {Diligent::SHADER_TYPE_COMPUTE, "VisibleTransparentObjectBuffer", Diligent::SHADER_RESOURCE_VARIABLE_TYPE_MUTABLE},
-        {Diligent::SHADER_TYPE_COMPUTE, "WorldMatrixBuffer",              Diligent::SHADER_RESOURCE_VARIABLE_TYPE_MUTABLE},
-        {Diligent::SHADER_TYPE_COMPUTE, "MeshInfoBuffer",                 Diligent::SHADER_RESOURCE_VARIABLE_TYPE_MUTABLE},
-        {Diligent::SHADER_TYPE_COMPUTE, "RenderableBuffer",               Diligent::SHADER_RESOURCE_VARIABLE_TYPE_MUTABLE},
+        {Diligent::SHADER_TYPE_COMPUTE, "CullSphereBuffer",              Diligent::SHADER_RESOURCE_VARIABLE_TYPE_MUTABLE},
+        {Diligent::SHADER_TYPE_COMPUTE, "TransparentIdBuffer",            Diligent::SHADER_RESOURCE_VARIABLE_TYPE_MUTABLE},
         {Diligent::SHADER_TYPE_COMPUTE, "u_hizTexture",                   Diligent::SHADER_RESOURCE_VARIABLE_TYPE_DYNAMIC}
     };
     PSODesc.PSODesc.ResourceLayout.Variables = Vars.data();
@@ -2402,6 +2504,8 @@ void Renderer::createDepthPrepassPSO() {
 void Renderer::createOpaquePSOs() {
     m_diligent->pOpaquePSOs.clear();
     m_diligent->pOpaqueSRBs.clear();
+    m_diligent->pPointPSOs.clear();
+    m_diligent->pPointSRBs.clear();
 
     struct ShaderInfo {
         std::string vert;
@@ -2417,16 +2521,24 @@ void Renderer::createOpaquePSOs() {
     m_diligent->pOpaquePSOs.resize(shaderInfos.size());
     m_diligent->pOpaqueSRBs.resize(DiligentData::NumFrames);
     for (int f = 0; f < DiligentData::NumFrames; ++f) { m_diligent->pOpaqueSRBs[f].resize(shaderInfos.size()); }
+    m_diligent->pPointPSOs.resize(shaderInfos.size());
+    m_diligent->pPointSRBs.resize(DiligentData::NumFrames);
+    for (int f = 0; f < DiligentData::NumFrames; ++f) { m_diligent->pPointSRBs[f].resize(shaderInfos.size()); }
 
     for (size_t i = 0; i < shaderInfos.size(); ++i) {
+      for (int variant = 0; variant < 2; ++variant) {
+        const bool point = variant == 1;
+        auto& pso = point ? m_diligent->pPointPSOs[i] : m_diligent->pOpaquePSOs[i];
+        auto& srbs = point ? m_diligent->pPointSRBs : m_diligent->pOpaqueSRBs;
+        const std::string psoName = shaderInfos[i].name + (point ? " (points)" : "");
         Diligent::GraphicsPipelineStateCreateInfo PSOCreateInfo;
-        PSOCreateInfo.PSODesc.Name = shaderInfos[i].name.c_str();
+        PSOCreateInfo.PSODesc.Name = psoName.c_str();
         PSOCreateInfo.PSODesc.PipelineType = Diligent::PIPELINE_TYPE_GRAPHICS;
         PSOCreateInfo.GraphicsPipeline.NumRenderTargets = 1;
 
         PSOCreateInfo.GraphicsPipeline.RTVFormats[0] = m_diligent->pSwapChain->GetDesc().ColorBufferFormat;
         PSOCreateInfo.GraphicsPipeline.DSVFormat = Diligent::TEX_FORMAT_D32_FLOAT;
-        PSOCreateInfo.GraphicsPipeline.PrimitiveTopology = Diligent::PRIMITIVE_TOPOLOGY_TRIANGLE_LIST;
+        PSOCreateInfo.GraphicsPipeline.PrimitiveTopology = point ? Diligent::PRIMITIVE_TOPOLOGY_POINT_LIST : Diligent::PRIMITIVE_TOPOLOGY_TRIANGLE_LIST;
         PSOCreateInfo.GraphicsPipeline.RasterizerDesc.CullMode = Diligent::CULL_MODE_BACK;
         PSOCreateInfo.GraphicsPipeline.RasterizerDesc.FrontCounterClockwise = true;
         PSOCreateInfo.GraphicsPipeline.DepthStencilDesc.DepthEnable = true;
@@ -2437,7 +2549,7 @@ void Renderer::createOpaquePSOs() {
         ShaderCI.SourceLanguage = Diligent::SHADER_SOURCE_LANGUAGE_GLSL;
         ShaderCI.Desc.UseCombinedTextureSamplers = true;
 
-        std::string vertSource = LoadSourceFromFile(shaderInfos[i].vert);
+        std::string vertSource = LoadSourceFromFile(point ? std::string("resources/shaders/point.vert") : shaderInfos[i].vert);
         std::string fragSource = LoadSourceFromFile(shaderInfos[i].frag);
 
         Diligent::RefCntAutoPtr<Diligent::IShader> pVS;
@@ -2463,11 +2575,14 @@ void Renderer::createOpaquePSOs() {
                 if (nextLine != std::string::npos) fragSource = fragSource.substr(nextLine + 1);
             }
             ShaderCI.Source = fragSource.c_str();
+            const Diligent::ShaderMacro pointMacros[] = {{"POINT_SPRITE", "1"}, {nullptr, nullptr}};
+            ShaderCI.Macros = point ? Diligent::ShaderMacroArray{pointMacros, 1} : Diligent::ShaderMacroArray{};
             m_diligent->pDevice->CreateShader(ShaderCI, &pPS);
+            ShaderCI.Macros = {};
         }
 
         if (!pVS || !pPS) {
-            Lit::Log::Error("Failed to create shaders for PSO: {}", shaderInfos[i].name);
+            Lit::Log::Error("Failed to create shaders for PSO: {}", psoName);
             continue;
         }
 
@@ -2479,28 +2594,33 @@ void Renderer::createOpaquePSOs() {
             Diligent::LayoutElement{1, 0, 3, Diligent::VT_FLOAT32, false}
         };
         PSOCreateInfo.GraphicsPipeline.InputLayout.LayoutElements = LayoutElems;
-        PSOCreateInfo.GraphicsPipeline.InputLayout.NumElements = _countof(LayoutElems);
+        PSOCreateInfo.GraphicsPipeline.InputLayout.NumElements = point ? 0 : _countof(LayoutElems);
 
         PSOCreateInfo.PSODesc.ResourceLayout.DefaultVariableType = Diligent::SHADER_RESOURCE_VARIABLE_TYPE_MUTABLE;
 
         std::vector<Diligent::ShaderResourceVariableDesc> Vars = {
             {Diligent::SHADER_TYPE_VERTEX, "SceneData",           Diligent::SHADER_RESOURCE_VARIABLE_TYPE_MUTABLE},
             {Diligent::SHADER_TYPE_PIXEL,  "SceneData",           Diligent::SHADER_RESOURCE_VARIABLE_TYPE_MUTABLE},
-            {Diligent::SHADER_TYPE_VERTEX, "WorldMatrixBuffer",   Diligent::SHADER_RESOURCE_VARIABLE_TYPE_MUTABLE},
-            {Diligent::SHADER_TYPE_VERTEX, "NormalMatrixBuffer",  Diligent::SHADER_RESOURCE_VARIABLE_TYPE_MUTABLE},
             {Diligent::SHADER_TYPE_VERTEX, "VisibleObjectBuffer", Diligent::SHADER_RESOURCE_VARIABLE_TYPE_MUTABLE}
         };
+        if (!point) { Vars.push_back({Diligent::SHADER_TYPE_VERTEX, "WorldMatrixBuffer", Diligent::SHADER_RESOURCE_VARIABLE_TYPE_MUTABLE}); }
+        if (point) {
+            Vars.push_back({Diligent::SHADER_TYPE_VERTEX, "CullOrientationBuffer", Diligent::SHADER_RESOURCE_VARIABLE_TYPE_MUTABLE});
+            Vars.push_back({Diligent::SHADER_TYPE_VERTEX, "CullSphereBuffer", Diligent::SHADER_RESOURCE_VARIABLE_TYPE_MUTABLE});
+            Vars.push_back({Diligent::SHADER_TYPE_VERTEX, "NormalSampleBuffer", Diligent::SHADER_RESOURCE_VARIABLE_TYPE_MUTABLE});
+        }
         PSOCreateInfo.PSODesc.ResourceLayout.Variables = Vars.data();
         PSOCreateInfo.PSODesc.ResourceLayout.NumVariables = Vars.size();
 
-        m_diligent->pOpaquePSOs[i].Release();
-        m_diligent->pDevice->CreateGraphicsPipelineState(PSOCreateInfo, &m_diligent->pOpaquePSOs[i]);
+        pso.Release();
+        m_diligent->pDevice->CreateGraphicsPipelineState(PSOCreateInfo, &pso);
 
-        if (!m_diligent->pOpaquePSOs[i]) {
-            Lit::Log::Error("Failed to create Opaque PSO: {}", shaderInfos[i].name);
+        if (!pso) {
+            Lit::Log::Error("Failed to create Opaque PSO: {}", psoName);
         } else {
-            for (int f = 0; f < DiligentData::NumFrames; ++f) { m_diligent->pOpaquePSOs[i]->CreateShaderResourceBinding(&m_diligent->pOpaqueSRBs[f][i], true); }
+            for (int f = 0; f < DiligentData::NumFrames; ++f) { pso->CreateShaderResourceBinding(&srbs[f][i], true); }
         }
+      }
     }
 }
 
@@ -2585,7 +2705,7 @@ void Renderer::createTransparentPSO() {
         {Diligent::SHADER_TYPE_VERTEX, "SceneData",                      Diligent::SHADER_RESOURCE_VARIABLE_TYPE_MUTABLE},
         {Diligent::SHADER_TYPE_PIXEL,  "SceneData",                      Diligent::SHADER_RESOURCE_VARIABLE_TYPE_MUTABLE},
         {Diligent::SHADER_TYPE_VERTEX, "WorldMatrixBuffer",              Diligent::SHADER_RESOURCE_VARIABLE_TYPE_MUTABLE},
-        {Diligent::SHADER_TYPE_VERTEX, "NormalMatrixBuffer",             Diligent::SHADER_RESOURCE_VARIABLE_TYPE_MUTABLE},
+        {Diligent::SHADER_TYPE_VERTEX, "CullSphereBuffer",               Diligent::SHADER_RESOURCE_VARIABLE_TYPE_MUTABLE},
         {Diligent::SHADER_TYPE_VERTEX, "VisibleTransparentObjectBuffer", Diligent::SHADER_RESOURCE_VARIABLE_TYPE_MUTABLE}
     };
     PSOCreateInfo.PSODesc.ResourceLayout.Variables = Vars.data();
@@ -2726,6 +2846,8 @@ void Renderer::createCommandGenPSO() {
 
     Diligent::ShaderResourceVariableDesc Vars[] = {
         {Diligent::SHADER_TYPE_COMPUTE, "DrawAtomicCounterBuffer", Diligent::SHADER_RESOURCE_VARIABLE_TYPE_MUTABLE},
+        {Diligent::SHADER_TYPE_COMPUTE, "PointCounterBuffer",     Diligent::SHADER_RESOURCE_VARIABLE_TYPE_MUTABLE},
+        {Diligent::SHADER_TYPE_COMPUTE, "PointCommandBuffer",     Diligent::SHADER_RESOURCE_VARIABLE_TYPE_MUTABLE},
         {Diligent::SHADER_TYPE_COMPUTE, "DrawCommandBuffer",       Diligent::SHADER_RESOURCE_VARIABLE_TYPE_MUTABLE},
         {Diligent::SHADER_TYPE_COMPUTE, "MeshInfoBuffer",          Diligent::SHADER_RESOURCE_VARIABLE_TYPE_MUTABLE},
         {Diligent::SHADER_TYPE_COMPUTE, "BucketCountBuffer",       Diligent::SHADER_RESOURCE_VARIABLE_TYPE_MUTABLE},
@@ -2826,7 +2948,6 @@ void Renderer::createScatterPSO() {
         {Diligent::SHADER_TYPE_COMPUTE, "ScatterConstants",          Diligent::SHADER_RESOURCE_VARIABLE_TYPE_MUTABLE},
         {Diligent::SHADER_TYPE_COMPUTE, "AtomicCounterBuffer",       Diligent::SHADER_RESOURCE_VARIABLE_TYPE_MUTABLE},
         {Diligent::SHADER_TYPE_COMPUTE, "VisibleObjectBuffer",       Diligent::SHADER_RESOURCE_VARIABLE_TYPE_MUTABLE},
-        {Diligent::SHADER_TYPE_COMPUTE, "RenderableBuffer",          Diligent::SHADER_RESOURCE_VARIABLE_TYPE_MUTABLE},
         {Diligent::SHADER_TYPE_COMPUTE, "BucketWriteHeadBuffer",     Diligent::SHADER_RESOURCE_VARIABLE_TYPE_MUTABLE},
         {Diligent::SHADER_TYPE_COMPUTE, "SortedVisibleObjectBuffer", Diligent::SHADER_RESOURCE_VARIABLE_TYPE_MUTABLE}
     };
@@ -2848,7 +2969,6 @@ void Renderer::createScatterPSO() {
     CBDesc.Size = sizeof(ScatterConstants);
     m_diligent->pDevice->CreateBuffer(CBDesc, nullptr, &m_diligent->pScatterConstants);
 
-    // The large-object chain scatters into a sub-pass-sized buffer, so it needs its own maxDraws.
     CBDesc.Name = "Large Object Scatter Constants";
     m_diligent->pDevice->CreateBuffer(CBDesc, nullptr, &m_diligent->pLargeScatterConstants);
 }
@@ -2905,8 +3025,6 @@ void Renderer::createDispatchArgsPSO() {
     CBDesc.Size = sizeof(DispatchArgsConstants);
     m_diligent->pDevice->CreateBuffer(CBDesc, nullptr, &m_diligent->pDispatchArgsConstants);
 
-    // The scatter pass clamps against the full object capacity rather than the sub-pass capacity,
-    // so it needs its own maxCount.
     CBDesc.Name = "Scatter Dispatch Args Constants";
     m_diligent->pDevice->CreateBuffer(CBDesc, nullptr, &m_diligent->pScatterDispatchArgsConstants);
 }
@@ -3034,8 +3152,7 @@ void Renderer::createLargeObjectCullPSO() {
         {Diligent::SHADER_TYPE_COMPUTE, "SceneUniforms",                   Diligent::SHADER_RESOURCE_VARIABLE_TYPE_MUTABLE},
         {Diligent::SHADER_TYPE_COMPUTE, "VisibleLargeObjectAtomicCounter", Diligent::SHADER_RESOURCE_VARIABLE_TYPE_MUTABLE},
         {Diligent::SHADER_TYPE_COMPUTE, "VisibleLargeObjectBuffer",        Diligent::SHADER_RESOURCE_VARIABLE_TYPE_MUTABLE},
-        {Diligent::SHADER_TYPE_COMPUTE, "WorldMatrixBuffer",               Diligent::SHADER_RESOURCE_VARIABLE_TYPE_MUTABLE},
-        {Diligent::SHADER_TYPE_COMPUTE, "MeshInfoBuffer",                  Diligent::SHADER_RESOURCE_VARIABLE_TYPE_MUTABLE},
+        {Diligent::SHADER_TYPE_COMPUTE, "CullSphereBuffer",               Diligent::SHADER_RESOURCE_VARIABLE_TYPE_MUTABLE},
         {Diligent::SHADER_TYPE_COMPUTE, "RenderableBuffer",                Diligent::SHADER_RESOURCE_VARIABLE_TYPE_MUTABLE},
         {Diligent::SHADER_TYPE_COMPUTE, "LargeObjectCullConstants",        Diligent::SHADER_RESOURCE_VARIABLE_TYPE_MUTABLE},
         {Diligent::SHADER_TYPE_COMPUTE, "LargeBucketCountBuffer",          Diligent::SHADER_RESOURCE_VARIABLE_TYPE_MUTABLE}
@@ -3161,6 +3278,10 @@ void Renderer::uploadBasePositions(const std::vector<glm::vec3>& basePositions) 
     m_diligent->pBasePositionBuffer = CreateStructuredBuffer(m_diligent->pDevice, "Base Position Buffer", sizeof(glm::vec4), static_cast<Diligent::Uint32>(alignedPositions.size()), alignedPositions.data());
 
     for (int i = 0; i < NUM_FRAMES_IN_FLIGHT; ++i) {
+        if (m_diligent->pTransformSRB[i] && m_diligent->pBasePositionBuffer) {
+            auto* var = m_diligent->pTransformSRB[i]->GetVariableByName(Diligent::SHADER_TYPE_COMPUTE, "BasePositionBuffer");
+            if (var) var->Set(m_diligent->pBasePositionBuffer->GetDefaultView(Diligent::BUFFER_VIEW_SHADER_RESOURCE));
+        }
         if (m_diligent->pAnimSRB[i] && m_diligent->pBasePositionBuffer) {
             auto* var = m_diligent->pAnimSRB[i]->GetVariableByName(Diligent::SHADER_TYPE_COMPUTE, "BasePositionBuffer");
             if (var) var->Set(m_diligent->pBasePositionBuffer->GetDefaultView(Diligent::BUFFER_VIEW_SHADER_RESOURCE));

@@ -16,14 +16,11 @@ layout(std140) uniform SceneData {
     vec4 pointLight0Color;
     vec4 pointLight1Pos;
     vec4 pointLight1Color;
+    vec4 screenParams;
 };
 
 layout(std430) readonly buffer WorldMatrixBuffer {
     mat4 worldMatrices[];
-};
-
-layout(std430) readonly buffer NormalMatrixBuffer {
-    mat3x4 normalMatrices[];
 };
 
 layout(std430) readonly buffer VisibleObjectBuffer {
@@ -32,19 +29,20 @@ layout(std430) readonly buffer VisibleObjectBuffer {
 
 layout(location = 0) out vec3 out_normal;
 layout(location = 1) out vec3 out_fragPos;
+layout(location = 2) flat out float out_billboard;
 
 void main() {
-    uint objectId = visibleIndices[gl_InstanceIndex];
+    uint objectId = visibleIndices[gl_InstanceIndex] & 0x1FFFFFFFu;
     mat4 model = worldMatrices[objectId];
-    mat3 normalMatrix = mat3(
-        normalMatrices[objectId][0].xyz,
-        normalMatrices[objectId][1].xyz,
-        normalMatrices[objectId][2].xyz
-    );
+    // cofactor matrix == inverse-transpose up to a scale that is normalised away; the determinant sign keeps mirrored transforms correct
+    mat3 m3 = mat3(model);
+    mat3 cofactor = mat3(cross(m3[1], m3[2]), cross(m3[2], m3[0]), cross(m3[0], m3[1]));
+    float detSign = dot(m3[0], cofactor[0]) < 0.0 ? -1.0 : 1.0;
 
     vec4 worldPos = model * vec4(in_position, 1.0);
     out_fragPos = worldPos.xyz;
-    out_normal = normalize(normalMatrix * in_normal);
+    out_billboard = 0.0;
+    out_normal = normalize(cofactor * in_normal) * detSign;
 
     gl_Position = projection * view * worldPos;
 }

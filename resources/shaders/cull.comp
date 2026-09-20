@@ -1,4 +1,6 @@
 #version 450
+#extension GL_KHR_shader_subgroup_basic : enable
+#extension GL_KHR_shader_subgroup_ballot : enable
 
 layout(local_size_x = 256, local_size_y = 1, local_size_z = 1) in;
 
@@ -31,6 +33,7 @@ layout(std140) uniform SceneData {
     vec4 pointLight0Color;
     vec4 pointLight1Pos;
     vec4 pointLight1Color;
+    vec4 screenParams;
 };
 
 layout(std140) uniform CullingUniforms {
@@ -42,6 +45,8 @@ layout(std140) uniform CullingUniforms {
     float u_hizTextureSizeX;
     float u_hizTextureSizeY;
     uint u_numShaders;
+    float u_lodBias;
+    int u_forcedLod;
 };
 
 layout(std430) buffer AtomicCounterBuffer {
@@ -49,15 +54,11 @@ layout(std430) buffer AtomicCounterBuffer {
 };
 
 layout(std430) writeonly buffer VisibleObjectBuffer {
-    uint u_visibleObjects[];
+    uvec2 u_visibleObjects[];
 };
 
-layout(std430) readonly buffer WorldMatrixBuffer {
-    mat4 worldMatrices[];
-};
-
-layout(std430) readonly buffer MeshInfoBuffer {
-    MeshInfo meshInfos[];
+layout(std430) readonly buffer CullSphereBuffer {
+    vec4 cullSpheres[];
 };
 
 layout(std430) readonly buffer RenderableBuffer {
@@ -68,33 +69,38 @@ layout(std430) buffer BucketCountBuffer {
     uint bucketCounts[];
 };
 
+const uint LOD_LEVEL_COUNT = 7;
+const float LOD_DIAMETER_PX[6] = float[6](60.0, 40.0, 25.0, 10.0, 4.0, 4.0);
+
+uint selectLod(float radius, float dist) {
+    if (u_forcedLod >= 0) return min(uint(u_forcedLod), LOD_LEVEL_COUNT - 1);
+    if (dist <= radius) return 0u;
+    float diameterPx = u_lodBias * radius * projection[1][1] * screenParams.y / dist;
+    for (uint i = 0; i < LOD_LEVEL_COUNT - 1; ++i) {
+        if (diameterPx >= LOD_DIAMETER_PX[i]) return i;
+    }
+    return LOD_LEVEL_COUNT - 1;
+}
+
 uniform sampler2D u_hizTexture;
 
-void main() {
-    uint id = gl_GlobalInvocationID.x;
-    if (id >= u_objectCount) return;
+bool cullObject(uint id, out uvec2 entry) {
+    entry = uvec2(0u);
 
-    RenderableComponent r = renderables[id];
-    uint baseMeshUuid = r.mesh_uuid;
-    MeshInfo mesh = meshInfos[baseMeshUuid];
-    mat4 model = worldMatrices[id];
-
-    vec3 worldCenter = (model * vec4(mesh.boundingCenter.xyz, 1.0)).xyz;
-    float scaleX = length(model[0].xyz);
-    float scaleY = length(model[1].xyz);
-    float scaleZ = length(model[2].xyz);
-    float maxScale = max(scaleX, max(scaleY, scaleZ));
-    float radius = mesh.boundingRadius * maxScale;
+    vec4 boundingSphere = cullSpheres[id];
+    if (boundingSphere.w < 0.0) return false;
+    vec3 worldCenter = boundingSphere.xyz;
+    float radius = boundingSphere.w;
 
     for (int i = 0; i < 6; ++i) {
-        if (dot(frustumPlanes[i].xyz, worldCenter) + frustumPlanes[i].w < -radius) return;
+        if (dot(frustumPlanes[i].xyz, worldCenter) + frustumPlanes[i].w < -radius) return false;
     }
 
     vec4 viewPosCenter = view * vec4(worldCenter, 1.0);
     float dist = -viewPosCenter.z;
     if (dist <= 0.0) dist = 0.001;
     float pRadius = radius / dist;
-    if (pRadius < u_smallObjectThreshold) return;
+    if (pRadius < u_smallObjectThreshold) return false;
 
     if (viewPosCenter.z + radius < -0.1) {
         vec4 clipCenter = projection * vec4(viewPosCenter.xyz, 1.0);
@@ -126,24 +132,37 @@ void main() {
         vec4 clipNear = projection * nearPos;
         float sphereNearDepth = clipNear.z / clipNear.w;
 
-        if (sphereNearDepth > maxHizDepth) return;
+        if (sphereNearDepth > maxHizDepth) return false;
     }
 
-    uint chosenLod = 0;
-    if (mesh.indexCount > 36) {
-        float distToCam = distance(worldCenter, viewPos);
-        if (distToCam > 280.0) chosenLod = 3;
-        else if (distToCam > 170.0) chosenLod = 2;
-        else if (distToCam > 85.0) chosenLod = 1;
+    uint chosenLod = selectLod(radius, dist);
+
+    RenderableComponent r = renderables[id];
+    uint bucketIndex = r.shaderId * 2048 + r.mesh_uuid + chosenLod;
+
+    entry = uvec2(id | (chosenLod << 29u), bucketIndex);
+    return true;
+}
+
+void main() {
+    uint id = gl_GlobalInvocationID.x;
+    uvec2 entry = uvec2(0u);
+    bool visible = id < u_objectCount && cullObject(id, entry);
+
+    uvec4 visibleBallot = subgroupBallot(visible);
+    uint slotBase = 0u;
+    if (subgroupElect()) slotBase = atomicAdd(u_atomicCounter, subgroupBallotBitCount(visibleBallot));
+    slotBase = subgroupBroadcastFirst(slotBase);
+    uint slot = slotBase + subgroupBallotExclusiveBitCount(visibleBallot);
+    if (visible && slot < u_maxDraws) u_visibleObjects[slot] = entry;
+
+    bool pending = visible;
+    while (subgroupBallotBitCount(subgroupBallot(pending)) > 0u) {
+        if (pending) {
+            uint key = subgroupBroadcastFirst(entry.y);
+            uvec4 same = subgroupBallot(entry.y == key);
+            if (subgroupElect()) atomicAdd(bucketCounts[key], subgroupBallotBitCount(same));
+            if (entry.y == key) pending = false;
+        }
     }
-
-    uint chosenMesh = baseMeshUuid + chosenLod;
-
-    uint slot = atomicAdd(u_atomicCounter, 1);
-    if (slot < u_maxDraws) {
-        u_visibleObjects[slot] = id | (chosenLod << 30u);
-    }
-
-    uint bucketIndex = r.shaderId * 2048 + chosenMesh;
-    atomicAdd(bucketCounts[bucketIndex], 1);
 }

@@ -25,10 +25,12 @@ export class Engine {
     void present();
     void cleanup();
     uint32_t uploadMesh(const Mesh& mesh);
-    std::vector<uint32_t> uploadMeshWithLODs(const Mesh& baseMesh, const std::vector<float>& lodRatios);
     void uploadBasePositions(const std::vector<glm::vec3>& basePositions);
     void setAnimation(float time, uint32_t movingCount, uint32_t entityOffset);
     void AddText(const std::string& text, float x, float y, float scale, const glm::vec3& color);
+    void setLodBias(float bias);
+    void setForcedLod(int lod);
+    int getForcedLod() const;
     void setSmallObjectThreshold(float threshold);
     void setLargeObjectThreshold(float threshold);
     void setDebugDepthMode(bool enabled);

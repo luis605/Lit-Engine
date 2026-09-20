@@ -54,15 +54,11 @@ layout(std430) buffer VisibleLargeObjectAtomicCounter {
 };
 
 layout(std430) buffer VisibleLargeObjectBuffer {
-    uint visibleLargeObjects[];
+    uvec2 visibleLargeObjects[];
 };
 
-layout(std430) readonly buffer WorldMatrixBuffer {
-    mat4 worldMatrices[];
-};
-
-layout(std430) readonly buffer MeshInfoBuffer {
-    MeshInfo meshInfos[];
+layout(std430) readonly buffer CullSphereBuffer {
+    vec4 cullSpheres[];
 };
 
 layout(std430) readonly buffer RenderableBuffer {
@@ -71,6 +67,9 @@ layout(std430) readonly buffer RenderableBuffer {
 
 // Must match MAX_MESHES in Renderer.cpp - meshInfos[] is sized by it.
 const uint MAX_MESHES = 2048;
+
+// the pre-pass only builds the Hi-Z pyramid, so occluders use a coarse LOD (inside the surface for convex shapes, hence conservative)
+const uint OCCLUDER_LOD = 2;
 
 const float FRUSTUM_PADDING_FACTOR = 1.05f;
 
@@ -87,34 +86,25 @@ void main() {
     uint objectId = gl_GlobalInvocationID.x;
     if (objectId >= u_objectCount) return;
 
+    vec4 boundingSphere = cullSpheres[objectId];
+    if (boundingSphere.w < 0.0) return;
+    vec3 world_pos = boundingSphere.xyz;
+    float world_radius = boundingSphere.w;
+
+    if (!isVisible(world_pos, world_radius * FRUSTUM_PADDING_FACTOR)) return;
+
+    float dist = distance(world_pos, sceneData.viewPos);
+    if (dist > 0.0 && world_radius / dist < u_largeObjectThreshold) return;
+
     RenderableComponent renderable = renderables[objectId];
     if (renderable.alpha < 1.0) return;
     if (renderable.mesh_uuid >= MAX_MESHES || renderable.shaderId >= u_numShaders) return;
 
-    mat4 modelMatrix = worldMatrices[objectId];
-    MeshInfo mesh = meshInfos[renderable.mesh_uuid];
+    uint index = atomicAdd(visibleLargeObjectCount, 1);
 
-    vec4 world_pos_vec4 = modelMatrix * mesh.boundingCenter;
-    vec3 world_pos = world_pos_vec4.xyz;
-
-    float world_radius = mesh.boundingRadius * max(length(modelMatrix[0]), max(length(modelMatrix[1]), length(modelMatrix[2])));
-
-    if (isVisible(world_pos, world_radius * FRUSTUM_PADDING_FACTOR)) {
-        float dist = distance(world_pos, sceneData.viewPos);
-        if (dist > 0.0) {
-            float projectedSize = world_radius / dist;
-            if (projectedSize < u_largeObjectThreshold) {
-                return;
-            }
-        }
-
-        uint index = atomicAdd(visibleLargeObjectCount, 1);
-
-        if (index < u_maxDraws) {
-            visibleLargeObjects[index] = objectId;
-
-            uint bucketKey = renderable.shaderId * MAX_MESHES + renderable.mesh_uuid;
-            atomicAdd(largeBucketCounts[bucketKey], 1);
-        }
+    if (index < u_maxDraws) {
+        uint bucketKey = renderable.shaderId * MAX_MESHES + renderable.mesh_uuid + OCCLUDER_LOD;
+        visibleLargeObjects[index] = uvec2(objectId | (OCCLUDER_LOD << 29u), bucketKey);
+        atomicAdd(largeBucketCounts[bucketKey], 1);
     }
 }

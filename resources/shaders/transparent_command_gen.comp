@@ -64,9 +64,11 @@ void main() {
         return;
     }
 
-    uint objectId = visibleTransparentObjects[gId].objectId;
+    uint packedEntry = visibleTransparentObjects[gId].objectId;
+    uint objectId = packedEntry & 0x1FFFFFFFu;
+    uint lod = packedEntry >> 29u;
     RenderableComponent renderable = renderables[objectId];
-    MeshInfo mesh = meshInfos[renderable.mesh_uuid];
+    MeshInfo mesh = meshInfos[renderable.mesh_uuid + lod];
 
     drawCommands[gId].count = mesh.indexCount;
     drawCommands[gId].instanceCount = 1;

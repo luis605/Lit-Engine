@@ -19,25 +19,10 @@ import Engine.mesh;
 
 namespace {
 
-// On-disk format ---------------------------------------------------------
-//
-// [AssetHeader][vertexFloatCount * float][indexCount * uint32]
-//
-// Vertices are interleaved: position xyz + normal xyz (6 floats per vertex).
-// `vertexFloatCount` is the number of *floats*, not the number of vertices,
-// which matches what Mesh::vertices stores.
-//
-// v1 had no magic/version at all: two bare uint64 counts. Such files are
-// rejected by load() (magic mismatch) instead of being misparsed, and bake()
-// treats them as out of date so they get regenerated.
-
 constexpr uint32_t kAssetMagic = 0x4D54494CU; // 'L','I','T','M' little-endian
 constexpr uint32_t kAssetVersion = 2U;
 constexpr uint32_t kFloatsPerVertex = 6U; // position xyz + normal xyz
 
-// Absolute sanity bounds. A corrupt count must never reach an allocator.
-// The exact bound is the file size check below; these only keep the
-// byte-size arithmetic from overflowing.
 constexpr uint64_t kMaxElementCount = 1ULL << 31; // per array
 
 struct AssetHeader {
@@ -56,8 +41,6 @@ bool readExactly(std::istream& stream, void* destination, std::streamsize bytes)
     return stream.good() && stream.gcount() == bytes;
 }
 
-// Validates magic/version/layout and that the declared counts agree with the
-// real file size. Returns the header on success.
 std::optional<AssetHeader> readValidatedHeader(std::istream& stream,
                                                uint64_t fileSize,
                                                const std::string& path) {
@@ -123,8 +106,6 @@ std::optional<AssetHeader> readValidatedHeader(std::istream& stream,
     return header;
 }
 
-// True when `destinationPath` already holds a valid, current bake of
-// `sourcePath`. Skips the (dominant) Assimp import on startup.
 bool isBakeUpToDate(const std::string& sourcePath, const std::string& destinationPath) {
     namespace fs = std::filesystem;
     std::error_code ec;
@@ -144,7 +125,6 @@ bool isBakeUpToDate(const std::string& sourcePath, const std::string& destinatio
     std::ifstream probe(destinationPath, std::ios::binary);
     if (!probe.is_open()) return false;
 
-    // A stale/foreign/truncated .asset fails validation here and is re-baked.
     return readValidatedHeader(probe, static_cast<uint64_t>(fileSize), destinationPath).has_value();
 }
 
@@ -152,7 +132,6 @@ void processMesh(const aiMesh* mesh, std::vector<float>& vertices,
                  std::vector<unsigned int>& indices, size_t& skippedFaces) {
     const size_t baseVertex = vertices.size() / kFloatsPerVertex;
     if (baseVertex + mesh->mNumVertices > std::numeric_limits<unsigned int>::max()) {
-        // Index type is uint32; refuse rather than silently wrap.
         skippedFaces += mesh->mNumFaces;
         return;
     }
@@ -175,10 +154,8 @@ void processMesh(const aiMesh* mesh, std::vector<float>& vertices,
     }
 
     for (unsigned int i = 0; i < mesh->mNumFaces; i++) {
-        const aiFace& face = mesh->mFaces[i]; // by reference: aiFace's copy ctor heap-allocates
+        const aiFace& face = mesh->mFaces[i];
         if (face.mNumIndices != 3) {
-            // Points/lines survive aiProcess_Triangulate and would corrupt a
-            // triangle-list index buffer.
             skippedFaces++;
             continue;
         }
@@ -225,8 +202,6 @@ bool AssetManager::bake(const std::string& sourcePath, const std::string& destin
         return false;
     }
 
-    // Reserve up front: the scene knows its totals, so the push_back loops
-    // never reallocate.
     size_t totalVertices = 0;
     size_t totalIndices = 0;
     for (unsigned int i = 0; i < scene->mNumMeshes; i++) {
@@ -259,8 +234,6 @@ bool AssetManager::bake(const std::string& sourcePath, const std::string& destin
     header.vertexFloatCount = vertices.size();
     header.indexCount = indices.size();
 
-    // Write to a temp file and rename, so a crash mid-write can never leave a
-    // half-written .asset that later parses as garbage.
     const fs::path finalPath(destinationPath);
     fs::path tempPath = finalPath;
     tempPath += ".tmp";
@@ -318,9 +291,6 @@ std::optional<Mesh> AssetManager::load(const std::string& assetPath) {
     const auto header = readValidatedHeader(inFile, static_cast<uint64_t>(fileSize), assetPath);
     if (!header) return std::nullopt;
 
-    // Both arrays are read straight into their final storage: one bulk read
-    // each, no intermediate buffer and no second copy of the data. The header
-    // check above guarantees the sizes match the file exactly.
     std::vector<float> vertices(header->vertexFloatCount);
     if (!readExactly(inFile, vertices.data(),
                      static_cast<std::streamsize>(vertices.size() * sizeof(float)))) {

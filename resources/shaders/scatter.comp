@@ -1,4 +1,6 @@
 #version 450
+#extension GL_KHR_shader_subgroup_basic : enable
+#extension GL_KHR_shader_subgroup_ballot : enable
 
 layout(local_size_x = 256, local_size_y = 1, local_size_z = 1) in;
 
@@ -19,11 +21,7 @@ layout(std430) readonly buffer AtomicCounterBuffer {
 };
 
 layout(std430) readonly buffer VisibleObjectBuffer {
-    uint u_visibleObjects[];
-};
-
-layout(std430) readonly buffer RenderableBuffer {
-    RenderableComponent renderables[];
+    uvec2 u_visibleObjects[];
 };
 
 layout(std430) buffer BucketWriteHeadBuffer {
@@ -36,16 +34,23 @@ layout(std430) writeonly buffer SortedVisibleObjectBuffer {
 
 void main() {
     uint idx = gl_GlobalInvocationID.x;
-    if (idx >= u_visibleCount || idx >= u_maxDraws) return;
+    bool pending = idx < u_visibleCount && idx < u_maxDraws;
+    uvec2 entry = pending ? u_visibleObjects[idx] : uvec2(0u);
+    uint slot = 0u;
 
-    uint val = u_visibleObjects[idx];
-    uint id = val & 0x3FFFFFFFu;
-    uint lod = (val >> 30u) & 3u;
+    while (subgroupBallotBitCount(subgroupBallot(pending)) > 0u) {
+        if (pending) {
+            uint key = subgroupBroadcastFirst(entry.y);
+            uvec4 same = subgroupBallot(entry.y == key);
+            uint base = 0u;
+            if (subgroupElect()) base = atomicAdd(bucketWriteHeads[key], subgroupBallotBitCount(same));
+            base = subgroupBroadcastFirst(base);
+            if (entry.y == key) {
+                slot = base + subgroupBallotExclusiveBitCount(same);
+                pending = false;
+            }
+        }
+    }
 
-    uint shaderId = renderables[id].shaderId;
-    uint mesh_uuid = renderables[id].mesh_uuid + lod;
-
-    uint bucketIndex = shaderId * 2048 + mesh_uuid;
-    uint slot = atomicAdd(bucketWriteHeads[bucketIndex], 1);
-    sortedVisibleIndices[slot] = id;
+    if (idx < u_visibleCount && idx < u_maxDraws) sortedVisibleIndices[slot] = entry.x;
 }

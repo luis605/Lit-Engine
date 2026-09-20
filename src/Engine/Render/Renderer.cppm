@@ -27,10 +27,12 @@ export class Renderer {
     void present();
     void cleanup();
     uint32_t uploadMesh(const Mesh& mesh);
-    std::vector<uint32_t> uploadMeshWithLODs(const Mesh& baseMesh, const std::vector<float>& lodRatios);
     void uploadBasePositions(const std::vector<glm::vec3>& basePositions);
     void setAnimation(float time, uint32_t movingCount, uint32_t entityOffset);
     void AddText(const std::string& text, float x, float y, float scale, const glm::vec3& color);
+    void setLodBias(float bias);
+    void setForcedLod(int lod);
+    int getForcedLod() const;
     void setSmallObjectThreshold(float threshold);
     void setLargeObjectThreshold(float threshold);
     void setDebugDepthMode(bool enabled);
@@ -57,6 +59,7 @@ export class Renderer {
     void createTransparentPSO();
     void createDebugDepthPSO();
     void reallocateBuffers(size_t numObjects);
+    uint32_t uploadMeshSlot(const Mesh& mesh);
 
     static constexpr int NUM_FRAMES_IN_FLIGHT = 3;
     size_t m_vboSize = 0;
@@ -101,12 +104,17 @@ export class Renderer {
 
     uint64_t m_processedHierarchyVersion = 0;
     uint64_t m_processedDataVersion = 0;
+    std::vector<uint32_t> m_transparentIds;
+    uint32_t m_transparentIdCounts[NUM_FRAMES_IN_FLIGHT] = {};
+    bool m_transparentIdsStale = true;
     uint64_t m_processedTransformVersion = 0;
     int m_hierarchyUpdateCounter = 0;
     int m_fullTransformUpdateCounter = 0;
     int m_transformUpdateCounter = 0;
     int m_renderableUpdateCounter = 0;
 
+    float m_lodBias = 1.0f;
+    int m_forcedLod = -1;
     float m_smallObjectThreshold = 0.0f;
     float m_largeObjectThreshold = 0.1f;
     int m_windowWidth = 0;

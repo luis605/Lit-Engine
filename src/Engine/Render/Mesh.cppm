@@ -1,8 +1,11 @@
 module;
 
+#include <cstddef>
 #include <vector>
 
 export module Engine.mesh;
+
+export constexpr std::size_t kLodLevelCount = 7;
 
 export class Mesh {
   public:
@@ -24,5 +27,11 @@ export class Mesh {
     Mesh& operator=(Mesh&& other) noexcept = default;
 
     Mesh simplify(float targetRatio, float targetError = 0.01f) const;
-    std::vector<Mesh> generateLODs(const std::vector<float>& targetRatios) const;
+    Mesh optimized() const;
+    Mesh makeImpostor() const;
+    std::vector<float> normalSamples(std::size_t count) const;
+    bool isRound() const;
+    float surfaceArea() const;
+
+    std::vector<Mesh> generateLODChain() const;
 };

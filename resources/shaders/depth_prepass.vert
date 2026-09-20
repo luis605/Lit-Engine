@@ -23,7 +23,7 @@ layout(binding = 5) readonly buffer VisibleLargeObjectBuffer {
 
 void main()
 {
-    uint objectId = visibleLargeObjects[gl_InstanceIndex];
+    uint objectId = visibleLargeObjects[gl_InstanceIndex] & 0x1FFFFFFFu;
     mat4 modelMatrix = worldMatrices[objectId];
     gl_Position = sceneData.projection * sceneData.view * modelMatrix * vec4(aPos, 1.0);
 }

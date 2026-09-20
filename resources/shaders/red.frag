@@ -19,9 +19,24 @@ layout(std140) uniform SceneData {
 };
 
 layout(location = 0) out vec4 out_color;
+#ifdef POINT_SPRITE
+layout(location = 3) flat in float in_pointRound;
+layout(location = 4) flat in float in_pointSize;
+#endif
+
 
 void main() {
     vec3 N = normalize(in_normal);
+#ifdef POINT_SPRITE
+    if (in_pointRound > 0.5 && in_pointSize >= 2.5) {
+        vec2 pc = gl_PointCoord * 2.0 - 1.0;
+        float r2 = dot(pc, pc);
+        if (r2 > 1.0) discard;
+        vec3 camRight = vec3(view[0][0], view[1][0], view[2][0]);
+        vec3 camUp = vec3(view[0][1], view[1][1], view[2][1]);
+        N = normalize(camRight * pc.x - camUp * pc.y + normalize(viewPos - in_fragPos) * sqrt(1.0 - r2));
+    }
+#endif
     vec3 V = normalize(viewPos - in_fragPos);
 
     vec3 ambient = mix(vec3(0.06, 0.07, 0.10), vec3(0.16, 0.18, 0.22), N.y * 0.5 + 0.5);
