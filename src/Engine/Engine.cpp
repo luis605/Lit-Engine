@@ -15,6 +15,7 @@ import Engine.camera;
 import Engine.Render.scenedatabase;
 import Engine.mesh;
 import Engine.World;
+import Engine.Physics;
 import Engine.Render.entity;
 import Engine.glm;
 import Engine.asset;
@@ -79,6 +80,7 @@ void Engine::tick(float deltaTime) {
         m_accumulator += t.deltaTime;
         while (m_accumulator >= m_fixedStep) {
             m_world.fixedUpdate(m_fixedStep);
+            stepPhysics(m_world, m_fixedStep, m_physics);
             m_accumulator -= m_fixedStep;
         }
         m_world.update(t.deltaTime);

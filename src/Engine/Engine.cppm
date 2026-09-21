@@ -15,6 +15,7 @@ import Engine.camera;
 import Engine.Render.scenedatabase;
 import Engine.mesh;
 import Engine.World;
+import Engine.Physics;
 import Engine.inputactions;
 import Engine.glm;
 
@@ -27,6 +28,7 @@ export class Engine {
     void update(SceneDatabase& sceneDatabase, Camera& camera);
     void tick(float deltaTime);
     [[nodiscard]] const TimeState& time() const { return m_world.time(); }
+    [[nodiscard]] PhysicsSettings& physics() { return m_physics; }
     void setTimeScale(float scale) { m_world.timeState().timeScale = scale < 0.0f ? 0.0f : scale; }
     void setPaused(bool paused) { m_world.timeState().paused = paused; }
     void debugLine(const glm::vec3& from, const glm::vec3& to, const glm::vec4& color = glm::vec4(1.0f));
@@ -71,6 +73,7 @@ export class Engine {
     uint32_t m_animationOffset = 0;
     uint32_t m_animationCount = 0;
     uint32_t m_materialCount = 1;
+    PhysicsSettings m_physics;
     float m_fixedStep = 1.0f / 60.0f;
     float m_accumulator = 0.0f;
     std::unordered_map<std::string, uint32_t> m_meshIds;

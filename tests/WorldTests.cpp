@@ -10,6 +10,7 @@
 
 import Engine.engine;
 import Engine.World;
+import Engine.Physics;
 import Engine.Render.entity;
 import Engine.Render.component;
 import Engine.glm;
@@ -717,6 +718,79 @@ static void testFrustumQuery() {
     CHECK(turned.size() == 1 && turned[0] == behind);
 }
 
+static void testPhysics() {
+    World w;
+    PhysicsSettings settings;
+    auto ground = w.create("ground", 0);
+    w.add<PlaneCollider>(ground);
+    auto ball = w.create("ball", 1, glm::vec3(0.0f, 5.0f, 0.0f));
+    w.add<SphereCollider>(ball, 0.5f);
+    w.add<RigidBody>(ball);
+    int collisions = 0;
+    w.events().subscribe<Collision>([&](const Collision&) { ++collisions; });
+
+    for (int i = 0; i < 240; ++i) stepPhysics(w, 1.0f / 60.0f, settings);
+    w.events().dispatch();
+    CHECK(std::abs(w.getPosition(ball).y - 0.5f) < 0.01f);
+    CHECK(std::abs(w.get<RigidBody>(ball)->velocity.y) < 0.5f);
+    CHECK(collisions > 0);
+
+    World bounce;
+    auto floor2 = bounce.create("floor", 0);
+    bounce.add<PlaneCollider>(floor2, glm::vec3(0.0f, 1.0f, 0.0f), 1.0f);
+    auto b = bounce.create("b", 1, glm::vec3(0.0f, 3.0f, 0.0f));
+    bounce.add<SphereCollider>(b, 0.5f);
+    bounce.add<RigidBody>(b, glm::vec3(0.0f), 1.0f, 1.0f, 1.0f, false);
+    float maxAfterBounce = 0.0f;
+    bool hit = false;
+    for (int i = 0; i < 300; ++i) {
+        stepPhysics(bounce, 1.0f / 60.0f, settings);
+        if (bounce.get<RigidBody>(b)->velocity.y > 0.0f) hit = true;
+        if (hit) maxAfterBounce = std::max(maxAfterBounce, bounce.getPosition(b).y);
+    }
+    CHECK(hit);
+    CHECK(maxAfterBounce > 2.0f);
+
+    World pair;
+    PhysicsSettings zeroG;
+    zeroG.gravity = glm::vec3(0.0f);
+    auto left = pair.create("left", 1, glm::vec3(-3.0f, 0.0f, 0.0f));
+    auto right = pair.create("right", 1, glm::vec3(3.0f, 0.0f, 0.0f));
+    pair.add<SphereCollider>(left, 1.0f);
+    pair.add<SphereCollider>(right, 1.0f);
+    pair.add<RigidBody>(left, glm::vec3(2.0f, 0.0f, 0.0f), 1.0f, 0.0f, 1.0f, false);
+    pair.add<RigidBody>(right, glm::vec3(-2.0f, 0.0f, 0.0f), 1.0f, 0.0f, 1.0f, false);
+    for (int i = 0; i < 240; ++i) stepPhysics(pair, 1.0f / 60.0f, zeroG);
+    CHECK(pair.get<RigidBody>(left)->velocity.x < 0.0f);
+    CHECK(pair.get<RigidBody>(right)->velocity.x > 0.0f);
+    CHECK(pair.getPosition(left).x < pair.getPosition(right).x);
+
+    World wall;
+    auto blocker = wall.create("blocker", 1, glm::vec3(5.0f, 0.0f, 0.0f));
+    wall.add<SphereCollider>(blocker, 1.0f);
+    auto runner = wall.create("runner", 1, glm::vec3(0.0f, 0.0f, 0.0f));
+    wall.add<SphereCollider>(runner, 1.0f);
+    wall.add<RigidBody>(runner, glm::vec3(4.0f, 0.0f, 0.0f), 1.0f, 0.0f, 0.0f, false);
+    for (int i = 0; i < 240; ++i) stepPhysics(wall, 1.0f / 60.0f, zeroG);
+    CHECK(wall.getPosition(blocker).x == 5.0f);
+    CHECK(wall.getPosition(runner).x <= 3.0f + 0.01f);
+    CHECK(wall.get<RigidBody>(runner)->velocity.x < 0.5f);
+
+    World saved;
+    registerPhysicsComponents(saved);
+    auto s = saved.create("s", 1);
+    saved.add<RigidBody>(s, glm::vec3(1.0f, 2.0f, 3.0f), 4.0f, 0.5f, 0.25f, true);
+    saved.add<SphereCollider>(s, 2.0f);
+    const auto path = std::filesystem::temp_directory_path() / "lit_world_physics_test.litscene";
+    CHECK(saved.saveScene(path));
+    saved.clear();
+    CHECK(saved.loadScene(path));
+    auto rs = saved.find("s");
+    CHECK(saved.get<RigidBody>(rs) && saved.get<RigidBody>(rs)->mass == 4.0f && saved.get<RigidBody>(rs)->isStatic);
+    CHECK(saved.get<SphereCollider>(rs) && saved.get<SphereCollider>(rs)->radius == 2.0f);
+    std::filesystem::remove(path);
+}
+
 int main() {
     testHandles();
     testHierarchy();
@@ -738,6 +812,7 @@ int main() {
     testTimeService();
     testLights();
     testFrustumQuery();
+    testPhysics();
     testAnimationAgreement();
     testCompactKeepsSpatialAndScripts();
     testFixedUpdate();
