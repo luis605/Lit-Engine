@@ -63,13 +63,14 @@ Application::Application() {
     auto sphereMesh = AssetManager::load("resources/assets/sphere.asset");
     const uint32_t sphereMeshUuid = sphereMesh ? m_engine.uploadMesh(*sphereMesh) : 0;
 
-    const int numObjects = 2500000;
+    const int numObjects = 1000000;
     Lit::Log::Info("Creating {} random objects...", numObjects);
 
     std::random_device rd;
     std::mt19937 gen(std::getenv("LIT_SEED") ? static_cast<unsigned>(std::atoi(std::getenv("LIT_SEED"))) : rd());
-    std::uniform_real_distribution<float> distribPosHeight(-900.0f, 900.0f);
-    std::uniform_real_distribution<float> distribPosSides(-150.0f, 150.0f);
+    std::uniform_real_distribution<float> distribPosHeight(-150.0f, 150.0f);
+    std::uniform_real_distribution<float> distribPosSideX(-150.0f, 100.0f);
+    std::uniform_real_distribution<float> distribPosSideZ(-100.0f, 150.0f);
     std::uniform_int_distribution<unsigned int> distribType(0, 1);
 
     m_parentEntity = m_sceneDatabase.createEntity();
@@ -78,13 +79,13 @@ Application::Application() {
     m_sceneDatabase.renderables[m_parentEntity].material_uuid = 0;
     m_sceneDatabase.renderables[m_parentEntity].shaderId = 0;
 
-    m_movingObjectCount = static_cast<uint32_t>(std::min(numObjects, 1500000));
+    m_movingObjectCount = static_cast<uint32_t>(std::min(numObjects, 150000));
     m_basePositions.resize(m_movingObjectCount);
 
     for (int i = 0; i < numObjects; ++i) {
         auto entity = m_sceneDatabase.createEntity();
 
-        glm::vec3 position(distribPosSides(gen), distribPosHeight(gen), distribPosSides(gen));
+        glm::vec3 position(distribPosSideX(gen), distribPosHeight(gen), distribPosSideZ(gen));
         glm::mat4 model = glm::translate(glm::mat4(1.0f), position);
         m_sceneDatabase.transforms[entity].localMatrix = model;
 

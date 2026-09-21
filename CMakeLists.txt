@@ -57,6 +57,7 @@ endif()
 
 add_subdirectory(src/Engine)
 add_subdirectory(src/Editor)
+add_subdirectory(src/Sandbox)
 
 add_custom_target(run
     DEPENDS Editor

@@ -19,8 +19,18 @@ layout(std140) uniform SceneData {
     vec4 screenParams;
 };
 
+struct WorldRows {
+    vec4 r0;
+    vec4 r1;
+    vec4 r2;
+};
+
+mat4 loadWorld(WorldRows w) {
+    return mat4(vec4(w.r0.x, w.r1.x, w.r2.x, 0.0), vec4(w.r0.y, w.r1.y, w.r2.y, 0.0), vec4(w.r0.z, w.r1.z, w.r2.z, 0.0), vec4(w.r0.w, w.r1.w, w.r2.w, 1.0));
+}
+
 layout(std430) readonly buffer WorldMatrixBuffer {
-    mat4 worldMatrices[];
+    WorldRows worldRows[];
 };
 
 layout(std430) readonly buffer VisibleObjectBuffer {
@@ -33,7 +43,7 @@ layout(location = 2) flat out float out_billboard;
 
 void main() {
     uint objectId = visibleIndices[gl_InstanceIndex] & 0x1FFFFFFFu;
-    mat4 model = worldMatrices[objectId];
+    mat4 model = loadWorld(worldRows[objectId]);
     // cofactor matrix == inverse-transpose up to a scale that is normalised away; the determinant sign keeps mirrored transforms correct
     mat3 m3 = mat3(model);
     mat3 cofactor = mat3(cross(m3[1], m3[2]), cross(m3[2], m3[0]), cross(m3[0], m3[1]));

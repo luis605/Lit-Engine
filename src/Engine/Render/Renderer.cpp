@@ -718,22 +718,22 @@ void Renderer::reallocateBuffers(size_t numObjects) {
     }
 
     for (int i = 0; i < NUM_FRAMES_IN_FLIGHT; ++i) {
-        m_diligent->pObjectBuffer[i] = CreateStructuredBuffer(m_diligent->pDevice, "Object Buffer", sizeof(TransformComponent), static_cast<Diligent::Uint32>(m_maxObjects));
-        m_diligent->pWorldMatrixBuffer[i] = CreateStructuredBuffer(m_diligent->pDevice, "World Matrix Buffer", sizeof(glm::mat4), static_cast<Diligent::Uint32>(m_maxObjects));
-        m_diligent->pCullOrientationBuffer[i] = CreateStructuredBuffer(m_diligent->pDevice, "Cull Orientation Buffer", sizeof(glm::vec4), static_cast<Diligent::Uint32>(m_maxObjects));
-        m_diligent->pCullSphereBuffer[i] = CreateStructuredBuffer(m_diligent->pDevice, "Cull Sphere Buffer", sizeof(glm::vec4), static_cast<Diligent::Uint32>(m_maxObjects));
-        m_diligent->pDirtyIndexBuffer[i] = CreateStructuredBuffer(m_diligent->pDevice, "Dirty Index Buffer", sizeof(unsigned int), MAX_DIRTY_PER_FRAME);
-        m_diligent->pDirtyPayloadBuffer[i] = CreateStructuredBuffer(m_diligent->pDevice, "Dirty Payload Buffer", sizeof(glm::mat4), MAX_DIRTY_PER_FRAME);
-        m_diligent->pTouchedEpochBuffer[i] = CreateStructuredBuffer(m_diligent->pDevice, "Touched Epoch Buffer", sizeof(unsigned int), static_cast<Diligent::Uint32>(m_maxObjects));
-        m_diligent->pHierarchyBuffer[i] = CreateStructuredBuffer(m_diligent->pDevice, "Hierarchy Buffer", sizeof(HierarchyComponent), static_cast<Diligent::Uint32>(m_maxObjects));
-        m_diligent->pRenderableBuffer[i] = CreateStructuredBuffer(m_diligent->pDevice, "Renderable Buffer", sizeof(RenderableComponent), static_cast<Diligent::Uint32>(m_maxObjects));
-        m_diligent->pSortedHierarchyBuffer[i] = CreateStructuredBuffer(m_diligent->pDevice, "Sorted Hierarchy Buffer", sizeof(unsigned int), static_cast<Diligent::Uint32>(m_maxObjects));
-        m_diligent->pVisibleObjectBuffer[i] = CreateStructuredBuffer(m_diligent->pDevice, "Visible Objects Buffer", sizeof(unsigned int) * 2, static_cast<Diligent::Uint32>(m_maxObjects));
-        m_diligent->pSortedVisibleObjectBuffer[i] = CreateStructuredBuffer(m_diligent->pDevice, "Sorted Visible Objects Buffer", sizeof(unsigned int), static_cast<Diligent::Uint32>(m_maxObjects));
+        m_diligent->pObjectBuffer[i] = i == 0 ? CreateStructuredBuffer(m_diligent->pDevice, "Object Buffer", sizeof(TransformComponent), static_cast<Diligent::Uint32>(m_maxObjects)) : m_diligent->pObjectBuffer[0];
+        m_diligent->pWorldMatrixBuffer[i] = i == 0 ? CreateStructuredBuffer(m_diligent->pDevice, "World Matrix Buffer", sizeof(glm::vec4) * 3, static_cast<Diligent::Uint32>(m_maxObjects)) : m_diligent->pWorldMatrixBuffer[0];
+        m_diligent->pCullOrientationBuffer[i] = i == 0 ? CreateStructuredBuffer(m_diligent->pDevice, "Cull Orientation Buffer", sizeof(glm::vec4), static_cast<Diligent::Uint32>(m_maxObjects)) : m_diligent->pCullOrientationBuffer[0];
+        m_diligent->pCullSphereBuffer[i] = i == 0 ? CreateStructuredBuffer(m_diligent->pDevice, "Cull Sphere Buffer", sizeof(glm::vec4), static_cast<Diligent::Uint32>(m_maxObjects)) : m_diligent->pCullSphereBuffer[0];
+        m_diligent->pDirtyIndexBuffer[i] = i == 0 ? CreateStructuredBuffer(m_diligent->pDevice, "Dirty Index Buffer", sizeof(unsigned int), MAX_DIRTY_PER_FRAME) : m_diligent->pDirtyIndexBuffer[0];
+        m_diligent->pDirtyPayloadBuffer[i] = i == 0 ? CreateStructuredBuffer(m_diligent->pDevice, "Dirty Payload Buffer", sizeof(glm::mat4), MAX_DIRTY_PER_FRAME) : m_diligent->pDirtyPayloadBuffer[0];
+        m_diligent->pTouchedEpochBuffer[i] = i == 0 ? CreateStructuredBuffer(m_diligent->pDevice, "Touched Epoch Buffer", sizeof(unsigned int), static_cast<Diligent::Uint32>(m_maxObjects)) : m_diligent->pTouchedEpochBuffer[0];
+        m_diligent->pHierarchyBuffer[i] = i == 0 ? CreateStructuredBuffer(m_diligent->pDevice, "Hierarchy Buffer", sizeof(HierarchyComponent), static_cast<Diligent::Uint32>(m_maxObjects)) : m_diligent->pHierarchyBuffer[0];
+        m_diligent->pRenderableBuffer[i] = i == 0 ? CreateStructuredBuffer(m_diligent->pDevice, "Renderable Buffer", sizeof(RenderableComponent), static_cast<Diligent::Uint32>(m_maxObjects)) : m_diligent->pRenderableBuffer[0];
+        m_diligent->pSortedHierarchyBuffer[i] = i == 0 ? CreateStructuredBuffer(m_diligent->pDevice, "Sorted Hierarchy Buffer", sizeof(unsigned int), static_cast<Diligent::Uint32>(m_maxObjects)) : m_diligent->pSortedHierarchyBuffer[0];
+        m_diligent->pVisibleObjectBuffer[i] = i == 0 ? CreateStructuredBuffer(m_diligent->pDevice, "Visible Objects Buffer", sizeof(unsigned int) * 2, static_cast<Diligent::Uint32>(m_maxObjects)) : m_diligent->pVisibleObjectBuffer[0];
+        m_diligent->pSortedVisibleObjectBuffer[i] = i == 0 ? CreateStructuredBuffer(m_diligent->pDevice, "Sorted Visible Objects Buffer", sizeof(unsigned int), static_cast<Diligent::Uint32>(m_maxObjects)) : m_diligent->pSortedVisibleObjectBuffer[0];
         m_diligent->pBucketCountBuffer[i] = CreateStructuredBuffer(m_diligent->pDevice, "Bucket Count Buffer", sizeof(unsigned int), totalBuckets);
         m_diligent->pBucketOffsetBuffer[i] = CreateStructuredBuffer(m_diligent->pDevice, "Bucket Offset Buffer", sizeof(unsigned int), totalBuckets);
         m_diligent->pBucketWriteHeadBuffer[i] = CreateStructuredBuffer(m_diligent->pDevice, "Bucket Write Head Buffer", sizeof(unsigned int), totalBuckets);
-        m_diligent->pTransparentIdBuffer[i] = CreateStructuredBuffer(m_diligent->pDevice, "Transparent Id Buffer", sizeof(unsigned int), static_cast<Diligent::Uint32>(m_maxObjects));
+        m_diligent->pTransparentIdBuffer[i] = i == 0 ? CreateStructuredBuffer(m_diligent->pDevice, "Transparent Id Buffer", sizeof(unsigned int), static_cast<Diligent::Uint32>(m_maxObjects)) : m_diligent->pTransparentIdBuffer[0];
         m_diligent->pPointCommandBuffer[i] = CreateIndirectBuffer(m_diligent->pDevice, "Point Command Buffer", static_cast<size_t>(MAX_MESHES) * m_numDrawingShaders * sizeof(DrawElementsIndirectCommand));
         m_diligent->pDrawCommandBuffer[i] = CreateIndirectBuffer(m_diligent->pDevice, "Draw Command Buffer", static_cast<size_t>(MAX_MESHES) * m_numDrawingShaders * sizeof(DrawElementsIndirectCommand));
 
@@ -1123,10 +1123,10 @@ void Renderer::reallocateBuffers(size_t numObjects) {
         m_diligent->pHiZDestMipVar = m_diligent->pHiZMipmapSRB->GetVariableByName(Diligent::SHADER_TYPE_COMPUTE, "u_destMip");
     }
 
-    m_fullTransformUpdateCounter = NUM_FRAMES_IN_FLIGHT;
+    m_fullTransformUpdateCounter = 1;
     m_transformUpdateCounter = 0;
-    m_renderableUpdateCounter = NUM_FRAMES_IN_FLIGHT;
-    m_hierarchyUpdateCounter = NUM_FRAMES_IN_FLIGHT;
+    m_renderableUpdateCounter = 1;
+    m_hierarchyUpdateCounter = 1;
 }
 
 void Renderer::present() {
@@ -1294,7 +1294,7 @@ void Renderer::drawScene(SceneDatabase& sceneDatabase, const Camera& camera) {
     const unsigned int numObjects = sceneDatabase.renderables.size();
     if (numObjects > m_maxObjects) {
         m_diligent->pImmediateContext->WaitForIdle();
-        reallocateBuffers(std::max<size_t>(numObjects, static_cast<size_t>(numObjects * 1.15)));
+        reallocateBuffers(static_cast<size_t>(numObjects) + numObjects / 100 + 1024);
     }
 
     m_currentFrame = (m_currentFrame + 1) % NUM_FRAMES_IN_FLIGHT;
@@ -1365,7 +1365,7 @@ void Renderer::drawScene(SceneDatabase& sceneDatabase, const Camera& camera) {
 
     if (m_processedHierarchyVersion < sceneDatabase.m_hierarchyVersion) {
         sceneDatabase.updateHierarchy();
-        m_hierarchyUpdateCounter = NUM_FRAMES_IN_FLIGHT;
+        m_hierarchyUpdateCounter = 1;
         m_processedHierarchyVersion = sceneDatabase.m_hierarchyVersion;
     }
 
@@ -1392,14 +1392,14 @@ void Renderer::drawScene(SceneDatabase& sceneDatabase, const Camera& camera) {
     bool dirtyUsesBulkPath = false;
 
     if (m_processedTransformVersion < sceneDatabase.m_transformVersion) {
-        m_transformUpdateCounter = NUM_FRAMES_IN_FLIGHT;
+        m_transformUpdateCounter = 1;
         dirtyUsesBulkPath = true;
         m_processedTransformVersion = sceneDatabase.m_transformVersion;
     }
 
     if (m_processedDataVersion < sceneDatabase.m_dataVersion) {
-        m_fullTransformUpdateCounter = NUM_FRAMES_IN_FLIGHT;
-        m_renderableUpdateCounter = NUM_FRAMES_IN_FLIGHT;
+        m_fullTransformUpdateCounter = 1;
+        m_renderableUpdateCounter = 1;
         dirtyUsesBulkPath = true;
         m_processedDataVersion = sceneDatabase.m_dataVersion;
         m_transparentIdsStale = true;
@@ -1409,17 +1409,15 @@ void Renderer::drawScene(SceneDatabase& sceneDatabase, const Camera& camera) {
     if (!newlyDirty.empty()) {
         if (newlyDirty.size() > MAX_DIRTY_PER_FRAME) {
             dirtyUsesBulkPath = true;
-            m_transformUpdateCounter = NUM_FRAMES_IN_FLIGHT;
+            m_transformUpdateCounter = 1;
         } else if (!dirtyUsesBulkPath) {
-            for (int slot = 0; slot < NUM_FRAMES_IN_FLIGHT; ++slot) {
-                m_pendingDirty[slot].insert(m_pendingDirty[slot].end(), newlyDirty.begin(), newlyDirty.end());
-            }
+            m_pendingDirty[0].insert(m_pendingDirty[0].end(), newlyDirty.begin(), newlyDirty.end());
         }
         sceneDatabase.clearDirty();
     }
 
     if (dirtyUsesBulkPath) {
-        for (int slot = 0; slot < NUM_FRAMES_IN_FLIGHT; ++slot) { m_pendingDirty[slot].clear(); }
+        m_pendingDirty[0].clear();
     }
 
     if (m_hierarchyUpdateCounter > 0) {
@@ -1456,7 +1454,7 @@ void Renderer::drawScene(SceneDatabase& sceneDatabase, const Camera& camera) {
             }
             m_transparentIdsStale = false;
         }
-        m_transparentIdCounts[m_currentFrame] = static_cast<uint32_t>(m_transparentIds.size());
+        m_transparentIdCounts[0] = static_cast<uint32_t>(m_transparentIds.size());
         if (!m_transparentIds.empty()) {
             m_diligent->pImmediateContext->UpdateBuffer(m_diligent->pTransparentIdBuffer[m_currentFrame], 0, m_transparentIds.size() * sizeof(uint32_t), m_transparentIds.data(), Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
         }
@@ -1470,8 +1468,8 @@ void Renderer::drawScene(SceneDatabase& sceneDatabase, const Camera& camera) {
     std::vector<uint8_t>& levelNeedsProcessing = m_levelNeedsProcessing;
     levelNeedsProcessing.assign(sceneDatabase.m_maxHierarchyDepth + 1, forceAllLevels ? 1u : 0u);
 
-    if (!dirtyUsesBulkPath && !m_pendingDirty[m_currentFrame].empty()) {
-        auto& pending = m_pendingDirty[m_currentFrame];
+    if (!dirtyUsesBulkPath && !m_pendingDirty[0].empty()) {
+        auto& pending = m_pendingDirty[0];
         m_dirtyIndexScratch.clear();
         m_dirtyIndexScratch.reserve(std::min<size_t>(pending.size(), MAX_DIRTY_PER_FRAME));
         for (Entity e : pending) {
@@ -2024,7 +2022,7 @@ void Renderer::drawScene(SceneDatabase& sceneDatabase, const Camera& camera) {
     Timestamp(m_diligent->pTransparentCullStartQuery[m_currentFrame]);
     {
         TransparentCullUniforms uniforms{};
-        uniforms.objectCount = m_transparentIdCounts[m_currentFrame];
+        uniforms.objectCount = m_transparentIdCounts[0];
         uniforms.maxDraws = static_cast<uint32_t>(subPassMaxObjects);
         uniforms.lodBias = m_lodBias;
         uniforms.forcedLod = m_forcedLod;
@@ -2040,7 +2038,7 @@ void Renderer::drawScene(SceneDatabase& sceneDatabase, const Camera& camera) {
         m_diligent->pImmediateContext->CommitShaderResources(m_diligent->pTransparentCullSRB[m_currentFrame], Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
 
         Diligent::DispatchComputeAttribs DispatchAttrs;
-        DispatchAttrs.ThreadGroupCountX = std::max(1u, (m_transparentIdCounts[m_currentFrame] + 255) / 256);
+        DispatchAttrs.ThreadGroupCountX = std::max(1u, (m_transparentIdCounts[0] + 255) / 256);
         DispatchAttrs.ThreadGroupCountY = 1;
         DispatchAttrs.ThreadGroupCountZ = 1;
         m_diligent->pImmediateContext->DispatchCompute(DispatchAttrs);

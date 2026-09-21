@@ -29,8 +29,22 @@ layout(std430, binding = 1) readonly buffer TransformBuffer {
     TransformComponent transforms[];
 };
 
+struct WorldRows {
+    vec4 r0;
+    vec4 r1;
+    vec4 r2;
+};
+
+mat4 loadWorld(WorldRows w) {
+    return mat4(vec4(w.r0.x, w.r1.x, w.r2.x, 0.0), vec4(w.r0.y, w.r1.y, w.r2.y, 0.0), vec4(w.r0.z, w.r1.z, w.r2.z, 0.0), vec4(w.r0.w, w.r1.w, w.r2.w, 1.0));
+}
+
+WorldRows packWorld(mat4 m) {
+    return WorldRows(vec4(m[0][0], m[1][0], m[2][0], m[3][0]), vec4(m[0][1], m[1][1], m[2][1], m[3][1]), vec4(m[0][2], m[1][2], m[2][2], m[3][2]));
+}
+
 layout(std430, binding = 2) buffer WorldMatrixBuffer {
-    mat4 worldMatrices[];
+    WorldRows worldRows[];
 };
 
 layout(std430, binding = 3) buffer TouchedEpochBuffer {
@@ -131,10 +145,10 @@ void main() {
     if (hier.parent == 0xFFFFFFFFu || hier.level == 0u) {
         worldMat = localMat;
     } else {
-        worldMat = worldMatrices[hier.parent] * localMat;
+        worldMat = loadWorld(worldRows[hier.parent]) * localMat;
     }
 
-    worldMatrices[entity] = worldMat;
+    worldRows[entity] = packWorld(worldMat);
 
     vec3 axisLengths = vec3(length(worldMat[0].xyz), length(worldMat[1].xyz), length(worldMat[2].xyz));
     mat3 rotation = mat3(worldMat[0].xyz / max(axisLengths.x, 1e-8), worldMat[1].xyz / max(axisLengths.y, 1e-8), worldMat[2].xyz / max(axisLengths.z, 1e-8));
