@@ -29,7 +29,7 @@ export class Renderer {
     void cleanup();
     uint32_t uploadMesh(const Mesh& mesh);
     glm::vec4 getMeshBounds(uint32_t meshId) const;
-    void setLights(bool enabled, const std::array<glm::vec4, 6>& lights);
+    void setLights(bool enabled, const std::array<glm::vec4, 2>& directional, const std::vector<glm::vec4>& packed);
     void setMaterial(uint32_t index, const glm::vec4& colorAndStrength);
     void addDebugLine(const glm::vec3& from, const glm::vec3& to, const glm::vec4& color);
     void uploadBasePositions(const std::vector<glm::vec3>& basePositions);
@@ -133,7 +133,13 @@ export class Renderer {
     bool m_debugDepthMode = false;
     std::vector<float> m_debugLines;
     bool m_lightOverride = false;
-    std::array<glm::vec4, 6> m_lights{};
+    std::array<glm::vec4, 2> m_directional{};
+    std::vector<glm::vec4> m_lightData;
+    std::vector<glm::vec4> m_defaultLightData = {
+        glm::vec4(-80.0f, 50.0f, -50.0f, 250.0f), glm::vec4(0.1f, 0.75f, 1.0f, 2.5f), glm::vec4(0.0f), glm::vec4(0.0f),
+        glm::vec4(80.0f, -30.0f, 50.0f, 250.0f), glm::vec4(1.0f, 0.45f, 0.15f, 2.5f), glm::vec4(0.0f), glm::vec4(0.0f)};
+    bool m_lightDataDirty = true;
+    bool m_uploadedLightSource = false;
 
     DiligentData* m_diligent = nullptr;
 };

@@ -40,6 +40,8 @@ struct Health {
     int hp;
 };
 
+static bool near(const glm::vec3& a, const glm::vec3& b, float eps = 1.0e-4f) { return glm::length(a - b) < eps; }
+
 struct Counter : Script {
     int* starts;
     int* updates;
@@ -666,31 +668,54 @@ static void testTimeService() {
 
 static void testLights() {
     World w;
-    std::array<glm::vec4, 6> lights{};
+    LightSet lights;
     CHECK(!collectLights(w, glm::vec3(0.0f), lights));
 
-    auto sun = w.create("sun", 0);
+    auto sun = w.create("sun");
     w.add<LightComponent>(sun, LightComponent{LightComponent::Type::Directional, glm::vec3(1.0f, 0.5f, 0.25f), 2.0f, 0.0f, 0.5f});
     w.setRotation(sun, glm::angleAxis(glm::radians(-90.0f), glm::vec3(1.0f, 0.0f, 0.0f)));
-    auto far = w.create("far", 0, glm::vec3(100.0f, 0.0f, 0.0f));
-    auto mid = w.create("mid", 0, glm::vec3(10.0f, 0.0f, 0.0f));
-    auto near = w.create("near", 0, glm::vec3(1.0f, 0.0f, 0.0f));
+    auto far = w.create("far", NO_MESH, glm::vec3(100.0f, 0.0f, 0.0f));
+    auto mid = w.create("mid", NO_MESH, glm::vec3(10.0f, 0.0f, 0.0f));
+    auto closest = w.create("near", NO_MESH, glm::vec3(1.0f, 0.0f, 0.0f));
     w.add<LightComponent>(far, LightComponent{LightComponent::Type::Point, glm::vec3(1.0f), 1.0f, 50.0f, 1.0f});
     w.add<LightComponent>(mid, LightComponent{LightComponent::Type::Point, glm::vec3(0.0f, 1.0f, 0.0f), 3.0f, 40.0f, 1.0f});
-    w.add<LightComponent>(near, LightComponent{LightComponent::Type::Point, glm::vec3(0.0f, 0.0f, 1.0f), 4.0f, 30.0f, 1.0f});
+    w.add<LightComponent>(closest, LightComponent{LightComponent::Type::Point, glm::vec3(0.0f, 0.0f, 1.0f), 4.0f, 30.0f, 1.0f});
 
     CHECK(collectLights(w, glm::vec3(0.0f), lights));
-    CHECK(std::abs(lights[0].y - 1.0f) < 1.0e-4f && std::abs(lights[0].x) < 1.0e-4f);
-    CHECK(lights[0].w == 0.5f);
-    CHECK(lights[1].x == 2.0f && lights[1].y == 1.0f && lights[1].z == 0.5f);
-    CHECK(lights[2].x == 1.0f && lights[2].w == 30.0f && lights[3].w == 4.0f && lights[3].z == 1.0f);
-    CHECK(lights[4].x == 10.0f && lights[5].y == 1.0f);
+    CHECK(std::abs(lights.directional[0].y - 1.0f) < 1.0e-4f && std::abs(lights.directional[0].x) < 1.0e-4f);
+    CHECK(lights.directional[0].w == 0.5f);
+    CHECK(lights.directional[1].x == 2.0f && lights.directional[1].y == 1.0f && lights.directional[1].z == 0.5f);
+    CHECK(lights.count == 3 && lights.packed.size() == 12);
+    CHECK(lights.packed[0].x == 1.0f && lights.packed[0].w == 30.0f && lights.packed[1].w == 4.0f && lights.packed[1].z == 1.0f);
+    CHECK(lights.packed[3].y == 0.0f);
+    CHECK(lights.packed[4].x == 10.0f && lights.packed[5].y == 1.0f);
+    CHECK(lights.packed[8].x == 100.0f);
 
-    w.destroy(near);
+    w.destroy(closest);
     w.destroy(mid);
     CHECK(collectLights(w, glm::vec3(0.0f), lights));
-    CHECK(lights[2].x == 100.0f);
-    CHECK(lights[4].w == 1.0f && lights[5].w == 0.0f);
+    CHECK(lights.count == 1 && lights.packed[0].x == 100.0f);
+
+    World spots;
+    auto lamp = spots.create("lamp", NO_MESH, glm::vec3(0.0f, 5.0f, 0.0f));
+    spots.setRotation(lamp, glm::angleAxis(glm::radians(-90.0f), glm::vec3(1.0f, 0.0f, 0.0f)));
+    spots.add<LightComponent>(lamp, LightComponent{LightComponent::Type::Spot, glm::vec3(1.0f), 2.0f, 20.0f, 1.0f, 10.0f, 40.0f});
+    CHECK(collectLights(spots, glm::vec3(0.0f), lights));
+    CHECK(lights.count == 1 && lights.packed[3].y == 1.0f);
+    CHECK(near(glm::vec3(lights.packed[2]), glm::vec3(0.0f, -1.0f, 0.0f)));
+    CHECK(std::abs(lights.packed[2].w - std::cos(glm::radians(40.0f))) < 1.0e-5f);
+    CHECK(std::abs(lights.packed[3].x - std::cos(glm::radians(10.0f))) < 1.0e-5f);
+
+    World many;
+    for (int i = 0; i < 100; ++i) {
+        auto l = many.create("l", NO_MESH, glm::vec3(float(i), 0.0f, 0.0f));
+        many.add<LightComponent>(l, LightComponent{});
+    }
+    CHECK(collectLights(many, glm::vec3(0.0f), lights, 64));
+    CHECK(lights.count == 64 && lights.packed.size() == 256);
+    CHECK(lights.packed[63 * 4].x == 63.0f);
+    CHECK(collectLights(many, glm::vec3(99.0f, 0.0f, 0.0f), lights, 8));
+    CHECK(lights.count == 8 && lights.packed[0].x == 99.0f);
 }
 
 static void testFrustumQuery() {
@@ -1050,8 +1075,6 @@ static void testEachAndBuilder() {
     CHECK(w.isAlive(implicit) && w.getName(implicit) == "implicit");
     (void)b;
 }
-
-static bool near(const glm::vec3& a, const glm::vec3& b, float eps = 1.0e-4f) { return glm::length(a - b) < eps; }
 
 static void testTransformConveniences() {
     World w;

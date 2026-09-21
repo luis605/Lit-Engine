@@ -86,6 +86,8 @@ struct SceneUniforms {
     alignas(16) glm::vec4 pointLight1Pos;
     alignas(16) glm::vec4 pointLight1Color;
     alignas(16) glm::vec4 screenParams;
+    alignas(16) glm::vec4 lightInfo;
+    alignas(16) glm::vec4 lightHead[8];
 };
 
 struct VisibleTransparentObject {
@@ -110,6 +112,7 @@ constexpr uint32_t MAX_MESHES = 2048;
 
 constexpr uint32_t MAX_DIRTY_PER_FRAME = 65536;
 constexpr uint32_t kMaxMaterials = 1024;
+constexpr uint32_t kMaxGpuLights = 64;
 
 constexpr uint32_t INVALID_MESH_UUID = 0xFFFFFFFFu;
 
@@ -438,6 +441,7 @@ struct DiligentData {
 
     Diligent::RefCntAutoPtr<Diligent::IPipelineState> pDebugDepthPSO;
     Diligent::RefCntAutoPtr<Diligent::IBuffer> pMaterialBuffer;
+    Diligent::RefCntAutoPtr<Diligent::IBuffer> pLightBuffer;
     Diligent::RefCntAutoPtr<Diligent::IPipelineState> pDebugLinePSO;
     Diligent::RefCntAutoPtr<Diligent::IShaderResourceBinding> pDebugLineSRB;
     Diligent::RefCntAutoPtr<Diligent::IBuffer> pDebugLineVB;
@@ -804,6 +808,20 @@ void Renderer::reallocateBuffers(size_t numObjects) {
         }
     }
 
+    if (!m_diligent->pLightBuffer) {
+        std::vector<glm::vec4> lightData(static_cast<size_t>(kMaxGpuLights) * 4, glm::vec4(0.0f));
+        Diligent::BufferDesc LightDesc;
+        LightDesc.Name = "Light Block";
+        LightDesc.Usage = Diligent::USAGE_DEFAULT;
+        LightDesc.BindFlags = Diligent::BIND_UNIFORM_BUFFER;
+        LightDesc.Size = sizeof(glm::vec4) * kMaxGpuLights * 4;
+        Diligent::BufferData LightInit;
+        LightInit.pData = lightData.data();
+        LightInit.DataSize = LightDesc.Size;
+        m_diligent->pDevice->CreateBuffer(LightDesc, &LightInit, &m_diligent->pLightBuffer);
+        m_lightDataDirty = true;
+    }
+
     if (!m_diligent->pMaterialBuffer) {
         std::vector<glm::vec4> materials(kMaxMaterials, glm::vec4(0.0f));
         m_diligent->pMaterialBuffer = CreateStructuredBuffer(m_diligent->pDevice, "Material Buffer", sizeof(glm::vec4), kMaxMaterials, materials.data());
@@ -1083,6 +1101,7 @@ void Renderer::reallocateBuffers(size_t numObjects) {
                     if (auto* var = m_diligent->pOpaqueSRBs[i][s]->GetVariableByName(Diligent::SHADER_TYPE_VERTEX, "VisibleObjectBuffer")) var->Set(m_diligent->pSortedVisibleObjectBuffer[i]->GetDefaultView(Diligent::BUFFER_VIEW_SHADER_RESOURCE));
                     if (auto* var = m_diligent->pOpaqueSRBs[i][s]->GetVariableByName(Diligent::SHADER_TYPE_VERTEX, "RenderableBuffer")) var->Set(m_diligent->pRenderableBuffer[i]->GetDefaultView(Diligent::BUFFER_VIEW_SHADER_RESOURCE));
                     if (auto* var = m_diligent->pOpaqueSRBs[i][s]->GetVariableByName(Diligent::SHADER_TYPE_VERTEX, "MaterialBuffer")) var->Set(m_diligent->pMaterialBuffer->GetDefaultView(Diligent::BUFFER_VIEW_SHADER_RESOURCE));
+                    if (auto* var = m_diligent->pOpaqueSRBs[i][s]->GetVariableByName(Diligent::SHADER_TYPE_PIXEL, "LightBlock")) var->Set(m_diligent->pLightBuffer);
                 }
             }
         }
@@ -1100,6 +1119,7 @@ void Renderer::reallocateBuffers(size_t numObjects) {
                     if (auto* var = m_diligent->pPointSRBs[i][s]->GetVariableByName(Diligent::SHADER_TYPE_VERTEX, "VisibleObjectBuffer")) var->Set(m_diligent->pSortedVisibleObjectBuffer[i]->GetDefaultView(Diligent::BUFFER_VIEW_SHADER_RESOURCE));
                     if (auto* var = m_diligent->pPointSRBs[i][s]->GetVariableByName(Diligent::SHADER_TYPE_VERTEX, "RenderableBuffer")) var->Set(m_diligent->pRenderableBuffer[i]->GetDefaultView(Diligent::BUFFER_VIEW_SHADER_RESOURCE));
                     if (auto* var = m_diligent->pPointSRBs[i][s]->GetVariableByName(Diligent::SHADER_TYPE_VERTEX, "MaterialBuffer")) var->Set(m_diligent->pMaterialBuffer->GetDefaultView(Diligent::BUFFER_VIEW_SHADER_RESOURCE));
+                    if (auto* var = m_diligent->pPointSRBs[i][s]->GetVariableByName(Diligent::SHADER_TYPE_PIXEL, "LightBlock")) var->Set(m_diligent->pLightBuffer);
                 }
             }
         }
@@ -1115,6 +1135,7 @@ void Renderer::reallocateBuffers(size_t numObjects) {
                 if (auto* var = m_diligent->pTransparentSRB[i]->GetVariableByName(Diligent::SHADER_TYPE_VERTEX, "VisibleTransparentObjectBuffer")) var->Set(m_diligent->pVisibleTransparentObjectIdsBuffer[i]->GetDefaultView(Diligent::BUFFER_VIEW_SHADER_RESOURCE));
                 if (auto* var = m_diligent->pTransparentSRB[i]->GetVariableByName(Diligent::SHADER_TYPE_VERTEX, "RenderableBuffer")) var->Set(m_diligent->pRenderableBuffer[i]->GetDefaultView(Diligent::BUFFER_VIEW_SHADER_RESOURCE));
                 if (auto* var = m_diligent->pTransparentSRB[i]->GetVariableByName(Diligent::SHADER_TYPE_VERTEX, "MaterialBuffer")) var->Set(m_diligent->pMaterialBuffer->GetDefaultView(Diligent::BUFFER_VIEW_SHADER_RESOURCE));
+                if (auto* var = m_diligent->pTransparentSRB[i]->GetVariableByName(Diligent::SHADER_TYPE_PIXEL, "LightBlock")) var->Set(m_diligent->pLightBuffer);
             }
         }
     }
@@ -1649,12 +1670,19 @@ void Renderer::drawScene(SceneDatabase& sceneDatabase, const Camera& camera) {
     sceneUniforms.pointLight1Pos = glm::vec4(80.0f, -30.0f, 50.0f, 250.0f);
     sceneUniforms.pointLight1Color = glm::vec4(1.0f, 0.45f, 0.15f, 2.5f);
     if (m_lightOverride) {
-        sceneUniforms.dirLightDir = m_lights[0];
-        sceneUniforms.dirLightColor = m_lights[1];
-        sceneUniforms.pointLight0Pos = m_lights[2];
-        sceneUniforms.pointLight0Color = m_lights[3];
-        sceneUniforms.pointLight1Pos = m_lights[4];
-        sceneUniforms.pointLight1Color = m_lights[5];
+        sceneUniforms.dirLightDir = m_directional[0];
+        sceneUniforms.dirLightColor = m_directional[1];
+    }
+    const std::vector<glm::vec4>& activeLights = m_lightOverride ? m_lightData : m_defaultLightData;
+    const uint32_t activeLightCount = std::min<uint32_t>(static_cast<uint32_t>(activeLights.size() / 4), kMaxGpuLights);
+    sceneUniforms.lightInfo = glm::vec4(static_cast<float>(activeLightCount), 0.0f, 0.0f, 0.0f);
+    for (uint32_t k = 0; k < 8; ++k) sceneUniforms.lightHead[k] = k < activeLightCount * 4 && k < 8 ? activeLights[k] : glm::vec4(0.0f);
+    if (m_lightDataDirty || m_uploadedLightSource != m_lightOverride) {
+        std::vector<glm::vec4> padded(static_cast<size_t>(kMaxGpuLights) * 4, glm::vec4(0.0f));
+        std::copy_n(activeLights.begin(), static_cast<size_t>(activeLightCount) * 4, padded.begin());
+        m_diligent->pImmediateContext->UpdateBuffer(m_diligent->pLightBuffer, 0, padded.size() * sizeof(glm::vec4), padded.data(), Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
+        m_lightDataDirty = false;
+        m_uploadedLightSource = m_lightOverride;
     }
     const auto& swapChainDesc = m_diligent->pSwapChain->GetDesc();
     sceneUniforms.screenParams = glm::vec4(static_cast<float>(swapChainDesc.Width), static_cast<float>(swapChainDesc.Height), 0.0f, 0.0f);
@@ -2667,7 +2695,8 @@ void Renderer::createOpaquePSOs() {
             {Diligent::SHADER_TYPE_PIXEL,  "SceneData",           Diligent::SHADER_RESOURCE_VARIABLE_TYPE_MUTABLE},
             {Diligent::SHADER_TYPE_VERTEX, "VisibleObjectBuffer", Diligent::SHADER_RESOURCE_VARIABLE_TYPE_MUTABLE},
             {Diligent::SHADER_TYPE_VERTEX, "RenderableBuffer",    Diligent::SHADER_RESOURCE_VARIABLE_TYPE_MUTABLE},
-            {Diligent::SHADER_TYPE_VERTEX, "MaterialBuffer",      Diligent::SHADER_RESOURCE_VARIABLE_TYPE_MUTABLE}
+            {Diligent::SHADER_TYPE_VERTEX, "MaterialBuffer",      Diligent::SHADER_RESOURCE_VARIABLE_TYPE_MUTABLE},
+            {Diligent::SHADER_TYPE_PIXEL,  "LightBlock",          Diligent::SHADER_RESOURCE_VARIABLE_TYPE_MUTABLE}
         };
         if (!point) { Vars.push_back({Diligent::SHADER_TYPE_VERTEX, "WorldMatrixBuffer", Diligent::SHADER_RESOURCE_VARIABLE_TYPE_MUTABLE}); }
         if (point) {
@@ -2774,7 +2803,8 @@ void Renderer::createTransparentPSO() {
         {Diligent::SHADER_TYPE_VERTEX, "CullSphereBuffer",               Diligent::SHADER_RESOURCE_VARIABLE_TYPE_MUTABLE},
         {Diligent::SHADER_TYPE_VERTEX, "VisibleTransparentObjectBuffer", Diligent::SHADER_RESOURCE_VARIABLE_TYPE_MUTABLE},
         {Diligent::SHADER_TYPE_VERTEX, "RenderableBuffer",               Diligent::SHADER_RESOURCE_VARIABLE_TYPE_MUTABLE},
-        {Diligent::SHADER_TYPE_VERTEX, "MaterialBuffer",                 Diligent::SHADER_RESOURCE_VARIABLE_TYPE_MUTABLE}
+        {Diligent::SHADER_TYPE_VERTEX, "MaterialBuffer",                 Diligent::SHADER_RESOURCE_VARIABLE_TYPE_MUTABLE},
+        {Diligent::SHADER_TYPE_PIXEL,  "LightBlock",                     Diligent::SHADER_RESOURCE_VARIABLE_TYPE_MUTABLE}
     };
     PSOCreateInfo.PSODesc.ResourceLayout.Variables = Vars.data();
     PSOCreateInfo.PSODesc.ResourceLayout.NumVariables = Vars.size();
@@ -3331,9 +3361,13 @@ void Renderer::createDebugDepthPSO() {
     m_diligent->pDebugDepthPSO->CreateShaderResourceBinding(&m_diligent->pDebugDepthSRB, true);
 }
 
-void Renderer::setLights(bool enabled, const std::array<glm::vec4, 6>& lights) {
+void Renderer::setLights(bool enabled, const std::array<glm::vec4, 2>& directional, const std::vector<glm::vec4>& packed) {
+    const bool sameLights = m_lightData.size() == packed.size() && (packed.empty() || std::memcmp(m_lightData.data(), packed.data(), packed.size() * sizeof(glm::vec4)) == 0);
+    const bool sameDirectional = std::memcmp(m_directional.data(), directional.data(), sizeof(glm::vec4) * 2) == 0;
+    if (m_lightOverride != enabled || !sameDirectional || !sameLights) m_lightDataDirty = true;
     m_lightOverride = enabled;
-    m_lights = lights;
+    m_directional = directional;
+    m_lightData = packed;
 }
 
 void Renderer::setMaterial(uint32_t index, const glm::vec4& colorAndStrength) {

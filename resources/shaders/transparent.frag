@@ -17,6 +17,13 @@ layout(std140) uniform SceneData {
     vec4 pointLight0Color;
     vec4 pointLight1Pos;
     vec4 pointLight1Color;
+    vec4 screenParams;
+    vec4 lightInfo;
+    vec4 lightHead[8];
+};
+
+layout(std140) uniform LightBlock {
+    vec4 lightData[256];
 };
 
 layout(location = 5) flat in vec4 in_material;
@@ -27,6 +34,19 @@ layout(location = 4) flat in float in_pointSize;
 #endif
 
 
+vec3 evalPointLight(vec4 posRange, vec4 colorIntensity, vec4 dirCone, vec4 params, vec3 N, vec3 V, vec3 fragPos) {
+    vec3 toLight = posRange.xyz - fragPos;
+    float dist = length(toLight);
+    float atten = clamp(1.0 - dist / posRange.w, 0.0, 1.0);
+    atten = atten * atten;
+    vec3 L = toLight / max(dist, 0.001);
+    if (params.y > 0.5) atten *= smoothstep(dirCone.w, params.x, dot(-L, dirCone.xyz));
+    float diff = max(dot(N, L), 0.0);
+    vec3 H = normalize(L + V);
+    float spec = pow(max(dot(N, H), 0.0), 32.0);
+    return (diff + spec) * colorIntensity.rgb * (colorIntensity.w * atten);
+}
+
 float spherePhase(float c) {
     c = clamp(c, -1.0, 1.0);
     float x = abs(c);
@@ -35,21 +55,26 @@ float spherePhase(float c) {
     return (sqrt(1.0 - c * c) + (3.14159265 - a) * c) / 3.14159265;
 }
 
+vec3 billboardLight(vec4 posRange, vec4 colorIntensity, vec4 dirCone, vec4 params, vec3 V, vec3 fragPos) {
+    vec3 toLight = posRange.xyz - fragPos;
+    float dist = length(toLight);
+    float atten = clamp(1.0 - dist / posRange.w, 0.0, 1.0);
+    atten = atten * atten;
+    vec3 L = toLight / max(dist, 0.001);
+    if (params.y > 0.5) atten *= smoothstep(dirCone.w, params.x, dot(-L, dirCone.xyz));
+    return (2.0 / 3.0) * spherePhase(dot(L, V)) * colorIntensity.rgb * (colorIntensity.w * atten);
+}
+
 vec3 billboardLighting(vec3 fragPos) {
     vec3 V = normalize(viewPos - fragPos);
     vec3 lighting = mix(vec3(0.06, 0.07, 0.10), vec3(0.16, 0.18, 0.22), 0.5);
 
     lighting += (2.0 / 3.0) * spherePhase(dot(normalize(dirLightDir.xyz), V)) * dirLightColor.rgb;
 
-    vec3 p0Dir = pointLight0Pos.xyz - fragPos;
-    float p0Dist = length(p0Dir);
-    float p0Atten = clamp(1.0 - p0Dist / pointLight0Pos.w, 0.0, 1.0);
-    lighting += (2.0 / 3.0) * spherePhase(dot(p0Dir / max(p0Dist, 0.001), V)) * pointLight0Color.rgb * (pointLight0Color.w * p0Atten * p0Atten);
-
-    vec3 p1Dir = pointLight1Pos.xyz - fragPos;
-    float p1Dist = length(p1Dir);
-    float p1Atten = clamp(1.0 - p1Dist / pointLight1Pos.w, 0.0, 1.0);
-    lighting += (2.0 / 3.0) * spherePhase(dot(p1Dir / max(p1Dist, 0.001), V)) * pointLight1Color.rgb * (pointLight1Color.w * p1Atten * p1Atten);
+    uint lightCount = uint(lightInfo.x);
+    if (lightCount > 0u) lighting += billboardLight(lightHead[0], lightHead[1], lightHead[2], lightHead[3], V, fragPos);
+    if (lightCount > 1u) lighting += billboardLight(lightHead[4], lightHead[5], lightHead[6], lightHead[7], V, fragPos);
+    for (uint li = 2u; li < lightCount; ++li) lighting += billboardLight(lightData[li * 4u], lightData[li * 4u + 1u], lightData[li * 4u + 2u], lightData[li * 4u + 3u], V, fragPos);
 
     return lighting;
 }
@@ -81,27 +106,13 @@ void main() {
     float sunSpec = pow(max(dot(N, sunH), 0.0), 32.0) * dirLightDir.w;
     vec3 sunColor = (sunDiff + sunSpec) * dirLightColor.rgb;
 
-    vec3 p0Dir = pointLight0Pos.xyz - in_fragPos;
-    float p0Dist = length(p0Dir);
-    float p0Atten = clamp(1.0 - p0Dist / pointLight0Pos.w, 0.0, 1.0);
-    p0Atten = p0Atten * p0Atten;
-    vec3 p0L = p0Dir / max(p0Dist, 0.001);
-    float p0Diff = max(dot(N, p0L), 0.0);
-    vec3 p0H = normalize(p0L + V);
-    float p0Spec = pow(max(dot(N, p0H), 0.0), 32.0);
-    vec3 p0Color = (p0Diff + p0Spec) * pointLight0Color.rgb * (pointLight0Color.w * p0Atten);
+    vec3 pointColor = vec3(0.0);
+    uint lightCount = uint(lightInfo.x);
+    if (lightCount > 0u) pointColor += evalPointLight(lightHead[0], lightHead[1], lightHead[2], lightHead[3], N, V, in_fragPos);
+    if (lightCount > 1u) pointColor += evalPointLight(lightHead[4], lightHead[5], lightHead[6], lightHead[7], N, V, in_fragPos);
+    for (uint li = 2u; li < lightCount; ++li) pointColor += evalPointLight(lightData[li * 4u], lightData[li * 4u + 1u], lightData[li * 4u + 2u], lightData[li * 4u + 3u], N, V, in_fragPos);
 
-    vec3 p1Dir = pointLight1Pos.xyz - in_fragPos;
-    float p1Dist = length(p1Dir);
-    float p1Atten = clamp(1.0 - p1Dist / pointLight1Pos.w, 0.0, 1.0);
-    p1Atten = p1Atten * p1Atten;
-    vec3 p1L = p1Dir / max(p1Dist, 0.001);
-    float p1Diff = max(dot(N, p1L), 0.0);
-    vec3 p1H = normalize(p1L + V);
-    float p1Spec = pow(max(dot(N, p1H), 0.0), 32.0);
-    vec3 p1Color = (p1Diff + p1Spec) * pointLight1Color.rgb * (pointLight1Color.w * p1Atten);
-
-    vec3 lighting = ambient + sunColor + p0Color + p1Color;
+    vec3 lighting = ambient + sunColor + pointColor;
     vec3 baseColor = mix(vec3(0.3, 0.6, 1.0), in_material.rgb, in_material.a);
 
     out_color = vec4(baseColor * lighting, 0.6);

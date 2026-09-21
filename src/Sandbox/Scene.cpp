@@ -1,6 +1,7 @@
 module;
 
 #include <cstdint>
+#include <string>
 #include <new>
 #include <typeindex>
 #include <typeinfo>
@@ -23,9 +24,18 @@ void Scene::onStart() {
 
     EntityHandle sun = m_ctx.world.create("sun");
     m_ctx.world.setRotation(sun, glm::angleAxis(glm::radians(-50.0f), glm::vec3(1.0f, 0.0f, 0.0f)) * glm::angleAxis(glm::radians(-20.0f), glm::vec3(0.0f, 1.0f, 0.0f)));
-    m_ctx.world.add<LightComponent>(sun, LightComponent{LightComponent::Type::Directional, glm::vec3(1.0f, 0.95f, 0.85f), 1.1f, 0.0f, 1.0f});
+    m_ctx.world.add<LightComponent>(sun, LightComponent{LightComponent::Type::Directional, glm::vec3(1.0f, 0.95f, 0.85f), 0.5f, 0.0f, 1.0f});
     EntityHandle lamp = m_ctx.world.create("lamp", NO_MESH, glm::vec3(2.5f, 1.5f, 2.0f));
     m_ctx.world.add<LightComponent>(lamp, LightComponent{LightComponent::Type::Point, glm::vec3(0.2f, 0.6f, 1.0f), 3.0f, 12.0f, 1.0f});
+
+    const glm::vec3 lampColors[4] = {glm::vec3(1.0f, 0.2f, 0.2f), glm::vec3(0.2f, 1.0f, 0.3f), glm::vec3(1.0f, 0.9f, 0.2f), glm::vec3(0.8f, 0.2f, 1.0f)};
+    for (int i = 0; i < 4; ++i) {
+        EntityHandle extra = m_ctx.world.create("lamp" + std::to_string(i), NO_MESH, glm::vec3(-2.0f + i * 1.6f, -0.5f, 2.2f));
+        m_ctx.world.add<LightComponent>(extra, LightComponent{LightComponent::Type::Point, lampColors[i], 1.2f, 5.0f, 1.0f});
+    }
+    EntityHandle spot = m_ctx.world.create("spot", NO_MESH, glm::vec3(0.5f, 4.0f, 3.0f));
+    m_ctx.world.lookAt(spot, glm::vec3(1.0f, 0.5f, 0.0f));
+    m_ctx.world.add<LightComponent>(spot, LightComponent{LightComponent::Type::Spot, glm::vec3(1.0f, 1.0f, 1.0f), 2.5f, 12.0f, 1.0f, 8.0f, 20.0f});
 
     m_ctx.world.camera().setPos(glm::vec3(1.5f, 0.6f, 5.0f));
 }

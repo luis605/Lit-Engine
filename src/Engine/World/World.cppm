@@ -58,12 +58,20 @@ export struct TimeState {
 };
 
 export struct LightComponent {
-    enum class Type : uint32_t { Directional, Point };
+    enum class Type : uint32_t { Directional, Point, Spot };
     Type type = Type::Point;
     glm::vec3 color{1.0f};
     float intensity = 1.0f;
     float range = 100.0f;
     float specular = 1.0f;
+    float innerConeDegrees = 20.0f;
+    float outerConeDegrees = 30.0f;
+};
+
+export struct LightSet {
+    std::array<glm::vec4, 2> directional{};
+    std::vector<glm::vec4> packed;
+    uint32_t count = 0;
 };
 
 export struct EntityMoved {
@@ -573,7 +581,7 @@ export class World {
 };
 
 
-export bool collectLights(World& world, const glm::vec3& viewPos, std::array<glm::vec4, 6>& out);
+export bool collectLights(World& world, const glm::vec3& viewPos, LightSet& out, size_t maxLights = 64);
 
 
 export class EntityBuilder {

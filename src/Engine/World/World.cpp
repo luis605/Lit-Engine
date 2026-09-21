@@ -1404,52 +1404,55 @@ glm::vec4 World::getWorldBounds(EntityHandle e) const {
     return glm::vec4(glm::vec3(world * glm::vec4(glm::vec3(bounds), 1.0f)), bounds.w * maxScale);
 }
 
-bool collectLights(World& world, const glm::vec3& viewPos, std::array<glm::vec4, 6>& out) {
-    struct PointCandidate {
+bool collectLights(World& world, const glm::vec3& viewPos, LightSet& out, size_t maxLights) {
+    struct Candidate {
         float distance2;
         Entity index;
-        glm::vec3 position;
-        glm::vec4 color;
-        float range;
+        glm::vec4 posRange;
+        glm::vec4 colorIntensity;
+        glm::vec4 dirCone;
+        glm::vec4 params;
     };
 
     bool any = false;
     Entity directionalIndex = INVALID_ENTITY;
-    glm::vec4 dirDir(0.0f, 1.0f, 0.0f, 0.0f);
-    glm::vec4 dirColor(0.0f);
-    std::vector<PointCandidate> points;
+    out.directional = {glm::vec4(0.0f, 1.0f, 0.0f, 0.0f), glm::vec4(0.0f)};
+    std::vector<Candidate> candidates;
 
     world.view<LightComponent>([&](EntityHandle e, LightComponent& light) {
         any = true;
         if (light.type == LightComponent::Type::Directional) {
             if (directionalIndex != INVALID_ENTITY && e.index > directionalIndex) return;
             directionalIndex = e.index;
-            const glm::vec3 towardLight = glm::normalize(glm::vec3(world.getWorldMatrix(e)[2]));
-            dirDir = glm::vec4(towardLight, light.specular);
-            dirColor = glm::vec4(light.color * light.intensity, 1.0f);
-        } else {
-            const glm::vec3 position = world.getWorldPosition(e);
-            const glm::vec3 d = position - viewPos;
-            points.push_back({glm::dot(d, d), e.index, position, glm::vec4(light.color, light.intensity), light.range});
+            out.directional[0] = glm::vec4(glm::normalize(glm::vec3(world.getWorldMatrix(e)[2])), light.specular);
+            out.directional[1] = glm::vec4(light.color * light.intensity, 1.0f);
+            return;
         }
+        const glm::vec3 position = world.getWorldPosition(e);
+        const glm::vec3 d = position - viewPos;
+        const bool spot = light.type == LightComponent::Type::Spot;
+        const glm::vec3 direction = spot ? world.forward(e) : glm::vec3(0.0f, -1.0f, 0.0f);
+        candidates.push_back({glm::dot(d, d), e.index, glm::vec4(position, light.range), glm::vec4(light.color, light.intensity), glm::vec4(direction, std::cos(glm::radians(light.outerConeDegrees))), glm::vec4(std::cos(glm::radians(light.innerConeDegrees)), spot ? 1.0f : 0.0f, 0.0f, 0.0f)});
     });
     if (!any) return false;
 
-    std::sort(points.begin(), points.end(), [](const PointCandidate& a, const PointCandidate& b) {
-        return a.distance2 != b.distance2 ? a.distance2 < b.distance2 : a.index < b.index;
-    });
-
-    out[0] = dirDir;
-    out[1] = dirColor;
-    for (size_t i = 0; i < 2; ++i) {
-        if (i < points.size()) {
-            out[2 + i * 2] = glm::vec4(points[i].position, points[i].range);
-            out[3 + i * 2] = points[i].color;
-        } else {
-            out[2 + i * 2] = glm::vec4(0.0f, 0.0f, 0.0f, 1.0f);
-            out[3 + i * 2] = glm::vec4(0.0f);
-        }
+    const auto closer = [](const Candidate& a, const Candidate& b) { return a.distance2 != b.distance2 ? a.distance2 < b.distance2 : a.index < b.index; };
+    if (candidates.size() > maxLights) {
+        std::partial_sort(candidates.begin(), candidates.begin() + static_cast<std::ptrdiff_t>(maxLights), candidates.end(), closer);
+        candidates.resize(maxLights);
+    } else {
+        std::sort(candidates.begin(), candidates.end(), closer);
     }
+
+    out.packed.clear();
+    out.packed.reserve(candidates.size() * 4);
+    for (const Candidate& c : candidates) {
+        out.packed.push_back(c.posRange);
+        out.packed.push_back(c.colorIntensity);
+        out.packed.push_back(c.dirCone);
+        out.packed.push_back(c.params);
+    }
+    out.count = static_cast<uint32_t>(candidates.size());
     return true;
 }
 
