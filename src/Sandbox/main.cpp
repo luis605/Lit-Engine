@@ -4,6 +4,8 @@
 #include <string>
 #include <iostream>
 #include <cmath>
+#include <cstdlib>
+#include <random>
 #include "Engine/Log/Log.hpp"
 
 import Engine.engine;
@@ -128,6 +130,19 @@ int main() {
 
     Scene scene({engine, world, cubeMesh, sphereMesh});
     scene.onStart();
+
+    if (const char* stress = std::getenv("LIT_STRESS")) {
+        const size_t count = static_cast<size_t>(std::atoll(stress));
+        std::mt19937 gen(1);
+        std::uniform_real_distribution<float> dist(-200.0f, 200.0f);
+        world.createBatch(count, [&](size_t i, EntityDesc& desc) {
+            desc.name = "stress";
+            desc.mesh = (i % 2 == 0) ? cubeMesh : sphereMesh;
+            desc.position = glm::vec3(dist(gen), dist(gen), dist(gen));
+            desc.shader = (i % 3 == 0) ? 1 : 0;
+        });
+        Lit::Log::Info("Spawned {} stress entities", count);
+    }
 
     bool mouseLocked = false;
     bool showDebug = true;
