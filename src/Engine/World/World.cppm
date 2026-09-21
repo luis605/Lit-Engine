@@ -43,6 +43,16 @@ export struct RayHit {
     float distance = 0.0f;
 };
 
+export struct TimeState {
+    float deltaTime = 0.0f;
+    float unscaledDeltaTime = 0.0f;
+    double elapsed = 0.0;
+    double unscaledElapsed = 0.0;
+    uint64_t frame = 0;
+    float timeScale = 1.0f;
+    bool paused = false;
+};
+
 export struct EntityMoved {
     EntityHandle from;
     EntityHandle to;
@@ -371,6 +381,9 @@ export class World {
     [[nodiscard]] EntityHandle getActiveCamera() const { return valid(m_activeCamera) ? m_activeCamera : NULL_ENTITY; }
     void syncCamera();
 
+    [[nodiscard]] const TimeState& time() const { return m_time; }
+    [[nodiscard]] TimeState& timeState() { return m_time; }
+
     [[nodiscard]] EventBus& events() { return m_events; }
     [[nodiscard]] Camera& camera() { return m_camera; }
     [[nodiscard]] const Camera& camera() const { return m_camera; }
@@ -430,6 +443,7 @@ export class World {
     float m_maxSmallRadius = 0.0f;
     bool m_spatialActive = false;
     EventBus m_events;
+    TimeState m_time;
     std::vector<glm::vec3> m_animBase;
     uint32_t m_animOffset = 0;
     float m_animTime = 0.0f;

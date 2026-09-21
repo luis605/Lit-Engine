@@ -67,12 +67,21 @@ void Engine::update(SceneDatabase& sceneDatabase, Camera& camera) {
 
 void Engine::tick(float deltaTime) {
     constexpr float maxFrame = 0.25f;
-    m_accumulator += std::min(deltaTime, maxFrame);
-    while (m_accumulator >= m_fixedStep) {
-        m_world.fixedUpdate(m_fixedStep);
-        m_accumulator -= m_fixedStep;
+    TimeState& t = m_world.timeState();
+    t.unscaledDeltaTime = std::min(deltaTime, maxFrame);
+    t.deltaTime = t.paused ? 0.0f : t.unscaledDeltaTime * t.timeScale;
+    t.unscaledElapsed += t.unscaledDeltaTime;
+    t.elapsed += t.deltaTime;
+    ++t.frame;
+
+    if (!t.paused) {
+        m_accumulator += t.deltaTime;
+        while (m_accumulator >= m_fixedStep) {
+            m_world.fixedUpdate(m_fixedStep);
+            m_accumulator -= m_fixedStep;
+        }
+        m_world.update(t.deltaTime);
     }
-    m_world.update(deltaTime);
     m_world.events().dispatch();
 }
 

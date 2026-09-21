@@ -6,6 +6,7 @@
 #include <vector>
 #include <string>
 
+import Engine.engine;
 import Engine.World;
 import Engine.Render.entity;
 import Engine.Render.component;
@@ -606,6 +607,54 @@ static void testScriptSerialization() {
     CHECK(copied && copied != patrol && copied->waypoint == 3);
 }
 
+struct TickProbe : Script {
+    int* updates;
+    float* lastDelta;
+    int* fixedCount;
+    TickProbe(int* u, float* d, int* f) : updates(u), lastDelta(d), fixedCount(f) {}
+    void onUpdate(World&, EntityHandle, float dt) override {
+        ++*updates;
+        *lastDelta = dt;
+    }
+    void onFixedUpdate(World&, EntityHandle, float) override { ++*fixedCount; }
+};
+
+static void testTimeService() {
+    Engine engine;
+    World& w = engine.world();
+    int updates = 0, fixedCount = 0;
+    float lastDelta = 0.0f;
+    auto e = w.create("e", 1);
+    w.attach<TickProbe>(e, &updates, &lastDelta, &fixedCount);
+
+    engine.tick(0.25f);
+    CHECK(updates == 1 && std::abs(lastDelta - 0.25f) < 1.0e-6f);
+    CHECK(fixedCount >= 14 && fixedCount <= 15);
+    CHECK(engine.time().frame == 1);
+    CHECK(std::abs(engine.time().elapsed - 0.25) < 1.0e-6);
+
+    engine.setTimeScale(0.5f);
+    engine.tick(0.1f);
+    CHECK(std::abs(lastDelta - 0.05f) < 1.0e-6f);
+    CHECK(std::abs(engine.time().unscaledDeltaTime - 0.1f) < 1.0e-6f);
+    CHECK(std::abs(engine.time().elapsed - 0.30) < 1.0e-6);
+    CHECK(std::abs(engine.time().unscaledElapsed - 0.35) < 1.0e-6);
+
+    engine.setPaused(true);
+    const int updatesBefore = updates;
+    const int fixedBefore = fixedCount;
+    engine.tick(0.1f);
+    CHECK(updates == updatesBefore && fixedCount == fixedBefore);
+    CHECK(engine.time().deltaTime == 0.0f);
+    CHECK(engine.time().frame == 3);
+    CHECK(std::abs(engine.time().elapsed - 0.30) < 1.0e-6);
+
+    engine.setPaused(false);
+    engine.tick(1.0f);
+    CHECK(std::abs(engine.time().unscaledDeltaTime - 0.25f) < 1.0e-6f);
+    CHECK(std::abs(engine.time().deltaTime - 0.125f) < 1.0e-6f);
+}
+
 int main() {
     testHandles();
     testHierarchy();
@@ -624,6 +673,7 @@ int main() {
     testTrimAndCompact();
     testBatch();
     testScriptSerialization();
+    testTimeService();
     testAnimationAgreement();
     testCompactKeepsSpatialAndScripts();
     testFixedUpdate();

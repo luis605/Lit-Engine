@@ -26,6 +26,9 @@ export class Engine {
     void init(GLFWwindow* window, const int windowWidth, const int windowHeight);
     void update(SceneDatabase& sceneDatabase, Camera& camera);
     void tick(float deltaTime);
+    [[nodiscard]] const TimeState& time() const { return m_world.time(); }
+    void setTimeScale(float scale) { m_world.timeState().timeScale = scale < 0.0f ? 0.0f : scale; }
+    void setPaused(bool paused) { m_world.timeState().paused = paused; }
     void debugLine(const glm::vec3& from, const glm::vec3& to, const glm::vec4& color = glm::vec4(1.0f));
     void debugBox(const glm::vec3& center, const glm::vec3& halfExtents, const glm::vec4& color = glm::vec4(1.0f));
     void debugSphere(const glm::vec3& center, float radius, const glm::vec4& color = glm::vec4(1.0f));
