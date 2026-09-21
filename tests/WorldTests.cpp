@@ -970,6 +970,32 @@ static void testSnapshotRestore() {
     CHECK(!w.restore("not a scene"));
 }
 
+static void testMeshlessEntities() {
+    World w;
+    w.setMeshBoundsHook([](uint32_t) { return glm::vec4(0.0f, 0.0f, 0.0f, 1.0f); });
+    auto empty = w.create("empty");
+    CHECK(w.getMesh(empty) == NO_MESH);
+    EntityDesc desc;
+    CHECK(desc.mesh == NO_MESH);
+    w.setPosition(empty, glm::vec3(0.0f, 0.0f, -5.0f));
+    auto solid = w.create("solid", 1, glm::vec3(0.0f, 0.0f, -20.0f));
+    auto hit = w.raycast(glm::vec3(0.0f), glm::vec3(0.0f, 0.0f, -1.0f));
+    CHECK(hit && hit->entity == solid);
+    CHECK(w.overlapSphere(glm::vec3(0.0f, 0.0f, -5.0f), 2.0f).empty());
+    CHECK(w.getWorldBounds(empty).w == 0.0f);
+
+    const auto path = std::filesystem::temp_directory_path() / "lit_world_meshless_test.litscene";
+    CHECK(w.saveScene(path));
+    w.clear();
+    CHECK(w.loadScene(path));
+    CHECK(w.getMesh(w.find("empty")) == NO_MESH);
+    CHECK(w.getMesh(w.find("solid")) == 1);
+    std::filesystem::remove(path);
+
+    w.setMesh(w.find("empty"), 3);
+    CHECK(w.getMesh(w.find("empty")) == 3);
+}
+
 int main() {
     testHandles();
     testHierarchy();
@@ -997,6 +1023,7 @@ int main() {
     testHistory();
     testSiblingIteration();
     testSnapshotRestore();
+    testMeshlessEntities();
     testAnimationAgreement();
     testCompactKeepsSpatialAndScripts();
     testFixedUpdate();

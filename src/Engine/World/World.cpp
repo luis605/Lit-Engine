@@ -1158,7 +1158,7 @@ void World::rebuildSpatialEntry(Entity idx) {
     if (idx >= m_alive.size()) return;
     if (m_spatial.size() <= idx) m_spatial.resize(m_alive.size());
     removeSpatialEntry(idx);
-    if (idx >= m_alive.size() || !m_alive[idx] || !m_visible[idx] || !m_meshBounds) return;
+    if (idx >= m_alive.size() || !m_alive[idx] || !m_visible[idx] || !m_meshBounds || m_mesh[idx] == NO_MESH) return;
 
     const glm::vec4 bounds = m_meshBounds(m_mesh[idx]);
     const glm::mat4 world = getWorldMatrix({idx, m_generation[idx]});
@@ -1313,7 +1313,7 @@ Ray World::screenRay(float screenX, float screenY, float width, float height) co
 }
 
 glm::vec4 World::getWorldBounds(EntityHandle e) const {
-    if (!valid(e) || !m_meshBounds) return glm::vec4(0.0f);
+    if (!valid(e) || !m_meshBounds || m_mesh[e.index] == NO_MESH) return glm::vec4(0.0f);
     const glm::vec4 bounds = m_meshBounds(m_mesh[e.index]);
     const glm::mat4 world = getWorldMatrix(e);
     const float maxScale = std::max({glm::length(glm::vec3(world[0])), glm::length(glm::vec3(world[1])), glm::length(glm::vec3(world[2]))});

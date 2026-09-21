@@ -76,6 +76,7 @@ export struct HierarchyComponent {
     uint32_t level = 0;
 };
 
+export inline constexpr std::uint32_t NO_MESH = 0xFFFFFFFFu;
 export inline constexpr std::uint32_t RENDER_HIDDEN = 1u;
 export inline constexpr std::uint32_t RENDER_NO_OCCLUDER = 2u;
 

@@ -85,7 +85,7 @@ export struct EntityReparented {
 
 export struct EntityDesc {
     std::string name;
-    uint32_t mesh = 0;
+    uint32_t mesh = NO_MESH;
     uint32_t material = 0;
     uint32_t shader = 0;
     float alpha = 1.0f;
@@ -227,7 +227,7 @@ export class World {
     World();
 
     EntityHandle create(const EntityDesc& desc = {});
-    EntityHandle create(std::string name, uint32_t mesh, const glm::vec3& position = glm::vec3(0.0f), const glm::vec3& scale = glm::vec3(1.0f), EntityHandle parent = NULL_ENTITY);
+    EntityHandle create(std::string name, uint32_t mesh = NO_MESH, const glm::vec3& position = glm::vec3(0.0f), const glm::vec3& scale = glm::vec3(1.0f), EntityHandle parent = NULL_ENTITY);
     template <typename Fn>
     void createBatch(size_t count, Fn&& fn) {
         reserve(m_alive.size() + count);
