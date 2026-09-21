@@ -42,6 +42,8 @@ void World::reserve(size_t count) {
     m_db.renderables.reserve(count);
     m_alive.reserve(count);
     m_generation.reserve(count);
+    m_visible.reserve(count);
+    m_mesh.reserve(count);
     m_firstChild.reserve(count);
     m_nextSibling.reserve(count);
     m_prevSibling.reserve(count);
@@ -99,6 +101,8 @@ EntityHandle World::create(const EntityDesc& desc) {
         idx = m_db.createEntity();
         m_alive.push_back(1);
         m_generation.push_back(0);
+        m_visible.push_back(1);
+        m_mesh.push_back(0);
         m_firstChild.push_back(INVALID_ENTITY);
         m_nextSibling.push_back(INVALID_ENTITY);
         m_prevSibling.push_back(INVALID_ENTITY);
@@ -108,6 +112,8 @@ EntityHandle World::create(const EntityDesc& desc) {
 
     m_db.transforms[idx].localMatrix = compose(desc.position, desc.rotation, desc.scale);
     auto& r = m_db.renderables[idx];
+    m_visible[idx] = 1;
+    m_mesh[idx] = desc.mesh;
     r.mesh_uuid = desc.mesh;
     r.material_uuid = desc.material;
     r.shaderId = desc.shader;
@@ -138,8 +144,8 @@ void World::destroyRecursive(Entity idx) {
     ++m_generation[idx];
     m_firstChild[idx] = INVALID_ENTITY;
     m_db.hierarchies[idx].parent = INVALID_ENTITY;
-    m_db.transforms[idx].localMatrix = kDegenerate;
-    m_db.renderables[idx].alpha = 0.0f;
+    m_visible[idx] = 0;
+    m_db.renderables[idx].mesh_uuid = HIDDEN_MESH;
     m_names[idx].clear();
     m_freeList.push_back(idx);
     --m_aliveCount;
@@ -276,10 +282,24 @@ glm::vec3 World::getScale(EntityHandle e) const {
 
 glm::vec3 World::getWorldPosition(EntityHandle e) const { return glm::vec3(getWorldMatrix(e)[3]); }
 
+void World::setVisible(EntityHandle e, bool visible) {
+    if (!valid(e) || (m_visible[e.index] != 0) == visible) return;
+    m_visible[e.index] = visible ? 1 : 0;
+    m_db.renderables[e.index].mesh_uuid = visible ? m_mesh[e.index] : HIDDEN_MESH;
+    touchData();
+}
+
+bool World::isVisible(EntityHandle e) const { return valid(e) && m_visible[e.index]; }
+
+uint32_t World::getMesh(EntityHandle e) const { return valid(e) ? m_mesh[e.index] : 0; }
+
 void World::setMesh(EntityHandle e, uint32_t mesh) {
     if (!valid(e)) return;
-    m_db.renderables[e.index].mesh_uuid = mesh;
-    touchData();
+    m_mesh[e.index] = mesh;
+    if (m_visible[e.index]) {
+        m_db.renderables[e.index].mesh_uuid = mesh;
+        touchData();
+    }
 }
 
 void World::setMaterial(EntityHandle e, uint32_t material) {

@@ -65,6 +65,9 @@ export class World {
     [[nodiscard]] glm::vec3 getScale(EntityHandle e) const;
     [[nodiscard]] glm::vec3 getWorldPosition(EntityHandle e) const;
 
+    void setVisible(EntityHandle e, bool visible);
+    [[nodiscard]] bool isVisible(EntityHandle e) const;
+    [[nodiscard]] uint32_t getMesh(EntityHandle e) const;
     void setMesh(EntityHandle e, uint32_t mesh);
     void setMaterial(EntityHandle e, uint32_t material);
     void setShader(EntityHandle e, uint32_t shader);
@@ -91,6 +94,8 @@ export class World {
     Camera m_camera;
     std::vector<uint8_t> m_alive;
     std::vector<uint32_t> m_generation;
+    std::vector<uint8_t> m_visible;
+    std::vector<uint32_t> m_mesh;
     std::vector<Entity> m_firstChild;
     std::vector<Entity> m_nextSibling;
     std::vector<Entity> m_prevSibling;

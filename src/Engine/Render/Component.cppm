@@ -76,6 +76,8 @@ export struct HierarchyComponent {
     uint32_t level = 0;
 };
 
+export inline constexpr std::uint32_t HIDDEN_MESH = 0xFFFFFFFFu;
+
 export struct RenderableComponent {
     std::uint32_t mesh_uuid;
     std::uint32_t material_uuid;
