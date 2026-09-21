@@ -23,7 +23,10 @@ export class Engine {
 
     void init(GLFWwindow* window, const int windowWidth, const int windowHeight);
     void update(SceneDatabase& sceneDatabase, Camera& camera);
+    void update();
     void update(World& world);
+    [[nodiscard]] World& world() { return m_world; }
+    [[nodiscard]] Camera& camera() { return m_world.camera(); }
     void present();
     void cleanup();
     uint32_t uploadMesh(const Mesh& mesh);
@@ -41,4 +44,5 @@ export class Engine {
 
   private:
     Renderer m_renderer;
+    World m_world;
 };

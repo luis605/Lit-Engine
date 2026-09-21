@@ -22,7 +22,7 @@ import Engine.input;
 import Engine.glm;
 import Engine.asset;
 
-Application::Application() {
+Application::Application() : m_world(m_engine.world()) {
     Lit::Log::Init();
     if (!glfwInit()) {
         Lit::Log::Fatal("Failed to initialize GLFW");
@@ -142,7 +142,7 @@ void  Application::update() {
    m_engine.setSmallObjectThreshold(m_smallObjectThreshold);
    m_engine.setLargeObjectThreshold(m_largeObjectThreshold);
 
-   m_engine.update(m_world);
+   m_engine.update();
 
    m_textUpdateTimer += deltaTime;
    if (m_textUpdateTimer >= 0.5f) {

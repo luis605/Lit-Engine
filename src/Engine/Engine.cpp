@@ -21,6 +21,8 @@ void Engine::update(SceneDatabase& sceneDatabase, Camera& camera) {
     m_renderer.drawScene(sceneDatabase, camera);
 }
 
+void Engine::update() { m_renderer.drawScene(m_world.database(), m_world.camera()); }
+
 void Engine::update(World& world) { m_renderer.drawScene(world.database(), world.camera()); }
 
 void Engine::present() { m_renderer.present(); }

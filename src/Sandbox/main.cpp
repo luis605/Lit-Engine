@@ -127,7 +127,7 @@ int main() {
     const uint32_t cubeMesh = loadMesh(engine, "cube");
     const uint32_t sphereMesh = loadMesh(engine, "sphere");
 
-    World world;
+    World& world = engine.world();
     Camera& camera = world.camera();
     camera.setFarPlane(500.0f);
 
@@ -161,7 +161,7 @@ int main() {
 
         scene.onUpdate(deltaTime, now);
 
-        engine.update(world);
+        engine.update();
         InputManager::Update();
         engine.present();
         glfwPollEvents();
