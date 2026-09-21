@@ -6,6 +6,7 @@
 
 import Engine.World;
 import Engine.Render.entity;
+import Engine.Render.component;
 import Engine.glm;
 
 namespace {
@@ -100,6 +101,15 @@ static void testVisibility() {
     CHECK(w.getMesh(e) == 9);
     w.setVisible(e, true);
     CHECK(w.database().renderables[e.index].mesh_uuid == 9);
+    CHECK((w.getRenderFlags(e) & RENDER_HIDDEN) == 0);
+    w.setVisible(e, false);
+    CHECK((w.getRenderFlags(e) & RENDER_HIDDEN) != 0);
+    w.setRenderFlags(e, RENDER_NO_OCCLUDER, true);
+    w.setRenderFlags(e, RENDER_HIDDEN, false);
+    CHECK((w.getRenderFlags(e) & RENDER_HIDDEN) != 0);
+    CHECK((w.getRenderFlags(e) & RENDER_NO_OCCLUDER) != 0);
+    w.setVisible(e, true);
+    CHECK(w.getRenderFlags(e) == RENDER_NO_OCCLUDER);
 }
 
 static void testNames() {
@@ -250,6 +260,7 @@ static void testLayersAndTags() {
     int hits = 0;
     w.forEachInLayer(0b10, [&](EntityHandle) { ++hits; });
     CHECK(hits == 2);
+    w.setRenderFlags(c, RENDER_NO_OCCLUDER, true);
     w.setTag(a, "enemy");
     w.setTag(b, "enemy");
     CHECK(w.findByTag("enemy").size() == 2);
@@ -270,6 +281,7 @@ static void testLayersAndTags() {
     CHECK(w.loadScene(path));
     CHECK(w.findByTag("ally").size() == 2);
     CHECK(w.getLayer(w.find("c")) == 0b1000);
+    CHECK(w.getRenderFlags(w.find("c")) == RENDER_NO_OCCLUDER);
     std::filesystem::remove(path);
 }
 

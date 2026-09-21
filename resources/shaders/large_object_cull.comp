@@ -24,6 +24,7 @@ struct RenderableComponent {
     uint shaderId;
     uint objectId;
     float alpha;
+    uint flags;
 };
 
 layout (std140) uniform SceneUniforms {
@@ -97,7 +98,7 @@ void main() {
     if (dist > 0.0 && world_radius / dist < u_largeObjectThreshold) return;
 
     RenderableComponent renderable = renderables[objectId];
-    if (renderable.alpha < 1.0) return;
+    if (renderable.alpha < 1.0 || (renderable.flags & 2u) != 0u) return;
     if (renderable.mesh_uuid >= MAX_MESHES || renderable.shaderId >= u_numShaders) return;
 
     uint index = atomicAdd(visibleLargeObjectCount, 1);

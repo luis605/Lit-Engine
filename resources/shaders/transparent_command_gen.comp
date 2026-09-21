@@ -24,6 +24,7 @@ struct RenderableComponent {
     uint shaderId;
     uint objectId;
     float alpha;
+    uint flags;
 };
 
 struct VisibleTransparentObject {

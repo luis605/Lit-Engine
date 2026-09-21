@@ -65,6 +65,7 @@ struct RenderableComponent {
     uint shaderId;
     uint objectId;
     float alpha;
+    uint flags;
 };
 
 struct MeshInfo {
@@ -155,7 +156,7 @@ void main() {
     cullOrientations[entity] = rotationToQuaternion(rotation);
 
     uint meshUuid = renderables[entity].mesh_uuid;
-    if (meshUuid < MAX_MESHES) {
+    if (meshUuid < MAX_MESHES && (renderables[entity].flags & 1u) == 0u) {
         MeshInfo mesh = meshInfos[meshUuid];
         float maxScale = max(length(worldMat[0].xyz), max(length(worldMat[1].xyz), length(worldMat[2].xyz)));
         cullSpheres[entity] = vec4((worldMat * vec4(mesh.boundingCenter.xyz, 1.0)).xyz, mesh.boundingRadius * maxScale);

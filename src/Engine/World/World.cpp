@@ -190,7 +190,7 @@ void World::destroyRecursive(Entity idx) {
     m_firstChild[idx] = INVALID_ENTITY;
     m_db.hierarchies[idx].parent = INVALID_ENTITY;
     m_visible[idx] = 0;
-    m_db.renderables[idx].mesh_uuid = HIDDEN_MESH;
+    m_db.renderables[idx].flags |= RENDER_HIDDEN;
     m_names[idx].clear();
     m_freeList.push_back(idx);
     --m_aliveCount;
@@ -390,11 +390,29 @@ void World::forEachInLayer(uint32_t mask, const std::function<void(EntityHandle)
     }
 }
 
+void World::setFlagBit(Entity idx, uint32_t bit, bool on) {
+    uint32_t& flags = m_db.renderables[idx].flags;
+    flags = on ? (flags | bit) : (flags & ~bit);
+}
+
+void World::setRenderFlags(EntityHandle e, uint32_t flags, bool enabled) {
+    if (!valid(e)) return;
+    const uint32_t keepHidden = m_visible[e.index] ? 0u : RENDER_HIDDEN;
+    uint32_t& current = m_db.renderables[e.index].flags;
+    current = enabled ? (current | flags) : (current & ~flags);
+    current |= keepHidden;
+    touchData();
+}
+
+uint32_t World::getRenderFlags(EntityHandle e) const {
+    return valid(e) ? m_db.renderables[e.index].flags : 0;
+}
+
 void World::setVisible(EntityHandle e, bool visible) {
     if (!valid(e) || (m_visible[e.index] != 0) == visible) return;
     m_visible[e.index] = visible ? 1 : 0;
     queueSpatial(e.index);
-    m_db.renderables[e.index].mesh_uuid = visible ? m_mesh[e.index] : HIDDEN_MESH;
+    setFlagBit(e.index, RENDER_HIDDEN, !visible);
     touchData();
 }
 
@@ -405,11 +423,9 @@ uint32_t World::getMesh(EntityHandle e) const { return valid(e) ? m_mesh[e.index
 void World::setMesh(EntityHandle e, uint32_t mesh) {
     if (!valid(e)) return;
     m_mesh[e.index] = mesh;
+    m_db.renderables[e.index].mesh_uuid = mesh;
     queueSpatial(e.index);
-    if (m_visible[e.index]) {
-        m_db.renderables[e.index].mesh_uuid = mesh;
-        touchData();
-    }
+    touchData();
 }
 
 void World::setMaterial(EntityHandle e, uint32_t material) {
@@ -501,7 +517,7 @@ bool World::saveScene(const std::filesystem::path& path) const {
         out << i << ' ' << (parent == INVALID_ENTITY ? -1 : static_cast<long long>(parent)) << ' ' << int(m_visible[i]) << ' ' << m_mesh[i] << ' ' << r.material_uuid << ' ' << r.shaderId << ' ' << r.alpha;
         const float* m = &m_db.transforms[i].localMatrix[0][0];
         for (int k = 0; k < 16; ++k) out << ' ' << m[k];
-        out << ' ' << m_layer[i];
+        out << ' ' << m_layer[i] << ' ' << (r.flags & ~RENDER_HIDDEN);
         out << '\t' << m_names[i] << '\n';
     }
     for (Entity i = 0; i < m_alive.size(); ++i) {
@@ -571,11 +587,14 @@ bool World::loadScene(const std::filesystem::path& path) {
         }
         uint32_t layer = 1;
         if (!(fields >> layer)) layer = 1;
+        uint32_t renderFlags = 0;
+        if (!(fields >> renderFlags)) renderFlags = 0;
         if (tab != std::string::npos) desc.name = line.substr(tab + 1);
         if (const auto remap = meshRemap.find(desc.mesh); remap != meshRemap.end()) desc.mesh = remap->second;
         const EntityHandle h = create(desc);
         setLocalMatrix(h, local);
         setLayer(h, layer);
+        setRenderFlags(h, renderFlags, true);
         if (!visible) setVisible(h, false);
         handles[id] = h;
         records.push_back({id, parent});
@@ -688,6 +707,7 @@ Prefab World::capture(EntityHandle root) const {
         node.alpha = m_db.renderables[idx].alpha;
         node.visible = m_visible[idx] != 0;
         node.layer = m_layer[idx];
+        node.renderFlags = m_db.renderables[idx].flags & ~RENDER_HIDDEN;
         node.tag = m_tags[idx];
         node.local = m_db.transforms[idx].localMatrix;
         node.parent = parentNode;
@@ -721,6 +741,7 @@ EntityHandle World::instantiate(const Prefab& prefab, EntityHandle parent) {
         setLocalMatrix(h, node.local);
         if (!node.visible) setVisible(h, false);
         setLayer(h, node.layer);
+        setRenderFlags(h, node.renderFlags, true);
         setTag(h, node.tag);
         for (const auto& [name, payload] : node.components) {
             const auto serializer = m_serializers.find(name);

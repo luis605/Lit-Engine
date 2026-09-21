@@ -75,6 +75,7 @@ export struct PrefabNode {
     float alpha = 1.0f;
     bool visible = true;
     uint32_t layer = 1;
+    uint32_t renderFlags = 0;
     std::string tag;
     glm::mat4 local{1.0f};
     int parent = -1;
@@ -225,6 +226,8 @@ export class World {
     [[nodiscard]] const std::string& getTag(EntityHandle e) const;
     [[nodiscard]] std::vector<EntityHandle> findByTag(const std::string& tag) const;
 
+    void setRenderFlags(EntityHandle e, uint32_t flags, bool enabled);
+    [[nodiscard]] uint32_t getRenderFlags(EntityHandle e) const;
     void setVisible(EntityHandle e, bool visible);
     [[nodiscard]] bool isVisible(EntityHandle e) const;
     [[nodiscard]] uint32_t getMesh(EntityHandle e) const;
@@ -338,6 +341,7 @@ export class World {
     void flushPendingDestroy();
     EntityHandle createImpl(const EntityDesc& desc);
     void clearTag(Entity idx);
+    void setFlagBit(Entity idx, uint32_t bit, bool on);
     void link(Entity idx, Entity parent);
     void unlink(Entity idx);
     [[nodiscard]] bool valid(EntityHandle h) const;
