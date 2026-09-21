@@ -2,6 +2,7 @@ module;
 
 #include <GLFW/glfw3.h>
 #include <algorithm>
+#include <chrono>
 #include <cmath>
 #include <cstdio>
 #include <cstdio>
@@ -73,6 +74,7 @@ Application::Application() : m_world(m_engine.world()) {
     std::uniform_real_distribution<float> distribPosSideZ(-100.0f, 150.0f);
     std::uniform_int_distribution<unsigned int> distribType(0, 1);
 
+    const auto createStart = std::chrono::steady_clock::now();
     m_world.reserve(numObjects + 1);
 
     EntityDesc parentDesc;
@@ -83,19 +85,18 @@ Application::Application() : m_world(m_engine.world()) {
     m_movingObjectCount = static_cast<uint32_t>(std::min(numObjects, 150000));
     m_basePositions.resize(m_movingObjectCount);
 
-    for (int i = 0; i < numObjects; ++i) {
-        const glm::vec3 position(distribPosSideX(gen), distribPosHeight(gen), distribPosSideZ(gen));
-        if (static_cast<uint32_t>(i) < m_movingObjectCount) { m_basePositions[i] = position; }
+    m_world.createBatch(numObjects, [&](size_t i, EntityDesc& desc) {
+        desc.position = glm::vec3(distribPosSideX(gen), distribPosHeight(gen), distribPosSideZ(gen));
+        if (i < m_movingObjectCount) { m_basePositions[i] = desc.position; }
 
         const bool isTransparent = (i % 50 == 0);
-        EntityDesc desc;
-        desc.position = position;
         desc.mesh = (distribType(gen) == 1) ? sphereMeshUuid : cubeMeshUuid;
         desc.shader = isTransparent ? 2 : (i % 2 == 0 ? 1 : 0);
         desc.alpha = isTransparent ? 0.6f : 1.0f;
-        if (i < numObjects / 2) { desc.parent = m_parentEntity; }
-        m_world.create(desc);
-    }
+        if (i < static_cast<size_t>(numObjects) / 2) { desc.parent = m_parentEntity; }
+    });
+
+    Lit::Log::Info("Created {} objects in {:.1f} ms", numObjects, std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - createStart).count());
 
     m_engine.uploadBasePositions(m_basePositions);
 

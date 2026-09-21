@@ -110,6 +110,17 @@ export class World {
 
     EntityHandle create(const EntityDesc& desc = {});
     EntityHandle create(std::string name, uint32_t mesh, const glm::vec3& position = glm::vec3(0.0f), const glm::vec3& scale = glm::vec3(1.0f), EntityHandle parent = NULL_ENTITY);
+    template <typename Fn>
+    void createBatch(size_t count, Fn&& fn) {
+        reserve(m_alive.size() + count);
+        EntityDesc desc;
+        for (size_t i = 0; i < count; ++i) {
+            desc = EntityDesc{};
+            fn(i, desc);
+            createImpl(desc);
+        }
+        touchStructure();
+    }
     void destroy(EntityHandle e);
     [[nodiscard]] bool isAlive(EntityHandle e) const;
     [[nodiscard]] size_t aliveCount() const { return m_aliveCount; }
@@ -212,6 +223,7 @@ export class World {
     }
     void runScriptDestroy(Entity idx);
     void flushPendingDestroy();
+    EntityHandle createImpl(const EntityDesc& desc);
     void link(Entity idx, Entity parent);
     void unlink(Entity idx);
     [[nodiscard]] bool valid(EntityHandle h) const;

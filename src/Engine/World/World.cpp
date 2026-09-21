@@ -89,6 +89,12 @@ void World::touchStructure() {
 void World::touchData() { m_db.markDataDirty(); }
 
 EntityHandle World::create(const EntityDesc& desc) {
+    const EntityHandle h = createImpl(desc);
+    touchStructure();
+    return h;
+}
+
+EntityHandle World::createImpl(const EntityDesc& desc) {
     Entity idx;
     if (!m_freeList.empty()) {
         idx = m_freeList.back();
@@ -124,7 +130,6 @@ EntityHandle World::create(const EntityDesc& desc) {
     r.alpha = desc.alpha;
     m_names[idx] = desc.name;
     link(idx, valid(desc.parent) ? desc.parent.index : INVALID_ENTITY);
-    touchStructure();
     return {idx, m_generation[idx]};
 }
 
