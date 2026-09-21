@@ -15,6 +15,7 @@ export class History {
     explicit History(World& world, size_t limit = 256) : m_world(world), m_limit(limit) {}
 
     void setLocalMatrix(EntityHandle e, const glm::mat4& local);
+    void commitLocalMatrix(EntityHandle e, const glm::mat4& before, const glm::mat4& after);
     void setVisible(EntityHandle e, bool visible);
     void setParent(EntityHandle e, EntityHandle parent, bool keepWorldTransform = true);
     EntityHandle create(const EntityDesc& desc);

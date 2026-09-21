@@ -924,6 +924,24 @@ static void testHistory() {
     CHECK(!history.canRedo());
 }
 
+static void testSiblingIteration() {
+    World w;
+    auto p = w.create("p", 1);
+    auto r2 = w.create("r2", 1);
+    auto c1 = w.create("c1", 1, glm::vec3(0.0f), glm::vec3(1.0f), p);
+    auto c2 = w.create("c2", 1, glm::vec3(0.0f), glm::vec3(1.0f), p);
+    size_t roots = 0;
+    for (EntityHandle r = w.firstRoot(); !r.isNull(); r = w.nextSibling(r)) ++roots;
+    CHECK(roots == 2);
+    size_t kids = 0;
+    for (EntityHandle c = w.firstChild(p); !c.isNull(); c = w.nextSibling(c)) ++kids;
+    CHECK(kids == 2);
+    CHECK(w.firstChild(r2).isNull());
+    CHECK(w.firstChild(NULL_ENTITY).isNull());
+    (void)c1;
+    (void)c2;
+}
+
 int main() {
     testHandles();
     testHierarchy();
@@ -949,6 +967,7 @@ int main() {
     testAdditiveLoad();
     testEntityReferences();
     testHistory();
+    testSiblingIteration();
     testAnimationAgreement();
     testCompactKeepsSpatialAndScripts();
     testFixedUpdate();

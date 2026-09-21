@@ -20,7 +20,9 @@ void Inspector::update(Engine& engine, bool pickingEnabled) {
         m_selected = NULL_ENTITY;
         m_reparenting = false;
     }
-    if (pickingEnabled) handleClick(engine);
+    const bool gizmoConsumed = m_gizmo.update(engine, *m_history, m_selected, pickingEnabled);
+    if (pickingEnabled && !gizmoConsumed) handleClick(engine);
+    m_hierarchy.update(engine, m_selected);
     handleKeys(engine);
     draw(engine);
 }

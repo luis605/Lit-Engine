@@ -9,9 +9,13 @@ target_sources(Editor
         FILES
             Application.cppm
             Inspector/Inspector.cppm
+            Gizmo/Gizmo.cppm
+            Hierarchy/Hierarchy.cppm
     PRIVATE
         Application/Application.cpp
         Inspector/Inspector.cpp
+        Gizmo/Gizmo.cpp
+        Hierarchy/Hierarchy.cpp
         main.cpp
 
 )

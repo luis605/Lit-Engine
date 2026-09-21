@@ -37,6 +37,9 @@ export class Engine {
     void debugRay(const Ray& ray, float length, const glm::vec4& color = glm::vec4(1.0f));
     void debugHierarchy(const glm::vec4& color = glm::vec4(0.2f, 1.0f, 0.4f, 1.0f));
     [[nodiscard]] std::optional<RayHit> pick(float screenX, float screenY);
+    [[nodiscard]] Ray screenRay(float screenX, float screenY);
+    [[nodiscard]] std::optional<glm::vec2> worldToScreen(const glm::vec3& point);
+    [[nodiscard]] glm::vec2 windowSize() const { return glm::vec2(static_cast<float>(m_windowWidth), static_cast<float>(m_windowHeight)); }
     void setFixedTimestep(float seconds) { m_fixedStep = seconds; }
     void update();
     void update(World& world);

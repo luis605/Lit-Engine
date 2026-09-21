@@ -187,3 +187,16 @@ uint32_t Engine::createMaterial(const glm::vec3& color, float strength) {
 void Engine::updateMaterial(uint32_t id, const glm::vec3& color, float strength) {
     m_renderer.setMaterial(id, glm::vec4(color, std::clamp(strength, 0.0f, 1.0f)));
 }
+
+Ray Engine::screenRay(float screenX, float screenY) {
+    m_world.syncCamera();
+    return m_world.screenRay(screenX, screenY, static_cast<float>(m_windowWidth), static_cast<float>(m_windowHeight));
+}
+
+std::optional<glm::vec2> Engine::worldToScreen(const glm::vec3& point) {
+    m_world.syncCamera();
+    const glm::vec4 clip = m_world.camera().getProjectionMatrix() * m_world.camera().getViewMatrix() * glm::vec4(point, 1.0f);
+    if (clip.w <= 1.0e-5f) return std::nullopt;
+    const glm::vec2 ndc = glm::vec2(clip.x, clip.y) / clip.w;
+    return glm::vec2((ndc.x * 0.5f + 0.5f) * static_cast<float>(m_windowWidth), (0.5f - ndc.y * 0.5f) * static_cast<float>(m_windowHeight));
+}

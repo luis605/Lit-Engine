@@ -253,6 +253,9 @@ export class World {
     [[nodiscard]] EntityHandle getParent(EntityHandle e) const;
     [[nodiscard]] std::vector<EntityHandle> getChildren(EntityHandle e) const;
     [[nodiscard]] std::vector<EntityHandle> getRoots() const;
+    [[nodiscard]] EntityHandle firstRoot() const { return handleOf(m_firstRoot); }
+    [[nodiscard]] EntityHandle firstChild(EntityHandle e) const { return valid(e) ? handleOf(m_firstChild[e.index]) : NULL_ENTITY; }
+    [[nodiscard]] EntityHandle nextSibling(EntityHandle e) const { return valid(e) ? handleOf(m_nextSibling[e.index]) : NULL_ENTITY; }
     [[nodiscard]] bool isDescendantOf(EntityHandle e, EntityHandle ancestor) const;
 
     void setName(EntityHandle e, std::string name);

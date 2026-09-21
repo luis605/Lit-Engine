@@ -2,6 +2,7 @@ module;
 
 #include <algorithm>
 #include <cstdint>
+#include <cstring>
 #include <memory>
 #include <unordered_map>
 #include <vector>
@@ -101,6 +102,16 @@ void History::setLocalMatrix(EntityHandle e, const glm::mat4& local) {
     command->before = m_world.getLocalMatrix(e);
     command->after = local;
     m_world.setLocalMatrix(e, local);
+    push(std::move(command));
+}
+
+void History::commitLocalMatrix(EntityHandle e, const glm::mat4& before, const glm::mat4& after) {
+    e = resolve(e);
+    if (!m_world.isAlive(e) || std::memcmp(&before, &after, sizeof(glm::mat4)) == 0) return;
+    auto command = std::make_unique<SetLocal>();
+    command->entity = e;
+    command->before = before;
+    command->after = after;
     push(std::move(command));
 }
 
