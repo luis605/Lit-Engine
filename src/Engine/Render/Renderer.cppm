@@ -27,6 +27,7 @@ export class Renderer {
     void present();
     void cleanup();
     uint32_t uploadMesh(const Mesh& mesh);
+    glm::vec4 getMeshBounds(uint32_t meshId) const;
     void uploadBasePositions(const std::vector<glm::vec3>& basePositions);
     void setAnimation(float time, uint32_t movingCount, uint32_t entityOffset);
     void AddText(const std::string& text, float x, float y, float scale, const glm::vec3& color);

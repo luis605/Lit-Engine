@@ -1221,6 +1221,12 @@ uint32_t Renderer::uploadMeshSlot(const Mesh& mesh) {
     return meshUuid;
 }
 
+glm::vec4 Renderer::getMeshBounds(uint32_t meshId) const {
+    if (meshId >= s_meshInfos.size()) return glm::vec4(0.0f);
+    const MeshInfo& info = s_meshInfos[meshId];
+    return glm::vec4(glm::vec3(info.boundingCenter), info.boundingRadius);
+}
+
 uint32_t Renderer::uploadMesh(const Mesh& source) {
     if (source.vertices.empty() || source.indices.empty()) { return 0; }
     const Mesh mesh = source.optimized();

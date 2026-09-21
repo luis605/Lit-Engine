@@ -22,6 +22,7 @@ Engine::Engine() {
             return it == m_meshNames.end() ? std::string() : it->second;
         },
         [this](const std::string& name) { return loadMesh(name); });
+    m_world.setMeshBoundsHook([this](uint32_t id) { return m_renderer.getMeshBounds(id); });
 }
 
 uint32_t Engine::loadMesh(const std::string& name) {

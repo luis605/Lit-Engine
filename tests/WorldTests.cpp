@@ -353,6 +353,48 @@ static void testCameraEntity() {
     CHECK(w.getActiveCamera().isNull());
 }
 
+static void testSpatial() {
+    World w;
+    w.setMeshBoundsHook([](uint32_t mesh) { return mesh == 99 ? glm::vec4(0.0f, 0.0f, 0.0f, 1000.0f) : glm::vec4(0.0f, 0.0f, 0.0f, 1.0f); });
+    auto near = w.create("near", 1, glm::vec3(0.0f, 0.0f, -10.0f));
+    auto far = w.create("far", 1, glm::vec3(0.0f, 0.0f, -50.0f));
+    auto side = w.create("side", 1, glm::vec3(100.0f, 0.0f, 0.0f));
+
+    auto hit = w.raycast(glm::vec3(0.0f), glm::vec3(0.0f, 0.0f, -1.0f));
+    CHECK(hit && hit->entity == near);
+    CHECK(hit && std::abs(hit->distance - 9.0f) < 0.001f);
+    CHECK(!w.raycast(glm::vec3(0.0f), glm::vec3(0.0f, 1.0f, 0.0f)));
+    CHECK(!w.raycast(glm::vec3(0.0f), glm::vec3(0.0f, 0.0f, -1.0f), 5.0f));
+
+    CHECK(w.overlapSphere(glm::vec3(0.0f), 12.0f).size() == 1);
+    CHECK(w.overlapSphere(glm::vec3(0.0f), 60.0f).size() == 2);
+    CHECK(w.overlapSphere(glm::vec3(100.0f, 0.0f, 0.0f), 0.5f).size() == 1);
+
+    w.setPosition(near, glm::vec3(0.0f, 30.0f, -10.0f));
+    hit = w.raycast(glm::vec3(0.0f), glm::vec3(0.0f, 0.0f, -1.0f));
+    CHECK(hit && hit->entity == far);
+
+    w.setVisible(far, false);
+    CHECK(!w.raycast(glm::vec3(0.0f), glm::vec3(0.0f, 0.0f, -1.0f)));
+    w.setVisible(far, true);
+    w.destroy(far);
+    CHECK(!w.raycast(glm::vec3(0.0f), glm::vec3(0.0f, 0.0f, -1.0f)));
+
+    auto parent = w.create("parent", 0, glm::vec3(0.0f, 0.0f, -200.0f));
+    auto child = w.create("child", 1, glm::vec3(0.0f, 0.0f, -5.0f), glm::vec3(1.0f), parent);
+    w.setVisible(parent, false);
+    hit = w.raycast(glm::vec3(0.0f), glm::vec3(0.0f, 0.0f, -1.0f));
+    CHECK(hit && hit->entity == child);
+    w.setPosition(parent, glm::vec3(500.0f, 0.0f, -200.0f));
+    CHECK(!w.raycast(glm::vec3(0.0f), glm::vec3(0.0f, 0.0f, -1.0f)));
+    hit = w.raycast(glm::vec3(500.0f, 0.0f, 0.0f), glm::vec3(0.0f, 0.0f, -1.0f));
+    CHECK(hit && hit->entity == child);
+
+    auto ground = w.create("ground", 99);
+    CHECK(w.overlapSphere(glm::vec3(0.0f, -900.0f, 0.0f), 1.0f).size() == 1);
+    (void)side;
+}
+
 int main() {
     testHandles();
     testHierarchy();
@@ -370,6 +412,7 @@ int main() {
     testEvents();
     testFixedUpdate();
     testCameraEntity();
+    testSpatial();
     std::printf("%d checks, %d failures\n", g_checks, g_failures);
     return g_failures == 0 ? 0 : 1;
 }

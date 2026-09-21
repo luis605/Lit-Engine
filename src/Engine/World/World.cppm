@@ -31,6 +31,11 @@ export struct CameraComponent {
     float farPlane = 100.0f;
 };
 
+export struct RayHit {
+    EntityHandle entity;
+    float distance = 0.0f;
+};
+
 export struct EntityCreated {
     EntityHandle entity;
 };
@@ -293,6 +298,11 @@ export class World {
     [[nodiscard]] Prefab capture(EntityHandle root) const;
     EntityHandle instantiate(const Prefab& prefab, EntityHandle parent = NULL_ENTITY);
 
+    void setMeshBoundsHook(std::function<glm::vec4(uint32_t)> bounds) { m_meshBounds = std::move(bounds); }
+    void setSpatialCellSize(float size);
+    [[nodiscard]] std::vector<EntityHandle> overlapSphere(const glm::vec3& center, float radius);
+    [[nodiscard]] std::optional<RayHit> raycast(const glm::vec3& origin, const glm::vec3& direction, float maxDistance = 1.0e30f);
+
     void clear();
     bool saveScene(const std::filesystem::path& path) const;
     bool loadScene(const std::filesystem::path& path);
@@ -327,11 +337,33 @@ export class World {
     [[nodiscard]] bool valid(EntityHandle h) const;
     void touchTransform(Entity idx);
     void invalidateWorld(Entity idx) const;
+    void queueSpatial(Entity idx);
+    void markSpatialSubtree(Entity idx);
+    void refreshSpatial();
+    void rebuildSpatialEntry(Entity idx);
+    void removeSpatialEntry(Entity idx);
+    [[nodiscard]] uint64_t spatialKey(int x, int y, int z) const;
     void touchStructure();
     void touchData();
 
     SceneDatabase m_db;
     Camera m_camera;
+    struct SpatialEntry {
+        glm::vec3 center{0.0f};
+        float radius = 0.0f;
+        uint64_t cell = 0;
+        uint8_t state = 0;
+    };
+    std::vector<SpatialEntry> m_spatial;
+    std::vector<uint8_t> m_spatialQueued;
+    std::vector<Entity> m_spatialPending;
+    std::vector<Entity> m_spatialStack;
+    std::unordered_map<uint64_t, std::vector<Entity>> m_cells;
+    std::vector<Entity> m_largeEntities;
+    std::function<glm::vec4(uint32_t)> m_meshBounds;
+    float m_cellSize = 16.0f;
+    float m_maxSmallRadius = 0.0f;
+    bool m_spatialActive = false;
     EventBus m_events;
     EntityHandle m_activeCamera;
     std::vector<uint8_t> m_alive;

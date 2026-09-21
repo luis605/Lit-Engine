@@ -2,6 +2,8 @@ module;
 
 #include <algorithm>
 #include <cmath>
+#include <limits>
+#include <optional>
 #include <cstdint>
 #include <cstdlib>
 #include <filesystem>
@@ -88,6 +90,7 @@ void World::unlink(Entity idx) {
 void World::touchTransform(Entity idx) {
     m_db.markEntityDirty(idx);
     invalidateWorld(idx);
+    markSpatialSubtree(idx);
 }
 
 void World::invalidateWorld(Entity idx) const {
@@ -157,6 +160,7 @@ EntityHandle World::createImpl(const EntityDesc& desc) {
     r.alpha = desc.alpha;
     m_names[idx] = desc.name;
     link(idx, valid(desc.parent) ? desc.parent.index : INVALID_ENTITY);
+    queueSpatial(idx);
     return {idx, m_generation[idx]};
 }
 
@@ -177,6 +181,7 @@ void World::destroyRecursive(Entity idx) {
         child = next;
     }
     m_events.emit(EntityDestroyed{{idx, m_generation[idx]}});
+    queueSpatial(idx);
     runScriptDestroy(idx);
     clearTag(idx);
     for (auto& [type, p] : m_pools) p->remove(idx);
@@ -212,6 +217,7 @@ void World::setParent(EntityHandle e, EntityHandle parent, bool keepWorldTransfo
     unlink(e.index);
     link(e.index, parent.index);
     invalidateWorld(e.index);
+    markSpatialSubtree(e.index);
     if (keepWorldTransform) {
         const glm::mat4 parentWorld = parent.isNull() ? glm::mat4(1.0f) : getWorldMatrix(parent);
         m_db.transforms[e.index].localMatrix = glm::inverse(parentWorld) * world;
@@ -387,6 +393,7 @@ void World::forEachInLayer(uint32_t mask, const std::function<void(EntityHandle)
 void World::setVisible(EntityHandle e, bool visible) {
     if (!valid(e) || (m_visible[e.index] != 0) == visible) return;
     m_visible[e.index] = visible ? 1 : 0;
+    queueSpatial(e.index);
     m_db.renderables[e.index].mesh_uuid = visible ? m_mesh[e.index] : HIDDEN_MESH;
     touchData();
 }
@@ -398,6 +405,7 @@ uint32_t World::getMesh(EntityHandle e) const { return valid(e) ? m_mesh[e.index
 void World::setMesh(EntityHandle e, uint32_t mesh) {
     if (!valid(e)) return;
     m_mesh[e.index] = mesh;
+    queueSpatial(e.index);
     if (m_visible[e.index]) {
         m_db.renderables[e.index].mesh_uuid = mesh;
         touchData();
@@ -456,6 +464,13 @@ void World::clear() {
     m_freeList.clear();
     m_worldCache.clear();
     m_worldDirty.clear();
+    m_spatial.clear();
+    m_spatialQueued.clear();
+    m_spatialPending.clear();
+    m_cells.clear();
+    m_largeEntities.clear();
+    m_spatialActive = false;
+    m_maxSmallRadius = 0.0f;
     m_scripts.clear();
     for (auto& [type, p] : m_pools) p->clear();
     m_pendingDestroy.clear();
@@ -729,4 +744,205 @@ void World::syncCamera() {
     m_camera.setFov(cam->fov);
     m_camera.setNearPlane(cam->nearPlane);
     m_camera.setFarPlane(cam->farPlane);
+}
+
+uint64_t World::spatialKey(int x, int y, int z) const {
+    constexpr uint64_t mask = 0x1FFFFF;
+    return ((static_cast<uint64_t>(x) & mask) << 42) | ((static_cast<uint64_t>(y) & mask) << 21) | (static_cast<uint64_t>(z) & mask);
+}
+
+void World::setSpatialCellSize(float size) {
+    if (size <= 0.0f) return;
+    m_cellSize = size;
+    m_cells.clear();
+    m_largeEntities.clear();
+    m_spatial.clear();
+    m_spatialQueued.clear();
+    m_spatialPending.clear();
+    m_maxSmallRadius = 0.0f;
+    m_spatialActive = false;
+}
+
+void World::queueSpatial(Entity idx) {
+    if (!m_spatialActive) return;
+    if (m_spatialQueued.size() <= idx) m_spatialQueued.resize(m_alive.size(), 0);
+    if (m_spatialQueued[idx]) return;
+    m_spatialQueued[idx] = 1;
+    m_spatialPending.push_back(idx);
+}
+
+void World::markSpatialSubtree(Entity idx) {
+    if (!m_spatialActive) return;
+    m_spatialStack.clear();
+    m_spatialStack.push_back(idx);
+    while (!m_spatialStack.empty()) {
+        const Entity e = m_spatialStack.back();
+        m_spatialStack.pop_back();
+        queueSpatial(e);
+        for (Entity c = m_firstChild[e]; c != INVALID_ENTITY; c = m_nextSibling[c]) m_spatialStack.push_back(c);
+    }
+}
+
+void World::removeSpatialEntry(Entity idx) {
+    SpatialEntry& entry = m_spatial[idx];
+    if (entry.state == 1) {
+        const auto it = m_cells.find(entry.cell);
+        if (it != m_cells.end()) {
+            auto& bucket = it->second;
+            const auto pos = std::find(bucket.begin(), bucket.end(), idx);
+            if (pos != bucket.end()) {
+                *pos = bucket.back();
+                bucket.pop_back();
+            }
+            if (bucket.empty()) m_cells.erase(it);
+        }
+    } else if (entry.state == 2) {
+        m_largeEntities.erase(std::remove(m_largeEntities.begin(), m_largeEntities.end(), idx), m_largeEntities.end());
+    }
+    entry.state = 0;
+}
+
+void World::rebuildSpatialEntry(Entity idx) {
+    if (m_spatial.size() <= idx) m_spatial.resize(m_alive.size());
+    removeSpatialEntry(idx);
+    if (idx >= m_alive.size() || !m_alive[idx] || !m_visible[idx] || !m_meshBounds) return;
+
+    const glm::vec4 bounds = m_meshBounds(m_mesh[idx]);
+    const glm::mat4 world = getWorldMatrix({idx, m_generation[idx]});
+    const float maxScale = std::max({glm::length(glm::vec3(world[0])), glm::length(glm::vec3(world[1])), glm::length(glm::vec3(world[2]))});
+    SpatialEntry& entry = m_spatial[idx];
+    entry.center = glm::vec3(world * glm::vec4(glm::vec3(bounds), 1.0f));
+    entry.radius = bounds.w * maxScale;
+
+    if (entry.radius > m_cellSize * 4.0f) {
+        entry.state = 2;
+        m_largeEntities.push_back(idx);
+        return;
+    }
+    m_maxSmallRadius = std::max(m_maxSmallRadius, entry.radius);
+    entry.cell = spatialKey(static_cast<int>(std::floor(entry.center.x / m_cellSize)), static_cast<int>(std::floor(entry.center.y / m_cellSize)), static_cast<int>(std::floor(entry.center.z / m_cellSize)));
+    entry.state = 1;
+    m_cells[entry.cell].push_back(idx);
+}
+
+void World::refreshSpatial() {
+    if (!m_spatialActive) {
+        m_spatialActive = true;
+        m_spatial.assign(m_alive.size(), SpatialEntry{});
+        m_spatialQueued.assign(m_alive.size(), 0);
+        m_spatialPending.clear();
+        for (Entity i = 0; i < m_alive.size(); ++i) {
+            if (m_alive[i]) rebuildSpatialEntry(i);
+        }
+        return;
+    }
+    auto pending = std::move(m_spatialPending);
+    m_spatialPending.clear();
+    for (Entity idx : pending) {
+        if (idx < m_spatialQueued.size()) m_spatialQueued[idx] = 0;
+        rebuildSpatialEntry(idx);
+    }
+}
+
+std::vector<EntityHandle> World::overlapSphere(const glm::vec3& center, float radius) {
+    refreshSpatial();
+    std::vector<EntityHandle> out;
+    const auto test = [&](Entity e) {
+        const SpatialEntry& entry = m_spatial[e];
+        const float reach = radius + entry.radius;
+        const glm::vec3 d = entry.center - center;
+        if (glm::dot(d, d) <= reach * reach) out.push_back({e, m_generation[e]});
+    };
+
+    const float reach = radius + m_maxSmallRadius;
+    const int x0 = static_cast<int>(std::floor((center.x - reach) / m_cellSize)), x1 = static_cast<int>(std::floor((center.x + reach) / m_cellSize));
+    const int y0 = static_cast<int>(std::floor((center.y - reach) / m_cellSize)), y1 = static_cast<int>(std::floor((center.y + reach) / m_cellSize));
+    const int z0 = static_cast<int>(std::floor((center.z - reach) / m_cellSize)), z1 = static_cast<int>(std::floor((center.z + reach) / m_cellSize));
+    const size_t span = static_cast<size_t>(x1 - x0 + 1) * static_cast<size_t>(y1 - y0 + 1) * static_cast<size_t>(z1 - z0 + 1);
+
+    if (span > m_cells.size()) {
+        for (const auto& [key, bucket] : m_cells) {
+            for (Entity e : bucket) test(e);
+        }
+    } else {
+        for (int x = x0; x <= x1; ++x) {
+            for (int y = y0; y <= y1; ++y) {
+                for (int z = z0; z <= z1; ++z) {
+                    const auto it = m_cells.find(spatialKey(x, y, z));
+                    if (it == m_cells.end()) continue;
+                    for (Entity e : it->second) test(e);
+                }
+            }
+        }
+    }
+    for (Entity e : m_largeEntities) test(e);
+    return out;
+}
+
+std::optional<RayHit> World::raycast(const glm::vec3& origin, const glm::vec3& direction, float maxDistance) {
+    refreshSpatial();
+    const float len = glm::length(direction);
+    if (len < 1.0e-8f) return std::nullopt;
+    const glm::vec3 dir = direction / len;
+
+    std::optional<RayHit> best;
+    const auto test = [&](Entity e) {
+        const SpatialEntry& entry = m_spatial[e];
+        const glm::vec3 oc = entry.center - origin;
+        const float along = glm::dot(oc, dir);
+        const float perp2 = glm::dot(oc, oc) - along * along;
+        const float r2 = entry.radius * entry.radius;
+        if (perp2 > r2) return;
+        const float half = std::sqrt(r2 - perp2);
+        float t = along - half;
+        if (t < 0.0f) t = along + half;
+        if (t < 0.0f || t > maxDistance) return;
+        if (!best || t < best->distance) best = RayHit{{e, m_generation[e]}, t};
+    };
+    for (Entity e : m_largeEntities) test(e);
+
+    const int inflate = static_cast<int>(std::ceil(m_maxSmallRadius / m_cellSize));
+    int cell[3] = {static_cast<int>(std::floor(origin.x / m_cellSize)), static_cast<int>(std::floor(origin.y / m_cellSize)), static_cast<int>(std::floor(origin.z / m_cellSize))};
+    int step[3];
+    float tMax[3], tDelta[3];
+    const float o[3] = {origin.x, origin.y, origin.z};
+    const float d[3] = {dir.x, dir.y, dir.z};
+    for (int a = 0; a < 3; ++a) {
+        if (d[a] > 0.0f) {
+            step[a] = 1;
+            tMax[a] = ((cell[a] + 1) * m_cellSize - o[a]) / d[a];
+            tDelta[a] = m_cellSize / d[a];
+        } else if (d[a] < 0.0f) {
+            step[a] = -1;
+            tMax[a] = (cell[a] * m_cellSize - o[a]) / d[a];
+            tDelta[a] = -m_cellSize / d[a];
+        } else {
+            step[a] = 0;
+            tMax[a] = std::numeric_limits<float>::infinity();
+            tDelta[a] = std::numeric_limits<float>::infinity();
+        }
+    }
+
+    const float margin = m_maxSmallRadius + m_cellSize;
+    float tCell = 0.0f;
+    const size_t maxSteps = m_cells.empty() ? 0 : 4096;
+    for (size_t iter = 0; iter < maxSteps; ++iter) {
+        if (tCell > maxDistance + margin) break;
+        if (best && tCell > best->distance + margin) break;
+        for (int x = cell[0] - inflate; x <= cell[0] + inflate; ++x) {
+            for (int y = cell[1] - inflate; y <= cell[1] + inflate; ++y) {
+                for (int z = cell[2] - inflate; z <= cell[2] + inflate; ++z) {
+                    const auto it = m_cells.find(spatialKey(x, y, z));
+                    if (it == m_cells.end()) continue;
+                    for (Entity e : it->second) test(e);
+                }
+            }
+        }
+        const int axis = (tMax[0] < tMax[1]) ? (tMax[0] < tMax[2] ? 0 : 2) : (tMax[1] < tMax[2] ? 1 : 2);
+        if (std::isinf(tMax[axis])) break;
+        tCell = tMax[axis];
+        cell[axis] += step[axis];
+        tMax[axis] += tDelta[axis];
+    }
+    return best;
 }
