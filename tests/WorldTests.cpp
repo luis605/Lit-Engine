@@ -563,6 +563,49 @@ static void testAnimationAgreement() {
     (void)root;
 }
 
+struct Patrol : Script {
+    int waypoint;
+    float speed;
+    Patrol(int w, float s) : waypoint(w), speed(s) {}
+};
+
+static void registerPatrol(World& w) {
+    w.registerScript<Patrol>(
+        "Patrol", [](const Patrol& p, std::ostream& out) { out << p.waypoint << ' ' << p.speed; },
+        [](std::istream& in) -> std::optional<Patrol> {
+            int waypoint;
+            float speed;
+            if (!(in >> waypoint >> speed)) return std::nullopt;
+            return Patrol(waypoint, speed);
+        });
+}
+
+static void testScriptSerialization() {
+    World w;
+    registerPatrol(w);
+    auto a = w.create("guard", 1);
+    auto b = w.create("plain", 1);
+    w.attach<Patrol>(a, 3, 2.5f);
+    int s = 0, u = 0, d = 0;
+    w.attach<Counter>(b, &s, &u, &d);
+
+    const auto path = std::filesystem::temp_directory_path() / "lit_world_script_test.litscene";
+    CHECK(w.saveScene(path));
+    w.clear();
+    CHECK(w.loadScene(path));
+    auto ra = w.find("guard");
+    auto* patrol = w.getScript<Patrol>(ra);
+    CHECK(patrol && patrol->waypoint == 3 && patrol->speed == 2.5f);
+    CHECK(w.getScript<Counter>(w.find("plain")) == nullptr);
+    std::filesystem::remove(path);
+
+    const Prefab prefab = w.capture(ra);
+    CHECK(prefab.nodes.size() == 1 && prefab.nodes[0].scripts.size() == 1);
+    auto copy = w.instantiate(prefab);
+    auto* copied = w.getScript<Patrol>(copy);
+    CHECK(copied && copied != patrol && copied->waypoint == 3);
+}
+
 int main() {
     testHandles();
     testHierarchy();
@@ -580,6 +623,7 @@ int main() {
     testEvents();
     testTrimAndCompact();
     testBatch();
+    testScriptSerialization();
     testAnimationAgreement();
     testCompactKeepsSpatialAndScripts();
     testFixedUpdate();

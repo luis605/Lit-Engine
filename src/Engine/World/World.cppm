@@ -87,6 +87,7 @@ export struct PrefabNode {
     glm::mat4 local{1.0f};
     int parent = -1;
     std::vector<std::pair<std::string, std::string>> components;
+    std::vector<std::pair<std::string, std::string>> scripts;
 };
 
 export struct Prefab {
@@ -179,6 +180,11 @@ export class Script {
   private:
     friend class World;
     bool m_started = false;
+};
+
+struct ScriptSerializer {
+    std::function<bool(const Script&, std::ostream&)> write;
+    std::function<bool(World&, EntityHandle, std::istream&)> read;
 };
 
 struct ComponentSerializer {
@@ -336,6 +342,25 @@ export class World {
     [[nodiscard]] std::vector<EntityHandle> overlapSphere(const glm::vec3& center, float radius);
     [[nodiscard]] std::optional<RayHit> raycast(const glm::vec3& origin, const glm::vec3& direction, float maxDistance = 1.0e30f);
 
+    template <typename T, typename Save, typename Load>
+    void registerScript(std::string name, Save save, Load load) {
+        ScriptSerializer serializer{
+            [save](const Script& script, std::ostream& out) {
+                const T* typed = dynamic_cast<const T*>(&script);
+                if (!typed || typeid(script) != typeid(T)) return false;
+                save(*typed, out);
+                return true;
+            },
+            [load](World& w, EntityHandle e, std::istream& in) {
+                std::optional<T> value = load(in);
+                if (!value) return false;
+                w.attach<T>(e, std::move(*value));
+                return true;
+            }};
+        m_scriptNames.insert_or_assign(std::type_index(typeid(T)), name);
+        m_scriptSerializers.insert_or_assign(std::move(name), std::move(serializer));
+    }
+
     void clear();
     bool saveScene(const std::filesystem::path& path) const;
     bool loadScene(const std::filesystem::path& path);
@@ -433,6 +458,8 @@ export class World {
     bool m_updating = false;
     std::unordered_map<std::type_index, std::unique_ptr<IComponentPool>> m_pools;
     std::map<std::string, ComponentSerializer> m_serializers;
+    std::map<std::string, ScriptSerializer> m_scriptSerializers;
+    std::unordered_map<std::type_index, std::string> m_scriptNames;
     std::function<std::string(uint32_t)> m_meshNameOf;
     std::function<uint32_t(const std::string&)> m_meshLoad;
     std::vector<std::string> m_names;

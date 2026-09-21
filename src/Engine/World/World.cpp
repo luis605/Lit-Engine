@@ -13,6 +13,8 @@ module;
 #include <unordered_map>
 #include <functional>
 #include <string>
+#include <typeindex>
+#include <typeinfo>
 #include <string_view>
 #include <vector>
 
@@ -718,6 +720,20 @@ bool World::saveScene(const std::filesystem::path& path) const {
             out << '\n';
         });
     }
+    std::vector<Entity> scripted;
+    scripted.reserve(m_scripts.size());
+    for (const auto& [idx, scripts] : m_scripts) scripted.push_back(idx);
+    std::sort(scripted.begin(), scripted.end());
+    for (Entity idx : scripted) {
+        if (!m_alive[idx]) continue;
+        for (const auto& script : m_scripts.at(idx)) {
+            const auto nameIt = m_scriptNames.find(std::type_index(typeid(*script)));
+            if (nameIt == m_scriptNames.end()) continue;
+            std::ostringstream payload;
+            if (!m_scriptSerializers.at(nameIt->second).write(*script, payload)) continue;
+            out << "script " << nameIt->second << ' ' << idx << '\t' << payload.str() << '\n';
+        }
+    }
     return static_cast<bool>(out);
 }
 
@@ -753,7 +769,7 @@ bool World::loadScene(const std::filesystem::path& path) {
             }
             continue;
         }
-        if (line.rfind("tag ", 0) == 0 || line.rfind("component ", 0) == 0) {
+        if (line.rfind("tag ", 0) == 0 || line.rfind("component ", 0) == 0 || line.rfind("script ", 0) == 0) {
             componentLines.push_back(line);
             continue;
         }
@@ -804,6 +820,14 @@ bool World::loadScene(const std::filesystem::path& path) {
             continue;
         }
         head >> keyword >> name >> id;
+        if (keyword == "script") {
+            const auto scriptSerializer = m_scriptSerializers.find(name);
+            const auto scriptHandle = handles.find(id);
+            if (!head || scriptSerializer == m_scriptSerializers.end() || scriptHandle == handles.end()) continue;
+            std::istringstream scriptPayload(componentLine.substr(tab + 1));
+            scriptSerializer->second.read(*this, scriptHandle->second, scriptPayload);
+            continue;
+        }
         const auto serializer = m_serializers.find(name);
         const auto handle = handles.find(id);
         if (!head || serializer == m_serializers.end() || handle == handles.end()) continue;
@@ -904,6 +928,15 @@ Prefab World::capture(EntityHandle root) const {
             if (!payload.str().empty()) node.components.emplace_back(name, payload.str());
         }
 
+        if (const auto scriptsIt = m_scripts.find(idx); scriptsIt != m_scripts.end()) {
+            for (const auto& script : scriptsIt->second) {
+                const auto nameIt = m_scriptNames.find(std::type_index(typeid(*script)));
+                if (nameIt == m_scriptNames.end()) continue;
+                std::ostringstream payload;
+                if (m_scriptSerializers.at(nameIt->second).write(*script, payload)) node.scripts.emplace_back(nameIt->second, payload.str());
+            }
+        }
+
         const int nodeIndex = static_cast<int>(prefab.nodes.size());
         prefab.nodes.push_back(std::move(node));
         for (Entity c = m_firstChild[idx]; c != INVALID_ENTITY; c = m_nextSibling[c]) stack.emplace_back(c, nodeIndex);
@@ -931,6 +964,12 @@ EntityHandle World::instantiate(const Prefab& prefab, EntityHandle parent) {
         for (const auto& [name, payload] : node.components) {
             const auto serializer = m_serializers.find(name);
             if (serializer == m_serializers.end()) continue;
+            std::istringstream in(payload);
+            serializer->second.read(*this, h, in);
+        }
+        for (const auto& [name, payload] : node.scripts) {
+            const auto serializer = m_scriptSerializers.find(name);
+            if (serializer == m_scriptSerializers.end()) continue;
             std::istringstream in(payload);
             serializer->second.read(*this, h, in);
         }
