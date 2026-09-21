@@ -160,6 +160,7 @@ int main() {
         inverseKinematics(scene, deltaTime);
 
         scene.onUpdate(deltaTime, now);
+        engine.tick(std::abs(deltaTime));
 
         engine.update();
         InputManager::Update();

@@ -136,6 +136,7 @@ void  Application::update() {
    lastFrame = currentFrame;
 
    processInput(deltaTime);
+   m_engine.tick(deltaTime);
 
    m_engine.setAnimation(currentFrame, m_movingObjectCount, 1);
 
