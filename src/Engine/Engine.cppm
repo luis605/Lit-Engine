@@ -55,11 +55,16 @@ export class Engine {
     void setFullProfiling(bool enabled);
 
   private:
+    void applyWorldAnimation();
+
     Renderer m_renderer;
     World m_world;
     int m_windowWidth = 1280;
     int m_windowHeight = 720;
     InputActions m_input;
+    std::vector<glm::vec3> m_animationBase;
+    uint32_t m_animationOffset = 0;
+    uint32_t m_animationCount = 0;
     float m_fixedStep = 1.0f / 60.0f;
     float m_accumulator = 0.0f;
     std::unordered_map<std::string, uint32_t> m_meshIds;

@@ -531,6 +531,38 @@ static void testBatch() {
     std::printf("batch setPositions %.3f ms, destroyBatch %.3f ms\n", std::chrono::duration<double, std::milli>(mid - start).count(), std::chrono::duration<double, std::milli>(end - mid).count());
 }
 
+static void testAnimationAgreement() {
+    World w;
+    w.setMeshBoundsHook([](uint32_t) { return glm::vec4(0.0f, 0.0f, 0.0f, 0.5f); });
+    auto root = w.create("root", 0);
+    std::vector<EntityHandle> movers;
+    std::vector<glm::vec3> base;
+    for (int i = 0; i < 4; ++i) {
+        base.push_back(glm::vec3(float(i) * 10.0f, 0.0f, -20.0f));
+        movers.push_back(w.create("m", 1, base.back()));
+    }
+    auto follower = w.create("follower", 1, glm::vec3(0.0f, 3.0f, 0.0f), glm::vec3(1.0f), movers[2]);
+    w.setAnimation(movers[0].index, base);
+    w.setAnimationTime(1.25f);
+    for (uint32_t i = 0; i < 4; ++i) {
+        const glm::vec3 expected = base[i] + World::orbitOffset(1.25f, i);
+        const glm::vec3 actual = w.getWorldPosition(movers[i]);
+        CHECK(glm::length(actual - expected) < 1.0e-4f);
+    }
+    CHECK(glm::length(w.getWorldPosition(follower) - (base[2] + World::orbitOffset(1.25f, 2) + glm::vec3(0.0f, 3.0f, 0.0f))) < 1.0e-4f);
+
+    const glm::vec3 target = base[1] + World::orbitOffset(1.25f, 1);
+    auto hit = w.raycast(target + glm::vec3(0.0f, 0.0f, 10.0f), glm::vec3(0.0f, 0.0f, -1.0f));
+    CHECK(hit && hit->entity == movers[1]);
+
+    w.setAnimationTime(4.0f);
+    const glm::vec3 moved = base[1] + World::orbitOffset(4.0f, 1);
+    CHECK(glm::length(w.getWorldPosition(movers[1]) - moved) < 1.0e-4f);
+    hit = w.raycast(moved + glm::vec3(0.0f, 0.0f, 10.0f), glm::vec3(0.0f, 0.0f, -1.0f));
+    CHECK(hit && hit->entity == movers[1]);
+    (void)root;
+}
+
 int main() {
     testHandles();
     testHierarchy();
@@ -548,6 +580,7 @@ int main() {
     testEvents();
     testTrimAndCompact();
     testBatch();
+    testAnimationAgreement();
     testCompactKeepsSpatialAndScripts();
     testFixedUpdate();
     testCameraEntity();

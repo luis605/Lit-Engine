@@ -108,10 +108,18 @@ void Engine::setFullProfiling(bool enabled) { m_renderer.setFullProfiling(enable
 
 void Engine::uploadBasePositions(const std::vector<glm::vec3>& basePositions) {
     m_renderer.uploadBasePositions(basePositions);
+    m_animationBase = basePositions;
+    applyWorldAnimation();
 }
 
 void Engine::setAnimation(float time, uint32_t movingCount, uint32_t entityOffset) {
     m_renderer.setAnimation(time, movingCount, entityOffset);
+    m_world.setAnimationTime(time);
+    if (entityOffset != m_animationOffset || movingCount != m_animationCount) {
+        m_animationOffset = entityOffset;
+        m_animationCount = movingCount;
+        applyWorldAnimation();
+    }
 }
 void Engine::debugLine(const glm::vec3& from, const glm::vec3& to, const glm::vec4& color) { m_renderer.addDebugLine(from, to, color); }
 
@@ -143,4 +151,9 @@ void Engine::debugHierarchy(const glm::vec4& color) {
         const EntityHandle parent = m_world.getParent(e);
         if (!parent.isNull()) debugLine(m_world.getWorldPosition(parent), m_world.getWorldPosition(e), color);
     });
+}
+
+void Engine::applyWorldAnimation() {
+    const size_t count = std::min<size_t>(m_animationCount, m_animationBase.size());
+    m_world.setAnimation(m_animationOffset, std::vector<glm::vec3>(m_animationBase.begin(), m_animationBase.begin() + count));
 }

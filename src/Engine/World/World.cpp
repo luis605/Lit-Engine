@@ -458,8 +458,47 @@ const glm::mat4& World::getLocalMatrix(EntityHandle e) const {
     return valid(e) ? m_db.transforms[e.index].localMatrix : kDegenerate;
 }
 
+glm::vec3 World::orbitOffset(float time, uint32_t animIndex) {
+    const float i = static_cast<float>(animIndex);
+    return glm::vec3(std::sin(time * 1.3f + i * 1.0f), std::cos(time * 0.9f + i * 0.5f), std::sin(time * 0.7f + i * 0.25f)) * 2.0f;
+}
+
+void World::setAnimation(uint32_t firstEntity, std::vector<glm::vec3> basePositions) {
+    m_animOffset = firstEntity;
+    m_animBase = std::move(basePositions);
+    m_animCacheTime = std::numeric_limits<float>::quiet_NaN();
+    m_animSpatialTime = std::numeric_limits<float>::quiet_NaN();
+}
+
+glm::mat4 World::effectiveLocal(Entity idx) const {
+    glm::mat4 local = m_db.transforms[idx].localMatrix;
+    const uint32_t animIndex = idx - m_animOffset;
+    if (idx >= m_animOffset && animIndex < m_animBase.size()) local[3] = glm::vec4(m_animBase[animIndex] + orbitOffset(m_animTime, animIndex), 1.0f);
+    return local;
+}
+
+void World::syncAnimationCache() const {
+    if (m_animBase.empty() || m_animCacheTime == m_animTime) return;
+    m_animCacheTime = m_animTime;
+    if (m_worldCache.empty()) return;
+    const size_t end = std::min<size_t>(m_animBase.size() + m_animOffset, m_alive.size());
+    for (size_t i = m_animOffset; i < end; ++i) {
+        if (m_alive[i]) invalidateWorld(static_cast<Entity>(i));
+    }
+}
+
+void World::syncAnimationSpatial() {
+    if (m_animBase.empty() || m_animSpatialTime == m_animTime) return;
+    m_animSpatialTime = m_animTime;
+    const size_t end = std::min<size_t>(m_animBase.size() + m_animOffset, m_alive.size());
+    for (size_t i = m_animOffset; i < end; ++i) {
+        if (m_alive[i]) queueSpatial(static_cast<Entity>(i));
+    }
+}
+
 glm::mat4 World::getWorldMatrix(EntityHandle e) const {
     if (!valid(e)) return glm::mat4(1.0f);
+    syncAnimationCache();
     if (m_worldCache.size() < m_alive.size()) {
         m_worldCache.resize(m_alive.size(), glm::mat4(1.0f));
         m_worldDirty.resize(m_alive.size(), 1);
@@ -473,7 +512,7 @@ glm::mat4 World::getWorldMatrix(EntityHandle e) const {
     glm::mat4 base = cur == INVALID_ENTITY ? glm::mat4(1.0f) : m_worldCache[cur];
     for (size_t i = m_worldChain.size(); i-- > 0;) {
         const Entity idx = m_worldChain[i];
-        base = base * m_db.transforms[idx].localMatrix;
+        base = base * effectiveLocal(idx);
         m_worldCache[idx] = base;
         m_worldDirty[idx] = 0;
     }
@@ -994,6 +1033,7 @@ void World::rebuildSpatialEntry(Entity idx) {
 }
 
 void World::refreshSpatial() {
+    if (m_spatialActive) syncAnimationSpatial();
     if (!m_spatialActive) {
         m_spatialActive = true;
         m_spatial.assign(m_alive.size(), SpatialEntry{});

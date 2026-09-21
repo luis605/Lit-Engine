@@ -8,6 +8,7 @@ module;
 #include <ostream>
 #include <utility>
 #include <filesystem>
+#include <limits>
 #include <optional>
 #include <span>
 #include <string>
@@ -326,6 +327,9 @@ export class World {
     EntityHandle instantiate(const Prefab& prefab, EntityHandle parent = NULL_ENTITY);
 
     void setMeshBoundsHook(std::function<glm::vec4(uint32_t)> bounds) { m_meshBounds = std::move(bounds); }
+    void setAnimation(uint32_t firstEntity, std::vector<glm::vec3> basePositions);
+    void setAnimationTime(float time) { m_animTime = time; }
+    [[nodiscard]] static glm::vec3 orbitOffset(float time, uint32_t animIndex);
     void setSpatialCellSize(float size);
     [[nodiscard]] glm::vec4 getWorldBounds(EntityHandle e) const;
     [[nodiscard]] Ray screenRay(float screenX, float screenY, float width, float height) const;
@@ -370,6 +374,9 @@ export class World {
     [[nodiscard]] bool valid(EntityHandle h) const;
     void touchTransform(Entity idx);
     void invalidateWorld(Entity idx) const;
+    void syncAnimationCache() const;
+    void syncAnimationSpatial();
+    [[nodiscard]] glm::mat4 effectiveLocal(Entity idx) const;
     void queueSpatial(Entity idx);
     void markSpatialSubtree(Entity idx);
     void refreshSpatial();
@@ -398,6 +405,11 @@ export class World {
     float m_maxSmallRadius = 0.0f;
     bool m_spatialActive = false;
     EventBus m_events;
+    std::vector<glm::vec3> m_animBase;
+    uint32_t m_animOffset = 0;
+    float m_animTime = 0.0f;
+    mutable float m_animCacheTime = std::numeric_limits<float>::quiet_NaN();
+    float m_animSpatialTime = std::numeric_limits<float>::quiet_NaN();
     EntityHandle m_activeCamera;
     std::vector<uint8_t> m_alive;
     std::vector<uint32_t> m_generation;
