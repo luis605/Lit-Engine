@@ -2,6 +2,7 @@ module;
 
 #include <cstdint>
 #include <functional>
+#include <filesystem>
 #include <optional>
 #include <string>
 #include <string_view>
@@ -74,6 +75,10 @@ export class World {
     void setAlpha(EntityHandle e, float alpha);
     [[nodiscard]] const RenderableComponent& getRenderable(EntityHandle e) const;
 
+    void clear();
+    bool saveScene(const std::filesystem::path& path) const;
+    bool loadScene(const std::filesystem::path& path);
+
     void forEach(const std::function<void(EntityHandle)>& fn) const;
 
     [[nodiscard]] Camera& camera() { return m_camera; }
@@ -100,6 +105,7 @@ export class World {
     std::vector<Entity> m_nextSibling;
     std::vector<Entity> m_prevSibling;
     Entity m_firstRoot = INVALID_ENTITY;
+    uint32_t m_generationBase = 0;
     std::vector<std::string> m_names;
     std::vector<Entity> m_freeList;
     size_t m_aliveCount = 0;

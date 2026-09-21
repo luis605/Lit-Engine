@@ -2,6 +2,10 @@ module;
 
 #include <algorithm>
 #include <cstdint>
+#include <filesystem>
+#include <fstream>
+#include <sstream>
+#include <unordered_map>
 #include <functional>
 #include <string>
 #include <string_view>
@@ -100,7 +104,7 @@ EntityHandle World::create(const EntityDesc& desc) {
     } else {
         idx = m_db.createEntity();
         m_alive.push_back(1);
-        m_generation.push_back(0);
+        m_generation.push_back(m_generationBase);
         m_visible.push_back(1);
         m_mesh.push_back(0);
         m_firstChild.push_back(INVALID_ENTITY);
@@ -329,4 +333,95 @@ void World::forEach(const std::function<void(EntityHandle)>& fn) const {
     for (Entity i = 0; i < m_alive.size(); ++i) {
         if (m_alive[i]) fn({i, m_generation[i]});
     }
+}
+
+void World::clear() {
+    m_db.transforms.clear();
+    m_db.hierarchies.clear();
+    m_db.renderables.clear();
+    m_db.sortedHierarchyList.clear();
+    m_db.clearDirty();
+    m_db.m_dirtyStamp.clear();
+    touchStructure();
+    m_alive.clear();
+    for (uint32_t g : m_generation) m_generationBase = std::max(m_generationBase, g + 1);
+    m_generation.clear();
+    m_visible.clear();
+    m_mesh.clear();
+    m_firstChild.clear();
+    m_nextSibling.clear();
+    m_prevSibling.clear();
+    m_names.clear();
+    m_freeList.clear();
+    m_firstRoot = INVALID_ENTITY;
+    m_aliveCount = 0;
+}
+
+bool World::saveScene(const std::filesystem::path& path) const {
+    std::ofstream out(path);
+    if (!out) return false;
+    out.precision(9);
+    out << "LITSCENE 1\n" << m_aliveCount << "\n";
+    for (Entity i = 0; i < m_alive.size(); ++i) {
+        if (!m_alive[i]) continue;
+        const auto& r = m_db.renderables[i];
+        const Entity parent = m_db.hierarchies[i].parent;
+        out << i << ' ' << (parent == INVALID_ENTITY ? -1 : static_cast<long long>(parent)) << ' ' << int(m_visible[i]) << ' ' << m_mesh[i] << ' ' << r.material_uuid << ' ' << r.shaderId << ' ' << r.alpha;
+        const float* m = &m_db.transforms[i].localMatrix[0][0];
+        for (int k = 0; k < 16; ++k) out << ' ' << m[k];
+        out << '\t' << m_names[i] << '\n';
+    }
+    return static_cast<bool>(out);
+}
+
+bool World::loadScene(const std::filesystem::path& path) {
+    std::ifstream in(path);
+    if (!in) return false;
+    std::string magic;
+    int version = 0;
+    size_t count = 0;
+    in >> magic >> version >> count;
+    if (!in || magic != "LITSCENE" || version != 1) return false;
+    in.ignore(1, '\n');
+
+    struct Record {
+        long long id;
+        long long parent;
+    };
+    std::vector<Record> records;
+    std::unordered_map<long long, EntityHandle> handles;
+    records.reserve(count);
+
+    clear();
+    reserve(count);
+    std::string line;
+    while (std::getline(in, line)) {
+        if (line.empty()) continue;
+        const size_t tab = line.find('\t');
+        std::istringstream fields(line.substr(0, tab));
+        long long id, parent;
+        int visible;
+        EntityDesc desc;
+        fields >> id >> parent >> visible >> desc.mesh >> desc.material >> desc.shader >> desc.alpha;
+        glm::mat4 local;
+        float* m = &local[0][0];
+        for (int k = 0; k < 16; ++k) fields >> m[k];
+        if (!fields) {
+            clear();
+            return false;
+        }
+        if (tab != std::string::npos) desc.name = line.substr(tab + 1);
+        const EntityHandle h = create(desc);
+        setLocalMatrix(h, local);
+        if (!visible) setVisible(h, false);
+        handles[id] = h;
+        records.push_back({id, parent});
+    }
+
+    for (const Record& r : records) {
+        if (r.parent < 0) continue;
+        const auto it = handles.find(r.parent);
+        if (it != handles.end()) setParent(handles[r.id], it->second, false);
+    }
+    return true;
 }
