@@ -17,6 +17,7 @@ import Engine.Render.scenedatabase;
 import Engine.mesh;
 import Engine.World;
 import Engine.Physics;
+import Engine.Animation;
 import Engine.inputactions;
 import Engine.glm;
 
@@ -34,6 +35,7 @@ export class Engine {
     void tick(float deltaTime);
     [[nodiscard]] const TimeState& time() const { return m_world.time(); }
     [[nodiscard]] PhysicsSettings& physics() { return m_physics; }
+    [[nodiscard]] AnimationLibrary& animations() { return m_animations; }
     void addSystem(Phase phase, std::string name, SystemFn fn, bool runWhenPaused = false);
     bool removeSystem(const std::string& name);
     bool setSystemEnabled(const std::string& name, bool enabled);
@@ -96,6 +98,7 @@ export class Engine {
     uint32_t m_animationCount = 0;
     uint32_t m_materialCount = 1;
     PhysicsSettings m_physics;
+    AnimationLibrary m_animations;
     std::vector<System> m_systems;
     float m_fixedStep = 1.0f / 60.0f;
     float m_accumulator = 0.0f;

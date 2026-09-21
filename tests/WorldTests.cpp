@@ -13,6 +13,7 @@ import Engine.engine;
 import Engine.World;
 import Engine.Physics;
 import Engine.History;
+import Engine.Animation;
 import Engine.Render.entity;
 import Engine.Render.component;
 import Engine.glm;
@@ -1106,7 +1107,7 @@ static void testSystemScheduler() {
     engine.tick(1.0f / 60.0f + 0.0001f);
     const std::vector<std::string> expected{"pre", "fixed", "update-a", "update-b", "post"};
     CHECK(log == expected);
-    CHECK(engine.systemNames(Phase::Update) == (std::vector<std::string>{"update-a", "update-b"}));
+    CHECK(engine.systemNames(Phase::Update) == (std::vector<std::string>{"animation", "update-a", "update-b"}));
 
     log.clear();
     CHECK(engine.setSystemEnabled("update-a", false));
@@ -1209,6 +1210,93 @@ static void testTimers() {
     CHECK(w.every(0.0f, [](World&, EntityHandle) {}) == 0);
 }
 
+static void testAnimation() {
+    Engine engine;
+    World& w = engine.world();
+    const auto step = [&](float seconds) {
+        while (seconds > 0.0f) {
+            const float chunk = std::min(seconds, 0.125f);
+            engine.tick(chunk);
+            seconds -= chunk;
+        }
+    };
+    AnimationClip clip;
+    clip.name = "slide";
+    clip.position = {{2.0f, glm::vec3(10.0f, 10.0f, 0.0f)}, {0.0f, glm::vec3(0.0f)}, {1.0f, glm::vec3(10.0f, 0.0f, 0.0f)}};
+    clip.rotation = {{0.0f, glm::quat(1.0f, 0.0f, 0.0f, 0.0f)}, {2.0f, glm::angleAxis(glm::radians(90.0f), glm::vec3(0.0f, 1.0f, 0.0f))}};
+    clip.scale = {{0.0f, glm::vec3(1.0f)}, {2.0f, glm::vec3(3.0f)}};
+    const uint32_t id = engine.animations().add(clip);
+    CHECK(engine.animations().find("slide") == id);
+    CHECK(engine.animations().find("nope") == INVALID_ENTITY);
+    CHECK(engine.animations().get(id)->duration() == 2.0f);
+
+    auto e = w.create("e", 1);
+    w.add<Animator>(e, Animator{id, 0.0f, 1.0f, true});
+    step(0.5f);
+    CHECK(near(w.getPosition(e), glm::vec3(5.0f, 0.0f, 0.0f)));
+    CHECK(near(w.getScale(e), glm::vec3(1.5f), 1.0e-3f));
+    CHECK(near(w.forward(e), glm::vec3(std::sin(glm::radians(-22.5f)), 0.0f, -std::cos(glm::radians(22.5f))), 1.0e-3f));
+
+    step(1.0f);
+    CHECK(near(w.getPosition(e), glm::vec3(10.0f, 5.0f, 0.0f)));
+    step(0.25f);
+    CHECK(near(w.getPosition(e), glm::vec3(10.0f, 7.5f, 0.0f)) || w.get<Animator>(e)->time < 2.0f);
+    step(0.25f);
+    CHECK(w.get<Animator>(e)->time >= 0.0f && w.get<Animator>(e)->time < 0.1f);
+    CHECK(near(w.getPosition(e), glm::vec3(0.0f), 0.5f));
+
+    w.get<Animator>(e)->speed = 2.0f;
+    w.get<Animator>(e)->time = 0.0f;
+    step(0.25f);
+    CHECK(near(w.getPosition(e), glm::vec3(10.0f, 0.0f, 0.0f)) == false);
+    CHECK(std::abs(w.get<Animator>(e)->time - 0.5f) < 1.0e-4f);
+
+    AnimationClip once;
+    once.name = "once";
+    once.loop = false;
+    once.position = {{0.0f, glm::vec3(0.0f)}, {1.0f, glm::vec3(0.0f, 4.0f, 0.0f)}};
+    const uint32_t onceId = engine.animations().add(once);
+    auto f = w.create("f", 1, glm::vec3(0.0f, 0.0f, 9.0f));
+    w.add<Animator>(f, Animator{onceId, 0.0f, 1.0f, true});
+    step(0.25f);
+    step(0.25f);
+    step(0.25f);
+    step(0.25f);
+    step(0.25f);
+    CHECK(near(w.getPosition(f), glm::vec3(0.0f, 4.0f, 0.0f)));
+    CHECK(!w.get<Animator>(f)->playing);
+    step(0.25f);
+    CHECK(near(w.getPosition(f), glm::vec3(0.0f, 4.0f, 0.0f)));
+
+    w.get<Animator>(f)->time = 0.0f;
+    w.get<Animator>(f)->playing = true;
+    engine.setSystemEnabled("animation", false);
+    step(0.5f);
+    CHECK(near(w.getPosition(f), glm::vec3(0.0f, 4.0f, 0.0f)));
+    engine.setSystemEnabled("animation", true);
+
+    AnimationClip partial;
+    partial.name = "scale-only";
+    partial.scale = {{0.0f, glm::vec3(1.0f)}, {1.0f, glm::vec3(2.0f)}};
+    const uint32_t partialId = engine.animations().add(partial);
+    auto g = w.create("g", 1, glm::vec3(7.0f, 8.0f, 9.0f));
+    w.add<Animator>(g, Animator{partialId, 0.0f, 1.0f, true});
+    step(0.5f);
+    CHECK(near(w.getPosition(g), glm::vec3(7.0f, 8.0f, 9.0f)));
+    CHECK(near(w.getScale(g), glm::vec3(1.5f), 1.0e-3f));
+
+    registerAnimationComponents(w);
+    const auto path = std::filesystem::temp_directory_path() / "lit_world_anim_test.litscene";
+    w.get<Animator>(g)->time = 0.25f;
+    w.get<Animator>(g)->speed = 3.0f;
+    CHECK(w.saveScene(path));
+    w.clear();
+    CHECK(w.loadScene(path));
+    auto rg = w.find("g");
+    CHECK(w.get<Animator>(rg) && w.get<Animator>(rg)->clip == partialId && w.get<Animator>(rg)->speed == 3.0f && w.get<Animator>(rg)->time == 0.25f);
+    std::filesystem::remove(path);
+}
+
 int main() {
     testHandles();
     testHierarchy();
@@ -1241,6 +1329,7 @@ int main() {
     testTransformConveniences();
     testSystemScheduler();
     testTimers();
+    testAnimation();
     testAnimationAgreement();
     testCompactKeepsSpatialAndScripts();
     testFixedUpdate();

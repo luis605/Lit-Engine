@@ -16,6 +16,7 @@ import Engine.Render.scenedatabase;
 import Engine.mesh;
 import Engine.World;
 import Engine.Physics;
+import Engine.Animation;
 import Engine.Render.entity;
 import Engine.glm;
 import Engine.asset;
@@ -28,6 +29,7 @@ Engine::Engine() {
         },
         [this](const std::string& name) { return loadMesh(name); });
     m_world.setMeshBoundsHook([this](uint32_t id) { return m_renderer.getMeshBounds(id); });
+    addSystem(Phase::Update, "animation", [this](World& world, float dt) { updateAnimators(world, m_animations, dt); });
     addSystem(Phase::FixedUpdate, "physics", [this](World& world, float dt) { stepPhysics(world, dt, m_physics); });
 }
 

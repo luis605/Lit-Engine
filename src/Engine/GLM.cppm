@@ -44,6 +44,7 @@ using ::glm::sin;
 using ::glm::clamp;
 using ::glm::angleAxis;
 using ::glm::mat4_cast;
+using ::glm::slerp;
 using ::glm::mat3;
 using ::glm::mat3_cast;
 using ::glm::quat_cast;
