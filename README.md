@@ -60,6 +60,9 @@ ninja run
 ```
 
 
+## 2.3. Using the World API
+See [docs/World.md](docs/World.md) for creating, editing, querying and saving scene content.
+
 # 3. Socials
 ### Find us here!
 
