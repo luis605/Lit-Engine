@@ -1,3 +1,4 @@
+#include <cmath>
 #include <cstdio>
 #include <filesystem>
 #include <optional>
@@ -334,6 +335,24 @@ static void testFixedUpdate() {
     CHECK(starts == 1);
 }
 
+static void testCameraEntity() {
+    World w;
+    auto cam = w.create("cam", 0, glm::vec3(3.0f, 4.0f, 5.0f));
+    w.add<CameraComponent>(cam, 60.0f, 0.5f, 250.0f);
+    w.setActiveCamera(cam);
+    w.syncCamera();
+    CHECK(w.camera().getPosition().x == 3.0f && w.camera().getPosition().z == 5.0f);
+    CHECK(std::abs(w.camera().getYaw() + 90.0f) < 0.01f);
+    CHECK(std::abs(w.camera().getPitch()) < 0.01f);
+    CHECK(w.camera().getFov() == 60.0f);
+    CHECK(w.camera().getFarPlane() == 250.0f);
+    w.setRotation(cam, glm::angleAxis(glm::radians(90.0f), glm::vec3(0.0f, 1.0f, 0.0f)));
+    w.syncCamera();
+    CHECK(std::abs(w.camera().getYaw() - 180.0f) < 0.01f || std::abs(w.camera().getYaw() + 180.0f) < 0.01f);
+    w.destroy(cam);
+    CHECK(w.getActiveCamera().isNull());
+}
+
 int main() {
     testHandles();
     testHierarchy();
@@ -350,6 +369,7 @@ int main() {
     testWorldCache();
     testEvents();
     testFixedUpdate();
+    testCameraEntity();
     std::printf("%d checks, %d failures\n", g_checks, g_failures);
     return g_failures == 0 ? 0 : 1;
 }

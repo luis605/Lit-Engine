@@ -61,9 +61,15 @@ void Engine::tick(float deltaTime) {
     m_world.events().dispatch();
 }
 
-void Engine::update() { m_renderer.drawScene(m_world.database(), m_world.camera()); }
+void Engine::update() {
+    m_world.syncCamera();
+    m_renderer.drawScene(m_world.database(), m_world.camera());
+}
 
-void Engine::update(World& world) { m_renderer.drawScene(world.database(), world.camera()); }
+void Engine::update(World& world) {
+    world.syncCamera();
+    m_renderer.drawScene(world.database(), world.camera());
+}
 
 void Engine::present() { m_renderer.present(); }
 

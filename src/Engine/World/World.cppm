@@ -25,6 +25,12 @@ import Engine.Render.scenedatabase;
 import Engine.camera;
 import Engine.glm;
 
+export struct CameraComponent {
+    float fov = 45.0f;
+    float nearPlane = 0.1f;
+    float farPlane = 100.0f;
+};
+
 export struct EntityCreated {
     EntityHandle entity;
 };
@@ -293,6 +299,10 @@ export class World {
 
     void forEach(const std::function<void(EntityHandle)>& fn) const;
 
+    void setActiveCamera(EntityHandle e) { m_activeCamera = e; }
+    [[nodiscard]] EntityHandle getActiveCamera() const { return valid(m_activeCamera) ? m_activeCamera : NULL_ENTITY; }
+    void syncCamera();
+
     [[nodiscard]] EventBus& events() { return m_events; }
     [[nodiscard]] Camera& camera() { return m_camera; }
     [[nodiscard]] const Camera& camera() const { return m_camera; }
@@ -323,6 +333,7 @@ export class World {
     SceneDatabase m_db;
     Camera m_camera;
     EventBus m_events;
+    EntityHandle m_activeCamera;
     std::vector<uint8_t> m_alive;
     std::vector<uint32_t> m_generation;
     std::vector<uint8_t> m_visible;

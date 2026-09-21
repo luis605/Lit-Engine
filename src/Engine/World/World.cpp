@@ -1,6 +1,7 @@
 module;
 
 #include <algorithm>
+#include <cmath>
 #include <cstdint>
 #include <cstdlib>
 #include <filesystem>
@@ -18,6 +19,7 @@ module Engine.World;
 import Engine.Render.entity;
 import Engine.Render.component;
 import Engine.Render.scenedatabase;
+import Engine.camera;
 import Engine.glm;
 
 namespace {
@@ -714,4 +716,17 @@ EntityHandle World::instantiate(const Prefab& prefab, EntityHandle parent) {
         created.push_back(h);
     }
     return created.empty() ? NULL_ENTITY : created.front();
+}
+
+void World::syncCamera() {
+    if (!valid(m_activeCamera)) return;
+    const CameraComponent* cam = get<CameraComponent>(m_activeCamera);
+    if (!cam) return;
+    const glm::mat4 world = getWorldMatrix(m_activeCamera);
+    const glm::vec3 forward = glm::normalize(-glm::vec3(world[2]));
+    m_camera.setPos(glm::vec3(world[3]));
+    m_camera.setOrientation(glm::degrees(std::atan2(forward.z, forward.x)), glm::degrees(std::asin(glm::clamp(forward.y, -1.0f, 1.0f))));
+    m_camera.setFov(cam->fov);
+    m_camera.setNearPlane(cam->nearPlane);
+    m_camera.setFarPlane(cam->farPlane);
 }

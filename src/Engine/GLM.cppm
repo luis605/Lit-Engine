@@ -24,6 +24,7 @@ using ::glm::normalize;
 using ::glm::perspective;
 using ::glm::perspectiveRH_ZO;
 using ::glm::radians;
+using ::glm::degrees;
 using ::glm::rotate;
 using ::glm::scale;
 using ::glm::quat;

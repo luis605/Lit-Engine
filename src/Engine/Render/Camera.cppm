@@ -21,6 +21,8 @@ export class Camera {
     void setFarPlane(float farPlane) { m_farPlane = farPlane; }
     void setPos(glm::vec3 pos) { m_position = pos; }
     void setOrientation(float yaw, float pitch) { m_yaw = yaw; m_pitch = pitch; updateCameraVectors(); }
+    void setFov(float fov) { m_fov = fov; }
+    float getFov() const { return m_fov; }
     float getYaw() const { return m_yaw; }
     float getPitch() const { return m_pitch; }
     float getNearPlane() const { return m_nearPlane; }
