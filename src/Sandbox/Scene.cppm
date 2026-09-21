@@ -23,6 +23,7 @@ export class Scene {
 
     void onStart();
     void onUpdate(float deltaTime, float time);
+    void rebind();
 
     SceneContext& getCntx() { return m_ctx; }
     EntityHandle lower() const { return m_lower; }

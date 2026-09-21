@@ -19,3 +19,8 @@ void Scene::onStart() {
 
 void Scene::onUpdate(float deltaTime, float time) {
 }
+
+void Scene::rebind() {
+    m_lower = m_ctx.world.find("lower");
+    m_upper = m_ctx.world.find("upper");
+}

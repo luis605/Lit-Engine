@@ -35,12 +35,12 @@ void inverseKinematics(Scene& scene, const float deltaTime) {
 
     constexpr float speed = 3.0f;
 
-    if (InputManager::IsKeyHeld(GLFW_KEY_I)) target.x += speed * deltaTime;
-    if (InputManager::IsKeyHeld(GLFW_KEY_K)) target.x -= speed * deltaTime;
-    if (InputManager::IsKeyHeld(GLFW_KEY_J)) target.z += speed * deltaTime;
-    if (InputManager::IsKeyHeld(GLFW_KEY_L)) target.z -= speed * deltaTime;
-    if (InputManager::IsKeyHeld(GLFW_KEY_O)) target.y += speed * deltaTime;
-    if (InputManager::IsKeyHeld(GLFW_KEY_P)) target.y -= speed * deltaTime;
+    if (InputManager::IsKeyHeld(GLFW_KEY_I)) target.x -= speed * deltaTime;
+    if (InputManager::IsKeyHeld(GLFW_KEY_K)) target.x += speed * deltaTime;
+    if (InputManager::IsKeyHeld(GLFW_KEY_J)) target.z -= speed * deltaTime;
+    if (InputManager::IsKeyHeld(GLFW_KEY_L)) target.z += speed * deltaTime;
+    if (InputManager::IsKeyHeld(GLFW_KEY_O)) target.y -= speed * deltaTime;
+    if (InputManager::IsKeyHeld(GLFW_KEY_P)) target.y += speed * deltaTime;
 
     constexpr float L1 = 1.5f;
     constexpr float L2 = 1.5f;
@@ -138,7 +138,7 @@ int main() {
     float lastTime = static_cast<float>(glfwGetTime());
 
     while (!glfwWindowShouldClose(window)) {
-        const float now = -static_cast<float>(glfwGetTime());
+        const float now = static_cast<float>(glfwGetTime());
         const float deltaTime = now - lastTime;
         lastTime = now;
 
@@ -148,19 +148,22 @@ int main() {
         }
 
         const float speed = InputManager::IsKeyHeld(GLFW_KEY_LEFT_SHIFT) ? 4.0f : 2.0f;
-        if (InputManager::IsKeyHeld(GLFW_KEY_S)) camera.processKeyboard(CameraMovement::FORWARD, speed * deltaTime);
-        if (InputManager::IsKeyHeld(GLFW_KEY_W)) camera.processKeyboard(CameraMovement::BACKWARD, speed * deltaTime);
-        if (InputManager::IsKeyHeld(GLFW_KEY_D)) camera.processKeyboard(CameraMovement::LEFT, speed * deltaTime);
-        if (InputManager::IsKeyHeld(GLFW_KEY_A)) camera.processKeyboard(CameraMovement::RIGHT, speed * deltaTime);
+        if (InputManager::IsKeyHeld(GLFW_KEY_W)) camera.processKeyboard(CameraMovement::FORWARD, speed * deltaTime);
+        if (InputManager::IsKeyHeld(GLFW_KEY_S)) camera.processKeyboard(CameraMovement::BACKWARD, speed * deltaTime);
+        if (InputManager::IsKeyHeld(GLFW_KEY_A)) camera.processKeyboard(CameraMovement::LEFT, speed * deltaTime);
+        if (InputManager::IsKeyHeld(GLFW_KEY_D)) camera.processKeyboard(CameraMovement::RIGHT, speed * deltaTime);
         if (mouseLocked) {
             const glm::vec2 delta = InputManager::GetMouseDelta();
             camera.processMouseMovement(delta.x, -delta.y);
         }
 
+        if (InputManager::IsKeyPressed(GLFW_KEY_F5)) world.saveScene("resources/sandbox.litscene");
+        if (InputManager::IsKeyPressed(GLFW_KEY_F9) && world.loadScene("resources/sandbox.litscene")) scene.rebind();
+
         inverseKinematics(scene, deltaTime);
 
         scene.onUpdate(deltaTime, now);
-        engine.tick(std::abs(deltaTime));
+        engine.tick(deltaTime);
 
         engine.update();
         InputManager::Update();
