@@ -1297,6 +1297,116 @@ static void testAnimation() {
     std::filesystem::remove(path);
 }
 
+static void testPhysicsShapesAndSleep() {
+    PhysicsSettings settings;
+    const float dt = 1.0f / 60.0f;
+
+    World boxOnPlane;
+    auto ground = boxOnPlane.create("ground");
+    boxOnPlane.add<PlaneCollider>(ground);
+    auto box = boxOnPlane.create("box", 1, glm::vec3(0.0f, 3.0f, 0.0f));
+    boxOnPlane.add<BoxCollider>(box, glm::vec3(0.5f, 1.0f, 0.5f));
+    boxOnPlane.add<RigidBody>(box);
+    for (int i = 0; i < 240; ++i) stepPhysics(boxOnPlane, dt, settings);
+    CHECK(std::abs(boxOnPlane.getPosition(box).y - 1.0f) < 0.02f);
+    CHECK(boxOnPlane.get<RigidBody>(box)->sleeping);
+
+    World stack;
+    auto floor2 = stack.create("floor");
+    stack.add<PlaneCollider>(floor2);
+    auto lower = stack.create("lower", 1, glm::vec3(0.0f, 0.6f, 0.0f));
+    auto upper = stack.create("upper", 1, glm::vec3(0.05f, 3.0f, 0.0f));
+    stack.add<BoxCollider>(lower);
+    stack.add<RigidBody>(lower);
+    stack.add<BoxCollider>(upper);
+    stack.add<RigidBody>(upper);
+    for (int i = 0; i < 420; ++i) stepPhysics(stack, dt, settings);
+    CHECK(std::abs(stack.getPosition(lower).y - 0.5f) < 0.05f);
+    CHECK(std::abs(stack.getPosition(upper).y - 1.5f) < 0.08f);
+    CHECK(stack.get<RigidBody>(upper)->sleeping && stack.get<RigidBody>(lower)->sleeping);
+
+    World sphereOnBox;
+    auto slab = sphereOnBox.create("slab", 1, glm::vec3(0.0f, -0.5f, 0.0f));
+    sphereOnBox.add<BoxCollider>(slab, glm::vec3(5.0f, 0.5f, 5.0f));
+    auto ball = sphereOnBox.create("ball", 1, glm::vec3(1.0f, 4.0f, 0.0f));
+    sphereOnBox.add<SphereCollider>(ball, 0.5f);
+    sphereOnBox.add<RigidBody>(ball);
+    for (int i = 0; i < 240; ++i) stepPhysics(sphereOnBox, dt, settings);
+    CHECK(std::abs(sphereOnBox.getPosition(ball).y - 0.5f) < 0.02f);
+
+    World masks;
+    PhysicsSettings zeroG;
+    zeroG.gravity = glm::vec3(0.0f);
+    zeroG.setLayersCollide(1, 2, false);
+    auto la = masks.create("la", 1, glm::vec3(-2.0f, 0.0f, 0.0f));
+    auto lb = masks.create("lb", 1, glm::vec3(2.0f, 0.0f, 0.0f));
+    masks.setLayer(la, 1u << 1);
+    masks.setLayer(lb, 1u << 2);
+    masks.add<SphereCollider>(la, 1.0f);
+    masks.add<SphereCollider>(lb, 1.0f);
+    masks.add<RigidBody>(la, glm::vec3(3.0f, 0.0f, 0.0f), 1.0f, 0.0f, 0.0f, false);
+    masks.add<RigidBody>(lb, glm::vec3(-3.0f, 0.0f, 0.0f), 1.0f, 0.0f, 0.0f, false);
+    for (int i = 0; i < 90; ++i) stepPhysics(masks, dt, zeroG);
+    CHECK(masks.get<RigidBody>(la)->velocity.x == 3.0f);
+    CHECK(masks.getPosition(la).x > masks.getPosition(lb).x);
+
+    World rays;
+    auto sphere = rays.create("sphere", 1, glm::vec3(0.0f, 0.0f, -10.0f));
+    rays.add<SphereCollider>(sphere, 1.0f);
+    auto slab2 = rays.create("box", 1, glm::vec3(5.0f, 0.0f, -20.0f));
+    rays.add<BoxCollider>(slab2, glm::vec3(1.0f));
+    auto plane = rays.create("plane", NO_MESH, glm::vec3(0.0f, -5.0f, 0.0f));
+    rays.add<PlaneCollider>(plane);
+    auto hit = physicsRaycast(rays, glm::vec3(0.0f), glm::vec3(0.0f, 0.0f, -1.0f));
+    CHECK(hit && hit->entity == sphere && std::abs(hit->distance - 9.0f) < 1.0e-4f);
+    CHECK(hit && near(hit->normal, glm::vec3(0.0f, 0.0f, 1.0f)));
+    hit = physicsRaycast(rays, glm::vec3(5.0f, 0.0f, 0.0f), glm::vec3(0.0f, 0.0f, -1.0f));
+    CHECK(hit && hit->entity == slab2 && std::abs(hit->distance - 19.0f) < 1.0e-4f);
+    CHECK(hit && near(hit->normal, glm::vec3(0.0f, 0.0f, 1.0f)));
+    hit = physicsRaycast(rays, glm::vec3(20.0f, 0.0f, 0.0f), glm::vec3(0.0f, -1.0f, 0.0f));
+    CHECK(hit && hit->entity == plane && std::abs(hit->distance - 5.0f) < 1.0e-4f);
+    CHECK(!physicsRaycast(rays, glm::vec3(0.0f), glm::vec3(0.0f, 0.0f, -1.0f), 5.0f));
+    CHECK(!physicsRaycast(rays, glm::vec3(20.0f, 0.0f, 0.0f), glm::vec3(0.0f, 1.0f, 0.0f)));
+
+    World wake;
+    auto floor3 = wake.create("floor");
+    wake.add<PlaneCollider>(floor3);
+    auto sleeper = wake.create("sleeper", 1, glm::vec3(0.0f, 0.5f, 0.0f));
+    wake.add<SphereCollider>(sleeper, 0.5f);
+    wake.add<RigidBody>(sleeper);
+    for (int i = 0; i < 120; ++i) stepPhysics(wake, dt, settings);
+    CHECK(wake.get<RigidBody>(sleeper)->sleeping);
+    const float restingY = wake.getPosition(sleeper).y;
+    auto hitter = wake.create("hitter", 1, glm::vec3(3.0f, 0.5f, 0.0f));
+    wake.add<SphereCollider>(hitter, 0.5f);
+    wake.add<RigidBody>(hitter, glm::vec3(-6.0f, 0.0f, 0.0f), 1.0f, 1.0f, 0.0f, false);
+    bool woke = false;
+    for (int i = 0; i < 60; ++i) {
+        stepPhysics(wake, dt, settings);
+        if (!wake.get<RigidBody>(sleeper)->sleeping) woke = true;
+    }
+    CHECK(woke);
+    CHECK(wake.getPosition(sleeper).x < -0.1f);
+    CHECK(std::abs(wake.getPosition(sleeper).y - restingY) < 0.05f);
+    wakeBody(wake, sleeper);
+    CHECK(!wake.get<RigidBody>(sleeper)->sleeping);
+
+    World saved;
+    registerPhysicsComponents(saved);
+    auto s = saved.create("s", 1);
+    saved.add<BoxCollider>(s, glm::vec3(1.0f, 2.0f, 3.0f));
+    saved.add<RigidBody>(s, glm::vec3(0.0f), 1.0f, 1.0f, 0.0f, false);
+    saved.get<RigidBody>(s)->sleeping = true;
+    const auto path = std::filesystem::temp_directory_path() / "lit_world_box_test.litscene";
+    CHECK(saved.saveScene(path));
+    saved.clear();
+    CHECK(saved.loadScene(path));
+    auto rs = saved.find("s");
+    CHECK(saved.get<BoxCollider>(rs) && saved.get<BoxCollider>(rs)->halfExtents.z == 3.0f);
+    CHECK(saved.get<RigidBody>(rs) && saved.get<RigidBody>(rs)->sleeping);
+    std::filesystem::remove(path);
+}
+
 int main() {
     testHandles();
     testHierarchy();
@@ -1319,6 +1429,7 @@ int main() {
     testLights();
     testFrustumQuery();
     testPhysics();
+    testPhysicsShapesAndSleep();
     testAdditiveLoad();
     testEntityReferences();
     testHistory();
