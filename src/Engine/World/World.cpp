@@ -1435,3 +1435,55 @@ std::vector<EntityHandle> World::queryFrustum(const Camera& camera) {
     }
     return out;
 }
+
+namespace {
+glm::vec3 axisOf(const glm::mat4& m, int column) {
+    const glm::vec3 v(m[column]);
+    const float len = glm::length(v);
+    return len > 1.0e-8f ? v / len : glm::vec3(column == 0 ? 1.0f : 0.0f, column == 1 ? 1.0f : 0.0f, column == 2 ? 1.0f : 0.0f);
+}
+}
+
+glm::quat World::getWorldRotation(EntityHandle e) const {
+    if (!valid(e)) return glm::quat(1.0f, 0.0f, 0.0f, 0.0f);
+    const glm::mat4 m = getWorldMatrix(e);
+    return glm::normalize(glm::quat_cast(glm::mat3(axisOf(m, 0), axisOf(m, 1), axisOf(m, 2))));
+}
+
+glm::vec3 World::forward(EntityHandle e) const { return valid(e) ? -axisOf(getWorldMatrix(e), 2) : glm::vec3(0.0f, 0.0f, -1.0f); }
+
+glm::vec3 World::right(EntityHandle e) const { return valid(e) ? axisOf(getWorldMatrix(e), 0) : glm::vec3(1.0f, 0.0f, 0.0f); }
+
+glm::vec3 World::up(EntityHandle e) const { return valid(e) ? axisOf(getWorldMatrix(e), 1) : glm::vec3(0.0f, 1.0f, 0.0f); }
+
+void World::setWorldPosition(EntityHandle e, const glm::vec3& position) {
+    if (!valid(e)) return;
+    glm::mat4 m = getWorldMatrix(e);
+    m[3] = glm::vec4(position, 1.0f);
+    setWorldMatrix(e, m);
+}
+
+void World::setWorldRotation(EntityHandle e, const glm::quat& rotation) {
+    if (!valid(e)) return;
+    const glm::mat4 m = getWorldMatrix(e);
+    const glm::vec3 scale(glm::length(glm::vec3(m[0])), glm::length(glm::vec3(m[1])), glm::length(glm::vec3(m[2])));
+    setWorldMatrix(e, compose(glm::vec3(m[3]), glm::normalize(rotation), scale));
+}
+
+void World::rotate(EntityHandle e, const glm::vec3& axis, float radians) {
+    if (!valid(e) || glm::length(axis) < 1.0e-8f) return;
+    setRotation(e, glm::angleAxis(radians, glm::normalize(axis)) * getRotation(e));
+}
+
+void World::lookAt(EntityHandle e, const glm::vec3& target, const glm::vec3& worldUp) {
+    if (!valid(e)) return;
+    const glm::vec3 position = getWorldPosition(e);
+    const glm::vec3 delta = target - position;
+    if (glm::length(delta) < 1.0e-8f) return;
+    const glm::vec3 f = glm::normalize(delta);
+    glm::vec3 r = glm::cross(f, worldUp);
+    if (glm::length(r) < 1.0e-6f) r = glm::cross(f, glm::vec3(0.0f, 0.0f, 1.0f));
+    r = glm::normalize(r);
+    const glm::vec3 u = glm::cross(r, f);
+    setWorldRotation(e, glm::quat_cast(glm::mat3(r, u, -f)));
+}

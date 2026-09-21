@@ -278,6 +278,14 @@ export class World {
     [[nodiscard]] glm::quat getRotation(EntityHandle e) const;
     [[nodiscard]] glm::vec3 getScale(EntityHandle e) const;
     [[nodiscard]] glm::vec3 getWorldPosition(EntityHandle e) const;
+    [[nodiscard]] glm::quat getWorldRotation(EntityHandle e) const;
+    [[nodiscard]] glm::vec3 forward(EntityHandle e) const;
+    [[nodiscard]] glm::vec3 right(EntityHandle e) const;
+    [[nodiscard]] glm::vec3 up(EntityHandle e) const;
+    void setWorldPosition(EntityHandle e, const glm::vec3& position);
+    void setWorldRotation(EntityHandle e, const glm::quat& rotation);
+    void rotate(EntityHandle e, const glm::vec3& axis, float radians);
+    void lookAt(EntityHandle e, const glm::vec3& target, const glm::vec3& worldUp = glm::vec3(0.0f, 1.0f, 0.0f));
 
     void setLayer(EntityHandle e, uint32_t mask);
     [[nodiscard]] uint32_t getLayer(EntityHandle e) const;

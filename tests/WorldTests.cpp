@@ -1047,6 +1047,53 @@ static void testEachAndBuilder() {
     (void)b;
 }
 
+static bool near(const glm::vec3& a, const glm::vec3& b, float eps = 1.0e-4f) { return glm::length(a - b) < eps; }
+
+static void testTransformConveniences() {
+    World w;
+    auto e = w.create("e", 1, glm::vec3(1.0f, 2.0f, 3.0f));
+    CHECK(near(w.forward(e), glm::vec3(0.0f, 0.0f, -1.0f)));
+    CHECK(near(w.right(e), glm::vec3(1.0f, 0.0f, 0.0f)));
+    CHECK(near(w.up(e), glm::vec3(0.0f, 1.0f, 0.0f)));
+
+    w.rotate(e, glm::vec3(0.0f, 1.0f, 0.0f), glm::radians(90.0f));
+    CHECK(near(w.forward(e), glm::vec3(-1.0f, 0.0f, 0.0f)));
+    CHECK(near(w.right(e), glm::vec3(0.0f, 0.0f, -1.0f)));
+
+    w.lookAt(e, glm::vec3(1.0f, 2.0f, -10.0f));
+    CHECK(near(w.forward(e), glm::vec3(0.0f, 0.0f, -1.0f)));
+    CHECK(near(w.getWorldPosition(e), glm::vec3(1.0f, 2.0f, 3.0f)));
+    w.lookAt(e, glm::vec3(11.0f, 2.0f, 3.0f));
+    CHECK(near(w.forward(e), glm::vec3(1.0f, 0.0f, 0.0f)));
+    w.lookAt(e, glm::vec3(1.0f, 12.0f, 3.0f));
+    CHECK(near(w.forward(e), glm::vec3(0.0f, 1.0f, 0.0f)));
+    CHECK(glm::length(w.up(e)) > 0.99f);
+
+    auto parent = w.create("parent", 0, glm::vec3(10.0f, 0.0f, 0.0f), glm::vec3(2.0f));
+    w.setRotation(parent, glm::angleAxis(glm::radians(90.0f), glm::vec3(0.0f, 0.0f, 1.0f)));
+    auto child = w.create("child", 1, glm::vec3(1.0f, 0.0f, 0.0f), glm::vec3(1.0f), parent);
+    CHECK(near(w.getWorldPosition(child), glm::vec3(10.0f, 2.0f, 0.0f)));
+    CHECK(near(w.right(child), glm::vec3(0.0f, 1.0f, 0.0f)));
+
+    w.setWorldPosition(child, glm::vec3(0.0f, 0.0f, 5.0f));
+    CHECK(near(w.getWorldPosition(child), glm::vec3(0.0f, 0.0f, 5.0f)));
+    const glm::vec3 scaleBefore = w.getScale(child);
+
+    w.setWorldRotation(child, glm::angleAxis(glm::radians(180.0f), glm::vec3(0.0f, 1.0f, 0.0f)));
+    CHECK(near(w.forward(child), glm::vec3(0.0f, 0.0f, 1.0f)));
+    CHECK(near(w.getWorldPosition(child), glm::vec3(0.0f, 0.0f, 5.0f)));
+    CHECK(near(w.getScale(child), scaleBefore, 1.0e-3f));
+
+    w.lookAt(child, glm::vec3(10.0f, 0.0f, 0.0f));
+    CHECK(near(w.forward(child), glm::normalize(glm::vec3(10.0f, 0.0f, -5.0f)), 1.0e-3f));
+    const glm::quat q = w.getWorldRotation(child);
+    CHECK(near(q * glm::vec3(0.0f, 0.0f, -1.0f), w.forward(child), 1.0e-3f));
+
+    w.rotate(NULL_ENTITY, glm::vec3(0.0f, 1.0f, 0.0f), 1.0f);
+    w.lookAt(NULL_ENTITY, glm::vec3(1.0f));
+    CHECK(near(w.forward(NULL_ENTITY), glm::vec3(0.0f, 0.0f, -1.0f)));
+}
+
 int main() {
     testHandles();
     testHierarchy();
@@ -1076,6 +1123,7 @@ int main() {
     testSnapshotRestore();
     testMeshlessEntities();
     testEachAndBuilder();
+    testTransformConveniences();
     testAnimationAgreement();
     testCompactKeepsSpatialAndScripts();
     testFixedUpdate();
