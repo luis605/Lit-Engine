@@ -8,6 +8,8 @@ module;
 #include <optional>
 #include <string>
 #include <string_view>
+#include <typeindex>
+#include <typeinfo>
 #include <unordered_map>
 #include <vector>
 
@@ -32,6 +34,63 @@ export struct EntityDesc {
 };
 
 export class World;
+
+class IComponentPool {
+  public:
+    virtual ~IComponentPool() = default;
+    virtual void remove(Entity e) = 0;
+    virtual void clear() = 0;
+};
+
+template <typename T>
+class ComponentPool final : public IComponentPool {
+  public:
+    template <typename... Args>
+    T& emplace(Entity e, Args&&... args) {
+        if (e >= m_sparse.size()) m_sparse.resize(static_cast<size_t>(e) + 1, INVALID_ENTITY);
+        if (m_sparse[e] != INVALID_ENTITY) {
+            m_data[m_sparse[e]] = T(std::forward<Args>(args)...);
+            return m_data[m_sparse[e]];
+        }
+        m_sparse[e] = static_cast<Entity>(m_data.size());
+        m_owners.push_back(e);
+        m_data.emplace_back(std::forward<Args>(args)...);
+        return m_data.back();
+    }
+
+    [[nodiscard]] T* find(Entity e) {
+        if (e >= m_sparse.size() || m_sparse[e] == INVALID_ENTITY) return nullptr;
+        return &m_data[m_sparse[e]];
+    }
+
+    void remove(Entity e) override {
+        if (e >= m_sparse.size() || m_sparse[e] == INVALID_ENTITY) return;
+        const Entity slot = m_sparse[e];
+        const Entity last = m_owners.back();
+        if (slot != m_data.size() - 1) {
+            m_data[slot] = std::move(m_data.back());
+            m_owners[slot] = last;
+            m_sparse[last] = slot;
+        }
+        m_sparse[e] = INVALID_ENTITY;
+        m_data.pop_back();
+        m_owners.pop_back();
+    }
+
+    void clear() override {
+        m_sparse.clear();
+        m_owners.clear();
+        m_data.clear();
+    }
+
+    [[nodiscard]] const std::vector<Entity>& owners() const { return m_owners; }
+    [[nodiscard]] std::vector<T>& data() { return m_data; }
+
+  private:
+    std::vector<Entity> m_sparse;
+    std::vector<Entity> m_owners;
+    std::vector<T> m_data;
+};
 
 export class Script {
   public:
@@ -107,6 +166,29 @@ export class World {
         return nullptr;
     }
     void removeScripts(EntityHandle e);
+
+    template <typename T, typename... Args>
+    T* add(EntityHandle e, Args&&... args) {
+        if (!valid(e)) return nullptr;
+        return &pool<T>().emplace(e.index, std::forward<Args>(args)...);
+    }
+    template <typename T>
+    [[nodiscard]] T* get(EntityHandle e) {
+        return valid(e) ? pool<T>().find(e.index) : nullptr;
+    }
+    template <typename T>
+    [[nodiscard]] bool has(EntityHandle e) {
+        return get<T>(e) != nullptr;
+    }
+    template <typename T>
+    void remove(EntityHandle e) {
+        if (valid(e)) pool<T>().remove(e.index);
+    }
+    template <typename T, typename Fn>
+    void view(Fn&& fn) {
+        auto& p = pool<T>();
+        for (size_t i = 0; i < p.owners().size(); ++i) fn(EntityHandle{p.owners()[i], m_generation[p.owners()[i]]}, p.data()[i]);
+    }
     void update(float deltaTime);
 
     void clear();
@@ -122,6 +204,12 @@ export class World {
 
   private:
     void destroyRecursive(Entity idx);
+    template <typename T>
+    ComponentPool<T>& pool() {
+        auto& slot = m_pools[std::type_index(typeid(T))];
+        if (!slot) slot = std::make_unique<ComponentPool<T>>();
+        return static_cast<ComponentPool<T>&>(*slot);
+    }
     void runScriptDestroy(Entity idx);
     void flushPendingDestroy();
     void link(Entity idx, Entity parent);
@@ -146,6 +234,7 @@ export class World {
     std::vector<EntityHandle> m_pendingDestroy;
     std::vector<EntityHandle> m_pendingRemoveScripts;
     bool m_updating = false;
+    std::unordered_map<std::type_index, std::unique_ptr<IComponentPool>> m_pools;
     std::vector<std::string> m_names;
     std::vector<Entity> m_freeList;
     size_t m_aliveCount = 0;

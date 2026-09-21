@@ -145,6 +145,7 @@ void World::destroyRecursive(Entity idx) {
         child = next;
     }
     runScriptDestroy(idx);
+    for (auto& [type, p] : m_pools) p->remove(idx);
     m_alive[idx] = 0;
     ++m_generation[idx];
     m_firstChild[idx] = INVALID_ENTITY;
@@ -359,6 +360,7 @@ void World::clear() {
     m_names.clear();
     m_freeList.clear();
     m_scripts.clear();
+    for (auto& [type, p] : m_pools) p->clear();
     m_pendingDestroy.clear();
     m_pendingRemoveScripts.clear();
     m_firstRoot = INVALID_ENTITY;
