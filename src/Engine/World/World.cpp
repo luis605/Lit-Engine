@@ -1212,3 +1212,52 @@ glm::vec4 World::getWorldBounds(EntityHandle e) const {
     const float maxScale = std::max({glm::length(glm::vec3(world[0])), glm::length(glm::vec3(world[1])), glm::length(glm::vec3(world[2]))});
     return glm::vec4(glm::vec3(world * glm::vec4(glm::vec3(bounds), 1.0f)), bounds.w * maxScale);
 }
+
+bool collectLights(World& world, const glm::vec3& viewPos, std::array<glm::vec4, 6>& out) {
+    struct PointCandidate {
+        float distance2;
+        Entity index;
+        glm::vec3 position;
+        glm::vec4 color;
+        float range;
+    };
+
+    bool any = false;
+    Entity directionalIndex = INVALID_ENTITY;
+    glm::vec4 dirDir(0.0f, 1.0f, 0.0f, 0.0f);
+    glm::vec4 dirColor(0.0f);
+    std::vector<PointCandidate> points;
+
+    world.view<LightComponent>([&](EntityHandle e, LightComponent& light) {
+        any = true;
+        if (light.type == LightComponent::Type::Directional) {
+            if (directionalIndex != INVALID_ENTITY && e.index > directionalIndex) return;
+            directionalIndex = e.index;
+            const glm::vec3 towardLight = glm::normalize(glm::vec3(world.getWorldMatrix(e)[2]));
+            dirDir = glm::vec4(towardLight, light.specular);
+            dirColor = glm::vec4(light.color * light.intensity, 1.0f);
+        } else {
+            const glm::vec3 position = world.getWorldPosition(e);
+            const glm::vec3 d = position - viewPos;
+            points.push_back({glm::dot(d, d), e.index, position, glm::vec4(light.color, light.intensity), light.range});
+        }
+    });
+    if (!any) return false;
+
+    std::sort(points.begin(), points.end(), [](const PointCandidate& a, const PointCandidate& b) {
+        return a.distance2 != b.distance2 ? a.distance2 < b.distance2 : a.index < b.index;
+    });
+
+    out[0] = dirDir;
+    out[1] = dirColor;
+    for (size_t i = 0; i < 2; ++i) {
+        if (i < points.size()) {
+            out[2 + i * 2] = glm::vec4(points[i].position, points[i].range);
+            out[3 + i * 2] = points[i].color;
+        } else {
+            out[2 + i * 2] = glm::vec4(0.0f, 0.0f, 0.0f, 1.0f);
+            out[3 + i * 2] = glm::vec4(0.0f);
+        }
+    }
+    return true;
+}

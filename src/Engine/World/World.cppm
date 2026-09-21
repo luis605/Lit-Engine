@@ -1,5 +1,6 @@
 module;
 
+#include <array>
 #include <cstdint>
 #include <functional>
 #include <istream>
@@ -51,6 +52,15 @@ export struct TimeState {
     uint64_t frame = 0;
     float timeScale = 1.0f;
     bool paused = false;
+};
+
+export struct LightComponent {
+    enum class Type : uint32_t { Directional, Point };
+    Type type = Type::Point;
+    glm::vec3 color{1.0f};
+    float intensity = 1.0f;
+    float range = 100.0f;
+    float specular = 1.0f;
 };
 
 export struct EntityMoved {
@@ -480,3 +490,6 @@ export class World {
     std::vector<Entity> m_freeList;
     size_t m_aliveCount = 0;
 };
+
+
+export bool collectLights(World& world, const glm::vec3& viewPos, std::array<glm::vec4, 6>& out);

@@ -3,6 +3,7 @@ struct GLFWwindow;
 #include <string>
 #include <vector>
 #include <algorithm>
+#include <array>
 #include <cmath>
 #include <cstdint>
 #include <filesystem>
@@ -87,11 +88,17 @@ void Engine::tick(float deltaTime) {
 
 void Engine::update() {
     m_world.syncCamera();
+    std::array<glm::vec4, 6> lights{};
+    const bool hasLights = collectLights(m_world, m_world.camera().getPosition(), lights);
+    m_renderer.setLights(hasLights, lights);
     m_renderer.drawScene(m_world.database(), m_world.camera());
 }
 
 void Engine::update(World& world) {
     world.syncCamera();
+    std::array<glm::vec4, 6> lights{};
+    const bool hasLights = collectLights(world, world.camera().getPosition(), lights);
+    m_renderer.setLights(hasLights, lights);
     m_renderer.drawScene(world.database(), world.camera());
 }
 

@@ -1648,6 +1648,14 @@ void Renderer::drawScene(SceneDatabase& sceneDatabase, const Camera& camera) {
 
     sceneUniforms.pointLight1Pos = glm::vec4(80.0f, -30.0f, 50.0f, 250.0f);
     sceneUniforms.pointLight1Color = glm::vec4(1.0f, 0.45f, 0.15f, 2.5f);
+    if (m_lightOverride) {
+        sceneUniforms.dirLightDir = m_lights[0];
+        sceneUniforms.dirLightColor = m_lights[1];
+        sceneUniforms.pointLight0Pos = m_lights[2];
+        sceneUniforms.pointLight0Color = m_lights[3];
+        sceneUniforms.pointLight1Pos = m_lights[4];
+        sceneUniforms.pointLight1Color = m_lights[5];
+    }
     const auto& swapChainDesc = m_diligent->pSwapChain->GetDesc();
     sceneUniforms.screenParams = glm::vec4(static_cast<float>(swapChainDesc.Width), static_cast<float>(swapChainDesc.Height), 0.0f, 0.0f);
 
@@ -3321,6 +3329,11 @@ void Renderer::createDebugDepthPSO() {
     m_diligent->pDevice->CreateBuffer(CBDesc, nullptr, &m_diligent->pDebugDepthUniforms);
 
     m_diligent->pDebugDepthPSO->CreateShaderResourceBinding(&m_diligent->pDebugDepthSRB, true);
+}
+
+void Renderer::setLights(bool enabled, const std::array<glm::vec4, 6>& lights) {
+    m_lightOverride = enabled;
+    m_lights = lights;
 }
 
 void Renderer::setMaterial(uint32_t index, const glm::vec4& colorAndStrength) {

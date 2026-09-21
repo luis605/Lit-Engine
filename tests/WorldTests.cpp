@@ -1,4 +1,5 @@
 #include <chrono>
+#include <array>
 #include <cmath>
 #include <cstdio>
 #include <filesystem>
@@ -655,6 +656,35 @@ static void testTimeService() {
     CHECK(std::abs(engine.time().deltaTime - 0.125f) < 1.0e-6f);
 }
 
+static void testLights() {
+    World w;
+    std::array<glm::vec4, 6> lights{};
+    CHECK(!collectLights(w, glm::vec3(0.0f), lights));
+
+    auto sun = w.create("sun", 0);
+    w.add<LightComponent>(sun, LightComponent{LightComponent::Type::Directional, glm::vec3(1.0f, 0.5f, 0.25f), 2.0f, 0.0f, 0.5f});
+    w.setRotation(sun, glm::angleAxis(glm::radians(-90.0f), glm::vec3(1.0f, 0.0f, 0.0f)));
+    auto far = w.create("far", 0, glm::vec3(100.0f, 0.0f, 0.0f));
+    auto mid = w.create("mid", 0, glm::vec3(10.0f, 0.0f, 0.0f));
+    auto near = w.create("near", 0, glm::vec3(1.0f, 0.0f, 0.0f));
+    w.add<LightComponent>(far, LightComponent{LightComponent::Type::Point, glm::vec3(1.0f), 1.0f, 50.0f, 1.0f});
+    w.add<LightComponent>(mid, LightComponent{LightComponent::Type::Point, glm::vec3(0.0f, 1.0f, 0.0f), 3.0f, 40.0f, 1.0f});
+    w.add<LightComponent>(near, LightComponent{LightComponent::Type::Point, glm::vec3(0.0f, 0.0f, 1.0f), 4.0f, 30.0f, 1.0f});
+
+    CHECK(collectLights(w, glm::vec3(0.0f), lights));
+    CHECK(std::abs(lights[0].y - 1.0f) < 1.0e-4f && std::abs(lights[0].x) < 1.0e-4f);
+    CHECK(lights[0].w == 0.5f);
+    CHECK(lights[1].x == 2.0f && lights[1].y == 1.0f && lights[1].z == 0.5f);
+    CHECK(lights[2].x == 1.0f && lights[2].w == 30.0f && lights[3].w == 4.0f && lights[3].z == 1.0f);
+    CHECK(lights[4].x == 10.0f && lights[5].y == 1.0f);
+
+    w.destroy(near);
+    w.destroy(mid);
+    CHECK(collectLights(w, glm::vec3(0.0f), lights));
+    CHECK(lights[2].x == 100.0f);
+    CHECK(lights[4].w == 1.0f && lights[5].w == 0.0f);
+}
+
 int main() {
     testHandles();
     testHierarchy();
@@ -674,6 +704,7 @@ int main() {
     testBatch();
     testScriptSerialization();
     testTimeService();
+    testLights();
     testAnimationAgreement();
     testCompactKeepsSpatialAndScripts();
     testFixedUpdate();
