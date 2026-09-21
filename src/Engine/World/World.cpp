@@ -737,14 +737,14 @@ bool World::saveScene(const std::filesystem::path& path) const {
     return static_cast<bool>(out);
 }
 
-bool World::loadScene(const std::filesystem::path& path) {
+std::optional<std::vector<EntityHandle>> World::loadSceneImpl(const std::filesystem::path& path, bool additive, EntityHandle parent) {
     std::ifstream in(path);
-    if (!in) return false;
+    if (!in) return std::nullopt;
     std::string magic;
     int version = 0;
     size_t count = 0;
     in >> magic >> version >> count;
-    if (!in || magic != "LITSCENE" || (version != 1 && version != 2)) return false;
+    if (!in || magic != "LITSCENE" || (version != 1 && version != 2)) return std::nullopt;
     in.ignore(1, '\n');
 
     struct Record {
@@ -755,8 +755,10 @@ bool World::loadScene(const std::filesystem::path& path) {
     std::unordered_map<long long, EntityHandle> handles;
     records.reserve(count);
 
-    clear();
-    reserve(count);
+    if (!additive) clear();
+    reserve(m_alive.size() + count);
+    std::vector<EntityHandle> created;
+    created.reserve(count);
     std::vector<std::string> componentLines;
     std::unordered_map<uint32_t, uint32_t> meshRemap;
     std::string line;
@@ -783,8 +785,12 @@ bool World::loadScene(const std::filesystem::path& path) {
         float* m = &local[0][0];
         for (int k = 0; k < 16; ++k) fields >> m[k];
         if (!fields) {
-            clear();
-            return false;
+            if (additive) {
+                destroyBatch(created);
+            } else {
+                clear();
+            }
+            return std::nullopt;
         }
         uint32_t layer = 1;
         if (!(fields >> layer)) layer = 1;
@@ -798,13 +804,19 @@ bool World::loadScene(const std::filesystem::path& path) {
         setRenderFlags(h, renderFlags, true);
         if (!visible) setVisible(h, false);
         handles[id] = h;
+        created.push_back(h);
         records.push_back({id, parent});
     }
 
+    std::vector<EntityHandle> roots;
     for (const Record& r : records) {
-        if (r.parent < 0) continue;
-        const auto it = handles.find(r.parent);
-        if (it != handles.end()) setParent(handles[r.id], it->second, false);
+        const auto it = r.parent < 0 ? handles.end() : handles.find(r.parent);
+        if (it != handles.end()) {
+            setParent(handles[r.id], it->second, false);
+        } else {
+            roots.push_back(handles[r.id]);
+            if (additive && valid(parent)) setParent(handles[r.id], parent, false);
+        }
     }
 
     for (const std::string& componentLine : componentLines) {
@@ -834,8 +846,16 @@ bool World::loadScene(const std::filesystem::path& path) {
         std::istringstream payload(componentLine.substr(tab + 1));
         serializer->second.read(*this, handle->second, payload);
     }
-    return true;
+    return roots;
 }
+
+bool World::loadScene(const std::filesystem::path& path) { return loadSceneImpl(path, false, NULL_ENTITY).has_value(); }
+
+std::optional<std::vector<EntityHandle>> World::loadSceneAdditive(const std::filesystem::path& path, EntityHandle parent) {
+    return loadSceneImpl(path, true, parent);
+}
+
+void World::unloadGroup(const std::vector<EntityHandle>& roots) { destroyBatch(roots); }
 
 void World::runScriptDestroy(Entity idx) {
     const auto it = m_scripts.find(idx);

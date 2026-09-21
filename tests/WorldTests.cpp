@@ -791,6 +791,34 @@ static void testPhysics() {
     std::filesystem::remove(path);
 }
 
+static void testAdditiveLoad() {
+    World w;
+    auto root = w.create("root", 1, glm::vec3(1.0f, 0.0f, 0.0f));
+    w.create("leaf", 2, glm::vec3(0.0f, 2.0f, 0.0f), glm::vec3(1.0f), root);
+    const auto path = std::filesystem::temp_directory_path() / "lit_world_additive_test.litscene";
+    CHECK(w.saveScene(path));
+
+    auto anchor = w.create("anchor", 0, glm::vec3(100.0f, 0.0f, 0.0f));
+    const auto first = w.loadSceneAdditive(path, anchor);
+    CHECK(first && first->size() == 1);
+    CHECK(w.aliveCount() == 5);
+    CHECK(first && w.getParent((*first)[0]) == anchor);
+
+    const auto second = w.loadSceneAdditive(path);
+    CHECK(second && second->size() == 1);
+    CHECK(w.aliveCount() == 7);
+    CHECK(second && w.getParent((*second)[0]).isNull());
+    CHECK(w.findAll("leaf").size() == 3);
+
+    w.unloadGroup(*first);
+    CHECK(w.aliveCount() == 5);
+    CHECK(w.isAlive(anchor));
+    CHECK(w.findAll("leaf").size() == 2);
+    CHECK(!w.loadSceneAdditive(path.string() + ".missing"));
+    CHECK(w.aliveCount() == 5);
+    std::filesystem::remove(path);
+}
+
 int main() {
     testHandles();
     testHierarchy();
@@ -813,6 +841,7 @@ int main() {
     testLights();
     testFrustumQuery();
     testPhysics();
+    testAdditiveLoad();
     testAnimationAgreement();
     testCompactKeepsSpatialAndScripts();
     testFixedUpdate();
