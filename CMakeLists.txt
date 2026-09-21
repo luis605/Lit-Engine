@@ -59,6 +59,9 @@ add_subdirectory(src/Engine)
 add_subdirectory(src/Editor)
 add_subdirectory(src/Sandbox)
 
+enable_testing()
+add_subdirectory(tests)
+
 add_custom_target(run
     DEPENDS Editor
     COMMAND ${CMAKE_COMMAND} -E echo "Running Editor..."
