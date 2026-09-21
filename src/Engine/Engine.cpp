@@ -3,6 +3,7 @@ struct GLFWwindow;
 #include <string>
 #include <vector>
 #include <algorithm>
+#include <cmath>
 #include <cstdint>
 #include <filesystem>
 #include "Engine/Log/Log.hpp"
@@ -13,6 +14,7 @@ import Engine.camera;
 import Engine.Render.scenedatabase;
 import Engine.mesh;
 import Engine.World;
+import Engine.Render.entity;
 import Engine.glm;
 import Engine.asset;
 
@@ -110,4 +112,35 @@ void Engine::uploadBasePositions(const std::vector<glm::vec3>& basePositions) {
 
 void Engine::setAnimation(float time, uint32_t movingCount, uint32_t entityOffset) {
     m_renderer.setAnimation(time, movingCount, entityOffset);
+}
+void Engine::debugLine(const glm::vec3& from, const glm::vec3& to, const glm::vec4& color) { m_renderer.addDebugLine(from, to, color); }
+
+void Engine::debugBox(const glm::vec3& c, const glm::vec3& h, const glm::vec4& color) {
+    const glm::vec3 corners[8] = {
+        {c.x - h.x, c.y - h.y, c.z - h.z}, {c.x + h.x, c.y - h.y, c.z - h.z}, {c.x + h.x, c.y + h.y, c.z - h.z}, {c.x - h.x, c.y + h.y, c.z - h.z},
+        {c.x - h.x, c.y - h.y, c.z + h.z}, {c.x + h.x, c.y - h.y, c.z + h.z}, {c.x + h.x, c.y + h.y, c.z + h.z}, {c.x - h.x, c.y + h.y, c.z + h.z}};
+    constexpr int edges[12][2] = {{0, 1}, {1, 2}, {2, 3}, {3, 0}, {4, 5}, {5, 6}, {6, 7}, {7, 4}, {0, 4}, {1, 5}, {2, 6}, {3, 7}};
+    for (const auto& e : edges) debugLine(corners[e[0]], corners[e[1]], color);
+}
+
+void Engine::debugSphere(const glm::vec3& center, float radius, const glm::vec4& color) {
+    constexpr int segments = 24;
+    constexpr float step = 6.28318530718f / segments;
+    for (int i = 0; i < segments; ++i) {
+        const float a0 = step * i, a1 = step * (i + 1);
+        const float c0 = std::cos(a0) * radius, s0 = std::sin(a0) * radius;
+        const float c1 = std::cos(a1) * radius, s1 = std::sin(a1) * radius;
+        debugLine(center + glm::vec3(c0, s0, 0.0f), center + glm::vec3(c1, s1, 0.0f), color);
+        debugLine(center + glm::vec3(c0, 0.0f, s0), center + glm::vec3(c1, 0.0f, s1), color);
+        debugLine(center + glm::vec3(0.0f, c0, s0), center + glm::vec3(0.0f, c1, s1), color);
+    }
+}
+
+void Engine::debugRay(const Ray& ray, float length, const glm::vec4& color) { debugLine(ray.origin, ray.origin + ray.direction * length, color); }
+
+void Engine::debugHierarchy(const glm::vec4& color) {
+    m_world.forEach([&](EntityHandle e) {
+        const EntityHandle parent = m_world.getParent(e);
+        if (!parent.isNull()) debugLine(m_world.getWorldPosition(parent), m_world.getWorldPosition(e), color);
+    });
 }

@@ -286,6 +286,11 @@ Diligent::RefCntAutoPtr<Diligent::IBuffer> CreateIndexBuffer(Diligent::IRenderDe
     return pBuffer;
 }
 
+struct DebugLineVertex {
+    glm::vec3 position;
+    glm::vec4 color;
+};
+
 struct DiligentData {
     Diligent::RefCntAutoPtr<Diligent::IRenderDevice> pDevice;
     Diligent::RefCntAutoPtr<Diligent::IDeviceContext> pImmediateContext;
@@ -431,6 +436,10 @@ struct DiligentData {
     Diligent::RefCntAutoPtr<Diligent::IBuffer> pTransparentCullUniforms;
 
     Diligent::RefCntAutoPtr<Diligent::IPipelineState> pDebugDepthPSO;
+    Diligent::RefCntAutoPtr<Diligent::IPipelineState> pDebugLinePSO;
+    Diligent::RefCntAutoPtr<Diligent::IShaderResourceBinding> pDebugLineSRB;
+    Diligent::RefCntAutoPtr<Diligent::IBuffer> pDebugLineVB;
+    Diligent::RefCntAutoPtr<Diligent::IBuffer> pDebugLineUBO;
     Diligent::RefCntAutoPtr<Diligent::IShaderResourceBinding> pDebugDepthSRB;
     Diligent::RefCntAutoPtr<Diligent::IBuffer> pDebugDepthUniforms;
 
@@ -542,6 +551,7 @@ void Renderer::init(GLFWwindow* window, const int windowWidth, const int windowH
     }
 
     createDebugDepthPSO();
+    createDebugLinePSO();
 
     m_numDrawingShaders = m_diligent->pOpaquePSOs.size();
     const unsigned int zero = 0;
@@ -2170,6 +2180,30 @@ void Renderer::drawScene(SceneDatabase& sceneDatabase, const Camera& camera) {
         m_diligent->pImmediateContext->Draw(DrawAttrs);
     }
 
+    if (!m_debugLines.empty() && m_diligent->pDebugLinePSO && m_diligent->pDebugLineSRB) {
+        constexpr size_t kMaxDebugVertices = 1u << 17;
+        constexpr size_t kFloatsPerVertex = sizeof(DebugLineVertex) / sizeof(float);
+        const size_t vertexCount = std::min(m_debugLines.size() / kFloatsPerVertex, kMaxDebugVertices);
+        {
+            Diligent::MapHelper<DebugLineVertex> vertices(m_diligent->pImmediateContext, m_diligent->pDebugLineVB, Diligent::MAP_WRITE, Diligent::MAP_FLAG_DISCARD);
+            std::memcpy(static_cast<DebugLineVertex*>(vertices), m_debugLines.data(), vertexCount * sizeof(DebugLineVertex));
+        }
+        {
+            Diligent::MapHelper<glm::mat4> viewProjection(m_diligent->pImmediateContext, m_diligent->pDebugLineUBO, Diligent::MAP_WRITE, Diligent::MAP_FLAG_DISCARD);
+            *viewProjection = camera.getProjectionMatrix() * camera.getViewMatrix();
+        }
+        m_diligent->pImmediateContext->SetPipelineState(m_diligent->pDebugLinePSO);
+        m_diligent->pImmediateContext->CommitShaderResources(m_diligent->pDebugLineSRB, Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
+        Diligent::IBuffer* pBuffers[] = {m_diligent->pDebugLineVB};
+        const Diligent::Uint64 offsets[] = {0};
+        m_diligent->pImmediateContext->SetVertexBuffers(0, 1, pBuffers, offsets, Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION, Diligent::SET_VERTEX_BUFFERS_FLAG_RESET);
+        Diligent::DrawAttribs lineDraw;
+        lineDraw.NumVertices = static_cast<Diligent::Uint32>(vertexCount);
+        lineDraw.Flags = Diligent::DRAW_FLAG_VERIFY_ALL;
+        m_diligent->pImmediateContext->Draw(lineDraw);
+    }
+    m_debugLines.clear();
+
     if (fullProfiling) {
         float y = 120.0f;
         const float step = 18.0f;
@@ -3270,6 +3304,105 @@ void Renderer::createDebugDepthPSO() {
     m_diligent->pDevice->CreateBuffer(CBDesc, nullptr, &m_diligent->pDebugDepthUniforms);
 
     m_diligent->pDebugDepthPSO->CreateShaderResourceBinding(&m_diligent->pDebugDepthSRB, true);
+}
+
+void Renderer::addDebugLine(const glm::vec3& from, const glm::vec3& to, const glm::vec4& color) {
+    const DebugLineVertex vertices[2] = {{from, color}, {to, color}};
+    const float* raw = reinterpret_cast<const float*>(vertices);
+    m_debugLines.insert(m_debugLines.end(), raw, raw + 2 * sizeof(DebugLineVertex) / sizeof(float));
+}
+
+void Renderer::createDebugLinePSO() {
+    std::string vsSource = LoadSourceFromFile("resources/shaders/debug_line.vert");
+    std::string fsSource = LoadSourceFromFile("resources/shaders/debug_line.frag");
+    if (vsSource.empty() || fsSource.empty()) {
+        Lit::Log::Error("Failed to load debug line shaders");
+        return;
+    }
+
+    auto stripVersion = [](std::string& src) {
+        size_t versionPos = src.find("#version");
+        if (versionPos != std::string::npos) {
+            size_t nextLine = src.find('\n', versionPos);
+            if (nextLine != std::string::npos) src = src.substr(nextLine + 1);
+        }
+    };
+    stripVersion(vsSource);
+    stripVersion(fsSource);
+
+    Diligent::ShaderCreateInfo ShaderCI;
+    ShaderCI.SourceLanguage = Diligent::SHADER_SOURCE_LANGUAGE_GLSL;
+
+    ShaderCI.Source = vsSource.c_str();
+    ShaderCI.Desc.ShaderType = Diligent::SHADER_TYPE_VERTEX;
+    ShaderCI.Desc.Name = "Debug Line VS";
+    Diligent::RefCntAutoPtr<Diligent::IShader> pVS;
+    m_diligent->pDevice->CreateShader(ShaderCI, &pVS);
+
+    ShaderCI.Source = fsSource.c_str();
+    ShaderCI.Desc.ShaderType = Diligent::SHADER_TYPE_PIXEL;
+    ShaderCI.Desc.Name = "Debug Line PS";
+    Diligent::RefCntAutoPtr<Diligent::IShader> pPS;
+    m_diligent->pDevice->CreateShader(ShaderCI, &pPS);
+
+    if (!pVS || !pPS) {
+        Lit::Log::Error("Failed to compile debug line shaders");
+        return;
+    }
+
+    Diligent::GraphicsPipelineStateCreateInfo PSOCreateInfo;
+    PSOCreateInfo.PSODesc.Name = "Debug Line PSO";
+    PSOCreateInfo.PSODesc.PipelineType = Diligent::PIPELINE_TYPE_GRAPHICS;
+    PSOCreateInfo.GraphicsPipeline.NumRenderTargets = 1;
+    PSOCreateInfo.GraphicsPipeline.RTVFormats[0] = m_diligent->pSwapChain->GetDesc().ColorBufferFormat;
+    PSOCreateInfo.GraphicsPipeline.DSVFormat = m_diligent->pSwapChain->GetDesc().DepthBufferFormat;
+    PSOCreateInfo.GraphicsPipeline.PrimitiveTopology = Diligent::PRIMITIVE_TOPOLOGY_LINE_LIST;
+    PSOCreateInfo.GraphicsPipeline.RasterizerDesc.CullMode = Diligent::CULL_MODE_NONE;
+    PSOCreateInfo.GraphicsPipeline.DepthStencilDesc.DepthEnable = true;
+    PSOCreateInfo.GraphicsPipeline.DepthStencilDesc.DepthWriteEnable = false;
+    PSOCreateInfo.GraphicsPipeline.DepthStencilDesc.DepthFunc = Diligent::COMPARISON_FUNC_LESS_EQUAL;
+    PSOCreateInfo.pVS = pVS;
+    PSOCreateInfo.pPS = pPS;
+
+    Diligent::LayoutElement LayoutElems[] = {
+        Diligent::LayoutElement{0, 0, 3, Diligent::VT_FLOAT32, false},
+        Diligent::LayoutElement{1, 0, 4, Diligent::VT_FLOAT32, false}
+    };
+    PSOCreateInfo.GraphicsPipeline.InputLayout.LayoutElements = LayoutElems;
+    PSOCreateInfo.GraphicsPipeline.InputLayout.NumElements = _countof(LayoutElems);
+
+    Diligent::ShaderResourceVariableDesc Vars[] = {
+        {Diligent::SHADER_TYPE_VERTEX, "DebugLineUniforms", Diligent::SHADER_RESOURCE_VARIABLE_TYPE_MUTABLE}
+    };
+    PSOCreateInfo.PSODesc.ResourceLayout.Variables = Vars;
+    PSOCreateInfo.PSODesc.ResourceLayout.NumVariables = _countof(Vars);
+
+    m_diligent->pDevice->CreateGraphicsPipelineState(PSOCreateInfo, &m_diligent->pDebugLinePSO);
+    if (!m_diligent->pDebugLinePSO) {
+        Lit::Log::Error("Failed to create Debug Line PSO");
+        return;
+    }
+
+    Diligent::BufferDesc UBODesc;
+    UBODesc.Name = "Debug Line Uniforms";
+    UBODesc.Usage = Diligent::USAGE_DYNAMIC;
+    UBODesc.BindFlags = Diligent::BIND_UNIFORM_BUFFER;
+    UBODesc.CPUAccessFlags = Diligent::CPU_ACCESS_WRITE;
+    UBODesc.Size = sizeof(glm::mat4);
+    m_diligent->pDevice->CreateBuffer(UBODesc, nullptr, &m_diligent->pDebugLineUBO);
+
+    Diligent::BufferDesc VBDesc;
+    VBDesc.Name = "Debug Line Vertices";
+    VBDesc.Usage = Diligent::USAGE_DYNAMIC;
+    VBDesc.BindFlags = Diligent::BIND_VERTEX_BUFFER;
+    VBDesc.CPUAccessFlags = Diligent::CPU_ACCESS_WRITE;
+    VBDesc.Size = sizeof(DebugLineVertex) * (1u << 17);
+    m_diligent->pDevice->CreateBuffer(VBDesc, nullptr, &m_diligent->pDebugLineVB);
+
+    m_diligent->pDebugLinePSO->CreateShaderResourceBinding(&m_diligent->pDebugLineSRB, true);
+    if (m_diligent->pDebugLineSRB) {
+        if (auto* var = m_diligent->pDebugLineSRB->GetVariableByName(Diligent::SHADER_TYPE_VERTEX, "DebugLineUniforms")) var->Set(m_diligent->pDebugLineUBO);
+    }
 }
 
 void Renderer::setAnimation(float time, uint32_t movingCount, uint32_t entityOffset) {

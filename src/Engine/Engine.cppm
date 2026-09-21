@@ -26,6 +26,11 @@ export class Engine {
     void init(GLFWwindow* window, const int windowWidth, const int windowHeight);
     void update(SceneDatabase& sceneDatabase, Camera& camera);
     void tick(float deltaTime);
+    void debugLine(const glm::vec3& from, const glm::vec3& to, const glm::vec4& color = glm::vec4(1.0f));
+    void debugBox(const glm::vec3& center, const glm::vec3& halfExtents, const glm::vec4& color = glm::vec4(1.0f));
+    void debugSphere(const glm::vec3& center, float radius, const glm::vec4& color = glm::vec4(1.0f));
+    void debugRay(const Ray& ray, float length, const glm::vec4& color = glm::vec4(1.0f));
+    void debugHierarchy(const glm::vec4& color = glm::vec4(0.2f, 1.0f, 0.4f, 1.0f));
     [[nodiscard]] std::optional<RayHit> pick(float screenX, float screenY);
     void setFixedTimestep(float seconds) { m_fixedStep = seconds; }
     void update();
