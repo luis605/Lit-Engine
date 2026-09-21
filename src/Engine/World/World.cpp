@@ -544,3 +544,61 @@ void World::update(float deltaTime) {
     for (EntityHandle h : removals) removeScripts(h);
     flushPendingDestroy();
 }
+
+Prefab World::capture(EntityHandle root) const {
+    Prefab prefab;
+    if (!valid(root)) return prefab;
+
+    std::vector<std::pair<Entity, int>> stack{{root.index, -1}};
+    while (!stack.empty()) {
+        const auto [idx, parentNode] = stack.back();
+        stack.pop_back();
+
+        PrefabNode node;
+        node.name = m_names[idx];
+        node.mesh = m_mesh[idx];
+        node.material = m_db.renderables[idx].material_uuid;
+        node.shader = m_db.renderables[idx].shaderId;
+        node.alpha = m_db.renderables[idx].alpha;
+        node.visible = m_visible[idx] != 0;
+        node.local = m_db.transforms[idx].localMatrix;
+        node.parent = parentNode;
+        for (const auto& [name, serializer] : m_serializers) {
+            const auto pool = m_pools.find(serializer.type);
+            if (pool == m_pools.end()) continue;
+            std::ostringstream payload;
+            serializer.write(*pool->second, payload, idx);
+            if (!payload.str().empty()) node.components.emplace_back(name, payload.str());
+        }
+
+        const int nodeIndex = static_cast<int>(prefab.nodes.size());
+        prefab.nodes.push_back(std::move(node));
+        for (Entity c = m_firstChild[idx]; c != INVALID_ENTITY; c = m_nextSibling[c]) stack.emplace_back(c, nodeIndex);
+    }
+    return prefab;
+}
+
+EntityHandle World::instantiate(const Prefab& prefab, EntityHandle parent) {
+    std::vector<EntityHandle> created;
+    created.reserve(prefab.nodes.size());
+    for (const PrefabNode& node : prefab.nodes) {
+        EntityDesc desc;
+        desc.name = node.name;
+        desc.mesh = node.mesh;
+        desc.material = node.material;
+        desc.shader = node.shader;
+        desc.alpha = node.alpha;
+        desc.parent = node.parent < 0 ? parent : created[node.parent];
+        const EntityHandle h = create(desc);
+        setLocalMatrix(h, node.local);
+        if (!node.visible) setVisible(h, false);
+        for (const auto& [name, payload] : node.components) {
+            const auto serializer = m_serializers.find(name);
+            if (serializer == m_serializers.end()) continue;
+            std::istringstream in(payload);
+            serializer->second.read(*this, h, in);
+        }
+        created.push_back(h);
+    }
+    return created.empty() ? NULL_ENTITY : created.front();
+}

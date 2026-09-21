@@ -209,6 +209,36 @@ static void testMeshRemap() {
     std::filesystem::remove(path);
 }
 
+static void testPrefab() {
+    World w;
+    w.registerComponent<Health>(
+        "Health", [](const Health& h, std::ostream& out) { out << h.hp; },
+        [](std::istream& in) -> std::optional<Health> {
+            int hp;
+            if (!(in >> hp)) return std::nullopt;
+            return Health{hp};
+        });
+    auto root = w.create("root", 1, glm::vec3(1.0f, 0.0f, 0.0f));
+    auto child = w.create("child", 2, glm::vec3(0.0f, 2.0f, 0.0f), glm::vec3(1.0f), root);
+    w.add<Health>(child, 5);
+    w.setVisible(child, false);
+    const Prefab prefab = w.capture(root);
+    CHECK(prefab.nodes.size() == 2);
+
+    auto holder = w.create("holder", 0, glm::vec3(100.0f, 0.0f, 0.0f));
+    auto copy = w.instantiate(prefab, holder);
+    CHECK(w.isAlive(copy));
+    CHECK(w.getParent(copy) == holder);
+    CHECK(w.aliveCount() == 5);
+    auto copyChildren = w.getChildren(copy);
+    CHECK(copyChildren.size() == 1);
+    CHECK(w.getName(copyChildren[0]) == "child");
+    CHECK(!w.isVisible(copyChildren[0]));
+    CHECK(w.get<Health>(copyChildren[0]) && w.get<Health>(copyChildren[0])->hp == 5);
+    CHECK(w.getWorldPosition(copy).x == 101.0f);
+    CHECK(w.capture(NULL_ENTITY).empty());
+}
+
 int main() {
     testHandles();
     testHierarchy();
@@ -220,6 +250,7 @@ int main() {
     testSaveLoad();
     testComponentSerialization();
     testMeshRemap();
+    testPrefab();
     std::printf("%d checks, %d failures\n", g_checks, g_failures);
     return g_failures == 0 ? 0 : 1;
 }

@@ -36,6 +36,23 @@ export struct EntityDesc {
     EntityHandle parent = NULL_ENTITY;
 };
 
+export struct PrefabNode {
+    std::string name;
+    uint32_t mesh = 0;
+    uint32_t material = 0;
+    uint32_t shader = 0;
+    float alpha = 1.0f;
+    bool visible = true;
+    glm::mat4 local{1.0f};
+    int parent = -1;
+    std::vector<std::pair<std::string, std::string>> components;
+};
+
+export struct Prefab {
+    std::vector<PrefabNode> nodes;
+    [[nodiscard]] bool empty() const { return nodes.empty(); }
+};
+
 export class World;
 
 class IComponentPool {
@@ -240,6 +257,9 @@ export class World {
         m_meshNameOf = std::move(nameOf);
         m_meshLoad = std::move(load);
     }
+
+    [[nodiscard]] Prefab capture(EntityHandle root) const;
+    EntityHandle instantiate(const Prefab& prefab, EntityHandle parent = NULL_ENTITY);
 
     void clear();
     bool saveScene(const std::filesystem::path& path) const;
