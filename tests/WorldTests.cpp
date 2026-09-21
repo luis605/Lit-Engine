@@ -1144,6 +1144,71 @@ static void testSystemScheduler() {
     CHECK(w.getPosition(ball).y == frozen);
 }
 
+static void testTimers() {
+    Engine engine;
+    World& w = engine.world();
+    int oneShot = 0, repeating = 0, cancelledRuns = 0;
+    w.after(0.5f, [&](World&, EntityHandle) { ++oneShot; });
+    const uint32_t ticker = w.every(0.1f, [&](World&, EntityHandle) { ++repeating; });
+    const uint32_t doomed = w.after(0.3f, [&](World&, EntityHandle) { ++cancelledRuns; });
+    CHECK(w.timerCount() == 3);
+    CHECK(w.cancel(doomed));
+    CHECK(!w.cancel(doomed));
+
+    for (int i = 0; i < 6; ++i) engine.tick(0.1f);
+    CHECK(oneShot == 1);
+    CHECK(repeating >= 5 && repeating <= 6);
+    CHECK(cancelledRuns == 0);
+    CHECK(w.timerCount() == 1);
+
+    engine.setTimeScale(0.5f);
+    const int before = repeating;
+    for (int i = 0; i < 4; ++i) engine.tick(0.1f);
+    CHECK(repeating - before >= 1 && repeating - before <= 2);
+
+    engine.setPaused(true);
+    const int paused = repeating;
+    for (int i = 0; i < 10; ++i) engine.tick(0.1f);
+    CHECK(repeating == paused);
+    engine.setPaused(false);
+    engine.setTimeScale(1.0f);
+
+    CHECK(w.cancel(ticker));
+    CHECK(w.timerCount() == 0);
+
+    auto owner = w.create("owner");
+    int owned = 0;
+    w.every(0.1f, [&](World&, EntityHandle e) { if (e == owner) ++owned; }, owner);
+    engine.tick(0.25f);
+    CHECK(owned == 2);
+    w.destroy(owner);
+    engine.tick(0.25f);
+    CHECK(owned == 2);
+    CHECK(w.timerCount() == 0);
+
+    int chained = 0;
+    w.after(0.1f, [&](World& world, EntityHandle) {
+        ++chained;
+        world.after(0.1f, [&](World&, EntityHandle) { ++chained; });
+    });
+    engine.tick(0.15f);
+    CHECK(chained == 1);
+    engine.tick(0.15f);
+    CHECK(chained == 2);
+
+    int selfCancel = 0;
+    uint32_t selfId = 0;
+    selfId = w.every(0.05f, [&](World& world, EntityHandle) {
+        ++selfCancel;
+        if (selfCancel == 3) world.cancel(selfId);
+    });
+    for (int i = 0; i < 10; ++i) engine.tick(0.05f);
+    CHECK(selfCancel == 3);
+    CHECK(w.timerCount() == 0);
+    CHECK(w.after(1.0f, nullptr) == 0);
+    CHECK(w.every(0.0f, [](World&, EntityHandle) {}) == 0);
+}
+
 int main() {
     testHandles();
     testHierarchy();
@@ -1175,6 +1240,7 @@ int main() {
     testEachAndBuilder();
     testTransformConveniences();
     testSystemScheduler();
+    testTimers();
     testAnimationAgreement();
     testCompactKeepsSpatialAndScripts();
     testFixedUpdate();

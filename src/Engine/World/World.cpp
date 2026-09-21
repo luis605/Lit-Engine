@@ -696,6 +696,7 @@ void World::clear() {
     for (auto& [type, p] : m_pools) p->clear();
     m_pendingDestroy.clear();
     m_pendingRemoveScripts.clear();
+    m_timers.clear();
     m_firstRoot = INVALID_ENTITY;
     m_aliveCount = 0;
 }
@@ -986,6 +987,62 @@ void World::runScripts(const std::function<void(Script&, EntityHandle)>& fn) {
 
 void World::update(float deltaTime) {
     runScripts([&](Script& s, EntityHandle h) { s.onUpdate(*this, h, deltaTime); });
+    runTimers(deltaTime);
+}
+
+uint32_t World::after(float seconds, TimerFn fn, EntityHandle owner) {
+    if (!fn) return 0;
+    const uint32_t id = ++m_nextTimerId;
+    m_timers.push_back({id, std::max(0.0, static_cast<double>(seconds)), 0.0, std::move(fn), owner, false});
+    return id;
+}
+
+uint32_t World::every(float seconds, TimerFn fn, EntityHandle owner) {
+    if (!fn || seconds <= 0.0f) return 0;
+    const uint32_t id = ++m_nextTimerId;
+    m_timers.push_back({id, static_cast<double>(seconds), static_cast<double>(seconds), std::move(fn), owner, false});
+    return id;
+}
+
+bool World::cancel(uint32_t timerId) {
+    for (Timer& t : m_timers) {
+        if (t.id == timerId && !t.cancelled) {
+            t.cancelled = true;
+            if (!m_firingTimers) std::erase_if(m_timers, [](const Timer& x) { return x.cancelled; });
+            return true;
+        }
+    }
+    return false;
+}
+
+void World::runTimers(float deltaTime) {
+    if (m_timers.empty()) return;
+    m_firingTimers = true;
+    const size_t count = m_timers.size();
+    for (size_t i = 0; i < count && i < m_timers.size(); ++i) {
+        if (m_timers[i].cancelled) continue;
+        if (!m_timers[i].owner.isNull() && !valid(m_timers[i].owner)) {
+            m_timers[i].cancelled = true;
+            continue;
+        }
+        m_timers[i].remaining -= deltaTime;
+        int fired = 0;
+        while (m_timers[i].remaining <= 0.0 && !m_timers[i].cancelled && fired < 1000) {
+            ++fired;
+            const TimerFn fn = m_timers[i].fn;
+            const EntityHandle owner = m_timers[i].owner;
+            const bool repeating = m_timers[i].interval > 0.0;
+            if (repeating) {
+                m_timers[i].remaining += m_timers[i].interval;
+            } else {
+                m_timers[i].cancelled = true;
+            }
+            fn(*this, owner);
+            if (!repeating) break;
+        }
+    }
+    m_firingTimers = false;
+    std::erase_if(m_timers, [](const Timer& t) { return t.cancelled; });
 }
 
 void World::fixedUpdate(float fixedDelta) {

@@ -363,6 +363,11 @@ export class World {
         for (size_t i = 0; i < p.owners().size(); ++i) fn(EntityHandle{p.owners()[i], m_generation[p.owners()[i]]}, p.data()[i]);
     }
     void update(float deltaTime);
+    using TimerFn = std::function<void(World&, EntityHandle)>;
+    uint32_t after(float seconds, TimerFn fn, EntityHandle owner = NULL_ENTITY);
+    uint32_t every(float seconds, TimerFn fn, EntityHandle owner = NULL_ENTITY);
+    bool cancel(uint32_t timerId);
+    [[nodiscard]] size_t timerCount() const { return m_timers.size(); }
     void fixedUpdate(float fixedDelta);
 
     template <typename T, typename Save, typename Load>
@@ -469,6 +474,7 @@ export class World {
         return static_cast<ComponentPool<T>&>(*slot);
     }
     void runScripts(const std::function<void(Script&, EntityHandle)>& fn);
+    void runTimers(float deltaTime);
     void runScriptDestroy(Entity idx);
     void flushPendingDestroy();
     EntityHandle createImpl(const EntityDesc& desc);
@@ -537,6 +543,17 @@ export class World {
     std::unordered_map<Entity, std::vector<std::unique_ptr<Script>>> m_scripts;
     std::vector<EntityHandle> m_pendingDestroy;
     std::vector<EntityHandle> m_pendingRemoveScripts;
+    struct Timer {
+        uint32_t id;
+        double remaining;
+        double interval;
+        TimerFn fn;
+        EntityHandle owner;
+        bool cancelled = false;
+    };
+    std::vector<Timer> m_timers;
+    uint32_t m_nextTimerId = 0;
+    bool m_firingTimers = false;
     bool m_updating = false;
     std::unordered_map<std::type_index, std::unique_ptr<IComponentPool>> m_pools;
     std::map<std::string, ComponentSerializer> m_serializers;
