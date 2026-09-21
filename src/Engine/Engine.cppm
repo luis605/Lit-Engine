@@ -25,6 +25,7 @@ export class Engine {
     void init(GLFWwindow* window, const int windowWidth, const int windowHeight);
     void update(SceneDatabase& sceneDatabase, Camera& camera);
     void tick(float deltaTime);
+    void setFixedTimestep(float seconds) { m_fixedStep = seconds; }
     void update();
     void update(World& world);
     [[nodiscard]] World& world() { return m_world; }
@@ -48,6 +49,8 @@ export class Engine {
   private:
     Renderer m_renderer;
     World m_world;
+    float m_fixedStep = 1.0f / 60.0f;
+    float m_accumulator = 0.0f;
     std::unordered_map<std::string, uint32_t> m_meshIds;
     std::unordered_map<uint32_t, std::string> m_meshNames;
 };

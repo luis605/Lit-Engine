@@ -1,6 +1,7 @@
 struct GLFWwindow;
 #include <string>
 #include <vector>
+#include <algorithm>
 #include <cstdint>
 #include <filesystem>
 #include "Engine/Log/Log.hpp"
@@ -50,6 +51,12 @@ void Engine::update(SceneDatabase& sceneDatabase, Camera& camera) {
 }
 
 void Engine::tick(float deltaTime) {
+    constexpr float maxFrame = 0.25f;
+    m_accumulator += std::min(deltaTime, maxFrame);
+    while (m_accumulator >= m_fixedStep) {
+        m_world.fixedUpdate(m_fixedStep);
+        m_accumulator -= m_fixedStep;
+    }
     m_world.update(deltaTime);
     m_world.events().dispatch();
 }

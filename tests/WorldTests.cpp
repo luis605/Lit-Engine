@@ -315,6 +315,25 @@ static void testEvents() {
     CHECK(w.events().pending() == 0);
 }
 
+struct FixedCounter : Script {
+    int* fixed;
+    int* starts;
+    FixedCounter(int* f, int* s) : fixed(f), starts(s) {}
+    void onStart(World&, EntityHandle) override { ++*starts; }
+    void onFixedUpdate(World&, EntityHandle, float) override { ++*fixed; }
+};
+
+static void testFixedUpdate() {
+    World w;
+    int fixed = 0, starts = 0;
+    auto e = w.create("e", 1);
+    w.attach<FixedCounter>(e, &fixed, &starts);
+    w.fixedUpdate(0.016f);
+    w.fixedUpdate(0.016f);
+    CHECK(fixed == 2);
+    CHECK(starts == 1);
+}
+
 int main() {
     testHandles();
     testHierarchy();
@@ -330,6 +349,7 @@ int main() {
     testLayersAndTags();
     testWorldCache();
     testEvents();
+    testFixedUpdate();
     std::printf("%d checks, %d failures\n", g_checks, g_failures);
     return g_failures == 0 ? 0 : 1;
 }

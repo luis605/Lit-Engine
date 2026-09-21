@@ -139,6 +139,7 @@ export class Script {
     virtual ~Script() = default;
     virtual void onStart(World&, EntityHandle) {}
     virtual void onUpdate(World&, EntityHandle, float) {}
+    virtual void onFixedUpdate(World&, EntityHandle, float) {}
     virtual void onDestroy(World&, EntityHandle) {}
 
   private:
@@ -257,6 +258,7 @@ export class World {
         for (size_t i = 0; i < p.owners().size(); ++i) fn(EntityHandle{p.owners()[i], m_generation[p.owners()[i]]}, p.data()[i]);
     }
     void update(float deltaTime);
+    void fixedUpdate(float fixedDelta);
 
     template <typename T, typename Save, typename Load>
     void registerComponent(std::string name, Save save, Load load) {
@@ -305,6 +307,7 @@ export class World {
         if (!slot) slot = std::make_unique<ComponentPool<T>>();
         return static_cast<ComponentPool<T>&>(*slot);
     }
+    void runScripts(const std::function<void(Script&, EntityHandle)>& fn);
     void runScriptDestroy(Entity idx);
     void flushPendingDestroy();
     EntityHandle createImpl(const EntityDesc& desc);

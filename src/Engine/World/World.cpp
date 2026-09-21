@@ -625,7 +625,7 @@ void World::flushPendingDestroy() {
     for (EntityHandle h : pending) destroy(h);
 }
 
-void World::update(float deltaTime) {
+void World::runScripts(const std::function<void(Script&, EntityHandle)>& fn) {
     std::vector<std::pair<EntityHandle, Script*>> snapshot;
     for (auto& [idx, scripts] : m_scripts) {
         for (auto& s : scripts) snapshot.emplace_back(EntityHandle{idx, m_generation[idx]}, s.get());
@@ -637,13 +637,21 @@ void World::update(float deltaTime) {
             script->m_started = true;
             script->onStart(*this, h);
         }
-        script->onUpdate(*this, h, deltaTime);
+        fn(*script, h);
     }
     m_updating = false;
     auto removals = std::move(m_pendingRemoveScripts);
     m_pendingRemoveScripts.clear();
     for (EntityHandle h : removals) removeScripts(h);
     flushPendingDestroy();
+}
+
+void World::update(float deltaTime) {
+    runScripts([&](Script& s, EntityHandle h) { s.onUpdate(*this, h, deltaTime); });
+}
+
+void World::fixedUpdate(float fixedDelta) {
+    runScripts([&](Script& s, EntityHandle h) { s.onFixedUpdate(*this, h, fixedDelta); });
 }
 
 Prefab World::capture(EntityHandle root) const {
