@@ -204,7 +204,121 @@ void World::destroy(EntityHandle e) {
     }
     unlink(e.index);
     destroyRecursive(e.index);
+    trimTail();
     touchStructure();
+}
+
+void World::shrinkSlots(size_t count) {
+    if (count >= m_alive.size()) return;
+    for (size_t i = count; i < m_alive.size(); ++i) {
+        if (m_spatialActive && i < m_spatial.size()) removeSpatialEntry(static_cast<Entity>(i));
+        m_generationBase = std::max(m_generationBase, m_generation[i] + 1);
+    }
+    m_db.transforms.resize(count);
+    m_db.hierarchies.resize(count);
+    m_db.renderables.resize(count);
+    if (m_db.m_dirtyStamp.size() > count) m_db.m_dirtyStamp.resize(count);
+    m_alive.resize(count);
+    m_generation.resize(count);
+    m_visible.resize(count);
+    m_mesh.resize(count);
+    m_layer.resize(count);
+    m_tags.resize(count);
+    m_names.resize(count);
+    m_firstChild.resize(count);
+    m_nextSibling.resize(count);
+    m_prevSibling.resize(count);
+    if (m_spatial.size() > count) m_spatial.resize(count);
+    if (m_spatialQueued.size() > count) m_spatialQueued.resize(count);
+    if (m_worldCache.size() > count) {
+        m_worldCache.resize(count);
+        m_worldDirty.resize(count);
+    }
+    std::erase_if(m_freeList, [count](Entity e) { return e >= count; });
+}
+
+void World::trimTail() {
+    size_t count = m_alive.size();
+    while (count > 0 && !m_alive[count - 1]) --count;
+    shrinkSlots(count);
+}
+
+void World::moveEntity(Entity from, Entity to) {
+    m_db.transforms[to] = m_db.transforms[from];
+    m_db.hierarchies[to] = m_db.hierarchies[from];
+    m_db.renderables[to] = m_db.renderables[from];
+    m_db.renderables[to].objectId = to;
+    m_alive[to] = 1;
+    m_visible[to] = m_visible[from];
+    m_mesh[to] = m_mesh[from];
+    m_layer[to] = m_layer[from];
+    m_names[to] = std::move(m_names[from]);
+
+    if (!m_tags[from].empty()) {
+        auto& bucket = m_tagIndex[m_tags[from]];
+        std::replace(bucket.begin(), bucket.end(), from, to);
+        m_tags[to] = std::move(m_tags[from]);
+        m_tags[from].clear();
+    }
+
+    const Entity parent = m_db.hierarchies[from].parent;
+    const Entity prev = m_prevSibling[from];
+    const Entity next = m_nextSibling[from];
+    m_prevSibling[to] = prev;
+    m_nextSibling[to] = next;
+    if (prev != INVALID_ENTITY) {
+        m_nextSibling[prev] = to;
+    } else if (parent == INVALID_ENTITY) {
+        m_firstRoot = to;
+    } else {
+        m_firstChild[parent] = to;
+    }
+    if (next != INVALID_ENTITY) m_prevSibling[next] = to;
+    m_firstChild[to] = m_firstChild[from];
+    for (Entity c = m_firstChild[to]; c != INVALID_ENTITY; c = m_nextSibling[c]) m_db.hierarchies[c].parent = to;
+
+    for (auto& [type, p] : m_pools) p->rename(from, to);
+    if (const auto it = m_scripts.find(from); it != m_scripts.end()) {
+        auto scripts = std::move(it->second);
+        m_scripts.erase(it);
+        m_scripts[to] = std::move(scripts);
+    }
+    if (m_activeCamera.index == from) m_activeCamera = {to, m_generation[to]};
+
+    if (m_spatialActive && from < m_spatial.size()) removeSpatialEntry(from);
+    if (to < m_worldDirty.size()) m_worldDirty[to] = 1;
+    invalidateWorld(to);
+    markSpatialSubtree(to);
+
+    m_alive[from] = 0;
+    m_firstChild[from] = INVALID_ENTITY;
+    m_nextSibling[from] = INVALID_ENTITY;
+    m_prevSibling[from] = INVALID_ENTITY;
+}
+
+std::vector<EntityMoved> World::compact() {
+    std::vector<EntityMoved> moved;
+    if (m_updating) return moved;
+
+    m_freeList.clear();
+    size_t hole = 0;
+    size_t tail = m_alive.size();
+    while (true) {
+        while (hole < tail && m_alive[hole]) ++hole;
+        while (tail > hole && !m_alive[tail - 1]) --tail;
+        if (hole >= tail || tail == 0) break;
+        const Entity from = static_cast<Entity>(tail - 1);
+        const Entity to = static_cast<Entity>(hole);
+        const EntityHandle oldHandle{from, m_generation[from]};
+        moveEntity(from, to);
+        ++m_generation[from];
+        moved.push_back({oldHandle, {to, m_generation[to]}});
+        --tail;
+    }
+    shrinkSlots(m_aliveCount);
+    touchStructure();
+    for (const EntityMoved& m : moved) m_events.emit(m);
+    return moved;
 }
 
 void World::setParent(EntityHandle e, EntityHandle parent, bool keepWorldTransform) {
@@ -824,6 +938,7 @@ void World::removeSpatialEntry(Entity idx) {
 }
 
 void World::rebuildSpatialEntry(Entity idx) {
+    if (idx >= m_alive.size()) return;
     if (m_spatial.size() <= idx) m_spatial.resize(m_alive.size());
     removeSpatialEntry(idx);
     if (idx >= m_alive.size() || !m_alive[idx] || !m_visible[idx] || !m_meshBounds) return;

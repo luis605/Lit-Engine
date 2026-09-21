@@ -41,6 +41,11 @@ export struct RayHit {
     float distance = 0.0f;
 };
 
+export struct EntityMoved {
+    EntityHandle from;
+    EntityHandle to;
+};
+
 export struct EntityCreated {
     EntityHandle entity;
 };
@@ -93,6 +98,7 @@ class IComponentPool {
   public:
     virtual ~IComponentPool() = default;
     virtual void remove(Entity e) = 0;
+    virtual void rename(Entity from, Entity to) = 0;
     virtual void clear() = 0;
 };
 
@@ -134,6 +140,15 @@ class ComponentPool final : public IComponentPool {
         m_sparse[e] = INVALID_ENTITY;
         m_data.pop_back();
         m_owners.pop_back();
+    }
+
+    void rename(Entity from, Entity to) override {
+        if (from >= m_sparse.size() || m_sparse[from] == INVALID_ENTITY) return;
+        if (to >= m_sparse.size()) m_sparse.resize(static_cast<size_t>(to) + 1, INVALID_ENTITY);
+        const Entity slot = m_sparse[from];
+        m_sparse[to] = slot;
+        m_owners[slot] = to;
+        m_sparse[from] = INVALID_ENTITY;
     }
 
     void clear() override {
@@ -189,6 +204,7 @@ export class World {
         touchStructure();
     }
     void destroy(EntityHandle e);
+    std::vector<EntityMoved> compact();
     [[nodiscard]] bool isAlive(EntityHandle e) const;
     [[nodiscard]] size_t aliveCount() const { return m_aliveCount; }
     void reserve(size_t count);
@@ -331,6 +347,9 @@ export class World {
 
   private:
     void destroyRecursive(Entity idx);
+    void shrinkSlots(size_t count);
+    void trimTail();
+    void moveEntity(Entity from, Entity to);
     template <typename T>
     ComponentPool<T>& pool() {
         auto& slot = m_pools[std::type_index(typeid(T))];

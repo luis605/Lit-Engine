@@ -2,6 +2,7 @@
 #include <cstdio>
 #include <filesystem>
 #include <optional>
+#include <vector>
 #include <string>
 
 import Engine.World;
@@ -430,6 +431,77 @@ static void testScreenRay() {
     CHECK(hit && hit->entity == offside);
 }
 
+static void testTrimAndCompact() {
+    World w;
+    std::vector<EntityHandle> handles;
+    for (int i = 0; i < 100; ++i) handles.push_back(w.create("e" + std::to_string(i), 1, glm::vec3(float(i), 0.0f, 0.0f)));
+    for (int i = 50; i < 100; ++i) w.destroy(handles[i]);
+    CHECK(w.database().transforms.size() == 50);
+    CHECK(w.aliveCount() == 50);
+    CHECK(!w.isAlive(handles[99]));
+    auto fresh = w.create("fresh", 1);
+    CHECK(fresh.index == 50);
+    CHECK(fresh.generation > handles[50].generation);
+    CHECK(!w.isAlive(handles[50]));
+    w.destroy(fresh);
+
+    for (int i = 0; i < 50; i += 2) w.destroy(handles[i]);
+    CHECK(w.aliveCount() == 25);
+    CHECK(w.database().transforms.size() > 25);
+
+    auto parent = w.find("e49");
+    auto childOfLast = w.create("child", 1, glm::vec3(0.0f, 5.0f, 0.0f), glm::vec3(1.0f), parent);
+    w.add<Health>(childOfLast, 7);
+    w.setTag(childOfLast, "moved");
+    w.setVisible(childOfLast, false);
+
+    const auto moved = w.compact();
+    CHECK(!moved.empty());
+    CHECK(w.database().transforms.size() == w.aliveCount());
+    CHECK(w.database().hierarchies.size() == w.aliveCount());
+    CHECK(!w.isAlive(childOfLast));
+
+    auto rc = w.find("child");
+    auto rp = w.find("e49");
+    CHECK(!rc.isNull() && !rp.isNull());
+    CHECK(w.getParent(rc) == rp);
+    CHECK(w.getChildren(rp).size() == 1);
+    CHECK(w.get<Health>(rc) && w.get<Health>(rc)->hp == 7);
+    CHECK(w.findByTag("moved").size() == 1 && w.findByTag("moved")[0] == rc);
+    CHECK(!w.isVisible(rc));
+    CHECK(w.getWorldPosition(rc).x == 49.0f && w.getWorldPosition(rc).y == 5.0f);
+    CHECK(w.database().renderables[rc.index].objectId == rc.index);
+    for (const EntityMoved& m : moved) {
+        CHECK(!w.isAlive(m.from));
+        CHECK(w.isAlive(m.to));
+    }
+    size_t roots = w.getRoots().size();
+    CHECK(roots == w.aliveCount() - 1);
+}
+
+static void testCompactKeepsSpatialAndScripts() {
+    World w;
+    w.setMeshBoundsHook([](uint32_t) { return glm::vec4(0.0f, 0.0f, 0.0f, 1.0f); });
+    auto a = w.create("a", 1, glm::vec3(0.0f, 0.0f, -10.0f));
+    auto b = w.create("b", 1, glm::vec3(0.0f, 0.0f, -30.0f));
+    auto c = w.create("c", 1, glm::vec3(0.0f, 0.0f, -50.0f));
+    CHECK(w.raycast(glm::vec3(0.0f), glm::vec3(0.0f, 0.0f, -1.0f))->entity == a);
+    int starts = 0, updates = 0, destroys = 0;
+    w.attach<Counter>(c, &starts, &updates, &destroys);
+    w.setActiveCamera(c);
+    w.destroy(a);
+    w.destroy(b);
+    w.compact();
+    auto rc = w.find("c");
+    CHECK(rc.index == 0);
+    auto hit = w.raycast(glm::vec3(0.0f), glm::vec3(0.0f, 0.0f, -1.0f));
+    CHECK(hit && hit->entity == rc);
+    CHECK(w.getActiveCamera() == rc);
+    w.update(0.016f);
+    CHECK(starts == 1 && updates == 1 && destroys == 1);
+    CHECK(w.aliveCount() == 0);
+}
+
 int main() {
     testHandles();
     testHierarchy();
@@ -445,6 +517,8 @@ int main() {
     testLayersAndTags();
     testWorldCache();
     testEvents();
+    testTrimAndCompact();
+    testCompactKeepsSpatialAndScripts();
     testFixedUpdate();
     testCameraEntity();
     testSpatial();
