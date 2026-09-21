@@ -26,6 +26,7 @@ target_sources(Engine
         World/World.cppm
         Events/Events.cppm
         Input/Input.cppm
+        Input/InputActions.cppm
         Asset/AssetManager.cppm
         UI/Manager.cppm
         UI/Text.cppm

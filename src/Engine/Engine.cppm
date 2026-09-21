@@ -15,6 +15,7 @@ import Engine.camera;
 import Engine.Render.scenedatabase;
 import Engine.mesh;
 import Engine.World;
+import Engine.inputactions;
 import Engine.glm;
 
 export class Engine {
@@ -29,6 +30,7 @@ export class Engine {
     void update();
     void update(World& world);
     [[nodiscard]] World& world() { return m_world; }
+    [[nodiscard]] InputActions& input() { return m_input; }
     [[nodiscard]] Camera& camera() { return m_world.camera(); }
     void present();
     void cleanup();
@@ -49,6 +51,7 @@ export class Engine {
   private:
     Renderer m_renderer;
     World m_world;
+    InputActions m_input;
     float m_fixedStep = 1.0f / 60.0f;
     float m_accumulator = 0.0f;
     std::unordered_map<std::string, uint32_t> m_meshIds;

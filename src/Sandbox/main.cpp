@@ -114,6 +114,13 @@ int main() {
     const uint32_t cubeMesh = engine.loadMesh("cube");
     const uint32_t sphereMesh = engine.loadMesh("sphere");
 
+    engine.input().bindAxis("move_z", GLFW_KEY_S, GLFW_KEY_W);
+    engine.input().bindAxis("move_x", GLFW_KEY_A, GLFW_KEY_D);
+    engine.input().bindKey("save", GLFW_KEY_F5);
+    engine.input().bindKey("load", GLFW_KEY_F9);
+    engine.input().bindKey("toggle_mouse", GLFW_KEY_T);
+    engine.input().bindKey("sprint", GLFW_KEY_LEFT_SHIFT);
+
     World& world = engine.world();
     Camera& camera = world.camera();
     camera.setFarPlane(500.0f);
@@ -129,23 +136,25 @@ int main() {
         const float deltaTime = now - lastTime;
         lastTime = now;
 
-        if (InputManager::IsKeyPressed(GLFW_KEY_T)) {
+        if (engine.input().pressed("toggle_mouse")) {
             mouseLocked = !mouseLocked;
             glfwSetInputMode(window, GLFW_CURSOR, mouseLocked ? GLFW_CURSOR_DISABLED : GLFW_CURSOR_NORMAL);
         }
 
-        const float speed = InputManager::IsKeyHeld(GLFW_KEY_LEFT_SHIFT) ? 4.0f : 2.0f;
-        if (InputManager::IsKeyHeld(GLFW_KEY_W)) camera.processKeyboard(CameraMovement::FORWARD, speed * deltaTime);
-        if (InputManager::IsKeyHeld(GLFW_KEY_S)) camera.processKeyboard(CameraMovement::BACKWARD, speed * deltaTime);
-        if (InputManager::IsKeyHeld(GLFW_KEY_A)) camera.processKeyboard(CameraMovement::LEFT, speed * deltaTime);
-        if (InputManager::IsKeyHeld(GLFW_KEY_D)) camera.processKeyboard(CameraMovement::RIGHT, speed * deltaTime);
+        const float speed = engine.input().held("sprint") ? 4.0f : 2.0f;
+        const float moveZ = engine.input().axis("move_z");
+        const float moveX = engine.input().axis("move_x");
+        if (moveZ > 0.0f) camera.processKeyboard(CameraMovement::FORWARD, speed * deltaTime);
+        if (moveZ < 0.0f) camera.processKeyboard(CameraMovement::BACKWARD, speed * deltaTime);
+        if (moveX < 0.0f) camera.processKeyboard(CameraMovement::LEFT, speed * deltaTime);
+        if (moveX > 0.0f) camera.processKeyboard(CameraMovement::RIGHT, speed * deltaTime);
         if (mouseLocked) {
             const glm::vec2 delta = InputManager::GetMouseDelta();
             camera.processMouseMovement(delta.x, -delta.y);
         }
 
-        if (InputManager::IsKeyPressed(GLFW_KEY_F5)) world.saveScene("resources/sandbox.litscene");
-        if (InputManager::IsKeyPressed(GLFW_KEY_F9) && world.loadScene("resources/sandbox.litscene")) scene.rebind();
+        if (engine.input().pressed("save")) world.saveScene("resources/sandbox.litscene");
+        if (engine.input().pressed("load") && world.loadScene("resources/sandbox.litscene")) scene.rebind();
 
         inverseKinematics(scene, deltaTime);
 
