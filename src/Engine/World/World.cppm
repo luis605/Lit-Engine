@@ -308,6 +308,7 @@ export class World {
 
     void setMeshBoundsHook(std::function<glm::vec4(uint32_t)> bounds) { m_meshBounds = std::move(bounds); }
     void setSpatialCellSize(float size);
+    [[nodiscard]] glm::vec4 getWorldBounds(EntityHandle e) const;
     [[nodiscard]] Ray screenRay(float screenX, float screenY, float width, float height) const;
     [[nodiscard]] std::vector<EntityHandle> overlapSphere(const glm::vec3& center, float radius);
     [[nodiscard]] std::optional<RayHit> raycast(const glm::vec3& origin, const glm::vec3& direction, float maxDistance = 1.0e30f);

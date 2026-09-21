@@ -8,8 +8,10 @@ target_sources(Editor
         BASE_DIRS "${CMAKE_CURRENT_SOURCE_DIR}"
         FILES
             Application.cppm
+            Inspector/Inspector.cppm
     PRIVATE
         Application/Application.cpp
+        Inspector/Inspector.cpp
         main.cpp
 
 )

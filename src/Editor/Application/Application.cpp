@@ -133,6 +133,7 @@ void  Application::update() {
    m_engine.setSmallObjectThreshold(m_smallObjectThreshold);
    m_engine.setLargeObjectThreshold(m_largeObjectThreshold);
 
+   m_inspector.update(m_engine, !m_mouseLocked);
    m_engine.update();
 
    m_textUpdateTimer += deltaTime;
@@ -157,10 +158,9 @@ void  Application::update() {
 }
 
 void Application::processInput(float deltaTime) {
-    static bool mouseLocked = false;
     if (InputManager::IsKeyPressed(GLFW_KEY_T)) {
-        mouseLocked = !mouseLocked;
-        if (mouseLocked) {
+        m_mouseLocked = !m_mouseLocked;
+        if (m_mouseLocked) {
             glfwSetInputMode(m_window, GLFW_CURSOR, GLFW_CURSOR_DISABLED);
         } else {
             glfwSetInputMode(m_window, GLFW_CURSOR, GLFW_CURSOR_NORMAL);
@@ -252,8 +252,10 @@ void Application::processInput(float deltaTime) {
         Lit::Log::Info("Camera position: LIT_CAM_POS={:.1f},{:.1f},{:.1f}", pos.x, pos.y, pos.z);
     }
 
-    glm::vec2 mouseDelta = InputManager::GetMouseDelta();
-    m_world.camera().processMouseMovement(mouseDelta.x, -mouseDelta.y);
+    if (m_mouseLocked) {
+        const glm::vec2 mouseDelta = InputManager::GetMouseDelta();
+        m_world.camera().processMouseMovement(mouseDelta.x, -mouseDelta.y);
+    }
 }
 
 bool Application::isRunning() const { return !glfwWindowShouldClose(m_window); }

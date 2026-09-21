@@ -978,3 +978,11 @@ Ray World::screenRay(float screenX, float screenY, float width, float height) co
     const glm::vec3 f = glm::vec3(farPoint) / farPoint.w;
     return {n, glm::normalize(f - n)};
 }
+
+glm::vec4 World::getWorldBounds(EntityHandle e) const {
+    if (!valid(e) || !m_meshBounds) return glm::vec4(0.0f);
+    const glm::vec4 bounds = m_meshBounds(m_mesh[e.index]);
+    const glm::mat4 world = getWorldMatrix(e);
+    const float maxScale = std::max({glm::length(glm::vec3(world[0])), glm::length(glm::vec3(world[1])), glm::length(glm::vec3(world[2]))});
+    return glm::vec4(glm::vec3(world * glm::vec4(glm::vec3(bounds), 1.0f)), bounds.w * maxScale);
+}

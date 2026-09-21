@@ -8,6 +8,7 @@ module;
 export module Editor.application;
 
 import Engine.engine;
+import Editor.inspector;
 import Engine.camera;
 import Engine.World;
 import Engine.input;
@@ -28,6 +29,8 @@ export class Application {
 
     GLFWwindow* m_window;
     Engine m_engine;
+    Inspector m_inspector;
+    bool m_mouseLocked = false;
     World& m_world;
     EntityHandle m_parentEntity;
     std::string m_frameTimeText;
