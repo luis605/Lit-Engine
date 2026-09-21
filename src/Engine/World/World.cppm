@@ -2,7 +2,10 @@ module;
 
 #include <cstdint>
 #include <functional>
+#include <istream>
+#include <map>
 #include <memory>
+#include <ostream>
 #include <utility>
 #include <filesystem>
 #include <optional>
@@ -58,6 +61,11 @@ class ComponentPool final : public IComponentPool {
         return m_data.back();
     }
 
+    [[nodiscard]] const T* find(Entity e) const {
+        if (e >= m_sparse.size() || m_sparse[e] == INVALID_ENTITY) return nullptr;
+        return &m_data[m_sparse[e]];
+    }
+
     [[nodiscard]] T* find(Entity e) {
         if (e >= m_sparse.size() || m_sparse[e] == INVALID_ENTITY) return nullptr;
         return &m_data[m_sparse[e]];
@@ -102,6 +110,13 @@ export class Script {
   private:
     friend class World;
     bool m_started = false;
+};
+
+struct ComponentSerializer {
+    std::function<void(const IComponentPool&, std::ostream&, Entity)> write;
+    std::function<bool(World&, EntityHandle, std::istream&)> read;
+    std::function<void(const IComponentPool&, const std::function<void(Entity)>&)> owners;
+    std::type_index type;
 };
 
 export class World {
@@ -202,6 +217,25 @@ export class World {
     }
     void update(float deltaTime);
 
+    template <typename T, typename Save, typename Load>
+    void registerComponent(std::string name, Save save, Load load) {
+        ComponentSerializer serializer{
+            [save](const IComponentPool& p, std::ostream& out, Entity e) {
+                if (const T* value = static_cast<const ComponentPool<T>&>(p).find(e)) save(*value, out);
+            },
+            [load](World& w, EntityHandle e, std::istream& in) {
+                std::optional<T> value = load(in);
+                if (!value) return false;
+                w.add<T>(e, std::move(*value));
+                return true;
+            },
+            [](const IComponentPool& p, const std::function<void(Entity)>& fn) {
+                for (Entity e : static_cast<const ComponentPool<T>&>(p).owners()) fn(e);
+            },
+            std::type_index(typeid(T))};
+        m_serializers.insert_or_assign(std::move(name), std::move(serializer));
+    }
+
     void clear();
     bool saveScene(const std::filesystem::path& path) const;
     bool loadScene(const std::filesystem::path& path);
@@ -247,6 +281,7 @@ export class World {
     std::vector<EntityHandle> m_pendingRemoveScripts;
     bool m_updating = false;
     std::unordered_map<std::type_index, std::unique_ptr<IComponentPool>> m_pools;
+    std::map<std::string, ComponentSerializer> m_serializers;
     std::vector<std::string> m_names;
     std::vector<Entity> m_freeList;
     size_t m_aliveCount = 0;

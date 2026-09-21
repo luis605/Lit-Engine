@@ -1,5 +1,6 @@
 #include <cstdio>
 #include <filesystem>
+#include <optional>
 #include <string>
 
 import Engine.World;
@@ -169,6 +170,29 @@ static void testSaveLoad() {
     std::filesystem::remove(path);
 }
 
+static void testComponentSerialization() {
+    World w;
+    w.registerComponent<Health>(
+        "Health", [](const Health& h, std::ostream& out) { out << h.hp; },
+        [](std::istream& in) -> std::optional<Health> {
+            int hp;
+            if (!(in >> hp)) return std::nullopt;
+            return Health{hp};
+        });
+    auto a = w.create("a", 1);
+    auto b = w.create("b", 1);
+    w.add<Health>(b, 42);
+    (void)a;
+    const auto path = std::filesystem::temp_directory_path() / "lit_world_comp_test.litscene";
+    CHECK(w.saveScene(path));
+    w.clear();
+    CHECK(w.loadScene(path));
+    auto rb = w.find("b");
+    CHECK(w.get<Health>(rb) && w.get<Health>(rb)->hp == 42);
+    CHECK(!w.has<Health>(w.find("a")));
+    std::filesystem::remove(path);
+}
+
 int main() {
     testHandles();
     testHierarchy();
@@ -178,6 +202,7 @@ int main() {
     testComponents();
     testScripts();
     testSaveLoad();
+    testComponentSerialization();
     std::printf("%d checks, %d failures\n", g_checks, g_failures);
     return g_failures == 0 ? 0 : 1;
 }

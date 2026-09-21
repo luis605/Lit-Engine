@@ -376,7 +376,7 @@ bool World::saveScene(const std::filesystem::path& path) const {
     std::ofstream out(path);
     if (!out) return false;
     out.precision(9);
-    out << "LITSCENE 1\n" << m_aliveCount << "\n";
+    out << "LITSCENE 2\n" << m_aliveCount << "\n";
     for (Entity i = 0; i < m_alive.size(); ++i) {
         if (!m_alive[i]) continue;
         const auto& r = m_db.renderables[i];
@@ -385,6 +385,16 @@ bool World::saveScene(const std::filesystem::path& path) const {
         const float* m = &m_db.transforms[i].localMatrix[0][0];
         for (int k = 0; k < 16; ++k) out << ' ' << m[k];
         out << '\t' << m_names[i] << '\n';
+    }
+    for (const auto& [name, serializer] : m_serializers) {
+        const auto pool = m_pools.find(serializer.type);
+        if (pool == m_pools.end()) continue;
+        serializer.owners(*pool->second, [&](Entity e) {
+            if (!m_alive[e]) return;
+            out << "component " << name << ' ' << e << '\t';
+            serializer.write(*pool->second, out, e);
+            out << '\n';
+        });
     }
     return static_cast<bool>(out);
 }
@@ -396,7 +406,7 @@ bool World::loadScene(const std::filesystem::path& path) {
     int version = 0;
     size_t count = 0;
     in >> magic >> version >> count;
-    if (!in || magic != "LITSCENE" || version != 1) return false;
+    if (!in || magic != "LITSCENE" || (version != 1 && version != 2)) return false;
     in.ignore(1, '\n');
 
     struct Record {
@@ -409,9 +419,14 @@ bool World::loadScene(const std::filesystem::path& path) {
 
     clear();
     reserve(count);
+    std::vector<std::string> componentLines;
     std::string line;
     while (std::getline(in, line)) {
         if (line.empty()) continue;
+        if (line.rfind("component ", 0) == 0) {
+            componentLines.push_back(line);
+            continue;
+        }
         const size_t tab = line.find('\t');
         std::istringstream fields(line.substr(0, tab));
         long long id, parent;
@@ -437,6 +452,20 @@ bool World::loadScene(const std::filesystem::path& path) {
         if (r.parent < 0) continue;
         const auto it = handles.find(r.parent);
         if (it != handles.end()) setParent(handles[r.id], it->second, false);
+    }
+
+    for (const std::string& componentLine : componentLines) {
+        const size_t tab = componentLine.find('\t');
+        if (tab == std::string::npos) continue;
+        std::istringstream head(componentLine.substr(0, tab));
+        std::string keyword, name;
+        long long id;
+        head >> keyword >> name >> id;
+        const auto serializer = m_serializers.find(name);
+        const auto handle = handles.find(id);
+        if (!head || serializer == m_serializers.end() || handle == handles.end()) continue;
+        std::istringstream payload(componentLine.substr(tab + 1));
+        serializer->second.read(*this, handle->second, payload);
     }
     return true;
 }
