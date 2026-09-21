@@ -50,6 +50,8 @@ void World::reserve(size_t count) {
     m_generation.reserve(count);
     m_visible.reserve(count);
     m_mesh.reserve(count);
+    m_layer.reserve(count);
+    m_tags.reserve(count);
     m_firstChild.reserve(count);
     m_nextSibling.reserve(count);
     m_prevSibling.reserve(count);
@@ -115,6 +117,8 @@ EntityHandle World::createImpl(const EntityDesc& desc) {
         m_generation.push_back(m_generationBase);
         m_visible.push_back(1);
         m_mesh.push_back(0);
+        m_layer.push_back(1);
+        m_tags.emplace_back();
         m_firstChild.push_back(INVALID_ENTITY);
         m_nextSibling.push_back(INVALID_ENTITY);
         m_prevSibling.push_back(INVALID_ENTITY);
@@ -125,6 +129,7 @@ EntityHandle World::createImpl(const EntityDesc& desc) {
     m_db.transforms[idx].localMatrix = compose(desc.position, desc.rotation, desc.scale);
     auto& r = m_db.renderables[idx];
     m_visible[idx] = 1;
+    m_layer[idx] = 1;
     m_mesh[idx] = desc.mesh;
     r.mesh_uuid = desc.mesh;
     r.material_uuid = desc.material;
@@ -152,6 +157,7 @@ void World::destroyRecursive(Entity idx) {
         child = next;
     }
     runScriptDestroy(idx);
+    clearTag(idx);
     for (auto& [type, p] : m_pools) p->remove(idx);
     m_alive[idx] = 0;
     ++m_generation[idx];
@@ -299,6 +305,48 @@ glm::vec3 World::getScale(EntityHandle e) const {
 
 glm::vec3 World::getWorldPosition(EntityHandle e) const { return glm::vec3(getWorldMatrix(e)[3]); }
 
+void World::clearTag(Entity idx) {
+    if (m_tags[idx].empty()) return;
+    auto it = m_tagIndex.find(m_tags[idx]);
+    if (it != m_tagIndex.end()) {
+        auto& bucket = it->second;
+        bucket.erase(std::remove(bucket.begin(), bucket.end(), idx), bucket.end());
+        if (bucket.empty()) m_tagIndex.erase(it);
+    }
+    m_tags[idx].clear();
+}
+
+void World::setTag(EntityHandle e, std::string tag) {
+    if (!valid(e)) return;
+    clearTag(e.index);
+    if (tag.empty()) return;
+    m_tagIndex[tag].push_back(e.index);
+    m_tags[e.index] = std::move(tag);
+}
+
+const std::string& World::getTag(EntityHandle e) const { return valid(e) ? m_tags[e.index] : kEmptyName; }
+
+std::vector<EntityHandle> World::findByTag(const std::string& tag) const {
+    std::vector<EntityHandle> out;
+    const auto it = m_tagIndex.find(tag);
+    if (it == m_tagIndex.end()) return out;
+    out.reserve(it->second.size());
+    for (Entity idx : it->second) out.push_back({idx, m_generation[idx]});
+    return out;
+}
+
+void World::setLayer(EntityHandle e, uint32_t mask) {
+    if (valid(e)) m_layer[e.index] = mask;
+}
+
+uint32_t World::getLayer(EntityHandle e) const { return valid(e) ? m_layer[e.index] : 0; }
+
+void World::forEachInLayer(uint32_t mask, const std::function<void(EntityHandle)>& fn) const {
+    for (Entity i = 0; i < m_alive.size(); ++i) {
+        if (m_alive[i] && (m_layer[i] & mask)) fn({i, m_generation[i]});
+    }
+}
+
 void World::setVisible(EntityHandle e, bool visible) {
     if (!valid(e) || (m_visible[e.index] != 0) == visible) return;
     m_visible[e.index] = visible ? 1 : 0;
@@ -361,6 +409,9 @@ void World::clear() {
     m_generation.clear();
     m_visible.clear();
     m_mesh.clear();
+    m_layer.clear();
+    m_tags.clear();
+    m_tagIndex.clear();
     m_firstChild.clear();
     m_nextSibling.clear();
     m_prevSibling.clear();
@@ -396,7 +447,11 @@ bool World::saveScene(const std::filesystem::path& path) const {
         out << i << ' ' << (parent == INVALID_ENTITY ? -1 : static_cast<long long>(parent)) << ' ' << int(m_visible[i]) << ' ' << m_mesh[i] << ' ' << r.material_uuid << ' ' << r.shaderId << ' ' << r.alpha;
         const float* m = &m_db.transforms[i].localMatrix[0][0];
         for (int k = 0; k < 16; ++k) out << ' ' << m[k];
+        out << ' ' << m_layer[i];
         out << '\t' << m_names[i] << '\n';
+    }
+    for (Entity i = 0; i < m_alive.size(); ++i) {
+        if (m_alive[i] && !m_tags[i].empty()) out << "tag " << i << '\t' << m_tags[i] << '\n';
     }
     for (const auto& [name, serializer] : m_serializers) {
         const auto pool = m_pools.find(serializer.type);
@@ -443,7 +498,7 @@ bool World::loadScene(const std::filesystem::path& path) {
             }
             continue;
         }
-        if (line.rfind("component ", 0) == 0) {
+        if (line.rfind("tag ", 0) == 0 || line.rfind("component ", 0) == 0) {
             componentLines.push_back(line);
             continue;
         }
@@ -460,10 +515,13 @@ bool World::loadScene(const std::filesystem::path& path) {
             clear();
             return false;
         }
+        uint32_t layer = 1;
+        if (!(fields >> layer)) layer = 1;
         if (tab != std::string::npos) desc.name = line.substr(tab + 1);
         if (const auto remap = meshRemap.find(desc.mesh); remap != meshRemap.end()) desc.mesh = remap->second;
         const EntityHandle h = create(desc);
         setLocalMatrix(h, local);
+        setLayer(h, layer);
         if (!visible) setVisible(h, false);
         handles[id] = h;
         records.push_back({id, parent});
@@ -481,6 +539,12 @@ bool World::loadScene(const std::filesystem::path& path) {
         std::istringstream head(componentLine.substr(0, tab));
         std::string keyword, name;
         long long id;
+        if (componentLine.rfind("tag ", 0) == 0) {
+            head >> keyword >> id;
+            const auto handle = handles.find(id);
+            if (head && handle != handles.end()) setTag(handle->second, componentLine.substr(tab + 1));
+            continue;
+        }
         head >> keyword >> name >> id;
         const auto serializer = m_serializers.find(name);
         const auto handle = handles.find(id);
@@ -561,6 +625,8 @@ Prefab World::capture(EntityHandle root) const {
         node.shader = m_db.renderables[idx].shaderId;
         node.alpha = m_db.renderables[idx].alpha;
         node.visible = m_visible[idx] != 0;
+        node.layer = m_layer[idx];
+        node.tag = m_tags[idx];
         node.local = m_db.transforms[idx].localMatrix;
         node.parent = parentNode;
         for (const auto& [name, serializer] : m_serializers) {
@@ -592,6 +658,8 @@ EntityHandle World::instantiate(const Prefab& prefab, EntityHandle parent) {
         const EntityHandle h = create(desc);
         setLocalMatrix(h, node.local);
         if (!node.visible) setVisible(h, false);
+        setLayer(h, node.layer);
+        setTag(h, node.tag);
         for (const auto& [name, payload] : node.components) {
             const auto serializer = m_serializers.find(name);
             if (serializer == m_serializers.end()) continue;

@@ -43,6 +43,8 @@ export struct PrefabNode {
     uint32_t shader = 0;
     float alpha = 1.0f;
     bool visible = true;
+    uint32_t layer = 1;
+    std::string tag;
     glm::mat4 local{1.0f};
     int parent = -1;
     std::vector<std::pair<std::string, std::string>> components;
@@ -184,6 +186,13 @@ export class World {
     [[nodiscard]] glm::vec3 getScale(EntityHandle e) const;
     [[nodiscard]] glm::vec3 getWorldPosition(EntityHandle e) const;
 
+    void setLayer(EntityHandle e, uint32_t mask);
+    [[nodiscard]] uint32_t getLayer(EntityHandle e) const;
+    void forEachInLayer(uint32_t mask, const std::function<void(EntityHandle)>& fn) const;
+    void setTag(EntityHandle e, std::string tag);
+    [[nodiscard]] const std::string& getTag(EntityHandle e) const;
+    [[nodiscard]] std::vector<EntityHandle> findByTag(const std::string& tag) const;
+
     void setVisible(EntityHandle e, bool visible);
     [[nodiscard]] bool isVisible(EntityHandle e) const;
     [[nodiscard]] uint32_t getMesh(EntityHandle e) const;
@@ -283,6 +292,7 @@ export class World {
     void runScriptDestroy(Entity idx);
     void flushPendingDestroy();
     EntityHandle createImpl(const EntityDesc& desc);
+    void clearTag(Entity idx);
     void link(Entity idx, Entity parent);
     void unlink(Entity idx);
     [[nodiscard]] bool valid(EntityHandle h) const;
@@ -296,6 +306,9 @@ export class World {
     std::vector<uint32_t> m_generation;
     std::vector<uint8_t> m_visible;
     std::vector<uint32_t> m_mesh;
+    std::vector<uint32_t> m_layer;
+    std::vector<std::string> m_tags;
+    std::unordered_map<std::string, std::vector<Entity>> m_tagIndex;
     std::vector<Entity> m_firstChild;
     std::vector<Entity> m_nextSibling;
     std::vector<Entity> m_prevSibling;

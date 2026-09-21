@@ -239,6 +239,39 @@ static void testPrefab() {
     CHECK(w.capture(NULL_ENTITY).empty());
 }
 
+static void testLayersAndTags() {
+    World w;
+    auto a = w.create("a", 1);
+    auto b = w.create("b", 1);
+    auto c = w.create("c", 1);
+    w.setLayer(b, 0b10);
+    w.setLayer(c, 0b110);
+    int hits = 0;
+    w.forEachInLayer(0b10, [&](EntityHandle) { ++hits; });
+    CHECK(hits == 2);
+    w.setTag(a, "enemy");
+    w.setTag(b, "enemy");
+    CHECK(w.findByTag("enemy").size() == 2);
+    w.setTag(a, "ally");
+    CHECK(w.findByTag("enemy").size() == 1);
+    w.destroy(b);
+    CHECK(w.findByTag("enemy").empty());
+    CHECK(w.getTag(a) == "ally");
+    const Prefab prefab = w.capture(a);
+    auto copy = w.instantiate(prefab);
+    CHECK(w.getTag(copy) == "ally");
+    CHECK(w.findByTag("ally").size() == 2);
+
+    const auto path = std::filesystem::temp_directory_path() / "lit_world_tag_test.litscene";
+    w.setLayer(c, 0b1000);
+    CHECK(w.saveScene(path));
+    w.clear();
+    CHECK(w.loadScene(path));
+    CHECK(w.findByTag("ally").size() == 2);
+    CHECK(w.getLayer(w.find("c")) == 0b1000);
+    std::filesystem::remove(path);
+}
+
 int main() {
     testHandles();
     testHierarchy();
@@ -251,6 +284,7 @@ int main() {
     testComponentSerialization();
     testMeshRemap();
     testPrefab();
+    testLayersAndTags();
     std::printf("%d checks, %d failures\n", g_checks, g_failures);
     return g_failures == 0 ? 0 : 1;
 }
