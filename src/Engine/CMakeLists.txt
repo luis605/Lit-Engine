@@ -26,6 +26,7 @@ target_sources(Engine
         World/World.cppm
         Events/Events.cppm
         Physics/Physics.cppm
+        History/History.cppm
         Input/Input.cppm
         Input/InputActions.cppm
         Asset/AssetManager.cppm
@@ -43,6 +44,7 @@ target_sources(Engine
         Render/Mesh.cpp
         World/World.cpp
         Physics/Physics.cpp
+        History/History.cpp
 )
 
 target_compile_features(Engine PUBLIC cxx_std_23)

@@ -946,6 +946,7 @@ Prefab World::capture(EntityHandle root) const {
         node.local = m_db.transforms[idx].localMatrix;
         node.parent = parentNode;
         node.sourceIndex = idx;
+        node.sourceGeneration = m_generation[idx];
         for (const auto& [name, serializer] : m_serializers) {
             const auto pool = m_pools.find(serializer.type);
             if (pool == m_pools.end()) continue;
@@ -970,7 +971,7 @@ Prefab World::capture(EntityHandle root) const {
     return prefab;
 }
 
-EntityHandle World::instantiate(const Prefab& prefab, EntityHandle parent) {
+EntityHandle World::instantiate(const Prefab& prefab, EntityHandle parent, std::vector<EntityHandle>* createdOut) {
     std::vector<EntityHandle> created;
     created.reserve(prefab.nodes.size());
     std::unordered_map<uint32_t, EntityHandle> remap;
@@ -1012,6 +1013,7 @@ EntityHandle World::instantiate(const Prefab& prefab, EntityHandle parent) {
             serializer->second.read(*this, created[i], in, context);
         }
     }
+    if (createdOut) *createdOut = created;
     return created.empty() ? NULL_ENTITY : created.front();
 }
 

@@ -3,14 +3,19 @@ module;
 #include <GLFW/glfw3.h>
 #include <algorithm>
 #include <format>
+#include <memory>
 #include <string>
 #include <vector>
 #include "Engine/Log/Log.hpp"
 
 module Editor.inspector;
 
+Inspector::Inspector() = default;
+Inspector::~Inspector() = default;
+
 void Inspector::update(Engine& engine, bool pickingEnabled) {
     World& world = engine.world();
+    if (!m_history) m_history = std::make_unique<History>(world);
     if (!world.isAlive(m_selected)) {
         m_selected = NULL_ENTITY;
         m_reparenting = false;
@@ -26,7 +31,7 @@ void Inspector::handleClick(Engine& engine) {
     const auto hit = engine.pick(mouse.x, mouse.y);
     World& world = engine.world();
     if (m_reparenting && world.isAlive(m_selected)) {
-        world.setParent(m_selected, hit ? hit->entity : NULL_ENTITY);
+        m_history->setParent(m_selected, hit ? hit->entity : NULL_ENTITY);
         m_reparenting = false;
         return;
     }
@@ -35,19 +40,32 @@ void Inspector::handleClick(Engine& engine) {
 
 void Inspector::handleKeys(Engine& engine) {
     World& world = engine.world();
+    const bool ctrl = InputManager::IsKeyHeld(GLFW_KEY_LEFT_CONTROL) || InputManager::IsKeyHeld(GLFW_KEY_RIGHT_CONTROL);
+    const bool shift = InputManager::IsKeyHeld(GLFW_KEY_LEFT_SHIFT) || InputManager::IsKeyHeld(GLFW_KEY_RIGHT_SHIFT);
+    if (ctrl && InputManager::IsKeyPressed(GLFW_KEY_Z)) {
+        if (shift) {
+            m_history->redo();
+        } else {
+            m_history->undo();
+        }
+        return;
+    }
+    if (ctrl && InputManager::IsKeyPressed(GLFW_KEY_Y)) {
+        m_history->redo();
+        return;
+    }
     if (!world.isAlive(m_selected)) return;
 
-    if (InputManager::IsKeyPressed(GLFW_KEY_H)) world.setVisible(m_selected, !world.isVisible(m_selected));
+    if (InputManager::IsKeyPressed(GLFW_KEY_H)) m_history->setVisible(m_selected, !world.isVisible(m_selected));
     if (InputManager::IsKeyPressed(GLFW_KEY_DELETE)) {
-        world.destroy(m_selected);
+        m_history->destroy(m_selected);
         m_selected = NULL_ENTITY;
         return;
     }
     if (InputManager::IsKeyPressed(GLFW_KEY_C)) {
-        const Prefab prefab = world.capture(m_selected);
-        const EntityHandle copy = world.instantiate(prefab, world.getParent(m_selected));
-        world.translate(copy, glm::vec3(2.0f, 0.0f, 0.0f));
-        m_selected = copy;
+        Prefab prefab = world.capture(m_selected);
+        if (!prefab.nodes.empty()) prefab.nodes.front().local = glm::translate(prefab.nodes.front().local, glm::vec3(2.0f, 0.0f, 0.0f));
+        m_selected = m_history->instantiate(prefab, world.getParent(m_selected));
     }
     if (InputManager::IsKeyPressed(GLFW_KEY_G)) m_reparenting = !m_reparenting;
     if (InputManager::IsKeyPressed(GLFW_KEY_BACKSPACE)) {
@@ -69,7 +87,7 @@ void Inspector::draw(Engine& engine) {
 
     line("Inspector", accent);
     line("click pick  H hide  C clone", white);
-    line("G reparent  Del destroy", white);
+    line("G reparent  Del destroy  Ctrl+Z/Y undo", white);
     line(std::format("entities alive: {}", world.aliveCount()), white);
     if (!world.isAlive(m_selected)) {
         line("nothing selected", white);

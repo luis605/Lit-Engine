@@ -11,6 +11,7 @@
 import Engine.engine;
 import Engine.World;
 import Engine.Physics;
+import Engine.History;
 import Engine.Render.entity;
 import Engine.Render.component;
 import Engine.glm;
@@ -862,6 +863,67 @@ static void testEntityReferences() {
     CHECK(w.get<Link>(ra)->target == rb);
 }
 
+static void testHistory() {
+    World w;
+    History history(w);
+
+    auto a = history.create(EntityDesc{.name = "a", .mesh = 1, .position = glm::vec3(1.0f, 0.0f, 0.0f)});
+    auto b = history.create(EntityDesc{.name = "b", .mesh = 1, .position = glm::vec3(0.0f, 2.0f, 0.0f)});
+    CHECK(w.aliveCount() == 2);
+
+    history.setLocalMatrix(a, glm::translate(glm::mat4(1.0f), glm::vec3(9.0f, 0.0f, 0.0f)));
+    CHECK(w.getPosition(a).x == 9.0f);
+    CHECK(history.undo());
+    CHECK(w.getPosition(a).x == 1.0f);
+    CHECK(history.redo());
+    CHECK(w.getPosition(a).x == 9.0f);
+    CHECK(!history.redo());
+
+    history.setVisible(b, false);
+    CHECK(!w.isVisible(b));
+    history.undo();
+    CHECK(w.isVisible(b));
+
+    history.setParent(b, a, false);
+    CHECK(w.getParent(b) == a);
+    history.undo();
+    CHECK(w.getParent(b).isNull());
+    history.redo();
+    CHECK(w.getParent(b) == a);
+
+    history.destroy(a);
+    CHECK(w.aliveCount() == 0);
+    CHECK(history.undo());
+    CHECK(w.aliveCount() == 2);
+    auto ra = w.find("a");
+    auto rb = w.find("b");
+    CHECK(!ra.isNull() && !rb.isNull());
+    CHECK(w.getParent(rb) == ra);
+    CHECK(w.getPosition(ra).x == 9.0f);
+    CHECK(history.resolve(a) == ra);
+    CHECK(history.resolve(b) == rb);
+
+    history.setLocalMatrix(b, glm::translate(glm::mat4(1.0f), glm::vec3(0.0f, 0.0f, 5.0f)));
+    CHECK(w.getPosition(rb).z == 5.0f);
+    history.undo();
+    CHECK(w.getPosition(rb).z == 0.0f && w.getPosition(rb).y == 2.0f);
+    history.undo();
+    CHECK(w.getParent(w.find("b")).isNull());
+    history.undo();
+    CHECK(w.getPosition(w.find("a")).x == 1.0f);
+    history.undo();
+    CHECK(w.aliveCount() == 1);
+    history.undo();
+    CHECK(w.aliveCount() == 0);
+    CHECK(!history.undo());
+    history.redo();
+    history.redo();
+    CHECK(w.aliveCount() == 2);
+
+    history.create(EntityDesc{.name = "c", .mesh = 1});
+    CHECK(!history.canRedo());
+}
+
 int main() {
     testHandles();
     testHierarchy();
@@ -886,6 +948,7 @@ int main() {
     testPhysics();
     testAdditiveLoad();
     testEntityReferences();
+    testHistory();
     testAnimationAgreement();
     testCompactKeepsSpatialAndScripts();
     testFixedUpdate();

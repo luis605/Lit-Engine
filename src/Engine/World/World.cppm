@@ -108,6 +108,7 @@ export struct PrefabNode {
     glm::mat4 local{1.0f};
     int parent = -1;
     uint32_t sourceIndex = INVALID_ENTITY;
+    uint32_t sourceGeneration = 0;
     std::vector<std::pair<std::string, std::string>> components;
     std::vector<std::pair<std::string, std::string>> scripts;
 };
@@ -362,7 +363,7 @@ export class World {
     }
 
     [[nodiscard]] Prefab capture(EntityHandle root) const;
-    EntityHandle instantiate(const Prefab& prefab, EntityHandle parent = NULL_ENTITY);
+    EntityHandle instantiate(const Prefab& prefab, EntityHandle parent = NULL_ENTITY, std::vector<EntityHandle>* createdOut = nullptr);
 
     void setMeshBoundsHook(std::function<glm::vec4(uint32_t)> bounds) { m_meshBounds = std::move(bounds); }
     void setAnimation(uint32_t firstEntity, std::vector<glm::vec3> basePositions);
