@@ -45,6 +45,8 @@ export class Engine {
     void cleanup();
     uint32_t uploadMesh(const Mesh& mesh);
     uint32_t loadMesh(const std::string& name);
+    uint32_t createMaterial(const glm::vec3& color, float strength = 1.0f);
+    void updateMaterial(uint32_t id, const glm::vec3& color, float strength = 1.0f);
     void uploadBasePositions(const std::vector<glm::vec3>& basePositions);
     void setAnimation(float time, uint32_t movingCount, uint32_t entityOffset);
     void AddText(const std::string& text, float x, float y, float scale, const glm::vec3& color);
@@ -68,6 +70,7 @@ export class Engine {
     std::vector<glm::vec3> m_animationBase;
     uint32_t m_animationOffset = 0;
     uint32_t m_animationCount = 0;
+    uint32_t m_materialCount = 1;
     float m_fixedStep = 1.0f / 60.0f;
     float m_accumulator = 0.0f;
     std::unordered_map<std::string, uint32_t> m_meshIds;

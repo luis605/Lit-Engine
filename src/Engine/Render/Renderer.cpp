@@ -109,6 +109,7 @@ struct CullingUniforms {
 constexpr uint32_t MAX_MESHES = 2048;
 
 constexpr uint32_t MAX_DIRTY_PER_FRAME = 65536;
+constexpr uint32_t kMaxMaterials = 1024;
 
 constexpr uint32_t INVALID_MESH_UUID = 0xFFFFFFFFu;
 
@@ -436,6 +437,7 @@ struct DiligentData {
     Diligent::RefCntAutoPtr<Diligent::IBuffer> pTransparentCullUniforms;
 
     Diligent::RefCntAutoPtr<Diligent::IPipelineState> pDebugDepthPSO;
+    Diligent::RefCntAutoPtr<Diligent::IBuffer> pMaterialBuffer;
     Diligent::RefCntAutoPtr<Diligent::IPipelineState> pDebugLinePSO;
     Diligent::RefCntAutoPtr<Diligent::IShaderResourceBinding> pDebugLineSRB;
     Diligent::RefCntAutoPtr<Diligent::IBuffer> pDebugLineVB;
@@ -802,6 +804,11 @@ void Renderer::reallocateBuffers(size_t numObjects) {
         }
     }
 
+    if (!m_diligent->pMaterialBuffer) {
+        std::vector<glm::vec4> materials(kMaxMaterials, glm::vec4(0.0f));
+        m_diligent->pMaterialBuffer = CreateStructuredBuffer(m_diligent->pDevice, "Material Buffer", sizeof(glm::vec4), kMaxMaterials, materials.data());
+    }
+
     if (!m_diligent->pBasePositionBuffer) {
         glm::vec4 zero(0.0f);
         m_diligent->pBasePositionBuffer = CreateStructuredBuffer(m_diligent->pDevice, "Base Position Buffer", sizeof(glm::vec4), 1, &zero);
@@ -1074,6 +1081,8 @@ void Renderer::reallocateBuffers(size_t numObjects) {
                     if (auto* var = m_diligent->pOpaqueSRBs[i][s]->GetVariableByName(Diligent::SHADER_TYPE_VERTEX, "CullSphereBuffer")) var->Set(m_diligent->pCullSphereBuffer[i]->GetDefaultView(Diligent::BUFFER_VIEW_SHADER_RESOURCE));
                     if (auto* var = m_diligent->pOpaqueSRBs[i][s]->GetVariableByName(Diligent::SHADER_TYPE_VERTEX, "WorldMatrixBuffer")) var->Set(m_diligent->pWorldMatrixBuffer[i]->GetDefaultView(Diligent::BUFFER_VIEW_SHADER_RESOURCE));
                     if (auto* var = m_diligent->pOpaqueSRBs[i][s]->GetVariableByName(Diligent::SHADER_TYPE_VERTEX, "VisibleObjectBuffer")) var->Set(m_diligent->pSortedVisibleObjectBuffer[i]->GetDefaultView(Diligent::BUFFER_VIEW_SHADER_RESOURCE));
+                    if (auto* var = m_diligent->pOpaqueSRBs[i][s]->GetVariableByName(Diligent::SHADER_TYPE_VERTEX, "RenderableBuffer")) var->Set(m_diligent->pRenderableBuffer[i]->GetDefaultView(Diligent::BUFFER_VIEW_SHADER_RESOURCE));
+                    if (auto* var = m_diligent->pOpaqueSRBs[i][s]->GetVariableByName(Diligent::SHADER_TYPE_VERTEX, "MaterialBuffer")) var->Set(m_diligent->pMaterialBuffer->GetDefaultView(Diligent::BUFFER_VIEW_SHADER_RESOURCE));
                 }
             }
         }
@@ -1089,6 +1098,8 @@ void Renderer::reallocateBuffers(size_t numObjects) {
                     if (auto* var = m_diligent->pPointSRBs[i][s]->GetVariableByName(Diligent::SHADER_TYPE_VERTEX, "CullOrientationBuffer")) var->Set(m_diligent->pCullOrientationBuffer[i]->GetDefaultView(Diligent::BUFFER_VIEW_SHADER_RESOURCE));
                     if (auto* var = m_diligent->pPointSRBs[i][s]->GetVariableByName(Diligent::SHADER_TYPE_VERTEX, "NormalSampleBuffer")) var->Set(m_diligent->pNormalSampleBuffer->GetDefaultView(Diligent::BUFFER_VIEW_SHADER_RESOURCE));
                     if (auto* var = m_diligent->pPointSRBs[i][s]->GetVariableByName(Diligent::SHADER_TYPE_VERTEX, "VisibleObjectBuffer")) var->Set(m_diligent->pSortedVisibleObjectBuffer[i]->GetDefaultView(Diligent::BUFFER_VIEW_SHADER_RESOURCE));
+                    if (auto* var = m_diligent->pPointSRBs[i][s]->GetVariableByName(Diligent::SHADER_TYPE_VERTEX, "RenderableBuffer")) var->Set(m_diligent->pRenderableBuffer[i]->GetDefaultView(Diligent::BUFFER_VIEW_SHADER_RESOURCE));
+                    if (auto* var = m_diligent->pPointSRBs[i][s]->GetVariableByName(Diligent::SHADER_TYPE_VERTEX, "MaterialBuffer")) var->Set(m_diligent->pMaterialBuffer->GetDefaultView(Diligent::BUFFER_VIEW_SHADER_RESOURCE));
                 }
             }
         }
@@ -1102,6 +1113,8 @@ void Renderer::reallocateBuffers(size_t numObjects) {
                 if (auto* var = m_diligent->pTransparentSRB[i]->GetVariableByName(Diligent::SHADER_TYPE_VERTEX, "CullSphereBuffer")) var->Set(m_diligent->pCullSphereBuffer[i]->GetDefaultView(Diligent::BUFFER_VIEW_SHADER_RESOURCE));
                 if (auto* var = m_diligent->pTransparentSRB[i]->GetVariableByName(Diligent::SHADER_TYPE_VERTEX, "WorldMatrixBuffer")) var->Set(m_diligent->pWorldMatrixBuffer[i]->GetDefaultView(Diligent::BUFFER_VIEW_SHADER_RESOURCE));
                 if (auto* var = m_diligent->pTransparentSRB[i]->GetVariableByName(Diligent::SHADER_TYPE_VERTEX, "VisibleTransparentObjectBuffer")) var->Set(m_diligent->pVisibleTransparentObjectIdsBuffer[i]->GetDefaultView(Diligent::BUFFER_VIEW_SHADER_RESOURCE));
+                if (auto* var = m_diligent->pTransparentSRB[i]->GetVariableByName(Diligent::SHADER_TYPE_VERTEX, "RenderableBuffer")) var->Set(m_diligent->pRenderableBuffer[i]->GetDefaultView(Diligent::BUFFER_VIEW_SHADER_RESOURCE));
+                if (auto* var = m_diligent->pTransparentSRB[i]->GetVariableByName(Diligent::SHADER_TYPE_VERTEX, "MaterialBuffer")) var->Set(m_diligent->pMaterialBuffer->GetDefaultView(Diligent::BUFFER_VIEW_SHADER_RESOURCE));
             }
         }
     }
@@ -2644,7 +2657,9 @@ void Renderer::createOpaquePSOs() {
         std::vector<Diligent::ShaderResourceVariableDesc> Vars = {
             {Diligent::SHADER_TYPE_VERTEX, "SceneData",           Diligent::SHADER_RESOURCE_VARIABLE_TYPE_MUTABLE},
             {Diligent::SHADER_TYPE_PIXEL,  "SceneData",           Diligent::SHADER_RESOURCE_VARIABLE_TYPE_MUTABLE},
-            {Diligent::SHADER_TYPE_VERTEX, "VisibleObjectBuffer", Diligent::SHADER_RESOURCE_VARIABLE_TYPE_MUTABLE}
+            {Diligent::SHADER_TYPE_VERTEX, "VisibleObjectBuffer", Diligent::SHADER_RESOURCE_VARIABLE_TYPE_MUTABLE},
+            {Diligent::SHADER_TYPE_VERTEX, "RenderableBuffer",    Diligent::SHADER_RESOURCE_VARIABLE_TYPE_MUTABLE},
+            {Diligent::SHADER_TYPE_VERTEX, "MaterialBuffer",      Diligent::SHADER_RESOURCE_VARIABLE_TYPE_MUTABLE}
         };
         if (!point) { Vars.push_back({Diligent::SHADER_TYPE_VERTEX, "WorldMatrixBuffer", Diligent::SHADER_RESOURCE_VARIABLE_TYPE_MUTABLE}); }
         if (point) {
@@ -2749,7 +2764,9 @@ void Renderer::createTransparentPSO() {
         {Diligent::SHADER_TYPE_PIXEL,  "SceneData",                      Diligent::SHADER_RESOURCE_VARIABLE_TYPE_MUTABLE},
         {Diligent::SHADER_TYPE_VERTEX, "WorldMatrixBuffer",              Diligent::SHADER_RESOURCE_VARIABLE_TYPE_MUTABLE},
         {Diligent::SHADER_TYPE_VERTEX, "CullSphereBuffer",               Diligent::SHADER_RESOURCE_VARIABLE_TYPE_MUTABLE},
-        {Diligent::SHADER_TYPE_VERTEX, "VisibleTransparentObjectBuffer", Diligent::SHADER_RESOURCE_VARIABLE_TYPE_MUTABLE}
+        {Diligent::SHADER_TYPE_VERTEX, "VisibleTransparentObjectBuffer", Diligent::SHADER_RESOURCE_VARIABLE_TYPE_MUTABLE},
+        {Diligent::SHADER_TYPE_VERTEX, "RenderableBuffer",               Diligent::SHADER_RESOURCE_VARIABLE_TYPE_MUTABLE},
+        {Diligent::SHADER_TYPE_VERTEX, "MaterialBuffer",                 Diligent::SHADER_RESOURCE_VARIABLE_TYPE_MUTABLE}
     };
     PSOCreateInfo.PSODesc.ResourceLayout.Variables = Vars.data();
     PSOCreateInfo.PSODesc.ResourceLayout.NumVariables = Vars.size();
@@ -3304,6 +3321,11 @@ void Renderer::createDebugDepthPSO() {
     m_diligent->pDevice->CreateBuffer(CBDesc, nullptr, &m_diligent->pDebugDepthUniforms);
 
     m_diligent->pDebugDepthPSO->CreateShaderResourceBinding(&m_diligent->pDebugDepthSRB, true);
+}
+
+void Renderer::setMaterial(uint32_t index, const glm::vec4& colorAndStrength) {
+    if (index >= kMaxMaterials || !m_diligent || !m_diligent->pMaterialBuffer) return;
+    m_diligent->pImmediateContext->UpdateBuffer(m_diligent->pMaterialBuffer, static_cast<Diligent::Uint64>(index) * sizeof(glm::vec4), sizeof(glm::vec4), &colorAndStrength, Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
 }
 
 void Renderer::addDebugLine(const glm::vec3& from, const glm::vec3& to, const glm::vec4& color) {

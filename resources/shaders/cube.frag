@@ -18,6 +18,7 @@ layout(std140) uniform SceneData {
     vec4 pointLight1Color;
 };
 
+layout(location = 5) flat in vec4 in_material;
 layout(location = 0) out vec4 out_color;
 #ifdef POINT_SPRITE
 layout(location = 3) flat in float in_pointRound;
@@ -68,7 +69,7 @@ void main() {
     vec3 p1Color = (p1Diff + p1Spec) * pointLight1Color.rgb * (pointLight1Color.w * p1Atten);
 
     vec3 lighting = ambient + sunColor + p0Color + p1Color;
-    vec3 baseColor = abs(N) * 0.7 + 0.3;
+    vec3 baseColor = mix(abs(N) * 0.7 + 0.3, in_material.rgb, in_material.a);
 
     out_color = vec4(baseColor * lighting, 1.0);
 }

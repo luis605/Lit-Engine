@@ -39,6 +39,25 @@ layout(std430, binding = 6) readonly buffer CullSphereBuffer {
 layout (location = 0) out vec3 FragPos;
 layout (location = 1) out vec3 Normal;
 layout (location = 2) flat out float Billboard;
+layout (location = 5) flat out vec4 out_material;
+struct MaterialRenderable {
+    uint mesh_uuid;
+    uint material_uuid;
+    uint shaderId;
+    uint objectId;
+    float alpha;
+    uint flags;
+};
+
+layout(std430) readonly buffer RenderableBuffer {
+    MaterialRenderable renderables[];
+};
+
+layout(std430) readonly buffer MaterialBuffer {
+    vec4 materials[];
+};
+
+
 
 struct VisibleTransparentObject {
     uint objectId;
@@ -57,6 +76,7 @@ void main()
     uint packedEntry = visibleObjects[gl_InstanceIndex].objectId;
     uint objectId = packedEntry & 0x1FFFFFFFu;
     uint lod = packedEntry >> 29u;
+    out_material = materials[min(renderables[objectId].material_uuid, 1023u)];
 
     if (lod == LOD_BILLBOARD) {
         vec4 boundingSphere = cullSpheres[objectId];

@@ -166,3 +166,15 @@ void Engine::applyWorldAnimation() {
     const size_t count = std::min<size_t>(m_animationCount, m_animationBase.size());
     m_world.setAnimation(m_animationOffset, std::vector<glm::vec3>(m_animationBase.begin(), m_animationBase.begin() + count));
 }
+
+uint32_t Engine::createMaterial(const glm::vec3& color, float strength) {
+    constexpr uint32_t maxMaterials = 1024;
+    if (m_materialCount >= maxMaterials) return 0;
+    const uint32_t id = m_materialCount++;
+    updateMaterial(id, color, strength);
+    return id;
+}
+
+void Engine::updateMaterial(uint32_t id, const glm::vec3& color, float strength) {
+    m_renderer.setMaterial(id, glm::vec4(color, std::clamp(strength, 0.0f, 1.0f)));
+}

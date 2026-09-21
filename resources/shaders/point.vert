@@ -20,6 +20,25 @@ layout(std430) readonly buffer VisibleObjectBuffer {
     uint visibleIndices[];
 };
 
+struct MaterialRenderable {
+    uint mesh_uuid;
+    uint material_uuid;
+    uint shaderId;
+    uint objectId;
+    float alpha;
+    uint flags;
+};
+
+layout(std430) readonly buffer RenderableBuffer {
+    MaterialRenderable renderables[];
+};
+
+layout(std430) readonly buffer MaterialBuffer {
+    vec4 materials[];
+};
+
+layout(location = 5) flat out vec4 out_material;
+
 layout(std430) readonly buffer CullSphereBuffer {
     vec4 cullSpheres[];
 };
@@ -56,6 +75,7 @@ vec3 rotate(vec4 q, vec3 v) {
 
 void main() {
     uint objectId = visibleIndices[gl_InstanceIndex] & 0x1FFFFFFFu;
+    out_material = materials[min(renderables[objectId].material_uuid, 1023u)];
     uint meshSlot = uint(gl_VertexIndex) / LOD_LEVEL_COUNT * LOD_LEVEL_COUNT;
     vec4 boundingSphere = cullSpheres[objectId];
     vec4 orientation = cullOrientations[objectId];

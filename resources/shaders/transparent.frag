@@ -19,6 +19,7 @@ layout(std140) uniform SceneData {
     vec4 pointLight1Color;
 };
 
+layout(location = 5) flat in vec4 in_material;
 layout(location = 0) out vec4 out_color;
 #ifdef POINT_SPRITE
 layout(location = 3) flat in float in_pointRound;
@@ -56,7 +57,7 @@ vec3 billboardLighting(vec3 fragPos) {
 
 void main() {
     if (in_billboard > 0.5) {
-        out_color = vec4(vec3(0.3, 0.6, 1.0) * billboardLighting(in_fragPos), 0.6);
+        out_color = vec4(mix(vec3(0.3, 0.6, 1.0), in_material.rgb, in_material.a) * billboardLighting(in_fragPos), 0.6);
         return;
     }
     vec3 N = normalize(in_normal);
@@ -101,7 +102,7 @@ void main() {
     vec3 p1Color = (p1Diff + p1Spec) * pointLight1Color.rgb * (pointLight1Color.w * p1Atten);
 
     vec3 lighting = ambient + sunColor + p0Color + p1Color;
-    vec3 baseColor = vec3(0.3, 0.6, 1.0);
+    vec3 baseColor = mix(vec3(0.3, 0.6, 1.0), in_material.rgb, in_material.a);
 
     out_color = vec4(baseColor * lighting, 0.6);
 }
