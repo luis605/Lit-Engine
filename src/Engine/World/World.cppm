@@ -357,6 +357,7 @@ export class World {
     void setAnimationTime(float time) { m_animTime = time; }
     [[nodiscard]] static glm::vec3 orbitOffset(float time, uint32_t animIndex);
     void setSpatialCellSize(float size);
+    [[nodiscard]] std::vector<EntityHandle> queryFrustum(const Camera& camera);
     [[nodiscard]] glm::vec4 getWorldBounds(EntityHandle e) const;
     [[nodiscard]] Ray screenRay(float screenX, float screenY, float width, float height) const;
     [[nodiscard]] std::vector<EntityHandle> overlapSphere(const glm::vec3& center, float radius);

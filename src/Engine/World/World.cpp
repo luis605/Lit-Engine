@@ -1261,3 +1261,70 @@ bool collectLights(World& world, const glm::vec3& viewPos, std::array<glm::vec4,
     }
     return true;
 }
+
+std::vector<EntityHandle> World::queryFrustum(const Camera& camera) {
+    refreshSpatial();
+    const glm::mat4 vp = camera.getProjectionMatrix() * camera.getViewMatrix();
+    glm::vec4 planes[6];
+    const glm::vec4 row0(vp[0][0], vp[1][0], vp[2][0], vp[3][0]);
+    const glm::vec4 row1(vp[0][1], vp[1][1], vp[2][1], vp[3][1]);
+    const glm::vec4 row2(vp[0][2], vp[1][2], vp[2][2], vp[3][2]);
+    const glm::vec4 row3(vp[0][3], vp[1][3], vp[2][3], vp[3][3]);
+    planes[0] = row3 + row0;
+    planes[1] = row3 - row0;
+    planes[2] = row3 + row1;
+    planes[3] = row3 - row1;
+    planes[4] = row2;
+    planes[5] = row3 - row2;
+    for (glm::vec4& plane : planes) plane /= glm::length(glm::vec3(plane));
+
+    const auto visible = [&](Entity e) {
+        const SpatialEntry& entry = m_spatial[e];
+        for (const glm::vec4& plane : planes) {
+            if (glm::dot(glm::vec3(plane), entry.center) + plane.w < -entry.radius) return false;
+        }
+        return true;
+    };
+
+    const glm::mat4 inv = glm::inverse(vp);
+    glm::vec3 lo(std::numeric_limits<float>::max());
+    glm::vec3 hi(std::numeric_limits<float>::lowest());
+    for (int i = 0; i < 8; ++i) {
+        const glm::vec4 corner = inv * glm::vec4((i & 1) ? 1.0f : -1.0f, (i & 2) ? 1.0f : -1.0f, (i & 4) ? 1.0f : 0.0f, 1.0f);
+        const glm::vec3 p = glm::vec3(corner) / corner.w;
+        lo = glm::min(lo, p);
+        hi = glm::max(hi, p);
+    }
+    lo -= glm::vec3(m_maxSmallRadius);
+    hi += glm::vec3(m_maxSmallRadius);
+
+    std::vector<EntityHandle> out;
+    const int x0 = static_cast<int>(std::floor(lo.x / m_cellSize)), x1 = static_cast<int>(std::floor(hi.x / m_cellSize));
+    const int y0 = static_cast<int>(std::floor(lo.y / m_cellSize)), y1 = static_cast<int>(std::floor(hi.y / m_cellSize));
+    const int z0 = static_cast<int>(std::floor(lo.z / m_cellSize)), z1 = static_cast<int>(std::floor(hi.z / m_cellSize));
+    const double span = static_cast<double>(x1 - x0 + 1) * static_cast<double>(y1 - y0 + 1) * static_cast<double>(z1 - z0 + 1);
+
+    if (span > static_cast<double>(m_cells.size())) {
+        for (const auto& [key, bucket] : m_cells) {
+            for (Entity e : bucket) {
+                if (visible(e)) out.push_back({e, m_generation[e]});
+            }
+        }
+    } else {
+        for (int x = x0; x <= x1; ++x) {
+            for (int y = y0; y <= y1; ++y) {
+                for (int z = z0; z <= z1; ++z) {
+                    const auto it = m_cells.find(spatialKey(x, y, z));
+                    if (it == m_cells.end()) continue;
+                    for (Entity e : it->second) {
+                        if (visible(e)) out.push_back({e, m_generation[e]});
+                    }
+                }
+            }
+        }
+    }
+    for (Entity e : m_largeEntities) {
+        if (visible(e)) out.push_back({e, m_generation[e]});
+    }
+    return out;
+}

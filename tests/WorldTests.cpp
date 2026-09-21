@@ -1,4 +1,5 @@
 #include <chrono>
+#include <algorithm>
 #include <array>
 #include <cmath>
 #include <cstdio>
@@ -685,6 +686,37 @@ static void testLights() {
     CHECK(lights[4].w == 1.0f && lights[5].w == 0.0f);
 }
 
+static void testFrustumQuery() {
+    World w;
+    w.setMeshBoundsHook([](uint32_t) { return glm::vec4(0.0f, 0.0f, 0.0f, 1.0f); });
+    w.camera().setPos(glm::vec3(0.0f));
+    w.camera().setOrientation(-90.0f, 0.0f);
+    w.camera().updateAspectRatio(16.0f, 9.0f);
+    w.camera().setNearPlane(0.1f);
+    w.camera().setFarPlane(100.0f);
+
+    auto front = w.create("front", 1, glm::vec3(0.0f, 0.0f, -10.0f));
+    auto behind = w.create("behind", 1, glm::vec3(0.0f, 0.0f, 10.0f));
+    auto beyond = w.create("beyond", 1, glm::vec3(0.0f, 0.0f, -200.0f));
+    auto wide = w.create("wide", 1, glm::vec3(60.0f, 0.0f, -10.0f));
+    auto edge = w.create("edge", 1, glm::vec3(7.6f, 0.0f, -10.0f));
+    auto above = w.create("above", 1, glm::vec3(0.0f, 30.0f, -10.0f));
+
+    const auto visible = w.queryFrustum(w.camera());
+    const auto has = [&](EntityHandle e) { return std::find(visible.begin(), visible.end(), e) != visible.end(); };
+    CHECK(has(front));
+    CHECK(has(edge));
+    CHECK(!has(behind));
+    CHECK(!has(beyond));
+    CHECK(!has(wide));
+    CHECK(!has(above));
+    CHECK(visible.size() == 2);
+
+    w.camera().setOrientation(90.0f, 0.0f);
+    const auto turned = w.queryFrustum(w.camera());
+    CHECK(turned.size() == 1 && turned[0] == behind);
+}
+
 int main() {
     testHandles();
     testHierarchy();
@@ -705,6 +737,7 @@ int main() {
     testScriptSerialization();
     testTimeService();
     testLights();
+    testFrustumQuery();
     testAnimationAgreement();
     testCompactKeepsSpatialAndScripts();
     testFixedUpdate();

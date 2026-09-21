@@ -29,6 +29,8 @@ using ::glm::rotate;
 using ::glm::scale;
 using ::glm::quat;
 using ::glm::abs;
+using ::glm::max;
+using ::glm::min;
 using ::glm::translate;
 using ::glm::value_ptr;
 using ::glm::sin;
