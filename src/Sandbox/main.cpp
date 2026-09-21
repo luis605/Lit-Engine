@@ -11,7 +11,7 @@ import Engine.camera;
 import Engine.input;
 import Engine.mesh;
 import Engine.asset;
-import Engine.Render.scenedatabase;
+import Engine.World;
 import Engine.glm;
 import Sandbox.scene;
 
@@ -97,10 +97,8 @@ void inverseKinematics(Scene& scene, const float deltaTime) {
     glm::mat4 m0 = glm::translate(glm::mat4(1.0f), pos0) * glm::mat4_cast(rot1) * glm::scale(glm::mat4(1.0f), size);
     glm::mat4 m1 = glm::translate(glm::mat4(1.0f), pos1) * glm::mat4_cast(rot2) * glm::scale(glm::mat4(1.0f), size);
 
-    sceneCtx.scene.transforms.at(0).localMatrix = m0;
-    sceneCtx.scene.transforms.at(1).localMatrix = m1;
-
-    sceneCtx.scene.markTransformsDirty();
+    sceneCtx.world.setLocalMatrix(scene.lower(), m0);
+    sceneCtx.world.setLocalMatrix(scene.upper(), m1);
 }
 
 int main() {
@@ -129,11 +127,11 @@ int main() {
     const uint32_t cubeMesh = loadMesh(engine, "cube");
     const uint32_t sphereMesh = loadMesh(engine, "sphere");
 
-    SceneDatabase sceneDatabase;
-    Camera camera;
+    World world;
+    Camera& camera = world.camera();
     camera.setFarPlane(500.0f);
 
-    Scene scene({engine, sceneDatabase, camera, cubeMesh, sphereMesh});
+    Scene scene({engine, world, cubeMesh, sphereMesh});
     scene.onStart();
 
     bool mouseLocked = false;
@@ -163,7 +161,7 @@ int main() {
 
         scene.onUpdate(deltaTime, now);
 
-        engine.update(sceneDatabase, camera);
+        engine.update(world);
         InputManager::Update();
         engine.present();
         glfwPollEvents();

@@ -23,6 +23,7 @@ target_sources(Engine
         Render/Entity.cppm
         Render/SceneDatabase.cppm
         Render/Mesh.cppm
+        World/World.cppm
         Input/Input.cppm
         Asset/AssetManager.cppm
         UI/Manager.cppm
@@ -37,6 +38,7 @@ target_sources(Engine
         UI/Manager.cpp
         UI/Text.cpp
         Render/Mesh.cpp
+        World/World.cpp
 )
 
 target_compile_features(Engine PUBLIC cxx_std_23)

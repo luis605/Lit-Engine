@@ -8,6 +8,7 @@ import Engine.renderer;
 import Engine.camera;
 import Engine.Render.scenedatabase;
 import Engine.mesh;
+import Engine.World;
 import Engine.glm;
 
 Engine::Engine() {}
@@ -19,6 +20,8 @@ void Engine::init(GLFWwindow* window, const int windowWidth, const int windowHei
 void Engine::update(SceneDatabase& sceneDatabase, Camera& camera) {
     m_renderer.drawScene(sceneDatabase, camera);
 }
+
+void Engine::update(World& world) { m_renderer.drawScene(world.database(), world.camera()); }
 
 void Engine::present() { m_renderer.present(); }
 

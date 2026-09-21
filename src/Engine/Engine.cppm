@@ -13,6 +13,7 @@ import Engine.renderer;
 import Engine.camera;
 import Engine.Render.scenedatabase;
 import Engine.mesh;
+import Engine.World;
 import Engine.glm;
 
 export class Engine {
@@ -22,6 +23,7 @@ export class Engine {
 
     void init(GLFWwindow* window, const int windowWidth, const int windowHeight);
     void update(SceneDatabase& sceneDatabase, Camera& camera);
+    void update(World& world);
     void present();
     void cleanup();
     uint32_t uploadMesh(const Mesh& mesh);
