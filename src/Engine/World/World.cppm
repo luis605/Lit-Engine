@@ -2,6 +2,8 @@ module;
 
 #include <cstdint>
 #include <functional>
+#include <memory>
+#include <utility>
 #include <filesystem>
 #include <optional>
 #include <string>
@@ -27,6 +29,20 @@ export struct EntityDesc {
     glm::quat rotation{1.0f, 0.0f, 0.0f, 0.0f};
     glm::vec3 scale{1.0f};
     EntityHandle parent = NULL_ENTITY;
+};
+
+export class World;
+
+export class Script {
+  public:
+    virtual ~Script() = default;
+    virtual void onStart(World&, EntityHandle) {}
+    virtual void onUpdate(World&, EntityHandle, float) {}
+    virtual void onDestroy(World&, EntityHandle) {}
+
+  private:
+    friend class World;
+    bool m_started = false;
 };
 
 export class World {
@@ -75,6 +91,24 @@ export class World {
     void setAlpha(EntityHandle e, float alpha);
     [[nodiscard]] const RenderableComponent& getRenderable(EntityHandle e) const;
 
+    Script* addScript(EntityHandle e, std::unique_ptr<Script> script);
+    template <typename T, typename... Args>
+    T* attach(EntityHandle e, Args&&... args) {
+        return static_cast<T*>(addScript(e, std::make_unique<T>(std::forward<Args>(args)...)));
+    }
+    template <typename T>
+    [[nodiscard]] T* getScript(EntityHandle e) const {
+        if (!valid(e)) return nullptr;
+        const auto it = m_scripts.find(e.index);
+        if (it == m_scripts.end()) return nullptr;
+        for (const auto& s : it->second) {
+            if (auto* p = dynamic_cast<T*>(s.get())) return p;
+        }
+        return nullptr;
+    }
+    void removeScripts(EntityHandle e);
+    void update(float deltaTime);
+
     void clear();
     bool saveScene(const std::filesystem::path& path) const;
     bool loadScene(const std::filesystem::path& path);
@@ -88,6 +122,8 @@ export class World {
 
   private:
     void destroyRecursive(Entity idx);
+    void runScriptDestroy(Entity idx);
+    void flushPendingDestroy();
     void link(Entity idx, Entity parent);
     void unlink(Entity idx);
     [[nodiscard]] bool valid(EntityHandle h) const;
@@ -106,6 +142,10 @@ export class World {
     std::vector<Entity> m_prevSibling;
     Entity m_firstRoot = INVALID_ENTITY;
     uint32_t m_generationBase = 0;
+    std::unordered_map<Entity, std::vector<std::unique_ptr<Script>>> m_scripts;
+    std::vector<EntityHandle> m_pendingDestroy;
+    std::vector<EntityHandle> m_pendingRemoveScripts;
+    bool m_updating = false;
     std::vector<std::string> m_names;
     std::vector<Entity> m_freeList;
     size_t m_aliveCount = 0;

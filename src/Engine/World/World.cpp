@@ -144,6 +144,7 @@ void World::destroyRecursive(Entity idx) {
         destroyRecursive(child);
         child = next;
     }
+    runScriptDestroy(idx);
     m_alive[idx] = 0;
     ++m_generation[idx];
     m_firstChild[idx] = INVALID_ENTITY;
@@ -157,6 +158,10 @@ void World::destroyRecursive(Entity idx) {
 
 void World::destroy(EntityHandle e) {
     if (!valid(e)) return;
+    if (m_updating) {
+        m_pendingDestroy.push_back(e);
+        return;
+    }
     unlink(e.index);
     destroyRecursive(e.index);
     touchStructure();
@@ -353,6 +358,9 @@ void World::clear() {
     m_prevSibling.clear();
     m_names.clear();
     m_freeList.clear();
+    m_scripts.clear();
+    m_pendingDestroy.clear();
+    m_pendingRemoveScripts.clear();
     m_firstRoot = INVALID_ENTITY;
     m_aliveCount = 0;
 }
@@ -424,4 +432,58 @@ bool World::loadScene(const std::filesystem::path& path) {
         if (it != handles.end()) setParent(handles[r.id], it->second, false);
     }
     return true;
+}
+
+void World::runScriptDestroy(Entity idx) {
+    const auto it = m_scripts.find(idx);
+    if (it == m_scripts.end()) return;
+    const EntityHandle h{idx, m_generation[idx]};
+    auto scripts = std::move(it->second);
+    m_scripts.erase(it);
+    for (auto& s : scripts) {
+        if (s->m_started) s->onDestroy(*this, h);
+    }
+}
+
+Script* World::addScript(EntityHandle e, std::unique_ptr<Script> script) {
+    if (!valid(e) || !script) return nullptr;
+    Script* raw = script.get();
+    m_scripts[e.index].push_back(std::move(script));
+    return raw;
+}
+
+void World::removeScripts(EntityHandle e) {
+    if (!valid(e)) return;
+    if (m_updating) {
+        m_pendingRemoveScripts.push_back(e);
+        return;
+    }
+    runScriptDestroy(e.index);
+}
+
+void World::flushPendingDestroy() {
+    auto pending = std::move(m_pendingDestroy);
+    m_pendingDestroy.clear();
+    for (EntityHandle h : pending) destroy(h);
+}
+
+void World::update(float deltaTime) {
+    std::vector<std::pair<EntityHandle, Script*>> snapshot;
+    for (auto& [idx, scripts] : m_scripts) {
+        for (auto& s : scripts) snapshot.emplace_back(EntityHandle{idx, m_generation[idx]}, s.get());
+    }
+
+    m_updating = true;
+    for (auto& [h, script] : snapshot) {
+        if (!script->m_started) {
+            script->m_started = true;
+            script->onStart(*this, h);
+        }
+        script->onUpdate(*this, h, deltaTime);
+    }
+    m_updating = false;
+    auto removals = std::move(m_pendingRemoveScripts);
+    m_pendingRemoveScripts.clear();
+    for (EntityHandle h : removals) removeScripts(h);
+    flushPendingDestroy();
 }

@@ -23,6 +23,7 @@ export class Engine {
 
     void init(GLFWwindow* window, const int windowWidth, const int windowHeight);
     void update(SceneDatabase& sceneDatabase, Camera& camera);
+    void tick(float deltaTime);
     void update();
     void update(World& world);
     [[nodiscard]] World& world() { return m_world; }
