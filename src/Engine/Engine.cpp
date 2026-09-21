@@ -28,6 +28,7 @@ Engine::Engine() {
         },
         [this](const std::string& name) { return loadMesh(name); });
     m_world.setMeshBoundsHook([this](uint32_t id) { return m_renderer.getMeshBounds(id); });
+    addSystem(Phase::FixedUpdate, "physics", [this](World& world, float dt) { stepPhysics(world, dt, m_physics); });
 }
 
 uint32_t Engine::loadMesh(const std::string& name) {
@@ -67,6 +68,47 @@ void Engine::update(SceneDatabase& sceneDatabase, Camera& camera) {
     m_renderer.drawScene(sceneDatabase, camera);
 }
 
+void Engine::addSystem(Phase phase, std::string name, SystemFn fn, bool runWhenPaused) {
+    removeSystem(name);
+    m_systems.push_back({phase, std::move(name), std::move(fn), true, runWhenPaused});
+}
+
+bool Engine::removeSystem(const std::string& name) {
+    const auto it = std::find_if(m_systems.begin(), m_systems.end(), [&](const System& s) { return s.name == name; });
+    if (it == m_systems.end()) return false;
+    m_systems.erase(it);
+    return true;
+}
+
+bool Engine::setSystemEnabled(const std::string& name, bool enabled) {
+    const auto it = std::find_if(m_systems.begin(), m_systems.end(), [&](const System& s) { return s.name == name; });
+    if (it == m_systems.end()) return false;
+    it->enabled = enabled;
+    return true;
+}
+
+bool Engine::isSystemEnabled(const std::string& name) const {
+    const auto it = std::find_if(m_systems.begin(), m_systems.end(), [&](const System& s) { return s.name == name; });
+    return it != m_systems.end() && it->enabled;
+}
+
+std::vector<std::string> Engine::systemNames(Phase phase) const {
+    std::vector<std::string> names;
+    for (const System& s : m_systems) {
+        if (s.phase == phase) names.push_back(s.name);
+    }
+    return names;
+}
+
+void Engine::runSystems(Phase phase, float dt, bool paused) {
+    for (size_t i = 0; i < m_systems.size(); ++i) {
+        if (m_systems[i].phase != phase || !m_systems[i].enabled) continue;
+        if (paused && !m_systems[i].runWhenPaused) continue;
+        const SystemFn fn = m_systems[i].fn;
+        fn(m_world, dt);
+    }
+}
+
 void Engine::tick(float deltaTime) {
     constexpr float maxFrame = 0.25f;
     TimeState& t = m_world.timeState();
@@ -77,13 +119,20 @@ void Engine::tick(float deltaTime) {
     ++t.frame;
 
     if (!t.paused) {
+        runSystems(Phase::PreUpdate, t.deltaTime, false);
         m_accumulator += t.deltaTime;
         while (m_accumulator >= m_fixedStep) {
             m_world.fixedUpdate(m_fixedStep);
-            stepPhysics(m_world, m_fixedStep, m_physics);
+            runSystems(Phase::FixedUpdate, m_fixedStep, false);
             m_accumulator -= m_fixedStep;
         }
         m_world.update(t.deltaTime);
+        runSystems(Phase::Update, t.deltaTime, false);
+        runSystems(Phase::PostUpdate, t.deltaTime, false);
+    } else {
+        runSystems(Phase::PreUpdate, 0.0f, true);
+        runSystems(Phase::Update, 0.0f, true);
+        runSystems(Phase::PostUpdate, 0.0f, true);
     }
     m_world.events().dispatch();
 }

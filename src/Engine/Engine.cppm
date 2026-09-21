@@ -1,5 +1,6 @@
 module;
 
+#include <functional>
 #include <optional>
 #include <string>
 #include <unordered_map>
@@ -19,6 +20,10 @@ import Engine.Physics;
 import Engine.inputactions;
 import Engine.glm;
 
+export enum class Phase { PreUpdate, FixedUpdate, Update, PostUpdate };
+
+export using SystemFn = std::function<void(World&, float)>;
+
 export class Engine {
   public:
     Engine();
@@ -29,6 +34,11 @@ export class Engine {
     void tick(float deltaTime);
     [[nodiscard]] const TimeState& time() const { return m_world.time(); }
     [[nodiscard]] PhysicsSettings& physics() { return m_physics; }
+    void addSystem(Phase phase, std::string name, SystemFn fn, bool runWhenPaused = false);
+    bool removeSystem(const std::string& name);
+    bool setSystemEnabled(const std::string& name, bool enabled);
+    [[nodiscard]] bool isSystemEnabled(const std::string& name) const;
+    [[nodiscard]] std::vector<std::string> systemNames(Phase phase) const;
     void setTimeScale(float scale) { m_world.timeState().timeScale = scale < 0.0f ? 0.0f : scale; }
     void setPaused(bool paused) { m_world.timeState().paused = paused; }
     void debugLine(const glm::vec3& from, const glm::vec3& to, const glm::vec4& color = glm::vec4(1.0f));
@@ -65,6 +75,15 @@ export class Engine {
     void setFullProfiling(bool enabled);
 
   private:
+    struct System {
+        Phase phase;
+        std::string name;
+        SystemFn fn;
+        bool enabled = true;
+        bool runWhenPaused = false;
+    };
+
+    void runSystems(Phase phase, float dt, bool paused);
     void applyWorldAnimation();
 
     Renderer m_renderer;
@@ -77,6 +96,7 @@ export class Engine {
     uint32_t m_animationCount = 0;
     uint32_t m_materialCount = 1;
     PhysicsSettings m_physics;
+    std::vector<System> m_systems;
     float m_fixedStep = 1.0f / 60.0f;
     float m_accumulator = 0.0f;
     std::unordered_map<std::string, uint32_t> m_meshIds;

@@ -1094,6 +1094,56 @@ static void testTransformConveniences() {
     CHECK(near(w.forward(NULL_ENTITY), glm::vec3(0.0f, 0.0f, -1.0f)));
 }
 
+static void testSystemScheduler() {
+    Engine engine;
+    std::vector<std::string> log;
+    engine.addSystem(Phase::PostUpdate, "post", [&](World&, float) { log.push_back("post"); });
+    engine.addSystem(Phase::Update, "update-a", [&](World&, float) { log.push_back("update-a"); });
+    engine.addSystem(Phase::PreUpdate, "pre", [&](World&, float) { log.push_back("pre"); });
+    engine.addSystem(Phase::Update, "update-b", [&](World&, float) { log.push_back("update-b"); });
+    engine.addSystem(Phase::FixedUpdate, "fixed", [&](World&, float) { log.push_back("fixed"); });
+
+    engine.tick(1.0f / 60.0f + 0.0001f);
+    const std::vector<std::string> expected{"pre", "fixed", "update-a", "update-b", "post"};
+    CHECK(log == expected);
+    CHECK(engine.systemNames(Phase::Update) == (std::vector<std::string>{"update-a", "update-b"}));
+
+    log.clear();
+    CHECK(engine.setSystemEnabled("update-a", false));
+    CHECK(!engine.isSystemEnabled("update-a"));
+    engine.tick(1.0f / 60.0f + 0.0001f);
+    CHECK(std::count(log.begin(), log.end(), "update-a") == 0);
+    CHECK(std::count(log.begin(), log.end(), "update-b") == 1);
+
+    log.clear();
+    engine.addSystem(Phase::Update, "always", [&](World&, float dt) { log.push_back(dt == 0.0f ? "always-idle" : "always-run"); }, true);
+    engine.setPaused(true);
+    engine.tick(0.1f);
+    CHECK(log == (std::vector<std::string>{"always-idle"}));
+    engine.setPaused(false);
+
+    CHECK(engine.removeSystem("update-b"));
+    CHECK(!engine.removeSystem("update-b"));
+    CHECK(!engine.setSystemEnabled("missing", true));
+
+    engine.addSystem(Phase::Update, "update-a", [&](World&, float) { log.push_back("replaced"); });
+    log.clear();
+    engine.tick(0.01f);
+    CHECK(std::count(log.begin(), log.end(), "replaced") == 1);
+
+    Engine physicsEngine;
+    World& w = physicsEngine.world();
+    auto ball = w.create("ball", 1, glm::vec3(0.0f, 10.0f, 0.0f));
+    w.add<SphereCollider>(ball, 0.5f);
+    w.add<RigidBody>(ball);
+    for (int i = 0; i < 30; ++i) physicsEngine.tick(1.0f / 60.0f);
+    CHECK(w.getPosition(ball).y < 9.0f);
+    physicsEngine.setSystemEnabled("physics", false);
+    const float frozen = w.getPosition(ball).y;
+    for (int i = 0; i < 30; ++i) physicsEngine.tick(1.0f / 60.0f);
+    CHECK(w.getPosition(ball).y == frozen);
+}
+
 int main() {
     testHandles();
     testHierarchy();
@@ -1124,6 +1174,7 @@ int main() {
     testMeshlessEntities();
     testEachAndBuilder();
     testTransformConveniences();
+    testSystemScheduler();
     testAnimationAgreement();
     testCompactKeepsSpatialAndScripts();
     testFixedUpdate();
