@@ -792,6 +792,11 @@ void Renderer::reallocateBuffers(size_t numObjects) {
         }
     }
 
+    if (!m_diligent->pBasePositionBuffer) {
+        glm::vec4 zero(0.0f);
+        m_diligent->pBasePositionBuffer = CreateStructuredBuffer(m_diligent->pDevice, "Base Position Buffer", sizeof(glm::vec4), 1, &zero);
+    }
+
     for (int i = 0; i < NUM_FRAMES_IN_FLIGHT; ++i) {
         if (m_diligent->pAnimPSO) {
             m_diligent->pAnimSRB[i].Release();
