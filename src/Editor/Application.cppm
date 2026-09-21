@@ -29,7 +29,6 @@ export class Application {
     GLFWwindow* m_window;
     Engine m_engine;
     World& m_world;
-    std::optional<Mesh> m_mesh;
     EntityHandle m_parentEntity;
     std::string m_frameTimeText;
     std::string m_smallObjectThresholdText;

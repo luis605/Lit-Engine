@@ -2,6 +2,7 @@ module;
 
 #include <optional>
 #include <string>
+#include <unordered_map>
 #include <vector>
 #include <cstdint>
 
@@ -31,6 +32,7 @@ export class Engine {
     void present();
     void cleanup();
     uint32_t uploadMesh(const Mesh& mesh);
+    uint32_t loadMesh(const std::string& name);
     void uploadBasePositions(const std::vector<glm::vec3>& basePositions);
     void setAnimation(float time, uint32_t movingCount, uint32_t entityOffset);
     void AddText(const std::string& text, float x, float y, float scale, const glm::vec3& color);
@@ -46,4 +48,6 @@ export class Engine {
   private:
     Renderer m_renderer;
     World m_world;
+    std::unordered_map<std::string, uint32_t> m_meshIds;
+    std::unordered_map<uint32_t, std::string> m_meshNames;
 };

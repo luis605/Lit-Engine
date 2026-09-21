@@ -193,6 +193,22 @@ static void testComponentSerialization() {
     std::filesystem::remove(path);
 }
 
+static void testMeshRemap() {
+    World w;
+    w.setMeshHooks(
+        [](uint32_t id) { return id == 5 ? std::string("cube") : std::string(); },
+        [](const std::string& name) { return name == "cube" ? 77u : 0u; });
+    w.create("a", 5);
+    w.create("b", 9);
+    const auto path = std::filesystem::temp_directory_path() / "lit_world_mesh_test.litscene";
+    CHECK(w.saveScene(path));
+    w.clear();
+    CHECK(w.loadScene(path));
+    CHECK(w.getMesh(w.find("a")) == 77);
+    CHECK(w.getMesh(w.find("b")) == 9);
+    std::filesystem::remove(path);
+}
+
 int main() {
     testHandles();
     testHierarchy();
@@ -203,6 +219,7 @@ int main() {
     testScripts();
     testSaveLoad();
     testComponentSerialization();
+    testMeshRemap();
     std::printf("%d checks, %d failures\n", g_checks, g_failures);
     return g_failures == 0 ? 0 : 1;
 }

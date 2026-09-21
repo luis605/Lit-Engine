@@ -2,6 +2,8 @@ struct GLFWwindow;
 #include <string>
 #include <vector>
 #include <cstdint>
+#include <filesystem>
+#include "Engine/Log/Log.hpp"
 
 import Engine.engine;
 import Engine.renderer;
@@ -10,8 +12,34 @@ import Engine.Render.scenedatabase;
 import Engine.mesh;
 import Engine.World;
 import Engine.glm;
+import Engine.asset;
 
-Engine::Engine() {}
+Engine::Engine() {
+    m_world.setMeshHooks(
+        [this](uint32_t id) {
+            const auto it = m_meshNames.find(id);
+            return it == m_meshNames.end() ? std::string() : it->second;
+        },
+        [this](const std::string& name) { return loadMesh(name); });
+}
+
+uint32_t Engine::loadMesh(const std::string& name) {
+    if (const auto it = m_meshIds.find(name); it != m_meshIds.end()) return it->second;
+
+    const std::string source = "resources/models/" + name + ".obj";
+    const std::string asset = "resources/assets/" + name + ".asset";
+    std::filesystem::create_directories("resources/assets");
+    if (!AssetManager::bake(source, asset)) { Lit::Log::Warn("Failed to bake {}", source); }
+    auto mesh = AssetManager::load(asset);
+    if (!mesh) {
+        Lit::Log::Warn("Failed to load {}", asset);
+        return 0;
+    }
+    const uint32_t id = uploadMesh(*mesh);
+    m_meshIds[name] = id;
+    m_meshNames[id] = name;
+    return id;
+}
 
 Engine::~Engine() {}
 

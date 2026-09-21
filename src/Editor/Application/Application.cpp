@@ -50,19 +50,8 @@ Application::Application() : m_world(m_engine.world()) {
     std::filesystem::create_directories("resources/models");
     std::filesystem::create_directories("resources/assets");
 
-    Lit::Log::Info("Attempting to bake cube.obj. Please ensure 'resources/models/cube.obj' exists.");
-    if (!AssetManager::bake("resources/models/cube.obj", "resources/assets/cube.asset")) { Lit::Log::Warn("Failed to bake asset. The application might not render anything."); }
-    m_mesh = AssetManager::load("resources/assets/cube.asset");
-    uint32_t cubeMeshUuid = 0;
-    if (!m_mesh) {
-        Lit::Log::Warn("Failed to load asset. The application might not render anything.");
-    } else {
-        cubeMeshUuid = m_engine.uploadMesh(*m_mesh);
-    }
-
-    if (!AssetManager::bake("resources/models/sphere.obj", "resources/assets/sphere.asset")) { Lit::Log::Warn("Failed to bake sphere asset."); }
-    auto sphereMesh = AssetManager::load("resources/assets/sphere.asset");
-    const uint32_t sphereMeshUuid = sphereMesh ? m_engine.uploadMesh(*sphereMesh) : 0;
+    const uint32_t cubeMeshUuid = m_engine.loadMesh("cube");
+    const uint32_t sphereMeshUuid = m_engine.loadMesh("sphere");
 
     const int numObjects = 1000000;
     Lit::Log::Info("Creating {} random objects...", numObjects);

@@ -15,18 +15,6 @@ import Engine.World;
 import Engine.glm;
 import Sandbox.scene;
 
-static uint32_t loadMesh(Engine& engine, const std::string& name) {
-    const std::string src = "resources/models/" + name + ".obj";
-    const std::string dst = "resources/assets/" + name + ".asset";
-    if (!AssetManager::bake(src, dst)) { Lit::Log::Warn("Failed to bake {}", src); }
-    auto mesh = AssetManager::load(dst);
-    if (!mesh) {
-        Lit::Log::Warn("Failed to load {}", dst);
-        return 0;
-    }
-    return engine.uploadMesh(*mesh);
-}
-
 void inverseKinematics(Scene& scene, const float deltaTime) {
     SceneContext& sceneCtx = scene.getCntx();
 
@@ -123,9 +111,8 @@ int main() {
     Engine engine;
     engine.init(window, width, height);
 
-    std::filesystem::create_directories("resources/assets");
-    const uint32_t cubeMesh = loadMesh(engine, "cube");
-    const uint32_t sphereMesh = loadMesh(engine, "sphere");
+    const uint32_t cubeMesh = engine.loadMesh("cube");
+    const uint32_t sphereMesh = engine.loadMesh("sphere");
 
     World& world = engine.world();
     Camera& camera = world.camera();

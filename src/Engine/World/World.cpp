@@ -2,9 +2,11 @@ module;
 
 #include <algorithm>
 #include <cstdint>
+#include <cstdlib>
 #include <filesystem>
 #include <fstream>
 #include <sstream>
+#include <set>
 #include <unordered_map>
 #include <functional>
 #include <string>
@@ -377,6 +379,16 @@ bool World::saveScene(const std::filesystem::path& path) const {
     if (!out) return false;
     out.precision(9);
     out << "LITSCENE 2\n" << m_aliveCount << "\n";
+    if (m_meshNameOf) {
+        std::set<uint32_t> usedMeshes;
+        for (Entity i = 0; i < m_alive.size(); ++i) {
+            if (m_alive[i]) usedMeshes.insert(m_mesh[i]);
+        }
+        for (uint32_t id : usedMeshes) {
+            const std::string name = m_meshNameOf(id);
+            if (!name.empty()) out << "mesh " << id << '\t' << name << '\n';
+        }
+    }
     for (Entity i = 0; i < m_alive.size(); ++i) {
         if (!m_alive[i]) continue;
         const auto& r = m_db.renderables[i];
@@ -420,9 +432,17 @@ bool World::loadScene(const std::filesystem::path& path) {
     clear();
     reserve(count);
     std::vector<std::string> componentLines;
+    std::unordered_map<uint32_t, uint32_t> meshRemap;
     std::string line;
     while (std::getline(in, line)) {
         if (line.empty()) continue;
+        if (line.rfind("mesh ", 0) == 0) {
+            const size_t meshTab = line.find('\t');
+            if (meshTab != std::string::npos && m_meshLoad) {
+                meshRemap[static_cast<uint32_t>(std::strtoul(line.c_str() + 5, nullptr, 10))] = m_meshLoad(line.substr(meshTab + 1));
+            }
+            continue;
+        }
         if (line.rfind("component ", 0) == 0) {
             componentLines.push_back(line);
             continue;
@@ -441,6 +461,7 @@ bool World::loadScene(const std::filesystem::path& path) {
             return false;
         }
         if (tab != std::string::npos) desc.name = line.substr(tab + 1);
+        if (const auto remap = meshRemap.find(desc.mesh); remap != meshRemap.end()) desc.mesh = remap->second;
         const EntityHandle h = create(desc);
         setLocalMatrix(h, local);
         if (!visible) setVisible(h, false);

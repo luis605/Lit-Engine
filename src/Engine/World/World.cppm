@@ -236,6 +236,11 @@ export class World {
         m_serializers.insert_or_assign(std::move(name), std::move(serializer));
     }
 
+    void setMeshHooks(std::function<std::string(uint32_t)> nameOf, std::function<uint32_t(const std::string&)> load) {
+        m_meshNameOf = std::move(nameOf);
+        m_meshLoad = std::move(load);
+    }
+
     void clear();
     bool saveScene(const std::filesystem::path& path) const;
     bool loadScene(const std::filesystem::path& path);
@@ -282,6 +287,8 @@ export class World {
     bool m_updating = false;
     std::unordered_map<std::type_index, std::unique_ptr<IComponentPool>> m_pools;
     std::map<std::string, ComponentSerializer> m_serializers;
+    std::function<std::string(uint32_t)> m_meshNameOf;
+    std::function<uint32_t(const std::string&)> m_meshLoad;
     std::vector<std::string> m_names;
     std::vector<Entity> m_freeList;
     size_t m_aliveCount = 0;
