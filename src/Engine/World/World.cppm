@@ -80,6 +80,8 @@ export class World {
 
   private:
     void destroyRecursive(Entity idx);
+    void link(Entity idx, Entity parent);
+    void unlink(Entity idx);
     [[nodiscard]] bool valid(EntityHandle h) const;
     void touchTransform(Entity idx);
     void touchStructure();
@@ -89,6 +91,10 @@ export class World {
     Camera m_camera;
     std::vector<uint8_t> m_alive;
     std::vector<uint32_t> m_generation;
+    std::vector<Entity> m_firstChild;
+    std::vector<Entity> m_nextSibling;
+    std::vector<Entity> m_prevSibling;
+    Entity m_firstRoot = INVALID_ENTITY;
     std::vector<std::string> m_names;
     std::vector<Entity> m_freeList;
     size_t m_aliveCount = 0;

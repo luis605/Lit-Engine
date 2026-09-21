@@ -42,7 +42,35 @@ void World::reserve(size_t count) {
     m_db.renderables.reserve(count);
     m_alive.reserve(count);
     m_generation.reserve(count);
+    m_firstChild.reserve(count);
+    m_nextSibling.reserve(count);
+    m_prevSibling.reserve(count);
     m_names.reserve(count);
+}
+
+void World::link(Entity idx, Entity parent) {
+    Entity& head = parent == INVALID_ENTITY ? m_firstRoot : m_firstChild[parent];
+    m_prevSibling[idx] = INVALID_ENTITY;
+    m_nextSibling[idx] = head;
+    if (head != INVALID_ENTITY) m_prevSibling[head] = idx;
+    head = idx;
+    m_db.hierarchies[idx].parent = parent;
+}
+
+void World::unlink(Entity idx) {
+    const Entity parent = m_db.hierarchies[idx].parent;
+    const Entity prev = m_prevSibling[idx];
+    const Entity next = m_nextSibling[idx];
+    if (prev != INVALID_ENTITY) {
+        m_nextSibling[prev] = next;
+    } else if (parent == INVALID_ENTITY) {
+        m_firstRoot = next;
+    } else {
+        m_firstChild[parent] = next;
+    }
+    if (next != INVALID_ENTITY) m_prevSibling[next] = prev;
+    m_prevSibling[idx] = INVALID_ENTITY;
+    m_nextSibling[idx] = INVALID_ENTITY;
 }
 
 void World::touchTransform(Entity idx) { m_db.markEntityDirty(idx); }
@@ -64,10 +92,16 @@ EntityHandle World::create(const EntityDesc& desc) {
         m_db.renderables[idx] = RenderableComponent{};
         m_db.renderables[idx].objectId = idx;
         m_alive[idx] = 1;
+        m_firstChild[idx] = INVALID_ENTITY;
+        m_nextSibling[idx] = INVALID_ENTITY;
+        m_prevSibling[idx] = INVALID_ENTITY;
     } else {
         idx = m_db.createEntity();
         m_alive.push_back(1);
         m_generation.push_back(0);
+        m_firstChild.push_back(INVALID_ENTITY);
+        m_nextSibling.push_back(INVALID_ENTITY);
+        m_prevSibling.push_back(INVALID_ENTITY);
         m_names.emplace_back();
     }
     ++m_aliveCount;
@@ -79,7 +113,7 @@ EntityHandle World::create(const EntityDesc& desc) {
     r.shaderId = desc.shader;
     r.alpha = desc.alpha;
     m_names[idx] = desc.name;
-    m_db.hierarchies[idx].parent = valid(desc.parent) ? desc.parent.index : INVALID_ENTITY;
+    link(idx, valid(desc.parent) ? desc.parent.index : INVALID_ENTITY);
     touchStructure();
     return {idx, m_generation[idx]};
 }
@@ -95,9 +129,14 @@ EntityHandle World::create(std::string name, uint32_t mesh, const glm::vec3& pos
 }
 
 void World::destroyRecursive(Entity idx) {
-    for (EntityHandle child : getChildren({idx, m_generation[idx]})) destroyRecursive(child.index);
+    for (Entity child = m_firstChild[idx]; child != INVALID_ENTITY;) {
+        const Entity next = m_nextSibling[child];
+        destroyRecursive(child);
+        child = next;
+    }
     m_alive[idx] = 0;
     ++m_generation[idx];
+    m_firstChild[idx] = INVALID_ENTITY;
     m_db.hierarchies[idx].parent = INVALID_ENTITY;
     m_db.transforms[idx].localMatrix = kDegenerate;
     m_db.renderables[idx].alpha = 0.0f;
@@ -108,6 +147,7 @@ void World::destroyRecursive(Entity idx) {
 
 void World::destroy(EntityHandle e) {
     if (!valid(e)) return;
+    unlink(e.index);
     destroyRecursive(e.index);
     touchStructure();
 }
@@ -118,7 +158,8 @@ void World::setParent(EntityHandle e, EntityHandle parent, bool keepWorldTransfo
     if (m_db.hierarchies[e.index].parent == parent.index) return;
 
     const glm::mat4 world = keepWorldTransform ? getWorldMatrix(e) : glm::mat4(1.0f);
-    m_db.hierarchies[e.index].parent = parent.index;
+    unlink(e.index);
+    link(e.index, parent.index);
     if (keepWorldTransform) {
         const glm::mat4 parentWorld = parent.isNull() ? glm::mat4(1.0f) : getWorldMatrix(parent);
         m_db.transforms[e.index].localMatrix = glm::inverse(parentWorld) * world;
@@ -134,8 +175,8 @@ EntityHandle World::getParent(EntityHandle e) const {
 std::vector<EntityHandle> World::getChildren(EntityHandle e) const {
     std::vector<EntityHandle> out;
     if (!e.isNull() && !valid(e)) return out;
-    for (Entity i = 0; i < m_alive.size(); ++i) {
-        if (m_alive[i] && m_db.hierarchies[i].parent == e.index) out.push_back({i, m_generation[i]});
+    for (Entity c = e.isNull() ? m_firstRoot : m_firstChild[e.index]; c != INVALID_ENTITY; c = m_nextSibling[c]) {
+        out.push_back({c, m_generation[c]});
     }
     return out;
 }
