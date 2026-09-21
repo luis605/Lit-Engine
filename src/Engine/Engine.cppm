@@ -18,6 +18,7 @@ import Engine.mesh;
 import Engine.World;
 import Engine.Physics;
 import Engine.Animation;
+import Engine.Jobs;
 import Engine.inputactions;
 import Engine.glm;
 
@@ -36,6 +37,7 @@ export class Engine {
     [[nodiscard]] const TimeState& time() const { return m_world.time(); }
     [[nodiscard]] PhysicsSettings& physics() { return m_physics; }
     [[nodiscard]] AnimationLibrary& animations() { return m_animations; }
+    [[nodiscard]] JobSystem& jobs() { return m_jobs; }
     void addSystem(Phase phase, std::string name, SystemFn fn, bool runWhenPaused = false);
     bool removeSystem(const std::string& name);
     bool setSystemEnabled(const std::string& name, bool enabled);
@@ -89,6 +91,7 @@ export class Engine {
     void applyWorldAnimation();
 
     Renderer m_renderer;
+    JobSystem m_jobs;
     World m_world;
     int m_windowWidth = 1280;
     int m_windowHeight = 720;

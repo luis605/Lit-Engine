@@ -1,8 +1,10 @@
+#include <atomic>
 #include <chrono>
 #include <algorithm>
 #include <array>
 #include <cmath>
 #include <cstdio>
+#include <cstdlib>
 #include <filesystem>
 #include <optional>
 #include <string>
@@ -14,6 +16,7 @@ import Engine.World;
 import Engine.Physics;
 import Engine.History;
 import Engine.Animation;
+import Engine.Jobs;
 import Engine.Render.entity;
 import Engine.Render.component;
 import Engine.glm;
@@ -1407,6 +1410,100 @@ static void testPhysicsShapesAndSleep() {
     std::filesystem::remove(path);
 }
 
+static void testJobsAndParallelSpatial() {
+    JobSystem jobs(3);
+    CHECK(jobs.workerCount() == 3);
+    std::vector<int> hits(100000, 0);
+    jobs.parallelFor(hits.size(), 1000, [&](size_t b, size_t e) {
+        for (size_t i = b; i < e; ++i) hits[i] += 1;
+    });
+    CHECK(std::all_of(hits.begin(), hits.end(), [](int v) { return v == 1; }));
+
+    std::atomic<size_t> total{0};
+    for (int round = 0; round < 50; ++round) {
+        jobs.parallelFor(1000, 7, [&](size_t b, size_t e) { total += e - b; });
+    }
+    CHECK(total == 50000);
+
+    size_t serial = 0;
+    JobSystem none(0);
+    none.parallelFor(10, 3, [&](size_t b, size_t e) { serial += e - b; });
+    CHECK(serial == 10);
+    jobs.parallelFor(0, 10, [&](size_t, size_t) { serial += 1000; });
+    CHECK(serial == 10);
+    jobs.parallelFor(5, 100, [&](size_t b, size_t e) { serial += e - b; });
+    CHECK(serial == 15);
+
+    const auto build = [](World& w) {
+        w.setMeshBoundsHook([](uint32_t mesh) { return mesh == 9 ? glm::vec4(0.0f, 0.0f, 0.0f, 500.0f) : glm::vec4(0.5f, 0.0f, 0.0f, 1.0f); });
+        uint32_t seed = 12345;
+        const auto rnd = [&seed]() {
+            seed = seed * 1664525u + 1013904223u;
+            return static_cast<float>((seed >> 8) & 0xFFFF) / 65535.0f;
+        };
+        std::vector<EntityHandle> made;
+        for (int i = 0; i < 20000; ++i) {
+            EntityHandle parent = (i % 7 == 0 && !made.empty()) ? made[made.size() / 2] : NULL_ENTITY;
+            made.push_back(w.create("e", i % 500 == 0 ? 9 : 1, glm::vec3(rnd() * 200.0f - 100.0f, rnd() * 200.0f - 100.0f, rnd() * 200.0f - 100.0f), glm::vec3(0.5f + rnd()), parent));
+            if (i % 13 == 0) w.setVisible(made.back(), false);
+        }
+        for (int i = 0; i < 300; ++i) w.destroy(made[static_cast<size_t>(i) * 50 % made.size()]);
+    };
+
+    World threaded;
+    JobSystem pool(4);
+    threaded.setJobSystem(&pool);
+    World plain;
+    build(threaded);
+    build(plain);
+
+    const auto sorted = [](std::vector<EntityHandle> v) {
+        std::sort(v.begin(), v.end(), [](const EntityHandle& a, const EntityHandle& b) { return a.index < b.index; });
+        return v;
+    };
+    uint32_t seed = 777;
+    const auto rnd = [&seed]() {
+        seed = seed * 1664525u + 1013904223u;
+        return static_cast<float>((seed >> 8) & 0xFFFF) / 65535.0f;
+    };
+    bool sameOverlap = true;
+    bool sameRay = true;
+    for (int q = 0; q < 40; ++q) {
+        const glm::vec3 c(rnd() * 200.0f - 100.0f, rnd() * 200.0f - 100.0f, rnd() * 200.0f - 100.0f);
+        sameOverlap = sameOverlap && sorted(threaded.overlapSphere(c, 15.0f)) == sorted(plain.overlapSphere(c, 15.0f));
+        const glm::vec3 dir = glm::normalize(glm::vec3(rnd() - 0.5f, rnd() - 0.5f, rnd() - 0.5f));
+        const auto ta = threaded.raycast(c, dir);
+        const auto pa = plain.raycast(c, dir);
+        sameRay = sameRay && ta.has_value() == pa.has_value() && (!ta || (ta->entity == pa->entity && ta->distance == pa->distance));
+    }
+    CHECK(sameOverlap);
+    CHECK(sameRay);
+
+    if (std::getenv("LIT_PERF")) {
+        World big;
+        big.setMeshBoundsHook([](uint32_t) { return glm::vec4(0.0f, 0.0f, 0.0f, 1.0f); });
+        JobSystem bigPool;
+        big.createBatch(1000000, [](size_t i, EntityDesc& d) {
+            d.mesh = 1;
+            d.position = glm::vec3(float(i % 100) * 3.0f, float((i / 100) % 100) * 3.0f, float(i / 10000) * 3.0f);
+        });
+        const auto t0 = std::chrono::steady_clock::now();
+        (void)big.raycast(glm::vec3(0.0f, 500.0f, 0.0f), glm::vec3(0.0f, -1.0f, 0.0f));
+        const auto t1 = std::chrono::steady_clock::now();
+        World big2;
+        big2.setMeshBoundsHook([](uint32_t) { return glm::vec4(0.0f, 0.0f, 0.0f, 1.0f); });
+        big2.setJobSystem(&bigPool);
+        big2.createBatch(1000000, [](size_t i, EntityDesc& d) {
+            d.mesh = 1;
+            d.position = glm::vec3(float(i % 100) * 3.0f, float((i / 100) % 100) * 3.0f, float(i / 10000) * 3.0f);
+        });
+        const auto t2 = std::chrono::steady_clock::now();
+        (void)big2.raycast(glm::vec3(0.0f, 500.0f, 0.0f), glm::vec3(0.0f, -1.0f, 0.0f));
+        const auto t3 = std::chrono::steady_clock::now();
+        std::printf("spatial first build 1M: serial %.1f ms, %zu workers %.1f ms\n", std::chrono::duration<double, std::milli>(t1 - t0).count(), bigPool.workerCount(), std::chrono::duration<double, std::milli>(t3 - t2).count());
+    }
+}
+
 int main() {
     testHandles();
     testHierarchy();
@@ -1430,6 +1527,7 @@ int main() {
     testFrustumQuery();
     testPhysics();
     testPhysicsShapesAndSleep();
+    testJobsAndParallelSpatial();
     testAdditiveLoad();
     testEntityReferences();
     testHistory();

@@ -22,6 +22,7 @@ import Engine.glm;
 import Engine.asset;
 
 Engine::Engine() {
+    m_world.setJobSystem(&m_jobs);
     m_world.setMeshHooks(
         [this](uint32_t id) {
             const auto it = m_meshNames.find(id);

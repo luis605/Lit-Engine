@@ -1211,28 +1211,40 @@ void World::removeSpatialEntry(Entity idx) {
     entry.state = 0;
 }
 
+glm::mat4 World::worldNoCache(Entity idx) const {
+    glm::mat4 m = effectiveLocal(idx);
+    for (Entity p = m_db.hierarchies[idx].parent; p != INVALID_ENTITY && m_alive[p]; p = m_db.hierarchies[p].parent) m = effectiveLocal(p) * m;
+    return m;
+}
+
+void World::computeSpatialEntry(Entity idx, SpatialEntry& out) const {
+    out.state = 0;
+    if (!m_alive[idx] || !m_visible[idx] || !m_meshBounds || m_mesh[idx] == NO_MESH) return;
+    const glm::vec4 bounds = m_meshBounds(m_mesh[idx]);
+    const glm::mat4 world = worldNoCache(idx);
+    const float maxScale = std::max({glm::length(glm::vec3(world[0])), glm::length(glm::vec3(world[1])), glm::length(glm::vec3(world[2]))});
+    out.center = glm::vec3(world * glm::vec4(glm::vec3(bounds), 1.0f));
+    out.radius = bounds.w * maxScale;
+    if (out.radius > m_cellSize * 4.0f) {
+        out.state = 2;
+        return;
+    }
+    out.cell = spatialKey(static_cast<int>(std::floor(out.center.x / m_cellSize)), static_cast<int>(std::floor(out.center.y / m_cellSize)), static_cast<int>(std::floor(out.center.z / m_cellSize)));
+    out.state = 1;
+}
+
 void World::rebuildSpatialEntry(Entity idx) {
     if (idx >= m_alive.size()) return;
     if (m_spatial.size() <= idx) m_spatial.resize(m_alive.size());
     removeSpatialEntry(idx);
-    if (idx >= m_alive.size() || !m_alive[idx] || !m_visible[idx] || !m_meshBounds || m_mesh[idx] == NO_MESH) return;
-
-    const glm::vec4 bounds = m_meshBounds(m_mesh[idx]);
-    const glm::mat4 world = getWorldMatrix({idx, m_generation[idx]});
-    const float maxScale = std::max({glm::length(glm::vec3(world[0])), glm::length(glm::vec3(world[1])), glm::length(glm::vec3(world[2]))});
-    SpatialEntry& entry = m_spatial[idx];
-    entry.center = glm::vec3(world * glm::vec4(glm::vec3(bounds), 1.0f));
-    entry.radius = bounds.w * maxScale;
-
-    if (entry.radius > m_cellSize * 4.0f) {
-        entry.state = 2;
+    computeSpatialEntry(idx, m_spatial[idx]);
+    const SpatialEntry& entry = m_spatial[idx];
+    if (entry.state == 2) {
         m_largeEntities.push_back(idx);
-        return;
+    } else if (entry.state == 1) {
+        m_maxSmallRadius = std::max(m_maxSmallRadius, entry.radius);
+        m_cells[entry.cell].push_back(idx);
     }
-    m_maxSmallRadius = std::max(m_maxSmallRadius, entry.radius);
-    entry.cell = spatialKey(static_cast<int>(std::floor(entry.center.x / m_cellSize)), static_cast<int>(std::floor(entry.center.y / m_cellSize)), static_cast<int>(std::floor(entry.center.z / m_cellSize)));
-    entry.state = 1;
-    m_cells[entry.cell].push_back(idx);
 }
 
 void World::refreshSpatial() {
@@ -1242,8 +1254,23 @@ void World::refreshSpatial() {
         m_spatial.assign(m_alive.size(), SpatialEntry{});
         m_spatialQueued.assign(m_alive.size(), 0);
         m_spatialPending.clear();
-        for (Entity i = 0; i < m_alive.size(); ++i) {
-            if (m_alive[i]) rebuildSpatialEntry(i);
+        const size_t count = m_alive.size();
+        const auto compute = [this](size_t begin, size_t end) {
+            for (size_t i = begin; i < end; ++i) computeSpatialEntry(static_cast<Entity>(i), m_spatial[i]);
+        };
+        if (m_jobs) {
+            m_jobs->parallelFor(count, 8192, compute);
+        } else {
+            compute(0, count);
+        }
+        for (Entity i = 0; i < count; ++i) {
+            const SpatialEntry& entry = m_spatial[i];
+            if (entry.state == 2) {
+                m_largeEntities.push_back(i);
+            } else if (entry.state == 1) {
+                m_maxSmallRadius = std::max(m_maxSmallRadius, entry.radius);
+                m_cells[entry.cell].push_back(i);
+            }
         }
         return;
     }

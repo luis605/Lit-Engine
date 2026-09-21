@@ -28,6 +28,7 @@ target_sources(Engine
         Physics/Physics.cppm
         History/History.cppm
         Animation/Animation.cppm
+        Jobs/Jobs.cppm
         Input/Input.cppm
         Input/InputActions.cppm
         Asset/AssetManager.cppm
@@ -47,6 +48,7 @@ target_sources(Engine
         Physics/Physics.cpp
         History/History.cpp
         Animation/Animation.cpp
+        Jobs/Jobs.cpp
 )
 
 target_compile_features(Engine PUBLIC cxx_std_23)
