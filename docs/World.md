@@ -107,3 +107,45 @@ engine.debugHierarchy();
 ```
 
 Events are queued and dispatched at the end of `Engine::tick`.
+
+## Slot management and batches
+
+`destroy` trims trailing dead slots automatically. `compact()` moves live entities into holes and returns `EntityMoved` remaps; held handles to moved entities become invalid, so use the returned list or subscribe to `EntityMoved`.
+
+```cpp
+world.destroyBatch(handles);
+world.setPositions(updates);
+auto moved = world.compact();
+```
+
+## Time, lights, materials
+
+```cpp
+engine.setTimeScale(0.5f);
+engine.setPaused(true);
+float dt = engine.time().deltaTime;
+
+world.add<LightComponent>(sun, LightComponent{LightComponent::Type::Directional, glm::vec3(1), 1.0f});
+uint32_t red = engine.createMaterial(glm::vec3(1, 0.2f, 0.2f), 0.9f);
+world.setMaterial(a, red);
+```
+
+Light entities should be hidden with `setVisible(false)`; with no `LightComponent` in the world the default lights are used. Material 0 means no tint.
+
+## Physics
+
+`RigidBody`, `SphereCollider` and `PlaneCollider` components are stepped by `Engine::tick` at the fixed timestep and emit `Collision` events. Call `registerPhysicsComponents(world)` to save them with scenes. Only root entities are simulated.
+
+## Undo/redo and play mode
+
+```cpp
+History history(world);
+history.setLocalMatrix(a, matrix);
+history.destroy(a);
+history.undo();
+
+std::string snapshot = world.snapshot();
+world.restore(snapshot);
+```
+
+`History::resolve` follows handle aliases created when undo re-creates a destroyed entity. Loaders registered with `registerComponent` may take `(std::istream&, const LoadContext&)` to resolve saved entity references through `ctx.resolve(savedIndex)`.
