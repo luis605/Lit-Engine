@@ -819,6 +819,49 @@ static void testAdditiveLoad() {
     std::filesystem::remove(path);
 }
 
+struct Link {
+    EntityHandle target;
+};
+
+static void registerLink(World& w) {
+    w.registerComponent<Link>(
+        "Link", [](const Link& l, std::ostream& out) { out << l.target.index; },
+        [](std::istream& in, const LoadContext& ctx) -> std::optional<Link> {
+            uint32_t index;
+            if (!(in >> index)) return std::nullopt;
+            return Link{ctx.resolve(index)};
+        });
+}
+
+static void testEntityReferences() {
+    World w;
+    registerLink(w);
+    auto pad = w.create("pad", 0);
+    auto a = w.create("a", 1);
+    auto b = w.create("b", 1, glm::vec3(0.0f), glm::vec3(1.0f), a);
+    w.add<Link>(a, Link{b});
+    w.add<Link>(b, Link{a});
+    w.destroy(pad);
+
+    const auto path = std::filesystem::temp_directory_path() / "lit_world_link_test.litscene";
+    CHECK(w.saveScene(path));
+    w.clear();
+    CHECK(w.loadScene(path));
+    auto ra = w.find("a");
+    auto rb = w.find("b");
+    CHECK(w.get<Link>(ra) && w.get<Link>(ra)->target == rb);
+    CHECK(w.get<Link>(rb) && w.get<Link>(rb)->target == ra);
+    std::filesystem::remove(path);
+
+    const Prefab prefab = w.capture(ra);
+    auto copy = w.instantiate(prefab);
+    auto copyChildren = w.getChildren(copy);
+    CHECK(copyChildren.size() == 1);
+    CHECK(w.get<Link>(copy) && w.get<Link>(copy)->target == copyChildren[0]);
+    CHECK(w.get<Link>(copyChildren[0]) && w.get<Link>(copyChildren[0])->target == copy);
+    CHECK(w.get<Link>(ra)->target == rb);
+}
+
 int main() {
     testHandles();
     testHierarchy();
@@ -842,6 +885,7 @@ int main() {
     testFrustumQuery();
     testPhysics();
     testAdditiveLoad();
+    testEntityReferences();
     testAnimationAgreement();
     testCompactKeepsSpatialAndScripts();
     testFixedUpdate();

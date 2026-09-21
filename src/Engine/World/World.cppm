@@ -6,6 +6,7 @@ module;
 #include <istream>
 #include <map>
 #include <memory>
+#include <type_traits>
 #include <ostream>
 #include <utility>
 #include <filesystem>
@@ -106,6 +107,7 @@ export struct PrefabNode {
     std::string tag;
     glm::mat4 local{1.0f};
     int parent = -1;
+    uint32_t sourceIndex = INVALID_ENTITY;
     std::vector<std::pair<std::string, std::string>> components;
     std::vector<std::pair<std::string, std::string>> scripts;
 };
@@ -202,14 +204,19 @@ export class Script {
     bool m_started = false;
 };
 
+export struct LoadContext {
+    std::function<EntityHandle(uint32_t)> resolveFn;
+    [[nodiscard]] EntityHandle resolve(uint32_t savedIndex) const { return resolveFn ? resolveFn(savedIndex) : NULL_ENTITY; }
+};
+
 struct ScriptSerializer {
     std::function<bool(const Script&, std::ostream&)> write;
-    std::function<bool(World&, EntityHandle, std::istream&)> read;
+    std::function<bool(World&, EntityHandle, std::istream&, const LoadContext&)> read;
 };
 
 struct ComponentSerializer {
     std::function<void(const IComponentPool&, std::ostream&, Entity)> write;
-    std::function<bool(World&, EntityHandle, std::istream&)> read;
+    std::function<bool(World&, EntityHandle, std::istream&, const LoadContext&)> read;
     std::function<void(const IComponentPool&, const std::function<void(Entity)>&)> owners;
     std::type_index type;
 };
@@ -331,8 +338,13 @@ export class World {
             [save](const IComponentPool& p, std::ostream& out, Entity e) {
                 if (const T* value = static_cast<const ComponentPool<T>&>(p).find(e)) save(*value, out);
             },
-            [load](World& w, EntityHandle e, std::istream& in) {
-                std::optional<T> value = load(in);
+            [load](World& w, EntityHandle e, std::istream& in, const LoadContext& ctx) {
+                std::optional<T> value;
+                if constexpr (std::is_invocable_v<Load, std::istream&, const LoadContext&>) {
+                    value = load(in, ctx);
+                } else {
+                    value = load(in);
+                }
                 if (!value) return false;
                 w.add<T>(e, std::move(*value));
                 return true;
@@ -372,8 +384,13 @@ export class World {
                 save(*typed, out);
                 return true;
             },
-            [load](World& w, EntityHandle e, std::istream& in) {
-                std::optional<T> value = load(in);
+            [load](World& w, EntityHandle e, std::istream& in, const LoadContext& ctx) {
+                std::optional<T> value;
+                if constexpr (std::is_invocable_v<Load, std::istream&, const LoadContext&>) {
+                    value = load(in, ctx);
+                } else {
+                    value = load(in);
+                }
                 if (!value) return false;
                 w.attach<T>(e, std::move(*value));
                 return true;

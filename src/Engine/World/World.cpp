@@ -819,6 +819,11 @@ std::optional<std::vector<EntityHandle>> World::loadSceneImpl(const std::filesys
         }
     }
 
+    LoadContext context;
+    context.resolveFn = [&handles](uint32_t savedIndex) {
+        const auto it = handles.find(static_cast<long long>(savedIndex));
+        return it == handles.end() ? NULL_ENTITY : it->second;
+    };
     for (const std::string& componentLine : componentLines) {
         const size_t tab = componentLine.find('\t');
         if (tab == std::string::npos) continue;
@@ -837,14 +842,14 @@ std::optional<std::vector<EntityHandle>> World::loadSceneImpl(const std::filesys
             const auto scriptHandle = handles.find(id);
             if (!head || scriptSerializer == m_scriptSerializers.end() || scriptHandle == handles.end()) continue;
             std::istringstream scriptPayload(componentLine.substr(tab + 1));
-            scriptSerializer->second.read(*this, scriptHandle->second, scriptPayload);
+            scriptSerializer->second.read(*this, scriptHandle->second, scriptPayload, context);
             continue;
         }
         const auto serializer = m_serializers.find(name);
         const auto handle = handles.find(id);
         if (!head || serializer == m_serializers.end() || handle == handles.end()) continue;
         std::istringstream payload(componentLine.substr(tab + 1));
-        serializer->second.read(*this, handle->second, payload);
+        serializer->second.read(*this, handle->second, payload, context);
     }
     return roots;
 }
@@ -940,6 +945,7 @@ Prefab World::capture(EntityHandle root) const {
         node.tag = m_tags[idx];
         node.local = m_db.transforms[idx].localMatrix;
         node.parent = parentNode;
+        node.sourceIndex = idx;
         for (const auto& [name, serializer] : m_serializers) {
             const auto pool = m_pools.find(serializer.type);
             if (pool == m_pools.end()) continue;
@@ -967,6 +973,7 @@ Prefab World::capture(EntityHandle root) const {
 EntityHandle World::instantiate(const Prefab& prefab, EntityHandle parent) {
     std::vector<EntityHandle> created;
     created.reserve(prefab.nodes.size());
+    std::unordered_map<uint32_t, EntityHandle> remap;
     for (const PrefabNode& node : prefab.nodes) {
         EntityDesc desc;
         desc.name = node.name;
@@ -981,19 +988,29 @@ EntityHandle World::instantiate(const Prefab& prefab, EntityHandle parent) {
         setLayer(h, node.layer);
         setRenderFlags(h, node.renderFlags, true);
         setTag(h, node.tag);
+        created.push_back(h);
+        remap[node.sourceIndex] = h;
+    }
+
+    LoadContext context;
+    context.resolveFn = [this, &remap](uint32_t sourceIndex) {
+        const auto it = remap.find(sourceIndex);
+        return it != remap.end() ? it->second : handleOf(sourceIndex);
+    };
+    for (size_t i = 0; i < prefab.nodes.size(); ++i) {
+        const PrefabNode& node = prefab.nodes[i];
         for (const auto& [name, payload] : node.components) {
             const auto serializer = m_serializers.find(name);
             if (serializer == m_serializers.end()) continue;
             std::istringstream in(payload);
-            serializer->second.read(*this, h, in);
+            serializer->second.read(*this, created[i], in, context);
         }
         for (const auto& [name, payload] : node.scripts) {
             const auto serializer = m_scriptSerializers.find(name);
             if (serializer == m_scriptSerializers.end()) continue;
             std::istringstream in(payload);
-            serializer->second.read(*this, h, in);
+            serializer->second.read(*this, created[i], in, context);
         }
-        created.push_back(h);
     }
     return created.empty() ? NULL_ENTITY : created.front();
 }
