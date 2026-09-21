@@ -9,6 +9,7 @@ module;
 #include <utility>
 #include <filesystem>
 #include <optional>
+#include <span>
 #include <string>
 #include <string_view>
 #include <typeindex>
@@ -204,6 +205,8 @@ export class World {
         touchStructure();
     }
     void destroy(EntityHandle e);
+    void destroyBatch(std::span<const EntityHandle> entities);
+    void setPositions(std::span<const std::pair<EntityHandle, glm::vec3>> updates);
     std::vector<EntityMoved> compact();
     [[nodiscard]] bool isAlive(EntityHandle e) const;
     [[nodiscard]] size_t aliveCount() const { return m_aliveCount; }

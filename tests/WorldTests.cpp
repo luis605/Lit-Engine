@@ -1,3 +1,4 @@
+#include <chrono>
 #include <cmath>
 #include <cstdio>
 #include <filesystem>
@@ -502,6 +503,34 @@ static void testCompactKeepsSpatialAndScripts() {
     CHECK(w.aliveCount() == 0);
 }
 
+static void testBatch() {
+    World w;
+    std::vector<EntityHandle> handles;
+    for (int i = 0; i < 6000; ++i) handles.push_back(w.create("e", 1, glm::vec3(float(i), 0.0f, 0.0f)));
+
+    std::vector<std::pair<EntityHandle, glm::vec3>> moves;
+    for (int i = 0; i < 6000; ++i) moves.emplace_back(handles[i], glm::vec3(0.0f, float(i), 1.0f));
+    const auto start = std::chrono::steady_clock::now();
+    w.setPositions(moves);
+    const auto mid = std::chrono::steady_clock::now();
+    CHECK(w.getPosition(handles[5999]).y == 5999.0f);
+    CHECK(w.getPosition(handles[0]).x == 0.0f && w.getPosition(handles[0]).z == 1.0f);
+
+    std::vector<std::pair<EntityHandle, glm::vec3>> few{{handles[10], glm::vec3(7.0f)}, {NULL_ENTITY, glm::vec3(1.0f)}};
+    w.setPositions(few);
+    CHECK(w.getPosition(handles[10]).x == 7.0f);
+
+    std::vector<EntityHandle> doomed(handles.begin() + 3000, handles.end());
+    doomed.push_back(handles[3000]);
+    w.destroyBatch(doomed);
+    const auto end = std::chrono::steady_clock::now();
+    CHECK(w.aliveCount() == 3000);
+    CHECK(w.database().transforms.size() == 3000);
+    CHECK(!w.isAlive(handles[4000]));
+    CHECK(w.isAlive(handles[2999]));
+    std::printf("batch setPositions %.3f ms, destroyBatch %.3f ms\n", std::chrono::duration<double, std::milli>(mid - start).count(), std::chrono::duration<double, std::milli>(end - mid).count());
+}
+
 int main() {
     testHandles();
     testHierarchy();
@@ -518,6 +547,7 @@ int main() {
     testWorldCache();
     testEvents();
     testTrimAndCompact();
+    testBatch();
     testCompactKeepsSpatialAndScripts();
     testFixedUpdate();
     testCameraEntity();

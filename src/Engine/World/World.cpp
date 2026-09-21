@@ -208,6 +208,38 @@ void World::destroy(EntityHandle e) {
     touchStructure();
 }
 
+void World::destroyBatch(std::span<const EntityHandle> entities) {
+    if (m_updating) {
+        for (EntityHandle e : entities) {
+            if (valid(e)) m_pendingDestroy.push_back(e);
+        }
+        return;
+    }
+    bool any = false;
+    for (EntityHandle e : entities) {
+        if (!valid(e)) continue;
+        unlink(e.index);
+        destroyRecursive(e.index);
+        any = true;
+    }
+    if (!any) return;
+    trimTail();
+    touchStructure();
+}
+
+void World::setPositions(std::span<const std::pair<EntityHandle, glm::vec3>> updates) {
+    constexpr size_t kBulkThreshold = 4096;
+    const bool bulk = updates.size() > kBulkThreshold;
+    for (const auto& [e, position] : updates) {
+        if (!valid(e)) continue;
+        m_db.transforms[e.index].setPos(position);
+        if (!bulk) m_db.markEntityDirty(e.index);
+        invalidateWorld(e.index);
+        markSpatialSubtree(e.index);
+    }
+    if (bulk) m_db.markTransformsDirty();
+}
+
 void World::shrinkSlots(size_t count) {
     if (count >= m_alive.size()) return;
     for (size_t i = count; i < m_alive.size(); ++i) {
