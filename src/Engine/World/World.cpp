@@ -25,56 +25,66 @@ glm::mat4 compose(const glm::vec3& p, const glm::quat& r, const glm::vec3& s) {
 
 World::World() = default;
 
-bool World::isAlive(Entity e) const {
-    return e < m_alive.size() && m_alive[e];
+bool World::valid(EntityHandle h) const {
+    return h.index < m_alive.size() && m_alive[h.index] && m_generation[h.index] == h.generation;
 }
 
-void World::touchTransform(Entity e) {
-    m_db.markEntityDirty(e);
-    m_db.markTransformsDirty(m_db.m_movingCount);
+bool World::isAlive(EntityHandle e) const { return valid(e); }
+
+EntityHandle World::handleOf(Entity index) const {
+    if (index >= m_alive.size() || !m_alive[index]) return NULL_ENTITY;
+    return {index, m_generation[index]};
 }
+
+void World::reserve(size_t count) {
+    m_db.transforms.reserve(count);
+    m_db.hierarchies.reserve(count);
+    m_db.renderables.reserve(count);
+    m_alive.reserve(count);
+    m_generation.reserve(count);
+    m_names.reserve(count);
+}
+
+void World::touchTransform(Entity idx) { m_db.markEntityDirty(idx); }
 
 void World::touchStructure() {
     m_db.markHierarchyDirty();
     m_db.markDataDirty();
 }
 
-void World::touchData() {
-    m_db.markDataDirty();
-}
+void World::touchData() { m_db.markDataDirty(); }
 
-Entity World::create(const EntityDesc& desc) {
-    Entity e;
+EntityHandle World::create(const EntityDesc& desc) {
+    Entity idx;
     if (!m_freeList.empty()) {
-        e = m_freeList.back();
+        idx = m_freeList.back();
         m_freeList.pop_back();
-        m_db.transforms[e] = TransformComponent{};
-        m_db.hierarchies[e] = HierarchyComponent{INVALID_ENTITY, 0};
-        m_db.renderables[e] = RenderableComponent{};
-        m_db.renderables[e].objectId = e;
-        m_alive[e] = true;
-        m_names[e].clear();
-        touchStructure();
+        m_db.transforms[idx] = TransformComponent{};
+        m_db.hierarchies[idx] = HierarchyComponent{INVALID_ENTITY, 0};
+        m_db.renderables[idx] = RenderableComponent{};
+        m_db.renderables[idx].objectId = idx;
+        m_alive[idx] = 1;
     } else {
-        e = m_db.createEntity();
-        m_alive.push_back(true);
+        idx = m_db.createEntity();
+        m_alive.push_back(1);
+        m_generation.push_back(0);
         m_names.emplace_back();
     }
     ++m_aliveCount;
 
-    m_db.transforms[e].localMatrix = compose(desc.position, desc.rotation, desc.scale);
-    auto& r = m_db.renderables[e];
+    m_db.transforms[idx].localMatrix = compose(desc.position, desc.rotation, desc.scale);
+    auto& r = m_db.renderables[idx];
     r.mesh_uuid = desc.mesh;
     r.material_uuid = desc.material;
     r.shaderId = desc.shader;
     r.alpha = desc.alpha;
-    m_names[e] = desc.name;
-    m_db.hierarchies[e].parent = isAlive(desc.parent) ? desc.parent : INVALID_ENTITY;
+    m_names[idx] = desc.name;
+    m_db.hierarchies[idx].parent = valid(desc.parent) ? desc.parent.index : INVALID_ENTITY;
     touchStructure();
-    return e;
+    return {idx, m_generation[idx]};
 }
 
-Entity World::create(std::string name, uint32_t mesh, const glm::vec3& position, const glm::vec3& scale, Entity parent) {
+EntityHandle World::create(std::string name, uint32_t mesh, const glm::vec3& position, const glm::vec3& scale, EntityHandle parent) {
     EntityDesc desc;
     desc.name = std::move(name);
     desc.mesh = mesh;
@@ -84,179 +94,178 @@ Entity World::create(std::string name, uint32_t mesh, const glm::vec3& position,
     return create(desc);
 }
 
-void World::destroyRecursive(Entity e) {
-    for (Entity child : getChildren(e)) destroyRecursive(child);
-    m_alive[e] = false;
-    m_db.hierarchies[e].parent = INVALID_ENTITY;
-    m_db.transforms[e].localMatrix = kDegenerate;
-    m_db.renderables[e].alpha = 0.0f;
-    m_names[e].clear();
-    m_freeList.push_back(e);
+void World::destroyRecursive(Entity idx) {
+    for (EntityHandle child : getChildren({idx, m_generation[idx]})) destroyRecursive(child.index);
+    m_alive[idx] = 0;
+    ++m_generation[idx];
+    m_db.hierarchies[idx].parent = INVALID_ENTITY;
+    m_db.transforms[idx].localMatrix = kDegenerate;
+    m_db.renderables[idx].alpha = 0.0f;
+    m_names[idx].clear();
+    m_freeList.push_back(idx);
     --m_aliveCount;
 }
 
-void World::destroy(Entity e) {
-    if (!isAlive(e)) return;
-    destroyRecursive(e);
+void World::destroy(EntityHandle e) {
+    if (!valid(e)) return;
+    destroyRecursive(e.index);
     touchStructure();
 }
 
-void World::setParent(Entity e, Entity parent, bool keepWorldTransform) {
-    if (!isAlive(e)) return;
-    if (parent != INVALID_ENTITY && (!isAlive(parent) || parent == e || isDescendantOf(parent, e))) return;
-    if (m_db.hierarchies[e].parent == parent) return;
+void World::setParent(EntityHandle e, EntityHandle parent, bool keepWorldTransform) {
+    if (!valid(e)) return;
+    if (!parent.isNull() && (!valid(parent) || parent == e || isDescendantOf(parent, e))) return;
+    if (m_db.hierarchies[e.index].parent == parent.index) return;
 
     const glm::mat4 world = keepWorldTransform ? getWorldMatrix(e) : glm::mat4(1.0f);
-    m_db.hierarchies[e].parent = parent;
+    m_db.hierarchies[e.index].parent = parent.index;
     if (keepWorldTransform) {
-        const glm::mat4 parentWorld = parent == INVALID_ENTITY ? glm::mat4(1.0f) : getWorldMatrix(parent);
-        m_db.transforms[e].localMatrix = glm::inverse(parentWorld) * world;
+        const glm::mat4 parentWorld = parent.isNull() ? glm::mat4(1.0f) : getWorldMatrix(parent);
+        m_db.transforms[e.index].localMatrix = glm::inverse(parentWorld) * world;
     }
     touchStructure();
 }
 
-Entity World::getParent(Entity e) const {
-    return isAlive(e) ? m_db.hierarchies[e].parent : INVALID_ENTITY;
+EntityHandle World::getParent(EntityHandle e) const {
+    if (!valid(e)) return NULL_ENTITY;
+    return handleOf(m_db.hierarchies[e.index].parent);
 }
 
-std::vector<Entity> World::getChildren(Entity e) const {
-    std::vector<Entity> out;
+std::vector<EntityHandle> World::getChildren(EntityHandle e) const {
+    std::vector<EntityHandle> out;
+    if (!e.isNull() && !valid(e)) return out;
     for (Entity i = 0; i < m_alive.size(); ++i) {
-        if (m_alive[i] && m_db.hierarchies[i].parent == e) out.push_back(i);
+        if (m_alive[i] && m_db.hierarchies[i].parent == e.index) out.push_back({i, m_generation[i]});
     }
     return out;
 }
 
-std::vector<Entity> World::getRoots() const {
-    return getChildren(INVALID_ENTITY);
-}
+std::vector<EntityHandle> World::getRoots() const { return getChildren(NULL_ENTITY); }
 
-bool World::isDescendantOf(Entity e, Entity ancestor) const {
-    for (Entity p = getParent(e); p != INVALID_ENTITY; p = getParent(p)) {
+bool World::isDescendantOf(EntityHandle e, EntityHandle ancestor) const {
+    for (EntityHandle p = getParent(e); !p.isNull(); p = getParent(p)) {
         if (p == ancestor) return true;
     }
     return false;
 }
 
-void World::setName(Entity e, std::string name) {
-    if (isAlive(e)) m_names[e] = std::move(name);
+void World::setName(EntityHandle e, std::string name) {
+    if (valid(e)) m_names[e.index] = std::move(name);
 }
 
-const std::string& World::getName(Entity e) const {
-    return isAlive(e) ? m_names[e] : kEmptyName;
-}
+const std::string& World::getName(EntityHandle e) const { return valid(e) ? m_names[e.index] : kEmptyName; }
 
-Entity World::find(std::string_view name) const {
+EntityHandle World::find(std::string_view name) const {
     for (Entity i = 0; i < m_alive.size(); ++i) {
-        if (m_alive[i] && m_names[i] == name) return i;
+        if (m_alive[i] && m_names[i] == name) return {i, m_generation[i]};
     }
-    return INVALID_ENTITY;
+    return NULL_ENTITY;
 }
 
-std::vector<Entity> World::findAll(std::string_view name) const {
-    std::vector<Entity> out;
+std::vector<EntityHandle> World::findAll(std::string_view name) const {
+    std::vector<EntityHandle> out;
     for (Entity i = 0; i < m_alive.size(); ++i) {
-        if (m_alive[i] && m_names[i] == name) out.push_back(i);
+        if (m_alive[i] && m_names[i] == name) out.push_back({i, m_generation[i]});
     }
     return out;
 }
 
-void World::setLocalMatrix(Entity e, const glm::mat4& local) {
-    if (!isAlive(e)) return;
-    m_db.transforms[e].localMatrix = local;
-    touchTransform(e);
+void World::setLocalMatrix(EntityHandle e, const glm::mat4& local) {
+    if (!valid(e)) return;
+    m_db.transforms[e.index].localMatrix = local;
+    touchTransform(e.index);
 }
 
-void World::setPosition(Entity e, const glm::vec3& position) {
-    if (!isAlive(e)) return;
-    m_db.transforms[e].setPos(position);
-    touchTransform(e);
+void World::setPosition(EntityHandle e, const glm::vec3& position) {
+    if (!valid(e)) return;
+    m_db.transforms[e.index].setPos(position);
+    touchTransform(e.index);
 }
 
-void World::setRotation(Entity e, const glm::quat& rotation) {
-    if (!isAlive(e)) return;
-    m_db.transforms[e].setRot(rotation);
-    touchTransform(e);
+void World::setRotation(EntityHandle e, const glm::quat& rotation) {
+    if (!valid(e)) return;
+    m_db.transforms[e.index].setRot(rotation);
+    touchTransform(e.index);
 }
 
-void World::setScale(Entity e, const glm::vec3& scale) {
-    if (!isAlive(e)) return;
-    m_db.transforms[e].setScale(scale);
-    touchTransform(e);
+void World::setScale(EntityHandle e, const glm::vec3& scale) {
+    if (!valid(e)) return;
+    m_db.transforms[e.index].setScale(scale);
+    touchTransform(e.index);
 }
 
-void World::translate(Entity e, const glm::vec3& delta) {
-    if (!isAlive(e)) return;
-    m_db.transforms[e].setPos(m_db.transforms[e].getPos() + delta);
-    touchTransform(e);
+void World::translate(EntityHandle e, const glm::vec3& delta) {
+    if (!valid(e)) return;
+    auto& t = m_db.transforms[e.index];
+    t.setPos(t.getPos() + delta);
+    touchTransform(e.index);
 }
 
-void World::setWorldMatrix(Entity e, const glm::mat4& world) {
-    if (!isAlive(e)) return;
-    const Entity parent = m_db.hierarchies[e].parent;
-    const glm::mat4 parentWorld = parent == INVALID_ENTITY ? glm::mat4(1.0f) : getWorldMatrix(parent);
+void World::setWorldMatrix(EntityHandle e, const glm::mat4& world) {
+    if (!valid(e)) return;
+    const EntityHandle parent = getParent(e);
+    const glm::mat4 parentWorld = parent.isNull() ? glm::mat4(1.0f) : getWorldMatrix(parent);
     setLocalMatrix(e, glm::inverse(parentWorld) * world);
 }
 
-const glm::mat4& World::getLocalMatrix(Entity e) const {
-    return isAlive(e) ? m_db.transforms[e].localMatrix : kDegenerate;
+const glm::mat4& World::getLocalMatrix(EntityHandle e) const {
+    return valid(e) ? m_db.transforms[e.index].localMatrix : kDegenerate;
 }
 
-glm::mat4 World::getWorldMatrix(Entity e) const {
-    if (!isAlive(e)) return glm::mat4(1.0f);
-    glm::mat4 m = m_db.transforms[e].localMatrix;
-    for (Entity p = m_db.hierarchies[e].parent; p != INVALID_ENTITY && isAlive(p); p = m_db.hierarchies[p].parent) {
+glm::mat4 World::getWorldMatrix(EntityHandle e) const {
+    if (!valid(e)) return glm::mat4(1.0f);
+    glm::mat4 m = m_db.transforms[e.index].localMatrix;
+    for (Entity p = m_db.hierarchies[e.index].parent; p != INVALID_ENTITY && m_alive[p]; p = m_db.hierarchies[p].parent) {
         m = m_db.transforms[p].localMatrix * m;
     }
     return m;
 }
 
-glm::vec3 World::getPosition(Entity e) const {
-    return isAlive(e) ? m_db.transforms[e].getPos() : glm::vec3(0.0f);
+glm::vec3 World::getPosition(EntityHandle e) const {
+    return valid(e) ? m_db.transforms[e.index].getPos() : glm::vec3(0.0f);
 }
 
-glm::quat World::getRotation(Entity e) const {
-    return isAlive(e) ? m_db.transforms[e].getRot() : glm::quat(1.0f, 0.0f, 0.0f, 0.0f);
+glm::quat World::getRotation(EntityHandle e) const {
+    return valid(e) ? m_db.transforms[e.index].getRot() : glm::quat(1.0f, 0.0f, 0.0f, 0.0f);
 }
 
-glm::vec3 World::getScale(Entity e) const {
-    return isAlive(e) ? m_db.transforms[e].getScale() : glm::vec3(0.0f);
+glm::vec3 World::getScale(EntityHandle e) const {
+    return valid(e) ? m_db.transforms[e.index].getScale() : glm::vec3(0.0f);
 }
 
-glm::vec3 World::getWorldPosition(Entity e) const {
-    return glm::vec3(getWorldMatrix(e)[3]);
-}
+glm::vec3 World::getWorldPosition(EntityHandle e) const { return glm::vec3(getWorldMatrix(e)[3]); }
 
-void World::setMesh(Entity e, uint32_t mesh) {
-    if (!isAlive(e)) return;
-    m_db.renderables[e].mesh_uuid = mesh;
+void World::setMesh(EntityHandle e, uint32_t mesh) {
+    if (!valid(e)) return;
+    m_db.renderables[e.index].mesh_uuid = mesh;
     touchData();
 }
 
-void World::setMaterial(Entity e, uint32_t material) {
-    if (!isAlive(e)) return;
-    m_db.renderables[e].material_uuid = material;
+void World::setMaterial(EntityHandle e, uint32_t material) {
+    if (!valid(e)) return;
+    m_db.renderables[e.index].material_uuid = material;
     touchData();
 }
 
-void World::setShader(Entity e, uint32_t shader) {
-    if (!isAlive(e)) return;
-    m_db.renderables[e].shaderId = shader;
+void World::setShader(EntityHandle e, uint32_t shader) {
+    if (!valid(e)) return;
+    m_db.renderables[e.index].shaderId = shader;
     touchData();
 }
 
-void World::setAlpha(Entity e, float alpha) {
-    if (!isAlive(e)) return;
-    m_db.renderables[e].alpha = alpha;
+void World::setAlpha(EntityHandle e, float alpha) {
+    if (!valid(e)) return;
+    m_db.renderables[e.index].alpha = alpha;
     touchData();
 }
 
-const RenderableComponent& World::getRenderable(Entity e) const {
-    return m_db.renderables[e];
+const RenderableComponent& World::getRenderable(EntityHandle e) const {
+    static const RenderableComponent kNone{};
+    return valid(e) ? m_db.renderables[e.index] : kNone;
 }
 
-void World::forEach(const std::function<void(Entity)>& fn) const {
+void World::forEach(const std::function<void(EntityHandle)>& fn) const {
     for (Entity i = 0; i < m_alive.size(); ++i) {
-        if (m_alive[i]) fn(i);
+        if (m_alive[i]) fn({i, m_generation[i]});
     }
 }

@@ -25,11 +25,11 @@ export class Scene {
     void onUpdate(float deltaTime, float time);
 
     SceneContext& getCntx() { return m_ctx; }
-    Entity lower() const { return m_lower; }
-    Entity upper() const { return m_upper; }
+    EntityHandle lower() const { return m_lower; }
+    EntityHandle upper() const { return m_upper; }
 
   private:
     SceneContext m_ctx;
-    Entity m_lower = INVALID_ENTITY;
-    Entity m_upper = INVALID_ENTITY;
+    EntityHandle m_lower;
+    EntityHandle m_upper;
 };

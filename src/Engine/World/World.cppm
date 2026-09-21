@@ -25,50 +25,53 @@ export struct EntityDesc {
     glm::vec3 position{0.0f};
     glm::quat rotation{1.0f, 0.0f, 0.0f, 0.0f};
     glm::vec3 scale{1.0f};
-    Entity parent = INVALID_ENTITY;
+    EntityHandle parent = NULL_ENTITY;
 };
 
 export class World {
   public:
     World();
 
-    Entity create(const EntityDesc& desc = {});
-    Entity create(std::string name, uint32_t mesh, const glm::vec3& position = glm::vec3(0.0f), const glm::vec3& scale = glm::vec3(1.0f), Entity parent = INVALID_ENTITY);
-    void destroy(Entity e);
-    [[nodiscard]] bool isAlive(Entity e) const;
+    EntityHandle create(const EntityDesc& desc = {});
+    EntityHandle create(std::string name, uint32_t mesh, const glm::vec3& position = glm::vec3(0.0f), const glm::vec3& scale = glm::vec3(1.0f), EntityHandle parent = NULL_ENTITY);
+    void destroy(EntityHandle e);
+    [[nodiscard]] bool isAlive(EntityHandle e) const;
     [[nodiscard]] size_t aliveCount() const { return m_aliveCount; }
+    void reserve(size_t count);
+    [[nodiscard]] EntityHandle handleOf(Entity index) const;
+    [[nodiscard]] static Entity slot(EntityHandle h) { return h.index; }
 
-    void setParent(Entity e, Entity parent, bool keepWorldTransform = true);
-    [[nodiscard]] Entity getParent(Entity e) const;
-    [[nodiscard]] std::vector<Entity> getChildren(Entity e) const;
-    [[nodiscard]] std::vector<Entity> getRoots() const;
-    [[nodiscard]] bool isDescendantOf(Entity e, Entity ancestor) const;
+    void setParent(EntityHandle e, EntityHandle parent, bool keepWorldTransform = true);
+    [[nodiscard]] EntityHandle getParent(EntityHandle e) const;
+    [[nodiscard]] std::vector<EntityHandle> getChildren(EntityHandle e) const;
+    [[nodiscard]] std::vector<EntityHandle> getRoots() const;
+    [[nodiscard]] bool isDescendantOf(EntityHandle e, EntityHandle ancestor) const;
 
-    void setName(Entity e, std::string name);
-    [[nodiscard]] const std::string& getName(Entity e) const;
-    [[nodiscard]] Entity find(std::string_view name) const;
-    [[nodiscard]] std::vector<Entity> findAll(std::string_view name) const;
+    void setName(EntityHandle e, std::string name);
+    [[nodiscard]] const std::string& getName(EntityHandle e) const;
+    [[nodiscard]] EntityHandle find(std::string_view name) const;
+    [[nodiscard]] std::vector<EntityHandle> findAll(std::string_view name) const;
 
-    void setLocalMatrix(Entity e, const glm::mat4& local);
-    void setPosition(Entity e, const glm::vec3& position);
-    void setRotation(Entity e, const glm::quat& rotation);
-    void setScale(Entity e, const glm::vec3& scale);
-    void translate(Entity e, const glm::vec3& delta);
-    void setWorldMatrix(Entity e, const glm::mat4& world);
-    [[nodiscard]] const glm::mat4& getLocalMatrix(Entity e) const;
-    [[nodiscard]] glm::mat4 getWorldMatrix(Entity e) const;
-    [[nodiscard]] glm::vec3 getPosition(Entity e) const;
-    [[nodiscard]] glm::quat getRotation(Entity e) const;
-    [[nodiscard]] glm::vec3 getScale(Entity e) const;
-    [[nodiscard]] glm::vec3 getWorldPosition(Entity e) const;
+    void setLocalMatrix(EntityHandle e, const glm::mat4& local);
+    void setPosition(EntityHandle e, const glm::vec3& position);
+    void setRotation(EntityHandle e, const glm::quat& rotation);
+    void setScale(EntityHandle e, const glm::vec3& scale);
+    void translate(EntityHandle e, const glm::vec3& delta);
+    void setWorldMatrix(EntityHandle e, const glm::mat4& world);
+    [[nodiscard]] const glm::mat4& getLocalMatrix(EntityHandle e) const;
+    [[nodiscard]] glm::mat4 getWorldMatrix(EntityHandle e) const;
+    [[nodiscard]] glm::vec3 getPosition(EntityHandle e) const;
+    [[nodiscard]] glm::quat getRotation(EntityHandle e) const;
+    [[nodiscard]] glm::vec3 getScale(EntityHandle e) const;
+    [[nodiscard]] glm::vec3 getWorldPosition(EntityHandle e) const;
 
-    void setMesh(Entity e, uint32_t mesh);
-    void setMaterial(Entity e, uint32_t material);
-    void setShader(Entity e, uint32_t shader);
-    void setAlpha(Entity e, float alpha);
-    [[nodiscard]] const RenderableComponent& getRenderable(Entity e) const;
+    void setMesh(EntityHandle e, uint32_t mesh);
+    void setMaterial(EntityHandle e, uint32_t material);
+    void setShader(EntityHandle e, uint32_t shader);
+    void setAlpha(EntityHandle e, float alpha);
+    [[nodiscard]] const RenderableComponent& getRenderable(EntityHandle e) const;
 
-    void forEach(const std::function<void(Entity)>& fn) const;
+    void forEach(const std::function<void(EntityHandle)>& fn) const;
 
     [[nodiscard]] Camera& camera() { return m_camera; }
     [[nodiscard]] const Camera& camera() const { return m_camera; }
@@ -76,14 +79,16 @@ export class World {
     [[nodiscard]] const SceneDatabase& database() const { return m_db; }
 
   private:
-    void destroyRecursive(Entity e);
-    void touchTransform(Entity e);
+    void destroyRecursive(Entity idx);
+    [[nodiscard]] bool valid(EntityHandle h) const;
+    void touchTransform(Entity idx);
     void touchStructure();
     void touchData();
 
     SceneDatabase m_db;
     Camera m_camera;
-    std::vector<bool> m_alive;
+    std::vector<uint8_t> m_alive;
+    std::vector<uint32_t> m_generation;
     std::vector<std::string> m_names;
     std::vector<Entity> m_freeList;
     size_t m_aliveCount = 0;

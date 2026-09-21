@@ -9,7 +9,7 @@ export module Editor.application;
 
 import Engine.engine;
 import Engine.camera;
-import Engine.Render.scenedatabase;
+import Engine.World;
 import Engine.input;
 import Engine.mesh;
 import Engine.Render.entity;
@@ -28,10 +28,9 @@ export class Application {
 
     GLFWwindow* m_window;
     Engine m_engine;
-    Camera camera;
-    SceneDatabase m_sceneDatabase;
+    World m_world;
     std::optional<Mesh> m_mesh;
-    Entity m_parentEntity;
+    EntityHandle m_parentEntity;
     std::string m_frameTimeText;
     std::string m_smallObjectThresholdText;
     std::string m_largeObjectThresholdText;

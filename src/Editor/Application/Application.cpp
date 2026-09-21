@@ -15,7 +15,7 @@ module Editor.application;
 
 import Engine.engine;
 import Engine.mesh;
-import Engine.Render.scenedatabase;
+import Engine.World;
 import Engine.Render.component;
 import Engine.camera;
 import Engine.input;
@@ -73,36 +73,28 @@ Application::Application() {
     std::uniform_real_distribution<float> distribPosSideZ(-100.0f, 150.0f);
     std::uniform_int_distribution<unsigned int> distribType(0, 1);
 
-    m_parentEntity = m_sceneDatabase.createEntity();
-    m_sceneDatabase.transforms[m_parentEntity].localMatrix = glm::mat4(1.0f);
-    m_sceneDatabase.renderables[m_parentEntity].mesh_uuid = cubeMeshUuid;
-    m_sceneDatabase.renderables[m_parentEntity].material_uuid = 0;
-    m_sceneDatabase.renderables[m_parentEntity].shaderId = 0;
+    m_world.reserve(numObjects + 1);
+
+    EntityDesc parentDesc;
+    parentDesc.name = "parent";
+    parentDesc.mesh = cubeMeshUuid;
+    m_parentEntity = m_world.create(parentDesc);
 
     m_movingObjectCount = static_cast<uint32_t>(std::min(numObjects, 150000));
     m_basePositions.resize(m_movingObjectCount);
 
     for (int i = 0; i < numObjects; ++i) {
-        auto entity = m_sceneDatabase.createEntity();
-
-        glm::vec3 position(distribPosSideX(gen), distribPosHeight(gen), distribPosSideZ(gen));
-        glm::mat4 model = glm::translate(glm::mat4(1.0f), position);
-        m_sceneDatabase.transforms[entity].localMatrix = model;
-
+        const glm::vec3 position(distribPosSideX(gen), distribPosHeight(gen), distribPosSideZ(gen));
         if (static_cast<uint32_t>(i) < m_movingObjectCount) { m_basePositions[i] = position; }
 
-        uint32_t assignedMesh = (distribType(gen) == 1) ? sphereMeshUuid : cubeMeshUuid;
-
-        m_sceneDatabase.renderables[entity].mesh_uuid = assignedMesh;
-        m_sceneDatabase.renderables[entity].material_uuid = 0;
-
         const bool isTransparent = (i % 50 == 0);
-        m_sceneDatabase.renderables[entity].shaderId = isTransparent ? 2 : (i % 2 == 0 ? 1 : 0);
-        m_sceneDatabase.renderables[entity].alpha = isTransparent ? 0.6f : 1.0f;
-
-        if (i < numObjects / 2) {
-            m_sceneDatabase.hierarchies[entity].parent = m_parentEntity;
-        }
+        EntityDesc desc;
+        desc.position = position;
+        desc.mesh = (distribType(gen) == 1) ? sphereMeshUuid : cubeMeshUuid;
+        desc.shader = isTransparent ? 2 : (i % 2 == 0 ? 1 : 0);
+        desc.alpha = isTransparent ? 0.6f : 1.0f;
+        if (i < numObjects / 2) { desc.parent = m_parentEntity; }
+        m_world.create(desc);
     }
 
     m_engine.uploadBasePositions(m_basePositions);
@@ -110,21 +102,18 @@ Application::Application() {
     m_smallObjectThreshold = 0.0f;
     m_largeObjectThreshold = 0.0055f;
 
-    m_sceneDatabase.markHierarchyDirty();
-    m_sceneDatabase.markDataDirty();
-
-    camera.setFarPlane(2000.0f);
-    camera.setPos(glm::vec3(0.0f, 1000.0f, 0.0f));
+    m_world.camera().setFarPlane(2000.0f);
+    m_world.camera().setPos(glm::vec3(0.0f, 1000.0f, 0.0f));
     m_engine.setFullProfiling(true);
 
     // benchmark overrides: LIT_CAM_POS=x,y,z  LIT_CAM_PITCH  LIT_CAM_YAW  LIT_FORCE_LOD  LIT_SEED
     if (const char* camPos = std::getenv("LIT_CAM_POS")) {
         float x = 0.0f, y = 0.0f, z = 0.0f;
-        if (std::sscanf(camPos, "%f,%f,%f", &x, &y, &z) == 3) { camera.setPos(glm::vec3(x, y, z)); }
+        if (std::sscanf(camPos, "%f,%f,%f", &x, &y, &z) == 3) { m_world.camera().setPos(glm::vec3(x, y, z)); }
     }
     if (const char* camPitch = std::getenv("LIT_CAM_PITCH")) {
         const char* camYaw = std::getenv("LIT_CAM_YAW");
-        camera.setOrientation(camYaw ? static_cast<float>(std::atof(camYaw)) : -90.0f, static_cast<float>(std::atof(camPitch)));
+        m_world.camera().setOrientation(camYaw ? static_cast<float>(std::atof(camYaw)) : -90.0f, static_cast<float>(std::atof(camPitch)));
     }
     if (const char* forceLod = std::getenv("LIT_FORCE_LOD")) { m_engine.setForcedLod(std::atoi(forceLod)); }
     if (const char* lodBias = std::getenv("LIT_LOD_BIAS")) { m_lodBias = static_cast<float>(std::atof(lodBias)); }
@@ -153,7 +142,7 @@ void  Application::update() {
    m_engine.setSmallObjectThreshold(m_smallObjectThreshold);
    m_engine.setLargeObjectThreshold(m_largeObjectThreshold);
 
-   m_engine.update(m_sceneDatabase, camera);
+   m_engine.update(m_world);
 
    m_textUpdateTimer += deltaTime;
    if (m_textUpdateTimer >= 0.5f) {
@@ -164,8 +153,8 @@ void  Application::update() {
 
        m_textUpdateTimer = 0.0f;
    }
-   const glm::vec3 cameraPosition = camera.getPosition();
-   m_cameraText = "camera: " + std::to_string(static_cast<int>(cameraPosition.x)) + ", " + std::to_string(static_cast<int>(cameraPosition.y)) + ", " + std::to_string(static_cast<int>(cameraPosition.z)) + "  pitch " + std::to_string(static_cast<int>(camera.getPitch())) + "  yaw " + std::to_string(static_cast<int>(camera.getYaw()));
+   const glm::vec3 cameraPosition = m_world.camera().getPosition();
+   m_cameraText = "camera: " + std::to_string(static_cast<int>(cameraPosition.x)) + ", " + std::to_string(static_cast<int>(cameraPosition.y)) + ", " + std::to_string(static_cast<int>(cameraPosition.z)) + "  pitch " + std::to_string(static_cast<int>(m_world.camera().getPitch())) + "  yaw " + std::to_string(static_cast<int>(m_world.camera().getYaw()));
    m_engine.AddText(m_cameraText, 10.0f, 90.0f, 0.5f, glm::vec3(1.0f, 1.0f, 1.0f));
    m_engine.AddText(m_frameTimeText, 10.0f, 30.0f, 0.5f, glm::vec3(1.0f, 1.0f, 1.0f));
    m_engine.AddText(m_smallObjectThresholdText, 10.0f, 50.0f, 0.5f, glm::vec3(1.0f, 1.0f, 1.0f));
@@ -189,39 +178,31 @@ void Application::processInput(float deltaTime) {
 
     float moveSpeed = 4.0f;
     if (InputManager::IsKeyHeld(GLFW_KEY_LEFT_SHIFT)) moveSpeed = 100.0f;
-    if (InputManager::IsKeyHeld(GLFW_KEY_W)) { camera.processKeyboard(CameraMovement::FORWARD, moveSpeed * deltaTime); }
-    if (InputManager::IsKeyHeld(GLFW_KEY_Q)) { camera.processKeyboard(CameraMovement::FORWARD, moveSpeed * deltaTime); }
-    if (InputManager::IsKeyHeld(GLFW_KEY_S)) { camera.processKeyboard(CameraMovement::BACKWARD, moveSpeed * deltaTime); }
-    if (InputManager::IsKeyHeld(GLFW_KEY_A)) { camera.processKeyboard(CameraMovement::LEFT, moveSpeed * deltaTime); }
-    if (InputManager::IsKeyHeld(GLFW_KEY_D)) { camera.processKeyboard(CameraMovement::RIGHT, moveSpeed * deltaTime); }
+    if (InputManager::IsKeyHeld(GLFW_KEY_W)) { m_world.camera().processKeyboard(CameraMovement::FORWARD, moveSpeed * deltaTime); }
+    if (InputManager::IsKeyHeld(GLFW_KEY_Q)) { m_world.camera().processKeyboard(CameraMovement::FORWARD, moveSpeed * deltaTime); }
+    if (InputManager::IsKeyHeld(GLFW_KEY_S)) { m_world.camera().processKeyboard(CameraMovement::BACKWARD, moveSpeed * deltaTime); }
+    if (InputManager::IsKeyHeld(GLFW_KEY_A)) { m_world.camera().processKeyboard(CameraMovement::LEFT, moveSpeed * deltaTime); }
+    if (InputManager::IsKeyHeld(GLFW_KEY_D)) { m_world.camera().processKeyboard(CameraMovement::RIGHT, moveSpeed * deltaTime); }
 
-    bool dataChanged = false;
     if (InputManager::IsKeyHeld(GLFW_KEY_J)) {
-        m_sceneDatabase.transforms[m_parentEntity].localMatrix = glm::translate(m_sceneDatabase.transforms[m_parentEntity].localMatrix, glm::vec3(-10.0f * deltaTime, 0.0f, 0.0f));
-        dataChanged = true;
+        m_world.translate(m_parentEntity, glm::vec3(-10.0f * deltaTime, 0.0f, 0.0f));
     }
     if (InputManager::IsKeyHeld(GLFW_KEY_L)) {
-        m_sceneDatabase.transforms[m_parentEntity].localMatrix = glm::translate(m_sceneDatabase.transforms[m_parentEntity].localMatrix, glm::vec3(10.0f * deltaTime, 0.0f, 0.0f));
-        dataChanged = true;
+        m_world.translate(m_parentEntity, glm::vec3(10.0f * deltaTime, 0.0f, 0.0f));
     }
     if (InputManager::IsKeyHeld(GLFW_KEY_I)) {
-        m_sceneDatabase.transforms[m_parentEntity].localMatrix = glm::translate(m_sceneDatabase.transforms[m_parentEntity].localMatrix, glm::vec3(0.0f, 0.0f, -10.0f * deltaTime));
-        dataChanged = true;
+        m_world.translate(m_parentEntity, glm::vec3(0.0f, 0.0f, -10.0f * deltaTime));
     }
     if (InputManager::IsKeyHeld(GLFW_KEY_K)) {
-        m_sceneDatabase.transforms[m_parentEntity].localMatrix = glm::translate(m_sceneDatabase.transforms[m_parentEntity].localMatrix, glm::vec3(0.0f, 0.0f, 10.0f * deltaTime));
-        dataChanged = true;
+        m_world.translate(m_parentEntity, glm::vec3(0.0f, 0.0f, 10.0f * deltaTime));
     }
     if (InputManager::IsKeyHeld(GLFW_KEY_U)) {
-        m_sceneDatabase.transforms[m_parentEntity].localMatrix = glm::translate(m_sceneDatabase.transforms[m_parentEntity].localMatrix, glm::vec3(0.0f, 10.0f * deltaTime, 0.0f));
-        dataChanged = true;
+        m_world.translate(m_parentEntity, glm::vec3(0.0f, 10.0f * deltaTime, 0.0f));
     }
     if (InputManager::IsKeyHeld(GLFW_KEY_O)) {
-        m_sceneDatabase.transforms[m_parentEntity].localMatrix = glm::translate(m_sceneDatabase.transforms[m_parentEntity].localMatrix, glm::vec3(0.0f, -10.0f * deltaTime, 0.0f));
-        dataChanged = true;
+        m_world.translate(m_parentEntity, glm::vec3(0.0f, -10.0f * deltaTime, 0.0f));
     }
 
-    if (dataChanged) { m_sceneDatabase.markTransformsDirty(m_movingObjectCount + 1); }
 
     // 5 / 6 step the forced LOD: automatic <-> 0 ... 6
     {
@@ -271,17 +252,17 @@ void Application::processInput(float deltaTime) {
     }
 
     if (InputManager::IsKeyPressed(GLFW_KEY_F2)) {
-        const glm::vec3 pos = camera.getPosition();
+        const glm::vec3 pos = m_world.camera().getPosition();
         Lit::Log::Info("Camera position: LIT_CAM_POS={:.1f},{:.1f},{:.1f}", pos.x, pos.y, pos.z);
     }
 
     if (InputManager::IsKeyPressed(GLFW_KEY_F2)) {
-        const glm::vec3 pos = camera.getPosition();
+        const glm::vec3 pos = m_world.camera().getPosition();
         Lit::Log::Info("Camera position: LIT_CAM_POS={:.1f},{:.1f},{:.1f}", pos.x, pos.y, pos.z);
     }
 
     glm::vec2 mouseDelta = InputManager::GetMouseDelta();
-    camera.processMouseMovement(mouseDelta.x, -mouseDelta.y);
+    m_world.camera().processMouseMovement(mouseDelta.x, -mouseDelta.y);
 }
 
 bool Application::isRunning() const { return !glfwWindowShouldClose(m_window); }
