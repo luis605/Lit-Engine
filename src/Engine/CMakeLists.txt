@@ -24,6 +24,7 @@ target_sources(Engine
         Render/SceneDatabase.cppm
         Render/Mesh.cppm
         World/World.cppm
+        Events/Events.cppm
         Input/Input.cppm
         Asset/AssetManager.cppm
         UI/Manager.cppm

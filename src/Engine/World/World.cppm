@@ -19,10 +19,25 @@ module;
 export module Engine.World;
 
 import Engine.Render.entity;
+import Engine.Events;
 import Engine.Render.component;
 import Engine.Render.scenedatabase;
 import Engine.camera;
 import Engine.glm;
+
+export struct EntityCreated {
+    EntityHandle entity;
+};
+
+export struct EntityDestroyed {
+    EntityHandle entity;
+};
+
+export struct EntityReparented {
+    EntityHandle entity;
+    EntityHandle oldParent;
+    EntityHandle newParent;
+};
 
 export struct EntityDesc {
     std::string name;
@@ -276,6 +291,7 @@ export class World {
 
     void forEach(const std::function<void(EntityHandle)>& fn) const;
 
+    [[nodiscard]] EventBus& events() { return m_events; }
     [[nodiscard]] Camera& camera() { return m_camera; }
     [[nodiscard]] const Camera& camera() const { return m_camera; }
     [[nodiscard]] SceneDatabase& database() { return m_db; }
@@ -303,6 +319,7 @@ export class World {
 
     SceneDatabase m_db;
     Camera m_camera;
+    EventBus m_events;
     std::vector<uint8_t> m_alive;
     std::vector<uint32_t> m_generation;
     std::vector<uint8_t> m_visible;

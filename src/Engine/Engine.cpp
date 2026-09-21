@@ -49,7 +49,10 @@ void Engine::update(SceneDatabase& sceneDatabase, Camera& camera) {
     m_renderer.drawScene(sceneDatabase, camera);
 }
 
-void Engine::tick(float deltaTime) { m_world.update(deltaTime); }
+void Engine::tick(float deltaTime) {
+    m_world.update(deltaTime);
+    m_world.events().dispatch();
+}
 
 void Engine::update() { m_renderer.drawScene(m_world.database(), m_world.camera()); }
 

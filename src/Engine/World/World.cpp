@@ -111,6 +111,7 @@ void World::touchData() { m_db.markDataDirty(); }
 EntityHandle World::create(const EntityDesc& desc) {
     const EntityHandle h = createImpl(desc);
     touchStructure();
+    m_events.emit(EntityCreated{h});
     return h;
 }
 
@@ -173,6 +174,7 @@ void World::destroyRecursive(Entity idx) {
         destroyRecursive(child);
         child = next;
     }
+    m_events.emit(EntityDestroyed{{idx, m_generation[idx]}});
     runScriptDestroy(idx);
     clearTag(idx);
     for (auto& [type, p] : m_pools) p->remove(idx);
@@ -203,6 +205,7 @@ void World::setParent(EntityHandle e, EntityHandle parent, bool keepWorldTransfo
     if (!parent.isNull() && (!valid(parent) || parent == e || isDescendantOf(parent, e))) return;
     if (m_db.hierarchies[e.index].parent == parent.index) return;
 
+    const EntityHandle oldParent = getParent(e);
     const glm::mat4 world = keepWorldTransform ? getWorldMatrix(e) : glm::mat4(1.0f);
     unlink(e.index);
     link(e.index, parent.index);
@@ -212,6 +215,7 @@ void World::setParent(EntityHandle e, EntityHandle parent, bool keepWorldTransfo
         m_db.transforms[e.index].localMatrix = glm::inverse(parentWorld) * world;
     }
     touchStructure();
+    m_events.emit(EntityReparented{e, oldParent, parent});
 }
 
 EntityHandle World::getParent(EntityHandle e) const {

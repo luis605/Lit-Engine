@@ -292,6 +292,29 @@ static void testWorldCache() {
     CHECK(w.getWorldPosition(e).x == 7.0f);
 }
 
+static void testEvents() {
+    World w;
+    int created = 0, destroyed = 0, reparented = 0;
+    const uint32_t id = w.events().subscribe<EntityCreated>([&](const EntityCreated&) { ++created; });
+    w.events().subscribe<EntityDestroyed>([&](const EntityDestroyed&) { ++destroyed; });
+    w.events().subscribe<EntityReparented>([&](const EntityReparented& e) { if (!e.newParent.isNull()) ++reparented; });
+    auto a = w.create("a", 1);
+    auto b = w.create("b", 1);
+    CHECK(created == 0);
+    w.events().dispatch();
+    CHECK(created == 2);
+    w.setParent(b, a);
+    w.destroy(a);
+    w.events().dispatch();
+    CHECK(reparented == 1);
+    CHECK(destroyed == 2);
+    w.events().unsubscribe(id);
+    w.create("c", 1);
+    w.events().dispatch();
+    CHECK(created == 2);
+    CHECK(w.events().pending() == 0);
+}
+
 int main() {
     testHandles();
     testHierarchy();
@@ -306,6 +329,7 @@ int main() {
     testPrefab();
     testLayersAndTags();
     testWorldCache();
+    testEvents();
     std::printf("%d checks, %d failures\n", g_checks, g_failures);
     return g_failures == 0 ? 0 : 1;
 }
