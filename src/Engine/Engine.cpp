@@ -1,4 +1,5 @@
 struct GLFWwindow;
+#include <optional>
 #include <string>
 #include <vector>
 #include <algorithm>
@@ -45,7 +46,18 @@ uint32_t Engine::loadMesh(const std::string& name) {
 
 Engine::~Engine() {}
 
-void Engine::init(GLFWwindow* window, const int windowWidth, const int windowHeight) { m_renderer.init(window, windowWidth, windowHeight); }
+void Engine::init(GLFWwindow* window, const int windowWidth, const int windowHeight) {
+    m_windowWidth = windowWidth;
+    m_windowHeight = windowHeight;
+    m_world.camera().updateAspectRatio(static_cast<float>(windowWidth), static_cast<float>(windowHeight));
+    m_renderer.init(window, windowWidth, windowHeight);
+}
+
+std::optional<RayHit> Engine::pick(float screenX, float screenY) {
+    m_world.syncCamera();
+    const Ray ray = m_world.screenRay(screenX, screenY, static_cast<float>(m_windowWidth), static_cast<float>(m_windowHeight));
+    return m_world.raycast(ray.origin, ray.direction);
+}
 
 void Engine::update(SceneDatabase& sceneDatabase, Camera& camera) {
     m_renderer.drawScene(sceneDatabase, camera);

@@ -153,6 +153,13 @@ int main() {
             camera.processMouseMovement(delta.x, -delta.y);
         }
 
+        if (!mouseLocked && InputManager::IsMouseButtonPressed(GLFW_MOUSE_BUTTON_LEFT)) {
+            const glm::vec2 mouse = InputManager::GetMousePosition();
+            if (const auto hit = engine.pick(mouse.x, mouse.y)) {
+                Lit::Log::Info("Picked '{}' at distance {:.2f}", world.getName(hit->entity), hit->distance);
+            }
+        }
+
         if (engine.input().pressed("save")) world.saveScene("resources/sandbox.litscene");
         if (engine.input().pressed("load") && world.loadScene("resources/sandbox.litscene")) scene.rebind();
 

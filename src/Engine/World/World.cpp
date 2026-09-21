@@ -946,3 +946,14 @@ std::optional<RayHit> World::raycast(const glm::vec3& origin, const glm::vec3& d
     }
     return best;
 }
+
+Ray World::screenRay(float screenX, float screenY, float width, float height) const {
+    const float ndcX = 2.0f * screenX / width - 1.0f;
+    const float ndcY = 1.0f - 2.0f * screenY / height;
+    const glm::mat4 inv = glm::inverse(m_camera.getProjectionMatrix() * m_camera.getViewMatrix());
+    glm::vec4 nearPoint = inv * glm::vec4(ndcX, ndcY, 0.0f, 1.0f);
+    glm::vec4 farPoint = inv * glm::vec4(ndcX, ndcY, 1.0f, 1.0f);
+    const glm::vec3 n = glm::vec3(nearPoint) / nearPoint.w;
+    const glm::vec3 f = glm::vec3(farPoint) / farPoint.w;
+    return {n, glm::normalize(f - n)};
+}

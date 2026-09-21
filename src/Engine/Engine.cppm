@@ -26,6 +26,7 @@ export class Engine {
     void init(GLFWwindow* window, const int windowWidth, const int windowHeight);
     void update(SceneDatabase& sceneDatabase, Camera& camera);
     void tick(float deltaTime);
+    [[nodiscard]] std::optional<RayHit> pick(float screenX, float screenY);
     void setFixedTimestep(float seconds) { m_fixedStep = seconds; }
     void update();
     void update(World& world);
@@ -51,6 +52,8 @@ export class Engine {
   private:
     Renderer m_renderer;
     World m_world;
+    int m_windowWidth = 1280;
+    int m_windowHeight = 720;
     InputActions m_input;
     float m_fixedStep = 1.0f / 60.0f;
     float m_accumulator = 0.0f;

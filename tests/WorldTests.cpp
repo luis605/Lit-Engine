@@ -395,6 +395,29 @@ static void testSpatial() {
     (void)side;
 }
 
+static void testScreenRay() {
+    World w;
+    w.setMeshBoundsHook([](uint32_t) { return glm::vec4(0.0f, 0.0f, 0.0f, 1.0f); });
+    w.camera().setPos(glm::vec3(0.0f, 0.0f, 10.0f));
+    w.camera().setOrientation(-90.0f, 0.0f);
+    w.camera().updateAspectRatio(1280.0f, 720.0f);
+    const Ray center = w.screenRay(640.0f, 360.0f, 1280.0f, 720.0f);
+    CHECK(std::abs(center.direction.z + 1.0f) < 0.001f);
+    CHECK(std::abs(center.direction.x) < 0.001f && std::abs(center.direction.y) < 0.001f);
+    const Ray right = w.screenRay(1000.0f, 360.0f, 1280.0f, 720.0f);
+    CHECK(right.direction.x > 0.05f);
+    const Ray top = w.screenRay(640.0f, 100.0f, 1280.0f, 720.0f);
+    CHECK(top.direction.y > 0.05f);
+
+    auto target = w.create("target", 1, glm::vec3(0.0f, 0.0f, 0.0f));
+    auto hit = w.raycast(center.origin, center.direction);
+    CHECK(hit && hit->entity == target);
+    auto offside = w.create("offside", 1, glm::vec3(3.0f, 0.0f, 0.0f));
+    const Ray toOffside = w.screenRay(640.0f + 640.0f * (3.0f / 10.0f) / std::tan(glm::radians(22.5f)) / (1280.0f / 720.0f), 360.0f, 1280.0f, 720.0f);
+    hit = w.raycast(toOffside.origin, toOffside.direction);
+    CHECK(hit && hit->entity == offside);
+}
+
 int main() {
     testHandles();
     testHierarchy();
@@ -413,6 +436,7 @@ int main() {
     testFixedUpdate();
     testCameraEntity();
     testSpatial();
+    testScreenRay();
     std::printf("%d checks, %d failures\n", g_checks, g_failures);
     return g_failures == 0 ? 0 : 1;
 }
