@@ -388,8 +388,10 @@ void UIManager::render() {
                 continue;
 
             const Glyph& ch = d->glyphs[code];
-            if (!ch.valid)
+            if (!ch.valid) {
+                x += (ch.advance >> 6) * textData.scale;
                 continue;
+            }
 
             const float xpos = x + ch.bearingX * textData.scale;
             const float ypos = textData.y - (ch.sizeY - ch.bearingY) * textData.scale;
