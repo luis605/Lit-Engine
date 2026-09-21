@@ -95,6 +95,7 @@ Application::Application() : m_world(m_engine.world()) {
     m_world.camera().setFarPlane(2000.0f);
     m_world.camera().setPos(glm::vec3(0.0f, 1000.0f, 0.0f));
     m_engine.setFullProfiling(true);
+    m_engine.setPaused(true);
 
     // benchmark overrides: LIT_CAM_POS=x,y,z  LIT_CAM_PITCH  LIT_CAM_YAW  LIT_FORCE_LOD  LIT_SEED
     if (const char* camPos = std::getenv("LIT_CAM_POS")) {
@@ -133,6 +134,8 @@ void  Application::update() {
    m_engine.setSmallObjectThreshold(m_smallObjectThreshold);
    m_engine.setLargeObjectThreshold(m_largeObjectThreshold);
 
+   if (InputManager::IsKeyPressed(GLFW_KEY_F5)) setPlaying(!m_playing);
+   m_engine.AddText(m_playing ? "PLAY  (F5 stop and restore)" : "EDIT  (F5 play)", 10.0f, 10.0f, 0.5f, m_playing ? glm::vec3(0.3f, 1.0f, 0.4f) : glm::vec3(1.0f, 0.8f, 0.3f));
    m_inspector.update(m_engine, !m_mouseLocked);
    m_engine.update();
 
@@ -256,6 +259,27 @@ void Application::processInput(float deltaTime) {
         const glm::vec2 mouseDelta = InputManager::GetMouseDelta();
         m_world.camera().processMouseMovement(mouseDelta.x, -mouseDelta.y);
     }
+}
+
+void Application::setPlaying(bool playing) {
+    if (playing == m_playing) return;
+    const auto start = std::chrono::steady_clock::now();
+    if (playing) {
+        m_snapshot = m_world.snapshot();
+        m_engine.setPaused(false);
+    } else {
+        m_engine.setPaused(true);
+        if (m_world.restore(m_snapshot)) {
+            m_parentEntity = m_world.find("parent");
+            m_inspector.reset();
+        } else {
+            Lit::Log::Error("Failed to restore the scene snapshot");
+        }
+        m_snapshot.clear();
+        m_snapshot.shrink_to_fit();
+    }
+    m_playing = playing;
+    Lit::Log::Info("{} took {:.1f} ms", playing ? "Entering play mode" : "Leaving play mode", std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - start).count());
 }
 
 bool Application::isRunning() const { return !glfwWindowShouldClose(m_window); }

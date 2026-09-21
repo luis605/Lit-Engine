@@ -24,6 +24,7 @@ export class Inspector {
     void update(Engine& engine, bool pickingEnabled);
     [[nodiscard]] EntityHandle selected() const { return m_selected; }
     void select(EntityHandle e) { m_selected = e; }
+    void reset();
 
   private:
     void handleClick(Engine& engine);

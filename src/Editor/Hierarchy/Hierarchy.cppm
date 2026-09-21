@@ -14,6 +14,11 @@ import Engine.glm;
 export class Hierarchy {
   public:
     void update(Engine& engine, EntityHandle& selected);
+    void reset() {
+        m_expanded.clear();
+        m_offset = 0;
+        m_lastSelected = NULL_ENTITY;
+    }
 
   private:
     struct Row {

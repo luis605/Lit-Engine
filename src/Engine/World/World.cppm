@@ -405,6 +405,10 @@ export class World {
 
     void clear();
     bool saveScene(const std::filesystem::path& path) const;
+    bool saveScene(std::ostream& out) const;
+    bool loadScene(std::istream& in);
+    [[nodiscard]] std::string snapshot() const;
+    bool restore(const std::string& snapshotText);
     bool loadScene(const std::filesystem::path& path);
     std::optional<std::vector<EntityHandle>> loadSceneAdditive(const std::filesystem::path& path, EntityHandle parent = NULL_ENTITY);
     void unloadGroup(const std::vector<EntityHandle>& roots);
@@ -439,7 +443,7 @@ export class World {
     void runScriptDestroy(Entity idx);
     void flushPendingDestroy();
     EntityHandle createImpl(const EntityDesc& desc);
-    std::optional<std::vector<EntityHandle>> loadSceneImpl(const std::filesystem::path& path, bool additive, EntityHandle parent);
+    std::optional<std::vector<EntityHandle>> loadSceneImpl(std::istream& in, bool additive, EntityHandle parent);
     void clearTag(Entity idx);
     void setFlagBit(Entity idx, uint32_t bit, bool on);
     void link(Entity idx, Entity parent);

@@ -4,7 +4,9 @@ module;
 #include <cmath>
 #include <limits>
 #include <optional>
+#include <charconv>
 #include <cstdint>
+#include <system_error>
 #include <cstdlib>
 #include <filesystem>
 #include <fstream>
@@ -29,6 +31,22 @@ import Engine.glm;
 namespace {
 const std::string kEmptyName;
 const glm::mat4 kDegenerate(0.0f);
+
+template <typename T>
+bool readNumber(std::string_view& view, T& value) {
+    while (!view.empty() && view.front() == ' ') view.remove_prefix(1);
+    const auto [end, ec] = std::from_chars(view.data(), view.data() + view.size(), value);
+    if (ec != std::errc()) return false;
+    view.remove_prefix(static_cast<size_t>(end - view.data()));
+    return true;
+}
+
+template <typename T>
+void appendNumber(std::string& buffer, T value) {
+    char chars[48];
+    const auto [end, ec] = std::to_chars(chars, chars + sizeof(chars), value);
+    buffer.append(chars, end);
+}
 
 glm::mat4 compose(const glm::vec3& p, const glm::quat& r, const glm::vec3& s) {
     return glm::translate(glm::mat4(1.0f), p) * glm::mat4_cast(r) * glm::scale(glm::mat4(1.0f), s);
@@ -685,6 +703,10 @@ void World::clear() {
 bool World::saveScene(const std::filesystem::path& path) const {
     std::ofstream out(path);
     if (!out) return false;
+    return saveScene(out);
+}
+
+bool World::saveScene(std::ostream& out) const {
     out.precision(9);
     out << "LITSCENE 2\n" << m_aliveCount << "\n";
     if (m_meshNameOf) {
@@ -697,15 +719,38 @@ bool World::saveScene(const std::filesystem::path& path) const {
             if (!name.empty()) out << "mesh " << id << '\t' << name << '\n';
         }
     }
+    std::string line;
     for (Entity i = 0; i < m_alive.size(); ++i) {
         if (!m_alive[i]) continue;
         const auto& r = m_db.renderables[i];
         const Entity parent = m_db.hierarchies[i].parent;
-        out << i << ' ' << (parent == INVALID_ENTITY ? -1 : static_cast<long long>(parent)) << ' ' << int(m_visible[i]) << ' ' << m_mesh[i] << ' ' << r.material_uuid << ' ' << r.shaderId << ' ' << r.alpha;
+        line.clear();
+        appendNumber(line, i);
+        line.push_back(' ');
+        appendNumber(line, parent == INVALID_ENTITY ? -1LL : static_cast<long long>(parent));
+        line.push_back(' ');
+        appendNumber(line, static_cast<int>(m_visible[i]));
+        line.push_back(' ');
+        appendNumber(line, m_mesh[i]);
+        line.push_back(' ');
+        appendNumber(line, r.material_uuid);
+        line.push_back(' ');
+        appendNumber(line, r.shaderId);
+        line.push_back(' ');
+        appendNumber(line, r.alpha);
         const float* m = &m_db.transforms[i].localMatrix[0][0];
-        for (int k = 0; k < 16; ++k) out << ' ' << m[k];
-        out << ' ' << m_layer[i] << ' ' << (r.flags & ~RENDER_HIDDEN);
-        out << '\t' << m_names[i] << '\n';
+        for (int k = 0; k < 16; ++k) {
+            line.push_back(' ');
+            appendNumber(line, m[k]);
+        }
+        line.push_back(' ');
+        appendNumber(line, m_layer[i]);
+        line.push_back(' ');
+        appendNumber(line, r.flags & ~RENDER_HIDDEN);
+        line.push_back('\t');
+        line.append(m_names[i]);
+        line.push_back('\n');
+        out.write(line.data(), static_cast<std::streamsize>(line.size()));
     }
     for (Entity i = 0; i < m_alive.size(); ++i) {
         if (m_alive[i] && !m_tags[i].empty()) out << "tag " << i << '\t' << m_tags[i] << '\n';
@@ -737,8 +782,7 @@ bool World::saveScene(const std::filesystem::path& path) const {
     return static_cast<bool>(out);
 }
 
-std::optional<std::vector<EntityHandle>> World::loadSceneImpl(const std::filesystem::path& path, bool additive, EntityHandle parent) {
-    std::ifstream in(path);
+std::optional<std::vector<EntityHandle>> World::loadSceneImpl(std::istream& in, bool additive, EntityHandle parent) {
     if (!in) return std::nullopt;
     std::string magic;
     int version = 0;
@@ -753,6 +797,7 @@ std::optional<std::vector<EntityHandle>> World::loadSceneImpl(const std::filesys
     };
     std::vector<Record> records;
     std::unordered_map<long long, EntityHandle> handles;
+    handles.reserve(count);
     records.reserve(count);
 
     if (!additive) clear();
@@ -776,15 +821,15 @@ std::optional<std::vector<EntityHandle>> World::loadSceneImpl(const std::filesys
             continue;
         }
         const size_t tab = line.find('\t');
-        std::istringstream fields(line.substr(0, tab));
-        long long id, parent;
-        int visible;
+        std::string_view fields(line.data(), tab == std::string::npos ? line.size() : tab);
+        long long id = 0, parent = -1;
+        int visible = 1;
         EntityDesc desc;
-        fields >> id >> parent >> visible >> desc.mesh >> desc.material >> desc.shader >> desc.alpha;
         glm::mat4 local;
         float* m = &local[0][0];
-        for (int k = 0; k < 16; ++k) fields >> m[k];
-        if (!fields) {
+        bool ok = readNumber(fields, id) && readNumber(fields, parent) && readNumber(fields, visible) && readNumber(fields, desc.mesh) && readNumber(fields, desc.material) && readNumber(fields, desc.shader) && readNumber(fields, desc.alpha);
+        for (int k = 0; ok && k < 16; ++k) ok = readNumber(fields, m[k]);
+        if (!ok) {
             if (additive) {
                 destroyBatch(created);
             } else {
@@ -793,16 +838,21 @@ std::optional<std::vector<EntityHandle>> World::loadSceneImpl(const std::filesys
             return std::nullopt;
         }
         uint32_t layer = 1;
-        if (!(fields >> layer)) layer = 1;
+        if (!readNumber(fields, layer)) layer = 1;
         uint32_t renderFlags = 0;
-        if (!(fields >> renderFlags)) renderFlags = 0;
+        if (!readNumber(fields, renderFlags)) renderFlags = 0;
         if (tab != std::string::npos) desc.name = line.substr(tab + 1);
         if (const auto remap = meshRemap.find(desc.mesh); remap != meshRemap.end()) desc.mesh = remap->second;
-        const EntityHandle h = create(desc);
-        setLocalMatrix(h, local);
-        setLayer(h, layer);
-        setRenderFlags(h, renderFlags, true);
-        if (!visible) setVisible(h, false);
+        const EntityHandle h = createImpl(desc);
+        m_db.transforms[h.index].localMatrix = local;
+        m_layer[h.index] = layer;
+        m_db.renderables[h.index].flags |= renderFlags;
+        if (!visible) {
+            m_visible[h.index] = 0;
+            m_db.renderables[h.index].flags |= RENDER_HIDDEN;
+        }
+        queueSpatial(h.index);
+        m_events.emit(EntityCreated{h});
         handles[id] = h;
         created.push_back(h);
         records.push_back({id, parent});
@@ -851,13 +901,31 @@ std::optional<std::vector<EntityHandle>> World::loadSceneImpl(const std::filesys
         std::istringstream payload(componentLine.substr(tab + 1));
         serializer->second.read(*this, handle->second, payload, context);
     }
+    touchStructure();
     return roots;
 }
 
-bool World::loadScene(const std::filesystem::path& path) { return loadSceneImpl(path, false, NULL_ENTITY).has_value(); }
+bool World::loadScene(const std::filesystem::path& path) {
+    std::ifstream in(path);
+    return loadSceneImpl(in, false, NULL_ENTITY).has_value();
+}
+
+bool World::loadScene(std::istream& in) { return loadSceneImpl(in, false, NULL_ENTITY).has_value(); }
 
 std::optional<std::vector<EntityHandle>> World::loadSceneAdditive(const std::filesystem::path& path, EntityHandle parent) {
-    return loadSceneImpl(path, true, parent);
+    std::ifstream in(path);
+    return loadSceneImpl(in, true, parent);
+}
+
+std::string World::snapshot() const {
+    std::ostringstream out;
+    saveScene(out);
+    return out.str();
+}
+
+bool World::restore(const std::string& snapshotText) {
+    std::istringstream in(snapshotText);
+    return loadScene(in);
 }
 
 void World::unloadGroup(const std::vector<EntityHandle>& roots) { destroyBatch(roots); }

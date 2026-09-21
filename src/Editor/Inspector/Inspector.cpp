@@ -13,6 +13,13 @@ module Editor.inspector;
 Inspector::Inspector() = default;
 Inspector::~Inspector() = default;
 
+void Inspector::reset() {
+    m_selected = NULL_ENTITY;
+    m_reparenting = false;
+    if (m_history) m_history->clear();
+    m_hierarchy.reset();
+}
+
 void Inspector::update(Engine& engine, bool pickingEnabled) {
     World& world = engine.world();
     if (!m_history) m_history = std::make_unique<History>(world);

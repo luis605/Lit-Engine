@@ -31,6 +31,9 @@ export class Application {
     Engine m_engine;
     Inspector m_inspector;
     bool m_mouseLocked = false;
+    bool m_playing = false;
+    std::string m_snapshot;
+    void setPlaying(bool playing);
     World& m_world;
     EntityHandle m_parentEntity;
     std::string m_frameTimeText;

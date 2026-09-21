@@ -5,6 +5,7 @@
 #include <cstdio>
 #include <filesystem>
 #include <optional>
+#include <string>
 #include <vector>
 #include <string>
 
@@ -942,6 +943,33 @@ static void testSiblingIteration() {
     (void)c2;
 }
 
+static void testSnapshotRestore() {
+    World w;
+    registerLink(w);
+    auto a = w.create("a", 1, glm::vec3(1.0f, 2.0f, 3.0f));
+    auto b = w.create("b", 1, glm::vec3(0.0f), glm::vec3(1.0f), a);
+    w.add<Link>(b, Link{a});
+    w.setTag(b, "tagged");
+    const std::string saved = w.snapshot();
+    CHECK(!saved.empty());
+
+    w.setPosition(a, glm::vec3(50.0f));
+    w.destroy(b);
+    w.create("extra", 1);
+    CHECK(w.aliveCount() == 2);
+
+    CHECK(w.restore(saved));
+    CHECK(w.aliveCount() == 2);
+    auto ra = w.find("a");
+    auto rb = w.find("b");
+    CHECK(w.getPosition(ra).x == 1.0f && w.getPosition(ra).z == 3.0f);
+    CHECK(w.getParent(rb) == ra);
+    CHECK(w.get<Link>(rb) && w.get<Link>(rb)->target == ra);
+    CHECK(w.find("extra").isNull());
+    CHECK(!w.isAlive(a));
+    CHECK(!w.restore("not a scene"));
+}
+
 int main() {
     testHandles();
     testHierarchy();
@@ -968,6 +996,7 @@ int main() {
     testEntityReferences();
     testHistory();
     testSiblingIteration();
+    testSnapshotRestore();
     testAnimationAgreement();
     testCompactKeepsSpatialAndScripts();
     testFixedUpdate();
