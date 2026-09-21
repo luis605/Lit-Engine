@@ -996,6 +996,57 @@ static void testMeshlessEntities() {
     CHECK(w.getMesh(w.find("empty")) == 3);
 }
 
+struct Tint {
+    float r;
+};
+
+static void testEachAndBuilder() {
+    World w;
+    auto a = w.spawn().name("a").mesh(1).at(glm::vec3(1.0f, 2.0f, 3.0f)).with<Health>(10).with<Tint>(0.5f).build();
+    auto b = w.spawn().name("b").with<Health>(20).tag("t").layer(0b100).visible(false).build();
+    auto c = w.spawn().name("c").with<Tint>(0.25f).build();
+    auto d = w.spawn().name("d").mesh(2).with<Health>(30).with<Tint>(0.75f).with<Link>(a).build();
+    CHECK(w.getName(a) == "a" && w.getMesh(a) == 1 && w.getPosition(a).z == 3.0f);
+    CHECK(w.getTag(b) == "t" && w.getLayer(b) == 0b100 && !w.isVisible(b));
+
+    int both = 0;
+    float sum = 0.0f;
+    w.each<Health, Tint>([&](EntityHandle e, Health& h, Tint& t) {
+        ++both;
+        sum += float(h.hp) * t.r;
+        CHECK(e == a || e == d);
+    });
+    CHECK(both == 2);
+    CHECK(std::abs(sum - (10 * 0.5f + 30 * 0.75f)) < 1.0e-5f);
+
+    int triple = 0;
+    w.each<Link, Health, Tint>([&](EntityHandle e, Link& l, Health& h, Tint& t) {
+        ++triple;
+        CHECK(e == d && l.target == a && h.hp == 30 && t.r == 0.75f);
+    });
+    CHECK(triple == 1);
+
+    int single = 0;
+    w.each<Tint>([&](EntityHandle, Tint& t) {
+        ++single;
+        t.r += 1.0f;
+    });
+    CHECK(single == 3);
+    CHECK(w.get<Tint>(c)->r == 1.25f);
+
+    int none = 0;
+    w.each<Link, Tint, Health>([&](EntityHandle, Link&, Tint&, Health&) { ++none; });
+    CHECK(none == 1);
+    w.remove<Link>(d);
+    none = 0;
+    w.each<Link, Tint, Health>([&](EntityHandle, Link&, Tint&, Health&) { ++none; });
+    CHECK(none == 0);
+
+    EntityHandle implicit = w.spawn().name("implicit");
+    CHECK(w.isAlive(implicit) && w.getName(implicit) == "implicit");
+    (void)b;
+}
+
 int main() {
     testHandles();
     testHierarchy();
@@ -1024,6 +1075,7 @@ int main() {
     testSiblingIteration();
     testSnapshotRestore();
     testMeshlessEntities();
+    testEachAndBuilder();
     testAnimationAgreement();
     testCompactKeepsSpatialAndScripts();
     testFixedUpdate();

@@ -13,6 +13,7 @@ module;
 #include <limits>
 #include <optional>
 #include <span>
+#include <tuple>
 #include <string>
 #include <string_view>
 #include <typeindex>
@@ -222,6 +223,8 @@ struct ComponentSerializer {
     std::type_index type;
 };
 
+export class EntityBuilder;
+
 export class World {
   public:
     World();
@@ -328,6 +331,24 @@ export class World {
     void remove(EntityHandle e) {
         if (valid(e)) pool<T>().remove(e.index);
     }
+    template <typename... Ts, typename Fn>
+    void each(Fn&& fn) {
+        static_assert(sizeof...(Ts) >= 1);
+        auto pools = std::forward_as_tuple(pool<Ts>()...);
+        const std::vector<Entity>* owners[] = {&pool<Ts>().owners()...};
+        size_t smallest = 0;
+        for (size_t i = 1; i < sizeof...(Ts); ++i) {
+            if (owners[i]->size() < owners[smallest]->size()) smallest = i;
+        }
+        for (const Entity e : *owners[smallest]) {
+            const bool all = std::apply([e](auto&... p) { return ((p.find(e) != nullptr) && ...); }, pools);
+            if (!all) continue;
+            std::apply([&](auto&... p) { fn(EntityHandle{e, m_generation[e]}, *p.find(e)...); }, pools);
+        }
+    }
+
+    [[nodiscard]] EntityBuilder spawn();
+
     template <typename T, typename Fn>
     void view(Fn&& fn) {
         auto& p = pool<T>();
@@ -522,3 +543,85 @@ export class World {
 
 
 export bool collectLights(World& world, const glm::vec3& viewPos, std::array<glm::vec4, 6>& out);
+
+
+export class EntityBuilder {
+  public:
+    explicit EntityBuilder(World& world) : m_world(world) {}
+
+    EntityBuilder& name(std::string value) {
+        m_desc.name = std::move(value);
+        return *this;
+    }
+    EntityBuilder& mesh(uint32_t value) {
+        m_desc.mesh = value;
+        return *this;
+    }
+    EntityBuilder& material(uint32_t value) {
+        m_desc.material = value;
+        return *this;
+    }
+    EntityBuilder& shader(uint32_t value) {
+        m_desc.shader = value;
+        return *this;
+    }
+    EntityBuilder& alpha(float value) {
+        m_desc.alpha = value;
+        return *this;
+    }
+    EntityBuilder& at(const glm::vec3& value) {
+        m_desc.position = value;
+        return *this;
+    }
+    EntityBuilder& rotation(const glm::quat& value) {
+        m_desc.rotation = value;
+        return *this;
+    }
+    EntityBuilder& scale(const glm::vec3& value) {
+        m_desc.scale = value;
+        return *this;
+    }
+    EntityBuilder& parent(EntityHandle value) {
+        m_desc.parent = value;
+        return *this;
+    }
+    EntityBuilder& layer(uint32_t value) {
+        m_layer = value;
+        return *this;
+    }
+    EntityBuilder& tag(std::string value) {
+        m_tag = std::move(value);
+        return *this;
+    }
+    EntityBuilder& visible(bool value) {
+        m_visible = value;
+        return *this;
+    }
+
+    template <typename T, typename... Args>
+    EntityBuilder& with(Args... args) {
+        m_steps.push_back([... captured = std::move(args)](World& world, EntityHandle e) mutable { world.add<T>(e, captured...); });
+        return *this;
+    }
+
+    EntityHandle build() {
+        const EntityHandle e = m_world.create(m_desc);
+        if (m_layer) m_world.setLayer(e, *m_layer);
+        if (!m_tag.empty()) m_world.setTag(e, m_tag);
+        if (!m_visible) m_world.setVisible(e, false);
+        for (auto& step : m_steps) step(m_world, e);
+        return e;
+    }
+
+    operator EntityHandle() { return build(); }
+
+  private:
+    World& m_world;
+    EntityDesc m_desc;
+    std::optional<uint32_t> m_layer;
+    std::string m_tag;
+    bool m_visible = true;
+    std::vector<std::function<void(World&, EntityHandle)>> m_steps;
+};
+
+inline EntityBuilder World::spawn() { return EntityBuilder(*this); }
