@@ -272,6 +272,26 @@ static void testLayersAndTags() {
     std::filesystem::remove(path);
 }
 
+static void testWorldCache() {
+    World w;
+    auto a = w.create("a", 1, glm::vec3(1.0f, 0.0f, 0.0f));
+    auto b = w.create("b", 1, glm::vec3(0.0f, 1.0f, 0.0f), glm::vec3(1.0f), a);
+    auto c = w.create("c", 1, glm::vec3(0.0f, 0.0f, 1.0f), glm::vec3(1.0f), b);
+    CHECK(w.getWorldPosition(c).x == 1.0f && w.getWorldPosition(c).y == 1.0f && w.getWorldPosition(c).z == 1.0f);
+    w.setPosition(a, glm::vec3(10.0f, 0.0f, 0.0f));
+    CHECK(w.getWorldPosition(c).x == 10.0f);
+    w.setPosition(b, glm::vec3(0.0f, 5.0f, 0.0f));
+    CHECK(w.getWorldPosition(c).y == 5.0f);
+    auto d = w.create("d", 1, glm::vec3(100.0f, 0.0f, 0.0f));
+    w.setParent(c, d, false);
+    CHECK(w.getWorldPosition(c).x == 100.0f);
+    w.setPosition(d, glm::vec3(200.0f, 0.0f, 0.0f));
+    CHECK(w.getWorldPosition(c).x == 200.0f);
+    w.destroy(d);
+    auto e = w.create("e", 1, glm::vec3(7.0f, 0.0f, 0.0f));
+    CHECK(w.getWorldPosition(e).x == 7.0f);
+}
+
 int main() {
     testHandles();
     testHierarchy();
@@ -285,6 +305,7 @@ int main() {
     testMeshRemap();
     testPrefab();
     testLayersAndTags();
+    testWorldCache();
     std::printf("%d checks, %d failures\n", g_checks, g_failures);
     return g_failures == 0 ? 0 : 1;
 }

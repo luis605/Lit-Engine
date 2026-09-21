@@ -297,6 +297,7 @@ export class World {
     void unlink(Entity idx);
     [[nodiscard]] bool valid(EntityHandle h) const;
     void touchTransform(Entity idx);
+    void invalidateWorld(Entity idx) const;
     void touchStructure();
     void touchData();
 
@@ -307,6 +308,10 @@ export class World {
     std::vector<uint8_t> m_visible;
     std::vector<uint32_t> m_mesh;
     std::vector<uint32_t> m_layer;
+    mutable std::vector<glm::mat4> m_worldCache;
+    mutable std::vector<uint8_t> m_worldDirty;
+    mutable std::vector<Entity> m_worldChain;
+    mutable std::vector<Entity> m_worldStack;
     std::vector<std::string> m_tags;
     std::unordered_map<std::string, std::vector<Entity>> m_tagIndex;
     std::vector<Entity> m_firstChild;

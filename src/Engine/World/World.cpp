@@ -83,7 +83,23 @@ void World::unlink(Entity idx) {
     m_nextSibling[idx] = INVALID_ENTITY;
 }
 
-void World::touchTransform(Entity idx) { m_db.markEntityDirty(idx); }
+void World::touchTransform(Entity idx) {
+    m_db.markEntityDirty(idx);
+    invalidateWorld(idx);
+}
+
+void World::invalidateWorld(Entity idx) const {
+    if (m_worldCache.empty() || idx >= m_worldDirty.size()) return;
+    m_worldStack.clear();
+    m_worldStack.push_back(idx);
+    while (!m_worldStack.empty()) {
+        const Entity e = m_worldStack.back();
+        m_worldStack.pop_back();
+        if (e >= m_worldDirty.size() || m_worldDirty[e]) continue;
+        m_worldDirty[e] = 1;
+        for (Entity c = m_firstChild[e]; c != INVALID_ENTITY; c = m_nextSibling[c]) m_worldStack.push_back(c);
+    }
+}
 
 void World::touchStructure() {
     m_db.markHierarchyDirty();
@@ -127,6 +143,7 @@ EntityHandle World::createImpl(const EntityDesc& desc) {
     ++m_aliveCount;
 
     m_db.transforms[idx].localMatrix = compose(desc.position, desc.rotation, desc.scale);
+    if (idx < m_worldDirty.size()) m_worldDirty[idx] = 1;
     auto& r = m_db.renderables[idx];
     m_visible[idx] = 1;
     m_layer[idx] = 1;
@@ -189,6 +206,7 @@ void World::setParent(EntityHandle e, EntityHandle parent, bool keepWorldTransfo
     const glm::mat4 world = keepWorldTransform ? getWorldMatrix(e) : glm::mat4(1.0f);
     unlink(e.index);
     link(e.index, parent.index);
+    invalidateWorld(e.index);
     if (keepWorldTransform) {
         const glm::mat4 parentWorld = parent.isNull() ? glm::mat4(1.0f) : getWorldMatrix(parent);
         m_db.transforms[e.index].localMatrix = glm::inverse(parentWorld) * world;
@@ -284,11 +302,24 @@ const glm::mat4& World::getLocalMatrix(EntityHandle e) const {
 
 glm::mat4 World::getWorldMatrix(EntityHandle e) const {
     if (!valid(e)) return glm::mat4(1.0f);
-    glm::mat4 m = m_db.transforms[e.index].localMatrix;
-    for (Entity p = m_db.hierarchies[e.index].parent; p != INVALID_ENTITY && m_alive[p]; p = m_db.hierarchies[p].parent) {
-        m = m_db.transforms[p].localMatrix * m;
+    if (m_worldCache.size() < m_alive.size()) {
+        m_worldCache.resize(m_alive.size(), glm::mat4(1.0f));
+        m_worldDirty.resize(m_alive.size(), 1);
     }
-    return m;
+    m_worldChain.clear();
+    Entity cur = e.index;
+    while (cur != INVALID_ENTITY && m_worldDirty[cur]) {
+        m_worldChain.push_back(cur);
+        cur = m_db.hierarchies[cur].parent;
+    }
+    glm::mat4 base = cur == INVALID_ENTITY ? glm::mat4(1.0f) : m_worldCache[cur];
+    for (size_t i = m_worldChain.size(); i-- > 0;) {
+        const Entity idx = m_worldChain[i];
+        base = base * m_db.transforms[idx].localMatrix;
+        m_worldCache[idx] = base;
+        m_worldDirty[idx] = 0;
+    }
+    return m_worldCache[e.index];
 }
 
 glm::vec3 World::getPosition(EntityHandle e) const {
@@ -417,6 +448,8 @@ void World::clear() {
     m_prevSibling.clear();
     m_names.clear();
     m_freeList.clear();
+    m_worldCache.clear();
+    m_worldDirty.clear();
     m_scripts.clear();
     for (auto& [type, p] : m_pools) p->clear();
     m_pendingDestroy.clear();
