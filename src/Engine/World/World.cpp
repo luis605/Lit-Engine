@@ -1582,3 +1582,67 @@ void World::lookAt(EntityHandle e, const glm::vec3& target, const glm::vec3& wor
     const glm::vec3 u = glm::cross(r, f);
     setWorldRotation(e, glm::quat_cast(glm::mat3(r, u, -f)));
 }
+
+std::vector<std::string> World::componentNames() const {
+    std::vector<std::string> names;
+    names.reserve(m_serializers.size());
+    for (const auto& [name, serializer] : m_serializers) names.push_back(name);
+    return names;
+}
+
+std::optional<std::string> World::componentText(EntityHandle e, const std::string& componentName) const {
+    if (!valid(e)) return std::nullopt;
+    const auto serializer = m_serializers.find(componentName);
+    if (serializer == m_serializers.end()) return std::nullopt;
+    const auto pool = m_pools.find(serializer->second.type);
+    if (pool == m_pools.end() || !pool->second->has(e.index)) return std::nullopt;
+    std::ostringstream payload;
+    serializer->second.write(*pool->second, payload, e.index);
+    return payload.str();
+}
+
+EntityDescription World::describeEntity(EntityHandle e) const {
+    EntityDescription d;
+    if (!valid(e)) return d;
+    d.name = m_names[e.index];
+    d.tag = m_tags[e.index];
+    d.layer = m_layer[e.index];
+    d.mesh = m_mesh[e.index];
+    d.visible = m_visible[e.index] != 0;
+    d.parent = getParent(e);
+    for (Entity c = m_firstChild[e.index]; c != INVALID_ENTITY; c = m_nextSibling[c]) ++d.childCount;
+    for (const auto& [name, serializer] : m_serializers) {
+        if (const auto text = componentText(e, name)) d.components.emplace_back(name, *text);
+    }
+    if (const auto scripts = m_scripts.find(e.index); scripts != m_scripts.end()) {
+        for (const auto& script : scripts->second) {
+            const auto nameIt = m_scriptNames.find(std::type_index(typeid(*script)));
+            if (nameIt == m_scriptNames.end()) continue;
+            std::ostringstream payload;
+            if (m_scriptSerializers.at(nameIt->second).write(*script, payload)) d.scripts.emplace_back(nameIt->second, payload.str());
+        }
+    }
+    return d;
+}
+
+bool World::setComponentFromText(EntityHandle e, const std::string& componentName, const std::string& text) {
+    if (!valid(e)) return false;
+    const auto serializer = m_serializers.find(componentName);
+    if (serializer == m_serializers.end()) return false;
+    LoadContext context;
+    context.resolveFn = [this](uint32_t savedIndex) { return handleOf(savedIndex); };
+    std::istringstream in(text);
+    if (!serializer->second.read(*this, e, in, context)) return false;
+    touchData();
+    return true;
+}
+
+bool World::removeComponentByName(EntityHandle e, const std::string& componentName) {
+    if (!valid(e)) return false;
+    const auto serializer = m_serializers.find(componentName);
+    if (serializer == m_serializers.end()) return false;
+    const auto pool = m_pools.find(serializer->second.type);
+    if (pool == m_pools.end() || !pool->second->has(e.index)) return false;
+    pool->second->remove(e.index);
+    return true;
+}

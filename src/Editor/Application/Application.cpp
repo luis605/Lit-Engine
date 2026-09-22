@@ -18,6 +18,8 @@ module Editor.application;
 import Engine.engine;
 import Engine.mesh;
 import Engine.World;
+import Engine.Physics;
+import Engine.Animation;
 import Engine.Render.component;
 import Engine.camera;
 import Engine.input;
@@ -96,6 +98,8 @@ Application::Application() : m_world(m_engine.world()) {
     m_world.camera().setFarPlane(2000.0f);
     m_world.camera().setPos(glm::vec3(0.0f, 1000.0f, 0.0f));
     m_engine.setFullProfiling(true);
+    registerPhysicsComponents(m_world);
+    registerAnimationComponents(m_world);
     m_engine.setPaused(true);
     m_engine.setShaderWatch(true);
     if (std::getenv("LIT_PROFILE")) m_engine.profiler().setEnabled(true);
@@ -129,7 +133,7 @@ void  Application::update() {
    float deltaTime = currentFrame - lastFrame;
    lastFrame = currentFrame;
 
-   processInput(deltaTime);
+   if (!m_inspector.editing()) processInput(deltaTime);
    m_engine.tick(deltaTime);
 
    m_engine.setAnimation(currentFrame, m_movingObjectCount, 1);

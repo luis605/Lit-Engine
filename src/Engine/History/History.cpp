@@ -43,6 +43,38 @@ struct History::SetVisibleCommand : History::Command {
     void revert(History& h) override { h.m_world.setVisible(h.resolve(entity), before); }
 };
 
+struct History::SetName : History::Command {
+    EntityHandle entity;
+    std::string before;
+    std::string after;
+    void apply(History& h) override { h.m_world.setName(h.resolve(entity), after); }
+    void revert(History& h) override { h.m_world.setName(h.resolve(entity), before); }
+};
+
+struct History::SetTag : History::Command {
+    EntityHandle entity;
+    std::string before;
+    std::string after;
+    void apply(History& h) override { h.m_world.setTag(h.resolve(entity), after); }
+    void revert(History& h) override { h.m_world.setTag(h.resolve(entity), before); }
+};
+
+struct History::SetComponent : History::Command {
+    EntityHandle entity;
+    std::string component;
+    std::optional<std::string> before;
+    std::string after;
+    void apply(History& h) override { h.m_world.setComponentFromText(h.resolve(entity), component, after); }
+    void revert(History& h) override {
+        const EntityHandle e = h.resolve(entity);
+        if (before) {
+            h.m_world.setComponentFromText(e, component, *before);
+        } else {
+            h.m_world.removeComponentByName(e, component);
+        }
+    }
+};
+
 struct History::Reparent : History::Command {
     EntityHandle entity;
     EntityHandle beforeParent;
@@ -113,6 +145,42 @@ void History::commitLocalMatrix(EntityHandle e, const glm::mat4& before, const g
     command->before = before;
     command->after = after;
     push(std::move(command));
+}
+
+void History::setName(EntityHandle e, const std::string& name) {
+    e = resolve(e);
+    if (!m_world.isAlive(e) || m_world.getName(e) == name) return;
+    auto command = std::make_unique<SetName>();
+    command->entity = e;
+    command->before = m_world.getName(e);
+    command->after = name;
+    m_world.setName(e, name);
+    push(std::move(command));
+}
+
+void History::setTag(EntityHandle e, const std::string& tag) {
+    e = resolve(e);
+    if (!m_world.isAlive(e) || m_world.getTag(e) == tag) return;
+    auto command = std::make_unique<SetTag>();
+    command->entity = e;
+    command->before = m_world.getTag(e);
+    command->after = tag;
+    m_world.setTag(e, tag);
+    push(std::move(command));
+}
+
+bool History::setComponentText(EntityHandle e, const std::string& componentName, const std::string& text) {
+    e = resolve(e);
+    if (!m_world.isAlive(e)) return false;
+    const std::optional<std::string> before = m_world.componentText(e, componentName);
+    if (!m_world.setComponentFromText(e, componentName, text)) return false;
+    auto command = std::make_unique<SetComponent>();
+    command->entity = e;
+    command->component = componentName;
+    command->before = before;
+    command->after = *m_world.componentText(e, componentName);
+    push(std::move(command));
+    return true;
 }
 
 void History::setVisible(EntityHandle e, bool visible) {

@@ -75,6 +75,18 @@ export struct LightSet {
     uint32_t count = 0;
 };
 
+export struct EntityDescription {
+    std::string name;
+    std::string tag;
+    uint32_t layer = 1;
+    uint32_t mesh = NO_MESH;
+    bool visible = true;
+    EntityHandle parent;
+    size_t childCount = 0;
+    std::vector<std::pair<std::string, std::string>> components;
+    std::vector<std::pair<std::string, std::string>> scripts;
+};
+
 export struct EntityMoved {
     EntityHandle from;
     EntityHandle to;
@@ -135,6 +147,7 @@ class IComponentPool {
   public:
     virtual ~IComponentPool() = default;
     virtual void remove(Entity e) = 0;
+    virtual bool has(Entity e) const = 0;
     virtual void rename(Entity from, Entity to) = 0;
     virtual void clear() = 0;
 };
@@ -178,6 +191,8 @@ class ComponentPool final : public IComponentPool {
         m_data.pop_back();
         m_owners.pop_back();
     }
+
+    bool has(Entity e) const override { return e < m_sparse.size() && m_sparse[e] != INVALID_ENTITY; }
 
     void rename(Entity from, Entity to) override {
         if (from >= m_sparse.size() || m_sparse[from] == INVALID_ENTITY) return;
@@ -321,6 +336,12 @@ export class World {
     void setShader(EntityHandle e, uint32_t shader);
     void setAlpha(EntityHandle e, float alpha);
     [[nodiscard]] const RenderableComponent& getRenderable(EntityHandle e) const;
+
+    [[nodiscard]] EntityDescription describeEntity(EntityHandle e) const;
+    [[nodiscard]] std::vector<std::string> componentNames() const;
+    bool setComponentFromText(EntityHandle e, const std::string& componentName, const std::string& text);
+    bool removeComponentByName(EntityHandle e, const std::string& componentName);
+    [[nodiscard]] std::optional<std::string> componentText(EntityHandle e, const std::string& componentName) const;
 
     Script* addScript(EntityHandle e, std::unique_ptr<Script> script);
     template <typename T, typename... Args>

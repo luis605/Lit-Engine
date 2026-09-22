@@ -1677,6 +1677,89 @@ static void testLineEditor() {
     CHECK(ed.text() == "tool");
 }
 
+static void registerHealth(World& w) {
+    w.registerComponent<Health>(
+        "Health", [](const Health& h, std::ostream& out) { out << h.hp; },
+        [](std::istream& in) -> std::optional<Health> {
+            int hp;
+            if (!(in >> hp)) return std::nullopt;
+            return Health{hp};
+        });
+}
+
+static void testDescribeAndEditText() {
+    World w;
+    registerHealth(w);
+    registerLink(w);
+    registerPatrol(w);
+    auto a = w.create("alpha", 3, glm::vec3(1.0f));
+    auto b = w.create("beta", 4, glm::vec3(0.0f), glm::vec3(1.0f), a);
+    w.setTag(a, "hero");
+    w.setLayer(a, 0b110);
+    w.add<Health>(a, 25);
+    w.add<Link>(a, Link{b});
+    w.attach<Patrol>(a, 2, 1.5f);
+
+    const EntityDescription d = w.describeEntity(a);
+    CHECK(d.name == "alpha" && d.tag == "hero" && d.layer == 0b110 && d.mesh == 3 && d.visible);
+    CHECK(d.childCount == 1 && d.parent.isNull());
+    CHECK(d.components.size() == 2);
+    CHECK(d.components[0].first == "Health" && d.components[0].second == "25");
+    CHECK(d.components[1].first == "Link" && d.components[1].second == std::to_string(b.index));
+    CHECK(d.scripts.size() == 1 && d.scripts[0].first == "Patrol");
+    CHECK(w.describeEntity(b).parent == a);
+    CHECK(w.describeEntity(NULL_ENTITY).components.empty());
+    CHECK(w.componentNames() == (std::vector<std::string>{"Health", "Link"}));
+
+    CHECK(w.setComponentFromText(a, "Health", "77"));
+    CHECK(w.get<Health>(a)->hp == 77);
+    CHECK(!w.setComponentFromText(a, "Health", "not a number"));
+    CHECK(w.get<Health>(a)->hp == 77);
+    CHECK(!w.setComponentFromText(a, "Missing", "1"));
+    CHECK(w.setComponentFromText(b, "Health", "5"));
+    CHECK(w.get<Health>(b)->hp == 5);
+    CHECK(w.setComponentFromText(b, "Link", std::to_string(a.index)));
+    CHECK(w.get<Link>(b)->target == a);
+    CHECK(w.setComponentFromText(b, "Link", "999999"));
+    CHECK(w.get<Link>(b)->target.isNull());
+
+    CHECK(w.componentText(a, "Health") == std::optional<std::string>("77"));
+    CHECK(!w.componentText(a, "Nope"));
+    CHECK(w.removeComponentByName(b, "Health"));
+    CHECK(!w.removeComponentByName(b, "Health"));
+    CHECK(!w.has<Health>(b));
+
+    History history(w);
+    history.setName(a, "renamed");
+    CHECK(w.getName(a) == "renamed");
+    history.setName(a, "renamed");
+    history.undo();
+    CHECK(w.getName(a) == "alpha");
+    history.redo();
+    CHECK(w.getName(a) == "renamed");
+
+    history.setTag(a, "villain");
+    CHECK(w.findByTag("villain").size() == 1 && w.findByTag("hero").empty());
+    history.undo();
+    CHECK(w.findByTag("hero").size() == 1);
+
+    CHECK(history.setComponentText(a, "Health", "200"));
+    CHECK(w.get<Health>(a)->hp == 200);
+    history.undo();
+    CHECK(w.get<Health>(a)->hp == 77);
+    history.redo();
+    CHECK(w.get<Health>(a)->hp == 200);
+
+    CHECK(history.setComponentText(b, "Health", "9"));
+    CHECK(w.has<Health>(b));
+    history.undo();
+    CHECK(!w.has<Health>(b));
+    history.redo();
+    CHECK(w.get<Health>(b)->hp == 9);
+    CHECK(!history.setComponentText(b, "Health", "oops"));
+    CHECK(!history.setComponentText(b, "Nope", "1"));
+}
+
 int main() {
     testHandles();
     testHierarchy();
@@ -1703,6 +1786,7 @@ int main() {
     testJobsAndParallelSpatial();
     testProfiler();
     testLineEditor();
+    testDescribeAndEditText();
     testAdditiveLoad();
     testEntityReferences();
     testHistory();

@@ -1,6 +1,8 @@
 module;
 
 #include <memory>
+#include <optional>
+#include <string>
 #include <unordered_map>
 #include <vector>
 
@@ -16,6 +18,9 @@ export class History {
 
     void setLocalMatrix(EntityHandle e, const glm::mat4& local);
     void commitLocalMatrix(EntityHandle e, const glm::mat4& before, const glm::mat4& after);
+    void setName(EntityHandle e, const std::string& name);
+    void setTag(EntityHandle e, const std::string& tag);
+    bool setComponentText(EntityHandle e, const std::string& componentName, const std::string& text);
     void setVisible(EntityHandle e, bool visible);
     void setParent(EntityHandle e, EntityHandle parent, bool keepWorldTransform = true);
     EntityHandle create(const EntityDesc& desc);
@@ -38,6 +43,9 @@ export class History {
     };
     struct SetLocal;
     struct SetVisibleCommand;
+    struct SetName;
+    struct SetTag;
+    struct SetComponent;
     struct Reparent;
     struct Spawn;
     struct Remove;
