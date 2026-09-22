@@ -5,18 +5,14 @@
 #include "renderable.glsl"
 #include "scene.glsl"
 #include "mesh.glsl"
+#include "hiz.glsl"
 
 layout(local_size_x = 256, local_size_y = 1, local_size_z = 1) in;
 
 layout(std140) uniform CullingUniforms {
     uint u_objectCount;
     uint u_maxDraws;
-    uint u_baseIndex;
     float u_smallObjectThreshold;
-    float u_hizMaxMipLevel;
-    float u_hizTextureSizeX;
-    float u_hizTextureSizeY;
-    uint u_numShaders;
     float u_lodBias;
     int u_forcedLod;
 };
@@ -43,8 +39,6 @@ uint selectLod(float radius, float dist) {
     return lodForDiameter(u_lodBias * projectedDiameterPx(radius, dist));
 }
 
-uniform sampler2D u_hizTexture;
-
 bool cullObject(uint id, out uvec2 entry) {
     entry = uvec2(0u);
 
@@ -63,38 +57,7 @@ bool cullObject(uint id, out uvec2 entry) {
     float pRadius = radius / dist;
     if (pRadius < u_smallObjectThreshold) return false;
 
-    if (viewPosCenter.z + radius < -0.1) {
-        vec4 clipCenter = projection * vec4(viewPosCenter.xyz, 1.0);
-        vec2 ndcCenter = clipCenter.xy / clipCenter.w;
-        vec2 pSize = vec2(radius * abs(projection[0][0]), radius * abs(projection[1][1])) / dist;
-
-        vec2 uvCenter = vec2(ndcCenter.x * 0.5 + 0.5, 0.5 - ndcCenter.y * 0.5);
-
-        float u0 = clamp(uvCenter.x - pSize.x * 0.5, 0.0, 1.0);
-        float u1 = clamp(uvCenter.x + pSize.x * 0.5, 0.0, 1.0);
-        float v0 = clamp(uvCenter.y - pSize.y * 0.5, 0.0, 1.0);
-        float v1 = clamp(uvCenter.y + pSize.y * 0.5, 0.0, 1.0);
-
-        vec2 uvMin = vec2(min(u0, u1), min(v0, v1));
-        vec2 uvMax = vec2(max(u0, u1), max(v0, v1));
-
-        vec2 sizePixels = (uvMax - uvMin) * vec2(u_hizTextureSizeX, u_hizTextureSizeY);
-        float maxPix = max(sizePixels.x, sizePixels.y);
-        float mip = clamp(ceil(log2(max(maxPix, 1.0))), 0.0, u_hizMaxMipLevel);
-
-        float d0 = textureLod(u_hizTexture, vec2(uvMin.x, uvMin.y), mip).r;
-        float d1 = textureLod(u_hizTexture, vec2(uvMax.x, uvMin.y), mip).r;
-        float d2 = textureLod(u_hizTexture, vec2(uvMin.x, uvMax.y), mip).r;
-        float d3 = textureLod(u_hizTexture, vec2(uvMax.x, uvMax.y), mip).r;
-        float maxHizDepth = max(max(d0, d1), max(d2, d3));
-
-        vec4 nearPos = viewPosCenter;
-        nearPos.z += radius;
-        vec4 clipNear = projection * nearPos;
-        float sphereNearDepth = clipNear.z / clipNear.w;
-
-        if (sphereNearDepth > maxHizDepth) return false;
-    }
+    if (sphereOccluded(worldCenter, radius)) return false;
 
     uint chosenLod = selectLod(radius, dist);
 

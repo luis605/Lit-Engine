@@ -102,12 +102,7 @@ struct VisibleTransparentObject {
 struct CullingUniforms {
     uint32_t objectCount;
     uint32_t maxDraws;
-    uint32_t baseIndex;
     float smallObjectThreshold;
-    float hizMaxMipLevel;
-    float hizTextureSizeX;
-    float hizTextureSizeY;
-    uint32_t numShaders;
     float lodBias;
     int32_t forcedLod;
 };
@@ -1680,6 +1675,10 @@ void Renderer::drawScene(SceneDatabase& sceneDatabase, const Camera& camera) {
         Constants->numShaders = static_cast<uint32_t>(m_numDrawingShaders);
     }
 
+    const int previousFrame = (m_currentFrame + NUM_FRAMES_IN_FLIGHT - 1) % NUM_FRAMES_IN_FLIGHT;
+    if (auto* pVar = m_diligent->pLargeObjectCullSRB[m_currentFrame]->GetVariableByName(Diligent::SHADER_TYPE_COMPUTE, "u_hizTexture")) {
+        pVar->Set(m_diligent->pHiZTextures[previousFrame]->GetDefaultView(Diligent::TEXTURE_VIEW_SHADER_RESOURCE));
+    }
     m_diligent->pImmediateContext->CommitShaderResources(m_diligent->pLargeObjectCullSRB[m_currentFrame], Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
     m_diligent->pImmediateContext->DispatchCompute(Diligent::DispatchComputeAttribs(numWorkgroups, 1, 1));
 
@@ -1858,12 +1857,7 @@ void Renderer::drawScene(SceneDatabase& sceneDatabase, const Camera& camera) {
     CullingUniforms cullingUniforms;
     cullingUniforms.objectCount = numObjects;
     cullingUniforms.maxDraws = static_cast<uint32_t>(m_maxObjects);
-    cullingUniforms.baseIndex = 0;
     cullingUniforms.smallObjectThreshold = m_smallObjectThreshold;
-    cullingUniforms.hizMaxMipLevel = static_cast<float>(m_maxMipLevel - 1);
-    cullingUniforms.hizTextureSizeX = static_cast<float>(m_windowWidth);
-    cullingUniforms.hizTextureSizeY = static_cast<float>(m_windowHeight);
-    cullingUniforms.numShaders = static_cast<uint32_t>(m_numDrawingShaders);
     cullingUniforms.lodBias = m_lodBias;
     cullingUniforms.forcedLod = m_forcedLod;
 
@@ -2494,7 +2488,7 @@ void Renderer::createMarkTouchedPSO() {
 }
 
 void Renderer::createLargeObjectCullPSO() {
-    m_diligent->pLargeObjectCullPSO = CreateComputePipeline(m_diligent->pDevice, "Large Object Cull PSO", "resources/shaders/large_object_cull.comp");
+    m_diligent->pLargeObjectCullPSO = CreateComputePipeline(m_diligent->pDevice, "Large Object Cull PSO", "resources/shaders/large_object_cull.comp", {"u_hizTexture"});
     m_diligent->pLargeObjectCullConstants = CreateUniformBuffer(m_diligent->pDevice, "Large Object Cull Constants", sizeof(LargeObjectCullUniforms));
 }
 

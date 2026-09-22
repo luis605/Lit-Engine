@@ -1,8 +1,11 @@
 #version 460 core
+#extension GL_KHR_shader_subgroup_basic : enable
+#extension GL_KHR_shader_subgroup_ballot : enable
 #extension GL_GOOGLE_include_directive : require
 #include "renderable.glsl"
 #include "scene.glsl"
 #include "mesh.glsl"
+#include "hiz.glsl"
 
 layout(local_size_x = 256, local_size_y = 1, local_size_z = 1) in;
 
@@ -50,32 +53,49 @@ bool isVisible(vec3 world_pos, float radius) {
     return true;
 }
 
-void main() {
-    uint objectId = gl_GlobalInvocationID.x;
-    if (objectId >= u_objectCount) return;
-
+bool selectOccluder(uint objectId, out uvec2 entry) {
+    entry = uvec2(0u);
     vec4 boundingSphere = cullSpheres[objectId];
-    if (boundingSphere.w < 0.0) return;
-    vec3 world_pos = boundingSphere.xyz;
-    float world_radius = boundingSphere.w;
+    if (boundingSphere.w < 0.0) return false;
+    vec3 worldCenter = boundingSphere.xyz;
+    float radius = boundingSphere.w;
 
-    if (!isVisible(world_pos, world_radius * FRUSTUM_PADDING_FACTOR)) return;
+    if (!isVisible(worldCenter, radius * FRUSTUM_PADDING_FACTOR)) return false;
 
-    float dist = distance(world_pos, viewPos);
-    if (dist > 0.0 && world_radius / dist < u_largeObjectThreshold) return;
+    float dist = distance(worldCenter, viewPos);
+    if (dist > 0.0 && radius / dist < u_largeObjectThreshold) return false;
 
     uint renderable = renderables[objectId];
-    if ((renderableFlags(renderable) & (RENDER_TRANSLUCENT | RENDER_NO_OCCLUDER)) != 0u) return;
+    if ((renderableFlags(renderable) & (RENDER_TRANSLUCENT | RENDER_NO_OCCLUDER)) != 0u) return false;
     uint meshUuid = renderableMesh(renderable);
     uint shaderId = renderableShader(renderable);
-    if (meshUuid >= MAX_MESHES || shaderId >= u_numShaders) return;
+    if (meshUuid >= MAX_MESHES || shaderId >= u_numShaders) return false;
 
-    uint index = atomicAdd(visibleLargeObjectCount, 1);
+    if (sphereOccluded(worldCenter, radius)) return false;
 
-    if (index < u_maxDraws) {
-        uint lod = occluderLod(world_radius, dist);
-        uint bucketKey = shaderId * MAX_MESHES + meshUuid + lod;
-        visibleLargeObjects[index] = uvec2(objectId | (lod << 29u), bucketKey);
-        atomicAdd(largeBucketCounts[bucketKey], 1);
+    uint lod = occluderLod(radius, dist);
+    entry = uvec2(objectId | (lod << 29u), shaderId * MAX_MESHES + meshUuid + lod);
+    return true;
+}
+
+void main() {
+    uint objectId = gl_GlobalInvocationID.x;
+    uvec2 entry;
+    bool selected = objectId < u_objectCount && selectOccluder(objectId, entry);
+
+    uvec4 selectedBallot = subgroupBallot(selected);
+    uint slotBase = 0u;
+    if (subgroupElect()) slotBase = atomicAdd(visibleLargeObjectCount, subgroupBallotBitCount(selectedBallot));
+    uint slot = subgroupBroadcastFirst(slotBase) + subgroupBallotExclusiveBitCount(selectedBallot);
+    bool pending = selected && slot < u_maxDraws;
+    if (pending) visibleLargeObjects[slot] = entry;
+
+    while (subgroupBallotBitCount(subgroupBallot(pending)) > 0u) {
+        if (pending) {
+            uint key = subgroupBroadcastFirst(entry.y);
+            uvec4 same = subgroupBallot(entry.y == key);
+            if (subgroupElect()) atomicAdd(largeBucketCounts[key], subgroupBallotBitCount(same));
+            if (entry.y == key) pending = false;
+        }
     }
 }
