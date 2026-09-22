@@ -115,6 +115,7 @@ struct CullingUniforms {
 constexpr uint32_t MAX_MESHES = 2048;
 
 constexpr uint32_t MAX_DIRTY_PER_FRAME = 65536;
+constexpr uint32_t MAX_TRANSFORM_WORK = 65536;
 constexpr uint32_t kMaxMaterials = 1024;
 constexpr uint32_t kMaxGpuLights = 64;
 
@@ -491,6 +492,8 @@ struct DiligentData {
     Diligent::RefCntAutoPtr<Diligent::IBuffer> pHierarchyBuffer[NumFrames];
     Diligent::RefCntAutoPtr<Diligent::IBuffer> pRenderableBuffer[NumFrames];
     Diligent::RefCntAutoPtr<Diligent::IBuffer> pSortedHierarchyBuffer[NumFrames];
+    Diligent::RefCntAutoPtr<Diligent::IBuffer> pTransformWorkBuffer;
+    Diligent::RefCntAutoPtr<Diligent::IShaderResourceBinding> pTransformWorkSRB[NumFrames];
     Diligent::RefCntAutoPtr<Diligent::IBuffer> pVisibleObjectBuffer[NumFrames];
     Diligent::RefCntAutoPtr<Diligent::IBuffer> pSortedVisibleObjectBuffer[NumFrames];
     Diligent::RefCntAutoPtr<Diligent::IBuffer> pBucketCountBuffer[NumFrames];
@@ -823,6 +826,7 @@ void Renderer::reallocateBuffers(size_t numObjects) {
     Lit::Log::Info("Reallocating renderer buffers for {} objects.", m_maxObjects);
 
     m_diligent->pMeshInfoBuffer = CreateStructuredBuffer(m_diligent->pDevice, "Mesh Info Buffer", sizeof(MeshInfo), MAX_MESHES);
+    m_diligent->pTransformWorkBuffer = CreateStructuredBuffer(m_diligent->pDevice, "Transform Work Buffer", sizeof(Entity), MAX_TRANSFORM_WORK);
     m_diligent->pNormalSampleBuffer = CreateStructuredBuffer(m_diligent->pDevice, "Normal Sample Buffer", sizeof(glm::vec4), MAX_MESHES * kNormalSamples);
     m_meshInfoDirty = true;
 
@@ -945,6 +949,10 @@ void Renderer::reallocateBuffers(size_t numObjects) {
         CreateBoundSRB(d.pTransformPSO, d.pTransformSRB[i],
                        {{"TransformUniforms", d.pTransformUniforms}, {"TransformBuffer", d.pObjectBuffer[i]}, {"WorldMatrixBuffer", d.pWorldMatrixBuffer[i]}, {"HierarchyBuffer", d.pHierarchyBuffer[i]},
                         {"SortedHierarchyBuffer", d.pSortedHierarchyBuffer[i]}, {"TouchedEpochBuffer", d.pTouchedEpochBuffer[i]}, {"CullOrientationBuffer", d.pCullOrientationBuffer[i]},
+                        {"CullSphereBuffer", d.pCullSphereBuffer[i]}, {"RenderableBuffer", d.pRenderableBuffer[i]}, {"MeshInfoBuffer", d.pMeshInfoBuffer}, {"BasePositionBuffer", d.pBasePositionBuffer}});
+        CreateBoundSRB(d.pTransformPSO, d.pTransformWorkSRB[i],
+                       {{"TransformUniforms", d.pTransformUniforms}, {"TransformBuffer", d.pObjectBuffer[i]}, {"WorldMatrixBuffer", d.pWorldMatrixBuffer[i]}, {"HierarchyBuffer", d.pHierarchyBuffer[i]},
+                        {"SortedHierarchyBuffer", d.pTransformWorkBuffer}, {"TouchedEpochBuffer", d.pTouchedEpochBuffer[i]}, {"CullOrientationBuffer", d.pCullOrientationBuffer[i]},
                         {"CullSphereBuffer", d.pCullSphereBuffer[i]}, {"RenderableBuffer", d.pRenderableBuffer[i]}, {"MeshInfoBuffer", d.pMeshInfoBuffer}, {"BasePositionBuffer", d.pBasePositionBuffer}});
         CreateBoundSRB(d.pCullingPSO, d.pCullingSRB[i],
                        {{"SceneData", d.pSceneUBO[i]}, {"CullingUniforms", d.pCullingUniforms}, {"AtomicCounterBuffer", d.pVisibleObjectAtomicCounter[i]}, {"VisibleObjectBuffer", d.pVisibleObjectBuffer[i]},
@@ -1102,6 +1110,37 @@ bool Renderer::resizeToWindow() {
     m_windowHeight = static_cast<int>(swapChainDesc.Height);
     createScreenTargets();
     m_uiManager->resize(m_windowWidth, m_windowHeight);
+    return true;
+}
+
+bool Renderer::collectTransformWork(const SceneDatabase& sceneDatabase, std::span<const Entity> dirty) {
+    const size_t entityCount = sceneDatabase.hierarchies.size();
+    if (m_transformWorkStamp.size() < entityCount) m_transformWorkStamp.resize(entityCount, 0);
+    if (++m_transformWorkEpoch == 0) {
+        std::ranges::fill(m_transformWorkStamp, 0u);
+        m_transformWorkEpoch = 1;
+    }
+
+    m_transformWorkScratch.clear();
+    auto enqueue = [&](Entity e) {
+        if (e >= entityCount || m_transformWorkStamp[e] == m_transformWorkEpoch) return;
+        m_transformWorkStamp[e] = m_transformWorkEpoch;
+        m_transformWorkScratch.push_back(e);
+    };
+    for (Entity e : dirty) enqueue(e);
+    for (size_t next = 0; next < m_transformWorkScratch.size(); ++next) {
+        if (m_transformWorkScratch.size() > MAX_TRANSFORM_WORK) return false;
+        for (Entity child : sceneDatabase.childrenOf(m_transformWorkScratch[next])) enqueue(child);
+    }
+    if (m_transformWorkScratch.size() > MAX_TRANSFORM_WORK) return false;
+
+    m_transformWorkLevelCounts.assign(sceneDatabase.m_maxHierarchyDepth + 1, 0);
+    for (Entity e : m_transformWorkScratch) m_transformWorkLevelCounts[sceneDatabase.hierarchies[e].level]++;
+    std::vector<uint32_t>& levelHeads = m_transformWorkLevelHeads;
+    levelHeads.assign(m_transformWorkLevelCounts.size(), 0);
+    for (size_t level = 1; level < levelHeads.size(); ++level) levelHeads[level] = levelHeads[level - 1] + m_transformWorkLevelCounts[level - 1];
+    m_transformWork.resize(m_transformWorkScratch.size());
+    for (Entity e : m_transformWorkScratch) m_transformWork[levelHeads[sceneDatabase.hierarchies[e].level]++] = e;
     return true;
 }
 
@@ -1452,6 +1491,7 @@ void Renderer::drawScene(SceneDatabase& sceneDatabase, const Camera& camera) {
     std::vector<uint8_t>& levelNeedsProcessing = m_levelNeedsProcessing;
     levelNeedsProcessing.assign(sceneDatabase.m_maxHierarchyDepth + 1, forceAllLevels ? 1u : 0u);
 
+    bool sparseTransforms = false;
     if (!dirtyUsesBulkPath && !m_pendingDirty[0].empty()) {
         auto& pending = m_pendingDirty[0];
         m_dirtyIndexScratch.clear();
@@ -1463,7 +1503,10 @@ void Renderer::drawScene(SceneDatabase& sceneDatabase, const Camera& camera) {
         const size_t dirtyCount = m_dirtyIndexScratch.size();
         m_diligent->pImmediateContext->UpdateBuffer(m_diligent->pDirtyIndexBuffer[m_currentFrame], 0, dirtyCount * sizeof(unsigned int), m_dirtyIndexScratch.data(), Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
 
-        if (!hierarchyJustChanged) {
+        sparseTransforms = !forceAllLevels && collectTransformWork(sceneDatabase, m_dirtyIndexScratch);
+        if (sparseTransforms) {
+            m_diligent->pImmediateContext->UpdateBuffer(m_diligent->pTransformWorkBuffer, 0, m_transformWork.size() * sizeof(Entity), m_transformWork.data(), Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
+        } else if (!hierarchyJustChanged) {
             for (Entity e : m_dirtyIndexScratch) {
                 uint32_t lvl = sceneDatabase.hierarchies[e].level;
                 if (lvl < levelNeedsProcessing.size()) levelNeedsProcessing[lvl] = true;
@@ -1527,13 +1570,13 @@ void Renderer::drawScene(SceneDatabase& sceneDatabase, const Camera& camera) {
     {
         uint32_t currentBaseIndexOffset = 0;
 
-        for (uint32_t level = 0; level <= sceneDatabase.m_maxHierarchyDepth; ++level) {
-            uint32_t levelCount = 0;
-            if (level < sceneDatabase.m_levelCounts.size()) { levelCount = sceneDatabase.m_levelCounts[level]; }
-
+        const std::vector<uint32_t>& levelCounts = sparseTransforms ? m_transformWorkLevelCounts : sceneDatabase.m_levelCounts;
+        auto& transformSRB = sparseTransforms ? m_diligent->pTransformWorkSRB[m_currentFrame] : m_diligent->pTransformSRB[m_currentFrame];
+        for (uint32_t level = 0; level < levelCounts.size(); ++level) {
+            const uint32_t levelCount = levelCounts[level];
             if (levelCount == 0) continue;
 
-            if (level >= levelNeedsProcessing.size() || !levelNeedsProcessing[level]) {
+            if (!sparseTransforms && (level >= levelNeedsProcessing.size() || !levelNeedsProcessing[level])) {
                 currentBaseIndexOffset += levelCount;
                 continue;
             }
@@ -1547,12 +1590,12 @@ void Renderer::drawScene(SceneDatabase& sceneDatabase, const Camera& camera) {
             transformUniforms.animMovingCount = animActive ? m_animMovingCount : 0u;
             transformUniforms.animEntityOffset = m_animEntityOffset;
             transformUniforms.animPadding = 0u;
-            transformUniforms.forceFullRecompute = (hierarchyJustChanged || dirtyUsesBulkPath || localMatricesUploading) ? 1u : 0u;
+            transformUniforms.forceFullRecompute = (sparseTransforms || hierarchyJustChanged || dirtyUsesBulkPath || localMatricesUploading) ? 1u : 0u;
 
             m_diligent->pImmediateContext->UpdateBuffer(m_diligent->pTransformUniforms, 0, sizeof(transformUniforms), &transformUniforms, Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
 
             m_diligent->pImmediateContext->SetPipelineState(m_diligent->pTransformPSO);
-            m_diligent->pImmediateContext->CommitShaderResources(m_diligent->pTransformSRB[m_currentFrame], Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
+            m_diligent->pImmediateContext->CommitShaderResources(transformSRB, Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
 
             const unsigned int transformNumWorkgroups = (levelCount + transformWorkgroupSize - 1) / transformWorkgroupSize;
 

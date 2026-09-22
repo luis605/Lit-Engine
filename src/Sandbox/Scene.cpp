@@ -20,6 +20,7 @@ void Scene::onStart() {
     m_lower = m_ctx.world.create("lower", m_ctx.cubeMesh, glm::vec3(0.0f), size);
     m_upper = m_ctx.world.create("upper", m_ctx.cubeMesh, glm::vec3(0.0f, size.y + gap, 0.0f), size);
 
+    m_hand = m_ctx.world.create("hand", m_ctx.sphereMesh, glm::vec3(0.0f, 0.5f, 0.0f), glm::vec3(1.2f, 0.4f, 1.2f), m_upper);
     m_ctx.world.setMaterial(m_upper, m_ctx.engine.createMaterial(glm::vec3(1.0f, 0.45f, 0.1f), 0.9f));
 
     EntityHandle sun = m_ctx.world.create("sun");
@@ -46,4 +47,5 @@ void Scene::onUpdate(float deltaTime, float time) {
 void Scene::rebind() {
     m_lower = m_ctx.world.find("lower");
     m_upper = m_ctx.world.find("upper");
+    m_hand = m_ctx.world.find("hand");
 }

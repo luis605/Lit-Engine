@@ -2,6 +2,7 @@ module;
 
 #include <array>
 #include <cstddef>
+#include <span>
 #include <vector>
 #include <string>
 #include <cstdint>
@@ -85,6 +86,13 @@ export class Renderer {
 
     std::vector<Entity> m_pendingDirty[NUM_FRAMES_IN_FLIGHT];
     std::vector<Entity> m_dirtyIndexScratch;
+    std::vector<Entity> m_transformWorkScratch;
+    std::vector<Entity> m_transformWork;
+    std::vector<uint32_t> m_transformWorkLevelCounts;
+    std::vector<uint32_t> m_transformWorkLevelHeads;
+    std::vector<uint32_t> m_transformWorkStamp;
+    uint32_t m_transformWorkEpoch = 0;
+    bool collectTransformWork(const SceneDatabase& sceneDatabase, std::span<const Entity> dirty);
     std::vector<glm::mat4> m_dirtyPayloadScratch;
     uint32_t m_transformEpoch = 0;
 

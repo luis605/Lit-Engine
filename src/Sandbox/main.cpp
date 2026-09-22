@@ -125,6 +125,7 @@ int main() {
     engine.input().bindKey("sprint", GLFW_KEY_LEFT_SHIFT);
 
     engine.setShaderWatch(true);
+    if (std::getenv("LIT_GPU_PROFILE")) engine.setFullProfiling(true);
     World& world = engine.world();
     Camera& camera = world.camera();
     camera.setFarPlane(500.0f);

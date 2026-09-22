@@ -5,6 +5,7 @@ module;
 #include <stack>
 #include <algorithm>
 #include <queue>
+#include <span>
 
 export module Engine.Render.scenedatabase;
 
@@ -33,6 +34,11 @@ export class SceneDatabase {
         m_hierarchyVersion++;
         m_dataVersion++;
         return entity;
+    }
+
+    [[nodiscard]] std::span<const Entity> childrenOf(Entity e) const {
+        if (e >= m_childCounts.size()) return {};
+        return {m_flatChildren.data() + m_childOffsets[e], m_childCounts[e]};
     }
 
     void markHierarchyDirty() { m_hierarchyVersion++; }

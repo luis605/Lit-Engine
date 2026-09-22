@@ -33,4 +33,5 @@ export class Scene {
     SceneContext m_ctx;
     EntityHandle m_lower;
     EntityHandle m_upper;
+    EntityHandle m_hand;
 };
