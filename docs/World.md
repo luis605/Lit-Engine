@@ -42,7 +42,7 @@ world.setTag(a, "enemy");
 world.findByTag("enemy");
 ```
 
-Render flags (`RENDER_HIDDEN`, `RENDER_NO_OCCLUDER`) are read directly by the GPU culling shaders.
+Render flags (`RENDER_HIDDEN`, `RENDER_NO_OCCLUDER`) are read directly by the GPU culling shaders. `RENDER_NO_OCCLUDER` objects are drawn after the occlusion buffer is built, so they never hide other objects from culling.
 
 ## Components
 
@@ -117,6 +117,8 @@ world.destroyBatch(handles);
 world.setPositions(updates);
 auto moved = world.compact();
 ```
+
+Single `create`, `destroy`, `setParent`, `setMaterial`, `setMesh`, `setVisible` and transform edits reach the GPU incrementally, so their cost does not grow with scene size. `createBatch`, `destroyBatch`, `setPositions` with thousands of entries, `compact` and scene loads rebuild renderer state in one pass; prefer them when changing thousands of entities at once.
 
 ## Time, lights, materials
 

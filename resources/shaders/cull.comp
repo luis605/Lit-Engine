@@ -76,10 +76,13 @@ uint cullObject(uint id, out uvec2 entry) {
     float dist = max(-(view * vec4(worldCenter, 1.0)).z, 0.001);
     if (radius / dist < u_smallObjectThreshold) return CULLED;
 
+    uint renderable = renderables[id];
+#ifndef RETEST
+    if ((renderableFlags(renderable) & RENDER_NO_OCCLUDER) != 0u) return OCCLUDED;
+#endif
     if (sphereOccluded(worldCenter, radius)) return OCCLUDED;
 
     uint chosenLod = selectLod(radius, dist);
-    uint renderable = renderables[id];
     uint bucketIndex = renderableShader(renderable) * MAX_MESHES + renderableMesh(renderable) + chosenLod;
     entry = uvec2(id | (chosenLod << 29u), bucketIndex | (renderableMaterial(renderable) << 16u));
     return VISIBLE;
