@@ -29,6 +29,7 @@ target_sources(Engine
         History/History.cppm
         Animation/Animation.cppm
         Jobs/Jobs.cppm
+        Profiler/Profiler.cppm
         Input/Input.cppm
         Input/InputActions.cppm
         Asset/AssetManager.cppm
@@ -49,6 +50,7 @@ target_sources(Engine
         History/History.cpp
         Animation/Animation.cpp
         Jobs/Jobs.cpp
+        Profiler/Profiler.cpp
 )
 
 target_compile_features(Engine PUBLIC cxx_std_23)

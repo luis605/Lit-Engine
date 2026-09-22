@@ -20,6 +20,7 @@ import Engine.World;
 import Engine.Physics;
 import Engine.Animation;
 import Engine.Jobs;
+import Engine.Profiler;
 import Engine.inputactions;
 import Engine.glm;
 
@@ -41,6 +42,7 @@ export class Engine {
     [[nodiscard]] PhysicsSettings& physics() { return m_physics; }
     [[nodiscard]] AnimationLibrary& animations() { return m_animations; }
     [[nodiscard]] JobSystem& jobs() { return m_jobs; }
+    [[nodiscard]] Profiler& profiler() { return m_profiler; }
     void addSystem(Phase phase, std::string name, SystemFn fn, bool runWhenPaused = false);
     bool removeSystem(const std::string& name);
     bool setSystemEnabled(const std::string& name, bool enabled);
@@ -95,6 +97,7 @@ export class Engine {
 
     Renderer m_renderer;
     JobSystem m_jobs;
+    Profiler m_profiler;
     World m_world;
     int m_windowWidth = 1280;
     int m_windowHeight = 720;

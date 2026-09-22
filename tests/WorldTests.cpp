@@ -1,4 +1,6 @@
 #include <atomic>
+#include <sstream>
+#include <thread>
 #include <chrono>
 #include <algorithm>
 #include <array>
@@ -17,6 +19,7 @@ import Engine.Physics;
 import Engine.History;
 import Engine.Animation;
 import Engine.Jobs;
+import Engine.Profiler;
 import Engine.Render.entity;
 import Engine.Render.component;
 import Engine.glm;
@@ -1527,6 +1530,81 @@ static void testJobsAndParallelSpatial() {
     }
 }
 
+static void testProfiler() {
+    Profiler off;
+    {
+        ProfileScope scope(off, "ignored");
+    }
+    off.beginFrame();
+    off.endFrame();
+    CHECK(off.currentFrame().empty() && off.history().empty());
+
+    Profiler profiler(5);
+    profiler.setEnabled(true);
+    for (int frame = 0; frame < 8; ++frame) {
+        profiler.beginFrame();
+        ProfileScope outer(profiler, "outer");
+        {
+            ProfileScope inner(profiler, "inner");
+            std::this_thread::sleep_for(std::chrono::milliseconds(2));
+        }
+        {
+            ProfileScope inner2(profiler, "inner");
+        }
+        ProfileScope quote(profiler, "with \"quote\"");
+    }
+    profiler.endFrame();
+    CHECK(profiler.history().size() == 5);
+    const auto& frame = profiler.history().back();
+    CHECK(frame.size() == 4);
+    CHECK(frame[0].name == "outer" && frame[0].depth == 0);
+    CHECK(frame[1].name == "inner" && frame[1].depth == 1);
+    CHECK(frame[2].name == "inner" && frame[2].depth == 1);
+    CHECK(frame[3].depth == 1);
+    CHECK(frame[1].durationMs >= 1.5);
+    CHECK(frame[0].durationMs >= frame[1].durationMs);
+    CHECK(frame[1].startMs >= frame[0].startMs);
+
+    const auto top = profiler.topScopes(2);
+    CHECK(top.size() == 2);
+    CHECK(top[0].name == "outer");
+    CHECK(top[1].name == "inner" && top[1].calls == 2);
+    CHECK(profiler.topScopes(10).size() == 3 + 0 || profiler.topScopes(10).size() == 4);
+    CHECK(profiler.frameIndex() == 8);
+
+    std::ostringstream json;
+    profiler.writeChromeTrace(json);
+    const std::string text = json.str();
+    CHECK(text.rfind("{\"traceEvents\":[", 0) == 0);
+    CHECK(text.substr(text.size() - 2) == "]}");
+    CHECK(std::count(text.begin(), text.end(), '{') == std::count(text.begin(), text.end(), '}'));
+    CHECK(text.find("\"ph\":\"X\"") != std::string::npos);
+    CHECK(text.find("with \\\"quote\\\"") != std::string::npos);
+    const size_t events = 20;
+    size_t counted = 0;
+    for (size_t pos = text.find("\"ph\""); pos != std::string::npos; pos = text.find("\"ph\"", pos + 1)) ++counted;
+    CHECK(counted == events);
+
+    const auto path = std::filesystem::temp_directory_path() / "lit_trace_test.json";
+    CHECK(profiler.writeChromeTrace(path.string()));
+    CHECK(std::filesystem::file_size(path) > 100);
+    std::filesystem::remove(path);
+    profiler.clear();
+    CHECK(profiler.history().empty() && profiler.frameIndex() == 0);
+
+    Engine engine;
+    engine.profiler().setEnabled(true);
+    engine.tick(0.016f);
+    engine.tick(0.016f);
+    engine.tick(0.016f);
+    bool sawTick = false, sawPhysics = false;
+    for (const ProfileRecord& r : engine.profiler().history().back()) {
+        if (r.name == "Engine::tick") sawTick = true;
+        if (r.name == "physics" || r.name == "animation") sawPhysics = true;
+    }
+    CHECK(sawTick && sawPhysics);
+}
+
 int main() {
     testHandles();
     testHierarchy();
@@ -1551,6 +1629,7 @@ int main() {
     testPhysics();
     testPhysicsShapesAndSleep();
     testJobsAndParallelSpatial();
+    testProfiler();
     testAdditiveLoad();
     testEntityReferences();
     testHistory();

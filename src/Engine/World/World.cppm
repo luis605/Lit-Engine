@@ -26,6 +26,7 @@ export module Engine.World;
 import Engine.Render.entity;
 import Engine.Events;
 import Engine.Jobs;
+import Engine.Profiler;
 import Engine.Render.component;
 import Engine.Render.scenedatabase;
 import Engine.camera;
@@ -423,6 +424,8 @@ export class World {
     void setAnimationTime(float time) { m_animTime = time; }
     [[nodiscard]] static glm::vec3 orbitOffset(float time, uint32_t animIndex);
     void setJobSystem(JobSystem* jobs) { m_jobs = jobs; }
+    void setProfiler(Profiler* profiler) { m_profiler = profiler; }
+    [[nodiscard]] Profiler* profiler() const { return m_profiler; }
     void setSpatialCellSize(float size);
     [[nodiscard]] std::vector<EntityHandle> queryFrustum(const Camera& camera);
     [[nodiscard]] glm::vec4 getWorldBounds(EntityHandle e) const;
@@ -530,6 +533,7 @@ export class World {
     float m_maxSmallRadius = 0.0f;
     bool m_spatialActive = false;
     JobSystem* m_jobs = nullptr;
+    Profiler* m_profiler = nullptr;
     EventBus m_events;
     TimeState m_time;
     std::vector<glm::vec3> m_animBase;

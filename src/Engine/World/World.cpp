@@ -708,6 +708,8 @@ bool World::saveScene(const std::filesystem::path& path) const {
 }
 
 bool World::saveScene(std::ostream& out) const {
+    std::optional<ProfileScope> profile;
+    if (m_profiler) profile.emplace(*m_profiler, "World::saveScene");
     out.precision(9);
     out << "LITSCENE 2\n" << m_aliveCount << "\n";
     if (m_meshNameOf) {
@@ -784,6 +786,8 @@ bool World::saveScene(std::ostream& out) const {
 }
 
 std::optional<std::vector<EntityHandle>> World::loadSceneImpl(std::istream& in, bool additive, EntityHandle parent) {
+    std::optional<ProfileScope> profile;
+    if (m_profiler) profile.emplace(*m_profiler, "World::loadScene");
     if (!in) return std::nullopt;
     std::string magic;
     int version = 0;
@@ -1248,6 +1252,8 @@ void World::rebuildSpatialEntry(Entity idx) {
 }
 
 void World::refreshSpatial() {
+    std::optional<ProfileScope> profile;
+    if (m_profiler) profile.emplace(*m_profiler, "World::refreshSpatial");
     if (m_spatialActive) syncAnimationSpatial();
     if (!m_spatialActive) {
         m_spatialActive = true;
@@ -1405,6 +1411,8 @@ glm::vec4 World::getWorldBounds(EntityHandle e) const {
 }
 
 bool collectLights(World& world, const glm::vec3& viewPos, LightSet& out, size_t maxLights) {
+    std::optional<ProfileScope> profile;
+    if (world.profiler()) profile.emplace(*world.profiler(), "collectLights");
     struct Candidate {
         float distance2;
         Entity index;

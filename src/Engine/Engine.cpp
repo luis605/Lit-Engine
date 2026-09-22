@@ -18,12 +18,15 @@ import Engine.mesh;
 import Engine.World;
 import Engine.Physics;
 import Engine.Animation;
+import Engine.Jobs;
+import Engine.Profiler;
 import Engine.Render.entity;
 import Engine.glm;
 import Engine.asset;
 
 Engine::Engine() {
     m_world.setJobSystem(&m_jobs);
+    m_world.setProfiler(&m_profiler);
     m_world.setMeshHooks(
         [this](uint32_t id) {
             const auto it = m_meshNames.find(id);
@@ -109,11 +112,14 @@ void Engine::runSystems(Phase phase, float dt, bool paused) {
         if (m_systems[i].phase != phase || !m_systems[i].enabled) continue;
         if (paused && !m_systems[i].runWhenPaused) continue;
         const SystemFn fn = m_systems[i].fn;
+        ProfileScope profile(m_profiler, m_systems[i].name);
         fn(m_world, dt);
     }
 }
 
 void Engine::tick(float deltaTime) {
+    m_profiler.beginFrame();
+    ProfileScope tickProfile(m_profiler, "Engine::tick");
     constexpr float maxFrame = 0.25f;
     TimeState& t = m_world.timeState();
     t.unscaledDeltaTime = std::min(deltaTime, maxFrame);
@@ -130,7 +136,10 @@ void Engine::tick(float deltaTime) {
             runSystems(Phase::FixedUpdate, m_fixedStep, false);
             m_accumulator -= m_fixedStep;
         }
-        m_world.update(t.deltaTime);
+        {
+            ProfileScope scriptsProfile(m_profiler, "scripts+timers");
+            m_world.update(t.deltaTime);
+        }
         runSystems(Phase::Update, t.deltaTime, false);
         runSystems(Phase::PostUpdate, t.deltaTime, false);
     } else {
@@ -162,6 +171,7 @@ bool Engine::shadersChanged() {
 }
 
 void Engine::update() {
+    ProfileScope updateProfile(m_profiler, "Engine::update");
     if (m_shaderWatch) {
         const auto now = std::chrono::steady_clock::now();
         if (now - m_lastShaderPoll > std::chrono::milliseconds(500)) {

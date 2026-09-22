@@ -8,6 +8,7 @@ module;
 #include <cstdio>
 #include <cstdlib>
 #include <filesystem>
+#include <format>
 #include <random>
 #include <thread>
 #include "Engine/Log/Log.hpp"
@@ -97,6 +98,7 @@ Application::Application() : m_world(m_engine.world()) {
     m_engine.setFullProfiling(true);
     m_engine.setPaused(true);
     m_engine.setShaderWatch(true);
+    if (std::getenv("LIT_PROFILE")) m_engine.profiler().setEnabled(true);
 
     // benchmark overrides: LIT_CAM_POS=x,y,z  LIT_CAM_PITCH  LIT_CAM_YAW  LIT_FORCE_LOD  LIT_SEED
     if (const char* camPos = std::getenv("LIT_CAM_POS")) {
@@ -137,6 +139,16 @@ void  Application::update() {
 
    if (InputManager::IsKeyPressed(GLFW_KEY_F5)) setPlaying(!m_playing);
    if (InputManager::IsKeyPressed(GLFW_KEY_F9)) m_engine.reloadShaders();
+   if (InputManager::IsKeyPressed(GLFW_KEY_F10)) m_engine.profiler().setEnabled(!m_engine.profiler().enabled());
+   if (InputManager::IsKeyPressed(GLFW_KEY_F11) && m_engine.profiler().writeChromeTrace("resources/trace.json")) Lit::Log::Info("Profiler trace written to resources/trace.json");
+   if (m_engine.profiler().enabled()) {
+       float profileY = 390.0f;
+       m_engine.AddText(std::format("CPU profile (F10 off, F11 trace)  frame {:.2f} ms", m_engine.profiler().lastFrameMs()), 900.0f, profileY, 0.45f, glm::vec3(0.4f, 1.0f, 0.6f));
+       for (const ProfileSummary& scope : m_engine.profiler().topScopes(8)) {
+           profileY -= 18.0f;
+           m_engine.AddText(std::format("{}: {:.3f} ms x{}", scope.name, scope.totalMs, scope.calls), 900.0f, profileY, 0.45f, glm::vec3(1.0f));
+       }
+   }
    m_engine.AddText(m_playing ? "PLAY  (F5 stop and restore)" : "EDIT  (F5 play)", 10.0f, 10.0f, 0.5f, m_playing ? glm::vec3(0.3f, 1.0f, 0.4f) : glm::vec3(1.0f, 0.8f, 0.3f));
    m_inspector.update(m_engine, !m_mouseLocked);
    m_engine.update();

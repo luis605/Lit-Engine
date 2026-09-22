@@ -8,6 +8,7 @@ module;
 export module Editor.application;
 
 import Engine.engine;
+import Engine.Profiler;
 import Editor.inspector;
 import Engine.camera;
 import Engine.World;
