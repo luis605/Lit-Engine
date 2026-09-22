@@ -50,8 +50,8 @@ export class Engine {
     [[nodiscard]] std::vector<std::string> systemNames(Phase phase) const;
     void setTimeScale(float scale) { m_world.timeState().timeScale = scale < 0.0f ? 0.0f : scale; }
     void setPaused(bool paused) { m_world.timeState().paused = paused; }
-    void debugLine(const glm::vec3& from, const glm::vec3& to, const glm::vec4& color = glm::vec4(1.0f));
-    void debugBox(const glm::vec3& center, const glm::vec3& halfExtents, const glm::vec4& color = glm::vec4(1.0f));
+    void debugLine(const glm::vec3& from, const glm::vec3& to, const glm::vec4& color = glm::vec4(1.0f), bool overlay = false);
+    void debugBox(const glm::vec3& center, const glm::vec3& halfExtents, const glm::vec4& color = glm::vec4(1.0f), bool overlay = false);
     void debugSphere(const glm::vec3& center, float radius, const glm::vec4& color = glm::vec4(1.0f));
     void debugRay(const Ray& ray, float length, const glm::vec4& color = glm::vec4(1.0f));
     void debugHierarchy(const glm::vec4& color = glm::vec4(0.2f, 1.0f, 0.4f, 1.0f));

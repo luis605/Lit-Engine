@@ -4,34 +4,28 @@ module;
 #include <algorithm>
 #include <cmath>
 #include <optional>
+#include <string>
 
 module Editor.gizmo;
 
 import Engine.input;
+import Engine.GizmoMath;
 
 namespace {
-const glm::vec3 kAxes[3] = {glm::vec3(1.0f, 0.0f, 0.0f), glm::vec3(0.0f, 1.0f, 0.0f), glm::vec3(0.0f, 0.0f, 1.0f)};
 const glm::vec4 kColors[3] = {glm::vec4(1.0f, 0.2f, 0.2f, 1.0f), glm::vec4(0.2f, 1.0f, 0.2f, 1.0f), glm::vec4(0.3f, 0.5f, 1.0f, 1.0f)};
+const glm::vec4 kHighlight(1.0f, 0.9f, 0.1f, 1.0f);
+constexpr int kRingSegments = 48;
 
-float distanceToSegment(const glm::vec2& p, const glm::vec2& a, const glm::vec2& b) {
-    const glm::vec2 ab = b - a;
-    const float len2 = ab.x * ab.x + ab.y * ab.y;
-    const float t = len2 > 1.0e-6f ? std::clamp(((p.x - a.x) * ab.x + (p.y - a.y) * ab.y) / len2, 0.0f, 1.0f) : 0.0f;
-    const glm::vec2 closest = a + ab * t;
-    return glm::length(p - closest);
+void ringBasis(const glm::vec3& axis, glm::vec3& u, glm::vec3& v) {
+    const glm::vec3 helper = std::abs(axis.y) < 0.9f ? glm::vec3(0.0f, 1.0f, 0.0f) : glm::vec3(1.0f, 0.0f, 0.0f);
+    u = glm::normalize(glm::cross(axis, helper));
+    v = glm::cross(axis, u);
+}
 }
 
-float closestParameterOnAxis(const Ray& ray, const glm::vec3& origin, const glm::vec3& axis) {
-    const glm::vec3 w0 = ray.origin - origin;
-    const float a = glm::dot(ray.direction, ray.direction);
-    const float b = glm::dot(ray.direction, axis);
-    const float c = glm::dot(axis, axis);
-    const float d = glm::dot(ray.direction, w0);
-    const float e = glm::dot(axis, w0);
-    const float denom = a * c - b * b;
-    if (std::abs(denom) < 1.0e-6f) return 0.0f;
-    return (a * e - b * d) / denom;
-}
+std::string Gizmo::label() const {
+    const char* mode = m_mode == GizmoMode::Translate ? "Move" : (m_mode == GizmoMode::Rotate ? "Rotate" : "Scale");
+    return std::string(mode) + (m_mode == GizmoMode::Scale ? " (local)" : (m_local ? " (local)" : " (world)"));
 }
 
 bool Gizmo::update(Engine& engine, History& history, EntityHandle selected, bool enabled) {
@@ -43,49 +37,111 @@ bool Gizmo::update(Engine& engine, History& history, EntityHandle selected, bool
         return false;
     }
 
+    const bool ctrl = InputManager::IsKeyHeld(GLFW_KEY_LEFT_CONTROL) || InputManager::IsKeyHeld(GLFW_KEY_RIGHT_CONTROL);
+    const bool shift = InputManager::IsKeyHeld(GLFW_KEY_LEFT_SHIFT) || InputManager::IsKeyHeld(GLFW_KEY_RIGHT_SHIFT);
+
+    if (m_activeAxis < 0) {
+        if (InputManager::IsKeyPressed(GLFW_KEY_TAB)) m_mode = static_cast<GizmoMode>((static_cast<int>(m_mode) + 1) % 3);
+        if (InputManager::IsKeyPressed(GLFW_KEY_X)) m_local = !m_local;
+    }
+
     const glm::vec3 origin = world.getWorldPosition(selected);
+    const bool useLocal = m_local || m_mode == GizmoMode::Scale;
+    const glm::vec3 axes[3] = {useLocal ? world.right(selected) : glm::vec3(1.0f, 0.0f, 0.0f), useLocal ? world.up(selected) : glm::vec3(0.0f, 1.0f, 0.0f), useLocal ? -world.forward(selected) : glm::vec3(0.0f, 0.0f, 1.0f)};
     const float length = std::max(glm::length(origin - world.camera().getPosition()) * 0.15f, 0.05f);
     const glm::vec2 mouse = InputManager::GetMousePosition();
     const Ray ray = engine.screenRay(mouse.x, mouse.y);
+    const bool pressed = InputManager::IsMouseButtonPressed(GLFW_MOUSE_BUTTON_LEFT);
 
     if (m_activeAxis < 0) {
         m_hoverAxis = -1;
         float best = 12.0f;
-        const auto start = engine.worldToScreen(origin);
-        for (int a = 0; a < 3 && start; ++a) {
-            const auto end = engine.worldToScreen(origin + kAxes[a] * length);
-            if (!end) continue;
-            const float d = distanceToSegment(mouse, *start, *end);
-            if (d < best) {
-                best = d;
+        for (int a = 0; a < 3; ++a) {
+            float distance = 1.0e9f;
+            if (m_mode == GizmoMode::Rotate) {
+                glm::vec3 u, v;
+                ringBasis(axes[a], u, v);
+                std::optional<glm::vec2> previous;
+                for (int i = 0; i <= kRingSegments; ++i) {
+                    const float angle = 6.28318530718f * static_cast<float>(i) / kRingSegments;
+                    const auto point = engine.worldToScreen(origin + (u * std::cos(angle) + v * std::sin(angle)) * length);
+                    if (previous && point) distance = std::min(distance, gizmo::distanceToSegment2D(mouse, *previous, *point));
+                    previous = point;
+                }
+            } else {
+                const auto start = engine.worldToScreen(origin);
+                const auto end = engine.worldToScreen(origin + axes[a] * length);
+                if (start && end) distance = gizmo::distanceToSegment2D(mouse, *start, *end);
+            }
+            if (distance < best) {
+                best = distance;
                 m_hoverAxis = a;
             }
         }
-        if (m_hoverAxis >= 0 && InputManager::IsMouseButtonPressed(GLFW_MOUSE_BUTTON_LEFT)) {
-            m_activeAxis = m_hoverAxis;
+        if (m_hoverAxis >= 0 && pressed) {
+            bool started = true;
             m_target = selected;
             m_startLocal = world.getLocalMatrix(selected);
-            m_startWorldPosition = origin;
-            m_startParameter = closestParameterOnAxis(ray, origin, kAxes[m_activeAxis]);
+            m_startWorld = world.getWorldMatrix(selected);
+            m_pivot = origin;
+            m_axisDirection = axes[m_hoverAxis];
+            m_length = length;
+            if (m_mode == GizmoMode::Rotate) {
+                if (const auto p = gizmo::rayPlane(ray, origin, m_axisDirection)) {
+                    m_startVector = *p - origin;
+                } else {
+                    started = false;
+                }
+            } else {
+                m_startParameter = gizmo::closestParameterOnAxis(ray, origin, m_axisDirection);
+            }
+            if (started) m_activeAxis = m_hoverAxis;
         }
     }
 
-    bool consumed = m_activeAxis >= 0 || m_hoverAxis >= 0 && InputManager::IsMouseButtonPressed(GLFW_MOUSE_BUTTON_LEFT);
+    const bool consumed = m_activeAxis >= 0 || (m_hoverAxis >= 0 && pressed);
     if (m_activeAxis >= 0) {
-        if (InputManager::IsMouseButtonHeld(GLFW_MOUSE_BUTTON_LEFT) || InputManager::IsMouseButtonPressed(GLFW_MOUSE_BUTTON_LEFT)) {
-            const float parameter = closestParameterOnAxis(ray, m_startWorldPosition, kAxes[m_activeAxis]);
-            glm::mat4 worldMatrix = world.getWorldMatrix(m_target);
-            worldMatrix[3] = glm::vec4(m_startWorldPosition + kAxes[m_activeAxis] * (parameter - m_startParameter), 1.0f);
-            world.setWorldMatrix(m_target, worldMatrix);
+        if (InputManager::IsMouseButtonHeld(GLFW_MOUSE_BUTTON_LEFT) || pressed) {
+            if (m_mode == GizmoMode::Translate) {
+                float delta = gizmo::closestParameterOnAxis(ray, m_pivot, m_axisDirection) - m_startParameter;
+                if (ctrl) delta = gizmo::snap(delta, 0.5f);
+                glm::mat4 matrix = m_startWorld;
+                matrix[3] = glm::vec4(m_pivot + m_axisDirection * delta, 1.0f);
+                world.setWorldMatrix(m_target, matrix);
+            } else if (m_mode == GizmoMode::Rotate) {
+                if (const auto p = gizmo::rayPlane(ray, m_pivot, m_axisDirection)) {
+                    float angle = gizmo::signedAngleAroundAxis(m_startVector, *p - m_pivot, m_axisDirection);
+                    if (ctrl) angle = gizmo::snap(angle, glm::radians(15.0f));
+                    world.setWorldMatrix(m_target, gizmo::rotateAboutWorldAxis(m_startWorld, m_pivot, m_axisDirection, angle));
+                }
+            } else {
+                float factor = std::max(0.01f, 1.0f + (gizmo::closestParameterOnAxis(ray, m_pivot, m_axisDirection) - m_startParameter) / m_length);
+                if (ctrl) factor = std::max(0.1f, gizmo::snap(factor, 0.1f));
+                world.setLocalMatrix(m_target, gizmo::scaleAlongLocalAxis(m_startLocal, m_activeAxis, factor, shift));
+            }
         } else {
             history.commitLocalMatrix(m_target, m_startLocal, world.getLocalMatrix(m_target));
             m_activeAxis = -1;
         }
     }
 
+    const glm::vec3 drawOrigin = m_activeAxis >= 0 ? m_pivot : origin;
     for (int a = 0; a < 3; ++a) {
         const bool highlighted = a == m_hoverAxis || a == m_activeAxis;
-        engine.debugLine(origin, origin + kAxes[a] * length, highlighted ? glm::vec4(1.0f, 0.9f, 0.1f, 1.0f) : kColors[a]);
+        const glm::vec4 color = highlighted ? kHighlight : kColors[a];
+        if (m_mode == GizmoMode::Rotate) {
+            glm::vec3 u, v;
+            ringBasis(axes[a], u, v);
+            for (int i = 0; i < kRingSegments; ++i) {
+                const float a0 = 6.28318530718f * static_cast<float>(i) / kRingSegments;
+                const float a1 = 6.28318530718f * static_cast<float>(i + 1) / kRingSegments;
+                engine.debugLine(drawOrigin + (u * std::cos(a0) + v * std::sin(a0)) * length, drawOrigin + (u * std::cos(a1) + v * std::sin(a1)) * length, color, true);
+            }
+        } else {
+            const glm::vec3 end = drawOrigin + axes[a] * length;
+            engine.debugLine(drawOrigin, end, color, true);
+            if (m_mode == GizmoMode::Scale) engine.debugBox(end, glm::vec3(length * 0.06f), color, true);
+        }
     }
     return consumed;
 }

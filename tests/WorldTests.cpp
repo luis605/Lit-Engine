@@ -21,6 +21,7 @@ import Engine.Animation;
 import Engine.Jobs;
 import Engine.Profiler;
 import Engine.LineEditor;
+import Engine.GizmoMath;
 import Engine.Render.entity;
 import Engine.Render.component;
 import Engine.glm;
@@ -1760,6 +1761,43 @@ static void testDescribeAndEditText() {
     CHECK(!history.setComponentText(b, "Nope", "1"));
 }
 
+static void testGizmoMath() {
+    Ray ray{glm::vec3(3.0f, 4.0f, 10.0f), glm::vec3(0.0f, 0.0f, -1.0f)};
+    CHECK(std::abs(gizmo::closestParameterOnAxis(ray, glm::vec3(0.0f), glm::vec3(1.0f, 0.0f, 0.0f)) - 3.0f) < 1.0e-5f);
+    CHECK(std::abs(gizmo::closestParameterOnAxis(ray, glm::vec3(0.0f), glm::vec3(0.0f, 1.0f, 0.0f)) - 4.0f) < 1.0e-5f);
+    CHECK(std::abs(gizmo::closestParameterOnAxis(ray, glm::vec3(1.0f, 0.0f, 0.0f), glm::vec3(1.0f, 0.0f, 0.0f)) - 2.0f) < 1.0e-5f);
+    CHECK(gizmo::closestParameterOnAxis(ray, glm::vec3(0.0f), glm::vec3(0.0f, 0.0f, 1.0f)) == 0.0f);
+
+    const auto hit = gizmo::rayPlane(ray, glm::vec3(0.0f), glm::vec3(0.0f, 0.0f, 1.0f));
+    CHECK(hit && near(*hit, glm::vec3(3.0f, 4.0f, 0.0f)));
+    CHECK(!gizmo::rayPlane(ray, glm::vec3(0.0f), glm::vec3(1.0f, 0.0f, 0.0f)));
+    CHECK(!gizmo::rayPlane(Ray{glm::vec3(0.0f, 0.0f, -5.0f), glm::vec3(0.0f, 0.0f, -1.0f)}, glm::vec3(0.0f), glm::vec3(0.0f, 0.0f, 1.0f)));
+
+    const glm::vec3 y(0.0f, 1.0f, 0.0f);
+    CHECK(std::abs(gizmo::signedAngleAroundAxis(glm::vec3(1.0f, 0.0f, 0.0f), glm::vec3(0.0f, 0.0f, -1.0f), y) - glm::radians(90.0f)) < 1.0e-4f);
+    CHECK(std::abs(gizmo::signedAngleAroundAxis(glm::vec3(1.0f, 0.0f, 0.0f), glm::vec3(0.0f, 0.0f, 1.0f), y) + glm::radians(90.0f)) < 1.0e-4f);
+    CHECK(std::abs(gizmo::signedAngleAroundAxis(glm::vec3(1.0f, 5.0f, 0.0f), glm::vec3(-2.0f, -3.0f, 0.0f), y) - glm::radians(180.0f)) < 1.0e-3f);
+
+    CHECK(gizmo::snap(0.74f, 0.5f) == 0.5f && gizmo::snap(0.76f, 0.5f) == 1.0f && gizmo::snap(-0.3f, 0.5f) == -0.5f && gizmo::snap(1.234f, 0.0f) == 1.234f);
+
+    const glm::mat4 world = glm::translate(glm::mat4(1.0f), glm::vec3(5.0f, 0.0f, 0.0f));
+    const glm::mat4 rotated = gizmo::rotateAboutWorldAxis(world, glm::vec3(5.0f, 0.0f, 0.0f), y, glm::radians(90.0f));
+    CHECK(near(glm::vec3(rotated[3]), glm::vec3(5.0f, 0.0f, 0.0f)));
+    CHECK(near(glm::vec3(rotated[0]), glm::vec3(0.0f, 0.0f, -1.0f)));
+    const glm::mat4 orbit = gizmo::rotateAboutWorldAxis(world, glm::vec3(0.0f), y, glm::radians(90.0f));
+    CHECK(near(glm::vec3(orbit[3]), glm::vec3(0.0f, 0.0f, -5.0f)));
+
+    glm::mat4 local = glm::translate(glm::mat4(1.0f), glm::vec3(1.0f, 2.0f, 3.0f)) * glm::mat4_cast(glm::angleAxis(glm::radians(90.0f), y)) * glm::scale(glm::mat4(1.0f), glm::vec3(2.0f));
+    const glm::mat4 scaledX = gizmo::scaleAlongLocalAxis(local, 0, 3.0f, false);
+    CHECK(std::abs(glm::length(glm::vec3(scaledX[0])) - 6.0f) < 1.0e-4f && std::abs(glm::length(glm::vec3(scaledX[1])) - 2.0f) < 1.0e-4f);
+    CHECK(near(glm::vec3(scaledX[3]), glm::vec3(1.0f, 2.0f, 3.0f)));
+    const glm::mat4 uniform = gizmo::scaleAlongLocalAxis(local, 1, 0.5f, true);
+    CHECK(std::abs(glm::length(glm::vec3(uniform[2])) - 1.0f) < 1.0e-4f && std::abs(glm::length(glm::vec3(uniform[0])) - 1.0f) < 1.0e-4f);
+    CHECK(std::abs(gizmo::distanceToSegment2D(glm::vec2(5.0f, 3.0f), glm::vec2(0.0f), glm::vec2(10.0f, 0.0f)) - 3.0f) < 1.0e-5f);
+    CHECK(std::abs(gizmo::distanceToSegment2D(glm::vec2(-4.0f, 3.0f), glm::vec2(0.0f), glm::vec2(10.0f, 0.0f)) - 5.0f) < 1.0e-5f);
+    CHECK(std::abs(gizmo::distanceToSegment2D(glm::vec2(2.0f, 2.0f), glm::vec2(1.0f), glm::vec2(1.0f)) - std::sqrt(2.0f)) < 1.0e-5f);
+}
+
 int main() {
     testHandles();
     testHierarchy();
@@ -1786,6 +1824,7 @@ int main() {
     testJobsAndParallelSpatial();
     testProfiler();
     testLineEditor();
+    testGizmoMath();
     testDescribeAndEditText();
     testAdditiveLoad();
     testEntityReferences();

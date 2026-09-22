@@ -229,14 +229,14 @@ void Engine::setAnimation(float time, uint32_t movingCount, uint32_t entityOffse
         applyWorldAnimation();
     }
 }
-void Engine::debugLine(const glm::vec3& from, const glm::vec3& to, const glm::vec4& color) { m_renderer.addDebugLine(from, to, color); }
+void Engine::debugLine(const glm::vec3& from, const glm::vec3& to, const glm::vec4& color, bool overlay) { m_renderer.addDebugLine(from, to, color, overlay); }
 
-void Engine::debugBox(const glm::vec3& c, const glm::vec3& h, const glm::vec4& color) {
+void Engine::debugBox(const glm::vec3& c, const glm::vec3& h, const glm::vec4& color, bool overlay) {
     const glm::vec3 corners[8] = {
         {c.x - h.x, c.y - h.y, c.z - h.z}, {c.x + h.x, c.y - h.y, c.z - h.z}, {c.x + h.x, c.y + h.y, c.z - h.z}, {c.x - h.x, c.y + h.y, c.z - h.z},
         {c.x - h.x, c.y - h.y, c.z + h.z}, {c.x + h.x, c.y - h.y, c.z + h.z}, {c.x + h.x, c.y + h.y, c.z + h.z}, {c.x - h.x, c.y + h.y, c.z + h.z}};
     constexpr int edges[12][2] = {{0, 1}, {1, 2}, {2, 3}, {3, 0}, {4, 5}, {5, 6}, {6, 7}, {7, 4}, {0, 4}, {1, 5}, {2, 6}, {3, 7}};
-    for (const auto& e : edges) debugLine(corners[e[0]], corners[e[1]], color);
+    for (const auto& e : edges) debugLine(corners[e[0]], corners[e[1]], color, overlay);
 }
 
 void Engine::debugSphere(const glm::vec3& center, float radius, const glm::vec4& color) {

@@ -32,7 +32,7 @@ export class Renderer {
     void setLights(bool enabled, const std::array<glm::vec4, 2>& directional, const std::vector<glm::vec4>& packed);
     void reloadShaders();
     void setMaterial(uint32_t index, const glm::vec4& colorAndStrength);
-    void addDebugLine(const glm::vec3& from, const glm::vec3& to, const glm::vec4& color);
+    void addDebugLine(const glm::vec3& from, const glm::vec3& to, const glm::vec4& color, bool overlay = false);
     void uploadBasePositions(const std::vector<glm::vec3>& basePositions);
     void setAnimation(float time, uint32_t movingCount, uint32_t entityOffset);
     void AddText(const std::string& text, float x, float y, float scale, const glm::vec3& color);
@@ -134,6 +134,7 @@ export class Renderer {
 
     bool m_debugDepthMode = false;
     std::vector<float> m_debugLines;
+    std::vector<float> m_debugOverlayLines;
     bool m_lightOverride = false;
     std::array<glm::vec4, 2> m_directional{};
     std::vector<glm::vec4> m_lightData;

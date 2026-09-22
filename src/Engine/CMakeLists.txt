@@ -31,6 +31,7 @@ target_sources(Engine
         Jobs/Jobs.cppm
         Profiler/Profiler.cppm
         Text/LineEditor.cppm
+        Math/GizmoMath.cppm
         Input/Input.cppm
         Input/InputActions.cppm
         Asset/AssetManager.cppm
@@ -53,6 +54,7 @@ target_sources(Engine
         Jobs/Jobs.cpp
         Profiler/Profiler.cpp
         Text/LineEditor.cpp
+        Math/GizmoMath.cpp
 )
 
 target_compile_features(Engine PUBLIC cxx_std_23)

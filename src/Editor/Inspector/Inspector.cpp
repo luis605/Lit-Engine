@@ -167,6 +167,7 @@ void Inspector::draw(Engine& engine) {
     line("click pick  H hide  C clone", white);
     line("G reparent  Del destroy  Ctrl+Z/Y undo", white);
     line("F3 name  F4 tag  ,/. component  F6 edit", white);
+    line("Gizmo: " + m_gizmo.label() + "  Tab mode  X space  Ctrl snap", white);
     line(std::format("entities alive: {}", world.aliveCount()), white);
     if (!world.isAlive(m_selected)) {
         line("nothing selected", white);

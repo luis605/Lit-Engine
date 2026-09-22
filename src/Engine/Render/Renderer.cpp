@@ -443,6 +443,8 @@ struct DiligentData {
     Diligent::RefCntAutoPtr<Diligent::IBuffer> pMaterialBuffer;
     Diligent::RefCntAutoPtr<Diligent::IBuffer> pLightBuffer;
     Diligent::RefCntAutoPtr<Diligent::IPipelineState> pDebugLinePSO;
+    Diligent::RefCntAutoPtr<Diligent::IPipelineState> pDebugLineOverlayPSO;
+    Diligent::RefCntAutoPtr<Diligent::IShaderResourceBinding> pDebugLineOverlaySRB;
     Diligent::RefCntAutoPtr<Diligent::IShaderResourceBinding> pDebugLineSRB;
     Diligent::RefCntAutoPtr<Diligent::IBuffer> pDebugLineVB;
     Diligent::RefCntAutoPtr<Diligent::IBuffer> pDebugLineUBO;
@@ -2229,29 +2231,44 @@ void Renderer::drawScene(SceneDatabase& sceneDatabase, const Camera& camera) {
         m_diligent->pImmediateContext->Draw(DrawAttrs);
     }
 
-    if (!m_debugLines.empty() && m_diligent->pDebugLinePSO && m_diligent->pDebugLineSRB) {
+    if ((!m_debugLines.empty() || !m_debugOverlayLines.empty()) && m_diligent->pDebugLinePSO && m_diligent->pDebugLineSRB) {
         constexpr size_t kMaxDebugVertices = 1u << 17;
         constexpr size_t kFloatsPerVertex = sizeof(DebugLineVertex) / sizeof(float);
-        const size_t vertexCount = std::min(m_debugLines.size() / kFloatsPerVertex, kMaxDebugVertices);
+        const size_t depthVertices = std::min(m_debugLines.size() / kFloatsPerVertex, kMaxDebugVertices);
+        const size_t overlayVertices = std::min(m_debugOverlayLines.size() / kFloatsPerVertex, kMaxDebugVertices - depthVertices);
         {
             Diligent::MapHelper<DebugLineVertex> vertices(m_diligent->pImmediateContext, m_diligent->pDebugLineVB, Diligent::MAP_WRITE, Diligent::MAP_FLAG_DISCARD);
-            std::memcpy(static_cast<DebugLineVertex*>(vertices), m_debugLines.data(), vertexCount * sizeof(DebugLineVertex));
+            DebugLineVertex* dst = static_cast<DebugLineVertex*>(vertices);
+            std::memcpy(dst, m_debugLines.data(), depthVertices * sizeof(DebugLineVertex));
+            std::memcpy(dst + depthVertices, m_debugOverlayLines.data(), overlayVertices * sizeof(DebugLineVertex));
         }
         {
             Diligent::MapHelper<glm::mat4> viewProjection(m_diligent->pImmediateContext, m_diligent->pDebugLineUBO, Diligent::MAP_WRITE, Diligent::MAP_FLAG_DISCARD);
             *viewProjection = camera.getProjectionMatrix() * camera.getViewMatrix();
         }
-        m_diligent->pImmediateContext->SetPipelineState(m_diligent->pDebugLinePSO);
-        m_diligent->pImmediateContext->CommitShaderResources(m_diligent->pDebugLineSRB, Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
         Diligent::IBuffer* pBuffers[] = {m_diligent->pDebugLineVB};
         const Diligent::Uint64 offsets[] = {0};
         m_diligent->pImmediateContext->SetVertexBuffers(0, 1, pBuffers, offsets, Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION, Diligent::SET_VERTEX_BUFFERS_FLAG_RESET);
-        Diligent::DrawAttribs lineDraw;
-        lineDraw.NumVertices = static_cast<Diligent::Uint32>(vertexCount);
-        lineDraw.Flags = Diligent::DRAW_FLAG_VERIFY_ALL;
-        m_diligent->pImmediateContext->Draw(lineDraw);
+        if (depthVertices > 0) {
+            m_diligent->pImmediateContext->SetPipelineState(m_diligent->pDebugLinePSO);
+            m_diligent->pImmediateContext->CommitShaderResources(m_diligent->pDebugLineSRB, Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
+            Diligent::DrawAttribs lineDraw;
+            lineDraw.NumVertices = static_cast<Diligent::Uint32>(depthVertices);
+            lineDraw.Flags = Diligent::DRAW_FLAG_VERIFY_ALL;
+            m_diligent->pImmediateContext->Draw(lineDraw);
+        }
+        if (overlayVertices > 0 && m_diligent->pDebugLineOverlayPSO && m_diligent->pDebugLineOverlaySRB) {
+            m_diligent->pImmediateContext->SetPipelineState(m_diligent->pDebugLineOverlayPSO);
+            m_diligent->pImmediateContext->CommitShaderResources(m_diligent->pDebugLineOverlaySRB, Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
+            Diligent::DrawAttribs overlayDraw;
+            overlayDraw.NumVertices = static_cast<Diligent::Uint32>(overlayVertices);
+            overlayDraw.StartVertexLocation = static_cast<Diligent::Uint32>(depthVertices);
+            overlayDraw.Flags = Diligent::DRAW_FLAG_VERIFY_ALL;
+            m_diligent->pImmediateContext->Draw(overlayDraw);
+        }
     }
     m_debugLines.clear();
+    m_debugOverlayLines.clear();
 
     if (fullProfiling) {
         float y = 120.0f;
@@ -3430,6 +3447,8 @@ void Renderer::releasePipelines() {
     m_diligent->pDebugDepthUniforms.Release();
     m_diligent->pDebugLineUBO.Release();
     m_diligent->pDebugLineVB.Release();
+    m_diligent->pDebugLineOverlayPSO.Release();
+    m_diligent->pDebugLineOverlaySRB.Release();
     m_diligent->pAnimConstants.Release();
 }
 
@@ -3466,10 +3485,11 @@ void Renderer::setMaterial(uint32_t index, const glm::vec4& colorAndStrength) {
     m_diligent->pImmediateContext->UpdateBuffer(m_diligent->pMaterialBuffer, static_cast<Diligent::Uint64>(index) * sizeof(glm::vec4), sizeof(glm::vec4), &colorAndStrength, Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
 }
 
-void Renderer::addDebugLine(const glm::vec3& from, const glm::vec3& to, const glm::vec4& color) {
+void Renderer::addDebugLine(const glm::vec3& from, const glm::vec3& to, const glm::vec4& color, bool overlay) {
     const DebugLineVertex vertices[2] = {{from, color}, {to, color}};
     const float* raw = reinterpret_cast<const float*>(vertices);
-    m_debugLines.insert(m_debugLines.end(), raw, raw + 2 * sizeof(DebugLineVertex) / sizeof(float));
+    std::vector<float>& target = overlay ? m_debugOverlayLines : m_debugLines;
+    target.insert(target.end(), raw, raw + 2 * sizeof(DebugLineVertex) / sizeof(float));
 }
 
 void Renderer::createDebugLinePSO() {
@@ -3562,6 +3582,16 @@ void Renderer::createDebugLinePSO() {
     m_diligent->pDebugLinePSO->CreateShaderResourceBinding(&m_diligent->pDebugLineSRB, true);
     if (m_diligent->pDebugLineSRB) {
         if (auto* var = m_diligent->pDebugLineSRB->GetVariableByName(Diligent::SHADER_TYPE_VERTEX, "DebugLineUniforms")) var->Set(m_diligent->pDebugLineUBO);
+    }
+
+    PSOCreateInfo.PSODesc.Name = "Debug Line Overlay PSO";
+    PSOCreateInfo.GraphicsPipeline.DepthStencilDesc.DepthEnable = false;
+    m_diligent->pDevice->CreateGraphicsPipelineState(PSOCreateInfo, &m_diligent->pDebugLineOverlayPSO);
+    if (m_diligent->pDebugLineOverlayPSO) {
+        m_diligent->pDebugLineOverlayPSO->CreateShaderResourceBinding(&m_diligent->pDebugLineOverlaySRB, true);
+        if (m_diligent->pDebugLineOverlaySRB) {
+            if (auto* var = m_diligent->pDebugLineOverlaySRB->GetVariableByName(Diligent::SHADER_TYPE_VERTEX, "DebugLineUniforms")) var->Set(m_diligent->pDebugLineUBO);
+        }
     }
 }
 

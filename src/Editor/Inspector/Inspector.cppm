@@ -25,6 +25,7 @@ export class Inspector {
     void update(Engine& engine, bool pickingEnabled);
     [[nodiscard]] EntityHandle selected() const { return m_selected; }
     void select(EntityHandle e) { m_selected = e; }
+    [[nodiscard]] Gizmo& gizmo() { return m_gizmo; }
     void reset();
     [[nodiscard]] bool editing() const { return m_editor.active(); }
 
