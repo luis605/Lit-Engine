@@ -14,6 +14,7 @@ module;
 #include <fstream>
 #include <sstream>
 #include <set>
+#include <unordered_set>
 #include <unordered_map>
 #include <functional>
 #include <string>
@@ -796,7 +797,7 @@ bool World::saveScene(std::ostream& out) const {
     return static_cast<bool>(out);
 }
 
-std::optional<std::vector<EntityHandle>> World::loadSceneImpl(std::istream& in, bool additive, EntityHandle parent) {
+std::optional<std::vector<EntityHandle>> World::loadSceneImpl(std::istream& in, bool additive, EntityHandle parent, bool trusted) {
     std::optional<ProfileScope> profile;
     if (m_profiler) profile.emplace(*m_profiler, "World::loadScene");
     if (!in) return std::nullopt;
@@ -808,7 +809,7 @@ std::optional<std::vector<EntityHandle>> World::loadSceneImpl(std::istream& in, 
     {
         std::istringstream header(content.substr(0, std::min<size_t>(content.size(), 128)));
         header >> magic >> version >> count;
-        if (!header || magic != "LITSCENE" || version < 1 || version > kSceneVersion) return std::nullopt;
+        if (!header || magic != "LITSCENE" || version < 1 || version > kSceneVersion || count > kMaxSceneEntities) return std::nullopt;
         const size_t firstNewline = content.find('\n');
         const size_t secondNewline = firstNewline == std::string::npos ? std::string::npos : content.find('\n', firstNewline + 1);
         if (secondNewline == std::string::npos) return std::nullopt;
@@ -823,6 +824,34 @@ std::optional<std::vector<EntityHandle>> World::loadSceneImpl(std::istream& in, 
             pos = end + 1;
         }
         if (entityLines != count) return std::nullopt;
+    }
+    if (!trusted) {
+        std::unordered_set<long long> seenIds;
+        seenIds.reserve(count);
+        std::string checkLine;
+        for (size_t pos = bodyStart; pos < content.size();) {
+            size_t end = content.find('\n', pos);
+            if (end == std::string::npos) end = content.size();
+            if (end - pos > kMaxSceneLineLength) return std::nullopt;
+            checkLine.assign(content, pos, end - pos);
+            pos = end + 1;
+            if (checkLine.empty()) continue;
+            if (m_sceneMigration && version < kSceneVersion) m_sceneMigration(version, checkLine);
+            if (checkLine[0] < '0' || checkLine[0] > '9') continue;
+            const size_t tabAt = checkLine.find('\t');
+            if (tabAt != std::string::npos && checkLine.size() - tabAt - 1 > kMaxNameLength) return std::nullopt;
+            std::string_view fields(checkLine.data(), tabAt == std::string::npos ? checkLine.size() : tabAt);
+            long long id = 0, parentId = 0;
+            int visibleFlag = 0;
+            uint32_t meshId = 0, materialId = 0, shaderId = 0;
+            float alphaValue = 0.0f;
+            if (!(readNumber(fields, id) && readNumber(fields, parentId) && readNumber(fields, visibleFlag) && readNumber(fields, meshId) && readNumber(fields, materialId) && readNumber(fields, shaderId) && readNumber(fields, alphaValue))) return std::nullopt;
+            if (id < 0 || parentId < -1 || !std::isfinite(alphaValue) || !seenIds.insert(id).second) return std::nullopt;
+            for (int k = 0; k < 16; ++k) {
+                float value = 0.0f;
+                if (!readNumber(fields, value) || !std::isfinite(value)) return std::nullopt;
+            }
+        }
     }
 
     struct Record {
@@ -869,6 +898,7 @@ std::optional<std::vector<EntityHandle>> World::loadSceneImpl(std::istream& in, 
             componentLines.push_back(line);
             continue;
         }
+        if (line[0] < '0' || line[0] > '9') continue;
         const size_t tab = line.find('\t');
         std::string_view fields(line.data(), tab == std::string::npos ? line.size() : tab);
         long long id = 0, parent = -1;
@@ -890,7 +920,7 @@ std::optional<std::vector<EntityHandle>> World::loadSceneImpl(std::istream& in, 
         if (!readNumber(fields, layer)) layer = 1;
         uint32_t renderFlags = 0;
         if (!readNumber(fields, renderFlags)) renderFlags = 0;
-        if (tab != std::string::npos) desc.name = line.substr(tab + 1);
+        if (tab != std::string::npos) desc.name = line.substr(tab + 1, kMaxNameLength);
         if (const auto remap = meshRemap.find(desc.mesh); remap != meshRemap.end()) desc.mesh = remap->second;
         const EntityHandle h = createImpl(desc);
         m_db.transforms[h.index].localMatrix = local;
@@ -910,7 +940,10 @@ std::optional<std::vector<EntityHandle>> World::loadSceneImpl(std::istream& in, 
     std::vector<EntityHandle> roots;
     for (const Record& r : records) {
         const auto it = r.parent < 0 ? handles.end() : handles.find(r.parent);
-        if (it != handles.end()) {
+        if (it != handles.end() && it->second == handles[r.id]) {
+            roots.push_back(handles[r.id]);
+            if (additive && valid(parent)) setParent(handles[r.id], parent, false);
+        } else if (it != handles.end()) {
             setParent(handles[r.id], it->second, false);
         } else {
             roots.push_back(handles[r.id]);
@@ -981,7 +1014,7 @@ std::string World::snapshot() const {
 
 bool World::restore(const std::string& snapshotText) {
     std::istringstream in(snapshotText);
-    return loadScene(in);
+    return loadSceneImpl(in, false, NULL_ENTITY, true).has_value();
 }
 
 void World::unloadGroup(const std::vector<EntityHandle>& roots) { destroyBatch(roots); }

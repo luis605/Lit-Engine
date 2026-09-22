@@ -39,6 +39,10 @@ Engine::Engine() {
 }
 
 uint32_t Engine::loadMesh(const std::string& name) {
+    if (name.empty() || name.size() > 128 || name.find("..") != std::string::npos || name.front() == '/' || name.find('\\') != std::string::npos || name.find('\0') != std::string::npos) {
+        Lit::Log::Warn("Rejected unsafe mesh name '{}'", name);
+        return 0;
+    }
     if (const auto it = m_meshIds.find(name); it != m_meshIds.end()) return it->second;
 
     const std::string source = "resources/models/" + name + ".obj";

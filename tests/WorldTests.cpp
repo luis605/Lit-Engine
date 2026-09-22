@@ -6,6 +6,7 @@
 #include <array>
 #include <cmath>
 #include <cstdio>
+#include <memory>
 #include <cstdlib>
 #include <filesystem>
 #include <optional>
@@ -1973,6 +1974,160 @@ static void testSceneVersioningAndTruncation() {
     (void)b;
 }
 
+static bool consistent(World& w) {
+    size_t alive = 0;
+    bool ok = true;
+    std::vector<EntityHandle> all;
+    w.forEach([&](EntityHandle e) {
+        ++alive;
+        all.push_back(e);
+    });
+    ok = ok && alive == w.aliveCount();
+    for (EntityHandle e : all) {
+        const EntityHandle p = w.getParent(e);
+        if (!p.isNull()) {
+            ok = ok && w.isAlive(p) && p != e;
+            const auto kids = w.getChildren(p);
+            ok = ok && std::find(kids.begin(), kids.end(), e) != kids.end();
+        }
+        size_t hops = 0;
+        for (EntityHandle a = p; !a.isNull(); a = w.getParent(a)) {
+            if (++hops > alive) {
+                ok = false;
+                break;
+            }
+        }
+        const glm::mat4 m = w.getWorldMatrix(e);
+        for (int c = 0; c < 4; ++c) {
+            for (int r = 0; r < 4; ++r) ok = ok && std::isfinite(m[c][r]);
+        }
+    }
+    size_t rootCount = 0;
+    for (EntityHandle r = w.firstRoot(); !r.isNull(); r = w.nextSibling(r)) {
+        ++rootCount;
+        ok = ok && w.getParent(r).isNull();
+    }
+    ok = ok && w.getRoots().size() == rootCount;
+    return ok;
+}
+
+static void testLoaderHardeningAndFuzz() {
+    const auto makeWorld = []() {
+        auto w = std::make_unique<World>();
+        registerHealth(*w);
+        registerLink(*w);
+        registerPatrol(*w);
+        w->setMeshHooks([](uint32_t id) { return id == 1 ? std::string("cube") : (id == 2 ? std::string("sphere") : std::string()); }, [](const std::string& name) { return name == "cube" ? 1u : (name == "sphere" ? 2u : 0u); });
+        return w;
+    };
+
+    auto source = makeWorld();
+    auto root = source->create("root", 1, glm::vec3(1.0f, 2.0f, 3.0f));
+    auto mid = source->create("mid", 2, glm::vec3(0.0f), glm::vec3(2.0f), root);
+    auto leaf = source->create("leaf name with spaces", 1, glm::vec3(4.0f), glm::vec3(1.0f), mid);
+    auto other = source->create("other", 2);
+    source->add<Health>(mid, 5);
+    source->add<Link>(leaf, Link{root});
+    source->attach<Patrol>(other, 2, 3.5f);
+    source->setTag(leaf, "tagged");
+    source->setLayer(leaf, 0b1010);
+    source->setVisible(other, false);
+    const std::string valid = source->snapshot();
+
+    {
+        auto w = makeWorld();
+        std::istringstream in(valid);
+        CHECK(w->loadScene(in));
+        CHECK(w->aliveCount() == 4);
+        CHECK(consistent(*w));
+    }
+
+    const auto rejects = [&](const std::string& text) {
+        auto w = makeWorld();
+        w->create("guard", 1);
+        std::istringstream in(text);
+        const bool ok = w->loadScene(in);
+        return !ok && w->aliveCount() == 1 && !w->find("guard").isNull();
+    };
+    const std::string header = "LITSCENE 3\n1\n";
+    const std::string matrix = "1 0 0 0 0 1 0 0 0 0 1 0 0 0 0 1";
+    CHECK(!rejects(header + "0 -1 1 1 0 0 1 " + matrix + " 1 0\tok\n"));
+    CHECK(rejects(header + "0 -1 1 1 0 0 nan " + matrix + " 1 0\tbad alpha\n"));
+    CHECK(rejects(header + "0 -1 1 1 0 0 1 1 0 0 0 0 1 0 0 0 0 inf 0 0 0 0 1 1 0\tinf matrix\n"));
+    CHECK(rejects("LITSCENE 3\n2\n0 -1 1 1 0 0 1 " + matrix + " 1 0\ta\n0 -1 1 1 0 0 1 " + matrix + " 1 0\tduplicate id\n"));
+    CHECK(rejects(header + "-5 -1 1 1 0 0 1 " + matrix + " 1 0\tnegative id\n"));
+    CHECK(rejects(header + "0 -7 1 1 0 0 1 " + matrix + " 1 0\tnegative parent\n"));
+    CHECK(rejects("LITSCENE 3\n99999999999\n"));
+    CHECK(rejects(header + "0 -1 1 1 0 0 1 " + matrix + " 1 0\t" + std::string(5000, 'n') + "\n"));
+    CHECK(rejects(header + "0 -1 1 1 0 0 1 " + matrix + " 1 0\t" + std::string(70000, 'n') + "\n"));
+    CHECK(rejects("LITSCENE 3\n2\n0 -1 1 1 0 0 1 " + matrix + " 1 0\ta\n"));
+
+    {
+        auto w = makeWorld();
+        std::istringstream in("LITSCENE 3\n3\n0 0 1 1 0 0 1 " + matrix + " 1 0\tself parent\n1 2 1 1 0 0 1 " + matrix + " 1 0\tcycle a\n2 1 1 1 0 0 1 " + matrix + " 1 0\tcycle b\n");
+        CHECK(w->loadScene(in));
+        CHECK(w->aliveCount() == 3 && consistent(*w));
+    }
+
+    uint32_t seed = 0xC0FFEEu;
+    const auto next = [&seed]() {
+        seed = seed * 1664525u + 1013904223u;
+        return seed >> 8;
+    };
+    int accepted = 0, refused = 0;
+    for (int iteration = 0; iteration < 3000; ++iteration) {
+        std::string text = valid;
+        const int edits = 1 + static_cast<int>(next() % 4);
+        for (int e = 0; e < edits && !text.empty(); ++e) {
+            switch (next() % 6) {
+                case 0: text[next() % text.size()] = static_cast<char>(next() % 256); break;
+                case 1: text.resize(next() % text.size()); break;
+                case 2: {
+                    const size_t at = next() % text.size();
+                    const size_t len = std::min<size_t>(next() % 40, text.size() - at);
+                    text.erase(at, len);
+                    break;
+                }
+                case 3: {
+                    const size_t at = next() % text.size();
+                    std::string junk;
+                    for (uint32_t k = next() % 20; k > 0; --k) junk.push_back(static_cast<char>(32 + next() % 95));
+                    text.insert(at, junk);
+                    break;
+                }
+                case 4: {
+                    const size_t from = next() % text.size();
+                    const size_t to = text.find('\n', from);
+                    const std::string lineText = text.substr(from, to == std::string::npos ? std::string::npos : to - from + 1);
+                    text.insert(next() % text.size(), lineText);
+                    break;
+                }
+                default: {
+                    const size_t at = next() % text.size();
+                    const char digits[] = "0123456789-. eEnNaAiIfF";
+                    text[at] = digits[next() % (sizeof(digits) - 1)];
+                    break;
+                }
+            }
+        }
+        auto w = makeWorld();
+        w->create("guard", 1);
+        std::istringstream in(text);
+        const bool ok = w->loadScene(in);
+        if (ok) {
+            ++accepted;
+            CHECK(consistent(*w));
+        } else {
+            ++refused;
+            CHECK(w->aliveCount() == 1);
+            CHECK(!w->find("guard").isNull());
+            CHECK(consistent(*w));
+        }
+    }
+    CHECK(accepted > 0 && refused > 0);
+    std::printf("fuzz: %d accepted, %d refused\n", accepted, refused);
+}
+
 int main() {
     testHandles();
     testHierarchy();
@@ -2003,6 +2158,7 @@ int main() {
     testSelectionAndGroups();
     testFramingAndSceneBounds();
     testSceneVersioningAndTruncation();
+    testLoaderHardeningAndFuzz();
     testDescribeAndEditText();
     testAdditiveLoad();
     testEntityReferences();

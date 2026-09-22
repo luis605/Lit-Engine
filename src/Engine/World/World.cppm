@@ -483,6 +483,9 @@ export class World {
     void setSceneMigration(SceneMigration migration) { m_sceneMigration = std::move(migration); }
     void setRestoreCameraOnLoad(bool enabled) { m_restoreCameraOnLoad = enabled; }
     static constexpr int kSceneVersion = 3;
+    static constexpr size_t kMaxSceneEntities = 50000000;
+    static constexpr size_t kMaxSceneLineLength = 65536;
+    static constexpr size_t kMaxNameLength = 4096;
 
     void clear();
     bool saveScene(const std::filesystem::path& path) const;
@@ -525,7 +528,7 @@ export class World {
     void runScriptDestroy(Entity idx);
     void flushPendingDestroy();
     EntityHandle createImpl(const EntityDesc& desc);
-    std::optional<std::vector<EntityHandle>> loadSceneImpl(std::istream& in, bool additive, EntityHandle parent);
+    std::optional<std::vector<EntityHandle>> loadSceneImpl(std::istream& in, bool additive, EntityHandle parent, bool trusted = false);
     void clearTag(Entity idx);
     void setFlagBit(Entity idx, uint32_t bit, bool on);
     void link(Entity idx, Entity parent);
