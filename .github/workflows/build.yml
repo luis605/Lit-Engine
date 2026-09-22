@@ -28,3 +28,29 @@ jobs:
         run: cmake --build build --target WorldTests -j4
       - name: Run tests
         run: ctest --test-dir build --output-on-failure
+
+  sanitizers:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: recursive
+      - name: Install dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y ninja-build g++-14 libx11-dev libxrandr-dev libxinerama-dev libxcursor-dev libxi-dev libgl1-mesa-dev libvulkan-dev
+      - name: Install recent CMake
+        run: pip install --upgrade cmake
+      - uses: actions/cache@v4
+        with:
+          path: build-asan/_deps
+          key: deps-asan-${{ hashFiles('src/Engine/CMakeLists.txt') }}
+      - name: Configure
+        run: cmake -S . -B build-asan -G Ninja -DCMAKE_BUILD_TYPE=RelWithDebInfo -DCMAKE_CXX_COMPILER=g++-14 -DLIT_SANITIZE=address,undefined
+      - name: Build tests
+        run: cmake --build build-asan --target WorldTests -j4
+      - name: Run tests under sanitizers
+        env:
+          ASAN_OPTIONS: detect_leaks=1:abort_on_error=1
+          UBSAN_OPTIONS: print_stacktrace=1:halt_on_error=1
+        run: ctest --test-dir build-asan --output-on-failure

@@ -148,6 +148,7 @@ class IComponentPool {
     virtual ~IComponentPool() = default;
     virtual void remove(Entity e) = 0;
     virtual bool has(Entity e) const = 0;
+    virtual bool validate(const std::vector<uint8_t>& alive, std::string& why) const = 0;
     virtual void rename(Entity from, Entity to) = 0;
     virtual void clear() = 0;
 };
@@ -193,6 +194,33 @@ class ComponentPool final : public IComponentPool {
     }
 
     bool has(Entity e) const override { return e < m_sparse.size() && m_sparse[e] != INVALID_ENTITY; }
+
+    bool validate(const std::vector<uint8_t>& alive, std::string& why) const override {
+        if (m_owners.size() != m_data.size()) {
+            why = "owners and data sizes differ";
+            return false;
+        }
+        for (size_t i = 0; i < m_owners.size(); ++i) {
+            const Entity e = m_owners[i];
+            if (e >= m_sparse.size() || m_sparse[e] != i) {
+                why = "sparse index does not point back to owner slot";
+                return false;
+            }
+            if (e >= alive.size() || !alive[e]) {
+                why = "component owned by dead entity " + std::to_string(e);
+                return false;
+            }
+        }
+        size_t mapped = 0;
+        for (Entity slot : m_sparse) {
+            if (slot != INVALID_ENTITY) ++mapped;
+        }
+        if (mapped != m_owners.size()) {
+            why = "sparse entries and owners differ in count";
+            return false;
+        }
+        return true;
+    }
 
     void rename(Entity from, Entity to) override {
         if (from >= m_sparse.size() || m_sparse[from] == INVALID_ENTITY) return;
@@ -336,6 +364,9 @@ export class World {
     void setShader(EntityHandle e, uint32_t shader);
     void setAlpha(EntityHandle e, float alpha);
     [[nodiscard]] const RenderableComponent& getRenderable(EntityHandle e) const;
+
+    [[nodiscard]] std::vector<std::string> validate();
+    [[nodiscard]] bool isValid() { return validate().empty(); }
 
     [[nodiscard]] EntityDescription describeEntity(EntityHandle e) const;
     [[nodiscard]] std::vector<std::string> componentNames() const;

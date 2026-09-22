@@ -2128,6 +2128,212 @@ static void testLoaderHardeningAndFuzz() {
     std::printf("fuzz: %d accepted, %d refused\n", accepted, refused);
 }
 
+static void testSoakInvariants() {
+    World w;
+    registerHealth(w);
+    registerLink(w);
+    registerPatrol(w);
+    w.setMeshHooks([](uint32_t id) { return id == 1 ? std::string("cube") : std::string(); }, [](const std::string& name) { return name == "cube" ? 1u : 0u; });
+    w.setMeshBoundsHook([](uint32_t mesh) { return mesh == 3 ? glm::vec4(0.0f, 0.0f, 0.0f, 200.0f) : glm::vec4(0.5f, 0.0f, 0.0f, 1.0f); });
+    History history(w);
+
+    uint32_t seed = 987654321u;
+    const auto next = [&seed]() {
+        seed = seed * 1664525u + 1013904223u;
+        return seed >> 8;
+    };
+    const auto chance = [&](uint32_t modulo) { return next() % modulo; };
+    const auto pick = [&](std::vector<EntityHandle>& v) -> EntityHandle { return v.empty() ? NULL_ENTITY : v[next() % v.size()]; };
+    const auto randomVec = [&]() { return glm::vec3(float(next() % 2000) / 10.0f - 100.0f, float(next() % 2000) / 10.0f - 100.0f, float(next() % 2000) / 10.0f - 100.0f); };
+
+    const char* tags[] = {"", "red", "blue", "green"};
+    std::string lastOp;
+    bool failed = false;
+    constexpr int kOps = 12000;
+    for (int op = 0; op < kOps && !failed; ++op) {
+        std::vector<EntityHandle> alive;
+        w.forEach([&](EntityHandle e) { alive.push_back(e); });
+        const uint32_t kind = chance(34);
+        EntityHandle e = pick(alive);
+        EntityHandle other = pick(alive);
+        switch (kind) {
+            case 0:
+            case 1:
+            case 2:
+            case 3:
+            case 4:
+                if (alive.size() < 120) {
+                    lastOp = "create";
+                    const uint32_t meshChoice = chance(6);
+                    const uint32_t mesh = meshChoice == 0 ? NO_MESH : (meshChoice == 1 ? 3u : 1u + chance(2));
+                    w.create("e" + std::to_string(op), mesh, randomVec(), glm::vec3(0.5f + float(chance(20)) / 10.0f), chance(3) == 0 ? other : NULL_ENTITY);
+                }
+                break;
+            case 5:
+                lastOp = "destroy";
+                w.destroy(e);
+                break;
+            case 6:
+                lastOp = "setParent";
+                w.setParent(e, chance(4) == 0 ? NULL_ENTITY : other, chance(2) == 0);
+                break;
+            case 7:
+                lastOp = "setPosition";
+                w.setPosition(e, randomVec());
+                break;
+            case 8:
+                lastOp = "rotate";
+                w.rotate(e, randomVec() + glm::vec3(0.1f), float(chance(100)) / 30.0f);
+                break;
+            case 9:
+                lastOp = "setScale";
+                w.setScale(e, glm::vec3(0.2f + float(chance(30)) / 10.0f));
+                break;
+            case 10:
+                lastOp = "setVisible";
+                w.setVisible(e, chance(2) == 0);
+                break;
+            case 11:
+                lastOp = "setMesh";
+                w.setMesh(e, chance(4) == 0 ? NO_MESH : 1u + chance(3));
+                break;
+            case 12:
+                lastOp = "setLayer/tag";
+                w.setLayer(e, 1u << chance(4));
+                w.setTag(e, tags[chance(4)]);
+                w.setName(e, "n" + std::to_string(chance(50)));
+                break;
+            case 13:
+                lastOp = "add Health";
+                w.add<Health>(e, static_cast<int>(chance(100)));
+                break;
+            case 14:
+                lastOp = "add Link";
+                w.add<Link>(e, Link{other});
+                break;
+            case 15:
+                lastOp = "remove component";
+                if (chance(2) == 0) {
+                    w.remove<Health>(e);
+                } else {
+                    w.remove<Link>(e);
+                }
+                break;
+            case 16:
+                lastOp = "script";
+                if (chance(3) == 0) {
+                    w.removeScripts(e);
+                } else {
+                    w.attach<Patrol>(e, static_cast<int>(chance(9)), 1.0f);
+                }
+                break;
+            case 17: {
+                lastOp = "destroyBatch";
+                std::vector<EntityHandle> doomed;
+                for (EntityHandle a : alive) {
+                    if (chance(12) == 0) doomed.push_back(a);
+                }
+                w.destroyBatch(doomed);
+                break;
+            }
+            case 18:
+                lastOp = "compact";
+                (void)w.compact();
+                break;
+            case 19:
+                lastOp = "raycast";
+                (void)w.raycast(randomVec(), randomVec());
+                break;
+            case 20:
+                lastOp = "overlapSphere";
+                (void)w.overlapSphere(randomVec(), 20.0f + float(chance(80)));
+                break;
+            case 21:
+                lastOp = "queryFrustum";
+                w.camera().setPos(randomVec());
+                w.camera().setOrientation(float(chance(360)), float(chance(120)) - 60.0f);
+                (void)w.queryFrustum(w.camera());
+                break;
+            case 22:
+                lastOp = "getWorldMatrix";
+                (void)w.getWorldMatrix(e);
+                (void)w.getWorldPosition(other);
+                break;
+            case 23:
+                lastOp = "history setLocal";
+                history.setLocalMatrix(e, glm::translate(glm::mat4(1.0f), randomVec()));
+                break;
+            case 24:
+                lastOp = "history destroy";
+                history.destroy(e);
+                break;
+            case 25:
+                lastOp = "history undo";
+                history.undo();
+                break;
+            case 26:
+                lastOp = "history redo";
+                history.redo();
+                break;
+            case 27:
+                lastOp = "history setParent";
+                history.setParent(e, other, chance(2) == 0);
+                break;
+            case 28:
+                lastOp = "snapshot/restore";
+                if (chance(20) == 0) {
+                    const std::string text = w.snapshot();
+                    if (!w.restore(text)) failed = true;
+                    history.clear();
+                }
+                break;
+            case 29:
+                lastOp = "animation";
+                if (chance(4) == 0) {
+                    std::vector<glm::vec3> base;
+                    for (uint32_t i = 0; i < 1 + chance(6); ++i) base.push_back(randomVec());
+                    w.setAnimation(chance(8), base);
+                }
+                w.setAnimationTime(float(chance(1000)) / 37.0f);
+                break;
+            case 30:
+                lastOp = "update";
+                w.update(0.016f);
+                break;
+            case 31:
+                lastOp = "setPositions batch";
+                {
+                    std::vector<std::pair<EntityHandle, glm::vec3>> moves;
+                    for (EntityHandle a : alive) {
+                        if (chance(5) == 0) moves.emplace_back(a, randomVec());
+                    }
+                    w.setPositions(moves);
+                }
+                break;
+            case 32:
+                lastOp = "history component/name";
+                history.setName(e, "h" + std::to_string(chance(20)));
+                history.setTag(e, tags[chance(4)]);
+                (void)history.setComponentText(e, "Health", std::to_string(chance(500)));
+                break;
+            default:
+                lastOp = "instantiate prefab";
+                if (alive.size() < 100 && !e.isNull()) {
+                    const Prefab prefab = w.capture(e);
+                    w.instantiate(prefab, chance(2) == 0 ? other : NULL_ENTITY);
+                }
+                break;
+        }
+        const std::vector<std::string> problems = w.validate();
+        if (!problems.empty()) {
+            std::fprintf(stderr, "soak op %d (%s) broke invariants: %s\n", op, lastOp.c_str(), problems[0].c_str());
+            failed = true;
+        }
+    }
+    CHECK(!failed);
+    CHECK(w.validate().empty());
+}
+
 int main() {
     testHandles();
     testHierarchy();
@@ -2159,6 +2365,7 @@ int main() {
     testFramingAndSceneBounds();
     testSceneVersioningAndTruncation();
     testLoaderHardeningAndFuzz();
+    testSoakInvariants();
     testDescribeAndEditText();
     testAdditiveLoad();
     testEntityReferences();

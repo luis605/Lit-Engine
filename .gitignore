@@ -5,3 +5,4 @@ build/*
 .vscode/*
 *.assetresources/*.litscene
 resources/trace.json
+build-asan/

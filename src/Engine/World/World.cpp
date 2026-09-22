@@ -341,7 +341,7 @@ void World::moveEntity(Entity from, Entity to) {
     if (m_activeCamera.index == from) m_activeCamera = {to, m_generation[to]};
 
     if (m_spatialActive && from < m_spatial.size()) removeSpatialEntry(from);
-    if (to < m_worldDirty.size()) m_worldDirty[to] = 1;
+    if (to < m_worldDirty.size()) m_worldDirty[to] = 0;
     invalidateWorld(to);
     markSpatialSubtree(to);
 
@@ -487,6 +487,15 @@ glm::vec3 World::orbitOffset(float time, uint32_t animIndex) {
 }
 
 void World::setAnimation(uint32_t firstEntity, std::vector<glm::vec3> basePositions) {
+    if (!m_animBase.empty()) {
+        const size_t oldEnd = std::min<size_t>(m_animBase.size() + m_animOffset, m_alive.size());
+        for (size_t i = m_animOffset; i < oldEnd; ++i) {
+            if (m_alive[i]) {
+                invalidateWorld(static_cast<Entity>(i));
+                queueSpatial(static_cast<Entity>(i));
+            }
+        }
+    }
     m_animOffset = firstEntity;
     m_animBase = std::move(basePositions);
     m_animCacheTime = std::numeric_limits<float>::quiet_NaN();
@@ -1745,4 +1754,170 @@ std::optional<glm::vec4> World::sceneBounds() {
     if (!any) return std::nullopt;
     const glm::vec3 center = (lo + hi) * 0.5f;
     return glm::vec4(center, glm::length(hi - center));
+}
+
+std::vector<std::string> World::validate() {
+    std::vector<std::string> problems;
+    const auto fail = [&](std::string message) {
+        if (problems.size() < 64) problems.push_back(std::move(message));
+    };
+    syncAnimationCache();
+    const size_t n = m_alive.size();
+
+    const size_t sizes[] = {m_generation.size(), m_visible.size(), m_mesh.size(), m_layer.size(), m_tags.size(), m_names.size(), m_firstChild.size(), m_nextSibling.size(), m_prevSibling.size(), m_db.transforms.size(), m_db.hierarchies.size(), m_db.renderables.size()};
+    for (size_t sz : sizes) {
+        if (sz != n) {
+            fail("per-slot arrays disagree on size");
+            return problems;
+        }
+    }
+
+    size_t aliveCount = 0;
+    for (size_t i = 0; i < n; ++i) aliveCount += m_alive[i] ? 1 : 0;
+    if (aliveCount != m_aliveCount) fail("alive count " + std::to_string(m_aliveCount) + " differs from flagged " + std::to_string(aliveCount));
+
+    {
+        std::vector<uint8_t> inFree(n, 0);
+        for (Entity e : m_freeList) {
+            if (e >= n) {
+                fail("free list holds out-of-range slot " + std::to_string(e));
+                continue;
+            }
+            if (m_alive[e]) fail("free list holds alive slot " + std::to_string(e));
+            if (inFree[e]) fail("free list holds duplicate slot " + std::to_string(e));
+            inFree[e] = 1;
+        }
+        for (size_t i = 0; i < n; ++i) {
+            if (!m_alive[i] && !inFree[i]) fail("dead slot " + std::to_string(i) + " missing from free list");
+        }
+    }
+
+    for (Entity i = 0; i < n; ++i) {
+        if (!m_alive[i]) continue;
+        const Entity p = m_db.hierarchies[i].parent;
+        if (p != INVALID_ENTITY && (p >= n || !m_alive[p] || p == i)) fail("entity " + std::to_string(i) + " has invalid parent " + std::to_string(p));
+        if (m_db.renderables[i].objectId != i) fail("entity " + std::to_string(i) + " has wrong renderable objectId");
+        if (m_db.renderables[i].mesh_uuid != m_mesh[i]) fail("entity " + std::to_string(i) + " mesh mismatch with renderable");
+        const bool hiddenFlag = (m_db.renderables[i].flags & RENDER_HIDDEN) != 0;
+        if (hiddenFlag == (m_visible[i] != 0)) fail("entity " + std::to_string(i) + " visibility disagrees with hidden flag");
+        size_t hops = 0;
+        for (Entity a = p; a != INVALID_ENTITY && a < n; a = m_db.hierarchies[a].parent) {
+            if (++hops > n) {
+                fail("parent cycle through entity " + std::to_string(i));
+                break;
+            }
+        }
+    }
+
+    {
+        size_t visited = 0;
+        const auto walk = [&](Entity head, Entity expectedParent, const std::string& label) {
+            Entity prev = INVALID_ENTITY;
+            size_t steps = 0;
+            for (Entity c = head; c != INVALID_ENTITY; c = m_nextSibling[c]) {
+                if (c >= n || !m_alive[c]) {
+                    fail(label + " lists dead or invalid entity");
+                    return;
+                }
+                if (++steps > n) {
+                    fail(label + " child list loops");
+                    return;
+                }
+                if (m_db.hierarchies[c].parent != expectedParent) fail(label + " child " + std::to_string(c) + " has a different parent");
+                if (m_prevSibling[c] != prev) fail(label + " child " + std::to_string(c) + " has broken prev link");
+                prev = c;
+                ++visited;
+            }
+        };
+        walk(m_firstRoot, INVALID_ENTITY, "root list");
+        for (Entity i = 0; i < n; ++i) {
+            if (m_alive[i]) walk(m_firstChild[i], i, "children of " + std::to_string(i));
+        }
+        if (visited != aliveCount) fail("sibling lists reach " + std::to_string(visited) + " of " + std::to_string(aliveCount) + " entities");
+    }
+
+    for (const auto& [type, pool] : m_pools) {
+        std::string why;
+        if (!pool->validate(m_alive, why)) fail("component pool: " + why);
+    }
+    for (const auto& [idx, scripts] : m_scripts) {
+        if (idx >= n || !m_alive[idx]) fail("scripts attached to dead entity " + std::to_string(idx));
+        for (const auto& script : scripts) {
+            if (!script) fail("null script on entity " + std::to_string(idx));
+        }
+    }
+
+    {
+        size_t indexed = 0;
+        for (const auto& [tag, bucket] : m_tagIndex) {
+            if (bucket.empty()) fail("empty tag bucket '" + tag + "'");
+            for (Entity e : bucket) {
+                ++indexed;
+                if (e >= n || !m_alive[e] || m_tags[e] != tag) fail("tag bucket '" + tag + "' holds stale entity");
+            }
+        }
+        size_t tagged = 0;
+        for (Entity i = 0; i < n; ++i) {
+            if (m_alive[i] && !m_tags[i].empty()) ++tagged;
+            if (!m_alive[i] && !m_tags[i].empty()) fail("dead entity " + std::to_string(i) + " keeps a tag");
+        }
+        if (indexed != tagged) fail("tag index size differs from tagged entity count");
+    }
+
+    if (m_spatialActive) {
+        std::vector<uint8_t> pending(n, 0);
+        for (Entity e : m_spatialPending) {
+            if (e < n) pending[e] = 1;
+        }
+        std::vector<uint8_t> inCell(n, 0);
+        for (const auto& [key, bucket] : m_cells) {
+            if (bucket.empty()) fail("empty spatial cell");
+            for (Entity e : bucket) {
+                if (e >= n || e >= m_spatial.size()) {
+                    fail("spatial cell holds out-of-range entity");
+                    continue;
+                }
+                if (inCell[e]) fail("entity " + std::to_string(e) + " appears in several spatial cells");
+                inCell[e] = 1;
+                if (!pending[e] && (m_spatial[e].state != 1 || m_spatial[e].cell != key || !m_alive[e])) fail("spatial cell entry for entity " + std::to_string(e) + " is stale");
+            }
+        }
+        std::vector<uint8_t> inLarge(n, 0);
+        for (Entity e : m_largeEntities) {
+            if (e >= n || e >= m_spatial.size()) {
+                fail("large list holds out-of-range entity");
+                continue;
+            }
+            if (inLarge[e]) fail("entity " + std::to_string(e) + " appears twice in the large list");
+            inLarge[e] = 1;
+            if (!pending[e] && (m_spatial[e].state != 2 || !m_alive[e])) fail("large list entry for entity " + std::to_string(e) + " is stale");
+        }
+        for (Entity e = 0; e < n && e < m_spatial.size(); ++e) {
+            if (pending[e]) continue;
+            if (m_spatial[e].state == 1 && !inCell[e]) fail("entity " + std::to_string(e) + " has cell state but is not in a cell");
+            if (m_spatial[e].state == 2 && !inLarge[e]) fail("entity " + std::to_string(e) + " has large state but is not listed");
+            if (!m_alive[e] && m_spatial[e].state != 0) fail("dead entity " + std::to_string(e) + " keeps spatial state");
+        }
+    }
+
+    if (!m_worldCache.empty() && m_worldCache.size() == n && m_worldDirty.size() == n) {
+        for (Entity i = 0; i < n; ++i) {
+            if (!m_alive[i] || m_worldDirty[i]) continue;
+            const Entity p = m_db.hierarchies[i].parent;
+            if (p != INVALID_ENTITY && p < n && m_worldDirty[p]) fail("clean world cache under dirty parent at entity " + std::to_string(i));
+            const glm::mat4 expected = worldNoCache(i);
+            for (int c = 0; c < 4; ++c) {
+                for (int r = 0; r < 4; ++r) {
+                    if (std::abs(expected[c][r] - m_worldCache[i][c][r]) > 1.0e-3f * (1.0f + std::abs(expected[c][r]))) {
+                        fail("stale world cache for entity " + std::to_string(i) + " parent " + (p == INVALID_ENTITY ? std::string("none") : std::to_string(p) + (m_worldDirty[p] ? " dirty" : " clean")) + " animOffset " + std::to_string(m_animOffset) + " animCount " + std::to_string(m_animBase.size()));
+                        c = 4;
+                        break;
+                    }
+                }
+            }
+        }
+    }
+
+    if (!m_activeCamera.isNull() && m_activeCamera.index < n && m_generation[m_activeCamera.index] == m_activeCamera.generation && !m_alive[m_activeCamera.index]) fail("active camera points at a dead entity");
+    return problems;
 }

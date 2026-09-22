@@ -60,6 +60,11 @@ target_sources(Engine
 
 target_compile_features(Engine PUBLIC cxx_std_23)
 
+if(LIT_SANITIZE)
+    target_compile_options(Engine PUBLIC -fsanitize=${LIT_SANITIZE} -fno-omit-frame-pointer)
+    target_link_options(Engine PUBLIC -fsanitize=${LIT_SANITIZE})
+endif()
+
 target_include_directories(Engine PRIVATE
     "${PROJECT_SOURCE_DIR}/src/vendors/glfw/include"
     "${PROJECT_SOURCE_DIR}/src/vendors/assimp/include"
