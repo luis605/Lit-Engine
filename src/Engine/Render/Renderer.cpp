@@ -94,21 +94,19 @@ struct SceneUniforms {
     alignas(16) glm::vec4 lightHead[8];
 };
 
-struct VisibleTransparentObject {
-    unsigned int objectId;
-    float distance;
-};
-
 struct CullingUniforms {
     uint32_t objectCount;
     uint32_t maxDraws;
     float smallObjectThreshold;
     float lodBias;
     int32_t forcedLod;
+    uint32_t opaqueShaderCount;
 };
 
 constexpr uint32_t MAX_MESHES = 2048;
 constexpr Diligent::TEXTURE_FORMAT kSceneDepthFormat = Diligent::TEX_FORMAT_D32_FLOAT;
+constexpr Diligent::TEXTURE_FORMAT kAccumulationFormat = Diligent::TEX_FORMAT_RGBA16_FLOAT;
+constexpr Diligent::TEXTURE_FORMAT kRevealageFormat = Diligent::TEX_FORMAT_R16_FLOAT;
 
 constexpr uint32_t MAX_DIRTY_PER_FRAME = 65536;
 constexpr uint32_t MAX_TRANSFORM_WORK = 65536;
@@ -157,22 +155,6 @@ struct MarkTouchedConstants {
     uint32_t epoch;
     uint32_t padding0;
     uint32_t padding1;
-};
-
-struct TransparentCommandGenUniforms {
-    unsigned int maxDraws;
-    unsigned int padding0;
-    unsigned int padding1;
-    unsigned int padding2;
-};
-
-struct TransparentCullUniforms {
-    uint32_t objectCount;
-    uint32_t maxDraws;
-    float lodBias;
-    int32_t forcedLod;
-    alignas(16) glm::vec3 cameraPos;
-    float padding3;
 };
 
 constexpr uint32_t kNormalSamples = 64;
@@ -268,9 +250,7 @@ Diligent::RefCntAutoPtr<Diligent::IBuffer> CreateIndirectBuffer(Diligent::IRende
     return pBuffer;
 }
 
-constexpr uint32_t kTransparentShaderId = 2;
-
-uint32_t UnpackShaderId(uint32_t packedRenderable) { return (packedRenderable >> 22u) & 0xFu; }
+uint8_t PackAlpha(float alpha) { return static_cast<uint8_t>(std::lround(std::clamp(alpha, 0.0f, 1.0f) * 255.0f)); }
 
 uint32_t PackRenderable(const RenderableComponent& renderable) {
     constexpr uint32_t translucentFlag = 4u;
@@ -349,6 +329,11 @@ void BindBuffers(Diligent::IShaderResourceBinding* pSRB, std::initializer_list<N
     }
 }
 
+void SetDynamicVariable(Diligent::IShaderResourceBinding* pSRB, const char* name, Diligent::IDeviceObject* pObject, Diligent::SHADER_TYPE stage = Diligent::SHADER_TYPE_COMPUTE) {
+    if (!pSRB) return;
+    if (auto* pVariable = pSRB->GetVariableByName(stage, name)) pVariable->Set(pObject);
+}
+
 void CreateBoundSRB(Diligent::IPipelineState* pPSO, Diligent::RefCntAutoPtr<Diligent::IShaderResourceBinding>& srb, std::initializer_list<NamedBuffer> buffers) {
     srb.Release();
     if (!pPSO) return;
@@ -391,6 +376,7 @@ bool AllShadersCompile(Diligent::IRenderDevice* pDevice) {
     const std::pair<std::string_view, Diligent::SHADER_TYPE> stages[] = {{".vert", Diligent::SHADER_TYPE_VERTEX}, {".frag", Diligent::SHADER_TYPE_PIXEL}, {".comp", Diligent::SHADER_TYPE_COMPUTE}};
     const Diligent::ShaderMacro pointMacros[] = {{"POINT_SPRITE", "1"}};
     const Diligent::ShaderMacro retestMacros[] = {{"RETEST", "1"}};
+    const Diligent::ShaderMacro transparentMacros[] = {{"TRANSPARENT", "1"}};
     bool allCompile = true;
     std::error_code ec;
     for (const auto& entry : std::filesystem::directory_iterator("resources/shaders", ec)) {
@@ -401,6 +387,7 @@ bool AllShadersCompile(Diligent::IRenderDevice* pDevice) {
             allCompile &= CompileShader(pDevice, path, type) != nullptr;
             if (type == Diligent::SHADER_TYPE_PIXEL) allCompile &= CompileShader(pDevice, path, type, Diligent::ShaderMacroArray{pointMacros, 1}) != nullptr;
             if (type == Diligent::SHADER_TYPE_COMPUTE) allCompile &= CompileShader(pDevice, path, type, Diligent::ShaderMacroArray{retestMacros, 1}) != nullptr;
+            if (type != Diligent::SHADER_TYPE_PIXEL) allCompile &= CompileShader(pDevice, path, type, Diligent::ShaderMacroArray{transparentMacros, 1}) != nullptr;
         }
     }
     return allCompile;
@@ -526,11 +513,8 @@ struct DiligentData {
     Diligent::RefCntAutoPtr<Diligent::IBuffer> pSortedHierarchyBuffer[NumFrames];
     Diligent::RefCntAutoPtr<Diligent::IBuffer> pTransformWorkBuffer;
     Diligent::RefCntAutoPtr<Diligent::IShaderResourceBinding> pTransformWorkSRB[NumFrames];
-    Diligent::RefCntAutoPtr<Diligent::IBuffer> pVisibleTransparentObjectIdsBuffer[NumFrames];
-    Diligent::RefCntAutoPtr<Diligent::IBuffer> pTransparentDrawCommandBuffer[NumFrames];
     Diligent::RefCntAutoPtr<Diligent::IBuffer> pSceneUBO[NumFrames];
 
-    Diligent::RefCntAutoPtr<Diligent::IBuffer> pTransparentAtomicCounter[NumFrames];
 
     Diligent::RefCntAutoPtr<Diligent::IBuffer> pMeshInfoBuffer;
     Diligent::RefCntAutoPtr<Diligent::IBuffer> pNormalSampleBuffer;
@@ -573,7 +557,17 @@ struct DiligentData {
         std::vector<Diligent::RefCntAutoPtr<Diligent::IShaderResourceBinding>> opaqueSRBs[NumFrames];
         std::vector<Diligent::RefCntAutoPtr<Diligent::IShaderResourceBinding>> pointSRBs[NumFrames];
     };
-    VisibilityPhase visibility[2];
+    VisibilityPhase visibility[3];
+    Diligent::RefCntAutoPtr<Diligent::IPipelineState> pTransparentPointPSO;
+    Diligent::RefCntAutoPtr<Diligent::IBuffer> pTransparentCandidateCounter;
+    Diligent::RefCntAutoPtr<Diligent::IBuffer> pTransparentCandidateIds;
+    Diligent::RefCntAutoPtr<Diligent::IBuffer> pTransparentDispatchArgs;
+    Diligent::RefCntAutoPtr<Diligent::IShaderResourceBinding> pTransparentDispatchArgsSRB[NumFrames];
+    Diligent::RefCntAutoPtr<Diligent::IBuffer> pAlphaBuffer;
+    Diligent::RefCntAutoPtr<Diligent::ITexture> pAccumulation;
+    Diligent::RefCntAutoPtr<Diligent::ITexture> pRevealage;
+    Diligent::RefCntAutoPtr<Diligent::IPipelineState> pCompositePSO;
+    Diligent::RefCntAutoPtr<Diligent::IShaderResourceBinding> pCompositeSRB;
     Diligent::RefCntAutoPtr<Diligent::IPipelineState> pRetestCullingPSO;
     Diligent::RefCntAutoPtr<Diligent::IBuffer> pRetestCounter;
     Diligent::RefCntAutoPtr<Diligent::IBuffer> pRetestIds;
@@ -595,7 +589,6 @@ struct DiligentData {
     Diligent::RefCntAutoPtr<Diligent::IShaderResourceBinding> pHiZMipmapSRB;
     Diligent::RefCntAutoPtr<Diligent::IShaderResourceBinding> pApplyDirtySRB[NumFrames];
     Diligent::RefCntAutoPtr<Diligent::IShaderResourceBinding> pMarkTouchedSRB[NumFrames];
-    Diligent::RefCntAutoPtr<Diligent::IShaderResourceBinding> pTransparentCullSRB[NumFrames];
 
     Diligent::RefCntAutoPtr<Diligent::IPipelineState> pHiZMipmapPSO;
     Diligent::RefCntAutoPtr<Diligent::IPipelineState> pCullingPSO;
@@ -612,20 +605,14 @@ struct DiligentData {
     Diligent::RefCntAutoPtr<Diligent::IBuffer> pApplyDirtyConstants;
     Diligent::RefCntAutoPtr<Diligent::IBuffer> pMarkTouchedConstants;
 
-    Diligent::RefCntAutoPtr<Diligent::IShaderResourceBinding> pTransparentCommandGenSRB[NumFrames];
-    Diligent::RefCntAutoPtr<Diligent::IPipelineState> pTransparentCommandGenPSO;
-    Diligent::RefCntAutoPtr<Diligent::IBuffer> pTransparentCommandGenUniforms;
 
 
 
 
     Diligent::RefCntAutoPtr<Diligent::IPipelineState> pTransparentPSO;
-    Diligent::RefCntAutoPtr<Diligent::IShaderResourceBinding> pTransparentSRB[NumFrames];
     std::vector<Diligent::RefCntAutoPtr<Diligent::IPipelineState>> pOpaquePSOs;
     std::vector<Diligent::RefCntAutoPtr<Diligent::IPipelineState>> pPointPSOs;
-    Diligent::RefCntAutoPtr<Diligent::IBuffer> pTransparentIdBuffer[NumFrames];
 
-    Diligent::RefCntAutoPtr<Diligent::IBuffer> pTransparentCullUniforms;
 
     Diligent::RefCntAutoPtr<Diligent::IPipelineState> pDebugDepthPSO;
     Diligent::RefCntAutoPtr<Diligent::IBuffer> pMaterialBuffer;
@@ -641,14 +628,17 @@ struct DiligentData {
 
     Diligent::RefCntAutoPtr<Diligent::IPipelineState> pDispatchArgsPSO;
     Diligent::RefCntAutoPtr<Diligent::IBuffer> pDispatchArgsConstants;
-    Diligent::RefCntAutoPtr<Diligent::IBuffer> pTransparentDispatchArgs[NumFrames];
-    Diligent::RefCntAutoPtr<Diligent::IShaderResourceBinding> pTransparentDispatchArgsSRB[NumFrames];
 
-    Diligent::IShaderResourceVariable* pHiZSourceMipVar = nullptr;
-    Diligent::IShaderResourceVariable* pHiZDestMipVar = nullptr;
 
 
 };
+
+std::vector<Diligent::IPipelineState*> SurfacePipelines(const DiligentData& d, size_t phaseIndex, bool points) {
+    if (phaseIndex == 2) return {points ? d.pTransparentPointPSO.RawPtr() : d.pTransparentPSO.RawPtr()};
+    std::vector<Diligent::IPipelineState*> pipelines;
+    for (const auto& pso : points ? d.pPointPSOs : d.pOpaquePSOs) pipelines.push_back(pso);
+    return pipelines;
+}
 
 void ReadGpuTimings(DiligentData& d, int frame) {
     d.gpuTotalMilliseconds = 0.0;
@@ -689,6 +679,7 @@ void Renderer::init(GLFWwindow* window, const int windowWidth, const int windowH
 
     Diligent::EngineVkCreateInfo EngineCI;
     EngineCI.AdapterId = SelectFastestAdapter(m_diligent->pFactoryVk, EngineCI.GraphicsAPIVersion);
+    EngineCI.Features.IndependentBlend = Diligent::DEVICE_FEATURE_STATE_ENABLED;
     m_diligent->pFactoryVk->CreateDeviceAndContextsVk(EngineCI, &m_diligent->pDevice, &m_diligent->pImmediateContext);
 
     Diligent::SwapChainDesc SCDesc;
@@ -714,11 +705,6 @@ void Renderer::init(GLFWwindow* window, const int windowWidth, const int windowH
 
     createPipelines();
     m_numDrawingShaders = m_diligent->pOpaquePSOs.size();
-
-    const unsigned int zero = 0;
-    for (int i = 0; i < DiligentData::NumFrames; ++i) {
-        m_diligent->pTransparentAtomicCounter[i] = CreateStructuredBuffer(m_diligent->pDevice, "Transparent Atomic Counter", sizeof(unsigned int), 1, (void*)&zero, Diligent::BIND_INDIRECT_DRAW_ARGS);
-    }
 
     Diligent::QueryDesc queryDesc;
     queryDesc.Type = Diligent::QUERY_TYPE_TIMESTAMP;
@@ -808,6 +794,10 @@ void Renderer::reallocateBuffers(size_t numObjects) {
     m_diligent->pRetestCounter = CreateStructuredBuffer(m_diligent->pDevice, "Retest Counter", sizeof(unsigned int), 1, (void*)&zero);
     m_diligent->pRetestIds = CreateStructuredBuffer(m_diligent->pDevice, "Retest Ids", sizeof(unsigned int), objectCapacity);
     m_diligent->pRetestDispatchArgs = CreateDispatchArgsBuffer(m_diligent->pDevice, "Retest Dispatch Args");
+    m_diligent->pTransparentCandidateCounter = CreateStructuredBuffer(m_diligent->pDevice, "Transparent Candidate Counter", sizeof(unsigned int), 1, (void*)&zero);
+    m_diligent->pTransparentCandidateIds = CreateStructuredBuffer(m_diligent->pDevice, "Transparent Candidate Ids", sizeof(unsigned int), objectCapacity);
+    m_diligent->pTransparentDispatchArgs = CreateDispatchArgsBuffer(m_diligent->pDevice, "Transparent Dispatch Args");
+    m_diligent->pAlphaBuffer = CreateStructuredBuffer(m_diligent->pDevice, "Alpha Buffer", sizeof(uint32_t), (objectCapacity + 3) / 4);
 
     for (int i = 0; i < NUM_FRAMES_IN_FLIGHT; ++i) {
         m_diligent->pObjectBuffer[i] = i == 0 ? CreateStructuredBuffer(m_diligent->pDevice, "Object Buffer", sizeof(TransformComponent), static_cast<Diligent::Uint32>(m_maxObjects)) : m_diligent->pObjectBuffer[0];
@@ -820,13 +810,9 @@ void Renderer::reallocateBuffers(size_t numObjects) {
         m_diligent->pHierarchyBuffer[i] = i == 0 ? CreateStructuredBuffer(m_diligent->pDevice, "Hierarchy Buffer", sizeof(HierarchyComponent), static_cast<Diligent::Uint32>(m_maxObjects)) : m_diligent->pHierarchyBuffer[0];
         m_diligent->pRenderableBuffer[i] = i == 0 ? CreateStructuredBuffer(m_diligent->pDevice, "Renderable Buffer", sizeof(uint32_t), static_cast<Diligent::Uint32>(m_maxObjects)) : m_diligent->pRenderableBuffer[0];
         m_diligent->pSortedHierarchyBuffer[i] = i == 0 ? CreateStructuredBuffer(m_diligent->pDevice, "Sorted Hierarchy Buffer", sizeof(unsigned int), static_cast<Diligent::Uint32>(m_maxObjects)) : m_diligent->pSortedHierarchyBuffer[0];
-        m_diligent->pTransparentIdBuffer[i] = i == 0 ? CreateStructuredBuffer(m_diligent->pDevice, "Transparent Id Buffer", sizeof(unsigned int), static_cast<Diligent::Uint32>(m_maxObjects)) : m_diligent->pTransparentIdBuffer[0];
 
 
-        m_diligent->pVisibleTransparentObjectIdsBuffer[i] = CreateStructuredBuffer(m_diligent->pDevice, "Visible Transparent Object IDs Buffer", sizeof(VisibleTransparentObject), static_cast<Diligent::Uint32>(subPassMaxObjects));
-        m_diligent->pTransparentDrawCommandBuffer[i] = CreateIndirectBuffer(m_diligent->pDevice, "Transparent Draw Command Buffer", subPassMaxObjects * sizeof(DrawElementsIndirectCommand));
 
-        m_diligent->pTransparentDispatchArgs[i] = CreateDispatchArgsBuffer(m_diligent->pDevice, "Transparent Dispatch Args");
 
         Diligent::BufferDesc SceneUBODesc;
         SceneUBODesc.Name = "Scene UBO";
@@ -842,8 +828,7 @@ void Renderer::reallocateBuffers(size_t numObjects) {
         const auto& retest = m_diligent->visibility[1];
         const bool allocationsOk = m_diligent->pObjectBuffer[i] && m_diligent->pWorldMatrixBuffer[i] && m_diligent->pCullSphereBuffer[i] && m_diligent->pCullOrientationBuffer[i] &&
                                    m_diligent->pHierarchyBuffer[i] && m_diligent->pRenderableBuffer[i] && m_diligent->pSortedHierarchyBuffer[i] && m_diligent->pTouchedEpochBuffer[i] &&
-                                   m_diligent->pDirtyIndexBuffer[i] && m_diligent->pDirtyPayloadBuffer[i] && m_diligent->pTransparentIdBuffer[i] && m_diligent->pVisibleTransparentObjectIdsBuffer[i] &&
-                                   m_diligent->pTransparentDrawCommandBuffer[i] && m_diligent->pSceneUBO[i] && main.visibleEntries && main.sortedEntries && retest.visibleEntries &&
+                                   m_diligent->pDirtyIndexBuffer[i] && m_diligent->pDirtyPayloadBuffer[i] && m_diligent->pSceneUBO[i] && m_diligent->pTransparentCandidateIds && m_diligent->pAlphaBuffer && main.visibleEntries && main.sortedEntries && retest.visibleEntries &&
                                    retest.sortedEntries && m_diligent->pRetestIds;
         if (!allocationsOk) {
             Lit::Log::Fatal("Renderer buffer allocation failed for {} objects; rendering is disabled.", m_maxObjects);
@@ -892,26 +877,20 @@ void Renderer::reallocateBuffers(size_t numObjects) {
                        {{"ApplyDirtyConstants", d.pApplyDirtyConstants}, {"DirtyIndexBuffer", d.pDirtyIndexBuffer[i]}, {"DirtyPayloadBuffer", d.pDirtyPayloadBuffer[i]}, {"TransformBuffer", d.pObjectBuffer[i]},
                         {"TouchedEpochBuffer", d.pTouchedEpochBuffer[i]}});
         CreateBoundSRB(d.pMarkTouchedPSO, d.pMarkTouchedSRB[i], {{"MarkTouchedConstants", d.pMarkTouchedConstants}, {"DirtyIndexBuffer", d.pDirtyIndexBuffer[i]}, {"TouchedEpochBuffer", d.pTouchedEpochBuffer[i]}});
-        CreateBoundSRB(d.pTransparentCullPSO, d.pTransparentCullSRB[i],
-                       {{"SceneData", d.pSceneUBO[i]}, {"TransparentCullUniforms", d.pTransparentCullUniforms}, {"AtomicCounterBuffer", d.pTransparentAtomicCounter[i]},
-                        {"VisibleTransparentObjectBuffer", d.pVisibleTransparentObjectIdsBuffer[i]}, {"CullSphereBuffer", d.pCullSphereBuffer[i]}, {"MeshInfoBuffer", d.pMeshInfoBuffer},
-                        {"TransparentIdBuffer", d.pTransparentIdBuffer[i]}});
-        CreateBoundSRB(d.pTransparentCommandGenPSO, d.pTransparentCommandGenSRB[i],
-                       {{"TransparentCommandGenUniforms", d.pTransparentCommandGenUniforms}, {"VisibleTransparentObjectBuffer", d.pVisibleTransparentObjectIdsBuffer[i]},
-                        {"MeshInfoBuffer", d.pMeshInfoBuffer}, {"RenderableBuffer", d.pRenderableBuffer[i]}, {"TransparentDrawCommandBuffer", d.pTransparentDrawCommandBuffer[i]},
-                        {"AtomicCounterBuffer", d.pTransparentAtomicCounter[i]}});
-
         CreateBoundSRB(d.pDispatchArgsPSO, d.pTransparentDispatchArgsSRB[i],
-                       {{"DispatchArgsConstants", d.pDispatchArgsConstants}, {"SourceCounterBuffer", d.pTransparentAtomicCounter[i]}, {"DispatchArgsBuffer", d.pTransparentDispatchArgs[i]}});
+                       {{"DispatchArgsConstants", d.pObjectDispatchArgsConstants}, {"SourceCounterBuffer", d.pTransparentCandidateCounter}, {"DispatchArgsBuffer", d.pTransparentDispatchArgs}});
         CreateBoundSRB(d.pDispatchArgsPSO, d.pRetestDispatchArgsSRB[i],
                        {{"DispatchArgsConstants", d.pObjectDispatchArgsConstants}, {"SourceCounterBuffer", d.pRetestCounter}, {"DispatchArgsBuffer", d.pRetestDispatchArgs}});
 
         for (size_t phaseIndex = 0; phaseIndex < std::size(d.visibility); ++phaseIndex) {
             auto& phase = d.visibility[phaseIndex];
-            CreateBoundSRB(phaseIndex == 0 ? d.pCullingPSO : d.pRetestCullingPSO, phase.cullSRB[i],
+            Diligent::IBuffer* pCandidateCounter = phaseIndex == 2 ? d.pTransparentCandidateCounter : d.pRetestCounter;
+            Diligent::IBuffer* pCandidateIds = phaseIndex == 2 ? d.pTransparentCandidateIds : d.pRetestIds;
+            CreateBoundSRB(phaseIndex == 0 ? d.pCullingPSO : phaseIndex == 1 ? d.pRetestCullingPSO : d.pTransparentCullPSO, phase.cullSRB[i],
                            {{"SceneData", d.pSceneUBO[i]}, {"CullingUniforms", phase.cullingUniforms}, {"AtomicCounterBuffer", phase.visibleCounter}, {"VisibleObjectBuffer", phase.visibleEntries},
                             {"CullSphereBuffer", d.pCullSphereBuffer[i]}, {"RenderableBuffer", d.pRenderableBuffer[i]}, {"BucketCountBuffer", phase.bucketCounts},
-                            {"RetestCounterBuffer", d.pRetestCounter}, {"RetestBuffer", d.pRetestIds}});
+                            {"RetestCounterBuffer", d.pRetestCounter}, {"RetestBuffer", d.pRetestIds}, {"TransparentCounterBuffer", d.pTransparentCandidateCounter},
+                            {"TransparentBuffer", d.pTransparentCandidateIds}, {"CandidateCounterBuffer", pCandidateCounter}, {"CandidateBuffer", pCandidateIds}});
             CreateBoundSRB(d.pPrefixSumPSO, phase.prefixSumSRB[i],
                            {{"PrefixSumConstants", d.pPrefixSumConstants}, {"BucketCountBuffer", phase.bucketCounts}, {"BucketOffsetBuffer", phase.bucketOffsets}, {"BucketWriteHeadBuffer", phase.bucketWriteHeads}});
             CreateBoundSRB(d.pDispatchArgsPSO, phase.scatterDispatchArgsSRB[i],
@@ -927,40 +906,22 @@ void Renderer::reallocateBuffers(size_t numObjects) {
             const std::initializer_list<NamedBuffer> surfaceResources = {
                 {"SceneData", d.pSceneUBO[i]}, {"LightBlock", d.pLightBuffer}, {"MaterialBuffer", d.pMaterialBuffer}, {"WorldMatrixBuffer", d.pWorldMatrixBuffer[i]},
                 {"CullSphereBuffer", d.pCullSphereBuffer[i]}, {"CullOrientationBuffer", d.pCullOrientationBuffer[i]}, {"NormalSampleBuffer", d.pNormalSampleBuffer},
-                {"VisibleObjectBuffer", phase.sortedEntries}};
-            phase.opaqueSRBs[i].resize(d.pOpaquePSOs.size());
-            phase.pointSRBs[i].resize(d.pPointPSOs.size());
-            for (size_t s = 0; s < d.pOpaquePSOs.size(); ++s) CreateBoundSRB(d.pOpaquePSOs[s], phase.opaqueSRBs[i][s], surfaceResources);
-            for (size_t s = 0; s < d.pPointPSOs.size(); ++s) CreateBoundSRB(d.pPointPSOs[s], phase.pointSRBs[i][s], surfaceResources);
+                {"VisibleObjectBuffer", phase.sortedEntries}, {"AlphaBuffer", d.pAlphaBuffer}};
+            const auto meshPipelines = SurfacePipelines(d, phaseIndex, false);
+            const auto pointPipelines = SurfacePipelines(d, phaseIndex, true);
+            phase.opaqueSRBs[i].resize(meshPipelines.size());
+            phase.pointSRBs[i].resize(pointPipelines.size());
+            for (size_t s = 0; s < meshPipelines.size(); ++s) CreateBoundSRB(meshPipelines[s], phase.opaqueSRBs[i][s], surfaceResources);
+            for (size_t s = 0; s < pointPipelines.size(); ++s) CreateBoundSRB(pointPipelines[s], phase.pointSRBs[i][s], surfaceResources);
         }
 
-        CreateBoundSRB(d.pTransparentPSO, d.pTransparentSRB[i],
-                       {{"SceneData", d.pSceneUBO[i]}, {"LightBlock", d.pLightBuffer}, {"MaterialBuffer", d.pMaterialBuffer}, {"WorldMatrixBuffer", d.pWorldMatrixBuffer[i]},
-                        {"CullSphereBuffer", d.pCullSphereBuffer[i]}, {"RenderableBuffer", d.pRenderableBuffer[i]}, {"VisibleTransparentObjectBuffer", d.pVisibleTransparentObjectIdsBuffer[i]}});
     }
 
-    if (m_diligent->pTransparentCommandGenUniforms) {
-        TransparentCommandGenUniforms uniforms{};
-        uniforms.maxDraws = static_cast<unsigned int>(subPassMaxObjects);
-        m_diligent->pImmediateContext->UpdateBuffer(m_diligent->pTransparentCommandGenUniforms, 0, sizeof(uniforms), &uniforms, Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
-    }
-
-    if (m_diligent->pDispatchArgsConstants) {
-        DispatchArgsConstants dispatchArgsConstants{};
-        dispatchArgsConstants.maxCount = static_cast<uint32_t>(subPassMaxObjects);
-        dispatchArgsConstants.workgroupSize = 256;
-        m_diligent->pImmediateContext->UpdateBuffer(m_diligent->pDispatchArgsConstants, 0, sizeof(dispatchArgsConstants), &dispatchArgsConstants, Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
-    }
     if (m_diligent->pObjectDispatchArgsConstants) {
         DispatchArgsConstants dispatchArgsConstants{};
         dispatchArgsConstants.maxCount = static_cast<uint32_t>(m_maxObjects);
         dispatchArgsConstants.workgroupSize = 256;
         m_diligent->pImmediateContext->UpdateBuffer(m_diligent->pObjectDispatchArgsConstants, 0, sizeof(dispatchArgsConstants), &dispatchArgsConstants, Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
-    }
-
-    if (m_diligent->pHiZMipmapSRB) {
-        m_diligent->pHiZSourceMipVar = m_diligent->pHiZMipmapSRB->GetVariableByName(Diligent::SHADER_TYPE_COMPUTE, "u_sourceMip");
-        m_diligent->pHiZDestMipVar = m_diligent->pHiZMipmapSRB->GetVariableByName(Diligent::SHADER_TYPE_COMPUTE, "u_destMip");
     }
 
     m_fullTransformUpdateCounter = 1;
@@ -983,6 +944,22 @@ void Renderer::createScreenTargets() {
     m_diligent->pSceneDepth.Release();
     m_diligent->pDevice->CreateTexture(DepthDesc, nullptr, &m_diligent->pSceneDepth);
     if (m_diligent->pSceneDepth) m_diligent->pSceneDepth->GetDefaultView(Diligent::TEXTURE_VIEW_SHADER_RESOURCE)->SetSampler(m_diligent->pHiZSampler);
+
+    auto createColorTarget = [&](const char* name, Diligent::TEXTURE_FORMAT format, Diligent::RefCntAutoPtr<Diligent::ITexture>& texture) {
+        Diligent::TextureDesc desc;
+        desc.Name = name;
+        desc.Type = Diligent::RESOURCE_DIM_TEX_2D;
+        desc.Width = m_windowWidth;
+        desc.Height = m_windowHeight;
+        desc.Format = format;
+        desc.Usage = Diligent::USAGE_DEFAULT;
+        desc.BindFlags = Diligent::BIND_RENDER_TARGET | Diligent::BIND_SHADER_RESOURCE;
+        texture.Release();
+        m_diligent->pDevice->CreateTexture(desc, nullptr, &texture);
+        if (texture) texture->GetDefaultView(Diligent::TEXTURE_VIEW_SHADER_RESOURCE)->SetSampler(m_diligent->pHiZSampler);
+    };
+    createColorTarget("Transparency Accumulation", kAccumulationFormat, m_diligent->pAccumulation);
+    createColorTarget("Transparency Revealage", kRevealageFormat, m_diligent->pRevealage);
 
     for (int i = 0; i < NUM_FRAMES_IN_FLIGHT; ++i) {
         for (auto& view : m_diligent->pHiZMipViewsSource[i]) view.Release();
@@ -1053,29 +1030,20 @@ void Renderer::uploadDirtyHierarchies(SceneDatabase& sceneDatabase) {
     }
 }
 
-void Renderer::uploadTransparentIds(const SceneDatabase& sceneDatabase) {
-    m_transparentIds.clear();
-    for (size_t e = 0; e < sceneDatabase.renderables.size(); ++e) {
-        if (sceneDatabase.renderables[e].shaderId == kTransparentShaderId) m_transparentIds.push_back(static_cast<uint32_t>(e));
-    }
-    m_transparentIdCount = static_cast<uint32_t>(m_transparentIds.size());
-    if (!m_transparentIds.empty()) {
-        m_diligent->pImmediateContext->UpdateBuffer(m_diligent->pTransparentIdBuffer[m_currentFrame], 0, m_transparentIds.size() * sizeof(uint32_t), m_transparentIds.data(), Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
-    }
-}
-
 void Renderer::uploadAllRenderables(const SceneDatabase& sceneDatabase) {
     const auto& renderables = sceneDatabase.renderables;
     m_packedRenderables.resize(renderables.size());
     for (size_t e = 0; e < renderables.size(); ++e) m_packedRenderables[e] = PackRenderable(renderables[e]);
     m_diligent->pImmediateContext->UpdateBuffer(m_diligent->pRenderableBuffer[m_currentFrame], 0, m_packedRenderables.size() * sizeof(uint32_t), m_packedRenderables.data(), Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
-    uploadTransparentIds(sceneDatabase);
+
+    m_packedAlphas.assign((renderables.size() + 3) & ~size_t{3}, 0);
+    for (size_t e = 0; e < renderables.size(); ++e) m_packedAlphas[e] = PackAlpha(renderables[e].alpha);
+    m_diligent->pImmediateContext->UpdateBuffer(m_diligent->pAlphaBuffer, 0, m_packedAlphas.size(), m_packedAlphas.data(), Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
 }
 
 void Renderer::uploadDirtyRenderables(SceneDatabase& sceneDatabase) {
     auto& dirty = sceneDatabase.renderableDirty.list;
     std::ranges::sort(dirty);
-    bool transparencyChanged = false;
     size_t rangeStart = 0;
     size_t rangeEnd = 0;
     auto flushRange = [&] {
@@ -1089,14 +1057,21 @@ void Renderer::uploadDirtyRenderables(SceneDatabase& sceneDatabase) {
         if (e >= m_packedRenderables.size()) continue;
         const uint32_t packed = PackRenderable(sceneDatabase.renderables[e]);
         if (packed == m_packedRenderables[e]) continue;
-        transparencyChanged |= (UnpackShaderId(m_packedRenderables[e]) == kTransparentShaderId) != (sceneDatabase.renderables[e].shaderId == kTransparentShaderId);
         m_packedRenderables[e] = packed;
         if (e != rangeEnd) flushRange();
         if (rangeEnd == rangeStart) rangeStart = e;
         rangeEnd = static_cast<size_t>(e) + 1;
     }
     flushRange();
-    if (transparencyChanged) uploadTransparentIds(sceneDatabase);
+
+    for (Entity e : dirty) {
+        if (e >= sceneDatabase.renderables.size() || e >= m_packedAlphas.size()) continue;
+        const uint8_t alpha = PackAlpha(sceneDatabase.renderables[e].alpha);
+        if (alpha == m_packedAlphas[e]) continue;
+        m_packedAlphas[e] = alpha;
+        const size_t word = e & ~Entity{3};
+        m_diligent->pImmediateContext->UpdateBuffer(m_diligent->pAlphaBuffer, word, 4, m_packedAlphas.data() + word, Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
+    }
 }
 
 bool Renderer::animatedEntitiesAreLeaves(const SceneDatabase& sceneDatabase) {
@@ -1620,111 +1595,15 @@ void Renderer::drawScene(SceneDatabase& sceneDatabase, const Camera& camera) {
     drawVisibilityPhase(1);
     endPass(GpuPass::RetestDraw);
 
-    ResetAtomicCounter(m_diligent->pTransparentAtomicCounter[m_currentFrame]);
-
     beginPass(GpuPass::TransparentCull);
-    {
-        TransparentCullUniforms uniforms{};
-        uniforms.objectCount = m_transparentIdCount;
-        uniforms.maxDraws = static_cast<uint32_t>(subPassMaxObjects);
-        uniforms.lodBias = m_lodBias;
-        uniforms.forcedLod = m_forcedLod;
-        uniforms.cameraPos = camera.getPosition();
-        m_diligent->pImmediateContext->UpdateBuffer(m_diligent->pTransparentCullUniforms, 0, sizeof(uniforms), &uniforms, Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
-
-        m_diligent->pImmediateContext->SetPipelineState(m_diligent->pTransparentCullPSO);
-
-        if (auto* pVar = m_diligent->pTransparentCullSRB[m_currentFrame]->GetVariableByName(Diligent::SHADER_TYPE_COMPUTE, "u_hizTexture")) {
-            pVar->Set(m_diligent->pHiZTextures[m_currentFrame]->GetDefaultView(Diligent::TEXTURE_VIEW_SHADER_RESOURCE));
-        }
-
-        m_diligent->pImmediateContext->CommitShaderResources(m_diligent->pTransparentCullSRB[m_currentFrame], Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
-
-        Diligent::DispatchComputeAttribs DispatchAttrs;
-        DispatchAttrs.ThreadGroupCountX = std::max(1u, (m_transparentIdCount + 255) / 256);
-        DispatchAttrs.ThreadGroupCountY = 1;
-        DispatchAttrs.ThreadGroupCountZ = 1;
-        m_diligent->pImmediateContext->DispatchCompute(DispatchAttrs);
-
-        Diligent::StateTransitionDesc TransCullBarriers[2];
-        TransCullBarriers[0].pResource = m_diligent->pTransparentAtomicCounter[m_currentFrame];
-        TransCullBarriers[0].OldState = Diligent::RESOURCE_STATE_UNORDERED_ACCESS;
-        TransCullBarriers[0].NewState = Diligent::RESOURCE_STATE_SHADER_RESOURCE;
-        TransCullBarriers[0].TransitionType = Diligent::STATE_TRANSITION_TYPE_IMMEDIATE;
-        TransCullBarriers[0].Flags = Diligent::STATE_TRANSITION_FLAG_UPDATE_STATE;
-
-        TransCullBarriers[1].pResource = m_diligent->pVisibleTransparentObjectIdsBuffer[m_currentFrame];
-        TransCullBarriers[1].OldState = Diligent::RESOURCE_STATE_UNORDERED_ACCESS;
-        TransCullBarriers[1].NewState = Diligent::RESOURCE_STATE_SHADER_RESOURCE;
-        TransCullBarriers[1].TransitionType = Diligent::STATE_TRANSITION_TYPE_IMMEDIATE;
-        TransCullBarriers[1].Flags = Diligent::STATE_TRANSITION_FLAG_UPDATE_STATE;
-        m_diligent->pImmediateContext->TransitionResourceStates(2, TransCullBarriers);
-    }
-
+    cullVisibilityPhase(2, numObjects, static_cast<int>(m_currentFrame));
     endPass(GpuPass::TransparentCull);
     beginPass(GpuPass::TransparentCommandGen);
-
-    const bool transparentIndirectDispatch =
-        m_diligent->pDispatchArgsPSO && m_diligent->pTransparentDispatchArgsSRB[m_currentFrame] && m_diligent->pTransparentDispatchArgs[m_currentFrame];
-
-    if (transparentIndirectDispatch) {
-        m_diligent->pImmediateContext->SetPipelineState(m_diligent->pDispatchArgsPSO);
-        m_diligent->pImmediateContext->CommitShaderResources(m_diligent->pTransparentDispatchArgsSRB[m_currentFrame], Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
-        m_diligent->pImmediateContext->DispatchCompute(Diligent::DispatchComputeAttribs(1, 1, 1));
-    }
-
-    m_diligent->pImmediateContext->SetPipelineState(m_diligent->pTransparentCommandGenPSO);
-    m_diligent->pImmediateContext->CommitShaderResources(m_diligent->pTransparentCommandGenSRB[m_currentFrame], Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
-
-    if (numObjects > 0) {
-        if (transparentIndirectDispatch) {
-            m_diligent->pImmediateContext->DispatchComputeIndirect(
-                Diligent::DispatchComputeIndirectAttribs{m_diligent->pTransparentDispatchArgs[m_currentFrame], Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION});
-        } else {
-            Diligent::DispatchComputeAttribs DispatchAttrs;
-            DispatchAttrs.ThreadGroupCountX = (static_cast<unsigned int>(subPassMaxObjects) + workgroupSize - 1) / workgroupSize;
-            DispatchAttrs.ThreadGroupCountY = 1;
-            DispatchAttrs.ThreadGroupCountZ = 1;
-            m_diligent->pImmediateContext->DispatchCompute(DispatchAttrs);
-        }
-    }
-
-    Diligent::StateTransitionDesc TransCmdBarriers[2];
-    TransCmdBarriers[0].pResource = m_diligent->pTransparentDrawCommandBuffer[m_currentFrame];
-    TransCmdBarriers[0].OldState = Diligent::RESOURCE_STATE_UNORDERED_ACCESS;
-    TransCmdBarriers[0].NewState = Diligent::RESOURCE_STATE_INDIRECT_ARGUMENT;
-    TransCmdBarriers[0].TransitionType = Diligent::STATE_TRANSITION_TYPE_IMMEDIATE;
-    TransCmdBarriers[0].Flags = Diligent::STATE_TRANSITION_FLAG_UPDATE_STATE;
-
-    TransCmdBarriers[1].pResource = m_diligent->pTransparentAtomicCounter[m_currentFrame];
-    TransCmdBarriers[1].OldState = Diligent::RESOURCE_STATE_SHADER_RESOURCE;
-    TransCmdBarriers[1].NewState = Diligent::RESOURCE_STATE_INDIRECT_ARGUMENT;
-    TransCmdBarriers[1].TransitionType = Diligent::STATE_TRANSITION_TYPE_IMMEDIATE;
-    TransCmdBarriers[1].Flags = Diligent::STATE_TRANSITION_FLAG_UPDATE_STATE;
-    m_diligent->pImmediateContext->TransitionResourceStates(2, TransCmdBarriers);
-
+    buildVisibilityDraws(2);
     endPass(GpuPass::TransparentCommandGen);
+
     beginPass(GpuPass::TransparentDraw);
-
-    if (numObjects > 0) {
-        m_diligent->pImmediateContext->SetPipelineState(m_diligent->pTransparentPSO);
-        m_diligent->pImmediateContext->CommitShaderResources(m_diligent->pTransparentSRB[m_currentFrame], Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
-
-        Diligent::DrawIndexedIndirectAttribs DrawAttrs;
-        DrawAttrs.IndexType = Diligent::VT_UINT32;
-        DrawAttrs.Flags = Diligent::DRAW_FLAG_NONE;
-        DrawAttrs.DrawArgsOffset = 0;
-        DrawAttrs.pAttribsBuffer = m_diligent->pTransparentDrawCommandBuffer[m_currentFrame];
-        DrawAttrs.pCounterBuffer = m_diligent->pTransparentAtomicCounter[m_currentFrame];
-        DrawAttrs.CounterOffset = 0;
-        DrawAttrs.DrawCount = static_cast<Diligent::Uint32>(std::min<size_t>(numObjects, subPassMaxObjects));
-        DrawAttrs.DrawArgsStride = sizeof(DrawElementsIndirectCommand);
-        DrawAttrs.AttribsBufferStateTransitionMode = Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION;
-        DrawAttrs.CounterBufferStateTransitionMode = Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION;
-
-        m_diligent->pImmediateContext->DrawIndexedIndirect(DrawAttrs);
-
-    }
+    drawTransparency();
     endPass(GpuPass::TransparentDraw);
 
     beginPass(GpuPass::Ui);
@@ -1813,38 +1692,42 @@ void Renderer::drawScene(SceneDatabase& sceneDatabase, const Camera& camera) {
 bool Renderer::pipelinesReady() const {
     const auto& d = *m_diligent;
     const bool computeReady = d.pTransformPSO && d.pCullingPSO && d.pRetestCullingPSO && d.pPrefixSumPSO && d.pScatterPSO && d.pCommandGenPSO && d.pDispatchArgsPSO &&
-                              d.pHiZMipmapPSO && d.pHiZFromDepthPSO && d.pApplyDirtyPSO && d.pMarkTouchedPSO && d.pTransparentCullPSO && d.pTransparentCommandGenPSO;
-    const bool graphicsReady = d.pTransparentPSO && !d.pOpaquePSOs.empty() && std::ranges::all_of(d.pOpaquePSOs, [](const auto& pso) { return pso != nullptr; }) &&
+                              d.pHiZMipmapPSO && d.pHiZFromDepthPSO && d.pApplyDirtyPSO && d.pMarkTouchedPSO && d.pTransparentCullPSO;
+    const bool graphicsReady = d.pTransparentPSO && d.pTransparentPointPSO && d.pCompositePSO && !d.pOpaquePSOs.empty() && std::ranges::all_of(d.pOpaquePSOs, [](const auto& pso) { return pso != nullptr; }) &&
                                std::ranges::all_of(d.pPointPSOs, [](const auto& pso) { return pso != nullptr; });
-    return computeReady && graphicsReady && d.pSceneDepth;
+    return computeReady && graphicsReady && d.pSceneDepth && d.pAccumulation && d.pRevealage;
 }
 
 void Renderer::cullVisibilityPhase(int phaseIndex, uint32_t objectCount, int hizFrame) {
     auto& d = *m_diligent;
     auto& phase = d.visibility[phaseIndex];
     auto* pContext = d.pImmediateContext.RawPtr();
-    const bool retest = phaseIndex == 1;
+    const bool candidateInput = phaseIndex != 0;
     const unsigned int zero = 0;
 
     pContext->UpdateBuffer(phase.visibleCounter, 0, sizeof(zero), &zero, Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
     pContext->UpdateBuffer(phase.bucketCounts, 0, sizeof(unsigned int) * m_bucketZeros.size(), m_bucketZeros.data(), Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
-    if (!retest) pContext->UpdateBuffer(d.pRetestCounter, 0, sizeof(zero), &zero, Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
+    if (!candidateInput) {
+        pContext->UpdateBuffer(d.pRetestCounter, 0, sizeof(zero), &zero, Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
+        pContext->UpdateBuffer(d.pTransparentCandidateCounter, 0, sizeof(zero), &zero, Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
+    }
 
-    const CullingUniforms uniforms{objectCount, static_cast<uint32_t>(m_maxObjects), m_smallObjectThreshold, m_lodBias, m_forcedLod};
+    const CullingUniforms uniforms{objectCount, static_cast<uint32_t>(m_maxObjects), m_smallObjectThreshold, m_lodBias, m_forcedLod, static_cast<uint32_t>(m_numDrawingShaders)};
     pContext->UpdateBuffer(phase.cullingUniforms, 0, sizeof(uniforms), &uniforms, Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
 
-    if (retest) {
+    Diligent::IBuffer* pCandidateDispatchArgs = phaseIndex == 2 ? d.pTransparentDispatchArgs : d.pRetestDispatchArgs;
+    if (candidateInput) {
         pContext->SetPipelineState(d.pDispatchArgsPSO);
-        pContext->CommitShaderResources(d.pRetestDispatchArgsSRB[m_currentFrame], Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
+        pContext->CommitShaderResources(phaseIndex == 2 ? d.pTransparentDispatchArgsSRB[m_currentFrame] : d.pRetestDispatchArgsSRB[m_currentFrame], Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
         pContext->DispatchCompute(Diligent::DispatchComputeAttribs(1, 1, 1));
     }
 
     auto& srb = phase.cullSRB[m_currentFrame];
-    srb->GetVariableByName(Diligent::SHADER_TYPE_COMPUTE, "u_hizTexture")->Set(d.pHiZTextures[hizFrame]->GetDefaultView(Diligent::TEXTURE_VIEW_SHADER_RESOURCE));
-    pContext->SetPipelineState(retest ? d.pRetestCullingPSO : d.pCullingPSO);
+    SetDynamicVariable(srb, "u_hizTexture", d.pHiZTextures[hizFrame]->GetDefaultView(Diligent::TEXTURE_VIEW_SHADER_RESOURCE));
+    pContext->SetPipelineState(phaseIndex == 0 ? d.pCullingPSO : phaseIndex == 1 ? d.pRetestCullingPSO : d.pTransparentCullPSO);
     pContext->CommitShaderResources(srb, Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
-    if (retest) {
-        pContext->DispatchComputeIndirect(Diligent::DispatchComputeIndirectAttribs{d.pRetestDispatchArgs, Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION});
+    if (candidateInput) {
+        pContext->DispatchComputeIndirect(Diligent::DispatchComputeIndirectAttribs{pCandidateDispatchArgs, Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION});
     } else {
         pContext->DispatchCompute(Diligent::DispatchComputeAttribs((objectCount + 255) / 256, 1, 1));
     }
@@ -1918,10 +1801,12 @@ void Renderer::drawVisibilityPhase(int phaseIndex) {
     pContext->SetVertexBuffers(0, 1, pVBs, nullptr, Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION, Diligent::SET_VERTEX_BUFFERS_FLAG_RESET);
     pContext->SetIndexBuffer(d.pEBO, 0, Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
 
-    for (uint32_t shaderId = 0; shaderId < d.pOpaquePSOs.size(); ++shaderId) {
+    const auto meshPipelines = SurfacePipelines(d, static_cast<size_t>(phaseIndex), false);
+    const auto pointPipelines = SurfacePipelines(d, static_cast<size_t>(phaseIndex), true);
+    for (uint32_t shaderId = 0; shaderId < meshPipelines.size(); ++shaderId) {
         const auto commandOffset = static_cast<Diligent::Uint64>(shaderId) * MAX_MESHES * sizeof(DrawElementsIndirectCommand);
-        if (d.pOpaquePSOs[shaderId]) {
-            pContext->SetPipelineState(d.pOpaquePSOs[shaderId]);
+        if (meshPipelines[shaderId]) {
+            pContext->SetPipelineState(meshPipelines[shaderId]);
             pContext->CommitShaderResources(phase.opaqueSRBs[m_currentFrame][shaderId], Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
             Diligent::DrawIndexedIndirectAttribs drawAttrs;
             drawAttrs.IndexType = Diligent::VT_UINT32;
@@ -1935,8 +1820,8 @@ void Renderer::drawVisibilityPhase(int phaseIndex) {
             drawAttrs.CounterBufferStateTransitionMode = Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION;
             pContext->DrawIndexedIndirect(drawAttrs);
         }
-        if (shaderId < d.pPointPSOs.size() && d.pPointPSOs[shaderId]) {
-            pContext->SetPipelineState(d.pPointPSOs[shaderId]);
+        if (shaderId < pointPipelines.size() && pointPipelines[shaderId]) {
+            pContext->SetPipelineState(pointPipelines[shaderId]);
             pContext->CommitShaderResources(phase.pointSRBs[m_currentFrame][shaderId], Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
             Diligent::DrawIndirectAttribs pointAttrs;
             pointAttrs.pAttribsBuffer = phase.pointCommands;
@@ -1952,6 +1837,25 @@ void Renderer::drawVisibilityPhase(int phaseIndex) {
     }
 }
 
+void Renderer::drawTransparency() {
+    auto& d = *m_diligent;
+    auto* pContext = d.pImmediateContext.RawPtr();
+    Diligent::ITextureView* pTargets[] = {d.pAccumulation->GetDefaultView(Diligent::TEXTURE_VIEW_RENDER_TARGET), d.pRevealage->GetDefaultView(Diligent::TEXTURE_VIEW_RENDER_TARGET)};
+    pContext->SetRenderTargets(2, pTargets, d.pSceneDepth->GetDefaultView(Diligent::TEXTURE_VIEW_DEPTH_STENCIL), Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
+    const float noCoverage[4] = {0.0f, 0.0f, 0.0f, 0.0f};
+    const float fullRevealage[4] = {1.0f, 1.0f, 1.0f, 1.0f};
+    pContext->ClearRenderTarget(pTargets[0], noCoverage, Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
+    pContext->ClearRenderTarget(pTargets[1], fullRevealage, Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
+    drawVisibilityPhase(2);
+
+    bindSceneTargets(false);
+    SetDynamicVariable(d.pCompositeSRB, "u_accumulation", d.pAccumulation->GetDefaultView(Diligent::TEXTURE_VIEW_SHADER_RESOURCE), Diligent::SHADER_TYPE_PIXEL);
+    SetDynamicVariable(d.pCompositeSRB, "u_revealage", d.pRevealage->GetDefaultView(Diligent::TEXTURE_VIEW_SHADER_RESOURCE), Diligent::SHADER_TYPE_PIXEL);
+    pContext->SetPipelineState(d.pCompositePSO);
+    pContext->CommitShaderResources(d.pCompositeSRB, Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
+    pContext->Draw(Diligent::DrawAttribs{3, Diligent::DRAW_FLAG_NONE});
+}
+
 void Renderer::buildHiZ() {
     auto& d = *m_diligent;
     auto* pContext = d.pImmediateContext.RawPtr();
@@ -1963,8 +1867,8 @@ void Renderer::buildHiZ() {
         pContext->TransitionResourceStates(1, &barrier);
     };
 
-    d.pHiZFromDepthSRB->GetVariableByName(Diligent::SHADER_TYPE_COMPUTE, "u_depth")->Set(d.pSceneDepth->GetDefaultView(Diligent::TEXTURE_VIEW_SHADER_RESOURCE));
-    d.pHiZFromDepthSRB->GetVariableByName(Diligent::SHADER_TYPE_COMPUTE, "u_destMip")->Set(d.pHiZMipViewsDest[m_currentFrame][0]);
+    SetDynamicVariable(d.pHiZFromDepthSRB, "u_depth", d.pSceneDepth->GetDefaultView(Diligent::TEXTURE_VIEW_SHADER_RESOURCE));
+    SetDynamicVariable(d.pHiZFromDepthSRB, "u_destMip", d.pHiZMipViewsDest[m_currentFrame][0]);
     pContext->SetPipelineState(d.pHiZFromDepthPSO);
     pContext->CommitShaderResources(d.pHiZFromDepthSRB, Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
     pContext->DispatchCompute(Diligent::DispatchComputeAttribs((m_windowWidth + 7) / 8, (m_windowHeight + 7) / 8, 1));
@@ -1972,8 +1876,8 @@ void Renderer::buildHiZ() {
 
     pContext->SetPipelineState(d.pHiZMipmapPSO);
     for (int mip = 1; mip < m_maxMipLevel && mip < 32; ++mip) {
-        d.pHiZSourceMipVar->Set(d.pHiZMipViewsSource[m_currentFrame][mip]);
-        d.pHiZDestMipVar->Set(d.pHiZMipViewsDest[m_currentFrame][mip]);
+        SetDynamicVariable(d.pHiZMipmapSRB, "u_sourceMip", d.pHiZMipViewsSource[m_currentFrame][mip]);
+        SetDynamicVariable(d.pHiZMipmapSRB, "u_destMip", d.pHiZMipViewsDest[m_currentFrame][mip]);
         pContext->CommitShaderResources(d.pHiZMipmapSRB, Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
         const int mipWidth = std::max(1, m_windowWidth >> mip);
         const int mipHeight = std::max(1, m_windowHeight >> mip);
@@ -2046,15 +1950,64 @@ void Renderer::createTransformPSO() {
 }
 
 void Renderer::createTransparentCullPSO() {
-    m_diligent->pTransparentCullPSO = CreateComputePipeline(m_diligent->pDevice, "Transparent Cull PSO", "resources/shaders/transparent_cull.comp", {"u_hizTexture"});
-    m_diligent->pTransparentCullUniforms = CreateUniformBuffer(m_diligent->pDevice, "Transparent Cull Uniforms", sizeof(TransparentCullUniforms), Diligent::USAGE_DEFAULT);
-    CreateBindings(m_diligent->pTransparentCullPSO, m_diligent->pTransparentCullSRB);
+    const Diligent::ShaderMacro transparentMacros[] = {{"TRANSPARENT", "1"}};
+    m_diligent->pTransparentCullPSO = CreateComputePipeline(m_diligent->pDevice, "Transparent Cull PSO", "resources/shaders/cull.comp", {"u_hizTexture"}, Diligent::ShaderMacroArray{transparentMacros, 1});
 }
 
-void Renderer::createTransparentCommandGenPSO() {
-    m_diligent->pTransparentCommandGenPSO = CreateComputePipeline(m_diligent->pDevice, "Transparent Command Gen PSO", "resources/shaders/transparent_command_gen.comp");
-    m_diligent->pTransparentCommandGenUniforms = CreateUniformBuffer(m_diligent->pDevice, "Transparent Command Gen Uniforms", sizeof(TransparentCommandGenUniforms), Diligent::USAGE_DEFAULT);
-    CreateBindings(m_diligent->pTransparentCommandGenPSO, m_diligent->pTransparentCommandGenSRB);
+Diligent::RefCntAutoPtr<Diligent::IPipelineState> CreateSurfacePipeline(DiligentData& d, const std::string& name, const std::string& fragmentPath, bool point, bool transparent) {
+    std::vector<Diligent::ShaderMacro> vertexMacros;
+    std::vector<Diligent::ShaderMacro> pixelMacros;
+    if (transparent) vertexMacros.push_back({"TRANSPARENT", "1"});
+    if (point) pixelMacros.push_back({"POINT_SPRITE", "1"});
+    auto pVS = CompileShader(d.pDevice, point ? "resources/shaders/point.vert" : "resources/shaders/cube.vert", Diligent::SHADER_TYPE_VERTEX,
+                             Diligent::ShaderMacroArray{vertexMacros.data(), static_cast<Diligent::Uint32>(vertexMacros.size())});
+    auto pPS = CompileShader(d.pDevice, fragmentPath, Diligent::SHADER_TYPE_PIXEL, Diligent::ShaderMacroArray{pixelMacros.data(), static_cast<Diligent::Uint32>(pixelMacros.size())});
+    if (!pVS || !pPS) return {};
+
+    const std::string psoName = name + (point ? " (points)" : "");
+    Diligent::GraphicsPipelineStateCreateInfo PSOCreateInfo;
+    PSOCreateInfo.PSODesc.Name = psoName.c_str();
+    PSOCreateInfo.PSODesc.PipelineType = Diligent::PIPELINE_TYPE_GRAPHICS;
+    PSOCreateInfo.GraphicsPipeline.DSVFormat = kSceneDepthFormat;
+    PSOCreateInfo.GraphicsPipeline.PrimitiveTopology = point ? Diligent::PRIMITIVE_TOPOLOGY_POINT_LIST : Diligent::PRIMITIVE_TOPOLOGY_TRIANGLE_LIST;
+    PSOCreateInfo.GraphicsPipeline.RasterizerDesc.CullMode = Diligent::CULL_MODE_BACK;
+    PSOCreateInfo.GraphicsPipeline.RasterizerDesc.FrontCounterClockwise = true;
+    PSOCreateInfo.GraphicsPipeline.DepthStencilDesc.DepthEnable = true;
+    PSOCreateInfo.GraphicsPipeline.DepthStencilDesc.DepthWriteEnable = !transparent;
+    PSOCreateInfo.GraphicsPipeline.DepthStencilDesc.DepthFunc = Diligent::COMPARISON_FUNC_LESS_EQUAL;
+    if (transparent) {
+        PSOCreateInfo.GraphicsPipeline.NumRenderTargets = 2;
+        PSOCreateInfo.GraphicsPipeline.RTVFormats[0] = kAccumulationFormat;
+        PSOCreateInfo.GraphicsPipeline.RTVFormats[1] = kRevealageFormat;
+        PSOCreateInfo.GraphicsPipeline.BlendDesc.IndependentBlendEnable = true;
+        auto& accumulation = PSOCreateInfo.GraphicsPipeline.BlendDesc.RenderTargets[0];
+        accumulation.BlendEnable = true;
+        accumulation.SrcBlend = accumulation.DestBlend = accumulation.SrcBlendAlpha = accumulation.DestBlendAlpha = Diligent::BLEND_FACTOR_ONE;
+        auto& revealage = PSOCreateInfo.GraphicsPipeline.BlendDesc.RenderTargets[1];
+        revealage.BlendEnable = true;
+        revealage.SrcBlend = revealage.SrcBlendAlpha = Diligent::BLEND_FACTOR_ZERO;
+        revealage.DestBlend = revealage.DestBlendAlpha = Diligent::BLEND_FACTOR_INV_SRC_COLOR;
+    } else {
+        PSOCreateInfo.GraphicsPipeline.NumRenderTargets = 1;
+        PSOCreateInfo.GraphicsPipeline.RTVFormats[0] = d.pSwapChain->GetDesc().ColorBufferFormat;
+    }
+    PSOCreateInfo.pVS = pVS;
+    PSOCreateInfo.pPS = pPS;
+
+    Diligent::LayoutElement LayoutElems[] = {
+        Diligent::LayoutElement{0, 0, 3, Diligent::VT_FLOAT32, false},
+        Diligent::LayoutElement{1, 0, 3, Diligent::VT_FLOAT32, false}
+    };
+    PSOCreateInfo.GraphicsPipeline.InputLayout.LayoutElements = LayoutElems;
+    PSOCreateInfo.GraphicsPipeline.InputLayout.NumElements = point ? 0 : _countof(LayoutElems);
+
+    const auto variables = DescribeVariables({pVS, pPS});
+    UseVariables(PSOCreateInfo.PSODesc.ResourceLayout, variables);
+
+    Diligent::RefCntAutoPtr<Diligent::IPipelineState> pso;
+    d.pDevice->CreateGraphicsPipelineState(PSOCreateInfo, &pso);
+    if (!pso) Lit::Log::Error("Failed to create surface pipeline '{}'", psoName);
+    return pso;
 }
 
 void Renderer::createOpaquePSOs() {
@@ -2063,107 +2016,54 @@ void Renderer::createOpaquePSOs() {
         const char* name;
     };
     const ShaderInfo shaderInfos[] = {
-        {"resources/shaders/cube.frag",        "Cube PSO"             },
-        {"resources/shaders/red.frag",         "Red PSO"              },
-        {"resources/shaders/transparent.frag", "Transparent Proxy PSO"}
+        {"resources/shaders/cube.frag", "Cube PSO"},
+        {"resources/shaders/red.frag",  "Red PSO" }
     };
-    constexpr size_t shaderCount = std::size(shaderInfos);
-
-    for (auto* psos : {&m_diligent->pOpaquePSOs, &m_diligent->pPointPSOs}) {
-        psos->clear();
-        psos->resize(shaderCount);
-    }
-
-    auto pMeshVS = CompileShader(m_diligent->pDevice, "resources/shaders/cube.vert", Diligent::SHADER_TYPE_VERTEX);
-    auto pPointVS = CompileShader(m_diligent->pDevice, "resources/shaders/point.vert", Diligent::SHADER_TYPE_VERTEX);
-    const Diligent::ShaderMacro pointMacros[] = {{"POINT_SPRITE", "1"}};
-
-    for (size_t i = 0; i < shaderCount; ++i) {
-        for (const bool point : {false, true}) {
-            auto& pso = point ? m_diligent->pPointPSOs[i] : m_diligent->pOpaquePSOs[i];
-            const std::string psoName = std::string(shaderInfos[i].name) + (point ? " (points)" : "");
-
-            Diligent::IShader* pVS = point ? pPointVS.RawPtr() : pMeshVS.RawPtr();
-            auto pPS = CompileShader(m_diligent->pDevice, shaderInfos[i].frag, Diligent::SHADER_TYPE_PIXEL, point ? Diligent::ShaderMacroArray{pointMacros, 1} : Diligent::ShaderMacroArray{});
-            if (!pVS || !pPS) continue;
-
-            Diligent::GraphicsPipelineStateCreateInfo PSOCreateInfo;
-            PSOCreateInfo.PSODesc.Name = psoName.c_str();
-            PSOCreateInfo.PSODesc.PipelineType = Diligent::PIPELINE_TYPE_GRAPHICS;
-            PSOCreateInfo.GraphicsPipeline.NumRenderTargets = 1;
-            PSOCreateInfo.GraphicsPipeline.RTVFormats[0] = m_diligent->pSwapChain->GetDesc().ColorBufferFormat;
-            PSOCreateInfo.GraphicsPipeline.DSVFormat = kSceneDepthFormat;
-            PSOCreateInfo.GraphicsPipeline.PrimitiveTopology = point ? Diligent::PRIMITIVE_TOPOLOGY_POINT_LIST : Diligent::PRIMITIVE_TOPOLOGY_TRIANGLE_LIST;
-            PSOCreateInfo.GraphicsPipeline.RasterizerDesc.CullMode = Diligent::CULL_MODE_BACK;
-            PSOCreateInfo.GraphicsPipeline.RasterizerDesc.FrontCounterClockwise = true;
-            PSOCreateInfo.GraphicsPipeline.DepthStencilDesc.DepthEnable = true;
-            PSOCreateInfo.GraphicsPipeline.DepthStencilDesc.DepthWriteEnable = true;
-            PSOCreateInfo.GraphicsPipeline.DepthStencilDesc.DepthFunc = Diligent::COMPARISON_FUNC_LESS_EQUAL;
-            PSOCreateInfo.pVS = pVS;
-            PSOCreateInfo.pPS = pPS;
-
-            Diligent::LayoutElement LayoutElems[] = {
-                Diligent::LayoutElement{0, 0, 3, Diligent::VT_FLOAT32, false},
-                Diligent::LayoutElement{1, 0, 3, Diligent::VT_FLOAT32, false}
-            };
-            PSOCreateInfo.GraphicsPipeline.InputLayout.LayoutElements = LayoutElems;
-            PSOCreateInfo.GraphicsPipeline.InputLayout.NumElements = point ? 0 : _countof(LayoutElems);
-
-            const auto variables = DescribeVariables({pVS, pPS});
-            UseVariables(PSOCreateInfo.PSODesc.ResourceLayout, variables);
-
-            m_diligent->pDevice->CreateGraphicsPipelineState(PSOCreateInfo, &pso);
-            if (!pso) Lit::Log::Error("Failed to create Opaque PSO: {}", psoName);
-        }
+    m_diligent->pOpaquePSOs.clear();
+    m_diligent->pPointPSOs.clear();
+    for (const ShaderInfo& info : shaderInfos) {
+        m_diligent->pOpaquePSOs.push_back(CreateSurfacePipeline(*m_diligent, info.name, info.frag, false, false));
+        m_diligent->pPointPSOs.push_back(CreateSurfacePipeline(*m_diligent, info.name, info.frag, true, false));
     }
 }
 
 void Renderer::createTransparentPSO() {
-    m_diligent->pTransparentPSO.Release();
-    CreateBindings(nullptr, m_diligent->pTransparentSRB);
+    m_diligent->pTransparentPSO = CreateSurfacePipeline(*m_diligent, "Transparent PSO", "resources/shaders/transparent.frag", false, true);
+    m_diligent->pTransparentPointPSO = CreateSurfacePipeline(*m_diligent, "Transparent PSO", "resources/shaders/transparent.frag", true, true);
 
-    auto pVS = CompileShader(m_diligent->pDevice, "resources/shaders/transparent.vert", Diligent::SHADER_TYPE_VERTEX);
-    auto pPS = CompileShader(m_diligent->pDevice, "resources/shaders/transparent.frag", Diligent::SHADER_TYPE_PIXEL);
+    auto pVS = CompileShader(m_diligent->pDevice, "resources/shaders/fullscreen.vert", Diligent::SHADER_TYPE_VERTEX);
+    auto pPS = CompileShader(m_diligent->pDevice, "resources/shaders/transparent_composite.frag", Diligent::SHADER_TYPE_PIXEL);
+    m_diligent->pCompositePSO.Release();
+    m_diligent->pCompositeSRB.Release();
     if (!pVS || !pPS) return;
 
     Diligent::GraphicsPipelineStateCreateInfo PSOCreateInfo;
-    PSOCreateInfo.PSODesc.Name = "Transparent PSO";
+    PSOCreateInfo.PSODesc.Name = "Transparent Composite PSO";
     PSOCreateInfo.PSODesc.PipelineType = Diligent::PIPELINE_TYPE_GRAPHICS;
     PSOCreateInfo.GraphicsPipeline.NumRenderTargets = 1;
     PSOCreateInfo.GraphicsPipeline.RTVFormats[0] = m_diligent->pSwapChain->GetDesc().ColorBufferFormat;
     PSOCreateInfo.GraphicsPipeline.DSVFormat = kSceneDepthFormat;
     PSOCreateInfo.GraphicsPipeline.PrimitiveTopology = Diligent::PRIMITIVE_TOPOLOGY_TRIANGLE_LIST;
-    PSOCreateInfo.GraphicsPipeline.RasterizerDesc.CullMode = Diligent::CULL_MODE_BACK;
-    PSOCreateInfo.GraphicsPipeline.RasterizerDesc.FrontCounterClockwise = true;
-    PSOCreateInfo.GraphicsPipeline.DepthStencilDesc.DepthEnable = true;
-    PSOCreateInfo.GraphicsPipeline.DepthStencilDesc.DepthWriteEnable = false;
-    PSOCreateInfo.GraphicsPipeline.DepthStencilDesc.DepthFunc = Diligent::COMPARISON_FUNC_LESS_EQUAL;
+    PSOCreateInfo.GraphicsPipeline.RasterizerDesc.CullMode = Diligent::CULL_MODE_NONE;
+    PSOCreateInfo.GraphicsPipeline.DepthStencilDesc.DepthEnable = false;
+    auto& blend = PSOCreateInfo.GraphicsPipeline.BlendDesc.RenderTargets[0];
+    blend.BlendEnable = true;
+    blend.SrcBlend = Diligent::BLEND_FACTOR_SRC_ALPHA;
+    blend.DestBlend = Diligent::BLEND_FACTOR_INV_SRC_ALPHA;
+    blend.SrcBlendAlpha = Diligent::BLEND_FACTOR_ONE;
+    blend.DestBlendAlpha = Diligent::BLEND_FACTOR_INV_SRC_ALPHA;
     PSOCreateInfo.pVS = pVS;
     PSOCreateInfo.pPS = pPS;
-
-    auto& RT0 = PSOCreateInfo.GraphicsPipeline.BlendDesc.RenderTargets[0];
-    RT0.BlendEnable = true;
-    RT0.SrcBlend = Diligent::BLEND_FACTOR_SRC_ALPHA;
-    RT0.DestBlend = Diligent::BLEND_FACTOR_INV_SRC_ALPHA;
-    RT0.BlendOp = Diligent::BLEND_OPERATION_ADD;
-    RT0.SrcBlendAlpha = Diligent::BLEND_FACTOR_ONE;
-    RT0.DestBlendAlpha = Diligent::BLEND_FACTOR_INV_SRC_ALPHA;
-    RT0.BlendOpAlpha = Diligent::BLEND_OPERATION_ADD;
-
-    Diligent::LayoutElement LayoutElems[] = {
-        Diligent::LayoutElement{0, 0, 3, Diligent::VT_FLOAT32, false},
-        Diligent::LayoutElement{1, 0, 3, Diligent::VT_FLOAT32, false}
-    };
-    PSOCreateInfo.GraphicsPipeline.InputLayout.LayoutElements = LayoutElems;
-    PSOCreateInfo.GraphicsPipeline.InputLayout.NumElements = _countof(LayoutElems);
-
-    const auto variables = DescribeVariables({pVS, pPS});
+    const auto variables = DescribeVariables({pVS, pPS}, {"u_accumulation", "u_revealage"});
     UseVariables(PSOCreateInfo.PSODesc.ResourceLayout, variables);
-
-    m_diligent->pDevice->CreateGraphicsPipelineState(PSOCreateInfo, &m_diligent->pTransparentPSO);
-    if (!m_diligent->pTransparentPSO) Lit::Log::Error("Failed to create Transparent PSO");
-    CreateBindings(m_diligent->pTransparentPSO, m_diligent->pTransparentSRB);
+    m_diligent->pDevice->CreateGraphicsPipelineState(PSOCreateInfo, &m_diligent->pCompositePSO);
+    if (!m_diligent->pCompositePSO) {
+        Lit::Log::Error("Failed to create Transparent Composite PSO");
+        return;
+    }
+    m_diligent->pCompositePSO->CreateShaderResourceBinding(&m_diligent->pCompositeSRB, true);
 }
+
 
 void Renderer::createHiZPSO() {
     m_diligent->pHiZMipmapPSO = CreateComputePipeline(m_diligent->pDevice, "Hi-Z Mipmap PSO", "resources/shaders/hiz_mipmap.comp", {"u_sourceMip", "u_destMip"});
@@ -2267,7 +2167,6 @@ void Renderer::createPipelines() {
     createApplyDirtyPSO();
     createMarkTouchedPSO();
     createTransparentCullPSO();
-    createTransparentCommandGenPSO();
     createDebugDepthPSO();
     createDebugLinePSO();
 }

@@ -1,6 +1,7 @@
 #version 450
 #extension GL_GOOGLE_include_directive : require
 #include "scene.glsl"
+#include "alpha.glsl"
 
 layout(location = 0) in vec3 in_position;
 layout(location = 1) in vec3 in_normal;
@@ -31,12 +32,14 @@ layout(location = 5) flat out vec4 out_material;
 
 layout(location = 0) out vec3 out_normal;
 layout(location = 1) out vec3 out_fragPos;
-layout(location = 2) flat out float out_billboard;
 
 void main() {
     uvec2 entry = visibleEntries[gl_InstanceIndex];
     uint objectId = entry.x & 0x1FFFFFFFu;
     out_material = materials[entry.y];
+#ifdef TRANSPARENT
+    out_alpha = entityAlpha(objectId);
+#endif
     mat4 model = loadWorld(worldRows[objectId]);
     // cofactor matrix == inverse-transpose up to a scale that is normalised away; the determinant sign keeps mirrored transforms correct
     mat3 m3 = mat3(model);
@@ -45,7 +48,6 @@ void main() {
 
     vec4 worldPos = model * vec4(in_position, 1.0);
     out_fragPos = worldPos.xyz;
-    out_billboard = 0.0;
     out_normal = normalize(cofactor * in_normal) * detSign;
 
     gl_Position = projection * view * worldPos;

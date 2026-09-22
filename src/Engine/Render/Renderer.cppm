@@ -67,13 +67,11 @@ export class Renderer {
     void createApplyDirtyPSO();
     void createMarkTouchedPSO();
     void createTransparentCullPSO();
-    void createTransparentCommandGenPSO();
     void createOpaquePSOs();
     void createTransparentPSO();
     void createDebugDepthPSO();
     void createDebugLinePSO();
     void createPipelines();
-    void uploadTransparentIds(const SceneDatabase& sceneDatabase);
     void uploadAllRenderables(const SceneDatabase& sceneDatabase);
     void uploadDirtyRenderables(SceneDatabase& sceneDatabase);
     void uploadDirtyHierarchies(SceneDatabase& sceneDatabase);
@@ -83,6 +81,7 @@ export class Renderer {
     void drawVisibilityPhase(int phase);
     void bindSceneTargets(bool clear);
     void buildHiZ();
+    void drawTransparency();
     void drawProfilingHud();
     void reallocateBuffers(size_t numObjects);
     uint32_t uploadMeshSlot(const Mesh& mesh);
@@ -130,9 +129,8 @@ export class Renderer {
     uint64_t m_processedHierarchyVersion = 0;
     uint64_t m_processedStructureVersion = 0;
     uint64_t m_processedDataVersion = 0;
-    std::vector<uint32_t> m_transparentIds;
     std::vector<uint32_t> m_packedRenderables;
-    uint32_t m_transparentIdCount = 0;
+    std::vector<uint8_t> m_packedAlphas;
     uint64_t m_processedTransformVersion = 0;
     int m_hierarchyUpdateCounter = 0;
     int m_fullTransformUpdateCounter = 0;

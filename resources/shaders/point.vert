@@ -1,6 +1,7 @@
 #version 450
 #extension GL_GOOGLE_include_directive : require
 #include "scene.glsl"
+#include "alpha.glsl"
 #include "mesh.glsl"
 
 layout(std430) readonly buffer VisibleObjectBuffer {
@@ -27,7 +28,6 @@ layout(std430) readonly buffer NormalSampleBuffer {
 
 layout(location = 0) out vec3 out_normal;
 layout(location = 1) out vec3 out_fragPos;
-layout(location = 2) flat out float out_billboard;
 layout(location = 3) flat out float out_pointRound;
 layout(location = 4) flat out float out_pointSize;
 
@@ -61,6 +61,9 @@ void main() {
     uvec2 entry = visibleEntries[gl_VertexIndex];
     uint objectId = entry.x & 0x1FFFFFFFu;
     out_material = materials[entry.y];
+#ifdef TRANSPARENT
+    out_alpha = entityAlpha(objectId);
+#endif
     uint meshSlot = uint(gl_InstanceIndex) / LOD_LEVEL_COUNT * LOD_LEVEL_COUNT;
     vec4 boundingSphere = cullSpheres[objectId];
     vec4 orientation = normalize(unpackSnorm4x8(cullOrientations[objectId]));
@@ -77,7 +80,6 @@ void main() {
     vec4 clip = projection * (view * vec4(boundingSphere.xyz, 1.0));
     out_fragPos = boundingSphere.xyz;
     out_normal = shadedNormal;
-    out_billboard = 0.0;
     float pointSize = max(1.0, abs(shape) * boundingSphere.w * projection[1][1] * screenParams.y / max(clip.w, 0.001));
     out_pointRound = shape < 0.0 ? 1.0 : 0.0;
     out_pointSize = pointSize;

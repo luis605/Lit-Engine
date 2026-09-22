@@ -7,6 +7,16 @@
 #include "mesh.glsl"
 #include "hiz.glsl"
 
+#if defined(RETEST) || defined(TRANSPARENT)
+#define CANDIDATE_INPUT
+#endif
+#if !defined(CANDIDATE_INPUT)
+#define RETEST_OUTPUT
+#endif
+#if !defined(TRANSPARENT)
+#define TRANSPARENT_OUTPUT
+#endif
+
 layout(local_size_x = 256, local_size_y = 1, local_size_z = 1) in;
 
 layout(std140) uniform CullingUniforms {
@@ -15,6 +25,7 @@ layout(std140) uniform CullingUniforms {
     float u_smallObjectThreshold;
     float u_lodBias;
     int u_forcedLod;
+    uint u_opaqueShaderCount;
 };
 
 layout(std430) buffer AtomicCounterBuffer {
@@ -33,15 +44,17 @@ layout(std430) buffer BucketCountBuffer {
     uint bucketCounts[];
 };
 
-#ifdef RETEST
-layout(std430) readonly buffer RetestCounterBuffer {
-    uint u_retestCount;
+#ifdef CANDIDATE_INPUT
+layout(std430) readonly buffer CandidateCounterBuffer {
+    uint u_candidateCount;
 };
 
-layout(std430) readonly buffer RetestBuffer {
-    uint u_retestIds[];
+layout(std430) readonly buffer CandidateBuffer {
+    uint u_candidateIds[];
 };
-#else
+#endif
+
+#ifdef RETEST_OUTPUT
 layout(std430) buffer RetestCounterBuffer {
     uint u_retestCount;
 };
@@ -51,14 +64,37 @@ layout(std430) writeonly buffer RetestBuffer {
 };
 #endif
 
+#ifdef TRANSPARENT_OUTPUT
+layout(std430) buffer TransparentCounterBuffer {
+    uint u_transparentCount;
+};
+
+layout(std430) writeonly buffer TransparentBuffer {
+    uint u_transparentIds[];
+};
+#endif
+
 const uint CULLED = 0u;
 const uint OCCLUDED = 1u;
 const uint VISIBLE = 2u;
+const uint TRANSPARENT_CANDIDATE = 3u;
+
+#ifdef TRANSPARENT
+const float TRANSPARENT_LOD_DIAMETER_PX[LOD_LEVEL_COUNT - 1u] = float[](60.0, 40.0, 25.0, 8.0, 3.0, 1.5);
+#endif
 
 uint selectLod(float radius, float dist) {
     if (u_forcedLod >= 0) return min(uint(u_forcedLod), POINT_LOD);
     if (dist <= radius) return 0u;
-    return lodForDiameter(u_lodBias * projectedDiameterPx(radius, dist));
+    float diameterPx = u_lodBias * projectedDiameterPx(radius, dist);
+#ifdef TRANSPARENT
+    for (uint lod = 0u; lod < POINT_LOD; ++lod) {
+        if (diameterPx >= TRANSPARENT_LOD_DIAMETER_PX[lod]) return lod;
+    }
+    return POINT_LOD;
+#else
+    return lodForDiameter(diameterPx);
+#endif
 }
 
 uint cullObject(uint id, out uvec2 entry) {
@@ -76,14 +112,22 @@ uint cullObject(uint id, out uvec2 entry) {
     float dist = max(-(view * vec4(worldCenter, 1.0)).z, 0.001);
     if (radius / dist < u_smallObjectThreshold) return CULLED;
 
-    uint renderable = renderables[id];
-#ifndef RETEST
-    if ((renderableFlags(renderable) & RENDER_NO_OCCLUDER) != 0u) return OCCLUDED;
-#endif
     if (sphereOccluded(worldCenter, radius)) return OCCLUDED;
 
+    uint renderable = renderables[id];
+#ifdef TRANSPARENT
+    uint bucketShader = 0u;
+#else
+    uint bucketShader = renderableShader(renderable);
+    if (bucketShader > u_opaqueShaderCount) return CULLED;
+    if (bucketShader == u_opaqueShaderCount) return TRANSPARENT_CANDIDATE;
+#ifdef RETEST_OUTPUT
+    if ((renderableFlags(renderable) & RENDER_NO_OCCLUDER) != 0u) return OCCLUDED;
+#endif
+#endif
+
     uint chosenLod = selectLod(radius, dist);
-    uint bucketIndex = renderableShader(renderable) * MAX_MESHES + renderableMesh(renderable) + chosenLod;
+    uint bucketIndex = bucketShader * MAX_MESHES + renderableMesh(renderable) + chosenLod;
     entry = uvec2(id | (chosenLod << 29u), bucketIndex | (renderableMaterial(renderable) << 16u));
     return VISIBLE;
 }
@@ -107,21 +151,31 @@ void appendVisible(bool visible, uvec2 entry) {
     }
 }
 
-#ifndef RETEST
+#ifdef RETEST_OUTPUT
 void appendRetest(bool occluded, uint id) {
-    uvec4 occludedBallot = subgroupBallot(occluded);
+    uvec4 ballot = subgroupBallot(occluded);
     uint slotBase = 0u;
-    if (subgroupElect()) slotBase = atomicAdd(u_retestCount, subgroupBallotBitCount(occludedBallot));
-    uint slot = subgroupBroadcastFirst(slotBase) + subgroupBallotExclusiveBitCount(occludedBallot);
+    if (subgroupElect()) slotBase = atomicAdd(u_retestCount, subgroupBallotBitCount(ballot));
+    uint slot = subgroupBroadcastFirst(slotBase) + subgroupBallotExclusiveBitCount(ballot);
     if (occluded && slot < u_maxDraws) u_retestIds[slot] = id;
 }
 #endif
 
+#ifdef TRANSPARENT_OUTPUT
+void appendTransparent(bool transparent, uint id) {
+    uvec4 ballot = subgroupBallot(transparent);
+    uint slotBase = 0u;
+    if (subgroupElect()) slotBase = atomicAdd(u_transparentCount, subgroupBallotBitCount(ballot));
+    uint slot = subgroupBroadcastFirst(slotBase) + subgroupBallotExclusiveBitCount(ballot);
+    if (transparent && slot < u_maxDraws) u_transparentIds[slot] = id;
+}
+#endif
+
 void main() {
-#ifdef RETEST
+#ifdef CANDIDATE_INPUT
     uint index = gl_GlobalInvocationID.x;
-    bool inRange = index < min(u_retestCount, u_maxDraws);
-    uint id = inRange ? u_retestIds[index] : 0u;
+    bool inRange = index < min(u_candidateCount, u_maxDraws);
+    uint id = inRange ? u_candidateIds[index] : 0u;
 #else
     uint id = gl_GlobalInvocationID.x;
     bool inRange = id < u_objectCount;
@@ -129,7 +183,10 @@ void main() {
     uvec2 entry;
     uint result = inRange ? cullObject(id, entry) : CULLED;
     appendVisible(result == VISIBLE, entry);
-#ifndef RETEST
+#ifdef RETEST_OUTPUT
     appendRetest(result == OCCLUDED, id);
+#endif
+#ifdef TRANSPARENT_OUTPUT
+    appendTransparent(result == TRANSPARENT_CANDIDATE, id);
 #endif
 }
