@@ -1,6 +1,8 @@
 module;
 
 #include <algorithm>
+#include <array>
+#include <iterator>
 #include <cmath>
 #include <limits>
 #include <optional>
@@ -711,7 +713,16 @@ bool World::saveScene(std::ostream& out) const {
     std::optional<ProfileScope> profile;
     if (m_profiler) profile.emplace(*m_profiler, "World::saveScene");
     out.precision(9);
-    out << "LITSCENE 2\n" << m_aliveCount << "\n";
+    out << "LITSCENE " << kSceneVersion << "\n" << m_aliveCount << "\n";
+    {
+        std::string cam = "camera";
+        const glm::vec3 p = m_camera.getPosition();
+        for (float v : {p.x, p.y, p.z, m_camera.getYaw(), m_camera.getPitch(), m_camera.getFov(), m_camera.getNearPlane(), m_camera.getFarPlane()}) {
+            cam.push_back(' ');
+            appendNumber(cam, v);
+        }
+        out << cam << '\n';
+    }
     if (m_meshNameOf) {
         std::set<uint32_t> usedMeshes;
         for (Entity i = 0; i < m_alive.size(); ++i) {
@@ -789,12 +800,30 @@ std::optional<std::vector<EntityHandle>> World::loadSceneImpl(std::istream& in, 
     std::optional<ProfileScope> profile;
     if (m_profiler) profile.emplace(*m_profiler, "World::loadScene");
     if (!in) return std::nullopt;
+    const std::string content((std::istreambuf_iterator<char>(in)), std::istreambuf_iterator<char>());
     std::string magic;
     int version = 0;
     size_t count = 0;
-    in >> magic >> version >> count;
-    if (!in || magic != "LITSCENE" || (version != 1 && version != 2)) return std::nullopt;
-    in.ignore(1, '\n');
+    size_t bodyStart = 0;
+    {
+        std::istringstream header(content.substr(0, std::min<size_t>(content.size(), 128)));
+        header >> magic >> version >> count;
+        if (!header || magic != "LITSCENE" || version < 1 || version > kSceneVersion) return std::nullopt;
+        const size_t firstNewline = content.find('\n');
+        const size_t secondNewline = firstNewline == std::string::npos ? std::string::npos : content.find('\n', firstNewline + 1);
+        if (secondNewline == std::string::npos) return std::nullopt;
+        bodyStart = secondNewline + 1;
+    }
+    {
+        size_t entityLines = 0;
+        for (size_t pos = bodyStart; pos < content.size();) {
+            size_t end = content.find('\n', pos);
+            if (end == std::string::npos) end = content.size();
+            if (end > pos && content[pos] >= '0' && content[pos] <= '9') ++entityLines;
+            pos = end + 1;
+        }
+        if (entityLines != count) return std::nullopt;
+    }
 
     struct Record {
         long long id;
@@ -811,9 +840,24 @@ std::optional<std::vector<EntityHandle>> World::loadSceneImpl(std::istream& in, 
     created.reserve(count);
     std::vector<std::string> componentLines;
     std::unordered_map<uint32_t, uint32_t> meshRemap;
+    std::array<float, 8> cameraValues{};
+    bool hasCamera = false;
     std::string line;
-    while (std::getline(in, line)) {
+    for (size_t pos = bodyStart; pos < content.size();) {
+        size_t end = content.find('\n', pos);
+        if (end == std::string::npos) end = content.size();
+        line.assign(content, pos, end - pos);
+        pos = end + 1;
         if (line.empty()) continue;
+        if (m_sceneMigration && version < kSceneVersion) m_sceneMigration(version, line);
+        if (line.rfind("camera ", 0) == 0) {
+            std::string_view view(line);
+            view.remove_prefix(7);
+            hasCamera = true;
+            for (float& v : cameraValues) hasCamera = hasCamera && readNumber(view, v);
+            continue;
+        }
+        if (line.rfind("meta ", 0) == 0) continue;
         if (line.rfind("mesh ", 0) == 0) {
             const size_t meshTab = line.find('\t');
             if (meshTab != std::string::npos && m_meshLoad) {
@@ -905,6 +949,13 @@ std::optional<std::vector<EntityHandle>> World::loadSceneImpl(std::istream& in, 
         if (!head || serializer == m_serializers.end() || handle == handles.end()) continue;
         std::istringstream payload(componentLine.substr(tab + 1));
         serializer->second.read(*this, handle->second, payload, context);
+    }
+    if (hasCamera && m_restoreCameraOnLoad && !additive) {
+        m_camera.setPos(glm::vec3(cameraValues[0], cameraValues[1], cameraValues[2]));
+        m_camera.setOrientation(cameraValues[3], cameraValues[4]);
+        m_camera.setFov(cameraValues[5]);
+        m_camera.setNearPlane(cameraValues[6]);
+        m_camera.setFarPlane(cameraValues[7]);
     }
     touchStructure();
     return roots;

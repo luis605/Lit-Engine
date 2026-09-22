@@ -3,4 +3,5 @@ build/
 build/*
 .vscode/
 .vscode/*
-*.asset
+*.assetresources/*.litscene
+resources/trace.json

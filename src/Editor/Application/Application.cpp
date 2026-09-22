@@ -8,6 +8,7 @@ module;
 #include <cstdio>
 #include <cstdlib>
 #include <filesystem>
+#include <system_error>
 #include <format>
 #include <random>
 #include <thread>
@@ -101,6 +102,8 @@ Application::Application() : m_world(m_engine.world()) {
     registerPhysicsComponents(m_world);
     registerAnimationComponents(m_world);
     m_engine.setPaused(true);
+    if (const char* interval = std::getenv("LIT_AUTOSAVE_SECONDS")) m_autosaveInterval = static_cast<float>(std::atof(interval));
+    m_recoveryPending = std::filesystem::exists("resources/autosave.litscene");
     m_engine.setShaderWatch(true);
     if (std::getenv("LIT_PROFILE")) m_engine.profiler().setEnabled(true);
 
@@ -121,6 +124,8 @@ Application::Application() : m_world(m_engine.world()) {
 }
 
 Application::~Application() {
+    std::error_code removeError;
+    std::filesystem::remove("resources/autosave.litscene", removeError);
     m_engine.cleanup();
     glfwDestroyWindow(m_window);
     glfwTerminate();
@@ -133,7 +138,8 @@ void  Application::update() {
    float deltaTime = currentFrame - lastFrame;
    lastFrame = currentFrame;
 
-   if (!m_inspector.editing()) processInput(deltaTime);
+   handleSceneFiles(deltaTime);
+   if (!m_inspector.editing() && !m_pathEditor.active() && !m_recoveryPending) processInput(deltaTime);
    m_engine.tick(deltaTime);
 
    m_engine.setAnimation(currentFrame, m_movingObjectCount, 1);
@@ -298,6 +304,81 @@ void Application::setPlaying(bool playing) {
     }
     m_playing = playing;
     Lit::Log::Info("{} took {:.1f} ms", playing ? "Entering play mode" : "Leaving play mode", std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - start).count());
+}
+
+void Application::applyLoadedScene() {
+    m_parentEntity = m_world.find("parent");
+    m_inspector.reset();
+}
+
+void Application::handleSceneFiles(float deltaTime) {
+    if (m_recoveryPending) {
+        m_engine.AddText("Autosave from a previous session found:  Y recover   N discard", 10.0f, 360.0f, 0.6f, glm::vec3(1.0f, 0.8f, 0.3f));
+        if (InputManager::IsKeyPressed(GLFW_KEY_Y)) {
+            if (m_world.loadScene("resources/autosave.litscene")) {
+                applyLoadedScene();
+                Lit::Log::Info("Recovered scene from autosave");
+            } else {
+                Lit::Log::Warn("Autosave could not be loaded");
+            }
+            m_recoveryPending = false;
+        } else if (InputManager::IsKeyPressed(GLFW_KEY_N)) {
+            std::error_code removeError;
+            std::filesystem::remove("resources/autosave.litscene", removeError);
+            m_recoveryPending = false;
+        }
+        return;
+    }
+
+    if (m_pathEditor.active()) {
+        m_pathEditor.insert(InputManager::TypedText());
+        const bool ctrl = InputManager::IsKeyHeld(GLFW_KEY_LEFT_CONTROL) || InputManager::IsKeyHeld(GLFW_KEY_RIGHT_CONTROL);
+        for (int key : InputManager::KeyEvents()) {
+            EditResult result = EditResult::None;
+            switch (key) {
+                case GLFW_KEY_LEFT: result = m_pathEditor.press(ctrl ? EditKey::WordLeft : EditKey::Left); break;
+                case GLFW_KEY_RIGHT: result = m_pathEditor.press(ctrl ? EditKey::WordRight : EditKey::Right); break;
+                case GLFW_KEY_HOME: result = m_pathEditor.press(EditKey::Home); break;
+                case GLFW_KEY_END: result = m_pathEditor.press(EditKey::End); break;
+                case GLFW_KEY_BACKSPACE: result = m_pathEditor.press(ctrl ? EditKey::Clear : EditKey::Backspace); break;
+                case GLFW_KEY_DELETE: result = m_pathEditor.press(EditKey::Delete); break;
+                case GLFW_KEY_ENTER:
+                case GLFW_KEY_KP_ENTER: result = m_pathEditor.press(EditKey::Enter); break;
+                case GLFW_KEY_ESCAPE: result = m_pathEditor.press(EditKey::Escape); break;
+                default: break;
+            }
+            if (result == EditResult::Committed) {
+                const std::string path = m_pathEditor.text();
+                if (m_pathSaving) {
+                    Lit::Log::Info("{} scene to {}", m_world.saveScene(path) ? "Saved" : "Failed to save", path);
+                } else if (m_world.loadScene(path)) {
+                    applyLoadedScene();
+                    Lit::Log::Info("Loaded scene {}", path);
+                } else {
+                    Lit::Log::Warn("Could not load scene {}", path);
+                }
+            }
+            if (!m_pathEditor.active()) break;
+        }
+        m_engine.AddText(std::format("{} scene path: {}", m_pathSaving ? "Save" : "Load", m_pathEditor.display()), 10.0f, 360.0f, 0.6f, glm::vec3(0.4f, 1.0f, 0.6f));
+        return;
+    }
+
+    if (!m_playing) {
+        if (InputManager::IsKeyPressed(GLFW_KEY_F7)) {
+            m_pathSaving = true;
+            m_pathEditor.begin("resources/scene.litscene");
+        } else if (InputManager::IsKeyPressed(GLFW_KEY_F8)) {
+            m_pathSaving = false;
+            m_pathEditor.begin("resources/scene.litscene");
+        }
+        m_autosaveTimer += deltaTime;
+        if (m_autosaveInterval > 0.0f && m_autosaveTimer >= m_autosaveInterval) {
+            m_autosaveTimer = 0.0f;
+            const auto start = std::chrono::steady_clock::now();
+            if (m_world.saveScene("resources/autosave.litscene")) Lit::Log::Info("Autosaved in {:.1f} ms", std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - start).count());
+        }
+    }
 }
 
 bool Application::isRunning() const { return !glfwWindowShouldClose(m_window); }

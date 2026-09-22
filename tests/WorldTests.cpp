@@ -1898,6 +1898,81 @@ static void testFramingAndSceneBounds() {
     CHECK(bounds && near(glm::vec3(*bounds), glm::vec3(0.0f)) && bounds->w > 10.0f && bounds->w < 20.0f);
 }
 
+static void testSceneVersioningAndTruncation() {
+    World w;
+    registerHealth(w);
+    auto a = w.create("alpha", 3, glm::vec3(1.0f, 2.0f, 3.0f));
+    auto b = w.create("beta", 4, glm::vec3(0.0f), glm::vec3(1.0f), a);
+    w.add<Health>(b, 11);
+    w.camera().setPos(glm::vec3(7.0f, 8.0f, 9.0f));
+    w.camera().setOrientation(-30.0f, 12.0f);
+    w.camera().setFov(70.0f);
+    w.camera().setFarPlane(1234.0f);
+
+    const std::string saved = w.snapshot();
+    CHECK(saved.rfind("LITSCENE 3\n2\ncamera ", 0) == 0);
+    w.camera().setPos(glm::vec3(0.0f));
+    w.camera().setOrientation(-90.0f, 0.0f);
+    w.camera().setFov(45.0f);
+    CHECK(w.restore(saved));
+    CHECK(near(w.camera().getPosition(), glm::vec3(7.0f, 8.0f, 9.0f)));
+    CHECK(std::abs(w.camera().getYaw() + 30.0f) < 1.0e-4f && std::abs(w.camera().getPitch() - 12.0f) < 1.0e-4f);
+    CHECK(w.camera().getFov() == 70.0f && w.camera().getFarPlane() == 1234.0f);
+
+    w.setRestoreCameraOnLoad(false);
+    w.camera().setPos(glm::vec3(1.0f));
+    CHECK(w.restore(saved));
+    CHECK(near(w.camera().getPosition(), glm::vec3(1.0f)));
+    w.setRestoreCameraOnLoad(true);
+
+    const std::string legacy =
+        "LITSCENE 2\n2\n"
+        "0 -1 1 3 0 0 1 1 0 0 0 0 1 0 0 0 0 1 0 5 6 7 1 1 1 0\tlegacy root\n"
+        "1 0 1 4 0 0 1 1 0 0 0 0 1 0 0 0 0 1 0 0 0 0 1 1 0\tlegacy child\n"
+        "component Health 1\t42\n";
+    World old;
+    registerHealth(old);
+    CHECK(old.restore(legacy));
+    CHECK(old.aliveCount() == 2);
+    auto lr = old.find("legacy root");
+    auto lc = old.find("legacy child");
+    CHECK(old.getParent(lc) == lr && near(old.getPosition(lr), glm::vec3(5.0f, 6.0f, 7.0f)));
+    CHECK(old.get<Health>(lc) && old.get<Health>(lc)->hp == 42);
+
+    const std::string legacy1 = "LITSCENE 1\n1\n0 -1 1 3 0 0 1 1 0 0 0 0 1 0 0 0 0 1 0 1 2 3 1\tv1\n";
+    World v1;
+    CHECK(v1.restore(legacy1) && v1.aliveCount() == 1);
+
+    int migrated = 0;
+    old.setSceneMigration([&](int fileVersion, std::string& line) {
+        if (fileVersion >= World::kSceneVersion) return;
+        ++migrated;
+        if (line.rfind("component OldHealth ", 0) == 0) line.replace(10, 9, "Health");
+    });
+    const std::string oldNames = legacy + "component OldHealth 0\t7\n";
+    CHECK(old.restore(oldNames));
+    CHECK(migrated > 0);
+    CHECK(old.get<Health>(old.find("legacy root")) && old.get<Health>(old.find("legacy root"))->hp == 7);
+    old.setSceneMigration(nullptr);
+
+    const size_t before = old.aliveCount();
+    std::string truncated = saved.substr(0, saved.rfind("component"));
+    truncated = truncated.substr(0, truncated.rfind('\n', truncated.size() - 2) + 1);
+    World guard;
+    guard.create("keep me", 1);
+    CHECK(!guard.restore(truncated));
+    CHECK(guard.aliveCount() == 1 && !guard.find("keep me").isNull());
+    CHECK(!guard.restore("LITSCENE 3\n"));
+    CHECK(!guard.restore("LITSCENE 9\n1\n0 -1 1 0 0 0 1 1\tx\n"));
+    CHECK(!guard.restore("NOTASCENE 3\n0\n"));
+    CHECK(!guard.restore(""));
+    CHECK(guard.aliveCount() == 1);
+    CHECK(guard.restore("LITSCENE 3\n0\n"));
+    CHECK(guard.aliveCount() == 0);
+    (void)before;
+    (void)b;
+}
+
 int main() {
     testHandles();
     testHierarchy();
@@ -1927,6 +2002,7 @@ int main() {
     testGizmoMath();
     testSelectionAndGroups();
     testFramingAndSceneBounds();
+    testSceneVersioningAndTruncation();
     testDescribeAndEditText();
     testAdditiveLoad();
     testEntityReferences();

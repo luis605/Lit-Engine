@@ -479,6 +479,11 @@ export class World {
         m_scriptSerializers.insert_or_assign(std::move(name), std::move(serializer));
     }
 
+    using SceneMigration = std::function<void(int fileVersion, std::string& line)>;
+    void setSceneMigration(SceneMigration migration) { m_sceneMigration = std::move(migration); }
+    void setRestoreCameraOnLoad(bool enabled) { m_restoreCameraOnLoad = enabled; }
+    static constexpr int kSceneVersion = 3;
+
     void clear();
     bool saveScene(const std::filesystem::path& path) const;
     bool saveScene(std::ostream& out) const;
@@ -555,6 +560,8 @@ export class World {
     float m_maxSmallRadius = 0.0f;
     bool m_spatialActive = false;
     JobSystem* m_jobs = nullptr;
+    SceneMigration m_sceneMigration;
+    bool m_restoreCameraOnLoad = true;
     Profiler* m_profiler = nullptr;
     EventBus m_events;
     TimeState m_time;
