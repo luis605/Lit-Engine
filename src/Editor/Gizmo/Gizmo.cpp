@@ -5,6 +5,7 @@ module;
 #include <cmath>
 #include <optional>
 #include <string>
+#include <vector>
 
 module Editor.gizmo;
 
@@ -28,10 +29,19 @@ std::string Gizmo::label() const {
     return std::string(mode) + (m_mode == GizmoMode::Scale ? " (local)" : (m_local ? " (local)" : " (world)"));
 }
 
-bool Gizmo::update(Engine& engine, History& history, EntityHandle selected, bool enabled) {
+void Gizmo::commitDrag(World& world, History& history) {
+    history.beginGroup();
+    for (const Start& start : m_starts) {
+        if (world.isAlive(start.entity)) history.commitLocalMatrix(start.entity, start.local, world.getLocalMatrix(start.entity));
+    }
+    history.endGroup();
+    m_starts.clear();
+}
+
+bool Gizmo::update(Engine& engine, History& history, EntityHandle selected, const std::vector<EntityHandle>& targets, bool enabled) {
     World& world = engine.world();
     if (!world.isAlive(selected) || !enabled) {
-        if (m_activeAxis >= 0 && world.isAlive(m_target)) history.commitLocalMatrix(m_target, m_startLocal, world.getLocalMatrix(m_target));
+        if (m_activeAxis >= 0) commitDrag(world, history);
         m_activeAxis = -1;
         m_hoverAxis = -1;
         return false;
@@ -80,9 +90,11 @@ bool Gizmo::update(Engine& engine, History& history, EntityHandle selected, bool
         }
         if (m_hoverAxis >= 0 && pressed) {
             bool started = true;
-            m_target = selected;
-            m_startLocal = world.getLocalMatrix(selected);
-            m_startWorld = world.getWorldMatrix(selected);
+            m_starts.clear();
+            for (EntityHandle t : targets) {
+                if (world.isAlive(t)) m_starts.push_back({t, world.getLocalMatrix(t), world.getWorldMatrix(t)});
+            }
+            if (m_starts.empty()) started = false;
             m_pivot = origin;
             m_axisDirection = axes[m_hoverAxis];
             m_length = length;
@@ -105,22 +117,24 @@ bool Gizmo::update(Engine& engine, History& history, EntityHandle selected, bool
             if (m_mode == GizmoMode::Translate) {
                 float delta = gizmo::closestParameterOnAxis(ray, m_pivot, m_axisDirection) - m_startParameter;
                 if (ctrl) delta = gizmo::snap(delta, 0.5f);
-                glm::mat4 matrix = m_startWorld;
-                matrix[3] = glm::vec4(m_pivot + m_axisDirection * delta, 1.0f);
-                world.setWorldMatrix(m_target, matrix);
+                for (const Start& start : m_starts) {
+                    glm::mat4 matrix = start.world;
+                    matrix[3] = glm::vec4(glm::vec3(start.world[3]) + m_axisDirection * delta, 1.0f);
+                    world.setWorldMatrix(start.entity, matrix);
+                }
             } else if (m_mode == GizmoMode::Rotate) {
                 if (const auto p = gizmo::rayPlane(ray, m_pivot, m_axisDirection)) {
                     float angle = gizmo::signedAngleAroundAxis(m_startVector, *p - m_pivot, m_axisDirection);
                     if (ctrl) angle = gizmo::snap(angle, glm::radians(15.0f));
-                    world.setWorldMatrix(m_target, gizmo::rotateAboutWorldAxis(m_startWorld, m_pivot, m_axisDirection, angle));
+                    for (const Start& start : m_starts) world.setWorldMatrix(start.entity, gizmo::rotateAboutWorldAxis(start.world, m_pivot, m_axisDirection, angle));
                 }
             } else {
                 float factor = std::max(0.01f, 1.0f + (gizmo::closestParameterOnAxis(ray, m_pivot, m_axisDirection) - m_startParameter) / m_length);
                 if (ctrl) factor = std::max(0.1f, gizmo::snap(factor, 0.1f));
-                world.setLocalMatrix(m_target, gizmo::scaleAlongLocalAxis(m_startLocal, m_activeAxis, factor, shift));
+                for (const Start& start : m_starts) world.setLocalMatrix(start.entity, gizmo::scaleAlongLocalAxis(start.local, m_activeAxis, factor, shift));
             }
         } else {
-            history.commitLocalMatrix(m_target, m_startLocal, world.getLocalMatrix(m_target));
+            commitDrag(world, history);
             m_activeAxis = -1;
         }
     }

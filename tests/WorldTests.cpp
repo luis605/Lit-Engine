@@ -22,6 +22,7 @@ import Engine.Jobs;
 import Engine.Profiler;
 import Engine.LineEditor;
 import Engine.GizmoMath;
+import Engine.Selection;
 import Engine.Render.entity;
 import Engine.Render.component;
 import Engine.glm;
@@ -1798,6 +1799,78 @@ static void testGizmoMath() {
     CHECK(std::abs(gizmo::distanceToSegment2D(glm::vec2(2.0f, 2.0f), glm::vec2(1.0f), glm::vec2(1.0f)) - std::sqrt(2.0f)) < 1.0e-5f);
 }
 
+static void testSelectionAndGroups() {
+    World w;
+    auto a = w.create("a", 1);
+    auto b = w.create("b", 1, glm::vec3(0.0f), glm::vec3(1.0f), a);
+    auto c = w.create("c", 1, glm::vec3(0.0f), glm::vec3(1.0f), b);
+    auto d = w.create("d", 1);
+
+    Selection sel;
+    CHECK(sel.empty() && sel.primary().isNull());
+    sel.set(a);
+    sel.add(d);
+    sel.add(d);
+    CHECK(sel.size() == 2 && sel.primary() == d && sel.contains(a));
+    sel.toggle(a);
+    CHECK(sel.size() == 1 && !sel.contains(a));
+    sel.toggle(a);
+    CHECK(sel.size() == 2 && sel.primary() == a);
+    sel.setAll({a, b, c, d});
+    CHECK(sel.size() == 4);
+    sel.removeDescendantsOfSelected(w);
+    CHECK(sel.size() == 2 && sel.contains(a) && sel.contains(d) && !sel.contains(b) && !sel.contains(c));
+    w.destroy(d);
+    sel.prune(w);
+    CHECK(sel.size() == 1 && sel.primary() == a);
+    sel.remove(a);
+    CHECK(sel.empty());
+    sel.set(NULL_ENTITY);
+    CHECK(sel.empty());
+
+    World g;
+    History history(g);
+    auto x = g.create("x", 1);
+    auto y = g.create("y", 1);
+    auto z = g.create("z", 1);
+    history.beginGroup();
+    history.setVisible(x, false);
+    history.setVisible(y, false);
+    history.beginGroup();
+    history.setName(z, "zz");
+    history.endGroup();
+    CHECK(history.inGroup());
+    history.endGroup();
+    CHECK(!history.inGroup());
+    CHECK(!g.isVisible(x) && !g.isVisible(y) && g.getName(z) == "zz");
+    CHECK(history.undo());
+    CHECK(g.isVisible(x) && g.isVisible(y) && g.getName(z) == "z");
+    CHECK(!history.undo());
+    CHECK(history.redo());
+    CHECK(!g.isVisible(x) && !g.isVisible(y) && g.getName(z) == "zz");
+
+    history.beginGroup();
+    history.endGroup();
+    CHECK(history.undo());
+    CHECK(g.isVisible(x));
+    CHECK(!history.canUndo());
+
+    history.beginGroup();
+    history.destroy(x);
+    history.destroy(y);
+    history.endGroup();
+    CHECK(g.aliveCount() == 1);
+    history.undo();
+    CHECK(g.aliveCount() == 3);
+    history.redo();
+    CHECK(g.aliveCount() == 1);
+    history.undo();
+    history.setName(history.resolve(z), "later");
+    CHECK(!history.canRedo());
+    history.endGroup();
+    CHECK(!history.inGroup());
+}
+
 int main() {
     testHandles();
     testHierarchy();
@@ -1825,6 +1898,7 @@ int main() {
     testProfiler();
     testLineEditor();
     testGizmoMath();
+    testSelectionAndGroups();
     testDescribeAndEditText();
     testAdditiveLoad();
     testEntityReferences();

@@ -32,6 +32,7 @@ target_sources(Engine
         Profiler/Profiler.cppm
         Text/LineEditor.cppm
         Math/GizmoMath.cppm
+        Selection/Selection.cppm
         Input/Input.cppm
         Input/InputActions.cppm
         Asset/AssetManager.cppm

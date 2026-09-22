@@ -27,6 +27,9 @@ export class History {
     EntityHandle instantiate(const Prefab& prefab, EntityHandle parent = NULL_ENTITY);
     void destroy(EntityHandle e);
 
+    void beginGroup();
+    void endGroup();
+    [[nodiscard]] bool inGroup() const { return m_groupDepth > 0; }
     bool undo();
     bool redo();
     [[nodiscard]] bool canUndo() const { return !m_undo.empty(); }
@@ -43,6 +46,7 @@ export class History {
     };
     struct SetLocal;
     struct SetVisibleCommand;
+    struct Group;
     struct SetName;
     struct SetTag;
     struct SetComponent;
@@ -57,5 +61,7 @@ export class History {
     size_t m_limit;
     std::vector<std::unique_ptr<Command>> m_undo;
     std::vector<std::unique_ptr<Command>> m_redo;
+    std::vector<std::unique_ptr<Command>> m_groupCommands;
+    int m_groupDepth = 0;
     std::unordered_map<uint64_t, EntityHandle> m_aliases;
 };

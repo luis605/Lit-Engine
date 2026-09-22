@@ -1,6 +1,7 @@
 module;
 
 #include <string>
+#include <vector>
 
 export module Editor.gizmo;
 
@@ -14,7 +15,7 @@ export enum class GizmoMode { Translate, Rotate, Scale };
 
 export class Gizmo {
   public:
-    bool update(Engine& engine, History& history, EntityHandle selected, bool enabled);
+    bool update(Engine& engine, History& history, EntityHandle primary, const std::vector<EntityHandle>& targets, bool enabled);
     [[nodiscard]] bool dragging() const { return m_activeAxis >= 0; }
     [[nodiscard]] GizmoMode mode() const { return m_mode; }
     void setMode(GizmoMode mode) { m_mode = mode; }
@@ -27,9 +28,13 @@ export class Gizmo {
     bool m_local = false;
     int m_activeAxis = -1;
     int m_hoverAxis = -1;
-    EntityHandle m_target;
-    glm::mat4 m_startLocal{1.0f};
-    glm::mat4 m_startWorld{1.0f};
+    struct Start {
+        EntityHandle entity;
+        glm::mat4 local{1.0f};
+        glm::mat4 world{1.0f};
+    };
+    std::vector<Start> m_starts;
+    void commitDrag(World& world, History& history);
     glm::vec3 m_pivot{0.0f};
     glm::vec3 m_axisDirection{1.0f, 0.0f, 0.0f};
     glm::vec3 m_startVector{1.0f, 0.0f, 0.0f};

@@ -43,6 +43,16 @@ struct History::SetVisibleCommand : History::Command {
     void revert(History& h) override { h.m_world.setVisible(h.resolve(entity), before); }
 };
 
+struct History::Group : History::Command {
+    std::vector<std::unique_ptr<Command>> commands;
+    void apply(History& h) override {
+        for (auto& c : commands) c->apply(h);
+    }
+    void revert(History& h) override {
+        for (size_t i = commands.size(); i-- > 0;) commands[i]->revert(h);
+    }
+};
+
 struct History::SetName : History::Command {
     EntityHandle entity;
     std::string before;
@@ -120,7 +130,22 @@ struct History::Remove : History::Command {
     }
 };
 
+void History::beginGroup() { ++m_groupDepth; }
+
+void History::endGroup() {
+    if (m_groupDepth == 0) return;
+    if (--m_groupDepth > 0 || m_groupCommands.empty()) return;
+    auto group = std::make_unique<Group>();
+    group->commands = std::move(m_groupCommands);
+    m_groupCommands.clear();
+    push(std::move(group));
+}
+
 void History::push(std::unique_ptr<Command> command) {
+    if (m_groupDepth > 0) {
+        m_groupCommands.push_back(std::move(command));
+        return;
+    }
     m_redo.clear();
     m_undo.push_back(std::move(command));
     if (m_undo.size() > m_limit) m_undo.erase(m_undo.begin());
@@ -260,6 +285,8 @@ bool History::redo() {
 }
 
 void History::clear() {
+    m_groupCommands.clear();
+    m_groupDepth = 0;
     m_undo.clear();
     m_redo.clear();
     m_aliases.clear();
