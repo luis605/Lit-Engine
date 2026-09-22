@@ -44,7 +44,6 @@ export class Renderer {
     void setForcedLod(int lod);
     int getForcedLod() const;
     void setSmallObjectThreshold(float threshold);
-    void setLargeObjectThreshold(float threshold);
     void setDebugDepthMode(bool enabled);
     bool isDebugDepthMode() const;
     void setFullProfiling(bool enabled);
@@ -61,15 +60,20 @@ export class Renderer {
     void createDispatchArgsPSO();
     void createApplyDirtyPSO();
     void createMarkTouchedPSO();
-    void createLargeObjectCullPSO();
     void createTransparentCullPSO();
     void createTransparentCommandGenPSO();
-    void createDepthPrepassPSO();
     void createOpaquePSOs();
     void createTransparentPSO();
     void createDebugDepthPSO();
     void createDebugLinePSO();
-    void releasePipelines();
+    void createPipelines();
+    [[nodiscard]] bool pipelinesReady() const;
+    void cullVisibilityPhase(int phase, uint32_t objectCount, int hizFrame);
+    void buildVisibilityDraws(int phase);
+    void drawVisibilityPhase(int phase);
+    void bindSceneTargets(bool clear);
+    void buildHiZ();
+    void drawProfilingHud();
     void reallocateBuffers(size_t numObjects);
     uint32_t uploadMeshSlot(const Mesh& mesh);
 
@@ -111,17 +115,6 @@ export class Renderer {
 
     unsigned int m_currentFrame = 0;
 
-    size_t m_objectBufferSize = 0;
-    size_t m_hierarchyBufferSize = 0;
-    size_t m_renderableBufferSize = 0;
-    size_t m_sortedHierarchyBufferSize = 0;
-    size_t m_drawCommandBufferSize = 0;
-    size_t m_visibleObjectBufferSize = 0;
-    size_t m_visibleTransparentObjectIdsBufferSize = 0;
-    size_t m_transparentDrawCommandBufferSize = 0;
-    size_t m_depthPrepassDrawCommandBufferSize = 0;
-    size_t m_visibleLargeObjectBufferSize = 0;
-    size_t m_sceneUBOSize = 0;
     size_t m_maxObjects = 0;
 
     uint64_t m_processedHierarchyVersion = 0;
@@ -139,13 +132,10 @@ export class Renderer {
     float m_lodBias = 1.0f;
     int m_forcedLod = -1;
     float m_smallObjectThreshold = 0.0f;
-    float m_largeObjectThreshold = 0.1f;
     GLFWwindow* m_window = nullptr;
     int m_windowWidth = 0;
     int m_windowHeight = 0;
 
-    bool m_renderPrePass = true;
-    float m_prePassToggleTimer = 0.0f;
     float m_lastFrameTime = 0.0f;
 
     bool m_debugDepthMode = false;

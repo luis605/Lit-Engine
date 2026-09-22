@@ -121,7 +121,7 @@ void UIManager::resize(int windowWidth, int windowHeight) {
     m_windowHeight = windowHeight;
 }
 
-void UIManager::init(Diligent::IRenderDevice* pDevice, Diligent::IDeviceContext* pContext, Diligent::ISwapChain* pSwapChain, const int windowWidth, const int windowHeight) {
+void UIManager::init(Diligent::IRenderDevice* pDevice, Diligent::IDeviceContext* pContext, Diligent::ISwapChain* pSwapChain, Diligent::TEXTURE_FORMAT depthFormat, const int windowWidth, const int windowHeight) {
     auto* d = static_cast<DiligentUIData*>(m_diligent);
     d->pDevice = pDevice;
     d->pContext = pContext;
@@ -248,7 +248,7 @@ void UIManager::init(Diligent::IRenderDevice* pDevice, Diligent::IDeviceContext*
     PSOCreateInfo.PSODesc.PipelineType = Diligent::PIPELINE_TYPE_GRAPHICS;
     PSOCreateInfo.GraphicsPipeline.NumRenderTargets = 1;
     PSOCreateInfo.GraphicsPipeline.RTVFormats[0] = d->pSwapChain->GetDesc().ColorBufferFormat;
-    PSOCreateInfo.GraphicsPipeline.DSVFormat = d->pSwapChain->GetDesc().DepthBufferFormat;
+    PSOCreateInfo.GraphicsPipeline.DSVFormat = depthFormat;
     PSOCreateInfo.GraphicsPipeline.PrimitiveTopology = Diligent::PRIMITIVE_TOPOLOGY_TRIANGLE_LIST;
     PSOCreateInfo.GraphicsPipeline.RasterizerDesc.CullMode = Diligent::CULL_MODE_NONE;
     PSOCreateInfo.GraphicsPipeline.DepthStencilDesc.DepthEnable = false;

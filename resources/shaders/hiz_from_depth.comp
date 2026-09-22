@@ -1,0 +1,12 @@
+#version 450
+
+layout(local_size_x = 8, local_size_y = 8, local_size_z = 1) in;
+
+uniform sampler2D u_depth;
+layout(r32f) writeonly uniform image2D u_destMip;
+
+void main() {
+    ivec2 coord = ivec2(gl_GlobalInvocationID.xy);
+    if (any(greaterThanEqual(coord, imageSize(u_destMip)))) return;
+    imageStore(u_destMip, coord, vec4(texelFetch(u_depth, coord, 0).r, 0.0, 0.0, 0.0));
+}

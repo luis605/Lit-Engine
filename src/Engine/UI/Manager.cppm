@@ -8,6 +8,7 @@ namespace Diligent {
 struct IRenderDevice;
 struct IDeviceContext;
 struct ISwapChain;
+enum TEXTURE_FORMAT : std::uint16_t;
 }  // namespace Diligent
 
 export module Engine.UI.manager;
@@ -19,7 +20,7 @@ export class UIManager {
     UIManager();
     ~UIManager();
 
-    void init(Diligent::IRenderDevice* pDevice, Diligent::IDeviceContext* pContext, Diligent::ISwapChain* pSwapChain, const int windowWidth, const int windowHeight);
+    void init(Diligent::IRenderDevice* pDevice, Diligent::IDeviceContext* pContext, Diligent::ISwapChain* pSwapChain, Diligent::TEXTURE_FORMAT depthFormat, const int windowWidth, const int windowHeight);
     void cleanup();
     void resize(int windowWidth, int windowHeight);
 

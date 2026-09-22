@@ -94,7 +94,6 @@ Application::Application() : m_world(m_engine.world()) {
     m_engine.uploadBasePositions(m_basePositions);
 
     m_smallObjectThreshold = 0.0f;
-    m_largeObjectThreshold = 0.0055f;
 
     m_world.camera().setFarPlane(2000.0f);
     m_world.camera().setPos(glm::vec3(0.0f, 1000.0f, 0.0f));
@@ -145,7 +144,6 @@ void  Application::update() {
    m_engine.setAnimation(currentFrame, m_movingObjectCount, 1);
 
    m_engine.setSmallObjectThreshold(m_smallObjectThreshold);
-   m_engine.setLargeObjectThreshold(m_largeObjectThreshold);
 
    if (InputManager::IsKeyPressed(GLFW_KEY_F5)) setPlaying(!m_playing);
    if (InputManager::IsKeyPressed(GLFW_KEY_F9)) m_engine.reloadShaders();
@@ -167,7 +165,6 @@ void  Application::update() {
    if (m_textUpdateTimer >= 0.5f) {
        m_frameTimeText = "Frame time: " + std::to_string(deltaTime * 1000.0f) + " ms (" + std::to_string(1.0f / deltaTime) + " FPS)";
        m_smallObjectThresholdText = "smallObjectThreshold: " + std::to_string(m_smallObjectThreshold);
-       m_largeObjectThresholdText = "largeObjectThreshold: " + std::to_string(m_largeObjectThreshold);
        Lit::Log::Info("{}", m_frameTimeText);
 
        m_textUpdateTimer = 0.0f;
@@ -177,7 +174,6 @@ void  Application::update() {
    m_engine.AddText(m_cameraText, 10.0f, 90.0f, 0.5f, glm::vec3(1.0f, 1.0f, 1.0f));
    m_engine.AddText(m_frameTimeText, 10.0f, 30.0f, 0.5f, glm::vec3(1.0f, 1.0f, 1.0f));
    m_engine.AddText(m_smallObjectThresholdText, 10.0f, 50.0f, 0.5f, glm::vec3(1.0f, 1.0f, 1.0f));
-   m_engine.AddText(m_largeObjectThresholdText, 10.0f, 70.0f, 0.5f, glm::vec3(1.0f, 1.0f, 1.0f));
 
    InputManager::Update();
    m_engine.present();
@@ -246,16 +242,6 @@ void Application::processInput(float deltaTime) {
     if (InputManager::IsKeyPressed(GLFW_KEY_2)) {
         m_smallObjectThreshold += 0.0002f;
         Lit::Log::Info("smallObjectThreshold: {:.5f}", m_smallObjectThreshold);
-    }
-
-    if (InputManager::IsKeyPressed(GLFW_KEY_3)) {
-        m_largeObjectThreshold -= 0.001f;
-        if (m_largeObjectThreshold < 0.0f) { m_largeObjectThreshold = 0.0f; }
-        Lit::Log::Info("largeObjectThreshold: {:.5f}", m_largeObjectThreshold);
-    }
-    if (InputManager::IsKeyPressed(GLFW_KEY_4)) {
-        m_largeObjectThreshold += 0.001f;
-        Lit::Log::Info("largeObjectThreshold: {:.5f}", m_largeObjectThreshold);
     }
 
     if (InputManager::IsKeyPressed(GLFW_KEY_7) || InputManager::IsKeyPressed(GLFW_KEY_8)) {

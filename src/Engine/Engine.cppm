@@ -78,7 +78,6 @@ export class Engine {
     void setForcedLod(int lod);
     int getForcedLod() const;
     void setSmallObjectThreshold(float threshold);
-    void setLargeObjectThreshold(float threshold);
     void setDebugDepthMode(bool enabled);
     bool isDebugDepthMode() const;
     void setFullProfiling(bool enabled);

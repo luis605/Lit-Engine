@@ -47,7 +47,6 @@ export class Application {
     EntityHandle m_parentEntity;
     std::string m_frameTimeText;
     std::string m_smallObjectThresholdText;
-    std::string m_largeObjectThresholdText;
     std::string m_cameraText;
 
     std::vector<glm::vec3> m_basePositions;
@@ -64,6 +63,5 @@ export class Application {
     float m_nearPlane = 0.1f;
     float m_farPlane = 1000.0f;
     float m_smallObjectThreshold = 0.0f;
-    float m_largeObjectThreshold = 0.05f;
     float m_lodBias = 1.0f;
 };

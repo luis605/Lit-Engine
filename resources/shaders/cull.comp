@@ -33,51 +33,63 @@ layout(std430) buffer BucketCountBuffer {
     uint bucketCounts[];
 };
 
+#ifdef RETEST
+layout(std430) readonly buffer RetestCounterBuffer {
+    uint u_retestCount;
+};
+
+layout(std430) readonly buffer RetestBuffer {
+    uint u_retestIds[];
+};
+#else
+layout(std430) buffer RetestCounterBuffer {
+    uint u_retestCount;
+};
+
+layout(std430) writeonly buffer RetestBuffer {
+    uint u_retestIds[];
+};
+#endif
+
+const uint CULLED = 0u;
+const uint OCCLUDED = 1u;
+const uint VISIBLE = 2u;
+
 uint selectLod(float radius, float dist) {
     if (u_forcedLod >= 0) return min(uint(u_forcedLod), POINT_LOD);
     if (dist <= radius) return 0u;
     return lodForDiameter(u_lodBias * projectedDiameterPx(radius, dist));
 }
 
-bool cullObject(uint id, out uvec2 entry) {
+uint cullObject(uint id, out uvec2 entry) {
     entry = uvec2(0u);
 
     vec4 boundingSphere = cullSpheres[id];
-    if (boundingSphere.w < 0.0) return false;
+    if (boundingSphere.w < 0.0) return CULLED;
     vec3 worldCenter = boundingSphere.xyz;
     float radius = boundingSphere.w;
 
     for (int i = 0; i < 6; ++i) {
-        if (dot(frustumPlanes[i].xyz, worldCenter) + frustumPlanes[i].w < -radius) return false;
+        if (dot(frustumPlanes[i].xyz, worldCenter) + frustumPlanes[i].w < -radius) return CULLED;
     }
 
-    vec4 viewPosCenter = view * vec4(worldCenter, 1.0);
-    float dist = -viewPosCenter.z;
-    if (dist <= 0.0) dist = 0.001;
-    float pRadius = radius / dist;
-    if (pRadius < u_smallObjectThreshold) return false;
+    float dist = max(-(view * vec4(worldCenter, 1.0)).z, 0.001);
+    if (radius / dist < u_smallObjectThreshold) return CULLED;
 
-    if (sphereOccluded(worldCenter, radius)) return false;
+    if (sphereOccluded(worldCenter, radius)) return OCCLUDED;
 
     uint chosenLod = selectLod(radius, dist);
-
     uint renderable = renderables[id];
     uint bucketIndex = renderableShader(renderable) * MAX_MESHES + renderableMesh(renderable) + chosenLod;
-
     entry = uvec2(id | (chosenLod << 29u), bucketIndex | (renderableMaterial(renderable) << 16u));
-    return true;
+    return VISIBLE;
 }
 
-void main() {
-    uint id = gl_GlobalInvocationID.x;
-    uvec2 entry = uvec2(0u);
-    bool visible = id < u_objectCount && cullObject(id, entry);
-
+void appendVisible(bool visible, uvec2 entry) {
     uvec4 visibleBallot = subgroupBallot(visible);
     uint slotBase = 0u;
     if (subgroupElect()) slotBase = atomicAdd(u_atomicCounter, subgroupBallotBitCount(visibleBallot));
-    slotBase = subgroupBroadcastFirst(slotBase);
-    uint slot = slotBase + subgroupBallotExclusiveBitCount(visibleBallot);
+    uint slot = subgroupBroadcastFirst(slotBase) + subgroupBallotExclusiveBitCount(visibleBallot);
     if (visible && slot < u_maxDraws) u_visibleObjects[slot] = entry;
 
     uint bucket = entry.y & 0xFFFFu;
@@ -90,4 +102,31 @@ void main() {
             if (bucket == key) pending = false;
         }
     }
+}
+
+#ifndef RETEST
+void appendRetest(bool occluded, uint id) {
+    uvec4 occludedBallot = subgroupBallot(occluded);
+    uint slotBase = 0u;
+    if (subgroupElect()) slotBase = atomicAdd(u_retestCount, subgroupBallotBitCount(occludedBallot));
+    uint slot = subgroupBroadcastFirst(slotBase) + subgroupBallotExclusiveBitCount(occludedBallot);
+    if (occluded && slot < u_maxDraws) u_retestIds[slot] = id;
+}
+#endif
+
+void main() {
+#ifdef RETEST
+    uint index = gl_GlobalInvocationID.x;
+    bool inRange = index < min(u_retestCount, u_maxDraws);
+    uint id = inRange ? u_retestIds[index] : 0u;
+#else
+    uint id = gl_GlobalInvocationID.x;
+    bool inRange = id < u_objectCount;
+#endif
+    uvec2 entry;
+    uint result = inRange ? cullObject(id, entry) : CULLED;
+    appendVisible(result == VISIBLE, entry);
+#ifndef RETEST
+    appendRetest(result == OCCLUDED, id);
+#endif
 }
