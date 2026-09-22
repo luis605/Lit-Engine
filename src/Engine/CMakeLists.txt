@@ -30,6 +30,7 @@ target_sources(Engine
         Animation/Animation.cppm
         Jobs/Jobs.cppm
         Profiler/Profiler.cppm
+        Text/LineEditor.cppm
         Input/Input.cppm
         Input/InputActions.cppm
         Asset/AssetManager.cppm
@@ -51,6 +52,7 @@ target_sources(Engine
         Animation/Animation.cpp
         Jobs/Jobs.cpp
         Profiler/Profiler.cpp
+        Text/LineEditor.cpp
 )
 
 target_compile_features(Engine PUBLIC cxx_std_23)

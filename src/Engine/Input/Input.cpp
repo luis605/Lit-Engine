@@ -2,6 +2,8 @@ module;
 
 #include <GLFW/glfw3.h>
 #include <array>
+#include <string>
+#include <vector>
 
 import Engine.glm;
 
@@ -9,12 +11,15 @@ module Engine.input;
 
 std::array<InputManager::KeyState, GLFW_KEY_LAST + 1> InputManager::m_keyStates;
 std::array<InputManager::KeyState, GLFW_MOUSE_BUTTON_LAST + 1> InputManager::m_mouseButtonStates;
+std::string InputManager::m_typed;
+std::vector<int> InputManager::m_keyEvents;
 glm::vec2 InputManager::m_currentMousePos(0.0f, 0.0f);
 glm::vec2 InputManager::m_previousMousePos(0.0f, 0.0f);
 bool InputManager::m_firstMouseMove = true;
 
 void InputManager::Init(GLFWwindow* window) {
     glfwSetKeyCallback(window, KeyCallback);
+    glfwSetCharCallback(window, CharCallback);
     glfwSetMouseButtonCallback(window, MouseButtonCallback);
     glfwSetCursorPosCallback(window, [](GLFWwindow* w, double x, double y) {
         CursorPosCallback(w, glm::vec2(static_cast<float>(x), static_cast<float>(y)));
@@ -43,6 +48,8 @@ void InputManager::Update() {
     }
 
     m_previousMousePos = m_currentMousePos;
+    m_typed.clear();
+    m_keyEvents.clear();
 }
 
 bool InputManager::IsKeyPressed(int key) {
@@ -71,6 +78,27 @@ bool InputManager::IsMouseButtonHeld(int button) {
     return m_mouseButtonStates[button] == KeyState::Held;
 }
 
+const std::string& InputManager::TypedText() { return m_typed; }
+const std::vector<int>& InputManager::KeyEvents() { return m_keyEvents; }
+
+void InputManager::CharCallback(GLFWwindow*, unsigned int codepoint) {
+    if (codepoint < 0x80) {
+        m_typed.push_back(static_cast<char>(codepoint));
+    } else if (codepoint < 0x800) {
+        m_typed.push_back(static_cast<char>(0xC0 | (codepoint >> 6)));
+        m_typed.push_back(static_cast<char>(0x80 | (codepoint & 0x3F)));
+    } else if (codepoint < 0x10000) {
+        m_typed.push_back(static_cast<char>(0xE0 | (codepoint >> 12)));
+        m_typed.push_back(static_cast<char>(0x80 | ((codepoint >> 6) & 0x3F)));
+        m_typed.push_back(static_cast<char>(0x80 | (codepoint & 0x3F)));
+    } else {
+        m_typed.push_back(static_cast<char>(0xF0 | (codepoint >> 18)));
+        m_typed.push_back(static_cast<char>(0x80 | ((codepoint >> 12) & 0x3F)));
+        m_typed.push_back(static_cast<char>(0x80 | ((codepoint >> 6) & 0x3F)));
+        m_typed.push_back(static_cast<char>(0x80 | (codepoint & 0x3F)));
+    }
+}
+
 glm::vec2 InputManager::GetMousePosition() { return m_currentMousePos; }
 glm::vec2 InputManager::GetMouseDelta() { return m_currentMousePos - m_previousMousePos; }
 
@@ -78,6 +106,9 @@ void InputManager::KeyCallback(GLFWwindow* window, int key, int scancode, int ac
     if (key < 0 || key > GLFW_KEY_LAST) return;
     if (action == GLFW_PRESS) {
         m_keyStates[key] = KeyState::Pressed;
+        m_keyEvents.push_back(key);
+    } else if (action == GLFW_REPEAT) {
+        m_keyEvents.push_back(key);
     } else if (action == GLFW_RELEASE) {
         m_keyStates[key] = KeyState::Released;
     }

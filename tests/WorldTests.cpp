@@ -20,6 +20,7 @@ import Engine.History;
 import Engine.Animation;
 import Engine.Jobs;
 import Engine.Profiler;
+import Engine.LineEditor;
 import Engine.Render.entity;
 import Engine.Render.component;
 import Engine.glm;
@@ -1605,6 +1606,77 @@ static void testProfiler() {
     CHECK(sawTick && sawPhysics);
 }
 
+static void testLineEditor() {
+    LineEditor ed;
+    CHECK(!ed.active());
+    CHECK(ed.insert("x") == EditResult::None);
+    CHECK(ed.press(EditKey::Backspace) == EditResult::None);
+
+    ed.begin("hello");
+    CHECK(ed.active() && ed.cursor() == 5);
+    CHECK(ed.insert(" world") == EditResult::Changed);
+    CHECK(ed.text() == "hello world");
+    ed.press(EditKey::Home);
+    CHECK(ed.cursor() == 0);
+    CHECK(ed.press(EditKey::Backspace) == EditResult::None);
+    ed.insert(">> ");
+    CHECK(ed.text() == ">> hello world" && ed.cursor() == 3);
+    ed.press(EditKey::WordRight);
+    CHECK(ed.cursor() == 8);
+    ed.press(EditKey::WordRight);
+    CHECK(ed.cursor() == 14);
+    ed.press(EditKey::WordLeft);
+    CHECK(ed.cursor() == 9);
+    CHECK(ed.press(EditKey::Delete) == EditResult::Changed);
+    CHECK(ed.text() == ">> hello orld");
+    ed.press(EditKey::End);
+    CHECK(ed.press(EditKey::Delete) == EditResult::None);
+    CHECK(ed.press(EditKey::Backspace) == EditResult::Changed && ed.text() == ">> hello orl");
+    CHECK(ed.display() == ">> hello orl|");
+    ed.press(EditKey::Left);
+    ed.press(EditKey::Left);
+    CHECK(ed.display() == ">> hello o|rl");
+    ed.insert("\x01\t");
+    CHECK(ed.text() == ">> hello orl");
+    CHECK(ed.press(EditKey::Clear) == EditResult::Changed && ed.text().empty());
+    CHECK(ed.press(EditKey::Clear) == EditResult::None);
+    ed.insert("done");
+    CHECK(ed.press(EditKey::Enter) == EditResult::Committed);
+    CHECK(!ed.active() && ed.text() == "done");
+    CHECK(ed.insert("more") == EditResult::None);
+
+    ed.begin("keep");
+    ed.insert("!!");
+    CHECK(ed.press(EditKey::Escape) == EditResult::Cancelled);
+    CHECK(!ed.active() && ed.text() == "keep");
+
+    ed.begin("");
+    ed.insert("h\xC3\xA9llo");
+    CHECK(ed.text() == "h\xC3\xA9llo");
+    ed.press(EditKey::Home);
+    ed.press(EditKey::Right);
+    ed.press(EditKey::Right);
+    CHECK(ed.cursor() == 3);
+    ed.press(EditKey::Backspace);
+    CHECK(ed.text() == "hllo" && ed.cursor() == 1);
+    ed.press(EditKey::End);
+    ed.press(EditKey::Left);
+    ed.press(EditKey::Left);
+    ed.press(EditKey::Left);
+    ed.insert("\xE2\x82\xAC");
+    ed.press(EditKey::Delete);
+    CHECK(ed.text() == "h\xE2\x82\xAClo");
+    ed.press(EditKey::Left);
+    CHECK(ed.cursor() == 1);
+
+    ed.begin("ab", 4);
+    CHECK(ed.insert("cd") == EditResult::Changed);
+    CHECK(ed.insert("e") == EditResult::None);
+    CHECK(ed.text() == "abcd");
+    ed.begin("toolongvalue", 4);
+    CHECK(ed.text() == "tool");
+}
+
 int main() {
     testHandles();
     testHierarchy();
@@ -1630,6 +1702,7 @@ int main() {
     testPhysicsShapesAndSleep();
     testJobsAndParallelSpatial();
     testProfiler();
+    testLineEditor();
     testAdditiveLoad();
     testEntityReferences();
     testHistory();

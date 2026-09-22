@@ -2,6 +2,8 @@ module;
 
 #include <GLFW/glfw3.h>
 #include <array>
+#include <string>
+#include <vector>
 
 import Engine.glm;
 
@@ -22,6 +24,9 @@ export class InputManager {
     static bool IsMouseButtonReleased(int button);
     static bool IsMouseButtonHeld(int button);
 
+    static const std::string& TypedText();
+    static const std::vector<int>& KeyEvents();
+
     static glm::vec2 GetMousePosition();
     static glm::vec2 GetMouseDelta();
 
@@ -30,10 +35,14 @@ export class InputManager {
 
     static void KeyCallback(GLFWwindow* window, int key, int scancode, int action, int mods);
     static void MouseButtonCallback(GLFWwindow* window, int button, int action, int mods);
+    static void CharCallback(GLFWwindow* window, unsigned int codepoint);
     static void CursorPosCallback(GLFWwindow* window, glm::vec2 pos);
 
     static std::array<KeyState, GLFW_KEY_LAST + 1> m_keyStates;
     static std::array<KeyState, GLFW_MOUSE_BUTTON_LAST + 1> m_mouseButtonStates;
+
+    static std::string m_typed;
+    static std::vector<int> m_keyEvents;
 
     static glm::vec2 m_currentMousePos;
     static glm::vec2 m_previousMousePos;
