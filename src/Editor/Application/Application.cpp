@@ -28,28 +28,8 @@ import Engine.glm;
 import Engine.asset;
 
 Application::Application() : m_world(m_engine.world()) {
-    Lit::Log::Init();
-    if (!glfwInit()) {
-        Lit::Log::Fatal("Failed to initialize GLFW");
-        return;
-    }
-
-    const int windowWidth = 1280;
-    const int windowHeight = 720;
-
-    glfwWindowHint(GLFW_CLIENT_API, GLFW_NO_API);
-
-    m_window = glfwCreateWindow(windowWidth, windowHeight, "Lit Engine", nullptr, nullptr);
-    if (!m_window) {
-        Lit::Log::Fatal("Failed to create GLFW window");
-        glfwTerminate();
-        return;
-    }
-
-    glfwSetInputMode(m_window, GLFW_CURSOR, GLFW_CURSOR_NORMAL);
-
-    InputManager::Init(m_window);
-    m_engine.init(m_window, windowWidth, windowHeight);
+    if (!m_engine.open({"Lit Engine"})) return;
+    m_window = m_engine.window();
 
     std::filesystem::create_directories("resources/models");
     std::filesystem::create_directories("resources/assets");
@@ -126,8 +106,6 @@ Application::~Application() {
     std::error_code removeError;
     std::filesystem::remove("resources/autosave.litscene", removeError);
     m_engine.cleanup();
-    glfwDestroyWindow(m_window);
-    glfwTerminate();
     Lit::Log::Info("Application destroyed");
 }
 
@@ -367,4 +345,4 @@ void Application::handleSceneFiles(float deltaTime) {
     }
 }
 
-bool Application::isRunning() const { return !glfwWindowShouldClose(m_window); }
+bool Application::isRunning() const { return m_window && !glfwWindowShouldClose(m_window); }
