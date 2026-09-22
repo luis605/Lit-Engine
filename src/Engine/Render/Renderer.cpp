@@ -3612,11 +3612,11 @@ void Renderer::uploadBasePositions(const std::vector<glm::vec3>& basePositions) 
     for (int i = 0; i < NUM_FRAMES_IN_FLIGHT; ++i) {
         if (m_diligent->pTransformSRB[i] && m_diligent->pBasePositionBuffer) {
             auto* var = m_diligent->pTransformSRB[i]->GetVariableByName(Diligent::SHADER_TYPE_COMPUTE, "BasePositionBuffer");
-            if (var) var->Set(m_diligent->pBasePositionBuffer->GetDefaultView(Diligent::BUFFER_VIEW_SHADER_RESOURCE));
+            if (var) var->Set(m_diligent->pBasePositionBuffer->GetDefaultView(Diligent::BUFFER_VIEW_SHADER_RESOURCE), Diligent::SET_SHADER_RESOURCE_FLAG_ALLOW_OVERWRITE);
         }
         if (m_diligent->pAnimSRB[i] && m_diligent->pBasePositionBuffer) {
             auto* var = m_diligent->pAnimSRB[i]->GetVariableByName(Diligent::SHADER_TYPE_COMPUTE, "BasePositionBuffer");
-            if (var) var->Set(m_diligent->pBasePositionBuffer->GetDefaultView(Diligent::BUFFER_VIEW_SHADER_RESOURCE));
+            if (var) var->Set(m_diligent->pBasePositionBuffer->GetDefaultView(Diligent::BUFFER_VIEW_SHADER_RESOURCE), Diligent::SET_SHADER_RESOURCE_FLAG_ALLOW_OVERWRITE);
         }
     }
 }
