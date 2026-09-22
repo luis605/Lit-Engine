@@ -39,8 +39,6 @@ using ::glm::cos;
 using ::glm::cross;
 using ::glm::length;
 using ::glm::dot;
-using ::glm::cos;
-using ::glm::sin;
 using ::glm::clamp;
 using ::glm::angleAxis;
 using ::glm::mat4_cast;
