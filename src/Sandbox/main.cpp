@@ -124,6 +124,7 @@ int main() {
     engine.input().bindKey("toggle_mouse", GLFW_KEY_T);
     engine.input().bindKey("sprint", GLFW_KEY_LEFT_SHIFT);
 
+    engine.setShaderWatch(true);
     World& world = engine.world();
     Camera& camera = world.camera();
     camera.setFarPlane(500.0f);

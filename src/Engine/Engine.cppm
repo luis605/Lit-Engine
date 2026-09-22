@@ -1,5 +1,6 @@
 module;
 
+#include <chrono>
 #include <functional>
 #include <optional>
 #include <string>
@@ -34,6 +35,8 @@ export class Engine {
     void init(GLFWwindow* window, const int windowWidth, const int windowHeight);
     void update(SceneDatabase& sceneDatabase, Camera& camera);
     void tick(float deltaTime);
+    void reloadShaders();
+    void setShaderWatch(bool enabled) { m_shaderWatch = enabled; }
     [[nodiscard]] const TimeState& time() const { return m_world.time(); }
     [[nodiscard]] PhysicsSettings& physics() { return m_physics; }
     [[nodiscard]] AnimationLibrary& animations() { return m_animations; }
@@ -100,6 +103,10 @@ export class Engine {
     uint32_t m_animationOffset = 0;
     uint32_t m_animationCount = 0;
     uint32_t m_materialCount = 1;
+    bool m_shaderWatch = false;
+    std::chrono::steady_clock::time_point m_lastShaderPoll{};
+    std::unordered_map<std::string, long long> m_shaderStamps;
+    bool shadersChanged();
     PhysicsSettings m_physics;
     AnimationLibrary m_animations;
     std::vector<System> m_systems;

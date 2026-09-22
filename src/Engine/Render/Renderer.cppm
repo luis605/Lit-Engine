@@ -30,6 +30,7 @@ export class Renderer {
     uint32_t uploadMesh(const Mesh& mesh);
     glm::vec4 getMeshBounds(uint32_t meshId) const;
     void setLights(bool enabled, const std::array<glm::vec4, 2>& directional, const std::vector<glm::vec4>& packed);
+    void reloadShaders();
     void setMaterial(uint32_t index, const glm::vec4& colorAndStrength);
     void addDebugLine(const glm::vec3& from, const glm::vec3& to, const glm::vec4& color);
     void uploadBasePositions(const std::vector<glm::vec3>& basePositions);
@@ -64,6 +65,7 @@ export class Renderer {
     void createTransparentPSO();
     void createDebugDepthPSO();
     void createDebugLinePSO();
+    void releasePipelines();
     void reallocateBuffers(size_t numObjects);
     uint32_t uploadMeshSlot(const Mesh& mesh);
 

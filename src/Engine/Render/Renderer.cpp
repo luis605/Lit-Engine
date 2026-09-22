@@ -3370,6 +3370,97 @@ void Renderer::setLights(bool enabled, const std::array<glm::vec4, 2>& direction
     m_lightData = packed;
 }
 
+void Renderer::releasePipelines() {
+    m_diligent->pTransformPSO.Release();
+    m_diligent->pAnimPSO.Release();
+    m_diligent->pHiZMipmapSRB.Release();
+    m_diligent->pHiZMipmapPSO.Release();
+    m_diligent->pCullingPSO.Release();
+    m_diligent->pCommandGenPSO.Release();
+    m_diligent->pPrefixSumPSO.Release();
+    m_diligent->pScatterPSO.Release();
+    m_diligent->pApplyDirtyPSO.Release();
+    m_diligent->pMarkTouchedPSO.Release();
+    m_diligent->pLargeObjectCullPSO.Release();
+    m_diligent->pTransparentCullPSO.Release();
+    m_diligent->pTransparentCommandGenPSO.Release();
+    m_diligent->pLargeObjectCommandGenPSO.Release();
+    m_diligent->pDepthPrepassPSO.Release();
+    m_diligent->pTransparentPSO.Release();
+    m_diligent->pDebugDepthPSO.Release();
+    m_diligent->pDebugLinePSO.Release();
+    m_diligent->pDebugLineSRB.Release();
+    m_diligent->pDebugDepthSRB.Release();
+    m_diligent->pDispatchArgsPSO.Release();
+    for (int f = 0; f < DiligentData::NumFrames; ++f) m_diligent->pTransformSRB[f].Release();
+    for (int f = 0; f < DiligentData::NumFrames; ++f) m_diligent->pAnimSRB[f].Release();
+    for (int f = 0; f < DiligentData::NumFrames; ++f) m_diligent->pCullingSRB[f].Release();
+    for (int f = 0; f < DiligentData::NumFrames; ++f) m_diligent->pCommandGenSRB[f].Release();
+    for (int f = 0; f < DiligentData::NumFrames; ++f) m_diligent->pPrefixSumSRB[f].Release();
+    for (int f = 0; f < DiligentData::NumFrames; ++f) m_diligent->pScatterSRB[f].Release();
+    for (int f = 0; f < DiligentData::NumFrames; ++f) m_diligent->pApplyDirtySRB[f].Release();
+    for (int f = 0; f < DiligentData::NumFrames; ++f) m_diligent->pMarkTouchedSRB[f].Release();
+    for (int f = 0; f < DiligentData::NumFrames; ++f) m_diligent->pLargeObjectCullSRB[f].Release();
+    for (int f = 0; f < DiligentData::NumFrames; ++f) m_diligent->pTransparentCullSRB[f].Release();
+    for (int f = 0; f < DiligentData::NumFrames; ++f) m_diligent->pTransparentCommandGenSRB[f].Release();
+    for (int f = 0; f < DiligentData::NumFrames; ++f) m_diligent->pLargeObjectCommandGenSRB[f].Release();
+    for (int f = 0; f < DiligentData::NumFrames; ++f) m_diligent->pDepthPrepassSRB[f].Release();
+    for (int f = 0; f < DiligentData::NumFrames; ++f) m_diligent->pTransparentSRB[f].Release();
+    for (int f = 0; f < DiligentData::NumFrames; ++f) m_diligent->pTransparentDispatchArgsSRB[f].Release();
+    for (int f = 0; f < DiligentData::NumFrames; ++f) m_diligent->pLargeObjectDispatchArgsSRB[f].Release();
+    for (int f = 0; f < DiligentData::NumFrames; ++f) m_diligent->pScatterDispatchArgsSRB[f].Release();
+    for (int f = 0; f < DiligentData::NumFrames; ++f) m_diligent->pLargePrefixSumSRB[f].Release();
+    for (int f = 0; f < DiligentData::NumFrames; ++f) m_diligent->pLargeScatterSRB[f].Release();
+    for (int f = 0; f < DiligentData::NumFrames; ++f) m_diligent->pLargeCommandGenSRB[f].Release();
+    m_diligent->pOpaquePSOs.clear();
+    m_diligent->pPointPSOs.clear();
+    m_diligent->pOpaqueSRBs.clear();
+    m_diligent->pPointSRBs.clear();
+    m_diligent->pTransformUniforms.Release();
+    m_diligent->pCullingUniforms.Release();
+    m_diligent->pCommandGenConstants.Release();
+    m_diligent->pPrefixSumConstants.Release();
+    m_diligent->pScatterConstants.Release();
+    m_diligent->pLargeScatterConstants.Release();
+    m_diligent->pDispatchArgsConstants.Release();
+    m_diligent->pScatterDispatchArgsConstants.Release();
+    m_diligent->pApplyDirtyConstants.Release();
+    m_diligent->pMarkTouchedConstants.Release();
+    m_diligent->pLargeObjectCullConstants.Release();
+    m_diligent->pDebugDepthUniforms.Release();
+    m_diligent->pDebugLineUBO.Release();
+    m_diligent->pDebugLineVB.Release();
+    m_diligent->pAnimConstants.Release();
+}
+
+void Renderer::reloadShaders() {
+    if (!m_initialized || !m_diligent) return;
+    m_diligent->pImmediateContext->WaitForIdle();
+    releasePipelines();
+    createDepthPrepassPSO();
+    createOpaquePSOs();
+    createTransparentPSO();
+    createTransformPSO();
+    createAnimPSO();
+    createHiZPSO();
+    createCullingPSO();
+    createCommandGenPSO();
+    createPrefixSumPSO();
+    createScatterPSO();
+    createDispatchArgsPSO();
+    createApplyDirtyPSO();
+    createMarkTouchedPSO();
+    createLargeObjectCullPSO();
+    createLargeObjectCommandGenPSO();
+    createTransparentCullPSO();
+    createTransparentCommandGenPSO();
+    createDebugDepthPSO();
+    createDebugLinePSO();
+    reallocateBuffers(m_maxObjects);
+    m_lightDataDirty = true;
+    Lit::Log::Info("Shaders reloaded");
+}
+
 void Renderer::setMaterial(uint32_t index, const glm::vec4& colorAndStrength) {
     if (index >= kMaxMaterials || !m_diligent || !m_diligent->pMaterialBuffer) return;
     m_diligent->pImmediateContext->UpdateBuffer(m_diligent->pMaterialBuffer, static_cast<Diligent::Uint64>(index) * sizeof(glm::vec4), sizeof(glm::vec4), &colorAndStrength, Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION);

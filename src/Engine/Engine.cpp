@@ -7,6 +7,7 @@ struct GLFWwindow;
 #include <cmath>
 #include <cstdint>
 #include <filesystem>
+#include <system_error>
 #include "Engine/Log/Log.hpp"
 
 import Engine.engine;
@@ -140,7 +141,34 @@ void Engine::tick(float deltaTime) {
     m_world.events().dispatch();
 }
 
+void Engine::reloadShaders() { m_renderer.reloadShaders(); }
+
+bool Engine::shadersChanged() {
+    bool changed = false;
+    std::error_code ec;
+    for (const auto& entry : std::filesystem::directory_iterator("resources/shaders", ec)) {
+        if (!entry.is_regular_file(ec)) continue;
+        const long long stamp = entry.last_write_time(ec).time_since_epoch().count();
+        const std::string key = entry.path().string();
+        const auto it = m_shaderStamps.find(key);
+        if (it == m_shaderStamps.end()) {
+            m_shaderStamps.emplace(key, stamp);
+        } else if (it->second != stamp) {
+            it->second = stamp;
+            changed = true;
+        }
+    }
+    return changed;
+}
+
 void Engine::update() {
+    if (m_shaderWatch) {
+        const auto now = std::chrono::steady_clock::now();
+        if (now - m_lastShaderPoll > std::chrono::milliseconds(500)) {
+            m_lastShaderPoll = now;
+            if (shadersChanged()) m_renderer.reloadShaders();
+        }
+    }
     m_world.syncCamera();
     LightSet lights;
     const bool hasLights = collectLights(m_world, m_world.camera().getPosition(), lights);
