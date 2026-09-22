@@ -1,25 +1,10 @@
 #version 450
 #extension GL_GOOGLE_include_directive : require
-#include "renderable.glsl"
-
-layout(std140) uniform SceneData {
-    mat4 projection;
-    mat4 view;
-    vec3 lightPos;
-    vec3 viewPos;
-    vec3 lightColor;
-    vec4 frustumPlanes[6];
-    vec4 dirLightDir;
-    vec4 dirLightColor;
-    vec4 pointLight0Pos;
-    vec4 pointLight0Color;
-    vec4 pointLight1Pos;
-    vec4 pointLight1Color;
-    vec4 screenParams;
-};
+#include "scene.glsl"
+#include "mesh.glsl"
 
 layout(std430) readonly buffer VisibleObjectBuffer {
-    uint visibleIndices[];
+    uvec2 visibleEntries[];
 };
 
 layout(std430) readonly buffer MaterialBuffer {
@@ -47,8 +32,6 @@ layout(location = 3) flat out float out_pointRound;
 layout(location = 4) flat out float out_pointSize;
 
 const uint NORMAL_SAMPLES = 64u;
-const uint LOD_LEVEL_COUNT = 7u;
-
 uint hashStep(uint h) {
     h ^= h >> 16u;
     h *= 0x7feb352du;
@@ -63,8 +46,9 @@ vec3 rotate(vec4 q, vec3 v) {
 }
 
 void main() {
-    uint objectId = visibleIndices[gl_VertexIndex] & 0x1FFFFFFFu;
-    out_material = materials[renderableMaterial(renderables[objectId])];
+    uvec2 entry = visibleEntries[gl_VertexIndex];
+    uint objectId = entry.x & 0x1FFFFFFFu;
+    out_material = materials[entry.y];
     uint meshSlot = uint(gl_InstanceIndex) / LOD_LEVEL_COUNT * LOD_LEVEL_COUNT;
     vec4 boundingSphere = cullSpheres[objectId];
     vec4 orientation = normalize(unpackSnorm4x8(cullOrientations[objectId]));

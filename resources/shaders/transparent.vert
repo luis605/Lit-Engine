@@ -1,6 +1,7 @@
 #version 460 core
 #extension GL_GOOGLE_include_directive : require
 #include "renderable.glsl"
+#include "scene.glsl"
 layout (location = 0) in vec3 aPos;
 layout (location = 1) in vec3 aNormal;
 
@@ -17,22 +18,6 @@ mat4 loadWorld(WorldRows w) {
 layout(std430, binding = 2) readonly buffer WorldMatrixBuffer {
     WorldRows worldRows[];
 };
-
-layout (std140, binding = 0) uniform SceneData {
-    mat4 projection;
-    mat4 view;
-    vec3 lightPos;
-    vec3 viewPos;
-    vec3 lightColor;
-    vec4 frustumPlanes[6];
-    vec4 dirLightDir;
-    vec4 dirLightColor;
-    vec4 pointLight0Pos;
-    vec4 pointLight0Color;
-    vec4 pointLight1Pos;
-    vec4 pointLight1Color;
-    vec4 screenParams;
-} sceneData;
 
 layout(std430, binding = 6) readonly buffer CullSphereBuffer {
     vec4 cullSpheres[];
@@ -69,15 +54,15 @@ void main()
 
     if (lod == LOD_BILLBOARD) {
         vec4 boundingSphere = cullSpheres[objectId];
-        float depth = max(-(sceneData.view * vec4(boundingSphere.xyz, 1.0)).z, 0.001);
-        float radius = max(boundingSphere.w, depth * 2.0 / (sceneData.projection[1][1] * sceneData.screenParams.y));
-        vec3 camRight = vec3(sceneData.view[0][0], sceneData.view[1][0], sceneData.view[2][0]);
-        vec3 camUp = vec3(sceneData.view[0][1], sceneData.view[1][1], sceneData.view[2][1]);
+        float depth = max(-(view * vec4(boundingSphere.xyz, 1.0)).z, 0.001);
+        float radius = max(boundingSphere.w, depth * 2.0 / (projection[1][1] * screenParams.y));
+        vec3 camRight = vec3(view[0][0], view[1][0], view[2][0]);
+        vec3 camUp = vec3(view[0][1], view[1][1], view[2][1]);
         vec4 billboardPos = vec4(boundingSphere.xyz + (camRight * aPos.x + camUp * aPos.y) * radius, 1.0);
         FragPos = billboardPos.xyz;
-        Normal = normalize(sceneData.viewPos - billboardPos.xyz);
+        Normal = normalize(viewPos - billboardPos.xyz);
         Billboard = 1.0;
-        gl_Position = sceneData.projection * sceneData.view * billboardPos;
+        gl_Position = projection * view * billboardPos;
         return;
     }
 
@@ -90,5 +75,5 @@ void main()
     mat3 cofactor = mat3(cross(m3[1], m3[2]), cross(m3[2], m3[0]), cross(m3[0], m3[1]));
     float detSign = dot(m3[0], cofactor[0]) < 0.0 ? -1.0 : 1.0;
     Normal = (cofactor * aNormal) * detSign;
-    gl_Position = sceneData.projection * sceneData.view * worldPos;
+    gl_Position = projection * view * worldPos;
 }

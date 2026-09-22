@@ -63,7 +63,6 @@ export class Renderer {
     void createLargeObjectCullPSO();
     void createTransparentCullPSO();
     void createTransparentCommandGenPSO();
-    void createLargeObjectCommandGenPSO();
     void createDepthPrepassPSO();
     void createOpaquePSOs();
     void createTransparentPSO();

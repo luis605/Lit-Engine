@@ -1,33 +1,10 @@
 #version 460 core
 #extension GL_GOOGLE_include_directive : require
 #include "renderable.glsl"
+#include "scene.glsl"
+#include "mesh.glsl"
 
 layout(local_size_x = 256, local_size_y = 1, local_size_z = 1) in;
-
-struct DrawElementsIndirectCommand {
-    uint count;
-    uint instanceCount;
-    uint firstIndex;
-    uint baseVertex;
-    uint baseInstance;
-};
-
-struct MeshInfo {
-    uint indexCount;
-    uint firstIndex;
-    uint baseVertex;
-    float boundingRadius;
-    vec4 boundingCenter;
-};
-
-layout (std140) uniform SceneUniforms {
-    mat4 projection;
-    mat4 view;
-    vec3 lightPos;
-    vec3 viewPos;
-    vec3 lightColor;
-    vec4 frustumPlanes[6];
-} sceneData;
 
 layout(std140) uniform LargeObjectCullConstants {
     uint u_objectCount;
@@ -55,17 +32,18 @@ layout(std430) readonly buffer CullSphereBuffer {
     vec4 cullSpheres[];
 };
 
-// Must match MAX_MESHES in Renderer.cpp - meshInfos[] is sized by it.
-const uint MAX_MESHES = 2048;
+const uint COARSEST_OCCLUDER_LOD = POINT_LOD - 1u;
+const uint OCCLUDER_LOD_OFFSET = 2u;
 
-// the pre-pass only builds the Hi-Z pyramid, so occluders use a coarse LOD (inside the surface for convex shapes, hence conservative)
-const uint OCCLUDER_LOD = 2;
+uint occluderLod(float radius, float dist) {
+    return min(lodForDiameter(projectedDiameterPx(radius, dist)) + OCCLUDER_LOD_OFFSET, COARSEST_OCCLUDER_LOD);
+}
 
 const float FRUSTUM_PADDING_FACTOR = 1.05f;
 
 bool isVisible(vec3 world_pos, float radius) {
     for (int i = 0; i < 6; i++) {
-        if (dot(sceneData.frustumPlanes[i].xyz, world_pos) + sceneData.frustumPlanes[i].w < -radius) {
+        if (dot(frustumPlanes[i].xyz, world_pos) + frustumPlanes[i].w < -radius) {
             return false;
         }
     }
@@ -83,7 +61,7 @@ void main() {
 
     if (!isVisible(world_pos, world_radius * FRUSTUM_PADDING_FACTOR)) return;
 
-    float dist = distance(world_pos, sceneData.viewPos);
+    float dist = distance(world_pos, viewPos);
     if (dist > 0.0 && world_radius / dist < u_largeObjectThreshold) return;
 
     uint renderable = renderables[objectId];
@@ -95,8 +73,9 @@ void main() {
     uint index = atomicAdd(visibleLargeObjectCount, 1);
 
     if (index < u_maxDraws) {
-        uint bucketKey = shaderId * MAX_MESHES + meshUuid + OCCLUDER_LOD;
-        visibleLargeObjects[index] = uvec2(objectId | (OCCLUDER_LOD << 29u), bucketKey);
+        uint lod = occluderLod(world_radius, dist);
+        uint bucketKey = shaderId * MAX_MESHES + meshUuid + lod;
+        visibleLargeObjects[index] = uvec2(objectId | (lod << 29u), bucketKey);
         atomicAdd(largeBucketCounts[bucketKey], 1);
     }
 }

@@ -3,32 +3,10 @@
 #extension GL_KHR_shader_subgroup_ballot : enable
 #extension GL_GOOGLE_include_directive : require
 #include "renderable.glsl"
+#include "scene.glsl"
+#include "mesh.glsl"
 
 layout(local_size_x = 256, local_size_y = 1, local_size_z = 1) in;
-
-struct MeshInfo {
-    uint indexCount;
-    uint firstIndex;
-    uint baseVertex;
-    float boundingRadius;
-    vec4 boundingCenter;
-};
-
-layout(std140) uniform SceneData {
-    mat4 projection;
-    mat4 view;
-    vec3 lightPos;
-    vec3 viewPos;
-    vec3 lightColor;
-    vec4 frustumPlanes[6];
-    vec4 dirLightDir;
-    vec4 dirLightColor;
-    vec4 pointLight0Pos;
-    vec4 pointLight0Color;
-    vec4 pointLight1Pos;
-    vec4 pointLight1Color;
-    vec4 screenParams;
-};
 
 layout(std140) uniform CullingUniforms {
     uint u_objectCount;
@@ -59,17 +37,10 @@ layout(std430) buffer BucketCountBuffer {
     uint bucketCounts[];
 };
 
-const uint LOD_LEVEL_COUNT = 7;
-const float LOD_DIAMETER_PX[6] = float[6](60.0, 40.0, 25.0, 10.0, 4.0, 4.0);
-
 uint selectLod(float radius, float dist) {
-    if (u_forcedLod >= 0) return min(uint(u_forcedLod), LOD_LEVEL_COUNT - 1);
+    if (u_forcedLod >= 0) return min(uint(u_forcedLod), POINT_LOD);
     if (dist <= radius) return 0u;
-    float diameterPx = u_lodBias * radius * projection[1][1] * screenParams.y / dist;
-    for (uint i = 0; i < LOD_LEVEL_COUNT - 1; ++i) {
-        if (diameterPx >= LOD_DIAMETER_PX[i]) return i;
-    }
-    return LOD_LEVEL_COUNT - 1;
+    return lodForDiameter(u_lodBias * projectedDiameterPx(radius, dist));
 }
 
 uniform sampler2D u_hizTexture;
@@ -128,9 +99,9 @@ bool cullObject(uint id, out uvec2 entry) {
     uint chosenLod = selectLod(radius, dist);
 
     uint renderable = renderables[id];
-    uint bucketIndex = renderableShader(renderable) * 2048 + renderableMesh(renderable) + chosenLod;
+    uint bucketIndex = renderableShader(renderable) * MAX_MESHES + renderableMesh(renderable) + chosenLod;
 
-    entry = uvec2(id | (chosenLod << 29u), bucketIndex);
+    entry = uvec2(id | (chosenLod << 29u), bucketIndex | (renderableMaterial(renderable) << 16u));
     return true;
 }
 
@@ -146,13 +117,14 @@ void main() {
     uint slot = slotBase + subgroupBallotExclusiveBitCount(visibleBallot);
     if (visible && slot < u_maxDraws) u_visibleObjects[slot] = entry;
 
+    uint bucket = entry.y & 0xFFFFu;
     bool pending = visible;
     while (subgroupBallotBitCount(subgroupBallot(pending)) > 0u) {
         if (pending) {
-            uint key = subgroupBroadcastFirst(entry.y);
-            uvec4 same = subgroupBallot(entry.y == key);
+            uint key = subgroupBroadcastFirst(bucket);
+            uvec4 same = subgroupBallot(bucket == key);
             if (subgroupElect()) atomicAdd(bucketCounts[key], subgroupBallotBitCount(same));
-            if (entry.y == key) pending = false;
+            if (bucket == key) pending = false;
         }
     }
 }

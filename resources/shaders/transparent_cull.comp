@@ -1,34 +1,13 @@
 #version 450
+#extension GL_GOOGLE_include_directive : require
+#include "scene.glsl"
+#include "mesh.glsl"
 
 layout(local_size_x = 256, local_size_y = 1, local_size_z = 1) in;
-
-struct MeshInfo {
-    uint indexCount;
-    uint firstIndex;
-    uint baseVertex;
-    float boundingRadius;
-    vec4 boundingCenter;
-};
 
 struct VisibleTransparentObject {
     uint objectId;
     float distance;
-};
-
-layout(std140) uniform SceneData {
-    mat4 projection;
-    mat4 view;
-    vec3 lightPos;
-    vec3 viewPos;
-    vec3 lightColor;
-    vec4 frustumPlanes[6];
-    vec4 dirLightDir;
-    vec4 dirLightColor;
-    vec4 pointLight0Pos;
-    vec4 pointLight0Color;
-    vec4 pointLight1Pos;
-    vec4 pointLight1Color;
-    vec4 screenParams;
 };
 
 layout(std140) uniform TransparentCullUniforms {
@@ -56,17 +35,16 @@ layout(std430) readonly buffer TransparentIdBuffer {
     uint transparentIds[];
 };
 
-const uint LOD_LEVEL_COUNT = 7;
-const float LOD_DIAMETER_PX[6] = float[6](60.0, 40.0, 25.0, 8.0, 3.0, 1.5);
+const float TRANSPARENT_LOD_DIAMETER_PX[LOD_LEVEL_COUNT - 1u] = float[](60.0, 40.0, 25.0, 8.0, 3.0, 1.5);
 
 uint selectLod(float radius, float dist) {
-    if (u_forcedLod >= 0) return min(uint(u_forcedLod), LOD_LEVEL_COUNT - 1);
+    if (u_forcedLod >= 0) return min(uint(u_forcedLod), POINT_LOD);
     if (dist <= radius) return 0u;
-    float diameterPx = u_lodBias * radius * projection[1][1] * screenParams.y / dist;
-    for (uint i = 0; i < LOD_LEVEL_COUNT - 1; ++i) {
-        if (diameterPx >= LOD_DIAMETER_PX[i]) return i;
+    float diameterPx = u_lodBias * projectedDiameterPx(radius, dist);
+    for (uint lod = 0u; lod < POINT_LOD; ++lod) {
+        if (diameterPx >= TRANSPARENT_LOD_DIAMETER_PX[lod]) return lod;
     }
-    return LOD_LEVEL_COUNT - 1;
+    return POINT_LOD;
 }
 
 uniform sampler2D u_hizTexture;

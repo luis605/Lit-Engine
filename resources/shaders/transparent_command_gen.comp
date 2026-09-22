@@ -1,24 +1,9 @@
 #version 450
 #extension GL_GOOGLE_include_directive : require
 #include "renderable.glsl"
+#include "mesh.glsl"
 
 layout(local_size_x = 256, local_size_y = 1, local_size_z = 1) in;
-
-struct DrawElementsIndirectCommand {
-    uint count;
-    uint instanceCount;
-    uint firstIndex;
-    uint baseVertex;
-    uint baseInstance;
-};
-
-struct MeshInfo {
-    uint indexCount;
-    uint firstIndex;
-    uint baseVertex;
-    float boundingRadius;
-    vec4 boundingCenter;
-};
 
 struct VisibleTransparentObject {
     uint objectId;

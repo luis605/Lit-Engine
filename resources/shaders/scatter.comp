@@ -21,28 +21,29 @@ layout(std430) buffer BucketWriteHeadBuffer {
 };
 
 layout(std430) writeonly buffer SortedVisibleObjectBuffer {
-    uint sortedVisibleIndices[];
+    uvec2 sortedVisibleEntries[];
 };
 
 void main() {
     uint idx = gl_GlobalInvocationID.x;
     bool pending = idx < u_visibleCount && idx < u_maxDraws;
     uvec2 entry = pending ? u_visibleObjects[idx] : uvec2(0u);
+    uint bucket = entry.y & 0xFFFFu;
     uint slot = 0u;
 
     while (subgroupBallotBitCount(subgroupBallot(pending)) > 0u) {
         if (pending) {
-            uint key = subgroupBroadcastFirst(entry.y);
-            uvec4 same = subgroupBallot(entry.y == key);
+            uint key = subgroupBroadcastFirst(bucket);
+            uvec4 same = subgroupBallot(bucket == key);
             uint base = 0u;
             if (subgroupElect()) base = atomicAdd(bucketWriteHeads[key], subgroupBallotBitCount(same));
             base = subgroupBroadcastFirst(base);
-            if (entry.y == key) {
+            if (bucket == key) {
                 slot = base + subgroupBallotExclusiveBitCount(same);
                 pending = false;
             }
         }
     }
 
-    if (idx < u_visibleCount && idx < u_maxDraws) sortedVisibleIndices[slot] = entry.x;
+    if (idx < u_visibleCount && idx < u_maxDraws) sortedVisibleEntries[slot] = uvec2(entry.x, entry.y >> 16u);
 }

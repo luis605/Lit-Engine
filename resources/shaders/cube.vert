@@ -1,25 +1,9 @@
 #version 450
 #extension GL_GOOGLE_include_directive : require
-#include "renderable.glsl"
+#include "scene.glsl"
 
 layout(location = 0) in vec3 in_position;
 layout(location = 1) in vec3 in_normal;
-
-layout(std140) uniform SceneData {
-    mat4 projection;
-    mat4 view;
-    vec3 lightPos;
-    vec3 viewPos;
-    vec3 lightColor;
-    vec4 frustumPlanes[6];
-    vec4 dirLightDir;
-    vec4 dirLightColor;
-    vec4 pointLight0Pos;
-    vec4 pointLight0Color;
-    vec4 pointLight1Pos;
-    vec4 pointLight1Color;
-    vec4 screenParams;
-};
 
 struct WorldRows {
     vec4 r0;
@@ -36,7 +20,7 @@ layout(std430) readonly buffer WorldMatrixBuffer {
 };
 
 layout(std430) readonly buffer VisibleObjectBuffer {
-    uint visibleIndices[];
+    uvec2 visibleEntries[];
 };
 
 layout(std430) readonly buffer MaterialBuffer {
@@ -50,8 +34,9 @@ layout(location = 1) out vec3 out_fragPos;
 layout(location = 2) flat out float out_billboard;
 
 void main() {
-    uint objectId = visibleIndices[gl_InstanceIndex] & 0x1FFFFFFFu;
-    out_material = materials[renderableMaterial(renderables[objectId])];
+    uvec2 entry = visibleEntries[gl_InstanceIndex];
+    uint objectId = entry.x & 0x1FFFFFFFu;
+    out_material = materials[entry.y];
     mat4 model = loadWorld(worldRows[objectId]);
     // cofactor matrix == inverse-transpose up to a scale that is normalised away; the determinant sign keeps mirrored transforms correct
     mat3 m3 = mat3(model);
