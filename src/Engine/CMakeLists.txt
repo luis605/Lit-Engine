@@ -63,6 +63,10 @@ target_compile_features(Engine PUBLIC cxx_std_23)
 if(LIT_SANITIZE)
     target_compile_options(Engine PUBLIC -fsanitize=${LIT_SANITIZE} -fno-omit-frame-pointer)
     target_link_options(Engine PUBLIC -fsanitize=${LIT_SANITIZE})
+    if(LIT_SANITIZE MATCHES "undefined" AND CMAKE_CXX_COMPILER_ID STREQUAL "GNU")
+        get_target_property(moduleInterfaces Engine CXX_MODULE_SET_cxx_modules)
+        set_source_files_properties(${moduleInterfaces} PROPERTIES COMPILE_OPTIONS -fno-sanitize=undefined)
+    endif()
 endif()
 
 target_include_directories(Engine PRIVATE

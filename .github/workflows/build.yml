@@ -21,7 +21,7 @@ jobs:
           sudo apt-get install -y \
             ninja-build g++-15 \
             libx11-dev libxrandr-dev libxinerama-dev libxcursor-dev \
-            libxi-dev libgl1-mesa-dev libvulkan-dev
+            libxi-dev libgl1-mesa-dev libvulkan-dev mesa-vulkan-drivers xvfb
           command -v g++-15
           g++-15 --version
       - name: Install recent CMake
@@ -33,9 +33,11 @@ jobs:
       - name: Configure
         run: cmake -S . -B build -G Ninja -DCMAKE_BUILD_TYPE=Release -DCMAKE_CXX_COMPILER=g++-15
       - name: Build tests
-        run: cmake --build build --target WorldTests -j4
+        run: cmake --build build --target WorldTests GpuSyncTests -j4
       - name: Run tests
         run: ctest --test-dir build --output-on-failure
+      - name: Run GPU sync tests on lavapipe
+        run: xvfb-run -a build/tests/GpuSyncTests
 
   sanitizers:
     runs-on: ubuntu-latest
