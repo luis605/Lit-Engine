@@ -2,6 +2,8 @@ module;
 
 #include <GLFW/glfw3.h>
 #include <algorithm>
+#include <cmath>
+#include <optional>
 #include <format>
 #include <memory>
 #include <string>
@@ -97,13 +99,28 @@ void Inspector::update(Engine& engine, bool pickingEnabled) {
         return;
     }
     const std::vector<EntityHandle> targets = topLevelSelection(world);
-    const bool gizmoConsumed = m_gizmo.update(engine, *m_history, m_selected, targets, pickingEnabled);
-    if (pickingEnabled && !gizmoConsumed) handleClick(engine);
     EntityHandle hierarchySelected = m_selected;
-    m_hierarchy.update(engine, hierarchySelected);
+    const HierarchyAction hierarchyAction = m_hierarchy.update(engine, hierarchySelected, !m_gizmo.dragging());
+    const bool gizmoConsumed = !hierarchyAction.consumedMouse && m_gizmo.update(engine, *m_history, m_selected, targets, pickingEnabled);
+    if (pickingEnabled && !gizmoConsumed && !hierarchyAction.consumedMouse) handleClick(engine);
     if (hierarchySelected != m_selected) {
         m_selection.set(hierarchySelected);
         m_selected = hierarchySelected;
+    }
+    if (hierarchyAction.kind == HierarchyAction::Kind::Select) {
+        const bool shift = InputManager::IsKeyHeld(GLFW_KEY_LEFT_SHIFT) || InputManager::IsKeyHeld(GLFW_KEY_RIGHT_SHIFT);
+        if (shift) {
+            m_selection.toggle(hierarchyAction.entity);
+        } else {
+            m_selection.set(hierarchyAction.entity);
+        }
+    } else if (hierarchyAction.kind == HierarchyAction::Kind::Reparent) {
+        std::vector<EntityHandle> moving = m_selection.contains(hierarchyAction.entity) ? topLevelSelection(world) : std::vector<EntityHandle>{hierarchyAction.entity};
+        m_history->beginGroup();
+        for (EntityHandle e : moving) {
+            if (e != hierarchyAction.newParent) m_history->setParent(e, hierarchyAction.newParent);
+        }
+        m_history->endGroup();
     }
     handleKeys(engine);
     m_selected = m_selection.primary();
@@ -199,6 +216,29 @@ void Inspector::handleKeys(Engine& engine) {
     if (ctrl && InputManager::IsKeyPressed(GLFW_KEY_Y)) {
         m_history->redo();
         return;
+    }
+    if (InputManager::IsKeyPressed(GLFW_KEY_F) || InputManager::IsKeyPressed(GLFW_KEY_HOME)) {
+        std::optional<glm::vec4> target;
+        if (InputManager::IsKeyPressed(GLFW_KEY_HOME)) {
+            target = world.sceneBounds();
+        } else if (!m_selection.empty()) {
+            std::vector<glm::vec4> spheres;
+            for (EntityHandle e : m_selection.items()) {
+                const glm::vec4 b = world.getWorldBounds(e);
+                spheres.push_back(b.w > 0.0f ? b : glm::vec4(world.getWorldPosition(e), 0.5f));
+            }
+            target = gizmo::enclosingSphere(spheres);
+        }
+        if (target && target->w > 0.0f) {
+            Camera& cam = world.camera();
+            const float yaw = glm::radians(cam.getYaw());
+            const float pitch = glm::radians(cam.getPitch());
+            const glm::vec3 front(std::cos(yaw) * std::cos(pitch), std::sin(pitch), std::sin(yaw) * std::cos(pitch));
+            const glm::vec2 size = engine.windowSize();
+            const float distance = gizmo::frameDistance(target->w, cam.getFov(), size.x / size.y);
+            cam.setPos(glm::vec3(*target) - front * distance);
+            if (distance * 1.5f > cam.getFarPlane()) cam.setFarPlane(distance * 1.5f);
+        }
     }
     if (ctrl && InputManager::IsKeyPressed(GLFW_KEY_A)) {
         constexpr size_t kMaxSelectAll = 10000;

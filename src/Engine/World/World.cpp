@@ -1646,3 +1646,19 @@ bool World::removeComponentByName(EntityHandle e, const std::string& componentNa
     pool->second->remove(e.index);
     return true;
 }
+
+std::optional<glm::vec4> World::sceneBounds() {
+    refreshSpatial();
+    glm::vec3 lo(std::numeric_limits<float>::max());
+    glm::vec3 hi(std::numeric_limits<float>::lowest());
+    bool any = false;
+    for (const SpatialEntry& entry : m_spatial) {
+        if (entry.state == 0) continue;
+        any = true;
+        lo = glm::min(lo, entry.center - glm::vec3(entry.radius));
+        hi = glm::max(hi, entry.center + glm::vec3(entry.radius));
+    }
+    if (!any) return std::nullopt;
+    const glm::vec3 center = (lo + hi) * 0.5f;
+    return glm::vec4(center, glm::length(hi - center));
+}

@@ -1,6 +1,7 @@
 module;
 
 #include <optional>
+#include <vector>
 
 export module Engine.GizmoMath;
 
@@ -15,6 +16,8 @@ float signedAngleAroundAxis(const glm::vec3& from, const glm::vec3& to, const gl
 float snap(float value, float step);
 glm::mat4 rotateAboutWorldAxis(const glm::mat4& world, const glm::vec3& pivot, const glm::vec3& axis, float radians);
 glm::mat4 scaleAlongLocalAxis(const glm::mat4& local, int axisIndex, float factor, bool uniform);
+glm::vec4 enclosingSphere(const std::vector<glm::vec4>& spheres);
+float frameDistance(float radius, float fovYDegrees, float aspect);
 float distanceToSegment2D(const glm::vec2& p, const glm::vec2& a, const glm::vec2& b);
 
 }

@@ -1871,6 +1871,33 @@ static void testSelectionAndGroups() {
     CHECK(!history.inGroup());
 }
 
+static void testFramingAndSceneBounds() {
+    const glm::vec4 one = gizmo::enclosingSphere({glm::vec4(1.0f, 2.0f, 3.0f, 4.0f)});
+    CHECK(near(glm::vec3(one), glm::vec3(1.0f, 2.0f, 3.0f)) && std::abs(one.w - 4.0f) < 1.0e-4f);
+    const glm::vec4 two = gizmo::enclosingSphere({glm::vec4(-10.0f, 0.0f, 0.0f, 1.0f), glm::vec4(10.0f, 0.0f, 0.0f, 1.0f)});
+    CHECK(near(glm::vec3(two), glm::vec3(0.0f)) && std::abs(two.w - 11.0f) < 1.0e-3f);
+    CHECK(gizmo::enclosingSphere({}).w == 0.0f);
+    const glm::vec4 nested = gizmo::enclosingSphere({glm::vec4(0.0f, 0.0f, 0.0f, 10.0f), glm::vec4(1.0f, 0.0f, 0.0f, 1.0f)});
+    CHECK(nested.w >= 10.0f && nested.w < 11.5f);
+
+    const float d1 = gizmo::frameDistance(1.0f, 45.0f, 16.0f / 9.0f);
+    const float d2 = gizmo::frameDistance(2.0f, 45.0f, 16.0f / 9.0f);
+    CHECK(std::abs(d2 - 2.0f * d1) < 1.0e-3f);
+    const float tall = gizmo::frameDistance(1.0f, 45.0f, 0.5f);
+    CHECK(tall > d1);
+    CHECK(std::abs(d1 - 1.1f / std::sin(glm::radians(22.5f))) < 1.0e-3f);
+
+    World w;
+    CHECK(!w.sceneBounds());
+    w.setMeshBoundsHook([](uint32_t) { return glm::vec4(0.0f, 0.0f, 0.0f, 1.0f); });
+    w.create("empty");
+    CHECK(!w.sceneBounds());
+    w.create("a", 1, glm::vec3(-10.0f, 0.0f, 0.0f));
+    w.create("b", 1, glm::vec3(10.0f, 0.0f, 0.0f));
+    const auto bounds = w.sceneBounds();
+    CHECK(bounds && near(glm::vec3(*bounds), glm::vec3(0.0f)) && bounds->w > 10.0f && bounds->w < 20.0f);
+}
+
 int main() {
     testHandles();
     testHierarchy();
@@ -1899,6 +1926,7 @@ int main() {
     testLineEditor();
     testGizmoMath();
     testSelectionAndGroups();
+    testFramingAndSceneBounds();
     testDescribeAndEditText();
     testAdditiveLoad();
     testEntityReferences();

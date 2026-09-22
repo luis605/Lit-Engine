@@ -449,6 +449,7 @@ export class World {
     [[nodiscard]] Profiler* profiler() const { return m_profiler; }
     void setSpatialCellSize(float size);
     [[nodiscard]] std::vector<EntityHandle> queryFrustum(const Camera& camera);
+    [[nodiscard]] std::optional<glm::vec4> sceneBounds();
     [[nodiscard]] glm::vec4 getWorldBounds(EntityHandle e) const;
     [[nodiscard]] Ray screenRay(float screenX, float screenY, float width, float height) const;
     [[nodiscard]] std::vector<EntityHandle> overlapSphere(const glm::vec3& center, float radius);

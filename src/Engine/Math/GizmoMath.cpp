@@ -2,6 +2,8 @@ module;
 
 #include <algorithm>
 #include <cmath>
+#include <limits>
+#include <vector>
 #include <optional>
 
 module Engine.GizmoMath;
@@ -54,6 +56,27 @@ glm::mat4 scaleAlongLocalAxis(const glm::mat4& local, int axisIndex, float facto
         s[axisIndex] = factor;
     }
     return local * glm::scale(glm::mat4(1.0f), s);
+}
+
+glm::vec4 enclosingSphere(const std::vector<glm::vec4>& spheres) {
+    if (spheres.empty()) return glm::vec4(0.0f);
+    glm::vec3 lo(std::numeric_limits<float>::max());
+    glm::vec3 hi(std::numeric_limits<float>::lowest());
+    for (const glm::vec4& s : spheres) {
+        lo = glm::min(lo, glm::vec3(s) - glm::vec3(s.w));
+        hi = glm::max(hi, glm::vec3(s) + glm::vec3(s.w));
+    }
+    const glm::vec3 center = (lo + hi) * 0.5f;
+    float radius = 0.0f;
+    for (const glm::vec4& s : spheres) radius = std::max(radius, glm::length(glm::vec3(s) - center) + s.w);
+    return glm::vec4(center, radius);
+}
+
+float frameDistance(float radius, float fovYDegrees, float aspect) {
+    const float halfY = glm::radians(fovYDegrees) * 0.5f;
+    const float halfX = std::atan(std::tan(halfY) * aspect);
+    const float half = std::max(std::min(halfX, halfY), 0.01f);
+    return radius / std::sin(half) * 1.1f;
 }
 
 float distanceToSegment2D(const glm::vec2& p, const glm::vec2& a, const glm::vec2& b) {

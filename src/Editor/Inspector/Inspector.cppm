@@ -13,6 +13,8 @@ import Engine.World;
 import Engine.History;
 import Engine.LineEditor;
 import Engine.Selection;
+import Engine.GizmoMath;
+import Engine.camera;
 import Editor.gizmo;
 import Editor.hierarchy;
 import Engine.Render.entity;
