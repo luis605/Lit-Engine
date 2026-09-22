@@ -159,7 +159,7 @@ void Engine::reloadShaders() { m_renderer.reloadShaders(); }
 bool Engine::shadersChanged() {
     bool changed = false;
     std::error_code ec;
-    for (const auto& entry : std::filesystem::directory_iterator("resources/shaders", ec)) {
+    for (const auto& entry : std::filesystem::recursive_directory_iterator("resources/shaders", ec)) {
         if (!entry.is_regular_file(ec)) continue;
         const long long stamp = entry.last_write_time(ec).time_since_epoch().count();
         const std::string key = entry.path().string();
@@ -187,6 +187,7 @@ void Engine::update() {
     LightSet lights;
     const bool hasLights = collectLights(m_world, m_world.camera().getPosition(), lights);
     m_renderer.setLights(hasLights, lights.directional, lights.packed);
+    syncWindowSize(m_world.camera());
     m_renderer.drawScene(m_world.database(), m_world.camera());
 }
 
@@ -195,10 +196,18 @@ void Engine::update(World& world) {
     LightSet lights;
     const bool hasLights = collectLights(world, world.camera().getPosition(), lights);
     m_renderer.setLights(hasLights, lights.directional, lights.packed);
+    syncWindowSize(world.camera());
     m_renderer.drawScene(world.database(), world.camera());
 }
 
 void Engine::present() { m_renderer.present(); }
+
+void Engine::syncWindowSize(Camera& camera) {
+    if (!m_renderer.resizeToWindow()) return;
+    m_windowWidth = m_renderer.width();
+    m_windowHeight = m_renderer.height();
+    camera.updateAspectRatio(static_cast<float>(m_windowWidth), static_cast<float>(m_windowHeight));
+}
 
 void Engine::cleanup() { m_renderer.cleanup(); }
 

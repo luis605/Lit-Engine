@@ -1,4 +1,6 @@
 #version 450
+#extension GL_GOOGLE_include_directive : require
+#include "renderable.glsl"
 
 layout(std140) uniform SceneData {
     mat4 projection;
@@ -20,19 +22,6 @@ layout(std430) readonly buffer VisibleObjectBuffer {
     uint visibleIndices[];
 };
 
-struct MaterialRenderable {
-    uint mesh_uuid;
-    uint material_uuid;
-    uint shaderId;
-    uint objectId;
-    float alpha;
-    uint flags;
-};
-
-layout(std430) readonly buffer RenderableBuffer {
-    MaterialRenderable renderables[];
-};
-
 layout(std430) readonly buffer MaterialBuffer {
     vec4 materials[];
 };
@@ -44,7 +33,7 @@ layout(std430) readonly buffer CullSphereBuffer {
 };
 
 layout(std430) readonly buffer CullOrientationBuffer {
-    vec4 cullOrientations[];
+    uint cullOrientations[];
 };
 
 layout(std430) readonly buffer NormalSampleBuffer {
@@ -74,11 +63,11 @@ vec3 rotate(vec4 q, vec3 v) {
 }
 
 void main() {
-    uint objectId = visibleIndices[gl_InstanceIndex] & 0x1FFFFFFFu;
-    out_material = materials[min(renderables[objectId].material_uuid, 1023u)];
-    uint meshSlot = uint(gl_VertexIndex) / LOD_LEVEL_COUNT * LOD_LEVEL_COUNT;
+    uint objectId = visibleIndices[gl_VertexIndex] & 0x1FFFFFFFu;
+    out_material = materials[renderableMaterial(renderables[objectId])];
+    uint meshSlot = uint(gl_InstanceIndex) / LOD_LEVEL_COUNT * LOD_LEVEL_COUNT;
     vec4 boundingSphere = cullSpheres[objectId];
-    vec4 orientation = cullOrientations[objectId];
+    vec4 orientation = normalize(unpackSnorm4x8(cullOrientations[objectId]));
 
     vec3 toViewer = normalize(viewPos - boundingSphere.xyz);
     vec3 viewInObject = rotate(vec4(-orientation.xyz, orientation.w), toViewer);
@@ -86,16 +75,14 @@ void main() {
     uint seed = objectId * 2654435761u + 0x9e3779b9u;
     float shape = normalSamples[base].w;
 
-    uint mixed = hashStep(seed);
+    uint state = hashStep(seed);
     float totalWeight = 0.0;
     uint chosen = 0u;
     for (uint k = 0u; k < NORMAL_SAMPLES; ++k) {
         float weight = max(dot(normalSamples[base + k].xyz, viewInObject), 0.0);
         totalWeight += weight;
-        uint r = (mixed + k * 0x9e3779b1u) * 0x85ebca6bu;
-        r ^= r >> 13u;
-        r *= 0xc2b2ae35u;
-        float u = float((r ^ (r >> 16u)) >> 8u) * (1.0 / 16777216.0);
+        state = state * 747796405u + 2891336453u;
+        float u = float(state >> 8u) * (1.0 / 16777216.0);
         if (u * totalWeight < weight) chosen = k;
     }
     vec3 shadedNormal = totalWeight > 0.0 ? rotate(orientation, normalSamples[base + chosen].xyz) : toViewer;

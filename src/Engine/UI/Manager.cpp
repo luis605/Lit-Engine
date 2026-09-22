@@ -116,6 +116,11 @@ UIManager::UIManager() {
 
 UIManager::~UIManager() { delete static_cast<DiligentUIData*>(m_diligent); }
 
+void UIManager::resize(int windowWidth, int windowHeight) {
+    m_windowWidth = windowWidth;
+    m_windowHeight = windowHeight;
+}
+
 void UIManager::init(Diligent::IRenderDevice* pDevice, Diligent::IDeviceContext* pContext, Diligent::ISwapChain* pSwapChain, const int windowWidth, const int windowHeight) {
     auto* d = static_cast<DiligentUIData*>(m_diligent);
     d->pDevice = pDevice;

@@ -1,4 +1,6 @@
 #version 460 core
+#extension GL_GOOGLE_include_directive : require
+#include "renderable.glsl"
 
 layout(local_size_x = 256, local_size_y = 1, local_size_z = 1) in;
 
@@ -16,15 +18,6 @@ struct MeshInfo {
     uint baseVertex;
     float boundingRadius;
     vec4 boundingCenter;
-};
-
-struct RenderableComponent {
-    uint mesh_uuid;
-    uint material_uuid;
-    uint shaderId;
-    uint objectId;
-    float alpha;
-    uint flags;
 };
 
 layout (std140) uniform SceneUniforms {
@@ -62,10 +55,6 @@ layout(std430) readonly buffer CullSphereBuffer {
     vec4 cullSpheres[];
 };
 
-layout(std430) readonly buffer RenderableBuffer {
-    RenderableComponent renderables[];
-};
-
 // Must match MAX_MESHES in Renderer.cpp - meshInfos[] is sized by it.
 const uint MAX_MESHES = 2048;
 
@@ -97,14 +86,16 @@ void main() {
     float dist = distance(world_pos, sceneData.viewPos);
     if (dist > 0.0 && world_radius / dist < u_largeObjectThreshold) return;
 
-    RenderableComponent renderable = renderables[objectId];
-    if (renderable.alpha < 1.0 || (renderable.flags & 2u) != 0u) return;
-    if (renderable.mesh_uuid >= MAX_MESHES || renderable.shaderId >= u_numShaders) return;
+    uint renderable = renderables[objectId];
+    if ((renderableFlags(renderable) & (RENDER_TRANSLUCENT | RENDER_NO_OCCLUDER)) != 0u) return;
+    uint meshUuid = renderableMesh(renderable);
+    uint shaderId = renderableShader(renderable);
+    if (meshUuid >= MAX_MESHES || shaderId >= u_numShaders) return;
 
     uint index = atomicAdd(visibleLargeObjectCount, 1);
 
     if (index < u_maxDraws) {
-        uint bucketKey = renderable.shaderId * MAX_MESHES + renderable.mesh_uuid + OCCLUDER_LOD;
+        uint bucketKey = shaderId * MAX_MESHES + meshUuid + OCCLUDER_LOD;
         visibleLargeObjects[index] = uvec2(objectId | (OCCLUDER_LOD << 29u), bucketKey);
         atomicAdd(largeBucketCounts[bucketKey], 1);
     }

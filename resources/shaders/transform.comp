@@ -1,4 +1,6 @@
 #version 450
+#extension GL_GOOGLE_include_directive : require
+#include "renderable.glsl"
 
 layout(local_size_x = 256, local_size_y = 1, local_size_z = 1) in;
 
@@ -59,15 +61,6 @@ layout(std430, binding = 5) readonly buffer SortedHierarchyBuffer {
     uint sortedEntities[];
 };
 
-struct RenderableComponent {
-    uint mesh_uuid;
-    uint material_uuid;
-    uint shaderId;
-    uint objectId;
-    float alpha;
-    uint flags;
-};
-
 struct MeshInfo {
     uint indexCount;
     uint firstIndex;
@@ -79,10 +72,6 @@ struct MeshInfo {
 // MAX_MESHES in Renderer.cpp
 const uint MAX_MESHES = 2048;
 
-layout(std430, binding = 7) readonly buffer RenderableBuffer {
-    RenderableComponent renderables[];
-};
-
 layout(std430, binding = 8) readonly buffer MeshInfoBuffer {
     MeshInfo meshInfos[];
 };
@@ -93,7 +82,7 @@ layout(std430, binding = 9) writeonly buffer CullSphereBuffer {
 };
 
 layout(std430, binding = 10) writeonly buffer CullOrientationBuffer {
-    vec4 cullOrientations[];
+    uint cullOrientations[];
 };
 
 vec4 rotationToQuaternion(mat3 r) {
@@ -153,10 +142,11 @@ void main() {
 
     vec3 axisLengths = vec3(length(worldMat[0].xyz), length(worldMat[1].xyz), length(worldMat[2].xyz));
     mat3 rotation = mat3(worldMat[0].xyz / max(axisLengths.x, 1e-8), worldMat[1].xyz / max(axisLengths.y, 1e-8), worldMat[2].xyz / max(axisLengths.z, 1e-8));
-    cullOrientations[entity] = rotationToQuaternion(rotation);
+    cullOrientations[entity] = packSnorm4x8(rotationToQuaternion(rotation));
 
-    uint meshUuid = renderables[entity].mesh_uuid;
-    if (meshUuid < MAX_MESHES && (renderables[entity].flags & 1u) == 0u) {
+    uint renderable = renderables[entity];
+    uint meshUuid = renderableMesh(renderable);
+    if (meshUuid < MAX_MESHES && (renderableFlags(renderable) & RENDER_HIDDEN) == 0u) {
         MeshInfo mesh = meshInfos[meshUuid];
         float maxScale = max(length(worldMat[0].xyz), max(length(worldMat[1].xyz), length(worldMat[2].xyz)));
         cullSpheres[entity] = vec4((worldMat * vec4(mesh.boundingCenter.xyz, 1.0)).xyz, mesh.boundingRadius * maxScale);

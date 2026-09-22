@@ -70,10 +70,10 @@ void main() {
         uint pointIdx = atomicAdd(pointCounters[shaderId], 1);
         if (pointIdx >= u_maxBucketsPerShader) return;
         uint pointOffset = shaderId * u_maxBucketsPerShader + pointIdx;
-        pointCommands[pointOffset].count = 1;
-        pointCommands[pointOffset].instanceCount = count;
-        pointCommands[pointOffset].firstIndex = meshId;
-        pointCommands[pointOffset].baseVertex = bucketOffsets[key];
+        pointCommands[pointOffset].count = count;
+        pointCommands[pointOffset].instanceCount = 1;
+        pointCommands[pointOffset].firstIndex = bucketOffsets[key];
+        pointCommands[pointOffset].baseVertex = meshId;
         pointCommands[pointOffset].baseInstance = 0;
         return;
     }

@@ -1,17 +1,10 @@
 #version 450
 #extension GL_KHR_shader_subgroup_basic : enable
 #extension GL_KHR_shader_subgroup_ballot : enable
+#extension GL_GOOGLE_include_directive : require
+#include "renderable.glsl"
 
 layout(local_size_x = 256, local_size_y = 1, local_size_z = 1) in;
-
-struct RenderableComponent {
-    uint mesh_uuid;
-    uint material_uuid;
-    uint shaderId;
-    uint objectId;
-    float alpha;
-    uint flags;
-};
 
 struct MeshInfo {
     uint indexCount;
@@ -60,10 +53,6 @@ layout(std430) writeonly buffer VisibleObjectBuffer {
 
 layout(std430) readonly buffer CullSphereBuffer {
     vec4 cullSpheres[];
-};
-
-layout(std430) readonly buffer RenderableBuffer {
-    RenderableComponent renderables[];
 };
 
 layout(std430) buffer BucketCountBuffer {
@@ -138,8 +127,8 @@ bool cullObject(uint id, out uvec2 entry) {
 
     uint chosenLod = selectLod(radius, dist);
 
-    RenderableComponent r = renderables[id];
-    uint bucketIndex = r.shaderId * 2048 + r.mesh_uuid + chosenLod;
+    uint renderable = renderables[id];
+    uint bucketIndex = renderableShader(renderable) * 2048 + renderableMesh(renderable) + chosenLod;
 
     entry = uvec2(id | (chosenLod << 29u), bucketIndex);
     return true;

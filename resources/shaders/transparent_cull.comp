@@ -2,15 +2,6 @@
 
 layout(local_size_x = 256, local_size_y = 1, local_size_z = 1) in;
 
-struct RenderableComponent {
-    uint mesh_uuid;
-    uint material_uuid;
-    uint shaderId;
-    uint objectId;
-    float alpha;
-    uint flags;
-};
-
 struct MeshInfo {
     uint indexCount;
     uint firstIndex;

@@ -21,6 +21,7 @@ export class UIManager {
 
     void init(Diligent::IRenderDevice* pDevice, Diligent::IDeviceContext* pContext, Diligent::ISwapChain* pSwapChain, const int windowWidth, const int windowHeight);
     void cleanup();
+    void resize(int windowWidth, int windowHeight);
 
     void addText(std::string_view text, float x, float y, float scale, const glm::vec3& color);
     void render();

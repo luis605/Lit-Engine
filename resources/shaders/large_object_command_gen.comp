@@ -1,4 +1,6 @@
 #version 460 core
+#extension GL_GOOGLE_include_directive : require
+#include "renderable.glsl"
 
 // One thread per visible large object (was a single serial thread run-length-merging the whole
 // list, which cost 10-300ms and read out of bounds past the actual visible count). No adjacent-
@@ -22,15 +24,6 @@ struct MeshInfo {
     vec4 boundingCenter;
 };
 
-struct RenderableComponent {
-    uint mesh_uuid;
-    uint material_uuid;
-    uint shaderId;
-    uint objectId;
-    float alpha;
-    uint flags;
-};
-
 layout(binding = 0, std430) buffer AtomicCounterBuffer {
     uint drawCount;
 };
@@ -41,10 +34,6 @@ layout(binding = 1, std430) buffer DrawCommandBuffer {
 
 layout(binding = 3, std430) readonly buffer MeshInfoBuffer {
     MeshInfo meshInfos[];
-};
-
-layout(binding = 4, std430) readonly buffer RenderableBuffer {
-    RenderableComponent renderables[];
 };
 
 layout(binding = 5, std430) readonly buffer VisibleLargeObjectBuffer {
@@ -68,8 +57,7 @@ void main() {
     if (i >= visibleCount) return;
 
     uint objectId = visibleLargeObjects[i];
-    RenderableComponent renderable = renderables[objectId];
-    MeshInfo mesh = meshInfos[renderable.mesh_uuid];
+    MeshInfo mesh = meshInfos[renderableMesh(renderables[objectId])];
 
     uint indexInBin = atomicAdd(drawCount, 1);
     if (indexInBin < uniforms.maxDraws) {

@@ -94,6 +94,7 @@ export class Engine {
 
     void runSystems(Phase phase, float dt, bool paused);
     void applyWorldAnimation();
+    void syncWindowSize(Camera& camera);
 
     Renderer m_renderer;
     JobSystem m_jobs;

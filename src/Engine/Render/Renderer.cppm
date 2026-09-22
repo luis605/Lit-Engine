@@ -27,6 +27,9 @@ export class Renderer {
     void drawScene(SceneDatabase& sceneDatabase, const Camera& camera);
     void present();
     void cleanup();
+    bool resizeToWindow();
+    [[nodiscard]] int width() const { return m_windowWidth; }
+    [[nodiscard]] int height() const { return m_windowHeight; }
     uint32_t uploadMesh(const Mesh& mesh);
     glm::vec4 getMeshBounds(uint32_t meshId) const;
     void setLights(bool enabled, const std::array<glm::vec4, 2>& directional, const std::vector<glm::vec4>& packed);
@@ -46,6 +49,7 @@ export class Renderer {
     void setFullProfiling(bool enabled);
 
    private:
+    void createScreenTargets();
     void createTransformPSO();
     void createAnimPSO();
     void createHiZPSO();
@@ -113,6 +117,7 @@ export class Renderer {
     uint64_t m_processedHierarchyVersion = 0;
     uint64_t m_processedDataVersion = 0;
     std::vector<uint32_t> m_transparentIds;
+    std::vector<uint32_t> m_packedRenderables;
     uint32_t m_transparentIdCounts[NUM_FRAMES_IN_FLIGHT] = {};
     bool m_transparentIdsStale = true;
     uint64_t m_processedTransformVersion = 0;
@@ -125,6 +130,7 @@ export class Renderer {
     int m_forcedLod = -1;
     float m_smallObjectThreshold = 0.0f;
     float m_largeObjectThreshold = 0.1f;
+    GLFWwindow* m_window = nullptr;
     int m_windowWidth = 0;
     int m_windowHeight = 0;
 

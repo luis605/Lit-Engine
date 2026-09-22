@@ -31,6 +31,10 @@ module;
 #endif
 #include <GLFW/glfw3native.h>
 
+#include <algorithm>
+#include <filesystem>
+#include <memory>
+#include <span>
 #include <vector>
 #include <optional>
 #include <unordered_map>
@@ -266,6 +270,143 @@ Diligent::RefCntAutoPtr<Diligent::IBuffer> CreateIndirectBuffer(Diligent::IRende
     return pBuffer;
 }
 
+uint32_t PackRenderable(const RenderableComponent& renderable) {
+    constexpr uint32_t translucentFlag = 4u;
+    const uint32_t mesh = std::min(renderable.mesh_uuid, 0xFFFu);
+    const uint32_t material = std::min(renderable.material_uuid, 0x3FFu);
+    const uint32_t shader = std::min(renderable.shaderId, 0xFu);
+    const uint32_t flags = (renderable.flags & (RENDER_HIDDEN | RENDER_NO_OCCLUDER)) | (renderable.alpha < 1.0f ? translucentFlag : 0u);
+    return mesh | material << 12u | shader << 22u | flags << 26u;
+}
+
+Diligent::Uint32 SelectFastestAdapter(Diligent::IEngineFactory* pFactory, Diligent::Version minVersion) {
+    Diligent::Uint32 adapterCount = 0;
+    pFactory->EnumerateAdapters(minVersion, adapterCount, nullptr);
+    std::vector<Diligent::GraphicsAdapterInfo> adapters(adapterCount);
+    pFactory->EnumerateAdapters(minVersion, adapterCount, adapters.data());
+
+    auto rank = [](const Diligent::GraphicsAdapterInfo& adapter) {
+        switch (adapter.Type) {
+            case Diligent::ADAPTER_TYPE_DISCRETE: return 3;
+            case Diligent::ADAPTER_TYPE_INTEGRATED: return 2;
+            case Diligent::ADAPTER_TYPE_SOFTWARE: return 0;
+            default: return 1;
+        }
+    };
+    const auto best = std::ranges::max_element(adapters, {}, rank);
+    if (best == adapters.end()) return Diligent::DEFAULT_ADAPTER_ID;
+    Lit::Log::Info("Selected GPU: {}", best->Description);
+    return static_cast<Diligent::Uint32>(best - adapters.begin());
+}
+
+Diligent::RefCntAutoPtr<Diligent::IBuffer> CreateUniformBuffer(Diligent::IRenderDevice* pDevice, const char* name, Diligent::Uint64 size, Diligent::USAGE usage = Diligent::USAGE_DYNAMIC) {
+    Diligent::BufferDesc Desc;
+    Desc.Name = name;
+    Desc.Usage = usage;
+    Desc.BindFlags = Diligent::BIND_UNIFORM_BUFFER;
+    Desc.CPUAccessFlags = usage == Diligent::USAGE_DYNAMIC ? Diligent::CPU_ACCESS_WRITE : Diligent::CPU_ACCESS_NONE;
+    Desc.Size = size;
+
+    Diligent::RefCntAutoPtr<Diligent::IBuffer> pBuffer;
+    pDevice->CreateBuffer(Desc, nullptr, &pBuffer);
+    if (!pBuffer) { Lit::Log::Error("Failed to allocate uniform buffer '{}'.", name); }
+    return pBuffer;
+}
+
+Diligent::RefCntAutoPtr<Diligent::IShader> CompileShader(Diligent::IRenderDevice* pDevice, const std::string& path, Diligent::SHADER_TYPE type, const Diligent::ShaderMacroArray& macros = {}) {
+    std::string source = LoadSourceFromFile(path);
+    if (source.empty()) return {};
+
+    const size_t versionPos = source.find("#version");
+    if (versionPos != std::string::npos) {
+        const size_t nextLine = source.find('\n', versionPos);
+        if (nextLine != std::string::npos) source.erase(0, nextLine + 1);
+    }
+
+    static Diligent::RefCntAutoPtr<Diligent::IShaderSourceInputStreamFactory> includeFactory = [] {
+        Diligent::RefCntAutoPtr<Diligent::IShaderSourceInputStreamFactory> factory;
+        Diligent::GetEngineFactoryVk()->CreateDefaultShaderSourceStreamFactory("resources/shaders/include", &factory);
+        return factory;
+    }();
+
+    Diligent::ShaderCreateInfo ShaderCI;
+    ShaderCI.Source = source.c_str();
+    ShaderCI.SourceLanguage = Diligent::SHADER_SOURCE_LANGUAGE_GLSL;
+    ShaderCI.pShaderSourceStreamFactory = includeFactory;
+    ShaderCI.Desc.UseCombinedTextureSamplers = true;
+    ShaderCI.Desc.ShaderType = type;
+    ShaderCI.Desc.Name = path.c_str();
+    ShaderCI.Macros = macros;
+
+    Diligent::RefCntAutoPtr<Diligent::IShader> pShader;
+    pDevice->CreateShader(ShaderCI, &pShader);
+    if (!pShader) { Lit::Log::Error("Failed to compile shader '{}'.", path); }
+    return pShader;
+}
+
+bool AllShadersCompile(Diligent::IRenderDevice* pDevice) {
+    const std::pair<std::string_view, Diligent::SHADER_TYPE> stages[] = {{".vert", Diligent::SHADER_TYPE_VERTEX}, {".frag", Diligent::SHADER_TYPE_PIXEL}, {".comp", Diligent::SHADER_TYPE_COMPUTE}};
+    const Diligent::ShaderMacro pointMacros[] = {{"POINT_SPRITE", "1"}};
+    bool allCompile = true;
+    std::error_code ec;
+    for (const auto& entry : std::filesystem::directory_iterator("resources/shaders", ec)) {
+        const std::string extension = entry.path().extension().string();
+        for (const auto& [stageExtension, type] : stages) {
+            if (extension != stageExtension) continue;
+            const std::string path = entry.path().generic_string();
+            allCompile &= CompileShader(pDevice, path, type) != nullptr;
+            if (type == Diligent::SHADER_TYPE_PIXEL) allCompile &= CompileShader(pDevice, path, type, Diligent::ShaderMacroArray{pointMacros, 1}) != nullptr;
+        }
+    }
+    return allCompile;
+}
+
+std::vector<Diligent::ShaderResourceVariableDesc> DescribeVariables(std::initializer_list<Diligent::IShader*> shaders, std::initializer_list<std::string_view> dynamicVariables = {}) {
+    std::vector<Diligent::ShaderResourceVariableDesc> variables;
+    for (Diligent::IShader* pShader : shaders) {
+        const Diligent::SHADER_TYPE stage = pShader->GetDesc().ShaderType;
+        for (Diligent::Uint32 i = 0; i < pShader->GetResourceCount(); ++i) {
+            Diligent::ShaderResourceDesc resource;
+            pShader->GetResourceDesc(i, resource);
+            const bool isDynamic = std::ranges::find(dynamicVariables, std::string_view(resource.Name)) != dynamicVariables.end();
+            const bool isStorageBuffer = resource.Type == Diligent::SHADER_RESOURCE_TYPE_BUFFER_SRV || resource.Type == Diligent::SHADER_RESOURCE_TYPE_BUFFER_UAV;
+            variables.push_back({stage, resource.Name, isDynamic ? Diligent::SHADER_RESOURCE_VARIABLE_TYPE_DYNAMIC : Diligent::SHADER_RESOURCE_VARIABLE_TYPE_MUTABLE,
+                                 isStorageBuffer ? Diligent::SHADER_VARIABLE_FLAG_NO_DYNAMIC_BUFFERS : Diligent::SHADER_VARIABLE_FLAG_NONE});
+        }
+    }
+    return variables;
+}
+
+void UseVariables(Diligent::PipelineResourceLayoutDesc& layout, const std::vector<Diligent::ShaderResourceVariableDesc>& variables) {
+    layout.DefaultVariableType = Diligent::SHADER_RESOURCE_VARIABLE_TYPE_MUTABLE;
+    layout.Variables = variables.data();
+    layout.NumVariables = static_cast<Diligent::Uint32>(variables.size());
+}
+
+Diligent::RefCntAutoPtr<Diligent::IPipelineState> CreateComputePipeline(Diligent::IRenderDevice* pDevice, const char* name, const std::string& path, std::initializer_list<std::string_view> dynamicVariables = {}) {
+    Diligent::RefCntAutoPtr<Diligent::IShader> pCS = CompileShader(pDevice, path, Diligent::SHADER_TYPE_COMPUTE);
+    if (!pCS) return {};
+
+    const auto variables = DescribeVariables({pCS}, dynamicVariables);
+    Diligent::ComputePipelineStateCreateInfo PSOCI;
+    PSOCI.PSODesc.Name = name;
+    PSOCI.PSODesc.PipelineType = Diligent::PIPELINE_TYPE_COMPUTE;
+    PSOCI.pCS = pCS;
+    UseVariables(PSOCI.PSODesc.ResourceLayout, variables);
+
+    Diligent::RefCntAutoPtr<Diligent::IPipelineState> pPSO;
+    pDevice->CreateComputePipelineState(PSOCI, &pPSO);
+    if (!pPSO) { Lit::Log::Error("Failed to create pipeline '{}'.", name); }
+    return pPSO;
+}
+
+void CreateBindings(Diligent::IPipelineState* pPSO, std::span<Diligent::RefCntAutoPtr<Diligent::IShaderResourceBinding>> bindings) {
+    for (auto& binding : bindings) {
+        binding.Release();
+        if (pPSO) pPSO->CreateShaderResourceBinding(&binding, true);
+    }
+}
+
 }  // namespace
 
 Diligent::RefCntAutoPtr<Diligent::IBuffer> CreateVertexBuffer(Diligent::IRenderDevice* pDevice, size_t size) {
@@ -482,6 +623,7 @@ Renderer::Renderer() : m_initialized(false), m_vboSize(0), m_eboSize(0), m_numDr
 void Renderer::init(GLFWwindow* window, const int windowWidth, const int windowHeight) {
     if (m_initialized) return;
 
+    m_window = window;
     m_windowWidth = windowWidth;
     m_windowHeight = windowHeight;
 
@@ -489,7 +631,7 @@ void Renderer::init(GLFWwindow* window, const int windowWidth, const int windowH
     m_diligent->pFactoryVk = Diligent::GetEngineFactoryVk();
 
     Diligent::EngineVkCreateInfo EngineCI;
-    EngineCI.Features.GeometryShaders = Diligent::DEVICE_FEATURE_STATE_ENABLED;
+    EngineCI.AdapterId = SelectFastestAdapter(m_diligent->pFactoryVk, EngineCI.GraphicsAPIVersion);
     m_diligent->pFactoryVk->CreateDeviceAndContextsVk(EngineCI, &m_diligent->pDevice, &m_diligent->pImmediateContext);
 
     Diligent::SwapChainDesc SCDesc;
@@ -625,42 +767,6 @@ void Renderer::init(GLFWwindow* window, const int windowWidth, const int windowH
     m_diligent->pEBO.Release();
     m_diligent->pDevice->CreateBuffer(EBODesc, nullptr, &m_diligent->pEBO);
 
-    m_maxMipLevel = static_cast<int>(std::floor(std::log2(std::max(windowWidth, windowHeight))));
-
-    for (int i = 0; i < NUM_FRAMES_IN_FLIGHT; ++i) {
-        Diligent::TextureDesc HiZDesc;
-        HiZDesc.Name = "Hi-Z Texture";
-        HiZDesc.Type = Diligent::RESOURCE_DIM_TEX_2D;
-        HiZDesc.Width = windowWidth;
-        HiZDesc.Height = windowHeight;
-        HiZDesc.Format = Diligent::TEX_FORMAT_R32_FLOAT;
-        HiZDesc.Usage = Diligent::USAGE_DEFAULT;
-        HiZDesc.BindFlags = Diligent::BIND_SHADER_RESOURCE | Diligent::BIND_UNORDERED_ACCESS | Diligent::BIND_RENDER_TARGET;
-        HiZDesc.MipLevels = m_maxMipLevel;
-
-        m_diligent->pHiZTextures[i].Release();
-        m_diligent->pDevice->CreateTexture(HiZDesc, nullptr, &m_diligent->pHiZTextures[i]);
-
-        Diligent::TextureDesc DepthDesc;
-        DepthDesc.Name = "Depth Pre-pass Renderbuffer";
-        DepthDesc.Type = Diligent::RESOURCE_DIM_TEX_2D;
-        DepthDesc.Width = windowWidth;
-        DepthDesc.Height = windowHeight;
-        DepthDesc.Format = Diligent::TEX_FORMAT_D32_FLOAT;
-        DepthDesc.Usage = Diligent::USAGE_DEFAULT;
-        DepthDesc.BindFlags = Diligent::BIND_DEPTH_STENCIL;
-
-        m_diligent->pDepthRenderbuffers[i].Release();
-        m_diligent->pDevice->CreateTexture(DepthDesc, nullptr, &m_diligent->pDepthRenderbuffers[i]);
-    }
-
-    for (int i = 0; i < NUM_FRAMES_IN_FLIGHT; ++i) {
-        if (m_diligent->pHiZTextures[i]) {
-            const float clearColor[4] = {1.0f, 1.0f, 1.0f, 1.0f};
-            m_diligent->pImmediateContext->ClearRenderTarget(m_diligent->pHiZTextures[i]->GetDefaultView(Diligent::TEXTURE_VIEW_RENDER_TARGET), clearColor, Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
-        }
-    }
-
     Diligent::SamplerDesc SamplerCI;
     SamplerCI.Name = "Hi-Z Sampler";
     SamplerCI.MinFilter = Diligent::FILTER_TYPE_POINT;
@@ -670,28 +776,7 @@ void Renderer::init(GLFWwindow* window, const int windowWidth, const int windowH
     SamplerCI.AddressV = Diligent::TEXTURE_ADDRESS_CLAMP;
     m_diligent->pDevice->CreateSampler(SamplerCI, &m_diligent->pHiZSampler);
 
-    for (int i = 0; i < NUM_FRAMES_IN_FLIGHT; ++i) {
-        if (m_diligent->pHiZTextures[i]) {
-            auto* pView = m_diligent->pHiZTextures[i]->GetDefaultView(Diligent::TEXTURE_VIEW_SHADER_RESOURCE);
-            pView->SetSampler(m_diligent->pHiZSampler);
-
-            for (int mip = 1; mip < m_maxMipLevel && mip < 32; ++mip) {
-                Diligent::TextureViewDesc SourceViewDesc;
-                SourceViewDesc.ViewType = Diligent::TEXTURE_VIEW_UNORDERED_ACCESS;
-                SourceViewDesc.AccessFlags = Diligent::UAV_ACCESS_FLAG_READ;
-                SourceViewDesc.MostDetailedMip = mip - 1;
-                SourceViewDesc.NumMipLevels = 1;
-                m_diligent->pHiZTextures[i]->CreateView(SourceViewDesc, &m_diligent->pHiZMipViewsSource[i][mip]);
-
-                Diligent::TextureViewDesc DestViewDesc;
-                DestViewDesc.ViewType = Diligent::TEXTURE_VIEW_UNORDERED_ACCESS;
-                DestViewDesc.AccessFlags = Diligent::UAV_ACCESS_FLAG_WRITE;
-                DestViewDesc.MostDetailedMip = mip;
-                DestViewDesc.NumMipLevels = 1;
-                m_diligent->pHiZTextures[i]->CreateView(DestViewDesc, &m_diligent->pHiZMipViewsDest[i][mip]);
-            }
-        }
-    }
+    createScreenTargets();
 
     Diligent::BufferDesc StagingDesc;
     StagingDesc.Name = "Staging Buffer";
@@ -738,13 +823,13 @@ void Renderer::reallocateBuffers(size_t numObjects) {
     for (int i = 0; i < NUM_FRAMES_IN_FLIGHT; ++i) {
         m_diligent->pObjectBuffer[i] = i == 0 ? CreateStructuredBuffer(m_diligent->pDevice, "Object Buffer", sizeof(TransformComponent), static_cast<Diligent::Uint32>(m_maxObjects)) : m_diligent->pObjectBuffer[0];
         m_diligent->pWorldMatrixBuffer[i] = i == 0 ? CreateStructuredBuffer(m_diligent->pDevice, "World Matrix Buffer", sizeof(glm::vec4) * 3, static_cast<Diligent::Uint32>(m_maxObjects)) : m_diligent->pWorldMatrixBuffer[0];
-        m_diligent->pCullOrientationBuffer[i] = i == 0 ? CreateStructuredBuffer(m_diligent->pDevice, "Cull Orientation Buffer", sizeof(glm::vec4), static_cast<Diligent::Uint32>(m_maxObjects)) : m_diligent->pCullOrientationBuffer[0];
+        m_diligent->pCullOrientationBuffer[i] = i == 0 ? CreateStructuredBuffer(m_diligent->pDevice, "Cull Orientation Buffer", sizeof(uint32_t), static_cast<Diligent::Uint32>(m_maxObjects)) : m_diligent->pCullOrientationBuffer[0];
         m_diligent->pCullSphereBuffer[i] = i == 0 ? CreateStructuredBuffer(m_diligent->pDevice, "Cull Sphere Buffer", sizeof(glm::vec4), static_cast<Diligent::Uint32>(m_maxObjects)) : m_diligent->pCullSphereBuffer[0];
         m_diligent->pDirtyIndexBuffer[i] = i == 0 ? CreateStructuredBuffer(m_diligent->pDevice, "Dirty Index Buffer", sizeof(unsigned int), MAX_DIRTY_PER_FRAME) : m_diligent->pDirtyIndexBuffer[0];
         m_diligent->pDirtyPayloadBuffer[i] = i == 0 ? CreateStructuredBuffer(m_diligent->pDevice, "Dirty Payload Buffer", sizeof(glm::mat4), MAX_DIRTY_PER_FRAME) : m_diligent->pDirtyPayloadBuffer[0];
         m_diligent->pTouchedEpochBuffer[i] = i == 0 ? CreateStructuredBuffer(m_diligent->pDevice, "Touched Epoch Buffer", sizeof(unsigned int), static_cast<Diligent::Uint32>(m_maxObjects)) : m_diligent->pTouchedEpochBuffer[0];
         m_diligent->pHierarchyBuffer[i] = i == 0 ? CreateStructuredBuffer(m_diligent->pDevice, "Hierarchy Buffer", sizeof(HierarchyComponent), static_cast<Diligent::Uint32>(m_maxObjects)) : m_diligent->pHierarchyBuffer[0];
-        m_diligent->pRenderableBuffer[i] = i == 0 ? CreateStructuredBuffer(m_diligent->pDevice, "Renderable Buffer", sizeof(RenderableComponent), static_cast<Diligent::Uint32>(m_maxObjects)) : m_diligent->pRenderableBuffer[0];
+        m_diligent->pRenderableBuffer[i] = i == 0 ? CreateStructuredBuffer(m_diligent->pDevice, "Renderable Buffer", sizeof(uint32_t), static_cast<Diligent::Uint32>(m_maxObjects)) : m_diligent->pRenderableBuffer[0];
         m_diligent->pSortedHierarchyBuffer[i] = i == 0 ? CreateStructuredBuffer(m_diligent->pDevice, "Sorted Hierarchy Buffer", sizeof(unsigned int), static_cast<Diligent::Uint32>(m_maxObjects)) : m_diligent->pSortedHierarchyBuffer[0];
         m_diligent->pVisibleObjectBuffer[i] = i == 0 ? CreateStructuredBuffer(m_diligent->pDevice, "Visible Objects Buffer", sizeof(unsigned int) * 2, static_cast<Diligent::Uint32>(m_maxObjects)) : m_diligent->pVisibleObjectBuffer[0];
         m_diligent->pSortedVisibleObjectBuffer[i] = i == 0 ? CreateStructuredBuffer(m_diligent->pDevice, "Sorted Visible Objects Buffer", sizeof(unsigned int), static_cast<Diligent::Uint32>(m_maxObjects)) : m_diligent->pSortedVisibleObjectBuffer[0];
@@ -1180,6 +1265,71 @@ void Renderer::reallocateBuffers(size_t numObjects) {
     m_hierarchyUpdateCounter = 1;
 }
 
+void Renderer::createScreenTargets() {
+    m_maxMipLevel = static_cast<int>(std::floor(std::log2(std::max(m_windowWidth, m_windowHeight))));
+
+    for (int i = 0; i < NUM_FRAMES_IN_FLIGHT; ++i) {
+        for (auto& view : m_diligent->pHiZMipViewsSource[i]) view.Release();
+        for (auto& view : m_diligent->pHiZMipViewsDest[i]) view.Release();
+
+        Diligent::TextureDesc HiZDesc;
+        HiZDesc.Name = "Hi-Z Texture";
+        HiZDesc.Type = Diligent::RESOURCE_DIM_TEX_2D;
+        HiZDesc.Width = m_windowWidth;
+        HiZDesc.Height = m_windowHeight;
+        HiZDesc.Format = Diligent::TEX_FORMAT_R32_FLOAT;
+        HiZDesc.Usage = Diligent::USAGE_DEFAULT;
+        HiZDesc.BindFlags = Diligent::BIND_SHADER_RESOURCE | Diligent::BIND_UNORDERED_ACCESS | Diligent::BIND_RENDER_TARGET;
+        HiZDesc.MipLevels = m_maxMipLevel;
+        m_diligent->pHiZTextures[i].Release();
+        m_diligent->pDevice->CreateTexture(HiZDesc, nullptr, &m_diligent->pHiZTextures[i]);
+
+        Diligent::TextureDesc DepthDesc;
+        DepthDesc.Name = "Depth Pre-pass Renderbuffer";
+        DepthDesc.Type = Diligent::RESOURCE_DIM_TEX_2D;
+        DepthDesc.Width = m_windowWidth;
+        DepthDesc.Height = m_windowHeight;
+        DepthDesc.Format = Diligent::TEX_FORMAT_D32_FLOAT;
+        DepthDesc.Usage = Diligent::USAGE_DEFAULT;
+        DepthDesc.BindFlags = Diligent::BIND_DEPTH_STENCIL;
+        m_diligent->pDepthRenderbuffers[i].Release();
+        m_diligent->pDevice->CreateTexture(DepthDesc, nullptr, &m_diligent->pDepthRenderbuffers[i]);
+
+        if (!m_diligent->pHiZTextures[i]) continue;
+        const float clearColor[4] = {1.0f, 1.0f, 1.0f, 1.0f};
+        m_diligent->pImmediateContext->ClearRenderTarget(m_diligent->pHiZTextures[i]->GetDefaultView(Diligent::TEXTURE_VIEW_RENDER_TARGET), clearColor, Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
+        m_diligent->pHiZTextures[i]->GetDefaultView(Diligent::TEXTURE_VIEW_SHADER_RESOURCE)->SetSampler(m_diligent->pHiZSampler);
+
+        for (int mip = 1; mip < m_maxMipLevel && mip < 32; ++mip) {
+            Diligent::TextureViewDesc ViewDesc;
+            ViewDesc.ViewType = Diligent::TEXTURE_VIEW_UNORDERED_ACCESS;
+            ViewDesc.NumMipLevels = 1;
+            ViewDesc.AccessFlags = Diligent::UAV_ACCESS_FLAG_READ;
+            ViewDesc.MostDetailedMip = mip - 1;
+            m_diligent->pHiZTextures[i]->CreateView(ViewDesc, &m_diligent->pHiZMipViewsSource[i][mip]);
+            ViewDesc.AccessFlags = Diligent::UAV_ACCESS_FLAG_WRITE;
+            ViewDesc.MostDetailedMip = mip;
+            m_diligent->pHiZTextures[i]->CreateView(ViewDesc, &m_diligent->pHiZMipViewsDest[i][mip]);
+        }
+    }
+}
+
+bool Renderer::resizeToWindow() {
+    int width = 0;
+    int height = 0;
+    glfwGetFramebufferSize(m_window, &width, &height);
+    if (width <= 0 || height <= 0 || (width == m_windowWidth && height == m_windowHeight)) return false;
+
+    m_diligent->pImmediateContext->WaitForIdle();
+    m_diligent->pSwapChain->Resize(static_cast<Diligent::Uint32>(width), static_cast<Diligent::Uint32>(height));
+    const auto& swapChainDesc = m_diligent->pSwapChain->GetDesc();
+    m_windowWidth = static_cast<int>(swapChainDesc.Width);
+    m_windowHeight = static_cast<int>(swapChainDesc.Height);
+    createScreenTargets();
+    m_uiManager->resize(m_windowWidth, m_windowHeight);
+    return true;
+}
+
 void Renderer::present() {
     if (m_diligent && m_diligent->pSwapChain) { m_diligent->pSwapChain->Present(0); }
 }
@@ -1503,11 +1653,13 @@ void Renderer::drawScene(SceneDatabase& sceneDatabase, const Camera& camera) {
     }
 
     if (m_renderableUpdateCounter > 0) {
-        const size_t renderableDataSize = sceneDatabase.renderables.size() * sizeof(RenderableComponent);
+        const auto& renderables = sceneDatabase.renderables;
+        m_packedRenderables.resize(renderables.size());
+        for (size_t e = 0; e < renderables.size(); ++e) m_packedRenderables[e] = PackRenderable(renderables[e]);
         if (m_transparentIdsStale) {
             m_transparentIds.clear();
-            for (size_t e = 0; e < sceneDatabase.renderables.size(); ++e) {
-                if (sceneDatabase.renderables[e].shaderId == 2) { m_transparentIds.push_back(static_cast<uint32_t>(e)); }
+            for (size_t e = 0; e < renderables.size(); ++e) {
+                if (renderables[e].shaderId == 2) { m_transparentIds.push_back(static_cast<uint32_t>(e)); }
             }
             m_transparentIdsStale = false;
         }
@@ -1515,7 +1667,7 @@ void Renderer::drawScene(SceneDatabase& sceneDatabase, const Camera& camera) {
         if (!m_transparentIds.empty()) {
             m_diligent->pImmediateContext->UpdateBuffer(m_diligent->pTransparentIdBuffer[m_currentFrame], 0, m_transparentIds.size() * sizeof(uint32_t), m_transparentIds.data(), Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
         }
-        m_diligent->pImmediateContext->UpdateBuffer(m_diligent->pRenderableBuffer[m_currentFrame], 0, renderableDataSize, sceneDatabase.renderables.data(), Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
+        m_diligent->pImmediateContext->UpdateBuffer(m_diligent->pRenderableBuffer[m_currentFrame], 0, m_packedRenderables.size() * sizeof(uint32_t), m_packedRenderables.data(), Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
         m_renderableUpdateCounter--;
     }
 
@@ -2236,12 +2388,12 @@ void Renderer::drawScene(SceneDatabase& sceneDatabase, const Camera& camera) {
         constexpr size_t kFloatsPerVertex = sizeof(DebugLineVertex) / sizeof(float);
         const size_t depthVertices = std::min(m_debugLines.size() / kFloatsPerVertex, kMaxDebugVertices);
         const size_t overlayVertices = std::min(m_debugOverlayLines.size() / kFloatsPerVertex, kMaxDebugVertices - depthVertices);
-        {
-            Diligent::MapHelper<DebugLineVertex> vertices(m_diligent->pImmediateContext, m_diligent->pDebugLineVB, Diligent::MAP_WRITE, Diligent::MAP_FLAG_DISCARD);
-            DebugLineVertex* dst = static_cast<DebugLineVertex*>(vertices);
-            std::memcpy(dst, m_debugLines.data(), depthVertices * sizeof(DebugLineVertex));
-            std::memcpy(dst + depthVertices, m_debugOverlayLines.data(), overlayVertices * sizeof(DebugLineVertex));
-        }
+        auto uploadVertices = [&](const std::vector<float>& source, size_t firstVertex, size_t vertexCount) {
+            if (vertexCount == 0) return;
+            m_diligent->pImmediateContext->UpdateBuffer(m_diligent->pDebugLineVB, firstVertex * sizeof(DebugLineVertex), vertexCount * sizeof(DebugLineVertex), source.data(), Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
+        };
+        uploadVertices(m_debugLines, 0, depthVertices);
+        uploadVertices(m_debugOverlayLines, depthVertices, overlayVertices);
         {
             Diligent::MapHelper<glm::mat4> viewProjection(m_diligent->pImmediateContext, m_diligent->pDebugLineUBO, Diligent::MAP_WRITE, Diligent::MAP_FLAG_DISCARD);
             *viewProjection = camera.getProjectionMatrix() * camera.getViewMatrix();
@@ -2318,216 +2470,31 @@ void Renderer::drawScene(SceneDatabase& sceneDatabase, const Camera& camera) {
 void Renderer::AddText(const std::string& text, float x, float y, float scale, const glm::vec3& color) { m_uiManager->addText(text, x, y, scale, color); }
 
 void Renderer::createTransformPSO() {
-    std::string source = LoadSourceFromFile("resources/shaders/transform.comp");
-    if (source.empty()) {
-        Lit::Log::Error("Failed to load transform compute shader source.");
-        return;
-    }
-
-    size_t versionPos = source.find("#version");
-    if (versionPos != std::string::npos) {
-        size_t nextLine = source.find('\n', versionPos);
-        if (nextLine != std::string::npos) { source = source.substr(nextLine + 1); }
-    }
-
-    Diligent::ShaderCreateInfo ShaderCI;
-    ShaderCI.Source = source.c_str();
-    ShaderCI.SourceLanguage = Diligent::SHADER_SOURCE_LANGUAGE_GLSL;
-    ShaderCI.Desc.ShaderType = Diligent::SHADER_TYPE_COMPUTE;
-    ShaderCI.Desc.Name = "Transform compute shader";
-
-    Diligent::RefCntAutoPtr<Diligent::IShader> pCS;
-    m_diligent->pDevice->CreateShader(ShaderCI, &pCS);
-    if (!pCS) {
-        Lit::Log::Error("Failed to create transform compute shader.");
-        return;
-    }
-
-    Diligent::ComputePipelineStateCreateInfo PSOCI;
-    PSOCI.PSODesc.Name = "Transform compute PSO";
-    PSOCI.PSODesc.PipelineType = Diligent::PIPELINE_TYPE_COMPUTE;
-    PSOCI.pCS = pCS;
-
-    PSOCI.PSODesc.ResourceLayout.DefaultVariableType = Diligent::SHADER_RESOURCE_VARIABLE_TYPE_MUTABLE;
-
-    m_diligent->pDevice->CreateComputePipelineState(PSOCI, &m_diligent->pTransformPSO);
-    if (!m_diligent->pTransformPSO) {
-        Lit::Log::Error("Failed to create transform compute PSO.");
-        return;
-    }
-
-    Diligent::BufferDesc BuffDesc;
-    BuffDesc.Name = "Transform parameters UBO";
-    BuffDesc.Usage = Diligent::USAGE_DEFAULT;
-    BuffDesc.BindFlags = Diligent::BIND_UNIFORM_BUFFER;
-    BuffDesc.Size = 256;
-    m_diligent->pDevice->CreateBuffer(BuffDesc, nullptr, &m_diligent->pTransformUniforms);
+    m_diligent->pTransformPSO = CreateComputePipeline(m_diligent->pDevice, "Transform PSO", "resources/shaders/transform.comp");
+    m_diligent->pTransformUniforms = CreateUniformBuffer(m_diligent->pDevice, "Transform Uniforms", 256, Diligent::USAGE_DEFAULT);
 }
 
 void Renderer::createTransparentCullPSO() {
-    std::string source = LoadSourceFromFile("resources/shaders/transparent_cull.comp");
-    if (source.empty()) {
-        Lit::Log::Error("Failed to load transparent cull compute shader source.");
-        return;
-    }
-
-    size_t versionPos = source.find("#version");
-    if (versionPos != std::string::npos) {
-        size_t nextLine = source.find('\n', versionPos);
-        if (nextLine != std::string::npos) { source = source.substr(nextLine + 1); }
-    }
-
-    Diligent::ShaderCreateInfo ShaderCI;
-    ShaderCI.Source = source.c_str();
-    ShaderCI.Desc.ShaderType = Diligent::SHADER_TYPE_COMPUTE;
-    ShaderCI.Desc.Name = "Transparent Cull CS";
-    ShaderCI.SourceLanguage = Diligent::SHADER_SOURCE_LANGUAGE_GLSL;
-    ShaderCI.Desc.UseCombinedTextureSamplers = true;
-
-    Diligent::RefCntAutoPtr<Diligent::IShader> pCS;
-    m_diligent->pDevice->CreateShader(ShaderCI, &pCS);
-    if (!pCS) {
-        Lit::Log::Error("Failed to create transparent cull shader");
-        return;
-    }
-
-    Diligent::ComputePipelineStateCreateInfo PSODesc;
-    PSODesc.PSODesc.Name = "Transparent Cull PSO";
-    PSODesc.PSODesc.PipelineType = Diligent::PIPELINE_TYPE_COMPUTE;
-    PSODesc.pCS = pCS;
-
-    PSODesc.PSODesc.ResourceLayout.DefaultVariableType = Diligent::SHADER_RESOURCE_VARIABLE_TYPE_MUTABLE;
-
-    std::vector<Diligent::ShaderResourceVariableDesc> Vars = {
-        {Diligent::SHADER_TYPE_COMPUTE, "TransparentCullUniforms",        Diligent::SHADER_RESOURCE_VARIABLE_TYPE_MUTABLE},
-        {Diligent::SHADER_TYPE_COMPUTE, "AtomicCounterBuffer",            Diligent::SHADER_RESOURCE_VARIABLE_TYPE_MUTABLE},
-        {Diligent::SHADER_TYPE_COMPUTE, "VisibleTransparentObjectBuffer", Diligent::SHADER_RESOURCE_VARIABLE_TYPE_MUTABLE},
-        {Diligent::SHADER_TYPE_COMPUTE, "CullSphereBuffer",              Diligent::SHADER_RESOURCE_VARIABLE_TYPE_MUTABLE},
-        {Diligent::SHADER_TYPE_COMPUTE, "TransparentIdBuffer",            Diligent::SHADER_RESOURCE_VARIABLE_TYPE_MUTABLE},
-        {Diligent::SHADER_TYPE_COMPUTE, "u_hizTexture",                   Diligent::SHADER_RESOURCE_VARIABLE_TYPE_DYNAMIC}
-    };
-    PSODesc.PSODesc.ResourceLayout.Variables = Vars.data();
-    PSODesc.PSODesc.ResourceLayout.NumVariables = Vars.size();
-
-    m_diligent->pTransparentCullPSO.Release();
-    m_diligent->pDevice->CreateComputePipelineState(PSODesc, &m_diligent->pTransparentCullPSO);
-    if (!m_diligent->pTransparentCullPSO) {
-        Lit::Log::Error("Failed to create Transparent Cull PSO");
-    } else {
-        for (int f = 0; f < DiligentData::NumFrames; ++f) { m_diligent->pTransparentCullPSO->CreateShaderResourceBinding(&m_diligent->pTransparentCullSRB[f], true); }
-    }
+    m_diligent->pTransparentCullPSO = CreateComputePipeline(m_diligent->pDevice, "Transparent Cull PSO", "resources/shaders/transparent_cull.comp", {"u_hizTexture"});
+    CreateBindings(m_diligent->pTransparentCullPSO, m_diligent->pTransparentCullSRB);
 }
 
 void Renderer::createTransparentCommandGenPSO() {
-    std::string source = LoadSourceFromFile("resources/shaders/transparent_command_gen.comp");
-    if (source.empty()) {
-        Lit::Log::Error("Failed to load transparent command gen compute shader source.");
-        return;
-    }
-
-    size_t versionPos = source.find("#version");
-    if (versionPos != std::string::npos) {
-        size_t nextLine = source.find('\n', versionPos);
-        if (nextLine != std::string::npos) { source = source.substr(nextLine + 1); }
-    }
-
-    Diligent::ShaderCreateInfo ShaderCI;
-    ShaderCI.Source = source.c_str();
-    ShaderCI.Desc.ShaderType = Diligent::SHADER_TYPE_COMPUTE;
-    ShaderCI.Desc.Name = "Transparent Command Gen CS";
-    ShaderCI.SourceLanguage = Diligent::SHADER_SOURCE_LANGUAGE_GLSL;
-    ShaderCI.Desc.UseCombinedTextureSamplers = true;
-
-    Diligent::RefCntAutoPtr<Diligent::IShader> pCS;
-    m_diligent->pDevice->CreateShader(ShaderCI, &pCS);
-    if (!pCS) {
-        Lit::Log::Error("Failed to create transparent command gen shader");
-        return;
-    }
-
-    Diligent::ComputePipelineStateCreateInfo PSODesc;
-    PSODesc.PSODesc.Name = "Transparent Command Gen PSO";
-    PSODesc.PSODesc.PipelineType = Diligent::PIPELINE_TYPE_COMPUTE;
-    PSODesc.pCS = pCS;
-
-    PSODesc.PSODesc.ResourceLayout.DefaultVariableType = Diligent::SHADER_RESOURCE_VARIABLE_TYPE_MUTABLE;
-
-    std::vector<Diligent::ShaderResourceVariableDesc> Vars = {
-        {Diligent::SHADER_TYPE_COMPUTE, "VisibleTransparentObjectBuffer", Diligent::SHADER_RESOURCE_VARIABLE_TYPE_MUTABLE},
-        {Diligent::SHADER_TYPE_COMPUTE, "MeshInfoBuffer",                 Diligent::SHADER_RESOURCE_VARIABLE_TYPE_MUTABLE},
-        {Diligent::SHADER_TYPE_COMPUTE, "RenderableBuffer",               Diligent::SHADER_RESOURCE_VARIABLE_TYPE_MUTABLE},
-        {Diligent::SHADER_TYPE_COMPUTE, "TransparentDrawCommandBuffer",   Diligent::SHADER_RESOURCE_VARIABLE_TYPE_MUTABLE},
-        {Diligent::SHADER_TYPE_COMPUTE, "AtomicCounterBuffer",            Diligent::SHADER_RESOURCE_VARIABLE_TYPE_MUTABLE},
-        {Diligent::SHADER_TYPE_COMPUTE, "TransparentCommandGenUniforms",  Diligent::SHADER_RESOURCE_VARIABLE_TYPE_MUTABLE}
-    };
-    PSODesc.PSODesc.ResourceLayout.Variables = Vars.data();
-    PSODesc.PSODesc.ResourceLayout.NumVariables = Vars.size();
-
-    m_diligent->pTransparentCommandGenPSO.Release();
-    m_diligent->pDevice->CreateComputePipelineState(PSODesc, &m_diligent->pTransparentCommandGenPSO);
-    if (!m_diligent->pTransparentCommandGenPSO) {
-        Lit::Log::Error("Failed to create Transparent Command Gen PSO");
-    } else {
-        for (int f = 0; f < DiligentData::NumFrames; ++f) { m_diligent->pTransparentCommandGenPSO->CreateShaderResourceBinding(&m_diligent->pTransparentCommandGenSRB[f], true); }
-    }
+    m_diligent->pTransparentCommandGenPSO = CreateComputePipeline(m_diligent->pDevice, "Transparent Command Gen PSO", "resources/shaders/transparent_command_gen.comp");
+    CreateBindings(m_diligent->pTransparentCommandGenPSO, m_diligent->pTransparentCommandGenSRB);
 }
 
 void Renderer::createLargeObjectCommandGenPSO() {
-    std::string source = LoadSourceFromFile("resources/shaders/large_object_command_gen.comp");
-    if (source.empty()) {
-        Lit::Log::Error("Failed to load large object command gen compute shader source.");
-        return;
-    }
-
-    size_t versionPos = source.find("#version");
-    if (versionPos != std::string::npos) {
-        size_t nextLine = source.find('\n', versionPos);
-        if (nextLine != std::string::npos) { source = source.substr(nextLine + 1); }
-    }
-
-    Diligent::ShaderCreateInfo ShaderCI;
-    ShaderCI.Source = source.c_str();
-    ShaderCI.Desc.ShaderType = Diligent::SHADER_TYPE_COMPUTE;
-    ShaderCI.Desc.Name = "Large Object Command Gen CS";
-    ShaderCI.SourceLanguage = Diligent::SHADER_SOURCE_LANGUAGE_GLSL;
-    ShaderCI.Desc.UseCombinedTextureSamplers = true;
-
-    Diligent::RefCntAutoPtr<Diligent::IShader> pCS;
-    m_diligent->pDevice->CreateShader(ShaderCI, &pCS);
-    if (!pCS) {
-        Lit::Log::Error("Failed to create large object command gen shader");
-        return;
-    }
-
-    Diligent::ComputePipelineStateCreateInfo PSODesc;
-    PSODesc.PSODesc.Name = "Large Object Command Gen PSO";
-    PSODesc.PSODesc.PipelineType = Diligent::PIPELINE_TYPE_COMPUTE;
-    PSODesc.pCS = pCS;
-
-    PSODesc.PSODesc.ResourceLayout.DefaultVariableType = Diligent::SHADER_RESOURCE_VARIABLE_TYPE_MUTABLE;
-
-    std::vector<Diligent::ShaderResourceVariableDesc> Vars = {
-        {Diligent::SHADER_TYPE_COMPUTE, "LargeObjectCommandGenUniforms",   Diligent::SHADER_RESOURCE_VARIABLE_TYPE_MUTABLE},
-        {Diligent::SHADER_TYPE_COMPUTE, "VisibleLargeObjectAtomicCounter", Diligent::SHADER_RESOURCE_VARIABLE_TYPE_MUTABLE},
-        {Diligent::SHADER_TYPE_COMPUTE, "AtomicCounterBuffer",             Diligent::SHADER_RESOURCE_VARIABLE_TYPE_MUTABLE},
-        {Diligent::SHADER_TYPE_COMPUTE, "DrawCommandBuffer",               Diligent::SHADER_RESOURCE_VARIABLE_TYPE_MUTABLE},
-        {Diligent::SHADER_TYPE_COMPUTE, "MeshInfoBuffer",                  Diligent::SHADER_RESOURCE_VARIABLE_TYPE_MUTABLE},
-        {Diligent::SHADER_TYPE_COMPUTE, "RenderableBuffer",                Diligent::SHADER_RESOURCE_VARIABLE_TYPE_MUTABLE},
-        {Diligent::SHADER_TYPE_COMPUTE, "VisibleLargeObjectBuffer",        Diligent::SHADER_RESOURCE_VARIABLE_TYPE_MUTABLE}
-    };
-    PSODesc.PSODesc.ResourceLayout.Variables = Vars.data();
-    PSODesc.PSODesc.ResourceLayout.NumVariables = Vars.size();
-
-    m_diligent->pLargeObjectCommandGenPSO.Release();
-    m_diligent->pDevice->CreateComputePipelineState(PSODesc, &m_diligent->pLargeObjectCommandGenPSO);
-    if (!m_diligent->pLargeObjectCommandGenPSO) {
-        Lit::Log::Error("Failed to create Large Object Command Gen PSO");
-    } else {
-        for (int f = 0; f < DiligentData::NumFrames; ++f) { m_diligent->pLargeObjectCommandGenPSO->CreateShaderResourceBinding(&m_diligent->pLargeObjectCommandGenSRB[f], true); }
-    }
+    m_diligent->pLargeObjectCommandGenPSO = CreateComputePipeline(m_diligent->pDevice, "Large Object Command Gen PSO", "resources/shaders/large_object_command_gen.comp");
+    CreateBindings(m_diligent->pLargeObjectCommandGenPSO, m_diligent->pLargeObjectCommandGenSRB);
 }
 
 void Renderer::createDepthPrepassPSO() {
+    m_diligent->pDepthPrepassPSO.Release();
+    auto pVS = CompileShader(m_diligent->pDevice, "resources/shaders/depth_prepass.vert", Diligent::SHADER_TYPE_VERTEX);
+    auto pPS = CompileShader(m_diligent->pDevice, "resources/shaders/depth_prepass.frag", Diligent::SHADER_TYPE_PIXEL);
+    if (!pVS || !pPS) return;
+
     Diligent::GraphicsPipelineStateCreateInfo PSOCreateInfo;
     PSOCreateInfo.PSODesc.Name = "Depth Prepass PSO";
     PSOCreateInfo.PSODesc.PipelineType = Diligent::PIPELINE_TYPE_GRAPHICS;
@@ -2539,48 +2506,6 @@ void Renderer::createDepthPrepassPSO() {
     PSOCreateInfo.GraphicsPipeline.RasterizerDesc.FrontCounterClockwise = true;
     PSOCreateInfo.GraphicsPipeline.DepthStencilDesc.DepthEnable = true;
     PSOCreateInfo.GraphicsPipeline.DepthStencilDesc.DepthWriteEnable = true;
-
-    Diligent::ShaderCreateInfo ShaderCI;
-    ShaderCI.SourceLanguage = Diligent::SHADER_SOURCE_LANGUAGE_GLSL;
-    ShaderCI.Desc.UseCombinedTextureSamplers = true;
-
-    std::string vertSource = LoadSourceFromFile("resources/shaders/depth_prepass.vert");
-    std::string fragSource = LoadSourceFromFile("resources/shaders/depth_prepass.frag");
-
-    Diligent::RefCntAutoPtr<Diligent::IShader> pVS;
-    {
-        ShaderCI.Desc.ShaderType = Diligent::SHADER_TYPE_VERTEX;
-        ShaderCI.Desc.Name = "Depth Prepass VS";
-        size_t versionPos = vertSource.find("#version");
-        if (versionPos != std::string::npos) {
-            size_t nextLine = vertSource.find('\n', versionPos);
-            if (nextLine != std::string::npos) vertSource = vertSource.substr(nextLine + 1);
-        }
-        ShaderCI.Source = vertSource.c_str();
-        m_diligent->pDevice->CreateShader(ShaderCI, &pVS);
-        if (!pVS) {
-            Lit::Log::Error("Failed to create Depth Prepass VS");
-            return;
-        }
-    }
-
-    Diligent::RefCntAutoPtr<Diligent::IShader> pPS;
-    {
-        ShaderCI.Desc.ShaderType = Diligent::SHADER_TYPE_PIXEL;
-        ShaderCI.Desc.Name = "Depth Prepass PS";
-        size_t versionPos = fragSource.find("#version");
-        if (versionPos != std::string::npos) {
-            size_t nextLine = fragSource.find('\n', versionPos);
-            if (nextLine != std::string::npos) fragSource = fragSource.substr(nextLine + 1);
-        }
-        ShaderCI.Source = fragSource.c_str();
-        m_diligent->pDevice->CreateShader(ShaderCI, &pPS);
-        if (!pPS) {
-            Lit::Log::Error("Failed to create Depth Prepass PS");
-            return;
-        }
-    }
-
     PSOCreateInfo.pVS = pVS;
     PSOCreateInfo.pPS = pPS;
 
@@ -2590,161 +2515,96 @@ void Renderer::createDepthPrepassPSO() {
     PSOCreateInfo.GraphicsPipeline.InputLayout.LayoutElements = LayoutElems;
     PSOCreateInfo.GraphicsPipeline.InputLayout.NumElements = _countof(LayoutElems);
 
-    PSOCreateInfo.PSODesc.ResourceLayout.DefaultVariableType = Diligent::SHADER_RESOURCE_VARIABLE_TYPE_MUTABLE;
+    const auto variables = DescribeVariables({pVS, pPS});
+    UseVariables(PSOCreateInfo.PSODesc.ResourceLayout, variables);
 
-    std::vector<Diligent::ShaderResourceVariableDesc> Vars = {
-        {Diligent::SHADER_TYPE_VERTEX, "SceneData",                Diligent::SHADER_RESOURCE_VARIABLE_TYPE_MUTABLE},
-        {Diligent::SHADER_TYPE_VERTEX, "WorldMatrixBuffer",        Diligent::SHADER_RESOURCE_VARIABLE_TYPE_MUTABLE},
-        {Diligent::SHADER_TYPE_VERTEX, "VisibleLargeObjectBuffer", Diligent::SHADER_RESOURCE_VARIABLE_TYPE_MUTABLE}
-    };
-    PSOCreateInfo.PSODesc.ResourceLayout.Variables = Vars.data();
-    PSOCreateInfo.PSODesc.ResourceLayout.NumVariables = Vars.size();
-
-    m_diligent->pDepthPrepassPSO.Release();
     m_diligent->pDevice->CreateGraphicsPipelineState(PSOCreateInfo, &m_diligent->pDepthPrepassPSO);
-
-    if (!m_diligent->pDepthPrepassPSO) {
-        Lit::Log::Error("Failed to create Depth Prepass PSO");
-    } else {
-        for (int f = 0; f < DiligentData::NumFrames; ++f) { m_diligent->pDepthPrepassPSO->CreateShaderResourceBinding(&m_diligent->pDepthPrepassSRB[f], true); }
-    }
+    if (!m_diligent->pDepthPrepassPSO) Lit::Log::Error("Failed to create Depth Prepass PSO");
+    CreateBindings(m_diligent->pDepthPrepassPSO, m_diligent->pDepthPrepassSRB);
 }
 
 void Renderer::createOpaquePSOs() {
-    m_diligent->pOpaquePSOs.clear();
-    m_diligent->pOpaqueSRBs.clear();
-    m_diligent->pPointPSOs.clear();
-    m_diligent->pPointSRBs.clear();
-
     struct ShaderInfo {
-        std::string vert;
-        std::string frag;
-        std::string name;
+        const char* frag;
+        const char* name;
     };
-    std::vector<ShaderInfo> shaderInfos = {
-        {"resources/shaders/cube.vert", "resources/shaders/cube.frag",        "Cube PSO"             },
-        {"resources/shaders/cube.vert", "resources/shaders/red.frag",         "Red PSO"              },
-        {"resources/shaders/cube.vert", "resources/shaders/transparent.frag", "Transparent Proxy PSO"}
+    const ShaderInfo shaderInfos[] = {
+        {"resources/shaders/cube.frag",        "Cube PSO"             },
+        {"resources/shaders/red.frag",         "Red PSO"              },
+        {"resources/shaders/transparent.frag", "Transparent Proxy PSO"}
     };
+    constexpr size_t shaderCount = std::size(shaderInfos);
 
-    m_diligent->pOpaquePSOs.resize(shaderInfos.size());
-    m_diligent->pOpaqueSRBs.resize(DiligentData::NumFrames);
-    for (int f = 0; f < DiligentData::NumFrames; ++f) { m_diligent->pOpaqueSRBs[f].resize(shaderInfos.size()); }
-    m_diligent->pPointPSOs.resize(shaderInfos.size());
-    m_diligent->pPointSRBs.resize(DiligentData::NumFrames);
-    for (int f = 0; f < DiligentData::NumFrames; ++f) { m_diligent->pPointSRBs[f].resize(shaderInfos.size()); }
+    for (auto* psos : {&m_diligent->pOpaquePSOs, &m_diligent->pPointPSOs}) {
+        psos->clear();
+        psos->resize(shaderCount);
+    }
+    for (auto* srbs : {&m_diligent->pOpaqueSRBs, &m_diligent->pPointSRBs}) {
+        srbs->assign(DiligentData::NumFrames, {});
+        for (auto& frame : *srbs) frame.resize(shaderCount);
+    }
 
-    for (size_t i = 0; i < shaderInfos.size(); ++i) {
-      for (int variant = 0; variant < 2; ++variant) {
-        const bool point = variant == 1;
-        auto& pso = point ? m_diligent->pPointPSOs[i] : m_diligent->pOpaquePSOs[i];
-        auto& srbs = point ? m_diligent->pPointSRBs : m_diligent->pOpaqueSRBs;
-        const std::string psoName = shaderInfos[i].name + (point ? " (points)" : "");
-        Diligent::GraphicsPipelineStateCreateInfo PSOCreateInfo;
-        PSOCreateInfo.PSODesc.Name = psoName.c_str();
-        PSOCreateInfo.PSODesc.PipelineType = Diligent::PIPELINE_TYPE_GRAPHICS;
-        PSOCreateInfo.GraphicsPipeline.NumRenderTargets = 1;
+    auto pMeshVS = CompileShader(m_diligent->pDevice, "resources/shaders/cube.vert", Diligent::SHADER_TYPE_VERTEX);
+    auto pPointVS = CompileShader(m_diligent->pDevice, "resources/shaders/point.vert", Diligent::SHADER_TYPE_VERTEX);
+    const Diligent::ShaderMacro pointMacros[] = {{"POINT_SPRITE", "1"}};
 
-        PSOCreateInfo.GraphicsPipeline.RTVFormats[0] = m_diligent->pSwapChain->GetDesc().ColorBufferFormat;
-        PSOCreateInfo.GraphicsPipeline.DSVFormat = Diligent::TEX_FORMAT_D32_FLOAT;
-        PSOCreateInfo.GraphicsPipeline.PrimitiveTopology = point ? Diligent::PRIMITIVE_TOPOLOGY_POINT_LIST : Diligent::PRIMITIVE_TOPOLOGY_TRIANGLE_LIST;
-        PSOCreateInfo.GraphicsPipeline.RasterizerDesc.CullMode = Diligent::CULL_MODE_BACK;
-        PSOCreateInfo.GraphicsPipeline.RasterizerDesc.FrontCounterClockwise = true;
-        PSOCreateInfo.GraphicsPipeline.DepthStencilDesc.DepthEnable = true;
-        PSOCreateInfo.GraphicsPipeline.DepthStencilDesc.DepthWriteEnable = true;
-        PSOCreateInfo.GraphicsPipeline.DepthStencilDesc.DepthFunc = Diligent::COMPARISON_FUNC_LESS_EQUAL;
+    for (size_t i = 0; i < shaderCount; ++i) {
+        for (const bool point : {false, true}) {
+            auto& pso = point ? m_diligent->pPointPSOs[i] : m_diligent->pOpaquePSOs[i];
+            auto& srbs = point ? m_diligent->pPointSRBs : m_diligent->pOpaqueSRBs;
+            const std::string psoName = std::string(shaderInfos[i].name) + (point ? " (points)" : "");
 
-        Diligent::ShaderCreateInfo ShaderCI;
-        ShaderCI.SourceLanguage = Diligent::SHADER_SOURCE_LANGUAGE_GLSL;
-        ShaderCI.Desc.UseCombinedTextureSamplers = true;
+            Diligent::IShader* pVS = point ? pPointVS.RawPtr() : pMeshVS.RawPtr();
+            auto pPS = CompileShader(m_diligent->pDevice, shaderInfos[i].frag, Diligent::SHADER_TYPE_PIXEL, point ? Diligent::ShaderMacroArray{pointMacros, 1} : Diligent::ShaderMacroArray{});
+            if (!pVS || !pPS) continue;
 
-        std::string vertSource = LoadSourceFromFile(point ? std::string("resources/shaders/point.vert") : shaderInfos[i].vert);
-        std::string fragSource = LoadSourceFromFile(shaderInfos[i].frag);
+            Diligent::GraphicsPipelineStateCreateInfo PSOCreateInfo;
+            PSOCreateInfo.PSODesc.Name = psoName.c_str();
+            PSOCreateInfo.PSODesc.PipelineType = Diligent::PIPELINE_TYPE_GRAPHICS;
+            PSOCreateInfo.GraphicsPipeline.NumRenderTargets = 1;
+            PSOCreateInfo.GraphicsPipeline.RTVFormats[0] = m_diligent->pSwapChain->GetDesc().ColorBufferFormat;
+            PSOCreateInfo.GraphicsPipeline.DSVFormat = Diligent::TEX_FORMAT_D32_FLOAT;
+            PSOCreateInfo.GraphicsPipeline.PrimitiveTopology = point ? Diligent::PRIMITIVE_TOPOLOGY_POINT_LIST : Diligent::PRIMITIVE_TOPOLOGY_TRIANGLE_LIST;
+            PSOCreateInfo.GraphicsPipeline.RasterizerDesc.CullMode = Diligent::CULL_MODE_BACK;
+            PSOCreateInfo.GraphicsPipeline.RasterizerDesc.FrontCounterClockwise = true;
+            PSOCreateInfo.GraphicsPipeline.DepthStencilDesc.DepthEnable = true;
+            PSOCreateInfo.GraphicsPipeline.DepthStencilDesc.DepthWriteEnable = true;
+            PSOCreateInfo.GraphicsPipeline.DepthStencilDesc.DepthFunc = Diligent::COMPARISON_FUNC_LESS_EQUAL;
+            PSOCreateInfo.pVS = pVS;
+            PSOCreateInfo.pPS = pPS;
 
-        Diligent::RefCntAutoPtr<Diligent::IShader> pVS;
-        {
-            ShaderCI.Desc.ShaderType = Diligent::SHADER_TYPE_VERTEX;
-            ShaderCI.Desc.Name = "Opaque VS";
-            size_t versionPos = vertSource.find("#version");
-            if (versionPos != std::string::npos) {
-                size_t nextLine = vertSource.find('\n', versionPos);
-                if (nextLine != std::string::npos) vertSource = vertSource.substr(nextLine + 1);
+            Diligent::LayoutElement LayoutElems[] = {
+                Diligent::LayoutElement{0, 0, 3, Diligent::VT_FLOAT32, false},
+                Diligent::LayoutElement{1, 0, 3, Diligent::VT_FLOAT32, false}
+            };
+            PSOCreateInfo.GraphicsPipeline.InputLayout.LayoutElements = LayoutElems;
+            PSOCreateInfo.GraphicsPipeline.InputLayout.NumElements = point ? 0 : _countof(LayoutElems);
+
+            const auto variables = DescribeVariables({pVS, pPS});
+            UseVariables(PSOCreateInfo.PSODesc.ResourceLayout, variables);
+
+            m_diligent->pDevice->CreateGraphicsPipelineState(PSOCreateInfo, &pso);
+            if (!pso) {
+                Lit::Log::Error("Failed to create Opaque PSO: {}", psoName);
+                continue;
             }
-            ShaderCI.Source = vertSource.c_str();
-            m_diligent->pDevice->CreateShader(ShaderCI, &pVS);
-        }
-
-        Diligent::RefCntAutoPtr<Diligent::IShader> pPS;
-        {
-            ShaderCI.Desc.ShaderType = Diligent::SHADER_TYPE_PIXEL;
-            ShaderCI.Desc.Name = "Opaque PS";
-            size_t versionPos = fragSource.find("#version");
-            if (versionPos != std::string::npos) {
-                size_t nextLine = fragSource.find('\n', versionPos);
-                if (nextLine != std::string::npos) fragSource = fragSource.substr(nextLine + 1);
-            }
-            ShaderCI.Source = fragSource.c_str();
-            const Diligent::ShaderMacro pointMacros[] = {{"POINT_SPRITE", "1"}, {nullptr, nullptr}};
-            ShaderCI.Macros = point ? Diligent::ShaderMacroArray{pointMacros, 1} : Diligent::ShaderMacroArray{};
-            m_diligent->pDevice->CreateShader(ShaderCI, &pPS);
-            ShaderCI.Macros = {};
-        }
-
-        if (!pVS || !pPS) {
-            Lit::Log::Error("Failed to create shaders for PSO: {}", psoName);
-            continue;
-        }
-
-        PSOCreateInfo.pVS = pVS;
-        PSOCreateInfo.pPS = pPS;
-
-        Diligent::LayoutElement LayoutElems[] = {
-            Diligent::LayoutElement{0, 0, 3, Diligent::VT_FLOAT32, false},
-            Diligent::LayoutElement{1, 0, 3, Diligent::VT_FLOAT32, false}
-        };
-        PSOCreateInfo.GraphicsPipeline.InputLayout.LayoutElements = LayoutElems;
-        PSOCreateInfo.GraphicsPipeline.InputLayout.NumElements = point ? 0 : _countof(LayoutElems);
-
-        PSOCreateInfo.PSODesc.ResourceLayout.DefaultVariableType = Diligent::SHADER_RESOURCE_VARIABLE_TYPE_MUTABLE;
-
-        std::vector<Diligent::ShaderResourceVariableDesc> Vars = {
-            {Diligent::SHADER_TYPE_VERTEX, "SceneData",           Diligent::SHADER_RESOURCE_VARIABLE_TYPE_MUTABLE},
-            {Diligent::SHADER_TYPE_PIXEL,  "SceneData",           Diligent::SHADER_RESOURCE_VARIABLE_TYPE_MUTABLE},
-            {Diligent::SHADER_TYPE_VERTEX, "VisibleObjectBuffer", Diligent::SHADER_RESOURCE_VARIABLE_TYPE_MUTABLE},
-            {Diligent::SHADER_TYPE_VERTEX, "RenderableBuffer",    Diligent::SHADER_RESOURCE_VARIABLE_TYPE_MUTABLE},
-            {Diligent::SHADER_TYPE_VERTEX, "MaterialBuffer",      Diligent::SHADER_RESOURCE_VARIABLE_TYPE_MUTABLE},
-            {Diligent::SHADER_TYPE_PIXEL,  "LightBlock",          Diligent::SHADER_RESOURCE_VARIABLE_TYPE_MUTABLE}
-        };
-        if (!point) { Vars.push_back({Diligent::SHADER_TYPE_VERTEX, "WorldMatrixBuffer", Diligent::SHADER_RESOURCE_VARIABLE_TYPE_MUTABLE}); }
-        if (point) {
-            Vars.push_back({Diligent::SHADER_TYPE_VERTEX, "CullOrientationBuffer", Diligent::SHADER_RESOURCE_VARIABLE_TYPE_MUTABLE});
-            Vars.push_back({Diligent::SHADER_TYPE_VERTEX, "CullSphereBuffer", Diligent::SHADER_RESOURCE_VARIABLE_TYPE_MUTABLE});
-            Vars.push_back({Diligent::SHADER_TYPE_VERTEX, "NormalSampleBuffer", Diligent::SHADER_RESOURCE_VARIABLE_TYPE_MUTABLE});
-        }
-        PSOCreateInfo.PSODesc.ResourceLayout.Variables = Vars.data();
-        PSOCreateInfo.PSODesc.ResourceLayout.NumVariables = Vars.size();
-
-        pso.Release();
-        m_diligent->pDevice->CreateGraphicsPipelineState(PSOCreateInfo, &pso);
-
-        if (!pso) {
-            Lit::Log::Error("Failed to create Opaque PSO: {}", psoName);
-        } else {
             for (int f = 0; f < DiligentData::NumFrames; ++f) { pso->CreateShaderResourceBinding(&srbs[f][i], true); }
         }
-      }
     }
 }
 
 void Renderer::createTransparentPSO() {
     m_diligent->pTransparentPSO.Release();
-    for (int f = 0; f < DiligentData::NumFrames; ++f) { m_diligent->pTransparentSRB[f].Release(); }
+    CreateBindings(nullptr, m_diligent->pTransparentSRB);
+
+    auto pVS = CompileShader(m_diligent->pDevice, "resources/shaders/transparent.vert", Diligent::SHADER_TYPE_VERTEX);
+    auto pPS = CompileShader(m_diligent->pDevice, "resources/shaders/transparent.frag", Diligent::SHADER_TYPE_PIXEL);
+    if (!pVS || !pPS) return;
 
     Diligent::GraphicsPipelineStateCreateInfo PSOCreateInfo;
     PSOCreateInfo.PSODesc.Name = "Transparent PSO";
     PSOCreateInfo.PSODesc.PipelineType = Diligent::PIPELINE_TYPE_GRAPHICS;
     PSOCreateInfo.GraphicsPipeline.NumRenderTargets = 1;
-
     PSOCreateInfo.GraphicsPipeline.RTVFormats[0] = m_diligent->pSwapChain->GetDesc().ColorBufferFormat;
     PSOCreateInfo.GraphicsPipeline.DSVFormat = Diligent::TEX_FORMAT_D32_FLOAT;
     PSOCreateInfo.GraphicsPipeline.PrimitiveTopology = Diligent::PRIMITIVE_TOPOLOGY_TRIANGLE_LIST;
@@ -2753,6 +2613,8 @@ void Renderer::createTransparentPSO() {
     PSOCreateInfo.GraphicsPipeline.DepthStencilDesc.DepthEnable = true;
     PSOCreateInfo.GraphicsPipeline.DepthStencilDesc.DepthWriteEnable = false;
     PSOCreateInfo.GraphicsPipeline.DepthStencilDesc.DepthFunc = Diligent::COMPARISON_FUNC_LESS_EQUAL;
+    PSOCreateInfo.pVS = pVS;
+    PSOCreateInfo.pPS = pPS;
 
     auto& RT0 = PSOCreateInfo.GraphicsPipeline.BlendDesc.RenderTargets[0];
     RT0.BlendEnable = true;
@@ -2763,47 +2625,6 @@ void Renderer::createTransparentPSO() {
     RT0.DestBlendAlpha = Diligent::BLEND_FACTOR_INV_SRC_ALPHA;
     RT0.BlendOpAlpha = Diligent::BLEND_OPERATION_ADD;
 
-    Diligent::ShaderCreateInfo ShaderCI;
-    ShaderCI.SourceLanguage = Diligent::SHADER_SOURCE_LANGUAGE_GLSL;
-    ShaderCI.Desc.UseCombinedTextureSamplers = true;
-
-    std::string vertSource = LoadSourceFromFile("resources/shaders/transparent.vert");
-    std::string fragSource = LoadSourceFromFile("resources/shaders/transparent.frag");
-
-    Diligent::RefCntAutoPtr<Diligent::IShader> pVS;
-    {
-        ShaderCI.Desc.ShaderType = Diligent::SHADER_TYPE_VERTEX;
-        ShaderCI.Desc.Name = "Transparent VS";
-        size_t versionPos = vertSource.find("#version");
-        if (versionPos != std::string::npos) {
-            size_t nextLine = vertSource.find('\n', versionPos);
-            if (nextLine != std::string::npos) vertSource = vertSource.substr(nextLine + 1);
-        }
-        ShaderCI.Source = vertSource.c_str();
-        m_diligent->pDevice->CreateShader(ShaderCI, &pVS);
-    }
-
-    Diligent::RefCntAutoPtr<Diligent::IShader> pPS;
-    {
-        ShaderCI.Desc.ShaderType = Diligent::SHADER_TYPE_PIXEL;
-        ShaderCI.Desc.Name = "Transparent PS";
-        size_t versionPos = fragSource.find("#version");
-        if (versionPos != std::string::npos) {
-            size_t nextLine = fragSource.find('\n', versionPos);
-            if (nextLine != std::string::npos) fragSource = fragSource.substr(nextLine + 1);
-        }
-        ShaderCI.Source = fragSource.c_str();
-        m_diligent->pDevice->CreateShader(ShaderCI, &pPS);
-    }
-
-    if (!pVS || !pPS) {
-        Lit::Log::Error("Failed to create Global Transparent shaders");
-        return;
-    }
-
-    PSOCreateInfo.pVS = pVS;
-    PSOCreateInfo.pPS = pPS;
-
     Diligent::LayoutElement LayoutElems[] = {
         Diligent::LayoutElement{0, 0, 3, Diligent::VT_FLOAT32, false},
         Diligent::LayoutElement{1, 0, 3, Diligent::VT_FLOAT32, false}
@@ -2811,523 +2632,65 @@ void Renderer::createTransparentPSO() {
     PSOCreateInfo.GraphicsPipeline.InputLayout.LayoutElements = LayoutElems;
     PSOCreateInfo.GraphicsPipeline.InputLayout.NumElements = _countof(LayoutElems);
 
-    PSOCreateInfo.PSODesc.ResourceLayout.DefaultVariableType = Diligent::SHADER_RESOURCE_VARIABLE_TYPE_MUTABLE;
-
-    std::vector<Diligent::ShaderResourceVariableDesc> Vars = {
-        {Diligent::SHADER_TYPE_VERTEX, "SceneData",                      Diligent::SHADER_RESOURCE_VARIABLE_TYPE_MUTABLE},
-        {Diligent::SHADER_TYPE_PIXEL,  "SceneData",                      Diligent::SHADER_RESOURCE_VARIABLE_TYPE_MUTABLE},
-        {Diligent::SHADER_TYPE_VERTEX, "WorldMatrixBuffer",              Diligent::SHADER_RESOURCE_VARIABLE_TYPE_MUTABLE},
-        {Diligent::SHADER_TYPE_VERTEX, "CullSphereBuffer",               Diligent::SHADER_RESOURCE_VARIABLE_TYPE_MUTABLE},
-        {Diligent::SHADER_TYPE_VERTEX, "VisibleTransparentObjectBuffer", Diligent::SHADER_RESOURCE_VARIABLE_TYPE_MUTABLE},
-        {Diligent::SHADER_TYPE_VERTEX, "RenderableBuffer",               Diligent::SHADER_RESOURCE_VARIABLE_TYPE_MUTABLE},
-        {Diligent::SHADER_TYPE_VERTEX, "MaterialBuffer",                 Diligent::SHADER_RESOURCE_VARIABLE_TYPE_MUTABLE},
-        {Diligent::SHADER_TYPE_PIXEL,  "LightBlock",                     Diligent::SHADER_RESOURCE_VARIABLE_TYPE_MUTABLE}
-    };
-    PSOCreateInfo.PSODesc.ResourceLayout.Variables = Vars.data();
-    PSOCreateInfo.PSODesc.ResourceLayout.NumVariables = Vars.size();
+    const auto variables = DescribeVariables({pVS, pPS});
+    UseVariables(PSOCreateInfo.PSODesc.ResourceLayout, variables);
 
     m_diligent->pDevice->CreateGraphicsPipelineState(PSOCreateInfo, &m_diligent->pTransparentPSO);
-
-    if (m_diligent->pTransparentPSO) {
-        for (int f = 0; f < DiligentData::NumFrames; ++f) { m_diligent->pTransparentPSO->CreateShaderResourceBinding(&m_diligent->pTransparentSRB[f], true); }
-    } else {
-        Lit::Log::Error("Failed to create Transparent PSO");
-    }
+    if (!m_diligent->pTransparentPSO) Lit::Log::Error("Failed to create Transparent PSO");
+    CreateBindings(m_diligent->pTransparentPSO, m_diligent->pTransparentSRB);
 }
 
 void Renderer::createHiZPSO() {
-    Diligent::ComputePipelineStateCreateInfo PSOCreateInfo;
-    PSOCreateInfo.PSODesc.Name = "Hi-Z Mipmap PSO";
-    PSOCreateInfo.PSODesc.PipelineType = Diligent::PIPELINE_TYPE_COMPUTE;
-
-    Diligent::ShaderResourceVariableDesc Vars[] = {
-        {Diligent::SHADER_TYPE_COMPUTE, "u_sourceMip", Diligent::SHADER_RESOURCE_VARIABLE_TYPE_DYNAMIC},
-        {Diligent::SHADER_TYPE_COMPUTE, "u_destMip",   Diligent::SHADER_RESOURCE_VARIABLE_TYPE_DYNAMIC}
-    };
-
-    PSOCreateInfo.PSODesc.ResourceLayout.Variables = Vars;
-    PSOCreateInfo.PSODesc.ResourceLayout.NumVariables = _countof(Vars);
-
-    std::string source = LoadSourceFromFile("resources/shaders/hiz_mipmap.comp");
-    if (source.empty()) {
-        Lit::Log::Error("Failed to load Hi-Z Mipmap compute shader source.");
-        return;
-    }
-
-    size_t versionPos = source.find("#version");
-    if (versionPos != std::string::npos) {
-        size_t nextLine = source.find('\n', versionPos);
-        if (nextLine != std::string::npos) { source = source.substr(nextLine + 1); }
-    }
-
-    Diligent::ShaderCreateInfo ShaderCI;
-    ShaderCI.Source = source.c_str();
-    ShaderCI.SourceLanguage = Diligent::SHADER_SOURCE_LANGUAGE_GLSL;
-    ShaderCI.Desc.UseCombinedTextureSamplers = true;
-    ShaderCI.Desc.ShaderType = Diligent::SHADER_TYPE_COMPUTE;
-    ShaderCI.Desc.Name = "Hi-Z Mipmap CS";
-
-    Diligent::RefCntAutoPtr<Diligent::IShader> pCS;
-    m_diligent->pDevice->CreateShader(ShaderCI, &pCS);
-    if (!pCS) {
-        Lit::Log::Error("Failed to create Hi-Z Mipmap shader.");
-        return;
-    }
-    PSOCreateInfo.pCS = pCS;
-
-    m_diligent->pDevice->CreateComputePipelineState(PSOCreateInfo, &m_diligent->pHiZMipmapPSO);
-    if (!m_diligent->pHiZMipmapPSO) {
-        Lit::Log::Error("Failed to create Hi-Z Mipmap PSO.");
-        return;
-    }
-    m_diligent->pHiZMipmapPSO->CreateShaderResourceBinding(&m_diligent->pHiZMipmapSRB, true);
+    m_diligent->pHiZMipmapPSO = CreateComputePipeline(m_diligent->pDevice, "Hi-Z Mipmap PSO", "resources/shaders/hiz_mipmap.comp", {"u_sourceMip", "u_destMip"});
+    CreateBindings(m_diligent->pHiZMipmapPSO, std::span(std::addressof(m_diligent->pHiZMipmapSRB), 1));
 }
 
 void Renderer::createCullingPSO() {
-    std::string source = LoadSourceFromFile("resources/shaders/cull.comp");
-    if (source.empty()) {
-        Lit::Log::Error("Failed to load culling compute shader source.");
-        return;
-    }
-
-    size_t versionPos = source.find("#version");
-    if (versionPos != std::string::npos) {
-        size_t nextLine = source.find('\n', versionPos);
-        if (nextLine != std::string::npos) { source = source.substr(nextLine + 1); }
-    }
-
-    Diligent::ShaderCreateInfo ShaderCI;
-    ShaderCI.Source = source.c_str();
-    ShaderCI.SourceLanguage = Diligent::SHADER_SOURCE_LANGUAGE_GLSL;
-    ShaderCI.Desc.UseCombinedTextureSamplers = true;
-    ShaderCI.Desc.ShaderType = Diligent::SHADER_TYPE_COMPUTE;
-    ShaderCI.Desc.Name = "Culling compute shader";
-
-    Diligent::RefCntAutoPtr<Diligent::IShader> pCS;
-    m_diligent->pDevice->CreateShader(ShaderCI, &pCS);
-    if (!pCS) {
-        Lit::Log::Error("Failed to create culling compute shader.");
-        return;
-    }
-
-    Diligent::ShaderResourceVariableDesc Vars[] = {
-        {Diligent::SHADER_TYPE_COMPUTE, "u_hizTexture", Diligent::SHADER_RESOURCE_VARIABLE_TYPE_DYNAMIC}
-    };
-
-    Diligent::ComputePipelineStateCreateInfo PSOCI;
-    PSOCI.PSODesc.Name = "Culling compute PSO";
-    PSOCI.PSODesc.PipelineType = Diligent::PIPELINE_TYPE_COMPUTE;
-    PSOCI.pCS = pCS;
-    PSOCI.PSODesc.ResourceLayout.DefaultVariableType = Diligent::SHADER_RESOURCE_VARIABLE_TYPE_MUTABLE;
-    PSOCI.PSODesc.ResourceLayout.Variables = Vars;
-    PSOCI.PSODesc.ResourceLayout.NumVariables = _countof(Vars);
-
-    m_diligent->pDevice->CreateComputePipelineState(PSOCI, &m_diligent->pCullingPSO);
-    if (!m_diligent->pCullingPSO) {
-        Lit::Log::Error("Failed to create culling compute PSO.");
-        return;
-    }
-
-    Diligent::BufferDesc BuffDesc;
-    BuffDesc.Name = "Culling parameters UBO";
-    BuffDesc.Usage = Diligent::USAGE_DEFAULT;
-    BuffDesc.BindFlags = Diligent::BIND_UNIFORM_BUFFER;
-    BuffDesc.Size = 256;
-    m_diligent->pDevice->CreateBuffer(BuffDesc, nullptr, &m_diligent->pCullingUniforms);
+    m_diligent->pCullingPSO = CreateComputePipeline(m_diligent->pDevice, "Culling PSO", "resources/shaders/cull.comp", {"u_hizTexture"});
+    m_diligent->pCullingUniforms = CreateUniformBuffer(m_diligent->pDevice, "Culling Uniforms", 256, Diligent::USAGE_DEFAULT);
 }
 
 void Renderer::createCommandGenPSO() {
-    std::string source = LoadSourceFromFile("resources/shaders/command_gen.comp");
-    if (source.empty()) {
-        Lit::Log::Error("Failed to load command generation compute shader source.");
-        return;
-    }
-
-    size_t versionPos = source.find("#version");
-    if (versionPos != std::string::npos) {
-        size_t nextLine = source.find('\n', versionPos);
-        if (nextLine != std::string::npos) source = source.substr(nextLine + 1);
-    }
-
-    Diligent::ShaderCreateInfo ShaderCI;
-    ShaderCI.Source = source.c_str();
-    ShaderCI.SourceLanguage = Diligent::SHADER_SOURCE_LANGUAGE_GLSL;
-    ShaderCI.Desc.ShaderType = Diligent::SHADER_TYPE_COMPUTE;
-    ShaderCI.Desc.Name = "Command Gen CS";
-
-    Diligent::RefCntAutoPtr<Diligent::IShader> pCS;
-    m_diligent->pDevice->CreateShader(ShaderCI, &pCS);
-    if (!pCS) return;
-
-    Diligent::ShaderResourceVariableDesc Vars[] = {
-        {Diligent::SHADER_TYPE_COMPUTE, "DrawAtomicCounterBuffer", Diligent::SHADER_RESOURCE_VARIABLE_TYPE_MUTABLE},
-        {Diligent::SHADER_TYPE_COMPUTE, "PointCounterBuffer",     Diligent::SHADER_RESOURCE_VARIABLE_TYPE_MUTABLE},
-        {Diligent::SHADER_TYPE_COMPUTE, "PointCommandBuffer",     Diligent::SHADER_RESOURCE_VARIABLE_TYPE_MUTABLE},
-        {Diligent::SHADER_TYPE_COMPUTE, "DrawCommandBuffer",       Diligent::SHADER_RESOURCE_VARIABLE_TYPE_MUTABLE},
-        {Diligent::SHADER_TYPE_COMPUTE, "MeshInfoBuffer",          Diligent::SHADER_RESOURCE_VARIABLE_TYPE_MUTABLE},
-        {Diligent::SHADER_TYPE_COMPUTE, "BucketCountBuffer",       Diligent::SHADER_RESOURCE_VARIABLE_TYPE_MUTABLE},
-        {Diligent::SHADER_TYPE_COMPUTE, "BucketOffsetBuffer",      Diligent::SHADER_RESOURCE_VARIABLE_TYPE_MUTABLE},
-        {Diligent::SHADER_TYPE_COMPUTE, "CommandGenConstants",     Diligent::SHADER_RESOURCE_VARIABLE_TYPE_MUTABLE}
-    };
-
-    Diligent::ComputePipelineStateCreateInfo PSOCI;
-    PSOCI.PSODesc.Name = "Command Gen PSO";
-    PSOCI.PSODesc.PipelineType = Diligent::PIPELINE_TYPE_COMPUTE;
-    PSOCI.pCS = pCS;
-    PSOCI.PSODesc.ResourceLayout.Variables = Vars;
-    PSOCI.PSODesc.ResourceLayout.NumVariables = _countof(Vars);
-
-    m_diligent->pDevice->CreateComputePipelineState(PSOCI, &m_diligent->pCommandGenPSO);
-
-    Diligent::BufferDesc CBDesc;
-    CBDesc.Name = "Command Gen Constants";
-    CBDesc.Usage = Diligent::USAGE_DYNAMIC;
-    CBDesc.BindFlags = Diligent::BIND_UNIFORM_BUFFER;
-    CBDesc.CPUAccessFlags = Diligent::CPU_ACCESS_WRITE;
-    CBDesc.Size = sizeof(CommandGenUniforms);
-    m_diligent->pDevice->CreateBuffer(CBDesc, nullptr, &m_diligent->pCommandGenConstants);
+    m_diligent->pCommandGenPSO = CreateComputePipeline(m_diligent->pDevice, "Command Gen PSO", "resources/shaders/command_gen.comp");
+    m_diligent->pCommandGenConstants = CreateUniformBuffer(m_diligent->pDevice, "Command Gen Constants", sizeof(CommandGenUniforms));
 }
 
 void Renderer::createPrefixSumPSO() {
-    std::string source = LoadSourceFromFile("resources/shaders/prefix_sum.comp");
-    if (source.empty()) {
-        Lit::Log::Error("Failed to load prefix sum compute shader source.");
-        return;
-    }
-
-    size_t versionPos = source.find("#version");
-    if (versionPos != std::string::npos) {
-        size_t nextLine = source.find('\n', versionPos);
-        if (nextLine != std::string::npos) source = source.substr(nextLine + 1);
-    }
-
-    Diligent::ShaderCreateInfo ShaderCI;
-    ShaderCI.Source = source.c_str();
-    ShaderCI.SourceLanguage = Diligent::SHADER_SOURCE_LANGUAGE_GLSL;
-    ShaderCI.Desc.ShaderType = Diligent::SHADER_TYPE_COMPUTE;
-    ShaderCI.Desc.Name = "Prefix Sum CS";
-
-    Diligent::RefCntAutoPtr<Diligent::IShader> pCS;
-    m_diligent->pDevice->CreateShader(ShaderCI, &pCS);
-    if (!pCS) return;
-
-    Diligent::ShaderResourceVariableDesc Vars[] = {
-        {Diligent::SHADER_TYPE_COMPUTE, "PrefixSumConstants",    Diligent::SHADER_RESOURCE_VARIABLE_TYPE_MUTABLE},
-        {Diligent::SHADER_TYPE_COMPUTE, "BucketCountBuffer",     Diligent::SHADER_RESOURCE_VARIABLE_TYPE_MUTABLE},
-        {Diligent::SHADER_TYPE_COMPUTE, "BucketOffsetBuffer",    Diligent::SHADER_RESOURCE_VARIABLE_TYPE_MUTABLE},
-        {Diligent::SHADER_TYPE_COMPUTE, "BucketWriteHeadBuffer", Diligent::SHADER_RESOURCE_VARIABLE_TYPE_MUTABLE}
-    };
-
-    Diligent::ComputePipelineStateCreateInfo PSOCI;
-    PSOCI.PSODesc.Name = "Prefix Sum PSO";
-    PSOCI.PSODesc.PipelineType = Diligent::PIPELINE_TYPE_COMPUTE;
-    PSOCI.pCS = pCS;
-    PSOCI.PSODesc.ResourceLayout.Variables = Vars;
-    PSOCI.PSODesc.ResourceLayout.NumVariables = _countof(Vars);
-
-    m_diligent->pDevice->CreateComputePipelineState(PSOCI, &m_diligent->pPrefixSumPSO);
-
-    Diligent::BufferDesc CBDesc;
-    CBDesc.Name = "Prefix Sum Constants";
-    CBDesc.Usage = Diligent::USAGE_DYNAMIC;
-    CBDesc.BindFlags = Diligent::BIND_UNIFORM_BUFFER;
-    CBDesc.CPUAccessFlags = Diligent::CPU_ACCESS_WRITE;
-    CBDesc.Size = sizeof(PrefixSumConstants);
-    m_diligent->pDevice->CreateBuffer(CBDesc, nullptr, &m_diligent->pPrefixSumConstants);
+    m_diligent->pPrefixSumPSO = CreateComputePipeline(m_diligent->pDevice, "Prefix Sum PSO", "resources/shaders/prefix_sum.comp");
+    m_diligent->pPrefixSumConstants = CreateUniformBuffer(m_diligent->pDevice, "Prefix Sum Constants", sizeof(PrefixSumConstants));
 }
 
 void Renderer::createScatterPSO() {
-    std::string source = LoadSourceFromFile("resources/shaders/scatter.comp");
-    if (source.empty()) {
-        Lit::Log::Error("Failed to load scatter compute shader source.");
-        return;
-    }
-
-    size_t versionPos = source.find("#version");
-    if (versionPos != std::string::npos) {
-        size_t nextLine = source.find('\n', versionPos);
-        if (nextLine != std::string::npos) source = source.substr(nextLine + 1);
-    }
-
-    Diligent::ShaderCreateInfo ShaderCI;
-    ShaderCI.Source = source.c_str();
-    ShaderCI.SourceLanguage = Diligent::SHADER_SOURCE_LANGUAGE_GLSL;
-    ShaderCI.Desc.ShaderType = Diligent::SHADER_TYPE_COMPUTE;
-    ShaderCI.Desc.Name = "Scatter CS";
-
-    Diligent::RefCntAutoPtr<Diligent::IShader> pCS;
-    m_diligent->pDevice->CreateShader(ShaderCI, &pCS);
-    if (!pCS) return;
-
-    Diligent::ShaderResourceVariableDesc Vars[] = {
-        {Diligent::SHADER_TYPE_COMPUTE, "ScatterConstants",          Diligent::SHADER_RESOURCE_VARIABLE_TYPE_MUTABLE},
-        {Diligent::SHADER_TYPE_COMPUTE, "AtomicCounterBuffer",       Diligent::SHADER_RESOURCE_VARIABLE_TYPE_MUTABLE},
-        {Diligent::SHADER_TYPE_COMPUTE, "VisibleObjectBuffer",       Diligent::SHADER_RESOURCE_VARIABLE_TYPE_MUTABLE},
-        {Diligent::SHADER_TYPE_COMPUTE, "BucketWriteHeadBuffer",     Diligent::SHADER_RESOURCE_VARIABLE_TYPE_MUTABLE},
-        {Diligent::SHADER_TYPE_COMPUTE, "SortedVisibleObjectBuffer", Diligent::SHADER_RESOURCE_VARIABLE_TYPE_MUTABLE}
-    };
-
-    Diligent::ComputePipelineStateCreateInfo PSOCI;
-    PSOCI.PSODesc.Name = "Scatter PSO";
-    PSOCI.PSODesc.PipelineType = Diligent::PIPELINE_TYPE_COMPUTE;
-    PSOCI.pCS = pCS;
-    PSOCI.PSODesc.ResourceLayout.Variables = Vars;
-    PSOCI.PSODesc.ResourceLayout.NumVariables = _countof(Vars);
-
-    m_diligent->pDevice->CreateComputePipelineState(PSOCI, &m_diligent->pScatterPSO);
-
-    Diligent::BufferDesc CBDesc;
-    CBDesc.Name = "Scatter Constants";
-    CBDesc.Usage = Diligent::USAGE_DYNAMIC;
-    CBDesc.BindFlags = Diligent::BIND_UNIFORM_BUFFER;
-    CBDesc.CPUAccessFlags = Diligent::CPU_ACCESS_WRITE;
-    CBDesc.Size = sizeof(ScatterConstants);
-    m_diligent->pDevice->CreateBuffer(CBDesc, nullptr, &m_diligent->pScatterConstants);
-
-    CBDesc.Name = "Large Object Scatter Constants";
-    m_diligent->pDevice->CreateBuffer(CBDesc, nullptr, &m_diligent->pLargeScatterConstants);
+    m_diligent->pScatterPSO = CreateComputePipeline(m_diligent->pDevice, "Scatter PSO", "resources/shaders/scatter.comp");
+    m_diligent->pScatterConstants = CreateUniformBuffer(m_diligent->pDevice, "Scatter Constants", sizeof(ScatterConstants));
+    m_diligent->pLargeScatterConstants = CreateUniformBuffer(m_diligent->pDevice, "Large Object Scatter Constants", sizeof(ScatterConstants));
 }
 
 void Renderer::createDispatchArgsPSO() {
-    std::string source = LoadSourceFromFile("resources/shaders/dispatch_args.comp");
-    if (source.empty()) {
-        Lit::Log::Error("Failed to load dispatch args compute shader source.");
-        return;
-    }
-
-    size_t versionPos = source.find("#version");
-    if (versionPos != std::string::npos) {
-        size_t nextLine = source.find('\n', versionPos);
-        if (nextLine != std::string::npos) source = source.substr(nextLine + 1);
-    }
-
-    Diligent::ShaderCreateInfo ShaderCI;
-    ShaderCI.Source = source.c_str();
-    ShaderCI.SourceLanguage = Diligent::SHADER_SOURCE_LANGUAGE_GLSL;
-    ShaderCI.Desc.ShaderType = Diligent::SHADER_TYPE_COMPUTE;
-    ShaderCI.Desc.Name = "Dispatch Args CS";
-
-    Diligent::RefCntAutoPtr<Diligent::IShader> pCS;
-    m_diligent->pDevice->CreateShader(ShaderCI, &pCS);
-    if (!pCS) {
-        Lit::Log::Error("Failed to create dispatch args compute shader.");
-        return;
-    }
-
-    Diligent::ShaderResourceVariableDesc Vars[] = {
-        {Diligent::SHADER_TYPE_COMPUTE, "DispatchArgsConstants", Diligent::SHADER_RESOURCE_VARIABLE_TYPE_MUTABLE},
-        {Diligent::SHADER_TYPE_COMPUTE, "SourceCounterBuffer",   Diligent::SHADER_RESOURCE_VARIABLE_TYPE_MUTABLE},
-        {Diligent::SHADER_TYPE_COMPUTE, "DispatchArgsBuffer",    Diligent::SHADER_RESOURCE_VARIABLE_TYPE_MUTABLE}
-    };
-
-    Diligent::ComputePipelineStateCreateInfo PSOCI;
-    PSOCI.PSODesc.Name = "Dispatch Args PSO";
-    PSOCI.PSODesc.PipelineType = Diligent::PIPELINE_TYPE_COMPUTE;
-    PSOCI.pCS = pCS;
-    PSOCI.PSODesc.ResourceLayout.Variables = Vars;
-    PSOCI.PSODesc.ResourceLayout.NumVariables = _countof(Vars);
-
-    m_diligent->pDevice->CreateComputePipelineState(PSOCI, &m_diligent->pDispatchArgsPSO);
-    if (!m_diligent->pDispatchArgsPSO) {
-        Lit::Log::Error("Failed to create dispatch args PSO.");
-        return;
-    }
-
-    Diligent::BufferDesc CBDesc;
-    CBDesc.Name = "Dispatch Args Constants";
-    CBDesc.Usage = Diligent::USAGE_DEFAULT;
-    CBDesc.BindFlags = Diligent::BIND_UNIFORM_BUFFER;
-    CBDesc.Size = sizeof(DispatchArgsConstants);
-    m_diligent->pDevice->CreateBuffer(CBDesc, nullptr, &m_diligent->pDispatchArgsConstants);
-
-    CBDesc.Name = "Scatter Dispatch Args Constants";
-    m_diligent->pDevice->CreateBuffer(CBDesc, nullptr, &m_diligent->pScatterDispatchArgsConstants);
+    m_diligent->pDispatchArgsPSO = CreateComputePipeline(m_diligent->pDevice, "Dispatch Args PSO", "resources/shaders/dispatch_args.comp");
+    m_diligent->pDispatchArgsConstants = CreateUniformBuffer(m_diligent->pDevice, "Dispatch Args Constants", sizeof(DispatchArgsConstants), Diligent::USAGE_DEFAULT);
+    m_diligent->pScatterDispatchArgsConstants = CreateUniformBuffer(m_diligent->pDevice, "Scatter Dispatch Args Constants", sizeof(DispatchArgsConstants), Diligent::USAGE_DEFAULT);
 }
 
 void Renderer::createApplyDirtyPSO() {
-    std::string source = LoadSourceFromFile("resources/shaders/apply_dirty.comp");
-    if (source.empty()) {
-        Lit::Log::Error("Failed to load apply dirty compute shader source.");
-        return;
-    }
-
-    size_t versionPos = source.find("#version");
-    if (versionPos != std::string::npos) {
-        size_t nextLine = source.find('\n', versionPos);
-        if (nextLine != std::string::npos) source = source.substr(nextLine + 1);
-    }
-
-    Diligent::ShaderCreateInfo ShaderCI;
-    ShaderCI.Source = source.c_str();
-    ShaderCI.SourceLanguage = Diligent::SHADER_SOURCE_LANGUAGE_GLSL;
-    ShaderCI.Desc.ShaderType = Diligent::SHADER_TYPE_COMPUTE;
-    ShaderCI.Desc.Name = "Apply Dirty CS";
-
-    Diligent::RefCntAutoPtr<Diligent::IShader> pCS;
-    m_diligent->pDevice->CreateShader(ShaderCI, &pCS);
-    if (!pCS) return;
-
-    Diligent::ShaderResourceVariableDesc Vars[] = {
-        {Diligent::SHADER_TYPE_COMPUTE, "DirtyIndexBuffer",    Diligent::SHADER_RESOURCE_VARIABLE_TYPE_MUTABLE},
-        {Diligent::SHADER_TYPE_COMPUTE, "DirtyPayloadBuffer",  Diligent::SHADER_RESOURCE_VARIABLE_TYPE_MUTABLE},
-        {Diligent::SHADER_TYPE_COMPUTE, "TransformBuffer",     Diligent::SHADER_RESOURCE_VARIABLE_TYPE_MUTABLE},
-        {Diligent::SHADER_TYPE_COMPUTE, "TouchedEpochBuffer",  Diligent::SHADER_RESOURCE_VARIABLE_TYPE_MUTABLE},
-        {Diligent::SHADER_TYPE_COMPUTE, "ApplyDirtyConstants", Diligent::SHADER_RESOURCE_VARIABLE_TYPE_MUTABLE}
-    };
-
-    Diligent::ComputePipelineStateCreateInfo PSOCI;
-    PSOCI.PSODesc.Name = "Apply Dirty PSO";
-    PSOCI.PSODesc.PipelineType = Diligent::PIPELINE_TYPE_COMPUTE;
-    PSOCI.pCS = pCS;
-    PSOCI.PSODesc.ResourceLayout.Variables = Vars;
-    PSOCI.PSODesc.ResourceLayout.NumVariables = _countof(Vars);
-
-    m_diligent->pDevice->CreateComputePipelineState(PSOCI, &m_diligent->pApplyDirtyPSO);
-
-    Diligent::BufferDesc CBDesc;
-    CBDesc.Name = "Apply Dirty Constants";
-    CBDesc.Usage = Diligent::USAGE_DYNAMIC;
-    CBDesc.BindFlags = Diligent::BIND_UNIFORM_BUFFER;
-    CBDesc.CPUAccessFlags = Diligent::CPU_ACCESS_WRITE;
-    CBDesc.Size = sizeof(ApplyDirtyConstants);
-    m_diligent->pDevice->CreateBuffer(CBDesc, nullptr, &m_diligent->pApplyDirtyConstants);
+    m_diligent->pApplyDirtyPSO = CreateComputePipeline(m_diligent->pDevice, "Apply Dirty PSO", "resources/shaders/apply_dirty.comp");
+    m_diligent->pApplyDirtyConstants = CreateUniformBuffer(m_diligent->pDevice, "Apply Dirty Constants", sizeof(ApplyDirtyConstants));
 }
 
 void Renderer::createMarkTouchedPSO() {
-    std::string source = LoadSourceFromFile("resources/shaders/mark_touched.comp");
-    if (source.empty()) {
-        Lit::Log::Error("Failed to load mark touched compute shader source.");
-        return;
-    }
-
-    size_t versionPos = source.find("#version");
-    if (versionPos != std::string::npos) {
-        size_t nextLine = source.find('\n', versionPos);
-        if (nextLine != std::string::npos) source = source.substr(nextLine + 1);
-    }
-
-    Diligent::ShaderCreateInfo ShaderCI;
-    ShaderCI.Source = source.c_str();
-    ShaderCI.SourceLanguage = Diligent::SHADER_SOURCE_LANGUAGE_GLSL;
-    ShaderCI.Desc.ShaderType = Diligent::SHADER_TYPE_COMPUTE;
-    ShaderCI.Desc.Name = "Mark Touched CS";
-
-    Diligent::RefCntAutoPtr<Diligent::IShader> pCS;
-    m_diligent->pDevice->CreateShader(ShaderCI, &pCS);
-    if (!pCS) return;
-
-    Diligent::ShaderResourceVariableDesc Vars[] = {
-        {Diligent::SHADER_TYPE_COMPUTE, "DirtyIndexBuffer",     Diligent::SHADER_RESOURCE_VARIABLE_TYPE_MUTABLE},
-        {Diligent::SHADER_TYPE_COMPUTE, "TouchedEpochBuffer",   Diligent::SHADER_RESOURCE_VARIABLE_TYPE_MUTABLE},
-        {Diligent::SHADER_TYPE_COMPUTE, "MarkTouchedConstants", Diligent::SHADER_RESOURCE_VARIABLE_TYPE_MUTABLE}
-    };
-
-    Diligent::ComputePipelineStateCreateInfo PSOCI;
-    PSOCI.PSODesc.Name = "Mark Touched PSO";
-    PSOCI.PSODesc.PipelineType = Diligent::PIPELINE_TYPE_COMPUTE;
-    PSOCI.pCS = pCS;
-    PSOCI.PSODesc.ResourceLayout.Variables = Vars;
-    PSOCI.PSODesc.ResourceLayout.NumVariables = _countof(Vars);
-
-    m_diligent->pDevice->CreateComputePipelineState(PSOCI, &m_diligent->pMarkTouchedPSO);
-
-    Diligent::BufferDesc CBDesc;
-    CBDesc.Name = "Mark Touched Constants";
-    CBDesc.Usage = Diligent::USAGE_DYNAMIC;
-    CBDesc.BindFlags = Diligent::BIND_UNIFORM_BUFFER;
-    CBDesc.CPUAccessFlags = Diligent::CPU_ACCESS_WRITE;
-    CBDesc.Size = sizeof(MarkTouchedConstants);
-    m_diligent->pDevice->CreateBuffer(CBDesc, nullptr, &m_diligent->pMarkTouchedConstants);
+    m_diligent->pMarkTouchedPSO = CreateComputePipeline(m_diligent->pDevice, "Mark Touched PSO", "resources/shaders/mark_touched.comp");
+    m_diligent->pMarkTouchedConstants = CreateUniformBuffer(m_diligent->pDevice, "Mark Touched Constants", sizeof(MarkTouchedConstants));
 }
 
 void Renderer::createLargeObjectCullPSO() {
-    std::string source = LoadSourceFromFile("resources/shaders/large_object_cull.comp");
-    if (source.empty()) {
-        Lit::Log::Error("Failed to load large object cull compute shader source.");
-        return;
-    }
-
-    size_t versionPos = source.find("#version");
-    if (versionPos != std::string::npos) {
-        size_t nextLine = source.find('\n', versionPos);
-        if (nextLine != std::string::npos) source = source.substr(nextLine + 1);
-    }
-
-    Diligent::ShaderCreateInfo ShaderCI;
-    ShaderCI.Source = source.c_str();
-    ShaderCI.SourceLanguage = Diligent::SHADER_SOURCE_LANGUAGE_GLSL;
-    ShaderCI.Desc.ShaderType = Diligent::SHADER_TYPE_COMPUTE;
-    ShaderCI.Desc.Name = "Large Object Cull CS";
-
-    Diligent::RefCntAutoPtr<Diligent::IShader> pCS;
-    m_diligent->pDevice->CreateShader(ShaderCI, &pCS);
-    if (!pCS) return;
-
-    Diligent::ShaderResourceVariableDesc Vars[] = {
-        {Diligent::SHADER_TYPE_COMPUTE, "SceneUniforms",                   Diligent::SHADER_RESOURCE_VARIABLE_TYPE_MUTABLE},
-        {Diligent::SHADER_TYPE_COMPUTE, "VisibleLargeObjectAtomicCounter", Diligent::SHADER_RESOURCE_VARIABLE_TYPE_MUTABLE},
-        {Diligent::SHADER_TYPE_COMPUTE, "VisibleLargeObjectBuffer",        Diligent::SHADER_RESOURCE_VARIABLE_TYPE_MUTABLE},
-        {Diligent::SHADER_TYPE_COMPUTE, "CullSphereBuffer",               Diligent::SHADER_RESOURCE_VARIABLE_TYPE_MUTABLE},
-        {Diligent::SHADER_TYPE_COMPUTE, "RenderableBuffer",                Diligent::SHADER_RESOURCE_VARIABLE_TYPE_MUTABLE},
-        {Diligent::SHADER_TYPE_COMPUTE, "LargeObjectCullConstants",        Diligent::SHADER_RESOURCE_VARIABLE_TYPE_MUTABLE},
-        {Diligent::SHADER_TYPE_COMPUTE, "LargeBucketCountBuffer",          Diligent::SHADER_RESOURCE_VARIABLE_TYPE_MUTABLE}
-    };
-
-    Diligent::ComputePipelineStateCreateInfo PSOCI;
-    PSOCI.PSODesc.Name = "Large Object Cull PSO";
-    PSOCI.PSODesc.PipelineType = Diligent::PIPELINE_TYPE_COMPUTE;
-    PSOCI.pCS = pCS;
-    PSOCI.PSODesc.ResourceLayout.Variables = Vars;
-    PSOCI.PSODesc.ResourceLayout.NumVariables = _countof(Vars);
-
-    m_diligent->pDevice->CreateComputePipelineState(PSOCI, &m_diligent->pLargeObjectCullPSO);
-
-    Diligent::BufferDesc CBDesc;
-    CBDesc.Name = "Large Object Cull Constants";
-    CBDesc.Usage = Diligent::USAGE_DYNAMIC;
-    CBDesc.BindFlags = Diligent::BIND_UNIFORM_BUFFER;
-    CBDesc.CPUAccessFlags = Diligent::CPU_ACCESS_WRITE;
-    CBDesc.Size = sizeof(LargeObjectCullUniforms);
-    m_diligent->pDevice->CreateBuffer(CBDesc, nullptr, &m_diligent->pLargeObjectCullConstants);
+    m_diligent->pLargeObjectCullPSO = CreateComputePipeline(m_diligent->pDevice, "Large Object Cull PSO", "resources/shaders/large_object_cull.comp");
+    m_diligent->pLargeObjectCullConstants = CreateUniformBuffer(m_diligent->pDevice, "Large Object Cull Constants", sizeof(LargeObjectCullUniforms));
 }
 
 void Renderer::createDebugDepthPSO() {
-    std::string vsSource = LoadSourceFromFile("resources/shaders/debug_depth.vert");
-    std::string fsSource = LoadSourceFromFile("resources/shaders/debug_depth.frag");
-    if (vsSource.empty() || fsSource.empty()) {
-        Lit::Log::Error("Failed to load debug depth shaders");
-        return;
-    }
-
-    auto stripVersion = [](std::string& src) {
-        size_t versionPos = src.find("#version");
-        if (versionPos != std::string::npos) {
-            size_t nextLine = src.find('\n', versionPos);
-            if (nextLine != std::string::npos) src = src.substr(nextLine + 1);
-        }
-    };
-    stripVersion(vsSource);
-    stripVersion(fsSource);
-
-    Diligent::ShaderCreateInfo ShaderCI;
-    ShaderCI.SourceLanguage = Diligent::SHADER_SOURCE_LANGUAGE_GLSL;
-
-    ShaderCI.Source = vsSource.c_str();
-    ShaderCI.Desc.ShaderType = Diligent::SHADER_TYPE_VERTEX;
-    ShaderCI.Desc.Name = "Debug Depth VS";
-    Diligent::RefCntAutoPtr<Diligent::IShader> pVS;
-    m_diligent->pDevice->CreateShader(ShaderCI, &pVS);
-
-    ShaderCI.Source = fsSource.c_str();
-    ShaderCI.Desc.ShaderType = Diligent::SHADER_TYPE_PIXEL;
-    ShaderCI.Desc.Name = "Debug Depth PS";
-    Diligent::RefCntAutoPtr<Diligent::IShader> pPS;
-    m_diligent->pDevice->CreateShader(ShaderCI, &pPS);
-
-    if (!pVS || !pPS) {
-        Lit::Log::Error("Failed to compile debug depth shaders");
-        return;
-    }
+    auto pVS = CompileShader(m_diligent->pDevice, "resources/shaders/debug_depth.vert", Diligent::SHADER_TYPE_VERTEX);
+    auto pPS = CompileShader(m_diligent->pDevice, "resources/shaders/debug_depth.frag", Diligent::SHADER_TYPE_PIXEL);
+    if (!pVS || !pPS) return;
 
     Diligent::GraphicsPipelineStateCreateInfo PSOCreateInfo;
     PSOCreateInfo.PSODesc.Name = "Debug Depth PSO";
@@ -3341,16 +2704,11 @@ void Renderer::createDebugDepthPSO() {
     PSOCreateInfo.pVS = pVS;
     PSOCreateInfo.pPS = pPS;
 
-    Diligent::ShaderResourceVariableDesc Vars[] = {
-        {Diligent::SHADER_TYPE_PIXEL, "u_depthTexture",     Diligent::SHADER_RESOURCE_VARIABLE_TYPE_MUTABLE},
-        {Diligent::SHADER_TYPE_PIXEL, "DebugDepthUniforms", Diligent::SHADER_RESOURCE_VARIABLE_TYPE_MUTABLE}
-    };
-    PSOCreateInfo.PSODesc.ResourceLayout.Variables = Vars;
-    PSOCreateInfo.PSODesc.ResourceLayout.NumVariables = _countof(Vars);
+    const auto variables = DescribeVariables({pVS, pPS});
+    UseVariables(PSOCreateInfo.PSODesc.ResourceLayout, variables);
 
-    Diligent::ImmutableSamplerDesc Samplers[] = {
-        {Diligent::SHADER_TYPE_PIXEL, "u_depthTexture", Diligent::SamplerDesc{Diligent::FILTER_TYPE_POINT, Diligent::FILTER_TYPE_POINT, Diligent::FILTER_TYPE_POINT, Diligent::TEXTURE_ADDRESS_CLAMP, Diligent::TEXTURE_ADDRESS_CLAMP, Diligent::TEXTURE_ADDRESS_CLAMP}}
-    };
+    const Diligent::SamplerDesc pointClamp{Diligent::FILTER_TYPE_POINT, Diligent::FILTER_TYPE_POINT, Diligent::FILTER_TYPE_POINT, Diligent::TEXTURE_ADDRESS_CLAMP, Diligent::TEXTURE_ADDRESS_CLAMP, Diligent::TEXTURE_ADDRESS_CLAMP};
+    Diligent::ImmutableSamplerDesc Samplers[] = {{Diligent::SHADER_TYPE_PIXEL, "u_depthTexture", pointClamp}};
     PSOCreateInfo.PSODesc.ResourceLayout.ImmutableSamplers = Samplers;
     PSOCreateInfo.PSODesc.ResourceLayout.NumImmutableSamplers = _countof(Samplers);
 
@@ -3360,21 +2718,7 @@ void Renderer::createDebugDepthPSO() {
         return;
     }
 
-    struct DebugDepthUniforms {
-        float nearPlane;
-        float farPlane;
-        float mipLevel;
-        float padding;
-    };
-
-    Diligent::BufferDesc CBDesc;
-    CBDesc.Name = "Debug Depth Uniforms";
-    CBDesc.Usage = Diligent::USAGE_DYNAMIC;
-    CBDesc.BindFlags = Diligent::BIND_UNIFORM_BUFFER;
-    CBDesc.CPUAccessFlags = Diligent::CPU_ACCESS_WRITE;
-    CBDesc.Size = sizeof(DebugDepthUniforms);
-    m_diligent->pDevice->CreateBuffer(CBDesc, nullptr, &m_diligent->pDebugDepthUniforms);
-
+    m_diligent->pDebugDepthUniforms = CreateUniformBuffer(m_diligent->pDevice, "Debug Depth Uniforms", 4 * sizeof(float));
     m_diligent->pDebugDepthPSO->CreateShaderResourceBinding(&m_diligent->pDebugDepthSRB, true);
 }
 
@@ -3454,6 +2798,10 @@ void Renderer::releasePipelines() {
 
 void Renderer::reloadShaders() {
     if (!m_initialized || !m_diligent) return;
+    if (!AllShadersCompile(m_diligent->pDevice)) {
+        Lit::Log::Error("Shader reload skipped: fix the compile errors above and save again.");
+        return;
+    }
     m_diligent->pImmediateContext->WaitForIdle();
     releasePipelines();
     createDepthPrepassPSO();
@@ -3493,42 +2841,9 @@ void Renderer::addDebugLine(const glm::vec3& from, const glm::vec3& to, const gl
 }
 
 void Renderer::createDebugLinePSO() {
-    std::string vsSource = LoadSourceFromFile("resources/shaders/debug_line.vert");
-    std::string fsSource = LoadSourceFromFile("resources/shaders/debug_line.frag");
-    if (vsSource.empty() || fsSource.empty()) {
-        Lit::Log::Error("Failed to load debug line shaders");
-        return;
-    }
-
-    auto stripVersion = [](std::string& src) {
-        size_t versionPos = src.find("#version");
-        if (versionPos != std::string::npos) {
-            size_t nextLine = src.find('\n', versionPos);
-            if (nextLine != std::string::npos) src = src.substr(nextLine + 1);
-        }
-    };
-    stripVersion(vsSource);
-    stripVersion(fsSource);
-
-    Diligent::ShaderCreateInfo ShaderCI;
-    ShaderCI.SourceLanguage = Diligent::SHADER_SOURCE_LANGUAGE_GLSL;
-
-    ShaderCI.Source = vsSource.c_str();
-    ShaderCI.Desc.ShaderType = Diligent::SHADER_TYPE_VERTEX;
-    ShaderCI.Desc.Name = "Debug Line VS";
-    Diligent::RefCntAutoPtr<Diligent::IShader> pVS;
-    m_diligent->pDevice->CreateShader(ShaderCI, &pVS);
-
-    ShaderCI.Source = fsSource.c_str();
-    ShaderCI.Desc.ShaderType = Diligent::SHADER_TYPE_PIXEL;
-    ShaderCI.Desc.Name = "Debug Line PS";
-    Diligent::RefCntAutoPtr<Diligent::IShader> pPS;
-    m_diligent->pDevice->CreateShader(ShaderCI, &pPS);
-
-    if (!pVS || !pPS) {
-        Lit::Log::Error("Failed to compile debug line shaders");
-        return;
-    }
+    auto pVS = CompileShader(m_diligent->pDevice, "resources/shaders/debug_line.vert", Diligent::SHADER_TYPE_VERTEX);
+    auto pPS = CompileShader(m_diligent->pDevice, "resources/shaders/debug_line.frag", Diligent::SHADER_TYPE_PIXEL);
+    if (!pVS || !pPS) return;
 
     Diligent::GraphicsPipelineStateCreateInfo PSOCreateInfo;
     PSOCreateInfo.PSODesc.Name = "Debug Line PSO";
@@ -3551,48 +2866,31 @@ void Renderer::createDebugLinePSO() {
     PSOCreateInfo.GraphicsPipeline.InputLayout.LayoutElements = LayoutElems;
     PSOCreateInfo.GraphicsPipeline.InputLayout.NumElements = _countof(LayoutElems);
 
-    Diligent::ShaderResourceVariableDesc Vars[] = {
-        {Diligent::SHADER_TYPE_VERTEX, "DebugLineUniforms", Diligent::SHADER_RESOURCE_VARIABLE_TYPE_MUTABLE}
-    };
-    PSOCreateInfo.PSODesc.ResourceLayout.Variables = Vars;
-    PSOCreateInfo.PSODesc.ResourceLayout.NumVariables = _countof(Vars);
+    const auto variables = DescribeVariables({pVS, pPS});
+    UseVariables(PSOCreateInfo.PSODesc.ResourceLayout, variables);
 
-    m_diligent->pDevice->CreateGraphicsPipelineState(PSOCreateInfo, &m_diligent->pDebugLinePSO);
-    if (!m_diligent->pDebugLinePSO) {
-        Lit::Log::Error("Failed to create Debug Line PSO");
-        return;
-    }
-
-    Diligent::BufferDesc UBODesc;
-    UBODesc.Name = "Debug Line Uniforms";
-    UBODesc.Usage = Diligent::USAGE_DYNAMIC;
-    UBODesc.BindFlags = Diligent::BIND_UNIFORM_BUFFER;
-    UBODesc.CPUAccessFlags = Diligent::CPU_ACCESS_WRITE;
-    UBODesc.Size = sizeof(glm::mat4);
-    m_diligent->pDevice->CreateBuffer(UBODesc, nullptr, &m_diligent->pDebugLineUBO);
+    m_diligent->pDebugLineUBO = CreateUniformBuffer(m_diligent->pDevice, "Debug Line Uniforms", sizeof(glm::mat4));
 
     Diligent::BufferDesc VBDesc;
     VBDesc.Name = "Debug Line Vertices";
-    VBDesc.Usage = Diligent::USAGE_DYNAMIC;
+    VBDesc.Usage = Diligent::USAGE_DEFAULT;
     VBDesc.BindFlags = Diligent::BIND_VERTEX_BUFFER;
-    VBDesc.CPUAccessFlags = Diligent::CPU_ACCESS_WRITE;
     VBDesc.Size = sizeof(DebugLineVertex) * (1u << 17);
     m_diligent->pDevice->CreateBuffer(VBDesc, nullptr, &m_diligent->pDebugLineVB);
 
-    m_diligent->pDebugLinePSO->CreateShaderResourceBinding(&m_diligent->pDebugLineSRB, true);
-    if (m_diligent->pDebugLineSRB) {
-        if (auto* var = m_diligent->pDebugLineSRB->GetVariableByName(Diligent::SHADER_TYPE_VERTEX, "DebugLineUniforms")) var->Set(m_diligent->pDebugLineUBO);
-    }
-
-    PSOCreateInfo.PSODesc.Name = "Debug Line Overlay PSO";
-    PSOCreateInfo.GraphicsPipeline.DepthStencilDesc.DepthEnable = false;
-    m_diligent->pDevice->CreateGraphicsPipelineState(PSOCreateInfo, &m_diligent->pDebugLineOverlayPSO);
-    if (m_diligent->pDebugLineOverlayPSO) {
-        m_diligent->pDebugLineOverlayPSO->CreateShaderResourceBinding(&m_diligent->pDebugLineOverlaySRB, true);
-        if (m_diligent->pDebugLineOverlaySRB) {
-            if (auto* var = m_diligent->pDebugLineOverlaySRB->GetVariableByName(Diligent::SHADER_TYPE_VERTEX, "DebugLineUniforms")) var->Set(m_diligent->pDebugLineUBO);
+    auto createLinePipeline = [&](const char* name, bool depthTest, Diligent::RefCntAutoPtr<Diligent::IPipelineState>& pso, Diligent::RefCntAutoPtr<Diligent::IShaderResourceBinding>& srb) {
+        PSOCreateInfo.PSODesc.Name = name;
+        PSOCreateInfo.GraphicsPipeline.DepthStencilDesc.DepthEnable = depthTest;
+        m_diligent->pDevice->CreateGraphicsPipelineState(PSOCreateInfo, &pso);
+        if (!pso) {
+            Lit::Log::Error("Failed to create {}", name);
+            return;
         }
-    }
+        pso->CreateShaderResourceBinding(&srb, true);
+        if (auto* var = srb->GetVariableByName(Diligent::SHADER_TYPE_VERTEX, "DebugLineUniforms")) var->Set(m_diligent->pDebugLineUBO);
+    };
+    createLinePipeline("Debug Line PSO", true, m_diligent->pDebugLinePSO, m_diligent->pDebugLineSRB);
+    createLinePipeline("Debug Line Overlay PSO", false, m_diligent->pDebugLineOverlayPSO, m_diligent->pDebugLineOverlaySRB);
 }
 
 void Renderer::setAnimation(float time, uint32_t movingCount, uint32_t entityOffset) {
@@ -3622,55 +2920,6 @@ void Renderer::uploadBasePositions(const std::vector<glm::vec3>& basePositions) 
 }
 
 void Renderer::createAnimPSO() {
-    std::string source = LoadSourceFromFile("resources/shaders/anim.comp");
-    if (source.empty()) {
-        Lit::Log::Error("Failed to load animation compute shader source.");
-        return;
-    }
-
-    size_t versionPos = source.find("#version");
-    if (versionPos != std::string::npos) {
-        size_t nextLine = source.find('\n', versionPos);
-        if (nextLine != std::string::npos) source = source.substr(nextLine + 1);
-    }
-
-    Diligent::ShaderCreateInfo ShaderCI;
-    ShaderCI.Source = source.c_str();
-    ShaderCI.SourceLanguage = Diligent::SHADER_SOURCE_LANGUAGE_GLSL;
-    ShaderCI.Desc.ShaderType = Diligent::SHADER_TYPE_COMPUTE;
-    ShaderCI.Desc.Name = "Anim CS";
-
-    Diligent::RefCntAutoPtr<Diligent::IShader> pCS;
-    m_diligent->pDevice->CreateShader(ShaderCI, &pCS);
-    if (!pCS) return;
-
-    Diligent::ShaderResourceVariableDesc Vars[] = {
-        {Diligent::SHADER_TYPE_COMPUTE, "AnimConstants",      Diligent::SHADER_RESOURCE_VARIABLE_TYPE_MUTABLE},
-        {Diligent::SHADER_TYPE_COMPUTE, "BasePositionBuffer", Diligent::SHADER_RESOURCE_VARIABLE_TYPE_MUTABLE},
-        {Diligent::SHADER_TYPE_COMPUTE, "TransformBuffer",    Diligent::SHADER_RESOURCE_VARIABLE_TYPE_MUTABLE}
-    };
-
-    Diligent::ComputePipelineStateCreateInfo PSOCI;
-    PSOCI.PSODesc.Name = "Anim PSO";
-    PSOCI.PSODesc.PipelineType = Diligent::PIPELINE_TYPE_COMPUTE;
-    PSOCI.pCS = pCS;
-    PSOCI.PSODesc.ResourceLayout.Variables = Vars;
-    PSOCI.PSODesc.ResourceLayout.NumVariables = _countof(Vars);
-
-    m_diligent->pDevice->CreateComputePipelineState(PSOCI, &m_diligent->pAnimPSO);
-
-    struct AnimConstants {
-        float time;
-        uint32_t movingCount;
-        uint32_t entityOffset;
-        float padding;
-    };
-
-    Diligent::BufferDesc CBDesc;
-    CBDesc.Name = "Anim Constants Buffer";
-    CBDesc.Usage = Diligent::USAGE_DYNAMIC;
-    CBDesc.BindFlags = Diligent::BIND_UNIFORM_BUFFER;
-    CBDesc.CPUAccessFlags = Diligent::CPU_ACCESS_WRITE;
-    CBDesc.Size = sizeof(AnimConstants);
-    m_diligent->pDevice->CreateBuffer(CBDesc, nullptr, &m_diligent->pAnimConstants);
+    m_diligent->pAnimPSO = CreateComputePipeline(m_diligent->pDevice, "Anim PSO", "resources/shaders/anim.comp");
+    m_diligent->pAnimConstants = CreateUniformBuffer(m_diligent->pDevice, "Anim Constants", 4 * sizeof(float));
 }

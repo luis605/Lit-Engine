@@ -1,4 +1,6 @@
 #version 450
+#extension GL_GOOGLE_include_directive : require
+#include "renderable.glsl"
 
 layout(location = 0) in vec3 in_position;
 layout(location = 1) in vec3 in_normal;
@@ -37,19 +39,6 @@ layout(std430) readonly buffer VisibleObjectBuffer {
     uint visibleIndices[];
 };
 
-struct MaterialRenderable {
-    uint mesh_uuid;
-    uint material_uuid;
-    uint shaderId;
-    uint objectId;
-    float alpha;
-    uint flags;
-};
-
-layout(std430) readonly buffer RenderableBuffer {
-    MaterialRenderable renderables[];
-};
-
 layout(std430) readonly buffer MaterialBuffer {
     vec4 materials[];
 };
@@ -62,7 +51,7 @@ layout(location = 2) flat out float out_billboard;
 
 void main() {
     uint objectId = visibleIndices[gl_InstanceIndex] & 0x1FFFFFFFu;
-    out_material = materials[min(renderables[objectId].material_uuid, 1023u)];
+    out_material = materials[renderableMaterial(renderables[objectId])];
     mat4 model = loadWorld(worldRows[objectId]);
     // cofactor matrix == inverse-transpose up to a scale that is normalised away; the determinant sign keeps mirrored transforms correct
     mat3 m3 = mat3(model);
