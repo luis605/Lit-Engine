@@ -306,6 +306,47 @@ Diligent::RefCntAutoPtr<Diligent::IBuffer> CreateUniformBuffer(Diligent::IRender
     return pBuffer;
 }
 
+struct NamedBuffer {
+    std::string_view name;
+    Diligent::IBuffer* buffer;
+};
+
+Diligent::IDeviceObject* BufferResourceFor(Diligent::IBuffer* pBuffer, Diligent::SHADER_RESOURCE_TYPE type) {
+    if (!pBuffer) return nullptr;
+    switch (type) {
+        case Diligent::SHADER_RESOURCE_TYPE_CONSTANT_BUFFER: return pBuffer;
+        case Diligent::SHADER_RESOURCE_TYPE_BUFFER_SRV: return pBuffer->GetDefaultView(Diligent::BUFFER_VIEW_SHADER_RESOURCE);
+        case Diligent::SHADER_RESOURCE_TYPE_BUFFER_UAV: return pBuffer->GetDefaultView(Diligent::BUFFER_VIEW_UNORDERED_ACCESS);
+        default: return nullptr;
+    }
+}
+
+void BindBuffers(Diligent::IShaderResourceBinding* pSRB, std::initializer_list<NamedBuffer> buffers) {
+    if (!pSRB) return;
+    const auto& signature = pSRB->GetPipelineResourceSignature()->GetDesc();
+    for (Diligent::Uint32 r = 0; r < signature.NumResources; ++r) {
+        const Diligent::PipelineResourceDesc& resource = signature.Resources[r];
+        if (resource.VarType == Diligent::SHADER_RESOURCE_VARIABLE_TYPE_DYNAMIC) continue;
+        const auto match = std::ranges::find(buffers, std::string_view(resource.Name), &NamedBuffer::name);
+        Diligent::IDeviceObject* pObject = match != buffers.end() ? BufferResourceFor(match->buffer, resource.ResourceType) : nullptr;
+        if (!pObject) {
+            Lit::Log::Error("No buffer bound to '{}' in '{}'.", resource.Name, signature.Name);
+            continue;
+        }
+        for (Diligent::Uint32 stages = resource.ShaderStages; stages != 0; stages &= stages - 1) {
+            const auto stage = static_cast<Diligent::SHADER_TYPE>(stages & ~(stages - 1));
+            if (auto* pVariable = pSRB->GetVariableByName(stage, resource.Name)) pVariable->Set(pObject, Diligent::SET_SHADER_RESOURCE_FLAG_ALLOW_OVERWRITE);
+        }
+    }
+}
+
+void CreateBoundSRB(Diligent::IPipelineState* pPSO, Diligent::RefCntAutoPtr<Diligent::IShaderResourceBinding>& srb, std::initializer_list<NamedBuffer> buffers) {
+    srb.Release();
+    if (!pPSO) return;
+    pPSO->CreateShaderResourceBinding(&srb, true);
+    BindBuffers(srb, buffers);
+}
+
 Diligent::RefCntAutoPtr<Diligent::IShader> CompileShader(Diligent::IRenderDevice* pDevice, const std::string& path, Diligent::SHADER_TYPE type, const Diligent::ShaderMacroArray& macros = {}) {
     std::string source = LoadSourceFromFile(path);
     if (source.empty()) return {};
@@ -898,298 +939,72 @@ void Renderer::reallocateBuffers(size_t numObjects) {
         m_diligent->pBasePositionBuffer = CreateStructuredBuffer(m_diligent->pDevice, "Base Position Buffer", sizeof(glm::vec4), 1, &zero);
     }
 
+    auto& d = *m_diligent;
     for (int i = 0; i < NUM_FRAMES_IN_FLIGHT; ++i) {
-        if (m_diligent->pAnimPSO) {
-            m_diligent->pAnimSRB[i].Release();
-            m_diligent->pAnimPSO->CreateShaderResourceBinding(&m_diligent->pAnimSRB[i], true);
-            if (m_diligent->pAnimSRB[i]) {
-                auto* cbVar = m_diligent->pAnimSRB[i]->GetVariableByName(Diligent::SHADER_TYPE_COMPUTE, "AnimConstants");
-                auto* baseVar = m_diligent->pAnimSRB[i]->GetVariableByName(Diligent::SHADER_TYPE_COMPUTE, "BasePositionBuffer");
-                auto* transformVar = m_diligent->pAnimSRB[i]->GetVariableByName(Diligent::SHADER_TYPE_COMPUTE, "TransformBuffer");
+        CreateBoundSRB(d.pAnimPSO, d.pAnimSRB[i], {{"AnimConstants", d.pAnimConstants}, {"BasePositionBuffer", d.pBasePositionBuffer}, {"TransformBuffer", d.pObjectBuffer[i]}});
+        CreateBoundSRB(d.pTransformPSO, d.pTransformSRB[i],
+                       {{"TransformUniforms", d.pTransformUniforms}, {"TransformBuffer", d.pObjectBuffer[i]}, {"WorldMatrixBuffer", d.pWorldMatrixBuffer[i]}, {"HierarchyBuffer", d.pHierarchyBuffer[i]},
+                        {"SortedHierarchyBuffer", d.pSortedHierarchyBuffer[i]}, {"TouchedEpochBuffer", d.pTouchedEpochBuffer[i]}, {"CullOrientationBuffer", d.pCullOrientationBuffer[i]},
+                        {"CullSphereBuffer", d.pCullSphereBuffer[i]}, {"RenderableBuffer", d.pRenderableBuffer[i]}, {"MeshInfoBuffer", d.pMeshInfoBuffer}, {"BasePositionBuffer", d.pBasePositionBuffer}});
+        CreateBoundSRB(d.pCullingPSO, d.pCullingSRB[i],
+                       {{"SceneData", d.pSceneUBO[i]}, {"CullingUniforms", d.pCullingUniforms}, {"AtomicCounterBuffer", d.pVisibleObjectAtomicCounter[i]}, {"VisibleObjectBuffer", d.pVisibleObjectBuffer[i]},
+                        {"CullSphereBuffer", d.pCullSphereBuffer[i]}, {"WorldMatrixBuffer", d.pWorldMatrixBuffer[i]}, {"MeshInfoBuffer", d.pMeshInfoBuffer}, {"RenderableBuffer", d.pRenderableBuffer[i]},
+                        {"BucketCountBuffer", d.pBucketCountBuffer[i]}});
+        CreateBoundSRB(d.pPrefixSumPSO, d.pPrefixSumSRB[i],
+                       {{"PrefixSumConstants", d.pPrefixSumConstants}, {"BucketCountBuffer", d.pBucketCountBuffer[i]}, {"BucketOffsetBuffer", d.pBucketOffsetBuffer[i]}, {"BucketWriteHeadBuffer", d.pBucketWriteHeadBuffer[i]}});
+        CreateBoundSRB(d.pScatterPSO, d.pScatterSRB[i],
+                       {{"ScatterConstants", d.pScatterConstants}, {"AtomicCounterBuffer", d.pVisibleObjectAtomicCounter[i]}, {"VisibleObjectBuffer", d.pVisibleObjectBuffer[i]},
+                        {"BucketWriteHeadBuffer", d.pBucketWriteHeadBuffer[i]}, {"SortedVisibleObjectBuffer", d.pSortedVisibleObjectBuffer[i]}});
+        CreateBoundSRB(d.pApplyDirtyPSO, d.pApplyDirtySRB[i],
+                       {{"ApplyDirtyConstants", d.pApplyDirtyConstants}, {"DirtyIndexBuffer", d.pDirtyIndexBuffer[i]}, {"DirtyPayloadBuffer", d.pDirtyPayloadBuffer[i]}, {"TransformBuffer", d.pObjectBuffer[i]},
+                        {"TouchedEpochBuffer", d.pTouchedEpochBuffer[i]}});
+        CreateBoundSRB(d.pMarkTouchedPSO, d.pMarkTouchedSRB[i], {{"MarkTouchedConstants", d.pMarkTouchedConstants}, {"DirtyIndexBuffer", d.pDirtyIndexBuffer[i]}, {"TouchedEpochBuffer", d.pTouchedEpochBuffer[i]}});
+        CreateBoundSRB(d.pCommandGenPSO, d.pCommandGenSRB[i],
+                       {{"CommandGenConstants", d.pCommandGenConstants}, {"PointCounterBuffer", d.pPointDrawCounterBuffer[i]}, {"PointCommandBuffer", d.pPointCommandBuffer[i]},
+                        {"DrawAtomicCounterBuffer", d.pDrawAtomicCounterBuffer[i]}, {"DrawCommandBuffer", d.pDrawCommandBuffer[i]}, {"MeshInfoBuffer", d.pMeshInfoBuffer},
+                        {"BucketCountBuffer", d.pBucketCountBuffer[i]}, {"BucketOffsetBuffer", d.pBucketOffsetBuffer[i]}});
 
-                if (cbVar && m_diligent->pAnimConstants) cbVar->Set(m_diligent->pAnimConstants);
-                if (baseVar && m_diligent->pBasePositionBuffer) baseVar->Set(m_diligent->pBasePositionBuffer->GetDefaultView(Diligent::BUFFER_VIEW_SHADER_RESOURCE));
-                if (transformVar && m_diligent->pObjectBuffer[i]) transformVar->Set(m_diligent->pObjectBuffer[i]->GetDefaultView(Diligent::BUFFER_VIEW_UNORDERED_ACCESS));
-            }
-        }
+        CreateBoundSRB(d.pLargeObjectCullPSO, d.pLargeObjectCullSRB[i],
+                       {{"SceneData", d.pSceneUBO[i]}, {"LargeObjectCullConstants", d.pLargeObjectCullConstants}, {"MeshInfoBuffer", d.pMeshInfoBuffer},
+                        {"VisibleLargeObjectAtomicCounter", d.pVisibleLargeObjectAtomicCounter[i]}, {"CullSphereBuffer", d.pCullSphereBuffer[i]}, {"RenderableBuffer", d.pRenderableBuffer[i]},
+                        {"VisibleLargeObjectBuffer", d.pVisibleLargeObjectBuffer[i]}, {"LargeBucketCountBuffer", d.pLargeBucketCountBuffer[i]}});
+        CreateBoundSRB(d.pPrefixSumPSO, d.pLargePrefixSumSRB[i],
+                       {{"PrefixSumConstants", d.pPrefixSumConstants}, {"BucketCountBuffer", d.pLargeBucketCountBuffer[i]}, {"BucketOffsetBuffer", d.pLargeBucketOffsetBuffer[i]},
+                        {"BucketWriteHeadBuffer", d.pLargeBucketWriteHeadBuffer[i]}});
+        CreateBoundSRB(d.pScatterPSO, d.pLargeScatterSRB[i],
+                       {{"ScatterConstants", d.pLargeScatterConstants}, {"AtomicCounterBuffer", d.pVisibleLargeObjectAtomicCounter[i]}, {"VisibleObjectBuffer", d.pVisibleLargeObjectBuffer[i]},
+                        {"BucketWriteHeadBuffer", d.pLargeBucketWriteHeadBuffer[i]}, {"SortedVisibleObjectBuffer", d.pSortedVisibleLargeObjectBuffer[i]}});
+        CreateBoundSRB(d.pCommandGenPSO, d.pLargeCommandGenSRB[i],
+                       {{"CommandGenConstants", d.pCommandGenConstants}, {"PointCounterBuffer", d.pPointDrawCounterBuffer[i]}, {"PointCommandBuffer", d.pPointCommandBuffer[i]},
+                        {"DrawAtomicCounterBuffer", d.pLargeDrawAtomicCounterBuffer[i]}, {"DrawCommandBuffer", d.pDepthPrepassDrawCommandBuffer[i]}, {"MeshInfoBuffer", d.pMeshInfoBuffer},
+                        {"BucketCountBuffer", d.pLargeBucketCountBuffer[i]}, {"BucketOffsetBuffer", d.pLargeBucketOffsetBuffer[i]}});
 
-        if (m_diligent->pTransformPSO) {
-            m_diligent->pTransformSRB[i].Release();
-            m_diligent->pTransformPSO->CreateShaderResourceBinding(&m_diligent->pTransformSRB[i], true);
-            if (m_diligent->pTransformSRB[i]) {
-                auto* transformBuf = m_diligent->pTransformSRB[i]->GetVariableByName(Diligent::SHADER_TYPE_COMPUTE, "TransformBuffer");
-                auto* worldMatrixBuf = m_diligent->pTransformSRB[i]->GetVariableByName(Diligent::SHADER_TYPE_COMPUTE, "WorldMatrixBuffer");
-                auto* hierarchyBuf = m_diligent->pTransformSRB[i]->GetVariableByName(Diligent::SHADER_TYPE_COMPUTE, "HierarchyBuffer");
-                auto* sortedBuf = m_diligent->pTransformSRB[i]->GetVariableByName(Diligent::SHADER_TYPE_COMPUTE, "SortedHierarchyBuffer");
-                auto* uniformsVar = m_diligent->pTransformSRB[i]->GetVariableByName(Diligent::SHADER_TYPE_COMPUTE, "TransformUniforms");
-                auto* touchedEpochBuf = m_diligent->pTransformSRB[i]->GetVariableByName(Diligent::SHADER_TYPE_COMPUTE, "TouchedEpochBuffer");
+        CreateBoundSRB(d.pTransparentCullPSO, d.pTransparentCullSRB[i],
+                       {{"SceneData", d.pSceneUBO[i]}, {"TransparentCullUniforms", d.pTransparentCullUniforms}, {"AtomicCounterBuffer", d.pTransparentAtomicCounter[i]},
+                        {"VisibleTransparentObjectBuffer", d.pVisibleTransparentObjectIdsBuffer[i]}, {"CullSphereBuffer", d.pCullSphereBuffer[i]}, {"MeshInfoBuffer", d.pMeshInfoBuffer},
+                        {"TransparentIdBuffer", d.pTransparentIdBuffer[i]}});
+        CreateBoundSRB(d.pTransparentCommandGenPSO, d.pTransparentCommandGenSRB[i],
+                       {{"TransparentCommandGenUniforms", d.pTransparentCommandGenUniforms}, {"VisibleTransparentObjectBuffer", d.pVisibleTransparentObjectIdsBuffer[i]},
+                        {"MeshInfoBuffer", d.pMeshInfoBuffer}, {"RenderableBuffer", d.pRenderableBuffer[i]}, {"TransparentDrawCommandBuffer", d.pTransparentDrawCommandBuffer[i]},
+                        {"AtomicCounterBuffer", d.pTransparentAtomicCounter[i]}});
 
-                if (transformBuf && m_diligent->pObjectBuffer[i]) transformBuf->Set(m_diligent->pObjectBuffer[i]->GetDefaultView(Diligent::BUFFER_VIEW_SHADER_RESOURCE));
-                if (worldMatrixBuf && m_diligent->pWorldMatrixBuffer[i]) worldMatrixBuf->Set(m_diligent->pWorldMatrixBuffer[i]->GetDefaultView(Diligent::BUFFER_VIEW_UNORDERED_ACCESS));
-                if (touchedEpochBuf && m_diligent->pTouchedEpochBuffer[i]) touchedEpochBuf->Set(m_diligent->pTouchedEpochBuffer[i]->GetDefaultView(Diligent::BUFFER_VIEW_UNORDERED_ACCESS));
-                if (hierarchyBuf && m_diligent->pHierarchyBuffer[i]) hierarchyBuf->Set(m_diligent->pHierarchyBuffer[i]->GetDefaultView(Diligent::BUFFER_VIEW_SHADER_RESOURCE));
-                if (sortedBuf && m_diligent->pSortedHierarchyBuffer[i]) sortedBuf->Set(m_diligent->pSortedHierarchyBuffer[i]->GetDefaultView(Diligent::BUFFER_VIEW_SHADER_RESOURCE));
-                if (uniformsVar && m_diligent->pTransformUniforms) uniformsVar->Set(m_diligent->pTransformUniforms);
-                if (auto* var = m_diligent->pTransformSRB[i]->GetVariableByName(Diligent::SHADER_TYPE_COMPUTE, "CullOrientationBuffer")) var->Set(m_diligent->pCullOrientationBuffer[i]->GetDefaultView(Diligent::BUFFER_VIEW_UNORDERED_ACCESS));
-                if (auto* var = m_diligent->pTransformSRB[i]->GetVariableByName(Diligent::SHADER_TYPE_COMPUTE, "CullSphereBuffer")) var->Set(m_diligent->pCullSphereBuffer[i]->GetDefaultView(Diligent::BUFFER_VIEW_UNORDERED_ACCESS));
-                if (auto* var = m_diligent->pTransformSRB[i]->GetVariableByName(Diligent::SHADER_TYPE_COMPUTE, "RenderableBuffer")) var->Set(m_diligent->pRenderableBuffer[i]->GetDefaultView(Diligent::BUFFER_VIEW_SHADER_RESOURCE));
-                if (auto* var = m_diligent->pTransformSRB[i]->GetVariableByName(Diligent::SHADER_TYPE_COMPUTE, "MeshInfoBuffer"); var && m_diligent->pMeshInfoBuffer) var->Set(m_diligent->pMeshInfoBuffer->GetDefaultView(Diligent::BUFFER_VIEW_SHADER_RESOURCE));
-                if (auto* baseVar = m_diligent->pTransformSRB[i]->GetVariableByName(Diligent::SHADER_TYPE_COMPUTE, "BasePositionBuffer"); baseVar && m_diligent->pBasePositionBuffer) baseVar->Set(m_diligent->pBasePositionBuffer->GetDefaultView(Diligent::BUFFER_VIEW_SHADER_RESOURCE));
-            }
-        }
+        CreateBoundSRB(d.pDispatchArgsPSO, d.pTransparentDispatchArgsSRB[i],
+                       {{"DispatchArgsConstants", d.pDispatchArgsConstants}, {"SourceCounterBuffer", d.pTransparentAtomicCounter[i]}, {"DispatchArgsBuffer", d.pTransparentDispatchArgs[i]}});
+        CreateBoundSRB(d.pDispatchArgsPSO, d.pLargeObjectDispatchArgsSRB[i],
+                       {{"DispatchArgsConstants", d.pDispatchArgsConstants}, {"SourceCounterBuffer", d.pVisibleLargeObjectAtomicCounter[i]}, {"DispatchArgsBuffer", d.pLargeObjectDispatchArgs[i]}});
+        CreateBoundSRB(d.pDispatchArgsPSO, d.pScatterDispatchArgsSRB[i],
+                       {{"DispatchArgsConstants", d.pScatterDispatchArgsConstants}, {"SourceCounterBuffer", d.pVisibleObjectAtomicCounter[i]}, {"DispatchArgsBuffer", d.pScatterDispatchArgs[i]}});
 
-        if (m_diligent->pCullingPSO) {
-            m_diligent->pCullingSRB[i].Release();
-            m_diligent->pCullingPSO->CreateShaderResourceBinding(&m_diligent->pCullingSRB[i], true);
-            if (m_diligent->pCullingSRB[i]) {
-                auto* sceneDataVar = m_diligent->pCullingSRB[i]->GetVariableByName(Diligent::SHADER_TYPE_COMPUTE, "SceneData");
-                auto* cullingUniformsVar = m_diligent->pCullingSRB[i]->GetVariableByName(Diligent::SHADER_TYPE_COMPUTE, "CullingUniforms");
-                auto* atomicCounterVar = m_diligent->pCullingSRB[i]->GetVariableByName(Diligent::SHADER_TYPE_COMPUTE, "AtomicCounterBuffer");
-                auto* visibleObjectVar = m_diligent->pCullingSRB[i]->GetVariableByName(Diligent::SHADER_TYPE_COMPUTE, "VisibleObjectBuffer");
-                auto* objectVar = m_diligent->pCullingSRB[i]->GetVariableByName(Diligent::SHADER_TYPE_COMPUTE, "WorldMatrixBuffer");
-                auto* meshInfoVar = m_diligent->pCullingSRB[i]->GetVariableByName(Diligent::SHADER_TYPE_COMPUTE, "MeshInfoBuffer");
-                auto* renderableVar = m_diligent->pCullingSRB[i]->GetVariableByName(Diligent::SHADER_TYPE_COMPUTE, "RenderableBuffer");
-                auto* bucketCountVar = m_diligent->pCullingSRB[i]->GetVariableByName(Diligent::SHADER_TYPE_COMPUTE, "BucketCountBuffer");
+        CreateBoundSRB(d.pDepthPrepassPSO, d.pDepthPrepassSRB[i],
+                       {{"SceneData", d.pSceneUBO[i]}, {"WorldMatrixBuffer", d.pWorldMatrixBuffer[i]}, {"VisibleLargeObjectBuffer", d.pSortedVisibleLargeObjectBuffer[i]}});
 
-                if (sceneDataVar && m_diligent->pSceneUBO[i]) sceneDataVar->Set(m_diligent->pSceneUBO[i]);
-                if (cullingUniformsVar && m_diligent->pCullingUniforms) cullingUniformsVar->Set(m_diligent->pCullingUniforms);
-                if (atomicCounterVar && m_diligent->pVisibleObjectAtomicCounter[i]) atomicCounterVar->Set(m_diligent->pVisibleObjectAtomicCounter[i]->GetDefaultView(Diligent::BUFFER_VIEW_UNORDERED_ACCESS));
-                if (visibleObjectVar && m_diligent->pVisibleObjectBuffer[i]) visibleObjectVar->Set(m_diligent->pVisibleObjectBuffer[i]->GetDefaultView(Diligent::BUFFER_VIEW_UNORDERED_ACCESS));
-                if (auto* sphereVar = m_diligent->pCullingSRB[i]->GetVariableByName(Diligent::SHADER_TYPE_COMPUTE, "CullSphereBuffer")) sphereVar->Set(m_diligent->pCullSphereBuffer[i]->GetDefaultView(Diligent::BUFFER_VIEW_SHADER_RESOURCE));
-                if (objectVar && m_diligent->pWorldMatrixBuffer[i]) objectVar->Set(m_diligent->pWorldMatrixBuffer[i]->GetDefaultView(Diligent::BUFFER_VIEW_SHADER_RESOURCE));
-                if (meshInfoVar && m_diligent->pMeshInfoBuffer) meshInfoVar->Set(m_diligent->pMeshInfoBuffer->GetDefaultView(Diligent::BUFFER_VIEW_SHADER_RESOURCE));
-                if (renderableVar && m_diligent->pRenderableBuffer[i]) renderableVar->Set(m_diligent->pRenderableBuffer[i]->GetDefaultView(Diligent::BUFFER_VIEW_SHADER_RESOURCE));
-                if (bucketCountVar && m_diligent->pBucketCountBuffer[i]) bucketCountVar->Set(m_diligent->pBucketCountBuffer[i]->GetDefaultView(Diligent::BUFFER_VIEW_UNORDERED_ACCESS));
-            }
-        }
-
-        if (m_diligent->pPrefixSumPSO) {
-            m_diligent->pPrefixSumSRB[i].Release();
-            m_diligent->pPrefixSumPSO->CreateShaderResourceBinding(&m_diligent->pPrefixSumSRB[i], true);
-            if (m_diligent->pPrefixSumSRB[i]) {
-                if (auto* var = m_diligent->pPrefixSumSRB[i]->GetVariableByName(Diligent::SHADER_TYPE_COMPUTE, "PrefixSumConstants")) var->Set(m_diligent->pPrefixSumConstants);
-                if (auto* var = m_diligent->pPrefixSumSRB[i]->GetVariableByName(Diligent::SHADER_TYPE_COMPUTE, "BucketCountBuffer")) var->Set(m_diligent->pBucketCountBuffer[i]->GetDefaultView(Diligent::BUFFER_VIEW_SHADER_RESOURCE));
-                if (auto* var = m_diligent->pPrefixSumSRB[i]->GetVariableByName(Diligent::SHADER_TYPE_COMPUTE, "BucketOffsetBuffer")) var->Set(m_diligent->pBucketOffsetBuffer[i]->GetDefaultView(Diligent::BUFFER_VIEW_UNORDERED_ACCESS));
-                if (auto* var = m_diligent->pPrefixSumSRB[i]->GetVariableByName(Diligent::SHADER_TYPE_COMPUTE, "BucketWriteHeadBuffer")) var->Set(m_diligent->pBucketWriteHeadBuffer[i]->GetDefaultView(Diligent::BUFFER_VIEW_UNORDERED_ACCESS));
-            }
-        }
-
-        if (m_diligent->pScatterPSO) {
-            m_diligent->pScatterSRB[i].Release();
-            m_diligent->pScatterPSO->CreateShaderResourceBinding(&m_diligent->pScatterSRB[i], true);
-            if (m_diligent->pScatterSRB[i]) {
-                if (auto* var = m_diligent->pScatterSRB[i]->GetVariableByName(Diligent::SHADER_TYPE_COMPUTE, "ScatterConstants")) var->Set(m_diligent->pScatterConstants);
-                if (auto* var = m_diligent->pScatterSRB[i]->GetVariableByName(Diligent::SHADER_TYPE_COMPUTE, "AtomicCounterBuffer")) var->Set(m_diligent->pVisibleObjectAtomicCounter[i]->GetDefaultView(Diligent::BUFFER_VIEW_SHADER_RESOURCE));
-                if (auto* var = m_diligent->pScatterSRB[i]->GetVariableByName(Diligent::SHADER_TYPE_COMPUTE, "VisibleObjectBuffer")) var->Set(m_diligent->pVisibleObjectBuffer[i]->GetDefaultView(Diligent::BUFFER_VIEW_SHADER_RESOURCE));
-                if (auto* var = m_diligent->pScatterSRB[i]->GetVariableByName(Diligent::SHADER_TYPE_COMPUTE, "RenderableBuffer")) var->Set(m_diligent->pRenderableBuffer[i]->GetDefaultView(Diligent::BUFFER_VIEW_SHADER_RESOURCE));
-                if (auto* var = m_diligent->pScatterSRB[i]->GetVariableByName(Diligent::SHADER_TYPE_COMPUTE, "BucketWriteHeadBuffer")) var->Set(m_diligent->pBucketWriteHeadBuffer[i]->GetDefaultView(Diligent::BUFFER_VIEW_UNORDERED_ACCESS));
-                if (auto* var = m_diligent->pScatterSRB[i]->GetVariableByName(Diligent::SHADER_TYPE_COMPUTE, "SortedVisibleObjectBuffer")) var->Set(m_diligent->pSortedVisibleObjectBuffer[i]->GetDefaultView(Diligent::BUFFER_VIEW_UNORDERED_ACCESS));
-            }
-        }
-
-        if (m_diligent->pApplyDirtyPSO) {
-            m_diligent->pApplyDirtySRB[i].Release();
-            m_diligent->pApplyDirtyPSO->CreateShaderResourceBinding(&m_diligent->pApplyDirtySRB[i], true);
-            if (m_diligent->pApplyDirtySRB[i]) {
-                if (auto* var = m_diligent->pApplyDirtySRB[i]->GetVariableByName(Diligent::SHADER_TYPE_COMPUTE, "DirtyIndexBuffer")) var->Set(m_diligent->pDirtyIndexBuffer[i]->GetDefaultView(Diligent::BUFFER_VIEW_SHADER_RESOURCE));
-                if (auto* var = m_diligent->pApplyDirtySRB[i]->GetVariableByName(Diligent::SHADER_TYPE_COMPUTE, "DirtyPayloadBuffer")) var->Set(m_diligent->pDirtyPayloadBuffer[i]->GetDefaultView(Diligent::BUFFER_VIEW_SHADER_RESOURCE));
-                if (auto* var = m_diligent->pApplyDirtySRB[i]->GetVariableByName(Diligent::SHADER_TYPE_COMPUTE, "TransformBuffer")) var->Set(m_diligent->pObjectBuffer[i]->GetDefaultView(Diligent::BUFFER_VIEW_UNORDERED_ACCESS));
-                if (auto* var = m_diligent->pApplyDirtySRB[i]->GetVariableByName(Diligent::SHADER_TYPE_COMPUTE, "TouchedEpochBuffer")) var->Set(m_diligent->pTouchedEpochBuffer[i]->GetDefaultView(Diligent::BUFFER_VIEW_UNORDERED_ACCESS));
-                if (auto* var = m_diligent->pApplyDirtySRB[i]->GetVariableByName(Diligent::SHADER_TYPE_COMPUTE, "ApplyDirtyConstants")) var->Set(m_diligent->pApplyDirtyConstants);
-            }
-        }
-
-        if (m_diligent->pMarkTouchedPSO) {
-            m_diligent->pMarkTouchedSRB[i].Release();
-            m_diligent->pMarkTouchedPSO->CreateShaderResourceBinding(&m_diligent->pMarkTouchedSRB[i], true);
-            if (m_diligent->pMarkTouchedSRB[i]) {
-                if (auto* var = m_diligent->pMarkTouchedSRB[i]->GetVariableByName(Diligent::SHADER_TYPE_COMPUTE, "DirtyIndexBuffer")) var->Set(m_diligent->pDirtyIndexBuffer[i]->GetDefaultView(Diligent::BUFFER_VIEW_SHADER_RESOURCE));
-                if (auto* var = m_diligent->pMarkTouchedSRB[i]->GetVariableByName(Diligent::SHADER_TYPE_COMPUTE, "TouchedEpochBuffer")) var->Set(m_diligent->pTouchedEpochBuffer[i]->GetDefaultView(Diligent::BUFFER_VIEW_UNORDERED_ACCESS));
-                if (auto* var = m_diligent->pMarkTouchedSRB[i]->GetVariableByName(Diligent::SHADER_TYPE_COMPUTE, "MarkTouchedConstants")) var->Set(m_diligent->pMarkTouchedConstants);
-            }
-        }
-
-        if (m_diligent->pCommandGenPSO) {
-            m_diligent->pCommandGenSRB[i].Release();
-            m_diligent->pCommandGenPSO->CreateShaderResourceBinding(&m_diligent->pCommandGenSRB[i], true);
-            if (m_diligent->pCommandGenSRB[i]) {
-                if (auto* var = m_diligent->pCommandGenSRB[i]->GetVariableByName(Diligent::SHADER_TYPE_COMPUTE, "PointCounterBuffer")) var->Set(m_diligent->pPointDrawCounterBuffer[i]->GetDefaultView(Diligent::BUFFER_VIEW_UNORDERED_ACCESS));
-                if (auto* var = m_diligent->pCommandGenSRB[i]->GetVariableByName(Diligent::SHADER_TYPE_COMPUTE, "PointCommandBuffer")) var->Set(m_diligent->pPointCommandBuffer[i]->GetDefaultView(Diligent::BUFFER_VIEW_UNORDERED_ACCESS));
-                if (auto* var = m_diligent->pCommandGenSRB[i]->GetVariableByName(Diligent::SHADER_TYPE_COMPUTE, "DrawAtomicCounterBuffer")) var->Set(m_diligent->pDrawAtomicCounterBuffer[i]->GetDefaultView(Diligent::BUFFER_VIEW_UNORDERED_ACCESS));
-                if (auto* var = m_diligent->pCommandGenSRB[i]->GetVariableByName(Diligent::SHADER_TYPE_COMPUTE, "DrawCommandBuffer")) var->Set(m_diligent->pDrawCommandBuffer[i]->GetDefaultView(Diligent::BUFFER_VIEW_UNORDERED_ACCESS));
-                if (auto* var = m_diligent->pCommandGenSRB[i]->GetVariableByName(Diligent::SHADER_TYPE_COMPUTE, "MeshInfoBuffer")) var->Set(m_diligent->pMeshInfoBuffer->GetDefaultView(Diligent::BUFFER_VIEW_SHADER_RESOURCE));
-                if (auto* var = m_diligent->pCommandGenSRB[i]->GetVariableByName(Diligent::SHADER_TYPE_COMPUTE, "BucketCountBuffer")) var->Set(m_diligent->pBucketCountBuffer[i]->GetDefaultView(Diligent::BUFFER_VIEW_SHADER_RESOURCE));
-                if (auto* var = m_diligent->pCommandGenSRB[i]->GetVariableByName(Diligent::SHADER_TYPE_COMPUTE, "BucketOffsetBuffer")) var->Set(m_diligent->pBucketOffsetBuffer[i]->GetDefaultView(Diligent::BUFFER_VIEW_SHADER_RESOURCE));
-                if (auto* var = m_diligent->pCommandGenSRB[i]->GetVariableByName(Diligent::SHADER_TYPE_COMPUTE, "CommandGenConstants")) var->Set(m_diligent->pCommandGenConstants);
-            }
-        }
-
-        if (m_diligent->pLargeObjectCullPSO) {
-            m_diligent->pLargeObjectCullSRB[i].Release();
-            m_diligent->pLargeObjectCullPSO->CreateShaderResourceBinding(&m_diligent->pLargeObjectCullSRB[i], true);
-            if (m_diligent->pLargeObjectCullSRB[i]) {
-                if (auto* var = m_diligent->pLargeObjectCullSRB[i]->GetVariableByName(Diligent::SHADER_TYPE_COMPUTE, "SceneData")) var->Set(m_diligent->pSceneUBO[i]);
-                if (auto* var = m_diligent->pLargeObjectCullSRB[i]->GetVariableByName(Diligent::SHADER_TYPE_COMPUTE, "MeshInfoBuffer")) var->Set(m_diligent->pMeshInfoBuffer->GetDefaultView(Diligent::BUFFER_VIEW_SHADER_RESOURCE));
-                if (auto* var = m_diligent->pLargeObjectCullSRB[i]->GetVariableByName(Diligent::SHADER_TYPE_COMPUTE, "VisibleLargeObjectAtomicCounter")) var->Set(m_diligent->pVisibleLargeObjectAtomicCounter[i]->GetDefaultView(Diligent::BUFFER_VIEW_UNORDERED_ACCESS));
-                if (auto* var = m_diligent->pLargeObjectCullSRB[i]->GetVariableByName(Diligent::SHADER_TYPE_COMPUTE, "LargeObjectCullConstants")) var->Set(m_diligent->pLargeObjectCullConstants);
-                if (auto* var = m_diligent->pLargeObjectCullSRB[i]->GetVariableByName(Diligent::SHADER_TYPE_COMPUTE, "CullSphereBuffer")) var->Set(m_diligent->pCullSphereBuffer[i]->GetDefaultView(Diligent::BUFFER_VIEW_SHADER_RESOURCE));
-                if (auto* var = m_diligent->pLargeObjectCullSRB[i]->GetVariableByName(Diligent::SHADER_TYPE_COMPUTE, "RenderableBuffer")) var->Set(m_diligent->pRenderableBuffer[i]->GetDefaultView(Diligent::BUFFER_VIEW_SHADER_RESOURCE));
-                if (auto* var = m_diligent->pLargeObjectCullSRB[i]->GetVariableByName(Diligent::SHADER_TYPE_COMPUTE, "VisibleLargeObjectBuffer")) var->Set(m_diligent->pVisibleLargeObjectBuffer[i]->GetDefaultView(Diligent::BUFFER_VIEW_UNORDERED_ACCESS));
-                if (auto* var = m_diligent->pLargeObjectCullSRB[i]->GetVariableByName(Diligent::SHADER_TYPE_COMPUTE, "LargeBucketCountBuffer")) var->Set(m_diligent->pLargeBucketCountBuffer[i]->GetDefaultView(Diligent::BUFFER_VIEW_UNORDERED_ACCESS));
-            }
-        }
-
-        if (m_diligent->pPrefixSumPSO) {
-            m_diligent->pLargePrefixSumSRB[i].Release();
-            m_diligent->pPrefixSumPSO->CreateShaderResourceBinding(&m_diligent->pLargePrefixSumSRB[i], true);
-            if (m_diligent->pLargePrefixSumSRB[i]) {
-                if (auto* var = m_diligent->pLargePrefixSumSRB[i]->GetVariableByName(Diligent::SHADER_TYPE_COMPUTE, "PrefixSumConstants")) var->Set(m_diligent->pPrefixSumConstants);
-                if (auto* var = m_diligent->pLargePrefixSumSRB[i]->GetVariableByName(Diligent::SHADER_TYPE_COMPUTE, "BucketCountBuffer")) var->Set(m_diligent->pLargeBucketCountBuffer[i]->GetDefaultView(Diligent::BUFFER_VIEW_SHADER_RESOURCE));
-                if (auto* var = m_diligent->pLargePrefixSumSRB[i]->GetVariableByName(Diligent::SHADER_TYPE_COMPUTE, "BucketOffsetBuffer")) var->Set(m_diligent->pLargeBucketOffsetBuffer[i]->GetDefaultView(Diligent::BUFFER_VIEW_UNORDERED_ACCESS));
-                if (auto* var = m_diligent->pLargePrefixSumSRB[i]->GetVariableByName(Diligent::SHADER_TYPE_COMPUTE, "BucketWriteHeadBuffer")) var->Set(m_diligent->pLargeBucketWriteHeadBuffer[i]->GetDefaultView(Diligent::BUFFER_VIEW_UNORDERED_ACCESS));
-            }
-        }
-
-        if (m_diligent->pScatterPSO) {
-            m_diligent->pLargeScatterSRB[i].Release();
-            m_diligent->pScatterPSO->CreateShaderResourceBinding(&m_diligent->pLargeScatterSRB[i], true);
-            if (m_diligent->pLargeScatterSRB[i]) {
-                if (auto* var = m_diligent->pLargeScatterSRB[i]->GetVariableByName(Diligent::SHADER_TYPE_COMPUTE, "ScatterConstants")) var->Set(m_diligent->pLargeScatterConstants);
-                if (auto* var = m_diligent->pLargeScatterSRB[i]->GetVariableByName(Diligent::SHADER_TYPE_COMPUTE, "AtomicCounterBuffer")) var->Set(m_diligent->pVisibleLargeObjectAtomicCounter[i]->GetDefaultView(Diligent::BUFFER_VIEW_SHADER_RESOURCE));
-                if (auto* var = m_diligent->pLargeScatterSRB[i]->GetVariableByName(Diligent::SHADER_TYPE_COMPUTE, "VisibleObjectBuffer")) var->Set(m_diligent->pVisibleLargeObjectBuffer[i]->GetDefaultView(Diligent::BUFFER_VIEW_SHADER_RESOURCE));
-                if (auto* var = m_diligent->pLargeScatterSRB[i]->GetVariableByName(Diligent::SHADER_TYPE_COMPUTE, "RenderableBuffer")) var->Set(m_diligent->pRenderableBuffer[i]->GetDefaultView(Diligent::BUFFER_VIEW_SHADER_RESOURCE));
-                if (auto* var = m_diligent->pLargeScatterSRB[i]->GetVariableByName(Diligent::SHADER_TYPE_COMPUTE, "BucketWriteHeadBuffer")) var->Set(m_diligent->pLargeBucketWriteHeadBuffer[i]->GetDefaultView(Diligent::BUFFER_VIEW_UNORDERED_ACCESS));
-                if (auto* var = m_diligent->pLargeScatterSRB[i]->GetVariableByName(Diligent::SHADER_TYPE_COMPUTE, "SortedVisibleObjectBuffer")) var->Set(m_diligent->pSortedVisibleLargeObjectBuffer[i]->GetDefaultView(Diligent::BUFFER_VIEW_UNORDERED_ACCESS));
-            }
-        }
-
-        if (m_diligent->pCommandGenPSO) {
-            m_diligent->pLargeCommandGenSRB[i].Release();
-            m_diligent->pCommandGenPSO->CreateShaderResourceBinding(&m_diligent->pLargeCommandGenSRB[i], true);
-            if (m_diligent->pLargeCommandGenSRB[i]) {
-                if (auto* var = m_diligent->pLargeCommandGenSRB[i]->GetVariableByName(Diligent::SHADER_TYPE_COMPUTE, "PointCounterBuffer")) var->Set(m_diligent->pPointDrawCounterBuffer[i]->GetDefaultView(Diligent::BUFFER_VIEW_UNORDERED_ACCESS));
-                if (auto* var = m_diligent->pLargeCommandGenSRB[i]->GetVariableByName(Diligent::SHADER_TYPE_COMPUTE, "PointCommandBuffer")) var->Set(m_diligent->pPointCommandBuffer[i]->GetDefaultView(Diligent::BUFFER_VIEW_UNORDERED_ACCESS));
-                if (auto* var = m_diligent->pLargeCommandGenSRB[i]->GetVariableByName(Diligent::SHADER_TYPE_COMPUTE, "DrawAtomicCounterBuffer")) var->Set(m_diligent->pLargeDrawAtomicCounterBuffer[i]->GetDefaultView(Diligent::BUFFER_VIEW_UNORDERED_ACCESS));
-                if (auto* var = m_diligent->pLargeCommandGenSRB[i]->GetVariableByName(Diligent::SHADER_TYPE_COMPUTE, "DrawCommandBuffer")) var->Set(m_diligent->pDepthPrepassDrawCommandBuffer[i]->GetDefaultView(Diligent::BUFFER_VIEW_UNORDERED_ACCESS));
-                if (auto* var = m_diligent->pLargeCommandGenSRB[i]->GetVariableByName(Diligent::SHADER_TYPE_COMPUTE, "MeshInfoBuffer")) var->Set(m_diligent->pMeshInfoBuffer->GetDefaultView(Diligent::BUFFER_VIEW_SHADER_RESOURCE));
-                if (auto* var = m_diligent->pLargeCommandGenSRB[i]->GetVariableByName(Diligent::SHADER_TYPE_COMPUTE, "BucketCountBuffer")) var->Set(m_diligent->pLargeBucketCountBuffer[i]->GetDefaultView(Diligent::BUFFER_VIEW_SHADER_RESOURCE));
-                if (auto* var = m_diligent->pLargeCommandGenSRB[i]->GetVariableByName(Diligent::SHADER_TYPE_COMPUTE, "BucketOffsetBuffer")) var->Set(m_diligent->pLargeBucketOffsetBuffer[i]->GetDefaultView(Diligent::BUFFER_VIEW_SHADER_RESOURCE));
-                if (auto* var = m_diligent->pLargeCommandGenSRB[i]->GetVariableByName(Diligent::SHADER_TYPE_COMPUTE, "CommandGenConstants")) var->Set(m_diligent->pCommandGenConstants);
-            }
-        }
-
-        if (m_diligent->pTransparentCullPSO) {
-            m_diligent->pTransparentCullSRB[i].Release();
-            m_diligent->pTransparentCullPSO->CreateShaderResourceBinding(&m_diligent->pTransparentCullSRB[i], true);
-            if (m_diligent->pTransparentCullSRB[i]) {
-                if (auto* var = m_diligent->pTransparentCullSRB[i]->GetVariableByName(Diligent::SHADER_TYPE_COMPUTE, "SceneData")) var->Set(m_diligent->pSceneUBO[i]);
-                if (auto* var = m_diligent->pTransparentCullSRB[i]->GetVariableByName(Diligent::SHADER_TYPE_COMPUTE, "AtomicCounterBuffer")) var->Set(m_diligent->pTransparentAtomicCounter[i]->GetDefaultView(Diligent::BUFFER_VIEW_UNORDERED_ACCESS));
-                if (auto* var = m_diligent->pTransparentCullSRB[i]->GetVariableByName(Diligent::SHADER_TYPE_COMPUTE, "VisibleTransparentObjectBuffer")) var->Set(m_diligent->pVisibleTransparentObjectIdsBuffer[i]->GetDefaultView(Diligent::BUFFER_VIEW_UNORDERED_ACCESS));
-                if (auto* var = m_diligent->pTransparentCullSRB[i]->GetVariableByName(Diligent::SHADER_TYPE_COMPUTE, "CullSphereBuffer")) var->Set(m_diligent->pCullSphereBuffer[i]->GetDefaultView(Diligent::BUFFER_VIEW_SHADER_RESOURCE));
-                if (auto* var = m_diligent->pTransparentCullSRB[i]->GetVariableByName(Diligent::SHADER_TYPE_COMPUTE, "MeshInfoBuffer")) var->Set(m_diligent->pMeshInfoBuffer->GetDefaultView(Diligent::BUFFER_VIEW_SHADER_RESOURCE));
-                if (auto* var = m_diligent->pTransparentCullSRB[i]->GetVariableByName(Diligent::SHADER_TYPE_COMPUTE, "TransparentIdBuffer")) var->Set(m_diligent->pTransparentIdBuffer[i]->GetDefaultView(Diligent::BUFFER_VIEW_SHADER_RESOURCE));
-                if (auto* var = m_diligent->pTransparentCullSRB[i]->GetVariableByName(Diligent::SHADER_TYPE_COMPUTE, "TransparentCullUniforms")) var->Set(m_diligent->pTransparentCullUniforms);
-            }
-        }
-
-        if (m_diligent->pTransparentCommandGenPSO) {
-            m_diligent->pTransparentCommandGenSRB[i].Release();
-            m_diligent->pTransparentCommandGenPSO->CreateShaderResourceBinding(&m_diligent->pTransparentCommandGenSRB[i], true);
-            if (m_diligent->pTransparentCommandGenSRB[i]) {
-                if (auto* var = m_diligent->pTransparentCommandGenSRB[i]->GetVariableByName(Diligent::SHADER_TYPE_COMPUTE, "VisibleTransparentObjectBuffer")) var->Set(m_diligent->pVisibleTransparentObjectIdsBuffer[i]->GetDefaultView(Diligent::BUFFER_VIEW_SHADER_RESOURCE));
-                if (auto* var = m_diligent->pTransparentCommandGenSRB[i]->GetVariableByName(Diligent::SHADER_TYPE_COMPUTE, "MeshInfoBuffer")) var->Set(m_diligent->pMeshInfoBuffer->GetDefaultView(Diligent::BUFFER_VIEW_SHADER_RESOURCE));
-                if (auto* var = m_diligent->pTransparentCommandGenSRB[i]->GetVariableByName(Diligent::SHADER_TYPE_COMPUTE, "RenderableBuffer")) var->Set(m_diligent->pRenderableBuffer[i]->GetDefaultView(Diligent::BUFFER_VIEW_SHADER_RESOURCE));
-                if (auto* var = m_diligent->pTransparentCommandGenSRB[i]->GetVariableByName(Diligent::SHADER_TYPE_COMPUTE, "TransparentDrawCommandBuffer")) var->Set(m_diligent->pTransparentDrawCommandBuffer[i]->GetDefaultView(Diligent::BUFFER_VIEW_UNORDERED_ACCESS));
-                if (auto* var = m_diligent->pTransparentCommandGenSRB[i]->GetVariableByName(Diligent::SHADER_TYPE_COMPUTE, "AtomicCounterBuffer")) var->Set(m_diligent->pTransparentAtomicCounter[i]->GetDefaultView(Diligent::BUFFER_VIEW_SHADER_RESOURCE));
-                if (auto* var = m_diligent->pTransparentCommandGenSRB[i]->GetVariableByName(Diligent::SHADER_TYPE_COMPUTE, "TransparentCommandGenUniforms")) var->Set(m_diligent->pTransparentCommandGenUniforms);
-            }
-        }
-
-        if (m_diligent->pDispatchArgsPSO) {
-            m_diligent->pTransparentDispatchArgsSRB[i].Release();
-            m_diligent->pDispatchArgsPSO->CreateShaderResourceBinding(&m_diligent->pTransparentDispatchArgsSRB[i], true);
-            if (m_diligent->pTransparentDispatchArgsSRB[i]) {
-                if (auto* var = m_diligent->pTransparentDispatchArgsSRB[i]->GetVariableByName(Diligent::SHADER_TYPE_COMPUTE, "DispatchArgsConstants")) var->Set(m_diligent->pDispatchArgsConstants);
-                if (auto* var = m_diligent->pTransparentDispatchArgsSRB[i]->GetVariableByName(Diligent::SHADER_TYPE_COMPUTE, "SourceCounterBuffer")) var->Set(m_diligent->pTransparentAtomicCounter[i]->GetDefaultView(Diligent::BUFFER_VIEW_SHADER_RESOURCE));
-                if (auto* var = m_diligent->pTransparentDispatchArgsSRB[i]->GetVariableByName(Diligent::SHADER_TYPE_COMPUTE, "DispatchArgsBuffer")) var->Set(m_diligent->pTransparentDispatchArgs[i]->GetDefaultView(Diligent::BUFFER_VIEW_UNORDERED_ACCESS));
-            }
-
-            m_diligent->pLargeObjectDispatchArgsSRB[i].Release();
-            m_diligent->pDispatchArgsPSO->CreateShaderResourceBinding(&m_diligent->pLargeObjectDispatchArgsSRB[i], true);
-            if (m_diligent->pLargeObjectDispatchArgsSRB[i]) {
-                if (auto* var = m_diligent->pLargeObjectDispatchArgsSRB[i]->GetVariableByName(Diligent::SHADER_TYPE_COMPUTE, "DispatchArgsConstants")) var->Set(m_diligent->pDispatchArgsConstants);
-                if (auto* var = m_diligent->pLargeObjectDispatchArgsSRB[i]->GetVariableByName(Diligent::SHADER_TYPE_COMPUTE, "SourceCounterBuffer")) var->Set(m_diligent->pVisibleLargeObjectAtomicCounter[i]->GetDefaultView(Diligent::BUFFER_VIEW_SHADER_RESOURCE));
-                if (auto* var = m_diligent->pLargeObjectDispatchArgsSRB[i]->GetVariableByName(Diligent::SHADER_TYPE_COMPUTE, "DispatchArgsBuffer")) var->Set(m_diligent->pLargeObjectDispatchArgs[i]->GetDefaultView(Diligent::BUFFER_VIEW_UNORDERED_ACCESS));
-            }
-
-            m_diligent->pScatterDispatchArgsSRB[i].Release();
-            m_diligent->pDispatchArgsPSO->CreateShaderResourceBinding(&m_diligent->pScatterDispatchArgsSRB[i], true);
-            if (m_diligent->pScatterDispatchArgsSRB[i]) {
-                if (auto* var = m_diligent->pScatterDispatchArgsSRB[i]->GetVariableByName(Diligent::SHADER_TYPE_COMPUTE, "DispatchArgsConstants")) var->Set(m_diligent->pScatterDispatchArgsConstants);
-                if (auto* var = m_diligent->pScatterDispatchArgsSRB[i]->GetVariableByName(Diligent::SHADER_TYPE_COMPUTE, "SourceCounterBuffer")) var->Set(m_diligent->pVisibleObjectAtomicCounter[i]->GetDefaultView(Diligent::BUFFER_VIEW_SHADER_RESOURCE));
-                if (auto* var = m_diligent->pScatterDispatchArgsSRB[i]->GetVariableByName(Diligent::SHADER_TYPE_COMPUTE, "DispatchArgsBuffer")) var->Set(m_diligent->pScatterDispatchArgs[i]->GetDefaultView(Diligent::BUFFER_VIEW_UNORDERED_ACCESS));
-            }
-        }
-
-        if (m_diligent->pDepthPrepassPSO) {
-            m_diligent->pDepthPrepassSRB[i].Release();
-            m_diligent->pDepthPrepassPSO->CreateShaderResourceBinding(&m_diligent->pDepthPrepassSRB[i], true);
-            if (m_diligent->pDepthPrepassSRB[i]) {
-                if (auto* var = m_diligent->pDepthPrepassSRB[i]->GetVariableByName(Diligent::SHADER_TYPE_VERTEX, "SceneData")) var->Set(m_diligent->pSceneUBO[i]);
-                if (auto* var = m_diligent->pDepthPrepassSRB[i]->GetVariableByName(Diligent::SHADER_TYPE_VERTEX, "WorldMatrixBuffer")) var->Set(m_diligent->pWorldMatrixBuffer[i]->GetDefaultView(Diligent::BUFFER_VIEW_SHADER_RESOURCE));
-                if (auto* var = m_diligent->pDepthPrepassSRB[i]->GetVariableByName(Diligent::SHADER_TYPE_VERTEX, "VisibleLargeObjectBuffer")) var->Set(m_diligent->pSortedVisibleLargeObjectBuffer[i]->GetDefaultView(Diligent::BUFFER_VIEW_SHADER_RESOURCE));
-            }
-        }
-
-        for (size_t s = 0; s < m_diligent->pOpaquePSOs.size(); ++s) {
-            if (m_diligent->pOpaquePSOs[s]) {
-                m_diligent->pOpaqueSRBs[i][s].Release();
-                m_diligent->pOpaquePSOs[s]->CreateShaderResourceBinding(&m_diligent->pOpaqueSRBs[i][s], true);
-                if (m_diligent->pOpaqueSRBs[i][s]) {
-                    if (auto* var = m_diligent->pOpaqueSRBs[i][s]->GetVariableByName(Diligent::SHADER_TYPE_VERTEX, "SceneData")) var->Set(m_diligent->pSceneUBO[i]);
-                    if (auto* var = m_diligent->pOpaqueSRBs[i][s]->GetVariableByName(Diligent::SHADER_TYPE_PIXEL, "SceneData")) var->Set(m_diligent->pSceneUBO[i]);
-                    if (auto* var = m_diligent->pOpaqueSRBs[i][s]->GetVariableByName(Diligent::SHADER_TYPE_VERTEX, "CullSphereBuffer")) var->Set(m_diligent->pCullSphereBuffer[i]->GetDefaultView(Diligent::BUFFER_VIEW_SHADER_RESOURCE));
-                    if (auto* var = m_diligent->pOpaqueSRBs[i][s]->GetVariableByName(Diligent::SHADER_TYPE_VERTEX, "WorldMatrixBuffer")) var->Set(m_diligent->pWorldMatrixBuffer[i]->GetDefaultView(Diligent::BUFFER_VIEW_SHADER_RESOURCE));
-                    if (auto* var = m_diligent->pOpaqueSRBs[i][s]->GetVariableByName(Diligent::SHADER_TYPE_VERTEX, "VisibleObjectBuffer")) var->Set(m_diligent->pSortedVisibleObjectBuffer[i]->GetDefaultView(Diligent::BUFFER_VIEW_SHADER_RESOURCE));
-                    if (auto* var = m_diligent->pOpaqueSRBs[i][s]->GetVariableByName(Diligent::SHADER_TYPE_VERTEX, "RenderableBuffer")) var->Set(m_diligent->pRenderableBuffer[i]->GetDefaultView(Diligent::BUFFER_VIEW_SHADER_RESOURCE));
-                    if (auto* var = m_diligent->pOpaqueSRBs[i][s]->GetVariableByName(Diligent::SHADER_TYPE_VERTEX, "MaterialBuffer")) var->Set(m_diligent->pMaterialBuffer->GetDefaultView(Diligent::BUFFER_VIEW_SHADER_RESOURCE));
-                    if (auto* var = m_diligent->pOpaqueSRBs[i][s]->GetVariableByName(Diligent::SHADER_TYPE_PIXEL, "LightBlock")) var->Set(m_diligent->pLightBuffer);
-                }
-            }
-        }
-
-        for (size_t s = 0; s < m_diligent->pPointPSOs.size(); ++s) {
-            if (m_diligent->pPointPSOs[s]) {
-                m_diligent->pPointSRBs[i][s].Release();
-                m_diligent->pPointPSOs[s]->CreateShaderResourceBinding(&m_diligent->pPointSRBs[i][s], true);
-                if (m_diligent->pPointSRBs[i][s]) {
-                    if (auto* var = m_diligent->pPointSRBs[i][s]->GetVariableByName(Diligent::SHADER_TYPE_VERTEX, "SceneData")) var->Set(m_diligent->pSceneUBO[i]);
-                    if (auto* var = m_diligent->pPointSRBs[i][s]->GetVariableByName(Diligent::SHADER_TYPE_PIXEL, "SceneData")) var->Set(m_diligent->pSceneUBO[i]);
-                    if (auto* var = m_diligent->pPointSRBs[i][s]->GetVariableByName(Diligent::SHADER_TYPE_VERTEX, "CullSphereBuffer")) var->Set(m_diligent->pCullSphereBuffer[i]->GetDefaultView(Diligent::BUFFER_VIEW_SHADER_RESOURCE));
-                    if (auto* var = m_diligent->pPointSRBs[i][s]->GetVariableByName(Diligent::SHADER_TYPE_VERTEX, "CullOrientationBuffer")) var->Set(m_diligent->pCullOrientationBuffer[i]->GetDefaultView(Diligent::BUFFER_VIEW_SHADER_RESOURCE));
-                    if (auto* var = m_diligent->pPointSRBs[i][s]->GetVariableByName(Diligent::SHADER_TYPE_VERTEX, "NormalSampleBuffer")) var->Set(m_diligent->pNormalSampleBuffer->GetDefaultView(Diligent::BUFFER_VIEW_SHADER_RESOURCE));
-                    if (auto* var = m_diligent->pPointSRBs[i][s]->GetVariableByName(Diligent::SHADER_TYPE_VERTEX, "VisibleObjectBuffer")) var->Set(m_diligent->pSortedVisibleObjectBuffer[i]->GetDefaultView(Diligent::BUFFER_VIEW_SHADER_RESOURCE));
-                    if (auto* var = m_diligent->pPointSRBs[i][s]->GetVariableByName(Diligent::SHADER_TYPE_VERTEX, "RenderableBuffer")) var->Set(m_diligent->pRenderableBuffer[i]->GetDefaultView(Diligent::BUFFER_VIEW_SHADER_RESOURCE));
-                    if (auto* var = m_diligent->pPointSRBs[i][s]->GetVariableByName(Diligent::SHADER_TYPE_VERTEX, "MaterialBuffer")) var->Set(m_diligent->pMaterialBuffer->GetDefaultView(Diligent::BUFFER_VIEW_SHADER_RESOURCE));
-                    if (auto* var = m_diligent->pPointSRBs[i][s]->GetVariableByName(Diligent::SHADER_TYPE_PIXEL, "LightBlock")) var->Set(m_diligent->pLightBuffer);
-                }
-            }
-        }
-
-        if (m_diligent->pTransparentPSO) {
-            m_diligent->pTransparentSRB[i].Release();
-            m_diligent->pTransparentPSO->CreateShaderResourceBinding(&m_diligent->pTransparentSRB[i], true);
-            if (m_diligent->pTransparentSRB[i]) {
-                if (auto* var = m_diligent->pTransparentSRB[i]->GetVariableByName(Diligent::SHADER_TYPE_VERTEX, "SceneData")) var->Set(m_diligent->pSceneUBO[i]);
-                if (auto* var = m_diligent->pTransparentSRB[i]->GetVariableByName(Diligent::SHADER_TYPE_PIXEL, "SceneData")) var->Set(m_diligent->pSceneUBO[i]);
-                if (auto* var = m_diligent->pTransparentSRB[i]->GetVariableByName(Diligent::SHADER_TYPE_VERTEX, "CullSphereBuffer")) var->Set(m_diligent->pCullSphereBuffer[i]->GetDefaultView(Diligent::BUFFER_VIEW_SHADER_RESOURCE));
-                if (auto* var = m_diligent->pTransparentSRB[i]->GetVariableByName(Diligent::SHADER_TYPE_VERTEX, "WorldMatrixBuffer")) var->Set(m_diligent->pWorldMatrixBuffer[i]->GetDefaultView(Diligent::BUFFER_VIEW_SHADER_RESOURCE));
-                if (auto* var = m_diligent->pTransparentSRB[i]->GetVariableByName(Diligent::SHADER_TYPE_VERTEX, "VisibleTransparentObjectBuffer")) var->Set(m_diligent->pVisibleTransparentObjectIdsBuffer[i]->GetDefaultView(Diligent::BUFFER_VIEW_SHADER_RESOURCE));
-                if (auto* var = m_diligent->pTransparentSRB[i]->GetVariableByName(Diligent::SHADER_TYPE_VERTEX, "RenderableBuffer")) var->Set(m_diligent->pRenderableBuffer[i]->GetDefaultView(Diligent::BUFFER_VIEW_SHADER_RESOURCE));
-                if (auto* var = m_diligent->pTransparentSRB[i]->GetVariableByName(Diligent::SHADER_TYPE_VERTEX, "MaterialBuffer")) var->Set(m_diligent->pMaterialBuffer->GetDefaultView(Diligent::BUFFER_VIEW_SHADER_RESOURCE));
-                if (auto* var = m_diligent->pTransparentSRB[i]->GetVariableByName(Diligent::SHADER_TYPE_PIXEL, "LightBlock")) var->Set(m_diligent->pLightBuffer);
-            }
-        }
+        const std::initializer_list<NamedBuffer> surfaceResources = {
+            {"SceneData", d.pSceneUBO[i]}, {"LightBlock", d.pLightBuffer}, {"MaterialBuffer", d.pMaterialBuffer}, {"WorldMatrixBuffer", d.pWorldMatrixBuffer[i]},
+            {"CullSphereBuffer", d.pCullSphereBuffer[i]}, {"CullOrientationBuffer", d.pCullOrientationBuffer[i]}, {"NormalSampleBuffer", d.pNormalSampleBuffer},
+            {"RenderableBuffer", d.pRenderableBuffer[i]}, {"VisibleObjectBuffer", d.pSortedVisibleObjectBuffer[i]}, {"VisibleTransparentObjectBuffer", d.pVisibleTransparentObjectIdsBuffer[i]}};
+        for (size_t s = 0; s < d.pOpaquePSOs.size(); ++s) CreateBoundSRB(d.pOpaquePSOs[s], d.pOpaqueSRBs[i][s], surfaceResources);
+        for (size_t s = 0; s < d.pPointPSOs.size(); ++s) CreateBoundSRB(d.pPointPSOs[s], d.pPointSRBs[i][s], surfaceResources);
+        CreateBoundSRB(d.pTransparentPSO, d.pTransparentSRB[i], surfaceResources);
     }
 
     if (m_diligent->pTransparentCommandGenUniforms) {

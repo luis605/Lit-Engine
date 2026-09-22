@@ -1,0 +1,58 @@
+layout(std140) uniform LightBlock {
+    vec4 lightData[256];
+};
+
+layout(location = 0) in vec3 in_normal;
+layout(location = 1) in vec3 in_fragPos;
+layout(location = 5) flat in vec4 in_material;
+#ifdef POINT_SPRITE
+layout(location = 3) flat in float in_pointRound;
+layout(location = 4) flat in float in_pointSize;
+#endif
+
+vec3 evalPointLight(vec4 posRange, vec4 colorIntensity, vec4 dirCone, vec4 params, vec3 N, vec3 V, vec3 fragPos) {
+    vec3 toLight = posRange.xyz - fragPos;
+    float dist = length(toLight);
+    float atten = clamp(1.0 - dist / posRange.w, 0.0, 1.0);
+    atten = atten * atten;
+    vec3 L = toLight / max(dist, 0.001);
+    if (params.y > 0.5) atten *= smoothstep(dirCone.w, params.x, dot(-L, dirCone.xyz));
+    float diff = max(dot(N, L), 0.0);
+    vec3 H = normalize(L + V);
+    float spec = pow(max(dot(N, H), 0.0), 32.0);
+    return (diff + spec) * colorIntensity.rgb * (colorIntensity.w * atten);
+}
+
+vec3 surfaceNormal() {
+    vec3 N = normalize(in_normal);
+#ifdef POINT_SPRITE
+    if (in_pointRound > 0.5 && in_pointSize >= 2.5) {
+        vec2 pc = gl_PointCoord * 2.0 - 1.0;
+        float r2 = dot(pc, pc);
+        if (r2 > 1.0) discard;
+        vec3 camRight = vec3(view[0][0], view[1][0], view[2][0]);
+        vec3 camUp = vec3(view[0][1], view[1][1], view[2][1]);
+        N = normalize(camRight * pc.x - camUp * pc.y + normalize(viewPos - in_fragPos) * sqrt(1.0 - r2));
+    }
+#endif
+    return N;
+}
+
+vec3 surfaceLighting(vec3 N, vec3 fragPos) {
+    vec3 V = normalize(viewPos - fragPos);
+    vec3 ambient = mix(vec3(0.06, 0.07, 0.10), vec3(0.16, 0.18, 0.22), N.y * 0.5 + 0.5);
+
+    vec3 sunL = normalize(dirLightDir.xyz);
+    float sunDiff = max(dot(N, sunL), 0.0);
+    vec3 sunH = normalize(sunL + V);
+    float sunSpec = pow(max(dot(N, sunH), 0.0), 32.0) * dirLightDir.w;
+    vec3 sunColor = (sunDiff + sunSpec) * dirLightColor.rgb;
+
+    vec3 pointColor = vec3(0.0);
+    uint lightCount = uint(lightInfo.x);
+    if (lightCount > 0u) pointColor += evalPointLight(lightHead[0], lightHead[1], lightHead[2], lightHead[3], N, V, fragPos);
+    if (lightCount > 1u) pointColor += evalPointLight(lightHead[4], lightHead[5], lightHead[6], lightHead[7], N, V, fragPos);
+    for (uint li = 2u; li < lightCount; ++li) pointColor += evalPointLight(lightData[li * 4u], lightData[li * 4u + 1u], lightData[li * 4u + 2u], lightData[li * 4u + 3u], N, V, fragPos);
+
+    return ambient + sunColor + pointColor;
+}
