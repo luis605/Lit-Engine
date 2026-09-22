@@ -28,11 +28,29 @@ export enum class Phase { PreUpdate, FixedUpdate, Update, PostUpdate };
 
 export using SystemFn = std::function<void(World&, float)>;
 
+export struct WindowConfig {
+    std::string title = "Lit Engine";
+    int width = 1280;
+    int height = 720;
+};
+
+export struct FlyCameraSettings {
+    float speed = 4.0f;
+    float sprintMultiplier = 5.0f;
+    int captureMouseKey = 'T';
+};
+
 export class Engine {
   public:
     Engine();
     ~Engine();
 
+    bool open(const WindowConfig& config = {});
+    int run(const std::function<void(float)>& frame = {});
+    void enableFlyCamera(const FlyCameraSettings& settings = {});
+    void setMouseCaptured(bool captured);
+    [[nodiscard]] bool isMouseCaptured() const { return m_mouseCaptured; }
+    [[nodiscard]] GLFWwindow* window() const { return m_window; }
     void init(GLFWwindow* window, const int windowWidth, const int windowHeight);
     void update(SceneDatabase& sceneDatabase, Camera& camera);
     void tick(float deltaTime);
@@ -96,6 +114,9 @@ export class Engine {
     void applyWorldAnimation();
     void syncWindowSize(Camera& camera);
 
+    GLFWwindow* m_window = nullptr;
+    bool m_ownsWindow = false;
+    bool m_mouseCaptured = false;
     Renderer m_renderer;
     JobSystem m_jobs;
     Profiler m_profiler;

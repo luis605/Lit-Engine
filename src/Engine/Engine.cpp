@@ -1,4 +1,5 @@
-struct GLFWwindow;
+#include <GLFW/glfw3.h>
+#include <functional>
 #include <optional>
 #include <string>
 #include <vector>
@@ -23,6 +24,7 @@ import Engine.Profiler;
 import Engine.Render.entity;
 import Engine.glm;
 import Engine.asset;
+import Engine.input;
 
 Engine::Engine() {
     m_world.setJobSystem(&m_jobs);
@@ -60,9 +62,67 @@ uint32_t Engine::loadMesh(const std::string& name) {
     return id;
 }
 
-Engine::~Engine() {}
+Engine::~Engine() { cleanup(); }
+
+bool Engine::open(const WindowConfig& config) {
+    Lit::Log::Init();
+    if (!glfwInit()) {
+        Lit::Log::Fatal("Failed to initialize GLFW");
+        return false;
+    }
+    glfwWindowHint(GLFW_CLIENT_API, GLFW_NO_API);
+    GLFWwindow* window = glfwCreateWindow(config.width, config.height, config.title.c_str(), nullptr, nullptr);
+    if (!window) {
+        Lit::Log::Fatal("Failed to create window '{}'", config.title);
+        glfwTerminate();
+        return false;
+    }
+    m_ownsWindow = true;
+    InputManager::Init(window);
+    init(window, config.width, config.height);
+    return true;
+}
+
+int Engine::run(const std::function<void(float)>& frame) {
+    double last = glfwGetTime();
+    while (m_window && !glfwWindowShouldClose(m_window)) {
+        const double now = glfwGetTime();
+        const auto deltaTime = static_cast<float>(now - last);
+        last = now;
+        if (frame) frame(deltaTime);
+        tick(deltaTime);
+        update();
+        InputManager::Update();
+        present();
+        glfwPollEvents();
+    }
+    cleanup();
+    return 0;
+}
+
+void Engine::setMouseCaptured(bool captured) {
+    m_mouseCaptured = captured;
+    if (m_window) glfwSetInputMode(m_window, GLFW_CURSOR, captured ? GLFW_CURSOR_DISABLED : GLFW_CURSOR_NORMAL);
+}
+
+void Engine::enableFlyCamera(const FlyCameraSettings& settings) {
+    addSystem(Phase::Update, "fly camera", [this, settings](World& world, float) {
+        if (InputManager::IsKeyPressed(settings.captureMouseKey)) setMouseCaptured(!m_mouseCaptured);
+        Camera& camera = world.camera();
+        const float step = settings.speed * (InputManager::IsKeyHeld(GLFW_KEY_LEFT_SHIFT) ? settings.sprintMultiplier : 1.0f) * world.time().unscaledDeltaTime;
+        if (InputManager::IsKeyHeld(GLFW_KEY_W)) camera.processKeyboard(CameraMovement::FORWARD, step);
+        if (InputManager::IsKeyHeld(GLFW_KEY_S)) camera.processKeyboard(CameraMovement::BACKWARD, step);
+        if (InputManager::IsKeyHeld(GLFW_KEY_A)) camera.processKeyboard(CameraMovement::LEFT, step);
+        if (InputManager::IsKeyHeld(GLFW_KEY_D)) camera.processKeyboard(CameraMovement::RIGHT, step);
+        if (m_mouseCaptured) {
+            const glm::vec2 delta = InputManager::GetMouseDelta();
+            camera.processMouseMovement(delta.x, -delta.y);
+        }
+    }, true);
+}
 
 void Engine::init(GLFWwindow* window, const int windowWidth, const int windowHeight) {
+    m_window = window;
     m_windowWidth = windowWidth;
     m_windowHeight = windowHeight;
     m_world.camera().updateAspectRatio(static_cast<float>(windowWidth), static_cast<float>(windowHeight));
@@ -209,7 +269,15 @@ void Engine::syncWindowSize(Camera& camera) {
     camera.updateAspectRatio(static_cast<float>(m_windowWidth), static_cast<float>(m_windowHeight));
 }
 
-void Engine::cleanup() { m_renderer.cleanup(); }
+void Engine::cleanup() {
+    m_renderer.cleanup();
+    if (m_ownsWindow && m_window) {
+        glfwDestroyWindow(m_window);
+        glfwTerminate();
+    }
+    m_window = nullptr;
+    m_ownsWindow = false;
+}
 
 uint32_t Engine::uploadMesh(const Mesh& mesh) { return m_renderer.uploadMesh(mesh); }
 

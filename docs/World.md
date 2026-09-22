@@ -4,10 +4,14 @@
 
 ```cpp
 Engine engine;
-engine.init(window, 1280, 720);
+if (!engine.open({"My Game", 1280, 720})) return 1;
 World& world = engine.world();
 const uint32_t cube = engine.loadMesh("cube");
+engine.enableFlyCamera();
+return engine.run([&](float dt) { /* per-frame game logic */ });
 ```
+
+`open` creates the window and renderer, `run` drives input, systems, scripts, rendering and presentation until the window closes. `enableFlyCamera` adds WASD movement, Shift to sprint and T to capture the mouse for looking around. Engines embedded in an existing window keep using `init(window, width, height)` with their own loop.
 
 ## Handles
 

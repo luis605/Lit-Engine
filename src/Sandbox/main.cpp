@@ -1,8 +1,6 @@
 #include <GLFW/glfw3.h>
-#include <filesystem>
 #include <optional>
 #include <string>
-#include <iostream>
 #include <cmath>
 #include <cstdlib>
 #include <random>
@@ -93,42 +91,20 @@ void inverseKinematics(Scene& scene, const float deltaTime) {
 }
 
 int main() {
-    Lit::Log::Init();
-    if (!glfwInit()) {
-        Lit::Log::Fatal("Failed to initialize GLFW");
-        return 1;
-    }
-
-    const int width = 1280;
-    const int height = 720;
-    glfwWindowHint(GLFW_CLIENT_API, GLFW_NO_API);
-    GLFWwindow* window = glfwCreateWindow(width, height, "Lit Sandbox", nullptr, nullptr);
-    if (!window) {
-        Lit::Log::Fatal("Failed to create GLFW window");
-        glfwTerminate();
-        return 1;
-    }
-
-    InputManager::Init(window);
-
     Engine engine;
-    engine.init(window, width, height);
+    if (!engine.open({"Lit Sandbox"})) return 1;
 
     const uint32_t cubeMesh = engine.loadMesh("cube");
     const uint32_t sphereMesh = engine.loadMesh("sphere");
 
-    engine.input().bindAxis("move_z", GLFW_KEY_S, GLFW_KEY_W);
-    engine.input().bindAxis("move_x", GLFW_KEY_A, GLFW_KEY_D);
     engine.input().bindKey("save", GLFW_KEY_F5);
     engine.input().bindKey("load", GLFW_KEY_F9);
-    engine.input().bindKey("toggle_mouse", GLFW_KEY_T);
-    engine.input().bindKey("sprint", GLFW_KEY_LEFT_SHIFT);
-
+    engine.enableFlyCamera({.speed = 2.0f, .sprintMultiplier = 2.0f});
     engine.setShaderWatch(true);
     if (std::getenv("LIT_GPU_PROFILE")) engine.setFullProfiling(true);
+
     World& world = engine.world();
-    Camera& camera = world.camera();
-    camera.setFarPlane(500.0f);
+    world.camera().setFarPlane(500.0f);
 
     Scene scene({engine, world, cubeMesh, sphereMesh});
     scene.onStart();
@@ -146,34 +122,11 @@ int main() {
         Lit::Log::Info("Spawned {} stress entities", count);
     }
 
-    bool mouseLocked = false;
     bool showDebug = true;
     EntityHandle picked;
-    float lastTime = static_cast<float>(glfwGetTime());
 
-    while (!glfwWindowShouldClose(window)) {
-        const float now = static_cast<float>(glfwGetTime());
-        const float deltaTime = now - lastTime;
-        lastTime = now;
-
-        if (engine.input().pressed("toggle_mouse")) {
-            mouseLocked = !mouseLocked;
-            glfwSetInputMode(window, GLFW_CURSOR, mouseLocked ? GLFW_CURSOR_DISABLED : GLFW_CURSOR_NORMAL);
-        }
-
-        const float speed = engine.input().held("sprint") ? 4.0f : 2.0f;
-        const float moveZ = engine.input().axis("move_z");
-        const float moveX = engine.input().axis("move_x");
-        if (moveZ > 0.0f) camera.processKeyboard(CameraMovement::FORWARD, speed * deltaTime);
-        if (moveZ < 0.0f) camera.processKeyboard(CameraMovement::BACKWARD, speed * deltaTime);
-        if (moveX < 0.0f) camera.processKeyboard(CameraMovement::LEFT, speed * deltaTime);
-        if (moveX > 0.0f) camera.processKeyboard(CameraMovement::RIGHT, speed * deltaTime);
-        if (mouseLocked) {
-            const glm::vec2 delta = InputManager::GetMouseDelta();
-            camera.processMouseMovement(delta.x, -delta.y);
-        }
-
-        if (!mouseLocked && InputManager::IsMouseButtonPressed(GLFW_MOUSE_BUTTON_LEFT)) {
+    return engine.run([&](float deltaTime) {
+        if (!engine.isMouseCaptured() && InputManager::IsMouseButtonPressed(GLFW_MOUSE_BUTTON_LEFT)) {
             const glm::vec2 mouse = InputManager::GetMousePosition();
             if (const auto hit = engine.pick(mouse.x, mouse.y)) {
                 picked = hit->entity;
@@ -188,28 +141,13 @@ int main() {
             engine.debugLine(glm::vec3(0.0f), glm::vec3(0.0f, 1.0f, 0.0f), glm::vec4(0.1f, 1.0f, 0.1f, 1.0f));
             engine.debugLine(glm::vec3(0.0f), glm::vec3(0.0f, 0.0f, 1.0f), glm::vec4(0.2f, 0.4f, 1.0f, 1.0f));
             engine.debugSphere(glm::vec3(2.0f, 1.0f, 0.0f), 0.5f, glm::vec4(1.0f, 1.0f, 0.0f, 1.0f));
-            if (world.isAlive(picked)) {
-                const glm::vec3 c = world.getWorldPosition(picked);
-                engine.debugBox(c, world.getScale(picked) * 0.5f, glm::vec4(1.0f, 0.9f, 0.1f, 1.0f));
-            }
+            if (world.isAlive(picked)) engine.debugBox(world.getWorldPosition(picked), world.getScale(picked) * 0.5f, glm::vec4(1.0f, 0.9f, 0.1f, 1.0f));
         }
 
         if (engine.input().pressed("save")) world.saveScene("resources/sandbox.litscene");
         if (engine.input().pressed("load") && world.loadScene("resources/sandbox.litscene")) scene.rebind();
 
         inverseKinematics(scene, deltaTime);
-
-        scene.onUpdate(deltaTime, now);
-        engine.tick(deltaTime);
-
-        engine.update();
-        InputManager::Update();
-        engine.present();
-        glfwPollEvents();
-    }
-
-    engine.cleanup();
-    glfwDestroyWindow(window);
-    glfwTerminate();
-    return 0;
+        scene.onUpdate(deltaTime, static_cast<float>(engine.time().unscaledElapsed));
+    });
 }
