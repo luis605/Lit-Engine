@@ -268,6 +268,10 @@ Diligent::RefCntAutoPtr<Diligent::IBuffer> CreateIndirectBuffer(Diligent::IRende
     return pBuffer;
 }
 
+constexpr uint32_t kTransparentShaderId = 2;
+
+uint32_t UnpackShaderId(uint32_t packedRenderable) { return (packedRenderable >> 22u) & 0xFu; }
+
 uint32_t PackRenderable(const RenderableComponent& renderable) {
     constexpr uint32_t translucentFlag = 4u;
     const uint32_t mesh = std::min(renderable.mesh_uuid, 0xFFFu);
@@ -1032,6 +1036,52 @@ bool Renderer::resizeToWindow() {
     return true;
 }
 
+void Renderer::uploadTransparentIds(const SceneDatabase& sceneDatabase) {
+    m_transparentIds.clear();
+    for (size_t e = 0; e < sceneDatabase.renderables.size(); ++e) {
+        if (sceneDatabase.renderables[e].shaderId == kTransparentShaderId) m_transparentIds.push_back(static_cast<uint32_t>(e));
+    }
+    m_transparentIdCount = static_cast<uint32_t>(m_transparentIds.size());
+    if (!m_transparentIds.empty()) {
+        m_diligent->pImmediateContext->UpdateBuffer(m_diligent->pTransparentIdBuffer[m_currentFrame], 0, m_transparentIds.size() * sizeof(uint32_t), m_transparentIds.data(), Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
+    }
+}
+
+void Renderer::uploadAllRenderables(const SceneDatabase& sceneDatabase) {
+    const auto& renderables = sceneDatabase.renderables;
+    m_packedRenderables.resize(renderables.size());
+    for (size_t e = 0; e < renderables.size(); ++e) m_packedRenderables[e] = PackRenderable(renderables[e]);
+    m_diligent->pImmediateContext->UpdateBuffer(m_diligent->pRenderableBuffer[m_currentFrame], 0, m_packedRenderables.size() * sizeof(uint32_t), m_packedRenderables.data(), Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
+    uploadTransparentIds(sceneDatabase);
+}
+
+void Renderer::uploadDirtyRenderables(SceneDatabase& sceneDatabase) {
+    auto& dirty = sceneDatabase.renderableDirty.list;
+    std::ranges::sort(dirty);
+    bool transparencyChanged = false;
+    size_t rangeStart = 0;
+    size_t rangeEnd = 0;
+    auto flushRange = [&] {
+        if (rangeEnd > rangeStart) {
+            m_diligent->pImmediateContext->UpdateBuffer(m_diligent->pRenderableBuffer[m_currentFrame], rangeStart * sizeof(uint32_t), (rangeEnd - rangeStart) * sizeof(uint32_t), m_packedRenderables.data() + rangeStart,
+                                                        Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
+        }
+        rangeStart = rangeEnd = 0;
+    };
+    for (Entity e : dirty) {
+        if (e >= m_packedRenderables.size()) continue;
+        const uint32_t packed = PackRenderable(sceneDatabase.renderables[e]);
+        if (packed == m_packedRenderables[e]) continue;
+        transparencyChanged |= (UnpackShaderId(m_packedRenderables[e]) == kTransparentShaderId) != (sceneDatabase.renderables[e].shaderId == kTransparentShaderId);
+        m_packedRenderables[e] = packed;
+        if (e != rangeEnd) flushRange();
+        if (rangeEnd == rangeStart) rangeStart = e;
+        rangeEnd = static_cast<size_t>(e) + 1;
+    }
+    flushRange();
+    if (transparencyChanged) uploadTransparentIds(sceneDatabase);
+}
+
 bool Renderer::animatedEntitiesAreLeaves(const SceneDatabase& sceneDatabase) {
     const std::array<uint64_t, 3> key = {sceneDatabase.m_hierarchyVersion, m_animEntityOffset, m_animMovingCount};
     if (key == m_animLeafCheckKey) return m_animatedEntitiesAreLeaves;
@@ -1294,10 +1344,9 @@ void Renderer::drawScene(SceneDatabase& sceneDatabase, const Camera& camera) {
         m_renderableUpdateCounter = 1;
         dirtyUsesBulkPath = true;
         m_processedDataVersion = sceneDatabase.m_dataVersion;
-        m_transparentIdsStale = true;
     }
 
-    const std::vector<Entity>& newlyDirty = sceneDatabase.m_dirtyList;
+    const std::vector<Entity>& newlyDirty = sceneDatabase.transformDirty.list;
     if (!newlyDirty.empty()) {
         if (newlyDirty.size() > MAX_DIRTY_PER_FRAME) {
             dirtyUsesBulkPath = true;
@@ -1305,7 +1354,7 @@ void Renderer::drawScene(SceneDatabase& sceneDatabase, const Camera& camera) {
         } else if (!dirtyUsesBulkPath) {
             m_pendingDirty[0].insert(m_pendingDirty[0].end(), newlyDirty.begin(), newlyDirty.end());
         }
-        sceneDatabase.clearDirty();
+        sceneDatabase.transformDirty.clear();
     }
 
     if (dirtyUsesBulkPath) {
@@ -1338,23 +1387,12 @@ void Renderer::drawScene(SceneDatabase& sceneDatabase, const Camera& camera) {
     }
 
     if (m_renderableUpdateCounter > 0) {
-        const auto& renderables = sceneDatabase.renderables;
-        m_packedRenderables.resize(renderables.size());
-        for (size_t e = 0; e < renderables.size(); ++e) m_packedRenderables[e] = PackRenderable(renderables[e]);
-        if (m_transparentIdsStale) {
-            m_transparentIds.clear();
-            for (size_t e = 0; e < renderables.size(); ++e) {
-                if (renderables[e].shaderId == 2) { m_transparentIds.push_back(static_cast<uint32_t>(e)); }
-            }
-            m_transparentIdsStale = false;
-        }
-        m_transparentIdCounts[0] = static_cast<uint32_t>(m_transparentIds.size());
-        if (!m_transparentIds.empty()) {
-            m_diligent->pImmediateContext->UpdateBuffer(m_diligent->pTransparentIdBuffer[m_currentFrame], 0, m_transparentIds.size() * sizeof(uint32_t), m_transparentIds.data(), Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
-        }
-        m_diligent->pImmediateContext->UpdateBuffer(m_diligent->pRenderableBuffer[m_currentFrame], 0, m_packedRenderables.size() * sizeof(uint32_t), m_packedRenderables.data(), Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
+        uploadAllRenderables(sceneDatabase);
         m_renderableUpdateCounter--;
+    } else if (!sceneDatabase.renderableDirty.list.empty()) {
+        uploadDirtyRenderables(sceneDatabase);
     }
+    sceneDatabase.renderableDirty.clear();
 
     m_transformEpoch++;
 
@@ -1555,7 +1593,7 @@ void Renderer::drawScene(SceneDatabase& sceneDatabase, const Camera& camera) {
     beginPass(GpuPass::TransparentCull);
     {
         TransparentCullUniforms uniforms{};
-        uniforms.objectCount = m_transparentIdCounts[0];
+        uniforms.objectCount = m_transparentIdCount;
         uniforms.maxDraws = static_cast<uint32_t>(subPassMaxObjects);
         uniforms.lodBias = m_lodBias;
         uniforms.forcedLod = m_forcedLod;
@@ -1571,7 +1609,7 @@ void Renderer::drawScene(SceneDatabase& sceneDatabase, const Camera& camera) {
         m_diligent->pImmediateContext->CommitShaderResources(m_diligent->pTransparentCullSRB[m_currentFrame], Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
 
         Diligent::DispatchComputeAttribs DispatchAttrs;
-        DispatchAttrs.ThreadGroupCountX = std::max(1u, (m_transparentIdCounts[0] + 255) / 256);
+        DispatchAttrs.ThreadGroupCountX = std::max(1u, (m_transparentIdCount + 255) / 256);
         DispatchAttrs.ThreadGroupCountY = 1;
         DispatchAttrs.ThreadGroupCountZ = 1;
         m_diligent->pImmediateContext->DispatchCompute(DispatchAttrs);

@@ -580,6 +580,7 @@ export class World {
     [[nodiscard]] uint64_t spatialKey(int x, int y, int z) const;
     void touchStructure();
     void touchData();
+    void touchRenderable(Entity idx);
 
     SceneDatabase m_db;
     Camera m_camera;

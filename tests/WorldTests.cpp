@@ -133,6 +133,37 @@ static void testVisibility() {
     CHECK(w.getRenderFlags(e) == RENDER_NO_OCCLUDER);
 }
 
+static void testIncrementalRenderableTracking() {
+    World w;
+    auto a = w.create("a", 1);
+    auto b = w.create("b", 1);
+    auto& db = w.database();
+    const uint64_t dataVersion = db.m_dataVersion;
+    db.transformDirty.clear();
+    db.renderableDirty.clear();
+
+    w.setMaterial(a, 3);
+    w.setAlpha(a, 0.5f);
+    CHECK(db.m_dataVersion == dataVersion);
+    CHECK(db.renderableDirty.list.size() == 1);
+    CHECK(db.transformDirty.list.empty());
+
+    w.setVisible(b, false);
+    w.setMesh(b, 2);
+    CHECK(db.m_dataVersion == dataVersion);
+    CHECK(db.renderableDirty.list.size() == 2);
+    CHECK(db.transformDirty.list.size() == 1 && db.transformDirty.list[0] == b.index);
+
+    db.renderableDirty.clear();
+    w.setShader(a, 1);
+    CHECK(db.renderableDirty.list.size() == 1 && db.renderableDirty.list[0] == a.index);
+
+    db.renderableDirty.truncate(a.index);
+    CHECK(db.renderableDirty.list.empty());
+    w.setShader(a, 2);
+    CHECK(db.renderableDirty.list.size() == 1);
+}
+
 static void testNames() {
     World w;
     auto a = w.create("same", 1);
@@ -2339,6 +2370,7 @@ int main() {
     testHierarchy();
     testKeepWorldTransform();
     testVisibility();
+    testIncrementalRenderableTracking();
     testNames();
     testComponents();
     testScripts();

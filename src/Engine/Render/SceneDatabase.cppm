@@ -12,6 +12,40 @@ export module Engine.Render.scenedatabase;
 import Engine.Render.entity;
 import Engine.Render.component;
 
+export struct DirtySet {
+    std::vector<Entity> list;
+
+    void mark(Entity e) {
+        if (m_stamp.size() <= e) m_stamp.resize(static_cast<size_t>(e) + 1, 0);
+        if (m_stamp[e] == m_epoch) return;
+        m_stamp[e] = m_epoch;
+        list.push_back(e);
+    }
+
+    void truncate(size_t count) {
+        std::erase_if(list, [count](Entity e) { return e >= count; });
+        if (m_stamp.size() > count) m_stamp.resize(count);
+    }
+
+    void reset() {
+        list.clear();
+        m_stamp.clear();
+        m_epoch = 1;
+    }
+
+    void clear() {
+        list.clear();
+        if (++m_epoch == 0) {
+            std::fill(m_stamp.begin(), m_stamp.end(), 0u);
+            m_epoch = 1;
+        }
+    }
+
+   private:
+    std::vector<uint32_t> m_stamp;
+    uint32_t m_epoch = 1;
+};
+
 export class SceneDatabase {
    public:
     std::vector<TransformComponent> transforms;
@@ -48,22 +82,8 @@ export class SceneDatabase {
         m_movingCount = count;
     }
 
-    uint32_t m_dirtyEpoch = 1;
-    std::vector<uint32_t> m_dirtyStamp;
-    std::vector<Entity> m_dirtyList;
-
-    void markEntityDirty(Entity e) {
-        if (m_dirtyStamp.size() <= e) m_dirtyStamp.resize(transforms.size(), 0);
-        if (m_dirtyStamp[e] != m_dirtyEpoch) {
-            m_dirtyStamp[e] = m_dirtyEpoch;
-            m_dirtyList.push_back(e);
-        }
-    }
-
-    void clearDirty() {
-        m_dirtyList.clear();
-        m_dirtyEpoch++;
-    }
+    DirtySet transformDirty;
+    DirtySet renderableDirty;
 
     std::vector<uint32_t> m_childCounts;
     std::vector<uint32_t> m_childOffsets;

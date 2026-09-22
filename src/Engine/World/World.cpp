@@ -111,7 +111,7 @@ void World::unlink(Entity idx) {
 }
 
 void World::touchTransform(Entity idx) {
-    m_db.markEntityDirty(idx);
+    m_db.transformDirty.mark(idx);
     invalidateWorld(idx);
     markSpatialSubtree(idx);
 }
@@ -135,6 +135,11 @@ void World::touchStructure() {
 }
 
 void World::touchData() { m_db.markDataDirty(); }
+
+void World::touchRenderable(Entity idx) {
+    m_db.renderableDirty.mark(idx);
+    m_db.transformDirty.mark(idx);
+}
 
 EntityHandle World::create(const EntityDesc& desc) {
     const EntityHandle h = createImpl(desc);
@@ -256,7 +261,7 @@ void World::setPositions(std::span<const std::pair<EntityHandle, glm::vec3>> upd
     for (const auto& [e, position] : updates) {
         if (!valid(e)) continue;
         m_db.transforms[e.index].setPos(position);
-        if (!bulk) m_db.markEntityDirty(e.index);
+        if (!bulk) m_db.transformDirty.mark(e.index);
         invalidateWorld(e.index);
         markSpatialSubtree(e.index);
     }
@@ -272,7 +277,8 @@ void World::shrinkSlots(size_t count) {
     m_db.transforms.resize(count);
     m_db.hierarchies.resize(count);
     m_db.renderables.resize(count);
-    if (m_db.m_dirtyStamp.size() > count) m_db.m_dirtyStamp.resize(count);
+    m_db.transformDirty.truncate(count);
+    m_db.renderableDirty.truncate(count);
     m_alive.resize(count);
     m_generation.resize(count);
     m_visible.resize(count);
@@ -618,7 +624,7 @@ void World::setRenderFlags(EntityHandle e, uint32_t flags, bool enabled) {
     uint32_t& current = m_db.renderables[e.index].flags;
     current = enabled ? (current | flags) : (current & ~flags);
     current |= keepHidden;
-    touchData();
+    touchRenderable(e.index);
 }
 
 uint32_t World::getRenderFlags(EntityHandle e) const {
@@ -630,7 +636,7 @@ void World::setVisible(EntityHandle e, bool visible) {
     m_visible[e.index] = visible ? 1 : 0;
     queueSpatial(e.index);
     setFlagBit(e.index, RENDER_HIDDEN, !visible);
-    touchData();
+    touchRenderable(e.index);
 }
 
 bool World::isVisible(EntityHandle e) const { return valid(e) && m_visible[e.index]; }
@@ -642,25 +648,25 @@ void World::setMesh(EntityHandle e, uint32_t mesh) {
     m_mesh[e.index] = mesh;
     m_db.renderables[e.index].mesh_uuid = mesh;
     queueSpatial(e.index);
-    touchData();
+    touchRenderable(e.index);
 }
 
 void World::setMaterial(EntityHandle e, uint32_t material) {
     if (!valid(e)) return;
     m_db.renderables[e.index].material_uuid = material;
-    touchData();
+    m_db.renderableDirty.mark(e.index);
 }
 
 void World::setShader(EntityHandle e, uint32_t shader) {
     if (!valid(e)) return;
     m_db.renderables[e.index].shaderId = shader;
-    touchData();
+    m_db.renderableDirty.mark(e.index);
 }
 
 void World::setAlpha(EntityHandle e, float alpha) {
     if (!valid(e)) return;
     m_db.renderables[e.index].alpha = alpha;
-    touchData();
+    m_db.renderableDirty.mark(e.index);
 }
 
 const RenderableComponent& World::getRenderable(EntityHandle e) const {
@@ -679,8 +685,8 @@ void World::clear() {
     m_db.hierarchies.clear();
     m_db.renderables.clear();
     m_db.sortedHierarchyList.clear();
-    m_db.clearDirty();
-    m_db.m_dirtyStamp.clear();
+    m_db.transformDirty.reset();
+    m_db.renderableDirty.reset();
     touchStructure();
     m_alive.clear();
     for (uint32_t g : m_generation) m_generationBase = std::max(m_generationBase, g + 1);

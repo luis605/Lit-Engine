@@ -67,6 +67,9 @@ export class Renderer {
     void createDebugDepthPSO();
     void createDebugLinePSO();
     void createPipelines();
+    void uploadTransparentIds(const SceneDatabase& sceneDatabase);
+    void uploadAllRenderables(const SceneDatabase& sceneDatabase);
+    void uploadDirtyRenderables(SceneDatabase& sceneDatabase);
     [[nodiscard]] bool pipelinesReady() const;
     void cullVisibilityPhase(int phase, uint32_t objectCount, int hizFrame);
     void buildVisibilityDraws(int phase);
@@ -121,8 +124,7 @@ export class Renderer {
     uint64_t m_processedDataVersion = 0;
     std::vector<uint32_t> m_transparentIds;
     std::vector<uint32_t> m_packedRenderables;
-    uint32_t m_transparentIdCounts[NUM_FRAMES_IN_FLIGHT] = {};
-    bool m_transparentIdsStale = true;
+    uint32_t m_transparentIdCount = 0;
     uint64_t m_processedTransformVersion = 0;
     int m_hierarchyUpdateCounter = 0;
     int m_fullTransformUpdateCounter = 0;
