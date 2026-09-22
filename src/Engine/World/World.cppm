@@ -317,8 +317,8 @@ export class World {
     [[nodiscard]] std::vector<EntityHandle> getChildren(EntityHandle e) const;
     [[nodiscard]] std::vector<EntityHandle> getRoots() const;
     [[nodiscard]] EntityHandle firstRoot() const { return handleOf(m_firstRoot); }
-    [[nodiscard]] EntityHandle firstChild(EntityHandle e) const { return valid(e) ? handleOf(m_firstChild[e.index]) : NULL_ENTITY; }
-    [[nodiscard]] EntityHandle nextSibling(EntityHandle e) const { return valid(e) ? handleOf(m_nextSibling[e.index]) : NULL_ENTITY; }
+    [[nodiscard]] EntityHandle firstChild(EntityHandle e) const { return valid(e) ? handleOf(m_db.firstChild[e.index]) : NULL_ENTITY; }
+    [[nodiscard]] EntityHandle nextSibling(EntityHandle e) const { return valid(e) ? handleOf(m_db.nextSibling[e.index]) : NULL_ENTITY; }
     [[nodiscard]] bool isDescendantOf(EntityHandle e, EntityHandle ancestor) const;
 
     void setName(EntityHandle e, std::string name);
@@ -581,6 +581,7 @@ export class World {
     void touchStructure();
     void touchData();
     void touchRenderable(Entity idx);
+    void relevelSubtree(Entity root);
 
     SceneDatabase m_db;
     Camera m_camera;
@@ -617,9 +618,8 @@ export class World {
     mutable std::vector<Entity> m_worldStack;
     std::vector<std::string> m_tags;
     std::unordered_map<std::string, std::vector<Entity>> m_tagIndex;
-    std::vector<Entity> m_firstChild;
-    std::vector<Entity> m_nextSibling;
     std::vector<Entity> m_prevSibling;
+    std::vector<Entity> m_relevelStack;
     Entity m_firstRoot = INVALID_ENTITY;
     uint32_t m_generationBase = 0;
     std::unordered_map<Entity, std::vector<std::unique_ptr<Script>>> m_scripts;

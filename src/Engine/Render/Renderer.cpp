@@ -1036,6 +1036,23 @@ bool Renderer::resizeToWindow() {
     return true;
 }
 
+void Renderer::uploadDirtyHierarchies(SceneDatabase& sceneDatabase) {
+    auto& dirty = sceneDatabase.structureDirty.list;
+    std::ranges::sort(dirty);
+    const size_t limit = std::min(sceneDatabase.hierarchies.size(), m_maxObjects);
+    for (size_t i = 0; i < dirty.size();) {
+        const Entity first = dirty[i];
+        size_t end = i + 1;
+        while (end < dirty.size() && dirty[end] == dirty[end - 1] + 1) ++end;
+        const size_t last = std::min<size_t>(static_cast<size_t>(dirty[end - 1]) + 1, limit);
+        if (first < last) {
+            m_diligent->pImmediateContext->UpdateBuffer(m_diligent->pHierarchyBuffer[m_currentFrame], first * sizeof(HierarchyComponent), (last - first) * sizeof(HierarchyComponent), sceneDatabase.hierarchies.data() + first,
+                                                        Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
+        }
+        i = end;
+    }
+}
+
 void Renderer::uploadTransparentIds(const SceneDatabase& sceneDatabase) {
     m_transparentIds.clear();
     for (size_t e = 0; e < sceneDatabase.renderables.size(); ++e) {
@@ -1083,12 +1100,12 @@ void Renderer::uploadDirtyRenderables(SceneDatabase& sceneDatabase) {
 }
 
 bool Renderer::animatedEntitiesAreLeaves(const SceneDatabase& sceneDatabase) {
-    const std::array<uint64_t, 3> key = {sceneDatabase.m_hierarchyVersion, m_animEntityOffset, m_animMovingCount};
+    const std::array<uint64_t, 3> key = {sceneDatabase.m_structureVersion, m_animEntityOffset, m_animMovingCount};
     if (key == m_animLeafCheckKey) return m_animatedEntitiesAreLeaves;
     m_animLeafCheckKey = key;
     m_animatedEntitiesAreLeaves = true;
     const size_t end = std::min<size_t>(static_cast<size_t>(m_animEntityOffset) + m_animMovingCount, sceneDatabase.hierarchies.size());
-    for (size_t e = m_animEntityOffset; e < end && m_animatedEntitiesAreLeaves; ++e) m_animatedEntitiesAreLeaves = sceneDatabase.childrenOf(static_cast<Entity>(e)).empty();
+    for (size_t e = m_animEntityOffset; e < end && m_animatedEntitiesAreLeaves; ++e) m_animatedEntitiesAreLeaves = !sceneDatabase.hasChildren(static_cast<Entity>(e));
     return m_animatedEntitiesAreLeaves;
 }
 
@@ -1109,12 +1126,16 @@ bool Renderer::collectTransformWork(const SceneDatabase& sceneDatabase, std::spa
     for (Entity e : dirty) enqueue(e);
     for (size_t next = 0; next < m_transformWorkScratch.size(); ++next) {
         if (m_transformWorkScratch.size() > MAX_TRANSFORM_WORK) return false;
-        for (Entity child : sceneDatabase.childrenOf(m_transformWorkScratch[next])) enqueue(child);
+        sceneDatabase.forEachChild(m_transformWorkScratch[next], enqueue);
     }
     if (m_transformWorkScratch.size() > MAX_TRANSFORM_WORK) return false;
 
-    m_transformWorkLevelCounts.assign(sceneDatabase.m_maxHierarchyDepth + 1, 0);
-    for (Entity e : m_transformWorkScratch) m_transformWorkLevelCounts[sceneDatabase.hierarchies[e].level]++;
+    m_transformWorkLevelCounts.clear();
+    for (Entity e : m_transformWorkScratch) {
+        const uint32_t level = sceneDatabase.hierarchies[e].level;
+        if (m_transformWorkLevelCounts.size() <= level) m_transformWorkLevelCounts.resize(level + 1, 0);
+        m_transformWorkLevelCounts[level]++;
+    }
     std::vector<uint32_t>& levelHeads = m_transformWorkLevelHeads;
     levelHeads.assign(m_transformWorkLevelCounts.size(), 0);
     for (size_t level = 1; level < levelHeads.size(); ++level) levelHeads[level] = levelHeads[level - 1] + m_transformWorkLevelCounts[level - 1];
@@ -1307,7 +1328,6 @@ void Renderer::drawScene(SceneDatabase& sceneDatabase, const Camera& camera) {
     };
 
     if (m_processedHierarchyVersion < sceneDatabase.m_hierarchyVersion) {
-        sceneDatabase.updateHierarchy();
         m_hierarchyUpdateCounter = 1;
         m_processedHierarchyVersion = sceneDatabase.m_hierarchyVersion;
     }
@@ -1361,15 +1381,24 @@ void Renderer::drawScene(SceneDatabase& sceneDatabase, const Camera& camera) {
         m_pendingDirty[0].clear();
     }
 
+    auto ensureLevelOrder = [&] {
+        if (m_processedStructureVersion == sceneDatabase.m_structureVersion) return;
+        sceneDatabase.updateHierarchy();
+        m_processedStructureVersion = sceneDatabase.m_structureVersion;
+        m_diligent->pImmediateContext->UpdateBuffer(m_diligent->pSortedHierarchyBuffer[m_currentFrame], 0, sceneDatabase.sortedHierarchyList.size() * sizeof(Entity), sceneDatabase.sortedHierarchyList.data(),
+                                                    Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
+    };
+
     if (m_hierarchyUpdateCounter > 0) {
-        const size_t dataSize = sceneDatabase.hierarchies.size() * sizeof(HierarchyComponent);
-        m_diligent->pImmediateContext->UpdateBuffer(m_diligent->pHierarchyBuffer[m_currentFrame], 0, dataSize, sceneDatabase.hierarchies.data(), Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
-
-        const size_t sortedHierarchyDataSize = sceneDatabase.sortedHierarchyList.size() * sizeof(unsigned int);
-        m_diligent->pImmediateContext->UpdateBuffer(m_diligent->pSortedHierarchyBuffer[m_currentFrame], 0, sortedHierarchyDataSize, sceneDatabase.sortedHierarchyList.data(), Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
-
+        m_processedStructureVersion = 0;
+        ensureLevelOrder();
+        m_diligent->pImmediateContext->UpdateBuffer(m_diligent->pHierarchyBuffer[m_currentFrame], 0, sceneDatabase.hierarchies.size() * sizeof(HierarchyComponent), sceneDatabase.hierarchies.data(),
+                                                    Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
         m_hierarchyUpdateCounter--;
+    } else if (!sceneDatabase.structureDirty.list.empty()) {
+        uploadDirtyHierarchies(sceneDatabase);
     }
+    sceneDatabase.structureDirty.clear();
 
     const bool fullTransformUpdateActive = (m_fullTransformUpdateCounter > 0);
     const bool localMatricesUploading = (m_fullTransformUpdateCounter > 0) || (m_transformUpdateCounter > 0);
@@ -1397,6 +1426,7 @@ void Renderer::drawScene(SceneDatabase& sceneDatabase, const Camera& camera) {
     m_transformEpoch++;
 
     const bool forceAllLevels = hierarchyJustChanged || dirtyUsesBulkPath || fullTransformUpdateActive || (m_animMovingCount > 0 && !animatedEntitiesAreLeaves(sceneDatabase));
+    if (forceAllLevels) ensureLevelOrder();
     std::vector<uint8_t>& levelNeedsProcessing = m_levelNeedsProcessing;
     levelNeedsProcessing.assign(sceneDatabase.m_maxHierarchyDepth + 1, forceAllLevels ? 1u : 0u);
 
@@ -1416,6 +1446,8 @@ void Renderer::drawScene(SceneDatabase& sceneDatabase, const Camera& camera) {
         if (sparseTransforms) {
             m_diligent->pImmediateContext->UpdateBuffer(m_diligent->pTransformWorkBuffer, 0, m_transformWork.size() * sizeof(Entity), m_transformWork.data(), Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
         } else if (!hierarchyJustChanged) {
+            ensureLevelOrder();
+            levelNeedsProcessing.resize(sceneDatabase.m_maxHierarchyDepth + 1, 0);
             for (Entity e : m_dirtyIndexScratch) {
                 uint32_t lvl = sceneDatabase.hierarchies[e].level;
                 if (lvl < levelNeedsProcessing.size()) levelNeedsProcessing[lvl] = true;
@@ -1969,6 +2001,41 @@ void Renderer::drawProfilingHud() {
     line(waitColor, "CPU Fence Wait: ", d.fenceWaitMilliseconds);
     line(headerColor, "GPU Total: ", d.gpuTotalMilliseconds);
     for (size_t pass = 0; pass < kGpuPassCount; ++pass) line(textColor, std::format("  {}: ", kGpuPassNames[pass]), d.passMilliseconds[pass]);
+}
+
+std::vector<GpuEntityState> Renderer::readGpuEntityStates(size_t count) {
+    count = std::min(count, m_maxObjects);
+    std::vector<GpuEntityState> states(count);
+    if (!m_initialized || count == 0) return states;
+
+    auto* pContext = m_diligent->pImmediateContext.RawPtr();
+    auto readBack = [&](Diligent::IBuffer* pSource, size_t bytes, auto&& consume) {
+        Diligent::BufferDesc desc;
+        desc.Name = "Readback";
+        desc.Usage = Diligent::USAGE_STAGING;
+        desc.CPUAccessFlags = Diligent::CPU_ACCESS_READ;
+        desc.Size = bytes;
+        Diligent::RefCntAutoPtr<Diligent::IBuffer> pStaging;
+        m_diligent->pDevice->CreateBuffer(desc, nullptr, &pStaging);
+        pContext->CopyBuffer(pSource, 0, Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION, pStaging, 0, bytes, Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
+        pContext->WaitForIdle();
+        Diligent::MapHelper<float> mapped(pContext, pStaging, Diligent::MAP_READ, Diligent::MAP_FLAG_DO_NOT_WAIT);
+        consume(static_cast<const float*>(mapped));
+    };
+
+    readBack(m_diligent->pWorldMatrixBuffer[0], count * sizeof(glm::vec4) * 3, [&](const float* rows) {
+        for (size_t e = 0; e < count; ++e) {
+            glm::mat4 world(1.0f);
+            for (int row = 0; row < 3; ++row) {
+                for (int column = 0; column < 4; ++column) world[column][row] = rows[e * 12 + row * 4 + column];
+            }
+            states[e].world = world;
+        }
+    });
+    readBack(m_diligent->pCullSphereBuffer[0], count * sizeof(glm::vec4), [&](const float* spheres) {
+        for (size_t e = 0; e < count; ++e) states[e].cullSphere = glm::vec4(spheres[e * 4], spheres[e * 4 + 1], spheres[e * 4 + 2], spheres[e * 4 + 3]);
+    });
+    return states;
 }
 
 void Renderer::AddText(const std::string& text, float x, float y, float scale, const glm::vec3& color) { m_uiManager->addText(text, x, y, scale, color); }

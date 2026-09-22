@@ -79,35 +79,49 @@ void World::reserve(size_t count) {
     m_mesh.reserve(count);
     m_layer.reserve(count);
     m_tags.reserve(count);
-    m_firstChild.reserve(count);
-    m_nextSibling.reserve(count);
+    m_db.firstChild.reserve(count);
+    m_db.nextSibling.reserve(count);
     m_prevSibling.reserve(count);
     m_names.reserve(count);
 }
 
 void World::link(Entity idx, Entity parent) {
-    Entity& head = parent == INVALID_ENTITY ? m_firstRoot : m_firstChild[parent];
+    Entity& head = parent == INVALID_ENTITY ? m_firstRoot : m_db.firstChild[parent];
     m_prevSibling[idx] = INVALID_ENTITY;
-    m_nextSibling[idx] = head;
+    m_db.nextSibling[idx] = head;
     if (head != INVALID_ENTITY) m_prevSibling[head] = idx;
     head = idx;
     m_db.hierarchies[idx].parent = parent;
+    m_db.hierarchies[idx].level = parent == INVALID_ENTITY ? 0 : m_db.hierarchies[parent].level + 1;
+}
+
+void World::relevelSubtree(Entity root) {
+    m_relevelStack.assign(1, root);
+    while (!m_relevelStack.empty()) {
+        const Entity e = m_relevelStack.back();
+        m_relevelStack.pop_back();
+        const Entity parent = m_db.hierarchies[e].parent;
+        m_db.hierarchies[e].level = parent == INVALID_ENTITY ? 0 : m_db.hierarchies[parent].level + 1;
+        m_db.structureDirty.mark(e);
+        m_db.forEachChild(e, [&](Entity child) { m_relevelStack.push_back(child); });
+    }
+    m_db.markStructureChanged();
 }
 
 void World::unlink(Entity idx) {
     const Entity parent = m_db.hierarchies[idx].parent;
     const Entity prev = m_prevSibling[idx];
-    const Entity next = m_nextSibling[idx];
+    const Entity next = m_db.nextSibling[idx];
     if (prev != INVALID_ENTITY) {
-        m_nextSibling[prev] = next;
+        m_db.nextSibling[prev] = next;
     } else if (parent == INVALID_ENTITY) {
         m_firstRoot = next;
     } else {
-        m_firstChild[parent] = next;
+        m_db.firstChild[parent] = next;
     }
     if (next != INVALID_ENTITY) m_prevSibling[next] = prev;
     m_prevSibling[idx] = INVALID_ENTITY;
-    m_nextSibling[idx] = INVALID_ENTITY;
+    m_db.nextSibling[idx] = INVALID_ENTITY;
 }
 
 void World::touchTransform(Entity idx) {
@@ -125,7 +139,7 @@ void World::invalidateWorld(Entity idx) const {
         m_worldStack.pop_back();
         if (e >= m_worldDirty.size() || m_worldDirty[e]) continue;
         m_worldDirty[e] = 1;
-        for (Entity c = m_firstChild[e]; c != INVALID_ENTITY; c = m_nextSibling[c]) m_worldStack.push_back(c);
+        for (Entity c = m_db.firstChild[e]; c != INVALID_ENTITY; c = m_db.nextSibling[c]) m_worldStack.push_back(c);
     }
 }
 
@@ -143,7 +157,9 @@ void World::touchRenderable(Entity idx) {
 
 EntityHandle World::create(const EntityDesc& desc) {
     const EntityHandle h = createImpl(desc);
-    touchStructure();
+    m_db.structureDirty.mark(h.index);
+    touchRenderable(h.index);
+    m_db.markStructureChanged();
     m_events.emit(EntityCreated{h});
     return h;
 }
@@ -158,8 +174,8 @@ EntityHandle World::createImpl(const EntityDesc& desc) {
         m_db.renderables[idx] = RenderableComponent{};
         m_db.renderables[idx].objectId = idx;
         m_alive[idx] = 1;
-        m_firstChild[idx] = INVALID_ENTITY;
-        m_nextSibling[idx] = INVALID_ENTITY;
+        m_db.firstChild[idx] = INVALID_ENTITY;
+        m_db.nextSibling[idx] = INVALID_ENTITY;
         m_prevSibling[idx] = INVALID_ENTITY;
     } else {
         idx = m_db.createEntity();
@@ -169,8 +185,6 @@ EntityHandle World::createImpl(const EntityDesc& desc) {
         m_mesh.push_back(0);
         m_layer.push_back(1);
         m_tags.emplace_back();
-        m_firstChild.push_back(INVALID_ENTITY);
-        m_nextSibling.push_back(INVALID_ENTITY);
         m_prevSibling.push_back(INVALID_ENTITY);
         m_names.emplace_back();
     }
@@ -203,8 +217,8 @@ EntityHandle World::create(std::string name, uint32_t mesh, const glm::vec3& pos
 }
 
 void World::destroyRecursive(Entity idx) {
-    for (Entity child = m_firstChild[idx]; child != INVALID_ENTITY;) {
-        const Entity next = m_nextSibling[child];
+    for (Entity child = m_db.firstChild[idx]; child != INVALID_ENTITY;) {
+        const Entity next = m_db.nextSibling[child];
         destroyRecursive(child);
         child = next;
     }
@@ -215,10 +229,12 @@ void World::destroyRecursive(Entity idx) {
     for (auto& [type, p] : m_pools) p->remove(idx);
     m_alive[idx] = 0;
     ++m_generation[idx];
-    m_firstChild[idx] = INVALID_ENTITY;
-    m_db.hierarchies[idx].parent = INVALID_ENTITY;
+    m_db.firstChild[idx] = INVALID_ENTITY;
+    m_db.hierarchies[idx] = HierarchyComponent{INVALID_ENTITY, 0};
     m_visible[idx] = 0;
     m_db.renderables[idx].flags |= RENDER_HIDDEN;
+    m_db.structureDirty.mark(idx);
+    touchRenderable(idx);
     m_names[idx].clear();
     m_freeList.push_back(idx);
     --m_aliveCount;
@@ -233,7 +249,7 @@ void World::destroy(EntityHandle e) {
     unlink(e.index);
     destroyRecursive(e.index);
     trimTail();
-    touchStructure();
+    m_db.markStructureChanged();
 }
 
 void World::destroyBatch(std::span<const EntityHandle> entities) {
@@ -279,6 +295,8 @@ void World::shrinkSlots(size_t count) {
     m_db.renderables.resize(count);
     m_db.transformDirty.truncate(count);
     m_db.renderableDirty.truncate(count);
+    m_db.structureDirty.truncate(count);
+    m_db.markStructureChanged();
     m_alive.resize(count);
     m_generation.resize(count);
     m_visible.resize(count);
@@ -286,8 +304,8 @@ void World::shrinkSlots(size_t count) {
     m_layer.resize(count);
     m_tags.resize(count);
     m_names.resize(count);
-    m_firstChild.resize(count);
-    m_nextSibling.resize(count);
+    m_db.firstChild.resize(count);
+    m_db.nextSibling.resize(count);
     m_prevSibling.resize(count);
     if (m_spatial.size() > count) m_spatial.resize(count);
     if (m_spatialQueued.size() > count) m_spatialQueued.resize(count);
@@ -324,19 +342,19 @@ void World::moveEntity(Entity from, Entity to) {
 
     const Entity parent = m_db.hierarchies[from].parent;
     const Entity prev = m_prevSibling[from];
-    const Entity next = m_nextSibling[from];
+    const Entity next = m_db.nextSibling[from];
     m_prevSibling[to] = prev;
-    m_nextSibling[to] = next;
+    m_db.nextSibling[to] = next;
     if (prev != INVALID_ENTITY) {
-        m_nextSibling[prev] = to;
+        m_db.nextSibling[prev] = to;
     } else if (parent == INVALID_ENTITY) {
         m_firstRoot = to;
     } else {
-        m_firstChild[parent] = to;
+        m_db.firstChild[parent] = to;
     }
     if (next != INVALID_ENTITY) m_prevSibling[next] = to;
-    m_firstChild[to] = m_firstChild[from];
-    for (Entity c = m_firstChild[to]; c != INVALID_ENTITY; c = m_nextSibling[c]) m_db.hierarchies[c].parent = to;
+    m_db.firstChild[to] = m_db.firstChild[from];
+    for (Entity c = m_db.firstChild[to]; c != INVALID_ENTITY; c = m_db.nextSibling[c]) m_db.hierarchies[c].parent = to;
 
     for (auto& [type, p] : m_pools) p->rename(from, to);
     if (const auto it = m_scripts.find(from); it != m_scripts.end()) {
@@ -352,8 +370,8 @@ void World::moveEntity(Entity from, Entity to) {
     markSpatialSubtree(to);
 
     m_alive[from] = 0;
-    m_firstChild[from] = INVALID_ENTITY;
-    m_nextSibling[from] = INVALID_ENTITY;
+    m_db.firstChild[from] = INVALID_ENTITY;
+    m_db.nextSibling[from] = INVALID_ENTITY;
     m_prevSibling[from] = INVALID_ENTITY;
 }
 
@@ -391,13 +409,14 @@ void World::setParent(EntityHandle e, EntityHandle parent, bool keepWorldTransfo
     const glm::mat4 world = keepWorldTransform ? getWorldMatrix(e) : glm::mat4(1.0f);
     unlink(e.index);
     link(e.index, parent.index);
+    relevelSubtree(e.index);
+    m_db.transformDirty.mark(e.index);
     invalidateWorld(e.index);
     markSpatialSubtree(e.index);
     if (keepWorldTransform) {
         const glm::mat4 parentWorld = parent.isNull() ? glm::mat4(1.0f) : getWorldMatrix(parent);
         m_db.transforms[e.index].localMatrix = glm::inverse(parentWorld) * world;
     }
-    touchStructure();
     m_events.emit(EntityReparented{e, oldParent, parent});
 }
 
@@ -409,7 +428,7 @@ EntityHandle World::getParent(EntityHandle e) const {
 std::vector<EntityHandle> World::getChildren(EntityHandle e) const {
     std::vector<EntityHandle> out;
     if (!e.isNull() && !valid(e)) return out;
-    for (Entity c = e.isNull() ? m_firstRoot : m_firstChild[e.index]; c != INVALID_ENTITY; c = m_nextSibling[c]) {
+    for (Entity c = e.isNull() ? m_firstRoot : m_db.firstChild[e.index]; c != INVALID_ENTITY; c = m_db.nextSibling[c]) {
         out.push_back({c, m_generation[c]});
     }
     return out;
@@ -687,6 +706,7 @@ void World::clear() {
     m_db.sortedHierarchyList.clear();
     m_db.transformDirty.reset();
     m_db.renderableDirty.reset();
+    m_db.structureDirty.reset();
     touchStructure();
     m_alive.clear();
     for (uint32_t g : m_generation) m_generationBase = std::max(m_generationBase, g + 1);
@@ -696,8 +716,8 @@ void World::clear() {
     m_layer.clear();
     m_tags.clear();
     m_tagIndex.clear();
-    m_firstChild.clear();
-    m_nextSibling.clear();
+    m_db.firstChild.clear();
+    m_db.nextSibling.clear();
     m_prevSibling.clear();
     m_names.clear();
     m_freeList.clear();
@@ -1194,7 +1214,7 @@ Prefab World::capture(EntityHandle root) const {
 
         const int nodeIndex = static_cast<int>(prefab.nodes.size());
         prefab.nodes.push_back(std::move(node));
-        for (Entity c = m_firstChild[idx]; c != INVALID_ENTITY; c = m_nextSibling[c]) stack.emplace_back(c, nodeIndex);
+        for (Entity c = m_db.firstChild[idx]; c != INVALID_ENTITY; c = m_db.nextSibling[c]) stack.emplace_back(c, nodeIndex);
     }
     return prefab;
 }
@@ -1291,7 +1311,7 @@ void World::markSpatialSubtree(Entity idx) {
         const Entity e = m_spatialStack.back();
         m_spatialStack.pop_back();
         queueSpatial(e);
-        for (Entity c = m_firstChild[e]; c != INVALID_ENTITY; c = m_nextSibling[c]) m_spatialStack.push_back(c);
+        for (Entity c = m_db.firstChild[e]; c != INVALID_ENTITY; c = m_db.nextSibling[c]) m_spatialStack.push_back(c);
     }
 }
 
@@ -1709,7 +1729,7 @@ EntityDescription World::describeEntity(EntityHandle e) const {
     d.mesh = m_mesh[e.index];
     d.visible = m_visible[e.index] != 0;
     d.parent = getParent(e);
-    for (Entity c = m_firstChild[e.index]; c != INVALID_ENTITY; c = m_nextSibling[c]) ++d.childCount;
+    for (Entity c = m_db.firstChild[e.index]; c != INVALID_ENTITY; c = m_db.nextSibling[c]) ++d.childCount;
     for (const auto& [name, serializer] : m_serializers) {
         if (const auto text = componentText(e, name)) d.components.emplace_back(name, *text);
     }
@@ -1770,7 +1790,7 @@ std::vector<std::string> World::validate() {
     syncAnimationCache();
     const size_t n = m_alive.size();
 
-    const size_t sizes[] = {m_generation.size(), m_visible.size(), m_mesh.size(), m_layer.size(), m_tags.size(), m_names.size(), m_firstChild.size(), m_nextSibling.size(), m_prevSibling.size(), m_db.transforms.size(), m_db.hierarchies.size(), m_db.renderables.size()};
+    const size_t sizes[] = {m_generation.size(), m_visible.size(), m_mesh.size(), m_layer.size(), m_tags.size(), m_names.size(), m_db.firstChild.size(), m_db.nextSibling.size(), m_prevSibling.size(), m_db.transforms.size(), m_db.hierarchies.size(), m_db.renderables.size()};
     for (size_t sz : sizes) {
         if (sz != n) {
             fail("per-slot arrays disagree on size");
@@ -1803,6 +1823,8 @@ std::vector<std::string> World::validate() {
         const Entity p = m_db.hierarchies[i].parent;
         if (p != INVALID_ENTITY && (p >= n || !m_alive[p] || p == i)) fail("entity " + std::to_string(i) + " has invalid parent " + std::to_string(p));
         if (m_db.renderables[i].objectId != i) fail("entity " + std::to_string(i) + " has wrong renderable objectId");
+        const uint32_t expectedLevel = p == INVALID_ENTITY || p >= n ? 0 : m_db.hierarchies[p].level + 1;
+        if (m_db.hierarchies[i].level != expectedLevel) fail("entity " + std::to_string(i) + " has level " + std::to_string(m_db.hierarchies[i].level) + ", expected " + std::to_string(expectedLevel));
         if (m_db.renderables[i].mesh_uuid != m_mesh[i]) fail("entity " + std::to_string(i) + " mesh mismatch with renderable");
         const bool hiddenFlag = (m_db.renderables[i].flags & RENDER_HIDDEN) != 0;
         if (hiddenFlag == (m_visible[i] != 0)) fail("entity " + std::to_string(i) + " visibility disagrees with hidden flag");
@@ -1820,7 +1842,7 @@ std::vector<std::string> World::validate() {
         const auto walk = [&](Entity head, Entity expectedParent, const std::string& label) {
             Entity prev = INVALID_ENTITY;
             size_t steps = 0;
-            for (Entity c = head; c != INVALID_ENTITY; c = m_nextSibling[c]) {
+            for (Entity c = head; c != INVALID_ENTITY; c = m_db.nextSibling[c]) {
                 if (c >= n || !m_alive[c]) {
                     fail(label + " lists dead or invalid entity");
                     return;
@@ -1837,7 +1859,7 @@ std::vector<std::string> World::validate() {
         };
         walk(m_firstRoot, INVALID_ENTITY, "root list");
         for (Entity i = 0; i < n; ++i) {
-            if (m_alive[i]) walk(m_firstChild[i], i, "children of " + std::to_string(i));
+            if (m_alive[i]) walk(m_db.firstChild[i], i, "children of " + std::to_string(i));
         }
         if (visited != aliveCount) fail("sibling lists reach " + std::to_string(visited) + " of " + std::to_string(aliveCount) + " entities");
     }

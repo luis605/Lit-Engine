@@ -19,6 +19,11 @@ import Engine.mesh;
 import Engine.UI.manager;
 import Engine.glm;
 
+export struct GpuEntityState {
+    glm::mat4 world;
+    glm::vec4 cullSphere;
+};
+
 export class Renderer {
    public:
     Renderer();
@@ -47,6 +52,7 @@ export class Renderer {
     void setDebugDepthMode(bool enabled);
     bool isDebugDepthMode() const;
     void setFullProfiling(bool enabled);
+    [[nodiscard]] std::vector<GpuEntityState> readGpuEntityStates(size_t count);
 
    private:
     void createScreenTargets();
@@ -70,6 +76,7 @@ export class Renderer {
     void uploadTransparentIds(const SceneDatabase& sceneDatabase);
     void uploadAllRenderables(const SceneDatabase& sceneDatabase);
     void uploadDirtyRenderables(SceneDatabase& sceneDatabase);
+    void uploadDirtyHierarchies(SceneDatabase& sceneDatabase);
     [[nodiscard]] bool pipelinesReady() const;
     void cullVisibilityPhase(int phase, uint32_t objectCount, int hizFrame);
     void buildVisibilityDraws(int phase);
@@ -121,6 +128,7 @@ export class Renderer {
     size_t m_maxObjects = 0;
 
     uint64_t m_processedHierarchyVersion = 0;
+    uint64_t m_processedStructureVersion = 0;
     uint64_t m_processedDataVersion = 0;
     std::vector<uint32_t> m_transparentIds;
     std::vector<uint32_t> m_packedRenderables;

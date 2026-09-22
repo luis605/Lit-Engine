@@ -2,9 +2,7 @@ module;
 
 #include <cstdint>
 #include <vector>
-#include <stack>
 #include <algorithm>
-#include <queue>
 #include <span>
 
 export module Engine.Render.scenedatabase;
@@ -59,23 +57,35 @@ export class SceneDatabase {
     uint32_t m_movingCount = 0;
     uint32_t m_maxHierarchyDepth = 0;
 
+    std::vector<Entity> firstChild;
+    std::vector<Entity> nextSibling;
+    uint64_t m_structureVersion = 1;
+
     Entity createEntity() {
         transforms.emplace_back();
         hierarchies.emplace_back(HierarchyComponent{INVALID_ENTITY, 0});
         renderables.emplace_back();
+        firstChild.push_back(INVALID_ENTITY);
+        nextSibling.push_back(INVALID_ENTITY);
         const auto entity = static_cast<Entity>(transforms.size() - 1);
         renderables.back().objectId = entity;
-        m_hierarchyVersion++;
-        m_dataVersion++;
+        m_structureVersion++;
         return entity;
     }
 
-    [[nodiscard]] std::span<const Entity> childrenOf(Entity e) const {
-        if (e >= m_childCounts.size()) return {};
-        return {m_flatChildren.data() + m_childOffsets[e], m_childCounts[e]};
+    template <class Fn>
+    void forEachChild(Entity e, Fn&& fn) const {
+        if (e >= firstChild.size()) return;
+        for (Entity child = firstChild[e]; child != INVALID_ENTITY; child = nextSibling[child]) fn(child);
     }
 
-    void markHierarchyDirty() { m_hierarchyVersion++; }
+    [[nodiscard]] bool hasChildren(Entity e) const { return e < firstChild.size() && firstChild[e] != INVALID_ENTITY; }
+
+    void markHierarchyDirty() {
+        m_hierarchyVersion++;
+        m_structureVersion++;
+    }
+    void markStructureChanged() { m_structureVersion++; }
     void markDataDirty() { m_dataVersion++; }
     void markTransformsDirty(uint32_t count = 0) {
         m_transformVersion++;
@@ -84,82 +94,32 @@ export class SceneDatabase {
 
     DirtySet transformDirty;
     DirtySet renderableDirty;
-
-    std::vector<uint32_t> m_childCounts;
-    std::vector<uint32_t> m_childOffsets;
-    std::vector<uint32_t> m_writeHeads;
-    std::vector<Entity> m_flatChildren;
-    std::vector<Entity> m_roots;
-    std::vector<std::pair<Entity, uint32_t>> m_bfsQueue;
+    DirtySet structureDirty;
 
     void updateHierarchy() {
-        if (transforms.empty()) {
-            sortedHierarchyList.clear();
-            m_levelCounts.clear();
-            m_maxHierarchyDepth = 0;
-            return;
-        }
-
-        const size_t numEntities = transforms.size();
-
-        if (sortedHierarchyList.capacity() < numEntities) sortedHierarchyList.reserve(numEntities);
+        const auto entityCount = static_cast<Entity>(hierarchies.size());
         sortedHierarchyList.clear();
+        sortedHierarchyList.reserve(entityCount);
+        for (Entity e = 0; e < entityCount; ++e) {
+            const Entity parent = hierarchies[e].parent;
+            if (parent != INVALID_ENTITY && parent < entityCount) continue;
+            hierarchies[e].level = 0;
+            sortedHierarchyList.push_back(e);
+        }
+        for (size_t head = 0; head < sortedHierarchyList.size() && sortedHierarchyList.size() <= entityCount; ++head) {
+            const Entity e = sortedHierarchyList[head];
+            forEachChild(e, [&](Entity child) {
+                hierarchies[child].level = hierarchies[e].level + 1;
+                sortedHierarchyList.push_back(child);
+            });
+        }
+
         m_levelCounts.clear();
-
-        if (m_childCounts.size() < numEntities) m_childCounts.resize(numEntities);
-        if (m_childOffsets.size() < numEntities) m_childOffsets.resize(numEntities);
-        if (m_flatChildren.size() < numEntities) m_flatChildren.resize(numEntities);
-
-        std::fill(m_childCounts.begin(), m_childCounts.end(), 0);
-        m_roots.clear();
-
-        for (Entity i = 0; i < static_cast<Entity>(numEntities); ++i) {
-            hierarchies[i].level = 0;
-            const auto& hier = hierarchies[i];
-            if (hier.parent != INVALID_ENTITY && hier.parent < numEntities) {
-                m_childCounts[hier.parent]++;
-            } else {
-                m_roots.push_back(i);
-            }
+        for (Entity e : sortedHierarchyList) {
+            const uint32_t level = hierarchies[e].level;
+            if (m_levelCounts.size() <= level) m_levelCounts.resize(level + 1, 0);
+            m_levelCounts[level]++;
         }
-
-        uint32_t currentOffset = 0;
-        for (size_t i = 0; i < numEntities; ++i) {
-            m_childOffsets[i] = currentOffset;
-            currentOffset += m_childCounts[i];
-        }
-
-        if (m_flatChildren.size() < currentOffset) m_flatChildren.resize(currentOffset);
-
-        if (m_writeHeads.size() < numEntities) m_writeHeads.resize(numEntities);
-
-        std::copy(m_childOffsets.begin(), m_childOffsets.begin() + numEntities, m_writeHeads.begin());
-
-        for (Entity i = 0; i < static_cast<Entity>(numEntities); ++i) {
-            const auto& hier = hierarchies[i];
-            if (hier.parent != INVALID_ENTITY && hier.parent < numEntities) { m_flatChildren[m_writeHeads[hier.parent]++] = i; }
-        }
-
-        m_maxHierarchyDepth = 0;
-
-        m_bfsQueue.clear();
-        for (auto root : m_roots) { m_bfsQueue.push_back({root, 0}); }
-
-        size_t head = 0;
-        while (head < m_bfsQueue.size()) {
-            auto [current, currentLevel] = m_bfsQueue[head++];
-
-            hierarchies[current].level = currentLevel;
-            sortedHierarchyList.push_back(current);
-            m_maxHierarchyDepth = std::max(m_maxHierarchyDepth, currentLevel);
-
-            if (m_levelCounts.size() <= currentLevel) { m_levelCounts.resize(currentLevel + 1, 0); }
-            m_levelCounts[currentLevel]++;
-
-            uint32_t start = m_childOffsets[current];
-            uint32_t end = m_writeHeads[current];
-
-            for (uint32_t i = start; i < end; ++i) { m_bfsQueue.push_back({m_flatChildren[i], currentLevel + 1}); }
-        }
+        m_maxHierarchyDepth = m_levelCounts.empty() ? 0 : static_cast<uint32_t>(m_levelCounts.size() - 1);
     }
 };

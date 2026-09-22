@@ -81,6 +81,7 @@ export class Engine {
     void setDebugDepthMode(bool enabled);
     bool isDebugDepthMode() const;
     void setFullProfiling(bool enabled);
+    [[nodiscard]] std::vector<GpuEntityState> readGpuEntityStates() { return m_renderer.readGpuEntityStates(m_world.database().transforms.size()); }
 
   private:
     struct System {
