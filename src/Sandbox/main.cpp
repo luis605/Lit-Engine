@@ -33,8 +33,8 @@ void inverseKinematics(Scene& scene, const float deltaTime) {
     if (InputManager::IsKeyHeld(GLFW_KEY_O)) target.y -= speed * deltaTime;
     if (InputManager::IsKeyHeld(GLFW_KEY_P)) target.y += speed * deltaTime;
 
-    constexpr float L1 = 1.5f;
-    constexpr float L2 = 1.5f;
+    constexpr float L1 = 2.5f;
+    constexpr float L2 = 2.5f;
     constexpr float maxDistance = L1 + L2;
     constexpr float minDistance = 0.001f;
 

@@ -15,7 +15,7 @@ jobs:
       - name: Install dependencies
         run: |
           sudo apt-get update
-          sudo apt-get install -y ninja-build g++-14 libx11-dev libxrandr-dev libxinerama-dev libxcursor-dev libxi-dev libgl1-mesa-dev libvulkan-dev
+          sudo apt-get install -y ninja-build g++-15 libx11-dev libxrandr-dev libxinerama-dev libxcursor-dev libxi-dev libgl1-mesa-dev libvulkan-dev
       - name: Install recent CMake
         run: pip install --upgrade cmake
       - uses: actions/cache@v4
@@ -23,7 +23,7 @@ jobs:
           path: build/_deps
           key: deps-${{ hashFiles('src/Engine/CMakeLists.txt') }}
       - name: Configure
-        run: cmake -S . -B build -G Ninja -DCMAKE_BUILD_TYPE=Release -DCMAKE_CXX_COMPILER=g++-14
+        run: cmake -S . -B build -G Ninja -DCMAKE_BUILD_TYPE=Release -DCMAKE_CXX_COMPILER=g++-15
       - name: Build tests
         run: cmake --build build --target WorldTests -j4
       - name: Run tests
@@ -38,7 +38,7 @@ jobs:
       - name: Install dependencies
         run: |
           sudo apt-get update
-          sudo apt-get install -y ninja-build g++-14 libx11-dev libxrandr-dev libxinerama-dev libxcursor-dev libxi-dev libgl1-mesa-dev libvulkan-dev
+          sudo apt-get install -y ninja-build g++-15 libx11-dev libxrandr-dev libxinerama-dev libxcursor-dev libxi-dev libgl1-mesa-dev libvulkan-dev
       - name: Install recent CMake
         run: pip install --upgrade cmake
       - uses: actions/cache@v4
@@ -46,7 +46,7 @@ jobs:
           path: build-asan/_deps
           key: deps-asan-${{ hashFiles('src/Engine/CMakeLists.txt') }}
       - name: Configure
-        run: cmake -S . -B build-asan -G Ninja -DCMAKE_BUILD_TYPE=RelWithDebInfo -DCMAKE_CXX_COMPILER=g++-14 -DLIT_SANITIZE=address,undefined
+        run: cmake -S . -B build-asan -G Ninja -DCMAKE_BUILD_TYPE=RelWithDebInfo -DCMAKE_CXX_COMPILER=g++-15 -DLIT_SANITIZE=address,undefined
       - name: Build tests
         run: cmake --build build-asan --target WorldTests -j4
       - name: Run tests under sanitizers
