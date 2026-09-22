@@ -45,6 +45,18 @@ vec3 rotate(vec4 q, vec3 v) {
     return v + 2.0 * cross(q.xyz, cross(q.xyz, v) + q.w * v);
 }
 
+const uint MAX_SAMPLE_ATTEMPTS = 32u;
+
+vec3 sampleVisibleNormal(uint base, vec3 viewInObject, uint seed) {
+    for (uint attempt = 0u; attempt < MAX_SAMPLE_ATTEMPTS; ++attempt) {
+        uint r = hashStep(seed + attempt * 0x9e3779b9u);
+        vec3 candidate = normalSamples[base + (r >> 16u) % NORMAL_SAMPLES].xyz;
+        float acceptance = float(r & 0xFFFFu) * (1.0 / 65536.0);
+        if (acceptance < dot(candidate, viewInObject)) return candidate;
+    }
+    return vec3(0.0);
+}
+
 void main() {
     uvec2 entry = visibleEntries[gl_VertexIndex];
     uint objectId = entry.x & 0x1FFFFFFFu;
@@ -59,17 +71,8 @@ void main() {
     uint seed = objectId * 2654435761u + 0x9e3779b9u;
     float shape = normalSamples[base].w;
 
-    uint state = hashStep(seed);
-    float totalWeight = 0.0;
-    uint chosen = 0u;
-    for (uint k = 0u; k < NORMAL_SAMPLES; ++k) {
-        float weight = max(dot(normalSamples[base + k].xyz, viewInObject), 0.0);
-        totalWeight += weight;
-        state = state * 747796405u + 2891336453u;
-        float u = float(state >> 8u) * (1.0 / 16777216.0);
-        if (u * totalWeight < weight) chosen = k;
-    }
-    vec3 shadedNormal = totalWeight > 0.0 ? rotate(orientation, normalSamples[base + chosen].xyz) : toViewer;
+    vec3 sampledNormal = sampleVisibleNormal(base, viewInObject, seed);
+    vec3 shadedNormal = dot(sampledNormal, sampledNormal) > 0.0 ? rotate(orientation, sampledNormal) : toViewer;
 
     vec4 clip = projection * (view * vec4(boundingSphere.xyz, 1.0));
     out_fragPos = boundingSphere.xyz;
