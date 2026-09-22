@@ -1113,6 +1113,16 @@ bool Renderer::resizeToWindow() {
     return true;
 }
 
+bool Renderer::animatedEntitiesAreLeaves(const SceneDatabase& sceneDatabase) {
+    const std::array<uint64_t, 3> key = {sceneDatabase.m_hierarchyVersion, m_animEntityOffset, m_animMovingCount};
+    if (key == m_animLeafCheckKey) return m_animatedEntitiesAreLeaves;
+    m_animLeafCheckKey = key;
+    m_animatedEntitiesAreLeaves = true;
+    const size_t end = std::min<size_t>(static_cast<size_t>(m_animEntityOffset) + m_animMovingCount, sceneDatabase.hierarchies.size());
+    for (size_t e = m_animEntityOffset; e < end && m_animatedEntitiesAreLeaves; ++e) m_animatedEntitiesAreLeaves = sceneDatabase.childrenOf(static_cast<Entity>(e)).empty();
+    return m_animatedEntitiesAreLeaves;
+}
+
 bool Renderer::collectTransformWork(const SceneDatabase& sceneDatabase, std::span<const Entity> dirty) {
     const size_t entityCount = sceneDatabase.hierarchies.size();
     if (m_transformWorkStamp.size() < entityCount) m_transformWorkStamp.resize(entityCount, 0);
@@ -1487,7 +1497,7 @@ void Renderer::drawScene(SceneDatabase& sceneDatabase, const Camera& camera) {
 
     m_transformEpoch++;
 
-    const bool forceAllLevels = hierarchyJustChanged || dirtyUsesBulkPath || fullTransformUpdateActive || (m_animMovingCount > 0);
+    const bool forceAllLevels = hierarchyJustChanged || dirtyUsesBulkPath || fullTransformUpdateActive || (m_animMovingCount > 0 && !animatedEntitiesAreLeaves(sceneDatabase));
     std::vector<uint8_t>& levelNeedsProcessing = m_levelNeedsProcessing;
     levelNeedsProcessing.assign(sceneDatabase.m_maxHierarchyDepth + 1, forceAllLevels ? 1u : 0u);
 
@@ -1562,65 +1572,53 @@ void Renderer::drawScene(SceneDatabase& sceneDatabase, const Camera& camera) {
         float animTime;
         unsigned int animMovingCount;
         unsigned int animEntityOffset;
-        unsigned int animPadding;
+        unsigned int directEntityRange;
     } transformUniforms;
 
     const bool animActive = m_animMovingCount > 0 && m_diligent->pBasePositionBuffer;
 
-    {
-        uint32_t currentBaseIndexOffset = 0;
+    auto dispatchTransforms = [&](Diligent::IShaderResourceBinding* pSRB, uint32_t listOffset, uint32_t count, bool forceRecompute, bool directEntityRange) {
+        transformUniforms.objectCount = count;
+        transformUniforms.currentHierarchyLevel = 0;
+        transformUniforms.sortedListOffset = listOffset;
+        transformUniforms.frameOffset = 0;
+        transformUniforms.epoch = m_transformEpoch;
+        transformUniforms.forceFullRecompute = forceRecompute ? 1u : 0u;
+        transformUniforms.animTime = m_animTime;
+        transformUniforms.animMovingCount = animActive ? m_animMovingCount : 0u;
+        transformUniforms.animEntityOffset = m_animEntityOffset;
+        transformUniforms.directEntityRange = directEntityRange ? 1u : 0u;
+        m_diligent->pImmediateContext->UpdateBuffer(m_diligent->pTransformUniforms, 0, sizeof(transformUniforms), &transformUniforms, Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
 
-        const std::vector<uint32_t>& levelCounts = sparseTransforms ? m_transformWorkLevelCounts : sceneDatabase.m_levelCounts;
-        auto& transformSRB = sparseTransforms ? m_diligent->pTransformWorkSRB[m_currentFrame] : m_diligent->pTransformSRB[m_currentFrame];
-        for (uint32_t level = 0; level < levelCounts.size(); ++level) {
-            const uint32_t levelCount = levelCounts[level];
-            if (levelCount == 0) continue;
+        m_diligent->pImmediateContext->SetPipelineState(m_diligent->pTransformPSO);
+        m_diligent->pImmediateContext->CommitShaderResources(pSRB, Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
+        m_diligent->pImmediateContext->DispatchCompute(Diligent::DispatchComputeAttribs((count + transformWorkgroupSize - 1) / transformWorkgroupSize, 1, 1));
 
-            if (!sparseTransforms && (level >= levelNeedsProcessing.size() || !levelNeedsProcessing[level])) {
-                currentBaseIndexOffset += levelCount;
-                continue;
-            }
-
-            transformUniforms.objectCount = levelCount;
-            transformUniforms.currentHierarchyLevel = level;
-            transformUniforms.sortedListOffset = currentBaseIndexOffset;
-            transformUniforms.frameOffset = 0;
-            transformUniforms.epoch = m_transformEpoch;
-            transformUniforms.animTime = m_animTime;
-            transformUniforms.animMovingCount = animActive ? m_animMovingCount : 0u;
-            transformUniforms.animEntityOffset = m_animEntityOffset;
-            transformUniforms.animPadding = 0u;
-            transformUniforms.forceFullRecompute = (sparseTransforms || hierarchyJustChanged || dirtyUsesBulkPath || localMatricesUploading) ? 1u : 0u;
-
-            m_diligent->pImmediateContext->UpdateBuffer(m_diligent->pTransformUniforms, 0, sizeof(transformUniforms), &transformUniforms, Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
-
-            m_diligent->pImmediateContext->SetPipelineState(m_diligent->pTransformPSO);
-            m_diligent->pImmediateContext->CommitShaderResources(transformSRB, Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
-
-            const unsigned int transformNumWorkgroups = (levelCount + transformWorkgroupSize - 1) / transformWorkgroupSize;
-
-            Diligent::DispatchComputeAttribs DispatchAttrs;
-            DispatchAttrs.ThreadGroupCountX = transformNumWorkgroups;
-            DispatchAttrs.ThreadGroupCountY = 1;
-            DispatchAttrs.ThreadGroupCountZ = 1;
-            m_diligent->pImmediateContext->DispatchCompute(DispatchAttrs);
-
-            Diligent::StateTransitionDesc LevelBarriers[2];
-            LevelBarriers[0].pResource = m_diligent->pWorldMatrixBuffer[m_currentFrame];
-            LevelBarriers[0].OldState = Diligent::RESOURCE_STATE_UNORDERED_ACCESS;
-            LevelBarriers[0].NewState = Diligent::RESOURCE_STATE_UNORDERED_ACCESS;
-            LevelBarriers[0].TransitionType = Diligent::STATE_TRANSITION_TYPE_IMMEDIATE;
-            LevelBarriers[0].Flags = Diligent::STATE_TRANSITION_FLAG_UPDATE_STATE;
-
-            LevelBarriers[1].pResource = m_diligent->pTouchedEpochBuffer[m_currentFrame];
-            LevelBarriers[1].OldState = Diligent::RESOURCE_STATE_UNORDERED_ACCESS;
-            LevelBarriers[1].NewState = Diligent::RESOURCE_STATE_UNORDERED_ACCESS;
-            LevelBarriers[1].TransitionType = Diligent::STATE_TRANSITION_TYPE_IMMEDIATE;
-            LevelBarriers[1].Flags = Diligent::STATE_TRANSITION_FLAG_UPDATE_STATE;
-            m_diligent->pImmediateContext->TransitionResourceStates(2, LevelBarriers);
-
-            currentBaseIndexOffset += levelCount;
+        Diligent::StateTransitionDesc barriers[2];
+        for (auto& [barrier, pBuffer] : {std::pair{&barriers[0], m_diligent->pWorldMatrixBuffer[m_currentFrame].RawPtr()}, std::pair{&barriers[1], m_diligent->pTouchedEpochBuffer[m_currentFrame].RawPtr()}}) {
+            barrier->pResource = pBuffer;
+            barrier->OldState = Diligent::RESOURCE_STATE_UNORDERED_ACCESS;
+            barrier->NewState = Diligent::RESOURCE_STATE_UNORDERED_ACCESS;
+            barrier->TransitionType = Diligent::STATE_TRANSITION_TYPE_IMMEDIATE;
+            barrier->Flags = Diligent::STATE_TRANSITION_FLAG_UPDATE_STATE;
         }
+        m_diligent->pImmediateContext->TransitionResourceStates(2, barriers);
+    };
+
+    const std::vector<uint32_t>& levelCounts = sparseTransforms ? m_transformWorkLevelCounts : sceneDatabase.m_levelCounts;
+    auto* pLevelSRB = sparseTransforms ? m_diligent->pTransformWorkSRB[m_currentFrame].RawPtr() : m_diligent->pTransformSRB[m_currentFrame].RawPtr();
+    const bool forceLevelRecompute = sparseTransforms || hierarchyJustChanged || dirtyUsesBulkPath || localMatricesUploading;
+    uint32_t levelOffset = 0;
+    for (uint32_t level = 0; level < levelCounts.size(); ++level) {
+        const uint32_t levelCount = levelCounts[level];
+        const bool processLevel = sparseTransforms || (level < levelNeedsProcessing.size() && levelNeedsProcessing[level]);
+        if (levelCount > 0 && processLevel) dispatchTransforms(pLevelSRB, levelOffset, levelCount, forceLevelRecompute, false);
+        levelOffset += levelCount;
+    }
+
+    if (animActive && !forceAllLevels) {
+        const uint32_t animCount = static_cast<uint32_t>(std::min<size_t>(m_animMovingCount, sceneDatabase.transforms.size() - std::min<size_t>(m_animEntityOffset, sceneDatabase.transforms.size())));
+        if (animCount > 0) dispatchTransforms(m_diligent->pTransformSRB[m_currentFrame], m_animEntityOffset, animCount, true, true);
     }
 
     Timestamp(m_diligent->pTransformEndQuery[m_currentFrame]);

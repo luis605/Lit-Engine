@@ -92,6 +92,9 @@ export class Renderer {
     std::vector<uint32_t> m_transformWorkLevelHeads;
     std::vector<uint32_t> m_transformWorkStamp;
     uint32_t m_transformWorkEpoch = 0;
+    std::array<uint64_t, 3> m_animLeafCheckKey{};
+    bool m_animatedEntitiesAreLeaves = false;
+    bool animatedEntitiesAreLeaves(const SceneDatabase& sceneDatabase);
     bool collectTransformWork(const SceneDatabase& sceneDatabase, std::span<const Entity> dirty);
     std::vector<glm::mat4> m_dirtyPayloadScratch;
     uint32_t m_transformEpoch = 0;

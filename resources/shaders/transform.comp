@@ -25,7 +25,7 @@ layout(std140, binding = 0) uniform TransformUniforms {
     float u_animTime;
     uint u_animMovingCount;
     uint u_animEntityOffset;
-    uint u_animPadding;
+    uint u_directEntityRange;
 };
 
 layout(std430, binding = 1) readonly buffer TransformBuffer {
@@ -102,7 +102,7 @@ void main() {
     uint idx = gl_GlobalInvocationID.x;
     if (idx >= u_objectCount) return;
 
-    uint entity = sortedEntities[u_sortedListOffset + idx];
+    uint entity = u_directEntityRange != 0u ? u_sortedListOffset + idx : sortedEntities[u_sortedListOffset + idx];
     HierarchyComponent hier = hierarchies[entity];
 
     // skip entities that cannot have changed; u_forceFullRecompute disables this when uploads or hierarchy changes touch the frame's buffers
