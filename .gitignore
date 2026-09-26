@@ -7,3 +7,5 @@ build/*
 resources/*.litscene
 resources/trace.json
 build-asan/
+resources/cache/
+gcm.cache
