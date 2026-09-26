@@ -21,7 +21,6 @@ layout(std140, binding = 0) uniform TransformUniforms {
     uint u_frameOffset;
     uint u_epoch;
     uint u_forceFullRecompute;
-    // entities in [u_animEntityOffset, u_animEntityOffset + u_animMovingCount) get an animated translation
     float u_animTime;
     uint u_animMovingCount;
     uint u_animEntityOffset;
@@ -66,7 +65,6 @@ layout(std430, binding = 8) readonly buffer MeshInfoBuffer {
     MeshInfo meshInfos[];
 };
 
-// world-space bounding sphere (xyz = centre, w = radius); w < 0 marks an object without a valid mesh
 layout(std430, binding = 9) writeonly buffer CullSphereBuffer {
     vec4 cullSpheres[];
 };
@@ -94,6 +92,10 @@ vec4 rotationToQuaternion(mat3 r) {
     return q;
 }
 
+layout(std430, binding = 11) readonly buffer ShaderBoundsBuffer {
+    float shaderBounds[];
+};
+
 layout(std430, binding = 6) readonly buffer BasePositionBuffer {
     vec4 g_basePositions[];
 };
@@ -105,7 +107,6 @@ void main() {
     uint entity = u_directEntityRange != 0u ? u_sortedListOffset + idx : sortedEntities[u_sortedListOffset + idx];
     HierarchyComponent hier = hierarchies[entity];
 
-    // skip entities that cannot have changed; u_forceFullRecompute disables this when uploads or hierarchy changes touch the frame's buffers
     bool animated = (entity - u_animEntityOffset) < u_animMovingCount;
     if (u_forceFullRecompute == 0u && !animated) {
         bool dirty = touchedEpochs[entity] == u_epoch;
@@ -139,7 +140,7 @@ void main() {
     if (meshUuid < MAX_MESHES && (renderableFlags(renderable) & RENDER_HIDDEN) == 0u) {
         MeshInfo mesh = meshInfos[meshUuid];
         float maxScale = max(length(worldMat[0].xyz), max(length(worldMat[1].xyz), length(worldMat[2].xyz)));
-        cullSpheres[entity] = vec4((worldMat * vec4(mesh.boundingCenter.xyz, 1.0)).xyz, mesh.boundingRadius * maxScale);
+        cullSpheres[entity] = vec4((worldMat * vec4(mesh.boundingCenter.xyz, 1.0)).xyz, (mesh.boundingRadius + shaderBounds[min(renderableShader(renderable), 15u)]) * maxScale);
     } else {
         cullSpheres[entity] = vec4(worldMat[3].xyz, -1.0);
     }

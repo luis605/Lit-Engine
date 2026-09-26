@@ -5,7 +5,20 @@
 
 namespace Lit {
 
+namespace {
+const auto kProcessStart = std::chrono::steady_clock::now();
+auto lastPhase = kProcessStart;
+}
+
 void Log::Init() {
+}
+
+void Log::Phase(std::string_view name, std::source_location location) {
+    const auto now = std::chrono::steady_clock::now();
+    const double step = std::chrono::duration<double, std::milli>(now - lastPhase).count();
+    const double total = std::chrono::duration<double, std::milli>(now - kProcessStart).count();
+    lastPhase = now;
+    LogInternal(LogLevel::Info, location, std::format("[startup] {}: {:.1f} ms (at {:.1f} ms)", name, step, total));
 }
 
 void Log::LogInternal(LogLevel level, const std::source_location& location, const std::string& message) {

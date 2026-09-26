@@ -1,0 +1,27 @@
+#version 450
+#extension GL_GOOGLE_include_directive : require
+#include "scene.glsl"
+#include "atmosphere.glsl"
+
+layout(local_size_x = 4, local_size_y = 4, local_size_z = 4) in;
+
+layout(rgba16f) writeonly uniform image3D u_output;
+uniform sampler2D u_transmittanceLut;
+uniform sampler2D u_multiScatterLut;
+
+const float AERIAL_SLICES = 32.0;
+const float AERIAL_MAX_KM = 32.0;
+
+void main() {
+    ivec3 texel = ivec3(gl_GlobalInvocationID.xyz);
+    if (any(greaterThanEqual(texel, ivec3(32)))) return;
+    AtmosphereScales scales = AtmosphereScales(atmosphereParams.x, atmosphereParams.y, atmosphereParams.z, atmosphereParams.w, skyParams2.w);
+    vec2 uv = (vec2(texel.xy) + 0.5) / 32.0;
+    vec3 farPoint = worldFromDepth(uv, 1.0);
+    vec3 dir = normalize(farPoint - viewPos);
+    float sliceKm = (float(texel.z) + 0.5) / AERIAL_SLICES * AERIAL_MAX_KM;
+    vec3 pos = atmospherePosition(viewPos);
+    vec3 transmittance;
+    vec3 L = integrateScattering(pos, dir, sunDirection.xyz, sliceKm, 12, scales, u_transmittanceLut, u_multiScatterLut, true, transmittance);
+    imageStore(u_output, texel, vec4(L, dot(transmittance, vec3(1.0 / 3.0))));
+}

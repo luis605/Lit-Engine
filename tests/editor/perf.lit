@@ -1,0 +1,24 @@
+# Frame-time budgets for the default stress scene (8M entities) on the reference GPU; run with LIT_SEED=1.
+frames 30
+measure 180 idle 16.7
+move 50% 50%
+measure 120 hover 16.7
+click left 50% 50%
+frames 5
+measure 120 selected 16.7
+key G
+move 52% 50%
+measure 60 grab 16.7
+key Escape
+frames 3
+key Space
+frames 3
+text dup
+measure 60 palette 16.7
+key Escape
+frames 3
+key O
+frames 3
+measure 60 outliner 16.7
+key O
+quit

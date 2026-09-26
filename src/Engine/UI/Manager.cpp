@@ -23,6 +23,7 @@ module;
 #include "DiligentCore/Graphics/GraphicsTools/interface/MapHelper.hpp"
 
 #include "Engine/Log/Log.hpp"
+#include "Engine/Render/GpuHelpers.hpp"
 
 module Engine.UI.manager;
 
@@ -276,7 +277,7 @@ void UIManager::init(Diligent::IRenderDevice* pDevice, Diligent::IDeviceContext*
             if (nextLine != std::string::npos) vertSource = vertSource.substr(nextLine + 1);
         }
         ShaderCI.Source = vertSource.c_str();
-        d->pDevice->CreateShader(ShaderCI, &pVS);
+        pVS = litgpu::createShader(d->pDevice, ShaderCI);
     }
 
     Diligent::RefCntAutoPtr<Diligent::IShader> pPS;
@@ -289,7 +290,7 @@ void UIManager::init(Diligent::IRenderDevice* pDevice, Diligent::IDeviceContext*
             if (nextLine != std::string::npos) fragSource = fragSource.substr(nextLine + 1);
         }
         ShaderCI.Source = fragSource.c_str();
-        d->pDevice->CreateShader(ShaderCI, &pPS);
+        pPS = litgpu::createShader(d->pDevice, ShaderCI);
     }
 
     if (!pVS || !pPS) {

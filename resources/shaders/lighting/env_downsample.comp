@@ -1,0 +1,15 @@
+#version 450
+
+layout(local_size_x = 8, local_size_y = 8, local_size_z = 1) in;
+
+layout(rgba16f) readonly uniform image2DArray u_source;
+layout(rgba16f) writeonly uniform image2DArray u_dest;
+
+void main() {
+    ivec3 id = ivec3(gl_GlobalInvocationID);
+    ivec2 size = imageSize(u_dest).xy;
+    if (any(greaterThanEqual(id.xy, size))) return;
+    ivec2 s = id.xy * 2;
+    vec4 c = imageLoad(u_source, ivec3(s, id.z)) + imageLoad(u_source, ivec3(s + ivec2(1, 0), id.z)) + imageLoad(u_source, ivec3(s + ivec2(0, 1), id.z)) + imageLoad(u_source, ivec3(s + ivec2(1, 1), id.z));
+    imageStore(u_dest, id, c * 0.25);
+}

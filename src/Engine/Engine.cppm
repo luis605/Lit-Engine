@@ -23,6 +23,9 @@ import Engine.Jobs;
 import Engine.Profiler;
 import Engine.inputactions;
 import Engine.glm;
+import Engine.Render.material;
+import Engine.Render.settings;
+import Engine.Render.custom;
 
 export enum class Phase { PreUpdate, FixedUpdate, Update, PostUpdate };
 
@@ -49,6 +52,9 @@ export class Engine {
     int run(const std::function<void(float)>& frame = {});
     void enableFlyCamera(const FlyCameraSettings& settings = {});
     void setMouseCaptured(bool captured);
+    bool enableImGui();
+    void beginUi();
+    [[nodiscard]] bool imguiEnabled() const { return m_renderer.imguiEnabled(); }
     [[nodiscard]] bool isMouseCaptured() const { return m_mouseCaptured; }
     [[nodiscard]] GLFWwindow* window() const { return m_window; }
     void init(GLFWwindow* window, const int windowWidth, const int windowHeight);
@@ -87,8 +93,36 @@ export class Engine {
     void cleanup();
     uint32_t uploadMesh(const Mesh& mesh);
     uint32_t loadMesh(const std::string& name);
+    [[nodiscard]] std::string meshName(uint32_t id) const;
+    [[nodiscard]] std::vector<std::string> availableMeshes() const;
+    [[nodiscard]] std::vector<GpuPassTiming> gpuTimings() const { return m_renderer.gpuTimings(); }
+    [[nodiscard]] double gpuTotalMilliseconds() const { return m_renderer.gpuTotalMilliseconds(); }
+    [[nodiscard]] size_t renderOverCapacity() const { return m_renderer.overCapacity(); }
+    void setProfilingHud(bool enabled) { m_renderer.setProfilingHud(enabled); }
+    void requestScreenshot(std::string path) { m_renderer.requestScreenshot(std::move(path)); }
     uint32_t createMaterial(const glm::vec3& color, float strength = 1.0f);
     void updateMaterial(uint32_t id, const glm::vec3& color, float strength = 1.0f);
+    uint32_t createMaterial(const Material& material);
+    void setMaterial(uint32_t id, const Material& material);
+    [[nodiscard]] const Material& material(uint32_t id) const;
+    [[nodiscard]] size_t materialCount() const { return m_materials.size(); }
+    [[nodiscard]] std::vector<std::string> shaderNames() const { return m_renderer.surfaceNames(); }
+    uint32_t loadShader(const std::string& name, const std::string& path = {});
+    int loadTexture(const std::string& path, bool srgb = true);
+    [[nodiscard]] RenderSettings& renderSettings() { return m_renderer.settings(); }
+    uint32_t addCompute(const ComputeDesc& desc) { return m_renderer.custom().addCompute(desc); }
+    uint32_t addDraw(const DrawDesc& desc) { return m_renderer.custom().addDraw(desc); }
+    uint32_t addEffect(const std::string& name, const std::string& path = {}) { return m_renderer.custom().addEffect({name, path.empty() ? "resources/shaders/effects/" + name + ".effect" : path}); }
+    template <typename T>
+    void setShaderBuffer(const std::string& name, const std::vector<T>& data) { m_renderer.custom().setBuffer(name, sizeof(T), static_cast<uint32_t>(data.size()), data.data()); }
+    void setShaderBuffer(const std::string& name, uint32_t stride, uint32_t count, const void* data = nullptr) { m_renderer.custom().setBuffer(name, stride, count, data); }
+    [[nodiscard]] std::vector<uint8_t> readShaderBuffer(const std::string& name) { return m_renderer.custom().readBuffer(name); }
+    void setPassParam(PassKind kind, uint32_t id, int index, const glm::vec4& value) { m_renderer.custom().setParam(kind, id, index, value); }
+    void setPassEnabled(PassKind kind, uint32_t id, bool enabled) { m_renderer.custom().setEnabled(kind, id, enabled); }
+    [[nodiscard]] std::vector<PassInfo> customPasses() const { return const_cast<Renderer&>(m_renderer).custom().passes(); }
+    [[nodiscard]] bool meshShadersSupported() const { return const_cast<Renderer&>(m_renderer).custom().meshShadersSupported(); }
+    [[nodiscard]] float exposureEv100() const { return m_renderer.currentEv100(); }
+    [[nodiscard]] glm::vec3 sunDirection() const { return m_renderer.sunDirection(); }
     void uploadBasePositions(const std::vector<glm::vec3>& basePositions);
     void setAnimation(float time, uint32_t movingCount, uint32_t entityOffset);
     void AddText(const std::string& text, float x, float y, float scale, const glm::vec3& color);
@@ -127,7 +161,12 @@ export class Engine {
     std::vector<glm::vec3> m_animationBase;
     uint32_t m_animationOffset = 0;
     uint32_t m_animationCount = 0;
-    uint32_t m_materialCount = 1;
+    std::vector<Material> m_materials = std::vector<Material>(1);
+    std::vector<std::string> m_texturePaths[2];
+    std::unordered_map<int, int> m_textureRemap[2];
+    std::unordered_map<uint32_t, uint32_t> m_surfaceRemap;
+    void registerSceneSections();
+    void uploadMaterial(uint32_t id);
     bool m_shaderWatch = false;
     std::chrono::steady_clock::time_point m_lastShaderPoll{};
     std::unordered_map<std::string, long long> m_shaderStamps;

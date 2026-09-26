@@ -1,0 +1,7 @@
+vec3 effect(vec2 uv, vec3 color) {
+    vec2 wobble = vec2(sin(uv.y * 40.0 + litTime() * 2.0), cos(uv.x * 30.0 + litTime() * 1.7)) * 0.0025;
+    vec3 c = litColor(uv + wobble);
+    float depth = litIsSky(uv + wobble) ? 200.0 : litLinearDepth(uv + wobble);
+    vec3 water = vec3(0.02, 0.18, 0.25) * luminance(c) * 2.0;
+    return mix(c * vec3(0.4, 0.8, 0.9), water, 1.0 - exp(-depth * 0.04));
+}

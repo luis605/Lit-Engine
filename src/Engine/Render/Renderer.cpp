@@ -32,6 +32,8 @@ module;
 #include <GLFW/glfw3native.h>
 
 #include <algorithm>
+#include <bit>
+#include <limits>
 #include <filesystem>
 #include <memory>
 #include <span>
@@ -48,6 +50,9 @@ module;
 #include <format>
 #include <string_view>
 #include "Engine/Log/Log.hpp"
+#define STB_IMAGE_WRITE_IMPLEMENTATION
+#include <stb_image_write.h>
+#include "GpuHelpers.hpp"
 
 module Engine.renderer;
 
@@ -58,6 +63,10 @@ import Engine.Render.scenedatabase;
 import Engine.Render.component;
 
 import Engine.mesh;
+import Engine.Render.lighting;
+import Engine.Render.custom;
+import Engine.Render.settings;
+import Engine.Render.material;
 
 namespace {
 struct DrawElementsIndirectCommand {
@@ -74,24 +83,6 @@ struct MeshInfo {
     unsigned int baseVertex;
     float boundingRadius;
     alignas(16) glm::vec4 boundingCenter;
-};
-
-struct SceneUniforms {
-    glm::mat4 projection;
-    glm::mat4 view;
-    alignas(16) glm::vec3 lightPos;
-    alignas(16) glm::vec3 viewPos;
-    alignas(16) glm::vec3 lightColor;
-    alignas(16) glm::vec4 frustumPlanes[6];
-    alignas(16) glm::vec4 dirLightDir;
-    alignas(16) glm::vec4 dirLightColor;
-    alignas(16) glm::vec4 pointLight0Pos;
-    alignas(16) glm::vec4 pointLight0Color;
-    alignas(16) glm::vec4 pointLight1Pos;
-    alignas(16) glm::vec4 pointLight1Color;
-    alignas(16) glm::vec4 screenParams;
-    alignas(16) glm::vec4 lightInfo;
-    alignas(16) glm::vec4 lightHead[8];
 };
 
 struct CullingUniforms {
@@ -220,14 +211,14 @@ Diligent::RefCntAutoPtr<Diligent::IBuffer> CreateStructuredBuffer(Diligent::IRen
     return pBuffer;
 }
 
-Diligent::RefCntAutoPtr<Diligent::IBuffer> CreateDispatchArgsBuffer(Diligent::IRenderDevice* pDevice, const char* name) {
+Diligent::RefCntAutoPtr<Diligent::IBuffer> CreateDispatchArgsBuffer(Diligent::IRenderDevice* pDevice, const char* name, uint32_t count = 1) {
     Diligent::BufferDesc Desc;
     Desc.Name = name;
     Desc.Usage = Diligent::USAGE_DEFAULT;
     Desc.BindFlags = Diligent::BIND_INDIRECT_DRAW_ARGS | Diligent::BIND_UNORDERED_ACCESS | Diligent::BIND_SHADER_RESOURCE;
     Desc.Mode = Diligent::BUFFER_MODE_STRUCTURED;
     Desc.ElementByteStride = sizeof(unsigned int);
-    Desc.Size = sizeof(unsigned int) * 4;
+    Desc.Size = sizeof(unsigned int) * 4 * count;
 
     Diligent::RefCntAutoPtr<Diligent::IBuffer> pBuffer;
     pDevice->CreateBuffer(Desc, nullptr, &pBuffer);
@@ -366,28 +357,29 @@ Diligent::RefCntAutoPtr<Diligent::IShader> CompileShader(Diligent::IRenderDevice
     ShaderCI.Desc.Name = path.c_str();
     ShaderCI.Macros = macros;
 
-    Diligent::RefCntAutoPtr<Diligent::IShader> pShader;
-    pDevice->CreateShader(ShaderCI, &pShader);
+    Diligent::RefCntAutoPtr<Diligent::IShader> pShader = litgpu::createShader(pDevice, ShaderCI);
     if (!pShader) { Lit::Log::Error("Failed to compile shader '{}'.", path); }
     return pShader;
 }
 
 bool AllShadersCompile(Diligent::IRenderDevice* pDevice) {
-    const std::pair<std::string_view, Diligent::SHADER_TYPE> stages[] = {{".vert", Diligent::SHADER_TYPE_VERTEX}, {".frag", Diligent::SHADER_TYPE_PIXEL}, {".comp", Diligent::SHADER_TYPE_COMPUTE}};
-    const Diligent::ShaderMacro pointMacros[] = {{"POINT_SPRITE", "1"}};
-    const Diligent::ShaderMacro retestMacros[] = {{"RETEST", "1"}};
-    const Diligent::ShaderMacro transparentMacros[] = {{"TRANSPARENT", "1"}};
+    const char* computeShaders[] = {"transform.comp", "apply_dirty.comp", "prefix_sum.comp", "scatter.comp", "command_gen.comp", "dispatch_args.comp", "hiz_from_depth.comp", "hiz_mipmap.comp"};
+    const std::pair<const char*, Diligent::SHADER_TYPE> graphicsShaders[] = {{"fullscreen.vert", Diligent::SHADER_TYPE_VERTEX}, {"transparent_composite.frag", Diligent::SHADER_TYPE_PIXEL}, {"debug_depth.vert", Diligent::SHADER_TYPE_VERTEX},
+                                                                             {"debug_depth.frag", Diligent::SHADER_TYPE_PIXEL}, {"debug_line.vert", Diligent::SHADER_TYPE_VERTEX}, {"debug_line.frag", Diligent::SHADER_TYPE_PIXEL}};
     bool allCompile = true;
+    for (const char* name : computeShaders) allCompile &= litgpu::compileFile(pDevice, std::string("resources/shaders/") + name, Diligent::SHADER_TYPE_COMPUTE) != nullptr;
+    for (const auto& [name, type] : graphicsShaders) allCompile &= litgpu::compileFile(pDevice, std::string("resources/shaders/") + name, type) != nullptr;
+    for (const char* macro : {"", "RETEST", "TRANSPARENT", "SHADOW"}) {
+        std::vector<std::pair<std::string, std::string>> macros;
+        if (*macro) macros.push_back({macro, "1"});
+        allCompile &= litgpu::compileFile(pDevice, "resources/shaders/cull.comp", Diligent::SHADER_TYPE_COMPUTE, macros) != nullptr;
+    }
     std::error_code ec;
-    for (const auto& entry : std::filesystem::directory_iterator("resources/shaders", ec)) {
-        const std::string extension = entry.path().extension().string();
-        for (const auto& [stageExtension, type] : stages) {
-            if (extension != stageExtension) continue;
-            const std::string path = entry.path().generic_string();
-            allCompile &= CompileShader(pDevice, path, type) != nullptr;
-            if (type == Diligent::SHADER_TYPE_PIXEL) allCompile &= CompileShader(pDevice, path, type, Diligent::ShaderMacroArray{pointMacros, 1}) != nullptr;
-            if (type == Diligent::SHADER_TYPE_COMPUTE) allCompile &= CompileShader(pDevice, path, type, Diligent::ShaderMacroArray{retestMacros, 1}) != nullptr;
-            if (type != Diligent::SHADER_TYPE_PIXEL) allCompile &= CompileShader(pDevice, path, type, Diligent::ShaderMacroArray{transparentMacros, 1}) != nullptr;
+    for (const char* folder : {"resources/shaders/lighting", "resources/shaders/post"}) {
+        for (const auto& entry : std::filesystem::directory_iterator(folder, ec)) {
+            const std::string extension = entry.path().extension().string();
+            if (extension == ".comp") allCompile &= litgpu::compileFile(pDevice, entry.path().generic_string(), Diligent::SHADER_TYPE_COMPUTE) != nullptr;
+            if (extension == ".frag") allCompile &= litgpu::compileFile(pDevice, entry.path().generic_string(), Diligent::SHADER_TYPE_PIXEL) != nullptr;
         }
     }
     return allCompile;
@@ -472,6 +464,8 @@ struct DebugLineVertex {
 enum class GpuPass : uint8_t {
     Upload,
     Transform,
+    Sky,
+    Shadows,
     Cull,
     CommandGen,
     OpaqueDraw,
@@ -481,14 +475,18 @@ enum class GpuPass : uint8_t {
     RetestDraw,
     TransparentCull,
     TransparentCommandGen,
+    AmbientOcclusion,
+    Reflections,
+    Lighting,
     TransparentDraw,
+    Post,
     Ui,
     Count
 };
 
 constexpr size_t kGpuPassCount = static_cast<size_t>(GpuPass::Count);
-constexpr std::array<const char*, kGpuPassCount> kGpuPassNames = {"Upload", "Transform", "Cull", "CmdGen", "Opaque Draw", "Hi-Z", "Retest Cull", "Retest CmdGen",
-                                                                  "Retest Draw", "Trans Cull", "Trans CmdGen", "Trans Draw", "UI"};
+constexpr std::array<const char*, kGpuPassCount> kGpuPassNames = {"Upload", "Transform", "Sky+IBL", "Shadows", "Cull", "CmdGen", "GBuffer", "Hi-Z", "Retest Cull", "Retest CmdGen",
+                                                                  "Retest GBuffer", "Trans Cull", "Trans CmdGen", "GTAO", "SSR", "Lighting", "Trans Draw", "Post", "UI"};
 
 struct DiligentData {
     Diligent::RefCntAutoPtr<Diligent::IRenderDevice> pDevice;
@@ -523,9 +521,6 @@ struct DiligentData {
     Diligent::RefCntAutoPtr<Diligent::IBuffer> pTransformUniforms;
 
     Diligent::RefCntAutoPtr<Diligent::IBuffer> pBasePositionBuffer;
-    Diligent::RefCntAutoPtr<Diligent::IBuffer> pAnimConstants;
-    Diligent::RefCntAutoPtr<Diligent::IPipelineState> pAnimPSO;
-    Diligent::RefCntAutoPtr<Diligent::IShaderResourceBinding> pAnimSRB[NumFrames];
 
     Diligent::RefCntAutoPtr<Diligent::IBuffer> pVBO;
     Diligent::RefCntAutoPtr<Diligent::IBuffer> pEBO;
@@ -557,8 +552,53 @@ struct DiligentData {
         std::vector<Diligent::RefCntAutoPtr<Diligent::IShaderResourceBinding>> opaqueSRBs[NumFrames];
         std::vector<Diligent::RefCntAutoPtr<Diligent::IShaderResourceBinding>> pointSRBs[NumFrames];
     };
-    VisibilityPhase visibility[3];
-    Diligent::RefCntAutoPtr<Diligent::IPipelineState> pTransparentPointPSO;
+    VisibilityPhase visibility[4];
+    struct SurfaceProgram {
+        std::string name;
+        std::string path;
+        float bounds = 0.0f;
+        bool twoSided = false;
+        bool valid = false;
+        Diligent::RefCntAutoPtr<Diligent::IPipelineState> gbuffer;
+        Diligent::RefCntAutoPtr<Diligent::IPipelineState> gbufferPoint;
+        Diligent::RefCntAutoPtr<Diligent::IPipelineState> forward;
+        Diligent::RefCntAutoPtr<Diligent::IPipelineState> forwardPoint;
+        Diligent::RefCntAutoPtr<Diligent::IPipelineState> shadow;
+        Diligent::RefCntAutoPtr<Diligent::IPipelineState> shadowPoint;
+    };
+    std::vector<SurfaceProgram> surfaces;
+    Diligent::RefCntAutoPtr<Diligent::IPipelineState> pShadowCullPSO;
+    Diligent::RefCntAutoPtr<Diligent::IBuffer> pShaderBounds;
+    Diligent::RefCntAutoPtr<Diligent::IBuffer> pShadowCullUBO[4];
+    Diligent::RefCntAutoPtr<Diligent::IBuffer> pShadowPassUBO[4];
+    Diligent::RefCntAutoPtr<Diligent::IBuffer> pCascadeCullUBO;
+    Diligent::RefCntAutoPtr<Diligent::IBuffer> pCasterCounter;
+    Diligent::RefCntAutoPtr<Diligent::IBuffer> pCasterIds;
+    Diligent::RefCntAutoPtr<Diligent::IBuffer> pCasterDispatchArgs;
+    Diligent::RefCntAutoPtr<Diligent::IShaderResourceBinding> pCasterDispatchArgsSRB[NumFrames];
+    Diligent::RefCntAutoPtr<Diligent::IPipelineState> pShadowLateCullPSO;
+    Diligent::RefCntAutoPtr<Diligent::IShaderResourceBinding> shadowLateCullSRB[NumFrames][4];
+    Diligent::RefCntAutoPtr<Diligent::IPipelineState> pShadowHiZPSO;
+    Diligent::RefCntAutoPtr<Diligent::IShaderResourceBinding> pShadowHiZSRB;
+    Diligent::RefCntAutoPtr<Diligent::IPipelineState> pShadowHiZArgsPSO;
+    Diligent::RefCntAutoPtr<Diligent::IShaderResourceBinding> pShadowHiZArgsSRB;
+    Diligent::RefCntAutoPtr<Diligent::IBuffer> pShadowHiZArgs;
+    Diligent::RefCntAutoPtr<Diligent::IBuffer> pShadowHiZArgsConstants;
+    Diligent::RefCntAutoPtr<Diligent::IBuffer> pShadowRetestCounter;
+    Diligent::RefCntAutoPtr<Diligent::IBuffer> pShadowRetestIds;
+    Diligent::RefCntAutoPtr<Diligent::IBuffer> pShadowRetestDispatchArgs;
+    Diligent::RefCntAutoPtr<Diligent::IShaderResourceBinding> pShadowRetestDispatchArgsSRB[NumFrames];
+    Diligent::RefCntAutoPtr<Diligent::ITexture> shadowHiZ[4];
+    std::vector<Diligent::RefCntAutoPtr<Diligent::ITextureView>> shadowHiZDest[4];
+    std::vector<Diligent::RefCntAutoPtr<Diligent::ITextureView>> shadowHiZSource[4];
+    Diligent::RefCntAutoPtr<Diligent::ITextureView> shadowSlices[4];
+    Diligent::ITexture* shadowHiZSourceMap = nullptr;
+    glm::mat4 shadowHiZViewProj[4]{};
+    bool shadowHiZValid[4] = {false, false, false, false};
+    Diligent::RefCntAutoPtr<Diligent::IShaderResourceBinding> shadowCullSRB[NumFrames][4];
+    std::vector<Diligent::RefCntAutoPtr<Diligent::IShaderResourceBinding>> shadowSRBs[NumFrames][4];
+    std::vector<Diligent::RefCntAutoPtr<Diligent::IShaderResourceBinding>> shadowPointSRBs[NumFrames][4];
+    uint64_t surfaceBindingVersion = 0;
     Diligent::RefCntAutoPtr<Diligent::IBuffer> pTransparentCandidateCounter;
     Diligent::RefCntAutoPtr<Diligent::IBuffer> pTransparentCandidateIds;
     Diligent::RefCntAutoPtr<Diligent::IBuffer> pTransparentDispatchArgs;
@@ -569,11 +609,8 @@ struct DiligentData {
     Diligent::RefCntAutoPtr<Diligent::IPipelineState> pCompositePSO;
     Diligent::RefCntAutoPtr<Diligent::IShaderResourceBinding> pCompositeSRB;
     Diligent::RefCntAutoPtr<Diligent::IPipelineState> pRetestCullingPSO;
-    Diligent::RefCntAutoPtr<Diligent::IBuffer> pRetestCounter;
-    Diligent::RefCntAutoPtr<Diligent::IBuffer> pRetestIds;
-    Diligent::RefCntAutoPtr<Diligent::IBuffer> pRetestDispatchArgs;
+    Diligent::RefCntAutoPtr<Diligent::IBuffer> pVisibilityBits;
     Diligent::RefCntAutoPtr<Diligent::IBuffer> pObjectDispatchArgsConstants;
-    Diligent::RefCntAutoPtr<Diligent::IShaderResourceBinding> pRetestDispatchArgsSRB[NumFrames];
 
     Diligent::RefCntAutoPtr<Diligent::ITexture> pSceneDepth;
     Diligent::RefCntAutoPtr<Diligent::IPipelineState> pHiZFromDepthPSO;
@@ -588,7 +625,6 @@ struct DiligentData {
 
     Diligent::RefCntAutoPtr<Diligent::IShaderResourceBinding> pHiZMipmapSRB;
     Diligent::RefCntAutoPtr<Diligent::IShaderResourceBinding> pApplyDirtySRB[NumFrames];
-    Diligent::RefCntAutoPtr<Diligent::IShaderResourceBinding> pMarkTouchedSRB[NumFrames];
 
     Diligent::RefCntAutoPtr<Diligent::IPipelineState> pHiZMipmapPSO;
     Diligent::RefCntAutoPtr<Diligent::IPipelineState> pCullingPSO;
@@ -596,27 +632,20 @@ struct DiligentData {
     Diligent::RefCntAutoPtr<Diligent::IPipelineState> pPrefixSumPSO;
     Diligent::RefCntAutoPtr<Diligent::IPipelineState> pScatterPSO;
     Diligent::RefCntAutoPtr<Diligent::IPipelineState> pApplyDirtyPSO;
-    Diligent::RefCntAutoPtr<Diligent::IPipelineState> pMarkTouchedPSO;
     Diligent::RefCntAutoPtr<Diligent::IPipelineState> pTransparentCullPSO;
 
     Diligent::RefCntAutoPtr<Diligent::IBuffer> pCommandGenConstants;
     Diligent::RefCntAutoPtr<Diligent::IBuffer> pPrefixSumConstants;
     Diligent::RefCntAutoPtr<Diligent::IBuffer> pScatterConstants;
     Diligent::RefCntAutoPtr<Diligent::IBuffer> pApplyDirtyConstants;
-    Diligent::RefCntAutoPtr<Diligent::IBuffer> pMarkTouchedConstants;
 
 
 
 
 
-    Diligent::RefCntAutoPtr<Diligent::IPipelineState> pTransparentPSO;
-    std::vector<Diligent::RefCntAutoPtr<Diligent::IPipelineState>> pOpaquePSOs;
-    std::vector<Diligent::RefCntAutoPtr<Diligent::IPipelineState>> pPointPSOs;
 
 
     Diligent::RefCntAutoPtr<Diligent::IPipelineState> pDebugDepthPSO;
-    Diligent::RefCntAutoPtr<Diligent::IBuffer> pMaterialBuffer;
-    Diligent::RefCntAutoPtr<Diligent::IBuffer> pLightBuffer;
     Diligent::RefCntAutoPtr<Diligent::IPipelineState> pDebugLinePSO;
     Diligent::RefCntAutoPtr<Diligent::IPipelineState> pDebugLineOverlayPSO;
     Diligent::RefCntAutoPtr<Diligent::IShaderResourceBinding> pDebugLineOverlaySRB;
@@ -634,9 +663,16 @@ struct DiligentData {
 };
 
 std::vector<Diligent::IPipelineState*> SurfacePipelines(const DiligentData& d, size_t phaseIndex, bool points) {
-    if (phaseIndex == 2) return {points ? d.pTransparentPointPSO.RawPtr() : d.pTransparentPSO.RawPtr()};
     std::vector<Diligent::IPipelineState*> pipelines;
-    for (const auto& pso : points ? d.pPointPSOs : d.pOpaquePSOs) pipelines.push_back(pso);
+    for (const auto& surface : d.surfaces) {
+        if (phaseIndex == 2) {
+            pipelines.push_back(points ? surface.forwardPoint.RawPtr() : surface.forward.RawPtr());
+        } else if (phaseIndex == 3) {
+            pipelines.push_back(points ? surface.shadowPoint.RawPtr() : surface.shadow.RawPtr());
+        } else {
+            pipelines.push_back(points ? surface.gbufferPoint.RawPtr() : surface.gbuffer.RawPtr());
+        }
+    }
     return pipelines;
 }
 
@@ -680,11 +716,17 @@ void Renderer::init(GLFWwindow* window, const int windowWidth, const int windowH
     Diligent::EngineVkCreateInfo EngineCI;
     EngineCI.AdapterId = SelectFastestAdapter(m_diligent->pFactoryVk, EngineCI.GraphicsAPIVersion);
     EngineCI.Features.IndependentBlend = Diligent::DEVICE_FEATURE_STATE_ENABLED;
+    EngineCI.Features.DepthClamp = Diligent::DEVICE_FEATURE_STATE_OPTIONAL;
+    EngineCI.Features.Tessellation = Diligent::DEVICE_FEATURE_STATE_OPTIONAL;
+    EngineCI.Features.GeometryShaders = Diligent::DEVICE_FEATURE_STATE_OPTIONAL;
+    EngineCI.Features.MeshShaders = Diligent::DEVICE_FEATURE_STATE_OPTIONAL;
     m_diligent->pFactoryVk->CreateDeviceAndContextsVk(EngineCI, &m_diligent->pDevice, &m_diligent->pImmediateContext);
+    Lit::Log::Phase("vulkan device");
 
     Diligent::SwapChainDesc SCDesc;
     SCDesc.ColorBufferFormat = Diligent::TEX_FORMAT_RGBA8_UNORM;
     SCDesc.DepthBufferFormat = Diligent::TEX_FORMAT_UNKNOWN;
+    SCDesc.Usage = Diligent::SWAP_CHAIN_USAGE_RENDER_TARGET | Diligent::SWAP_CHAIN_USAGE_COPY_SOURCE;
     SCDesc.Width = windowWidth;
     SCDesc.Height = windowHeight;
 
@@ -700,11 +742,18 @@ void Renderer::init(GLFWwindow* window, const int windowWidth, const int windowH
 
     m_diligent->pFactoryVk->CreateSwapChainVk(m_diligent->pDevice, m_diligent->pImmediateContext, SCDesc, WinDesc, &m_diligent->pSwapChain);
 
+    Lit::Log::Phase("swap chain");
     m_uiManager = new UIManager();
     m_uiManager->init(m_diligent->pDevice, m_diligent->pImmediateContext, m_diligent->pSwapChain, kSceneDepthFormat, windowWidth, windowHeight);
 
+    Lit::Log::Phase("text ui");
+    if (!m_lighting.init(m_diligent->pDevice, m_diligent->pImmediateContext, m_diligent->pSwapChain->GetDesc().ColorBufferFormat, windowWidth, windowHeight)) Lit::Log::Error("Lighting pipeline failed to initialize");
+    Lit::Log::Phase("lighting");
+    m_custom.init(m_diligent->pDevice, m_diligent->pImmediateContext);
+    Lit::Log::Phase("custom passes");
     createPipelines();
-    m_numDrawingShaders = m_diligent->pOpaquePSOs.size();
+    Lit::Log::Phase("scene pipelines");
+    m_numDrawingShaders = m_diligent->surfaces.size();
 
     Diligent::QueryDesc queryDesc;
     queryDesc.Type = Diligent::QUERY_TYPE_TIMESTAMP;
@@ -746,8 +795,7 @@ void Renderer::init(GLFWwindow* window, const int windowWidth, const int windowH
     createScreenTargets();
     if (!pipelinesReady()) Lit::Log::Error("Renderer pipelines failed to build; nothing will be drawn until the shader errors above are fixed.");
 
-    m_maxObjects = 500000;
-    reallocateBuffers(m_maxObjects);
+    reallocateBuffers(500000);
 
     Diligent::FenceDesc FenceCI;
     FenceCI.Type = Diligent::FENCE_TYPE_CPU_WAIT_ONLY;
@@ -757,10 +805,72 @@ void Renderer::init(GLFWwindow* window, const int windowWidth, const int windowH
     }
     m_diligent->CurrentFenceValue = 0;
 
+    Lit::Log::Phase("renderer buffers");
     m_initialized = true;
 }
 
-void Renderer::reallocateBuffers(size_t numObjects) {
+size_t Renderer::objectBudget() const {
+    constexpr size_t kBytesPerObject = 300;
+    const auto localMemory = static_cast<size_t>(m_diligent->pDevice->GetAdapterInfo().Memory.LocalMemory);
+    if (localMemory == 0) return std::numeric_limits<size_t>::max();
+    return localMemory / 10 * 7 / kBytesPerObject;
+}
+
+void Renderer::releaseObjectBuffers() {
+    auto& d = *m_diligent;
+    for (auto& phase : d.visibility) {
+        phase.visibleEntries.Release();
+        phase.sortedEntries.Release();
+    }
+    for (int i = 0; i < NUM_FRAMES_IN_FLIGHT; ++i) {
+        d.pObjectBuffer[i].Release();
+        d.pWorldMatrixBuffer[i].Release();
+        d.pCullOrientationBuffer[i].Release();
+        d.pCullSphereBuffer[i].Release();
+        d.pTouchedEpochBuffer[i].Release();
+        d.pHierarchyBuffer[i].Release();
+        d.pRenderableBuffer[i].Release();
+        d.pSortedHierarchyBuffer[i].Release();
+    }
+    d.pCasterIds.Release();
+    d.pShadowRetestIds.Release();
+    d.pTransparentCandidateIds.Release();
+    d.pAlphaBuffer.Release();
+    d.pVisibilityBits.Release();
+    for (auto& phase : d.visibility) {
+        for (int i = 0; i < NUM_FRAMES_IN_FLIGHT; ++i) {
+            phase.cullSRB[i].Release();
+            phase.prefixSumSRB[i].Release();
+            phase.scatterDispatchArgsSRB[i].Release();
+            phase.scatterSRB[i].Release();
+            phase.commandGenSRB[i].Release();
+            phase.opaqueSRBs[i].clear();
+            phase.pointSRBs[i].clear();
+        }
+    }
+    for (int i = 0; i < NUM_FRAMES_IN_FLIGHT; ++i) {
+        d.pTransformSRB[i].Release();
+        d.pTransformWorkSRB[i].Release();
+        d.pApplyDirtySRB[i].Release();
+        d.pCasterDispatchArgsSRB[i].Release();
+        d.pShadowRetestDispatchArgsSRB[i].Release();
+        d.pTransparentDispatchArgsSRB[i].Release();
+        for (int c = 0; c < 4; ++c) {
+            d.shadowCullSRB[i][c].Release();
+            d.shadowLateCullSRB[i][c].Release();
+            d.shadowSRBs[i][c].clear();
+            d.shadowPointSRBs[i][c].clear();
+        }
+    }
+    m_custom.clearBindings();
+    d.pImmediateContext->Flush();
+    d.pDevice->IdleGPU();
+    d.pDevice->ReleaseStaleResources(true);
+    d.pDevice->ReleaseStaleResources(true);
+}
+
+bool Renderer::reallocateBuffers(size_t numObjects) {
+    if (m_maxObjects > 0) releaseObjectBuffers();
     m_maxObjects = numObjects;
     Lit::Log::Info("Reallocating renderer buffers for {} objects.", m_maxObjects);
 
@@ -777,7 +887,8 @@ void Renderer::reallocateBuffers(size_t numObjects) {
     const auto objectCapacity = static_cast<Diligent::Uint32>(m_maxObjects);
     const size_t commandBytes = static_cast<size_t>(MAX_MESHES) * m_numDrawingShaders * sizeof(DrawElementsIndirectCommand);
     const unsigned int zero = 0;
-    for (auto& phase : m_diligent->visibility) {
+    for (size_t phaseIndex = 0; phaseIndex < 3; ++phaseIndex) {
+        auto& phase = m_diligent->visibility[phaseIndex];
         phase.cullingUniforms = CreateUniformBuffer(m_diligent->pDevice, "Culling Uniforms", sizeof(CullingUniforms), Diligent::USAGE_DEFAULT);
         phase.visibleCounter = CreateStructuredBuffer(m_diligent->pDevice, "Visible Counter", sizeof(unsigned int), 1, (void*)&zero);
         phase.visibleEntries = CreateStructuredBuffer(m_diligent->pDevice, "Visible Entries", sizeof(unsigned int) * 2, objectCapacity);
@@ -791,9 +902,43 @@ void Renderer::reallocateBuffers(size_t numObjects) {
         phase.pointCommands = CreateIndirectBuffer(m_diligent->pDevice, "Point Commands", commandBytes);
         phase.pointCounters = CreateStructuredBuffer(m_diligent->pDevice, "Point Counters", sizeof(unsigned int), static_cast<Diligent::Uint32>(m_numDrawingShaders), m_bucketZeros.data(), Diligent::BIND_INDIRECT_DRAW_ARGS);
     }
-    m_diligent->pRetestCounter = CreateStructuredBuffer(m_diligent->pDevice, "Retest Counter", sizeof(unsigned int), 1, (void*)&zero);
-    m_diligent->pRetestIds = CreateStructuredBuffer(m_diligent->pDevice, "Retest Ids", sizeof(unsigned int), objectCapacity);
-    m_diligent->pRetestDispatchArgs = CreateDispatchArgsBuffer(m_diligent->pDevice, "Retest Dispatch Args");
+    {
+        auto& shadow = m_diligent->visibility[3];
+        const auto& shared = m_diligent->visibility[2];
+        shadow.cullingUniforms = CreateUniformBuffer(m_diligent->pDevice, "Shadow Culling Uniforms", sizeof(CullingUniforms), Diligent::USAGE_DEFAULT);
+        shadow.visibleCounter = shared.visibleCounter;
+        shadow.visibleEntries = shared.visibleEntries;
+        shadow.sortedEntries = shared.sortedEntries;
+        shadow.bucketCounts = shared.bucketCounts;
+        shadow.bucketOffsets = shared.bucketOffsets;
+        shadow.bucketWriteHeads = shared.bucketWriteHeads;
+        shadow.scatterDispatchArgs = shared.scatterDispatchArgs;
+        shadow.drawCommands = shared.drawCommands;
+        shadow.drawCounters = shared.drawCounters;
+        shadow.pointCommands = shared.pointCommands;
+        shadow.pointCounters = shared.pointCounters;
+    }
+    for (int c = 0; c < 4; ++c) {
+        m_diligent->pShadowCullUBO[c] = CreateUniformBuffer(m_diligent->pDevice, "Shadow Cull", sizeof(glm::vec4) * 7 + sizeof(glm::mat4), Diligent::USAGE_DEFAULT);
+        m_diligent->pShadowPassUBO[c] = CreateUniformBuffer(m_diligent->pDevice, "Shadow Pass", sizeof(glm::mat4) + sizeof(glm::vec4), Diligent::USAGE_DEFAULT);
+    }
+    {
+        std::vector<float> bounds(16, 0.0f);
+        for (size_t i = 0; i < m_diligent->surfaces.size() && i < bounds.size(); ++i) bounds[i] = m_diligent->surfaces[i].bounds;
+        m_diligent->pShaderBounds = CreateStructuredBuffer(m_diligent->pDevice, "Shader Bounds", sizeof(float), 16, bounds.data());
+    }
+    m_diligent->pCascadeCullUBO = CreateUniformBuffer(m_diligent->pDevice, "Cascade Cull", sizeof(glm::vec4) * 25, Diligent::USAGE_DEFAULT);
+    m_diligent->pCasterCounter = CreateStructuredBuffer(m_diligent->pDevice, "Caster Counter", sizeof(unsigned int), 1, (void*)&zero);
+    m_diligent->pCasterIds = CreateStructuredBuffer(m_diligent->pDevice, "Caster Ids", sizeof(unsigned int), objectCapacity);
+    m_diligent->pCasterDispatchArgs = CreateDispatchArgsBuffer(m_diligent->pDevice, "Caster Dispatch Args");
+    m_diligent->pShadowRetestCounter = CreateStructuredBuffer(m_diligent->pDevice, "Shadow Retest Counter", sizeof(unsigned int), 1, (void*)&zero);
+    m_diligent->pShadowRetestIds = CreateStructuredBuffer(m_diligent->pDevice, "Shadow Retest Ids", sizeof(unsigned int), objectCapacity);
+    m_diligent->pShadowRetestDispatchArgs = CreateDispatchArgsBuffer(m_diligent->pDevice, "Shadow Retest Dispatch Args");
+    m_diligent->shadowHiZSourceMap = nullptr;
+    {
+        const std::vector<uint32_t> cleared(static_cast<size_t>(objectCapacity + 255) / 256 * 8, 0u);
+        m_diligent->pVisibilityBits = CreateStructuredBuffer(m_diligent->pDevice, "Visibility Bits", sizeof(uint32_t), static_cast<Diligent::Uint32>(cleared.size()), const_cast<uint32_t*>(cleared.data()));
+    }
     m_diligent->pTransparentCandidateCounter = CreateStructuredBuffer(m_diligent->pDevice, "Transparent Candidate Counter", sizeof(unsigned int), 1, (void*)&zero);
     m_diligent->pTransparentCandidateIds = CreateStructuredBuffer(m_diligent->pDevice, "Transparent Candidate Ids", sizeof(unsigned int), objectCapacity);
     m_diligent->pTransparentDispatchArgs = CreateDispatchArgsBuffer(m_diligent->pDevice, "Transparent Dispatch Args");
@@ -829,32 +974,11 @@ void Renderer::reallocateBuffers(size_t numObjects) {
         const bool allocationsOk = m_diligent->pObjectBuffer[i] && m_diligent->pWorldMatrixBuffer[i] && m_diligent->pCullSphereBuffer[i] && m_diligent->pCullOrientationBuffer[i] &&
                                    m_diligent->pHierarchyBuffer[i] && m_diligent->pRenderableBuffer[i] && m_diligent->pSortedHierarchyBuffer[i] && m_diligent->pTouchedEpochBuffer[i] &&
                                    m_diligent->pDirtyIndexBuffer[i] && m_diligent->pDirtyPayloadBuffer[i] && m_diligent->pSceneUBO[i] && m_diligent->pTransparentCandidateIds && m_diligent->pAlphaBuffer && main.visibleEntries && main.sortedEntries && retest.visibleEntries &&
-                                   retest.sortedEntries && m_diligent->pRetestIds;
+                                   retest.sortedEntries && m_diligent->pVisibilityBits;
         if (!allocationsOk) {
-            Lit::Log::Fatal("Renderer buffer allocation failed for {} objects; rendering is disabled.", m_maxObjects);
-            m_initialized = false;
-            m_maxObjects = 0;
-            return;
+            Lit::Log::Error("Renderer buffer allocation failed for {} objects.", m_maxObjects);
+            return false;
         }
-    }
-
-    if (!m_diligent->pLightBuffer) {
-        std::vector<glm::vec4> lightData(static_cast<size_t>(kMaxGpuLights) * 4, glm::vec4(0.0f));
-        Diligent::BufferDesc LightDesc;
-        LightDesc.Name = "Light Block";
-        LightDesc.Usage = Diligent::USAGE_DEFAULT;
-        LightDesc.BindFlags = Diligent::BIND_UNIFORM_BUFFER;
-        LightDesc.Size = sizeof(glm::vec4) * kMaxGpuLights * 4;
-        Diligent::BufferData LightInit;
-        LightInit.pData = lightData.data();
-        LightInit.DataSize = LightDesc.Size;
-        m_diligent->pDevice->CreateBuffer(LightDesc, &LightInit, &m_diligent->pLightBuffer);
-        m_lightDataDirty = true;
-    }
-
-    if (!m_diligent->pMaterialBuffer) {
-        std::vector<glm::vec4> materials(kMaxMaterials, glm::vec4(0.0f));
-        m_diligent->pMaterialBuffer = CreateStructuredBuffer(m_diligent->pDevice, "Material Buffer", sizeof(glm::vec4), kMaxMaterials, materials.data());
     }
 
     if (!m_diligent->pBasePositionBuffer) {
@@ -864,33 +988,32 @@ void Renderer::reallocateBuffers(size_t numObjects) {
 
     auto& d = *m_diligent;
     for (int i = 0; i < NUM_FRAMES_IN_FLIGHT; ++i) {
-        CreateBoundSRB(d.pAnimPSO, d.pAnimSRB[i], {{"AnimConstants", d.pAnimConstants}, {"BasePositionBuffer", d.pBasePositionBuffer}, {"TransformBuffer", d.pObjectBuffer[i]}});
         CreateBoundSRB(d.pTransformPSO, d.pTransformSRB[i],
                        {{"TransformUniforms", d.pTransformUniforms}, {"TransformBuffer", d.pObjectBuffer[i]}, {"WorldMatrixBuffer", d.pWorldMatrixBuffer[i]}, {"HierarchyBuffer", d.pHierarchyBuffer[i]},
                         {"SortedHierarchyBuffer", d.pSortedHierarchyBuffer[i]}, {"TouchedEpochBuffer", d.pTouchedEpochBuffer[i]}, {"CullOrientationBuffer", d.pCullOrientationBuffer[i]},
-                        {"CullSphereBuffer", d.pCullSphereBuffer[i]}, {"RenderableBuffer", d.pRenderableBuffer[i]}, {"MeshInfoBuffer", d.pMeshInfoBuffer}, {"BasePositionBuffer", d.pBasePositionBuffer}});
+                        {"CullSphereBuffer", d.pCullSphereBuffer[i]}, {"RenderableBuffer", d.pRenderableBuffer[i]}, {"MeshInfoBuffer", d.pMeshInfoBuffer}, {"BasePositionBuffer", d.pBasePositionBuffer}, {"ShaderBoundsBuffer", d.pShaderBounds}});
         CreateBoundSRB(d.pTransformPSO, d.pTransformWorkSRB[i],
                        {{"TransformUniforms", d.pTransformUniforms}, {"TransformBuffer", d.pObjectBuffer[i]}, {"WorldMatrixBuffer", d.pWorldMatrixBuffer[i]}, {"HierarchyBuffer", d.pHierarchyBuffer[i]},
                         {"SortedHierarchyBuffer", d.pTransformWorkBuffer}, {"TouchedEpochBuffer", d.pTouchedEpochBuffer[i]}, {"CullOrientationBuffer", d.pCullOrientationBuffer[i]},
-                        {"CullSphereBuffer", d.pCullSphereBuffer[i]}, {"RenderableBuffer", d.pRenderableBuffer[i]}, {"MeshInfoBuffer", d.pMeshInfoBuffer}, {"BasePositionBuffer", d.pBasePositionBuffer}});
+                        {"CullSphereBuffer", d.pCullSphereBuffer[i]}, {"RenderableBuffer", d.pRenderableBuffer[i]}, {"MeshInfoBuffer", d.pMeshInfoBuffer}, {"BasePositionBuffer", d.pBasePositionBuffer}, {"ShaderBoundsBuffer", d.pShaderBounds}});
         CreateBoundSRB(d.pApplyDirtyPSO, d.pApplyDirtySRB[i],
                        {{"ApplyDirtyConstants", d.pApplyDirtyConstants}, {"DirtyIndexBuffer", d.pDirtyIndexBuffer[i]}, {"DirtyPayloadBuffer", d.pDirtyPayloadBuffer[i]}, {"TransformBuffer", d.pObjectBuffer[i]},
                         {"TouchedEpochBuffer", d.pTouchedEpochBuffer[i]}});
-        CreateBoundSRB(d.pMarkTouchedPSO, d.pMarkTouchedSRB[i], {{"MarkTouchedConstants", d.pMarkTouchedConstants}, {"DirtyIndexBuffer", d.pDirtyIndexBuffer[i]}, {"TouchedEpochBuffer", d.pTouchedEpochBuffer[i]}});
         CreateBoundSRB(d.pDispatchArgsPSO, d.pTransparentDispatchArgsSRB[i],
                        {{"DispatchArgsConstants", d.pObjectDispatchArgsConstants}, {"SourceCounterBuffer", d.pTransparentCandidateCounter}, {"DispatchArgsBuffer", d.pTransparentDispatchArgs}});
-        CreateBoundSRB(d.pDispatchArgsPSO, d.pRetestDispatchArgsSRB[i],
-                       {{"DispatchArgsConstants", d.pObjectDispatchArgsConstants}, {"SourceCounterBuffer", d.pRetestCounter}, {"DispatchArgsBuffer", d.pRetestDispatchArgs}});
+        CreateBoundSRB(d.pDispatchArgsPSO, d.pCasterDispatchArgsSRB[i],
+                       {{"DispatchArgsConstants", d.pObjectDispatchArgsConstants}, {"SourceCounterBuffer", d.pCasterCounter}, {"DispatchArgsBuffer", d.pCasterDispatchArgs}});
+        CreateBoundSRB(d.pDispatchArgsPSO, d.pShadowRetestDispatchArgsSRB[i],
+                       {{"DispatchArgsConstants", d.pObjectDispatchArgsConstants}, {"SourceCounterBuffer", d.pShadowRetestCounter}, {"DispatchArgsBuffer", d.pShadowRetestDispatchArgs}});
 
         for (size_t phaseIndex = 0; phaseIndex < std::size(d.visibility); ++phaseIndex) {
             auto& phase = d.visibility[phaseIndex];
-            Diligent::IBuffer* pCandidateCounter = phaseIndex == 2 ? d.pTransparentCandidateCounter : d.pRetestCounter;
-            Diligent::IBuffer* pCandidateIds = phaseIndex == 2 ? d.pTransparentCandidateIds : d.pRetestIds;
-            CreateBoundSRB(phaseIndex == 0 ? d.pCullingPSO : phaseIndex == 1 ? d.pRetestCullingPSO : d.pTransparentCullPSO, phase.cullSRB[i],
+            if (phaseIndex < 3) CreateBoundSRB(phaseIndex == 0 ? d.pCullingPSO : phaseIndex == 1 ? d.pRetestCullingPSO : d.pTransparentCullPSO, phase.cullSRB[i],
                            {{"SceneData", d.pSceneUBO[i]}, {"CullingUniforms", phase.cullingUniforms}, {"AtomicCounterBuffer", phase.visibleCounter}, {"VisibleObjectBuffer", phase.visibleEntries},
                             {"CullSphereBuffer", d.pCullSphereBuffer[i]}, {"RenderableBuffer", d.pRenderableBuffer[i]}, {"BucketCountBuffer", phase.bucketCounts},
-                            {"RetestCounterBuffer", d.pRetestCounter}, {"RetestBuffer", d.pRetestIds}, {"TransparentCounterBuffer", d.pTransparentCandidateCounter},
-                            {"TransparentBuffer", d.pTransparentCandidateIds}, {"CandidateCounterBuffer", pCandidateCounter}, {"CandidateBuffer", pCandidateIds}});
+                            {"VisibilityBuffer", d.pVisibilityBits}, {"TransparentCounterBuffer", d.pTransparentCandidateCounter},
+                            {"TransparentBuffer", d.pTransparentCandidateIds}, {"CandidateCounterBuffer", d.pTransparentCandidateCounter}, {"CandidateBuffer", d.pTransparentCandidateIds}, {"MaterialBuffer", m_lighting.materialBuffer()},
+                            {"CascadeCull", d.pCascadeCullUBO}, {"CasterCounterBuffer", d.pCasterCounter}, {"CasterBuffer", d.pCasterIds}});
             CreateBoundSRB(d.pPrefixSumPSO, phase.prefixSumSRB[i],
                            {{"PrefixSumConstants", d.pPrefixSumConstants}, {"BucketCountBuffer", phase.bucketCounts}, {"BucketOffsetBuffer", phase.bucketOffsets}, {"BucketWriteHeadBuffer", phase.bucketWriteHeads}});
             CreateBoundSRB(d.pDispatchArgsPSO, phase.scatterDispatchArgsSRB[i],
@@ -903,19 +1026,20 @@ void Renderer::reallocateBuffers(size_t numObjects) {
                             {"DrawAtomicCounterBuffer", phase.drawCounters}, {"DrawCommandBuffer", phase.drawCommands}, {"MeshInfoBuffer", d.pMeshInfoBuffer},
                             {"BucketCountBuffer", phase.bucketCounts}, {"BucketOffsetBuffer", phase.bucketOffsets}});
 
-            const std::initializer_list<NamedBuffer> surfaceResources = {
-                {"SceneData", d.pSceneUBO[i]}, {"LightBlock", d.pLightBuffer}, {"MaterialBuffer", d.pMaterialBuffer}, {"WorldMatrixBuffer", d.pWorldMatrixBuffer[i]},
-                {"CullSphereBuffer", d.pCullSphereBuffer[i]}, {"CullOrientationBuffer", d.pCullOrientationBuffer[i]}, {"NormalSampleBuffer", d.pNormalSampleBuffer},
-                {"VisibleObjectBuffer", phase.sortedEntries}, {"AlphaBuffer", d.pAlphaBuffer}};
-            const auto meshPipelines = SurfacePipelines(d, phaseIndex, false);
-            const auto pointPipelines = SurfacePipelines(d, phaseIndex, true);
-            phase.opaqueSRBs[i].resize(meshPipelines.size());
-            phase.pointSRBs[i].resize(pointPipelines.size());
-            for (size_t s = 0; s < meshPipelines.size(); ++s) CreateBoundSRB(meshPipelines[s], phase.opaqueSRBs[i][s], surfaceResources);
-            for (size_t s = 0; s < pointPipelines.size(); ++s) CreateBoundSRB(pointPipelines[s], phase.pointSRBs[i][s], surfaceResources);
         }
-
+        for (int c = 0; c < 4; ++c) {
+            auto& phase = d.visibility[3];
+            CreateBoundSRB(d.pShadowCullPSO, d.shadowCullSRB[i][c],
+                           {{"SceneData", d.pSceneUBO[i]}, {"CullingUniforms", phase.cullingUniforms}, {"AtomicCounterBuffer", phase.visibleCounter}, {"VisibleObjectBuffer", phase.visibleEntries}, {"CullSphereBuffer", d.pCullSphereBuffer[i]},
+                            {"RenderableBuffer", d.pRenderableBuffer[i]}, {"BucketCountBuffer", phase.bucketCounts}, {"MaterialBuffer", m_lighting.materialBuffer()}, {"ShadowCull", d.pShadowCullUBO[c]},
+                            {"CandidateCounterBuffer", d.pCasterCounter}, {"CandidateBuffer", d.pCasterIds}, {"ShadowRetestCounterBuffer", d.pShadowRetestCounter}, {"ShadowRetestBuffer", d.pShadowRetestIds}});
+            CreateBoundSRB(d.pShadowLateCullPSO, d.shadowLateCullSRB[i][c],
+                           {{"SceneData", d.pSceneUBO[i]}, {"CullingUniforms", phase.cullingUniforms}, {"AtomicCounterBuffer", phase.visibleCounter}, {"VisibleObjectBuffer", phase.visibleEntries}, {"CullSphereBuffer", d.pCullSphereBuffer[i]},
+                            {"RenderableBuffer", d.pRenderableBuffer[i]}, {"BucketCountBuffer", phase.bucketCounts}, {"MaterialBuffer", m_lighting.materialBuffer()}, {"ShadowCull", d.pShadowCullUBO[c]},
+                            {"CandidateCounterBuffer", d.pShadowRetestCounter}, {"CandidateBuffer", d.pShadowRetestIds}});
+        }
     }
+    rebindSurfaceResources();
 
     if (m_diligent->pObjectDispatchArgsConstants) {
         DispatchArgsConstants dispatchArgsConstants{};
@@ -928,6 +1052,62 @@ void Renderer::reallocateBuffers(size_t numObjects) {
     m_transformUpdateCounter = 0;
     m_renderableUpdateCounter = 1;
     m_hierarchyUpdateCounter = 1;
+    return true;
+}
+
+void Renderer::rebindSurfaceResources() {
+    auto& d = *m_diligent;
+    d.surfaceBindingVersion = m_lighting.bindingVersion();
+    for (int i = 0; i < NUM_FRAMES_IN_FLIGHT; ++i) {
+        for (size_t phaseIndex = 0; phaseIndex < 3; ++phaseIndex) {
+            auto& phase = d.visibility[phaseIndex];
+            const auto meshPipelines = SurfacePipelines(d, phaseIndex, false);
+            const auto pointPipelines = SurfacePipelines(d, phaseIndex, true);
+            phase.opaqueSRBs[i].assign(meshPipelines.size(), {});
+            phase.pointSRBs[i].assign(pointPipelines.size(), {});
+            auto bindSurface = [&](Diligent::IPipelineState* pso) {
+                return litgpu::makeBinding(pso,
+                                           {{"SceneData", d.pSceneUBO[i]},
+                                            {"MaterialBuffer", m_lighting.materialBuffer()},
+                                            {"WorldMatrixBuffer", d.pWorldMatrixBuffer[i]},
+                                            {"CullSphereBuffer", d.pCullSphereBuffer[i]},
+                                            {"CullOrientationBuffer", d.pCullOrientationBuffer[i]},
+                                            {"NormalSampleBuffer", d.pNormalSampleBuffer},
+                                            {"VisibleObjectBuffer", phase.sortedEntries},
+                                            {"AlphaBuffer", d.pAlphaBuffer},
+                                            {"ExposureBuffer", m_lighting.exposureBuffer()},
+                                            {"LightBuffer", m_lighting.lightBuffer()},
+                                            {"ClusterBuffer", m_lighting.clusterBuffer()},
+                                            {"IrradianceBuffer", m_lighting.irradianceBuffer()},
+                                            {"u_colorTextures", m_lighting.colorTextures()},
+                                            {"u_dataTextures", m_lighting.dataTextures()},
+                                            {"u_prefilteredEnv", m_lighting.prefilteredEnvironment()},
+                                            {"u_dfgLut", m_lighting.dfgLut()},
+                                            {"u_shadowMap", litgpu::srv(m_lighting.shadowMap())},
+                                            {"u_shadowDepth", litgpu::srv(m_lighting.shadowMap())}});
+            };
+            for (size_t s = 0; s < meshPipelines.size(); ++s) phase.opaqueSRBs[i][s] = bindSurface(meshPipelines[s]);
+            for (size_t s = 0; s < pointPipelines.size(); ++s) phase.pointSRBs[i][s] = bindSurface(pointPipelines[s]);
+        }
+        const auto shadowMeshes = SurfacePipelines(d, 3, false);
+        const auto shadowPoints = SurfacePipelines(d, 3, true);
+        for (int c = 0; c < 4; ++c) {
+            d.shadowSRBs[i][c].assign(shadowMeshes.size(), {});
+            d.shadowPointSRBs[i][c].assign(shadowPoints.size(), {});
+            auto bindShadow = [&](Diligent::IPipelineState* pso) {
+                return litgpu::makeBinding(pso, {{"SceneData", d.pSceneUBO[i]},
+                                                 {"MaterialBuffer", m_lighting.materialBuffer()},
+                                                 {"WorldMatrixBuffer", d.pWorldMatrixBuffer[i]},
+                                                 {"CullSphereBuffer", d.pCullSphereBuffer[i]},
+                                                 {"CullOrientationBuffer", d.pCullOrientationBuffer[i]},
+                                                 {"NormalSampleBuffer", d.pNormalSampleBuffer},
+                                                 {"VisibleObjectBuffer", d.visibility[3].sortedEntries},
+                                                 {"ShadowPass", d.pShadowPassUBO[c]}});
+            };
+            for (size_t s = 0; s < shadowMeshes.size(); ++s) d.shadowSRBs[i][c][s] = bindShadow(shadowMeshes[s]);
+            for (size_t s = 0; s < shadowPoints.size(); ++s) d.shadowPointSRBs[i][c][s] = bindShadow(shadowPoints[s]);
+        }
+    }
 }
 
 void Renderer::createScreenTargets() {
@@ -1009,6 +1189,7 @@ bool Renderer::resizeToWindow() {
     m_windowWidth = static_cast<int>(swapChainDesc.Width);
     m_windowHeight = static_cast<int>(swapChainDesc.Height);
     createScreenTargets();
+    m_lighting.resize(m_windowWidth, m_windowHeight);
     m_uiManager->resize(m_windowWidth, m_windowHeight);
     return true;
 }
@@ -1129,6 +1310,10 @@ void Renderer::cleanup() {
     m_diligent->pImmediateContext->WaitForIdle();
     for (int i = 0; i < NUM_FRAMES_IN_FLIGHT; ++i) { m_diligent->pFences[i].Release(); }
 
+    delete m_imgui;
+    m_imgui = nullptr;
+    m_custom.shutdown();
+    m_lighting.shutdown();
     delete m_uiManager;
     m_uiManager = nullptr;
 
@@ -1151,7 +1336,7 @@ uint32_t Renderer::uploadMeshSlot(const Mesh& mesh) {
     const size_t vertexDataSize = mesh.vertices.size() * sizeof(float);
     const size_t indexDataSize = mesh.indices.size() * sizeof(unsigned int);
 
-    Lit::Log::Info("Uploading mesh: {} vertices ({} bytes), {} indices ({} bytes)", mesh.vertices.size() / 6, vertexDataSize, mesh.indices.size(), indexDataSize);
+    Lit::Log::Info("Uploading mesh: {} vertices ({} bytes), {} indices ({} bytes)", mesh.vertices.size() / kVertexFloats, vertexDataSize, mesh.indices.size(), indexDataSize);
 
     auto resizeBuffer = [&](Diligent::RefCntAutoPtr<Diligent::IBuffer>& pBuffer, size_t currentSize, size_t newSize, bool isIndexBuffer) {
         Diligent::RefCntAutoPtr<Diligent::IBuffer> pNewBuffer;
@@ -1178,9 +1363,9 @@ uint32_t Renderer::uploadMeshSlot(const Mesh& mesh) {
     if (indexDataSize > 0) { m_diligent->pImmediateContext->UpdateBuffer(m_diligent->pEBO, s_totalIndexSize, indexDataSize, mesh.indices.data(), Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION); }
 
     glm::vec3 center(0.0f);
-    const size_t numVertices = mesh.vertices.size() / 6;
+    const size_t numVertices = mesh.vertices.size() / kVertexFloats;
     if (numVertices > 0) {
-        for (size_t i = 0; i < mesh.vertices.size(); i += 6) {
+        for (size_t i = 0; i < mesh.vertices.size(); i += kVertexFloats) {
             center.x += mesh.vertices[i];
             center.y += mesh.vertices[i + 1];
             center.z += mesh.vertices[i + 2];
@@ -1190,7 +1375,7 @@ uint32_t Renderer::uploadMeshSlot(const Mesh& mesh) {
     }
 
     float maxRadiusSq = 0.0f;
-    for (size_t i = 0; i < mesh.vertices.size(); i += 6) {
+    for (size_t i = 0; i < mesh.vertices.size(); i += kVertexFloats) {
         const glm::vec3 vertex(mesh.vertices[i], mesh.vertices[i + 1], mesh.vertices[i + 2]);
         const float distSq = glm::distance2(center, vertex);
         if (distSq > maxRadiusSq) { maxRadiusSq = distSq; }
@@ -1198,7 +1383,7 @@ uint32_t Renderer::uploadMeshSlot(const Mesh& mesh) {
     const float radius = glm::sqrt(maxRadiusSq);
 
     const uint32_t meshUuid = static_cast<uint32_t>(s_meshInfos.size());
-    s_meshInfos.push_back({.indexCount = static_cast<unsigned int>(mesh.indices.size()), .firstIndex = static_cast<unsigned int>(s_totalIndexSize / sizeof(unsigned int)), .baseVertex = static_cast<unsigned int>(s_totalVertexSize / (6 * sizeof(float))), .boundingRadius = radius, .boundingCenter = glm::vec4(center, 1.0f)});
+    s_meshInfos.push_back({.indexCount = static_cast<unsigned int>(mesh.indices.size()), .firstIndex = static_cast<unsigned int>(s_totalIndexSize / sizeof(unsigned int)), .baseVertex = static_cast<unsigned int>(s_totalVertexSize / (kVertexFloats * sizeof(float))), .boundingRadius = radius, .boundingCenter = glm::vec4(center, 1.0f)});
 
     s_totalVertexSize += vertexDataSize;
     s_totalIndexSize += indexDataSize;
@@ -1268,12 +1453,26 @@ void Renderer::drawScene(SceneDatabase& sceneDatabase, const Camera& camera) {
     const float currentFrameTime = static_cast<float>(glfwGetTime());
     const float deltaTime = currentFrameTime - m_lastFrameTime;
     m_lastFrameTime = currentFrameTime;
+    m_lastDeltaTime = deltaTime;
 
     const unsigned int numObjects = sceneDatabase.renderables.size();
-    if (numObjects > m_maxObjects) {
+    if (numObjects <= m_maxObjects) m_failedCapacity = 0;
+    if (numObjects > m_maxObjects && numObjects != m_failedCapacity && m_initialized) {
         m_diligent->pImmediateContext->WaitForIdle();
-        reallocateBuffers(static_cast<size_t>(numObjects) + numObjects / 100 + 1024);
+        const size_t previous = m_maxObjects;
+        const size_t budget = objectBudget();
+        const size_t wanted = std::min(std::max<size_t>(static_cast<size_t>(numObjects) + numObjects / 4, static_cast<size_t>(numObjects) + 1024), budget);
+        const size_t exact = static_cast<size_t>(numObjects) + 1024;
+        if (numObjects > budget || (!reallocateBuffers(wanted) && !reallocateBuffers(exact))) {
+            m_failedCapacity = numObjects;
+            Lit::Log::Error("The scene has {} renderable slots but this GPU fits about {}; the viewport is paused until entities are removed.", numObjects, budget);
+            if (m_maxObjects != previous || !m_diligent->visibility[0].visibleEntries) {
+                size_t fallback = previous;
+                while (fallback > 1024 && !reallocateBuffers(fallback)) fallback = fallback / 10 * 9;
+            }
+        }
     }
+    const bool overCapacity = numObjects > m_maxObjects;
 
     m_currentFrame = (m_currentFrame + 1) % NUM_FRAMES_IN_FLIGHT;
 
@@ -1312,9 +1511,16 @@ void Renderer::drawScene(SceneDatabase& sceneDatabase, const Camera& camera) {
         return;
     }
 
-    if (numObjects == 0) {
+    if (numObjects == 0 || overCapacity) {
         m_diligent->QueryReady[m_currentFrame] = false;
-        m_diligent->pImmediateContext->ClearRenderTarget(m_diligent->pSwapChain->GetCurrentBackBufferRTV(), glm::value_ptr(glm::vec4(0.3f, 0.3f, 0.3f, 1.0f)), Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
+        bindBackBuffer();
+        const float clearColor[4] = {0.05f, 0.06f, 0.08f, 1.0f};
+        m_diligent->pImmediateContext->ClearRenderTarget(m_diligent->pSwapChain->GetCurrentBackBufferRTV(), clearColor, Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
+        m_diligent->pImmediateContext->ClearDepthStencil(m_diligent->pSceneDepth->GetDefaultView(Diligent::TEXTURE_VIEW_DEPTH_STENCIL), Diligent::CLEAR_DEPTH_FLAG, 1.0f, 0, Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
+        drawOverlays(camera);
+        m_diligent->CurrentFenceValue++;
+        m_diligent->pImmediateContext->EnqueueSignal(m_diligent->pFences[m_currentFrame], m_diligent->CurrentFenceValue);
+        m_diligent->FenceValues[m_currentFrame] = m_diligent->CurrentFenceValue;
         return;
     }
 
@@ -1526,46 +1732,35 @@ void Renderer::drawScene(SceneDatabase& sceneDatabase, const Camera& camera) {
 
     endPass(GpuPass::Transform);
 
-    SceneUniforms sceneUniforms;
-    sceneUniforms.projection = camera.getProjectionMatrix();
-    sceneUniforms.view = camera.getViewMatrix();
-    sceneUniforms.lightPos = glm::vec3(0.0f, 10.0f, 0.0f);
-    sceneUniforms.viewPos = camera.getPosition();
-    sceneUniforms.lightColor = glm::vec3(1.0f, 1.0f, 1.0f);
-    extractFrustumPlanes(sceneUniforms.projection * sceneUniforms.view, sceneUniforms.frustumPlanes);
-
-    sceneUniforms.dirLightDir = glm::vec4(glm::normalize(glm::vec3(0.5f, 0.8f, 0.3f)), 1.0f);
-    sceneUniforms.dirLightColor = glm::vec4(1.0f, 0.95f, 0.88f, 1.0f);
-
-    sceneUniforms.pointLight0Pos = glm::vec4(-80.0f, 50.0f, -50.0f, 250.0f);
-    sceneUniforms.pointLight0Color = glm::vec4(0.1f, 0.75f, 1.0f, 2.5f);
-
-    sceneUniforms.pointLight1Pos = glm::vec4(80.0f, -30.0f, 50.0f, 250.0f);
-    sceneUniforms.pointLight1Color = glm::vec4(1.0f, 0.45f, 0.15f, 2.5f);
-    if (m_lightOverride) {
-        sceneUniforms.dirLightDir = m_directional[0];
-        sceneUniforms.dirLightColor = m_directional[1];
-    }
-    const std::vector<glm::vec4>& activeLights = m_lightOverride ? m_lightData : m_defaultLightData;
-    const uint32_t activeLightCount = std::min<uint32_t>(static_cast<uint32_t>(activeLights.size() / 4), kMaxGpuLights);
-    sceneUniforms.lightInfo = glm::vec4(static_cast<float>(activeLightCount), 0.0f, 0.0f, 0.0f);
-    for (uint32_t k = 0; k < 8; ++k) sceneUniforms.lightHead[k] = k < activeLightCount * 4 && k < 8 ? activeLights[k] : glm::vec4(0.0f);
-    if (m_lightDataDirty || m_uploadedLightSource != m_lightOverride) {
-        std::vector<glm::vec4> padded(static_cast<size_t>(kMaxGpuLights) * 4, glm::vec4(0.0f));
-        std::copy_n(activeLights.begin(), static_cast<size_t>(activeLightCount) * 4, padded.begin());
-        m_diligent->pImmediateContext->UpdateBuffer(m_diligent->pLightBuffer, 0, padded.size() * sizeof(glm::vec4), padded.data(), Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
-        m_lightDataDirty = false;
-        m_uploadedLightSource = m_lightOverride;
-    }
     const auto& swapChainDesc = m_diligent->pSwapChain->GetDesc();
-    sceneUniforms.screenParams = glm::vec4(static_cast<float>(swapChainDesc.Width), static_cast<float>(swapChainDesc.Height), 0.0f, 0.0f);
-
+    FrameInput frameInput;
+    frameInput.view = camera.getViewMatrix();
+    frameInput.projection = camera.getProjectionMatrix();
+    frameInput.cameraPosition = camera.getPosition();
+    frameInput.nearPlane = camera.getNearPlane();
+    frameInput.farPlane = camera.getFarPlane();
+    frameInput.fovY = camera.getFov();
+    frameInput.aspect = static_cast<float>(swapChainDesc.Width) / static_cast<float>(std::max<Diligent::Uint32>(swapChainDesc.Height, 1));
+    frameInput.time = currentFrameTime;
+    frameInput.deltaTime = std::clamp(deltaTime, 0.0f, 0.25f);
+    frameInput.frame = ++m_frameCounter;
+    frameInput.width = static_cast<int>(swapChainDesc.Width);
+    frameInput.height = static_cast<int>(swapChainDesc.Height);
+    SceneUniforms sceneUniforms{};
+    m_lighting.beginFrame(frameInput, sceneUniforms);
     m_diligent->pImmediateContext->UpdateBuffer(m_diligent->pSceneUBO[m_currentFrame], 0, sizeof(SceneUniforms), &sceneUniforms, Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
+    if (m_diligent->surfaceBindingVersion != m_lighting.bindingVersion()) rebindSurfaceResources();
 
-    const unsigned int workgroupSize = 256;
-    const size_t subPassMaxObjects = std::max<size_t>(m_maxObjects / 4, 1024);
+    const CustomFrame custom = customFrame();
+    m_custom.runCompute(ComputeStage::BeforeScene, custom);
+
+    beginPass(GpuPass::Sky);
+    m_lighting.prepare(m_diligent->pSceneUBO[m_currentFrame]);
+    endPass(GpuPass::Sky);
+
     const int previousFrame = static_cast<int>((m_currentFrame + NUM_FRAMES_IN_FLIGHT - 1) % NUM_FRAMES_IN_FLIGHT);
 
+    uploadCascadeCull();
     beginPass(GpuPass::Cull);
     cullVisibilityPhase(0, numObjects, previousFrame);
     endPass(GpuPass::Cull);
@@ -1595,6 +1790,10 @@ void Renderer::drawScene(SceneDatabase& sceneDatabase, const Camera& camera) {
     drawVisibilityPhase(1);
     endPass(GpuPass::RetestDraw);
 
+    beginPass(GpuPass::Shadows);
+    drawShadows(numObjects);
+    endPass(GpuPass::Shadows);
+
     beginPass(GpuPass::TransparentCull);
     cullVisibilityPhase(2, numObjects, static_cast<int>(m_currentFrame));
     endPass(GpuPass::TransparentCull);
@@ -1602,12 +1801,109 @@ void Renderer::drawScene(SceneDatabase& sceneDatabase, const Camera& camera) {
     buildVisibilityDraws(2);
     endPass(GpuPass::TransparentCommandGen);
 
+    m_diligent->pImmediateContext->SetRenderTargets(0, nullptr, nullptr, Diligent::RESOURCE_STATE_TRANSITION_MODE_NONE);
+    beginPass(GpuPass::AmbientOcclusion);
+    m_lighting.shade(m_diligent->pSceneDepth, m_diligent->pSceneUBO[m_currentFrame], 0);
+    endPass(GpuPass::AmbientOcclusion);
+    beginPass(GpuPass::Reflections);
+    m_lighting.shade(m_diligent->pSceneDepth, m_diligent->pSceneUBO[m_currentFrame], 1);
+    endPass(GpuPass::Reflections);
+    beginPass(GpuPass::Lighting);
+    m_lighting.shade(m_diligent->pSceneDepth, m_diligent->pSceneUBO[m_currentFrame], 2);
+    endPass(GpuPass::Lighting);
+
+    {
+        CustomFrame lit = customFrame();
+        m_custom.runCompute(ComputeStage::AfterLighting, lit);
+        lit.resources.erase(std::remove_if(lit.resources.begin(), lit.resources.end(), [](const NamedResource& r) { return r.name == "u_depth" || r.name == "u_hdr"; }), lit.resources.end());
+        m_custom.runDraws(lit, litgpu::rtv(m_lighting.hdr()), m_diligent->pSceneDepth->GetDefaultView(Diligent::TEXTURE_VIEW_DEPTH_STENCIL));
+    }
+
     beginPass(GpuPass::TransparentDraw);
     drawTransparency();
     endPass(GpuPass::TransparentDraw);
+    {
+        const CustomFrame post = customFrame();
+        m_custom.runCompute(ComputeStage::BeforePost, post);
+        if (m_custom.hasEffects()) {
+            CustomFrame effects = post;
+            effects.resources.erase(std::remove_if(effects.resources.begin(), effects.resources.end(), [](const NamedResource& r) { return r.name == "u_hdr"; }), effects.resources.end());
+            Diligent::ITexture* targets[2] = {m_lighting.hdrTarget(m_lighting.hdrIndex()), m_lighting.hdrTarget(1 - m_lighting.hdrIndex())};
+            const int result = m_custom.runEffects(effects, targets, 0);
+            if (result == 1) m_lighting.setHdrIndex(1 - m_lighting.hdrIndex());
+        }
+    }
+
+    beginPass(GpuPass::Post);
+    m_lighting.finish(m_diligent->pSceneUBO[m_currentFrame], m_diligent->pSwapChain->GetCurrentBackBufferRTV(), frameInput.deltaTime);
+    endPass(GpuPass::Post);
+    bindBackBuffer();
 
     beginPass(GpuPass::Ui);
+    drawOverlays(camera);
+    endPass(GpuPass::Ui);
+    m_diligent->QueryReady[m_currentFrame] = profileThisFrame;
 
+    m_diligent->CurrentFenceValue++;
+    m_diligent->pImmediateContext->EnqueueSignal(m_diligent->pFences[m_currentFrame], m_diligent->CurrentFenceValue);
+    m_diligent->FenceValues[m_currentFrame] = m_diligent->CurrentFenceValue;
+}
+
+void Renderer::captureBackBuffer() {
+    if (m_screenshotPath.empty()) return;
+    const std::string path = std::move(m_screenshotPath);
+    m_screenshotPath.clear();
+    auto* pContext = m_diligent->pImmediateContext.RawPtr();
+    Diligent::ITexture* pBackBuffer = m_diligent->pSwapChain->GetCurrentBackBufferRTV()->GetTexture();
+    const auto& desc = pBackBuffer->GetDesc();
+    Diligent::TextureDesc stagingDesc;
+    stagingDesc.Name = "Screenshot Staging";
+    stagingDesc.Type = Diligent::RESOURCE_DIM_TEX_2D;
+    stagingDesc.Width = desc.Width;
+    stagingDesc.Height = desc.Height;
+    stagingDesc.Format = desc.Format;
+    stagingDesc.Usage = Diligent::USAGE_STAGING;
+    stagingDesc.CPUAccessFlags = Diligent::CPU_ACCESS_READ;
+    Diligent::RefCntAutoPtr<Diligent::ITexture> pStaging;
+    m_diligent->pDevice->CreateTexture(stagingDesc, nullptr, &pStaging);
+    if (!pStaging) {
+        Lit::Log::Error("Screenshot staging texture could not be created");
+        return;
+    }
+    Diligent::CopyTextureAttribs copy;
+    copy.pSrcTexture = pBackBuffer;
+    copy.SrcTextureTransitionMode = Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION;
+    copy.pDstTexture = pStaging;
+    copy.DstTextureTransitionMode = Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION;
+    pContext->CopyTexture(copy);
+    pContext->WaitForIdle();
+    Diligent::MappedTextureSubresource mapped;
+    pContext->MapTextureSubresource(pStaging, 0, 0, Diligent::MAP_READ, Diligent::MAP_FLAG_DO_NOT_WAIT, nullptr, mapped);
+    if (!mapped.pData) {
+        Lit::Log::Error("Screenshot mapping failed");
+        return;
+    }
+    std::vector<unsigned char> pixels(static_cast<size_t>(desc.Width) * desc.Height * 4);
+    const bool bgra = desc.Format == Diligent::TEX_FORMAT_BGRA8_UNORM || desc.Format == Diligent::TEX_FORMAT_BGRA8_UNORM_SRGB;
+    for (Diligent::Uint32 y = 0; y < desc.Height; ++y) {
+        const auto* row = static_cast<const unsigned char*>(mapped.pData) + mapped.Stride * y;
+        unsigned char* out = pixels.data() + static_cast<size_t>(y) * desc.Width * 4;
+        for (Diligent::Uint32 x = 0; x < desc.Width; ++x) {
+            out[x * 4 + 0] = row[x * 4 + (bgra ? 2 : 0)];
+            out[x * 4 + 1] = row[x * 4 + 1];
+            out[x * 4 + 2] = row[x * 4 + (bgra ? 0 : 2)];
+            out[x * 4 + 3] = 255;
+        }
+    }
+    pContext->UnmapTextureSubresource(pStaging, 0, 0);
+    if (stbi_write_png(path.c_str(), static_cast<int>(desc.Width), static_cast<int>(desc.Height), 4, pixels.data(), static_cast<int>(desc.Width) * 4)) {
+        Lit::Log::Info("Screenshot saved to {}", path);
+    } else {
+        Lit::Log::Error("Could not write screenshot {}", path);
+    }
+}
+
+void Renderer::drawOverlays(const Camera& camera) {
     if (m_debugDepthMode && m_diligent->pDebugDepthPSO && m_diligent->pDebugDepthSRB) {
         struct DebugDepthUniforms {
             float nearPlane;
@@ -1677,48 +1973,38 @@ void Renderer::drawScene(SceneDatabase& sceneDatabase, const Camera& camera) {
     m_debugLines.clear();
     m_debugOverlayLines.clear();
 
-    if (fullProfiling) drawProfilingHud();
+    if (fullProfiling && m_profilingHud) drawProfilingHud();
 
     m_uiManager->render();
-
-    endPass(GpuPass::Ui);
-    m_diligent->QueryReady[m_currentFrame] = profileThisFrame;
-
-    m_diligent->CurrentFenceValue++;
-    m_diligent->pImmediateContext->EnqueueSignal(m_diligent->pFences[m_currentFrame], m_diligent->CurrentFenceValue);
-    m_diligent->FenceValues[m_currentFrame] = m_diligent->CurrentFenceValue;
+    if (m_imgui) m_imgui->render();
+    captureBackBuffer();
 }
 
 bool Renderer::pipelinesReady() const {
     const auto& d = *m_diligent;
-    const bool computeReady = d.pTransformPSO && d.pCullingPSO && d.pRetestCullingPSO && d.pPrefixSumPSO && d.pScatterPSO && d.pCommandGenPSO && d.pDispatchArgsPSO &&
-                              d.pHiZMipmapPSO && d.pHiZFromDepthPSO && d.pApplyDirtyPSO && d.pMarkTouchedPSO && d.pTransparentCullPSO;
-    const bool graphicsReady = d.pTransparentPSO && d.pTransparentPointPSO && d.pCompositePSO && !d.pOpaquePSOs.empty() && std::ranges::all_of(d.pOpaquePSOs, [](const auto& pso) { return pso != nullptr; }) &&
-                               std::ranges::all_of(d.pPointPSOs, [](const auto& pso) { return pso != nullptr; });
-    return computeReady && graphicsReady && d.pSceneDepth && d.pAccumulation && d.pRevealage;
+    const bool computeReady = d.pTransformPSO && d.pCullingPSO && d.pRetestCullingPSO && d.pPrefixSumPSO && d.pScatterPSO && d.pCommandGenPSO && d.pDispatchArgsPSO && d.pHiZMipmapPSO && d.pHiZFromDepthPSO && d.pApplyDirtyPSO && d.pTransparentCullPSO;
+    const bool surfacesReady = !d.surfaces.empty() && d.surfaces.front().valid;
+    return computeReady && surfacesReady && d.pCompositePSO && d.pSceneDepth && d.pAccumulation && d.pRevealage;
 }
 
 void Renderer::cullVisibilityPhase(int phaseIndex, uint32_t objectCount, int hizFrame) {
     auto& d = *m_diligent;
     auto& phase = d.visibility[phaseIndex];
     auto* pContext = d.pImmediateContext.RawPtr();
-    const bool candidateInput = phaseIndex != 0;
+    const bool candidateInput = phaseIndex == 2;
     const unsigned int zero = 0;
 
     pContext->UpdateBuffer(phase.visibleCounter, 0, sizeof(zero), &zero, Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
     pContext->UpdateBuffer(phase.bucketCounts, 0, sizeof(unsigned int) * m_bucketZeros.size(), m_bucketZeros.data(), Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
-    if (!candidateInput) {
-        pContext->UpdateBuffer(d.pRetestCounter, 0, sizeof(zero), &zero, Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
-        pContext->UpdateBuffer(d.pTransparentCandidateCounter, 0, sizeof(zero), &zero, Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
-    }
+    if (phaseIndex == 0) pContext->UpdateBuffer(d.pCasterCounter, 0, sizeof(zero), &zero, Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
+    if (phaseIndex == 1) pContext->UpdateBuffer(d.pTransparentCandidateCounter, 0, sizeof(zero), &zero, Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
 
     const CullingUniforms uniforms{objectCount, static_cast<uint32_t>(m_maxObjects), m_smallObjectThreshold, m_lodBias, m_forcedLod, static_cast<uint32_t>(m_numDrawingShaders)};
     pContext->UpdateBuffer(phase.cullingUniforms, 0, sizeof(uniforms), &uniforms, Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
 
-    Diligent::IBuffer* pCandidateDispatchArgs = phaseIndex == 2 ? d.pTransparentDispatchArgs : d.pRetestDispatchArgs;
     if (candidateInput) {
         pContext->SetPipelineState(d.pDispatchArgsPSO);
-        pContext->CommitShaderResources(phaseIndex == 2 ? d.pTransparentDispatchArgsSRB[m_currentFrame] : d.pRetestDispatchArgsSRB[m_currentFrame], Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
+        pContext->CommitShaderResources(d.pTransparentDispatchArgsSRB[m_currentFrame], Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
         pContext->DispatchCompute(Diligent::DispatchComputeAttribs(1, 1, 1));
     }
 
@@ -1727,7 +2013,7 @@ void Renderer::cullVisibilityPhase(int phaseIndex, uint32_t objectCount, int hiz
     pContext->SetPipelineState(phaseIndex == 0 ? d.pCullingPSO : phaseIndex == 1 ? d.pRetestCullingPSO : d.pTransparentCullPSO);
     pContext->CommitShaderResources(srb, Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
     if (candidateInput) {
-        pContext->DispatchComputeIndirect(Diligent::DispatchComputeIndirectAttribs{pCandidateDispatchArgs, Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION});
+        pContext->DispatchComputeIndirect(Diligent::DispatchComputeIndirectAttribs{d.pTransparentDispatchArgs, Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION});
     } else {
         pContext->DispatchCompute(Diligent::DispatchComputeAttribs((objectCount + 255) / 256, 1, 1));
     }
@@ -1778,36 +2064,229 @@ void Renderer::buildVisibilityDraws(int phaseIndex) {
 
 void Renderer::bindSceneTargets(bool clear) {
     auto* pContext = m_diligent->pImmediateContext.RawPtr();
+    Diligent::ITextureView* targets[4] = {litgpu::rtv(m_lighting.gbuffer(0)), litgpu::rtv(m_lighting.gbuffer(1)), litgpu::rtv(m_lighting.gbuffer(2)), litgpu::rtv(m_lighting.hdr())};
+    auto* pDSV = m_diligent->pSceneDepth->GetDefaultView(Diligent::TEXTURE_VIEW_DEPTH_STENCIL);
+    const auto& swapChainDesc = m_diligent->pSwapChain->GetDesc();
+    Diligent::Viewport viewport;
+    viewport.Width = static_cast<float>(swapChainDesc.Width);
+    viewport.Height = static_cast<float>(swapChainDesc.Height);
+    pContext->SetViewports(1, &viewport, swapChainDesc.Width, swapChainDesc.Height);
+    pContext->SetRenderTargets(4, targets, pDSV, Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
+    if (!clear) return;
+    const float black[4] = {0.0f, 0.0f, 0.0f, 0.0f};
+    pContext->ClearRenderTarget(targets[3], black, Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
+    pContext->ClearDepthStencil(pDSV, Diligent::CLEAR_DEPTH_FLAG, 1.0f, 0, Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
+}
+
+void Renderer::bindBackBuffer() {
+    auto* pContext = m_diligent->pImmediateContext.RawPtr();
     auto* pRTV = m_diligent->pSwapChain->GetCurrentBackBufferRTV();
     auto* pDSV = m_diligent->pSceneDepth->GetDefaultView(Diligent::TEXTURE_VIEW_DEPTH_STENCIL);
-
     const auto& swapChainDesc = m_diligent->pSwapChain->GetDesc();
     Diligent::Viewport viewport;
     viewport.Width = static_cast<float>(swapChainDesc.Width);
     viewport.Height = static_cast<float>(swapChainDesc.Height);
     pContext->SetViewports(1, &viewport, swapChainDesc.Width, swapChainDesc.Height);
     pContext->SetRenderTargets(1, &pRTV, pDSV, Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
-    if (!clear) return;
-    pContext->ClearRenderTarget(pRTV, glm::value_ptr(glm::vec4(0.3f, 0.3f, 0.3f, 1.0f)), Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
-    pContext->ClearDepthStencil(pDSV, Diligent::CLEAR_DEPTH_FLAG, 1.0f, 0, Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
+}
+
+void Renderer::uploadCascadeCull() {
+    struct CascadeCull {
+        glm::vec4 planes[24];
+        uint32_t info[4];
+    } cull{};
+    const auto& cascades = m_lighting.cascades();
+    const int count = m_diligent->pShadowCullPSO ? m_lighting.cascadeCount() : 0;
+    for (int c = 0; c < count; ++c) {
+        const Cascade& cascade = cascades[static_cast<size_t>(c)];
+        if (!cascade.due) continue;
+        cull.info[0] |= 1u << c;
+        for (int p = 0; p < 6; ++p) cull.planes[c * 6 + p] = cascade.planes[p];
+    }
+    m_diligent->pImmediateContext->UpdateBuffer(m_diligent->pCascadeCullUBO, 0, sizeof(cull), &cull, Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
+}
+
+void Renderer::ensureShadowHiZ() {
+    auto& d = *m_diligent;
+    Diligent::ITexture* map = m_lighting.shadowMap();
+    if (map == d.shadowHiZSourceMap) return;
+    d.shadowHiZSourceMap = map;
+    for (int c = 0; c < 4; ++c) {
+        d.shadowHiZ[c].Release();
+        d.shadowHiZDest[c].clear();
+        d.shadowHiZSource[c].clear();
+        d.shadowSlices[c].Release();
+        d.shadowHiZValid[c] = false;
+    }
+    if (!map) return;
+    const auto size = std::max<Diligent::Uint32>((map->GetDesc().Width + 1) / 2, 1);
+    const auto mips = static_cast<Diligent::Uint32>(std::bit_width(size));
+    d.pShadowHiZArgs = CreateDispatchArgsBuffer(d.pDevice, "Shadow Hi-Z Args", mips);
+    const uint32_t argsConstants[4] = {size, mips, 0u, 0u};
+    d.pShadowHiZArgsConstants = CreateUniformBuffer(d.pDevice, "Shadow Hi-Z Args Constants", sizeof(argsConstants), Diligent::USAGE_DEFAULT);
+    d.pImmediateContext->UpdateBuffer(d.pShadowHiZArgsConstants, 0, sizeof(argsConstants), argsConstants, Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
+    d.pShadowHiZArgsSRB.Release();
+    CreateBoundSRB(d.pShadowHiZArgsPSO, d.pShadowHiZArgsSRB, {{"SourceCounterBuffer", d.pShadowRetestCounter}, {"DispatchArgsBuffer", d.pShadowHiZArgs}, {"HiZArgsConstants", d.pShadowHiZArgsConstants}});
+    for (int c = 0; c < 4; ++c) {
+        Diligent::TextureDesc desc;
+        desc.Name = "Shadow Hi-Z";
+        desc.Type = Diligent::RESOURCE_DIM_TEX_2D;
+        desc.Width = desc.Height = size;
+        desc.Format = Diligent::TEX_FORMAT_R32_FLOAT;
+        desc.BindFlags = Diligent::BIND_SHADER_RESOURCE | Diligent::BIND_UNORDERED_ACCESS;
+        desc.MipLevels = mips;
+        d.pDevice->CreateTexture(desc, nullptr, &d.shadowHiZ[c]);
+        if (!d.shadowHiZ[c]) continue;
+        d.shadowHiZ[c]->GetDefaultView(Diligent::TEXTURE_VIEW_SHADER_RESOURCE)->SetSampler(d.pHiZSampler);
+        for (Diligent::Uint32 mip = 0; mip < mips; ++mip) {
+            Diligent::TextureViewDesc view;
+            view.ViewType = Diligent::TEXTURE_VIEW_UNORDERED_ACCESS;
+            view.NumMipLevels = 1;
+            view.AccessFlags = Diligent::UAV_ACCESS_FLAG_WRITE;
+            view.MostDetailedMip = mip;
+            d.shadowHiZDest[c].emplace_back();
+            d.shadowHiZ[c]->CreateView(view, &d.shadowHiZDest[c].back());
+            d.shadowHiZSource[c].emplace_back();
+            if (mip == 0) continue;
+            view.AccessFlags = Diligent::UAV_ACCESS_FLAG_READ;
+            view.MostDetailedMip = mip - 1;
+            d.shadowHiZ[c]->CreateView(view, &d.shadowHiZSource[c].back());
+        }
+        d.shadowSlices[c] = litgpu::mipView(map, Diligent::TEXTURE_VIEW_SHADER_RESOURCE, 0, Diligent::RESOURCE_DIM_TEX_2D_ARRAY, static_cast<Diligent::Uint32>(c), 1);
+        if (d.shadowSlices[c]) d.shadowSlices[c]->SetSampler(d.pHiZSampler);
+    }
+}
+
+void Renderer::buildShadowHiZ(int cascade) {
+    auto& d = *m_diligent;
+    auto* pContext = d.pImmediateContext.RawPtr();
+    Diligent::ITexture* hiz = d.shadowHiZ[cascade];
+    if (!hiz || !d.pShadowHiZPSO || !d.pHiZMipmapPSO || !d.shadowSlices[cascade] || !d.pShadowHiZArgsSRB) return;
+    auto barrier = [&](Diligent::RESOURCE_STATE state) {
+        Diligent::StateTransitionDesc transition{hiz, Diligent::RESOURCE_STATE_UNKNOWN, state, Diligent::STATE_TRANSITION_FLAG_UPDATE_STATE};
+        pContext->TransitionResourceStates(1, &transition);
+    };
+    pContext->SetPipelineState(d.pShadowHiZArgsPSO);
+    pContext->CommitShaderResources(d.pShadowHiZArgsSRB, Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
+    pContext->DispatchCompute(Diligent::DispatchComputeAttribs(1, 1, 1));
+    auto indirect = [&](size_t mip) {
+        Diligent::DispatchComputeIndirectAttribs attribs{d.pShadowHiZArgs, Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION};
+        attribs.DispatchArgsByteOffset = mip * sizeof(uint32_t) * 4;
+        pContext->DispatchComputeIndirect(attribs);
+    };
+    SetDynamicVariable(d.pShadowHiZSRB, "u_shadowDepth", d.shadowSlices[cascade]);
+    SetDynamicVariable(d.pShadowHiZSRB, "u_destMip", d.shadowHiZDest[cascade][0]);
+    pContext->SetPipelineState(d.pShadowHiZPSO);
+    pContext->CommitShaderResources(d.pShadowHiZSRB, Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
+    indirect(0);
+    barrier(Diligent::RESOURCE_STATE_UNORDERED_ACCESS);
+    pContext->SetPipelineState(d.pHiZMipmapPSO);
+    for (size_t mip = 1; mip < d.shadowHiZDest[cascade].size(); ++mip) {
+        SetDynamicVariable(d.pHiZMipmapSRB, "u_sourceMip", d.shadowHiZSource[cascade][mip]);
+        SetDynamicVariable(d.pHiZMipmapSRB, "u_destMip", d.shadowHiZDest[cascade][mip]);
+        pContext->CommitShaderResources(d.pHiZMipmapSRB, Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
+        indirect(mip);
+        barrier(Diligent::RESOURCE_STATE_UNORDERED_ACCESS);
+    }
+    barrier(Diligent::RESOURCE_STATE_SHADER_RESOURCE);
+}
+
+void Renderer::drawShadows(uint32_t objectCount) {
+    auto& d = *m_diligent;
+    auto* pContext = d.pImmediateContext.RawPtr();
+    const int count = m_lighting.cascadeCount();
+    if (count <= 0 || !d.pShadowCullPSO || !d.pShadowLateCullPSO) return;
+    ensureShadowHiZ();
+    const auto& cascades = m_lighting.cascades();
+    auto& phase = d.visibility[3];
+    const unsigned int zero = 0;
+    const int resolution = m_lighting.shadowResolution();
+    const CullingUniforms uniforms{objectCount, static_cast<uint32_t>(m_maxObjects), 0.0f, m_lodBias, m_forcedLod, static_cast<uint32_t>(m_numDrawingShaders)};
+    pContext->UpdateBuffer(phase.cullingUniforms, 0, sizeof(uniforms), &uniforms, Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
+    pContext->SetPipelineState(d.pDispatchArgsPSO);
+    pContext->CommitShaderResources(d.pCasterDispatchArgsSRB[m_currentFrame], Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
+    pContext->DispatchCompute(Diligent::DispatchComputeAttribs(1, 1, 1));
+    Diligent::Viewport viewport;
+    viewport.Width = static_cast<float>(resolution);
+    viewport.Height = static_cast<float>(resolution);
+    struct ShadowCull {
+        glm::vec4 planes[6];
+        glm::vec4 lod;
+        glm::mat4 hizViewProjection;
+    };
+    auto cull = [&](int c, Diligent::IPipelineState* pso, Diligent::IShaderResourceBinding* srb, Diligent::IBuffer* args, const glm::mat4& hizViewProjection, bool hizValid) {
+        const Cascade& cascade = cascades[static_cast<size_t>(c)];
+        ShadowCull constants{};
+        for (int p = 0; p < 6; ++p) constants.planes[p] = cascade.planes[p];
+        constants.lod = glm::vec4(cascade.texelsPerUnit, static_cast<float>(c), hizValid && d.shadowHiZ[c] ? 1.0f : 0.0f, 0.0f);
+        constants.hizViewProjection = hizViewProjection;
+        pContext->UpdateBuffer(d.pShadowCullUBO[c], 0, sizeof(constants), &constants, Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
+        pContext->UpdateBuffer(phase.visibleCounter, 0, sizeof(zero), &zero, Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
+        pContext->UpdateBuffer(phase.bucketCounts, 0, sizeof(unsigned int) * m_bucketZeros.size(), m_bucketZeros.data(), Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
+        SetDynamicVariable(srb, "u_hizTexture", d.pHiZTextures[m_currentFrame]->GetDefaultView(Diligent::TEXTURE_VIEW_SHADER_RESOURCE));
+        Diligent::ITexture* hiz = d.shadowHiZ[c] ? d.shadowHiZ[c].RawPtr() : d.pHiZTextures[m_currentFrame].RawPtr();
+        SetDynamicVariable(srb, "u_shadowHiz", hiz->GetDefaultView(Diligent::TEXTURE_VIEW_SHADER_RESOURCE));
+        pContext->SetPipelineState(pso);
+        pContext->CommitShaderResources(srb, Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
+        pContext->DispatchComputeIndirect(Diligent::DispatchComputeIndirectAttribs{args, Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION});
+        buildVisibilityDraws(3);
+    };
+    for (int c = 0; c < count; ++c) {
+        const Cascade& cascade = cascades[static_cast<size_t>(c)];
+        if (!cascade.due) continue;
+        struct ShadowPass {
+            glm::mat4 viewProjection;
+            glm::vec4 params;
+        } pass{cascade.viewProjection, glm::vec4(static_cast<float>(resolution), 0.0f, 0.0f, 0.0f)};
+        pContext->UpdateBuffer(d.pShadowPassUBO[c], 0, sizeof(pass), &pass, Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
+        pContext->UpdateBuffer(d.pShadowRetestCounter, 0, sizeof(zero), &zero, Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
+        cull(c, d.pShadowCullPSO, d.shadowCullSRB[m_currentFrame][c], d.pCasterDispatchArgs, d.shadowHiZViewProj[c], d.shadowHiZValid[c]);
+
+        Diligent::ITextureView* target = m_lighting.shadowTarget(c);
+        pContext->SetRenderTargets(0, nullptr, target, Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
+        pContext->ClearDepthStencil(target, Diligent::CLEAR_DEPTH_FLAG, 1.0f, 0, Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
+        pContext->SetViewports(1, &viewport, static_cast<Diligent::Uint32>(resolution), static_cast<Diligent::Uint32>(resolution));
+        drawSurfaces(3, c);
+        pContext->SetRenderTargets(0, nullptr, nullptr, Diligent::RESOURCE_STATE_TRANSITION_MODE_NONE);
+
+        if (!d.shadowHiZ[c]) {
+            d.shadowHiZValid[c] = false;
+            continue;
+        }
+        buildShadowHiZ(c);
+        pContext->SetPipelineState(d.pDispatchArgsPSO);
+        pContext->CommitShaderResources(d.pShadowRetestDispatchArgsSRB[m_currentFrame], Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
+        pContext->DispatchCompute(Diligent::DispatchComputeAttribs(1, 1, 1));
+        cull(c, d.pShadowLateCullPSO, d.shadowLateCullSRB[m_currentFrame][c], d.pShadowRetestDispatchArgs, cascade.viewProjection, true);
+        pContext->SetRenderTargets(0, nullptr, target, Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
+        pContext->SetViewports(1, &viewport, static_cast<Diligent::Uint32>(resolution), static_cast<Diligent::Uint32>(resolution));
+        drawSurfaces(3, c);
+        pContext->SetRenderTargets(0, nullptr, nullptr, Diligent::RESOURCE_STATE_TRANSITION_MODE_NONE);
+        d.shadowHiZViewProj[c] = cascade.viewProjection;
+        d.shadowHiZValid[c] = true;
+    }
 }
 
 void Renderer::drawVisibilityPhase(int phaseIndex) {
+    drawSurfaces(phaseIndex, -1);
+}
+
+void Renderer::drawSurfaces(int phaseIndex, int cascade) {
     auto& d = *m_diligent;
     auto& phase = d.visibility[phaseIndex];
+    const auto meshPipelines = SurfacePipelines(d, static_cast<size_t>(phaseIndex), false);
+    const auto pointPipelines = SurfacePipelines(d, static_cast<size_t>(phaseIndex), true);
+    const auto& meshBindings = cascade >= 0 ? d.shadowSRBs[m_currentFrame][cascade] : phase.opaqueSRBs[m_currentFrame];
+    const auto& pointBindings = cascade >= 0 ? d.shadowPointSRBs[m_currentFrame][cascade] : phase.pointSRBs[m_currentFrame];
     auto* pContext = d.pImmediateContext.RawPtr();
-
     Diligent::IBuffer* pVBs[] = {d.pVBO};
     pContext->SetVertexBuffers(0, 1, pVBs, nullptr, Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION, Diligent::SET_VERTEX_BUFFERS_FLAG_RESET);
     pContext->SetIndexBuffer(d.pEBO, 0, Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
-
-    const auto meshPipelines = SurfacePipelines(d, static_cast<size_t>(phaseIndex), false);
-    const auto pointPipelines = SurfacePipelines(d, static_cast<size_t>(phaseIndex), true);
     for (uint32_t shaderId = 0; shaderId < meshPipelines.size(); ++shaderId) {
         const auto commandOffset = static_cast<Diligent::Uint64>(shaderId) * MAX_MESHES * sizeof(DrawElementsIndirectCommand);
-        if (meshPipelines[shaderId]) {
+        if (meshPipelines[shaderId] && shaderId < meshBindings.size() && meshBindings[shaderId]) {
             pContext->SetPipelineState(meshPipelines[shaderId]);
-            pContext->CommitShaderResources(phase.opaqueSRBs[m_currentFrame][shaderId], Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
+            pContext->CommitShaderResources(meshBindings[shaderId], Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
             Diligent::DrawIndexedIndirectAttribs drawAttrs;
             drawAttrs.IndexType = Diligent::VT_UINT32;
             drawAttrs.pAttribsBuffer = phase.drawCommands;
@@ -1820,9 +2299,9 @@ void Renderer::drawVisibilityPhase(int phaseIndex) {
             drawAttrs.CounterBufferStateTransitionMode = Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION;
             pContext->DrawIndexedIndirect(drawAttrs);
         }
-        if (shaderId < pointPipelines.size() && pointPipelines[shaderId]) {
+        if (shaderId < pointPipelines.size() && pointPipelines[shaderId] && shaderId < pointBindings.size() && pointBindings[shaderId]) {
             pContext->SetPipelineState(pointPipelines[shaderId]);
-            pContext->CommitShaderResources(phase.pointSRBs[m_currentFrame][shaderId], Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
+            pContext->CommitShaderResources(pointBindings[shaderId], Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
             Diligent::DrawIndirectAttribs pointAttrs;
             pointAttrs.pAttribsBuffer = phase.pointCommands;
             pointAttrs.DrawArgsOffset = commandOffset;
@@ -1848,7 +2327,8 @@ void Renderer::drawTransparency() {
     pContext->ClearRenderTarget(pTargets[1], fullRevealage, Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
     drawVisibilityPhase(2);
 
-    bindSceneTargets(false);
+    Diligent::ITextureView* hdrTarget = litgpu::rtv(m_lighting.hdr());
+    pContext->SetRenderTargets(1, &hdrTarget, d.pSceneDepth->GetDefaultView(Diligent::TEXTURE_VIEW_DEPTH_STENCIL), Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
     SetDynamicVariable(d.pCompositeSRB, "u_accumulation", d.pAccumulation->GetDefaultView(Diligent::TEXTURE_VIEW_SHADER_RESOURCE), Diligent::SHADER_TYPE_PIXEL);
     SetDynamicVariable(d.pCompositeSRB, "u_revealage", d.pRevealage->GetDefaultView(Diligent::TEXTURE_VIEW_SHADER_RESOURCE), Diligent::SHADER_TYPE_PIXEL);
     pContext->SetPipelineState(d.pCompositePSO);
@@ -1942,6 +2422,25 @@ std::vector<GpuEntityState> Renderer::readGpuEntityStates(size_t count) {
     return states;
 }
 
+std::vector<GpuPassTiming> Renderer::gpuTimings() const {
+    std::vector<GpuPassTiming> timings;
+    if (!m_diligent) return timings;
+    for (size_t pass = 0; pass < kGpuPassCount; ++pass) timings.push_back({kGpuPassNames[pass], m_diligent->passMilliseconds[pass]});
+    return timings;
+}
+
+double Renderer::gpuTotalMilliseconds() const { return m_diligent ? m_diligent->gpuTotalMilliseconds : 0.0; }
+
+bool Renderer::enableImGui() {
+    if (!m_initialized) return false;
+    if (!m_imgui) m_imgui = new ImGuiLayer();
+    return m_imgui->init(m_window, m_diligent->pDevice, m_diligent->pImmediateContext, m_diligent->pSwapChain, kSceneDepthFormat);
+}
+
+void Renderer::beginUi() {
+    if (m_imgui) m_imgui->newFrame();
+}
+
 void Renderer::AddText(const std::string& text, float x, float y, float scale, const glm::vec3& color) { m_uiManager->addText(text, x, y, scale, color); }
 
 void Renderer::createTransformPSO() {
@@ -1954,83 +2453,358 @@ void Renderer::createTransparentCullPSO() {
     m_diligent->pTransparentCullPSO = CreateComputePipeline(m_diligent->pDevice, "Transparent Cull PSO", "resources/shaders/cull.comp", {"u_hizTexture"}, Diligent::ShaderMacroArray{transparentMacros, 1});
 }
 
-Diligent::RefCntAutoPtr<Diligent::IPipelineState> CreateSurfacePipeline(DiligentData& d, const std::string& name, const std::string& fragmentPath, bool point, bool transparent) {
-    std::vector<Diligent::ShaderMacro> vertexMacros;
-    std::vector<Diligent::ShaderMacro> pixelMacros;
-    if (transparent) vertexMacros.push_back({"TRANSPARENT", "1"});
-    if (point) pixelMacros.push_back({"POINT_SPRITE", "1"});
-    auto pVS = CompileShader(d.pDevice, point ? "resources/shaders/point.vert" : "resources/shaders/cube.vert", Diligent::SHADER_TYPE_VERTEX,
-                             Diligent::ShaderMacroArray{vertexMacros.data(), static_cast<Diligent::Uint32>(vertexMacros.size())});
-    auto pPS = CompileShader(d.pDevice, fragmentPath, Diligent::SHADER_TYPE_PIXEL, Diligent::ShaderMacroArray{pixelMacros.data(), static_cast<Diligent::Uint32>(pixelMacros.size())});
-    if (!pVS || !pPS) return {};
+namespace {
 
-    const std::string psoName = name + (point ? " (points)" : "");
-    Diligent::GraphicsPipelineStateCreateInfo PSOCreateInfo;
-    PSOCreateInfo.PSODesc.Name = psoName.c_str();
-    PSOCreateInfo.PSODesc.PipelineType = Diligent::PIPELINE_TYPE_GRAPHICS;
-    PSOCreateInfo.GraphicsPipeline.DSVFormat = kSceneDepthFormat;
-    PSOCreateInfo.GraphicsPipeline.PrimitiveTopology = point ? Diligent::PRIMITIVE_TOPOLOGY_POINT_LIST : Diligent::PRIMITIVE_TOPOLOGY_TRIANGLE_LIST;
-    PSOCreateInfo.GraphicsPipeline.RasterizerDesc.CullMode = Diligent::CULL_MODE_BACK;
-    PSOCreateInfo.GraphicsPipeline.RasterizerDesc.FrontCounterClockwise = true;
-    PSOCreateInfo.GraphicsPipeline.DepthStencilDesc.DepthEnable = true;
-    PSOCreateInfo.GraphicsPipeline.DepthStencilDesc.DepthWriteEnable = !transparent;
-    PSOCreateInfo.GraphicsPipeline.DepthStencilDesc.DepthFunc = Diligent::COMPARISON_FUNC_LESS_EQUAL;
-    if (transparent) {
-        PSOCreateInfo.GraphicsPipeline.NumRenderTargets = 2;
-        PSOCreateInfo.GraphicsPipeline.RTVFormats[0] = kAccumulationFormat;
-        PSOCreateInfo.GraphicsPipeline.RTVFormats[1] = kRevealageFormat;
-        PSOCreateInfo.GraphicsPipeline.BlendDesc.IndependentBlendEnable = true;
-        auto& accumulation = PSOCreateInfo.GraphicsPipeline.BlendDesc.RenderTargets[0];
+struct SurfaceSource {
+    std::string shared;
+    std::string vertexShared;
+    std::string vertexCode;
+    std::string fragmentCode;
+    bool hasVertex = false;
+    bool hasSurface = false;
+    float bounds = 0.0f;
+    bool twoSided = false;
+};
+
+bool DefinesFunction(const std::string& chunk, const char* name) {
+    size_t pos = 0;
+    while ((pos = chunk.find(name, pos)) != std::string::npos) {
+        const bool leftOk = pos == 0 || !(std::isalnum(static_cast<unsigned char>(chunk[pos - 1])) || chunk[pos - 1] == '_');
+        size_t after = pos + std::strlen(name);
+        while (after < chunk.size() && std::isspace(static_cast<unsigned char>(chunk[after]))) ++after;
+        size_t before = pos;
+        while (before > 0 && std::isspace(static_cast<unsigned char>(chunk[before - 1]))) --before;
+        const bool isVoid = before >= 4 && chunk.compare(before - 4, 4, "void") == 0;
+        if (leftOk && isVoid && after < chunk.size() && chunk[after] == '(' && chunk.find('{', after) != std::string::npos) return true;
+        pos += 1;
+    }
+    return false;
+}
+
+SurfaceSource ParseSurface(const std::string& text) {
+    SurfaceSource out;
+    std::string body;
+    std::istringstream lines(text);
+    std::string line;
+    while (std::getline(lines, line)) {
+        std::istringstream words(line);
+        std::string a, b, c;
+        words >> a >> b >> c;
+        if (a == "#pragma" && b == "lit") {
+            if (c == "bounds") {
+                float value = 0.0f;
+                if (words >> value) out.bounds = std::max(value, 0.0f);
+            } else if (c == "twosided") {
+                out.twoSided = true;
+            }
+            body += "\n";
+            continue;
+        }
+        body += line + "\n";
+    }
+    size_t start = 0;
+    int depth = 0;
+    bool lineComment = false;
+    bool blockComment = false;
+    auto emit = [&](size_t end) {
+        std::string chunk = body.substr(start, end - start);
+        start = end;
+        if (DefinesFunction(chunk, "vertex")) {
+            out.vertexCode += chunk;
+            out.hasVertex = true;
+        } else if (DefinesFunction(chunk, "surface")) {
+            out.fragmentCode += chunk;
+            out.hasSurface = true;
+        } else {
+            out.shared += chunk;
+        }
+    };
+    for (size_t i = 0; i < body.size(); ++i) {
+        const char ch = body[i];
+        const char next = i + 1 < body.size() ? body[i + 1] : '\0';
+        if (lineComment) {
+            if (ch == '\n') lineComment = false;
+            continue;
+        }
+        if (blockComment) {
+            if (ch == '*' && next == '/') {
+                blockComment = false;
+                ++i;
+            }
+            continue;
+        }
+        if (ch == '/' && next == '/') {
+            lineComment = true;
+            continue;
+        }
+        if (ch == '/' && next == '*') {
+            blockComment = true;
+            continue;
+        }
+        if (ch == '{') ++depth;
+        if (ch == '}') {
+            --depth;
+            if (depth == 0) emit(i + 1);
+        }
+        if (ch == ';' && depth == 0) emit(i + 1);
+        if (ch == '\n' && depth == 0) {
+            size_t lineStart = body.rfind('\n', i == 0 ? 0 : i - 1);
+            lineStart = lineStart == std::string::npos ? 0 : lineStart + 1;
+            size_t first = body.find_first_not_of(" \t", lineStart);
+            if (first != std::string::npos && first < i && body[first] == '#') emit(i + 1);
+        }
+    }
+    if (start < body.size()) out.shared += body.substr(start);
+    std::vector<std::pair<std::string, std::string>> functions;
+    std::vector<std::string> declarations;
+    {
+        size_t i = 0;
+        const std::string& shared = out.shared;
+        int d = 0;
+        size_t chunkStart = 0;
+        for (; i < shared.size(); ++i) {
+            if (shared[i] == '{') ++d;
+            if (shared[i] == '}' && --d == 0) {
+                const std::string chunk = shared.substr(chunkStart, i + 1 - chunkStart);
+                const size_t paren = chunk.find('(');
+                const size_t brace = chunk.find('{');
+                if (paren != std::string::npos && paren < brace) {
+                    size_t nameEnd = paren;
+                    while (nameEnd > 0 && std::isspace(static_cast<unsigned char>(chunk[nameEnd - 1]))) --nameEnd;
+                    size_t nameStart = nameEnd;
+                    while (nameStart > 0 && (std::isalnum(static_cast<unsigned char>(chunk[nameStart - 1])) || chunk[nameStart - 1] == '_')) --nameStart;
+                    functions.emplace_back(chunk.substr(nameStart, nameEnd - nameStart), chunk);
+                } else {
+                    declarations.push_back(chunk);
+                }
+                chunkStart = i + 1;
+            }
+            if (shared[i] == ';' && d == 0) {
+                declarations.push_back(shared.substr(chunkStart, i + 1 - chunkStart));
+                chunkStart = i + 1;
+            }
+        }
+        if (chunkStart < shared.size()) declarations.push_back(shared.substr(chunkStart));
+    }
+    std::vector<bool> used(functions.size(), false);
+    std::string reachable = out.vertexCode;
+    for (bool changed = true; changed;) {
+        changed = false;
+        for (size_t f = 0; f < functions.size(); ++f) {
+            if (used[f] || !DefinesFunction(" void " + functions[f].first + "(x){", functions[f].first.c_str())) continue;
+            if (reachable.find(functions[f].first + "(") == std::string::npos && reachable.find(functions[f].first + " (") == std::string::npos) continue;
+            used[f] = true;
+            reachable += functions[f].second;
+            changed = true;
+        }
+    }
+    for (const std::string& declaration : declarations) out.vertexShared += declaration;
+    for (size_t f = 0; f < functions.size(); ++f) {
+        if (used[f]) out.vertexShared += functions[f].second;
+    }
+    return out;
+}
+
+std::string InjectUserCode(const std::string& templ, const std::string& code) {
+    const std::string marker = "#pragma lit_user_code";
+    const size_t pos = templ.find(marker);
+    if (pos == std::string::npos) return templ;
+    return templ.substr(0, pos) + code + "\n" + templ.substr(pos + marker.size());
+}
+
+enum class SurfaceKind { GBuffer, Forward, Shadow };
+
+Diligent::RefCntAutoPtr<Diligent::IPipelineState> BuildSurfacePso(DiligentData& d, const std::string& name, const SurfaceSource& source, SurfaceKind kind, bool point, bool twoSided) {
+    using Macros = std::vector<std::pair<std::string, std::string>>;
+    Macros vsMacros;
+    Macros psMacros;
+    if (kind == SurfaceKind::Forward) {
+        vsMacros.push_back({"TRANSPARENT", "1"});
+        psMacros.push_back({"TRANSPARENT", "1"});
+    }
+    if (kind == SurfaceKind::Shadow) vsMacros.push_back({"SHADOW_PASS", "1"});
+    if (point) psMacros.push_back({"POINT_SPRITE", "1"});
+    if (source.hasVertex && !point) vsMacros.push_back({"LIT_USER_VERTEX", "1"});
+    if (source.hasSurface) psMacros.push_back({"LIT_USER_SURFACE", "1"});
+    const std::string vsPath = point ? "resources/shaders/surface/surface_point.vert" : "resources/shaders/surface/surface.vert";
+    const std::string vsTemplate = litgpu::readText(vsPath);
+    const std::string psTemplate = litgpu::readText("resources/shaders/surface/surface.frag");
+    if (vsTemplate.empty() || psTemplate.empty()) return {};
+    auto vs = litgpu::compileSource(d.pDevice, name + (point ? " points.vert" : ".vert"), InjectUserCode(vsTemplate, source.vertexShared + source.vertexCode), Diligent::SHADER_TYPE_VERTEX, vsMacros);
+    if (!vs) return {};
+    Diligent::RefCntAutoPtr<Diligent::IShader> ps;
+    if (kind != SurfaceKind::Shadow) {
+        ps = litgpu::compileSource(d.pDevice, name + (point ? " points.frag" : ".frag"), InjectUserCode(psTemplate, source.shared + source.fragmentCode), Diligent::SHADER_TYPE_PIXEL, psMacros);
+        if (!ps) return {};
+    }
+    Diligent::GraphicsPipelineStateCreateInfo ci;
+    const std::string psoName = name + (kind == SurfaceKind::GBuffer ? " gbuffer" : kind == SurfaceKind::Forward ? " forward" : " shadow") + (point ? " points" : "");
+    ci.PSODesc.Name = psoName.c_str();
+    ci.PSODesc.PipelineType = Diligent::PIPELINE_TYPE_GRAPHICS;
+    auto& gp = ci.GraphicsPipeline;
+    gp.DSVFormat = kSceneDepthFormat;
+    gp.PrimitiveTopology = point ? Diligent::PRIMITIVE_TOPOLOGY_POINT_LIST : Diligent::PRIMITIVE_TOPOLOGY_TRIANGLE_LIST;
+    gp.RasterizerDesc.CullMode = twoSided || kind == SurfaceKind::Shadow ? Diligent::CULL_MODE_NONE : Diligent::CULL_MODE_BACK;
+    gp.RasterizerDesc.FrontCounterClockwise = true;
+    gp.DepthStencilDesc.DepthEnable = true;
+    gp.DepthStencilDesc.DepthWriteEnable = kind != SurfaceKind::Forward;
+    gp.DepthStencilDesc.DepthFunc = Diligent::COMPARISON_FUNC_LESS_EQUAL;
+    if (kind == SurfaceKind::GBuffer) {
+        gp.NumRenderTargets = 4;
+        gp.RTVFormats[0] = Diligent::TEX_FORMAT_RGBA8_UNORM_SRGB;
+        gp.RTVFormats[1] = Diligent::TEX_FORMAT_RGB10A2_UNORM;
+        gp.RTVFormats[2] = Diligent::TEX_FORMAT_RGBA8_UINT;
+        gp.RTVFormats[3] = Diligent::TEX_FORMAT_RGBA16_FLOAT;
+    } else if (kind == SurfaceKind::Forward) {
+        gp.NumRenderTargets = 2;
+        gp.RTVFormats[0] = kAccumulationFormat;
+        gp.RTVFormats[1] = kRevealageFormat;
+        gp.BlendDesc.IndependentBlendEnable = true;
+        auto& accumulation = gp.BlendDesc.RenderTargets[0];
         accumulation.BlendEnable = true;
         accumulation.SrcBlend = accumulation.DestBlend = accumulation.SrcBlendAlpha = accumulation.DestBlendAlpha = Diligent::BLEND_FACTOR_ONE;
-        auto& revealage = PSOCreateInfo.GraphicsPipeline.BlendDesc.RenderTargets[1];
+        auto& revealage = gp.BlendDesc.RenderTargets[1];
         revealage.BlendEnable = true;
         revealage.SrcBlend = revealage.SrcBlendAlpha = Diligent::BLEND_FACTOR_ZERO;
         revealage.DestBlend = revealage.DestBlendAlpha = Diligent::BLEND_FACTOR_INV_SRC_COLOR;
     } else {
-        PSOCreateInfo.GraphicsPipeline.NumRenderTargets = 1;
-        PSOCreateInfo.GraphicsPipeline.RTVFormats[0] = d.pSwapChain->GetDesc().ColorBufferFormat;
+        gp.NumRenderTargets = 0;
+        gp.RasterizerDesc.DepthClipEnable = false;
+        gp.RasterizerDesc.SlopeScaledDepthBias = 1.75f;
+        gp.RasterizerDesc.DepthBias = 0;
     }
-    PSOCreateInfo.pVS = pVS;
-    PSOCreateInfo.pPS = pPS;
-
-    Diligent::LayoutElement LayoutElems[] = {
-        Diligent::LayoutElement{0, 0, 3, Diligent::VT_FLOAT32, false},
-        Diligent::LayoutElement{1, 0, 3, Diligent::VT_FLOAT32, false}
-    };
-    PSOCreateInfo.GraphicsPipeline.InputLayout.LayoutElements = LayoutElems;
-    PSOCreateInfo.GraphicsPipeline.InputLayout.NumElements = point ? 0 : _countof(LayoutElems);
-
-    const auto variables = DescribeVariables({pVS, pPS});
-    UseVariables(PSOCreateInfo.PSODesc.ResourceLayout, variables);
-
+    ci.pVS = vs;
+    ci.pPS = ps;
+    const Diligent::LayoutElement layout[] = {{0, 0, 3, Diligent::VT_FLOAT32, false}, {1, 0, 3, Diligent::VT_FLOAT32, false}, {2, 0, 2, Diligent::VT_FLOAT32, false}};
+    gp.InputLayout.LayoutElements = layout;
+    gp.InputLayout.NumElements = point ? 0 : 3;
+    const litgpu::PipelineLayout resourceLayout = kind == SurfaceKind::Shadow ? litgpu::makeLayout({vs}) :
+        litgpu::makeLayout({vs, ps}, {{"u_colorTextures", litgpu::anisotropicWrap()}, {"u_dataTextures", litgpu::anisotropicWrap()}, {"u_prefilteredEnv", litgpu::linearClamp()}, {"u_dfgLut", litgpu::linearClamp()}, {"u_shadowMap", litgpu::shadowCompare()}, {"u_shadowDepth", litgpu::pointClamp()}});
+    resourceLayout.apply(ci.PSODesc.ResourceLayout);
     Diligent::RefCntAutoPtr<Diligent::IPipelineState> pso;
-    d.pDevice->CreateGraphicsPipelineState(PSOCreateInfo, &pso);
+    d.pDevice->CreateGraphicsPipelineState(ci, &pso);
     if (!pso) Lit::Log::Error("Failed to create surface pipeline '{}'", psoName);
     return pso;
 }
 
-void Renderer::createOpaquePSOs() {
-    struct ShaderInfo {
-        const char* frag;
-        const char* name;
-    };
-    const ShaderInfo shaderInfos[] = {
-        {"resources/shaders/cube.frag", "Cube PSO"},
-        {"resources/shaders/red.frag",  "Red PSO" }
-    };
-    m_diligent->pOpaquePSOs.clear();
-    m_diligent->pPointPSOs.clear();
-    for (const ShaderInfo& info : shaderInfos) {
-        m_diligent->pOpaquePSOs.push_back(CreateSurfacePipeline(*m_diligent, info.name, info.frag, false, false));
-        m_diligent->pPointPSOs.push_back(CreateSurfacePipeline(*m_diligent, info.name, info.frag, true, false));
+bool BuildSurface(DiligentData& d, DiligentData::SurfaceProgram& program) {
+    const std::string text = litgpu::readText(program.path);
+    if (text.empty()) {
+        Lit::Log::Error("Surface shader '{}' not found at {}", program.name, program.path);
+        program.valid = false;
+        return false;
     }
+    const SurfaceSource source = ParseSurface(text);
+    program.bounds = source.bounds;
+    program.twoSided = source.twoSided;
+    auto gbuffer = BuildSurfacePso(d, program.name, source, SurfaceKind::GBuffer, false, source.twoSided);
+    auto gbufferPoint = BuildSurfacePso(d, program.name, source, SurfaceKind::GBuffer, true, source.twoSided);
+    auto forward = BuildSurfacePso(d, program.name, source, SurfaceKind::Forward, false, source.twoSided);
+    auto forwardPoint = BuildSurfacePso(d, program.name, source, SurfaceKind::Forward, true, source.twoSided);
+    auto shadow = BuildSurfacePso(d, program.name, source, SurfaceKind::Shadow, false, true);
+    auto shadowPoint = BuildSurfacePso(d, program.name, source, SurfaceKind::Shadow, true, true);
+    if (!gbuffer || !gbufferPoint || !forward || !forwardPoint || !shadow || !shadowPoint) {
+        if (!program.valid) {
+            program.gbuffer = gbuffer;
+            program.gbufferPoint = gbufferPoint;
+            program.forward = forward;
+            program.forwardPoint = forwardPoint;
+            program.shadow = shadow;
+            program.shadowPoint = shadowPoint;
+        }
+        Lit::Log::Error("Surface shader '{}' failed to build; {}", program.name, program.valid ? "keeping the previous version" : "objects using it are not drawn");
+        return false;
+    }
+    program.gbuffer = gbuffer;
+    program.gbufferPoint = gbufferPoint;
+    program.forward = forward;
+    program.forwardPoint = forwardPoint;
+    program.shadow = shadow;
+    program.shadowPoint = shadowPoint;
+    program.valid = true;
+    return true;
+}
+
+}  // namespace
+
+CustomFrame Renderer::customFrame() const {
+    const auto& d = *m_diligent;
+    CustomFrame frame;
+    frame.frameSlot = m_currentFrame;
+    frame.parity = static_cast<uint32_t>(m_lighting.hdrIndex());
+    frame.time = static_cast<float>(glfwGetTime());
+    frame.deltaTime = std::clamp(m_lastDeltaTime, 0.0f, 0.25f);
+    frame.frame = m_frameCounter;
+    frame.width = m_windowWidth;
+    frame.height = m_windowHeight;
+    frame.resources = {{"SceneData", d.pSceneUBO[m_currentFrame]},
+                       {"WorldMatrixBuffer", d.pWorldMatrixBuffer[m_currentFrame]},
+                       {"CullSphereBuffer", d.pCullSphereBuffer[m_currentFrame]},
+                       {"RenderableBuffer", d.pRenderableBuffer[m_currentFrame]},
+                       {"MaterialBuffer", m_lighting.materialBuffer()},
+                       {"LightBuffer", m_lighting.lightBuffer()},
+                       {"ExposureBuffer", m_lighting.exposureBuffer()},
+                       {"u_depth", litgpu::srv(d.pSceneDepth)},
+                       {"u_gbuffer0", litgpu::srv(m_lighting.gbuffer(0))},
+                       {"u_gbuffer1", litgpu::srv(m_lighting.gbuffer(1))},
+                       {"u_hdr", litgpu::uav(m_lighting.hdr())}};
+    return frame;
+}
+
+uint32_t Renderer::loadSurfaceShader(const std::string& name, const std::string& path) {
+    if (!m_initialized) return 0;
+    auto& d = *m_diligent;
+    for (uint32_t i = 0; i < d.surfaces.size(); ++i) {
+        if (d.surfaces[i].name != name) continue;
+        d.surfaces[i].path = path;
+        d.pImmediateContext->WaitForIdle();
+        BuildSurface(d, d.surfaces[i]);
+        reallocateBuffers(m_maxObjects);
+        return i;
+    }
+    if (d.surfaces.size() >= 16) {
+        Lit::Log::Error("Surface shader limit (16) reached; '{}' not loaded", name);
+        return 0;
+    }
+    DiligentData::SurfaceProgram program;
+    program.name = name;
+    program.path = path;
+    if (!BuildSurface(d, program)) return 0;
+    d.pImmediateContext->WaitForIdle();
+    d.surfaces.push_back(std::move(program));
+    m_numDrawingShaders = d.surfaces.size();
+    reallocateBuffers(m_maxObjects);
+    Lit::Log::Info("Surface shader '{}' loaded as id {}", name, d.surfaces.size() - 1);
+    return static_cast<uint32_t>(d.surfaces.size() - 1);
+}
+
+std::string Renderer::surfacePath(uint32_t id) const {
+    if (!m_diligent || id >= m_diligent->surfaces.size()) return {};
+    return m_diligent->surfaces[id].path;
+}
+
+std::vector<std::string> Renderer::surfaceNames() const {
+    std::vector<std::string> names;
+    if (!m_diligent) return names;
+    for (const auto& surface : m_diligent->surfaces) names.push_back(surface.name);
+    return names;
+}
+
+void Renderer::createSurfacePipelines() {
+    auto& d = *m_diligent;
+    if (d.surfaces.empty()) {
+        const std::pair<const char*, const char*> builtIns[] = {{"Standard", "standard"}, {"Checker", "checker"}, {"Glass", "glass"}, {"Lava", "lava"}, {"Marble", "marble"}, {"Toon", "toon"}};
+        for (const auto& [name, file] : builtIns) {
+            DiligentData::SurfaceProgram program;
+            program.name = name;
+            program.path = std::string("resources/shaders/surfaces/") + file + ".surface";
+            d.surfaces.push_back(std::move(program));
+        }
+    }
+    for (auto& program : d.surfaces) BuildSurface(d, program);
 }
 
 void Renderer::createTransparentPSO() {
-    m_diligent->pTransparentPSO = CreateSurfacePipeline(*m_diligent, "Transparent PSO", "resources/shaders/transparent.frag", false, true);
-    m_diligent->pTransparentPointPSO = CreateSurfacePipeline(*m_diligent, "Transparent PSO", "resources/shaders/transparent.frag", true, true);
-
     auto pVS = CompileShader(m_diligent->pDevice, "resources/shaders/fullscreen.vert", Diligent::SHADER_TYPE_VERTEX);
     auto pPS = CompileShader(m_diligent->pDevice, "resources/shaders/transparent_composite.frag", Diligent::SHADER_TYPE_PIXEL);
     m_diligent->pCompositePSO.Release();
@@ -2041,7 +2815,7 @@ void Renderer::createTransparentPSO() {
     PSOCreateInfo.PSODesc.Name = "Transparent Composite PSO";
     PSOCreateInfo.PSODesc.PipelineType = Diligent::PIPELINE_TYPE_GRAPHICS;
     PSOCreateInfo.GraphicsPipeline.NumRenderTargets = 1;
-    PSOCreateInfo.GraphicsPipeline.RTVFormats[0] = m_diligent->pSwapChain->GetDesc().ColorBufferFormat;
+    PSOCreateInfo.GraphicsPipeline.RTVFormats[0] = Diligent::TEX_FORMAT_RGBA16_FLOAT;
     PSOCreateInfo.GraphicsPipeline.DSVFormat = kSceneDepthFormat;
     PSOCreateInfo.GraphicsPipeline.PrimitiveTopology = Diligent::PRIMITIVE_TOPOLOGY_TRIANGLE_LIST;
     PSOCreateInfo.GraphicsPipeline.RasterizerDesc.CullMode = Diligent::CULL_MODE_NONE;
@@ -2070,12 +2844,19 @@ void Renderer::createHiZPSO() {
     CreateBindings(m_diligent->pHiZMipmapPSO, std::span(std::addressof(m_diligent->pHiZMipmapSRB), 1));
     m_diligent->pHiZFromDepthPSO = CreateComputePipeline(m_diligent->pDevice, "Hi-Z From Depth PSO", "resources/shaders/hiz_from_depth.comp", {"u_depth", "u_destMip"});
     CreateBindings(m_diligent->pHiZFromDepthPSO, std::span(std::addressof(m_diligent->pHiZFromDepthSRB), 1));
+    m_diligent->pShadowHiZPSO = CreateComputePipeline(m_diligent->pDevice, "Shadow Hi-Z PSO", "resources/shaders/hiz_from_shadow.comp", {"u_shadowDepth", "u_destMip"});
+    CreateBindings(m_diligent->pShadowHiZPSO, std::span(std::addressof(m_diligent->pShadowHiZSRB), 1));
+    m_diligent->pShadowHiZArgsPSO = CreateComputePipeline(m_diligent->pDevice, "Shadow Hi-Z Args PSO", "resources/shaders/shadow_hiz_args.comp");
+    m_diligent->shadowHiZSourceMap = nullptr;
 }
 
 void Renderer::createCullingPSO() {
     m_diligent->pCullingPSO = CreateComputePipeline(m_diligent->pDevice, "Culling PSO", "resources/shaders/cull.comp", {"u_hizTexture"});
     const Diligent::ShaderMacro retestMacros[] = {{"RETEST", "1"}};
     m_diligent->pRetestCullingPSO = CreateComputePipeline(m_diligent->pDevice, "Retest Culling PSO", "resources/shaders/cull.comp", {"u_hizTexture"}, Diligent::ShaderMacroArray{retestMacros, 1});
+    const Diligent::ShaderMacro shadowMacros[] = {{"SHADOW", "1"}, {"SHADOW_LATE", "1"}};
+    m_diligent->pShadowCullPSO = CreateComputePipeline(m_diligent->pDevice, "Shadow Culling PSO", "resources/shaders/cull.comp", {"u_hizTexture", "u_shadowHiz"}, Diligent::ShaderMacroArray{shadowMacros, 1});
+    m_diligent->pShadowLateCullPSO = CreateComputePipeline(m_diligent->pDevice, "Shadow Late Culling PSO", "resources/shaders/cull.comp", {"u_hizTexture", "u_shadowHiz"}, Diligent::ShaderMacroArray{shadowMacros, 2});
 }
 
 void Renderer::createCommandGenPSO() {
@@ -2102,11 +2883,6 @@ void Renderer::createDispatchArgsPSO() {
 void Renderer::createApplyDirtyPSO() {
     m_diligent->pApplyDirtyPSO = CreateComputePipeline(m_diligent->pDevice, "Apply Dirty PSO", "resources/shaders/apply_dirty.comp");
     m_diligent->pApplyDirtyConstants = CreateUniformBuffer(m_diligent->pDevice, "Apply Dirty Constants", sizeof(ApplyDirtyConstants));
-}
-
-void Renderer::createMarkTouchedPSO() {
-    m_diligent->pMarkTouchedPSO = CreateComputePipeline(m_diligent->pDevice, "Mark Touched PSO", "resources/shaders/mark_touched.comp");
-    m_diligent->pMarkTouchedConstants = CreateUniformBuffer(m_diligent->pDevice, "Mark Touched Constants", sizeof(MarkTouchedConstants));
 }
 
 void Renderer::createDebugDepthPSO() {
@@ -2145,19 +2921,35 @@ void Renderer::createDebugDepthPSO() {
 }
 
 void Renderer::setLights(bool enabled, const std::array<glm::vec4, 2>& directional, const std::vector<glm::vec4>& packed) {
-    const bool sameLights = m_lightData.size() == packed.size() && (packed.empty() || std::memcmp(m_lightData.data(), packed.data(), packed.size() * sizeof(glm::vec4)) == 0);
-    const bool sameDirectional = std::memcmp(m_directional.data(), directional.data(), sizeof(glm::vec4) * 2) == 0;
-    if (m_lightOverride != enabled || !sameDirectional || !sameLights) m_lightDataDirty = true;
-    m_lightOverride = enabled;
-    m_directional = directional;
-    m_lightData = packed;
+    std::vector<GpuLight> lights;
+    lights.reserve(packed.size() / 4);
+    for (size_t i = 0; i + 3 < packed.size(); i += 4) {
+        const glm::vec4 posRange = packed[i];
+        const glm::vec4 colorIntensity = packed[i + 1];
+        const glm::vec4 dirCone = packed[i + 2];
+        const glm::vec4 params = packed[i + 3];
+        const bool spot = params.y > 0.5f;
+        const float range = std::max(posRange.w, 0.01f);
+        const float candela = colorIntensity.w / (4.0f * 3.14159265f);
+        const float cosOuter = dirCone.w;
+        const float cosInner = std::max(params.x, cosOuter + 1e-3f);
+        const float spotScale = 1.0f / std::max(cosInner - cosOuter, 1e-4f);
+        GpuLight light{};
+        light.positionRange = glm::vec4(glm::vec3(posRange), range);
+        light.colorType = glm::vec4(glm::vec3(colorIntensity) * candela, spot ? 2.0f : 1.0f);
+        light.directionCos = glm::vec4(glm::normalize(glm::vec3(dirCone) + glm::vec3(0.0f, 0.0f, 1e-6f)), cosOuter);
+        light.params = glm::vec4(spotScale, -cosOuter * spotScale, 1.0f / (range * range), 1.0f);
+        lights.push_back(light);
+    }
+    m_lighting.setLights(lights);
+    const bool hasDirectional = enabled && glm::length(glm::vec3(directional[1])) > 0.0f;
+    m_lighting.setDirectionalLight(hasDirectional, glm::vec3(directional[0]), glm::vec3(directional[1]));
 }
 
 void Renderer::createPipelines() {
-    createOpaquePSOs();
+    createSurfacePipelines();
     createTransparentPSO();
     createTransformPSO();
-    createAnimPSO();
     createHiZPSO();
     createCullingPSO();
     createCommandGenPSO();
@@ -2165,7 +2957,6 @@ void Renderer::createPipelines() {
     createScatterPSO();
     createDispatchArgsPSO();
     createApplyDirtyPSO();
-    createMarkTouchedPSO();
     createTransparentCullPSO();
     createDebugDepthPSO();
     createDebugLinePSO();
@@ -2179,14 +2970,15 @@ void Renderer::reloadShaders() {
     }
     m_diligent->pImmediateContext->WaitForIdle();
     createPipelines();
+    m_lighting.reloadShaders();
+    m_custom.reload();
     reallocateBuffers(m_maxObjects);
-    m_lightDataDirty = true;
     Lit::Log::Info("Shaders reloaded");
 }
 
-void Renderer::setMaterial(uint32_t index, const glm::vec4& colorAndStrength) {
-    if (index >= kMaxMaterials || !m_diligent || !m_diligent->pMaterialBuffer) return;
-    m_diligent->pImmediateContext->UpdateBuffer(m_diligent->pMaterialBuffer, static_cast<Diligent::Uint64>(index) * sizeof(glm::vec4), sizeof(glm::vec4), &colorAndStrength, Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
+void Renderer::setMaterial(uint32_t index, const Material& material) {
+    if (!m_initialized) return;
+    m_lighting.setMaterial(index, material);
 }
 
 void Renderer::addDebugLine(const glm::vec3& from, const glm::vec3& to, const glm::vec4& color, bool overlay) {
@@ -2268,14 +3060,6 @@ void Renderer::uploadBasePositions(const std::vector<glm::vec3>& basePositions) 
             auto* var = m_diligent->pTransformSRB[i]->GetVariableByName(Diligent::SHADER_TYPE_COMPUTE, "BasePositionBuffer");
             if (var) var->Set(m_diligent->pBasePositionBuffer->GetDefaultView(Diligent::BUFFER_VIEW_SHADER_RESOURCE), Diligent::SET_SHADER_RESOURCE_FLAG_ALLOW_OVERWRITE);
         }
-        if (m_diligent->pAnimSRB[i] && m_diligent->pBasePositionBuffer) {
-            auto* var = m_diligent->pAnimSRB[i]->GetVariableByName(Diligent::SHADER_TYPE_COMPUTE, "BasePositionBuffer");
-            if (var) var->Set(m_diligent->pBasePositionBuffer->GetDefaultView(Diligent::BUFFER_VIEW_SHADER_RESOURCE), Diligent::SET_SHADER_RESOURCE_FLAG_ALLOW_OVERWRITE);
-        }
     }
 }
 
-void Renderer::createAnimPSO() {
-    m_diligent->pAnimPSO = CreateComputePipeline(m_diligent->pDevice, "Anim PSO", "resources/shaders/anim.comp");
-    m_diligent->pAnimConstants = CreateUniformBuffer(m_diligent->pDevice, "Anim Constants", 4 * sizeof(float));
-}

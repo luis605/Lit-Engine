@@ -274,15 +274,39 @@ struct ComponentSerializer {
     std::function<bool(World&, EntityHandle, std::istream&, const LoadContext&)> read;
     std::function<void(const IComponentPool&, const std::function<void(Entity)>&)> owners;
     std::type_index type;
+    std::function<bool(World&, EntityHandle)> create;
 };
 
 export class EntityBuilder;
+
+export struct WorldSnapshot {
+    std::vector<TransformComponent> transforms;
+    std::vector<HierarchyComponent> hierarchies;
+    std::vector<RenderableComponent> renderables;
+    std::vector<Entity> firstChild;
+    std::vector<Entity> nextSibling;
+    std::vector<Entity> prevSibling;
+    std::vector<uint8_t> alive;
+    std::vector<uint8_t> visible;
+    std::vector<uint32_t> generation;
+    std::vector<uint32_t> mesh;
+    std::vector<uint32_t> layer;
+    std::vector<std::string> tags;
+    std::vector<std::string> names;
+    std::vector<Entity> freeList;
+    Entity firstRoot = INVALID_ENTITY;
+    size_t aliveCount = 0;
+    std::string extras;
+    bool valid = false;
+};
 
 struct SpatialEntry {
     glm::vec3 center{0.0f};
     float radius = 0.0f;
     uint64_t cell = 0;
+    uint32_t slot = 0;
     uint8_t state = 0;
+    uint8_t animated = 0;
 };
 
 export class World {
@@ -372,6 +396,7 @@ export class World {
     [[nodiscard]] std::vector<std::string> componentNames() const;
     bool setComponentFromText(EntityHandle e, const std::string& componentName, const std::string& text);
     bool removeComponentByName(EntityHandle e, const std::string& componentName);
+    bool addComponentByName(EntityHandle e, const std::string& componentName);
     [[nodiscard]] std::optional<std::string> componentText(EntityHandle e, const std::string& componentName) const;
 
     Script* addScript(EntityHandle e, std::unique_ptr<Script> script);
@@ -459,7 +484,11 @@ export class World {
             [](const IComponentPool& p, const std::function<void(Entity)>& fn) {
                 for (Entity e : static_cast<const ComponentPool<T>&>(p).owners()) fn(e);
             },
-            std::type_index(typeid(T))};
+            std::type_index(typeid(T)),
+            {}};
+        if constexpr (std::is_default_constructible_v<T>) {
+            serializer.create = [](World& w, EntityHandle e) { return w.add<T>(e) != nullptr; };
+        }
         m_serializers.insert_or_assign(std::move(name), std::move(serializer));
     }
 
@@ -513,6 +542,9 @@ export class World {
     using SceneMigration = std::function<void(int fileVersion, std::string& line)>;
     void setSceneMigration(SceneMigration migration) { m_sceneMigration = std::move(migration); }
     void setRestoreCameraOnLoad(bool enabled) { m_restoreCameraOnLoad = enabled; }
+    void addSceneSection(std::string keyword, std::function<void(std::ostream&)> write, std::function<void(std::string_view)> read, std::function<void()> begin = {}, std::function<void()> end = {}) {
+        m_sceneSections.push_back({std::move(keyword), std::move(write), std::move(read), std::move(begin), std::move(end)});
+    }
     static constexpr int kSceneVersion = 3;
     static constexpr size_t kMaxSceneEntities = 50000000;
     static constexpr size_t kMaxSceneLineLength = 65536;
@@ -523,7 +555,9 @@ export class World {
     bool saveScene(std::ostream& out) const;
     bool loadScene(std::istream& in);
     [[nodiscard]] std::string snapshot() const;
-    bool restore(const std::string& snapshotText);
+    [[nodiscard]] WorldSnapshot captureSnapshot() const;
+    void restoreSnapshot(const WorldSnapshot& snapshot);
+    bool restore(const std::string& snapshotText, std::vector<EntityHandle>* remap = nullptr);
     bool loadScene(const std::filesystem::path& path);
     std::optional<std::vector<EntityHandle>> loadSceneAdditive(const std::filesystem::path& path, EntityHandle parent = NULL_ENTITY);
     void unloadGroup(const std::vector<EntityHandle>& roots);
@@ -559,7 +593,9 @@ export class World {
     void runScriptDestroy(Entity idx);
     void flushPendingDestroy();
     EntityHandle createImpl(const EntityDesc& desc);
-    std::optional<std::vector<EntityHandle>> loadSceneImpl(std::istream& in, bool additive, EntityHandle parent, bool trusted = false);
+    void writeExtras(std::ostream& out) const;
+    void applyExtraLines(const std::vector<std::string>& lines, const LoadContext& context);
+    std::optional<std::vector<EntityHandle>> loadSceneImpl(std::istream& in, bool additive, EntityHandle parent, bool trusted = false, std::vector<EntityHandle>* remap = nullptr);
     void clearTag(Entity idx);
     void setFlagBit(Entity idx, uint32_t bit, bool on);
     void link(Entity idx, Entity parent);
@@ -568,12 +604,16 @@ export class World {
     void touchTransform(Entity idx);
     void invalidateWorld(Entity idx) const;
     void syncAnimationCache() const;
-    void syncAnimationSpatial();
     [[nodiscard]] glm::mat4 effectiveLocal(Entity idx) const;
     [[nodiscard]] glm::mat4 worldNoCache(Entity idx) const;
-    void computeSpatialEntry(Entity idx, SpatialEntry& out) const;
+    [[nodiscard]] bool isAnimated(Entity idx) const;
+    [[nodiscard]] glm::mat4 sweptWorld(Entity idx, float& sweep) const;
+    void computeSpatialEntry(Entity idx, SpatialEntry& out, bool swept) const;
+    [[nodiscard]] SpatialEntry liveSpatial(Entity idx) const;
+    void insertSpatialEntry(Entity idx);
     void queueSpatial(Entity idx);
     void markSpatialSubtree(Entity idx);
+    void expandSpatialRoots();
     void refreshSpatial();
     void rebuildSpatialEntry(Entity idx);
     void removeSpatialEntry(Entity idx);
@@ -588,6 +628,8 @@ export class World {
     std::vector<SpatialEntry> m_spatial;
     std::vector<uint8_t> m_spatialQueued;
     std::vector<Entity> m_spatialPending;
+    std::vector<Entity> m_spatialRoots;
+    std::vector<uint8_t> m_spatialRootQueued;
     std::vector<Entity> m_spatialStack;
     std::unordered_map<uint64_t, std::vector<Entity>> m_cells;
     std::vector<Entity> m_largeEntities;
@@ -597,6 +639,14 @@ export class World {
     bool m_spatialActive = false;
     JobSystem* m_jobs = nullptr;
     SceneMigration m_sceneMigration;
+    struct SceneSection {
+        std::string keyword;
+        std::function<void(std::ostream&)> write;
+        std::function<void(std::string_view)> read;
+        std::function<void()> begin;
+        std::function<void()> end;
+    };
+    std::vector<SceneSection> m_sceneSections;
     bool m_restoreCameraOnLoad = true;
     Profiler* m_profiler = nullptr;
     EventBus m_events;
@@ -605,7 +655,6 @@ export class World {
     uint32_t m_animOffset = 0;
     float m_animTime = 0.0f;
     mutable float m_animCacheTime = std::numeric_limits<float>::quiet_NaN();
-    float m_animSpatialTime = std::numeric_limits<float>::quiet_NaN();
     EntityHandle m_activeCamera;
     std::vector<uint8_t> m_alive;
     std::vector<uint32_t> m_generation;
@@ -650,6 +699,7 @@ export class World {
 
 
 export bool collectLights(World& world, const glm::vec3& viewPos, LightSet& out, size_t maxLights = 64);
+export void registerCoreComponents(World& world);
 
 
 export class EntityBuilder {

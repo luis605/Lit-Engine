@@ -1,0 +1,14 @@
+vec3 effect(vec2 uv, vec3 color) {
+    vec2 t = litTexel();
+    float d = litLinearDepth(uv);
+    vec3 n = litNormal(uv);
+    float edge = 0.0;
+    for (int i = 0; i < 4; ++i) {
+        vec2 o = vec2(i == 0 ? t.x : i == 1 ? -t.x : 0.0, i == 2 ? t.y : i == 3 ? -t.y : 0.0);
+        float dd = abs(litLinearDepth(uv + o) - d) / max(d, 1e-3);
+        float dn = 1.0 - dot(litNormal(uv + o), n);
+        edge = max(edge, max(smoothstep(0.02, 0.06, dd), smoothstep(0.2, 0.5, dn)));
+    }
+    if (litIsSky(uv)) edge = 0.0;
+    return mix(color, vec3(0.0), edge * 0.85);
+}

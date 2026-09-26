@@ -1,0 +1,42 @@
+#version 450
+#extension GL_GOOGLE_include_directive : require
+#include "common.glsl"
+
+layout(local_size_x = 16, local_size_y = 16, local_size_z = 1) in;
+
+uniform sampler2D u_hdr;
+
+layout(std430) readonly buffer ExposureBuffer {
+    vec4 exposureData;
+};
+
+layout(std430) buffer HistogramBuffer {
+    uint bins[256];
+};
+
+layout(std140) uniform ExposureConstants {
+    vec4 u_range;
+    vec4 u_adapt;
+    vec4 u_speed;
+};
+
+shared uint s_bins[256];
+
+void main() {
+    uint local = gl_LocalInvocationIndex;
+    s_bins[local] = 0u;
+    barrier();
+    ivec2 size = textureSize(u_hdr, 0);
+    ivec2 pixel = ivec2(gl_GlobalInvocationID.xy) * 4;
+    if (all(lessThan(pixel, size))) {
+        float lum = luminance(texelFetch(u_hdr, pixel, 0).rgb) / max(exposureData.x, 1e-12);
+        uint bin = 0u;
+        if (lum > 1e-5) {
+            float t = saturate((log2(lum) - u_range.x) * u_range.y);
+            bin = uint(t * 254.0 + 1.0);
+        }
+        atomicAdd(s_bins[bin], 1u);
+    }
+    barrier();
+    atomicAdd(bins[local], s_bins[local]);
+}

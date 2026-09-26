@@ -1,0 +1,37 @@
+#version 450
+#extension GL_EXT_mesh_shader : require
+#extension GL_GOOGLE_include_directive : require
+#include "lit.glsl"
+
+layout(local_size_x = 32) in;
+layout(triangles, max_vertices = 64, max_primitives = 62) out;
+
+layout(location = 0) out vec3 out_normal[];
+layout(location = 1) out vec3 out_position[];
+
+vec3 wavePoint(vec2 p) {
+    float t = litTime();
+    float h = sin(p.x * 0.8 + t * 1.6) * 0.35 + cos(p.y * 0.6 + t * 1.1) * 0.25;
+    return vec3(p.x, h, p.y) + litParams[0].xyz;
+}
+
+void main() {
+    uint strip = gl_WorkGroupID.x;
+    uint lane = gl_LocalInvocationIndex;
+    SetMeshOutputsEXT(64, 62);
+    for (uint k = 0; k < 2; ++k) {
+        uint v = lane * 2 + k;
+        vec2 grid = vec2(float(v / 2), float(strip + (v & 1u))) * 0.5 - vec2(8.0);
+        vec3 p = wavePoint(grid);
+        vec3 dx = wavePoint(grid + vec2(0.05, 0.0)) - p;
+        vec3 dz = wavePoint(grid + vec2(0.0, 0.05)) - p;
+        out_position[v] = p;
+        out_normal[v] = normalize(cross(dz, dx));
+        gl_MeshVerticesEXT[v].gl_Position = viewProjection * vec4(p, 1.0);
+    }
+    if (lane < 31) {
+        uint a = lane * 2;
+        gl_PrimitiveTriangleIndicesEXT[lane * 2] = uvec3(a, a + 1, a + 2);
+        gl_PrimitiveTriangleIndicesEXT[lane * 2 + 1] = uvec3(a + 1, a + 3, a + 2);
+    }
+}

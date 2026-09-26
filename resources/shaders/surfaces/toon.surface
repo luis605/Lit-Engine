@@ -1,0 +1,5 @@
+void surface(in SurfaceInput i, inout Surface s) {
+    float rim = 1.0 - saturate(dot(i.viewDirection, s.normal));
+    s.emissive += s.baseColor * smoothstep(0.55, 0.7, rim) * 1500.0;
+    s.roughness = 0.9;
+}

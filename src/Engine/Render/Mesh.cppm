@@ -6,6 +6,7 @@ module;
 export module Engine.mesh;
 
 export constexpr std::size_t kLodLevelCount = 7;
+export constexpr std::size_t kVertexFloats = 8;
 
 export class Mesh {
   public:

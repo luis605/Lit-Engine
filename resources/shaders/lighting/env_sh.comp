@@ -1,0 +1,56 @@
+#version 450
+#extension GL_GOOGLE_include_directive : require
+#include "common.glsl"
+#include "cubemap.glsl"
+
+layout(local_size_x = 256, local_size_y = 1, local_size_z = 1) in;
+
+uniform samplerCube u_environment;
+
+layout(std430) writeonly buffer IrradianceBuffer {
+    vec4 shCoefficients[9];
+};
+
+shared vec3 s_partial[256];
+
+void basis(vec3 n, out float y[9]) {
+    y[0] = 0.282095;
+    y[1] = 0.488603 * n.y;
+    y[2] = 0.488603 * n.z;
+    y[3] = 0.488603 * n.x;
+    y[4] = 1.092548 * n.x * n.y;
+    y[5] = 1.092548 * n.y * n.z;
+    y[6] = 0.315392 * (3.0 * n.z * n.z - 1.0);
+    y[7] = 1.092548 * n.x * n.z;
+    y[8] = 0.546274 * (n.x * n.x - n.y * n.y);
+}
+
+void main() {
+    uint tid = gl_LocalInvocationID.x;
+    const float size = 32.0;
+    const uint texels = 32u * 32u * 6u;
+    vec3 acc[9];
+    for (int k = 0; k < 9; ++k) acc[k] = vec3(0.0);
+    for (uint t = tid; t < texels; t += 256u) {
+        uint face = t / 1024u;
+        uint local = t % 1024u;
+        vec2 uv = (vec2(float(local % 32u), float(local / 32u)) + 0.5) / size;
+        vec3 dir = cubeDirection(face, uv);
+        float solidAngle = cubeTexelSolidAngle(uv, size);
+        vec3 L = textureLod(u_environment, dir, 2.0).rgb * solidAngle;
+        float y[9];
+        basis(dir, y);
+        for (int k = 0; k < 9; ++k) acc[k] += L * y[k];
+    }
+    const float band[9] = float[](PI, 2.0 * PI / 3.0, 2.0 * PI / 3.0, 2.0 * PI / 3.0, PI / 4.0, PI / 4.0, PI / 4.0, PI / 4.0, PI / 4.0);
+    for (int k = 0; k < 9; ++k) {
+        s_partial[tid] = acc[k];
+        barrier();
+        for (uint stride = 128u; stride > 0u; stride >>= 1u) {
+            if (tid < stride) s_partial[tid] += s_partial[tid + stride];
+            barrier();
+        }
+        if (tid == 0u) shCoefficients[k] = vec4(s_partial[0] * band[k] * INV_PI, 0.0);
+        barrier();
+    }
+}

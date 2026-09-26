@@ -2365,7 +2365,66 @@ static void testSoakInvariants() {
     CHECK(w.validate().empty());
 }
 
+static void testSceneSections() {
+    std::vector<std::string> received;
+    int begins = 0;
+    auto install = [&](World& w) {
+        w.addSceneSection(
+            "note", [](std::ostream& out) { out << "note first line\nnote second\tvalue\n"; }, [&](std::string_view line) { received.emplace_back(line); }, [&] { ++begins; });
+    };
+    World source;
+    install(source);
+    source.create("a", 0);
+    std::stringstream saved;
+    CHECK(source.saveScene(saved));
+    World target;
+    install(target);
+    CHECK(target.loadScene(saved));
+    CHECK(target.aliveCount() == 1);
+    CHECK(begins == 1);
+    CHECK(received.size() == 2);
+    CHECK(received.size() == 2 && received[0] == "first line" && received[1] == "second\tvalue");
+    received.clear();
+    CHECK(target.restore(source.snapshot()));
+    CHECK(received.size() == 2);
+    World plain;
+    std::stringstream again(source.snapshot());
+    CHECK(plain.loadScene(again));
+    CHECK(plain.aliveCount() == 1);
+}
+
+static void testBinarySnapshot() {
+    World w;
+    w.setMeshBoundsHook([](uint32_t) { return glm::vec4(0.0f, 0.0f, 0.0f, 0.5f); });
+    auto root = w.create("root", 0, glm::vec3(1, 2, 3));
+    auto child = w.create("child", 1, glm::vec3(0, 1, 0), glm::vec3(2.0f), root);
+    auto loner = w.create("loner", 0);
+    w.setTag(child, "enemy");
+    w.setVisible(loner, false);
+    const WorldSnapshot snap = w.captureSnapshot();
+    w.destroy(root);
+    w.destroy(loner);
+    auto extra = w.create("extra", 0);
+    w.setPosition(extra, glm::vec3(9.0f));
+    w.restoreSnapshot(snap);
+    CHECK(w.aliveCount() == 3);
+    CHECK(w.isAlive(root) && w.isAlive(child) && w.isAlive(loner));
+    CHECK(w.getParent(child) == root);
+    CHECK(w.getTag(child) == "enemy");
+    CHECK(w.findByTag("enemy").size() == 1);
+    CHECK(!w.isVisible(loner));
+    CHECK(glm::length(w.getWorldPosition(child) - glm::vec3(1, 3, 3)) < 1e-4f);
+    auto hit = w.raycast(glm::vec3(1, 3, 10), glm::vec3(0, 0, -1));
+    CHECK(hit && hit->entity == child);
+    CHECK(w.validate().empty());
+    auto fresh = w.create("fresh", 0);
+    CHECK(w.isAlive(fresh) && w.aliveCount() == 4);
+    CHECK(!w.isAlive(extra) || extra.index == fresh.index);
+}
+
 int main() {
+    testSceneSections();
+    testBinarySnapshot();
     testHandles();
     testHierarchy();
     testKeepWorldTransform();

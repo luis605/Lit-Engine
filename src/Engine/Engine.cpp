@@ -7,8 +7,12 @@
 #include <array>
 #include <cmath>
 #include <cstdint>
+#include <charconv>
 #include <filesystem>
+#include <ostream>
+#include <string_view>
 #include <system_error>
+#include <type_traits>
 #include "Engine/Log/Log.hpp"
 
 import Engine.engine;
@@ -25,6 +29,9 @@ import Engine.Render.entity;
 import Engine.glm;
 import Engine.asset;
 import Engine.input;
+import Engine.Render.material;
+import Engine.Render.settings;
+import Engine.Render.custom;
 
 Engine::Engine() {
     m_world.setJobSystem(&m_jobs);
@@ -36,8 +43,174 @@ Engine::Engine() {
         },
         [this](const std::string& name) { return loadMesh(name); });
     m_world.setMeshBoundsHook([this](uint32_t id) { return m_renderer.getMeshBounds(id); });
+    registerCoreComponents(m_world);
+    registerSceneSections();
     addSystem(Phase::Update, "animation", [this](World& world, float dt) { updateAnimators(world, m_animations, dt); });
     addSystem(Phase::FixedUpdate, "physics", [this](World& world, float dt) { stepPhysics(world, dt, m_physics); });
+}
+
+namespace {
+
+template <typename M, typename F>
+void visitMaterialNumbers(M& m, F&& f) {
+    for (int i = 0; i < 3; ++i) f(m.baseColor[i]);
+    f(m.opacity);
+    f(m.metallic);
+    f(m.roughness);
+    f(m.reflectance);
+    f(m.occlusion);
+    for (int i = 0; i < 3; ++i) f(m.emissive[i]);
+    f(m.emissiveIntensity);
+    f(m.clearcoat);
+    f(m.clearcoatRoughness);
+    f(m.anisotropy);
+    f(m.anisotropyRotation);
+    for (int i = 0; i < 3; ++i) f(m.sheenColor[i]);
+    f(m.sheenRoughness);
+    for (int i = 0; i < 3; ++i) f(m.subsurfaceColor[i]);
+    f(m.subsurface);
+    f(m.transmission);
+    f(m.ior);
+    f(m.thickness);
+    f(m.normalStrength);
+    f(m.uvScale);
+    f(m.triplanar);
+    f(m.baseColorTexture);
+    f(m.normalTexture);
+    f(m.ormTexture);
+    f(m.emissiveTexture);
+    for (int i = 0; i < 4; ++i) f(m.custom0[i]);
+    for (int i = 0; i < 4; ++i) f(m.custom1[i]);
+}
+
+bool nextNumber(std::string_view& text, float& out) {
+    while (!text.empty() && text.front() == ' ') text.remove_prefix(1);
+    const auto [end, error] = std::from_chars(text.data(), text.data() + text.size(), out);
+    if (error != std::errc{}) return false;
+    text.remove_prefix(static_cast<size_t>(end - text.data()));
+    return true;
+}
+
+}  // namespace
+
+void Engine::registerSceneSections() {
+    m_world.addSceneSection(
+        "texture",
+        [this](std::ostream& out) {
+            for (int srgb = 0; srgb < 2; ++srgb) {
+                for (size_t i = 0; i < m_texturePaths[srgb].size(); ++i) {
+                    if (!m_texturePaths[srgb][i].empty()) out << "texture " << srgb << ' ' << i << '\t' << m_texturePaths[srgb][i] << '\n';
+                }
+            }
+        },
+        [this](std::string_view line) {
+            const size_t tab = line.find('\t');
+            if (tab == std::string_view::npos) return;
+            std::string_view head = line.substr(0, tab);
+            float srgb = 0.0f, index = 0.0f;
+            if (!nextNumber(head, srgb) || !nextNumber(head, index)) return;
+            const int kind = srgb > 0.5f ? 1 : 0;
+            const int loaded = loadTexture(std::string(line.substr(tab + 1)), kind == 1);
+            if (loaded >= 0) m_textureRemap[kind][static_cast<int>(index)] = loaded;
+        },
+        [this] {
+            m_textureRemap[0].clear();
+            m_textureRemap[1].clear();
+        });
+    m_world.addSceneSection(
+        "surface",
+        [this](std::ostream& out) {
+            const std::vector<std::string> names = m_renderer.surfaceNames();
+            for (uint32_t id = 0; id < names.size(); ++id) out << "surface " << id << '\t' << names[id] << '\t' << m_renderer.surfacePath(id) << '\n';
+        },
+        [this](std::string_view line) {
+            const size_t first = line.find('\t');
+            const size_t second = first == std::string_view::npos ? first : line.find('\t', first + 1);
+            if (second == std::string_view::npos) return;
+            std::string_view idText = line.substr(0, first);
+            float saved = 0.0f;
+            if (!nextNumber(idText, saved)) return;
+            const std::string name(line.substr(first + 1, second - first - 1));
+            const std::vector<std::string> names = m_renderer.surfaceNames();
+            uint32_t id = 0;
+            const auto known = std::find(names.begin(), names.end(), name);
+            if (known != names.end()) {
+                id = static_cast<uint32_t>(known - names.begin());
+            } else {
+                id = loadShader(name, std::string(line.substr(second + 1)));
+            }
+            if (id != static_cast<uint32_t>(saved)) m_surfaceRemap[static_cast<uint32_t>(saved)] = id;
+        },
+        [this] { m_surfaceRemap.clear(); },
+        [this] {
+            if (m_surfaceRemap.empty()) return;
+            m_world.forEach([&](EntityHandle e) {
+                const auto it = m_surfaceRemap.find(m_world.getRenderable(e).shaderId);
+                if (it != m_surfaceRemap.end()) m_world.setShader(e, it->second);
+            });
+            m_surfaceRemap.clear();
+        });
+    m_world.addSceneSection(
+        "material",
+        [this](std::ostream& out) {
+            out.precision(9);
+            for (size_t id = 0; id < m_materials.size(); ++id) {
+                out << "material " << id;
+                visitMaterialNumbers(m_materials[id], [&](const auto& value) { out << ' ' << static_cast<float>(value); });
+                out << '\t' << m_materials[id].name << '\n';
+            }
+        },
+        [this](std::string_view line) {
+            const size_t tab = line.find('\t');
+            std::string_view numbers = line.substr(0, tab);
+            float idValue = 0.0f;
+            if (!nextNumber(numbers, idValue) || idValue < 0.0f || idValue >= 1024.0f) return;
+            const auto id = static_cast<uint32_t>(idValue);
+            Material m;
+            bool ok = true;
+            visitMaterialNumbers(m, [&](auto& field) {
+                float value = 0.0f;
+                ok = ok && nextNumber(numbers, value);
+                if (ok) field = static_cast<std::remove_reference_t<decltype(field)>>(value);
+            });
+            if (!ok) return;
+            if (tab != std::string_view::npos) m.name = std::string(line.substr(tab + 1));
+            const auto remap = [](const std::unordered_map<int, int>& table, int& texture) {
+                if (texture < 0) return;
+                const auto it = table.find(texture);
+                texture = it == table.end() ? NO_TEXTURE : it->second;
+            };
+            remap(m_textureRemap[1], m.baseColorTexture);
+            remap(m_textureRemap[1], m.emissiveTexture);
+            remap(m_textureRemap[0], m.normalTexture);
+            remap(m_textureRemap[0], m.ormTexture);
+            while (m_materials.size() <= id) createMaterial(Material{});
+            setMaterial(id, m);
+        });
+    m_world.addSceneSection(
+        "render",
+        [this](std::ostream& out) {
+            if (m_renderer.initialized()) writeRenderSettings(m_renderer.settings(), out, "render ");
+        },
+        [this](std::string_view line) {
+            const size_t space = line.find(' ');
+            if (!m_renderer.initialized()) return;
+            if (space != std::string_view::npos) setRenderSetting(m_renderer.settings(), line.substr(0, space), line.substr(space + 1));
+        });
+    m_world.addSceneSection(
+        "pass", [this](std::ostream& out) { m_renderer.custom().save(out, "pass "); }, [this](std::string_view line) { m_renderer.custom().load(line); });
+}
+
+int Engine::loadTexture(const std::string& path, bool srgb) {
+    auto& paths = m_texturePaths[srgb ? 1 : 0];
+    for (size_t i = 0; i < paths.size(); ++i) {
+        if (paths[i] == path) return static_cast<int>(i);
+    }
+    const int index = m_renderer.loadTexture(path, srgb);
+    if (index < 0) return index;
+    if (paths.size() <= static_cast<size_t>(index)) paths.resize(static_cast<size_t>(index) + 1);
+    paths[static_cast<size_t>(index)] = path;
+    return index;
 }
 
 uint32_t Engine::loadMesh(const std::string& name) {
@@ -62,6 +235,21 @@ uint32_t Engine::loadMesh(const std::string& name) {
     return id;
 }
 
+std::string Engine::meshName(uint32_t id) const {
+    const auto it = m_meshNames.find(id);
+    return it == m_meshNames.end() ? std::string() : it->second;
+}
+
+std::vector<std::string> Engine::availableMeshes() const {
+    std::vector<std::string> names;
+    std::error_code ec;
+    for (const auto& entry : std::filesystem::directory_iterator("resources/models", ec)) {
+        if (entry.path().extension() == ".obj") names.push_back(entry.path().stem().string());
+    }
+    std::sort(names.begin(), names.end());
+    return names;
+}
+
 Engine::~Engine() { cleanup(); }
 
 bool Engine::open(const WindowConfig& config) {
@@ -77,6 +265,7 @@ bool Engine::open(const WindowConfig& config) {
         glfwTerminate();
         return false;
     }
+    Lit::Log::Phase("window");
     m_ownsWindow = true;
     InputManager::Init(window);
     init(window, config.width, config.height);
@@ -89,6 +278,7 @@ int Engine::run(const std::function<void(float)>& frame) {
         const double now = glfwGetTime();
         const auto deltaTime = static_cast<float>(now - last);
         last = now;
+        beginUi();
         if (frame) frame(deltaTime);
         tick(deltaTime);
         update();
@@ -99,6 +289,10 @@ int Engine::run(const std::function<void(float)>& frame) {
     cleanup();
     return 0;
 }
+
+bool Engine::enableImGui() { return m_renderer.enableImGui(); }
+
+void Engine::beginUi() { m_renderer.beginUi(); }
 
 void Engine::setMouseCaptured(bool captured) {
     m_mouseCaptured = captured;
@@ -245,7 +439,7 @@ void Engine::update() {
     }
     m_world.syncCamera();
     LightSet lights;
-    const bool hasLights = collectLights(m_world, m_world.camera().getPosition(), lights);
+    const bool hasLights = collectLights(m_world, m_world.camera().getPosition(), lights, 1024);
     m_renderer.setLights(hasLights, lights.directional, lights.packed);
     syncWindowSize(m_world.camera());
     m_renderer.drawScene(m_world.database(), m_world.camera());
@@ -254,7 +448,7 @@ void Engine::update() {
 void Engine::update(World& world) {
     world.syncCamera();
     LightSet lights;
-    const bool hasLights = collectLights(world, world.camera().getPosition(), lights);
+    const bool hasLights = collectLights(world, world.camera().getPosition(), lights, 1024);
     m_renderer.setLights(hasLights, lights.directional, lights.packed);
     syncWindowSize(world.camera());
     m_renderer.drawScene(world.database(), world.camera());
@@ -347,15 +541,44 @@ void Engine::applyWorldAnimation() {
 }
 
 uint32_t Engine::createMaterial(const glm::vec3& color, float strength) {
-    constexpr uint32_t maxMaterials = 1024;
-    if (m_materialCount >= maxMaterials) return 0;
-    const uint32_t id = m_materialCount++;
-    updateMaterial(id, color, strength);
-    return id;
+    Material m;
+    m.name = "Material " + std::to_string(m_materials.size());
+    m.baseColor = color * std::clamp(strength, 0.0f, 1.0f) + glm::vec3(0.8f) * (1.0f - std::clamp(strength, 0.0f, 1.0f));
+    return createMaterial(m);
 }
 
 void Engine::updateMaterial(uint32_t id, const glm::vec3& color, float strength) {
-    m_renderer.setMaterial(id, glm::vec4(color, std::clamp(strength, 0.0f, 1.0f)));
+    if (id >= m_materials.size()) return;
+    Material m = m_materials[id];
+    m.baseColor = color * std::clamp(strength, 0.0f, 1.0f) + glm::vec3(0.8f) * (1.0f - std::clamp(strength, 0.0f, 1.0f));
+    setMaterial(id, m);
+}
+
+uint32_t Engine::createMaterial(const Material& material) {
+    constexpr uint32_t maxMaterials = 1024;
+    if (m_materials.size() >= maxMaterials) return 0;
+    const auto id = static_cast<uint32_t>(m_materials.size());
+    m_materials.push_back(material);
+    uploadMaterial(id);
+    return id;
+}
+
+void Engine::setMaterial(uint32_t id, const Material& material) {
+    if (id >= m_materials.size()) return;
+    m_materials[id] = material;
+    uploadMaterial(id);
+}
+
+const Material& Engine::material(uint32_t id) const { return m_materials[id < m_materials.size() ? id : 0]; }
+
+void Engine::uploadMaterial(uint32_t id) {
+    const Material& m = m_materials[id];
+    m_renderer.setMaterial(id, m);
+}
+
+uint32_t Engine::loadShader(const std::string& name, const std::string& path) {
+    const std::string resolved = path.empty() ? "resources/shaders/surfaces/" + name + ".surface" : path;
+    return m_renderer.loadSurfaceShader(name, resolved);
 }
 
 Ray Engine::screenRay(float screenX, float screenY) {

@@ -309,6 +309,7 @@ void World::shrinkSlots(size_t count) {
     m_prevSibling.resize(count);
     if (m_spatial.size() > count) m_spatial.resize(count);
     if (m_spatialQueued.size() > count) m_spatialQueued.resize(count);
+    if (m_spatialRootQueued.size() > count) m_spatialRootQueued.resize(count);
     if (m_worldCache.size() > count) {
         m_worldCache.resize(count);
         m_worldDirty.resize(count);
@@ -524,7 +525,6 @@ void World::setAnimation(uint32_t firstEntity, std::vector<glm::vec3> basePositi
     m_animOffset = firstEntity;
     m_animBase = std::move(basePositions);
     m_animCacheTime = std::numeric_limits<float>::quiet_NaN();
-    m_animSpatialTime = std::numeric_limits<float>::quiet_NaN();
 }
 
 glm::mat4 World::effectiveLocal(Entity idx) const {
@@ -541,15 +541,6 @@ void World::syncAnimationCache() const {
     const size_t end = std::min<size_t>(m_animBase.size() + m_animOffset, m_alive.size());
     for (size_t i = m_animOffset; i < end; ++i) {
         if (m_alive[i]) invalidateWorld(static_cast<Entity>(i));
-    }
-}
-
-void World::syncAnimationSpatial() {
-    if (m_animBase.empty() || m_animSpatialTime == m_animTime) return;
-    m_animSpatialTime = m_animTime;
-    const size_t end = std::min<size_t>(m_animBase.size() + m_animOffset, m_alive.size());
-    for (size_t i = m_animOffset; i < end; ++i) {
-        if (m_alive[i]) queueSpatial(static_cast<Entity>(i));
     }
 }
 
@@ -726,6 +717,8 @@ void World::clear() {
     m_spatial.clear();
     m_spatialQueued.clear();
     m_spatialPending.clear();
+    m_spatialRoots.clear();
+    m_spatialRootQueued.clear();
     m_cells.clear();
     m_largeEntities.clear();
     m_spatialActive = false;
@@ -769,12 +762,12 @@ bool World::saveScene(std::ostream& out) const {
             if (!name.empty()) out << "mesh " << id << '\t' << name << '\n';
         }
     }
-    std::string line;
-    for (Entity i = 0; i < m_alive.size(); ++i) {
-        if (!m_alive[i]) continue;
+    for (const SceneSection& section : m_sceneSections) {
+        if (section.write) section.write(out);
+    }
+    const auto appendEntity = [this](std::string& line, Entity i) {
         const auto& r = m_db.renderables[i];
         const Entity parent = m_db.hierarchies[i].parent;
-        line.clear();
         appendNumber(line, i);
         line.push_back(' ');
         appendNumber(line, parent == INVALID_ENTITY ? -1LL : static_cast<long long>(parent));
@@ -800,11 +793,67 @@ bool World::saveScene(std::ostream& out) const {
         line.push_back('\t');
         line.append(m_names[i]);
         line.push_back('\n');
-        out.write(line.data(), static_cast<std::streamsize>(line.size()));
+    };
+    constexpr size_t kChunk = 1 << 16;
+    const size_t slots = m_alive.size();
+    const size_t chunks = (slots + kChunk - 1) / kChunk;
+    if (m_jobs && chunks > 1) {
+        std::vector<std::string> buffers(chunks);
+        m_jobs->parallelFor(chunks, 1, [&](size_t begin, size_t end) {
+            for (size_t c = begin; c < end; ++c) {
+                std::string& buffer = buffers[c];
+                buffer.reserve(kChunk * 96);
+                const size_t last = std::min(slots, (c + 1) * kChunk);
+                for (size_t i = c * kChunk; i < last; ++i) {
+                    if (m_alive[i]) appendEntity(buffer, static_cast<Entity>(i));
+                }
+            }
+        });
+        for (const std::string& buffer : buffers) out.write(buffer.data(), static_cast<std::streamsize>(buffer.size()));
+    } else {
+        std::string line;
+        for (Entity i = 0; i < slots; ++i) {
+            if (!m_alive[i]) continue;
+            line.clear();
+            appendEntity(line, i);
+            out.write(line.data(), static_cast<std::streamsize>(line.size()));
+        }
     }
     for (Entity i = 0; i < m_alive.size(); ++i) {
         if (m_alive[i] && !m_tags[i].empty()) out << "tag " << i << '\t' << m_tags[i] << '\n';
     }
+    writeExtras(out);
+    return static_cast<bool>(out);
+}
+
+void World::applyExtraLines(const std::vector<std::string>& componentLines, const LoadContext& context) {
+    for (const std::string& componentLine : componentLines) {
+        const size_t tab = componentLine.find('\t');
+        if (tab == std::string::npos) continue;
+        std::istringstream head(componentLine.substr(0, tab));
+        std::string keyword, name;
+        long long id = -1;
+        if (componentLine.rfind("tag ", 0) == 0) {
+            head >> keyword >> id;
+            const EntityHandle handle = id < 0 ? NULL_ENTITY : context.resolve(static_cast<uint32_t>(id));
+            if (head && !handle.isNull()) setTag(handle, componentLine.substr(tab + 1));
+            continue;
+        }
+        head >> keyword >> name >> id;
+        const EntityHandle handle = id < 0 ? NULL_ENTITY : context.resolve(static_cast<uint32_t>(id));
+        if (!head || handle.isNull()) continue;
+        std::istringstream payload(componentLine.substr(tab + 1));
+        if (keyword == "script") {
+            const auto scriptSerializer = m_scriptSerializers.find(name);
+            if (scriptSerializer != m_scriptSerializers.end()) scriptSerializer->second.read(*this, handle, payload, context);
+            continue;
+        }
+        const auto serializer = m_serializers.find(name);
+        if (serializer != m_serializers.end()) serializer->second.read(*this, handle, payload, context);
+    }
+}
+
+void World::writeExtras(std::ostream& out) const {
     for (const auto& [name, serializer] : m_serializers) {
         const auto pool = m_pools.find(serializer.type);
         if (pool == m_pools.end()) continue;
@@ -829,10 +878,9 @@ bool World::saveScene(std::ostream& out) const {
             out << "script " << nameIt->second << ' ' << idx << '\t' << payload.str() << '\n';
         }
     }
-    return static_cast<bool>(out);
 }
 
-std::optional<std::vector<EntityHandle>> World::loadSceneImpl(std::istream& in, bool additive, EntityHandle parent, bool trusted) {
+std::optional<std::vector<EntityHandle>> World::loadSceneImpl(std::istream& in, bool additive, EntityHandle parent, bool trusted, std::vector<EntityHandle>* remap) {
     std::optional<ProfileScope> profile;
     if (m_profiler) profile.emplace(*m_profiler, "World::loadScene");
     if (!in) return std::nullopt;
@@ -850,53 +898,109 @@ std::optional<std::vector<EntityHandle>> World::loadSceneImpl(std::istream& in, 
         if (secondNewline == std::string::npos) return std::nullopt;
         bodyStart = secondNewline + 1;
     }
-    {
-        size_t entityLines = 0;
-        for (size_t pos = bodyStart; pos < content.size();) {
-            size_t end = content.find('\n', pos);
-            if (end == std::string::npos) end = content.size();
-            if (end > pos && content[pos] >= '0' && content[pos] <= '9') ++entityLines;
-            pos = end + 1;
+    std::vector<std::string_view> lineViews;
+    lineViews.reserve(count + 64);
+    for (size_t pos = bodyStart; pos < content.size();) {
+        size_t end = content.find('\n', pos);
+        if (end == std::string::npos) end = content.size();
+        if (!trusted && end - pos > kMaxSceneLineLength) return std::nullopt;
+        if (end > pos) lineViews.emplace_back(content.data() + pos, end - pos);
+        pos = end + 1;
+    }
+    std::vector<std::string> migrated;
+    if (m_sceneMigration && version < kSceneVersion) {
+        migrated.reserve(lineViews.size());
+        for (std::string_view view : lineViews) {
+            migrated.emplace_back(view);
+            m_sceneMigration(version, migrated.back());
         }
-        if (entityLines != count) return std::nullopt;
+        for (size_t i = 0; i < lineViews.size(); ++i) lineViews[i] = migrated[i];
+    }
+    const auto isEntityLine = [](std::string_view view) { return !view.empty() && view[0] >= '0' && view[0] <= '9'; };
+    std::vector<uint32_t> entityLines;
+    entityLines.reserve(count);
+    for (uint32_t i = 0; i < lineViews.size(); ++i) {
+        if (isEntityLine(lineViews[i])) entityLines.push_back(i);
+    }
+    if (entityLines.size() != count) return std::nullopt;
+
+    struct Parsed {
+        long long id = 0;
+        long long parent = -1;
+        int visible = 1;
+        uint32_t mesh = 0;
+        uint32_t material = 0;
+        uint32_t shader = 0;
+        float alpha = 1.0f;
+        glm::mat4 local{1.0f};
+        uint32_t layer = 1;
+        uint32_t flags = 0;
+        std::string_view name;
+        bool ok = false;
+    };
+    std::vector<Parsed> parsed(count);
+    const auto parseRange = [&](size_t begin, size_t end) {
+        for (size_t k = begin; k < end; ++k) {
+            const std::string_view line = lineViews[entityLines[k]];
+            Parsed& p = parsed[k];
+            const size_t tab = line.find('\t');
+            std::string_view fields = line.substr(0, tab);
+            bool ok = readNumber(fields, p.id) && readNumber(fields, p.parent) && readNumber(fields, p.visible) && readNumber(fields, p.mesh) && readNumber(fields, p.material) && readNumber(fields, p.shader) && readNumber(fields, p.alpha);
+            float* m = &p.local[0][0];
+            for (int c = 0; ok && c < 16; ++c) ok = readNumber(fields, m[c]) && (trusted || std::isfinite(m[c]));
+            if (!readNumber(fields, p.layer)) p.layer = 1;
+            if (!readNumber(fields, p.flags)) p.flags = 0;
+            if (tab != std::string_view::npos) {
+                p.name = line.substr(tab + 1);
+                if (!trusted && p.name.size() > kMaxNameLength) ok = false;
+                if (p.name.size() > kMaxNameLength) p.name = p.name.substr(0, kMaxNameLength);
+            }
+            if (!trusted && (p.id < 0 || p.parent < -1 || !std::isfinite(p.alpha))) ok = false;
+            p.ok = ok;
+        }
+    };
+    if (m_jobs && count > 16384) {
+        m_jobs->parallelFor(count, 8192, parseRange);
+    } else {
+        parseRange(0, count);
+    }
+    long long maxId = -1;
+    for (const Parsed& p : parsed) {
+        if (!p.ok) {
+            if (trusted && !additive) clear();
+            return std::nullopt;
+        }
+        maxId = std::max(maxId, p.id);
+    }
+    const bool denseIds = maxId >= 0 && static_cast<size_t>(maxId) <= count * 4 + 1024;
+    std::vector<EntityHandle> denseHandles;
+    std::unordered_map<long long, EntityHandle> sparseHandles;
+    if (denseIds) {
+        denseHandles.assign(static_cast<size_t>(maxId) + 1, NULL_ENTITY);
+    } else {
+        sparseHandles.reserve(count);
     }
     if (!trusted) {
-        std::unordered_set<long long> seenIds;
-        seenIds.reserve(count);
-        std::string checkLine;
-        for (size_t pos = bodyStart; pos < content.size();) {
-            size_t end = content.find('\n', pos);
-            if (end == std::string::npos) end = content.size();
-            if (end - pos > kMaxSceneLineLength) return std::nullopt;
-            checkLine.assign(content, pos, end - pos);
-            pos = end + 1;
-            if (checkLine.empty()) continue;
-            if (m_sceneMigration && version < kSceneVersion) m_sceneMigration(version, checkLine);
-            if (checkLine[0] < '0' || checkLine[0] > '9') continue;
-            const size_t tabAt = checkLine.find('\t');
-            if (tabAt != std::string::npos && checkLine.size() - tabAt - 1 > kMaxNameLength) return std::nullopt;
-            std::string_view fields(checkLine.data(), tabAt == std::string::npos ? checkLine.size() : tabAt);
-            long long id = 0, parentId = 0;
-            int visibleFlag = 0;
-            uint32_t meshId = 0, materialId = 0, shaderId = 0;
-            float alphaValue = 0.0f;
-            if (!(readNumber(fields, id) && readNumber(fields, parentId) && readNumber(fields, visibleFlag) && readNumber(fields, meshId) && readNumber(fields, materialId) && readNumber(fields, shaderId) && readNumber(fields, alphaValue))) return std::nullopt;
-            if (id < 0 || parentId < -1 || !std::isfinite(alphaValue) || !seenIds.insert(id).second) return std::nullopt;
-            for (int k = 0; k < 16; ++k) {
-                float value = 0.0f;
-                if (!readNumber(fields, value) || !std::isfinite(value)) return std::nullopt;
+        if (denseIds) {
+            std::vector<uint8_t> seen(static_cast<size_t>(maxId) + 1, 0);
+            for (const Parsed& p : parsed) {
+                if (seen[static_cast<size_t>(p.id)]) return std::nullopt;
+                seen[static_cast<size_t>(p.id)] = 1;
+            }
+        } else {
+            std::unordered_set<long long> seen;
+            seen.reserve(count);
+            for (const Parsed& p : parsed) {
+                if (!seen.insert(p.id).second) return std::nullopt;
             }
         }
     }
-
-    struct Record {
-        long long id;
-        long long parent;
+    const auto lookup = [&](long long id) -> EntityHandle {
+        if (id < 0) return NULL_ENTITY;
+        if (denseIds) return static_cast<size_t>(id) < denseHandles.size() ? denseHandles[static_cast<size_t>(id)] : NULL_ENTITY;
+        const auto it = sparseHandles.find(id);
+        return it == sparseHandles.end() ? NULL_ENTITY : it->second;
     };
-    std::vector<Record> records;
-    std::unordered_map<long long, EntityHandle> handles;
-    handles.reserve(count);
-    records.reserve(count);
 
     if (!additive) clear();
     reserve(m_alive.size() + count);
@@ -904,21 +1008,17 @@ std::optional<std::vector<EntityHandle>> World::loadSceneImpl(std::istream& in, 
     created.reserve(count);
     std::vector<std::string> componentLines;
     std::unordered_map<uint32_t, uint32_t> meshRemap;
+    std::vector<std::pair<size_t, std::string>> sectionLines;
     std::array<float, 8> cameraValues{};
     bool hasCamera = false;
-    std::string line;
-    for (size_t pos = bodyStart; pos < content.size();) {
-        size_t end = content.find('\n', pos);
-        if (end == std::string::npos) end = content.size();
-        line.assign(content, pos, end - pos);
-        pos = end + 1;
-        if (line.empty()) continue;
-        if (m_sceneMigration && version < kSceneVersion) m_sceneMigration(version, line);
+    for (std::string_view view : lineViews) {
+        if (isEntityLine(view)) continue;
+        const std::string line(view);
         if (line.rfind("camera ", 0) == 0) {
-            std::string_view view(line);
-            view.remove_prefix(7);
+            std::string_view values(line);
+            values.remove_prefix(7);
             hasCamera = true;
-            for (float& v : cameraValues) hasCamera = hasCamera && readNumber(view, v);
+            for (float& v : cameraValues) hasCamera = hasCamera && readNumber(values, v);
             continue;
         }
         if (line.rfind("meta ", 0) == 0) continue;
@@ -933,90 +1033,67 @@ std::optional<std::vector<EntityHandle>> World::loadSceneImpl(std::istream& in, 
             componentLines.push_back(line);
             continue;
         }
-        if (line[0] < '0' || line[0] > '9') continue;
-        const size_t tab = line.find('\t');
-        std::string_view fields(line.data(), tab == std::string::npos ? line.size() : tab);
-        long long id = 0, parent = -1;
-        int visible = 1;
-        EntityDesc desc;
-        glm::mat4 local;
-        float* m = &local[0][0];
-        bool ok = readNumber(fields, id) && readNumber(fields, parent) && readNumber(fields, visible) && readNumber(fields, desc.mesh) && readNumber(fields, desc.material) && readNumber(fields, desc.shader) && readNumber(fields, desc.alpha);
-        for (int k = 0; ok && k < 16; ++k) ok = readNumber(fields, m[k]);
-        if (!ok) {
-            if (additive) {
-                destroyBatch(created);
-            } else {
-                clear();
+        if (!additive) {
+            for (size_t k = 0; k < m_sceneSections.size(); ++k) {
+                const std::string& keyword = m_sceneSections[k].keyword;
+                if (line.size() > keyword.size() && line.compare(0, keyword.size(), keyword) == 0 && line[keyword.size()] == ' ') {
+                    sectionLines.emplace_back(k, line.substr(keyword.size() + 1));
+                    break;
+                }
             }
-            return std::nullopt;
         }
-        uint32_t layer = 1;
-        if (!readNumber(fields, layer)) layer = 1;
-        uint32_t renderFlags = 0;
-        if (!readNumber(fields, renderFlags)) renderFlags = 0;
-        if (tab != std::string::npos) desc.name = line.substr(tab + 1, kMaxNameLength);
-        if (const auto remap = meshRemap.find(desc.mesh); remap != meshRemap.end()) desc.mesh = remap->second;
+    }
+    for (const Parsed& p : parsed) {
+        EntityDesc desc;
+        desc.mesh = p.mesh;
+        desc.material = p.material;
+        desc.shader = p.shader;
+        desc.alpha = p.alpha;
+        desc.name = std::string(p.name);
+        if (const auto meshIt = meshRemap.find(desc.mesh); meshIt != meshRemap.end()) desc.mesh = meshIt->second;
         const EntityHandle h = createImpl(desc);
-        m_db.transforms[h.index].localMatrix = local;
-        m_layer[h.index] = layer;
-        m_db.renderables[h.index].flags |= renderFlags;
-        if (!visible) {
+        m_db.transforms[h.index].localMatrix = p.local;
+        m_layer[h.index] = p.layer;
+        m_db.renderables[h.index].flags |= p.flags;
+        if (!p.visible) {
             m_visible[h.index] = 0;
             m_db.renderables[h.index].flags |= RENDER_HIDDEN;
         }
         queueSpatial(h.index);
         m_events.emit(EntityCreated{h});
-        handles[id] = h;
+        if (denseIds) {
+            denseHandles[static_cast<size_t>(p.id)] = h;
+        } else {
+            sparseHandles[p.id] = h;
+        }
         created.push_back(h);
-        records.push_back({id, parent});
     }
 
     std::vector<EntityHandle> roots;
-    for (const Record& r : records) {
-        const auto it = r.parent < 0 ? handles.end() : handles.find(r.parent);
-        if (it != handles.end() && it->second == handles[r.id]) {
-            roots.push_back(handles[r.id]);
-            if (additive && valid(parent)) setParent(handles[r.id], parent, false);
-        } else if (it != handles.end()) {
-            setParent(handles[r.id], it->second, false);
+    for (size_t k = 0; k < parsed.size(); ++k) {
+        const EntityHandle self = created[k];
+        const EntityHandle parentHandle = lookup(parsed[k].parent);
+        if (!parentHandle.isNull() && parentHandle != self) {
+            setParent(self, parentHandle, false);
         } else {
-            roots.push_back(handles[r.id]);
-            if (additive && valid(parent)) setParent(handles[r.id], parent, false);
+            roots.push_back(self);
+            if (additive && valid(parent)) setParent(self, parent, false);
         }
     }
 
     LoadContext context;
-    context.resolveFn = [&handles](uint32_t savedIndex) {
-        const auto it = handles.find(static_cast<long long>(savedIndex));
-        return it == handles.end() ? NULL_ENTITY : it->second;
-    };
-    for (const std::string& componentLine : componentLines) {
-        const size_t tab = componentLine.find('\t');
-        if (tab == std::string::npos) continue;
-        std::istringstream head(componentLine.substr(0, tab));
-        std::string keyword, name;
-        long long id;
-        if (componentLine.rfind("tag ", 0) == 0) {
-            head >> keyword >> id;
-            const auto handle = handles.find(id);
-            if (head && handle != handles.end()) setTag(handle->second, componentLine.substr(tab + 1));
-            continue;
+    context.resolveFn = [&lookup](uint32_t savedIndex) { return lookup(static_cast<long long>(savedIndex)); };
+    applyExtraLines(componentLines, context);
+    if (!additive) {
+        for (const SceneSection& section : m_sceneSections) {
+            if (section.begin) section.begin();
         }
-        head >> keyword >> name >> id;
-        if (keyword == "script") {
-            const auto scriptSerializer = m_scriptSerializers.find(name);
-            const auto scriptHandle = handles.find(id);
-            if (!head || scriptSerializer == m_scriptSerializers.end() || scriptHandle == handles.end()) continue;
-            std::istringstream scriptPayload(componentLine.substr(tab + 1));
-            scriptSerializer->second.read(*this, scriptHandle->second, scriptPayload, context);
-            continue;
+        for (const auto& [index, text] : sectionLines) {
+            if (m_sceneSections[index].read) m_sceneSections[index].read(text);
         }
-        const auto serializer = m_serializers.find(name);
-        const auto handle = handles.find(id);
-        if (!head || serializer == m_serializers.end() || handle == handles.end()) continue;
-        std::istringstream payload(componentLine.substr(tab + 1));
-        serializer->second.read(*this, handle->second, payload, context);
+        for (const SceneSection& section : m_sceneSections) {
+            if (section.end) section.end();
+        }
     }
     if (hasCamera && m_restoreCameraOnLoad && !additive) {
         m_camera.setPos(glm::vec3(cameraValues[0], cameraValues[1], cameraValues[2]));
@@ -1024,6 +1101,9 @@ std::optional<std::vector<EntityHandle>> World::loadSceneImpl(std::istream& in, 
         m_camera.setFov(cameraValues[5]);
         m_camera.setNearPlane(cameraValues[6]);
         m_camera.setFarPlane(cameraValues[7]);
+    }
+    if (remap) {
+        for (EntityHandle& h : *remap) h = lookup(static_cast<long long>(h.index));
     }
     touchStructure();
     return roots;
@@ -1041,15 +1121,121 @@ std::optional<std::vector<EntityHandle>> World::loadSceneAdditive(const std::fil
     return loadSceneImpl(in, true, parent);
 }
 
+WorldSnapshot World::captureSnapshot() const {
+    WorldSnapshot snap;
+    snap.transforms = m_db.transforms;
+    snap.hierarchies = m_db.hierarchies;
+    snap.renderables = m_db.renderables;
+    snap.firstChild = m_db.firstChild;
+    snap.nextSibling = m_db.nextSibling;
+    snap.prevSibling = m_prevSibling;
+    snap.alive = m_alive;
+    snap.visible = m_visible;
+    snap.generation = m_generation;
+    snap.mesh = m_mesh;
+    snap.layer = m_layer;
+    snap.tags = m_tags;
+    snap.names = m_names;
+    snap.freeList = m_freeList;
+    snap.firstRoot = m_firstRoot;
+    snap.aliveCount = m_aliveCount;
+    std::ostringstream extras;
+    extras.precision(9);
+    {
+        const glm::vec3 p = m_camera.getPosition();
+        extras << "camera " << p.x << ' ' << p.y << ' ' << p.z << ' ' << m_camera.getYaw() << ' ' << m_camera.getPitch() << ' ' << m_camera.getFov() << ' ' << m_camera.getNearPlane() << ' ' << m_camera.getFarPlane() << '\n';
+    }
+    for (const SceneSection& section : m_sceneSections) {
+        if (section.write) section.write(extras);
+    }
+    writeExtras(extras);
+    snap.extras = extras.str();
+    snap.valid = true;
+    return snap;
+}
+
+void World::restoreSnapshot(const WorldSnapshot& snap) {
+    if (!snap.valid) return;
+    std::optional<ProfileScope> profile;
+    if (m_profiler) profile.emplace(*m_profiler, "World::restoreSnapshot");
+    const uint32_t generationBase = m_generationBase;
+    clear();
+    m_generationBase = std::max(m_generationBase, generationBase);
+    m_db.transforms = snap.transforms;
+    m_db.hierarchies = snap.hierarchies;
+    m_db.renderables = snap.renderables;
+    m_db.firstChild = snap.firstChild;
+    m_db.nextSibling = snap.nextSibling;
+    m_prevSibling = snap.prevSibling;
+    m_alive = snap.alive;
+    m_visible = snap.visible;
+    m_generation = snap.generation;
+    m_mesh = snap.mesh;
+    m_layer = snap.layer;
+    m_names = snap.names;
+    m_freeList = snap.freeList;
+    m_firstRoot = snap.firstRoot;
+    m_aliveCount = snap.aliveCount;
+    m_tags.assign(m_alive.size(), std::string());
+    for (Entity i = 0; i < snap.tags.size() && i < m_alive.size(); ++i) {
+        if (m_alive[i] && !snap.tags[i].empty()) setTag({i, m_generation[i]}, snap.tags[i]);
+    }
+    std::vector<std::string> extraLines;
+    std::vector<std::pair<size_t, std::string>> sectionLines;
+    std::array<float, 8> cameraValues{};
+    bool hasCamera = false;
+    std::istringstream lines(snap.extras);
+    std::string line;
+    while (std::getline(lines, line)) {
+        if (line.rfind("camera ", 0) == 0) {
+            std::string_view view(line);
+            view.remove_prefix(7);
+            hasCamera = true;
+            for (float& v : cameraValues) hasCamera = hasCamera && readNumber(view, v);
+            continue;
+        }
+        bool claimed = false;
+        for (size_t k = 0; k < m_sceneSections.size() && !claimed; ++k) {
+            const std::string& keyword = m_sceneSections[k].keyword;
+            if (line.size() > keyword.size() && line.compare(0, keyword.size(), keyword) == 0 && line[keyword.size()] == ' ') {
+                sectionLines.emplace_back(k, line.substr(keyword.size() + 1));
+                claimed = true;
+            }
+        }
+        if (!claimed) extraLines.push_back(line);
+    }
+    LoadContext context;
+    context.resolveFn = [this](uint32_t index) { return index < m_alive.size() && m_alive[index] ? EntityHandle{index, m_generation[index]} : NULL_ENTITY; };
+    applyExtraLines(extraLines, context);
+    for (const SceneSection& section : m_sceneSections) {
+        if (section.begin) section.begin();
+    }
+    for (const auto& [index, text] : sectionLines) {
+        if (m_sceneSections[index].read) m_sceneSections[index].read(text);
+    }
+    for (const SceneSection& section : m_sceneSections) {
+        if (section.end) section.end();
+    }
+    if (hasCamera && m_restoreCameraOnLoad) {
+        m_camera.setPos(glm::vec3(cameraValues[0], cameraValues[1], cameraValues[2]));
+        m_camera.setOrientation(cameraValues[3], cameraValues[4]);
+        m_camera.setFov(cameraValues[5]);
+        m_camera.setNearPlane(cameraValues[6]);
+        m_camera.setFarPlane(cameraValues[7]);
+    }
+    m_db.markTransformsDirty();
+    touchStructure();
+}
+
 std::string World::snapshot() const {
     std::ostringstream out;
     saveScene(out);
     return out.str();
 }
 
-bool World::restore(const std::string& snapshotText) {
+bool World::restore(const std::string& snapshotText, std::vector<EntityHandle>* remap) {
     std::istringstream in(snapshotText);
-    return loadSceneImpl(in, false, NULL_ENTITY, true).has_value();
+    return loadSceneImpl(in, false, NULL_ENTITY, true, remap).has_value();
 }
 
 void World::unloadGroup(const std::vector<EntityHandle>& roots) { destroyBatch(roots); }
@@ -1291,6 +1477,8 @@ void World::setSpatialCellSize(float size) {
     m_spatial.clear();
     m_spatialQueued.clear();
     m_spatialPending.clear();
+    m_spatialRoots.clear();
+    m_spatialRootQueued.clear();
     m_maxSmallRadius = 0.0f;
     m_spatialActive = false;
 }
@@ -1305,13 +1493,26 @@ void World::queueSpatial(Entity idx) {
 
 void World::markSpatialSubtree(Entity idx) {
     if (!m_spatialActive) return;
-    m_spatialStack.clear();
-    m_spatialStack.push_back(idx);
-    while (!m_spatialStack.empty()) {
-        const Entity e = m_spatialStack.back();
-        m_spatialStack.pop_back();
-        queueSpatial(e);
-        for (Entity c = m_db.firstChild[e]; c != INVALID_ENTITY; c = m_db.nextSibling[c]) m_spatialStack.push_back(c);
+    if (m_spatialRootQueued.size() <= idx) m_spatialRootQueued.resize(m_alive.size(), 0);
+    if (m_spatialRootQueued[idx]) return;
+    m_spatialRootQueued[idx] = 1;
+    m_spatialRoots.push_back(idx);
+}
+
+void World::expandSpatialRoots() {
+    auto roots = std::move(m_spatialRoots);
+    m_spatialRoots.clear();
+    for (Entity root : roots) {
+        if (root < m_spatialRootQueued.size()) m_spatialRootQueued[root] = 0;
+        if (root >= m_alive.size() || !m_alive[root]) continue;
+        m_spatialStack.clear();
+        m_spatialStack.push_back(root);
+        while (!m_spatialStack.empty()) {
+            const Entity e = m_spatialStack.back();
+            m_spatialStack.pop_back();
+            queueSpatial(e);
+            for (Entity c = m_db.firstChild[e]; c != INVALID_ENTITY; c = m_db.nextSibling[c]) m_spatialStack.push_back(c);
+        }
     }
 }
 
@@ -1321,9 +1522,10 @@ void World::removeSpatialEntry(Entity idx) {
         const auto it = m_cells.find(entry.cell);
         if (it != m_cells.end()) {
             auto& bucket = it->second;
-            const auto pos = std::find(bucket.begin(), bucket.end(), idx);
-            if (pos != bucket.end()) {
-                *pos = bucket.back();
+            if (entry.slot < bucket.size() && bucket[entry.slot] == idx) {
+                const Entity moved = bucket.back();
+                bucket[entry.slot] = moved;
+                m_spatial[moved].slot = entry.slot;
                 bucket.pop_back();
             }
             if (bucket.empty()) m_cells.erase(it);
@@ -1334,20 +1536,64 @@ void World::removeSpatialEntry(Entity idx) {
     entry.state = 0;
 }
 
+void World::insertSpatialEntry(Entity idx) {
+    SpatialEntry& entry = m_spatial[idx];
+    if (entry.state == 2) {
+        m_largeEntities.push_back(idx);
+    } else if (entry.state == 1) {
+        m_maxSmallRadius = std::max(m_maxSmallRadius, entry.radius);
+        auto& bucket = m_cells[entry.cell];
+        entry.slot = static_cast<uint32_t>(bucket.size());
+        bucket.push_back(idx);
+    }
+}
+
 glm::mat4 World::worldNoCache(Entity idx) const {
     glm::mat4 m = effectiveLocal(idx);
     for (Entity p = m_db.hierarchies[idx].parent; p != INVALID_ENTITY && m_alive[p]; p = m_db.hierarchies[p].parent) m = effectiveLocal(p) * m;
     return m;
 }
 
-void World::computeSpatialEntry(Entity idx, SpatialEntry& out) const {
+bool World::isAnimated(Entity idx) const {
+    const uint32_t animIndex = idx - m_animOffset;
+    return idx >= m_animOffset && animIndex < m_animBase.size();
+}
+
+namespace {
+
+float maxAxisScale(const glm::mat4& m) { return std::max({glm::length(glm::vec3(m[0])), glm::length(glm::vec3(m[1])), glm::length(glm::vec3(m[2]))}); }
+
+constexpr float kOrbitReach = 3.4642f;
+
+}  // namespace
+
+glm::mat4 World::sweptWorld(Entity idx, float& sweep) const {
+    const auto baseLocal = [this](Entity e) {
+        glm::mat4 local = m_db.transforms[e].localMatrix;
+        if (isAnimated(e)) local[3] = glm::vec4(m_animBase[e - m_animOffset], 1.0f);
+        return local;
+    };
+    glm::mat4 m = baseLocal(idx);
+    sweep = isAnimated(idx) ? kOrbitReach : 0.0f;
+    for (Entity p = m_db.hierarchies[idx].parent; p != INVALID_ENTITY && m_alive[p]; p = m_db.hierarchies[p].parent) {
+        const glm::mat4 local = baseLocal(p);
+        if (sweep > 0.0f) sweep *= maxAxisScale(local);
+        if (isAnimated(p)) sweep += kOrbitReach;
+        m = local * m;
+    }
+    return m;
+}
+
+void World::computeSpatialEntry(Entity idx, SpatialEntry& out, bool swept) const {
     out.state = 0;
+    out.animated = 0;
     if (!m_alive[idx] || !m_visible[idx] || !m_meshBounds || m_mesh[idx] == NO_MESH) return;
     const glm::vec4 bounds = m_meshBounds(m_mesh[idx]);
-    const glm::mat4 world = worldNoCache(idx);
-    const float maxScale = std::max({glm::length(glm::vec3(world[0])), glm::length(glm::vec3(world[1])), glm::length(glm::vec3(world[2]))});
+    float sweep = 0.0f;
+    const glm::mat4 world = swept && !m_animBase.empty() ? sweptWorld(idx, sweep) : worldNoCache(idx);
     out.center = glm::vec3(world * glm::vec4(glm::vec3(bounds), 1.0f));
-    out.radius = bounds.w * maxScale;
+    out.radius = bounds.w * maxAxisScale(world) + sweep;
+    out.animated = sweep > 0.0f ? 1 : 0;
     if (out.radius > m_cellSize * 4.0f) {
         out.state = 2;
         return;
@@ -1356,49 +1602,45 @@ void World::computeSpatialEntry(Entity idx, SpatialEntry& out) const {
     out.state = 1;
 }
 
+SpatialEntry World::liveSpatial(Entity idx) const {
+    const SpatialEntry& indexed = m_spatial[idx];
+    if (!indexed.animated) return indexed;
+    SpatialEntry live;
+    computeSpatialEntry(idx, live, false);
+    return live;
+}
+
 void World::rebuildSpatialEntry(Entity idx) {
     if (idx >= m_alive.size()) return;
     if (m_spatial.size() <= idx) m_spatial.resize(m_alive.size());
     removeSpatialEntry(idx);
-    computeSpatialEntry(idx, m_spatial[idx]);
-    const SpatialEntry& entry = m_spatial[idx];
-    if (entry.state == 2) {
-        m_largeEntities.push_back(idx);
-    } else if (entry.state == 1) {
-        m_maxSmallRadius = std::max(m_maxSmallRadius, entry.radius);
-        m_cells[entry.cell].push_back(idx);
-    }
+    computeSpatialEntry(idx, m_spatial[idx], true);
+    insertSpatialEntry(idx);
 }
 
 void World::refreshSpatial() {
     std::optional<ProfileScope> profile;
     if (m_profiler) profile.emplace(*m_profiler, "World::refreshSpatial");
-    if (m_spatialActive) syncAnimationSpatial();
     if (!m_spatialActive) {
         m_spatialActive = true;
         m_spatial.assign(m_alive.size(), SpatialEntry{});
         m_spatialQueued.assign(m_alive.size(), 0);
         m_spatialPending.clear();
+        m_spatialRoots.clear();
+        m_spatialRootQueued.assign(m_alive.size(), 0);
         const size_t count = m_alive.size();
         const auto compute = [this](size_t begin, size_t end) {
-            for (size_t i = begin; i < end; ++i) computeSpatialEntry(static_cast<Entity>(i), m_spatial[i]);
+            for (size_t i = begin; i < end; ++i) computeSpatialEntry(static_cast<Entity>(i), m_spatial[i], true);
         };
         if (m_jobs) {
             m_jobs->parallelFor(count, 8192, compute);
         } else {
             compute(0, count);
         }
-        for (Entity i = 0; i < count; ++i) {
-            const SpatialEntry& entry = m_spatial[i];
-            if (entry.state == 2) {
-                m_largeEntities.push_back(i);
-            } else if (entry.state == 1) {
-                m_maxSmallRadius = std::max(m_maxSmallRadius, entry.radius);
-                m_cells[entry.cell].push_back(i);
-            }
-        }
+        for (Entity i = 0; i < count; ++i) insertSpatialEntry(i);
         return;
     }
+    expandSpatialRoots();
     auto pending = std::move(m_spatialPending);
     m_spatialPending.clear();
     for (Entity idx : pending) {
@@ -1411,7 +1653,7 @@ std::vector<EntityHandle> World::overlapSphere(const glm::vec3& center, float ra
     refreshSpatial();
     std::vector<EntityHandle> out;
     const auto test = [&](Entity e) {
-        const SpatialEntry& entry = m_spatial[e];
+        const SpatialEntry entry = liveSpatial(e);
         const float reach = radius + entry.radius;
         const glm::vec3 d = entry.center - center;
         if (glm::dot(d, d) <= reach * reach) out.push_back({e, m_generation[e]});
@@ -1450,7 +1692,7 @@ std::optional<RayHit> World::raycast(const glm::vec3& origin, const glm::vec3& d
 
     std::optional<RayHit> best;
     const auto test = [&](Entity e) {
-        const SpatialEntry& entry = m_spatial[e];
+        const SpatialEntry entry = liveSpatial(e);
         const glm::vec3 oc = entry.center - origin;
         const float along = glm::dot(oc, dir);
         const float perp2 = glm::dot(oc, oc) - along * along;
@@ -1600,7 +1842,7 @@ std::vector<EntityHandle> World::queryFrustum(const Camera& camera) {
     for (glm::vec4& plane : planes) plane /= glm::length(glm::vec3(plane));
 
     const auto visible = [&](Entity e) {
-        const SpatialEntry& entry = m_spatial[e];
+        const SpatialEntry entry = liveSpatial(e);
         for (const glm::vec4& plane : planes) {
             if (glm::dot(glm::vec3(plane), entry.center) + plane.w < -entry.radius) return false;
         }
@@ -1751,9 +1993,43 @@ bool World::setComponentFromText(EntityHandle e, const std::string& componentNam
     LoadContext context;
     context.resolveFn = [this](uint32_t savedIndex) { return handleOf(savedIndex); };
     std::istringstream in(text);
-    if (!serializer->second.read(*this, e, in, context)) return false;
-    touchData();
-    return true;
+    return serializer->second.read(*this, e, in, context);
+}
+
+bool World::addComponentByName(EntityHandle e, const std::string& componentName) {
+    if (!valid(e)) return false;
+    const auto serializer = m_serializers.find(componentName);
+    if (serializer == m_serializers.end() || !serializer->second.create) return false;
+    return serializer->second.create(*this, e);
+}
+
+void registerCoreComponents(World& world) {
+    world.registerComponent<LightComponent>(
+        "Light",
+        [](const LightComponent& l, std::ostream& out) {
+            out << static_cast<uint32_t>(l.type) << ' ' << l.color.x << ' ' << l.color.y << ' ' << l.color.z << ' ' << l.intensity << ' ' << l.range << ' ' << l.specular << ' ' << l.innerConeDegrees << ' ' << l.outerConeDegrees;
+        },
+        [](std::istream& in) -> std::optional<LightComponent> {
+            LightComponent l;
+            uint32_t type = 0;
+            if (!(in >> type >> l.color.x >> l.color.y >> l.color.z >> l.intensity >> l.range)) return std::nullopt;
+            if (type > 2) return std::nullopt;
+            l.type = static_cast<LightComponent::Type>(type);
+            if (!(in >> l.specular >> l.innerConeDegrees >> l.outerConeDegrees)) {
+                l.specular = 1.0f;
+                l.innerConeDegrees = 20.0f;
+                l.outerConeDegrees = 30.0f;
+            }
+            return l;
+        });
+    world.registerComponent<CameraComponent>(
+        "Camera", [](const CameraComponent& c, std::ostream& out) { out << c.fov << ' ' << c.nearPlane << ' ' << c.farPlane; },
+        [](std::istream& in) -> std::optional<CameraComponent> {
+            CameraComponent c;
+            if (!(in >> c.fov >> c.nearPlane >> c.farPlane)) return std::nullopt;
+            if (!(c.fov > 1.0f && c.fov < 179.0f && c.nearPlane > 0.0f && c.farPlane > c.nearPlane)) return std::nullopt;
+            return c;
+        });
 }
 
 bool World::removeComponentByName(EntityHandle e, const std::string& componentName) {
@@ -1893,6 +2169,7 @@ std::vector<std::string> World::validate() {
     }
 
     if (m_spatialActive) {
+        expandSpatialRoots();
         std::vector<uint8_t> pending(n, 0);
         for (Entity e : m_spatialPending) {
             if (e < n) pending[e] = 1;
@@ -1908,6 +2185,7 @@ std::vector<std::string> World::validate() {
                 if (inCell[e]) fail("entity " + std::to_string(e) + " appears in several spatial cells");
                 inCell[e] = 1;
                 if (!pending[e] && (m_spatial[e].state != 1 || m_spatial[e].cell != key || !m_alive[e])) fail("spatial cell entry for entity " + std::to_string(e) + " is stale");
+                if (m_spatial[e].slot >= bucket.size() || bucket[m_spatial[e].slot] != e) fail("spatial slot of entity " + std::to_string(e) + " is wrong");
             }
         }
         std::vector<uint8_t> inLarge(n, 0);

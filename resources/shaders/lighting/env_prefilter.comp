@@ -1,0 +1,49 @@
+#version 450
+#extension GL_GOOGLE_include_directive : require
+#include "brdf.glsl"
+#include "cubemap.glsl"
+
+layout(local_size_x = 8, local_size_y = 8, local_size_z = 1) in;
+
+layout(rgba16f) writeonly uniform image2DArray u_output;
+uniform samplerCube u_environment;
+
+layout(std140) uniform PrefilterConstants {
+    vec4 u_params;
+};
+
+void main() {
+    uvec3 id = gl_GlobalInvocationID;
+    int size = imageSize(u_output).x;
+    if (id.x >= uint(size) || id.y >= uint(size)) return;
+    vec3 N = cubeDirection(id.z, (vec2(id.xy) + 0.5) / float(size));
+    float perceptualRoughness = u_params.x;
+    float sourceSize = u_params.y;
+    float mipCount = u_params.z;
+    if (perceptualRoughness <= 0.0) {
+        imageStore(u_output, ivec3(id), vec4(textureLod(u_environment, N, 0.0).rgb, 1.0));
+        return;
+    }
+    float a = perceptualRoughness * perceptualRoughness;
+    vec3 T, B;
+    orthonormalBasis(N, T, B);
+    const uint SAMPLES = 96u;
+    vec3 sum = vec3(0.0);
+    float weight = 0.0;
+    float texelSolidAngle = 4.0 * PI / (6.0 * sourceSize * sourceSize);
+    for (uint i = 0u; i < SAMPLES; ++i) {
+        vec2 xi = hammersley(i, SAMPLES);
+        vec3 h = importanceSampleGGX(xi, a);
+        vec3 H = T * h.x + B * h.y + N * h.z;
+        vec3 L = reflect(-N, H);
+        float NoL = dot(N, L);
+        if (NoL <= 0.0) continue;
+        float NoH = saturate(h.z);
+        float pdf = D_GGX(NoH, a) * 0.25;
+        float sampleSolidAngle = 1.0 / (float(SAMPLES) * pdf + 1e-6);
+        float lod = clamp(0.5 * log2(sampleSolidAngle / texelSolidAngle) + 1.0, 0.0, mipCount - 1.0);
+        sum += textureLod(u_environment, L, lod).rgb * NoL;
+        weight += NoL;
+    }
+    imageStore(u_output, ivec3(id), vec4(sum / max(weight, 1e-4), 1.0));
+}

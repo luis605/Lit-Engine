@@ -1,0 +1,18 @@
+#version 450
+
+layout(local_size_x = 8, local_size_y = 8, local_size_z = 1) in;
+
+uniform sampler2DArray u_shadowDepth;
+layout(r32f) writeonly uniform image2D u_destMip;
+
+void main() {
+    ivec2 coord = ivec2(gl_GlobalInvocationID.xy);
+    if (any(greaterThanEqual(coord, imageSize(u_destMip)))) return;
+    ivec2 last = textureSize(u_shadowDepth, 0).xy - 1;
+    ivec2 src = coord * 2;
+    float d0 = texelFetch(u_shadowDepth, ivec3(min(src, last), 0), 0).r;
+    float d1 = texelFetch(u_shadowDepth, ivec3(min(src + ivec2(1, 0), last), 0), 0).r;
+    float d2 = texelFetch(u_shadowDepth, ivec3(min(src + ivec2(0, 1), last), 0), 0).r;
+    float d3 = texelFetch(u_shadowDepth, ivec3(min(src + ivec2(1, 1), last), 0), 0).r;
+    imageStore(u_destMip, coord, vec4(max(max(d0, d1), max(d2, d3)), 0.0, 0.0, 0.0));
+}

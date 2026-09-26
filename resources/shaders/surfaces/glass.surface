@@ -1,0 +1,5 @@
+void surface(in SurfaceInput i, inout Surface s) {
+    s.roughness = min(s.roughness, 0.08);
+    s.metallic = 0.0;
+    s.baseColor = mix(s.baseColor, vec3(0.75, 0.9, 1.0), 0.6);
+}

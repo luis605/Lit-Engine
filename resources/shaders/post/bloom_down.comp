@@ -1,0 +1,48 @@
+#version 450
+#extension GL_GOOGLE_include_directive : require
+#include "common.glsl"
+
+layout(local_size_x = 8, local_size_y = 8, local_size_z = 1) in;
+
+uniform sampler2D u_source;
+layout(rgba16f) writeonly uniform image2D u_output;
+
+layout(std140) uniform BloomConstants {
+    vec4 u_params;
+};
+
+vec3 karis(vec3 c) { return c / (1.0 + luminance(c)); }
+
+void main() {
+    ivec2 pixel = ivec2(gl_GlobalInvocationID.xy);
+    ivec2 size = imageSize(u_output);
+    if (any(greaterThanEqual(pixel, size))) return;
+    vec2 texel = 1.0 / vec2(textureSize(u_source, 0));
+    vec2 uv = (vec2(pixel) + 0.5) / vec2(size);
+    vec3 a = textureLod(u_source, uv + texel * vec2(-2, -2), 0.0).rgb;
+    vec3 b = textureLod(u_source, uv + texel * vec2(0, -2), 0.0).rgb;
+    vec3 c = textureLod(u_source, uv + texel * vec2(2, -2), 0.0).rgb;
+    vec3 d = textureLod(u_source, uv + texel * vec2(-2, 0), 0.0).rgb;
+    vec3 e = textureLod(u_source, uv, 0.0).rgb;
+    vec3 f = textureLod(u_source, uv + texel * vec2(2, 0), 0.0).rgb;
+    vec3 g = textureLod(u_source, uv + texel * vec2(-2, 2), 0.0).rgb;
+    vec3 h = textureLod(u_source, uv + texel * vec2(0, 2), 0.0).rgb;
+    vec3 i = textureLod(u_source, uv + texel * vec2(2, 2), 0.0).rgb;
+    vec3 j = textureLod(u_source, uv + texel * vec2(-1, -1), 0.0).rgb;
+    vec3 k = textureLod(u_source, uv + texel * vec2(1, -1), 0.0).rgb;
+    vec3 l = textureLod(u_source, uv + texel * vec2(-1, 1), 0.0).rgb;
+    vec3 m = textureLod(u_source, uv + texel * vec2(1, 1), 0.0).rgb;
+    vec3 result;
+    if (u_params.x > 0.5) {
+        vec3 g0 = karis((a + b + d + e) * 0.25);
+        vec3 g1 = karis((b + c + e + f) * 0.25);
+        vec3 g2 = karis((d + e + g + h) * 0.25);
+        vec3 g3 = karis((e + f + h + i) * 0.25);
+        vec3 g4 = karis((j + k + l + m) * 0.25);
+        result = g4 * 0.5 + (g0 + g1 + g2 + g3) * 0.125;
+        result = result / max(1.0 - luminance(result), 1e-3);
+    } else {
+        result = e * 0.125 + (a + c + g + i) * 0.03125 + (b + d + f + h) * 0.0625 + (j + k + l + m) * 0.125;
+    }
+    imageStore(u_output, pixel, vec4(min(result, vec3(60000.0)), 1.0));
+}

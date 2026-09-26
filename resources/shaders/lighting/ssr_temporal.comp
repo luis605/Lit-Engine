@@ -1,0 +1,46 @@
+#version 450
+#extension GL_GOOGLE_include_directive : require
+#include "scene.glsl"
+
+layout(local_size_x = 8, local_size_y = 8, local_size_z = 1) in;
+
+uniform sampler2D u_depth;
+uniform sampler2D u_current;
+uniform sampler2D u_history;
+layout(rgba16f) writeonly uniform image2D u_output;
+
+layout(std140) uniform SsrTemporal {
+    vec4 temporalParams;
+};
+
+void main() {
+    ivec2 pixel = ivec2(gl_GlobalInvocationID.xy);
+    ivec2 size = imageSize(u_output);
+    if (any(greaterThanEqual(pixel, size))) return;
+    vec4 current = texelFetch(u_current, pixel, 0);
+    vec4 sum = vec4(0.0);
+    vec4 sumSquares = vec4(0.0);
+    for (int y = -1; y <= 1; ++y) {
+        for (int x = -1; x <= 1; ++x) {
+            vec4 s = texelFetch(u_current, clamp(pixel + ivec2(x, y), ivec2(0), size - 1), 0);
+            sum += s;
+            sumSquares += s * s;
+        }
+    }
+    vec4 mean = sum / 9.0;
+    vec4 sigma = sqrt(max(sumSquares / 9.0 - mean * mean, vec4(0.0)));
+    vec2 uv = (vec2(pixel) + 0.5) / vec2(size);
+    float depth = textureLod(u_depth, uv, 0.0).r;
+    if (temporalParams.x < 0.5 || depth >= 1.0) {
+        imageStore(u_output, pixel, current);
+        return;
+    }
+    float previousDepth;
+    vec2 previousUv = projectToUv(worldFromDepth(uv, depth), prevViewProjection, previousDepth);
+    if (any(lessThan(previousUv, vec2(0.0))) || any(greaterThan(previousUv, vec2(1.0)))) {
+        imageStore(u_output, pixel, current);
+        return;
+    }
+    vec4 history = clamp(textureLod(u_history, previousUv, 0.0), mean - sigma * temporalParams.z, mean + sigma * temporalParams.z);
+    imageStore(u_output, pixel, mix(history, current, temporalParams.y));
+}

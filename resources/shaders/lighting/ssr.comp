@@ -1,0 +1,96 @@
+#version 450
+#extension GL_GOOGLE_include_directive : require
+#include "scene.glsl"
+
+layout(local_size_x = 8, local_size_y = 8, local_size_z = 1) in;
+
+uniform sampler2D u_depth;
+uniform sampler2D u_gbuffer1;
+uniform sampler2D u_previousColor;
+layout(rgba16f) writeonly uniform image2D u_output;
+
+layout(std430) readonly buffer ExposureBuffer {
+    vec4 exposureData;
+};
+
+void main() {
+    ivec2 pixel = ivec2(gl_GlobalInvocationID.xy);
+    ivec2 size = imageSize(u_output);
+    if (any(greaterThanEqual(pixel, size))) return;
+    vec2 uv = (vec2(pixel) + 0.5) / vec2(size);
+    float depth = textureLod(u_depth, uv, 0.0).r;
+    vec4 g1 = textureLod(u_gbuffer1, uv, 0.0);
+    float roughness = g1.b;
+    float maxRoughness = ssrParams.x;
+    if (depth >= 1.0 || roughness > maxRoughness) {
+        imageStore(u_output, pixel, vec4(0.0));
+        return;
+    }
+    vec3 P = viewFromDepth(uv, depth);
+    vec3 N = normalize(mat3(view) * decodeNormal(g1.rg));
+    vec3 V = normalize(P);
+    vec3 R = normalize(reflect(V, N));
+    if (R.z > 0.0 && -P.z < R.z * 4.0) {
+        imageStore(u_output, pixel, vec4(0.0));
+        return;
+    }
+    float maxDistance = min(farPlane() * 0.5, 200.0);
+    vec3 endP = P + R * maxDistance;
+    if (endP.z > -nearPlane) endP = P + R * ((P.z + nearPlane) / max(-R.z, 1e-4)) * 0.999;
+    vec4 startClip = projection * vec4(P, 1.0);
+    vec4 endClip = projection * vec4(endP, 1.0);
+    vec2 startUv = vec2(startClip.x / startClip.w * 0.5 + 0.5, 0.5 - startClip.y / startClip.w * 0.5);
+    vec2 endUv = vec2(endClip.x / endClip.w * 0.5 + 0.5, 0.5 - endClip.y / endClip.w * 0.5);
+    float startInvW = 1.0 / startClip.w;
+    float endInvW = 1.0 / endClip.w;
+    float startZ = P.z * startInvW;
+    float endZ = endP.z * endInvW;
+    int steps = int(ssrParams.z + 0.5);
+    float thickness = ssrParams.y;
+    float jitter = interleavedGradientNoise(vec2(pixel), frameIndex());
+    float t0 = 0.0;
+    float hitT = -1.0;
+    for (int i = 1; i <= steps; ++i) {
+        float t = pow((float(i) - 1.0 + jitter) / float(steps), 1.6);
+        vec2 sUv = mix(startUv, endUv, t);
+        if (any(lessThan(sUv, vec2(0.0))) || any(greaterThan(sUv, vec2(1.0)))) break;
+        float rayDepth = -mix(startZ, endZ, t) / mix(startInvW, endInvW, t);
+        float sceneDepth = linearViewDepth(textureLod(u_depth, sUv, 0.0).r);
+        float diff = rayDepth - sceneDepth;
+        if (diff > 0.0 && diff < thickness * max(rayDepth * 0.05, 1.0)) {
+            float lo = t0;
+            float hi = t;
+            for (int b = 0; b < 6; ++b) {
+                float mid = 0.5 * (lo + hi);
+                vec2 mUv = mix(startUv, endUv, mid);
+                float mRay = -mix(startZ, endZ, mid) / mix(startInvW, endInvW, mid);
+                float mScene = linearViewDepth(textureLod(u_depth, mUv, 0.0).r);
+                if (mRay > mScene) hi = mid;
+                else lo = mid;
+            }
+            hitT = hi;
+            break;
+        }
+        t0 = t;
+    }
+    if (hitT < 0.0) {
+        imageStore(u_output, pixel, vec4(0.0));
+        return;
+    }
+    vec2 hitUv = mix(startUv, endUv, hitT);
+    float hitDepth = textureLod(u_depth, hitUv, 0.0).r;
+    vec3 hitWorld = worldFromDepth(hitUv, hitDepth);
+    float previousDepth;
+    vec2 previousUv = projectToUv(hitWorld, prevViewProjection, previousDepth);
+    if (any(lessThan(previousUv, vec2(0.0))) || any(greaterThan(previousUv, vec2(1.0)))) {
+        imageStore(u_output, pixel, vec4(0.0));
+        return;
+    }
+    vec3 color = textureLod(u_previousColor, previousUv, 0.0).rgb / max(exposureData.x, 1e-12);
+    vec2 edge = min(previousUv, 1.0 - previousUv);
+    float edgeFade = saturate(min(edge.x, edge.y) * 10.0);
+    float roughFade = 1.0 - saturate((roughness - maxRoughness * 0.6) / (maxRoughness * 0.4));
+    float distanceFade = 1.0 - saturate(hitT * hitT);
+    float facing = saturate(-R.z * 4.0 + 1.0);
+    imageStore(u_output, pixel, vec4(color, edgeFade * roughFade * distanceFade * facing));
+}

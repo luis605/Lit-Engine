@@ -1,0 +1,25 @@
+#version 450
+
+layout(local_size_x = 32, local_size_y = 1, local_size_z = 1) in;
+
+layout(std430) readonly buffer SourceCounterBuffer {
+    uint sourceCount;
+};
+
+layout(std430) writeonly buffer DispatchArgsBuffer {
+    uvec4 dispatchArgs[];
+};
+
+layout(std140) uniform HiZArgsConstants {
+    uint u_baseSize;
+    uint u_mipCount;
+    uint u_padding0;
+    uint u_padding1;
+};
+
+void main() {
+    uint mip = gl_GlobalInvocationID.x;
+    if (mip >= u_mipCount) return;
+    uint groups = sourceCount > 0u ? (max(u_baseSize >> mip, 1u) + 7u) / 8u : 0u;
+    dispatchArgs[mip] = uvec4(groups, groups, 1u, 0u);
+}

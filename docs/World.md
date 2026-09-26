@@ -90,7 +90,18 @@ world.saveScene("level.litscene");
 world.loadScene("level.litscene");
 ```
 
-Scenes store mesh names, so they survive changes in upload order.
+Scenes store mesh names, so they survive changes in upload order. When the world is owned by an `Engine`, a scene also stores the look of the level: surface shaders (`surface`, remapped by name on load), textures (`texture`, reloaded by path), every material (`material`), every render setting (`render <field> <value>`) and custom passes with their descriptors, enabled state and parameters (`pass`). GPU buffers filled with `setShaderBuffer` are runtime data and are not saved; the code that creates a pass seeds them again.
+
+Other systems can persist their own state next to the entities with a scene section. The writer runs on every save and snapshot, the reader gets each line after the keyword on full loads and restores (additive loads skip sections), `begin` runs before the first line and `end` after the last:
+
+```cpp
+world.addSceneSection("weather",
+    [&](std::ostream& out) { out << "weather rain " << rain << '\n'; },
+    [&](std::string_view line) { /* "rain 0.4" */ },
+    [&] { rain = 0.0f; });
+```
+
+Files written before a section existed still load; unknown lines are ignored by older builds.
 
 ## Queries and picking
 

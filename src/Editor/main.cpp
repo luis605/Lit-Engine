@@ -5,5 +5,5 @@ int main() {
     while (app.isRunning()) {
         app.update();
     }
-    return 0;
+    return app.exitCode();
 }

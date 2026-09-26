@@ -1,0 +1,50 @@
+frames 10
+shot resources/ap_start.png
+run create.cube
+expect selection 1
+expect name Cube
+key G alt
+expect x 0.00
+key G
+text 2.5
+key Enter
+expect x 2.50
+expect undo 3
+key Z ctrl
+expect x 0.00
+key Z ctrl shift
+expect x 2.50
+key D ctrl
+key Escape
+expect selection 1
+key Delete
+expect selection 0
+key Z ctrl
+expect selection 0
+run select.previous
+run view.focus
+wait 0.6
+shot resources/ap_focus.png
+key Space
+frames 4
+expect palette 1
+text dup
+frames 3
+shot resources/ap_palette.png
+key Escape
+frames 2
+expect palette 0
+key F1
+frames 3
+shot resources/ap_help.png
+key Escape
+frames 2
+run create.pointlight
+run view.look
+frames 4
+shot resources/ap_card.png
+key Tab
+frames 2
+expect zen 1
+key Tab
+quit

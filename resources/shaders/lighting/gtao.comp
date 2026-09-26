@@ -1,0 +1,82 @@
+#version 450
+#extension GL_GOOGLE_include_directive : require
+#include "scene.glsl"
+
+layout(local_size_x = 8, local_size_y = 8, local_size_z = 1) in;
+
+uniform sampler2D u_depth;
+uniform sampler2D u_linearDepth;
+uniform sampler2D u_gbuffer1;
+layout(rg16f) writeonly uniform image2D u_output;
+
+vec3 viewPositionAt(vec2 uv, float linearDepth) {
+    vec2 ndc = vec2(uv.x * 2.0 - 1.0, 1.0 - uv.y * 2.0);
+    return vec3(ndc.x / projection[0][0], ndc.y / projection[1][1], -1.0) * linearDepth;
+}
+
+float integrateArc(float h, float n) {
+    float sinN = sin(n);
+    return 0.25 * (-cos(2.0 * h - n) + cos(n) + 2.0 * h * sinN);
+}
+
+void main() {
+    ivec2 pixel = ivec2(gl_GlobalInvocationID.xy);
+    ivec2 size = imageSize(u_output);
+    if (any(greaterThanEqual(pixel, size))) return;
+    ivec2 fullPixel = min(pixel * 2, ivec2(screenParams.xy) - 1);
+    float depth = texelFetch(u_depth, fullPixel, 0).r;
+    if (depth >= 1.0) {
+        imageStore(u_output, pixel, vec4(1.0, 1e4, 0.0, 0.0));
+        return;
+    }
+    vec2 uv = (vec2(fullPixel) + 0.5) * screenParams.zw;
+    vec3 P = viewFromDepth(uv, depth);
+    vec3 Nw = decodeNormal(texelFetch(u_gbuffer1, fullPixel, 0).rg);
+    vec3 N = normalize(mat3(view) * Nw);
+    vec3 V = normalize(-P);
+    float radius = aoParams.x;
+    float radiusPx = radius * projection[1][1] * 0.5 * screenParams.y / max(-P.z, 1e-3);
+    int slices = int(aoParams.z + 0.5);
+    int steps = int(aoParams.w + 0.5);
+    if (radiusPx < 1.0) {
+        imageStore(u_output, pixel, vec4(1.0, -P.z, 0.0, 0.0));
+        return;
+    }
+    radiusPx = min(radiusPx, 256.0);
+    float stepPx = max(radiusPx / float(steps), 1.0);
+    float noise = interleavedGradientNoise(vec2(pixel), frameIndex());
+    stepPx = max(stepPx, 2.0);
+    float noiseOffset = fract(noise * 1.618 + 0.3);
+    float visibility = 0.0;
+    for (int s = 0; s < slices; ++s) {
+        float phi = (float(s) + noise) / float(slices) * PI;
+        vec2 dir2 = vec2(cos(phi), sin(phi));
+        vec3 dir = vec3(dir2.x, -dir2.y, 0.0);
+        vec3 orthoDir = dir - dot(dir, V) * V;
+        vec3 axis = normalize(cross(dir, V));
+        vec3 projN = N - axis * dot(N, axis);
+        float projLength = length(projN);
+        float cosN = saturate(dot(projN / max(projLength, 1e-4), V));
+        float n = sign(dot(orthoDir, projN)) * acos(cosN);
+        float maxCos[2] = float[](-1.0, -1.0);
+        for (int side = 0; side < 2; ++side) {
+            float sgn = side == 0 ? 1.0 : -1.0;
+            for (int j = 0; j < steps; ++j) {
+                vec2 offset = dir2 * sgn * (float(j) + noiseOffset + 1.0) * stepPx;
+                vec2 sampleUv = uv + offset * screenParams.zw;
+                if (any(lessThan(sampleUv, vec2(0.0))) || any(greaterThan(sampleUv, vec2(1.0)))) break;
+                vec3 S = viewPositionAt(sampleUv, textureLod(u_linearDepth, sampleUv, 0.0).r);
+                vec3 delta = S - P;
+                float dist = length(delta);
+                float cosH = dot(delta / max(dist, 1e-4), V);
+                float falloff = saturate(1.0 - dist * dist / (radius * radius));
+                maxCos[side] = max(maxCos[side], mix(-1.0, cosH, falloff));
+            }
+        }
+        float h1 = n + max(-acos(maxCos[1]) - n, -HALF_PI);
+        float h2 = n + min(acos(maxCos[0]) - n, HALF_PI);
+        visibility += projLength * (integrateArc(h1, n) + integrateArc(h2, n));
+    }
+    visibility = saturate(visibility / float(slices));
+    imageStore(u_output, pixel, vec4(pow(visibility, aoParams.y), -P.z, 0.0, 0.0));
+}

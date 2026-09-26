@@ -58,6 +58,8 @@ class Log {
         LogInternal(LogLevel::Fatal, message.loc, std::format(message.str, std::forward<Args>(args)...));
     }
 
+    static void Phase(std::string_view name, std::source_location location = std::source_location::current());
+
   private:
     static void LogInternal(LogLevel level, const std::source_location& location, const std::string& message);
 };

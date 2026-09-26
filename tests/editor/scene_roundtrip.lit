@@ -1,0 +1,26 @@
+frames 5
+run create.cube
+expect name Cube
+run material.new
+material roughness 0.83
+set shadowCascades 3
+set bloomIntensity 0.07
+set tonemapper 2
+pass sharpen 1
+expect passes 4
+save resources/autopilot_roundtrip.litscene
+set shadowCascades 4
+set bloomIntensity 0.035
+set tonemapper 0
+material roughness 0.2
+pass sharpen 0
+expect passes 3
+expect roughness:Cube 0.20
+load resources/autopilot_roundtrip.litscene
+frames 3
+expect setting:shadowCascades 3
+expect setting:bloomIntensity 0.07
+expect setting:tonemapper 2
+expect roughness:Cube 0.83
+expect passes 4
+quit

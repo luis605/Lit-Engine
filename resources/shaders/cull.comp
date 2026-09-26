@@ -6,14 +6,14 @@
 #include "scene.glsl"
 #include "mesh.glsl"
 #include "hiz.glsl"
+#include "material.glsl"
 
-#if defined(RETEST) || defined(TRANSPARENT)
+#if defined(TRANSPARENT) || defined(SHADOW)
 #define CANDIDATE_INPUT
+#else
+#define VISIBILITY_PASS
 #endif
-#if !defined(CANDIDATE_INPUT)
-#define RETEST_OUTPUT
-#endif
-#if !defined(TRANSPARENT)
+#ifdef RETEST
 #define TRANSPARENT_OUTPUT
 #endif
 
@@ -44,6 +44,51 @@ layout(std430) buffer BucketCountBuffer {
     uint bucketCounts[];
 };
 
+#ifdef SHADOW
+layout(std140) uniform ShadowCull {
+    vec4 shadowPlanes[6];
+    vec4 shadowLod;
+    mat4 shadowHizViewProj;
+};
+
+uniform sampler2D u_shadowHiz;
+
+bool shadowOccluded(vec3 center, float radius) {
+    if (shadowLod.z < 0.5) return false;
+    vec4 clip = shadowHizViewProj * vec4(center, 1.0);
+    float extentX = radius * length(vec3(shadowHizViewProj[0][0], shadowHizViewProj[1][0], shadowHizViewProj[2][0]));
+    float extentY = radius * length(vec3(shadowHizViewProj[0][1], shadowHizViewProj[1][1], shadowHizViewProj[2][1]));
+    float nearest = clip.z - radius * length(vec3(shadowHizViewProj[0][2], shadowHizViewProj[1][2], shadowHizViewProj[2][2]));
+    if (nearest <= 0.0) return false;
+    vec2 uvMin = vec2(clip.x - extentX, -(clip.y + extentY)) * 0.5 + 0.5;
+    vec2 uvMax = vec2(clip.x + extentX, -(clip.y - extentY)) * 0.5 + 0.5;
+    if (any(lessThan(uvMin, vec2(0.0))) || any(greaterThan(uvMax, vec2(1.0)))) return false;
+
+    ivec2 baseSize = textureSize(u_shadowHiz, 0);
+    vec2 pixelMin = uvMin * vec2(baseSize);
+    vec2 pixelMax = uvMax * vec2(baseSize);
+    vec2 footprint = pixelMax - pixelMin;
+    int mip = clamp(int(ceil(log2(max(max(footprint.x, footprint.y), 1.0)))), 0, textureQueryLevels(u_shadowHiz) - 1);
+    ivec2 lastTexel = textureSize(u_shadowHiz, mip) - 1;
+    ivec2 lo = min(ivec2(pixelMin) >> mip, lastTexel);
+    ivec2 hi = min(ivec2(pixelMax) >> mip, lastTexel);
+    float farthest = max(max(texelFetch(u_shadowHiz, lo, mip).r, texelFetch(u_shadowHiz, ivec2(hi.x, lo.y), mip).r),
+                         max(texelFetch(u_shadowHiz, ivec2(lo.x, hi.y), mip).r, texelFetch(u_shadowHiz, hi, mip).r));
+    return nearest > farthest;
+}
+#endif
+
+#if defined(SHADOW) && !defined(SHADOW_LATE)
+#define SHADOW_RETEST_OUTPUT
+layout(std430) buffer ShadowRetestCounterBuffer {
+    uint u_shadowRetestCount;
+};
+
+layout(std430) writeonly buffer ShadowRetestBuffer {
+    uint u_shadowRetestIds[];
+};
+#endif
+
 #ifdef CANDIDATE_INPUT
 layout(std430) readonly buffer CandidateCounterBuffer {
     uint u_candidateCount;
@@ -54,14 +99,37 @@ layout(std430) readonly buffer CandidateBuffer {
 };
 #endif
 
-#ifdef RETEST_OUTPUT
-layout(std430) buffer RetestCounterBuffer {
-    uint u_retestCount;
+#ifdef VISIBILITY_PASS
+layout(std430) buffer VisibilityBuffer {
+    uint visibilityBits[];
 };
 
-layout(std430) writeonly buffer RetestBuffer {
-    uint u_retestIds[];
+layout(std140) uniform CascadeCull {
+    vec4 cascadePlanes[24];
+    uvec4 cascadeCullInfo;
 };
+
+layout(std430) buffer CasterCounterBuffer {
+    uint u_casterCount;
+};
+
+layout(std430) writeonly buffer CasterBuffer {
+    uint u_casters[];
+};
+
+uint cascadeMaskFor(vec3 center, float radius) {
+    uint mask = 0u;
+    for (uint c = 0u; c < 4u; ++c) {
+        if ((cascadeCullInfo.x & (1u << c)) == 0u) continue;
+        bool inside = true;
+        for (uint i = 0u; i < 6u; ++i) {
+            vec4 plane = cascadePlanes[c * 6u + i];
+            if (dot(plane.xyz, center) + plane.w < -radius) inside = false;
+        }
+        if (inside) mask |= 1u << c;
+    }
+    return mask;
+}
 #endif
 
 #ifdef TRANSPARENT_OUTPUT
@@ -78,6 +146,8 @@ const uint CULLED = 0u;
 const uint OCCLUDED = 1u;
 const uint VISIBLE = 2u;
 const uint TRANSPARENT_CANDIDATE = 3u;
+const uint VISIBLE_TRANSIENT = 4u;
+const uint CASTER_ID_MASK = 0x0FFFFFFFu;
 
 #ifdef TRANSPARENT
 const float TRANSPARENT_LOD_DIAMETER_PX[LOD_LEVEL_COUNT - 1u] = float[](60.0, 40.0, 25.0, 8.0, 3.0, 1.5);
@@ -97,38 +167,60 @@ uint selectLod(float radius, float dist) {
 #endif
 }
 
-uint cullObject(uint id, out uvec2 entry) {
+uint cullObject(uint id, out uvec2 entry, out uint cascades) {
     entry = uvec2(0u);
+    cascades = 0u;
 
     vec4 boundingSphere = cullSpheres[id];
     if (boundingSphere.w < 0.0) return CULLED;
     vec3 worldCenter = boundingSphere.xyz;
     float radius = boundingSphere.w;
-
+#ifdef VISIBILITY_PASS
+    if (cascadeCullInfo.x != 0u) cascades = cascadeMaskFor(worldCenter, radius);
+#endif
+#ifdef SHADOW
+    if (shadowOccluded(worldCenter, radius)) return OCCLUDED;
+#endif
+#ifndef SHADOW
+    bool inFrustum = true;
     for (int i = 0; i < 6; ++i) {
-        if (dot(frustumPlanes[i].xyz, worldCenter) + frustumPlanes[i].w < -radius) return CULLED;
+        if (dot(frustumPlanes[i].xyz, worldCenter) + frustumPlanes[i].w < -radius) inFrustum = false;
     }
-
     float dist = max(-(view * vec4(worldCenter, 1.0)).z, 0.001);
-    if (radius / dist < u_smallObjectThreshold) return CULLED;
-
-    if (sphereOccluded(worldCenter, radius)) return OCCLUDED;
+    if (radius / dist < u_smallObjectThreshold) inFrustum = false;
+    if (!inFrustum && cascades == 0u) return CULLED;
+    bool occluded = inFrustum && sphereOccluded(worldCenter, radius);
+    if (occluded && cascades == 0u) return OCCLUDED;
+#endif
 
     uint renderable = renderables[id];
-#ifdef TRANSPARENT
-    uint bucketShader = 0u;
-#else
+    uint material = renderableMaterial(renderable);
+    bool translucent = (renderableFlags(renderable) & RENDER_TRANSLUCENT) != 0u || materialTranslucent(material);
     uint bucketShader = renderableShader(renderable);
-    if (bucketShader > u_opaqueShaderCount) return CULLED;
-    if (bucketShader == u_opaqueShaderCount) return TRANSPARENT_CANDIDATE;
-#ifdef RETEST_OUTPUT
-    if ((renderableFlags(renderable) & RENDER_NO_OCCLUDER) != 0u) return OCCLUDED;
-#endif
-#endif
+    if (bucketShader >= u_opaqueShaderCount || translucent) cascades = 0u;
+    if (bucketShader >= u_opaqueShaderCount) return CULLED;
 
+#ifdef SHADOW
+    if (translucent) return CULLED;
+    uint chosenLod = u_forcedLod >= 0 ? min(uint(u_forcedLod), POINT_LOD) : lodForDiameter(2.0 * radius * shadowLod.x * u_lodBias);
+#else
+    if (!inFrustum) return CULLED;
+    if (occluded) return OCCLUDED;
+#ifdef VISIBILITY_PASS
+    bool noOccluder = (renderableFlags(renderable) & RENDER_NO_OCCLUDER) != 0u;
+#ifdef RETEST
+    if (translucent) return TRANSPARENT_CANDIDATE;
+#else
+    if (translucent || noOccluder) return CULLED;
+#endif
+#endif
     uint chosenLod = selectLod(radius, dist);
+#endif
     uint bucketIndex = bucketShader * MAX_MESHES + renderableMesh(renderable) + chosenLod;
-    entry = uvec2(id | (chosenLod << 29u), bucketIndex | (renderableMaterial(renderable) << 16u));
+    entry = uvec2(id | (chosenLod << 29u), bucketIndex | (material << 16u));
+#ifdef RETEST
+    if (noOccluder) return VISIBLE_TRANSIENT;
+#endif
     return VISIBLE;
 }
 
@@ -151,13 +243,23 @@ void appendVisible(bool visible, uvec2 entry) {
     }
 }
 
-#ifdef RETEST_OUTPUT
-void appendRetest(bool occluded, uint id) {
+#ifdef VISIBILITY_PASS
+void appendCaster(bool caster, uint value) {
+    uvec4 ballot = subgroupBallot(caster);
+    uint slotBase = 0u;
+    if (subgroupElect()) slotBase = atomicAdd(u_casterCount, subgroupBallotBitCount(ballot));
+    uint slot = subgroupBroadcastFirst(slotBase) + subgroupBallotExclusiveBitCount(ballot);
+    if (caster && slot < u_maxDraws) u_casters[slot] = value;
+}
+#endif
+
+#ifdef SHADOW_RETEST_OUTPUT
+void appendShadowRetest(bool occluded, uint id) {
     uvec4 ballot = subgroupBallot(occluded);
     uint slotBase = 0u;
-    if (subgroupElect()) slotBase = atomicAdd(u_retestCount, subgroupBallotBitCount(ballot));
+    if (subgroupElect()) slotBase = atomicAdd(u_shadowRetestCount, subgroupBallotBitCount(ballot));
     uint slot = subgroupBroadcastFirst(slotBase) + subgroupBallotExclusiveBitCount(ballot);
-    if (occluded && slot < u_maxDraws) u_retestIds[slot] = id;
+    if (occluded && slot < u_maxDraws) u_shadowRetestIds[slot] = id;
 }
 #endif
 
@@ -174,19 +276,44 @@ void appendTransparent(bool transparent, uint id) {
 void main() {
 #ifdef CANDIDATE_INPUT
     uint index = gl_GlobalInvocationID.x;
-    bool inRange = index < min(u_candidateCount, u_maxDraws);
-    uint id = inRange ? u_candidateIds[index] : 0u;
+    bool process = index < min(u_candidateCount, u_maxDraws);
+    uint id = process ? u_candidateIds[index] : 0u;
+#ifdef SHADOW_RETEST_OUTPUT
+    process = process && ((id >> (28u + uint(shadowLod.y))) & 1u) != 0u;
+    id &= CASTER_ID_MASK;
+#endif
 #else
     uint id = gl_GlobalInvocationID.x;
     bool inRange = id < u_objectCount;
+    uint bit = 1u << (id & 31u);
+    bool wasVisible = inRange && (visibilityBits[id >> 5u] & bit) != 0u;
+#ifdef RETEST
+    bool process = inRange && !wasVisible;
+#else
+    bool process = wasVisible;
+#endif
 #endif
     uvec2 entry;
-    uint result = inRange ? cullObject(id, entry) : CULLED;
+    uint cascades = 0u;
+    uint result = process ? cullObject(id, entry, cascades) : CULLED;
+#ifdef RETEST
+    appendVisible(result == VISIBLE || result == VISIBLE_TRANSIENT, entry);
+    if (result == VISIBLE) atomicOr(visibilityBits[id >> 5u], bit);
+#else
     appendVisible(result == VISIBLE, entry);
-#ifdef RETEST_OUTPUT
-    appendRetest(result == OCCLUDED, id);
+#ifdef VISIBILITY_PASS
+    if (process && result != VISIBLE) atomicAnd(visibilityBits[id >> 5u], ~bit);
+#endif
+#endif
+#ifdef RETEST
+    appendCaster(cascades != 0u, id | (cascades << 28u));
+#elif defined(VISIBILITY_PASS)
+    appendCaster(cascades != 0u && result == VISIBLE, id | (cascades << 28u));
 #endif
 #ifdef TRANSPARENT_OUTPUT
     appendTransparent(result == TRANSPARENT_CANDIDATE, id);
+#endif
+#ifdef SHADOW_RETEST_OUTPUT
+    appendShadowRetest(result == OCCLUDED, id);
 #endif
 }

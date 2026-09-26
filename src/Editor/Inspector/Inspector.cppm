@@ -1,62 +1,45 @@
 module;
 
-#include <GLFW/glfw3.h>
-#include <format>
-#include <memory>
+#include <cstdint>
 #include <string>
 #include <vector>
 
 export module Editor.inspector;
 
-import Engine.engine;
-import Engine.World;
-import Engine.History;
-import Engine.LineEditor;
-import Engine.Selection;
-import Engine.GizmoMath;
-import Engine.camera;
-import Editor.gizmo;
-import Editor.hierarchy;
+import Editor.context;
 import Engine.Render.entity;
-import Engine.input;
 import Engine.glm;
 
 export class Inspector {
   public:
-    Inspector();
-    ~Inspector();
-    void update(Engine& engine, bool pickingEnabled);
-    [[nodiscard]] EntityHandle selected() const { return m_selected; }
-    void select(EntityHandle e) {
-        m_selection.set(e);
-        m_selected = e;
-    }
-    [[nodiscard]] const Selection& selection() const { return m_selection; }
-    [[nodiscard]] Gizmo& gizmo() { return m_gizmo; }
-    void reset();
-    [[nodiscard]] bool editing() const { return m_editor.active(); }
+    void draw(EditorContext& ctx);
+    void focusName() { m_focusName = true; }
 
   private:
-    void handleClick(Engine& engine);
-    void boxSelect(Engine& engine, const glm::vec2& a, const glm::vec2& b, bool additive);
-    void drawSelectionBox(Engine& engine, const glm::vec2& a, const glm::vec2& b);
-    [[nodiscard]] std::vector<EntityHandle> topLevelSelection(World& world) const;
-    void handleKeys(Engine& engine);
-    void draw(Engine& engine);
-    void handleEditing(Engine& engine);
-    void beginEdit(int target, const std::string& initial);
+    struct Snapshot {
+        EntityHandle entity;
+        glm::mat4 local{1.0f};
+    };
 
-    std::unique_ptr<History> m_history;
-    Gizmo m_gizmo;
-    Hierarchy m_hierarchy;
-    Selection m_selection;
-    EntityHandle m_selected;
-    bool m_reparenting = false;
-    bool m_pressing = false;
-    bool m_boxing = false;
-    glm::vec2 m_pressStart{0.0f};
-    LineEditor m_editor;
-    int m_editTarget = 0;
-    std::string m_editComponent;
-    size_t m_focusComponent = 0;
+    void drawHeader(EditorContext& ctx, EntityHandle e);
+    void drawTransform(EditorContext& ctx, EntityHandle e);
+    void drawRender(EditorContext& ctx, EntityHandle e);
+    void drawMaterial(EditorContext& ctx, uint32_t id);
+    void drawComponents(EditorContext& ctx, EntityHandle e);
+    void beginTransformEdit(EditorContext& ctx);
+    void endTransformEdit(EditorContext& ctx, const char* label);
+
+    bool m_focusName = false;
+    std::string m_nameBuffer;
+    std::string m_tagBuffer;
+    EntityHandle m_bufferEntity;
+    std::vector<Snapshot> m_editStart;
+    bool m_editing = false;
+    glm::vec2 m_cardPos{-1.0f};
+    glm::vec2 m_setPos{-1.0f};
+    float m_lastHeight = 300.0f;
+    std::string m_componentBuffer;
+    std::string m_componentEditing;
+    std::string m_materialFilter;
+    bool m_materialDirty = false;
 };

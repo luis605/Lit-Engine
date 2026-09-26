@@ -12,7 +12,7 @@ module;
 module Engine.mesh;
 
 namespace {
-constexpr size_t kFloatsPerVertex = 6;
+constexpr size_t kFloatsPerVertex = kVertexFloats;
 constexpr size_t kVertexStride = kFloatsPerVertex * sizeof(float);
 } // namespace
 
@@ -260,7 +260,7 @@ Mesh Mesh::makeImpostor() const {
 
     std::vector<float> v;
     v.reserve(3 * kFloatsPerVertex);
-    for (const auto& corner : offsets) { v.insert(v.end(), {corner[0], corner[1], 0.0f, 0.0f, 0.0f, 1.0f}); }
+    for (const auto& corner : offsets) { v.insert(v.end(), {corner[0], corner[1], 0.0f, 0.0f, 0.0f, 1.0f, 0.0f, 0.0f}); }
 
     return Mesh(std::move(v), std::vector<unsigned int>{0, 1, 2});
 }

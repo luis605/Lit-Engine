@@ -1,0 +1,62 @@
+#version 450
+#extension GL_GOOGLE_include_directive : require
+#include "common.glsl"
+
+layout(local_size_x = 256, local_size_y = 1, local_size_z = 1) in;
+
+layout(std430) buffer ExposureBuffer {
+    vec4 exposureData;
+};
+
+layout(std430) buffer HistogramBuffer {
+    uint bins[256];
+};
+
+layout(std140) uniform ExposureConstants {
+    vec4 u_range;
+    vec4 u_adapt;
+    vec4 u_speed;
+};
+
+shared float s_count[256];
+
+void main() {
+    uint i = gl_LocalInvocationIndex;
+    s_count[i] = float(bins[i]);
+    barrier();
+    if (i == 0u) {
+        float total = 0.0;
+        for (int b = 1; b < 256; ++b) total += s_count[b];
+        float lowCut = total * u_speed.z;
+        float highCut = total * u_speed.w;
+        float acc = 0.0;
+        float weighted = 0.0;
+        float used = 0.0;
+        for (int b = 1; b < 256; ++b) {
+            float c = s_count[b];
+            float start = acc;
+            float end = acc + c;
+            float take = max(min(end, highCut) - max(start, lowCut), 0.0);
+            acc = end;
+            float logLum = (float(b) - 0.5) / 254.0 / u_range.y + u_range.x;
+            weighted += take * logLum;
+            used += take;
+        }
+        float averageLog = used > 0.0 ? weighted / used : 0.0;
+        float targetEv = clamp(averageLog + log2(100.0 / 12.5) - u_adapt.w, u_range.z, u_range.w);
+        float currentEv = exposureData.z;
+        if (u_adapt.x < 0.5) {
+            currentEv = u_adapt.y;
+        } else if (exposureData.w < 0.5 || used <= 0.0) {
+            currentEv = used > 0.0 ? targetEv : currentEv;
+        } else {
+            float speed = targetEv > currentEv ? u_speed.x : u_speed.y;
+            currentEv += (targetEv - currentEv) * (1.0 - exp(-u_adapt.z * speed));
+        }
+        exposureData.z = currentEv;
+        exposureData.y = 1.0 / (1.2 * exp2(currentEv));
+        exposureData.w = 1.0;
+    }
+    barrier();
+    bins[i] = 0u;
+}

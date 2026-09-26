@@ -1,54 +1,62 @@
 module;
 
 #include <cstdint>
+#include <string>
 #include <unordered_set>
 #include <vector>
 
 export module Editor.hierarchy;
 
-import Engine.engine;
-import Engine.World;
+import Editor.context;
 import Engine.Render.entity;
-import Engine.glm;
 
-export struct HierarchyAction {
-    enum class Kind { None, Select, Reparent };
-    Kind kind = Kind::None;
-    EntityHandle entity;
-    EntityHandle newParent;
-    bool consumedMouse = false;
-};
-
-export class Hierarchy {
+export class Outliner {
   public:
-    HierarchyAction update(Engine& engine, EntityHandle& selected, bool inputEnabled = true);
-    void reset() {
-        m_expanded.clear();
-        m_offset = 0;
-        m_lastSelected = NULL_ENTITY;
-    }
+    void draw(EditorContext& ctx);
+    void focusSearch() { m_focusSearch = true; }
+    void reveal(EditorContext& ctx, EntityHandle e);
 
   private:
     struct Row {
         EntityHandle entity;
-        int depth;
-        bool hasChildren;
+        uint16_t depth = 0;
+        bool hasChildren = false;
     };
 
-    void collectRows(World& world, size_t limit, std::vector<Row>& rows) const;
-    void reveal(World& world, EntityHandle selected);
-    [[nodiscard]] long indexOf(World& world, EntityHandle target) const;
+    struct Query {
+        std::string text;
+        std::string tag;
+        std::string mesh;
+        int layer = -1;
+        int visible = -1;
+        bool selectedOnly = false;
+        bool active = false;
+    };
 
-    [[nodiscard]] bool insidePanel(Engine& engine, const glm::vec2& mouse) const;
-    [[nodiscard]] int rowAt(Engine& engine, const glm::vec2& mouse) const;
+    void rebuild(EditorContext& ctx);
+    void runSearch(EditorContext& ctx);
+    [[nodiscard]] bool matches(EditorContext& ctx, EntityHandle e) const;
+    void drawRow(EditorContext& ctx, const Row& row, int index);
+    void parseQuery();
 
-    std::vector<EntityHandle> m_rowEntities;
-    size_t m_shownFirst = 0;
-    EntityHandle m_dragEntity;
-    bool m_dragging = false;
-    glm::vec2 m_dragStart{0.0f};
+    std::vector<Row> m_rows;
+    size_t m_totalRoots = 0;
+    bool m_truncated = false;
+    uint64_t m_builtStructure = 0;
+    uint64_t m_builtExpansion = 1;
+    uint64_t m_expansionVersion = 0;
+    double m_lastBuild = -1.0;
     std::unordered_set<uint32_t> m_expanded;
-    size_t m_offset = 0;
-    EntityHandle m_lastSelected;
-    static constexpr size_t kRows = 16;
+    std::string m_search;
+    std::string m_lastSearch;
+    Query m_query;
+    Entity m_searchCursor = 0;
+    std::vector<EntityHandle> m_searchResults;
+    bool m_searchDone = true;
+    bool m_focusSearch = false;
+    EntityHandle m_renaming;
+    std::string m_renameBuffer;
+    bool m_renameFocus = false;
+    EntityHandle m_scrollTo;
+    EntityHandle m_rangeAnchor;
 };

@@ -1,0 +1,34 @@
+frames 5
+expect dirty 0
+set bloom 0
+frames 2
+expect dirty 1
+expect setting:bloom 0
+key Z ctrl
+frames 2
+expect setting:bloom 1
+expect dirty 0
+key Z ctrl shift
+frames 2
+expect setting:bloom 0
+run create.cube
+frames 2
+run file.quit
+frames 2
+expect prompt 1
+key Escape
+frames 2
+expect prompt 0
+key A shift
+frames 3
+expect name Cube
+key C
+frames 3
+expect entities 30
+key R
+key Z
+text 45
+key Enter
+frames 2
+expect rz 45.00
+quit

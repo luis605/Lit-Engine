@@ -1,0 +1,67 @@
+#version 450
+#extension GL_GOOGLE_include_directive : require
+#include "scene.glsl"
+
+layout(local_size_x = 64, local_size_y = 1, local_size_z = 1) in;
+
+struct GpuLight {
+    vec4 positionRange;
+    vec4 colorType;
+    vec4 directionCos;
+    vec4 params;
+};
+
+layout(std430) readonly buffer LightBuffer {
+    GpuLight lights[];
+};
+
+layout(std430) writeonly buffer ClusterBuffer {
+    uint clusterLights[];
+};
+
+const uint CLUSTER_X = 16u;
+const uint CLUSTER_Y = 9u;
+const uint CLUSTER_Z = 24u;
+const uint CLUSTER_STRIDE = 128u;
+
+vec3 viewRay(vec2 pixel) {
+    vec2 uv = pixel * screenParams.zw;
+    vec4 v = invProjection * vec4(uv.x * 2.0 - 1.0, 1.0 - uv.y * 2.0, 1.0, 1.0);
+    return v.xyz / v.w;
+}
+
+void main() {
+    uint cluster = gl_GlobalInvocationID.x;
+    if (cluster >= CLUSTER_X * CLUSTER_Y * CLUSTER_Z) return;
+    uint x = cluster % CLUSTER_X;
+    uint y = (cluster / CLUSTER_X) % CLUSTER_Y;
+    uint z = cluster / (CLUSTER_X * CLUSTER_Y);
+    float zNear = nearPlane * exp(float(z) / clusterParams.x);
+    float zFar = nearPlane * exp(float(z + 1u) / clusterParams.x);
+    vec2 tileMin = vec2(x, y) * clusterParams.zw;
+    vec2 tileMax = tileMin + clusterParams.zw;
+    vec3 corners[4] = vec3[](viewRay(tileMin), viewRay(vec2(tileMax.x, tileMin.y)), viewRay(vec2(tileMin.x, tileMax.y)), viewRay(tileMax));
+    vec3 aabbMin = vec3(1e30);
+    vec3 aabbMax = vec3(-1e30);
+    for (int i = 0; i < 4; ++i) {
+        vec3 dir = corners[i] / -corners[i].z;
+        vec3 a = dir * zNear;
+        vec3 b = dir * zFar;
+        aabbMin = min(aabbMin, min(a, b));
+        aabbMax = max(aabbMax, max(a, b));
+    }
+    uint base = cluster * CLUSTER_STRIDE;
+    uint count = 0u;
+    uint total = uint(lightParams.x);
+    for (uint i = 0u; i < total && count < CLUSTER_STRIDE - 1u; ++i) {
+        GpuLight light = lights[i];
+        vec3 center = (view * vec4(light.positionRange.xyz, 1.0)).xyz;
+        float radius = light.positionRange.w;
+        vec3 closest = clamp(center, aabbMin, aabbMax);
+        vec3 d = closest - center;
+        if (dot(d, d) > radius * radius) continue;
+        clusterLights[base + 1u + count] = i;
+        ++count;
+    }
+    clusterLights[base] = count;
+}

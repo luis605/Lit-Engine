@@ -1,5 +1,7 @@
 module;
 
+#include <cmath>
+
 #include <assimp/Importer.hpp>
 #include <assimp/scene.h>
 #include <assimp/postprocess.h>
@@ -20,8 +22,8 @@ import Engine.mesh;
 namespace {
 
 constexpr uint32_t kAssetMagic = 0x4D54494CU; // 'L','I','T','M' little-endian
-constexpr uint32_t kAssetVersion = 2U;
-constexpr uint32_t kFloatsPerVertex = 6U; // position xyz + normal xyz
+constexpr uint32_t kAssetVersion = 3U;
+constexpr uint32_t kFloatsPerVertex = 8U;
 
 constexpr uint64_t kMaxElementCount = 1ULL << 31; // per array
 
@@ -124,6 +126,9 @@ bool isBakeUpToDate(const std::string& sourcePath, const std::string& destinatio
 
     std::ifstream probe(destinationPath, std::ios::binary);
     if (!probe.is_open()) return false;
+    AssetHeader peek{};
+    if (!readExactly(probe, &peek, sizeof(peek)) || peek.magic != kAssetMagic || peek.version != kAssetVersion || peek.floatsPerVertex != kFloatsPerVertex) return false;
+    probe.seekg(0);
 
     return readValidatedHeader(probe, static_cast<uint64_t>(fileSize), destinationPath).has_value();
 }
@@ -150,6 +155,24 @@ void processMesh(const aiMesh* mesh, std::vector<float>& vertices,
             vertices.push_back(0.0f);
             vertices.push_back(1.0f);
             vertices.push_back(0.0f);
+        }
+        if (mesh->HasTextureCoords(0)) {
+            vertices.push_back(mesh->mTextureCoords[0][i].x);
+            vertices.push_back(mesh->mTextureCoords[0][i].y);
+        } else {
+            const aiVector3D p = mesh->mVertices[i];
+            const aiVector3D n = hasNormals ? mesh->mNormals[i] : aiVector3D(0.0f, 1.0f, 0.0f);
+            const float ax = std::abs(n.x), ay = std::abs(n.y), az = std::abs(n.z);
+            if (ax >= ay && ax >= az) {
+                vertices.push_back(p.z);
+                vertices.push_back(p.y);
+            } else if (ay >= az) {
+                vertices.push_back(p.x);
+                vertices.push_back(p.z);
+            } else {
+                vertices.push_back(p.x);
+                vertices.push_back(p.y);
+            }
         }
     }
 

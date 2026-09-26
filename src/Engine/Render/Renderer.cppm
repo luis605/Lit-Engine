@@ -5,6 +5,7 @@ module;
 #include <span>
 #include <vector>
 #include <string>
+#include <string_view>
 #include <cstdint>
 
 struct GLFWwindow;
@@ -17,11 +18,21 @@ import Engine.Render.scenedatabase;
 import Engine.Render.entity;
 import Engine.mesh;
 import Engine.UI.manager;
+import Engine.UI.imgui;
+import Engine.Render.lighting;
+import Engine.Render.custom;
+import Engine.Render.settings;
+import Engine.Render.material;
 import Engine.glm;
 
 export struct GpuEntityState {
     glm::mat4 world;
     glm::vec4 cullSphere;
+};
+
+export struct GpuPassTiming {
+    std::string_view name;
+    double milliseconds = 0.0;
 };
 
 export class Renderer {
@@ -40,7 +51,17 @@ export class Renderer {
     glm::vec4 getMeshBounds(uint32_t meshId) const;
     void setLights(bool enabled, const std::array<glm::vec4, 2>& directional, const std::vector<glm::vec4>& packed);
     void reloadShaders();
-    void setMaterial(uint32_t index, const glm::vec4& colorAndStrength);
+    void setMaterial(uint32_t index, const Material& material);
+    [[nodiscard]] RenderSettings& settings() { return m_lighting.settings(); }
+    [[nodiscard]] bool initialized() const { return m_initialized; }
+    [[nodiscard]] size_t overCapacity() const { return m_failedCapacity; }
+    [[nodiscard]] float currentEv100() const { return m_lighting.currentEv100(); }
+    [[nodiscard]] glm::vec3 sunDirection() const { return m_lighting.sunDirection(); }
+    int loadTexture(const std::string& path, bool srgb) { return m_lighting.loadTexture(path, srgb); }
+    uint32_t loadSurfaceShader(const std::string& name, const std::string& path);
+    [[nodiscard]] CustomPasses& custom() { return m_custom; }
+    [[nodiscard]] std::vector<std::string> surfaceNames() const;
+    [[nodiscard]] std::string surfacePath(uint32_t id) const;
     void addDebugLine(const glm::vec3& from, const glm::vec3& to, const glm::vec4& color, bool overlay = false);
     void uploadBasePositions(const std::vector<glm::vec3>& basePositions);
     void setAnimation(float time, uint32_t movingCount, uint32_t entityOffset);
@@ -53,11 +74,17 @@ export class Renderer {
     bool isDebugDepthMode() const;
     void setFullProfiling(bool enabled);
     [[nodiscard]] std::vector<GpuEntityState> readGpuEntityStates(size_t count);
+    [[nodiscard]] std::vector<GpuPassTiming> gpuTimings() const;
+    [[nodiscard]] double gpuTotalMilliseconds() const;
+    void setProfilingHud(bool enabled) { m_profilingHud = enabled; }
+    void requestScreenshot(std::string path) { m_screenshotPath = std::move(path); }
+    bool enableImGui();
+    void beginUi();
+    [[nodiscard]] bool imguiEnabled() const { return m_imgui && m_imgui->initialized(); }
 
    private:
     void createScreenTargets();
     void createTransformPSO();
-    void createAnimPSO();
     void createHiZPSO();
     void createCullingPSO();
     void createCommandGenPSO();
@@ -65,10 +92,16 @@ export class Renderer {
     void createScatterPSO();
     void createDispatchArgsPSO();
     void createApplyDirtyPSO();
-    void createMarkTouchedPSO();
     void createTransparentCullPSO();
-    void createOpaquePSOs();
     void createTransparentPSO();
+    void createSurfacePipelines();
+    void rebindSurfaceResources();
+    void uploadCascadeCull();
+    void drawShadows(uint32_t objectCount);
+    void ensureShadowHiZ();
+    void buildShadowHiZ(int cascade);
+    void bindBackBuffer();
+    void drawSurfaces(int phaseIndex, int cascade);
     void createDebugDepthPSO();
     void createDebugLinePSO();
     void createPipelines();
@@ -83,7 +116,12 @@ export class Renderer {
     void buildHiZ();
     void drawTransparency();
     void drawProfilingHud();
-    void reallocateBuffers(size_t numObjects);
+    void drawOverlays(const Camera& camera);
+    void captureBackBuffer();
+    std::string m_screenshotPath;
+    bool reallocateBuffers(size_t numObjects);
+    void releaseObjectBuffers();
+    [[nodiscard]] size_t objectBudget() const;
     uint32_t uploadMeshSlot(const Mesh& mesh);
 
     static constexpr int NUM_FRAMES_IN_FLIGHT = 3;
@@ -119,12 +157,15 @@ export class Renderer {
     bool m_initialized = false;
     bool m_meshInfoDirty = true;
     bool fullProfiling;
+    bool m_profilingHud = true;
 
     UIManager* m_uiManager = nullptr;
+    ImGuiLayer* m_imgui = nullptr;
 
     unsigned int m_currentFrame = 0;
 
     size_t m_maxObjects = 0;
+    size_t m_failedCapacity = 0;
 
     uint64_t m_processedHierarchyVersion = 0;
     uint64_t m_processedStructureVersion = 0;
@@ -149,14 +190,10 @@ export class Renderer {
     bool m_debugDepthMode = false;
     std::vector<float> m_debugLines;
     std::vector<float> m_debugOverlayLines;
-    bool m_lightOverride = false;
-    std::array<glm::vec4, 2> m_directional{};
-    std::vector<glm::vec4> m_lightData;
-    std::vector<glm::vec4> m_defaultLightData = {
-        glm::vec4(-80.0f, 50.0f, -50.0f, 250.0f), glm::vec4(0.1f, 0.75f, 1.0f, 2.5f), glm::vec4(0.0f), glm::vec4(0.0f),
-        glm::vec4(80.0f, -30.0f, 50.0f, 250.0f), glm::vec4(1.0f, 0.45f, 0.15f, 2.5f), glm::vec4(0.0f), glm::vec4(0.0f)};
-    bool m_lightDataDirty = true;
-    bool m_uploadedLightSource = false;
-
+    uint32_t m_frameCounter = 0;
+    float m_lastDeltaTime = 0.016f;
+    Lighting m_lighting;
+    CustomPasses m_custom;
+    CustomFrame customFrame() const;
     DiligentData* m_diligent = nullptr;
 };

@@ -3,11 +3,15 @@ module;
 #include <algorithm>
 #include <cstdint>
 #include <cstring>
+#include <functional>
+#include <string>
 #include <memory>
 #include <unordered_map>
 #include <vector>
 
 module Engine.History;
+
+import Engine.Render.component;
 
 namespace {
 uint64_t key(EntityHandle h) { return (static_cast<uint64_t>(h.generation) << 32) | h.index; }
@@ -41,6 +45,31 @@ struct History::SetVisibleCommand : History::Command {
     bool after = true;
     void apply(History& h) override { h.m_world.setVisible(h.resolve(entity), after); }
     void revert(History& h) override { h.m_world.setVisible(h.resolve(entity), before); }
+};
+
+struct History::SetRenderCommand : History::Command {
+    EntityHandle entity;
+    RenderableComponent before{};
+    RenderableComponent after{};
+    static void assign(History& h, EntityHandle e, const RenderableComponent& r) {
+        h.m_world.setMesh(e, r.mesh_uuid);
+        h.m_world.setMaterial(e, r.material_uuid);
+        h.m_world.setShader(e, r.shaderId);
+        h.m_world.setAlpha(e, r.alpha);
+    }
+    void apply(History& h) override { assign(h, h.resolve(entity), after); }
+    void revert(History& h) override { assign(h, h.resolve(entity), before); }
+};
+
+struct History::LambdaCommand : History::Command {
+    std::function<void()> forward;
+    std::function<void()> backward;
+    void apply(History&) override {
+        if (forward) forward();
+    }
+    void revert(History&) override {
+        if (backward) backward();
+    }
 };
 
 struct History::Group : History::Command {
@@ -130,23 +159,38 @@ struct History::Remove : History::Command {
     }
 };
 
-void History::beginGroup() { ++m_groupDepth; }
+void History::record(const std::string& label, std::function<void()> apply, std::function<void()> revert) {
+    auto command = std::make_unique<LambdaCommand>();
+    command->forward = std::move(apply);
+    command->backward = std::move(revert);
+    push(std::move(command), label.c_str());
+}
+
+void History::beginGroup(std::string label) {
+    if (m_groupDepth++ == 0) m_groupLabel = std::move(label);
+}
 
 void History::endGroup() {
     if (m_groupDepth == 0) return;
     if (--m_groupDepth > 0 || m_groupCommands.empty()) return;
     auto group = std::make_unique<Group>();
+    std::string label = m_groupLabel.empty() ? m_groupCommands.front()->label : m_groupLabel;
+    if (m_groupLabel.empty() && m_groupCommands.size() > 1) label += " x" + std::to_string(m_groupCommands.size());
     group->commands = std::move(m_groupCommands);
     m_groupCommands.clear();
-    push(std::move(group));
+    m_groupLabel.clear();
+    push(std::move(group), label.c_str());
 }
 
-void History::push(std::unique_ptr<Command> command) {
+void History::push(std::unique_ptr<Command> command, const char* label) {
+    command->label = label;
+    ++m_revision;
     if (m_groupDepth > 0) {
         m_groupCommands.push_back(std::move(command));
         return;
     }
     m_redo.clear();
+    command->serial = m_nextSerial++;
     m_undo.push_back(std::move(command));
     if (m_undo.size() > m_limit) m_undo.erase(m_undo.begin());
 }
@@ -159,7 +203,7 @@ void History::setLocalMatrix(EntityHandle e, const glm::mat4& local) {
     command->before = m_world.getLocalMatrix(e);
     command->after = local;
     m_world.setLocalMatrix(e, local);
-    push(std::move(command));
+    push(std::move(command), "Transform");
 }
 
 void History::commitLocalMatrix(EntityHandle e, const glm::mat4& before, const glm::mat4& after) {
@@ -169,7 +213,7 @@ void History::commitLocalMatrix(EntityHandle e, const glm::mat4& before, const g
     command->entity = e;
     command->before = before;
     command->after = after;
-    push(std::move(command));
+    push(std::move(command), "Transform");
 }
 
 void History::setName(EntityHandle e, const std::string& name) {
@@ -180,7 +224,7 @@ void History::setName(EntityHandle e, const std::string& name) {
     command->before = m_world.getName(e);
     command->after = name;
     m_world.setName(e, name);
-    push(std::move(command));
+    push(std::move(command), "Rename");
 }
 
 void History::setTag(EntityHandle e, const std::string& tag) {
@@ -191,7 +235,7 @@ void History::setTag(EntityHandle e, const std::string& tag) {
     command->before = m_world.getTag(e);
     command->after = tag;
     m_world.setTag(e, tag);
-    push(std::move(command));
+    push(std::move(command), "Set tag");
 }
 
 bool History::setComponentText(EntityHandle e, const std::string& componentName, const std::string& text) {
@@ -204,7 +248,7 @@ bool History::setComponentText(EntityHandle e, const std::string& componentName,
     command->component = componentName;
     command->before = before;
     command->after = *m_world.componentText(e, componentName);
-    push(std::move(command));
+    push(std::move(command), "Edit component");
     return true;
 }
 
@@ -216,7 +260,7 @@ void History::setVisible(EntityHandle e, bool visible) {
     command->before = !visible;
     command->after = visible;
     m_world.setVisible(e, visible);
-    push(std::move(command));
+    push(std::move(command), "Visibility");
 }
 
 void History::setParent(EntityHandle e, EntityHandle parent, bool keepWorldTransform) {
@@ -231,7 +275,7 @@ void History::setParent(EntityHandle e, EntityHandle parent, bool keepWorldTrans
     if (m_world.getParent(e) != parent) return;
     command->afterParent = parent;
     command->afterLocal = m_world.getLocalMatrix(e);
-    push(std::move(command));
+    push(std::move(command), "Reparent");
 }
 
 EntityHandle History::create(const EntityDesc& desc) {
@@ -240,7 +284,7 @@ EntityHandle History::create(const EntityDesc& desc) {
     command->prefab = m_world.capture(e);
     command->parent = desc.parent;
     command->created = {e};
-    push(std::move(command));
+    push(std::move(command), "Create");
     return e;
 }
 
@@ -251,7 +295,7 @@ EntityHandle History::instantiate(const Prefab& prefab, EntityHandle parent) {
     std::vector<EntityHandle> nodes;
     const EntityHandle root = m_world.instantiate(prefab, command->parent, &nodes);
     command->created = nodes;
-    push(std::move(command));
+    push(std::move(command), "Create");
     return root;
 }
 
@@ -263,11 +307,29 @@ void History::destroy(EntityHandle e) {
     command->parent = m_world.getParent(e);
     for (const PrefabNode& node : command->prefab.nodes) command->original.push_back({node.sourceIndex, node.sourceGeneration});
     m_world.destroy(e);
-    push(std::move(command));
+    push(std::move(command), "Delete");
+}
+
+void History::setRender(EntityHandle e, uint32_t mesh, uint32_t material, uint32_t shader, float alpha) {
+    e = resolve(e);
+    if (!m_world.isAlive(e)) return;
+    auto command = std::make_unique<SetRenderCommand>();
+    command->entity = e;
+    command->before = m_world.getRenderable(e);
+    command->before.mesh_uuid = m_world.getMesh(e);
+    command->after = command->before;
+    command->after.mesh_uuid = mesh;
+    command->after.material_uuid = material;
+    command->after.shaderId = shader;
+    command->after.alpha = alpha;
+    if (command->before.mesh_uuid == mesh && command->before.material_uuid == material && command->before.shaderId == shader && command->before.alpha == alpha) return;
+    SetRenderCommand::assign(*this, e, command->after);
+    push(std::move(command), "Render");
 }
 
 bool History::undo() {
     if (m_undo.empty()) return false;
+    ++m_revision;
     auto command = std::move(m_undo.back());
     m_undo.pop_back();
     command->revert(*this);
@@ -277,6 +339,7 @@ bool History::undo() {
 
 bool History::redo() {
     if (m_redo.empty()) return false;
+    ++m_revision;
     auto command = std::move(m_redo.back());
     m_redo.pop_back();
     command->apply(*this);
@@ -287,6 +350,9 @@ bool History::redo() {
 void History::clear() {
     m_groupCommands.clear();
     m_groupDepth = 0;
+    m_groupLabel.clear();
+    ++m_revision;
+    m_baseState = m_nextSerial++;
     m_undo.clear();
     m_redo.clear();
     m_aliases.clear();

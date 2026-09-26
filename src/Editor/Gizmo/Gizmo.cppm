@@ -5,39 +5,53 @@ module;
 
 export module Editor.gizmo;
 
-import Engine.engine;
-import Engine.World;
-import Engine.History;
+import Editor.context;
 import Engine.Render.entity;
 import Engine.glm;
 
-export enum class GizmoMode { Translate, Rotate, Scale };
+export enum class ModalKind { None, Move, Rotate, Scale };
 
-export class Gizmo {
+export class TransformTool {
   public:
-    bool update(Engine& engine, History& history, EntityHandle primary, const std::vector<EntityHandle>& targets, bool enabled);
-    [[nodiscard]] bool dragging() const { return m_activeAxis >= 0; }
-    [[nodiscard]] GizmoMode mode() const { return m_mode; }
-    void setMode(GizmoMode mode) { m_mode = mode; }
-    void setLocalSpace(bool local) { m_local = local; }
-    [[nodiscard]] bool localSpace() const { return m_local; }
-    [[nodiscard]] std::string label() const;
+    void begin(EditorContext& ctx, ModalKind kind);
+    void update(EditorContext& ctx);
+    void drawHandles(EditorContext& ctx);
+    [[nodiscard]] bool active() const { return m_kind != ModalKind::None; }
+    [[nodiscard]] bool handleDragging() const { return m_handleDragging; }
+    void nudge(EditorContext& ctx, const glm::vec3& screenDirection);
+    void resetTransform(EditorContext& ctx, int part);
 
   private:
-    GizmoMode m_mode = GizmoMode::Translate;
-    bool m_local = false;
-    int m_activeAxis = -1;
-    int m_hoverAxis = -1;
     struct Start {
         EntityHandle entity;
         glm::mat4 local{1.0f};
         glm::mat4 world{1.0f};
+        glm::mat4 parentWorld{1.0f};
     };
+
+    void capture(EditorContext& ctx);
+    void apply(EditorContext& ctx);
+    void commit(EditorContext& ctx, const char* label);
+    void cancel(EditorContext& ctx);
+    [[nodiscard]] glm::vec3 axisDirection(EditorContext& ctx) const;
+    [[nodiscard]] std::string status() const;
+
+    ModalKind m_kind = ModalKind::None;
     std::vector<Start> m_starts;
-    void commitDrag(World& world, History& history);
     glm::vec3 m_pivot{0.0f};
-    glm::vec3 m_axisDirection{1.0f, 0.0f, 0.0f};
-    glm::vec3 m_startVector{1.0f, 0.0f, 0.0f};
+    glm::vec2 m_startMouse{0.0f};
+    glm::vec2 m_pivotScreen{0.0f};
+    glm::vec3 m_startHit{0.0f};
     float m_startParameter = 0.0f;
-    float m_length = 1.0f;
+    int m_axis = -1;
+    bool m_plane = false;
+    bool m_localAxis = false;
+    std::string m_typed;
+    float m_value = 0.0f;
+    glm::vec3 m_delta{0.0f};
+    float m_accumulatedAngle = 0.0f;
+    glm::vec2 m_lastAngleVector{1.0f, 0.0f};
+    bool m_handleDragging = false;
+    std::vector<Start> m_handleStarts;
+    glm::mat4 m_handlePrimaryStart{1.0f};
 };

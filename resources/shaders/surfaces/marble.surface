@@ -1,0 +1,8 @@
+void surface(in SurfaceInput i, inout Surface s) {
+    vec3 p = i.objectPosition * 2.5;
+    float veins = abs(sin(p.x * 3.0 + litFbm(p, 6) * 9.0));
+    float v = pow(1.0 - veins, 6.0);
+    s.baseColor = mix(vec3(0.92, 0.91, 0.88), vec3(0.25, 0.27, 0.3), v);
+    s.roughness = mix(0.08, 0.35, v);
+    s.metallic = 0.0;
+}

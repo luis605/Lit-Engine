@@ -1,0 +1,29 @@
+#version 450
+#extension GL_GOOGLE_include_directive : require
+#include "lit.glsl"
+
+layout(local_size_x = 256) in;
+
+struct Particle {
+    vec4 position;
+    vec4 velocity;
+};
+
+layout(std430) buffer Particles {
+    Particle particles[];
+};
+
+void main() {
+    uint i = gl_GlobalInvocationID.x;
+    if (i >= uint(litParams[0].w)) return;
+    Particle p = particles[i];
+    vec3 center = litParams[0].xyz;
+    vec3 toCenter = center - p.position.xyz;
+    float dist = max(length(toCenter), 0.3);
+    vec3 swirl = cross(normalize(toCenter), vec3(0.0, 1.0, 0.0));
+    vec3 accel = normalize(toCenter) * (6.0 / (dist * dist) + 0.4) + swirl * 1.5 + vec3(0.0, sin(litTime() + float(i)) * 0.3, 0.0);
+    p.velocity.xyz = (p.velocity.xyz + accel * litDeltaTime()) * (1.0 - 0.15 * litDeltaTime());
+    p.position.xyz += p.velocity.xyz * litDeltaTime();
+    p.position.w = fract(p.position.w + litDeltaTime() * 0.1);
+    particles[i] = p;
+}

@@ -1,0 +1,104 @@
+#version 450
+#extension GL_GOOGLE_include_directive : require
+#include "shading.glsl"
+#include "sky.glsl"
+
+layout(local_size_x = 8, local_size_y = 8, local_size_z = 1) in;
+
+uniform sampler2D u_depth;
+uniform sampler2D u_gbuffer0;
+uniform sampler2D u_gbuffer1;
+uniform usampler2D u_gbuffer2;
+uniform sampler2D u_ao;
+uniform sampler2D u_ssr;
+uniform sampler3D u_aerial;
+
+layout(rgba16f) uniform image2D u_hdr;
+
+layout(std430) readonly buffer ExposureBuffer {
+    vec4 exposureData;
+};
+
+vec3 heatmap(float t) {
+    t = saturate(t);
+    return saturate(vec3(1.5 - abs(4.0 * t - 3.0), 1.5 - abs(4.0 * t - 2.0), 1.5 - abs(4.0 * t - 1.0)));
+}
+
+vec3 applyAerial(vec3 color, vec2 uv, float distanceMeters) {
+    if (fogParams.w <= 0.0 || int(skyParams.x + 0.5) != 0) return color;
+    float slice = saturate(distanceMeters * 0.001 * fogParams.w / 32.0);
+    vec4 ap = textureLod(u_aerial, vec3(uv, slice), 0.0);
+    return color * ap.a + ap.rgb * sunToaIlluminance();
+}
+
+vec3 applyHeightFog(vec3 color, vec3 worldPos, vec3 skyColor) {
+    float density = fogParams.x;
+    if (density <= 0.0) return color;
+    vec3 ray = worldPos - viewPos;
+    float dist = length(ray);
+    float falloff = max(fogParams.y, 1e-4);
+    float h0 = viewPos.y - fogParams.z;
+    float dh = ray.y;
+    float integral = abs(dh) > 1e-3 ? (exp(-falloff * h0) - exp(-falloff * (h0 + dh))) / (falloff * dh) : exp(-falloff * h0);
+    float fogAmount = 1.0 - exp(-density * dist * max(integral, 0.0));
+    return mix(color, skyColor, saturate(fogAmount));
+}
+
+void main() {
+    ivec2 pixel = ivec2(gl_GlobalInvocationID.xy);
+    ivec2 size = ivec2(screenParams.xy);
+    if (any(greaterThanEqual(pixel, size))) return;
+    vec2 uv = (vec2(pixel) + 0.5) * screenParams.zw;
+    float depth = texelFetch(u_depth, pixel, 0).r;
+    float exposure = exposureData.x;
+    int debugMode = debugViewMode();
+    if (depth >= 1.0) {
+        vec3 dir = normalize(worldFromDepth(uv, 1.0) - viewPos);
+        vec3 sky = skyRadiance(dir, true);
+        vec3 skyOut = min(sky * exposure, vec3(60000.0));
+        if (debugMode != 0 && debugMode != 7 && debugMode != 8) skyOut = vec3(0.02);
+        imageStore(u_hdr, pixel, vec4(skyOut, 1.0));
+        return;
+    }
+    vec3 worldPos = worldFromDepth(uv, depth);
+    vec4 g0 = texelFetch(u_gbuffer0, pixel, 0);
+    vec4 g1 = texelFetch(u_gbuffer1, pixel, 0);
+    uvec4 g2 = texelFetch(u_gbuffer2, pixel, 0);
+    vec3 N = decodeNormal(g1.rg);
+    float roughness = g1.b;
+    float metallic = float(g2.x) / 255.0;
+    float tangentAngle = float(g2.y) / 255.0;
+    uint materialId = g2.z | (g2.w << 8u);
+    float ao = renderFlags.x > 0.5 ? texelFetch(u_ao, pixel, 0).r : 1.0;
+    float occlusion = g0.a * ao;
+    ShadingData s = prepareShading(worldPos, N, g0.rgb, metallic, roughness, occlusion, tangentAngle, materialId);
+    vec4 ssr = renderFlags.y > 0.5 ? textureLod(u_ssr, uv, 0.0) : vec4(0.0);
+    float viewDepth = -(view * vec4(worldPos, 1.0)).z;
+    float sunVisibility;
+    vec3 direct = evaluateSun(s, vec2(pixel), sunVisibility) + evaluateLights(s, vec2(pixel), viewDepth);
+    vec3 ambient = evaluateIBL(s, ssr);
+    vec3 color = direct + ambient;
+    float dist = length(worldPos - viewPos);
+    color = applyAerial(color, uv, dist);
+    if (fogParams.x > 0.0) color = applyHeightFog(color, worldPos, irradianceSH(normalize(worldPos - viewPos)) * 0.9);
+    vec3 emissive = imageLoad(u_hdr, pixel).rgb;
+    vec3 result = emissive + color * exposure;
+    if (debugMode != 0) {
+        vec3 d = vec3(0.0);
+        if (debugMode == 1) d = g0.rgb;
+        else if (debugMode == 2) d = N * 0.5 + 0.5;
+        else if (debugMode == 3) d = vec3(roughness);
+        else if (debugMode == 4) d = vec3(metallic);
+        else if (debugMode == 5) d = vec3(occlusion);
+        else if (debugMode == 6) d = vec3(sunVisibility);
+        else if (debugMode == 7) d = ssr.rgb * ssr.a * exposure;
+        else if (debugMode == 8) d = (direct + ambient) * exposure / (s.diffuseColor + s.f0 + 0.04);
+        else if (debugMode == 9) d = heatmap((log2(max(luminance(color), 1e-6)) + 6.0) / 24.0);
+        else if (debugMode == 10) {
+            uint cluster = clusterIndex(vec2(pixel), viewDepth);
+            d = heatmap(float(clusterLights[cluster * CLUSTER_STRIDE]) / 16.0);
+        }
+        result = d;
+    }
+    imageStore(u_hdr, pixel, vec4(result, 1.0));
+}
