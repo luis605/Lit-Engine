@@ -208,51 +208,59 @@ void Hud::drawHelp(EditorContext& ctx, CommandRegistry& commands) {
     ImGui::InputTextWithHint("##filter", "Filter shortcuts", &m_helpFilter);
     if (ImGui::IsKeyPressed(ImGuiKey_Escape)) ctx.showHelp = false;
 
-    std::map<std::string, std::vector<const Command*>> byCategory;
+    struct Block {
+        std::string title;
+        std::vector<std::pair<std::string, std::string>> rows;
+    };
+    std::map<std::string, std::vector<std::pair<std::string, std::string>>> byCategory;
     for (const Command& command : commands.all()) {
         if (command.chords.empty() || !command.help) continue;
         if (!m_helpFilter.empty() && fuzzyScore(m_helpFilter, command.category + " " + command.title + " " + chordLabel(command.chords.front())) <= 0.0f) continue;
-        byCategory[command.category].push_back(&command);
+        std::string keys = command.keysLabel;
+        for (size_t i = 0; keys.empty() && i < command.chords.size(); ++i) keys += (i ? "  " : "") + chordLabel(command.chords[i]);
+        byCategory[command.category].emplace_back(keys, command.title);
     }
-    const float columnWidth = 360.0f;
-    const int columns = std::max(1, static_cast<int>(ImGui::GetContentRegionAvail().x / columnWidth));
+    std::vector<Block> blocks;
+    for (auto& [category, rows] : byCategory) blocks.push_back({category, std::move(rows)});
+    if (m_helpFilter.empty()) {
+        blocks.push_back({"Mouse", {{"RMB + WASD/QE", "fly, wheel sets speed"}, {"Alt+LMB", "orbit"}, {"MMB", "pan"}, {"Wheel", "dolly to cursor"}, {"Click", "select; Shift adds, Ctrl toggles"}, {"Drag", "box select"}, {"Double-click", "fly to object"}, {"Hold Space", "radial menu"}}});
+        blocks.push_back({"While transforming (G / R / S)", {{"X Y Z", "lock axis, again for local"}, {"Shift+X/Y/Z", "lock to plane"}, {"2*pi  -0.5", "type an exact value"}, {"Ctrl", "invert snapping"}, {"Enter / Click", "apply"}, {"Esc / RMB", "cancel"}}});
+    }
+    const int columns = std::max(1, static_cast<int>(ImGui::GetContentRegionAvail().x / 330.0f));
+    std::vector<std::vector<const Block*>> layout(static_cast<size_t>(columns));
+    std::vector<float> heights(static_cast<size_t>(columns), 0.0f);
+    for (const Block& block : blocks) {
+        const size_t shortest = static_cast<size_t>(std::min_element(heights.begin(), heights.end()) - heights.begin());
+        layout[shortest].push_back(&block);
+        heights[shortest] += static_cast<float>(block.rows.size()) + 2.0f;
+    }
     if (ImGui::BeginTable("keys", columns, ImGuiTableFlags_SizingStretchSame)) {
-        int column = 0;
-        for (const auto& [category, list] : byCategory) {
-            if (column == 0) ImGui::TableNextRow();
-            ImGui::TableSetColumnIndex(column);
-            ImGui::SeparatorText(category.c_str());
-            ImDrawList* draw = ImGui::GetWindowDrawList();
-            for (const Command* command : list) {
-                const ImVec2 at = ImGui::GetCursorScreenPos();
-                std::string keys = command->keysLabel;
-                for (size_t i = 0; keys.empty() && i < command->chords.size(); ++i) keys += (i ? "  " : "") + chordLabel(command->chords[i]);
-                if (keys.empty()) keys = command->keysLabel;
-                drawKeyCap(draw, at, keys, IM_COL32(255, 200, 110, 255));
-                ImGui::SetCursorScreenPos(ImVec2(at.x + ImGui::CalcTextSize(keys.c_str()).x + 18.0f, at.y));
-                ImGui::TextUnformatted(command->title.c_str());
-            }
-            column = (column + 1) % columns;
-        }
         ImGui::TableNextRow();
-        ImGui::TableSetColumnIndex(0);
-        ImGui::SeparatorText("Mouse");
-        ImGui::TextUnformatted("RMB hold + WASD/QE   fly (wheel = speed)");
-        ImGui::TextUnformatted("Alt+LMB   orbit     MMB   pan     Wheel   dolly to cursor");
-        ImGui::TextUnformatted("Click select, Shift add, Ctrl toggle, drag to box select");
-        ImGui::TextUnformatted("Double-click an object to fly to it");
-        ImGui::TextUnformatted("Hold Space: radial menu, release over an action");
-        if (columns > 1) {
-            ImGui::TableSetColumnIndex(1);
-            ImGui::SeparatorText("While transforming (G / R / S)");
-            ImGui::TextUnformatted("X Y Z  lock axis, press again for local");
-            ImGui::TextUnformatted("Shift+X/Y/Z  lock to plane");
-            ImGui::TextUnformatted("Type numbers or math: 2*pi, -0.5");
-            ImGui::TextUnformatted("Ctrl  toggles snapping, Enter/Click apply, Esc/RMB cancel");
+        for (int column = 0; column < columns; ++column) {
+            ImGui::TableSetColumnIndex(column);
+            for (const Block* block : layout[static_cast<size_t>(column)]) {
+                ImGui::SeparatorText(block->title.c_str());
+                float keyWidth = 0.0f;
+                for (const auto& row : block->rows) keyWidth = std::max(keyWidth, ImGui::CalcTextSize(row.first.c_str()).x);
+                ImDrawList* draw = ImGui::GetWindowDrawList();
+                for (const auto& [keys, title] : block->rows) {
+                    const ImVec2 at = ImGui::GetCursorScreenPos();
+                    const float capWidth = drawKeyCap(draw, at, keys, IM_COL32(255, 200, 110, 255));
+                    ImGui::SetCursorScreenPos(ImVec2(at.x + std::max(std::min(keyWidth, 150.0f) + 18.0f, capWidth + 10.0f), at.y));
+                    ImGui::TextUnformatted(title.c_str());
+                }
+                ImGui::Spacing();
+            }
         }
         ImGui::EndTable();
     }
     ImGui::End();
+}
+
+std::string Hud::pieLabels() const {
+    std::string out;
+    for (const PieItem& item : m_pieItems) out += (out.empty() ? "" : ",") + item.label;
+    return out;
 }
 
 bool Hud::updatePie(EditorContext& ctx, CommandRegistry& commands, bool allowStart) {
@@ -275,6 +283,7 @@ bool Hud::updatePie(EditorContext& ctx, CommandRegistry& commands, bool allowSta
         if (now - m_piePressTime > 0.22) {
             m_pieOpen = true;
             m_pieCenter = ctx.mouse;
+            m_pieItems = ctx.selection.empty() ? m_emptyItems : m_selectedItems;
         } else {
             return true;
         }

@@ -7,19 +7,29 @@ layout(local_size_x = 8, local_size_y = 8, local_size_z = 1) in;
 uniform sampler2D u_depth;
 uniform sampler2D u_gbuffer1;
 uniform sampler2D u_previousColor;
+uniform sampler2D u_hiz;
 layout(rgba16f) writeonly uniform image2D u_output;
 
 layout(std430) readonly buffer ExposureBuffer {
     vec4 exposureData;
 };
 
+const int MAX_ITERATIONS = 96;
+
+vec3 toScreen(vec3 viewPosition, vec2 size) {
+    vec4 clip = projection * vec4(viewPosition, 1.0);
+    vec3 ndc = clip.xyz / clip.w;
+    return vec3((ndc.x * 0.5 + 0.5) * size.x, (0.5 - ndc.y * 0.5) * size.y, ndc.z);
+}
+
 void main() {
     ivec2 pixel = ivec2(gl_GlobalInvocationID.xy);
     ivec2 size = imageSize(u_output);
     if (any(greaterThanEqual(pixel, size))) return;
-    vec2 uv = (vec2(pixel) + 0.5) / vec2(size);
-    float depth = textureLod(u_depth, uv, 0.0).r;
-    vec4 g1 = textureLod(u_gbuffer1, uv, 0.0);
+    ivec2 fullPixel = min(pixel * 2, ivec2(screenParams.xy) - 1);
+    vec2 uv = (vec2(fullPixel) + 0.5) * screenParams.zw;
+    float depth = texelFetch(u_depth, fullPixel, 0).r;
+    vec4 g1 = texelFetch(u_gbuffer1, fullPixel, 0);
     float roughness = g1.b;
     float maxRoughness = ssrParams.x;
     if (depth >= 1.0 || roughness > maxRoughness) {
@@ -34,51 +44,82 @@ void main() {
         imageStore(u_output, pixel, vec4(0.0));
         return;
     }
+    vec2 hizSize = vec2(textureSize(u_hiz, 0));
+    int maxLevel = min(textureQueryLevels(u_hiz) - 1, 7);
+    vec3 origin = P + N * max(-P.z * 0.002, 0.005);
     float maxDistance = min(farPlane() * 0.5, 200.0);
-    vec3 endP = P + R * maxDistance;
-    if (endP.z > -nearPlane) endP = P + R * ((P.z + nearPlane) / max(-R.z, 1e-4)) * 0.999;
-    vec4 startClip = projection * vec4(P, 1.0);
-    vec4 endClip = projection * vec4(endP, 1.0);
-    vec2 startUv = vec2(startClip.x / startClip.w * 0.5 + 0.5, 0.5 - startClip.y / startClip.w * 0.5);
-    vec2 endUv = vec2(endClip.x / endClip.w * 0.5 + 0.5, 0.5 - endClip.y / endClip.w * 0.5);
-    float startInvW = 1.0 / startClip.w;
-    float endInvW = 1.0 / endClip.w;
-    float startZ = P.z * startInvW;
-    float endZ = endP.z * endInvW;
-    int steps = int(ssrParams.z + 0.5);
-    float thickness = ssrParams.y;
-    float jitter = interleavedGradientNoise(vec2(pixel), frameIndex());
-    float t0 = 0.0;
-    float hitT = -1.0;
-    for (int i = 1; i <= steps; ++i) {
-        float t = pow((float(i) - 1.0 + jitter) / float(steps), 1.6);
-        vec2 sUv = mix(startUv, endUv, t);
-        if (any(lessThan(sUv, vec2(0.0))) || any(greaterThan(sUv, vec2(1.0)))) break;
-        float rayDepth = -mix(startZ, endZ, t) / mix(startInvW, endInvW, t);
-        float sceneDepth = linearViewDepth(textureLod(u_depth, sUv, 0.0).r);
-        float diff = rayDepth - sceneDepth;
-        if (diff > 0.0 && diff < thickness * max(rayDepth * 0.05, 1.0)) {
-            float lo = t0;
-            float hi = t;
-            for (int b = 0; b < 6; ++b) {
-                float mid = 0.5 * (lo + hi);
-                vec2 mUv = mix(startUv, endUv, mid);
-                float mRay = -mix(startZ, endZ, mid) / mix(startInvW, endInvW, mid);
-                float mScene = linearViewDepth(textureLod(u_depth, mUv, 0.0).r);
-                if (mRay > mScene) hi = mid;
-                else lo = mid;
-            }
-            hitT = hi;
-            break;
-        }
-        t0 = t;
-    }
-    if (hitT < 0.0) {
+    vec3 endP = origin + R * maxDistance;
+    if (endP.z > -nearPlane) endP = origin + R * ((origin.z + nearPlane) / max(-R.z, 1e-4)) * 0.999;
+    vec3 start = toScreen(origin, hizSize);
+    vec3 end = toScreen(endP, hizSize);
+    vec2 delta = end.xy - start.xy;
+    float lengthPx = length(delta);
+    if (lengthPx < 1.0) {
         imageStore(u_output, pixel, vec4(0.0));
         return;
     }
-    vec2 hitUv = mix(startUv, endUv, hitT);
+    vec2 dir = delta / lengthPx;
+    float dzds = (end.z - start.z) / lengthPx;
+    vec2 exitBias = vec2(dir.x >= 0.0 ? 1.0 : 0.0, dir.y >= 0.0 ? 1.0 : 0.0);
+    vec2 invDir = vec2(abs(dir.x) > 1e-6 ? 1.0 / dir.x : 1e6, abs(dir.y) > 1e-6 ? 1.0 / dir.y : 1e6);
+    float thickness = ssrParams.y;
+    float s = 1.5;
+    int level = 0;
+    float hitS = -1.0;
+    for (int i = 0; i < MAX_ITERATIONS && s < lengthPx; ++i) {
+        vec2 p = start.xy + dir * s;
+        if (any(lessThan(p, vec2(0.0))) || any(greaterThanEqual(p, hizSize))) break;
+        float cellSize = exp2(float(level));
+        vec2 cell = floor(p / cellSize);
+        vec2 boundary = (cell + exitBias) * cellSize;
+        vec2 exitS = (boundary - p) * invDir;
+        float sExit = s + max(min(exitS.x, exitS.y), 0.0) + 0.02;
+        float zMin = texelFetch(u_hiz, min(ivec2(cell), textureSize(u_hiz, level) - 1), level).r;
+        float zEntry = start.z + dzds * s;
+        float zExit = start.z + dzds * min(sExit, lengthPx);
+        if (max(zEntry, zExit) < zMin) {
+            s = sExit;
+            level = min(level + 1, maxLevel);
+            continue;
+        }
+        if (level > 0) {
+            --level;
+            continue;
+        }
+        float sPlane = abs(dzds) > 1e-9 ? (zMin - start.z) / dzds : s;
+        float sHit = clamp(sPlane, s, sExit);
+        float rayLinear = linearViewDepth(start.z + dzds * sHit);
+        float sceneLinear = linearViewDepth(zMin);
+        if (rayLinear - sceneLinear < thickness * max(sceneLinear * 0.05, 1.0)) {
+            float lo = max(s - 1.0, 0.0);
+            float hi = sHit;
+            vec2 fullScale = screenParams.xy / hizSize;
+            for (int r = 0; r < 7; ++r) {
+                float mid = 0.5 * (lo + hi);
+                ivec2 fp = clamp(ivec2((start.xy + dir * mid) * fullScale), ivec2(0), ivec2(screenParams.xy) - 1);
+                if (start.z + dzds * mid >= texelFetch(u_depth, fp, 0).r) hi = mid;
+                else lo = mid;
+            }
+            hitS = hi;
+            break;
+        }
+        s = sExit;
+    }
+    if (hitS < 0.0) {
+        imageStore(u_output, pixel, vec4(0.0));
+        return;
+    }
+    vec2 hitUv = (start.xy + dir * hitS) / hizSize;
     float hitDepth = textureLod(u_depth, hitUv, 0.0).r;
+    if (hitDepth >= 1.0) {
+        imageStore(u_output, pixel, vec4(0.0));
+        return;
+    }
+    vec3 hitN = normalize(mat3(view) * decodeNormal(textureLod(u_gbuffer1, hitUv, 0.0).rg));
+    if (dot(hitN, R) > 0.2) {
+        imageStore(u_output, pixel, vec4(0.0));
+        return;
+    }
     vec3 hitWorld = worldFromDepth(hitUv, hitDepth);
     float previousDepth;
     vec2 previousUv = projectToUv(hitWorld, prevViewProjection, previousDepth);
@@ -86,11 +127,16 @@ void main() {
         imageStore(u_output, pixel, vec4(0.0));
         return;
     }
-    vec3 color = textureLod(u_previousColor, previousUv, 0.0).rgb / max(exposureData.x, 1e-12);
+    vec2 pyramidSize = vec2(textureSize(u_previousColor, 0));
+    float alpha = roughness * roughness;
+    float footprint = alpha * 2.0 * length((hitUv - uv) * pyramidSize);
+    float lod = clamp(log2(max(footprint, 1.0)), 0.0, float(textureQueryLevels(u_previousColor) - 1));
+    vec3 color = textureLod(u_previousColor, previousUv, lod).rgb / max(exposureData.x, 1e-12);
     vec2 edge = min(previousUv, 1.0 - previousUv);
-    float edgeFade = saturate(min(edge.x, edge.y) * 10.0);
+    float edgeFade = saturate(min(edge.x, edge.y) * 12.0);
     float roughFade = 1.0 - saturate((roughness - maxRoughness * 0.6) / (maxRoughness * 0.4));
-    float distanceFade = 1.0 - saturate(hitT * hitT);
+    float travel = hitS / lengthPx;
+    float distanceFade = 1.0 - saturate((travel - 0.6) / 0.4);
     float facing = saturate(-R.z * 4.0 + 1.0);
     imageStore(u_output, pixel, vec4(color, edgeFade * roughFade * distanceFade * facing));
 }

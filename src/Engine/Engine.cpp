@@ -413,10 +413,10 @@ void Engine::reloadShaders() { m_renderer.reloadShaders(); }
 bool Engine::shadersChanged() {
     bool changed = false;
     std::error_code ec;
-    for (const auto& entry : std::filesystem::recursive_directory_iterator("resources/shaders", ec)) {
-        if (!entry.is_regular_file(ec)) continue;
-        const long long stamp = entry.last_write_time(ec).time_since_epoch().count();
-        const std::string key = entry.path().string();
+    auto check = [&](const std::filesystem::path& path) {
+        const long long stamp = std::filesystem::last_write_time(path, ec).time_since_epoch().count();
+        if (ec) return;
+        const std::string key = path.string();
         const auto it = m_shaderStamps.find(key);
         if (it == m_shaderStamps.end()) {
             m_shaderStamps.emplace(key, stamp);
@@ -424,6 +424,14 @@ bool Engine::shadersChanged() {
             it->second = stamp;
             changed = true;
         }
+    };
+    for (const auto& entry : std::filesystem::recursive_directory_iterator("resources/shaders", ec)) {
+        if (entry.is_regular_file(ec)) check(entry.path());
+    }
+    const size_t surfaces = m_renderer.surfaceNames().size();
+    for (uint32_t id = 0; id < surfaces; ++id) {
+        const std::string path = m_renderer.surfacePath(id);
+        if (!path.starts_with("resources/shaders")) check(path);
     }
     return changed;
 }

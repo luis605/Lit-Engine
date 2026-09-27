@@ -114,18 +114,21 @@ Application::Application() {
     m_engine.setForcedLod(m_lookState.forcedLod);
     m_engine.setLodBias(m_lookState.lodBias);
 
-    for (const char* effect : {"outline", "sharpen", "chromatic", "underwater"}) {
+    m_engine.loadShaderTexture("u_lut", "resources/textures/grade_warm.png", false);
+    for (const char* effect : {"outline", "sharpen", "chromatic", "underwater", "grade"}) {
         const uint32_t id = m_engine.addEffect(effect);
         m_engine.setPassEnabled(PassKind::Effect, id, false);
     }
     registerCommands();
-    m_hud.setPieItems({{"Move", "transform.move"}, {"Rotate", "transform.rotate"}, {"Scale", "transform.scale"}, {"Duplicate", "edit.duplicate"}, {"Delete", "edit.delete"}, {"Focus", "view.focus"}, {"Add...", "create.menu"}, {"Hide", "hide.selected"}});
+    m_hud.setPieItems({{"Move", "transform.move"}, {"Rotate", "transform.rotate"}, {"Scale", "transform.scale"}, {"Duplicate", "edit.duplicate"}, {"Delete", "edit.delete"}, {"Focus", "view.focus"}, {"Add...", "create.menu"}, {"Hide", "hide.selected"}},
+                       {{"Add...", "create.menu"}, {"Select all", "select.all"}, {"Paste", "edit.paste"}, {"Frame all", "view.frameAll"}, {"World", "view.world"}, {"Ortho", "view.ortho"}, {"Reveal all", "hide.revealAll"}, {"Look", "view.look"}});
     m_ctx->savedRevision = m_ctx->history->state();
     m_stableSettings = m_engine.renderSettings();
     m_lastFrame = glfwGetTime();
     if (const char* script = std::getenv("LIT_AUTOPILOT")) {
         m_recoveryPending = false;
         m_autopilot.load(script);
+        m_autopilot.window = m_window;
         m_autopilot.saveScene = [this](const std::string& path) { saveScene(path); };
         m_autopilot.loadScene = [this](const std::string& path) { loadScene(path); };
         m_autopilot.editMaterial = [this](const std::string& field, float value) {
@@ -148,8 +151,19 @@ Application::Application() {
             if (what == "y") return std::format("{:.2f}", m_ctx->world.getWorldPosition(m_ctx->primary()).y);
             if (what == "z") return std::format("{:.2f}", m_ctx->world.getWorldPosition(m_ctx->primary()).z);
             if (what == "palette") return m_palette.isOpen() ? "1" : "0";
+            if (what == "onscreen") {
+                const std::optional<glm::vec2> at = m_engine.worldToScreen(m_ctx->world.getWorldPosition(m_ctx->primary()));
+                const glm::vec2 size = m_engine.windowSize();
+                return at && at->x >= 0.0f && at->y >= 0.0f && at->x <= size.x && at->y <= size.y ? "1" : "0";
+            }
+            if (what.rfind("file:", 0) == 0) return std::filesystem::is_regular_file(what.substr(5)) ? "1" : "0";
             if (what == "zen") return m_ctx->zen ? "1" : "0";
             if (what == "dirty") return m_ctx->dirty() ? "1" : "0";
+            if (what == "inspector") return m_inspector.sections();
+            if (what == "world") return m_look.worldVisible() ? "1" : "0";
+            if (what == "ortho") return m_ctx->world.camera().isOrthographic() ? "1" : "0";
+            if (what == "pie") return m_hud.pieOpen() ? m_hud.pieLabels() : "closed";
+            if (what == "look") return m_ctx->showLook ? "1" : "0";
             if (what == "prompt") return m_unsavedPromptOpen ? "1" : "0";
             if (what == "rx" || what == "ry" || what == "rz") {
                 const glm::vec3 euler = glm::degrees(glm::eulerAngles(glm::quat_cast(glm::mat3(m_ctx->world.getWorldMatrix(m_ctx->primary())))));
@@ -158,6 +172,14 @@ Application::Application() {
             if (what.rfind("roughness:", 0) == 0) {
                 const EntityHandle e = m_ctx->world.find(what.substr(10));
                 return m_ctx->world.isAlive(e) ? std::format("{:.2f}", m_engine.material(m_ctx->world.getRenderable(e).material_uuid).roughness) : "missing";
+            }
+            if (what.rfind("shader:", 0) == 0) return m_engine.shaderStatus(what.substr(7));
+            if (what == "toasts:error") return std::to_string(std::ranges::count_if(m_ctx->toasts, [](const Toast& t) { return t.kind == ToastKind::Error; }));
+            if (what.rfind("effect:", 0) == 0) {
+                for (const PassInfo& pass : m_engine.customPasses()) {
+                    if (pass.kind == PassKind::Effect && pass.name == what.substr(7)) return !pass.valid ? "invalid" : pass.stage == EffectStage::Ldr ? "ldr" : "hdr";
+                }
+                return "missing";
             }
             if (what == "passes") {
                 int enabled = 0;
@@ -362,6 +384,7 @@ void Application::buildShowcaseScene() {
         m.baseColor = glm::vec3(0.8f, 0.95f, 1.0f);
         m.roughness = 0.03f;
         m.opacity = 0.3f;
+        m.transmission = 1.0f;
     });
     const uint32_t neutral = material("Clay", [](Material& m) {
         m.baseColor = glm::vec3(0.75f);
@@ -550,7 +573,7 @@ void Application::paste() {
     glm::vec3 center(0.0f);
     for (const Prefab& p : ctx.clipboard) center += glm::vec3(p.nodes.front().local[3]);
     center /= static_cast<float>(ctx.clipboard.size());
-    const glm::vec3 offset = ctx.cursor - center;
+    const glm::vec3 offset = spawnPoint(ctx).position - center;
     std::vector<EntityHandle> created;
     ctx.history->beginGroup("Paste");
     for (Prefab p : ctx.clipboard) {
@@ -564,7 +587,8 @@ void Application::paste() {
 EntityHandle Application::createPrimitive(const std::string& kind) {
     EditorContext& ctx = *m_ctx;
     EntityDesc desc;
-    desc.position = ctx.cursor + (ctx.cursorOnSurface ? glm::vec3(0.0f, 0.5f, 0.0f) : glm::vec3(0.0f, 0.5f, 0.0f));
+    const SpawnPoint spawn = spawnPoint(ctx);
+    desc.position = spawn.position + glm::vec3(0.0f, spawn.onSurface ? 0.5f : 0.0f, 0.0f);
     desc.name = kind;
     if (kind == "Cube") {
         desc.mesh = ctx.cubeMesh;
@@ -697,6 +721,24 @@ void Application::setView(const glm::vec3& direction) {
     ctx.flight.fromPitch = camera.getPitch();
     ctx.flight.toYaw = glm::degrees(std::atan2(d.z, d.x));
     ctx.flight.toPitch = std::clamp(glm::degrees(std::asin(std::clamp(d.y, -1.0f, 1.0f))), -89.0f, 89.0f);
+    ctx.flight.fromOrtho = camera.isOrthographic() ? camera.getOrthoHeight() : 0.0f;
+    ctx.flight.toOrtho = 2.0f * distance * std::tan(glm::radians(camera.getFov()) * 0.5f);
+    ctx.autoOrtho = true;
+}
+
+void Application::toggleOrthographic() {
+    EditorContext& ctx = *m_ctx;
+    Camera& camera = ctx.world.camera();
+    ctx.flight.active = false;
+    ctx.autoOrtho = false;
+    if (camera.isOrthographic()) {
+        camera.setOrthographic(false);
+        return;
+    }
+    const glm::vec3 pivot = ctx.selection.empty() ? (ctx.cursorOnSurface ? ctx.cursor : camera.getPosition() + cameraForward(camera) * 10.0f) : ctx.world.getWorldPosition(ctx.primary());
+    const float distance = std::max(glm::dot(pivot - camera.getPosition(), cameraForward(camera)), 1.0f);
+    camera.setOrthoHeight(2.0f * distance * std::tan(glm::radians(camera.getFov()) * 0.5f));
+    camera.setOrthographic(true);
 }
 
 void Application::storeSelectionSet(int slot) {
@@ -741,6 +783,8 @@ void Application::recallBookmark(int slot) {
     f.toYaw = b.yaw;
     f.fromPitch = camera.getPitch();
     f.toPitch = b.pitch;
+    f.fromOrtho = f.toOrtho = 0.0f;
+    m_ctx->world.camera().setOrthographic(false);
 }
 
 void Application::selectSimilar(bool byMaterial) {
@@ -806,8 +850,8 @@ void Application::registerCommands() {
         if (!m_ctx->history->redo()) m_ctx->toast("Nothing to redo");
         m_ctx->selection.prune(m_ctx->world);
     }, {}, CommandScope::Global).repeat = true;
-    add("edit.duplicate", "Duplicate and move", "Edit", {ctrl(ImGuiKey_D)}, [this] { duplicateSelection(true); }, hasSelection);
-    add("edit.duplicateInPlace", "Duplicate in place", "Edit", {shift(ImGuiKey_D)}, [this] { duplicateSelection(false); }, hasSelection);
+    add("edit.duplicate", "Duplicate and move", "Edit", {shift(ImGuiKey_D)}, [this] { duplicateSelection(true); }, hasSelection);
+    add("edit.duplicateInPlace", "Duplicate in place", "Edit", {ctrl(ImGuiKey_D)}, [this] { duplicateSelection(false); }, hasSelection);
     add("edit.delete", "Delete", "Edit", {key(ImGuiKey_Delete)}, [this] { deleteSelection(); }, hasSelection);
     add("edit.copy", "Copy", "Edit", {ctrl(ImGuiKey_C)}, [this] { copySelection(); }, hasSelection);
     add("edit.cut", "Cut", "Edit", {ctrl(ImGuiKey_X)}, [this] {
@@ -973,6 +1017,7 @@ void Application::registerCommands() {
     add("view.bottom", "View from bottom", "View", {ctrl(ImGuiKey_Keypad7)}, [this] { setView(glm::vec3(0.0f, 1.0f, 0.0f)); });
     add("view.front", "View from front", "View", {key(ImGuiKey_Keypad1)}, [this] { setView(glm::vec3(0.0f, 0.0f, -1.0f)); });
     add("view.back", "View from back", "View", {ctrl(ImGuiKey_Keypad1)}, [this] { setView(glm::vec3(0.0f, 0.0f, 1.0f)); });
+    add("view.ortho", "Toggle orthographic / perspective", "View", {key(ImGuiKey_Keypad5)}, [this] { toggleOrthographic(); }).checked = [this] { return m_ctx->world.camera().isOrthographic(); };
     add("view.right", "View from right", "View", {key(ImGuiKey_Keypad3)}, [this] { setView(glm::vec3(-1.0f, 0.0f, 0.0f)); });
     add("view.left", "View from left", "View", {ctrl(ImGuiKey_Keypad3)}, [this] { setView(glm::vec3(1.0f, 0.0f, 0.0f)); });
     add("view.zen", "Zen mode (hide all panels)", "View", {key(ImGuiKey_Tab)}, [this] { m_ctx->zen = !m_ctx->zen; }).checked = [this] { return m_ctx->zen; };
@@ -984,8 +1029,15 @@ void Application::registerCommands() {
     add("view.inspector", "Inspector card", "View", {key(ImGuiKey_I)}, [this] { m_ctx->showInspector = !m_ctx->showInspector; }).checked = [this] { return m_ctx->showInspector; };
     add("view.pinInspector", "Pin / float the inspector card", "View", {ctrlShift(ImGuiKey_I)}, [this] {
         m_ctx->pinInspector = !m_ctx->pinInspector;
+        if (m_ctx->pinInspector) m_inspector.dock();
         m_ctx->toast(m_ctx->pinInspector ? "Card pinned" : "Card follows the selection");
     }, {}, CommandScope::Global).checked = [this] { return m_ctx->pinInspector; };
+    add("view.world", "World: sky, sun, exposure, fog", "View", {shift(ImGuiKey_W)}, [this] {
+        const bool show = !m_look.worldVisible();
+        m_ctx->showWorld = show && !m_ctx->selection.empty();
+        m_ctx->worldDismissed = !show;
+        if (show && m_ctx->showLook && m_ctx->selection.empty()) m_ctx->showWorld = true;
+    }).checked = [this] { return m_look.worldVisible(); };
     add("view.look", "Look: rendering and lighting", "View", {key(ImGuiKey_L)}, [this] { m_ctx->showLook = !m_ctx->showLook; }).checked = [this] { return m_ctx->showLook; };
     add("view.stats", "Stats overlay", "View", {ctrlShift(ImGuiKey_T)}, [this] { m_ctx->showStats = !m_ctx->showStats; }, {}, CommandScope::Global).checked = [this] { return m_ctx->showStats; };
     add("view.grid", "Grid", "View", {ctrlShift(ImGuiKey_G)}, [this] { m_ctx->showGrid = !m_ctx->showGrid; }).checked = [this] { return m_ctx->showGrid; };
@@ -1018,16 +1070,20 @@ void Application::registerCommands() {
         for (EntityHandle e : m_ctx->topLevelSelection()) m_ctx->history->setVisible(e, visible);
         m_ctx->history->endGroup();
     }, hasSelection);
-    add("hide.revealAll", "Show all hidden roots", "Visibility", {alt(ImGuiKey_H)}, [this] {
-        m_ctx->history->beginGroup("Show all");
-        size_t shown = 0;
-        for (EntityHandle e = m_ctx->world.firstRoot(); !e.isNull() && shown < 100000; e = m_ctx->world.nextSibling(e)) {
-            if (!m_ctx->world.isVisible(e)) {
-                m_ctx->history->setVisible(e, true);
-                ++shown;
-            }
+    add("hide.revealAll", "Show everything hidden", "Visibility", {alt(ImGuiKey_H)}, [this] {
+        World& world = m_ctx->world;
+        auto hidden = std::make_shared<std::vector<EntityHandle>>();
+        world.forEach([&](EntityHandle e) {
+            if (!world.isVisible(e)) hidden->push_back(e);
+        });
+        const size_t shown = hidden->size();
+        if (shown > 0) {
+            auto apply = [&world, hidden](bool visible) {
+                for (EntityHandle e : *hidden) world.setVisible(e, visible);
+            };
+            apply(true);
+            m_ctx->history->record("Show all", [apply] { apply(true); }, [apply] { apply(false); });
         }
-        m_ctx->history->endGroup();
         m_ctx->toast(std::format("Revealed {}", shown));
     });
 
@@ -1121,28 +1177,45 @@ void Application::registerCommands() {
         };
     }
     add("shader.new", "New surface shader for selection...", "Shaders", {}, [this] {
-        m_palette.prompt({"New surface shader name", "", "e.g. rusty", {}, [this](const std::string& name) {
+        m_palette.prompt({"New surface shader name (or path to a .surface file)", "", "e.g. rusty", {}, [this](const std::string& name) {
+                              const std::filesystem::path given(name);
+                              const bool bare = !given.has_parent_path();
                               std::string clean;
-                              for (char ch : name) {
+                              for (char ch : given.extension() == ".surface" ? given.stem().string() : name) {
                                   if (std::isalnum(static_cast<unsigned char>(ch)) || ch == '_') clean.push_back(static_cast<char>(std::tolower(static_cast<unsigned char>(ch))));
                               }
-                              if (clean.empty()) return;
-                              std::string path = "resources/shaders/surfaces/" + clean + ".surface";
+                              if (clean.empty()) {
+                                  m_ctx->toast(std::format("'{}' is not a valid shader name", name), ToastKind::Error);
+                                  return;
+                              }
+                              std::filesystem::path path = bare ? std::filesystem::path("resources/shaders/surfaces") / (clean + ".surface") : given;
 #ifdef LIT_SOURCE_DIR
-                              if (std::filesystem::is_directory(LIT_SOURCE_DIR "/resources/shaders/surfaces")) path = std::string(LIT_SOURCE_DIR "/resources/shaders/surfaces/") + clean + ".surface";
+                              if (bare && std::filesystem::is_directory(LIT_SOURCE_DIR "/resources/shaders/surfaces")) path = std::filesystem::path(LIT_SOURCE_DIR "/resources/shaders/surfaces") / (clean + ".surface");
+                              if (!bare && given.is_relative() && !std::filesystem::exists(path) && std::filesystem::exists(std::filesystem::path(LIT_SOURCE_DIR) / given)) path = std::filesystem::path(LIT_SOURCE_DIR) / given;
 #endif
                               if (!std::filesystem::exists(path)) {
+                                  std::error_code error;
+                                  if (path.has_parent_path()) std::filesystem::create_directories(path.parent_path(), error);
                                   std::ofstream out(path);
                                   out << "void vertex(inout VertexData v, in VertexContext c) {\n}\n\nvoid surface(in SurfaceInput i, inout Surface s) {\n    s.baseColor *= 0.5 + 0.5 * litNoise(i.worldPosition * 4.0);\n}\n";
+                                  if (!out.good()) {
+                                      m_ctx->toast(std::format("Cannot create {}", path.string()), ToastKind::Error);
+                                      return;
+                                  }
+                                  m_ctx->toast(std::format("Created {} from the template", path.string()));
+                              } else if (!std::filesystem::is_regular_file(path)) {
+                                  m_ctx->toast(std::format("{} is not a file", path.string()), ToastKind::Error);
+                                  return;
                               }
-                              const uint32_t id = m_engine.loadShader(clean, path);
+                              const uint32_t id = m_engine.loadShader(clean, path.string());
                               m_ctx->history->beginGroup("Assign shader");
                               for (EntityHandle e : m_ctx->topLevelSelection()) {
                                   const RenderableComponent r = m_ctx->world.getRenderable(e);
                                   m_ctx->history->setRender(e, m_ctx->world.getMesh(e), r.material_uuid, id, r.alpha);
                               }
                               m_ctx->history->endGroup();
-                              m_ctx->toast(std::format("Edit {} and save: it hot-reloads", path), ToastKind::Success);
+                              if (m_engine.shaderStatus(clean) == "failed") return;
+                              m_ctx->toast(std::format("Edit {} and save: it hot-reloads", path.string()), ToastKind::Success);
                           }});
     });
     add("profile.cpu", "CPU profiler", "Profile", {key(ImGuiKey_F10)}, [this] { m_engine.profiler().setEnabled(!m_engine.profiler().enabled()); }, {}, CommandScope::Global).checked = [this] { return m_engine.profiler().enabled(); };
@@ -1224,13 +1297,16 @@ void Application::drawStats(float frameMs) {
     ImDrawList* draw = ImGui::GetForegroundDrawList();
     const Camera& camera = ctx.world.camera();
     const glm::vec3 p = camera.getPosition();
+    size_t lights = 0;
+    ctx.world.view<LightComponent>([&lights](EntityHandle, LightComponent&) { ++lights; });
     const std::string lines[] = {
         std::format("{:.1f} fps  {:.2f} ms", 1000.0f / std::max(frameMs, 0.01f), frameMs),
         std::format("gpu {:.2f} ms", m_engine.gpuTotalMilliseconds()),
-        std::format("cam {:.0f} {:.0f} {:.0f}", p.x, p.y, p.z),
+        std::format("{} entities  {} lights  {} selected", ctx.world.aliveCount(), lights, ctx.selection.size()),
+        std::format("cam {:.0f} {:.0f} {:.0f}  {}", p.x, p.y, p.z, camera.isOrthographic() ? "ortho" : "persp"),
         std::format("speed {:.1f}  {}{}", ctx.flySpeed, ctx.snapping ? "snap  " : "", ctx.localSpace ? "local" : "world"),
     };
-    float y = 122.0f;
+    float y = ImGui::GetMainViewport()->WorkPos.y + 122.0f;
     for (const std::string& line : lines) {
         const ImVec2 textSize = ImGui::CalcTextSize(line.c_str());
         draw->AddText(ImVec2(size.x - textSize.x - 16.0f, y), IM_COL32(200, 205, 214, 200), line.c_str());
@@ -1258,9 +1334,19 @@ void Application::update() {
     m_frameMs = deltaTime * 1000.0f;
 
     m_autopilot.beforeFrame(ctx, m_commands, deltaTime);
+    for (const ShaderError& error : m_engine.takeShaderErrors()) {
+        const std::string file = std::filesystem::path(error.source).filename().string();
+        std::string message = error.message;
+        for (size_t at = 0; (at = message.find(error.source, at)) != std::string::npos; at += file.size()) message.replace(at, error.source.size(), file);
+        size_t cut = 0;
+        for (int line = 0; line < 3 && cut != std::string::npos; ++line) cut = message.find('\n', cut == 0 ? 0 : cut + 1);
+        ctx.toast(std::format("Shader error in {}\n{}", file, message.substr(0, cut)), ToastKind::Error);
+    }
     m_engine.beginUi();
     ctx.hints.clear();
     ctx.modeLabel = "EDIT";
+    ctx.panels.clear();
+    ctx.rightColumnTop = ImGui::GetMainViewport()->WorkPos.y + (ctx.zen ? 12.0f : 122.0f) + (ctx.showStats && !ctx.zen ? 5.0f * (ImGui::GetTextLineHeight() + 2.0f) + 14.0f : 0.0f);
 
     const ImGuiIO& io = ImGui::GetIO();
     const bool paletteOpen = m_palette.isOpen();
@@ -1287,8 +1373,9 @@ void Application::update() {
     }
 
     m_outliner.draw(ctx);
-    m_inspector.draw(ctx);
     m_look.draw(ctx, m_lookState);
+    m_look.drawWorld(ctx);
+    m_inspector.draw(ctx);
     drawStats(m_frameMs);
     m_hud.drawTimeline(ctx);
     m_hud.drawStatusBar(ctx, m_commands, m_frameMs);

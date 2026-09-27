@@ -25,6 +25,8 @@ export class Viewport {
     void drawGrid(EditorContext& ctx);
     void drawSelection(EditorContext& ctx);
     void drawAxisWidget(EditorContext& ctx);
+    void drawIcons(EditorContext& ctx);
+    [[nodiscard]] EntityHandle iconAt(const glm::vec2& point) const;
     [[nodiscard]] glm::vec3 pivotFor(EditorContext& ctx) const;
 
     bool m_pressing = false;
@@ -38,4 +40,9 @@ export class Viewport {
     glm::vec2 m_lastHoverMouse{-1.0f};
     double m_lastClickTime = 0.0;
     EntityHandle m_lastClicked;
+    struct Icon {
+        EntityHandle entity;
+        glm::vec2 at{0.0f};
+    };
+    std::vector<Icon> m_icons;
 };

@@ -1,3 +1,5 @@
+#pragma lit stage ldr
+
 vec3 effect(vec2 uv, vec3 color) {
     vec2 t = litTexel();
     float d = litLinearDepth(uv);

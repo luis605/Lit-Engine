@@ -1,0 +1,4 @@
+void surface(in SurfaceInput i, inout Surface s) {
+    s.baseColor = vec3(1.0, 0.2, 0.1);
+    s.roughness = undefinedRoughness;
+}

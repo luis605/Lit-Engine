@@ -1,6 +1,9 @@
+#pragma lit stage ldr
+#pragma lit param 0 0.6
+
 vec3 effect(vec2 uv, vec3 color) {
     vec2 t = litTexel();
     vec3 blur = (litColor(uv + vec2(t.x, 0.0)) + litColor(uv - vec2(t.x, 0.0)) + litColor(uv + vec2(0.0, t.y)) + litColor(uv - vec2(0.0, t.y))) * 0.25;
-    float amount = litParams[0].x > 0.0 ? litParams[0].x : 0.6;
-    return max(color + (color - blur) * amount, vec3(0.0));
+    float amount = litParams[0].x;
+    return saturate(color + (color - blur) * amount);
 }

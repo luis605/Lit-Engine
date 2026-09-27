@@ -11,7 +11,7 @@ const float MIE_EXTINCTION = 4.440e-3;
 const vec3 OZONE_ABSORPTION = vec3(0.650, 1.881, 0.085) * 1e-3;
 const vec2 TRANSMITTANCE_LUT_SIZE = vec2(256.0, 64.0);
 const vec2 MULTISCATTER_LUT_SIZE = vec2(32.0, 32.0);
-const vec2 SKYVIEW_LUT_SIZE = vec2(192.0, 108.0);
+const vec2 SKYVIEW_LUT_SIZE = vec2(384.0, 216.0);
 const float CAMERA_BASE_ALTITUDE_KM = 0.15;
 
 struct AtmosphereScales {

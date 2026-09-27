@@ -291,6 +291,7 @@ void Outliner::draw(EditorContext& ctx) {
         return;
     }
     ctx.outlinerFocused = ImGui::IsWindowFocused(ImGuiFocusedFlags_RootAndChildWindows);
+    ctx.panels.emplace_back(ImGui::GetWindowPos().x, ImGui::GetWindowPos().y, ImGui::GetWindowSize().x, ImGui::GetWindowSize().y);
 
     if (m_focusSearch) {
         ImGui::SetKeyboardFocusHere();

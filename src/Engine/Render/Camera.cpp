@@ -13,6 +13,10 @@ glm::mat4 Camera::getViewMatrix() const {
 }
 
 glm::mat4 Camera::getProjectionMatrix() const {
+    if (m_orthographic) {
+        const float h = m_orthoHeight * 0.5f;
+        return glm::orthoRH_ZO(-h * m_aspectRatio, h * m_aspectRatio, -h, h, m_nearPlane, m_farPlane);
+    }
     glm::mat4 proj = glm::perspectiveRH_ZO(glm::radians(m_fov), m_aspectRatio, m_nearPlane, m_farPlane);
     return proj;
 }

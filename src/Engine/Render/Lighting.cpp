@@ -5,9 +5,11 @@ module;
 #include "DiligentCore/Graphics/GraphicsTools/interface/MapHelper.hpp"
 
 #include <algorithm>
+#include <bit>
 #include <array>
 #include <cmath>
 #include <cstdint>
+#include <functional>
 #include <cstring>
 #include <string>
 #include <vector>
@@ -29,9 +31,12 @@ constexpr uint32_t kMaxMaterials = 1024;
 constexpr uint32_t kMaxLights = 1024;
 constexpr uint32_t kClusterCount = 16 * 9 * 24;
 constexpr uint32_t kClusterStride = 128;
-constexpr uint32_t kEnvSize = 128;
+constexpr uint32_t kEnvSize = 256;
+constexpr uint32_t kSkyViewWidth = 384;
+constexpr uint32_t kSkyViewHeight = 216;
 constexpr uint32_t kEnvMips = 6;
 constexpr uint32_t kBloomLevels = 6;
+constexpr uint32_t kPyramidMips = 6;
 constexpr uint32_t kTextureSize = 1024;
 constexpr uint32_t kTextureMips = 11;
 constexpr uint32_t kTextureCapacity = 16;
@@ -136,7 +141,21 @@ struct Lighting::Data {
     RefCntAutoPtr<Diligent::ITexture> ldr;
     RefCntAutoPtr<Diligent::ITexture> aoRaw;
     RefCntAutoPtr<Diligent::ITexture> aoDepth;
+    RefCntAutoPtr<Diligent::ITexture> clouds;
     RefCntAutoPtr<Diligent::ITexture> aoFiltered;
+    RefCntAutoPtr<Diligent::ITexture> aoTemp;
+    RefCntAutoPtr<Diligent::ITexture> sceneColor;
+    std::vector<RefCntAutoPtr<Diligent::ITextureView>> sceneColorMips;
+    RefCntAutoPtr<Diligent::IPipelineState> pyramidFirstPso, pyramidPso, gtaoBlurVerticalPso;
+    RefCntAutoPtr<Diligent::IShaderResourceBinding> pyramidFirstSrb[2], gtaoBlurVerticalSrb;
+    std::vector<RefCntAutoPtr<Diligent::IShaderResourceBinding>> pyramidSrbs;
+    RefCntAutoPtr<Diligent::ITexture> ssrHiz;
+    std::vector<RefCntAutoPtr<Diligent::ITextureView>> ssrHizMips;
+    RefCntAutoPtr<Diligent::IPipelineState> ssrHizFirstPso, ssrHizPso;
+    RefCntAutoPtr<Diligent::IShaderResourceBinding> ssrHizFirstSrb;
+    std::vector<RefCntAutoPtr<Diligent::IShaderResourceBinding>> ssrHizSrbs;
+    uint64_t pyramidVersion = 0;
+    bool pyramidValid = false;
     RefCntAutoPtr<Diligent::ITexture> ssr;
     RefCntAutoPtr<Diligent::ITexture> ssrHistory[2];
     RefCntAutoPtr<Diligent::IPipelineState> ssrTemporalPso;
@@ -157,11 +176,20 @@ struct Lighting::Data {
     RefCntAutoPtr<Diligent::ITexture> dfg;
     RefCntAutoPtr<Diligent::ITexture> hdri;
     RefCntAutoPtr<Diligent::ITexture> shadowMap;
-    RefCntAutoPtr<Diligent::ITextureView> shadowTargets[4];
+    RefCntAutoPtr<Diligent::ITextureView> shadowTargets[kShadowLayers];
     RefCntAutoPtr<Diligent::ITexture> colorTextures;
     RefCntAutoPtr<Diligent::ITexture> dataTextures;
     int textureCount = 0;
     int shadowResolution = 0;
+    RefCntAutoPtr<Diligent::ITexture> localShadowMap;
+    RefCntAutoPtr<Diligent::ITextureView> localShadowTargets[kMaxLocalShadowViews];
+    int localShadowResolution = 0;
+    std::array<LocalShadowView, kMaxLocalShadowViews> localViews{};
+    std::array<LocalShadowCaster, kMaxLocalShadowLights> localCasters{};
+    int localCasterCount = 0;
+    float localTanHalf = 1.0f;
+    std::vector<GpuLight> cpuLights;
+    std::vector<uint32_t> shadowedLights;
 
     RefCntAutoPtr<Diligent::IBuffer> materials;
     RefCntAutoPtr<Diligent::IBuffer> lights;
@@ -173,8 +201,8 @@ struct Lighting::Data {
     RefCntAutoPtr<Diligent::IBuffer> prefilterConstants;
     RefCntAutoPtr<Diligent::IBuffer> bloomConstants;
 
-    RefCntAutoPtr<Diligent::IPipelineState> transmittancePso, multiScatterPso, skyViewPso, aerialPso, envCapturePso, envDownsamplePso, envPrefilterPso, envShPso, dfgPso, lightCullPso, gtaoDepthPso, gtaoPso, gtaoBlurPso, ssrPso, lightingPso, histogramPso, exposurePso, commitPso, bloomDownPso, bloomUpPso, tonemapPso, fxaaPso;
-    RefCntAutoPtr<Diligent::IShaderResourceBinding> transmittanceSrb, multiScatterSrb, skyViewSrb, aerialSrb, envCaptureSrb, envShSrb, dfgSrb, lightCullSrb, gtaoDepthSrb, gtaoSrb, gtaoBlurSrb, exposureSrb, commitSrb, fxaaSrb;
+    RefCntAutoPtr<Diligent::IPipelineState> transmittancePso, multiScatterPso, skyViewPso, aerialPso, envCapturePso, envDownsamplePso, envPrefilterPso, envShPso, dfgPso, lightCullPso, cloudsPso, gtaoDepthPso, gtaoPso, gtaoBlurPso, ssrPso, lightingPso, histogramPso, exposurePso, commitPso, bloomDownPso, bloomUpPso, tonemapPso, fxaaPso;
+    RefCntAutoPtr<Diligent::IShaderResourceBinding> transmittanceSrb, multiScatterSrb, skyViewSrb, aerialSrb, envCaptureSrb, envShSrb, dfgSrb, lightCullSrb, cloudsSrb, gtaoDepthSrb, gtaoSrb, gtaoBlurSrb, exposureSrb, commitSrb, fxaaSrb;
     RefCntAutoPtr<Diligent::IShaderResourceBinding> ssrSrb[2], lightingSrb[2], histogramSrb[2], tonemapSrb[2], bloomSourceSrb[2];
     std::vector<RefCntAutoPtr<Diligent::IShaderResourceBinding>> envDownsampleSrbs, envPrefilterSrbs, bloomDownSrbs, bloomUpSrbs;
 
@@ -190,7 +218,7 @@ struct Lighting::Data {
     glm::vec3 directionalIlluminance{0.0f};
     glm::vec3 sun{0.0f, 1.0f, 0.0f};
     std::array<Cascade, 4> cascades{};
-    uint32_t cascadeFrame = 0;
+    glm::vec3 cascadeSun{0.0f, 1.0f, 0.0f};
     glm::mat4 previousViewProjection{1.0f};
     bool hasPrevious = false;
     float lastEv = 12.0f;
@@ -212,6 +240,13 @@ uint64_t Lighting::bindingVersion() const { return m_data ? m_data->bindingVersi
 const std::array<Cascade, 4>& Lighting::cascades() const { return m_data->cascades; }
 int Lighting::cascadeCount() const { return m_data->settings.shadows ? std::clamp(m_data->settings.shadowCascades, 1, 4) : 0; }
 int Lighting::shadowResolution() const { return m_data->shadowResolution; }
+const std::array<LocalShadowView, kMaxLocalShadowViews>& Lighting::localShadowViews() const { return m_data->localViews; }
+const std::array<LocalShadowCaster, kMaxLocalShadowLights>& Lighting::localShadowCasters() const { return m_data->localCasters; }
+int Lighting::localShadowCasterCount() const { return m_data->localCasterCount; }
+int Lighting::localShadowResolution() const { return m_data->localShadowResolution; }
+float Lighting::localShadowTanHalf() const { return m_data->localTanHalf; }
+Diligent::ITexture* Lighting::localShadowMap() const { return m_data->localShadowMap; }
+Diligent::ITextureView* Lighting::localShadowTarget(int view) const { return m_data->localShadowTargets[view]; }
 Diligent::ITexture* Lighting::gbuffer(int index) const { return m_data->gbuffer[index]; }
 Diligent::ITexture* Lighting::hdr() const { return m_data->hdrTargets[m_data->hdrIndex]; }
 Diligent::ITexture* Lighting::hdrTarget(int index) const { return m_data->hdrTargets[index & 1]; }
@@ -232,6 +267,41 @@ float Lighting::currentEv100() const { return m_data ? m_data->lastEv : 0.0f; }
 glm::vec3 Lighting::sunDirection() const { return m_data ? m_data->sun : glm::vec3(0.0f, 1.0f, 0.0f); }
 
 namespace {
+
+void createShadowArray(Diligent::IRenderDevice* device, const char* name, uint32_t resolution, uint32_t layers, RefCntAutoPtr<Diligent::ITexture>& texture, RefCntAutoPtr<Diligent::ITextureView>* targets) {
+    Diligent::TextureDesc desc;
+    desc.Name = name;
+    desc.Type = Diligent::RESOURCE_DIM_TEX_2D_ARRAY;
+    desc.Width = desc.Height = resolution;
+    desc.ArraySize = layers;
+    desc.Format = Diligent::TEX_FORMAT_D32_FLOAT;
+    desc.BindFlags = Diligent::BIND_DEPTH_STENCIL | Diligent::BIND_SHADER_RESOURCE;
+    texture.Release();
+    device->CreateTexture(desc, nullptr, &texture);
+    for (uint32_t layer = 0; layer < layers; ++layer) targets[layer] = litgpu::mipView(texture, Diligent::TEXTURE_VIEW_DEPTH_STENCIL, 0, Diligent::RESOURCE_DIM_TEX_2D_ARRAY, layer, 1);
+}
+
+bool sphereInFrustum(const glm::vec4* planes, const glm::vec3& center, float radius) {
+    for (int i = 0; i < 6; ++i) {
+        if (glm::dot(glm::vec3(planes[i]), center) + planes[i].w < -radius) return false;
+    }
+    return true;
+}
+
+bool pyramidInFrustum(const glm::vec4* planes, const glm::vec3& apex, const glm::vec3& forward, const glm::vec3& right, const glm::vec3& up, float tanHalf, float range) {
+    const glm::vec3 points[5] = {apex, apex + range * (forward + tanHalf * (right + up)), apex + range * (forward + tanHalf * (right - up)), apex + range * (forward - tanHalf * (right + up)), apex + range * (forward - tanHalf * (right - up))};
+    for (int i = 0; i < 6; ++i) {
+        bool outside = true;
+        for (const glm::vec3& p : points) {
+            if (glm::dot(glm::vec3(planes[i]), p) + planes[i].w >= 0.0f) {
+                outside = false;
+                break;
+            }
+        }
+        if (outside) return false;
+    }
+    return true;
+}
 
 RefCntAutoPtr<Diligent::ITexture> placeholderArray(Diligent::IRenderDevice* device, const char* name, Diligent::TEXTURE_FORMAT format, uint32_t rgba) {
     Diligent::TextureDesc desc;
@@ -285,7 +355,7 @@ bool Lighting::init(Diligent::IRenderDevice* device, Diligent::IDeviceContext* c
     using litgpu::TextureSpec;
     d.transmittanceLut = litgpu::texture(device, TextureSpec{"Transmittance LUT", Diligent::RESOURCE_DIM_TEX_2D, 256, 64});
     d.multiScatterLut = litgpu::texture(device, TextureSpec{"Multi Scattering LUT", Diligent::RESOURCE_DIM_TEX_2D, 32, 32});
-    d.skyViewLut = litgpu::texture(device, TextureSpec{"Sky View LUT", Diligent::RESOURCE_DIM_TEX_2D, 192, 108});
+    d.skyViewLut = litgpu::texture(device, TextureSpec{"Sky View LUT", Diligent::RESOURCE_DIM_TEX_2D, kSkyViewWidth, kSkyViewHeight});
     d.aerialLut = litgpu::texture(device, TextureSpec{"Aerial Perspective LUT", Diligent::RESOURCE_DIM_TEX_3D, 32, 32, 32});
     d.envCapture = litgpu::texture(device, TextureSpec{"Environment Capture", Diligent::RESOURCE_DIM_TEX_CUBE, kEnvSize, kEnvSize, 6, kEnvMips + 2});
     for (uint32_t mip = 0; mip < kEnvMips + 2; ++mip) d.envCaptureMips[mip] = litgpu::mipView(d.envCapture, Diligent::TEXTURE_VIEW_UNORDERED_ACCESS, mip, Diligent::RESOURCE_DIM_TEX_2D_ARRAY, 0, 6);
@@ -295,18 +365,11 @@ bool Lighting::init(Diligent::IRenderDevice* device, Diligent::IDeviceContext* c
     d.hdri = litgpu::texture(device, TextureSpec{"HDRI", Diligent::RESOURCE_DIM_TEX_2D, 4, 2, 1, 1, Diligent::TEX_FORMAT_RGBA16_FLOAT, Diligent::BIND_SHADER_RESOURCE | Diligent::BIND_UNORDERED_ACCESS});
     d.colorTextures = placeholderArray(device, "Color Textures", Diligent::TEX_FORMAT_RGBA8_UNORM_SRGB, 0xFFFFFFFFu);
     d.dataTextures = placeholderArray(device, "Data Textures", Diligent::TEX_FORMAT_RGBA8_UNORM, 0xFFFF8080u);
-    {
-        Diligent::TextureDesc desc;
-        desc.Name = "Shadow Cascades";
-        desc.Type = Diligent::RESOURCE_DIM_TEX_2D_ARRAY;
-        desc.Width = desc.Height = 16;
-        desc.ArraySize = 4;
-        desc.Format = Diligent::TEX_FORMAT_D32_FLOAT;
-        desc.BindFlags = Diligent::BIND_DEPTH_STENCIL | Diligent::BIND_SHADER_RESOURCE;
-        device->CreateTexture(desc, nullptr, &d.shadowMap);
-        for (int c = 0; c < 4; ++c) d.shadowTargets[c] = litgpu::mipView(d.shadowMap, Diligent::TEXTURE_VIEW_DEPTH_STENCIL, 0, Diligent::RESOURCE_DIM_TEX_2D_ARRAY, static_cast<Diligent::Uint32>(c), 1);
-        d.shadowResolution = 16;
-    }
+    createShadowArray(device, "Shadow Cascades", 16, kShadowLayers, d.shadowMap, d.shadowTargets);
+    d.shadowResolution = 16;
+    for (int c = 0; c < 4; ++c) d.cascades[c].layer = d.cascades[c].renderLayer = c;
+    createShadowArray(device, "Local Shadows", 16, kMaxLocalShadowViews, d.localShadowMap, d.localShadowTargets);
+    d.localShadowResolution = 16;
     resize(width, height);
     reloadShaders();
     return d.lightingPso != nullptr;
@@ -331,9 +394,23 @@ void Lighting::resize(int width, int height) {
     d.hdrTargets[0] = litgpu::texture(d.device, TextureSpec{"HDR Color A", Diligent::RESOURCE_DIM_TEX_2D, w, h, 1, 1, kHdrFormat, rt | Diligent::BIND_UNORDERED_ACCESS});
     d.hdrTargets[1] = litgpu::texture(d.device, TextureSpec{"HDR Color B", Diligent::RESOURCE_DIM_TEX_2D, w, h, 1, 1, kHdrFormat, rt | Diligent::BIND_UNORDERED_ACCESS});
     d.ldr = litgpu::texture(d.device, TextureSpec{"LDR Color", Diligent::RESOURCE_DIM_TEX_2D, w, h, 1, 1, kLdrFormat, rt});
-    d.aoRaw = litgpu::texture(d.device, TextureSpec{"GTAO Raw", Diligent::RESOURCE_DIM_TEX_2D, std::max(w / 2, 1u), std::max(h / 2, 1u), 1, 1, Diligent::TEX_FORMAT_RG16_FLOAT});
+    d.aoRaw = litgpu::texture(d.device, TextureSpec{"GTAO Raw", Diligent::RESOURCE_DIM_TEX_2D, std::max(w / 2, 1u), std::max(h / 2, 1u), 1, 1, kHdrFormat});
+    d.aoTemp = litgpu::texture(d.device, TextureSpec{"GTAO Blur", Diligent::RESOURCE_DIM_TEX_2D, std::max(w / 2, 1u), std::max(h / 2, 1u), 1, 1, kHdrFormat});
+    d.clouds = litgpu::texture(d.device, TextureSpec{"Clouds", Diligent::RESOURCE_DIM_TEX_2D, std::max(w / 4, 1u), std::max(h / 4, 1u), 1, 1, Diligent::TEX_FORMAT_RGBA16_FLOAT});
     d.aoDepth = litgpu::texture(d.device, TextureSpec{"GTAO Depth", Diligent::RESOURCE_DIM_TEX_2D, std::max(w / 2, 1u), std::max(h / 2, 1u), 1, 1, Diligent::TEX_FORMAT_R32_FLOAT});
-    d.aoFiltered = litgpu::texture(d.device, TextureSpec{"GTAO", Diligent::RESOURCE_DIM_TEX_2D, w, h, 1, 1, Diligent::TEX_FORMAT_R16_FLOAT});
+    d.aoFiltered = litgpu::texture(d.device, TextureSpec{"GTAO", Diligent::RESOURCE_DIM_TEX_2D, std::max(w / 2, 1u), std::max(h / 2, 1u), 1, 1, kHdrFormat});
+    d.sceneColor = litgpu::texture(d.device, TextureSpec{"Scene Color Pyramid", Diligent::RESOURCE_DIM_TEX_2D, std::max(w / 2, 1u), std::max(h / 2, 1u), 1, kPyramidMips, kHdrFormat});
+    d.sceneColorMips.clear();
+    for (uint32_t mip = 0; mip < kPyramidMips; ++mip) d.sceneColorMips.push_back(litgpu::mipView(d.sceneColor, Diligent::TEXTURE_VIEW_UNORDERED_ACCESS, mip, Diligent::RESOURCE_DIM_TEX_2D));
+    d.pyramidValid = false;
+    {
+        const uint32_t hw = std::max(w / 2, 1u);
+        const uint32_t hh = std::max(h / 2, 1u);
+        const uint32_t mips = std::min<uint32_t>(8, static_cast<uint32_t>(std::bit_width(std::max(hw, hh))));
+        d.ssrHiz = litgpu::texture(d.device, TextureSpec{"SSR Hi-Z", Diligent::RESOURCE_DIM_TEX_2D, hw, hh, 1, mips, Diligent::TEX_FORMAT_R32_FLOAT});
+        d.ssrHizMips.clear();
+        for (uint32_t mip = 0; mip < mips; ++mip) d.ssrHizMips.push_back(litgpu::mipView(d.ssrHiz, Diligent::TEXTURE_VIEW_UNORDERED_ACCESS, mip, Diligent::RESOURCE_DIM_TEX_2D));
+    }
     d.ssr = litgpu::texture(d.device, TextureSpec{"SSR", Diligent::RESOURCE_DIM_TEX_2D, std::max(w / 2, 1u), std::max(h / 2, 1u), 1, 1, kHdrFormat});
     for (auto& history : d.ssrHistory) history = litgpu::texture(d.device, TextureSpec{"SSR History", Diligent::RESOURCE_DIM_TEX_2D, std::max(w / 2, 1u), std::max(h / 2, 1u), 1, 1, kHdrFormat});
     d.ssrHistoryFrames = 0;
@@ -364,15 +441,21 @@ void Lighting::reloadShaders() {
     d.envShPso = litgpu::computePipeline(device, "resources/shaders/lighting/env_sh.comp", {L("u_environment")});
     d.dfgPso = litgpu::computePipeline(device, "resources/shaders/lighting/dfg_lut.comp");
     d.lightCullPso = litgpu::computePipeline(device, "resources/shaders/lighting/light_cull.comp");
+    d.cloudsPso = litgpu::computePipeline(device, "resources/shaders/lighting/clouds.comp", {linear, L("u_skyViewLut"), {"u_hdri", litgpu::linearWrap()}});
     d.gtaoDepthPso = litgpu::computePipeline(device, "resources/shaders/lighting/gtao_depth.comp", {P("u_depth")});
-    d.gtaoPso = litgpu::computePipeline(device, "resources/shaders/lighting/gtao.comp", {P("u_depth"), P("u_linearDepth"), P("u_gbuffer1")});
-    d.gtaoBlurPso = litgpu::computePipeline(device, "resources/shaders/lighting/gtao_blur.comp", {P("u_depth"), P("u_input")});
-    d.ssrPso = litgpu::computePipeline(device, "resources/shaders/lighting/ssr.comp", {P("u_depth"), P("u_gbuffer1"), L("u_previousColor")});
+    d.gtaoPso = litgpu::computePipeline(device, "resources/shaders/lighting/gtao.comp", {P("u_depth"), P("u_linearDepth"), P("u_gbuffer1"), L("u_sceneColor")});
+    d.gtaoBlurPso = litgpu::computePipeline(device, "resources/shaders/lighting/gtao_blur.comp", {P("u_linearDepth"), P("u_input")});
+    d.gtaoBlurVerticalPso = litgpu::computePipeline(device, "resources/shaders/lighting/gtao_blur.comp", {P("u_linearDepth"), P("u_input")}, {{"VERTICAL", "1"}});
+    d.pyramidFirstPso = litgpu::computePipeline(device, "resources/shaders/lighting/color_pyramid.comp", {L("u_source")}, {{"FIRST_LEVEL", "1"}});
+    d.pyramidPso = litgpu::computePipeline(device, "resources/shaders/lighting/color_pyramid.comp");
+    d.ssrHizFirstPso = litgpu::computePipeline(device, "resources/shaders/lighting/ssr_hiz.comp", {P("u_depth")}, {{"FIRST_LEVEL", "1"}});
+    d.ssrHizPso = litgpu::computePipeline(device, "resources/shaders/lighting/ssr_hiz.comp");
+    d.ssrPso = litgpu::computePipeline(device, "resources/shaders/lighting/ssr.comp", {P("u_depth"), P("u_gbuffer1"), L("u_previousColor"), P("u_hiz")});
     d.ssrTemporalPso = litgpu::computePipeline(device, "resources/shaders/lighting/ssr_temporal.comp", {P("u_depth"), P("u_current"), L("u_history")});
     if (!d.ssrTemporalConstants) d.ssrTemporalConstants = litgpu::uniformBuffer(device, "SsrTemporal", sizeof(glm::vec4));
     d.lightingPso = litgpu::computePipeline(device, "resources/shaders/lighting/lighting.comp",
                                             {P("u_depth"), P("u_gbuffer0"), P("u_gbuffer1"), P("u_gbuffer2"), P("u_ao"), L("u_ssr"), L("u_aerial"), linear, L("u_skyViewLut"), {"u_hdri", litgpu::linearWrap()}, L("u_prefilteredEnv"), L("u_dfgLut"),
-                                             {"u_shadowMap", litgpu::shadowCompare()}, P("u_shadowDepth")});
+                                             {"u_shadowMap", litgpu::shadowCompare()}, P("u_shadowDepth"), {"u_localShadowMap", litgpu::shadowCompare()}, P("u_aoDepth"), L("u_clouds")});
     d.histogramPso = litgpu::computePipeline(device, "resources/shaders/post/histogram.comp", {P("u_hdr")});
     d.exposurePso = litgpu::computePipeline(device, "resources/shaders/post/exposure.comp");
     d.commitPso = litgpu::computePipeline(device, "resources/shaders/post/exposure_commit.comp");
@@ -395,7 +478,7 @@ void Lighting::setMaterial(uint32_t id, const Material& material) {
 void Lighting::setLights(const std::vector<GpuLight>& lights) {
     Data& d = *m_data;
     d.lightCount = static_cast<uint32_t>(std::min<size_t>(lights.size(), kMaxLights));
-    if (d.lightCount > 0) d.context->UpdateBuffer(d.lights, 0, sizeof(GpuLight) * d.lightCount, lights.data(), Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
+    d.cpuLights.assign(lights.begin(), lights.begin() + d.lightCount);
 }
 
 void Lighting::setDirectionalLight(bool present, const glm::vec3& direction, const glm::vec3& illuminance) {
@@ -460,6 +543,95 @@ int Lighting::loadTexture(const std::string& path, bool srgb) {
     return layers++;
 }
 
+void Lighting::selectLocalShadows(SceneUniforms& u, const glm::vec3& cameraPosition) {
+    Data& d = *m_data;
+    const RenderSettings& s = d.settings;
+    const int resolution = std::clamp(s.localShadowResolution, 128, 2048);
+    const int maxLights = s.localShadows ? std::clamp(s.localShadowCount, 0, kMaxLocalShadowLights) : 0;
+    if (maxLights > 0 && resolution != d.localShadowResolution) {
+        createShadowArray(d.device, "Local Shadows", static_cast<uint32_t>(resolution), kMaxLocalShadowViews, d.localShadowMap, d.localShadowTargets);
+        d.localShadowResolution = resolution;
+        ++d.bindingVersion;
+    }
+    const float res = static_cast<float>(d.localShadowResolution);
+    const float margin = res / std::max(res - 8.0f, 1.0f);
+    d.localTanHalf = margin;
+    struct Candidate {
+        uint32_t index;
+        float score;
+    };
+    std::vector<Candidate> candidates;
+    for (uint32_t i = 0; i < d.cpuLights.size(); ++i) {
+        GpuLight& light = d.cpuLights[i];
+        light.params.w = -1.0f;
+        if (maxLights == 0) continue;
+        const glm::vec3 position(light.positionRange);
+        const float range = light.positionRange.w;
+        if (!sphereInFrustum(u.frustumPlanes, position, range)) continue;
+        const glm::vec3 color(light.colorType);
+        const float luminance = glm::dot(color, glm::vec3(0.2126f, 0.7152f, 0.0722f));
+        if (luminance <= 0.0f) continue;
+        const float distance = std::max(glm::length(position - cameraPosition) - range * 0.25f, 0.5f);
+        const bool previous = std::find(d.shadowedLights.begin(), d.shadowedLights.end(), i) != d.shadowedLights.end();
+        candidates.push_back({i, luminance / (distance * distance) * (previous ? 1.5f : 1.0f)});
+    }
+    std::sort(candidates.begin(), candidates.end(), [](const Candidate& a, const Candidate& b) { return a.score > b.score; });
+    d.shadowedLights.clear();
+    d.localCasterCount = 0;
+    for (LocalShadowView& view : d.localViews) view.active = false;
+    int faces = 0;
+    for (const Candidate& candidate : candidates) {
+        if (d.localCasterCount >= maxLights) break;
+        GpuLight& light = d.cpuLights[candidate.index];
+        const bool spot = light.colorType.w > 1.5f;
+        const int needed = spot ? 1 : 6;
+        if (faces + needed > kMaxLocalShadowViews) continue;
+        const glm::vec3 position(light.positionRange);
+        const float range = light.positionRange.w;
+        const float nearZ = std::clamp(range * 0.004f, 0.02f, 0.5f);
+        LocalShadowCaster& caster = d.localCasters[static_cast<size_t>(d.localCasterCount)];
+        caster.sphere = glm::vec4(position, range);
+        caster.faceBase = static_cast<uint32_t>(faces);
+        caster.spot = spot ? 1u : 0u;
+        caster.faceMask = 0u;
+        auto addView = [&](int face, const glm::vec3& forward, const glm::vec3& upHint, float tanHalf) {
+            LocalShadowView& view = d.localViews[static_cast<size_t>(faces + face)];
+            const glm::mat4 lightView = glm::lookAt(position, position + forward, upHint);
+            const glm::mat4 projection = glm::perspectiveRH_ZO(2.0f * std::atan(tanHalf), 1.0f, nearZ, range);
+            view.viewProjection = projection * lightView;
+            view.origin = position;
+            view.texelsAtUnitDistance = res / (2.0f * tanHalf);
+            view.projectionScale = 1.0f / tanHalf;
+            const glm::vec3 right = glm::normalize(glm::cross(forward, upHint));
+            const glm::vec3 up = glm::cross(right, forward);
+            view.active = pyramidInFrustum(u.frustumPlanes, position, forward, right, up, tanHalf, range);
+            if (view.active) caster.faceMask |= 1u << face;
+            u.localShadowMatrices[faces + face] = view.viewProjection;
+        };
+        if (spot) {
+            const glm::vec3 direction = glm::normalize(glm::vec3(light.directionCos));
+            const float cosOuter = std::clamp(light.directionCos.w, 0.0872f, 0.9999f);
+            const float tanHalf = std::min(std::sqrt(1.0f - cosOuter * cosOuter) / cosOuter, 11.4f) * margin;
+            const glm::vec3 upHint = std::abs(direction.y) > 0.99f ? glm::vec3(1.0f, 0.0f, 0.0f) : glm::vec3(0.0f, 1.0f, 0.0f);
+            addView(0, direction, upHint, tanHalf);
+            const float cosWide = std::cos(std::atan(tanHalf * 1.4142f));
+            caster.cone = glm::vec4(direction, cosWide);
+        } else {
+            const glm::vec3 axes[6] = {{1, 0, 0}, {-1, 0, 0}, {0, 1, 0}, {0, -1, 0}, {0, 0, 1}, {0, 0, -1}};
+            const glm::vec3 ups[6] = {{0, -1, 0}, {0, -1, 0}, {0, 0, 1}, {0, 0, -1}, {0, -1, 0}, {0, -1, 0}};
+            for (int face = 0; face < 6; ++face) addView(face, axes[face], ups[face], margin);
+            caster.cone = glm::vec4(0.0f, 0.0f, 0.0f, margin);
+        }
+        light.params.w = static_cast<float>(faces);
+        faces += needed;
+        ++d.localCasterCount;
+        d.shadowedLights.push_back(candidate.index);
+    }
+    u.localShadowParams = glm::vec4(static_cast<float>(faces), 1.0f / res, s.localShadowSoftness, s.shadowNormalBias);
+    u.localShadowParams2 = glm::vec4(s.shadowDepthBias, 0.0f, 0.0f, 0.0f);
+    if (!d.cpuLights.empty()) d.context->UpdateBuffer(d.lights, 0, sizeof(GpuLight) * d.cpuLights.size(), d.cpuLights.data(), Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
+}
+
 void Lighting::beginFrame(const FrameInput& input, SceneUniforms& u) {
     Data& d = *m_data;
     RenderSettings& s = d.settings;
@@ -496,34 +668,28 @@ void Lighting::beginFrame(const FrameInput& input, SceneUniforms& u) {
     u.timeParams = glm::vec4(input.time, input.deltaTime, static_cast<float>(input.frame % 4096u), input.farPlane);
     u.sunDirection = glm::vec4(d.sun, glm::radians(s.sunAngularDiameter) * 0.5f);
     u.sunIlluminance = glm::vec4(toa * transmittance, sunUp);
-    u.exposureParams = glm::vec4(0.0f, 0.0f, s.environmentIntensity, static_cast<float>(static_cast<int>(s.debugView)));
+    u.exposureParams = glm::vec4(s.skyBrightness, 0.0f, s.environmentIntensity, static_cast<float>(static_cast<int>(s.debugView)));
     u.lightParams = glm::vec4(static_cast<float>(d.lightCount), 16.0f, 9.0f, 24.0f);
     u.clusterParams = glm::vec4(24.0f / std::log(std::max(input.farPlane / input.nearPlane, 1.0001f)), 0.0f, static_cast<float>(input.width) / 16.0f, static_cast<float>(input.height) / 9.0f);
 
     const int count = cascadeCount();
     const int resolution = std::clamp(s.shadowResolution, 512, 4096);
     if (count > 0 && resolution != d.shadowResolution) {
-        Diligent::TextureDesc desc;
-        desc.Name = "Shadow Cascades";
-        desc.Type = Diligent::RESOURCE_DIM_TEX_2D_ARRAY;
-        desc.Width = desc.Height = static_cast<uint32_t>(resolution);
-        desc.ArraySize = 4;
-        desc.Format = Diligent::TEX_FORMAT_D32_FLOAT;
-        desc.BindFlags = Diligent::BIND_DEPTH_STENCIL | Diligent::BIND_SHADER_RESOURCE;
-        d.shadowMap.Release();
-        d.device->CreateTexture(desc, nullptr, &d.shadowMap);
-        for (int c = 0; c < 4; ++c) d.shadowTargets[c] = litgpu::mipView(d.shadowMap, Diligent::TEXTURE_VIEW_DEPTH_STENCIL, 0, Diligent::RESOURCE_DIM_TEX_2D_ARRAY, static_cast<Diligent::Uint32>(c), 1);
+        createShadowArray(d.device, "Shadow Cascades", static_cast<uint32_t>(resolution), kShadowLayers, d.shadowMap, d.shadowTargets);
         d.shadowResolution = resolution;
         for (Cascade& c : d.cascades) c.valid = false;
         ++d.bindingVersion;
     }
-    ++d.cascadeFrame;
     const float nearZ = input.nearPlane;
     const float farZ = std::min(s.shadowDistance, input.farPlane);
     const glm::vec3 L = glm::normalize(d.sun);
     const float tanY = std::tan(glm::radians(input.fovY) * 0.5f);
     const float tanX = tanY * input.aspect;
+    const bool orthographic = input.projection[3][3] > 0.5f;
     const glm::mat4 invView = u.invView;
+    const int stripCounts[4] = {1, 1, s.staggerCascades ? 4 : 1, s.staggerCascades ? 8 : 1};
+    const bool sunMoved = glm::dot(L, d.cascadeSun) < 0.9995f;
+    d.cascadeSun = L;
     for (int c = 0; c < 4; ++c) {
         Cascade& cascade = d.cascades[c];
         const float p0 = static_cast<float>(c) / static_cast<float>(std::max(count, 1));
@@ -533,46 +699,77 @@ void Lighting::beginFrame(const FrameInput& input, SceneUniforms& u) {
         const float z0 = c == 0 ? nearZ : split(p0);
         const float z1 = split(p1);
         cascade.split = z1;
-        const int period = s.staggerCascades ? (c < 2 ? 1 : c == 2 ? 2 : 4) : 1;
-        cascade.due = c < count && (!cascade.valid || (d.cascadeFrame + static_cast<uint32_t>(c)) % static_cast<uint32_t>(period) == 0);
-        if (!cascade.due) continue;
-        const float zMid = 0.5f * (z0 + z1);
-        glm::vec3 centerView(0.0f, 0.0f, -zMid);
-        float radius = 0.0f;
-        for (float z : {z0, z1}) {
-            for (float sx : {-1.0f, 1.0f}) {
-                for (float sy : {-1.0f, 1.0f}) {
-                    const glm::vec3 corner(sx * tanX * z, sy * tanY * z, -z);
-                    radius = std::max(radius, glm::length(corner - centerView));
+        cascade.due = false;
+        if (c >= count) {
+            cascade.valid = false;
+            continue;
+        }
+        if (cascade.strip == 0) {
+            cascade.strips = cascade.valid && !sunMoved ? stripCounts[c] : 1;
+            cascade.renderLayer = cascade.strips > 1 ? (cascade.layer == c ? c + 2 : c) : cascade.layer;
+            const float zMid = 0.5f * (z0 + z1);
+            glm::vec3 centerView(0.0f, 0.0f, -zMid);
+            float radius = 0.0f;
+            for (float z : {z0, z1}) {
+                for (float sx : {-1.0f, 1.0f}) {
+                    for (float sy : {-1.0f, 1.0f}) {
+                        const glm::vec3 corner(sx * (orthographic ? 1.0f / input.projection[0][0] : tanX * z), sy * (orthographic ? 1.0f / input.projection[1][1] : tanY * z), -z);
+                        radius = std::max(radius, glm::length(corner - centerView));
+                    }
                 }
             }
+            radius = std::ceil(radius * 16.0f) / 16.0f;
+            glm::vec3 center = glm::vec3(invView * glm::vec4(centerView, 1.0f));
+            const glm::vec3 up = std::abs(L.y) > 0.99f ? glm::vec3(0.0f, 0.0f, 1.0f) : glm::vec3(0.0f, 1.0f, 0.0f);
+            const float texelWorld = 2.0f * radius / static_cast<float>(d.shadowResolution);
+            glm::mat4 lightView = glm::lookAt(glm::vec3(0.0f), -L, up);
+            glm::vec3 lightSpace = glm::vec3(lightView * glm::vec4(center, 1.0f));
+            lightSpace.x = std::floor(lightSpace.x / texelWorld) * texelWorld;
+            lightSpace.y = std::floor(lightSpace.y / texelWorld) * texelWorld;
+            lightSpace.z = std::floor(lightSpace.z / texelWorld) * texelWorld;
+            center = glm::vec3(glm::inverse(lightView) * glm::vec4(lightSpace, 1.0f));
+            const float casterExtension = 1200.0f;
+            const glm::vec3 eye = center + L * (radius + casterExtension);
+            lightView = glm::lookAt(eye, center, up);
+            const float depthRange = 2.0f * radius + casterExtension;
+            cascade.targetViewProjection = orthoZO(radius, 0.0f, depthRange) * lightView;
+            cascade.texelsPerUnit = static_cast<float>(d.shadowResolution) / (2.0f * radius);
+            cascade.targetTexelWorld = texelWorld;
+            cascade.targetDepthRange = depthRange;
         }
-        radius = std::ceil(radius * 16.0f) / 16.0f;
-        glm::vec3 center = glm::vec3(invView * glm::vec4(centerView, 1.0f));
-        const glm::vec3 up = std::abs(L.y) > 0.99f ? glm::vec3(0.0f, 0.0f, 1.0f) : glm::vec3(0.0f, 1.0f, 0.0f);
-        const float texelWorld = 2.0f * radius / static_cast<float>(d.shadowResolution);
-        glm::mat4 lightView = glm::lookAt(glm::vec3(0.0f), -L, up);
-        glm::vec3 lightSpace = glm::vec3(lightView * glm::vec4(center, 1.0f));
-        lightSpace.x = std::floor(lightSpace.x / texelWorld) * texelWorld;
-        lightSpace.y = std::floor(lightSpace.y / texelWorld) * texelWorld;
-        center = glm::vec3(glm::inverse(lightView) * glm::vec4(lightSpace, 1.0f));
-        const float casterExtension = 1200.0f;
-        const glm::vec3 eye = center + L * (radius + casterExtension);
-        lightView = glm::lookAt(eye, center, up);
-        const float depthRange = 2.0f * radius + casterExtension;
-        const glm::mat4 lightProjection = orthoZO(radius, 0.0f, depthRange);
-        cascade.viewProjection = lightProjection * lightView;
-        extractPlanes(cascade.viewProjection, cascade.planes);
-        cascade.texelsPerUnit = static_cast<float>(d.shadowResolution) / (2.0f * radius);
-        cascade.texelWorld = texelWorld;
-        cascade.depthRange = depthRange;
-        cascade.valid = true;
+        const int res = d.shadowResolution;
+        const int row0 = cascade.strip * res / cascade.strips;
+        const int row1 = (cascade.strip + 1) * res / cascade.strips;
+        const float top = 1.0f - 2.0f * static_cast<float>(row0) / static_cast<float>(res);
+        const float bottom = 1.0f - 2.0f * static_cast<float>(row1) / static_cast<float>(res);
+        glm::mat4 crop(1.0f);
+        crop[1][1] = 2.0f / (top - bottom);
+        crop[3][1] = -(top + bottom) / (top - bottom);
+        cascade.renderViewProjection = crop * cascade.targetViewProjection;
+        extractPlanes(cascade.renderViewProjection, cascade.planes);
+        cascade.viewport[0] = 0;
+        cascade.viewport[1] = row0;
+        cascade.viewport[2] = res;
+        cascade.viewport[3] = row1 - row0;
+        cascade.clear = cascade.strip == 0;
+        cascade.due = true;
+        if (cascade.strip + 1 >= cascade.strips) {
+            cascade.strip = 0;
+            cascade.layer = cascade.renderLayer;
+            cascade.viewProjection = cascade.targetViewProjection;
+            cascade.texelWorld = cascade.targetTexelWorld;
+            cascade.depthRange = cascade.targetDepthRange;
+            cascade.valid = true;
+        } else {
+            ++cascade.strip;
+        }
     }
     for (int c = 0; c < 4; ++c) {
         u.cascadeViewProj[c] = d.cascades[c].viewProjection;
-        u.cascadeInfo[c] = glm::vec4(d.cascades[c].texelWorld, d.cascades[c].depthRange, 0.0f, 0.0f);
+        u.cascadeInfo[c] = glm::vec4(d.cascades[c].texelWorld, d.cascades[c].depthRange, static_cast<float>(d.cascades[c].layer), 0.0f);
     }
     u.cascadeSplits = glm::vec4(d.cascades[0].split, d.cascades[1].split, d.cascades[2].split, d.cascades[3].split);
+    selectLocalShadows(u, input.cameraPosition);
     u.shadowParams = glm::vec4(count > 0 ? 1.0f : 0.0f, 1.0f / static_cast<float>(std::max(d.shadowResolution, 1)), s.shadowSoftness, s.shadowNormalBias);
     u.shadowParams2 = glm::vec4(static_cast<float>(count), s.shadowDepthBias, 0.0f, s.pcss ? 1.0f : 0.0f);
     u.atmosphereParams = glm::vec4(s.rayleighScale, s.mieScale, s.ozoneScale, s.mieAnisotropy);
@@ -588,6 +785,7 @@ void Lighting::beginFrame(const FrameInput& input, SceneUniforms& u) {
     u.fogParams = glm::vec4(s.fog ? s.fogDensity : 0.0f, s.fogHeightFalloff, s.fogHeight, s.fog ? s.aerialDistanceScale : 0.0f);
     u.postParams = glm::vec4(s.bloom ? s.bloomIntensity : 0.0f, s.vignette, s.grain, static_cast<float>(static_cast<int>(s.tonemapper)));
     u.postParams2 = glm::vec4(s.contrast, s.saturation, s.temperature, s.tint);
+    u.giParams = glm::vec4(s.ssao && s.ssgi ? s.ssgiIntensity : 0.0f, s.ssgiThickness, d.pyramidValid ? 1.0f : 0.0f, static_cast<float>(kPyramidMips));
 
     uint64_t hash = 1469598103934665603ull;
     auto mix = [&](float v) {
@@ -595,7 +793,7 @@ void Lighting::beginFrame(const FrameInput& input, SceneUniforms& u) {
         std::memcpy(&bits, &v, 4);
         hash = (hash ^ bits) * 1099511628211ull;
     };
-    for (float v : {d.sun.x, d.sun.y, d.sun.z, s.rayleighScale, s.mieScale, s.ozoneScale, s.mieAnisotropy, s.groundAlbedo, s.cloudCoverage, s.cloudDensity, static_cast<float>(s.clouds), static_cast<float>(static_cast<int>(s.sky)), s.hdriIntensity, s.hdriRotation, s.gradientIntensity,
+    for (float v : {d.sun.x, d.sun.y, d.sun.z, s.rayleighScale, s.mieScale, s.ozoneScale, s.mieAnisotropy, s.groundAlbedo, s.cloudCoverage, s.cloudDensity, s.cloudAltitude, static_cast<float>(s.clouds), static_cast<float>(static_cast<int>(s.sky)), s.hdriIntensity, s.hdriRotation, s.gradientIntensity,
                      s.gradientZenith.x, s.gradientHorizon.x, s.gradientGround.x, toa.x, std::round(input.cameraPosition.y / 50.0f)}) {
         mix(v);
     }
@@ -678,7 +876,7 @@ void Lighting::prepare(Diligent::IBuffer* sceneUniforms) {
         d.envDirty = true;
     }
     d.lutsDirty = false;
-    litgpu::dispatch(ctx, d.skyViewPso, d.skyViewSrb, (192 + 7) / 8, (108 + 7) / 8);
+    litgpu::dispatch(ctx, d.skyViewPso, d.skyViewSrb, (kSkyViewWidth + 7) / 8, (kSkyViewHeight + 7) / 8);
     litgpu::dispatch(ctx, d.aerialPso, d.aerialSrb, 8, 8, 8);
 
     if (d.envDirty) {
@@ -718,11 +916,16 @@ void Lighting::shade(Diligent::ITexture* depth, Diligent::IBuffer* sceneUniforms
         d.shadeVersion = d.bindingVersion;
         d.shadeDepth = depth;
         Diligent::ITextureView* depthView = litgpu::srv(depth);
+        d.cloudsSrb = litgpu::makeBinding(d.cloudsPso, {{"SceneData", scene}, {"u_output", litgpu::uav(d.clouds)}, {"u_transmittanceLut", litgpu::srv(d.transmittanceLut)}, {"u_skyViewLut", litgpu::srv(d.skyViewLut)}, {"u_hdri", litgpu::srv(d.hdri)}});
         d.gtaoDepthSrb = litgpu::makeBinding(d.gtaoDepthPso, {{"SceneData", scene}, {"u_depth", depthView}, {"u_output", litgpu::uav(d.aoDepth)}});
-        d.gtaoSrb = litgpu::makeBinding(d.gtaoPso, {{"SceneData", scene}, {"u_depth", depthView}, {"u_linearDepth", litgpu::srv(d.aoDepth)}, {"u_gbuffer1", litgpu::srv(d.gbuffer[1])}, {"u_output", litgpu::uav(d.aoRaw)}});
-        d.gtaoBlurSrb = litgpu::makeBinding(d.gtaoBlurPso, {{"SceneData", scene}, {"u_depth", depthView}, {"u_input", litgpu::srv(d.aoRaw)}, {"u_output", litgpu::uav(d.aoFiltered)}});
+        d.gtaoSrb = litgpu::makeBinding(d.gtaoPso, {{"SceneData", scene}, {"u_depth", depthView}, {"u_linearDepth", litgpu::srv(d.aoDepth)}, {"u_gbuffer1", litgpu::srv(d.gbuffer[1])}, {"u_sceneColor", litgpu::srv(d.sceneColor)}, {"ExposureBuffer", d.exposure}, {"u_output", litgpu::uav(d.aoRaw)}});
+        d.gtaoBlurSrb = litgpu::makeBinding(d.gtaoBlurPso, {{"SceneData", scene}, {"u_linearDepth", litgpu::srv(d.aoDepth)}, {"u_input", litgpu::srv(d.aoRaw)}, {"u_output", litgpu::uav(d.aoTemp)}});
+        d.gtaoBlurVerticalSrb = litgpu::makeBinding(d.gtaoBlurVerticalPso, {{"SceneData", scene}, {"u_linearDepth", litgpu::srv(d.aoDepth)}, {"u_input", litgpu::srv(d.aoTemp)}, {"u_output", litgpu::uav(d.aoFiltered)}});
+        d.ssrHizFirstSrb = litgpu::makeBinding(d.ssrHizFirstPso, {{"u_depth", depthView}, {"u_dest", d.ssrHizMips[0]}});
+        d.ssrHizSrbs.clear();
+        for (size_t mip = 1; mip < d.ssrHizMips.size(); ++mip) d.ssrHizSrbs.push_back(litgpu::makeBinding(d.ssrHizPso, {{"u_sourceMip", d.ssrHizMips[mip - 1]}, {"u_dest", d.ssrHizMips[mip]}}));
         for (int parity = 0; parity < 2; ++parity) {
-        d.ssrSrb[parity] = litgpu::makeBinding(d.ssrPso, {{"SceneData", scene}, {"u_depth", depthView}, {"u_gbuffer1", litgpu::srv(d.gbuffer[1])}, {"u_previousColor", litgpu::srv(d.hdrTargets[1 - parity])}, {"u_output", litgpu::uav(d.ssr)}, {"ExposureBuffer", d.exposure}});
+        d.ssrSrb[parity] = litgpu::makeBinding(d.ssrPso, {{"SceneData", scene}, {"u_depth", depthView}, {"u_gbuffer1", litgpu::srv(d.gbuffer[1])}, {"u_previousColor", litgpu::srv(d.sceneColor)}, {"u_hiz", litgpu::srv(d.ssrHiz)}, {"u_output", litgpu::uav(d.ssr)}, {"ExposureBuffer", d.exposure}});
         d.ssrTemporalSrb[parity] = litgpu::makeBinding(d.ssrTemporalPso, {{"SceneData", scene}, {"u_depth", depthView}, {"u_current", litgpu::srv(d.ssr)}, {"u_history", litgpu::srv(d.ssrHistory[1 - parity])}, {"u_output", litgpu::uav(d.ssrHistory[parity])}, {"SsrTemporal", d.ssrTemporalConstants}});
         d.lightingSrb[parity] = litgpu::makeBinding(d.lightingPso, {{"SceneData", scene},
                                                             {"u_depth", depthView},
@@ -730,6 +933,8 @@ void Lighting::shade(Diligent::ITexture* depth, Diligent::IBuffer* sceneUniforms
                                                             {"u_gbuffer1", litgpu::srv(d.gbuffer[1])},
                                                             {"u_gbuffer2", litgpu::srv(d.gbuffer[2])},
                                                             {"u_ao", litgpu::srv(d.aoFiltered)},
+                                                            {"u_aoDepth", litgpu::srv(d.aoDepth)},
+                                                            {"u_clouds", litgpu::srv(d.clouds)},
                                                             {"u_ssr", litgpu::srv(d.ssrTemporalPso ? d.ssrHistory[parity] : d.ssr)},
                                                             {"u_aerial", litgpu::srv(d.aerialLut)},
                                                             {"u_transmittanceLut", litgpu::srv(d.transmittanceLut)},
@@ -739,6 +944,7 @@ void Lighting::shade(Diligent::ITexture* depth, Diligent::IBuffer* sceneUniforms
                                                             {"u_dfgLut", litgpu::srv(d.dfg)},
                                                             {"u_shadowMap", litgpu::srv(d.shadowMap)},
                                                             {"u_shadowDepth", litgpu::srv(d.shadowMap)},
+                                                            {"u_localShadowMap", litgpu::srv(d.localShadowMap)},
                                                             {"u_hdr", litgpu::uav(d.hdrTargets[parity])},
                                                             {"MaterialBuffer", d.materials},
                                                             {"LightBuffer", d.lights},
@@ -753,11 +959,20 @@ void Lighting::shade(Diligent::ITexture* depth, Diligent::IBuffer* sceneUniforms
     if (d.settings.ssao && (stage < 0 || stage == 0)) {
         litgpu::dispatch(ctx, d.gtaoDepthPso, d.gtaoDepthSrb, (static_cast<uint32_t>(d.width) / 2 + 7) / 8, (static_cast<uint32_t>(d.height) / 2 + 7) / 8);
         litgpu::dispatch(ctx, d.gtaoPso, d.gtaoSrb, (static_cast<uint32_t>(d.width) / 2 + 7) / 8, (static_cast<uint32_t>(d.height) / 2 + 7) / 8);
-        litgpu::dispatch(ctx, d.gtaoBlurPso, d.gtaoBlurSrb, gx, gy);
+        litgpu::dispatch(ctx, d.gtaoBlurPso, d.gtaoBlurSrb, (static_cast<uint32_t>(d.width) / 2 + 7) / 8, (static_cast<uint32_t>(d.height) / 2 + 7) / 8);
+        litgpu::dispatch(ctx, d.gtaoBlurVerticalPso, d.gtaoBlurVerticalSrb, (static_cast<uint32_t>(d.width) / 2 + 7) / 8, (static_cast<uint32_t>(d.height) / 2 + 7) / 8);
     }
     if (d.settings.ssr && (stage < 0 || stage == 1)) {
         const uint32_t sw = std::max(static_cast<uint32_t>(d.width) / 2, 1u);
         const uint32_t sh = std::max(static_cast<uint32_t>(d.height) / 2, 1u);
+        const auto& hizDesc = d.ssrHiz->GetDesc();
+        litgpu::dispatch(ctx, d.ssrHizFirstPso, d.ssrHizFirstSrb, (hizDesc.Width + 7) / 8, (hizDesc.Height + 7) / 8);
+        for (size_t mip = 1; mip < d.ssrHizMips.size(); ++mip) {
+            litgpu::uavBarrier(ctx, d.ssrHiz);
+            const uint32_t mw = std::max(hizDesc.Width >> mip, 1u);
+            const uint32_t mh = std::max(hizDesc.Height >> mip, 1u);
+            litgpu::dispatch(ctx, d.ssrHizPso, d.ssrHizSrbs[mip - 1], (mw + 7) / 8, (mh + 7) / 8);
+        }
         litgpu::dispatch(ctx, d.ssrPso, d.ssrSrb[parity], (sw + 7) / 8, (sh + 7) / 8);
         const glm::vec4 temporal(d.ssrHistoryFrames > 0 ? 1.0f : 0.0f, 0.12f, 1.25f, 0.0f);
         ctx->UpdateBuffer(d.ssrTemporalConstants, 0, sizeof(temporal), &temporal, Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
@@ -766,10 +981,36 @@ void Lighting::shade(Diligent::ITexture* depth, Diligent::IBuffer* sceneUniforms
     } else if (stage < 0 || stage == 1) {
         d.ssrHistoryFrames = 0;
     }
+    if (stage < 0 || stage == 2) {
+        const auto& cloudDesc = d.clouds->GetDesc();
+        litgpu::dispatch(ctx, d.cloudsPso, d.cloudsSrb, (cloudDesc.Width + 7) / 8, (cloudDesc.Height + 7) / 8);
+    }
     if (stage < 0 || stage == 2) litgpu::dispatch(ctx, d.lightingPso, d.lightingSrb[parity], gx, gy);
 }
 
-void Lighting::finish(Diligent::IBuffer* sceneUniforms, Diligent::ITextureView* backBuffer, float deltaTime) {
+void Lighting::captureSceneColor() {
+    Data& d = *m_data;
+    if (!d.pyramidFirstPso || !d.pyramidPso || d.sceneColorMips.size() < kPyramidMips) return;
+    if (d.pyramidVersion != d.bindingVersion || !d.pyramidFirstSrb[0]) {
+        d.pyramidVersion = d.bindingVersion;
+        for (int parity = 0; parity < 2; ++parity) d.pyramidFirstSrb[parity] = litgpu::makeBinding(d.pyramidFirstPso, {{"u_source", litgpu::srv(d.hdrTargets[parity])}, {"u_dest", d.sceneColorMips[0]}});
+        d.pyramidSrbs.clear();
+        for (uint32_t mip = 1; mip < kPyramidMips; ++mip) d.pyramidSrbs.push_back(litgpu::makeBinding(d.pyramidPso, {{"u_sourceMip", d.sceneColorMips[mip - 1]}, {"u_dest", d.sceneColorMips[mip]}}));
+    }
+    const auto& desc = d.sceneColor->GetDesc();
+    litgpu::dispatch(d.context, d.pyramidFirstPso, d.pyramidFirstSrb[d.hdrIndex], (desc.Width + 7) / 8, (desc.Height + 7) / 8);
+    for (uint32_t mip = 1; mip < kPyramidMips; ++mip) {
+        litgpu::uavBarrier(d.context, d.sceneColor);
+        const uint32_t mw = std::max(desc.Width >> mip, 1u);
+        const uint32_t mh = std::max(desc.Height >> mip, 1u);
+        litgpu::dispatch(d.context, d.pyramidPso, d.pyramidSrbs[mip - 1], (mw + 7) / 8, (mh + 7) / 8);
+    }
+    d.pyramidValid = true;
+}
+
+Diligent::ITextureView* Lighting::sceneColor() const { return litgpu::srv(m_data->sceneColor); }
+
+void Lighting::finish(Diligent::IBuffer* sceneUniforms, Diligent::ITextureView* backBuffer, float deltaTime, const std::function<void(Diligent::ITexture*)>& afterTonemap) {
     Data& d = *m_data;
     auto* ctx = d.context;
     Diligent::IBuffer* scene = sceneUniforms;
@@ -830,7 +1071,9 @@ void Lighting::finish(Diligent::IBuffer* sceneUniforms, Diligent::ITextureView* 
         ctx->Draw(Diligent::DrawAttribs{3, Diligent::DRAW_FLAG_NONE});
     }
     litgpu::dispatch(ctx, d.commitPso, d.commitSrb, 1);
+    if (afterTonemap) afterTonemap(d.ldr);
     ctx->SetRenderTargets(1, &backBuffer, nullptr, Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
+    ctx->SetViewports(1, &viewport, static_cast<Diligent::Uint32>(d.width), static_cast<Diligent::Uint32>(d.height));
     if (d.fxaaPso && d.fxaaSrb) {
         ctx->SetPipelineState(d.fxaaPso);
         ctx->CommitShaderResources(d.fxaaSrb, Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION);

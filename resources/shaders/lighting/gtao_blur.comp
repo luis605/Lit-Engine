@@ -4,33 +4,31 @@
 
 layout(local_size_x = 8, local_size_y = 8, local_size_z = 1) in;
 
-uniform sampler2D u_depth;
+uniform sampler2D u_linearDepth;
 uniform sampler2D u_input;
-layout(r16f) writeonly uniform image2D u_output;
+layout(rgba16f) writeonly uniform image2D u_output;
+
+const float WEIGHTS[5] = float[](0.5, 1.0, 1.0, 1.0, 0.5);
 
 void main() {
     ivec2 pixel = ivec2(gl_GlobalInvocationID.xy);
-    ivec2 size = ivec2(screenParams.xy);
+    ivec2 size = imageSize(u_output);
     if (any(greaterThanEqual(pixel, size))) return;
-    float depth = texelFetch(u_depth, pixel, 0).r;
-    if (depth >= 1.0) {
-        imageStore(u_output, pixel, vec4(1.0));
-        return;
-    }
-    float center = linearViewDepth(depth);
-    ivec2 halfSize = textureSize(u_input, 0);
-    ivec2 base = pixel / 2;
-    float sum = 0.0;
+    float center = texelFetch(u_linearDepth, pixel, 0).r;
+#ifdef VERTICAL
+    ivec2 axis = ivec2(0, 1);
+#else
+    ivec2 axis = ivec2(1, 0);
+#endif
+    vec4 sum = vec4(0.0);
     float weight = 0.0;
-    for (int y = -1; y <= 1; ++y) {
-        for (int x = -1; x <= 1; ++x) {
-            ivec2 p = clamp(base + ivec2(x, y), ivec2(0), halfSize - 1);
-            vec2 sampleValue = texelFetch(u_input, p, 0).rg;
-            vec2 offset = vec2(p * 2) + 0.5 - vec2(pixel);
-            float w = exp(-abs(sampleValue.g - center) / max(center * 0.03, 1e-3)) * exp(-dot(offset, offset) * 0.12);
-            sum += sampleValue.r * w;
-            weight += w;
-        }
+    float tolerance = max(center * 0.04, 1e-3);
+    for (int i = -2; i <= 2; ++i) {
+        ivec2 p = clamp(pixel + axis * i, ivec2(0), size - 1);
+        float d = texelFetch(u_linearDepth, p, 0).r;
+        float w = WEIGHTS[i + 2] * exp(-abs(d - center) / tolerance);
+        sum += texelFetch(u_input, p, 0) * w;
+        weight += w;
     }
-    imageStore(u_output, pixel, vec4(weight > 1e-4 ? sum / weight : 1.0));
+    imageStore(u_output, pixel, weight > 1e-5 ? sum / weight : texelFetch(u_input, pixel, 0));
 }

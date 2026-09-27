@@ -14,7 +14,7 @@ key Z ctrl
 expect x 0.00
 key Z ctrl shift
 expect x 2.50
-key D ctrl
+key D shift
 key Escape
 expect selection 1
 key Delete

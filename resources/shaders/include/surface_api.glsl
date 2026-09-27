@@ -3,6 +3,10 @@
 
 #include "common.glsl"
 
+#define LIT_STANDARD 0
+#define LIT_UNLIT 1
+#define LIT_TOON 2
+
 struct VertexData {
     vec3 position;
     vec3 normal;
@@ -42,7 +46,18 @@ struct Surface {
     float occlusion;
     vec3 emissive;
     float tangentAngle;
+    int lightingModel;
+    float toonBands;
+    float toonRim;
+    float toonRimWidth;
 };
+
+uvec2 litEncodeToon(float bands, float rim, float rimWidth) {
+    uint b = uint(clamp(bands, 1.0, 255.0) + 0.5);
+    uint r = uint(saturate(rim) * 15.0 + 0.5);
+    uint w = uint(saturate(rimWidth) * 15.0 + 0.5);
+    return uvec2(b, (r << 4u) | w);
+}
 
 float litHash(vec3 p) { return hash33(p).x; }
 

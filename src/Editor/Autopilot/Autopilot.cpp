@@ -1,6 +1,8 @@
 module;
 
+#include <GLFW/glfw3.h>
 #include <imgui.h>
+#include <imgui_impl_glfw.h>
 
 #include <algorithm>
 #include <cstdint>
@@ -85,6 +87,22 @@ bool Autopilot::load(const std::string& path) {
 void Autopilot::beforeFrame(EditorContext& ctx, CommandRegistry& commands, float dt) {
     if (!m_active) return;
     ImGuiIO& io = ImGui::GetIO();
+    auto pinMouse = [&] {
+        if (!m_mouseSet) return;
+        if (GLFWwindow* w = static_cast<GLFWwindow*>(window)) {
+            ImGui_ImplGlfw_CursorEnterCallback(w, GLFW_TRUE);
+            ImGui_ImplGlfw_CursorPosCallback(w, m_mouse[0], m_mouse[1]);
+        } else {
+            io.AddMousePosEvent(m_mouse[0], m_mouse[1]);
+        }
+    };
+    auto setMouse = [&](float x, float y) {
+        m_mouseSet = true;
+        m_mouse[0] = x;
+        m_mouse[1] = y;
+        pinMouse();
+    };
+    pinMouse();
     if (m_measureFrames > 0) {
         m_measureSamples.push_back(dt * 1000.0f);
         if (--m_measureFrames > 0) return;
@@ -177,18 +195,23 @@ void Autopilot::beforeFrame(EditorContext& ctx, CommandRegistry& commands, float
             return;
         }
         if (step.verb == "move") {
-            io.AddMousePosEvent(coord(0, false), coord(1, true));
+            setMouse(coord(0, false), coord(1, true));
             return;
         }
         if (step.verb == "click") {
             const int button = mouseButton(arg(0, "left"));
-            if (a.size() >= 3) io.AddMousePosEvent(coord(1, false), coord(2, true));
+            if (a.size() >= 3) setMouse(coord(1, false), coord(2, true));
             io.AddMouseButtonEvent(button, true);
             m_releaseMouse[button] = true;
             m_holdFrames = 1;
             return;
         }
         if (step.verb == "press") {
+            for (size_t i = 1; i < a.size(); ++i) {
+                if (a[i] == "ctrl") io.AddKeyEvent(ImGuiMod_Ctrl, true);
+                if (a[i] == "shift") io.AddKeyEvent(ImGuiMod_Shift, true);
+                if (a[i] == "alt") io.AddKeyEvent(ImGuiMod_Alt, true);
+            }
             io.AddMouseButtonEvent(mouseButton(arg(0, "left")), true);
             return;
         }
@@ -270,7 +293,8 @@ void Autopilot::beforeFrame(EditorContext& ctx, CommandRegistry& commands, float
             if (what == "name") actual = ctx.world.isAlive(ctx.primary()) ? ctx.world.getName(ctx.primary()) : "";
             if (what.rfind("setting:", 0) == 0) actual = renderSettingValue(ctx.engine.renderSettings(), what.substr(8));
             if (actual.empty() && query) actual = query(what);
-            const std::string expected = arg(1);
+            std::string expected = arg(1);
+            for (size_t i = 2; i < a.size(); ++i) expected += " " + a[i];
             if (actual == expected) {
                 Lit::Log::Info("[autopilot] PASS {} == {}", what, expected);
             } else {

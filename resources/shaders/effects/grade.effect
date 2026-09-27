@@ -1,0 +1,23 @@
+#pragma lit stage ldr
+#pragma lit param 0 1.0 0.03
+
+uniform sampler2D u_lut;
+
+vec3 gradeLut(vec3 c) {
+    float size = 16.0;
+    float slice = c.b * (size - 1.0);
+    float s0 = floor(slice);
+    float s1 = min(s0 + 1.0, size - 1.0);
+    vec2 uv = (c.rg * (size - 1.0) + 0.5) / vec2(size * size, size);
+    vec3 lo = textureLod(u_lut, uv + vec2(s0 / size, 0.0), 0.0).rgb;
+    vec3 hi = textureLod(u_lut, uv + vec2(s1 / size, 0.0), 0.0).rgb;
+    return mix(lo, hi, slice - s0);
+}
+
+vec3 effect(vec2 uv, vec3 color) {
+    float amount = saturate(litParams[0].x);
+    float grain = max(litParams[0].y, 0.0);
+    vec3 graded = mix(color, gradeLut(color), amount);
+    float noise = hash12(gl_FragCoord.xy + fract(litTime()) * 311.0) - 0.5;
+    return graded + noise * grain * (1.0 - luminance(graded));
+}

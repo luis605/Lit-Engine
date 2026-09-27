@@ -37,6 +37,7 @@ module;
 #include <filesystem>
 #include <memory>
 #include <span>
+#include <tuple>
 #include <vector>
 #include <optional>
 #include <unordered_map>
@@ -92,6 +93,7 @@ struct CullingUniforms {
     float lodBias;
     int32_t forcedLod;
     uint32_t opaqueShaderCount;
+    uint32_t bucketSlots;
 };
 
 constexpr uint32_t MAX_MESHES = 2048;
@@ -102,6 +104,8 @@ constexpr Diligent::TEXTURE_FORMAT kRevealageFormat = Diligent::TEX_FORMAT_R16_F
 constexpr uint32_t MAX_DIRTY_PER_FRAME = 65536;
 constexpr uint32_t MAX_TRANSFORM_WORK = 65536;
 constexpr uint32_t kMaxMaterials = 1024;
+constexpr int kShadowViews = 4 + kMaxLocalShadowViews;
+constexpr uint32_t kShadowBucketCapacity = 65536;
 constexpr uint32_t kMaxGpuLights = 64;
 
 constexpr uint32_t INVALID_MESH_UUID = 0xFFFFFFFFu;
@@ -109,8 +113,8 @@ constexpr uint32_t INVALID_MESH_UUID = 0xFFFFFFFFu;
 struct CommandGenUniforms {
     uint32_t maxBucketsPerShader;
     uint32_t totalBuckets;
-    uint32_t padding0;
-    uint32_t padding1;
+    uint32_t bucketSlots;
+    uint32_t viewBuckets;
 };
 
 struct PrefixSumConstants {
@@ -153,6 +157,10 @@ std::vector<MeshInfo> s_meshInfos;
 std::vector<glm::vec4> s_normalSamples;
 size_t s_totalVertexSize = 0;
 size_t s_totalIndexSize = 0;
+
+uint32_t BucketSlotCount() { return static_cast<uint32_t>(std::clamp<size_t>(s_meshInfos.size(), 1, MAX_MESHES)); }
+
+uint32_t ActiveBucketCount(size_t shaders) { return static_cast<uint32_t>(shaders) * BucketSlotCount(); }
 
 unsigned int nextPowerOfTwo(unsigned int n) {
     n--;
@@ -559,6 +567,7 @@ struct DiligentData {
         float bounds = 0.0f;
         bool twoSided = false;
         bool valid = false;
+        std::string error;
         Diligent::RefCntAutoPtr<Diligent::IPipelineState> gbuffer;
         Diligent::RefCntAutoPtr<Diligent::IPipelineState> gbufferPoint;
         Diligent::RefCntAutoPtr<Diligent::IPipelineState> forward;
@@ -569,8 +578,15 @@ struct DiligentData {
     std::vector<SurfaceProgram> surfaces;
     Diligent::RefCntAutoPtr<Diligent::IPipelineState> pShadowCullPSO;
     Diligent::RefCntAutoPtr<Diligent::IBuffer> pShaderBounds;
-    Diligent::RefCntAutoPtr<Diligent::IBuffer> pShadowCullUBO[4];
-    Diligent::RefCntAutoPtr<Diligent::IBuffer> pShadowPassUBO[4];
+    Diligent::RefCntAutoPtr<Diligent::IBuffer> pShadowCullUBO[kShadowViews];
+    Diligent::RefCntAutoPtr<Diligent::IBuffer> pShadowPassUBO[kShadowViews];
+    Diligent::RefCntAutoPtr<Diligent::IPipelineState> pLocalShadowCullPSO;
+    Diligent::RefCntAutoPtr<Diligent::IShaderResourceBinding> localCullSRB[NumFrames];
+    Diligent::RefCntAutoPtr<Diligent::IBuffer> pLocalShadowViewsUBO;
+    Diligent::RefCntAutoPtr<Diligent::IBuffer> pLocalCasterCounter;
+    Diligent::RefCntAutoPtr<Diligent::IBuffer> pLocalCasterIds;
+    Diligent::RefCntAutoPtr<Diligent::IBuffer> pLocalCasterDispatchArgs;
+    Diligent::RefCntAutoPtr<Diligent::IShaderResourceBinding> pLocalCasterDispatchArgsSRB[NumFrames];
     Diligent::RefCntAutoPtr<Diligent::IBuffer> pCascadeCullUBO;
     Diligent::RefCntAutoPtr<Diligent::IBuffer> pCasterCounter;
     Diligent::RefCntAutoPtr<Diligent::IBuffer> pCasterIds;
@@ -588,16 +604,21 @@ struct DiligentData {
     Diligent::RefCntAutoPtr<Diligent::IBuffer> pShadowRetestIds;
     Diligent::RefCntAutoPtr<Diligent::IBuffer> pShadowRetestDispatchArgs;
     Diligent::RefCntAutoPtr<Diligent::IShaderResourceBinding> pShadowRetestDispatchArgsSRB[NumFrames];
-    Diligent::RefCntAutoPtr<Diligent::ITexture> shadowHiZ[4];
-    std::vector<Diligent::RefCntAutoPtr<Diligent::ITextureView>> shadowHiZDest[4];
-    std::vector<Diligent::RefCntAutoPtr<Diligent::ITextureView>> shadowHiZSource[4];
-    Diligent::RefCntAutoPtr<Diligent::ITextureView> shadowSlices[4];
+    Diligent::RefCntAutoPtr<Diligent::IBuffer> pEarlyCandidateCounter;
+    Diligent::RefCntAutoPtr<Diligent::IBuffer> pEarlyCandidateIds;
+    Diligent::RefCntAutoPtr<Diligent::IBuffer> pEarlyCandidateDispatchArgs;
+    Diligent::RefCntAutoPtr<Diligent::IShaderResourceBinding> pEarlyCompactSRB[NumFrames];
+    Diligent::RefCntAutoPtr<Diligent::IShaderResourceBinding> pEarlyDispatchArgsSRB[NumFrames];
+    Diligent::RefCntAutoPtr<Diligent::ITexture> shadowHiZ[kShadowLayers];
+    std::vector<Diligent::RefCntAutoPtr<Diligent::ITextureView>> shadowHiZDest[kShadowLayers];
+    std::vector<Diligent::RefCntAutoPtr<Diligent::ITextureView>> shadowHiZSource[kShadowLayers];
+    Diligent::RefCntAutoPtr<Diligent::ITextureView> shadowSlices[kShadowLayers];
     Diligent::ITexture* shadowHiZSourceMap = nullptr;
-    glm::mat4 shadowHiZViewProj[4]{};
-    bool shadowHiZValid[4] = {false, false, false, false};
+    glm::mat4 shadowHiZViewProj[kShadowLayers]{};
+    bool shadowHiZValid[kShadowLayers] = {};
     Diligent::RefCntAutoPtr<Diligent::IShaderResourceBinding> shadowCullSRB[NumFrames][4];
-    std::vector<Diligent::RefCntAutoPtr<Diligent::IShaderResourceBinding>> shadowSRBs[NumFrames][4];
-    std::vector<Diligent::RefCntAutoPtr<Diligent::IShaderResourceBinding>> shadowPointSRBs[NumFrames][4];
+    std::vector<Diligent::RefCntAutoPtr<Diligent::IShaderResourceBinding>> shadowSRBs[NumFrames][kShadowViews];
+    std::vector<Diligent::RefCntAutoPtr<Diligent::IShaderResourceBinding>> shadowPointSRBs[NumFrames][kShadowViews];
     uint64_t surfaceBindingVersion = 0;
     Diligent::RefCntAutoPtr<Diligent::IBuffer> pTransparentCandidateCounter;
     Diligent::RefCntAutoPtr<Diligent::IBuffer> pTransparentCandidateIds;
@@ -628,6 +649,7 @@ struct DiligentData {
 
     Diligent::RefCntAutoPtr<Diligent::IPipelineState> pHiZMipmapPSO;
     Diligent::RefCntAutoPtr<Diligent::IPipelineState> pCullingPSO;
+    Diligent::RefCntAutoPtr<Diligent::IPipelineState> pVisibilityCompactPSO;
     Diligent::RefCntAutoPtr<Diligent::IPipelineState> pCommandGenPSO;
     Diligent::RefCntAutoPtr<Diligent::IPipelineState> pPrefixSumPSO;
     Diligent::RefCntAutoPtr<Diligent::IPipelineState> pScatterPSO;
@@ -833,7 +855,11 @@ void Renderer::releaseObjectBuffers() {
         d.pSortedHierarchyBuffer[i].Release();
     }
     d.pCasterIds.Release();
+    d.pLocalCasterIds.Release();
     d.pShadowRetestIds.Release();
+    d.pEarlyCandidateCounter.Release();
+    d.pEarlyCandidateIds.Release();
+    d.pEarlyCandidateDispatchArgs.Release();
     d.pTransparentCandidateIds.Release();
     d.pAlphaBuffer.Release();
     d.pVisibilityBits.Release();
@@ -853,11 +879,17 @@ void Renderer::releaseObjectBuffers() {
         d.pTransformWorkSRB[i].Release();
         d.pApplyDirtySRB[i].Release();
         d.pCasterDispatchArgsSRB[i].Release();
+        d.pLocalCasterDispatchArgsSRB[i].Release();
         d.pShadowRetestDispatchArgsSRB[i].Release();
+        d.pEarlyCompactSRB[i].Release();
+        d.pEarlyDispatchArgsSRB[i].Release();
         d.pTransparentDispatchArgsSRB[i].Release();
         for (int c = 0; c < 4; ++c) {
             d.shadowCullSRB[i][c].Release();
             d.shadowLateCullSRB[i][c].Release();
+        }
+        d.localCullSRB[i].Release();
+        for (int c = 0; c < kShadowViews; ++c) {
             d.shadowSRBs[i][c].clear();
             d.shadowPointSRBs[i][c].clear();
         }
@@ -880,7 +912,7 @@ bool Renderer::reallocateBuffers(size_t numObjects) {
     m_meshInfoDirty = true;
 
     const uint32_t totalBuckets = static_cast<uint32_t>(m_numDrawingShaders) * MAX_MESHES;
-    m_bucketZeros.assign(totalBuckets, 0);
+    m_bucketZeros.assign(std::max(totalBuckets, kShadowBucketCapacity), 0);
 
     const size_t subPassMaxObjects = std::max<size_t>(m_maxObjects / 4, 1024);
 
@@ -909,17 +941,18 @@ bool Renderer::reallocateBuffers(size_t numObjects) {
         shadow.visibleCounter = shared.visibleCounter;
         shadow.visibleEntries = shared.visibleEntries;
         shadow.sortedEntries = shared.sortedEntries;
-        shadow.bucketCounts = shared.bucketCounts;
-        shadow.bucketOffsets = shared.bucketOffsets;
-        shadow.bucketWriteHeads = shared.bucketWriteHeads;
+        shadow.bucketCounts = CreateStructuredBuffer(m_diligent->pDevice, "Shadow Bucket Counts", sizeof(unsigned int), kShadowBucketCapacity);
+        shadow.bucketOffsets = CreateStructuredBuffer(m_diligent->pDevice, "Shadow Bucket Offsets", sizeof(unsigned int), kShadowBucketCapacity);
+        shadow.bucketWriteHeads = CreateStructuredBuffer(m_diligent->pDevice, "Shadow Bucket Write Heads", sizeof(unsigned int), kShadowBucketCapacity);
         shadow.scatterDispatchArgs = shared.scatterDispatchArgs;
-        shadow.drawCommands = shared.drawCommands;
-        shadow.drawCounters = shared.drawCounters;
-        shadow.pointCommands = shared.pointCommands;
-        shadow.pointCounters = shared.pointCounters;
+        const auto viewCounters = static_cast<Diligent::Uint32>(m_numDrawingShaders * kMaxLocalShadowViews);
+        shadow.drawCommands = CreateIndirectBuffer(m_diligent->pDevice, "Shadow Draw Commands", commandBytes * kMaxLocalShadowViews);
+        shadow.drawCounters = CreateStructuredBuffer(m_diligent->pDevice, "Shadow Draw Counters", sizeof(unsigned int), viewCounters, m_bucketZeros.data(), Diligent::BIND_INDIRECT_DRAW_ARGS);
+        shadow.pointCommands = CreateIndirectBuffer(m_diligent->pDevice, "Shadow Point Commands", commandBytes * kMaxLocalShadowViews);
+        shadow.pointCounters = CreateStructuredBuffer(m_diligent->pDevice, "Shadow Point Counters", sizeof(unsigned int), viewCounters, m_bucketZeros.data(), Diligent::BIND_INDIRECT_DRAW_ARGS);
     }
-    for (int c = 0; c < 4; ++c) {
-        m_diligent->pShadowCullUBO[c] = CreateUniformBuffer(m_diligent->pDevice, "Shadow Cull", sizeof(glm::vec4) * 7 + sizeof(glm::mat4), Diligent::USAGE_DEFAULT);
+    for (int c = 0; c < kShadowViews; ++c) {
+        m_diligent->pShadowCullUBO[c] = CreateUniformBuffer(m_diligent->pDevice, "Shadow Cull", sizeof(glm::vec4) * 8 + sizeof(glm::mat4), Diligent::USAGE_DEFAULT);
         m_diligent->pShadowPassUBO[c] = CreateUniformBuffer(m_diligent->pDevice, "Shadow Pass", sizeof(glm::mat4) + sizeof(glm::vec4), Diligent::USAGE_DEFAULT);
     }
     {
@@ -927,13 +960,20 @@ bool Renderer::reallocateBuffers(size_t numObjects) {
         for (size_t i = 0; i < m_diligent->surfaces.size() && i < bounds.size(); ++i) bounds[i] = m_diligent->surfaces[i].bounds;
         m_diligent->pShaderBounds = CreateStructuredBuffer(m_diligent->pDevice, "Shader Bounds", sizeof(float), 16, bounds.data());
     }
-    m_diligent->pCascadeCullUBO = CreateUniformBuffer(m_diligent->pDevice, "Cascade Cull", sizeof(glm::vec4) * 25, Diligent::USAGE_DEFAULT);
+    m_diligent->pLocalShadowViewsUBO = CreateUniformBuffer(m_diligent->pDevice, "Local Shadow Views", sizeof(glm::vec4) * (kMaxLocalShadowViews + 1), Diligent::USAGE_DEFAULT);
+    m_diligent->pCascadeCullUBO = CreateUniformBuffer(m_diligent->pDevice, "Cascade Cull", sizeof(glm::vec4) * (25 + 3 * kMaxLocalShadowLights), Diligent::USAGE_DEFAULT);
+    m_diligent->pLocalCasterCounter = CreateStructuredBuffer(m_diligent->pDevice, "Local Caster Counter", sizeof(unsigned int), 1, (void*)&zero);
+    m_diligent->pLocalCasterIds = CreateStructuredBuffer(m_diligent->pDevice, "Local Caster Ids", sizeof(unsigned int) * 2, objectCapacity);
+    m_diligent->pLocalCasterDispatchArgs = CreateDispatchArgsBuffer(m_diligent->pDevice, "Local Caster Dispatch Args");
     m_diligent->pCasterCounter = CreateStructuredBuffer(m_diligent->pDevice, "Caster Counter", sizeof(unsigned int), 1, (void*)&zero);
     m_diligent->pCasterIds = CreateStructuredBuffer(m_diligent->pDevice, "Caster Ids", sizeof(unsigned int), objectCapacity);
     m_diligent->pCasterDispatchArgs = CreateDispatchArgsBuffer(m_diligent->pDevice, "Caster Dispatch Args");
     m_diligent->pShadowRetestCounter = CreateStructuredBuffer(m_diligent->pDevice, "Shadow Retest Counter", sizeof(unsigned int), 1, (void*)&zero);
     m_diligent->pShadowRetestIds = CreateStructuredBuffer(m_diligent->pDevice, "Shadow Retest Ids", sizeof(unsigned int), objectCapacity);
     m_diligent->pShadowRetestDispatchArgs = CreateDispatchArgsBuffer(m_diligent->pDevice, "Shadow Retest Dispatch Args");
+    m_diligent->pEarlyCandidateCounter = CreateStructuredBuffer(m_diligent->pDevice, "Early Candidate Counter", sizeof(unsigned int), 1, (void*)&zero);
+    m_diligent->pEarlyCandidateIds = CreateStructuredBuffer(m_diligent->pDevice, "Early Candidate Ids", sizeof(unsigned int), objectCapacity);
+    m_diligent->pEarlyCandidateDispatchArgs = CreateDispatchArgsBuffer(m_diligent->pDevice, "Early Candidate Dispatch Args");
     m_diligent->shadowHiZSourceMap = nullptr;
     {
         const std::vector<uint32_t> cleared(static_cast<size_t>(objectCapacity + 255) / 256 * 8, 0u);
@@ -974,7 +1014,7 @@ bool Renderer::reallocateBuffers(size_t numObjects) {
         const bool allocationsOk = m_diligent->pObjectBuffer[i] && m_diligent->pWorldMatrixBuffer[i] && m_diligent->pCullSphereBuffer[i] && m_diligent->pCullOrientationBuffer[i] &&
                                    m_diligent->pHierarchyBuffer[i] && m_diligent->pRenderableBuffer[i] && m_diligent->pSortedHierarchyBuffer[i] && m_diligent->pTouchedEpochBuffer[i] &&
                                    m_diligent->pDirtyIndexBuffer[i] && m_diligent->pDirtyPayloadBuffer[i] && m_diligent->pSceneUBO[i] && m_diligent->pTransparentCandidateIds && m_diligent->pAlphaBuffer && main.visibleEntries && main.sortedEntries && retest.visibleEntries &&
-                                   retest.sortedEntries && m_diligent->pVisibilityBits;
+                                   retest.sortedEntries && m_diligent->pVisibilityBits && m_diligent->pEarlyCandidateIds;
         if (!allocationsOk) {
             Lit::Log::Error("Renderer buffer allocation failed for {} objects.", m_maxObjects);
             return false;
@@ -1003,8 +1043,14 @@ bool Renderer::reallocateBuffers(size_t numObjects) {
                        {{"DispatchArgsConstants", d.pObjectDispatchArgsConstants}, {"SourceCounterBuffer", d.pTransparentCandidateCounter}, {"DispatchArgsBuffer", d.pTransparentDispatchArgs}});
         CreateBoundSRB(d.pDispatchArgsPSO, d.pCasterDispatchArgsSRB[i],
                        {{"DispatchArgsConstants", d.pObjectDispatchArgsConstants}, {"SourceCounterBuffer", d.pCasterCounter}, {"DispatchArgsBuffer", d.pCasterDispatchArgs}});
+        CreateBoundSRB(d.pDispatchArgsPSO, d.pLocalCasterDispatchArgsSRB[i],
+                       {{"DispatchArgsConstants", d.pObjectDispatchArgsConstants}, {"SourceCounterBuffer", d.pLocalCasterCounter}, {"DispatchArgsBuffer", d.pLocalCasterDispatchArgs}});
         CreateBoundSRB(d.pDispatchArgsPSO, d.pShadowRetestDispatchArgsSRB[i],
                        {{"DispatchArgsConstants", d.pObjectDispatchArgsConstants}, {"SourceCounterBuffer", d.pShadowRetestCounter}, {"DispatchArgsBuffer", d.pShadowRetestDispatchArgs}});
+        CreateBoundSRB(d.pDispatchArgsPSO, d.pEarlyDispatchArgsSRB[i],
+                       {{"DispatchArgsConstants", d.pObjectDispatchArgsConstants}, {"SourceCounterBuffer", d.pEarlyCandidateCounter}, {"DispatchArgsBuffer", d.pEarlyCandidateDispatchArgs}});
+        CreateBoundSRB(d.pVisibilityCompactPSO, d.pEarlyCompactSRB[i],
+                       {{"CullingUniforms", d.visibility[0].cullingUniforms}, {"VisibilityBuffer", d.pVisibilityBits}, {"CandidateCounterBuffer", d.pEarlyCandidateCounter}, {"CandidateBuffer", d.pEarlyCandidateIds}});
 
         for (size_t phaseIndex = 0; phaseIndex < std::size(d.visibility); ++phaseIndex) {
             auto& phase = d.visibility[phaseIndex];
@@ -1012,8 +1058,9 @@ bool Renderer::reallocateBuffers(size_t numObjects) {
                            {{"SceneData", d.pSceneUBO[i]}, {"CullingUniforms", phase.cullingUniforms}, {"AtomicCounterBuffer", phase.visibleCounter}, {"VisibleObjectBuffer", phase.visibleEntries},
                             {"CullSphereBuffer", d.pCullSphereBuffer[i]}, {"RenderableBuffer", d.pRenderableBuffer[i]}, {"BucketCountBuffer", phase.bucketCounts},
                             {"VisibilityBuffer", d.pVisibilityBits}, {"TransparentCounterBuffer", d.pTransparentCandidateCounter},
-                            {"TransparentBuffer", d.pTransparentCandidateIds}, {"CandidateCounterBuffer", d.pTransparentCandidateCounter}, {"CandidateBuffer", d.pTransparentCandidateIds}, {"MaterialBuffer", m_lighting.materialBuffer()},
-                            {"CascadeCull", d.pCascadeCullUBO}, {"CasterCounterBuffer", d.pCasterCounter}, {"CasterBuffer", d.pCasterIds}});
+                            {"TransparentBuffer", d.pTransparentCandidateIds}, {"CandidateCounterBuffer", phaseIndex == 0 ? d.pEarlyCandidateCounter : d.pTransparentCandidateCounter}, {"CandidateBuffer", phaseIndex == 0 ? d.pEarlyCandidateIds : d.pTransparentCandidateIds}, {"MaterialBuffer", m_lighting.materialBuffer()},
+                            {"CascadeCull", d.pCascadeCullUBO}, {"CasterCounterBuffer", d.pCasterCounter}, {"CasterBuffer", d.pCasterIds},
+                            {"LocalCasterCounterBuffer", d.pLocalCasterCounter}, {"LocalCasterBuffer", d.pLocalCasterIds}});
             CreateBoundSRB(d.pPrefixSumPSO, phase.prefixSumSRB[i],
                            {{"PrefixSumConstants", d.pPrefixSumConstants}, {"BucketCountBuffer", phase.bucketCounts}, {"BucketOffsetBuffer", phase.bucketOffsets}, {"BucketWriteHeadBuffer", phase.bucketWriteHeads}});
             CreateBoundSRB(d.pDispatchArgsPSO, phase.scatterDispatchArgsSRB[i],
@@ -1037,6 +1084,13 @@ bool Renderer::reallocateBuffers(size_t numObjects) {
                            {{"SceneData", d.pSceneUBO[i]}, {"CullingUniforms", phase.cullingUniforms}, {"AtomicCounterBuffer", phase.visibleCounter}, {"VisibleObjectBuffer", phase.visibleEntries}, {"CullSphereBuffer", d.pCullSphereBuffer[i]},
                             {"RenderableBuffer", d.pRenderableBuffer[i]}, {"BucketCountBuffer", phase.bucketCounts}, {"MaterialBuffer", m_lighting.materialBuffer()}, {"ShadowCull", d.pShadowCullUBO[c]},
                             {"CandidateCounterBuffer", d.pShadowRetestCounter}, {"CandidateBuffer", d.pShadowRetestIds}});
+        }
+        {
+            auto& phase = d.visibility[3];
+            CreateBoundSRB(d.pLocalShadowCullPSO, d.localCullSRB[i],
+                           {{"SceneData", d.pSceneUBO[i]}, {"CullingUniforms", phase.cullingUniforms}, {"AtomicCounterBuffer", phase.visibleCounter}, {"VisibleObjectBuffer", phase.visibleEntries}, {"CullSphereBuffer", d.pCullSphereBuffer[i]},
+                            {"RenderableBuffer", d.pRenderableBuffer[i]}, {"BucketCountBuffer", phase.bucketCounts}, {"MaterialBuffer", m_lighting.materialBuffer()}, {"ShadowCull", d.pShadowCullUBO[4]},
+                            {"LocalShadowViews", d.pLocalShadowViewsUBO}, {"CandidateCounterBuffer", d.pLocalCasterCounter}, {"CandidateBuffer", d.pLocalCasterIds}});
         }
     }
     rebindSurfaceResources();
@@ -1084,14 +1138,16 @@ void Renderer::rebindSurfaceResources() {
                                             {"u_prefilteredEnv", m_lighting.prefilteredEnvironment()},
                                             {"u_dfgLut", m_lighting.dfgLut()},
                                             {"u_shadowMap", litgpu::srv(m_lighting.shadowMap())},
-                                            {"u_shadowDepth", litgpu::srv(m_lighting.shadowMap())}});
+                                            {"u_shadowDepth", litgpu::srv(m_lighting.shadowMap())},
+                                            {"u_localShadowMap", litgpu::srv(m_lighting.localShadowMap())},
+                                            {"u_sceneColor", m_lighting.sceneColor()}});
             };
             for (size_t s = 0; s < meshPipelines.size(); ++s) phase.opaqueSRBs[i][s] = bindSurface(meshPipelines[s]);
             for (size_t s = 0; s < pointPipelines.size(); ++s) phase.pointSRBs[i][s] = bindSurface(pointPipelines[s]);
         }
         const auto shadowMeshes = SurfacePipelines(d, 3, false);
         const auto shadowPoints = SurfacePipelines(d, 3, true);
-        for (int c = 0; c < 4; ++c) {
+        for (int c = 0; c < kShadowViews; ++c) {
             d.shadowSRBs[i][c].assign(shadowMeshes.size(), {});
             d.shadowPointSRBs[i][c].assign(shadowPoints.size(), {});
             auto bindShadow = [&](Diligent::IPipelineState* pso) {
@@ -1482,12 +1538,22 @@ void Renderer::drawScene(SceneDatabase& sceneDatabase, const Camera& camera) {
 
     if (m_diligent->QueryReady[m_currentFrame]) {
         ReadGpuTimings(*m_diligent, static_cast<int>(m_currentFrame));
+        m_custom.readTimings(m_currentFrame);
+        for (const PassInfo& pass : m_custom.passes()) {
+            if (pass.kind != PassKind::Effect || pass.stage != EffectStage::Ldr) m_diligent->gpuTotalMilliseconds += pass.gpuMilliseconds;
+        }
         m_diligent->profileLogTimer += deltaTime;
         if (fullProfiling && m_diligent->profileLogTimer >= 0.5f) {
             LogGpuTimings(*m_diligent);
+            std::string custom;
+            for (const PassInfo& pass : m_custom.passes()) {
+                if (pass.enabled && pass.valid) custom += std::format("{}{}: {:.3f} ms", custom.empty() ? "  Custom " : " | ", pass.name, pass.gpuMilliseconds);
+            }
+            if (!custom.empty()) Lit::Log::Info("{}", custom);
             m_diligent->profileLogTimer = 0.0f;
         }
     }
+    m_custom.resetTimers(m_currentFrame);
 
     const bool profileThisFrame = fullProfiling;
     bool (&passRecorded)[kGpuPassCount] = m_diligent->passRecorded[m_currentFrame];
@@ -1549,7 +1615,7 @@ void Renderer::drawScene(SceneDatabase& sceneDatabase, const Camera& camera) {
 
     const std::vector<Entity>& newlyDirty = sceneDatabase.transformDirty.list;
     if (!newlyDirty.empty()) {
-        if (newlyDirty.size() > MAX_DIRTY_PER_FRAME) {
+        if (newlyDirty.size() * 2 > sceneDatabase.transforms.size() && newlyDirty.size() > MAX_DIRTY_PER_FRAME) {
             dirtyUsesBulkPath = true;
             m_transformUpdateCounter = 1;
         } else if (!dirtyUsesBulkPath) {
@@ -1615,13 +1681,11 @@ void Renderer::drawScene(SceneDatabase& sceneDatabase, const Camera& camera) {
     if (!dirtyUsesBulkPath && !m_pendingDirty[0].empty()) {
         auto& pending = m_pendingDirty[0];
         m_dirtyIndexScratch.clear();
-        m_dirtyIndexScratch.reserve(std::min<size_t>(pending.size(), MAX_DIRTY_PER_FRAME));
+        m_dirtyIndexScratch.reserve(pending.size());
         for (Entity e : pending) {
-            if (m_dirtyIndexScratch.size() >= MAX_DIRTY_PER_FRAME) break;
             if (e < m_maxObjects && e < sceneDatabase.transforms.size()) { m_dirtyIndexScratch.push_back(e); }
         }
         const size_t dirtyCount = m_dirtyIndexScratch.size();
-        m_diligent->pImmediateContext->UpdateBuffer(m_diligent->pDirtyIndexBuffer[m_currentFrame], 0, dirtyCount * sizeof(unsigned int), m_dirtyIndexScratch.data(), Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
 
         sparseTransforms = !forceAllLevels && collectTransformWork(sceneDatabase, m_dirtyIndexScratch);
         if (sparseTransforms) {
@@ -1640,19 +1704,19 @@ void Renderer::drawScene(SceneDatabase& sceneDatabase, const Camera& camera) {
 
         m_dirtyPayloadScratch.resize(dirtyCount);
         for (size_t i = 0; i < dirtyCount; ++i) { m_dirtyPayloadScratch[i] = sceneDatabase.transforms[m_dirtyIndexScratch[i]].localMatrix; }
-        m_diligent->pImmediateContext->UpdateBuffer(m_diligent->pDirtyPayloadBuffer[m_currentFrame], 0, dirtyCount * sizeof(glm::mat4), m_dirtyPayloadScratch.data(), Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
-
-        {
-            Diligent::MapHelper<ApplyDirtyConstants> ConstData(m_diligent->pImmediateContext, m_diligent->pApplyDirtyConstants, Diligent::MAP_WRITE, Diligent::MAP_FLAG_DISCARD);
-            ConstData->dirtyCount = static_cast<uint32_t>(dirtyCount);
-            ConstData->epoch = m_transformEpoch;
+        for (size_t first = 0; first < dirtyCount; first += MAX_DIRTY_PER_FRAME) {
+            const size_t chunk = std::min<size_t>(MAX_DIRTY_PER_FRAME, dirtyCount - first);
+            m_diligent->pImmediateContext->UpdateBuffer(m_diligent->pDirtyIndexBuffer[m_currentFrame], 0, chunk * sizeof(unsigned int), m_dirtyIndexScratch.data() + first, Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
+            m_diligent->pImmediateContext->UpdateBuffer(m_diligent->pDirtyPayloadBuffer[m_currentFrame], 0, chunk * sizeof(glm::mat4), m_dirtyPayloadScratch.data() + first, Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
+            {
+                Diligent::MapHelper<ApplyDirtyConstants> ConstData(m_diligent->pImmediateContext, m_diligent->pApplyDirtyConstants, Diligent::MAP_WRITE, Diligent::MAP_FLAG_DISCARD);
+                ConstData->dirtyCount = static_cast<uint32_t>(chunk);
+                ConstData->epoch = m_transformEpoch;
+            }
+            m_diligent->pImmediateContext->SetPipelineState(m_diligent->pApplyDirtyPSO);
+            m_diligent->pImmediateContext->CommitShaderResources(m_diligent->pApplyDirtySRB[m_currentFrame], Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
+            m_diligent->pImmediateContext->DispatchCompute(Diligent::DispatchComputeAttribs((static_cast<unsigned int>(chunk) + 255) / 256, 1, 1));
         }
-
-        m_diligent->pImmediateContext->SetPipelineState(m_diligent->pApplyDirtyPSO);
-        m_diligent->pImmediateContext->CommitShaderResources(m_diligent->pApplyDirtySRB[m_currentFrame], Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
-
-        const unsigned int applyDirtyWorkgroups = (static_cast<unsigned int>(dirtyCount) + 255) / 256;
-        m_diligent->pImmediateContext->DispatchCompute(Diligent::DispatchComputeAttribs(applyDirtyWorkgroups, 1, 1));
 
         pending.clear();
     }
@@ -1820,6 +1884,7 @@ void Renderer::drawScene(SceneDatabase& sceneDatabase, const Camera& camera) {
     }
 
     beginPass(GpuPass::TransparentDraw);
+    m_lighting.captureSceneColor();
     drawTransparency();
     endPass(GpuPass::TransparentDraw);
     {
@@ -1835,7 +1900,12 @@ void Renderer::drawScene(SceneDatabase& sceneDatabase, const Camera& camera) {
     }
 
     beginPass(GpuPass::Post);
-    m_lighting.finish(m_diligent->pSceneUBO[m_currentFrame], m_diligent->pSwapChain->GetCurrentBackBufferRTV(), frameInput.deltaTime);
+    m_lighting.finish(m_diligent->pSceneUBO[m_currentFrame], m_diligent->pSwapChain->GetCurrentBackBufferRTV(), frameInput.deltaTime, [&](Diligent::ITexture* ldr) {
+        if (!m_custom.hasEffects(EffectStage::Ldr)) return;
+        CustomFrame effects = customFrame();
+        effects.resources.erase(std::remove_if(effects.resources.begin(), effects.resources.end(), [](const NamedResource& r) { return r.name == "u_hdr"; }), effects.resources.end());
+        m_custom.runLdrEffects(effects, ldr);
+    });
     endPass(GpuPass::Post);
     bindBackBuffer();
 
@@ -1982,7 +2052,7 @@ void Renderer::drawOverlays(const Camera& camera) {
 
 bool Renderer::pipelinesReady() const {
     const auto& d = *m_diligent;
-    const bool computeReady = d.pTransformPSO && d.pCullingPSO && d.pRetestCullingPSO && d.pPrefixSumPSO && d.pScatterPSO && d.pCommandGenPSO && d.pDispatchArgsPSO && d.pHiZMipmapPSO && d.pHiZFromDepthPSO && d.pApplyDirtyPSO && d.pTransparentCullPSO;
+    const bool computeReady = d.pTransformPSO && d.pCullingPSO && d.pVisibilityCompactPSO && d.pRetestCullingPSO && d.pPrefixSumPSO && d.pScatterPSO && d.pCommandGenPSO && d.pDispatchArgsPSO && d.pHiZMipmapPSO && d.pHiZFromDepthPSO && d.pApplyDirtyPSO && d.pTransparentCullPSO;
     const bool surfacesReady = !d.surfaces.empty() && d.surfaces.front().valid;
     return computeReady && surfacesReady && d.pCompositePSO && d.pSceneDepth && d.pAccumulation && d.pRevealage;
 }
@@ -1995,16 +2065,25 @@ void Renderer::cullVisibilityPhase(int phaseIndex, uint32_t objectCount, int hiz
     const unsigned int zero = 0;
 
     pContext->UpdateBuffer(phase.visibleCounter, 0, sizeof(zero), &zero, Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
-    pContext->UpdateBuffer(phase.bucketCounts, 0, sizeof(unsigned int) * m_bucketZeros.size(), m_bucketZeros.data(), Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
+    pContext->UpdateBuffer(phase.bucketCounts, 0, sizeof(unsigned int) * ActiveBucketCount(m_numDrawingShaders), m_bucketZeros.data(), Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
     if (phaseIndex == 0) pContext->UpdateBuffer(d.pCasterCounter, 0, sizeof(zero), &zero, Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
+    if (phaseIndex == 0) pContext->UpdateBuffer(d.pLocalCasterCounter, 0, sizeof(zero), &zero, Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
     if (phaseIndex == 1) pContext->UpdateBuffer(d.pTransparentCandidateCounter, 0, sizeof(zero), &zero, Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
 
-    const CullingUniforms uniforms{objectCount, static_cast<uint32_t>(m_maxObjects), m_smallObjectThreshold, m_lodBias, m_forcedLod, static_cast<uint32_t>(m_numDrawingShaders)};
+    const CullingUniforms uniforms{objectCount, static_cast<uint32_t>(m_maxObjects), m_smallObjectThreshold, m_lodBias, m_forcedLod, static_cast<uint32_t>(m_numDrawingShaders), BucketSlotCount()};
     pContext->UpdateBuffer(phase.cullingUniforms, 0, sizeof(uniforms), &uniforms, Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
 
     if (candidateInput) {
         pContext->SetPipelineState(d.pDispatchArgsPSO);
         pContext->CommitShaderResources(d.pTransparentDispatchArgsSRB[m_currentFrame], Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
+        pContext->DispatchCompute(Diligent::DispatchComputeAttribs(1, 1, 1));
+    } else if (phaseIndex == 0) {
+        pContext->UpdateBuffer(d.pEarlyCandidateCounter, 0, sizeof(zero), &zero, Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
+        pContext->SetPipelineState(d.pVisibilityCompactPSO);
+        pContext->CommitShaderResources(d.pEarlyCompactSRB[m_currentFrame], Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
+        pContext->DispatchCompute(Diligent::DispatchComputeAttribs((objectCount + 32 * 256 - 1) / (32 * 256), 1, 1));
+        pContext->SetPipelineState(d.pDispatchArgsPSO);
+        pContext->CommitShaderResources(d.pEarlyDispatchArgsSRB[m_currentFrame], Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
         pContext->DispatchCompute(Diligent::DispatchComputeAttribs(1, 1, 1));
     }
 
@@ -2012,18 +2091,19 @@ void Renderer::cullVisibilityPhase(int phaseIndex, uint32_t objectCount, int hiz
     SetDynamicVariable(srb, "u_hizTexture", d.pHiZTextures[hizFrame]->GetDefaultView(Diligent::TEXTURE_VIEW_SHADER_RESOURCE));
     pContext->SetPipelineState(phaseIndex == 0 ? d.pCullingPSO : phaseIndex == 1 ? d.pRetestCullingPSO : d.pTransparentCullPSO);
     pContext->CommitShaderResources(srb, Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
-    if (candidateInput) {
-        pContext->DispatchComputeIndirect(Diligent::DispatchComputeIndirectAttribs{d.pTransparentDispatchArgs, Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION});
+    if (candidateInput || phaseIndex == 0) {
+        pContext->DispatchComputeIndirect(Diligent::DispatchComputeIndirectAttribs{candidateInput ? d.pTransparentDispatchArgs.RawPtr() : d.pEarlyCandidateDispatchArgs.RawPtr(), Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION});
     } else {
         pContext->DispatchCompute(Diligent::DispatchComputeAttribs((objectCount + 255) / 256, 1, 1));
     }
 }
 
-void Renderer::buildVisibilityDraws(int phaseIndex) {
+void Renderer::buildVisibilityDraws(int phaseIndex, uint32_t views) {
     auto& d = *m_diligent;
     auto& phase = d.visibility[phaseIndex];
     auto* pContext = d.pImmediateContext.RawPtr();
-    const uint32_t totalBuckets = static_cast<uint32_t>(m_numDrawingShaders) * MAX_MESHES;
+    const uint32_t viewBuckets = ActiveBucketCount(m_numDrawingShaders);
+    const uint32_t totalBuckets = viewBuckets * views;
 
     pContext->SetPipelineState(d.pPrefixSumPSO);
     {
@@ -2048,7 +2128,7 @@ void Renderer::buildVisibilityDraws(int phaseIndex) {
     pContext->CommitShaderResources(phase.scatterSRB[m_currentFrame], Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
     pContext->DispatchComputeIndirect(Diligent::DispatchComputeIndirectAttribs{phase.scatterDispatchArgs, Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION});
 
-    const size_t counterBytes = sizeof(unsigned int) * m_numDrawingShaders;
+    const size_t counterBytes = sizeof(unsigned int) * m_numDrawingShaders * views;
     pContext->UpdateBuffer(phase.drawCounters, 0, counterBytes, m_bucketZeros.data(), Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
     pContext->UpdateBuffer(phase.pointCounters, 0, counterBytes, m_bucketZeros.data(), Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
 
@@ -2057,6 +2137,8 @@ void Renderer::buildVisibilityDraws(int phaseIndex) {
         Diligent::MapHelper<CommandGenUniforms> constants(pContext, d.pCommandGenConstants, Diligent::MAP_WRITE, Diligent::MAP_FLAG_DISCARD);
         constants->maxBucketsPerShader = MAX_MESHES;
         constants->totalBuckets = totalBuckets;
+        constants->bucketSlots = BucketSlotCount();
+        constants->viewBuckets = viewBuckets;
     }
     pContext->CommitShaderResources(phase.commandGenSRB[m_currentFrame], Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
     pContext->DispatchCompute(Diligent::DispatchComputeAttribs((totalBuckets + 255) / 256, 1, 1));
@@ -2094,7 +2176,20 @@ void Renderer::uploadCascadeCull() {
     struct CascadeCull {
         glm::vec4 planes[24];
         uint32_t info[4];
+        glm::vec4 localSpheres[kMaxLocalShadowLights];
+        glm::vec4 localCones[kMaxLocalShadowLights];
+        uint32_t localSlots[kMaxLocalShadowLights][4];
     } cull{};
+    const int localCount = m_diligent->pLocalShadowCullPSO ? m_lighting.localShadowCasterCount() : 0;
+    for (int l = 0; l < localCount; ++l) {
+        const LocalShadowCaster& caster = m_lighting.localShadowCasters()[static_cast<size_t>(l)];
+        cull.localSpheres[l] = caster.sphere;
+        cull.localCones[l] = caster.cone;
+        cull.localSlots[l][0] = caster.faceBase;
+        cull.localSlots[l][1] = caster.faceMask;
+        cull.localSlots[l][2] = caster.spot;
+    }
+    cull.info[1] = static_cast<uint32_t>(localCount);
     const auto& cascades = m_lighting.cascades();
     const int count = m_diligent->pShadowCullPSO ? m_lighting.cascadeCount() : 0;
     for (int c = 0; c < count; ++c) {
@@ -2111,7 +2206,7 @@ void Renderer::ensureShadowHiZ() {
     Diligent::ITexture* map = m_lighting.shadowMap();
     if (map == d.shadowHiZSourceMap) return;
     d.shadowHiZSourceMap = map;
-    for (int c = 0; c < 4; ++c) {
+    for (int c = 0; c < kShadowLayers; ++c) {
         d.shadowHiZ[c].Release();
         d.shadowHiZDest[c].clear();
         d.shadowHiZSource[c].clear();
@@ -2127,7 +2222,7 @@ void Renderer::ensureShadowHiZ() {
     d.pImmediateContext->UpdateBuffer(d.pShadowHiZArgsConstants, 0, sizeof(argsConstants), argsConstants, Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
     d.pShadowHiZArgsSRB.Release();
     CreateBoundSRB(d.pShadowHiZArgsPSO, d.pShadowHiZArgsSRB, {{"SourceCounterBuffer", d.pShadowRetestCounter}, {"DispatchArgsBuffer", d.pShadowHiZArgs}, {"HiZArgsConstants", d.pShadowHiZArgsConstants}});
-    for (int c = 0; c < 4; ++c) {
+    for (int c = 0; c < kShadowLayers; ++c) {
         Diligent::TextureDesc desc;
         desc.Name = "Shadow Hi-Z";
         desc.Type = Diligent::RESOURCE_DIM_TEX_2D;
@@ -2194,37 +2289,36 @@ void Renderer::buildShadowHiZ(int cascade) {
 void Renderer::drawShadows(uint32_t objectCount) {
     auto& d = *m_diligent;
     auto* pContext = d.pImmediateContext.RawPtr();
-    const int count = m_lighting.cascadeCount();
-    if (count <= 0 || !d.pShadowCullPSO || !d.pShadowLateCullPSO) return;
+    const int count = d.pShadowCullPSO && d.pShadowLateCullPSO ? m_lighting.cascadeCount() : 0;
+    drawLocalShadows(objectCount);
+    if (count <= 0) return;
     ensureShadowHiZ();
     const auto& cascades = m_lighting.cascades();
     auto& phase = d.visibility[3];
     const unsigned int zero = 0;
     const int resolution = m_lighting.shadowResolution();
-    const CullingUniforms uniforms{objectCount, static_cast<uint32_t>(m_maxObjects), 0.0f, m_lodBias, m_forcedLod, static_cast<uint32_t>(m_numDrawingShaders)};
+    const CullingUniforms uniforms{objectCount, static_cast<uint32_t>(m_maxObjects), 0.0f, m_lodBias, m_forcedLod, static_cast<uint32_t>(m_numDrawingShaders), BucketSlotCount()};
     pContext->UpdateBuffer(phase.cullingUniforms, 0, sizeof(uniforms), &uniforms, Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
     pContext->SetPipelineState(d.pDispatchArgsPSO);
     pContext->CommitShaderResources(d.pCasterDispatchArgsSRB[m_currentFrame], Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
     pContext->DispatchCompute(Diligent::DispatchComputeAttribs(1, 1, 1));
-    Diligent::Viewport viewport;
-    viewport.Width = static_cast<float>(resolution);
-    viewport.Height = static_cast<float>(resolution);
     struct ShadowCull {
         glm::vec4 planes[6];
         glm::vec4 lod;
         glm::mat4 hizViewProjection;
+        glm::vec4 origin;
     };
-    auto cull = [&](int c, Diligent::IPipelineState* pso, Diligent::IShaderResourceBinding* srb, Diligent::IBuffer* args, const glm::mat4& hizViewProjection, bool hizValid) {
+    auto cull = [&](int c, int hizLayer, Diligent::IPipelineState* pso, Diligent::IShaderResourceBinding* srb, Diligent::IBuffer* args, const glm::mat4& hizViewProjection, bool hizValid) {
         const Cascade& cascade = cascades[static_cast<size_t>(c)];
         ShadowCull constants{};
         for (int p = 0; p < 6; ++p) constants.planes[p] = cascade.planes[p];
-        constants.lod = glm::vec4(cascade.texelsPerUnit, static_cast<float>(c), hizValid && d.shadowHiZ[c] ? 1.0f : 0.0f, 0.0f);
+        constants.lod = glm::vec4(cascade.texelsPerUnit, static_cast<float>(c), hizValid && d.shadowHiZ[hizLayer] ? 1.0f : 0.0f, 0.0f);
         constants.hizViewProjection = hizViewProjection;
         pContext->UpdateBuffer(d.pShadowCullUBO[c], 0, sizeof(constants), &constants, Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
         pContext->UpdateBuffer(phase.visibleCounter, 0, sizeof(zero), &zero, Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
-        pContext->UpdateBuffer(phase.bucketCounts, 0, sizeof(unsigned int) * m_bucketZeros.size(), m_bucketZeros.data(), Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
+        pContext->UpdateBuffer(phase.bucketCounts, 0, sizeof(unsigned int) * ActiveBucketCount(m_numDrawingShaders), m_bucketZeros.data(), Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
         SetDynamicVariable(srb, "u_hizTexture", d.pHiZTextures[m_currentFrame]->GetDefaultView(Diligent::TEXTURE_VIEW_SHADER_RESOURCE));
-        Diligent::ITexture* hiz = d.shadowHiZ[c] ? d.shadowHiZ[c].RawPtr() : d.pHiZTextures[m_currentFrame].RawPtr();
+        Diligent::ITexture* hiz = d.shadowHiZ[hizLayer] ? d.shadowHiZ[hizLayer].RawPtr() : d.pHiZTextures[m_currentFrame].RawPtr();
         SetDynamicVariable(srb, "u_shadowHiz", hiz->GetDefaultView(Diligent::TEXTURE_VIEW_SHADER_RESOURCE));
         pContext->SetPipelineState(pso);
         pContext->CommitShaderResources(srb, Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
@@ -2237,33 +2331,105 @@ void Renderer::drawShadows(uint32_t objectCount) {
         struct ShadowPass {
             glm::mat4 viewProjection;
             glm::vec4 params;
-        } pass{cascade.viewProjection, glm::vec4(static_cast<float>(resolution), 0.0f, 0.0f, 0.0f)};
+        } pass{cascade.renderViewProjection, glm::vec4(static_cast<float>(resolution), 0.0f, 0.0f, 0.0f)};
         pContext->UpdateBuffer(d.pShadowPassUBO[c], 0, sizeof(pass), &pass, Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
         pContext->UpdateBuffer(d.pShadowRetestCounter, 0, sizeof(zero), &zero, Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
-        cull(c, d.pShadowCullPSO, d.shadowCullSRB[m_currentFrame][c], d.pCasterDispatchArgs, d.shadowHiZViewProj[c], d.shadowHiZValid[c]);
+        const int layer = cascade.renderLayer;
+        const int earlyLayer = cascade.layer;
+        cull(c, earlyLayer, d.pShadowCullPSO, d.shadowCullSRB[m_currentFrame][c], d.pCasterDispatchArgs, d.shadowHiZViewProj[earlyLayer], d.shadowHiZValid[earlyLayer]);
 
-        Diligent::ITextureView* target = m_lighting.shadowTarget(c);
+        Diligent::Viewport viewport;
+        viewport.TopLeftX = static_cast<float>(cascade.viewport[0]);
+        viewport.TopLeftY = static_cast<float>(cascade.viewport[1]);
+        viewport.Width = static_cast<float>(cascade.viewport[2]);
+        viewport.Height = static_cast<float>(cascade.viewport[3]);
+        Diligent::ITextureView* target = m_lighting.shadowTarget(layer);
         pContext->SetRenderTargets(0, nullptr, target, Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
-        pContext->ClearDepthStencil(target, Diligent::CLEAR_DEPTH_FLAG, 1.0f, 0, Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
+        if (cascade.clear) pContext->ClearDepthStencil(target, Diligent::CLEAR_DEPTH_FLAG, 1.0f, 0, Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
         pContext->SetViewports(1, &viewport, static_cast<Diligent::Uint32>(resolution), static_cast<Diligent::Uint32>(resolution));
         drawSurfaces(3, c);
         pContext->SetRenderTargets(0, nullptr, nullptr, Diligent::RESOURCE_STATE_TRANSITION_MODE_NONE);
 
-        if (!d.shadowHiZ[c]) {
-            d.shadowHiZValid[c] = false;
+        if (!d.shadowHiZ[layer]) {
+            d.shadowHiZValid[layer] = false;
             continue;
         }
-        buildShadowHiZ(c);
+        buildShadowHiZ(layer);
         pContext->SetPipelineState(d.pDispatchArgsPSO);
         pContext->CommitShaderResources(d.pShadowRetestDispatchArgsSRB[m_currentFrame], Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
         pContext->DispatchCompute(Diligent::DispatchComputeAttribs(1, 1, 1));
-        cull(c, d.pShadowLateCullPSO, d.shadowLateCullSRB[m_currentFrame][c], d.pShadowRetestDispatchArgs, cascade.viewProjection, true);
+        cull(c, layer, d.pShadowLateCullPSO, d.shadowLateCullSRB[m_currentFrame][c], d.pShadowRetestDispatchArgs, cascade.targetViewProjection, true);
         pContext->SetRenderTargets(0, nullptr, target, Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
         pContext->SetViewports(1, &viewport, static_cast<Diligent::Uint32>(resolution), static_cast<Diligent::Uint32>(resolution));
         drawSurfaces(3, c);
         pContext->SetRenderTargets(0, nullptr, nullptr, Diligent::RESOURCE_STATE_TRANSITION_MODE_NONE);
-        d.shadowHiZViewProj[c] = cascade.viewProjection;
-        d.shadowHiZValid[c] = true;
+        d.shadowHiZViewProj[layer] = cascade.targetViewProjection;
+        d.shadowHiZValid[layer] = true;
+    }
+}
+
+void Renderer::drawLocalShadows(uint32_t objectCount) {
+    auto& d = *m_diligent;
+    auto* pContext = d.pImmediateContext.RawPtr();
+    const int casters = d.pLocalShadowCullPSO ? m_lighting.localShadowCasterCount() : 0;
+    if (casters <= 0) return;
+    auto& phase = d.visibility[3];
+    const unsigned int zero = 0;
+    const int resolution = m_lighting.localShadowResolution();
+    const CullingUniforms uniforms{objectCount, static_cast<uint32_t>(m_maxObjects), 0.0f, m_lodBias, m_forcedLod, static_cast<uint32_t>(m_numDrawingShaders), BucketSlotCount()};
+    pContext->UpdateBuffer(phase.cullingUniforms, 0, sizeof(uniforms), &uniforms, Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
+    pContext->SetPipelineState(d.pDispatchArgsPSO);
+    pContext->CommitShaderResources(d.pLocalCasterDispatchArgsSRB[m_currentFrame], Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
+    pContext->DispatchCompute(Diligent::DispatchComputeAttribs(1, 1, 1));
+    Diligent::Viewport viewport;
+    viewport.Width = static_cast<float>(resolution);
+    viewport.Height = static_cast<float>(resolution);
+    struct ShadowPass {
+        glm::mat4 viewProjection;
+        glm::vec4 params;
+    };
+    struct LocalShadowViews {
+        glm::vec4 origins[kMaxLocalShadowViews];
+        uint32_t info[4];
+    };
+    const auto& views = m_lighting.localShadowViews();
+    const uint32_t viewBuckets = ActiveBucketCount(m_numDrawingShaders);
+    const int group = static_cast<int>(std::clamp<uint32_t>(kShadowBucketCapacity / std::max(viewBuckets, 1u), 1u, static_cast<uint32_t>(kMaxLocalShadowViews)));
+    for (int first = 0; first < kMaxLocalShadowViews; first += group) {
+        const int count = std::min(group, kMaxLocalShadowViews - first);
+        LocalShadowViews batch{};
+        bool any = false;
+        for (int k = 0; k < count; ++k) {
+            const LocalShadowView& view = views[static_cast<size_t>(first + k)];
+            batch.origins[k] = glm::vec4(view.origin, view.texelsAtUnitDistance);
+            if (!view.active) continue;
+            any = true;
+            const ShadowPass pass{view.viewProjection, glm::vec4(static_cast<float>(resolution), view.projectionScale, 1.0f, 0.0f)};
+            pContext->UpdateBuffer(d.pShadowPassUBO[4 + first + k], 0, sizeof(pass), &pass, Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
+        }
+        if (!any) continue;
+        batch.info[0] = static_cast<uint32_t>(first);
+        batch.info[1] = static_cast<uint32_t>(count);
+        batch.info[2] = viewBuckets;
+        pContext->UpdateBuffer(d.pLocalShadowViewsUBO, 0, sizeof(batch), &batch, Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
+        pContext->UpdateBuffer(phase.visibleCounter, 0, sizeof(zero), &zero, Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
+        pContext->UpdateBuffer(phase.bucketCounts, 0, sizeof(unsigned int) * viewBuckets * static_cast<uint32_t>(count), m_bucketZeros.data(), Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
+        auto& srb = d.localCullSRB[m_currentFrame];
+        SetDynamicVariable(srb, "u_hizTexture", d.pHiZTextures[m_currentFrame]->GetDefaultView(Diligent::TEXTURE_VIEW_SHADER_RESOURCE));
+        SetDynamicVariable(srb, "u_shadowHiz", d.pHiZTextures[m_currentFrame]->GetDefaultView(Diligent::TEXTURE_VIEW_SHADER_RESOURCE));
+        pContext->SetPipelineState(d.pLocalShadowCullPSO);
+        pContext->CommitShaderResources(srb, Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
+        pContext->DispatchComputeIndirect(Diligent::DispatchComputeIndirectAttribs{d.pLocalCasterDispatchArgs, Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION});
+        buildVisibilityDraws(3, static_cast<uint32_t>(count));
+        for (int k = 0; k < count; ++k) {
+            if (!views[static_cast<size_t>(first + k)].active) continue;
+            Diligent::ITextureView* target = m_lighting.localShadowTarget(first + k);
+            pContext->SetRenderTargets(0, nullptr, target, Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
+            pContext->ClearDepthStencil(target, Diligent::CLEAR_DEPTH_FLAG, 1.0f, 0, Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
+            pContext->SetViewports(1, &viewport, static_cast<Diligent::Uint32>(resolution), static_cast<Diligent::Uint32>(resolution));
+            drawSurfaces(3, 4 + first + k, static_cast<uint32_t>(k));
+            pContext->SetRenderTargets(0, nullptr, nullptr, Diligent::RESOURCE_STATE_TRANSITION_MODE_NONE);
+        }
     }
 }
 
@@ -2271,7 +2437,7 @@ void Renderer::drawVisibilityPhase(int phaseIndex) {
     drawSurfaces(phaseIndex, -1);
 }
 
-void Renderer::drawSurfaces(int phaseIndex, int cascade) {
+void Renderer::drawSurfaces(int phaseIndex, int cascade, uint32_t view) {
     auto& d = *m_diligent;
     auto& phase = d.visibility[phaseIndex];
     const auto meshPipelines = SurfacePipelines(d, static_cast<size_t>(phaseIndex), false);
@@ -2283,7 +2449,8 @@ void Renderer::drawSurfaces(int phaseIndex, int cascade) {
     pContext->SetVertexBuffers(0, 1, pVBs, nullptr, Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION, Diligent::SET_VERTEX_BUFFERS_FLAG_RESET);
     pContext->SetIndexBuffer(d.pEBO, 0, Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
     for (uint32_t shaderId = 0; shaderId < meshPipelines.size(); ++shaderId) {
-        const auto commandOffset = static_cast<Diligent::Uint64>(shaderId) * MAX_MESHES * sizeof(DrawElementsIndirectCommand);
+        const auto commandSlot = static_cast<Diligent::Uint64>(view) * m_numDrawingShaders + shaderId;
+        const auto commandOffset = commandSlot * MAX_MESHES * sizeof(DrawElementsIndirectCommand);
         if (meshPipelines[shaderId] && shaderId < meshBindings.size() && meshBindings[shaderId]) {
             pContext->SetPipelineState(meshPipelines[shaderId]);
             pContext->CommitShaderResources(meshBindings[shaderId], Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
@@ -2294,7 +2461,7 @@ void Renderer::drawSurfaces(int phaseIndex, int cascade) {
             drawAttrs.DrawCount = MAX_MESHES;
             drawAttrs.DrawArgsStride = sizeof(DrawElementsIndirectCommand);
             drawAttrs.pCounterBuffer = phase.drawCounters;
-            drawAttrs.CounterOffset = shaderId * sizeof(unsigned int);
+            drawAttrs.CounterOffset = commandSlot * sizeof(unsigned int);
             drawAttrs.AttribsBufferStateTransitionMode = Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION;
             drawAttrs.CounterBufferStateTransitionMode = Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION;
             pContext->DrawIndexedIndirect(drawAttrs);
@@ -2308,7 +2475,7 @@ void Renderer::drawSurfaces(int phaseIndex, int cascade) {
             pointAttrs.DrawCount = MAX_MESHES;
             pointAttrs.DrawArgsStride = sizeof(DrawElementsIndirectCommand);
             pointAttrs.pCounterBuffer = phase.pointCounters;
-            pointAttrs.CounterOffset = shaderId * sizeof(unsigned int);
+            pointAttrs.CounterOffset = commandSlot * sizeof(unsigned int);
             pointAttrs.AttribsBufferStateTransitionMode = Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION;
             pointAttrs.CounterBufferStateTransitionMode = Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION;
             pContext->DrawIndirect(pointAttrs);
@@ -2385,6 +2552,9 @@ void Renderer::drawProfilingHud() {
     line(waitColor, "CPU Fence Wait: ", d.fenceWaitMilliseconds);
     line(headerColor, "GPU Total: ", d.gpuTotalMilliseconds);
     for (size_t pass = 0; pass < kGpuPassCount; ++pass) line(textColor, std::format("  {}: ", kGpuPassNames[pass]), d.passMilliseconds[pass]);
+    for (const PassInfo& pass : m_custom.passes()) {
+        if (pass.enabled && pass.valid) line(textColor, std::format("  {} ({}): ", pass.name, pass.kind == PassKind::Compute ? "compute" : pass.kind == PassKind::Draw ? "draw" : pass.stage == EffectStage::Ldr ? "ldr effect" : "effect"), pass.gpuMilliseconds);
+    }
 }
 
 std::vector<GpuEntityState> Renderer::readGpuEntityStates(size_t count) {
@@ -2426,6 +2596,9 @@ std::vector<GpuPassTiming> Renderer::gpuTimings() const {
     std::vector<GpuPassTiming> timings;
     if (!m_diligent) return timings;
     for (size_t pass = 0; pass < kGpuPassCount; ++pass) timings.push_back({kGpuPassNames[pass], m_diligent->passMilliseconds[pass]});
+    for (const PassInfo& pass : m_custom.passes()) {
+        if (pass.enabled && pass.valid) timings.push_back({pass.name, pass.gpuMilliseconds});
+    }
     return timings;
 }
 
@@ -2506,8 +2679,9 @@ SurfaceSource ParseSurface(const std::string& text) {
     int depth = 0;
     bool lineComment = false;
     bool blockComment = false;
+    auto located = [&](size_t from, size_t end) { return litgpu::userLine(static_cast<int>(std::count(body.begin(), body.begin() + static_cast<std::ptrdiff_t>(from), '\n')) + 1) + body.substr(from, end - from); };
     auto emit = [&](size_t end) {
-        std::string chunk = body.substr(start, end - start);
+        std::string chunk = located(start, end);
         start = end;
         if (DefinesFunction(chunk, "vertex")) {
             out.vertexCode += chunk;
@@ -2554,7 +2728,7 @@ SurfaceSource ParseSurface(const std::string& text) {
             if (first != std::string::npos && first < i && body[first] == '#') emit(i + 1);
         }
     }
-    if (start < body.size()) out.shared += body.substr(start);
+    if (start < body.size()) out.shared += located(start, body.size());
     std::vector<std::pair<std::string, std::string>> functions;
     std::vector<std::string> declarations;
     {
@@ -2605,16 +2779,9 @@ SurfaceSource ParseSurface(const std::string& text) {
     return out;
 }
 
-std::string InjectUserCode(const std::string& templ, const std::string& code) {
-    const std::string marker = "#pragma lit_user_code";
-    const size_t pos = templ.find(marker);
-    if (pos == std::string::npos) return templ;
-    return templ.substr(0, pos) + code + "\n" + templ.substr(pos + marker.size());
-}
-
 enum class SurfaceKind { GBuffer, Forward, Shadow };
 
-Diligent::RefCntAutoPtr<Diligent::IPipelineState> BuildSurfacePso(DiligentData& d, const std::string& name, const SurfaceSource& source, SurfaceKind kind, bool point, bool twoSided) {
+Diligent::RefCntAutoPtr<Diligent::IPipelineState> BuildSurfacePso(DiligentData& d, const std::string& name, const std::string& path, const SurfaceSource& source, SurfaceKind kind, bool point, bool twoSided) {
     using Macros = std::vector<std::pair<std::string, std::string>>;
     Macros vsMacros;
     Macros psMacros;
@@ -2630,11 +2797,11 @@ Diligent::RefCntAutoPtr<Diligent::IPipelineState> BuildSurfacePso(DiligentData& 
     const std::string vsTemplate = litgpu::readText(vsPath);
     const std::string psTemplate = litgpu::readText("resources/shaders/surface/surface.frag");
     if (vsTemplate.empty() || psTemplate.empty()) return {};
-    auto vs = litgpu::compileSource(d.pDevice, name + (point ? " points.vert" : ".vert"), InjectUserCode(vsTemplate, source.vertexShared + source.vertexCode), Diligent::SHADER_TYPE_VERTEX, vsMacros);
+    auto vs = litgpu::compileSource(d.pDevice, name + (point ? " points.vert" : ".vert"), litgpu::injectUserCode(vsTemplate, source.vertexShared + source.vertexCode), Diligent::SHADER_TYPE_VERTEX, vsMacros, path);
     if (!vs) return {};
     Diligent::RefCntAutoPtr<Diligent::IShader> ps;
     if (kind != SurfaceKind::Shadow) {
-        ps = litgpu::compileSource(d.pDevice, name + (point ? " points.frag" : ".frag"), InjectUserCode(psTemplate, source.shared + source.fragmentCode), Diligent::SHADER_TYPE_PIXEL, psMacros);
+        ps = litgpu::compileSource(d.pDevice, name + (point ? " points.frag" : ".frag"), litgpu::injectUserCode(psTemplate, source.shared + source.fragmentCode), Diligent::SHADER_TYPE_PIXEL, psMacros, path);
         if (!ps) return {};
     }
     Diligent::GraphicsPipelineStateCreateInfo ci;
@@ -2644,7 +2811,7 @@ Diligent::RefCntAutoPtr<Diligent::IPipelineState> BuildSurfacePso(DiligentData& 
     auto& gp = ci.GraphicsPipeline;
     gp.DSVFormat = kSceneDepthFormat;
     gp.PrimitiveTopology = point ? Diligent::PRIMITIVE_TOPOLOGY_POINT_LIST : Diligent::PRIMITIVE_TOPOLOGY_TRIANGLE_LIST;
-    gp.RasterizerDesc.CullMode = twoSided || kind == SurfaceKind::Shadow ? Diligent::CULL_MODE_NONE : Diligent::CULL_MODE_BACK;
+    gp.RasterizerDesc.CullMode = twoSided ? Diligent::CULL_MODE_NONE : Diligent::CULL_MODE_BACK;
     gp.RasterizerDesc.FrontCounterClockwise = true;
     gp.DepthStencilDesc.DepthEnable = true;
     gp.DepthStencilDesc.DepthWriteEnable = kind != SurfaceKind::Forward;
@@ -2679,7 +2846,7 @@ Diligent::RefCntAutoPtr<Diligent::IPipelineState> BuildSurfacePso(DiligentData& 
     gp.InputLayout.LayoutElements = layout;
     gp.InputLayout.NumElements = point ? 0 : 3;
     const litgpu::PipelineLayout resourceLayout = kind == SurfaceKind::Shadow ? litgpu::makeLayout({vs}) :
-        litgpu::makeLayout({vs, ps}, {{"u_colorTextures", litgpu::anisotropicWrap()}, {"u_dataTextures", litgpu::anisotropicWrap()}, {"u_prefilteredEnv", litgpu::linearClamp()}, {"u_dfgLut", litgpu::linearClamp()}, {"u_shadowMap", litgpu::shadowCompare()}, {"u_shadowDepth", litgpu::pointClamp()}});
+        litgpu::makeLayout({vs, ps}, {{"u_colorTextures", litgpu::anisotropicWrap()}, {"u_dataTextures", litgpu::anisotropicWrap()}, {"u_prefilteredEnv", litgpu::linearClamp()}, {"u_dfgLut", litgpu::linearClamp()}, {"u_shadowMap", litgpu::shadowCompare()}, {"u_shadowDepth", litgpu::pointClamp()}, {"u_localShadowMap", litgpu::shadowCompare()}, {"u_sceneColor", litgpu::linearClamp()}});
     resourceLayout.apply(ci.PSODesc.ResourceLayout);
     Diligent::RefCntAutoPtr<Diligent::IPipelineState> pso;
     d.pDevice->CreateGraphicsPipelineState(ci, &pso);
@@ -2689,39 +2856,45 @@ Diligent::RefCntAutoPtr<Diligent::IPipelineState> BuildSurfacePso(DiligentData& 
 
 bool BuildSurface(DiligentData& d, DiligentData::SurfaceProgram& program) {
     const std::string text = litgpu::readText(program.path);
-    if (text.empty()) {
-        Lit::Log::Error("Surface shader '{}' not found at {}", program.name, program.path);
-        program.valid = false;
+    const bool fallback = !d.surfaces.empty() && &program != &d.surfaces.front() && d.surfaces.front().valid;
+    auto fail = [&](const std::string& reason) {
+        if (!program.valid && fallback) {
+            const DiligentData::SurfaceProgram& standard = d.surfaces.front();
+            program.gbuffer = standard.gbuffer;
+            program.gbufferPoint = standard.gbufferPoint;
+            program.forward = standard.forward;
+            program.forwardPoint = standard.forwardPoint;
+            program.shadow = standard.shadow;
+            program.shadowPoint = standard.shadowPoint;
+        }
+        program.error = reason;
+        Lit::Log::Error("Surface shader '{}' failed to build; {}", program.name, program.valid ? "keeping the previous version" : fallback ? "drawing its objects with the standard surface until it compiles" : "objects using it are not drawn");
         return false;
+    };
+    if (text.empty()) {
+        litgpu::reportShaderError(program.path, "surface shader file not found");
+        return fail("surface shader file not found");
     }
     const SurfaceSource source = ParseSurface(text);
     program.bounds = source.bounds;
     program.twoSided = source.twoSided;
-    auto gbuffer = BuildSurfacePso(d, program.name, source, SurfaceKind::GBuffer, false, source.twoSided);
-    auto gbufferPoint = BuildSurfacePso(d, program.name, source, SurfaceKind::GBuffer, true, source.twoSided);
-    auto forward = BuildSurfacePso(d, program.name, source, SurfaceKind::Forward, false, source.twoSided);
-    auto forwardPoint = BuildSurfacePso(d, program.name, source, SurfaceKind::Forward, true, source.twoSided);
-    auto shadow = BuildSurfacePso(d, program.name, source, SurfaceKind::Shadow, false, true);
-    auto shadowPoint = BuildSurfacePso(d, program.name, source, SurfaceKind::Shadow, true, true);
-    if (!gbuffer || !gbufferPoint || !forward || !forwardPoint || !shadow || !shadowPoint) {
-        if (!program.valid) {
-            program.gbuffer = gbuffer;
-            program.gbufferPoint = gbufferPoint;
-            program.forward = forward;
-            program.forwardPoint = forwardPoint;
-            program.shadow = shadow;
-            program.shadowPoint = shadowPoint;
-        }
-        Lit::Log::Error("Surface shader '{}' failed to build; {}", program.name, program.valid ? "keeping the previous version" : "objects using it are not drawn");
-        return false;
+    litgpu::lastCompileErrors().clear();
+    Diligent::RefCntAutoPtr<Diligent::IPipelineState> built[6];
+    const std::tuple<SurfaceKind, bool, bool> variants[6] = {{SurfaceKind::GBuffer, false, source.twoSided}, {SurfaceKind::GBuffer, true, source.twoSided}, {SurfaceKind::Forward, false, source.twoSided},
+                                                              {SurfaceKind::Forward, true, source.twoSided}, {SurfaceKind::Shadow, false, source.twoSided}, {SurfaceKind::Shadow, true, source.twoSided}};
+    for (int i = 0; i < 6; ++i) {
+        const auto& [kind, point, twoSided] = variants[i];
+        built[i] = BuildSurfacePso(d, program.name, program.path, source, kind, point, twoSided);
+        if (!built[i]) return fail(litgpu::lastCompileErrors().empty() ? "pipeline creation failed" : litgpu::lastCompileErrors());
     }
-    program.gbuffer = gbuffer;
-    program.gbufferPoint = gbufferPoint;
-    program.forward = forward;
-    program.forwardPoint = forwardPoint;
-    program.shadow = shadow;
-    program.shadowPoint = shadowPoint;
+    program.gbuffer = built[0];
+    program.gbufferPoint = built[1];
+    program.forward = built[2];
+    program.forwardPoint = built[3];
+    program.shadow = built[4];
+    program.shadowPoint = built[5];
     program.valid = true;
+    program.error.clear();
     return true;
 }
 
@@ -2737,6 +2910,7 @@ CustomFrame Renderer::customFrame() const {
     frame.frame = m_frameCounter;
     frame.width = m_windowWidth;
     frame.height = m_windowHeight;
+    frame.profile = fullProfiling;
     frame.resources = {{"SceneData", d.pSceneUBO[m_currentFrame]},
                        {"WorldMatrixBuffer", d.pWorldMatrixBuffer[m_currentFrame]},
                        {"CullSphereBuffer", d.pCullSphereBuffer[m_currentFrame]},
@@ -2747,6 +2921,8 @@ CustomFrame Renderer::customFrame() const {
                        {"u_depth", litgpu::srv(d.pSceneDepth)},
                        {"u_gbuffer0", litgpu::srv(m_lighting.gbuffer(0))},
                        {"u_gbuffer1", litgpu::srv(m_lighting.gbuffer(1))},
+                       {"u_colorTextures", m_lighting.colorTextures()},
+                       {"u_dataTextures", m_lighting.dataTextures()},
                        {"u_hdr", litgpu::uav(m_lighting.hdr())}};
     return frame;
 }
@@ -2759,7 +2935,10 @@ uint32_t Renderer::loadSurfaceShader(const std::string& name, const std::string&
         d.surfaces[i].path = path;
         d.pImmediateContext->WaitForIdle();
         BuildSurface(d, d.surfaces[i]);
-        reallocateBuffers(m_maxObjects);
+        std::vector<float> bounds(16, 0.0f);
+        for (size_t s = 0; s < d.surfaces.size() && s < bounds.size(); ++s) bounds[s] = d.surfaces[s].bounds;
+        if (d.pShaderBounds) d.pImmediateContext->UpdateBuffer(d.pShaderBounds, 0, sizeof(float) * bounds.size(), bounds.data(), Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
+        rebindSurfaceResources();
         return i;
     }
     if (d.surfaces.size() >= 16) {
@@ -2769,7 +2948,7 @@ uint32_t Renderer::loadSurfaceShader(const std::string& name, const std::string&
     DiligentData::SurfaceProgram program;
     program.name = name;
     program.path = path;
-    if (!BuildSurface(d, program)) return 0;
+    if (!BuildSurface(d, program) && !program.gbuffer) return 0;
     d.pImmediateContext->WaitForIdle();
     d.surfaces.push_back(std::move(program));
     m_numDrawingShaders = d.surfaces.size();
@@ -2783,6 +2962,25 @@ std::string Renderer::surfacePath(uint32_t id) const {
     return m_diligent->surfaces[id].path;
 }
 
+std::string Renderer::surfaceStatus(const std::string& name) const {
+    if (!m_diligent) return "missing";
+    for (const auto& surface : m_diligent->surfaces) {
+        if (surface.name != name) continue;
+        if (surface.valid) return "ok";
+        return surface.gbuffer ? "fallback" : "failed";
+    }
+    return "missing";
+}
+
+std::vector<ShaderError> Renderer::surfaceErrors() const {
+    std::vector<ShaderError> errors;
+    if (!m_diligent) return errors;
+    for (const auto& surface : m_diligent->surfaces) {
+        if (!surface.error.empty()) errors.push_back({surface.path, surface.error});
+    }
+    return errors;
+}
+
 std::vector<std::string> Renderer::surfaceNames() const {
     std::vector<std::string> names;
     if (!m_diligent) return names;
@@ -2793,7 +2991,7 @@ std::vector<std::string> Renderer::surfaceNames() const {
 void Renderer::createSurfacePipelines() {
     auto& d = *m_diligent;
     if (d.surfaces.empty()) {
-        const std::pair<const char*, const char*> builtIns[] = {{"Standard", "standard"}, {"Checker", "checker"}, {"Glass", "glass"}, {"Lava", "lava"}, {"Marble", "marble"}, {"Toon", "toon"}};
+        const std::pair<const char*, const char*> builtIns[] = {{"Standard", "standard"}, {"Checker", "checker"}, {"Glass", "glass"}, {"Lava", "lava"}, {"Marble", "marble"}, {"Toon", "toon"}, {"Unlit", "unlit"}};
         for (const auto& [name, file] : builtIns) {
             DiligentData::SurfaceProgram program;
             program.name = name;
@@ -2852,11 +3050,14 @@ void Renderer::createHiZPSO() {
 
 void Renderer::createCullingPSO() {
     m_diligent->pCullingPSO = CreateComputePipeline(m_diligent->pDevice, "Culling PSO", "resources/shaders/cull.comp", {"u_hizTexture"});
+    m_diligent->pVisibilityCompactPSO = CreateComputePipeline(m_diligent->pDevice, "Visibility Compact PSO", "resources/shaders/visibility_compact.comp");
     const Diligent::ShaderMacro retestMacros[] = {{"RETEST", "1"}};
     m_diligent->pRetestCullingPSO = CreateComputePipeline(m_diligent->pDevice, "Retest Culling PSO", "resources/shaders/cull.comp", {"u_hizTexture"}, Diligent::ShaderMacroArray{retestMacros, 1});
     const Diligent::ShaderMacro shadowMacros[] = {{"SHADOW", "1"}, {"SHADOW_LATE", "1"}};
     m_diligent->pShadowCullPSO = CreateComputePipeline(m_diligent->pDevice, "Shadow Culling PSO", "resources/shaders/cull.comp", {"u_hizTexture", "u_shadowHiz"}, Diligent::ShaderMacroArray{shadowMacros, 1});
     m_diligent->pShadowLateCullPSO = CreateComputePipeline(m_diligent->pDevice, "Shadow Late Culling PSO", "resources/shaders/cull.comp", {"u_hizTexture", "u_shadowHiz"}, Diligent::ShaderMacroArray{shadowMacros, 2});
+    const Diligent::ShaderMacro localMacros[] = {{"SHADOW", "1"}, {"SHADOW_LATE", "1"}, {"LOCAL_SHADOW", "1"}};
+    m_diligent->pLocalShadowCullPSO = CreateComputePipeline(m_diligent->pDevice, "Local Shadow Culling PSO", "resources/shaders/cull.comp", {"u_hizTexture", "u_shadowHiz"}, Diligent::ShaderMacroArray{localMacros, 3});
 }
 
 void Renderer::createCommandGenPSO() {
@@ -2938,7 +3139,7 @@ void Renderer::setLights(bool enabled, const std::array<glm::vec4, 2>& direction
         light.positionRange = glm::vec4(glm::vec3(posRange), range);
         light.colorType = glm::vec4(glm::vec3(colorIntensity) * candela, spot ? 2.0f : 1.0f);
         light.directionCos = glm::vec4(glm::normalize(glm::vec3(dirCone) + glm::vec3(0.0f, 0.0f, 1e-6f)), cosOuter);
-        light.params = glm::vec4(spotScale, -cosOuter * spotScale, 1.0f / (range * range), 1.0f);
+        light.params = glm::vec4(spotScale, -cosOuter * spotScale, 1.0f / (range * range), -1.0f);
         lights.push_back(light);
     }
     m_lighting.setLights(lights);

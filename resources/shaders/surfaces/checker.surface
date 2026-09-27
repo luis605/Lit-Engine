@@ -1,7 +1,7 @@
 float filteredChecker(vec3 p) {
-    vec3 w = max(abs(dFdx(p)), abs(dFdy(p))) + 1e-4;
+    vec3 w = max(abs(dFdx(p)), abs(dFdy(p))) * 1.5 + 1e-4;
     vec3 i = 2.0 * (abs(fract((p - 0.5 * w) * 0.5) - 0.5) - abs(fract((p + 0.5 * w) * 0.5) - 0.5)) / w;
-    return 0.5 - 0.5 * i.x * i.y * i.z;
+    return mix(0.5 - 0.5 * i.x * i.y * i.z, 0.5, smoothstep(0.4, 1.2, max(w.x, max(w.y, w.z))));
 }
 
 void surface(in SurfaceInput i, inout Surface s) {

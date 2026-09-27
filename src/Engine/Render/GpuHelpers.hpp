@@ -10,6 +10,7 @@
 #include "DiligentCore/Graphics/GraphicsEngine/interface/Sampler.h"
 #include "DiligentCore/Graphics/GraphicsEngineVulkan/interface/EngineFactoryVk.h"
 #include "DiligentCore/Common/interface/RefCntAutoPtr.hpp"
+#include "DiligentCore/Primitives/interface/DataBlob.h"
 
 #include <algorithm>
 #include <cstdint>
@@ -18,6 +19,7 @@
 #include <format>
 #include <fstream>
 #include <initializer_list>
+#include <mutex>
 #include <sstream>
 #include <string>
 #include <string_view>
@@ -122,10 +124,89 @@ inline void hashWithIncludes(std::string_view source, uint64_t& hash, std::vecto
 
 inline constexpr const char* kShaderCacheDir = "resources/cache/shaders";
 
+struct ShaderDiagnostic {
+    std::string source;
+    std::string message;
+};
+
+inline std::mutex& diagnosticsMutex() {
+    static std::mutex mutex;
+    return mutex;
+}
+
+inline std::vector<ShaderDiagnostic>& diagnosticsQueue() {
+    static std::vector<ShaderDiagnostic> queue;
+    return queue;
+}
+
+inline void reportShaderError(std::string source, std::string message) {
+    std::lock_guard lock(diagnosticsMutex());
+    auto& queue = diagnosticsQueue();
+    for (const ShaderDiagnostic& existing : queue) {
+        if (existing.source == source && existing.message == message) return;
+    }
+    if (queue.size() >= 32) queue.erase(queue.begin());
+    queue.push_back({std::move(source), std::move(message)});
+}
+
+inline std::vector<ShaderDiagnostic> takeShaderDiagnostics() {
+    std::lock_guard lock(diagnosticsMutex());
+    std::vector<ShaderDiagnostic> out;
+    out.swap(diagnosticsQueue());
+    return out;
+}
+
+inline std::string& lastCompilerOutput() {
+    thread_local std::string text;
+    return text;
+}
+
+inline std::string& lastCompileErrors() {
+    thread_local std::string text;
+    return text;
+}
+
+inline constexpr int kUserSourceString = 1;
+
+inline std::string userLine(int line) { return std::format("\n#line {} {}\n", line, kUserSourceString); }
+
+inline std::string injectUserCode(const std::string& templ, const std::string& code) {
+    const std::string marker = "#pragma lit_user_code";
+    const size_t pos = templ.find(marker);
+    if (pos == std::string::npos) return templ;
+    const auto line = std::count(templ.begin(), templ.begin() + static_cast<std::ptrdiff_t>(pos), '\n') + 1;
+    return templ.substr(0, pos) + code + std::format("\n#line {} 0\n", line) + templ.substr(pos + marker.size());
+}
+
+inline std::string compilerErrors(const std::string& output, const std::string& name, const std::string& userPath) {
+    std::string errors;
+    std::istringstream lines(output);
+    std::string line;
+    while (std::getline(lines, line)) {
+        if (line.rfind("ERROR:", 0) != 0 || line.find("compilation errors") != std::string::npos || line.find("compilation terminated") != std::string::npos) continue;
+        std::string text = line.substr(6);
+        while (!text.empty() && text.front() == ' ') text.erase(text.begin());
+        const std::string userTag = std::format("{}:", kUserSourceString);
+        if (!userPath.empty() && text.rfind(userTag, 0) == 0) {
+            text = userPath + ":" + text.substr(userTag.size());
+        } else if (text.rfind("0:", 0) == 0) {
+            text = name + ":" + text.substr(2);
+        }
+        errors += (errors.empty() ? "" : "\n") + text;
+    }
+    return errors;
+}
+
 inline RefCntAutoPtr<Diligent::IShader> createShader(Diligent::IRenderDevice* device, const Diligent::ShaderCreateInfo& ci) {
     RefCntAutoPtr<Diligent::IShader> shader;
+    lastCompilerOutput().clear();
+    auto compile = [&] {
+        RefCntAutoPtr<Diligent::IDataBlob> output;
+        device->CreateShader(ci, &shader, &output);
+        if (!shader && output && output->GetSize() > 0) lastCompilerOutput() = static_cast<const char*>(output->GetConstDataPtr());
+    };
     if (!ci.Source || ci.ByteCode || std::getenv("LIT_NO_SHADER_CACHE")) {
-        device->CreateShader(ci, &shader);
+        compile();
         return shader;
     }
     uint64_t hash = fnv1a(std::format("lit-spirv-1|{}|{}|{}|", static_cast<int>(ci.Desc.ShaderType), static_cast<int>(ci.SourceLanguage), ci.Desc.UseCombinedTextureSamplers ? 1 : 0));
@@ -147,7 +228,7 @@ inline RefCntAutoPtr<Diligent::IShader> createShader(Diligent::IRenderDevice* de
         }
     }
 
-    device->CreateShader(ci, &shader);
+    compile();
     if (!shader) return shader;
     const void* bytecode = nullptr;
     Diligent::Uint64 size = 0;
@@ -174,8 +255,9 @@ inline std::string stripVersion(std::string source) {
     return source;
 }
 
-inline RefCntAutoPtr<Diligent::IShader> compileSource(Diligent::IRenderDevice* device, const std::string& name, const std::string& source, Diligent::SHADER_TYPE type, const std::vector<std::pair<std::string, std::string>>& macros = {}) {
-    const std::string body = stripVersion(source);
+inline RefCntAutoPtr<Diligent::IShader> compileSource(Diligent::IRenderDevice* device, const std::string& name, const std::string& source, Diligent::SHADER_TYPE type, const std::vector<std::pair<std::string, std::string>>& macros = {},
+                                                     const std::string& userPath = {}) {
+    const std::string body = "#line 1 0\n" + stripVersion(source);
     std::vector<Diligent::ShaderMacro> list;
     list.reserve(macros.size());
     for (const auto& [key, value] : macros) list.push_back({key.c_str(), value.c_str()});
@@ -188,7 +270,13 @@ inline RefCntAutoPtr<Diligent::IShader> compileSource(Diligent::IRenderDevice* d
     ci.Desc.Name = name.c_str();
     ci.Macros = Diligent::ShaderMacroArray{list.data(), static_cast<Diligent::Uint32>(list.size())};
     RefCntAutoPtr<Diligent::IShader> shader = createShader(device, ci);
-    if (!shader) Lit::Log::Error("Failed to compile shader '{}'", name);
+    if (!shader) {
+        std::string errors = compilerErrors(lastCompilerOutput(), name, userPath);
+        if (errors.empty()) errors = "failed to compile (see the log)";
+        lastCompileErrors() = errors;
+        Lit::Log::Error("Failed to compile shader '{}':\n{}", name, errors);
+        reportShaderError(userPath.empty() ? name : userPath, std::move(errors));
+    }
     return shader;
 }
 
@@ -296,8 +384,9 @@ inline Diligent::IDeviceObject* bufferView(Diligent::IBuffer* buffer, Diligent::
 }
 
 template <typename Range>
-inline void bindRange(Diligent::IShaderResourceBinding* srb, const Range& resources, bool warn) {
-    if (!srb) return;
+inline bool bindRange(Diligent::IShaderResourceBinding* srb, const Range& resources, bool warn) {
+    if (!srb) return false;
+    bool complete = true;
     const auto& signature = srb->GetPipelineResourceSignature()->GetDesc();
     for (Diligent::Uint32 r = 0; r < signature.NumResources; ++r) {
         const Diligent::PipelineResourceDesc& resource = signature.Resources[r];
@@ -305,20 +394,26 @@ inline void bindRange(Diligent::IShaderResourceBinding* srb, const Range& resour
         const auto match = std::find_if(resources.begin(), resources.end(), [&](const Named& n) { return n.name == resource.Name; });
         if (match == resources.end() || !match->object) {
             if (warn) Lit::Log::Error("No resource bound to '{}' in '{}'", resource.Name, signature.Name);
+            complete = false;
             continue;
         }
         Diligent::IDeviceObject* object = match->object;
         if (auto* buffer = Diligent::RefCntAutoPtr<Diligent::IBuffer>(object, Diligent::IID_Buffer).RawPtr()) object = bufferView(buffer, resource.ResourceType);
-        if (!object) continue;
+        else if (auto* texture = Diligent::RefCntAutoPtr<Diligent::ITexture>(object, Diligent::IID_Texture).RawPtr()) object = texture->GetDefaultView(resource.ResourceType == Diligent::SHADER_RESOURCE_TYPE_TEXTURE_UAV ? Diligent::TEXTURE_VIEW_UNORDERED_ACCESS : Diligent::TEXTURE_VIEW_SHADER_RESOURCE);
+        if (!object) {
+            complete = false;
+            continue;
+        }
         for (Diligent::Uint32 stages = resource.ShaderStages; stages != 0; stages &= stages - 1) {
             const auto stage = static_cast<Diligent::SHADER_TYPE>(stages & ~(stages - 1));
             if (auto* variable = srb->GetVariableByName(stage, resource.Name)) variable->Set(object, Diligent::SET_SHADER_RESOURCE_FLAG_ALLOW_OVERWRITE);
         }
     }
+    return complete;
 }
 
-inline void bind(Diligent::IShaderResourceBinding* srb, std::initializer_list<Named> resources, bool warn = true) { bindRange(srb, resources, warn); }
-inline void bindList(Diligent::IShaderResourceBinding* srb, const std::vector<Named>& resources, bool warn = true) { bindRange(srb, resources, warn); }
+inline bool bind(Diligent::IShaderResourceBinding* srb, std::initializer_list<Named> resources, bool warn = true) { return bindRange(srb, resources, warn); }
+inline bool bindList(Diligent::IShaderResourceBinding* srb, const std::vector<Named>& resources, bool warn = true) { return bindRange(srb, resources, warn); }
 
 inline RefCntAutoPtr<Diligent::IShaderResourceBinding> makeBinding(Diligent::IPipelineState* pso, std::initializer_list<Named> resources, bool warn = true) {
     RefCntAutoPtr<Diligent::IShaderResourceBinding> srb;
@@ -328,11 +423,11 @@ inline RefCntAutoPtr<Diligent::IShaderResourceBinding> makeBinding(Diligent::IPi
     return srb;
 }
 
-inline RefCntAutoPtr<Diligent::IBuffer> structuredBuffer(Diligent::IRenderDevice* device, const char* name, Diligent::Uint32 stride, Diligent::Uint32 count, const void* init = nullptr) {
+inline RefCntAutoPtr<Diligent::IBuffer> structuredBuffer(Diligent::IRenderDevice* device, const char* name, Diligent::Uint32 stride, Diligent::Uint32 count, const void* init = nullptr, Diligent::BIND_FLAGS extraFlags = Diligent::BIND_NONE) {
     Diligent::BufferDesc desc;
     desc.Name = name;
     desc.Usage = Diligent::USAGE_DEFAULT;
-    desc.BindFlags = Diligent::BIND_SHADER_RESOURCE | Diligent::BIND_UNORDERED_ACCESS;
+    desc.BindFlags = Diligent::BIND_SHADER_RESOURCE | Diligent::BIND_UNORDERED_ACCESS | extraFlags;
     desc.Mode = Diligent::BUFFER_MODE_STRUCTURED;
     desc.ElementByteStride = stride;
     desc.Size = static_cast<Diligent::Uint64>(stride) * std::max<Diligent::Uint32>(count, 1);

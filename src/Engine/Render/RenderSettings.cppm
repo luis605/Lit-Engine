@@ -44,6 +44,7 @@ export struct RenderSettings {
     glm::vec3 gradientGround{0.28f, 0.26f, 0.24f};
     float gradientIntensity = 8000.0f;
     float environmentIntensity = 1.0f;
+    float skyBrightness = 1.0f;
 
     bool autoExposure = true;
     float exposureCompensation = 0.0f;
@@ -69,6 +70,9 @@ export struct RenderSettings {
     float aoIntensity = 1.0f;
     int aoSlices = 2;
     int aoSteps = 6;
+    bool ssgi = true;
+    float ssgiIntensity = 1.0f;
+    float ssgiThickness = 0.5f;
 
     bool ssr = true;
     float ssrMaxRoughness = 0.55f;
@@ -85,6 +89,10 @@ export struct RenderSettings {
     bool pcss = true;
     bool contactShadows = true;
     bool staggerCascades = true;
+    bool localShadows = true;
+    int localShadowCount = 4;
+    int localShadowResolution = 512;
+    float localShadowSoftness = 1.0f;
 
     bool fog = true;
     float fogDensity = 0.0015f;
@@ -128,6 +136,7 @@ void visitRenderSettings(Settings& s, Visitor&& visit) {
     visit("gradientGround", s.gradientGround);
     visit("gradientIntensity", s.gradientIntensity);
     visit("environmentIntensity", s.environmentIntensity);
+    visit("skyBrightness", s.skyBrightness);
     visit("autoExposure", s.autoExposure);
     visit("exposureCompensation", s.exposureCompensation);
     visit("manualEV100", s.manualEV100);
@@ -150,6 +159,9 @@ void visitRenderSettings(Settings& s, Visitor&& visit) {
     visit("aoIntensity", s.aoIntensity);
     visit("aoSlices", s.aoSlices);
     visit("aoSteps", s.aoSteps);
+    visit("ssgi", s.ssgi);
+    visit("ssgiIntensity", s.ssgiIntensity);
+    visit("ssgiThickness", s.ssgiThickness);
     visit("ssr", s.ssr);
     visit("ssrMaxRoughness", s.ssrMaxRoughness);
     visit("ssrThickness", s.ssrThickness);
@@ -164,6 +176,10 @@ void visitRenderSettings(Settings& s, Visitor&& visit) {
     visit("pcss", s.pcss);
     visit("contactShadows", s.contactShadows);
     visit("staggerCascades", s.staggerCascades);
+    visit("localShadows", s.localShadows);
+    visit("localShadowCount", s.localShadowCount);
+    visit("localShadowResolution", s.localShadowResolution);
+    visit("localShadowSoftness", s.localShadowSoftness);
     visit("fog", s.fog);
     visit("fogDensity", s.fogDensity);
     visit("fogHeightFalloff", s.fogHeightFalloff);

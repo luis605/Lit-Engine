@@ -44,6 +44,8 @@ export struct CameraFlight {
     float fromYaw = 0.0f, toYaw = 0.0f, fromPitch = 0.0f, toPitch = 0.0f;
     float t = 0.0f;
     float duration = 0.25f;
+    float fromOrtho = 0.0f;
+    float toOrtho = 0.0f;
 };
 
 export struct EditorContext {
@@ -68,6 +70,8 @@ export struct EditorContext {
     bool showOutliner = true;
     bool showInspector = true;
     bool pinInspector = false;
+    bool showWorld = false;
+    bool worldDismissed = false;
     bool showLook = false;
     bool showStats = true;
     bool showHelp = false;
@@ -91,16 +95,20 @@ export struct EditorContext {
     EntityHandle hovered;
     glm::vec3 cursor{0.0f};
     bool cursorOnSurface = false;
+    bool cursorValid = false;
     glm::vec2 mouse{0.0f};
     bool viewportHovered = true;
     bool outlinerFocused = false;
     bool modalActive = false;
     bool flying = false;
     float flySpeed = 8.0f;
+    bool autoOrtho = false;
     CameraFlight flight;
 
     std::string modeLabel = "EDIT";
     std::vector<std::pair<std::string, std::string>> hints;
+    std::vector<glm::vec4> panels;
+    float rightColumnTop = 122.0f;
 
     uint32_t cubeMesh = 0;
     uint32_t sphereMesh = 0;
@@ -150,6 +158,12 @@ export struct EditorContext {
 export std::string displayName(World& world, EntityHandle e);
 export std::string meshLabel(Engine& engine, uint32_t mesh);
 export void applyEditorTheme(float scale);
+export struct SpawnPoint {
+    glm::vec3 position{0.0f};
+    bool onSurface = false;
+};
+export SpawnPoint spawnPoint(EditorContext& ctx);
+export std::optional<glm::vec3> surfacePoint(EditorContext& ctx, const Ray& ray, const RayHit& hit);
 export void flyTo(EditorContext& ctx, const glm::vec4& sphere);
 export void updateFlight(EditorContext& ctx, float dt);
 export glm::vec3 cameraForward(const Camera& camera);

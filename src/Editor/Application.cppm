@@ -53,6 +53,7 @@ export class Application {
     void frameSelection();
     void frameAll();
     void setView(const glm::vec3& direction);
+    void toggleOrthographic();
     void storeSelectionSet(int slot);
     void recallSelectionSet(int slot);
     void storeBookmark(int slot);

@@ -1,0 +1,14 @@
+frames 5
+run create.cube
+expect name Cube
+run shader.new
+frames 3
+text tests/editor/broken.surface
+frames 2
+key Enter
+frames 4
+expect shader:broken fallback
+expect toasts:error 1
+frames 10
+shot resources/ap_shader_fallback.png
+quit

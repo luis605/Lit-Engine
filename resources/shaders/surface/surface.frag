@@ -4,7 +4,25 @@
 #include "material.glsl"
 #include "surface_api.glsl"
 #ifdef TRANSPARENT
-#include "shading.glsl"
+#include "lighting_models.glsl"
+
+uniform sampler2D u_sceneColor;
+
+vec3 refractedBackground(ShadingData sd, vec3 worldPos) {
+    vec3 refracted = refract(-sd.V, sd.N, 1.0 / max(sd.ior, 1.0));
+    if (dot(refracted, refracted) < 1e-6) refracted = -sd.V;
+    float travel = max(sd.thickness, 0.02) * 2.0;
+    float exitDepth;
+    vec2 uv = projectToUv(worldPos + refracted * travel, viewProjection, exitDepth);
+    vec2 screenUv = gl_FragCoord.xy * screenParams.zw;
+    vec2 edge = min(uv, 1.0 - uv);
+    float inside = saturate(min(edge.x, edge.y) * 20.0);
+    uv = mix(screenUv, clamp(uv, vec2(0.0), vec2(1.0)), inside);
+    float distanceToEye = max(distance(viewPos, worldPos), 0.1);
+    float blurPx = sd.roughness * travel * projection[1][1] * screenParams.y * 0.25 / distanceToEye;
+    float lod = clamp(log2(max(blurPx, 1.0)), 0.0, float(textureQueryLevels(u_sceneColor) - 1));
+    return textureLod(u_sceneColor, uv, lod).rgb;
+}
 #endif
 
 layout(std430) readonly buffer ExposureBuffer {
@@ -85,6 +103,10 @@ Surface litDefaultSurface(MaterialData m, SurfaceInput i) {
     s.occlusion = m.pbr.w;
     s.emissive = m.emissive.rgb;
     s.tangentAngle = 0.0;
+    s.lightingModel = LIT_STANDARD;
+    s.toonBands = 3.0;
+    s.toonRim = 0.5;
+    s.toonRimWidth = 0.3;
     bool triplanar = m.flags.x > 0.5;
     float scale = m.transmission.w;
     if (m.textures.x >= 0) {
@@ -157,19 +179,34 @@ void main() {
     ShadingData sd = prepareShading(in_worldPos, s.normal, s.baseColor, saturate(s.metallic), roughness, saturate(s.occlusion), s.tangentAngle, in_material);
     float visibility;
     float viewDepth = -(view * vec4(in_worldPos, 1.0)).z;
-    vec3 color = evaluateSun(sd, gl_FragCoord.xy, visibility) + evaluateLights(sd, gl_FragCoord.xy, viewDepth) + evaluateIBL(sd, vec4(0.0)) + s.emissive;
-    color *= exposureData.x;
+    vec3 color;
+    if (s.lightingModel == LIT_UNLIT) {
+        color = s.baseColor + s.emissive * exposureData.x;
+    } else if (s.lightingModel == LIT_TOON) {
+        LitToon toon = LitToon(clamp(s.toonBands, 1.0, 255.0), saturate(s.toonRim), saturate(s.toonRimWidth));
+        color = (litToonDirect(sd, toon, gl_FragCoord.xy, viewDepth, visibility) + litToonAmbient(sd, toon, visibility) + s.emissive) * exposureData.x;
+    } else {
+        color = (evaluateSun(sd, gl_FragCoord.xy, visibility) + evaluateLights(sd, gl_FragCoord.xy, viewDepth) + evaluateIBL(sd, vec4(0.0)) + s.emissive) * exposureData.x;
+    }
     float alpha = clamp(in_alpha * s.opacity, 0.0, 1.0);
     float fresnel = pow5(1.0 - sd.NoV);
     alpha = mix(alpha, 1.0, fresnel * (1.0 - sd.roughness) * 0.6);
+    if (sd.transmission > 0.0) {
+        vec3 background = refractedBackground(sd, in_worldPos);
+        vec3 reflectance = sd.f0 * sd.dfg.x + sd.dfg.y;
+        color += background * sd.baseColor * sd.transmission * (1.0 - reflectance);
+        alpha = mix(alpha, 1.0, sd.transmission);
+    }
     float distanceToEye = distance(viewPos, in_worldPos);
     float weight = alpha * clamp(10.0 / (1e-5 + pow(distanceToEye / 5.0, 2.0) + pow(distanceToEye / 200.0, 6.0)), 1e-2, 3e3);
     out_accumulation = vec4(color * alpha, alpha) * weight;
     out_revealage = alpha;
 #else
     out_gbuffer0 = vec4(saturate(s.baseColor), saturate(s.occlusion));
-    out_gbuffer1 = vec4(encodeNormal(s.normal), roughness, 0.0);
-    out_gbuffer2 = uvec4(uint(saturate(s.metallic) * 255.0 + 0.5), uint(fract(s.tangentAngle) * 255.0 + 0.5), in_material & 255u, in_material >> 8u);
-    out_emissive = vec4(s.emissive * exposureData.x, 0.0);
+    int model = clamp(s.lightingModel, LIT_STANDARD, LIT_TOON);
+    out_gbuffer1 = vec4(encodeNormal(s.normal), roughness, float(model) / 3.0);
+    uvec2 shading = model == LIT_TOON ? litEncodeToon(s.toonBands, s.toonRim, s.toonRimWidth) : uvec2(uint(saturate(s.metallic) * 255.0 + 0.5), uint(fract(s.tangentAngle) * 255.0 + 0.5));
+    out_gbuffer2 = uvec4(shading, in_material & 255u, in_material >> 8u);
+    out_emissive = vec4(s.emissive * exposureData.x + (model == LIT_UNLIT ? s.baseColor : vec3(0.0)), 0.0);
 #endif
 }

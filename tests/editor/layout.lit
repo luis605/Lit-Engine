@@ -1,0 +1,70 @@
+# Layout and context: world card, orthographic views, radial menu, light inspector
+frames 10
+move 50% 50%
+frames 2
+expect selection 0
+expect world 1
+key W shift
+frames 2
+expect world 0
+key W shift
+frames 2
+expect world 1
+set skyBrightness 1.5
+frames 2
+expect setting:skyBrightness 1.5
+key Z ctrl
+frames 2
+expect setting:skyBrightness 1
+expect ortho 0
+key Keypad7
+wait 0.5
+expect ortho 1
+shot resources/ap_ortho_top.png
+key Keypad5
+frames 2
+expect ortho 0
+key Keypad5
+frames 2
+expect ortho 1
+key Keypad5
+key Keypad1
+wait 0.5
+expect ortho 1
+move 50% 45%
+frames 2
+press left alt
+frames 2
+move 55% 50%
+frames 2
+expect mode ORBIT
+release left
+frames 2
+expect ortho 0
+down Space
+wait 0.4
+expect pie Add...,Select all,Paste,Frame all,World,Ortho,Reveal all,Look
+up Space
+frames 2
+expect pie closed
+key F ctrl
+frames 2
+text Warm lamp
+frames 2
+key Enter
+frames 3
+expect name Warm lamp
+expect world 0
+expect inspector header,transform,components
+run view.focus
+wait 0.6
+shot resources/ap_light.png
+run create.cube
+frames 2
+expect inspector header,transform,render,components
+down Space
+wait 0.4
+expect pie Move,Rotate,Scale,Duplicate,Delete,Focus,Add...,Hide
+up Space
+frames 2
+quit

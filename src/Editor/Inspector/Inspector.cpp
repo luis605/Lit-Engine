@@ -9,6 +9,7 @@ module;
 #include <cstring>
 #include <format>
 #include <functional>
+#include <limits>
 #include <optional>
 #include <string>
 #include <vector>
@@ -22,6 +23,7 @@ import Engine.History;
 import Engine.Render.entity;
 import Engine.Render.component;
 import Engine.Render.material;
+import Engine.camera;
 import Engine.glm;
 
 namespace {
@@ -127,11 +129,17 @@ void Inspector::drawHeader(EditorContext& ctx, EntityHandle e) {
         ImGui::SetKeyboardFocusHere();
         m_focusName = false;
     }
-    ImGui::SetNextItemWidth(ImGui::GetContentRegionAvail().x - 70.0f);
+    ImGui::SetNextItemWidth(ImGui::GetContentRegionAvail().x - 110.0f);
     if (ImGui::InputTextWithHint("##name", displayName(world, e).c_str(), &m_nameBuffer, ImGuiInputTextFlags_EnterReturnsTrue | ImGuiInputTextFlags_AutoSelectAll)) ctx.history->setName(e, m_nameBuffer);
     if (ImGui::IsItemDeactivatedAfterEdit()) ctx.history->setName(e, m_nameBuffer);
     ImGui::SameLine();
     ImGui::TextDisabled("#%u", e.index);
+    ImGui::SameLine(ImGui::GetContentRegionAvail().x + ImGui::GetCursorPosX() - 36.0f);
+    if (ImGui::SmallButton(ctx.pinInspector ? "Float" : "Pin")) {
+        ctx.pinInspector = !ctx.pinInspector;
+        m_dock = ctx.pinInspector;
+    }
+    if (ImGui::IsItemHovered()) ImGui::SetTooltip(ctx.pinInspector ? "Follow the selection again (Ctrl+Shift+I)" : "Dock the card to the right edge (Ctrl+Shift+I)");
 
     bool visible = world.isVisible(e);
     if (ImGui::Checkbox("Visible", &visible)) {
@@ -139,7 +147,16 @@ void Inspector::drawHeader(EditorContext& ctx, EntityHandle e) {
         for (EntityHandle s : ctx.topLevelSelection()) ctx.history->setVisible(s, visible);
         ctx.history->endGroup();
     }
-    ImGui::SameLine();
+    const EntityHandle parent = world.getParent(e);
+    if (!parent.isNull()) {
+        ImGui::SameLine();
+        ImGui::TextDisabled("in");
+        ImGui::SameLine();
+        if (ImGui::SmallButton(displayName(world, parent).c_str())) ctx.selection.set(parent);
+        ImGui::SameLine();
+        if (ImGui::SmallButton("Unparent")) ctx.history->setParent(e, NULL_ENTITY);
+    }
+    if (!ImGui::TreeNode("Tag, layers, occlusion")) return;
     bool occluder = (world.getRenderFlags(e) & RENDER_NO_OCCLUDER) == 0;
     if (ImGui::Checkbox("Occluder", &occluder)) {
         std::vector<EntityHandle> targets = ctx.topLevelSelection();
@@ -176,14 +193,7 @@ void Inspector::drawHeader(EditorContext& ctx, EntityHandle e) {
         ImGui::PopStyleColor();
         ImGui::PopID();
     }
-    const EntityHandle parent = world.getParent(e);
-    if (!parent.isNull()) {
-        ImGui::TextDisabled("Parent");
-        ImGui::SameLine();
-        if (ImGui::SmallButton(displayName(world, parent).c_str())) ctx.selection.set(parent);
-        ImGui::SameLine();
-        if (ImGui::SmallButton("Unparent")) ctx.history->setParent(e, NULL_ENTITY);
-    }
+    ImGui::TreePop();
 }
 
 void Inspector::drawTransform(EditorContext& ctx, EntityHandle e) {
@@ -420,10 +430,10 @@ void Inspector::drawRender(EditorContext& ctx, EntityHandle e) {
     }
 }
 
-void Inspector::drawComponents(EditorContext& ctx, EntityHandle e) {
+void Inspector::drawComponents(EditorContext& ctx, EntityHandle e, bool expand) {
     World& world = ctx.world;
     const EntityDescription description = world.describeEntity(e);
-    if (!ImGui::CollapsingHeader("Components", ImGuiTreeNodeFlags_DefaultOpen)) return;
+    if (!ImGui::CollapsingHeader(std::format("Components ({})###components{}", description.components.size(), expand ? "Open" : "").c_str(), expand ? ImGuiTreeNodeFlags_DefaultOpen : 0)) return;
     for (const auto& [name, text] : description.components) {
         ImGui::PushID(name.c_str());
         const bool open = ImGui::TreeNodeEx("##component", ImGuiTreeNodeFlags_DefaultOpen | ImGuiTreeNodeFlags_AllowOverlap, "%s", name.c_str());
@@ -515,37 +525,128 @@ void Inspector::drawComponents(EditorContext& ctx, EntityHandle e) {
     }
 }
 
+glm::vec2 Inspector::placeCard(EditorContext& ctx, EntityHandle e, float width, float height) {
+    const ImGuiViewport* viewport = ImGui::GetMainViewport();
+    float left = viewport->WorkPos.x + 8.0f;
+    float right = viewport->WorkPos.x + viewport->WorkSize.x - 8.0f;
+    const float mid = viewport->WorkPos.x + viewport->WorkSize.x * 0.5f;
+    for (const glm::vec4& panel : ctx.panels) {
+        if (panel.x + panel.z * 0.5f < mid) {
+            left = std::max(left, panel.x + panel.z + 8.0f);
+        } else {
+            right = std::min(right, panel.x - 8.0f);
+        }
+    }
+    const float top = viewport->WorkPos.y + 8.0f;
+    const float bottom = viewport->WorkPos.y + viewport->WorkSize.y - 40.0f;
+    const float statsTop = ctx.rightColumnTop;
+    auto clampY = [&](float x, float y) {
+        const float minY = x + width > viewport->WorkPos.x + viewport->WorkSize.x - 330.0f ? statsTop : top;
+        return std::clamp(y, minY, std::max(minY, bottom - height));
+    };
+    const glm::vec2 docked(right - width, clampY(right - width, top));
+    const glm::vec4 bounds = ctx.world.getWorldBounds(e);
+    const glm::vec3 anchor = bounds.w > 0.0f ? glm::vec3(bounds) : ctx.world.getWorldPosition(e);
+    const std::optional<glm::vec2> screen = ctx.engine.worldToScreen(anchor);
+    m_leader.reset();
+    if (!screen || screen->x < left - 200.0f || screen->x > right + 200.0f || screen->y < top - 200.0f || screen->y > bottom + 200.0f) return docked;
+    float radius = 24.0f;
+    if (bounds.w > 0.0f) {
+        const Camera& camera = ctx.world.camera();
+        const glm::vec3 up = glm::normalize(glm::cross(glm::cross(cameraForward(camera), glm::vec3(0.0f, 1.0f, 0.0f)), cameraForward(camera)));
+        if (const std::optional<glm::vec2> edge = ctx.engine.worldToScreen(anchor + up * bounds.w)) radius = std::max(radius, glm::length(*edge - *screen));
+    }
+    const float gap = 28.0f;
+    const glm::vec4 self(screen->x - radius - gap, screen->y - radius - gap, screen->x + radius + gap, screen->y + radius + gap);
+    const glm::vec2 size = ctx.engine.windowSize();
+    std::vector<glm::vec4> nearby;
+    const Camera& camera = ctx.world.camera();
+    const float depth = std::max(glm::dot(anchor - camera.getPosition(), cameraForward(camera)), 0.1f);
+    const glm::vec3 cameraUp = glm::normalize(glm::cross(glm::cross(cameraForward(camera), glm::vec3(0.0f, 1.0f, 0.0f)), cameraForward(camera)));
+    const float worldPerPixel = (camera.isOrthographic() ? camera.getOrthoHeight() : 2.0f * depth * std::tan(glm::radians(camera.getFov()) * 0.5f)) / std::max(size.y, 1.0f);
+    const std::vector<EntityHandle> around = ctx.world.overlapSphere(anchor, (width + radius + gap * 2.0f) * worldPerPixel);
+    for (size_t i = 0; i < around.size() && nearby.size() < 64; ++i) {
+        const EntityHandle other = around[i];
+        if (other == e || !ctx.world.isVisible(other)) continue;
+        const glm::vec4 b = ctx.world.getWorldBounds(other);
+        const glm::vec3 c = b.w > 0.0f ? glm::vec3(b) : ctx.world.getWorldPosition(other);
+        const std::optional<glm::vec2> s = ctx.engine.worldToScreen(c);
+        if (!s) continue;
+        const std::optional<glm::vec2> edge = b.w > 0.0f ? ctx.engine.worldToScreen(c + cameraUp * b.w) : std::nullopt;
+        const float r = std::max(edge ? glm::length(*edge - *s) : 0.0f, 16.0f);
+        if (r > size.y * 0.3f) continue;
+        nearby.emplace_back(s->x - r, s->y - r, s->x + r, s->y + r);
+    }
+    auto overlap = [](const glm::vec4& a, const glm::vec4& b) {
+        return std::max(0.0f, std::min(a.z, b.z) - std::max(a.x, b.x)) * std::max(0.0f, std::min(a.w, b.w) - std::max(a.y, b.y));
+    };
+    struct Candidate {
+        glm::vec2 at;
+        int side;
+        bool dock;
+    };
+    std::vector<Candidate> candidates;
+    for (float fy : {0.3f, 0.0f, 0.7f, 1.0f}) {
+        candidates.push_back({{self.z, clampY(self.z, screen->y - height * fy)}, 1, false});
+        candidates.push_back({{self.x - width, clampY(self.x - width, screen->y - height * fy)}, -1, false});
+    }
+    const float cx = std::clamp(screen->x - width * 0.5f, left, std::max(left, right - width));
+    candidates.push_back({{cx, self.w}, 0, false});
+    candidates.push_back({{cx, self.y - height}, 0, false});
+    candidates.push_back({docked, 2, true});
+    candidates.push_back({{left, clampY(left, top)}, -2, true});
+    float bestScore = std::numeric_limits<float>::max();
+    Candidate best = candidates[candidates.size() - 2];
+    for (const Candidate& candidate : candidates) {
+        const glm::vec4 rect(candidate.at.x, candidate.at.y, candidate.at.x + width, candidate.at.y + height);
+        if (rect.x < left - 1.0f || rect.z > right + 1.0f || rect.y < top - 1.0f || rect.w > bottom + 1.0f) continue;
+        float covered = overlap(rect, self) * 50.0f;
+        for (const glm::vec4& other : nearby) covered += overlap(rect, other);
+        const float area = width * height;
+        float score = covered / area * 1000.0f + (candidate.dock ? 120.0f : glm::distance(candidate.at + glm::vec2(width, height) * 0.5f, *screen) * 0.05f);
+        if (glm::distance(candidate.at, m_lastTarget) < 40.0f) score -= 25.0f;
+        if (score < bestScore) {
+            bestScore = score;
+            best = candidate;
+        }
+    }
+    if (best.side == 1 || best.side == -1) m_side = best.side;
+    m_lastTarget = best.at;
+    if (best.dock) m_leader = *screen;
+    return best.at;
+}
+
 void Inspector::draw(EditorContext& ctx) {
+    m_sections.clear();
     if (!ctx.showInspector || ctx.zen) return;
     const EntityHandle e = ctx.primary();
     if (!ctx.world.isAlive(e)) return;
 
     const ImGuiViewport* viewport = ImGui::GetMainViewport();
-    const float width = 360.0f;
-    ImGuiWindowFlags flags = ImGuiWindowFlags_NoCollapse | ImGuiWindowFlags_NoFocusOnAppearing;
+    const float width = 340.0f;
+    const float maxHeight = ctx.pinInspector ? viewport->WorkSize.y - 60.0f : std::min(560.0f, std::max(240.0f, viewport->WorkSize.y * 0.55f));
+    ImGuiWindowFlags flags = ImGuiWindowFlags_NoCollapse | ImGuiWindowFlags_NoFocusOnAppearing | ImGuiWindowFlags_AlwaysAutoResize;
     if (!ctx.pinInspector) {
-        glm::vec2 target(viewport->WorkPos.x + viewport->WorkSize.x - width - 16.0f, viewport->WorkPos.y + 130.0f);
-        const glm::vec4 bounds = ctx.world.getWorldBounds(e);
-        const glm::vec3 anchor = bounds.w > 0.0f ? glm::vec3(bounds) : ctx.world.getWorldPosition(e);
-        if (const std::optional<glm::vec2> screen = ctx.engine.worldToScreen(anchor)) {
-            const bool onScreen = screen->x > 0.0f && screen->y > 0.0f && screen->x < viewport->WorkSize.x && screen->y < viewport->WorkSize.y;
-            if (onScreen) {
-                const float side = screen->x + 90.0f + width < viewport->WorkSize.x - 8.0f ? screen->x + 90.0f : screen->x - 90.0f - width;
-                target = glm::vec2(std::clamp(side, 8.0f, viewport->WorkSize.x - width - 8.0f), std::clamp(screen->y - 140.0f, 8.0f, std::max(8.0f, viewport->WorkSize.y - m_lastHeight - 44.0f)));
-            }
-        }
+        const glm::vec2 target = placeCard(ctx, e, width, std::min(m_lastHeight, maxHeight));
         if (m_cardPos.x < 0.0f) m_cardPos = target;
         const float k = 1.0f - std::exp(-ImGui::GetIO().DeltaTime * 14.0f);
         m_cardPos += (target - m_cardPos) * k;
         ImGui::SetNextWindowPos(ImVec2(m_cardPos.x, m_cardPos.y), ImGuiCond_Always);
         m_setPos = m_cardPos;
+    } else if (m_dock) {
+        float right = viewport->WorkPos.x + viewport->WorkSize.x - 12.0f;
+        for (const glm::vec4& panel : ctx.panels) {
+            if (panel.x + panel.z * 0.5f > viewport->WorkPos.x + viewport->WorkSize.x * 0.5f) right = std::min(right, panel.x - 10.0f);
+        }
+        ImGui::SetNextWindowPos(ImVec2(right - width, ctx.rightColumnTop), ImGuiCond_Always);
+        m_dock = false;
     } else {
-        ImGui::SetNextWindowPos(ImVec2(viewport->WorkPos.x + viewport->WorkSize.x - width - 12.0f, viewport->WorkPos.y + 12.0f), ImGuiCond_FirstUseEver);
+        ImGui::SetNextWindowPos(ImVec2(viewport->WorkPos.x + viewport->WorkSize.x - width - 12.0f, ctx.rightColumnTop), ImGuiCond_FirstUseEver);
     }
-    ImGui::SetNextWindowSizeConstraints(ImVec2(width, 120.0f), ImVec2(width * 1.6f, viewport->WorkSize.y - 60.0f));
+    ImGui::SetNextWindowSizeConstraints(ImVec2(width, 80.0f), ImVec2(width, maxHeight));
     ImGui::SetNextWindowBgAlpha(0.92f);
     const std::string title = ctx.selection.size() > 1 ? std::format("{} selected  ·  {}###Inspector", ctx.selection.size(), displayName(ctx.world, e)) : std::format("{}###Inspector", displayName(ctx.world, e));
-    if (!ImGui::Begin(title.c_str(), &ctx.showInspector, flags | (ctx.pinInspector ? 0 : ImGuiWindowFlags_AlwaysAutoResize))) {
+    if (!ImGui::Begin(title.c_str(), &ctx.showInspector, flags)) {
         ImGui::End();
         return;
     }
@@ -557,11 +658,29 @@ void Inspector::draw(EditorContext& ctx) {
         }
     }
     m_lastHeight = ImGui::GetWindowHeight();
+    if (m_leader && !ctx.pinInspector) {
+        const ImVec2 pos = ImGui::GetWindowPos();
+        const ImVec2 size = ImGui::GetWindowSize();
+        const ImVec2 from(std::clamp(m_leader->x, pos.x, pos.x + size.x), std::clamp(m_leader->y, pos.y, pos.y + size.y));
+        ImDrawList* draw = ImGui::GetBackgroundDrawList();
+        draw->AddLine(from, ImVec2(m_leader->x, m_leader->y), IM_COL32(255, 184, 72, 150), 1.5f);
+        draw->AddCircleFilled(ImVec2(m_leader->x, m_leader->y), 3.5f, IM_COL32(255, 184, 72, 200));
+    }
+    World& world = ctx.world;
+    const bool light = world.get<LightComponent>(e) != nullptr;
+    const bool camera = world.get<CameraComponent>(e) != nullptr;
+    const bool gadget = (light || camera) && world.getMesh(e) == NO_MESH;
     ImGui::PushItemWidth(-90.0f);
     drawHeader(ctx, e);
+    m_sections = "header";
     drawTransform(ctx, e);
-    drawRender(ctx, e);
-    drawComponents(ctx, e);
+    m_sections += ",transform";
+    if (!gadget) {
+        drawRender(ctx, e);
+        m_sections += ",render";
+    }
+    drawComponents(ctx, e, gadget);
+    m_sections += ",components";
     ImGui::PopItemWidth();
     ImGui::End();
 }

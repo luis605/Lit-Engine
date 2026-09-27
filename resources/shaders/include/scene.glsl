@@ -36,6 +36,10 @@ layout(std140) uniform SceneData {
     vec4 fogParams;
     vec4 postParams;
     vec4 postParams2;
+    mat4 localShadowMatrices[24];
+    vec4 localShadowParams;
+    vec4 localShadowParams2;
+    vec4 giParams;
 };
 
 float projectedDiameterPx(float radius, float dist) {

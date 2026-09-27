@@ -2,6 +2,7 @@ module;
 
 #include <array>
 #include <cstdint>
+#include <functional>
 #include <string>
 #include <vector>
 
@@ -19,6 +20,9 @@ export module Engine.Render.lighting;
 import Engine.glm;
 import Engine.Render.settings;
 import Engine.Render.material;
+
+export constexpr int kMaxLocalShadowViews = 24;
+export constexpr int kMaxLocalShadowLights = 8;
 
 export struct SceneUniforms {
     glm::mat4 projection;
@@ -53,6 +57,10 @@ export struct SceneUniforms {
     glm::vec4 fogParams;
     glm::vec4 postParams;
     glm::vec4 postParams2;
+    glm::mat4 localShadowMatrices[kMaxLocalShadowViews];
+    glm::vec4 localShadowParams;
+    glm::vec4 localShadowParams2;
+    glm::vec4 giParams;
 };
 
 export struct GpuLight {
@@ -78,15 +86,44 @@ export struct MaterialGpu {
 
 export MaterialGpu packMaterial(const Material& m);
 
+export constexpr int kShadowLayers = 6;
+
 export struct Cascade {
     glm::mat4 viewProjection{1.0f};
+    glm::mat4 targetViewProjection{1.0f};
+    glm::mat4 renderViewProjection{1.0f};
     glm::vec4 planes[6]{};
+    int viewport[4]{};
     float split = 0.0f;
     float texelsPerUnit = 1.0f;
     float texelWorld = 1.0f;
     float depthRange = 1.0f;
+    float targetTexelWorld = 1.0f;
+    float targetDepthRange = 1.0f;
+    int layer = 0;
+    int renderLayer = 0;
+    int strip = 0;
+    int strips = 1;
     bool due = true;
+    bool clear = true;
     bool valid = false;
+};
+
+export struct LocalShadowView {
+    glm::mat4 viewProjection{1.0f};
+    glm::vec3 origin{0.0f};
+    float texelsAtUnitDistance = 1.0f;
+    float projectionScale = 1.0f;
+    bool active = false;
+};
+
+export struct LocalShadowCaster {
+    glm::vec4 sphere{0.0f};
+    glm::vec4 cone{0.0f};
+    uint32_t faceBase = 0;
+    uint32_t faceMask = 0;
+    uint32_t spot = 0;
+    uint32_t pad = 0;
 };
 
 export struct FrameInput {
@@ -127,9 +164,17 @@ export class Lighting {
     [[nodiscard]] const std::array<Cascade, 4>& cascades() const;
     [[nodiscard]] int cascadeCount() const;
     [[nodiscard]] int shadowResolution() const;
+    [[nodiscard]] const std::array<LocalShadowView, kMaxLocalShadowViews>& localShadowViews() const;
+    [[nodiscard]] const std::array<LocalShadowCaster, kMaxLocalShadowLights>& localShadowCasters() const;
+    [[nodiscard]] int localShadowCasterCount() const;
+    [[nodiscard]] int localShadowResolution() const;
+    [[nodiscard]] float localShadowTanHalf() const;
+    [[nodiscard]] Diligent::ITexture* localShadowMap() const;
+    [[nodiscard]] Diligent::ITextureView* localShadowTarget(int view) const;
     void prepare(Diligent::IBuffer* sceneUniforms);
     void shade(Diligent::ITexture* depth, Diligent::IBuffer* sceneUniforms, int stage = -1);
-    void finish(Diligent::IBuffer* sceneUniforms, Diligent::ITextureView* backBuffer, float deltaTime);
+    void captureSceneColor();
+    void finish(Diligent::IBuffer* sceneUniforms, Diligent::ITextureView* backBuffer, float deltaTime, const std::function<void(Diligent::ITexture*)>& afterTonemap = {});
 
     [[nodiscard]] Diligent::ITexture* gbuffer(int index) const;
     [[nodiscard]] Diligent::ITexture* hdr() const;
@@ -145,12 +190,14 @@ export class Lighting {
     [[nodiscard]] Diligent::IBuffer* irradianceBuffer() const;
     [[nodiscard]] Diligent::ITextureView* prefilteredEnvironment() const;
     [[nodiscard]] Diligent::ITextureView* dfgLut() const;
+    [[nodiscard]] Diligent::ITextureView* sceneColor() const;
     [[nodiscard]] Diligent::ITextureView* colorTextures() const;
     [[nodiscard]] Diligent::ITextureView* dataTextures() const;
     [[nodiscard]] float currentEv100() const;
     [[nodiscard]] glm::vec3 sunDirection() const;
 
   private:
+    void selectLocalShadows(SceneUniforms& u, const glm::vec3& cameraPosition);
     struct Data;
     Data* m_data = nullptr;
 };

@@ -21,10 +21,17 @@ export class Hud {
     void drawHelp(EditorContext& ctx, CommandRegistry& commands);
     void drawTimeline(EditorContext& ctx);
     bool updatePie(EditorContext& ctx, CommandRegistry& commands, bool allowStart);
-    void setPieItems(std::vector<PieItem> items) { m_pieItems = std::move(items); }
+    void setPieItems(std::vector<PieItem> selected, std::vector<PieItem> empty) {
+        m_selectedItems = std::move(selected);
+        m_emptyItems = std::move(empty);
+    }
+    [[nodiscard]] bool pieOpen() const { return m_pieOpen; }
+    [[nodiscard]] std::string pieLabels() const;
 
   private:
     std::vector<PieItem> m_pieItems;
+    std::vector<PieItem> m_selectedItems;
+    std::vector<PieItem> m_emptyItems;
     bool m_pieArmed = false;
     bool m_pieOpen = false;
     double m_piePressTime = 0.0;

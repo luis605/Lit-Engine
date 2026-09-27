@@ -38,6 +38,8 @@ layout(std430, binding = 7) buffer PointCommandBuffer {
 layout(std140, binding = 5) uniform CommandGenConstants {
     uint u_maxBucketsPerShader; // = MAX_MESHES
     uint u_totalBuckets;        // = numDrawingShaders * MAX_MESHES
+    uint u_bucketSlots;
+    uint u_viewBuckets;
 };
 
 void main() {
@@ -47,8 +49,10 @@ void main() {
     uint count = bucketCounts[key];
     if (count == 0) return;
 
-    uint shaderId = key / MAX_MESHES;
-    uint meshId = key % MAX_MESHES;
+    uint view = key / u_viewBuckets;
+    uint local = key % u_viewBuckets;
+    uint shaderId = view * (u_viewBuckets / u_bucketSlots) + local / u_bucketSlots;
+    uint meshId = local % u_bucketSlots;
     if (meshId % LOD_LEVEL_COUNT == POINT_LOD) {
         uint pointIdx = atomicAdd(pointCounters[shaderId], 1);
         if (pointIdx >= u_maxBucketsPerShader) return;

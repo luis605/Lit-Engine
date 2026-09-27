@@ -1,3 +1,5 @@
+#pragma lit stage hdr
+
 vec3 effect(vec2 uv, vec3 color) {
     vec2 wobble = vec2(sin(uv.y * 40.0 + litTime() * 2.0), cos(uv.x * 30.0 + litTime() * 1.7)) * 0.0025;
     vec3 c = litColor(uv + wobble);

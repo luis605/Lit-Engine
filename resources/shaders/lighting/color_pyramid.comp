@@ -1,0 +1,28 @@
+#version 450
+
+layout(local_size_x = 8, local_size_y = 8, local_size_z = 1) in;
+
+#ifdef FIRST_LEVEL
+uniform sampler2D u_source;
+#else
+layout(rgba16f) readonly uniform image2D u_sourceMip;
+#endif
+layout(rgba16f) writeonly uniform image2D u_dest;
+
+vec4 sanitize(vec4 c) { return any(isnan(c)) || any(isinf(c)) ? vec4(0.0) : min(c, vec4(64000.0)); }
+
+void main() {
+    ivec2 pixel = ivec2(gl_GlobalInvocationID.xy);
+    ivec2 size = imageSize(u_dest);
+    if (any(greaterThanEqual(pixel, size))) return;
+#ifdef FIRST_LEVEL
+    vec2 uv = (vec2(pixel) + 0.5) / vec2(size);
+    vec4 color = textureLod(u_source, uv, 0.0);
+#else
+    ivec2 last = imageSize(u_sourceMip) - 1;
+    ivec2 base = pixel * 2;
+    vec4 color = 0.25 * (sanitize(imageLoad(u_sourceMip, min(base, last))) + sanitize(imageLoad(u_sourceMip, min(base + ivec2(1, 0), last))) +
+                         sanitize(imageLoad(u_sourceMip, min(base + ivec2(0, 1), last))) + sanitize(imageLoad(u_sourceMip, min(base + ivec2(1, 1), last))));
+#endif
+    imageStore(u_dest, pixel, vec4(sanitize(color).rgb, 1.0));
+}

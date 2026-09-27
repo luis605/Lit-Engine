@@ -32,6 +32,32 @@ std::string meshLabel(Engine& engine, uint32_t mesh) {
     return name.empty() ? std::format("mesh {}", mesh) : name;
 }
 
+std::optional<glm::vec3> surfacePoint(EditorContext& ctx, const Ray& ray, const RayHit& hit) {
+    const glm::vec4 bounds = ctx.world.getWorldBounds(hit.entity);
+    if (glm::distance(glm::vec3(bounds), ray.origin) <= bounds.w) return std::nullopt;
+    const float t = std::clamp(glm::dot(glm::vec3(bounds) - ray.origin, ray.direction), hit.distance, hit.distance + bounds.w);
+    return ray.origin + ray.direction * t;
+}
+
+SpawnPoint spawnPoint(EditorContext& ctx) {
+    const glm::vec2 size = ctx.engine.windowSize();
+    if (ctx.cursorValid) {
+        const std::optional<glm::vec2> s = ctx.engine.worldToScreen(ctx.cursor);
+        if (s && s->x >= 0.0f && s->y >= 0.0f && s->x <= size.x && s->y <= size.y) return {ctx.cursor, ctx.cursorOnSurface};
+    }
+    const glm::vec2 center = size * 0.5f;
+    const Ray ray = ctx.engine.screenRay(center.x, center.y);
+    if (const std::optional<RayHit> hit = ctx.engine.pick(center.x, center.y); hit && hit->distance < 500.0f) {
+        if (const std::optional<glm::vec3> point = surfacePoint(ctx, ray, *hit)) return {*point, true};
+    }
+    if (ray.direction.y < -1e-4f) {
+        const float t = -ray.origin.y / ray.direction.y;
+        if (t > 0.0f && t < 200.0f) return {ray.origin + ray.direction * t, true};
+    }
+    const Camera& camera = ctx.world.camera();
+    return {camera.getPosition() + cameraForward(camera) * 10.0f, false};
+}
+
 glm::vec3 cameraForward(const Camera& camera) {
     const float yaw = glm::radians(camera.getYaw());
     const float pitch = glm::radians(camera.getPitch());
@@ -53,6 +79,8 @@ void flyTo(EditorContext& ctx, const glm::vec4& sphere) {
     ctx.flight.to = glm::vec3(sphere) - forward * distance;
     ctx.flight.fromYaw = ctx.flight.toYaw = camera.getYaw();
     ctx.flight.fromPitch = ctx.flight.toPitch = camera.getPitch();
+    ctx.flight.fromOrtho = camera.isOrthographic() ? camera.getOrthoHeight() : 0.0f;
+    ctx.flight.toOrtho = camera.isOrthographic() ? radius * 2.3f / std::min(1.0f, aspect) : 0.0f;
     if (distance * 2.0f > camera.getFarPlane()) camera.setFarPlane(distance * 2.0f);
 }
 
@@ -65,7 +93,15 @@ void updateFlight(EditorContext& ctx, float dt) {
     camera.setPos(f.from + (f.to - f.from) * k);
     float yawDelta = std::fmod(f.toYaw - f.fromYaw + 540.0f, 360.0f) - 180.0f;
     camera.setOrientation(f.fromYaw + yawDelta * k, f.fromPitch + (f.toPitch - f.fromPitch) * k);
-    if (f.t >= 1.0f) f.active = false;
+    if (f.toOrtho > 0.0f && f.fromOrtho > 0.0f) camera.setOrthoHeight(f.fromOrtho + (f.toOrtho - f.fromOrtho) * k);
+    if (f.t >= 1.0f) {
+        f.active = false;
+        if (f.toOrtho > 0.0f) {
+            camera.setOrthographic(true);
+            camera.setOrthoHeight(f.toOrtho);
+        }
+        f.fromOrtho = f.toOrtho = 0.0f;
+    }
 }
 
 void applyEditorTheme(float scale) {

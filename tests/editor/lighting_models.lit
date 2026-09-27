@@ -1,0 +1,32 @@
+frames 5
+run create.cube
+frames 2
+expect onscreen 1
+run shader.new
+frames 3
+text toon
+frames 2
+key Enter
+frames 4
+expect shader:toon ok
+run create.sphere
+frames 2
+expect onscreen 1
+run shader.new
+frames 3
+text unlit
+frames 2
+key Enter
+frames 4
+expect shader:unlit ok
+expect effect:outline ldr
+expect effect:sharpen ldr
+expect effect:chromatic ldr
+expect effect:underwater hdr
+expect effect:grade ldr
+pass grade 1
+pass outline 1
+frames 20
+expect toasts:error 0
+shot resources/ap_lighting_models.png
+quit

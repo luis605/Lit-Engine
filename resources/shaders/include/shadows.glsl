@@ -5,9 +5,13 @@
 
 uniform sampler2DArrayShadow u_shadowMap;
 uniform sampler2DArray u_shadowDepth;
+uniform sampler2DArrayShadow u_localShadowMap;
 
 const int PCF_SAMPLES = 16;
 const int BLOCKER_SAMPLES = 8;
+const int LOCAL_PCF_SAMPLES = 8;
+
+float shadowNoise(vec2 pixel) { return interleavedGradientNoise(pixel, 0.0); }
 
 vec3 cascadeCoord(int cascade, vec3 worldPos) {
     vec4 clip = cascadeViewProj[cascade] * vec4(worldPos, 1.0);
@@ -35,7 +39,7 @@ float cascadeVisibility(int cascade, vec3 worldPos, vec3 N, float NoL, float noi
         float blockers = 0.0;
         for (int i = 0; i < BLOCKER_SAMPLES; ++i) {
             vec2 offset = vogelDisk(i, BLOCKER_SAMPLES, phi) * searchRadius * texel;
-            float d = textureLod(u_shadowDepth, vec3(coord.xy + offset, float(cascade)), 0.0).r;
+            float d = textureLod(u_shadowDepth, vec3(coord.xy + offset, info.z), 0.0).r;
             if (d < reference) {
                 blockerSum += d;
                 blockers += 1.0;
@@ -51,7 +55,7 @@ float cascadeVisibility(int cascade, vec3 worldPos, vec3 N, float NoL, float noi
     float sum = 0.0;
     for (int i = 0; i < PCF_SAMPLES; ++i) {
         vec2 offset = vogelDisk(i, PCF_SAMPLES, phi) * filterRadius * texel;
-        sum += texture(u_shadowMap, vec4(coord.xy + offset, float(cascade), reference));
+        sum += texture(u_shadowMap, vec4(coord.xy + offset, info.z, reference));
     }
     return sum / float(PCF_SAMPLES);
 }
@@ -68,7 +72,7 @@ float sunShadow(vec3 worldPos, vec3 N, float NoL, vec2 pixel) {
         }
     }
     if (cascade < 0) return 1.0;
-    float noise = interleavedGradientNoise(pixel, frameIndex());
+    float noise = shadowNoise(pixel);
     float visibility = cascadeVisibility(cascade, worldPos, N, NoL, noise);
     float cascadeStart = cascade == 0 ? 0.0 : cascadeSplits[cascade - 1];
     float cascadeEnd = cascadeSplits[cascade];
@@ -79,6 +83,35 @@ float sunShadow(vec3 worldPos, vec3 N, float NoL, vec2 pixel) {
         visibility = mix(visibility, 1.0, blend);
     }
     return visibility;
+}
+
+float localShadow(int base, bool point, vec3 lightPos, vec3 worldPos, vec3 N, vec3 L, float NoL, float noise) {
+    if (base < 0) return 1.0;
+    int slot = base;
+    if (point) {
+        vec3 d = worldPos - lightPos;
+        vec3 a = abs(d);
+        slot += a.x >= a.y && a.x >= a.z ? (d.x > 0.0 ? 0 : 1) : a.y >= a.z ? (d.y > 0.0 ? 2 : 3) : (d.z > 0.0 ? 4 : 5);
+    }
+    mat4 m = localShadowMatrices[slot];
+    float w = (m * vec4(worldPos, 1.0)).w;
+    float tanHalf = 1.0 / length(vec3(m[0][0], m[1][0], m[2][0]));
+    float texelWorld = 2.0 * max(w, 1e-3) * tanHalf * localShadowParams.y;
+    float slope = sqrt(max(1.0 - NoL * NoL, 0.0)) / max(NoL, 0.05);
+    vec3 offsetPos = worldPos + N * texelWorld * localShadowParams.w * (0.6 + 0.8 * min(slope, 4.0)) + L * texelWorld * localShadowParams2.x * (1.0 + min(slope, 4.0));
+    vec4 clip = m * vec4(offsetPos, 1.0);
+    if (clip.w <= 0.0) return 1.0;
+    vec3 ndc = clip.xyz / clip.w;
+    vec2 uv = vec2(ndc.x * 0.5 + 0.5, 0.5 - ndc.y * 0.5);
+    if (any(lessThan(uv, vec2(0.0))) || any(greaterThan(uv, vec2(1.0))) || ndc.z >= 1.0) return 1.0;
+    float radius = (1.0 + localShadowParams.z) * localShadowParams.y;
+    float phi = noise * TWO_PI;
+    float sum = 0.0;
+    for (int i = 0; i < LOCAL_PCF_SAMPLES; ++i) {
+        vec2 offset = vogelDisk(i, LOCAL_PCF_SAMPLES, phi) * radius;
+        sum += texture(u_localShadowMap, vec4(clamp(uv + offset, vec2(0.0), vec2(1.0)), float(slot), ndc.z));
+    }
+    return sum / float(LOCAL_PCF_SAMPLES);
 }
 
 #endif

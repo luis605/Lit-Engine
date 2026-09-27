@@ -273,7 +273,7 @@ void World::destroyBatch(std::span<const EntityHandle> entities) {
 
 void World::setPositions(std::span<const std::pair<EntityHandle, glm::vec3>> updates) {
     constexpr size_t kBulkThreshold = 4096;
-    const bool bulk = updates.size() > kBulkThreshold;
+    const bool bulk = updates.size() > kBulkThreshold && updates.size() * 2 > m_db.transforms.size();
     for (const auto& [e, position] : updates) {
         if (!valid(e)) continue;
         m_db.transforms[e.index].setPos(position);
@@ -1643,9 +1643,122 @@ void World::refreshSpatial() {
     expandSpatialRoots();
     auto pending = std::move(m_spatialPending);
     m_spatialPending.clear();
+    if (m_spatial.size() < m_alive.size()) m_spatial.resize(m_alive.size());
     for (Entity idx : pending) {
         if (idx < m_spatialQueued.size()) m_spatialQueued[idx] = 0;
-        rebuildSpatialEntry(idx);
+    }
+    std::vector<SpatialEntry> fresh(pending.size());
+    const auto compute = [&](size_t begin, size_t end) {
+        for (size_t i = begin; i < end; ++i) {
+            if (pending[i] < m_alive.size()) computeSpatialEntry(pending[i], fresh[i], true);
+        }
+    };
+    if (m_jobs && pending.size() > 4096) {
+        m_jobs->parallelFor(pending.size(), 8192, compute);
+    } else {
+        compute(0, pending.size());
+    }
+    if (!m_jobs || pending.size() < 65536) {
+        for (size_t i = 0; i < pending.size(); ++i) {
+            const Entity idx = pending[i];
+            if (idx >= m_alive.size()) continue;
+            SpatialEntry& entry = m_spatial[idx];
+            const SpatialEntry& next = fresh[i];
+            if (entry.state == next.state && entry.state != 2 && (entry.state == 0 || entry.cell == next.cell)) {
+                entry.center = next.center;
+                entry.radius = next.radius;
+                entry.animated = next.animated;
+                if (entry.state == 1) m_maxSmallRadius = std::max(m_maxSmallRadius, entry.radius);
+                continue;
+            }
+            removeSpatialEntry(idx);
+            const uint32_t slot = entry.slot;
+            entry = next;
+            entry.slot = slot;
+            insertSpatialEntry(idx);
+        }
+        return;
+    }
+    constexpr size_t kParts = 64;
+    const auto part = [](uint64_t cell) { return static_cast<size_t>((cell * 0x9E3779B97F4A7C15ull) >> 58); };
+    std::vector<std::vector<uint32_t>> removals(kParts), inserts(kParts);
+    std::vector<uint32_t> largeInserts;
+    std::vector<uint32_t> largeCleared;
+    bool largeRemoved = false;
+    for (size_t i = 0; i < pending.size(); ++i) {
+        const Entity idx = pending[i];
+        if (idx >= m_alive.size()) continue;
+        SpatialEntry& entry = m_spatial[idx];
+        const SpatialEntry& next = fresh[i];
+        if (entry.state == next.state && entry.state != 2 && (entry.state == 0 || entry.cell == next.cell)) {
+            entry.center = next.center;
+            entry.radius = next.radius;
+            entry.animated = next.animated;
+            if (entry.state == 1) m_maxSmallRadius = std::max(m_maxSmallRadius, entry.radius);
+            continue;
+        }
+        if (entry.state == 1) removals[part(entry.cell)].push_back(static_cast<uint32_t>(i));
+        if (entry.state == 2) {
+            largeRemoved = true;
+            entry.state = 3;
+            if (next.state == 0) largeCleared.push_back(static_cast<uint32_t>(i));
+        }
+        if (next.state == 1) inserts[part(next.cell)].push_back(static_cast<uint32_t>(i));
+        if (next.state == 2) largeInserts.push_back(static_cast<uint32_t>(i));
+        if (entry.state == 0) entry = next;
+    }
+    if (largeRemoved) m_largeEntities.erase(std::remove_if(m_largeEntities.begin(), m_largeEntities.end(), [this](Entity e) { return m_spatial[e].state == 3; }), m_largeEntities.end());
+    for (uint32_t i : largeCleared) m_spatial[pending[i]] = fresh[i];
+    std::vector<std::vector<uint64_t>> emptied(kParts), missing(kParts);
+    m_jobs->parallelFor(kParts, 1, [&](size_t begin, size_t end) {
+        for (size_t p = begin; p < end; ++p) {
+            for (uint32_t i : removals[p]) {
+                SpatialEntry& entry = m_spatial[pending[i]];
+                const auto it = m_cells.find(entry.cell);
+                if (it != m_cells.end()) {
+                    auto& bucket = it->second;
+                    if (entry.slot < bucket.size() && bucket[entry.slot] == pending[i]) {
+                        const Entity moved = bucket.back();
+                        bucket[entry.slot] = moved;
+                        m_spatial[moved].slot = entry.slot;
+                        bucket.pop_back();
+                    }
+                    if (bucket.empty()) emptied[p].push_back(entry.cell);
+                }
+                entry.state = 0;
+            }
+            for (uint32_t i : inserts[p]) {
+                if (m_cells.find(fresh[i].cell) == m_cells.end()) missing[p].push_back(fresh[i].cell);
+            }
+        }
+    });
+    for (const auto& keys : missing) {
+        for (uint64_t key : keys) m_cells.try_emplace(key);
+    }
+    std::vector<float> radii(kParts, 0.0f);
+    m_jobs->parallelFor(kParts, 1, [&](size_t begin, size_t end) {
+        for (size_t p = begin; p < end; ++p) {
+            for (uint32_t i : inserts[p]) {
+                const Entity idx = pending[i];
+                SpatialEntry& entry = m_spatial[idx];
+                entry = fresh[i];
+                auto& bucket = m_cells.find(entry.cell)->second;
+                entry.slot = static_cast<uint32_t>(bucket.size());
+                bucket.push_back(idx);
+                radii[p] = std::max(radii[p], entry.radius);
+            }
+        }
+    });
+    for (float r : radii) m_maxSmallRadius = std::max(m_maxSmallRadius, r);
+    for (const auto& keys : emptied) {
+        for (uint64_t key : keys) {
+            const auto it = m_cells.find(key);
+            if (it != m_cells.end() && it->second.empty()) m_cells.erase(it);
+        }
+    }
+    for (uint32_t i : largeInserts) {
+        m_spatial[pending[i]] = fresh[i];
+        m_largeEntities.push_back(pending[i]);
     }
 }
 

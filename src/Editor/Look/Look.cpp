@@ -18,6 +18,7 @@ import Engine.renderer;
 import Engine.World;
 import Engine.camera;
 import Engine.Render.settings;
+import Engine.Render.custom;
 import Engine.glm;
 
 namespace {
@@ -64,13 +65,15 @@ void LookPanel::draw(EditorContext& ctx, LookState& state) {
     m_historyHead = (m_historyHead + 1) % m_gpuHistory.size();
     if (!ctx.showLook || ctx.zen) return;
     const ImGuiViewport* viewport = ImGui::GetMainViewport();
-    ImGui::SetNextWindowPos(ImVec2(viewport->WorkPos.x + 10.0f, viewport->WorkPos.y + viewport->WorkSize.y * 0.3f), ImGuiCond_FirstUseEver);
-    ImGui::SetNextWindowSize(ImVec2(380.0f, viewport->WorkSize.y * 0.65f), ImGuiCond_FirstUseEver);
+    const float top = ctx.rightColumnTop;
+    ImGui::SetNextWindowPos(ImVec2(viewport->WorkPos.x + viewport->WorkSize.x - 10.0f, top), ImGuiCond_Always, ImVec2(1.0f, 0.0f));
+    ImGui::SetNextWindowSize(ImVec2(380.0f, std::max(240.0f, viewport->WorkPos.y + viewport->WorkSize.y - top - 44.0f)), ImGuiCond_Always);
     ImGui::SetNextWindowBgAlpha(0.93f);
-    if (!ImGui::Begin("Look", &ctx.showLook, ImGuiWindowFlags_NoCollapse | ImGuiWindowFlags_NoFocusOnAppearing)) {
+    if (!ImGui::Begin("Look###LookPanel", &ctx.showLook, ImGuiWindowFlags_NoCollapse | ImGuiWindowFlags_NoFocusOnAppearing | ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoResize)) {
         ImGui::End();
         return;
     }
+    ctx.panels.emplace_back(ImGui::GetWindowPos().x, ImGui::GetWindowPos().y, ImGui::GetWindowSize().x, ImGui::GetWindowSize().y);
     Engine& engine = ctx.engine;
     RenderSettings& r = engine.renderSettings();
     Camera& camera = ctx.world.camera();
@@ -121,6 +124,7 @@ void LookPanel::draw(EditorContext& ctx, LookState& state) {
             ImGui::SliderFloat("Rotation", &r.hdriRotation, 0.0f, 360.0f, "%.0f°");
         }
         ImGui::SliderFloat("Environment light", &r.environmentIntensity, 0.0f, 4.0f);
+        ImGui::SliderFloat("Sky brightness", &r.skyBrightness, 0.0f, 4.0f);
     }
     if (ImGui::CollapsingHeader("Camera and exposure", ImGuiTreeNodeFlags_DefaultOpen)) {
         ImGui::Checkbox("Auto exposure", &r.autoExposure);
@@ -210,6 +214,7 @@ void LookPanel::draw(EditorContext& ctx, LookState& state) {
         ImGui::Checkbox("Grid", &ctx.showGrid);
         ImGui::Checkbox("Stats overlay", &ctx.showStats);
         if (ImGui::Button("Reload shaders (F9)")) engine.reloadShaders();
+        for (const ShaderError& error : engine.shaderErrors()) ImGui::TextColored(ImVec4(1.0f, 0.45f, 0.4f, 1.0f), "%s\n%s", error.source.c_str(), error.message.c_str());
     }
     if (ImGui::CollapsingHeader("GPU", ImGuiTreeNodeFlags_DefaultOpen)) {
         float peak = 1.0f;
@@ -231,3 +236,91 @@ void LookPanel::draw(EditorContext& ctx, LookState& state) {
     ImGui::PopItemWidth();
     ImGui::End();
 }
+
+void LookPanel::drawWorld(EditorContext& ctx) {
+    if (!ctx.selection.empty()) ctx.worldDismissed = false;
+    m_worldVisible = !ctx.zen && (ctx.showWorld || (ctx.selection.empty() && ctx.showInspector && !ctx.showLook && !ctx.worldDismissed));
+    if (!m_worldVisible) return;
+    const ImGuiViewport* viewport = ImGui::GetMainViewport();
+    const float width = 330.0f;
+    float right = viewport->WorkPos.x + viewport->WorkSize.x - 12.0f;
+    for (const glm::vec4& panel : ctx.panels) {
+        if (panel.x + panel.z > viewport->WorkPos.x + viewport->WorkSize.x * 0.5f) right = std::min(right, panel.x - 10.0f);
+    }
+    const float top = ctx.rightColumnTop;
+    ImGui::SetNextWindowPos(ImVec2(right - width, top), ImGuiCond_Always);
+    ImGui::SetNextWindowSizeConstraints(ImVec2(width, 60.0f), ImVec2(width, std::max(200.0f, viewport->WorkPos.y + viewport->WorkSize.y - top - 44.0f)));
+    ImGui::SetNextWindowBgAlpha(0.92f);
+    bool open = true;
+    if (!ImGui::Begin("World###WorldCard", &open, ImGuiWindowFlags_AlwaysAutoResize | ImGuiWindowFlags_NoFocusOnAppearing | ImGuiWindowFlags_NoSavedSettings | ImGuiWindowFlags_NoMove)) {
+        ImGui::End();
+        return;
+    }
+    if (!open) {
+        ctx.showWorld = false;
+        ctx.worldDismissed = true;
+    }
+    RenderSettings& r = ctx.engine.renderSettings();
+    ImGui::TextDisabled("Nothing selected: editing the world. Shift+W toggles.");
+    ImGui::PushItemWidth(-110.0f);
+    if (ImGui::CollapsingHeader("Sky and sun", ImGuiTreeNodeFlags_DefaultOpen)) {
+        int sky = static_cast<int>(r.sky);
+        if (ImGui::Combo("Sky", &sky, "Physical atmosphere\0Gradient\0HDRI\0")) r.sky = static_cast<SkyMode>(sky);
+        sunDial("worldSun", r.timeOfDay, r.sunAzimuth);
+        ImGui::SliderFloat("Time of day", &r.timeOfDay, 0.0f, 24.0f, "%.2f h");
+        ImGui::SliderFloat("Sun azimuth", &r.sunAzimuth, 0.0f, 360.0f, "%.0f°");
+        ImGui::DragFloat("Sun", &r.sunIlluminance, 500.0f, 0.0f, 200000.0f, "%.0f lux");
+        ImGui::SliderFloat("Sky brightness", &r.skyBrightness, 0.0f, 4.0f, "%.2f");
+        if (r.sky == SkyMode::Physical) {
+            ImGui::Checkbox("Clouds", &r.clouds);
+            if (r.clouds) {
+                ImGui::SameLine();
+                ImGui::SetNextItemWidth(-1.0f);
+                ImGui::SliderFloat("##coverage", &r.cloudCoverage, 0.0f, 1.0f, "coverage %.2f");
+            }
+        }
+        if (r.sky == SkyMode::Gradient) {
+            ImGui::ColorEdit3("Zenith", &r.gradientZenith.x);
+            ImGui::ColorEdit3("Horizon", &r.gradientHorizon.x);
+        }
+        if (r.sky == SkyMode::Hdri) ImGui::InputTextWithHint("HDRI", "resources/sky.hdr", &r.hdriPath);
+    }
+    if (ImGui::CollapsingHeader("Light and exposure", ImGuiTreeNodeFlags_DefaultOpen)) {
+        ImGui::SliderFloat("Ambient (IBL)", &r.environmentIntensity, 0.0f, 4.0f);
+        ImGui::Checkbox("Auto exposure", &r.autoExposure);
+        ImGui::SameLine();
+        ImGui::TextDisabled("EV100 %.1f", ctx.engine.exposureEv100());
+        if (r.autoExposure) {
+            ImGui::SliderFloat("Compensation", &r.exposureCompensation, -5.0f, 5.0f, "%+.1f EV");
+        } else {
+            ImGui::SliderFloat("EV100", &r.manualEV100, -6.0f, 18.0f, "%.1f");
+        }
+        int op = static_cast<int>(r.tonemapper);
+        if (ImGui::Combo("Tonemapper", &op, "AgX\0AgX punchy\0ACES\0Khronos PBR Neutral\0Reinhard\0Linear\0")) r.tonemapper = static_cast<Tonemapper>(op);
+    }
+    if (ImGui::CollapsingHeader("Atmosphere and fog")) {
+        ImGui::Checkbox("Height fog", &r.fog);
+        if (r.fog) {
+            ImGui::SliderFloat("Density", &r.fogDensity, 0.0f, 0.05f, "%.4f", ImGuiSliderFlags_Logarithmic);
+            ImGui::DragFloat("Height", &r.fogHeight, 0.5f, -1000.0f, 1000.0f, "%.1f m");
+        }
+        if (r.sky == SkyMode::Physical) {
+            ImGui::SliderFloat("Haze", &r.mieScale, 0.0f, 10.0f, "%.2f", ImGuiSliderFlags_Logarithmic);
+            ImGui::SliderFloat("Aerial distance", &r.aerialDistanceScale, 0.0f, 20.0f);
+        }
+    }
+    if (ImGui::CollapsingHeader("Effects")) {
+        ImGui::Checkbox("Shadows", &r.shadows);
+        ImGui::SameLine(120.0f);
+        ImGui::Checkbox("AO", &r.ssao);
+        ImGui::SameLine(200.0f);
+        ImGui::Checkbox("SSR", &r.ssr);
+        ImGui::Checkbox("Bloom", &r.bloom);
+        ImGui::SameLine(120.0f);
+        ImGui::Checkbox("FXAA", &r.fxaa);
+    }
+    ImGui::PopItemWidth();
+    if (ImGui::SmallButton("All render settings (L)")) ctx.showLook = true;
+    ImGui::End();
+}
+

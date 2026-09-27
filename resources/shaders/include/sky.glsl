@@ -64,29 +64,142 @@ vec3 starField(vec3 dir) {
     return tint * strength * 0.06;
 }
 
-vec4 cloudLayer(vec3 dir, vec3 skyAmbient) {
-    if (skyParams.w <= 0.001 || dir.y <= 0.015) return vec4(0.0, 0.0, 0.0, 1.0);
-    float altitude = skyGradient[0].w;
-    float t = (altitude - viewPos.y) / dir.y;
-    if (t <= 0.0) return vec4(0.0, 0.0, 0.0, 1.0);
-    vec3 p = viewPos + dir * t;
-    vec2 wind = vec2(1.0, 0.35) * sceneTime() * skyParams2.x;
-    vec2 uv = (p.xz + wind) * 0.00022;
-    float coverage = skyParams.w;
-    float n = cloudFbm(uv);
-    float density = saturate((n - (1.0 - coverage)) / max(coverage, 0.05)) * skyParams2.z;
-    density *= saturate((dir.y - 0.015) * 8.0);
-    float transmittance = exp(-density * 3.2);
-    vec3 sunDir = sunDirection.xyz;
-    float nSun = cloudFbm(uv + sunDir.xz * 0.06);
-    float selfShadow = exp(-saturate((nSun - (1.0 - coverage)) / max(coverage, 0.05)) * skyParams2.z * 2.4);
-    float cosTheta = dot(dir, sunDir);
-    float phase = mix(phaseHG(cosTheta, 0.65), phaseHG(cosTheta, -0.25), 0.35) * 4.0 * PI;
-    float powder = 1.0 - exp(-density * 6.0);
-    vec3 sunLight = sunIlluminance.rgb * sunIlluminance.w;
-    vec3 color = sunLight * INV_PI * 0.85 * selfShadow * (0.35 + 0.65 * phase) * mix(1.0, powder, 0.5) + skyAmbient * 0.85;
-    return vec4(color * (1.0 - transmittance), transmittance);
+float hash13(vec3 p) {
+    p = fract(p * 0.1031);
+    p += dot(p, p.zyx + 31.32);
+    return fract((p.x + p.y) * p.z);
 }
+
+float noise3D(vec3 p) {
+    vec3 i = floor(p);
+    vec3 f = fract(p);
+    vec3 u = f * f * (3.0 - 2.0 * f);
+    return mix(
+        mix(
+            mix(hash13(i + vec3(0.0, 0.0, 0.0)), hash13(i + vec3(1.0, 0.0, 0.0)), u.x),
+            mix(hash13(i + vec3(0.0, 1.0, 0.0)), hash13(i + vec3(1.0, 1.0, 0.0)), u.x),
+            u.y
+        ),
+        mix(
+            mix(hash13(i + vec3(0.0, 0.0, 1.0)), hash13(i + vec3(1.0, 0.0, 1.0)), u.x),
+            mix(hash13(i + vec3(0.0, 1.0, 1.0)), hash13(i + vec3(1.0, 1.0, 1.0)), u.x),
+            u.y
+        ),
+        u.z
+    );
+}
+
+float cloudFbm3D(vec3 p) {
+    float f = 0.52 * noise3D(p); p = p * 2.02 + vec3(0.15, 0.32, 0.27);
+    f += 0.28 * noise3D(p); p = p * 2.03 + vec3(0.24, 0.18, 0.41);
+    f += 0.14 * noise3D(p); p = p * 2.01 + vec3(0.31, 0.42, 0.13);
+    f += 0.06 * noise3D(p);
+    return f;
+}
+
+float billow3D(vec3 p) {
+    float f = 0.55 * abs(noise3D(p) * 2.0 - 1.0); p = p * 2.02 + vec3(0.21, 0.14, 0.35);
+    f += 0.30 * abs(noise3D(p) * 2.0 - 1.0); p = p * 2.03 + vec3(0.12, 0.43, 0.19);
+    f += 0.15 * abs(noise3D(p) * 2.0 - 1.0);
+    return f;
+}
+
+float sampleCloudDensity(vec3 p, float h, float coverage, float densityMultiplier, vec3 wind) {
+    if (h <= 0.0 || h >= 1.0) return 0.0;
+    float profile = smoothstep(0.0, 0.15, h) * smoothstep(1.0, 0.45, h);
+    vec3 coord = (p + wind) * 0.00022;
+    float base = cloudFbm3D(coord);
+    float threshold = clamp(1.0 - coverage, 0.0, 0.98);
+    if (base < threshold) return 0.0;
+    vec3 detailCoord = (p + wind * 1.4) * 0.00075;
+    float detail = billow3D(detailCoord);
+    float shape = base - detail * 0.25 * (1.0 - h * 0.5);
+    float d = saturate((shape - threshold) / max(coverage, 0.05)) * profile;
+    return d * densityMultiplier;
+}
+
+float g_cloudDither = 0.5;
+
+vec4 cloudLayer(vec3 dir, vec3 skyAmbient) {
+    if (skyParams.w <= 0.001 || dir.y <= 0.01) return vec4(0.0, 0.0, 0.0, 1.0);
+    float altitude = max(skyGradient[0].w, 400.0);
+    float thickness = 1400.0;
+    float hBase = altitude;
+    float hTop = hBase + thickness;
+
+    float vy = max(dir.y, 0.003);
+    float yCam = max(viewPos.y, 0.0);
+    float rc = 6360000.0 + yCam;
+
+    float dhNear = max(hBase - yCam, 0.0);
+    float dhFar = max(hTop - yCam, 10.0);
+
+    float tNear = (2.0 * dhNear) / (vy + sqrt(vy * vy + (2.0 * dhNear) / rc));
+    float tFar = (2.0 * dhFar) / (vy + sqrt(vy * vy + (2.0 * dhFar) / rc));
+
+    if (yCam >= hBase && yCam <= hTop) tNear = 0.0;
+
+    if (tFar <= tNear) return vec4(0.0, 0.0, 0.0, 1.0);
+
+    tFar = min(tFar, tNear + 12000.0);
+    float coverage = skyParams.w;
+    vec3 sunDir = sunDirection.xyz;
+    vec3 sunLight = sunIlluminance.rgb * sunIlluminance.w;
+#ifdef CLOUD_CHEAP
+    int steps = 6;
+#else
+    int steps = 12;
+#endif
+    float stepSize = (tFar - tNear) / float(steps);
+    float t = tNear + stepSize * g_cloudDither;
+    vec3 wind = vec3(1.0, 0.0, 0.35) * sceneTime() * skyParams2.x;
+    float densityMult = skyParams2.z;
+    float sigma = 3.5 / thickness;
+    float cosTheta = dot(dir, sunDir);
+    float phase = mix(phaseHG(cosTheta, 0.76), phaseHG(cosTheta, -0.22), 0.25) * 4.0 * PI;
+    float phaseSoft = mix(phaseHG(cosTheta, 0.3), 1.0 / (4.0 * PI), 0.5) * 4.0 * PI;
+    vec3 accumColor = vec3(0.0);
+    float accumTransmittance = 1.0;
+    float invThickness = 1.0 / thickness;
+    for (int i = 0; i < steps; ++i) {
+        vec3 p = viewPos + dir * t;
+        float h = saturate((yCam + dir.y * t - (t * t) / (2.0 * rc) - hBase) * invThickness);
+        float density = sampleCloudDensity(p, h, coverage, densityMult, wind);
+        if (density > 0.0001) {
+            float d1 = sampleCloudDensity(p + sunDir * 120.0, saturate(h + sunDir.y * 120.0 * invThickness), coverage, densityMult, wind);
+#ifdef CLOUD_CHEAP
+            float d2 = d1;
+#else
+            float d2 = sampleCloudDensity(p + sunDir * 420.0, saturate(h + sunDir.y * 420.0 * invThickness), coverage, densityMult, wind);
+#endif
+            float od = sigma * (density * 60.0 + d1 * 180.0 + d2 * 300.0);
+            float beer = max(exp(-od), 0.3 * exp(-od * 0.25));
+            float powder = 1.0 - exp(-density * 4.0);
+            vec3 directLight = sunLight * INV_PI * beer * mix(phaseSoft, phase, beer) * mix(1.0, powder, 0.4);
+            vec3 ambient = skyAmbient * mix(0.55, 1.1, h);
+            float stepTransmittance = exp(-density * sigma * stepSize);
+            accumColor += accumTransmittance * (directLight + ambient) * (1.0 - stepTransmittance);
+            accumTransmittance *= stepTransmittance;
+            if (accumTransmittance < 0.01) break;
+        }
+        t += stepSize;
+    }
+    float horizonFade = saturate((dir.y - 0.01) * 8.0);
+    accumColor *= horizonFade;
+    accumTransmittance = mix(1.0, accumTransmittance, horizonFade);
+    return vec4(accumColor, accumTransmittance);
+}
+
+vec4 cloudsForDirection(vec3 dir) {
+    float night = saturate(-sunDirection.y * 6.0 + 0.3);
+    vec3 ambient = physicalSkyRadiance(vec3(0.0, 1.0, 0.0), false) * 0.6 + vec3(0.002, 0.003, 0.006) * night;
+    return cloudLayer(dir, ambient);
+}
+
+#ifdef CLOUD_TEXTURE
+uniform sampler2D u_clouds;
+vec2 g_cloudUv = vec2(0.5);
+#endif
 
 vec3 skyRadiance(vec3 dir, bool includeSun) {
     int mode = int(skyParams.x + 0.5);
@@ -113,8 +226,11 @@ vec3 skyRadiance(vec3 dir, bool includeSun) {
     float night = saturate(-sunDirection.y * 6.0 + 0.3);
     L += vec3(0.0025, 0.0035, 0.0065) * night;
     if (skyParams2.y > 0.5 && dir.y > 0.0) L += starField(dir) * night;
-    vec3 ambient = physicalSkyRadiance(vec3(0.0, 1.0, 0.0), false) * 0.6 + vec3(0.002, 0.003, 0.006) * night;
-    vec4 cloud = cloudLayer(dir, ambient);
+#ifdef CLOUD_TEXTURE
+    vec4 cloud = textureLod(u_clouds, g_cloudUv, 0.0);
+#else
+    vec4 cloud = cloudsForDirection(dir);
+#endif
     return L * cloud.a + cloud.rgb;
 }
 

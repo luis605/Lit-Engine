@@ -27,6 +27,10 @@ export class Camera {
     float getPitch() const { return m_pitch; }
     float getNearPlane() const { return m_nearPlane; }
     float getFarPlane() const { return m_farPlane; }
+    void setOrthographic(bool orthographic) { m_orthographic = orthographic; }
+    bool isOrthographic() const { return m_orthographic; }
+    void setOrthoHeight(float height) { m_orthoHeight = height; }
+    float getOrthoHeight() const { return m_orthoHeight; }
 
    private:
     void updateCameraVectors();
@@ -47,4 +51,6 @@ export class Camera {
     float m_aspectRatio;
     float m_nearPlane;
     float m_farPlane;
+    bool m_orthographic = false;
+    float m_orthoHeight = 10.0f;
 };

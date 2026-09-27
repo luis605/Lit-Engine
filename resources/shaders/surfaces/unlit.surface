@@ -1,0 +1,3 @@
+void surface(in SurfaceInput i, inout Surface s) {
+    s.lightingModel = LIT_UNLIT;
+}

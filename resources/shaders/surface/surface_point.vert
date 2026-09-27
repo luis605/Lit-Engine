@@ -69,7 +69,8 @@ void main() {
 #ifdef SHADOW_PASS
     vec4 clip = shadowViewProjection * vec4(boundingSphere.xyz, 1.0);
     gl_Position = clip;
-    gl_PointSize = max(1.0, abs(shape) * boundingSphere.w * shadowViewProjection[0][0] * shadowPassParams.x);
+    float pointScale = shadowPassParams.z > 0.5 ? shadowPassParams.y / max(clip.w, 1e-4) : shadowViewProjection[0][0];
+    gl_PointSize = max(1.0, abs(shape) * boundingSphere.w * pointScale * shadowPassParams.x);
 #else
     vec4 orientation = normalize(unpackSnorm4x8(cullOrientations[objectId]));
     vec3 toViewer = normalize(viewPos - boundingSphere.xyz);

@@ -1,0 +1,41 @@
+#version 450
+#extension GL_KHR_shader_subgroup_basic : enable
+#extension GL_KHR_shader_subgroup_arithmetic : enable
+#extension GL_KHR_shader_subgroup_ballot : enable
+
+layout(local_size_x = 256, local_size_y = 1, local_size_z = 1) in;
+
+layout(std140) uniform CullingUniforms {
+    uint u_objectCount;
+    uint u_maxDraws;
+};
+
+layout(std430) readonly buffer VisibilityBuffer {
+    uint visibilityBits[];
+};
+
+layout(std430) buffer CandidateCounterBuffer {
+    uint u_candidateCount;
+};
+
+layout(std430) writeonly buffer CandidateBuffer {
+    uint u_candidateIds[];
+};
+
+void main() {
+    uint first = gl_GlobalInvocationID.x * 32u;
+    uint bits = first < u_objectCount ? visibilityBits[gl_GlobalInvocationID.x] : 0u;
+    uint remaining = u_objectCount - min(first, u_objectCount);
+    if (remaining < 32u) bits &= (1u << remaining) - 1u;
+    uint count = uint(bitCount(bits));
+    uint total = subgroupAdd(count);
+    if (total == 0u) return;
+    uint base = 0u;
+    if (subgroupElect()) base = atomicAdd(u_candidateCount, total);
+    uint slot = subgroupBroadcastFirst(base) + subgroupExclusiveAdd(count);
+    while (bits != 0u) {
+        if (slot < u_maxDraws) u_candidateIds[slot] = first + uint(findLSB(bits));
+        bits &= bits - 1u;
+        ++slot;
+    }
+}

@@ -47,6 +47,7 @@ struct ShadingData {
     float thickness;
     float transmission;
     float ior;
+    vec3 indirectDiffuse;
 };
 
 ShadingData prepareShading(vec3 position, vec3 N, vec3 baseColor, float metallic, float perceptualRoughness, float occlusion, float tangentAngle, uint materialId) {
@@ -85,6 +86,8 @@ ShadingData prepareShading(vec3 position, vec3 N, vec3 baseColor, float metallic
     s.thickness = m.transmission.z;
     s.transmission = m.transmission.x;
     s.ior = m.transmission.y;
+    s.diffuseColor *= 1.0 - s.transmission;
+    s.indirectDiffuse = vec3(0.0);
     return s;
 }
 
@@ -139,22 +142,26 @@ vec3 surfaceShading(ShadingData s, vec3 L, vec3 lightColor, float visibility) {
     return color * lightColor;
 }
 
-vec3 evaluatePunctual(ShadingData s, GpuLight light) {
+vec3 evaluatePunctual(ShadingData s, GpuLight light, float noise) {
     vec3 toLight = light.positionRange.xyz - s.position;
     float d2 = dot(toLight, toLight);
     vec3 L = toLight * inversesqrt(max(d2, 1e-8));
     float attenuation = distanceAttenuation(d2, light.params.z);
     if (light.colorType.w > 1.5) attenuation *= spotAttenuation(L, light);
     if (attenuation <= 0.0) return vec3(0.0);
-    return surfaceShading(s, L, light.colorType.rgb * attenuation, 1.0);
+    float NoL = dot(s.N, L);
+    float visibility = 1.0;
+    if (light.params.w >= 0.0 && (NoL > 0.0 || s.subsurface > 0.0)) visibility = localShadow(int(light.params.w + 0.5), light.colorType.w < 1.5, light.positionRange.xyz, s.position, s.N, L, max(NoL, 0.05), noise);
+    return surfaceShading(s, L, light.colorType.rgb * attenuation, visibility);
 }
 
 vec3 evaluateLights(ShadingData s, vec2 pixel, float viewDepth) {
     uint cluster = clusterIndex(pixel, viewDepth);
     uint base = cluster * CLUSTER_STRIDE;
     uint count = min(clusterLights[base], CLUSTER_STRIDE - 1u);
+    float noise = shadowNoise(pixel);
     vec3 color = vec3(0.0);
-    for (uint i = 0u; i < count; ++i) color += evaluatePunctual(s, lights[clusterLights[base + 1u + i]]);
+    for (uint i = 0u; i < count; ++i) color += evaluatePunctual(s, lights[clusterLights[base + 1u + i]], noise);
     return color;
 }
 
@@ -201,7 +208,7 @@ vec3 evaluateIBL(ShadingData s, vec4 ssr) {
     vec3 Fms = renderFlags.z > 0.5 ? FssEss * Favg / (1.0 - Ems * Favg) : vec3(0.0);
     vec3 specular = (FssEss * radiance + Fms * Ems * irradiance) * s.specularOcclusion;
     vec3 kD = s.diffuseColor * max(1.0 - FssEss - Fms * Ems, vec3(0.0));
-    vec3 diffuse = kD * irradiance * gtaoMultiBounce(s.occlusion, s.diffuseColor);
+    vec3 diffuse = kD * (irradiance * gtaoMultiBounce(s.occlusion, s.diffuseColor) + s.indirectDiffuse);
     vec3 color = diffuse + specular;
     if (max3(s.sheenColor) > 0.0) color = color * s.sheenScaling + s.sheenColor * prefilteredRadiance(s.R, s.sheenRoughness) * textureLod(u_dfgLut, vec2(s.NoV, s.sheenRoughness), 0.0).b * s.specularOcclusion;
     if (s.clearcoat > 0.0) {

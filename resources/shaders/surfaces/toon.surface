@@ -1,5 +1,7 @@
 void surface(in SurfaceInput i, inout Surface s) {
-    float rim = 1.0 - saturate(dot(i.viewDirection, s.normal));
-    s.emissive += s.baseColor * smoothstep(0.55, 0.7, rim) * 1500.0;
-    s.roughness = 0.9;
+    s.lightingModel = LIT_TOON;
+    s.toonBands = i.custom0.x > 0.0 ? i.custom0.x : 3.0;
+    s.toonRim = i.custom0.y > 0.0 ? i.custom0.y : 0.6;
+    s.toonRimWidth = i.custom0.z > 0.0 ? i.custom0.z : 0.3;
+    s.roughness = 0.35;
 }

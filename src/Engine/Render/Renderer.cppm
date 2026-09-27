@@ -31,7 +31,7 @@ export struct GpuEntityState {
 };
 
 export struct GpuPassTiming {
-    std::string_view name;
+    std::string name;
     double milliseconds = 0.0;
 };
 
@@ -62,6 +62,8 @@ export class Renderer {
     [[nodiscard]] CustomPasses& custom() { return m_custom; }
     [[nodiscard]] std::vector<std::string> surfaceNames() const;
     [[nodiscard]] std::string surfacePath(uint32_t id) const;
+    [[nodiscard]] std::string surfaceStatus(const std::string& name) const;
+    [[nodiscard]] std::vector<ShaderError> surfaceErrors() const;
     void addDebugLine(const glm::vec3& from, const glm::vec3& to, const glm::vec4& color, bool overlay = false);
     void uploadBasePositions(const std::vector<glm::vec3>& basePositions);
     void setAnimation(float time, uint32_t movingCount, uint32_t entityOffset);
@@ -98,10 +100,11 @@ export class Renderer {
     void rebindSurfaceResources();
     void uploadCascadeCull();
     void drawShadows(uint32_t objectCount);
+    void drawLocalShadows(uint32_t objectCount);
     void ensureShadowHiZ();
     void buildShadowHiZ(int cascade);
     void bindBackBuffer();
-    void drawSurfaces(int phaseIndex, int cascade);
+    void drawSurfaces(int phaseIndex, int cascade, uint32_t view = 0);
     void createDebugDepthPSO();
     void createDebugLinePSO();
     void createPipelines();
@@ -110,7 +113,7 @@ export class Renderer {
     void uploadDirtyHierarchies(SceneDatabase& sceneDatabase);
     [[nodiscard]] bool pipelinesReady() const;
     void cullVisibilityPhase(int phase, uint32_t objectCount, int hizFrame);
-    void buildVisibilityDraws(int phase);
+    void buildVisibilityDraws(int phase, uint32_t views = 1);
     void drawVisibilityPhase(int phase);
     void bindSceneTargets(bool clear);
     void buildHiZ();

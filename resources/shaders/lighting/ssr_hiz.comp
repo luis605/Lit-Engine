@@ -1,0 +1,30 @@
+#version 450
+
+layout(local_size_x = 8, local_size_y = 8, local_size_z = 1) in;
+
+#ifdef FIRST_LEVEL
+uniform sampler2D u_depth;
+#else
+layout(r32f) readonly uniform image2D u_sourceMip;
+#endif
+layout(r32f) writeonly uniform image2D u_dest;
+
+void main() {
+    ivec2 pixel = ivec2(gl_GlobalInvocationID.xy);
+    ivec2 size = imageSize(u_dest);
+    if (any(greaterThanEqual(pixel, size))) return;
+#ifdef FIRST_LEVEL
+    ivec2 last = textureSize(u_depth, 0) - 1;
+    ivec2 base = pixel * 2;
+    float z = min(min(texelFetch(u_depth, min(base, last), 0).r, texelFetch(u_depth, min(base + ivec2(1, 0), last), 0).r),
+                  min(texelFetch(u_depth, min(base + ivec2(0, 1), last), 0).r, texelFetch(u_depth, min(base + ivec2(1, 1), last), 0).r));
+#else
+    ivec2 last = imageSize(u_sourceMip) - 1;
+    ivec2 base = pixel * 2;
+    float z = min(min(imageLoad(u_sourceMip, min(base, last)).r, imageLoad(u_sourceMip, min(base + ivec2(1, 0), last)).r),
+                  min(imageLoad(u_sourceMip, min(base + ivec2(0, 1), last)).r, imageLoad(u_sourceMip, min(base + ivec2(1, 1), last)).r));
+    if (((size.x * 2) < imageSize(u_sourceMip).x) && pixel.x == size.x - 1) z = min(z, imageLoad(u_sourceMip, min(base + ivec2(2, 0), last)).r);
+    if (((size.y * 2) < imageSize(u_sourceMip).y) && pixel.y == size.y - 1) z = min(z, imageLoad(u_sourceMip, min(base + ivec2(0, 2), last)).r);
+#endif
+    imageStore(u_dest, pixel, vec4(z));
+}

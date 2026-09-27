@@ -65,7 +65,7 @@ void TransformTool::begin(EditorContext& ctx, ModalKind kind) {
     m_startMouse = ctx.mouse;
     m_accumulatedAngle = 0.0f;
     const std::optional<glm::vec2> screen = ctx.engine.worldToScreen(m_pivot);
-    m_pivotScreen = screen ? *screen : ctx.mouse;
+    m_pivotScreen = screen && std::isfinite(screen->x) && std::isfinite(screen->y) ? *screen : ctx.mouse;
     m_lastAngleVector = glm::normalize(ctx.mouse - m_pivotScreen + glm::vec2(1e-3f, 0.0f));
     const Ray ray = ctx.engine.screenRay(ctx.mouse.x, ctx.mouse.y);
     const glm::vec3 viewNormal = cameraForward(ctx.world.camera());
@@ -138,7 +138,7 @@ void TransformTool::apply(EditorContext& ctx) {
         if (glm::length(current) > 2.0f) {
             const glm::vec2 v = glm::normalize(current);
             const float step = std::atan2(m_lastAngleVector.x * v.y - m_lastAngleVector.y * v.x, glm::dot(m_lastAngleVector, v));
-            m_accumulatedAngle += step;
+            if (std::isfinite(step)) m_accumulatedAngle += step;
             m_lastAngleVector = v;
         }
         const glm::vec3 viewDir = cameraForward(ctx.world.camera());
@@ -277,13 +277,15 @@ void TransformTool::drawHandles(EditorContext& ctx) {
         return;
     }
     const glm::vec2 size = ctx.engine.windowSize();
-    ImGuizmo::SetOrthographic(false);
+    const Camera& camera = ctx.world.camera();
+    ImGuizmo::SetOrthographic(camera.isOrthographic());
     ImGuizmo::SetDrawlist(ImGui::GetBackgroundDrawList());
     ImGuizmo::SetRect(0.0f, 0.0f, size.x, size.y);
     ImGuizmo::AllowAxisFlip(false);
-    const Camera& camera = ctx.world.camera();
     const glm::mat4 view = camera.getViewMatrix();
-    const glm::mat4 projection = glm::perspective(glm::radians(camera.getFov()), size.x / std::max(size.y, 1.0f), camera.getNearPlane(), camera.getFarPlane());
+    const float aspect = size.x / std::max(size.y, 1.0f);
+    const float halfHeight = camera.getOrthoHeight() * 0.5f;
+    const glm::mat4 projection = camera.isOrthographic() ? glm::ortho(-halfHeight * aspect, halfHeight * aspect, -halfHeight, halfHeight, camera.getNearPlane(), camera.getFarPlane()) : glm::perspective(glm::radians(camera.getFov()), aspect, camera.getNearPlane(), camera.getFarPlane());
     glm::mat4 matrix = ctx.world.getWorldMatrix(primary);
     const ImGuizmo::OPERATION op = ctx.handles == HandleMode::Translate ? ImGuizmo::TRANSLATE : ctx.handles == HandleMode::Rotate ? ImGuizmo::ROTATE : ImGuizmo::SCALE;
     const ImGuizmo::MODE mode = ctx.localSpace || ctx.handles == HandleMode::Scale ? ImGuizmo::LOCAL : ImGuizmo::WORLD;

@@ -19,6 +19,8 @@
 
 layout(local_size_x = 256, local_size_y = 1, local_size_z = 1) in;
 
+const float SHADOW_LOD_SCALE = 0.5;
+
 layout(std140) uniform CullingUniforms {
     uint u_objectCount;
     uint u_maxDraws;
@@ -26,6 +28,7 @@ layout(std140) uniform CullingUniforms {
     float u_lodBias;
     int u_forcedLod;
     uint u_opaqueShaderCount;
+    uint u_bucketSlots;
 };
 
 layout(std430) buffer AtomicCounterBuffer {
@@ -49,6 +52,7 @@ layout(std140) uniform ShadowCull {
     vec4 shadowPlanes[6];
     vec4 shadowLod;
     mat4 shadowHizViewProj;
+    vec4 shadowOrigin;
 };
 
 uniform sampler2D u_shadowHiz;
@@ -89,14 +93,25 @@ layout(std430) writeonly buffer ShadowRetestBuffer {
 };
 #endif
 
-#ifdef CANDIDATE_INPUT
+#if defined(CANDIDATE_INPUT) || (defined(VISIBILITY_PASS) && !defined(RETEST))
 layout(std430) readonly buffer CandidateCounterBuffer {
     uint u_candidateCount;
 };
 
+#ifdef LOCAL_SHADOW
+layout(std430) readonly buffer CandidateBuffer {
+    uvec2 u_localCandidates[];
+};
+
+layout(std140) uniform LocalShadowViews {
+    vec4 localViewOrigins[24];
+    uvec4 localViewInfo;
+};
+#else
 layout(std430) readonly buffer CandidateBuffer {
     uint u_candidateIds[];
 };
+#endif
 #endif
 
 #ifdef VISIBILITY_PASS
@@ -107,6 +122,17 @@ layout(std430) buffer VisibilityBuffer {
 layout(std140) uniform CascadeCull {
     vec4 cascadePlanes[24];
     uvec4 cascadeCullInfo;
+    vec4 localSpheres[8];
+    vec4 localCones[8];
+    uvec4 localSlots[8];
+};
+
+layout(std430) buffer LocalCasterCounterBuffer {
+    uint u_localCasterCount;
+};
+
+layout(std430) writeonly buffer LocalCasterBuffer {
+    uvec2 u_localCasters[];
 };
 
 layout(std430) buffer CasterCounterBuffer {
@@ -127,6 +153,39 @@ uint cascadeMaskFor(vec3 center, float radius) {
             if (dot(plane.xyz, center) + plane.w < -radius) inside = false;
         }
         if (inside) mask |= 1u << c;
+    }
+    return mask;
+}
+
+uint localMaskFor(vec3 center, float radius) {
+    uint mask = 0u;
+    for (uint i = 0u; i < cascadeCullInfo.y; ++i) {
+        vec4 sphere = localSpheres[i];
+        vec3 d = center - sphere.xyz;
+        float dist2 = dot(d, d);
+        float reach = sphere.w + radius;
+        if (dist2 > reach * reach) continue;
+        uvec4 slot = localSlots[i];
+        vec4 cone = localCones[i];
+        if (slot.z != 0u) {
+            float along = dot(d, cone.xyz);
+            float across = sqrt(max(dist2 - along * along, 0.0));
+            float sinA = sqrt(max(1.0 - cone.w * cone.w, 0.0));
+            if (along < -radius || cone.w * across - sinA * along > radius) continue;
+            mask |= (slot.y & 1u) << slot.x;
+        } else {
+            float t = cone.w;
+            float k = inversesqrt(1.0 + t * t);
+            vec3 a = abs(d);
+            uint faces = 0u;
+            if ((t * d.x - a.y) * k >= -radius && (t * d.x - a.z) * k >= -radius) faces |= 1u;
+            if ((-t * d.x - a.y) * k >= -radius && (-t * d.x - a.z) * k >= -radius) faces |= 2u;
+            if ((t * d.y - a.x) * k >= -radius && (t * d.y - a.z) * k >= -radius) faces |= 4u;
+            if ((-t * d.y - a.x) * k >= -radius && (-t * d.y - a.z) * k >= -radius) faces |= 8u;
+            if ((t * d.z - a.x) * k >= -radius && (t * d.z - a.y) * k >= -radius) faces |= 16u;
+            if ((-t * d.z - a.x) * k >= -radius && (-t * d.z - a.y) * k >= -radius) faces |= 32u;
+            mask |= (faces & slot.y) << slot.x;
+        }
     }
     return mask;
 }
@@ -167,9 +226,10 @@ uint selectLod(float radius, float dist) {
 #endif
 }
 
-uint cullObject(uint id, out uvec2 entry, out uint cascades) {
+uint cullObject(uint id, out uvec2 entry, out uint cascades, out uint localMask) {
     entry = uvec2(0u);
     cascades = 0u;
+    localMask = 0u;
 
     vec4 boundingSphere = cullSpheres[id];
     if (boundingSphere.w < 0.0) return CULLED;
@@ -177,6 +237,7 @@ uint cullObject(uint id, out uvec2 entry, out uint cascades) {
     float radius = boundingSphere.w;
 #ifdef VISIBILITY_PASS
     if (cascadeCullInfo.x != 0u) cascades = cascadeMaskFor(worldCenter, radius);
+    if (cascadeCullInfo.y != 0u) localMask = localMaskFor(worldCenter, radius);
 #endif
 #ifdef SHADOW
     if (shadowOccluded(worldCenter, radius)) return OCCLUDED;
@@ -188,21 +249,25 @@ uint cullObject(uint id, out uvec2 entry, out uint cascades) {
     }
     float dist = max(-(view * vec4(worldCenter, 1.0)).z, 0.001);
     if (radius / dist < u_smallObjectThreshold) inFrustum = false;
-    if (!inFrustum && cascades == 0u) return CULLED;
+    if (!inFrustum && cascades == 0u && localMask == 0u) return CULLED;
     bool occluded = inFrustum && sphereOccluded(worldCenter, radius);
-    if (occluded && cascades == 0u) return OCCLUDED;
+    if (occluded && cascades == 0u && localMask == 0u) return OCCLUDED;
 #endif
 
     uint renderable = renderables[id];
     uint material = renderableMaterial(renderable);
     bool translucent = (renderableFlags(renderable) & RENDER_TRANSLUCENT) != 0u || materialTranslucent(material);
     uint bucketShader = renderableShader(renderable);
-    if (bucketShader >= u_opaqueShaderCount || translucent) cascades = 0u;
+    if (bucketShader >= u_opaqueShaderCount || translucent) {
+        cascades = 0u;
+        localMask = 0u;
+    }
     if (bucketShader >= u_opaqueShaderCount) return CULLED;
 
 #ifdef SHADOW
     if (translucent) return CULLED;
-    uint chosenLod = u_forcedLod >= 0 ? min(uint(u_forcedLod), POINT_LOD) : lodForDiameter(2.0 * radius * shadowLod.x * u_lodBias);
+    float texelsPerUnit = shadowOrigin.w > 0.5 ? shadowLod.x / max(distance(worldCenter, shadowOrigin.xyz), radius) : shadowLod.x;
+    uint chosenLod = u_forcedLod >= 0 ? min(uint(u_forcedLod), POINT_LOD) : lodForDiameter(2.0 * radius * texelsPerUnit * u_lodBias * SHADOW_LOD_SCALE);
 #else
     if (!inFrustum) return CULLED;
     if (occluded) return OCCLUDED;
@@ -216,7 +281,7 @@ uint cullObject(uint id, out uvec2 entry, out uint cascades) {
 #endif
     uint chosenLod = selectLod(radius, dist);
 #endif
-    uint bucketIndex = bucketShader * MAX_MESHES + renderableMesh(renderable) + chosenLod;
+    uint bucketIndex = bucketShader * u_bucketSlots + renderableMesh(renderable) + chosenLod;
     entry = uvec2(id | (chosenLod << 29u), bucketIndex | (material << 16u));
 #ifdef RETEST
     if (noOccluder) return VISIBLE_TRANSIENT;
@@ -226,6 +291,7 @@ uint cullObject(uint id, out uvec2 entry, out uint cascades) {
 
 void appendVisible(bool visible, uvec2 entry) {
     uvec4 visibleBallot = subgroupBallot(visible);
+    if (subgroupBallotBitCount(visibleBallot) == 0u) return;
     uint slotBase = 0u;
     if (subgroupElect()) slotBase = atomicAdd(u_atomicCounter, subgroupBallotBitCount(visibleBallot));
     uint slot = subgroupBroadcastFirst(slotBase) + subgroupBallotExclusiveBitCount(visibleBallot);
@@ -246,16 +312,27 @@ void appendVisible(bool visible, uvec2 entry) {
 #ifdef VISIBILITY_PASS
 void appendCaster(bool caster, uint value) {
     uvec4 ballot = subgroupBallot(caster);
+    if (subgroupBallotBitCount(ballot) == 0u) return;
     uint slotBase = 0u;
     if (subgroupElect()) slotBase = atomicAdd(u_casterCount, subgroupBallotBitCount(ballot));
     uint slot = subgroupBroadcastFirst(slotBase) + subgroupBallotExclusiveBitCount(ballot);
     if (caster && slot < u_maxDraws) u_casters[slot] = value;
+}
+
+void appendLocalCaster(bool caster, uvec2 value) {
+    uvec4 ballot = subgroupBallot(caster);
+    if (subgroupBallotBitCount(ballot) == 0u) return;
+    uint slotBase = 0u;
+    if (subgroupElect()) slotBase = atomicAdd(u_localCasterCount, subgroupBallotBitCount(ballot));
+    uint slot = subgroupBroadcastFirst(slotBase) + subgroupBallotExclusiveBitCount(ballot);
+    if (caster && slot < u_maxDraws) u_localCasters[slot] = value;
 }
 #endif
 
 #ifdef SHADOW_RETEST_OUTPUT
 void appendShadowRetest(bool occluded, uint id) {
     uvec4 ballot = subgroupBallot(occluded);
+    if (subgroupBallotBitCount(ballot) == 0u) return;
     uint slotBase = 0u;
     if (subgroupElect()) slotBase = atomicAdd(u_shadowRetestCount, subgroupBallotBitCount(ballot));
     uint slot = subgroupBroadcastFirst(slotBase) + subgroupBallotExclusiveBitCount(ballot);
@@ -266,6 +343,7 @@ void appendShadowRetest(bool occluded, uint id) {
 #ifdef TRANSPARENT_OUTPUT
 void appendTransparent(bool transparent, uint id) {
     uvec4 ballot = subgroupBallot(transparent);
+    if (subgroupBallotBitCount(ballot) == 0u) return;
     uint slotBase = 0u;
     if (subgroupElect()) slotBase = atomicAdd(u_transparentCount, subgroupBallotBitCount(ballot));
     uint slot = subgroupBroadcastFirst(slotBase) + subgroupBallotExclusiveBitCount(ballot);
@@ -273,6 +351,33 @@ void appendTransparent(bool transparent, uint id) {
 }
 #endif
 
+#ifdef LOCAL_SHADOW
+void main() {
+    uint index = gl_GlobalInvocationID.x;
+    bool inRange = index < min(u_candidateCount, u_maxDraws);
+    uvec2 candidate = inRange ? u_localCandidates[index] : uvec2(0u);
+    uint id = candidate.x;
+    uint views = (candidate.y >> localViewInfo.x) & ((1u << localViewInfo.y) - 1u);
+    vec4 sphere = vec4(0.0, 0.0, 0.0, 1.0);
+    uint bucket = 0u;
+    uint material = 0u;
+    if (views != 0u) {
+        sphere = cullSpheres[id];
+        uint renderable = renderables[id];
+        material = renderableMaterial(renderable);
+        uint shader = renderableShader(renderable);
+        bool translucent = (renderableFlags(renderable) & RENDER_TRANSLUCENT) != 0u || materialTranslucent(material);
+        if (sphere.w < 0.0 || translucent || shader >= u_opaqueShaderCount) views = 0u;
+        bucket = shader * u_bucketSlots + renderableMesh(renderable);
+    }
+    for (uint v = 0u; v < localViewInfo.y; ++v) {
+        vec4 origin = localViewOrigins[v];
+        float texelsPerUnit = origin.w / max(distance(sphere.xyz, origin.xyz), sphere.w);
+        uint lod = u_forcedLod >= 0 ? min(uint(u_forcedLod), POINT_LOD) : lodForDiameter(2.0 * sphere.w * texelsPerUnit * u_lodBias * SHADOW_LOD_SCALE);
+        appendVisible(((views >> v) & 1u) != 0u, uvec2(id | (lod << 29u), (v * localViewInfo.z + bucket + lod) | (material << 16u)));
+    }
+}
+#else
 void main() {
 #ifdef CANDIDATE_INPUT
     uint index = gl_GlobalInvocationID.x;
@@ -283,19 +388,21 @@ void main() {
     id &= CASTER_ID_MASK;
 #endif
 #else
-    uint id = gl_GlobalInvocationID.x;
-    bool inRange = id < u_objectCount;
-    uint bit = 1u << (id & 31u);
-    bool wasVisible = inRange && (visibilityBits[id >> 5u] & bit) != 0u;
 #ifdef RETEST
-    bool process = inRange && !wasVisible;
+    uint id = gl_GlobalInvocationID.x;
+    uint bit = 1u << (id & 31u);
+    bool process = id < u_objectCount && (visibilityBits[id >> 5u] & bit) == 0u;
 #else
-    bool process = wasVisible;
+    uint index = gl_GlobalInvocationID.x;
+    bool process = index < min(u_candidateCount, u_maxDraws);
+    uint id = process ? u_candidateIds[index] : 0u;
+    uint bit = 1u << (id & 31u);
 #endif
 #endif
     uvec2 entry;
     uint cascades = 0u;
-    uint result = process ? cullObject(id, entry, cascades) : CULLED;
+    uint localMask = 0u;
+    uint result = process ? cullObject(id, entry, cascades, localMask) : CULLED;
 #ifdef RETEST
     appendVisible(result == VISIBLE || result == VISIBLE_TRANSIENT, entry);
     if (result == VISIBLE) atomicOr(visibilityBits[id >> 5u], bit);
@@ -307,8 +414,10 @@ void main() {
 #endif
 #ifdef RETEST
     appendCaster(cascades != 0u, id | (cascades << 28u));
+    appendLocalCaster(localMask != 0u, uvec2(id, localMask));
 #elif defined(VISIBILITY_PASS)
     appendCaster(cascades != 0u && result == VISIBLE, id | (cascades << 28u));
+    appendLocalCaster(localMask != 0u && result == VISIBLE, uvec2(id, localMask));
 #endif
 #ifdef TRANSPARENT_OUTPUT
     appendTransparent(result == TRANSPARENT_CANDIDATE, id);
@@ -317,3 +426,4 @@ void main() {
     appendShadowRetest(result == OCCLUDED, id);
 #endif
 }
+#endif

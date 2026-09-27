@@ -111,7 +111,7 @@ auto near = world.overlapSphere(center, 5.0f);
 auto picked = engine.pick(mouseX, mouseY);
 ```
 
-The spatial grid is built on the first query and updated incrementally afterwards.
+The spatial grid is built on the first query and updated incrementally afterwards; large batches (moving a parent with millions of descendants) are recomputed and re-bucketed in parallel. `world.camera().setOrthographic(true)` with `setOrthoHeight(h)` switches the view to an orthographic projection; `screenRay`, picking and `queryFrustum` follow it.
 
 ## Events and debug drawing
 

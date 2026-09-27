@@ -1,5 +1,7 @@
 module;
 
+#include <optional>
+
 #include <cstdint>
 #include <string>
 #include <vector>
@@ -14,6 +16,8 @@ export class Inspector {
   public:
     void draw(EditorContext& ctx);
     void focusName() { m_focusName = true; }
+    void dock() { m_dock = true; }
+    [[nodiscard]] const std::string& sections() const { return m_sections; }
 
   private:
     struct Snapshot {
@@ -25,7 +29,8 @@ export class Inspector {
     void drawTransform(EditorContext& ctx, EntityHandle e);
     void drawRender(EditorContext& ctx, EntityHandle e);
     void drawMaterial(EditorContext& ctx, uint32_t id);
-    void drawComponents(EditorContext& ctx, EntityHandle e);
+    void drawComponents(EditorContext& ctx, EntityHandle e, bool expand);
+    glm::vec2 placeCard(EditorContext& ctx, EntityHandle e, float width, float height);
     void beginTransformEdit(EditorContext& ctx);
     void endTransformEdit(EditorContext& ctx, const char* label);
 
@@ -42,4 +47,9 @@ export class Inspector {
     std::string m_componentEditing;
     std::string m_materialFilter;
     bool m_materialDirty = false;
+    bool m_dock = false;
+    int m_side = 1;
+    glm::vec2 m_lastTarget{-1.0f};
+    std::optional<glm::vec2> m_leader;
+    std::string m_sections;
 };

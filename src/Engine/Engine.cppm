@@ -108,6 +108,9 @@ export class Engine {
     [[nodiscard]] size_t materialCount() const { return m_materials.size(); }
     [[nodiscard]] std::vector<std::string> shaderNames() const { return m_renderer.surfaceNames(); }
     uint32_t loadShader(const std::string& name, const std::string& path = {});
+    [[nodiscard]] std::string shaderStatus(const std::string& name) const { return m_renderer.surfaceStatus(name); }
+    [[nodiscard]] std::vector<ShaderError> shaderErrors() const { return m_renderer.surfaceErrors(); }
+    [[nodiscard]] std::vector<ShaderError> takeShaderErrors() { return ::takeShaderErrors(); }
     int loadTexture(const std::string& path, bool srgb = true);
     [[nodiscard]] RenderSettings& renderSettings() { return m_renderer.settings(); }
     uint32_t addCompute(const ComputeDesc& desc) { return m_renderer.custom().addCompute(desc); }
@@ -117,6 +120,8 @@ export class Engine {
     void setShaderBuffer(const std::string& name, const std::vector<T>& data) { m_renderer.custom().setBuffer(name, sizeof(T), static_cast<uint32_t>(data.size()), data.data()); }
     void setShaderBuffer(const std::string& name, uint32_t stride, uint32_t count, const void* data = nullptr) { m_renderer.custom().setBuffer(name, stride, count, data); }
     [[nodiscard]] std::vector<uint8_t> readShaderBuffer(const std::string& name) { return m_renderer.custom().readBuffer(name); }
+    bool createShaderTexture(const std::string& name, int width, int height, ShaderTextureFormat format = ShaderTextureFormat::RGBA16F) { return m_renderer.custom().createTexture(name, width, height, format); }
+    bool loadShaderTexture(const std::string& name, const std::string& path, bool srgb = true) { return m_renderer.custom().loadTexture(name, path, srgb); }
     void setPassParam(PassKind kind, uint32_t id, int index, const glm::vec4& value) { m_renderer.custom().setParam(kind, id, index, value); }
     void setPassEnabled(PassKind kind, uint32_t id, bool enabled) { m_renderer.custom().setEnabled(kind, id, enabled); }
     [[nodiscard]] std::vector<PassInfo> customPasses() const { return const_cast<Renderer&>(m_renderer).custom().passes(); }

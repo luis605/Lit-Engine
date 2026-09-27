@@ -1,0 +1,21 @@
+# Run on the stress scene with LIT_SEED=1: a plain click selects one entity, new objects land in view, shader.new creates its file.
+frames 30
+run create.cube
+frames 2
+expect selection 1
+expect onscreen 1
+move 50% 50%
+frames 5
+click left 50% 50%
+frames 5
+expect selection 1
+run shader.new
+frames 3
+text resources/autopilot/click_new.surface
+frames 2
+key Enter
+frames 6
+expect file:resources/autopilot/click_new.surface 1
+expect shader:click_new ok
+expect toasts:error 0
+quit

@@ -21,6 +21,7 @@ export class Autopilot {
     std::function<void(const std::string&)> saveScene;
     std::function<void(const std::string&)> loadScene;
     std::function<bool(const std::string&, float)> editMaterial;
+    void* window = nullptr;
 
   private:
     struct Step {
@@ -40,6 +41,8 @@ export class Autopilot {
     std::vector<int> m_releaseKeys;
     bool m_releaseMouse[3] = {false, false, false};
     int m_holdFrames = 0;
+    bool m_mouseSet = false;
+    float m_mouse[2] = {0.0f, 0.0f};
     int m_measureFrames = 0;
     float m_measureBudget = 0.0f;
     std::string m_measureLabel;
