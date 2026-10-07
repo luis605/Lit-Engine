@@ -26,6 +26,7 @@ import Engine.World;
 import Engine.History;
 import Engine.Render.settings;
 import Engine.Render.custom;
+import Engine.Params;
 
 namespace {
 
@@ -103,6 +104,12 @@ void Autopilot::beforeFrame(EditorContext& ctx, CommandRegistry& commands, float
         pinMouse();
     };
     pinMouse();
+    if (m_captureLeft > 0) {
+        if (m_captureTick++ % m_captureEvery == 0) {
+            ctx.engine.requestScreenshot(std::format("{}_{:04}.png", m_capturePrefix, m_captureIndex++));
+            --m_captureLeft;
+        }
+    }
     if (m_measureFrames > 0) {
         m_measureSamples.push_back(dt * 1000.0f);
         if (--m_measureFrames > 0) return;
@@ -277,6 +284,43 @@ void Autopilot::beforeFrame(EditorContext& ctx, CommandRegistry& commands, float
             m_waitFrames = 2;
             return;
         }
+        if (step.verb == "capture") {
+            m_capturePrefix = arg(0, "resources/capture");
+            m_captureLeft = std::max(1, static_cast<int>(num(1, 1.0f)));
+            m_captureEvery = std::max(1, static_cast<int>(num(2, 1.0f)));
+            m_captureTick = 0;
+            m_captureIndex = 0;
+            m_waitFrames = m_captureLeft * m_captureEvery + 2;
+            return;
+        }
+        if (step.verb == "dump") {
+            if (!ctx.engine.writeStateDump(arg(0, "resources/state.json"))) {
+                Lit::Log::Error("Autopilot line {}: cannot write state dump '{}'", step.line, arg(0));
+                ++m_failures;
+            }
+            continue;
+        }
+        if (step.verb == "perf") {
+            if (arg(0) == "off") ctx.engine.disablePerfLog();
+            else ctx.engine.enablePerfLog(arg(0, "resources/perf.csv"));
+            continue;
+        }
+        if (step.verb == "record") {
+            if (arg(0) == "off") ctx.engine.stopRecording();
+            else ctx.engine.startRecording(arg(0, "resources/session.replay"));
+            continue;
+        }
+        if (step.verb == "replay") {
+            if (!ctx.engine.startReplay(arg(0, "resources/session.replay"))) {
+                Lit::Log::Error("Autopilot line {}: cannot replay '{}'", step.line, arg(0));
+                ++m_failures;
+            }
+            continue;
+        }
+        if (step.verb == "param") {
+            ctx.engine.params().set(arg(0), num(1));
+            continue;
+        }
         if (step.verb == "log") {
             Lit::Log::Info("[autopilot] {}", arg(0));
             continue;
@@ -291,6 +335,7 @@ void Autopilot::beforeFrame(EditorContext& ctx, CommandRegistry& commands, float
             if (what == "mode") actual = ctx.modeLabel;
             if (what == "playing") actual = ctx.playing ? "1" : "0";
             if (what == "name") actual = ctx.world.isAlive(ctx.primary()) ? ctx.world.getName(ctx.primary()) : "";
+            if (what.rfind("param:", 0) == 0) actual = std::format("{:.3f}", ctx.engine.params().get(what.substr(6)));
             if (what.rfind("setting:", 0) == 0) actual = renderSettingValue(ctx.engine.renderSettings(), what.substr(8));
             if (actual.empty() && query) actual = query(what);
             std::string expected = arg(1);

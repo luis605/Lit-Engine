@@ -46,16 +46,13 @@ vec3 applyHeightFog(vec3 color, vec3 worldPos, vec3 skyColor) {
     return mix(color, skyColor, saturate(fogAmount));
 }
 
-void upsampleHalf(ivec2 pixel, float centerDepth, vec3 centerN, bool withSsr, out vec4 ao, out vec4 ssr) {
+vec4 upsampleHalf(ivec2 pixel, float centerDepth) {
     ivec2 halfSize = textureSize(u_aoDepth, 0);
     vec2 position = vec2(pixel) * 0.5;
     ivec2 base = ivec2(floor(position));
     vec2 f = position - vec2(base);
-    ao = vec4(0.0);
-    ssr = vec4(0.0);
+    vec4 ao = vec4(0.0);
     float total = 0.0;
-    float ssrTotal = 0.0;
-    ivec2 fullLast = ivec2(screenParams.xy) - 1;
     float tolerance = max(centerDepth * 0.03, 1e-3);
     for (int i = 0; i < 4; ++i) {
         ivec2 offset = ivec2(i & 1, i >> 1);
@@ -64,14 +61,8 @@ void upsampleHalf(ivec2 pixel, float centerDepth, vec3 centerN, bool withSsr, ou
         float w = (bilinear + 1e-3) * exp(-abs(texelFetch(u_aoDepth, p, 0).r - centerDepth) / tolerance);
         ao += texelFetch(u_ao, p, 0) * w;
         total += w;
-        if (withSsr) {
-            float nw = pow(saturate(dot(centerN, decodeNormal(texelFetch(u_gbuffer1, min(p * 2, fullLast), 0).rg))), 16.0);
-            ssr += texelFetch(u_ssr, p, 0) * (w * nw + 1e-6);
-            ssrTotal += w * nw + 1e-6;
-        }
     }
-    ao /= max(total, 1e-6);
-    ssr /= max(ssrTotal, 1e-6);
+    return ao / max(total, 1e-6);
 }
 
 void main() {
@@ -105,9 +96,8 @@ void main() {
     uint materialId = g2.z | (g2.w << 8u);
     float viewDepth = -(view * vec4(worldPos, 1.0)).z;
     vec4 aoGi = vec4(0.0, 0.0, 0.0, 1.0);
-    vec4 ssr = vec4(0.0);
-    if (renderFlags.x > 0.5 || renderFlags.y > 0.5) upsampleHalf(pixel, viewDepth, decodeNormal(g1.rg), renderFlags.y > 0.5, aoGi, ssr);
-    if (renderFlags.x < 0.5) aoGi = vec4(0.0, 0.0, 0.0, 1.0);
+    if (renderFlags.x > 0.5) aoGi = upsampleHalf(pixel, viewDepth);
+    vec4 ssr = renderFlags.y > 0.5 ? texelFetch(u_ssr, pixel, 0) : vec4(0.0);
     float ao = aoGi.a;
     float occlusion = g0.a * ao;
     ShadingData s = prepareShading(worldPos, N, g0.rgb, metallic, roughness, occlusion, tangentAngle, materialId);

@@ -107,9 +107,13 @@ void LookPanel::draw(EditorContext& ctx, LookState& state) {
             ImGui::Checkbox("Clouds", &r.clouds);
             ImGui::SliderFloat("Coverage", &r.cloudCoverage, 0.0f, 1.0f);
             ImGui::SliderFloat("Density", &r.cloudDensity, 0.0f, 3.0f);
-            ImGui::SliderFloat("Wind", &r.cloudSpeed, 0.0f, 80.0f, "%.1f m/s");
+            ImGui::SliderFloat("Wind", &r.cloudSpeed, 0.0f, 200.0f, "%.1f m/s");
             ImGui::DragFloat("Altitude", &r.cloudAltitude, 10.0f, 200.0f, 12000.0f, "%.0f m");
             ImGui::Checkbox("Stars at night", &r.stars);
+            ImGui::Checkbox("Moon", &r.moon);
+            ImGui::SliderFloat("Moonlight", &r.moonIlluminance, 0.0f, 10.0f, "%.2f lux");
+            ImGui::Checkbox("God rays", &r.godRays);
+            ImGui::SliderFloat("God ray intensity", &r.godRayIntensity, 0.0f, 4.0f);
             ImGui::TreePop();
         }
         if (r.sky == SkyMode::Gradient) {
@@ -124,7 +128,7 @@ void LookPanel::draw(EditorContext& ctx, LookState& state) {
             ImGui::SliderFloat("Rotation", &r.hdriRotation, 0.0f, 360.0f, "%.0f°");
         }
         ImGui::SliderFloat("Environment light", &r.environmentIntensity, 0.0f, 4.0f);
-        ImGui::SliderFloat("Sky brightness", &r.skyBrightness, 0.0f, 4.0f);
+        ImGui::SliderFloat("Sky brightness", &r.skyBrightness, 0.0f, 16.0f);
     }
     if (ImGui::CollapsingHeader("Camera and exposure", ImGuiTreeNodeFlags_DefaultOpen)) {
         ImGui::Checkbox("Auto exposure", &r.autoExposure);
@@ -179,7 +183,6 @@ void LookPanel::draw(EditorContext& ctx, LookState& state) {
         ImGui::SliderFloat("Softness", &r.shadowSoftness, 0.1f, 6.0f);
         ImGui::SliderFloat("Normal bias", &r.shadowNormalBias, 0.0f, 5.0f);
         ImGui::SliderFloat("Depth bias", &r.shadowDepthBias, 0.0f, 5.0f);
-        ImGui::Checkbox("Stagger far cascades", &r.staggerCascades);
     }
     if (ImGui::CollapsingHeader("Screen space")) {
         ImGui::Checkbox("Ground-truth AO", &r.ssao);
@@ -270,7 +273,7 @@ void LookPanel::drawWorld(EditorContext& ctx) {
         ImGui::SliderFloat("Time of day", &r.timeOfDay, 0.0f, 24.0f, "%.2f h");
         ImGui::SliderFloat("Sun azimuth", &r.sunAzimuth, 0.0f, 360.0f, "%.0f°");
         ImGui::DragFloat("Sun", &r.sunIlluminance, 500.0f, 0.0f, 200000.0f, "%.0f lux");
-        ImGui::SliderFloat("Sky brightness", &r.skyBrightness, 0.0f, 4.0f, "%.2f");
+        ImGui::SliderFloat("Sky brightness", &r.skyBrightness, 0.0f, 16.0f, "%.2f");
         if (r.sky == SkyMode::Physical) {
             ImGui::Checkbox("Clouds", &r.clouds);
             if (r.clouds) {

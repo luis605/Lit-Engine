@@ -1,0 +1,3 @@
+cpu_ms p95 1000
+sim_ms max 1000
+gpu_ms max 1000

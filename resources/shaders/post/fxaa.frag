@@ -24,7 +24,7 @@ void main() {
     float rangeMax = max(lumaM, max(max(lumaN, lumaS), max(lumaE, lumaW)));
     float rangeMin = min(lumaM, min(min(lumaN, lumaS), min(lumaE, lumaW)));
     float range = rangeMax - rangeMin;
-    if (range < max(0.0312, rangeMax * 0.125)) {
+    if (range < max(0.0078, rangeMax * 0.063)) {
         out_color = vec4(center.rgb, 1.0);
         return;
     }
@@ -59,8 +59,8 @@ void main() {
     float lumaEnd2 = lumaAt(uv2) - lumaLocalAverage;
     bool reached1 = abs(lumaEnd1) >= gradientScaled;
     bool reached2 = abs(lumaEnd2) >= gradientScaled;
-    const float quality[12] = float[](1.0, 1.0, 1.0, 1.0, 1.0, 1.5, 2.0, 2.0, 2.0, 2.0, 4.0, 8.0);
-    for (int i = 2; i < 12 && !(reached1 && reached2); ++i) {
+    const float quality[16] = float[](1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.5, 1.5, 2.0, 2.0, 2.0, 2.0, 4.0, 4.0, 8.0);
+    for (int i = 2; i < 16 && !(reached1 && reached2); ++i) {
         if (!reached1) {
             uv1 -= offset * quality[i];
             lumaEnd1 = lumaAt(uv1) - lumaLocalAverage;
@@ -84,7 +84,7 @@ void main() {
     float lumaAverage = (1.0 / 12.0) * (2.0 * (lumaN + lumaS + lumaE + lumaW) + lumaNW + lumaNE + lumaSW + lumaSE);
     float subPixelOffset1 = saturate(abs(lumaAverage - lumaM) / range);
     float subPixelOffset2 = (-2.0 * subPixelOffset1 + 3.0) * subPixelOffset1 * subPixelOffset1;
-    float subPixelOffsetFinal = subPixelOffset2 * subPixelOffset2 * 0.75;
+    float subPixelOffsetFinal = subPixelOffset2 * subPixelOffset2 * 1.0;
     finalOffset = max(finalOffset, subPixelOffsetFinal);
     vec2 finalUv = uv;
     if (horizontal) finalUv.y += finalOffset * stepLength;

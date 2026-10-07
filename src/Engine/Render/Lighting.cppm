@@ -61,6 +61,10 @@ export struct SceneUniforms {
     glm::vec4 localShadowParams;
     glm::vec4 localShadowParams2;
     glm::vec4 giParams;
+    glm::vec4 moonDirection;
+    glm::vec4 celestialParams;
+    glm::vec4 cloudParams;
+    glm::vec4 skyParams3;
 };
 
 export struct GpuLight {
@@ -90,7 +94,6 @@ export constexpr int kShadowLayers = 6;
 
 export struct Cascade {
     glm::mat4 viewProjection{1.0f};
-    glm::mat4 targetViewProjection{1.0f};
     glm::mat4 renderViewProjection{1.0f};
     glm::vec4 planes[6]{};
     int viewport[4]{};
@@ -98,12 +101,8 @@ export struct Cascade {
     float texelsPerUnit = 1.0f;
     float texelWorld = 1.0f;
     float depthRange = 1.0f;
-    float targetTexelWorld = 1.0f;
-    float targetDepthRange = 1.0f;
     int layer = 0;
     int renderLayer = 0;
-    int strip = 0;
-    int strips = 1;
     bool due = true;
     bool clear = true;
     bool valid = false;
@@ -172,6 +171,7 @@ export class Lighting {
     [[nodiscard]] Diligent::ITexture* localShadowMap() const;
     [[nodiscard]] Diligent::ITextureView* localShadowTarget(int view) const;
     void prepare(Diligent::IBuffer* sceneUniforms);
+    void cullLights(Diligent::IBuffer* sceneUniforms);
     void shade(Diligent::ITexture* depth, Diligent::IBuffer* sceneUniforms, int stage = -1);
     void captureSceneColor();
     void finish(Diligent::IBuffer* sceneUniforms, Diligent::ITextureView* backBuffer, float deltaTime, const std::function<void(Diligent::ITexture*)>& afterTonemap = {});

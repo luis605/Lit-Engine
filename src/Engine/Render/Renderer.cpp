@@ -68,6 +68,7 @@ import Engine.Render.lighting;
 import Engine.Render.custom;
 import Engine.Render.settings;
 import Engine.Render.material;
+import Engine.Portal.view;
 
 namespace {
 struct DrawElementsIndirectCommand {
@@ -268,10 +269,14 @@ Diligent::Uint32 SelectFastestAdapter(Diligent::IEngineFactory* pFactory, Dilige
 
     auto rank = [](const Diligent::GraphicsAdapterInfo& adapter) {
         switch (adapter.Type) {
-            case Diligent::ADAPTER_TYPE_DISCRETE: return 3;
-            case Diligent::ADAPTER_TYPE_INTEGRATED: return 2;
-            case Diligent::ADAPTER_TYPE_SOFTWARE: return 0;
-            default: return 1;
+            case Diligent::ADAPTER_TYPE_DISCRETE:
+                return 3;
+            case Diligent::ADAPTER_TYPE_INTEGRATED:
+                return 2;
+            case Diligent::ADAPTER_TYPE_SOFTWARE:
+                return 0;
+            default:
+                return 1;
         }
     };
     const auto best = std::ranges::max_element(adapters, {}, rank);
@@ -302,10 +307,14 @@ struct NamedBuffer {
 Diligent::IDeviceObject* BufferResourceFor(Diligent::IBuffer* pBuffer, Diligent::SHADER_RESOURCE_TYPE type) {
     if (!pBuffer) return nullptr;
     switch (type) {
-        case Diligent::SHADER_RESOURCE_TYPE_CONSTANT_BUFFER: return pBuffer;
-        case Diligent::SHADER_RESOURCE_TYPE_BUFFER_SRV: return pBuffer->GetDefaultView(Diligent::BUFFER_VIEW_SHADER_RESOURCE);
-        case Diligent::SHADER_RESOURCE_TYPE_BUFFER_UAV: return pBuffer->GetDefaultView(Diligent::BUFFER_VIEW_UNORDERED_ACCESS);
-        default: return nullptr;
+        case Diligent::SHADER_RESOURCE_TYPE_CONSTANT_BUFFER:
+            return pBuffer;
+        case Diligent::SHADER_RESOURCE_TYPE_BUFFER_SRV:
+            return pBuffer->GetDefaultView(Diligent::BUFFER_VIEW_SHADER_RESOURCE);
+        case Diligent::SHADER_RESOURCE_TYPE_BUFFER_UAV:
+            return pBuffer->GetDefaultView(Diligent::BUFFER_VIEW_UNORDERED_ACCESS);
+        default:
+            return nullptr;
     }
 }
 
@@ -372,8 +381,14 @@ Diligent::RefCntAutoPtr<Diligent::IShader> CompileShader(Diligent::IRenderDevice
 
 bool AllShadersCompile(Diligent::IRenderDevice* pDevice) {
     const char* computeShaders[] = {"transform.comp", "apply_dirty.comp", "prefix_sum.comp", "scatter.comp", "command_gen.comp", "dispatch_args.comp", "hiz_from_depth.comp", "hiz_mipmap.comp"};
-    const std::pair<const char*, Diligent::SHADER_TYPE> graphicsShaders[] = {{"fullscreen.vert", Diligent::SHADER_TYPE_VERTEX}, {"transparent_composite.frag", Diligent::SHADER_TYPE_PIXEL}, {"debug_depth.vert", Diligent::SHADER_TYPE_VERTEX},
-                                                                             {"debug_depth.frag", Diligent::SHADER_TYPE_PIXEL}, {"debug_line.vert", Diligent::SHADER_TYPE_VERTEX}, {"debug_line.frag", Diligent::SHADER_TYPE_PIXEL}};
+    const std::pair<const char*, Diligent::SHADER_TYPE> graphicsShaders[] = {
+        {"fullscreen.vert",            Diligent::SHADER_TYPE_VERTEX},
+        {"transparent_composite.frag", Diligent::SHADER_TYPE_PIXEL },
+        {"debug_depth.vert",           Diligent::SHADER_TYPE_VERTEX},
+        {"debug_depth.frag",           Diligent::SHADER_TYPE_PIXEL },
+        {"debug_line.vert",            Diligent::SHADER_TYPE_VERTEX},
+        {"debug_line.frag",            Diligent::SHADER_TYPE_PIXEL }
+    };
     bool allCompile = true;
     for (const char* name : computeShaders) allCompile &= litgpu::compileFile(pDevice, std::string("resources/shaders/") + name, Diligent::SHADER_TYPE_COMPUTE) != nullptr;
     for (const auto& [name, type] : graphicsShaders) allCompile &= litgpu::compileFile(pDevice, std::string("resources/shaders/") + name, type) != nullptr;
@@ -402,8 +417,7 @@ std::vector<Diligent::ShaderResourceVariableDesc> DescribeVariables(std::initial
             pShader->GetResourceDesc(i, resource);
             const bool isDynamic = std::ranges::find(dynamicVariables, std::string_view(resource.Name)) != dynamicVariables.end();
             const bool isStorageBuffer = resource.Type == Diligent::SHADER_RESOURCE_TYPE_BUFFER_SRV || resource.Type == Diligent::SHADER_RESOURCE_TYPE_BUFFER_UAV;
-            variables.push_back({stage, resource.Name, isDynamic ? Diligent::SHADER_RESOURCE_VARIABLE_TYPE_DYNAMIC : Diligent::SHADER_RESOURCE_VARIABLE_TYPE_MUTABLE,
-                                 isStorageBuffer ? Diligent::SHADER_VARIABLE_FLAG_NO_DYNAMIC_BUFFERS : Diligent::SHADER_VARIABLE_FLAG_NONE});
+            variables.push_back({stage, resource.Name, isDynamic ? Diligent::SHADER_RESOURCE_VARIABLE_TYPE_DYNAMIC : Diligent::SHADER_RESOURCE_VARIABLE_TYPE_MUTABLE, isStorageBuffer ? Diligent::SHADER_VARIABLE_FLAG_NO_DYNAMIC_BUFFERS : Diligent::SHADER_VARIABLE_FLAG_NONE});
         }
     }
     return variables;
@@ -415,8 +429,7 @@ void UseVariables(Diligent::PipelineResourceLayoutDesc& layout, const std::vecto
     layout.NumVariables = static_cast<Diligent::Uint32>(variables.size());
 }
 
-Diligent::RefCntAutoPtr<Diligent::IPipelineState> CreateComputePipeline(Diligent::IRenderDevice* pDevice, const char* name, const std::string& path, std::initializer_list<std::string_view> dynamicVariables = {},
-                                                                        const Diligent::ShaderMacroArray& macros = {}) {
+Diligent::RefCntAutoPtr<Diligent::IPipelineState> CreateComputePipeline(Diligent::IRenderDevice* pDevice, const char* name, const std::string& path, std::initializer_list<std::string_view> dynamicVariables = {}, const Diligent::ShaderMacroArray& macros = {}) {
     Diligent::RefCntAutoPtr<Diligent::IShader> pCS = CompileShader(pDevice, path, Diligent::SHADER_TYPE_COMPUTE, macros);
     if (!pCS) return {};
 
@@ -469,32 +482,27 @@ struct DebugLineVertex {
     glm::vec4 color;
 };
 
-enum class GpuPass : uint8_t {
-    Upload,
-    Transform,
-    Sky,
-    Shadows,
-    Cull,
-    CommandGen,
-    OpaqueDraw,
-    HiZ,
-    RetestCull,
-    RetestCommandGen,
-    RetestDraw,
-    TransparentCull,
-    TransparentCommandGen,
-    AmbientOcclusion,
-    Reflections,
-    Lighting,
-    TransparentDraw,
-    Post,
-    Ui,
-    Count
-};
+enum class GpuPass : uint8_t { Upload, Transform, Sky, Shadows, Cull, CommandGen, OpaqueDraw, HiZ, RetestCull, RetestCommandGen, RetestDraw, TransparentCull, TransparentCommandGen, AmbientOcclusion, Reflections, Lighting, TransparentDraw, Post, Ui, Count };
 
 constexpr size_t kGpuPassCount = static_cast<size_t>(GpuPass::Count);
-constexpr std::array<const char*, kGpuPassCount> kGpuPassNames = {"Upload", "Transform", "Sky+IBL", "Shadows", "Cull", "CmdGen", "GBuffer", "Hi-Z", "Retest Cull", "Retest CmdGen",
-                                                                  "Retest GBuffer", "Trans Cull", "Trans CmdGen", "GTAO", "SSR", "Lighting", "Trans Draw", "Post", "UI"};
+constexpr std::array<const char*, kGpuPassCount> kGpuPassNames = {"Upload", "Transform", "Sky+IBL", "Shadows", "Cull", "CmdGen", "GBuffer", "Hi-Z", "Retest Cull", "Retest CmdGen", "Retest GBuffer", "Trans Cull", "Trans CmdGen", "GTAO", "SSR", "Lighting", "Trans Draw", "Post", "UI"};
+
+constexpr int kMaxPortalViews = 24;
+
+struct HiZSet {
+    Diligent::RefCntAutoPtr<Diligent::ITexture> texture;
+    Diligent::RefCntAutoPtr<Diligent::ITextureView> source[32];
+    Diligent::RefCntAutoPtr<Diligent::ITextureView> dest[32];
+};
+
+struct PortalHistory {
+    uint64_t key = 0;
+    uint64_t lastFrame = 0;
+    bool used = false;
+    Diligent::RefCntAutoPtr<Diligent::IBuffer> bits;
+    HiZSet hiz[2];
+    int previous = 0;
+};
 
 struct DiligentData {
     Diligent::RefCntAutoPtr<Diligent::IRenderDevice> pDevice;
@@ -520,7 +528,6 @@ struct DiligentData {
     Diligent::RefCntAutoPtr<Diligent::IBuffer> pTransformWorkBuffer;
     Diligent::RefCntAutoPtr<Diligent::IShaderResourceBinding> pTransformWorkSRB[NumFrames];
     Diligent::RefCntAutoPtr<Diligent::IBuffer> pSceneUBO[NumFrames];
-
 
     Diligent::RefCntAutoPtr<Diligent::IBuffer> pMeshInfoBuffer;
     Diligent::RefCntAutoPtr<Diligent::IBuffer> pNormalSampleBuffer;
@@ -661,12 +668,6 @@ struct DiligentData {
     Diligent::RefCntAutoPtr<Diligent::IBuffer> pScatterConstants;
     Diligent::RefCntAutoPtr<Diligent::IBuffer> pApplyDirtyConstants;
 
-
-
-
-
-
-
     Diligent::RefCntAutoPtr<Diligent::IPipelineState> pDebugDepthPSO;
     Diligent::RefCntAutoPtr<Diligent::IPipelineState> pDebugLinePSO;
     Diligent::RefCntAutoPtr<Diligent::IPipelineState> pDebugLineOverlayPSO;
@@ -680,9 +681,79 @@ struct DiligentData {
     Diligent::RefCntAutoPtr<Diligent::IPipelineState> pDispatchArgsPSO;
     Diligent::RefCntAutoPtr<Diligent::IBuffer> pDispatchArgsConstants;
 
-
-
+    std::vector<PortalHistory> portalHistory;
+    Diligent::RefCntAutoPtr<Diligent::IBuffer> portalMainBits;
+    Diligent::RefCntAutoPtr<Diligent::ITexture> portalColor[kMaxPortalViews];
+    Diligent::RefCntAutoPtr<Diligent::IPipelineState> pPortalPSO;
+    Diligent::RefCntAutoPtr<Diligent::IShaderResourceBinding> pPortalSRB;
+    Diligent::RefCntAutoPtr<Diligent::IBuffer> pPortalUBO;
+    Diligent::RefCntAutoPtr<Diligent::IQuery> portalQueries[NumFrames][kMaxPortalViews][2];
+    Diligent::RefCntAutoPtr<Diligent::IBuffer> portalStaging[NumFrames][kMaxPortalViews];
+    struct PortalSnapshot {
+        std::string label;
+        int depth = 0;
+        bool recorded = false;
+        bool timed = false;
+    };
+    PortalSnapshot portalSnapshot[NumFrames][kMaxPortalViews];
 };
+
+bool CreateHiZSet(DiligentData& d, HiZSet& set, int width, int height, int mips) {
+    for (auto& view : set.source) view.Release();
+    for (auto& view : set.dest) view.Release();
+    set.texture.Release();
+    Diligent::TextureDesc desc;
+    desc.Name = "Portal Hi-Z";
+    desc.Type = Diligent::RESOURCE_DIM_TEX_2D;
+    desc.Width = static_cast<Diligent::Uint32>(width);
+    desc.Height = static_cast<Diligent::Uint32>(height);
+    desc.Format = Diligent::TEX_FORMAT_R32_FLOAT;
+    desc.Usage = Diligent::USAGE_DEFAULT;
+    desc.BindFlags = Diligent::BIND_SHADER_RESOURCE | Diligent::BIND_UNORDERED_ACCESS | Diligent::BIND_RENDER_TARGET;
+    desc.MipLevels = static_cast<Diligent::Uint32>(mips);
+    d.pDevice->CreateTexture(desc, nullptr, &set.texture);
+    if (!set.texture) return false;
+    const float farDepth[4] = {1.0f, 1.0f, 1.0f, 1.0f};
+    d.pImmediateContext->ClearRenderTarget(set.texture->GetDefaultView(Diligent::TEXTURE_VIEW_RENDER_TARGET), farDepth, Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
+    set.texture->GetDefaultView(Diligent::TEXTURE_VIEW_SHADER_RESOURCE)->SetSampler(d.pHiZSampler);
+    for (int mip = 0; mip < mips && mip < 32; ++mip) {
+        Diligent::TextureViewDesc view;
+        view.ViewType = Diligent::TEXTURE_VIEW_UNORDERED_ACCESS;
+        view.NumMipLevels = 1;
+        view.AccessFlags = Diligent::UAV_ACCESS_FLAG_WRITE;
+        view.MostDetailedMip = static_cast<Diligent::Uint32>(mip);
+        set.texture->CreateView(view, &set.dest[mip]);
+        if (mip == 0) continue;
+        view.AccessFlags = Diligent::UAV_ACCESS_FLAG_READ;
+        view.MostDetailedMip = static_cast<Diligent::Uint32>(mip - 1);
+        set.texture->CreateView(view, &set.source[mip]);
+    }
+    return true;
+}
+
+void BuildHiZ(DiligentData& d, Diligent::ITexture* hiz, Diligent::RefCntAutoPtr<Diligent::ITextureView>* source, Diligent::RefCntAutoPtr<Diligent::ITextureView>* dest, int width, int height, int mips) {
+    auto* pContext = d.pImmediateContext.RawPtr();
+    if (!d.pHiZFromDepthPSO || !d.pHiZMipmapPSO || !hiz) return;
+    auto hizBarrier = [&](Diligent::RESOURCE_STATE newState) {
+        Diligent::StateTransitionDesc barrier{hiz, Diligent::RESOURCE_STATE_UNKNOWN, newState, Diligent::STATE_TRANSITION_FLAG_UPDATE_STATE};
+        pContext->TransitionResourceStates(1, &barrier);
+    };
+    SetDynamicVariable(d.pHiZFromDepthSRB, "u_depth", d.pSceneDepth->GetDefaultView(Diligent::TEXTURE_VIEW_SHADER_RESOURCE));
+    SetDynamicVariable(d.pHiZFromDepthSRB, "u_destMip", dest[0]);
+    pContext->SetPipelineState(d.pHiZFromDepthPSO);
+    pContext->CommitShaderResources(d.pHiZFromDepthSRB, Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
+    pContext->DispatchCompute(Diligent::DispatchComputeAttribs((width + 7) / 8, (height + 7) / 8, 1));
+    hizBarrier(Diligent::RESOURCE_STATE_UNORDERED_ACCESS);
+    pContext->SetPipelineState(d.pHiZMipmapPSO);
+    for (int mip = 1; mip < mips && mip < 32; ++mip) {
+        SetDynamicVariable(d.pHiZMipmapSRB, "u_sourceMip", source[mip]);
+        SetDynamicVariable(d.pHiZMipmapSRB, "u_destMip", dest[mip]);
+        pContext->CommitShaderResources(d.pHiZMipmapSRB, Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
+        pContext->DispatchCompute(Diligent::DispatchComputeAttribs((std::max(1, width >> mip) + 7) / 8, (std::max(1, height >> mip) + 7) / 8, 1));
+        hizBarrier(Diligent::RESOURCE_STATE_UNORDERED_ACCESS);
+    }
+    hizBarrier(Diligent::RESOURCE_STATE_SHADER_RESOURCE);
+}
 
 std::vector<Diligent::IPipelineState*> SurfacePipelines(const DiligentData& d, size_t phaseIndex, bool points) {
     std::vector<Diligent::IPipelineState*> pipelines;
@@ -742,6 +813,15 @@ void Renderer::init(GLFWwindow* window, const int windowWidth, const int windowH
     EngineCI.Features.Tessellation = Diligent::DEVICE_FEATURE_STATE_OPTIONAL;
     EngineCI.Features.GeometryShaders = Diligent::DEVICE_FEATURE_STATE_OPTIONAL;
     EngineCI.Features.MeshShaders = Diligent::DEVICE_FEATURE_STATE_OPTIONAL;
+    EngineCI.Features.VariableRateShading = Diligent::DEVICE_FEATURE_STATE_OPTIONAL;
+
+    static const char* const IgnoreMessages[] = {
+        "VUID-VkPhysicalDeviceMeshShaderFeaturesEXT-multiviewMeshShader-07032",
+        "VUID-VkPhysicalDeviceMeshShaderFeaturesEXT-primitiveFragmentShadingRateMeshShader-07033"
+    };
+    EngineCI.ppIgnoreDebugMessageNames = IgnoreMessages;
+    EngineCI.IgnoreDebugMessageCount   = sizeof(IgnoreMessages) / sizeof(IgnoreMessages[0]);
+
     m_diligent->pFactoryVk->CreateDeviceAndContextsVk(EngineCI, &m_diligent->pDevice, &m_diligent->pImmediateContext);
     Lit::Log::Phase("vulkan device");
 
@@ -783,6 +863,12 @@ void Renderer::init(GLFWwindow* window, const int windowWidth, const int windowH
         queryDesc.Name = kGpuPassNames[pass];
         for (auto& frameQueries : m_diligent->passQueries[pass]) {
             for (auto& query : frameQueries) m_diligent->pDevice->CreateQuery(queryDesc, &query);
+        }
+    }
+    queryDesc.Name = "Portal View";
+    for (auto& frameQueries : m_diligent->portalQueries) {
+        for (auto& viewQueries : frameQueries) {
+            for (auto& query : viewQueries) m_diligent->pDevice->CreateQuery(queryDesc, &query);
         }
     }
 
@@ -996,25 +1082,22 @@ bool Renderer::reallocateBuffers(size_t numObjects) {
         m_diligent->pRenderableBuffer[i] = i == 0 ? CreateStructuredBuffer(m_diligent->pDevice, "Renderable Buffer", sizeof(uint32_t), static_cast<Diligent::Uint32>(m_maxObjects)) : m_diligent->pRenderableBuffer[0];
         m_diligent->pSortedHierarchyBuffer[i] = i == 0 ? CreateStructuredBuffer(m_diligent->pDevice, "Sorted Hierarchy Buffer", sizeof(unsigned int), static_cast<Diligent::Uint32>(m_maxObjects)) : m_diligent->pSortedHierarchyBuffer[0];
 
-
-
-
         Diligent::BufferDesc SceneUBODesc;
         SceneUBODesc.Name = "Scene UBO";
         SceneUBODesc.Usage = Diligent::USAGE_DEFAULT;
         SceneUBODesc.BindFlags = Diligent::BIND_UNIFORM_BUFFER;
         SceneUBODesc.Size = (sizeof(SceneUniforms) + 255) & ~255;
         m_diligent->pSceneUBO[i].Release();
-        m_diligent->pDevice->CreateBuffer(SceneUBODesc, nullptr, &m_diligent->pSceneUBO[i]);
+        if (i == 0)
+            m_diligent->pDevice->CreateBuffer(SceneUBODesc, nullptr, &m_diligent->pSceneUBO[0]);
+        else
+            m_diligent->pSceneUBO[i] = m_diligent->pSceneUBO[0];
     }
 
     for (int i = 0; i < NUM_FRAMES_IN_FLIGHT; ++i) {
         const auto& main = m_diligent->visibility[0];
         const auto& retest = m_diligent->visibility[1];
-        const bool allocationsOk = m_diligent->pObjectBuffer[i] && m_diligent->pWorldMatrixBuffer[i] && m_diligent->pCullSphereBuffer[i] && m_diligent->pCullOrientationBuffer[i] &&
-                                   m_diligent->pHierarchyBuffer[i] && m_diligent->pRenderableBuffer[i] && m_diligent->pSortedHierarchyBuffer[i] && m_diligent->pTouchedEpochBuffer[i] &&
-                                   m_diligent->pDirtyIndexBuffer[i] && m_diligent->pDirtyPayloadBuffer[i] && m_diligent->pSceneUBO[i] && m_diligent->pTransparentCandidateIds && m_diligent->pAlphaBuffer && main.visibleEntries && main.sortedEntries && retest.visibleEntries &&
-                                   retest.sortedEntries && m_diligent->pVisibilityBits && m_diligent->pEarlyCandidateIds;
+        const bool allocationsOk = m_diligent->pObjectBuffer[i] && m_diligent->pWorldMatrixBuffer[i] && m_diligent->pCullSphereBuffer[i] && m_diligent->pCullOrientationBuffer[i] && m_diligent->pHierarchyBuffer[i] && m_diligent->pRenderableBuffer[i] && m_diligent->pSortedHierarchyBuffer[i] && m_diligent->pTouchedEpochBuffer[i] && m_diligent->pDirtyIndexBuffer[i] && m_diligent->pDirtyPayloadBuffer[i] && m_diligent->pSceneUBO[i] && m_diligent->pTransparentCandidateIds && m_diligent->pAlphaBuffer && main.visibleEntries && main.sortedEntries && retest.visibleEntries && retest.sortedEntries && m_diligent->pVisibilityBits && m_diligent->pEarlyCandidateIds;
         if (!allocationsOk) {
             Lit::Log::Error("Renderer buffer allocation failed for {} objects.", m_maxObjects);
             return false;
@@ -1029,68 +1112,191 @@ bool Renderer::reallocateBuffers(size_t numObjects) {
     auto& d = *m_diligent;
     for (int i = 0; i < NUM_FRAMES_IN_FLIGHT; ++i) {
         CreateBoundSRB(d.pTransformPSO, d.pTransformSRB[i],
-                       {{"TransformUniforms", d.pTransformUniforms}, {"TransformBuffer", d.pObjectBuffer[i]}, {"WorldMatrixBuffer", d.pWorldMatrixBuffer[i]}, {"HierarchyBuffer", d.pHierarchyBuffer[i]},
-                        {"SortedHierarchyBuffer", d.pSortedHierarchyBuffer[i]}, {"TouchedEpochBuffer", d.pTouchedEpochBuffer[i]}, {"CullOrientationBuffer", d.pCullOrientationBuffer[i]},
-                        {"CullSphereBuffer", d.pCullSphereBuffer[i]}, {"RenderableBuffer", d.pRenderableBuffer[i]}, {"MeshInfoBuffer", d.pMeshInfoBuffer}, {"BasePositionBuffer", d.pBasePositionBuffer}, {"ShaderBoundsBuffer", d.pShaderBounds}});
+                       {
+                           {"TransformUniforms",     d.pTransformUniforms       },
+                           {"TransformBuffer",       d.pObjectBuffer[i]         },
+                           {"WorldMatrixBuffer",     d.pWorldMatrixBuffer[i]    },
+                           {"HierarchyBuffer",       d.pHierarchyBuffer[i]      },
+                           {"SortedHierarchyBuffer", d.pSortedHierarchyBuffer[i]},
+                           {"TouchedEpochBuffer",    d.pTouchedEpochBuffer[i]   },
+                           {"CullOrientationBuffer", d.pCullOrientationBuffer[i]},
+                           {"CullSphereBuffer",      d.pCullSphereBuffer[i]     },
+                           {"RenderableBuffer",      d.pRenderableBuffer[i]     },
+                           {"MeshInfoBuffer",        d.pMeshInfoBuffer          },
+                           {"BasePositionBuffer",    d.pBasePositionBuffer      },
+                           {"ShaderBoundsBuffer",    d.pShaderBounds            }
+        });
         CreateBoundSRB(d.pTransformPSO, d.pTransformWorkSRB[i],
-                       {{"TransformUniforms", d.pTransformUniforms}, {"TransformBuffer", d.pObjectBuffer[i]}, {"WorldMatrixBuffer", d.pWorldMatrixBuffer[i]}, {"HierarchyBuffer", d.pHierarchyBuffer[i]},
-                        {"SortedHierarchyBuffer", d.pTransformWorkBuffer}, {"TouchedEpochBuffer", d.pTouchedEpochBuffer[i]}, {"CullOrientationBuffer", d.pCullOrientationBuffer[i]},
-                        {"CullSphereBuffer", d.pCullSphereBuffer[i]}, {"RenderableBuffer", d.pRenderableBuffer[i]}, {"MeshInfoBuffer", d.pMeshInfoBuffer}, {"BasePositionBuffer", d.pBasePositionBuffer}, {"ShaderBoundsBuffer", d.pShaderBounds}});
+                       {
+                           {"TransformUniforms",     d.pTransformUniforms       },
+                           {"TransformBuffer",       d.pObjectBuffer[i]         },
+                           {"WorldMatrixBuffer",     d.pWorldMatrixBuffer[i]    },
+                           {"HierarchyBuffer",       d.pHierarchyBuffer[i]      },
+                           {"SortedHierarchyBuffer", d.pTransformWorkBuffer     },
+                           {"TouchedEpochBuffer",    d.pTouchedEpochBuffer[i]   },
+                           {"CullOrientationBuffer", d.pCullOrientationBuffer[i]},
+                           {"CullSphereBuffer",      d.pCullSphereBuffer[i]     },
+                           {"RenderableBuffer",      d.pRenderableBuffer[i]     },
+                           {"MeshInfoBuffer",        d.pMeshInfoBuffer          },
+                           {"BasePositionBuffer",    d.pBasePositionBuffer      },
+                           {"ShaderBoundsBuffer",    d.pShaderBounds            }
+        });
         CreateBoundSRB(d.pApplyDirtyPSO, d.pApplyDirtySRB[i],
-                       {{"ApplyDirtyConstants", d.pApplyDirtyConstants}, {"DirtyIndexBuffer", d.pDirtyIndexBuffer[i]}, {"DirtyPayloadBuffer", d.pDirtyPayloadBuffer[i]}, {"TransformBuffer", d.pObjectBuffer[i]},
-                        {"TouchedEpochBuffer", d.pTouchedEpochBuffer[i]}});
+                       {
+                           {"ApplyDirtyConstants", d.pApplyDirtyConstants  },
+                           {"DirtyIndexBuffer",    d.pDirtyIndexBuffer[i]  },
+                           {"DirtyPayloadBuffer",  d.pDirtyPayloadBuffer[i]},
+                           {"TransformBuffer",     d.pObjectBuffer[i]      },
+                           {"TouchedEpochBuffer",  d.pTouchedEpochBuffer[i]}
+        });
         CreateBoundSRB(d.pDispatchArgsPSO, d.pTransparentDispatchArgsSRB[i],
-                       {{"DispatchArgsConstants", d.pObjectDispatchArgsConstants}, {"SourceCounterBuffer", d.pTransparentCandidateCounter}, {"DispatchArgsBuffer", d.pTransparentDispatchArgs}});
+                       {
+                           {"DispatchArgsConstants", d.pObjectDispatchArgsConstants},
+                           {"SourceCounterBuffer",   d.pTransparentCandidateCounter},
+                           {"DispatchArgsBuffer",    d.pTransparentDispatchArgs    }
+        });
         CreateBoundSRB(d.pDispatchArgsPSO, d.pCasterDispatchArgsSRB[i],
-                       {{"DispatchArgsConstants", d.pObjectDispatchArgsConstants}, {"SourceCounterBuffer", d.pCasterCounter}, {"DispatchArgsBuffer", d.pCasterDispatchArgs}});
+                       {
+                           {"DispatchArgsConstants", d.pObjectDispatchArgsConstants},
+                           {"SourceCounterBuffer",   d.pCasterCounter              },
+                           {"DispatchArgsBuffer",    d.pCasterDispatchArgs         }
+        });
         CreateBoundSRB(d.pDispatchArgsPSO, d.pLocalCasterDispatchArgsSRB[i],
-                       {{"DispatchArgsConstants", d.pObjectDispatchArgsConstants}, {"SourceCounterBuffer", d.pLocalCasterCounter}, {"DispatchArgsBuffer", d.pLocalCasterDispatchArgs}});
+                       {
+                           {"DispatchArgsConstants", d.pObjectDispatchArgsConstants},
+                           {"SourceCounterBuffer",   d.pLocalCasterCounter         },
+                           {"DispatchArgsBuffer",    d.pLocalCasterDispatchArgs    }
+        });
         CreateBoundSRB(d.pDispatchArgsPSO, d.pShadowRetestDispatchArgsSRB[i],
-                       {{"DispatchArgsConstants", d.pObjectDispatchArgsConstants}, {"SourceCounterBuffer", d.pShadowRetestCounter}, {"DispatchArgsBuffer", d.pShadowRetestDispatchArgs}});
+                       {
+                           {"DispatchArgsConstants", d.pObjectDispatchArgsConstants},
+                           {"SourceCounterBuffer",   d.pShadowRetestCounter        },
+                           {"DispatchArgsBuffer",    d.pShadowRetestDispatchArgs   }
+        });
         CreateBoundSRB(d.pDispatchArgsPSO, d.pEarlyDispatchArgsSRB[i],
-                       {{"DispatchArgsConstants", d.pObjectDispatchArgsConstants}, {"SourceCounterBuffer", d.pEarlyCandidateCounter}, {"DispatchArgsBuffer", d.pEarlyCandidateDispatchArgs}});
+                       {
+                           {"DispatchArgsConstants", d.pObjectDispatchArgsConstants},
+                           {"SourceCounterBuffer",   d.pEarlyCandidateCounter      },
+                           {"DispatchArgsBuffer",    d.pEarlyCandidateDispatchArgs }
+        });
         CreateBoundSRB(d.pVisibilityCompactPSO, d.pEarlyCompactSRB[i],
-                       {{"CullingUniforms", d.visibility[0].cullingUniforms}, {"VisibilityBuffer", d.pVisibilityBits}, {"CandidateCounterBuffer", d.pEarlyCandidateCounter}, {"CandidateBuffer", d.pEarlyCandidateIds}});
+                       {
+                           {"CullingUniforms",        d.visibility[0].cullingUniforms},
+                           {"VisibilityBuffer",       d.pVisibilityBits              },
+                           {"CandidateCounterBuffer", d.pEarlyCandidateCounter       },
+                           {"CandidateBuffer",        d.pEarlyCandidateIds           }
+        });
 
         for (size_t phaseIndex = 0; phaseIndex < std::size(d.visibility); ++phaseIndex) {
             auto& phase = d.visibility[phaseIndex];
-            if (phaseIndex < 3) CreateBoundSRB(phaseIndex == 0 ? d.pCullingPSO : phaseIndex == 1 ? d.pRetestCullingPSO : d.pTransparentCullPSO, phase.cullSRB[i],
-                           {{"SceneData", d.pSceneUBO[i]}, {"CullingUniforms", phase.cullingUniforms}, {"AtomicCounterBuffer", phase.visibleCounter}, {"VisibleObjectBuffer", phase.visibleEntries},
-                            {"CullSphereBuffer", d.pCullSphereBuffer[i]}, {"RenderableBuffer", d.pRenderableBuffer[i]}, {"BucketCountBuffer", phase.bucketCounts},
-                            {"VisibilityBuffer", d.pVisibilityBits}, {"TransparentCounterBuffer", d.pTransparentCandidateCounter},
-                            {"TransparentBuffer", d.pTransparentCandidateIds}, {"CandidateCounterBuffer", phaseIndex == 0 ? d.pEarlyCandidateCounter : d.pTransparentCandidateCounter}, {"CandidateBuffer", phaseIndex == 0 ? d.pEarlyCandidateIds : d.pTransparentCandidateIds}, {"MaterialBuffer", m_lighting.materialBuffer()},
-                            {"CascadeCull", d.pCascadeCullUBO}, {"CasterCounterBuffer", d.pCasterCounter}, {"CasterBuffer", d.pCasterIds},
-                            {"LocalCasterCounterBuffer", d.pLocalCasterCounter}, {"LocalCasterBuffer", d.pLocalCasterIds}});
+            if (phaseIndex < 3)
+                CreateBoundSRB(phaseIndex == 0       ? d.pCullingPSO
+                                   : phaseIndex == 1 ? d.pRetestCullingPSO
+                                                     : d.pTransparentCullPSO,
+                               phase.cullSRB[i],
+                               {
+                                   {"SceneData",                d.pSceneUBO[i]                                                             },
+                                   {"CullingUniforms",          phase.cullingUniforms                                                      },
+                                   {"AtomicCounterBuffer",      phase.visibleCounter                                                       },
+                                   {"VisibleObjectBuffer",      phase.visibleEntries                                                       },
+                                   {"CullSphereBuffer",         d.pCullSphereBuffer[i]                                                     },
+                                   {"RenderableBuffer",         d.pRenderableBuffer[i]                                                     },
+                                   {"BucketCountBuffer",        phase.bucketCounts                                                         },
+                                   {"VisibilityBuffer",         d.pVisibilityBits                                                          },
+                                   {"TransparentCounterBuffer", d.pTransparentCandidateCounter                                             },
+                                   {"TransparentBuffer",        d.pTransparentCandidateIds                                                 },
+                                   {"CandidateCounterBuffer",   phaseIndex == 0 ? d.pEarlyCandidateCounter : d.pTransparentCandidateCounter},
+                                   {"CandidateBuffer",          phaseIndex == 0 ? d.pEarlyCandidateIds : d.pTransparentCandidateIds        },
+                                   {"MaterialBuffer",           m_lighting.materialBuffer()                                                },
+                                   {"CascadeCull",              d.pCascadeCullUBO                                                          },
+                                   {"CasterCounterBuffer",      d.pCasterCounter                                                           },
+                                   {"CasterBuffer",             d.pCasterIds                                                               },
+                                   {"LocalCasterCounterBuffer", d.pLocalCasterCounter                                                      },
+                                   {"LocalCasterBuffer",        d.pLocalCasterIds                                                          }
+                });
             CreateBoundSRB(d.pPrefixSumPSO, phase.prefixSumSRB[i],
-                           {{"PrefixSumConstants", d.pPrefixSumConstants}, {"BucketCountBuffer", phase.bucketCounts}, {"BucketOffsetBuffer", phase.bucketOffsets}, {"BucketWriteHeadBuffer", phase.bucketWriteHeads}});
+                           {
+                               {"PrefixSumConstants",    d.pPrefixSumConstants },
+                               {"BucketCountBuffer",     phase.bucketCounts    },
+                               {"BucketOffsetBuffer",    phase.bucketOffsets   },
+                               {"BucketWriteHeadBuffer", phase.bucketWriteHeads}
+            });
             CreateBoundSRB(d.pDispatchArgsPSO, phase.scatterDispatchArgsSRB[i],
-                           {{"DispatchArgsConstants", d.pObjectDispatchArgsConstants}, {"SourceCounterBuffer", phase.visibleCounter}, {"DispatchArgsBuffer", phase.scatterDispatchArgs}});
+                           {
+                               {"DispatchArgsConstants", d.pObjectDispatchArgsConstants},
+                               {"SourceCounterBuffer",   phase.visibleCounter          },
+                               {"DispatchArgsBuffer",    phase.scatterDispatchArgs     }
+            });
             CreateBoundSRB(d.pScatterPSO, phase.scatterSRB[i],
-                           {{"ScatterConstants", d.pScatterConstants}, {"AtomicCounterBuffer", phase.visibleCounter}, {"VisibleObjectBuffer", phase.visibleEntries},
-                            {"BucketWriteHeadBuffer", phase.bucketWriteHeads}, {"SortedVisibleObjectBuffer", phase.sortedEntries}});
+                           {
+                               {"ScatterConstants",          d.pScatterConstants   },
+                               {"AtomicCounterBuffer",       phase.visibleCounter  },
+                               {"VisibleObjectBuffer",       phase.visibleEntries  },
+                               {"BucketWriteHeadBuffer",     phase.bucketWriteHeads},
+                               {"SortedVisibleObjectBuffer", phase.sortedEntries   }
+            });
             CreateBoundSRB(d.pCommandGenPSO, phase.commandGenSRB[i],
-                           {{"CommandGenConstants", d.pCommandGenConstants}, {"PointCounterBuffer", phase.pointCounters}, {"PointCommandBuffer", phase.pointCommands},
-                            {"DrawAtomicCounterBuffer", phase.drawCounters}, {"DrawCommandBuffer", phase.drawCommands}, {"MeshInfoBuffer", d.pMeshInfoBuffer},
-                            {"BucketCountBuffer", phase.bucketCounts}, {"BucketOffsetBuffer", phase.bucketOffsets}});
-
+                           {
+                               {"CommandGenConstants",     d.pCommandGenConstants},
+                               {"PointCounterBuffer",      phase.pointCounters   },
+                               {"PointCommandBuffer",      phase.pointCommands   },
+                               {"DrawAtomicCounterBuffer", phase.drawCounters    },
+                               {"DrawCommandBuffer",       phase.drawCommands    },
+                               {"MeshInfoBuffer",          d.pMeshInfoBuffer     },
+                               {"BucketCountBuffer",       phase.bucketCounts    },
+                               {"BucketOffsetBuffer",      phase.bucketOffsets   }
+            });
         }
         for (int c = 0; c < 4; ++c) {
             auto& phase = d.visibility[3];
             CreateBoundSRB(d.pShadowCullPSO, d.shadowCullSRB[i][c],
-                           {{"SceneData", d.pSceneUBO[i]}, {"CullingUniforms", phase.cullingUniforms}, {"AtomicCounterBuffer", phase.visibleCounter}, {"VisibleObjectBuffer", phase.visibleEntries}, {"CullSphereBuffer", d.pCullSphereBuffer[i]},
-                            {"RenderableBuffer", d.pRenderableBuffer[i]}, {"BucketCountBuffer", phase.bucketCounts}, {"MaterialBuffer", m_lighting.materialBuffer()}, {"ShadowCull", d.pShadowCullUBO[c]},
-                            {"CandidateCounterBuffer", d.pCasterCounter}, {"CandidateBuffer", d.pCasterIds}, {"ShadowRetestCounterBuffer", d.pShadowRetestCounter}, {"ShadowRetestBuffer", d.pShadowRetestIds}});
+                           {
+                               {"SceneData",                 d.pSceneUBO[i]             },
+                               {"CullingUniforms",           phase.cullingUniforms      },
+                               {"AtomicCounterBuffer",       phase.visibleCounter       },
+                               {"VisibleObjectBuffer",       phase.visibleEntries       },
+                               {"CullSphereBuffer",          d.pCullSphereBuffer[i]     },
+                               {"RenderableBuffer",          d.pRenderableBuffer[i]     },
+                               {"BucketCountBuffer",         phase.bucketCounts         },
+                               {"MaterialBuffer",            m_lighting.materialBuffer()},
+                               {"ShadowCull",                d.pShadowCullUBO[c]        },
+                               {"CandidateCounterBuffer",    d.pCasterCounter           },
+                               {"CandidateBuffer",           d.pCasterIds               },
+                               {"ShadowRetestCounterBuffer", d.pShadowRetestCounter     },
+                               {"ShadowRetestBuffer",        d.pShadowRetestIds         }
+            });
             CreateBoundSRB(d.pShadowLateCullPSO, d.shadowLateCullSRB[i][c],
-                           {{"SceneData", d.pSceneUBO[i]}, {"CullingUniforms", phase.cullingUniforms}, {"AtomicCounterBuffer", phase.visibleCounter}, {"VisibleObjectBuffer", phase.visibleEntries}, {"CullSphereBuffer", d.pCullSphereBuffer[i]},
-                            {"RenderableBuffer", d.pRenderableBuffer[i]}, {"BucketCountBuffer", phase.bucketCounts}, {"MaterialBuffer", m_lighting.materialBuffer()}, {"ShadowCull", d.pShadowCullUBO[c]},
-                            {"CandidateCounterBuffer", d.pShadowRetestCounter}, {"CandidateBuffer", d.pShadowRetestIds}});
+                           {
+                               {"SceneData",              d.pSceneUBO[i]             },
+                               {"CullingUniforms",        phase.cullingUniforms      },
+                               {"AtomicCounterBuffer",    phase.visibleCounter       },
+                               {"VisibleObjectBuffer",    phase.visibleEntries       },
+                               {"CullSphereBuffer",       d.pCullSphereBuffer[i]     },
+                               {"RenderableBuffer",       d.pRenderableBuffer[i]     },
+                               {"BucketCountBuffer",      phase.bucketCounts         },
+                               {"MaterialBuffer",         m_lighting.materialBuffer()},
+                               {"ShadowCull",             d.pShadowCullUBO[c]        },
+                               {"CandidateCounterBuffer", d.pShadowRetestCounter     },
+                               {"CandidateBuffer",        d.pShadowRetestIds         }
+            });
         }
         {
             auto& phase = d.visibility[3];
             CreateBoundSRB(d.pLocalShadowCullPSO, d.localCullSRB[i],
-                           {{"SceneData", d.pSceneUBO[i]}, {"CullingUniforms", phase.cullingUniforms}, {"AtomicCounterBuffer", phase.visibleCounter}, {"VisibleObjectBuffer", phase.visibleEntries}, {"CullSphereBuffer", d.pCullSphereBuffer[i]},
-                            {"RenderableBuffer", d.pRenderableBuffer[i]}, {"BucketCountBuffer", phase.bucketCounts}, {"MaterialBuffer", m_lighting.materialBuffer()}, {"ShadowCull", d.pShadowCullUBO[4]},
-                            {"LocalShadowViews", d.pLocalShadowViewsUBO}, {"CandidateCounterBuffer", d.pLocalCasterCounter}, {"CandidateBuffer", d.pLocalCasterIds}});
+                           {
+                               {"SceneData",              d.pSceneUBO[i]             },
+                               {"CullingUniforms",        phase.cullingUniforms      },
+                               {"AtomicCounterBuffer",    phase.visibleCounter       },
+                               {"VisibleObjectBuffer",    phase.visibleEntries       },
+                               {"CullSphereBuffer",       d.pCullSphereBuffer[i]     },
+                               {"RenderableBuffer",       d.pRenderableBuffer[i]     },
+                               {"BucketCountBuffer",      phase.bucketCounts         },
+                               {"MaterialBuffer",         m_lighting.materialBuffer()},
+                               {"ShadowCull",             d.pShadowCullUBO[4]        },
+                               {"LocalShadowViews",       d.pLocalShadowViewsUBO     },
+                               {"CandidateCounterBuffer", d.pLocalCasterCounter      },
+                               {"CandidateBuffer",        d.pLocalCasterIds          }
+            });
         }
     }
     rebindSurfaceResources();
@@ -1121,26 +1327,28 @@ void Renderer::rebindSurfaceResources() {
             phase.pointSRBs[i].assign(pointPipelines.size(), {});
             auto bindSurface = [&](Diligent::IPipelineState* pso) {
                 return litgpu::makeBinding(pso,
-                                           {{"SceneData", d.pSceneUBO[i]},
-                                            {"MaterialBuffer", m_lighting.materialBuffer()},
-                                            {"WorldMatrixBuffer", d.pWorldMatrixBuffer[i]},
-                                            {"CullSphereBuffer", d.pCullSphereBuffer[i]},
-                                            {"CullOrientationBuffer", d.pCullOrientationBuffer[i]},
-                                            {"NormalSampleBuffer", d.pNormalSampleBuffer},
-                                            {"VisibleObjectBuffer", phase.sortedEntries},
-                                            {"AlphaBuffer", d.pAlphaBuffer},
-                                            {"ExposureBuffer", m_lighting.exposureBuffer()},
-                                            {"LightBuffer", m_lighting.lightBuffer()},
-                                            {"ClusterBuffer", m_lighting.clusterBuffer()},
-                                            {"IrradianceBuffer", m_lighting.irradianceBuffer()},
-                                            {"u_colorTextures", m_lighting.colorTextures()},
-                                            {"u_dataTextures", m_lighting.dataTextures()},
-                                            {"u_prefilteredEnv", m_lighting.prefilteredEnvironment()},
-                                            {"u_dfgLut", m_lighting.dfgLut()},
-                                            {"u_shadowMap", litgpu::srv(m_lighting.shadowMap())},
-                                            {"u_shadowDepth", litgpu::srv(m_lighting.shadowMap())},
-                                            {"u_localShadowMap", litgpu::srv(m_lighting.localShadowMap())},
-                                            {"u_sceneColor", m_lighting.sceneColor()}});
+                                           {
+                                               {"SceneData",             d.pSceneUBO[i]                          },
+                                               {"MaterialBuffer",        m_lighting.materialBuffer()             },
+                                               {"WorldMatrixBuffer",     d.pWorldMatrixBuffer[i]                 },
+                                               {"CullSphereBuffer",      d.pCullSphereBuffer[i]                  },
+                                               {"CullOrientationBuffer", d.pCullOrientationBuffer[i]             },
+                                               {"NormalSampleBuffer",    d.pNormalSampleBuffer                   },
+                                               {"VisibleObjectBuffer",   phase.sortedEntries                     },
+                                               {"AlphaBuffer",           d.pAlphaBuffer                          },
+                                               {"ExposureBuffer",        m_lighting.exposureBuffer()             },
+                                               {"LightBuffer",           m_lighting.lightBuffer()                },
+                                               {"ClusterBuffer",         m_lighting.clusterBuffer()              },
+                                               {"IrradianceBuffer",      m_lighting.irradianceBuffer()           },
+                                               {"u_colorTextures",       m_lighting.colorTextures()              },
+                                               {"u_dataTextures",        m_lighting.dataTextures()               },
+                                               {"u_prefilteredEnv",      m_lighting.prefilteredEnvironment()     },
+                                               {"u_dfgLut",              m_lighting.dfgLut()                     },
+                                               {"u_shadowMap",           litgpu::srv(m_lighting.shadowMap())     },
+                                               {"u_shadowDepth",         litgpu::srv(m_lighting.shadowMap())     },
+                                               {"u_localShadowMap",      litgpu::srv(m_lighting.localShadowMap())},
+                                               {"u_sceneColor",          m_lighting.sceneColor()                 }
+                });
             };
             for (size_t s = 0; s < meshPipelines.size(); ++s) phase.opaqueSRBs[i][s] = bindSurface(meshPipelines[s]);
             for (size_t s = 0; s < pointPipelines.size(); ++s) phase.pointSRBs[i][s] = bindSurface(pointPipelines[s]);
@@ -1151,14 +1359,17 @@ void Renderer::rebindSurfaceResources() {
             d.shadowSRBs[i][c].assign(shadowMeshes.size(), {});
             d.shadowPointSRBs[i][c].assign(shadowPoints.size(), {});
             auto bindShadow = [&](Diligent::IPipelineState* pso) {
-                return litgpu::makeBinding(pso, {{"SceneData", d.pSceneUBO[i]},
-                                                 {"MaterialBuffer", m_lighting.materialBuffer()},
-                                                 {"WorldMatrixBuffer", d.pWorldMatrixBuffer[i]},
-                                                 {"CullSphereBuffer", d.pCullSphereBuffer[i]},
-                                                 {"CullOrientationBuffer", d.pCullOrientationBuffer[i]},
-                                                 {"NormalSampleBuffer", d.pNormalSampleBuffer},
-                                                 {"VisibleObjectBuffer", d.visibility[3].sortedEntries},
-                                                 {"ShadowPass", d.pShadowPassUBO[c]}});
+                return litgpu::makeBinding(pso,
+                                           {
+                                               {"SceneData",             d.pSceneUBO[i]               },
+                                               {"MaterialBuffer",        m_lighting.materialBuffer()  },
+                                               {"WorldMatrixBuffer",     d.pWorldMatrixBuffer[i]      },
+                                               {"CullSphereBuffer",      d.pCullSphereBuffer[i]       },
+                                               {"CullOrientationBuffer", d.pCullOrientationBuffer[i]  },
+                                               {"NormalSampleBuffer",    d.pNormalSampleBuffer        },
+                                               {"VisibleObjectBuffer",   d.visibility[3].sortedEntries},
+                                               {"ShadowPass",            d.pShadowPassUBO[c]          }
+                });
             };
             for (size_t s = 0; s < shadowMeshes.size(); ++s) d.shadowSRBs[i][c][s] = bindShadow(shadowMeshes[s]);
             for (size_t s = 0; s < shadowPoints.size(); ++s) d.shadowPointSRBs[i][c][s] = bindShadow(shadowPoints[s]);
@@ -1197,6 +1408,8 @@ void Renderer::createScreenTargets() {
     createColorTarget("Transparency Accumulation", kAccumulationFormat, m_diligent->pAccumulation);
     createColorTarget("Transparency Revealage", kRevealageFormat, m_diligent->pRevealage);
 
+    m_diligent->portalHistory.clear();
+    for (auto& color : m_diligent->portalColor) color.Release();
     for (int i = 0; i < NUM_FRAMES_IN_FLIGHT; ++i) {
         for (auto& view : m_diligent->pHiZMipViewsSource[i]) view.Release();
         for (auto& view : m_diligent->pHiZMipViewsDest[i]) view.Release();
@@ -1259,10 +1472,7 @@ void Renderer::uploadDirtyHierarchies(SceneDatabase& sceneDatabase) {
         size_t end = i + 1;
         while (end < dirty.size() && dirty[end] == dirty[end - 1] + 1) ++end;
         const size_t last = std::min<size_t>(static_cast<size_t>(dirty[end - 1]) + 1, limit);
-        if (first < last) {
-            m_diligent->pImmediateContext->UpdateBuffer(m_diligent->pHierarchyBuffer[m_currentFrame], first * sizeof(HierarchyComponent), (last - first) * sizeof(HierarchyComponent), sceneDatabase.hierarchies.data() + first,
-                                                        Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
-        }
+        if (first < last) { m_diligent->pImmediateContext->UpdateBuffer(m_diligent->pHierarchyBuffer[m_currentFrame], first * sizeof(HierarchyComponent), (last - first) * sizeof(HierarchyComponent), sceneDatabase.hierarchies.data() + first, Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION); }
         i = end;
     }
 }
@@ -1284,10 +1494,7 @@ void Renderer::uploadDirtyRenderables(SceneDatabase& sceneDatabase) {
     size_t rangeStart = 0;
     size_t rangeEnd = 0;
     auto flushRange = [&] {
-        if (rangeEnd > rangeStart) {
-            m_diligent->pImmediateContext->UpdateBuffer(m_diligent->pRenderableBuffer[m_currentFrame], rangeStart * sizeof(uint32_t), (rangeEnd - rangeStart) * sizeof(uint32_t), m_packedRenderables.data() + rangeStart,
-                                                        Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
-        }
+        if (rangeEnd > rangeStart) { m_diligent->pImmediateContext->UpdateBuffer(m_diligent->pRenderableBuffer[m_currentFrame], rangeStart * sizeof(uint32_t), (rangeEnd - rangeStart) * sizeof(uint32_t), m_packedRenderables.data() + rangeStart, Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION); }
         rangeStart = rangeEnd = 0;
     };
     for (Entity e : dirty) {
@@ -1471,9 +1678,7 @@ uint32_t Renderer::uploadMesh(const Mesh& source) {
     const float boundingRadius = s_meshInfos[baseUuid].boundingRadius;
     const float silhouetteRatio = boundingRadius > 0.0f ? std::min(1.0f, std::sqrt(mesh.surfaceArea() / (4.0f * 3.14159265f)) / boundingRadius) : 1.0f;
     const float packedShape = mesh.isRound() ? -silhouetteRatio : silhouetteRatio;
-    for (uint32_t i = 0; i < kNormalSamples; ++i) {
-        s_normalSamples[static_cast<size_t>(baseUuid) * kNormalSamples + i] = glm::vec4(samples[i * 4], samples[i * 4 + 1], samples[i * 4 + 2], packedShape);
-    }
+    for (uint32_t i = 0; i < kNormalSamples; ++i) { s_normalSamples[static_cast<size_t>(baseUuid) * kNormalSamples + i] = glm::vec4(samples[i * 4], samples[i * 4 + 1], samples[i * 4 + 2], packedShape); }
 
     const MeshInfo baseInfo = s_meshInfos[baseUuid];
     size_t previousIndexCount = mesh.indices.size();
@@ -1555,6 +1760,9 @@ void Renderer::drawScene(SceneDatabase& sceneDatabase, const Camera& camera) {
     }
     m_custom.resetTimers(m_currentFrame);
 
+    readPortalStats();
+    for (auto& snapshot : m_diligent->portalSnapshot[m_currentFrame]) snapshot.recorded = false;
+
     const bool profileThisFrame = fullProfiling;
     bool (&passRecorded)[kGpuPassCount] = m_diligent->passRecorded[m_currentFrame];
     std::ranges::fill(passRecorded, false);
@@ -1624,23 +1832,19 @@ void Renderer::drawScene(SceneDatabase& sceneDatabase, const Camera& camera) {
         sceneDatabase.transformDirty.clear();
     }
 
-    if (dirtyUsesBulkPath) {
-        m_pendingDirty[0].clear();
-    }
+    if (dirtyUsesBulkPath) { m_pendingDirty[0].clear(); }
 
     auto ensureLevelOrder = [&] {
         if (m_processedStructureVersion == sceneDatabase.m_structureVersion) return;
         sceneDatabase.updateHierarchy();
         m_processedStructureVersion = sceneDatabase.m_structureVersion;
-        m_diligent->pImmediateContext->UpdateBuffer(m_diligent->pSortedHierarchyBuffer[m_currentFrame], 0, sceneDatabase.sortedHierarchyList.size() * sizeof(Entity), sceneDatabase.sortedHierarchyList.data(),
-                                                    Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
+        m_diligent->pImmediateContext->UpdateBuffer(m_diligent->pSortedHierarchyBuffer[m_currentFrame], 0, sceneDatabase.sortedHierarchyList.size() * sizeof(Entity), sceneDatabase.sortedHierarchyList.data(), Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
     };
 
     if (m_hierarchyUpdateCounter > 0) {
         m_processedStructureVersion = 0;
         ensureLevelOrder();
-        m_diligent->pImmediateContext->UpdateBuffer(m_diligent->pHierarchyBuffer[m_currentFrame], 0, sceneDatabase.hierarchies.size() * sizeof(HierarchyComponent), sceneDatabase.hierarchies.data(),
-                                                    Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
+        m_diligent->pImmediateContext->UpdateBuffer(m_diligent->pHierarchyBuffer[m_currentFrame], 0, sceneDatabase.hierarchies.size() * sizeof(HierarchyComponent), sceneDatabase.hierarchies.data(), Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
         m_hierarchyUpdateCounter--;
     } else if (!sceneDatabase.structureDirty.list.empty()) {
         uploadDirtyHierarchies(sceneDatabase);
@@ -1727,9 +1931,7 @@ void Renderer::drawScene(SceneDatabase& sceneDatabase, const Camera& camera) {
     if (m_meshInfoDirty) {
         const size_t meshInfoCount = std::min<size_t>(s_meshInfos.size(), MAX_MESHES);
         m_diligent->pImmediateContext->UpdateBuffer(m_diligent->pMeshInfoBuffer, 0, meshInfoCount * sizeof(MeshInfo), s_meshInfos.data(), Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
-        if (!s_normalSamples.empty()) {
-            m_diligent->pImmediateContext->UpdateBuffer(m_diligent->pNormalSampleBuffer, 0, s_normalSamples.size() * sizeof(glm::vec4), s_normalSamples.data(), Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
-        }
+        if (!s_normalSamples.empty()) { m_diligent->pImmediateContext->UpdateBuffer(m_diligent->pNormalSampleBuffer, 0, s_normalSamples.size() * sizeof(glm::vec4), s_normalSamples.data(), Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION); }
         m_meshInfoDirty = false;
     }
 
@@ -1768,7 +1970,10 @@ void Renderer::drawScene(SceneDatabase& sceneDatabase, const Camera& camera) {
         m_diligent->pImmediateContext->DispatchCompute(Diligent::DispatchComputeAttribs((count + transformWorkgroupSize - 1) / transformWorkgroupSize, 1, 1));
 
         Diligent::StateTransitionDesc barriers[2];
-        for (auto& [barrier, pBuffer] : {std::pair{&barriers[0], m_diligent->pWorldMatrixBuffer[m_currentFrame].RawPtr()}, std::pair{&barriers[1], m_diligent->pTouchedEpochBuffer[m_currentFrame].RawPtr()}}) {
+        for (auto& [barrier, pBuffer] : {
+                 std::pair{&barriers[0], m_diligent->pWorldMatrixBuffer[m_currentFrame].RawPtr() },
+                 std::pair{&barriers[1], m_diligent->pTouchedEpochBuffer[m_currentFrame].RawPtr()}
+        }) {
             barrier->pResource = pBuffer;
             barrier->OldState = Diligent::RESOURCE_STATE_UNORDERED_ACCESS;
             barrier->NewState = Diligent::RESOURCE_STATE_UNORDERED_ACCESS;
@@ -1822,6 +2027,16 @@ void Renderer::drawScene(SceneDatabase& sceneDatabase, const Camera& camera) {
     m_lighting.prepare(m_diligent->pSceneUBO[m_currentFrame]);
     endPass(GpuPass::Sky);
 
+    const bool portalsActive = !m_portalFrame.nodes.empty();
+    if (portalsActive) {
+        SceneUniforms viewUniforms = sceneUniforms;
+        const PortalViewNode& root = m_portalFrame.nodes[0];
+        viewUniforms.sunIlluminance = glm::vec4(glm::vec3(viewUniforms.sunIlluminance) * root.sunScale, viewUniforms.sunIlluminance.w);
+        viewUniforms.skyGradient[1].w *= root.ambientScale;
+        m_diligent->pImmediateContext->UpdateBuffer(m_diligent->pSceneUBO[m_currentFrame], 0, sizeof(SceneUniforms), &viewUniforms, Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
+        if (!root.surfaces.empty()) renderPortalViews(sceneUniforms, viewUniforms, numObjects);
+    }
+
     const int previousFrame = static_cast<int>((m_currentFrame + NUM_FRAMES_IN_FLIGHT - 1) % NUM_FRAMES_IN_FLIGHT);
 
     uploadCascadeCull();
@@ -1853,6 +2068,7 @@ void Renderer::drawScene(SceneDatabase& sceneDatabase, const Camera& camera) {
     beginPass(GpuPass::RetestDraw);
     drawVisibilityPhase(1);
     endPass(GpuPass::RetestDraw);
+    if (portalsActive) recordPortalStats(0);
 
     beginPass(GpuPass::Shadows);
     drawShadows(numObjects);
@@ -1875,6 +2091,8 @@ void Renderer::drawScene(SceneDatabase& sceneDatabase, const Camera& camera) {
     beginPass(GpuPass::Lighting);
     m_lighting.shade(m_diligent->pSceneDepth, m_diligent->pSceneUBO[m_currentFrame], 2);
     endPass(GpuPass::Lighting);
+
+    if (portalsActive) compositePortals(0);
 
     {
         CustomFrame lit = customFrame();
@@ -2058,6 +2276,10 @@ bool Renderer::pipelinesReady() const {
 }
 
 void Renderer::cullVisibilityPhase(int phaseIndex, uint32_t objectCount, int hizFrame) {
+    cullVisibilityPhase(phaseIndex, objectCount, m_diligent->pHiZTextures[hizFrame].RawPtr());
+}
+
+void Renderer::cullVisibilityPhase(int phaseIndex, uint32_t objectCount, Diligent::ITexture* hiz) {
     auto& d = *m_diligent;
     auto& phase = d.visibility[phaseIndex];
     auto* pContext = d.pImmediateContext.RawPtr();
@@ -2088,7 +2310,7 @@ void Renderer::cullVisibilityPhase(int phaseIndex, uint32_t objectCount, int hiz
     }
 
     auto& srb = phase.cullSRB[m_currentFrame];
-    SetDynamicVariable(srb, "u_hizTexture", d.pHiZTextures[hizFrame]->GetDefaultView(Diligent::TEXTURE_VIEW_SHADER_RESOURCE));
+    SetDynamicVariable(srb, "u_hizTexture", hiz->GetDefaultView(Diligent::TEXTURE_VIEW_SHADER_RESOURCE));
     pContext->SetPipelineState(phaseIndex == 0 ? d.pCullingPSO : phaseIndex == 1 ? d.pRetestCullingPSO : d.pTransparentCullPSO);
     pContext->CommitShaderResources(srb, Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
     if (candidateInput || phaseIndex == 0) {
@@ -2172,7 +2394,7 @@ void Renderer::bindBackBuffer() {
     pContext->SetRenderTargets(1, &pRTV, pDSV, Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
 }
 
-void Renderer::uploadCascadeCull() {
+void Renderer::uploadCascadeCull(bool empty) {
     struct CascadeCull {
         glm::vec4 planes[24];
         uint32_t info[4];
@@ -2180,7 +2402,7 @@ void Renderer::uploadCascadeCull() {
         glm::vec4 localCones[kMaxLocalShadowLights];
         uint32_t localSlots[kMaxLocalShadowLights][4];
     } cull{};
-    const int localCount = m_diligent->pLocalShadowCullPSO ? m_lighting.localShadowCasterCount() : 0;
+    const int localCount = !empty && m_diligent->pLocalShadowCullPSO ? m_lighting.localShadowCasterCount() : 0;
     for (int l = 0; l < localCount; ++l) {
         const LocalShadowCaster& caster = m_lighting.localShadowCasters()[static_cast<size_t>(l)];
         cull.localSpheres[l] = caster.sphere;
@@ -2191,7 +2413,7 @@ void Renderer::uploadCascadeCull() {
     }
     cull.info[1] = static_cast<uint32_t>(localCount);
     const auto& cascades = m_lighting.cascades();
-    const int count = m_diligent->pShadowCullPSO ? m_lighting.cascadeCount() : 0;
+    const int count = !empty && m_diligent->pShadowCullPSO ? m_lighting.cascadeCount() : 0;
     for (int c = 0; c < count; ++c) {
         const Cascade& cascade = cascades[static_cast<size_t>(c)];
         if (!cascade.due) continue;
@@ -2221,7 +2443,12 @@ void Renderer::ensureShadowHiZ() {
     d.pShadowHiZArgsConstants = CreateUniformBuffer(d.pDevice, "Shadow Hi-Z Args Constants", sizeof(argsConstants), Diligent::USAGE_DEFAULT);
     d.pImmediateContext->UpdateBuffer(d.pShadowHiZArgsConstants, 0, sizeof(argsConstants), argsConstants, Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
     d.pShadowHiZArgsSRB.Release();
-    CreateBoundSRB(d.pShadowHiZArgsPSO, d.pShadowHiZArgsSRB, {{"SourceCounterBuffer", d.pShadowRetestCounter}, {"DispatchArgsBuffer", d.pShadowHiZArgs}, {"HiZArgsConstants", d.pShadowHiZArgsConstants}});
+    CreateBoundSRB(d.pShadowHiZArgsPSO, d.pShadowHiZArgsSRB,
+                   {
+                       {"SourceCounterBuffer", d.pShadowRetestCounter   },
+                       {"DispatchArgsBuffer",  d.pShadowHiZArgs         },
+                       {"HiZArgsConstants",    d.pShadowHiZArgsConstants}
+    });
     for (int c = 0; c < kShadowLayers; ++c) {
         Diligent::TextureDesc desc;
         desc.Name = "Shadow Hi-Z";
@@ -2358,12 +2585,12 @@ void Renderer::drawShadows(uint32_t objectCount) {
         pContext->SetPipelineState(d.pDispatchArgsPSO);
         pContext->CommitShaderResources(d.pShadowRetestDispatchArgsSRB[m_currentFrame], Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
         pContext->DispatchCompute(Diligent::DispatchComputeAttribs(1, 1, 1));
-        cull(c, layer, d.pShadowLateCullPSO, d.shadowLateCullSRB[m_currentFrame][c], d.pShadowRetestDispatchArgs, cascade.targetViewProjection, true);
+        cull(c, layer, d.pShadowLateCullPSO, d.shadowLateCullSRB[m_currentFrame][c], d.pShadowRetestDispatchArgs, cascade.viewProjection, true);
         pContext->SetRenderTargets(0, nullptr, target, Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
         pContext->SetViewports(1, &viewport, static_cast<Diligent::Uint32>(resolution), static_cast<Diligent::Uint32>(resolution));
         drawSurfaces(3, c);
         pContext->SetRenderTargets(0, nullptr, nullptr, Diligent::RESOURCE_STATE_TRANSITION_MODE_NONE);
-        d.shadowHiZViewProj[layer] = cascade.targetViewProjection;
+        d.shadowHiZViewProj[layer] = cascade.viewProjection;
         d.shadowHiZValid[layer] = true;
     }
 }
@@ -2433,9 +2660,7 @@ void Renderer::drawLocalShadows(uint32_t objectCount) {
     }
 }
 
-void Renderer::drawVisibilityPhase(int phaseIndex) {
-    drawSurfaces(phaseIndex, -1);
-}
+void Renderer::drawVisibilityPhase(int phaseIndex) { drawSurfaces(phaseIndex, -1); }
 
 void Renderer::drawSurfaces(int phaseIndex, int cascade, uint32_t view) {
     auto& d = *m_diligent;
@@ -2505,33 +2730,7 @@ void Renderer::drawTransparency() {
 
 void Renderer::buildHiZ() {
     auto& d = *m_diligent;
-    auto* pContext = d.pImmediateContext.RawPtr();
-    auto* pHiZ = d.pHiZTextures[m_currentFrame].RawPtr();
-    if (!d.pHiZFromDepthPSO || !d.pHiZMipmapPSO || !pHiZ) return;
-
-    auto hizBarrier = [&](Diligent::RESOURCE_STATE newState) {
-        Diligent::StateTransitionDesc barrier{pHiZ, Diligent::RESOURCE_STATE_UNKNOWN, newState, Diligent::STATE_TRANSITION_FLAG_UPDATE_STATE};
-        pContext->TransitionResourceStates(1, &barrier);
-    };
-
-    SetDynamicVariable(d.pHiZFromDepthSRB, "u_depth", d.pSceneDepth->GetDefaultView(Diligent::TEXTURE_VIEW_SHADER_RESOURCE));
-    SetDynamicVariable(d.pHiZFromDepthSRB, "u_destMip", d.pHiZMipViewsDest[m_currentFrame][0]);
-    pContext->SetPipelineState(d.pHiZFromDepthPSO);
-    pContext->CommitShaderResources(d.pHiZFromDepthSRB, Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
-    pContext->DispatchCompute(Diligent::DispatchComputeAttribs((m_windowWidth + 7) / 8, (m_windowHeight + 7) / 8, 1));
-    hizBarrier(Diligent::RESOURCE_STATE_UNORDERED_ACCESS);
-
-    pContext->SetPipelineState(d.pHiZMipmapPSO);
-    for (int mip = 1; mip < m_maxMipLevel && mip < 32; ++mip) {
-        SetDynamicVariable(d.pHiZMipmapSRB, "u_sourceMip", d.pHiZMipViewsSource[m_currentFrame][mip]);
-        SetDynamicVariable(d.pHiZMipmapSRB, "u_destMip", d.pHiZMipViewsDest[m_currentFrame][mip]);
-        pContext->CommitShaderResources(d.pHiZMipmapSRB, Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
-        const int mipWidth = std::max(1, m_windowWidth >> mip);
-        const int mipHeight = std::max(1, m_windowHeight >> mip);
-        pContext->DispatchCompute(Diligent::DispatchComputeAttribs((mipWidth + 7) / 8, (mipHeight + 7) / 8, 1));
-        hizBarrier(Diligent::RESOURCE_STATE_UNORDERED_ACCESS);
-    }
-    hizBarrier(Diligent::RESOURCE_STATE_SHADER_RESOURCE);
+    BuildHiZ(d, d.pHiZTextures[m_currentFrame].RawPtr(), d.pHiZMipViewsSource[m_currentFrame], d.pHiZMipViewsDest[m_currentFrame], m_windowWidth, m_windowHeight, m_maxMipLevel);
 }
 
 void Renderer::drawProfilingHud() {
@@ -2622,7 +2821,9 @@ void Renderer::createTransformPSO() {
 }
 
 void Renderer::createTransparentCullPSO() {
-    const Diligent::ShaderMacro transparentMacros[] = {{"TRANSPARENT", "1"}};
+    const Diligent::ShaderMacro transparentMacros[] = {
+        {"TRANSPARENT", "1"}
+    };
     m_diligent->pTransparentCullPSO = CreateComputePipeline(m_diligent->pDevice, "Transparent Cull PSO", "resources/shaders/cull.comp", {"u_hizTexture"}, Diligent::ShaderMacroArray{transparentMacros, 1});
 }
 
@@ -2842,11 +3043,17 @@ Diligent::RefCntAutoPtr<Diligent::IPipelineState> BuildSurfacePso(DiligentData& 
     }
     ci.pVS = vs;
     ci.pPS = ps;
-    const Diligent::LayoutElement layout[] = {{0, 0, 3, Diligent::VT_FLOAT32, false}, {1, 0, 3, Diligent::VT_FLOAT32, false}, {2, 0, 2, Diligent::VT_FLOAT32, false}};
+    const Diligent::LayoutElement layout[] = {
+        {0, 0, 3, Diligent::VT_FLOAT32, false},
+        {1, 0, 3, Diligent::VT_FLOAT32, false},
+        {2, 0, 2, Diligent::VT_FLOAT32, false}
+    };
     gp.InputLayout.LayoutElements = layout;
     gp.InputLayout.NumElements = point ? 0 : 3;
-    const litgpu::PipelineLayout resourceLayout = kind == SurfaceKind::Shadow ? litgpu::makeLayout({vs}) :
-        litgpu::makeLayout({vs, ps}, {{"u_colorTextures", litgpu::anisotropicWrap()}, {"u_dataTextures", litgpu::anisotropicWrap()}, {"u_prefilteredEnv", litgpu::linearClamp()}, {"u_dfgLut", litgpu::linearClamp()}, {"u_shadowMap", litgpu::shadowCompare()}, {"u_shadowDepth", litgpu::pointClamp()}, {"u_localShadowMap", litgpu::shadowCompare()}, {"u_sceneColor", litgpu::linearClamp()}});
+    const litgpu::PipelineLayout resourceLayout = kind == SurfaceKind::Shadow ? litgpu::makeLayout({
+                                                                                    vs
+    })
+                                                                              : litgpu::makeLayout({vs, ps}, {{"u_colorTextures", litgpu::anisotropicWrap()}, {"u_dataTextures", litgpu::anisotropicWrap()}, {"u_prefilteredEnv", litgpu::linearClamp()}, {"u_dfgLut", litgpu::linearClamp()}, {"u_shadowMap", litgpu::shadowCompare()}, {"u_shadowDepth", litgpu::pointClamp()}, {"u_localShadowMap", litgpu::shadowCompare()}, {"u_sceneColor", litgpu::linearClamp()}});
     resourceLayout.apply(ci.PSODesc.ResourceLayout);
     Diligent::RefCntAutoPtr<Diligent::IPipelineState> pso;
     d.pDevice->CreateGraphicsPipelineState(ci, &pso);
@@ -2880,8 +3087,14 @@ bool BuildSurface(DiligentData& d, DiligentData::SurfaceProgram& program) {
     program.twoSided = source.twoSided;
     litgpu::lastCompileErrors().clear();
     Diligent::RefCntAutoPtr<Diligent::IPipelineState> built[6];
-    const std::tuple<SurfaceKind, bool, bool> variants[6] = {{SurfaceKind::GBuffer, false, source.twoSided}, {SurfaceKind::GBuffer, true, source.twoSided}, {SurfaceKind::Forward, false, source.twoSided},
-                                                              {SurfaceKind::Forward, true, source.twoSided}, {SurfaceKind::Shadow, false, source.twoSided}, {SurfaceKind::Shadow, true, source.twoSided}};
+    const std::tuple<SurfaceKind, bool, bool> variants[6] = {
+        {SurfaceKind::GBuffer, false, source.twoSided},
+        {SurfaceKind::GBuffer, true,  source.twoSided},
+        {SurfaceKind::Forward, false, source.twoSided},
+        {SurfaceKind::Forward, true,  source.twoSided},
+        {SurfaceKind::Shadow,  false, source.twoSided},
+        {SurfaceKind::Shadow,  true,  source.twoSided}
+    };
     for (int i = 0; i < 6; ++i) {
         const auto& [kind, point, twoSided] = variants[i];
         built[i] = BuildSurfacePso(d, program.name, program.path, source, kind, point, twoSided);
@@ -2911,19 +3124,21 @@ CustomFrame Renderer::customFrame() const {
     frame.width = m_windowWidth;
     frame.height = m_windowHeight;
     frame.profile = fullProfiling;
-    frame.resources = {{"SceneData", d.pSceneUBO[m_currentFrame]},
-                       {"WorldMatrixBuffer", d.pWorldMatrixBuffer[m_currentFrame]},
-                       {"CullSphereBuffer", d.pCullSphereBuffer[m_currentFrame]},
-                       {"RenderableBuffer", d.pRenderableBuffer[m_currentFrame]},
-                       {"MaterialBuffer", m_lighting.materialBuffer()},
-                       {"LightBuffer", m_lighting.lightBuffer()},
-                       {"ExposureBuffer", m_lighting.exposureBuffer()},
-                       {"u_depth", litgpu::srv(d.pSceneDepth)},
-                       {"u_gbuffer0", litgpu::srv(m_lighting.gbuffer(0))},
-                       {"u_gbuffer1", litgpu::srv(m_lighting.gbuffer(1))},
-                       {"u_colorTextures", m_lighting.colorTextures()},
-                       {"u_dataTextures", m_lighting.dataTextures()},
-                       {"u_hdr", litgpu::uav(m_lighting.hdr())}};
+    frame.resources = {
+        {"SceneData",         d.pSceneUBO[m_currentFrame]         },
+        {"WorldMatrixBuffer", d.pWorldMatrixBuffer[m_currentFrame]},
+        {"CullSphereBuffer",  d.pCullSphereBuffer[m_currentFrame] },
+        {"RenderableBuffer",  d.pRenderableBuffer[m_currentFrame] },
+        {"MaterialBuffer",    m_lighting.materialBuffer()         },
+        {"LightBuffer",       m_lighting.lightBuffer()            },
+        {"ExposureBuffer",    m_lighting.exposureBuffer()         },
+        {"u_depth",           litgpu::srv(d.pSceneDepth)          },
+        {"u_gbuffer0",        litgpu::srv(m_lighting.gbuffer(0))  },
+        {"u_gbuffer1",        litgpu::srv(m_lighting.gbuffer(1))  },
+        {"u_colorTextures",   m_lighting.colorTextures()          },
+        {"u_dataTextures",    m_lighting.dataTextures()           },
+        {"u_hdr",             litgpu::uav(m_lighting.hdr())       }
+    };
     return frame;
 }
 
@@ -2991,7 +3206,15 @@ std::vector<std::string> Renderer::surfaceNames() const {
 void Renderer::createSurfacePipelines() {
     auto& d = *m_diligent;
     if (d.surfaces.empty()) {
-        const std::pair<const char*, const char*> builtIns[] = {{"Standard", "standard"}, {"Checker", "checker"}, {"Glass", "glass"}, {"Lava", "lava"}, {"Marble", "marble"}, {"Toon", "toon"}, {"Unlit", "unlit"}};
+        const std::pair<const char*, const char*> builtIns[] = {
+            {"Standard", "standard"},
+            {"Checker",  "checker" },
+            {"Glass",    "glass"   },
+            {"Lava",     "lava"    },
+            {"Marble",   "marble"  },
+            {"Toon",     "toon"    },
+            {"Unlit",    "unlit"   }
+        };
         for (const auto& [name, file] : builtIns) {
             DiligentData::SurfaceProgram program;
             program.name = name;
@@ -3036,7 +3259,6 @@ void Renderer::createTransparentPSO() {
     m_diligent->pCompositePSO->CreateShaderResourceBinding(&m_diligent->pCompositeSRB, true);
 }
 
-
 void Renderer::createHiZPSO() {
     m_diligent->pHiZMipmapPSO = CreateComputePipeline(m_diligent->pDevice, "Hi-Z Mipmap PSO", "resources/shaders/hiz_mipmap.comp", {"u_sourceMip", "u_destMip"});
     CreateBindings(m_diligent->pHiZMipmapPSO, std::span(std::addressof(m_diligent->pHiZMipmapSRB), 1));
@@ -3051,12 +3273,21 @@ void Renderer::createHiZPSO() {
 void Renderer::createCullingPSO() {
     m_diligent->pCullingPSO = CreateComputePipeline(m_diligent->pDevice, "Culling PSO", "resources/shaders/cull.comp", {"u_hizTexture"});
     m_diligent->pVisibilityCompactPSO = CreateComputePipeline(m_diligent->pDevice, "Visibility Compact PSO", "resources/shaders/visibility_compact.comp");
-    const Diligent::ShaderMacro retestMacros[] = {{"RETEST", "1"}};
+    const Diligent::ShaderMacro retestMacros[] = {
+        {"RETEST", "1"}
+    };
     m_diligent->pRetestCullingPSO = CreateComputePipeline(m_diligent->pDevice, "Retest Culling PSO", "resources/shaders/cull.comp", {"u_hizTexture"}, Diligent::ShaderMacroArray{retestMacros, 1});
-    const Diligent::ShaderMacro shadowMacros[] = {{"SHADOW", "1"}, {"SHADOW_LATE", "1"}};
+    const Diligent::ShaderMacro shadowMacros[] = {
+        {"SHADOW",      "1"},
+        {"SHADOW_LATE", "1"}
+    };
     m_diligent->pShadowCullPSO = CreateComputePipeline(m_diligent->pDevice, "Shadow Culling PSO", "resources/shaders/cull.comp", {"u_hizTexture", "u_shadowHiz"}, Diligent::ShaderMacroArray{shadowMacros, 1});
     m_diligent->pShadowLateCullPSO = CreateComputePipeline(m_diligent->pDevice, "Shadow Late Culling PSO", "resources/shaders/cull.comp", {"u_hizTexture", "u_shadowHiz"}, Diligent::ShaderMacroArray{shadowMacros, 2});
-    const Diligent::ShaderMacro localMacros[] = {{"SHADOW", "1"}, {"SHADOW_LATE", "1"}, {"LOCAL_SHADOW", "1"}};
+    const Diligent::ShaderMacro localMacros[] = {
+        {"SHADOW",       "1"},
+        {"SHADOW_LATE",  "1"},
+        {"LOCAL_SHADOW", "1"}
+    };
     m_diligent->pLocalShadowCullPSO = CreateComputePipeline(m_diligent->pDevice, "Local Shadow Culling PSO", "resources/shaders/cull.comp", {"u_hizTexture", "u_shadowHiz"}, Diligent::ShaderMacroArray{localMacros, 3});
 }
 
@@ -3107,7 +3338,9 @@ void Renderer::createDebugDepthPSO() {
     UseVariables(PSOCreateInfo.PSODesc.ResourceLayout, variables);
 
     const Diligent::SamplerDesc pointClamp{Diligent::FILTER_TYPE_POINT, Diligent::FILTER_TYPE_POINT, Diligent::FILTER_TYPE_POINT, Diligent::TEXTURE_ADDRESS_CLAMP, Diligent::TEXTURE_ADDRESS_CLAMP, Diligent::TEXTURE_ADDRESS_CLAMP};
-    Diligent::ImmutableSamplerDesc Samplers[] = {{Diligent::SHADER_TYPE_PIXEL, "u_depthTexture", pointClamp}};
+    Diligent::ImmutableSamplerDesc Samplers[] = {
+        {Diligent::SHADER_TYPE_PIXEL, "u_depthTexture", pointClamp}
+    };
     PSOCreateInfo.PSODesc.ResourceLayout.ImmutableSamplers = Samplers;
     PSOCreateInfo.PSODesc.ResourceLayout.NumImmutableSamplers = _countof(Samplers);
 
@@ -3161,6 +3394,7 @@ void Renderer::createPipelines() {
     createTransparentCullPSO();
     createDebugDepthPSO();
     createDebugLinePSO();
+    createPortalPSO();
 }
 
 void Renderer::reloadShaders() {
@@ -3183,7 +3417,10 @@ void Renderer::setMaterial(uint32_t index, const Material& material) {
 }
 
 void Renderer::addDebugLine(const glm::vec3& from, const glm::vec3& to, const glm::vec4& color, bool overlay) {
-    const DebugLineVertex vertices[2] = {{from, color}, {to, color}};
+    const DebugLineVertex vertices[2] = {
+        {from, color},
+        {to,   color}
+    };
     const float* raw = reinterpret_cast<const float*>(vertices);
     std::vector<float>& target = overlay ? m_debugOverlayLines : m_debugLines;
     target.insert(target.end(), raw, raw + 2 * sizeof(DebugLineVertex) / sizeof(float));
@@ -3264,3 +3501,283 @@ void Renderer::uploadBasePositions(const std::vector<glm::vec3>& basePositions) 
     }
 }
 
+namespace {
+
+struct PortalSurfaceUniforms {
+    glm::mat4 viewProjection;
+    glm::mat4 invView;
+    glm::vec4 center;
+    glm::vec4 axisU;
+    glm::vec4 axisV;
+    glm::vec4 normal;
+    glm::vec4 camera;
+    glm::vec4 params;
+    glm::vec4 color;
+};
+
+PortalHistory& AcquirePortalHistory(DiligentData& d, uint64_t key, uint64_t frame) {
+    for (PortalHistory& h : d.portalHistory) {
+        if (h.used && h.key == key) {
+            h.lastFrame = frame;
+            return h;
+        }
+    }
+    PortalHistory* slot = nullptr;
+    if (d.portalHistory.size() < static_cast<size_t>(kMaxPortalViews)) {
+        d.portalHistory.reserve(kMaxPortalViews);
+        slot = &d.portalHistory.emplace_back();
+    } else {
+        slot = &*std::ranges::min_element(d.portalHistory, {}, &PortalHistory::lastFrame);
+    }
+    slot->used = true;
+    slot->key = key;
+    slot->lastFrame = frame;
+    slot->previous = 0;
+    slot->bits.Release();
+    for (HiZSet& set : slot->hiz) set.texture.Release();
+    return *slot;
+}
+
+}  // namespace
+
+void Renderer::setPortalFrame(PortalFrame frame) {
+    if (frame.nodes.size() > static_cast<size_t>(kMaxPortalViews)) frame.nodes.resize(static_cast<size_t>(kMaxPortalViews));
+    const int count = static_cast<int>(frame.nodes.size());
+    for (PortalViewNode& node : frame.nodes) {
+        for (PortalSurface& surface : node.surfaces) {
+            if (surface.child >= count) surface.child = -1;
+        }
+    }
+    m_portalFrame = std::move(frame);
+}
+
+void Renderer::createPortalPSO() {
+    auto& d = *m_diligent;
+    auto pVS = CompileShader(d.pDevice, "resources/shaders/fullscreen.vert", Diligent::SHADER_TYPE_VERTEX);
+    auto pPS = CompileShader(d.pDevice, "resources/shaders/portal_composite.frag", Diligent::SHADER_TYPE_PIXEL);
+    d.pPortalPSO.Release();
+    d.pPortalSRB.Release();
+    if (!d.pPortalUBO) d.pPortalUBO = CreateUniformBuffer(d.pDevice, "Portal Surface", sizeof(PortalSurfaceUniforms), Diligent::USAGE_DEFAULT);
+    if (!pVS || !pPS || !d.pPortalUBO) return;
+    Diligent::GraphicsPipelineStateCreateInfo info;
+    info.PSODesc.Name = "Portal Composite PSO";
+    info.PSODesc.PipelineType = Diligent::PIPELINE_TYPE_GRAPHICS;
+    info.GraphicsPipeline.NumRenderTargets = 1;
+    info.GraphicsPipeline.RTVFormats[0] = Diligent::TEX_FORMAT_RGBA16_FLOAT;
+    info.GraphicsPipeline.DSVFormat = kSceneDepthFormat;
+    info.GraphicsPipeline.PrimitiveTopology = Diligent::PRIMITIVE_TOPOLOGY_TRIANGLE_LIST;
+    info.GraphicsPipeline.RasterizerDesc.CullMode = Diligent::CULL_MODE_NONE;
+    info.GraphicsPipeline.DepthStencilDesc.DepthEnable = true;
+    info.GraphicsPipeline.DepthStencilDesc.DepthWriteEnable = true;
+    info.GraphicsPipeline.DepthStencilDesc.DepthFunc = Diligent::COMPARISON_FUNC_LESS;
+    info.pVS = pVS;
+    info.pPS = pPS;
+    const auto variables = DescribeVariables({pVS, pPS}, {"u_child"});
+    UseVariables(info.PSODesc.ResourceLayout, variables);
+    d.pDevice->CreateGraphicsPipelineState(info, &d.pPortalPSO);
+    if (!d.pPortalPSO) {
+        Lit::Log::Error("Failed to create Portal Composite PSO");
+        return;
+    }
+    CreateBoundSRB(d.pPortalPSO, d.pPortalSRB, {{"PortalSurfaceData", d.pPortalUBO}});
+}
+
+void Renderer::compositePortals(int index) {
+    auto& d = *m_diligent;
+    const PortalViewNode& node = m_portalFrame.nodes[static_cast<size_t>(index)];
+    if (node.surfaces.empty() || !d.pPortalPSO || !d.pPortalSRB) return;
+    auto* ctx = d.pImmediateContext.RawPtr();
+    Diligent::ITextureView* hdr = litgpu::rtv(m_lighting.hdr());
+    ctx->SetRenderTargets(1, &hdr, d.pSceneDepth->GetDefaultView(Diligent::TEXTURE_VIEW_DEPTH_STENCIL), Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
+    const auto& swapChainDesc = d.pSwapChain->GetDesc();
+    Diligent::Viewport viewport;
+    viewport.Width = static_cast<float>(swapChainDesc.Width);
+    viewport.Height = static_cast<float>(swapChainDesc.Height);
+    ctx->SetViewports(1, &viewport, swapChainDesc.Width, swapChainDesc.Height);
+    ctx->SetPipelineState(d.pPortalPSO);
+    const glm::mat4 viewProjection = node.projection * node.view;
+    for (const PortalSurface& surface : node.surfaces) {
+        const bool child = surface.child >= 0 && d.portalColor[surface.child];
+        PortalSurfaceUniforms u{};
+        u.viewProjection = viewProjection;
+        u.invView = glm::inverse(node.view);
+        u.center = glm::vec4(surface.center, 0.0f);
+        u.axisU = glm::vec4(surface.axisU, 1.0f / std::max(glm::dot(surface.axisU, surface.axisU), 1.0e-8f));
+        u.axisV = glm::vec4(surface.axisV, 1.0f / std::max(glm::dot(surface.axisV, surface.axisV), 1.0e-8f));
+        u.normal = glm::vec4(surface.normal, 0.0f);
+        u.camera = glm::vec4(node.position, child ? 0.0f : 1.0f);
+        u.params = glm::vec4(node.projection[0][0], node.projection[1][1], static_cast<float>(swapChainDesc.Width), static_cast<float>(swapChainDesc.Height));
+        u.color = glm::vec4(surface.fallback, 1.0f);
+        ctx->UpdateBuffer(d.pPortalUBO, 0, sizeof(u), &u, Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
+        Diligent::ITexture* source = child ? d.portalColor[surface.child].RawPtr() : d.pAccumulation.RawPtr();
+        SetDynamicVariable(d.pPortalSRB, "u_child", source->GetDefaultView(Diligent::TEXTURE_VIEW_SHADER_RESOURCE), Diligent::SHADER_TYPE_PIXEL);
+        ctx->CommitShaderResources(d.pPortalSRB, Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
+        ctx->Draw(Diligent::DrawAttribs{3, Diligent::DRAW_FLAG_NONE});
+    }
+}
+
+void Renderer::recordPortalStats(int index) {
+    auto& d = *m_diligent;
+    auto* ctx = d.pImmediateContext.RawPtr();
+    auto& staging = d.portalStaging[m_currentFrame][index];
+    if (!staging) {
+        Diligent::BufferDesc desc;
+        desc.Name = "Portal Stats Readback";
+        desc.Usage = Diligent::USAGE_STAGING;
+        desc.CPUAccessFlags = Diligent::CPU_ACCESS_READ;
+        desc.Size = 2 * sizeof(uint32_t);
+        d.pDevice->CreateBuffer(desc, nullptr, &staging);
+    }
+    if (staging) {
+        for (int phase = 0; phase < 2; ++phase) ctx->CopyBuffer(d.visibility[phase].visibleCounter, 0, Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION, staging, static_cast<Diligent::Uint64>(phase) * sizeof(uint32_t), sizeof(uint32_t), Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
+    }
+    auto& snapshot = d.portalSnapshot[m_currentFrame][index];
+    const PortalViewNode& node = m_portalFrame.nodes[static_cast<size_t>(index)];
+    snapshot.label = node.label;
+    snapshot.depth = node.depth;
+    snapshot.recorded = staging != nullptr;
+}
+
+void Renderer::readPortalStats() {
+    auto& d = *m_diligent;
+    m_portalStats.clear();
+    for (int index = 0; index < kMaxPortalViews; ++index) {
+        const auto& snapshot = d.portalSnapshot[m_currentFrame][index];
+        if (!snapshot.recorded) continue;
+        PortalViewStats stats;
+        stats.label = snapshot.label;
+        stats.depth = snapshot.depth;
+        auto& staging = d.portalStaging[m_currentFrame][index];
+        if (staging) {
+            Diligent::MapHelper<uint32_t> mapped(d.pImmediateContext, staging, Diligent::MAP_READ, Diligent::MAP_FLAG_DO_NOT_WAIT);
+            if (mapped) stats.drawn = static_cast<const uint32_t*>(mapped)[0] + static_cast<const uint32_t*>(mapped)[1];
+        }
+        if (snapshot.timed) {
+            Diligent::QueryDataTimestamp start{};
+            Diligent::QueryDataTimestamp end{};
+            auto& q = d.portalQueries[m_currentFrame][index];
+            if (q[0] && q[1] && q[0]->GetData(&start, sizeof(start), false) && q[1]->GetData(&end, sizeof(end), false) && end.Counter > start.Counter && end.Frequency > 0) {
+                stats.gpuMilliseconds = static_cast<double>(end.Counter - start.Counter) / static_cast<double>(end.Frequency) * 1000.0;
+            }
+        }
+        m_portalStats.push_back(std::move(stats));
+    }
+    if (!m_portalStats.empty() && !m_portalStats.front().label.empty()) {
+        double main = m_diligent->gpuTotalMilliseconds;
+        m_portalStats.front().gpuMilliseconds = main;
+    }
+}
+
+void Renderer::renderPortalViews(const SceneUniforms& base, const SceneUniforms& restore, uint32_t objectCount) {
+    auto& d = *m_diligent;
+    auto* ctx = d.pImmediateContext.RawPtr();
+    const PortalViewNode& root = m_portalFrame.nodes[0];
+    const Diligent::Uint64 bitsSize = d.pVisibilityBits->GetDesc().Size;
+    if (!d.portalMainBits || d.portalMainBits->GetDesc().Size != bitsSize) d.portalMainBits = CreateStructuredBuffer(d.pDevice, "Portal Main Visibility Bits", sizeof(uint32_t), static_cast<Diligent::Uint32>(bitsSize / sizeof(uint32_t)));
+    if (!d.portalMainBits) return;
+    ctx->CopyBuffer(d.pVisibilityBits, 0, Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION, d.portalMainBits, 0, bitsSize, Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
+    uploadCascadeCull(true);
+    for (const PortalSurface& surface : root.surfaces) {
+        if (surface.child > 0) renderPortalNode(surface.child, base, objectCount);
+    }
+    ctx->CopyBuffer(d.portalMainBits, 0, Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION, d.pVisibilityBits, 0, bitsSize, Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
+    ctx->UpdateBuffer(d.pSceneUBO[m_currentFrame], 0, sizeof(SceneUniforms), &restore, Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
+    m_lighting.cullLights(d.pSceneUBO[m_currentFrame]);
+}
+
+void Renderer::renderPortalNode(int index, const SceneUniforms& base, uint32_t objectCount) {
+    auto& d = *m_diligent;
+    auto* ctx = d.pImmediateContext.RawPtr();
+    const PortalViewNode& node = m_portalFrame.nodes[static_cast<size_t>(index)];
+    for (const PortalSurface& surface : node.surfaces) {
+        if (surface.child > index) renderPortalNode(surface.child, base, objectCount);
+    }
+
+    const bool profile = fullProfiling;
+    auto& snapshot = d.portalSnapshot[m_currentFrame][index];
+    snapshot.label = node.label;
+    snapshot.depth = node.depth;
+    snapshot.timed = profile;
+    if (profile) ctx->EndQuery(d.portalQueries[m_currentFrame][index][0]);
+
+    PortalHistory& history = AcquirePortalHistory(d, node.key, m_frameCounter);
+    const Diligent::Uint64 bitsSize = d.pVisibilityBits->GetDesc().Size;
+    if (!history.bits || history.bits->GetDesc().Size != bitsSize) {
+        std::vector<uint32_t> zeros(static_cast<size_t>(bitsSize / sizeof(uint32_t)), 0u);
+        history.bits = CreateStructuredBuffer(d.pDevice, "Portal Visibility Bits", sizeof(uint32_t), static_cast<Diligent::Uint32>(zeros.size()), zeros.data());
+    }
+    for (HiZSet& set : history.hiz) {
+        if (!set.texture) CreateHiZSet(d, set, m_windowWidth, m_windowHeight, m_maxMipLevel);
+    }
+    Diligent::ITexture* hdr = m_lighting.hdr();
+    if (!history.bits || !history.hiz[0].texture || !history.hiz[1].texture || !hdr) return;
+    if (!d.portalColor[index]) {
+        Diligent::TextureDesc desc = hdr->GetDesc();
+        desc.Name = "Portal View Color";
+        desc.BindFlags = Diligent::BIND_SHADER_RESOURCE;
+        desc.Usage = Diligent::USAGE_DEFAULT;
+        desc.MipLevels = 1;
+        d.pDevice->CreateTexture(desc, nullptr, &d.portalColor[index]);
+        if (d.portalColor[index]) d.portalColor[index]->GetDefaultView(Diligent::TEXTURE_VIEW_SHADER_RESOURCE)->SetSampler(d.pHiZSampler);
+    }
+    if (!d.portalColor[index]) return;
+
+    ctx->CopyBuffer(history.bits, 0, Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION, d.pVisibilityBits, 0, bitsSize, Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
+
+    SceneUniforms u = base;
+    const glm::mat4 viewProjection = node.projection * node.view;
+    u.projection = node.projection;
+    u.view = node.view;
+    u.viewProjection = viewProjection;
+    u.invView = glm::inverse(node.view);
+    u.invProjection = glm::inverse(node.projection);
+    u.invViewProjection = glm::inverse(viewProjection);
+    u.prevViewProjection = viewProjection;
+    for (size_t i = 0; i < 6; ++i) u.frustumPlanes[i] = node.planes[i];
+    u.viewPos = node.position;
+    u.sunIlluminance = glm::vec4(glm::vec3(u.sunIlluminance) * node.sunScale, u.sunIlluminance.w);
+    u.skyGradient[1].w *= node.ambientScale;
+    u.shadowParams.x = 0.0f;
+    u.renderFlags.y = 0.0f;
+    u.giParams.x = 0.0f;
+    u.skyParams.w = 0.0f;
+    ctx->UpdateBuffer(d.pSceneUBO[m_currentFrame], 0, sizeof(u), &u, Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
+    m_lighting.cullLights(d.pSceneUBO[m_currentFrame]);
+
+    HiZSet& previousHiZ = history.hiz[history.previous];
+    HiZSet& currentHiZ = history.hiz[1 - history.previous];
+    cullVisibilityPhase(0, objectCount, previousHiZ.texture.RawPtr());
+    buildVisibilityDraws(0);
+    bindSceneTargets(true);
+    drawVisibilityPhase(0);
+    ctx->SetRenderTargets(0, nullptr, nullptr, Diligent::RESOURCE_STATE_TRANSITION_MODE_NONE);
+    BuildHiZ(d, currentHiZ.texture.RawPtr(), currentHiZ.source, currentHiZ.dest, m_windowWidth, m_windowHeight, m_maxMipLevel);
+    cullVisibilityPhase(1, objectCount, currentHiZ.texture.RawPtr());
+    buildVisibilityDraws(1);
+    bindSceneTargets(false);
+    drawVisibilityPhase(1);
+    recordPortalStats(index);
+    cullVisibilityPhase(2, objectCount, currentHiZ.texture.RawPtr());
+    buildVisibilityDraws(2);
+    ctx->SetRenderTargets(0, nullptr, nullptr, Diligent::RESOURCE_STATE_TRANSITION_MODE_NONE);
+
+    RenderSettings& settings = m_lighting.settings();
+    const bool ssr = settings.ssr;
+    settings.ssr = false;
+    for (int stage = 0; stage < 3; ++stage) m_lighting.shade(d.pSceneDepth, d.pSceneUBO[m_currentFrame], stage);
+    settings.ssr = ssr;
+
+    compositePortals(index);
+    drawTransparency();
+
+    Diligent::CopyTextureAttribs copy;
+    copy.pSrcTexture = m_lighting.hdr();
+    copy.SrcTextureTransitionMode = Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION;
+    copy.pDstTexture = d.portalColor[index];
+    copy.DstTextureTransitionMode = Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION;
+    ctx->CopyTexture(copy);
+
+    ctx->CopyBuffer(d.pVisibilityBits, 0, Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION, history.bits, 0, bitsSize, Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
+    history.previous = 1 - history.previous;
+    if (profile) ctx->EndQuery(d.portalQueries[m_currentFrame][index][1]);
+}

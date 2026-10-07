@@ -8,6 +8,7 @@ module;
 export module Engine.inputactions;
 
 import Engine.input;
+import Engine.Replay;
 
 export class InputActions {
   public:
@@ -19,14 +20,22 @@ export class InputActions {
         m_axes.erase(name);
     }
 
+    void setSource(const SimInput* source) { m_source = source; }
+
     [[nodiscard]] bool pressed(const std::string& action) const {
-        return any(action, InputManager::IsKeyPressed, InputManager::IsMouseButtonPressed);
+        return any(
+            action, [this](int k) { return m_source ? m_source->pressed(k) : InputManager::IsKeyPressed(k); },
+            [this](int b) { return m_source ? m_source->buttonPressed(b) : InputManager::IsMouseButtonPressed(b); });
     }
     [[nodiscard]] bool held(const std::string& action) const {
-        return any(action, InputManager::IsKeyHeld, InputManager::IsMouseButtonHeld);
+        return any(
+            action, [this](int k) { return m_source ? m_source->held(k) : InputManager::IsKeyHeld(k); },
+            [this](int b) { return m_source ? m_source->buttonHeld(b) : InputManager::IsMouseButtonHeld(b); });
     }
     [[nodiscard]] bool released(const std::string& action) const {
-        return any(action, InputManager::IsKeyReleased, InputManager::IsMouseButtonReleased);
+        return any(
+            action, [this](int k) { return m_source ? m_source->released(k) : InputManager::IsKeyReleased(k); },
+            [this](int b) { return m_source ? m_source->buttonReleased(b) : InputManager::IsMouseButtonReleased(b); });
     }
 
     [[nodiscard]] float axis(const std::string& name) const {
@@ -34,13 +43,15 @@ export class InputActions {
         if (it == m_axes.end()) return 0.0f;
         float value = 0.0f;
         for (const auto& [negative, positive] : it->second) {
-            if (InputManager::IsKeyHeld(negative)) value -= 1.0f;
-            if (InputManager::IsKeyHeld(positive)) value += 1.0f;
+            if (isHeld(negative)) value -= 1.0f;
+            if (isHeld(positive)) value += 1.0f;
         }
         return value < -1.0f ? -1.0f : (value > 1.0f ? 1.0f : value);
     }
 
   private:
+    [[nodiscard]] bool isHeld(int key) const { return m_source ? m_source->held(key) : InputManager::IsKeyHeld(key); }
+
     struct Binding {
         std::vector<int> keys;
         std::vector<int> mouseButtons;
@@ -59,6 +70,7 @@ export class InputActions {
         return false;
     }
 
+    const SimInput* m_source = nullptr;
     std::unordered_map<std::string, Binding> m_actions;
     std::unordered_map<std::string, std::vector<std::pair<int, int>>> m_axes;
 };

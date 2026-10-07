@@ -17,6 +17,8 @@ import Engine.camera;
 import Engine.Render.scenedatabase;
 import Engine.mesh;
 import Engine.World;
+import Engine.Portal;
+import Engine.Portal.view;
 import Engine.Physics;
 import Engine.Animation;
 import Engine.Jobs;
@@ -26,6 +28,10 @@ import Engine.glm;
 import Engine.Render.material;
 import Engine.Render.settings;
 import Engine.Render.custom;
+import Engine.Replay;
+import Engine.Perf;
+import Engine.Params;
+import Engine.Json;
 
 export enum class Phase { PreUpdate, FixedUpdate, Update, PostUpdate };
 
@@ -50,6 +56,27 @@ export class Engine {
 
     bool open(const WindowConfig& config = {});
     int run(const std::function<void(float)>& frame = {});
+    bool openHeadless();
+    [[nodiscard]] bool headless() const { return m_headless; }
+    int runHeadless(uint64_t ticks = 0, float dt = 0.0f, const std::function<void(uint64_t)>& beforeTick = {});
+    void seed(uint64_t value) { m_world.random().seed(value); }
+    void setInput(const InputState& state) { m_inputPending = state; }
+    [[nodiscard]] const SimInput& simInput() const { return m_simInput; }
+    bool startRecording(const std::string& path);
+    bool stopRecording();
+    [[nodiscard]] bool recording() const { return m_recorder.active(); }
+    bool startReplay(const std::string& path);
+    bool startReplay(ReplayData data);
+    [[nodiscard]] bool replaying() const { return m_player.active(); }
+    [[nodiscard]] uint64_t replaySeed() const { return m_player.seed(); }
+    [[nodiscard]] size_t replayPosition() const { return m_player.position(); }
+    void enablePerfLog(const std::string& path);
+    void disablePerfLog();
+    [[nodiscard]] PerfLog& perfLog() { return m_perf; }
+    [[nodiscard]] ParamBus& params() { return m_params; }
+    [[nodiscard]] Json dumpState();
+    [[nodiscard]] std::string dumpStateText(bool pretty = false);
+    bool writeStateDump(const std::string& path);
     void enableFlyCamera(const FlyCameraSettings& settings = {});
     void setMouseCaptured(bool captured);
     bool enableImGui();
@@ -87,6 +114,8 @@ export class Engine {
     void update();
     void update(World& world);
     [[nodiscard]] World& world() { return m_world; }
+    [[nodiscard]] PortalSystem& portals() { return m_portals; }
+    [[nodiscard]] const std::vector<PortalViewStats>& portalStats() const { return m_renderer.portalStats(); }
     [[nodiscard]] InputActions& input() { return m_input; }
     [[nodiscard]] Camera& camera() { return m_world.camera(); }
     void present();
@@ -150,16 +179,32 @@ export class Engine {
     };
 
     void runSystems(Phase phase, float dt, bool paused);
+    void beginTickInput(float& dt);
+    void uploadParams();
     void applyWorldAnimation();
+    void updatePortals(World& world);
     void syncWindowSize(Camera& camera);
 
     GLFWwindow* m_window = nullptr;
     bool m_ownsWindow = false;
     bool m_mouseCaptured = false;
+    bool m_headless = false;
+    SimInput m_simInput;
+    InputState m_inputPending;
+    InputRecorder m_recorder;
+    InputPlayer m_player;
+    std::string m_recordPath;
+    PerfLog m_perf;
+    ParamBus m_params;
+    uint64_t m_paramsUploaded = ~0ull;
+    uint32_t m_paramPollCounter = 0;
+    std::chrono::steady_clock::time_point m_lastTickStart{};
+    double m_lastSimMs = 0.0;
     Renderer m_renderer;
     JobSystem m_jobs;
     Profiler m_profiler;
     World m_world;
+    PortalSystem m_portals;
     int m_windowWidth = 1280;
     int m_windowHeight = 720;
     InputActions m_input;

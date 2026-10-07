@@ -10,6 +10,9 @@ module;
 
 struct GLFWwindow;
 struct DiligentData;
+namespace Diligent {
+struct ITexture;
+}
 
 export module Engine.renderer;
 
@@ -23,6 +26,7 @@ import Engine.Render.lighting;
 import Engine.Render.custom;
 import Engine.Render.settings;
 import Engine.Render.material;
+import Engine.Portal.view;
 import Engine.glm;
 
 export struct GpuEntityState {
@@ -80,6 +84,8 @@ export class Renderer {
     [[nodiscard]] double gpuTotalMilliseconds() const;
     void setProfilingHud(bool enabled) { m_profilingHud = enabled; }
     void requestScreenshot(std::string path) { m_screenshotPath = std::move(path); }
+    void setPortalFrame(PortalFrame frame);
+    [[nodiscard]] const std::vector<PortalViewStats>& portalStats() const { return m_portalStats; }
     bool enableImGui();
     void beginUi();
     [[nodiscard]] bool imguiEnabled() const { return m_imgui && m_imgui->initialized(); }
@@ -98,7 +104,7 @@ export class Renderer {
     void createTransparentPSO();
     void createSurfacePipelines();
     void rebindSurfaceResources();
-    void uploadCascadeCull();
+    void uploadCascadeCull(bool empty = false);
     void drawShadows(uint32_t objectCount);
     void drawLocalShadows(uint32_t objectCount);
     void ensureShadowHiZ();
@@ -113,6 +119,13 @@ export class Renderer {
     void uploadDirtyHierarchies(SceneDatabase& sceneDatabase);
     [[nodiscard]] bool pipelinesReady() const;
     void cullVisibilityPhase(int phase, uint32_t objectCount, int hizFrame);
+    void cullVisibilityPhase(int phase, uint32_t objectCount, Diligent::ITexture* hiz);
+    void renderPortalViews(const SceneUniforms& base, const SceneUniforms& restore, uint32_t objectCount);
+    void renderPortalNode(int index, const SceneUniforms& base, uint32_t objectCount);
+    void compositePortals(int index);
+    void createPortalPSO();
+    void recordPortalStats(int index);
+    void readPortalStats();
     void buildVisibilityDraws(int phase, uint32_t views = 1);
     void drawVisibilityPhase(int phase);
     void bindSceneTargets(bool clear);
@@ -122,6 +135,8 @@ export class Renderer {
     void drawOverlays(const Camera& camera);
     void captureBackBuffer();
     std::string m_screenshotPath;
+    PortalFrame m_portalFrame;
+    std::vector<PortalViewStats> m_portalStats;
     bool reallocateBuffers(size_t numObjects);
     void releaseObjectBuffers();
     [[nodiscard]] size_t objectBudget() const;

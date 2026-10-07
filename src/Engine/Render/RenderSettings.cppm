@@ -36,6 +36,10 @@ export struct RenderSettings {
     float cloudSpeed = 12.0f;
     float cloudAltitude = 2200.0f;
     bool stars = true;
+    bool moon = true;
+    float moonIlluminance = 1.0f;
+    bool godRays = true;
+    float godRayIntensity = 1.0f;
     std::string hdriPath;
     float hdriIntensity = 20000.0f;
     float hdriRotation = 0.0f;
@@ -44,7 +48,7 @@ export struct RenderSettings {
     glm::vec3 gradientGround{0.28f, 0.26f, 0.24f};
     float gradientIntensity = 8000.0f;
     float environmentIntensity = 1.0f;
-    float skyBrightness = 1.0f;
+    float skyBrightness = 4.0f;
 
     bool autoExposure = true;
     float exposureCompensation = 0.0f;
@@ -66,12 +70,12 @@ export struct RenderSettings {
     float bloomRadius = 0.85f;
 
     bool ssao = true;
-    float aoRadius = 1.2f;
+    float aoRadius = 1.8f;
     float aoIntensity = 1.0f;
     int aoSlices = 2;
     int aoSteps = 6;
     bool ssgi = true;
-    float ssgiIntensity = 1.0f;
+    float ssgiIntensity = 2.5f;
     float ssgiThickness = 0.5f;
 
     bool ssr = true;
@@ -88,7 +92,6 @@ export struct RenderSettings {
     float shadowDepthBias = 0.6f;
     bool pcss = true;
     bool contactShadows = true;
-    bool staggerCascades = true;
     bool localShadows = true;
     int localShadowCount = 4;
     int localShadowResolution = 512;
@@ -128,6 +131,10 @@ void visitRenderSettings(Settings& s, Visitor&& visit) {
     visit("cloudSpeed", s.cloudSpeed);
     visit("cloudAltitude", s.cloudAltitude);
     visit("stars", s.stars);
+    visit("moon", s.moon);
+    visit("moonIlluminance", s.moonIlluminance);
+    visit("godRays", s.godRays);
+    visit("godRayIntensity", s.godRayIntensity);
     visit("hdriPath", s.hdriPath);
     visit("hdriIntensity", s.hdriIntensity);
     visit("hdriRotation", s.hdriRotation);
@@ -175,7 +182,6 @@ void visitRenderSettings(Settings& s, Visitor&& visit) {
     visit("shadowDepthBias", s.shadowDepthBias);
     visit("pcss", s.pcss);
     visit("contactShadows", s.contactShadows);
-    visit("staggerCascades", s.staggerCascades);
     visit("localShadows", s.localShadows);
     visit("localShadowCount", s.localShadowCount);
     visit("localShadowResolution", s.localShadowResolution);

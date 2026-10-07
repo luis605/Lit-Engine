@@ -21,11 +21,18 @@ import Engine.mesh;
 
 namespace {
 
-constexpr uint32_t kAssetMagic = 0x4D54494CU; // 'L','I','T','M' little-endian
-constexpr uint32_t kAssetVersion = 3U;
-constexpr uint32_t kFloatsPerVertex = 8U;
+constexpr uint32_t MakeSignature(const char str[5]) {
+    return static_cast<uint32_t>(str[0]) |
+            (static_cast<uint32_t>(str[1]) << 8) |
+            (static_cast<uint32_t>(str[2]) << 16) |
+            (static_cast<uint32_t>(str[3]) << 24);
+}
 
-constexpr uint64_t kMaxElementCount = 1ULL << 31; // per array
+constexpr uint32_t kAssetFileSignature = MakeSignature("LITM");
+constexpr uint32_t kAssetVersion = 3;
+constexpr uint32_t kFloatsPerVertex = 8;
+
+constexpr uint64_t kMaxElementCount = 1ULL << 31;
 
 struct AssetHeader {
     uint32_t magic;
@@ -57,7 +64,7 @@ std::optional<AssetHeader> readValidatedHeader(std::istream& stream,
         return std::nullopt;
     }
 
-    if (header.magic != kAssetMagic) {
+    if (header.magic != kAssetFileSignature) {
         Lit::Log::Error("Not a Lit asset file (bad magic 0x{:08X}): {}", header.magic, path);
         return std::nullopt;
     }
@@ -127,7 +134,7 @@ bool isBakeUpToDate(const std::string& sourcePath, const std::string& destinatio
     std::ifstream probe(destinationPath, std::ios::binary);
     if (!probe.is_open()) return false;
     AssetHeader peek{};
-    if (!readExactly(probe, &peek, sizeof(peek)) || peek.magic != kAssetMagic || peek.version != kAssetVersion || peek.floatsPerVertex != kFloatsPerVertex) return false;
+    if (!readExactly(probe, &peek, sizeof(peek)) || peek.magic != kAssetFileSignature || peek.version != kAssetVersion || peek.floatsPerVertex != kFloatsPerVertex) return false;
     probe.seekg(0);
 
     return readValidatedHeader(probe, static_cast<uint64_t>(fileSize), destinationPath).has_value();
@@ -250,7 +257,7 @@ bool AssetManager::bake(const std::string& sourcePath, const std::string& destin
     }
 
     AssetHeader header{};
-    header.magic = kAssetMagic;
+    header.magic = kAssetFileSignature;
     header.version = kAssetVersion;
     header.floatsPerVertex = kFloatsPerVertex;
     header.reserved = 0;

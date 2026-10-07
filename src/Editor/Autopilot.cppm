@@ -47,4 +47,9 @@ export class Autopilot {
     float m_measureBudget = 0.0f;
     std::string m_measureLabel;
     std::vector<float> m_measureSamples;
+    int m_captureLeft = 0;
+    int m_captureEvery = 1;
+    int m_captureTick = 0;
+    int m_captureIndex = 0;
+    std::string m_capturePrefix;
 };

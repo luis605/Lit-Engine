@@ -31,6 +31,7 @@ import Engine.Render.component;
 import Engine.Render.scenedatabase;
 import Engine.camera;
 import Engine.glm;
+import Engine.Rng;
 
 export struct CameraComponent {
     float fov = 45.0f;
@@ -572,6 +573,8 @@ export class World {
     [[nodiscard]] TimeState& timeState() { return m_time; }
 
     [[nodiscard]] EventBus& events() { return m_events; }
+    [[nodiscard]] RandomService& random() { return m_random; }
+    [[nodiscard]] const RandomService& random() const { return m_random; }
     [[nodiscard]] Camera& camera() { return m_camera; }
     [[nodiscard]] const Camera& camera() const { return m_camera; }
     [[nodiscard]] SceneDatabase& database() { return m_db; }
@@ -650,6 +653,7 @@ export class World {
     bool m_restoreCameraOnLoad = true;
     Profiler* m_profiler = nullptr;
     EventBus m_events;
+    RandomService m_random;
     TimeState m_time;
     std::vector<glm::vec3> m_animBase;
     uint32_t m_animOffset = 0;

@@ -1,4 +1,5 @@
 #include <GLFW/glfw3.h>
+#include <fstream>
 #include <functional>
 #include <optional>
 #include <string>
@@ -32,6 +33,12 @@ import Engine.input;
 import Engine.Render.material;
 import Engine.Render.settings;
 import Engine.Render.custom;
+import Engine.Replay;
+import Engine.Perf;
+import Engine.Params;
+import Engine.Json;
+import Engine.Dump;
+import Engine.Rng;
 
 Engine::Engine() {
     m_world.setJobSystem(&m_jobs);
@@ -45,6 +52,18 @@ Engine::Engine() {
     m_world.setMeshBoundsHook([this](uint32_t id) { return m_renderer.getMeshBounds(id); });
     registerCoreComponents(m_world);
     registerSceneSections();
+    m_input.setSource(&m_simInput);
+    addSystem(
+        Phase::PreUpdate, "params",
+        [this](World& world, float) {
+            if ((++m_paramPollCounter & 15u) == 0) {
+                std::string error;
+                if (m_params.pollReload(&error)) Lit::Log::Info("Params reloaded from {}", m_params.watchedPath());
+                else if (!error.empty()) Lit::Log::Error("Params reload failed: {}", error);
+            }
+            m_params.update(world.time().unscaledDeltaTime);
+        },
+        true);
     addSystem(Phase::Update, "animation", [this](World& world, float dt) { updateAnimators(world, m_animations, dt); });
     addSystem(Phase::FixedUpdate, "physics", [this](World& world, float dt) { stepPhysics(world, dt, m_physics); });
 }
@@ -290,6 +309,83 @@ int Engine::run(const std::function<void(float)>& frame) {
     return 0;
 }
 
+bool Engine::openHeadless() {
+    m_headless = true;
+    m_window = nullptr;
+    return true;
+}
+
+int Engine::runHeadless(uint64_t ticks, float dt, const std::function<void(uint64_t)>& beforeTick) {
+    m_headless = true;
+    const float step = dt > 0.0f ? dt : m_fixedStep;
+    const uint64_t count = ticks == 0 && m_player.loaded() ? m_player.length() - m_player.position() : ticks;
+    for (uint64_t i = 0; i < count; ++i) {
+        if (beforeTick) beforeTick(i);
+        tick(step);
+    }
+    if (m_recorder.active()) stopRecording();
+    return 0;
+}
+
+bool Engine::startRecording(const std::string& path) {
+    m_recordPath = path;
+    m_recorder.begin(m_world.random().seed());
+    return true;
+}
+
+bool Engine::stopRecording() {
+    if (!m_recorder.active()) return false;
+    m_recorder.stop();
+    return m_recorder.save(m_recordPath);
+}
+
+bool Engine::startReplay(ReplayData data) {
+    m_player.load(std::move(data));
+    return m_player.loaded();
+}
+
+bool Engine::startReplay(const std::string& path) {
+    ReplayData data;
+    std::string error;
+    if (!loadReplay(path, data, &error)) {
+        Lit::Log::Error("Replay '{}' failed: {}", path, error);
+        return false;
+    }
+    return startReplay(std::move(data));
+}
+
+void Engine::enablePerfLog(const std::string& path) {
+    m_perf.open(path);
+    m_lastTickStart = {};
+}
+
+void Engine::disablePerfLog() { m_perf.close(); }
+
+Json Engine::dumpState() {
+    Json out = Json::object();
+    out.set("world", dumpWorld(m_world));
+    out.set("random", dumpRandom(m_world.random()));
+    Json params = Json::object();
+    for (const ParamInfo& p : m_params.params()) params.set(p.name, p.value);
+    out.set("params", std::move(params));
+    return out;
+}
+
+std::string Engine::dumpStateText(bool pretty) { return dumpState().dump(pretty ? 2 : -1); }
+
+bool Engine::writeStateDump(const std::string& path) {
+    std::ofstream out(path, std::ios::binary);
+    if (!out) return false;
+    out << dumpStateText(true) << '\n';
+    return static_cast<bool>(out);
+}
+
+void Engine::uploadParams() {
+    if (m_paramsUploaded == m_params.version()) return;
+    m_paramsUploaded = m_params.version();
+    m_renderer.custom().setBuffer("EngineParams", sizeof(float), kParamSlots, m_params.values());
+}
+
 bool Engine::enableImGui() { return m_renderer.enableImGui(); }
 
 void Engine::beginUi() { m_renderer.beginUi(); }
@@ -301,15 +397,16 @@ void Engine::setMouseCaptured(bool captured) {
 
 void Engine::enableFlyCamera(const FlyCameraSettings& settings) {
     addSystem(Phase::Update, "fly camera", [this, settings](World& world, float) {
-        if (InputManager::IsKeyPressed(settings.captureMouseKey)) setMouseCaptured(!m_mouseCaptured);
+        const SimInput& in = m_simInput;
+        if (in.pressed(settings.captureMouseKey)) setMouseCaptured(!m_mouseCaptured);
         Camera& camera = world.camera();
-        const float step = settings.speed * (InputManager::IsKeyHeld(GLFW_KEY_LEFT_SHIFT) ? settings.sprintMultiplier : 1.0f) * world.time().unscaledDeltaTime;
-        if (InputManager::IsKeyHeld(GLFW_KEY_W)) camera.processKeyboard(CameraMovement::FORWARD, step);
-        if (InputManager::IsKeyHeld(GLFW_KEY_S)) camera.processKeyboard(CameraMovement::BACKWARD, step);
-        if (InputManager::IsKeyHeld(GLFW_KEY_A)) camera.processKeyboard(CameraMovement::LEFT, step);
-        if (InputManager::IsKeyHeld(GLFW_KEY_D)) camera.processKeyboard(CameraMovement::RIGHT, step);
+        const float step = settings.speed * (in.held(GLFW_KEY_LEFT_SHIFT) ? settings.sprintMultiplier : 1.0f) * world.time().unscaledDeltaTime;
+        if (in.held(GLFW_KEY_W)) camera.processKeyboard(CameraMovement::FORWARD, step);
+        if (in.held(GLFW_KEY_S)) camera.processKeyboard(CameraMovement::BACKWARD, step);
+        if (in.held(GLFW_KEY_A)) camera.processKeyboard(CameraMovement::LEFT, step);
+        if (in.held(GLFW_KEY_D)) camera.processKeyboard(CameraMovement::RIGHT, step);
         if (m_mouseCaptured) {
-            const glm::vec2 delta = InputManager::GetMouseDelta();
+            const glm::vec2 delta = in.current.mouseDelta;
             camera.processMouseMovement(delta.x, -delta.y);
         }
     }, true);
@@ -375,7 +472,37 @@ void Engine::runSystems(Phase phase, float dt, bool paused) {
     }
 }
 
+void Engine::beginTickInput(float& dt) {
+    if (m_player.active()) {
+        const ReplayTick& t = m_player.next();
+        m_inputPending = t.input;
+        dt = t.dt;
+    } else if (!m_headless && m_window) {
+        InputState s;
+        for (int k = 0; k <= GLFW_KEY_LAST && k < kInputKeyCount; ++k) {
+            if (InputManager::IsKeyPressed(k) || InputManager::IsKeyHeld(k)) s.keys.set(static_cast<size_t>(k));
+        }
+        for (int b = 0; b <= GLFW_MOUSE_BUTTON_LAST && b < kInputMouseButtons; ++b) {
+            if (InputManager::IsMouseButtonPressed(b) || InputManager::IsMouseButtonHeld(b)) s.buttons.set(static_cast<size_t>(b));
+        }
+        s.mouse = InputManager::GetMousePosition();
+        s.mouseDelta = InputManager::GetMouseDelta();
+        m_inputPending = s;
+    }
+    m_simInput.advance(m_inputPending);
+    if (m_recorder.active()) m_recorder.record(dt, m_inputPending);
+}
+
 void Engine::tick(float deltaTime) {
+    const auto tickStart = std::chrono::steady_clock::now();
+    if (m_perf.active()) {
+        const double frameMs = m_lastTickStart.time_since_epoch().count() == 0 ? 0.0 : std::chrono::duration<double, std::milli>(tickStart - m_lastTickStart).count();
+        std::vector<PerfPass> passes;
+        for (const GpuPassTiming& t : m_renderer.gpuTimings()) passes.push_back({t.name, t.milliseconds});
+        m_perf.record(m_world.time().frame, frameMs, m_lastSimMs, m_renderer.gpuTotalMilliseconds(), passes);
+    }
+    m_lastTickStart = tickStart;
+    beginTickInput(deltaTime);
     m_profiler.beginFrame();
     ProfileScope tickProfile(m_profiler, "Engine::tick");
     constexpr float maxFrame = 0.25f;
@@ -406,6 +533,7 @@ void Engine::tick(float deltaTime) {
         runSystems(Phase::PostUpdate, 0.0f, true);
     }
     m_world.events().dispatch();
+    m_lastSimMs = std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - tickStart).count();
 }
 
 void Engine::reloadShaders() { m_renderer.reloadShaders(); }
@@ -446,6 +574,8 @@ void Engine::update() {
         }
     }
     m_world.syncCamera();
+    updatePortals(m_world);
+    uploadParams();
     LightSet lights;
     const bool hasLights = collectLights(m_world, m_world.camera().getPosition(), lights, 1024);
     m_renderer.setLights(hasLights, lights.directional, lights.packed);
@@ -455,11 +585,24 @@ void Engine::update() {
 
 void Engine::update(World& world) {
     world.syncCamera();
+    updatePortals(world);
     LightSet lights;
     const bool hasLights = collectLights(world, world.camera().getPosition(), lights, 1024);
     m_renderer.setLights(hasLights, lights.directional, lights.packed);
     syncWindowSize(world.camera());
     m_renderer.drawScene(world.database(), world.camera());
+}
+
+void Engine::updatePortals(World& world) {
+    if (!m_portals.active()) {
+        m_renderer.setPortalFrame({});
+        return;
+    }
+    const int crossed = m_portals.step(world.camera());
+    const EntityHandle cameraEntity = world.getActiveCamera();
+    if (crossed >= 0 && world.isAlive(cameraEntity)) world.setWorldMatrix(cameraEntity, m_portals.portals()[static_cast<size_t>(crossed)].transform * world.getWorldMatrix(cameraEntity));
+    m_portals.updateObjects(world);
+    m_renderer.setPortalFrame(m_portals.buildFrame(world.camera(), static_cast<float>(std::max(m_renderer.height(), 1))));
 }
 
 void Engine::present() { m_renderer.present(); }
@@ -472,6 +615,8 @@ void Engine::syncWindowSize(Camera& camera) {
 }
 
 void Engine::cleanup() {
+    stopRecording();
+    m_perf.close();
     m_renderer.cleanup();
     if (m_ownsWindow && m_window) {
         glfwDestroyWindow(m_window);

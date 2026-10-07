@@ -1,0 +1,5 @@
+frames 20
+run view.zen
+frames 40
+shot /tmp/claude-1001/-home-lixt-Desktop-private-projects-Lit-Engine/000ec9c0-429b-471d-925c-88b0274f2f6e/scratchpad/portal.png
+quit

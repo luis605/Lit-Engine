@@ -83,6 +83,8 @@ target_sources(Engine
         Render/Lighting.cppm
         Render/CustomPasses.cppm
         World/World.cppm
+        Portal/PortalView.cppm
+        Portal/Portal.cppm
         Events/Events.cppm
         Physics/Physics.cppm
         History/History.cppm
@@ -98,6 +100,24 @@ target_sources(Engine
         UI/Manager.cppm
         UI/Text.cppm
         UI/ImGuiLayer.cppm
+        Tools/Rng.cppm
+        Tools/Json.cppm
+        Tools/Replay.cppm
+        Tools/Dump.cppm
+        Tools/Perf.cppm
+        Params/Params.cppm
+        Observation/Observation.cppm
+        State/State.cppm
+        Storylet/Storylet.cppm
+        Save/Save.cppm
+        Camera/CameraRig.cppm
+        Geometry/Geometry.cppm
+        AI/AI.cppm
+        Nav/Nav.cppm
+        Animation/Rig.cppm
+        Animation/Face.cppm
+        Audio/Propagation.cppm
+        Audio/Audio.cppm
     PRIVATE
         Engine.cpp
         Asset/AssetManager.cpp
@@ -112,6 +132,8 @@ target_sources(Engine
         Render/Lighting.cpp
         Render/CustomPasses.cpp
         World/World.cpp
+        Portal/Portal.cpp
+        Portal/PortalScene.cpp
         Physics/Physics.cpp
         History/History.cpp
         Animation/Animation.cpp
@@ -119,6 +141,23 @@ target_sources(Engine
         Profiler/Profiler.cpp
         Text/LineEditor.cpp
         Math/GizmoMath.cpp
+        Tools/Json.cpp
+        Tools/Replay.cpp
+        Tools/Dump.cpp
+        Tools/Perf.cpp
+        Params/Params.cpp
+        Observation/Observation.cpp
+        State/State.cpp
+        Storylet/Storylet.cpp
+        Save/Save.cpp
+        Camera/CameraRig.cpp
+        Geometry/Geometry.cpp
+        AI/AI.cpp
+        Nav/Nav.cpp
+        Animation/Rig.cpp
+        Animation/Face.cpp
+        Audio/Propagation.cpp
+        Audio/Audio.cpp
 )
 
 target_compile_features(Engine PUBLIC cxx_std_23)

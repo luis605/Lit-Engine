@@ -7,9 +7,9 @@ uniform sampler2DArrayShadow u_shadowMap;
 uniform sampler2DArray u_shadowDepth;
 uniform sampler2DArrayShadow u_localShadowMap;
 
-const int PCF_SAMPLES = 16;
-const int BLOCKER_SAMPLES = 8;
-const int LOCAL_PCF_SAMPLES = 8;
+const int PCF_SAMPLES = 24;
+const int BLOCKER_SAMPLES = 12;
+const int LOCAL_PCF_SAMPLES = 12;
 
 float shadowNoise(vec2 pixel) { return interleavedGradientNoise(pixel, 0.0); }
 
@@ -30,7 +30,7 @@ float cascadeVisibility(int cascade, vec3 worldPos, vec3 N, float NoL, float noi
     float texel = shadowParams.y;
     float bias = shadowParams2.y * texelWorld / max(depthRange, 1e-3) * (1.0 + slope);
     float reference = coord.z - bias;
-    float phi = noise * TWO_PI;
+    float phi = hash12(floor(coord.xy / texel) + info.z * 17.0) * TWO_PI;
     float filterRadius = 1.5;
     if (shadowParams2.w > 0.5) {
         float lightSizeTexels = shadowParams.z * 0.0093 * depthRange / texelWorld;
@@ -105,7 +105,7 @@ float localShadow(int base, bool point, vec3 lightPos, vec3 worldPos, vec3 N, ve
     vec2 uv = vec2(ndc.x * 0.5 + 0.5, 0.5 - ndc.y * 0.5);
     if (any(lessThan(uv, vec2(0.0))) || any(greaterThan(uv, vec2(1.0))) || ndc.z >= 1.0) return 1.0;
     float radius = (1.0 + localShadowParams.z) * localShadowParams.y;
-    float phi = noise * TWO_PI;
+    float phi = hash12(floor(uv / localShadowParams.y) + float(slot) * 17.0) * TWO_PI;
     float sum = 0.0;
     for (int i = 0; i < LOCAL_PCF_SAMPLES; ++i) {
         vec2 offset = vogelDisk(i, LOCAL_PCF_SAMPLES, phi) * radius;

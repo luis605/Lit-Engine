@@ -5,8 +5,8 @@ root="$(cd "$(dirname "$0")/.." && pwd)"
 cd "$root"
 
 if [[ "${BENCH_SKIP_BUILD:-0}" != 1 ]]; then
-    cmake -S . -B build-release -DCMAKE_BUILD_TYPE=Release >/dev/null 2>&1
-    cmake --build build-release --target Editor -j"$(nproc)" 2>&1 | grep -E "error|FAILED" || true
+    cmake -S . -B ${BENCH_BUILD_DIR:-build-release} -DCMAKE_BUILD_TYPE=Release >/dev/null 2>&1
+    cmake --build ${BENCH_BUILD_DIR:-build-release} --target Editor -j"$(nproc)" 2>&1 | grep -E "error|FAILED" || true
 fi
 
 frames="${BENCH_FRAMES:-300}"
@@ -25,7 +25,7 @@ camera() {
     esac
 }
 
-cd build-release
+cd ${BENCH_BUILD_DIR:-build-release}
 for view in $views; do
     read -r pos pitch yaw <<< "$(camera "$view")"
     LIT_SEED="${LIT_SEED:-1}" LIT_CAM_POS="$pos" LIT_CAM_PITCH="$pitch" LIT_CAM_YAW="$yaw" LIT_AUTOPILOT="$work/bench.lit" \

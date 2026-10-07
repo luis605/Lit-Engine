@@ -14,7 +14,7 @@ layout(std430) readonly buffer ExposureBuffer {
     vec4 exposureData;
 };
 
-const int MAX_ITERATIONS = 96;
+const int MAX_ITERATIONS = 160;
 
 vec3 toScreen(vec3 viewPosition, vec2 size) {
     vec4 clip = projection * vec4(viewPosition, 1.0);
@@ -26,7 +26,7 @@ void main() {
     ivec2 pixel = ivec2(gl_GlobalInvocationID.xy);
     ivec2 size = imageSize(u_output);
     if (any(greaterThanEqual(pixel, size))) return;
-    ivec2 fullPixel = min(pixel * 2, ivec2(screenParams.xy) - 1);
+    ivec2 fullPixel = pixel;
     vec2 uv = (vec2(fullPixel) + 0.5) * screenParams.zw;
     float depth = texelFetch(u_depth, fullPixel, 0).r;
     vec4 g1 = texelFetch(u_gbuffer1, fullPixel, 0);
@@ -66,6 +66,8 @@ void main() {
     float s = 1.5;
     int level = 0;
     float hitS = -1.0;
+    float hitWeight = 0.0;
+    float occludedS = -1.0;
     for (int i = 0; i < MAX_ITERATIONS && s < lengthPx; ++i) {
         vec2 p = start.xy + dir * s;
         if (any(lessThan(p, vec2(0.0))) || any(greaterThanEqual(p, hizSize))) break;
@@ -90,7 +92,9 @@ void main() {
         float sHit = clamp(sPlane, s, sExit);
         float rayLinear = linearViewDepth(start.z + dzds * sHit);
         float sceneLinear = linearViewDepth(zMin);
-        if (rayLinear - sceneLinear < thickness * max(sceneLinear * 0.05, 1.0)) {
+        float thick = thickness * max(sceneLinear * 0.05, 1.0);
+        float behind = rayLinear - sceneLinear;
+        if (behind < thick * 2.0) {
             float lo = max(s - 1.0, 0.0);
             float hi = sHit;
             vec2 fullScale = screenParams.xy / hizSize;
@@ -101,9 +105,17 @@ void main() {
                 else lo = mid;
             }
             hitS = hi;
+            hitWeight = 1.0 - smoothstep(thick, thick * 2.0, behind);
             break;
         }
+        if (occludedS < 0.0) occludedS = sHit;
         s = sExit;
+    }
+    bool occluded = false;
+    if (hitS < 0.0 && occludedS >= 0.0) {
+        hitS = occludedS;
+        hitWeight = 1.0;
+        occluded = true;
     }
     if (hitS < 0.0) {
         imageStore(u_output, pixel, vec4(0.0));
@@ -111,12 +123,13 @@ void main() {
     }
     vec2 hitUv = (start.xy + dir * hitS) / hizSize;
     float hitDepth = textureLod(u_depth, hitUv, 0.0).r;
-    if (hitDepth >= 1.0) {
+    if (hitDepth >= 1.0 || hitWeight <= 0.0) {
         imageStore(u_output, pixel, vec4(0.0));
         return;
     }
     vec3 hitN = normalize(mat3(view) * decodeNormal(textureLod(u_gbuffer1, hitUv, 0.0).rg));
-    if (dot(hitN, R) > 0.2) {
+    float backface = occluded ? 1.0 : 1.0 - smoothstep(0.0, 0.25, dot(hitN, R));
+    if (backface <= 0.0) {
         imageStore(u_output, pixel, vec4(0.0));
         return;
     }
@@ -129,14 +142,14 @@ void main() {
     }
     vec2 pyramidSize = vec2(textureSize(u_previousColor, 0));
     float alpha = roughness * roughness;
-    float footprint = alpha * 2.0 * length((hitUv - uv) * pyramidSize);
+    float footprint = alpha * 1.5 * length((hitUv - uv) * pyramidSize);
     float lod = clamp(log2(max(footprint, 1.0)), 0.0, float(textureQueryLevels(u_previousColor) - 1));
-    vec3 color = textureLod(u_previousColor, previousUv, lod).rgb / max(exposureData.x, 1e-12);
+    vec3 color = textureLod(u_previousColor, previousUv, lod).rgb / max(exposureData.x, 1e-12) * (occluded ? 0.45 : 1.0);
     vec2 edge = min(previousUv, 1.0 - previousUv);
-    float edgeFade = saturate(min(edge.x, edge.y) * 12.0);
+    float edgeFade = smoothstep(0.0, 0.08, min(edge.x, edge.y));
     float roughFade = 1.0 - saturate((roughness - maxRoughness * 0.6) / (maxRoughness * 0.4));
     float travel = hitS / lengthPx;
     float distanceFade = 1.0 - saturate((travel - 0.6) / 0.4);
     float facing = saturate(-R.z * 4.0 + 1.0);
-    imageStore(u_output, pixel, vec4(color, edgeFade * roughFade * distanceFade * facing));
+    imageStore(u_output, pixel, vec4(color, edgeFade * roughFade * distanceFade * facing * hitWeight * backface));
 }

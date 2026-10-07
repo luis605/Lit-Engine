@@ -1,6 +1,6 @@
 #version 450
 #extension GL_GOOGLE_include_directive : require
-#define CLOUD_CHEAP
+#define SKY_ENV
 #include "sky.glsl"
 #include "cubemap.glsl"
 
@@ -13,6 +13,7 @@ void main() {
     int size = imageSize(u_output).x;
     if (id.x >= uint(size) || id.y >= uint(size)) return;
     vec3 dir = cubeDirection(id.z, (vec2(id.xy) + 0.5) / float(size));
+    g_cloudPixelAngle = 1.6 / float(size);
     vec3 L = skyRadiance(dir, false);
     imageStore(u_output, ivec3(id), vec4(min(L * ENV_SCALE, vec3(60000.0)), 1.0));
 }

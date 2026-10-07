@@ -40,6 +40,10 @@ layout(std140) uniform SceneData {
     vec4 localShadowParams;
     vec4 localShadowParams2;
     vec4 giParams;
+    vec4 moonDirection;
+    vec4 celestialParams;
+    vec4 cloudParams;
+    vec4 skyParams3;
 };
 
 float projectedDiameterPx(float radius, float dist) {

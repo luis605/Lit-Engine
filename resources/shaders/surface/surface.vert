@@ -53,6 +53,7 @@ void main() {
     uvec2 entry = visibleEntries[gl_InstanceIndex];
     uint objectId = entry.x & 0x1FFFFFFFu;
     uint materialId = entry.y;
+    
     mat4 model = loadWorld(worldRows[objectId]);
     VertexData v = VertexData(in_position, in_normal, in_uv);
 #ifdef LIT_USER_VERTEX

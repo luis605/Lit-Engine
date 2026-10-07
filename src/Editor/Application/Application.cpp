@@ -28,6 +28,7 @@ module Editor.application;
 import Engine.engine;
 import Engine.mesh;
 import Engine.World;
+import Engine.Portal;
 import Engine.History;
 import Engine.Physics;
 import Engine.Animation;
@@ -85,7 +86,11 @@ Application::Application() {
     const bool showcase = sceneChoice && std::string(sceneChoice) == "showcase";
     Camera& camera = m_ctx->world.camera();
     camera.setFarPlane(2000.0f);
-    if (showcase) {
+    const bool portalLoop = sceneChoice && std::string(sceneChoice) == "portal_loop";
+    const bool portalTorture = sceneChoice && std::string(sceneChoice) == "portal_torture";
+    if (portalLoop || portalTorture) {
+        buildPortalScene(portalTorture ? 1 : 0);
+    } else if (showcase) {
         buildShowcaseScene();
     } else {
         buildStressScene();
@@ -472,6 +477,37 @@ std::vector<std::string> Application::sceneFiles() const {
     return files;
 }
 
+void Application::buildPortalScene(int which) {
+    EditorContext& ctx = *m_ctx;
+    Engine& engine = m_engine;
+    PortalSceneKit kit;
+    kit.cube = ctx.cubeMesh;
+    kit.sphere = ctx.sphereMesh;
+    const std::vector<std::string> names = engine.shaderNames();
+    for (uint32_t i = 0; i < names.size(); ++i) {
+        if (names[i] == "Checker") kit.floorShader = i;
+    }
+    kit.material = [&engine](const glm::vec3& color, const glm::vec3& emissive, float intensity, float roughness) {
+        Material m;
+        m.name = "Portal scene";
+        m.baseColor = color;
+        m.roughness = roughness;
+        m.emissive = emissive;
+        m.emissiveIntensity = intensity;
+        return engine.createMaterial(m);
+    };
+    const PortalTestScene scene = which == 1 ? PortalTestScene::Torture : PortalTestScene::Loop;
+    ::buildPortalScene(engine.portals(), ctx.world, kit, scene);
+    float yaw = 0.0f;
+    float pitch = 0.0f;
+    const glm::vec3 start = portalSceneStart(scene, yaw, pitch);
+    Camera& camera = ctx.world.camera();
+    camera.setPos(start);
+    camera.setOrientation(yaw, pitch);
+    camera.setNearPlane(0.05f);
+    engine.portals().setCameraCell(engine.portals().cellAt(start));
+}
+
 void Application::saveScene(const std::string& path) {
     const auto start = std::chrono::steady_clock::now();
     if (m_ctx->world.saveScene(path)) {
@@ -496,6 +532,7 @@ void Application::loadScene(const std::string& path) {
     if (m_ctx->playing) setPlaying(false);
     const auto start = std::chrono::steady_clock::now();
     if (m_ctx->world.loadScene(path)) {
+        m_engine.portals().clear();
         m_ctx->scenePath = path;
         afterSceneReplaced();
         m_ctx->toast(std::format("Opened {} ({:.0f} ms)", path, std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - start).count()), ToastKind::Success);
@@ -1097,10 +1134,27 @@ void Application::registerCommands() {
     add("scene.showcase", "Load the PBR showcase scene", "File", {}, [this] {
         if (m_ctx->playing) setPlaying(false);
         m_ctx->world.clear();
+        m_engine.portals().clear();
         m_engine.setAnimation(0.0f, 0, 1);
         buildShowcaseScene();
         afterSceneReplaced();
         m_ctx->toast("Showcase scene", ToastKind::Success);
+    });
+    add("scene.portalLoop", "Load the portal loop test scene", "File", {}, [this] {
+        if (m_ctx->playing) setPlaying(false);
+        m_ctx->world.clear();
+        m_engine.setAnimation(0.0f, 0, 1);
+        buildPortalScene(0);
+        afterSceneReplaced();
+        m_ctx->toast("Portal loop scene", ToastKind::Success);
+    });
+    add("scene.portalTorture", "Load the nested portal torture scene", "File", {}, [this] {
+        if (m_ctx->playing) setPlaying(false);
+        m_ctx->world.clear();
+        m_engine.setAnimation(0.0f, 0, 1);
+        buildPortalScene(1);
+        afterSceneReplaced();
+        m_ctx->toast("Portal torture scene", ToastKind::Success);
     });
     add("render.reload", "Reload shaders", "Render", {key(ImGuiKey_F9)}, [this] {
         m_engine.reloadShaders();

@@ -37,6 +37,7 @@ export class Application {
   private:
     void buildStressScene();
     void buildShowcaseScene();
+    void buildPortalScene(int which);
     void registerCommands();
     void setPlaying(bool playing);
     void saveScene(const std::string& path);

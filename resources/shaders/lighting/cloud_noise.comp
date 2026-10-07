@@ -1,0 +1,79 @@
+#version 450
+
+layout(local_size_x = 4, local_size_y = 4, local_size_z = 4) in;
+
+layout(rgba8) writeonly uniform image3D u_output;
+#ifdef DOWNSAMPLE
+layout(rgba8) readonly uniform image3D u_source;
+#endif
+
+float saturate(float x) { return clamp(x, 0.0, 1.0); }
+
+vec3 hash3(vec3 p) {
+    uvec3 q = uvec3(ivec3(p)) * uvec3(1597334673u, 3812015801u, 2798796415u);
+    q = (q.x ^ q.y ^ q.z) * uvec3(1597334673u, 3812015801u, 2798796415u);
+    return vec3(q) * (1.0 / 4294967295.0);
+}
+
+float worley(vec3 p, float period) {
+    vec3 cell = floor(p);
+    vec3 f = fract(p);
+    float d = 1.0;
+    for (int z = -1; z <= 1; ++z) {
+        for (int y = -1; y <= 1; ++y) {
+            for (int x = -1; x <= 1; ++x) {
+                vec3 o = vec3(x, y, z);
+                vec3 pt = o + hash3(mod(cell + o, period)) - f;
+                d = min(d, dot(pt, pt));
+            }
+        }
+    }
+    return 1.0 - sqrt(d);
+}
+
+float gradientNoise(vec3 p, float period) {
+    vec3 i = floor(p);
+    vec3 f = fract(p);
+    vec3 u = f * f * f * (f * (f * 6.0 - 15.0) + 10.0);
+    float v[8];
+    for (int c = 0; c < 8; ++c) {
+        vec3 o = vec3(c & 1, (c >> 1) & 1, c >> 2);
+        vec3 g = normalize(hash3(mod(i + o, period)) * 2.0 - 1.0 + 1e-4);
+        v[c] = dot(g, f - o);
+    }
+    return mix(mix(mix(v[0], v[1], u.x), mix(v[2], v[3], u.x), u.y), mix(mix(v[4], v[5], u.x), mix(v[6], v[7], u.x), u.y), u.z);
+}
+
+float perlinFbm(vec3 p, float frequency) {
+    float sum = 0.0;
+    float amplitude = 0.5;
+    for (int o = 0; o < 5; ++o) {
+        sum += gradientNoise(p * frequency, frequency) * amplitude;
+        frequency *= 2.0;
+        amplitude *= 0.5;
+    }
+    return saturate(sum * 1.2 + 0.5);
+}
+
+float worleyFbm(vec3 p, float frequency) {
+    return worley(p * frequency, frequency) * 0.625 + worley(p * frequency * 2.0, frequency * 2.0) * 0.25 + worley(p * frequency * 4.0, frequency * 4.0) * 0.125;
+}
+
+void main() {
+    ivec3 id = ivec3(gl_GlobalInvocationID);
+    ivec3 size = imageSize(u_output);
+    if (any(greaterThanEqual(id, size))) return;
+#ifdef DOWNSAMPLE
+    vec4 sum = vec4(0.0);
+    for (int c = 0; c < 8; ++c) sum += imageLoad(u_source, id * 2 + ivec3(c & 1, (c >> 1) & 1, c >> 2));
+    imageStore(u_output, id, sum * 0.125);
+    return;
+#endif
+    vec3 p = (vec3(id) + 0.5) / vec3(size);
+    float perlin = perlinFbm(p, 4.0);
+    float w0 = worleyFbm(p, 4.0);
+    float w1 = worleyFbm(p, 8.0);
+    float w2 = worleyFbm(p, 16.0);
+    float perlinWorley = saturate((perlin - (w0 - 1.0)) / (2.0 - w0) * 1.25 - 0.2);
+    imageStore(u_output, id, vec4(perlinWorley, w0, w1, w2));
+}

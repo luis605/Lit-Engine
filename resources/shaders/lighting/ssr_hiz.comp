@@ -16,7 +16,7 @@ void main() {
 #ifdef FIRST_LEVEL
     ivec2 last = textureSize(u_depth, 0) - 1;
     ivec2 base = pixel * 2;
-    float z = min(min(texelFetch(u_depth, min(base, last), 0).r, texelFetch(u_depth, min(base + ivec2(1, 0), last), 0).r),
+    float z = size == last + 1 ? texelFetch(u_depth, pixel, 0).r : min(min(texelFetch(u_depth, min(base, last), 0).r, texelFetch(u_depth, min(base + ivec2(1, 0), last), 0).r),
                   min(texelFetch(u_depth, min(base + ivec2(0, 1), last), 0).r, texelFetch(u_depth, min(base + ivec2(1, 1), last), 0).r));
 #else
     ivec2 last = imageSize(u_sourceMip) - 1;

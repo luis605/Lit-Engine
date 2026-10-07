@@ -1,5 +1,3 @@
-
-
 #ifndef LIT_ENGINE_LOG_H
 #define LIT_ENGINE_LOG_H
 
@@ -12,11 +10,7 @@
 
 namespace Lit {
 
-enum class LogLevel { Info,
-                      Debug,
-                      Warning,
-                      Error,
-                      Fatal };
+enum class LogLevel { Info, Debug, Warning, Error, Fatal };
 
 template <typename... Args>
 struct FormatStringWithLocation {
@@ -24,13 +18,12 @@ struct FormatStringWithLocation {
     std::source_location loc;
 
     template <typename T>
-    requires std::constructible_from<std::format_string<Args...>, const T&>
-    consteval FormatStringWithLocation(const T& s, std::source_location l = std::source_location::current())
-        : str(s), loc(l) {}
+        requires std::constructible_from<std::format_string<Args...>, const T&>
+    consteval FormatStringWithLocation(const T& s, std::source_location l = std::source_location::current()) : str(s), loc(l) {}
 };
 
 class Log {
-  public:
+   public:
     static void Init();
 
     template <typename... Args>
@@ -60,10 +53,10 @@ class Log {
 
     static void Phase(std::string_view name, std::source_location location = std::source_location::current());
 
-  private:
+   private:
     static void LogInternal(LogLevel level, const std::source_location& location, const std::string& message);
 };
 
-} // namespace Lit
+}  // namespace Lit
 
 #endif
