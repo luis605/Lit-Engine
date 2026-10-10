@@ -1,6 +1,6 @@
 # Observation, state, storylets, save, camera rig
 
-All modules are game agnostic and headless; none are wired into `Engine::tick`, so add them as systems or call them from the game loop. Tests: `tests/NarrativeTests.cpp`.
+All modules are game agnostic and headless. `Engine::enableState/enableStorylets/enableObservation/enableSave` wire them into `Engine::tick` as optional systems (see `docs/Streaming.md`). Tests: `tests/NarrativeTests.cpp`.
 
 ## Engine.Observation
 
@@ -13,7 +13,7 @@ obs.state(e); obs.attended(); obs.focusEntity();
 ```
 
 - Focus is a cone (`focusConeDegrees`) around the camera forward in both camera modes. `setIgnore(e)` removes the player body from occlusion.
-- GPU path: the renderer reads back a low resolution object-ID grid (value `entity.index + 1`, 0 empty) and calls `submitGpuIds(frameIssued, issuedTime, w, h, ids)`, stamping with `obs.frame()` and `obs.time()`. A sample older than `maxLatencySeconds` or `maxLatencyFrames` is rejected and counted. The renderer pass that produces the grid is not implemented yet.
+- GPU path: the renderer reads back a low resolution object-ID grid (value `entity.index + 1`, 0 empty) and calls `submitGpuIds(frameIssued, issuedTime, w, h, ids)`, stamping with `obs.frame()` and `obs.time()`. A sample older than `maxLatencySeconds` or `maxLatencyFrames` is rejected and counted. The renderer pass is `Engine.Render.observation` (`docs/Streaming.md`).
 - CPU fallback (used headless, with no fresh sample): view frustum test, then a line-of-sight ray through `World::raycast` against bounding spheres, then the cone test. Deterministic.
 - Hysteresis: a state change needs the new raw level to hold for `seenEnter`, `attendEnter` (up) or `seenExit`, `attendExit` (down); the cone widens by `focusExitScale` while attended.
 - Latency (last, mean, max, frames, rejected) is in `stats()` and logged every `logIntervalSeconds`; rejected readbacks log a warning.

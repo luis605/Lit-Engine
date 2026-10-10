@@ -1,0 +1,62 @@
+#version 460 core
+
+layout(local_size_x = 8, local_size_y = 8, local_size_z = 1) in;
+
+uniform sampler2D u_depth;
+
+layout(std430) readonly buffer ObservationSpheres {
+    vec4 spheres[];
+};
+
+layout(std430) readonly buffer ObservationEntityIds {
+    uint entityIds[];
+};
+
+layout(std430) writeonly buffer ObservationGrid {
+    uint grid[];
+};
+
+layout(std140) uniform ObservationConstants {
+    mat4 u_invViewProjection;
+    vec4 u_origin;
+    uvec4 u_dims;
+};
+
+vec3 unproject(vec2 ndc, float depth) {
+    vec4 w = u_invViewProjection * vec4(ndc, depth, 1.0);
+    return w.xyz / w.w;
+}
+
+void main() {
+    uvec2 cell = gl_GlobalInvocationID.xy;
+    if (cell.x >= u_dims.x || cell.y >= u_dims.y) return;
+    ivec2 size = textureSize(u_depth, 0);
+    uint count = u_dims.z;
+    float bestT = 1e30;
+    uint bestId = 0u;
+    for (int s = 0; s < 4; ++s) {
+        vec2 sub = vec2(0.25 + 0.5 * float(s & 1), 0.25 + 0.5 * float(s >> 1));
+        vec2 uv = (vec2(cell) + sub) / vec2(u_dims.xy);
+        vec2 ndc = vec2(uv.x * 2.0 - 1.0, 1.0 - uv.y * 2.0);
+        float depth = texelFetch(u_depth, min(ivec2(uv * vec2(size)), size - 1), 0).r;
+        vec3 origin = u_origin.xyz;
+        vec3 dir = normalize(unproject(ndc, 0.0) - origin);
+        float sceneDist = dot(unproject(ndc, depth) - origin, dir);
+        for (uint i = 0u; i < count; ++i) {
+            vec4 sph = spheres[i];
+            vec3 oc = sph.xyz - origin;
+            float b = dot(oc, dir);
+            float disc = sph.w * sph.w - (dot(oc, oc) - b * b);
+            if (disc < 0.0) continue;
+            float root = sqrt(disc);
+            float t0 = max(b - root, 0.0);
+            float t1 = b + root;
+            if (t1 < 0.0 || t0 >= bestT) continue;
+            float tol = max(0.05, 0.01 * t0);
+            if (sceneDist < t0 - tol || sceneDist > t1 + tol) continue;
+            bestT = t0;
+            bestId = entityIds[i];
+        }
+    }
+    grid[cell.y * u_dims.x + cell.x] = bestId;
+}

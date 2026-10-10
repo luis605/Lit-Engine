@@ -69,6 +69,7 @@ import Engine.Render.custom;
 import Engine.Render.settings;
 import Engine.Render.material;
 import Engine.Portal.view;
+import Engine.Render.observation;
 
 namespace {
 struct DrawElementsIndirectCommand {
@@ -257,7 +258,7 @@ uint32_t PackRenderable(const RenderableComponent& renderable) {
     const uint32_t mesh = std::min(renderable.mesh_uuid, 0xFFFu);
     const uint32_t material = std::min(renderable.material_uuid, 0x3FFu);
     const uint32_t shader = std::min(renderable.shaderId, 0xFu);
-    const uint32_t flags = (renderable.flags & (RENDER_HIDDEN | RENDER_NO_OCCLUDER)) | (renderable.alpha < 1.0f ? translucentFlag : 0u);
+    const uint32_t flags = (renderable.flags & (RENDER_HIDDEN | RENDER_NO_OCCLUDER | RENDER_MASKED)) | (renderable.alpha < 1.0f ? translucentFlag : 0u);
     return mesh | material << 12u | shader << 22u | flags << 26u;
 }
 
@@ -502,6 +503,9 @@ struct PortalHistory {
     Diligent::RefCntAutoPtr<Diligent::IBuffer> bits;
     HiZSet hiz[2];
     int previous = 0;
+    Diligent::RefCntAutoPtr<Diligent::ITexture> color;
+    glm::mat4 previousViewProjection{1.0f};
+    bool hasColor = false;
 };
 
 struct DiligentData {
@@ -679,11 +683,20 @@ struct DiligentData {
     Diligent::RefCntAutoPtr<Diligent::IBuffer> pDebugDepthUniforms;
 
     Diligent::RefCntAutoPtr<Diligent::IPipelineState> pDispatchArgsPSO;
+    ObservationPass observation;
+    bool observationTried = false;
     Diligent::RefCntAutoPtr<Diligent::IBuffer> pDispatchArgsConstants;
 
     std::vector<PortalHistory> portalHistory;
     Diligent::RefCntAutoPtr<Diligent::IBuffer> portalMainBits;
+    Diligent::RefCntAutoPtr<Diligent::ITexture> portalMainColor;
+    FrameInput mainInput;
     Diligent::RefCntAutoPtr<Diligent::ITexture> portalColor[kMaxPortalViews];
+    Diligent::RefCntAutoPtr<Diligent::ITexture> portalDepth[kMaxPortalViews];
+    Diligent::RefCntAutoPtr<Diligent::ITexture> portalDepthScratch;
+    Diligent::RefCntAutoPtr<Diligent::IPipelineState> pPortalDepthPSO;
+    Diligent::RefCntAutoPtr<Diligent::IShaderResourceBinding> pPortalDepthSRB;
+    Diligent::RefCntAutoPtr<Diligent::IBuffer> pPortalDepthUBO;
     Diligent::RefCntAutoPtr<Diligent::IPipelineState> pPortalPSO;
     Diligent::RefCntAutoPtr<Diligent::IShaderResourceBinding> pPortalSRB;
     Diligent::RefCntAutoPtr<Diligent::IBuffer> pPortalUBO;
@@ -1410,6 +1423,8 @@ void Renderer::createScreenTargets() {
 
     m_diligent->portalHistory.clear();
     for (auto& color : m_diligent->portalColor) color.Release();
+    for (auto& depth : m_diligent->portalDepth) depth.Release();
+    m_diligent->portalDepthScratch.Release();
     for (int i = 0; i < NUM_FRAMES_IN_FLIGHT; ++i) {
         for (auto& view : m_diligent->pHiZMipViewsSource[i]) view.Release();
         for (auto& view : m_diligent->pHiZMipViewsDest[i]) view.Release();
@@ -1741,6 +1756,15 @@ void Renderer::drawScene(SceneDatabase& sceneDatabase, const Camera& camera) {
     m_diligent->pFences[m_currentFrame]->Wait(m_diligent->FenceValues[m_currentFrame]);
     m_diligent->fenceWaitMilliseconds = (glfwGetTime() - fenceWaitStart) * 1000.0;
 
+    if (m_obsActive) {
+        if (!m_diligent->observationTried) {
+            m_diligent->observationTried = true;
+            m_diligent->observation.init(m_diligent->pDevice.RawPtr());
+        }
+        ObservationReadback readback;
+        if (m_diligent->observation.poll(m_diligent->pImmediateContext.RawPtr(), m_currentFrame, readback)) m_obsReady.push_back(std::move(readback));
+    }
+
     if (m_diligent->QueryReady[m_currentFrame]) {
         ReadGpuTimings(*m_diligent, static_cast<int>(m_currentFrame));
         m_custom.readTimings(m_currentFrame);
@@ -2017,6 +2041,7 @@ void Renderer::drawScene(SceneDatabase& sceneDatabase, const Camera& camera) {
     frameInput.height = static_cast<int>(swapChainDesc.Height);
     SceneUniforms sceneUniforms{};
     m_lighting.beginFrame(frameInput, sceneUniforms);
+    m_diligent->mainInput = frameInput;
     m_diligent->pImmediateContext->UpdateBuffer(m_diligent->pSceneUBO[m_currentFrame], 0, sizeof(SceneUniforms), &sceneUniforms, Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
     if (m_diligent->surfaceBindingVersion != m_lighting.bindingVersion()) rebindSurfaceResources();
 
@@ -2069,6 +2094,10 @@ void Renderer::drawScene(SceneDatabase& sceneDatabase, const Camera& camera) {
     drawVisibilityPhase(1);
     endPass(GpuPass::RetestDraw);
     if (portalsActive) recordPortalStats(0);
+    if (m_obsActive && m_diligent->observation.ready()) {
+        m_diligent->pImmediateContext->SetRenderTargets(0, nullptr, nullptr, Diligent::RESOURCE_STATE_TRANSITION_MODE_NONE);
+        m_diligent->observation.record(m_diligent->pImmediateContext.RawPtr(), m_diligent->pSceneDepth.RawPtr(), m_currentFrame, m_obsQuery);
+    }
 
     beginPass(GpuPass::Shadows);
     drawShadows(numObjects);
@@ -2082,6 +2111,7 @@ void Renderer::drawScene(SceneDatabase& sceneDatabase, const Camera& camera) {
     endPass(GpuPass::TransparentCommandGen);
 
     m_diligent->pImmediateContext->SetRenderTargets(0, nullptr, nullptr, Diligent::RESOURCE_STATE_TRANSITION_MODE_NONE);
+    if (portalsActive) resolvePortalDepth(0);
     beginPass(GpuPass::AmbientOcclusion);
     m_lighting.shade(m_diligent->pSceneDepth, m_diligent->pSceneUBO[m_currentFrame], 0);
     endPass(GpuPass::AmbientOcclusion);
@@ -3515,6 +3545,33 @@ struct PortalSurfaceUniforms {
     glm::vec4 color;
 };
 
+struct PortalDepthUniforms {
+    glm::mat4 projection;
+    glm::mat4 childInvProjection;
+    glm::mat4 viewProjection;
+    glm::mat4 invView;
+    glm::vec4 center;
+    glm::vec4 axisU;
+    glm::vec4 axisV;
+    glm::vec4 normal;
+    glm::vec4 camera;
+    glm::vec4 params;
+};
+
+void CopyPyramid(Diligent::IDeviceContext* ctx, Diligent::ITexture* src, Diligent::ITexture* dst) {
+    const Diligent::Uint32 mips = src->GetDesc().MipLevels;
+    for (Diligent::Uint32 mip = 0; mip < mips; ++mip) {
+        Diligent::CopyTextureAttribs copy;
+        copy.pSrcTexture = src;
+        copy.SrcMipLevel = mip;
+        copy.SrcTextureTransitionMode = Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION;
+        copy.pDstTexture = dst;
+        copy.DstMipLevel = mip;
+        copy.DstTextureTransitionMode = Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION;
+        ctx->CopyTexture(copy);
+    }
+}
+
 PortalHistory& AcquirePortalHistory(DiligentData& d, uint64_t key, uint64_t frame) {
     for (PortalHistory& h : d.portalHistory) {
         if (h.used && h.key == key) {
@@ -3534,11 +3591,30 @@ PortalHistory& AcquirePortalHistory(DiligentData& d, uint64_t key, uint64_t fram
     slot->lastFrame = frame;
     slot->previous = 0;
     slot->bits.Release();
+    slot->color.Release();
+    slot->hasColor = false;
     for (HiZSet& set : slot->hiz) set.texture.Release();
     return *slot;
 }
 
 }  // namespace
+
+void Renderer::setObservationQuery(ObservationQuery query) {
+    m_obsQuery = std::move(query);
+    m_obsActive = true;
+}
+
+void Renderer::clearObservationQuery() {
+    m_obsActive = false;
+    m_obsReady.clear();
+}
+
+bool Renderer::takeObservation(ObservationReadback& out) {
+    if (m_obsReady.empty()) return false;
+    out = std::move(m_obsReady.front());
+    m_obsReady.erase(m_obsReady.begin());
+    return true;
+}
 
 void Renderer::setPortalFrame(PortalFrame frame) {
     if (frame.nodes.size() > static_cast<size_t>(kMaxPortalViews)) frame.nodes.resize(static_cast<size_t>(kMaxPortalViews));
@@ -3580,6 +3656,121 @@ void Renderer::createPortalPSO() {
         return;
     }
     CreateBoundSRB(d.pPortalPSO, d.pPortalSRB, {{"PortalSurfaceData", d.pPortalUBO}});
+
+    auto pDepthPS = CompileShader(d.pDevice, "resources/shaders/portal_depth.frag", Diligent::SHADER_TYPE_PIXEL);
+    d.pPortalDepthPSO.Release();
+    d.pPortalDepthSRB.Release();
+    if (!d.pPortalDepthUBO) d.pPortalDepthUBO = CreateUniformBuffer(d.pDevice, "Portal Depth", sizeof(PortalDepthUniforms), Diligent::USAGE_DEFAULT);
+    if (!pDepthPS || !d.pPortalDepthUBO) return;
+    Diligent::GraphicsPipelineStateCreateInfo depthInfo;
+    depthInfo.PSODesc.Name = "Portal Depth PSO";
+    depthInfo.PSODesc.PipelineType = Diligent::PIPELINE_TYPE_GRAPHICS;
+    depthInfo.GraphicsPipeline.NumRenderTargets = 0;
+    depthInfo.GraphicsPipeline.DSVFormat = kSceneDepthFormat;
+    depthInfo.GraphicsPipeline.PrimitiveTopology = Diligent::PRIMITIVE_TOPOLOGY_TRIANGLE_LIST;
+    depthInfo.GraphicsPipeline.RasterizerDesc.CullMode = Diligent::CULL_MODE_NONE;
+    depthInfo.GraphicsPipeline.DepthStencilDesc.DepthEnable = true;
+    depthInfo.GraphicsPipeline.DepthStencilDesc.DepthWriteEnable = true;
+    depthInfo.GraphicsPipeline.DepthStencilDesc.DepthFunc = Diligent::COMPARISON_FUNC_ALWAYS;
+    depthInfo.pVS = pVS;
+    depthInfo.pPS = pDepthPS;
+    const auto depthVariables = DescribeVariables({pVS, pDepthPS}, {"u_childDepth", "u_sceneDepth"});
+    UseVariables(depthInfo.PSODesc.ResourceLayout, depthVariables);
+    d.pDevice->CreateGraphicsPipelineState(depthInfo, &d.pPortalDepthPSO);
+    if (!d.pPortalDepthPSO) {
+        Lit::Log::Error("Failed to create Portal Depth PSO");
+        return;
+    }
+    CreateBoundSRB(d.pPortalDepthPSO, d.pPortalDepthSRB, {{"PortalDepthData", d.pPortalDepthUBO}});
+
+}
+
+void Renderer::maskPortalView(int index) {
+    auto& d = *m_diligent;
+    const PortalViewNode& node = m_portalFrame.nodes[static_cast<size_t>(index)];
+    if (!node.masked || !d.pPortalDepthPSO || !d.pPortalDepthSRB || !d.pPortalDepthUBO) return;
+    auto* ctx = d.pImmediateContext.RawPtr();
+    if (!ensurePortalScratch()) return;
+    ctx->SetRenderTargets(0, nullptr, d.pSceneDepth->GetDefaultView(Diligent::TEXTURE_VIEW_DEPTH_STENCIL), Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
+    const auto& swapChainDesc = d.pSwapChain->GetDesc();
+    Diligent::Viewport viewport;
+    viewport.Width = static_cast<float>(swapChainDesc.Width);
+    viewport.Height = static_cast<float>(swapChainDesc.Height);
+    ctx->SetViewports(1, &viewport, swapChainDesc.Width, swapChainDesc.Height);
+    ctx->SetPipelineState(d.pPortalDepthPSO);
+    PortalDepthUniforms u{};
+    u.invView = glm::inverse(node.view);
+    u.center = glm::vec4(node.entryCenter, 0.0f);
+    u.axisU = glm::vec4(node.entryAxisU, 1.0f / std::max(glm::dot(node.entryAxisU, node.entryAxisU), 1.0e-8f));
+    u.axisV = glm::vec4(node.entryAxisV, 1.0f / std::max(glm::dot(node.entryAxisV, node.entryAxisV), 1.0e-8f));
+    u.normal = glm::vec4(node.entryNormal, 0.0f);
+    u.camera = glm::vec4(node.position, 1.0f);
+    u.params = glm::vec4(node.projection[0][0], node.projection[1][1], static_cast<float>(swapChainDesc.Width), static_cast<float>(swapChainDesc.Height));
+    ctx->UpdateBuffer(d.pPortalDepthUBO, 0, sizeof(u), &u, Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
+    SetDynamicVariable(d.pPortalDepthSRB, "u_childDepth", d.portalDepthScratch->GetDefaultView(Diligent::TEXTURE_VIEW_SHADER_RESOURCE), Diligent::SHADER_TYPE_PIXEL);
+    SetDynamicVariable(d.pPortalDepthSRB, "u_sceneDepth", d.portalDepthScratch->GetDefaultView(Diligent::TEXTURE_VIEW_SHADER_RESOURCE), Diligent::SHADER_TYPE_PIXEL);
+    ctx->CommitShaderResources(d.pPortalDepthSRB, Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
+    ctx->Draw(Diligent::DrawAttribs{3, Diligent::DRAW_FLAG_NONE});
+    ctx->SetRenderTargets(0, nullptr, nullptr, Diligent::RESOURCE_STATE_TRANSITION_MODE_NONE);
+}
+
+bool Renderer::ensurePortalScratch() {
+    auto& d = *m_diligent;
+    const Diligent::TextureDesc sceneDesc = d.pSceneDepth->GetDesc();
+    if (!d.portalDepthScratch || d.portalDepthScratch->GetDesc().Width != sceneDesc.Width || d.portalDepthScratch->GetDesc().Height != sceneDesc.Height) {
+        Diligent::TextureDesc desc = sceneDesc;
+        desc.Name = "Portal Depth Scratch";
+        d.portalDepthScratch.Release();
+        d.pDevice->CreateTexture(desc, nullptr, &d.portalDepthScratch);
+        if (d.portalDepthScratch) d.portalDepthScratch->GetDefaultView(Diligent::TEXTURE_VIEW_SHADER_RESOURCE)->SetSampler(d.pHiZSampler);
+    }
+    return d.portalDepthScratch != nullptr;
+}
+
+void Renderer::resolvePortalDepth(int index) {
+    auto& d = *m_diligent;
+    const PortalViewNode& node = m_portalFrame.nodes[static_cast<size_t>(index)];
+    if (node.surfaces.empty() || !d.pPortalDepthPSO || !d.pPortalDepthSRB) return;
+    bool any = false;
+    for (const PortalSurface& surface : node.surfaces) any = any || (surface.child > 0 && d.portalDepth[surface.child]);
+    if (!any) return;
+    auto* ctx = d.pImmediateContext.RawPtr();
+    if (!ensurePortalScratch()) return;
+    ctx->SetRenderTargets(0, nullptr, nullptr, Diligent::RESOURCE_STATE_TRANSITION_MODE_NONE);
+    Diligent::CopyTextureAttribs copy;
+    copy.pSrcTexture = d.pSceneDepth;
+    copy.SrcTextureTransitionMode = Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION;
+    copy.pDstTexture = d.portalDepthScratch;
+    copy.DstTextureTransitionMode = Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION;
+    ctx->CopyTexture(copy);
+    ctx->SetRenderTargets(0, nullptr, d.pSceneDepth->GetDefaultView(Diligent::TEXTURE_VIEW_DEPTH_STENCIL), Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
+    const auto& swapChainDesc = d.pSwapChain->GetDesc();
+    Diligent::Viewport viewport;
+    viewport.Width = static_cast<float>(swapChainDesc.Width);
+    viewport.Height = static_cast<float>(swapChainDesc.Height);
+    ctx->SetViewports(1, &viewport, swapChainDesc.Width, swapChainDesc.Height);
+    ctx->SetPipelineState(d.pPortalDepthPSO);
+    for (const PortalSurface& surface : node.surfaces) {
+        if (surface.child <= 0 || !d.portalDepth[surface.child]) continue;
+        const PortalViewNode& child = m_portalFrame.nodes[static_cast<size_t>(surface.child)];
+        PortalDepthUniforms u{};
+        u.projection = node.projection;
+        u.childInvProjection = glm::inverse(child.projection);
+        u.viewProjection = node.projection * node.view;
+        u.invView = glm::inverse(node.view);
+        u.center = glm::vec4(surface.center, 0.0f);
+        u.axisU = glm::vec4(surface.axisU, 1.0f / std::max(glm::dot(surface.axisU, surface.axisU), 1.0e-8f));
+        u.axisV = glm::vec4(surface.axisV, 1.0f / std::max(glm::dot(surface.axisV, surface.axisV), 1.0e-8f));
+        u.normal = glm::vec4(surface.normal, 0.0f);
+        u.camera = glm::vec4(node.position, 0.0f);
+        u.params = glm::vec4(node.projection[0][0], node.projection[1][1], static_cast<float>(swapChainDesc.Width), static_cast<float>(swapChainDesc.Height));
+        ctx->UpdateBuffer(d.pPortalDepthUBO, 0, sizeof(u), &u, Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
+        SetDynamicVariable(d.pPortalDepthSRB, "u_childDepth", d.portalDepth[surface.child]->GetDefaultView(Diligent::TEXTURE_VIEW_SHADER_RESOURCE), Diligent::SHADER_TYPE_PIXEL);
+        SetDynamicVariable(d.pPortalDepthSRB, "u_sceneDepth", d.portalDepthScratch->GetDefaultView(Diligent::TEXTURE_VIEW_SHADER_RESOURCE), Diligent::SHADER_TYPE_PIXEL);
+        ctx->CommitShaderResources(d.pPortalDepthSRB, Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
+        ctx->Draw(Diligent::DrawAttribs{3, Diligent::DRAW_FLAG_NONE});
+    }
+    ctx->SetRenderTargets(0, nullptr, nullptr, Diligent::RESOURCE_STATE_TRANSITION_MODE_NONE);
 }
 
 void Renderer::compositePortals(int index) {
@@ -3668,7 +3859,7 @@ void Renderer::readPortalStats() {
     }
 }
 
-void Renderer::renderPortalViews(const SceneUniforms& base, const SceneUniforms& restore, uint32_t objectCount) {
+void Renderer::renderPortalViews(const SceneUniforms& base, SceneUniforms& restore, uint32_t objectCount) {
     auto& d = *m_diligent;
     auto* ctx = d.pImmediateContext.RawPtr();
     const PortalViewNode& root = m_portalFrame.nodes[0];
@@ -3676,10 +3867,24 @@ void Renderer::renderPortalViews(const SceneUniforms& base, const SceneUniforms&
     if (!d.portalMainBits || d.portalMainBits->GetDesc().Size != bitsSize) d.portalMainBits = CreateStructuredBuffer(d.pDevice, "Portal Main Visibility Bits", sizeof(uint32_t), static_cast<Diligent::Uint32>(bitsSize / sizeof(uint32_t)));
     if (!d.portalMainBits) return;
     ctx->CopyBuffer(d.pVisibilityBits, 0, Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION, d.portalMainBits, 0, bitsSize, Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
-    uploadCascadeCull(true);
+    Diligent::ITexture* sceneColor = m_lighting.sceneColorTexture();
+    const bool mainPyramid = m_lighting.pyramidValid();
+    if (sceneColor && (!d.portalMainColor || d.portalMainColor->GetDesc().Width != sceneColor->GetDesc().Width || d.portalMainColor->GetDesc().Height != sceneColor->GetDesc().Height)) {
+        Diligent::TextureDesc desc = sceneColor->GetDesc();
+        desc.Name = "Portal Main Color";
+        desc.BindFlags = Diligent::BIND_SHADER_RESOURCE;
+        desc.Usage = Diligent::USAGE_DEFAULT;
+        d.portalMainColor.Release();
+        d.pDevice->CreateTexture(desc, nullptr, &d.portalMainColor);
+    }
+    if (sceneColor && d.portalMainColor) CopyPyramid(ctx, sceneColor, d.portalMainColor);
     for (const PortalSurface& surface : root.surfaces) {
         if (surface.child > 0) renderPortalNode(surface.child, base, objectCount);
     }
+    if (sceneColor && d.portalMainColor) CopyPyramid(ctx, d.portalMainColor, sceneColor);
+    m_lighting.setPyramidValid(mainPyramid);
+    for (int c = 0; c < kShadowLayers; ++c) d.shadowHiZValid[c] = false;
+    m_lighting.fitShadows(d.mainInput, restore);
     ctx->CopyBuffer(d.portalMainBits, 0, Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION, d.pVisibilityBits, 0, bitsSize, Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
     ctx->UpdateBuffer(d.pSceneUBO[m_currentFrame], 0, sizeof(SceneUniforms), &restore, Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
     m_lighting.cullLights(d.pSceneUBO[m_currentFrame]);
@@ -3737,10 +3942,24 @@ void Renderer::renderPortalNode(int index, const SceneUniforms& base, uint32_t o
     u.viewPos = node.position;
     u.sunIlluminance = glm::vec4(glm::vec3(u.sunIlluminance) * node.sunScale, u.sunIlluminance.w);
     u.skyGradient[1].w *= node.ambientScale;
-    u.shadowParams.x = 0.0f;
-    u.renderFlags.y = 0.0f;
-    u.giParams.x = 0.0f;
     u.skyParams.w = 0.0f;
+    FrameInput input = d.mainInput;
+    input.view = node.view;
+    input.projection = node.projection;
+    input.cameraPosition = node.position;
+    m_lighting.fitShadows(input, u);
+    Diligent::ITexture* sceneColor = m_lighting.sceneColorTexture();
+    const bool hasHistory = history.hasColor && history.color && sceneColor;
+    if (hasHistory) {
+        CopyPyramid(ctx, history.color, sceneColor);
+        u.prevViewProjection = history.previousViewProjection;
+    } else {
+        u.prevViewProjection = glm::mat4(0.0f);
+        u.prevViewProjection[3] = glm::vec4(10.0f, 10.0f, 0.5f, 1.0f);
+    }
+    u.giParams.z = 0.0f;
+    m_lighting.setPyramidValid(hasHistory);
+    uploadCascadeCull();
     ctx->UpdateBuffer(d.pSceneUBO[m_currentFrame], 0, sizeof(u), &u, Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
     m_lighting.cullLights(d.pSceneUBO[m_currentFrame]);
 
@@ -3757,17 +3976,52 @@ void Renderer::renderPortalNode(int index, const SceneUniforms& base, uint32_t o
     bindSceneTargets(false);
     drawVisibilityPhase(1);
     recordPortalStats(index);
+    for (int c = 0; c < kShadowLayers; ++c) d.shadowHiZValid[c] = false;
+    drawShadows(objectCount);
     cullVisibilityPhase(2, objectCount, currentHiZ.texture.RawPtr());
     buildVisibilityDraws(2);
     ctx->SetRenderTargets(0, nullptr, nullptr, Diligent::RESOURCE_STATE_TRANSITION_MODE_NONE);
 
-    RenderSettings& settings = m_lighting.settings();
-    const bool ssr = settings.ssr;
-    settings.ssr = false;
+    maskPortalView(index);
+    resolvePortalDepth(index);
+    {
+        const Diligent::TextureDesc sceneDesc = d.pSceneDepth->GetDesc();
+        if (d.portalDepth[index] && (d.portalDepth[index]->GetDesc().Width != sceneDesc.Width || d.portalDepth[index]->GetDesc().Height != sceneDesc.Height)) d.portalDepth[index].Release();
+        if (!d.portalDepth[index]) {
+            Diligent::TextureDesc desc = sceneDesc;
+            desc.Name = "Portal View Depth";
+            d.pDevice->CreateTexture(desc, nullptr, &d.portalDepth[index]);
+            if (d.portalDepth[index]) d.portalDepth[index]->GetDefaultView(Diligent::TEXTURE_VIEW_SHADER_RESOURCE)->SetSampler(d.pHiZSampler);
+        }
+        if (d.portalDepth[index]) {
+            ctx->SetRenderTargets(0, nullptr, nullptr, Diligent::RESOURCE_STATE_TRANSITION_MODE_NONE);
+            Diligent::CopyTextureAttribs depthCopy;
+            depthCopy.pSrcTexture = d.pSceneDepth;
+            depthCopy.SrcTextureTransitionMode = Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION;
+            depthCopy.pDstTexture = d.portalDepth[index];
+            depthCopy.DstTextureTransitionMode = Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION;
+            ctx->CopyTexture(depthCopy);
+        }
+    }
+
     for (int stage = 0; stage < 3; ++stage) m_lighting.shade(d.pSceneDepth, d.pSceneUBO[m_currentFrame], stage);
-    settings.ssr = ssr;
 
     compositePortals(index);
+    m_lighting.captureSceneColor();
+    if (sceneColor) {
+        if (!history.color) {
+            Diligent::TextureDesc desc = sceneColor->GetDesc();
+            desc.Name = "Portal History Color";
+            desc.BindFlags = Diligent::BIND_SHADER_RESOURCE;
+            desc.Usage = Diligent::USAGE_DEFAULT;
+            d.pDevice->CreateTexture(desc, nullptr, &history.color);
+        }
+        if (history.color) {
+            CopyPyramid(ctx, sceneColor, history.color);
+            history.previousViewProjection = viewProjection;
+            history.hasColor = true;
+        }
+    }
     drawTransparency();
 
     Diligent::CopyTextureAttribs copy;

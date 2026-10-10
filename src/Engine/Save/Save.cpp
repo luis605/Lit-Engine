@@ -69,10 +69,14 @@ Json SaveSystem::capture(const std::string& label) const {
 
     if (m_ctx.world) {
         World& w = *m_ctx.world;
-        body.set("world", w.snapshot());
-        uint32_t slots = 0;
-        w.forEach([&slots](EntityHandle e) { slots = std::max(slots, e.index + 1); });
-        body.set("slots", slots);
+        if (m_ctx.deltas) {
+            body.set("deltas", m_ctx.deltas->toJson());
+        } else {
+            body.set("world", w.snapshot());
+            uint32_t slots = 0;
+            w.forEach([&slots](EntityHandle e) { slots = std::max(slots, e.index + 1); });
+            body.set("slots", slots);
+        }
         const TimeState& t = w.time();
         Json time = Json::object();
         time.set("elapsed", t.elapsed);
@@ -128,13 +132,15 @@ bool SaveSystem::apply(const Json& input, std::string* error) {
         if (sections && sections->get(name) == nullptr) return fail(error, "save: missing section " + name);
     }
 
-    if (m_ctx.world && body.get("world")) {
+    if (m_ctx.deltas && body.get("deltas") && !m_ctx.deltas->fromJson(*body.get("deltas"), error)) return false;
+    if (m_ctx.world && (body.get("world") || (m_ctx.deltas && body.get("deltas")))) {
         World& w = *m_ctx.world;
-        const Json* world = body.get("world");
-        const Json* slots = body.get("slots");
-        m_remap.clear();
-        for (uint32_t i = 0; slots && i < static_cast<uint32_t>(slots->asNumber()); ++i) m_remap.push_back(EntityHandle{i, 0});
-        if (!world->isString() || !w.restore(world->asString(), &m_remap)) return fail(error, "save: world restore failed");
+        if (const Json* world = body.get("world")) {
+            const Json* slots = body.get("slots");
+            m_remap.clear();
+            for (uint32_t i = 0; slots && i < static_cast<uint32_t>(slots->asNumber()); ++i) m_remap.push_back(EntityHandle{i, 0});
+            if (!world->isString() || !w.restore(world->asString(), &m_remap)) return fail(error, "save: world restore failed");
+        }
         if (const Json* time = body.get("time")) {
             TimeState& t = w.timeState();
             if (const Json* v = time->get("elapsed")) t.elapsed = v->asNumber();

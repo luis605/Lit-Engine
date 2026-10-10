@@ -78,6 +78,7 @@ target_sources(Engine
         Render/Entity.cppm
         Render/SceneDatabase.cppm
         Render/Mesh.cppm
+        Render/ObservationPass.cppm
         Render/Material.cppm
         Render/RenderSettings.cppm
         Render/Lighting.cppm
@@ -85,8 +86,13 @@ target_sources(Engine
         World/World.cppm
         Portal/PortalView.cppm
         Portal/Portal.cppm
+        Portal/PortalBridge.cppm
+        Streaming/Streaming.cppm
+        Save/Delta.cppm
         Events/Events.cppm
         Physics/Physics.cppm
+        Physics/PortalPhysics.cppm
+        Physics/Character.cppm
         History/History.cppm
         Animation/Animation.cppm
         Jobs/Jobs.cppm
@@ -100,11 +106,13 @@ target_sources(Engine
         UI/Manager.cppm
         UI/Text.cppm
         UI/ImGuiLayer.cppm
+        Overlay/DebugOverlay.cppm
         Tools/Rng.cppm
         Tools/Json.cppm
         Tools/Replay.cppm
         Tools/Dump.cppm
         Tools/Perf.cppm
+        Tools/TestScenes.cppm
         Params/Params.cppm
         Observation/Observation.cppm
         State/State.cppm
@@ -128,13 +136,20 @@ target_sources(Engine
         UI/Manager.cpp
         UI/Text.cpp
         UI/ImGuiLayer.cpp
+        Overlay/DebugOverlay.cpp
         Render/Mesh.cpp
+        Render/ObservationPass.cpp
         Render/Lighting.cpp
         Render/CustomPasses.cpp
         World/World.cpp
         Portal/Portal.cpp
+        Portal/PortalBridge.cpp
+        Streaming/Streaming.cpp
+        Save/Delta.cpp
         Portal/PortalScene.cpp
         Physics/Physics.cpp
+        Physics/PortalPhysics.cpp
+        Physics/Character.cpp
         History/History.cpp
         Animation/Animation.cpp
         Jobs/Jobs.cpp
@@ -145,6 +160,7 @@ target_sources(Engine
         Tools/Replay.cpp
         Tools/Dump.cpp
         Tools/Perf.cpp
+        Tools/TestScenes.cpp
         Params/Params.cpp
         Observation/Observation.cpp
         State/State.cpp

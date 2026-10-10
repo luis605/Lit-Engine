@@ -10,9 +10,10 @@ import Engine.engine;
 import Engine.World;
 import Engine.Dump;
 import Engine.Replay;
+import Engine.TestScenes;
 
 int main(int argc, char** argv) {
-    std::string scene, record, replay, params, dump, perf;
+    std::string scene, record, replay, params, dump, perf, testScene, metricsPath;
     uint64_t ticks = 600;
     uint64_t seed = 1;
     float dt = 0.0f;
@@ -29,8 +30,14 @@ int main(int argc, char** argv) {
         else if (arg == "--params") params = value();
         else if (arg == "--dump") dump = value();
         else if (arg == "--perf") perf = value();
+        else if (arg == "--testscene") testScene = value();
+        else if (arg == "--metrics") metricsPath = value();
+        else if (arg == "--list-scenes") {
+            for (const std::string& name : testSceneNames()) std::printf("%s\n", name.c_str());
+            return 0;
+        }
         else {
-            std::fprintf(stderr, "usage: Headless [--scene f] [--ticks n] [--dt s] [--seed n] [--record f] [--replay f] [--params f] [--dump f] [--perf f]\n");
+            std::fprintf(stderr, "usage: Headless [--scene f] [--ticks n] [--dt s] [--seed n] [--record f] [--replay f] [--params f] [--dump f] [--perf f] [--testscene name] [--metrics f] [--list-scenes]\n");
             return 2;
         }
     }
@@ -57,6 +64,15 @@ int main(int argc, char** argv) {
             return 1;
         }
     }
+    TestSceneInfo sceneInfo;
+    if (!testScene.empty()) {
+        if (!buildTestScene(engine, testScene, TestSceneKit{}, sceneInfo)) {
+            std::fprintf(stderr, "unknown test scene %s\n", testScene.c_str());
+            return 1;
+        }
+        applyTestSceneCamera(engine, sceneInfo);
+        if (!ticksGiven) ticks = sceneInfo.suggestedTicks;
+    }
     if (!replay.empty() && !engine.startReplay(std::move(replayData))) return 1;
     if (!record.empty()) engine.startRecording(record);
     if (!perf.empty()) engine.enablePerfLog(perf);
@@ -64,6 +80,17 @@ int main(int argc, char** argv) {
     engine.disablePerfLog();
     const std::string text = engine.dumpStateText();
     std::printf("ticks %llu entities %zu hash %s\n", static_cast<unsigned long long>(engine.time().frame), engine.world().aliveCount(), hashHex(hashText(text)).c_str());
+    if (sceneInfo.metrics) {
+        const TestSceneMetrics metrics = sceneInfo.metrics();
+        std::printf("scene %s\n", sceneInfo.name.c_str());
+        for (const auto& [name, value] : metrics.values) std::printf("metric %s %.6g\n", name.c_str(), value);
+        if (!metricsPath.empty()) {
+            std::FILE* file = std::fopen(metricsPath.c_str(), "w");
+            if (!file) return 1;
+            std::fprintf(file, "%s\n", metrics.toJson().c_str());
+            std::fclose(file);
+        }
+    }
     if (!dump.empty() && !engine.writeStateDump(dump)) return 1;
     return 0;
 }

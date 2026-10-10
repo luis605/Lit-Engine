@@ -2,6 +2,7 @@ module;
 
 #include <array>
 #include <cstdint>
+#include <functional>
 #include <optional>
 #include <unordered_map>
 #include <vector>
@@ -40,6 +41,7 @@ export struct Collision {
     EntityHandle b;
     glm::vec3 normal{0.0f};
     float depth = 0.0f;
+    float closingSpeed = 0.0f;
 };
 
 export struct PhysicsSettings {
@@ -72,8 +74,18 @@ export struct PhysicsHit {
     glm::vec3 normal{0.0f};
 };
 
+export struct PhysicsContact {
+    EntityHandle entity;
+    glm::vec3 normal{0.0f};
+    float depth = 0.0f;
+};
+
+export using PhysicsFilter = std::function<bool(EntityHandle)>;
+
 export void wakeBody(World& world, EntityHandle e);
-export std::optional<PhysicsHit> physicsRaycast(World& world, const glm::vec3& origin, const glm::vec3& direction, float maxDistance = 1.0e30f);
+export std::optional<PhysicsHit> physicsRaycast(World& world, const glm::vec3& origin, const glm::vec3& direction, float maxDistance = 1.0e30f, const PhysicsFilter& skip = {});
+export std::optional<PhysicsHit> physicsSweepSphere(World& world, const glm::vec3& origin, const glm::vec3& direction, float maxDistance, float radius, const PhysicsFilter& skip = {});
+export std::vector<PhysicsContact> physicsOverlapCapsule(World& world, const glm::vec3& a, const glm::vec3& b, float radius, const PhysicsFilter& skip = {});
 
 export void stepPhysics(World& world, float dt, const PhysicsSettings& settings = {});
 export void registerPhysicsComponents(World& world);

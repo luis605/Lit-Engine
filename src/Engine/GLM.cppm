@@ -48,6 +48,8 @@ using ::glm::mat3;
 using ::glm::mat3_cast;
 using ::glm::quat_cast;
 using ::glm::eulerAngles;
+using ::glm::transpose;
+using ::glm::mix;
 
 using ::glm::operator*;
 using ::glm::operator+;

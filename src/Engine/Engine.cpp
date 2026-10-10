@@ -23,6 +23,9 @@ import Engine.Render.scenedatabase;
 import Engine.mesh;
 import Engine.World;
 import Engine.Physics;
+import Engine.PortalPhysics;
+import Engine.Character;
+import Engine.CameraRig;
 import Engine.Animation;
 import Engine.Jobs;
 import Engine.Profiler;
@@ -39,6 +42,16 @@ import Engine.Params;
 import Engine.Json;
 import Engine.Dump;
 import Engine.Rng;
+import Engine.Save;
+import Engine.Streaming;
+import Engine.Storylet;
+import Engine.Observation;
+import Engine.Delta;
+import Engine.State;
+import Engine.Portal;
+import Engine.Portal.view;
+import Engine.PortalBridge;
+import Engine.Render.observation;
 
 Engine::Engine() {
     m_world.setJobSystem(&m_jobs);
@@ -61,11 +74,17 @@ Engine::Engine() {
                 if (m_params.pollReload(&error)) Lit::Log::Info("Params reloaded from {}", m_params.watchedPath());
                 else if (!error.empty()) Lit::Log::Error("Params reload failed: {}", error);
             }
+            if ((m_paramPollCounter & 15u) == 0) pollData();
             m_params.update(world.time().unscaledDeltaTime);
+            applyPostFx();
         },
         true);
     addSystem(Phase::Update, "animation", [this](World& world, float dt) { updateAnimators(world, m_animations, dt); });
-    addSystem(Phase::FixedUpdate, "physics", [this](World& world, float dt) { stepPhysics(world, dt, m_physics); });
+    installPortalPhysics(m_portals);
+    addSystem(Phase::FixedUpdate, "physics", [this](World& world, float dt) {
+        if (m_portals.active()) stepPortalPhysics(m_portals, world, dt, m_physics);
+        else stepPhysics(world, dt, m_physics);
+    });
 }
 
 namespace {
@@ -380,6 +399,101 @@ bool Engine::writeStateDump(const std::string& path) {
     return static_cast<bool>(out);
 }
 
+bool Engine::loadPostFx(const std::string& path, std::string* error) {
+    std::ifstream in(path);
+    auto fail = [&](const std::string& message) {
+        if (error) *error = message;
+        return false;
+    };
+    if (!in) return fail("cannot open " + path);
+    const std::string text((std::istreambuf_iterator<char>(in)), std::istreambuf_iterator<char>());
+    std::string parseError;
+    const std::optional<Json> doc = Json::parse(text, &parseError);
+    if (!doc) return fail("json: " + parseError);
+    if (!doc->isObject()) return fail("root must be an object");
+    std::vector<PostFxBinding> bindings;
+    for (const auto& [key, def] : doc->members()) {
+        PostFxBinding b;
+        b.key = key;
+        const Json* value = &def;
+        if (def.isObject()) {
+            value = def.get("base");
+            if (const Json* param = def.get("param")) b.param = param->asString();
+        }
+        if (value && value->isNumber()) {
+            b.base[0] = static_cast<float>(value->asNumber());
+        } else if (value && value->isArray() && value->size() == 3) {
+            b.count = 3;
+            for (int i = 0; i < 3; ++i) b.base[i] = static_cast<float>(value->items()[static_cast<size_t>(i)].asNumber());
+        } else if (!b.param.empty()) {
+            b.base[0] = 0.0f;
+        } else {
+            return fail(key + ": expected number, [r,g,b] or {base,param}");
+        }
+        bool known = false;
+        RenderSettings probe;
+        visitRenderSettings(probe, [&](const char* name, auto&) { known = known || key == name; });
+        if (!known) return fail("unknown render setting " + key);
+        bindings.push_back(std::move(b));
+    }
+    m_postFx = std::move(bindings);
+    applyPostFx();
+    const bool watched = std::any_of(m_dataWatches.begin(), m_dataWatches.end(), [&](const DataWatch& w) { return w.path == path; });
+    if (!watched) {
+        watchData(path, [this](const std::string& file) {
+            std::string why;
+            if (loadPostFx(file, &why)) return true;
+            Lit::Log::Error("Post fx reload failed: {}", why);
+            return false;
+        });
+    }
+    return true;
+}
+
+void Engine::applyPostFx() {
+    if (m_postFx.empty()) return;
+    RenderSettings& settings = m_renderer.settings();
+    for (const PostFxBinding& b : m_postFx) {
+        float value = b.base[0];
+        if (!b.param.empty() && m_params.has(b.param)) value = m_params.get(b.param);
+        visitRenderSettings(settings, [&](const char* name, auto& field) {
+            if (b.key != name) return;
+            using T = std::remove_cvref_t<decltype(field)>;
+            if constexpr (std::is_same_v<T, float>) field = value;
+            else if constexpr (std::is_same_v<T, glm::vec3>) field = glm::vec3(b.base[0], b.base[1], b.base[2]);
+        });
+    }
+}
+
+void Engine::watchData(const std::string& path, std::function<bool(const std::string&)> reload) {
+    std::error_code ec;
+    DataWatch w;
+    w.path = path;
+    w.stamp = std::filesystem::last_write_time(path, ec).time_since_epoch().count();
+    w.reload = std::move(reload);
+    m_dataWatches.push_back(std::move(w));
+}
+
+void Engine::pollData() {
+    std::error_code ec;
+    for (DataWatch& w : m_dataWatches) {
+        const long long stamp = std::filesystem::last_write_time(w.path, ec).time_since_epoch().count();
+        if (ec || stamp == w.stamp) continue;
+        w.stamp = stamp;
+        if (w.reload(w.path)) {
+            ++m_dataReloads;
+            Lit::Log::Info("Reloaded {}", w.path);
+        }
+    }
+}
+
+std::vector<std::string> Engine::watchedFiles() const {
+    std::vector<std::string> out;
+    if (!m_params.watchedPath().empty()) out.push_back(m_params.watchedPath());
+    for (const DataWatch& w : m_dataWatches) out.push_back(w.path);
+    return out;
+}
+
 void Engine::uploadParams() {
     if (m_paramsUploaded == m_params.version()) return;
     m_paramsUploaded = m_params.version();
@@ -410,6 +524,23 @@ void Engine::enableFlyCamera(const FlyCameraSettings& settings) {
             camera.processMouseMovement(delta.x, -delta.y);
         }
     }, true);
+}
+
+CharacterController& Engine::enableCharacter(const CharacterSettings& settings, const CameraRigSettings& rig) {
+    m_character = std::make_unique<CharacterController>(m_world, m_portals, m_physics, settings, rig);
+    addSystem(Phase::Update, "character", [this](World&, float dt) {
+        const SimInput& in = m_simInput;
+        CharacterInput input;
+        input.move = glm::vec2(static_cast<float>(in.held(GLFW_KEY_D)) - static_cast<float>(in.held(GLFW_KEY_A)), static_cast<float>(in.held(GLFW_KEY_W)) - static_cast<float>(in.held(GLFW_KEY_S)));
+        input.jump = in.pressed(GLFW_KEY_SPACE);
+        input.sprint = in.held(GLFW_KEY_LEFT_SHIFT);
+        if (in.pressed(GLFW_KEY_V)) m_character->rig().toggle();
+        if (in.pressed(GLFW_KEY_T)) setMouseCaptured(!m_mouseCaptured);
+        if (m_mouseCaptured) m_character->look(in.current.mouseDelta.x * 0.1f, -in.current.mouseDelta.y * 0.1f);
+        m_character->setInput(input);
+        m_character->update(dt);
+    });
+    return *m_character;
 }
 
 void Engine::init(GLFWwindow* window, const int windowWidth, const int windowHeight) {
@@ -495,11 +626,17 @@ void Engine::beginTickInput(float& dt) {
 
 void Engine::tick(float deltaTime) {
     const auto tickStart = std::chrono::steady_clock::now();
+    const double frameMs = m_lastTickStart.time_since_epoch().count() == 0 ? 0.0 : std::chrono::duration<double, std::milli>(tickStart - m_lastTickStart).count();
+    if (m_streaming && frameMs > 0.0) m_streaming->recordFrame(frameMs);
     if (m_perf.active()) {
-        const double frameMs = m_lastTickStart.time_since_epoch().count() == 0 ? 0.0 : std::chrono::duration<double, std::milli>(tickStart - m_lastTickStart).count();
         std::vector<PerfPass> passes;
         for (const GpuPassTiming& t : m_renderer.gpuTimings()) passes.push_back({t.name, t.milliseconds});
-        m_perf.record(m_world.time().frame, frameMs, m_lastSimMs, m_renderer.gpuTotalMilliseconds(), passes);
+        std::vector<PerfPass> extras;
+        if (m_streaming) {
+            const StreamingStats st = m_streaming->stats();
+            extras = {{"frame_p99_ms", st.frameP99}, {"stream_update_ms", st.updateMillis}, {"stream_pending", static_cast<double>(st.pendingCells + st.pendingAssets)}, {"stream_resident", static_cast<double>(st.residentCells)}, {"stream_hitches", static_cast<double>(st.hitches)}, {"stream_mb", static_cast<double>(st.bytesCommitted) / 1048576.0}};
+        }
+        m_perf.record(m_world.time().frame, frameMs, m_lastSimMs, m_renderer.gpuTotalMilliseconds(), passes, extras);
     }
     m_lastTickStart = tickStart;
     beginTickInput(deltaTime);
@@ -576,11 +713,13 @@ void Engine::update() {
     m_world.syncCamera();
     updatePortals(m_world);
     uploadParams();
+    feedGpuObservation();
     LightSet lights;
     const bool hasLights = collectLights(m_world, m_world.camera().getPosition(), lights, 1024);
     m_renderer.setLights(hasLights, lights.directional, lights.packed);
     syncWindowSize(m_world.camera());
     m_renderer.drawScene(m_world.database(), m_world.camera());
+    submitGpuObservation();
 }
 
 void Engine::update(World& world) {
@@ -600,9 +739,12 @@ void Engine::updatePortals(World& world) {
     }
     const int crossed = m_portals.step(world.camera());
     const EntityHandle cameraEntity = world.getActiveCamera();
+    if (crossed >= 0) m_renderer.portalCrossed();
     if (crossed >= 0 && world.isAlive(cameraEntity)) world.setWorldMatrix(cameraEntity, m_portals.portals()[static_cast<size_t>(crossed)].transform * world.getWorldMatrix(cameraEntity));
     m_portals.updateObjects(world);
-    m_renderer.setPortalFrame(m_portals.buildFrame(world.camera(), static_cast<float>(std::max(m_renderer.height(), 1))));
+    const PortalFrame frame = m_portals.buildFrame(world.camera(), static_cast<float>(std::max(m_renderer.height(), 1)));
+    m_visibleCells = ::visibleCells(frame);
+    m_renderer.setPortalFrame(frame);
 }
 
 void Engine::present() { m_renderer.present(); }
@@ -745,4 +887,93 @@ std::optional<glm::vec2> Engine::worldToScreen(const glm::vec3& point) {
     if (clip.w <= 1.0e-5f) return std::nullopt;
     const glm::vec2 ndc = glm::vec2(clip.x, clip.y) / clip.w;
     return glm::vec2((ndc.x * 0.5f + 0.5f) * static_cast<float>(m_windowWidth), (0.5f - ndc.y * 0.5f) * static_cast<float>(m_windowHeight));
+}
+
+StreamingSystem& Engine::enableStreaming(const StreamingConfig& config) {
+    m_streaming = std::make_unique<StreamingSystem>(m_portals, config);
+    addSystem(Phase::PostUpdate, "streaming", [this](World& world, float) {
+        int cell = m_portals.cameraCell();
+        if (cell < 0) cell = m_portals.cellAt(world.camera().getPosition());
+        m_streaming->update(cell);
+    }, true);
+    return *m_streaming;
+}
+
+DeltaStore& Engine::enableDeltas() {
+    if (!m_deltas) m_deltas = std::make_unique<DeltaStore>(m_world, &m_portals);
+    return *m_deltas;
+}
+
+StateStore& Engine::enableState(const std::string& schemaPath) {
+    if (!m_state) m_state = std::make_unique<StateStore>(&m_world.events());
+    if (!schemaPath.empty()) {
+        std::string error;
+        if (!m_state->loadSchemaFile(schemaPath, &error)) Lit::Log::Error("State schema '{}' failed: {}", schemaPath, error);
+    }
+    return *m_state;
+}
+
+StoryletEngine& Engine::enableStorylets(const std::string& storyletPath) {
+    enableState();
+    if (!m_storylets) {
+        m_storylets = std::make_unique<StoryletEngine>(*m_state, m_world.random(), &m_world.events());
+        addSystem(Phase::Update, "storylets", [this](World&, float dt) { m_storylets->update(dt); });
+    }
+    if (!storyletPath.empty()) {
+        std::string error;
+        if (!m_storylets->loadFile(storyletPath, &error)) Lit::Log::Error("Storylets '{}' failed: {}", storyletPath, error);
+    }
+    return *m_storylets;
+}
+
+ObservationSystem& Engine::enableObservation(const ObservationConfig& config, bool gpu) {
+    m_observation = std::make_unique<ObservationSystem>(m_world, config);
+    m_gpuObservation = gpu;
+    addSystem(Phase::PostUpdate, "observation", [this](World& world, float dt) {
+        const float aspect = m_windowHeight > 0 ? static_cast<float>(m_windowWidth) / static_cast<float>(m_windowHeight) : 16.0f / 9.0f;
+        world.syncCamera();
+        m_observation->setView(observationViewFromCamera(world.camera(), aspect));
+        m_observation->update(dt);
+    });
+    return *m_observation;
+}
+
+SaveSystem& Engine::enableSave(const std::string& autosaveDir, float autosaveSeconds, uint32_t slots) {
+    SaveContext context;
+    context.world = &m_world;
+    context.state = m_state.get();
+    context.storylets = m_storylets.get();
+    context.params = &m_params;
+    context.observation = m_observation.get();
+    context.deltas = m_deltas.get();
+    m_save = std::make_unique<SaveSystem>(context);
+    if (!autosaveDir.empty()) {
+        m_save->configureAutosave(autosaveDir, autosaveSeconds, slots);
+        if (autosaveSeconds > 0.0f) addSystem(Phase::PostUpdate, "autosave", [this](World&, float dt) { m_save->autosave(dt); });
+    }
+    return *m_save;
+}
+
+void Engine::feedGpuObservation() {
+    if (!m_observation || !m_gpuObservation) return;
+    ObservationQuery query;
+    for (EntityHandle e : m_observation->trackedEntities()) {
+        if (!m_world.isAlive(e) || query.spheres.size() >= ObservationPass::kMaxSpheres) continue;
+        const glm::vec4 bounds = m_world.getWorldBounds(e);
+        if (bounds.w <= 0.0f) continue;
+        query.spheres.push_back(bounds);
+        query.ids.push_back(e.index + 1);
+    }
+    const Camera& camera = m_world.camera();
+    query.invViewProjection = glm::inverse(camera.getProjectionMatrix() * camera.getViewMatrix());
+    query.origin = camera.getPosition();
+    query.frame = m_observation->frame();
+    query.time = m_observation->time();
+    m_renderer.setObservationQuery(std::move(query));
+}
+
+void Engine::submitGpuObservation() {
+    if (!m_observation || !m_gpuObservation) return;
+    ObservationReadback readback;
+    while (m_renderer.takeObservation(readback)) m_observation->submitGpuIds(readback.frame, readback.time, readback.width, readback.height, readback.ids);
 }

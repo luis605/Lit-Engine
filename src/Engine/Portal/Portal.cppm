@@ -7,6 +7,7 @@ module;
 #include <optional>
 #include <string>
 #include <string_view>
+#include <utility>
 #include <vector>
 
 export module Engine.Portal;
@@ -55,7 +56,7 @@ export struct Portal {
 
 export struct PortalSettings {
     int maxDepth = 3;
-    int maxViews = 16;
+    int maxViews = 24;
     float blendDistance = 2.0f;
     float minPixels = 6.0f;
     bool occlusion = true;
@@ -82,6 +83,8 @@ export struct PortalSceneKit {
     std::function<uint32_t(const glm::vec3& color, const glm::vec3& emissive, float emissiveIntensity, float roughness)> material;
 };
 
+export using PortalCrossHook = std::function<void(World&, EntityHandle, const glm::mat4&)>;
+
 export using PortalBlockedFn = std::function<bool(const glm::vec3&, const glm::vec3&)>;
 
 export [[nodiscard]] glm::mat4 portalPose(const glm::vec3& position, const glm::vec3& eulerDegrees);
@@ -100,18 +103,22 @@ export class PortalSystem {
 
     [[nodiscard]] bool active() const { return !m_portals.empty(); }
     [[nodiscard]] const std::vector<PortalCell>& cells() const { return m_cells; }
+    [[nodiscard]] PortalCellParams& cellParams(int cell) { return m_cells[static_cast<size_t>(cell)].params; }
     [[nodiscard]] const std::vector<Portal>& portals() const { return m_portals; }
     [[nodiscard]] const std::vector<int>& portalsOf(int cell) const;
     [[nodiscard]] PortalSettings& settings() { return m_settings; }
     [[nodiscard]] const PortalSettings& settings() const { return m_settings; }
     [[nodiscard]] int findCell(const std::string& name) const;
     [[nodiscard]] int cellAt(const glm::vec3& position) const;
+    [[nodiscard]] int resolveCell(int cell, const glm::vec3& position) const;
     [[nodiscard]] int cameraCell() const { return m_cameraCell; }
     void setCameraCell(int cell);
 
     [[nodiscard]] PortalFrame buildFrame(const Camera& camera, float viewportHeight, const PortalBlockedFn& blocked = {}) const;
     int step(Camera& camera);
     int stepPoint(glm::vec3& position, int& cell, const glm::vec3& previous, bool upright = false) const;
+    [[nodiscard]] std::optional<std::pair<int, float>> firstCrossing(int cell, const glm::vec3& origin, const glm::vec3& direction, float maxT) const;
+    void setCrossHook(PortalCrossHook hook) { m_crossHook = std::move(hook); }
 
     [[nodiscard]] PortalCellParams sampleParams(int cell, const glm::vec3& position) const;
     [[nodiscard]] PortalRayHit raycast(World& world, const glm::vec3& origin, const glm::vec3& direction, float maxDistance, int cell = -1, int maxCrossings = 8) const;
@@ -139,6 +146,7 @@ export class PortalSystem {
     bool m_hasNear = false;
     glm::vec3 m_previousNear{0.0f};
     std::vector<Tracked> m_tracked;
+    PortalCrossHook m_crossHook;
 };
 
 export enum class PortalTestScene { Loop, Torture };

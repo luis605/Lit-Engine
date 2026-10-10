@@ -65,6 +65,12 @@ export class ObservationSystem {
 
     void track(EntityHandle e);
     void untrack(EntityHandle e);
+    [[nodiscard]] std::vector<EntityHandle> trackedEntities() const {
+        std::vector<EntityHandle> out;
+        out.reserve(m_entities.size());
+        for (const auto& [index, t] : m_entities) out.push_back(t.handle);
+        return out;
+    }
     [[nodiscard]] bool tracked(EntityHandle e) const { return m_entities.contains(e.index) && m_entities.at(e.index).handle == e; }
     [[nodiscard]] ObservationState state(EntityHandle e) const;
     [[nodiscard]] std::vector<EntityHandle> inState(ObservationState s) const;

@@ -274,6 +274,15 @@ int PortalSystem::cellAt(const glm::vec3& p) const {
     return -1;
 }
 
+int PortalSystem::resolveCell(int cell, const glm::vec3& p) const {
+    if (cell >= 0 && static_cast<size_t>(cell) < m_cells.size()) {
+        const PortalCell& c = m_cells[static_cast<size_t>(cell)];
+        if (p.x >= c.min.x && p.y >= c.min.y && p.z >= c.min.z && p.x <= c.max.x && p.y <= c.max.y && p.z <= c.max.z) return cell;
+    }
+    const int found = cellAt(p);
+    return found >= 0 ? found : cell;
+}
+
 void PortalSystem::setCameraCell(int cell) {
     m_cameraCell = cell;
     m_hasNear = false;
@@ -458,11 +467,15 @@ PortalFrame PortalSystem::buildFrame(const Camera& camera, float viewportHeight,
         int node;
         glm::mat4 camWorld;
         int entry;
+        float pixels;
     };
     std::vector<Pending> queue;
-    queue.push_back({0, glm::inverse(view0), -1});
+    queue.push_back({0, glm::inverse(view0), -1, 1.0e30f});
+    const size_t hardCap = 24;
 
     for (size_t qi = 0; qi < queue.size(); ++qi) {
+        const size_t best = static_cast<size_t>(std::ranges::max_element(queue.begin() + static_cast<std::ptrdiff_t>(qi), queue.end(), {}, &Pending::pixels) - queue.begin());
+        std::swap(queue[qi], queue[best]);
         const Pending cur = queue[qi];
         const int cell = frame.nodes[static_cast<size_t>(cur.node)].cell;
         const int depth = frame.nodes[static_cast<size_t>(cur.node)].depth;
@@ -492,7 +505,7 @@ PortalFrame PortalSystem::buildFrame(const Camera& camera, float viewportHeight,
             if (!inside) continue;
             const float dist = std::max(glm::length(offset), 1.0e-3f);
             const float radius = glm::length(glm::vec3(p.half.x, p.half.y, 0.0f));
-            const float pixels = viewportHeight * radius / (dist * tanHalf);
+            const float pixels = std::min(viewportHeight * radius / (dist * tanHalf), cur.pixels);
             if (blocked && m_settings.occlusion && distE > reach) {
                 bool visible = false;
                 const glm::vec3 samples[5] = {p.center(), p.center() + p.right() * p.half.x * 0.8f + p.up() * p.half.y * 0.8f, p.center() - p.right() * p.half.x * 0.8f + p.up() * p.half.y * 0.8f, p.center() + p.right() * p.half.x * 0.8f - p.up() * p.half.y * 0.8f, p.center() - p.right() * p.half.x * 0.8f - p.up() * p.half.y * 0.8f};
@@ -514,7 +527,8 @@ PortalFrame PortalSystem::buildFrame(const Camera& camera, float viewportHeight,
             surface.fallback = m_cells[static_cast<size_t>(dst.cell)].params.tint;
             const float distE = glm::dot(src.normal(), eye - src.center());
             const bool near = distE < reach * 1.5f;
-            if (depth < m_settings.maxDepth && frame.nodes.size() < maxViews && (cand.pixels >= m_settings.minPixels || near)) {
+            const bool large = cand.pixels >= viewportHeight * 0.2f;
+            if (depth < m_settings.maxDepth + (large ? 1 : 0) && frame.nodes.size() < (large ? hardCap : maxViews) && (cand.pixels >= m_settings.minPixels || near)) {
                 const glm::mat4 camWorld = src.transform * cur.camWorld;
                 const glm::mat4 viewC = glm::inverse(camWorld);
                 const glm::vec3 eyeC(camWorld[3]);
@@ -531,6 +545,11 @@ PortalFrame PortalSystem::buildFrame(const Camera& camera, float viewportHeight,
                 const bool oblique = distB < -0.01f;
                 child.projection = oblique ? obliqueProjection(projection, viewC, clipPlane) : projection;
                 if (distB < -0.02f) {
+                    child.masked = true;
+                    child.entryCenter = dst.center();
+                    child.entryAxisU = dst.right() * dst.half.x;
+                    child.entryAxisV = dst.up() * dst.half.y;
+                    child.entryNormal = dst.normal();
                     const auto corners = cornersOf(dst);
                     const glm::vec3 centerB = dst.center();
                     for (int i = 0; i < 4; ++i) {
@@ -546,7 +565,7 @@ PortalFrame PortalSystem::buildFrame(const Camera& camera, float viewportHeight,
                 }
                 surface.child = static_cast<int>(frame.nodes.size());
                 frame.nodes.push_back(std::move(child));
-                queue.push_back({surface.child, camWorld, src.partner});
+                queue.push_back({surface.child, camWorld, src.partner, cand.pixels});
             }
             frame.nodes[static_cast<size_t>(cur.node)].surfaces.push_back(surface);
         }
@@ -570,6 +589,15 @@ int PortalSystem::stepPoint(glm::vec3& position, int& cell, const glm::vec3& pre
     return -1;
 }
 
+std::optional<std::pair<int, float>> PortalSystem::firstCrossing(int cell, const glm::vec3& origin, const glm::vec3& direction, float maxT) const {
+    std::optional<std::pair<int, float>> best;
+    for (int id : portalsOf(cell)) {
+        const auto t = crossing(m_portals[static_cast<size_t>(id)], origin, direction, best ? best->second : maxT);
+        if (t && *t < (best ? best->second : maxT)) best = std::make_pair(id, *t);
+    }
+    return best;
+}
+
 int PortalSystem::step(Camera& camera) {
     if (m_portals.empty()) return -1;
     if (m_cameraCell < 0) m_cameraCell = std::max(cellAt(camera.getPosition()), 0);
@@ -584,6 +612,7 @@ int PortalSystem::step(Camera& camera) {
     const int id = stepPoint(moved, cell, m_previousNear, true);
     if (id < 0) {
         m_previousNear = nearCenter;
+        m_cameraCell = resolveCell(m_cameraCell, nearCenter);
         return -1;
     }
     applyTransformToCamera(camera, m_portals[static_cast<size_t>(id)].transform);
@@ -765,8 +794,10 @@ void PortalSystem::updateObjects(World& world) {
             world.setWorldMatrix(t.entity, m_portals[static_cast<size_t>(crossed)].transform * world.getWorldMatrix(t.entity));
             position = world.getWorldPosition(t.entity);
             t.cell = cell;
+            if (m_crossHook) m_crossHook(world, t.entity, m_portals[static_cast<size_t>(crossed)].transform);
         }
         t.previous = position;
+        t.cell = resolveCell(t.cell, position);
 
         const glm::vec4 bounds = world.getWorldBounds(t.entity);
         const float radius = bounds.w;

@@ -20,7 +20,7 @@ export class PerfLog {
     PerfLog& operator=(const PerfLog&) = delete;
 
     void open(std::string path);
-    void record(uint64_t frame, double cpuMs, double simMs, double gpuMs, const std::vector<PerfPass>& passes);
+    void record(uint64_t frame, double cpuMs, double simMs, double gpuMs, const std::vector<PerfPass>& passes, const std::vector<PerfPass>& extras = {});
     bool flush();
     void close();
     [[nodiscard]] bool active() const { return !m_path.empty(); }

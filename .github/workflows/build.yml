@@ -33,9 +33,14 @@ jobs:
       - name: Configure
         run: cmake -S . -B build -G Ninja -DCMAKE_BUILD_TYPE=Release -DCMAKE_CXX_COMPILER=g++-15
       - name: Build tests
-        run: cmake --build build --target WorldTests ToolingTests Headless GpuSyncTests -j4
+        run: cmake --build build --target ToolingTests SystemsTests NarrativeTests PortalTests WorldTests GpuSyncTests Headless -j4
       - name: Run tests
         run: ctest --test-dir build --output-on-failure
+      - name: Run test scenes headless
+        run: |
+          for scene in $(build/src/Headless/Headless --list-scenes); do
+            build/src/Headless/Headless --testscene "$scene" --ticks 120 --metrics "build/scene_$scene.json"
+          done
       - name: Run GPU sync tests on lavapipe
         run: xvfb-run -a build/tests/GpuSyncTests
 
@@ -66,7 +71,7 @@ jobs:
       - name: Configure
         run: cmake -S . -B build-asan -G Ninja -DCMAKE_BUILD_TYPE=RelWithDebInfo -DCMAKE_CXX_COMPILER=g++-15 -DLIT_SANITIZE=address,undefined
       - name: Build tests
-        run: cmake --build build-asan --target WorldTests ToolingTests Headless -j4
+        run: cmake --build build-asan --target ToolingTests SystemsTests NarrativeTests PortalTests WorldTests Headless -j4
       - name: Run tests under sanitizers
         env:
           ASAN_OPTIONS: detect_leaks=1:abort_on_error=1

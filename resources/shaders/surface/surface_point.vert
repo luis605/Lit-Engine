@@ -62,7 +62,8 @@ vec3 sampleVisibleNormal(uint base, vec3 viewInObject, uint seed) {
 void main() {
     uvec2 entry = visibleEntries[gl_VertexIndex];
     uint objectId = entry.x & 0x1FFFFFFFu;
-    uint materialId = entry.y;
+    uint materialId = entry.y & 0x7FFFu;
+    uint maskBit = entry.y & 0x8000u;
     uint meshSlot = uint(gl_InstanceIndex) / LOD_LEVEL_COUNT * LOD_LEVEL_COUNT;
     vec4 boundingSphere = cullSpheres[objectId];
     float shape = normalSamples[meshSlot * NORMAL_SAMPLES].w;
@@ -84,7 +85,7 @@ void main() {
     out_normal = shadedNormal;
     out_uv = vec2(0.5);
     out_entity = objectId;
-    out_material = materialId;
+    out_material = materialId | maskBit;
     out_objectPos = vec3(0.0);
 #ifdef TRANSPARENT
     out_alpha = float((packedAlphas[objectId >> 2u] >> ((objectId & 3u) * 8u)) & 0xFFu) * (1.0 / 255.0);

@@ -27,6 +27,7 @@ import Engine.Render.custom;
 import Engine.Render.settings;
 import Engine.Render.material;
 import Engine.Portal.view;
+import Engine.Render.observation;
 import Engine.glm;
 
 export struct GpuEntityState {
@@ -85,6 +86,13 @@ export class Renderer {
     void setProfilingHud(bool enabled) { m_profilingHud = enabled; }
     void requestScreenshot(std::string path) { m_screenshotPath = std::move(path); }
     void setPortalFrame(PortalFrame frame);
+    void portalCrossed() {
+        m_lighting.snapExposure();
+        m_lighting.setPyramidValid(false);
+    }
+    void setObservationQuery(ObservationQuery query);
+    void clearObservationQuery();
+    bool takeObservation(ObservationReadback& out);
     [[nodiscard]] const std::vector<PortalViewStats>& portalStats() const { return m_portalStats; }
     bool enableImGui();
     void beginUi();
@@ -120,9 +128,12 @@ export class Renderer {
     [[nodiscard]] bool pipelinesReady() const;
     void cullVisibilityPhase(int phase, uint32_t objectCount, int hizFrame);
     void cullVisibilityPhase(int phase, uint32_t objectCount, Diligent::ITexture* hiz);
-    void renderPortalViews(const SceneUniforms& base, const SceneUniforms& restore, uint32_t objectCount);
+    void renderPortalViews(const SceneUniforms& base, SceneUniforms& restore, uint32_t objectCount);
     void renderPortalNode(int index, const SceneUniforms& base, uint32_t objectCount);
     void compositePortals(int index);
+    void resolvePortalDepth(int index);
+    void maskPortalView(int index);
+    bool ensurePortalScratch();
     void createPortalPSO();
     void recordPortalStats(int index);
     void readPortalStats();
@@ -136,6 +147,9 @@ export class Renderer {
     void captureBackBuffer();
     std::string m_screenshotPath;
     PortalFrame m_portalFrame;
+    ObservationQuery m_obsQuery;
+    bool m_obsActive = false;
+    std::vector<ObservationReadback> m_obsReady;
     std::vector<PortalViewStats> m_portalStats;
     bool reallocateBuffers(size_t numObjects);
     void releaseObjectBuffers();

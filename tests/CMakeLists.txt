@@ -27,6 +27,10 @@ target_compile_features(SystemsTests PRIVATE cxx_std_23)
 target_link_libraries(SystemsTests PRIVATE Engine)
 add_test(NAME SystemsTests COMMAND SystemsTests)
 
+foreach(scene portal_torture streaming_route crowd vista)
+    add_test(NAME TestScene_${scene} COMMAND Headless --testscene ${scene} --ticks 120 --metrics ${CMAKE_CURRENT_BINARY_DIR}/scene_${scene}.json)
+endforeach()
+
 find_package(Python3 COMPONENTS Interpreter)
 if(Python3_FOUND)
     add_test(NAME HeadlessCli COMMAND Headless --ticks 120 --seed 3 --perf ${CMAKE_CURRENT_BINARY_DIR}/cli_perf.csv --dump ${CMAKE_CURRENT_BINARY_DIR}/cli_state.json)
@@ -35,3 +39,17 @@ if(Python3_FOUND)
     set_tests_properties(PerfCheckPasses PerfCheckFails PROPERTIES DEPENDS HeadlessCli)
     set_tests_properties(PerfCheckFails PROPERTIES WILL_FAIL TRUE)
 endif()
+
+add_executable(PhysicsTests PhysicsTests.cpp)
+target_compile_features(PhysicsTests PRIVATE cxx_std_23)
+target_link_libraries(PhysicsTests PRIVATE Engine)
+add_test(NAME PhysicsTests COMMAND PhysicsTests)
+
+add_executable(StreamingTests StreamingTests.cpp)
+target_compile_features(StreamingTests PRIVATE cxx_std_23)
+target_link_libraries(StreamingTests PRIVATE Engine)
+add_test(NAME StreamingTests COMMAND StreamingTests)
+
+add_executable(ObservationGpuTests ObservationGpuTests.cpp)
+target_compile_features(ObservationGpuTests PRIVATE cxx_std_23)
+target_link_libraries(ObservationGpuTests PRIVATE Engine glfw)

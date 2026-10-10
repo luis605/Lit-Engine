@@ -93,7 +93,7 @@ void main() {
     bool toon = model == LIT_TOON;
     float metallic = toon ? 0.0 : float(g2.x) / 255.0;
     float tangentAngle = toon ? 0.0 : float(g2.y) / 255.0;
-    uint materialId = g2.z | (g2.w << 8u);
+    uint materialId = (g2.z | (g2.w << 8u)) & 0x7FFFu;
     float viewDepth = -(view * vec4(worldPos, 1.0)).z;
     vec4 aoGi = vec4(0.0, 0.0, 0.0, 1.0);
     if (renderFlags.x > 0.5) aoGi = upsampleHalf(pixel, viewDepth);

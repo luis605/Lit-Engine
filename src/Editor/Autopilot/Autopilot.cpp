@@ -27,6 +27,8 @@ import Engine.History;
 import Engine.Render.settings;
 import Engine.Render.custom;
 import Engine.Params;
+import Engine.Render.entity;
+import Engine.Render.component;
 
 namespace {
 
@@ -319,6 +321,33 @@ void Autopilot::beforeFrame(EditorContext& ctx, CommandRegistry& commands, float
         }
         if (step.verb == "param") {
             ctx.engine.params().set(arg(0), num(1));
+            continue;
+        }
+        if (step.verb == "mask") {
+            const std::string name = arg(0);
+            const bool on = num(1, 1.0f) > 0.5f;
+            size_t count = 0;
+            ctx.world.forEach([&](EntityHandle e) {
+                if (ctx.world.getName(e) != name) return;
+                ctx.world.setRenderFlags(e, RENDER_MASKED, on);
+                ++count;
+            });
+            if (count == 0) {
+                Lit::Log::Error("Autopilot line {}: no entity named '{}'", step.line, name);
+                ++m_failures;
+            }
+            continue;
+        }
+        if (step.verb == "testscene") {
+            if (!loadTestScene || !loadTestScene(arg(0))) {
+                Lit::Log::Error("Autopilot line {}: unknown test scene '{}'", step.line, arg(0));
+                ++m_failures;
+            }
+            m_waitFrames = 2;
+            return;
+        }
+        if (step.verb == "overlay") {
+            if (showOverlay) showOverlay(static_cast<int>(num(0, 0.0f)));
             continue;
         }
         if (step.verb == "log") {

@@ -8,6 +8,7 @@ module;
 
 export module Engine.Save;
 
+import Engine.Delta;
 import Engine.Json;
 import Engine.Observation;
 import Engine.Params;
@@ -24,6 +25,7 @@ export struct SaveContext {
     StoryletEngine* storylets = nullptr;
     ParamBus* params = nullptr;
     ObservationSystem* observation = nullptr;
+    DeltaStore* deltas = nullptr;
 };
 
 export class SaveSystem {
@@ -49,7 +51,10 @@ export class SaveSystem {
     bool loadLatestAutosave(std::string* error = nullptr);
     [[nodiscard]] std::string autosavePath(uint32_t slot) const;
     [[nodiscard]] uint64_t serial() const { return m_serial; }
-    [[nodiscard]] EntityHandle remap(EntityHandle saved) const { return saved.index < m_remap.size() ? m_remap[saved.index] : NULL_ENTITY; }
+    [[nodiscard]] EntityHandle remap(EntityHandle saved) const {
+        if (m_ctx.deltas) return m_ctx.world && m_ctx.world->isAlive(saved) ? saved : NULL_ENTITY;
+        return saved.index < m_remap.size() ? m_remap[saved.index] : NULL_ENTITY;
+    }
 
   private:
     struct Section {

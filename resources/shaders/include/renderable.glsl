@@ -1,6 +1,7 @@
 const uint RENDER_HIDDEN = 1u;
 const uint RENDER_NO_OCCLUDER = 2u;
 const uint RENDER_TRANSLUCENT = 4u;
+const uint RENDER_MASKED = 8u;
 
 layout(std430) readonly buffer RenderableBuffer {
     uint renderables[];

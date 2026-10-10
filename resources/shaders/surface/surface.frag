@@ -145,7 +145,7 @@ void main() {
 #else
     if (!gl_FrontFacing) N = -N;
 #endif
-    MaterialData m = materials[in_material];
+    MaterialData m = materials[in_material & 0x7FFFu];
     SurfaceInput i;
     i.worldPosition = in_worldPos;
     i.objectPosition = in_objectPos;
@@ -154,7 +154,7 @@ void main() {
     i.uv = in_uv;
     i.screenUv = gl_FragCoord.xy * screenParams.zw;
     i.entity = in_entity;
-    i.material = in_material;
+    i.material = in_material & 0x7FFFu;
     i.time = sceneTime();
     i.custom0 = m.custom0;
     i.custom1 = m.custom1;
@@ -176,7 +176,7 @@ void main() {
     }
 #endif
 #ifdef TRANSPARENT
-    ShadingData sd = prepareShading(in_worldPos, s.normal, s.baseColor, saturate(s.metallic), roughness, saturate(s.occlusion), s.tangentAngle, in_material);
+    ShadingData sd = prepareShading(in_worldPos, s.normal, s.baseColor, saturate(s.metallic), roughness, saturate(s.occlusion), s.tangentAngle, in_material & 0x7FFFu);
     float visibility;
     float viewDepth = -(view * vec4(in_worldPos, 1.0)).z;
     vec3 color;

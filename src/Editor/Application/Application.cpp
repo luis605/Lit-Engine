@@ -38,6 +38,10 @@ import Engine.Render.material;
 import Engine.Render.settings;
 import Engine.Render.custom;
 import Engine.camera;
+import Engine.Overlay;
+import Engine.Observation;
+import Engine.TestScenes;
+import Engine.Params;
 import Engine.input;
 import Engine.GizmoMath;
 import Engine.glm;
@@ -88,7 +92,11 @@ Application::Application() {
     camera.setFarPlane(2000.0f);
     const bool portalLoop = sceneChoice && std::string(sceneChoice) == "portal_loop";
     const bool portalTorture = sceneChoice && std::string(sceneChoice) == "portal_torture";
-    if (portalLoop || portalTorture) {
+    const std::vector<std::string> testScenes = testSceneNames();
+    const bool testScene = sceneChoice && !portalTorture && std::find(testScenes.begin(), testScenes.end(), std::string(sceneChoice)) != testScenes.end();
+    if (testScene) {
+        buildTestScene(sceneChoice);
+    } else if (portalLoop || portalTorture) {
         buildPortalScene(portalTorture ? 1 : 0);
     } else if (showcase) {
         buildShowcaseScene();
@@ -102,6 +110,14 @@ Application::Application() {
     m_engine.setProfilingHud(false);
     m_engine.setPaused(true);
     m_engine.setShaderWatch(true);
+    if (std::filesystem::exists("resources/data/params.json")) m_engine.params().loadFile("resources/data/params.json");
+    if (std::filesystem::exists("resources/data/post_fx.json")) m_engine.loadPostFx("resources/data/post_fx.json");
+    m_observation = std::make_unique<ObservationSystem>(m_ctx->world);
+    m_overlay.attachObservation(m_observation.get());
+    if (const char* overlay = std::getenv("LIT_OVERLAY")) {
+        m_overlay.setVisible(true);
+        m_overlay.setTab(std::max(0, std::atoi(overlay) - 1));
+    }
     if (const char* interval = std::getenv("LIT_AUTOSAVE_SECONDS")) m_autosaveInterval = static_cast<float>(std::atof(interval));
     m_recoveryPending = std::filesystem::exists(kAutosavePath);
     if (std::getenv("LIT_PROFILE")) m_engine.profiler().setEnabled(true);
@@ -134,6 +150,11 @@ Application::Application() {
         m_recoveryPending = false;
         m_autopilot.load(script);
         m_autopilot.window = m_window;
+        m_autopilot.loadTestScene = [this](const std::string& name) { return buildTestScene(name); };
+        m_autopilot.showOverlay = [this](int tab) {
+            m_overlay.setVisible(tab >= 0);
+            if (tab > 0) m_overlay.setTab(tab - 1);
+        };
         m_autopilot.saveScene = [this](const std::string& path) { saveScene(path); };
         m_autopilot.loadScene = [this](const std::string& path) { loadScene(path); };
         m_autopilot.editMaterial = [this](const std::string& field, float value) {
@@ -508,6 +529,53 @@ void Application::buildPortalScene(int which) {
     engine.portals().setCameraCell(engine.portals().cellAt(start));
 }
 
+bool Application::buildTestScene(const std::string& name) {
+    EditorContext& ctx = *m_ctx;
+    Engine& engine = m_engine;
+    const std::vector<std::string> names = testSceneNames();
+    if (std::find(names.begin(), names.end(), name) == names.end()) return false;
+    if (ctx.playing) setPlaying(false);
+    ctx.world.clear();
+    engine.portals().clear();
+    engine.setAnimation(0.0f, 0, 1);
+    TestSceneKit kit;
+    kit.cube = ctx.cubeMesh;
+    kit.sphere = ctx.sphereMesh;
+    const std::vector<std::string> shaders = engine.shaderNames();
+    for (uint32_t i = 0; i < shaders.size(); ++i) {
+        if (shaders[i] == "Checker") kit.floorShader = i;
+    }
+    kit.material = [&engine](const glm::vec3& color, const glm::vec3& emissive, float intensity, float roughness) {
+        Material m;
+        m.name = "Test scene";
+        m.baseColor = color;
+        m.roughness = roughness;
+        m.emissive = emissive;
+        m.emissiveIntensity = intensity;
+        return engine.createMaterial(m);
+    };
+    TestSceneInfo info;
+    if (!::buildTestScene(engine, name, kit, info)) return false;
+    applyTestSceneCamera(engine, info);
+    afterSceneReplaced();
+    return true;
+}
+
+void Application::updateAttention(float dt) {
+    if (!m_observation) return;
+    World& world = m_ctx->world;
+    const glm::vec2 size = m_engine.windowSize();
+    m_observation->setView(observationViewFromCamera(world.camera(), size.y > 0.0f ? size.x / size.y : 1.0f));
+    for (EntityHandle e : world.findByTag("observed")) {
+        if (!m_observation->tracked(e)) m_observation->track(e);
+    }
+    m_observation->update(dt);
+    for (EntityHandle e : world.findByTag("observed")) {
+        const bool attended = m_observation->state(e) == ObservationState::Attended;
+        if (((world.getRenderFlags(e) & RENDER_MASKED) != 0) != attended) world.setRenderFlags(e, RENDER_MASKED, attended);
+    }
+}
+
 void Application::saveScene(const std::string& path) {
     const auto start = std::chrono::steady_clock::now();
     if (m_ctx->world.saveScene(path)) {
@@ -520,6 +588,8 @@ void Application::saveScene(const std::string& path) {
 }
 
 void Application::afterSceneReplaced() {
+    m_observation = std::make_unique<ObservationSystem>(m_ctx->world);
+    m_overlay.attachObservation(m_observation.get());
     m_ctx->selection.clear();
     m_ctx->history->clear();
     m_ctx->savedRevision = m_ctx->history->state();
@@ -1156,6 +1226,12 @@ void Application::registerCommands() {
         afterSceneReplaced();
         m_ctx->toast("Portal torture scene", ToastKind::Success);
     });
+    add("view.debugOverlay", "Debug overlay: portals, params, observation, AI, perf", "View", {key(ImGuiKey_F3)}, [this] { m_overlay.toggle(); }).checked = [this] { return m_overlay.visible(); };
+    for (const std::string& testName : testSceneNames()) {
+        add("scene.test." + testName, "Load test scene: " + testName, "File", {}, [this, testName] {
+            if (buildTestScene(testName)) m_ctx->toast("Test scene " + testName, ToastKind::Success);
+        });
+    }
     add("render.reload", "Reload shaders", "Render", {key(ImGuiKey_F9)}, [this] {
         m_engine.reloadShaders();
         m_ctx->toast("Shaders reloaded");
@@ -1431,6 +1507,8 @@ void Application::update() {
     m_look.drawWorld(ctx);
     m_inspector.draw(ctx);
     drawStats(m_frameMs);
+    updateAttention(deltaTime);
+    m_overlay.draw(m_engine);
     m_hud.drawTimeline(ctx);
     m_hud.drawStatusBar(ctx, m_commands, m_frameMs);
     drawQuickAdd();

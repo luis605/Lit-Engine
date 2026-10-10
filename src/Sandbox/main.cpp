@@ -1,4 +1,5 @@
 #include <GLFW/glfw3.h>
+#include <filesystem>
 #include <optional>
 #include <string>
 #include <cmath>
@@ -14,6 +15,9 @@ import Engine.asset;
 import Engine.World;
 import Engine.Render.entity;
 import Engine.glm;
+import Engine.Overlay;
+import Engine.TestScenes;
+import Engine.Render.material;
 import Sandbox.scene;
 
 void inverseKinematics(Scene& scene, const float deltaTime) {
@@ -101,6 +105,11 @@ int main() {
     engine.input().bindKey("load", GLFW_KEY_F9);
     engine.enableFlyCamera({.speed = 2.0f, .sprintMultiplier = 2.0f});
     engine.setShaderWatch(true);
+    engine.enableImGui();
+    if (std::filesystem::exists("resources/data/params.json")) engine.params().loadFile("resources/data/params.json");
+    if (std::filesystem::exists("resources/data/post_fx.json")) engine.loadPostFx("resources/data/post_fx.json");
+    DebugOverlay overlay;
+    overlay.setVisible(std::getenv("LIT_OVERLAY") != nullptr);
     if (std::getenv("LIT_GPU_PROFILE")) engine.setFullProfiling(true);
 
     World& world = engine.world();
@@ -108,6 +117,23 @@ int main() {
 
     Scene scene({engine, world, cubeMesh, sphereMesh});
     scene.onStart();
+
+    if (const char* testScene = std::getenv("LIT_TESTSCENE")) {
+        TestSceneKit kit;
+        kit.cube = cubeMesh;
+        kit.sphere = sphereMesh;
+        kit.material = [&engine](const glm::vec3& color, const glm::vec3& emissive, float intensity, float roughness) {
+            Material m;
+            m.baseColor = color;
+            m.roughness = roughness;
+            m.emissive = emissive;
+            m.emissiveIntensity = intensity;
+            return engine.createMaterial(m);
+        };
+        TestSceneInfo info;
+        if (buildTestScene(engine, testScene, kit, info)) applyTestSceneCamera(engine, info);
+        else Lit::Log::Error("Unknown test scene {}", testScene);
+    }
 
     if (const char* stress = std::getenv("LIT_STRESS")) {
         const size_t count = static_cast<size_t>(std::atoll(stress));
@@ -135,6 +161,8 @@ int main() {
         }
 
         if (InputManager::IsKeyPressed(GLFW_KEY_F1)) showDebug = !showDebug;
+        if (InputManager::IsKeyPressed(GLFW_KEY_F3)) overlay.toggle();
+        overlay.draw(engine);
         if (showDebug) {
             engine.debugHierarchy();
             engine.debugLine(glm::vec3(0.0f), glm::vec3(1.0f, 0.0f, 0.0f), glm::vec4(1.0f, 0.1f, 0.1f, 1.0f));

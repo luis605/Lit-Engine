@@ -15,6 +15,8 @@ import Engine.History;
 import Engine.Render.entity;
 import Engine.glm;
 import Engine.Render.settings;
+import Engine.Overlay;
+import Engine.Observation;
 import Editor.context;
 import Editor.commands;
 import Editor.viewport;
@@ -38,6 +40,8 @@ export class Application {
     void buildStressScene();
     void buildShowcaseScene();
     void buildPortalScene(int which);
+    bool buildTestScene(const std::string& name);
+    void updateAttention(float dt);
     void registerCommands();
     void setPlaying(bool playing);
     void saveScene(const std::string& path);
@@ -81,6 +85,8 @@ export class Application {
     Palette m_palette;
     Hud m_hud;
     LookPanel m_look;
+    DebugOverlay m_overlay;
+    std::unique_ptr<ObservationSystem> m_observation;
     Autopilot m_autopilot;
     LookState m_lookState;
     bool m_recoveryPending = false;

@@ -65,6 +65,9 @@ export struct SceneUniforms {
     glm::vec4 celestialParams;
     glm::vec4 cloudParams;
     glm::vec4 skyParams3;
+    glm::vec4 maskParams;
+    glm::vec4 maskColor;
+    glm::vec4 vignetteParams;
 };
 
 export struct GpuLight {
@@ -160,6 +163,7 @@ export class Lighting {
     [[nodiscard]] uint64_t bindingVersion() const;
 
     void beginFrame(const FrameInput& input, SceneUniforms& uniforms);
+    void fitShadows(const FrameInput& input, SceneUniforms& uniforms);
     [[nodiscard]] const std::array<Cascade, 4>& cascades() const;
     [[nodiscard]] int cascadeCount() const;
     [[nodiscard]] int shadowResolution() const;
@@ -191,6 +195,10 @@ export class Lighting {
     [[nodiscard]] Diligent::ITextureView* prefilteredEnvironment() const;
     [[nodiscard]] Diligent::ITextureView* dfgLut() const;
     [[nodiscard]] Diligent::ITextureView* sceneColor() const;
+    [[nodiscard]] Diligent::ITexture* sceneColorTexture() const;
+    [[nodiscard]] bool pyramidValid() const;
+    void setPyramidValid(bool valid);
+    void snapExposure();
     [[nodiscard]] Diligent::ITextureView* colorTextures() const;
     [[nodiscard]] Diligent::ITextureView* dataTextures() const;
     [[nodiscard]] float currentEv100() const;

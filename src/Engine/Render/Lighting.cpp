@@ -199,6 +199,7 @@ struct Lighting::Data {
     RefCntAutoPtr<Diligent::IBuffer> lights;
     RefCntAutoPtr<Diligent::IBuffer> clusters;
     RefCntAutoPtr<Diligent::IBuffer> exposure;
+    bool snapExposure = false;
     RefCntAutoPtr<Diligent::IBuffer> histogram;
     RefCntAutoPtr<Diligent::IBuffer> irradiance;
     RefCntAutoPtr<Diligent::IBuffer> exposureConstants;
@@ -233,6 +234,7 @@ struct Lighting::Data {
     uint64_t shadeVersion = 0;
     uint64_t finishVersion = 0;
     Diligent::ITexture* shadeDepth = nullptr;
+    Diligent::ITexture* tonemapDepth = nullptr;
     int colorLayers = 0;
     int dataLayers = 0;
 };
@@ -472,7 +474,7 @@ void Lighting::reloadShaders() {
     d.commitPso = litgpu::computePipeline(device, "resources/shaders/post/exposure_commit.comp");
     d.bloomDownPso = litgpu::computePipeline(device, "resources/shaders/post/bloom_down.comp", {L("u_source")});
     d.bloomUpPso = litgpu::computePipeline(device, "resources/shaders/post/bloom_up.comp", {L("u_lower"), L("u_current")});
-    d.tonemapPso = litgpu::fullscreenPipeline(device, "Tonemap", "resources/shaders/post/tonemap.frag", kLdrFormat, {P("u_hdr"), L("u_bloom")});
+    d.tonemapPso = litgpu::fullscreenPipeline(device, "Tonemap", "resources/shaders/post/tonemap.frag", kLdrFormat, {P("u_hdr"), L("u_bloom"), P("u_depth"), P("u_gbuffer2")});
     d.fxaaPso = litgpu::fullscreenPipeline(device, "FXAA", "resources/shaders/post/fxaa.frag", d.backBufferFormat, {L("u_ldr")});
     d.lutsDirty = true;
     d.dfgDirty = true;
@@ -643,58 +645,9 @@ void Lighting::selectLocalShadows(SceneUniforms& u, const glm::vec3& cameraPosit
     if (!d.cpuLights.empty()) d.context->UpdateBuffer(d.lights, 0, sizeof(GpuLight) * d.cpuLights.size(), d.cpuLights.data(), Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
 }
 
-void Lighting::beginFrame(const FrameInput& input, SceneUniforms& u) {
+void Lighting::fitShadows(const FrameInput& input, SceneUniforms& u) {
     Data& d = *m_data;
     RenderSettings& s = d.settings;
-    ++d.frame;
-    if (s.animateTime) {
-        s.timeOfDay = std::fmod(s.timeOfDay + input.deltaTime * s.timeSpeed, 24.0f);
-        if (s.timeOfDay < 0.0f) s.timeOfDay += 24.0f;
-    }
-    glm::vec3 toa;
-    const glm::vec3 moon = sunFromTime(std::fmod(s.timeOfDay + 13.2f, 24.0f), s.sunAzimuth + 25.0f);
-    bool moonLit = false;
-    if (d.hasDirectional && s.sunFollowsLight) {
-        d.sun = d.directionalDirection;
-        toa = d.directionalIlluminance;
-    } else {
-        d.sun = sunFromTime(s.timeOfDay, s.sunAzimuth);
-        toa = glm::vec3(s.sunIlluminance);
-    }
-    const glm::vec3 trueSun = d.sun;
-    d.nightDarkening = s.sky == SkyMode::Physical ? 3.0f * std::clamp((-trueSun.y - 0.02f) / 0.2f, 0.0f, 1.0f) : 0.0f;
-    if (s.moon && s.sky == SkyMode::Physical && !(d.hasDirectional && s.sunFollowsLight) && d.sun.y < -0.16f && moon.y > 0.0f) {
-        moonLit = true;
-        d.sun = moon;
-        toa = glm::vec3(0.82f, 0.9f, 1.0f) * s.moonIlluminance * std::clamp((-trueSun.y - 0.16f) / 0.14f, 0.0f, 1.0f);
-    }
-    d.cloudTime += input.deltaTime;
-    d.cloudOffset += glm::vec2(1.0f, 0.35f) * (s.cloudSpeed * 2.5f * input.deltaTime);
-    d.cloudOffset = glm::vec2(std::fmod(d.cloudOffset.x, 1.26e6f), std::fmod(d.cloudOffset.y, 1.26e6f));
-    const glm::vec3 transmittance = s.sky == SkyMode::Physical ? cpuTransmittance(d.sun.y, s) : glm::vec3(d.sun.y > -0.02f ? 1.0f : 0.0f);
-    const float sunUp = glm::length(transmittance) > 1e-6f ? 1.0f : 0.0f;
-
-    const glm::mat4 viewProjection = input.projection * input.view;
-    u.projection = input.projection;
-    u.view = input.view;
-    u.viewProjection = viewProjection;
-    u.invView = glm::inverse(input.view);
-    u.invProjection = glm::inverse(input.projection);
-    u.invViewProjection = glm::inverse(viewProjection);
-    u.prevViewProjection = d.hasPrevious ? d.previousViewProjection : viewProjection;
-    d.previousViewProjection = viewProjection;
-    d.hasPrevious = true;
-    extractPlanes(viewProjection, u.frustumPlanes);
-    u.viewPos = input.cameraPosition;
-    u.nearPlane = input.nearPlane;
-    u.screenParams = glm::vec4(static_cast<float>(input.width), static_cast<float>(input.height), 1.0f / static_cast<float>(input.width), 1.0f / static_cast<float>(input.height));
-    u.timeParams = glm::vec4(input.time, input.deltaTime, static_cast<float>(input.frame % 4096u), input.farPlane);
-    u.sunDirection = glm::vec4(d.sun, glm::radians(s.sunAngularDiameter) * 0.5f);
-    u.sunIlluminance = glm::vec4(toa * transmittance, sunUp);
-    u.exposureParams = glm::vec4(s.skyBrightness, 0.0f, s.environmentIntensity, static_cast<float>(static_cast<int>(s.debugView)));
-    u.lightParams = glm::vec4(static_cast<float>(d.lightCount), 16.0f, 9.0f, 24.0f);
-    u.clusterParams = glm::vec4(24.0f / std::log(std::max(input.farPlane / input.nearPlane, 1.0001f)), 0.0f, static_cast<float>(input.width) / 16.0f, static_cast<float>(input.height) / 9.0f);
-
     const int count = cascadeCount();
     const int resolution = std::clamp(s.shadowResolution, 512, 4096);
     if (count > 0 && resolution != d.shadowResolution) {
@@ -771,6 +724,61 @@ void Lighting::beginFrame(const FrameInput& input, SceneUniforms& u) {
     selectLocalShadows(u, input.cameraPosition);
     u.shadowParams = glm::vec4(count > 0 ? 1.0f : 0.0f, 1.0f / static_cast<float>(std::max(d.shadowResolution, 1)), s.shadowSoftness, s.shadowNormalBias);
     u.shadowParams2 = glm::vec4(static_cast<float>(count), s.shadowDepthBias, 0.0f, s.pcss ? 1.0f : 0.0f);
+}
+
+void Lighting::beginFrame(const FrameInput& input, SceneUniforms& u) {
+    Data& d = *m_data;
+    RenderSettings& s = d.settings;
+    ++d.frame;
+    if (s.animateTime) {
+        s.timeOfDay = std::fmod(s.timeOfDay + input.deltaTime * s.timeSpeed, 24.0f);
+        if (s.timeOfDay < 0.0f) s.timeOfDay += 24.0f;
+    }
+    glm::vec3 toa;
+    const glm::vec3 moon = sunFromTime(std::fmod(s.timeOfDay + 13.2f, 24.0f), s.sunAzimuth + 25.0f);
+    bool moonLit = false;
+    if (d.hasDirectional && s.sunFollowsLight) {
+        d.sun = d.directionalDirection;
+        toa = d.directionalIlluminance;
+    } else {
+        d.sun = sunFromTime(s.timeOfDay, s.sunAzimuth);
+        toa = glm::vec3(s.sunIlluminance);
+    }
+    const glm::vec3 trueSun = d.sun;
+    d.nightDarkening = s.sky == SkyMode::Physical ? 3.0f * std::clamp((-trueSun.y - 0.02f) / 0.2f, 0.0f, 1.0f) : 0.0f;
+    if (s.moon && s.sky == SkyMode::Physical && !(d.hasDirectional && s.sunFollowsLight) && d.sun.y < -0.16f && moon.y > 0.0f) {
+        moonLit = true;
+        d.sun = moon;
+        toa = glm::vec3(0.82f, 0.9f, 1.0f) * s.moonIlluminance * std::clamp((-trueSun.y - 0.16f) / 0.14f, 0.0f, 1.0f);
+    }
+    d.cloudTime += input.deltaTime;
+    d.cloudOffset += glm::vec2(1.0f, 0.35f) * (s.cloudSpeed * 2.5f * input.deltaTime);
+    d.cloudOffset = glm::vec2(std::fmod(d.cloudOffset.x, 1.26e6f), std::fmod(d.cloudOffset.y, 1.26e6f));
+    const glm::vec3 transmittance = s.sky == SkyMode::Physical ? cpuTransmittance(d.sun.y, s) : glm::vec3(d.sun.y > -0.02f ? 1.0f : 0.0f);
+    const float sunUp = glm::length(transmittance) > 1e-6f ? 1.0f : 0.0f;
+
+    const glm::mat4 viewProjection = input.projection * input.view;
+    u.projection = input.projection;
+    u.view = input.view;
+    u.viewProjection = viewProjection;
+    u.invView = glm::inverse(input.view);
+    u.invProjection = glm::inverse(input.projection);
+    u.invViewProjection = glm::inverse(viewProjection);
+    u.prevViewProjection = d.hasPrevious ? d.previousViewProjection : viewProjection;
+    d.previousViewProjection = viewProjection;
+    d.hasPrevious = true;
+    extractPlanes(viewProjection, u.frustumPlanes);
+    u.viewPos = input.cameraPosition;
+    u.nearPlane = input.nearPlane;
+    u.screenParams = glm::vec4(static_cast<float>(input.width), static_cast<float>(input.height), 1.0f / static_cast<float>(input.width), 1.0f / static_cast<float>(input.height));
+    u.timeParams = glm::vec4(input.time, input.deltaTime, static_cast<float>(input.frame % 4096u), input.farPlane);
+    u.sunDirection = glm::vec4(d.sun, glm::radians(s.sunAngularDiameter) * 0.5f);
+    u.sunIlluminance = glm::vec4(toa * transmittance, sunUp);
+    u.exposureParams = glm::vec4(s.skyBrightness, 0.0f, s.environmentIntensity, static_cast<float>(static_cast<int>(s.debugView)));
+    u.lightParams = glm::vec4(static_cast<float>(d.lightCount), 16.0f, 9.0f, 24.0f);
+    u.clusterParams = glm::vec4(24.0f / std::log(std::max(input.farPlane / input.nearPlane, 1.0001f)), 0.0f, static_cast<float>(input.width) / 16.0f, static_cast<float>(input.height) / 9.0f);
+
+    fitShadows(input, u);
     u.atmosphereParams = glm::vec4(s.rayleighScale, s.mieScale, s.ozoneScale, s.mieAnisotropy);
     const float skyIntensity = s.sky == SkyMode::Gradient ? s.gradientIntensity : s.hdriIntensity;
     u.skyParams = glm::vec4(static_cast<float>(static_cast<int>(s.sky == SkyMode::Hdri && d.hdriLoaded == 0 ? SkyMode::Gradient : s.sky)), skyIntensity, s.hdriRotation, s.clouds ? s.cloudCoverage : 0.0f);
@@ -784,6 +792,9 @@ void Lighting::beginFrame(const FrameInput& input, SceneUniforms& u) {
     u.fogParams = glm::vec4(s.fog ? s.fogDensity : 0.0f, s.fogHeightFalloff, s.fogHeight, s.fog ? s.aerialDistanceScale : 0.0f);
     u.postParams = glm::vec4(s.bloom ? s.bloomIntensity : 0.0f, s.vignette, s.grain, static_cast<float>(static_cast<int>(s.tonemapper)));
     u.postParams2 = glm::vec4(s.contrast, s.saturation, s.temperature, s.tint);
+    u.maskParams = glm::vec4(s.maskContrast, s.maskSheen, s.maskSheenSpeed, s.maskSheenWidth);
+    u.maskColor = glm::vec4(s.maskSheenColor, glm::radians(s.maskSheenAngle));
+    u.vignetteParams = glm::vec4(s.vignetteWidth, s.vignetteTightness, 0.0f, 0.0f);
     u.giParams = glm::vec4(s.ssao && s.ssgi ? s.ssgiIntensity : 0.0f, s.ssgiThickness, d.pyramidValid ? 1.0f : 0.0f, static_cast<float>(kPyramidMips));
     u.moonDirection = glm::vec4(moon, 0.0075f);
     u.celestialParams = glm::vec4(trueSun, moonLit ? 1.0f : 0.0f);
@@ -1018,18 +1029,24 @@ void Lighting::captureSceneColor() {
 }
 
 Diligent::ITextureView* Lighting::sceneColor() const { return litgpu::srv(m_data->sceneColor); }
+Diligent::ITexture* Lighting::sceneColorTexture() const { return m_data->sceneColor; }
+bool Lighting::pyramidValid() const { return m_data->pyramidValid; }
+void Lighting::setPyramidValid(bool valid) { m_data->pyramidValid = valid; }
+
+void Lighting::snapExposure() { m_data->snapExposure = true; }
 
 void Lighting::finish(Diligent::IBuffer* sceneUniforms, Diligent::ITextureView* backBuffer, float deltaTime, const std::function<void(Diligent::ITexture*)>& afterTonemap) {
     Data& d = *m_data;
     auto* ctx = d.context;
     Diligent::IBuffer* scene = sceneUniforms;
     const RenderSettings& s = d.settings;
-    if (d.finishVersion != d.bindingVersion || !d.tonemapSrb[0]) {
+    if (d.finishVersion != d.bindingVersion || !d.tonemapSrb[0] || d.tonemapDepth != d.shadeDepth) {
         d.finishVersion = d.bindingVersion;
+        d.tonemapDepth = d.shadeDepth;
         for (int parity = 0; parity < 2; ++parity) {
             d.histogramSrb[parity] = litgpu::makeBinding(d.histogramPso, {{"u_hdr", litgpu::srv(d.hdrTargets[parity])}, {"ExposureBuffer", d.exposure}, {"HistogramBuffer", d.histogram}, {"ExposureConstants", d.exposureConstants}});
             d.bloomSourceSrb[parity] = litgpu::makeBinding(d.bloomDownPso, {{"u_source", litgpu::srv(d.hdrTargets[parity])}, {"u_output", litgpu::uav(d.bloomDown[0])}, {"BloomConstants", d.bloomConstants}});
-            d.tonemapSrb[parity] = litgpu::makeBinding(d.tonemapPso, {{"SceneData", scene}, {"u_hdr", litgpu::srv(d.hdrTargets[parity])}, {"u_bloom", litgpu::srv(d.bloomUp[0])}, {"ExposureBuffer", d.exposure}});
+            d.tonemapSrb[parity] = litgpu::makeBinding(d.tonemapPso, {{"SceneData", scene}, {"u_hdr", litgpu::srv(d.hdrTargets[parity])}, {"u_bloom", litgpu::srv(d.bloomUp[0])}, {"u_depth", litgpu::srv(d.shadeDepth)}, {"u_gbuffer2", litgpu::srv(d.gbuffer[2])}, {"ExposureBuffer", d.exposure}});
         }
         d.exposureSrb = litgpu::makeBinding(d.exposurePso, {{"ExposureBuffer", d.exposure}, {"HistogramBuffer", d.histogram}, {"ExposureConstants", d.exposureConstants}});
         d.commitSrb = litgpu::makeBinding(d.commitPso, {{"ExposureBuffer", d.exposure}});
@@ -1074,6 +1091,11 @@ void Lighting::finish(Diligent::IBuffer* sceneUniforms, Diligent::ITextureView* 
     const ExposureConstants constants{glm::vec4(minLog, 1.0f / (maxLog - minLog), s.minEV100, s.maxEV100), glm::vec4(s.autoExposure ? 1.0f : 0.0f, s.manualEV100, std::clamp(deltaTime, 0.0f, 0.25f), s.exposureCompensation - d.nightDarkening),
                                       glm::vec4(s.adaptationUp, s.adaptationDown, 0.5f, 0.98f)};
     ctx->UpdateBuffer(d.exposureConstants, 0, sizeof(constants), &constants, Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
+    if (d.snapExposure) {
+        const float unset = 0.0f;
+        ctx->UpdateBuffer(d.exposure, sizeof(float) * 3, sizeof(float), &unset, Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
+        d.snapExposure = false;
+    }
     litgpu::dispatch(ctx, d.histogramPso, d.histogramSrb[parity], (static_cast<uint32_t>(d.width) / 4 + 15) / 16, (static_cast<uint32_t>(d.height) / 4 + 15) / 16);
     litgpu::dispatch(ctx, d.exposurePso, d.exposureSrb, 1);
 

@@ -4,6 +4,8 @@
 
 uniform sampler2D u_hdr;
 uniform sampler2D u_bloom;
+uniform sampler2D u_depth;
+uniform usampler2D u_gbuffer2;
 
 layout(std430) readonly buffer ExposureBuffer {
     vec4 exposureData;
@@ -87,8 +89,19 @@ void main() {
         float luma = luminance(color);
         color = max(luma + (color - luma) * postParams2.y, vec3(0.0));
         color = 0.18 * pow(max(color / 0.18, vec3(0.0)), vec3(postParams2.x));
+        bool masked = texelFetch(u_depth, pixel, 0).r < 1.0 && (texelFetch(u_gbuffer2, pixel, 0).w & 128u) != 0u;
+        if (masked) {
+            color = 0.18 * pow(max(color / 0.18, vec3(0.0)), vec3(maskParams.x));
+            vec2 aspectUv = uv * vec2(screenParams.x * screenParams.w, 1.0);
+            float along = dot(aspectUv, vec2(cos(maskColor.w), sin(maskColor.w)));
+            float phase = fract(along * 0.7 - sceneTime() * maskParams.z) - 0.5;
+            float band = exp(-phase * phase / max(maskParams.w * maskParams.w, 1e-5));
+            color += maskColor.rgb * band * maskParams.y * (0.1 + luminance(color));
+        }
         vec2 v = uv - 0.5;
-        color *= mix(1.0, smoothstep(0.85, 0.25, length(v * vec2(screenParams.x * screenParams.w, 1.0))), postParams.y);
+        float vignetteOuter = max(vignetteParams.x, 1e-3);
+        float vignetteInner = vignetteOuter * (1.0 - clamp(vignetteParams.y, 0.0, 0.999));
+        color *= mix(1.0, smoothstep(vignetteOuter, vignetteInner, length(v * vec2(screenParams.x * screenParams.w, 1.0))), postParams.y);
         int op = int(postParams.w + 0.5);
         if (op == 0) color = agx(color, false);
         else if (op == 1) color = agx(color, true);

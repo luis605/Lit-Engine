@@ -59,4 +59,4 @@ Editor: `LIT_SCENE=portal_loop` or `portal_torture`, or commands `scene.portalLo
 
 ## Not done
 
-Shadow cascades and SSR inside portal views, per-cell shadow maps, streaming and world deltas (W-6, W-7), audio/navigation links, portal-aware physics sweeps.
+Shadow cascades and SSR inside portal views, renderer use of per-cell visibility for lighting and shadows (data in `Engine.PortalBridge`), portal-aware physics sweeps. Streaming, world deltas, navigation links and audio hops: see `docs/Streaming.md`.

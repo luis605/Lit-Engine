@@ -35,7 +35,9 @@ void main() {
             float t = saturate((log2(lum) - u_range.x) * u_range.y);
             bin = uint(t * 254.0 + 1.0);
         }
-        atomicAdd(s_bins[bin], 1u);
+        vec2 centered = (vec2(pixel) + 2.0) / vec2(size) * 2.0 - 1.0;
+        uint weight = 1u + uint(7.0 * exp(-dot(centered, centered) * 3.0));
+        atomicAdd(s_bins[bin], weight);
     }
     barrier();
     atomicAdd(bins[local], s_bins[local]);

@@ -1,7 +1,9 @@
 module;
 
 #include <chrono>
+#include <memory>
 #include <functional>
+#include <memory>
 #include <optional>
 #include <string>
 #include <unordered_map>
@@ -20,6 +22,9 @@ import Engine.World;
 import Engine.Portal;
 import Engine.Portal.view;
 import Engine.Physics;
+import Engine.PortalPhysics;
+import Engine.Character;
+import Engine.CameraRig;
 import Engine.Animation;
 import Engine.Jobs;
 import Engine.Profiler;
@@ -32,6 +37,14 @@ import Engine.Replay;
 import Engine.Perf;
 import Engine.Params;
 import Engine.Json;
+import Engine.Streaming;
+import Engine.Delta;
+import Engine.PortalBridge;
+import Engine.State;
+import Engine.Storylet;
+import Engine.Observation;
+import Engine.Save;
+import Engine.Render.observation;
 
 export enum class Phase { PreUpdate, FixedUpdate, Update, PostUpdate };
 
@@ -74,10 +87,16 @@ export class Engine {
     void disablePerfLog();
     [[nodiscard]] PerfLog& perfLog() { return m_perf; }
     [[nodiscard]] ParamBus& params() { return m_params; }
+    bool loadPostFx(const std::string& path, std::string* error = nullptr);
+    void watchData(const std::string& path, std::function<bool(const std::string&)> reload);
+    [[nodiscard]] uint32_t dataReloads() const { return m_dataReloads; }
+    [[nodiscard]] std::vector<std::string> watchedFiles() const;
     [[nodiscard]] Json dumpState();
     [[nodiscard]] std::string dumpStateText(bool pretty = false);
     bool writeStateDump(const std::string& path);
     void enableFlyCamera(const FlyCameraSettings& settings = {});
+    CharacterController& enableCharacter(const CharacterSettings& settings = {}, const CameraRigSettings& rig = {});
+    [[nodiscard]] CharacterController* character() { return m_character.get(); }
     void setMouseCaptured(bool captured);
     bool enableImGui();
     void beginUi();
@@ -115,6 +134,19 @@ export class Engine {
     void update(World& world);
     [[nodiscard]] World& world() { return m_world; }
     [[nodiscard]] PortalSystem& portals() { return m_portals; }
+    [[nodiscard]] const std::vector<VisibleCell>& visibleCells() const { return m_visibleCells; }
+    StreamingSystem& enableStreaming(const StreamingConfig& config = {});
+    [[nodiscard]] StreamingSystem* streaming() { return m_streaming.get(); }
+    DeltaStore& enableDeltas();
+    [[nodiscard]] DeltaStore* deltas() { return m_deltas.get(); }
+    StateStore& enableState(const std::string& schemaPath = {});
+    [[nodiscard]] StateStore* state() { return m_state.get(); }
+    StoryletEngine& enableStorylets(const std::string& storyletPath = {});
+    [[nodiscard]] StoryletEngine* storylets() { return m_storylets.get(); }
+    ObservationSystem& enableObservation(const ObservationConfig& config = {}, bool gpu = true);
+    [[nodiscard]] ObservationSystem* observation() { return m_observation.get(); }
+    SaveSystem& enableSave(const std::string& autosaveDir = {}, float autosaveSeconds = 0.0f, uint32_t slots = 3);
+    [[nodiscard]] SaveSystem* save() { return m_save.get(); }
     [[nodiscard]] const std::vector<PortalViewStats>& portalStats() const { return m_renderer.portalStats(); }
     [[nodiscard]] InputActions& input() { return m_input; }
     [[nodiscard]] Camera& camera() { return m_world.camera(); }
@@ -181,6 +213,8 @@ export class Engine {
     void runSystems(Phase phase, float dt, bool paused);
     void beginTickInput(float& dt);
     void uploadParams();
+    void applyPostFx();
+    void pollData();
     void applyWorldAnimation();
     void updatePortals(World& world);
     void syncWindowSize(Camera& camera);
@@ -197,6 +231,20 @@ export class Engine {
     PerfLog m_perf;
     ParamBus m_params;
     uint64_t m_paramsUploaded = ~0ull;
+    struct PostFxBinding {
+        std::string key;
+        float base[3] = {0.0f, 0.0f, 0.0f};
+        int count = 1;
+        std::string param;
+    };
+    struct DataWatch {
+        std::string path;
+        long long stamp = 0;
+        std::function<bool(const std::string&)> reload;
+    };
+    std::vector<PostFxBinding> m_postFx;
+    std::vector<DataWatch> m_dataWatches;
+    uint32_t m_dataReloads = 0;
     uint32_t m_paramPollCounter = 0;
     std::chrono::steady_clock::time_point m_lastTickStart{};
     double m_lastSimMs = 0.0;
@@ -205,6 +253,16 @@ export class Engine {
     Profiler m_profiler;
     World m_world;
     PortalSystem m_portals;
+    std::vector<VisibleCell> m_visibleCells;
+    std::unique_ptr<StreamingSystem> m_streaming;
+    std::unique_ptr<DeltaStore> m_deltas;
+    std::unique_ptr<StateStore> m_state;
+    std::unique_ptr<StoryletEngine> m_storylets;
+    std::unique_ptr<ObservationSystem> m_observation;
+    std::unique_ptr<SaveSystem> m_save;
+    bool m_gpuObservation = false;
+    void feedGpuObservation();
+    void submitGpuObservation();
     int m_windowWidth = 1280;
     int m_windowHeight = 720;
     InputActions m_input;
@@ -222,6 +280,7 @@ export class Engine {
     std::unordered_map<std::string, long long> m_shaderStamps;
     bool shadersChanged();
     PhysicsSettings m_physics;
+    std::unique_ptr<CharacterController> m_character;
     AnimationLibrary m_animations;
     std::vector<System> m_systems;
     float m_fixedStep = 1.0f / 60.0f;

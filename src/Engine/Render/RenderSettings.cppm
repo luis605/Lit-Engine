@@ -63,6 +63,14 @@ export struct RenderSettings {
     float temperature = 6500.0f;
     float tint = 0.0f;
     float vignette = 0.2f;
+    float vignetteWidth = 0.85f;
+    float vignetteTightness = 0.7f;
+    float maskContrast = 1.0f;
+    float maskSheen = 0.0f;
+    float maskSheenSpeed = 0.4f;
+    float maskSheenWidth = 0.12f;
+    float maskSheenAngle = 35.0f;
+    glm::vec3 maskSheenColor{0.35f, 0.6f, 1.0f};
     float grain = 0.0f;
 
     bool bloom = true;
@@ -157,6 +165,14 @@ void visitRenderSettings(Settings& s, Visitor&& visit) {
     visit("temperature", s.temperature);
     visit("tint", s.tint);
     visit("vignette", s.vignette);
+    visit("vignetteWidth", s.vignetteWidth);
+    visit("vignetteTightness", s.vignetteTightness);
+    visit("maskContrast", s.maskContrast);
+    visit("maskSheen", s.maskSheen);
+    visit("maskSheenSpeed", s.maskSheenSpeed);
+    visit("maskSheenWidth", s.maskSheenWidth);
+    visit("maskSheenAngle", s.maskSheenAngle);
+    visit("maskSheenColor", s.maskSheenColor);
     visit("grain", s.grain);
     visit("bloom", s.bloom);
     visit("bloomIntensity", s.bloomIntensity);

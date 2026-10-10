@@ -1,0 +1,11 @@
+{
+  "vignette": {"base": 0.2, "param": "vignette_strength"},
+  "vignetteWidth": {"base": 0.85, "param": "vignette_width"},
+  "vignetteTightness": {"base": 0.7, "param": "vignette_tightness"},
+  "maskContrast": 1.45,
+  "maskSheen": 0.45,
+  "maskSheenSpeed": 0.5,
+  "maskSheenWidth": 0.14,
+  "maskSheenAngle": 35,
+  "maskSheenColor": [0.3, 0.55, 1.0]
+}

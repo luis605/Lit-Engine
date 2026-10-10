@@ -1,0 +1,11 @@
+{
+  "params": {
+    "stress": {"default": 0.0, "min": 0.0, "max": 1.0, "smooth": 0.4},
+    "focus": {"default": 1.0, "min": 0.0, "max": 1.0, "smooth": 0.3}
+  },
+  "mappings": {
+    "vignette_width": {"input": "focus", "curve": [[0.0, 0.4], [1.0, 0.85]], "mode": "smooth"},
+    "vignette_tightness": {"input": "stress", "curve": [[0.0, 0.7], [1.0, 0.92]]},
+    "vignette_strength": {"input": "stress", "curve": [[0.0, 0.2], [1.0, 0.75]]}
+  }
+}

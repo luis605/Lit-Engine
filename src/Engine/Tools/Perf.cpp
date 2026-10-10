@@ -26,7 +26,7 @@ void PerfLog::open(std::string path) {
     m_rows.clear();
 }
 
-void PerfLog::record(uint64_t frame, double cpuMs, double simMs, double gpuMs, const std::vector<PerfPass>& passes) {
+void PerfLog::record(uint64_t frame, double cpuMs, double simMs, double gpuMs, const std::vector<PerfPass>& passes, const std::vector<PerfPass>& extras) {
     if (m_path.empty()) return;
     Row row;
     row.frame = frame;
@@ -39,6 +39,12 @@ void PerfLog::record(uint64_t frame, double cpuMs, double simMs, double gpuMs, c
         size_t index = static_cast<size_t>(it - m_columns.begin());
         if (it == m_columns.end()) m_columns.push_back(name);
         row.passes.emplace_back(index, pass.milliseconds);
+    }
+    for (const PerfPass& extra : extras) {
+        const auto it = std::find(m_columns.begin(), m_columns.end(), extra.name);
+        const size_t index = static_cast<size_t>(it - m_columns.begin());
+        if (it == m_columns.end()) m_columns.push_back(extra.name);
+        row.passes.emplace_back(index, extra.milliseconds);
     }
     m_rows.push_back(std::move(row));
 }

@@ -44,6 +44,9 @@ layout(std140) uniform SceneData {
     vec4 celestialParams;
     vec4 cloudParams;
     vec4 skyParams3;
+    vec4 maskParams;
+    vec4 maskColor;
+    vec4 vignetteParams;
 };
 
 float projectedDiameterPx(float radius, float dist) {

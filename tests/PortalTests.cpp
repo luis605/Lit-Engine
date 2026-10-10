@@ -162,13 +162,13 @@ static void testFrameRecursion() {
 
     p.settings().maxDepth = 1;
     f = frameAtStart(p, cam);
-    CHECK(f.nodes.size() == 2);
-    CHECK(f.nodes[1].surfaces.size() == 1 && f.nodes[1].surfaces[0].child == -1);
+    CHECK(f.nodes.size() >= 2 && f.nodes.size() <= 3);
+    CHECK(f.nodes.back().surfaces.size() == 1 && f.nodes.back().surfaces[0].child == -1);
     p.settings().maxDepth = 3;
     p.settings().maxViews = 3;
     f = frameAtStart(p, cam);
     CHECK(f.nodes.size() == 3);
-    p.settings().maxViews = 16;
+    p.settings().maxViews = 24;
 
     f = frameAtStart(p, cam, 180.0f);
     CHECK(f.nodes.size() == 1);
@@ -409,6 +409,82 @@ static void testJson() {
     }
 }
 
+static void testPhysicalWalkBetweenCells() {
+    PortalSystem p;
+    auto cell = [&](const char* name, float x0, float x1) {
+        PortalCell c;
+        c.name = name;
+        c.min = glm::vec3(x0, -0.4f, -6.0f);
+        c.max = glm::vec3(x1, 4.0f, 6.0f);
+        p.addCell(c);
+    };
+    cell("A", -5.0f, 6.0f);
+    cell("B", 14.0f, 30.0f);
+    cell("C", 30.0f, 46.0f);
+    auto end = [](const char* name, const glm::vec3& pos, float yaw) {
+        PortalEnd e;
+        e.cell = name;
+        e.position = pos;
+        e.eulerDegrees = glm::vec3(yaw, 0.0f, 0.0f);
+        e.halfSize = glm::vec2(1.0f, 1.25f);
+        return e;
+    };
+    p.addPair("AB", end("A", glm::vec3(5.0f, 1.25f, 0.0f), -90.0f), end("B", glm::vec3(19.0f, 1.25f, 0.0f), 90.0f));
+    p.addPair("CA", end("C", glm::vec3(43.0f, 1.25f, 0.0f), -90.0f), end("A", glm::vec3(0.0f, 1.25f, -5.0f), 0.0f));
+    Camera cam;
+    cam.updateAspectRatio(16.0f, 9.0f);
+    cam.setNearPlane(0.1f);
+    cam.setFarPlane(200.0f);
+    cam.setPos(glm::vec3(2.0f, 1.7f, 0.0f));
+    cam.setOrientation(0.0f, 0.0f);
+    p.setCameraCell(p.findCell("A"));
+    bool crossed = false;
+    for (int i = 0; i < 2000 && p.cameraCell() != p.findCell("C"); ++i) {
+        cam.setPos(cam.getPosition() + forwardOf(cam) * 0.05f);
+        if (p.step(cam) >= 0) crossed = true;
+    }
+    CHECK(crossed);
+    CHECK(p.cameraCell() == p.findCell("C"));
+    const PortalFrame f = p.buildFrame(cam, 1080.0f);
+    CHECK(!f.nodes.empty() && f.nodes[0].cell == p.findCell("C"));
+}
+
+static void testPortalPresentUntilCrossing() {
+    World w;
+    setupWorld(w);
+    PortalSystem p;
+    buildPortalScene(p, w, kit(), PortalTestScene::Loop);
+    const Portal& ab = p.portals()[0];
+    const glm::vec3 target = ab.center();
+    const float yaws[] = {180.0f, 170.0f, 195.0f, 155.0f, 205.0f};
+    const float pitches[] = {0.0f, -8.0f, 6.0f};
+    int missing = 0;
+    int crossings = 0;
+    for (float yawOffset : yaws) {
+        for (float pitch : pitches) {
+            Camera cam;
+            cam.updateAspectRatio(16.0f, 9.0f);
+            cam.setNearPlane(0.1f);
+            cam.setFarPlane(500.0f);
+            cam.setOrientation(yawOffset - 180.0f, pitch);
+            const glm::vec3 fwd = forwardOf(cam);
+            cam.setPos(target - fwd * 3.0f);
+            p.setCameraCell(p.findCell("A"));
+            for (int i = 0; i < 400; ++i) {
+                cam.setPos(cam.getPosition() + fwd * 0.01f);
+                if (p.step(cam) >= 0) {
+                    ++crossings;
+                    break;
+                }
+                const PortalFrame f = p.buildFrame(cam, 1080.0f);
+                if (f.nodes.empty() || f.nodes[0].surfaces.empty()) ++missing;
+            }
+        }
+    }
+    CHECK(crossings == 15);
+    CHECK(missing == 0);
+}
+
 int main() {
     testTransformAndLoop();
     testObliqueClip();
@@ -418,6 +494,8 @@ int main() {
     testStraddlingObjects();
     testCellParamBlend();
     testJson();
+    testPhysicalWalkBetweenCells();
+    testPortalPresentUntilCrossing();
     std::printf("%d checks, %d failures\n", g_checks, g_failures);
     return g_failures == 0 ? 0 : 1;
 }

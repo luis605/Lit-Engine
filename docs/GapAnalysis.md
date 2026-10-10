@@ -13,14 +13,14 @@ Audit of the engine against spec sections 4.1, 4.3 and 6. Status: have, partial,
 - platform: have GLFW window, keyboard and mouse, `InputActions`, `std::filesystem`, time service. Missing gamepad, isolated platform layer.
 - core: have `Jobs`, sparse-set component pools, glm math, `Lit::Log`, `Engine.Rng` (PCG32 streams), `Engine.Json`. Missing structured log output, memory arenas.
 - render: have GPU-driven scene, shadows, post, custom compute/draw/effect passes, materials, surface shaders, shader hot reload. Missing render graph, portal views (in progress elsewhere).
-- world: have `World` (handles, hierarchy, layers, tags, prefabs, scripts, timers, spatial grid, raycast, `.litscene` v2, snapshot/restore, state dump). Missing cell graph, portals, streaming, world deltas, per-cell parameters.
+- world: have `World` (handles, hierarchy, layers, tags, prefabs, scripts, timers, spatial grid, raycast, `.litscene` v2, snapshot/restore, state dump). Cell graph, portals, per-cell parameters, streaming and world deltas have landed (`docs/Portals.md`, `docs/Streaming.md`).
 - physics: have lite solver (sphere, box, plane, sleeping, layers, raycast). Missing backend ADR, portal-aware layer, character controller, concave dynamic bodies.
-- observation, params: have `Engine.Params` (smoothed named floats, JSON curves, hot reload, shader block). Missing observation queries (object-ID readback, Attended/Seen/Unobserved).
+- observation, params: have `Engine.Params` (smoothed named floats, JSON curves, hot reload, shader block). Observation queries have landed (GPU ID grid readback plus CPU fallback).
 - anim: have transform clips and animators, skeletal blending, two-bone/foot/look-at IK, ARKit-52 blendshape clips, eye system (`Engine.Rig`, `Engine.Face`). Missing skinning render path, hand IK pose library.
 - ai: have behavior graphs (utility, tree, fsm), blackboard, decision trace, tiled navmesh with obstacle rebuild, off-mesh links, agent steering (`Engine.AI`, `Engine.Nav`). Missing Recast tile cache, overlay panel.
 - audio: have mixer, buses, ducking, spatialization, voice scheduler, BVH propagation with ray budget and hop hook, Null/WAV backends (`Engine.Audio`, `docs/adr/Audio.md`). Missing device backend, adaptive music.
 - narrative: missing.
-- save: have `.litscene` save/load and editor autosave. Missing versioned atomic save slots, delta saves, RNG seed persistence.
+- save: have `.litscene` save/load and editor autosave. Versioned atomic slots, delta saves and RNG persistence have landed (`Engine.Save`, `Engine.Delta`).
 - tools: have headless mode, fixed-step determinism, input record/replay, autopilot (screenshots, frame capture, dump, perf), state dump, perf CSV, threshold script, parameter bus. Missing test scene library.
 
 ## 6 Requirements

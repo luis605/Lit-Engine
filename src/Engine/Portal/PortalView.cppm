@@ -28,6 +28,11 @@ export struct PortalViewNode {
     int cell = -1;
     float sunScale = 1.0f;
     float ambientScale = 1.0f;
+    bool masked = false;
+    glm::vec3 entryCenter{0.0f};
+    glm::vec3 entryAxisU{1.0f, 0.0f, 0.0f};
+    glm::vec3 entryAxisV{0.0f, 1.0f, 0.0f};
+    glm::vec3 entryNormal{0.0f, 0.0f, 1.0f};
     std::string label;
     std::vector<PortalSurface> surfaces;
 };

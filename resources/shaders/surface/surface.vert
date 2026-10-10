@@ -52,7 +52,8 @@ layout(location = 6) flat out float out_alpha;
 void main() {
     uvec2 entry = visibleEntries[gl_InstanceIndex];
     uint objectId = entry.x & 0x1FFFFFFFu;
-    uint materialId = entry.y;
+    uint materialId = entry.y & 0x7FFFu;
+    uint maskBit = entry.y & 0x8000u;
     
     mat4 model = loadWorld(worldRows[objectId]);
     VertexData v = VertexData(in_position, in_normal, in_uv);
@@ -72,7 +73,7 @@ void main() {
     out_normal = normalize(cofactor * v.normal) * detSign;
     out_uv = v.uv;
     out_entity = objectId;
-    out_material = materialId;
+    out_material = materialId | maskBit;
     out_objectPos = v.position;
 #ifdef TRANSPARENT
     out_alpha = float((packedAlphas[objectId >> 2u] >> ((objectId & 3u) * 8u)) & 0xFFu) * (1.0 / 255.0);

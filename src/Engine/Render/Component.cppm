@@ -79,6 +79,7 @@ export struct HierarchyComponent {
 export inline constexpr std::uint32_t NO_MESH = 0xFFFFFFFFu;
 export inline constexpr std::uint32_t RENDER_HIDDEN = 1u;
 export inline constexpr std::uint32_t RENDER_NO_OCCLUDER = 2u;
+export inline constexpr std::uint32_t RENDER_MASKED = 8u;
 
 export struct RenderableComponent {
     std::uint32_t mesh_uuid;

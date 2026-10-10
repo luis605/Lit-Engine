@@ -21,6 +21,8 @@ export class Autopilot {
     std::function<void(const std::string&)> saveScene;
     std::function<void(const std::string&)> loadScene;
     std::function<bool(const std::string&, float)> editMaterial;
+    std::function<bool(const std::string&)> loadTestScene;
+    std::function<void(int)> showOverlay;
     void* window = nullptr;
 
   private:

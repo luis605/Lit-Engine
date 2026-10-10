@@ -282,7 +282,7 @@ uint cullObject(uint id, out uvec2 entry, out uint cascades, out uint localMask)
     uint chosenLod = selectLod(radius, dist);
 #endif
     uint bucketIndex = bucketShader * u_bucketSlots + renderableMesh(renderable) + chosenLod;
-    entry = uvec2(id | (chosenLod << 29u), bucketIndex | (material << 16u));
+    entry = uvec2(id | (chosenLod << 29u), bucketIndex | (material << 16u) | ((renderableFlags(renderable) & RENDER_MASKED) != 0u ? 0x80000000u : 0u));
 #ifdef RETEST
     if (noOccluder) return VISIBLE_TRANSIENT;
 #endif

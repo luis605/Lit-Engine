@@ -209,7 +209,7 @@ void stepPhysics(World& world, float dt, const PhysicsSettings& settings) {
                                 if (a.dynamic && !a.asleep) a.body->velocity -= n * (j2 * ia);
                                 if (b.dynamic && !b.asleep) b.body->velocity += n * (j2 * ib);
                             }
-                            if (record) collisions.push_back({a.entity, b.entity, n, depth});
+                            if (record) collisions.push_back({a.entity, b.entity, n, depth, std::max(0.0f, -closing)});
                         }
                     }
                 }
@@ -221,12 +221,13 @@ void stepPhysics(World& world, float dt, const PhysicsSettings& settings) {
             for (const auto& [planeEntity, plane] : planes) {
                 if (!layersCollide(settings, b.layer, world.getLayer(planeEntity))) continue;
                 const glm::vec3 n = glm::normalize(plane->normal);
+                const float closingPlane = std::max(0.0f, -glm::dot(b.body->velocity, n));
                 const float depth = planeReach(b, n) - glm::dot(n, b.position - world.getWorldPosition(planeEntity));
                 if (depth <= 0.0f) continue;
                 b.position += n * depth;
                 const float vn = glm::dot(b.body->velocity, n);
                 if (vn < 0.0f) b.body->velocity -= n * ((1.0f + std::min(b.body->restitution, plane->restitution)) * vn);
-                if (record) collisions.push_back({b.entity, planeEntity, -n, depth});
+                if (record) collisions.push_back({b.entity, planeEntity, -n, depth, closingPlane});
             }
         }
     }
@@ -252,13 +253,14 @@ void stepPhysics(World& world, float dt, const PhysicsSettings& settings) {
     for (const Collision& c : collisions) world.events().emit(c);
 }
 
-std::optional<PhysicsHit> physicsRaycast(World& world, const glm::vec3& origin, const glm::vec3& direction, float maxDistance) {
+namespace {
+std::optional<PhysicsHit> castImpl(World& world, const glm::vec3& origin, const glm::vec3& direction, float maxDistance, float inflate, const PhysicsFilter& skip) {
     const float len = glm::length(direction);
     if (len < 1.0e-8f) return std::nullopt;
     const glm::vec3 dir = direction / len;
     std::optional<PhysicsHit> best;
     const auto consider = [&](EntityHandle e, float t, const glm::vec3& normal) {
-        if (t < 0.0f || t > maxDistance) return;
+        if ((skip && skip(e)) || t < 0.0f || t > maxDistance) return;
         if (!best || t < best->distance) best = PhysicsHit{e, t, normal};
     };
 
@@ -268,7 +270,8 @@ std::optional<PhysicsHit> physicsRaycast(World& world, const glm::vec3& origin, 
         const glm::vec3 oc = center - origin;
         const float along = glm::dot(oc, dir);
         const float perp2 = glm::dot(oc, oc) - along * along;
-        const float r2 = collider.radius * collider.radius;
+        const float reach = collider.radius + inflate;
+        const float r2 = reach * reach;
         if (perp2 > r2) return;
         const float half = std::sqrt(r2 - perp2);
         float t = along - half;
@@ -280,8 +283,8 @@ std::optional<PhysicsHit> physicsRaycast(World& world, const glm::vec3& origin, 
 
     world.view<BoxCollider>([&](EntityHandle e, BoxCollider& collider) {
         const glm::vec3 center = world.getWorldPosition(e);
-        const glm::vec3 lo = center - collider.halfExtents;
-        const glm::vec3 hi = center + collider.halfExtents;
+        const glm::vec3 lo = center - collider.halfExtents - inflate;
+        const glm::vec3 hi = center + collider.halfExtents + inflate;
         float tMin = 0.0f;
         float tMax = std::numeric_limits<float>::max();
         int hitAxis = -1;
@@ -315,10 +318,87 @@ std::optional<PhysicsHit> physicsRaycast(World& world, const glm::vec3& origin, 
         const glm::vec3 n = glm::normalize(plane.normal);
         const float denom = glm::dot(n, dir);
         if (std::abs(denom) < 1.0e-8f) return;
-        const float t = glm::dot(n, world.getWorldPosition(e) - origin) / denom;
+        const float side = glm::dot(n, origin - world.getWorldPosition(e)) >= 0.0f ? 1.0f : -1.0f;
+        const float t = (glm::dot(n, world.getWorldPosition(e) - origin) + side * inflate) / denom;
         consider(e, t, denom < 0.0f ? n : -n);
     });
     return best;
+}
+}
+
+std::optional<PhysicsHit> physicsRaycast(World& world, const glm::vec3& origin, const glm::vec3& direction, float maxDistance, const PhysicsFilter& skip) {
+    return castImpl(world, origin, direction, maxDistance, 0.0f, skip);
+}
+
+std::optional<PhysicsHit> physicsSweepSphere(World& world, const glm::vec3& origin, const glm::vec3& direction, float maxDistance, float radius, const PhysicsFilter& skip) {
+    return castImpl(world, origin, direction, maxDistance, radius, skip);
+}
+
+namespace {
+glm::vec3 closestOnSegment(const glm::vec3& a, const glm::vec3& b, const glm::vec3& p) {
+    const glm::vec3 ab = b - a;
+    const float len2 = glm::dot(ab, ab);
+    if (len2 < 1.0e-12f) return a;
+    return a + ab * glm::clamp(glm::dot(p - a, ab) / len2, 0.0f, 1.0f);
+}
+}
+
+std::vector<PhysicsContact> physicsOverlapCapsule(World& world, const glm::vec3& a, const glm::vec3& b, float radius, const PhysicsFilter& skip) {
+    std::vector<PhysicsContact> out;
+    const auto add = [&](EntityHandle e, const glm::vec3& normal, float depth) {
+        if (depth > 0.0f) out.push_back({e, normal, depth});
+    };
+    world.view<SphereCollider>([&](EntityHandle e, SphereCollider& collider) {
+        if (world.has<BoxCollider>(e) || (skip && skip(e))) return;
+        const glm::vec3 center = world.getWorldPosition(e);
+        const glm::vec3 s = closestOnSegment(a, b, center);
+        const glm::vec3 d = s - center;
+        const float reach = radius + collider.radius;
+        const float len = glm::length(d);
+        if (len >= reach) return;
+        add(e, len > 1.0e-6f ? d / len : glm::vec3(0.0f, 1.0f, 0.0f), reach - len);
+    });
+    world.view<BoxCollider>([&](EntityHandle e, BoxCollider& collider) {
+        if (skip && skip(e)) return;
+        const glm::vec3 center = world.getWorldPosition(e);
+        const glm::vec3 lo = center - collider.halfExtents;
+        const glm::vec3 hi = center + collider.halfExtents;
+        glm::vec3 s = closestOnSegment(a, b, center);
+        glm::vec3 c = glm::clamp(s, lo, hi);
+        for (int i = 0; i < 4; ++i) {
+            s = closestOnSegment(a, b, c);
+            c = glm::clamp(s, lo, hi);
+        }
+        const glm::vec3 d = s - c;
+        const float len2 = glm::dot(d, d);
+        if (len2 > 1.0e-10f) {
+            if (len2 >= radius * radius) return;
+            const float len = std::sqrt(len2);
+            add(e, d / len, radius - len);
+            return;
+        }
+        const glm::vec3 local = s - center;
+        int axis = 0;
+        float best = collider.halfExtents.x - std::abs(local.x);
+        for (int k = 1; k < 3; ++k) {
+            const float pen = collider.halfExtents[k] - std::abs(local[k]);
+            if (pen < best) {
+                best = pen;
+                axis = k;
+            }
+        }
+        glm::vec3 outward(0.0f);
+        outward[axis] = local[axis] >= 0.0f ? 1.0f : -1.0f;
+        add(e, outward, best + radius);
+    });
+    world.view<PlaneCollider>([&](EntityHandle e, PlaneCollider& plane) {
+        if (skip && skip(e)) return;
+        const glm::vec3 n = glm::normalize(plane.normal);
+        const glm::vec3 origin = world.getWorldPosition(e);
+        const float depth = radius - std::min(glm::dot(n, a - origin), glm::dot(n, b - origin));
+        add(e, n, depth);
+    });
+    return out;
 }
 
 void registerPhysicsComponents(World& world) {
