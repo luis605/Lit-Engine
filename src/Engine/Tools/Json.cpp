@@ -1,8 +1,8 @@
 module;
 
 #include <charconv>
+#include <nlohmann/json.hpp>
 #include <cmath>
-#include <cstdio>
 #include <initializer_list>
 #include <optional>
 #include <string>
@@ -14,161 +14,48 @@ module Engine.Json;
 
 namespace {
 
-void writeString(std::string& out, const std::string& s) {
-    out += '"';
-    for (const char ch : s) {
-        const unsigned char c = static_cast<unsigned char>(ch);
-        switch (c) {
-            case '"': out += "\\\""; break;
-            case '\\': out += "\\\\"; break;
-            case '\n': out += "\\n"; break;
-            case '\r': out += "\\r"; break;
-            case '\t': out += "\\t"; break;
-            default:
-                if (c < 0x20) {
-                    char buf[8];
-                    std::snprintf(buf, sizeof buf, "\\u%04x", c);
-                    out += buf;
-                } else {
-                    out += ch;
-                }
+using Ordered = nlohmann::ordered_json;
+
+Ordered toOrdered(const Json& j) {
+    switch (j.type()) {
+        case Json::Type::Null: return nullptr;
+        case Json::Type::Bool: return j.asBool();
+        case Json::Type::Number: {
+            const double v = j.asNumber();
+            if (!std::isfinite(v)) return nullptr;
+            return v;
+        }
+        case Json::Type::String: return j.asString();
+        case Json::Type::Array: {
+            Ordered out = Ordered::array();
+            for (const Json& item : j.items()) out.push_back(toOrdered(item));
+            return out;
+        }
+        case Json::Type::Object: {
+            Ordered out = Ordered::object();
+            for (const auto& [k, v] : j.members()) out[k] = toOrdered(v);
+            return out;
         }
     }
-    out += '"';
+    return nullptr;
 }
 
-void writeNumber(std::string& out, double v) {
-    if (!std::isfinite(v)) {
-        out += "null";
-        return;
+Json fromOrdered(const Ordered& j) {
+    if (j.is_boolean()) return Json(j.get<bool>());
+    if (j.is_number()) return Json(j.get<double>());
+    if (j.is_string()) return Json(j.get<std::string>());
+    if (j.is_array()) {
+        Json out = Json::array();
+        for (const Ordered& item : j) out.push(fromOrdered(item));
+        return out;
     }
-    char buf[40];
-    const auto r = std::to_chars(buf, buf + sizeof buf, v);
-    out.append(buf, r.ptr);
+    if (j.is_object()) {
+        Json out = Json::object();
+        for (const auto& [k, v] : j.items()) out.set(k, fromOrdered(v));
+        return out;
+    }
+    return Json();
 }
-
-struct Parser {
-    std::string_view s;
-    size_t i = 0;
-    std::string error;
-
-    void ws() {
-        while (i < s.size() && (s[i] == ' ' || s[i] == '\t' || s[i] == '\n' || s[i] == '\r')) ++i;
-    }
-    bool fail(const char* what) {
-        if (error.empty()) error = std::string(what) + " at offset " + std::to_string(i);
-        return false;
-    }
-    bool literal(std::string_view word) {
-        if (s.substr(i, word.size()) != word) return false;
-        i += word.size();
-        return true;
-    }
-    bool string(std::string& out) {
-        if (i >= s.size() || s[i] != '"') return fail("expected string");
-        ++i;
-        while (i < s.size() && s[i] != '"') {
-            char c = s[i++];
-            if (c == '\\') {
-                if (i >= s.size()) return fail("bad escape");
-                const char e = s[i++];
-                switch (e) {
-                    case 'n': c = '\n'; break;
-                    case 't': c = '\t'; break;
-                    case 'r': c = '\r'; break;
-                    case 'b': c = '\b'; break;
-                    case 'f': c = '\f'; break;
-                    case 'u': {
-                        if (i + 4 > s.size()) return fail("bad unicode escape");
-                        unsigned code = 0;
-                        const auto r = std::from_chars(s.data() + i, s.data() + i + 4, code, 16);
-                        if (r.ec != std::errc{}) return fail("bad unicode escape");
-                        i += 4;
-                        if (code < 0x80) {
-                            out += static_cast<char>(code);
-                        } else if (code < 0x800) {
-                            out += static_cast<char>(0xC0 | (code >> 6));
-                            out += static_cast<char>(0x80 | (code & 0x3F));
-                        } else {
-                            out += static_cast<char>(0xE0 | (code >> 12));
-                            out += static_cast<char>(0x80 | ((code >> 6) & 0x3F));
-                            out += static_cast<char>(0x80 | (code & 0x3F));
-                        }
-                        continue;
-                    }
-                    default: c = e;
-                }
-            }
-            out += c;
-        }
-        if (i >= s.size()) return fail("unterminated string");
-        ++i;
-        return true;
-    }
-    bool value(Json& out, int depth) {
-        if (depth > 128) return fail("nesting too deep");
-        ws();
-        if (i >= s.size()) return fail("unexpected end");
-        const char c = s[i];
-        if (c == '{') {
-            ++i;
-            out = Json::object();
-            ws();
-            if (i < s.size() && s[i] == '}') return ++i, true;
-            for (;;) {
-                ws();
-                std::string key;
-                if (!string(key)) return false;
-                ws();
-                if (i >= s.size() || s[i] != ':') return fail("expected ':'");
-                ++i;
-                Json v;
-                if (!value(v, depth + 1)) return false;
-                out.set(std::move(key), std::move(v));
-                ws();
-                if (i < s.size() && s[i] == ',') {
-                    ++i;
-                    continue;
-                }
-                if (i < s.size() && s[i] == '}') return ++i, true;
-                return fail("expected ',' or '}'");
-            }
-        }
-        if (c == '[') {
-            ++i;
-            out = Json::array();
-            ws();
-            if (i < s.size() && s[i] == ']') return ++i, true;
-            for (;;) {
-                Json v;
-                if (!value(v, depth + 1)) return false;
-                out.push(std::move(v));
-                ws();
-                if (i < s.size() && s[i] == ',') {
-                    ++i;
-                    continue;
-                }
-                if (i < s.size() && s[i] == ']') return ++i, true;
-                return fail("expected ',' or ']'");
-            }
-        }
-        if (c == '"') {
-            std::string str;
-            if (!string(str)) return false;
-            out = Json(std::move(str));
-            return true;
-        }
-        if (literal("true")) return out = Json(true), true;
-        if (literal("false")) return out = Json(false), true;
-        if (literal("null")) return out = Json(), true;
-        double number = 0.0;
-        const auto r = std::from_chars(s.data() + i, s.data() + s.size(), number);
-        if (r.ec != std::errc{}) return fail("unexpected token");
-        i = static_cast<size_t>(r.ptr - s.data());
-        out = Json(number);
-        return true;
-    }
-};
 
 struct Segment {
     std::string key;
@@ -221,83 +108,23 @@ bool matches(const Json& item, const Segment& seg) {
     return false;
 }
 
-std::string fmt(double v) {
-    std::string s;
-    writeNumber(s, v);
-    return s;
-}
+std::string fmt(double v) { return Ordered(v).dump(); }
 
 std::string missing(std::string_view path) { return "missing path '" + std::string(path) + "'"; }
 
 }  // namespace
 
-void Json::write(std::string& out, int indent, int depth) const {
-    auto newline = [&](int d) {
-        if (indent < 0) return;
-        out += '\n';
-        out.append(static_cast<size_t>(indent * d), ' ');
-    };
-    switch (m_type) {
-        case Type::Null: out += "null"; break;
-        case Type::Bool: out += m_bool ? "true" : "false"; break;
-        case Type::Number: writeNumber(out, m_number); break;
-        case Type::String: writeString(out, m_string); break;
-        case Type::Array: {
-            if (m_items.empty()) {
-                out += "[]";
-                break;
-            }
-            bool flat = true;
-            for (const Json& item : m_items) flat = flat && item.m_type != Type::Array && item.m_type != Type::Object;
-            out += '[';
-            for (size_t i = 0; i < m_items.size(); ++i) {
-                if (i) out += ',';
-                if (!flat) newline(depth + 1);
-                m_items[i].write(out, indent, depth + 1);
-            }
-            if (!flat) newline(depth);
-            out += ']';
-            break;
-        }
-        case Type::Object: {
-            if (m_members.empty()) {
-                out += "{}";
-                break;
-            }
-            out += '{';
-            for (size_t i = 0; i < m_members.size(); ++i) {
-                if (i) out += ',';
-                newline(depth + 1);
-                writeString(out, m_members[i].first);
-                out += indent < 0 ? ":" : ": ";
-                m_members[i].second.write(out, indent, depth + 1);
-            }
-            newline(depth);
-            out += '}';
-            break;
-        }
-    }
-}
-
 std::string Json::dump(int indent) const {
-    std::string out;
-    write(out, indent, 0);
-    return out;
+    return toOrdered(*this).dump(indent, ' ', false, Ordered::error_handler_t::replace);
 }
 
 std::optional<Json> Json::parse(std::string_view text, std::string* error) {
-    Parser p{text};
-    Json out;
-    if (!p.value(out, 0)) {
-        if (error) *error = p.error;
+    try {
+        return fromOrdered(Ordered::parse(text.begin(), text.end(), nullptr, true, false));
+    } catch (const Ordered::exception& e) {
+        if (error) *error = e.what();
         return std::nullopt;
     }
-    p.ws();
-    if (p.i != text.size()) {
-        if (error) *error = "trailing characters at offset " + std::to_string(p.i);
-        return std::nullopt;
-    }
-    return out;
 }
 
 bool Json::operator==(const Json& o) const {

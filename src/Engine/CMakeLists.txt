@@ -193,6 +193,7 @@ target_include_directories(Engine PRIVATE
     "${PROJECT_SOURCE_DIR}/src/vendors/glm"
     "${PROJECT_SOURCE_DIR}/src/vendors/freetype/include"
     "${PROJECT_SOURCE_DIR}/src/vendors/DiligentEngine"
+    "${PROJECT_SOURCE_DIR}/src/vendors/DiligentEngine/DiligentTools/ThirdParty/json/include"
     "${PROJECT_SOURCE_DIR}/src"
 )
 

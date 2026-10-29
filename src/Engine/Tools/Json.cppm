@@ -82,8 +82,6 @@ export class Json {
     bool operator==(const Json& other) const;
 
   private:
-    void write(std::string& out, int indent, int depth) const;
-
     Type m_type = Type::Null;
     bool m_bool = false;
     double m_number = 0.0;
