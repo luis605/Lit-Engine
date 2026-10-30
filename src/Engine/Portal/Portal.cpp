@@ -26,6 +26,7 @@ import Engine.World;
 import Engine.Render.entity;
 import Engine.Render.component;
 import Engine.Portal.view;
+import Engine.Json;
 
 namespace {
 
@@ -66,133 +67,22 @@ float rectDistance(const Portal& p, const glm::vec3& point, float& signedPlane) 
     return std::sqrt(signedPlane * signedPlane + lu * lu + lv * lv);
 }
 
-struct Json {
-    enum class Type { Null, Bool, Number, String, Array, Object } type = Type::Null;
-    double number = 0.0;
-    bool boolean = false;
-    std::string text;
-    std::vector<Json> items;
-    std::vector<std::pair<std::string, Json>> members;
-
-    [[nodiscard]] const Json* get(std::string_view key) const {
-        for (const auto& [name, value] : members) {
-            if (name == key) return &value;
-        }
-        return nullptr;
-    }
-};
-
-struct JsonReader {
-    const char* p;
-    const char* end;
-
-    void skip() {
-        while (p < end && (*p == ' ' || *p == '\n' || *p == '\r' || *p == '\t')) ++p;
-    }
-    bool literal(std::string_view word) {
-        if (static_cast<size_t>(end - p) < word.size() || std::string_view(p, word.size()) != word) return false;
-        p += word.size();
-        return true;
-    }
-    bool string(std::string& out) {
-        if (p >= end || *p != '"') return false;
-        ++p;
-        out.clear();
-        while (p < end && *p != '"') {
-            if (*p == '\\' && p + 1 < end) {
-                ++p;
-                switch (*p) {
-                    case 'n': out += '\n'; break;
-                    case 't': out += '\t'; break;
-                    default: out += *p; break;
-                }
-            } else {
-                out += *p;
-            }
-            ++p;
-        }
-        if (p >= end) return false;
-        ++p;
-        return true;
-    }
-    bool value(Json& out, int depth) {
-        if (depth > 32) return false;
-        skip();
-        if (p >= end) return false;
-        if (*p == '{') {
-            ++p;
-            out.type = Json::Type::Object;
-            skip();
-            if (p < end && *p == '}') return ++p, true;
-            while (true) {
-                skip();
-                std::string key;
-                if (!string(key)) return false;
-                skip();
-                if (p >= end || *p != ':') return false;
-                ++p;
-                Json child;
-                if (!value(child, depth + 1)) return false;
-                out.members.emplace_back(std::move(key), std::move(child));
-                skip();
-                if (p < end && *p == ',') {
-                    ++p;
-                    continue;
-                }
-                if (p < end && *p == '}') return ++p, true;
-                return false;
-            }
-        }
-        if (*p == '[') {
-            ++p;
-            out.type = Json::Type::Array;
-            skip();
-            if (p < end && *p == ']') return ++p, true;
-            while (true) {
-                Json child;
-                if (!value(child, depth + 1)) return false;
-                out.items.push_back(std::move(child));
-                skip();
-                if (p < end && *p == ',') {
-                    ++p;
-                    continue;
-                }
-                if (p < end && *p == ']') return ++p, true;
-                return false;
-            }
-        }
-        if (*p == '"') {
-            out.type = Json::Type::String;
-            return string(out.text);
-        }
-        if (literal("true")) return out.type = Json::Type::Bool, out.boolean = true, true;
-        if (literal("false")) return out.type = Json::Type::Bool, out.boolean = false, true;
-        if (literal("null")) return out.type = Json::Type::Null, true;
-        char* stop = nullptr;
-        out.number = std::strtod(p, &stop);
-        if (stop == p) return false;
-        out.type = Json::Type::Number;
-        p = stop;
-        return true;
-    }
-};
-
-float numberOr(const Json* j, float fallback) { return j && j->type == Json::Type::Number ? static_cast<float>(j->number) : fallback; }
+float numberOr(const Json* j, float fallback) { return j && j->isNumber() ? static_cast<float>(j->asNumber()) : fallback; }
 
 bool vec3Of(const Json* j, glm::vec3& out) {
-    if (!j || j->type != Json::Type::Array || j->items.size() != 3) return false;
+    if (!j || !j->isArray() || j->size() != 3) return false;
     for (size_t i = 0; i < 3; ++i) {
-        if (j->items[i].type != Json::Type::Number) return false;
-        out[static_cast<int>(i)] = static_cast<float>(j->items[i].number);
+        if (!j->items()[i].isNumber()) return false;
+        out[static_cast<int>(i)] = static_cast<float>(j->items()[i].asNumber());
     }
     return true;
 }
 
 bool vec2Of(const Json* j, glm::vec2& out) {
-    if (!j || j->type != Json::Type::Array || j->items.size() != 2) return false;
+    if (!j || !j->isArray() || j->size() != 2) return false;
     for (size_t i = 0; i < 2; ++i) {
-        if (j->items[i].type != Json::Type::Number) return false;
-        out[static_cast<int>(i)] = static_cast<float>(j->items[i].number);
+        if (!j->items()[i].isNumber()) return false;
+        out[static_cast<int>(i)] = static_cast<float>(j->items()[i].asNumber());
     }
     return true;
 }
@@ -324,60 +214,60 @@ int PortalSystem::addPair(const std::string& name, const PortalEnd& a, const Por
 }
 
 bool PortalSystem::parseJson(std::string_view text) {
-    Json root;
-    JsonReader reader{text.data(), text.data() + text.size()};
-    if (!reader.value(root, 0) || root.type != Json::Type::Object) {
+    const std::optional<Json> parsed = Json::parse(text);
+    if (!parsed || !parsed->isObject()) {
         Lit::Log::Error("Portal world JSON is malformed");
         return false;
     }
+    const Json& root = *parsed;
     PortalSystem loaded;
     if (const Json* s = root.get("settings")) {
         loaded.m_settings.maxDepth = static_cast<int>(numberOr(s->get("maxDepth"), static_cast<float>(loaded.m_settings.maxDepth)));
         loaded.m_settings.maxViews = static_cast<int>(numberOr(s->get("maxViews"), static_cast<float>(loaded.m_settings.maxViews)));
         loaded.m_settings.blendDistance = numberOr(s->get("blendDistance"), loaded.m_settings.blendDistance);
         loaded.m_settings.minPixels = numberOr(s->get("minPixels"), loaded.m_settings.minPixels);
-        if (const Json* o = s->get("occlusion")) loaded.m_settings.occlusion = o->type == Json::Type::Bool ? o->boolean : o->number != 0.0;
+        if (const Json* o = s->get("occlusion")) loaded.m_settings.occlusion = o->isBool() ? o->asBool() : o->asNumber() != 0.0;
     }
     const Json* cells = root.get("cells");
-    if (!cells || cells->type != Json::Type::Array || cells->items.empty()) {
+    if (!cells || !cells->isArray() || cells->size() == 0) {
         Lit::Log::Error("Portal world JSON has no cells");
         return false;
     }
-    for (const Json& c : cells->items) {
+    for (const Json& c : cells->items()) {
         PortalCell cell;
         const Json* name = c.get("name");
-        if (!name || name->type != Json::Type::String || name->text.empty() || loaded.findCell(name->text) >= 0) {
+        if (!name || !name->isString() || name->asString().empty() || loaded.findCell(name->asString()) >= 0) {
             Lit::Log::Error("Portal cell needs a unique name");
             return false;
         }
-        cell.name = name->text;
+        cell.name = name->asString();
         vec3Of(c.get("min"), cell.min);
         vec3Of(c.get("max"), cell.max);
         vec3Of(c.get("gravity"), cell.params.gravity);
         vec3Of(c.get("tint"), cell.params.tint);
         cell.params.sun = numberOr(c.get("sun"), 1.0f);
         cell.params.ambient = numberOr(c.get("ambient"), 1.0f);
-        if (const Json* sc = c.get("scalars"); sc && sc->type == Json::Type::Object) {
-            for (const auto& [key, v] : sc->members) cell.params.scalars[key] = static_cast<float>(v.number);
+        if (const Json* sc = c.get("scalars"); sc && sc->isObject()) {
+            for (const auto& [key, v] : sc->members()) cell.params.scalars[key] = static_cast<float>(v.asNumber());
         }
         loaded.addCell(cell);
     }
-    if (const Json* portals = root.get("portals"); portals && portals->type == Json::Type::Array) {
+    if (const Json* portals = root.get("portals"); portals && portals->isArray()) {
         auto readEnd = [&](const Json* j, PortalEnd& end) {
             if (!j) return false;
             const Json* cell = j->get("cell");
-            if (!cell || cell->type != Json::Type::String) return false;
-            end.cell = cell->text;
+            if (!cell || !cell->isString()) return false;
+            end.cell = cell->asString();
             vec3Of(j->get("position"), end.position);
             vec3Of(j->get("rotation"), end.eulerDegrees);
             vec2Of(j->get("size"), end.halfSize);
             return true;
         };
-        for (const Json& p : portals->items) {
+        for (const Json& p : portals->items()) {
             PortalEnd a;
             PortalEnd b;
             const Json* name = p.get("name");
-            if (!readEnd(p.get("a"), a) || !readEnd(p.get("b"), b) || loaded.addPair(name ? name->text : "portal", a, b, numberOr(p.get("twist"), 0.0f)) < 0) {
+            if (!readEnd(p.get("a"), a) || !readEnd(p.get("b"), b) || loaded.addPair(name ? name->asString() : "portal", a, b, numberOr(p.get("twist"), 0.0f)) < 0) {
                 Lit::Log::Error("Portal pair references an unknown cell or is incomplete");
                 return false;
             }
