@@ -40,6 +40,10 @@ export class Palette {
     };
 
     void rebuild(EditorContext& ctx, CommandRegistry& commands);
+    void buildPromptResults(const std::string& text);
+    void appendCommandResults(CommandRegistry& commands, const std::string& pattern);
+    void handleNavigation();
+    void drawResultRow(const Result& result, int index, float rowHeight, int& clicked);
     void scanEntities(EditorContext& ctx);
     void activate(EditorContext& ctx, CommandRegistry& commands, const Result& result);
 
@@ -56,4 +60,5 @@ export class Palette {
     bool m_promptMode = false;
     PromptRequest m_prompt;
     bool m_scrollToCursor = false;
+    bool m_resultsFresh = false;
 };

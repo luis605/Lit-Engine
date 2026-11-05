@@ -109,6 +109,9 @@ export class EyeSystem {
     void applyTo(BlendshapeWeights& weights) const;
 
   private:
+    void updateSaccade(float dt, Pcg32& rng);
+    void updateBlink(float dt, Pcg32& rng);
+
     EyeSettings m_settings;
     glm::vec3 m_target{0.0f, 0.0f, 10.0f};
     glm::vec3 m_eye{0.0f};

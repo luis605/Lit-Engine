@@ -28,11 +28,13 @@ export class PerfLog {
     [[nodiscard]] const std::string& path() const { return m_path; }
 
   private:
+    size_t columnIndex(const std::string& name);
+
     struct Row {
         uint64_t frame = 0;
-        double cpu = 0.0;
-        double sim = 0.0;
-        double gpu = 0.0;
+        double cpuMilliseconds = 0.0;
+        double simMilliseconds = 0.0;
+        double gpuMilliseconds = 0.0;
         std::vector<std::pair<size_t, double>> passes;
     };
 

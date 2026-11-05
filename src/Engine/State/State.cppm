@@ -61,7 +61,7 @@ export class StateStore {
     bool fromJson(const Json& doc, std::string* error = nullptr);
 
   private:
-    void notify(const std::string& name, const StateVar& v, double oldValue, const std::string& member, bool added);
+    void notify(const std::string& name, const StateVar& variable, double oldValue, const std::string& member, bool added);
 
     std::map<std::string, StateVar> m_vars;
     EventBus* m_bus = nullptr;

@@ -3,6 +3,7 @@ module;
 #include <cstdint>
 #include <functional>
 #include <map>
+#include <utility>
 #include <vector>
 
 export module Engine.AudioTrace;
@@ -74,7 +75,7 @@ export struct AudioEmitter {
 export class AudioPropagation {
   public:
     void setScene(const TriangleSoup& soup);
-    void setHopHook(AudioHopFn fn) { m_hook = std::move(fn); }
+    void setHopHook(AudioHopFn hook) { m_hook = std::move(hook); }
     [[nodiscard]] AudioPropagationConfig& config() { return m_config; }
     [[nodiscard]] const AudioPropagationConfig& config() const { return m_config; }
 
@@ -90,15 +91,24 @@ export class AudioPropagation {
 
   private:
     struct FanHit {
-        glm::vec3 direction;
-        glm::vec3 point;
+        glm::vec3 direction{0.0f};
+        glm::vec3 point{0.0f};
         float distance = 0.0f;
         bool hit = false;
     };
-    bool blocked(const glm::vec3& a, const glm::vec3& b);
+    struct ResultSlot {
+        AudioPath path;
+        uint64_t frame = 0;
+    };
+    void traceInto(AudioPath& path, const glm::vec3& listener, const glm::vec3& source);
+    bool blocked(const glm::vec3& from, const glm::vec3& to);
     bool canCast() const { return m_used < m_config.raysPerFrame; }
     bool hopSearch(const glm::vec3& from, const glm::vec3& source, int depth, float& length, glm::vec3& firstEntry, int& hopId, int& hops);
     [[nodiscard]] float distanceGain(float distance) const;
+    float measureOcclusion(const glm::vec3& listener, const glm::vec3& source, const glm::vec3& direction);
+    void applyHopRoute(AudioPath& path, const glm::vec3& listener, const glm::vec3& source);
+    void collectReflections(AudioPath& path, const glm::vec3& listener, const glm::vec3& source, float directDistance);
+    void markStale(const AudioEmitter& emitter, const glm::vec3& listener, float distance);
 
     AudioPropagationConfig m_config;
     Bvh m_bvh;
@@ -108,5 +118,9 @@ export class AudioPropagation {
     ReverbEstimate m_reverb;
     uint32_t m_used = 0;
     uint32_t m_stale = 0;
-    std::map<uint32_t, AudioPath> m_results;
+    std::map<uint32_t, ResultSlot> m_results;
+    uint64_t m_frame = 0;
+    std::vector<std::pair<float, uint32_t>> m_order;
+    std::vector<std::pair<float, uint32_t>> m_reflectionOrder;
+    std::vector<std::vector<AudioHop>> m_hopCandidates;
 };

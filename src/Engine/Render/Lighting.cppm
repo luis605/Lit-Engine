@@ -13,13 +13,14 @@ struct IBuffer;
 struct ITexture;
 struct ITextureView;
 enum TEXTURE_FORMAT : std::uint16_t;
-}  // namespace Diligent
+}
 
 export module Engine.Render.lighting;
 
 import Engine.glm;
 import Engine.Render.settings;
 import Engine.Render.material;
+export import Engine.Render.reflection;
 
 export constexpr int kMaxLocalShadowViews = 24;
 export constexpr int kMaxLocalShadowLights = 8;
@@ -68,6 +69,9 @@ export struct SceneUniforms {
     glm::vec4 maskParams;
     glm::vec4 maskColor;
     glm::vec4 vignetteParams;
+    glm::vec4 bleedParams;
+    glm::vec4 qualityParams;
+    glm::vec4 qualityParams2;
 };
 
 export struct GpuLight {
@@ -91,7 +95,7 @@ export struct MaterialGpu {
     glm::vec4 custom1;
 };
 
-export MaterialGpu packMaterial(const Material& m);
+export MaterialGpu packMaterial(const Material& material);
 
 export constexpr int kShadowLayers = 6;
 
@@ -151,7 +155,7 @@ export class Lighting {
     Lighting& operator=(const Lighting&) = delete;
 
     bool init(Diligent::IRenderDevice* device, Diligent::IDeviceContext* context, Diligent::TEXTURE_FORMAT backBufferFormat, int width, int height);
-    void resize(int width, int height);
+    void resize(int width, int height, int outputWidth = 0, int outputHeight = 0);
     void reloadShaders();
     void shutdown();
 
@@ -198,14 +202,17 @@ export class Lighting {
     [[nodiscard]] Diligent::ITexture* sceneColorTexture() const;
     [[nodiscard]] bool pyramidValid() const;
     void setPyramidValid(bool valid);
+    void setReflectionScene(const ReflectionScene& scene);
+    void bakeProbes();
     void snapExposure();
     [[nodiscard]] Diligent::ITextureView* colorTextures() const;
     [[nodiscard]] Diligent::ITextureView* dataTextures() const;
     [[nodiscard]] float currentEv100() const;
     [[nodiscard]] glm::vec3 sunDirection() const;
 
-  private:
-    void selectLocalShadows(SceneUniforms& u, const glm::vec3& cameraPosition);
     struct Data;
+
+  private:
+    void selectLocalShadows(SceneUniforms& uniforms, const glm::vec3& cameraPosition);
     Data* m_data = nullptr;
 };

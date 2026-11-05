@@ -1,5 +1,8 @@
 module;
 
+#include <imgui.h>
+
+#include <cstddef>
 #include <cstdint>
 #include <string>
 #include <unordered_set>
@@ -14,7 +17,7 @@ export class Outliner {
   public:
     void draw(EditorContext& ctx);
     void focusSearch() { m_focusSearch = true; }
-    void reveal(EditorContext& ctx, EntityHandle e);
+    void reveal(EditorContext& ctx, EntityHandle entity);
 
   private:
     struct Row {
@@ -35,9 +38,20 @@ export class Outliner {
 
     void rebuild(EditorContext& ctx);
     void runSearch(EditorContext& ctx);
-    [[nodiscard]] bool matches(EditorContext& ctx, EntityHandle e) const;
+    [[nodiscard]] bool matches(EditorContext& ctx, EntityHandle entity) const;
     void drawRow(EditorContext& ctx, const Row& row, int index);
     void parseQuery();
+    void beginRename(EditorContext& ctx, EntityHandle entity);
+    void handleRowSelection(EditorContext& ctx, EntityHandle entity, int index);
+    void handleRowDragDrop(EditorContext& ctx, EntityHandle entity);
+    void drawRowContextMenu(EditorContext& ctx, EntityHandle entity, bool visible);
+    void drawRowArrow(EntityHandle entity, float arrowX, float startY, float rowHeight, float centerY);
+    void drawRowLabel(EditorContext& ctx, EntityHandle entity, const ImVec2& start, float width, float textX, float centerY, bool primary, bool visible);
+    void drawHeaderControls(EditorContext& ctx);
+    void scrollToTarget(int count, float rowStride);
+    void drawRows(EditorContext& ctx, int count, float rowStride);
+    void handleKeyboard(EditorContext& ctx, int count);
+    void drawRootDropTarget(EditorContext& ctx);
 
     std::vector<Row> m_rows;
     size_t m_totalRoots = 0;

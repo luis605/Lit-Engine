@@ -12,7 +12,7 @@ struct IDeviceContext;
 struct IDeviceObject;
 struct ITexture;
 struct ITextureView;
-}  // namespace Diligent
+}
 
 export module Engine.Render.custom;
 

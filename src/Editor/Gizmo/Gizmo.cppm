@@ -1,5 +1,6 @@
 module;
 
+#include <optional>
 #include <string>
 #include <vector>
 
@@ -31,6 +32,14 @@ export class TransformTool {
 
     void capture(EditorContext& ctx);
     void apply(EditorContext& ctx);
+    void applyMove(EditorContext& ctx, const glm::vec3& axis, const std::optional<double>& typed, bool snap);
+    void applyRotate(EditorContext& ctx, const glm::vec3& axis, const std::optional<double>& typed, bool snap);
+    void applyScale(EditorContext& ctx, const glm::vec3& axis, const std::optional<double>& typed, bool snap);
+    void handleAxisKeys(EditorContext& ctx);
+    void handleTypedInput();
+    void drawAxisGuides(EditorContext& ctx);
+    void drawModalOverlay(EditorContext& ctx);
+    [[nodiscard]] const char* kindLabel() const;
     void commit(EditorContext& ctx, const char* label);
     void cancel(EditorContext& ctx);
     [[nodiscard]] glm::vec3 axisDirection(EditorContext& ctx) const;

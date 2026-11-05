@@ -14,7 +14,12 @@ module Engine.mesh;
 namespace {
 constexpr size_t kFloatsPerVertex = kVertexFloats;
 constexpr size_t kVertexStride = kFloatsPerVertex * sizeof(float);
-} // namespace
+constexpr size_t kPositionByteSize = 3 * sizeof(float);
+constexpr size_t kMinSimplifiableIndices = 36;
+constexpr float kLodTargetError = 0.5f;
+constexpr float kImpostorInradius = 0.7796f;
+constexpr float kSqrtThree = 1.7320508f;
+}
 
 Mesh Mesh::optimized() const {
     if (indices.empty() || vertices.empty()) { return Mesh(vertices, indices); }
@@ -57,7 +62,7 @@ Mesh Mesh::simplify(float targetRatio, float targetError) const {
         indexCount,
         vertices.data(),
         vertexCount,
-        3 * sizeof(float),
+        kPositionByteSize,
         kVertexStride
     );
 
@@ -119,159 +124,162 @@ Mesh Mesh::simplify(float targetRatio, float targetError) const {
     return Mesh(std::move(compactedVertices), std::move(simplifiedIndices));
 }
 
-std::vector<float> Mesh::normalSamples(std::size_t count) const {
-    std::vector<float> samples(count * 4, 0.0f);
-    const size_t triangleCount = indices.size() / 3;
-    if (triangleCount == 0 || count == 0) { return samples; }
+namespace {
+using Vec3d = std::array<double, 3>;
 
-    auto position = [&](unsigned int index, size_t axis) { return vertices[index * kFloatsPerVertex + axis]; };
-    auto normal = [&](unsigned int index, size_t axis) { return vertices[index * kFloatsPerVertex + 3 + axis]; };
+struct AreaTable {
+    std::vector<double> cumulative;
+    double total = 0.0;
+};
 
-    std::vector<double> cumulativeArea(triangleCount);
-    double totalArea = 0.0;
-    for (size_t t = 0; t < triangleCount; ++t) {
-        const unsigned int i0 = indices[t * 3], i1 = indices[t * 3 + 1], i2 = indices[t * 3 + 2];
-        double e1[3], e2[3];
-        for (size_t axis = 0; axis < 3; ++axis) {
-            e1[axis] = position(i1, axis) - position(i0, axis);
-            e2[axis] = position(i2, axis) - position(i0, axis);
-        }
-        const double cx = e1[1] * e2[2] - e1[2] * e2[1];
-        const double cy = e1[2] * e2[0] - e1[0] * e2[2];
-        const double cz = e1[0] * e2[1] - e1[1] * e2[0];
-        totalArea += 0.5 * std::sqrt(cx * cx + cy * cy + cz * cz);
-        cumulativeArea[t] = totalArea;
+struct SurfacePoint {
+    size_t triangle;
+    double weight0;
+    double weight1;
+    double weight2;
+};
+
+class XorShiftSampler {
+  public:
+    explicit XorShiftSampler(uint64_t seed) : m_state(seed) {}
+
+    double next() {
+        m_state ^= m_state << 13;
+        m_state ^= m_state >> 7;
+        m_state ^= m_state << 17;
+        return static_cast<double>(m_state >> 11) / static_cast<double>(1ull << 53);
     }
-    if (totalArea <= 0.0) { return samples; }
 
-    uint64_t state = 0x9E3779B97F4A7C15ull;
-    auto next = [&]() {
-        state ^= state << 13;
-        state ^= state >> 7;
-        state ^= state << 17;
-        return static_cast<double>(state >> 11) / static_cast<double>(1ull << 53);
-    };
+  private:
+    uint64_t m_state;
+};
 
-    for (size_t s = 0; s < count; ++s) {
-        const double pick = (static_cast<double>(s) + next()) / static_cast<double>(count) * totalArea;
-        size_t t = static_cast<size_t>(std::lower_bound(cumulativeArea.begin(), cumulativeArea.end(), pick) - cumulativeArea.begin());
-        t = std::min(t, triangleCount - 1);
+double triangleArea(const std::vector<float>& vertices, const std::vector<unsigned int>& indices, size_t firstIndex) {
+    const size_t base = static_cast<size_t>(indices[firstIndex]) * kFloatsPerVertex;
+    const size_t second = static_cast<size_t>(indices[firstIndex + 1]) * kFloatsPerVertex;
+    const size_t third = static_cast<size_t>(indices[firstIndex + 2]) * kFloatsPerVertex;
+    Vec3d edge1{};
+    Vec3d edge2{};
+    for (size_t axis = 0; axis < 3; ++axis) {
+        edge1[axis] = static_cast<double>(vertices[second + axis]) - vertices[base + axis];
+        edge2[axis] = static_cast<double>(vertices[third + axis]) - vertices[base + axis];
+    }
+    const double crossX = edge1[1] * edge2[2] - edge1[2] * edge2[1];
+    const double crossY = edge1[2] * edge2[0] - edge1[0] * edge2[2];
+    const double crossZ = edge1[0] * edge2[1] - edge1[1] * edge2[0];
+    return 0.5 * std::sqrt(crossX * crossX + crossY * crossY + crossZ * crossZ);
+}
 
-        const double r1 = std::sqrt(next());
-        const double r2 = next();
-        const double w0 = 1.0 - r1, w1 = r1 * (1.0 - r2), w2 = r1 * r2;
+AreaTable buildAreaTable(const std::vector<float>& vertices, const std::vector<unsigned int>& indices) {
+    const size_t triangleCount = indices.size() / 3;
+    AreaTable table;
+    table.cumulative.resize(triangleCount);
+    for (size_t triangle = 0; triangle < triangleCount; ++triangle) {
+        table.total += triangleArea(vertices, indices, triangle * 3);
+        table.cumulative[triangle] = table.total;
+    }
+    return table;
+}
 
-        const unsigned int i0 = indices[t * 3], i1 = indices[t * 3 + 1], i2 = indices[t * 3 + 2];
-        double n[3];
-        for (size_t axis = 0; axis < 3; ++axis) { n[axis] = w0 * normal(i0, axis) + w1 * normal(i1, axis) + w2 * normal(i2, axis); }
-        const double length = std::sqrt(n[0] * n[0] + n[1] * n[1] + n[2] * n[2]);
-        if (length > 1e-8) {
-            for (size_t axis = 0; axis < 3; ++axis) { samples[s * 4 + axis] = static_cast<float>(n[axis] / length); }
-        }
+SurfacePoint pickSurfacePoint(const AreaTable& table, size_t sampleIndex, size_t sampleCount, XorShiftSampler& sampler) {
+    const double pick = (static_cast<double>(sampleIndex) + sampler.next()) / static_cast<double>(sampleCount) * table.total;
+    const size_t found = static_cast<size_t>(std::lower_bound(table.cumulative.begin(), table.cumulative.end(), pick) - table.cumulative.begin());
+    const double radius = std::sqrt(sampler.next());
+    const double angle = sampler.next();
+    return {std::min(found, table.cumulative.size() - 1), 1.0 - radius, radius * (1.0 - angle), radius * angle};
+}
+
+Vec3d blendAttribute(const std::vector<float>& vertices, const std::vector<unsigned int>& indices, const SurfacePoint& point, size_t attributeOffset) {
+    const size_t first = point.triangle * 3;
+    const size_t base0 = static_cast<size_t>(indices[first]) * kFloatsPerVertex + attributeOffset;
+    const size_t base1 = static_cast<size_t>(indices[first + 1]) * kFloatsPerVertex + attributeOffset;
+    const size_t base2 = static_cast<size_t>(indices[first + 2]) * kFloatsPerVertex + attributeOffset;
+    Vec3d blended{};
+    for (size_t axis = 0; axis < 3; ++axis) {
+        blended[axis] = point.weight0 * vertices[base0 + axis] + point.weight1 * vertices[base1 + axis] + point.weight2 * vertices[base2 + axis];
+    }
+    return blended;
+}
+}
+
+std::vector<float> Mesh::normalSamples(std::size_t count) const {
+    constexpr uint64_t kSeed = 0x9E3779B97F4A7C15ull;
+    constexpr size_t kNormalOffset = 3;
+    constexpr double kMinNormalLength = 1e-8;
+
+    std::vector<float> samples(count * 4, 0.0f);
+    if (indices.size() < 3 || count == 0) { return samples; }
+
+    const AreaTable table = buildAreaTable(vertices, indices);
+    if (table.total <= 0.0) { return samples; }
+
+    XorShiftSampler sampler(kSeed);
+    for (size_t sampleIndex = 0; sampleIndex < count; ++sampleIndex) {
+        const SurfacePoint point = pickSurfacePoint(table, sampleIndex, count, sampler);
+        const Vec3d normal = blendAttribute(vertices, indices, point, kNormalOffset);
+        const double length = std::sqrt(normal[0] * normal[0] + normal[1] * normal[1] + normal[2] * normal[2]);
+        if (length <= kMinNormalLength) continue;
+        for (size_t axis = 0; axis < 3; ++axis) { samples[sampleIndex * 4 + axis] = static_cast<float>(normal[axis] / length); }
     }
     return samples;
 }
 
 float Mesh::surfaceArea() const {
     double area = 0.0;
-    for (size_t t = 0; t + 2 < indices.size(); t += 3) {
-        double e1[3], e2[3];
-        for (size_t axis = 0; axis < 3; ++axis) {
-            e1[axis] = static_cast<double>(vertices[indices[t + 1] * kFloatsPerVertex + axis]) - vertices[indices[t] * kFloatsPerVertex + axis];
-            e2[axis] = static_cast<double>(vertices[indices[t + 2] * kFloatsPerVertex + axis]) - vertices[indices[t] * kFloatsPerVertex + axis];
-        }
-        const double cx = e1[1] * e2[2] - e1[2] * e2[1];
-        const double cy = e1[2] * e2[0] - e1[0] * e2[2];
-        const double cz = e1[0] * e2[1] - e1[1] * e2[0];
-        area += 0.5 * std::sqrt(cx * cx + cy * cy + cz * cz);
-    }
+    for (size_t firstIndex = 0; firstIndex + 2 < indices.size(); firstIndex += 3) { area += triangleArea(vertices, indices, firstIndex); }
     return static_cast<float>(area);
 }
 
 bool Mesh::isRound() const {
-    const size_t triangleCount = indices.size() / 3;
-    if (triangleCount == 0) { return false; }
+    constexpr size_t kSampleCount = 512;
+    constexpr uint64_t kSeed = 0xD1B54A32D192ED03ull;
+    constexpr double kMaxRelativeDeviation = 0.03;
 
-    auto position = [&](unsigned int index, size_t axis) { return static_cast<double>(vertices[index * kFloatsPerVertex + axis]); };
+    if (indices.size() < 3) { return false; }
+    const AreaTable table = buildAreaTable(vertices, indices);
+    if (table.total <= 0.0) { return false; }
 
-    std::vector<double> cumulativeArea(triangleCount);
-    double totalArea = 0.0;
-    for (size_t t = 0; t < triangleCount; ++t) {
-        const unsigned int i0 = indices[t * 3], i1 = indices[t * 3 + 1], i2 = indices[t * 3 + 2];
-        double e1[3], e2[3];
-        for (size_t axis = 0; axis < 3; ++axis) {
-            e1[axis] = position(i1, axis) - position(i0, axis);
-            e2[axis] = position(i2, axis) - position(i0, axis);
-        }
-        const double cx = e1[1] * e2[2] - e1[2] * e2[1];
-        const double cy = e1[2] * e2[0] - e1[0] * e2[2];
-        const double cz = e1[0] * e2[1] - e1[1] * e2[0];
-        totalArea += 0.5 * std::sqrt(cx * cx + cy * cy + cz * cz);
-        cumulativeArea[t] = totalArea;
-    }
-    if (totalArea <= 0.0) { return false; }
-
-    constexpr size_t kSamples = 512;
-    uint64_t state = 0xD1B54A32D192ED03ull;
-    auto next = [&]() {
-        state ^= state << 13;
-        state ^= state >> 7;
-        state ^= state << 17;
-        return static_cast<double>(state >> 11) / static_cast<double>(1ull << 53);
-    };
-
-    std::vector<std::array<double, 3>> points(kSamples);
-    std::array<double, 3> centroid = {0.0, 0.0, 0.0};
-    for (size_t s = 0; s < kSamples; ++s) {
-        const double pick = (static_cast<double>(s) + next()) / static_cast<double>(kSamples) * totalArea;
-        size_t t = static_cast<size_t>(std::lower_bound(cumulativeArea.begin(), cumulativeArea.end(), pick) - cumulativeArea.begin());
-        t = std::min(t, triangleCount - 1);
-        const double r1 = std::sqrt(next());
-        const double r2 = next();
-        const double w0 = 1.0 - r1, w1 = r1 * (1.0 - r2), w2 = r1 * r2;
-        const unsigned int i0 = indices[t * 3], i1 = indices[t * 3 + 1], i2 = indices[t * 3 + 2];
-        for (size_t axis = 0; axis < 3; ++axis) {
-            points[s][axis] = w0 * position(i0, axis) + w1 * position(i1, axis) + w2 * position(i2, axis);
-            centroid[axis] += points[s][axis] / static_cast<double>(kSamples);
-        }
+    XorShiftSampler sampler(kSeed);
+    std::vector<Vec3d> points(kSampleCount);
+    Vec3d centroid{};
+    for (size_t sampleIndex = 0; sampleIndex < kSampleCount; ++sampleIndex) {
+        points[sampleIndex] = blendAttribute(vertices, indices, pickSurfacePoint(table, sampleIndex, kSampleCount, sampler), 0);
+        for (size_t axis = 0; axis < 3; ++axis) { centroid[axis] += points[sampleIndex][axis] / static_cast<double>(kSampleCount); }
     }
 
     double meanDistance = 0.0;
-    std::vector<double> distances(kSamples);
-    for (size_t s = 0; s < kSamples; ++s) {
-        double d2 = 0.0;
-        for (size_t axis = 0; axis < 3; ++axis) { d2 += (points[s][axis] - centroid[axis]) * (points[s][axis] - centroid[axis]); }
-        distances[s] = std::sqrt(d2);
-        meanDistance += distances[s] / static_cast<double>(kSamples);
+    std::vector<double> distances(kSampleCount);
+    for (size_t sampleIndex = 0; sampleIndex < kSampleCount; ++sampleIndex) {
+        double squaredDistance = 0.0;
+        for (size_t axis = 0; axis < 3; ++axis) {
+            const double offset = points[sampleIndex][axis] - centroid[axis];
+            squaredDistance += offset * offset;
+        }
+        distances[sampleIndex] = std::sqrt(squaredDistance);
+        meanDistance += distances[sampleIndex] / static_cast<double>(kSampleCount);
     }
     if (meanDistance <= 0.0) { return false; }
 
     double variance = 0.0;
-    for (double d : distances) { variance += (d - meanDistance) * (d - meanDistance) / static_cast<double>(kSamples); }
-    return std::sqrt(variance) / meanDistance < 0.03;
+    for (double distance : distances) { variance += (distance - meanDistance) * (distance - meanDistance) / static_cast<double>(kSampleCount); }
+    return std::sqrt(variance) / meanDistance < kMaxRelativeDeviation;
 }
 
 Mesh Mesh::makeImpostor() const {
     if (vertices.size() < kFloatsPerVertex) { return Mesh(vertices, indices); }
 
-    constexpr float kInradius = 0.7796f;
-    constexpr float kHalfBase = kInradius * 1.7320508f;
-    const float offsets[3][2] = {{0.0f, 2.0f * kInradius}, {-kHalfBase, -kInradius}, {kHalfBase, -kInradius}};
+    constexpr float kHalfBase = kImpostorInradius * kSqrtThree;
+    const float offsets[3][2] = {{0.0f, 2.0f * kImpostorInradius}, {-kHalfBase, -kImpostorInradius}, {kHalfBase, -kImpostorInradius}};
 
-    std::vector<float> v;
-    v.reserve(3 * kFloatsPerVertex);
-    for (const auto& corner : offsets) { v.insert(v.end(), {corner[0], corner[1], 0.0f, 0.0f, 0.0f, 1.0f, 0.0f, 0.0f}); }
+    std::vector<float> impostorVertices;
+    impostorVertices.reserve(3 * kFloatsPerVertex);
+    for (const auto& corner : offsets) { impostorVertices.insert(impostorVertices.end(), {corner[0], corner[1], 0.0f, 0.0f, 0.0f, 1.0f, 0.0f, 0.0f}); }
 
-    return Mesh(std::move(v), std::vector<unsigned int>{0, 1, 2});
+    return Mesh(std::move(impostorVertices), std::vector<unsigned int>{0, 1, 2});
 }
-
-namespace {
-constexpr size_t kMinSimplifiableIndices = 36;
-} // namespace
 
 std::vector<Mesh> Mesh::generateLODChain() const {
     static constexpr std::array<float, kLodLevelCount - 2> kRatios = {0.50f, 0.25f, 0.12f, 0.05f, 0.015f};
-    constexpr float kLodTargetError = 0.5f;
 
     std::vector<Mesh> lods;
     lods.reserve(kLodLevelCount - 1);

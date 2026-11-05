@@ -13,15 +13,15 @@ import Engine.Render.component;
 export struct DirtySet {
     std::vector<Entity> list;
 
-    void mark(Entity e) {
-        if (m_stamp.size() <= e) m_stamp.resize(static_cast<size_t>(e) + 1, 0);
-        if (m_stamp[e] == m_epoch) return;
-        m_stamp[e] = m_epoch;
-        list.push_back(e);
+    void mark(Entity entity) {
+        if (m_stamp.size() <= entity) m_stamp.resize(static_cast<size_t>(entity) + 1, 0);
+        if (m_stamp[entity] == m_epoch) return;
+        m_stamp[entity] = m_epoch;
+        list.push_back(entity);
     }
 
     void truncate(size_t count) {
-        std::erase_if(list, [count](Entity e) { return e >= count; });
+        std::erase_if(list, [count](Entity entity) { return static_cast<size_t>(entity) >= count; });
         if (m_stamp.size() > count) m_stamp.resize(count);
     }
 
@@ -73,13 +73,13 @@ export class SceneDatabase {
         return entity;
     }
 
-    template <class Fn>
-    void forEachChild(Entity e, Fn&& fn) const {
-        if (e >= firstChild.size()) return;
-        for (Entity child = firstChild[e]; child != INVALID_ENTITY; child = nextSibling[child]) fn(child);
+    template <class Visitor>
+    void forEachChild(Entity entity, Visitor&& visitor) const {
+        if (entity >= firstChild.size()) return;
+        for (Entity child = firstChild[entity]; child != INVALID_ENTITY; child = nextSibling[child]) visitor(child);
     }
 
-    [[nodiscard]] bool hasChildren(Entity e) const { return e < firstChild.size() && firstChild[e] != INVALID_ENTITY; }
+    [[nodiscard]] bool hasChildren(Entity entity) const { return entity < firstChild.size() && firstChild[entity] != INVALID_ENTITY; }
 
     void markHierarchyDirty() {
         m_hierarchyVersion++;
@@ -100,23 +100,23 @@ export class SceneDatabase {
         const auto entityCount = static_cast<Entity>(hierarchies.size());
         sortedHierarchyList.clear();
         sortedHierarchyList.reserve(entityCount);
-        for (Entity e = 0; e < entityCount; ++e) {
-            const Entity parent = hierarchies[e].parent;
+        for (Entity entity = 0; entity < entityCount; ++entity) {
+            const Entity parent = hierarchies[entity].parent;
             if (parent != INVALID_ENTITY && parent < entityCount) continue;
-            hierarchies[e].level = 0;
-            sortedHierarchyList.push_back(e);
+            hierarchies[entity].level = 0;
+            sortedHierarchyList.push_back(entity);
         }
         for (size_t head = 0; head < sortedHierarchyList.size() && sortedHierarchyList.size() <= entityCount; ++head) {
-            const Entity e = sortedHierarchyList[head];
-            forEachChild(e, [&](Entity child) {
-                hierarchies[child].level = hierarchies[e].level + 1;
+            const Entity entity = sortedHierarchyList[head];
+            forEachChild(entity, [&](Entity child) {
+                hierarchies[child].level = hierarchies[entity].level + 1;
                 sortedHierarchyList.push_back(child);
             });
         }
 
         m_levelCounts.clear();
-        for (Entity e : sortedHierarchyList) {
-            const uint32_t level = hierarchies[e].level;
+        for (Entity entity : sortedHierarchyList) {
+            const uint32_t level = hierarchies[entity].level;
             if (m_levelCounts.size() <= level) m_levelCounts.resize(level + 1, 0);
             m_levelCounts[level]++;
         }

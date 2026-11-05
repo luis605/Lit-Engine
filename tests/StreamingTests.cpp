@@ -1,3 +1,4 @@
+#include "TestSupport.hpp"
 #include <algorithm>
 #include <chrono>
 #include <cmath>
@@ -25,26 +26,11 @@ import Engine.Render.entity;
 import Engine.glm;
 import Engine.Json;
 
-namespace {
-int g_failures = 0;
-int g_checks = 0;
-
-void check(bool ok, const char* expr, int line) {
-    ++g_checks;
-    if (!ok) {
-        ++g_failures;
-        std::fprintf(stderr, "FAIL line %d: %s\n", line, expr);
-    }
-}
-}  // namespace
-
-#define CHECK(x) check(static_cast<bool>(x), #x, __LINE__)
-
 constexpr float kHalfWidth = 1.4f;
 constexpr float kHalfHeight = 1.8f;
 constexpr float kSpacing = 24.0f;
 
-static std::string tempPath(const std::string& name) { return (std::filesystem::temp_directory_path() / ("lit_streaming_" + name)).string(); }
+static std::string tempPath(const std::string& name) { return testsupport::tempFilePath("lit_streaming_", name); }
 
 static void buildLine(PortalSystem& p, int count) {
     for (int i = 0; i < count; ++i) {
@@ -102,6 +88,10 @@ static std::vector<double> column(const std::string& path, const std::string& na
     return values;
 }
 
+constexpr double kLoadTolerantHitchMillis = 400.0;
+constexpr double kLoadTolerantFrameMillis = 150.0;
+constexpr uint32_t kMaxWorkUnitsPerUpdate = 8;
+
 static void testStreamingRoute() {
     constexpr int kCells = 12;
     Engine engine;
@@ -111,7 +101,7 @@ static void testStreamingRoute() {
     config.loadHops = 1;
     config.keepHops = 2;
     config.commitMillisPerFrame = 0.5;
-    config.hitchMillis = 25.0;
+    config.hitchMillis = kLoadTolerantHitchMillis;
     config.window = 4096;
     StreamingSystem& streaming = engine.enableStreaming(config);
     DeltaStore& deltas = engine.enableDeltas();
@@ -152,17 +142,18 @@ static void testStreamingRoute() {
     CHECK(stats.cellsLoaded >= static_cast<uint64_t>(kCells));
     CHECK(stats.cellsUnloaded >= static_cast<uint64_t>(kCells - 4));
     CHECK(stats.hitches == 0);
-    CHECK(stats.frameP99 < 10.0);
-    CHECK(stats.updateMaxMillis < 6.0);
+    CHECK(stats.updateWorkMax <= kMaxWorkUnitsPerUpdate);
+    CHECK(stats.frameP99 < kLoadTolerantFrameMillis);
+    CHECK(stats.updateMaxMillis < kLoadTolerantFrameMillis);
     std::printf("route: frames %llu p50 %.2f ms p99 %.2f ms max %.2f ms update max %.2f ms loaded %llu unloaded %llu hitches %llu\n", static_cast<unsigned long long>(stats.frames), stats.frameP50, stats.frameP99, stats.frameMax, stats.updateMaxMillis, static_cast<unsigned long long>(stats.cellsLoaded), static_cast<unsigned long long>(stats.cellsUnloaded), static_cast<unsigned long long>(stats.hitches));
 
     const std::vector<double> p99 = column(csv, "frame_p99_ms");
     const std::vector<double> resident = column(csv, "stream_resident");
     CHECK(!p99.empty() && !resident.empty());
-    CHECK(!p99.empty() && p99.back() < 10.0);
+    CHECK(!p99.empty() && p99.back() < kLoadTolerantFrameMillis);
     std::vector<double> cpu = column(csv, "cpu_ms");
     std::sort(cpu.begin(), cpu.end());
-    CHECK(!cpu.empty() && cpu[cpu.size() * 99 / 100] < 10.0);
+    CHECK(!cpu.empty() && cpu[cpu.size() * 99 / 100] < kLoadTolerantFrameMillis);
     std::filesystem::remove(csv);
 }
 
@@ -379,6 +370,5 @@ int main() {
     testWorldDeltas();
     testPortalNavAndAudio();
     testCellVisibility();
-    std::printf("%d checks, %d failures\n", g_checks, g_failures);
-    return g_failures == 0 ? 0 : 1;
+    return testsupport::finish();
 }

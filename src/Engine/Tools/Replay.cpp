@@ -2,48 +2,139 @@ module;
 
 #include <bitset>
 #include <charconv>
+#include <cstdio>
 #include <cstdint>
 #include <fstream>
 #include <sstream>
+#include <optional>
 #include <string>
 #include <string_view>
 #include <system_error>
 #include <vector>
 
 module Engine.Replay;
+import Engine.Json;
 
 namespace {
+constexpr size_t kFloatBufferSize = 32;
+constexpr size_t kMaxReplayTicks = 100000000;
+constexpr size_t kSeedPrefixLength = 5;
+constexpr size_t kTicksPrefixLength = 6;
+constexpr size_t kHashIntervalPrefixLength = 13;
+constexpr size_t kHashPrefixLength = 5;
+constexpr int kHexBase = 16;
 
-void appendFloat(std::string& out, float v) {
-    char buf[32];
-    const auto r = std::to_chars(buf, buf + sizeof buf, v);
-    out.append(buf, r.ptr);
+struct ReplayEvent {
+    size_t tick = 0;
+    std::string fields;
+};
+
+void appendFloat(std::string& out, float value) {
+    char buffer[kFloatBufferSize];
+    const auto result = std::to_chars(buffer, buffer + sizeof buffer, value);
+    out.append(buffer, result.ptr);
 }
 
-void appendVec2(std::string& out, const glm::vec2& v) {
-    appendFloat(out, v.x);
+void appendVec2(std::string& out, const glm::vec2& value) {
+    appendFloat(out, value.x);
     out += ',';
-    appendFloat(out, v.y);
+    appendFloat(out, value.y);
 }
 
-bool parseFloat(std::string_view s, float& out) {
-    const auto r = std::from_chars(s.data(), s.data() + s.size(), out);
-    return r.ec == std::errc{} && r.ptr == s.data() + s.size();
+bool parseFloat(std::string_view text, float& out) {
+    const auto result = std::from_chars(text.data(), text.data() + text.size(), out);
+    return result.ec == std::errc{} && result.ptr == text.data() + text.size();
 }
 
-bool parseVec2(std::string_view s, glm::vec2& out) {
-    const size_t comma = s.find(',');
+bool parseVec2(std::string_view text, glm::vec2& out) {
+    const size_t comma = text.find(',');
     if (comma == std::string_view::npos) return false;
-    return parseFloat(s.substr(0, comma), out.x) && parseFloat(s.substr(comma + 1), out.y);
+    return parseFloat(text.substr(0, comma), out.x) && parseFloat(text.substr(comma + 1), out.y);
 }
 
-template <typename T>
-bool parseInt(std::string_view s, T& out) {
-    const auto r = std::from_chars(s.data(), s.data() + s.size(), out);
-    return r.ec == std::errc{} && r.ptr == s.data() + s.size();
+template <typename Integer>
+bool parseInt(std::string_view text, Integer& out) {
+    const auto result = std::from_chars(text.data(), text.data() + text.size(), out);
+    return result.ec == std::errc{} && result.ptr == text.data() + text.size();
 }
 
-}  // namespace
+bool parseKeyList(std::string_view value, std::bitset<kInputKeyCount>& keys) {
+    keys.reset();
+    if (value == "-") return true;
+    size_t position = 0;
+    while (position <= value.size()) {
+        size_t comma = value.find(',', position);
+        if (comma == std::string_view::npos) comma = value.size();
+        int key = 0;
+        if (!parseInt(value.substr(position, comma - position), key) || key < 0 || key >= kInputKeyCount) return false;
+        keys.set(static_cast<size_t>(key));
+        position = comma + 1;
+    }
+    return true;
+}
+
+void appendKeyList(std::string& line, const std::bitset<kInputKeyCount>& keys) {
+    line += " keys=";
+    bool first = true;
+    for (int key = 0; key < kInputKeyCount; ++key) {
+        if (!keys[static_cast<size_t>(key)]) continue;
+        if (!first) line += ',';
+        line += std::to_string(key);
+        first = false;
+    }
+    if (first) line += '-';
+}
+
+std::string describeTickChanges(const ReplayTick& tick, const InputState& previousInput, float previousDeltaTime) {
+    std::string line;
+    if (tick.dt != previousDeltaTime) {
+        line += " dt=";
+        appendFloat(line, tick.dt);
+    }
+    if (tick.input.keys != previousInput.keys) appendKeyList(line, tick.input.keys);
+    if (tick.input.buttons != previousInput.buttons) line += " buttons=" + std::to_string(tick.input.buttons.to_ulong());
+    if (tick.input.mouse != previousInput.mouse) {
+        line += " mouse=";
+        appendVec2(line, tick.input.mouse);
+    }
+    if (tick.input.mouseDelta != glm::vec2(0.0f)) {
+        line += " delta=";
+        appendVec2(line, tick.input.mouseDelta);
+    }
+    if (tick.input.scroll != glm::vec2(0.0f)) {
+        line += " scroll=";
+        appendVec2(line, tick.input.scroll);
+    }
+    return line;
+}
+
+std::string applyField(const std::string& key, std::string_view value, InputState& state, float& deltaTime) {
+    if (key == "dt") return parseFloat(value, deltaTime) ? std::string() : "bad dt";
+    if (key == "keys") return parseKeyList(value, state.keys) ? std::string() : "bad key";
+    if (key == "buttons") {
+        unsigned long bits = 0;
+        if (!parseInt(value, bits)) return "bad buttons";
+        state.buttons = std::bitset<kInputMouseButtons>(bits);
+        return {};
+    }
+    if (key == "mouse") return parseVec2(value, state.mouse) ? std::string() : "bad mouse";
+    if (key == "delta") return parseVec2(value, state.mouseDelta) ? std::string() : "bad delta";
+    if (key == "scroll") return parseVec2(value, state.scroll) ? std::string() : "bad scroll";
+    return "unknown field: " + key;
+}
+
+std::string applyEvent(const ReplayEvent& event, InputState& state, float& deltaTime) {
+    std::istringstream words(event.fields);
+    std::string word;
+    while (words >> word) {
+        const size_t equals = word.find('=');
+        if (equals == std::string::npos) return "bad field: " + word;
+        const std::string message = applyField(word.substr(0, equals), std::string_view(word).substr(equals + 1), state, deltaTime);
+        if (!message.empty()) return message;
+    }
+    return {};
+}
+}
 
 void InputRecorder::begin(uint64_t seed) {
     m_data = {};
@@ -58,42 +149,20 @@ void InputRecorder::record(float dt, const InputState& input) {
 
 std::string serializeReplay(const ReplayData& data) {
     std::string out = "litreplay 1\nseed " + std::to_string(data.seed) + "\nticks " + std::to_string(data.ticks.size()) + "\n";
-    InputState prev;
-    float prevDt = -1.0f;
-    for (size_t i = 0; i < data.ticks.size(); ++i) {
-        const ReplayTick& t = data.ticks[i];
-        std::string line;
-        if (t.dt != prevDt) {
-            line += " dt=";
-            appendFloat(line, t.dt);
-        }
-        if (t.input.keys != prev.keys) {
-            line += " keys=";
-            bool first = true;
-            for (int k = 0; k < kInputKeyCount; ++k) {
-                if (!t.input.keys[static_cast<size_t>(k)]) continue;
-                if (!first) line += ',';
-                line += std::to_string(k);
-                first = false;
-            }
-            if (first) line += '-';
-        }
-        if (t.input.buttons != prev.buttons) line += " buttons=" + std::to_string(t.input.buttons.to_ulong());
-        if (t.input.mouse != prev.mouse) {
-            line += " mouse=";
-            appendVec2(line, t.input.mouse);
-        }
-        if (t.input.mouseDelta != glm::vec2(0.0f)) {
-            line += " delta=";
-            appendVec2(line, t.input.mouseDelta);
-        }
-        if (t.input.scroll != glm::vec2(0.0f)) {
-            line += " scroll=";
-            appendVec2(line, t.input.scroll);
-        }
-        if (!line.empty()) out += "@" + std::to_string(i) + line + "\n";
-        prev = t.input;
-        prevDt = t.dt;
+    InputState previousInput;
+    float previousDeltaTime = -1.0f;
+    for (size_t index = 0; index < data.ticks.size(); ++index) {
+        const ReplayTick& tick = data.ticks[index];
+        const std::string line = describeTickChanges(tick, previousInput, previousDeltaTime);
+        if (!line.empty()) out += "@" + std::to_string(index) + line + "\n";
+        previousInput = tick.input;
+        previousDeltaTime = tick.dt;
+    }
+    if (data.hashInterval > 0) out += "hashinterval " + std::to_string(data.hashInterval) + "\n";
+    for (const ReplayCheckpoint& checkpoint : data.checkpoints) {
+        char hex[kFloatBufferSize];
+        std::snprintf(hex, sizeof hex, "%016llx", static_cast<unsigned long long>(checkpoint.hash));
+        out += "hash " + std::to_string(checkpoint.tick) + " " + hex + "\n";
     }
     out += "end\n";
     return out;
@@ -107,104 +176,96 @@ bool InputRecorder::save(const std::string& path) const {
 }
 
 bool parseReplay(const std::string& text, ReplayData& out, std::string* error) {
-    auto fail = [&](const std::string& why) {
-        if (error) *error = why;
+    const auto fail = [&](const std::string& reason) {
+        if (error) *error = reason;
         return false;
     };
-    std::istringstream in(text);
+    std::istringstream input(text);
     std::string line;
-    if (!std::getline(in, line) || line != "litreplay 1") return fail("bad header");
+    if (!std::getline(input, line) || line != "litreplay 1") return fail("bad header");
     out = {};
     size_t count = 0;
     bool haveCount = false;
-    struct Event {
-        size_t tick;
-        std::string rest;
-    };
-    std::vector<Event> events;
+    std::vector<ReplayEvent> events;
     bool ended = false;
-    while (std::getline(in, line)) {
+    while (std::getline(input, line)) {
         if (line.empty() || line[0] == '#') continue;
         if (line == "end") {
             ended = true;
             break;
         }
         if (line.rfind("seed ", 0) == 0) {
-            if (!parseInt(std::string_view(line).substr(5), out.seed)) return fail("bad seed");
+            if (!parseInt(std::string_view(line).substr(kSeedPrefixLength), out.seed)) return fail("bad seed");
         } else if (line.rfind("ticks ", 0) == 0) {
-            if (!parseInt(std::string_view(line).substr(6), count)) return fail("bad tick count");
+            if (!parseInt(std::string_view(line).substr(kTicksPrefixLength), count)) return fail("bad tick count");
             haveCount = true;
+        } else if (line.rfind("hashinterval ", 0) == 0) {
+            if (!parseInt(std::string_view(line).substr(kHashIntervalPrefixLength), out.hashInterval)) return fail("bad hash interval");
+        } else if (line.rfind("hash ", 0) == 0) {
+            const size_t space = line.find(' ', kHashPrefixLength);
+            ReplayCheckpoint checkpoint;
+            if (space == std::string::npos || !parseInt(std::string_view(line).substr(kHashPrefixLength, space - kHashPrefixLength), checkpoint.tick)) return fail("bad hash line: " + line);
+            const std::string_view hex = std::string_view(line).substr(space + 1);
+            const auto result = std::from_chars(hex.data(), hex.data() + hex.size(), checkpoint.hash, kHexBase);
+            if (result.ec != std::errc{} || result.ptr != hex.data() + hex.size()) return fail("bad hash line: " + line);
+            out.checkpoints.push_back(checkpoint);
         } else if (line[0] == '@') {
             const size_t space = line.find(' ');
-            Event e;
-            if (space == std::string::npos || !parseInt(std::string_view(line).substr(1, space - 1), e.tick)) return fail("bad event line: " + line);
-            e.rest = line.substr(space + 1);
-            events.push_back(std::move(e));
+            ReplayEvent event;
+            if (space == std::string::npos || !parseInt(std::string_view(line).substr(1, space - 1), event.tick)) return fail("bad event line: " + line);
+            event.fields = line.substr(space + 1);
+            events.push_back(std::move(event));
         } else {
             return fail("unknown line: " + line);
         }
     }
     if (!haveCount || !ended) return fail("truncated replay");
-    if (count > 100000000) return fail("tick count too large");
+    if (count > kMaxReplayTicks) return fail("tick count too large");
     out.ticks.assign(count, {});
-    size_t ei = 0;
+    size_t eventIndex = 0;
     InputState state;
-    float dt = 0.0f;
-    for (size_t t = 0; t < count; ++t) {
+    float deltaTime = 0.0f;
+    for (size_t tick = 0; tick < count; ++tick) {
         state.mouseDelta = glm::vec2(0.0f);
         state.scroll = glm::vec2(0.0f);
-        if (ei < events.size() && events[ei].tick == t) {
-            std::istringstream words(events[ei].rest);
-            std::string word;
-            while (words >> word) {
-                const size_t eq = word.find('=');
-                if (eq == std::string::npos) return fail("bad field: " + word);
-                const std::string key = word.substr(0, eq);
-                const std::string_view value = std::string_view(word).substr(eq + 1);
-                if (key == "dt") {
-                    if (!parseFloat(value, dt)) return fail("bad dt");
-                } else if (key == "keys") {
-                    state.keys.reset();
-                    if (value != "-") {
-                        size_t pos = 0;
-                        while (pos <= value.size()) {
-                            size_t comma = value.find(',', pos);
-                            if (comma == std::string_view::npos) comma = value.size();
-                            int k = 0;
-                            if (!parseInt(value.substr(pos, comma - pos), k) || k < 0 || k >= kInputKeyCount) return fail("bad key");
-                            state.keys.set(static_cast<size_t>(k));
-                            pos = comma + 1;
-                        }
-                    }
-                } else if (key == "buttons") {
-                    unsigned long bits = 0;
-                    if (!parseInt(value, bits)) return fail("bad buttons");
-                    state.buttons = std::bitset<kInputMouseButtons>(bits);
-                } else if (key == "mouse") {
-                    if (!parseVec2(value, state.mouse)) return fail("bad mouse");
-                } else if (key == "delta") {
-                    if (!parseVec2(value, state.mouseDelta)) return fail("bad delta");
-                } else if (key == "scroll") {
-                    if (!parseVec2(value, state.scroll)) return fail("bad scroll");
-                } else {
-                    return fail("unknown field: " + key);
-                }
-            }
-            ++ei;
+        if (eventIndex < events.size() && events[eventIndex].tick == tick) {
+            const std::string message = applyEvent(events[eventIndex], state, deltaTime);
+            if (!message.empty()) return fail(message);
+            ++eventIndex;
         }
-        out.ticks[t] = {dt, state};
+        out.ticks[tick] = {deltaTime, state};
     }
-    if (ei != events.size()) return fail("event beyond tick count");
+    if (eventIndex != events.size()) return fail("event beyond tick count");
     return true;
 }
 
 bool loadReplay(const std::string& path, ReplayData& out, std::string* error) {
-    std::ifstream in(path, std::ios::binary);
-    if (!in) {
+    const std::optional<std::string> text = readTextFile(path);
+    if (!text) {
         if (error) *error = "cannot open " + path;
         return false;
     }
-    std::stringstream buffer;
-    buffer << in.rdbuf();
-    return parseReplay(buffer.str(), out, error);
+    return parseReplay(*text, out, error);
+}
+
+void ReplayVerifier::begin(const ReplayData& data) {
+    m_expected = data.checkpoints;
+    m_mismatches.clear();
+    m_checked = 0;
+}
+
+bool ReplayVerifier::due(uint64_t tick) const {
+    for (const ReplayCheckpoint& checkpoint : m_expected) {
+        if (checkpoint.tick == tick) return true;
+    }
+    return false;
+}
+
+void ReplayVerifier::check(uint64_t tick, uint64_t hash) {
+    for (const ReplayCheckpoint& checkpoint : m_expected) {
+        if (checkpoint.tick != tick) continue;
+        ++m_checked;
+        if (checkpoint.hash != hash) m_mismatches.push_back({tick, checkpoint.hash, hash});
+        return;
+    }
 }

@@ -1,6 +1,7 @@
 module;
 
 #include <array>
+#include <cstddef>
 #include <cstdint>
 #include <functional>
 #include <memory>
@@ -41,7 +42,10 @@ export struct CameraFlight {
     bool active = false;
     glm::vec3 from{0.0f};
     glm::vec3 to{0.0f};
-    float fromYaw = 0.0f, toYaw = 0.0f, fromPitch = 0.0f, toPitch = 0.0f;
+    float fromYaw = 0.0f;
+    float toYaw = 0.0f;
+    float fromPitch = 0.0f;
+    float toPitch = 0.0f;
     float t = 0.0f;
     float duration = 0.25f;
     float fromOrtho = 0.0f;
@@ -49,7 +53,9 @@ export struct CameraFlight {
 };
 
 export struct EditorContext {
-    EditorContext(Engine& engine) : engine(engine), world(engine.world()), history(std::make_unique<History>(engine.world())) {}
+    explicit EditorContext(Engine& engine) : engine(engine), world(engine.world()), history(std::make_unique<History>(engine.world())) {}
+
+    static constexpr size_t MAX_TOASTS = 6;
 
     Engine& engine;
     World& world;
@@ -115,7 +121,7 @@ export struct EditorContext {
     EntityHandle stressParent;
 
     void toast(std::string text, ToastKind kind = ToastKind::Info) {
-        if (toasts.size() >= 6) toasts.erase(toasts.begin());
+        if (toasts.size() >= MAX_TOASTS) toasts.erase(toasts.begin());
         if (kind == ToastKind::Error) {
             Lit::Log::Error("[toast] {}", text);
         } else {
@@ -130,32 +136,33 @@ export struct EditorContext {
 
     [[nodiscard]] EntityHandle primary() const { return selection.primary(); }
 
-    void select(EntityHandle e) {
-        if (e.isNull()) {
+    void select(EntityHandle entity) {
+        if (entity.isNull()) {
             selection.clear();
         } else {
-            selection.set(e);
+            selection.set(entity);
         }
     }
 
     [[nodiscard]] std::vector<EntityHandle> topLevelSelection() const {
-        std::vector<EntityHandle> out;
-        for (EntityHandle e : selection.items()) {
-            if (!world.isAlive(e)) continue;
+        std::vector<EntityHandle> topLevel;
+        topLevel.reserve(selection.items().size());
+        for (EntityHandle entity : selection.items()) {
+            if (!world.isAlive(entity)) continue;
             bool nested = false;
-            for (EntityHandle p = world.getParent(e); !p.isNull(); p = world.getParent(p)) {
-                if (selection.contains(p)) {
+            for (EntityHandle ancestor = world.getParent(entity); !ancestor.isNull(); ancestor = world.getParent(ancestor)) {
+                if (selection.contains(ancestor)) {
                     nested = true;
                     break;
                 }
             }
-            if (!nested) out.push_back(e);
+            if (!nested) topLevel.push_back(entity);
         }
-        return out;
+        return topLevel;
     }
 };
 
-export std::string displayName(World& world, EntityHandle e);
+export std::string displayName(World& world, EntityHandle entity);
 export std::string meshLabel(Engine& engine, uint32_t mesh);
 export void applyEditorTheme(float scale);
 export struct SpawnPoint {

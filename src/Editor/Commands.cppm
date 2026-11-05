@@ -17,12 +17,12 @@ export struct Chord {
     bool alt = false;
 };
 
-export Chord key(ImGuiKey k) { return {k, false, false, false}; }
-export Chord ctrl(ImGuiKey k) { return {k, true, false, false}; }
-export Chord shift(ImGuiKey k) { return {k, false, true, false}; }
-export Chord alt(ImGuiKey k) { return {k, false, false, true}; }
-export Chord ctrlShift(ImGuiKey k) { return {k, true, true, false}; }
-export Chord ctrlAlt(ImGuiKey k) { return {k, true, false, true}; }
+export Chord key(ImGuiKey imguiKey) { return {imguiKey, false, false, false}; }
+export Chord ctrl(ImGuiKey imguiKey) { return {imguiKey, true, false, false}; }
+export Chord shift(ImGuiKey imguiKey) { return {imguiKey, false, true, false}; }
+export Chord alt(ImGuiKey imguiKey) { return {imguiKey, false, false, true}; }
+export Chord ctrlShift(ImGuiKey imguiKey) { return {imguiKey, true, true, false}; }
+export Chord ctrlAlt(ImGuiKey imguiKey) { return {imguiKey, true, false, true}; }
 
 export enum class CommandScope { Global, Viewport };
 

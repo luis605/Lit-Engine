@@ -1,6 +1,8 @@
 module;
 
+#include <algorithm>
 #include <charconv>
+#include <cmath>
 #include <cstdint>
 #include <sstream>
 #include <string>
@@ -13,6 +15,12 @@ import Engine.glm;
 
 export enum class Tonemapper : int { AgX = 0, AgXPunchy = 1, ACES = 2, Neutral = 3, Reinhard = 4, Linear = 5 };
 export enum class SkyMode : int { Physical = 0, Gradient = 1, Hdri = 2 };
+export enum class ReflectionMode : int { Off = 0, SSR, SSRProbes, SSRPlanar, WorldSpace };
+export enum class ReflectionQuality : int { Low = 0, Medium, High };
+export inline constexpr int kReflectionModeCount = 5;
+export inline constexpr int kReflectionQualityCount = 3;
+export inline constexpr const char* kReflectionModeNames[kReflectionModeCount] = {"Off", "SSR", "SSR + Probes", "SSR + Planar", "World space"};
+export inline constexpr const char* kReflectionQualityNames[kReflectionQualityCount] = {"Low", "Medium", "High"};
 export enum class DebugView : int { Lit = 0, BaseColor, Normals, Roughness, Metallic, AmbientOcclusion, Shadows, Reflections, Lighting, Luminance, Clusters, Overdraw };
 
 export struct RenderSettings {
@@ -85,8 +93,15 @@ export struct RenderSettings {
     bool ssgi = true;
     float ssgiIntensity = 2.5f;
     float ssgiThickness = 0.5f;
+    bool colorBleed = true;
+    float colorBleedIntensity = 1.0f;
+    float colorBleedRadius = 2.5f;
+    int colorBleedQuality = 1;
 
-    bool ssr = true;
+    ReflectionMode reflectionMode = ReflectionMode::SSRProbes;
+    ReflectionQuality reflectionQuality = ReflectionQuality::Medium;
+    float reflectionIntensity = 1.0f;
+    float reflectionTraceDistance = 80.0f;
     float ssrMaxRoughness = 0.55f;
     float ssrThickness = 0.35f;
     int ssrSteps = 40;
@@ -110,6 +125,19 @@ export struct RenderSettings {
     float fogHeightFalloff = 0.05f;
     float fogHeight = 0.0f;
 
+    float shadowCascadeBlend = 0.12f;
+    float shadowContactLength = 0.6f;
+    int aoDenoise = 2;
+    bool bentNormals = true;
+    bool areaLights = true;
+    float cloudAerialStrength = 1.0f;
+
+    float renderScale = 1.0f;
+    float upscaleSharpness = 0.25f;
+    bool qualityGovernor = false;
+    float targetFrameMs = 16.6f;
+    float governorMinScale = 0.6f;
+
     bool fxaa = true;
     bool specularAntiAliasing = true;
     bool multiScatter = true;
@@ -118,98 +146,138 @@ export struct RenderSettings {
 };
 
 export template <typename Settings, typename Visitor>
-void visitRenderSettings(Settings& s, Visitor&& visit) {
-    visit("sky", s.sky);
-    visit("timeOfDay", s.timeOfDay);
-    visit("sunAzimuth", s.sunAzimuth);
-    visit("animateTime", s.animateTime);
-    visit("timeSpeed", s.timeSpeed);
-    visit("sunFollowsLight", s.sunFollowsLight);
-    visit("sunIlluminance", s.sunIlluminance);
-    visit("sunAngularDiameter", s.sunAngularDiameter);
-    visit("rayleighScale", s.rayleighScale);
-    visit("mieScale", s.mieScale);
-    visit("ozoneScale", s.ozoneScale);
-    visit("mieAnisotropy", s.mieAnisotropy);
-    visit("groundAlbedo", s.groundAlbedo);
-    visit("aerialDistanceScale", s.aerialDistanceScale);
-    visit("clouds", s.clouds);
-    visit("cloudCoverage", s.cloudCoverage);
-    visit("cloudDensity", s.cloudDensity);
-    visit("cloudSpeed", s.cloudSpeed);
-    visit("cloudAltitude", s.cloudAltitude);
-    visit("stars", s.stars);
-    visit("moon", s.moon);
-    visit("moonIlluminance", s.moonIlluminance);
-    visit("godRays", s.godRays);
-    visit("godRayIntensity", s.godRayIntensity);
-    visit("hdriPath", s.hdriPath);
-    visit("hdriIntensity", s.hdriIntensity);
-    visit("hdriRotation", s.hdriRotation);
-    visit("gradientZenith", s.gradientZenith);
-    visit("gradientHorizon", s.gradientHorizon);
-    visit("gradientGround", s.gradientGround);
-    visit("gradientIntensity", s.gradientIntensity);
-    visit("environmentIntensity", s.environmentIntensity);
-    visit("skyBrightness", s.skyBrightness);
-    visit("autoExposure", s.autoExposure);
-    visit("exposureCompensation", s.exposureCompensation);
-    visit("manualEV100", s.manualEV100);
-    visit("adaptationUp", s.adaptationUp);
-    visit("adaptationDown", s.adaptationDown);
-    visit("minEV100", s.minEV100);
-    visit("maxEV100", s.maxEV100);
-    visit("tonemapper", s.tonemapper);
-    visit("contrast", s.contrast);
-    visit("saturation", s.saturation);
-    visit("temperature", s.temperature);
-    visit("tint", s.tint);
-    visit("vignette", s.vignette);
-    visit("vignetteWidth", s.vignetteWidth);
-    visit("vignetteTightness", s.vignetteTightness);
-    visit("maskContrast", s.maskContrast);
-    visit("maskSheen", s.maskSheen);
-    visit("maskSheenSpeed", s.maskSheenSpeed);
-    visit("maskSheenWidth", s.maskSheenWidth);
-    visit("maskSheenAngle", s.maskSheenAngle);
-    visit("maskSheenColor", s.maskSheenColor);
-    visit("grain", s.grain);
-    visit("bloom", s.bloom);
-    visit("bloomIntensity", s.bloomIntensity);
-    visit("bloomRadius", s.bloomRadius);
-    visit("ssao", s.ssao);
-    visit("aoRadius", s.aoRadius);
-    visit("aoIntensity", s.aoIntensity);
-    visit("aoSlices", s.aoSlices);
-    visit("aoSteps", s.aoSteps);
-    visit("ssgi", s.ssgi);
-    visit("ssgiIntensity", s.ssgiIntensity);
-    visit("ssgiThickness", s.ssgiThickness);
-    visit("ssr", s.ssr);
-    visit("ssrMaxRoughness", s.ssrMaxRoughness);
-    visit("ssrThickness", s.ssrThickness);
-    visit("ssrSteps", s.ssrSteps);
-    visit("shadows", s.shadows);
-    visit("shadowCascades", s.shadowCascades);
-    visit("shadowDistance", s.shadowDistance);
-    visit("shadowResolution", s.shadowResolution);
-    visit("shadowSoftness", s.shadowSoftness);
-    visit("shadowNormalBias", s.shadowNormalBias);
-    visit("shadowDepthBias", s.shadowDepthBias);
-    visit("pcss", s.pcss);
-    visit("contactShadows", s.contactShadows);
-    visit("localShadows", s.localShadows);
-    visit("localShadowCount", s.localShadowCount);
-    visit("localShadowResolution", s.localShadowResolution);
-    visit("localShadowSoftness", s.localShadowSoftness);
-    visit("fog", s.fog);
-    visit("fogDensity", s.fogDensity);
-    visit("fogHeightFalloff", s.fogHeightFalloff);
-    visit("fogHeight", s.fogHeight);
-    visit("fxaa", s.fxaa);
-    visit("specularAntiAliasing", s.specularAntiAliasing);
-    visit("multiScatter", s.multiScatter);
-    visit("debugView", s.debugView);
+void visitRenderSettings(Settings& settings, Visitor&& visit) {
+    visit("sky", settings.sky);
+    visit("timeOfDay", settings.timeOfDay);
+    visit("sunAzimuth", settings.sunAzimuth);
+    visit("animateTime", settings.animateTime);
+    visit("timeSpeed", settings.timeSpeed);
+    visit("sunFollowsLight", settings.sunFollowsLight);
+    visit("sunIlluminance", settings.sunIlluminance);
+    visit("sunAngularDiameter", settings.sunAngularDiameter);
+    visit("rayleighScale", settings.rayleighScale);
+    visit("mieScale", settings.mieScale);
+    visit("ozoneScale", settings.ozoneScale);
+    visit("mieAnisotropy", settings.mieAnisotropy);
+    visit("groundAlbedo", settings.groundAlbedo);
+    visit("aerialDistanceScale", settings.aerialDistanceScale);
+    visit("clouds", settings.clouds);
+    visit("cloudCoverage", settings.cloudCoverage);
+    visit("cloudDensity", settings.cloudDensity);
+    visit("cloudSpeed", settings.cloudSpeed);
+    visit("cloudAltitude", settings.cloudAltitude);
+    visit("stars", settings.stars);
+    visit("moon", settings.moon);
+    visit("moonIlluminance", settings.moonIlluminance);
+    visit("godRays", settings.godRays);
+    visit("godRayIntensity", settings.godRayIntensity);
+    visit("hdriPath", settings.hdriPath);
+    visit("hdriIntensity", settings.hdriIntensity);
+    visit("hdriRotation", settings.hdriRotation);
+    visit("gradientZenith", settings.gradientZenith);
+    visit("gradientHorizon", settings.gradientHorizon);
+    visit("gradientGround", settings.gradientGround);
+    visit("gradientIntensity", settings.gradientIntensity);
+    visit("environmentIntensity", settings.environmentIntensity);
+    visit("skyBrightness", settings.skyBrightness);
+    visit("autoExposure", settings.autoExposure);
+    visit("exposureCompensation", settings.exposureCompensation);
+    visit("manualEV100", settings.manualEV100);
+    visit("adaptationUp", settings.adaptationUp);
+    visit("adaptationDown", settings.adaptationDown);
+    visit("minEV100", settings.minEV100);
+    visit("maxEV100", settings.maxEV100);
+    visit("tonemapper", settings.tonemapper);
+    visit("contrast", settings.contrast);
+    visit("saturation", settings.saturation);
+    visit("temperature", settings.temperature);
+    visit("tint", settings.tint);
+    visit("vignette", settings.vignette);
+    visit("vignetteWidth", settings.vignetteWidth);
+    visit("vignetteTightness", settings.vignetteTightness);
+    visit("maskContrast", settings.maskContrast);
+    visit("maskSheen", settings.maskSheen);
+    visit("maskSheenSpeed", settings.maskSheenSpeed);
+    visit("maskSheenWidth", settings.maskSheenWidth);
+    visit("maskSheenAngle", settings.maskSheenAngle);
+    visit("maskSheenColor", settings.maskSheenColor);
+    visit("grain", settings.grain);
+    visit("bloom", settings.bloom);
+    visit("bloomIntensity", settings.bloomIntensity);
+    visit("bloomRadius", settings.bloomRadius);
+    visit("ssao", settings.ssao);
+    visit("aoRadius", settings.aoRadius);
+    visit("aoIntensity", settings.aoIntensity);
+    visit("aoSlices", settings.aoSlices);
+    visit("aoSteps", settings.aoSteps);
+    visit("ssgi", settings.ssgi);
+    visit("ssgiIntensity", settings.ssgiIntensity);
+    visit("ssgiThickness", settings.ssgiThickness);
+    visit("colorBleed", settings.colorBleed);
+    visit("colorBleedIntensity", settings.colorBleedIntensity);
+    visit("colorBleedRadius", settings.colorBleedRadius);
+    visit("colorBleedQuality", settings.colorBleedQuality);
+    visit("reflectionMode", settings.reflectionMode);
+    visit("reflectionQuality", settings.reflectionQuality);
+    visit("reflectionIntensity", settings.reflectionIntensity);
+    visit("reflectionTraceDistance", settings.reflectionTraceDistance);
+    visit("ssrMaxRoughness", settings.ssrMaxRoughness);
+    visit("ssrThickness", settings.ssrThickness);
+    visit("ssrSteps", settings.ssrSteps);
+    visit("shadows", settings.shadows);
+    visit("shadowCascades", settings.shadowCascades);
+    visit("shadowDistance", settings.shadowDistance);
+    visit("shadowResolution", settings.shadowResolution);
+    visit("shadowSoftness", settings.shadowSoftness);
+    visit("shadowNormalBias", settings.shadowNormalBias);
+    visit("shadowDepthBias", settings.shadowDepthBias);
+    visit("pcss", settings.pcss);
+    visit("contactShadows", settings.contactShadows);
+    visit("localShadows", settings.localShadows);
+    visit("localShadowCount", settings.localShadowCount);
+    visit("localShadowResolution", settings.localShadowResolution);
+    visit("localShadowSoftness", settings.localShadowSoftness);
+    visit("fog", settings.fog);
+    visit("fogDensity", settings.fogDensity);
+    visit("fogHeightFalloff", settings.fogHeightFalloff);
+    visit("fogHeight", settings.fogHeight);
+    visit("shadowCascadeBlend", settings.shadowCascadeBlend);
+    visit("shadowContactLength", settings.shadowContactLength);
+    visit("aoDenoise", settings.aoDenoise);
+    visit("bentNormals", settings.bentNormals);
+    visit("areaLights", settings.areaLights);
+    visit("cloudAerialStrength", settings.cloudAerialStrength);
+    visit("renderScale", settings.renderScale);
+    visit("upscaleSharpness", settings.upscaleSharpness);
+    visit("qualityGovernor", settings.qualityGovernor);
+    visit("targetFrameMs", settings.targetFrameMs);
+    visit("governorMinScale", settings.governorMinScale);
+    visit("fxaa", settings.fxaa);
+    visit("specularAntiAliasing", settings.specularAntiAliasing);
+    visit("multiScatter", settings.multiScatter);
+    visit("debugView", settings.debugView);
+}
+
+export inline constexpr int kColorBleedQualityMax = 3;
+export inline constexpr float kColorBleedRadiusMin = 0.1f;
+export inline constexpr float kColorBleedRadiusMax = 12.0f;
+export inline constexpr float kColorBleedIntensityMax = 4.0f;
+inline constexpr int kColorBleedTapsByQuality[kColorBleedQualityMax + 1] = {4, 8, 14, 24};
+
+export inline int colorBleedTapCount(int quality) {
+    const int clamped = quality < 0 ? 0 : (quality > kColorBleedQualityMax ? kColorBleedQualityMax : quality);
+    return kColorBleedTapsByQuality[clamped];
+}
+
+export inline bool colorBleedActive(const RenderSettings& settings) {
+    return settings.ssao && settings.colorBleed && settings.colorBleedIntensity > 0.0f;
+}
+
+export inline glm::vec4 colorBleedUniform(const RenderSettings& settings) {
+    if (!colorBleedActive(settings)) return glm::vec4(0.0f);
+    const float intensity = settings.colorBleedIntensity > kColorBleedIntensityMax ? kColorBleedIntensityMax : settings.colorBleedIntensity;
+    const float radius = settings.colorBleedRadius < kColorBleedRadiusMin ? kColorBleedRadiusMin : (settings.colorBleedRadius > kColorBleedRadiusMax ? kColorBleedRadiusMax : settings.colorBleedRadius);
+    return glm::vec4(intensity, radius, static_cast<float>(colorBleedTapCount(settings.colorBleedQuality)), 0.0f);
 }
 
 namespace render_settings_detail {
@@ -229,9 +297,9 @@ bool parseValue(std::string_view text, T& value) {
         value = std::string(text);
         return true;
     } else if constexpr (std::is_same_v<T, glm::vec3>) {
-        glm::vec3 v;
-        if (!parseFloat(text, v.x) || !parseFloat(text, v.y) || !parseFloat(text, v.z)) return false;
-        value = v;
+        glm::vec3 parsed;
+        if (!parseFloat(text, parsed.x) || !parseFloat(text, parsed.y) || !parseFloat(text, parsed.z)) return false;
+        value = parsed;
         return true;
     } else {
         float number = 0.0f;
@@ -262,13 +330,53 @@ void writeValue(std::ostringstream& out, const T& value) {
     }
 }
 
-}  // namespace render_settings_detail
+}
+
+export inline void clampReflectionSettings(RenderSettings& settings) {
+    settings.reflectionMode = static_cast<ReflectionMode>(std::clamp(static_cast<int>(settings.reflectionMode), 0, kReflectionModeCount - 1));
+    settings.reflectionQuality = static_cast<ReflectionQuality>(std::clamp(static_cast<int>(settings.reflectionQuality), 0, kReflectionQualityCount - 1));
+    settings.reflectionIntensity = std::clamp(settings.reflectionIntensity, 0.0f, 4.0f);
+    settings.reflectionTraceDistance = std::clamp(settings.reflectionTraceDistance, 1.0f, 1000.0f);
+}
+
+export inline constexpr float kRenderScaleMin = 0.5f;
+export inline constexpr float kRenderScaleMax = 1.0f;
+export inline constexpr float kRenderScaleStep = 0.05f;
+export inline constexpr float kTargetFrameMsMin = 4.0f;
+export inline constexpr float kTargetFrameMsMax = 100.0f;
+export inline constexpr int kAoDenoiseMax = 3;
+
+export inline float quantizeRenderScale(float scale) {
+    const float clamped = std::clamp(scale, kRenderScaleMin, kRenderScaleMax);
+    return std::clamp(std::round(clamped / kRenderScaleStep) * kRenderScaleStep, kRenderScaleMin, kRenderScaleMax);
+}
+
+export inline void clampQualitySettings(RenderSettings& settings) {
+    settings.renderScale = quantizeRenderScale(settings.renderScale);
+    settings.upscaleSharpness = std::clamp(settings.upscaleSharpness, 0.0f, 1.0f);
+    settings.targetFrameMs = std::clamp(settings.targetFrameMs, kTargetFrameMsMin, kTargetFrameMsMax);
+    settings.governorMinScale = std::clamp(quantizeRenderScale(settings.governorMinScale), kRenderScaleMin, kRenderScaleMax);
+    settings.shadowCascadeBlend = std::clamp(settings.shadowCascadeBlend, 0.0f, 0.5f);
+    settings.shadowContactLength = std::clamp(settings.shadowContactLength, 0.0f, 4.0f);
+    settings.aoDenoise = std::clamp(settings.aoDenoise, 0, kAoDenoiseMax);
+    settings.cloudAerialStrength = std::clamp(settings.cloudAerialStrength, 0.0f, 2.0f);
+}
 
 export inline bool setRenderSetting(RenderSettings& settings, std::string_view key, std::string_view value) {
+    if (key == "ssr") {
+        float enabled = 0.0f;
+        if (!render_settings_detail::parseFloat(value, enabled)) return false;
+        settings.reflectionMode = enabled > 0.5f ? (settings.reflectionMode == ReflectionMode::Off ? ReflectionMode::SSR : settings.reflectionMode) : ReflectionMode::Off;
+        return true;
+    }
     bool found = false;
     visitRenderSettings(settings, [&](std::string_view name, auto& field) {
         if (!found && name == key) found = render_settings_detail::parseValue(value, field);
     });
+    if (found) {
+        clampReflectionSettings(settings);
+        clampQualitySettings(settings);
+    }
     return found;
 }
 

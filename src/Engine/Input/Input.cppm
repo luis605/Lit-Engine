@@ -36,7 +36,7 @@ export class InputManager {
     static void KeyCallback(GLFWwindow* window, int key, int scancode, int action, int mods);
     static void MouseButtonCallback(GLFWwindow* window, int button, int action, int mods);
     static void CharCallback(GLFWwindow* window, unsigned int codepoint);
-    static void CursorPosCallback(GLFWwindow* window, glm::vec2 pos);
+    static void CursorPosCallback(GLFWwindow* window, glm::vec2 position);
 
     static std::array<KeyState, GLFW_KEY_LAST + 1> m_keyStates;
     static std::array<KeyState, GLFW_MOUSE_BUTTON_LAST + 1> m_mouseButtonStates;

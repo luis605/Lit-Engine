@@ -79,8 +79,11 @@ export class CharacterController {
 
   private:
     [[nodiscard]] std::vector<PhysicsContact> gather(const glm::vec3& position);
-    [[nodiscard]] bool filtered(EntityHandle e) const;
-    void step(float h);
+    [[nodiscard]] bool filtered(EntityHandle entity) const;
+    void step(float stepSeconds);
+    void alignUp(const glm::vec3& gravityVector, float stepSeconds);
+    void accelerate(const glm::vec3& gravityVector, float stepSeconds);
+    [[nodiscard]] glm::vec3 wishVelocity() const;
     void move(const glm::vec3& delta);
     bool resolve(glm::vec3& position, bool* wall);
     bool tryStep(const glm::vec3& start, const glm::vec3& delta);
@@ -93,7 +96,7 @@ export class CharacterController {
     World& m_world;
     PortalSystem& m_portals;
     const PhysicsSettings& m_physics;
-    CharacterSettings m_s;
+    CharacterSettings m_settings;
     CameraRig m_rig;
     CharacterInput m_input;
     EntityHandle m_entity;

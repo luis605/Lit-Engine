@@ -1,7 +1,6 @@
 module;
 
 #include <chrono>
-#include <memory>
 #include <functional>
 #include <memory>
 #include <optional>
@@ -18,6 +17,7 @@ import Engine.renderer;
 import Engine.camera;
 import Engine.Render.scenedatabase;
 import Engine.mesh;
+import Engine.asset;
 import Engine.World;
 import Engine.Portal;
 import Engine.Portal.view;
@@ -32,6 +32,7 @@ import Engine.inputactions;
 import Engine.glm;
 import Engine.Render.material;
 import Engine.Render.settings;
+import Engine.Render.reflection;
 import Engine.Render.custom;
 import Engine.Replay;
 import Engine.Perf;
@@ -71,7 +72,7 @@ export class Engine {
     int run(const std::function<void(float)>& frame = {});
     bool openHeadless();
     [[nodiscard]] bool headless() const { return m_headless; }
-    int runHeadless(uint64_t ticks = 0, float dt = 0.0f, const std::function<void(uint64_t)>& beforeTick = {});
+    int runHeadless(uint64_t ticks = 0, float deltaTime = 0.0f, const std::function<void(uint64_t)>& beforeTick = {});
     void seed(uint64_t value) { m_world.random().seed(value); }
     void setInput(const InputState& state) { m_inputPending = state; }
     [[nodiscard]] const SimInput& simInput() const { return m_simInput; }
@@ -113,7 +114,7 @@ export class Engine {
     [[nodiscard]] AnimationLibrary& animations() { return m_animations; }
     [[nodiscard]] JobSystem& jobs() { return m_jobs; }
     [[nodiscard]] Profiler& profiler() { return m_profiler; }
-    void addSystem(Phase phase, std::string name, SystemFn fn, bool runWhenPaused = false);
+    void addSystem(Phase phase, std::string name, SystemFn system, bool runWhenPaused = false);
     bool removeSystem(const std::string& name);
     bool setSystemEnabled(const std::string& name, bool enabled);
     [[nodiscard]] bool isSystemEnabled(const std::string& name) const;
@@ -129,7 +130,9 @@ export class Engine {
     [[nodiscard]] Ray screenRay(float screenX, float screenY);
     [[nodiscard]] std::optional<glm::vec2> worldToScreen(const glm::vec3& point);
     [[nodiscard]] glm::vec2 windowSize() const { return glm::vec2(static_cast<float>(m_windowWidth), static_cast<float>(m_windowHeight)); }
-    void setFixedTimestep(float seconds) { m_fixedStep = seconds; }
+    void setFixedTimestep(float seconds) {
+        if (seconds > 0.0f) m_fixedStep = seconds;
+    }
     void update();
     void update(World& world);
     [[nodiscard]] World& world() { return m_world; }
@@ -143,7 +146,7 @@ export class Engine {
     [[nodiscard]] StateStore* state() { return m_state.get(); }
     StoryletEngine& enableStorylets(const std::string& storyletPath = {});
     [[nodiscard]] StoryletEngine* storylets() { return m_storylets.get(); }
-    ObservationSystem& enableObservation(const ObservationConfig& config = {}, bool gpu = true);
+    ObservationSystem& enableObservation(const ObservationConfig& config = {}, bool gpuEnabled = true);
     [[nodiscard]] ObservationSystem* observation() { return m_observation.get(); }
     SaveSystem& enableSave(const std::string& autosaveDir = {}, float autosaveSeconds = 0.0f, uint32_t slots = 3);
     [[nodiscard]] SaveSystem* save() { return m_save.get(); }
@@ -153,12 +156,16 @@ export class Engine {
     void present();
     void cleanup();
     uint32_t uploadMesh(const Mesh& mesh);
+    uint32_t uploadProcessedMesh(const Mesh& optimizedMesh, const std::vector<Mesh>& lodChain);
     uint32_t loadMesh(const std::string& name);
+    void preloadMeshes(const std::vector<std::string>& names);
+    void preloadSceneMeshes(const std::string& scenePath);
     [[nodiscard]] std::string meshName(uint32_t id) const;
     [[nodiscard]] std::vector<std::string> availableMeshes() const;
     [[nodiscard]] std::vector<GpuPassTiming> gpuTimings() const { return m_renderer.gpuTimings(); }
     [[nodiscard]] double gpuTotalMilliseconds() const { return m_renderer.gpuTotalMilliseconds(); }
     [[nodiscard]] size_t renderOverCapacity() const { return m_renderer.overCapacity(); }
+    void bakeReflectionProbes() { m_renderer.bakeProbes(); }
     void setProfilingHud(bool enabled) { m_renderer.setProfilingHud(enabled); }
     void requestScreenshot(std::string path) { m_renderer.requestScreenshot(std::move(path)); }
     uint32_t createMaterial(const glm::vec3& color, float strength = 1.0f);
@@ -210,8 +217,8 @@ export class Engine {
         bool runWhenPaused = false;
     };
 
-    void runSystems(Phase phase, float dt, bool paused);
-    void beginTickInput(float& dt);
+    void runSystems(Phase phase, float deltaTime, bool paused);
+    void beginTickInput(float& deltaTime);
     void uploadParams();
     void applyPostFx();
     void pollData();
@@ -275,6 +282,16 @@ export class Engine {
     std::unordered_map<uint32_t, uint32_t> m_surfaceRemap;
     void registerSceneSections();
     void uploadMaterial(uint32_t id);
+    struct MeshLocalBox {
+        glm::vec3 center{0.0f};
+        glm::vec3 halfExtents{0.0f};
+    };
+    std::unordered_map<uint32_t, MeshLocalBox> m_meshBoxes;
+    void recordMeshBox(uint32_t id, const Mesh& mesh);
+    uint32_t registerProcessedMesh(const std::string& name, const ProcessedMesh& processed);
+    ReflectionScene m_reflectionScene;
+    uint64_t m_reflectionFrame = 0;
+    void refreshReflectionScene();
     bool m_shaderWatch = false;
     std::chrono::steady_clock::time_point m_lastShaderPoll{};
     std::unordered_map<std::string, long long> m_shaderStamps;

@@ -19,11 +19,11 @@ vec3 cascadeCoord(int cascade, vec3 worldPos) {
     return vec3(ndc.x * 0.5 + 0.5, 0.5 - ndc.y * 0.5, ndc.z);
 }
 
-float cascadeVisibility(int cascade, vec3 worldPos, vec3 N, float NoL, float noise) {
+float cascadeVisibility(int cascade, vec3 worldPos, vec3 N, float NoL, float noise, int sampleCount) {
     vec4 info = cascadeInfo[cascade];
     float texelWorld = info.x;
     float depthRange = info.y;
-    float slope = sqrt(max(1.0 - NoL * NoL, 0.0)) / max(NoL, 0.05);
+    float slope = min(sqrt(max(1.0 - NoL * NoL, 0.0)) / max(NoL, 0.05), 6.0);
     vec3 offsetPos = worldPos + N * texelWorld * shadowParams.w * (0.6 + 0.8 * slope);
     vec3 coord = cascadeCoord(cascade, offsetPos);
     if (any(lessThan(coord.xy, vec2(0.0))) || any(greaterThan(coord.xy, vec2(1.0))) || coord.z >= 1.0) return 1.0;
@@ -53,11 +53,11 @@ float cascadeVisibility(int cascade, vec3 worldPos, vec3 N, float NoL, float noi
         filterRadius = 1.5 * max(shadowParams.z, 0.3);
     }
     float sum = 0.0;
-    for (int i = 0; i < PCF_SAMPLES; ++i) {
-        vec2 offset = vogelDisk(i, PCF_SAMPLES, phi) * filterRadius * texel;
+    for (int i = 0; i < sampleCount; ++i) {
+        vec2 offset = vogelDisk(i, sampleCount, phi) * filterRadius * texel;
         sum += texture(u_shadowMap, vec4(coord.xy + offset, info.z, reference));
     }
-    return sum / float(PCF_SAMPLES);
+    return sum / float(sampleCount);
 }
 
 float sunShadow(vec3 worldPos, vec3 N, float NoL, vec2 pixel) {
@@ -73,12 +73,15 @@ float sunShadow(vec3 worldPos, vec3 N, float NoL, vec2 pixel) {
     }
     if (cascade < 0) return 1.0;
     float noise = shadowNoise(pixel);
-    float visibility = cascadeVisibility(cascade, worldPos, N, NoL, noise);
+    int samples = cascade >= 2 ? PCF_SAMPLES / 2 : PCF_SAMPLES;
+    float visibility = cascadeVisibility(cascade, worldPos, N, NoL, noise, samples);
+    float blendFraction = max(qualityParams.x, 1e-3);
     float cascadeStart = cascade == 0 ? 0.0 : cascadeSplits[cascade - 1];
     float cascadeEnd = cascadeSplits[cascade];
-    float blend = saturate((viewDepth - mix(cascadeStart, cascadeEnd, 0.88)) / max(cascadeEnd * 0.12, 1e-3));
+    float blendStart = mix(cascadeStart, cascadeEnd, 1.0 - blendFraction);
+    float blend = qualityParams.x > 0.0 ? smoothstep(0.0, 1.0, saturate((viewDepth - blendStart) / max(cascadeEnd - blendStart, 1e-3))) : 0.0;
     if (blend > 0.0 && cascade + 1 < count) {
-        visibility = mix(visibility, cascadeVisibility(cascade + 1, worldPos, N, NoL, noise), blend);
+        visibility = mix(visibility, cascadeVisibility(cascade + 1, worldPos, N, NoL, noise, PCF_SAMPLES / 2), blend);
     } else if (blend > 0.0) {
         visibility = mix(visibility, 1.0, blend);
     }

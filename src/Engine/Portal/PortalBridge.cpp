@@ -8,54 +8,54 @@ module;
 module Engine.PortalBridge;
 
 std::vector<VisibleCell> visibleCells(const PortalFrame& frame, int shadowDepth) {
-    std::vector<VisibleCell> out;
-    for (size_t i = 0; i < frame.nodes.size(); ++i) {
-        const PortalViewNode& n = frame.nodes[i];
-        if (n.cell < 0) continue;
-        auto it = std::find_if(out.begin(), out.end(), [&](const VisibleCell& v) { return v.cell == n.cell; });
-        if (it != out.end() && it->depth <= n.depth) continue;
-        VisibleCell v;
-        v.cell = n.cell;
-        v.depth = n.depth;
-        v.node = static_cast<int>(i);
-        v.sun = n.sunScale;
-        v.ambient = n.ambientScale;
-        v.shadows = n.depth <= shadowDepth;
-        if (it != out.end()) *it = v;
-        else out.push_back(v);
+    std::vector<VisibleCell> visible;
+    for (size_t nodeIndex = 0; nodeIndex < frame.nodes.size(); ++nodeIndex) {
+        const PortalViewNode& node = frame.nodes[nodeIndex];
+        if (node.cell < 0) continue;
+        auto existing = std::find_if(visible.begin(), visible.end(), [&](const VisibleCell& entry) { return entry.cell == node.cell; });
+        if (existing != visible.end() && existing->depth <= node.depth) continue;
+        VisibleCell entry;
+        entry.cell = node.cell;
+        entry.depth = node.depth;
+        entry.node = static_cast<int>(nodeIndex);
+        entry.sun = node.sunScale;
+        entry.ambient = node.ambientScale;
+        entry.shadows = node.depth <= shadowDepth;
+        if (existing != visible.end()) *existing = entry;
+        else visible.push_back(entry);
     }
-    std::sort(out.begin(), out.end(), [](const VisibleCell& a, const VisibleCell& b) { return a.depth < b.depth; });
-    return out;
+    std::sort(visible.begin(), visible.end(), [](const VisibleCell& left, const VisibleCell& right) { return left.depth < right.depth; });
+    return visible;
 }
 
 namespace {
-glm::vec3 standPoint(const Portal& p, float standOff) {
-    return p.center() - p.up() * p.half.y + p.normal() * standOff;
+glm::vec3 standPoint(const Portal& portal, float standOff) {
+    return portal.center() - portal.up() * portal.half.y + portal.normal() * standOff;
 }
 }
 
 size_t PortalNavLinks::sync(NavMesh& nav, const PortalSystem& portals, const PortalNavSettings& settings) {
     clear(nav);
     const auto& list = portals.portals();
-    for (size_t i = 0; i < list.size(); ++i) {
-        const Portal& a = list[i];
-        if (a.partner < 0 || static_cast<size_t>(a.partner) < i) continue;
-        const Portal& b = list[static_cast<size_t>(a.partner)];
-        if (std::abs(a.up().y) < settings.minUpright || std::abs(b.up().y) < settings.minUpright) continue;
+    for (size_t index = 0; index < list.size(); ++index) {
+        const Portal& portalA = list[index];
+        if (portalA.partner < 0 || static_cast<size_t>(portalA.partner) < index) continue;
+        const Portal& portalB = list[static_cast<size_t>(portalA.partner)];
+        if (std::abs(portalA.up().y) < settings.minUpright || std::abs(portalB.up().y) < settings.minUpright) continue;
         NavLink link;
-        link.a = standPoint(a, settings.standOff);
-        link.b = standPoint(b, settings.standOff);
+        link.a = standPoint(portalA, settings.standOff);
+        link.b = standPoint(portalB, settings.standOff);
         link.radius = settings.linkRadius;
         link.cost = settings.cost;
         link.bidirectional = true;
-        link.userData = static_cast<int>(i);
+        link.userData = static_cast<int>(index);
         m_ids.push_back(nav.addLink(link));
     }
     return m_ids.size();
 }
 
 void PortalNavLinks::clear(NavMesh& nav) {
-    for (uint32_t id : m_ids) nav.removeLink(id);
+    for (uint32_t linkId : m_ids) nav.removeLink(linkId);
     m_ids.clear();
 }
 
@@ -63,15 +63,15 @@ AudioHopFn portalAudioHook(const PortalSystem& portals, float standOff) {
     return [&portals, standOff](const glm::vec3& from, std::vector<AudioHop>& out) {
         const int cell = portals.cellAt(from);
         if (cell < 0) return;
-        for (int id : portals.portalsOf(cell)) {
-            const Portal& a = portals.portals()[static_cast<size_t>(id)];
-            if (a.partner < 0) continue;
-            const Portal& b = portals.portals()[static_cast<size_t>(a.partner)];
+        for (int portalId : portals.portalsOf(cell)) {
+            const Portal& portalA = portals.portals()[static_cast<size_t>(portalId)];
+            if (portalA.partner < 0) continue;
+            const Portal& portalB = portals.portals()[static_cast<size_t>(portalA.partner)];
             AudioHop hop;
-            hop.entry = a.center() + a.normal() * standOff;
-            hop.exit = b.center() + b.normal() * standOff;
+            hop.entry = portalA.center() + portalA.normal() * standOff;
+            hop.exit = portalB.center() + portalB.normal() * standOff;
             hop.cost = 0.0f;
-            hop.id = id;
+            hop.id = portalId;
             out.push_back(hop);
         }
     };

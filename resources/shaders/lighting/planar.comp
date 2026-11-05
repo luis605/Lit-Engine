@@ -1,0 +1,60 @@
+#version 450
+#extension GL_GOOGLE_include_directive : require
+#include "reflection.glsl"
+
+layout(local_size_x = 8, local_size_y = 8, local_size_z = 1) in;
+
+uniform sampler2D u_depth;
+uniform sampler2D u_sceneColor;
+
+layout(r32ui) uniform uimage2D u_planarDepth;
+#ifdef PASS_COLOR
+layout(rgba16f) writeonly uniform image2D u_planarColor;
+#endif
+
+const uint EMPTY_KEY = 0xFFFFFFFFu;
+const float MIN_PLANE_HEIGHT = 0.03;
+const float MAX_PLANE_HEIGHT = 60.0;
+
+bool mirrorSource(ivec2 id, ivec2 targetSize, out ivec2 targetPixel, out uint key, out vec2 sourceUv) {
+    int divisor = planarDivisor();
+    ivec2 sourcePixel = min(id * divisor + divisor / 2, ivec2(screenParams.xy) - 1);
+    sourceUv = (vec2(sourcePixel) + 0.5) * screenParams.zw;
+    float depth = texelFetch(u_depth, sourcePixel, 0).r;
+    if (depth >= 1.0) return false;
+    vec3 worldPosition = worldFromDepth(sourceUv, depth);
+    vec3 planeUp = planeNormal.xyz;
+    float height = dot(worldPosition - planeCenter.xyz, planeUp);
+    if (height < MIN_PLANE_HEIGHT || height > MAX_PLANE_HEIGHT) return false;
+    vec3 mirrored = worldPosition - 2.0 * height * planeUp;
+    vec4 clip = viewProjection * vec4(mirrored, 1.0);
+    if (clip.w <= nearPlane) return false;
+    vec2 ndc = clip.xy / clip.w;
+    vec2 mirrorUv = vec2(ndc.x * 0.5 + 0.5, 0.5 - ndc.y * 0.5);
+    if (any(lessThan(mirrorUv, vec2(0.0))) || any(greaterThanEqual(mirrorUv, vec2(1.0)))) return false;
+    targetPixel = min(ivec2(mirrorUv * vec2(targetSize)), targetSize - 1);
+    key = floatBitsToUint(clip.w);
+    return true;
+}
+
+void main() {
+    ivec2 id = ivec2(gl_GlobalInvocationID.xy);
+    ivec2 targetSize = imageSize(u_planarDepth);
+    if (any(greaterThanEqual(id, targetSize))) return;
+#ifdef PASS_CLEAR
+    imageStore(u_planarDepth, id, uvec4(EMPTY_KEY));
+#else
+    ivec2 targetPixel;
+    uint key;
+    vec2 sourceUv;
+    if (!mirrorSource(id, targetSize, targetPixel, key, sourceUv)) return;
+#ifdef PASS_DEPTH
+    imageAtomicMin(u_planarDepth, targetPixel, key);
+#endif
+#ifdef PASS_COLOR
+    if (imageLoad(u_planarDepth, targetPixel).r != key) return;
+    float lod = log2(float(planarDivisor()));
+    imageStore(u_planarColor, targetPixel, vec4(textureLod(u_sceneColor, sourceUv, lod).rgb, 1.0));
+#endif
+#endif
+}

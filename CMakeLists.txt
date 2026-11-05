@@ -61,6 +61,7 @@ add_subdirectory(src/Engine)
 add_subdirectory(src/Editor)
 add_subdirectory(src/Sandbox)
 add_subdirectory(src/Headless)
+add_subdirectory(src/Shot)
 
 enable_testing()
 add_subdirectory(tests)

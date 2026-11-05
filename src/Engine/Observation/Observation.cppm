@@ -63,20 +63,23 @@ export class ObservationSystem {
   public:
     explicit ObservationSystem(World& world, ObservationConfig config = {}) : m_world(world), m_config(config) {}
 
-    void track(EntityHandle e);
-    void untrack(EntityHandle e);
+    void track(EntityHandle entity);
+    void untrack(EntityHandle entity);
     [[nodiscard]] std::vector<EntityHandle> trackedEntities() const {
-        std::vector<EntityHandle> out;
-        out.reserve(m_entities.size());
-        for (const auto& [index, t] : m_entities) out.push_back(t.handle);
-        return out;
+        std::vector<EntityHandle> entities;
+        entities.reserve(m_entities.size());
+        for (const auto& [index, tracked] : m_entities) entities.push_back(tracked.handle);
+        return entities;
     }
-    [[nodiscard]] bool tracked(EntityHandle e) const { return m_entities.contains(e.index) && m_entities.at(e.index).handle == e; }
-    [[nodiscard]] ObservationState state(EntityHandle e) const;
-    [[nodiscard]] std::vector<EntityHandle> inState(ObservationState s) const;
+    [[nodiscard]] bool tracked(EntityHandle entity) const {
+        const auto found = m_entities.find(entity.index);
+        return found != m_entities.end() && found->second.handle == entity;
+    }
+    [[nodiscard]] ObservationState state(EntityHandle entity) const;
+    [[nodiscard]] std::vector<EntityHandle> inState(ObservationState wanted) const;
     [[nodiscard]] std::vector<EntityHandle> attended() const { return inState(ObservationState::Attended); }
 
-    void setIgnore(EntityHandle e) { m_ignore = e; }
+    void setIgnore(EntityHandle entity) { m_ignore = entity; }
     void setView(const ObservationView& view) { m_view = view; }
     [[nodiscard]] const ObservationView& view() const { return m_view; }
     void setConfig(const ObservationConfig& config) { m_config = config; }
@@ -107,9 +110,13 @@ export class ObservationSystem {
         std::vector<uint32_t> ids;
     };
 
-    ObservationState rawCpu(const Tracked& t, float coneDegrees, float& angleOut);
+    ObservationState rawCpu(const Tracked& tracked, float coneDegrees, float& angleOut);
     void rawGpu(std::unordered_map<uint32_t, ObservationState>& out);
-    void apply(Tracked& t, ObservationState raw);
+    ObservationState rawFromGpu(const Tracked& tracked, const std::unordered_map<uint32_t, ObservationState>& gpu, float& angleOut) const;
+    bool occludedByOther(const Tracked& tracked, const glm::vec3& direction, float distance, float radius);
+    void removeDeadEntities();
+    void logLatency();
+    void apply(Tracked& tracked, ObservationState raw);
 
     World& m_world;
     ObservationConfig m_config;

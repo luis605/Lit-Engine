@@ -100,7 +100,7 @@ struct Fuzzer {
     }
 };
 
-}  // namespace
+}
 
 int main() {
     if (!glfwInit()) {

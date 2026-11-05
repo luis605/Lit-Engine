@@ -11,12 +11,14 @@ struct IDeviceContext;
 struct ISwapChain;
 struct ITextureView;
 enum TEXTURE_FORMAT : std::uint16_t;
-}  // namespace Diligent
+}
 
 export module Engine.UI.imgui;
 
 export class ImGuiLayer {
   public:
+    struct Data;
+
     ImGuiLayer();
     ~ImGuiLayer();
     ImGuiLayer(const ImGuiLayer&) = delete;
@@ -30,7 +32,6 @@ export class ImGuiLayer {
     [[nodiscard]] bool initialized() const { return m_data != nullptr; }
 
   private:
-    struct Data;
     Data* m_data = nullptr;
     bool m_frameActive = false;
 };

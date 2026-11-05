@@ -47,6 +47,9 @@ layout(std140) uniform SceneData {
     vec4 maskParams;
     vec4 maskColor;
     vec4 vignetteParams;
+    vec4 bleedParams;
+    vec4 qualityParams;
+    vec4 qualityParams2;
 };
 
 float projectedDiameterPx(float radius, float dist) {

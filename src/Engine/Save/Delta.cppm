@@ -4,6 +4,7 @@ module;
 #include <map>
 #include <set>
 #include <string>
+#include <unordered_map>
 #include <utility>
 #include <vector>
 
@@ -64,6 +65,9 @@ export class DeltaStore {
         std::vector<Base> bases;
         std::vector<Added> added;
         bool resident = false;
+        std::unordered_map<std::string, uint32_t> index;
+        size_t indexed = 0;
+        bool duplicateKeys = false;
     };
     struct Stored {
         std::map<std::string, EntityState> changed;
@@ -74,8 +78,16 @@ export class DeltaStore {
         [[nodiscard]] bool empty() const { return changed.empty() && removed.empty() && added.empty() && !hasParams; }
     };
 
-    [[nodiscard]] EntityState read(EntityHandle e) const;
-    void write(EntityHandle e, const EntityState& s);
+    [[nodiscard]] EntityState read(EntityHandle entity) const;
+    void readInto(EntityHandle entity, EntityState& state, const std::vector<std::string>& componentNames) const;
+    [[nodiscard]] bool matches(EntityHandle entity, const EntityState& state, const std::vector<std::string>& componentNames) const;
+    void write(EntityHandle entity, const EntityState& state);
+    void writeChanges(EntityHandle entity, const EntityState& state);
+    void applyStored(Live& live, const Stored& stored);
+    static void buildIndex(Live& live);
+    [[nodiscard]] static Json storedJson(const Stored& stored);
+    [[nodiscard]] static Stored storedFrom(const Json& cell);
+    void revertToBaseline();
     void captureParams(const std::string& cell);
     void applyParams(const std::string& cell);
 

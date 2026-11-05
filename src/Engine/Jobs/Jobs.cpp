@@ -13,13 +13,13 @@ module;
 module Engine.Jobs;
 
 size_t JobSystem::defaultWorkerCount() {
-    const unsigned int hardware = std::thread::hardware_concurrency();
-    return hardware > 1 ? hardware - 1 : 0;
+    const unsigned int hardwareThreads = std::thread::hardware_concurrency();
+    return hardwareThreads > 1 ? hardwareThreads - 1 : 0;
 }
 
-JobSystem::JobSystem(size_t workers) {
-    m_threads.reserve(workers);
-    for (size_t i = 0; i < workers; ++i) m_threads.emplace_back([this] { workerLoop(); });
+JobSystem::JobSystem(size_t workerTotal) {
+    m_threads.reserve(workerTotal);
+    for (size_t worker = 0; worker < workerTotal; ++worker) m_threads.emplace_back([this] { workerLoop(); });
 }
 
 JobSystem::~JobSystem() {
@@ -28,26 +28,26 @@ JobSystem::~JobSystem() {
         m_stop = true;
     }
     m_wake.notify_all();
-    for (std::thread& t : m_threads) t.join();
+    for (std::thread& thread : m_threads) thread.join();
 }
 
 void JobSystem::drain(Job& job) {
     while (true) {
         const size_t begin = job.next.fetch_add(job.grain);
         if (begin >= job.count) return;
-        (*job.fn)(begin, std::min(begin + job.grain, job.count));
+        (*job.body)(begin, std::min(begin + job.grain, job.count));
     }
 }
 
 void JobSystem::workerLoop() {
-    uint64_t seen = 0;
+    uint64_t seenGeneration = 0;
     while (true) {
         Job* job = nullptr;
         {
             std::unique_lock<std::mutex> lock(m_mutex);
-            m_wake.wait(lock, [&] { return m_stop || m_generation != seen; });
+            m_wake.wait(lock, [&] { return m_stop || m_generation != seenGeneration; });
             if (m_stop) return;
-            seen = m_generation;
+            seenGeneration = m_generation;
             job = m_job;
         }
         drain(*job);
@@ -58,17 +58,17 @@ void JobSystem::workerLoop() {
     }
 }
 
-void JobSystem::parallelFor(size_t count, size_t grain, const std::function<void(size_t, size_t)>& fn) {
+void JobSystem::parallelFor(size_t count, size_t grain, const std::function<void(size_t, size_t)>& body) {
     if (count == 0) return;
     grain = std::max<size_t>(grain, 1);
     if (m_threads.empty() || count <= grain) {
-        fn(0, count);
+        body(0, count);
         return;
     }
 
-    std::lock_guard<std::mutex> submit(m_submit);
+    std::lock_guard<std::mutex> submitLock(m_submitMutex);
     Job job;
-    job.fn = &fn;
+    job.body = &body;
     job.count = count;
     job.grain = grain;
     {

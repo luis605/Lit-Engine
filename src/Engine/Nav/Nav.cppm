@@ -1,9 +1,12 @@
 module;
 
+#include <atomic>
 #include <cstdint>
 #include <functional>
 #include <map>
+#include <memory>
 #include <optional>
+#include <mutex>
 #include <set>
 #include <unordered_map>
 #include <vector>
@@ -49,6 +52,7 @@ export struct NavPath {
     bool partial = false;
     std::vector<NavPathPoint> points;
     float length = 0.0f;
+    float gridCost = 0.0f;
     uint32_t expansions = 0;
 };
 
@@ -57,6 +61,36 @@ export struct NavNodeId {
     int cz = 0;
     uint32_t layer = 0;
     bool operator==(const NavNodeId&) const = default;
+};
+
+struct NavSearchTables;
+struct NavPathSearch;
+
+export class NavMesh;
+
+export class NavPathQuery {
+  public:
+    NavPathQuery();
+    ~NavPathQuery();
+    NavPathQuery(NavPathQuery&&) noexcept;
+    NavPathQuery& operator=(NavPathQuery&&) noexcept;
+    [[nodiscard]] bool done() const { return m_done; }
+    [[nodiscard]] const NavPath& path() const { return m_path; }
+    [[nodiscard]] uint64_t version() const { return m_version; }
+    [[nodiscard]] uint32_t expansions() const { return m_expansions; }
+    [[nodiscard]] const glm::vec3& from() const { return m_from; }
+    [[nodiscard]] const glm::vec3& to() const { return m_to; }
+
+  private:
+    friend class NavMesh;
+    glm::vec3 m_from{0.0f};
+    glm::vec3 m_to{0.0f};
+    uint64_t m_version = 0;
+    uint32_t m_expansions = 0;
+    bool m_done = true;
+    NavPath m_path;
+    std::unique_ptr<NavSearchTables> m_tables;
+    std::unique_ptr<NavPathSearch> m_search;
 };
 
 export class NavMesh {
@@ -88,14 +122,21 @@ export class NavMesh {
 
     [[nodiscard]] std::optional<NavNodeId> nearestNode(const glm::vec3& position, float maxDistance) const;
     [[nodiscard]] glm::vec3 nodePosition(const NavNodeId& node) const;
+    int gridNeighbors(const NavNodeId& node, NavNodeId (&out)[8]) const;
     [[nodiscard]] std::optional<glm::vec3> nearestPoint(const glm::vec3& position, float maxDistance) const;
     [[nodiscard]] bool walkable(const glm::vec3& position) const;
     [[nodiscard]] bool lineWalkable(const glm::vec3& a, const glm::vec3& b) const;
     [[nodiscard]] NavPath findPath(const glm::vec3& from, const glm::vec3& to) const;
+    void findPathInto(const glm::vec3& from, const glm::vec3& to, NavPath& out) const;
+    void beginPath(NavPathQuery& query, const glm::vec3& from, const glm::vec3& to) const;
+    bool advancePath(NavPathQuery& query, uint32_t expansionBudget) const;
+    [[nodiscard]] bool pathStale(const NavPath& path, uint64_t sinceVersion) const;
+    [[nodiscard]] std::optional<float> groundHeight(const glm::vec3& position) const;
     [[nodiscard]] const Bvh& bvh() const { return m_bvh; }
 
   private:
     struct Tile {
+        uint64_t builtVersion = 0;
         std::vector<uint32_t> start;
         std::vector<float> heights;
     };
@@ -107,6 +148,7 @@ export class NavMesh {
         bool fromA = true;
         uint64_t target = 0;
     };
+    friend struct NavPathSearch;
 
     [[nodiscard]] static uint64_t tileKey(int tx, int tz);
     [[nodiscard]] static uint64_t nodeKey(const NavNodeId& n);
@@ -130,7 +172,19 @@ export class NavMesh {
     uint32_t m_nextObstacle = 1;
     uint32_t m_nextLink = 1;
     uint64_t m_version = 1;
-    mutable uint64_t m_linkVersion = 0;
+    uint64_t m_resetVersion = 1;
+    uint64_t m_linkChangeVersion = 1;
+    struct LinkGuard {
+        std::mutex mutex;
+        std::atomic<uint64_t> builtVersion{0};
+        LinkGuard() = default;
+        LinkGuard(const LinkGuard&) {}
+        LinkGuard& operator=(const LinkGuard&) {
+            builtVersion.store(0);
+            return *this;
+        }
+    };
+    mutable LinkGuard m_linkGuard;
     mutable std::unordered_map<uint64_t, std::vector<LinkEnd>> m_linkAdj;
 };
 
@@ -143,6 +197,7 @@ export struct NavAgent {
     float maxSpeed = 3.0f;
     float maxAccel = 12.0f;
     float arriveRadius = 1.0f;
+    float cornerRadius = 0.5f;
     float stopDistance = 0.1f;
     float separationWeight = 1.5f;
     glm::vec3 target{0.0f};
@@ -159,3 +214,60 @@ export using NavLinkTraverseFn = std::function<void(NavAgent&, const NavLink&, c
 export void navSetTarget(const NavMesh& mesh, NavAgent& agent, const glm::vec3& target);
 export void navStepAgent(const NavMesh& mesh, NavAgent& agent, float dt, const std::vector<NavAgent>* others = nullptr, const NavLinkTraverseFn& traverse = {});
 export void navStepAgents(const NavMesh& mesh, std::vector<NavAgent>& agents, float dt, const NavLinkTraverseFn& traverse = {});
+
+export struct NavCrowdConfig {
+    uint32_t pathExpansionBudget = ~uint32_t(0);
+    uint32_t queriesPerStep = 64;
+    size_t cacheEntries = 256;
+    float neighborRange = 3.0f;
+};
+
+export struct NavCrowdStats {
+    uint32_t expansions = 0;
+    uint32_t pathsCompleted = 0;
+    uint32_t cacheHits = 0;
+    uint32_t pending = 0;
+    uint32_t repathsSkipped = 0;
+};
+
+struct NavCrowdImpl;
+
+export class NavCrowd {
+  public:
+    NavCrowd();
+    explicit NavCrowd(const NavCrowdConfig& config);
+    ~NavCrowd();
+    NavCrowd(NavCrowd&&) noexcept;
+    NavCrowd& operator=(NavCrowd&&) noexcept;
+
+    void configure(const NavCrowdConfig& config);
+    [[nodiscard]] const NavCrowdConfig& config() const;
+    [[nodiscard]] const NavCrowdStats& stats() const;
+    void clearCache();
+    void step(const NavMesh& mesh, std::vector<NavAgent>& agents, float dt, const NavLinkTraverseFn& traverse = {});
+
+  private:
+    std::unique_ptr<NavCrowdImpl> m_impl;
+};
+
+inline constexpr int kNavMaxNeighbors = 8;
+
+struct NavNeighbor {
+    glm::vec3 position{0.0f};
+    glm::vec3 velocity{0.0f};
+    float radius = 0.0f;
+};
+
+struct NavNeighborSet {
+    NavNeighbor items[kNavMaxNeighbors];
+    float distances[kNavMaxNeighbors];
+    int count = 0;
+};
+
+void navConsiderNeighbor(NavNeighborSet& set, const NavNeighbor& neighbor, float distanceSquared);
+glm::vec3 navOrcaVelocity(const NavAgent& agent, const glm::vec3& preferred, const NavNeighborSet& set, float dt);
+glm::vec3 navAvoidVelocity(const NavAgent& agent, const glm::vec3& preferred, const NavNeighborSet& set, float dt);
+bool navAgentIdle(const NavAgent& agent);
+bool navAgentFinite(const NavAgent& agent);
+void navAssignPath(const NavMesh& mesh, NavAgent& agent);
+void navFollowPath(const NavMesh& mesh, NavAgent& agent, float dt, const NavNeighborSet& set, const NavLinkTraverseFn& traverse);

@@ -81,9 +81,15 @@ target_sources(Engine
         Render/ObservationPass.cppm
         Render/Material.cppm
         Render/RenderSettings.cppm
+        Render/QualityGovernor.cppm
+        Render/Reflection.cppm
         Render/Lighting.cppm
         Render/CustomPasses.cppm
         World/World.cppm
+        World/WorldTypes.cppm
+        World/WorldPool.cppm
+        World/WorldCore.cppm
+        World/WorldBuilder.cppm
         Portal/PortalView.cppm
         Portal/Portal.cppm
         Portal/PortalBridge.cppm
@@ -111,7 +117,9 @@ target_sources(Engine
         Tools/Json.cppm
         Tools/Replay.cppm
         Tools/Dump.cppm
+        Tools/WorldHash.cppm
         Tools/Perf.cppm
+        Tools/SceneValidator.cppm
         Tools/TestScenes.cppm
         Params/Params.cppm
         Observation/Observation.cppm
@@ -124,12 +132,39 @@ target_sources(Engine
         Nav/Nav.cppm
         Animation/Rig.cppm
         Animation/Face.cppm
+        IK/IkSolvers.cppm
+        IK/IK.cppm
         Audio/Propagation.cppm
         Audio/Audio.cppm
     PRIVATE
         Engine.cpp
+        EngineScene.cpp
+        EngineTooling.cpp
+        EngineRendering.cpp
+        EngineFeatures.cpp
         Asset/AssetManager.cpp
-        Render/Renderer.cpp
+        Asset/AssetImport.cpp
+        Asset/AssetCache.cpp
+        Asset/AssetBatch.cpp
+        Render/RendererFrame.cpp
+        Render/RendererInit.cpp
+        Render/RendererBuffers.cpp
+        Render/RendererBindings.cpp
+        Render/RendererGpuHelpers.cpp
+        Render/RendererHiZ.cpp
+        Render/RendererMeshes.cpp
+        Render/RendererUploads.cpp
+        Render/RendererTransforms.cpp
+        Render/RendererCulling.cpp
+        Render/RendererShadows.cpp
+        Render/RendererOverlay.cpp
+        Render/RendererProfiling.cpp
+        Render/RendererQuality.cpp
+        Render/RendererPipelines.cpp
+        Render/RendererSurfaces.cpp
+        Render/RendererSurfaceParser.cpp
+        Render/RendererPortalViews.cpp
+        Render/RendererPortalPasses.cpp
         Render/Camera.cpp
         Input/Input.cpp
         Log/Log.cpp
@@ -139,13 +174,43 @@ target_sources(Engine
         Overlay/DebugOverlay.cpp
         Render/Mesh.cpp
         Render/ObservationPass.cpp
+        Render/Reflection.cpp
         Render/Lighting.cpp
+        Render/LightingReflections.cpp
+        Render/LightingFrame.cpp
+        Render/LightingShaders.cpp
+        Render/LightingShadows.cpp
+        Render/LightingPasses.cpp
+        Render/LightingPost.cpp
+        Render/LightingUpscale.cpp
         Render/CustomPasses.cpp
+        Render/CustomPassesBuild.cpp
+        Render/CustomPassesSerialize.cpp
+        Render/CustomPassesRun.cpp
         World/World.cpp
+        World/WorldScene.cpp
+        World/WorldSpatial.cpp
+        World/WorldSpatialParallel.cpp
+        World/WorldQueries.cpp
+        World/WorldSpatialQuery.cpp
+        World/WorldRaycast.cpp
+        World/WorldReflection.cpp
+        World/WorldTransform.cpp
+        World/WorldAttributes.cpp
+        World/WorldScripts.cpp
+        World/WorldComponents.cpp
+        World/WorldValidate.cpp
+        World/WorldSceneLoad.cpp
         Portal/Portal.cpp
+        Portal/PortalJson.cpp
+        Portal/PortalFrame.cpp
+        Portal/PortalQuery.cpp
+        Portal/PortalObjects.cpp
         Portal/PortalBridge.cpp
         Streaming/Streaming.cpp
+        Streaming/StreamingBatchLoader.cpp
         Save/Delta.cpp
+        Save/DeltaCodec.cpp
         Portal/PortalScene.cpp
         Physics/Physics.cpp
         Physics/PortalPhysics.cpp
@@ -157,23 +222,57 @@ target_sources(Engine
         Text/LineEditor.cpp
         Math/GizmoMath.cpp
         Tools/Json.cpp
+        Tools/JsonDump.cpp
+        Tools/JsonParse.cpp
         Tools/Replay.cpp
         Tools/Dump.cpp
+        Tools/WorldHash.cpp
         Tools/Perf.cpp
+        Tools/SceneValidator.cpp
+        Tools/FrameExplain.cpp
         Tools/TestScenes.cpp
         Params/Params.cpp
+        Params/ParamsLoader.cpp
         Observation/Observation.cpp
         State/State.cpp
         Storylet/Storylet.cpp
+        Storylet/StoryletLoad.cpp
+        Storylet/StoryletHistory.cpp
         Save/Save.cpp
         Camera/CameraRig.cpp
         Geometry/Geometry.cpp
         AI/AI.cpp
+        AI/AIEval.cpp
+        AI/AIParse.cpp
+        AI/AIExec.cpp
+        AI/AIUtility.cpp
+        AI/AIRunner.cpp
         Nav/Nav.cpp
+        Nav/NavBuild.cpp
+        Nav/NavPath.cpp
+        Nav/NavAgent.cpp
+        Nav/NavAvoid.cpp
+        Nav/NavOrca.cpp
+        Nav/NavCrowd.cpp
+        Nav/NavQuery.cpp
         Animation/Rig.cpp
+        Animation/RigIk.cpp
         Animation/Face.cpp
+        IK/IkSolvers.cpp
+        IK/IkChain.cpp
+        IK/Walker.cpp
+        IK/WalkerBody.cpp
+        IK/WalkerGait.cpp
+        IK/IkRecipes.cpp
+        IK/IkHierarchy.cpp
+        IK/IkSerialize.cpp
+        IK/IkJson.cpp
+        IK/IkDebug.cpp
         Audio/Propagation.cpp
-        Audio/Audio.cpp
+        Audio/AudioIO.cpp
+        Audio/AudioMixer.cpp
+        Audio/AudioMixerRender.cpp
+        Audio/VoiceScheduler.cpp
 )
 
 target_compile_features(Engine PUBLIC cxx_std_23)

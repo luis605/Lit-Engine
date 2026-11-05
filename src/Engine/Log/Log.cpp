@@ -1,7 +1,9 @@
 #include "Engine/Log/Log.hpp"
-#include <iostream>
-#include <iomanip>
 #include <chrono>
+#include <cstdlib>
+#include <ctime>
+#include <iomanip>
+#include <iostream>
 
 namespace Lit {
 
@@ -10,24 +12,23 @@ const auto kProcessStart = std::chrono::steady_clock::now();
 auto lastPhase = kProcessStart;
 }
 
-void Log::Init() {
-}
+void Log::Init() {}
 
 void Log::Phase(std::string_view name, std::source_location location) {
     const auto now = std::chrono::steady_clock::now();
-    const double step = std::chrono::duration<double, std::milli>(now - lastPhase).count();
-    const double total = std::chrono::duration<double, std::milli>(now - kProcessStart).count();
+    const double stepMilliseconds = std::chrono::duration<double, std::milli>(now - lastPhase).count();
+    const double totalMilliseconds = std::chrono::duration<double, std::milli>(now - kProcessStart).count();
     lastPhase = now;
-    LogInternal(LogLevel::Info, location, std::format("[startup] {}: {:.1f} ms (at {:.1f} ms)", name, step, total));
+    LogInternal(LogLevel::Info, location, std::format("[startup] {}: {:.1f} ms (at {:.1f} ms)", name, stepMilliseconds, totalMilliseconds));
 }
 
 void Log::LogInternal(LogLevel level, const std::source_location& location, const std::string& message) {
-    auto now = std::chrono::system_clock::now();
-    auto time = std::chrono::system_clock::to_time_t(now);
-    std::tm tm = *std::localtime(&time);
+    const std::time_t time = std::chrono::system_clock::to_time_t(std::chrono::system_clock::now());
+    std::tm localTime{};
+    localtime_r(&time, &localTime);
 
-    const char* levelString;
-    const char* color;
+    const char* levelString = "INFO";
+    const char* color = "\033[32m";
 
     switch (level) {
     case LogLevel::Info:
@@ -52,8 +53,8 @@ void Log::LogInternal(LogLevel level, const std::source_location& location, cons
         break;
     }
 
-    std::cout << '[' << std::setfill('0') << std::setw(2) << tm.tm_hour << ':'
-              << std::setw(2) << tm.tm_min << ':' << std::setw(2) << tm.tm_sec << "] "
+    std::cout << '[' << std::setfill('0') << std::setw(2) << localTime.tm_hour << ':'
+              << std::setw(2) << localTime.tm_min << ':' << std::setw(2) << localTime.tm_sec << "] "
               << color << '[' << levelString << "] " << location.file_name() << ':'
               << location.line() << ' ' << message << "\033[0m"
               << std::endl;
@@ -63,4 +64,4 @@ void Log::LogInternal(LogLevel level, const std::source_location& location, cons
     }
 }
 
-} // namespace Lit
+}

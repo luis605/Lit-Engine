@@ -443,7 +443,7 @@ vec4 cirrusLayer(vec3 dir, CloudLight L, out float distance) {
 
 vec4 applyCloudHaze(vec4 c, float distance, vec3 dir) {
     if (distance <= 0.0) return c;
-    float haze = 1.0 - exp(-distance / 38000.0);
+    float haze = 1.0 - exp(-distance * qualityParams.w / 38000.0);
     vec3 camPos = atmospherePosition(viewPos);
     float viewHeight = length(camPos);
     vec3 horizonSky = skyLut(camPos, viewHeight, camPos / viewHeight, dir, false);

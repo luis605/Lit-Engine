@@ -17,12 +17,43 @@ glm::vec2 InputManager::m_currentMousePos(0.0f, 0.0f);
 glm::vec2 InputManager::m_previousMousePos(0.0f, 0.0f);
 bool InputManager::m_firstMouseMove = true;
 
+namespace {
+constexpr unsigned kAsciiLimit = 0x80;
+constexpr unsigned kTwoByteLimit = 0x800;
+constexpr unsigned kThreeByteLimit = 0x10000;
+constexpr unsigned kContinuationMarker = 0x80;
+constexpr unsigned kContinuationMask = 0x3F;
+constexpr unsigned kTwoByteLead = 0xC0;
+constexpr unsigned kThreeByteLead = 0xE0;
+constexpr unsigned kFourByteLead = 0xF0;
+
+void appendContinuation(std::string& out, unsigned codepoint, int shift) { out.push_back(static_cast<char>(kContinuationMarker | ((codepoint >> shift) & kContinuationMask))); }
+
+void appendUtf8(std::string& out, unsigned codepoint) {
+    if (codepoint < kAsciiLimit) {
+        out.push_back(static_cast<char>(codepoint));
+    } else if (codepoint < kTwoByteLimit) {
+        out.push_back(static_cast<char>(kTwoByteLead | (codepoint >> 6)));
+        appendContinuation(out, codepoint, 0);
+    } else if (codepoint < kThreeByteLimit) {
+        out.push_back(static_cast<char>(kThreeByteLead | (codepoint >> 12)));
+        appendContinuation(out, codepoint, 6);
+        appendContinuation(out, codepoint, 0);
+    } else {
+        out.push_back(static_cast<char>(kFourByteLead | (codepoint >> 18)));
+        appendContinuation(out, codepoint, 12);
+        appendContinuation(out, codepoint, 6);
+        appendContinuation(out, codepoint, 0);
+    }
+}
+}
+
 void InputManager::Init(GLFWwindow* window) {
     glfwSetKeyCallback(window, KeyCallback);
     glfwSetCharCallback(window, CharCallback);
     glfwSetMouseButtonCallback(window, MouseButtonCallback);
-    glfwSetCursorPosCallback(window, [](GLFWwindow* w, double x, double y) {
-        CursorPosCallback(w, glm::vec2(static_cast<float>(x), static_cast<float>(y)));
+    glfwSetCursorPosCallback(window, [](GLFWwindow* callbackWindow, double positionX, double positionY) {
+        CursorPosCallback(callbackWindow, glm::vec2(static_cast<float>(positionX), static_cast<float>(positionY)));
     });
 
     m_keyStates.fill(KeyState::None);
@@ -31,78 +62,35 @@ void InputManager::Init(GLFWwindow* window) {
 }
 
 void InputManager::Update() {
-    for (auto& state : m_keyStates) {
-        if (state == KeyState::Pressed) {
-            state = KeyState::Held;
-        } else if (state == KeyState::Released) {
-            state = KeyState::None;
-        }
-    }
-
-    for (auto& state : m_mouseButtonStates) {
-        if (state == KeyState::Pressed) {
-            state = KeyState::Held;
-        } else if (state == KeyState::Released) {
-            state = KeyState::None;
-        }
-    }
+    const auto advance = [](KeyState& state) {
+        if (state == KeyState::Pressed) state = KeyState::Held;
+        else if (state == KeyState::Released) state = KeyState::None;
+    };
+    for (KeyState& state : m_keyStates) advance(state);
+    for (KeyState& state : m_mouseButtonStates) advance(state);
 
     m_previousMousePos = m_currentMousePos;
     m_typed.clear();
     m_keyEvents.clear();
 }
 
-bool InputManager::IsKeyPressed(int key) {
-    if (key < 0 || key > GLFW_KEY_LAST) return false;
-    return m_keyStates[key] == KeyState::Pressed;
-}
-bool InputManager::IsKeyReleased(int key) {
-    if (key < 0 || key > GLFW_KEY_LAST) return false;
-    return m_keyStates[key] == KeyState::Released;
-}
-bool InputManager::IsKeyHeld(int key) {
-    if (key < 0 || key > GLFW_KEY_LAST) return false;
-    return m_keyStates[key] == KeyState::Held;
-}
+bool InputManager::IsKeyPressed(int key) { return key >= 0 && key <= GLFW_KEY_LAST && m_keyStates[key] == KeyState::Pressed; }
+bool InputManager::IsKeyReleased(int key) { return key >= 0 && key <= GLFW_KEY_LAST && m_keyStates[key] == KeyState::Released; }
+bool InputManager::IsKeyHeld(int key) { return key >= 0 && key <= GLFW_KEY_LAST && m_keyStates[key] == KeyState::Held; }
 
-bool InputManager::IsMouseButtonPressed(int button) {
-    if (button < 0 || button > GLFW_MOUSE_BUTTON_LAST) return false;
-    return m_mouseButtonStates[button] == KeyState::Pressed;
-}
-bool InputManager::IsMouseButtonReleased(int button) {
-    if (button < 0 || button > GLFW_MOUSE_BUTTON_LAST) return false;
-    return m_mouseButtonStates[button] == KeyState::Released;
-}
-bool InputManager::IsMouseButtonHeld(int button) {
-    if (button < 0 || button > GLFW_MOUSE_BUTTON_LAST) return false;
-    return m_mouseButtonStates[button] == KeyState::Held;
-}
+bool InputManager::IsMouseButtonPressed(int button) { return button >= 0 && button <= GLFW_MOUSE_BUTTON_LAST && m_mouseButtonStates[button] == KeyState::Pressed; }
+bool InputManager::IsMouseButtonReleased(int button) { return button >= 0 && button <= GLFW_MOUSE_BUTTON_LAST && m_mouseButtonStates[button] == KeyState::Released; }
+bool InputManager::IsMouseButtonHeld(int button) { return button >= 0 && button <= GLFW_MOUSE_BUTTON_LAST && m_mouseButtonStates[button] == KeyState::Held; }
 
 const std::string& InputManager::TypedText() { return m_typed; }
 const std::vector<int>& InputManager::KeyEvents() { return m_keyEvents; }
 
-void InputManager::CharCallback(GLFWwindow*, unsigned int codepoint) {
-    if (codepoint < 0x80) {
-        m_typed.push_back(static_cast<char>(codepoint));
-    } else if (codepoint < 0x800) {
-        m_typed.push_back(static_cast<char>(0xC0 | (codepoint >> 6)));
-        m_typed.push_back(static_cast<char>(0x80 | (codepoint & 0x3F)));
-    } else if (codepoint < 0x10000) {
-        m_typed.push_back(static_cast<char>(0xE0 | (codepoint >> 12)));
-        m_typed.push_back(static_cast<char>(0x80 | ((codepoint >> 6) & 0x3F)));
-        m_typed.push_back(static_cast<char>(0x80 | (codepoint & 0x3F)));
-    } else {
-        m_typed.push_back(static_cast<char>(0xF0 | (codepoint >> 18)));
-        m_typed.push_back(static_cast<char>(0x80 | ((codepoint >> 12) & 0x3F)));
-        m_typed.push_back(static_cast<char>(0x80 | ((codepoint >> 6) & 0x3F)));
-        m_typed.push_back(static_cast<char>(0x80 | (codepoint & 0x3F)));
-    }
-}
+void InputManager::CharCallback(GLFWwindow*, unsigned int codepoint) { appendUtf8(m_typed, codepoint); }
 
 glm::vec2 InputManager::GetMousePosition() { return m_currentMousePos; }
 glm::vec2 InputManager::GetMouseDelta() { return m_currentMousePos - m_previousMousePos; }
 
-void InputManager::KeyCallback(GLFWwindow* window, int key, int scancode, int action, int mods) {
+void InputManager::KeyCallback(GLFWwindow*, int key, int, int action, int) {
     if (key < 0 || key > GLFW_KEY_LAST) return;
     if (action == GLFW_PRESS) {
         m_keyStates[key] = KeyState::Pressed;
@@ -114,21 +102,16 @@ void InputManager::KeyCallback(GLFWwindow* window, int key, int scancode, int ac
     }
 }
 
-void InputManager::MouseButtonCallback(GLFWwindow* window, int button, int action, int mods) {
+void InputManager::MouseButtonCallback(GLFWwindow*, int button, int action, int) {
     if (button < 0 || button > GLFW_MOUSE_BUTTON_LAST) return;
-    if (action == GLFW_PRESS) {
-        m_mouseButtonStates[button] = KeyState::Pressed;
-    } else if (action == GLFW_RELEASE) {
-        m_mouseButtonStates[button] = KeyState::Released;
-    }
+    if (action == GLFW_PRESS) m_mouseButtonStates[button] = KeyState::Pressed;
+    else if (action == GLFW_RELEASE) m_mouseButtonStates[button] = KeyState::Released;
 }
 
-void InputManager::CursorPosCallback(GLFWwindow* window, glm::vec2 pos) {
+void InputManager::CursorPosCallback(GLFWwindow*, glm::vec2 position) {
     if (m_firstMouseMove) {
-        m_previousMousePos = pos;
-        m_currentMousePos = pos;
+        m_previousMousePos = position;
         m_firstMouseMove = false;
-    } else {
-        m_currentMousePos = pos;
     }
+    m_currentMousePos = position;
 }

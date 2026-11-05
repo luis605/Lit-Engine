@@ -1,11 +1,5 @@
 module;
 
-#include <cmath>
-
-#include <assimp/Importer.hpp>
-#include <assimp/scene.h>
-#include <assimp/postprocess.h>
-
 #include "Engine/Log/Log.hpp"
 #include <cstdint>
 #include <filesystem>
@@ -21,18 +15,19 @@ import Engine.mesh;
 
 namespace {
 
-constexpr uint32_t MakeSignature(const char str[5]) {
-    return static_cast<uint32_t>(str[0]) |
-            (static_cast<uint32_t>(str[1]) << 8) |
-            (static_cast<uint32_t>(str[2]) << 16) |
-            (static_cast<uint32_t>(str[3]) << 24);
+constexpr uint32_t makeSignature(const char text[5]) {
+    return static_cast<uint32_t>(text[0]) |
+            (static_cast<uint32_t>(text[1]) << 8) |
+            (static_cast<uint32_t>(text[2]) << 16) |
+            (static_cast<uint32_t>(text[3]) << 24);
 }
 
-constexpr uint32_t kAssetFileSignature = MakeSignature("LITM");
+constexpr uint32_t kAssetFileSignature = makeSignature("LITM");
 constexpr uint32_t kAssetVersion = 3;
 constexpr uint32_t kFloatsPerVertex = 8;
 
 constexpr uint64_t kMaxElementCount = 1ULL << 31;
+constexpr uint32_t kIndicesPerTriangle = 3;
 
 struct AssetHeader {
     uint32_t magic;
@@ -98,8 +93,8 @@ std::optional<AssetHeader> readValidatedHeader(std::istream& stream,
         return std::nullopt;
     }
 
-    if (header.indexCount % 3 != 0) {
-        Lit::Log::Error("Asset index count {} is not a multiple of 3: {}", header.indexCount, path);
+    if (header.indexCount % kIndicesPerTriangle != 0) {
+        Lit::Log::Error("Asset index count {} is not a multiple of {}: {}", header.indexCount, kIndicesPerTriangle, path);
         return std::nullopt;
     }
 
@@ -117,19 +112,19 @@ std::optional<AssetHeader> readValidatedHeader(std::istream& stream,
 
 bool isBakeUpToDate(const std::string& sourcePath, const std::string& destinationPath) {
     namespace fs = std::filesystem;
-    std::error_code ec;
+    std::error_code error;
 
-    const auto destStatus = fs::status(destinationPath, ec);
-    if (ec || !fs::is_regular_file(destStatus)) return false;
+    const auto destinationStatus = fs::status(destinationPath, error);
+    if (error || !fs::is_regular_file(destinationStatus)) return false;
 
-    const auto sourceTime = fs::last_write_time(sourcePath, ec);
-    if (ec) return false;
-    const auto destTime = fs::last_write_time(destinationPath, ec);
-    if (ec) return false;
-    if (destTime < sourceTime) return false;
+    const auto sourceTime = fs::last_write_time(sourcePath, error);
+    if (error) return false;
+    const auto destinationTime = fs::last_write_time(destinationPath, error);
+    if (error) return false;
+    if (destinationTime < sourceTime) return false;
 
-    const auto fileSize = fs::file_size(destinationPath, ec);
-    if (ec) return false;
+    const auto fileSize = fs::file_size(destinationPath, error);
+    if (error) return false;
 
     std::ifstream probe(destinationPath, std::ios::binary);
     if (!probe.is_open()) return false;
@@ -140,79 +135,36 @@ bool isBakeUpToDate(const std::string& sourcePath, const std::string& destinatio
     return readValidatedHeader(probe, static_cast<uint64_t>(fileSize), destinationPath).has_value();
 }
 
-void processMesh(const aiMesh* mesh, std::vector<float>& vertices,
-                 std::vector<unsigned int>& indices, size_t& skippedFaces) {
-    const size_t baseVertex = vertices.size() / kFloatsPerVertex;
-    if (baseVertex + mesh->mNumVertices > std::numeric_limits<unsigned int>::max()) {
-        skippedFaces += mesh->mNumFaces;
-        return;
-    }
-    const unsigned int baseIndex = static_cast<unsigned int>(baseVertex);
-
-    const bool hasNormals = mesh->HasNormals();
-    for (unsigned int i = 0; i < mesh->mNumVertices; i++) {
-        vertices.push_back(mesh->mVertices[i].x);
-        vertices.push_back(mesh->mVertices[i].y);
-        vertices.push_back(mesh->mVertices[i].z);
-        if (hasNormals) {
-            vertices.push_back(mesh->mNormals[i].x);
-            vertices.push_back(mesh->mNormals[i].y);
-            vertices.push_back(mesh->mNormals[i].z);
-        } else {
-            vertices.push_back(0.0f);
-            vertices.push_back(1.0f);
-            vertices.push_back(0.0f);
-        }
-        if (mesh->HasTextureCoords(0)) {
-            vertices.push_back(mesh->mTextureCoords[0][i].x);
-            vertices.push_back(mesh->mTextureCoords[0][i].y);
-        } else {
-            const aiVector3D p = mesh->mVertices[i];
-            const aiVector3D n = hasNormals ? mesh->mNormals[i] : aiVector3D(0.0f, 1.0f, 0.0f);
-            const float ax = std::abs(n.x), ay = std::abs(n.y), az = std::abs(n.z);
-            if (ax >= ay && ax >= az) {
-                vertices.push_back(p.z);
-                vertices.push_back(p.y);
-            } else if (ay >= az) {
-                vertices.push_back(p.x);
-                vertices.push_back(p.z);
-            } else {
-                vertices.push_back(p.x);
-                vertices.push_back(p.y);
-            }
-        }
+bool writeAssetFile(const std::filesystem::path& tempPath, const AssetHeader& header,
+                    const std::vector<float>& vertices, const std::vector<unsigned int>& indices) {
+    std::ofstream outFile(tempPath, std::ios::binary | std::ios::trunc);
+    if (!outFile.is_open()) {
+        Lit::Log::Error("Failed to open file for writing: {}", tempPath.string());
+        return false;
     }
 
-    for (unsigned int i = 0; i < mesh->mNumFaces; i++) {
-        const aiFace& face = mesh->mFaces[i];
-        if (face.mNumIndices != 3) {
-            skippedFaces++;
-            continue;
-        }
-        indices.push_back(baseIndex + face.mIndices[0]);
-        indices.push_back(baseIndex + face.mIndices[1]);
-        indices.push_back(baseIndex + face.mIndices[2]);
-    }
+    outFile.write(reinterpret_cast<const char*>(&header), sizeof(AssetHeader));
+    outFile.write(reinterpret_cast<const char*>(vertices.data()),
+                  static_cast<std::streamsize>(vertices.size() * sizeof(float)));
+    outFile.write(reinterpret_cast<const char*>(indices.data()),
+                  static_cast<std::streamsize>(indices.size() * sizeof(unsigned int)));
+    outFile.flush();
+
+    if (outFile.good()) return true;
+    Lit::Log::Error("Failed to write asset data: {}", tempPath.string());
+    outFile.close();
+    std::error_code removeError;
+    std::filesystem::remove(tempPath, removeError);
+    return false;
 }
 
-void processNode(const aiNode* node, const aiScene* scene, std::vector<float>& vertices,
-                 std::vector<unsigned int>& indices, size_t& skippedFaces) {
-    for (unsigned int i = 0; i < node->mNumMeshes; i++) {
-        processMesh(scene->mMeshes[node->mMeshes[i]], vertices, indices, skippedFaces);
-    }
-
-    for (unsigned int i = 0; i < node->mNumChildren; i++) {
-        processNode(node->mChildren[i], scene, vertices, indices, skippedFaces);
-    }
 }
-
-} // namespace
 
 bool AssetManager::bake(const std::string& sourcePath, const std::string& destinationPath) {
     namespace fs = std::filesystem;
-    std::error_code ec;
+    std::error_code error;
 
-    if (!fs::exists(sourcePath, ec) || ec) {
+    if (!fs::exists(sourcePath, error) || error) {
         Lit::Log::Error("Source model does not exist: {}", sourcePath);
         return false;
     }
@@ -222,39 +174,10 @@ bool AssetManager::bake(const std::string& sourcePath, const std::string& destin
         return true;
     }
 
-    Assimp::Importer importer;
-    const aiScene* scene = importer.ReadFile(
-        sourcePath, aiProcess_Triangulate | aiProcess_FlipUVs | aiProcess_GenNormals);
-
-    if (!scene || scene->mFlags & AI_SCENE_FLAGS_INCOMPLETE || !scene->mRootNode) {
-        Lit::Log::Error("ASSIMP failed to load model: {} with error: {}", sourcePath,
-                        importer.GetErrorString());
-        return false;
-    }
-
-    size_t totalVertices = 0;
-    size_t totalIndices = 0;
-    for (unsigned int i = 0; i < scene->mNumMeshes; i++) {
-        totalVertices += scene->mMeshes[i]->mNumVertices;
-        totalIndices += static_cast<size_t>(scene->mMeshes[i]->mNumFaces) * 3;
-    }
-
-    std::vector<float> vertices;
-    std::vector<unsigned int> indices;
-    vertices.reserve(totalVertices * kFloatsPerVertex);
-    indices.reserve(totalIndices);
-
-    size_t skippedFaces = 0;
-    processNode(scene->mRootNode, scene, vertices, indices, skippedFaces);
-
-    if (skippedFaces != 0) {
-        Lit::Log::Warn("Skipped {} non-triangle face(s) while baking {}", skippedFaces, sourcePath);
-    }
-
-    if (vertices.empty() || indices.empty()) {
-        Lit::Log::Error("Model contains no triangles, refusing to bake: {}", sourcePath);
-        return false;
-    }
+    const std::optional<Mesh> imported = importMesh(sourcePath);
+    if (!imported) return false;
+    const std::vector<float>& vertices = imported->vertices;
+    const std::vector<unsigned int>& indices = imported->indices;
 
     AssetHeader header{};
     header.magic = kAssetFileSignature;
@@ -268,32 +191,12 @@ bool AssetManager::bake(const std::string& sourcePath, const std::string& destin
     fs::path tempPath = finalPath;
     tempPath += ".tmp";
 
-    {
-        std::ofstream outFile(tempPath, std::ios::binary | std::ios::trunc);
-        if (!outFile.is_open()) {
-            Lit::Log::Error("Failed to open file for writing: {}", tempPath.string());
-            return false;
-        }
+    if (!writeAssetFile(tempPath, header, vertices, indices)) return false;
 
-        outFile.write(reinterpret_cast<const char*>(&header), sizeof(AssetHeader));
-        outFile.write(reinterpret_cast<const char*>(vertices.data()),
-                      static_cast<std::streamsize>(vertices.size() * sizeof(float)));
-        outFile.write(reinterpret_cast<const char*>(indices.data()),
-                      static_cast<std::streamsize>(indices.size() * sizeof(unsigned int)));
-        outFile.flush();
-
-        if (!outFile.good()) {
-            Lit::Log::Error("Failed to write asset data: {}", tempPath.string());
-            outFile.close();
-            fs::remove(tempPath, ec);
-            return false;
-        }
-    }
-
-    fs::rename(tempPath, finalPath, ec);
-    if (ec) {
-        Lit::Log::Error("Failed to publish baked asset {}: {}", destinationPath, ec.message());
-        fs::remove(tempPath, ec);
+    fs::rename(tempPath, finalPath, error);
+    if (error) {
+        Lit::Log::Error("Failed to publish baked asset {}: {}", destinationPath, error.message());
+        fs::remove(tempPath, error);
         return false;
     }
 
@@ -304,11 +207,11 @@ bool AssetManager::bake(const std::string& sourcePath, const std::string& destin
 
 std::optional<Mesh> AssetManager::load(const std::string& assetPath) {
     namespace fs = std::filesystem;
-    std::error_code ec;
+    std::error_code error;
 
-    const auto fileSize = fs::file_size(assetPath, ec);
-    if (ec) {
-        Lit::Log::Warn("Failed to stat asset file {}: {}", assetPath, ec.message());
+    const auto fileSize = fs::file_size(assetPath, error);
+    if (error) {
+        Lit::Log::Warn("Failed to stat asset file {}: {}", assetPath, error.message());
         return std::nullopt;
     }
 
@@ -336,7 +239,7 @@ std::optional<Mesh> AssetManager::load(const std::string& assetPath) {
     }
 
     const size_t vertexCount = vertices.size() / kFloatsPerVertex;
-    for (unsigned int index : indices) {
+    for (const unsigned int index : indices) {
         if (index >= vertexCount) {
             Lit::Log::Error("Asset has out-of-range index {} (vertex count {}): {}", index,
                             vertexCount, assetPath);

@@ -1,8 +1,10 @@
 module;
 
+#include <array>
 #include <cstdint>
 #include <memory>
 #include <string>
+#include <utility>
 #include <vector>
 
 export module Engine.Audio;
@@ -117,27 +119,47 @@ export class AudioMixer {
         bool active = false;
         bool hasPath = false;
         AudioPath path;
-        float lpState = 0.0f;
-        float lpNearL = 0.0f;
-        float lpNearR = 0.0f;
+        float lowpassState = 0.0f;
+        float shadowLowpassLeft = 0.0f;
+        float shadowLowpassRight = 0.0f;
         std::vector<float> history;
-        uint32_t historyPos = 0;
-        float lastGainL = -1.0f;
-        float lastGainR = 0.0f;
-        float lastSend = 0.0f;
+        uint32_t historyPosition = 0;
+        float previousGainLeft = -1.0f;
+        float previousGainRight = 0.0f;
+        float previousSend = 0.0f;
+    };
+    struct VoiceMix {
+        float gainLeft = 1.0f;
+        float gainRight = 1.0f;
+        float send = 0.0f;
+        float lowpassHz = 20000.0f;
+        float pan = 0.0f;
+    };
+    struct ReflectionTap {
+        uint32_t delaySamples = 0;
+        float gainLeft = 0.0f;
+        float gainRight = 0.0f;
     };
     struct Reverb {
         std::vector<float> comb[2][4];
-        uint32_t combPos[2][4]{};
-        float combLp[2][4]{};
+        uint32_t combPosition[2][4]{};
+        float combLowpass[2][4]{};
         std::vector<float> allpass[2][2];
-        uint32_t allpassPos[2][2]{};
+        uint32_t allpassPosition[2][2]{};
         float feedback[4]{};
     };
 
+    Voice* findVoice(VoiceId id);
+    const Voice* findVoice(VoiceId id) const;
     void renderBlock(uint32_t frames, float* out);
-    void mixVoice(Voice& v, uint32_t frames, std::vector<float>& reverbIn);
-    void processReverb(const std::vector<float>& in, std::vector<float>& outL, std::vector<float>& outR, uint32_t frames);
+    void mixVoice(Voice& voice, uint32_t frames);
+    [[nodiscard]] VoiceMix computeVoiceMix(const Voice& voice) const;
+    [[nodiscard]] size_t collectReflectionTaps(const Voice& voice, std::array<ReflectionTap, 4>& taps) const;
+    static float nextSourceSample(Voice& voice, const AudioClip& clip, double step);
+    static void applyHeadShadow(Voice& voice, float delaySamples, float coefficient, bool rightNear, float mono, float& left, float& right);
+    void processReverb(uint32_t frames);
+    void mixBusesToMaster(uint32_t frames);
+    void updateDucking(uint32_t frames);
 
     uint32_t m_rate;
     std::vector<Bus> m_buses;
@@ -152,6 +174,9 @@ export class AudioMixer {
     Reverb m_reverb;
     ReverbEstimate m_reverbEstimate;
     float m_reverbReturn = 1.0f;
+    std::vector<float> m_reverbInput;
+    std::vector<float> m_reverbLeft;
+    std::vector<float> m_reverbRight;
     AudioMixerStats m_stats;
 };
 
@@ -199,7 +224,7 @@ export class WavAudioBackend : public AudioBackend {
     std::vector<float> m_data;
 };
 
-export void renderAudio(AudioMixer& mixer, AudioBackend& backend, float seconds, uint32_t block = 512);
+export void renderAudio(AudioMixer& mixer, AudioBackend& backend, float seconds, uint32_t blockFrames = 512);
 
 export enum class LineEvent { Started, Interrupted, Resumed, Finished, Dropped };
 
@@ -249,10 +274,11 @@ export class VoiceScheduler {
         bool resumed = false;
     };
     void start(VoiceLine line, float offset, bool resumed);
-    void interruptCurrent(bool dueToDistance);
+    void interruptCurrent();
     void startNext();
-    bool eligible(const Pending& p) const;
-    void log(LineEvent type, const std::string& id, float t);
+    bool eligible(const Pending& pending) const;
+    bool hasInterruptingPending() const;
+    void log(LineEvent type, const std::string& id, float clipTimeSeconds);
 
     AudioMixer& m_mixer;
     bool m_active = false;

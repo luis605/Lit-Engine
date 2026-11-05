@@ -6,6 +6,7 @@ module;
 #include <deque>
 #include <fstream>
 #include <iomanip>
+#include <ios>
 #include <ostream>
 #include <string>
 #include <string_view>
@@ -13,6 +14,24 @@ module;
 #include <vector>
 
 module Engine.Profiler;
+
+namespace {
+constexpr int kTracePrecision = 3;
+constexpr double kMicrosecondsPerMillisecond = 1000.0;
+constexpr unsigned char kFirstPrintable = 0x20;
+
+void writeEscapedName(std::ostream& out, const std::string& name) {
+    for (const char character : name) {
+        if (character == '"' || character == '\\') {
+            out << '\\' << character;
+        } else if (static_cast<unsigned char>(character) < kFirstPrintable) {
+            out << ' ';
+        } else {
+            out << character;
+        }
+    }
+}
+}
 
 Profiler::Profiler(size_t historyFrames) : m_capacity(std::max<size_t>(historyFrames, 1)), m_origin(std::chrono::steady_clock::now()) {}
 
@@ -28,8 +47,8 @@ void Profiler::beginFrame() {
 void Profiler::endFrame() {
     if (!m_enabled) return;
     m_lastFrameMs = nowMs() - m_frameStartMs;
-    m_previous = m_current;
-    m_history.push_back(std::move(m_current));
+    m_history.push_back(m_current);
+    m_previous = std::move(m_current);
     m_current.clear();
     while (m_history.size() > m_capacity) m_history.pop_front();
     ++m_frame;
@@ -55,38 +74,41 @@ void Profiler::end(int64_t token) {
 
 std::vector<ProfileSummary> Profiler::topScopes(size_t count) const {
     std::unordered_map<std::string, ProfileSummary> merged;
-    for (const ProfileRecord& r : m_previous) {
-        ProfileSummary& s = merged[r.name];
-        s.name = r.name;
-        s.totalMs += r.durationMs;
-        ++s.calls;
+    for (const ProfileRecord& record : m_previous) {
+        ProfileSummary& summary = merged[record.name];
+        if (summary.calls == 0) summary.name = record.name;
+        summary.totalMs += record.durationMs;
+        ++summary.calls;
     }
     std::vector<ProfileSummary> out;
     out.reserve(merged.size());
     for (auto& [name, summary] : merged) out.push_back(std::move(summary));
-    std::sort(out.begin(), out.end(), [](const ProfileSummary& a, const ProfileSummary& b) { return a.totalMs != b.totalMs ? a.totalMs > b.totalMs : a.name < b.name; });
-    if (out.size() > count) out.resize(count);
+    const auto byTotalDescending = [](const ProfileSummary& lhs, const ProfileSummary& rhs) { return lhs.totalMs != rhs.totalMs ? lhs.totalMs > rhs.totalMs : lhs.name < rhs.name; };
+    const size_t keep = std::min(count, out.size());
+    std::partial_sort(out.begin(), out.begin() + keep, out.end(), byTotalDescending);
+    out.resize(keep);
     return out;
 }
 
 void Profiler::writeChromeTrace(std::ostream& out) const {
     out << "{\"traceEvents\":[";
+    const std::ios_base::fmtflags savedFlags = out.flags();
+    const std::streamsize savedPrecision = out.precision();
     bool first = true;
-    const auto emit = [&](const ProfileRecord& r) {
+    const auto emit = [&](const ProfileRecord& record) {
         if (!first) out << ',';
         first = false;
         out << "{\"name\":\"";
-        for (char c : r.name) {
-            if (c == '"' || c == '\\') out << '\\';
-            out << c;
-        }
-        out << "\",\"ph\":\"X\",\"pid\":1,\"tid\":1,\"ts\":" << std::fixed << std::setprecision(3) << r.startMs * 1000.0 << ",\"dur\":" << r.durationMs * 1000.0 << ",\"args\":{\"frame\":" << r.frame << ",\"depth\":" << r.depth << "}}";
+        writeEscapedName(out, record.name);
+        out << "\",\"ph\":\"X\",\"pid\":1,\"tid\":1,\"ts\":" << std::fixed << std::setprecision(kTracePrecision) << record.startMs * kMicrosecondsPerMillisecond << ",\"dur\":" << record.durationMs * kMicrosecondsPerMillisecond << ",\"args\":{\"frame\":" << record.frame << ",\"depth\":" << record.depth << "}}";
     };
     for (const auto& frame : m_history) {
-        for (const ProfileRecord& r : frame) emit(r);
+        for (const ProfileRecord& record : frame) emit(record);
     }
-    for (const ProfileRecord& r : m_current) emit(r);
+    for (const ProfileRecord& record : m_current) emit(record);
     out << "]}";
+    out.flags(savedFlags);
+    out.precision(savedPrecision);
 }
 
 bool Profiler::writeChromeTrace(const std::string& path) const {

@@ -10,14 +10,24 @@ module;
 module Engine.Perf;
 
 namespace {
+constexpr size_t kFormatBufferSize = 64;
 
-std::string columnName(const std::string& name) {
-    std::string out = "gpu:";
-    for (const char c : name) out += (c == ',' || c == '"' || c == '\n') ? '_' : c;
-    return out;
+std::string sanitizeColumn(const std::string& name) {
+    std::string sanitized;
+    sanitized.reserve(name.size());
+    for (const char character : name) sanitized += (character == ',' || character == '"' || character == '\n' || character == '\r') ? '_' : character;
+    return sanitized;
 }
 
-}  // namespace
+std::string columnName(const std::string& name) { return "gpu:" + sanitizeColumn(name); }
+}
+
+size_t PerfLog::columnIndex(const std::string& name) {
+    const auto found = std::find(m_columns.begin(), m_columns.end(), name);
+    if (found != m_columns.end()) return static_cast<size_t>(found - m_columns.begin());
+    m_columns.push_back(name);
+    return m_columns.size() - 1;
+}
 
 void PerfLog::open(std::string path) {
     close();
@@ -30,22 +40,12 @@ void PerfLog::record(uint64_t frame, double cpuMs, double simMs, double gpuMs, c
     if (m_path.empty()) return;
     Row row;
     row.frame = frame;
-    row.cpu = cpuMs;
-    row.sim = simMs;
-    row.gpu = gpuMs;
-    for (const PerfPass& pass : passes) {
-        const std::string name = columnName(pass.name);
-        const auto it = std::find(m_columns.begin(), m_columns.end(), name);
-        size_t index = static_cast<size_t>(it - m_columns.begin());
-        if (it == m_columns.end()) m_columns.push_back(name);
-        row.passes.emplace_back(index, pass.milliseconds);
-    }
-    for (const PerfPass& extra : extras) {
-        const auto it = std::find(m_columns.begin(), m_columns.end(), extra.name);
-        const size_t index = static_cast<size_t>(it - m_columns.begin());
-        if (it == m_columns.end()) m_columns.push_back(extra.name);
-        row.passes.emplace_back(index, extra.milliseconds);
-    }
+    row.cpuMilliseconds = cpuMs;
+    row.simMilliseconds = simMs;
+    row.gpuMilliseconds = gpuMs;
+    row.passes.reserve(passes.size() + extras.size());
+    for (const PerfPass& pass : passes) row.passes.emplace_back(columnIndex(columnName(pass.name)), pass.milliseconds);
+    for (const PerfPass& extra : extras) row.passes.emplace_back(columnIndex(sanitizeColumn(extra.name)), extra.milliseconds);
     m_rows.push_back(std::move(row));
 }
 
@@ -54,18 +54,18 @@ bool PerfLog::flush() {
     std::ofstream out(m_path, std::ios::trunc);
     if (!out) return false;
     out << "frame,cpu_ms,sim_ms,gpu_ms";
-    for (const std::string& c : m_columns) out << ',' << c;
+    for (const std::string& column : m_columns) out << ',' << column;
     out << '\n';
     std::vector<double> values(m_columns.size());
-    char buf[64];
+    char buffer[kFormatBufferSize];
     for (const Row& row : m_rows) {
         std::fill(values.begin(), values.end(), 0.0);
-        for (const auto& [index, ms] : row.passes) values[index] = ms;
-        std::snprintf(buf, sizeof buf, "%llu,%.4f,%.4f,%.4f", static_cast<unsigned long long>(row.frame), row.cpu, row.sim, row.gpu);
-        out << buf;
-        for (const double v : values) {
-            std::snprintf(buf, sizeof buf, ",%.4f", v);
-            out << buf;
+        for (const auto& [index, milliseconds] : row.passes) values[index] = milliseconds;
+        std::snprintf(buffer, sizeof buffer, "%llu,%.4f,%.4f,%.4f", static_cast<unsigned long long>(row.frame), row.cpuMilliseconds, row.simMilliseconds, row.gpuMilliseconds);
+        out << buffer;
+        for (const double value : values) {
+            std::snprintf(buffer, sizeof buffer, ",%.4f", value);
+            out << buffer;
         }
         out << '\n';
     }

@@ -13,20 +13,20 @@ export module Engine.Jobs;
 
 export class JobSystem {
   public:
-    explicit JobSystem(size_t workers = defaultWorkerCount());
+    explicit JobSystem(size_t workerTotal = defaultWorkerCount());
     ~JobSystem();
 
     JobSystem(const JobSystem&) = delete;
     JobSystem& operator=(const JobSystem&) = delete;
 
     [[nodiscard]] size_t workerCount() const { return m_threads.size(); }
-    void parallelFor(size_t count, size_t grain, const std::function<void(size_t, size_t)>& fn);
+    void parallelFor(size_t count, size_t grain, const std::function<void(size_t, size_t)>& body);
 
     [[nodiscard]] static size_t defaultWorkerCount();
 
   private:
     struct Job {
-        const std::function<void(size_t, size_t)>* fn = nullptr;
+        const std::function<void(size_t, size_t)>* body = nullptr;
         size_t count = 0;
         size_t grain = 1;
         std::atomic<size_t> next{0};
@@ -36,7 +36,7 @@ export class JobSystem {
     void workerLoop();
 
     std::vector<std::thread> m_threads;
-    std::mutex m_submit;
+    std::mutex m_submitMutex;
     std::mutex m_mutex;
     std::condition_variable m_wake;
     std::condition_variable m_done;

@@ -1,26 +1,16 @@
 module;
 
+#include <cmath>
 #include <algorithm>
 #include <array>
-#include <iterator>
-#include <cmath>
-#include <limits>
-#include <optional>
 #include <charconv>
 #include <cstdint>
-#include <system_error>
-#include <cstdlib>
-#include <filesystem>
-#include <fstream>
-#include <sstream>
-#include <set>
-#include <unordered_set>
-#include <unordered_map>
 #include <functional>
+#include <span>
 #include <string>
-#include <typeindex>
-#include <typeinfo>
 #include <string_view>
+#include <system_error>
+#include <utility>
 #include <vector>
 
 module Engine.World;
@@ -28,46 +18,20 @@ module Engine.World;
 import Engine.Render.entity;
 import Engine.Render.component;
 import Engine.Render.scenedatabase;
-import Engine.camera;
 import Engine.glm;
 
-namespace {
-const std::string kEmptyName;
-const glm::mat4 kDegenerate(0.0f);
-
-template <typename T>
-bool readNumber(std::string_view& view, T& value) {
-    while (!view.empty() && view.front() == ' ') view.remove_prefix(1);
-    const auto [end, ec] = std::from_chars(view.data(), view.data() + view.size(), value);
-    if (ec != std::errc()) return false;
-    view.remove_prefix(static_cast<size_t>(end - view.data()));
-    return true;
-}
-
-template <typename T>
-void appendNumber(std::string& buffer, T value) {
-    char chars[48];
-    const auto [end, ec] = std::to_chars(chars, chars + sizeof(chars), value);
-    buffer.append(chars, end);
-}
-
-glm::mat4 compose(const glm::vec3& p, const glm::quat& r, const glm::vec3& s) {
-    return glm::translate(glm::mat4(1.0f), p) * glm::mat4_cast(r) * glm::scale(glm::mat4(1.0f), s);
-}
-}
+#include "Engine/World/WorldInternal.hpp"
 
 World::World() = default;
 
-bool World::valid(EntityHandle h) const {
-    return h.index < m_alive.size() && m_alive[h.index] && m_generation[h.index] == h.generation;
-}
-
-bool World::isAlive(EntityHandle e) const { return valid(e); }
+bool World::isAlive(EntityHandle entity) const { return valid(entity); }
 
 EntityHandle World::handleOf(Entity index) const {
     if (index >= m_alive.size() || !m_alive[index]) return NULL_ENTITY;
     return {index, m_generation[index]};
 }
+
+EntityBuilder World::spawn() { return EntityBuilder(*this); }
 
 void World::reserve(size_t count) {
     m_db.transforms.reserve(count);
@@ -78,6 +42,7 @@ void World::reserve(size_t count) {
     m_visible.reserve(count);
     m_mesh.reserve(count);
     m_layer.reserve(count);
+    m_position.reserve(count);
     m_tags.reserve(count);
     m_db.firstChild.reserve(count);
     m_db.nextSibling.reserve(count);
@@ -85,33 +50,33 @@ void World::reserve(size_t count) {
     m_names.reserve(count);
 }
 
-void World::link(Entity idx, Entity parent) {
+void World::link(Entity index, Entity parent) {
     Entity& head = parent == INVALID_ENTITY ? m_firstRoot : m_db.firstChild[parent];
-    m_prevSibling[idx] = INVALID_ENTITY;
-    m_db.nextSibling[idx] = head;
-    if (head != INVALID_ENTITY) m_prevSibling[head] = idx;
-    head = idx;
-    m_db.hierarchies[idx].parent = parent;
-    m_db.hierarchies[idx].level = parent == INVALID_ENTITY ? 0 : m_db.hierarchies[parent].level + 1;
+    m_prevSibling[index] = INVALID_ENTITY;
+    m_db.nextSibling[index] = head;
+    if (head != INVALID_ENTITY) m_prevSibling[head] = index;
+    head = index;
+    m_db.hierarchies[index].parent = parent;
+    m_db.hierarchies[index].level = parent == INVALID_ENTITY ? 0 : m_db.hierarchies[parent].level + 1;
 }
 
 void World::relevelSubtree(Entity root) {
     m_relevelStack.assign(1, root);
     while (!m_relevelStack.empty()) {
-        const Entity e = m_relevelStack.back();
+        const Entity current = m_relevelStack.back();
         m_relevelStack.pop_back();
-        const Entity parent = m_db.hierarchies[e].parent;
-        m_db.hierarchies[e].level = parent == INVALID_ENTITY ? 0 : m_db.hierarchies[parent].level + 1;
-        m_db.structureDirty.mark(e);
-        m_db.forEachChild(e, [&](Entity child) { m_relevelStack.push_back(child); });
+        const Entity parent = m_db.hierarchies[current].parent;
+        m_db.hierarchies[current].level = parent == INVALID_ENTITY ? 0 : m_db.hierarchies[parent].level + 1;
+        m_db.structureDirty.mark(current);
+        m_db.forEachChild(current, [&](Entity child) { m_relevelStack.push_back(child); });
     }
     m_db.markStructureChanged();
 }
 
-void World::unlink(Entity idx) {
-    const Entity parent = m_db.hierarchies[idx].parent;
-    const Entity prev = m_prevSibling[idx];
-    const Entity next = m_db.nextSibling[idx];
+void World::unlink(Entity index) {
+    const Entity parent = m_db.hierarchies[index].parent;
+    const Entity prev = m_prevSibling[index];
+    const Entity next = m_db.nextSibling[index];
     if (prev != INVALID_ENTITY) {
         m_db.nextSibling[prev] = next;
     } else if (parent == INVALID_ENTITY) {
@@ -120,27 +85,8 @@ void World::unlink(Entity idx) {
         m_db.firstChild[parent] = next;
     }
     if (next != INVALID_ENTITY) m_prevSibling[next] = prev;
-    m_prevSibling[idx] = INVALID_ENTITY;
-    m_db.nextSibling[idx] = INVALID_ENTITY;
-}
-
-void World::touchTransform(Entity idx) {
-    m_db.transformDirty.mark(idx);
-    invalidateWorld(idx);
-    markSpatialSubtree(idx);
-}
-
-void World::invalidateWorld(Entity idx) const {
-    if (m_worldCache.empty() || idx >= m_worldDirty.size()) return;
-    m_worldStack.clear();
-    m_worldStack.push_back(idx);
-    while (!m_worldStack.empty()) {
-        const Entity e = m_worldStack.back();
-        m_worldStack.pop_back();
-        if (e >= m_worldDirty.size() || m_worldDirty[e]) continue;
-        m_worldDirty[e] = 1;
-        for (Entity c = m_db.firstChild[e]; c != INVALID_ENTITY; c = m_db.nextSibling[c]) m_worldStack.push_back(c);
-    }
+    m_prevSibling[index] = INVALID_ENTITY;
+    m_db.nextSibling[index] = INVALID_ENTITY;
 }
 
 void World::touchStructure() {
@@ -148,62 +94,18 @@ void World::touchStructure() {
     m_db.markDataDirty();
 }
 
-void World::touchData() { m_db.markDataDirty(); }
-
-void World::touchRenderable(Entity idx) {
-    m_db.renderableDirty.mark(idx);
-    m_db.transformDirty.mark(idx);
+void World::touchRenderable(Entity index) {
+    m_db.renderableDirty.mark(index);
+    m_db.transformDirty.mark(index);
 }
 
 EntityHandle World::create(const EntityDesc& desc) {
-    const EntityHandle h = createImpl(desc);
-    m_db.structureDirty.mark(h.index);
-    touchRenderable(h.index);
+    const EntityHandle handle = createImpl(desc);
+    m_db.structureDirty.mark(handle.index);
+    touchRenderable(handle.index);
     m_db.markStructureChanged();
-    m_events.emit(EntityCreated{h});
-    return h;
-}
-
-EntityHandle World::createImpl(const EntityDesc& desc) {
-    Entity idx;
-    if (!m_freeList.empty()) {
-        idx = m_freeList.back();
-        m_freeList.pop_back();
-        m_db.transforms[idx] = TransformComponent{};
-        m_db.hierarchies[idx] = HierarchyComponent{INVALID_ENTITY, 0};
-        m_db.renderables[idx] = RenderableComponent{};
-        m_db.renderables[idx].objectId = idx;
-        m_alive[idx] = 1;
-        m_db.firstChild[idx] = INVALID_ENTITY;
-        m_db.nextSibling[idx] = INVALID_ENTITY;
-        m_prevSibling[idx] = INVALID_ENTITY;
-    } else {
-        idx = m_db.createEntity();
-        m_alive.push_back(1);
-        m_generation.push_back(m_generationBase);
-        m_visible.push_back(1);
-        m_mesh.push_back(0);
-        m_layer.push_back(1);
-        m_tags.emplace_back();
-        m_prevSibling.push_back(INVALID_ENTITY);
-        m_names.emplace_back();
-    }
-    ++m_aliveCount;
-
-    m_db.transforms[idx].localMatrix = compose(desc.position, desc.rotation, desc.scale);
-    if (idx < m_worldDirty.size()) m_worldDirty[idx] = 1;
-    auto& r = m_db.renderables[idx];
-    m_visible[idx] = 1;
-    m_layer[idx] = 1;
-    m_mesh[idx] = desc.mesh;
-    r.mesh_uuid = desc.mesh;
-    r.material_uuid = desc.material;
-    r.shaderId = desc.shader;
-    r.alpha = desc.alpha;
-    m_names[idx] = desc.name;
-    link(idx, valid(desc.parent) ? desc.parent.index : INVALID_ENTITY);
-    queueSpatial(idx);
-    return {idx, m_generation[idx]};
+    m_events.emit(EntityCreated{handle});
+    return handle;
 }
 
 EntityHandle World::create(std::string name, uint32_t mesh, const glm::vec3& position, const glm::vec3& scale, EntityHandle parent) {
@@ -216,79 +118,111 @@ EntityHandle World::create(std::string name, uint32_t mesh, const glm::vec3& pos
     return create(desc);
 }
 
-void World::destroyRecursive(Entity idx) {
-    for (Entity child = m_db.firstChild[idx]; child != INVALID_ENTITY;) {
+EntityHandle World::createImpl(const EntityDesc& desc) {
+    Entity index;
+    if (!m_freeList.empty()) {
+        index = m_freeList.back();
+        m_freeList.pop_back();
+        m_db.transforms[index] = TransformComponent{};
+        m_db.hierarchies[index] = HierarchyComponent{INVALID_ENTITY, 0};
+        m_db.renderables[index] = RenderableComponent{};
+        m_db.renderables[index].objectId = index;
+        m_alive[index] = 1;
+        m_db.firstChild[index] = INVALID_ENTITY;
+        m_db.nextSibling[index] = INVALID_ENTITY;
+        m_prevSibling[index] = INVALID_ENTITY;
+    } else {
+        index = m_db.createEntity();
+        m_alive.push_back(1);
+        m_generation.push_back(m_generationBase);
+        m_visible.push_back(1);
+        m_mesh.push_back(0);
+        m_layer.push_back(1);
+        m_position.emplace_back(0.0f);
+        m_tags.grow();
+        m_prevSibling.push_back(INVALID_ENTITY);
+        m_names.grow();
+    }
+    ++m_aliveCount;
+
+    m_db.transforms[index].localMatrix = composeTransform(desc.position, desc.rotation, desc.scale);
+    syncPosition(index);
+    if (index < m_worldDirty.size()) m_worldDirty[index] = 1;
+    RenderableComponent& renderable = m_db.renderables[index];
+    m_visible[index] = 1;
+    m_layer[index] = 1;
+    m_mesh[index] = desc.mesh;
+    renderable.mesh_uuid = desc.mesh;
+    renderable.material_uuid = desc.material;
+    renderable.shaderId = desc.shader;
+    renderable.alpha = desc.alpha;
+    m_names.set(index, desc.name);
+    link(index, valid(desc.parent) ? desc.parent.index : INVALID_ENTITY);
+    queueSpatial(index);
+    return {index, m_generation[index]};
+}
+
+void World::destroyRecursive(Entity index) {
+    for (Entity child = m_db.firstChild[index]; child != INVALID_ENTITY;) {
         const Entity next = m_db.nextSibling[child];
         destroyRecursive(child);
         child = next;
     }
-    m_events.emit(EntityDestroyed{{idx, m_generation[idx]}});
-    queueSpatial(idx);
-    runScriptDestroy(idx);
-    clearTag(idx);
-    for (auto& [type, p] : m_pools) p->remove(idx);
-    m_alive[idx] = 0;
-    ++m_generation[idx];
-    m_db.firstChild[idx] = INVALID_ENTITY;
-    m_db.hierarchies[idx] = HierarchyComponent{INVALID_ENTITY, 0};
-    m_visible[idx] = 0;
-    m_db.renderables[idx].flags |= RENDER_HIDDEN;
-    m_db.structureDirty.mark(idx);
-    touchRenderable(idx);
-    m_names[idx].clear();
-    m_freeList.push_back(idx);
+    m_events.emit(EntityDestroyed{{index, m_generation[index]}});
+    queueSpatial(index);
+    runScriptDestroy(index);
+    clearTag(index);
+    for (auto& [type, componentPool] : m_pools) componentPool->remove(index);
+    m_alive[index] = 0;
+    ++m_generation[index];
+    m_db.firstChild[index] = INVALID_ENTITY;
+    m_db.hierarchies[index] = HierarchyComponent{INVALID_ENTITY, 0};
+    m_visible[index] = 0;
+    m_db.renderables[index].flags |= RENDER_HIDDEN;
+    m_db.structureDirty.mark(index);
+    touchRenderable(index);
+    m_names.erase(index);
+    m_freeList.push_back(index);
     --m_aliveCount;
 }
 
-void World::destroy(EntityHandle e) {
-    if (!valid(e)) return;
+void World::destroy(EntityHandle entity) {
+    if (!valid(entity)) return;
     if (m_updating) {
-        m_pendingDestroy.push_back(e);
+        m_pendingDestroy.push_back(entity);
         return;
     }
-    unlink(e.index);
-    destroyRecursive(e.index);
+    unlink(entity.index);
+    destroyRecursive(entity.index);
     trimTail();
     m_db.markStructureChanged();
 }
 
 void World::destroyBatch(std::span<const EntityHandle> entities) {
     if (m_updating) {
-        for (EntityHandle e : entities) {
-            if (valid(e)) m_pendingDestroy.push_back(e);
+        for (EntityHandle entity : entities) {
+            if (valid(entity)) m_pendingDestroy.push_back(entity);
         }
         return;
     }
-    bool any = false;
-    for (EntityHandle e : entities) {
-        if (!valid(e)) continue;
-        unlink(e.index);
-        destroyRecursive(e.index);
-        any = true;
+    m_freeList.reserve(m_freeList.size() + entities.size());
+    bool destroyedAny = false;
+    for (EntityHandle entity : entities) {
+        if (!valid(entity)) continue;
+        unlink(entity.index);
+        destroyRecursive(entity.index);
+        destroyedAny = true;
     }
-    if (!any) return;
+    if (!destroyedAny) return;
     trimTail();
     touchStructure();
 }
 
-void World::setPositions(std::span<const std::pair<EntityHandle, glm::vec3>> updates) {
-    constexpr size_t kBulkThreshold = 4096;
-    const bool bulk = updates.size() > kBulkThreshold && updates.size() * 2 > m_db.transforms.size();
-    for (const auto& [e, position] : updates) {
-        if (!valid(e)) continue;
-        m_db.transforms[e.index].setPos(position);
-        if (!bulk) m_db.transformDirty.mark(e.index);
-        invalidateWorld(e.index);
-        markSpatialSubtree(e.index);
-    }
-    if (bulk) m_db.markTransformsDirty();
-}
-
 void World::shrinkSlots(size_t count) {
     if (count >= m_alive.size()) return;
-    for (size_t i = count; i < m_alive.size(); ++i) {
-        if (m_spatialActive && i < m_spatial.size()) removeSpatialEntry(static_cast<Entity>(i));
-        m_generationBase = std::max(m_generationBase, m_generation[i] + 1);
+    for (size_t slot = count; slot < m_alive.size(); ++slot) {
+        if (m_spatialActive && slot < m_spatial.size()) removeSpatialEntry(static_cast<Entity>(slot));
+        m_generationBase = std::max(m_generationBase, m_generation[slot] + 1);
     }
     m_db.transforms.resize(count);
     m_db.hierarchies.resize(count);
@@ -302,6 +236,7 @@ void World::shrinkSlots(size_t count) {
     m_visible.resize(count);
     m_mesh.resize(count);
     m_layer.resize(count);
+    m_position.resize(count);
     m_tags.resize(count);
     m_names.resize(count);
     m_db.firstChild.resize(count);
@@ -314,7 +249,7 @@ void World::shrinkSlots(size_t count) {
         m_worldCache.resize(count);
         m_worldDirty.resize(count);
     }
-    std::erase_if(m_freeList, [count](Entity e) { return e >= count; });
+    std::erase_if(m_freeList, [count](Entity freeSlot) { return freeSlot >= count; });
 }
 
 void World::trimTail() {
@@ -328,17 +263,17 @@ void World::moveEntity(Entity from, Entity to) {
     m_db.hierarchies[to] = m_db.hierarchies[from];
     m_db.renderables[to] = m_db.renderables[from];
     m_db.renderables[to].objectId = to;
+    m_position[to] = m_position[from];
     m_alive[to] = 1;
     m_visible[to] = m_visible[from];
     m_mesh[to] = m_mesh[from];
     m_layer[to] = m_layer[from];
-    m_names[to] = std::move(m_names[from]);
+    m_names.move(from, to);
 
-    if (!m_tags[from].empty()) {
-        auto& bucket = m_tagIndex[m_tags[from]];
+    if (!m_tags.get(from).empty()) {
+        auto& bucket = m_tagIndex[m_tags.get(from)];
         std::replace(bucket.begin(), bucket.end(), from, to);
-        m_tags[to] = std::move(m_tags[from]);
-        m_tags[from].clear();
+        m_tags.move(from, to);
     }
 
     const Entity parent = m_db.hierarchies[from].parent;
@@ -355,12 +290,12 @@ void World::moveEntity(Entity from, Entity to) {
     }
     if (next != INVALID_ENTITY) m_prevSibling[next] = to;
     m_db.firstChild[to] = m_db.firstChild[from];
-    for (Entity c = m_db.firstChild[to]; c != INVALID_ENTITY; c = m_db.nextSibling[c]) m_db.hierarchies[c].parent = to;
+    for (Entity child = m_db.firstChild[to]; child != INVALID_ENTITY; child = m_db.nextSibling[child]) m_db.hierarchies[child].parent = to;
 
-    for (auto& [type, p] : m_pools) p->rename(from, to);
-    if (const auto it = m_scripts.find(from); it != m_scripts.end()) {
-        auto scripts = std::move(it->second);
-        m_scripts.erase(it);
+    for (auto& [type, componentPool] : m_pools) componentPool->rename(from, to);
+    if (const auto scriptsIt = m_scripts.find(from); scriptsIt != m_scripts.end()) {
+        auto scripts = std::move(scriptsIt->second);
+        m_scripts.erase(scriptsIt);
         m_scripts[to] = std::move(scripts);
     }
     if (m_activeCamera.index == from) m_activeCamera = {to, m_generation[to]};
@@ -397,1946 +332,56 @@ std::vector<EntityMoved> World::compact() {
     }
     shrinkSlots(m_aliveCount);
     touchStructure();
-    for (const EntityMoved& m : moved) m_events.emit(m);
+    for (const EntityMoved& movement : moved) m_events.emit(movement);
     return moved;
 }
 
-void World::setParent(EntityHandle e, EntityHandle parent, bool keepWorldTransform) {
-    if (!valid(e)) return;
-    if (!parent.isNull() && (!valid(parent) || parent == e || isDescendantOf(parent, e))) return;
-    if (m_db.hierarchies[e.index].parent == parent.index) return;
+void World::setParent(EntityHandle entity, EntityHandle parent, bool keepWorldTransform) {
+    if (!valid(entity)) return;
+    if (!parent.isNull() && (!valid(parent) || parent == entity || isDescendantOf(parent, entity))) return;
+    if (m_db.hierarchies[entity.index].parent == parent.index) return;
 
-    const EntityHandle oldParent = getParent(e);
-    const glm::mat4 world = keepWorldTransform ? getWorldMatrix(e) : glm::mat4(1.0f);
-    unlink(e.index);
-    link(e.index, parent.index);
-    relevelSubtree(e.index);
-    m_db.transformDirty.mark(e.index);
-    invalidateWorld(e.index);
-    markSpatialSubtree(e.index);
+    const EntityHandle oldParent = getParent(entity);
+    const glm::mat4 world = keepWorldTransform ? getWorldMatrix(entity) : glm::mat4(1.0f);
+    unlink(entity.index);
+    link(entity.index, parent.index);
+    relevelSubtree(entity.index);
+    m_db.transformDirty.mark(entity.index);
+    invalidateWorld(entity.index);
+    markSpatialSubtree(entity.index);
     if (keepWorldTransform) {
         const glm::mat4 parentWorld = parent.isNull() ? glm::mat4(1.0f) : getWorldMatrix(parent);
-        m_db.transforms[e.index].localMatrix = glm::inverse(parentWorld) * world;
+        m_db.transforms[entity.index].localMatrix = glm::inverse(parentWorld) * world;
+        syncPosition(entity.index);
     }
-    m_events.emit(EntityReparented{e, oldParent, parent});
+    m_events.emit(EntityReparented{entity, oldParent, parent});
 }
 
-EntityHandle World::getParent(EntityHandle e) const {
-    if (!valid(e)) return NULL_ENTITY;
-    return handleOf(m_db.hierarchies[e.index].parent);
+EntityHandle World::getParent(EntityHandle entity) const {
+    if (!valid(entity)) return NULL_ENTITY;
+    return handleOf(m_db.hierarchies[entity.index].parent);
 }
 
-std::vector<EntityHandle> World::getChildren(EntityHandle e) const {
-    std::vector<EntityHandle> out;
-    if (!e.isNull() && !valid(e)) return out;
-    for (Entity c = e.isNull() ? m_firstRoot : m_db.firstChild[e.index]; c != INVALID_ENTITY; c = m_db.nextSibling[c]) {
-        out.push_back({c, m_generation[c]});
+std::vector<EntityHandle> World::getChildren(EntityHandle entity) const {
+    std::vector<EntityHandle> children;
+    if (!entity.isNull() && !valid(entity)) return children;
+    for (Entity child = entity.isNull() ? m_firstRoot : m_db.firstChild[entity.index]; child != INVALID_ENTITY; child = m_db.nextSibling[child]) {
+        children.push_back({child, m_generation[child]});
     }
-    return out;
+    return children;
 }
 
 std::vector<EntityHandle> World::getRoots() const { return getChildren(NULL_ENTITY); }
 
-bool World::isDescendantOf(EntityHandle e, EntityHandle ancestor) const {
-    for (EntityHandle p = getParent(e); !p.isNull(); p = getParent(p)) {
-        if (p == ancestor) return true;
+bool World::isDescendantOf(EntityHandle entity, EntityHandle ancestor) const {
+    for (EntityHandle current = getParent(entity); !current.isNull(); current = getParent(current)) {
+        if (current == ancestor) return true;
     }
     return false;
-}
-
-void World::setName(EntityHandle e, std::string name) {
-    if (valid(e)) m_names[e.index] = std::move(name);
-}
-
-const std::string& World::getName(EntityHandle e) const { return valid(e) ? m_names[e.index] : kEmptyName; }
-
-EntityHandle World::find(std::string_view name) const {
-    for (Entity i = 0; i < m_alive.size(); ++i) {
-        if (m_alive[i] && m_names[i] == name) return {i, m_generation[i]};
-    }
-    return NULL_ENTITY;
-}
-
-std::vector<EntityHandle> World::findAll(std::string_view name) const {
-    std::vector<EntityHandle> out;
-    for (Entity i = 0; i < m_alive.size(); ++i) {
-        if (m_alive[i] && m_names[i] == name) out.push_back({i, m_generation[i]});
-    }
-    return out;
-}
-
-void World::setLocalMatrix(EntityHandle e, const glm::mat4& local) {
-    if (!valid(e)) return;
-    m_db.transforms[e.index].localMatrix = local;
-    touchTransform(e.index);
-}
-
-void World::setPosition(EntityHandle e, const glm::vec3& position) {
-    if (!valid(e)) return;
-    m_db.transforms[e.index].setPos(position);
-    touchTransform(e.index);
-}
-
-void World::setRotation(EntityHandle e, const glm::quat& rotation) {
-    if (!valid(e)) return;
-    m_db.transforms[e.index].setRot(rotation);
-    touchTransform(e.index);
-}
-
-void World::setScale(EntityHandle e, const glm::vec3& scale) {
-    if (!valid(e)) return;
-    m_db.transforms[e.index].setScale(scale);
-    touchTransform(e.index);
-}
-
-void World::translate(EntityHandle e, const glm::vec3& delta) {
-    if (!valid(e)) return;
-    auto& t = m_db.transforms[e.index];
-    t.setPos(t.getPos() + delta);
-    touchTransform(e.index);
-}
-
-void World::setWorldMatrix(EntityHandle e, const glm::mat4& world) {
-    if (!valid(e)) return;
-    const EntityHandle parent = getParent(e);
-    const glm::mat4 parentWorld = parent.isNull() ? glm::mat4(1.0f) : getWorldMatrix(parent);
-    setLocalMatrix(e, glm::inverse(parentWorld) * world);
-}
-
-const glm::mat4& World::getLocalMatrix(EntityHandle e) const {
-    return valid(e) ? m_db.transforms[e.index].localMatrix : kDegenerate;
-}
-
-glm::vec3 World::orbitOffset(float time, uint32_t animIndex) {
-    const float i = static_cast<float>(animIndex);
-    return glm::vec3(std::sin(time * 1.3f + i * 1.0f), std::cos(time * 0.9f + i * 0.5f), std::sin(time * 0.7f + i * 0.25f)) * 2.0f;
-}
-
-void World::setAnimation(uint32_t firstEntity, std::vector<glm::vec3> basePositions) {
-    if (!m_animBase.empty()) {
-        const size_t oldEnd = std::min<size_t>(m_animBase.size() + m_animOffset, m_alive.size());
-        for (size_t i = m_animOffset; i < oldEnd; ++i) {
-            if (m_alive[i]) {
-                invalidateWorld(static_cast<Entity>(i));
-                queueSpatial(static_cast<Entity>(i));
-            }
-        }
-    }
-    m_animOffset = firstEntity;
-    m_animBase = std::move(basePositions);
-    m_animCacheTime = std::numeric_limits<float>::quiet_NaN();
-}
-
-glm::mat4 World::effectiveLocal(Entity idx) const {
-    glm::mat4 local = m_db.transforms[idx].localMatrix;
-    const uint32_t animIndex = idx - m_animOffset;
-    if (idx >= m_animOffset && animIndex < m_animBase.size()) local[3] = glm::vec4(m_animBase[animIndex] + orbitOffset(m_animTime, animIndex), 1.0f);
-    return local;
-}
-
-void World::syncAnimationCache() const {
-    if (m_animBase.empty() || m_animCacheTime == m_animTime) return;
-    m_animCacheTime = m_animTime;
-    if (m_worldCache.empty()) return;
-    const size_t end = std::min<size_t>(m_animBase.size() + m_animOffset, m_alive.size());
-    for (size_t i = m_animOffset; i < end; ++i) {
-        if (m_alive[i]) invalidateWorld(static_cast<Entity>(i));
-    }
-}
-
-glm::mat4 World::getWorldMatrix(EntityHandle e) const {
-    if (!valid(e)) return glm::mat4(1.0f);
-    syncAnimationCache();
-    if (m_worldCache.size() < m_alive.size()) {
-        m_worldCache.resize(m_alive.size(), glm::mat4(1.0f));
-        m_worldDirty.resize(m_alive.size(), 1);
-    }
-    m_worldChain.clear();
-    Entity cur = e.index;
-    while (cur != INVALID_ENTITY && m_worldDirty[cur]) {
-        m_worldChain.push_back(cur);
-        cur = m_db.hierarchies[cur].parent;
-    }
-    glm::mat4 base = cur == INVALID_ENTITY ? glm::mat4(1.0f) : m_worldCache[cur];
-    for (size_t i = m_worldChain.size(); i-- > 0;) {
-        const Entity idx = m_worldChain[i];
-        base = base * effectiveLocal(idx);
-        m_worldCache[idx] = base;
-        m_worldDirty[idx] = 0;
-    }
-    return m_worldCache[e.index];
-}
-
-glm::vec3 World::getPosition(EntityHandle e) const {
-    return valid(e) ? m_db.transforms[e.index].getPos() : glm::vec3(0.0f);
-}
-
-glm::quat World::getRotation(EntityHandle e) const {
-    return valid(e) ? m_db.transforms[e.index].getRot() : glm::quat(1.0f, 0.0f, 0.0f, 0.0f);
-}
-
-glm::vec3 World::getScale(EntityHandle e) const {
-    return valid(e) ? m_db.transforms[e.index].getScale() : glm::vec3(0.0f);
-}
-
-glm::vec3 World::getWorldPosition(EntityHandle e) const { return glm::vec3(getWorldMatrix(e)[3]); }
-
-void World::clearTag(Entity idx) {
-    if (m_tags[idx].empty()) return;
-    auto it = m_tagIndex.find(m_tags[idx]);
-    if (it != m_tagIndex.end()) {
-        auto& bucket = it->second;
-        bucket.erase(std::remove(bucket.begin(), bucket.end(), idx), bucket.end());
-        if (bucket.empty()) m_tagIndex.erase(it);
-    }
-    m_tags[idx].clear();
-}
-
-void World::setTag(EntityHandle e, std::string tag) {
-    if (!valid(e)) return;
-    clearTag(e.index);
-    if (tag.empty()) return;
-    m_tagIndex[tag].push_back(e.index);
-    m_tags[e.index] = std::move(tag);
-}
-
-const std::string& World::getTag(EntityHandle e) const { return valid(e) ? m_tags[e.index] : kEmptyName; }
-
-std::vector<EntityHandle> World::findByTag(const std::string& tag) const {
-    std::vector<EntityHandle> out;
-    const auto it = m_tagIndex.find(tag);
-    if (it == m_tagIndex.end()) return out;
-    out.reserve(it->second.size());
-    for (Entity idx : it->second) out.push_back({idx, m_generation[idx]});
-    return out;
-}
-
-void World::setLayer(EntityHandle e, uint32_t mask) {
-    if (valid(e)) m_layer[e.index] = mask;
-}
-
-uint32_t World::getLayer(EntityHandle e) const { return valid(e) ? m_layer[e.index] : 0; }
-
-void World::forEachInLayer(uint32_t mask, const std::function<void(EntityHandle)>& fn) const {
-    for (Entity i = 0; i < m_alive.size(); ++i) {
-        if (m_alive[i] && (m_layer[i] & mask)) fn({i, m_generation[i]});
-    }
-}
-
-void World::setFlagBit(Entity idx, uint32_t bit, bool on) {
-    uint32_t& flags = m_db.renderables[idx].flags;
-    flags = on ? (flags | bit) : (flags & ~bit);
-}
-
-void World::setRenderFlags(EntityHandle e, uint32_t flags, bool enabled) {
-    if (!valid(e)) return;
-    const uint32_t keepHidden = m_visible[e.index] ? 0u : RENDER_HIDDEN;
-    uint32_t& current = m_db.renderables[e.index].flags;
-    current = enabled ? (current | flags) : (current & ~flags);
-    current |= keepHidden;
-    touchRenderable(e.index);
-}
-
-uint32_t World::getRenderFlags(EntityHandle e) const {
-    return valid(e) ? m_db.renderables[e.index].flags : 0;
-}
-
-void World::setVisible(EntityHandle e, bool visible) {
-    if (!valid(e) || (m_visible[e.index] != 0) == visible) return;
-    m_visible[e.index] = visible ? 1 : 0;
-    queueSpatial(e.index);
-    setFlagBit(e.index, RENDER_HIDDEN, !visible);
-    touchRenderable(e.index);
-}
-
-bool World::isVisible(EntityHandle e) const { return valid(e) && m_visible[e.index]; }
-
-uint32_t World::getMesh(EntityHandle e) const { return valid(e) ? m_mesh[e.index] : 0; }
-
-void World::setMesh(EntityHandle e, uint32_t mesh) {
-    if (!valid(e)) return;
-    m_mesh[e.index] = mesh;
-    m_db.renderables[e.index].mesh_uuid = mesh;
-    queueSpatial(e.index);
-    touchRenderable(e.index);
-}
-
-void World::setMaterial(EntityHandle e, uint32_t material) {
-    if (!valid(e)) return;
-    m_db.renderables[e.index].material_uuid = material;
-    m_db.renderableDirty.mark(e.index);
-}
-
-void World::setShader(EntityHandle e, uint32_t shader) {
-    if (!valid(e)) return;
-    m_db.renderables[e.index].shaderId = shader;
-    m_db.renderableDirty.mark(e.index);
-}
-
-void World::setAlpha(EntityHandle e, float alpha) {
-    if (!valid(e)) return;
-    m_db.renderables[e.index].alpha = alpha;
-    m_db.renderableDirty.mark(e.index);
-}
-
-const RenderableComponent& World::getRenderable(EntityHandle e) const {
-    static const RenderableComponent kNone{};
-    return valid(e) ? m_db.renderables[e.index] : kNone;
 }
 
 void World::forEach(const std::function<void(EntityHandle)>& fn) const {
-    for (Entity i = 0; i < m_alive.size(); ++i) {
-        if (m_alive[i]) fn({i, m_generation[i]});
+    for (Entity index = 0; index < m_alive.size(); ++index) {
+        if (m_alive[index]) fn({index, m_generation[index]});
     }
-}
-
-void World::clear() {
-    m_db.transforms.clear();
-    m_db.hierarchies.clear();
-    m_db.renderables.clear();
-    m_db.sortedHierarchyList.clear();
-    m_db.transformDirty.reset();
-    m_db.renderableDirty.reset();
-    m_db.structureDirty.reset();
-    touchStructure();
-    m_alive.clear();
-    for (uint32_t g : m_generation) m_generationBase = std::max(m_generationBase, g + 1);
-    m_generation.clear();
-    m_visible.clear();
-    m_mesh.clear();
-    m_layer.clear();
-    m_tags.clear();
-    m_tagIndex.clear();
-    m_db.firstChild.clear();
-    m_db.nextSibling.clear();
-    m_prevSibling.clear();
-    m_names.clear();
-    m_freeList.clear();
-    m_worldCache.clear();
-    m_worldDirty.clear();
-    m_spatial.clear();
-    m_spatialQueued.clear();
-    m_spatialPending.clear();
-    m_spatialRoots.clear();
-    m_spatialRootQueued.clear();
-    m_cells.clear();
-    m_largeEntities.clear();
-    m_spatialActive = false;
-    m_maxSmallRadius = 0.0f;
-    m_scripts.clear();
-    for (auto& [type, p] : m_pools) p->clear();
-    m_pendingDestroy.clear();
-    m_pendingRemoveScripts.clear();
-    m_timers.clear();
-    m_firstRoot = INVALID_ENTITY;
-    m_aliveCount = 0;
-}
-
-bool World::saveScene(const std::filesystem::path& path) const {
-    std::ofstream out(path);
-    if (!out) return false;
-    return saveScene(out);
-}
-
-bool World::saveScene(std::ostream& out) const {
-    std::optional<ProfileScope> profile;
-    if (m_profiler) profile.emplace(*m_profiler, "World::saveScene");
-    out.precision(9);
-    out << "LITSCENE " << kSceneVersion << "\n" << m_aliveCount << "\n";
-    {
-        std::string cam = "camera";
-        const glm::vec3 p = m_camera.getPosition();
-        for (float v : {p.x, p.y, p.z, m_camera.getYaw(), m_camera.getPitch(), m_camera.getFov(), m_camera.getNearPlane(), m_camera.getFarPlane()}) {
-            cam.push_back(' ');
-            appendNumber(cam, v);
-        }
-        out << cam << '\n';
-    }
-    if (m_meshNameOf) {
-        std::set<uint32_t> usedMeshes;
-        for (Entity i = 0; i < m_alive.size(); ++i) {
-            if (m_alive[i]) usedMeshes.insert(m_mesh[i]);
-        }
-        for (uint32_t id : usedMeshes) {
-            const std::string name = m_meshNameOf(id);
-            if (!name.empty()) out << "mesh " << id << '\t' << name << '\n';
-        }
-    }
-    for (const SceneSection& section : m_sceneSections) {
-        if (section.write) section.write(out);
-    }
-    const auto appendEntity = [this](std::string& line, Entity i) {
-        const auto& r = m_db.renderables[i];
-        const Entity parent = m_db.hierarchies[i].parent;
-        appendNumber(line, i);
-        line.push_back(' ');
-        appendNumber(line, parent == INVALID_ENTITY ? -1LL : static_cast<long long>(parent));
-        line.push_back(' ');
-        appendNumber(line, static_cast<int>(m_visible[i]));
-        line.push_back(' ');
-        appendNumber(line, m_mesh[i]);
-        line.push_back(' ');
-        appendNumber(line, r.material_uuid);
-        line.push_back(' ');
-        appendNumber(line, r.shaderId);
-        line.push_back(' ');
-        appendNumber(line, r.alpha);
-        const float* m = &m_db.transforms[i].localMatrix[0][0];
-        for (int k = 0; k < 16; ++k) {
-            line.push_back(' ');
-            appendNumber(line, m[k]);
-        }
-        line.push_back(' ');
-        appendNumber(line, m_layer[i]);
-        line.push_back(' ');
-        appendNumber(line, r.flags & ~RENDER_HIDDEN);
-        line.push_back('\t');
-        line.append(m_names[i]);
-        line.push_back('\n');
-    };
-    constexpr size_t kChunk = 1 << 16;
-    const size_t slots = m_alive.size();
-    const size_t chunks = (slots + kChunk - 1) / kChunk;
-    if (m_jobs && chunks > 1) {
-        std::vector<std::string> buffers(chunks);
-        m_jobs->parallelFor(chunks, 1, [&](size_t begin, size_t end) {
-            for (size_t c = begin; c < end; ++c) {
-                std::string& buffer = buffers[c];
-                buffer.reserve(kChunk * 96);
-                const size_t last = std::min(slots, (c + 1) * kChunk);
-                for (size_t i = c * kChunk; i < last; ++i) {
-                    if (m_alive[i]) appendEntity(buffer, static_cast<Entity>(i));
-                }
-            }
-        });
-        for (const std::string& buffer : buffers) out.write(buffer.data(), static_cast<std::streamsize>(buffer.size()));
-    } else {
-        std::string line;
-        for (Entity i = 0; i < slots; ++i) {
-            if (!m_alive[i]) continue;
-            line.clear();
-            appendEntity(line, i);
-            out.write(line.data(), static_cast<std::streamsize>(line.size()));
-        }
-    }
-    for (Entity i = 0; i < m_alive.size(); ++i) {
-        if (m_alive[i] && !m_tags[i].empty()) out << "tag " << i << '\t' << m_tags[i] << '\n';
-    }
-    writeExtras(out);
-    return static_cast<bool>(out);
-}
-
-void World::applyExtraLines(const std::vector<std::string>& componentLines, const LoadContext& context) {
-    for (const std::string& componentLine : componentLines) {
-        const size_t tab = componentLine.find('\t');
-        if (tab == std::string::npos) continue;
-        std::istringstream head(componentLine.substr(0, tab));
-        std::string keyword, name;
-        long long id = -1;
-        if (componentLine.rfind("tag ", 0) == 0) {
-            head >> keyword >> id;
-            const EntityHandle handle = id < 0 ? NULL_ENTITY : context.resolve(static_cast<uint32_t>(id));
-            if (head && !handle.isNull()) setTag(handle, componentLine.substr(tab + 1));
-            continue;
-        }
-        head >> keyword >> name >> id;
-        const EntityHandle handle = id < 0 ? NULL_ENTITY : context.resolve(static_cast<uint32_t>(id));
-        if (!head || handle.isNull()) continue;
-        std::istringstream payload(componentLine.substr(tab + 1));
-        if (keyword == "script") {
-            const auto scriptSerializer = m_scriptSerializers.find(name);
-            if (scriptSerializer != m_scriptSerializers.end()) scriptSerializer->second.read(*this, handle, payload, context);
-            continue;
-        }
-        const auto serializer = m_serializers.find(name);
-        if (serializer != m_serializers.end()) serializer->second.read(*this, handle, payload, context);
-    }
-}
-
-void World::writeExtras(std::ostream& out) const {
-    for (const auto& [name, serializer] : m_serializers) {
-        const auto pool = m_pools.find(serializer.type);
-        if (pool == m_pools.end()) continue;
-        serializer.owners(*pool->second, [&](Entity e) {
-            if (!m_alive[e]) return;
-            out << "component " << name << ' ' << e << '\t';
-            serializer.write(*pool->second, out, e);
-            out << '\n';
-        });
-    }
-    std::vector<Entity> scripted;
-    scripted.reserve(m_scripts.size());
-    for (const auto& [idx, scripts] : m_scripts) scripted.push_back(idx);
-    std::sort(scripted.begin(), scripted.end());
-    for (Entity idx : scripted) {
-        if (!m_alive[idx]) continue;
-        for (const auto& script : m_scripts.at(idx)) {
-            const auto nameIt = m_scriptNames.find(std::type_index(typeid(*script)));
-            if (nameIt == m_scriptNames.end()) continue;
-            std::ostringstream payload;
-            if (!m_scriptSerializers.at(nameIt->second).write(*script, payload)) continue;
-            out << "script " << nameIt->second << ' ' << idx << '\t' << payload.str() << '\n';
-        }
-    }
-}
-
-std::optional<std::vector<EntityHandle>> World::loadSceneImpl(std::istream& in, bool additive, EntityHandle parent, bool trusted, std::vector<EntityHandle>* remap) {
-    std::optional<ProfileScope> profile;
-    if (m_profiler) profile.emplace(*m_profiler, "World::loadScene");
-    if (!in) return std::nullopt;
-    const std::string content((std::istreambuf_iterator<char>(in)), std::istreambuf_iterator<char>());
-    std::string magic;
-    int version = 0;
-    size_t count = 0;
-    size_t bodyStart = 0;
-    {
-        std::istringstream header(content.substr(0, std::min<size_t>(content.size(), 128)));
-        header >> magic >> version >> count;
-        if (!header || magic != "LITSCENE" || version < 1 || version > kSceneVersion || count > kMaxSceneEntities) return std::nullopt;
-        const size_t firstNewline = content.find('\n');
-        const size_t secondNewline = firstNewline == std::string::npos ? std::string::npos : content.find('\n', firstNewline + 1);
-        if (secondNewline == std::string::npos) return std::nullopt;
-        bodyStart = secondNewline + 1;
-    }
-    std::vector<std::string_view> lineViews;
-    lineViews.reserve(count + 64);
-    for (size_t pos = bodyStart; pos < content.size();) {
-        size_t end = content.find('\n', pos);
-        if (end == std::string::npos) end = content.size();
-        if (!trusted && end - pos > kMaxSceneLineLength) return std::nullopt;
-        if (end > pos) lineViews.emplace_back(content.data() + pos, end - pos);
-        pos = end + 1;
-    }
-    std::vector<std::string> migrated;
-    if (m_sceneMigration && version < kSceneVersion) {
-        migrated.reserve(lineViews.size());
-        for (std::string_view view : lineViews) {
-            migrated.emplace_back(view);
-            m_sceneMigration(version, migrated.back());
-        }
-        for (size_t i = 0; i < lineViews.size(); ++i) lineViews[i] = migrated[i];
-    }
-    const auto isEntityLine = [](std::string_view view) { return !view.empty() && view[0] >= '0' && view[0] <= '9'; };
-    std::vector<uint32_t> entityLines;
-    entityLines.reserve(count);
-    for (uint32_t i = 0; i < lineViews.size(); ++i) {
-        if (isEntityLine(lineViews[i])) entityLines.push_back(i);
-    }
-    if (entityLines.size() != count) return std::nullopt;
-
-    struct Parsed {
-        long long id = 0;
-        long long parent = -1;
-        int visible = 1;
-        uint32_t mesh = 0;
-        uint32_t material = 0;
-        uint32_t shader = 0;
-        float alpha = 1.0f;
-        glm::mat4 local{1.0f};
-        uint32_t layer = 1;
-        uint32_t flags = 0;
-        std::string_view name;
-        bool ok = false;
-    };
-    std::vector<Parsed> parsed(count);
-    const auto parseRange = [&](size_t begin, size_t end) {
-        for (size_t k = begin; k < end; ++k) {
-            const std::string_view line = lineViews[entityLines[k]];
-            Parsed& p = parsed[k];
-            const size_t tab = line.find('\t');
-            std::string_view fields = line.substr(0, tab);
-            bool ok = readNumber(fields, p.id) && readNumber(fields, p.parent) && readNumber(fields, p.visible) && readNumber(fields, p.mesh) && readNumber(fields, p.material) && readNumber(fields, p.shader) && readNumber(fields, p.alpha);
-            float* m = &p.local[0][0];
-            for (int c = 0; ok && c < 16; ++c) ok = readNumber(fields, m[c]) && (trusted || std::isfinite(m[c]));
-            if (!readNumber(fields, p.layer)) p.layer = 1;
-            if (!readNumber(fields, p.flags)) p.flags = 0;
-            if (tab != std::string_view::npos) {
-                p.name = line.substr(tab + 1);
-                if (!trusted && p.name.size() > kMaxNameLength) ok = false;
-                if (p.name.size() > kMaxNameLength) p.name = p.name.substr(0, kMaxNameLength);
-            }
-            if (!trusted && (p.id < 0 || p.parent < -1 || !std::isfinite(p.alpha))) ok = false;
-            p.ok = ok;
-        }
-    };
-    if (m_jobs && count > 16384) {
-        m_jobs->parallelFor(count, 8192, parseRange);
-    } else {
-        parseRange(0, count);
-    }
-    long long maxId = -1;
-    for (const Parsed& p : parsed) {
-        if (!p.ok) {
-            if (trusted && !additive) clear();
-            return std::nullopt;
-        }
-        maxId = std::max(maxId, p.id);
-    }
-    const bool denseIds = maxId >= 0 && static_cast<size_t>(maxId) <= count * 4 + 1024;
-    std::vector<EntityHandle> denseHandles;
-    std::unordered_map<long long, EntityHandle> sparseHandles;
-    if (denseIds) {
-        denseHandles.assign(static_cast<size_t>(maxId) + 1, NULL_ENTITY);
-    } else {
-        sparseHandles.reserve(count);
-    }
-    if (!trusted) {
-        if (denseIds) {
-            std::vector<uint8_t> seen(static_cast<size_t>(maxId) + 1, 0);
-            for (const Parsed& p : parsed) {
-                if (seen[static_cast<size_t>(p.id)]) return std::nullopt;
-                seen[static_cast<size_t>(p.id)] = 1;
-            }
-        } else {
-            std::unordered_set<long long> seen;
-            seen.reserve(count);
-            for (const Parsed& p : parsed) {
-                if (!seen.insert(p.id).second) return std::nullopt;
-            }
-        }
-    }
-    const auto lookup = [&](long long id) -> EntityHandle {
-        if (id < 0) return NULL_ENTITY;
-        if (denseIds) return static_cast<size_t>(id) < denseHandles.size() ? denseHandles[static_cast<size_t>(id)] : NULL_ENTITY;
-        const auto it = sparseHandles.find(id);
-        return it == sparseHandles.end() ? NULL_ENTITY : it->second;
-    };
-
-    if (!additive) clear();
-    reserve(m_alive.size() + count);
-    std::vector<EntityHandle> created;
-    created.reserve(count);
-    std::vector<std::string> componentLines;
-    std::unordered_map<uint32_t, uint32_t> meshRemap;
-    std::vector<std::pair<size_t, std::string>> sectionLines;
-    std::array<float, 8> cameraValues{};
-    bool hasCamera = false;
-    for (std::string_view view : lineViews) {
-        if (isEntityLine(view)) continue;
-        const std::string line(view);
-        if (line.rfind("camera ", 0) == 0) {
-            std::string_view values(line);
-            values.remove_prefix(7);
-            hasCamera = true;
-            for (float& v : cameraValues) hasCamera = hasCamera && readNumber(values, v);
-            continue;
-        }
-        if (line.rfind("meta ", 0) == 0) continue;
-        if (line.rfind("mesh ", 0) == 0) {
-            const size_t meshTab = line.find('\t');
-            if (meshTab != std::string::npos && m_meshLoad) {
-                meshRemap[static_cast<uint32_t>(std::strtoul(line.c_str() + 5, nullptr, 10))] = m_meshLoad(line.substr(meshTab + 1));
-            }
-            continue;
-        }
-        if (line.rfind("tag ", 0) == 0 || line.rfind("component ", 0) == 0 || line.rfind("script ", 0) == 0) {
-            componentLines.push_back(line);
-            continue;
-        }
-        if (!additive) {
-            for (size_t k = 0; k < m_sceneSections.size(); ++k) {
-                const std::string& keyword = m_sceneSections[k].keyword;
-                if (line.size() > keyword.size() && line.compare(0, keyword.size(), keyword) == 0 && line[keyword.size()] == ' ') {
-                    sectionLines.emplace_back(k, line.substr(keyword.size() + 1));
-                    break;
-                }
-            }
-        }
-    }
-    for (const Parsed& p : parsed) {
-        EntityDesc desc;
-        desc.mesh = p.mesh;
-        desc.material = p.material;
-        desc.shader = p.shader;
-        desc.alpha = p.alpha;
-        desc.name = std::string(p.name);
-        if (const auto meshIt = meshRemap.find(desc.mesh); meshIt != meshRemap.end()) desc.mesh = meshIt->second;
-        const EntityHandle h = createImpl(desc);
-        m_db.transforms[h.index].localMatrix = p.local;
-        m_layer[h.index] = p.layer;
-        m_db.renderables[h.index].flags |= p.flags;
-        if (!p.visible) {
-            m_visible[h.index] = 0;
-            m_db.renderables[h.index].flags |= RENDER_HIDDEN;
-        }
-        queueSpatial(h.index);
-        m_events.emit(EntityCreated{h});
-        if (denseIds) {
-            denseHandles[static_cast<size_t>(p.id)] = h;
-        } else {
-            sparseHandles[p.id] = h;
-        }
-        created.push_back(h);
-    }
-
-    std::vector<EntityHandle> roots;
-    for (size_t k = 0; k < parsed.size(); ++k) {
-        const EntityHandle self = created[k];
-        const EntityHandle parentHandle = lookup(parsed[k].parent);
-        if (!parentHandle.isNull() && parentHandle != self) {
-            setParent(self, parentHandle, false);
-        } else {
-            roots.push_back(self);
-            if (additive && valid(parent)) setParent(self, parent, false);
-        }
-    }
-
-    LoadContext context;
-    context.resolveFn = [&lookup](uint32_t savedIndex) { return lookup(static_cast<long long>(savedIndex)); };
-    applyExtraLines(componentLines, context);
-    if (!additive) {
-        for (const SceneSection& section : m_sceneSections) {
-            if (section.begin) section.begin();
-        }
-        for (const auto& [index, text] : sectionLines) {
-            if (m_sceneSections[index].read) m_sceneSections[index].read(text);
-        }
-        for (const SceneSection& section : m_sceneSections) {
-            if (section.end) section.end();
-        }
-    }
-    if (hasCamera && m_restoreCameraOnLoad && !additive) {
-        m_camera.setPos(glm::vec3(cameraValues[0], cameraValues[1], cameraValues[2]));
-        m_camera.setOrientation(cameraValues[3], cameraValues[4]);
-        m_camera.setFov(cameraValues[5]);
-        m_camera.setNearPlane(cameraValues[6]);
-        m_camera.setFarPlane(cameraValues[7]);
-    }
-    if (remap) {
-        for (EntityHandle& h : *remap) h = lookup(static_cast<long long>(h.index));
-    }
-    touchStructure();
-    return roots;
-}
-
-bool World::loadScene(const std::filesystem::path& path) {
-    std::ifstream in(path);
-    return loadSceneImpl(in, false, NULL_ENTITY).has_value();
-}
-
-bool World::loadScene(std::istream& in) { return loadSceneImpl(in, false, NULL_ENTITY).has_value(); }
-
-std::optional<std::vector<EntityHandle>> World::loadSceneAdditive(const std::filesystem::path& path, EntityHandle parent) {
-    std::ifstream in(path);
-    return loadSceneImpl(in, true, parent);
-}
-
-WorldSnapshot World::captureSnapshot() const {
-    WorldSnapshot snap;
-    snap.transforms = m_db.transforms;
-    snap.hierarchies = m_db.hierarchies;
-    snap.renderables = m_db.renderables;
-    snap.firstChild = m_db.firstChild;
-    snap.nextSibling = m_db.nextSibling;
-    snap.prevSibling = m_prevSibling;
-    snap.alive = m_alive;
-    snap.visible = m_visible;
-    snap.generation = m_generation;
-    snap.mesh = m_mesh;
-    snap.layer = m_layer;
-    snap.tags = m_tags;
-    snap.names = m_names;
-    snap.freeList = m_freeList;
-    snap.firstRoot = m_firstRoot;
-    snap.aliveCount = m_aliveCount;
-    std::ostringstream extras;
-    extras.precision(9);
-    {
-        const glm::vec3 p = m_camera.getPosition();
-        extras << "camera " << p.x << ' ' << p.y << ' ' << p.z << ' ' << m_camera.getYaw() << ' ' << m_camera.getPitch() << ' ' << m_camera.getFov() << ' ' << m_camera.getNearPlane() << ' ' << m_camera.getFarPlane() << '\n';
-    }
-    for (const SceneSection& section : m_sceneSections) {
-        if (section.write) section.write(extras);
-    }
-    writeExtras(extras);
-    snap.extras = extras.str();
-    snap.valid = true;
-    return snap;
-}
-
-void World::restoreSnapshot(const WorldSnapshot& snap) {
-    if (!snap.valid) return;
-    std::optional<ProfileScope> profile;
-    if (m_profiler) profile.emplace(*m_profiler, "World::restoreSnapshot");
-    const uint32_t generationBase = m_generationBase;
-    clear();
-    m_generationBase = std::max(m_generationBase, generationBase);
-    m_db.transforms = snap.transforms;
-    m_db.hierarchies = snap.hierarchies;
-    m_db.renderables = snap.renderables;
-    m_db.firstChild = snap.firstChild;
-    m_db.nextSibling = snap.nextSibling;
-    m_prevSibling = snap.prevSibling;
-    m_alive = snap.alive;
-    m_visible = snap.visible;
-    m_generation = snap.generation;
-    m_mesh = snap.mesh;
-    m_layer = snap.layer;
-    m_names = snap.names;
-    m_freeList = snap.freeList;
-    m_firstRoot = snap.firstRoot;
-    m_aliveCount = snap.aliveCount;
-    m_tags.assign(m_alive.size(), std::string());
-    for (Entity i = 0; i < snap.tags.size() && i < m_alive.size(); ++i) {
-        if (m_alive[i] && !snap.tags[i].empty()) setTag({i, m_generation[i]}, snap.tags[i]);
-    }
-    std::vector<std::string> extraLines;
-    std::vector<std::pair<size_t, std::string>> sectionLines;
-    std::array<float, 8> cameraValues{};
-    bool hasCamera = false;
-    std::istringstream lines(snap.extras);
-    std::string line;
-    while (std::getline(lines, line)) {
-        if (line.rfind("camera ", 0) == 0) {
-            std::string_view view(line);
-            view.remove_prefix(7);
-            hasCamera = true;
-            for (float& v : cameraValues) hasCamera = hasCamera && readNumber(view, v);
-            continue;
-        }
-        bool claimed = false;
-        for (size_t k = 0; k < m_sceneSections.size() && !claimed; ++k) {
-            const std::string& keyword = m_sceneSections[k].keyword;
-            if (line.size() > keyword.size() && line.compare(0, keyword.size(), keyword) == 0 && line[keyword.size()] == ' ') {
-                sectionLines.emplace_back(k, line.substr(keyword.size() + 1));
-                claimed = true;
-            }
-        }
-        if (!claimed) extraLines.push_back(line);
-    }
-    LoadContext context;
-    context.resolveFn = [this](uint32_t index) { return index < m_alive.size() && m_alive[index] ? EntityHandle{index, m_generation[index]} : NULL_ENTITY; };
-    applyExtraLines(extraLines, context);
-    for (const SceneSection& section : m_sceneSections) {
-        if (section.begin) section.begin();
-    }
-    for (const auto& [index, text] : sectionLines) {
-        if (m_sceneSections[index].read) m_sceneSections[index].read(text);
-    }
-    for (const SceneSection& section : m_sceneSections) {
-        if (section.end) section.end();
-    }
-    if (hasCamera && m_restoreCameraOnLoad) {
-        m_camera.setPos(glm::vec3(cameraValues[0], cameraValues[1], cameraValues[2]));
-        m_camera.setOrientation(cameraValues[3], cameraValues[4]);
-        m_camera.setFov(cameraValues[5]);
-        m_camera.setNearPlane(cameraValues[6]);
-        m_camera.setFarPlane(cameraValues[7]);
-    }
-    m_db.markTransformsDirty();
-    touchStructure();
-}
-
-std::string World::snapshot() const {
-    std::ostringstream out;
-    saveScene(out);
-    return out.str();
-}
-
-bool World::restore(const std::string& snapshotText, std::vector<EntityHandle>* remap) {
-    std::istringstream in(snapshotText);
-    return loadSceneImpl(in, false, NULL_ENTITY, true, remap).has_value();
-}
-
-void World::unloadGroup(const std::vector<EntityHandle>& roots) { destroyBatch(roots); }
-
-void World::runScriptDestroy(Entity idx) {
-    const auto it = m_scripts.find(idx);
-    if (it == m_scripts.end()) return;
-    const EntityHandle h{idx, m_generation[idx]};
-    auto scripts = std::move(it->second);
-    m_scripts.erase(it);
-    for (auto& s : scripts) {
-        if (s->m_started) s->onDestroy(*this, h);
-    }
-}
-
-Script* World::addScript(EntityHandle e, std::unique_ptr<Script> script) {
-    if (!valid(e) || !script) return nullptr;
-    Script* raw = script.get();
-    m_scripts[e.index].push_back(std::move(script));
-    return raw;
-}
-
-void World::removeScripts(EntityHandle e) {
-    if (!valid(e)) return;
-    if (m_updating) {
-        m_pendingRemoveScripts.push_back(e);
-        return;
-    }
-    runScriptDestroy(e.index);
-}
-
-void World::flushPendingDestroy() {
-    auto pending = std::move(m_pendingDestroy);
-    m_pendingDestroy.clear();
-    for (EntityHandle h : pending) destroy(h);
-}
-
-void World::runScripts(const std::function<void(Script&, EntityHandle)>& fn) {
-    std::vector<std::pair<EntityHandle, Script*>> snapshot;
-    for (auto& [idx, scripts] : m_scripts) {
-        for (auto& s : scripts) snapshot.emplace_back(EntityHandle{idx, m_generation[idx]}, s.get());
-    }
-
-    m_updating = true;
-    for (auto& [h, script] : snapshot) {
-        if (!script->m_started) {
-            script->m_started = true;
-            script->onStart(*this, h);
-        }
-        fn(*script, h);
-    }
-    m_updating = false;
-    auto removals = std::move(m_pendingRemoveScripts);
-    m_pendingRemoveScripts.clear();
-    for (EntityHandle h : removals) removeScripts(h);
-    flushPendingDestroy();
-}
-
-void World::update(float deltaTime) {
-    runScripts([&](Script& s, EntityHandle h) { s.onUpdate(*this, h, deltaTime); });
-    runTimers(deltaTime);
-}
-
-uint32_t World::after(float seconds, TimerFn fn, EntityHandle owner) {
-    if (!fn) return 0;
-    const uint32_t id = ++m_nextTimerId;
-    m_timers.push_back({id, std::max(0.0, static_cast<double>(seconds)), 0.0, std::move(fn), owner, false});
-    return id;
-}
-
-uint32_t World::every(float seconds, TimerFn fn, EntityHandle owner) {
-    if (!fn || seconds <= 0.0f) return 0;
-    const uint32_t id = ++m_nextTimerId;
-    m_timers.push_back({id, static_cast<double>(seconds), static_cast<double>(seconds), std::move(fn), owner, false});
-    return id;
-}
-
-bool World::cancel(uint32_t timerId) {
-    for (Timer& t : m_timers) {
-        if (t.id == timerId && !t.cancelled) {
-            t.cancelled = true;
-            if (!m_firingTimers) std::erase_if(m_timers, [](const Timer& x) { return x.cancelled; });
-            return true;
-        }
-    }
-    return false;
-}
-
-void World::runTimers(float deltaTime) {
-    if (m_timers.empty()) return;
-    m_firingTimers = true;
-    const size_t count = m_timers.size();
-    for (size_t i = 0; i < count && i < m_timers.size(); ++i) {
-        if (m_timers[i].cancelled) continue;
-        if (!m_timers[i].owner.isNull() && !valid(m_timers[i].owner)) {
-            m_timers[i].cancelled = true;
-            continue;
-        }
-        m_timers[i].remaining -= deltaTime;
-        int fired = 0;
-        while (m_timers[i].remaining <= 0.0 && !m_timers[i].cancelled && fired < 1000) {
-            ++fired;
-            const TimerFn fn = m_timers[i].fn;
-            const EntityHandle owner = m_timers[i].owner;
-            const bool repeating = m_timers[i].interval > 0.0;
-            if (repeating) {
-                m_timers[i].remaining += m_timers[i].interval;
-            } else {
-                m_timers[i].cancelled = true;
-            }
-            fn(*this, owner);
-            if (!repeating) break;
-        }
-    }
-    m_firingTimers = false;
-    std::erase_if(m_timers, [](const Timer& t) { return t.cancelled; });
-}
-
-void World::fixedUpdate(float fixedDelta) {
-    runScripts([&](Script& s, EntityHandle h) { s.onFixedUpdate(*this, h, fixedDelta); });
-}
-
-Prefab World::capture(EntityHandle root) const {
-    Prefab prefab;
-    if (!valid(root)) return prefab;
-
-    std::vector<std::pair<Entity, int>> stack{{root.index, -1}};
-    while (!stack.empty()) {
-        const auto [idx, parentNode] = stack.back();
-        stack.pop_back();
-
-        PrefabNode node;
-        node.name = m_names[idx];
-        node.mesh = m_mesh[idx];
-        node.material = m_db.renderables[idx].material_uuid;
-        node.shader = m_db.renderables[idx].shaderId;
-        node.alpha = m_db.renderables[idx].alpha;
-        node.visible = m_visible[idx] != 0;
-        node.layer = m_layer[idx];
-        node.renderFlags = m_db.renderables[idx].flags & ~RENDER_HIDDEN;
-        node.tag = m_tags[idx];
-        node.local = m_db.transforms[idx].localMatrix;
-        node.parent = parentNode;
-        node.sourceIndex = idx;
-        node.sourceGeneration = m_generation[idx];
-        for (const auto& [name, serializer] : m_serializers) {
-            const auto pool = m_pools.find(serializer.type);
-            if (pool == m_pools.end()) continue;
-            std::ostringstream payload;
-            serializer.write(*pool->second, payload, idx);
-            if (!payload.str().empty()) node.components.emplace_back(name, payload.str());
-        }
-
-        if (const auto scriptsIt = m_scripts.find(idx); scriptsIt != m_scripts.end()) {
-            for (const auto& script : scriptsIt->second) {
-                const auto nameIt = m_scriptNames.find(std::type_index(typeid(*script)));
-                if (nameIt == m_scriptNames.end()) continue;
-                std::ostringstream payload;
-                if (m_scriptSerializers.at(nameIt->second).write(*script, payload)) node.scripts.emplace_back(nameIt->second, payload.str());
-            }
-        }
-
-        const int nodeIndex = static_cast<int>(prefab.nodes.size());
-        prefab.nodes.push_back(std::move(node));
-        for (Entity c = m_db.firstChild[idx]; c != INVALID_ENTITY; c = m_db.nextSibling[c]) stack.emplace_back(c, nodeIndex);
-    }
-    return prefab;
-}
-
-EntityHandle World::instantiate(const Prefab& prefab, EntityHandle parent, std::vector<EntityHandle>* createdOut) {
-    std::vector<EntityHandle> created;
-    created.reserve(prefab.nodes.size());
-    std::unordered_map<uint32_t, EntityHandle> remap;
-    for (const PrefabNode& node : prefab.nodes) {
-        EntityDesc desc;
-        desc.name = node.name;
-        desc.mesh = node.mesh;
-        desc.material = node.material;
-        desc.shader = node.shader;
-        desc.alpha = node.alpha;
-        desc.parent = node.parent < 0 ? parent : created[node.parent];
-        const EntityHandle h = create(desc);
-        setLocalMatrix(h, node.local);
-        if (!node.visible) setVisible(h, false);
-        setLayer(h, node.layer);
-        setRenderFlags(h, node.renderFlags, true);
-        setTag(h, node.tag);
-        created.push_back(h);
-        remap[node.sourceIndex] = h;
-    }
-
-    LoadContext context;
-    context.resolveFn = [this, &remap](uint32_t sourceIndex) {
-        const auto it = remap.find(sourceIndex);
-        return it != remap.end() ? it->second : handleOf(sourceIndex);
-    };
-    for (size_t i = 0; i < prefab.nodes.size(); ++i) {
-        const PrefabNode& node = prefab.nodes[i];
-        for (const auto& [name, payload] : node.components) {
-            const auto serializer = m_serializers.find(name);
-            if (serializer == m_serializers.end()) continue;
-            std::istringstream in(payload);
-            serializer->second.read(*this, created[i], in, context);
-        }
-        for (const auto& [name, payload] : node.scripts) {
-            const auto serializer = m_scriptSerializers.find(name);
-            if (serializer == m_scriptSerializers.end()) continue;
-            std::istringstream in(payload);
-            serializer->second.read(*this, created[i], in, context);
-        }
-    }
-    if (createdOut) *createdOut = created;
-    return created.empty() ? NULL_ENTITY : created.front();
-}
-
-void World::syncCamera() {
-    if (!valid(m_activeCamera)) return;
-    const CameraComponent* cam = get<CameraComponent>(m_activeCamera);
-    if (!cam) return;
-    const glm::mat4 world = getWorldMatrix(m_activeCamera);
-    const glm::vec3 forward = glm::normalize(-glm::vec3(world[2]));
-    m_camera.setPos(glm::vec3(world[3]));
-    m_camera.setOrientation(glm::degrees(std::atan2(forward.z, forward.x)), glm::degrees(std::asin(glm::clamp(forward.y, -1.0f, 1.0f))));
-    m_camera.setFov(cam->fov);
-    m_camera.setNearPlane(cam->nearPlane);
-    m_camera.setFarPlane(cam->farPlane);
-}
-
-uint64_t World::spatialKey(int x, int y, int z) const {
-    constexpr uint64_t mask = 0x1FFFFF;
-    return ((static_cast<uint64_t>(x) & mask) << 42) | ((static_cast<uint64_t>(y) & mask) << 21) | (static_cast<uint64_t>(z) & mask);
-}
-
-void World::setSpatialCellSize(float size) {
-    if (size <= 0.0f) return;
-    m_cellSize = size;
-    m_cells.clear();
-    m_largeEntities.clear();
-    m_spatial.clear();
-    m_spatialQueued.clear();
-    m_spatialPending.clear();
-    m_spatialRoots.clear();
-    m_spatialRootQueued.clear();
-    m_maxSmallRadius = 0.0f;
-    m_spatialActive = false;
-}
-
-void World::queueSpatial(Entity idx) {
-    if (!m_spatialActive) return;
-    if (m_spatialQueued.size() <= idx) m_spatialQueued.resize(m_alive.size(), 0);
-    if (m_spatialQueued[idx]) return;
-    m_spatialQueued[idx] = 1;
-    m_spatialPending.push_back(idx);
-}
-
-void World::markSpatialSubtree(Entity idx) {
-    if (!m_spatialActive) return;
-    if (m_spatialRootQueued.size() <= idx) m_spatialRootQueued.resize(m_alive.size(), 0);
-    if (m_spatialRootQueued[idx]) return;
-    m_spatialRootQueued[idx] = 1;
-    m_spatialRoots.push_back(idx);
-}
-
-void World::expandSpatialRoots() {
-    auto roots = std::move(m_spatialRoots);
-    m_spatialRoots.clear();
-    for (Entity root : roots) {
-        if (root < m_spatialRootQueued.size()) m_spatialRootQueued[root] = 0;
-        if (root >= m_alive.size() || !m_alive[root]) continue;
-        m_spatialStack.clear();
-        m_spatialStack.push_back(root);
-        while (!m_spatialStack.empty()) {
-            const Entity e = m_spatialStack.back();
-            m_spatialStack.pop_back();
-            queueSpatial(e);
-            for (Entity c = m_db.firstChild[e]; c != INVALID_ENTITY; c = m_db.nextSibling[c]) m_spatialStack.push_back(c);
-        }
-    }
-}
-
-void World::removeSpatialEntry(Entity idx) {
-    SpatialEntry& entry = m_spatial[idx];
-    if (entry.state == 1) {
-        const auto it = m_cells.find(entry.cell);
-        if (it != m_cells.end()) {
-            auto& bucket = it->second;
-            if (entry.slot < bucket.size() && bucket[entry.slot] == idx) {
-                const Entity moved = bucket.back();
-                bucket[entry.slot] = moved;
-                m_spatial[moved].slot = entry.slot;
-                bucket.pop_back();
-            }
-            if (bucket.empty()) m_cells.erase(it);
-        }
-    } else if (entry.state == 2) {
-        m_largeEntities.erase(std::remove(m_largeEntities.begin(), m_largeEntities.end(), idx), m_largeEntities.end());
-    }
-    entry.state = 0;
-}
-
-void World::insertSpatialEntry(Entity idx) {
-    SpatialEntry& entry = m_spatial[idx];
-    if (entry.state == 2) {
-        m_largeEntities.push_back(idx);
-    } else if (entry.state == 1) {
-        m_maxSmallRadius = std::max(m_maxSmallRadius, entry.radius);
-        auto& bucket = m_cells[entry.cell];
-        entry.slot = static_cast<uint32_t>(bucket.size());
-        bucket.push_back(idx);
-    }
-}
-
-glm::mat4 World::worldNoCache(Entity idx) const {
-    glm::mat4 m = effectiveLocal(idx);
-    for (Entity p = m_db.hierarchies[idx].parent; p != INVALID_ENTITY && m_alive[p]; p = m_db.hierarchies[p].parent) m = effectiveLocal(p) * m;
-    return m;
-}
-
-bool World::isAnimated(Entity idx) const {
-    const uint32_t animIndex = idx - m_animOffset;
-    return idx >= m_animOffset && animIndex < m_animBase.size();
-}
-
-namespace {
-
-float maxAxisScale(const glm::mat4& m) { return std::max({glm::length(glm::vec3(m[0])), glm::length(glm::vec3(m[1])), glm::length(glm::vec3(m[2]))}); }
-
-constexpr float kOrbitReach = 3.4642f;
-
-}  // namespace
-
-glm::mat4 World::sweptWorld(Entity idx, float& sweep) const {
-    const auto baseLocal = [this](Entity e) {
-        glm::mat4 local = m_db.transforms[e].localMatrix;
-        if (isAnimated(e)) local[3] = glm::vec4(m_animBase[e - m_animOffset], 1.0f);
-        return local;
-    };
-    glm::mat4 m = baseLocal(idx);
-    sweep = isAnimated(idx) ? kOrbitReach : 0.0f;
-    for (Entity p = m_db.hierarchies[idx].parent; p != INVALID_ENTITY && m_alive[p]; p = m_db.hierarchies[p].parent) {
-        const glm::mat4 local = baseLocal(p);
-        if (sweep > 0.0f) sweep *= maxAxisScale(local);
-        if (isAnimated(p)) sweep += kOrbitReach;
-        m = local * m;
-    }
-    return m;
-}
-
-void World::computeSpatialEntry(Entity idx, SpatialEntry& out, bool swept) const {
-    out.state = 0;
-    out.animated = 0;
-    if (!m_alive[idx] || !m_visible[idx] || !m_meshBounds || m_mesh[idx] == NO_MESH) return;
-    const glm::vec4 bounds = m_meshBounds(m_mesh[idx]);
-    float sweep = 0.0f;
-    const glm::mat4 world = swept && !m_animBase.empty() ? sweptWorld(idx, sweep) : worldNoCache(idx);
-    out.center = glm::vec3(world * glm::vec4(glm::vec3(bounds), 1.0f));
-    out.radius = bounds.w * maxAxisScale(world) + sweep;
-    out.animated = sweep > 0.0f ? 1 : 0;
-    if (out.radius > m_cellSize * 4.0f) {
-        out.state = 2;
-        return;
-    }
-    out.cell = spatialKey(static_cast<int>(std::floor(out.center.x / m_cellSize)), static_cast<int>(std::floor(out.center.y / m_cellSize)), static_cast<int>(std::floor(out.center.z / m_cellSize)));
-    out.state = 1;
-}
-
-SpatialEntry World::liveSpatial(Entity idx) const {
-    const SpatialEntry& indexed = m_spatial[idx];
-    if (!indexed.animated) return indexed;
-    SpatialEntry live;
-    computeSpatialEntry(idx, live, false);
-    return live;
-}
-
-void World::rebuildSpatialEntry(Entity idx) {
-    if (idx >= m_alive.size()) return;
-    if (m_spatial.size() <= idx) m_spatial.resize(m_alive.size());
-    removeSpatialEntry(idx);
-    computeSpatialEntry(idx, m_spatial[idx], true);
-    insertSpatialEntry(idx);
-}
-
-void World::refreshSpatial() {
-    std::optional<ProfileScope> profile;
-    if (m_profiler) profile.emplace(*m_profiler, "World::refreshSpatial");
-    if (!m_spatialActive) {
-        m_spatialActive = true;
-        m_spatial.assign(m_alive.size(), SpatialEntry{});
-        m_spatialQueued.assign(m_alive.size(), 0);
-        m_spatialPending.clear();
-        m_spatialRoots.clear();
-        m_spatialRootQueued.assign(m_alive.size(), 0);
-        const size_t count = m_alive.size();
-        const auto compute = [this](size_t begin, size_t end) {
-            for (size_t i = begin; i < end; ++i) computeSpatialEntry(static_cast<Entity>(i), m_spatial[i], true);
-        };
-        if (m_jobs) {
-            m_jobs->parallelFor(count, 8192, compute);
-        } else {
-            compute(0, count);
-        }
-        for (Entity i = 0; i < count; ++i) insertSpatialEntry(i);
-        return;
-    }
-    expandSpatialRoots();
-    auto pending = std::move(m_spatialPending);
-    m_spatialPending.clear();
-    if (m_spatial.size() < m_alive.size()) m_spatial.resize(m_alive.size());
-    for (Entity idx : pending) {
-        if (idx < m_spatialQueued.size()) m_spatialQueued[idx] = 0;
-    }
-    std::vector<SpatialEntry> fresh(pending.size());
-    const auto compute = [&](size_t begin, size_t end) {
-        for (size_t i = begin; i < end; ++i) {
-            if (pending[i] < m_alive.size()) computeSpatialEntry(pending[i], fresh[i], true);
-        }
-    };
-    if (m_jobs && pending.size() > 4096) {
-        m_jobs->parallelFor(pending.size(), 8192, compute);
-    } else {
-        compute(0, pending.size());
-    }
-    if (!m_jobs || pending.size() < 65536) {
-        for (size_t i = 0; i < pending.size(); ++i) {
-            const Entity idx = pending[i];
-            if (idx >= m_alive.size()) continue;
-            SpatialEntry& entry = m_spatial[idx];
-            const SpatialEntry& next = fresh[i];
-            if (entry.state == next.state && entry.state != 2 && (entry.state == 0 || entry.cell == next.cell)) {
-                entry.center = next.center;
-                entry.radius = next.radius;
-                entry.animated = next.animated;
-                if (entry.state == 1) m_maxSmallRadius = std::max(m_maxSmallRadius, entry.radius);
-                continue;
-            }
-            removeSpatialEntry(idx);
-            const uint32_t slot = entry.slot;
-            entry = next;
-            entry.slot = slot;
-            insertSpatialEntry(idx);
-        }
-        return;
-    }
-    constexpr size_t kParts = 64;
-    const auto part = [](uint64_t cell) { return static_cast<size_t>((cell * 0x9E3779B97F4A7C15ull) >> 58); };
-    std::vector<std::vector<uint32_t>> removals(kParts), inserts(kParts);
-    std::vector<uint32_t> largeInserts;
-    std::vector<uint32_t> largeCleared;
-    bool largeRemoved = false;
-    for (size_t i = 0; i < pending.size(); ++i) {
-        const Entity idx = pending[i];
-        if (idx >= m_alive.size()) continue;
-        SpatialEntry& entry = m_spatial[idx];
-        const SpatialEntry& next = fresh[i];
-        if (entry.state == next.state && entry.state != 2 && (entry.state == 0 || entry.cell == next.cell)) {
-            entry.center = next.center;
-            entry.radius = next.radius;
-            entry.animated = next.animated;
-            if (entry.state == 1) m_maxSmallRadius = std::max(m_maxSmallRadius, entry.radius);
-            continue;
-        }
-        if (entry.state == 1) removals[part(entry.cell)].push_back(static_cast<uint32_t>(i));
-        if (entry.state == 2) {
-            largeRemoved = true;
-            entry.state = 3;
-            if (next.state == 0) largeCleared.push_back(static_cast<uint32_t>(i));
-        }
-        if (next.state == 1) inserts[part(next.cell)].push_back(static_cast<uint32_t>(i));
-        if (next.state == 2) largeInserts.push_back(static_cast<uint32_t>(i));
-        if (entry.state == 0) entry = next;
-    }
-    if (largeRemoved) m_largeEntities.erase(std::remove_if(m_largeEntities.begin(), m_largeEntities.end(), [this](Entity e) { return m_spatial[e].state == 3; }), m_largeEntities.end());
-    for (uint32_t i : largeCleared) m_spatial[pending[i]] = fresh[i];
-    std::vector<std::vector<uint64_t>> emptied(kParts), missing(kParts);
-    m_jobs->parallelFor(kParts, 1, [&](size_t begin, size_t end) {
-        for (size_t p = begin; p < end; ++p) {
-            for (uint32_t i : removals[p]) {
-                SpatialEntry& entry = m_spatial[pending[i]];
-                const auto it = m_cells.find(entry.cell);
-                if (it != m_cells.end()) {
-                    auto& bucket = it->second;
-                    if (entry.slot < bucket.size() && bucket[entry.slot] == pending[i]) {
-                        const Entity moved = bucket.back();
-                        bucket[entry.slot] = moved;
-                        m_spatial[moved].slot = entry.slot;
-                        bucket.pop_back();
-                    }
-                    if (bucket.empty()) emptied[p].push_back(entry.cell);
-                }
-                entry.state = 0;
-            }
-            for (uint32_t i : inserts[p]) {
-                if (m_cells.find(fresh[i].cell) == m_cells.end()) missing[p].push_back(fresh[i].cell);
-            }
-        }
-    });
-    for (const auto& keys : missing) {
-        for (uint64_t key : keys) m_cells.try_emplace(key);
-    }
-    std::vector<float> radii(kParts, 0.0f);
-    m_jobs->parallelFor(kParts, 1, [&](size_t begin, size_t end) {
-        for (size_t p = begin; p < end; ++p) {
-            for (uint32_t i : inserts[p]) {
-                const Entity idx = pending[i];
-                SpatialEntry& entry = m_spatial[idx];
-                entry = fresh[i];
-                auto& bucket = m_cells.find(entry.cell)->second;
-                entry.slot = static_cast<uint32_t>(bucket.size());
-                bucket.push_back(idx);
-                radii[p] = std::max(radii[p], entry.radius);
-            }
-        }
-    });
-    for (float r : radii) m_maxSmallRadius = std::max(m_maxSmallRadius, r);
-    for (const auto& keys : emptied) {
-        for (uint64_t key : keys) {
-            const auto it = m_cells.find(key);
-            if (it != m_cells.end() && it->second.empty()) m_cells.erase(it);
-        }
-    }
-    for (uint32_t i : largeInserts) {
-        m_spatial[pending[i]] = fresh[i];
-        m_largeEntities.push_back(pending[i]);
-    }
-}
-
-std::vector<EntityHandle> World::overlapSphere(const glm::vec3& center, float radius) {
-    refreshSpatial();
-    std::vector<EntityHandle> out;
-    const auto test = [&](Entity e) {
-        const SpatialEntry entry = liveSpatial(e);
-        const float reach = radius + entry.radius;
-        const glm::vec3 d = entry.center - center;
-        if (glm::dot(d, d) <= reach * reach) out.push_back({e, m_generation[e]});
-    };
-
-    const float reach = radius + m_maxSmallRadius;
-    const int x0 = static_cast<int>(std::floor((center.x - reach) / m_cellSize)), x1 = static_cast<int>(std::floor((center.x + reach) / m_cellSize));
-    const int y0 = static_cast<int>(std::floor((center.y - reach) / m_cellSize)), y1 = static_cast<int>(std::floor((center.y + reach) / m_cellSize));
-    const int z0 = static_cast<int>(std::floor((center.z - reach) / m_cellSize)), z1 = static_cast<int>(std::floor((center.z + reach) / m_cellSize));
-    const size_t span = static_cast<size_t>(x1 - x0 + 1) * static_cast<size_t>(y1 - y0 + 1) * static_cast<size_t>(z1 - z0 + 1);
-
-    if (span > m_cells.size()) {
-        for (const auto& [key, bucket] : m_cells) {
-            for (Entity e : bucket) test(e);
-        }
-    } else {
-        for (int x = x0; x <= x1; ++x) {
-            for (int y = y0; y <= y1; ++y) {
-                for (int z = z0; z <= z1; ++z) {
-                    const auto it = m_cells.find(spatialKey(x, y, z));
-                    if (it == m_cells.end()) continue;
-                    for (Entity e : it->second) test(e);
-                }
-            }
-        }
-    }
-    for (Entity e : m_largeEntities) test(e);
-    return out;
-}
-
-std::optional<RayHit> World::raycast(const glm::vec3& origin, const glm::vec3& direction, float maxDistance) {
-    refreshSpatial();
-    const float len = glm::length(direction);
-    if (len < 1.0e-8f) return std::nullopt;
-    const glm::vec3 dir = direction / len;
-
-    std::optional<RayHit> best;
-    const auto test = [&](Entity e) {
-        const SpatialEntry entry = liveSpatial(e);
-        const glm::vec3 oc = entry.center - origin;
-        const float along = glm::dot(oc, dir);
-        const float perp2 = glm::dot(oc, oc) - along * along;
-        const float r2 = entry.radius * entry.radius;
-        if (perp2 > r2) return;
-        const float half = std::sqrt(r2 - perp2);
-        float t = along - half;
-        if (t < 0.0f) t = along + half;
-        if (t < 0.0f || t > maxDistance) return;
-        if (!best || t < best->distance) best = RayHit{{e, m_generation[e]}, t};
-    };
-    for (Entity e : m_largeEntities) test(e);
-
-    const int inflate = static_cast<int>(std::ceil(m_maxSmallRadius / m_cellSize));
-    int cell[3] = {static_cast<int>(std::floor(origin.x / m_cellSize)), static_cast<int>(std::floor(origin.y / m_cellSize)), static_cast<int>(std::floor(origin.z / m_cellSize))};
-    int step[3];
-    float tMax[3], tDelta[3];
-    const float o[3] = {origin.x, origin.y, origin.z};
-    const float d[3] = {dir.x, dir.y, dir.z};
-    for (int a = 0; a < 3; ++a) {
-        if (d[a] > 0.0f) {
-            step[a] = 1;
-            tMax[a] = ((cell[a] + 1) * m_cellSize - o[a]) / d[a];
-            tDelta[a] = m_cellSize / d[a];
-        } else if (d[a] < 0.0f) {
-            step[a] = -1;
-            tMax[a] = (cell[a] * m_cellSize - o[a]) / d[a];
-            tDelta[a] = -m_cellSize / d[a];
-        } else {
-            step[a] = 0;
-            tMax[a] = std::numeric_limits<float>::infinity();
-            tDelta[a] = std::numeric_limits<float>::infinity();
-        }
-    }
-
-    const float margin = m_maxSmallRadius + m_cellSize;
-    float tCell = 0.0f;
-    const size_t maxSteps = m_cells.empty() ? 0 : 4096;
-    for (size_t iter = 0; iter < maxSteps; ++iter) {
-        if (tCell > maxDistance + margin) break;
-        if (best && tCell > best->distance + margin) break;
-        for (int x = cell[0] - inflate; x <= cell[0] + inflate; ++x) {
-            for (int y = cell[1] - inflate; y <= cell[1] + inflate; ++y) {
-                for (int z = cell[2] - inflate; z <= cell[2] + inflate; ++z) {
-                    const auto it = m_cells.find(spatialKey(x, y, z));
-                    if (it == m_cells.end()) continue;
-                    for (Entity e : it->second) test(e);
-                }
-            }
-        }
-        const int axis = (tMax[0] < tMax[1]) ? (tMax[0] < tMax[2] ? 0 : 2) : (tMax[1] < tMax[2] ? 1 : 2);
-        if (std::isinf(tMax[axis])) break;
-        tCell = tMax[axis];
-        cell[axis] += step[axis];
-        tMax[axis] += tDelta[axis];
-    }
-    return best;
-}
-
-Ray World::screenRay(float screenX, float screenY, float width, float height) const {
-    const float ndcX = 2.0f * screenX / width - 1.0f;
-    const float ndcY = 1.0f - 2.0f * screenY / height;
-    const glm::mat4 inv = glm::inverse(m_camera.getProjectionMatrix() * m_camera.getViewMatrix());
-    glm::vec4 nearPoint = inv * glm::vec4(ndcX, ndcY, 0.0f, 1.0f);
-    glm::vec4 farPoint = inv * glm::vec4(ndcX, ndcY, 1.0f, 1.0f);
-    const glm::vec3 n = glm::vec3(nearPoint) / nearPoint.w;
-    const glm::vec3 f = glm::vec3(farPoint) / farPoint.w;
-    return {n, glm::normalize(f - n)};
-}
-
-glm::vec4 World::getWorldBounds(EntityHandle e) const {
-    if (!valid(e) || !m_meshBounds || m_mesh[e.index] == NO_MESH) return glm::vec4(0.0f);
-    const glm::vec4 bounds = m_meshBounds(m_mesh[e.index]);
-    const glm::mat4 world = getWorldMatrix(e);
-    const float maxScale = std::max({glm::length(glm::vec3(world[0])), glm::length(glm::vec3(world[1])), glm::length(glm::vec3(world[2]))});
-    return glm::vec4(glm::vec3(world * glm::vec4(glm::vec3(bounds), 1.0f)), bounds.w * maxScale);
-}
-
-bool collectLights(World& world, const glm::vec3& viewPos, LightSet& out, size_t maxLights) {
-    std::optional<ProfileScope> profile;
-    if (world.profiler()) profile.emplace(*world.profiler(), "collectLights");
-    struct Candidate {
-        float distance2;
-        Entity index;
-        glm::vec4 posRange;
-        glm::vec4 colorIntensity;
-        glm::vec4 dirCone;
-        glm::vec4 params;
-    };
-
-    bool any = false;
-    Entity directionalIndex = INVALID_ENTITY;
-    out.directional = {glm::vec4(0.0f, 1.0f, 0.0f, 0.0f), glm::vec4(0.0f)};
-    std::vector<Candidate> candidates;
-
-    world.view<LightComponent>([&](EntityHandle e, LightComponent& light) {
-        any = true;
-        if (light.type == LightComponent::Type::Directional) {
-            if (directionalIndex != INVALID_ENTITY && e.index > directionalIndex) return;
-            directionalIndex = e.index;
-            out.directional[0] = glm::vec4(glm::normalize(glm::vec3(world.getWorldMatrix(e)[2])), light.specular);
-            out.directional[1] = glm::vec4(light.color * light.intensity, 1.0f);
-            return;
-        }
-        const glm::vec3 position = world.getWorldPosition(e);
-        const glm::vec3 d = position - viewPos;
-        const bool spot = light.type == LightComponent::Type::Spot;
-        const glm::vec3 direction = spot ? world.forward(e) : glm::vec3(0.0f, -1.0f, 0.0f);
-        candidates.push_back({glm::dot(d, d), e.index, glm::vec4(position, light.range), glm::vec4(light.color, light.intensity), glm::vec4(direction, std::cos(glm::radians(light.outerConeDegrees))), glm::vec4(std::cos(glm::radians(light.innerConeDegrees)), spot ? 1.0f : 0.0f, 0.0f, 0.0f)});
-    });
-    if (!any) return false;
-
-    const auto closer = [](const Candidate& a, const Candidate& b) { return a.distance2 != b.distance2 ? a.distance2 < b.distance2 : a.index < b.index; };
-    if (candidates.size() > maxLights) {
-        std::partial_sort(candidates.begin(), candidates.begin() + static_cast<std::ptrdiff_t>(maxLights), candidates.end(), closer);
-        candidates.resize(maxLights);
-    } else {
-        std::sort(candidates.begin(), candidates.end(), closer);
-    }
-
-    out.packed.clear();
-    out.packed.reserve(candidates.size() * 4);
-    for (const Candidate& c : candidates) {
-        out.packed.push_back(c.posRange);
-        out.packed.push_back(c.colorIntensity);
-        out.packed.push_back(c.dirCone);
-        out.packed.push_back(c.params);
-    }
-    out.count = static_cast<uint32_t>(candidates.size());
-    return true;
-}
-
-std::vector<EntityHandle> World::queryFrustum(const Camera& camera) {
-    refreshSpatial();
-    const glm::mat4 vp = camera.getProjectionMatrix() * camera.getViewMatrix();
-    glm::vec4 planes[6];
-    const glm::vec4 row0(vp[0][0], vp[1][0], vp[2][0], vp[3][0]);
-    const glm::vec4 row1(vp[0][1], vp[1][1], vp[2][1], vp[3][1]);
-    const glm::vec4 row2(vp[0][2], vp[1][2], vp[2][2], vp[3][2]);
-    const glm::vec4 row3(vp[0][3], vp[1][3], vp[2][3], vp[3][3]);
-    planes[0] = row3 + row0;
-    planes[1] = row3 - row0;
-    planes[2] = row3 + row1;
-    planes[3] = row3 - row1;
-    planes[4] = row2;
-    planes[5] = row3 - row2;
-    for (glm::vec4& plane : planes) plane /= glm::length(glm::vec3(plane));
-
-    const auto visible = [&](Entity e) {
-        const SpatialEntry entry = liveSpatial(e);
-        for (const glm::vec4& plane : planes) {
-            if (glm::dot(glm::vec3(plane), entry.center) + plane.w < -entry.radius) return false;
-        }
-        return true;
-    };
-
-    const glm::mat4 inv = glm::inverse(vp);
-    glm::vec3 lo(std::numeric_limits<float>::max());
-    glm::vec3 hi(std::numeric_limits<float>::lowest());
-    for (int i = 0; i < 8; ++i) {
-        const glm::vec4 corner = inv * glm::vec4((i & 1) ? 1.0f : -1.0f, (i & 2) ? 1.0f : -1.0f, (i & 4) ? 1.0f : 0.0f, 1.0f);
-        const glm::vec3 p = glm::vec3(corner) / corner.w;
-        lo = glm::min(lo, p);
-        hi = glm::max(hi, p);
-    }
-    lo -= glm::vec3(m_maxSmallRadius);
-    hi += glm::vec3(m_maxSmallRadius);
-
-    std::vector<EntityHandle> out;
-    const int x0 = static_cast<int>(std::floor(lo.x / m_cellSize)), x1 = static_cast<int>(std::floor(hi.x / m_cellSize));
-    const int y0 = static_cast<int>(std::floor(lo.y / m_cellSize)), y1 = static_cast<int>(std::floor(hi.y / m_cellSize));
-    const int z0 = static_cast<int>(std::floor(lo.z / m_cellSize)), z1 = static_cast<int>(std::floor(hi.z / m_cellSize));
-    const double span = static_cast<double>(x1 - x0 + 1) * static_cast<double>(y1 - y0 + 1) * static_cast<double>(z1 - z0 + 1);
-
-    if (span > static_cast<double>(m_cells.size())) {
-        for (const auto& [key, bucket] : m_cells) {
-            for (Entity e : bucket) {
-                if (visible(e)) out.push_back({e, m_generation[e]});
-            }
-        }
-    } else {
-        for (int x = x0; x <= x1; ++x) {
-            for (int y = y0; y <= y1; ++y) {
-                for (int z = z0; z <= z1; ++z) {
-                    const auto it = m_cells.find(spatialKey(x, y, z));
-                    if (it == m_cells.end()) continue;
-                    for (Entity e : it->second) {
-                        if (visible(e)) out.push_back({e, m_generation[e]});
-                    }
-                }
-            }
-        }
-    }
-    for (Entity e : m_largeEntities) {
-        if (visible(e)) out.push_back({e, m_generation[e]});
-    }
-    return out;
-}
-
-namespace {
-glm::vec3 axisOf(const glm::mat4& m, int column) {
-    const glm::vec3 v(m[column]);
-    const float len = glm::length(v);
-    return len > 1.0e-8f ? v / len : glm::vec3(column == 0 ? 1.0f : 0.0f, column == 1 ? 1.0f : 0.0f, column == 2 ? 1.0f : 0.0f);
-}
-}
-
-glm::quat World::getWorldRotation(EntityHandle e) const {
-    if (!valid(e)) return glm::quat(1.0f, 0.0f, 0.0f, 0.0f);
-    const glm::mat4 m = getWorldMatrix(e);
-    return glm::normalize(glm::quat_cast(glm::mat3(axisOf(m, 0), axisOf(m, 1), axisOf(m, 2))));
-}
-
-glm::vec3 World::forward(EntityHandle e) const { return valid(e) ? -axisOf(getWorldMatrix(e), 2) : glm::vec3(0.0f, 0.0f, -1.0f); }
-
-glm::vec3 World::right(EntityHandle e) const { return valid(e) ? axisOf(getWorldMatrix(e), 0) : glm::vec3(1.0f, 0.0f, 0.0f); }
-
-glm::vec3 World::up(EntityHandle e) const { return valid(e) ? axisOf(getWorldMatrix(e), 1) : glm::vec3(0.0f, 1.0f, 0.0f); }
-
-void World::setWorldPosition(EntityHandle e, const glm::vec3& position) {
-    if (!valid(e)) return;
-    glm::mat4 m = getWorldMatrix(e);
-    m[3] = glm::vec4(position, 1.0f);
-    setWorldMatrix(e, m);
-}
-
-void World::setWorldRotation(EntityHandle e, const glm::quat& rotation) {
-    if (!valid(e)) return;
-    const glm::mat4 m = getWorldMatrix(e);
-    const glm::vec3 scale(glm::length(glm::vec3(m[0])), glm::length(glm::vec3(m[1])), glm::length(glm::vec3(m[2])));
-    setWorldMatrix(e, compose(glm::vec3(m[3]), glm::normalize(rotation), scale));
-}
-
-void World::rotate(EntityHandle e, const glm::vec3& axis, float radians) {
-    if (!valid(e) || glm::length(axis) < 1.0e-8f) return;
-    setRotation(e, glm::angleAxis(radians, glm::normalize(axis)) * getRotation(e));
-}
-
-void World::lookAt(EntityHandle e, const glm::vec3& target, const glm::vec3& worldUp) {
-    if (!valid(e)) return;
-    const glm::vec3 position = getWorldPosition(e);
-    const glm::vec3 delta = target - position;
-    if (glm::length(delta) < 1.0e-8f) return;
-    const glm::vec3 f = glm::normalize(delta);
-    glm::vec3 r = glm::cross(f, worldUp);
-    if (glm::length(r) < 1.0e-6f) r = glm::cross(f, glm::vec3(0.0f, 0.0f, 1.0f));
-    r = glm::normalize(r);
-    const glm::vec3 u = glm::cross(r, f);
-    setWorldRotation(e, glm::quat_cast(glm::mat3(r, u, -f)));
-}
-
-std::vector<std::string> World::componentNames() const {
-    std::vector<std::string> names;
-    names.reserve(m_serializers.size());
-    for (const auto& [name, serializer] : m_serializers) names.push_back(name);
-    return names;
-}
-
-std::optional<std::string> World::componentText(EntityHandle e, const std::string& componentName) const {
-    if (!valid(e)) return std::nullopt;
-    const auto serializer = m_serializers.find(componentName);
-    if (serializer == m_serializers.end()) return std::nullopt;
-    const auto pool = m_pools.find(serializer->second.type);
-    if (pool == m_pools.end() || !pool->second->has(e.index)) return std::nullopt;
-    std::ostringstream payload;
-    serializer->second.write(*pool->second, payload, e.index);
-    return payload.str();
-}
-
-EntityDescription World::describeEntity(EntityHandle e) const {
-    EntityDescription d;
-    if (!valid(e)) return d;
-    d.name = m_names[e.index];
-    d.tag = m_tags[e.index];
-    d.layer = m_layer[e.index];
-    d.mesh = m_mesh[e.index];
-    d.visible = m_visible[e.index] != 0;
-    d.parent = getParent(e);
-    for (Entity c = m_db.firstChild[e.index]; c != INVALID_ENTITY; c = m_db.nextSibling[c]) ++d.childCount;
-    for (const auto& [name, serializer] : m_serializers) {
-        if (const auto text = componentText(e, name)) d.components.emplace_back(name, *text);
-    }
-    if (const auto scripts = m_scripts.find(e.index); scripts != m_scripts.end()) {
-        for (const auto& script : scripts->second) {
-            const auto nameIt = m_scriptNames.find(std::type_index(typeid(*script)));
-            if (nameIt == m_scriptNames.end()) continue;
-            std::ostringstream payload;
-            if (m_scriptSerializers.at(nameIt->second).write(*script, payload)) d.scripts.emplace_back(nameIt->second, payload.str());
-        }
-    }
-    return d;
-}
-
-bool World::setComponentFromText(EntityHandle e, const std::string& componentName, const std::string& text) {
-    if (!valid(e)) return false;
-    const auto serializer = m_serializers.find(componentName);
-    if (serializer == m_serializers.end()) return false;
-    LoadContext context;
-    context.resolveFn = [this](uint32_t savedIndex) { return handleOf(savedIndex); };
-    std::istringstream in(text);
-    return serializer->second.read(*this, e, in, context);
-}
-
-bool World::addComponentByName(EntityHandle e, const std::string& componentName) {
-    if (!valid(e)) return false;
-    const auto serializer = m_serializers.find(componentName);
-    if (serializer == m_serializers.end() || !serializer->second.create) return false;
-    return serializer->second.create(*this, e);
-}
-
-void registerCoreComponents(World& world) {
-    world.registerComponent<LightComponent>(
-        "Light",
-        [](const LightComponent& l, std::ostream& out) {
-            out << static_cast<uint32_t>(l.type) << ' ' << l.color.x << ' ' << l.color.y << ' ' << l.color.z << ' ' << l.intensity << ' ' << l.range << ' ' << l.specular << ' ' << l.innerConeDegrees << ' ' << l.outerConeDegrees;
-        },
-        [](std::istream& in) -> std::optional<LightComponent> {
-            LightComponent l;
-            uint32_t type = 0;
-            if (!(in >> type >> l.color.x >> l.color.y >> l.color.z >> l.intensity >> l.range)) return std::nullopt;
-            if (type > 2) return std::nullopt;
-            l.type = static_cast<LightComponent::Type>(type);
-            if (!(in >> l.specular >> l.innerConeDegrees >> l.outerConeDegrees)) {
-                l.specular = 1.0f;
-                l.innerConeDegrees = 20.0f;
-                l.outerConeDegrees = 30.0f;
-            }
-            return l;
-        });
-    world.registerComponent<CameraComponent>(
-        "Camera", [](const CameraComponent& c, std::ostream& out) { out << c.fov << ' ' << c.nearPlane << ' ' << c.farPlane; },
-        [](std::istream& in) -> std::optional<CameraComponent> {
-            CameraComponent c;
-            if (!(in >> c.fov >> c.nearPlane >> c.farPlane)) return std::nullopt;
-            if (!(c.fov > 1.0f && c.fov < 179.0f && c.nearPlane > 0.0f && c.farPlane > c.nearPlane)) return std::nullopt;
-            return c;
-        });
-}
-
-bool World::removeComponentByName(EntityHandle e, const std::string& componentName) {
-    if (!valid(e)) return false;
-    const auto serializer = m_serializers.find(componentName);
-    if (serializer == m_serializers.end()) return false;
-    const auto pool = m_pools.find(serializer->second.type);
-    if (pool == m_pools.end() || !pool->second->has(e.index)) return false;
-    pool->second->remove(e.index);
-    return true;
-}
-
-std::optional<glm::vec4> World::sceneBounds() {
-    refreshSpatial();
-    glm::vec3 lo(std::numeric_limits<float>::max());
-    glm::vec3 hi(std::numeric_limits<float>::lowest());
-    bool any = false;
-    for (const SpatialEntry& entry : m_spatial) {
-        if (entry.state == 0) continue;
-        any = true;
-        lo = glm::min(lo, entry.center - glm::vec3(entry.radius));
-        hi = glm::max(hi, entry.center + glm::vec3(entry.radius));
-    }
-    if (!any) return std::nullopt;
-    const glm::vec3 center = (lo + hi) * 0.5f;
-    return glm::vec4(center, glm::length(hi - center));
-}
-
-std::vector<std::string> World::validate() {
-    std::vector<std::string> problems;
-    const auto fail = [&](std::string message) {
-        if (problems.size() < 64) problems.push_back(std::move(message));
-    };
-    syncAnimationCache();
-    const size_t n = m_alive.size();
-
-    const size_t sizes[] = {m_generation.size(), m_visible.size(), m_mesh.size(), m_layer.size(), m_tags.size(), m_names.size(), m_db.firstChild.size(), m_db.nextSibling.size(), m_prevSibling.size(), m_db.transforms.size(), m_db.hierarchies.size(), m_db.renderables.size()};
-    for (size_t sz : sizes) {
-        if (sz != n) {
-            fail("per-slot arrays disagree on size");
-            return problems;
-        }
-    }
-
-    size_t aliveCount = 0;
-    for (size_t i = 0; i < n; ++i) aliveCount += m_alive[i] ? 1 : 0;
-    if (aliveCount != m_aliveCount) fail("alive count " + std::to_string(m_aliveCount) + " differs from flagged " + std::to_string(aliveCount));
-
-    {
-        std::vector<uint8_t> inFree(n, 0);
-        for (Entity e : m_freeList) {
-            if (e >= n) {
-                fail("free list holds out-of-range slot " + std::to_string(e));
-                continue;
-            }
-            if (m_alive[e]) fail("free list holds alive slot " + std::to_string(e));
-            if (inFree[e]) fail("free list holds duplicate slot " + std::to_string(e));
-            inFree[e] = 1;
-        }
-        for (size_t i = 0; i < n; ++i) {
-            if (!m_alive[i] && !inFree[i]) fail("dead slot " + std::to_string(i) + " missing from free list");
-        }
-    }
-
-    for (Entity i = 0; i < n; ++i) {
-        if (!m_alive[i]) continue;
-        const Entity p = m_db.hierarchies[i].parent;
-        if (p != INVALID_ENTITY && (p >= n || !m_alive[p] || p == i)) fail("entity " + std::to_string(i) + " has invalid parent " + std::to_string(p));
-        if (m_db.renderables[i].objectId != i) fail("entity " + std::to_string(i) + " has wrong renderable objectId");
-        const uint32_t expectedLevel = p == INVALID_ENTITY || p >= n ? 0 : m_db.hierarchies[p].level + 1;
-        if (m_db.hierarchies[i].level != expectedLevel) fail("entity " + std::to_string(i) + " has level " + std::to_string(m_db.hierarchies[i].level) + ", expected " + std::to_string(expectedLevel));
-        if (m_db.renderables[i].mesh_uuid != m_mesh[i]) fail("entity " + std::to_string(i) + " mesh mismatch with renderable");
-        const bool hiddenFlag = (m_db.renderables[i].flags & RENDER_HIDDEN) != 0;
-        if (hiddenFlag == (m_visible[i] != 0)) fail("entity " + std::to_string(i) + " visibility disagrees with hidden flag");
-        size_t hops = 0;
-        for (Entity a = p; a != INVALID_ENTITY && a < n; a = m_db.hierarchies[a].parent) {
-            if (++hops > n) {
-                fail("parent cycle through entity " + std::to_string(i));
-                break;
-            }
-        }
-    }
-
-    {
-        size_t visited = 0;
-        const auto walk = [&](Entity head, Entity expectedParent, const std::string& label) {
-            Entity prev = INVALID_ENTITY;
-            size_t steps = 0;
-            for (Entity c = head; c != INVALID_ENTITY; c = m_db.nextSibling[c]) {
-                if (c >= n || !m_alive[c]) {
-                    fail(label + " lists dead or invalid entity");
-                    return;
-                }
-                if (++steps > n) {
-                    fail(label + " child list loops");
-                    return;
-                }
-                if (m_db.hierarchies[c].parent != expectedParent) fail(label + " child " + std::to_string(c) + " has a different parent");
-                if (m_prevSibling[c] != prev) fail(label + " child " + std::to_string(c) + " has broken prev link");
-                prev = c;
-                ++visited;
-            }
-        };
-        walk(m_firstRoot, INVALID_ENTITY, "root list");
-        for (Entity i = 0; i < n; ++i) {
-            if (m_alive[i]) walk(m_db.firstChild[i], i, "children of " + std::to_string(i));
-        }
-        if (visited != aliveCount) fail("sibling lists reach " + std::to_string(visited) + " of " + std::to_string(aliveCount) + " entities");
-    }
-
-    for (const auto& [type, pool] : m_pools) {
-        std::string why;
-        if (!pool->validate(m_alive, why)) fail("component pool: " + why);
-    }
-    for (const auto& [idx, scripts] : m_scripts) {
-        if (idx >= n || !m_alive[idx]) fail("scripts attached to dead entity " + std::to_string(idx));
-        for (const auto& script : scripts) {
-            if (!script) fail("null script on entity " + std::to_string(idx));
-        }
-    }
-
-    {
-        size_t indexed = 0;
-        for (const auto& [tag, bucket] : m_tagIndex) {
-            if (bucket.empty()) fail("empty tag bucket '" + tag + "'");
-            for (Entity e : bucket) {
-                ++indexed;
-                if (e >= n || !m_alive[e] || m_tags[e] != tag) fail("tag bucket '" + tag + "' holds stale entity");
-            }
-        }
-        size_t tagged = 0;
-        for (Entity i = 0; i < n; ++i) {
-            if (m_alive[i] && !m_tags[i].empty()) ++tagged;
-            if (!m_alive[i] && !m_tags[i].empty()) fail("dead entity " + std::to_string(i) + " keeps a tag");
-        }
-        if (indexed != tagged) fail("tag index size differs from tagged entity count");
-    }
-
-    if (m_spatialActive) {
-        expandSpatialRoots();
-        std::vector<uint8_t> pending(n, 0);
-        for (Entity e : m_spatialPending) {
-            if (e < n) pending[e] = 1;
-        }
-        std::vector<uint8_t> inCell(n, 0);
-        for (const auto& [key, bucket] : m_cells) {
-            if (bucket.empty()) fail("empty spatial cell");
-            for (Entity e : bucket) {
-                if (e >= n || e >= m_spatial.size()) {
-                    fail("spatial cell holds out-of-range entity");
-                    continue;
-                }
-                if (inCell[e]) fail("entity " + std::to_string(e) + " appears in several spatial cells");
-                inCell[e] = 1;
-                if (!pending[e] && (m_spatial[e].state != 1 || m_spatial[e].cell != key || !m_alive[e])) fail("spatial cell entry for entity " + std::to_string(e) + " is stale");
-                if (m_spatial[e].slot >= bucket.size() || bucket[m_spatial[e].slot] != e) fail("spatial slot of entity " + std::to_string(e) + " is wrong");
-            }
-        }
-        std::vector<uint8_t> inLarge(n, 0);
-        for (Entity e : m_largeEntities) {
-            if (e >= n || e >= m_spatial.size()) {
-                fail("large list holds out-of-range entity");
-                continue;
-            }
-            if (inLarge[e]) fail("entity " + std::to_string(e) + " appears twice in the large list");
-            inLarge[e] = 1;
-            if (!pending[e] && (m_spatial[e].state != 2 || !m_alive[e])) fail("large list entry for entity " + std::to_string(e) + " is stale");
-        }
-        for (Entity e = 0; e < n && e < m_spatial.size(); ++e) {
-            if (pending[e]) continue;
-            if (m_spatial[e].state == 1 && !inCell[e]) fail("entity " + std::to_string(e) + " has cell state but is not in a cell");
-            if (m_spatial[e].state == 2 && !inLarge[e]) fail("entity " + std::to_string(e) + " has large state but is not listed");
-            if (!m_alive[e] && m_spatial[e].state != 0) fail("dead entity " + std::to_string(e) + " keeps spatial state");
-        }
-    }
-
-    if (!m_worldCache.empty() && m_worldCache.size() == n && m_worldDirty.size() == n) {
-        for (Entity i = 0; i < n; ++i) {
-            if (!m_alive[i] || m_worldDirty[i]) continue;
-            const Entity p = m_db.hierarchies[i].parent;
-            if (p != INVALID_ENTITY && p < n && m_worldDirty[p]) fail("clean world cache under dirty parent at entity " + std::to_string(i));
-            const glm::mat4 expected = worldNoCache(i);
-            for (int c = 0; c < 4; ++c) {
-                for (int r = 0; r < 4; ++r) {
-                    if (std::abs(expected[c][r] - m_worldCache[i][c][r]) > 1.0e-3f * (1.0f + std::abs(expected[c][r]))) {
-                        fail("stale world cache for entity " + std::to_string(i) + " parent " + (p == INVALID_ENTITY ? std::string("none") : std::to_string(p) + (m_worldDirty[p] ? " dirty" : " clean")) + " animOffset " + std::to_string(m_animOffset) + " animCount " + std::to_string(m_animBase.size()));
-                        c = 4;
-                        break;
-                    }
-                }
-            }
-        }
-    }
-
-    if (!m_activeCamera.isNull() && m_activeCamera.index < n && m_generation[m_activeCamera.index] == m_activeCamera.generation && !m_alive[m_activeCamera.index]) fail("active camera points at a dead entity");
-    return problems;
 }

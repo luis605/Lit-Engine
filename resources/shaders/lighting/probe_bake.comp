@@ -1,0 +1,33 @@
+#version 450
+#extension GL_GOOGLE_include_directive : require
+#include "reflection.glsl"
+#include "cubemap.glsl"
+
+layout(local_size_x = 8, local_size_y = 8, local_size_z = 1) in;
+
+uniform samplerCube u_envCapture;
+
+layout(rgba16f) writeonly uniform image2DArray u_output;
+
+const float PROBE_SKY_MIP = 1.0;
+const float PROBE_AMBIENT_MIP = 6.0;
+const float MAX_STORED_RADIANCE = 60000.0;
+const uint FACES_PER_CUBE = 6u;
+
+void main() {
+    uvec3 id = gl_GlobalInvocationID;
+    int size = imageSize(u_output).x;
+    if (id.x >= uint(size) || id.y >= uint(size)) return;
+    int probe = int(id.z / FACES_PER_CUBE);
+    if (probe >= probeCount()) return;
+    vec3 direction = cubeDirection(id.z % FACES_PER_CUBE, (vec2(id.xy) + 0.5) / float(size));
+    vec3 color = textureLod(u_envCapture, direction, PROBE_SKY_MIP).rgb;
+    if (voxelsValid()) {
+        VoxelHit hit = traceVoxels(probeCenter[probe].xyz, direction, voxelMin.w, int(voxelSize.w) * 3);
+        if (hit.hit) {
+            vec3 ambient = textureLod(u_envCapture, hit.normal, PROBE_AMBIENT_MIP).rgb;
+            color = voxelRadianceScaled(hit.albedo, hit.normal, ambient);
+        }
+    }
+    imageStore(u_output, ivec3(id), vec4(min(color, vec3(MAX_STORED_RADIANCE)), 1.0));
+}

@@ -2,6 +2,7 @@ module;
 
 #include <functional>
 #include <optional>
+#include <utility>
 
 export module Engine.CameraRig;
 
@@ -33,7 +34,7 @@ export class CameraRig {
     void setMode(CameraMode mode);
     CameraMode toggle();
     [[nodiscard]] CameraMode mode() const { return m_mode; }
-    void setSettings(const CameraRigSettings& s) { m_settings = s; }
+    void setSettings(const CameraRigSettings& settings) { m_settings = settings; }
     [[nodiscard]] const CameraRigSettings& settings() const { return m_settings; }
     void setCollisionQuery(CameraCollisionQuery query) { m_query = std::move(query); }
     void setPivot(const glm::vec3& pivot) { m_pivot = pivot; }

@@ -1,0 +1,45 @@
+#version 450
+#extension GL_GOOGLE_include_directive : require
+#include "reflection.glsl"
+
+layout(local_size_x = 4, local_size_y = 4, local_size_z = 4) in;
+
+layout(r8) writeonly uniform image3D u_skyVolume;
+
+const int SKY_RAY_COUNT = 9;
+const float SKY_RING_INNER_TILT = 0.6;
+const float SKY_RING_OUTER_TILT = 1.6;
+const float SKY_RING_INNER_WEIGHT = 0.8;
+const float SKY_RING_OUTER_WEIGHT = 0.4;
+const float SKY_RAY_REACH = 200.0;
+const int SKY_RAY_STEPS = 160;
+const float QUARTER_TURN = 1.5707963;
+
+vec3 skyRayDirection(int index) {
+    if (index == 0) return vec3(0.0, 1.0, 0.0);
+    int ring = (index - 1) / 4;
+    float angle = QUARTER_TURN * float((index - 1) % 4) + float(ring) * 0.5 * QUARTER_TURN;
+    float tilt = ring == 0 ? SKY_RING_INNER_TILT : SKY_RING_OUTER_TILT;
+    return normalize(vec3(cos(angle) * tilt, 1.0, sin(angle) * tilt));
+}
+
+float skyRayWeight(int index) {
+    if (index == 0) return 1.0;
+    return index <= 4 ? SKY_RING_INNER_WEIGHT : SKY_RING_OUTER_WEIGHT;
+}
+
+void main() {
+    ivec3 cell = ivec3(gl_GlobalInvocationID);
+    ivec3 size = imageSize(u_skyVolume);
+    if (any(greaterThanEqual(cell, size))) return;
+    vec3 position = voxelMin.xyz + (vec3(cell) + 0.5) / vec3(size) * voxelSize.xyz;
+    float open = 0.0;
+    float total = 0.0;
+    for (int index = 0; index < SKY_RAY_COUNT; ++index) {
+        VoxelHit hit = traceVoxels(position, skyRayDirection(index), SKY_RAY_REACH, SKY_RAY_STEPS);
+        float weight = skyRayWeight(index);
+        open += hit.hit ? 0.0 : weight;
+        total += weight;
+    }
+    imageStore(u_skyVolume, cell, vec4(open / total));
+}

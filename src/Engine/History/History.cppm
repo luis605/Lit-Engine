@@ -18,17 +18,19 @@ export class History {
   public:
     explicit History(World& world, size_t limit = 256) : m_world(world), m_limit(limit) {}
 
-    void setLocalMatrix(EntityHandle e, const glm::mat4& local);
-    void commitLocalMatrix(EntityHandle e, const glm::mat4& before, const glm::mat4& after);
-    void setName(EntityHandle e, const std::string& name);
-    void setTag(EntityHandle e, const std::string& tag);
-    bool setComponentText(EntityHandle e, const std::string& componentName, const std::string& text);
-    void setVisible(EntityHandle e, bool visible);
-    void setRender(EntityHandle e, uint32_t mesh, uint32_t material, uint32_t shader, float alpha);
-    void setParent(EntityHandle e, EntityHandle parent, bool keepWorldTransform = true);
+    [[nodiscard]] World& world() const { return m_world; }
+    void setLocalMatrix(EntityHandle entity, const glm::mat4& local);
+    void commitLocalMatrix(EntityHandle entity, const glm::mat4& before, const glm::mat4& after);
+    void setName(EntityHandle entity, const std::string& name);
+    void setTag(EntityHandle entity, const std::string& tag);
+    bool setComponentText(EntityHandle entity, const std::string& componentName, const std::string& text);
+    void setVisible(EntityHandle entity, bool visible);
+    void setRender(EntityHandle entity, uint32_t mesh, uint32_t material, uint32_t shader, float alpha);
+    void setParent(EntityHandle entity, EntityHandle parent, bool keepWorldTransform = true);
     EntityHandle create(const EntityDesc& desc);
+    std::vector<EntityHandle> spawnRebuildable(const std::string& label, std::function<std::vector<EntityHandle>()> build);
     EntityHandle instantiate(const Prefab& prefab, EntityHandle parent = NULL_ENTITY);
-    void destroy(EntityHandle e);
+    void destroy(EntityHandle entity);
 
     void record(const std::string& label, std::function<void()> apply, std::function<void()> revert);
     void beginGroup(std::string label = {});
@@ -41,12 +43,12 @@ export class History {
     void clear();
     [[nodiscard]] size_t undoCount() const { return m_undo.size(); }
     [[nodiscard]] size_t redoCount() const { return m_redo.size(); }
-    [[nodiscard]] const std::string& undoLabel(size_t index) const { return m_undo[index]->label; }
-    [[nodiscard]] const std::string& redoLabel(size_t index) const { return m_redo[index]->label; }
+    [[nodiscard]] const std::string& undoLabel(size_t index) const { return m_undo.at(index)->label; }
+    [[nodiscard]] const std::string& redoLabel(size_t index) const { return m_redo.at(index)->label; }
     [[nodiscard]] uint64_t revision() const { return m_revision; }
     [[nodiscard]] uint64_t state() const { return m_undo.empty() ? m_baseState : m_undo.back()->serial; }
 
-    [[nodiscard]] EntityHandle resolve(EntityHandle h) const;
+    [[nodiscard]] EntityHandle resolve(EntityHandle handle) const;
 
   private:
     struct Command {
@@ -67,8 +69,9 @@ export class History {
     struct Reparent;
     struct Spawn;
     struct Remove;
+    struct Rebuild;
 
-    void push(std::unique_ptr<Command> command, const char* label);
+    void push(std::unique_ptr<Command> command, const std::string& label);
     void alias(EntityHandle from, EntityHandle to);
 
     World& m_world;

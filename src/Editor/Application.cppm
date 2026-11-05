@@ -27,6 +27,9 @@ import Editor.palette;
 import Editor.hud;
 import Editor.look;
 import Editor.autopilot;
+import Editor.profilerpanel;
+import Editor.hotreload;
+import Editor.diagnostics;
 
 export class Application {
   public:
@@ -73,6 +76,58 @@ export class Application {
     void updateTitle();
     std::vector<std::string> sceneFiles() const;
 
+    void buildInitialScene();
+    void applyEnvironmentOverrides();
+    void setupDefaultEffects();
+    void setupAutopilot(const char* script);
+    bool autopilotEditMaterial(const std::string& field, float value);
+    std::string autopilotQuery(const std::string& what);
+    std::string autopilotQueryPrefixed(const std::string& what);
+    void reportShaderErrors();
+    void updateInputIdleTime(double now);
+    void updateAutosave(float deltaTime, double now);
+    void reportOverCapacity();
+    void tickEngine(float deltaTime);
+    void processInput(float deltaTime);
+    void drawPanels(float deltaTime);
+    void createShaderFromPrompt(const std::string& name);
+    void assignMaterialFromPrompt(const std::string& picked);
+    void setSelectionMaterial(uint32_t materialId);
+    void moveSelectionToCursor();
+    void dropSelectionToGround();
+    void revealHiddenEntities();
+    void createEmptyScene();
+    void replaceSceneWith(const std::function<void()>& build, const char* message);
+    [[nodiscard]] bool hasSelection() const;
+    [[nodiscard]] std::function<bool()> selectionRequired() const;
+    Command& addCommand(std::string id, std::string title, std::string category, std::vector<Chord> chords, std::function<void()> run, std::function<bool()> enabled = {}, CommandScope scope = CommandScope::Viewport);
+    void registerFileCommands();
+    void registerEditCommands();
+    void registerMaterialCommands();
+    void registerSelectCommands();
+    void registerSelectionSetCommands();
+    void registerTransformCommands();
+    void registerNudgeCommands();
+    void registerViewCommands();
+    void registerPanelCommands();
+    void registerCreateCommands();
+    void registerVisibilityCommands();
+    void registerPlayCommands();
+    void registerSceneCommands();
+    void registerRenderCommands();
+    void registerDebugViewCommands();
+    void registerLightingCommands();
+    void registerRenderToggleCommands();
+    void registerPassCommands();
+    void registerShaderCommands();
+    void registerProfileCommands();
+    void registerIkCommands();
+    void registerQualityCommands();
+    void registerProbeOverlay();
+    void registerToolCommands();
+    void reloadSceneFromDisk();
+    void updateTools(float deltaTime);
+
     Engine m_engine;
     GLFWwindow* m_window = nullptr;
     std::unique_ptr<EditorContext> m_ctx;
@@ -88,6 +143,9 @@ export class Application {
     DebugOverlay m_overlay;
     std::unique_ptr<ObservationSystem> m_observation;
     Autopilot m_autopilot;
+    ProfilerPanel m_profilerPanel;
+    HotReload m_hotReload;
+    Diagnostics m_diagnostics;
     LookState m_lookState;
     bool m_recoveryPending = false;
     float m_autosaveTimer = 0.0f;

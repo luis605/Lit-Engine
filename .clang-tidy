@@ -1,0 +1,15 @@
+Checks: >
+  -*,
+  bugprone-*,
+  -bugprone-easily-swappable-parameters,
+  -bugprone-exception-escape,
+  performance-*,
+  readability-else-after-return,
+  readability-redundant-*,
+  modernize-use-nodiscard,
+  modernize-use-override,
+  modernize-use-nullptr,
+  misc-const-correctness
+WarningsAsErrors: ''
+HeaderFilterRegex: '^.*/(src/(Engine|Editor|Sandbox)|tests)/.*'
+FormatStyle: file

@@ -74,7 +74,7 @@ export class StoryletEngine {
     [[nodiscard]] const Storylet* find(const std::string& id) const;
     [[nodiscard]] size_t count() const { return m_storylets.size(); }
 
-    [[nodiscard]] bool evaluate(const StoryletCondition& c) const;
+    [[nodiscard]] bool evaluate(const StoryletCondition& condition) const;
     [[nodiscard]] bool eligible(const std::string& id) const;
     [[nodiscard]] std::vector<std::string> eligibleIds() const;
     [[nodiscard]] bool played(const std::string& id) const { return m_played.contains(id); }
@@ -95,12 +95,12 @@ export class StoryletEngine {
         double last = 0.0;
     };
 
-    void start(const Storylet& s);
-    void beginLine(const Storylet& s);
-    void complete(const Storylet& s);
-    void applyEffects(const Storylet& s);
+    void start(const Storylet& storylet);
+    void beginLine(const Storylet& storylet);
+    void complete(const Storylet& storylet);
+    void applyEffects(const Storylet& storylet);
     void select();
-    [[nodiscard]] bool available(const Storylet& s) const;
+    [[nodiscard]] bool available(const Storylet& storylet) const;
 
     StateStore& m_state;
     RandomService& m_random;
@@ -111,6 +111,7 @@ export class StoryletEngine {
     std::map<std::string, uint32_t> m_resume;
     std::map<std::string, double> m_blocked;
     std::optional<StoryletPlayback> m_current;
+    std::vector<const Storylet*> m_tieScratch;
     double m_time = 0.0;
     float m_retryDelay = 1.0f;
 };

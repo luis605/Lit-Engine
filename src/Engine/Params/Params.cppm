@@ -33,6 +33,28 @@ export struct ParamInfo {
     std::string input;
 };
 
+struct ParamDefinitions {
+    struct Param {
+        std::string name;
+        float initial = 0.0f;
+        float smooth = 0.0f;
+        float minimum = -std::numeric_limits<float>::infinity();
+        float maximum = std::numeric_limits<float>::infinity();
+        int slot = -1;
+    };
+    struct Mapping {
+        std::string name;
+        std::string input;
+        ParamCurve curve;
+        float smooth = 0.0f;
+        float minimum = -std::numeric_limits<float>::infinity();
+        float maximum = std::numeric_limits<float>::infinity();
+        int slot = -1;
+    };
+    std::vector<Param> params;
+    std::vector<Mapping> mappings;
+};
+
 export class ParamBus {
   public:
     ParamBus();
@@ -50,7 +72,7 @@ export class ParamBus {
     [[nodiscard]] const ParamCurve* curve(const std::string& name) const;
     [[nodiscard]] uint64_t version() const { return m_version; }
 
-    void update(float dt);
+    void update(float deltaSeconds);
     void snapAll();
 
     bool loadText(std::string_view text, std::string* error = nullptr);
@@ -67,8 +89,14 @@ export class ParamBus {
     };
 
     uint32_t ensure(const std::string& name);
-    int freeSlot() const;
+    uint32_t addParam(const std::string& name, uint32_t slot, uint8_t fromFile);
+    uint32_t place(const std::string& name, int slot);
+    [[nodiscard]] int freeSlot() const;
     void rebuildIndex();
+    void stepSmoothing(ParamInfo& info, float deltaSeconds);
+    void applyDefinitions(const ParamDefinitions& definitions);
+    void applyParamDefinition(const ParamDefinitions::Param& definition, const std::unordered_map<std::string, std::pair<float, float>>& saved);
+    void applyMappingDefinition(const ParamDefinitions::Mapping& definition, const std::unordered_map<std::string, std::pair<float, float>>& saved);
 
     std::vector<ParamInfo> m_params;
     std::vector<Mapping> m_mappings;

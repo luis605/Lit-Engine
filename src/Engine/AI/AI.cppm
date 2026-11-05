@@ -131,6 +131,7 @@ export class BehaviorRunner {
     BehaviorRunner& operator=(const BehaviorRunner&) = delete;
 
     Status tick(float dt);
+    void resizeToGraph();
     void reset();
     [[nodiscard]] Blackboard& blackboard() { return m_blackboard; }
     [[nodiscard]] const Blackboard& blackboard() const { return m_blackboard; }

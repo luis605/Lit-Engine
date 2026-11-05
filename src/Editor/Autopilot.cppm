@@ -2,6 +2,7 @@ module;
 
 #include <cstdint>
 #include <functional>
+#include <optional>
 #include <string>
 #include <vector>
 
@@ -31,6 +32,22 @@ export class Autopilot {
         std::vector<std::string> args;
         int line = 0;
     };
+
+    enum class Flow { Continue, Yield };
+
+    void pinMouse();
+    void setMouse(float x, float y);
+    void captureFrames(EditorContext& ctx);
+    bool recordMeasurement(float deltaSeconds);
+    void releaseHeldInput();
+    void finish();
+    void fail(int line, const std::string& message);
+    Flow execute(const Step& step, EditorContext& ctx, CommandRegistry& commands);
+    std::optional<Flow> executeTiming(const Step& step);
+    std::optional<Flow> executeInput(const Step& step);
+    std::optional<Flow> executeEngine(const Step& step, EditorContext& ctx);
+    std::optional<Flow> executeScene(const Step& step, EditorContext& ctx);
+    Flow executeExpect(const Step& step, EditorContext& ctx);
 
     bool m_active = false;
     bool m_finished = false;

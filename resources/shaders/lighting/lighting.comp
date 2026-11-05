@@ -12,14 +12,18 @@ uniform sampler2D u_gbuffer1;
 uniform usampler2D u_gbuffer2;
 uniform sampler2D u_ao;
 uniform sampler2D u_aoDepth;
-uniform sampler2D u_ssr;
+uniform sampler2D u_bent;
 uniform sampler3D u_aerial;
+
+#include "sky_visibility.glsl"
 
 layout(rgba16f) uniform image2D u_hdr;
 
 layout(std430) readonly buffer ExposureBuffer {
     vec4 exposureData;
 };
+
+const int CONTACT_STEPS = 12;
 
 vec3 heatmap(float t) {
     t = saturate(t);
@@ -46,12 +50,13 @@ vec3 applyHeightFog(vec3 color, vec3 worldPos, vec3 skyColor) {
     return mix(color, skyColor, saturate(fogAmount));
 }
 
-vec4 upsampleHalf(ivec2 pixel, float centerDepth) {
+vec4 upsampleHalf(ivec2 pixel, float centerDepth, out vec3 bent) {
     ivec2 halfSize = textureSize(u_aoDepth, 0);
     vec2 position = vec2(pixel) * 0.5;
     ivec2 base = ivec2(floor(position));
     vec2 f = position - vec2(base);
     vec4 ao = vec4(0.0);
+    vec3 bentSum = vec3(0.0);
     float total = 0.0;
     float tolerance = max(centerDepth * 0.03, 1e-3);
     for (int i = 0; i < 4; ++i) {
@@ -60,9 +65,34 @@ vec4 upsampleHalf(ivec2 pixel, float centerDepth) {
         float bilinear = (offset.x == 0 ? 1.0 - f.x : f.x) * (offset.y == 0 ? 1.0 - f.y : f.y);
         float w = (bilinear + 1e-3) * exp(-abs(texelFetch(u_aoDepth, p, 0).r - centerDepth) / tolerance);
         ao += texelFetch(u_ao, p, 0) * w;
+        bentSum += (texelFetch(u_bent, p, 0).xyz * 2.0 - 1.0) * w;
         total += w;
     }
+    bent = bentSum / max(total, 1e-6);
     return ao / max(total, 1e-6);
+}
+
+float contactShadow(vec3 worldPos, vec3 N, vec3 L, float viewDepth, float noise) {
+    float rayLength = qualityParams.y;
+    if (rayLength <= 0.0 || sunIlluminance.w <= 0.0 || dot(N, L) <= 0.0) return 1.0;
+    vec3 start = worldPos + N * (0.01 + viewDepth * 0.0012);
+    float thickness = max(rayLength * 0.4, 0.06);
+    float occlusion = 0.0;
+    for (int step = 0; step < CONTACT_STEPS; ++step) {
+        float t = (float(step) + noise) / float(CONTACT_STEPS);
+        vec3 position = start + L * (rayLength * t);
+        vec4 clip = viewProjection * vec4(position, 1.0);
+        if (clip.w <= 0.0) break;
+        vec2 uv = vec2(clip.x / clip.w * 0.5 + 0.5, 0.5 - clip.y / clip.w * 0.5);
+        if (any(lessThan(uv, vec2(0.0))) || any(greaterThan(uv, vec2(1.0)))) break;
+        float sceneDepth = textureLod(u_depth, uv, 0.0).r;
+        if (sceneDepth >= 1.0) continue;
+        float difference = -(view * vec4(position, 1.0)).z - linearViewDepth(sceneDepth);
+        float bias = 0.004 * viewDepth + 0.01;
+        float hit = smoothstep(bias, bias * 2.0, difference) * (1.0 - smoothstep(thickness * 0.5, thickness, difference));
+        occlusion = max(occlusion, hit * (1.0 - t * t));
+    }
+    return 1.0 - occlusion;
 }
 
 void main() {
@@ -96,12 +126,16 @@ void main() {
     uint materialId = (g2.z | (g2.w << 8u)) & 0x7FFFu;
     float viewDepth = -(view * vec4(worldPos, 1.0)).z;
     vec4 aoGi = vec4(0.0, 0.0, 0.0, 1.0);
-    if (renderFlags.x > 0.5) aoGi = upsampleHalf(pixel, viewDepth);
-    vec4 ssr = renderFlags.y > 0.5 ? texelFetch(u_ssr, pixel, 0) : vec4(0.0);
+    vec3 bentNormal = N;
+    if (renderFlags.x > 0.5) aoGi = upsampleHalf(pixel, viewDepth, bentNormal);
     float ao = aoGi.a;
     float occlusion = g0.a * ao;
     ShadingData s = prepareShading(worldPos, N, g0.rgb, metallic, roughness, occlusion, tangentAngle, materialId);
     s.indirectDiffuse = aoGi.rgb * g0.a;
+    if (renderFlags.x > 0.5 && !toon) applyBentNormal(s, bentNormal, ao);
+    float skyOpen = skyVisibility(worldPos, N, viewDepth, shadowNoise(vec2(pixel) + 17.0));
+    s.occlusion *= skyOpen;
+    s.specularOcclusion *= skyOpen;
     float sunVisibility;
     vec3 direct;
     vec3 ambient;
@@ -110,8 +144,9 @@ void main() {
         direct = litToonDirect(s, toonParams, vec2(pixel), viewDepth, sunVisibility);
         ambient = litToonAmbient(s, toonParams, sunVisibility);
     } else {
+        g_contactShadow = contactShadow(worldPos, N, sunDirection.xyz, viewDepth, shadowNoise(vec2(pixel)));
         direct = evaluateSun(s, vec2(pixel), sunVisibility) + evaluateLights(s, vec2(pixel), viewDepth);
-        ambient = evaluateIBL(s, ssr);
+        ambient = evaluateIBL(s);
     }
     vec3 color = direct + ambient;
     float dist = length(worldPos - viewPos);
@@ -127,7 +162,6 @@ void main() {
         else if (debugMode == 4) d = vec3(metallic);
         else if (debugMode == 5) d = vec3(occlusion);
         else if (debugMode == 6) d = vec3(sunVisibility);
-        else if (debugMode == 7) d = ssr.rgb * ssr.a * exposure;
         else if (debugMode == 8) d = (direct + ambient) * exposure / (s.diffuseColor + s.f0 + 0.04);
         else if (debugMode == 9) d = heatmap((log2(max(luminance(color), 1e-6)) + 6.0) / 24.0);
         else if (debugMode == 10) {

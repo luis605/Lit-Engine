@@ -7,15 +7,19 @@ layout(local_size_x = 8, local_size_y = 8, local_size_z = 1) in;
 uniform sampler2D u_depth;
 uniform sampler2D u_linearDepth;
 uniform sampler2D u_gbuffer1;
-uniform sampler2D u_sceneColor;
+uniform sampler2D u_gbuffer0;
 layout(rgba16f) writeonly uniform image2D u_output;
-
-layout(std430) readonly buffer ExposureBuffer {
-    vec4 exposureData;
-};
+layout(rgba8) writeonly uniform image2D u_bent;
 
 const float BAYER[16] = float[](0.0, 8.0, 2.0, 10.0, 12.0, 4.0, 14.0, 6.0, 3.0, 11.0, 1.0, 9.0, 15.0, 7.0, 13.0, 5.0);
 const uint SECTORS = 32u;
+const float BOUNCE_AMBIENT_FRACTION = 0.25;
+
+vec3 bounceRadiance(vec2 sampleUv, vec3 worldNormal) {
+    vec3 albedo = textureLod(u_gbuffer0, sampleUv, 0.0).rgb;
+    float sunLight = saturate(dot(worldNormal, sunDirection.xyz)) + BOUNCE_AMBIENT_FRACTION;
+    return albedo * sunIlluminance.rgb * INV_PI * sunLight;
+}
 
 vec3 viewPositionAt(vec2 uv, float linearDepth) {
     vec2 ndc = vec2(uv.x * 2.0 - 1.0, 1.0 - uv.y * 2.0);
@@ -31,6 +35,49 @@ uint sectorMask(float a, float b) {
     return first >= SECTORS ? 0u : bits << first;
 }
 
+const float GOLDEN_ANGLE = 2.39996323;
+const float BLEED_MAX_RADIUS_PX = 160.0;
+const float BLEED_SATURATION = 1.3;
+const float BLEED_MAX_RADIANCE = 64000.0;
+
+vec3 colorBleed(vec2 uv, vec3 P, vec3 N, float noise) {
+    int taps = int(bleedParams.z + 0.5);
+    float radius = bleedParams.y;
+    float radiusPx = min(radius * projection[1][1] * 0.5 * screenParams.y / max(-P.z, 1e-3), BLEED_MAX_RADIUS_PX);
+    if (radiusPx < 2.0) return vec3(0.0);
+    vec3 sum = vec3(0.0);
+    for (int tap = 0; tap < taps; ++tap) {
+        float t = (float(tap) + noise) / float(taps);
+        float angle = (float(tap) + noise) * GOLDEN_ANGLE;
+        vec2 sampleUv = uv + vec2(cos(angle), sin(angle)) * (sqrt(t) * radiusPx) * screenParams.zw;
+        if (any(lessThan(sampleUv, vec2(0.0))) || any(greaterThan(sampleUv, vec2(1.0)))) continue;
+        vec3 S = viewPositionAt(sampleUv, textureLod(u_linearDepth, sampleUv, 0.0).r);
+        vec3 delta = S - P;
+        float dist = length(delta);
+        if (dist < 1e-3 || dist > radius) continue;
+        vec3 toSample = delta / dist;
+        vec3 sampleN = normalize(mat3(view) * decodeNormal(textureLod(u_gbuffer1, sampleUv, 0.0).rg));
+        float transport = saturate(dot(N, toSample)) * saturate(dot(sampleN, -toSample));
+        float falloff = saturate(1.0 - dist * dist / (radius * radius));
+        sum += bounceRadiance(sampleUv, decodeNormal(textureLod(u_gbuffer1, sampleUv, 0.0).rg)) * (transport * falloff);
+    }
+    float luma = dot(sum, vec3(0.2126, 0.7152, 0.0722));
+    return mix(vec3(luma), sum, BLEED_SATURATION) / float(taps);
+}
+
+vec3 sliceBentDirection(uint occluded, float cosN, float sinN, vec3 V, vec3 orthoUnit) {
+    vec3 bent = vec3(0.0);
+    for (uint sector = 0u; sector < SECTORS; ++sector) {
+        if ((occluded & (1u << sector)) != 0u) continue;
+        float sinAlpha = 2.0 * ((float(sector) + 0.5) / float(SECTORS)) - 1.0;
+        float cosAlpha = sqrt(max(1.0 - sinAlpha * sinAlpha, 0.0));
+        float cosTheta = cosAlpha * cosN - sinAlpha * sinN;
+        float sinTheta = sinAlpha * cosN + cosAlpha * sinN;
+        bent += (V * cosTheta + orthoUnit * sinTheta) * cosAlpha;
+    }
+    return bent;
+}
+
 float toSector(float angle, float n) { return 0.5 + 0.5 * sin(clamp(angle - n, -HALF_PI, HALF_PI)); }
 
 void main() {
@@ -41,6 +88,7 @@ void main() {
     float depth = texelFetch(u_depth, fullPixel, 0).r;
     if (depth >= 1.0) {
         imageStore(u_output, pixel, vec4(0.0, 0.0, 0.0, 1.0));
+        imageStore(u_bent, pixel, vec4(0.5, 0.5, 1.0, 1.0));
         return;
     }
     vec2 uv = (vec2(fullPixel) + 0.5) * screenParams.zw;
@@ -54,6 +102,7 @@ void main() {
     int steps = int(aoParams.w + 0.5);
     if (radiusPx < 1.0) {
         imageStore(u_output, pixel, vec4(0.0, 0.0, 0.0, 1.0));
+        imageStore(u_bent, pixel, vec4(Nw * 0.5 + 0.5, 1.0));
         return;
     }
     radiusPx = min(radiusPx, 256.0);
@@ -62,11 +111,11 @@ void main() {
     float noise = (BAYER[cell] + 0.5) / 16.0;
     float noiseOffset = (BAYER[(cell + 5) & 15] + 0.5) / 16.0;
     float thickness = max(giParams.y, 0.01) * max(-P.z * 0.02, 1.0);
-    bool gi = giParams.x > 0.0 && giParams.z > 0.5;
-    float invExposure = 1.0 / max(exposureData.x, 1e-12);
-    vec2 pyramidSize = vec2(textureSize(u_sceneColor, 0));
+    bool gi = giParams.x > 0.0;
+    bool bentOn = qualityParams2.y > 0.5;
     float visibility = 0.0;
     vec3 lighting = vec3(0.0);
+    vec3 bentView = vec3(0.0);
     for (int s = 0; s < slices; ++s) {
         float phi = (float(s) + noise) / float(slices) * PI;
         vec2 dir2 = vec2(cos(phi), sin(phi));
@@ -99,21 +148,21 @@ void main() {
                 occluded |= bits;
                 if (gi && fresh != 0u) {
                     float falloff = saturate(1.0 - dist * dist / (4.0 * radius * radius));
-                    vec3 Sw = (invView * vec4(S, 1.0)).xyz;
-                    float previousDepth;
-                    vec2 previousUv = projectToUv(Sw, prevViewProjection, previousDepth);
-                    if (all(greaterThanEqual(previousUv, vec2(0.0))) && all(lessThanEqual(previousUv, vec2(1.0)))) {
-                        vec3 sampleN = normalize(mat3(view) * decodeNormal(textureLod(u_gbuffer1, sampleUv, 0.0).rg));
-                        float facing = saturate(dot(sampleN, -delta / max(dist, 1e-4)) * 2.0 + 0.3);
-                        vec3 radiance = textureLod(u_sceneColor, previousUv, 2.0).rgb * invExposure;
-                        lighting += radiance * (float(bitCount(fresh)) / float(SECTORS)) * facing * falloff;
-                    }
+                    vec3 sampleWorldN = decodeNormal(textureLod(u_gbuffer1, sampleUv, 0.0).rg);
+                    vec3 sampleN = normalize(mat3(view) * sampleWorldN);
+                    float facing = saturate(dot(sampleN, -delta / max(dist, 1e-4)) * 2.0 + 0.3);
+                    lighting += bounceRadiance(sampleUv, sampleWorldN) * (float(bitCount(fresh)) / float(SECTORS)) * facing * falloff;
                 }
             }
         }
         visibility += 1.0 - float(bitCount(occluded)) / float(SECTORS);
+        if (bentOn) bentView += sliceBentDirection(occluded, cosN, sign(dot(orthoDir, projN)) * sqrt(max(1.0 - cosN * cosN, 0.0)), V, normalize(orthoDir));
     }
     visibility = saturate(visibility / float(slices));
     lighting *= giParams.x / float(slices);
+    if (bleedParams.x > 0.0) lighting += min(colorBleed(uv, P, N, noise), vec3(BLEED_MAX_RADIANCE)) * bleedParams.x;
     imageStore(u_output, pixel, vec4(min(lighting, vec3(64000.0)), pow(visibility, aoParams.y)));
+    vec3 bentWorld = Nw;
+    if (bentOn && dot(bentView, bentView) > 1e-6) bentWorld = normalize(mat3(invView) * normalize(bentView) + Nw * 0.15);
+    imageStore(u_bent, pixel, vec4(bentWorld * 0.5 + 0.5, 1.0));
 }

@@ -1,3 +1,4 @@
+#include "TestSupport.hpp"
 #include <algorithm>
 #include <cmath>
 #include <cstdint>
@@ -14,21 +15,6 @@ import Engine.PortalPhysics;
 import Engine.Character;
 import Engine.CameraRig;
 import Engine.glm;
-
-namespace {
-int g_failures = 0;
-int g_checks = 0;
-
-void check(bool ok, const char* expr, int line) {
-    ++g_checks;
-    if (!ok) {
-        ++g_failures;
-        std::fprintf(stderr, "FAIL line %d: %s\n", line, expr);
-    }
-}
-}  // namespace
-
-#define CHECK(x) check(static_cast<bool>(x), #x, __LINE__)
 
 constexpr uint32_t kSphere = 2;
 
@@ -247,7 +233,7 @@ static void testStepsAndSlopes() {
         PortalSystem p;
         PhysicsSettings ps;
         addPlane(w, glm::vec3(0.0f, 1.0f, 0.0f));
-        addBox(w, glm::vec3(3.0f, 0.15f, 0.0f), glm::vec3(1.0f, 0.15f, 3.0f));
+        addBox(w, glm::vec3(10.0f, 0.15f, 0.0f), glm::vec3(8.0f, 0.15f, 3.0f));
         CharacterController c(w, p, ps);
         c.spawn(glm::vec3(0.0f), 0.0f);
         for (int i = 0; i < 240; ++i) {
@@ -290,7 +276,9 @@ static void testStepsAndSlopes() {
         if (degrees < 45.0f) {
             CHECK(c.grounded());
             CHECK(c.position().x > 2.0f);
-            CHECK(std::abs(c.position().y - c.position().x * std::tan(a)) < 0.05f);
+            const float capsuleRadius = 0.35f;
+            const float capsuleSlopeOffset = capsuleRadius * (1.0f / std::cos(a) - 1.0f);
+            CHECK(std::abs(c.position().y - (c.position().x * std::tan(a) + capsuleSlopeOffset)) < 0.02f);
         } else {
             CHECK(c.position().x < 1.5f);
         }
@@ -422,6 +410,5 @@ int main() {
     testGravityFields();
     testCameraRig();
     testImpact();
-    std::printf("%d checks, %d failures\n", g_checks, g_failures);
-    return g_failures == 0 ? 0 : 1;
+    return testsupport::finish();
 }

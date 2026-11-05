@@ -14,54 +14,46 @@ glm::mat4 Camera::getViewMatrix() const {
 
 glm::mat4 Camera::getProjectionMatrix() const {
     if (m_orthographic) {
-        const float h = m_orthoHeight * 0.5f;
-        return glm::orthoRH_ZO(-h * m_aspectRatio, h * m_aspectRatio, -h, h, m_nearPlane, m_farPlane);
+        const float halfHeight = m_orthoHeight * 0.5f;
+        const float halfWidth = halfHeight * m_aspectRatio;
+        return glm::orthoRH_ZO(-halfWidth, halfWidth, -halfHeight, halfHeight, m_nearPlane, m_farPlane);
     }
-    glm::mat4 proj = glm::perspectiveRH_ZO(glm::radians(m_fov), m_aspectRatio, m_nearPlane, m_farPlane);
-    return proj;
+    return glm::perspectiveRH_ZO(glm::radians(m_fov), m_aspectRatio, m_nearPlane, m_farPlane);
 }
 
 void Camera::processKeyboard(CameraMovement direction, float deltaTime) {
-    float velocity = m_movementSpeed * deltaTime;
-    if (direction == CameraMovement::FORWARD)
-        m_position += m_front * velocity;
-    if (direction == CameraMovement::BACKWARD)
-        m_position -= m_front * velocity;
-    if (direction == CameraMovement::LEFT)
-        m_position -= m_right * velocity;
-    if (direction == CameraMovement::RIGHT)
-        m_position += m_right * velocity;
-    if (direction == CameraMovement::UP)
-        m_position += m_worldUp * velocity;
-    if (direction == CameraMovement::DOWN)
-        m_position -= m_worldUp * velocity;
+    const float distance = m_movementSpeed * deltaTime;
+    switch (direction) {
+        case CameraMovement::FORWARD: m_position += m_front * distance; break;
+        case CameraMovement::BACKWARD: m_position -= m_front * distance; break;
+        case CameraMovement::LEFT: m_position -= m_right * distance; break;
+        case CameraMovement::RIGHT: m_position += m_right * distance; break;
+        case CameraMovement::UP: m_position += m_worldUp * distance; break;
+        case CameraMovement::DOWN: m_position -= m_worldUp * distance; break;
+    }
 }
 
-void Camera::processMouseMovement(float xoffset, float yoffset, bool constrainPitch) {
-    xoffset *= m_mouseSensitivity;
-    yoffset *= m_mouseSensitivity;
+void Camera::processMouseMovement(float horizontalOffset, float verticalOffset, bool constrainPitch) {
+    constexpr float kMaxPitchDegrees = 89.0f;
 
-    m_yaw += xoffset;
-    m_pitch += yoffset;
+    m_yaw += horizontalOffset * m_mouseSensitivity;
+    m_pitch += verticalOffset * m_mouseSensitivity;
 
-    if (constrainPitch) {
-        if (m_pitch > 89.0f)
-            m_pitch = 89.0f;
-        if (m_pitch < -89.0f)
-            m_pitch = -89.0f;
-    }
+    if (constrainPitch) m_pitch = glm::clamp(m_pitch, -kMaxPitchDegrees, kMaxPitchDegrees);
 
     updateCameraVectors();
 }
 
-void Camera::updateAspectRatio(float width, float height) { m_aspectRatio = width / height; }
+void Camera::updateAspectRatio(float width, float height) {
+    if (height <= 0.0f) return;
+    m_aspectRatio = width / height;
+}
 
 void Camera::updateCameraVectors() {
-    glm::vec3 front;
-    front.x = glm::cos(glm::radians(m_yaw)) * glm::cos(glm::radians(m_pitch));
-    front.y = glm::sin(glm::radians(m_pitch));
-    front.z = glm::sin(glm::radians(m_yaw)) * glm::cos(glm::radians(m_pitch));
-    m_front = glm::normalize(front);
+    const float yawRadians = glm::radians(m_yaw);
+    const float pitchRadians = glm::radians(m_pitch);
+    const float pitchCosine = glm::cos(pitchRadians);
+    m_front = glm::normalize(glm::vec3(glm::cos(yawRadians) * pitchCosine, glm::sin(pitchRadians), glm::sin(yawRadians) * pitchCosine));
 
     m_right = glm::normalize(glm::cross(m_front, m_worldUp));
     m_up = glm::normalize(glm::cross(m_right, m_front));

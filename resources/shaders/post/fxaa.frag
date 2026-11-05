@@ -9,8 +9,8 @@ layout(location = 0) out vec4 out_color;
 float lumaAt(vec2 uv) { return textureLod(u_ldr, uv, 0.0).a; }
 
 void main() {
-    vec2 uv = gl_FragCoord.xy * screenParams.zw;
-    vec2 texel = screenParams.zw;
+    vec2 uv = gl_FragCoord.xy / vec2(textureSize(u_ldr, 0));
+    vec2 texel = 1.0 / vec2(textureSize(u_ldr, 0));
     vec4 center = textureLod(u_ldr, uv, 0.0);
     if (ssrParams.w < 0.5) {
         out_color = vec4(center.rgb, 1.0);

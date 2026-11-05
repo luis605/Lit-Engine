@@ -1,3 +1,4 @@
+#include "TestSupport.hpp"
 #include <GLFW/glfw3.h>
 
 #include <cmath>
@@ -9,21 +10,6 @@ import Engine.World;
 import Engine.Observation;
 import Engine.Render.entity;
 import Engine.glm;
-
-namespace {
-int g_checks = 0;
-int g_failures = 0;
-
-void check(bool ok, const char* expr, int line) {
-    ++g_checks;
-    if (!ok) {
-        ++g_failures;
-        std::printf("FAIL line %d: %s\n", line, expr);
-    }
-}
-}  // namespace
-
-#define CHECK(x) check(static_cast<bool>(x), #x, __LINE__)
 
 int main() {
     if (!glfwInit()) {
@@ -95,6 +81,5 @@ int main() {
     }
     glfwDestroyWindow(window);
     glfwTerminate();
-    std::printf("%d checks, %d failures\n", g_checks, g_failures);
-    return g_failures == 0 ? 0 : 1;
+    return testsupport::finish();
 }

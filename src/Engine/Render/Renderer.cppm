@@ -10,8 +10,12 @@ module;
 
 struct GLFWwindow;
 struct DiligentData;
+struct PortalHistory;
 namespace Diligent {
 struct ITexture;
+struct IBuffer;
+struct IPipelineState;
+struct IShaderResourceBinding;
 }
 
 export module Engine.renderer;
@@ -25,10 +29,13 @@ import Engine.UI.imgui;
 import Engine.Render.lighting;
 import Engine.Render.custom;
 import Engine.Render.settings;
+import Engine.Render.governor;
 import Engine.Render.material;
 import Engine.Portal.view;
 import Engine.Render.observation;
 import Engine.glm;
+
+enum class GpuPass : uint8_t { Upload, Transform, Sky, Shadows, Cull, CommandGen, OpaqueDraw, HiZ, RetestCull, RetestCommandGen, RetestDraw, TransparentCull, TransparentCommandGen, AmbientOcclusion, Reflections, Lighting, TransparentDraw, Post, Ui, Count };
 
 export struct GpuEntityState {
     glm::mat4 world;
@@ -50,10 +57,16 @@ export class Renderer {
     void present();
     void cleanup();
     bool resizeToWindow();
+    [[nodiscard]] int renderWidth() const { return m_renderWidth; }
+    [[nodiscard]] int renderHeight() const { return m_renderHeight; }
+    [[nodiscard]] const QualityGovernor& governor() const { return m_governor; }
     [[nodiscard]] int width() const { return m_windowWidth; }
     [[nodiscard]] int height() const { return m_windowHeight; }
     uint32_t uploadMesh(const Mesh& mesh);
+    uint32_t uploadProcessedMesh(const Mesh& optimizedMesh, const std::vector<Mesh>& lodChain);
     glm::vec4 getMeshBounds(uint32_t meshId) const;
+    void setReflectionScene(const ReflectionScene& scene);
+    void bakeProbes();
     void setLights(bool enabled, const std::array<glm::vec4, 2>& directional, const std::vector<glm::vec4>& packed);
     void reloadShaders();
     void setMaterial(uint32_t index, const Material& material);
@@ -99,7 +112,22 @@ export class Renderer {
     [[nodiscard]] bool imguiEnabled() const { return m_imgui && m_imgui->initialized(); }
 
    private:
+    struct TransformPlan {
+        bool hierarchyChanged = false;
+        bool bulkUpload = false;
+        bool fullUpdate = false;
+        bool localMatricesUploading = false;
+        bool forceAllLevels = false;
+        bool sparse = false;
+    };
+
+    void createDevice();
+    void createTimestampQueries();
+    void createGeometryBuffers();
+    void createFences();
     void createScreenTargets();
+    void updateQualityScale(float deltaTime);
+    bool applyRenderSize();
     void createTransformPSO();
     void createHiZPSO();
     void createCullingPSO();
@@ -111,52 +139,121 @@ export class Renderer {
     void createTransparentCullPSO();
     void createTransparentPSO();
     void createSurfacePipelines();
-    void rebindSurfaceResources();
-    void uploadCascadeCull(bool empty = false);
-    void drawShadows(uint32_t objectCount);
-    void drawLocalShadows(uint32_t objectCount);
-    void ensureShadowHiZ();
-    void buildShadowHiZ(int cascade);
-    void bindBackBuffer();
-    void drawSurfaces(int phaseIndex, int cascade, uint32_t view = 0);
     void createDebugDepthPSO();
+    void createDepthUpscalePSO();
+    void resolveOverlayDepth();
     void createDebugLinePSO();
+    void createPortalPSO();
+    void createPortalCompositePSO();
     void createPipelines();
+    [[nodiscard]] bool pipelinesReady() const;
+
+    bool reallocateBuffers(size_t numObjects);
+    void releaseObjectBuffers();
+    void releaseBindings();
+    void allocateMeshBuffers();
+    void allocateVisibilityBuffers();
+    void allocateShadowBuffers();
+    void allocateCandidateBuffers();
+    void allocateObjectBuffers();
+    [[nodiscard]] bool objectBuffersAllocated() const;
+    [[nodiscard]] size_t objectBudget() const;
+    void ensureCapacity(uint32_t objectCount);
+    void bindComputeResources(int frameIndex);
+    void bindDispatchArgsResources(int frameIndex);
+    void bindVisibilityResources(int frameIndex);
+    void bindShadowResources(int frameIndex);
+    void rebindSurfaceResources();
+
+    uint32_t uploadMeshSlot(const Mesh& mesh);
+    void growGeometryBuffers(size_t vertexDataSize, size_t indexDataSize);
+    void storeNormalSamples(uint32_t baseId, const Mesh& mesh);
+
+    void beginFrame(float deltaTime);
+    void collectTimings(float deltaTime);
+    void pollObservation();
+    void beginPass(GpuPass pass);
+    void endPass(GpuPass pass);
+    void signalFrameFence();
+    void drawEmptyFrame(const Camera& camera);
+    FrameInput makeFrameInput(const Camera& camera, float currentFrameTime, float deltaTime);
+    void renderPortalPrepass(const SceneUniforms& sceneUniforms, uint32_t objectCount);
+    void renderOpaqueGeometry(uint32_t objectCount, bool portalsActive);
+    void renderShadowsAndTransparentCull(uint32_t objectCount);
+    void shadeScene(bool portalsActive);
+    void renderTransparentAndCustomEffects();
+    void finishFrame(const FrameInput& frameInput, const Camera& camera);
+
+    void syncVersions(const SceneDatabase& sceneDatabase);
+    TransformPlan uploadSceneData(SceneDatabase& sceneDatabase);
+    void mergeTransformDirty(SceneDatabase& sceneDatabase, TransformPlan& plan);
+    void ensureLevelOrder(SceneDatabase& sceneDatabase);
+    void uploadHierarchies(SceneDatabase& sceneDatabase);
+    void uploadTransforms(const SceneDatabase& sceneDatabase);
+    void uploadRenderables(SceneDatabase& sceneDatabase);
     void uploadAllRenderables(const SceneDatabase& sceneDatabase);
     void uploadDirtyRenderables(SceneDatabase& sceneDatabase);
     void uploadDirtyHierarchies(SceneDatabase& sceneDatabase);
-    [[nodiscard]] bool pipelinesReady() const;
+    void uploadMeshInfo();
+    void planTransformWork(SceneDatabase& sceneDatabase, TransformPlan& plan);
+    void markDirtyLevels(const SceneDatabase& sceneDatabase);
+    void applyDirtyTransforms(const SceneDatabase& sceneDatabase);
+    void dispatchTransforms(const SceneDatabase& sceneDatabase, const TransformPlan& plan);
+    void dispatchTransformGroup(Diligent::IShaderResourceBinding* binding, uint32_t listOffset, uint32_t count, bool forceRecompute, bool directEntityRange);
+    [[nodiscard]] bool animationActive() const;
+    bool animatedEntitiesAreLeaves(const SceneDatabase& sceneDatabase);
+    bool collectTransformWork(const SceneDatabase& sceneDatabase, std::span<const Entity> dirty);
+
     void cullVisibilityPhase(int phase, uint32_t objectCount, int hizFrame);
     void cullVisibilityPhase(int phase, uint32_t objectCount, Diligent::ITexture* hiz);
+    void resetVisibilityCounters(int phaseIndex);
+    void prepareCandidateDispatch(int phaseIndex, uint32_t objectCount);
+    void buildVisibilityDraws(int phase, uint32_t views = 1);
+    void drawVisibilityPhase(int phase);
+    void drawSurfaces(int phaseIndex, int cascade, uint32_t view = 0);
+    void bindSceneTargets(bool clear);
+    void bindBackBuffer(bool sceneDepthValid = true);
+    void buildHiZ();
+    void drawTransparency();
+
+    void uploadCascadeCull(bool empty = false);
+    void drawShadows(uint32_t objectCount);
+    void drawLocalShadows(uint32_t objectCount);
+    void renderCascade(int cascadeIndex);
+    void dispatchCascadeCull(int cascadeIndex, int hizLayer, Diligent::IPipelineState* pipeline, Diligent::IShaderResourceBinding* binding, Diligent::IBuffer* dispatchArgs, const glm::mat4& hizViewProjection, bool hizValid);
+    void ensureShadowHiZ();
+    void releaseShadowHiZ();
+    void createShadowHiZArgs(uint32_t size, uint32_t mips);
+    void createShadowHiZLayer(int layer, Diligent::ITexture* shadowMap, uint32_t size, uint32_t mips);
+    void buildShadowHiZ(int cascade);
+
     void renderPortalViews(const SceneUniforms& base, SceneUniforms& restore, uint32_t objectCount);
     void renderPortalNode(int index, const SceneUniforms& base, uint32_t objectCount);
+    void renderPortalGeometry(int index, uint32_t objectCount, PortalHistory& history);
+    void shadePortalView(int index);
     void compositePortals(int index);
     void resolvePortalDepth(int index);
     void maskPortalView(int index);
     bool ensurePortalScratch();
-    void createPortalPSO();
     void recordPortalStats(int index);
     void readPortalStats();
-    void buildVisibilityDraws(int phase, uint32_t views = 1);
-    void drawVisibilityPhase(int phase);
-    void bindSceneTargets(bool clear);
-    void buildHiZ();
-    void drawTransparency();
+
     void drawProfilingHud();
     void drawOverlays(const Camera& camera);
+    void drawDebugDepth(const Camera& camera);
+    void drawDebugLines(const Camera& camera);
     void captureBackBuffer();
+    CustomFrame customFrame() const;
+
+    static constexpr int NUM_FRAMES_IN_FLIGHT = 3;
+
     std::string m_screenshotPath;
     PortalFrame m_portalFrame;
     ObservationQuery m_obsQuery;
     bool m_obsActive = false;
     std::vector<ObservationReadback> m_obsReady;
     std::vector<PortalViewStats> m_portalStats;
-    bool reallocateBuffers(size_t numObjects);
-    void releaseObjectBuffers();
-    [[nodiscard]] size_t objectBudget() const;
-    uint32_t uploadMeshSlot(const Mesh& mesh);
 
-    static constexpr int NUM_FRAMES_IN_FLIGHT = 3;
     size_t m_vboSize = 0;
     size_t m_eboSize = 0;
 
@@ -167,7 +264,7 @@ export class Renderer {
 
     std::vector<uint8_t> m_levelNeedsProcessing;
 
-    std::vector<Entity> m_pendingDirty[NUM_FRAMES_IN_FLIGHT];
+    std::vector<Entity> m_pendingDirty;
     std::vector<Entity> m_dirtyIndexScratch;
     std::vector<Entity> m_transformWorkScratch;
     std::vector<Entity> m_transformWork;
@@ -177,8 +274,6 @@ export class Renderer {
     uint32_t m_transformWorkEpoch = 0;
     std::array<uint64_t, 3> m_animLeafCheckKey{};
     bool m_animatedEntitiesAreLeaves = false;
-    bool animatedEntitiesAreLeaves(const SceneDatabase& sceneDatabase);
-    bool collectTransformWork(const SceneDatabase& sceneDatabase, std::span<const Entity> dirty);
     std::vector<glm::mat4> m_dirtyPayloadScratch;
     uint32_t m_transformEpoch = 0;
 
@@ -188,7 +283,7 @@ export class Renderer {
 
     bool m_initialized = false;
     bool m_meshInfoDirty = true;
-    bool fullProfiling;
+    bool m_fullProfiling = false;
     bool m_profilingHud = true;
 
     UIManager* m_uiManager = nullptr;
@@ -216,6 +311,9 @@ export class Renderer {
     GLFWwindow* m_window = nullptr;
     int m_windowWidth = 0;
     int m_windowHeight = 0;
+    int m_renderWidth = 0;
+    int m_renderHeight = 0;
+    QualityGovernor m_governor;
 
     float m_lastFrameTime = 0.0f;
 
@@ -226,6 +324,5 @@ export class Renderer {
     float m_lastDeltaTime = 0.016f;
     Lighting m_lighting;
     CustomPasses m_custom;
-    CustomFrame customFrame() const;
     DiligentData* m_diligent = nullptr;
 };

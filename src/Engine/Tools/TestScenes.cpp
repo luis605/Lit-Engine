@@ -26,10 +26,15 @@ import Engine.Render.entity;
 import Engine.Render.component;
 import Engine.Render.settings;
 
+namespace {
+constexpr size_t kNumberBufferSize = 64;
+constexpr size_t kKeyBufferSize = 48;
+}
+
 void TestSceneMetrics::set(const std::string& name, double value) {
-    for (auto& [key, v] : values) {
+    for (auto& [key, stored] : values) {
         if (key == name) {
-            v = value;
+            stored = value;
             return;
         }
     }
@@ -37,28 +42,29 @@ void TestSceneMetrics::set(const std::string& name, double value) {
 }
 
 double TestSceneMetrics::get(const std::string& name, double fallback) const {
-    for (const auto& [key, v] : values) {
-        if (key == name) return v;
+    for (const auto& [key, stored] : values) {
+        if (key == name) return stored;
     }
     return fallback;
 }
 
 std::string TestSceneMetrics::toJson() const {
     std::string out = "{";
-    char buffer[64];
-    for (size_t i = 0; i < values.size(); ++i) {
-        std::snprintf(buffer, sizeof(buffer), "%.6g", values[i].second);
-        out += (i ? ", \"" : "\"") + values[i].first + "\": " + buffer;
+    char buffer[kNumberBufferSize];
+    for (size_t index = 0; index < values.size(); ++index) {
+        std::snprintf(buffer, sizeof(buffer), "%.6g", values[index].second);
+        out += (index ? ", \"" : "\"") + values[index].first + "\": " + buffer;
     }
     return out + "}";
 }
 
 double forwardDepthStep(float nearPlane, float farPlane, float distance) {
-    const double n = nearPlane;
-    const double f = farPlane;
-    const double d = f * (distance - n) / (distance * (f - n));
-    const double ulp = std::nextafter(static_cast<float>(d), 2.0f) - static_cast<float>(d);
-    const double slope = f * n / (distance * distance * (f - n));
+    if (distance <= 0.0f || farPlane == nearPlane) return 0.0;
+    const double nearDepth = nearPlane;
+    const double farDepth = farPlane;
+    const double depth = farDepth * (distance - nearDepth) / (distance * (farDepth - nearDepth));
+    const double ulp = std::nextafter(static_cast<float>(depth), 2.0f) - static_cast<float>(depth);
+    const double slope = farDepth * nearDepth / (distance * distance * (farDepth - nearDepth));
     return ulp / slope;
 }
 
@@ -71,14 +77,14 @@ uint32_t makeMaterial(const TestSceneKit& kit, const glm::vec3& color, float rou
 }
 
 EntityHandle spawn(World& world, const std::string& name, uint32_t mesh, uint32_t material, const glm::vec3& position, const glm::vec3& scale, uint32_t shader = 0) {
-    EntityDesc desc;
-    desc.name = name;
-    desc.mesh = mesh;
-    desc.material = material;
-    desc.shader = shader;
-    desc.position = position;
-    desc.scale = scale;
-    return world.create(desc);
+    EntityDesc description;
+    description.name = name;
+    description.mesh = mesh;
+    description.material = material;
+    description.shader = shader;
+    description.position = position;
+    description.scale = scale;
+    return world.create(description);
 }
 
 struct TortureState {
@@ -90,45 +96,47 @@ struct TortureState {
     double maxFrameMs = 0.0;
 };
 
+constexpr float kTortureWalkSpeed = 1.5f;
+constexpr float kTortureViewportHeight = 1080.0f;
+
 bool buildTorture(Engine& engine, const TestSceneKit& kit, TestSceneInfo& info) {
-    PortalSceneKit pk;
-    pk.cube = kit.cube;
-    pk.sphere = kit.sphere;
-    pk.floorShader = kit.floorShader;
-    pk.material = kit.material;
-    buildPortalScene(engine.portals(), engine.world(), pk, PortalTestScene::Torture);
+    PortalSceneKit portalKit;
+    portalKit.cube = kit.cube;
+    portalKit.sphere = kit.sphere;
+    portalKit.floorShader = kit.floorShader;
+    portalKit.material = kit.material;
+    buildPortalScene(engine.portals(), engine.world(), portalKit, PortalTestScene::Torture);
     info.start = portalSceneStart(PortalTestScene::Torture, info.yaw, info.pitch);
     info.nearPlane = 0.05f;
     info.farPlane = 300.0f;
     info.suggestedTicks = 600;
     auto state = std::make_shared<TortureState>();
-    Engine* e = &engine;
-    engine.addSystem(Phase::Update, "testscene.torture", [e, state](World& world, float dt) {
+    Engine* enginePointer = &engine;
+    engine.addSystem(Phase::Update, "testscene.torture", [enginePointer, state](World& world, float deltaTime) {
         Camera& camera = world.camera();
         const glm::vec3 forward(std::cos(glm::radians(camera.getYaw())), 0.0f, std::sin(glm::radians(camera.getYaw())));
-        camera.setPos(camera.getPosition() + forward * 1.5f * dt);
-        if (e->portals().step(camera) >= 0) ++state->crossings;
-        const double t0 = nowMs();
-        const PortalFrame frame = e->portals().buildFrame(camera, 1080.0f);
-        const double ms = nowMs() - t0;
+        camera.setPos(camera.getPosition() + forward * kTortureWalkSpeed * deltaTime);
+        if (enginePointer->portals().step(camera) >= 0) ++state->crossings;
+        const double startMs = nowMs();
+        const PortalFrame frame = enginePointer->portals().buildFrame(camera, kTortureViewportHeight);
+        const double elapsedMs = nowMs() - startMs;
         ++state->ticks;
-        state->frameMs += ms;
-        state->maxFrameMs = std::max(state->maxFrameMs, ms);
+        state->frameMs += elapsedMs;
+        state->maxFrameMs = std::max(state->maxFrameMs, elapsedMs);
         state->maxNodes = std::max<uint32_t>(state->maxNodes, static_cast<uint32_t>(frame.nodes.size()));
-        for (const PortalViewNode& n : frame.nodes) state->maxDepth = std::max<uint32_t>(state->maxDepth, static_cast<uint32_t>(n.depth));
+        for (const PortalViewNode& node : frame.nodes) state->maxDepth = std::max<uint32_t>(state->maxDepth, static_cast<uint32_t>(node.depth));
     });
-    Engine* ep = &engine;
-    info.metrics = [ep, state]() {
-        TestSceneMetrics m;
-        m.set("cells", static_cast<double>(ep->portals().cells().size()));
-        m.set("portals", static_cast<double>(ep->portals().portals().size()));
-        m.set("entities", static_cast<double>(ep->world().aliveCount()));
-        m.set("portal_crossings", state->crossings);
-        m.set("max_view_nodes", state->maxNodes);
-        m.set("max_view_depth", state->maxDepth);
-        m.set("frame_build_ms_mean", state->ticks ? state->frameMs / state->ticks : 0.0);
-        m.set("frame_build_ms_max", state->maxFrameMs);
-        return m;
+    info.metrics = [enginePointer, state]() {
+        TestSceneMetrics metrics;
+        metrics.set("cells", static_cast<double>(enginePointer->portals().cells().size()));
+        metrics.set("portals", static_cast<double>(enginePointer->portals().portals().size()));
+        metrics.set("entities", static_cast<double>(enginePointer->world().aliveCount()));
+        metrics.set("portal_crossings", state->crossings);
+        metrics.set("max_view_nodes", state->maxNodes);
+        metrics.set("max_view_depth", state->maxDepth);
+        metrics.set("frame_build_ms_mean", state->ticks ? state->frameMs / state->ticks : 0.0);
+        metrics.set("frame_build_ms_max", state->maxFrameMs);
+        return metrics;
     };
     return true;
 }
@@ -146,50 +154,54 @@ struct StreamState {
     std::vector<int> chunkIndex;
 };
 
+constexpr float kChunkLength = 40.0f;
+constexpr int kAhead = 6;
+constexpr int kBehind = 2;
+constexpr int kObjectsPerChunk = 48;
+constexpr float kStreamSpeed = 14.0f;
+constexpr float kWidth = 30.0f;
+constexpr float kRouteAmplitude = 12.0f;
+constexpr float kRouteFrequency = 0.02f;
+
+float routeX(float z) { return kRouteAmplitude * std::sin(z * kRouteFrequency); }
+
 bool buildStreaming(Engine& engine, const TestSceneKit& kit, TestSceneInfo& info) {
     World& world = engine.world();
-    constexpr float kChunkLength = 40.0f;
-    constexpr int kAhead = 6;
-    constexpr int kBehind = 2;
-    constexpr int kObjectsPerChunk = 48;
-    constexpr float kSpeed = 14.0f;
-    constexpr float kWidth = 30.0f;
-    const uint32_t ground = makeMaterial(kit, glm::vec3(0.35f, 0.38f, 0.3f), 0.9f);
+        const uint32_t ground = makeMaterial(kit, glm::vec3(0.35f, 0.38f, 0.3f), 0.9f);
     const uint32_t stone = makeMaterial(kit, glm::vec3(0.6f, 0.58f, 0.55f), 0.6f);
     const uint32_t glow = makeMaterial(kit, glm::vec3(0.2f, 0.3f, 0.6f), 0.3f, glm::vec3(0.3f, 0.5f, 1.0f), 3000.0f);
     auto state = std::make_shared<StreamState>();
-    auto routeX = [](float z) { return 12.0f * std::sin(z * 0.02f); };
-    auto spawnChunk = [&world, kit, state, routeX, ground, stone, glow](int index) {
-        const double t0 = nowMs();
+    auto spawnChunk = [&world, kit, state, ground, stone, glow](int index) {
+        const double startMs = nowMs();
         Pcg32 rng(static_cast<uint64_t>(index + 1000) * 7919u, 11u);
         std::vector<EntityHandle> items;
         const float z0 = -static_cast<float>(index) * kChunkLength;
         items.push_back(spawn(world, "chunk ground", kit.cube, ground, glm::vec3(routeX(z0 - kChunkLength * 0.5f) - kWidth, -1.0f, z0 - kChunkLength), glm::vec3(kWidth * 2.0f, 1.0f, kChunkLength + 0.5f), kit.floorShader));
-        for (int i = 0; i < kObjectsPerChunk; ++i) {
+        for (int object = 0; object < kObjectsPerChunk; ++object) {
             const float z = z0 - rng.range(0.0f, kChunkLength);
             const float side = rng.chance(0.5f) ? 1.0f : -1.0f;
             const float x = routeX(z) + side * rng.range(4.0f, kWidth);
-            const float h = rng.range(0.5f, 6.0f);
+            const float height = rng.range(0.5f, 6.0f);
             const bool orb = rng.chance(0.25f);
-            items.push_back(spawn(world, orb ? "chunk orb" : "chunk pillar", orb ? kit.sphere : kit.cube, orb ? glow : stone, glm::vec3(x, orb ? h : 0.0f, z), orb ? glm::vec3(1.0f) : glm::vec3(rng.range(0.6f, 2.0f), h, rng.range(0.6f, 2.0f))));
+            items.push_back(spawn(world, orb ? "chunk orb" : "chunk pillar", orb ? kit.sphere : kit.cube, orb ? glow : stone, glm::vec3(x, orb ? height : 0.0f, z), orb ? glm::vec3(1.0f) : glm::vec3(rng.range(0.6f, 2.0f), height, rng.range(0.6f, 2.0f))));
         }
         state->created += 1;
-        state->spawnMs += nowMs() - t0;
+        state->spawnMs += nowMs() - startMs;
         return items;
     };
     state->firstChunk = 0;
-    for (int i = -kBehind; i <= kAhead; ++i) {
-        state->chunks.push_back(spawnChunk(i));
-        state->chunkIndex.push_back(i);
+    for (int chunk = -kBehind; chunk <= kAhead; ++chunk) {
+        state->chunks.push_back(spawnChunk(chunk));
+        state->chunkIndex.push_back(chunk);
     }
     state->firstChunk = -kBehind;
-    engine.addSystem(Phase::Update, "testscene.stream", [state, spawnChunk](World& w, float dt) {
-        const double t0 = nowMs();
-        state->travelled += kSpeed * dt;
-        Camera& camera = w.camera();
+    engine.addSystem(Phase::Update, "testscene.stream", [state, spawnChunk](World& world, float deltaTime) {
+        const double startMs = nowMs();
+        state->travelled += kStreamSpeed * deltaTime;
+        Camera& camera = world.camera();
         const float z = -state->travelled;
-        camera.setPos(glm::vec3(12.0f * std::sin(z * 0.02f), 2.0f, z));
-        camera.setOrientation(glm::degrees(std::atan2(-1.0f, -0.24f * std::cos(z * 0.02f))), -3.0f);
+        camera.setPos(glm::vec3(routeX(z), 2.0f, z));
+        camera.setOrientation(glm::degrees(std::atan2(-1.0f, -0.24f * std::cos(z * kRouteFrequency))), -3.0f);
         const int current = static_cast<int>(state->travelled / kChunkLength);
         while (state->chunkIndex.back() < current + kAhead) {
             const int next = state->chunkIndex.back() + 1;
@@ -197,14 +209,14 @@ bool buildStreaming(Engine& engine, const TestSceneKit& kit, TestSceneInfo& info
             state->chunkIndex.push_back(next);
         }
         while (state->chunkIndex.front() < current - kBehind) {
-            for (EntityHandle e : state->chunks.front()) w.destroy(e);
+            for (const EntityHandle entity : state->chunks.front()) world.destroy(entity);
             state->destroyed += 1;
             state->chunks.erase(state->chunks.begin());
             state->chunkIndex.erase(state->chunkIndex.begin());
         }
-        state->peakEntities = std::max<uint32_t>(state->peakEntities, static_cast<uint32_t>(w.aliveCount()));
+        state->peakEntities = std::max<uint32_t>(state->peakEntities, static_cast<uint32_t>(world.aliveCount()));
         state->peakChunks = std::max<uint32_t>(state->peakChunks, static_cast<uint32_t>(state->chunks.size()));
-        state->maxTickMs = std::max(state->maxTickMs, nowMs() - t0);
+        state->maxTickMs = std::max(state->maxTickMs, nowMs() - startMs);
     });
     info.start = glm::vec3(0.0f, 2.0f, 0.0f);
     info.yaw = -90.0f;
@@ -212,19 +224,19 @@ bool buildStreaming(Engine& engine, const TestSceneKit& kit, TestSceneInfo& info
     info.nearPlane = 0.1f;
     info.farPlane = 600.0f;
     info.suggestedTicks = 1200;
-    Engine* ep = &engine;
-    info.metrics = [ep, state]() {
-        TestSceneMetrics m;
-        m.set("chunks_created", state->created);
-        m.set("chunks_destroyed", state->destroyed);
-        m.set("chunks_resident", static_cast<double>(state->chunks.size()));
-        m.set("peak_chunks", state->peakChunks);
-        m.set("peak_entities", state->peakEntities);
-        m.set("entities", static_cast<double>(ep->world().aliveCount()));
-        m.set("route_travelled_m", state->travelled);
-        m.set("spawn_ms_total", state->spawnMs);
-        m.set("max_stream_tick_ms", state->maxTickMs);
-        return m;
+    Engine* enginePointer = &engine;
+    info.metrics = [enginePointer, state]() {
+        TestSceneMetrics metrics;
+        metrics.set("chunks_created", state->created);
+        metrics.set("chunks_destroyed", state->destroyed);
+        metrics.set("chunks_resident", static_cast<double>(state->chunks.size()));
+        metrics.set("peak_chunks", state->peakChunks);
+        metrics.set("peak_entities", state->peakEntities);
+        metrics.set("entities", static_cast<double>(enginePointer->world().aliveCount()));
+        metrics.set("route_travelled_m", state->travelled);
+        metrics.set("spawn_ms_total", state->spawnMs);
+        metrics.set("max_stream_tick_ms", state->maxTickMs);
+        return metrics;
     };
     return true;
 }
@@ -242,10 +254,11 @@ struct CrowdState {
     float distance = 0.0f;
 };
 
+constexpr int kAgents = 500;
+constexpr float kHalf = 40.0f;
+
 bool buildCrowd(Engine& engine, const TestSceneKit& kit, TestSceneInfo& info) {
     World& world = engine.world();
-    constexpr int kAgents = 500;
-    constexpr float kHalf = 40.0f;
     const uint32_t ground = makeMaterial(kit, glm::vec3(0.3f, 0.3f, 0.32f), 0.9f);
     spawn(world, "crowd ground", kit.cube, ground, glm::vec3(-kHalf, -1.0f, -kHalf), glm::vec3(kHalf * 2.0f, 1.0f, kHalf * 2.0f), kit.floorShader);
     auto state = std::make_shared<CrowdState>();
@@ -258,7 +271,7 @@ bool buildCrowd(Engine& engine, const TestSceneKit& kit, TestSceneInfo& info) {
     state->mesh.configure(config);
     state->mesh.setGeometry(soup);
     state->mesh.rebuildAll();
-    for (int i = 0; i < kAgents; ++i) {
+    for (int agentIndex = 0; agentIndex < kAgents; ++agentIndex) {
         NavAgent agent;
         agent.position = glm::vec3(state->rng.range(-kHalf + 2.0f, kHalf - 2.0f), 0.0f, state->rng.range(-kHalf + 2.0f, kHalf - 2.0f));
         agent.maxSpeed = state->rng.range(1.5f, 3.5f);
@@ -268,28 +281,28 @@ bool buildCrowd(Engine& engine, const TestSceneKit& kit, TestSceneInfo& info) {
         world.setTag(body, "observed");
         state->entities.push_back(body);
     }
-    engine.addSystem(Phase::Update, "testscene.crowd", [state](World& w, float dt) {
-        const double t0 = nowMs();
-        const float time = static_cast<float>(w.time().elapsed);
+    engine.addSystem(Phase::Update, "testscene.crowd", [state](World& world, float deltaTime) {
+        const double startMs = nowMs();
+        const float time = static_cast<float>(world.time().elapsed);
         std::vector<std::pair<EntityHandle, glm::vec3>> moves;
         moves.reserve(state->agents.size());
-        for (size_t i = 0; i < state->agents.size(); ++i) {
-            NavAgent& a = state->agents[i];
-            if (!a.hasTarget || a.state == AgentState::Arrived || a.state == AgentState::Failed) {
-                if (a.state == AgentState::Arrived) ++state->arrivals;
-                navSetTarget(state->mesh, a, glm::vec3(state->rng.range(-kHalf + 2.0f, kHalf - 2.0f), 0.0f, state->rng.range(-kHalf + 2.0f, kHalf - 2.0f)));
+        for (size_t index = 0; index < state->agents.size(); ++index) {
+            NavAgent& agent = state->agents[index];
+            if (!agent.hasTarget || agent.state == AgentState::Arrived || agent.state == AgentState::Failed) {
+                if (agent.state == AgentState::Arrived) ++state->arrivals;
+                navSetTarget(state->mesh, agent, glm::vec3(state->rng.range(-kHalf + 2.0f, kHalf - 2.0f), 0.0f, state->rng.range(-kHalf + 2.0f, kHalf - 2.0f)));
                 ++state->retargets;
             }
-            const glm::vec3 before = a.position;
-            navStepAgent(state->mesh, a, dt);
-            state->distance += glm::length(a.position - before);
-            const float bob = 0.5f + 0.08f * std::sin(time * 8.0f + static_cast<float>(i));
-            moves.emplace_back(state->entities[i], a.position + glm::vec3(0.0f, bob, 0.0f));
+            const glm::vec3 before = agent.position;
+            navStepAgent(state->mesh, agent, deltaTime);
+            state->distance += glm::length(agent.position - before);
+            const float bob = 0.5f + 0.08f * std::sin(time * 8.0f + static_cast<float>(index));
+            moves.emplace_back(state->entities[index], agent.position + glm::vec3(0.0f, bob, 0.0f));
         }
-        w.setPositions(moves);
-        const double ms = nowMs() - t0;
-        state->stepMs += ms;
-        state->maxStepMs = std::max(state->maxStepMs, ms);
+        world.setPositions(moves);
+        const double elapsedMs = nowMs() - startMs;
+        state->stepMs += elapsedMs;
+        state->maxStepMs = std::max(state->maxStepMs, elapsedMs);
         ++state->ticks;
     });
     info.start = glm::vec3(0.0f, 28.0f, 40.0f);
@@ -298,18 +311,18 @@ bool buildCrowd(Engine& engine, const TestSceneKit& kit, TestSceneInfo& info) {
     info.nearPlane = 0.1f;
     info.farPlane = 400.0f;
     info.suggestedTicks = 600;
-    Engine* ep = &engine;
-    info.metrics = [ep, state]() {
-        TestSceneMetrics m;
-        m.set("agents", static_cast<double>(state->agents.size()));
-        m.set("entities", static_cast<double>(ep->world().aliveCount()));
-        m.set("navmesh_tiles", static_cast<double>(state->mesh.tileCount()));
-        m.set("retargets", state->retargets);
-        m.set("arrivals", state->arrivals);
-        m.set("distance_walked_m", state->distance);
-        m.set("agent_step_ms_mean", state->ticks ? state->stepMs / state->ticks : 0.0);
-        m.set("agent_step_ms_max", state->maxStepMs);
-        return m;
+    Engine* enginePointer = &engine;
+    info.metrics = [enginePointer, state]() {
+        TestSceneMetrics metrics;
+        metrics.set("agents", static_cast<double>(state->agents.size()));
+        metrics.set("entities", static_cast<double>(enginePointer->world().aliveCount()));
+        metrics.set("navmesh_tiles", static_cast<double>(state->mesh.tileCount()));
+        metrics.set("retargets", state->retargets);
+        metrics.set("arrivals", state->arrivals);
+        metrics.set("distance_walked_m", state->distance);
+        metrics.set("agent_step_ms_mean", state->ticks ? state->stepMs / state->ticks : 0.0);
+        metrics.set("agent_step_ms_max", state->maxStepMs);
+        return metrics;
     };
     return true;
 }
@@ -323,9 +336,9 @@ bool buildVista(Engine& engine, const TestSceneKit& kit, TestSceneInfo& info) {
     World& world = engine.world();
     auto state = std::make_shared<VistaState>();
     Pcg32 rng(77u, 3u);
-    auto track = [&](const glm::vec3& p) {
+    auto track = [&](const glm::vec3& position) {
         ++state->objects;
-        state->farthest = std::max(state->farthest, glm::length(glm::vec2(p.x, p.z)));
+        state->farthest = std::max(state->farthest, glm::length(glm::vec2(position.x, position.z)));
     };
     const uint32_t ground = makeMaterial(kit, glm::vec3(0.28f, 0.32f, 0.22f), 0.95f);
     const uint32_t slab = makeMaterial(kit, glm::vec3(0.8f, 0.3f, 0.2f), 0.8f);
@@ -335,32 +348,32 @@ bool buildVista(Engine& engine, const TestSceneKit& kit, TestSceneInfo& info) {
     const uint32_t beacon = makeMaterial(kit, glm::vec3(0.2f, 0.2f, 0.2f), 0.5f, glm::vec3(1.0f, 0.6f, 0.2f), 20000.0f);
     spawn(world, "vista ground", kit.cube, ground, glm::vec3(-200000.0f, -2.0f, -200000.0f), glm::vec3(400000.0f, 2.0f, 400000.0f), kit.floorShader);
     track(glm::vec3(200000.0f, 0.0f, 200000.0f));
-    for (int i = 1; i <= 80; ++i) {
-        const float z = -static_cast<float>(i) * 250.0f;
-        for (float side : {-1.0f, 1.0f}) {
-            const glm::vec3 p(side * 30.0f, 0.0f, z);
-            spawn(world, "vista pillar", kit.cube, stone, p - glm::vec3(1.5f, 0.0f, 1.5f), glm::vec3(3.0f, 14.0f + static_cast<float>(i) * 0.6f, 3.0f));
-            track(p);
+    for (int row = 1; row <= 80; ++row) {
+        const float z = -static_cast<float>(row) * 250.0f;
+        for (const float side : {-1.0f, 1.0f}) {
+            const glm::vec3 position(side * 30.0f, 0.0f, z);
+            spawn(world, "vista pillar", kit.cube, stone, position - glm::vec3(1.5f, 0.0f, 1.5f), glm::vec3(3.0f, 14.0f + static_cast<float>(row) * 0.6f, 3.0f));
+            track(position);
         }
     }
-    for (int i = 0; i < 90; ++i) {
+    for (int peak = 0; peak < 90; ++peak) {
         const float angle = rng.range(0.0f, 6.2831853f);
         const float distance = rng.range(3000.0f, 60000.0f);
         const float radius = rng.range(300.0f, 4200.0f) * (0.4f + distance / 60000.0f);
-        const glm::vec3 p(std::cos(angle) * distance, 0.0f, std::sin(angle) * distance);
-        spawn(world, "vista peak", kit.sphere, rock, p - glm::vec3(0.0f, radius * 0.25f, 0.0f), glm::vec3(radius * 2.0f, radius * rng.range(0.8f, 1.6f), radius * 2.0f));
-        track(p);
+        const glm::vec3 position(std::cos(angle) * distance, 0.0f, std::sin(angle) * distance);
+        spawn(world, "vista peak", kit.sphere, rock, position - glm::vec3(0.0f, radius * 0.25f, 0.0f), glm::vec3(radius * 2.0f, radius * rng.range(0.8f, 1.6f), radius * 2.0f));
+        track(position);
     }
-    for (int i = 0; i < 12; ++i) {
-        const float z = -(2000.0f + 3500.0f * static_cast<float>(i));
-        const glm::vec3 p(rng.range(-600.0f, 600.0f), 0.0f, z);
-        spawn(world, "vista beacon", kit.sphere, beacon, p + glm::vec3(0.0f, 60.0f, 0.0f), glm::vec3(40.0f));
-        track(p);
+    for (int beaconIndex = 0; beaconIndex < 12; ++beaconIndex) {
+        const float z = -(2000.0f + 3500.0f * static_cast<float>(beaconIndex));
+        const glm::vec3 position(rng.range(-600.0f, 600.0f), 0.0f, z);
+        spawn(world, "vista beacon", kit.sphere, beacon, position + glm::vec3(0.0f, 60.0f, 0.0f), glm::vec3(40.0f));
+        track(position);
     }
-    for (float distance : {400.0f, 1500.0f, 6000.0f, 20000.0f}) {
+    for (const float distance : {400.0f, 1500.0f, 6000.0f, 20000.0f}) {
         const float size = distance * 0.04f;
         const float x = -distance * 0.1f;
-        spawn(world, "vista slab a", kit.cube, slab, glm::vec3(x, 0.0f, -distance), glm::vec3(size, 0.0f + size * 0.25f, size));
+        spawn(world, "vista slab a", kit.cube, slab, glm::vec3(x, 0.0f, -distance), glm::vec3(size, size * 0.25f, size));
         spawn(world, "vista slab b", kit.cube, slabAlt, glm::vec3(x + size * 0.5f, 0.0f, -distance - size * 0.5f), glm::vec3(size, size * 0.25f, size));
         track(glm::vec3(x, 0.0f, -distance));
     }
@@ -370,30 +383,30 @@ bool buildVista(Engine& engine, const TestSceneKit& kit, TestSceneInfo& info) {
     info.nearPlane = 0.5f;
     info.farPlane = 400000.0f;
     info.suggestedTicks = 120;
-    Engine* ep = &engine;
-    info.metrics = [ep, state, info]() {
-        TestSceneMetrics m;
-        m.set("entities", static_cast<double>(ep->world().aliveCount()));
-        m.set("vista_objects", state->objects);
-        m.set("farthest_object_m", state->farthest);
-        m.set("camera_near_m", info.nearPlane);
-        m.set("camera_far_m", info.farPlane);
-        for (float d : {100.0f, 1000.0f, 10000.0f, 50000.0f}) {
-            char key[48];
-            std::snprintf(key, sizeof(key), "depth_step_m_at_%.0f", d);
-            m.set(key, forwardDepthStep(info.nearPlane, info.farPlane, d));
+    Engine* enginePointer = &engine;
+    info.metrics = [enginePointer, state, info]() {
+        TestSceneMetrics metrics;
+        metrics.set("entities", static_cast<double>(enginePointer->world().aliveCount()));
+        metrics.set("vista_objects", state->objects);
+        metrics.set("farthest_object_m", state->farthest);
+        metrics.set("camera_near_m", info.nearPlane);
+        metrics.set("camera_far_m", info.farPlane);
+        for (const float probeDistance : {100.0f, 1000.0f, 10000.0f, 50000.0f}) {
+            char key[kKeyBufferSize];
+            std::snprintf(key, sizeof(key), "depth_step_m_at_%.0f", probeDistance);
+            metrics.set(key, forwardDepthStep(info.nearPlane, info.farPlane, probeDistance));
         }
-        return m;
+        return metrics;
     };
     return true;
 }
 
-}  // namespace
+}
 
 std::vector<std::string> testSceneNames() { return {"portal_torture", "streaming_route", "crowd", "vista"}; }
 
 void clearTestSceneSystems(Engine& engine) {
-    for (Phase phase : {Phase::PreUpdate, Phase::FixedUpdate, Phase::Update, Phase::PostUpdate}) {
+    for (const Phase phase : {Phase::PreUpdate, Phase::FixedUpdate, Phase::Update, Phase::PostUpdate}) {
         for (const std::string& name : engine.systemNames(phase)) {
             if (name.starts_with("testscene.")) engine.removeSystem(name);
         }

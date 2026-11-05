@@ -186,7 +186,7 @@ void main() {
         LitToon toon = LitToon(clamp(s.toonBands, 1.0, 255.0), saturate(s.toonRim), saturate(s.toonRimWidth));
         color = (litToonDirect(sd, toon, gl_FragCoord.xy, viewDepth, visibility) + litToonAmbient(sd, toon, visibility) + s.emissive) * exposureData.x;
     } else {
-        color = (evaluateSun(sd, gl_FragCoord.xy, visibility) + evaluateLights(sd, gl_FragCoord.xy, viewDepth) + evaluateIBL(sd, vec4(0.0)) + s.emissive) * exposureData.x;
+        color = (evaluateSun(sd, gl_FragCoord.xy, visibility) + evaluateLights(sd, gl_FragCoord.xy, viewDepth) + evaluateIBL(sd) + s.emissive) * exposureData.x;
     }
     float alpha = clamp(in_alpha * s.opacity, 0.0, 1.0);
     float fresnel = pow5(1.0 - sd.NoV);

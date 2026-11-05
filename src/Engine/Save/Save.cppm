@@ -2,6 +2,7 @@ module;
 
 #include <cstdint>
 #include <functional>
+#include <future>
 #include <map>
 #include <string>
 #include <vector>
@@ -35,6 +36,9 @@ export class SaveSystem {
     using Migration = std::function<bool(Json& body, std::string* error)>;
 
     explicit SaveSystem(SaveContext context) : m_ctx(context) {}
+    ~SaveSystem() { waitPending(); }
+    SaveSystem(SaveSystem&&) = default;
+    SaveSystem& operator=(SaveSystem&&) = default;
 
     void addSection(std::string name, SectionSave save, SectionLoad load) { m_sections[std::move(name)] = {std::move(save), std::move(load)}; }
     void addMigration(int fromVersion, Migration migration) { m_migrations[fromVersion] = std::move(migration); }
@@ -43,10 +47,14 @@ export class SaveSystem {
     bool apply(const Json& body, std::string* error = nullptr);
 
     bool save(const std::string& path, const std::string& label = {}, std::string* error = nullptr);
+    bool saveAsync(const std::string& path, const std::string& label = {});
+    bool waitPending();
+    [[nodiscard]] bool pendingWrite() const;
     bool load(const std::string& path, std::string* error = nullptr);
 
     void configureAutosave(std::string directory, float intervalSeconds, uint32_t slots = 3);
-    bool autosave(float dt, std::string* error = nullptr);
+    bool autosave(float deltaSeconds, std::string* error = nullptr);
+    bool autosaveAsync(float deltaSeconds);
     bool autosaveNow(std::string* error = nullptr);
     bool loadLatestAutosave(std::string* error = nullptr);
     [[nodiscard]] std::string autosavePath(uint32_t slot) const;
@@ -57,6 +65,9 @@ export class SaveSystem {
     }
 
   private:
+    bool applySections(const Json& body, std::string* error);
+    bool applyWorld(const Json& body, std::string* error);
+
     struct Section {
         SectionSave save;
         SectionLoad load;
@@ -71,4 +82,5 @@ export class SaveSystem {
     float m_autoInterval = 0.0f;
     float m_autoElapsed = 0.0f;
     uint32_t m_autoSlots = 3;
+    std::future<bool> m_pending;
 };

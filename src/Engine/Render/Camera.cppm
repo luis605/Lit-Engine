@@ -15,11 +15,11 @@ export class Camera {
     glm::vec3 getPosition() const { return m_position; }
 
     void processKeyboard(CameraMovement direction, float deltaTime);
-    void processMouseMovement(float xoffset, float yoffset, bool constrainPitch = true);
+    void processMouseMovement(float horizontalOffset, float verticalOffset, bool constrainPitch = true);
     void updateAspectRatio(float width, float height);
     void setNearPlane(float nearPlane) { m_nearPlane = nearPlane; }
     void setFarPlane(float farPlane) { m_farPlane = farPlane; }
-    void setPos(glm::vec3 pos) { m_position = pos; }
+    void setPos(glm::vec3 position) { m_position = position; }
     void setOrientation(float yaw, float pitch) { m_yaw = yaw; m_pitch = pitch; updateCameraVectors(); }
     void setFov(float fov) { m_fov = fov; }
     float getFov() const { return m_fov; }

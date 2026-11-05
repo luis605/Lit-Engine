@@ -3,6 +3,7 @@ module;
 #include <bitset>
 #include <cstdint>
 #include <string>
+#include <utility>
 #include <vector>
 
 export module Engine.Replay;
@@ -43,9 +44,39 @@ export struct ReplayTick {
     InputState input;
 };
 
+export struct ReplayCheckpoint {
+    uint64_t tick = 0;
+    uint64_t hash = 0;
+    bool operator==(const ReplayCheckpoint&) const = default;
+};
+
 export struct ReplayData {
     uint64_t seed = 0;
     std::vector<ReplayTick> ticks;
+    uint64_t hashInterval = 0;
+    std::vector<ReplayCheckpoint> checkpoints;
+};
+
+export struct ReplayMismatch {
+    uint64_t tick = 0;
+    uint64_t expected = 0;
+    uint64_t actual = 0;
+};
+
+export class ReplayVerifier {
+  public:
+    void begin(const ReplayData& data);
+    [[nodiscard]] bool due(uint64_t tick) const;
+    void check(uint64_t tick, uint64_t hash);
+    [[nodiscard]] bool ok() const { return m_mismatches.empty(); }
+    [[nodiscard]] size_t checked() const { return m_checked; }
+    [[nodiscard]] size_t expectedCount() const { return m_expected.size(); }
+    [[nodiscard]] const std::vector<ReplayMismatch>& mismatches() const { return m_mismatches; }
+
+  private:
+    std::vector<ReplayCheckpoint> m_expected;
+    std::vector<ReplayMismatch> m_mismatches;
+    size_t m_checked = 0;
 };
 
 export class InputRecorder {
@@ -56,6 +87,8 @@ export class InputRecorder {
     [[nodiscard]] const ReplayData& data() const { return m_data; }
     bool save(const std::string& path) const;
     void stop() { m_active = false; }
+    void setHashInterval(uint64_t interval) { m_data.hashInterval = interval; }
+    void addCheckpoint(uint64_t tick, uint64_t hash) { m_data.checkpoints.push_back({tick, hash}); }
 
   private:
     bool m_active = false;

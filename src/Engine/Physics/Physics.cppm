@@ -82,7 +82,7 @@ export struct PhysicsContact {
 
 export using PhysicsFilter = std::function<bool(EntityHandle)>;
 
-export void wakeBody(World& world, EntityHandle e);
+export void wakeBody(World& world, EntityHandle entity);
 export std::optional<PhysicsHit> physicsRaycast(World& world, const glm::vec3& origin, const glm::vec3& direction, float maxDistance = 1.0e30f, const PhysicsFilter& skip = {});
 export std::optional<PhysicsHit> physicsSweepSphere(World& world, const glm::vec3& origin, const glm::vec3& direction, float maxDistance, float radius, const PhysicsFilter& skip = {});
 export std::vector<PhysicsContact> physicsOverlapCapsule(World& world, const glm::vec3& a, const glm::vec3& b, float radius, const PhysicsFilter& skip = {});

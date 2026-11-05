@@ -18,6 +18,6 @@ glm::mat4 rotateAboutWorldAxis(const glm::mat4& world, const glm::vec3& pivot, c
 glm::mat4 scaleAlongLocalAxis(const glm::mat4& local, int axisIndex, float factor, bool uniform);
 glm::vec4 enclosingSphere(const std::vector<glm::vec4>& spheres);
 float frameDistance(float radius, float fovYDegrees, float aspect);
-float distanceToSegment2D(const glm::vec2& p, const glm::vec2& a, const glm::vec2& b);
+float distanceToSegment2D(const glm::vec2& point, const glm::vec2& segmentStart, const glm::vec2& segmentEnd);
 
 }

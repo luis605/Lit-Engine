@@ -102,6 +102,7 @@ export class PortalSystem {
     [[nodiscard]] std::string toJson() const;
 
     [[nodiscard]] bool active() const { return !m_portals.empty(); }
+    [[nodiscard]] bool hasCells() const { return !m_cells.empty(); }
     [[nodiscard]] const std::vector<PortalCell>& cells() const { return m_cells; }
     [[nodiscard]] PortalCellParams& cellParams(int cell) { return m_cells[static_cast<size_t>(cell)].params; }
     [[nodiscard]] const std::vector<Portal>& portals() const { return m_portals; }
@@ -138,6 +139,7 @@ export class PortalSystem {
         glm::vec3 previous{0.0f};
         int cell = -1;
     };
+    void updateGhost(World& world, Tracked& tracked, int straddledPortal);
     std::vector<PortalCell> m_cells;
     std::vector<Portal> m_portals;
     std::vector<std::vector<int>> m_cellPortals;

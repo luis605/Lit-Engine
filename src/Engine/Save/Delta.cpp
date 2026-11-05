@@ -3,6 +3,7 @@ module;
 #include <algorithm>
 #include <cstdint>
 #include <map>
+#include <optional>
 #include <set>
 #include <string>
 #include <vector>
@@ -11,232 +12,117 @@ module Engine.Delta;
 
 import Engine.Render.component;
 
-namespace {
-Json vec3Json(const glm::vec3& v) {
-    Json a = Json::array();
-    a.push(v.x);
-    a.push(v.y);
-    a.push(v.z);
-    return a;
+#include "DeltaCodec.hpp"
+
+using namespace delta_codec;
+
+EntityState DeltaStore::read(EntityHandle entity) const {
+    EntityState state;
+    readInto(entity, state, m_world.componentNames());
+    return state;
 }
 
-glm::vec3 vec3From(const Json* j, glm::vec3 fallback) {
-    if (!j || j->size() != 3) return fallback;
-    return {static_cast<float>(j->at(0)->asNumber()), static_cast<float>(j->at(1)->asNumber()), static_cast<float>(j->at(2)->asNumber())};
-}
-
-Json componentsJson(const std::vector<std::pair<std::string, std::string>>& list) {
-    Json out = Json::array();
-    for (const auto& [name, text] : list) {
-        Json pair = Json::array();
-        pair.push(name);
-        pair.push(text);
-        out.push(std::move(pair));
-    }
-    return out;
-}
-
-std::vector<std::pair<std::string, std::string>> componentsFrom(const Json* j) {
-    std::vector<std::pair<std::string, std::string>> out;
-    if (!j) return out;
-    for (const Json& p : j->items()) {
-        if (p.size() == 2) out.emplace_back(p.at(0)->asString(), p.at(1)->asString());
-    }
-    return out;
-}
-
-Json matrixJson(const glm::mat4& m) {
-    Json a = Json::array();
-    for (int c = 0; c < 4; ++c) {
-        for (int r = 0; r < 4; ++r) a.push(m[c][r]);
-    }
-    return a;
-}
-
-glm::mat4 matrixFrom(const Json* j) {
-    glm::mat4 m(1.0f);
-    if (!j || j->size() != 16) return m;
-    for (int c = 0; c < 4; ++c) {
-        for (int r = 0; r < 4; ++r) m[c][r] = static_cast<float>(j->at(static_cast<size_t>(c * 4 + r))->asNumber());
-    }
-    return m;
-}
-
-Json stateJson(const EntityState& s) {
-    Json j = Json::object();
-    j.set("name", s.name);
-    j.set("tag", s.tag);
-    j.set("mesh", s.mesh);
-    j.set("material", s.material);
-    j.set("shader", s.shader);
-    j.set("layer", s.layer);
-    j.set("flags", s.renderFlags);
-    j.set("alpha", s.alpha);
-    j.set("visible", s.visible);
-    j.set("local", matrixJson(s.local));
-    j.set("components", componentsJson(s.components));
-    return j;
-}
-
-EntityState stateFrom(const Json& j) {
-    EntityState s;
-    if (const Json* v = j.get("name")) s.name = v->asString();
-    if (const Json* v = j.get("tag")) s.tag = v->asString();
-    if (const Json* v = j.get("mesh")) s.mesh = static_cast<uint32_t>(v->asNumber());
-    if (const Json* v = j.get("material")) s.material = static_cast<uint32_t>(v->asNumber());
-    if (const Json* v = j.get("shader")) s.shader = static_cast<uint32_t>(v->asNumber());
-    if (const Json* v = j.get("layer")) s.layer = static_cast<uint32_t>(v->asNumber());
-    if (const Json* v = j.get("flags")) s.renderFlags = static_cast<uint32_t>(v->asNumber());
-    if (const Json* v = j.get("alpha")) s.alpha = static_cast<float>(v->asNumber(1.0));
-    if (const Json* v = j.get("visible")) s.visible = v->asBool(true);
-    s.local = matrixFrom(j.get("local"));
-    s.components = componentsFrom(j.get("components"));
-    return s;
-}
-
-Json prefabJson(const Prefab& p) {
-    Json nodes = Json::array();
-    for (const PrefabNode& n : p.nodes) {
-        EntityState s;
-        s.name = n.name;
-        s.tag = n.tag;
-        s.mesh = n.mesh;
-        s.material = n.material;
-        s.shader = n.shader;
-        s.layer = n.layer;
-        s.renderFlags = n.renderFlags;
-        s.alpha = n.alpha;
-        s.visible = n.visible;
-        s.local = n.local;
-        s.components = n.components;
-        Json j = stateJson(s);
-        j.set("parent", n.parent);
-        j.set("source", n.sourceIndex);
-        nodes.push(std::move(j));
-    }
-    return nodes;
-}
-
-Prefab prefabFrom(const Json& nodes) {
-    Prefab p;
-    for (const Json& j : nodes.items()) {
-        const EntityState s = stateFrom(j);
-        PrefabNode n;
-        n.name = s.name;
-        n.tag = s.tag;
-        n.mesh = s.mesh;
-        n.material = s.material;
-        n.shader = s.shader;
-        n.layer = s.layer;
-        n.renderFlags = s.renderFlags;
-        n.alpha = s.alpha;
-        n.visible = s.visible;
-        n.local = s.local;
-        n.components = s.components;
-        if (const Json* v = j.get("parent")) n.parent = static_cast<int>(v->asNumber(-1));
-        if (const Json* v = j.get("source")) n.sourceIndex = static_cast<uint32_t>(v->asNumber());
-        p.nodes.push_back(std::move(n));
-    }
-    return p;
-}
-
-Json paramsJson(const PortalCellParams& p) {
-    Json j = Json::object();
-    j.set("gravity", vec3Json(p.gravity));
-    j.set("tint", vec3Json(p.tint));
-    j.set("sun", p.sun);
-    j.set("ambient", p.ambient);
-    Json sc = Json::object();
-    for (const auto& [k, v] : p.scalars) sc.set(k, v);
-    j.set("scalars", std::move(sc));
-    return j;
-}
-
-bool sameParams(const PortalCellParams& a, const PortalCellParams& b) {
-    return a.gravity == b.gravity && a.tint == b.tint && a.sun == b.sun && a.ambient == b.ambient && a.scalars == b.scalars;
-}
-
-void paramsFrom(const Json& j, PortalCellParams& p) {
-    p.gravity = vec3From(j.get("gravity"), p.gravity);
-    p.tint = vec3From(j.get("tint"), p.tint);
-    if (const Json* v = j.get("sun")) p.sun = static_cast<float>(v->asNumber(1.0));
-    if (const Json* v = j.get("ambient")) p.ambient = static_cast<float>(v->asNumber(1.0));
-    if (const Json* sc = j.get("scalars")) {
-        p.scalars.clear();
-        for (const auto& [k, v] : sc->members()) p.scalars[k] = static_cast<float>(v.asNumber());
+void DeltaStore::readInto(EntityHandle entity, EntityState& state, const std::vector<std::string>& componentNames) const {
+    state.name = m_world.getName(entity);
+    state.tag = m_world.getTag(entity);
+    state.mesh = m_world.getMesh(entity);
+    const RenderableComponent& renderable = m_world.getRenderable(entity);
+    state.material = renderable.material_uuid;
+    state.shader = renderable.shaderId;
+    state.alpha = renderable.alpha;
+    state.renderFlags = renderable.flags & ~RENDER_HIDDEN;
+    state.layer = m_world.getLayer(entity);
+    state.visible = m_world.isVisible(entity);
+    state.local = m_world.getLocalMatrix(entity);
+    state.components.clear();
+    for (const std::string& name : componentNames) {
+        std::optional<std::string> text = m_world.componentText(entity, name);
+        if (text && !text->empty()) state.components.emplace_back(name, std::move(*text));
     }
 }
-}
 
-EntityState DeltaStore::read(EntityHandle e) const {
-    EntityState s;
-    s.name = m_world.getName(e);
-    s.tag = m_world.getTag(e);
-    s.mesh = m_world.getMesh(e);
-    const RenderableComponent& r = m_world.getRenderable(e);
-    s.material = r.material_uuid;
-    s.shader = r.shaderId;
-    s.alpha = r.alpha;
-    s.renderFlags = r.flags & ~RENDER_HIDDEN;
-    s.layer = m_world.getLayer(e);
-    s.visible = m_world.isVisible(e);
-    s.local = m_world.getLocalMatrix(e);
-    const Prefab p = m_world.capture(e);
-    if (!p.nodes.empty()) s.components = p.nodes.front().components;
-    return s;
-}
-
-void DeltaStore::write(EntityHandle e, const EntityState& s) {
-    m_world.setName(e, s.name);
-    m_world.setTag(e, s.tag);
-    m_world.setMesh(e, s.mesh);
-    m_world.setMaterial(e, s.material);
-    m_world.setShader(e, s.shader);
-    m_world.setAlpha(e, s.alpha);
-    m_world.setLayer(e, s.layer);
-    m_world.setVisible(e, s.visible);
-    const uint32_t current = m_world.getRenderFlags(e) & ~RENDER_HIDDEN;
-    m_world.setRenderFlags(e, current & ~s.renderFlags, false);
-    m_world.setRenderFlags(e, s.renderFlags, true);
-    m_world.setLocalMatrix(e, s.local);
-    for (const auto& [name, text] : s.components) {
-        if (!m_world.componentText(e, name)) m_world.addComponentByName(e, name);
-        m_world.setComponentFromText(e, name, text);
+bool DeltaStore::matches(EntityHandle entity, const EntityState& state, const std::vector<std::string>& componentNames) const {
+    const RenderableComponent& renderable = m_world.getRenderable(entity);
+    if (m_world.getMesh(entity) != state.mesh || renderable.material_uuid != state.material || renderable.shaderId != state.shader) return false;
+    if (renderable.alpha != state.alpha || (renderable.flags & ~RENDER_HIDDEN) != state.renderFlags) return false;
+    if (m_world.getLayer(entity) != state.layer || m_world.isVisible(entity) != state.visible) return false;
+    if (m_world.getLocalMatrix(entity) != state.local || m_world.getName(entity) != state.name || m_world.getTag(entity) != state.tag) return false;
+    size_t next = 0;
+    for (const std::string& name : componentNames) {
+        std::optional<std::string> text = m_world.componentText(entity, name);
+        if (!text || text->empty()) continue;
+        if (next >= state.components.size() || state.components[next].first != name || state.components[next].second != *text) return false;
+        ++next;
     }
+    return next == state.components.size();
+}
+
+void DeltaStore::writeChanges(EntityHandle entity, const EntityState& state) {
+    const RenderableComponent& renderable = m_world.getRenderable(entity);
+    if (m_world.getName(entity) != state.name) m_world.setName(entity, state.name);
+    if (m_world.getTag(entity) != state.tag) m_world.setTag(entity, state.tag);
+    if (m_world.getMesh(entity) != state.mesh) m_world.setMesh(entity, state.mesh);
+    if (renderable.material_uuid != state.material) m_world.setMaterial(entity, state.material);
+    if (renderable.shaderId != state.shader) m_world.setShader(entity, state.shader);
+    if (renderable.alpha != state.alpha) m_world.setAlpha(entity, state.alpha);
+    if (m_world.getLayer(entity) != state.layer) m_world.setLayer(entity, state.layer);
+    if (m_world.isVisible(entity) != state.visible) m_world.setVisible(entity, state.visible);
+    const uint32_t current = m_world.getRenderFlags(entity) & ~RENDER_HIDDEN;
+    if (current != state.renderFlags) {
+        m_world.setRenderFlags(entity, current & ~state.renderFlags, false);
+        m_world.setRenderFlags(entity, state.renderFlags, true);
+    }
+    if (m_world.getLocalMatrix(entity) != state.local) m_world.setLocalMatrix(entity, state.local);
+    for (const auto& [name, text] : state.components) {
+        const std::optional<std::string> existing = m_world.componentText(entity, name);
+        if (existing && *existing == text) continue;
+        if (!existing) m_world.addComponentByName(entity, name);
+        m_world.setComponentFromText(entity, name, text);
+    }
+}
+
+void DeltaStore::buildIndex(Live& live) {
+    if (live.indexed == live.bases.size()) return;
+    live.index.clear();
+    live.index.reserve(live.bases.size());
+    live.duplicateKeys = false;
+    for (size_t position = 0; position < live.bases.size(); ++position) {
+        if (!live.index.emplace(live.bases[position].key, static_cast<uint32_t>(position)).second) live.duplicateKeys = true;
+    }
+    live.indexed = live.bases.size();
 }
 
 void DeltaStore::registerBase(const std::string& cell, std::string key, EntityHandle entity) {
-    Live& live = m_live[cell];
-    live.bases.push_back({std::move(key), entity, read(entity)});
+    m_live[cell].bases.push_back({std::move(key), entity, read(entity)});
 }
 
 EntityHandle DeltaStore::trackAdded(const std::string& cell, EntityHandle root) {
-    Live& live = m_live[cell];
-    live.added.push_back({"added." + std::to_string(m_addedSerial++), root});
+    m_live[cell].added.push_back({"added." + std::to_string(m_addedSerial++), root});
     return root;
 }
 
 EntityHandle DeltaStore::find(const std::string& cell, const std::string& key) const {
-    const auto it = m_live.find(cell);
-    if (it == m_live.end()) return NULL_ENTITY;
-    for (const Base& b : it->second.bases) {
-        if (b.key == key) return b.handle;
+    const auto liveIt = m_live.find(cell);
+    if (liveIt == m_live.end()) return NULL_ENTITY;
+    for (const Base& base : liveIt->second.bases) {
+        if (base.key == key) return base.handle;
     }
-    for (const Added& a : it->second.added) {
-        if (a.key == key) return a.handle;
+    for (const Added& added : liveIt->second.added) {
+        if (added.key == key) return added.handle;
     }
     return NULL_ENTITY;
 }
 
 std::vector<EntityHandle> DeltaStore::liveEntities(const std::string& cell) const {
     std::vector<EntityHandle> out;
-    const auto it = m_live.find(cell);
-    if (it == m_live.end()) return out;
-    for (const Base& b : it->second.bases) {
-        if (m_world.isAlive(b.handle)) out.push_back(b.handle);
+    const auto liveIt = m_live.find(cell);
+    if (liveIt == m_live.end()) return out;
+    out.reserve(liveIt->second.bases.size() + liveIt->second.added.size());
+    for (const Base& base : liveIt->second.bases) {
+        if (m_world.isAlive(base.handle)) out.push_back(base.handle);
     }
-    for (const Added& a : it->second.added) {
-        if (m_world.isAlive(a.handle)) out.push_back(a.handle);
+    for (const Added& added : liveIt->second.added) {
+        if (m_world.isAlive(added.handle)) out.push_back(added.handle);
     }
     return out;
 }
@@ -244,7 +130,7 @@ std::vector<EntityHandle> DeltaStore::liveEntities(const std::string& cell) cons
 void DeltaStore::snapshotParams() {
     m_baseParams.clear();
     if (!m_portals) return;
-    for (const PortalCell& c : m_portals->cells()) m_baseParams[c.name] = c.params;
+    for (const PortalCell& portalCell : m_portals->cells()) m_baseParams[portalCell.name] = portalCell.params;
 }
 
 void DeltaStore::captureParams(const std::string& cell) {
@@ -260,10 +146,10 @@ void DeltaStore::captureParams(const std::string& cell) {
 
 void DeltaStore::applyParams(const std::string& cell) {
     if (!m_portals) return;
-    const auto it = m_stored.find(cell);
+    const auto storedIt = m_stored.find(cell);
     const int index = m_portals->findCell(cell);
-    if (it == m_stored.end() || index < 0 || !it->second.hasParams) return;
-    paramsFrom(it->second.paramsJson, m_portals->cellParams(index));
+    if (storedIt == m_stored.end() || index < 0 || !storedIt->second.hasParams) return;
+    paramsFrom(storedIt->second.paramsJson, m_portals->cellParams(index));
 }
 
 void DeltaStore::captureCell(const std::string& cell) {
@@ -271,20 +157,25 @@ void DeltaStore::captureCell(const std::string& cell) {
     const auto liveIt = m_live.find(cell);
     if (liveIt == m_live.end() || !liveIt->second.resident) return;
     Stored& stored = m_stored[cell];
-    for (const Base& b : liveIt->second.bases) {
-        if (!m_world.isAlive(b.handle)) {
-            stored.changed.erase(b.key);
-            stored.removed.insert(b.key);
+    const std::vector<std::string> componentNames = m_world.componentNames();
+    for (const Base& base : liveIt->second.bases) {
+        if (!m_world.isAlive(base.handle)) {
+            if (!stored.changed.empty()) stored.changed.erase(base.key);
+            stored.removed.insert(base.key);
             continue;
         }
-        stored.removed.erase(b.key);
-        EntityState now = read(b.handle);
-        if (now == b.baseline) stored.changed.erase(b.key);
-        else stored.changed[b.key] = std::move(now);
+        if (!stored.removed.empty()) stored.removed.erase(base.key);
+        if (matches(base.handle, base.baseline, componentNames)) {
+            if (!stored.changed.empty()) stored.changed.erase(base.key);
+            continue;
+        }
+        auto changedIt = stored.changed.find(base.key);
+        if (changedIt == stored.changed.end()) changedIt = stored.changed.try_emplace(base.key).first;
+        readInto(base.handle, changedIt->second, componentNames);
     }
-    for (const Added& a : liveIt->second.added) {
-        if (m_world.isAlive(a.handle)) stored.added[a.key] = m_world.capture(a.handle);
-        else stored.added.erase(a.key);
+    for (const Added& added : liveIt->second.added) {
+        if (m_world.isAlive(added.handle)) stored.added[added.key] = m_world.capture(added.handle);
+        else stored.added.erase(added.key);
     }
 }
 
@@ -292,9 +183,41 @@ void DeltaStore::captureAll() {
     std::set<std::string> cells;
     for (const auto& [name, live] : m_live) cells.insert(name);
     if (m_portals) {
-        for (const PortalCell& c : m_portals->cells()) cells.insert(c.name);
+        for (const PortalCell& portalCell : m_portals->cells()) cells.insert(portalCell.name);
     }
-    for (const std::string& c : cells) captureCell(c);
+    for (const std::string& cell : cells) captureCell(cell);
+}
+
+void DeltaStore::applyStored(Live& live, const Stored& stored) {
+    buildIndex(live);
+    if (live.duplicateKeys) {
+        for (const Base& base : live.bases) {
+            if (!m_world.isAlive(base.handle)) continue;
+            if (stored.removed.contains(base.key)) {
+                m_world.destroy(base.handle);
+                continue;
+            }
+            if (const auto changedIt = stored.changed.find(base.key); changedIt != stored.changed.end()) writeChanges(base.handle, changedIt->second);
+        }
+        return;
+    }
+    if (!stored.removed.empty()) {
+        std::vector<uint32_t> doomed;
+        doomed.reserve(stored.removed.size());
+        for (const std::string& key : stored.removed) {
+            if (const auto found = live.index.find(key); found != live.index.end()) doomed.push_back(found->second);
+        }
+        std::sort(doomed.begin(), doomed.end());
+        for (const uint32_t position : doomed) {
+            if (m_world.isAlive(live.bases[position].handle)) m_world.destroy(live.bases[position].handle);
+        }
+    }
+    for (const auto& [key, state] : stored.changed) {
+        const auto found = live.index.find(key);
+        if (found == live.index.end()) continue;
+        const EntityHandle handle = live.bases[found->second].handle;
+        if (m_world.isAlive(handle)) writeChanges(handle, state);
+    }
 }
 
 void DeltaStore::applyCell(const std::string& cell) {
@@ -304,17 +227,13 @@ void DeltaStore::applyCell(const std::string& cell) {
     live.resident = true;
     if (storedIt == m_stored.end()) return;
     const Stored& stored = storedIt->second;
-    for (const Base& b : live.bases) {
-        if (!m_world.isAlive(b.handle)) continue;
-        if (stored.removed.contains(b.key)) {
-            m_world.destroy(b.handle);
-            continue;
-        }
-        if (const auto it = stored.changed.find(b.key); it != stored.changed.end()) write(b.handle, it->second);
+    applyStored(live, stored);
+    std::set<std::string> presentKeys;
+    for (const Added& added : live.added) {
+        if (m_world.isAlive(added.handle)) presentKeys.insert(added.key);
     }
     for (const auto& [key, prefab] : stored.added) {
-        const bool present = std::any_of(live.added.begin(), live.added.end(), [&](const Added& a) { return a.key == key && m_world.isAlive(a.handle); });
-        if (present || prefab.empty()) continue;
+        if (presentKeys.contains(key) || prefab.empty()) continue;
         const EntityHandle root = m_world.instantiate(prefab);
         live.added.push_back({key, root});
     }
@@ -328,82 +247,91 @@ void DeltaStore::clear() {
 }
 
 size_t DeltaStore::deltaCount() const {
-    size_t n = 0;
-    for (const auto& [cell, s] : m_stored) n += s.changed.size() + s.removed.size() + s.added.size() + (s.hasParams ? 1 : 0);
-    return n;
+    size_t count = 0;
+    for (const auto& [cell, stored] : m_stored) count += stored.changed.size() + stored.removed.size() + stored.added.size() + (stored.hasParams ? 1 : 0);
+    return count;
 }
 
 Json DeltaStore::toJson() {
     captureAll();
     Json cells = Json::object();
-    for (const auto& [name, s] : m_stored) {
-        if (s.empty()) continue;
-        Json c = Json::object();
-        Json changed = Json::object();
-        for (const auto& [key, state] : s.changed) changed.set(key, stateJson(state));
-        c.set("changed", std::move(changed));
-        Json removed = Json::array();
-        for (const std::string& key : s.removed) removed.push(key);
-        c.set("removed", std::move(removed));
-        Json added = Json::object();
-        for (const auto& [key, prefab] : s.added) added.set(key, prefabJson(prefab));
-        c.set("added", std::move(added));
-        if (s.hasParams) c.set("params", s.paramsJson);
-        cells.set(name, std::move(c));
+    for (const auto& [name, stored] : m_stored) {
+        if (stored.empty()) continue;
+        cells.set(name, storedJson(stored));
     }
-    Json doc = Json::object();
-    doc.set("version", 1);
-    doc.set("serial", m_addedSerial);
-    doc.set("cells", std::move(cells));
-    return doc;
+    Json document = Json::object();
+    document.set("version", 1);
+    document.set("serial", m_addedSerial);
+    document.set("cells", std::move(cells));
+    return document;
 }
 
-bool DeltaStore::fromJson(const Json& doc, std::string* error) {
-    const Json* cells = doc.get("cells");
-    if (!doc.isObject() || !cells || !cells->isObject()) {
+Json DeltaStore::storedJson(const Stored& stored) {
+    Json cell = Json::object();
+    Json changed = Json::object();
+    for (const auto& [key, state] : stored.changed) changed.set(key, stateJson(state));
+    cell.set("changed", std::move(changed));
+    Json removed = Json::array();
+    for (const std::string& key : stored.removed) removed.push(key);
+    cell.set("removed", std::move(removed));
+    Json added = Json::object();
+    for (const auto& [key, prefab] : stored.added) added.set(key, prefabJson(prefab));
+    cell.set("added", std::move(added));
+    if (stored.hasParams) cell.set("params", stored.paramsJson);
+    return cell;
+}
+
+DeltaStore::Stored DeltaStore::storedFrom(const Json& cell) {
+    Stored stored;
+    if (const Json* changed = cell.get("changed")) {
+        for (const auto& [key, value] : changed->members()) stored.changed[key] = stateFrom(value);
+    }
+    if (const Json* removed = cell.get("removed")) {
+        for (const Json& key : removed->items()) stored.removed.insert(key.asString());
+    }
+    if (const Json* added = cell.get("added")) {
+        for (const auto& [key, value] : added->members()) stored.added[key] = prefabFrom(value);
+    }
+    if (const Json* params = cell.get("params")) {
+        stored.hasParams = true;
+        stored.paramsJson = *params;
+    }
+    return stored;
+}
+
+void DeltaStore::revertToBaseline() {
+    for (auto& [name, live] : m_live) {
+        for (const Added& added : live.added) {
+            if (m_world.isAlive(added.handle)) m_world.destroy(added.handle);
+        }
+        live.added.clear();
+        for (const Base& base : live.bases) {
+            if (m_world.isAlive(base.handle)) writeChanges(base.handle, base.baseline);
+        }
+    }
+    if (!m_portals) return;
+    for (const auto& [name, base] : m_baseParams) {
+        const int index = m_portals->findCell(name);
+        if (index >= 0) m_portals->cellParams(index) = base;
+    }
+}
+
+bool DeltaStore::fromJson(const Json& document, std::string* error) {
+    const Json* cells = document.get("cells");
+    if (!document.isObject() || !cells || !cells->isObject()) {
         if (error) *error = "delta: missing cells";
         return false;
     }
     std::map<std::string, Stored> parsed;
-    for (const auto& [name, c] : cells->members()) {
-        Stored s;
-        if (const Json* changed = c.get("changed")) {
-            for (const auto& [key, v] : changed->members()) s.changed[key] = stateFrom(v);
-        }
-        if (const Json* removed = c.get("removed")) {
-            for (const Json& k : removed->items()) s.removed.insert(k.asString());
-        }
-        if (const Json* added = c.get("added")) {
-            for (const auto& [key, v] : added->members()) s.added[key] = prefabFrom(v);
-        }
-        if (const Json* p = c.get("params")) {
-            s.hasParams = true;
-            s.paramsJson = *p;
-        }
-        parsed[name] = std::move(s);
-    }
-    for (auto& [name, live] : m_live) {
-        for (const Added& a : live.added) {
-            if (m_world.isAlive(a.handle)) m_world.destroy(a.handle);
-        }
-        live.added.clear();
-        for (const Base& b : live.bases) {
-            if (m_world.isAlive(b.handle)) write(b.handle, b.baseline);
-        }
-    }
-    if (m_portals) {
-        for (const auto& [name, base] : m_baseParams) {
-            const int index = m_portals->findCell(name);
-            if (index >= 0) m_portals->cellParams(index) = base;
-        }
-    }
+    for (const auto& [name, cell] : cells->members()) parsed[name] = storedFrom(cell);
+    revertToBaseline();
     m_stored = std::move(parsed);
-    if (const Json* serial = doc.get("serial")) m_addedSerial = std::max<uint64_t>(m_addedSerial, static_cast<uint64_t>(serial->asNumber()));
+    if (const Json* serial = document.get("serial")) m_addedSerial = std::max<uint64_t>(m_addedSerial, safeSerial(serial->asNumber()));
     for (const auto& [name, live] : m_live) {
         if (live.resident) applyCell(name);
     }
     if (m_portals) {
-        for (const auto& [name, s] : m_stored) applyParams(name);
+        for (const auto& [name, stored] : m_stored) applyParams(name);
     }
     return true;
 }

@@ -32,10 +32,19 @@ import Engine.Render.component;
 
 namespace {
 
+constexpr int kMouseButtonCount = 3;
+constexpr float kMillisecondsPerSecond = 1000.0f;
+constexpr size_t kPercentile95 = 95;
+constexpr float kDefaultWaitSeconds = 0.1f;
+constexpr float kDefaultMeasureFrames = 120.0f;
+constexpr int kFramesAfterAction = 2;
+constexpr float kBooleanThreshold = 0.5f;
+constexpr float kPercentToFraction = 0.01f;
+
 ImGuiKey keyByName(const std::string& name) {
-    for (int k = ImGuiKey_NamedKey_BEGIN; k < ImGuiKey_NamedKey_END; ++k) {
-        const char* keyName = ImGui::GetKeyName(static_cast<ImGuiKey>(k));
-        if (keyName && name == keyName) return static_cast<ImGuiKey>(k);
+    for (int keyIndex = ImGuiKey_NamedKey_BEGIN; keyIndex < ImGuiKey_NamedKey_END; ++keyIndex) {
+        const char* keyName = ImGui::GetKeyName(static_cast<ImGuiKey>(keyIndex));
+        if (keyName && name == keyName) return static_cast<ImGuiKey>(keyIndex);
     }
     if (name == "[") return ImGuiKey_LeftBracket;
     if (name == "]") return ImGuiKey_RightBracket;
@@ -53,7 +62,50 @@ int mouseButton(const std::string& name) {
     return ImGuiMouseButton_Left;
 }
 
-}  // namespace
+void applyModifiers(ImGuiIO& io, const std::vector<std::string>& args, size_t firstModifier) {
+    for (size_t index = firstModifier; index < args.size(); ++index) {
+        if (args[index] == "ctrl") io.AddKeyEvent(ImGuiMod_Ctrl, true);
+        if (args[index] == "shift") io.AddKeyEvent(ImGuiMod_Shift, true);
+        if (args[index] == "alt") io.AddKeyEvent(ImGuiMod_Alt, true);
+    }
+}
+
+class ArgumentReader {
+  public:
+    explicit ArgumentReader(const std::vector<std::string>& args) : m_args(args) {}
+
+    [[nodiscard]] size_t size() const { return m_args.size(); }
+
+    [[nodiscard]] std::string text(size_t index, const std::string& fallback = {}) const {
+        return index < m_args.size() ? m_args[index] : fallback;
+    }
+
+    [[nodiscard]] float number(size_t index, float fallback = 0.0f) const {
+        return index < m_args.size() ? static_cast<float>(std::atof(m_args[index].c_str())) : fallback;
+    }
+
+    [[nodiscard]] float coordinate(size_t index, bool vertical, const ImVec2& displaySize) const {
+        const float value = number(index);
+        if (index < m_args.size() && !m_args[index].empty() && m_args[index].back() == '%') {
+            return value * kPercentToFraction * (vertical ? displaySize.y : displaySize.x);
+        }
+        return value;
+    }
+
+  private:
+    const std::vector<std::string>& m_args;
+};
+
+std::string joinFrom(const std::vector<std::string>& args, size_t first, size_t last) {
+    std::string joined;
+    for (size_t index = first; index < last; ++index) {
+        if (index > first) joined += " ";
+        joined += args[index];
+    }
+    return joined;
+}
+
+}
 
 bool Autopilot::load(const std::string& path) {
     std::ifstream in(path);
@@ -66,7 +118,7 @@ bool Autopilot::load(const std::string& path) {
     while (std::getline(in, line)) {
         ++number;
         const size_t hash = line.find('#');
-        if (hash != std::string::npos && line.rfind("text", 0) != 0) line = line.substr(0, hash);
+        if (hash != std::string::npos && line.rfind("text", 0) != 0) line.resize(hash);
         std::istringstream words(line);
         Step step;
         step.line = number;
@@ -77,8 +129,8 @@ bool Autopilot::load(const std::string& path) {
             if (!rest.empty() && rest.front() == ' ') rest.erase(0, 1);
             step.args.push_back(rest);
         } else {
-            std::string arg;
-            while (words >> arg) step.args.push_back(arg);
+            std::string argument;
+            while (words >> argument) step.args.push_back(argument);
         }
         m_steps.push_back(std::move(step));
     }
@@ -87,62 +139,83 @@ bool Autopilot::load(const std::string& path) {
     return true;
 }
 
-void Autopilot::beforeFrame(EditorContext& ctx, CommandRegistry& commands, float dt) {
-    if (!m_active) return;
-    ImGuiIO& io = ImGui::GetIO();
-    auto pinMouse = [&] {
-        if (!m_mouseSet) return;
-        if (GLFWwindow* w = static_cast<GLFWwindow*>(window)) {
-            ImGui_ImplGlfw_CursorEnterCallback(w, GLFW_TRUE);
-            ImGui_ImplGlfw_CursorPosCallback(w, m_mouse[0], m_mouse[1]);
-        } else {
-            io.AddMousePosEvent(m_mouse[0], m_mouse[1]);
-        }
-    };
-    auto setMouse = [&](float x, float y) {
-        m_mouseSet = true;
-        m_mouse[0] = x;
-        m_mouse[1] = y;
-        pinMouse();
-    };
+void Autopilot::pinMouse() {
+    if (!m_mouseSet) return;
+    if (GLFWwindow* glfwWindow = static_cast<GLFWwindow*>(window)) {
+        ImGui_ImplGlfw_CursorEnterCallback(glfwWindow, GLFW_TRUE);
+        ImGui_ImplGlfw_CursorPosCallback(glfwWindow, m_mouse[0], m_mouse[1]);
+    } else {
+        ImGui::GetIO().AddMousePosEvent(m_mouse[0], m_mouse[1]);
+    }
+}
+
+void Autopilot::setMouse(float x, float y) {
+    m_mouseSet = true;
+    m_mouse[0] = x;
+    m_mouse[1] = y;
     pinMouse();
-    if (m_captureLeft > 0) {
-        if (m_captureTick++ % m_captureEvery == 0) {
-            ctx.engine.requestScreenshot(std::format("{}_{:04}.png", m_capturePrefix, m_captureIndex++));
-            --m_captureLeft;
+}
+
+void Autopilot::captureFrames(EditorContext& ctx) {
+    if (m_captureLeft <= 0) return;
+    if (m_captureTick++ % m_captureEvery != 0) return;
+    ctx.engine.requestScreenshot(std::format("{}_{:04}.png", m_capturePrefix, m_captureIndex++));
+    --m_captureLeft;
+}
+
+bool Autopilot::recordMeasurement(float deltaSeconds) {
+    m_measureSamples.push_back(deltaSeconds * kMillisecondsPerSecond);
+    if (--m_measureFrames > 0) return true;
+    std::vector<float> sorted = m_measureSamples;
+    std::ranges::sort(sorted);
+    const float median = sorted[sorted.size() / 2];
+    const float percentile95 = sorted[std::min(sorted.size() - 1, sorted.size() * kPercentile95 / 100)];
+    Lit::Log::Info("[autopilot] measure {}: {} frames, median {:.2f} ms ({:.1f} fps), p95 {:.2f} ms, max {:.2f} ms", m_measureLabel, sorted.size(), median, kMillisecondsPerSecond / std::max(median, 1e-6f), percentile95, sorted.back());
+    if (m_measureBudget > 0.0f) {
+        ++m_checks;
+        if (median > m_measureBudget) {
+            Lit::Log::Error("[autopilot] FAIL {}: median {:.2f} ms exceeds budget {:.2f} ms", m_measureLabel, median, m_measureBudget);
+            ++m_failures;
         }
     }
-    if (m_measureFrames > 0) {
-        m_measureSamples.push_back(dt * 1000.0f);
-        if (--m_measureFrames > 0) return;
-        std::vector<float> sorted = m_measureSamples;
-        std::sort(sorted.begin(), sorted.end());
-        const float median = sorted[sorted.size() / 2];
-        const float p95 = sorted[std::min(sorted.size() - 1, sorted.size() * 95 / 100)];
-        Lit::Log::Info("[autopilot] measure {}: {} frames, median {:.2f} ms ({:.1f} fps), p95 {:.2f} ms, max {:.2f} ms", m_measureLabel, sorted.size(), median, 1000.0f / median, p95, sorted.back());
-        if (m_measureBudget > 0.0f) {
-            ++m_checks;
-            if (median > m_measureBudget) {
-                Lit::Log::Error("[autopilot] FAIL {}: median {:.2f} ms exceeds budget {:.2f} ms", m_measureLabel, median, m_measureBudget);
-                ++m_failures;
-            }
-        }
-        m_measureSamples.clear();
-    }
-    if (m_holdFrames > 0) {
-        --m_holdFrames;
-        return;
-    }
-    for (int key : m_releaseKeys) io.AddKeyEvent(static_cast<ImGuiKey>(key), false);
+    m_measureSamples.clear();
+    return false;
+}
+
+void Autopilot::releaseHeldInput() {
+    ImGuiIO& io = ImGui::GetIO();
+    for (int heldKey : m_releaseKeys) io.AddKeyEvent(static_cast<ImGuiKey>(heldKey), false);
     m_releaseKeys.clear();
-    for (int b = 0; b < 3; ++b) {
-        if (m_releaseMouse[b]) io.AddMouseButtonEvent(b, false);
-        m_releaseMouse[b] = false;
+    for (int button = 0; button < kMouseButtonCount; ++button) {
+        if (m_releaseMouse[button]) io.AddMouseButtonEvent(button, false);
+        m_releaseMouse[button] = false;
     }
     io.AddKeyEvent(ImGuiMod_Ctrl, false);
     io.AddKeyEvent(ImGuiMod_Shift, false);
     io.AddKeyEvent(ImGuiMod_Alt, false);
+}
 
+void Autopilot::finish() {
+    m_finished = true;
+    m_active = false;
+    Lit::Log::Info("[autopilot] finished: {} checks, {} failures", m_checks, m_failures);
+}
+
+void Autopilot::fail(int line, const std::string& message) {
+    Lit::Log::Error("Autopilot line {}: {}", line, message);
+    ++m_failures;
+}
+
+void Autopilot::beforeFrame(EditorContext& ctx, CommandRegistry& commands, float dt) {
+    if (!m_active) return;
+    pinMouse();
+    captureFrames(ctx);
+    if (m_measureFrames > 0 && recordMeasurement(dt)) return;
+    if (m_holdFrames > 0) {
+        --m_holdFrames;
+        return;
+    }
+    releaseHeldInput();
     if (m_waitFrames > 0) {
         --m_waitFrames;
         return;
@@ -153,241 +226,227 @@ void Autopilot::beforeFrame(EditorContext& ctx, CommandRegistry& commands, float
     }
     while (m_next < m_steps.size()) {
         const Step& step = m_steps[m_next++];
-        const auto& a = step.args;
-        auto arg = [&](size_t i, const std::string& fallback = {}) { return i < a.size() ? a[i] : fallback; };
-        auto num = [&](size_t i, float fallback = 0.0f) { return i < a.size() ? static_cast<float>(std::atof(a[i].c_str())) : fallback; };
-        auto coord = [&](size_t i, bool vertical) {
-            const float value = num(i);
-            if (i < a.size() && !a[i].empty() && a[i].back() == '%') return value * 0.01f * (vertical ? io.DisplaySize.y : io.DisplaySize.x);
-            return value;
-        };
-        if (step.verb == "wait") {
-            m_wait = num(0, 0.1f);
-            return;
+        if (execute(step, ctx, commands) == Flow::Yield) return;
+    }
+    finish();
+}
+
+Autopilot::Flow Autopilot::execute(const Step& step, EditorContext& ctx, CommandRegistry& commands) {
+    if (step.verb == "quit") {
+        finish();
+        ctx.requestQuit = true;
+        return Flow::Yield;
+    }
+    if (step.verb == "expect") return executeExpect(step, ctx);
+    if (const std::optional<Flow> flow = executeTiming(step)) return *flow;
+    if (const std::optional<Flow> flow = executeInput(step)) return *flow;
+    if (step.verb == "run") {
+        const ArgumentReader reader(step.args);
+        if (!commands.run(reader.text(0))) fail(step.line, std::format("command '{}' did not run", reader.text(0)));
+        return Flow::Yield;
+    }
+    if (const std::optional<Flow> flow = executeEngine(step, ctx)) return *flow;
+    if (const std::optional<Flow> flow = executeScene(step, ctx)) return *flow;
+    fail(step.line, std::format("unknown verb '{}'", step.verb));
+    return Flow::Continue;
+}
+
+std::optional<Autopilot::Flow> Autopilot::executeTiming(const Step& step) {
+    const ArgumentReader reader(step.args);
+    if (step.verb == "wait") {
+        m_wait = reader.number(0, kDefaultWaitSeconds);
+        return Flow::Yield;
+    }
+    if (step.verb == "measure") {
+        m_measureFrames = std::max(1, static_cast<int>(reader.number(0, kDefaultMeasureFrames)));
+        m_measureLabel = reader.text(1, "frames");
+        m_measureBudget = reader.number(2, 0.0f);
+        m_measureSamples.clear();
+        return Flow::Yield;
+    }
+    if (step.verb == "frames") {
+        m_waitFrames = static_cast<int>(reader.number(0, 1.0f));
+        return Flow::Yield;
+    }
+    return std::nullopt;
+}
+
+std::optional<Autopilot::Flow> Autopilot::executeInput(const Step& step) {
+    ImGuiIO& io = ImGui::GetIO();
+    const ArgumentReader reader(step.args);
+    if (step.verb == "key" || step.verb == "down") {
+        const ImGuiKey pressedKey = keyByName(reader.text(0));
+        if (pressedKey == ImGuiKey_None) {
+            fail(step.line, std::format("unknown key '{}'", reader.text(0)));
+            return Flow::Continue;
         }
-        if (step.verb == "measure") {
-            m_measureFrames = std::max(1, static_cast<int>(num(0, 120.0f)));
-            m_measureLabel = arg(1, "frames");
-            m_measureBudget = num(2, 0.0f);
-            m_measureSamples.clear();
-            return;
-        }
-        if (step.verb == "frames") {
-            m_waitFrames = static_cast<int>(num(0, 1.0f));
-            return;
-        }
-        if (step.verb == "key" || step.verb == "down") {
-            const ImGuiKey key = keyByName(arg(0));
-            if (key == ImGuiKey_None) {
-                Lit::Log::Error("Autopilot line {}: unknown key '{}'", step.line, arg(0));
-                ++m_failures;
-                continue;
-            }
-            for (size_t i = 1; i < a.size(); ++i) {
-                if (a[i] == "ctrl") io.AddKeyEvent(ImGuiMod_Ctrl, true);
-                if (a[i] == "shift") io.AddKeyEvent(ImGuiMod_Shift, true);
-                if (a[i] == "alt") io.AddKeyEvent(ImGuiMod_Alt, true);
-            }
-            io.AddKeyEvent(key, true);
-            if (step.verb == "key") {
-                m_releaseKeys.push_back(key);
-                m_holdFrames = 1;
-            }
-            return;
-        }
-        if (step.verb == "up") {
-            io.AddKeyEvent(keyByName(arg(0)), false);
-            return;
-        }
-        if (step.verb == "text") {
-            io.AddInputCharactersUTF8(arg(0).c_str());
-            return;
-        }
-        if (step.verb == "move") {
-            setMouse(coord(0, false), coord(1, true));
-            return;
-        }
-        if (step.verb == "click") {
-            const int button = mouseButton(arg(0, "left"));
-            if (a.size() >= 3) setMouse(coord(1, false), coord(2, true));
-            io.AddMouseButtonEvent(button, true);
-            m_releaseMouse[button] = true;
+        applyModifiers(io, step.args, 1);
+        io.AddKeyEvent(pressedKey, true);
+        if (step.verb == "key") {
+            m_releaseKeys.push_back(pressedKey);
             m_holdFrames = 1;
-            return;
         }
-        if (step.verb == "press") {
-            for (size_t i = 1; i < a.size(); ++i) {
-                if (a[i] == "ctrl") io.AddKeyEvent(ImGuiMod_Ctrl, true);
-                if (a[i] == "shift") io.AddKeyEvent(ImGuiMod_Shift, true);
-                if (a[i] == "alt") io.AddKeyEvent(ImGuiMod_Alt, true);
-            }
-            io.AddMouseButtonEvent(mouseButton(arg(0, "left")), true);
-            return;
+        return Flow::Yield;
+    }
+    if (step.verb == "up") {
+        io.AddKeyEvent(keyByName(reader.text(0)), false);
+        return Flow::Yield;
+    }
+    if (step.verb == "text") {
+        io.AddInputCharactersUTF8(reader.text(0).c_str());
+        return Flow::Yield;
+    }
+    if (step.verb == "move") {
+        setMouse(reader.coordinate(0, false, io.DisplaySize), reader.coordinate(1, true, io.DisplaySize));
+        return Flow::Yield;
+    }
+    if (step.verb == "click") {
+        const int button = mouseButton(reader.text(0, "left"));
+        if (reader.size() >= 3) setMouse(reader.coordinate(1, false, io.DisplaySize), reader.coordinate(2, true, io.DisplaySize));
+        io.AddMouseButtonEvent(button, true);
+        m_releaseMouse[button] = true;
+        m_holdFrames = 1;
+        return Flow::Yield;
+    }
+    if (step.verb == "press") {
+        applyModifiers(io, step.args, 1);
+        io.AddMouseButtonEvent(mouseButton(reader.text(0, "left")), true);
+        return Flow::Yield;
+    }
+    if (step.verb == "release") {
+        io.AddMouseButtonEvent(mouseButton(reader.text(0, "left")), false);
+        return Flow::Yield;
+    }
+    if (step.verb == "wheel") {
+        io.AddMouseWheelEvent(0.0f, reader.number(0, 1.0f));
+        return Flow::Yield;
+    }
+    return std::nullopt;
+}
+
+std::optional<Autopilot::Flow> Autopilot::executeEngine(const Step& step, EditorContext& ctx) {
+    const ArgumentReader reader(step.args);
+    if (step.verb == "set") {
+        static const std::pair<std::string_view, std::string_view> aliases[] = {{"time", "timeOfDay"}, {"ev", "manualEV100"}, {"compensation", "exposureCompensation"}, {"debug", "debugView"}, {"cascades", "shadowCascades"}};
+        std::string settingName = reader.text(0);
+        for (const auto& [alias, canonical] : aliases) {
+            if (settingName == alias) settingName = canonical;
         }
-        if (step.verb == "release") {
-            io.AddMouseButtonEvent(mouseButton(arg(0, "left")), false);
-            return;
+        const std::string value = joinFrom(step.args, 1, step.args.size());
+        if (!setRenderSetting(ctx.engine.renderSettings(), settingName, value)) fail(step.line, std::format("unknown setting '{}'", settingName));
+        return Flow::Continue;
+    }
+    if (step.verb == "pass") {
+        bool found = false;
+        const std::string name = joinFrom(step.args, 0, step.args.empty() ? 0 : step.args.size() - 1);
+        for (const PassInfo& pass : ctx.engine.customPasses()) {
+            if (pass.name != name) continue;
+            ctx.engine.setPassEnabled(pass.kind, pass.id, reader.number(step.args.size() - 1) > kBooleanThreshold);
+            found = true;
         }
-        if (step.verb == "wheel") {
-            io.AddMouseWheelEvent(0.0f, num(0, 1.0f));
-            return;
-        }
-        if (step.verb == "run") {
-            if (!commands.run(arg(0))) {
-                Lit::Log::Error("Autopilot line {}: command '{}' did not run", step.line, arg(0));
-                ++m_failures;
-            }
-            return;
-        }
-        if (step.verb == "set") {
-            static const std::pair<std::string_view, std::string_view> aliases[] = {{"time", "timeOfDay"}, {"ev", "manualEV100"}, {"compensation", "exposureCompensation"}, {"debug", "debugView"}, {"cascades", "shadowCascades"}};
-            std::string key = arg(0);
-            for (const auto& [from, to] : aliases) {
-                if (key == from) key = to;
-            }
-            std::string value;
-            for (size_t i = 1; i < a.size(); ++i) value += (i > 1 ? " " : "") + a[i];
-            if (!setRenderSetting(ctx.engine.renderSettings(), key, value)) {
-                Lit::Log::Error("Autopilot line {}: unknown setting '{}'", step.line, key);
-                ++m_failures;
-            }
-            continue;
-        }
-        if (step.verb == "pass") {
-            bool found = false;
-            std::string name;
-            for (size_t i = 0; i + 1 < a.size(); ++i) name += (i > 0 ? " " : "") + a[i];
-            for (const PassInfo& pass : ctx.engine.customPasses()) {
-                if (pass.name != name) continue;
-                ctx.engine.setPassEnabled(pass.kind, pass.id, num(a.size() - 1) > 0.5f);
-                found = true;
-            }
-            if (!found) {
-                Lit::Log::Error("Autopilot line {}: no pass named '{}'", step.line, name);
-                ++m_failures;
-            }
-            continue;
-        }
-        if (step.verb == "material") {
-            if (!editMaterial || !editMaterial(arg(0), num(1))) {
-                Lit::Log::Error("Autopilot line {}: cannot set material field '{}'", step.line, arg(0));
-                ++m_failures;
-            }
-            continue;
-        }
-        if (step.verb == "save" || step.verb == "load") {
-            const auto& action = step.verb == "save" ? saveScene : loadScene;
-            if (action) action(arg(0, "resources/autopilot.litscene"));
-            m_waitFrames = 2;
-            return;
-        }
-        if (step.verb == "shot") {
-            ctx.engine.requestScreenshot(arg(0, "resources/autopilot.png"));
-            m_waitFrames = 2;
-            return;
-        }
-        if (step.verb == "capture") {
-            m_capturePrefix = arg(0, "resources/capture");
-            m_captureLeft = std::max(1, static_cast<int>(num(1, 1.0f)));
-            m_captureEvery = std::max(1, static_cast<int>(num(2, 1.0f)));
-            m_captureTick = 0;
-            m_captureIndex = 0;
-            m_waitFrames = m_captureLeft * m_captureEvery + 2;
-            return;
-        }
-        if (step.verb == "dump") {
-            if (!ctx.engine.writeStateDump(arg(0, "resources/state.json"))) {
-                Lit::Log::Error("Autopilot line {}: cannot write state dump '{}'", step.line, arg(0));
-                ++m_failures;
-            }
-            continue;
-        }
-        if (step.verb == "perf") {
-            if (arg(0) == "off") ctx.engine.disablePerfLog();
-            else ctx.engine.enablePerfLog(arg(0, "resources/perf.csv"));
-            continue;
-        }
-        if (step.verb == "record") {
-            if (arg(0) == "off") ctx.engine.stopRecording();
-            else ctx.engine.startRecording(arg(0, "resources/session.replay"));
-            continue;
-        }
-        if (step.verb == "replay") {
-            if (!ctx.engine.startReplay(arg(0, "resources/session.replay"))) {
-                Lit::Log::Error("Autopilot line {}: cannot replay '{}'", step.line, arg(0));
-                ++m_failures;
-            }
-            continue;
-        }
-        if (step.verb == "param") {
-            ctx.engine.params().set(arg(0), num(1));
-            continue;
-        }
-        if (step.verb == "mask") {
-            const std::string name = arg(0);
-            const bool on = num(1, 1.0f) > 0.5f;
-            size_t count = 0;
-            ctx.world.forEach([&](EntityHandle e) {
-                if (ctx.world.getName(e) != name) return;
-                ctx.world.setRenderFlags(e, RENDER_MASKED, on);
-                ++count;
-            });
-            if (count == 0) {
-                Lit::Log::Error("Autopilot line {}: no entity named '{}'", step.line, name);
-                ++m_failures;
-            }
-            continue;
-        }
-        if (step.verb == "testscene") {
-            if (!loadTestScene || !loadTestScene(arg(0))) {
-                Lit::Log::Error("Autopilot line {}: unknown test scene '{}'", step.line, arg(0));
-                ++m_failures;
-            }
-            m_waitFrames = 2;
-            return;
-        }
-        if (step.verb == "overlay") {
-            if (showOverlay) showOverlay(static_cast<int>(num(0, 0.0f)));
-            continue;
-        }
-        if (step.verb == "log") {
-            Lit::Log::Info("[autopilot] {}", arg(0));
-            continue;
-        }
-        if (step.verb == "expect") {
-            ++m_checks;
-            const std::string what = arg(0);
-            std::string actual;
-            if (what == "selection") actual = std::to_string(ctx.selection.size());
-            if (what == "entities") actual = std::to_string(ctx.world.aliveCount());
-            if (what == "undo") actual = std::to_string(ctx.history->undoCount());
-            if (what == "mode") actual = ctx.modeLabel;
-            if (what == "playing") actual = ctx.playing ? "1" : "0";
-            if (what == "name") actual = ctx.world.isAlive(ctx.primary()) ? ctx.world.getName(ctx.primary()) : "";
-            if (what.rfind("param:", 0) == 0) actual = std::format("{:.3f}", ctx.engine.params().get(what.substr(6)));
-            if (what.rfind("setting:", 0) == 0) actual = renderSettingValue(ctx.engine.renderSettings(), what.substr(8));
-            if (actual.empty() && query) actual = query(what);
-            std::string expected = arg(1);
-            for (size_t i = 2; i < a.size(); ++i) expected += " " + a[i];
-            if (actual == expected) {
-                Lit::Log::Info("[autopilot] PASS {} == {}", what, expected);
-            } else {
-                Lit::Log::Error("[autopilot] FAIL line {}: {} is '{}', expected '{}'", step.line, what, actual, expected);
-                ++m_failures;
-            }
-            continue;
-        }
-        if (step.verb == "quit") {
-            m_finished = true;
-            m_active = false;
-            Lit::Log::Info("[autopilot] finished: {} checks, {} failures", m_checks, m_failures);
-            ctx.requestQuit = true;
-            return;
-        }
-        Lit::Log::Error("Autopilot line {}: unknown verb '{}'", step.line, step.verb);
+        if (!found) fail(step.line, std::format("no pass named '{}'", name));
+        return Flow::Continue;
+    }
+    if (step.verb == "material") {
+        if (!editMaterial || !editMaterial(reader.text(0), reader.number(1))) fail(step.line, std::format("cannot set material field '{}'", reader.text(0)));
+        return Flow::Continue;
+    }
+    if (step.verb == "shot") {
+        ctx.engine.requestScreenshot(reader.text(0, "resources/autopilot.png"));
+        m_waitFrames = kFramesAfterAction;
+        return Flow::Yield;
+    }
+    if (step.verb == "capture") {
+        m_capturePrefix = reader.text(0, "resources/capture");
+        m_captureLeft = std::max(1, static_cast<int>(reader.number(1, 1.0f)));
+        m_captureEvery = std::max(1, static_cast<int>(reader.number(2, 1.0f)));
+        m_captureTick = 0;
+        m_captureIndex = 0;
+        m_waitFrames = m_captureLeft * m_captureEvery + kFramesAfterAction;
+        return Flow::Yield;
+    }
+    if (step.verb == "dump") {
+        if (!ctx.engine.writeStateDump(reader.text(0, "resources/state.json"))) fail(step.line, std::format("cannot write state dump '{}'", reader.text(0)));
+        return Flow::Continue;
+    }
+    if (step.verb == "perf") {
+        if (reader.text(0) == "off") ctx.engine.disablePerfLog();
+        else ctx.engine.enablePerfLog(reader.text(0, "resources/perf.csv"));
+        return Flow::Continue;
+    }
+    if (step.verb == "record") {
+        if (reader.text(0) == "off") ctx.engine.stopRecording();
+        else ctx.engine.startRecording(reader.text(0, "resources/session.replay"));
+        return Flow::Continue;
+    }
+    if (step.verb == "replay") {
+        if (!ctx.engine.startReplay(reader.text(0, "resources/session.replay"))) fail(step.line, std::format("cannot replay '{}'", reader.text(0)));
+        return Flow::Continue;
+    }
+    if (step.verb == "param") {
+        ctx.engine.params().set(reader.text(0), reader.number(1));
+        return Flow::Continue;
+    }
+    if (step.verb == "log") {
+        Lit::Log::Info("[autopilot] {}", reader.text(0));
+        return Flow::Continue;
+    }
+    return std::nullopt;
+}
+
+std::optional<Autopilot::Flow> Autopilot::executeScene(const Step& step, EditorContext& ctx) {
+    const ArgumentReader reader(step.args);
+    if (step.verb == "save" || step.verb == "load") {
+        const auto& action = step.verb == "save" ? saveScene : loadScene;
+        if (action) action(reader.text(0, "resources/autopilot.litscene"));
+        m_waitFrames = kFramesAfterAction;
+        return Flow::Yield;
+    }
+    if (step.verb == "mask") {
+        const std::string name = reader.text(0);
+        const bool masked = reader.number(1, 1.0f) > kBooleanThreshold;
+        size_t count = 0;
+        ctx.world.forEach([&](EntityHandle entity) {
+            if (ctx.world.getName(entity) != name) return;
+            ctx.world.setRenderFlags(entity, RENDER_MASKED, masked);
+            ++count;
+        });
+        if (count == 0) fail(step.line, std::format("no entity named '{}'", name));
+        return Flow::Continue;
+    }
+    if (step.verb == "testscene") {
+        if (!loadTestScene || !loadTestScene(reader.text(0))) fail(step.line, std::format("unknown test scene '{}'", reader.text(0)));
+        m_waitFrames = kFramesAfterAction;
+        return Flow::Yield;
+    }
+    if (step.verb == "overlay") {
+        if (showOverlay) showOverlay(static_cast<int>(reader.number(0, 0.0f)));
+        return Flow::Continue;
+    }
+    return std::nullopt;
+}
+
+Autopilot::Flow Autopilot::executeExpect(const Step& step, EditorContext& ctx) {
+    ++m_checks;
+    const ArgumentReader reader(step.args);
+    const std::string what = reader.text(0);
+    std::string actual;
+    if (what == "selection") actual = std::to_string(ctx.selection.size());
+    if (what == "entities") actual = std::to_string(ctx.world.aliveCount());
+    if (what == "undo") actual = std::to_string(ctx.history->undoCount());
+    if (what == "mode") actual = ctx.modeLabel;
+    if (what == "playing") actual = ctx.playing ? "1" : "0";
+    if (what == "name") actual = ctx.world.isAlive(ctx.primary()) ? ctx.world.getName(ctx.primary()) : "";
+    if (what.rfind("param:", 0) == 0) actual = std::format("{:.3f}", ctx.engine.params().get(what.substr(6)));
+    if (what.rfind("setting:", 0) == 0) actual = renderSettingValue(ctx.engine.renderSettings(), what.substr(8));
+    if (actual.empty() && query) actual = query(what);
+    std::string expected = reader.text(1);
+    for (size_t index = 2; index < step.args.size(); ++index) expected += " " + step.args[index];
+    if (actual == expected) {
+        Lit::Log::Info("[autopilot] PASS {} == {}", what, expected);
+    } else {
+        Lit::Log::Error("[autopilot] FAIL line {}: {} is '{}', expected '{}'", step.line, what, actual, expected);
         ++m_failures;
     }
-    m_finished = true;
-    m_active = false;
-    Lit::Log::Info("[autopilot] finished: {} checks, {} failures", m_checks, m_failures);
+    return Flow::Continue;
 }

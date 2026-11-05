@@ -17,7 +17,7 @@ std::string dump = engine.dumpStateText();
 `build/.../src/Headless/Headless` wraps this for CI:
 
 ```
-Headless [--scene f.litscene] [--ticks n] [--dt s] [--seed n] [--params f.json] [--record f] [--replay f] [--dump f.json] [--perf f.csv] [--testscene name] [--metrics f.json] [--list-scenes]
+Headless [--scene f.litscene] [--ticks n] [--dt s] [--seed n] [--params f.json] [--record f] [--replay f] [--hash-interval n] [--verify-replay f] [--dump f.json] [--perf f.csv] [--testscene name] [--metrics f.json] [--list-scenes]
 ```
 
 It prints `ticks N entities M hash H`; two runs with equal inputs print equal hashes. A replay file supplies the seed. Meshes need a renderer, so headless scenes should be meshless or use mesh ids only.

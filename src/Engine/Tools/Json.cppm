@@ -1,5 +1,6 @@
 module;
 
+#include <cstddef>
 #include <cstdint>
 #include <initializer_list>
 #include <optional>
@@ -17,25 +18,42 @@ export class Json {
 
     Json() = default;
     Json(std::nullptr_t) {}
-    Json(bool v) : m_type(Type::Bool), m_bool(v) {}
-    Json(int v) : m_type(Type::Number), m_number(v) {}
-    Json(unsigned v) : m_type(Type::Number), m_number(v) {}
-    Json(int64_t v) : m_type(Type::Number), m_number(static_cast<double>(v)) {}
-    Json(uint64_t v) : m_type(Type::Number), m_number(static_cast<double>(v)) {}
-    Json(float v) : m_type(Type::Number), m_number(v) {}
-    Json(double v) : m_type(Type::Number), m_number(v) {}
-    Json(const char* v) : m_type(Type::String), m_string(v) {}
-    Json(std::string v) : m_type(Type::String), m_string(std::move(v)) {}
+    Json(bool value) : m_type(Type::Bool), m_bool(value) {}
+    Json(int value) : m_type(Type::Number), m_number(value) {}
+    Json(unsigned value) : m_type(Type::Number), m_number(value) {}
+    Json(int64_t value) : m_type(Type::Number), m_number(static_cast<double>(value)) {}
+    Json(uint64_t value) : m_type(Type::Number), m_number(static_cast<double>(value)) {}
+    Json(float value) : m_type(Type::Number), m_number(value) {}
+    Json(double value) : m_type(Type::Number), m_number(value) {}
+    Json(const char* value) : m_type(Type::String), m_string(value) {}
+    Json(std::string value) : m_type(Type::String), m_string(std::move(value)) {}
 
     static Json array() {
-        Json j;
-        j.m_type = Type::Array;
-        return j;
+        Json result;
+        result.m_type = Type::Array;
+        return result;
     }
     static Json object() {
-        Json j;
-        j.m_type = Type::Object;
-        return j;
+        Json result;
+        result.m_type = Type::Object;
+        return result;
+    }
+    static Json array(std::vector<Json> items) {
+        Json result;
+        result.m_type = Type::Array;
+        result.m_items = std::move(items);
+        return result;
+    }
+    static Json object(std::vector<Member> members) {
+        Json result;
+        result.m_type = Type::Object;
+        result.m_members = std::move(members);
+        return result;
+    }
+    Json& reserve(size_t capacity) {
+        if (m_type == Type::Array) m_items.reserve(capacity);
+        else if (m_type == Type::Object) m_members.reserve(capacity);
+        return *this;
     }
 
     [[nodiscard]] Type type() const { return m_type; }
@@ -60,18 +78,18 @@ export class Json {
     }
     Json& set(std::string key, Json value) {
         m_type = Type::Object;
-        for (auto& [k, v] : m_members) {
-            if (k == key) {
-                v = std::move(value);
-                return v;
+        for (auto& [memberKey, memberValue] : m_members) {
+            if (memberKey == key) {
+                memberValue = std::move(value);
+                return memberValue;
             }
         }
         m_members.emplace_back(std::move(key), std::move(value));
         return m_members.back().second;
     }
     [[nodiscard]] const Json* get(std::string_view key) const {
-        for (const auto& [k, v] : m_members) {
-            if (k == key) return &v;
+        for (const auto& [memberKey, memberValue] : m_members) {
+            if (memberKey == key) return &memberValue;
         }
         return nullptr;
     }
@@ -91,9 +109,10 @@ export class Json {
 };
 
 export const Json* jsonFind(const Json& root, std::string_view path);
-export std::string jsonDiff(const Json& a, const Json& b, double epsilon = 0.0);
+export std::string jsonDiff(const Json& left, const Json& right, double epsilon = 0.0);
 export std::string expectNumber(const Json& root, std::string_view path, double expected, double epsilon = 1.0e-5);
 export std::string expectString(const Json& root, std::string_view path, std::string_view expected);
 export std::string expectBool(const Json& root, std::string_view path, bool expected);
 export std::string expectSize(const Json& root, std::string_view path, size_t expected);
+export std::optional<std::string> readTextFile(const std::string& path);
 export std::string expectVec(const Json& root, std::string_view path, std::initializer_list<double> expected, double epsilon = 1.0e-5);

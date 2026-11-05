@@ -14,6 +14,10 @@ module Engine.Render.observation;
 
 import Engine.glm;
 
+namespace {
+constexpr uint32_t kThreadGroupSize = 8;
+}
+
 struct ObservationPass::Impl {
     struct Constants {
         glm::mat4 invViewProjection;
@@ -39,24 +43,37 @@ struct ObservationPass::Impl {
     Diligent::RefCntAutoPtr<Diligent::IBuffer> constants;
     uint32_t gridCapacity = 0;
     Slot slots[ObservationPass::kSlots];
-    Diligent::ITexture* boundDepth = nullptr;
 
     void ensureGrid(uint32_t cells) {
         if (cells <= gridCapacity) return;
         gridCapacity = cells;
         grid = litgpu::structuredBuffer(device, "Observation Grid", sizeof(uint32_t), cells);
-        for (Slot& s : slots) {
+        for (Slot& slot : slots) {
             Diligent::BufferDesc desc;
             desc.Name = "Observation Staging";
             desc.Usage = Diligent::USAGE_STAGING;
             desc.CPUAccessFlags = Diligent::CPU_ACCESS_READ;
             desc.Size = static_cast<Diligent::Uint64>(cells) * sizeof(uint32_t);
-            s.staging.Release();
-            device->CreateBuffer(desc, nullptr, &s.staging);
-            s.pending = false;
+            slot.staging.Release();
+            device->CreateBuffer(desc, nullptr, &slot.staging);
+            slot.pending = false;
         }
         srb.Release();
-        boundDepth = nullptr;
+    }
+
+    void uploadQuery(Diligent::IDeviceContext* context, const ObservationQuery& query, uint32_t count) {
+        constexpr auto kTransition = Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION;
+        if (count > 0) {
+            context->UpdateBuffer(spheres, 0, count * sizeof(glm::vec4), query.spheres.data(), kTransition);
+            context->UpdateBuffer(ids, 0, count * sizeof(uint32_t), query.ids.data(), kTransition);
+        }
+        Constants uniforms{};
+        uniforms.invViewProjection = query.invViewProjection;
+        uniforms.origin = glm::vec4(query.origin, 1.0f);
+        uniforms.dims[0] = query.width;
+        uniforms.dims[1] = query.height;
+        uniforms.dims[2] = count;
+        context->UpdateBuffer(constants, 0, sizeof(uniforms), &uniforms, kTransition);
     }
 };
 
@@ -75,50 +92,40 @@ bool ObservationPass::init(Diligent::IRenderDevice* device) {
 bool ObservationPass::ready() const { return m_impl->pso && m_impl->spheres && m_impl->ids && m_impl->constants; }
 
 bool ObservationPass::poll(Diligent::IDeviceContext* context, uint32_t slot, ObservationReadback& out) {
-    Impl::Slot& s = m_impl->slots[slot % kSlots];
-    if (!s.pending || !s.staging) return false;
-    s.pending = false;
-    Diligent::MapHelper<uint32_t> mapped(context, s.staging, Diligent::MAP_READ, Diligent::MAP_FLAG_DO_NOT_WAIT);
+    Impl::Slot& readSlot = m_impl->slots[slot % kSlots];
+    if (!readSlot.pending || !readSlot.staging) return false;
+    Diligent::MapHelper<uint32_t> mapped(context, readSlot.staging, Diligent::MAP_READ, Diligent::MAP_FLAG_DO_NOT_WAIT);
     const uint32_t* data = mapped;
     if (!data) return false;
-    out.frame = s.frame;
-    out.time = s.time;
-    out.width = s.width;
-    out.height = s.height;
-    out.ids.assign(data, data + s.cells);
+    readSlot.pending = false;
+    out.frame = readSlot.frame;
+    out.time = readSlot.time;
+    out.width = readSlot.width;
+    out.height = readSlot.height;
+    out.ids.assign(data, data + readSlot.cells);
     return true;
 }
 
 void ObservationPass::record(Diligent::IDeviceContext* context, Diligent::ITexture* depth, uint32_t slot, const ObservationQuery& query) {
-    Impl& m = *m_impl;
+    Impl& impl = *m_impl;
     if (!ready() || !depth || query.width == 0 || query.height == 0) return;
     const uint32_t cells = query.width * query.height;
-    m.ensureGrid(cells);
-    if (!m.srb) {
-        m.srb = litgpu::makeBinding(m.pso, {{"ObservationSpheres", m.spheres.RawPtr()}, {"ObservationEntityIds", m.ids.RawPtr()}, {"ObservationGrid", m.grid.RawPtr()}, {"ObservationConstants", m.constants.RawPtr()}});
+    impl.ensureGrid(cells);
+    if (!impl.srb) {
+        impl.srb = litgpu::makeBinding(impl.pso, {{"ObservationSpheres", impl.spheres.RawPtr()}, {"ObservationEntityIds", impl.ids.RawPtr()}, {"ObservationGrid", impl.grid.RawPtr()}, {"ObservationConstants", impl.constants.RawPtr()}});
     }
-    if (!m.srb) return;
-    litgpu::setVar(m.srb, "u_depth", litgpu::srv(depth));
-    const uint32_t count = static_cast<uint32_t>(std::min<size_t>(std::min(query.spheres.size(), query.ids.size()), kMaxSpheres));
-    if (count > 0) {
-        context->UpdateBuffer(m.spheres, 0, count * sizeof(glm::vec4), query.spheres.data(), Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
-        context->UpdateBuffer(m.ids, 0, count * sizeof(uint32_t), query.ids.data(), Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
-    }
-    Impl::Constants c{};
-    c.invViewProjection = query.invViewProjection;
-    c.origin = glm::vec4(query.origin, 1.0f);
-    c.dims[0] = query.width;
-    c.dims[1] = query.height;
-    c.dims[2] = count;
-    context->UpdateBuffer(m.constants, 0, sizeof(c), &c, Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
-    litgpu::dispatch(context, m.pso, m.srb, (query.width + 7) / 8, (query.height + 7) / 8);
-    Impl::Slot& s = m.slots[slot % kSlots];
-    if (!s.staging) return;
-    context->CopyBuffer(m.grid, 0, Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION, s.staging, 0, cells * sizeof(uint32_t), Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
-    s.cells = cells;
-    s.frame = query.frame;
-    s.time = query.time;
-    s.width = query.width;
-    s.height = query.height;
-    s.pending = true;
+    if (!impl.srb) return;
+    litgpu::setVar(impl.srb, "u_depth", litgpu::srv(depth));
+    const auto count = static_cast<uint32_t>(std::min<size_t>(std::min(query.spheres.size(), query.ids.size()), kMaxSpheres));
+    impl.uploadQuery(context, query, count);
+    litgpu::dispatch(context, impl.pso, impl.srb, (query.width + kThreadGroupSize - 1) / kThreadGroupSize, (query.height + kThreadGroupSize - 1) / kThreadGroupSize);
+    Impl::Slot& writeSlot = impl.slots[slot % kSlots];
+    if (!writeSlot.staging) return;
+    context->CopyBuffer(impl.grid, 0, Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION, writeSlot.staging, 0, cells * sizeof(uint32_t), Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
+    writeSlot.cells = cells;
+    writeSlot.frame = query.frame;
+    writeSlot.time = query.time;
+    writeSlot.width = query.width;
+    writeSlot.height = query.height;
+    writeSlot.pending = true;
 }

@@ -1,8 +1,10 @@
 module;
 
 #include <GLFW/glfw3.h>
+#include <algorithm>
 #include <string>
 #include <unordered_map>
+#include <utility>
 #include <vector>
 
 export module Engine.inputactions;
@@ -24,29 +26,29 @@ export class InputActions {
 
     [[nodiscard]] bool pressed(const std::string& action) const {
         return any(
-            action, [this](int k) { return m_source ? m_source->pressed(k) : InputManager::IsKeyPressed(k); },
-            [this](int b) { return m_source ? m_source->buttonPressed(b) : InputManager::IsMouseButtonPressed(b); });
+            action, [this](int key) { return m_source ? m_source->pressed(key) : InputManager::IsKeyPressed(key); },
+            [this](int button) { return m_source ? m_source->buttonPressed(button) : InputManager::IsMouseButtonPressed(button); });
     }
     [[nodiscard]] bool held(const std::string& action) const {
         return any(
-            action, [this](int k) { return m_source ? m_source->held(k) : InputManager::IsKeyHeld(k); },
-            [this](int b) { return m_source ? m_source->buttonHeld(b) : InputManager::IsMouseButtonHeld(b); });
+            action, [this](int key) { return m_source ? m_source->held(key) : InputManager::IsKeyHeld(key); },
+            [this](int button) { return m_source ? m_source->buttonHeld(button) : InputManager::IsMouseButtonHeld(button); });
     }
     [[nodiscard]] bool released(const std::string& action) const {
         return any(
-            action, [this](int k) { return m_source ? m_source->released(k) : InputManager::IsKeyReleased(k); },
-            [this](int b) { return m_source ? m_source->buttonReleased(b) : InputManager::IsMouseButtonReleased(b); });
+            action, [this](int key) { return m_source ? m_source->released(key) : InputManager::IsKeyReleased(key); },
+            [this](int button) { return m_source ? m_source->buttonReleased(button) : InputManager::IsMouseButtonReleased(button); });
     }
 
     [[nodiscard]] float axis(const std::string& name) const {
-        const auto it = m_axes.find(name);
-        if (it == m_axes.end()) return 0.0f;
+        const auto found = m_axes.find(name);
+        if (found == m_axes.end()) return 0.0f;
         float value = 0.0f;
-        for (const auto& [negative, positive] : it->second) {
+        for (const auto& [negative, positive] : found->second) {
             if (isHeld(negative)) value -= 1.0f;
             if (isHeld(positive)) value += 1.0f;
         }
-        return value < -1.0f ? -1.0f : (value > 1.0f ? 1.0f : value);
+        return std::clamp(value, -1.0f, 1.0f);
     }
 
   private:
@@ -58,14 +60,14 @@ export class InputActions {
     };
 
     template <typename KeyFn, typename MouseFn>
-    bool any(const std::string& action, KeyFn keyFn, MouseFn mouseFn) const {
-        const auto it = m_actions.find(action);
-        if (it == m_actions.end()) return false;
-        for (int key : it->second.keys) {
-            if (keyFn(key)) return true;
+    bool any(const std::string& action, KeyFn keyPredicate, MouseFn mousePredicate) const {
+        const auto found = m_actions.find(action);
+        if (found == m_actions.end()) return false;
+        for (const int key : found->second.keys) {
+            if (keyPredicate(key)) return true;
         }
-        for (int button : it->second.mouseButtons) {
-            if (mouseFn(button)) return true;
+        for (const int button : found->second.mouseButtons) {
+            if (mousePredicate(button)) return true;
         }
         return false;
     }

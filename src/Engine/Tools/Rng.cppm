@@ -21,31 +21,35 @@ export class Pcg32 {
     }
 
     uint32_t next() {
-        const uint64_t old = m_state;
-        m_state = old * 6364136223846793005ULL + m_inc;
-        const uint32_t xorshifted = static_cast<uint32_t>(((old >> 18u) ^ old) >> 27u);
-        const uint32_t rot = static_cast<uint32_t>(old >> 59u);
-        return (xorshifted >> rot) | (xorshifted << ((~rot + 1u) & 31u));
+        const uint64_t previousState = m_state;
+        m_state = previousState * 6364136223846793005ULL + m_inc;
+        const uint32_t xorshifted = static_cast<uint32_t>(((previousState >> 18u) ^ previousState) >> 27u);
+        const uint32_t rotation = static_cast<uint32_t>(previousState >> 59u);
+        return (xorshifted >> rotation) | (xorshifted << ((~rotation + 1u) & 31u));
     }
 
     uint32_t below(uint32_t bound) {
         if (bound == 0) return 0;
         const uint32_t threshold = (~bound + 1u) % bound;
         for (;;) {
-            const uint32_t r = next();
-            if (r >= threshold) return r % bound;
+            const uint32_t candidate = next();
+            if (candidate >= threshold) return candidate % bound;
         }
     }
 
     float uniform() { return static_cast<float>(next() >> 8) * (1.0f / 16777216.0f); }
-    float range(float lo, float hi) { return lo + (hi - lo) * uniform(); }
-    int rangeInt(int lo, int hi) { return hi <= lo ? lo : lo + static_cast<int>(below(static_cast<uint32_t>(hi - lo + 1))); }
+    float range(float low, float high) { return low + (high - low) * uniform(); }
+    int rangeInt(int low, int high) {
+        if (high <= low) return low;
+        const uint32_t span = static_cast<uint32_t>(high) - static_cast<uint32_t>(low) + 1u;
+        return static_cast<int>(static_cast<uint32_t>(low) + below(span));
+    }
     bool chance(float probability) { return uniform() < probability; }
 
     [[nodiscard]] uint64_t state() const { return m_state; }
     [[nodiscard]] uint64_t increment() const { return m_inc; }
-    void restore(uint64_t state, uint64_t increment) {
-        m_state = state;
+    void restore(uint64_t savedState, uint64_t increment) {
+        m_state = savedState;
         m_inc = increment | 1u;
     }
     bool operator==(const Pcg32&) const = default;
@@ -56,25 +60,25 @@ export class Pcg32 {
 };
 
 export constexpr uint64_t hashName(std::string_view text) {
-    uint64_t h = 0xcbf29ce484222325ULL;
-    for (const char c : text) {
-        h ^= static_cast<unsigned char>(c);
-        h *= 0x100000001b3ULL;
+    uint64_t hash = 0xcbf29ce484222325ULL;
+    for (const char character : text) {
+        hash ^= static_cast<unsigned char>(character);
+        hash *= 0x100000001b3ULL;
     }
-    return h;
+    return hash;
 }
 
 export class RandomService {
   public:
     void seed(uint64_t value) {
         m_seed = value;
-        for (auto& [name, rng] : m_streams) rng.seed(value, hashName(name));
+        for (auto& [name, stream] : m_streams) stream.seed(value, hashName(name));
     }
     [[nodiscard]] uint64_t seed() const { return m_seed; }
 
     Pcg32& stream(const std::string& name) {
-        const auto it = m_streams.find(name);
-        if (it != m_streams.end()) return it->second;
+        const auto found = m_streams.find(name);
+        if (found != m_streams.end()) return found->second;
         return m_streams.emplace(name, Pcg32(m_seed, hashName(name))).first->second;
     }
     Pcg32& main() { return stream("main"); }

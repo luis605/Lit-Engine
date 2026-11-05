@@ -6,15 +6,18 @@ layout(local_size_x = 8, local_size_y = 8, local_size_z = 1) in;
 
 uniform sampler2D u_depth;
 uniform sampler2D u_gbuffer1;
-uniform sampler2D u_previousColor;
+uniform sampler2D u_sceneColor;
 uniform sampler2D u_hiz;
 layout(rgba16f) writeonly uniform image2D u_output;
 
-layout(std430) readonly buffer ExposureBuffer {
-    vec4 exposureData;
-};
-
-const int MAX_ITERATIONS = 160;
+const int MAX_ITERATIONS = 192;
+const int ITERATIONS_PER_STEP = 3;
+const float RAY_BACKFACE_FADE = 0.25;
+const float EDGE_FADE_WIDTH = 0.08;
+const float DISTANCE_FADE_START = 0.6;
+const float FACING_FADE_SLOPE = 4.0;
+const float CONE_FOOTPRINT_SCALE = 1.5;
+const float OCCLUDED_HIT_DIM = 0.45;
 
 vec3 toScreen(vec3 viewPosition, vec2 size) {
     vec4 clip = projection * vec4(viewPosition, 1.0);
@@ -26,7 +29,8 @@ void main() {
     ivec2 pixel = ivec2(gl_GlobalInvocationID.xy);
     ivec2 size = imageSize(u_output);
     if (any(greaterThanEqual(pixel, size))) return;
-    ivec2 fullPixel = pixel;
+    ivec2 fullSize = ivec2(screenParams.xy);
+    ivec2 fullPixel = min(pixel * 2 + ivec2(1), fullSize - 1);
     vec2 uv = (vec2(fullPixel) + 0.5) * screenParams.zw;
     float depth = texelFetch(u_depth, fullPixel, 0).r;
     vec4 g1 = texelFetch(u_gbuffer1, fullPixel, 0);
@@ -63,12 +67,13 @@ void main() {
     vec2 exitBias = vec2(dir.x >= 0.0 ? 1.0 : 0.0, dir.y >= 0.0 ? 1.0 : 0.0);
     vec2 invDir = vec2(abs(dir.x) > 1e-6 ? 1.0 / dir.x : 1e6, abs(dir.y) > 1e-6 ? 1.0 / dir.y : 1e6);
     float thickness = ssrParams.y;
+    int iterationLimit = clamp(int(ssrParams.z) * ITERATIONS_PER_STEP, ITERATIONS_PER_STEP, MAX_ITERATIONS);
     float s = 1.5;
     int level = 0;
     float hitS = -1.0;
     float hitWeight = 0.0;
     float occludedS = -1.0;
-    for (int i = 0; i < MAX_ITERATIONS && s < lengthPx; ++i) {
+    for (int i = 0; i < iterationLimit && s < lengthPx; ++i) {
         vec2 p = start.xy + dir * s;
         if (any(lessThan(p, vec2(0.0))) || any(greaterThanEqual(p, hizSize))) break;
         float cellSize = exp2(float(level));
@@ -128,28 +133,21 @@ void main() {
         return;
     }
     vec3 hitN = normalize(mat3(view) * decodeNormal(textureLod(u_gbuffer1, hitUv, 0.0).rg));
-    float backface = occluded ? 1.0 : 1.0 - smoothstep(0.0, 0.25, dot(hitN, R));
+    float backface = occluded ? 1.0 : 1.0 - smoothstep(0.0, RAY_BACKFACE_FADE, dot(hitN, R));
     if (backface <= 0.0) {
         imageStore(u_output, pixel, vec4(0.0));
         return;
     }
-    vec3 hitWorld = worldFromDepth(hitUv, hitDepth);
-    float previousDepth;
-    vec2 previousUv = projectToUv(hitWorld, prevViewProjection, previousDepth);
-    if (any(lessThan(previousUv, vec2(0.0))) || any(greaterThan(previousUv, vec2(1.0)))) {
-        imageStore(u_output, pixel, vec4(0.0));
-        return;
-    }
-    vec2 pyramidSize = vec2(textureSize(u_previousColor, 0));
+    vec2 pyramidSize = vec2(textureSize(u_sceneColor, 0));
     float alpha = roughness * roughness;
-    float footprint = alpha * 1.5 * length((hitUv - uv) * pyramidSize);
-    float lod = clamp(log2(max(footprint, 1.0)), 0.0, float(textureQueryLevels(u_previousColor) - 1));
-    vec3 color = textureLod(u_previousColor, previousUv, lod).rgb / max(exposureData.x, 1e-12) * (occluded ? 0.45 : 1.0);
-    vec2 edge = min(previousUv, 1.0 - previousUv);
-    float edgeFade = smoothstep(0.0, 0.08, min(edge.x, edge.y));
+    float footprint = alpha * CONE_FOOTPRINT_SCALE * length((hitUv - uv) * pyramidSize);
+    float lod = clamp(log2(max(footprint, 1.0)), 0.0, float(textureQueryLevels(u_sceneColor) - 1));
+    vec3 color = textureLod(u_sceneColor, hitUv, lod).rgb * (occluded ? OCCLUDED_HIT_DIM : 1.0);
+    vec2 edge = min(hitUv, 1.0 - hitUv);
+    float edgeFade = smoothstep(0.0, EDGE_FADE_WIDTH, min(edge.x, edge.y));
     float roughFade = 1.0 - saturate((roughness - maxRoughness * 0.6) / (maxRoughness * 0.4));
     float travel = hitS / lengthPx;
-    float distanceFade = 1.0 - saturate((travel - 0.6) / 0.4);
-    float facing = saturate(-R.z * 4.0 + 1.0);
+    float distanceFade = 1.0 - saturate((travel - DISTANCE_FADE_START) / (1.0 - DISTANCE_FADE_START));
+    float facing = saturate(-R.z * FACING_FADE_SLOPE + 1.0);
     imageStore(u_output, pixel, vec4(color, edgeFade * roughFade * distanceFade * facing * hitWeight * backface));
 }

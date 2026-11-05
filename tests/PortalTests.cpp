@@ -1,3 +1,4 @@
+#include "TestSupport.hpp"
 #include <algorithm>
 #include <array>
 #include <cmath>
@@ -14,22 +15,7 @@ import Engine.Portal;
 import Engine.Portal.view;
 import Engine.glm;
 
-namespace {
-int g_failures = 0;
-int g_checks = 0;
-
-void check(bool ok, const char* expr, int line) {
-    ++g_checks;
-    if (!ok) {
-        ++g_failures;
-        std::fprintf(stderr, "FAIL line %d: %s\n", line, expr);
-    }
-}
-}  // namespace
-
-#define CHECK(x) check(static_cast<bool>(x), #x, __LINE__)
-
-static bool near(const glm::vec3& a, const glm::vec3& b, float eps = 1.0e-3f) { return glm::length(a - b) < eps; }
+static bool nearlyEqual(const glm::vec3& a, const glm::vec3& b, float eps = 1.0e-3f) { return glm::length(a - b) < eps; }
 
 constexpr uint32_t kCube = 1;
 constexpr uint32_t kSphere = 2;
@@ -76,13 +62,13 @@ static void testTransformAndLoop() {
         CHECK(b.partner == static_cast<int>(i));
         const glm::vec3 front = a.center() + a.normal() * 0.7f + a.right() * 0.3f;
         const glm::vec3 mapped = glm::vec3(a.transform * glm::vec4(front, 1.0f));
-        CHECK(near(mapped, b.center() - b.normal() * 0.7f - b.right() * 0.3f));
-        CHECK(near(glm::vec3(a.transform * glm::vec4(a.normal(), 0.0f)), -b.normal()));
-        CHECK(near(glm::vec3(b.transform * a.transform * glm::vec4(front, 1.0f)), front));
+        CHECK(nearlyEqual(mapped, b.center() - b.normal() * 0.7f - b.right() * 0.3f));
+        CHECK(nearlyEqual(glm::vec3(a.transform * glm::vec4(a.normal(), 0.0f)), -b.normal()));
+        CHECK(nearlyEqual(glm::vec3(b.transform * a.transform * glm::vec4(front, 1.0f)), front));
     }
     const glm::mat4 loop = p.portals()[4].transform * p.portals()[2].transform * p.portals()[0].transform;
     CHECK(glm::length(glm::vec3(loop[3])) > 1.0f);
-    CHECK(!near(glm::vec3(loop * glm::vec4(1.0f, 0.0f, 0.0f, 0.0f)), glm::vec3(1.0f, 0.0f, 0.0f)));
+    CHECK(!nearlyEqual(glm::vec3(loop * glm::vec4(1.0f, 0.0f, 0.0f, 0.0f)), glm::vec3(1.0f, 0.0f, 0.0f)));
 
     Camera cam;
     float yaw = 0.0f;
@@ -251,8 +237,8 @@ static void testRaycastAndOverlap() {
     CHECK(through.hit && through.hit->entity == target);
     CHECK(through.hit && std::abs(through.distance - (10.0f + 5.5f)) < 0.02f);
     CHECK(through.cell == p.findCell("Y"));
-    CHECK(near(through.direction, outDir));
-    CHECK(near(through.point, emerge + outDir * 5.5f, 0.02f));
+    CHECK(nearlyEqual(through.direction, outDir));
+    CHECK(nearlyEqual(through.point, emerge + outDir * 5.5f, 0.02f));
 
     const PortalRayHit away = p.raycast(w, origin, glm::vec3(-1.0f, 0.0f, 0.0f), 100.0f, x);
     CHECK(!away.hit && away.crossings == 0);
@@ -291,7 +277,7 @@ static void testStraddlingObjects() {
     CHECK(w.isVisible(ghost));
     CHECK(p.isGhost(ghost));
     const Portal& ab = p.portals()[0];
-    CHECK(near(w.getWorldPosition(ghost), glm::vec3(ab.transform * glm::vec4(w.getWorldPosition(probe), 1.0f))));
+    CHECK(nearlyEqual(w.getWorldPosition(ghost), glm::vec3(ab.transform * glm::vec4(w.getWorldPosition(probe), 1.0f))));
     CHECK(w.getMesh(ghost) == w.getMesh(probe));
     CHECK(p.objectCell(probe) == p.findCell("A"));
 
@@ -305,9 +291,9 @@ static void testStraddlingObjects() {
     w.setWorldPosition(probe, glm::vec3(5.2f, 1.2f, 0.4f));
     p.updateObjects(w);
     CHECK(p.objectCell(probe) == p.findCell("B"));
-    CHECK(near(w.getWorldPosition(probe), glm::vec3(19.2f, 1.2f, 0.4f)));
+    CHECK(nearlyEqual(w.getWorldPosition(probe), glm::vec3(19.2f, 1.2f, 0.4f)));
     CHECK(w.isVisible(ghost));
-    CHECK(near(w.getWorldPosition(ghost), glm::vec3(5.2f, 1.2f, 0.4f), 0.05f));
+    CHECK(nearlyEqual(w.getWorldPosition(ghost), glm::vec3(5.2f, 1.2f, 0.4f), 0.05f));
     p.untrack(w, probe);
     CHECK(!w.isAlive(ghost));
 }
@@ -332,11 +318,11 @@ static void testCellParamBlend() {
     const int x = p.findCell("X");
     const int y = p.findCell("Y");
     const PortalCellParams far = p.sampleParams(x, glm::vec3(-10.0f, 1.0f, 0.0f));
-    CHECK(near(far.gravity, glm::vec3(0.0f, -9.81f, 0.0f), 1.0e-5f) && far.scalars.at("drag") == 0.0f);
+    CHECK(nearlyEqual(far.gravity, glm::vec3(0.0f, -9.81f, 0.0f), 1.0e-5f) && far.scalars.at("drag") == 0.0f);
     const PortalCellParams mid = p.sampleParams(x, glm::vec3(10.0f, 1.5f, 0.0f));
     const glm::mat4 inv = glm::inverse(p.portals()[0].transform);
     const glm::vec3 other = glm::vec3(inv * glm::vec4(-9.81f, 0.0f, 0.0f, 0.0f));
-    CHECK(near(mid.gravity, 0.5f * (glm::vec3(0.0f, -9.81f, 0.0f) + other), 1.0e-3f));
+    CHECK(nearlyEqual(mid.gravity, 0.5f * (glm::vec3(0.0f, -9.81f, 0.0f) + other), 1.0e-3f));
     CHECK(std::abs(mid.scalars.at("drag") - 1.0f) < 1.0e-4f && std::abs(mid.sun - 0.5f) < 1.0e-4f);
     const PortalCellParams quarter = p.sampleParams(x, glm::vec3(9.0f, 1.5f, 0.0f));
     CHECK(quarter.scalars.at("drag") > 0.0f && quarter.scalars.at("drag") < 1.0f);
@@ -365,7 +351,7 @@ static void testCellParamBlend() {
     CHECK(crossed);
     CHECK(cell == y);
     CHECK(worst < 0.2f);
-    CHECK(near(p.sampleParams(y, glm::vec3(110.0f, 1.0f, 0.0f)).gravity, glm::vec3(-9.81f, 0.0f, 0.0f), 1.0e-5f));
+    CHECK(nearlyEqual(p.sampleParams(y, glm::vec3(110.0f, 1.0f, 0.0f)).gravity, glm::vec3(-9.81f, 0.0f, 0.0f), 1.0e-5f));
 }
 
 static void testJson() {
@@ -379,8 +365,8 @@ static void testJson() {
     CHECK(q.parseJson(text));
     CHECK(q.cells().size() == p.cells().size() && q.portals().size() == p.portals().size());
     for (size_t i = 0; i < p.portals().size(); ++i) {
-        CHECK(near(q.portals()[i].center(), p.portals()[i].center(), 1.0e-2f));
-        CHECK(near(q.portals()[i].normal(), p.portals()[i].normal(), 1.0e-2f));
+        CHECK(nearlyEqual(q.portals()[i].center(), p.portals()[i].center(), 1.0e-2f));
+        CHECK(nearlyEqual(q.portals()[i].normal(), p.portals()[i].normal(), 1.0e-2f));
         CHECK(glm::length(glm::vec3(q.portals()[i].transform[3]) - glm::vec3(p.portals()[i].transform[3])) < 0.05f);
     }
     PortalSystem bad;
@@ -496,6 +482,5 @@ int main() {
     testJson();
     testPhysicalWalkBetweenCells();
     testPortalPresentUntilCrossing();
-    std::printf("%d checks, %d failures\n", g_checks, g_failures);
-    return g_failures == 0 ? 0 : 1;
+    return testsupport::finish();
 }

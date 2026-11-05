@@ -18,18 +18,56 @@ target_sources(Editor
             Inspector/Inspector.cppm
             Gizmo/Gizmo.cppm
             Hierarchy/Hierarchy.cppm
+            ProfilerPanel/ProfilerPanel.cppm
+            HotReload/HotReload.cppm
+            Diagnostics/Diagnostics.cppm
     PRIVATE
         Application/Application.cpp
+        Application/ApplicationUi.cpp
+        Application/ApplicationScenes.cpp
+        Application/ApplicationShowcase.cpp
+        Application/ApplicationEditing.cpp
+        Application/ApplicationAutopilot.cpp
+        Application/ApplicationCommands.cpp
+        Application/ApplicationViewCommands.cpp
+        Application/ApplicationRenderCommands.cpp
+        Application/ApplicationIkCommands.cpp
         Context/Context.cpp
+        Context/ContextTheme.cpp
+        Context/ContextExpression.cpp
         Commands/Commands.cpp
         Viewport/Viewport.cpp
+        Viewport/ViewportOverlays.cpp
+        Viewport/ViewportIcons.cpp
         Palette/Palette.cpp
         Hud/Hud.cpp
+        Hud/HudPanels.cpp
+        Hud/HudPie.cpp
         Look/Look.cpp
+        Look/LookSettings.cpp
+        Look/LookWorld.cpp
+        Look/LookQuality.cpp
+        Inspector/InspectorReflection.cpp
+        Inspector/InspectorRig.cpp
+        Inspector/InspectorLightPresets.cpp
+        Application/ApplicationQualityCommands.cpp
+        Application/ApplicationProbeOverlay.cpp
         Autopilot/Autopilot.cpp
         Inspector/Inspector.cpp
+        Inspector/InspectorMaterial.cpp
+        Inspector/InspectorComponents.cpp
+        Inspector/InspectorPlacement.cpp
         Gizmo/Gizmo.cpp
+        Gizmo/GizmoApply.cpp
+        Gizmo/GizmoHandles.cpp
         Hierarchy/Hierarchy.cpp
+        Hierarchy/HierarchyRow.cpp
+        Hierarchy/HierarchySearch.cpp
+        ProfilerPanel/ProfilerPanel.cpp
+        ProfilerPanel/ProfilerDraw.cpp
+        HotReload/HotReload.cpp
+        Diagnostics/Diagnostics.cpp
+        Application/ApplicationToolsCommands.cpp
         main.cpp
 
 )
@@ -54,3 +92,7 @@ add_custom_command(
             "${RESOURCES_DIR}"
             "${DESTINATION_DIR}"
 )
+if(LIT_SANITIZE MATCHES "undefined" AND CMAKE_CXX_COMPILER_ID STREQUAL "GNU")
+    get_target_property(editorModuleInterfaces Editor CXX_MODULE_SET_CXX_MODULES)
+    set_source_files_properties(${editorModuleInterfaces} PROPERTIES COMPILE_OPTIONS -fno-sanitize=undefined)
+endif()

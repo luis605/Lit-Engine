@@ -1,0 +1,32 @@
+#version 450
+#extension GL_GOOGLE_include_directive : require
+#include "scene.glsl"
+
+layout(local_size_x = 8, local_size_y = 8, local_size_z = 1) in;
+
+uniform sampler2D u_source;
+layout(rgba8) writeonly uniform image2D u_output;
+
+const float RCAS_LIMIT = 0.1875;
+
+void main() {
+    ivec2 pixel = ivec2(gl_GlobalInvocationID.xy);
+    ivec2 size = imageSize(u_output);
+    if (any(greaterThanEqual(pixel, size))) return;
+    ivec2 maxPixel = size - 1;
+    vec3 center = texelFetch(u_source, pixel, 0).rgb;
+    vec3 north = texelFetch(u_source, clamp(pixel + ivec2(0, -1), ivec2(0), maxPixel), 0).rgb;
+    vec3 west = texelFetch(u_source, clamp(pixel + ivec2(-1, 0), ivec2(0), maxPixel), 0).rgb;
+    vec3 east = texelFetch(u_source, clamp(pixel + ivec2(1, 0), ivec2(0), maxPixel), 0).rgb;
+    vec3 south = texelFetch(u_source, clamp(pixel + ivec2(0, 1), ivec2(0), maxPixel), 0).rgb;
+    vec3 lo = min(min(north, west), min(east, south));
+    vec3 hi = max(max(north, west), max(east, south));
+    vec3 loLobe = min(lo, center) / max(4.0 * hi, vec3(1e-4));
+    vec3 hiLobe = (vec3(1.0) - max(hi, center)) / min(4.0 * lo - 4.0, vec3(-1e-4));
+    vec3 lobe = max(-loLobe, hiLobe);
+    float lobeScalar = max(-RCAS_LIMIT, min(0.0, max(lobe.r, max(lobe.g, lobe.b)))) * exp2(-2.0 * (1.0 - qualityParams2.z));
+    if (qualityParams2.z <= 0.0) lobeScalar = 0.0;
+    vec3 result = (lobeScalar * (north + west + east + south) + center) / (4.0 * lobeScalar + 1.0);
+    result = clamp(result, vec3(0.0), vec3(1.0));
+    imageStore(u_output, pixel, vec4(result, dot(result, vec3(0.299, 0.587, 0.114))));
+}

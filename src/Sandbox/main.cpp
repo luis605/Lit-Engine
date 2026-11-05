@@ -1,10 +1,12 @@
 #include <GLFW/glfw3.h>
+#include <cmath>
+#include <cstdint>
+#include <cstddef>
+#include <cstdlib>
 #include <filesystem>
 #include <optional>
-#include <string>
-#include <cmath>
-#include <cstdlib>
 #include <random>
+#include <string>
 #include "Engine/Log/Log.hpp"
 
 import Engine.engine;
@@ -20,78 +22,147 @@ import Engine.TestScenes;
 import Engine.Render.material;
 import Sandbox.scene;
 
-void inverseKinematics(Scene& scene, const float deltaTime) {
-    SceneContext& sceneCtx = scene.getCntx();
+namespace {
+
+constexpr float TARGET_SPEED = 3.0f;
+constexpr float UPPER_ARM_LENGTH = 2.5f;
+constexpr float LOWER_ARM_LENGTH = 2.5f;
+constexpr float MAX_REACH = UPPER_ARM_LENGTH + LOWER_ARM_LENGTH;
+constexpr float MIN_REACH = 0.001f;
+constexpr float REACH_MARGIN = 0.0001f;
+constexpr float DIRECTION_EPSILON = 0.0001f;
+constexpr float PARALLEL_DOT_LIMIT = 0.99f;
+constexpr float OPPOSITE_DOT_LIMIT = -0.999999f;
+constexpr float ALIGNED_DOT_LIMIT = 0.999999f;
+constexpr float PI = 3.14159265359f;
+constexpr float STRESS_EXTENT = 200.0f;
+constexpr float FAR_PLANE = 500.0f;
+
+glm::quat rotationBetween(const glm::vec3& from, const glm::vec3& to) {
+    const float alignment = glm::dot(from, to);
+    if (alignment > ALIGNED_DOT_LIMIT) return glm::quat(1.0f, 0.0f, 0.0f, 0.0f);
+    if (alignment < OPPOSITE_DOT_LIMIT) {
+        glm::vec3 axis = glm::cross(glm::vec3(1.0f, 0.0f, 0.0f), from);
+        if (glm::dot(axis, axis) < DIRECTION_EPSILON) axis = glm::cross(glm::vec3(0.0f, 0.0f, 1.0f), from);
+        return glm::angleAxis(PI, glm::normalize(axis));
+    }
+    const glm::vec3 axis = glm::cross(from, to);
+    return glm::normalize(glm::quat(1.0f + alignment, axis.x, axis.y, axis.z));
+}
+
+glm::mat4 limbTransform(const glm::vec3& position, const glm::quat& rotation, const glm::vec3& size) {
+    return glm::translate(glm::mat4(1.0f), position) * glm::mat4_cast(rotation) * glm::scale(glm::mat4(1.0f), size);
+}
+
+void moveIkTarget(glm::vec3& target, float deltaTime) {
+    if (InputManager::IsKeyHeld(GLFW_KEY_I)) target.x -= TARGET_SPEED * deltaTime;
+    if (InputManager::IsKeyHeld(GLFW_KEY_K)) target.x += TARGET_SPEED * deltaTime;
+    if (InputManager::IsKeyHeld(GLFW_KEY_J)) target.z -= TARGET_SPEED * deltaTime;
+    if (InputManager::IsKeyHeld(GLFW_KEY_L)) target.z += TARGET_SPEED * deltaTime;
+    if (InputManager::IsKeyHeld(GLFW_KEY_O)) target.y -= TARGET_SPEED * deltaTime;
+    if (InputManager::IsKeyHeld(GLFW_KEY_P)) target.y += TARGET_SPEED * deltaTime;
+}
+
+void inverseKinematics(Scene& scene, float deltaTime) {
+    World& world = scene.getCntx().world;
+    if (!world.isAlive(scene.lower()) || !world.isAlive(scene.upper())) return;
 
     static glm::vec3 target = glm::vec3(1.5f, 1.5f, 0.0f);
-    glm::vec3 origin(0.0f, 0.0f, 0.0f);
+    const glm::vec3 origin(0.0f);
+    moveIkTarget(target, deltaTime);
 
-    constexpr float speed = 3.0f;
+    const glm::vec3 toTarget = target - origin;
+    const float distance = glm::length(toTarget);
+    const float clampedDistance = glm::clamp(distance, MIN_REACH, MAX_REACH - REACH_MARGIN);
+    const glm::vec3 targetDirection = distance > DIRECTION_EPSILON ? toTarget / distance : glm::vec3(0.0f, 1.0f, 0.0f);
 
-    if (InputManager::IsKeyHeld(GLFW_KEY_I)) target.x -= speed * deltaTime;
-    if (InputManager::IsKeyHeld(GLFW_KEY_K)) target.x += speed * deltaTime;
-    if (InputManager::IsKeyHeld(GLFW_KEY_J)) target.z -= speed * deltaTime;
-    if (InputManager::IsKeyHeld(GLFW_KEY_L)) target.z += speed * deltaTime;
-    if (InputManager::IsKeyHeld(GLFW_KEY_O)) target.y -= speed * deltaTime;
-    if (InputManager::IsKeyHeld(GLFW_KEY_P)) target.y += speed * deltaTime;
-
-    constexpr float L1 = 2.5f;
-    constexpr float L2 = 2.5f;
-    constexpr float maxDistance = L1 + L2;
-    constexpr float minDistance = 0.001f;
-
-    glm::vec3 toTarget = target - origin;
-    float dist = glm::length(toTarget);
-
-    float clampedDist = glm::clamp(dist, minDistance, maxDistance - 0.0001f);
-    glm::vec3 targetDir = (dist > 0.0001f) ? (toTarget / dist) : glm::vec3(0.0f, 1.0f, 0.0f);
-
-    float cosAlpha = (L1 * L1 + clampedDist * clampedDist - L2 * L2) / (2.0f * L1 * clampedDist);
-    cosAlpha = glm::clamp(cosAlpha, -1.0f, 1.0f);
-    float alpha = std::acos(cosAlpha);
+    const float cosShoulder = (UPPER_ARM_LENGTH * UPPER_ARM_LENGTH + clampedDistance * clampedDistance - LOWER_ARM_LENGTH * LOWER_ARM_LENGTH) / (2.0f * UPPER_ARM_LENGTH * clampedDistance);
+    const float shoulderAngle = std::acos(glm::clamp(cosShoulder, -1.0f, 1.0f));
 
     glm::vec3 poleHint(0.0f, 1.0f, 0.0f);
-    if (glm::abs(glm::dot(targetDir, poleHint)) > 0.99f) {
-        poleHint = glm::vec3(0.0f, 0.0f, 1.0f);
-    }
+    if (glm::abs(glm::dot(targetDirection, poleHint)) > PARALLEL_DOT_LIMIT) poleHint = glm::vec3(0.0f, 0.0f, 1.0f);
 
-    glm::vec3 bendNormal = glm::normalize(glm::cross(targetDir, poleHint));
-    glm::vec3 bendDir    = glm::normalize(glm::cross(bendNormal, targetDir));
+    const glm::vec3 bendNormal = glm::normalize(glm::cross(targetDirection, poleHint));
+    const glm::vec3 bendDirection = glm::normalize(glm::cross(bendNormal, targetDirection));
+    const glm::vec3 upperDirection = targetDirection * std::cos(shoulderAngle) + bendDirection * std::sin(shoulderAngle);
+    const glm::vec3 joint = origin + upperDirection * UPPER_ARM_LENGTH;
 
-    glm::vec3 dir1 = targetDir * std::cos(alpha) + bendDir * std::sin(alpha);
-    glm::vec3 joint = origin + dir1 * L1;
+    const glm::vec3 toTargetFromJoint = target - joint;
+    const glm::vec3 lowerDirection = glm::dot(toTargetFromJoint, toTargetFromJoint) > DIRECTION_EPSILON * DIRECTION_EPSILON ? glm::normalize(toTargetFromJoint) : upperDirection;
 
-    glm::vec3 dir2 = glm::normalize(target - joint);
+    const glm::vec3 stretchAxis(0.0f, 1.0f, 0.0f);
+    const glm::vec3 limbSize(0.5f, 1.5f, 0.5f);
+    const glm::vec3 upperCenter = origin + upperDirection * (UPPER_ARM_LENGTH * 0.5f);
+    const glm::vec3 lowerCenter = joint + lowerDirection * (LOWER_ARM_LENGTH * 0.5f);
 
-    const glm::vec3 localStretchAxis(0.0f, 1.0f, 0.0f);
+    world.setLocalMatrix(scene.lower(), limbTransform(upperCenter, rotationBetween(stretchAxis, upperDirection), limbSize));
+    world.setLocalMatrix(scene.upper(), limbTransform(lowerCenter, rotationBetween(stretchAxis, lowerDirection), limbSize));
+}
 
-    auto getRotation = [](glm::vec3 u, glm::vec3 v) -> glm::quat {
-        float d = glm::dot(u, v);
-        if (d > 0.999999f) return glm::quat(1.0f, 0.0f, 0.0f, 0.0f);
-        if (d < -0.999999f) {
-            glm::vec3 axis = glm::cross(glm::vec3(1.0f, 0.0f, 0.0f), u);
-            if (glm::dot(axis, axis) < 0.0001f) {
-                axis = glm::cross(glm::vec3(0.0f, 0.0f, 1.0f), u);
-            }
-            return glm::angleAxis(3.14159265359f, glm::normalize(axis));
-        }
-        glm::vec3 axis = glm::cross(u, v);
-        return glm::normalize(glm::quat(1.0f + d, axis.x, axis.y, axis.z));
+void configureEngine(Engine& engine) {
+    engine.input().bindKey("save", GLFW_KEY_F5);
+    engine.input().bindKey("load", GLFW_KEY_F9);
+    engine.enableFlyCamera({.speed = 2.0f, .sprintMultiplier = 2.0f});
+    engine.setShaderWatch(true);
+    engine.enableImGui();
+    if (std::filesystem::exists("resources/data/params.json")) engine.params().loadFile("resources/data/params.json");
+    if (std::filesystem::exists("resources/data/post_fx.json")) engine.loadPostFx("resources/data/post_fx.json");
+    if (std::getenv("LIT_GPU_PROFILE")) engine.setFullProfiling(true);
+}
+
+void spawnTestScene(Engine& engine, const char* name, uint32_t cubeMesh, uint32_t sphereMesh) {
+    TestSceneKit kit;
+    kit.cube = cubeMesh;
+    kit.sphere = sphereMesh;
+    kit.material = [&engine](const glm::vec3& color, const glm::vec3& emissive, float intensity, float roughness) {
+        Material material;
+        material.baseColor = color;
+        material.roughness = roughness;
+        material.emissive = emissive;
+        material.emissiveIntensity = intensity;
+        return engine.createMaterial(material);
     };
-    
-    glm::quat rot1 = getRotation(localStretchAxis, dir1);
-    glm::quat rot2 = getRotation(localStretchAxis, dir2);
+    TestSceneInfo info;
+    if (buildTestScene(engine, name, kit, info)) {
+        applyTestSceneCamera(engine, info);
+    } else {
+        Lit::Log::Error("Unknown test scene {}", name);
+    }
+}
 
-    const glm::vec3 size(0.5f, 1.5f, 0.5f);
+void spawnStress(World& world, const char* countText, uint32_t cubeMesh, uint32_t sphereMesh) {
+    const long long requested = std::atoll(countText);
+    if (requested <= 0) return;
+    const size_t count = static_cast<size_t>(requested);
+    std::mt19937 generator(1);
+    std::uniform_real_distribution<float> coordinate(-STRESS_EXTENT, STRESS_EXTENT);
+    world.createBatch(count, [&](size_t index, EntityDesc& desc) {
+        desc.name = "stress";
+        desc.mesh = (index % 2 == 0) ? cubeMesh : sphereMesh;
+        desc.position = glm::vec3(coordinate(generator), coordinate(generator), coordinate(generator));
+        desc.shader = (index % 3 == 0) ? 1 : 0;
+    });
+    Lit::Log::Info("Spawned {} stress entities", count);
+}
 
-    glm::vec3 pos0 = origin + dir1 * (L1 * 0.5f);
-    glm::vec3 pos1 = joint  + dir2 * (L2 * 0.5f);
+void pickUnderMouse(Engine& engine, World& world, EntityHandle& picked) {
+    if (engine.isMouseCaptured() || !InputManager::IsMouseButtonPressed(GLFW_MOUSE_BUTTON_LEFT)) return;
+    const glm::vec2 mouse = InputManager::GetMousePosition();
+    const auto hit = engine.pick(mouse.x, mouse.y);
+    if (!hit) return;
+    picked = hit->entity;
+    Lit::Log::Info("Picked '{}' at distance {:.2f}", world.getName(hit->entity), hit->distance);
+}
 
-    glm::mat4 m0 = glm::translate(glm::mat4(1.0f), pos0) * glm::mat4_cast(rot1) * glm::scale(glm::mat4(1.0f), size);
-    glm::mat4 m1 = glm::translate(glm::mat4(1.0f), pos1) * glm::mat4_cast(rot2) * glm::scale(glm::mat4(1.0f), size);
+void drawDebugGizmos(Engine& engine, World& world, EntityHandle picked) {
+    engine.debugHierarchy();
+    engine.debugLine(glm::vec3(0.0f), glm::vec3(1.0f, 0.0f, 0.0f), glm::vec4(1.0f, 0.1f, 0.1f, 1.0f));
+    engine.debugLine(glm::vec3(0.0f), glm::vec3(0.0f, 1.0f, 0.0f), glm::vec4(0.1f, 1.0f, 0.1f, 1.0f));
+    engine.debugLine(glm::vec3(0.0f), glm::vec3(0.0f, 0.0f, 1.0f), glm::vec4(0.2f, 0.4f, 1.0f, 1.0f));
+    engine.debugSphere(glm::vec3(2.0f, 1.0f, 0.0f), 0.5f, glm::vec4(1.0f, 1.0f, 0.0f, 1.0f));
+    if (world.isAlive(picked)) engine.debugBox(world.getWorldPosition(picked), world.getScale(picked) * 0.5f, glm::vec4(1.0f, 0.9f, 0.1f, 1.0f));
+}
 
-    sceneCtx.world.setLocalMatrix(scene.lower(), m0);
-    sceneCtx.world.setLocalMatrix(scene.upper(), m1);
 }
 
 int main() {
@@ -100,77 +171,28 @@ int main() {
 
     const uint32_t cubeMesh = engine.loadMesh("cube");
     const uint32_t sphereMesh = engine.loadMesh("sphere");
-
-    engine.input().bindKey("save", GLFW_KEY_F5);
-    engine.input().bindKey("load", GLFW_KEY_F9);
-    engine.enableFlyCamera({.speed = 2.0f, .sprintMultiplier = 2.0f});
-    engine.setShaderWatch(true);
-    engine.enableImGui();
-    if (std::filesystem::exists("resources/data/params.json")) engine.params().loadFile("resources/data/params.json");
-    if (std::filesystem::exists("resources/data/post_fx.json")) engine.loadPostFx("resources/data/post_fx.json");
+    configureEngine(engine);
     DebugOverlay overlay;
     overlay.setVisible(std::getenv("LIT_OVERLAY") != nullptr);
-    if (std::getenv("LIT_GPU_PROFILE")) engine.setFullProfiling(true);
 
     World& world = engine.world();
-    world.camera().setFarPlane(500.0f);
+    world.camera().setFarPlane(FAR_PLANE);
 
     Scene scene({engine, world, cubeMesh, sphereMesh});
     scene.onStart();
 
-    if (const char* testScene = std::getenv("LIT_TESTSCENE")) {
-        TestSceneKit kit;
-        kit.cube = cubeMesh;
-        kit.sphere = sphereMesh;
-        kit.material = [&engine](const glm::vec3& color, const glm::vec3& emissive, float intensity, float roughness) {
-            Material m;
-            m.baseColor = color;
-            m.roughness = roughness;
-            m.emissive = emissive;
-            m.emissiveIntensity = intensity;
-            return engine.createMaterial(m);
-        };
-        TestSceneInfo info;
-        if (buildTestScene(engine, testScene, kit, info)) applyTestSceneCamera(engine, info);
-        else Lit::Log::Error("Unknown test scene {}", testScene);
-    }
-
-    if (const char* stress = std::getenv("LIT_STRESS")) {
-        const size_t count = static_cast<size_t>(std::atoll(stress));
-        std::mt19937 gen(1);
-        std::uniform_real_distribution<float> dist(-200.0f, 200.0f);
-        world.createBatch(count, [&](size_t i, EntityDesc& desc) {
-            desc.name = "stress";
-            desc.mesh = (i % 2 == 0) ? cubeMesh : sphereMesh;
-            desc.position = glm::vec3(dist(gen), dist(gen), dist(gen));
-            desc.shader = (i % 3 == 0) ? 1 : 0;
-        });
-        Lit::Log::Info("Spawned {} stress entities", count);
-    }
+    if (const char* testScene = std::getenv("LIT_TESTSCENE")) spawnTestScene(engine, testScene, cubeMesh, sphereMesh);
+    if (const char* stress = std::getenv("LIT_STRESS")) spawnStress(world, stress, cubeMesh, sphereMesh);
 
     bool showDebug = true;
     EntityHandle picked;
 
     return engine.run([&](float deltaTime) {
-        if (!engine.isMouseCaptured() && InputManager::IsMouseButtonPressed(GLFW_MOUSE_BUTTON_LEFT)) {
-            const glm::vec2 mouse = InputManager::GetMousePosition();
-            if (const auto hit = engine.pick(mouse.x, mouse.y)) {
-                picked = hit->entity;
-                Lit::Log::Info("Picked '{}' at distance {:.2f}", world.getName(hit->entity), hit->distance);
-            }
-        }
-
+        pickUnderMouse(engine, world, picked);
         if (InputManager::IsKeyPressed(GLFW_KEY_F1)) showDebug = !showDebug;
         if (InputManager::IsKeyPressed(GLFW_KEY_F3)) overlay.toggle();
         overlay.draw(engine);
-        if (showDebug) {
-            engine.debugHierarchy();
-            engine.debugLine(glm::vec3(0.0f), glm::vec3(1.0f, 0.0f, 0.0f), glm::vec4(1.0f, 0.1f, 0.1f, 1.0f));
-            engine.debugLine(glm::vec3(0.0f), glm::vec3(0.0f, 1.0f, 0.0f), glm::vec4(0.1f, 1.0f, 0.1f, 1.0f));
-            engine.debugLine(glm::vec3(0.0f), glm::vec3(0.0f, 0.0f, 1.0f), glm::vec4(0.2f, 0.4f, 1.0f, 1.0f));
-            engine.debugSphere(glm::vec3(2.0f, 1.0f, 0.0f), 0.5f, glm::vec4(1.0f, 1.0f, 0.0f, 1.0f));
-            if (world.isAlive(picked)) engine.debugBox(world.getWorldPosition(picked), world.getScale(picked) * 0.5f, glm::vec4(1.0f, 0.9f, 0.1f, 1.0f));
-        }
+        if (showDebug) drawDebugGizmos(engine, world, picked);
 
         if (engine.input().pressed("save")) world.saveScene("resources/sandbox.litscene");
         if (engine.input().pressed("load") && world.loadScene("resources/sandbox.litscene")) scene.rebind();

@@ -71,6 +71,7 @@ export struct StreamingConfig {
     double commitMillisPerFrame = 1.0;
     size_t uploadBytesPerFrame = 4u << 20;
     double hitchMillis = 33.0;
+    double primeTimeoutMillis = 20000.0;
     uint32_t window = 600;
 };
 
@@ -100,6 +101,8 @@ export struct StreamingStats {
     double frameMax = 0.0;
     double updateMillis = 0.0;
     double updateMaxMillis = 0.0;
+    uint32_t updateWork = 0;
+    uint32_t updateWorkMax = 0;
     uint64_t bytesCommitted = 0;
     uint64_t cellsLoaded = 0;
     uint64_t cellsUnloaded = 0;
@@ -120,7 +123,7 @@ export class StreamingSystem {
     [[nodiscard]] const StreamingConfig& config() const { return m_config; }
 
     void update(int cameraCell);
-    void prime(int cameraCell);
+    bool prime(int cameraCell);
     void recordFrame(double millis);
     void requestAsset(AssetRequest request);
     [[nodiscard]] bool assetReady(const std::string& key) const;
@@ -154,6 +157,11 @@ export class StreamingSystem {
     };
 
     void ensureSlots();
+    void refreshDistances(int cameraCell);
+    void startLoad(int cell, Slot& slot, int distance);
+    void pollLoading(Slot& slot, bool evict);
+    void stepCommitting(int cell, Slot& slot, bool evict, StreamBudget& budget, bool& touched);
+    void stepCell(int cell, StreamBudget& budget, bool& touched);
     void stepCells(StreamBudget& budget);
     void stepAssets(StreamBudget& budget);
 
@@ -163,6 +171,7 @@ export class StreamingSystem {
     AsyncJobs m_jobs;
     std::vector<Slot> m_slots;
     std::vector<int> m_dist;
+    std::vector<int> m_cellOrder;
     std::map<std::string, Asset> m_assets;
     mutable std::mutex m_assetMutex;
     std::vector<double> m_frames;

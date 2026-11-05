@@ -3,11 +3,13 @@ module;
 #include <algorithm>
 #include <atomic>
 #include <chrono>
+#include <cmath>
 #include <cstdint>
 #include <functional>
 #include <limits>
 #include <map>
 #include <memory>
+#include <numeric>
 #include <mutex>
 #include <queue>
 #include <string>
@@ -21,8 +23,15 @@ import Engine.Portal;
 import Engine.Render.entity;
 import Engine.World;
 
+namespace {
+constexpr std::chrono::microseconds kPrimeSleep{200};
+constexpr double kP99Fraction = 0.99;
+}
+
 AsyncJobs::AsyncJobs(size_t workers) {
-    for (size_t i = 0; i < std::max<size_t>(workers, 1); ++i) m_threads.emplace_back([this] { loop(); });
+    const size_t workerCount = std::max<size_t>(workers, 1);
+    m_threads.reserve(workerCount);
+    for (size_t worker = 0; worker < workerCount; ++worker) m_threads.emplace_back([this] { loop(); });
 }
 
 AsyncJobs::~AsyncJobs() {
@@ -31,7 +40,7 @@ AsyncJobs::~AsyncJobs() {
         m_stop = true;
     }
     m_wake.notify_all();
-    for (std::thread& t : m_threads) t.join();
+    for (std::thread& thread : m_threads) thread.join();
 }
 
 void AsyncJobs::submit(int priority, std::function<void()> job) {
@@ -59,12 +68,16 @@ void AsyncJobs::loop() {
             std::unique_lock lock(m_mutex);
             m_wake.wait(lock, [this] { return m_stop || !m_queue.empty(); });
             if (m_stop && m_queue.empty()) return;
-            auto best = std::min_element(m_queue.begin(), m_queue.end(), [](const Item& a, const Item& b) { return a.priority != b.priority ? a.priority < b.priority : a.order < b.order; });
+            const auto best = std::min_element(m_queue.begin(), m_queue.end(), [](const Item& left, const Item& right) { return left.priority != right.priority ? left.priority < right.priority : left.order < right.order; });
             item = std::move(*best);
-            m_queue.erase(best);
+            if (best != m_queue.end() - 1) *best = std::move(m_queue.back());
+            m_queue.pop_back();
             ++m_running;
         }
-        item.fn();
+        try {
+            item.fn();
+        } catch (...) {
+        }
         {
             std::lock_guard lock(m_mutex);
             --m_running;
@@ -82,23 +95,25 @@ void StreamingSystem::ensureSlots() {
 }
 
 std::vector<int> StreamingSystem::graphDistances(int from) const {
-    const size_t n = m_portals.cells().size();
-    std::vector<int> dist(n, std::numeric_limits<int>::max());
-    if (from < 0 || static_cast<size_t>(from) >= n) return dist;
+    constexpr int kUnreached = std::numeric_limits<int>::max();
+    const size_t cellCount = m_portals.cells().size();
+    std::vector<int> distances(cellCount, kUnreached);
+    if (from < 0 || static_cast<size_t>(from) >= cellCount) return distances;
+    const std::vector<Portal>& portals = m_portals.portals();
     std::vector<int> queue{from};
-    dist[static_cast<size_t>(from)] = 0;
+    distances[static_cast<size_t>(from)] = 0;
     for (size_t head = 0; head < queue.size(); ++head) {
-        const int c = queue[head];
-        for (int p : m_portals.portalsOf(c)) {
-            const int partner = m_portals.portals()[static_cast<size_t>(p)].partner;
+        const int cell = queue[head];
+        for (int portalIndex : m_portals.portalsOf(cell)) {
+            const int partner = portals[static_cast<size_t>(portalIndex)].partner;
             if (partner < 0) continue;
-            const int next = m_portals.portals()[static_cast<size_t>(partner)].cell;
-            if (next < 0 || dist[static_cast<size_t>(next)] != std::numeric_limits<int>::max()) continue;
-            dist[static_cast<size_t>(next)] = dist[static_cast<size_t>(c)] + 1;
+            const int next = portals[static_cast<size_t>(partner)].cell;
+            if (next < 0 || distances[static_cast<size_t>(next)] != kUnreached) continue;
+            distances[static_cast<size_t>(next)] = distances[static_cast<size_t>(cell)] + 1;
             queue.push_back(next);
         }
     }
-    return dist;
+    return distances;
 }
 
 CellState StreamingSystem::state(int cell) const { return cell >= 0 && static_cast<size_t>(cell) < m_slots.size() ? m_slots[static_cast<size_t>(cell)].state : CellState::Unloaded; }
@@ -107,137 +122,149 @@ int StreamingSystem::distance(int cell) const { return cell >= 0 && static_cast<
 
 std::vector<int> StreamingSystem::residentCells() const {
     std::vector<int> out;
-    for (size_t i = 0; i < m_slots.size(); ++i) {
-        if (m_slots[i].state == CellState::Resident) out.push_back(static_cast<int>(i));
+    for (size_t cell = 0; cell < m_slots.size(); ++cell) {
+        if (m_slots[cell].state == CellState::Resident) out.push_back(static_cast<int>(cell));
     }
     return out;
 }
 
 bool StreamingSystem::settled() const {
-    for (const Slot& s : m_slots) {
-        if (s.state == CellState::Loading || s.state == CellState::Ready || s.state == CellState::Committing || s.state == CellState::Unloading) return false;
+    for (const Slot& slot : m_slots) {
+        if (slot.state == CellState::Loading || slot.state == CellState::Ready || slot.state == CellState::Committing || slot.state == CellState::Unloading) return false;
     }
     std::lock_guard lock(m_assetMutex);
-    for (const auto& [key, a] : m_assets) {
-        if (!a.done) return false;
+    for (const auto& [key, asset] : m_assets) {
+        if (!asset.done) return false;
     }
     return true;
 }
 
-void StreamingSystem::stepCells(StreamBudget& budget) {
-    const int keep = m_config.keepHops;
-    const int load = m_config.loadHops;
-    std::vector<int> order;
-    for (size_t i = 0; i < m_slots.size(); ++i) order.push_back(static_cast<int>(i));
-    std::stable_sort(order.begin(), order.end(), [&](int a, int b) { return m_dist[static_cast<size_t>(a)] < m_dist[static_cast<size_t>(b)]; });
+void StreamingSystem::refreshDistances(int cameraCell) {
+    m_dist = graphDistances(cameraCell);
+    m_lastCell = cameraCell;
+    m_lastPortals = m_portals.portals().size();
+    m_cellOrder.resize(m_slots.size());
+    std::iota(m_cellOrder.begin(), m_cellOrder.end(), 0);
+    std::stable_sort(m_cellOrder.begin(), m_cellOrder.end(), [this](int left, int right) { return m_dist[static_cast<size_t>(left)] < m_dist[static_cast<size_t>(right)]; });
+}
 
-    m_inFlight = 0;
-    for (const Slot& s : m_slots) m_inFlight += s.state == CellState::Loading ? 1 : 0;
-    bool touched = false;
-    auto spendAllowed = [&] { return !touched || !budget.exhausted(); };
+void StreamingSystem::startLoad(int cell, Slot& slot, int distance) {
+    auto job = std::make_shared<JobResult>();
+    slot.job = job;
+    slot.cancelled = false;
+    slot.state = CellState::Loading;
+    ++m_inFlight;
+    m_jobs.submit(distance, [this, cell, job] {
+        try {
+            job->payload = m_loader.prepare(cell);
+        } catch (...) {
+            job->payload.reset();
+        }
+        job->done.store(true, std::memory_order_release);
+    });
+}
 
-    for (int cell : order) {
-        Slot& s = m_slots[static_cast<size_t>(cell)];
-        const int d = m_dist[static_cast<size_t>(cell)];
-        const bool wanted = d <= load;
-        const bool evict = d > keep;
-        switch (s.state) {
-        case CellState::Unloaded:
-            if (wanted && m_inFlight < m_config.maxInFlight && m_loader.prepare) {
-                auto job = std::make_shared<JobResult>();
-                s.job = job;
-                s.cancelled = false;
-                s.state = CellState::Loading;
-                ++m_inFlight;
-                m_jobs.submit(d, [this, cell, job] {
-                    job->payload = m_loader.prepare(cell);
-                    job->done.store(true, std::memory_order_release);
-                });
-            }
-            break;
-        case CellState::Loading:
-            if (evict) s.cancelled = true;
-            if (s.job && s.job->done.load(std::memory_order_acquire)) {
-                if (s.cancelled) {
-                    s.payload.reset();
-                    s.job.reset();
-                    s.state = CellState::Unloaded;
-                    ++m_stats.cellsCancelled;
-                } else {
-                    s.payload = std::move(s.job->payload);
-                    s.job.reset();
-                    s.state = CellState::Ready;
-                }
-            }
-            break;
-        default:
-            break;
-        }
-        if (s.state == CellState::Ready) {
-            if (evict) {
-                s.payload.reset();
-                s.state = CellState::Unloaded;
-                ++m_stats.cellsCancelled;
-            } else if (spendAllowed() && m_loader.commit) {
-                touched = true;
-                s.state = CellState::Committing;
-            }
-        }
-        if (s.state == CellState::Committing) {
-            if (evict) {
-                s.state = CellState::Unloading;
-                s.payload.reset();
-            } else if (spendAllowed()) {
-                touched = true;
-                const size_t before = budget.spent;
-                const bool done = !m_loader.commit || m_loader.commit(cell, s.payload.get(), budget);
-                m_stats.bytesCommitted += budget.spent - before;
-                if (done) {
-                    s.payload.reset();
-                    s.state = CellState::Resident;
-                    ++m_stats.cellsLoaded;
-                    if (m_loader.resident) m_loader.resident(cell);
-                }
-            }
-        }
-        if (s.state == CellState::Resident && evict) {
-            if (m_loader.evicting && !s.evictNotified) m_loader.evicting(cell);
-            s.evictNotified = true;
-            s.state = CellState::Unloading;
-        }
-        if (s.state == CellState::Unloading && (spendAllowed() || !m_loader.unload)) {
+void StreamingSystem::pollLoading(Slot& slot, bool evict) {
+    if (evict) slot.cancelled = true;
+    if (!slot.job || !slot.job->done.load(std::memory_order_acquire)) return;
+    if (slot.cancelled) {
+        slot.payload.reset();
+        slot.job.reset();
+        slot.state = CellState::Unloaded;
+        ++m_stats.cellsCancelled;
+        return;
+    }
+    slot.payload = std::move(slot.job->payload);
+    slot.job.reset();
+    slot.state = CellState::Ready;
+}
+
+void StreamingSystem::stepCommitting(int cell, Slot& slot, bool evict, StreamBudget& budget, bool& touched) {
+    if (evict) {
+        slot.state = CellState::Unloading;
+        slot.payload.reset();
+        return;
+    }
+    if (touched && budget.exhausted()) return;
+    touched = true;
+    ++m_stats.updateWork;
+    const size_t before = budget.spent;
+    const bool done = !m_loader.commit || m_loader.commit(cell, slot.payload.get(), budget);
+    m_stats.bytesCommitted += budget.spent - before;
+    if (!done) return;
+    slot.payload.reset();
+    slot.state = CellState::Resident;
+    ++m_stats.cellsLoaded;
+    if (m_loader.resident) m_loader.resident(cell);
+}
+
+void StreamingSystem::stepCell(int cell, StreamBudget& budget, bool& touched) {
+    Slot& slot = m_slots[static_cast<size_t>(cell)];
+    const int distance = m_dist[static_cast<size_t>(cell)];
+    const bool wanted = distance <= m_config.loadHops;
+    const bool evict = distance > m_config.keepHops;
+    if (slot.state == CellState::Unloaded && wanted && m_inFlight < m_config.maxInFlight && m_loader.prepare) startLoad(cell, slot, distance);
+    else if (slot.state == CellState::Loading) pollLoading(slot, evict);
+    if (slot.state == CellState::Ready) {
+        if (evict) {
+            slot.payload.reset();
+            slot.state = CellState::Unloaded;
+            ++m_stats.cellsCancelled;
+        } else if ((!touched || !budget.exhausted()) && m_loader.commit) {
             touched = true;
-            const bool done = !m_loader.unload || m_loader.unload(cell, budget);
-            if (done) {
-                s.state = CellState::Unloaded;
-                s.evictNotified = false;
-                ++m_stats.cellsUnloaded;
-            }
+            slot.state = CellState::Committing;
         }
+    }
+    if (slot.state == CellState::Committing) stepCommitting(cell, slot, evict, budget, touched);
+    if (slot.state == CellState::Resident && evict) {
+        if (m_loader.evicting && !slot.evictNotified) m_loader.evicting(cell);
+        slot.evictNotified = true;
+        slot.state = CellState::Unloading;
+    }
+    if (slot.state == CellState::Unloading && ((!touched || !budget.exhausted()) || !m_loader.unload)) {
+        touched = true;
+        ++m_stats.updateWork;
+        const bool done = !m_loader.unload || m_loader.unload(cell, budget);
+        if (!done) return;
+        slot.state = CellState::Unloaded;
+        slot.evictNotified = false;
+        ++m_stats.cellsUnloaded;
     }
 }
 
+void StreamingSystem::stepCells(StreamBudget& budget) {
+    m_inFlight = 0;
+    for (const Slot& slot : m_slots) m_inFlight += slot.state == CellState::Loading ? 1 : 0;
+    bool touched = false;
+    for (int cell : m_cellOrder) stepCell(cell, budget, touched);
+}
+
 void StreamingSystem::stepAssets(StreamBudget& budget) {
-    std::vector<std::string> ready;
+    struct ReadyAsset {
+        int priority;
+        Asset* asset;
+    };
+    std::vector<ReadyAsset> ready;
     {
         std::lock_guard lock(m_assetMutex);
-        for (auto& [key, a] : m_assets) {
-            if (!a.done && a.job && a.job->done.load(std::memory_order_acquire)) ready.push_back(key);
+        for (auto& [key, asset] : m_assets) {
+            if (!asset.done && asset.job && asset.job->done.load(std::memory_order_acquire)) ready.push_back({asset.request.priority, &asset});
         }
     }
-    std::stable_sort(ready.begin(), ready.end(), [&](const std::string& x, const std::string& y) { return m_assets[x].request.priority < m_assets[y].request.priority; });
+    std::stable_sort(ready.begin(), ready.end(), [](const ReadyAsset& left, const ReadyAsset& right) { return left.priority < right.priority; });
     bool touched = false;
-    for (const std::string& key : ready) {
+    for (const ReadyAsset& entry : ready) {
         if (touched && budget.exhausted()) break;
-        Asset& a = m_assets[key];
+        Asset& asset = *entry.asset;
         touched = true;
-        if (a.request.finish) a.request.finish(a.job->payload);
-        budget.spend(a.request.bytes);
-        m_stats.bytesCommitted += a.request.bytes;
+        ++m_stats.updateWork;
+        if (asset.request.finish) asset.request.finish(asset.job->payload);
+        budget.spend(asset.request.bytes);
+        m_stats.bytesCommitted += asset.request.bytes;
         ++m_stats.assetsLoaded;
         std::lock_guard lock(m_assetMutex);
-        a.done = true;
-        a.job->payload.reset();
+        asset.done = true;
+        asset.job->payload.reset();
     }
 }
 
@@ -252,77 +279,86 @@ void StreamingSystem::requestAsset(AssetRequest request) {
     const int priority = asset.request.priority;
     m_assets.emplace(asset.request.key, std::move(asset));
     m_jobs.submit(priority, [job, load] {
-        if (load) job->payload = load();
+        try {
+            if (load) job->payload = load();
+        } catch (...) {
+            job->payload.reset();
+        }
         job->done.store(true, std::memory_order_release);
     });
 }
 
 bool StreamingSystem::assetReady(const std::string& key) const {
     std::lock_guard lock(m_assetMutex);
-    const auto it = m_assets.find(key);
-    return it != m_assets.end() && it->second.done;
+    const auto found = m_assets.find(key);
+    return found != m_assets.end() && found->second.done;
 }
 
 void StreamingSystem::update(int cameraCell) {
     const auto start = std::chrono::steady_clock::now();
     ensureSlots();
-    if (cameraCell != m_lastCell || m_portals.portals().size() != m_lastPortals || m_dist.size() != m_slots.size()) {
-        m_dist = graphDistances(cameraCell);
-        m_lastCell = cameraCell;
-        m_lastPortals = m_portals.portals().size();
-    }
+    if (cameraCell != m_lastCell || m_portals.portals().size() != m_lastPortals || m_dist.size() != m_slots.size()) refreshDistances(cameraCell);
     StreamBudget budget;
     budget.start = start;
     budget.millis = m_config.commitMillisPerFrame;
     budget.bytes = m_config.uploadBytesPerFrame;
+    m_stats.updateWork = 0;
     stepAssets(budget);
     stepCells(budget);
-    const double ms = std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - start).count();
-    m_stats.updateMillis = ms;
-    m_stats.updateMaxMillis = std::max(m_stats.updateMaxMillis, ms);
+    m_stats.updateWorkMax = std::max(m_stats.updateWorkMax, m_stats.updateWork);
+    const double elapsedMillis = std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - start).count();
+    m_stats.updateMillis = elapsedMillis;
+    m_stats.updateMaxMillis = std::max(m_stats.updateMaxMillis, elapsedMillis);
 }
 
-void StreamingSystem::prime(int cameraCell) {
+bool StreamingSystem::prime(int cameraCell) {
     ensureSlots();
-    m_dist = graphDistances(cameraCell);
-    m_lastCell = cameraCell;
-    m_lastPortals = m_portals.portals().size();
-    for (int guard = 0; guard < 100000; ++guard) {
+    refreshDistances(cameraCell);
+    const double timeoutMillis = std::isfinite(m_config.primeTimeoutMillis) ? std::max(0.0, m_config.primeTimeoutMillis) : 0.0;
+    const auto deadline = std::chrono::steady_clock::now() + std::chrono::duration_cast<std::chrono::steady_clock::duration>(std::chrono::duration<double, std::milli>(timeoutMillis));
+    while (true) {
         StreamBudget budget;
         budget.unlimited = true;
         stepAssets(budget);
         stepCells(budget);
-        if (settled()) return;
-        std::this_thread::sleep_for(std::chrono::microseconds(200));
+        if (settled()) return true;
+        if (std::chrono::steady_clock::now() >= deadline) return false;
+        std::this_thread::sleep_for(kPrimeSleep);
     }
 }
 
 void StreamingSystem::recordFrame(double millis) {
+    if (!std::isfinite(millis)) return;
     ++m_stats.frames;
     m_stats.frameMax = std::max(m_stats.frameMax, millis);
     if (millis > m_config.hitchMillis) ++m_stats.hitches;
+    if (m_config.window == 0) return;
     if (m_frames.size() < m_config.window) {
         m_frames.push_back(millis);
-    } else {
-        m_frames[m_frameHead] = millis;
-        m_frameHead = (m_frameHead + 1) % m_frames.size();
+        return;
     }
+    m_frameHead %= m_frames.size();
+    m_frames[m_frameHead] = millis;
+    m_frameHead = (m_frameHead + 1) % m_frames.size();
 }
 
 StreamingStats StreamingSystem::stats() const {
     StreamingStats out = m_stats;
     if (!m_frames.empty()) {
         std::vector<double> sorted = m_frames;
-        std::sort(sorted.begin(), sorted.end());
-        out.frameP50 = sorted[sorted.size() / 2];
-        out.frameP99 = sorted[std::min(sorted.size() - 1, static_cast<size_t>(static_cast<double>(sorted.size()) * 0.99))];
+        const size_t medianIndex = sorted.size() / 2;
+        const size_t p99Index = std::min(sorted.size() - 1, static_cast<size_t>(static_cast<double>(sorted.size()) * kP99Fraction));
+        std::nth_element(sorted.begin(), sorted.begin() + static_cast<std::ptrdiff_t>(medianIndex), sorted.end());
+        out.frameP50 = sorted[medianIndex];
+        if (p99Index > medianIndex) std::nth_element(sorted.begin() + static_cast<std::ptrdiff_t>(medianIndex) + 1, sorted.begin() + static_cast<std::ptrdiff_t>(p99Index), sorted.end());
+        out.frameP99 = sorted[p99Index];
     }
-    for (const Slot& s : m_slots) {
-        if (s.state == CellState::Resident) ++out.residentCells;
-        if (s.state == CellState::Loading || s.state == CellState::Ready || s.state == CellState::Committing) ++out.pendingCells;
+    for (const Slot& slot : m_slots) {
+        if (slot.state == CellState::Resident) ++out.residentCells;
+        if (slot.state == CellState::Loading || slot.state == CellState::Ready || slot.state == CellState::Committing) ++out.pendingCells;
     }
     std::lock_guard lock(m_assetMutex);
-    for (const auto& [key, a] : m_assets) out.pendingAssets += a.done ? 0 : 1;
+    for (const auto& [key, asset] : m_assets) out.pendingAssets += asset.done ? 0 : 1;
     return out;
 }
 
@@ -330,76 +366,4 @@ void StreamingSystem::resetStats() {
     m_stats = {};
     m_frames.clear();
     m_frameHead = 0;
-}
-
-CellLoader makeBatchLoader(World& world, PortalSystem& portals, DeltaStore* deltas, std::function<CellContent(int cell)> build, size_t destroyBatch) {
-    struct Batch {
-        CellContent content;
-        size_t next = 0;
-    };
-    struct Shared {
-        std::map<int, std::vector<EntityHandle>> doomed;
-        std::map<int, std::vector<EntityHandle>> created;
-        std::map<int, bool> collected;
-    };
-    auto shared = std::make_shared<Shared>();
-    CellLoader loader;
-    loader.prepare = [build](int cell) -> std::shared_ptr<void> {
-        auto batch = std::make_shared<Batch>();
-        batch->content = build(cell);
-        return batch;
-    };
-    loader.commit = [&world, &portals, deltas, shared](int cell, void* payload, StreamBudget& budget) {
-        auto* batch = static_cast<Batch*>(payload);
-        const std::string& name = portals.cells()[static_cast<size_t>(cell)].name;
-        while (batch->next < batch->content.entities.size()) {
-            const CellEntity& e = batch->content.entities[batch->next++];
-            const EntityHandle h = world.create(e.desc);
-            if (!e.tag.empty()) world.setTag(h, e.tag);
-            world.setLayer(h, e.layer);
-            if (!e.visible) world.setVisible(h, false);
-            shared->created[cell].push_back(h);
-            if (deltas) deltas->registerBase(name, e.key, h);
-            budget.spend(e.bytes);
-            if (budget.exhausted()) break;
-        }
-        if (batch->next < batch->content.entities.size()) return false;
-        if (deltas) deltas->applyCell(name);
-        return true;
-    };
-    loader.evicting = [&portals, deltas](int cell) {
-        if (deltas) deltas->captureCell(portals.cells()[static_cast<size_t>(cell)].name);
-    };
-    loader.unload = [&world, &portals, deltas, shared, destroyBatch](int cell, StreamBudget& budget) {
-        const std::string& name = portals.cells()[static_cast<size_t>(cell)].name;
-        if (!shared->collected[cell]) {
-            std::vector<EntityHandle>& list = shared->doomed[cell];
-            list = shared->created[cell];
-            if (deltas) {
-                for (EntityHandle h : deltas->liveEntities(name)) {
-                    if (std::find(list.begin(), list.end(), h) == list.end()) list.push_back(h);
-                }
-            }
-            shared->created.erase(cell);
-            shared->collected[cell] = true;
-        }
-        std::vector<EntityHandle>& doomed = shared->doomed[cell];
-        while (!doomed.empty()) {
-            const size_t n = std::min(destroyBatch, doomed.size());
-            std::vector<EntityHandle> chunk(doomed.end() - static_cast<std::ptrdiff_t>(n), doomed.end());
-            doomed.resize(doomed.size() - n);
-            std::vector<EntityHandle> alive;
-            for (EntityHandle h : chunk) {
-                if (world.isAlive(h)) alive.push_back(h);
-            }
-            world.destroyBatch(alive);
-            budget.spend(n * 64);
-            if (budget.exhausted() && !doomed.empty()) return false;
-        }
-        if (deltas) deltas->releaseCell(name);
-        shared->doomed.erase(cell);
-        shared->collected.erase(cell);
-        return true;
-    };
-    return loader;
 }

@@ -60,8 +60,16 @@ ninja run
 ```
 
 
-## 2.3. Using the World API
-See [docs/World.md](docs/World.md) for creating, editing, querying and saving scene content.
+## 2.3. Documentation
+- [docs/QuickStart.md](docs/QuickStart.md): build, run the editor, run headless, tests and benchmarks.
+- [docs/Architecture.md](docs/Architecture.md): module map and layering.
+- [docs/HeadlessCli.md](docs/HeadlessCli.md): headless command line reference.
+- [docs/World.md](docs/World.md): creating, editing, querying and saving scene content.
+- [docs/FeatureGuide.md](docs/FeatureGuide.md): how to use each user-facing feature (reflections, IK spider, validator, profiler, replay verify, ...).
+- [docs/Changelog-2026-11.md](docs/Changelog-2026-11.md): what changed overnight, perf tables and known gaps.
+- [docs/IK.md](docs/IK.md), [docs/Nav.md](docs/Nav.md), [docs/Lighting.md](docs/Lighting.md), [docs/ColorBleeding.md](docs/ColorBleeding.md), [docs/Determinism.md](docs/Determinism.md): feature references.
+- [docs/GpuValidation.md](docs/GpuValidation.md), [docs/GpuTimings.md](docs/GpuTimings.md), [docs/Build.md](docs/Build.md): GPU runs, pass timings, build and sanitizer directories.
+- [docs/Tooling.md](docs/Tooling.md): simulation loop, replay, dumps and perf logs.
 
 # 3. Socials
 ### Find us here!

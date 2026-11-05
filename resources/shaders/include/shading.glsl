@@ -48,6 +48,8 @@ struct ShadingData {
     float transmission;
     float ior;
     vec3 indirectDiffuse;
+    vec3 bentNormal;
+    float lobeNormalization;
 };
 
 ShadingData prepareShading(vec3 position, vec3 N, vec3 baseColor, float metallic, float perceptualRoughness, float occlusion, float tangentAngle, uint materialId) {
@@ -88,7 +90,29 @@ ShadingData prepareShading(vec3 position, vec3 N, vec3 baseColor, float metallic
     s.ior = m.transmission.y;
     s.diffuseColor *= 1.0 - s.transmission;
     s.indirectDiffuse = vec3(0.0);
+    s.bentNormal = N;
+    s.lobeNormalization = 1.0;
     return s;
+}
+
+float coneSpecularOcclusion(vec3 bentNormal, float visibility, vec3 R, float roughness) {
+    float visibleCone = acos(sqrt(saturate(1.0 - visibility)));
+    float specularCone = clamp(HALF_PI * roughness * 2.0, 0.03, HALF_PI);
+    float separation = acos(clamp(dot(R, bentNormal), -1.0, 1.0));
+    float lowAngle = abs(visibleCone - specularCone);
+    float highAngle = visibleCone + specularCone;
+    float overlap = smoothstep(0.0, 1.0, 1.0 - saturate((separation - lowAngle) / max(highAngle - lowAngle, 1e-4)));
+    float coverage = min(1.0, sq(visibleCone / max(specularCone, 1e-3)));
+    return saturate(overlap * coverage);
+}
+
+void applyBentNormal(inout ShadingData s, vec3 bentNormal, float visibility) {
+    if (qualityParams2.y < 0.5) return;
+    float len2 = dot(bentNormal, bentNormal);
+    if (len2 < 1e-4) return;
+    s.bentNormal = bentNormal * inversesqrt(len2);
+    float cone = coneSpecularOcclusion(s.bentNormal, visibility, s.R, s.roughness);
+    s.specularOcclusion = mix(s.specularOcclusion, cone, 0.6);
 }
 
 vec3 specularLobe(ShadingData s, vec3 L, vec3 H, float NoL, float NoH, float LoH) {
@@ -104,7 +128,7 @@ vec3 specularLobe(ShadingData s, vec3 L, vec3 H, float NoL, float NoH, float LoH
         V = V_SmithGGXCorrelated(s.NoV, NoL, s.roughness);
     }
     vec3 F = F_Schlick(s.f0, saturate(dot(s.f0, vec3(16.5))), LoH);
-    return D * V * F * s.energyCompensation;
+    return D * V * F * s.energyCompensation * s.lobeNormalization;
 }
 
 vec3 surfaceShading(ShadingData s, vec3 L, vec3 lightColor, float visibility) {
@@ -142,16 +166,48 @@ vec3 surfaceShading(ShadingData s, vec3 L, vec3 lightColor, float visibility) {
     return color * lightColor;
 }
 
+vec3 representativePoint(vec3 R, vec3 toLight, vec3 axis, float radius, float halfLength) {
+    vec3 center = toLight;
+    if (halfLength > 1e-4) {
+        vec3 end0 = toLight - axis * halfLength;
+        vec3 segment = axis * (2.0 * halfLength);
+        float alongRay = dot(R, segment);
+        float denominator = dot(segment, segment) - alongRay * alongRay;
+        float t = denominator > 1e-6 ? (dot(R, end0) * alongRay - dot(end0, segment)) / denominator : 0.5;
+        center = end0 + segment * saturate(t);
+    }
+    vec3 centerToRay = dot(center, R) * R - center;
+    return center + centerToRay * saturate(radius / max(length(centerToRay), 1e-4));
+}
+
+vec3 evaluateAreaLight(ShadingData s, GpuLight light, vec3 toLight, float d2, float visibility) {
+    float radius = light.params.x;
+    float halfLength = light.params.y;
+    float attenuation = distanceAttenuation(d2 + radius * radius, light.params.z);
+    if (attenuation <= 0.0) return vec3(0.0);
+    vec3 representative = representativePoint(s.R, toLight, light.directionCos.xyz, radius, halfLength);
+    float representativeDistance = length(representative);
+    vec3 L = representative / max(representativeDistance, 1e-4);
+    float widened = saturate(s.roughness + (radius + halfLength * 0.5) / (2.0 * max(sqrt(d2), 1e-3)));
+    ShadingData wide = s;
+    wide.lobeNormalization = sq(s.roughness / max(widened, 1e-3));
+    wide.roughness = widened;
+    return surfaceShading(wide, L, light.colorType.rgb * attenuation, visibility);
+}
+
 vec3 evaluatePunctual(ShadingData s, GpuLight light, float noise) {
     vec3 toLight = light.positionRange.xyz - s.position;
     float d2 = dot(toLight, toLight);
     vec3 L = toLight * inversesqrt(max(d2, 1e-8));
+    bool isSpot = light.colorType.w > 1.5;
+    bool isArea = !isSpot && qualityParams.z > 0.5 && light.params.x + light.params.y > 1e-4;
     float attenuation = distanceAttenuation(d2, light.params.z);
-    if (light.colorType.w > 1.5) attenuation *= spotAttenuation(L, light);
+    if (isSpot) attenuation *= spotAttenuation(L, light);
     if (attenuation <= 0.0) return vec3(0.0);
     float NoL = dot(s.N, L);
     float visibility = 1.0;
     if (light.params.w >= 0.0 && (NoL > 0.0 || s.subsurface > 0.0)) visibility = localShadow(int(light.params.w + 0.5), light.colorType.w < 1.5, light.positionRange.xyz, s.position, s.N, L, max(NoL, 0.05), noise);
+    if (isArea) return evaluateAreaLight(s, light, toLight, d2, visibility);
     return surfaceShading(s, L, light.colorType.rgb * attenuation, visibility);
 }
 
@@ -165,12 +221,14 @@ vec3 evaluateLights(ShadingData s, vec2 pixel, float viewDepth) {
     return color;
 }
 
+float g_contactShadow = 1.0;
+
 vec3 evaluateSun(ShadingData s, vec2 pixel, out float visibility) {
     vec3 L = sunDirection.xyz;
     float NoL = dot(s.N, L);
     visibility = 0.0;
     if (sunIlluminance.w <= 0.0) return vec3(0.0);
-    if (NoL > 0.0 || s.subsurface > 0.0) visibility = sunShadow(s.position, s.N, max(NoL, 0.05), pixel);
+    if (NoL > 0.0 || s.subsurface > 0.0) visibility = sunShadow(s.position, s.N, max(NoL, 0.05), pixel) * g_contactShadow;
     return surfaceShading(s, L, sunIlluminance.rgb, visibility);
 }
 
@@ -189,8 +247,8 @@ vec3 irradianceSH(vec3 n) {
 
 vec3 prefilteredRadiance(vec3 R, float perceptualRoughness) { return textureLod(u_prefilteredEnv, R, perceptualRoughness * (ENV_MIP_COUNT - 1.0)).rgb * ENV_DECODE * skyGradient[1].w; }
 
-vec3 evaluateIBL(ShadingData s, vec4 ssr) {
-    vec3 irradiance = irradianceSH(s.N);
+vec3 evaluateIBL(ShadingData s) {
+    vec3 irradiance = irradianceSH(s.bentNormal);
     vec3 R = s.R;
     if (abs(s.anisotropy) > 0.01) {
         vec3 direction = s.anisotropy >= 0.0 ? s.B : s.T;
@@ -200,7 +258,6 @@ vec3 evaluateIBL(ShadingData s, vec4 ssr) {
         R = reflect(-s.V, normalize(mix(s.N, bent, bend)));
     }
     vec3 radiance = prefilteredRadiance(R, s.perceptualRoughness);
-    radiance = mix(radiance, ssr.rgb, saturate(ssr.a));
     vec3 FssEss = s.f0 * s.dfg.x + s.dfg.y;
     float Ess = s.dfg.x + s.dfg.y;
     float Ems = 1.0 - Ess;
