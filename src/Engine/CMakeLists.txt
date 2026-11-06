@@ -121,6 +121,7 @@ target_sources(Engine
         Tools/Perf.cppm
         Tools/SceneValidator.cppm
         Tools/TestScenes.cppm
+        Tools/GalleryScene.cppm
         Params/Params.cppm
         Observation/Observation.cppm
         State/State.cppm
@@ -231,6 +232,8 @@ target_sources(Engine
         Tools/SceneValidator.cpp
         Tools/FrameExplain.cpp
         Tools/TestScenes.cpp
+        Tools/GalleryScene.cpp
+        Tools/GalleryPlay.cpp
         Params/Params.cpp
         Params/ParamsLoader.cpp
         Observation/Observation.cpp

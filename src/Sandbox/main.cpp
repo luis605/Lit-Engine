@@ -19,6 +19,7 @@ import Engine.Render.entity;
 import Engine.glm;
 import Engine.Overlay;
 import Engine.TestScenes;
+import Engine.GalleryScene;
 import Engine.Render.material;
 import Sandbox.scene;
 
@@ -99,10 +100,10 @@ void inverseKinematics(Scene& scene, float deltaTime) {
     world.setLocalMatrix(scene.upper(), limbTransform(lowerCenter, rotationBetween(stretchAxis, lowerDirection), limbSize));
 }
 
-void configureEngine(Engine& engine) {
+void configureEngine(Engine& engine, bool playable) {
     engine.input().bindKey("save", GLFW_KEY_F5);
     engine.input().bindKey("load", GLFW_KEY_F9);
-    engine.enableFlyCamera({.speed = 2.0f, .sprintMultiplier = 2.0f});
+    if (!playable) engine.enableFlyCamera({.speed = 2.0f, .sprintMultiplier = 2.0f});
     engine.setShaderWatch(true);
     engine.enableImGui();
     if (std::filesystem::exists("resources/data/params.json")) engine.params().loadFile("resources/data/params.json");
@@ -128,6 +129,16 @@ void spawnTestScene(Engine& engine, const char* name, uint32_t cubeMesh, uint32_
     } else {
         Lit::Log::Error("Unknown test scene {}", name);
     }
+}
+
+void startGallery(Engine& engine, uint32_t cubeMesh, uint32_t sphereMesh) {
+    GalleryKit kit;
+    kit.cube = cubeMesh;
+    kit.sphere = sphereMesh;
+    kit.colliders = true;
+    kit.material = [&engine](const Material& material) { return engine.createMaterial(material); };
+    buildGalleryScene(engine, kit);
+    enableGalleryPlay(engine, kit);
 }
 
 void spawnStress(World& world, const char* countText, uint32_t cubeMesh, uint32_t sphereMesh) {
@@ -165,13 +176,15 @@ void drawDebugGizmos(Engine& engine, World& world, EntityHandle picked) {
 
 }
 
-int main() {
+int main(int argumentCount, char** arguments) {
+    const char* requestedScene = argumentCount > 1 ? arguments[1] : std::getenv("LIT_TESTSCENE");
+    const bool gallery = requestedScene && std::string(requestedScene) == "gallery";
     Engine engine;
     if (!engine.open({"Lit Sandbox"})) return 1;
 
     const uint32_t cubeMesh = engine.loadMesh("cube");
     const uint32_t sphereMesh = engine.loadMesh("sphere");
-    configureEngine(engine);
+    configureEngine(engine, gallery);
     DebugOverlay overlay;
     overlay.setVisible(std::getenv("LIT_OVERLAY") != nullptr);
 
@@ -179,9 +192,10 @@ int main() {
     world.camera().setFarPlane(FAR_PLANE);
 
     Scene scene({engine, world, cubeMesh, sphereMesh});
-    scene.onStart();
+    if (gallery) startGallery(engine, cubeMesh, sphereMesh);
+    else scene.onStart();
 
-    if (const char* testScene = std::getenv("LIT_TESTSCENE")) spawnTestScene(engine, testScene, cubeMesh, sphereMesh);
+    if (requestedScene && !gallery) spawnTestScene(engine, requestedScene, cubeMesh, sphereMesh);
     if (const char* stress = std::getenv("LIT_STRESS")) spawnStress(world, stress, cubeMesh, sphereMesh);
 
     bool showDebug = true;
@@ -192,11 +206,12 @@ int main() {
         if (InputManager::IsKeyPressed(GLFW_KEY_F1)) showDebug = !showDebug;
         if (InputManager::IsKeyPressed(GLFW_KEY_F3)) overlay.toggle();
         overlay.draw(engine);
-        if (showDebug) drawDebugGizmos(engine, world, picked);
+        if (showDebug && !gallery) drawDebugGizmos(engine, world, picked);
 
         if (engine.input().pressed("save")) world.saveScene("resources/sandbox.litscene");
         if (engine.input().pressed("load") && world.loadScene("resources/sandbox.litscene")) scene.rebind();
 
+        if (gallery) return;
         inverseKinematics(scene, deltaTime);
         scene.onUpdate(deltaTime, static_cast<float>(engine.time().unscaledElapsed));
     });

@@ -271,3 +271,7 @@ Reflections:
 
 ## LitShot gallery test scene (2026-11-05)
 - `LitShot --testscene gallery` (src/Shot/GalleryScene.cpp): open-sided courtyard with crimson, teal and cream walls (colour bleed), polished floor, 9-step metal and dielectric roughness sweeps, clear and amber glass spheres, emissive orbs, arch, stacked boxes and stepped columns, warm point, cool tube and two spot lights, a reflection probe, physical sky with sun and clouds. Rendered with `--bake-frame 5`, 0 Diligent error lines, viewed after 3 composition iterations; image at docs/images/gallery.png.
+
+## Playable gallery (2026-11-05)
+- Gallery builder moved from src/Shot into module Engine.GalleryScene (Tools/GalleryScene.cpp, GalleryPlay.cpp) with a GalleryKit (meshes, material factory, colliders flag) so LitShot (no colliders) and Sandbox (colliders) share it. `Sandbox gallery` or LIT_TESTSCENE=gallery enables CharacterController, static box colliders for floor, walls, arch, stack, columns, pedestals, dynamic sphere colliders for sweep/glass/chrome spheres, spawn at (0,0.05,10) facing the scene, Esc releases mouse, F throws spheres, R cycles time of day, fall respawn.
+- tests/GalleryTests.cpp (headless, 19 checks): floor grounding, left/right/back wall, column and arch-column blocking, dynamic spheres stay above floor, fall respawn. ctest 30/30. LitShot gallery re-rendered and viewed, 0 error lines.

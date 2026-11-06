@@ -34,12 +34,39 @@ uint32_t groupCount(uint32_t size) { return (size + kThreadGroupSize - 1) / kThr
 
 void createPostBindings(Lighting::Data& state, Diligent::IBuffer* scene) {
     for (int parity = 0; parity < 2; ++parity) {
-        state.histogramSrb[parity] = litgpu::makeBinding(state.histogramPso, {{"u_hdr", litgpu::srv(state.hdrTargets[parity])}, {"ExposureBuffer", state.exposure}, {"HistogramBuffer", state.histogram}, {"ExposureConstants", state.exposureConstants}});
-        state.bloomSourceSrb[parity] = litgpu::makeBinding(state.bloomDownPso, {{"u_source", litgpu::srv(state.hdrTargets[parity])}, {"u_output", litgpu::uav(state.bloomDown[0])}, {"BloomConstants", state.bloomConstants}});
-        state.tonemapSrb[parity] = litgpu::makeBinding(state.tonemapPso, {{"SceneData", scene}, {"u_hdr", litgpu::srv(state.hdrTargets[parity])}, {"u_bloom", litgpu::srv(state.bloomUp[0])}, {"u_depth", litgpu::srv(state.shadeDepth)}, {"u_gbuffer2", litgpu::srv(state.gbuffer[2])}, {"ExposureBuffer", state.exposure}});
+        state.histogramSrb[parity] = litgpu::makeBinding(state.histogramPso,
+                                                         {
+                                                             {"u_hdr",             litgpu::srv(state.hdrTargets[parity])},
+                                                             {"ExposureBuffer",    state.exposure                       },
+                                                             {"HistogramBuffer",   state.histogram                      },
+                                                             {"ExposureConstants", state.exposureConstants              }
+        });
+        state.bloomSourceSrb[parity] = litgpu::makeBinding(state.bloomDownPso,
+                                                           {
+                                                               {"u_source",       litgpu::srv(state.hdrTargets[parity])},
+                                                               {"u_output",       litgpu::uav(state.bloomDown[0])      },
+                                                               {"BloomConstants", state.bloomConstants                 }
+        });
+        state.tonemapSrb[parity] = litgpu::makeBinding(state.tonemapPso,
+                                                       {
+                                                           {"SceneData",      scene                                },
+                                                           {"u_hdr",          litgpu::srv(state.hdrTargets[parity])},
+                                                           {"u_bloom",        litgpu::srv(state.bloomUp[0])        },
+                                                           {"u_depth",        litgpu::srv(state.shadeDepth)        },
+                                                           {"u_gbuffer2",     litgpu::srv(state.gbuffer[2])        },
+                                                           {"ExposureBuffer", state.exposure                       }
+        });
     }
-    state.exposureSrb = litgpu::makeBinding(state.exposurePso, {{"ExposureBuffer", state.exposure}, {"HistogramBuffer", state.histogram}, {"ExposureConstants", state.exposureConstants}});
-    state.commitSrb = litgpu::makeBinding(state.commitPso, {{"ExposureBuffer", state.exposure}});
+    state.exposureSrb = litgpu::makeBinding(state.exposurePso,
+                                            {
+                                                {"ExposureBuffer",    state.exposure         },
+                                                {"HistogramBuffer",   state.histogram        },
+                                                {"ExposureConstants", state.exposureConstants}
+    });
+    state.commitSrb = litgpu::makeBinding(state.commitPso,
+                                          {
+                                              {"ExposureBuffer", state.exposure}
+    });
     state.bloomDownSrbs.clear();
     state.bloomUpSrbs.clear();
     for (uint32_t level = 0; level < kBloomLevels; ++level) {
@@ -47,23 +74,58 @@ void createPostBindings(Lighting::Data& state, Diligent::IBuffer* scene) {
             state.bloomDownSrbs.emplace_back();
             continue;
         }
-        state.bloomDownSrbs.push_back(litgpu::makeBinding(state.bloomDownPso, {{"u_source", litgpu::srv(state.bloomDown[level - 1])}, {"u_output", litgpu::uav(state.bloomDown[level])}, {"BloomConstants", state.bloomConstants}}));
+        state.bloomDownSrbs.push_back(litgpu::makeBinding(state.bloomDownPso,
+                                                          {
+                                                              {"u_source",       litgpu::srv(state.bloomDown[level - 1])},
+                                                              {"u_output",       litgpu::uav(state.bloomDown[level])    },
+                                                              {"BloomConstants", state.bloomConstants                   }
+        }));
     }
     for (uint32_t level = 0; level + 1 < kBloomLevels; ++level) {
         Diligent::ITexture* lower = level + 2 == kBloomLevels ? state.bloomDown[level + 1].RawPtr() : state.bloomUp[level + 1].RawPtr();
-        state.bloomUpSrbs.push_back(litgpu::makeBinding(state.bloomUpPso, {{"u_lower", litgpu::srv(lower)}, {"u_current", litgpu::srv(state.bloomDown[level])}, {"u_output", litgpu::uav(state.bloomUp[level])}, {"BloomConstants", state.bloomConstants}}));
+        state.bloomUpSrbs.push_back(litgpu::makeBinding(state.bloomUpPso,
+                                                        {
+                                                            {"u_lower",        litgpu::srv(lower)                 },
+                                                            {"u_current",      litgpu::srv(state.bloomDown[level])},
+                                                            {"u_output",       litgpu::uav(state.bloomUp[level])  },
+                                                            {"BloomConstants", state.bloomConstants               }
+        }));
     }
-    state.fxaaSrb = litgpu::makeBinding(state.fxaaPso, {{"SceneData", scene}, {"u_ldr", litgpu::srv(finalColorTexture(state))}});
+    state.fxaaSrb = litgpu::makeBinding(state.fxaaPso,
+                                        {
+                                            {"SceneData", scene                                },
+                                            {"u_ldr",     litgpu::srv(finalColorTexture(state))}
+    });
     createUpscaleBindings(state, scene);
 }
 
 void createGodRayBindings(Lighting::Data& state, Diligent::IBuffer* scene) {
     state.godRayVersion = state.bindingVersion;
     state.godRayDepth = state.shadeDepth;
-    state.godRayMaskSrb = litgpu::makeBinding(state.godRayMaskPso, {{"SceneData", scene}, {"GodRayConstants", state.godRayConstants}, {"u_depth", litgpu::srv(state.shadeDepth)}, {"u_clouds", litgpu::srv(state.clouds)}, {"u_output", litgpu::uav(state.godRays[0])}});
+    state.godRayMaskSrb = litgpu::makeBinding(state.godRayMaskPso,
+                                              {
+                                                  {"SceneData",       scene                        },
+                                                  {"GodRayConstants", state.godRayConstants        },
+                                                  {"u_depth",         litgpu::srv(state.shadeDepth)},
+                                                  {"u_clouds",        litgpu::srv(state.clouds)    },
+                                                  {"u_output",        litgpu::uav(state.godRays[0])}
+    });
     for (int index = 0; index < 2; ++index) {
-        state.godRayBlurSrb[index] = litgpu::makeBinding(state.godRayBlurPso, {{"SceneData", scene}, {"GodRayConstants", state.godRayConstants}, {"u_input", litgpu::srv(state.godRays[index])}, {"u_output", litgpu::uav(state.godRays[1 - index])}});
-        state.godRayCompositeSrb[index] = litgpu::makeBinding(state.godRayCompositePso, {{"SceneData", scene}, {"GodRayConstants", state.godRayConstants}, {"u_shafts", litgpu::srv(state.godRays[1])}, {"u_hdr", litgpu::uav(state.hdrTargets[index])}, {"ExposureBuffer", state.exposure}});
+        state.godRayBlurSrb[index] = litgpu::makeBinding(state.godRayBlurPso,
+                                                         {
+                                                             {"SceneData",       scene                                },
+                                                             {"GodRayConstants", state.godRayConstants                },
+                                                             {"u_input",         litgpu::srv(state.godRays[index])    },
+                                                             {"u_output",        litgpu::uav(state.godRays[1 - index])}
+        });
+        state.godRayCompositeSrb[index] = litgpu::makeBinding(state.godRayCompositePso,
+                                                              {
+                                                                  {"SceneData",       scene                               },
+                                                                  {"GodRayConstants", state.godRayConstants               },
+                                                                  {"u_shafts",        litgpu::srv(state.godRays[1])       },
+                                                                  {"u_hdr",           litgpu::uav(state.hdrTargets[index])},
+                                                                  {"ExposureBuffer",  state.exposure                      }
+        });
     }
 }
 
@@ -90,9 +152,7 @@ void renderGodRays(Lighting::Data& state, Diligent::IBuffer* scene, int parity) 
 void updateExposure(Lighting::Data& state, float deltaTime, int parity) {
     const RenderSettings& settings = state.settings;
     Diligent::IDeviceContext* context = state.context;
-    const ExposureConstants constants{glm::vec4(kHistogramMinLog, 1.0f / (kHistogramMaxLog - kHistogramMinLog), settings.minEV100, settings.maxEV100),
-                                      glm::vec4(settings.autoExposure ? 1.0f : 0.0f, settings.manualEV100, std::clamp(deltaTime, 0.0f, kMaxExposureDeltaTime), settings.exposureCompensation - state.nightDarkening),
-                                      glm::vec4(settings.adaptationUp, settings.adaptationDown, 0.5f, 0.98f)};
+    const ExposureConstants constants{glm::vec4(kHistogramMinLog, 1.0f / (kHistogramMaxLog - kHistogramMinLog), settings.minEV100, settings.maxEV100), glm::vec4(settings.autoExposure ? 1.0f : 0.0f, settings.manualEV100, std::clamp(deltaTime, 0.0f, kMaxExposureDeltaTime), settings.exposureCompensation - state.nightDarkening), glm::vec4(settings.adaptationUp, settings.adaptationDown, 0.5f, 0.98f)};
     context->UpdateBuffer(state.exposureConstants, 0, sizeof(constants), &constants, Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
     if (state.snapExposure) {
         const float unset = 0.0f;
@@ -129,7 +189,7 @@ void drawFullscreen(Diligent::IDeviceContext* context, Diligent::IPipelineState*
     context->Draw(Diligent::DrawAttribs{3, Diligent::DRAW_FLAG_NONE});
 }
 
-}
+}  // namespace
 
 Diligent::ITextureView* Lighting::sceneColor() const { return litgpu::srv(m_data->sceneColor); }
 Diligent::ITexture* Lighting::sceneColorTexture() const { return m_data->sceneColor; }

@@ -28,6 +28,14 @@ cmake --build build-release --target run
 
 or run `build-release/src/Editor/Editor` from the build directory. Editor automation scripts live in `tests/editor/*.lit` (see [Editor.md](Editor.md)).
 
+## Play the gallery
+
+```bash
+cd build-release && ./src/Sandbox/Sandbox gallery
+```
+
+`LIT_TESTSCENE=gallery` works too. First-person character with collision against floor, walls, arch, columns and boxes; the spheres are pushable rigid bodies. Controls: WASD move, mouse look, Space jump, Shift sprint, V toggle first/third person, F throw a sphere, R cycle time of day (sunrise, noon, golden hour, night), Esc release the mouse, left click recapture it. Falling off the courtyard respawns at the start. The scene lives in `Engine.GalleryScene` (`src/Engine/Tools/GalleryScene.cpp`) and is shared with `LitShot --testscene gallery`; `tests/GalleryTests.cpp` checks collisions headlessly.
+
 ## Run headless
 
 No window or GPU is needed:

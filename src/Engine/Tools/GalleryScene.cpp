@@ -1,7 +1,17 @@
+module;
+
 #include <cstdint>
-#include "Engine/Log/Log.hpp"
+#include <new>
+#include <typeindex>
+#include <typeinfo>
+#include <unordered_map>
+#include <vector>
+#include <memory>
+
+module Engine.GalleryScene;
 
 import Engine.engine;
+import Engine.Physics;
 import Engine.glm;
 import Engine.camera;
 import Engine.Render.component;
@@ -18,12 +28,10 @@ constexpr float kWallHeight = 8.0f;
 
 struct GalleryBuilder {
     Engine& engine;
+    const GalleryKit& kit;
     World& world;
-    uint32_t cube;
-    uint32_t sphere;
 
-    explicit GalleryBuilder(Engine& target)
-        : engine(target), world(target.world()), cube(target.loadMesh("cube")), sphere(target.loadMesh("sphere")) {}
+    GalleryBuilder(Engine& target, const GalleryKit& source) : engine(target), kit(source), world(target.world()) {}
 
     static glm::quat aim(const glm::vec3& forward) {
         const glm::vec3 right = glm::normalize(glm::cross(forward, glm::vec3(0.0f, 1.0f, 0.0f)));
@@ -36,7 +44,7 @@ struct GalleryBuilder {
         material.baseColor = color;
         material.roughness = roughness;
         material.metallic = metallic;
-        return engine.createMaterial(material);
+        return kit.material(material);
     }
 
     uint32_t glow(const glm::vec3& color, float intensity) {
@@ -44,7 +52,7 @@ struct GalleryBuilder {
         material.baseColor = color;
         material.emissive = color;
         material.emissiveIntensity = intensity;
-        return engine.createMaterial(material);
+        return kit.material(material);
     }
 
     uint32_t glass(const glm::vec3& tint) {
@@ -54,27 +62,52 @@ struct GalleryBuilder {
         material.transmission = 1.0f;
         material.ior = 1.5f;
         material.thickness = 0.6f;
-        return engine.createMaterial(material);
+        return kit.material(material);
     }
 
     auto box(const char* name, uint32_t material, const glm::vec3& minCorner, const glm::vec3& size) {
         EntityDesc description;
         description.name = name;
-        description.mesh = cube;
+        description.mesh = kit.cube;
         description.material = material;
         description.position = minCorner;
         description.scale = size;
-        return world.create(description);
+        const auto entity = world.create(description);
+        if (kit.colliders) addBoxCollider(minCorner, size);
+        return entity;
     }
 
-    auto ball(const char* name, uint32_t material, const glm::vec3& baseCenter, float diameter) {
+    void addBoxCollider(const glm::vec3& minCorner, const glm::vec3& size) {
+        EntityDesc description;
+        description.name = "box collider";
+        description.position = minCorner + size * 0.5f;
+        const auto collider = world.create(description);
+        world.add<BoxCollider>(collider, BoxCollider{size * 0.5f});
+        world.add<RigidBody>(collider, staticBody());
+    }
+
+    static RigidBody staticBody() {
+        RigidBody body;
+        body.isStatic = true;
+        return body;
+    }
+
+    auto ball(const char* name, uint32_t material, const glm::vec3& baseCenter, float diameter, bool pushable = false) {
         EntityDesc description;
         description.name = name;
-        description.mesh = sphere;
+        description.mesh = kit.sphere;
         description.material = material;
         description.position = baseCenter + glm::vec3(0.0f, diameter * 0.5f, 0.0f);
         description.scale = glm::vec3(diameter * 0.5f);
-        return world.create(description);
+        const auto entity = world.create(description);
+        if (kit.colliders && pushable) {
+            world.add<SphereCollider>(entity, SphereCollider{diameter * 0.5f});
+            RigidBody body;
+            body.mass = 4.0f * diameter;
+            body.restitution = 0.35f;
+            world.add<RigidBody>(entity, body);
+        }
+        return entity;
     }
 
     auto light(const char* name, const LightComponent& component, const glm::vec3& position, const glm::vec3& target) {
@@ -107,8 +140,8 @@ void buildSweeps(GalleryBuilder& g) {
         const float x = (static_cast<float>(index) - 0.5f * (kSweepCount - 1)) * kSphereSpacing;
         const uint32_t metal = g.paint(glm::vec3(1.0f, 0.78f, 0.34f), t, 1.0f);
         const uint32_t dielectric = g.paint(glm::vec3(0.75f, 0.12f, 0.12f), t, 0.0f);
-        g.ball("metal sweep", metal, glm::vec3(x, 0.12f, 3.0f), kSphereDiameter);
-        g.ball("dielectric sweep", dielectric, glm::vec3(x, 0.12f, 5.6f), kSphereDiameter);
+        g.ball("metal sweep", metal, glm::vec3(x, 0.12f, 3.0f), kSphereDiameter, true);
+        g.ball("dielectric sweep", dielectric, glm::vec3(x, 0.12f, 5.6f), kSphereDiameter, true);
     }
 }
 
@@ -126,7 +159,7 @@ void buildSculpture(GalleryBuilder& g) {
     g.box("arch right column", stone, glm::vec3(1.7f, 0.0f, -8.4f), glm::vec3(0.9f, 5.0f, 0.9f));
     g.box("arch lintel", stone, glm::vec3(-3.0f, 5.0f, -8.6f), glm::vec3(6.0f, 0.8f, 1.3f));
     g.box("arch keystone", bronze, glm::vec3(-0.5f, 5.8f, -8.5f), glm::vec3(1.0f, 0.7f, 1.1f));
-    g.ball("arch chrome orb", chrome, glm::vec3(-0.0f, 0.0f, -8.0f), 2.0f);
+    g.ball("arch chrome orb", chrome, glm::vec3(0.0f, 0.0f, -8.0f), 2.0f, true);
 
     g.box("stack base", stone, glm::vec3(-9.5f, 0.0f, -9.0f), glm::vec3(2.4f, 1.2f, 2.4f));
     g.box("stack middle", blue, glm::vec3(-9.0f, 1.2f, -8.5f), glm::vec3(1.6f, 1.2f, 1.6f));
@@ -139,9 +172,9 @@ void buildSculpture(GalleryBuilder& g) {
     g.ball("column ice", iceGlow, glm::vec3(6.0f, 2.4f, -8.6f), 1.1f);
 
     g.box("glass pedestal left", stone, glm::vec3(-6.4f, 0.0f, -2.5f), glm::vec3(1.4f, 1.1f, 1.4f));
-    g.ball("clear glass sphere", clearGlass, glm::vec3(-5.7f, 1.1f, -1.8f), 1.6f);
+    g.ball("clear glass sphere", clearGlass, glm::vec3(-5.7f, 1.1f, -1.8f), 1.6f, true);
     g.box("glass pedestal right", stone, glm::vec3(5.0f, 0.0f, -2.5f), glm::vec3(1.4f, 1.1f, 1.4f));
-    g.ball("amber glass sphere", amberGlass, glm::vec3(5.7f, 1.1f, -1.8f), 1.6f);
+    g.ball("amber glass sphere", amberGlass, glm::vec3(5.7f, 1.1f, -1.8f), 1.6f, true);
 }
 
 void buildLighting(GalleryBuilder& g) {
@@ -186,8 +219,16 @@ void buildLighting(GalleryBuilder& g) {
 
 }
 
-void buildGalleryScene(Engine& engine) {
-    GalleryBuilder builder(engine);
+GallerySpawn gallerySpawn() {
+    GallerySpawn spawn;
+    spawn.feet = glm::vec3(0.0f, 0.05f, 10.0f);
+    spawn.yaw = -90.0f;
+    spawn.pitch = -4.0f;
+    return spawn;
+}
+
+void buildGalleryScene(Engine& engine, const GalleryKit& kit) {
+    GalleryBuilder builder(engine, kit);
     buildCourtyard(builder);
     buildSweeps(builder);
     buildSculpture(builder);

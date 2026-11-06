@@ -1,4 +1,5 @@
 build-release/
+build-san/
 build/
 build/*
 .vscode/

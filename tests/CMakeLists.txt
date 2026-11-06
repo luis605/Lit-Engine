@@ -91,6 +91,11 @@ target_compile_features(PhysicsTests PRIVATE cxx_std_23)
 target_link_libraries(PhysicsTests PRIVATE Engine)
 add_test(NAME PhysicsTests COMMAND PhysicsTests)
 
+add_executable(GalleryTests GalleryTests.cpp)
+target_compile_features(GalleryTests PRIVATE cxx_std_23)
+target_link_libraries(GalleryTests PRIVATE Engine glfw)
+add_test(NAME GalleryTests COMMAND GalleryTests)
+
 add_executable(StreamingTests StreamingTests.cpp)
 target_compile_features(StreamingTests PRIVATE cxx_std_23)
 target_link_libraries(StreamingTests PRIVATE Engine)

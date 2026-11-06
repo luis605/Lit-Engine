@@ -9,6 +9,7 @@ import Engine.Render.component;
 import Engine.World;
 import Engine.Render.material;
 import Engine.TestScenes;
+import Engine.GalleryScene;
 
 namespace {
 
@@ -120,7 +121,13 @@ void buildProbes(Engine& engine, float lightIntensity, bool withProbe) {
 
 }
 
-void buildGalleryScene(Engine& engine);
+void buildGallery(Engine& engine) {
+    GalleryKit kit;
+    kit.cube = engine.loadMesh("cube");
+    kit.sphere = engine.loadMesh("sphere");
+    kit.material = [&engine](const Material& material) { return engine.createMaterial(material); };
+    buildGalleryScene(engine, kit);
+}
 
 void buildScene(Engine& engine, const ShotOptions& options) {
     if (!options.sceneFile.empty()) {
@@ -137,7 +144,7 @@ void buildScene(Engine& engine, const ShotOptions& options) {
         return;
     }
     if (options.testScene == "gallery") {
-        buildGalleryScene(engine);
+        buildGallery(engine);
         return;
     }
     TestSceneKit kit;
