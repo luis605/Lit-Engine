@@ -16,6 +16,7 @@ import Engine.Portal;
 import Engine.Render.entity;
 import Engine.Render.component;
 import Engine.glm;
+import Engine.Physics;
 
 namespace {
 
@@ -45,6 +46,20 @@ struct Collector {
 std::string label(World& world, EntityHandle entity) {
     const std::string& name = world.getName(entity);
     return (name.empty() ? "entity" : name) + " #" + std::to_string(entity.index);
+}
+
+void checkMissingColliders(World& world, EntityHandle entity, Collector& out) {
+    const bool hasCollider =
+        (world.get<SphereCollider>(entity)
+        || world.get<BoxCollider>(entity)
+        || world.get<PlaneCollider>(entity));
+
+    const RigidBody* body = world.get<RigidBody>(entity);
+    const bool isDynamic = !body && !body->isStatic;
+
+    if (isDynamic && !hasCollider) {
+        out.add(Severity::Warning, "physics.nocollider", "Dynamic entity does not have a collider", entity);
+    }
 }
 
 void checkTransform(World& world, EntityHandle entity, const ValidatorLimits& limits, Collector& out) {
@@ -143,6 +158,7 @@ std::vector<ValidationIssue> validateScene(World& world, const ValidatorLimits& 
     world.forEach([&](EntityHandle entity) {
         checkTransform(world, entity, limits, out);
         checkHierarchy(world, entity, out);
+        checkMissingColliders(world, entity, out);
         if (limits.checkAssets) checkAssets(world, entity, limits, out);
     });
     world.view<LightComponent>([&](EntityHandle entity, LightComponent& light) { checkLight(world, entity, light, out); });

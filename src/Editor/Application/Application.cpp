@@ -137,18 +137,19 @@ void Application::buildInitialScene() {
     camera.setFarPlane(kEditorFarPlane);
     const std::vector<std::string> testScenes = testSceneNames();
     const bool testScene = sceneChoice && !portalTorture && std::ranges::find(testScenes, std::string(sceneName)) != testScenes.end();
+    const bool stressTest = false;
     if (testScene) {
         buildTestScene(sceneChoice);
     } else if (portalLoop || portalTorture) {
         buildPortalScene(portalTorture ? 1 : 0);
     } else if (showcase) {
         buildShowcaseScene();
-    } else {
+    } else if (stressTest) {
         buildStressScene();
         camera.setPos(kStressCameraPosition);
         camera.setOrientation(kStressCameraYaw, kStressCameraPitch);
     }
-    Lit::Log::Phase(showcase ? "showcase scene" : "stress scene");
+    Lit::Log::Phase(showcase ? "showcase scene" : "Lit Engine");
 }
 
 void Application::applyEnvironmentOverrides() {
