@@ -96,6 +96,11 @@ target_compile_features(GalleryTests PRIVATE cxx_std_23)
 target_link_libraries(GalleryTests PRIVATE Engine glfw)
 add_test(NAME GalleryTests COMMAND GalleryTests)
 
+add_executable(IkTestSceneTests IkTestSceneTests.cpp)
+target_compile_features(IkTestSceneTests PRIVATE cxx_std_23)
+target_link_libraries(IkTestSceneTests PRIVATE Engine)
+add_test(NAME IkTestSceneTests COMMAND IkTestSceneTests)
+
 add_executable(StreamingTests StreamingTests.cpp)
 target_compile_features(StreamingTests PRIVATE cxx_std_23)
 target_link_libraries(StreamingTests PRIVATE Engine)

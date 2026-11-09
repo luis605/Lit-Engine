@@ -10,6 +10,7 @@ import Engine.World;
 import Engine.Render.material;
 import Engine.TestScenes;
 import Engine.GalleryScene;
+import Engine.IkTestScene;
 
 namespace {
 
@@ -129,6 +130,15 @@ void buildGallery(Engine& engine) {
     buildGalleryScene(engine, kit);
 }
 
+void buildIkTest(Engine& engine) {
+    IkTestKit kit;
+    kit.cube = engine.loadMesh("cube");
+    kit.sphere = engine.loadMesh("sphere");
+    kit.debugDraw = true;
+    kit.material = [&engine](const Material& material) { return engine.createMaterial(material); };
+    buildIkTestScene(engine, kit);
+}
+
 void buildScene(Engine& engine, const ShotOptions& options) {
     if (!options.sceneFile.empty()) {
         engine.preloadSceneMeshes(options.sceneFile);
@@ -141,6 +151,10 @@ void buildScene(Engine& engine, const ShotOptions& options) {
     }
     if (options.testScene == "probes") {
         buildProbes(engine, options.lightIntensity, !options.noProbe);
+        return;
+    }
+    if (options.testScene == "ik") {
+        buildIkTest(engine);
         return;
     }
     if (options.testScene == "gallery") {

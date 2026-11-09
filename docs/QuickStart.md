@@ -28,6 +28,14 @@ cmake --build build-release --target run
 
 or run `build-release/src/Editor/Editor` from the build directory. Editor automation scripts live in `tests/editor/*.lit` (see [Editor.md](Editor.md)).
 
+## Play the IK test scene
+
+```
+cd build-release && ./src/Sandbox/Sandbox ik
+```
+
+Spider, quadruped, biped, arm, tentacle, CCD chain and a look-at head on slopes, steps and bumps, with IK debug draw. E grabs a target sphere, walk into spheres to push them. In the Editor run palette command `scene.ikTest` or open `resources/scenes/ik_test.litscene`. See docs/IK.md.
+
 ## Play the gallery
 
 ```bash

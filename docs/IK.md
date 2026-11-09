@@ -48,3 +48,12 @@ engine.run();
 ## Solver API
 
 `IkChainState` holds up to `kMaxIkJoints` points, bone lengths and limits. `solveFabrik`, `solveCcd`, `solveTwoBoneAnalytic`, `solveIk` take a target and `IkSettings` (iterations, tolerance, pole, base direction). Unreachable targets yield a straight, fully extended chain pointing at the target.
+
+## IK test scene
+
+A playable and editable scene exercising every solver lives in `Engine.IkTestScene` (`src/Engine/Tools/IkTest*.cpp`): terrain with a stepped ramp, plateau, descent, a six-step staircase, two stepped hills and bumps; an 8-leg spider that follows the player, a quadruped patrolling green `patrol N` markers, a biped chasing the pushable `biped goal` sphere, a two-bone arm reaching for `arm target`, a FABRIK tentacle (`tentacle target`), a CCD chain (`ccd target`) and a neck/head that looks at the player (`look target`). Everything is real components (colliders, `IkChain`, `Walker`), so the inspector edits it and undo/redo works.
+
+- Sandbox (character controller, IK debug draw on): `cd build-release && ./src/Sandbox/Sandbox ik` (or `LIT_TESTSCENE=ik`). WASD move, mouse look, Space jump, Shift sprint, V first/third person, E grab or release the targeted sphere, R time of day, Esc release the mouse.
+- Editor: `cd build-release && ./src/Editor/Editor`, then Ctrl+P (palette) and run `scene.ikTest` ("Load IK test scene"); IK debug draw is switched on. File > Open `resources/scenes/ik_test.litscene` loads the same entities (materials are stored by index, so surfaces show the default material there).
+- Screenshot: `build-release/src/Shot/LitShot --testscene ik --frames 40 --screenshot ik.png`.
+- Tests: `build-release/tests/IkTestSceneTests` (feet on terrain, chains reach targets, save/load round trip); pass a path to regenerate the .litscene file.

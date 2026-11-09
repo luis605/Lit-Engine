@@ -43,6 +43,7 @@ export class Application {
     void buildStressScene();
     void buildShowcaseScene();
     void buildPortalScene(int which);
+    void buildIkTestScene();
     bool buildTestScene(const std::string& name);
     void updateAttention(float dt);
     void registerCommands();

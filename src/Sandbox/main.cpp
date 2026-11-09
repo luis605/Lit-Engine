@@ -20,6 +20,7 @@ import Engine.glm;
 import Engine.Overlay;
 import Engine.TestScenes;
 import Engine.GalleryScene;
+import Engine.IkTestScene;
 import Engine.Render.material;
 import Sandbox.scene;
 
@@ -141,6 +142,16 @@ void startGallery(Engine& engine, uint32_t cubeMesh, uint32_t sphereMesh) {
     enableGalleryPlay(engine, kit);
 }
 
+void startIkTest(Engine& engine, uint32_t cubeMesh, uint32_t sphereMesh) {
+    IkTestKit kit;
+    kit.cube = cubeMesh;
+    kit.sphere = sphereMesh;
+    kit.debugDraw = true;
+    kit.material = [&engine](const Material& material) { return engine.createMaterial(material); };
+    buildIkTestScene(engine, kit);
+    enableIkTestPlay(engine, kit);
+}
+
 void spawnStress(World& world, const char* countText, uint32_t cubeMesh, uint32_t sphereMesh) {
     const long long requested = std::atoll(countText);
     if (requested <= 0) return;
@@ -179,12 +190,14 @@ void drawDebugGizmos(Engine& engine, World& world, EntityHandle picked) {
 int main(int argumentCount, char** arguments) {
     const char* requestedScene = argumentCount > 1 ? arguments[1] : std::getenv("LIT_TESTSCENE");
     const bool gallery = requestedScene && std::string(requestedScene) == "gallery";
+    const bool ikTest = requestedScene && std::string(requestedScene) == "ik";
+    const bool playable = gallery || ikTest;
     Engine engine;
     if (!engine.open({"Lit Sandbox"})) return 1;
 
     const uint32_t cubeMesh = engine.loadMesh("cube");
     const uint32_t sphereMesh = engine.loadMesh("sphere");
-    configureEngine(engine, gallery);
+    configureEngine(engine, playable);
     DebugOverlay overlay;
     overlay.setVisible(std::getenv("LIT_OVERLAY") != nullptr);
 
@@ -193,9 +206,10 @@ int main(int argumentCount, char** arguments) {
 
     Scene scene({engine, world, cubeMesh, sphereMesh});
     if (gallery) startGallery(engine, cubeMesh, sphereMesh);
+    else if (ikTest) startIkTest(engine, cubeMesh, sphereMesh);
     else scene.onStart();
 
-    if (requestedScene && !gallery) spawnTestScene(engine, requestedScene, cubeMesh, sphereMesh);
+    if (requestedScene && !playable) spawnTestScene(engine, requestedScene, cubeMesh, sphereMesh);
     if (const char* stress = std::getenv("LIT_STRESS")) spawnStress(world, stress, cubeMesh, sphereMesh);
 
     bool showDebug = true;
@@ -206,12 +220,12 @@ int main(int argumentCount, char** arguments) {
         if (InputManager::IsKeyPressed(GLFW_KEY_F1)) showDebug = !showDebug;
         if (InputManager::IsKeyPressed(GLFW_KEY_F3)) overlay.toggle();
         overlay.draw(engine);
-        if (showDebug && !gallery) drawDebugGizmos(engine, world, picked);
+        if (showDebug && !playable) drawDebugGizmos(engine, world, picked);
 
         if (engine.input().pressed("save")) world.saveScene("resources/sandbox.litscene");
         if (engine.input().pressed("load") && world.loadScene("resources/sandbox.litscene")) scene.rebind();
 
-        if (gallery) return;
+        if (playable) return;
         inverseKinematics(scene, deltaTime);
         scene.onUpdate(deltaTime, static_cast<float>(engine.time().unscaledElapsed));
     });

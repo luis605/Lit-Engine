@@ -122,6 +122,7 @@ target_sources(Engine
         Tools/SceneValidator.cppm
         Tools/TestScenes.cppm
         Tools/GalleryScene.cppm
+        Tools/IkTestScene.cppm
         Params/Params.cppm
         Observation/Observation.cppm
         State/State.cppm
@@ -234,6 +235,10 @@ target_sources(Engine
         Tools/TestScenes.cpp
         Tools/GalleryScene.cpp
         Tools/GalleryPlay.cpp
+        Tools/IkTestScene.cpp
+        Tools/IkTestTerrain.cpp
+        Tools/IkTestRigs.cpp
+        Tools/IkTestPlay.cpp
         Params/Params.cpp
         Params/ParamsLoader.cpp
         Observation/Observation.cpp

@@ -73,7 +73,7 @@ void addBoneVisual(World& world, EntityHandle joint, float length, const SpiderO
     desc.mesh = options.boneMesh;
     desc.material = options.material;
     desc.parent = joint;
-    desc.position = glm::vec3(length * 0.5f, 0.0f, 0.0f);
+    desc.position = glm::vec3(0.0f, -options.thickness * 0.5f, -options.thickness * 0.5f);
     desc.scale = glm::vec3(length, options.thickness, options.thickness);
     world.setTag(world.create(desc), "ik.visual");
 }

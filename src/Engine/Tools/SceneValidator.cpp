@@ -55,7 +55,7 @@ void checkMissingColliders(World& world, EntityHandle entity, Collector& out) {
         || world.get<PlaneCollider>(entity));
 
     const RigidBody* body = world.get<RigidBody>(entity);
-    const bool isDynamic = !body && !body->isStatic;
+    const bool isDynamic = body && !body->isStatic;
 
     if (isDynamic && !hasCollider) {
         out.add(Severity::Warning, "physics.nocollider", "Dynamic entity does not have a collider", entity);

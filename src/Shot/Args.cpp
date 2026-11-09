@@ -19,7 +19,7 @@ bool parseSize(const std::string& text, ShotOptions& options) {
 void printUsage() {
     std::puts(
         "LitShot: render N frames of a scene on a real device and save the final frame as PNG\n"
-        "  --testscene NAME      test scene (portal_torture, streaming_route, crowd, vista, showcase, probes, gallery)\n"
+        "  --testscene NAME      test scene (portal_torture, streaming_route, crowd, vista, showcase, probes, gallery, ik)\n"
         "  --scene FILE          load a .litscene instead\n"
         "  --frames N            frames to render before the capture (default 30)\n"
         "  --light-intensity X   intensity of the showcase scene lights (default 3e6, photometric lumens)\n"

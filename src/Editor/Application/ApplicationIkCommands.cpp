@@ -14,6 +14,8 @@ module Editor.application;
 import Engine.engine;
 import Engine.World;
 import Engine.IK;
+import Engine.IkTestScene;
+import Engine.Render.material;
 import Engine.Render.entity;
 import Engine.glm;
 import Editor.context;
@@ -57,6 +59,15 @@ std::vector<EntityHandle> buildSpider(World& world, const glm::vec3& position, c
 
 }
 
+void Application::buildIkTestScene() {
+    IkTestKit kit;
+    kit.cube = m_ctx->cubeMesh;
+    kit.sphere = m_ctx->sphereMesh;
+    kit.material = [this](const Material& material) { return m_engine.createMaterial(material); };
+    ::buildIkTestScene(m_engine, kit);
+    m_engine.setSystemEnabled(kDebugSystem, true);
+}
+
 void Application::registerIkCommands() {
     m_engine.addSystem(Phase::PostUpdate, kDebugSystem, [this](World& world, float) {
         drawIkDebug(world, [this](const glm::vec3& from, const glm::vec3& to, const glm::vec4& color) { m_engine.debugLine(from, to, color, true); });
@@ -75,6 +86,7 @@ void Application::registerIkCommands() {
         ctx.selection.set(spider);
         ctx.toast("Spider spawned; it walks toward a point ahead (set Walker move target to steer)");
     });
+    addCommand("scene.ikTest", "Load IK test scene", "File", {}, [this] { replaceSceneWith([this] { buildIkTestScene(); }, "IK test scene"); });
     addCommand("ik.chain", "IK: create chain from selection (root to tip)", "IK", {}, [this] {
         EditorContext& ctx = *m_ctx;
         const std::vector<EntityHandle> joints = chainFromSelection(ctx);
