@@ -11,3 +11,5 @@ build-asan/
 resources/cache/
 gcm.cache/
 .litcache/
+.cache*
+.claude

@@ -114,7 +114,8 @@ Diligent::RefCntAutoPtr<Diligent::IPipelineState> BuildSurfacePso(DiligentData& 
     pipeline.RasterizerDesc.FrontCounterClockwise = true;
     pipeline.DepthStencilDesc.DepthEnable = true;
     pipeline.DepthStencilDesc.DepthWriteEnable = kind != SurfaceKind::Forward;
-    pipeline.DepthStencilDesc.DepthFunc = Diligent::COMPARISON_FUNC_GREATER_EQUAL;
+    // Scene depth is reversed Z (clear 0, nearer = larger); cascade and local shadow maps keep standard Z (clear 1).
+    pipeline.DepthStencilDesc.DepthFunc = kind == SurfaceKind::Shadow ? Diligent::COMPARISON_FUNC_LESS_EQUAL : Diligent::COMPARISON_FUNC_GREATER_EQUAL;
     ConfigureTargets(pipeline, kind);
     createInfo.pVS = vertexShader;
     createInfo.pPS = pixelShader;
