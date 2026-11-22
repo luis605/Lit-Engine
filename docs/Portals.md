@@ -29,6 +29,19 @@ Budget: `maxDepth` (default 3) and `maxViews` (default 16, hard cap 24). Candida
 
 The parent view composites each portal with `portal_composite.frag`: a per-pixel ray/quad test that samples the child texture and writes the plane depth, so objects in front of the portal still occlude it. The ray test covers rays that start behind the plane, which is what makes the camera crossing seamless: near-plane pieces that pass the plane already show the destination.
 
+### Screen-space effects and the portal plane
+
+The portal quad is never geometry for screen-space effects. Each view keeps a copy of its depth and G-buffer (base colour, normal/roughness, material) after its own portals were resolved. Before the parent shades, `portal_resolve.frag` splices the child's depth (reprojected into the parent projection) and G-buffer (normals rotated into the parent's virtual space) into the parent's depth and G-buffer inside each portal quad, except where parent geometry is in front of the plane. Order per view (`Renderer::shadeScene`, `shadePortalView`):
+
+1. resolve: depth + G-buffer of the room behind each portal,
+2. GTAO and lighting (stages 0 and 1): AO horizons, contact shadows and sky visibility march over the room behind the portal; the portal pixels themselves are shaded but overwritten later,
+3. colour-only composite (`Portal Composite Color PSO`, no depth write): the child-lit image goes into HDR so the colour pyramid has the right colours,
+4. stage 2: colour pyramid, screen-space GI / colour bleed, SSR, planar and world reflections. Rays and gathers hit the child room, never the plane,
+5. final composite (plane depth written): overwrites any change stage 2 made on portal pixels, so they keep the child-lit colour exactly, and gives transparency the plane as occluder,
+6. after transparency the spliced depth is copied back (`portalEffectsDepth`), so god rays, the mask flag in tonemapping, custom post effects and later passes also see the room behind the portal.
+
+Degraded portals (flat tint, no child view) have no child data and keep the old behaviour.
+
 Per-view cost is exposed through `Engine::portalStats()` (`label`, `depth`, `drawn` object count, GPU milliseconds). Draw counts fall when a portal leaves the frustum.
 
 ## Camera crossing
@@ -59,4 +72,7 @@ Editor: `LIT_SCENE=portal_loop` or `portal_torture`, or commands `scene.portalLo
 
 ## Not done
 
-Shadow cascades and SSR inside portal views, renderer use of per-cell visibility for lighting and shadows (data in `Engine.PortalBridge`), portal-aware physics sweeps. Streaming, world deltas, navigation links and audio hops: see `docs/Streaming.md`.
+Shadow cascades and SSR inside portal views (local lights are clustered per view and shadowed by virtual shadow maps whose pages are requested from each view's own depth buffer; lights get faces in main-frustum-first, then distance order, so portal views can miss shadows when the face budget is exhausted; light lists are filtered by the view's clipped frustum, not by cell), renderer use of per-cell visibility for lighting and shadows (data in `Engine.PortalBridge`), portal-aware physics sweeps. Streaming, world deltas, navigation links and audio hops: see `docs/Streaming.md`.
+
+Depth is reversed Z: the oblique near-plane clip of child views sets the clip depth row to `w - scale * plane` (`obliqueProjection`), depth comparisons in the portal shaders are inverted (larger = nearer) and a sky/empty child pixel writes 0.
+Floating origin: per-view visibility bits and Hi-Z history are view-space data and survive a rebase (camera, cells and portals shift together).

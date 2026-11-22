@@ -111,6 +111,11 @@ void AudioMixer::setListener(const glm::vec3& position, const glm::vec3& forward
     m_right = rightLength > kDirectionEpsilon ? right / rightLength : glm::vec3(1.0f, 0.0f, 0.0f);
 }
 
+void AudioMixer::shiftOrigin(const glm::vec3& shift) {
+    m_listenerPos -= shift;
+    for (Voice& voice : m_voices) voice.params.position -= shift;
+}
+
 void AudioMixer::setReverb(const ReverbEstimate& estimate) {
     m_reverbEstimate = estimate;
     const float rt60 = std::clamp(estimate.rt60, kMinReverbRt60, kMaxReverbRt60);

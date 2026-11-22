@@ -1,0 +1,23 @@
+#version 450
+#extension GL_GOOGLE_include_directive : require
+#include "scene.glsl"
+#include "meshlet.glsl"
+
+// Cluster LOD: indirect dispatch arguments for meshlet_cull (one workgroup per work item, split
+// over x and y because a dimension is limited to 65535 groups).
+layout(local_size_x = 1, local_size_y = 1, local_size_z = 1) in;
+
+layout(std430) readonly buffer WorkCounterBuffer {
+    uint u_workCount;
+};
+
+layout(std430) writeonly buffer DispatchArgsBuffer {
+    uint dispatchArgs[];
+};
+
+void main() {
+    uint count = min(u_workCount, u_maxWorkItems);
+    dispatchArgs[0] = min(count, MESHLET_MAX_DISPATCH_X);
+    dispatchArgs[1] = (count + MESHLET_MAX_DISPATCH_X - 1u) / MESHLET_MAX_DISPATCH_X;
+    dispatchArgs[2] = 1u;
+}

@@ -106,11 +106,13 @@ void fitCascade(Lighting::Data& state, int cascadeIndex, int cascadeCount, const
     const glm::vec3 up = std::abs(toSun.y) > 0.99f ? glm::vec3(0.0f, 0.0f, 1.0f) : glm::vec3(0.0f, 1.0f, 0.0f);
     const float texelWorld = 2.0f * radius / static_cast<float>(state.shadowResolution);
     glm::mat4 lightView = glm::lookAt(glm::vec3(0.0f), -toSun, up);
-    glm::vec3 lightSpace = glm::vec3(lightView * glm::vec4(center, 1.0f));
+    // Snap in world space (local + origin modulo the pattern period) so the texel grid does not move when the floating origin rebases.
+    const glm::vec3 originPhase(static_cast<float>(std::fmod(state.worldOrigin.x, kOriginPatternPeriod)), static_cast<float>(std::fmod(state.worldOrigin.y, kOriginPatternPeriod)), static_cast<float>(std::fmod(state.worldOrigin.z, kOriginPatternPeriod)));
+    glm::vec3 lightSpace = glm::vec3(lightView * glm::vec4(center + originPhase, 1.0f));
     lightSpace.x = std::floor(lightSpace.x / texelWorld) * texelWorld;
     lightSpace.y = std::floor(lightSpace.y / texelWorld) * texelWorld;
     lightSpace.z = std::floor(lightSpace.z / texelWorld) * texelWorld;
-    center = glm::vec3(glm::inverse(lightView) * glm::vec4(lightSpace, 1.0f));
+    center = glm::vec3(glm::inverse(lightView) * glm::vec4(lightSpace, 1.0f)) - originPhase;
     const glm::vec3 eye = center + toSun * (radius + kCasterExtension);
     lightView = glm::lookAt(eye, center, up);
     const float depthRange = 2.0f * radius + kCasterExtension;
@@ -240,6 +242,17 @@ void Lighting::selectLocalShadows(SceneUniforms& uniforms, const glm::vec3& came
     const float resolutionF = static_cast<float>(state.localShadowResolution);
     const float margin = resolutionF / std::max(resolutionF - kLocalShadowBorderTexels, 1.0f);
     state.localTanHalf = margin;
+    if (virtualShadowsEnabled(state)) {
+        // Every local light gets virtual shadow faces instead of the ranked shadow views.
+        state.shadowedLights.clear();
+        state.localCasterCount = 0;
+        for (LocalShadowView& view : state.localViews) view.active = false;
+        assignVirtualShadowFaces(state, uniforms);
+        uniforms.localShadowParams = glm::vec4(0.0f, 1.0f / resolutionF, settings.localShadowSoftness, settings.shadowNormalBias);
+        uniforms.localShadowParams2 = glm::vec4(settings.shadowDepthBias, 0.0f, 0.0f, 0.0f);
+        if (!state.cpuLights.empty()) state.context->UpdateBuffer(state.lights, 0, sizeof(GpuLight) * state.cpuLights.size(), state.cpuLights.data(), Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
+        return;
+    }
     const std::vector<ShadowCandidate> candidates = rankShadowCandidates(state, uniforms, cameraPosition, maxLights);
     state.shadowedLights.clear();
     state.localCasterCount = 0;
@@ -290,6 +303,7 @@ void Lighting::fitShadows(const FrameInput& input, SceneUniforms& uniforms) {
     }
     uniforms.cascadeSplits = glm::vec4(state.cascades[0].split, state.cascades[1].split, state.cascades[2].split, state.cascades[3].split);
     selectLocalShadows(uniforms, input.cameraPosition);
+    fillVirtualShadowUniforms(state, uniforms);
     uniforms.shadowParams = glm::vec4(count > 0 ? 1.0f : 0.0f, 1.0f / static_cast<float>(std::max(state.shadowResolution, 1)), settings.shadowSoftness, settings.shadowNormalBias);
     uniforms.shadowParams2 = glm::vec4(static_cast<float>(count), settings.shadowDepthBias, 0.0f, settings.pcss ? 1.0f : 0.0f);
 }

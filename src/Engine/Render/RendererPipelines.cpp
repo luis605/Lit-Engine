@@ -65,6 +65,7 @@ void Renderer::createPipelines() {
     createDepthUpscalePSO();
     createDebugLinePSO();
     createPortalPSO();
+    createMeshletPipelines();
 }
 
 void Renderer::reloadShaders() {

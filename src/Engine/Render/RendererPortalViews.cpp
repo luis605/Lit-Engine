@@ -102,6 +102,27 @@ SceneUniforms MakePortalSceneUniforms(const SceneUniforms& base, const PortalVie
     return uniforms;
 }
 
+void CapturePortalGBuffer(DiligentData& gpu, int index, Diligent::ITexture* const (&gbuffer)[3]) {
+    for (int target = 0; target < 3; ++target) {
+        auto& copy = gpu.portalGBuffer[index][target];
+        if (!gbuffer[target]) {
+            copy.Release();
+            continue;
+        }
+        const Diligent::TextureDesc sourceDesc = gbuffer[target]->GetDesc();
+        if (copy && (copy->GetDesc().Width != sourceDesc.Width || copy->GetDesc().Height != sourceDesc.Height || copy->GetDesc().Format != sourceDesc.Format)) copy.Release();
+        if (!copy) {
+            Diligent::TextureDesc description = sourceDesc;
+            description.Name = "Portal View GBuffer";
+            description.MipLevels = 1;
+            description.BindFlags = Diligent::BIND_SHADER_RESOURCE;
+            gpu.pDevice->CreateTexture(description, nullptr, &copy);
+            if (copy) copy->GetDefaultView(Diligent::TEXTURE_VIEW_SHADER_RESOURCE)->SetSampler(gpu.pHiZSampler);
+        }
+        if (copy) CopyWholeTexture(gpu.pImmediateContext, gbuffer[target], copy);
+    }
+}
+
 void CapturePortalDepth(DiligentData& gpu, int index) {
     const Diligent::TextureDesc sceneDesc = gpu.pSceneDepth->GetDesc();
     auto& portalDepth = gpu.portalDepth[index];
@@ -176,9 +197,18 @@ void Renderer::shadePortalView(int index) {
     maskPortalView(index);
     resolvePortalDepth(index);
     CapturePortalDepth(gpu, index);
+    Diligent::ITexture* const gbuffer[3] = {m_lighting.gbuffer(0), m_lighting.gbuffer(1), m_lighting.gbuffer(2)};
+    CapturePortalGBuffer(gpu, index, gbuffer);
 
-    for (int stage = 0; stage < kShadeStageCount; ++stage) m_lighting.shade(gpu.pSceneDepth, gpu.pSceneUBO[m_currentFrame], stage);
-
+    // Same order as the main view (Renderer::shadeScene): effects see the spliced child depth and
+    // G-buffer, the colour-only composite feeds the reflection pass, the final composite restores
+    // the child-lit colour and writes the plane depth.
+    for (int stage = 0; stage < kShadeStageCount - 1; ++stage) m_lighting.shade(gpu.pSceneDepth, gpu.pSceneUBO[m_currentFrame], stage);
+    gpu.portalCompositeWritesDepth = false;
+    compositePortals(index);
+    gpu.portalCompositeWritesDepth = true;
+    UnbindRenderTargets(context);
+    m_lighting.shade(gpu.pSceneDepth, gpu.pSceneUBO[m_currentFrame], kShadeStageCount - 1);
     compositePortals(index);
     m_lighting.captureSceneColor();
     drawTransparency();

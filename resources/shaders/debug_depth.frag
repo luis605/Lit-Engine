@@ -15,7 +15,7 @@ layout (std140, binding = 1) uniform DebugDepthUniforms {
 void main()
 {
     float depth = textureLod(u_depthTexture, TexCoord, u_mipLevel).r;
-    float displayValue = 1.0 - depth;
+    float displayValue = depth;  // reversed Z: near = 1
 
     FragColor = vec4(vec3(displayValue), 1.0);
 }

@@ -42,6 +42,7 @@ void loadSkyPipelines(Lighting::Data& state) {
     state.envShPso = litgpu::computePipeline(device, "resources/shaders/lighting/env_sh.comp", {linearSampler("u_environment")});
     state.dfgPso = litgpu::computePipeline(device, "resources/shaders/lighting/dfg_lut.comp");
     state.lightCullPso = litgpu::computePipeline(device, "resources/shaders/lighting/light_cull.comp");
+    state.lightVisiblePso = litgpu::computePipeline(device, "resources/shaders/lighting/light_cull.comp", {}, {{"VISIBLE_PASS", "1"}});
     state.cloudsPso = litgpu::computePipeline(device, "resources/shaders/lighting/clouds.comp", {transmittanceSampler, linearSampler("u_skyViewLut"), wrapHdri, wrapCloudNoise});
 }
 
@@ -56,7 +57,11 @@ void loadGodRayPipelines(Lighting::Data& state) {
 void loadScreenSpacePipelines(Lighting::Data& state) {
     Diligent::IRenderDevice* device = state.device;
     state.gtaoDepthPso = litgpu::computePipeline(device, "resources/shaders/lighting/gtao_depth.comp", {pointSampler("u_depth")});
-    state.gtaoPso = litgpu::computePipeline(device, "resources/shaders/lighting/gtao.comp", {pointSampler("u_depth"), pointSampler("u_linearDepth"), pointSampler("u_gbuffer1"), linearSampler("u_gbuffer0")});
+    state.gtaoPso = litgpu::computePipeline(device, "resources/shaders/lighting/gtao.comp", {pointSampler("u_depth"), pointSampler("u_linearDepth"), pointSampler("u_gbuffer1")});
+    state.giPso = litgpu::computePipeline(device, "resources/shaders/lighting/gtao.comp", {pointSampler("u_depth"), pointSampler("u_linearDepth"), pointSampler("u_gbuffer1"), linearSampler("u_sceneColor")}, {{"GI_PASS", "1"}});
+    state.giBlurPso = litgpu::computePipeline(device, "resources/shaders/lighting/gtao_blur.comp", {pointSampler("u_linearDepth"), pointSampler("u_input")}, {{"NO_BENT", "1"}});
+    state.giBlurVerticalPso = litgpu::computePipeline(device, "resources/shaders/lighting/gtao_blur.comp", {pointSampler("u_linearDepth"), pointSampler("u_input")}, {{"VERTICAL", "1"}, {"NO_BENT", "1"}});
+    state.giApplyPso = litgpu::computePipeline(device, "resources/shaders/lighting/gi_apply.comp", {pointSampler("u_depth"), pointSampler("u_gbuffer0"), pointSampler("u_gbuffer1"), pointSampler("u_gbuffer2"), pointSampler("u_gi"), pointSampler("u_aoDepth")});
     state.gtaoBlurPso = litgpu::computePipeline(device, "resources/shaders/lighting/gtao_blur.comp", {pointSampler("u_linearDepth"), pointSampler("u_input"), pointSampler("u_bentInput")});
     state.gtaoBlurVerticalPso = litgpu::computePipeline(device, "resources/shaders/lighting/gtao_blur.comp", {pointSampler("u_linearDepth"), pointSampler("u_input"), pointSampler("u_bentInput")}, {{"VERTICAL", "1"}});
     state.pyramidFirstPso = litgpu::computePipeline(device, "resources/shaders/lighting/color_pyramid.comp", {linearSampler("u_source")}, {{"FIRST_LEVEL", "1"}});
@@ -82,6 +87,7 @@ void loadShadingPipeline(Lighting::Data& state) {
                                                  {"u_shadowMap", litgpu::shadowCompare()},
                                                  pointSampler("u_shadowDepth"),
                                                  {"u_localShadowMap", litgpu::shadowCompare()},
+                                                 {"u_vsmAtlas", litgpu::shadowCompare()},
                                                  pointSampler("u_aoDepth"),
                                                  pointSampler("u_bent"),
                                                  linearSampler("u_clouds"),
@@ -105,6 +111,7 @@ void releaseStaleBindings(Lighting::Data& state) {
     state.envCaptureSrb.Release();
     state.envShSrb.Release();
     state.lightCullSrb.Release();
+    state.lightVisibleSrb.Release();
     state.envDownsampleSrbs.clear();
     state.envPrefilterSrbs.clear();
 }
@@ -119,6 +126,7 @@ void Lighting::reloadShaders() {
     loadShadingPipeline(state);
     loadPostPipelines(state);
     loadReflectionPipelines(state);
+    loadVirtualShadowPipelines(state);
     releaseStaleBindings(state);
     state.lutsDirty = true;
     state.dfgDirty = true;

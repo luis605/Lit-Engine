@@ -1,5 +1,9 @@
+#include <cmath>
 #include <cstdint>
+#include <utility>
+#include <vector>
 #include "Engine/Log/Log.hpp"
+#include "LargeWorldScene.hpp"
 #include "ShotOptions.hpp"
 
 import Engine.engine;
@@ -11,6 +15,10 @@ import Engine.Render.material;
 import Engine.TestScenes;
 import Engine.GalleryScene;
 import Engine.IkTestScene;
+import Engine.Render.settings;
+import Engine.Render.entity;
+
+LIT_LARGEWORLD_DECLARATIONS
 
 namespace {
 
@@ -120,6 +128,116 @@ void buildProbes(Engine& engine, float lightIntensity, bool withProbe) {
     camera.setFarPlane(100.0f);
 }
 
+// light_stress: an open field of pillars and bobbing spheres lit at night by thousands of moving
+// point and spot lights (every one shadowed when virtual shadow maps are on). Animation is driven by
+// the frame index, not wall time, so screenshots are repeatable.
+struct StressLight {
+    EntityHandle entity;
+    glm::vec3 center;
+    float radius;
+    float speed;
+    float phase;
+};
+
+struct StressCaster {
+    EntityHandle entity;
+    glm::vec3 base;
+    float phase;
+};
+
+struct StressState {
+    std::vector<StressLight> lights;
+    std::vector<StressCaster> casters;
+};
+
+StressState gStress;
+
+float stressRandom(uint32_t& seed) {
+    seed = seed * 1664525u + 1013904223u;
+    return static_cast<float>(seed >> 8) / 16777216.0f;
+}
+
+void buildLightStress(Engine& engine, int lightCount) {
+    World& world = engine.world();
+    gStress = {};
+    const uint32_t cube = engine.loadMesh("cube");
+    const uint32_t sphere = engine.loadMesh("sphere");
+    auto place = [&](const char* name, uint32_t mesh, uint32_t material, const glm::vec3& position, const glm::vec3& scale, const glm::quat& rotation = glm::quat(1.0f, 0.0f, 0.0f, 0.0f)) {
+        EntityDesc description;
+        description.name = name;
+        description.mesh = mesh;
+        description.material = material;
+        description.position = position;
+        description.scale = scale;
+        description.rotation = rotation;
+        return world.create(description);
+    };
+    constexpr float kHalf = 80.0f;
+    const uint32_t ground = makeShowcaseMaterial(engine, glm::vec3(0.55f), 0.7f, 0.0f);
+    const uint32_t stone = makeShowcaseMaterial(engine, glm::vec3(0.7f, 0.68f, 0.62f), 0.8f, 0.0f);
+    const uint32_t metal = makeShowcaseMaterial(engine, glm::vec3(0.9f, 0.75f, 0.5f), 0.3f, 1.0f);
+    place("ground", cube, ground, glm::vec3(-kHalf, -0.5f, -kHalf), glm::vec3(2.0f * kHalf, 0.5f, 2.0f * kHalf));
+    uint32_t seed = 12345u;
+    constexpr int kGrid = 30;
+    constexpr float kSpacing = 2.0f * kHalf / kGrid;
+    for (int z = 0; z < kGrid; ++z) {
+        for (int x = 0; x < kGrid; ++x) {
+            const float height = 0.5f + 3.5f * stressRandom(seed);
+            const float width = 0.6f + 0.8f * stressRandom(seed);
+            const glm::vec3 corner(-kHalf + (static_cast<float>(x) + 0.5f) * kSpacing - width * 0.5f, 0.0f, -kHalf + (static_cast<float>(z) + 0.5f) * kSpacing - width * 0.5f);
+            place("pillar", cube, stone, corner, glm::vec3(width, height, width));
+        }
+    }
+    constexpr int kMovingCasters = 256;
+    for (int index = 0; index < kMovingCasters; ++index) {
+        const glm::vec3 base(-kHalf + 2.0f * kHalf * stressRandom(seed), 0.8f, -kHalf + 2.0f * kHalf * stressRandom(seed));
+        gStress.casters.push_back({place("bobber", sphere, metal, base, glm::vec3(0.8f)), base, stressRandom(seed) * 6.2831853f});
+    }
+    const glm::quat down = glm::angleAxis(glm::radians(-90.0f), glm::vec3(1.0f, 0.0f, 0.0f));
+    for (int index = 0; index < lightCount; ++index) {
+        const bool spot = index % 4 == 3;
+        LightComponent light;
+        light.type = spot ? LightComponent::Type::Spot : LightComponent::Type::Point;
+        const float hue = stressRandom(seed) * 6.0f;
+        light.color = glm::clamp(glm::vec3(std::abs(hue - 3.0f) - 1.0f, 2.0f - std::abs(hue - 2.0f), 2.0f - std::abs(hue - 4.0f)), 0.0f, 1.0f) * 0.7f + 0.3f;
+        light.intensity = spot ? 1.2e5f : 6.0e4f;
+        light.range = 5.0f + 4.0f * stressRandom(seed);
+        light.innerConeDegrees = 25.0f;
+        light.outerConeDegrees = 40.0f;
+        const glm::vec3 center(-kHalf + 2.0f * kHalf * stressRandom(seed), 1.2f + 2.3f * stressRandom(seed), -kHalf + 2.0f * kHalf * stressRandom(seed));
+        const EntityHandle entity = place(spot ? "stress spot" : "stress light", NO_MESH, 0, center, glm::vec3(1.0f), spot ? down : glm::quat(1.0f, 0.0f, 0.0f, 0.0f));
+        world.add<LightComponent>(entity, light);
+        gStress.lights.push_back({entity, center, 0.5f + 2.5f * stressRandom(seed), 0.3f + 0.9f * stressRandom(seed), stressRandom(seed) * 6.2831853f});
+    }
+    RenderSettings& settings = engine.renderSettings();
+    settings.timeOfDay = 23.0f;
+    Camera& camera = world.camera();
+    camera.setPos(glm::vec3(0.0f, 16.0f, 62.0f));
+    camera.setOrientation(-90.0f, -22.0f);
+    camera.setNearPlane(0.1f);
+    camera.setFarPlane(400.0f);
+}
+
+}
+
+void animateVsmMixed(Engine& engine, int frame);
+
+void animateScene(Engine& engine, int frame) {
+    animateVsmMixed(engine, frame);
+    if (gStress.lights.empty() && gStress.casters.empty()) return;
+    const float time = static_cast<float>(frame) / 60.0f;
+    std::vector<std::pair<EntityHandle, glm::vec3>> updates;
+    updates.reserve(gStress.lights.size() + gStress.casters.size());
+    for (const StressLight& light : gStress.lights) {
+        const float angle = light.phase + time * light.speed;
+        updates.emplace_back(light.entity, light.center + glm::vec3(std::cos(angle), 0.0f, std::sin(angle)) * light.radius);
+    }
+    for (const StressCaster& caster : gStress.casters) updates.emplace_back(caster.entity, caster.base + glm::vec3(0.0f, 1.2f * (0.5f + 0.5f * std::sin(caster.phase + time * 1.7f)), 0.0f));
+    engine.world().setPositions(updates);
+}
+
+namespace {
+
 }
 
 void buildGallery(Engine& engine) {
@@ -139,7 +257,14 @@ void buildIkTest(Engine& engine) {
     buildIkTestScene(engine, kit);
 }
 
+void buildDense(Engine& engine, int grid);
+void buildVsmMixed(Engine& engine, int lightCount);
+
 void buildScene(Engine& engine, const ShotOptions& options) {
+    if (options.testScene == "dense") {
+        buildDense(engine, options.denseGrid);
+        return;
+    }
     if (!options.sceneFile.empty()) {
         engine.preloadSceneMeshes(options.sceneFile);
         if (!engine.world().loadScene(options.sceneFile)) Lit::Log::Error("Could not load scene {}", options.sceneFile);
@@ -151,6 +276,22 @@ void buildScene(Engine& engine, const ShotOptions& options) {
     }
     if (options.testScene == "probes") {
         buildProbes(engine, options.lightIntensity, !options.noProbe);
+        return;
+    }
+    if (options.testScene == "light_stress") {
+        buildLightStress(engine, options.lightCount);
+        return;
+    }
+    if (options.testScene == "largeworld") {
+        LargeWorldConfig config;
+        config.originKm = options.originKm;
+        config.flySpeed = options.flySpeed;
+        config.rebaseFrame = options.rebaseFrame;
+        buildLargeWorldScene(engine, config);
+        return;
+    }
+    if (options.testScene == "vsm_mixed") {
+        buildVsmMixed(engine, options.lightCount);
         return;
     }
     if (options.testScene == "ik") {

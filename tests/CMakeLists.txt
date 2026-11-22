@@ -17,6 +17,11 @@ target_compile_features(AssetCacheTests PRIVATE cxx_std_23)
 target_link_libraries(AssetCacheTests PRIVATE Engine)
 add_test(NAME AssetCacheTests COMMAND AssetCacheTests)
 
+add_executable(MeshletTests MeshletTests.cpp)
+target_compile_features(MeshletTests PRIVATE cxx_std_23)
+target_link_libraries(MeshletTests PRIVATE Engine)
+add_test(NAME MeshletTests COMMAND MeshletTests)
+
 add_executable(PortalTests PortalTests.cpp)
 target_compile_features(PortalTests PRIVATE cxx_std_23)
 target_link_libraries(PortalTests PRIVATE Engine)
@@ -25,6 +30,7 @@ add_test(NAME PortalTests COMMAND PortalTests)
 add_executable(GpuSyncTests GpuSyncTests.cpp)
 target_compile_features(GpuSyncTests PRIVATE cxx_std_23)
 target_link_libraries(GpuSyncTests PRIVATE Engine glfw)
+add_test(NAME GpuSyncTests COMMAND GpuSyncTests WORKING_DIRECTORY ${CMAKE_BINARY_DIR})
 
 add_executable(ToolingTests
     ToolingTests.cpp
@@ -63,7 +69,7 @@ target_compile_features(SystemsTests PRIVATE cxx_std_23)
 target_link_libraries(SystemsTests PRIVATE Engine)
 add_test(NAME SystemsTests COMMAND SystemsTests)
 
-foreach(scene portal_torture streaming_route crowd vista)
+foreach(scene portal_torture streaming_route crowd vista skinning)
     add_test(NAME TestScene_${scene} COMMAND Headless --testscene ${scene} --ticks 120 --metrics ${CMAKE_CURRENT_BINARY_DIR}/scene_${scene}.json)
 endforeach()
 
@@ -91,6 +97,21 @@ target_compile_features(PhysicsTests PRIVATE cxx_std_23)
 target_link_libraries(PhysicsTests PRIVATE Engine)
 add_test(NAME PhysicsTests COMMAND PhysicsTests)
 
+add_executable(PhysicsShapesTests PhysicsShapesTests.cpp)
+target_compile_features(PhysicsShapesTests PRIVATE cxx_std_23)
+target_link_libraries(PhysicsShapesTests PRIVATE Engine)
+add_test(NAME PhysicsShapesTests COMMAND PhysicsShapesTests)
+
+add_executable(TerrainTests TerrainTests.cpp)
+target_compile_features(TerrainTests PRIVATE cxx_std_23)
+target_link_libraries(TerrainTests PRIVATE Engine)
+add_test(NAME TerrainTests COMMAND TerrainTests)
+
+add_executable(SkinningTests SkinningTests.cpp)
+target_compile_features(SkinningTests PRIVATE cxx_std_23)
+target_link_libraries(SkinningTests PRIVATE Engine)
+add_test(NAME SkinningTests COMMAND SkinningTests)
+
 add_executable(GalleryTests GalleryTests.cpp)
 target_compile_features(GalleryTests PRIVATE cxx_std_23)
 target_link_libraries(GalleryTests PRIVATE Engine glfw)
@@ -106,9 +127,21 @@ target_compile_features(StreamingTests PRIVATE cxx_std_23)
 target_link_libraries(StreamingTests PRIVATE Engine)
 add_test(NAME StreamingTests COMMAND StreamingTests)
 
+add_executable(LargeWorldTests LargeWorldTests.cpp)
+target_compile_features(LargeWorldTests PRIVATE cxx_std_23)
+target_link_libraries(LargeWorldTests PRIVATE Engine)
+add_test(NAME LargeWorldTests COMMAND LargeWorldTests)
+
+add_executable(LargeWorldRenderTests LargeWorldRenderTests.cpp ../src/Shot/LargeWorldScene.cpp)
+target_compile_features(LargeWorldRenderTests PRIVATE cxx_std_23)
+target_link_libraries(LargeWorldRenderTests PRIVATE Engine glfw lit_stb)
+target_include_directories(LargeWorldRenderTests PRIVATE "${PROJECT_SOURCE_DIR}/src" "${PROJECT_SOURCE_DIR}/src/vendors/glfw/include")
+add_test(NAME LargeWorldRenderTests COMMAND LargeWorldRenderTests WORKING_DIRECTORY ${CMAKE_BINARY_DIR})
+
 add_executable(ObservationGpuTests ObservationGpuTests.cpp)
 target_compile_features(ObservationGpuTests PRIVATE cxx_std_23)
 target_link_libraries(ObservationGpuTests PRIVATE Engine glfw)
+add_test(NAME ObservationGpuTests COMMAND ObservationGpuTests WORKING_DIRECTORY ${CMAKE_BINARY_DIR})
 
 add_executable(LitBench
     bench/Main.cpp

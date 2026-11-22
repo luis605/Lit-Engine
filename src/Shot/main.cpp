@@ -2,6 +2,7 @@
 #include <fstream>
 #include <string>
 #include "Engine/Log/Log.hpp"
+#include "LargeWorldScene.hpp"
 #include "ShotOptions.hpp"
 
 import Engine.engine;
@@ -9,8 +10,12 @@ import Engine.glm;
 import Engine.camera;
 import Engine.World;
 import Engine.Render.settings;
+import Engine.asset;
+
+LIT_LARGEWORLD_DECLARATIONS
 
 void buildScene(Engine& engine, const ShotOptions& options);
+void animateScene(Engine& engine, int frame);
 
 namespace {
 
@@ -18,6 +23,18 @@ void applySettings(Engine& engine, const ShotOptions& options) {
     for (const auto& [key, value] : options.settings) {
         if (!setRenderSetting(engine.renderSettings(), key, value)) Lit::Log::Error("Unknown or invalid setting {}={}", key, value);
     }
+}
+
+void writeClusterStats(Engine& engine, const std::string& path) {
+    const ClusterRenderStats stats = engine.clusterStats();
+    std::ofstream out(path);
+    out << "enabled " << stats.enabled << "\nclusterMeshes " << stats.clusterMeshes << "\nresidentClusters " << stats.residentClusters << "\nresidentTriangles " << stats.residentTriangles << "\nframe " << stats.frame << '\n';
+    auto view = [&](const char* prefix, const ClusterViewStats& v) {
+        out << prefix << "Instances " << v.instances << '\n' << prefix << "WorkItems " << v.workItems << '\n' << prefix << "ClustersTested " << v.clustersTested << '\n' << prefix << "ClustersSelected " << v.clustersSelected << '\n'
+            << prefix << "ClustersDrawn " << v.clustersDrawn << '\n' << prefix << "Triangles " << v.trianglesDrawn << '\n' << prefix << "Draws " << v.draws << '\n' << prefix << "Overflows " << v.overflows << '\n';
+    };
+    view("camera", stats.camera);
+    view("shadow", stats.shadow);
 }
 
 void writeTimings(Engine& engine, const std::string& path) {
@@ -47,10 +64,13 @@ int main(int argc, char** argv) {
     int frame = 0;
     engine.run([&](float) {
         ++frame;
+        animateScene(engine, frame);
+        if (options.testScene == "largeworld") stepLargeWorldScene(engine, frame, 1.0f / 60.0f);
         if (frame == options.bakeFrame) engine.bakeReflectionProbes();
         if (frame == options.frames) engine.requestScreenshot(options.output);
         if (frame == options.frames + 1) {
             if (!options.timingsFile.empty()) writeTimings(engine, options.timingsFile);
+            if (!options.statsFile.empty()) writeClusterStats(engine, options.statsFile);
             glfwSetWindowShouldClose(engine.window(), GLFW_TRUE);
         }
     });

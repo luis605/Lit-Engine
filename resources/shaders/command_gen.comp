@@ -66,6 +66,9 @@ void main() {
     }
 
     MeshInfo mesh = meshInfos[meshId];
+    // Cluster LOD meshes upload indexCount 0 for their triangle LOD slots while the cluster path
+    // is active; meshlet_cull.comp emits their draws instead.
+    if (mesh.indexCount == 0u) return;
 
     uint drawIdx = atomicAdd(drawCounters[shaderId], 1);
     if (drawIdx >= u_maxBucketsPerShader) return;

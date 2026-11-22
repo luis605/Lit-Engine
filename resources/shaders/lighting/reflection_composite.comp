@@ -106,7 +106,7 @@ void main() {
     int debugMode = debugViewMode();
     if (debugMode != 0 && debugMode != DEBUG_REFLECTIONS) return;
     float depth = texelFetch(u_depth, pixel, 0).r;
-    if (depth >= 1.0) return;
+    if (isSkyDepth(depth)) return;
     vec4 g1 = texelFetch(u_gbuffer1, pixel, 0);
     if (int(g1.a * 3.0 + 0.5) != MODEL_LIT) return;
     vec2 uv = (vec2(pixel) + 0.5) * screenParams.zw;

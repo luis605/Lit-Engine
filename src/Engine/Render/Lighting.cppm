@@ -25,6 +25,10 @@ export import Engine.Render.reflection;
 export constexpr int kMaxLocalShadowViews = 24;
 export constexpr int kMaxLocalShadowLights = 8;
 
+// World-space procedural patterns (noise, checker, wind, triplanar) sample local + origin reduced modulo this period, so they
+// stay continuous across floating-origin rebases for any pattern period that divides it (snap sizes of 1024 and below do).
+export inline constexpr double kOriginPatternPeriod = 4096.0;
+
 export struct SceneUniforms {
     glm::mat4 projection;
     glm::mat4 view;
@@ -72,6 +76,9 @@ export struct SceneUniforms {
     glm::vec4 bleedParams;
     glm::vec4 qualityParams;
     glm::vec4 qualityParams2;
+    glm::vec4 vsmParams;
+    glm::vec4 vsmParams2;
+    glm::vec4 originParams; // xyz world origin reduced modulo kOriginPatternPeriod (float, pattern phase), w world origin y (altitude)
 };
 
 export struct GpuLight {
@@ -132,6 +139,35 @@ export struct LocalShadowCaster {
     uint32_t pad = 0;
 };
 
+// Renderer-owned inputs of the virtual shadow map passes (one call per rendered view, after its depth pass).
+export struct VirtualShadowInputs {
+    Diligent::IBuffer* sceneUniforms = nullptr;
+    Diligent::IBuffer* worldMatrices = nullptr;
+    Diligent::IBuffer* cullSpheres = nullptr;
+    Diligent::IBuffer* renderables = nullptr;
+    Diligent::IBuffer* meshInfos = nullptr;      // unpatched by cluster LOD: cluster meshes cast shadows from their triangle LODs
+    Diligent::IBuffer* dynamicStamps = nullptr;  // per entity version of deformed vertices (optional)
+    Diligent::IBuffer* vertices = nullptr;
+    Diligent::IBuffer* indices = nullptr;
+    Diligent::ITexture* depth = nullptr;
+    uint32_t objectCount = 0;
+    uint32_t opaqueShaderCount = 0;
+    float lodBias = 1.0f;
+};
+
+// Counters of the last finished frame (read back a few frames late; diagnostics only).
+export struct VirtualShadowStats {
+    uint32_t faces = 0;
+    uint32_t requests = 0;
+    uint32_t renderedPages = 0;
+    uint32_t residentPages = 0;
+    uint32_t poolPages = 0;
+    uint32_t overflow = 0;
+    uint32_t casterInstances = 0;
+    uint32_t movedObjects = 0;
+    float resolutionScale = 1.0f;  // effective vsmResolutionScale (automatic from the light count when vsmAutoScale)
+};
+
 export struct FrameInput {
     glm::mat4 view{1.0f};
     glm::mat4 projection{1.0f};
@@ -145,6 +181,7 @@ export struct FrameInput {
     uint32_t frame = 0;
     int width = 1;
     int height = 1;
+    glm::dvec3 worldOrigin{0.0}; // Engine::worldOrigin(): world = local + worldOrigin (docs/LargeWorld.md)
 };
 
 export class Lighting {
@@ -160,12 +197,15 @@ export class Lighting {
     void shutdown();
 
     [[nodiscard]] RenderSettings& settings();
+    [[nodiscard]] const RenderSettings& settings() const;
     void setMaterial(uint32_t id, const Material& material);
     void setLights(const std::vector<GpuLight>& lights);
     void setDirectionalLight(bool present, const glm::vec3& direction, const glm::vec3& illuminance);
     int loadTexture(const std::string& path, bool srgb);
     [[nodiscard]] uint64_t bindingVersion() const;
 
+    // Floating origin rebase: every position the renderer holds is in the old frame; `delta` is what Engine subtracted from local space.
+    void shiftOrigin(const glm::vec3& delta);
     void beginFrame(const FrameInput& input, SceneUniforms& uniforms);
     void fitShadows(const FrameInput& input, SceneUniforms& uniforms);
     [[nodiscard]] const std::array<Cascade, 4>& cascades() const;
@@ -178,6 +218,12 @@ export class Lighting {
     [[nodiscard]] float localShadowTanHalf() const;
     [[nodiscard]] Diligent::ITexture* localShadowMap() const;
     [[nodiscard]] Diligent::ITextureView* localShadowTarget(int view) const;
+    [[nodiscard]] bool virtualShadowsActive() const;
+    void renderVirtualShadows(const VirtualShadowInputs& inputs);
+    [[nodiscard]] VirtualShadowStats virtualShadowStats() const;
+    [[nodiscard]] Diligent::ITexture* virtualShadowAtlas() const;
+    [[nodiscard]] Diligent::IBuffer* virtualShadowFaces() const;
+    [[nodiscard]] Diligent::IBuffer* virtualShadowPageTable() const;
     void prepare(Diligent::IBuffer* sceneUniforms);
     void cullLights(Diligent::IBuffer* sceneUniforms);
     void shade(Diligent::ITexture* depth, Diligent::IBuffer* sceneUniforms, int stage = -1);

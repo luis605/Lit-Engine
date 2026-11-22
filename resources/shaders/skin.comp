@@ -1,0 +1,89 @@
+#version 450
+#extension GL_GOOGLE_include_directive : require
+#include "deform.glsl"
+
+// Dynamic mesh pass 1: morph targets -> linear blend skinning -> procedural deform.
+// One thread per vertex; writes 8-float vertices (position, normal, uv) into the instance output buffer,
+// which Renderer copies into the shared vertex buffer slot of the instance mesh.
+
+layout(local_size_x = 64, local_size_y = 1, local_size_z = 1) in;
+
+layout(std140, binding = 0) uniform SkinUniforms {
+    uint u_vertexCount;
+    uint u_morphCount;
+    uint u_skinned;
+    uint u_deformMode;
+    vec4 u_deformA;
+    vec4 u_deformB;
+    vec4 u_deformC;
+};
+
+layout(std430, binding = 1) readonly buffer RestVertexBuffer {
+    float restVertices[];
+};
+
+struct SkinVertex {
+    uvec4 joints;
+    vec4 weights;
+};
+
+layout(std430, binding = 2) readonly buffer SkinVertexBuffer {
+    SkinVertex skinVertices[];
+};
+
+// Two vec4 per (target, vertex): position delta then normal delta.
+layout(std430, binding = 3) readonly buffer MorphBuffer {
+    vec4 morphDeltas[];
+};
+
+layout(std430, binding = 4) readonly buffer PaletteBuffer {
+    mat4 palette[];
+};
+
+layout(std430, binding = 5) readonly buffer MorphWeightBuffer {
+    float morphWeights[];
+};
+
+layout(std430, binding = 6) buffer OutputVertexBuffer {
+    float outVertices[];
+};
+
+void main() {
+    uint v = gl_GlobalInvocationID.x;
+    if (v >= u_vertexCount) return;
+    uint base = v * 8u;
+    vec3 position = vec3(restVertices[base], restVertices[base + 1u], restVertices[base + 2u]);
+    vec3 normal = vec3(restVertices[base + 3u], restVertices[base + 4u], restVertices[base + 5u]);
+
+    for (uint t = 0u; t < u_morphCount; ++t) {
+        float w = morphWeights[t];
+        if (w == 0.0) continue;
+        uint slot = (t * u_vertexCount + v) * 2u;
+        position += w * morphDeltas[slot].xyz;
+        normal += w * morphDeltas[slot + 1u].xyz;
+    }
+
+    if (u_skinned != 0u) {
+        SkinVertex s = skinVertices[v];
+        mat4 blend = mat4(0.0);
+        for (uint k = 0u; k < 4u; ++k) {
+            float w = s.weights[k];
+            if (w == 0.0) continue;
+            blend += palette[s.joints[k]] * w;
+        }
+        position = (blend * vec4(position, 1.0)).xyz;
+        normal = mat3(blend) * normal;
+    }
+    float normalLength = length(normal);
+    normal = normalLength > 1e-6 ? normal / normalLength : vec3(0.0, 1.0, 0.0);
+    position = deformPosition(u_deformMode, u_deformA, u_deformB, u_deformC, position, normal);
+
+    outVertices[base] = position.x;
+    outVertices[base + 1u] = position.y;
+    outVertices[base + 2u] = position.z;
+    outVertices[base + 3u] = normal.x;
+    outVertices[base + 4u] = normal.y;
+    outVertices[base + 5u] = normal.z;
+    outVertices[base + 6u] = restVertices[base + 6u];
+    outVertices[base + 7u] = restVertices[base + 7u];
+}

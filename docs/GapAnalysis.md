@@ -4,7 +4,7 @@ Audit of the engine against spec sections 4.1, 4.3 and 6. Status: have, partial,
 
 ## 4.1 Baseline
 
-- Have: Vulkan (via Diligent), GPU frustum plus two-pass Hi-Z culling, compute LOD, instancing, indirect multi-draw with count, optional mesh-shader path for custom draws, job system, SPIR-V disk cache, per-pass GPU timestamps, stress scene generator (100k to 8M), glTF import through Assimp.
+- Have: Vulkan (via Diligent), GPU frustum plus two-pass Hi-Z culling, compute LOD, cluster LOD for dense geometry (import-time meshlets + simplification DAG in `.litmesh`, GPU per-cluster DAG cut, frustum, cone and two-pass Hi-Z culling into a compute-expanded index buffer; `Engine.meshlet`, `RendererMeshlets.cpp`, `meshlet_*.comp`, settings `clusterLod`/`clusterErrorPixels`, LitShot `--testscene dense --stats`), instancing, indirect multi-draw with count, optional mesh-shader path for custom draws, job system, SPIR-V disk cache, per-pass GPU timestamps, stress scene generator (100k to 8M), glTF import through Assimp.
 - Partial: pipeline cache (SPIR-V only, no VkPipelineCache), D3D11/D3D12 backends still enabled on Windows, platform layer (GLFW types appear in `Engine::window()`).
 - Missing: render graph, bindless descriptor indexing, multi-queue with timeline semaphores, VMA (Diligent allocator is used), macOS/MoltenVK verification, zero-allocation audit of the frame loop.
 
@@ -16,7 +16,7 @@ Audit of the engine against spec sections 4.1, 4.3 and 6. Status: have, partial,
 - world: have `World` (handles, hierarchy, layers, tags, prefabs, scripts, timers, spatial grid, raycast, `.litscene` v2, snapshot/restore, state dump). Cell graph, portals, per-cell parameters, streaming and world deltas have landed (`docs/Portals.md`, `docs/Streaming.md`).
 - physics: have lite solver (sphere, box, plane, sleeping, layers, raycast). Missing backend ADR, portal-aware layer, character controller, concave dynamic bodies.
 - observation, params: have `Engine.Params` (smoothed named floats, JSON curves, hot reload, shader block). Observation queries have landed (GPU ID grid readback plus CPU fallback).
-- anim: have transform clips and animators, skeletal blending, two-bone/foot/look-at IK, ARKit-52 blendshape clips, eye system (`Engine.Rig`, `Engine.Face`). Missing skinning render path, hand IK pose library.
+- anim: have transform clips and animators, skeletal blending, two-bone/foot/look-at IK, ARKit-52 blendshape clips, eye system (`Engine.Rig`, `Engine.Face`). GPU skinning, morph targets and procedural deform have landed (`docs/Skinning.md`). Missing hand IK pose library.
 - ai: have behavior graphs (utility, tree, fsm), blackboard, decision trace, tiled navmesh with obstacle rebuild, off-mesh links, agent steering (`Engine.AI`, `Engine.Nav`). Missing Recast tile cache, overlay panel.
 - audio: have mixer, buses, ducking, spatialization, voice scheduler, BVH propagation with ray budget and hop hook, Null/WAV backends (`Engine.Audio`, `docs/adr/Audio.md`). Missing device backend, adaptive music.
 - narrative: missing.

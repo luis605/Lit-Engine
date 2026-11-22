@@ -1,0 +1,9 @@
+// Merged scatter meshes (terrain trees): the source mesh marks trunk (uv.x = 0) and crown (uv.x = 1).
+void surface(in SurfaceInput i, inout Surface s) {
+    float n = litNoise(vec3(i.objectPosition.xz * 0.6, i.objectPosition.y * 0.4));
+    vec3 crown = mix(vec3(0.05, 0.17, 0.06), vec3(0.12, 0.30, 0.09), n);
+    vec3 trunk = mix(vec3(0.20, 0.12, 0.07), vec3(0.30, 0.19, 0.10), n);
+    s.baseColor = mix(trunk, crown, smoothstep(0.35, 0.65, i.uv.x));
+    s.roughness = 0.9;
+    s.metallic = 0.0;
+}

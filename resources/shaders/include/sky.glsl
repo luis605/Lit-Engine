@@ -32,7 +32,7 @@ vec3 skyLut(vec3 camPos, float viewHeight, vec3 up, vec3 dir, bool intersectGrou
 }
 
 vec3 zenithRadiance() {
-    vec3 camPos = atmospherePosition(viewPos);
+    vec3 camPos = atmospherePosition(skyViewPos());
     float viewHeight = length(camPos);
     vec3 up = camPos / viewHeight;
     return skyLut(camPos, viewHeight, up, up, false);
@@ -48,7 +48,7 @@ vec3 sunTransmittanceAt(vec3 atmPos, vec3 sunDir) {
 }
 
 vec3 physicalSkyRadiance(vec3 dir, bool includeSun) {
-    vec3 camPos = atmospherePosition(viewPos);
+    vec3 camPos = atmospherePosition(skyViewPos());
     float viewHeight = length(camPos);
     vec3 up = camPos / viewHeight;
     vec3 sunDir = sunDirection.xyz;
@@ -83,7 +83,7 @@ vec3 physicalSkyRadiance(vec3 dir, bool includeSun) {
 
 vec3 sunDiskRadiance(vec3 dir) {
     if (moonIsLight()) return vec3(0.0);
-    vec3 camPos = atmospherePosition(viewPos);
+    vec3 camPos = atmospherePosition(skyViewPos());
     float viewHeight = length(camPos);
     vec3 up = camPos / viewHeight;
     vec3 sunDir = sunDirection.xyz;
@@ -321,7 +321,7 @@ CloudLight cloudLight(vec3 dir) {
         L.phases[k] = mix(phaseHG(L.cosTheta, 0.8 * c), phaseHG(L.cosTheta, -0.25 * c), 0.25) + phaseHG(L.cosTheta, 0.97) * 0.1 * c;
     }
     vec3 zenith = zenithRadiance();
-    vec3 camAtm = atmospherePosition(viewPos);
+    vec3 camAtm = atmospherePosition(skyViewPos());
     vec3 groundSun = sunTransmittanceAt(normalize(camAtm) * (ATM_BOTTOM + 0.001), L.sunDir) * L.toa * saturate(L.sunDir.y);
     L.ambientTop = zenith * 1.1;
     L.ambientBottom = skyParams2.w * INV_PI * (groundSun + zenith * PI) * 0.5 + zenith * 0.12;
@@ -347,12 +347,12 @@ vec3 cloudInscatter(CloudLight L, vec3 sunLight, float h, float density, float o
 vec4 cumulusLayer(vec3 dir, CloudLight L, out float distance) {
     distance = 0.0;
     float hBase = max(skyGradient[0].w, 300.0);
-    float yCam = max(viewPos.y, 0.0);
+    float yCam = max(skyViewPos().y, 0.0);
     vec2 range = layerRange(dir, yCam, hBase, CLOUD_THICKNESS, 28000.0);
     if (range.y <= range.x || range.x > 120000.0) return vec4(0.0, 0.0, 0.0, 1.0);
     int steps = int(mix(float(CLOUD_STEPS) * 0.5, float(CLOUD_STEPS), saturate((range.y - range.x) / 9000.0)));
     float stepSize = (range.y - range.x) / float(steps);
-    vec3 sunLight = sunTransmittanceAt(atmospherePosition(viewPos + dir * range.x), L.sunDir) * L.toa;
+    vec3 sunLight = sunTransmittanceAt(atmospherePosition(skyViewPos() + dir * range.x), L.sunDir) * L.toa;
     float t = range.x + stepSize * g_cloudDither;
     vec3 color = vec3(0.0);
     float transmittance = 1.0;
@@ -410,11 +410,11 @@ vec4 cumulusLayer(vec3 dir, CloudLight L, out float distance) {
 vec4 cirrusLayer(vec3 dir, CloudLight L, out float distance) {
     distance = 0.0;
     float hBase = max(skyGradient[0].w, 300.0) + CIRRUS_OFFSET;
-    float yCam = max(viewPos.y, 0.0);
+    float yCam = max(skyViewPos().y, 0.0);
     vec2 range = layerRange(dir, yCam, hBase, CIRRUS_THICKNESS, 30000.0);
     if (range.y <= range.x || range.x > 160000.0) return vec4(0.0, 0.0, 0.0, 1.0);
     float stepSize = (range.y - range.x) / float(CIRRUS_STEPS);
-    vec3 sunLight = sunTransmittanceAt(atmospherePosition(viewPos + dir * range.x), L.sunDir) * L.toa;
+    vec3 sunLight = sunTransmittanceAt(atmospherePosition(skyViewPos() + dir * range.x), L.sunDir) * L.toa;
     float t = range.x + stepSize * g_cloudDither;
     vec3 color = vec3(0.0);
     float transmittance = 1.0;
@@ -444,7 +444,7 @@ vec4 cirrusLayer(vec3 dir, CloudLight L, out float distance) {
 vec4 applyCloudHaze(vec4 c, float distance, vec3 dir) {
     if (distance <= 0.0) return c;
     float haze = 1.0 - exp(-distance * qualityParams.w / 38000.0);
-    vec3 camPos = atmospherePosition(viewPos);
+    vec3 camPos = atmospherePosition(skyViewPos());
     float viewHeight = length(camPos);
     vec3 horizonSky = skyLut(camPos, viewHeight, camPos / viewHeight, dir, false);
     c.rgb = mix(c.rgb, horizonSky * (1.0 - c.a), haze);
@@ -500,7 +500,7 @@ vec3 skyRadiance(vec3 dir, bool includeSun) {
         return textureLod(u_hdri, vec2(fract(u), v), 0.0).rgb * skyParams.y;
     }
     L = physicalSkyRadiance(dir, includeSun);
-    vec3 camPos = atmospherePosition(viewPos);
+    vec3 camPos = atmospherePosition(skyViewPos());
     float viewHeight = length(camPos);
     vec3 up = camPos / viewHeight;
     float night = nightFactor();

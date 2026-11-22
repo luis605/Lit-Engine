@@ -12,7 +12,7 @@ void main() {
     ivec2 size = imageSize(u_output);
     if (any(greaterThanEqual(pixel, size))) return;
     vec2 uv = (vec2(pixel) + 0.5) / vec2(size);
-    vec3 dir = normalize(worldFromDepth(uv, 1.0) - viewPos);
+    vec3 dir = normalize(worldFromDepth(uv, FAR_DEPTH) - viewPos);
     g_cloudDither = interleavedGradientNoise(vec2(pixel), 0.0);
     g_cloudPixelAngle = 2.0 / (projection[1][1] * float(size.y));
     imageStore(u_output, pixel, cloudsForDirection(dir));

@@ -51,4 +51,6 @@ void BuildHiZ(DiligentData& gpu, Diligent::ITexture* hiz, Diligent::RefCntAutoPt
 Diligent::IPipelineState* SurfacePipeline(const DiligentData::SurfaceProgram& surface, int phaseIndex, bool points);
 std::vector<Diligent::IPipelineState*> SurfacePipelines(const DiligentData& gpu, int phaseIndex, bool points);
 void ReadGpuTimings(DiligentData& gpu, int frame);
+void SavePortalEffectsDepth(DiligentData& gpu);
+void RestorePortalEffectsDepth(DiligentData& gpu);
 void LogGpuTimings(const DiligentData& gpu);

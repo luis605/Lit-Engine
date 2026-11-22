@@ -1,0 +1,55 @@
+#version 450
+#extension GL_GOOGLE_include_directive : require
+#include "scene.glsl"
+#include "meshlet.glsl"
+
+// Cluster LOD, second Hi-Z pass. Clusters rejected only by the previous-frame Hi-Z in the early
+// phase were recorded per work item (instance entry + 64-bit cluster mask). The retest phase draws
+// with its own visible-entry buffer, so each record gets an entry slot at the top of that buffer
+// (above the phase's own visible entries) and becomes a work item tested against the new Hi-Z.
+layout(local_size_x = 64, local_size_y = 1, local_size_z = 1) in;
+
+layout(std430) readonly buffer AtomicCounterBuffer {
+    uint u_visibleCount;
+};
+
+layout(std430) writeonly buffer SortedVisibleObjectBuffer {
+    uvec2 sortedEntries[];
+};
+
+layout(std430) readonly buffer RetestCounterBuffer {
+    uint u_retestCount;
+};
+
+layout(std430) readonly buffer RetestBuffer {
+    uvec4 retestItems[];
+};
+
+layout(std430) buffer WorkCounterBuffer {
+    uint u_workCount;
+};
+
+layout(std430) writeonly buffer WorkItemBuffer {
+    uvec4 workItems[];
+};
+
+layout(std430) buffer MeshletStatsBuffer {
+    uint meshletStats[];
+};
+
+void main() {
+    uint index = gl_GlobalInvocationID.x;
+    if (index >= min(u_retestCount, u_retestCapacity)) return;
+    uint slot = u_maxDraws - 1u - index;
+    if (slot < min(u_visibleCount, u_maxDraws)) {
+        atomicAdd(meshletStats[u_statsBase + MESHLET_STAT_OVERFLOW], 1u);
+        return;
+    }
+    uvec4 head = retestItems[index * 2u];
+    uvec4 tail = retestItems[index * 2u + 1u];
+    sortedEntries[slot] = head.xy;
+    uint item = atomicAdd(u_workCount, 1u);
+    if (item >= u_maxWorkItems) return;
+    workItems[item * 2u] = uvec4(slot, head.z, tail.z, head.w);
+    workItems[item * 2u + 1u] = uvec4(tail.x, tail.y, 0u, 0u);
+}

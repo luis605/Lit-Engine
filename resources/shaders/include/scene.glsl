@@ -50,6 +50,9 @@ layout(std140) uniform SceneData {
     vec4 bleedParams;
     vec4 qualityParams;
     vec4 qualityParams2;
+    vec4 vsmParams;  // x virtual shadows on, y atlas size (texels), z atlas pages per side, w resolution scale
+    vec4 vsmParams2; // x finest mip (0..4)
+    vec4 originParams; // xyz world origin mod 4096 (pattern phase), w world origin y (altitude)
 };
 
 float projectedDiameterPx(float radius, float dist) {
@@ -59,7 +62,15 @@ float projectedDiameterPx(float radius, float dist) {
 float sceneTime() { return timeParams.x; }
 float frameIndex() { return timeParams.z; }
 float farPlane() { return timeParams.w; }
+// Floating origin: world = local + origin. Procedural world-space patterns sample local + originPhase() (origin modulo 4096, so float
+// precision holds and a rebase does not move the pattern when its period divides 4096); altitude-dependent effects use skyViewPos().
+vec3 originPhase() { return originParams.xyz; }
+vec3 skyViewPos() { return viewPos + vec3(0.0, originParams.w, 0.0); }
 int debugViewMode() { return int(exposureParams.w + 0.5); }
+
+// Reversed Z: depth 1 is the near plane, 0 the far plane (sky and cleared pixels hold 0).
+bool isSkyDepth(float depth) { return depth <= 0.0; }
+const float FAR_DEPTH = 0.0;
 
 vec3 worldFromDepth(vec2 uv, float depth) {
     vec4 ndc = vec4(uv.x * 2.0 - 1.0, 1.0 - uv.y * 2.0, depth, 1.0);

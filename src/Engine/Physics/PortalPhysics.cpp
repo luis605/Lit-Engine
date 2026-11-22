@@ -54,6 +54,7 @@ PortalCast portalSweep(const PortalSystem& portals, World& world, const glm::vec
         remaining -= crossingPoint->second + kCrossingNudge;
         current = portals.portals()[static_cast<size_t>(portal.partner)].cell;
         ++result.crossings;
+        result.transform = portal.transform * result.transform;
         if (remaining <= 0.0f) break;
     }
     result.point = rayOrigin;
@@ -87,14 +88,45 @@ std::vector<PortalOverlap> portalOverlap(const PortalSystem& portals, World& wor
     return overlaps;
 }
 
+std::vector<PortalOverlap> portalOverlapCapsule(const PortalSystem& portals, World& world, const glm::vec3& a, const glm::vec3& b, float radius, int cell, const PhysicsFilter& skip) {
+    std::vector<PortalOverlap> overlaps;
+    std::unordered_set<uint64_t> seen;
+    const PhysicsFilter filter = [&](EntityHandle entity) { return portals.isGhost(entity) || (skip && skip(entity)); };
+    for (const PhysicsContact& contact : physicsOverlapCapsule(world, a, b, radius, filter)) {
+        if (seen.insert(entityKey(contact.entity)).second) overlaps.push_back({contact.entity, 0});
+    }
+    const int current = cell >= 0 ? cell : portals.cellAt((a + b) * 0.5f);
+    for (int portalId : portals.portalsOf(current)) {
+        const Portal& portal = portals.portals()[static_cast<size_t>(portalId)];
+        const float sideA = glm::dot(a - portal.center(), portal.normal());
+        const float sideB = glm::dot(b - portal.center(), portal.normal());
+        if (std::min(sideA, sideB) > radius || std::max(sideA, sideB) < -radius) continue;
+        for (const PhysicsContact& contact : physicsOverlapCapsule(world, transformPoint(portal.transform, a), transformPoint(portal.transform, b), radius, filter)) {
+            if (seen.insert(entityKey(contact.entity)).second) overlaps.push_back({contact.entity, 1});
+        }
+    }
+    return overlaps;
+}
+
 void installPortalPhysics(PortalSystem& portals) {
     portals.setCrossHook([](World& world, EntityHandle entity, const glm::mat4& transform) {
-        if (RigidBody* body = world.get<RigidBody>(entity)) body->velocity = glm::mat3(transform) * body->velocity;
+        if (RigidBody* body = world.get<RigidBody>(entity)) {
+            const glm::mat3 rotation(transform);
+            body->velocity = rotation * body->velocity;
+            body->angularVelocity = rotation * body->angularVelocity;
+        }
     });
 }
 
 namespace {
 float colliderRadius(World& world, EntityHandle entity) {
+    if (const CapsuleCollider* capsule = world.get<CapsuleCollider>(entity)) return capsule->radius;
+    if (const CompoundCollider* compound = world.get<CompoundCollider>(entity)) {
+        if (compound->parts.empty()) return -1.0f;
+        float smallest = 1.0e30f;
+        for (const CompoundPart& part : compound->parts) smallest = std::min(smallest, part.kind == CompoundPart::Kind::Box ? std::min({part.halfExtents.x, part.halfExtents.y, part.halfExtents.z}) : part.radius);
+        return smallest;
+    }
     if (const BoxCollider* box = world.get<BoxCollider>(entity)) return std::min({box->halfExtents.x, box->halfExtents.y, box->halfExtents.z});
     if (const SphereCollider* sphere = world.get<SphereCollider>(entity)) return sphere->radius;
     return -1.0f;

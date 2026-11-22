@@ -1,5 +1,7 @@
 #pragma once
 
+struct SkinningGpu;
+
 struct HiZSet {
     Diligent::RefCntAutoPtr<Diligent::ITexture> texture;
     Diligent::RefCntAutoPtr<Diligent::ITextureView> source[kMaxHiZMips];
@@ -43,6 +45,8 @@ struct DiligentData {
     Diligent::RefCntAutoPtr<Diligent::IBuffer> pSceneUBO[NumFrames];
 
     Diligent::RefCntAutoPtr<Diligent::IBuffer> pMeshInfoBuffer;
+    Diligent::RefCntAutoPtr<Diligent::IBuffer> pDynamicStamps;  // per entity deform version (skin_bounds.comp writes, virtual shadows read)
+    Diligent::RefCntAutoPtr<Diligent::IBuffer> pMeshInfoBufferFull;  // never patched by cluster LOD (virtual shadow casters)
     Diligent::RefCntAutoPtr<Diligent::IBuffer> pNormalSampleBuffer;
     Diligent::RefCntAutoPtr<Diligent::IPipelineState> pTransformPSO;
     Diligent::RefCntAutoPtr<Diligent::IShaderResourceBinding> pTransformSRB[NumFrames];
@@ -166,9 +170,11 @@ struct DiligentData {
     float profileLogTimer = 0.0f;
 
     Diligent::RefCntAutoPtr<Diligent::IShaderResourceBinding> pHiZMipmapSRB;
+    Diligent::RefCntAutoPtr<Diligent::IShaderResourceBinding> pHiZSceneMipmapSRB;  // camera Hi-Z (reversed Z): keeps the minimum
     Diligent::RefCntAutoPtr<Diligent::IShaderResourceBinding> pApplyDirtySRB[NumFrames];
 
     Diligent::RefCntAutoPtr<Diligent::IPipelineState> pHiZMipmapPSO;
+    Diligent::RefCntAutoPtr<Diligent::IPipelineState> pHiZSceneMipmapPSO;
     Diligent::RefCntAutoPtr<Diligent::IPipelineState> pCullingPSO;
     Diligent::RefCntAutoPtr<Diligent::IPipelineState> pVisibilityCompactPSO;
     Diligent::RefCntAutoPtr<Diligent::IPipelineState> pCommandGenPSO;
@@ -205,6 +211,18 @@ struct DiligentData {
     Diligent::RefCntAutoPtr<Diligent::ITexture> portalColor[kMaxPortalViews];
     Diligent::RefCntAutoPtr<Diligent::ITexture> portalDepth[kMaxPortalViews];
     Diligent::RefCntAutoPtr<Diligent::ITexture> portalDepthScratch;
+    // Child G-buffer per view (base colour, normal/roughness, material), copied after the view's own
+    // portals were resolved, so a parent can splice the room behind a portal into its G-buffer.
+    Diligent::RefCntAutoPtr<Diligent::ITexture> portalGBuffer[kMaxPortalViews][3];
+    // Depth with the rooms behind portals spliced in (no portal planes). Saved before the final
+    // composite writes plane depth for transparency, restored afterwards for post effects.
+    Diligent::RefCntAutoPtr<Diligent::ITexture> portalEffectsDepth;
+    Diligent::RefCntAutoPtr<Diligent::IPipelineState> pPortalResolvePSO;
+    Diligent::RefCntAutoPtr<Diligent::IShaderResourceBinding> pPortalResolveSRB;
+    Diligent::RefCntAutoPtr<Diligent::IBuffer> pPortalResolveUBO;
+    Diligent::RefCntAutoPtr<Diligent::IPipelineState> pPortalColorPSO;
+    Diligent::RefCntAutoPtr<Diligent::IShaderResourceBinding> pPortalColorSRB;
+    bool portalCompositeWritesDepth = true;
     Diligent::RefCntAutoPtr<Diligent::IPipelineState> pPortalDepthPSO;
     Diligent::RefCntAutoPtr<Diligent::IShaderResourceBinding> pPortalDepthSRB;
     Diligent::RefCntAutoPtr<Diligent::IBuffer> pPortalDepthUBO;
@@ -220,4 +238,6 @@ struct DiligentData {
         bool timed = false;
     };
     PortalSnapshot portalSnapshot[NumFrames][kMaxPortalViews];
+    // Declared last so it is destroyed first (before the device). Defined in RendererSkinning.hpp.
+    std::shared_ptr<SkinningGpu> skinning;
 };

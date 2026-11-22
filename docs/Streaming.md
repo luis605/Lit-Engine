@@ -19,6 +19,10 @@ Per-frame budget: `commitMillisPerFrame` and `uploadBytesPerFrame`, shared by co
 
 Metrics (`StreamingStats`): rolling frame time p50/p99/max over `window` frames (recorded from `Engine::tick`), `hitches` (frames above `hitchMillis`), `updateMillis` and `updateMaxMillis` (streaming cost per frame), bytes committed, cells loaded/unloaded/cancelled, pending, resident. With `enablePerfLog`, the CSV gains `frame_p99_ms`, `stream_update_ms`, `stream_pending`, `stream_resident`, `stream_hitches`, `stream_mb`, usable with `scripts/perf_check.py` limits.
 
+## Spatial streaming, mesh residency (open world)
+
+`StreamingConfig::spatial` adds distance rings (load radius, keep radius, per-ring `lod`) on top of the portal graph; a cell is wanted if either criterion wants it. `MeshResidency` budgets GPU mesh uploads with LRU eviction and LOD requests. Floating origin keeps all of this consistent. See `docs/LargeWorld.md`.
+
 ## Engine.Delta and Engine.Save (W-7)
 
 `DeltaStore` keeps player changes on top of cell data. Base entities are registered by stable key (`registerBase(cell, key, handle)`), with a baseline snapshot of name, tag, mesh, material, shader, alpha, layer, render flags, visibility, local matrix and serialized components. `captureCell` diffs live state against the baseline into:
@@ -52,4 +56,4 @@ Renderer.cpp changes are limited to the poll after the fence wait, one record ca
 
 ## Not done
 
-Renderer use of `visibleCells` (per-cell lighting and shadow selection stays in Renderer.cpp, owned elsewhere), triangle-exact ID raster, streaming of GPU meshes (the loader decides what `commit` uploads).
+Renderer use of `visibleCells` (per-cell lighting and shadow selection stays in Renderer.cpp, owned elsewhere), triangle-exact ID raster.

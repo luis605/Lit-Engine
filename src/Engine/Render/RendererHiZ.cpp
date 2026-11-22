@@ -21,7 +21,8 @@ import Engine.Render.observation;
 
 namespace {
 
-constexpr float kFarDepth[4] = {1.0f, 1.0f, 1.0f, 1.0f};
+// Reversed Z: the far plane is 0 (docs/LargeWorld.md).
+constexpr float kFarDepth[4] = {0.0f, 0.0f, 0.0f, 0.0f};
 constexpr Diligent::Uint32 kHiZGroupSize = 8;
 
 void CreateMipUavView(Diligent::ITexture* texture, Diligent::Uint32 mip, Diligent::UAV_ACCESS_FLAG access, Diligent::RefCntAutoPtr<Diligent::ITextureView>& view) {
@@ -88,7 +89,7 @@ bool CreateHiZSet(DiligentData& gpu, HiZSet& set, int width, int height, int mip
 
 void BuildHiZ(DiligentData& gpu, Diligent::ITexture* hiz, Diligent::RefCntAutoPtr<Diligent::ITextureView>* source, Diligent::RefCntAutoPtr<Diligent::ITextureView>* dest, int width, int height, int mips) {
     auto* context = gpu.pImmediateContext.RawPtr();
-    if (!gpu.pHiZFromDepthPSO || !gpu.pHiZMipmapPSO || !hiz) return;
+    if (!gpu.pHiZFromDepthPSO || !gpu.pHiZSceneMipmapPSO || !hiz) return;
     auto hizBarrier = [&](Diligent::RESOURCE_STATE newState) {
         Diligent::StateTransitionDesc barrier{hiz, Diligent::RESOURCE_STATE_UNKNOWN, newState, Diligent::STATE_TRANSITION_FLAG_UPDATE_STATE};
         context->TransitionResourceStates(1, &barrier);
@@ -100,11 +101,11 @@ void BuildHiZ(DiligentData& gpu, Diligent::ITexture* hiz, Diligent::RefCntAutoPt
     context->CommitShaderResources(gpu.pHiZFromDepthSRB, Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
     context->DispatchCompute(Diligent::DispatchComputeAttribs(groupCount(width), groupCount(height), 1));
     hizBarrier(Diligent::RESOURCE_STATE_UNORDERED_ACCESS);
-    context->SetPipelineState(gpu.pHiZMipmapPSO);
+    context->SetPipelineState(gpu.pHiZSceneMipmapPSO);
     for (int mip = 1; mip < mips && mip < kMaxHiZMips; ++mip) {
-        SetDynamicVariable(gpu.pHiZMipmapSRB, "u_sourceMip", source[mip]);
-        SetDynamicVariable(gpu.pHiZMipmapSRB, "u_destMip", dest[mip]);
-        context->CommitShaderResources(gpu.pHiZMipmapSRB, Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
+        SetDynamicVariable(gpu.pHiZSceneMipmapSRB, "u_sourceMip", source[mip]);
+        SetDynamicVariable(gpu.pHiZSceneMipmapSRB, "u_destMip", dest[mip]);
+        context->CommitShaderResources(gpu.pHiZSceneMipmapSRB, Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
         context->DispatchCompute(Diligent::DispatchComputeAttribs(groupCount(width >> mip), groupCount(height >> mip), 1));
         hizBarrier(Diligent::RESOURCE_STATE_UNORDERED_ACCESS);
     }
@@ -168,6 +169,9 @@ void Renderer::createHiZPSO() {
     auto& gpu = *m_diligent;
     gpu.pHiZMipmapPSO = CreateComputePipeline(gpu.pDevice, "Hi-Z Mipmap PSO", "resources/shaders/hiz_mipmap.comp", {"u_sourceMip", "u_destMip"});
     CreateBindings(gpu.pHiZMipmapPSO, std::span(std::addressof(gpu.pHiZMipmapSRB), 1));
+    const Diligent::ShaderMacro sceneMacros[] = {{"HIZ_KEEP_MIN", "1"}};
+    gpu.pHiZSceneMipmapPSO = CreateComputePipeline(gpu.pDevice, "Hi-Z Scene Mipmap PSO", "resources/shaders/hiz_mipmap.comp", {"u_sourceMip", "u_destMip"}, Diligent::ShaderMacroArray{sceneMacros, 1});
+    CreateBindings(gpu.pHiZSceneMipmapPSO, std::span(std::addressof(gpu.pHiZSceneMipmapSRB), 1));
     gpu.pHiZFromDepthPSO = CreateComputePipeline(gpu.pDevice, "Hi-Z From Depth PSO", "resources/shaders/hiz_from_depth.comp", {"u_depth", "u_destMip"});
     CreateBindings(gpu.pHiZFromDepthPSO, std::span(std::addressof(gpu.pHiZFromDepthSRB), 1));
     gpu.pShadowHiZPSO = CreateComputePipeline(gpu.pDevice, "Shadow Hi-Z PSO", "resources/shaders/hiz_from_shadow.comp", {"u_shadowDepth", "u_destMip"});

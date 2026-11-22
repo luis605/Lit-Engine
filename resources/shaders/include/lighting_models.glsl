@@ -38,10 +38,9 @@ vec3 litToonDirect(ShadingData s, LitToon toon, vec2 pixel, float viewDepth, out
         if (NoL > 0.0) visibility = sunShadow(s.position, s.N, max(NoL, 0.05), pixel);
         color += litToonLight(s, sunDirection.xyz, sunIlluminance.rgb, visibility, toon.bands);
     }
-    uint base = clusterIndex(pixel, viewDepth) * CLUSTER_STRIDE;
-    uint count = min(clusterLights[base], CLUSTER_STRIDE - 1u);
-    for (uint i = 0u; i < count; ++i) {
-        GpuLight light = lights[clusterLights[base + 1u + i]];
+    uvec2 range = clusterRange(clusterIndex(pixel, viewDepth));
+    for (uint i = 0u; i < range.y; ++i) {
+        GpuLight light = lights[clusterLights[range.x + i]];
         vec3 toLight = light.positionRange.xyz - s.position;
         float d2 = dot(toLight, toLight);
         vec3 L = toLight * inversesqrt(max(d2, 1e-8));

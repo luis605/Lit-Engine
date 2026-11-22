@@ -1,0 +1,113 @@
+// Terrain surface (docs/Terrain.md): CDLOD-style vertex morphing and splat blending of grass, rock, sand and snow.
+//
+// Per-LOD-level material (engine.enableTerrain fills these):
+//   custom0 = (nodeSize, splitFactor, morphStart, uvScale)   nodeSize < 0: coarsest level, no morph
+//   custom1 = (sandMaxHeight, snowMinHeight, albedo layers, normal layers)
+// Layer ids of engine.loadTexture are packed 5 bits each (grass, rock, sand, snow), 31 = no texture (procedural).
+// Tile meshes carry the morph delta in the normal length (|n| = 1 + delta / 256, TileMeshOptions::packMorph).
+#pragma lit bounds 48.0
+
+const float TERRAIN_MORPH_SCALE = 256.0;
+
+void vertex(inout VertexData v, in VertexContext c) {
+    float len = length(v.normal);
+    v.normal = v.normal / max(len, 1e-6);
+    if (c.custom0.x > 0.0) {
+        float delta = (len - 1.0) * TERRAIN_MORPH_SCALE;
+        vec3 world = (c.world * vec4(v.position, 1.0)).xyz;
+        float range = 2.0 * c.custom0.y * c.custom0.x;
+        float t = clamp((distance(viewPos, world) - c.custom0.z * range) / max(range * (1.0 - c.custom0.z), 1e-3), 0.0, 1.0);
+        v.position.y += delta * t;
+    }
+}
+
+uint terrainLayerId(float packedValue, int layer) {
+    uint p = uint(packedValue);
+    return (p >> uint(layer * 5)) & 31u;
+}
+
+vec4 terrainSplat(float height, float ny, float sandMax, float snowMin) {
+    float rock = smoothstep(0.62, 0.82, 1.0 - ny);
+    float snow = smoothstep(snowMin - 12.0, snowMin + 12.0, height) * (1.0 - rock * 0.7);
+    float sand = (1.0 - smoothstep(sandMax - 2.0, sandMax + 2.0, height)) * (1.0 - rock);
+    float grass = max(0.0, 1.0 - rock - snow - sand);
+    vec4 w = vec4(grass, rock, sand, snow);
+    float total = w.x + w.y + w.z + w.w;
+    return total > 1e-5 ? w / total : vec4(1.0, 0.0, 0.0, 0.0);
+}
+
+vec3 terrainTriWeights(vec3 n) {
+    vec3 w = pow(abs(n), vec3(6.0));
+    return w / (w.x + w.y + w.z + 1e-5);
+}
+
+vec3 terrainTriAlbedo(uint layer, vec3 p, vec3 w) {
+    float l = float(layer);
+    return texture(u_colorTextures, vec3(p.zy, l)).rgb * w.x + texture(u_colorTextures, vec3(p.xz, l)).rgb * w.y + texture(u_colorTextures, vec3(p.xy, l)).rgb * w.z;
+}
+
+vec3 terrainTriNormal(uint layer, vec3 p, vec3 n, vec3 w) {
+    float l = float(layer);
+    vec3 tx = texture(u_dataTextures, vec3(p.zy, l)).xyz * 2.0 - 1.0;
+    vec3 ty = texture(u_dataTextures, vec3(p.xz, l)).xyz * 2.0 - 1.0;
+    vec3 tz = texture(u_dataTextures, vec3(p.xy, l)).xyz * 2.0 - 1.0;
+    vec3 nx = vec3(tx.xy + n.zy, abs(tx.z) * n.x);
+    vec3 ny = vec3(ty.xy + n.xz, abs(ty.z) * n.y);
+    vec3 nz = vec3(tz.xy + n.xy, abs(tz.z) * n.z);
+    return normalize(nx.zyx * w.x + ny.xzy * w.y + nz.xyz * w.z);
+}
+
+void surface(in SurfaceInput i, inout Surface s) {
+    float uvScale = max(i.custom0.w, 1e-4);
+    float ny = clamp(i.geometricNormal.y, 0.0, 1.0);
+    // Object space y is the absolute height (tile entities sit at height 0), uv is baked from world x and z.
+    float height = i.objectPosition.y;
+    vec4 w = terrainSplat(height, ny, i.custom1.x, i.custom1.y);
+
+    // World-anchored triplanar coordinates (swim free under floating origin) in texture-repeat units.
+    vec3 p = vec3(i.uv.x, height * uvScale, i.uv.y);
+    vec3 tw = terrainTriWeights(i.geometricNormal);
+
+    float breakup = litFbm(vec3(i.uv * 0.35, 3.7), 4);
+    float fine = litNoise(vec3(i.uv * 6.0, 1.3));
+    float rockNoise = litFbm(vec3(p.zy * 2.0, p.x * 2.0), 4) * 0.5 + litFbm(vec3(p.xz * 2.0, p.y * 2.0 + 9.0), 4) * 0.5;
+
+    vec3 grass = mix(vec3(0.16, 0.30, 0.07), vec3(0.28, 0.40, 0.11), breakup) * (0.85 + 0.3 * fine);
+    vec3 rock = mix(vec3(0.30, 0.28, 0.26), vec3(0.52, 0.49, 0.45), rockNoise);
+    vec3 sand = mix(vec3(0.70, 0.60, 0.40), vec3(0.80, 0.72, 0.50), breakup) * (0.9 + 0.2 * fine);
+    vec3 snow = mix(vec3(0.86, 0.89, 0.94), vec3(0.97, 0.98, 1.0), fine);
+
+    uint idGrass = terrainLayerId(i.custom1.z, 0);
+    uint idRock = terrainLayerId(i.custom1.z, 1);
+    uint idSand = terrainLayerId(i.custom1.z, 2);
+    uint idSnow = terrainLayerId(i.custom1.z, 3);
+    if (idGrass != 31u) grass = texture(u_colorTextures, vec3(i.uv, float(idGrass))).rgb;
+    if (idRock != 31u) rock = terrainTriAlbedo(idRock, p, tw);
+    if (idSand != 31u) sand = texture(u_colorTextures, vec3(i.uv, float(idSand))).rgb;
+    if (idSnow != 31u) snow = texture(u_colorTextures, vec3(i.uv, float(idSnow))).rgb;
+
+    s.baseColor = grass * w.x + rock * w.y + sand * w.z + snow * w.w;
+    s.roughness = 0.92 * w.x + 0.85 * w.y + 0.96 * w.z + 0.55 * w.w;
+    s.metallic = 0.0;
+    s.occlusion = mix(1.0, 0.75 + 0.25 * breakup, w.x + w.y);
+
+    // Normal: texture normal maps when present, procedural bump otherwise (faded with distance to stay alias free).
+    float distanceFade = 1.0 - smoothstep(60.0, 400.0, distance(viewPos, i.worldPosition));
+    vec3 N = normalize(i.geometricNormal);
+    uint nGrass = terrainLayerId(i.custom1.w, 0);
+    uint nRock = terrainLayerId(i.custom1.w, 1);
+    bool anyNormalMap = nGrass != 31u || nRock != 31u;
+    if (anyNormalMap) {
+        vec3 result = N;
+        if (nRock != 31u && w.y > 0.01) result = normalize(mix(N, terrainTriNormal(nRock, p, N, tw), w.y * distanceFade));
+        if (nGrass != 31u && (w.x + w.z + w.w) > 0.01) {
+            vec3 tn = texture(u_dataTextures, vec3(i.uv, float(nGrass))).xyz * 2.0 - 1.0;
+            vec3 mapped = litPerturbNormal(N, i.worldPosition, i.uv, normalize(tn));
+            result = normalize(mix(result, mapped, (w.x + w.z + w.w) * distanceFade));
+        }
+        s.normal = result;
+    } else {
+        float bump = (rockNoise * w.y * 2.0 + fine * (w.x + w.z) * 0.5 + breakup * 0.3) * distanceFade;
+        s.normal = litBumpNormal(i, N, bump, 0.6 * distanceFade);
+    }
+}

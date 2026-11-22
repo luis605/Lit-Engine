@@ -1,72 +1,126 @@
 #version 450
 #extension GL_GOOGLE_include_directive : require
-#include "scene.glsl"
+#define CLUSTER_BUFFER_WRITABLE
+#include "lights.glsl"
 
-layout(local_size_x = 64, local_size_y = 1, local_size_z = 1) in;
+// Clustered light culling in two dispatches (no history):
+//   VISIBLE_PASS: one thread per light. Frustum test against the current view (portal views pass
+//                 their clipped planes), tight bounding sphere for spot cones, compacted into
+//                 VisibleLightBuffer as (view-space centre, radius) + light index.
+//   default:      one 64-thread group per froxel cluster (CLUSTER_X x CLUSTER_Y screen tiles,
+//                 CLUSTER_Z exponential depth slices). The group tests the visible lights against
+//                 the cluster's view-space AABB, collects up to CLUSTER_MAX_LIGHTS in shared memory and
+//                 appends them to the variable-length index list.
 
-struct GpuLight {
-    vec4 positionRange;
-    vec4 colorType;
-    vec4 directionCos;
-    vec4 params;
-};
-
-layout(std430) readonly buffer LightBuffer {
-    GpuLight lights[];
-};
-
-layout(std430) writeonly buffer ClusterBuffer {
+layout(std430) buffer ClusterBuffer {
     uint clusterLights[];
 };
 
-const uint CLUSTER_X = 16u;
-const uint CLUSTER_Y = 9u;
-const uint CLUSTER_Z = 24u;
-const uint CLUSTER_STRIDE = 128u;
+layout(std430) buffer VisibleLightBuffer {
+    vec4 visibleLights[];
+};
 
-vec3 viewPoint(vec2 pixel, float ndcZ) {
-    vec2 uv = pixel * screenParams.zw;
-    vec4 v = invProjection * vec4(uv.x * 2.0 - 1.0, 1.0 - uv.y * 2.0, ndcZ, 1.0);
-    return v.xyz / v.w;
+const uint INDEX_CAPACITY = 4u * 1024u * 1024u;
+
+#ifdef VISIBLE_PASS
+layout(local_size_x = 64, local_size_y = 1, local_size_z = 1) in;
+
+void main() {
+    uint index = gl_GlobalInvocationID.x;
+    if (index >= uint(lightParams.x)) return;
+    GpuLight light = lights[index];
+    vec3 center = light.positionRange.xyz;
+    float radius = light.positionRange.w;
+    if (radius <= 0.0 || dot(light.colorType.rgb, vec3(1.0)) <= 0.0) return;
+    if (light.colorType.w > 1.5) {
+        // Bounding sphere of the spot cone (apex + spherical cap).
+        float cosAngle = clamp(light.directionCos.w, 0.0, 1.0);
+        vec3 axis = light.directionCos.xyz;
+        if (cosAngle < 0.70710678) {
+            center += axis * (radius * cosAngle);
+            radius *= sqrt(max(1.0 - cosAngle * cosAngle, 0.0));
+        } else {
+            float r = radius / (2.0 * max(cosAngle, 1e-3));
+            center += axis * r;
+            radius = r;
+        }
+    }
+    for (int i = 0; i < 6; ++i) {
+        if (dot(frustumPlanes[i].xyz, center) + frustumPlanes[i].w < -radius) return;
+    }
+    uint slot = atomicAdd(clusterLights[CLUSTER_VISIBLE_COUNTER], 1u);
+    vec3 viewCenter = (view * vec4(center, 1.0)).xyz;
+    visibleLights[slot * 2u] = vec4(viewCenter, radius);
+    visibleLights[slot * 2u + 1u] = vec4(uintBitsToFloat(index), 0.0, 0.0, 0.0);
 }
 
+#else
+layout(local_size_x = 64, local_size_y = 1, local_size_z = 1) in;
+
+shared uint s_count;
+shared uint s_base;
+shared uint s_list[CLUSTER_MAX_LIGHTS];
+shared vec3 s_min;
+shared vec3 s_max;
+
+// View-space point on the pixel's ray at view depth `depth` (metres). Uses only the x, y and w rows of
+// the projection: portal views use an oblique projection whose depth row is the portal plane, so
+// unprojecting at ndc z = 0/1 gives points on tilted (possibly degenerate, w ~ 0) planes.
 vec3 atDepth(vec2 pixel, float depth) {
-    vec3 a = viewPoint(pixel, 0.0);
-    vec3 b = viewPoint(pixel, 1.0);
-    return mix(a, b, (depth + a.z) / max(a.z - b.z, 1e-6));
+    vec2 uv = pixel * screenParams.zw;
+    vec2 ndc = vec2(uv.x * 2.0 - 1.0, 1.0 - uv.y * 2.0);
+    return vec3(depth * (ndc.x + projection[2][0]) / projection[0][0], depth * (ndc.y + projection[2][1]) / projection[1][1], -depth);
 }
 
 void main() {
-    uint cluster = gl_GlobalInvocationID.x;
-    if (cluster >= CLUSTER_X * CLUSTER_Y * CLUSTER_Z) return;
-    uint x = cluster % CLUSTER_X;
-    uint y = (cluster / CLUSTER_X) % CLUSTER_Y;
-    uint z = cluster / (CLUSTER_X * CLUSTER_Y);
-    float zNear = nearPlane * exp(float(z) / clusterParams.x);
-    float zFar = nearPlane * exp(float(z + 1u) / clusterParams.x);
-    vec2 tileMin = vec2(x, y) * clusterParams.zw;
-    vec2 tileMax = tileMin + clusterParams.zw;
-    vec2 corners[4] = vec2[](tileMin, vec2(tileMax.x, tileMin.y), vec2(tileMin.x, tileMax.y), tileMax);
-    vec3 aabbMin = vec3(1e30);
-    vec3 aabbMax = vec3(-1e30);
-    for (int i = 0; i < 4; ++i) {
-        vec3 a = atDepth(corners[i], zNear);
-        vec3 b = atDepth(corners[i], zFar);
-        aabbMin = min(aabbMin, min(a, b));
-        aabbMax = max(aabbMax, max(a, b));
+    uint cluster = gl_WorkGroupID.x;
+    uint thread = gl_LocalInvocationIndex;
+    if (thread == 0u) {
+        uint x = cluster % CLUSTER_X;
+        uint y = (cluster / CLUSTER_X) % CLUSTER_Y;
+        uint z = cluster / (CLUSTER_X * CLUSTER_Y);
+        float zNear = nearPlane * exp(float(z) / clusterParams.x);
+        float zFar = nearPlane * exp(float(z + 1u) / clusterParams.x);
+        vec2 tileMin = vec2(x, y) * clusterParams.zw;
+        vec2 tileMax = tileMin + clusterParams.zw;
+        vec2 corners[4] = vec2[](tileMin, vec2(tileMax.x, tileMin.y), vec2(tileMin.x, tileMax.y), tileMax);
+        vec3 aabbMin = vec3(1e30);
+        vec3 aabbMax = vec3(-1e30);
+        for (int i = 0; i < 4; ++i) {
+            vec3 a = atDepth(corners[i], zNear);
+            vec3 b = atDepth(corners[i], zFar);
+            aabbMin = min(aabbMin, min(a, b));
+            aabbMax = max(aabbMax, max(a, b));
+        }
+        s_min = aabbMin;
+        s_max = aabbMax;
+        s_count = 0u;
     }
-    uint base = cluster * CLUSTER_STRIDE;
-    uint count = 0u;
-    uint total = uint(lightParams.x);
-    for (uint i = 0u; i < total && count < CLUSTER_STRIDE - 1u; ++i) {
-        GpuLight light = lights[i];
-        vec3 center = (view * vec4(light.positionRange.xyz, 1.0)).xyz;
-        float radius = light.positionRange.w;
-        vec3 closest = clamp(center, aabbMin, aabbMax);
-        vec3 d = closest - center;
-        if (dot(d, d) > radius * radius) continue;
-        clusterLights[base + 1u + count] = i;
-        ++count;
+    barrier();
+    vec3 aabbMin = s_min;
+    vec3 aabbMax = s_max;
+    uint total = clusterLights[CLUSTER_VISIBLE_COUNTER];
+    for (uint i = thread; i < total; i += 64u) {
+        vec4 sphere = visibleLights[i * 2u];
+        vec3 closest = clamp(sphere.xyz, aabbMin, aabbMax);
+        vec3 d = closest - sphere.xyz;
+        if (dot(d, d) > sphere.w * sphere.w) continue;
+        uint slot = atomicAdd(s_count, 1u);
+        if (slot < CLUSTER_MAX_LIGHTS) s_list[slot] = floatBitsToUint(visibleLights[i * 2u + 1u].x);
     }
-    clusterLights[base] = count;
+    barrier();
+    if (thread == 0u) {
+        uint count = min(s_count, CLUSTER_MAX_LIGHTS);
+        uint base = count > 0u ? atomicAdd(clusterLights[CLUSTER_ALLOC_COUNTER], count) : 0u;
+        if (base + count > INDEX_CAPACITY) count = base < INDEX_CAPACITY ? INDEX_CAPACITY - base : 0u;
+        s_base = base;
+        s_count = count;
+        clusterLights[cluster * 2u] = base;
+        clusterLights[cluster * 2u + 1u] = count;
+    }
+    barrier();
+    uint count = s_count;
+    uint base = CLUSTER_INDEX_BASE + s_base;
+    for (uint i = thread; i < count; i += 64u) clusterLights[base + i] = s_list[i];
 }
+#endif

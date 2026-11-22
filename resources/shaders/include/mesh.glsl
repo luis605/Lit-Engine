@@ -1,4 +1,4 @@
-const uint MAX_MESHES = 2048u;
+const uint MAX_MESHES = 4096u;
 const uint LOD_LEVEL_COUNT = 7u;
 const uint POINT_LOD = LOD_LEVEL_COUNT - 1u;
 const float LOD_DIAMETER_PX[LOD_LEVEL_COUNT - 1u] = float[](60.0, 40.0, 25.0, 10.0, 4.0, 4.0);

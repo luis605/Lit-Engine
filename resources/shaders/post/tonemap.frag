@@ -89,7 +89,7 @@ void main() {
         float luma = luminance(color);
         color = max(luma + (color - luma) * postParams2.y, vec3(0.0));
         color = 0.18 * pow(max(color / 0.18, vec3(0.0)), vec3(postParams2.x));
-        bool masked = texelFetch(u_depth, pixel, 0).r < 1.0 && (texelFetch(u_gbuffer2, pixel, 0).w & 128u) != 0u;
+        bool masked = !isSkyDepth(texelFetch(u_depth, pixel, 0).r) && (texelFetch(u_gbuffer2, pixel, 0).w & 128u) != 0u;
         if (masked) {
             color = 0.18 * pow(max(color / 0.18, vec3(0.0)), vec3(maskParams.x));
             vec2 aspectUv = uv * vec2(screenParams.x * screenParams.w, 1.0);

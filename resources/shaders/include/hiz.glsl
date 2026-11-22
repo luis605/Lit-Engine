@@ -26,9 +26,10 @@ bool sphereOccluded(vec3 worldCenter, float radius) {
     ivec2 lastTexel = textureSize(u_hizTexture, mip) - 1;
     ivec2 lo = min(ivec2(pixelMin) >> mip, lastTexel);
     ivec2 hi = min(ivec2(pixelMax) >> mip, lastTexel);
-    float farthest = max(max(texelFetch(u_hizTexture, lo, mip).r, texelFetch(u_hizTexture, ivec2(hi.x, lo.y), mip).r),
-                         max(texelFetch(u_hizTexture, ivec2(lo.x, hi.y), mip).r, texelFetch(u_hizTexture, hi, mip).r));
+    // Reversed Z: depth 1 is the near plane, 0 the far plane; the farthest occluder is the smallest value.
+    float farthest = min(min(texelFetch(u_hizTexture, lo, mip).r, texelFetch(u_hizTexture, ivec2(hi.x, lo.y), mip).r),
+                         min(texelFetch(u_hizTexture, ivec2(lo.x, hi.y), mip).r, texelFetch(u_hizTexture, hi, mip).r));
 
     vec4 nearestClip = projection * vec4(viewCenter.xy, viewCenter.z + radius, 1.0);
-    return nearestClip.z / nearestClip.w > farthest;
+    return nearestClip.z / nearestClip.w < farthest;
 }

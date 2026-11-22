@@ -112,6 +112,23 @@ void Renderer::drawShadows(uint32_t objectCount) {
     auto& gpu = *m_diligent;
     auto* context = gpu.pImmediateContext.RawPtr();
     const int cascadeCount = gpu.pShadowCullPSO && gpu.pShadowLateCullPSO ? std::min<int>(m_lighting.cascadeCount(), kCascadeShadowViews) : 0;
+    if (m_lighting.virtualShadowsActive()) {
+        // Virtual shadow maps for local lights: page requests come from this view's depth buffer.
+        VirtualShadowInputs inputs;
+        inputs.sceneUniforms = gpu.pSceneUBO[m_currentFrame];
+        inputs.worldMatrices = gpu.pWorldMatrixBuffer[m_currentFrame];
+        inputs.cullSpheres = gpu.pCullSphereBuffer[m_currentFrame];
+        inputs.renderables = gpu.pRenderableBuffer[m_currentFrame];
+        inputs.meshInfos = gpu.pMeshInfoBufferFull ? gpu.pMeshInfoBufferFull.RawPtr() : gpu.pMeshInfoBuffer.RawPtr();
+        inputs.dynamicStamps = gpu.pDynamicStamps.RawPtr();
+        inputs.vertices = gpu.pVBO;
+        inputs.indices = gpu.pEBO;
+        inputs.depth = gpu.pSceneDepth;
+        inputs.objectCount = objectCount;
+        inputs.opaqueShaderCount = static_cast<uint32_t>(m_numDrawingShaders);
+        inputs.lodBias = m_lodBias;
+        m_lighting.renderVirtualShadows(inputs);
+    }
     drawLocalShadows(objectCount);
     if (cascadeCount <= 0) return;
     ensureShadowHiZ();

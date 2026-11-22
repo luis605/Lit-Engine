@@ -114,7 +114,7 @@ static void testColorBleedSettings() {
 }
 
 static void testTestScenes() {
-    CHECK(testSceneNames().size() == 4);
+    CHECK(testSceneNames().size() == 6);
     for (const std::string& name : testSceneNames()) {
         Engine engine;
         engine.openHeadless();
@@ -124,7 +124,7 @@ static void testTestScenes() {
         applyTestSceneCamera(engine, info);
         engine.runHeadless(name == "streaming_route" ? 900 : 120, 1.0f / 60.0f);
         const TestSceneMetrics m = info.metrics();
-        CHECK(m.get("entities") > 10.0);
+        CHECK(engine.world().aliveCount() > 10);
         if (name == "portal_torture") {
             CHECK(m.get("portals") >= 4.0);
             CHECK(m.get("max_view_nodes") >= 2.0);
@@ -135,6 +135,12 @@ static void testTestScenes() {
         } else if (name == "crowd") {
             CHECK(m.get("agents") >= 500.0);
             CHECK(m.get("distance_walked_m") > 100.0);
+        } else if (name == "skinning") {
+            CHECK(m.get("dynamic_instances") >= 1.0);
+            CHECK(m.get("joints") > 1.0);
+        } else if (name == "terrain") {
+            CHECK(m.get("terrain_resident") > 0.0);
+            CHECK(m.get("travelled_m") > 0.0);
         } else {
             CHECK(m.get("farthest_object_m") > 50000.0);
             CHECK(m.get("depth_step_m_at_10000") > 0.0);

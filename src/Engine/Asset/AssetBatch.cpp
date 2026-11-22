@@ -10,11 +10,16 @@ module;
 
 module Engine.asset;
 import Engine.mesh;
+import Engine.meshlet;
 import Engine.Jobs;
 
 ProcessedMesh AssetManager::processMesh(const Mesh& imported) {
-    ProcessedMesh processed{imported.optimized(), {}};
+    ProcessedMesh processed{imported.optimized(), {}, {}};
     processed.lods = processed.base.generateLODChain();
+    if (processed.base.indices.size() / 3 >= kClusterMinTriangles) {
+        processed.clusters = buildClusterMesh(processed.base.vertices, kVertexFloats, processed.base.indices);
+        Lit::Log::Info("Cluster LOD: {} clusters in {} levels ({} triangles at full detail)", processed.clusters.clusters.size(), processed.clusters.levels.size(), processed.base.indices.size() / 3);
+    }
     return processed;
 }
 
@@ -33,7 +38,7 @@ std::optional<ProcessedMesh> AssetManager::loadProcessed(const std::string& sour
     outcomeReport.outcome = CacheOutcome::Disabled;
     if (cacheEnabled) {
         outcomeReport.cachePath = AssetCache::entryPath(options.directory, sourcePath, *contentHash, options.settingsVersion);
-        ProcessedMesh cached{Mesh(std::vector<float>{}, std::vector<unsigned int>{}), {}};
+        ProcessedMesh cached{Mesh(std::vector<float>{}, std::vector<unsigned int>{}), {}, {}};
         outcomeReport.outcome = AssetCache::fetch(outcomeReport.cachePath, *contentHash, options.settingsVersion, cached);
         if (outcomeReport.outcome == CacheOutcome::Hit) return cached;
         if (outcomeReport.outcome == CacheOutcome::Corrupt) Lit::Log::Warn("Corrupt mesh cache entry, reimporting: {}", outcomeReport.cachePath);

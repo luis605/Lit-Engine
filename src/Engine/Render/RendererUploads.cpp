@@ -160,11 +160,14 @@ void Renderer::uploadRenderables(SceneDatabase& sceneDatabase) {
 }
 
 void Renderer::uploadMeshInfo() {
+    if (meshletMeshInfoStale()) m_meshInfoDirty = true;
     if (!m_meshInfoDirty) return;
     auto& gpu = *m_diligent;
     const size_t meshInfoCount = std::min<size_t>(gMeshInfos.size(), kMaxMeshes);
-    gpu.pImmediateContext->UpdateBuffer(gpu.pMeshInfoBuffer, 0, meshInfoCount * sizeof(MeshInfo), gMeshInfos.data(), Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
+    if (!uploadMeshletMeshInfo(meshInfoCount)) gpu.pImmediateContext->UpdateBuffer(gpu.pMeshInfoBuffer, 0, meshInfoCount * sizeof(MeshInfo), gMeshInfos.data(), Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
     if (!gNormalSamples.empty()) gpu.pImmediateContext->UpdateBuffer(gpu.pNormalSampleBuffer, 0, gNormalSamples.size() * sizeof(glm::vec4), gNormalSamples.data(), Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
+    // Cluster LOD zeroes the triangle LOD slots of cluster meshes in the buffer above; virtual shadow casters draw those meshes from their triangle LODs.
+    if (gpu.pMeshInfoBufferFull) gpu.pImmediateContext->UpdateBuffer(gpu.pMeshInfoBufferFull, 0, meshInfoCount * sizeof(MeshInfo), gMeshInfos.data(), Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
     m_meshInfoDirty = false;
 }
 

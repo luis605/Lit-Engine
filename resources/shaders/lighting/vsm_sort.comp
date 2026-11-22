@@ -1,0 +1,95 @@
+#version 450
+#extension GL_GOOGLE_include_directive : require
+#include "vsm_pass.glsl"
+#include "mesh.glsl"
+
+// PREFIX:  single 1024-thread group. Exclusive scan of the per-mesh-LOD instance counts, one
+//          instanced indexed draw command per non-empty bucket (compacted, count in VsmArgs) and the
+//          scatter dispatch size.
+// default: scatter. One thread per instance, placed into its bucket's range.
+
+#ifdef PREFIX
+layout(local_size_x = 1024, local_size_y = 1, local_size_z = 1) in;
+#else
+layout(local_size_x = 256, local_size_y = 1, local_size_z = 1) in;
+#endif
+
+layout(std430) buffer VsmBuckets {
+    uint vsmBuckets[]; // [0, B) counts, [B, 2B) offsets, [2B, 3B) scatter cursors
+};
+
+layout(std430) buffer VsmCounters {
+    uint vsmCounters[];
+};
+
+#ifdef PREFIX
+layout(std430) readonly buffer MeshInfoBuffer {
+    MeshInfo meshInfos[];
+};
+
+layout(std430) writeonly buffer VsmDrawCommands {
+    DrawElementsIndirectCommand vsmCommands[];
+};
+
+layout(std430) buffer VsmArgs {
+    uint vsmArgs[];
+};
+
+shared uint s_scan[1024];
+
+void main() {
+    uint thread = gl_LocalInvocationIndex;
+    uint a = vsmBuckets[thread * 2u];
+    uint b = vsmBuckets[thread * 2u + 1u];
+    s_scan[thread] = a + b;
+    barrier();
+    for (uint offset = 1u; offset < 1024u; offset <<= 1u) {
+        uint value = thread >= offset ? s_scan[thread - offset] : 0u;
+        barrier();
+        s_scan[thread] += value;
+        barrier();
+    }
+    uint start = s_scan[thread] - a - b;
+    uint counts[2] = uint[](a, b);
+    uint begin = start;
+    for (uint k = 0u; k < 2u; ++k) {
+        uint bucket = thread * 2u + k;
+        vsmBuckets[VSM_BUCKETS + bucket] = begin;
+        vsmBuckets[2u * VSM_BUCKETS + bucket] = 0u;
+        if (counts[k] > 0u) {
+            MeshInfo mesh = meshInfos[bucket];
+            uint draw = atomicAdd(vsmArgs[VSM_ARGS_DRAW_COUNT], 1u);
+            vsmCommands[draw].count = mesh.indexCount;
+            vsmCommands[draw].instanceCount = counts[k];
+            vsmCommands[draw].firstIndex = mesh.firstIndex;
+            vsmCommands[draw].baseVertex = mesh.baseVertex;
+            vsmCommands[draw].baseInstance = begin;
+        }
+        begin += counts[k];
+    }
+    if (thread == 0u) {
+        uint instances = min(vsmCounters[VSM_COUNTER_INSTANCES], vsmLimits.y);
+        vsmArgs[VSM_ARGS_SCATTER + 0u] = (instances + 255u) / 256u;
+        vsmArgs[VSM_ARGS_SCATTER + 1u] = 1u;
+        vsmArgs[VSM_ARGS_SCATTER + 2u] = 1u;
+    }
+}
+
+#else
+layout(std430) readonly buffer VsmInstances {
+    uvec2 vsmInstances[];
+};
+
+layout(std430) writeonly buffer VsmSortedInstances {
+    uvec2 vsmSorted[];
+};
+
+void main() {
+    uint instance = gl_GlobalInvocationID.x;
+    if (instance >= min(vsmCounters[VSM_COUNTER_INSTANCES], vsmLimits.y)) return;
+    uvec2 entry = vsmInstances[instance];
+    uint bucket = entry.y >> 16u;
+    uint position = vsmBuckets[VSM_BUCKETS + bucket] + atomicAdd(vsmBuckets[2u * VSM_BUCKETS + bucket], 1u);
+    vsmSorted[position] = uvec2(entry.x, entry.y & 0xFFFFu);
+}
+#endif

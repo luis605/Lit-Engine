@@ -26,6 +26,9 @@ import Engine.Render.entity;
 import Engine.Render.component;
 import Engine.Render.settings;
 
+bool buildSkinningTestScene(Engine& engine, const TestSceneKit& kit, TestSceneInfo& info);
+bool buildTerrainTestScene(Engine& engine, const TestSceneKit& kit, TestSceneInfo& info);
+
 namespace {
 constexpr size_t kNumberBufferSize = 64;
 constexpr size_t kKeyBufferSize = 48;
@@ -403,7 +406,7 @@ bool buildVista(Engine& engine, const TestSceneKit& kit, TestSceneInfo& info) {
 
 }
 
-std::vector<std::string> testSceneNames() { return {"portal_torture", "streaming_route", "crowd", "vista"}; }
+std::vector<std::string> testSceneNames() { return {"portal_torture", "streaming_route", "crowd", "vista", "skinning", "terrain"}; }
 
 void clearTestSceneSystems(Engine& engine) {
     for (const Phase phase : {Phase::PreUpdate, Phase::FixedUpdate, Phase::Update, Phase::PostUpdate}) {
@@ -421,6 +424,8 @@ bool buildTestScene(Engine& engine, const std::string& name, const TestSceneKit&
     if (name == "streaming_route") return buildStreaming(engine, kit, info);
     if (name == "crowd") return buildCrowd(engine, kit, info);
     if (name == "vista") return buildVista(engine, kit, info);
+    if (name == "skinning") return buildSkinningTestScene(engine, kit, info);
+    if (name == "terrain") return buildTerrainTestScene(engine, kit, info);
     return false;
 }
 

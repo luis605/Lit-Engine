@@ -1,0 +1,371 @@
+module;
+
+#include <algorithm>
+#include <array>
+#include <atomic>
+#include <chrono>
+#include <cmath>
+#include <cstdint>
+#include <map>
+#include <memory>
+#include <mutex>
+#include <optional>
+#include <set>
+#include <thread>
+#include <utility>
+#include <vector>
+
+module Engine.Terrain;
+
+import Engine.glm;
+import Engine.Streaming;
+import Engine.World;
+
+namespace {
+struct JobResult {
+    std::atomic<bool> done{false};
+    std::shared_ptr<void> payload;
+};
+
+enum class TileState : uint8_t { Loading, Ready, Committing, Resident, Unloading };
+
+struct Tile {
+    int cell = 0;
+    TileKey key;
+    TileState state = TileState::Loading;
+    std::shared_ptr<JobResult> job;
+    std::shared_ptr<void> payload;
+    uint64_t lastWanted = 0;
+    float distance = 0.0f;
+    bool visible = false;
+};
+
+TileKey ancestorOf(const TileKey& key, int levels) { return TileKey{key.x >> levels, key.z >> levels, key.level + levels}; }
+
+bool isAncestor(const TileKey& ancestor, const TileKey& key) { return ancestor.level > key.level && ancestorOf(key, ancestor.level - key.level) == ancestor; }
+}
+
+struct TerrainStreamer::Impl {
+    World& world;
+    TerrainStreamConfig config;
+    std::mutex mutex;
+    std::map<int, TileKey> byCell;
+    std::unique_ptr<TerrainTileLoader> loader;
+    std::map<TileKey, Tile> tiles;
+    std::vector<SelectedTile> wanted;
+    TerrainStats stats;
+    uint64_t frame = 0;
+    uint64_t lastSelect = 0;
+    bool selected = false;
+    glm::vec3 lastCamera{0.0f};
+    glm::vec3 lastForward{0.0f, 0.0f, -1.0f};
+    int nextCell = 1;
+    std::unique_ptr<AsyncJobs> jobs;
+
+    Impl(World& w, TerrainLoaderConfig loaderConfig, TerrainStreamConfig streamConfig) : world(w), config(std::move(streamConfig)) {
+        loaderConfig.startHidden = true;
+        loaderConfig.tileOfCell = [this](int cell) -> std::optional<TileKey> {
+            std::lock_guard lock(mutex);
+            const auto it = byCell.find(cell);
+            if (it == byCell.end()) return std::nullopt;
+            return it->second;
+        };
+        loader = std::make_unique<TerrainTileLoader>(w, std::move(loaderConfig));
+        jobs = std::make_unique<AsyncJobs>(std::max(config.workers, 1u));
+    }
+
+    ~Impl() {
+        jobs->waitIdle();
+        jobs.reset();
+    }
+
+    [[nodiscard]] uint32_t countInFlight() const {
+        uint32_t n = 0;
+        for (const auto& [key, tile] : tiles) n += (tile.state == TileState::Loading || tile.state == TileState::Ready || tile.state == TileState::Committing) ? 1 : 0;
+        return n;
+    }
+
+    void select(const glm::vec3& camera, const glm::vec3& forward, const std::array<glm::vec4, 6>* planes) {
+        const float moved = glm::length(camera - lastCamera);
+        const bool turned = glm::dot(forward, lastForward) < 0.9995f;
+        if (selected && moved < config.moveThreshold && !turned && frame - lastSelect < config.reselectInterval) return;
+        LodParams lod = config.lod;
+        const size_t before = selectTerrainTiles(loader->config().terrain, camera, [&] {
+            LodParams unculled = lod;
+            unculled.frustumCull = false;
+            return unculled;
+        }()).size();
+        if (planes) {
+            lod.frustumCull = true;
+            lod.planes = *planes;
+        }
+        wanted = selectTerrainTiles(loader->config().terrain, camera, lod);
+        std::stable_sort(wanted.begin(), wanted.end(), [](const SelectedTile& a, const SelectedTile& b) { return a.distance < b.distance; });
+        stats.wanted = static_cast<uint32_t>(wanted.size());
+        stats.culledByFrustum = static_cast<uint32_t>(before > wanted.size() ? before - wanted.size() : 0);
+        lastCamera = camera;
+        lastForward = forward;
+        lastSelect = frame;
+        selected = true;
+        for (const SelectedTile& tile : wanted) {
+            const auto it = tiles.find(tile.key);
+            if (it != tiles.end()) {
+                it->second.lastWanted = frame;
+                it->second.distance = tile.distance;
+            }
+        }
+    }
+
+    void startLoads() {
+        uint32_t inFlight = countInFlight();
+        for (const SelectedTile& selectedTile : wanted) {
+            if (inFlight >= config.maxInFlight) break;
+            auto it = tiles.find(selectedTile.key);
+            if (it != tiles.end()) {
+                it->second.lastWanted = frame;
+                continue;
+            }
+            Tile tile;
+            tile.cell = nextCell++;
+            tile.key = selectedTile.key;
+            tile.lastWanted = frame;
+            tile.distance = selectedTile.distance;
+            tile.job = std::make_shared<JobResult>();
+            {
+                std::lock_guard lock(mutex);
+                byCell[tile.cell] = tile.key;
+            }
+            auto job = tile.job;
+            TerrainTileLoader* loaderPtr = loader.get();
+            const int cell = tile.cell;
+            jobs->submit(static_cast<int>(selectedTile.distance), [job, loaderPtr, cell] {
+                job->payload = loaderPtr->prepare(cell);
+                job->done.store(true, std::memory_order_release);
+            });
+            tiles.emplace(tile.key, std::move(tile));
+            ++inFlight;
+        }
+    }
+
+    void pollLoading() {
+        for (auto& [key, tile] : tiles) {
+            if (tile.state != TileState::Loading || !tile.job->done.load(std::memory_order_acquire)) continue;
+            tile.payload = std::move(tile.job->payload);
+            tile.job.reset();
+            tile.state = TileState::Ready;
+        }
+    }
+
+    void commitReady(StreamBudget& budget) {
+        std::vector<Tile*> order;
+        for (auto& [key, tile] : tiles) {
+            if (tile.state == TileState::Ready || tile.state == TileState::Committing) order.push_back(&tile);
+        }
+        std::sort(order.begin(), order.end(), [](const Tile* a, const Tile* b) { return a->distance < b->distance; });
+        for (Tile* tile : order) {
+            // The first tile always gets a step (the budget is only checked after it) so oversized tiles still progress.
+            tile->state = TileState::Committing;
+            const bool done = loader->commit(tile->cell, tile->payload.get(), budget);
+            if (done) {
+                tile->payload.reset();
+                tile->state = TileState::Resident;
+                ++stats.loaded;
+            }
+            if (budget.exhausted()) break;
+        }
+    }
+
+    // Resident tiles that show the wanted leaves: the leaf itself, else the nearest resident ancestor, else resident descendants.
+    std::set<TileKey> visibleSet(std::set<TileKey>* protectedTiles) {
+        std::set<TileKey> vis;
+        const auto resident = [&](const TileKey& key) {
+            const auto it = tiles.find(key);
+            return it != tiles.end() && it->second.state == TileState::Resident;
+        };
+        for (const SelectedTile& leaf : wanted) {
+            if (resident(leaf.key)) {
+                vis.insert(leaf.key);
+                continue;
+            }
+            bool found = false;
+            for (int up = 1; up <= config.lod.maxLevel - leaf.key.level; ++up) {
+                const TileKey ancestor = ancestorOf(leaf.key, up);
+                if (resident(ancestor)) {
+                    vis.insert(ancestor);
+                    found = true;
+                    break;
+                }
+            }
+            if (found) continue;
+            for (const auto& [key, tile] : tiles) {
+                if (tile.state == TileState::Resident && isAncestor(leaf.key, key)) vis.insert(key);
+            }
+        }
+        if (protectedTiles) *protectedTiles = vis;
+        std::set<TileKey> result;
+        for (const TileKey& key : vis) {
+            bool covered = false;
+            for (const TileKey& other : vis) {
+                if (isAncestor(other, key)) {
+                    covered = true;
+                    break;
+                }
+            }
+            if (!covered) result.insert(key);
+        }
+        return result;
+    }
+
+    void evictAndUnload(StreamBudget& budget, const std::set<TileKey>& protectedTiles) {
+        std::set<TileKey> wantedKeys;
+        for (const SelectedTile& tile : wanted) wantedKeys.insert(tile.key);
+        // Over the resident cap the oldest unwanted tiles go regardless of the delay.
+        size_t residentCount = 0;
+        for (const auto& [key, tile] : tiles) residentCount += tile.state == TileState::Resident ? 1 : 0;
+        std::vector<Tile*> candidates;
+        for (auto& [key, tile] : tiles) {
+            if (tile.state != TileState::Resident && tile.state != TileState::Loading && tile.state != TileState::Ready) continue;
+            if (wantedKeys.contains(key) || protectedTiles.contains(key)) continue;
+            candidates.push_back(&tile);
+        }
+        std::sort(candidates.begin(), candidates.end(), [](const Tile* a, const Tile* b) { return a->lastWanted < b->lastWanted; });
+        for (Tile* tile : candidates) {
+            const bool aged = frame - tile->lastWanted > config.evictDelay;
+            const bool overCap = residentCount > config.maxResidentTiles || loader->meshCount() > config.maxGpuMeshes;
+            if (!aged && !overCap) continue;
+            if (tile->state == TileState::Loading) continue;  // wait for the worker, dropped next time it is Ready
+            if (tile->state == TileState::Ready) {
+                tile->payload.reset();
+                // Nothing was committed yet: nothing on the GPU or in the World.
+                {
+                    std::lock_guard lock(mutex);
+                    byCell.erase(tile->cell);
+                }
+                tiles.erase(tile->key);
+                ++stats.evicted;
+                continue;
+            }
+            tile->state = TileState::Unloading;
+            if (overCap) --residentCount;
+        }
+        for (auto it = tiles.begin(); it != tiles.end();) {
+            Tile& tile = it->second;
+            if (tile.state != TileState::Unloading) {
+                ++it;
+                continue;
+            }
+            if (budget.exhausted() && !budget.unlimited) {
+                ++it;
+                continue;
+            }
+            if (loader->unload(tile.cell, budget)) {
+                {
+                    std::lock_guard lock(mutex);
+                    byCell.erase(tile.cell);
+                }
+                ++stats.evicted;
+                it = tiles.erase(it);
+            } else {
+                ++it;
+            }
+        }
+    }
+
+    void update(const glm::vec3& camera, const glm::vec3& forward, const std::array<glm::vec4, 6>* planes, bool unlimited) {
+        const auto t0 = std::chrono::steady_clock::now();
+        ++frame;
+        select(camera, forward, planes);
+        startLoads();
+        if (config.deterministic) {
+            jobs->waitIdle();
+            unlimited = true;
+        }
+        pollLoading();
+        StreamBudget budget;
+        budget.millis = config.commitMillisPerFrame;
+        budget.bytes = config.uploadBytesPerFrame;
+        budget.unlimited = unlimited;
+        if (loader->meshCount() < config.maxGpuMeshes + 40) commitReady(budget);
+        StreamBudget unloadBudget;
+        unloadBudget.millis = config.commitMillisPerFrame;
+        unloadBudget.bytes = config.uploadBytesPerFrame;
+        unloadBudget.unlimited = unlimited;
+        std::set<TileKey> protectedTiles;
+        const std::set<TileKey> visible = visibleSet(&protectedTiles);
+        evictAndUnload(unloadBudget, protectedTiles);
+        uint32_t resident = 0;
+        uint32_t loading = 0;
+        uint32_t shown = 0;
+        for (auto& [key, tile] : tiles) {
+            if (tile.state == TileState::Resident) {
+                ++resident;
+                const bool show = visible.contains(key);
+                tile.visible = show;
+                loader->setVisible(tile.cell, show);
+                shown += show ? 1 : 0;
+            } else if (tile.state != TileState::Unloading) {
+                ++loading;
+            }
+        }
+        stats.resident = resident;
+        stats.visible = shown;
+        stats.loading = loading;
+        stats.gpuMeshes = static_cast<uint32_t>(loader->meshCount());
+        uint32_t entities = 0;
+        for (const auto& [key, tile] : tiles) entities += static_cast<uint32_t>(loader->entityCount(tile.cell));
+        stats.entities = entities;
+        stats.updateMillis = std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - t0).count();
+    }
+
+    [[nodiscard]] bool isSettled() const {
+        for (const SelectedTile& leaf : wanted) {
+            const auto it = tiles.find(leaf.key);
+            if (it == tiles.end() || it->second.state != TileState::Resident) return false;
+        }
+        return selected;
+    }
+};
+
+TerrainStreamer::TerrainStreamer(World& world, TerrainLoaderConfig loader, TerrainStreamConfig config) : m_impl(std::make_unique<Impl>(world, std::move(loader), std::move(config))) {}
+
+TerrainStreamer::~TerrainStreamer() = default;
+
+void TerrainStreamer::update(const glm::vec3& cameraWorld, const glm::vec3& cameraForward, const std::array<glm::vec4, 6>* planes) { m_impl->update(cameraWorld, cameraForward, planes, false); }
+
+void TerrainStreamer::prime(const glm::vec3& cameraWorld, const glm::vec3& cameraForward, const std::array<glm::vec4, 6>* planes) {
+    const auto start = std::chrono::steady_clock::now();
+    m_impl->selected = false;
+    do {
+        m_impl->update(cameraWorld, cameraForward, planes, true);
+        if (m_impl->isSettled()) break;
+        std::this_thread::sleep_for(std::chrono::milliseconds(2));
+    } while (std::chrono::steady_clock::now() - start < std::chrono::seconds(60));
+}
+
+const TerrainStats& TerrainStreamer::stats() const { return m_impl->stats; }
+
+std::vector<TileKey> TerrainStreamer::residentTiles() const {
+    std::vector<TileKey> out;
+    for (const auto& [key, tile] : m_impl->tiles) {
+        if (tile.state == TileState::Resident) out.push_back(key);
+    }
+    return out;
+}
+
+std::vector<TileKey> TerrainStreamer::visibleTiles() const {
+    std::vector<TileKey> out;
+    for (const auto& [key, tile] : m_impl->tiles) {
+        if (tile.state == TileState::Resident && tile.visible) out.push_back(key);
+    }
+    return out;
+}
+
+std::vector<SelectedTile> TerrainStreamer::wantedTiles() const { return m_impl->wanted; }
+
+bool TerrainStreamer::settled() const { return m_impl->isSettled(); }
+
+TerrainConfig& TerrainStreamer::terrain() { return m_impl->loader->config().terrain; }
+
+TerrainStreamConfig& TerrainStreamer::config() { return m_impl->config; }
+
+TerrainTileLoader& TerrainStreamer::loader() { return *m_impl->loader; }

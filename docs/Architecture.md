@@ -85,6 +85,8 @@ Dependencies list the direct `import` lines of each module interface. The partit
 | `Engine.IK` | `IkChain` and `Walker` components, `updateIk` / `updateWalkers`, `makeSpider`, recipes, hierarchy detection, JSON rigs, debug draw. See [IK.md](IK.md). | `Engine.IK.Solvers`, `Engine.glm`, `Engine.Json`, `Engine.Render.entity`, `Engine.Render.component`, `Engine.World` |
 | `Engine.Rig` | Skeletons, skeletal clips, pose sampling and blending. | `Engine.glm`, `Engine.Animation`, `Engine.World`, `Engine.Render.entity` |
 | `Engine.Face` | Blendshape clips and players, eye settings. | `Engine.glm`, `Engine.Json`, `Engine.Rng` |
+| `Engine.Skin` | Dynamic mesh data (skin weights, morph targets, bone palette), conservative bounds, CPU reference of the GPU deform pass, procedural character and cloth. See [Skinning.md](Skinning.md). | `Engine.glm`, `Engine.mesh` |
+| `Engine.SkinRig` | Bridge from `Engine.Skin` to skeletons, bone palettes, ARKit morph weights, procedural clips. | `Engine.glm`, `Engine.Skin`, `Engine.Rig`, `Engine.Face`, `Engine.Animation` |
 
 ### Gameplay systems
 

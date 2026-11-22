@@ -96,6 +96,7 @@ void Renderer::cullVisibilityPhase(int phaseIndex, uint32_t objectCount, Diligen
     auto& phase = gpu.visibility[phaseIndex];
     auto* context = gpu.pImmediateContext.RawPtr();
     const bool candidateInput = phaseIndex == kPhaseTransparent;
+    m_meshletHiZ = hiz;
 
     resetVisibilityCounters(phaseIndex);
     const CullingUniforms uniforms = MakeCullingUniforms(objectCount, m_maxObjects, m_smallObjectThreshold, m_lodBias, m_forcedLod, m_numDrawingShaders);
@@ -155,6 +156,7 @@ void Renderer::buildVisibilityDraws(int phaseIndex, uint32_t views) {
     }
     context->CommitShaderResources(phase.commandGenSRB[m_currentFrame], Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
     context->DispatchCompute(Diligent::DispatchComputeAttribs((totalBuckets + kWorkgroupSize - 1) / kWorkgroupSize, 1, 1));
+    buildMeshletDraws(phaseIndex, views);
 }
 
 void Renderer::bindSceneTargets(bool clear) {
@@ -166,7 +168,7 @@ void Renderer::bindSceneTargets(bool clear) {
     context->SetRenderTargets(4, targets, depthView, Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
     if (!clear) return;
     context->ClearRenderTarget(targets[3], kBlackColor, Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
-    context->ClearDepthStencil(depthView, Diligent::CLEAR_DEPTH_FLAG, 1.0f, 0, Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
+    context->ClearDepthStencil(depthView, Diligent::CLEAR_DEPTH_FLAG, kFarDepthValue, 0, Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
 }
 
 void Renderer::bindBackBuffer(bool sceneDepthValid) {
@@ -178,7 +180,7 @@ void Renderer::bindBackBuffer(bool sceneDepthValid) {
     const bool resolve = scaled && sceneDepthValid && gpu.pDepthUpscalePSO && gpu.pDepthUpscaleSRB;
     if (resolve) resolveOverlayDepth();
     gpu.pImmediateContext->SetRenderTargets(1, &backBufferView, depthView, Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
-    if (scaled && !resolve) gpu.pImmediateContext->ClearDepthStencil(depthView, Diligent::CLEAR_DEPTH_FLAG, 1.0f, 0, Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
+    if (scaled && !resolve) gpu.pImmediateContext->ClearDepthStencil(depthView, Diligent::CLEAR_DEPTH_FLAG, kFarDepthValue, 0, Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
 }
 
 void Renderer::uploadCascadeCull(bool empty) {
@@ -228,4 +230,5 @@ void Renderer::drawSurfaces(int phaseIndex, int cascade, uint32_t view) {
         Diligent::IPipelineState* pointPipeline = SurfacePipeline(gpu.surfaces[shaderId], phaseIndex, true);
         if (pointPipeline && shaderId < pointBindings.size() && pointBindings[shaderId]) DrawPointCommands(context, phase, pointPipeline, pointBindings[shaderId], commandSlot);
     }
+    drawMeshletSurfaces(phaseIndex, cascade, view);
 }

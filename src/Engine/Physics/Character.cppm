@@ -65,6 +65,11 @@ export class CharacterController {
     [[nodiscard]] CameraRig& rig() { return m_rig; }
     [[nodiscard]] EntityHandle entity() const { return m_entity; }
     [[nodiscard]] const glm::vec3& position() const { return m_position; }
+    void shiftOrigin(const glm::vec3& shift) {
+        m_position -= shift;
+        m_probe -= shift;
+        m_rig.shiftOrigin(shift);
+    }
     [[nodiscard]] const glm::vec3& velocity() const { return m_velocity; }
     [[nodiscard]] const glm::vec3& up() const { return m_up; }
     [[nodiscard]] const glm::vec3& groundNormal() const { return m_groundNormal; }

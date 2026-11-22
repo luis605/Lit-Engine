@@ -250,6 +250,23 @@ void NavCrowd::clearCache() {
     for (NavCrowdImpl::CacheEntry& entry : m_impl->cache) entry.used = false;
 }
 
+void NavCrowd::shiftOrigin(const glm::vec3& shift) {
+    for (NavCrowdImpl::CacheEntry& entry : m_impl->cache) {
+        if (!entry.used) continue;
+        for (NavPathPoint& point : entry.path.points) point.position -= shift;
+    }
+    m_impl->pending.clear();
+    m_impl->queued.clear();
+}
+
+void navShiftAgents(std::vector<NavAgent>& agents, const glm::vec3& shift) {
+    for (NavAgent& agent : agents) {
+        agent.position -= shift;
+        agent.target -= shift;
+        for (NavPathPoint& point : agent.path.points) point.position -= shift;
+    }
+}
+
 void NavCrowd::step(const NavMesh& mesh, std::vector<NavAgent>& agents, float dt, const NavLinkTraverseFn& traverse) {
     NavCrowdImpl& impl = *m_impl;
     impl.stats = NavCrowdStats{};

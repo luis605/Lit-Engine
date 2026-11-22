@@ -104,12 +104,28 @@ struct PortalDepthUniforms {
     glm::vec4 params;
 };
 
+struct PortalResolveUniforms {
+    glm::mat4 projection;
+    glm::mat4 childInvProjection;
+    glm::mat4 viewProjection;
+    glm::mat4 invView;
+    glm::mat4 normalToParent;
+    glm::vec4 center;
+    glm::vec4 axisU;
+    glm::vec4 axisV;
+    glm::vec4 normal;
+    glm::vec4 camera;
+    glm::vec4 params;
+};
+
 enum VisibilityPhaseIndex : int { kPhaseOpaque = 0, kPhaseRetest = 1, kPhaseTransparent = 2, kPhaseShadow = 3, kPhaseCount = 4 };
 
-inline constexpr uint32_t kMaxMeshes = 2048;
+inline constexpr uint32_t kMaxMeshes = 4096;  // also MAX_MESHES in resources/shaders/include/mesh.glsl (7 slots per mesh; terrain streaming needs headroom)
 inline constexpr uint32_t kInvalidMeshId = 0xFFFFFFFFu;
 inline constexpr uint32_t kNormalSamples = 64;
 inline constexpr Diligent::TEXTURE_FORMAT kSceneDepthFormat = Diligent::TEX_FORMAT_D32_FLOAT;
+// Reversed Z (Camera::getProjectionMatrix): near = 1, far = 0. Scene depth tests are GREATER_EQUAL and clear to this value.
+inline constexpr float kFarDepthValue = 0.0f;
 inline constexpr Diligent::TEXTURE_FORMAT kAccumulationFormat = Diligent::TEX_FORMAT_RGBA16_FLOAT;
 inline constexpr Diligent::TEXTURE_FORMAT kRevealageFormat = Diligent::TEX_FORMAT_R16_FLOAT;
 inline constexpr uint32_t kMaxDirtyPerFrame = 65536;

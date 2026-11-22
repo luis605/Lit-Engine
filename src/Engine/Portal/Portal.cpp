@@ -35,15 +35,16 @@ glm::mat4 portalPose(const glm::vec3& position, const glm::vec3& eulerDegrees) {
 glm::mat4 obliqueProjection(const glm::mat4& projection, const glm::mat4& view, const glm::vec4& worldPlane) {
     const glm::mat4 inverseView = glm::inverse(view);
     const glm::vec4 viewPlane(glm::dot(inverseView[0], worldPlane), glm::dot(inverseView[1], worldPlane), glm::dot(inverseView[2], worldPlane), glm::dot(inverseView[3], worldPlane));
-    const glm::vec4 corner = glm::inverse(projection) * glm::vec4(viewPlane.x < 0.0f ? -1.0f : 1.0f, viewPlane.y < 0.0f ? -1.0f : 1.0f, 1.0f, 1.0f);
+    // Reversed Z (near = 1, far = 0): the clip depth row becomes w - scale * plane, so points on the plane map to depth 1 and the far corner to 0.
+    const glm::vec4 corner = glm::inverse(projection) * glm::vec4(viewPlane.x < 0.0f ? -1.0f : 1.0f, viewPlane.y < 0.0f ? -1.0f : 1.0f, 0.0f, 1.0f);
     const float denominator = glm::dot(viewPlane, corner);
     if (std::abs(denominator) < kMinObliqueDenominator) return projection;
     const float scale = 1.0f / denominator;
     glm::mat4 result = projection;
-    result[0][2] = viewPlane.x * scale;
-    result[1][2] = viewPlane.y * scale;
-    result[2][2] = viewPlane.z * scale;
-    result[3][2] = viewPlane.w * scale;
+    result[0][2] = projection[0][3] - viewPlane.x * scale;
+    result[1][2] = projection[1][3] - viewPlane.y * scale;
+    result[2][2] = projection[2][3] - viewPlane.z * scale;
+    result[3][2] = projection[3][3] - viewPlane.w * scale;
     return result;
 }
 

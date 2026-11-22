@@ -6,9 +6,11 @@ layout(local_size_x = 8, local_size_y = 8, local_size_z = 1) in;
 
 uniform sampler2D u_linearDepth;
 uniform sampler2D u_input;
-uniform sampler2D u_bentInput;
 layout(rgba16f) writeonly uniform image2D u_output;
+#ifndef NO_BENT
+uniform sampler2D u_bentInput;
 layout(rgba8) writeonly uniform image2D u_bentOutput;
+#endif
 
 const int RADIUS_BY_QUALITY[4] = int[](0, 2, 4, 6);
 const float NORMAL_SLOPE_LIMIT = 0.5;
@@ -18,7 +20,11 @@ void main() {
     ivec2 size = imageSize(u_output);
     if (any(greaterThanEqual(pixel, size))) return;
     float center = texelFetch(u_linearDepth, pixel, 0).r;
+#ifdef NO_BENT
+    int radius = RADIUS_BY_QUALITY[3];
+#else
     int radius = RADIUS_BY_QUALITY[clamp(int(qualityParams2.x + 0.5), 0, 3)];
+#endif
 #ifdef VERTICAL
     ivec2 axis = ivec2(0, 1);
 #else
@@ -32,7 +38,9 @@ void main() {
     float slope = abs(slopeBefore) < abs(slopeAfter) ? slopeBefore : slopeAfter;
     if (abs(slopeBefore - slopeAfter) > tolerance * NORMAL_SLOPE_LIMIT) slope = 0.0;
     vec4 sum = texelFetch(u_input, pixel, 0);
+#ifndef NO_BENT
     vec3 bentSum = texelFetch(u_bentInput, pixel, 0).xyz;
+#endif
     float weight = 1.0;
     float sigma = max(float(radius) * 0.5, 0.5);
     for (int i = -radius; i <= radius; ++i) {
@@ -43,9 +51,13 @@ void main() {
         float spatial = exp(-0.5 * float(i * i) / (sigma * sigma));
         float w = spatial * exp(-abs(d - expected) / tolerance);
         sum += texelFetch(u_input, p, 0) * w;
+#ifndef NO_BENT
         bentSum += texelFetch(u_bentInput, p, 0).xyz * w;
+#endif
         weight += w;
     }
     imageStore(u_output, pixel, sum / weight);
+#ifndef NO_BENT
     imageStore(u_bentOutput, pixel, vec4(bentSum / weight, 1.0));
+#endif
 }

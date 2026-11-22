@@ -18,6 +18,7 @@ module;
 
 module Engine.Streaming;
 
+import Engine.glm;
 import Engine.Delta;
 import Engine.Portal;
 import Engine.Render.entity;
@@ -143,20 +144,77 @@ void StreamingSystem::refreshDistances(int cameraCell) {
     m_dist = graphDistances(cameraCell);
     m_lastCell = cameraCell;
     m_lastPortals = m_portals.portals().size();
-    m_cellOrder.resize(m_slots.size());
-    std::iota(m_cellOrder.begin(), m_cellOrder.end(), 0);
-    std::stable_sort(m_cellOrder.begin(), m_cellOrder.end(), [this](int left, int right) { return m_dist[static_cast<size_t>(left)] < m_dist[static_cast<size_t>(right)]; });
+    rebuildOrder();
 }
 
-void StreamingSystem::startLoad(int cell, Slot& slot, int distance) {
+int StreamingSystem::priorityOf(int cell) const {
+    int priority = m_dist[static_cast<size_t>(cell)];
+    if (m_config.spatial.enabled && m_spatialValid && static_cast<size_t>(cell) < m_spatialDist.size()) {
+        const float distance = m_spatialDist[static_cast<size_t>(cell)];
+        if (std::isfinite(distance)) priority = std::min(priority, 1 + static_cast<int>(distance / std::max(m_config.spatial.loadRadius, 1.0f) * 8.0f));
+    }
+    return priority;
+}
+
+void StreamingSystem::rebuildOrder() {
+    m_cellOrder.resize(m_slots.size());
+    std::iota(m_cellOrder.begin(), m_cellOrder.end(), 0);
+    if (m_dist.size() != m_slots.size()) return;
+    std::vector<int> keys(m_slots.size());
+    for (size_t cell = 0; cell < keys.size(); ++cell) keys[cell] = priorityOf(static_cast<int>(cell));
+    std::stable_sort(m_cellOrder.begin(), m_cellOrder.end(), [&keys](int left, int right) { return keys[static_cast<size_t>(left)] < keys[static_cast<size_t>(right)]; });
+}
+
+void StreamingSystem::refreshSpatial(const glm::vec3& position) {
+    constexpr float kUnbounded = 1.0e8f;
+    const std::vector<PortalCell>& cells = m_portals.cells();
+    m_spatialDist.assign(cells.size(), std::numeric_limits<float>::infinity());
+    for (size_t index = 0; index < cells.size(); ++index) {
+        const PortalCell& cell = cells[index];
+        if (std::abs(cell.min.x) >= kUnbounded || std::abs(cell.max.x) >= kUnbounded || std::abs(cell.min.z) >= kUnbounded || std::abs(cell.max.z) >= kUnbounded) continue;
+        const float dx = std::max({cell.min.x - position.x, 0.0f, position.x - cell.max.x});
+        const float dz = std::max({cell.min.z - position.z, 0.0f, position.z - cell.max.z});
+        m_spatialDist[index] = std::sqrt(dx * dx + dz * dz);
+    }
+    m_spatialPos = position;
+    m_spatialValid = true;
+    rebuildOrder();
+}
+
+int StreamingSystem::desiredLod(int cell, int current) const {
+    const std::vector<float>& radii = m_config.spatial.lodRadii;
+    if (!m_config.spatial.enabled || !m_spatialValid || radii.empty()) return 0;
+    if (m_dist[static_cast<size_t>(cell)] <= m_config.loadHops) return 0;
+    const float distance = static_cast<size_t>(cell) < m_spatialDist.size() ? m_spatialDist[static_cast<size_t>(cell)] : 0.0f;
+    if (!std::isfinite(distance)) return 0;
+    const int count = static_cast<int>(radii.size());
+    const int raw = static_cast<int>(std::count_if(radii.begin(), radii.end(), [distance](float radius) { return radius < distance; }));
+    if (current < 0 || current > count) return raw;
+    const float low = current > 0 ? radii[static_cast<size_t>(current - 1)] - m_config.spatial.lodHysteresis : -std::numeric_limits<float>::infinity();
+    const float high = current < count ? radii[static_cast<size_t>(current)] + m_config.spatial.lodHysteresis : std::numeric_limits<float>::infinity();
+    return distance >= low && distance <= high ? current : raw;
+}
+
+int StreamingSystem::lod(int cell) const { return cell >= 0 && static_cast<size_t>(cell) < m_slots.size() ? m_slots[static_cast<size_t>(cell)].lod : 0; }
+
+float StreamingSystem::spatialDistance(int cell) const { return cell >= 0 && static_cast<size_t>(cell) < m_spatialDist.size() ? m_spatialDist[static_cast<size_t>(cell)] : std::numeric_limits<float>::infinity(); }
+
+bool StreamingSystem::wanted(int cell) const {
+    if (cell < 0 || static_cast<size_t>(cell) >= m_dist.size()) return false;
+    if (m_dist[static_cast<size_t>(cell)] <= m_config.loadHops) return true;
+    return m_config.spatial.enabled && m_spatialValid && static_cast<size_t>(cell) < m_spatialDist.size() && m_spatialDist[static_cast<size_t>(cell)] <= m_config.spatial.loadRadius;
+}
+
+void StreamingSystem::startLoad(int cell, Slot& slot, int priority, int lod) {
     auto job = std::make_shared<JobResult>();
     slot.job = job;
+    slot.lod = lod;
     slot.cancelled = false;
     slot.state = CellState::Loading;
     ++m_inFlight;
-    m_jobs.submit(distance, [this, cell, job] {
+    m_jobs.submit(priority, [this, cell, lod, job] {
         try {
-            job->payload = m_loader.prepare(cell);
+            job->payload = m_loader.prepareLod ? m_loader.prepareLod(cell, lod) : m_loader.prepare(cell);
         } catch (...) {
             job->payload.reset();
         }
@@ -201,9 +259,16 @@ void StreamingSystem::stepCommitting(int cell, Slot& slot, bool evict, StreamBud
 void StreamingSystem::stepCell(int cell, StreamBudget& budget, bool& touched) {
     Slot& slot = m_slots[static_cast<size_t>(cell)];
     const int distance = m_dist[static_cast<size_t>(cell)];
-    const bool wanted = distance <= m_config.loadHops;
-    const bool evict = distance > m_config.keepHops;
-    if (slot.state == CellState::Unloaded && wanted && m_inFlight < m_config.maxInFlight && m_loader.prepare) startLoad(cell, slot, distance);
+    const bool wantsLoad = wanted(cell);
+    bool evict = distance > m_config.keepHops;
+    if (m_config.spatial.enabled && m_spatialValid && static_cast<size_t>(cell) < m_spatialDist.size()) evict = evict && m_spatialDist[static_cast<size_t>(cell)] > m_config.spatial.keepRadius;
+    if (slot.state == CellState::Resident && !evict && wantsLoad && m_config.spatial.reloadOnLodChange && (m_loader.prepareLod != nullptr) && desiredLod(cell, slot.lod) != slot.lod) {
+        if (m_loader.evicting && !slot.evictNotified) m_loader.evicting(cell);
+        slot.evictNotified = true;
+        slot.state = CellState::Unloading;
+        ++m_stats.lodReloads;
+    }
+    if (slot.state == CellState::Unloaded && wantsLoad && m_inFlight < m_config.maxInFlight && (m_loader.prepare || m_loader.prepareLod)) startLoad(cell, slot, priorityOf(cell), desiredLod(cell, -1));
     else if (slot.state == CellState::Loading) pollLoading(slot, evict);
     if (slot.state == CellState::Ready) {
         if (evict) {
@@ -294,10 +359,22 @@ bool StreamingSystem::assetReady(const std::string& key) const {
     return found != m_assets.end() && found->second.done;
 }
 
-void StreamingSystem::update(int cameraCell) {
+void StreamingSystem::setCamera(int cameraCell, const glm::vec3* position) {
+    const bool cellChanged = cameraCell != m_lastCell || m_portals.portals().size() != m_lastPortals || m_dist.size() != m_slots.size();
+    if (cellChanged) refreshDistances(cameraCell);
+    if (!m_config.spatial.enabled || !position) return;
+    const bool moved = !m_spatialValid || glm::distance(*position, m_spatialPos) >= m_config.spatial.moveThreshold || m_spatialDist.size() != m_slots.size();
+    if (moved) refreshSpatial(*position);
+}
+
+void StreamingSystem::update(int cameraCell) { updateImpl(cameraCell, nullptr); }
+
+void StreamingSystem::update(int cameraCell, const glm::vec3& cameraPosition) { updateImpl(cameraCell, &cameraPosition); }
+
+void StreamingSystem::updateImpl(int cameraCell, const glm::vec3* position) {
     const auto start = std::chrono::steady_clock::now();
     ensureSlots();
-    if (cameraCell != m_lastCell || m_portals.portals().size() != m_lastPortals || m_dist.size() != m_slots.size()) refreshDistances(cameraCell);
+    setCamera(cameraCell, position);
     StreamBudget budget;
     budget.start = start;
     budget.millis = m_config.commitMillisPerFrame;
@@ -311,9 +388,14 @@ void StreamingSystem::update(int cameraCell) {
     m_stats.updateMaxMillis = std::max(m_stats.updateMaxMillis, elapsedMillis);
 }
 
-bool StreamingSystem::prime(int cameraCell) {
+bool StreamingSystem::prime(int cameraCell) { return primeImpl(cameraCell, nullptr); }
+
+bool StreamingSystem::prime(int cameraCell, const glm::vec3& cameraPosition) { return primeImpl(cameraCell, &cameraPosition); }
+
+bool StreamingSystem::primeImpl(int cameraCell, const glm::vec3* position) {
     ensureSlots();
     refreshDistances(cameraCell);
+    if (position && m_config.spatial.enabled) refreshSpatial(*position);
     const double timeoutMillis = std::isfinite(m_config.primeTimeoutMillis) ? std::max(0.0, m_config.primeTimeoutMillis) : 0.0;
     const auto deadline = std::chrono::steady_clock::now() + std::chrono::duration_cast<std::chrono::steady_clock::duration>(std::chrono::duration<double, std::milli>(timeoutMillis));
     while (true) {
@@ -366,4 +448,91 @@ void StreamingSystem::resetStats() {
     m_stats = {};
     m_frames.clear();
     m_frameHead = 0;
+}
+
+int addGridCells(PortalSystem& portals, const World& world, const glm::dvec3& worldMin, float cellSize, int nx, int nz, float minY, float maxY) {
+    int first = -1;
+    for (int x = 0; x < nx; ++x) {
+        for (int z = 0; z < nz; ++z) {
+            PortalCell cell;
+            cell.name = "G" + std::to_string(x) + "_" + std::to_string(z);
+            const glm::dvec3 low = worldMin + glm::dvec3(static_cast<double>(x) * cellSize, 0.0, static_cast<double>(z) * cellSize);
+            cell.min = glm::vec3(world.toLocal(low).x, minY, world.toLocal(low).z);
+            cell.max = glm::vec3(world.toLocal(low + glm::dvec3(cellSize, 0.0, cellSize)).x, maxY, world.toLocal(low + glm::dvec3(cellSize, 0.0, cellSize)).z);
+            const int index = portals.addCell(cell);
+            if (first < 0) first = index;
+        }
+    }
+    return first;
+}
+
+bool MeshResidency::request(MeshStreamRequest request) {
+    if (const auto found = m_entries.find(request.key); found != m_entries.end()) {
+        found->second.lastUse = m_frame;
+        if (found->second.lod <= request.lod) return false;
+    }
+    if (const auto found = m_pending.find(request.key); found != m_pending.end() && found->second <= request.lod) return false;
+    m_pending[request.key] = request.lod;
+    AssetRequest asset;
+    asset.key = "mesh:" + request.key + ":" + std::to_string(request.lod) + ":" + std::to_string(m_serial++);
+    asset.priority = request.priority;
+    asset.bytes = request.bytes;
+    asset.load = [load = request.load, lod = request.lod] { return load ? load(lod) : std::shared_ptr<void>(); };
+    asset.finish = [this, request](std::shared_ptr<void> payload) { finish(request, std::move(payload)); };
+    m_streaming.requestAsset(std::move(asset));
+    return true;
+}
+
+void MeshResidency::finish(const MeshStreamRequest& request, std::shared_ptr<void> payload) {
+    if (const auto pending = m_pending.find(request.key); pending != m_pending.end() && pending->second == request.lod) m_pending.erase(pending);
+    const auto existing = m_entries.find(request.key);
+    if (existing != m_entries.end() && existing->second.lod <= request.lod) return;
+    if (request.upload) request.upload(request.lod, std::move(payload));
+    ++m_uploads;
+    if (existing != m_entries.end()) {
+        if (existing->second.evict) existing->second.evict(existing->second.lod);
+        m_resident -= existing->second.bytes;
+        ++m_evictions;
+    }
+    m_entries[request.key] = Entry{request.lod, request.bytes, m_frame, request.evict};
+    m_resident += request.bytes;
+    enforceBudget(request.key);
+}
+
+void MeshResidency::enforceBudget(const std::string& keep) {
+    while (m_resident > m_budget) {
+        auto victim = m_entries.end();
+        for (auto it = m_entries.begin(); it != m_entries.end(); ++it) {
+            if (it->first == keep || it->second.lastUse >= m_frame) continue;
+            if (victim == m_entries.end() || it->second.lastUse < victim->second.lastUse) victim = it;
+        }
+        if (victim == m_entries.end()) return;
+        if (victim->second.evict) victim->second.evict(victim->second.lod);
+        m_resident -= victim->second.bytes;
+        ++m_evictions;
+        m_entries.erase(victim);
+    }
+}
+
+void MeshResidency::touch(const std::string& key) {
+    if (const auto found = m_entries.find(key); found != m_entries.end()) found->second.lastUse = m_frame;
+}
+
+void MeshResidency::advance() {
+    enforceBudget({});
+    ++m_frame;
+}
+
+void MeshResidency::release(const std::string& key) {
+    const auto found = m_entries.find(key);
+    if (found == m_entries.end()) return;
+    if (found->second.evict) found->second.evict(found->second.lod);
+    m_resident -= found->second.bytes;
+    ++m_evictions;
+    m_entries.erase(found);
+}
+
+int MeshResidency::residentLod(const std::string& key) const {
+    const auto found = m_entries.find(key);
+    return found == m_entries.end() ? -1 : found->second.lod;
 }

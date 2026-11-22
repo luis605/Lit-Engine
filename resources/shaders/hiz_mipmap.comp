@@ -5,6 +5,13 @@ layout (binding = 1, r32f) writeonly uniform image2D u_destMip;
 
 layout (local_size_x = 8, local_size_y = 8, local_size_z = 1) in;
 
+// Shadow Hi-Z keeps the farthest depth with standard Z (max). The camera Hi-Z uses reversed Z, where the farthest is the minimum.
+#ifdef HIZ_KEEP_MIN
+#define HIZ_COMBINE(a, b) min(a, b)
+#else
+#define HIZ_COMBINE(a, b) max(a, b)
+#endif
+
 void main() {
     ivec2 destCoord = ivec2(gl_GlobalInvocationID.xy);
     ivec2 destSize = imageSize(u_destMip);
@@ -20,7 +27,7 @@ void main() {
     float d2 = imageLoad(u_sourceMip, sourceCoord + ivec2(0, 1)).r;
     float d3 = imageLoad(u_sourceMip, sourceCoord + ivec2(1, 1)).r;
 
-    float maxDepth = max(max(d0, d1), max(d2, d3));
+    float maxDepth = HIZ_COMBINE(HIZ_COMBINE(d0, d1), HIZ_COMBINE(d2, d3));
 
     // Floor-sized mips drop the last row/column when srcSize is odd; fold it back in at the
     // boundary tile so the Hi-Z max doesn't under-estimate depth there (which would falsely
@@ -39,15 +46,15 @@ void main() {
     }
 
     if (oddX) {
-        maxDepth = max(maxDepth, imageLoad(u_sourceMip, sourceCoord + ivec2(2, 0)).r);
-        maxDepth = max(maxDepth, imageLoad(u_sourceMip, sourceCoord + ivec2(2, 1)).r);
+        maxDepth = HIZ_COMBINE(maxDepth, imageLoad(u_sourceMip, sourceCoord + ivec2(2, 0)).r);
+        maxDepth = HIZ_COMBINE(maxDepth, imageLoad(u_sourceMip, sourceCoord + ivec2(2, 1)).r);
     }
     if (oddY) {
-        maxDepth = max(maxDepth, imageLoad(u_sourceMip, sourceCoord + ivec2(0, 2)).r);
-        maxDepth = max(maxDepth, imageLoad(u_sourceMip, sourceCoord + ivec2(1, 2)).r);
+        maxDepth = HIZ_COMBINE(maxDepth, imageLoad(u_sourceMip, sourceCoord + ivec2(0, 2)).r);
+        maxDepth = HIZ_COMBINE(maxDepth, imageLoad(u_sourceMip, sourceCoord + ivec2(1, 2)).r);
     }
     if (oddX && oddY) {
-        maxDepth = max(maxDepth, imageLoad(u_sourceMip, sourceCoord + ivec2(2, 2)).r);
+        maxDepth = HIZ_COMBINE(maxDepth, imageLoad(u_sourceMip, sourceCoord + ivec2(2, 2)).r);
     }
 
     imageStore(u_destMip, destCoord, vec4(maxDepth, 0.0, 0.0, 0.0));

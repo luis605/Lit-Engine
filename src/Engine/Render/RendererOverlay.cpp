@@ -279,7 +279,7 @@ void Renderer::createDebugLinePSO() {
     createInfo.GraphicsPipeline.RasterizerDesc.CullMode = Diligent::CULL_MODE_NONE;
     createInfo.GraphicsPipeline.DepthStencilDesc.DepthEnable = true;
     createInfo.GraphicsPipeline.DepthStencilDesc.DepthWriteEnable = false;
-    createInfo.GraphicsPipeline.DepthStencilDesc.DepthFunc = Diligent::COMPARISON_FUNC_LESS_EQUAL;
+    createInfo.GraphicsPipeline.DepthStencilDesc.DepthFunc = Diligent::COMPARISON_FUNC_GREATER_EQUAL;
     createInfo.pVS = vertexShader;
     createInfo.pPS = pixelShader;
 

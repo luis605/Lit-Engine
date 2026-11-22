@@ -84,6 +84,12 @@ uint32_t Engine::uploadProcessedMesh(const Mesh& optimizedMesh, const std::vecto
     return id;
 }
 
+uint32_t Engine::uploadProcessedMesh(const ProcessedMesh& processed) {
+    const uint32_t id = uploadProcessedMesh(processed.base, processed.lods);
+    if (!processed.clusters.empty()) m_renderer.uploadClusterMesh(id, processed.clusters);
+    return id;
+}
+
 void Engine::refreshReflectionScene() {
     constexpr uint64_t kBoxRefreshInterval = 90;
     const RenderSettings& settings = m_renderer.settings();

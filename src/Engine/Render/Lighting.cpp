@@ -78,8 +78,9 @@ void createStaticBuffers(Lighting::Data& state) {
     state.materials = litgpu::structuredBuffer(device, "Material Buffer", sizeof(MaterialGpu), kMaxMaterials, defaultMaterials.data());
     const std::vector<GpuLight> noLights(kMaxLights, GpuLight{});
     state.lights = litgpu::structuredBuffer(device, "Light Buffer", sizeof(GpuLight), kMaxLights, noLights.data());
-    const std::vector<uint32_t> emptyClusters(static_cast<size_t>(kClusterCount) * kClusterStride, 0u);
-    state.clusters = litgpu::structuredBuffer(device, "Cluster Buffer", sizeof(uint32_t), kClusterCount * kClusterStride, emptyClusters.data());
+    const std::vector<uint32_t> emptyClusters(static_cast<size_t>(kClusterHeaderWords) + kClusterIndexCapacity, 0u);
+    state.clusters = litgpu::structuredBuffer(device, "Cluster Buffer", sizeof(uint32_t), kClusterHeaderWords + kClusterIndexCapacity, emptyClusters.data());
+    state.visibleLights = litgpu::structuredBuffer(device, "Visible Light Buffer", sizeof(glm::vec4), kMaxLights * 2);
     const float initialExposure = 1.0f / (1.2f * std::exp2(kInitialExposureEv));
     const glm::vec4 exposureInit(initialExposure, initialExposure, kInitialExposureEv, 0.0f);
     state.exposure = litgpu::structuredBuffer(device, "Exposure Buffer", sizeof(glm::vec4), 1, &exposureInit);
@@ -148,6 +149,7 @@ void createSceneTextures(Lighting::Data& state) {
     for (auto& rays : state.godRays) rays = litgpu::texture(device, TextureSpec{"God Rays", Diligent::RESOURCE_DIM_TEX_2D, halfWidth, halfHeight, 1, 1, Diligent::TEX_FORMAT_R16_FLOAT});
     state.aoDepth = litgpu::texture(device, TextureSpec{"GTAO Depth", Diligent::RESOURCE_DIM_TEX_2D, halfWidth, halfHeight, 1, 1, Diligent::TEX_FORMAT_R32_FLOAT});
     state.aoFiltered = litgpu::texture(device, TextureSpec{"GTAO", Diligent::RESOURCE_DIM_TEX_2D, halfWidth, halfHeight, 1, 1, kHdrFormat});
+    state.giFiltered = litgpu::texture(device, TextureSpec{"Screen GI", Diligent::RESOURCE_DIM_TEX_2D, halfWidth, halfHeight, 1, 1, kHdrFormat});
     state.sceneColor = litgpu::texture(device, TextureSpec{"Scene Color Pyramid", Diligent::RESOURCE_DIM_TEX_2D, width, height, 1, kPyramidMips, kHdrFormat});
     state.sceneColorMips.clear();
     for (uint32_t mip = 0; mip < kPyramidMips; ++mip) state.sceneColorMips.push_back(litgpu::mipView(state.sceneColor, Diligent::TEXTURE_VIEW_UNORDERED_ACCESS, mip, Diligent::RESOURCE_DIM_TEX_2D));
@@ -230,6 +232,8 @@ MaterialGpu packMaterial(const Material& material) {
 Lighting::Lighting() = default;
 Lighting::~Lighting() { shutdown(); }
 
+const RenderSettings& Lighting::settings() const { return m_data->settings; }
+
 RenderSettings& Lighting::settings() {
     if (!m_data) m_data = new Data();
     return m_data->settings;
@@ -273,6 +277,7 @@ bool Lighting::init(Diligent::IRenderDevice* device, Diligent::IDeviceContext* c
     createStaticBuffers(state);
     createStaticTextures(state);
     createReflectionResources(state);
+    createVirtualShadowResources(state);
     resize(width, height);
     reloadShaders();
     return state.lightingPso != nullptr;
@@ -367,4 +372,15 @@ int Lighting::loadTexture(const std::string& path, bool srgb) {
     state.context->UpdateTexture(target, 0, static_cast<Diligent::Uint32>(layers), box, subresource, Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION, Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
     state.context->GenerateMips(litgpu::srv(target));
     return layers++;
+}
+
+void Lighting::shiftOrigin(const glm::vec3& delta) {
+    Data& state = *m_data;
+    // Virtual shadow maps: light slots and the previous-object copy are in the old frame, so every cached page is stale. Invalidating (not
+    // shifting) re-renders the requested pages once; the face matrices are rebuilt from the shifted lights on the next fit.
+    state.vsm.allDirty = true;
+    // World-space reflection voxel grid: contents are relative to its corner, so a translation is exact. The box hash is origin independent.
+    if (state.reflections.grid.valid()) state.reflections.grid.minCorner -= delta;
+    state.reflections.cameraPosition -= delta;
+    // Probe cubemaps hold directions, not positions; planar reflection and the sky capture are rebuilt every frame / keyed on altitude.
 }

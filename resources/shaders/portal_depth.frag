@@ -32,7 +32,7 @@ void main() {
             vec3 mq = camera.xyz + dir * t - center.xyz;
             if (abs(dot(mq, axisU.xyz) * axisU.w) <= 1.0 && abs(dot(mq, axisV.xyz) * axisV.w) <= 1.0) discard;
         }
-        gl_FragDepth = 1.0;
+        gl_FragDepth = 0.0;
         return;
     }
     if (t <= 0.0) discard;
@@ -40,14 +40,14 @@ void main() {
     if (abs(dot(q, axisU.xyz) * axisU.w) > 1.0 || abs(dot(q, axisV.xyz) * axisV.w) > 1.0) discard;
     vec4 clip = viewProjection * vec4(camera.xyz + dir * t, 1.0);
     float planeDepth = clamp(clip.z / max(clip.w, 1e-6), 0.0, 1.0);
-    if (texelFetch(u_sceneDepth, pixel, 0).r < planeDepth - 1e-5) discard;
+    if (texelFetch(u_sceneDepth, pixel, 0).r > planeDepth + 1e-5) discard;  // reversed Z: larger = nearer
     float childDepth = texelFetch(u_childDepth, pixel, 0).r;
-    if (childDepth >= 1.0) {
-        gl_FragDepth = 1.0;
+    if (childDepth <= 0.0) {
+        gl_FragDepth = 0.0;
         return;
     }
     vec4 view = childInvProjection * vec4(ndc, childDepth, 1.0);
     view /= view.w;
     vec4 parent = projection * view;
-    gl_FragDepth = clamp(max(parent.z / parent.w, planeDepth + 4e-7), 0.0, 1.0);
+    gl_FragDepth = clamp(min(parent.z / parent.w, planeDepth - 4e-7), 0.0, 1.0);
 }

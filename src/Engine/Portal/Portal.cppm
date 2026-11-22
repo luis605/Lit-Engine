@@ -114,6 +114,8 @@ export class PortalSystem {
     [[nodiscard]] int resolveCell(int cell, const glm::vec3& position) const;
     [[nodiscard]] int cameraCell() const { return m_cameraCell; }
     void setCameraCell(int cell);
+    // Floating origin: subtract `shift` (the origin delta) from cell bounds, portal poses/transforms and tracked state.
+    void shiftOrigin(const glm::vec3& shift);
 
     [[nodiscard]] PortalFrame buildFrame(const Camera& camera, float viewportHeight, const PortalBlockedFn& blocked = {}) const;
     int step(Camera& camera);

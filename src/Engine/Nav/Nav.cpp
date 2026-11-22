@@ -85,6 +85,33 @@ int NavMesh::cellOf(float value, float origin) const {
     return static_cast<int>(std::clamp(cell, -kCellLimit, kCellLimit));
 }
 
+void NavMesh::shiftOrigin(const glm::vec3& shift) {
+    if (shift == glm::vec3(0.0f)) return;
+    m_config.originX -= shift.x;
+    m_config.originZ -= shift.z;
+    for (auto& [key, tile] : m_tiles) {
+        for (float& height : tile.heights) height -= shift.y;
+    }
+    if (m_bounds.valid()) {
+        m_bounds.lo -= shift;
+        m_bounds.hi -= shift;
+    }
+    for (auto& [id, obstacle] : m_obstacles) {
+        obstacle.box.lo -= shift;
+        obstacle.box.hi -= shift;
+    }
+    for (auto& [id, link] : m_links) {
+        link.a -= shift;
+        link.b -= shift;
+    }
+    if (m_bvh.triangleCount() > 0) {
+        TriangleSoup soup = m_bvh.soup();
+        for (glm::vec3& vertex : soup.vertices) vertex -= shift;
+        m_bvh.build(soup);
+        m_bounds = m_bvh.bounds();
+    }
+}
+
 int NavMesh::tileOf(int cell) const { return floorDiv(cell, m_config.tileCells); }
 
 void NavMesh::configure(const NavConfig& config) {

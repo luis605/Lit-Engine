@@ -206,18 +206,20 @@ vec3 evaluatePunctual(ShadingData s, GpuLight light, float noise) {
     if (attenuation <= 0.0) return vec3(0.0);
     float NoL = dot(s.N, L);
     float visibility = 1.0;
-    if (light.params.w >= 0.0 && (NoL > 0.0 || s.subsurface > 0.0)) visibility = localShadow(int(light.params.w + 0.5), light.colorType.w < 1.5, light.positionRange.xyz, s.position, s.N, L, max(NoL, 0.05), noise);
+    if (NoL > 0.0 || s.subsurface > 0.0) {
+        if (light.params.w >= 0.0) visibility = localShadow(int(light.params.w + 0.5), light.colorType.w < 1.5, light.positionRange.xyz, s.position, s.N, L, max(NoL, 0.05), noise);
+        else if (lightHasVirtualShadow(light)) visibility = virtualShadow(lightVirtualFace(light), light.colorType.w < 1.5, light.positionRange.xyz, s.position, s.N, L, max(NoL, 0.05), noise, g_pixelFootprint);
+    }
     if (isArea) return evaluateAreaLight(s, light, toLight, d2, visibility);
     return surfaceShading(s, L, light.colorType.rgb * attenuation, visibility);
 }
 
 vec3 evaluateLights(ShadingData s, vec2 pixel, float viewDepth) {
-    uint cluster = clusterIndex(pixel, viewDepth);
-    uint base = cluster * CLUSTER_STRIDE;
-    uint count = min(clusterLights[base], CLUSTER_STRIDE - 1u);
+    uvec2 range = clusterRange(clusterIndex(pixel, viewDepth));
     float noise = shadowNoise(pixel);
+    g_pixelFootprint = virtualShadowFootprint(viewDepth);
     vec3 color = vec3(0.0);
-    for (uint i = 0u; i < count; ++i) color += evaluatePunctual(s, lights[clusterLights[base + 1u + i]], noise);
+    for (uint i = 0u; i < range.y; ++i) color += evaluatePunctual(s, lights[clusterLights[range.x + i]], noise);
     return color;
 }
 

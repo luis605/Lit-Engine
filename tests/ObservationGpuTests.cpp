@@ -33,7 +33,8 @@ int main() {
             EntityDesc d;
             d.name = name;
             d.mesh = cube;
-            d.position = position;
+            // cube.obj spans [0, 1]^3 (corner origin): offset so `position` is the box centre the scene layout assumes.
+            d.position = position - 0.5f * scale;
             d.scale = scale;
             return world.create(d);
         };
@@ -61,6 +62,7 @@ int main() {
         }
         const ObservationStats& stats = obs.stats();
         std::printf("observation: gpu samples %llu rejected %llu cpu %llu latency last %.2f ms frames %u\n", static_cast<unsigned long long>(stats.gpuSamples), static_cast<unsigned long long>(stats.gpuRejected), static_cast<unsigned long long>(stats.cpuUpdates), stats.lastLatencySeconds * 1000.0, stats.lastLatencyFrames);
+        std::printf("states: center %d side %d hidden %d behind %d\n", static_cast<int>(obs.state(center)), static_cast<int>(obs.state(side)), static_cast<int>(obs.state(hidden)), static_cast<int>(obs.state(behind)));
         CHECK(stats.gpuSamples > 5);
         CHECK(stats.maxLatencyFrames <= 4);
         CHECK(obs.state(center) == ObservationState::Attended);

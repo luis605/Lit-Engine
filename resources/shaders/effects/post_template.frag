@@ -15,7 +15,7 @@ float litLinearDepth(vec2 uv) { return linearViewDepth(litDepth(uv)); }
 vec3 litWorldPosition(vec2 uv) { return worldFromDepth(uv, litDepth(uv)); }
 vec3 litNormal(vec2 uv) { return decodeNormal(textureLod(u_gbuffer1, uv, 0.0).rg); }
 vec3 litBaseColor(vec2 uv) { return textureLod(u_gbuffer0, uv, 0.0).rgb; }
-bool litIsSky(vec2 uv) { return litDepth(uv) >= 1.0; }
+bool litIsSky(vec2 uv) { return isSkyDepth(litDepth(uv)); }
 vec2 litTexel() { return screenParams.zw; }
 #ifdef LIT_LDR_EFFECT
 bool litLdr() { return true; }

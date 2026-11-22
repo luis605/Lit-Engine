@@ -211,3 +211,18 @@ std::vector<PortalOverlap> PortalSystem::overlapSphere(World& world, const glm::
     }
     return overlaps;
 }
+
+void PortalSystem::shiftOrigin(const glm::vec3& shift) {
+    constexpr float kUnbounded = 1.0e8f;
+    for (PortalCell& cell : m_cells) {
+        if (glm::abs(cell.min.x) < kUnbounded && glm::abs(cell.min.y) < kUnbounded && glm::abs(cell.min.z) < kUnbounded) cell.min -= shift;
+        if (glm::abs(cell.max.x) < kUnbounded && glm::abs(cell.max.y) < kUnbounded && glm::abs(cell.max.z) < kUnbounded) cell.max -= shift;
+    }
+    for (Portal& portal : m_portals) {
+        portal.pose[3] -= glm::vec4(shift, 0.0f);
+        const glm::vec3 rotated = glm::vec3(portal.transform * glm::vec4(shift, 0.0f));
+        portal.transform[3] += glm::vec4(rotated - shift, 0.0f);
+    }
+    m_previousNear -= shift;
+    for (Tracked& tracked : m_tracked) tracked.previous -= shift;
+}

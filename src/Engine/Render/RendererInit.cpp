@@ -215,6 +215,7 @@ void Renderer::cleanup() {
     delete m_uiManager;
     m_uiManager = nullptr;
 
+    releaseMeshlets();
     delete m_diligent;
     m_diligent = nullptr;
 

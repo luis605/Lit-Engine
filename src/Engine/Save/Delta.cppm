@@ -46,6 +46,8 @@ export class DeltaStore {
     void applyCell(const std::string& cell);
     void releaseCell(const std::string& cell);
     void clear();
+    // Floating origin: call after World::shiftOrigin. Live baselines of root entities follow the world; stored deltas stay origin independent (root translations are kept in absolute world coordinates).
+    void shiftOrigin(const glm::vec3& shift);
 
     [[nodiscard]] size_t deltaCount() const;
     [[nodiscard]] Json toJson();
@@ -82,7 +84,9 @@ export class DeltaStore {
     void readInto(EntityHandle entity, EntityState& state, const std::vector<std::string>& componentNames) const;
     [[nodiscard]] bool matches(EntityHandle entity, const EntityState& state, const std::vector<std::string>& componentNames) const;
     void write(EntityHandle entity, const EntityState& state);
-    void writeChanges(EntityHandle entity, const EntityState& state);
+    void writeChanges(EntityHandle entity, const EntityState& state, bool stored = false);
+    [[nodiscard]] glm::mat4 absoluteLocal(const glm::mat4& local) const;
+    [[nodiscard]] glm::mat4 relativeLocal(const glm::mat4& local) const;
     void applyStored(Live& live, const Stored& stored);
     static void buildIndex(Live& live);
     [[nodiscard]] static Json storedJson(const Stored& stored);

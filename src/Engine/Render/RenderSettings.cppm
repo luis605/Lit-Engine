@@ -88,10 +88,10 @@ export struct RenderSettings {
     bool ssao = true;
     float aoRadius = 1.8f;
     float aoIntensity = 1.0f;
-    int aoSlices = 2;
-    int aoSteps = 6;
+    int aoSlices = 3;
+    int aoSteps = 8;
     bool ssgi = true;
-    float ssgiIntensity = 2.5f;
+    float ssgiIntensity = 1.0f;
     float ssgiThickness = 0.5f;
     bool colorBleed = true;
     float colorBleedIntensity = 1.0f;
@@ -119,6 +119,13 @@ export struct RenderSettings {
     int localShadowCount = 4;
     int localShadowResolution = 512;
     float localShadowSoftness = 1.0f;
+    // Virtual (paged) shadow maps for every local light; off falls back to the ranked local shadows above.
+    bool virtualShadows = true;
+    int vsmPoolSize = 8192;           // physical page atlas edge in texels (2048, 4096, 8192)
+    float vsmResolutionScale = 1.0f;  // shadow texel per screen pixel; > 1 coarser, fewer pages
+    bool vsmAutoScale = true;         // multiply vsmResolutionScale by a factor chosen from the visible light count and pool size
+    int vsmMaxMip = 4;                // finest virtual resolution 128 << mip (0..4 = 128..2048)
+    bool vsmCache = true;             // keep pages of static lights/casters between frames
 
     bool fog = true;
     float fogDensity = 0.0015f;
@@ -137,6 +144,9 @@ export struct RenderSettings {
     bool qualityGovernor = false;
     float targetFrameMs = 16.6f;
     float governorMinScale = 0.6f;
+
+    bool clusterLod = true;          // dense geometry: GPU cluster culling + LOD DAG cut for meshes with clusters
+    float clusterErrorPixels = 1.0f;  // screen-space error threshold of the cluster LOD cut
 
     bool fxaa = true;
     bool specularAntiAliasing = true;
@@ -237,6 +247,12 @@ void visitRenderSettings(Settings& settings, Visitor&& visit) {
     visit("localShadowCount", settings.localShadowCount);
     visit("localShadowResolution", settings.localShadowResolution);
     visit("localShadowSoftness", settings.localShadowSoftness);
+    visit("virtualShadows", settings.virtualShadows);
+    visit("vsmPoolSize", settings.vsmPoolSize);
+    visit("vsmResolutionScale", settings.vsmResolutionScale);
+    visit("vsmAutoScale", settings.vsmAutoScale);
+    visit("vsmMaxMip", settings.vsmMaxMip);
+    visit("vsmCache", settings.vsmCache);
     visit("fog", settings.fog);
     visit("fogDensity", settings.fogDensity);
     visit("fogHeightFalloff", settings.fogHeightFalloff);
@@ -252,6 +268,8 @@ void visitRenderSettings(Settings& settings, Visitor&& visit) {
     visit("qualityGovernor", settings.qualityGovernor);
     visit("targetFrameMs", settings.targetFrameMs);
     visit("governorMinScale", settings.governorMinScale);
+    visit("clusterLod", settings.clusterLod);
+    visit("clusterErrorPixels", settings.clusterErrorPixels);
     visit("fxaa", settings.fxaa);
     visit("specularAntiAliasing", settings.specularAntiAliasing);
     visit("multiScatter", settings.multiScatter);
@@ -360,6 +378,9 @@ export inline void clampQualitySettings(RenderSettings& settings) {
     settings.shadowContactLength = std::clamp(settings.shadowContactLength, 0.0f, 4.0f);
     settings.aoDenoise = std::clamp(settings.aoDenoise, 0, kAoDenoiseMax);
     settings.cloudAerialStrength = std::clamp(settings.cloudAerialStrength, 0.0f, 2.0f);
+    settings.vsmPoolSize = settings.vsmPoolSize <= 2048 ? 2048 : settings.vsmPoolSize <= 4096 ? 4096 : 8192;
+    settings.vsmResolutionScale = std::clamp(settings.vsmResolutionScale, 0.25f, 8.0f);
+    settings.vsmMaxMip = std::clamp(settings.vsmMaxMip, 0, 4);
 }
 
 export inline bool setRenderSetting(RenderSettings& settings, std::string_view key, std::string_view value) {

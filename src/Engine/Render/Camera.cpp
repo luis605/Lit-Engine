@@ -16,9 +16,11 @@ glm::mat4 Camera::getProjectionMatrix() const {
     if (m_orthographic) {
         const float halfHeight = m_orthoHeight * 0.5f;
         const float halfWidth = halfHeight * m_aspectRatio;
-        return glm::orthoRH_ZO(-halfWidth, halfWidth, -halfHeight, halfHeight, m_nearPlane, m_farPlane);
+        return glm::orthoRH_ZO(-halfWidth, halfWidth, -halfHeight, halfHeight, m_farPlane, m_nearPlane);
     }
-    return glm::perspectiveRH_ZO(glm::radians(m_fov), m_aspectRatio, m_nearPlane, m_farPlane);
+    // Reversed Z (near -> 1, far -> 0, depth test GREATER_EQUAL, clear 0): with a float depth buffer the precision follows 1/z, which
+    // keeps views of 50-100 km usable. Swapping the plane arguments gives exactly that matrix (docs/LargeWorld.md).
+    return glm::perspectiveRH_ZO(glm::radians(m_fov), m_aspectRatio, m_farPlane, m_nearPlane);
 }
 
 void Camera::processKeyboard(CameraMovement direction, float deltaTime) {

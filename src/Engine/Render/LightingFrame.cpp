@@ -113,8 +113,8 @@ void fillCameraUniforms(Lighting::Data& state, const FrameInput& input, SceneUni
     uniforms.screenParams = glm::vec4(width, height, 1.0f / width, 1.0f / height);
     uniforms.timeParams = glm::vec4(input.time, input.deltaTime, static_cast<float>(input.frame % kTemporalFrameWrap), input.farPlane);
     const float depthRatio = input.farPlane / std::max(input.nearPlane, kMinClipDistance);
-    uniforms.lightParams = glm::vec4(static_cast<float>(state.lightCount), 16.0f, 9.0f, 24.0f);
-    uniforms.clusterParams = glm::vec4(24.0f / std::log(std::max(depthRatio, 1.0001f)), 0.0f, width / 16.0f, height / 9.0f);
+    uniforms.lightParams = glm::vec4(static_cast<float>(state.lightCount), static_cast<float>(kClusterX), static_cast<float>(kClusterY), static_cast<float>(kClusterZ));
+    uniforms.clusterParams = glm::vec4(static_cast<float>(kClusterZ) / std::log(std::max(depthRatio, 1.0001f)), 0.0f, width / static_cast<float>(kClusterX), height / static_cast<float>(kClusterY));
 }
 
 void fillSunUniforms(const Lighting::Data& state, const SunState& sun, const glm::vec3& transmittance, SceneUniforms& uniforms) {
@@ -138,7 +138,10 @@ void fillSkyUniforms(const Lighting::Data& state, const SunState& sun, SceneUnif
     uniforms.skyGradient[0] = glm::vec4(settings.gradientZenith, settings.cloudAltitude);
     uniforms.skyGradient[1] = glm::vec4(settings.gradientHorizon, settings.environmentIntensity);
     uniforms.skyGradient[2] = glm::vec4(settings.gradientGround, glm::length(illuminance) > 0.0f ? (illuminance.x + illuminance.y + illuminance.z) / 3.0f : 0.0f);
-    uniforms.cloudParams = glm::vec4(state.cloudOffset, std::fmod(state.cloudTime, kCloudTimeWrap), settings.cloudSpeed);
+    // Cloud patterns live in world space: the wind offset carries the (wrapped) world origin so a rebase (local -= d, origin += d) leaves p + offset unchanged.
+    const glm::vec2 cloudOrigin(static_cast<float>(std::fmod(state.worldOrigin.x, static_cast<double>(kMaxCloudOffset))), static_cast<float>(std::fmod(state.worldOrigin.z, static_cast<double>(kMaxCloudOffset))));
+    uniforms.cloudParams = glm::vec4(state.cloudOffset + cloudOrigin, std::fmod(state.cloudTime, kCloudTimeWrap), settings.cloudSpeed);
+    uniforms.originParams = glm::vec4(static_cast<float>(std::fmod(state.worldOrigin.x, kOriginPatternPeriod)), static_cast<float>(std::fmod(state.worldOrigin.y, kOriginPatternPeriod)), static_cast<float>(std::fmod(state.worldOrigin.z, kOriginPatternPeriod)), static_cast<float>(state.worldOrigin.y));
     uniforms.skyParams3 = glm::vec4(settings.moonIlluminance, settings.stars ? 1.0f : 0.0f, settings.godRays ? settings.godRayIntensity : 0.0f, settings.moon && settings.sky == SkyMode::Physical ? 1.0f : 0.0f);
 }
 
@@ -148,7 +151,7 @@ void fillRenderUniforms(const Lighting::Data& state, SceneUniforms& uniforms) {
     uniforms.aoParams = glm::vec4(settings.aoRadius, settings.aoIntensity, static_cast<float>(std::clamp(settings.aoSlices, 1, 8)), static_cast<float>(std::clamp(settings.aoSteps, 2, 16)));
     const ReflectionTier tier = reflectionPlan(settings).tier;
     uniforms.ssrParams = glm::vec4(settings.ssrMaxRoughness * tier.roughnessScale, settings.ssrThickness, static_cast<float>(std::min(std::clamp(settings.ssrSteps, 8, 128), tier.ssrStepCap)), settings.fxaa ? 1.0f : 0.0f);
-    uniforms.fogParams = glm::vec4(settings.fog ? settings.fogDensity : 0.0f, settings.fogHeightFalloff, settings.fogHeight, settings.fog ? settings.aerialDistanceScale : 0.0f);
+    uniforms.fogParams = glm::vec4(settings.fog ? settings.fogDensity : 0.0f, settings.fogHeightFalloff, settings.fogHeight - static_cast<float>(state.worldOrigin.y), settings.fog ? settings.aerialDistanceScale : 0.0f);
     uniforms.postParams = glm::vec4(settings.bloom ? settings.bloomIntensity : 0.0f, settings.vignette, settings.grain, static_cast<float>(static_cast<int>(settings.tonemapper)));
     uniforms.postParams2 = glm::vec4(settings.contrast, settings.saturation, settings.temperature, settings.tint);
     uniforms.maskParams = glm::vec4(settings.maskContrast, settings.maskSheen, settings.maskSheenSpeed, settings.maskSheenWidth);
@@ -170,7 +173,7 @@ void updateSkyHash(Lighting::Data& state, const FrameInput& input, const SunStat
     };
     for (float value : {state.sun.x, state.sun.y, state.sun.z, settings.rayleighScale, settings.mieScale, settings.ozoneScale, settings.mieAnisotropy, settings.groundAlbedo, settings.cloudCoverage, settings.cloudDensity, settings.cloudAltitude,
                         static_cast<float>(settings.clouds), static_cast<float>(static_cast<int>(settings.sky)), settings.hdriIntensity, settings.hdriRotation, settings.gradientIntensity, settings.gradientZenith.x, settings.gradientHorizon.x,
-                        settings.gradientGround.x, sun.illuminance.x, std::round(input.cameraPosition.y / kSkyAltitudeQuantum), sun.moon.x, sun.moon.y, settings.moonIlluminance, static_cast<float>(settings.moon)}) {
+                        settings.gradientGround.x, sun.illuminance.x, std::round(static_cast<float>(static_cast<double>(input.cameraPosition.y) + input.worldOrigin.y) / kSkyAltitudeQuantum), sun.moon.x, sun.moon.y, settings.moonIlluminance, static_cast<float>(settings.moon)}) {
         mix(value);
     }
     if (hash != state.skyHash) {
@@ -213,6 +216,7 @@ glm::vec3 cpuTransmittance(float sunZenithCos, const RenderSettings& settings) {
 void Lighting::beginFrame(const FrameInput& input, SceneUniforms& uniforms) {
     Data& state = *m_data;
     ++state.frame;
+    state.worldOrigin = input.worldOrigin;
     advanceTimeOfDay(state, input.deltaTime);
     const SunState sun = resolveSun(state);
     advanceClouds(state, input.deltaTime);

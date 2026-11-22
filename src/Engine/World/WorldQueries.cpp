@@ -61,8 +61,8 @@ Ray World::screenRay(float screenX, float screenY, float width, float height) co
     const float ndcX = 2.0f * screenX / width - 1.0f;
     const float ndcY = 1.0f - 2.0f * screenY / height;
     const glm::mat4 inverse = glm::inverse(m_camera.getProjectionMatrix() * m_camera.getViewMatrix());
-    const glm::vec4 nearPoint = inverse * glm::vec4(ndcX, ndcY, 0.0f, 1.0f);
-    const glm::vec4 farPoint = inverse * glm::vec4(ndcX, ndcY, 1.0f, 1.0f);
+    const glm::vec4 nearPoint = inverse * glm::vec4(ndcX, ndcY, 1.0f, 1.0f);  // reversed Z: near = 1, far = 0
+    const glm::vec4 farPoint = inverse * glm::vec4(ndcX, ndcY, 0.0f, 1.0f);
     const glm::vec3 nearPosition = glm::vec3(nearPoint) / nearPoint.w;
     const glm::vec3 farPosition = glm::vec3(farPoint) / farPoint.w;
     return {nearPosition, glm::normalize(farPosition - nearPosition)};

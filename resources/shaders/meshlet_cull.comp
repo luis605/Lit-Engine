@@ -1,0 +1,222 @@
+#version 450
+#extension GL_GOOGLE_include_directive : require
+#include "scene.glsl"
+#include "mesh.glsl"
+#include "hiz.glsl"
+#include "meshlet.glsl"
+
+// Cluster LOD, stage 2. One workgroup per work item (an instance and up to 64 consecutive clusters).
+// Each lane tests one cluster: DAG cut (projected self error <= threshold < projected parent
+// error), frustum, backface cone and Hi-Z. Survivors are compacted in a fixed order and their
+// triangles are expanded into the phase's index buffer as ONE indexed draw (instanceCount 1,
+// baseInstance = the instance's visible-entry slot), so the existing surface shaders, G-buffer,
+// shadow and portal passes draw clusters without any change. No mesh shaders needed.
+layout(local_size_x = 64, local_size_y = 1, local_size_z = 1) in;
+
+layout(std430) readonly buffer SortedVisibleObjectBuffer {
+    uvec2 sortedEntries[];
+};
+
+layout(std430) readonly buffer WorldMatrixBuffer {
+    MeshletWorldRows worldRows[];
+};
+
+layout(std430) readonly buffer ClusterBuffer {
+    Cluster clusters[];
+};
+
+layout(std430) readonly buffer ClusterVertexBuffer {
+    uint clusterVertices[];
+};
+
+layout(std430) readonly buffer ClusterTriangleBuffer {
+    uint clusterTriangles[];
+};
+
+layout(std430) readonly buffer ClusterMeshBuffer {
+    ClusterMeshInfo clusterMeshes[];
+};
+
+layout(std430) readonly buffer WorkCounterBuffer {
+    uint u_workCount;
+};
+
+layout(std430) readonly buffer WorkItemBuffer {
+    uvec4 workItems[];
+};
+
+layout(std430) buffer IndexCounterBuffer {
+    uint u_indexCount;
+};
+
+layout(std430) writeonly buffer ExpandedIndexBuffer {
+    uint expandedIndices[];
+};
+
+layout(std430) buffer MeshletDrawCounterBuffer {
+    uint drawCounters[];
+};
+
+layout(std430) writeonly buffer MeshletDrawCommandBuffer {
+    DrawElementsIndirectCommand drawCommands[];
+};
+
+layout(std430) buffer RetestCounterBuffer {
+    uint u_retestCount;
+};
+
+layout(std430) writeonly buffer RetestBuffer {
+    uvec4 retestItems[];
+};
+
+layout(std430) buffer MeshletStatsBuffer {
+    uint meshletStats[];
+};
+
+shared uint s_triangles[MESHLET_GROUP_SIZE];
+shared uint s_prefix[MESHLET_GROUP_SIZE + 1u];
+shared uint s_vertexOffset[MESHLET_GROUP_SIZE];
+shared uint s_triangleOffset[MESHLET_GROUP_SIZE];
+shared uint s_retest[2];
+shared uint s_tested;
+shared uint s_selected;
+shared uint s_drawn;
+shared uint s_base;
+shared uint s_emit;
+
+bool frustumVisible(vec3 center, float radius) {
+    for (int i = 0; i < 6; ++i) {
+        if (dot(frustumPlanes[i].xyz, center) + frustumPlanes[i].w < -radius) return false;
+    }
+    return true;
+}
+
+void main() {
+    uint itemIndex = gl_WorkGroupID.x + gl_WorkGroupID.y * MESHLET_MAX_DISPATCH_X;
+    if (itemIndex >= min(u_workCount, u_maxWorkItems)) return;
+    uint lane = gl_LocalInvocationID.x;
+    uvec4 item = workItems[itemIndex * 2u];
+    uvec2 mask = workItems[itemIndex * 2u + 1u].xy;
+    uint slot = item.x;
+    uint commandSlot = item.w & 0xFFFFu;
+    uint meshId = item.w >> 16u;
+    uint shader = commandSlot % max(u_shaderCount, 1u);
+
+    if (lane == 0u) {
+        s_retest[0] = 0u;
+        s_retest[1] = 0u;
+        s_tested = 0u;
+        s_selected = 0u;
+        s_drawn = 0u;
+    }
+    barrier();
+
+    uvec2 entry = sortedEntries[slot];
+    uint objectId = entry.x & 0x1FFFFFFFu;
+    mat4 model = meshletWorld(worldRows[objectId]);
+    vec3 axisScale = vec3(length(model[0].xyz), length(model[1].xyz), length(model[2].xyz));
+    float scale = max(axisScale.x, max(axisScale.y, axisScale.z));
+    float minScale = min(axisScale.x, min(axisScale.y, axisScale.z));
+    mat3 m3 = mat3(model);
+    bool mirrored = dot(m3[0], cross(m3[1], m3[2])) < 0.0;
+    bool coneUsable = (u_flags & MESHLET_FLAG_CONE) != 0u && !mirrored && minScale > scale * 0.95 && ((u_twoSidedMask >> shader) & 1u) == 0u;
+    float errorScale = meshletErrorScale() * scale;
+
+    bool maskBit = lane < 32u ? ((mask.x >> lane) & 1u) != 0u : ((mask.y >> (lane - 32u)) & 1u) != 0u;
+    bool live = lane < item.z && maskBit;
+    bool draw = false;
+    Cluster cluster;
+    if (live) {
+        cluster = clusters[item.y + lane];
+        atomicAdd(s_tested, 1u);
+        vec3 selfCenter = (model * vec4(cluster.selfSphere.xyz, 1.0)).xyz;
+        vec3 parentCenter = (model * vec4(cluster.parentSphere.xyz, 1.0)).xyz;
+        float selfError = meshletProjectedError(selfCenter, cluster.selfSphere.w * scale, cluster.errors.x, errorScale);
+        float parentError = meshletProjectedError(parentCenter, cluster.parentSphere.w * scale, cluster.errors.y, errorScale);
+        draw = selfError <= u_errorThreshold && parentError > u_errorThreshold;
+        if (draw) atomicAdd(s_selected, 1u);
+        vec3 center = (model * vec4(cluster.bounds.xyz, 1.0)).xyz;
+        float radius = cluster.bounds.w * scale;
+        if (draw && (u_flags & MESHLET_FLAG_FRUSTUM) != 0u) draw = frustumVisible(center, radius);
+        if (draw && coneUsable && cluster.cone.w < 1.0) {
+            vec3 axis = normalize(m3 * cluster.cone.xyz);
+            vec3 toCluster = center - viewPos;
+            if (dot(toCluster, axis) >= cluster.cone.w * length(toCluster) + radius) draw = false;
+        }
+        if (draw && (u_flags & MESHLET_FLAG_HIZ) != 0u && sphereOccluded(center, radius)) {
+            draw = false;
+            if ((u_flags & MESHLET_FLAG_RETEST_OUTPUT) != 0u) atomicOr(s_retest[lane >> 5u], 1u << (lane & 31u));
+        }
+    }
+    s_triangles[lane] = draw ? cluster.ranges.w : 0u;
+    s_vertexOffset[lane] = draw ? cluster.ranges.x : 0u;
+    s_triangleOffset[lane] = draw ? cluster.ranges.y : 0u;
+    if (draw) atomicAdd(s_drawn, 1u);
+    barrier();
+
+    if (lane == 0u) {
+        uint total = 0u;
+        for (uint i = 0u; i < MESHLET_GROUP_SIZE; ++i) {
+            s_prefix[i] = total;
+            total += s_triangles[i];
+        }
+        s_prefix[MESHLET_GROUP_SIZE] = total;
+        s_emit = 0u;
+        bool overflow = false;
+        if (total > 0u) {
+            uint base = atomicAdd(u_indexCount, total * 3u);
+            uint drawIndex = atomicAdd(drawCounters[commandSlot], 1u);
+            if (base + total * 3u <= u_indexCapacity && drawIndex < u_drawsPerSlot) {
+                s_base = base;
+                s_emit = 1u;
+                DrawElementsIndirectCommand command;
+                command.count = total * 3u;
+                command.instanceCount = 1u;
+                command.firstIndex = base;
+                command.baseVertex = clusterMeshes[meshId].info.z;
+                command.baseInstance = slot;
+                drawCommands[commandSlot * u_drawsPerSlot + drawIndex] = command;
+            } else {
+                overflow = true;
+            }
+        }
+        if ((s_retest[0] | s_retest[1]) != 0u) {
+            uint record = atomicAdd(u_retestCount, 1u);
+            if (record < u_retestCapacity) {
+                retestItems[record * 2u] = uvec4(entry, item.y, item.w);
+                retestItems[record * 2u + 1u] = uvec4(s_retest[0], s_retest[1], item.z, 0u);
+            } else {
+                overflow = true;
+            }
+        }
+        uint stats = u_statsBase;
+        atomicAdd(meshletStats[stats + MESHLET_STAT_TESTED], s_tested);
+        atomicAdd(meshletStats[stats + MESHLET_STAT_SELECTED], s_selected);
+        if (s_emit != 0u) {
+            atomicAdd(meshletStats[stats + MESHLET_STAT_DRAWN], s_drawn);
+            atomicAdd(meshletStats[stats + MESHLET_STAT_TRIANGLES], total);
+            atomicAdd(meshletStats[stats + MESHLET_STAT_DRAWS], 1u);
+        }
+        if (overflow) atomicAdd(meshletStats[stats + MESHLET_STAT_OVERFLOW], 1u);
+    }
+    barrier();
+    if (s_emit == 0u) return;
+
+    uint total = s_prefix[MESHLET_GROUP_SIZE];
+    uint base = s_base;
+    for (uint triangle = lane; triangle < total; triangle += MESHLET_GROUP_SIZE) {
+        uint lo = 0u;
+        uint hi = MESHLET_GROUP_SIZE;
+        while (lo < hi) {
+            uint mid = (lo + hi) >> 1u;
+            if (s_prefix[mid + 1u] <= triangle) lo = mid + 1u;
+            else hi = mid;
+        }
+        uint packed = clusterTriangles[s_triangleOffset[lo] + (triangle - s_prefix[lo])];
+        uint vertexBase = s_vertexOffset[lo];
+        uint out0 = base + triangle * 3u;
+        expandedIndices[out0] = clusterVertices[vertexBase + (packed & 0xFFu)];
+        expandedIndices[out0 + 1u] = clusterVertices[vertexBase + ((packed >> 8u) & 0xFFu)];
+        expandedIndices[out0 + 2u] = clusterVertices[vertexBase + ((packed >> 16u) & 0xFFu)];
+    }
+}

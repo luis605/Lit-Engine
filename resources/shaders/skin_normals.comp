@@ -1,0 +1,54 @@
+#version 450
+
+// Dynamic mesh refit: recompute smooth vertex normals from the deformed positions.
+// Uses a CSR vertex -> triangle adjacency built on the CPU when the source mesh was created.
+
+layout(local_size_x = 64, local_size_y = 1, local_size_z = 1) in;
+
+layout(std140, binding = 0) uniform NormalUniforms {
+    uint u_vertexCount;
+    uint u_pad0;
+    uint u_pad1;
+    uint u_pad2;
+};
+
+layout(std430, binding = 1) readonly buffer AdjacencyOffsetBuffer {
+    uint adjacencyOffsets[];
+};
+
+layout(std430, binding = 2) readonly buffer AdjacencyTriangleBuffer {
+    uint adjacencyTriangles[];
+};
+
+layout(std430, binding = 3) readonly buffer IndexBuffer {
+    uint indices[];
+};
+
+layout(std430, binding = 4) buffer OutputVertexBuffer {
+    float outVertices[];
+};
+
+vec3 positionOf(uint vertex) {
+    uint base = vertex * 8u;
+    return vec3(outVertices[base], outVertices[base + 1u], outVertices[base + 2u]);
+}
+
+void main() {
+    uint v = gl_GlobalInvocationID.x;
+    if (v >= u_vertexCount) return;
+    vec3 sum = vec3(0.0);
+    for (uint i = adjacencyOffsets[v]; i < adjacencyOffsets[v + 1u]; ++i) {
+        uint tri = adjacencyTriangles[i] * 3u;
+        vec3 a = positionOf(indices[tri]);
+        vec3 b = positionOf(indices[tri + 1u]);
+        vec3 c = positionOf(indices[tri + 2u]);
+        sum += cross(b - a, c - a);
+    }
+    uint base = v * 8u;
+    float len = length(sum);
+    if (len < 1e-12) return;
+    sum /= len;
+    outVertices[base + 3u] = sum.x;
+    outVertices[base + 4u] = sum.y;
+    outVertices[base + 5u] = sum.z;
+}

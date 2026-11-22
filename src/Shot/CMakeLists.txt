@@ -1,6 +1,6 @@
 cmake_minimum_required(VERSION 3.28)
 
-add_executable(LitShot main.cpp Args.cpp Scenes.cpp)
+add_executable(LitShot main.cpp Args.cpp Scenes.cpp DenseScene.cpp MixedScene.cpp LargeWorldScene.cpp)
 
 target_compile_features(LitShot PRIVATE cxx_std_23)
 

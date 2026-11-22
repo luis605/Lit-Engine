@@ -13,6 +13,7 @@ using ::glm::mat4;
 using ::glm::inverse;
 using ::glm::vec4;
 using ::glm::vec3;
+using ::glm::dvec3;
 using ::glm::vec2;
 using ::glm::ivec2;
 using ::glm::ivec3;

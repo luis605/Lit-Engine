@@ -23,7 +23,8 @@ struct VertexContext {
 };
 
 struct SurfaceInput {
-    vec3 worldPosition;
+    vec3 worldPosition;    // local (render-space) position, camera relative math
+    vec3 patternPosition;  // worldPosition + origin phase: sample procedural world-space patterns with this (stable across floating-origin rebases)
     vec3 objectPosition;
     vec3 viewDirection;
     vec3 geometricNormal;

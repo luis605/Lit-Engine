@@ -43,6 +43,9 @@ Diligent::RefCntAutoPtr<Diligent::IShaderResourceBinding> MakeSurfaceBinding(Dil
                                    {"u_shadowMap",           litgpu::srv(lighting.shadowMap())     },
                                    {"u_shadowDepth",         litgpu::srv(lighting.shadowMap())     },
                                    {"u_localShadowMap",      litgpu::srv(lighting.localShadowMap())},
+                                   {"u_vsmAtlas",            litgpu::srv(lighting.virtualShadowAtlas())},
+                                   {"VsmFaceBuffer",         lighting.virtualShadowFaces()         },
+                                   {"VsmPageTable",          lighting.virtualShadowPageTable()     },
                                    {"u_sceneColor",          lighting.sceneColor()                 }
     });
 }

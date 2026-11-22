@@ -167,7 +167,7 @@ bool configureDraw(Diligent::IRenderDevice* device, Pass& pass, bool meshShaders
     graphics.DSVFormat = Diligent::TEX_FORMAT_D32_FLOAT;
     graphics.DepthStencilDesc.DepthEnable = draw.depthTest;
     graphics.DepthStencilDesc.DepthWriteEnable = draw.depthWrite;
-    graphics.DepthStencilDesc.DepthFunc = Diligent::COMPARISON_FUNC_LESS_EQUAL;
+    graphics.DepthStencilDesc.DepthFunc = Diligent::COMPARISON_FUNC_GREATER_EQUAL;
     graphics.RasterizerDesc.CullMode = draw.doubleSided ? Diligent::CULL_MODE_NONE : Diligent::CULL_MODE_BACK;
     graphics.RasterizerDesc.FrontCounterClockwise = true;
     configureBlend(graphics.BlendDesc.RenderTargets[0], draw.blend);

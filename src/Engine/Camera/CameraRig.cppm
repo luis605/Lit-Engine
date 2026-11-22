@@ -38,6 +38,7 @@ export class CameraRig {
     [[nodiscard]] const CameraRigSettings& settings() const { return m_settings; }
     void setCollisionQuery(CameraCollisionQuery query) { m_query = std::move(query); }
     void setPivot(const glm::vec3& pivot) { m_pivot = pivot; }
+    void shiftOrigin(const glm::vec3& shift) { m_pivot -= shift; }
     [[nodiscard]] glm::vec3 pivot() const;
     [[nodiscard]] glm::vec3 forward() const;
     [[nodiscard]] float currentDistance() const { return m_distance; }

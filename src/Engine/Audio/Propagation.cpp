@@ -47,6 +47,18 @@ glm::vec3 unit(const glm::vec3& vector) {
 
 void AudioPropagation::setScene(const TriangleSoup& soup) { m_bvh.build(soup); }
 
+void AudioPropagation::shiftOrigin(const glm::vec3& shift) {
+    if (shift == glm::vec3(0.0f)) return;
+    if (m_bvh.triangleCount() > 0) {
+        TriangleSoup soup = m_bvh.soup();
+        for (glm::vec3& vertex : soup.vertices) vertex -= shift;
+        m_bvh.build(soup);
+    }
+    m_listener -= shift;
+    for (FanHit& hit : m_fan) hit.point -= shift;
+    m_hopOffset += shift;
+}
+
 bool AudioPropagation::blocked(const glm::vec3& from, const glm::vec3& to) {
     ++m_used;
     return m_bvh.occluded(from, to);
@@ -101,7 +113,15 @@ bool AudioPropagation::hopSearch(const glm::vec3& from, const glm::vec3& source,
     if (!m_hook || depth > m_config.maxHops) return false;
     std::vector<AudioHop>& candidates = m_hopCandidates[static_cast<size_t>(depth)];
     candidates.clear();
-    m_hook(from, candidates);
+    if (m_hopOffset == glm::vec3(0.0f)) {
+        m_hook(from, candidates);
+    } else {
+        m_hook(from + m_hopOffset, candidates);
+        for (AudioHop& hop : candidates) {
+            hop.entry -= m_hopOffset;
+            hop.exit -= m_hopOffset;
+        }
+    }
     bool found = false;
     float best = kNoPathLength;
     for (const AudioHop& hop : candidates) {

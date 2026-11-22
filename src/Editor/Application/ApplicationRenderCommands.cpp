@@ -187,6 +187,13 @@ void Application::registerRenderToggleCommands() {
     toggle("render.bentNormals", "Bent normals", &RenderSettings::bentNormals);
     toggle("render.areaLights", "Area lights", &RenderSettings::areaLights);
     toggle("render.governor", "Quality governor", &RenderSettings::qualityGovernor);
+    toggle("render.virtualShadows", "Virtual shadow maps (all local lights)", &RenderSettings::virtualShadows);
+    toggle("render.vsmCache", "Virtual shadow page cache", &RenderSettings::vsmCache);
+    addCommand("render.vsmPool", "Cycle virtual shadow pool size", "Render", {}, [this] {
+        RenderSettings& settings = m_engine.renderSettings();
+        settings.vsmPoolSize = settings.vsmPoolSize >= 8192 ? 2048 : settings.vsmPoolSize * 2;
+        m_ctx->toast(std::format("Virtual shadow pool: {0}x{0}", settings.vsmPoolSize));
+    });
     addCommand("render.scale", "Cycle render scale", "Render", {}, [this] {
         RenderSettings& settings = m_engine.renderSettings();
         settings.renderScale = settings.renderScale <= kRenderScaleMin + kRenderScaleStep * 0.5f ? kRenderScaleMax : quantizeRenderScale(settings.renderScale - kRenderScaleStep * 2.0f);

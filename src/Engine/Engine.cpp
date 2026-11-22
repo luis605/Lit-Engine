@@ -54,6 +54,12 @@ import Engine.Portal.view;
 import Engine.PortalBridge;
 import Engine.Render.observation;
 
+namespace {
+// Local lights handed to the renderer per frame (clustered culling and virtual shadows scale to this;
+// must not exceed lighting_detail::kMaxLights).
+constexpr size_t kMaxSceneLights = 32768;
+}
+
 Engine::Engine() {
     m_world.setJobSystem(&m_jobs);
     m_world.setProfiler(&m_profiler);
@@ -365,8 +371,10 @@ void Engine::update() {
     uploadParams();
     feedGpuObservation();
     LightSet lights;
-    const bool hasLights = collectLights(m_world, m_world.camera().getPosition(), lights, 1024);
+    const bool hasLights = collectLights(m_world, m_world.camera().getPosition(), lights, kMaxSceneLights);
     m_renderer.setLights(hasLights, lights.directional, lights.packed);
+    if (m_renderer.worldOrigin() != m_world.origin()) m_reflectionFrame = 0;  // rebased: re-collect the reflection boxes in the new frame now
+    m_renderer.setWorldOrigin(m_world.origin());
     refreshReflectionScene();
     syncWindowSize(m_world.camera());
     m_renderer.drawScene(m_world.database(), m_world.camera());
@@ -377,8 +385,9 @@ void Engine::update(World& world) {
     world.syncCamera();
     updatePortals(world);
     LightSet lights;
-    const bool hasLights = collectLights(world, world.camera().getPosition(), lights, 1024);
+    const bool hasLights = collectLights(world, world.camera().getPosition(), lights, kMaxSceneLights);
     m_renderer.setLights(hasLights, lights.directional, lights.packed);
+    m_renderer.setWorldOrigin(world.origin());
     syncWindowSize(world.camera());
     m_renderer.drawScene(world.database(), world.camera());
 }

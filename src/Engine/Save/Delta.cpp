@@ -57,7 +57,36 @@ bool DeltaStore::matches(EntityHandle entity, const EntityState& state, const st
     return next == state.components.size();
 }
 
-void DeltaStore::writeChanges(EntityHandle entity, const EntityState& state) {
+glm::mat4 DeltaStore::absoluteLocal(const glm::mat4& local) const {
+    glm::mat4 out = local;
+    const glm::dvec3 origin = m_world.origin();
+    for (int axis = 0; axis < 3; ++axis) out[3][axis] = static_cast<float>(static_cast<double>(local[3][axis]) + origin[axis]);
+    return out;
+}
+
+glm::mat4 DeltaStore::relativeLocal(const glm::mat4& local) const {
+    glm::mat4 out = local;
+    const glm::dvec3 origin = m_world.origin();
+    for (int axis = 0; axis < 3; ++axis) out[3][axis] = static_cast<float>(static_cast<double>(local[3][axis]) - origin[axis]);
+    return out;
+}
+
+void DeltaStore::shiftOrigin(const glm::vec3& shift) {
+    for (auto& [name, live] : m_live) {
+        for (Base& base : live.bases) {
+            if (m_world.isAlive(base.handle) && m_world.getParent(base.handle).isNull()) base.baseline.local[3] -= glm::vec4(shift, 0.0f);
+        }
+    }
+}
+
+void DeltaStore::writeChanges(EntityHandle entity, const EntityState& incoming, bool stored) {
+    EntityState adjusted;
+    const bool shifted = stored && m_world.getParent(entity).isNull();
+    if (shifted) {
+        adjusted = incoming;
+        adjusted.local = relativeLocal(incoming.local);
+    }
+    const EntityState& state = shifted ? adjusted : incoming;
     const RenderableComponent& renderable = m_world.getRenderable(entity);
     if (m_world.getName(entity) != state.name) m_world.setName(entity, state.name);
     if (m_world.getTag(entity) != state.tag) m_world.setTag(entity, state.tag);
@@ -172,9 +201,16 @@ void DeltaStore::captureCell(const std::string& cell) {
         auto changedIt = stored.changed.find(base.key);
         if (changedIt == stored.changed.end()) changedIt = stored.changed.try_emplace(base.key).first;
         readInto(base.handle, changedIt->second, componentNames);
+        if (m_world.getParent(base.handle).isNull()) changedIt->second.local = absoluteLocal(changedIt->second.local);
     }
     for (const Added& added : liveIt->second.added) {
-        if (m_world.isAlive(added.handle)) stored.added[added.key] = m_world.capture(added.handle);
+        if (m_world.isAlive(added.handle)) {
+            Prefab prefab = m_world.capture(added.handle);
+            for (PrefabNode& node : prefab.nodes) {
+                if (node.parent < 0) node.local = absoluteLocal(node.local);
+            }
+            stored.added[added.key] = std::move(prefab);
+        }
         else stored.added.erase(added.key);
     }
 }
@@ -197,7 +233,7 @@ void DeltaStore::applyStored(Live& live, const Stored& stored) {
                 m_world.destroy(base.handle);
                 continue;
             }
-            if (const auto changedIt = stored.changed.find(base.key); changedIt != stored.changed.end()) writeChanges(base.handle, changedIt->second);
+            if (const auto changedIt = stored.changed.find(base.key); changedIt != stored.changed.end()) writeChanges(base.handle, changedIt->second, true);
         }
         return;
     }
@@ -216,7 +252,7 @@ void DeltaStore::applyStored(Live& live, const Stored& stored) {
         const auto found = live.index.find(key);
         if (found == live.index.end()) continue;
         const EntityHandle handle = live.bases[found->second].handle;
-        if (m_world.isAlive(handle)) writeChanges(handle, state);
+        if (m_world.isAlive(handle)) writeChanges(handle, state, true);
     }
 }
 
@@ -234,7 +270,11 @@ void DeltaStore::applyCell(const std::string& cell) {
     }
     for (const auto& [key, prefab] : stored.added) {
         if (presentKeys.contains(key) || prefab.empty()) continue;
-        const EntityHandle root = m_world.instantiate(prefab);
+        Prefab local = prefab;
+        for (PrefabNode& node : local.nodes) {
+            if (node.parent < 0) node.local = relativeLocal(node.local);
+        }
+        const EntityHandle root = m_world.instantiate(local);
         live.added.push_back({key, root});
     }
 }

@@ -12,6 +12,7 @@ module;
 
 module Engine.Streaming;
 
+import Engine.glm;
 import Engine.Delta;
 import Engine.Portal;
 import Engine.Render.entity;
@@ -45,7 +46,9 @@ void collectDoomed(BatchState& state, DeltaStore* deltas, const std::string& nam
 bool commitBatch(World& world, DeltaStore* deltas, BatchState& state, const std::string& name, int cell, Batch& batch, StreamBudget& budget) {
     while (batch.next < batch.content.entities.size()) {
         const CellEntity& entity = batch.content.entities[batch.next++];
-        const EntityHandle handle = world.create(entity.desc);
+        EntityDesc desc = entity.desc;
+        if (desc.parent.isNull()) desc.position = world.toLocal(entity.hasWorldPosition ? entity.worldPosition : glm::dvec3(desc.position));
+        const EntityHandle handle = world.create(desc);
         if (!entity.tag.empty()) world.setTag(handle, entity.tag);
         world.setLayer(handle, entity.layer);
         if (!entity.visible) world.setVisible(handle, false);
@@ -80,6 +83,16 @@ bool unloadBatch(World& world, DeltaStore* deltas, BatchState& state, const std:
     state.collected.erase(cell);
     return true;
 }
+}
+
+CellLoader makeBatchLoader(World& world, PortalSystem& portals, DeltaStore* deltas, std::function<CellContent(int cell, int lod)> build, size_t destroyBatch) {
+    CellLoader loader = makeBatchLoader(world, portals, deltas, std::function<CellContent(int)>([build](int cell) { return build(cell, 0); }), destroyBatch);
+    loader.prepareLod = [build](int cell, int lod) -> std::shared_ptr<void> {
+        auto batch = std::make_shared<Batch>();
+        batch->content = build(cell, lod);
+        return batch;
+    };
+    return loader;
 }
 
 CellLoader makeBatchLoader(World& world, PortalSystem& portals, DeltaStore* deltas, std::function<CellContent(int cell)> build, size_t destroyBatch) {

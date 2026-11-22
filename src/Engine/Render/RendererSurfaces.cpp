@@ -114,7 +114,7 @@ Diligent::RefCntAutoPtr<Diligent::IPipelineState> BuildSurfacePso(DiligentData& 
     pipeline.RasterizerDesc.FrontCounterClockwise = true;
     pipeline.DepthStencilDesc.DepthEnable = true;
     pipeline.DepthStencilDesc.DepthWriteEnable = kind != SurfaceKind::Forward;
-    pipeline.DepthStencilDesc.DepthFunc = Diligent::COMPARISON_FUNC_LESS_EQUAL;
+    pipeline.DepthStencilDesc.DepthFunc = Diligent::COMPARISON_FUNC_GREATER_EQUAL;
     ConfigureTargets(pipeline, kind);
     createInfo.pVS = vertexShader;
     createInfo.pPS = pixelShader;

@@ -1,12 +1,13 @@
 # GI color bleeding
 
-Indirect diffuse light picks up the color of nearby lit surfaces (a red wall tints a nearby white floor). It is a spatial-only screen-space one-bounce gather that lives in `resources/shaders/lighting/gtao.comp`, next to the existing SSGI term, and rides on the existing bilateral GTAO blur. There is no temporal accumulation: each pixel takes a fixed, per-pixel rotated tap pattern and the result is cleaned up by the spatial depth-aware blur only.
+Indirect diffuse light picks up the color of nearby lit surfaces (a red wall tints a nearby white floor). It is a spatial-only screen-space one-bounce gather in `resources/shaders/lighting/gtao.comp` (compiled with `GI_PASS`), next to the SSGI horizon term. It runs after the lighting pass on this frame's lit colour, is cleaned up by the bilateral GTAO blur (`gtao_blur.comp` with `NO_BENT`) into `Screen GI`, and `gi_apply.comp` adds `diffuseColor * materialAO * GI` to the HDR image with a depth-aware upsample. There is no temporal accumulation and no previous-frame data.
 
 How it works
 - Each half-resolution GTAO pixel takes N golden-angle spiral taps inside a world-space radius.
-- A tap contributes the lit color (mip 2 of the scene color pyramid) weighted by receiver cosine, emitter cosine and a smooth distance falloff. Lit color already contains emitter albedo times its irradiance, so the gathered light is tinted by the emitter's albedo.
-- The gather is slightly saturated to counter the averaging toward grey, then added to the GTAO RGB output that the lighting pass multiplies by receiver albedo.
-- Cost is one half-resolution pass already paid for by GTAO plus N extra taps.
+- A tap contributes the lit color (mip 1 of this frame's scene color pyramid, captured right after the lighting pass) weighted by receiver cosine, emitter cosine and a smooth distance falloff. Lit color already contains emitter albedo times its real irradiance (shadows, local lights, sky occlusion), so the gathered light is tinted by the emitter's albedo and a surface in shadow does not bounce sunlight.
+- The SSGI term uses the same lit colour for the GTAO sectors that a sample newly occludes (visibility-bitmask GI).
+- Before this change both terms lit every emitter with the unshadowed sun (`albedo * E_sun / pi`), which leaked sunlight into closed rooms, made concave corners glow and smeared coloured blotches across walls.
+- Cost is a second half-resolution GTAO-style pass (GI only), two blur passes and a full-resolution apply.
 
 Settings (RenderSettings, settings JSON, params, `set` commands, Look panel under Screen space, palette command "GI color bleeding")
 - `colorBleed` on/off (default on). Requires `ssao` on; with AO off bleeding is off.
@@ -21,6 +22,6 @@ Tuning
 - Over-bright corners: lower intensity; AO already darkens contact areas.
 
 Graceful degradation
-- Needs the previous frame's lit pyramid; the first frame, portal views and headless runs without GPU skip the term (zero uniform) and render unchanged.
+- Uses the current frame's lit pyramid, so it also works on the first frame and in portal views (the room behind a portal is spliced into depth and G-buffer, see Portals.md).
 - Offscreen taps are skipped; only on-screen surfaces can bleed.
 - Settings are clamped on the CPU (`colorBleedUniform` in `Engine.Render.settings`).

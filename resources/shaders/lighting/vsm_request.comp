@@ -1,0 +1,86 @@
+#version 450
+#extension GL_GOOGLE_include_directive : require
+#include "lights.glsl"
+#include "vsm_pass.glsl"
+
+// Page requests from this frame's depth buffer (no history). For every opaque pixel and every
+// clustered light with a virtual shadow face, mark the page(s) the shading pass will sample: the
+// pixel's mip (texel <= screen pixel) around the filter footprint, plus mip 0 of the face as the
+// always-present fallback. The first thread to stamp a page with this frame appends it to the
+// request list, so the list is unique per frame across all views.
+
+layout(local_size_x = 8, local_size_y = 8, local_size_z = 1) in;
+
+uniform sampler2D u_depth;
+uniform sampler2D u_gbuffer1;
+
+layout(std430) readonly buffer VsmFaceBuffer {
+    VsmFace vsmFaces[];
+};
+
+layout(std430) buffer VsmPageStamp {
+    uint vsmStamps[];
+};
+
+layout(std430) buffer VsmRequests {
+    uint vsmRequests[];
+};
+
+layout(std430) buffer VsmCounters {
+    uint vsmCounters[];
+};
+
+void requestPage(uint index) {
+    uint frame = vsmCounts.y;
+    if (vsmStamps[index] == frame) return;
+    if (atomicExchange(vsmStamps[index], frame) == frame) return;
+    uint slot = atomicAdd(vsmCounters[VSM_COUNTER_REQUESTS], 1u);
+    if (slot < vsmLimits.x) vsmRequests[slot] = index;
+}
+
+void main() {
+    // One pixel per 2x2 block (rotating through the block by frame parity is not used: no history).
+    // The page footprint is widened by the block size so the skipped pixels' pages are covered.
+    ivec2 pixel = min(ivec2(gl_GlobalInvocationID.xy) * 2 + 1, ivec2(screenParams.xy) - 1);
+    if (any(greaterThanEqual(ivec2(gl_GlobalInvocationID.xy) * 2, ivec2(screenParams.xy)))) return;
+    float depth = texelFetch(u_depth, pixel, 0).r;
+    if (isSkyDepth(depth)) return;
+    vec2 uv = (vec2(pixel) + 0.5) * screenParams.zw;
+    vec3 worldPos = worldFromDepth(uv, depth);
+    float viewDepth = -(view * vec4(worldPos, 1.0)).z;
+    vec3 N = decodeNormal(texelFetch(u_gbuffer1, pixel, 0).rg);
+    float footprint = virtualShadowFootprint(viewDepth);
+    float margin = 4.0 + localShadowParams.z;
+    uvec2 range = clusterRange(clusterIndex(vec2(pixel), viewDepth));
+    for (uint i = 0u; i < range.y; ++i) {
+        GpuLight light = lights[clusterLights[range.x + i]];
+        if (!lightHasVirtualShadow(light)) continue;
+        vec3 toLight = light.positionRange.xyz - worldPos;
+        float d2 = dot(toLight, toLight);
+        if (d2 >= light.positionRange.w * light.positionRange.w) continue;
+        vec3 L = toLight * inversesqrt(max(d2, 1e-8));
+        if (light.colorType.w > 1.5 && spotAttenuation(L, light) <= 0.0) continue;
+        uint face = lightVirtualFace(light) + (light.colorType.w < 1.5 ? vsmCubeFace(-toLight) : 0u);
+        VsmFace f = vsmFaces[face];
+        vec4 clip = f.viewProjection * vec4(worldPos, 1.0);
+        if (clip.w <= 0.0) continue;
+        vec2 faceUv = vec2(clip.x / clip.w * 0.5 + 0.5, 0.5 - clip.y / clip.w * 0.5);
+        requestPage(face * VSM_PAGES_PER_FACE);
+        // Back-facing receivers are only shaded through subsurface wrap, which falls back to mip 0.
+        if (dot(N, L) <= -0.05) continue;
+        uint mip = vsmMipFor(clip.w, f.info.x, footprint);
+        if (mip == 0u) continue;
+        // Filter footprint plus two screen pixels (the skipped block neighbours) in face texels.
+        float pixelTexels = 2.0 * footprint * float(VSM_PAGE << mip) / (2.0 * clip.w * f.info.x);
+        float reach = (margin + pixelTexels) / float(VSM_PAGE << mip);
+        uint lo = vsmPageIndex(face, mip, faceUv - reach);
+        uint hi = vsmPageIndex(face, mip, faceUv + reach);
+        uint n = 1u << mip;
+        uint base = face * VSM_PAGES_PER_FACE + vsmMipOffset(mip);
+        uvec2 pageLo = uvec2((lo - base) % n, (lo - base) / n);
+        uvec2 pageHi = uvec2((hi - base) % n, (hi - base) / n);
+        for (uint y = pageLo.y; y <= pageHi.y; ++y) {
+            for (uint x = pageLo.x; x <= pageHi.x; ++x) requestPage(base + y * n + x);
+        }
+    }
+}

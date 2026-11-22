@@ -5,9 +5,14 @@ namespace lighting_detail {
 inline constexpr Diligent::TEXTURE_FORMAT kHdrFormat = Diligent::TEX_FORMAT_RGBA16_FLOAT;
 inline constexpr Diligent::TEXTURE_FORMAT kLdrFormat = Diligent::TEX_FORMAT_RGBA8_UNORM;
 inline constexpr uint32_t kMaxMaterials = 1024;
-inline constexpr uint32_t kMaxLights = 1024;
-inline constexpr uint32_t kClusterCount = 16 * 9 * 24;
-inline constexpr uint32_t kClusterStride = 128;
+inline constexpr uint32_t kMaxLights = 32768;
+// 3D clusters (froxels): must match CLUSTER_X/Y/Z and the ClusterBuffer layout in lights.glsl.
+inline constexpr uint32_t kClusterX = 32;
+inline constexpr uint32_t kClusterY = 18;
+inline constexpr uint32_t kClusterZ = 32;
+inline constexpr uint32_t kClusterCount = kClusterX * kClusterY * kClusterZ;
+inline constexpr uint32_t kClusterIndexCapacity = 4u * 1024u * 1024u;
+inline constexpr uint32_t kClusterHeaderWords = kClusterCount * 2 + 16;
 inline constexpr uint32_t kEnvSize = 256;
 inline constexpr uint32_t kSkyViewWidth = 384;
 inline constexpr uint32_t kSkyViewHeight = 216;
@@ -38,6 +43,7 @@ struct ExposureConstants {
 }
 
 #include "LightingReflections.hpp"
+#include "LightingVirtualShadows.hpp"
 
 struct Lighting::Data {
     Diligent::IRenderDevice* device = nullptr;
@@ -72,6 +78,10 @@ struct Lighting::Data {
     lighting_detail::RefCntAutoPtr<Diligent::ITexture> aoFiltered;
     lighting_detail::RefCntAutoPtr<Diligent::ITexture> aoTemp;
     lighting_detail::RefCntAutoPtr<Diligent::ITexture> aoBentRaw, aoBentTemp, aoBent;
+    // One-bounce GI gathered from this frame's lit colour after the lighting pass (gtao.comp GI_PASS).
+    lighting_detail::RefCntAutoPtr<Diligent::ITexture> giFiltered;
+    lighting_detail::RefCntAutoPtr<Diligent::IPipelineState> giPso, giBlurPso, giBlurVerticalPso, giApplyPso;
+    lighting_detail::RefCntAutoPtr<Diligent::IShaderResourceBinding> giSrb, giBlurSrb, giBlurVerticalSrb, giApplySrb[2];
     lighting_detail::RefCntAutoPtr<Diligent::ITexture> sceneColor;
     std::vector<lighting_detail::RefCntAutoPtr<Diligent::ITextureView>> sceneColorMips;
     lighting_detail::RefCntAutoPtr<Diligent::IPipelineState> pyramidFirstPso, pyramidPso, gtaoBlurVerticalPso;
@@ -117,6 +127,10 @@ struct Lighting::Data {
     lighting_detail::RefCntAutoPtr<Diligent::IBuffer> materials;
     lighting_detail::RefCntAutoPtr<Diligent::IBuffer> lights;
     lighting_detail::RefCntAutoPtr<Diligent::IBuffer> clusters;
+    lighting_detail::RefCntAutoPtr<Diligent::IBuffer> visibleLights;
+    lighting_detail::RefCntAutoPtr<Diligent::IPipelineState> lightVisiblePso;
+    lighting_detail::RefCntAutoPtr<Diligent::IShaderResourceBinding> lightVisibleSrb;
+    lighting_detail::VirtualShadowGpu vsm;
     lighting_detail::RefCntAutoPtr<Diligent::IBuffer> exposure;
     bool snapExposure = false;
     lighting_detail::RefCntAutoPtr<Diligent::IBuffer> histogram;
@@ -140,6 +154,7 @@ struct Lighting::Data {
     uint64_t skyHash = 0;
     uint32_t frame = 0;
     glm::vec2 cloudOffset{0.0f};
+    glm::dvec3 worldOrigin{0.0};
     float cloudTime = 0.0f;
     float cloudTravelSinceCapture = 0.0f;
     float nightDarkening = 0.0f;
@@ -174,5 +189,10 @@ Diligent::ITexture* finalColorTexture(const Lighting::Data& state);
 void createUpscaleBindings(Lighting::Data& state, Diligent::IBuffer* scene);
 void runUpscale(Lighting::Data& state);
 void runReflectionComposite(Lighting::Data& state, Diligent::IBuffer* scene, uint32_t groupsX, uint32_t groupsY);
+bool virtualShadowsEnabled(const Lighting::Data& state);
+void createVirtualShadowResources(Lighting::Data& state);
+void loadVirtualShadowPipelines(Lighting::Data& state);
+void assignVirtualShadowFaces(Lighting::Data& state, SceneUniforms& uniforms);
+void fillVirtualShadowUniforms(const Lighting::Data& state, SceneUniforms& uniforms);
 
 }

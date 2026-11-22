@@ -108,12 +108,13 @@ static void testObliqueClip() {
         const glm::vec4 c = oblique * view * glm::vec4(p, 1.0f);
         return c.z / c.w;
     };
-    CHECK(std::abs(ndcZ(glm::vec3(0.3f, 0.2f, 1.0f))) < 1.0e-4f);
-    CHECK(std::abs(ndcZ(glm::vec3(-1.0f, 0.5f, 1.0f))) < 1.0e-4f);
-    CHECK(ndcZ(glm::vec3(0.0f, 0.0f, 0.0f)) > 0.0f);
-    CHECK(ndcZ(glm::vec3(0.0f, 0.0f, 0.5f)) < ndcZ(glm::vec3(0.0f, 0.0f, -10.0f)));
-    CHECK(ndcZ(glm::vec3(0.0f, 0.0f, 1.5f)) < 0.0f);
-    CHECK(ndcZ(glm::vec3(0.0f, 0.0f, -50.0f)) < 1.0f);
+    // Reversed Z: the clip plane maps to depth 1 (near), visible points are below it, clipped points above.
+    CHECK(std::abs(ndcZ(glm::vec3(0.3f, 0.2f, 1.0f)) - 1.0f) < 1.0e-4f);
+    CHECK(std::abs(ndcZ(glm::vec3(-1.0f, 0.5f, 1.0f)) - 1.0f) < 1.0e-4f);
+    CHECK(ndcZ(glm::vec3(0.0f, 0.0f, 0.0f)) < 1.0f);
+    CHECK(ndcZ(glm::vec3(0.0f, 0.0f, 0.5f)) > ndcZ(glm::vec3(0.0f, 0.0f, -10.0f)));
+    CHECK(ndcZ(glm::vec3(0.0f, 0.0f, 1.5f)) > 1.0f);
+    CHECK(ndcZ(glm::vec3(0.0f, 0.0f, -50.0f)) > 0.0f);
 }
 
 static PortalFrame frameAtStart(PortalSystem& p, Camera& cam, float yaw = 0.0f) {

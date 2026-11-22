@@ -1,0 +1,285 @@
+#version 450
+#extension GL_GOOGLE_include_directive : require
+#include "vsm_pass.glsl"
+
+// Page management of the virtual shadow maps, one entry point per macro:
+//   MOTION      (per object, first view of a frame) compares the object's bounds and transform with
+//               the copy kept from the previous frame and lists the swept sphere of every object that
+//               moved, appeared or disappeared. This is the scheduled cache invalidation, not image history.
+//   FACE_DIRTY  (per face slot) a face is dirty when the CPU says its light changed or a moved object
+//               overlaps the light's range.
+//   RELEASE     (per physical page) pages nobody requested this frame or the previous one go back to
+//               the free stack; pages of dirty faces lose their VALID bit so they are re-rendered.
+//   CLEAR_DIRTY (per face slot) dirty flags are consumed once per frame.
+//   HIST        (per request) counts the requested pages that still need a physical page per (mip, face priority tier).
+//   PLAN        (single thread) grants (mip, tier) groups whole, coarse mips first then by tier, while free pages last.
+//   ALLOCATE    (per request) pops a physical page for requested pages of granted groups (the others count as overflow) and queues
+//               every requested page that is not VALID for rendering.
+//   FINALIZE    (single thread) settles the free stack and writes the indirect arguments.
+
+layout(local_size_x = 64, local_size_y = 1, local_size_z = 1) in;
+
+layout(std430) buffer VsmCounters {
+    uint vsmCounters[];
+};
+
+#if defined(MOTION)
+struct WorldRows {
+    vec4 r0;
+    vec4 r1;
+    vec4 r2;
+};
+
+layout(std430) readonly buffer WorldMatrixBuffer {
+    WorldRows worldRows[];
+};
+
+layout(std430) readonly buffer CullSphereBuffer {
+    vec4 cullSpheres[];
+};
+
+layout(std430) readonly buffer RenderableBuffer {
+    uint renderables[];
+};
+
+layout(std430) readonly buffer DynamicStampBuffer {
+    uint dynamicStamps[];
+};
+
+layout(std430) buffer VsmPreviousObjects {
+    vec4 vsmPrevious[];
+};
+
+layout(std430) writeonly buffer VsmMoved {
+    vec4 vsmMoved[];
+};
+
+vec4 unionSphere(vec4 a, vec4 b) {
+    if (a.w < 0.0) return b;
+    if (b.w < 0.0) return a;
+    float d = distance(a.xyz, b.xyz);
+    if (d + b.w <= a.w) return a;
+    if (d + a.w <= b.w) return b;
+    float radius = 0.5 * (d + a.w + b.w);
+    vec3 center = a.xyz + (b.xyz - a.xyz) * ((radius - a.w) / max(d, 1e-6));
+    return vec4(center, radius);
+}
+
+void main() {
+    uint id = gl_GlobalInvocationID.x;
+    if (id >= vsmCounts.z) return;
+    vec4 sphere = cullSpheres[id];
+    WorldRows rows = worldRows[id];
+    // Slot 4 holds the renderable word (mesh, material, shader, flags) and the deform stamp of dynamic meshes
+    // (bumped whenever a pose, morph or deform changed the vertices), so a mesh that deforms inside its old
+    // bounds, or changes material or mesh, invalidates the pages like a moved object does.
+    uvec4 content = uvec4(renderables[id], dynamicStamps[id], 0u, 0u);
+    vec4 previousSphere = vsmPrevious[id * 5u];
+    bool moved = any(notEqual(sphere, previousSphere)) || any(notEqual(rows.r0, vsmPrevious[id * 5u + 1u])) || any(notEqual(rows.r1, vsmPrevious[id * 5u + 2u])) || any(notEqual(rows.r2, vsmPrevious[id * 5u + 3u])) ||
+                 any(notEqual(content, floatBitsToUint(vsmPrevious[id * 5u + 4u])));
+    if (!moved) return;
+    vsmPrevious[id * 5u] = sphere;
+    vsmPrevious[id * 5u + 1u] = rows.r0;
+    vsmPrevious[id * 5u + 2u] = rows.r1;
+    vsmPrevious[id * 5u + 3u] = rows.r2;
+    vsmPrevious[id * 5u + 4u] = uintBitsToFloat(content);
+    vec4 swept = unionSphere(previousSphere.w > 0.0 ? previousSphere : vec4(0.0, 0.0, 0.0, -1.0), sphere);
+    if (swept.w < 0.0) return;
+    uint slot = atomicAdd(vsmCounters[VSM_COUNTER_MOVED], 1u);
+    if (slot < vsmLimits.z) vsmMoved[slot] = swept;
+    else vsmCounters[VSM_COUNTER_MOVE_OVERFLOW] = 1u;
+}
+
+#elif defined(FACE_DIRTY)
+layout(std430) readonly buffer VsmFaceBuffer {
+    VsmFace vsmFaces[];
+};
+
+layout(std430) readonly buffer VsmMoved {
+    vec4 vsmMoved[];
+};
+
+layout(std430) writeonly buffer VsmFaceDirty {
+    uint vsmFaceDirty[];
+};
+
+void main() {
+    uint face = gl_GlobalInvocationID.x;
+    if (face >= vsmCounts.x) return;
+    VsmFace f = vsmFaces[face];
+    bool dirty = f.info.z > 0.5 || vsmLimits.w != 0u || vsmCounters[VSM_COUNTER_MOVE_OVERFLOW] != 0u;
+    uint moved = min(vsmCounters[VSM_COUNTER_MOVED], vsmLimits.z);
+    for (uint i = 0u; i < moved && !dirty && f.info.w > 0.5; ++i) {
+        vec4 sphere = vsmMoved[i];
+        vec3 d = sphere.xyz - f.sphere.xyz;
+        float reach = sphere.w + f.sphere.w;
+        if (dot(d, d) > reach * reach) continue;
+        // Inside the light's range: test the sphere against the face frustum.
+        mat4 m = f.viewProjection;
+        vec4 rows[4] = vec4[](vec4(m[0][0], m[1][0], m[2][0], m[3][0]), vec4(m[0][1], m[1][1], m[2][1], m[3][1]), vec4(m[0][2], m[1][2], m[2][2], m[3][2]), vec4(m[0][3], m[1][3], m[2][3], m[3][3]));
+        vec4 planes[4] = vec4[](rows[3] + rows[0], rows[3] - rows[0], rows[3] + rows[1], rows[3] - rows[1]);
+        bool inside = true;
+        for (int p = 0; p < 4; ++p) {
+            if (dot(planes[p].xyz, sphere.xyz) + planes[p].w < -sphere.w * length(planes[p].xyz)) inside = false;
+        }
+        dirty = inside;
+    }
+    vsmFaceDirty[face] = dirty ? 1u : 0u;
+}
+
+#elif defined(CLEAR_DIRTY)
+layout(std430) writeonly buffer VsmFaceDirty {
+    uint vsmFaceDirty[];
+};
+
+void main() {
+    uint face = gl_GlobalInvocationID.x;
+    if (face < vsmCounts.x) vsmFaceDirty[face] = 0u;
+}
+
+#elif defined(RELEASE)
+layout(std430) buffer VsmPageTable {
+    uint vsmPageTable[];
+};
+
+layout(std430) readonly buffer VsmPageStamp {
+    uint vsmStamps[];
+};
+
+layout(std430) buffer VsmPhysical {
+    uint vsmPhysical[]; // [0, P) owner page index or VSM_INVALID, [P, 2P) free stack
+};
+
+layout(std430) readonly buffer VsmFaceDirty {
+    uint vsmFaceDirty[];
+};
+
+void main() {
+    uint physical = gl_GlobalInvocationID.x;
+    uint pool = vsmCounts.w;
+    if (physical >= pool) return;
+    uint owner = vsmPhysical[physical];
+    if (owner == VSM_INVALID) return;
+    uint face = owner / VSM_PAGES_PER_FACE;
+    bool stale = face >= vsmCounts.x || vsmCounts.y - vsmStamps[owner] > 1u;
+    if (stale) {
+        vsmPageTable[owner] = 0u;
+        vsmPhysical[physical] = VSM_INVALID;
+        uint slot = atomicAdd(vsmCounters[VSM_COUNTER_FREE], 1u);
+        vsmPhysical[pool + slot] = physical;
+        return;
+    }
+    if (vsmFaceDirty[face] != 0u) vsmPageTable[owner] &= ~VSM_VALID;
+}
+
+#elif defined(HIST) || defined(PLAN)
+layout(std430) readonly buffer VsmFaceBuffer {
+    VsmFace vsmFaces[];
+};
+
+#if defined(HIST)
+layout(std430) readonly buffer VsmPageTable {
+    uint vsmPageTable[];
+};
+
+layout(std430) readonly buffer VsmRequests {
+    uint vsmRequests[];
+};
+
+void main() {
+    uint request = gl_GlobalInvocationID.x;
+    if (request >= min(vsmCounters[VSM_COUNTER_REQUESTS], vsmLimits.x)) return;
+    uint index = vsmRequests[request];
+    if ((vsmPageTable[index] & VSM_ALLOCATED) != 0u) return;
+    uint tier = min(uint(max(vsmFaces[index / VSM_PAGES_PER_FACE].info.w - 1.0, 0.0)), VSM_TIERS - 1u);
+    atomicAdd(vsmCounters[VSM_HIST_BASE + vsmMipOf(index % VSM_PAGES_PER_FACE) * VSM_TIERS + tier], 1u);
+}
+#else
+void main() {
+    if (gl_GlobalInvocationID.x != 0u) return;
+    uint remaining = vsmCounters[VSM_COUNTER_FREE];
+    for (uint group = 0u; group < 5u * VSM_TIERS; ++group) {
+        uint count = vsmCounters[VSM_HIST_BASE + group];
+        bool grant = count <= remaining;
+        vsmCounters[VSM_GRANT_BASE + group] = grant ? 1u : 0u;
+        if (grant) remaining -= count;
+    }
+}
+#endif
+
+#elif defined(ALLOCATE)
+layout(std430) buffer VsmPageTable {
+    uint vsmPageTable[];
+};
+
+layout(std430) readonly buffer VsmFaceBuffer {
+    VsmFace vsmFaces[];
+};
+
+layout(std430) readonly buffer VsmRequests {
+    uint vsmRequests[];
+};
+
+layout(std430) buffer VsmPhysical {
+    uint vsmPhysical[];
+};
+
+layout(std430) writeonly buffer VsmRenderList {
+    uvec2 vsmRenderList[];
+};
+
+void main() {
+    uint request = gl_GlobalInvocationID.x;
+    if (request >= min(vsmCounters[VSM_COUNTER_REQUESTS], vsmLimits.x)) return;
+    uint index = vsmRequests[request];
+    uint entry = vsmPageTable[index];
+    uint pool = vsmCounts.w;
+    if ((entry & VSM_ALLOCATED) == 0u) {
+        uint tier = min(uint(max(vsmFaces[index / VSM_PAGES_PER_FACE].info.w - 1.0, 0.0)), VSM_TIERS - 1u);
+        if (vsmCounters[VSM_GRANT_BASE + vsmMipOf(index % VSM_PAGES_PER_FACE) * VSM_TIERS + tier] == 0u) {
+            atomicAdd(vsmCounters[VSM_COUNTER_OVERFLOW], 1u);
+            return;
+        }
+        uint popped = atomicAdd(vsmCounters[VSM_COUNTER_POPPED], 1u);
+        uint available = vsmCounters[VSM_COUNTER_FREE];
+        if (popped >= available) {
+            atomicAdd(vsmCounters[VSM_COUNTER_OVERFLOW], 1u);
+            return;
+        }
+        uint physical = vsmPhysical[pool + available - 1u - popped];
+        vsmPhysical[physical] = index;
+        entry = VSM_ALLOCATED | physical;
+    }
+    if ((entry & VSM_VALID) == 0u) {
+        uint slot = atomicAdd(vsmCounters[VSM_COUNTER_RENDER], 1u);
+        if (slot < vsmMisc.y) {
+            vsmRenderList[slot] = uvec2(index, entry & VSM_PHYSICAL_MASK);
+            entry |= VSM_VALID;
+        }
+    }
+    vsmPageTable[index] = entry;
+}
+
+#else // FINALIZE (also the variant built by the startup shader check, which defines no macro)
+layout(std430) writeonly buffer VsmArgs {
+    uint vsmArgs[];
+};
+
+void main() {
+    if (gl_GlobalInvocationID.x != 0u) return;
+    uint popped = vsmCounters[VSM_COUNTER_POPPED];
+    uint available = vsmCounters[VSM_COUNTER_FREE];
+    vsmCounters[VSM_COUNTER_FREE] = available - min(popped, available);
+    vsmCounters[VSM_COUNTER_POPPED] = 0u;
+    vsmCounters[VSM_COUNTER_RESIDENT] = vsmCounts.w - vsmCounters[VSM_COUNTER_FREE];
+    uint render = min(vsmCounters[VSM_COUNTER_RENDER], vsmMisc.y);
+    vsmCounters[VSM_COUNTER_RENDERED_FRAME] += render;
+    vsmArgs[VSM_ARGS_CLEAR + 0u] = 6u;
+    vsmArgs[VSM_ARGS_CLEAR + 1u] = render;
+    vsmArgs[VSM_ARGS_CLEAR + 2u] = 0u;
+    vsmArgs[VSM_ARGS_CLEAR + 3u] = 0u;
+    vsmArgs[VSM_ARGS_CULL + 0u] = render;
+    vsmArgs[VSM_ARGS_CULL + 1u] = 1u;
+    vsmArgs[VSM_ARGS_CULL + 2u] = 1u;
+}
+#endif

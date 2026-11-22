@@ -75,7 +75,10 @@ export struct AudioEmitter {
 export class AudioPropagation {
   public:
     void setScene(const TriangleSoup& soup);
-    void setHopHook(AudioHopFn hook) { m_hook = std::move(hook); }
+    void setHopHook(AudioHopFn hook) {
+        m_hook = std::move(hook);
+        m_hopOffset = glm::vec3(0.0f);
+    }
     [[nodiscard]] AudioPropagationConfig& config() { return m_config; }
     [[nodiscard]] const AudioPropagationConfig& config() const { return m_config; }
 
@@ -88,6 +91,9 @@ export class AudioPropagation {
     [[nodiscard]] uint32_t raysRemaining() const { return m_used >= m_config.raysPerFrame ? 0 : m_config.raysPerFrame - m_used; }
     [[nodiscard]] uint32_t staleCount() const { return m_stale; }
     [[nodiscard]] const Bvh& bvh() const { return m_bvh; }
+    // Floating origin: scene BVH, listener and fan hits are translated by -shift; the hop hook keeps working (it is queried in its original frame through an offset).
+    // Cached results hold only directions and lengths, so they stay valid.
+    void shiftOrigin(const glm::vec3& shift);
 
   private:
     struct FanHit {
@@ -114,6 +120,7 @@ export class AudioPropagation {
     Bvh m_bvh;
     AudioHopFn m_hook;
     glm::vec3 m_listener{0.0f};
+    glm::vec3 m_hopOffset{0.0f};
     std::vector<FanHit> m_fan;
     ReverbEstimate m_reverb;
     uint32_t m_used = 0;

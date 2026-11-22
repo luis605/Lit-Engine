@@ -78,6 +78,7 @@ target_sources(Engine
         Render/Entity.cppm
         Render/SceneDatabase.cppm
         Render/Mesh.cppm
+        Render/Meshlet.cppm
         Render/ObservationPass.cppm
         Render/Material.cppm
         Render/RenderSettings.cppm
@@ -99,6 +100,7 @@ target_sources(Engine
         Physics/Physics.cppm
         Physics/PortalPhysics.cppm
         Physics/Character.cppm
+        Terrain/Terrain.cppm
         History/History.cppm
         Animation/Animation.cppm
         Jobs/Jobs.cppm
@@ -134,6 +136,8 @@ target_sources(Engine
         Nav/Nav.cppm
         Animation/Rig.cppm
         Animation/Face.cppm
+        Animation/Skin.cppm
+        Animation/SkinRig.cppm
         IK/IkSolvers.cppm
         IK/IK.cppm
         Audio/Propagation.cppm
@@ -144,6 +148,7 @@ target_sources(Engine
         EngineTooling.cpp
         EngineRendering.cpp
         EngineFeatures.cpp
+        EngineTerrain.cpp
         Asset/AssetManager.cpp
         Asset/AssetImport.cpp
         Asset/AssetCache.cpp
@@ -155,6 +160,7 @@ target_sources(Engine
         Render/RendererGpuHelpers.cpp
         Render/RendererHiZ.cpp
         Render/RendererMeshes.cpp
+        Render/RendererSkinning.cpp
         Render/RendererUploads.cpp
         Render/RendererTransforms.cpp
         Render/RendererCulling.cpp
@@ -175,6 +181,8 @@ target_sources(Engine
         UI/ImGuiLayer.cpp
         Overlay/DebugOverlay.cpp
         Render/Mesh.cpp
+        Render/MeshletBuild.cpp
+        Render/RendererMeshlets.cpp
         Render/ObservationPass.cpp
         Render/Reflection.cpp
         Render/Lighting.cpp
@@ -185,6 +193,7 @@ target_sources(Engine
         Render/LightingPasses.cpp
         Render/LightingPost.cpp
         Render/LightingUpscale.cpp
+        Render/LightingVirtualShadows.cpp
         Render/CustomPasses.cpp
         Render/CustomPassesBuild.cpp
         Render/CustomPassesSerialize.cpp
@@ -217,6 +226,13 @@ target_sources(Engine
         Physics/Physics.cpp
         Physics/PortalPhysics.cpp
         Physics/Character.cpp
+        Physics/Heightfield.cpp
+        Physics/MeshCollider.cpp
+        Terrain/TerrainNoise.cpp
+        Terrain/TerrainTiles.cpp
+        Terrain/TerrainScatter.cpp
+        Terrain/TerrainLoader.cpp
+        Terrain/TerrainStreamer.cpp
         History/History.cpp
         Animation/Animation.cpp
         Jobs/Jobs.cpp
@@ -233,6 +249,8 @@ target_sources(Engine
         Tools/SceneValidator.cpp
         Tools/FrameExplain.cpp
         Tools/TestScenes.cpp
+        Tools/TestSceneSkinning.cpp
+        Tools/TestSceneTerrain.cpp
         Tools/GalleryScene.cpp
         Tools/GalleryPlay.cpp
         Tools/IkTestScene.cpp
@@ -266,6 +284,9 @@ target_sources(Engine
         Animation/Rig.cpp
         Animation/RigIk.cpp
         Animation/Face.cpp
+        Animation/Skin.cpp
+        Animation/SkinRig.cpp
+        Asset/AssetImportSkinned.cpp
         IK/IkSolvers.cpp
         IK/IkChain.cpp
         IK/Walker.cpp

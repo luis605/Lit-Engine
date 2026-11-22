@@ -33,7 +33,7 @@ float skyVisibility(vec3 worldPos, vec3 N, float viewDepth, float noise) {
         if (clip.w <= 0.0) break;
         vec2 uv = clamp(vec2(clip.x / clip.w * 0.5 + 0.5, 0.5 - clip.y / clip.w * 0.5), vec2(0.0), vec2(1.0));
         float sceneDepth = textureLod(u_depth, uv, 0.0).r;
-        if (sceneDepth >= 1.0) continue;
+        if (isSkyDepth(sceneDepth)) continue;
         float difference = -(view * vec4(position, 1.0)).z - linearViewDepth(sceneDepth);
         float hit = smoothstep(0.05, 0.3, difference) * (1.0 - smoothstep(CEILING_THICKNESS * 0.5, CEILING_THICKNESS, difference));
         blocked = max(blocked, hit);

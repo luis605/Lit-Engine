@@ -116,6 +116,7 @@ void Renderer::releaseObjectBuffers() {
 void Renderer::allocateMeshBuffers() {
     auto& gpu = *m_diligent;
     gpu.pMeshInfoBuffer = CreateStructuredBuffer(gpu.pDevice, "Mesh Info Buffer", sizeof(MeshInfo), kMaxMeshes);
+    gpu.pMeshInfoBufferFull = CreateStructuredBuffer(gpu.pDevice, "Mesh Info Buffer (full)", sizeof(MeshInfo), kMaxMeshes);
     gpu.pTransformWorkBuffer = CreateStructuredBuffer(gpu.pDevice, "Transform Work Buffer", sizeof(Entity), kMaxTransformWork);
     gpu.pNormalSampleBuffer = CreateStructuredBuffer(gpu.pDevice, "Normal Sample Buffer", sizeof(glm::vec4), kMaxMeshes * kNormalSamples);
     m_meshInfoDirty = true;

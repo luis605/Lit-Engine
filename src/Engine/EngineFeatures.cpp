@@ -58,10 +58,50 @@ StreamingSystem& Engine::enableStreaming(const StreamingConfig& config) {
     addSystem(Phase::PostUpdate, "streaming", [this](World& world, float) {
         int cell = m_portals.cameraCell();
         if (cell < 0) cell = m_portals.cellAt(world.camera().getPosition());
-        m_streaming->update(cell);
+        m_streaming->update(cell, world.camera().getPosition());
     }, true);
     return *m_streaming;
 }
+
+bool Engine::rebaseOrigin(const glm::dvec3& requested) {
+    const glm::vec3 shift(requested);
+    if (shift == glm::vec3(0.0f)) return false;
+    const glm::dvec3 delta(shift);
+    m_world.shiftOrigin(delta);
+    m_portals.shiftOrigin(shift);
+    Camera& camera = m_world.camera();
+    camera.setPos(camera.getPosition() - shift);
+    if (m_deltas) m_deltas->shiftOrigin(shift);
+    if (m_character) m_character->shiftOrigin(shift);
+    if (m_observation) m_observation->shiftOrigin(shift);
+    for (const auto& listener : m_originListeners) listener(shift);
+    m_lastOriginShift = delta;
+    ++m_originEpoch;
+    return true;
+}
+
+void Engine::setCameraWorldPosition(const glm::dvec3& position) {
+    m_world.camera().setPos(m_world.toLocal(position));
+    if (m_originConfig.enabled && m_originConfig.threshold > 0.0) {
+        const glm::vec3 local = m_world.camera().getPosition();
+        if (glm::length(local) > m_originConfig.threshold) {
+            const double snap = std::max(m_originConfig.snap, 1.0);
+            rebaseOrigin(glm::dvec3(std::round(local.x / snap) * snap, std::round(local.y / snap) * snap, std::round(local.z / snap) * snap));
+        }
+    }
+}
+
+void Engine::enableFloatingOrigin(const FloatingOriginConfig& config) {
+    m_originConfig = config;
+    addSystem(Phase::PostUpdate, "floating_origin", [this](World& world, float) {
+        if (!m_originConfig.enabled || m_originConfig.threshold <= 0.0) return;
+        const glm::vec3 local = world.camera().getPosition();
+        if (glm::length(local) <= m_originConfig.threshold) return;
+        const double snap = std::max(m_originConfig.snap, 1.0);
+        rebaseOrigin(glm::dvec3(std::round(local.x / snap) * snap, std::round(local.y / snap) * snap, std::round(local.z / snap) * snap));
+    }, true);
+}
+
 
 DeltaStore& Engine::enableDeltas() {
     if (!m_deltas) m_deltas = std::make_unique<DeltaStore>(m_world, &m_portals);

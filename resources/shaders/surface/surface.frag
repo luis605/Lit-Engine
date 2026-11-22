@@ -89,7 +89,7 @@ vec4 litTriplanar(bool color, int layer, vec3 p, vec3 n, float scale) {
 }
 
 vec4 litSample(bool color, int layer, SurfaceInput i, bool triplanar, float scale) {
-    if (triplanar) return litTriplanar(color, layer, i.worldPosition, i.geometricNormal, scale);
+    if (triplanar) return litTriplanar(color, layer, i.patternPosition, i.geometricNormal, scale);
     return color ? texture(u_colorTextures, vec3(i.uv * scale, float(layer))) : texture(u_dataTextures, vec3(i.uv * scale, float(layer)));
 }
 
@@ -148,6 +148,7 @@ void main() {
     MaterialData m = materials[in_material & 0x7FFFu];
     SurfaceInput i;
     i.worldPosition = in_worldPos;
+    i.patternPosition = in_worldPos + originPhase();
     i.objectPosition = in_objectPos;
     i.viewDirection = normalize(viewPos - in_worldPos);
     i.geometricNormal = N;

@@ -7,6 +7,7 @@ module;
 #include <string>
 #include <string_view>
 #include <cstdint>
+#include <memory>
 
 struct GLFWwindow;
 struct DiligentData;
@@ -24,6 +25,8 @@ import Engine.camera;
 import Engine.Render.scenedatabase;
 import Engine.Render.entity;
 import Engine.mesh;
+import Engine.meshlet;
+import Engine.Skin;
 import Engine.UI.manager;
 import Engine.UI.imgui;
 import Engine.Render.lighting;
@@ -64,8 +67,15 @@ export class Renderer {
     [[nodiscard]] int height() const { return m_windowHeight; }
     uint32_t uploadMesh(const Mesh& mesh);
     uint32_t uploadProcessedMesh(const Mesh& optimizedMesh, const std::vector<Mesh>& lodChain);
+    // Terrain tiles: raw upload (no simplification, no point impostor). releaseMesh frees the slots and buffer ranges of any mesh uploaded as one block (uploadMesh, uploadProcessedMesh, uploadTerrainMesh) for reuse.
+    uint32_t uploadTerrainMesh(const Mesh& mesh);
+    void releaseMesh(uint32_t meshId);
     glm::vec4 getMeshBounds(uint32_t meshId) const;
     void setReflectionScene(const ReflectionScene& scene);
+    // Floating origin (docs/LargeWorld.md): call once per frame before drawScene. A changed origin shifts every cached world-space GPU state by the difference.
+    void setWorldOrigin(const glm::dvec3& origin);
+    [[nodiscard]] const glm::dvec3& worldOrigin() const { return m_worldOrigin; }
+    [[nodiscard]] uint64_t originRebases() const { return m_originRebases; }
     void bakeProbes();
     void setLights(bool enabled, const std::array<glm::vec4, 2>& directional, const std::vector<glm::vec4>& packed);
     void reloadShaders();
@@ -84,6 +94,21 @@ export class Renderer {
     [[nodiscard]] std::vector<ShaderError> surfaceErrors() const;
     void addDebugLine(const glm::vec3& from, const glm::vec3& to, const glm::vec4& color, bool overlay = false);
     void uploadBasePositions(const std::vector<glm::vec3>& basePositions);
+    // Cluster LOD (dense geometry, RendererMeshlets.cpp): attaches the cluster DAG of an uploaded mesh.
+    void uploadClusterMesh(uint32_t meshId, const ClusterMesh& clusters);
+    [[nodiscard]] ClusterRenderStats clusterStats() const;
+    // Dynamic meshes (skinning, morph targets, procedural deform; RendererSkinning.cpp, docs/Skinning.md).
+    // A source holds the shared rest data; every instance owns a mesh id whose vertices a compute pass rewrites,
+    // so culling, shadows, Hi-Z and portal views draw it like any other mesh.
+    uint32_t createDynamicSource(const DynamicMesh& mesh);
+    uint32_t createDynamicInstance(uint32_t source);
+    [[nodiscard]] uint32_t dynamicMeshId(uint32_t instance) const;
+    void setDynamicEntity(uint32_t instance, Entity entity);
+    void setDynamicPose(uint32_t instance, std::span<const glm::mat4> palette);
+    void setDynamicMorph(uint32_t instance, std::span<const float> weights);
+    void setDynamicDeform(uint32_t instance, const DeformSettings& settings);
+    [[nodiscard]] glm::vec4 dynamicBounds(uint32_t instance) const;
+    [[nodiscard]] DynamicMeshStats dynamicStats() const;
     void setAnimation(float time, uint32_t movingCount, uint32_t entityOffset);
     void AddText(const std::string& text, float x, float y, float scale, const glm::vec3& color);
     void setLodBias(float bias);
@@ -165,7 +190,7 @@ export class Renderer {
     void bindShadowResources(int frameIndex);
     void rebindSurfaceResources();
 
-    uint32_t uploadMeshSlot(const Mesh& mesh);
+    uint32_t uploadMeshSlot(const Mesh& mesh, uint32_t forcedSlot = 0xFFFFFFFFu);
     void growGeometryBuffers(size_t vertexDataSize, size_t indexDataSize);
     void storeNormalSamples(uint32_t baseId, const Mesh& mesh);
 
@@ -195,6 +220,18 @@ export class Renderer {
     void uploadDirtyRenderables(SceneDatabase& sceneDatabase);
     void uploadDirtyHierarchies(SceneDatabase& sceneDatabase);
     void uploadMeshInfo();
+    void createMeshletPipelines();
+    void ensureMeshletBuffers();
+    void bindMeshletPhase(int phaseIndex);
+    void rollMeshletStats();
+    void buildMeshletDraws(int phaseIndex, uint32_t views);
+    void drawMeshletSurfaces(int phaseIndex, int cascade, uint32_t view);
+    [[nodiscard]] bool meshletsActive() const;
+    [[nodiscard]] bool meshletMeshInfoStale() const;
+    bool uploadMeshletMeshInfo(size_t count);
+    void releaseMeshlets();
+    void releaseClusterMesh(uint32_t meshId);
+    void updateDynamicMeshes();
     void planTransformWork(SceneDatabase& sceneDatabase, TransformPlan& plan);
     void markDirtyLevels(const SceneDatabase& sceneDatabase);
     void applyDirtyTransforms(const SceneDatabase& sceneDatabase);
@@ -321,8 +358,12 @@ export class Renderer {
     std::vector<float> m_debugLines;
     std::vector<float> m_debugOverlayLines;
     uint32_t m_frameCounter = 0;
+    glm::dvec3 m_worldOrigin{0.0};
+    uint64_t m_originRebases = 0;
     float m_lastDeltaTime = 0.016f;
     Lighting m_lighting;
     CustomPasses m_custom;
     DiligentData* m_diligent = nullptr;
+    std::shared_ptr<void> m_meshlets;  // MeshletState, RendererMeshlets.cpp
+    Diligent::ITexture* m_meshletHiZ = nullptr;
 };

@@ -2,6 +2,8 @@
 #define LIT_SHADOWS_GLSL
 
 #include "scene.glsl"
+#define VSM_LOOKUP
+#include "vsm.glsl"
 
 uniform sampler2DArrayShadow u_shadowMap;
 uniform sampler2DArray u_shadowDepth;

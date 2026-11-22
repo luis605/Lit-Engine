@@ -228,7 +228,7 @@ std::string meshSourcePath(const std::string& name) { return kModelDirectory + n
 }
 
 uint32_t Engine::registerProcessedMesh(const std::string& name, const ProcessedMesh& processed) {
-    const uint32_t id = uploadProcessedMesh(processed.base, processed.lods);
+    const uint32_t id = uploadProcessedMesh(processed);
     m_meshIds[name] = id;
     m_meshNames[id] = name;
     return id;
@@ -295,3 +295,60 @@ std::vector<std::string> Engine::availableMeshes() const {
 }
 
 
+
+MeshResidency& Engine::enableMeshStreaming(size_t budgetBytes) {
+    if (!m_streaming) enableStreaming();
+    if (!m_meshResidency) {
+        m_meshResidency = std::make_unique<MeshResidency>(*m_streaming, budgetBytes);
+        addSystem(Phase::PostUpdate, "mesh_residency", [this](World&, float) { m_meshResidency->advance(); }, true);
+    } else {
+        m_meshResidency->setBudget(budgetBytes);
+    }
+    return *m_meshResidency;
+}
+
+bool Engine::requestMesh(const std::string& name, int lod, int priority, size_t estimatedBytes) {
+    if (!m_meshResidency) enableMeshStreaming();
+    if (!isSafeMeshName(name)) return false;
+    const std::string source = meshSourcePath(name);
+    MeshStreamRequest request;
+    request.key = name;
+    request.lod = std::max(lod, 0);
+    request.priority = priority;
+    request.bytes = estimatedBytes;
+    request.load = [source](int) -> std::shared_ptr<void> {
+        auto processed = AssetManager::loadProcessed(source, CacheOptions{});
+        if (!processed) return nullptr;
+        return std::make_shared<ProcessedMesh>(std::move(*processed));
+    };
+    request.upload = [this, name](int level, std::shared_ptr<void> payload) {
+        if (!payload) return;
+        ProcessedMesh processed = *static_cast<ProcessedMesh*>(payload.get());
+        if (level > 0 && !processed.lods.empty()) {
+            const size_t start = std::min(static_cast<size_t>(level) - 1, processed.lods.size() - 1);
+            processed.base = processed.lods[start];
+            processed.lods.erase(processed.lods.begin(), processed.lods.begin() + static_cast<std::ptrdiff_t>(start) + 1);
+        }
+        const uint32_t id = registerProcessedMesh(name, processed);
+        m_residentMeshIds[name][level] = id;
+        if (onMeshResident) onMeshResident(name, id, level);
+    };
+    // Eviction frees the GPU geometry of that level. A finer upload evicts the coarser one after onMeshResident ran,
+    // so entities were already retargeted by then; entities still using an evicted id draw nothing.
+    request.evict = [this, name](int level) {
+        const auto byName = m_residentMeshIds.find(name);
+        if (byName == m_residentMeshIds.end()) return;
+        const auto byLevel = byName->second.find(level);
+        if (byLevel == byName->second.end()) return;
+        const uint32_t id = byLevel->second;
+        byName->second.erase(byLevel);
+        bool current = false;
+        for (const auto& [otherLevel, otherId] : byName->second) current = current || otherId == id;
+        if (current) return;
+        releaseMesh(id);
+        if (const auto mapped = m_meshIds.find(name); mapped != m_meshIds.end() && mapped->second == id) m_meshIds.erase(mapped);
+        m_meshNames.erase(id);
+        if (byName->second.empty()) m_residentMeshIds.erase(byName);
+    };
+    return m_meshResidency->request(std::move(request));
+}

@@ -88,10 +88,11 @@ Json captureTime(const TimeState& time) {
     return json;
 }
 
-Json captureCamera(const Camera& camera) {
+Json captureCamera(const Camera& camera, const glm::dvec3& origin) {
     Json json = Json::object();
     const glm::vec3 position = camera.getPosition();
     json.set("position", number3(position.x, position.y, position.z));
+    json.set("origin", number3(origin.x, origin.y, origin.z));
     json.set("yaw", camera.getYaw());
     json.set("pitch", camera.getPitch());
     return json;
@@ -131,10 +132,14 @@ void applyTime(TimeState& time, const Json& json) {
     if (const Json* value = json.get("paused")) time.paused = value->asBool();
 }
 
-void applyCamera(Camera& camera, const Json& json) {
+void applyCamera(World& world, const Json& json) {
+    Camera& camera = world.camera();
     const Json* position = json.get("position");
     if (position && position->items().size() == 3) {
-        camera.setPos({static_cast<float>(position->at(0)->asNumber()), static_cast<float>(position->at(1)->asNumber()), static_cast<float>(position->at(2)->asNumber())});
+        glm::dvec3 absolute(position->at(0)->asNumber(), position->at(1)->asNumber(), position->at(2)->asNumber());
+        const Json* savedOrigin = json.get("origin");
+        if (savedOrigin && savedOrigin->items().size() == 3) absolute += glm::dvec3(savedOrigin->at(0)->asNumber(), savedOrigin->at(1)->asNumber(), savedOrigin->at(2)->asNumber());
+        camera.setPos(world.toLocal(absolute));
     }
     const Json* yaw = json.get("yaw");
     const Json* pitch = json.get("pitch");
@@ -192,9 +197,10 @@ Json SaveSystem::capture(const std::string& label) const {
             uint32_t slots = 0;
             world.forEach([&slots](EntityHandle entity) { slots = std::max(slots, entity.index + 1); });
             body.set("slots", slots);
+            body.set("origin", number3(world.origin().x, world.origin().y, world.origin().z));
         }
         body.set("time", captureTime(world.time()));
-        body.set("camera", captureCamera(world.camera()));
+        body.set("camera", captureCamera(world.camera(), world.origin()));
         body.set("random", captureRandom(world));
     }
     if (m_ctx.state) body.set("state", m_ctx.state->toJson());
@@ -276,9 +282,13 @@ bool SaveSystem::applyWorld(const Json& body, std::string* error) {
         m_remap.reserve(slotCount);
         for (uint32_t slot = 0; slot < slotCount; ++slot) m_remap.push_back(EntityHandle{slot, 0});
         if (!worldJson->isString() || !world.restore(worldJson->asString(), &m_remap)) return fail(error, "save: world restore failed");
+        if (const Json* origin = body.get("origin"); origin && origin->items().size() == 3) {
+            const glm::dvec3 saved(origin->at(0)->asNumber(), origin->at(1)->asNumber(), origin->at(2)->asNumber());
+            world.shiftRoots(glm::vec3(world.origin() - saved));
+        }
     }
     if (const Json* time = body.get("time")) applyTime(world.timeState(), *time);
-    if (const Json* camera = body.get("camera")) applyCamera(world.camera(), *camera);
+    if (const Json* camera = body.get("camera")) applyCamera(world, *camera);
     if (const Json* random = body.get("random")) return applyRandom(world, *random, error);
     return true;
 }

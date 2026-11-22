@@ -21,7 +21,7 @@ bool mirrorSource(ivec2 id, ivec2 targetSize, out ivec2 targetPixel, out uint ke
     ivec2 sourcePixel = min(id * divisor + divisor / 2, ivec2(screenParams.xy) - 1);
     sourceUv = (vec2(sourcePixel) + 0.5) * screenParams.zw;
     float depth = texelFetch(u_depth, sourcePixel, 0).r;
-    if (depth >= 1.0) return false;
+    if (isSkyDepth(depth)) return false;
     vec3 worldPosition = worldFromDepth(sourceUv, depth);
     vec3 planeUp = planeNormal.xyz;
     float height = dot(worldPosition - planeCenter.xyz, planeUp);

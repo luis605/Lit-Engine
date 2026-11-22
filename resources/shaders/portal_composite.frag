@@ -28,7 +28,7 @@ void main() {
     float t = dot(normal.xyz, center.xyz - origin) / denom;
     vec3 q = origin + dir * t - center.xyz;
     if (abs(dot(q, axisU.xyz) * axisU.w) > 1.0 || abs(dot(q, axisV.xyz) * axisV.w) > 1.0) discard;
-    float depth = 0.0;
+    float depth = 1.0;  // reversed Z: nearest
     if (t > 0.0) {
         vec4 clip = viewProjection * vec4(origin + dir * t, 1.0);
         depth = clamp(clip.z / max(clip.w, 1e-6), 0.0, 1.0);

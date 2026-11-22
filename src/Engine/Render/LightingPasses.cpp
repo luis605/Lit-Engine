@@ -118,7 +118,11 @@ Diligent::IDeviceObject* uavOf(const RefCntAutoPtr<Diligent::ITexture>& texture)
 void createScreenSpaceBindings(Lighting::Data& state, Diligent::IBuffer* scene, Diligent::ITextureView* depthView) {
     state.cloudsSrb = litgpu::makeBinding(state.cloudsPso, {{"SceneData", scene}, {"u_output", uavOf(state.clouds)}, {"u_transmittanceLut", srvOf(state.transmittanceLut)}, {"u_skyViewLut", srvOf(state.skyViewLut)}, {"u_hdri", srvOf(state.hdri)}, {"u_cloudNoise", srvOf(state.cloudNoise)}});
     state.gtaoDepthSrb = litgpu::makeBinding(state.gtaoDepthPso, {{"SceneData", scene}, {"u_depth", depthView}, {"u_output", uavOf(state.aoDepth)}});
-    state.gtaoSrb = litgpu::makeBinding(state.gtaoPso, {{"SceneData", scene}, {"u_depth", depthView}, {"u_linearDepth", srvOf(state.aoDepth)}, {"u_gbuffer1", srvOf(state.gbuffer[1])}, {"u_gbuffer0", srvOf(state.gbuffer[0])}, {"u_output", uavOf(state.aoRaw)}, {"u_bent", uavOf(state.aoBentRaw)}});
+    state.gtaoSrb = litgpu::makeBinding(state.gtaoPso, {{"SceneData", scene}, {"u_depth", depthView}, {"u_linearDepth", srvOf(state.aoDepth)}, {"u_gbuffer1", srvOf(state.gbuffer[1])}, {"u_output", uavOf(state.aoRaw)}, {"u_bent", uavOf(state.aoBentRaw)}});
+    state.giSrb = litgpu::makeBinding(state.giPso, {{"SceneData", scene}, {"u_depth", depthView}, {"u_linearDepth", srvOf(state.aoDepth)}, {"u_gbuffer1", srvOf(state.gbuffer[1])}, {"u_sceneColor", srvOf(state.sceneColor)}, {"u_output", uavOf(state.aoRaw)}});
+    state.giBlurSrb = litgpu::makeBinding(state.giBlurPso, {{"SceneData", scene}, {"u_linearDepth", srvOf(state.aoDepth)}, {"u_input", srvOf(state.aoRaw)}, {"u_output", uavOf(state.aoTemp)}});
+    state.giBlurVerticalSrb = litgpu::makeBinding(state.giBlurVerticalPso, {{"SceneData", scene}, {"u_linearDepth", srvOf(state.aoDepth)}, {"u_input", srvOf(state.aoTemp)}, {"u_output", uavOf(state.giFiltered)}});
+    for (int parity = 0; parity < 2; ++parity) state.giApplySrb[parity] = litgpu::makeBinding(state.giApplyPso, {{"SceneData", scene}, {"u_depth", depthView}, {"u_gbuffer0", srvOf(state.gbuffer[0])}, {"u_gbuffer1", srvOf(state.gbuffer[1])}, {"u_gbuffer2", srvOf(state.gbuffer[2])}, {"u_gi", srvOf(state.giFiltered)}, {"u_aoDepth", srvOf(state.aoDepth)}, {"u_hdr", uavOf(state.hdrTargets[parity])}});
     state.gtaoBlurSrb = litgpu::makeBinding(state.gtaoBlurPso, {{"SceneData", scene}, {"u_linearDepth", srvOf(state.aoDepth)}, {"u_input", srvOf(state.aoRaw)}, {"u_bentInput", srvOf(state.aoBentRaw)}, {"u_output", uavOf(state.aoTemp)}, {"u_bentOutput", uavOf(state.aoBentTemp)}});
     state.gtaoBlurVerticalSrb = litgpu::makeBinding(state.gtaoBlurVerticalPso, {{"SceneData", scene}, {"u_linearDepth", srvOf(state.aoDepth)}, {"u_input", srvOf(state.aoTemp)}, {"u_bentInput", srvOf(state.aoBentTemp)}, {"u_output", uavOf(state.aoFiltered)}, {"u_bentOutput", uavOf(state.aoBent)}});
     state.ssrHizFirstSrb = litgpu::makeBinding(state.ssrHizFirstPso, {{"u_depth", depthView}, {"u_dest", state.ssrHizMips[0]}});
@@ -150,6 +154,9 @@ void createParityBindings(Lighting::Data& state, Diligent::IBuffer* scene, Dilig
                                                                         {"MaterialBuffer", state.materials},
                                                                         {"LightBuffer", state.lights},
                                                                         {"ClusterBuffer", state.clusters},
+                                                                        {"VsmFaceBuffer", state.vsm.faces},
+                                                                        {"VsmPageTable", state.vsm.pageTable},
+                                                                        {"u_vsmAtlas", srvOf(state.vsm.atlas)},
                                                                         {"ReflectionData", state.reflections.constants},
                                                                         {"u_skyVolume", srvOf(state.reflections.skyVolume)},
                                                                         {"IrradianceBuffer", state.irradiance},
@@ -164,6 +171,18 @@ void dispatchAmbientOcclusion(Lighting::Data& state) {
     litgpu::dispatch(state.context, state.gtaoPso, state.gtaoSrb, groupsX, groupsY);
     litgpu::dispatch(state.context, state.gtaoBlurPso, state.gtaoBlurSrb, groupsX, groupsY);
     litgpu::dispatch(state.context, state.gtaoBlurVerticalPso, state.gtaoBlurVerticalSrb, groupsX, groupsY);
+}
+
+bool screenGiActive(const Lighting::Data& state) { return state.settings.ssao && ((state.settings.ssgi && state.settings.ssgiIntensity > 0.0f) || colorBleedActive(state.settings)) && state.giPso && state.giApplyPso; }
+
+void dispatchScreenGi(Lighting::Data& state, uint32_t groupsX, uint32_t groupsY) {
+    const auto& desc = state.aoRaw->GetDesc();
+    const uint32_t halfX = groupCount(desc.Width);
+    const uint32_t halfY = groupCount(desc.Height);
+    litgpu::dispatch(state.context, state.giPso, state.giSrb, halfX, halfY);
+    litgpu::dispatch(state.context, state.giBlurPso, state.giBlurSrb, halfX, halfY);
+    litgpu::dispatch(state.context, state.giBlurVerticalPso, state.giBlurVerticalSrb, halfX, halfY);
+    litgpu::dispatch(state.context, state.giApplyPso, state.giApplySrb[state.hdrIndex], groupsX, groupsY);
 }
 
 void dispatchScreenSpaceReflections(Lighting::Data& state) {
@@ -194,8 +213,13 @@ void Lighting::prepare(Diligent::IBuffer* sceneUniforms) {
 
 void Lighting::cullLights(Diligent::IBuffer* sceneUniforms) {
     Data& state = *m_data;
-    if (!state.lightCullSrb) state.lightCullSrb = litgpu::makeBinding(state.lightCullPso, {{"SceneData", sceneUniforms}, {"LightBuffer", state.lights}, {"ClusterBuffer", state.clusters}});
-    litgpu::dispatch(state.context, state.lightCullPso, state.lightCullSrb, (kClusterCount + kLightCullGroupSize - 1) / kLightCullGroupSize);
+    if (!state.lightCullSrb) state.lightCullSrb = litgpu::makeBinding(state.lightCullPso, {{"SceneData", sceneUniforms}, {"LightBuffer", state.lights}, {"ClusterBuffer", state.clusters}, {"VisibleLightBuffer", state.visibleLights}});
+    if (!state.lightVisibleSrb) state.lightVisibleSrb = litgpu::makeBinding(state.lightVisiblePso, {{"SceneData", sceneUniforms}, {"LightBuffer", state.lights}, {"ClusterBuffer", state.clusters}, {"VisibleLightBuffer", state.visibleLights}});
+    // Reset the index allocation cursor and the visible-light count, then cull per light and per cluster.
+    const uint32_t zeros[2] = {0u, 0u};
+    state.context->UpdateBuffer(state.clusters, static_cast<Diligent::Uint64>(kClusterCount) * 2 * sizeof(uint32_t), sizeof(zeros), zeros, Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
+    litgpu::dispatch(state.context, state.lightVisiblePso, state.lightVisibleSrb, (std::max(state.lightCount, 1u) + kLightCullGroupSize - 1) / kLightCullGroupSize);
+    litgpu::dispatch(state.context, state.lightCullPso, state.lightCullSrb, kClusterCount);
 }
 
 void Lighting::shade(Diligent::ITexture* depth, Diligent::IBuffer* sceneUniforms, int stage) {
@@ -217,10 +241,14 @@ void Lighting::shade(Diligent::ITexture* depth, Diligent::IBuffer* sceneUniforms
         litgpu::dispatch(state.context, state.cloudsPso, state.cloudsSrb, groupCount(cloudDesc.Width), groupCount(cloudDesc.Height));
         litgpu::dispatch(state.context, state.lightingPso, state.lightingSrb[state.hdrIndex], groupsX, groupsY);
     }
-    if (reflectionsOn && (runAll || stage == 2)) {
+    const bool giOn = screenGiActive(state);
+    if ((reflectionsOn || giOn) && (runAll || stage == 2)) {
         captureSceneColor();
-        dispatchScreenSpaceReflections(state);
-        runReflectionComposite(state, sceneUniforms, groupsX, groupsY);
+        if (giOn) dispatchScreenGi(state, groupsX, groupsY);
+        if (reflectionsOn) {
+            dispatchScreenSpaceReflections(state);
+            runReflectionComposite(state, sceneUniforms, groupsX, groupsY);
+        }
     }
 }
 

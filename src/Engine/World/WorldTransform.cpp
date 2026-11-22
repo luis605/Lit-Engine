@@ -78,6 +78,18 @@ void World::setPositions(std::span<const std::pair<EntityHandle, glm::vec3>> upd
     if (bulk) m_db.markTransformsDirty();
 }
 
+void World::shiftOrigin(const glm::dvec3& delta) {
+    const glm::vec3 shift(delta);
+    m_origin += glm::dvec3(shift);
+    shiftRoots(shift);
+}
+
+void World::shiftRoots(const glm::vec3& shift) {
+    std::vector<std::pair<EntityHandle, glm::vec3>> updates;
+    for (EntityHandle root : getRoots()) updates.emplace_back(root, m_position[root.index] - shift);
+    setPositions(updates);
+}
+
 void World::setLocalMatrix(EntityHandle entity, const glm::mat4& local) {
     if (!valid(entity)) return;
     m_db.transforms[entity.index].localMatrix = local;

@@ -1,4 +1,5 @@
 module;
+#include <cstddef>
 #include <cstdint>
 #include <string>
 #include <vector>
@@ -7,14 +8,19 @@ module;
 export module Engine.asset;
 
 import Engine.mesh;
+export import Engine.meshlet;
 import Engine.Jobs;
+import Engine.Skin;
 
-export inline constexpr uint32_t kImportSettingsVersion = 1;
+// 2: cluster LOD DAG (Engine.meshlet) stored with every processed mesh above kClusterMinTriangles.
+export inline constexpr uint32_t kImportSettingsVersion = 2;
+export inline constexpr size_t kClusterMinTriangles = 4096;
 export inline constexpr const char* kDefaultCacheDirectory = ".litcache";
 
 export struct ProcessedMesh {
     Mesh base;
     std::vector<Mesh> lods;
+    ClusterMesh clusters;  // empty for small meshes
 };
 
 export struct CacheOptions {
@@ -34,6 +40,8 @@ bool bake(const std::string& sourcePath, const std::string& destinationPath);
 std::optional<Mesh> load(const std::string& assetPath);
 
 std::optional<Mesh> importMesh(const std::string& sourcePath);
+// Skinned import: positions/normals/uvs, up to 4 bone weights per vertex (normalised), joints with inverse bind, morph targets (aiAnimMesh) and animation clips.
+std::optional<DynamicMesh> importSkinned(const std::string& sourcePath);
 ProcessedMesh processMesh(const Mesh& imported);
 std::optional<ProcessedMesh> loadProcessed(const std::string& sourcePath, const CacheOptions& options, LoadReport* report = nullptr);
 std::vector<std::optional<ProcessedMesh>> loadProcessedMany(const std::vector<std::string>& sourcePaths, const CacheOptions& options, JobSystem& jobs, std::vector<LoadReport>* reports = nullptr);

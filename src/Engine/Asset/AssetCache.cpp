@@ -14,11 +14,12 @@ module;
 
 module Engine.asset;
 import Engine.mesh;
+import Engine.meshlet;
 
 namespace {
 
 constexpr uint32_t kCacheMagic = 0x434D494C;
-constexpr uint32_t kCacheFormatVersion = 1;
+constexpr uint32_t kCacheFormatVersion = 2;
 constexpr uint64_t kHashSeed = 0x9E3779B97F4A7C15ULL;
 constexpr uint64_t kHashMultiplier = 0xFF51AFD7ED558CCDULL;
 constexpr uint64_t kHashFinalMultiplier = 0xC4CEB9FE1A85EC53ULL;
@@ -102,6 +103,52 @@ bool readLevel(const char*& cursor, const char* end, Mesh& out) {
     return true;
 }
 
+// Cluster LOD section (format 2): header, clusters, cluster vertices, packed triangles, levels.
+struct ClusterSectionHeader {
+    uint64_t clusterCount;
+    uint64_t vertexCount;
+    uint64_t triangleCount;
+    uint64_t levelCount;
+    float lodCenter[3];
+    float lodExtent;
+};
+static_assert(sizeof(ClusterSectionHeader) == 48, "ClusterSectionHeader must stay 48 bytes on disk");
+
+void appendClusters(std::vector<char>& buffer, const ClusterMesh& clusters) {
+    ClusterSectionHeader section{clusters.clusters.size(), clusters.vertices.size(), clusters.triangles.size(), clusters.levels.size(), {clusters.lodCenter[0], clusters.lodCenter[1], clusters.lodCenter[2]}, clusters.lodExtent};
+    appendBytes(buffer, &section, sizeof(section));
+    appendBytes(buffer, clusters.clusters.data(), clusters.clusters.size() * sizeof(MeshCluster));
+    appendBytes(buffer, clusters.vertices.data(), clusters.vertices.size() * sizeof(uint32_t));
+    appendBytes(buffer, clusters.triangles.data(), clusters.triangles.size() * sizeof(uint32_t));
+    appendBytes(buffer, clusters.levels.data(), clusters.levels.size() * sizeof(ClusterLevel));
+}
+
+template <typename T>
+bool readArray(const char*& cursor, const char* end, uint64_t count, std::vector<T>& out) {
+    if (count > kMaxElementCount || count * sizeof(T) > static_cast<uint64_t>(end - cursor)) return false;
+    out.resize(count);
+    if (count) std::memcpy(out.data(), cursor, count * sizeof(T));
+    cursor += count * sizeof(T);
+    return true;
+}
+
+bool readClusters(const char*& cursor, const char* end, size_t vertexCount, ClusterMesh& out) {
+    ClusterSectionHeader section{};
+    if (static_cast<size_t>(end - cursor) < sizeof(section)) return false;
+    std::memcpy(&section, cursor, sizeof(section));
+    cursor += sizeof(section);
+    ClusterMesh clusters;
+    if (!readArray(cursor, end, section.clusterCount, clusters.clusters) || !readArray(cursor, end, section.vertexCount, clusters.vertices) || !readArray(cursor, end, section.triangleCount, clusters.triangles) ||
+        !readArray(cursor, end, section.levelCount, clusters.levels)) {
+        return false;
+    }
+    for (int axis = 0; axis < 3; ++axis) clusters.lodCenter[axis] = section.lodCenter[axis];
+    clusters.lodExtent = section.lodExtent;
+    if (!clusters.empty() && !validateClusterMesh(clusters, vertexCount)) return false;
+    out = std::move(clusters);
+    return true;
+}
+
 }
 
 uint64_t AssetCache::hashBytes(const void* data, size_t byteCount) {
@@ -142,6 +189,7 @@ bool AssetCache::store(const std::string& path, uint64_t contentHash, uint32_t s
     std::vector<char> payload;
     appendLevel(payload, processed.base);
     for (const Mesh& lod : processed.lods) appendLevel(payload, lod);
+    appendClusters(payload, processed.clusters);
 
     CacheHeader header{};
     header.magic = kCacheMagic;
@@ -202,9 +250,12 @@ CacheOutcome AssetCache::fetch(const std::string& path, uint64_t contentHash, ui
         if (!readLevel(cursor, end, mesh)) return CacheOutcome::Corrupt;
         levels.push_back(std::move(mesh));
     }
+    ClusterMesh clusters;
+    if (!readClusters(cursor, end, levels.front().vertices.size() / kVertexFloats, clusters)) return CacheOutcome::Corrupt;
     if (cursor != end || levels.front().indices.empty()) return CacheOutcome::Corrupt;
 
     out.base = std::move(levels.front());
     out.lods.assign(std::make_move_iterator(levels.begin() + 1), std::make_move_iterator(levels.end()));
+    out.clusters = std::move(clusters);
     return CacheOutcome::Hit;
 }

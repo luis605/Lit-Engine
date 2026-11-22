@@ -1,0 +1,37 @@
+#version 450
+
+// Example user deform shader for DeformMode::User (DeformSettings::userShader).
+// Contract: one thread per vertex; `DeformVertices` is the instance's skinned output (8 floats per vertex:
+// position xyz, normal xyz, uv), `DeformParams` carries the vertex count, time and four user vec4s
+// (DeformSettings::user). Write positions (and optionally normals) in place. Declare
+// DeformSettings::userBounds to cover the largest displacement so culling stays conservative.
+
+layout(local_size_x = 64, local_size_y = 1, local_size_z = 1) in;
+
+layout(std430, binding = 0) buffer DeformVertices {
+    float vertices[];
+};
+
+layout(std140, binding = 1) uniform DeformParams {
+    uint u_vertexCount;
+    float u_time;
+    uint u_pad0;
+    uint u_pad1;
+    vec4 u_user[4];
+};
+
+void main() {
+    uint v = gl_GlobalInvocationID.x;
+    if (v >= u_vertexCount) return;
+    uint base = v * 8u;
+    vec3 p = vec3(vertices[base], vertices[base + 1u], vertices[base + 2u]);
+    // u_user[0].x = twist radians per metre along y, u_user[0].y = bulge amplitude, u_user[0].z = speed.
+    float angle = p.y * u_user[0].x * sin(u_time * u_user[0].z);
+    float s = sin(angle);
+    float c = cos(angle);
+    p = vec3(c * p.x - s * p.z, p.y, s * p.x + c * p.z);
+    p.z += u_user[0].y * sin(p.y * 4.0 + u_time * u_user[0].z);
+    vertices[base] = p.x;
+    vertices[base + 1u] = p.y;
+    vertices[base + 2u] = p.z;
+}

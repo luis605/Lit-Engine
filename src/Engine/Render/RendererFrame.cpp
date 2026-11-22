@@ -123,9 +123,20 @@ void Renderer::drawEmptyFrame(const Camera& camera) {
     gpu.QueryReady[m_currentFrame] = false;
     bindBackBuffer(false);
     gpu.pImmediateContext->ClearRenderTarget(gpu.pSwapChain->GetCurrentBackBufferRTV(), kClearColor, Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
-    gpu.pImmediateContext->ClearDepthStencil(gpu.pSceneDepth->GetDefaultView(Diligent::TEXTURE_VIEW_DEPTH_STENCIL), Diligent::CLEAR_DEPTH_FLAG, 1.0f, 0, Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
+    gpu.pImmediateContext->ClearDepthStencil(gpu.pSceneDepth->GetDefaultView(Diligent::TEXTURE_VIEW_DEPTH_STENCIL), Diligent::CLEAR_DEPTH_FLAG, kFarDepthValue, 0, Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
     drawOverlays(camera);
     signalFrameFence();
+}
+
+void Renderer::setWorldOrigin(const glm::dvec3& origin) {
+    if (origin == m_worldOrigin) return;
+    const glm::vec3 delta(origin - m_worldOrigin);
+    m_worldOrigin = origin;
+    ++m_originRebases;
+    // Everything the renderer keeps across frames in world space. Per-frame data (uniforms, lights, transforms) is rebuilt in the new frame by
+    // the Engine. Visibility bits and Hi-Z history (including every portal view's) are indexed by object / view space, and camera, objects and portals
+    // all moved by the same delta, so they stay valid. There is no TAA or screen-space history to reproject (docs/Lighting.md).
+    m_lighting.shiftOrigin(delta);
 }
 
 FrameInput Renderer::makeFrameInput(const Camera& camera, float currentFrameTime, float deltaTime) {
@@ -143,6 +154,7 @@ FrameInput Renderer::makeFrameInput(const Camera& camera, float currentFrameTime
     frameInput.frame = ++m_frameCounter;
     frameInput.width = m_renderWidth;
     frameInput.height = m_renderHeight;
+    frameInput.worldOrigin = m_worldOrigin;
     return frameInput;
 }
 
@@ -219,13 +231,27 @@ void Renderer::shadeScene(bool portalsActive) {
         {GpuPass::Lighting,         1},
         {GpuPass::Reflections,      2}
     };
+    // Portal pixels hold the child view's depth and G-buffer (resolvePortalDepth), so AO, lighting,
+    // contact shadows and reflections operate on the room behind each portal, never on its plane.
+    // The colour-only composite before the reflection stage puts the child image into the colour
+    // pyramid that SSR, planar reflections and GI sample; the final composite overwrites anything the
+    // reflection stage added on portal pixels and writes the plane depth for transparency.
     for (const auto& [pass, stage] : shadeStages) {
+        if (portalsActive && stage == 2) {
+            gpu.portalCompositeWritesDepth = false;
+            compositePortals(0);
+            gpu.portalCompositeWritesDepth = true;
+            UnbindRenderTargets(gpu.pImmediateContext);
+        }
         beginPass(pass);
         m_lighting.shade(gpu.pSceneDepth, gpu.pSceneUBO[m_currentFrame], stage);
         endPass(pass);
     }
 
-    if (portalsActive) compositePortals(0);
+    if (portalsActive) {
+        SavePortalEffectsDepth(gpu);
+        compositePortals(0);
+    }
 
     CustomFrame lit = customFrame();
     m_custom.runCompute(ComputeStage::AfterLighting, lit);
@@ -238,6 +264,7 @@ void Renderer::renderTransparentAndCustomEffects() {
     m_lighting.captureSceneColor();
     drawTransparency();
     endPass(GpuPass::TransparentDraw);
+    if (!m_portalFrame.nodes.empty()) RestorePortalEffectsDepth(*m_diligent);
 
     const CustomFrame post = customFrame();
     m_custom.runCompute(ComputeStage::BeforePost, post);
@@ -300,6 +327,7 @@ void Renderer::drawScene(SceneDatabase& sceneDatabase, const Camera& camera) {
     beginPass(GpuPass::Transform);
     uploadMeshInfo();
     dispatchTransforms(sceneDatabase, plan);
+    updateDynamicMeshes();
     endPass(GpuPass::Transform);
 
     const FrameInput frameInput = makeFrameInput(camera, currentFrameTime, deltaTime);

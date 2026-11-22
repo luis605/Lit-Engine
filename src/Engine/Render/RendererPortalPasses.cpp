@@ -59,25 +59,60 @@ void Renderer::createPortalCompositePSO() {
     auto pixelShader = CompileShader(gpu.pDevice, "resources/shaders/portal_composite.frag", Diligent::SHADER_TYPE_PIXEL);
     gpu.pPortalPSO.Release();
     gpu.pPortalSRB.Release();
+    gpu.pPortalColorPSO.Release();
+    gpu.pPortalColorSRB.Release();
     if (!gpu.pPortalUBO) gpu.pPortalUBO = CreateUniformBuffer(gpu.pDevice, "Portal Surface", sizeof(PortalSurfaceUniforms), Diligent::USAGE_DEFAULT);
     if (!vertexShader || !pixelShader || !gpu.pPortalUBO) return;
-    Diligent::GraphicsPipelineStateCreateInfo info;
-    InitPortalPipelineInfo(info, "Portal Composite PSO", Diligent::TEX_FORMAT_RGBA16_FLOAT, Diligent::COMPARISON_FUNC_LESS);
-    info.pVS = vertexShader;
-    info.pPS = pixelShader;
     const auto variables = DescribeVariables({vertexShader, pixelShader}, {"u_child"});
+    // Two variants: the colour-only one pastes the child image while keeping the spliced child depth
+    // for screen-space effects; the final one also writes the plane depth (occluder for transparency).
+    for (const bool writeDepth : {true, false}) {
+        Diligent::GraphicsPipelineStateCreateInfo info;
+        InitPortalPipelineInfo(info, writeDepth ? "Portal Composite PSO" : "Portal Composite Color PSO", Diligent::TEX_FORMAT_RGBA16_FLOAT, Diligent::COMPARISON_FUNC_GREATER);
+        info.GraphicsPipeline.DepthStencilDesc.DepthWriteEnable = writeDepth;
+        info.pVS = vertexShader;
+        info.pPS = pixelShader;
+        UseVariables(info.PSODesc.ResourceLayout, variables);
+        auto& pso = writeDepth ? gpu.pPortalPSO : gpu.pPortalColorPSO;
+        auto& srb = writeDepth ? gpu.pPortalSRB : gpu.pPortalColorSRB;
+        gpu.pDevice->CreateGraphicsPipelineState(info, &pso);
+        if (!pso) {
+            Lit::Log::Error("Failed to create Portal Composite PSO");
+            return;
+        }
+        CreateBoundSRB(pso, srb, {{"PortalSurfaceData", gpu.pPortalUBO}});
+    }
+}
+
+static void CreatePortalResolvePSO(DiligentData& gpu) {
+    auto vertexShader = CompileShader(gpu.pDevice, "resources/shaders/fullscreen.vert", Diligent::SHADER_TYPE_VERTEX);
+    auto resolveShader = CompileShader(gpu.pDevice, "resources/shaders/portal_resolve.frag", Diligent::SHADER_TYPE_PIXEL);
+    gpu.pPortalResolvePSO.Release();
+    gpu.pPortalResolveSRB.Release();
+    if (!gpu.pPortalResolveUBO) gpu.pPortalResolveUBO = CreateUniformBuffer(gpu.pDevice, "Portal Resolve", sizeof(PortalResolveUniforms), Diligent::USAGE_DEFAULT);
+    if (!vertexShader || !resolveShader || !gpu.pPortalResolveUBO) return;
+    Diligent::GraphicsPipelineStateCreateInfo info;
+    InitPortalPipelineInfo(info, "Portal Resolve PSO", Diligent::TEX_FORMAT_UNKNOWN, Diligent::COMPARISON_FUNC_ALWAYS);
+    info.GraphicsPipeline.NumRenderTargets = 3;
+    info.GraphicsPipeline.RTVFormats[0] = Diligent::TEX_FORMAT_RGBA8_UNORM_SRGB;
+    info.GraphicsPipeline.RTVFormats[1] = Diligent::TEX_FORMAT_RGB10A2_UNORM;
+    info.GraphicsPipeline.RTVFormats[2] = Diligent::TEX_FORMAT_RGBA8_UINT;
+    info.pVS = vertexShader;
+    info.pPS = resolveShader;
+    const auto variables = DescribeVariables({vertexShader, resolveShader}, {"u_childDepth", "u_sceneDepth", "u_childGBuffer0", "u_childGBuffer1", "u_childGBuffer2"});
     UseVariables(info.PSODesc.ResourceLayout, variables);
-    gpu.pDevice->CreateGraphicsPipelineState(info, &gpu.pPortalPSO);
-    if (!gpu.pPortalPSO) {
-        Lit::Log::Error("Failed to create Portal Composite PSO");
+    gpu.pDevice->CreateGraphicsPipelineState(info, &gpu.pPortalResolvePSO);
+    if (!gpu.pPortalResolvePSO) {
+        Lit::Log::Error("Failed to create Portal Resolve PSO");
         return;
     }
-    CreateBoundSRB(gpu.pPortalPSO, gpu.pPortalSRB, {{"PortalSurfaceData", gpu.pPortalUBO}});
+    CreateBoundSRB(gpu.pPortalResolvePSO, gpu.pPortalResolveSRB, {{"PortalDepthData", gpu.pPortalResolveUBO}});
 }
 
 void Renderer::createPortalPSO() {
     auto& gpu = *m_diligent;
     createPortalCompositePSO();
+    CreatePortalResolvePSO(gpu);
 
     auto vertexShader = CompileShader(gpu.pDevice, "resources/shaders/fullscreen.vert", Diligent::SHADER_TYPE_VERTEX);
     auto depthShader = CompileShader(gpu.pDevice, "resources/shaders/portal_depth.frag", Diligent::SHADER_TYPE_PIXEL);
@@ -141,8 +176,9 @@ void Renderer::maskPortalView(int index) {
 void Renderer::resolvePortalDepth(int index) {
     auto& gpu = *m_diligent;
     const PortalViewNode& node = m_portalFrame.nodes[static_cast<size_t>(index)];
-    if (node.surfaces.empty() || !gpu.pPortalDepthPSO || !gpu.pPortalDepthSRB) return;
-    const bool anyChildDepth = std::ranges::any_of(node.surfaces, [&](const PortalSurface& surface) { return surface.child > 0 && gpu.portalDepth[surface.child]; });
+    if (node.surfaces.empty() || !gpu.pPortalResolvePSO || !gpu.pPortalResolveSRB) return;
+    auto hasChildData = [&](int child) { return child > 0 && gpu.portalDepth[child] && gpu.portalGBuffer[child][0] && gpu.portalGBuffer[child][1] && gpu.portalGBuffer[child][2]; };
+    const bool anyChildDepth = std::ranges::any_of(node.surfaces, [&](const PortalSurface& surface) { return hasChildData(surface.child); });
     if (!anyChildDepth) return;
     auto* context = gpu.pImmediateContext.RawPtr();
     if (!ensurePortalScratch()) return;
@@ -153,38 +189,76 @@ void Renderer::resolvePortalDepth(int index) {
     copy.pDstTexture = gpu.portalDepthScratch;
     copy.DstTextureTransitionMode = Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION;
     context->CopyTexture(copy);
-    context->SetRenderTargets(0, nullptr, gpu.pSceneDepth->GetDefaultView(Diligent::TEXTURE_VIEW_DEPTH_STENCIL), Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
+    Diligent::ITextureView* targets[3] = {litgpu::rtv(m_lighting.gbuffer(0)), litgpu::rtv(m_lighting.gbuffer(1)), litgpu::rtv(m_lighting.gbuffer(2))};
+    context->SetRenderTargets(3, targets, gpu.pSceneDepth->GetDefaultView(Diligent::TEXTURE_VIEW_DEPTH_STENCIL), Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
     SetSceneViewport(gpu);
-    context->SetPipelineState(gpu.pPortalDepthPSO);
+    context->SetPipelineState(gpu.pPortalResolvePSO);
+    const glm::mat4 parentInvView = glm::inverse(node.view);
     for (const PortalSurface& surface : node.surfaces) {
-        if (surface.child <= 0 || !gpu.portalDepth[surface.child]) continue;
+        if (!hasChildData(surface.child)) continue;
         const PortalViewNode& child = m_portalFrame.nodes[static_cast<size_t>(surface.child)];
-        PortalDepthUniforms uniforms{};
+        PortalResolveUniforms uniforms{};
         uniforms.projection = node.projection;
         uniforms.childInvProjection = glm::inverse(child.projection);
         uniforms.viewProjection = node.projection * node.view;
-        uniforms.invView = glm::inverse(node.view);
+        uniforms.invView = parentInvView;
+        uniforms.normalToParent = glm::mat4(glm::mat3(parentInvView) * glm::mat3(child.view));
         SetPortalSurfaceGeometry(surface, uniforms.center, uniforms.axisU, uniforms.axisV, uniforms.normal);
         uniforms.camera = glm::vec4(node.position, 0.0f);
         uniforms.params = PortalScreenParams(node, gpu);
-        context->UpdateBuffer(gpu.pPortalDepthUBO, 0, sizeof(uniforms), &uniforms, Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
-        SetDynamicVariable(gpu.pPortalDepthSRB, "u_childDepth", gpu.portalDepth[surface.child]->GetDefaultView(Diligent::TEXTURE_VIEW_SHADER_RESOURCE), Diligent::SHADER_TYPE_PIXEL);
-        SetDynamicVariable(gpu.pPortalDepthSRB, "u_sceneDepth", gpu.portalDepthScratch->GetDefaultView(Diligent::TEXTURE_VIEW_SHADER_RESOURCE), Diligent::SHADER_TYPE_PIXEL);
-        context->CommitShaderResources(gpu.pPortalDepthSRB, Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
+        context->UpdateBuffer(gpu.pPortalResolveUBO, 0, sizeof(uniforms), &uniforms, Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
+        SetDynamicVariable(gpu.pPortalResolveSRB, "u_childDepth", gpu.portalDepth[surface.child]->GetDefaultView(Diligent::TEXTURE_VIEW_SHADER_RESOURCE), Diligent::SHADER_TYPE_PIXEL);
+        SetDynamicVariable(gpu.pPortalResolveSRB, "u_sceneDepth", gpu.portalDepthScratch->GetDefaultView(Diligent::TEXTURE_VIEW_SHADER_RESOURCE), Diligent::SHADER_TYPE_PIXEL);
+        SetDynamicVariable(gpu.pPortalResolveSRB, "u_childGBuffer0", gpu.portalGBuffer[surface.child][0]->GetDefaultView(Diligent::TEXTURE_VIEW_SHADER_RESOURCE), Diligent::SHADER_TYPE_PIXEL);
+        SetDynamicVariable(gpu.pPortalResolveSRB, "u_childGBuffer1", gpu.portalGBuffer[surface.child][1]->GetDefaultView(Diligent::TEXTURE_VIEW_SHADER_RESOURCE), Diligent::SHADER_TYPE_PIXEL);
+        SetDynamicVariable(gpu.pPortalResolveSRB, "u_childGBuffer2", gpu.portalGBuffer[surface.child][2]->GetDefaultView(Diligent::TEXTURE_VIEW_SHADER_RESOURCE), Diligent::SHADER_TYPE_PIXEL);
+        context->CommitShaderResources(gpu.pPortalResolveSRB, Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
         DrawFullscreenTriangle(context);
     }
     UnbindRenderTargets(context);
 }
 
+void SavePortalEffectsDepth(DiligentData& gpu) {
+    const Diligent::TextureDesc sceneDesc = gpu.pSceneDepth->GetDesc();
+    auto& saved = gpu.portalEffectsDepth;
+    if (saved && (saved->GetDesc().Width != sceneDesc.Width || saved->GetDesc().Height != sceneDesc.Height)) saved.Release();
+    if (!saved) {
+        Diligent::TextureDesc description = sceneDesc;
+        description.Name = "Portal Effects Depth";
+        gpu.pDevice->CreateTexture(description, nullptr, &saved);
+    }
+    if (!saved) return;
+    UnbindRenderTargets(gpu.pImmediateContext);
+    Diligent::CopyTextureAttribs copy;
+    copy.pSrcTexture = gpu.pSceneDepth;
+    copy.SrcTextureTransitionMode = Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION;
+    copy.pDstTexture = saved;
+    copy.DstTextureTransitionMode = Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION;
+    gpu.pImmediateContext->CopyTexture(copy);
+}
+
+void RestorePortalEffectsDepth(DiligentData& gpu) {
+    if (!gpu.portalEffectsDepth) return;
+    UnbindRenderTargets(gpu.pImmediateContext);
+    Diligent::CopyTextureAttribs copy;
+    copy.pSrcTexture = gpu.portalEffectsDepth;
+    copy.SrcTextureTransitionMode = Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION;
+    copy.pDstTexture = gpu.pSceneDepth;
+    copy.DstTextureTransitionMode = Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION;
+    gpu.pImmediateContext->CopyTexture(copy);
+}
+
 void Renderer::compositePortals(int index) {
     auto& gpu = *m_diligent;
     const PortalViewNode& node = m_portalFrame.nodes[static_cast<size_t>(index)];
-    if (node.surfaces.empty() || !gpu.pPortalPSO || !gpu.pPortalSRB) return;
+    Diligent::IPipelineState* pso = gpu.portalCompositeWritesDepth ? gpu.pPortalPSO.RawPtr() : gpu.pPortalColorPSO.RawPtr();
+    Diligent::IShaderResourceBinding* srb = gpu.portalCompositeWritesDepth ? gpu.pPortalSRB.RawPtr() : gpu.pPortalColorSRB.RawPtr();
+    if (node.surfaces.empty() || !pso || !srb) return;
     auto* context = gpu.pImmediateContext.RawPtr();
     Diligent::ITextureView* hdr = litgpu::rtv(m_lighting.hdr());
     context->SetRenderTargets(1, &hdr, gpu.pSceneDepth->GetDefaultView(Diligent::TEXTURE_VIEW_DEPTH_STENCIL), Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
     SetSceneViewport(gpu);
-    context->SetPipelineState(gpu.pPortalPSO);
+    context->SetPipelineState(pso);
     const glm::mat4 viewProjection = node.projection * node.view;
     const glm::mat4 invView = glm::inverse(node.view);
     const glm::vec4 screenParams = PortalScreenParams(node, gpu);
@@ -199,8 +273,8 @@ void Renderer::compositePortals(int index) {
         uniforms.color = glm::vec4(surface.fallback, 1.0f);
         context->UpdateBuffer(gpu.pPortalUBO, 0, sizeof(uniforms), &uniforms, Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
         Diligent::ITexture* source = hasChild ? gpu.portalColor[surface.child].RawPtr() : gpu.pAccumulation.RawPtr();
-        SetDynamicVariable(gpu.pPortalSRB, "u_child", source->GetDefaultView(Diligent::TEXTURE_VIEW_SHADER_RESOURCE), Diligent::SHADER_TYPE_PIXEL);
-        context->CommitShaderResources(gpu.pPortalSRB, Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
+        SetDynamicVariable(srb, "u_child", source->GetDefaultView(Diligent::TEXTURE_VIEW_SHADER_RESOURCE), Diligent::SHADER_TYPE_PIXEL);
+        context->CommitShaderResources(srb, Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
         DrawFullscreenTriangle(context);
     }
 }
