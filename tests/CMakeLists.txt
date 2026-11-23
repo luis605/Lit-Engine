@@ -132,7 +132,7 @@ target_compile_features(LargeWorldTests PRIVATE cxx_std_23)
 target_link_libraries(LargeWorldTests PRIVATE Engine)
 add_test(NAME LargeWorldTests COMMAND LargeWorldTests)
 
-add_executable(LargeWorldRenderTests LargeWorldRenderTests.cpp ../src/Shot/LargeWorldScene.cpp)
+add_executable(LargeWorldRenderTests LargeWorldRenderTests.cpp)
 target_compile_features(LargeWorldRenderTests PRIVATE cxx_std_23)
 target_link_libraries(LargeWorldRenderTests PRIVATE Engine glfw lit_stb)
 target_include_directories(LargeWorldRenderTests PRIVATE "${PROJECT_SOURCE_DIR}/src" "${PROJECT_SOURCE_DIR}/src/vendors/glfw/include")

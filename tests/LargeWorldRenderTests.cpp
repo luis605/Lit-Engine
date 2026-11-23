@@ -6,8 +6,6 @@
 #include <GLFW/glfw3.h>
 #include <stb_image.h>
 
-#include "Shot/LargeWorldScene.hpp"
-
 #include <algorithm>
 #include <cmath>
 #include <cstdint>
@@ -21,8 +19,7 @@ import Engine.World;
 import Engine.glm;
 import Engine.camera;
 import Engine.Render.settings;
-
-LIT_LARGEWORLD_DECLARATIONS
+import Engine.TestScenes;
 
 namespace {
 
@@ -88,7 +85,6 @@ int gFrame = 0;
 void frame(Engine& engine, const std::string& shot = {}) {
     if (!shot.empty()) engine.requestScreenshot(shot);
     ++gFrame;
-    stepLargeWorldScene(engine, gFrame, kStep);
     engine.tick(kStep);
     engine.update();
     engine.present();

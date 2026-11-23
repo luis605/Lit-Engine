@@ -1,24 +1,33 @@
+module;
+
 #include <array>
+#include <algorithm>
 #include <cmath>
+#include <functional>
 #include <cstdint>
 #include <map>
+#include <string>
 #include <utility>
 #include <vector>
 #include "Engine/Log/Log.hpp"
-#include "ShotOptions.hpp"
+#include "Engine/Tools/TestSceneShared.hpp"
+
+module Engine.TestScenes;
 
 import Engine.engine;
 import Engine.glm;
-import Engine.camera;
 import Engine.World;
+import Engine.Render.entity;
 import Engine.Render.material;
 import Engine.mesh;
 import Engine.asset;
 
-// Dense-geometry stress scene for the cluster LOD path: a few procedural high-poly meshes
-// (displaced icospheres, 1.3M and 330k triangles) instanced on a grid, giving hundreds of
-// millions to billions of source triangles. Compare `--set clusterLod=0` (per-object LOD chain)
-// against the default cluster path; `--stats FILE` writes the cluster counters.
+// Dense-geometry stress scene for the cluster LOD path: a few procedural high-poly meshes (displaced icospheres, 1.3M and 330k triangles
+// at the default detail) instanced on a grid, giving hundreds of millions to billions of source triangles. Compare `clusterLod=0`
+// (per-object LOD chain) against the default cluster path.
+
+uint32_t testSceneMaterial(Engine& engine, const TestSceneKit& kit, const Material& material);
+uint32_t testSceneMesh(Engine& engine, const std::string& key, const std::function<uint32_t()>& upload);
 
 namespace {
 
@@ -89,28 +98,33 @@ Mesh makeRock(int subdivisions, float roughness, float seed) {
 
 }
 
-Mesh makeDenseRock(int subdivisions, float roughness, float seed) { return makeRock(subdivisions, roughness, seed); }
+// Uploaded once per Engine and (detail, roughness, seed); returns kit.cube when no GPU is available (headless).
+uint32_t testSceneRockMesh(Engine& engine, const TestSceneKit& kit, int subdivisions, float roughness, float seed) {
+    if (engine.headless()) return kit.cube;
+    const std::string key = "rock." + std::to_string(subdivisions) + "." + std::to_string(roughness) + "." + std::to_string(seed);
+    return testSceneMesh(engine, key, [&] { return engine.uploadProcessedMesh(AssetManager::processMesh(makeRock(subdivisions, roughness, seed))); });
+}
 
-void buildDense(Engine& engine, int grid) {
+bool buildDenseTestScene(Engine& engine, const TestSceneKit& kit, TestSceneInfo& info, const TestSceneParams& params) {
     World& world = engine.world();
-    const Mesh big = makeRock(8, 0.22f, 1.0f);
-    const Mesh small = makeRock(7, 0.35f, 4.0f);
-    const uint32_t meshes[2] = {engine.uploadProcessedMesh(AssetManager::processMesh(big)), engine.uploadProcessedMesh(AssetManager::processMesh(small))};
-    const uint64_t triangles[2] = {big.indices.size() / 3, small.indices.size() / 3};
-    const uint32_t cube = engine.loadMesh("cube");
+    const int grid = std::max(1, params.denseGrid);
+    const int bigDetail = std::max(1, params.denseDetail);
+    const int smallDetail = std::max(1, params.denseDetail - 1);
+    const uint32_t meshes[2] = {testSceneRockMesh(engine, kit, bigDetail, 0.22f, 1.0f), testSceneRockMesh(engine, kit, smallDetail, 0.35f, 4.0f)};
+    const uint64_t triangles[2] = {20ull << (2 * bigDetail), 20ull << (2 * smallDetail)};
     Material stone;
     stone.baseColor = glm::vec3(0.55f, 0.5f, 0.45f);
     stone.roughness = 0.8f;
     Material moss = stone;
     moss.baseColor = glm::vec3(0.3f, 0.45f, 0.25f);
-    const uint32_t materials[2] = {engine.createMaterial(stone), engine.createMaterial(moss)};
+    const uint32_t materials[2] = {testSceneMaterial(engine, kit, stone), testSceneMaterial(engine, kit, moss)};
     Material ground;
     ground.baseColor = glm::vec3(0.35f);
     ground.roughness = 0.9f;
     EntityDesc floor;
     floor.name = "ground";
-    floor.mesh = cube;
-    floor.material = engine.createMaterial(ground);
+    floor.mesh = kit.cube;
+    floor.material = testSceneMaterial(engine, kit, ground);
     floor.position = glm::vec3(-20.0f, -1.0f, -20.0f);
     floor.scale = glm::vec3(grid * 6.0f + 40.0f, 0.2f, grid * 6.0f + 40.0f);
     world.create(floor);
@@ -132,9 +146,19 @@ void buildDense(Engine& engine, int grid) {
         }
     }
     Lit::Log::Info("Dense scene: {} instances, {} source triangles", grid * grid, total);
-    Camera& camera = world.camera();
-    camera.setPos(glm::vec3(-6.0f, 4.0f, -6.0f));
-    camera.setOrientation(45.0f, -12.0f);
-    camera.setNearPlane(0.1f);
-    camera.setFarPlane(1000.0f);
+    info.start = glm::vec3(-6.0f, 4.0f, -6.0f);
+    info.yaw = 45.0f;
+    info.pitch = -12.0f;
+    info.nearPlane = 0.1f;
+    info.farPlane = 1000.0f;
+    info.suggestedTicks = 60;
+    Engine* enginePointer = &engine;
+    info.metrics = [enginePointer, grid, total]() {
+        TestSceneMetrics metrics;
+        metrics.set("entities", static_cast<double>(enginePointer->world().aliveCount()));
+        metrics.set("rocks", static_cast<double>(grid) * grid);
+        metrics.set("source_triangles", static_cast<double>(total));
+        return metrics;
+    };
+    return true;
 }

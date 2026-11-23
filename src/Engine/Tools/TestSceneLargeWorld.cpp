@@ -1,53 +1,64 @@
-#include "LargeWorldScene.hpp"
+module;
 
 #include <cmath>
 #include <cstdint>
-#include <typeinfo>
+#include <memory>
+#include <string>
+#include "Engine/Tools/TestSceneShared.hpp"
+
+module Engine.TestScenes;
 
 import Engine.engine;
 import Engine.glm;
 import Engine.camera;
-import Engine.Render.component;
 import Engine.World;
+import Engine.Render.entity;
+import Engine.Render.component;
 import Engine.Render.material;
 import Engine.Render.settings;
-import Engine.Render.entity;
 import Engine.Render.reflection;
 
-LIT_LARGEWORLD_DECLARATIONS
+// Large-world renderer test scene (docs/LargeWorld.md): content 500 km (configurable) from the world origin, a 4 km flight corridor,
+// distant landmarks at 20 / 50 / 100 km and two overlapping walls 60 m apart at 50 km (depth precision probe). Shared by the registry
+// (`largeworld`: LitShot --testscene largeworld, Editor scene.test.largeworld) and tests/LargeWorldRenderTests.cpp.
+// The optional flight and the scheduled rebase run in the testscene.largeworld system (world delta time), not from the frame loop.
+
+TestSceneShared& testSceneShared(Engine& engine);
+uint32_t testSceneMaterial(Engine& engine, const TestSceneKit& kit, const Material& material);
 
 namespace {
 
-struct State {
+struct LargeWorldState {
     LargeWorldConfig config;
     glm::dvec3 start{0.0};
     glm::dvec3 camera{0.0};  // driven in world coordinates
     bool flying = false;
+    int ticks = 0;
 };
-
-State gState;
 
 constexpr double kCorridorLength = 4200.0;
 constexpr int kCheckerShader = 1;
+constexpr double kRebaseSnap = 64.0;
 
-uint32_t makeMaterial(Engine& engine, const glm::vec3& color, float roughness, float metallic = 0.0f) {
+LargeWorldState* stateOf(Engine& engine) { return static_cast<LargeWorldState*>(testSceneShared(engine).largeWorld.get()); }
+
+uint32_t makeMaterial(Engine& engine, const TestSceneKit& kit, const glm::vec3& color, float roughness, float metallic = 0.0f) {
     Material material;
     material.baseColor = color;
     material.roughness = roughness;
     material.metallic = metallic;
-    return engine.createMaterial(material);
+    return testSceneMaterial(engine, kit, material);
 }
 
-}
-
-void buildLargeWorldScene(Engine& engine, const LargeWorldConfig& config) {
-    gState = State{};
-    gState.config = config;
+void buildLargeWorld(Engine& engine, const TestSceneKit& kit, const LargeWorldConfig& config) {
+    auto state = std::make_shared<LargeWorldState>();
+    state->config = config;
+    testSceneShared(engine).largeWorld = state;
     World& world = engine.world();
     const double originX = config.originKm * 1000.0;
     const double originZ = -0.5 * originX;
     // Put the origin at the scene before anything exists: floats stay small, world coordinates stay huge.
-    engine.rebaseOrigin(glm::dvec3(originX, 0.0, originZ));
+    engine.rebaseOrigin(glm::dvec3(originX, 0.0, originZ) - engine.worldOrigin());
     if (config.autoRebase) {
         FloatingOriginConfig origin;
         origin.threshold = config.rebaseThreshold;
@@ -55,8 +66,8 @@ void buildLargeWorldScene(Engine& engine, const LargeWorldConfig& config) {
         engine.enableFloatingOrigin(origin);
     }
 
-    const uint32_t cube = engine.loadMesh("cube");
-    const uint32_t sphere = engine.loadMesh("sphere");
+    const uint32_t cube = kit.cube;
+    const uint32_t sphere = kit.sphere;
     auto place = [&](const char* name, uint32_t mesh, uint32_t material, const glm::dvec3& corner, const glm::vec3& size, uint32_t shader = 0) {
         EntityDesc description;
         description.name = name;
@@ -68,12 +79,12 @@ void buildLargeWorldScene(Engine& engine, const LargeWorldConfig& config) {
         return world.create(description);
     };
     const glm::dvec3 base(originX, 0.0, originZ);
-    const uint32_t ground = makeMaterial(engine, glm::vec3(0.62f, 0.6f, 0.55f), 0.8f);
-    const uint32_t stone = makeMaterial(engine, glm::vec3(0.75f, 0.72f, 0.66f), 0.7f);
-    const uint32_t red = makeMaterial(engine, glm::vec3(0.9f, 0.1f, 0.08f), 0.6f);
-    const uint32_t blue = makeMaterial(engine, glm::vec3(0.1f, 0.2f, 0.85f), 0.6f);
-    const uint32_t green = makeMaterial(engine, glm::vec3(0.15f, 0.7f, 0.2f), 0.6f);
-    const uint32_t metal = makeMaterial(engine, glm::vec3(0.9f, 0.75f, 0.5f), 0.25f, 1.0f);
+    const uint32_t ground = makeMaterial(engine, kit, glm::vec3(0.62f, 0.6f, 0.55f), 0.8f);
+    const uint32_t stone = makeMaterial(engine, kit, glm::vec3(0.75f, 0.72f, 0.66f), 0.7f);
+    const uint32_t red = makeMaterial(engine, kit, glm::vec3(0.9f, 0.1f, 0.08f), 0.6f);
+    const uint32_t blue = makeMaterial(engine, kit, glm::vec3(0.1f, 0.2f, 0.85f), 0.6f);
+    const uint32_t green = makeMaterial(engine, kit, glm::vec3(0.15f, 0.7f, 0.2f), 0.6f);
+    const uint32_t metal = makeMaterial(engine, kit, glm::vec3(0.9f, 0.75f, 0.5f), 0.25f, 1.0f);
 
     // Checkered ground along the flight corridor (procedural world-space pattern).
     place("ground", cube, ground, base + glm::dvec3(-120.0, -1.0, -150.0), glm::vec3(static_cast<float>(kCorridorLength), 1.0f, 300.0f), kCheckerShader);
@@ -124,23 +135,57 @@ void buildLargeWorldScene(Engine& engine, const LargeWorldConfig& config) {
     Camera& camera = world.camera();
     camera.setNearPlane(0.1f);
     camera.setFarPlane(200000.0f);
-    gState.start = base + glm::dvec3(0.0, 3.0, 22.0);
-    gState.camera = gState.start;
-    engine.setCameraWorldPosition(gState.camera);
+    state->start = base + glm::dvec3(0.0, 3.0, 22.0);
+    state->camera = state->start;
+    engine.setCameraWorldPosition(state->camera);
     camera.setOrientation(-90.0f, 0.0f);
-    gState.flying = config.flySpeed > 0.0f;
+    state->flying = config.flySpeed > 0.0f;
+
+    Engine* enginePointer = &engine;
+    engine.addSystem(Phase::Update, "testscene.largeworld", [enginePointer, state](World& scene, float deltaSeconds) {
+        ++state->ticks;
+        if (state->flying) {
+            state->camera.x += static_cast<double>(state->config.flySpeed) * static_cast<double>(deltaSeconds);
+            enginePointer->setCameraWorldPosition(state->camera);
+        }
+        if (state->config.rebaseFrame > 0 && state->ticks == state->config.rebaseFrame) {
+            const glm::vec3 local = scene.camera().getPosition();
+            enginePointer->rebaseOrigin(glm::dvec3(std::round(local.x / kRebaseSnap) * kRebaseSnap, std::round(local.y / kRebaseSnap) * kRebaseSnap, std::round(local.z / kRebaseSnap) * kRebaseSnap));
+        }
+    });
 }
 
-void stepLargeWorldScene(Engine& engine, int frame, float deltaSeconds) {
-    if (gState.flying) {
-        gState.camera.x += static_cast<double>(gState.config.flySpeed) * static_cast<double>(deltaSeconds);
-        engine.setCameraWorldPosition(gState.camera);
-    }
-    if (gState.config.rebaseFrame > 0 && frame == gState.config.rebaseFrame) {
-        const glm::vec3 local = engine.world().camera().getPosition();
-        const double snap = 64.0;
-        engine.rebaseOrigin(glm::dvec3(std::round(local.x / snap) * snap, std::round(local.y / snap) * snap, std::round(local.z / snap) * snap));
-    }
+}
+
+void resetLargeWorldState(Engine& engine) { testSceneShared(engine).largeWorld.reset(); }
+
+void buildLargeWorldScene(Engine& engine, const LargeWorldConfig& config) {
+    TestSceneKit kit;
+    kit.cube = engine.loadMesh("cube");
+    kit.sphere = engine.loadMesh("sphere");
+    kit.materialFull = [&engine](const Material& material) { return engine.createMaterial(material); };
+    buildLargeWorld(engine, kit, config);
+}
+
+bool buildLargeWorldTestScene(Engine& engine, const TestSceneKit& kit, TestSceneInfo& info, const TestSceneParams& params) {
+    buildLargeWorld(engine, kit, params.largeWorld);
+    info.start = engine.world().camera().getPosition();
+    info.yaw = -90.0f;
+    info.pitch = 0.0f;
+    info.nearPlane = 0.1f;
+    info.farPlane = 200000.0f;
+    info.suggestedTicks = 120;
+    Engine* enginePointer = &engine;
+    info.metrics = [enginePointer]() {
+        TestSceneMetrics metrics;
+        const glm::dvec3 camera = enginePointer->cameraWorldPosition();
+        metrics.set("entities", static_cast<double>(enginePointer->world().aliveCount()));
+        metrics.set("camera_world_x_km", camera.x / 1000.0);
+        metrics.set("origin_epoch", static_cast<double>(enginePointer->originEpoch()));
+        metrics.set("camera_local_m", glm::length(enginePointer->world().camera().getPosition()));
+        return metrics;
+    };
+    return true;
 }
 
 void largeWorldCameraWorld(Engine& engine, double out[3]) {
@@ -151,7 +196,9 @@ void largeWorldCameraWorld(Engine& engine, double out[3]) {
 }
 
 void setLargeWorldFlight(Engine& engine, float metersPerSecond) {
-    gState.config.flySpeed = metersPerSecond;
-    gState.flying = metersPerSecond > 0.0f;
-    gState.camera = engine.cameraWorldPosition();
+    LargeWorldState* state = stateOf(engine);
+    if (!state) return;
+    state->config.flySpeed = metersPerSecond;
+    state->flying = metersPerSecond > 0.0f;
+    state->camera = engine.cameraWorldPosition();
 }

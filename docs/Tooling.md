@@ -152,13 +152,33 @@ The Editor toggles it with F3 or `view.debugOverlay` (`LIT_OVERLAY=<tab>` opens 
 
 ## Test scenes
 
-`Engine.TestScenes` builds named scenes for headless and visual runs: `portal_torture`, `streaming_route`, `crowd`, `vista`. Each registers `testscene.*` systems that drive the scenario and exposes metrics.
+`Engine.TestScenes` (`testSceneNames()`, `buildTestScene(engine, name, kit, info[, params])`) builds named scenes for headless, Editor and LitShot runs. Every scene LitShot can render is in this registry, so each one runs in all three. Scenes that animate register `testscene.*` Update systems driven by world time and delta (the Editor, LitShot and Headless all advance them the same way; `clearTestSceneSystems` / `leaveTestScene` remove them when the scene is replaced). `TestSceneInfo` carries the start camera, near / far plane and suggested tick count; `applyTestSceneCamera` applies it. `TestSceneParams` holds the knobs (light intensity, light count, dense grid and detail, large world origin / fly speed / rebase tick); the defaults suit the Editor, LitShot fills them from its options.
+
+| Scene | What it is | Editor | LitShot |
+| --- | --- | --- | --- |
+| `portal_loop` | three-room portal loop, camera looks through the AB portal | `LIT_SCENE=portal_loop`, `scene.test.portal_loop` | `--testscene portal_loop` |
+| `portal_torture` | nested portals, camera walks through them | `scene.test.portal_torture` (`LIT_SCENE=portal_torture` opens the Editor's own torture scene) | `--testscene portal_torture` |
+| `streaming_route` | chunked world streamed along a route | `LIT_SCENE=streaming_route` | `--testscene streaming_route` |
+| `crowd` | 500 nav agents on a plane | `LIT_SCENE=crowd` | `--testscene crowd` |
+| `vista` | content out to 60 km, near 0.5 / far 4e5 | `LIT_SCENE=vista` | `--testscene vista` |
+| `skinning` | skinned characters, cloth, morph targets, shadowed lights | `LIT_SCENE=skinning` | `--testscene skinning` |
+| `terrain` | streamed terrain flythrough | `LIT_SCENE=terrain` | `--testscene terrain` |
+| `showcase` | Cornell-style room, area lights, sphere roughness row (LitShot version) | `scene.showcase` and `LIT_SCENE=showcase` are the Editor's own showcase; the registry one is `testscene showcase` in an autopilot script (no `scene.test.showcase` palette entry) | `--testscene showcase [--light-intensity X]` |
+| `probes` | closed colour box, chrome sphere, reflection probe | `LIT_SCENE=probes` | `--testscene probes [--no-probe] [--light-intensity X]` |
+| `light_stress` | field of pillars, 256 bobbing spheres, N moving shadowed lights (default 1024, `LIT_LIGHTS` in the Editor) | `LIT_SCENE=light_stress [LIT_LIGHTS=4096]` | `--testscene light_stress [--lights N]` |
+| `vsm_mixed` | portal loop + cluster rocks + 4 skinned characters + N shadowed lights | `LIT_SCENE=vsm_mixed [LIT_LIGHTS=N]` | `--testscene vsm_mixed [--lights N]` |
+| `dense` | grid of 1.3M / 330k triangle rocks (cluster LOD stress, grid 24, first build takes seconds) | `LIT_SCENE=dense` | `--testscene dense [--dense-grid N] [--stats f]` |
+| `largeworld` | content 500 km from the origin, floating origin on, far plane 2e5, 20 / 50 / 100 km landmarks | `LIT_SCENE=largeworld` (fly with the free camera; the origin rebases at 400 m, leaving the scene restores origin 0) | `--testscene largeworld [--origin-km X] [--fly V] [--rebase-frame N]` |
+| `ik` | IK terrain, spider, quadruped and biped rigs (debug lines on) | `LIT_SCENE=ik`, `scene.test.ik` (the older `scene.ikTest` is the Editor's own build) | `--testscene ik` |
+| `gallery` | courtyard with material sweeps, glass, area lights, probe | `LIT_SCENE=gallery` | `--testscene gallery` |
+
+In the Editor each scene also loads from the command palette as `scene.test.<name>` (except `showcase`, above) and from autopilot scripts as `testscene <name>` / `run scene.test.<name>`. Switching scenes repeatedly is safe: the world, portals, `testscene.*` systems, floating origin and the scene's render settings (time of day, clouds, fog, reflection mode) are reset, and materials, dynamic mesh sources / instances and uploaded rock meshes are pooled per Engine, so repeated switches do not grow GPU state. LitShot sets `LIT_FIXED_DT=1/60` itself for `light_stress`, `vsm_mixed` and `largeworld` so frame N of an animated scene is repeatable without `--deterministic`.
 
 ```
 Headless --testscene crowd --ticks 600 --metrics crowd.json
 ```
 
-prints `metric <name> <value>` lines and writes the JSON. Headless uses mesh id 0, so only simulation metrics exist there. Metrics: `portal_torture` (cells, portals, crossings, view nodes and depth, frame build time), `streaming_route` (chunks created, destroyed and resident, peak entities, stream tick time), `crowd` (agents, retargets, distance walked, agent step time), `vista` (object count, farthest object, camera near and far, forward-Z depth step in metres at 100 m to 50 km). `ctest` runs each as `TestScene_<name>`; `ToolingTests` asserts on the metrics and on determinism. In the Editor use `LIT_SCENE=<name>`, the commands `scene.test.<name>` or the autopilot verb `testscene`; in the Sandbox use `LIT_TESTSCENE=<name>`.
+prints `metric <name> <value>` lines and writes the JSON. Headless uses mesh id 0 and no GPU, so only simulation metrics exist there. Metrics: `portal_torture` (cells, portals, crossings, view nodes and depth, frame build time), `streaming_route` (chunks created, destroyed and resident, peak entities, stream tick time), `crowd` (agents, retargets, distance walked, agent step time), `vista` (object count, farthest object, camera near and far, forward-Z depth step in metres at 100 m to 50 km); the other scenes report at least `entities`. `ctest` runs several as `TestScene_<name>`; `ToolingTests` builds every registered scene headless, asserts on the metrics and on determinism, and switches through all of them twice on one Engine checking that nothing is left behind. The GPU path is covered by `LargeWorldRenderTests` (builds `largeworld` through `Engine.TestScenes`). In the Sandbox use `LIT_TESTSCENE=<name>`.
 
 ## Far view distance
 

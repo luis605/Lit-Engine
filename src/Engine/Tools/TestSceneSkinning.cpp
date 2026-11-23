@@ -22,6 +22,8 @@ import Engine.Render.component;
 // morph targets), a wave-deformed cloth, a cloth with the user deform shader, and a hanging flag.
 
 bool buildSkinningTestScene(Engine& engine, const TestSceneKit& kit, TestSceneInfo& info);
+uint32_t testSceneDynamicSource(Engine& engine, const std::string& key, const DynamicMesh& mesh);
+uint32_t testSceneDynamicInstance(Engine& engine, uint32_t source);
 
 namespace {
 
@@ -89,10 +91,10 @@ bool buildSkinningTestScene(Engine& engine, const TestSceneKit& kit, TestSceneIn
     floor.scale = glm::vec3(16.0f, 0.5f, 16.0f);
     world.create(floor);
 
-    const uint32_t characterSource = engine.createDynamicSource(state->character);
-    const uint32_t sheetSource = engine.createDynamicSource(state->sheet);
+    const uint32_t characterSource = testSceneDynamicSource(engine, "character", state->character);
+    const uint32_t sheetSource = testSceneDynamicSource(engine, "cloth sheet 1.6x1.3", state->sheet);
     auto spawnDynamic = [&](const char* name, uint32_t source, uint32_t mat, const glm::vec3& position, bool twoSided, uint32_t& instanceOut) {
-        const uint32_t instance = source != kInvalidDynamic ? engine.createDynamicInstance(source) : kInvalidDynamic;
+        const uint32_t instance = testSceneDynamicInstance(engine, source);
         instanceOut = instance;
         EntityDesc desc;
         desc.name = name;

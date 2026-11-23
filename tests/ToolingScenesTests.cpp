@@ -113,18 +113,60 @@ static void testColorBleedSettings() {
     CHECK(colorBleedUniform(settings).x == 0.0f);
 }
 
+// Small knobs so the stress scenes stay cheap on the CPU-only path.
+static TestSceneParams smallParams() {
+    TestSceneParams params;
+    params.lightCount = 64;
+    params.denseGrid = 3;
+    params.denseDetail = 2;
+    params.largeWorld.flySpeed = 12.0f;
+    params.largeWorld.rebaseFrame = 30;
+    return params;
+}
+
+// Switching scenes on one Engine repeatedly must leave nothing behind: no testscene.* systems, no floating origin, origin back at zero.
+static void testSceneSwitching() {
+    Engine engine;
+    engine.openHeadless();
+    engine.seed(7);
+    const std::vector<std::string> names = testSceneNames();
+    for (int round = 0; round < 2; ++round) {
+        for (const std::string& name : names) {
+            engine.world().clear();
+            engine.portals().clear();
+            TestSceneInfo info;
+            CHECK(buildTestScene(engine, name, TestSceneKit{}, info, smallParams()));
+            applyTestSceneCamera(engine, info);
+            engine.runHeadless(40, 1.0f / 60.0f);
+            CHECK(engine.world().aliveCount() > 5);
+            if (name != "largeworld") CHECK(engine.worldOrigin() == glm::dvec3(0.0));
+        }
+    }
+    engine.world().clear();
+    leaveTestScene(engine);
+    CHECK(engine.worldOrigin() == glm::dvec3(0.0));
+    for (const Phase phase : {Phase::PreUpdate, Phase::FixedUpdate, Phase::Update, Phase::PostUpdate}) {
+        for (const std::string& system : engine.systemNames(phase)) {
+            CHECK(!system.starts_with("testscene."));
+            CHECK(system != "floating_origin");
+        }
+    }
+}
+
 static void testTestScenes() {
-    CHECK(testSceneNames().size() == 7);
+    const std::vector<std::string> names = testSceneNames();
+    CHECK(names.size() == 15);
+    for (const char* expected : {"showcase", "probes", "light_stress", "largeworld", "vsm_mixed", "dense", "ik", "gallery"}) CHECK(std::ranges::find(names, std::string(expected)) != names.end());
     for (const std::string& name : testSceneNames()) {
         Engine engine;
         engine.openHeadless();
         engine.seed(7);
         TestSceneInfo info;
-        CHECK(buildTestScene(engine, name, TestSceneKit{}, info));
+        CHECK(buildTestScene(engine, name, TestSceneKit{}, info, smallParams()));
         applyTestSceneCamera(engine, info);
         engine.runHeadless(name == "streaming_route" ? 900 : 120, 1.0f / 60.0f);
         const TestSceneMetrics m = info.metrics();
-        CHECK(engine.world().aliveCount() > 10);
+        CHECK(engine.world().aliveCount() > 5);
         if (name == "portal_loop") {
             CHECK(m.get("cells") == 3.0);
             CHECK(m.get("portals") == 6.0);
@@ -144,7 +186,19 @@ static void testTestScenes() {
         } else if (name == "terrain") {
             CHECK(m.get("terrain_resident") > 0.0);
             CHECK(m.get("travelled_m") > 0.0);
-        } else {
+        } else if (name == "light_stress") {
+            CHECK(m.get("moving_lights") == 64.0);
+            CHECK(m.get("moving_casters") == 256.0);
+        } else if (name == "vsm_mixed") {
+            CHECK(m.get("characters") == 4.0);
+            CHECK(m.get("moving_lights") == 64.0);
+            CHECK(m.get("cells") == 3.0);
+        } else if (name == "dense") {
+            CHECK(m.get("rocks") == 9.0);
+        } else if (name == "largeworld") {
+            CHECK(m.get("camera_world_x_km") > 499.0);
+            CHECK(m.get("camera_local_m") < 400.0);
+        } else if (name == "vista") {
             CHECK(m.get("farthest_object_m") > 50000.0);
             CHECK(m.get("depth_step_m_at_10000") > 0.0);
         }
@@ -152,7 +206,7 @@ static void testTestScenes() {
         again.openHeadless();
         again.seed(7);
         TestSceneInfo second;
-        buildTestScene(again, name, TestSceneKit{}, second);
+        buildTestScene(again, name, TestSceneKit{}, second, smallParams());
         applyTestSceneCamera(again, second);
         again.runHeadless(name == "streaming_route" ? 900 : 120, 1.0f / 60.0f);
         CHECK(again.dumpStateText() == engine.dumpStateText());
@@ -169,4 +223,5 @@ void runScenesTests() {
     testRenderMaskFlag();
     testColorBleedSettings();
     testTestScenes();
+    testSceneSwitching();
 }

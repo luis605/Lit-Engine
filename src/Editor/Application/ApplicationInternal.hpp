@@ -8,6 +8,7 @@
 #include <string>
 #include <vector>
 
+inline constexpr float kEditorFarPlane = 2000.0f;
 inline constexpr const char* kAutosavePath = "resources/autosave.litscene";
 
 inline constexpr float kStatsTopOffset = 122.0f;

@@ -3,7 +3,6 @@
 #include <fstream>
 #include <string>
 #include "Engine/Log/Log.hpp"
-#include "LargeWorldScene.hpp"
 #include "ShotOptions.hpp"
 
 import Engine.engine;
@@ -14,10 +13,7 @@ import Engine.Render.settings;
 import Engine.asset;
 import Engine.Portal.view;
 
-LIT_LARGEWORLD_DECLARATIONS
-
 void buildScene(Engine& engine, const ShotOptions& options);
-void animateScene(Engine& engine, int frame);
 
 namespace {
 
@@ -59,6 +55,8 @@ int main(int argc, char** argv) {
         setenv("LIT_FIXED_DT", "0.016666667", 1);
         setenv("LIT_FIXED_WINDOW", "1", 1);
     }
+    // Animated scenes (testscene.* systems) advance by world time: a fixed step makes frame N identical from run to run.
+    if (options.testScene == "light_stress" || options.testScene == "vsm_mixed" || options.testScene == "largeworld") setenv("LIT_FIXED_DT", "0.016666667", 0);
     Engine engine;
     if (!engine.open({"LitShot", options.width, options.height})) return 1;
     engine.setFullProfiling(!options.timingsFile.empty());
@@ -73,8 +71,6 @@ int main(int argc, char** argv) {
     int frame = 0;
     engine.run([&](float) {
         ++frame;
-        animateScene(engine, frame);
-        if (options.testScene == "largeworld") stepLargeWorldScene(engine, frame, 1.0f / 60.0f);
         if (frame == options.bakeFrame) engine.bakeReflectionProbes();
         if (frame == options.frames) engine.requestScreenshot(options.output);
         if (frame == options.frames + 1) {

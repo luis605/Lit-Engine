@@ -256,6 +256,11 @@ target_sources(Engine
         Tools/TestScenes.cpp
         Tools/TestSceneSkinning.cpp
         Tools/TestSceneTerrain.cpp
+        Tools/TestSceneRooms.cpp
+        Tools/TestSceneLights.cpp
+        Tools/TestSceneDense.cpp
+        Tools/TestSceneMixed.cpp
+        Tools/TestSceneLargeWorld.cpp
         Tools/GalleryScene.cpp
         Tools/GalleryPlay.cpp
         Tools/IkTestScene.cpp

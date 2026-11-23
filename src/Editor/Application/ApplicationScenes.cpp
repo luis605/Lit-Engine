@@ -181,6 +181,12 @@ void Application::buildPortalScene(int which) {
     m_engine.portals().setCameraCell(m_engine.portals().cellAt(start));
 }
 
+void Application::leaveTestScene() {
+    ::leaveTestScene(m_engine);
+    Camera& camera = m_ctx->world.camera();
+    if (camera.getFarPlane() > kEditorFarPlane) camera.setFarPlane(kEditorFarPlane);
+}
+
 bool Application::buildTestScene(const std::string& name) {
     EditorContext& ctx = *m_ctx;
     const std::vector<std::string> names = testSceneNames();
@@ -189,13 +195,16 @@ bool Application::buildTestScene(const std::string& name) {
     ctx.world.clear();
     m_engine.portals().clear();
     m_engine.setAnimation(0.0f, 0, 1);
-    TestSceneKit kit;
+    leaveTestScene();
+    uint32_t floorShader = 0;
+    if (const std::optional<uint32_t> found = findNameIndex(m_engine.shaderNames(), "Checker")) floorShader = *found;
+    TestSceneKit kit = makeTestSceneKit(m_engine, floorShader);
     kit.cube = ctx.cubeMesh;
     kit.sphere = ctx.sphereMesh;
-    if (const std::optional<uint32_t> floorShader = findNameIndex(m_engine.shaderNames(), "Checker")) kit.floorShader = *floorShader;
-    kit.material = sceneMaterialFactory(m_engine, "Test scene");
+    TestSceneParams params;
+    params.lightCount = static_cast<int>(envSize("LIT_LIGHTS", static_cast<size_t>(params.lightCount)));
     TestSceneInfo info;
-    if (!::buildTestScene(m_engine, name, kit, info)) return false;
+    if (!::buildTestScene(m_engine, name, kit, info, params)) return false;
     applyTestSceneCamera(m_engine, info);
     afterSceneReplaced();
     return true;
@@ -227,6 +236,7 @@ void Application::afterSceneReplaced() {
 void Application::loadScene(const std::string& path) {
     if (m_ctx->playing) setPlaying(false);
     const auto start = std::chrono::steady_clock::now();
+    leaveTestScene();
     m_engine.preloadSceneMeshes(path);
     if (!m_ctx->world.loadScene(path)) {
         m_ctx->toast("Could not open " + path, ToastKind::Error);
@@ -242,6 +252,7 @@ void Application::replaceSceneWith(const std::function<void()>& build, const cha
     if (m_ctx->playing) setPlaying(false);
     m_ctx->world.clear();
     m_engine.setAnimation(0.0f, 0, 1);
+    leaveTestScene();
     build();
     afterSceneReplaced();
     m_ctx->toast(message, ToastKind::Success);

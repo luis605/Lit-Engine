@@ -64,7 +64,6 @@ namespace {
 constexpr const char* kWindowTitle = "Lit Editor";
 constexpr int kWindowWidth = 1600;
 constexpr int kWindowHeight = 900;
-constexpr float kEditorFarPlane = 2000.0f;
 constexpr float kMaxFrameSeconds = 0.25f;
 constexpr float kSteppedFrameSeconds = 1.0f / 60.0f;
 constexpr double kAutosaveIdleSeconds = 3.0;
@@ -136,7 +135,7 @@ void Application::buildInitialScene() {
     Camera& camera = m_ctx->world.camera();
     camera.setFarPlane(kEditorFarPlane);
     const std::vector<std::string> testScenes = testSceneNames();
-    const bool testScene = sceneChoice && !portalTorture && std::ranges::find(testScenes, std::string(sceneName)) != testScenes.end();
+    const bool testScene = sceneChoice && !showcase && !portalTorture && std::ranges::find(testScenes, std::string(sceneName)) != testScenes.end();
     const bool stressTest = false;
     if (testScene) {
         buildTestScene(sceneChoice);

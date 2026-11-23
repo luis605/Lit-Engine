@@ -45,6 +45,7 @@ export class Application {
     void buildPortalScene(int which);
     void buildIkTestScene();
     bool buildTestScene(const std::string& name);
+    void leaveTestScene();
     void updateAttention(float dt);
     void registerCommands();
     void setPlaying(bool playing);

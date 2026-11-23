@@ -7,9 +7,13 @@ module;
 #include <cstdio>
 #include <functional>
 #include <memory>
+#include <optional>
 #include <string>
 #include <utility>
+#include <unordered_map>
 #include <vector>
+#include "Engine/Log/Log.hpp"
+#include "Engine/Tools/TestSceneShared.hpp"
 
 module Engine.TestScenes;
 
@@ -25,9 +29,22 @@ import Engine.Rng;
 import Engine.Render.entity;
 import Engine.Render.component;
 import Engine.Render.settings;
+import Engine.Render.material;
+import Engine.Skin;
+import Engine.Terrain;
+import Engine.Streaming;
+import Engine.GalleryScene;
+import Engine.IkTestScene;
 
 bool buildSkinningTestScene(Engine& engine, const TestSceneKit& kit, TestSceneInfo& info);
 bool buildTerrainTestScene(Engine& engine, const TestSceneKit& kit, TestSceneInfo& info);
+bool buildShowcaseTestScene(Engine& engine, const TestSceneKit& kit, TestSceneInfo& info, const TestSceneParams& params);
+bool buildProbesTestScene(Engine& engine, const TestSceneKit& kit, TestSceneInfo& info, const TestSceneParams& params);
+bool buildLightStressTestScene(Engine& engine, const TestSceneKit& kit, TestSceneInfo& info, const TestSceneParams& params);
+bool buildDenseTestScene(Engine& engine, const TestSceneKit& kit, TestSceneInfo& info, const TestSceneParams& params);
+bool buildMixedTestScene(Engine& engine, const TestSceneKit& kit, TestSceneInfo& info, const TestSceneParams& params);
+bool buildLargeWorldTestScene(Engine& engine, const TestSceneKit& kit, TestSceneInfo& info, const TestSceneParams& params);
+void resetLargeWorldState(Engine& engine);
 
 namespace {
 constexpr size_t kNumberBufferSize = 64;
@@ -428,7 +445,75 @@ bool buildVista(Engine& engine, const TestSceneKit& kit, TestSceneInfo& info) {
 
 }
 
-std::vector<std::string> testSceneNames() { return {"portal_loop", "portal_torture", "streaming_route", "crowd", "vista", "skinning", "terrain"}; }
+namespace {
+
+constexpr const char* kStateMarker = "tools.testscene.state";
+constexpr const char* kFloatingOriginSystem = "floating_origin";
+constexpr const char* kIkDebugSystem = "ik test debug";
+
+std::unordered_map<const Engine*, std::shared_ptr<TestSceneShared>>& sharedRegistry() {
+    static std::unordered_map<const Engine*, std::shared_ptr<TestSceneShared>> registry;
+    return registry;
+}
+
+bool hasSystem(Engine& engine, Phase phase, const char* name) {
+    for (const std::string& system : engine.systemNames(phase)) {
+        if (system == name) return true;
+    }
+    return false;
+}
+
+}
+
+// An Engine at a recycled address must not inherit the bookkeeping of a dead one: the marker system lives and dies with the Engine.
+TestSceneShared& testSceneShared(Engine& engine) {
+    auto& entry = sharedRegistry()[&engine];
+    if (!entry || !hasSystem(engine, Phase::PreUpdate, kStateMarker)) {
+        entry = std::make_shared<TestSceneShared>();
+        engine.addSystem(Phase::PreUpdate, kStateMarker, [](World&, float) {}, true);
+    }
+    return *entry;
+}
+
+uint32_t testSceneMaterial(Engine& engine, const TestSceneKit& kit, const Material& material) {
+    if (kit.materialFull) return kit.materialFull(material);
+    return kit.material ? kit.material(material.baseColor, material.emissive, material.emissiveIntensity, material.roughness) : 0u;
+}
+
+uint32_t testSceneMesh(Engine& engine, const std::string& key, const std::function<uint32_t()>& upload) {
+    TestSceneShared& shared = testSceneShared(engine);
+    if (const auto it = shared.meshes.find(key); it != shared.meshes.end()) return it->second;
+    const uint32_t id = upload();
+    shared.meshes[key] = id;
+    return id;
+}
+
+uint32_t testSceneDynamicSource(Engine& engine, const std::string& key, const DynamicMesh& mesh) {
+    TestSceneShared& shared = testSceneShared(engine);
+    if (const auto it = shared.dynamicSources.find(key); it != shared.dynamicSources.end()) return it->second;
+    const uint32_t id = engine.createDynamicSource(mesh);
+    if (id != 0xFFFFFFFFu) shared.dynamicSources[key] = id;
+    return id;
+}
+
+uint32_t testSceneDynamicInstance(Engine& engine, uint32_t source) {
+    if (source == 0xFFFFFFFFu) return 0xFFFFFFFFu;
+    TestSceneShared& shared = testSceneShared(engine);
+    auto& free = shared.freeInstances[source];
+    uint32_t instance = 0xFFFFFFFFu;
+    if (!free.empty()) {
+        instance = free.back();
+        free.pop_back();
+    } else {
+        instance = engine.createDynamicInstance(source);
+    }
+    if (instance != 0xFFFFFFFFu) shared.usedInstances.emplace_back(source, instance);
+    return instance;
+}
+
+std::vector<std::string> testSceneNames() {
+    return {"portal_loop", "portal_torture", "streaming_route", "crowd", "vista", "skinning", "terrain", "showcase", "probes", "light_stress", "largeworld", "vsm_mixed", "dense", "ik", "gallery"};
+}
 
 void clearTestSceneSystems(Engine& engine) {
     for (const Phase phase : {Phase::PreUpdate, Phase::FixedUpdate, Phase::Update, Phase::PostUpdate}) {
@@ -438,18 +523,162 @@ void clearTestSceneSystems(Engine& engine) {
     }
 }
 
-bool buildTestScene(Engine& engine, const std::string& name, const TestSceneKit& kit, TestSceneInfo& info) {
+void leaveTestScene(Engine& engine) {
     clearTestSceneSystems(engine);
+    engine.removeSystem(kIkDebugSystem);
+    engine.portals().clear();
+    // Terrain streamer (terrain scene): stop it and hand every resident tile's GPU meshes back (the renderer has 4096 mesh slots).
+    if (TerrainStreamer* terrain = engine.terrain()) {
+        engine.removeSystem("terrain");
+        TerrainTileLoader& loader = terrain->loader();
+        StreamBudget budget;
+        budget.unlimited = true;
+        // The streamer numbers its tile cells 1, 2, 3, ... and the loader only releases a tile through its cell id (no key -> cell lookup without
+        // a DeltaStore), so walk the ids until no GPU mesh is left.
+        constexpr int kMaxCells = 1 << 16;
+        const size_t before = loader.meshCount();
+        for (int cell = 1; cell < kMaxCells && loader.meshCount() > 0; ++cell) loader.unload(cell, budget);
+        const size_t unloaded = before - loader.meshCount();
+        const size_t resident = before;
+        if (before > 0) Lit::Log::Info("Test scene terrain released: {} of {} GPU meshes, {} left", unloaded, resident, loader.meshCount());
+    }
+    TestSceneShared& shared = testSceneShared(engine);
+    for (const auto& [source, instance] : shared.usedInstances) shared.freeInstances[source].push_back(instance);
+    shared.usedInstances.clear();
+    shared.materialCursor = 0;
+    resetLargeWorldState(engine);
+    if (hasSystem(engine, Phase::PostUpdate, kFloatingOriginSystem)) {
+        FloatingOriginConfig off;
+        off.enabled = false;
+        engine.enableFloatingOrigin(off);
+        engine.removeSystem(kFloatingOriginSystem);
+    }
+    if (const glm::dvec3 origin = engine.worldOrigin(); origin != glm::dvec3(0.0)) engine.rebaseOrigin(-origin);
+    if (shared.settingsSaved) {
+        RenderSettings& settings = engine.renderSettings();
+        settings.timeOfDay = shared.timeOfDay;
+        settings.sunAzimuth = shared.sunAzimuth;
+        settings.cloudCoverage = shared.cloudCoverage;
+        settings.cloudSpeed = shared.cloudSpeed;
+        settings.clouds = shared.clouds;
+        settings.fog = shared.fog;
+        settings.reflectionMode = static_cast<ReflectionMode>(shared.reflectionMode);
+    }
+}
+
+TestSceneKit makeTestSceneKit(Engine& engine, uint32_t floorShader) {
+    TestSceneKit kit;
+    if (!engine.headless()) {
+        kit.cube = engine.loadMesh("cube");
+        kit.sphere = engine.loadMesh("sphere");
+    }
+    kit.floorShader = floorShader;
+    auto pooled = [&engine](Material material) {
+        if (engine.headless()) return 0u;
+        TestSceneShared& shared = testSceneShared(engine);
+        if (material.name.empty()) material.name = "Test scene";
+        if (shared.materialCursor < shared.materialSlots.size()) {
+            const uint32_t id = shared.materialSlots[shared.materialCursor++];
+            engine.setMaterial(id, material);
+            return id;
+        }
+        const uint32_t id = engine.createMaterial(material);
+        shared.materialSlots.push_back(id);
+        ++shared.materialCursor;
+        return id;
+    };
+    kit.materialFull = pooled;
+    kit.material = [pooled](const glm::vec3& color, const glm::vec3& emissive, float intensity, float roughness) {
+        Material material;
+        material.baseColor = color;
+        material.roughness = roughness;
+        material.emissive = emissive;
+        material.emissiveIntensity = intensity;
+        return pooled(material);
+    };
+    return kit;
+}
+
+namespace {
+
+bool buildIkRegistry(Engine& engine, const TestSceneKit& kit, TestSceneInfo& info) {
+    IkTestKit ikKit;
+    ikKit.cube = kit.cube;
+    ikKit.sphere = kit.sphere;
+    ikKit.debugDraw = true;
+    ikKit.material = [&engine, kit](const Material& material) { return testSceneMaterial(engine, kit, material); };
+    buildIkTestScene(engine, ikKit);
+    info.start = glm::vec3(0.0f, 6.5f, 22.0f);
+    info.yaw = -90.0f;
+    info.pitch = -17.0f;
+    info.nearPlane = 0.1f;
+    info.farPlane = 400.0f;
+    info.suggestedTicks = 300;
+    return true;
+}
+
+bool buildGalleryRegistry(Engine& engine, const TestSceneKit& kit, TestSceneInfo& info) {
+    GalleryKit galleryKit;
+    galleryKit.cube = kit.cube;
+    galleryKit.sphere = kit.sphere;
+    galleryKit.material = [&engine, kit](const Material& material) { return testSceneMaterial(engine, kit, material); };
+    buildGalleryScene(engine, galleryKit);
+    info.start = glm::vec3(0.0f, 5.2f, 17.5f);
+    info.yaw = -90.0f;
+    info.pitch = -11.0f;
+    info.nearPlane = 0.1f;
+    info.farPlane = 400.0f;
+    info.suggestedTicks = 120;
+    return true;
+}
+
+}
+
+bool buildTestScene(Engine& engine, const std::string& name, const TestSceneKit& kit, TestSceneInfo& info) { return buildTestScene(engine, name, kit, info, TestSceneParams{}); }
+
+bool buildTestScene(Engine& engine, const std::string& name, const TestSceneKit& kit, TestSceneInfo& info, const TestSceneParams& params) {
+    const std::vector<std::string> names = testSceneNames();
+    if (std::ranges::find(names, name) == names.end()) return false;
+    leaveTestScene(engine);
+    TestSceneShared& shared = testSceneShared(engine);
+    if (!shared.settingsSaved) {
+        const RenderSettings& settings = engine.renderSettings();
+        shared.timeOfDay = settings.timeOfDay;
+        shared.sunAzimuth = settings.sunAzimuth;
+        shared.cloudCoverage = settings.cloudCoverage;
+        shared.cloudSpeed = settings.cloudSpeed;
+        shared.clouds = settings.clouds;
+        shared.fog = settings.fog;
+        shared.reflectionMode = static_cast<int>(settings.reflectionMode);
+        shared.settingsSaved = true;
+    }
     info = TestSceneInfo{};
     info.name = name;
-    if (name == "portal_loop") return buildLoop(engine, kit, info);
-    if (name == "portal_torture") return buildTorture(engine, kit, info);
-    if (name == "streaming_route") return buildStreaming(engine, kit, info);
-    if (name == "crowd") return buildCrowd(engine, kit, info);
-    if (name == "vista") return buildVista(engine, kit, info);
-    if (name == "skinning") return buildSkinningTestScene(engine, kit, info);
-    if (name == "terrain") return buildTerrainTestScene(engine, kit, info);
-    return false;
+    bool built = false;
+    if (name == "portal_loop") built = buildLoop(engine, kit, info);
+    else if (name == "portal_torture") built = buildTorture(engine, kit, info);
+    else if (name == "streaming_route") built = buildStreaming(engine, kit, info);
+    else if (name == "crowd") built = buildCrowd(engine, kit, info);
+    else if (name == "vista") built = buildVista(engine, kit, info);
+    else if (name == "skinning") built = buildSkinningTestScene(engine, kit, info);
+    else if (name == "terrain") built = buildTerrainTestScene(engine, kit, info);
+    else if (name == "showcase") built = buildShowcaseTestScene(engine, kit, info, params);
+    else if (name == "probes") built = buildProbesTestScene(engine, kit, info, params);
+    else if (name == "light_stress") built = buildLightStressTestScene(engine, kit, info, params);
+    else if (name == "largeworld") built = buildLargeWorldTestScene(engine, kit, info, params);
+    else if (name == "vsm_mixed") built = buildMixedTestScene(engine, kit, info, params);
+    else if (name == "dense") built = buildDenseTestScene(engine, kit, info, params);
+    else if (name == "ik") built = buildIkRegistry(engine, kit, info);
+    else if (name == "gallery") built = buildGalleryRegistry(engine, kit, info);
+    if (built && !info.metrics) {
+        Engine* enginePointer = &engine;
+        info.metrics = [enginePointer]() {
+            TestSceneMetrics metrics;
+            metrics.set("entities", static_cast<double>(enginePointer->world().aliveCount()));
+            return metrics;
+        };
+    }
+    return built;
 }
 
 void applyTestSceneCamera(Engine& engine, const TestSceneInfo& info) {
