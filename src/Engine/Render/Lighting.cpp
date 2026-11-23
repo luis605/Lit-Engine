@@ -76,11 +76,14 @@ void createStaticBuffers(Lighting::Data& state) {
     Diligent::IRenderDevice* device = state.device;
     const std::vector<MaterialGpu> defaultMaterials(kMaxMaterials, packMaterial(Material{}));
     state.materials = litgpu::structuredBuffer(device, "Material Buffer", sizeof(MaterialGpu), kMaxMaterials, defaultMaterials.data());
-    const std::vector<GpuLight> noLights(kMaxLights, GpuLight{});
-    state.lights = litgpu::structuredBuffer(device, "Light Buffer", sizeof(GpuLight), kMaxLights, noLights.data());
+    // Lights, then the apertures of portal lights (one GpuLight-sized record each, see setLightApertures).
+    const std::vector<GpuLight> noLights(kMaxLights + kMaxPortalLights, GpuLight{});
+    state.lights = litgpu::structuredBuffer(device, "Light Buffer", sizeof(GpuLight), kMaxLights + kMaxPortalLights, noLights.data());
     const std::vector<uint32_t> emptyClusters(static_cast<size_t>(kClusterHeaderWords) + kClusterIndexCapacity, 0u);
     state.clusters = litgpu::structuredBuffer(device, "Cluster Buffer", sizeof(uint32_t), kClusterHeaderWords + kClusterIndexCapacity, emptyClusters.data());
     state.visibleLights = litgpu::structuredBuffer(device, "Visible Light Buffer", sizeof(glm::vec4), kMaxLights * 2);
+    const std::vector<int32_t> noCells(kMaxLights, -1);
+    state.lightCellBuffer = litgpu::structuredBuffer(device, "Light Cell Buffer", sizeof(int32_t), kMaxLights, noCells.data());
     const float initialExposure = 1.0f / (1.2f * std::exp2(kInitialExposureEv));
     const glm::vec4 exposureInit(initialExposure, initialExposure, kInitialExposureEv, 0.0f);
     state.exposure = litgpu::structuredBuffer(device, "Exposure Buffer", sizeof(glm::vec4), 1, &exposureInit);
@@ -308,7 +311,29 @@ void Lighting::setMaterial(uint32_t id, const Material& material) {
 void Lighting::setLights(const std::vector<GpuLight>& lights) {
     Data& state = *m_data;
     state.lightCount = static_cast<uint32_t>(std::min<size_t>(lights.size(), kMaxLights));
+    if (state.cpuLights.size() != state.lightCount) state.lightCellsDirty = true;
     state.cpuLights.assign(lights.begin(), lights.begin() + state.lightCount);
+}
+
+void Lighting::setLightCells(const std::vector<int32_t>& cells) {
+    Data& state = *m_data;
+    const size_t count = std::min<size_t>(cells.size(), kMaxLights);
+    if (count == state.lightCells.size() && std::equal(cells.begin(), cells.begin() + static_cast<std::ptrdiff_t>(count), state.lightCells.begin())) return;
+    state.lightCells.assign(cells.begin(), cells.begin() + static_cast<std::ptrdiff_t>(count));
+    state.lightCellsDirty = true;
+}
+
+void Lighting::setLightApertures(uint32_t first, const std::vector<LightAperture>& apertures) {
+    Data& state = *m_data;
+    const size_t count = std::min<size_t>(apertures.size(), kMaxPortalLights);
+    const bool same = first == state.firstPortalLight && count == state.lightApertures.size() &&
+                      std::equal(apertures.begin(), apertures.begin() + static_cast<std::ptrdiff_t>(count), state.lightApertures.begin(), [](const LightAperture& a, const LightAperture& b) {
+                          return a.center == b.center && a.axisU == b.axisU && a.axisV == b.axisV && a.plane == b.plane;
+                      });
+    if (same) return;
+    state.firstPortalLight = first;
+    state.lightApertures.assign(apertures.begin(), apertures.begin() + static_cast<std::ptrdiff_t>(count));
+    state.lightAperturesDirty = true;
 }
 
 void Lighting::setDirectionalLight(bool present, const glm::vec3& direction, const glm::vec3& illuminance) {

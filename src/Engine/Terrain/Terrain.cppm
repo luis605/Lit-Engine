@@ -5,15 +5,18 @@ module;
 #include <functional>
 #include <memory>
 #include <optional>
+#include <set>
 #include <string>
 #include <vector>
 
 export module Engine.Terrain;
 
 import Engine.glm;
+import Engine.Delta;
 import Engine.mesh;
 import Engine.meshlet;
 import Engine.Physics;
+import Engine.Render.entity;
 import Engine.Streaming;
 import Engine.World;
 
@@ -217,6 +220,9 @@ export struct ScatterInstance {
 // Pcg32 seeded by (seed, species, cell), so the result does not depend on tile borders, LOD or call order.
 export [[nodiscard]] std::vector<ScatterInstance> scatterTile(const TerrainConfig& config, const ScatterConfig& scatter, const TileKey& key);
 export [[nodiscard]] float terrainBiome(const ScatterConfig& scatter, float x, float z);
+// Stable key of a scatter instance: seed, species index and global grid cell (independent of tile borders and LOD).
+export [[nodiscard]] std::string scatterInstanceKey(const ScatterConfig& scatter, uint32_t species, int32_t cellX, int32_t cellZ);
+export [[nodiscard]] std::string scatterInstanceKey(const ScatterConfig& scatter, const ScatterInstance& instance);
 export [[nodiscard]] std::vector<CellEntity> scatterEntities(const ScatterConfig& scatter, const TileKey& key, const std::vector<ScatterInstance>& instances);
 
 // A tile's instances of one species merged into a single static mesh (vertices local to the tile origin). The mesh goes
@@ -260,7 +266,13 @@ export struct TerrainLoaderConfig {
     // Entities are created hidden; the streamer reveals them (no overlap of old and new LOD).
     bool startHidden = false;
     bool scatterClusters = false;
+    // Player changes to scatter (removed or moved instances, objects added with TerrainTileLoader::trackAdded) are kept here per tile
+    // (cell name terrainCellName) and survive unload/reload and save/load. Only tiles with level <= scatterMaxLevel take part.
+    DeltaStore* deltas = nullptr;
 };
+
+// Delta cell of a tile: "terrain/x_z_level".
+export [[nodiscard]] std::string terrainCellName(const TileKey& key);
 
 // Resumable tile loader used by makeTerrainLoader and TerrainStreamer.
 export class TerrainTileLoader {
@@ -278,8 +290,20 @@ export class TerrainTileLoader {
     [[nodiscard]] size_t meshCount() const;
     [[nodiscard]] TerrainLoaderConfig& config();
 
+    // Removes one scatter instance of a resident tile (cell id of the loader) and records it in the DeltaStore. A per-instance entity is destroyed;
+    // an instance merged into a batch is dropped by rebuilding that batch mesh (new mesh upload, old one released). False when the tile is not resident.
+    bool removeScatter(int cell, uint32_t species, int32_t cellX, int32_t cellZ);
+    // Records an entity (subtree root) the player added to a resident tile so it is saved and recreated when the tile reloads.
+    bool trackAdded(int cell, EntityHandle root);
+    // Rebuilds batches of resident tiles whose removed set changed in the DeltaStore (after DeltaStore::fromJson). Cheap when nothing changed.
+    void syncDeltas();
+    [[nodiscard]] std::string cellName(int cell) const;
+    [[nodiscard]] std::optional<int> residentCellOf(const TileKey& key) const;
+
   private:
     struct State;
+    void rebuild(int cell);
+    void finish(int cell, void* payload);
     std::shared_ptr<State> m_state;
 };
 
@@ -319,6 +343,7 @@ export struct TerrainStats {
     uint32_t evicted = 0;
     uint32_t gpuMeshes = 0;
     uint32_t entities = 0;
+    bool sharedBudget = false;
     double updateMillis = 0.0;
 };
 
@@ -343,6 +368,9 @@ export class TerrainStreamer {
     [[nodiscard]] TerrainConfig& terrain();
     [[nodiscard]] TerrainStreamConfig& config();
     [[nodiscard]] TerrainTileLoader& loader();
+    // Shared per-frame budget (Engine wires StreamingSystem::sharedBudget): commits and unloads draw from it instead of their own, so portal
+    // cells, assets and terrain tiles never spend the frame twice. Null result (or no provider): the own commitMillisPerFrame/uploadBytesPerFrame.
+    void setSharedBudget(std::function<StreamBudget*()> provider);
 
   private:
     struct Impl;

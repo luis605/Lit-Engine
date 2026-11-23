@@ -144,6 +144,9 @@ export class StreamingSystem {
     [[nodiscard]] float spatialDistance(int cell) const;
     [[nodiscard]] bool wanted(int cell) const;
     void recordFrame(double millis);
+    // Per-frame budget shared by everything that streams in one frame (cells, assets, TerrainStreamer). It is reset from the config on the first
+    // call after recordFrame (or when older than a frame could be without recordFrame), so a second consumer sees what the first one left.
+    [[nodiscard]] StreamBudget& sharedBudget();
     void requestAsset(AssetRequest request);
     [[nodiscard]] bool assetReady(const std::string& key) const;
 
@@ -210,6 +213,8 @@ export class StreamingSystem {
     int m_lastCell = -2;
     size_t m_lastPortals = 0;
     uint32_t m_inFlight = 0;
+    StreamBudget m_shared;
+    uint64_t m_sharedFrame = ~0ull;
 };
 
 export struct CellEntity {

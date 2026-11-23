@@ -114,7 +114,7 @@ static void testColorBleedSettings() {
 }
 
 static void testTestScenes() {
-    CHECK(testSceneNames().size() == 6);
+    CHECK(testSceneNames().size() == 7);
     for (const std::string& name : testSceneNames()) {
         Engine engine;
         engine.openHeadless();
@@ -125,7 +125,10 @@ static void testTestScenes() {
         engine.runHeadless(name == "streaming_route" ? 900 : 120, 1.0f / 60.0f);
         const TestSceneMetrics m = info.metrics();
         CHECK(engine.world().aliveCount() > 10);
-        if (name == "portal_torture") {
+        if (name == "portal_loop") {
+            CHECK(m.get("cells") == 3.0);
+            CHECK(m.get("portals") == 6.0);
+        } else if (name == "portal_torture") {
             CHECK(m.get("portals") >= 4.0);
             CHECK(m.get("max_view_nodes") >= 2.0);
         } else if (name == "streaming_route") {

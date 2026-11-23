@@ -263,6 +263,9 @@ uint cullObject(uint id, out uvec2 entry, out uint cascades, out uint localMask)
         localMask = 0u;
     }
     if (bucketShader >= u_opaqueShaderCount) return CULLED;
+    // A mesh outside the bucket table (no mesh) has no draw bucket: its entry would land in a bucket the prefix sum never
+    // initialised and the scatter would overwrite other objects' entries with it.
+    if (renderableMesh(renderable) >= u_bucketSlots) return CULLED;
 
 #ifdef SHADOW
     if (translucent) return CULLED;

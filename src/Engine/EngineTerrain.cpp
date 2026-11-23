@@ -17,6 +17,7 @@ import Engine.glm;
 import Engine.asset;
 import Engine.Render.material;
 import Engine.Terrain;
+import Engine.Streaming;
 
 namespace {
 constexpr uint32_t kNoLayer = 31;
@@ -77,6 +78,7 @@ TerrainStreamer& Engine::enableTerrain(const TerrainSetup& setup) {
     loader.colliderMaxLevel = setup.colliderMaxLevel;
     loader.scatterMaxLevel = setup.scatterMaxLevel;
     loader.scatterClusters = setup.scatterClusters;
+    loader.deltas = m_deltas.get();
     loader.meshOptions = setup.mesh;
     loader.meshOptions.packMorph = true;
 
@@ -86,6 +88,7 @@ TerrainStreamer& Engine::enableTerrain(const TerrainSetup& setup) {
         stream.uploadBytesPerFrame = std::max(stream.uploadBytesPerFrame, m_streaming->config().uploadBytesPerFrame);
     }
     m_terrain = std::make_unique<TerrainStreamer>(m_world, std::move(loader), stream);
+    m_terrain->setSharedBudget([this]() -> StreamBudget* { return m_streaming ? &m_streaming->sharedBudget() : nullptr; });
 
     const auto frame = [this](bool prime) {
         Camera& camera = m_world.camera();

@@ -147,6 +147,11 @@ export struct RenderSettings {
 
     bool clusterLod = true;          // dense geometry: GPU cluster culling + LOD DAG cut for meshes with clusters
     float clusterErrorPixels = 1.0f;  // screen-space error threshold of the cluster LOD cut
+    bool clusterHierarchy = true;     // per-instance BVH traversal over the cluster DAG (0: flat chunk loop)
+    bool clusterShadowTexelLod = true;  // shadow cluster LOD from shadow-texel error (0: camera metric x4)
+    float clusterShadowErrorTexels = 2.0f;  // shadow-texel error threshold of the shadow cluster LOD cut
+
+    bool renderGraph = true;  // record the frame as a render graph (docs/RenderGraph.md); 0 = previous immediate path
 
     bool fxaa = true;
     bool specularAntiAliasing = true;
@@ -270,6 +275,10 @@ void visitRenderSettings(Settings& settings, Visitor&& visit) {
     visit("governorMinScale", settings.governorMinScale);
     visit("clusterLod", settings.clusterLod);
     visit("clusterErrorPixels", settings.clusterErrorPixels);
+    visit("clusterHierarchy", settings.clusterHierarchy);
+    visit("clusterShadowTexelLod", settings.clusterShadowTexelLod);
+    visit("clusterShadowErrorTexels", settings.clusterShadowErrorTexels);
+    visit("renderGraph", settings.renderGraph);
     visit("fxaa", settings.fxaa);
     visit("specularAntiAliasing", settings.specularAntiAliasing);
     visit("multiScatter", settings.multiScatter);

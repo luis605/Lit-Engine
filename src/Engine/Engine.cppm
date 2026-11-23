@@ -199,6 +199,9 @@ export class Engine {
     [[nodiscard]] std::vector<std::string> availableMeshes() const;
     [[nodiscard]] std::vector<GpuPassTiming> gpuTimings() const { return m_renderer.gpuTimings(); }
     [[nodiscard]] double gpuTotalMilliseconds() const { return m_renderer.gpuTotalMilliseconds(); }
+    // Render graph (docs/RenderGraph.md): statistics of the last graph frame and a text + Graphviz dump of the next one.
+    [[nodiscard]] RenderGraphInfo renderGraphInfo() const { return m_renderer.renderGraphInfo(); }
+    void requestRenderGraphDump(std::string path) { m_renderer.requestGraphDump(std::move(path)); }
     [[nodiscard]] size_t renderOverCapacity() const { return m_renderer.overCapacity(); }
     void bakeReflectionProbes() { m_renderer.bakeProbes(); }
     void setProfilingHud(bool enabled) { m_renderer.setProfilingHud(enabled); }

@@ -102,6 +102,28 @@ struct TortureState {
 constexpr float kTortureWalkSpeed = 1.5f;
 constexpr float kTortureViewportHeight = 1080.0f;
 
+// Static view of the three-room loop (portal_loop): the camera stands in room A looking through the AB portal.
+bool buildLoop(Engine& engine, const TestSceneKit& kit, TestSceneInfo& info) {
+    PortalSceneKit portalKit;
+    portalKit.cube = kit.cube;
+    portalKit.sphere = kit.sphere;
+    portalKit.floorShader = kit.floorShader;
+    portalKit.material = kit.material;
+    buildPortalScene(engine.portals(), engine.world(), portalKit, PortalTestScene::Loop);
+    info.start = portalSceneStart(PortalTestScene::Loop, info.yaw, info.pitch);
+    info.nearPlane = 0.05f;
+    info.farPlane = 300.0f;
+    info.suggestedTicks = 120;
+    Engine* enginePointer = &engine;
+    info.metrics = [enginePointer]() {
+        TestSceneMetrics metrics;
+        metrics.set("cells", static_cast<double>(enginePointer->portals().cells().size()));
+        metrics.set("portals", static_cast<double>(enginePointer->portals().portals().size()));
+        return metrics;
+    };
+    return true;
+}
+
 bool buildTorture(Engine& engine, const TestSceneKit& kit, TestSceneInfo& info) {
     PortalSceneKit portalKit;
     portalKit.cube = kit.cube;
@@ -406,7 +428,7 @@ bool buildVista(Engine& engine, const TestSceneKit& kit, TestSceneInfo& info) {
 
 }
 
-std::vector<std::string> testSceneNames() { return {"portal_torture", "streaming_route", "crowd", "vista", "skinning", "terrain"}; }
+std::vector<std::string> testSceneNames() { return {"portal_loop", "portal_torture", "streaming_route", "crowd", "vista", "skinning", "terrain"}; }
 
 void clearTestSceneSystems(Engine& engine) {
     for (const Phase phase : {Phase::PreUpdate, Phase::FixedUpdate, Phase::Update, Phase::PostUpdate}) {
@@ -420,6 +442,7 @@ bool buildTestScene(Engine& engine, const std::string& name, const TestSceneKit&
     clearTestSceneSystems(engine);
     info = TestSceneInfo{};
     info.name = name;
+    if (name == "portal_loop") return buildLoop(engine, kit, info);
     if (name == "portal_torture") return buildTorture(engine, kit, info);
     if (name == "streaming_route") return buildStreaming(engine, kit, info);
     if (name == "crowd") return buildCrowd(engine, kit, info);

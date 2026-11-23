@@ -139,6 +139,26 @@ void Renderer::setWorldOrigin(const glm::dvec3& origin) {
     m_lighting.shiftOrigin(delta);
 }
 
+bool Renderer::renderGraphEnabled() const {
+    // LIT_RENDER_GRAPH=0/1 overrides the renderGraph setting (A/B comparisons without touching settings files).
+    static const int override = [] {
+        const char* value = std::getenv("LIT_RENDER_GRAPH");
+        return value && value[0] ? (value[0] == '1' ? 1 : 0) : -1;
+    }();
+    return override >= 0 ? override == 1 : m_lighting.settings().renderGraph;
+}
+
+float Renderer::frameClock() {
+    // LIT_FIXED_DT: deterministic renderer clock (frame index * step) for reproducible captures.
+    static const float fixedStep = [] {
+        const char* value = std::getenv("LIT_FIXED_DT");
+        return value ? std::strtof(value, nullptr) : 0.0f;
+    }();
+    if (fixedStep <= 0.0f) return static_cast<float>(glfwGetTime());
+    ++m_clockFrames;
+    return static_cast<float>(static_cast<double>(m_clockFrames) * fixedStep);
+}
+
 FrameInput Renderer::makeFrameInput(const Camera& camera, float currentFrameTime, float deltaTime) {
     const auto& swapChainDesc = m_diligent->pSwapChain->GetDesc();
     FrameInput frameInput;
@@ -162,10 +182,15 @@ void Renderer::renderPortalPrepass(const SceneUniforms& sceneUniforms, uint32_t 
     auto& gpu = *m_diligent;
     SceneUniforms viewUniforms = sceneUniforms;
     const PortalViewNode& root = m_portalFrame.nodes[0];
-    viewUniforms.sunIlluminance = glm::vec4(glm::vec3(viewUniforms.sunIlluminance) * root.sunScale, viewUniforms.sunIlluminance.w);
+    viewUniforms.sunIlluminance = glm::vec4(glm::vec3(viewUniforms.sunIlluminance) * root.sunScale * root.lightTint, viewUniforms.sunIlluminance.w);
     viewUniforms.skyGradient[1].w *= root.ambientScale;
+    viewUniforms.cellParams.x = static_cast<float>(root.cell);
+    viewUniforms.cellTint = glm::vec4(root.lightTint, 0.0f);
+    m_viewSunShadows = root.sunScale > 0.0f;
+    if (!m_viewSunShadows) viewUniforms.shadowParams.x = 0.0f;
     gpu.pImmediateContext->UpdateBuffer(gpu.pSceneUBO[m_currentFrame], 0, sizeof(SceneUniforms), &viewUniforms, Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
     if (!root.surfaces.empty()) renderPortalViews(sceneUniforms, viewUniforms, objectCount);
+    else m_lighting.cullLights(gpu.pSceneUBO[m_currentFrame]);  // cluster lists filtered by the camera's cell
 }
 
 void Renderer::renderOpaqueGeometry(uint32_t objectCount, bool portalsActive) {
@@ -298,7 +323,7 @@ void Renderer::finishFrame(const FrameInput& frameInput, const Camera& camera) {
 
 void Renderer::drawScene(SceneDatabase& sceneDatabase, const Camera& camera) {
     auto& gpu = *m_diligent;
-    const float currentFrameTime = static_cast<float>(glfwGetTime());
+    const float currentFrameTime = frameClock();
     const float deltaTime = currentFrameTime - m_lastFrameTime;
     m_lastFrameTime = currentFrameTime;
     m_lastDeltaTime = deltaTime;
@@ -320,6 +345,11 @@ void Renderer::drawScene(SceneDatabase& sceneDatabase, const Camera& camera) {
         return;
     }
 
+    if (renderGraphEnabled()) {
+        renderFrameGraph(sceneDatabase, camera, currentFrameTime, deltaTime, objectCount);
+        return;
+    }
+
     beginPass(GpuPass::Upload);
     const TransformPlan plan = uploadSceneData(sceneDatabase);
     endPass(GpuPass::Upload);
@@ -333,6 +363,7 @@ void Renderer::drawScene(SceneDatabase& sceneDatabase, const Camera& camera) {
     const FrameInput frameInput = makeFrameInput(camera, currentFrameTime, deltaTime);
     SceneUniforms sceneUniforms{};
     m_lighting.beginFrame(frameInput, sceneUniforms);
+    beginSharedCascades();
     gpu.mainInput = frameInput;
     gpu.pImmediateContext->UpdateBuffer(gpu.pSceneUBO[m_currentFrame], 0, sizeof(SceneUniforms), &sceneUniforms, Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
     if (gpu.surfaceBindingVersion != m_lighting.bindingVersion()) rebindSurfaceResources();
@@ -344,6 +375,7 @@ void Renderer::drawScene(SceneDatabase& sceneDatabase, const Camera& camera) {
     endPass(GpuPass::Sky);
 
     const bool portalsActive = !m_portalFrame.nodes.empty();
+    m_viewSunShadows = true;
     if (portalsActive) renderPortalPrepass(sceneUniforms, objectCount);
 
     renderOpaqueGeometry(objectCount, portalsActive);

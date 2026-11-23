@@ -91,6 +91,9 @@ class FrameBuilder {
         node.cell = cell;
         node.sunScale = source.params.sun;
         node.ambientScale = source.params.ambient;
+        node.lightTint = cellLightTint(source, m_settings);
+        node.cellMin = source.min;
+        node.cellMax = source.max;
         node.label = source.name;
     }
 

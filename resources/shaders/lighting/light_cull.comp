@@ -25,6 +25,13 @@ const uint INDEX_CAPACITY = 4u * 1024u * 1024u;
 #ifdef VISIBLE_PASS
 layout(local_size_x = 64, local_size_y = 1, local_size_z = 1) in;
 
+// Portal cell of each light (-1 = none). A view only gathers lights of its own cell (cellParams.x) and
+// cell-less lights, so lights of other cells never leak through walls into a portal view or the main
+// view; virtual shadow page requests walk the same cluster lists, so they are filtered too.
+layout(std430) readonly buffer LightCellBuffer {
+    int lightCells[];
+};
+
 void main() {
     uint index = gl_GlobalInvocationID.x;
     if (index >= uint(lightParams.x)) return;
@@ -32,6 +39,9 @@ void main() {
     vec3 center = light.positionRange.xyz;
     float radius = light.positionRange.w;
     if (radius <= 0.0 || dot(light.colorType.rgb, vec3(1.0)) <= 0.0) return;
+    int viewCell = int(floor(cellParams.x + 0.5));
+    int lightCell = lightCells[index];
+    if (viewCell >= 0 && lightCell >= 0 && lightCell != viewCell) return;
     if (light.colorType.w > 1.5) {
         // Bounding sphere of the spot cone (apex + spherical cap).
         float cosAngle = clamp(light.directionCos.w, 0.0, 1.0);

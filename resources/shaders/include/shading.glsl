@@ -219,7 +219,12 @@ vec3 evaluateLights(ShadingData s, vec2 pixel, float viewDepth) {
     float noise = shadowNoise(pixel);
     g_pixelFootprint = virtualShadowFootprint(viewDepth);
     vec3 color = vec3(0.0);
-    for (uint i = 0u; i < range.y; ++i) color += evaluatePunctual(s, lights[clusterLights[range.x + i]], noise);
+    for (uint i = 0u; i < range.y; ++i) {
+        uint index = clusterLights[range.x + i];
+        GpuLight light = lights[index];
+        float aperture = lightAperture(index, light.positionRange.xyz, s.position);
+        if (aperture > 0.0) color += aperture * evaluatePunctual(s, light, noise);
+    }
     return color;
 }
 
@@ -244,10 +249,10 @@ vec3 irradianceSH(vec3 n) {
     r += shCoefficients[6].rgb * 0.315392 * (3.0 * n.z * n.z - 1.0);
     r += shCoefficients[7].rgb * 1.092548 * n.x * n.z;
     r += shCoefficients[8].rgb * 0.546274 * (n.x * n.x - n.y * n.y);
-    return max(r, vec3(0.0)) * ENV_DECODE * skyGradient[1].w;
+    return max(r, vec3(0.0)) * ENV_DECODE * skyGradient[1].w * cellTint.rgb;
 }
 
-vec3 prefilteredRadiance(vec3 R, float perceptualRoughness) { return textureLod(u_prefilteredEnv, R, perceptualRoughness * (ENV_MIP_COUNT - 1.0)).rgb * ENV_DECODE * skyGradient[1].w; }
+vec3 prefilteredRadiance(vec3 R, float perceptualRoughness) { return textureLod(u_prefilteredEnv, R, perceptualRoughness * (ENV_MIP_COUNT - 1.0)).rgb * ENV_DECODE * skyGradient[1].w * cellTint.rgb; }
 
 vec3 evaluateIBL(ShadingData s) {
     vec3 irradiance = irradianceSH(s.bentNormal);

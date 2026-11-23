@@ -177,6 +177,11 @@ target_compile_features(QualityTests PRIVATE cxx_std_23)
 target_link_libraries(QualityTests PRIVATE Engine)
 add_test(NAME QualityTests COMMAND QualityTests)
 
+add_executable(RenderGraphTests RenderGraphTests.cpp)
+target_compile_features(RenderGraphTests PRIVATE cxx_std_23)
+target_link_libraries(RenderGraphTests PRIVATE Engine)
+add_test(NAME RenderGraphTests COMMAND RenderGraphTests)
+
 add_executable(ReflectionTests ReflectionTests.cpp)
 target_compile_features(ReflectionTests PRIVATE cxx_std_23)
 target_link_libraries(ReflectionTests PRIVATE Engine)

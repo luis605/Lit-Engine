@@ -53,6 +53,9 @@ layout(std140) uniform SceneData {
     vec4 vsmParams;  // x virtual shadows on, y atlas size (texels), z atlas pages per side, w resolution scale
     vec4 vsmParams2; // x finest mip (0..4)
     vec4 originParams; // xyz world origin mod 4096 (pattern phase), w world origin y (altitude)
+    vec4 cellParams;   // x portal cell of this view (-1: local lights are not filtered by cell), y first portal light + 1 (0: none),
+                       // z > 0: sun cascades are shared (pick the finest cascade containing the point, up to this view depth)
+    vec4 cellTint;     // rgb lighting grade of this view's cell (sun and ambient), w unused
 };
 
 float projectedDiameterPx(float radius, float dist) {

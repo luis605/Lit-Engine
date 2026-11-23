@@ -203,6 +203,8 @@ void Renderer::createDebugDepthPSO() {
     createInfo.PSODesc.ResourceLayout.ImmutableSamplers = samplers;
     createInfo.PSODesc.ResourceLayout.NumImmutableSamplers = static_cast<Diligent::Uint32>(std::size(samplers));
 
+    createInfo.pPSOCache = litgpu::pipelineCache();
+
     gpu.pDevice->CreateGraphicsPipelineState(createInfo, &gpu.pDebugDepthPSO);
     if (!gpu.pDebugDepthPSO) {
         Lit::Log::Error("Failed to create Debug Depth PSO");
@@ -243,6 +245,8 @@ void Renderer::createDepthUpscalePSO() {
     };
     createInfo.PSODesc.ResourceLayout.ImmutableSamplers = samplers;
     createInfo.PSODesc.ResourceLayout.NumImmutableSamplers = static_cast<Diligent::Uint32>(std::size(samplers));
+
+    createInfo.pPSOCache = litgpu::pipelineCache();
 
     gpu.pDevice->CreateGraphicsPipelineState(createInfo, &gpu.pDepthUpscalePSO);
     if (!gpu.pDepthUpscalePSO) {
@@ -305,6 +309,7 @@ void Renderer::createDebugLinePSO() {
     auto createLinePipeline = [&](const char* name, bool depthTest, Diligent::RefCntAutoPtr<Diligent::IPipelineState>& pipeline, Diligent::RefCntAutoPtr<Diligent::IShaderResourceBinding>& binding) {
         createInfo.PSODesc.Name = name;
         createInfo.GraphicsPipeline.DepthStencilDesc.DepthEnable = depthTest;
+        createInfo.pPSOCache = litgpu::pipelineCache();
         gpu.pDevice->CreateGraphicsPipelineState(createInfo, &pipeline);
         if (!pipeline) {
             Lit::Log::Error("Failed to create {}", name);

@@ -17,6 +17,8 @@ module;
 #endif
 #include <GLFW/glfw3native.h>
 
+std::string LitDescriptorIndexingAudit(Diligent::IRenderDevice* device);  // VulkanAudit.cpp (plain translation unit)
+
 module Engine.renderer;
 
 import Engine.glm;
@@ -48,6 +50,70 @@ constexpr const char* kIgnoredValidationMessages[] = {
 
 }
 
+namespace {
+
+std::filesystem::path PipelineCachePath() { return litgpu::shaderCacheDirectory() / "pipelines_vk.bin"; }
+
+bool PipelineCacheDisabled() {
+    const char* value = std::getenv("LIT_NO_PIPELINE_CACHE");
+    return value && value[0] == '1';
+}
+
+// VkPipelineCache persistence (Diligent IPipelineStateCache). Diligent validates the header (vendor, device, pipeline
+// cache UUID) and starts empty on a mismatch, so a cache from another driver or GPU is ignored, never trusted.
+bool BindlessRequested() {
+    const char* value = std::getenv("LIT_BINDLESS");
+    return value && value[0] == '1';
+}
+
+const char* FeatureState(Diligent::DEVICE_FEATURE_STATE state) {
+    return state == Diligent::DEVICE_FEATURE_STATE_ENABLED ? "enabled" : state == Diligent::DEVICE_FEATURE_STATE_OPTIONAL ? "optional" : "disabled";
+}
+
+// Bindless audit: what the adapter supports, what the device was created with (LIT_BINDLESS=1 requests the Diligent
+// bindless features), and the Vulkan descriptor-indexing limits. Logged once at start-up.
+void LogBindlessAudit(DiligentData& gpu) {
+    const Diligent::GraphicsAdapterInfo& adapter = gpu.pDevice->GetAdapterInfo();
+    const Diligent::DeviceFeatures& enabled = gpu.pDevice->GetDeviceInfo().Features;
+    Lit::Log::Info("Bindless audit: adapter BindlessResources={} ShaderResourceRuntimeArrays={}; device BindlessResources={} ShaderResourceRuntimeArrays={}; {}", FeatureState(adapter.Features.BindlessResources),
+                   FeatureState(adapter.Features.ShaderResourceRuntimeArrays), FeatureState(enabled.BindlessResources), FeatureState(enabled.ShaderResourceRuntimeArrays), LitDescriptorIndexingAudit(gpu.pDevice));
+}
+
+void CreatePipelineCache(DiligentData& gpu) {
+    if (PipelineCacheDisabled()) return;
+    std::vector<char> data;
+    std::ifstream in(PipelineCachePath(), std::ios::binary);
+    if (in) data.assign(std::istreambuf_iterator<char>(in), std::istreambuf_iterator<char>());
+    Diligent::PipelineStateCacheCreateInfo info;
+    info.Desc.Name = "Lit PSO cache";
+    info.Desc.Mode = Diligent::PSO_CACHE_MODE_LOAD_STORE;
+    info.pCacheData = data.empty() ? nullptr : data.data();
+    info.CacheDataSize = static_cast<Diligent::Uint32>(data.size());
+    gpu.pDevice->CreatePipelineStateCache(info, &gpu.pPipelineCache);
+    litgpu::g_pipelineCache = gpu.pPipelineCache.RawPtr();
+    Lit::Log::Info("Pipeline cache: {} ({} bytes loaded)", gpu.pPipelineCache ? PipelineCachePath().string() : std::string("unavailable"), data.size());
+}
+
+void SavePipelineCache(DiligentData& gpu) {
+    litgpu::g_pipelineCache = nullptr;
+    if (!gpu.pPipelineCache) return;
+    Diligent::RefCntAutoPtr<Diligent::IDataBlob> blob;
+    gpu.pPipelineCache->GetData(&blob);
+    if (!blob || blob->GetSize() == 0) return;
+    std::error_code error;
+    std::filesystem::create_directories(PipelineCachePath().parent_path(), error);
+    const std::filesystem::path temporary = PipelineCachePath().string() + ".tmp";
+    {
+        std::ofstream out(temporary, std::ios::binary | std::ios::trunc);
+        if (!out) return;
+        out.write(static_cast<const char*>(blob->GetConstDataPtr()), static_cast<std::streamsize>(blob->GetSize()));
+        if (!out) return;
+    }
+    std::filesystem::rename(temporary, PipelineCachePath(), error);  // atomic replace: concurrent runs never read a torn file
+}
+
+}
+
 Renderer::Renderer() = default;
 
 Renderer::~Renderer() { cleanup(); }
@@ -64,11 +130,18 @@ void Renderer::createDevice() {
     engineInfo.Features.GeometryShaders = Diligent::DEVICE_FEATURE_STATE_OPTIONAL;
     engineInfo.Features.MeshShaders = Diligent::DEVICE_FEATURE_STATE_OPTIONAL;
     engineInfo.Features.VariableRateShading = Diligent::DEVICE_FEATURE_STATE_OPTIONAL;
+    if (BindlessRequested()) {
+        // Bindless groundwork (docs/RenderGraph.md): descriptor indexing + runtime arrays; nothing uses them by default.
+        engineInfo.Features.BindlessResources = Diligent::DEVICE_FEATURE_STATE_OPTIONAL;
+        engineInfo.Features.ShaderResourceRuntimeArrays = Diligent::DEVICE_FEATURE_STATE_OPTIONAL;
+    }
     engineInfo.ppIgnoreDebugMessageNames = kIgnoredValidationMessages;
     engineInfo.IgnoreDebugMessageCount = static_cast<Diligent::Uint32>(std::size(kIgnoredValidationMessages));
 
     gpu.pFactoryVk->CreateDeviceAndContextsVk(engineInfo, &gpu.pDevice, &gpu.pImmediateContext);
     Lit::Log::Phase("vulkan device");
+    LogBindlessAudit(gpu);
+    CreatePipelineCache(gpu);
 
     Diligent::SwapChainDesc swapChainDesc;
     swapChainDesc.ColorBufferFormat = Diligent::TEX_FORMAT_RGBA8_UNORM;
@@ -207,6 +280,7 @@ void Renderer::cleanup() {
 
     m_diligent->pImmediateContext->WaitForIdle();
     for (auto& fence : m_diligent->pFences) fence.Release();
+    SavePipelineCache(*m_diligent);
 
     delete m_imgui;
     m_imgui = nullptr;

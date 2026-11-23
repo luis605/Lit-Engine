@@ -5,7 +5,8 @@
 #include "hiz.glsl"
 #include "meshlet.glsl"
 
-// Cluster LOD, stage 2. One workgroup per work item (an instance and up to 64 consecutive clusters).
+// Cluster LOD, stage 3. One workgroup per work item (an instance and up to 64 consecutive clusters:
+// a hierarchy leaf from meshlet_nodes, a flat chunk, or a retest record).
 // Each lane tests one cluster: DAG cut (projected self error <= threshold < projected parent
 // error), frustum, backface cone and Hi-Z. Survivors are compacted in a fixed order and their
 // triangles are expanded into the phase's index buffer as ONE indexed draw (instanceCount 1,
@@ -120,7 +121,7 @@ void main() {
     mat3 m3 = mat3(model);
     bool mirrored = dot(m3[0], cross(m3[1], m3[2])) < 0.0;
     bool coneUsable = (u_flags & MESHLET_FLAG_CONE) != 0u && !mirrored && minScale > scale * 0.95 && ((u_twoSidedMask >> shader) & 1u) == 0u;
-    float errorScale = meshletErrorScale() * scale;
+    MeshletLod lod = meshletLod(commandSlot / max(u_shaderCount, 1u), scale);
 
     bool maskBit = lane < 32u ? ((mask.x >> lane) & 1u) != 0u : ((mask.y >> (lane - 32u)) & 1u) != 0u;
     bool live = lane < item.z && maskBit;
@@ -131,8 +132,8 @@ void main() {
         atomicAdd(s_tested, 1u);
         vec3 selfCenter = (model * vec4(cluster.selfSphere.xyz, 1.0)).xyz;
         vec3 parentCenter = (model * vec4(cluster.parentSphere.xyz, 1.0)).xyz;
-        float selfError = meshletProjectedError(selfCenter, cluster.selfSphere.w * scale, cluster.errors.x, errorScale);
-        float parentError = meshletProjectedError(parentCenter, cluster.parentSphere.w * scale, cluster.errors.y, errorScale);
+        float selfError = meshletLodError(lod, selfCenter, cluster.selfSphere.w * scale, cluster.errors.x);
+        float parentError = meshletLodError(lod, parentCenter, cluster.parentSphere.w * scale, cluster.errors.y);
         draw = selfError <= u_errorThreshold && parentError > u_errorThreshold;
         if (draw) atomicAdd(s_selected, 1u);
         vec3 center = (model * vec4(cluster.bounds.xyz, 1.0)).xyz;

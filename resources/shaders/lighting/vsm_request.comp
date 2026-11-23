@@ -53,8 +53,11 @@ void main() {
     float margin = 4.0 + localShadowParams.z;
     uvec2 range = clusterRange(clusterIndex(vec2(pixel), viewDepth));
     for (uint i = 0u; i < range.y; ++i) {
-        GpuLight light = lights[clusterLights[range.x + i]];
+        uint index = clusterLights[range.x + i];
+        GpuLight light = lights[index];
         if (!lightHasVirtualShadow(light)) continue;
+        // Portal lights: only receivers that see the light through its portal quad need pages.
+        if (lightAperture(index, light.positionRange.xyz, worldPos) <= 0.0) continue;
         vec3 toLight = light.positionRange.xyz - worldPos;
         float d2 = dot(toLight, toLight);
         if (d2 >= light.positionRange.w * light.positionRange.w) continue;

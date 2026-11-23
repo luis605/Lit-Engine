@@ -23,6 +23,7 @@ struct VsmFaceGpu {
     glm::mat4 viewProjection{0.0f};
     glm::vec4 info{0.0f};
     glm::vec4 sphere{0.0f};
+    glm::vec4 clipPlane{0.0f, 0.0f, 0.0f, 1.0f};  // casters with dot(xyz, p) + w < 0 are cut (portal lights: behind the portal plane)
 };
 
 struct VsmConstantsGpu {

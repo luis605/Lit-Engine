@@ -4,7 +4,8 @@
 #include "meshlet.glsl"
 
 // Cluster LOD, second Hi-Z pass. Clusters rejected only by the previous-frame Hi-Z in the early
-// phase were recorded per work item (instance entry + 64-bit cluster mask). The retest phase draws
+// phase were recorded per work item (instance entry + 64-bit cluster mask), hierarchy nodes rejected
+// the same way as (instance entry, node); node records seed this phase's traversal. The retest phase draws
 // with its own visible-entry buffer, so each record gets an entry slot at the top of that buffer
 // (above the phase's own visible entries) and becomes a work item tested against the new Hi-Z.
 layout(local_size_x = 64, local_size_y = 1, local_size_z = 1) in;
@@ -33,6 +34,14 @@ layout(std430) writeonly buffer WorkItemBuffer {
     uvec4 workItems[];
 };
 
+layout(std430) buffer NodeCounterBuffer {
+    uint nodeCounters[];
+};
+
+layout(std430) writeonly buffer NodeQueueBuffer {
+    uvec4 nodeQueue[];
+};
+
 layout(std430) buffer MeshletStatsBuffer {
     uint meshletStats[];
 };
@@ -48,6 +57,13 @@ void main() {
     uvec4 head = retestItems[index * 2u];
     uvec4 tail = retestItems[index * 2u + 1u];
     sortedEntries[slot] = head.xy;
+    if (tail.w == MESHLET_RETEST_NODE) {
+        // Hierarchy node culled by the previous-frame Hi-Z: resume the traversal from it.
+        uint queued = atomicAdd(nodeCounters[1], 1u);
+        if (queued < u_queueCapacity) nodeQueue[queued] = uvec4(slot, head.z, head.w, 0u);
+        else atomicAdd(meshletStats[u_statsBase + MESHLET_STAT_OVERFLOW], 1u);
+        return;
+    }
     uint item = atomicAdd(u_workCount, 1u);
     if (item >= u_maxWorkItems) return;
     workItems[item * 2u] = uvec4(slot, head.z, tail.z, head.w);

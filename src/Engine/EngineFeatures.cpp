@@ -105,6 +105,7 @@ void Engine::enableFloatingOrigin(const FloatingOriginConfig& config) {
 
 DeltaStore& Engine::enableDeltas() {
     if (!m_deltas) m_deltas = std::make_unique<DeltaStore>(m_world, &m_portals);
+    if (m_terrain) m_terrain->loader().config().deltas = m_deltas.get();
     return *m_deltas;
 }
 

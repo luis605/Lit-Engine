@@ -472,6 +472,71 @@ static void testPortalPresentUntilCrossing() {
     CHECK(missing == 0);
 }
 
+// Light through portals: a lamp of cell B has an image in A behind A's end of the AB pair (and one in C), at the same
+// distance from the receiving quad; the receiving cell's frame nodes carry the cell grade and bounds.
+static void testLightTransport() {
+    World w;
+    setupWorld(w);
+    PortalSystem p;
+    buildPortalScene(p, w, kit(), PortalTestScene::Loop);
+    const int a = p.findCell("A");
+    const int b = p.findCell("B");
+    const int c = p.findCell("C");
+    const glm::vec3 lamp(24.0f, 3.6f, 0.0f);
+    const std::vector<PortalLightImage> images = p.lightImages(b, lamp, 16.0f);
+    CHECK(images.size() == 2);
+    bool sawA = false;
+    bool sawC = false;
+    for (const PortalLightImage& image : images) {
+        const Portal& receiver = p.portals()[static_cast<size_t>(image.portal)];
+        const Portal& source = p.portals()[static_cast<size_t>(receiver.partner)];
+        CHECK(image.cell == receiver.cell);
+        CHECK(source.cell == b);
+        const glm::vec3 position(image.transform * glm::vec4(lamp, 1.0f));
+        CHECK(glm::dot(image.normal, position - image.center) < 0.0f);  // behind the receiving quad
+        CHECK(std::abs(glm::distance(position, image.center) - glm::distance(lamp, source.center())) < 1.0e-3f);
+        CHECK(nearlyEqual(image.normal, receiver.normal()));
+        CHECK(nearlyEqual(image.axisU, receiver.right() * receiver.half.x));
+        sawA = sawA || image.cell == a;
+        sawC = sawC || image.cell == c;
+    }
+    CHECK(sawA && sawC);
+    CHECK(p.lightImages(b, lamp, 2.0f).empty());               // does not reach either quad
+    CHECK(p.lightImages(-1, lamp, 16.0f).empty());
+    p.settings().lightTransport = false;
+    CHECK(p.lightImages(b, lamp, 16.0f).empty());
+    p.settings().lightTransport = true;
+
+    const glm::vec3 tintA = p.lightTint(a);
+    CHECK(std::abs(tintA.x - 1.0f) < 1.0e-4f && tintA.y < 0.9f && tintA.z < tintA.y);
+    p.cellParams(a).scalars["tintLighting"] = 0.0f;
+    CHECK(nearlyEqual(p.lightTint(a), glm::vec3(1.0f)));
+    p.cellParams(a).scalars.erase("tintLighting");
+    PortalCell grey;
+    grey.name = "grey";
+    grey.min = glm::vec3(200.0f);
+    grey.max = glm::vec3(210.0f);
+    const int greyCell = p.addCell(grey);
+    CHECK(nearlyEqual(p.lightTint(greyCell), glm::vec3(1.0f)));
+
+    Camera cam;
+    cam.setPos(glm::vec3(-3.2f, 1.7f, 0.0f));
+    cam.setOrientation(0.0f, 0.0f);
+    p.setCameraCell(a);
+    const PortalFrame frame = p.buildFrame(cam, 720.0f);
+    CHECK(frame.nodes.size() >= 2);
+    for (const PortalViewNode& node : frame.nodes) {
+        CHECK(nearlyEqual(node.lightTint, p.lightTint(node.cell)));
+        CHECK(nearlyEqual(node.cellMin, p.cells()[static_cast<size_t>(node.cell)].min) && nearlyEqual(node.cellMax, p.cells()[static_cast<size_t>(node.cell)].max));
+    }
+
+    p.settings().tintLighting = 0.5f;
+    p.settings().lightTransport = false;
+    PortalSystem copy;
+    CHECK(copy.parseJson(p.toJson()));
+    CHECK(std::abs(copy.settings().tintLighting - 0.5f) < 1.0e-6f && !copy.settings().lightTransport);
+}
+
 int main() {
     testTransformAndLoop();
     testObliqueClip();
@@ -483,5 +548,6 @@ int main() {
     testJson();
     testPhysicalWalkBetweenCells();
     testPortalPresentUntilCrossing();
+    testLightTransport();
     return testsupport::finish();
 }

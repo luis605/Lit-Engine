@@ -42,6 +42,7 @@ layout(std430) buffer VsmBuckets {
 
 shared vec4 s_planes[6];
 shared vec4 s_depthRow;
+shared vec4 s_cut;
 shared vec2 s_lod;
 
 void main() {
@@ -63,6 +64,7 @@ void main() {
         vec4 planes[6] = vec4[](r0 - x0 * r3, x1 * r3 - r0, r1 - y0 * r3, y1 * r3 - r1, r2, r3 - r2);
         for (int i = 0; i < 6; ++i) s_planes[i] = planes[i] / max(length(planes[i].xyz), 1e-8);
         s_depthRow = r3;
+        s_cut = f.clipPlane;
         // Caster LOD: projected diameter in this page's texels is diameter * texelsPerUnitAtUnitDepth / depth.
         s_lod = vec2(float(VSM_PAGE << page.mip) / (2.0 * f.info.x), vsmTuning.x);
     }
@@ -73,7 +75,7 @@ void main() {
         if (sphere.w <= 0.0) continue;
         bool inside = true;
         for (int i = 0; i < 6; ++i) inside = inside && dot(planes[i].xyz, sphere.xyz) + planes[i].w >= -sphere.w;
-        if (!inside) continue;
+        if (!inside || dot(s_cut.xyz, sphere.xyz) + s_cut.w < -sphere.w) continue;
         uint renderable = renderables[id];
         uint flags = renderableFlags(renderable);
         uint material = renderableMaterial(renderable);

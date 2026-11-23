@@ -15,6 +15,7 @@
 #include <vector>
 
 #include "GpuShader.hpp"
+#include "PsoCache.hpp"
 
 namespace litgpu {
 
@@ -105,6 +106,7 @@ inline RefCntAutoPtr<Diligent::IPipelineState> computePipeline(Diligent::IRender
     createInfo.pCS = computeShader;
     layout.apply(createInfo.PSODesc.ResourceLayout);
     RefCntAutoPtr<Diligent::IPipelineState> pso;
+    createInfo.pPSOCache = litgpu::pipelineCache();
     device->CreateComputePipelineState(createInfo, &pso);
     if (!pso) Lit::Log::Error("Failed to create compute pipeline '{}'", path);
     return pso;
@@ -136,6 +138,7 @@ inline RefCntAutoPtr<Diligent::IPipelineState> fullscreenPipeline(Diligent::IRen
     const PipelineLayout layout = makeLayout({vertexShader, pixelShader}, samplers);
     layout.apply(createInfo.PSODesc.ResourceLayout);
     RefCntAutoPtr<Diligent::IPipelineState> pso;
+    createInfo.pPSOCache = litgpu::pipelineCache();
     device->CreateGraphicsPipelineState(createInfo, &pso);
     if (!pso) Lit::Log::Error("Failed to create pipeline '{}'", name);
     return pso;

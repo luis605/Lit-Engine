@@ -28,6 +28,9 @@ export struct PortalViewNode {
     int cell = -1;
     float sunScale = 1.0f;
     float ambientScale = 1.0f;
+    glm::vec3 lightTint{1.0f};  // cell lighting grade (sun and ambient colour), from the cell tint
+    glm::vec3 cellMin{-1.0e9f};  // bounds of the view's cell (shared sun cascades test their coverage against them)
+    glm::vec3 cellMax{1.0e9f};
     bool masked = false;
     glm::vec3 entryCenter{0.0f};
     glm::vec3 entryAxisU{1.0f, 0.0f, 0.0f};
@@ -47,4 +50,6 @@ export struct PortalViewStats {
     int depth = 0;
     uint32_t drawn = 0;
     double gpuMilliseconds = 0.0;
+    bool sunCascades = false;     // the view is sunlit and shades with cascades
+    bool sharedCascades = false;  // ... reusing the set of another view (no cascade rendering of its own)
 };

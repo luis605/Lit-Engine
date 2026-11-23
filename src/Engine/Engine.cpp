@@ -9,6 +9,7 @@
 #include <cmath>
 #include <cstdint>
 #include <charconv>
+#include <cstdlib>
 #include <filesystem>
 #include <ostream>
 #include <string_view>
@@ -53,11 +54,77 @@ import Engine.Portal;
 import Engine.Portal.view;
 import Engine.PortalBridge;
 import Engine.Render.observation;
+import Engine.Render.lighting;
 
 namespace {
 // Local lights handed to the renderer per frame (clustered culling and virtual shadows scale to this;
 // must not exceed lighting_detail::kMaxLights).
 constexpr size_t kMaxSceneLights = 32768;
+
+// Portal cell of every collected light (packed order), so each view only gathers the lights of its own cell.
+// Only cells that own a portal are enclosed spaces; lights of portal-less cells (streaming grid cells) stay unfiltered (-1).
+std::vector<bool> portalOwningCells(const PortalSystem& portals) {
+    std::vector<bool> owning(portals.cells().size(), false);
+    for (const Portal& portal : portals.portals()) {
+        if (portal.cell >= 0 && static_cast<size_t>(portal.cell) < owning.size()) owning[static_cast<size_t>(portal.cell)] = true;
+    }
+    return owning;
+}
+
+struct PortalLightPlan {
+    std::vector<int32_t> cells;
+    uint32_t first = 0;
+    std::vector<LightAperture> apertures;
+};
+
+// Light through portals (docs/Portals.md): every light of a portal-owning cell that reaches one of the cell's portal quads
+// gets an image in the cell behind it (the portal transform applied to its pose), appended after the collected lights
+// with the receiving cell as its cell and the receiving quad as its aperture. One hop; images never chain.
+constexpr float kApertureSoftness = 0.03f;
+
+PortalLightPlan portalLights(const PortalSystem& portals, LightSet& lights) {
+    PortalLightPlan plan;
+    if (!portals.active()) return plan;
+    const std::vector<bool> owning = portalOwningCells(portals);
+    const size_t count = lights.packed.size() / 4;
+    plan.cells.reserve(count);
+    for (size_t light = 0; light < count; ++light) {
+        const int cell = portals.cellAt(glm::vec3(lights.packed[light * 4]));
+        plan.cells.push_back(cell >= 0 && static_cast<size_t>(cell) < owning.size() && owning[static_cast<size_t>(cell)] ? cell : -1);
+    }
+    plan.first = static_cast<uint32_t>(count);
+    std::vector<glm::vec4> images;
+    for (size_t light = 0; light < count; ++light) {
+        const int cell = plan.cells[light];
+        if (cell < 0) continue;
+        const glm::vec4 positionRange = lights.packed[light * 4];
+        for (const PortalLightImage& image : portals.lightImages(cell, glm::vec3(positionRange), positionRange.w)) {
+            if (plan.apertures.size() >= kMaxPortalLights || count + plan.apertures.size() >= kMaxSceneLights) break;
+            const glm::vec4 direction = lights.packed[light * 4 + 2];
+            images.push_back(glm::vec4(glm::vec3(image.transform * glm::vec4(glm::vec3(positionRange), 1.0f)), positionRange.w));
+            images.push_back(lights.packed[light * 4 + 1]);
+            images.push_back(glm::vec4(glm::mat3(image.transform) * glm::vec3(direction), direction.w));
+            images.push_back(lights.packed[light * 4 + 3]);
+            plan.cells.push_back(image.cell);
+            LightAperture aperture;
+            aperture.center = glm::vec4(image.center, kApertureSoftness);
+            aperture.axisU = glm::vec4(image.axisU, 0.0f);
+            aperture.axisV = glm::vec4(image.axisV, 0.0f);
+            aperture.plane = glm::vec4(image.normal, -glm::dot(image.normal, image.center));
+            plan.apertures.push_back(aperture);
+        }
+    }
+    lights.packed.insert(lights.packed.end(), images.begin(), images.end());
+    lights.count = static_cast<uint32_t>(lights.packed.size() / 4);
+    return plan;
+}
+
+void uploadLights(Renderer& renderer, const PortalSystem& portals, bool hasLights, LightSet& lights) {
+    const PortalLightPlan plan = portalLights(portals, lights);
+    renderer.setLights(hasLights, lights.directional, lights.packed);
+    renderer.setLightCells(plan.cells);
+    renderer.setLightApertures(plan.first, plan.apertures);
+}
 }
 
 Engine::Engine() {
@@ -106,6 +173,9 @@ bool Engine::open(const WindowConfig& config) {
         return false;
     }
     glfwWindowHint(GLFW_CLIENT_API, GLFW_NO_API);
+    // LIT_FIXED_WINDOW=1: fixed-size (non-resizable) window, so tiling window managers float it at the requested size
+    // (pixel comparisons between runs, docs/RenderGraph.md).
+    if (const char* fixed = std::getenv("LIT_FIXED_WINDOW"); fixed && fixed[0] == '1') glfwWindowHint(GLFW_RESIZABLE, GLFW_FALSE);
     GLFWwindow* window = glfwCreateWindow(config.width, config.height, config.title.c_str(), nullptr, nullptr);
     if (!window) {
         Lit::Log::Fatal("Failed to create window '{}'", config.title);
@@ -121,9 +191,13 @@ bool Engine::open(const WindowConfig& config) {
 
 int Engine::run(const std::function<void(float)>& frame) {
     double last = glfwGetTime();
+    // LIT_FIXED_DT=<seconds>: every frame advances by exactly this step (the renderer clock follows, RendererFrame.cpp),
+    // so two runs of the same scene produce the same frames.
+    const char* fixedStep = std::getenv("LIT_FIXED_DT");
+    const float fixedDelta = fixedStep ? std::strtof(fixedStep, nullptr) : 0.0f;
     while (m_window && !glfwWindowShouldClose(m_window)) {
         const double now = glfwGetTime();
-        const auto deltaTime = static_cast<float>(now - last);
+        const auto deltaTime = fixedDelta > 0.0f ? fixedDelta : static_cast<float>(now - last);
         last = now;
         beginUi();
         if (frame) frame(deltaTime);
@@ -372,7 +446,7 @@ void Engine::update() {
     feedGpuObservation();
     LightSet lights;
     const bool hasLights = collectLights(m_world, m_world.camera().getPosition(), lights, kMaxSceneLights);
-    m_renderer.setLights(hasLights, lights.directional, lights.packed);
+    uploadLights(m_renderer, m_portals, hasLights, lights);
     if (m_renderer.worldOrigin() != m_world.origin()) m_reflectionFrame = 0;  // rebased: re-collect the reflection boxes in the new frame now
     m_renderer.setWorldOrigin(m_world.origin());
     refreshReflectionScene();
@@ -386,7 +460,7 @@ void Engine::update(World& world) {
     updatePortals(world);
     LightSet lights;
     const bool hasLights = collectLights(world, world.camera().getPosition(), lights, kMaxSceneLights);
-    m_renderer.setLights(hasLights, lights.directional, lights.packed);
+    uploadLights(m_renderer, m_portals, hasLights, lights);
     m_renderer.setWorldOrigin(world.origin());
     syncWindowSize(world.camera());
     m_renderer.drawScene(world.database(), world.camera());
@@ -402,9 +476,14 @@ void Engine::updatePortals(World& world) {
     if (crossed >= 0) m_renderer.portalCrossed();
     if (crossed >= 0 && world.isAlive(cameraEntity)) world.setWorldMatrix(cameraEntity, m_portals.portals()[static_cast<size_t>(crossed)].transform * world.getWorldMatrix(cameraEntity));
     m_portals.updateObjects(world);
-    const PortalFrame frame = m_portals.buildFrame(world.camera(), static_cast<float>(std::max(m_renderer.height(), 1)));
+    PortalFrame frame = m_portals.buildFrame(world.camera(), static_cast<float>(std::max(m_renderer.height(), 1)));
     m_visibleCells = ::visibleCells(frame);
-    m_renderer.setPortalFrame(frame);
+    // The renderer filters local lights by the view's cell; views in portal-less cells must not filter.
+    const std::vector<bool> owning = portalOwningCells(m_portals);
+    for (PortalViewNode& node : frame.nodes) {
+        if (node.cell < 0 || static_cast<size_t>(node.cell) >= owning.size() || !owning[static_cast<size_t>(node.cell)]) node.cell = -1;
+    }
+    m_renderer.setPortalFrame(std::move(frame));
 }
 
 void Engine::present() { m_renderer.present(); }

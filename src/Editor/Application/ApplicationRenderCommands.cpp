@@ -189,6 +189,13 @@ void Application::registerRenderToggleCommands() {
     toggle("render.governor", "Quality governor", &RenderSettings::qualityGovernor);
     toggle("render.virtualShadows", "Virtual shadow maps (all local lights)", &RenderSettings::virtualShadows);
     toggle("render.vsmCache", "Virtual shadow page cache", &RenderSettings::vsmCache);
+    toggle("render.graph", "Render graph frame path", &RenderSettings::renderGraph);
+    addCommand("render.graphDump", "Dump render graph (render_graph.txt / .dot)", "Render", {}, [this] {
+        m_engine.requestRenderGraphDump("render_graph");
+        const auto info = m_engine.renderGraphInfo();
+        m_ctx->toast(info.active ? std::format("Render graph: {} passes, {} transients in {} resources -> render_graph.txt/.dot", info.stats.passes, info.stats.allocatedTransients, info.stats.physicalTransients)
+                                 : std::string("Render graph is off (renderGraph 0 or LIT_RENDER_GRAPH=0)"));
+    });
     addCommand("render.vsmPool", "Cycle virtual shadow pool size", "Render", {}, [this] {
         RenderSettings& settings = m_engine.renderSettings();
         settings.vsmPoolSize = settings.vsmPoolSize >= 8192 ? 2048 : settings.vsmPoolSize * 2;

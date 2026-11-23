@@ -60,6 +60,23 @@ export struct PortalSettings {
     float blendDistance = 2.0f;
     float minPixels = 6.0f;
     bool occlusion = true;
+    // Lighting grade per cell: sun and ambient are multiplied by mix(1, tint / max(tint), tintLighting). A cell scalar
+    // "tintLighting" overrides it per cell.
+    float tintLighting = 0.35f;
+    // Lights of a cell shine through its portals into the neighbouring cells (one hop, docs/Portals.md).
+    bool lightTransport = true;
+};
+
+// A light of one cell seen through a portal from the neighbouring cell: `transform` maps the light from its cell into the
+// receiving `cell`, the aperture is the receiving end's quad (normal toward the receivers).
+export struct PortalLightImage {
+    int portal = -1;
+    int cell = -1;
+    glm::mat4 transform{1.0f};
+    glm::vec3 center{0.0f};
+    glm::vec3 axisU{1.0f, 0.0f, 0.0f};
+    glm::vec3 axisV{0.0f, 1.0f, 0.0f};
+    glm::vec3 normal{0.0f, 0.0f, 1.0f};
 };
 
 export struct PortalRayHit {
@@ -124,6 +141,11 @@ export class PortalSystem {
     void setCrossHook(PortalCrossHook hook) { m_crossHook = std::move(hook); }
 
     [[nodiscard]] PortalCellParams sampleParams(int cell, const glm::vec3& position) const;
+    // Images of a light (sphere of `range` at `position` in `cell`) in the cells behind the portals it reaches: the light
+    // must be in front of the portal end of its cell and its sphere must touch that quad. Empty when lightTransport is off.
+    [[nodiscard]] std::vector<PortalLightImage> lightImages(int cell, const glm::vec3& position, float range) const;
+    // Lighting grade of a cell (see PortalSettings::tintLighting).
+    [[nodiscard]] glm::vec3 lightTint(int cell) const;
     [[nodiscard]] PortalRayHit raycast(World& world, const glm::vec3& origin, const glm::vec3& direction, float maxDistance, int cell = -1, int maxCrossings = 8) const;
     [[nodiscard]] std::vector<PortalOverlap> overlapSphere(World& world, const glm::vec3& center, float radius, int cell = -1) const;
 

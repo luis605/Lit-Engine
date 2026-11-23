@@ -21,6 +21,7 @@ struct ShotOptions {
     bool hasCamera = false;
     float cameraValues[5] = {};
     bool noProbe = false;
+    bool deterministic = false;  // LIT_FIXED_DT=1/60 and LIT_FIXED_WINDOW=1 (reproducible frames, fixed window size)
     int bakeFrame = 0;
     int lightCount = 4096;
     double originKm = 500.0;  // largeworld scene: distance from the world origin

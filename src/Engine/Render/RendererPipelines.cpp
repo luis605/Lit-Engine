@@ -98,6 +98,10 @@ void Renderer::setLights(bool enabled, const std::array<glm::vec4, 2>& direction
     m_lighting.setDirectionalLight(hasDirectional, glm::vec3(directional[0]), glm::vec3(directional[1]));
 }
 
+void Renderer::setLightCells(const std::vector<int32_t>& cells) { m_lighting.setLightCells(cells); }
+
+void Renderer::setLightApertures(uint32_t first, const std::vector<LightAperture>& apertures) { m_lighting.setLightApertures(first, apertures); }
+
 void Renderer::setReflectionScene(const ReflectionScene& scene) { m_lighting.setReflectionScene(scene); }
 
 void Renderer::bakeProbes() { m_lighting.bakeProbes(); }
@@ -189,6 +193,7 @@ void Renderer::createTransparentPSO() {
     createInfo.pPS = pixelShader;
     const auto variables = DescribeVariables({vertexShader, pixelShader}, {"u_accumulation", "u_revealage"});
     UseVariables(createInfo.PSODesc.ResourceLayout, variables);
+    createInfo.pPSOCache = litgpu::pipelineCache();
     gpu.pDevice->CreateGraphicsPipelineState(createInfo, &gpu.pCompositePSO);
     if (!gpu.pCompositePSO) {
         Lit::Log::Error("Failed to create Transparent Composite PSO");

@@ -122,6 +122,14 @@ struct Lighting::Data {
     int localCasterCount = 0;
     float localTanHalf = 1.0f;
     std::vector<GpuLight> cpuLights;
+    std::vector<int32_t> lightCells;
+    bool lightCellsDirty = true;
+    lighting_detail::RefCntAutoPtr<Diligent::IBuffer> lightCellBuffer;
+    // Portal lights (docs/Portals.md): lights [firstPortalLight, firstPortalLight + apertures.size()) are portal images; their
+    // apertures live in the light buffer at kMaxLights + (index - firstPortalLight) (LIGHT_APERTURE_BASE in lights.glsl).
+    uint32_t firstPortalLight = 0;
+    std::vector<LightAperture> lightApertures;
+    bool lightAperturesDirty = false;
     std::vector<uint32_t> shadowedLights;
 
     lighting_detail::RefCntAutoPtr<Diligent::IBuffer> materials;

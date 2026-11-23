@@ -1,6 +1,7 @@
 #pragma once
 
 struct SkinningGpu;
+struct RendererGraphState;
 
 struct HiZSet {
     Diligent::RefCntAutoPtr<Diligent::ITexture> texture;
@@ -24,6 +25,7 @@ struct DiligentData {
     Diligent::RefCntAutoPtr<Diligent::IDeviceContext> pImmediateContext;
     Diligent::RefCntAutoPtr<Diligent::ISwapChain> pSwapChain;
     Diligent::IEngineFactoryVk* pFactoryVk = nullptr;
+    Diligent::RefCntAutoPtr<Diligent::IPipelineStateCache> pPipelineCache;
 
     static constexpr int NumFrames = 3;
     Diligent::RefCntAutoPtr<Diligent::IFence> pFences[NumFrames];
@@ -236,8 +238,12 @@ struct DiligentData {
         int depth = 0;
         bool recorded = false;
         bool timed = false;
+        bool sunCascades = false;
+        bool sharedCascades = false;
     };
     PortalSnapshot portalSnapshot[NumFrames][kMaxPortalViews];
+    // Frame graph state (RendererGraph.hpp): graph, transient pool, Diligent backend. Destroyed before the device.
+    std::shared_ptr<RendererGraphState> graph;
     // Declared last so it is destroyed first (before the device). Defined in RendererSkinning.hpp.
     std::shared_ptr<SkinningGpu> skinning;
 };

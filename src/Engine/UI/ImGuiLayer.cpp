@@ -13,6 +13,7 @@ module;
 #include <string>
 #include <vector>
 
+#include "../Render/PsoCache.hpp"
 #include "DiligentCore/Graphics/GraphicsEngine/interface/RenderDevice.h"
 #include "DiligentCore/Graphics/GraphicsEngine/interface/DeviceContext.h"
 #include "DiligentCore/Graphics/GraphicsEngine/interface/Buffer.h"
@@ -150,6 +151,7 @@ void createPipeline(ImGuiLayer::Data& data, Diligent::TEXTURE_FORMAT depthFormat
     const Diligent::ImmutableSamplerDesc samplers[] = {{Diligent::SHADER_TYPE_PIXEL, "u_texture", linearClamp}};
     pipelineInfo.PSODesc.ResourceLayout.ImmutableSamplers = samplers;
     pipelineInfo.PSODesc.ResourceLayout.NumImmutableSamplers = 1;
+    pipelineInfo.pPSOCache = litgpu::pipelineCache();
     data.device->CreateGraphicsPipelineState(pipelineInfo, &data.pso);
 }
 

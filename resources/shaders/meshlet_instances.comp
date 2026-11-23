@@ -6,9 +6,11 @@
 #include "meshlet.glsl"
 
 // Cluster LOD, stage 1. One thread per sorted visible entry of the phase (output of the object
-// cull + scatter). Entries whose mesh has a cluster DAG are expanded into work items, one per
-// chunk (<= 64 clusters of one DAG level) that can hold selected clusters at its distance range
-// and, for camera views, intersects the frustum.
+// cull + scatter). With MESHLET_FLAG_HIERARCHY an entry whose mesh has a cluster DAG queues its
+// hierarchy root for the level-synchronous node traversal (meshlet_nodes). Otherwise (flat path,
+// `clusterHierarchy 0`) it is expanded into work items, one per chunk (<= 64 clusters of one DAG
+// level) that can hold selected clusters at its distance range and, for camera views, intersects
+// the frustum.
 // Their regular instanced draw is suppressed (command_gen skips meshes with indexCount 0).
 layout(local_size_x = 256, local_size_y = 1, local_size_z = 1) in;
 
@@ -44,6 +46,14 @@ layout(std430) writeonly buffer WorkItemBuffer {
     uvec4 workItems[];
 };
 
+layout(std430) buffer NodeCounterBuffer {
+    uint nodeCounters[];
+};
+
+layout(std430) writeonly buffer NodeQueueBuffer {
+    uvec4 nodeQueue[];
+};
+
 layout(std430) buffer MeshletStatsBuffer {
     uint meshletStats[];
 };
@@ -68,9 +78,17 @@ void main() {
     }
     uint commandSlot = view * u_shaderCount + shader;
 
+    if ((u_flags & MESHLET_FLAG_HIERARCHY) != 0u) {
+        uint queued = atomicAdd(nodeCounters[1], 1u);
+        if (queued < u_queueCapacity) nodeQueue[queued] = uvec4(slot, meshInfo.info.w, commandSlot | (meshId << 16u), 0u);
+        atomicAdd(meshletStats[u_statsBase + MESHLET_STAT_INSTANCES], 1u);
+        if (queued >= u_queueCapacity) atomicAdd(meshletStats[u_statsBase + MESHLET_STAT_OVERFLOW], 1u);
+        return;
+    }
+
     mat4 model = meshletWorld(worldRows[objectId]);
     float scale = max(length(model[0].xyz), max(length(model[1].xyz), length(model[2].xyz)));
-    float errorScale = meshletErrorScale() * scale;
+    MeshletLod lod = meshletLod(view, scale);
     bool frustum = (u_flags & MESHLET_FLAG_FRUSTUM) != 0u;
 
     // Chunk level: the LOD cut can only select a cluster of the chunk if some self error is within
@@ -81,11 +99,7 @@ void main() {
         ClusterChunk chunk = clusterChunks[meshInfo.info.x + c];
         vec3 center = (model * vec4(chunk.sphere.xyz, 1.0)).xyz;
         float radius = chunk.sphere.w * scale;
-        float distance = length(center - viewPos);
-        float nearest = max(distance - radius, nearPlane);
-        float farthest = max(distance + radius, nearPlane);
-        if (chunk.minSelfError * errorScale / farthest > u_errorThreshold) continue;
-        if (chunk.maxParentError * errorScale / nearest <= u_errorThreshold) continue;
+        if (!meshletNodeInCut(lod, center, radius, chunk.minSelfError, chunk.maxParentError)) continue;
         if (frustum) {
             bool inside = true;
             for (int i = 0; i < 6; ++i) {

@@ -92,6 +92,7 @@ RefCntAutoPtr<Diligent::IPipelineState> buildCompute(Diligent::IRenderDevice* de
     createInfo.pCS = computeShader;
     layout.apply(createInfo.PSODesc.ResourceLayout);
     RefCntAutoPtr<Diligent::IPipelineState> pso;
+    createInfo.pPSOCache = litgpu::pipelineCache();
     device->CreateComputePipelineState(createInfo, &pso);
     return pso;
 }
@@ -193,6 +194,7 @@ RefCntAutoPtr<Diligent::IPipelineState> buildGraphics(Diligent::IRenderDevice* d
     build.createInfo.pAS = build.amplification;
     build.layout.apply(build.createInfo.PSODesc.ResourceLayout);
     RefCntAutoPtr<Diligent::IPipelineState> pso;
+    build.createInfo.pPSOCache = litgpu::pipelineCache();
     device->CreateGraphicsPipelineState(build.createInfo, &pso);
     if (pso && pass.info.kind == PassKind::Effect) pass.info.stage = build.stage;
     return pso;

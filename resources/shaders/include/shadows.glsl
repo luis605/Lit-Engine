@@ -66,6 +66,18 @@ float sunShadow(vec3 worldPos, vec3 N, float NoL, vec2 pixel) {
     if (shadowParams.x < 0.5) return 1.0;
     float viewDepth = -(view * vec4(worldPos, 1.0)).z;
     int count = int(shadowParams2.x + 0.5);
+    if (cellParams.z > 0.0) {
+        // Shared cascades (a portal view reusing the set fitted for another view): the splits belong to that view, so
+        // pick the finest cascade whose box contains the point, up to this view's own shadow distance.
+        if (viewDepth >= cellParams.z) return 1.0;
+        for (int c = 0; c < count; ++c) {
+            vec3 coord = cascadeCoord(c, worldPos);
+            if (all(greaterThan(coord.xy, vec2(0.02))) && all(lessThan(coord.xy, vec2(0.98))) && coord.z < 1.0) {
+                return cascadeVisibility(c, worldPos, N, NoL, shadowNoise(pixel), c >= 2 ? PCF_SAMPLES / 2 : PCF_SAMPLES);
+            }
+        }
+        return 1.0;
+    }
     int cascade = -1;
     for (int c = 0; c < count; ++c) {
         if (viewDepth < cascadeSplits[c]) {

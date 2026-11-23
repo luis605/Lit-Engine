@@ -119,6 +119,34 @@ PortalCellParams PortalSystem::sampleParams(int cell, const glm::vec3& position)
     return result;
 }
 
+std::vector<PortalLightImage> PortalSystem::lightImages(int cell, const glm::vec3& position, float range) const {
+    std::vector<PortalLightImage> images;
+    if (!m_settings.lightTransport || m_settings.maxDepth < 1 || cell < 0 || static_cast<size_t>(cell) >= m_cells.size() || range <= 0.0f) return images;
+    for (int id : portalsOf(cell)) {
+        const Portal& source = m_portals[static_cast<size_t>(id)];
+        float side = 0.0f;
+        const float distance = rectDistance(source, position, side);
+        if (side <= 0.0f || distance >= range || source.partner < 0) continue;
+        // The source end's transform maps its cell onto the partner's: the light appears behind the receiving end.
+        const Portal& receiver = m_portals[static_cast<size_t>(source.partner)];
+        PortalLightImage image;
+        image.portal = source.partner;
+        image.cell = receiver.cell;
+        image.transform = source.transform;
+        image.center = receiver.center();
+        image.axisU = receiver.right() * receiver.half.x;
+        image.axisV = receiver.up() * receiver.half.y;
+        image.normal = receiver.normal();
+        images.push_back(image);
+    }
+    return images;
+}
+
+glm::vec3 PortalSystem::lightTint(int cell) const {
+    if (cell < 0 || static_cast<size_t>(cell) >= m_cells.size()) return glm::vec3(1.0f);
+    return cellLightTint(m_cells[static_cast<size_t>(cell)], m_settings);
+}
+
 PortalRayHit PortalSystem::raycast(World& world, const glm::vec3& origin, const glm::vec3& direction, float maxDistance, int cell, int maxCrossings) const {
     PortalRayHit result;
     result.cell = cell >= 0 ? cell : cellAt(origin);

@@ -11,6 +11,8 @@
 #include <vector>
 
 import Engine.World;
+import Engine.Delta;
+import Engine.Json;
 import Engine.Render.entity;
 import Engine.Portal;
 import Engine.Physics;
@@ -724,6 +726,211 @@ static void testStreamer() {
     CHECK(streamer.settled());
 }
 
+
+namespace {
+struct ScatterRig {
+    World world;
+    DeltaStore deltas{world};
+    std::unique_ptr<TerrainTileLoader> loader;
+    std::vector<size_t> batchVertices;  // vertices of every uploaded scatter batch, in upload order
+    std::vector<uint32_t> released;
+    uint32_t nextMesh = 100;
+
+    explicit ScatterRig(bool hidden = false) {
+        setup(world);
+        TerrainLoaderConfig config;
+        config.terrain = makeConfig();
+        config.scatter.seed = 31;
+        ScatterSpecies batched;
+        batched.name = "batched";
+        batched.spacing = 7.0f;
+        batched.density = 0.9f;
+        batched.minNormalY = 0.0f;
+        batched.geometry = std::make_shared<const Mesh>(Mesh(std::vector<float>{0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 1, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 1, 0, 0, 1, 0, 0, 0, 0, 0, 1, 0, 1, 0, 0, 0, 1, 0, 1, 1}, std::vector<unsigned int>{0, 1, 2, 0, 2, 3, 0, 3, 1}));
+        ScatterSpecies single;
+        single.name = "single";
+        single.mesh = 3;
+        single.spacing = 6.0f;
+        single.density = 0.9f;
+        single.minNormalY = 0.0f;
+        config.scatter.species = {batched, single};
+        config.deltas = &deltas;
+        config.startHidden = hidden;
+        config.uploadMesh = [this](const Mesh&) { return nextMesh++; };
+        config.uploadScatterMesh = [this](PreparedMesh& prepared) {
+            batchVertices.push_back(prepared.base.vertices.size());
+            return nextMesh++;
+        };
+        config.releaseMesh = [this](uint32_t id) { released.push_back(id); };
+        config.tileOfCell = [](int cell) -> std::optional<TileKey> { return TileKey{0, 0, 0}; };
+        loader = std::make_unique<TerrainTileLoader>(world, std::move(config));
+    }
+
+    void load(int cell = 0) {
+        auto payload = loader->prepare(cell);
+        StreamBudget budget;
+        budget.unlimited = true;
+        while (!loader->commit(cell, payload.get(), budget)) {}
+    }
+    void unload(int cell = 0) {
+        StreamBudget budget;
+        budget.unlimited = true;
+        while (!loader->unload(cell, budget)) {}
+    }
+    [[nodiscard]] std::string cellName() const { return terrainCellName(TileKey{0, 0, 0}); }
+    [[nodiscard]] const ScatterConfig& scatter() const { return loader->config().scatter; }
+    [[nodiscard]] std::vector<ScatterInstance> instances(uint32_t species) const {
+        std::vector<ScatterInstance> out;
+        for (const ScatterInstance& i : scatterTile(loader->config().terrain, scatter(), TileKey{0, 0, 0})) {
+            if (i.species == species) out.push_back(i);
+        }
+        return out;
+    }
+    [[nodiscard]] EntityHandle entityOf(const ScatterInstance& i) const { return deltas.find(cellName(), scatterInstanceKey(scatter(), i)); }
+    [[nodiscard]] size_t aliveSingles(uint32_t species) const {
+        size_t alive = 0;
+        for (const ScatterInstance& i : instances(species)) {
+            const EntityHandle h = entityOf(i);
+            alive += h != NULL_ENTITY && world.isAlive(h) ? 1 : 0;
+        }
+        return alive;
+    }
+};
+}
+
+static void testScatterDeltas() {
+    ScatterRig rig;
+    const auto batched = rig.instances(0);
+    const auto singles = rig.instances(1);
+    CHECK(batched.size() > 6);
+    CHECK(singles.size() > 6);
+    CHECK(scatterInstanceKey(rig.scatter(), singles[0]) == scatterInstanceKey(rig.scatter(), 1, static_cast<int32_t>(singles[0].cellX), static_cast<int32_t>(singles[0].cellZ)));
+
+    rig.load();
+    CHECK(rig.aliveSingles(1) == singles.size());
+    CHECK(rig.batchVertices.size() == 1);
+    const size_t fullVertices = rig.batchVertices.empty() ? 0 : rig.batchVertices[0];
+    const size_t aliveAfterLoad = rig.world.aliveCount();
+
+    // No player change: nothing is stored (also with the streamer hiding/showing the tile).
+    rig.loader->setVisible(0, false);
+    rig.deltas.captureAll();
+    CHECK(rig.deltas.deltaCount() == 0);
+    rig.loader->setVisible(0, true);
+
+    // Remove a per-instance tree and a merged one, move another, add an object.
+    CHECK(rig.loader->removeScatter(0, 1, static_cast<int32_t>(singles[0].cellX), static_cast<int32_t>(singles[0].cellZ)));
+    CHECK(rig.aliveSingles(1) == singles.size() - 1);
+    CHECK(rig.loader->removeScatter(0, 0, static_cast<int32_t>(batched[0].cellX), static_cast<int32_t>(batched[0].cellZ)));
+    CHECK(rig.batchVertices.size() == 2);
+    CHECK(rig.batchVertices.size() == 2 && rig.batchVertices[1] < fullVertices);
+    CHECK(rig.released.size() == 1);  // the old batch mesh was freed
+    const EntityHandle moved = rig.entityOf(singles[1]);
+    CHECK(moved != NULL_ENTITY);
+    const glm::vec3 movedTo = rig.world.getPosition(moved) + glm::vec3(0.0f, 3.0f, 0.0f);
+    rig.world.setPosition(moved, movedTo);
+    const EntityHandle placed = rig.world.create("player_post", 3, glm::vec3(10.0f, 20.0f, 30.0f));
+    CHECK(rig.loader->trackAdded(0, placed));
+    CHECK(!rig.loader->removeScatter(5, 1, 0, 0));  // not resident
+
+    // Unload and reload: the changes persist, nothing else differs.
+    rig.unload();
+    CHECK(rig.world.aliveCount() == 0);
+    CHECK(rig.deltas.deltaCount() == 4);
+    rig.load();
+    CHECK(rig.aliveSingles(1) == singles.size() - 1);
+    CHECK(rig.entityOf(singles[0]) == NULL_ENTITY);
+    CHECK(rig.batchVertices.size() == 3 && rig.batchVertices[2] == rig.batchVertices[1]);
+    const EntityHandle movedAgain = rig.entityOf(singles[1]);
+    CHECK(movedAgain != NULL_ENTITY && rig.world.getPosition(movedAgain) == movedTo);
+    size_t posts = 0;
+    for (const EntityHandle h : rig.deltas.liveEntities(rig.cellName())) {
+        if (rig.world.getName(h) == "player_post") {
+            ++posts;
+            CHECK(rig.world.getPosition(h) == glm::vec3(10.0f, 20.0f, 30.0f));
+        }
+    }
+    CHECK(posts == 1);
+    CHECK(rig.world.aliveCount() == aliveAfterLoad);  // one tree and one batch tree fewer, one added object, same entity count (batch is one entity)
+
+    // Unload/reload without further changes is stable (determinism).
+    std::set<std::string> first;
+    for (const ScatterInstance& i : singles) first.insert(rig.entityOf(i) != NULL_ENTITY ? scatterInstanceKey(rig.scatter(), i) : "");
+    rig.unload();
+    rig.load();
+    std::set<std::string> second;
+    for (const ScatterInstance& i : singles) second.insert(rig.entityOf(i) != NULL_ENTITY ? scatterInstanceKey(rig.scatter(), i) : "");
+    CHECK(first == second);
+    CHECK(rig.deltas.deltaCount() == 4);
+
+    // Save, then a fresh process with a different floating origin.
+    const Json saved = rig.deltas.toJson();
+    ScatterRig other;
+    other.world.shiftOrigin(glm::dvec3(4096.0, 0.0, -2048.0));
+    std::string error;
+    CHECK(other.deltas.fromJson(saved, &error));
+    other.load();  // loaded after the deltas: the worker builds against the stored removals
+    CHECK(other.aliveSingles(1) == singles.size() - 1);
+    CHECK(other.entityOf(singles[0]) == NULL_ENTITY);
+    CHECK(other.batchVertices.size() == 1 && other.batchVertices[0] == rig.batchVertices[1]);
+    const EntityHandle movedOther = other.entityOf(singles[1]);
+    CHECK(movedOther != NULL_ENTITY);
+    if (movedOther != NULL_ENTITY) {
+        const glm::dvec3 a = other.world.toWorld(other.world.getPosition(movedOther));
+        const glm::dvec3 b = rig.world.toWorld(rig.world.getPosition(rig.entityOf(singles[1])));
+        CHECK(glm::length(a - b) < 1e-3);
+    }
+    for (const EntityHandle h : other.deltas.liveEntities(other.cellName())) {
+        if (other.world.getName(h) == "player_post") CHECK(glm::length(other.world.toWorld(other.world.getPosition(h)) - glm::dvec3(10.0, 20.0, 30.0)) < 1e-3);
+    }
+    // Saving from the shifted session keeps the same set of changes (positions differ only by float rounding at the larger origin).
+    other.deltas.captureAll();
+    CHECK(other.deltas.deltaCount() == rig.deltas.deltaCount());
+
+    // Deltas loaded while the tile is already resident rebuild the batch in place.
+    ScatterRig late;
+    late.load();
+    CHECK(late.aliveSingles(1) == singles.size());
+    late.world.shiftOrigin(glm::dvec3(-300.0, 0.0, 700.0));
+    late.deltas.shiftOrigin(glm::vec3(-300.0f, 0.0f, 700.0f));
+    CHECK(late.deltas.fromJson(saved));
+    late.loader->syncDeltas();
+    CHECK(late.aliveSingles(1) == singles.size() - 1);
+    CHECK(late.batchVertices.size() == 2 && late.batchVertices[1] == rig.batchVertices[1]);
+    CHECK(late.released.size() == 1);
+}
+
+static void testSharedBudget() {
+    World w;
+    setup(w);
+    StreamBudget budget;
+    budget.millis = 1.0e6;
+    budget.bytes = 1u << 30;
+    TerrainLoaderConfig loader;
+    loader.terrain = makeConfig();
+    loader.uploadMesh = [](const Mesh&) { return 1u; };
+    TerrainStreamConfig stream;
+    stream.lod.maxLevel = 1;
+    stream.lod.viewDistance = 200.0f;
+    stream.reselectInterval = 1;
+    TerrainStreamer streamer(w, std::move(loader), stream);
+    streamer.setSharedBudget([&budget]() -> StreamBudget* { return &budget; });
+    for (int i = 0; i < 400 && budget.spent == 0; ++i) {
+        streamer.update(glm::vec3(32.0f, 30.0f, 32.0f), glm::vec3(1.0f, 0.0f, 0.0f), nullptr);
+        std::this_thread::sleep_for(std::chrono::milliseconds(2));
+    }
+    CHECK(streamer.stats().sharedBudget);
+    CHECK(budget.spent > 0);  // tile commits were charged to the shared budget
+
+    PortalSystem portals;
+    StreamingSystem streaming(portals);
+    StreamBudget& frame = streaming.sharedBudget();
+    frame.spend(123);
+    CHECK(&streaming.sharedBudget() == &frame && streaming.sharedBudget().spent == 123);
+    streaming.recordFrame(16.0);
+    CHECK(streaming.sharedBudget().spent == 0);
+}
+
 int main() {
     testNoise();
     testHeightmap();
@@ -737,5 +944,7 @@ int main() {
     testBalanceAndFrustum();
     testPackedMorph();
     testStreamer();
+    testScatterDeltas();
+    testSharedBudget();
     return testsupport::finish();
 }

@@ -1,7 +1,9 @@
 module;
 
+#include <atomic>
 #include <cstdint>
 #include <map>
+#include <mutex>
 #include <set>
 #include <string>
 #include <unordered_map>
@@ -40,6 +42,16 @@ export class DeltaStore {
     [[nodiscard]] EntityHandle find(const std::string& cell, const std::string& key) const;
     [[nodiscard]] std::vector<EntityHandle> liveEntities(const std::string& cell) const;
 
+    // Records the removal of a base entity that has no entity of its own (an instance merged into a batch mesh). The key joins
+    // the cell's `removed` set (saved, applied and thread-safely readable through removedSnapshot).
+    void markRemoved(const std::string& cell, const std::string& key);
+    // Copy of the removed keys of a cell as of the last capture/markRemoved/fromJson. Safe to call from worker threads.
+    [[nodiscard]] std::set<std::string> removedSnapshot(const std::string& cell) const;
+    // Bumped whenever a removed set may have changed (markRemoved, fromJson, capture with a different set).
+    [[nodiscard]] uint64_t revision() const { return m_revision.load(std::memory_order_acquire); }
+    // Entities of this cell are shown or hidden by their owner (LOD swap), so visibility is neither captured nor applied.
+    void ignoreVisibility(const std::string& cell, bool ignore = true);
+
     void snapshotParams();
     void captureCell(const std::string& cell);
     void captureAll();
@@ -70,6 +82,7 @@ export class DeltaStore {
         std::unordered_map<std::string, uint32_t> index;
         size_t indexed = 0;
         bool duplicateKeys = false;
+        bool ignoreVisible = false;
     };
     struct Stored {
         std::map<std::string, EntityState> changed;
@@ -82,9 +95,10 @@ export class DeltaStore {
 
     [[nodiscard]] EntityState read(EntityHandle entity) const;
     void readInto(EntityHandle entity, EntityState& state, const std::vector<std::string>& componentNames) const;
-    [[nodiscard]] bool matches(EntityHandle entity, const EntityState& state, const std::vector<std::string>& componentNames) const;
+    [[nodiscard]] bool matches(EntityHandle entity, const EntityState& state, const std::vector<std::string>& componentNames, bool ignoreVisible = false) const;
     void write(EntityHandle entity, const EntityState& state);
-    void writeChanges(EntityHandle entity, const EntityState& state, bool stored = false);
+    void writeChanges(EntityHandle entity, const EntityState& state, bool stored = false, bool keepVisible = false);
+    void publishRemoved(const std::string& cell);
     [[nodiscard]] glm::mat4 absoluteLocal(const glm::mat4& local) const;
     [[nodiscard]] glm::mat4 relativeLocal(const glm::mat4& local) const;
     void applyStored(Live& live, const Stored& stored);
@@ -101,4 +115,7 @@ export class DeltaStore {
     std::map<std::string, Stored> m_stored;
     std::map<std::string, PortalCellParams> m_baseParams;
     uint64_t m_addedSerial = 0;
+    mutable std::mutex m_removedMutex;
+    std::map<std::string, std::set<std::string>> m_removedPublished;
+    std::atomic<uint64_t> m_revision{0};
 };

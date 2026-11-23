@@ -40,11 +40,12 @@ vec3 litToonDirect(ShadingData s, LitToon toon, vec2 pixel, float viewDepth, out
     }
     uvec2 range = clusterRange(clusterIndex(pixel, viewDepth));
     for (uint i = 0u; i < range.y; ++i) {
-        GpuLight light = lights[clusterLights[range.x + i]];
+        uint index = clusterLights[range.x + i];
+        GpuLight light = lights[index];
         vec3 toLight = light.positionRange.xyz - s.position;
         float d2 = dot(toLight, toLight);
         vec3 L = toLight * inversesqrt(max(d2, 1e-8));
-        float attenuation = distanceAttenuation(d2, light.params.z);
+        float attenuation = distanceAttenuation(d2, light.params.z) * lightAperture(index, light.positionRange.xyz, s.position);
         if (light.colorType.w > 1.5) attenuation *= spotAttenuation(L, light);
         if (attenuation > 0.0) color += litToonLight(s, L, light.colorType.rgb * attenuation, 1.0, toon.bands);
     }

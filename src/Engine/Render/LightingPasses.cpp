@@ -8,6 +8,7 @@ module;
 #include <cstdint>
 #include <functional>
 #include <string>
+#include <string_view>
 #include <vector>
 
 module Engine.Render.lighting;
@@ -15,6 +16,7 @@ module Engine.Render.lighting;
 import Engine.glm;
 import Engine.Render.settings;
 import Engine.Render.material;
+import Engine.Render.graph;
 
 #include "LightingInternal.hpp"
 
@@ -214,7 +216,17 @@ void Lighting::prepare(Diligent::IBuffer* sceneUniforms) {
 void Lighting::cullLights(Diligent::IBuffer* sceneUniforms) {
     Data& state = *m_data;
     if (!state.lightCullSrb) state.lightCullSrb = litgpu::makeBinding(state.lightCullPso, {{"SceneData", sceneUniforms}, {"LightBuffer", state.lights}, {"ClusterBuffer", state.clusters}, {"VisibleLightBuffer", state.visibleLights}});
-    if (!state.lightVisibleSrb) state.lightVisibleSrb = litgpu::makeBinding(state.lightVisiblePso, {{"SceneData", sceneUniforms}, {"LightBuffer", state.lights}, {"ClusterBuffer", state.clusters}, {"VisibleLightBuffer", state.visibleLights}});
+    if (!state.lightVisibleSrb) state.lightVisibleSrb = litgpu::makeBinding(state.lightVisiblePso, {{"SceneData", sceneUniforms}, {"LightBuffer", state.lights}, {"ClusterBuffer", state.clusters}, {"VisibleLightBuffer", state.visibleLights}, {"LightCellBuffer", state.lightCellBuffer}});
+    if (state.lightCellsDirty && state.lightCellBuffer) {
+        std::vector<int32_t> cells(std::max<size_t>(state.lightCount, 1), -1);
+        for (size_t index = 0; index < cells.size() && index < state.lightCells.size(); ++index) cells[index] = state.lightCells[index];
+        state.context->UpdateBuffer(state.lightCellBuffer, 0, cells.size() * sizeof(int32_t), cells.data(), Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
+        state.lightCellsDirty = false;
+    }
+    if (state.lightAperturesDirty) {
+        if (!state.lightApertures.empty()) state.context->UpdateBuffer(state.lights, static_cast<Diligent::Uint64>(kMaxLights) * sizeof(GpuLight), state.lightApertures.size() * sizeof(LightAperture), state.lightApertures.data(), Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
+        state.lightAperturesDirty = false;
+    }
     // Reset the index allocation cursor and the visible-light count, then cull per light and per cluster.
     const uint32_t zeros[2] = {0u, 0u};
     state.context->UpdateBuffer(state.clusters, static_cast<Diligent::Uint64>(kClusterCount) * 2 * sizeof(uint32_t), sizeof(zeros), zeros, Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
@@ -270,4 +282,94 @@ void Lighting::captureSceneColor() {
         litgpu::dispatch(state.context, state.pyramidPso, state.pyramidSrbs[mip - 1], groupCount(mipWidth), groupCount(mipHeight));
     }
     state.pyramidValid = true;
+}
+
+void Lighting::graphResources(LightingStage stage, std::vector<rg::ExternalAccess>& out) const {
+    const Data& state = *m_data;
+    using rg::Usage;
+    auto texture = [&](std::string_view name, Diligent::ITexture* object, Usage usage, bool write) {
+        if (object) out.push_back({name, static_cast<void*>(object), rg::ResourceType::Texture, usage, write});
+    };
+    auto buffer = [&](std::string_view name, Diligent::IBuffer* object, Usage usage, bool write) {
+        if (object) out.push_back({name, static_cast<void*>(object), rg::ResourceType::Buffer, usage, write});
+    };
+    switch (stage) {
+        case LightingStage::Prepare:
+            // LUTs, environment cube and SH are written mip by mip and read in between: dependency only.
+            texture("lighting/dfg", state.dfg, Usage::None, true);
+            texture("lighting/transmittanceLut", state.transmittanceLut, Usage::None, true);
+            texture("lighting/multiScatterLut", state.multiScatterLut, Usage::None, true);
+            texture("lighting/skyViewLut", state.skyViewLut, Usage::None, true);
+            texture("lighting/aerialLut", state.aerialLut, Usage::None, true);
+            texture("lighting/cloudNoise", state.cloudNoise, Usage::None, true);
+            texture("lighting/envCapture", state.envCapture, Usage::None, true);
+            texture("lighting/envPrefiltered", state.envPrefiltered, Usage::None, true);
+            buffer("lighting/irradiance", state.irradiance, Usage::None, true);
+            buffer("lighting/clusters", state.clusters, Usage::None, true);
+            buffer("lighting/visibleLights", state.visibleLights, Usage::None, true);
+            break;
+        case LightingStage::AmbientOcclusion:
+            texture("lighting/aoDepth", state.aoDepth, Usage::UnorderedAccess, true);
+            texture("lighting/aoRaw", state.aoRaw, Usage::UnorderedAccess, true);
+            texture("lighting/aoBentRaw", state.aoBentRaw, Usage::UnorderedAccess, true);
+            texture("lighting/aoTemp", state.aoTemp, Usage::UnorderedAccess, true);
+            texture("lighting/aoBentTemp", state.aoBentTemp, Usage::UnorderedAccess, true);
+            texture("lighting/aoFiltered", state.aoFiltered, Usage::UnorderedAccess, true);
+            texture("lighting/aoBent", state.aoBent, Usage::UnorderedAccess, true);
+            break;
+        case LightingStage::Lighting:
+            texture("lighting/clouds", state.clouds, Usage::UnorderedAccess, true);
+            texture("lighting/aoFiltered", state.aoFiltered, Usage::ShaderResource, false);
+            texture("lighting/aoDepth", state.aoDepth, Usage::ShaderResource, false);
+            texture("lighting/aoBent", state.aoBent, Usage::ShaderResource, false);
+            texture("lighting/aerialLut", state.aerialLut, Usage::ShaderResource, false);
+            texture("lighting/transmittanceLut", state.transmittanceLut, Usage::ShaderResource, false);
+            texture("lighting/skyViewLut", state.skyViewLut, Usage::ShaderResource, false);
+            texture("lighting/envPrefiltered", state.envPrefiltered, Usage::ShaderResource, false);
+            texture("lighting/dfg", state.dfg, Usage::ShaderResource, false);
+            texture("lighting/cloudNoise", state.cloudNoise, Usage::ShaderResource, false);
+            texture("lighting/shadowMap", state.shadowMap, Usage::ShaderResource, false);
+            texture("lighting/localShadowMap", state.localShadowMap, Usage::ShaderResource, false);
+            texture("lighting/vsmAtlas", state.vsm.atlas, Usage::ShaderResource, false);
+            buffer("lighting/clusters", state.clusters, Usage::None, false);
+            buffer("lighting/irradiance", state.irradiance, Usage::None, false);
+            break;
+        case LightingStage::Reflections:
+            texture("lighting/sceneColor", state.sceneColor, Usage::None, true);
+            texture("lighting/aoDepth", state.aoDepth, Usage::ShaderResource, false);
+            texture("lighting/aoRaw", state.aoRaw, Usage::UnorderedAccess, true);
+            texture("lighting/aoTemp", state.aoTemp, Usage::UnorderedAccess, true);
+            texture("lighting/giFiltered", state.giFiltered, Usage::UnorderedAccess, true);
+            texture("lighting/ssrHiz", state.ssrHiz, Usage::None, true);
+            texture("lighting/ssr", state.ssr, Usage::UnorderedAccess, true);
+            texture("lighting/envPrefiltered", state.envPrefiltered, Usage::ShaderResource, false);
+            break;
+        case LightingStage::Post:
+            texture("lighting/godRays0", state.godRays[0], Usage::None, true);
+            texture("lighting/godRays1", state.godRays[1], Usage::None, true);
+            for (uint32_t level = 0; level < kBloomLevels; ++level) {
+                static constexpr std::string_view kDown[] = {"lighting/bloomDown0", "lighting/bloomDown1", "lighting/bloomDown2", "lighting/bloomDown3", "lighting/bloomDown4", "lighting/bloomDown5"};
+                static constexpr std::string_view kUp[] = {"lighting/bloomUp0", "lighting/bloomUp1", "lighting/bloomUp2", "lighting/bloomUp3", "lighting/bloomUp4", "lighting/bloomUp5"};
+                texture(kDown[level], state.bloomDown[level], Usage::None, true);
+                texture(kUp[level], state.bloomUp[level], Usage::None, true);
+            }
+            texture("lighting/ldr", state.ldr, Usage::RenderTarget, true);
+            texture("lighting/upscaled0", state.upscaled[0], Usage::None, true);
+            texture("lighting/upscaled1", state.upscaled[1], Usage::None, true);
+            buffer("lighting/exposure", state.exposure, Usage::None, true);
+            buffer("lighting/histogram", state.histogram, Usage::None, true);
+            break;
+    }
+}
+
+void* Lighting::graphResource(std::string_view name) const {
+    thread_local std::vector<rg::ExternalAccess> scratch;
+    for (const LightingStage stage : {LightingStage::Prepare, LightingStage::AmbientOcclusion, LightingStage::Lighting, LightingStage::Reflections, LightingStage::Post}) {
+        scratch.clear();
+        graphResources(stage, scratch);
+        for (const rg::ExternalAccess& access : scratch) {
+            if (access.name == name) return access.native;
+        }
+    }
+    return nullptr;
 }

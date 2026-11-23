@@ -79,6 +79,8 @@ void readSettings(const Json& root, PortalSettings& settings) {
     settings.blendDistance = numberOr(node->get("blendDistance"), settings.blendDistance);
     settings.minPixels = numberOr(node->get("minPixels"), settings.minPixels);
     if (const Json* occlusion = node->get("occlusion")) settings.occlusion = occlusion->isBool() ? occlusion->asBool() : occlusion->asNumber() != 0.0;
+    settings.tintLighting = numberOr(node->get("tintLighting"), settings.tintLighting);
+    if (const Json* transport = node->get("lightTransport")) settings.lightTransport = transport->isBool() ? transport->asBool() : transport->asNumber() != 0.0;
 }
 
 bool readCell(const Json& node, const PortalSystem& system, PortalCell& cell) {
@@ -176,7 +178,8 @@ bool PortalSystem::loadJson(const std::string& path) {
 
 std::string PortalSystem::toJson() const {
     std::string out = "{\n";
-    out += std::format("  \"settings\": {{\"maxDepth\": {}, \"maxViews\": {}, \"blendDistance\": {}, \"minPixels\": {}, \"occlusion\": {}}},\n", m_settings.maxDepth, m_settings.maxViews, m_settings.blendDistance, m_settings.minPixels, m_settings.occlusion ? "true" : "false");
+    out += std::format("  \"settings\": {{\"maxDepth\": {}, \"maxViews\": {}, \"blendDistance\": {}, \"minPixels\": {}, \"occlusion\": {}, \"tintLighting\": {}, \"lightTransport\": {}}},\n", m_settings.maxDepth, m_settings.maxViews, m_settings.blendDistance,
+                       m_settings.minPixels, m_settings.occlusion ? "true" : "false", m_settings.tintLighting, m_settings.lightTransport ? "true" : "false");
     out += "  \"cells\": [\n";
     for (size_t index = 0; index < m_cells.size(); ++index) {
         const PortalCell& cell = m_cells[index];

@@ -114,7 +114,7 @@ void Renderer::cullVisibilityPhase(int phaseIndex, uint32_t objectCount, Diligen
     }
 }
 
-void Renderer::buildVisibilityDraws(int phaseIndex, uint32_t views) {
+void Renderer::buildVisibilityDraws(int phaseIndex, uint32_t views, bool meshlets) {
     auto& gpu = *m_diligent;
     auto& phase = gpu.visibility[phaseIndex];
     auto* context = gpu.pImmediateContext.RawPtr();
@@ -156,7 +156,7 @@ void Renderer::buildVisibilityDraws(int phaseIndex, uint32_t views) {
     }
     context->CommitShaderResources(phase.commandGenSRB[m_currentFrame], Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
     context->DispatchCompute(Diligent::DispatchComputeAttribs((totalBuckets + kWorkgroupSize - 1) / kWorkgroupSize, 1, 1));
-    buildMeshletDraws(phaseIndex, views);
+    if (meshlets) buildMeshletDraws(phaseIndex, views);  // the frame graph runs it as its own pass
 }
 
 void Renderer::bindSceneTargets(bool clear) {
@@ -202,7 +202,8 @@ void Renderer::uploadCascadeCull(bool empty) {
     }
     cull.info[1] = static_cast<uint32_t>(localCount);
     const auto& cascades = m_lighting.cascades();
-    const int cascadeCount = !empty && m_diligent->pShadowCullPSO ? std::min<int>(m_lighting.cascadeCount(), kCascadeShadowViews) : 0;
+    // No caster marking for cascades the view does not render (sunless cell, or shared cascades already in the shadow map).
+    const int cascadeCount = !empty && m_viewSunShadows && !m_cascadeReuse && m_diligent->pShadowCullPSO ? std::min<int>(m_lighting.cascadeCount(), kCascadeShadowViews) : 0;
     for (int cascadeIndex = 0; cascadeIndex < cascadeCount; ++cascadeIndex) {
         const Cascade& cascade = cascades[static_cast<size_t>(cascadeIndex)];
         if (!cascade.due) continue;
@@ -212,9 +213,9 @@ void Renderer::uploadCascadeCull(bool empty) {
     m_diligent->pImmediateContext->UpdateBuffer(m_diligent->pCascadeCullUBO, 0, sizeof(cull), &cull, Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
 }
 
-void Renderer::drawVisibilityPhase(int phaseIndex) { drawSurfaces(phaseIndex, -1); }
+void Renderer::drawVisibilityPhase(int phaseIndex, bool meshlets) { drawSurfaces(phaseIndex, -1, 0, meshlets); }
 
-void Renderer::drawSurfaces(int phaseIndex, int cascade, uint32_t view) {
+void Renderer::drawSurfaces(int phaseIndex, int cascade, uint32_t view, bool meshlets) {
     auto& gpu = *m_diligent;
     auto& phase = gpu.visibility[phaseIndex];
     const auto& meshBindings = cascade >= 0 ? gpu.shadowSRBs[m_currentFrame][cascade] : phase.opaqueSRBs[m_currentFrame];
@@ -230,5 +231,5 @@ void Renderer::drawSurfaces(int phaseIndex, int cascade, uint32_t view) {
         Diligent::IPipelineState* pointPipeline = SurfacePipeline(gpu.surfaces[shaderId], phaseIndex, true);
         if (pointPipeline && shaderId < pointBindings.size() && pointBindings[shaderId]) DrawPointCommands(context, phase, pointPipeline, pointBindings[shaderId], commandSlot);
     }
-    drawMeshletSurfaces(phaseIndex, cascade, view);
+    if (meshlets) drawMeshletSurfaces(phaseIndex, cascade, view);
 }

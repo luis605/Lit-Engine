@@ -1,6 +1,8 @@
 module;
 
 #include <algorithm>
+#include <atomic>
+#include <mutex>
 #include <cstdint>
 #include <map>
 #include <optional>
@@ -41,11 +43,11 @@ void DeltaStore::readInto(EntityHandle entity, EntityState& state, const std::ve
     }
 }
 
-bool DeltaStore::matches(EntityHandle entity, const EntityState& state, const std::vector<std::string>& componentNames) const {
+bool DeltaStore::matches(EntityHandle entity, const EntityState& state, const std::vector<std::string>& componentNames, bool ignoreVisible) const {
     const RenderableComponent& renderable = m_world.getRenderable(entity);
     if (m_world.getMesh(entity) != state.mesh || renderable.material_uuid != state.material || renderable.shaderId != state.shader) return false;
     if (renderable.alpha != state.alpha || (renderable.flags & ~RENDER_HIDDEN) != state.renderFlags) return false;
-    if (m_world.getLayer(entity) != state.layer || m_world.isVisible(entity) != state.visible) return false;
+    if (m_world.getLayer(entity) != state.layer || (!ignoreVisible && m_world.isVisible(entity) != state.visible)) return false;
     if (m_world.getLocalMatrix(entity) != state.local || m_world.getName(entity) != state.name || m_world.getTag(entity) != state.tag) return false;
     size_t next = 0;
     for (const std::string& name : componentNames) {
@@ -79,7 +81,7 @@ void DeltaStore::shiftOrigin(const glm::vec3& shift) {
     }
 }
 
-void DeltaStore::writeChanges(EntityHandle entity, const EntityState& incoming, bool stored) {
+void DeltaStore::writeChanges(EntityHandle entity, const EntityState& incoming, bool stored, bool keepVisible) {
     EntityState adjusted;
     const bool shifted = stored && m_world.getParent(entity).isNull();
     if (shifted) {
@@ -95,7 +97,7 @@ void DeltaStore::writeChanges(EntityHandle entity, const EntityState& incoming, 
     if (renderable.shaderId != state.shader) m_world.setShader(entity, state.shader);
     if (renderable.alpha != state.alpha) m_world.setAlpha(entity, state.alpha);
     if (m_world.getLayer(entity) != state.layer) m_world.setLayer(entity, state.layer);
-    if (m_world.isVisible(entity) != state.visible) m_world.setVisible(entity, state.visible);
+    if (!keepVisible && m_world.isVisible(entity) != state.visible) m_world.setVisible(entity, state.visible);
     const uint32_t current = m_world.getRenderFlags(entity) & ~RENDER_HIDDEN;
     if (current != state.renderFlags) {
         m_world.setRenderFlags(entity, current & ~state.renderFlags, false);
@@ -156,6 +158,33 @@ std::vector<EntityHandle> DeltaStore::liveEntities(const std::string& cell) cons
     return out;
 }
 
+void DeltaStore::ignoreVisibility(const std::string& cell, bool ignore) { m_live[cell].ignoreVisible = ignore; }
+
+void DeltaStore::publishRemoved(const std::string& cell) {
+    const auto storedIt = m_stored.find(cell);
+    std::lock_guard lock(m_removedMutex);
+    if (storedIt == m_stored.end() || storedIt->second.removed.empty()) {
+        if (m_removedPublished.erase(cell) > 0) m_revision.fetch_add(1, std::memory_order_acq_rel);
+        return;
+    }
+    std::set<std::string>& published = m_removedPublished[cell];
+    if (published == storedIt->second.removed) return;
+    published = storedIt->second.removed;
+    m_revision.fetch_add(1, std::memory_order_acq_rel);
+}
+
+void DeltaStore::markRemoved(const std::string& cell, const std::string& key) {
+    m_stored[cell].removed.insert(key);
+    m_stored[cell].changed.erase(key);
+    publishRemoved(cell);
+}
+
+std::set<std::string> DeltaStore::removedSnapshot(const std::string& cell) const {
+    std::lock_guard lock(m_removedMutex);
+    const auto it = m_removedPublished.find(cell);
+    return it == m_removedPublished.end() ? std::set<std::string>{} : it->second;
+}
+
 void DeltaStore::snapshotParams() {
     m_baseParams.clear();
     if (!m_portals) return;
@@ -194,13 +223,14 @@ void DeltaStore::captureCell(const std::string& cell) {
             continue;
         }
         if (!stored.removed.empty()) stored.removed.erase(base.key);
-        if (matches(base.handle, base.baseline, componentNames)) {
+        if (matches(base.handle, base.baseline, componentNames, liveIt->second.ignoreVisible)) {
             if (!stored.changed.empty()) stored.changed.erase(base.key);
             continue;
         }
         auto changedIt = stored.changed.find(base.key);
         if (changedIt == stored.changed.end()) changedIt = stored.changed.try_emplace(base.key).first;
         readInto(base.handle, changedIt->second, componentNames);
+        if (liveIt->second.ignoreVisible) changedIt->second.visible = base.baseline.visible;
         if (m_world.getParent(base.handle).isNull()) changedIt->second.local = absoluteLocal(changedIt->second.local);
     }
     for (const Added& added : liveIt->second.added) {
@@ -213,6 +243,7 @@ void DeltaStore::captureCell(const std::string& cell) {
         }
         else stored.added.erase(added.key);
     }
+    publishRemoved(cell);
 }
 
 void DeltaStore::captureAll() {
@@ -233,7 +264,7 @@ void DeltaStore::applyStored(Live& live, const Stored& stored) {
                 m_world.destroy(base.handle);
                 continue;
             }
-            if (const auto changedIt = stored.changed.find(base.key); changedIt != stored.changed.end()) writeChanges(base.handle, changedIt->second, true);
+            if (const auto changedIt = stored.changed.find(base.key); changedIt != stored.changed.end()) writeChanges(base.handle, changedIt->second, true, live.ignoreVisible);
         }
         return;
     }
@@ -252,7 +283,7 @@ void DeltaStore::applyStored(Live& live, const Stored& stored) {
         const auto found = live.index.find(key);
         if (found == live.index.end()) continue;
         const EntityHandle handle = live.bases[found->second].handle;
-        if (m_world.isAlive(handle)) writeChanges(handle, state, true);
+        if (m_world.isAlive(handle)) writeChanges(handle, state, true, live.ignoreVisible);
     }
 }
 
@@ -284,6 +315,9 @@ void DeltaStore::releaseCell(const std::string& cell) { m_live.erase(cell); }
 void DeltaStore::clear() {
     m_live.clear();
     m_stored.clear();
+    std::lock_guard lock(m_removedMutex);
+    m_removedPublished.clear();
+    m_revision.fetch_add(1, std::memory_order_acq_rel);
 }
 
 size_t DeltaStore::deltaCount() const {
@@ -346,7 +380,7 @@ void DeltaStore::revertToBaseline() {
         }
         live.added.clear();
         for (const Base& base : live.bases) {
-            if (m_world.isAlive(base.handle)) writeChanges(base.handle, base.baseline);
+            if (m_world.isAlive(base.handle)) writeChanges(base.handle, base.baseline, false, live.ignoreVisible);
         }
     }
     if (!m_portals) return;
@@ -366,6 +400,14 @@ bool DeltaStore::fromJson(const Json& document, std::string* error) {
     for (const auto& [name, cell] : cells->members()) parsed[name] = storedFrom(cell);
     revertToBaseline();
     m_stored = std::move(parsed);
+    {
+        std::lock_guard lock(m_removedMutex);
+        m_removedPublished.clear();
+        for (const auto& [name, stored] : m_stored) {
+            if (!stored.removed.empty()) m_removedPublished[name] = stored.removed;
+        }
+        m_revision.fetch_add(1, std::memory_order_acq_rel);
+    }
     if (const Json* serial = document.get("serial")) m_addedSerial = std::max<uint64_t>(m_addedSerial, safeSerial(serial->asNumber()));
     for (const auto& [name, live] : m_live) {
         if (live.resident) applyCell(name);

@@ -4,6 +4,7 @@ module;
 #include <cstdint>
 #include <functional>
 #include <string>
+#include <string_view>
 #include <vector>
 
 namespace Diligent {
@@ -20,6 +21,7 @@ export module Engine.Render.lighting;
 import Engine.glm;
 import Engine.Render.settings;
 import Engine.Render.material;
+import Engine.Render.graph;
 export import Engine.Render.reflection;
 
 export constexpr int kMaxLocalShadowViews = 24;
@@ -79,7 +81,22 @@ export struct SceneUniforms {
     glm::vec4 vsmParams;
     glm::vec4 vsmParams2;
     glm::vec4 originParams; // xyz world origin reduced modulo kOriginPatternPeriod (float, pattern phase), w world origin y (altitude)
+    glm::vec4 cellParams;   // x portal cell of this view (-1: no cell filtering of local lights), y first portal light + 1 (0: none),
+                            // z > 0: shared sun cascades (containment selection up to this view depth), w unused
+    glm::vec4 cellTint;     // rgb lighting grade of the view's cell (sun and ambient), w unused
 };
+
+// Lights that reach a cell through a portal (docs/Portals.md, "Light through portals") are ordinary lights placed at the
+// portal image of the source light. Their aperture limits them to rays through the portal quad: shading tests the segment
+// from the receiver to the light against the quad, and virtual shadow faces clip casters behind the portal plane.
+export struct LightAperture {
+    glm::vec4 center;  // xyz quad centre, w edge softness (metres)
+    glm::vec4 axisU;   // xyz half-extent vector along the quad's right axis
+    glm::vec4 axisV;   // xyz half-extent vector along the quad's up axis
+    glm::vec4 plane;   // xyz unit normal toward the receiving cell, w = -dot(normal, centre)
+};
+
+export constexpr uint32_t kMaxPortalLights = 1024;
 
 export struct GpuLight {
     glm::vec4 positionRange;
@@ -184,6 +201,9 @@ export struct FrameInput {
     glm::dvec3 worldOrigin{0.0}; // Engine::worldOrigin(): world = local + worldOrigin (docs/LargeWorld.md)
 };
 
+// Stages of the frame as the render graph sees them (Renderer::renderFrameGraph, docs/RenderGraph.md).
+export enum class LightingStage : uint8_t { Prepare, AmbientOcclusion, Lighting, Reflections, Post };
+
 export class Lighting {
   public:
     Lighting();
@@ -200,6 +220,10 @@ export class Lighting {
     [[nodiscard]] const RenderSettings& settings() const;
     void setMaterial(uint32_t id, const Material& material);
     void setLights(const std::vector<GpuLight>& lights);
+    // Portal cell of every light (same order as setLights, -1 = outside every cell). Empty disables cell filtering.
+    void setLightCells(const std::vector<int32_t>& cells);
+    // Portal lights: lights first .. first + apertures.size() - 1 of setLights are portal images limited to these apertures.
+    void setLightApertures(uint32_t first, const std::vector<LightAperture>& apertures);
     void setDirectionalLight(bool present, const glm::vec3& direction, const glm::vec3& illuminance);
     int loadTexture(const std::string& path, bool srgb);
     [[nodiscard]] uint64_t bindingVersion() const;
@@ -208,6 +232,9 @@ export class Lighting {
     void shiftOrigin(const glm::vec3& delta);
     void beginFrame(const FrameInput& input, SceneUniforms& uniforms);
     void fitShadows(const FrameInput& input, SceneUniforms& uniforms);
+    // Sun cascades fitted for another view of the same frame (portal views share one set, docs/Portals.md): makes them the
+    // current cascades and writes their matrices into `uniforms`.
+    void useCascades(const std::array<Cascade, 4>& cascades, SceneUniforms& uniforms);
     [[nodiscard]] const std::array<Cascade, 4>& cascades() const;
     [[nodiscard]] int cascadeCount() const;
     [[nodiscard]] int shadowResolution() const;
@@ -228,6 +255,11 @@ export class Lighting {
     void cullLights(Diligent::IBuffer* sceneUniforms);
     void shade(Diligent::ITexture* depth, Diligent::IBuffer* sceneUniforms, int stage = -1);
     void captureSceneColor();
+    // Internal textures and buffers a stage touches, with the state of their first use (rg::Usage::None when a stage
+    // uses a resource in several states). The renderer declares scene depth, G-buffer and HDR targets itself.
+    void graphResources(LightingStage stage, std::vector<rg::ExternalAccess>& out) const;
+    // Current object behind a graphResources name (resources can be recreated while the frame runs).
+    [[nodiscard]] void* graphResource(std::string_view name) const;
     void finish(Diligent::IBuffer* sceneUniforms, Diligent::ITextureView* backBuffer, float deltaTime, const std::function<void(Diligent::ITexture*)>& afterTonemap = {});
 
     [[nodiscard]] Diligent::ITexture* gbuffer(int index) const;

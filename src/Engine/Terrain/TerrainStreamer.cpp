@@ -3,6 +3,7 @@ module;
 #include <algorithm>
 #include <array>
 #include <atomic>
+#include <functional>
 #include <chrono>
 #include <cmath>
 #include <cstdint>
@@ -61,6 +62,7 @@ struct TerrainStreamer::Impl {
     glm::vec3 lastForward{0.0f, 0.0f, -1.0f};
     int nextCell = 1;
     std::unique_ptr<AsyncJobs> jobs;
+    std::function<StreamBudget*()> sharedProvider;
 
     Impl(World& w, TerrainLoaderConfig loaderConfig, TerrainStreamConfig streamConfig) : world(w), config(std::move(streamConfig)) {
         loaderConfig.startHidden = true;
@@ -281,15 +283,18 @@ struct TerrainStreamer::Impl {
             unlimited = true;
         }
         pollLoading();
-        StreamBudget budget;
-        budget.millis = config.commitMillisPerFrame;
-        budget.bytes = config.uploadBytesPerFrame;
-        budget.unlimited = unlimited;
+        loader->syncDeltas();
+        StreamBudget ownCommit;
+        ownCommit.millis = config.commitMillisPerFrame;
+        ownCommit.bytes = config.uploadBytesPerFrame;
+        ownCommit.unlimited = unlimited;
+        StreamBudget ownUnload = ownCommit;
+        // One frame budget with the spatial StreamingSystem (portal cells, assets): both draw from the same object. Unlimited (prime/deterministic) stays unlimited.
+        StreamBudget* shared = !unlimited && sharedProvider ? sharedProvider() : nullptr;
+        stats.sharedBudget = shared != nullptr;
+        StreamBudget& budget = shared ? *shared : ownCommit;
+        StreamBudget& unloadBudget = shared ? *shared : ownUnload;
         if (loader->meshCount() < config.maxGpuMeshes + 40) commitReady(budget);
-        StreamBudget unloadBudget;
-        unloadBudget.millis = config.commitMillisPerFrame;
-        unloadBudget.bytes = config.uploadBytesPerFrame;
-        unloadBudget.unlimited = unlimited;
         std::set<TileKey> protectedTiles;
         const std::set<TileKey> visible = visibleSet(&protectedTiles);
         evictAndUnload(unloadBudget, protectedTiles);
@@ -369,3 +374,5 @@ TerrainConfig& TerrainStreamer::terrain() { return m_impl->loader->config().terr
 TerrainStreamConfig& TerrainStreamer::config() { return m_impl->config; }
 
 TerrainTileLoader& TerrainStreamer::loader() { return *m_impl->loader; }
+
+void TerrainStreamer::setSharedBudget(std::function<StreamBudget*()> provider) { m_impl->sharedProvider = std::move(provider); }

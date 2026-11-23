@@ -149,7 +149,7 @@ CustomFrame Renderer::customFrame() const {
     CustomFrame frame;
     frame.frameSlot = m_currentFrame;
     frame.parity = static_cast<uint32_t>(m_lighting.hdrIndex());
-    frame.time = static_cast<float>(glfwGetTime());
+    frame.time = m_lastFrameTime;
     frame.deltaTime = std::clamp(m_lastDeltaTime, 0.0f, kMaxCustomDelta);
     frame.frame = m_frameCounter;
     frame.width = m_renderWidth;

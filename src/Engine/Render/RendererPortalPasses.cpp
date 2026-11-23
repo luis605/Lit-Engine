@@ -75,6 +75,7 @@ void Renderer::createPortalCompositePSO() {
         UseVariables(info.PSODesc.ResourceLayout, variables);
         auto& pso = writeDepth ? gpu.pPortalPSO : gpu.pPortalColorPSO;
         auto& srb = writeDepth ? gpu.pPortalSRB : gpu.pPortalColorSRB;
+        info.pPSOCache = litgpu::pipelineCache();
         gpu.pDevice->CreateGraphicsPipelineState(info, &pso);
         if (!pso) {
             Lit::Log::Error("Failed to create Portal Composite PSO");
@@ -101,6 +102,7 @@ static void CreatePortalResolvePSO(DiligentData& gpu) {
     info.pPS = resolveShader;
     const auto variables = DescribeVariables({vertexShader, resolveShader}, {"u_childDepth", "u_sceneDepth", "u_childGBuffer0", "u_childGBuffer1", "u_childGBuffer2"});
     UseVariables(info.PSODesc.ResourceLayout, variables);
+    info.pPSOCache = litgpu::pipelineCache();
     gpu.pDevice->CreateGraphicsPipelineState(info, &gpu.pPortalResolvePSO);
     if (!gpu.pPortalResolvePSO) {
         Lit::Log::Error("Failed to create Portal Resolve PSO");
@@ -126,6 +128,7 @@ void Renderer::createPortalPSO() {
     depthInfo.pPS = depthShader;
     const auto depthVariables = DescribeVariables({vertexShader, depthShader}, {"u_childDepth", "u_sceneDepth"});
     UseVariables(depthInfo.PSODesc.ResourceLayout, depthVariables);
+    depthInfo.pPSOCache = litgpu::pipelineCache();
     gpu.pDevice->CreateGraphicsPipelineState(depthInfo, &gpu.pPortalDepthPSO);
     if (!gpu.pPortalDepthPSO) {
         Lit::Log::Error("Failed to create Portal Depth PSO");
@@ -310,6 +313,8 @@ void Renderer::readPortalStats() {
         PortalViewStats stats;
         stats.label = snapshot.label;
         stats.depth = snapshot.depth;
+        stats.sunCascades = snapshot.sunCascades;
+        stats.sharedCascades = snapshot.sharedCascades;
         auto& staging = gpu.portalStaging[m_currentFrame][index];
         if (staging) {
             Diligent::MapHelper<uint32_t> mapped(gpu.pImmediateContext, staging, Diligent::MAP_READ, Diligent::MAP_FLAG_DO_NOT_WAIT);

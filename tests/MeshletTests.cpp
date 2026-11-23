@@ -1,4 +1,5 @@
 #include "TestSupport.hpp"
+#include <algorithm>
 #include <array>
 #include <cmath>
 #include <cstdint>
@@ -198,6 +199,99 @@ void testCuts(const ClusterMesh& mesh) {
     for (const uint32_t id : selectClusterCut(mesh, far, kErrorScale, 1.0f)) CHECK(mesh.clusters[id].parentError == kClusterRootError);
 }
 
+std::vector<uint32_t> sorted(std::vector<uint32_t> ids) {
+    std::sort(ids.begin(), ids.end());
+    return ids;
+}
+
+// Hierarchy (BVH over the DAG levels): structure, conservative bounds, and the traversal selects
+// exactly the flat cut for perspective (camera, local shadow) and orthographic (cascade) views.
+void testHierarchy(const Soup& soup, ClusterMesh mesh, const ClusterHierarchyOptions& options) {
+    const size_t clusterCount = mesh.clusters.size();
+    const ClusterHierarchy hierarchy = buildClusterHierarchy(mesh, options);
+    std::string error;
+    CHECK(validateClusterMesh(mesh, soup.vertices.size() / kFloats, &error));
+    if (!error.empty()) std::fprintf(stderr, "validate after reorder: %s\n", error.c_str());
+    CHECK(mesh.clusters.size() == clusterCount);
+    error.clear();
+    CHECK(validateClusterHierarchy(mesh, hierarchy, &error));
+    if (!error.empty()) std::fprintf(stderr, "validate hierarchy: %s\n", error.c_str());
+    CHECK(hierarchy.leaves >= (clusterCount + options.leafSize - 1) / options.leafSize);
+    CHECK(hierarchy.depth >= 2);
+    std::printf("hierarchy leaf %u fanout %u: %zu nodes, %u leaves, depth %u\n", options.leafSize, options.fanout, hierarchy.nodes.size(), hierarchy.leaves, hierarchy.depth);
+
+    constexpr float kErrorScale = 1080.0f * 0.5f / 0.41421356f;
+    const float thresholds[] = {0.25f, 1.0f, 4.0f};
+    const float distances[] = {0.3f, 1.15f, 2.0f, 5.0f, 20.0f, 100.0f, 1000.0f, 1e6f};
+    const float directions[][3] = {{0, 0, 1}, {0.6f, 0.8f, 0}, {-0.48f, 0.6f, -0.64f}};
+    bool equal = true;
+    uint64_t tested = 0;
+    uint64_t flat = 0;
+    for (const float threshold : thresholds) {
+        for (const auto& direction : directions) {
+            for (const float d : distances) {
+                ClusterLodView view;
+                for (int axis = 0; axis < 3; ++axis) view.origin[axis] = direction[axis] * d;
+                view.errorScale = kErrorScale;
+                ClusterTraversalStats stats;
+                const auto cut = sorted(selectClusterCutHierarchy(mesh, hierarchy, view, threshold, &stats));
+                const auto reference = sorted(selectClusterCut(mesh, view, threshold));
+                if (cut != reference) std::fprintf(stderr, "hierarchy cut differs: threshold %.2f distance %.2f (%zu vs %zu)\n", threshold, d, cut.size(), reference.size());
+                equal = equal && cut == reference;
+                // Same metric as the original API.
+                equal = equal && reference == sorted(selectClusterCut(mesh, view.origin, kErrorScale, threshold, view.nearPlane));
+                // Cameras at or inside the LOD spheres (d < 5) legitimately reach most fine clusters
+                // (no frustum here); the skip ratio is measured from the outside views.
+                if (d >= 5.0f) tested += stats.clustersTested;
+                if (d >= 5.0f) flat += clusterCount;
+            }
+        }
+    }
+    CHECK(equal);
+    // The hierarchy must skip most clusters (the flat path tests every one).
+    CHECK(tested * 4 < flat);
+    std::printf("hierarchy perspective: %llu of %llu cluster tests\n", static_cast<unsigned long long>(tested), static_cast<unsigned long long>(flat));
+
+    // Orthographic (cascade) metric: error in texels = world error * texels per unit, no distance.
+    bool orthoEqual = true;
+    bool orthoClosed = true;
+    uint64_t previous = ~0ull;
+    bool shrinking = true;
+    const float texelsPerUnit[] = {4096.0f, 1024.0f, 256.0f, 64.0f, 16.0f, 4.0f, 1.0f, 0.01f};
+    for (const float tpu : texelsPerUnit) {
+        ClusterLodView view;
+        view.orthographic = true;
+        view.errorScale = tpu;
+        const auto cut = sorted(selectClusterCutHierarchy(mesh, hierarchy, view, 1.0f));
+        orthoEqual = orthoEqual && cut == sorted(selectClusterCut(mesh, view, 1.0f));
+        orthoClosed = orthoClosed && !cut.empty() && openEdges(mesh, cut) == 0;
+        const uint64_t triangles = cutTriangles(mesh, cut);
+        shrinking = shrinking && triangles <= previous;
+        previous = triangles;
+    }
+    CHECK(orthoEqual);
+    CHECK(orthoClosed);
+    CHECK(shrinking);
+}
+
+void testHierarchyEdgeCases() {
+    ClusterMesh empty;
+    const ClusterHierarchy none = buildClusterHierarchy(empty);
+    CHECK(none.empty());
+    CHECK(validateClusterHierarchy(empty, none));
+    // A mesh with a single cluster is one leaf (root = leaf, depth 1).
+    const Soup soup = makeBumpySphere(1);  // 80 triangles
+    ClusterMesh small = buildClusterMesh(soup.vertices, kFloats, soup.indices);
+    CHECK(!small.empty());
+    const ClusterHierarchy tiny = buildClusterHierarchy(small);
+    CHECK(validateClusterHierarchy(small, tiny));
+    CHECK(tiny.depth >= 1);
+    ClusterLodView view;
+    view.origin[2] = 3.0f;
+    view.errorScale = 1000.0f;
+    CHECK(sorted(selectClusterCutHierarchy(small, tiny, view, 1.0f)) == sorted(selectClusterCut(small, view, 1.0f)));
+}
+
 void testCache(const Soup& soup) {
     namespace fs = std::filesystem;
     const std::string root = testsupport::tempFilePath("litmeshlet_", "cache");
@@ -230,6 +324,10 @@ int main() {
     testStructure(soup, mesh);
     testBounds(soup, mesh);
     testCuts(mesh);
+    testHierarchy(soup, mesh, {});
+    testHierarchy(soup, mesh, {16, 2});
+    testHierarchy(soup, mesh, {64, 4});
+    testHierarchyEdgeCases();
     testCache(makeBumpySphere(5));
     CHECK(buildClusterMesh({}, kFloats, {}).empty());
     return testsupport::finish();

@@ -367,6 +367,19 @@ void StreamingSystem::setCamera(int cameraCell, const glm::vec3* position) {
     if (moved) refreshSpatial(*position);
 }
 
+StreamBudget& StreamingSystem::sharedBudget() {
+    const auto now = std::chrono::steady_clock::now();
+    const bool stale = std::chrono::duration<double, std::milli>(now - m_shared.start).count() > 50.0;
+    if (m_sharedFrame != m_stats.frames || stale) {
+        m_shared = StreamBudget{};
+        m_shared.start = now;
+        m_shared.millis = m_config.commitMillisPerFrame;
+        m_shared.bytes = m_config.uploadBytesPerFrame;
+        m_sharedFrame = m_stats.frames;
+    }
+    return m_shared;
+}
+
 void StreamingSystem::update(int cameraCell) { updateImpl(cameraCell, nullptr); }
 
 void StreamingSystem::update(int cameraCell, const glm::vec3& cameraPosition) { updateImpl(cameraCell, &cameraPosition); }
@@ -375,10 +388,7 @@ void StreamingSystem::updateImpl(int cameraCell, const glm::vec3* position) {
     const auto start = std::chrono::steady_clock::now();
     ensureSlots();
     setCamera(cameraCell, position);
-    StreamBudget budget;
-    budget.start = start;
-    budget.millis = m_config.commitMillisPerFrame;
-    budget.bytes = m_config.uploadBytesPerFrame;
+    StreamBudget& budget = sharedBudget();
     m_stats.updateWork = 0;
     stepAssets(budget);
     stepCells(budget);

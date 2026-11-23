@@ -41,7 +41,7 @@ const int MODEL_LIT = 0;
 const ivec2 PLANAR_TAPS[5] = ivec2[](ivec2(0, 0), ivec2(1, 0), ivec2(-1, 0), ivec2(0, 1), ivec2(0, -1));
 
 vec3 environmentRadiance(vec3 direction, float perceptualRoughness) {
-    return textureLod(u_prefilteredEnv, direction, perceptualRoughness * (PREFILTER_MIP_COUNT - 1.0)).rgb * REFLECT_ENV_DECODE * skyGradient[1].w;
+    return textureLod(u_prefilteredEnv, direction, perceptualRoughness * (PREFILTER_MIP_COUNT - 1.0)).rgb * REFLECT_ENV_DECODE * skyGradient[1].w * cellTint.rgb;
 }
 
 float planarMask(vec3 worldPosition, vec3 normal) {
@@ -140,7 +140,7 @@ void main() {
         if (probe >= 0) {
             vec3 projected = boxProject(worldPosition, R, probeCenter[probe].xyz, probeExtent[probe].xyz);
             float probeMip = perceptualRoughness * (PROBE_MIP_COUNT - 1.0);
-            vec3 probeRadiance = textureLod(u_probes, vec4(projected, float(probe)), probeMip).rgb * REFLECT_ENV_DECODE * probeCenter[probe].w * skyGradient[1].w * exposure;
+            vec3 probeRadiance = textureLod(u_probes, vec4(projected, float(probe)), probeMip).rgb * REFLECT_ENV_DECODE * probeCenter[probe].w * skyGradient[1].w * cellTint.rgb * exposure;
             reflected = mix(reflected, probeRadiance, probeWeight);
         }
     }
@@ -156,7 +156,7 @@ void main() {
             float refined = refineVoxelHit(traceOrigin, R, hit);
             vec3 hitPosition = traceOrigin + R * refined;
             vec3 hitNormal = voxelSurfaceNormal(hitPosition, hit.normal);
-            vec3 ambient = textureLod(u_prefilteredEnv, hitNormal, VOXEL_AMBIENT_MIP).rgb * skyGradient[1].w;
+            vec3 ambient = textureLod(u_prefilteredEnv, hitNormal, VOXEL_AMBIENT_MIP).rgb * skyGradient[1].w * cellTint.rgb;
             vec3 radiance = voxelRadianceScaled(hit.albedo, hitNormal, ambient) * REFLECT_ENV_DECODE * exposure;
             float distanceFade = 1.0 - saturate(refined / max(traceDistance, 1.0));
             float boundsFade = voxelEdgeFade(worldPosition);

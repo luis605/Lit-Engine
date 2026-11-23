@@ -1,4 +1,5 @@
 #include <cmath>
+#include <cstdlib>
 #include <cstdint>
 #include <memory>
 #include <vector>
@@ -75,6 +76,10 @@ void buildVsmMixed(Engine& engine, int lightCount) {
     kit.sphere = sphere;
     kit.material = makeMaterial;
     buildPortalScene(engine.portals(), world, kit, PortalTestScene::Loop);
+    // LIT_MIXED_SUN=<scale>: give every cell sun (the loop rooms are indoor, sun 0) to check portal-view cascades.
+    if (const char* sun = std::getenv("LIT_MIXED_SUN")) {
+        for (int cell = 0; cell < static_cast<int>(engine.portals().cells().size()); ++cell) engine.portals().cellParams(cell).sun = std::strtof(sun, nullptr);
+    }
 
     // Cluster LOD rocks (these are the only cluster meshes; the dynamic characters must never become one).
     const uint32_t rock = engine.uploadProcessedMesh(AssetManager::processMesh(makeDenseRock(7, 0.35f, 4.0f)));

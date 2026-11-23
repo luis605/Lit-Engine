@@ -76,3 +76,22 @@ Variants: baseline = default settings (reflectionMode SSRProbes, bleed, contact 
 
 - SSR trace now runs at half resolution (SSR texture is ceil(w/2) x ceil(h/2), trace uses the full-resolution depth/normal at pixel*2+1); reflection_composite.comp upsamples with a depth-aware bilinear filter (4 taps, weights = bilinear x exp(-relative linear depth difference x 400), alpha-weighted colour). Expected: SSR trace cost about 1/4.
 - Image diffs against the previous output were not possible (black frames), so the "no visible loss" claim is untested.
+
+## Render graph on vs off
+
+2026-11-23, GTX 1650, 1280x720 fixed window (`LitShot --deterministic`, `scripts/render_graph_check.sh`), 30 frames, last-frame sum of the GpuPass scopes in ms. Two graph-off runs show the run-to-run spread. Portal views are not in these sums (they are timed per view, `Engine::portalStats()`), in both modes.
+
+| Scene | off a | off b | on |
+|---|---|---|---|
+| showcase | 14.01 | 14.74 | 13.96 |
+| vista | 8.56 | 8.54 | 7.72 |
+| gallery | 13.19 | 13.23 | 13.14 |
+| portal_torture | 12.54 | 12.62 | 12.60 |
+| vsm_mixed | 65.87 | 65.71 | 66.70 |
+| skinning | 13.87 | 13.97 | 13.98 |
+| terrain | 14.22 | 12.34 | 13.37 |
+| dense | 22.52 | 22.09 | 22.41 |
+| light_stress | 46.28 | 45.81 | 45.95 |
+| largeworld | 12.57 | 12.56 | 12.55 |
+
+Per pass, showcase (off a / off b / on): Sky+IBL 0.29/0.29/0.30, Shadows 0.98/1.00/1.00, GBuffer 0.21/0.20/0.20, Hi-Z 0.12/0.12/0.12, GTAO 1.11/1.75/1.12, SSR 5.71/5.76/5.02, Lighting 4.47/4.47/5.07, Trans Draw 0.23/0.23/0.23, Post 0.80/0.81/0.80; culling and command generation 0.01-0.02 each in all runs. The SSR/Lighting split moves by about 0.6 ms between runs in both modes (portal_torture off a 4.70/4.81 vs off b 5.42/4.16), their sum does not. The explicit per-pass transitions cost nothing measurable.

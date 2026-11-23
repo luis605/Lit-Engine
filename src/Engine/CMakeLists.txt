@@ -73,6 +73,7 @@ target_sources(Engine
         Engine.cppm
         GLM.cppm
         Render/Renderer.cppm
+        Render/RenderGraph.cppm
         Render/Camera.cppm
         Render/Component.cppm
         Render/Entity.cppm
@@ -154,6 +155,9 @@ target_sources(Engine
         Asset/AssetCache.cpp
         Asset/AssetBatch.cpp
         Render/RendererFrame.cpp
+        Render/RenderGraph.cpp
+        Render/RendererGraph.cpp
+        Render/VulkanAudit.cpp
         Render/RendererInit.cpp
         Render/RendererBuffers.cpp
         Render/RendererBindings.cpp
@@ -182,6 +186,7 @@ target_sources(Engine
         Overlay/DebugOverlay.cpp
         Render/Mesh.cpp
         Render/MeshletBuild.cpp
+        Render/MeshletHierarchy.cpp
         Render/RendererMeshlets.cpp
         Render/ObservationPass.cpp
         Render/Reflection.cpp

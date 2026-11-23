@@ -12,6 +12,8 @@ module;
 struct GLFWwindow;
 struct DiligentData;
 struct PortalHistory;
+struct RendererGraphState;
+struct FrameGraphData;
 namespace Diligent {
 struct ITexture;
 struct IBuffer;
@@ -36,6 +38,7 @@ import Engine.Render.governor;
 import Engine.Render.material;
 import Engine.Portal.view;
 import Engine.Render.observation;
+import Engine.Render.graph;
 import Engine.glm;
 
 enum class GpuPass : uint8_t { Upload, Transform, Sky, Shadows, Cull, CommandGen, OpaqueDraw, HiZ, RetestCull, RetestCommandGen, RetestDraw, TransparentCull, TransparentCommandGen, AmbientOcclusion, Reflections, Lighting, TransparentDraw, Post, Ui, Count };
@@ -48,6 +51,13 @@ export struct GpuEntityState {
 export struct GpuPassTiming {
     std::string name;
     double milliseconds = 0.0;
+};
+
+// Last executed frame graph (docs/RenderGraph.md).
+export struct RenderGraphInfo {
+    bool active = false;  // RenderSettings::renderGraph (LIT_RENDER_GRAPH=0/1 overrides at start-up)
+    rg::GraphStats stats;
+    uint32_t poolResources = 0;
 };
 
 export class Renderer {
@@ -78,6 +88,10 @@ export class Renderer {
     [[nodiscard]] uint64_t originRebases() const { return m_originRebases; }
     void bakeProbes();
     void setLights(bool enabled, const std::array<glm::vec4, 2>& directional, const std::vector<glm::vec4>& packed);
+    // Portal cell per light (setLights order); empty = no per-cell light filtering (docs/Portals.md).
+    void setLightCells(const std::vector<int32_t>& cells);
+    // Portal lights (images of lights of neighbouring cells, appended after the ordinary lights): first index and apertures.
+    void setLightApertures(uint32_t first, const std::vector<LightAperture>& apertures);
     void reloadShaders();
     void setMaterial(uint32_t index, const Material& material);
     [[nodiscard]] RenderSettings& settings() { return m_lighting.settings(); }
@@ -121,6 +135,10 @@ export class Renderer {
     [[nodiscard]] std::vector<GpuEntityState> readGpuEntityStates(size_t count);
     [[nodiscard]] std::vector<GpuPassTiming> gpuTimings() const;
     [[nodiscard]] double gpuTotalMilliseconds() const;
+    // Render graph: statistics of the last graph frame, and a text + Graphviz dump of the next one (<path>.txt, <path>.dot).
+    [[nodiscard]] RenderGraphInfo renderGraphInfo() const;
+    void requestGraphDump(std::string path);
+    [[nodiscard]] std::string lastGraphDump() const;
     void setProfilingHud(bool enabled) { m_profilingHud = enabled; }
     void requestScreenshot(std::string path) { m_screenshotPath = std::move(path); }
     void setPortalFrame(PortalFrame frame);
@@ -202,12 +220,24 @@ export class Renderer {
     void signalFrameFence();
     void drawEmptyFrame(const Camera& camera);
     FrameInput makeFrameInput(const Camera& camera, float currentFrameTime, float deltaTime);
+    float frameClock();
+    [[nodiscard]] bool renderGraphEnabled() const;
     void renderPortalPrepass(const SceneUniforms& sceneUniforms, uint32_t objectCount);
     void renderOpaqueGeometry(uint32_t objectCount, bool portalsActive);
     void renderShadowsAndTransparentCull(uint32_t objectCount);
     void shadeScene(bool portalsActive);
     void renderTransparentAndCustomEffects();
     void finishFrame(const FrameInput& frameInput, const Camera& camera);
+    // Frame graph path (RendererGraph.cpp, RendererPortalViews.cpp): same passes, declared resources and states.
+    void renderFrameGraph(SceneDatabase& sceneDatabase, const Camera& camera, float currentFrameTime, float deltaTime, uint32_t objectCount);
+    void addGeometryPasses(rg::RenderGraph& graph, FrameGraphData& frame, int viewIndex, uint32_t objectCount, PortalHistory* history);
+    void addShadowPasses(rg::RenderGraph& graph, FrameGraphData& frame, uint32_t objectCount, bool timed);
+    void addResolvePasses(rg::RenderGraph& graph, FrameGraphData& frame, int viewIndex);
+    void addShadePasses(rg::RenderGraph& graph, FrameGraphData& frame, int viewIndex);
+    void addPortalPasses(rg::RenderGraph& graph, FrameGraphData& frame, uint32_t objectCount);
+    void addPortalNodePasses(rg::RenderGraph& graph, FrameGraphData& frame, int index, uint32_t objectCount);
+    void drawVirtualShadows(uint32_t objectCount);
+    void drawCascadeShadows(uint32_t objectCount);
 
     void syncVersions(const SceneDatabase& sceneDatabase);
     TransformPlan uploadSceneData(SceneDatabase& sceneDatabase);
@@ -226,6 +256,9 @@ export class Renderer {
     void rollMeshletStats();
     void buildMeshletDraws(int phaseIndex, uint32_t views);
     void drawMeshletSurfaces(int phaseIndex, int cascade, uint32_t view);
+    // Shadow-texel LOD metric of the next shadow-phase cluster build: per view (xyz light origin, w
+    // texels per unit at distance 1), or orthographic (bit set in orthoMask: w texels per unit).
+    void setMeshletShadowLod(std::span<const glm::vec4> views, uint32_t orthoMask);
     [[nodiscard]] bool meshletsActive() const;
     [[nodiscard]] bool meshletMeshInfoStale() const;
     bool uploadMeshletMeshInfo(size_t count);
@@ -245,9 +278,9 @@ export class Renderer {
     void cullVisibilityPhase(int phase, uint32_t objectCount, Diligent::ITexture* hiz);
     void resetVisibilityCounters(int phaseIndex);
     void prepareCandidateDispatch(int phaseIndex, uint32_t objectCount);
-    void buildVisibilityDraws(int phase, uint32_t views = 1);
-    void drawVisibilityPhase(int phase);
-    void drawSurfaces(int phaseIndex, int cascade, uint32_t view = 0);
+    void buildVisibilityDraws(int phase, uint32_t views = 1, bool meshlets = true);
+    void drawVisibilityPhase(int phase, bool meshlets = true);
+    void drawSurfaces(int phaseIndex, int cascade, uint32_t view = 0, bool meshlets = true);
     void bindSceneTargets(bool clear);
     void bindBackBuffer(bool sceneDepthValid = true);
     void buildHiZ();
@@ -321,6 +354,20 @@ export class Renderer {
     bool m_initialized = false;
     bool m_meshInfoDirty = true;
     bool m_fullProfiling = false;
+    bool m_viewSunShadows = true;  // false while rendering a view whose portal cell has sun scale 0: its cascades are skipped
+    // Sun cascades shared between the views of a frame (docs/Portals.md): the set fitted for the main camera is reused by
+    // every sunlit portal view whose visible region it covers; `resident` while the shadow map holds that set.
+    struct SharedCascades {
+        std::array<Cascade, 4> cascades{};
+        bool valid = false;
+        bool resident = false;
+    };
+    SharedCascades m_sharedCascades;
+    bool m_cascadeShared = false;  // the view being rendered uses the shared set
+    bool m_cascadeReuse = false;   // ... and it is already in the shadow map: the view renders no cascades
+    void beginSharedCascades();
+    void selectViewCascades(int index, const PortalViewNode& node, SceneUniforms& uniforms);
+    void selectMainCascades();
     bool m_profilingHud = true;
 
     UIManager* m_uiManager = nullptr;
@@ -353,6 +400,7 @@ export class Renderer {
     QualityGovernor m_governor;
 
     float m_lastFrameTime = 0.0f;
+    uint64_t m_clockFrames = 0;
 
     bool m_debugDepthMode = false;
     std::vector<float> m_debugLines;

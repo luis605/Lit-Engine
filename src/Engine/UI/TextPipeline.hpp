@@ -1,5 +1,6 @@
 #pragma once
 
+#include "../Render/PsoCache.hpp"
 #include "TextAtlas.hpp"
 
 namespace {
@@ -73,6 +74,8 @@ void createTextPipeline(DiligentUIData& uiData, Diligent::TEXTURE_FORMAT depthFo
     };
     pipelineInfo.PSODesc.ResourceLayout.ImmutableSamplers = immutableSamplers;
     pipelineInfo.PSODesc.ResourceLayout.NumImmutableSamplers = _countof(immutableSamplers);
+
+    pipelineInfo.pPSOCache = litgpu::pipelineCache();
 
     uiData.device->CreateGraphicsPipelineState(pipelineInfo, &uiData.pipeline);
 }

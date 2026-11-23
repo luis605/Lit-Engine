@@ -4,7 +4,8 @@
 
 // Caster rasterisation into the physical page atlas. One instance = (object, render-list slot).
 // The face projection is remapped affinely in clip space so the page's NDC rectangle lands on its
-// atlas tile; four clip distances cut everything outside the page. Depth is the face's own depth.
+// atlas tile; four clip distances cut everything outside the page, a fifth the far side of a portal light's
+// portal plane. Depth is the face's own depth.
 
 layout(location = 0) in vec3 in_position;
 layout(location = 1) in vec3 in_normal;
@@ -34,7 +35,7 @@ layout(std430) readonly buffer VsmSortedInstances {
 
 out gl_PerVertex {
     vec4 gl_Position;
-    float gl_ClipDistance[4];
+    float gl_ClipDistance[5];
 };
 
 void main() {
@@ -51,6 +52,8 @@ void main() {
     gl_ClipDistance[1] = clip.w - uw;
     gl_ClipDistance[2] = vw;
     gl_ClipDistance[3] = clip.w - vw;
+    vec4 cut = vsmFaces[page.face].clipPlane;
+    gl_ClipDistance[4] = dot(cut.xyz, world) + cut.w;
     uint side = uint(vsmParams.z);
     vec2 physical = vec2(item.y % side, item.y / side);
     float scale = float(VSM_PAGE) / vsmParams.y;

@@ -1,0 +1,25 @@
+#version 450
+#extension GL_GOOGLE_include_directive : require
+#include "scene.glsl"
+#include "meshlet.glsl"
+
+// Cluster LOD hierarchy: advances the traversal level and writes the indirect dispatch arguments of
+// meshlet_nodes for it (one 64-thread group per queued item). nodeCounters[0] starts at 0xFFFFFFFF.
+layout(local_size_x = 1, local_size_y = 1, local_size_z = 1) in;
+
+layout(std430) buffer NodeCounterBuffer {
+    uint nodeCounters[];
+};
+
+layout(std430) writeonly buffer DispatchArgsBuffer {
+    uint dispatchArgs[];
+};
+
+void main() {
+    uint level = nodeCounters[0] + 1u;
+    nodeCounters[0] = level;
+    uint count = min(nodeCounters[1u + level], u_queueCapacity);
+    dispatchArgs[0] = (count + MESHLET_GROUP_SIZE - 1u) / MESHLET_GROUP_SIZE;
+    dispatchArgs[1] = 1u;
+    dispatchArgs[2] = 1u;
+}

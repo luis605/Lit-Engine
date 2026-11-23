@@ -3,6 +3,7 @@ module;
 #include <algorithm>
 #include <cmath>
 #include <cstdint>
+#include <cstdio>
 #include <string>
 #include <vector>
 
@@ -94,14 +95,24 @@ std::vector<ScatterInstance> scatterTile(const TerrainConfig& config, const Scat
     return out;
 }
 
+std::string scatterInstanceKey(const ScatterConfig& scatter, uint32_t species, int32_t cellX, int32_t cellZ) {
+    char seed[24];
+    std::snprintf(seed, sizeof(seed), "%llx", static_cast<unsigned long long>(scatter.seed));
+    return std::string("scatter/") + seed + "/" + std::to_string(species) + "/" + std::to_string(cellX) + "_" + std::to_string(cellZ);
+}
+
+std::string scatterInstanceKey(const ScatterConfig& scatter, const ScatterInstance& instance) {
+    return scatterInstanceKey(scatter, instance.species, static_cast<int32_t>(instance.cellX), static_cast<int32_t>(instance.cellZ));
+}
+
 std::vector<CellEntity> scatterEntities(const ScatterConfig& scatter, const TileKey& key, const std::vector<ScatterInstance>& instances) {
     std::vector<CellEntity> out;
     out.reserve(instances.size());
-    const std::string prefix = "scatter/" + std::to_string(key.x) + "_" + std::to_string(key.z) + "_" + std::to_string(key.level) + "/";
+    (void)key;
     for (const ScatterInstance& instance : instances) {
         const ScatterSpecies& species = scatter.species[instance.species];
         CellEntity entity;
-        entity.key = prefix + std::to_string(instance.species) + "/" + std::to_string(static_cast<int32_t>(instance.cellX)) + "_" + std::to_string(static_cast<int32_t>(instance.cellZ));
+        entity.key = scatterInstanceKey(scatter, instance);
         entity.desc.name = species.name;
         entity.desc.mesh = species.mesh;
         entity.desc.material = species.material;

@@ -13,7 +13,7 @@ Game agnostic. Tests: `tests/StreamingTests.cpp` (headless), `tests/ObservationG
 
 `makeBatchLoader(world, portals, deltas, build)` is the generic loader: `build(cell)` returns `CellContent` (keyed `EntityDesc` list) on a worker, commit creates entities within the budget and registers them with `DeltaStore`, unload destroys in batches.
 
-Per-frame budget: `commitMillisPerFrame` and `uploadBytesPerFrame`, shared by commits, unloads and assets. At least one step runs per frame, so oversized items still make progress. Assets: `requestAsset({key, priority, bytes, load, finish})`, `load` on a worker, `finish` (GPU upload) on the main thread under the same budget.
+Per-frame budget: `StreamingSystem::sharedBudget()` is the frame's single `StreamBudget` (reset after `recordFrame`); cells, assets and `TerrainStreamer` (docs/Terrain.md) all draw from it. `commitMillisPerFrame` and `uploadBytesPerFrame`, shared by commits, unloads and assets. At least one step runs per frame, so oversized items still make progress. Assets: `requestAsset({key, priority, bytes, load, finish})`, `load` on a worker, `finish` (GPU upload) on the main thread under the same budget.
 
 `prime(cell)` loads synchronously (start-up or teleport, never a loading screen at runtime). Entities appear as they commit; a cell is `Resident` after its last step, which is also when deltas apply.
 
@@ -55,5 +55,8 @@ Renderer.cpp changes are limited to the poll after the fence wait, one record ca
 `enableState(schema)`, `enableStorylets(path)` (adds `storylets` Update system), `enableObservation`, `enableDeltas`, `enableStreaming`, `enableSave(dir, seconds, slots)` (adds `autosave` when `seconds > 0`). Params are always on (`engine.params()`).
 
 ## Not done
+
+Terrain tiles and portal cells share the per-frame budget but not the worker pool or priority order (tiles are ranked by metres, cells by graph hops), and terrain deltas use their own cells (`terrain/x_z_L`, docs/Terrain.md).
+
 
 Renderer use of `visibleCells` (per-cell lighting and shadow selection stays in Renderer.cpp, owned elsewhere), triangle-exact ID raster.

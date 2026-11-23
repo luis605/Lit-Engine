@@ -1,0 +1,134 @@
+#version 450
+#extension GL_GOOGLE_include_directive : require
+#include "scene.glsl"
+#include "hiz.glsl"
+#include "meshlet.glsl"
+
+// Cluster LOD, stage 2: one level of the per-instance hierarchy traversal. Runs once per tree level
+// (level-synchronous, indirect dispatch sized by meshlet_node_args). Each thread tests one
+// (instance, node) item from this level's queue half: LOD cut bound on the node's LOD sphere, then
+// frustum and Hi-Z on its culling sphere. Accepted internal nodes push their children to the other
+// queue half; accepted leaves become work items for meshlet_cull (unchanged per-cluster tests).
+// In the early opaque phase a node rejected only by the previous-frame Hi-Z is recorded for the
+// retest phase, which resumes the traversal from that node against the new Hi-Z.
+layout(local_size_x = 64, local_size_y = 1, local_size_z = 1) in;
+
+layout(std430) readonly buffer SortedVisibleObjectBuffer {
+    uvec2 sortedEntries[];
+};
+
+layout(std430) readonly buffer WorldMatrixBuffer {
+    MeshletWorldRows worldRows[];
+};
+
+layout(std430) readonly buffer ClusterNodeBuffer {
+    ClusterNode clusterNodes[];
+};
+
+// [0] current level (written by meshlet_node_args), [1 + k] items queued for level k.
+layout(std430) buffer NodeCounterBuffer {
+    uint nodeCounters[];
+};
+
+layout(std430) buffer NodeQueueBuffer {
+    uvec4 nodeQueue[];  // (visible-entry slot, node, command slot | mesh << 16, 0), two halves
+};
+
+layout(std430) buffer WorkCounterBuffer {
+    uint u_workCount;
+};
+
+layout(std430) writeonly buffer WorkItemBuffer {
+    uvec4 workItems[];
+};
+
+layout(std430) buffer RetestCounterBuffer {
+    uint u_retestCount;
+};
+
+layout(std430) writeonly buffer RetestBuffer {
+    uvec4 retestItems[];
+};
+
+layout(std430) buffer MeshletStatsBuffer {
+    uint meshletStats[];
+};
+
+shared uint s_nodes;
+shared uint s_items;
+shared uint s_overflow;
+
+bool frustumVisible(vec3 center, float radius) {
+    for (int i = 0; i < 6; ++i) {
+        if (dot(frustumPlanes[i].xyz, center) + frustumPlanes[i].w < -radius) return false;
+    }
+    return true;
+}
+
+void main() {
+    if (gl_LocalInvocationIndex == 0u) {
+        s_nodes = 0u;
+        s_items = 0u;
+        s_overflow = 0u;
+    }
+    barrier();
+
+    uint level = nodeCounters[0];
+    uint count = min(nodeCounters[1u + level], u_queueCapacity);
+    uint index = gl_GlobalInvocationID.x;
+    if (index < count) {
+        uvec4 item = nodeQueue[(level & 1u) * u_queueCapacity + index];
+        uint slot = item.x;
+        ClusterNode node = clusterNodes[item.y];
+        uint commandSlot = item.z & 0xFFFFu;
+        atomicAdd(s_nodes, 1u);
+
+        uvec2 entry = sortedEntries[slot];
+        mat4 model = meshletWorld(worldRows[entry.x & 0x1FFFFFFFu]);
+        float scale = max(length(model[0].xyz), max(length(model[1].xyz), length(model[2].xyz)));
+        MeshletLod lod = meshletLod(commandSlot / max(u_shaderCount, 1u), scale);
+        vec3 lodCenter = (model * vec4(node.lodSphere.xyz, 1.0)).xyz;
+        bool accept = meshletNodeInCut(lod, lodCenter, node.lodSphere.w * scale, node.minSelfError, node.maxParentError);
+        vec3 center = (model * vec4(node.cullSphere.xyz, 1.0)).xyz;
+        float radius = node.cullSphere.w * scale;
+        if (accept && (u_flags & MESHLET_FLAG_FRUSTUM) != 0u) accept = frustumVisible(center, radius);
+        if (accept && (u_flags & MESHLET_FLAG_HIZ) != 0u && sphereOccluded(center, radius)) {
+            accept = false;
+            if ((u_flags & MESHLET_FLAG_RETEST_OUTPUT) != 0u) {
+                uint record = atomicAdd(u_retestCount, 1u);
+                if (record < u_retestCapacity) {
+                    retestItems[record * 2u] = uvec4(entry, item.y, item.z);
+                    retestItems[record * 2u + 1u] = uvec4(0u, 0u, 0u, MESHLET_RETEST_NODE);
+                } else {
+                    atomicAdd(s_overflow, 1u);
+                }
+            }
+        }
+        if (accept) {
+            uint size = node.count & ~MESHLET_NODE_LEAF;
+            if ((node.count & MESHLET_NODE_LEAF) != 0u) {
+                uint work = atomicAdd(u_workCount, 1u);
+                if (work < u_maxWorkItems) {
+                    workItems[work * 2u] = uvec4(slot, node.first, size, item.z);
+                    workItems[work * 2u + 1u] = uvec4(0xFFFFFFFFu, 0xFFFFFFFFu, 0u, 0u);
+                    atomicAdd(s_items, 1u);
+                } else {
+                    atomicAdd(s_overflow, 1u);
+                }
+            } else {
+                uint base = atomicAdd(nodeCounters[2u + level], size);
+                uint outBase = ((level + 1u) & 1u) * u_queueCapacity;
+                for (uint child = 0u; child < size; ++child) {
+                    if (base + child < u_queueCapacity) nodeQueue[outBase + base + child] = uvec4(slot, node.first + child, item.z, 0u);
+                }
+                if (base + size > u_queueCapacity) atomicAdd(s_overflow, 1u);
+            }
+        }
+    }
+    barrier();
+    if (gl_LocalInvocationIndex == 0u && s_nodes != 0u) {
+        atomicAdd(meshletStats[u_statsBase + MESHLET_STAT_NODES], s_nodes);
+        if (s_items != 0u) atomicAdd(meshletStats[u_statsBase + MESHLET_STAT_WORK_ITEMS], s_items);
+        if (s_overflow != 0u) atomicAdd(meshletStats[u_statsBase + MESHLET_STAT_OVERFLOW], s_overflow);
+    }
+}

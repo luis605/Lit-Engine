@@ -131,6 +131,15 @@ void fitCascade(Lighting::Data& state, int cascadeIndex, int cascadeCount, const
     cascade.valid = true;
 }
 
+void writeCascadeUniforms(const Lighting::Data& state, SceneUniforms& uniforms) {
+    for (int cascadeIndex = 0; cascadeIndex < kCascadeSlots; ++cascadeIndex) {
+        const Cascade& cascade = state.cascades[cascadeIndex];
+        uniforms.cascadeViewProj[cascadeIndex] = cascade.viewProjection;
+        uniforms.cascadeInfo[cascadeIndex] = glm::vec4(cascade.texelWorld, cascade.depthRange, static_cast<float>(cascade.layer), 0.0f);
+    }
+    uniforms.cascadeSplits = glm::vec4(state.cascades[0].split, state.cascades[1].split, state.cascades[2].split, state.cascades[3].split);
+}
+
 struct ShadowCandidate {
     uint32_t index;
     float score;
@@ -283,6 +292,12 @@ void Lighting::selectLocalShadows(SceneUniforms& uniforms, const glm::vec3& came
     if (!state.cpuLights.empty()) state.context->UpdateBuffer(state.lights, 0, sizeof(GpuLight) * state.cpuLights.size(), state.cpuLights.data(), Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
 }
 
+void Lighting::useCascades(const std::array<Cascade, 4>& cascades, SceneUniforms& uniforms) {
+    Data& state = *m_data;
+    state.cascades = cascades;
+    writeCascadeUniforms(state, uniforms);
+}
+
 void Lighting::fitShadows(const FrameInput& input, SceneUniforms& uniforms) {
     Data& state = *m_data;
     const RenderSettings& settings = state.settings;
@@ -296,12 +311,7 @@ void Lighting::fitShadows(const FrameInput& input, SceneUniforms& uniforms) {
     }
     const glm::vec3 toSun = glm::normalize(state.sun);
     for (int cascadeIndex = 0; cascadeIndex < kCascadeSlots; ++cascadeIndex) fitCascade(state, cascadeIndex, count, input, uniforms.invView, toSun);
-    for (int cascadeIndex = 0; cascadeIndex < kCascadeSlots; ++cascadeIndex) {
-        const Cascade& cascade = state.cascades[cascadeIndex];
-        uniforms.cascadeViewProj[cascadeIndex] = cascade.viewProjection;
-        uniforms.cascadeInfo[cascadeIndex] = glm::vec4(cascade.texelWorld, cascade.depthRange, static_cast<float>(cascade.layer), 0.0f);
-    }
-    uniforms.cascadeSplits = glm::vec4(state.cascades[0].split, state.cascades[1].split, state.cascades[2].split, state.cascades[3].split);
+    writeCascadeUniforms(state, uniforms);
     selectLocalShadows(uniforms, input.cameraPosition);
     fillVirtualShadowUniforms(state, uniforms);
     uniforms.shadowParams = glm::vec4(count > 0 ? 1.0f : 0.0f, 1.0f / static_cast<float>(std::max(state.shadowResolution, 1)), settings.shadowSoftness, settings.shadowNormalBias);

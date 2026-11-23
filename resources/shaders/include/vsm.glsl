@@ -22,6 +22,7 @@ struct VsmFace {
     mat4 viewProjection;
     vec4 info;   // x tan(half fov) incl. border, y light index, z CPU dirty flag, w 1 for a used slot
     vec4 sphere; // light position and range
+    vec4 clipPlane; // casters with dot(xyz, p) + w < 0 are cut (portal lights: the far side of their portal plane)
 };
 
 uint vsmMipOffset(uint mip) { return ((1u << (2u * mip)) - 1u) / 3u; }

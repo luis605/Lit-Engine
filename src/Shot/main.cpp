@@ -1,4 +1,5 @@
 #include <GLFW/glfw3.h>
+#include <cstdlib>
 #include <fstream>
 #include <string>
 #include "Engine/Log/Log.hpp"
@@ -11,6 +12,7 @@ import Engine.camera;
 import Engine.World;
 import Engine.Render.settings;
 import Engine.asset;
+import Engine.Portal.view;
 
 LIT_LARGEWORLD_DECLARATIONS
 
@@ -30,11 +32,14 @@ void writeClusterStats(Engine& engine, const std::string& path) {
     std::ofstream out(path);
     out << "enabled " << stats.enabled << "\nclusterMeshes " << stats.clusterMeshes << "\nresidentClusters " << stats.residentClusters << "\nresidentTriangles " << stats.residentTriangles << "\nframe " << stats.frame << '\n';
     auto view = [&](const char* prefix, const ClusterViewStats& v) {
-        out << prefix << "Instances " << v.instances << '\n' << prefix << "WorkItems " << v.workItems << '\n' << prefix << "ClustersTested " << v.clustersTested << '\n' << prefix << "ClustersSelected " << v.clustersSelected << '\n'
+        out << prefix << "Instances " << v.instances << '\n' << prefix << "NodesTested " << v.nodesTested << '\n' << prefix << "WorkItems " << v.workItems << '\n' << prefix << "ClustersTested " << v.clustersTested << '\n' << prefix << "ClustersSelected " << v.clustersSelected << '\n'
             << prefix << "ClustersDrawn " << v.clustersDrawn << '\n' << prefix << "Triangles " << v.trianglesDrawn << '\n' << prefix << "Draws " << v.draws << '\n' << prefix << "Overflows " << v.overflows << '\n';
     };
     view("camera", stats.camera);
     view("shadow", stats.shadow);
+    for (const PortalViewStats& portal : engine.portalStats()) {
+        out << "portalView " << (portal.label.empty() ? std::string("main") : portal.label) << " depth " << portal.depth << " drawn " << portal.drawn << " sunCascades " << portal.sunCascades << " sharedCascades " << portal.sharedCascades << '\n';
+    }
 }
 
 void writeTimings(Engine& engine, const std::string& path) {
@@ -49,6 +54,10 @@ int main(int argc, char** argv) {
     if (!parseArguments(argc, argv, options)) {
         printUsage();
         return 2;
+    }
+    if (options.deterministic) {
+        setenv("LIT_FIXED_DT", "0.016666667", 1);
+        setenv("LIT_FIXED_WINDOW", "1", 1);
     }
     Engine engine;
     if (!engine.open({"LitShot", options.width, options.height})) return 1;

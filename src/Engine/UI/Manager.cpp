@@ -13,6 +13,7 @@ module;
 #include <string_view>
 #include <vector>
 
+#include "../Render/PsoCache.hpp"
 #include "DiligentCore/Graphics/GraphicsEngine/interface/RenderDevice.h"
 #include "DiligentCore/Graphics/GraphicsEngine/interface/DeviceContext.h"
 #include "DiligentCore/Graphics/GraphicsEngine/interface/Buffer.h"

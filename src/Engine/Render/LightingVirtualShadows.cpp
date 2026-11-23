@@ -145,7 +145,8 @@ void ensureObjectCapacity(Lighting::Data& state, uint32_t objectCount) {
     for (auto& binding : vsm.bindings) binding.key.clear();
 }
 
-void writeFace(VsmFaceGpu& face, const glm::vec3& position, const glm::vec3& forward, const glm::vec3& upHint, float tanHalf, float range, uint32_t lightIndex, bool dirty) {
+void writeFace(VsmFaceGpu& face, const glm::vec3& position, const glm::vec3& forward, const glm::vec3& upHint, float tanHalf, float range, uint32_t lightIndex, bool dirty, const glm::vec4& clipPlane) {
+    face.clipPlane = clipPlane;
     const float nearZ = std::clamp(range * 0.004f, 0.02f, 0.5f);
     const glm::mat4 lightView = glm::lookAt(position, position + forward, upHint);
     const glm::mat4 projection = glm::perspectiveRH_ZO(2.0f * std::atan(tanHalf), 1.0f, nearZ, range);
@@ -154,7 +155,7 @@ void writeFace(VsmFaceGpu& face, const glm::vec3& position, const glm::vec3& for
     face.sphere = glm::vec4(position, range);
 }
 
-void writeLightFaces(VirtualShadowGpu& vsm, const GpuLight& light, uint32_t lightIndex, uint32_t base, bool dirty) {
+void writeLightFaces(VirtualShadowGpu& vsm, const GpuLight& light, uint32_t lightIndex, uint32_t base, bool dirty, const glm::vec4& clipPlane) {
     const glm::vec3 position(light.positionRange);
     const float range = light.positionRange.w;
     if (light.colorType.w > 1.5f) {
@@ -162,12 +163,12 @@ void writeLightFaces(VirtualShadowGpu& vsm, const GpuLight& light, uint32_t ligh
         const float cosOuter = std::clamp(light.directionCos.w, kMinSpotCosine, kMaxSpotCosine);
         const float tanHalf = std::min(std::sqrt(1.0f - cosOuter * cosOuter) / cosOuter, kMaxSpotTanHalf) * kFaceBorder;
         const glm::vec3 upHint = std::abs(direction.y) > 0.99f ? glm::vec3(1.0f, 0.0f, 0.0f) : glm::vec3(0.0f, 1.0f, 0.0f);
-        writeFace(vsm.cpuFaces[base], position, direction, upHint, tanHalf, range, lightIndex, dirty);
+        writeFace(vsm.cpuFaces[base], position, direction, upHint, tanHalf, range, lightIndex, dirty, clipPlane);
         return;
     }
     const glm::vec3 axes[kCubeFaces] = {{1, 0, 0}, {-1, 0, 0}, {0, 1, 0}, {0, -1, 0}, {0, 0, 1}, {0, 0, -1}};
     const glm::vec3 ups[kCubeFaces] = {{0, -1, 0}, {0, -1, 0}, {0, 0, 1}, {0, 0, -1}, {0, -1, 0}, {0, -1, 0}};
-    for (int face = 0; face < kCubeFaces; ++face) writeFace(vsm.cpuFaces[base + static_cast<uint32_t>(face)], position, axes[face], ups[face], kFaceBorder, range, lightIndex, dirty);
+    for (int face = 0; face < kCubeFaces; ++face) writeFace(vsm.cpuFaces[base + static_cast<uint32_t>(face)], position, axes[face], ups[face], kFaceBorder, range, lightIndex, dirty, clipPlane);
 }
 
 bool allocateSlots(VirtualShadowGpu& vsm, uint32_t count, uint32_t& base) {
@@ -269,6 +270,7 @@ void loadVirtualShadowPipelines(Lighting::Data& state) {
         createInfo.pVS = vertexShader;
         const litgpu::PipelineLayout resourceLayout = litgpu::makeLayout({vertexShader});
         resourceLayout.apply(createInfo.PSODesc.ResourceLayout);
+        createInfo.pPSOCache = litgpu::pipelineCache();
         device->CreateGraphicsPipelineState(createInfo, &pso);
         if (!pso) Lit::Log::Error("Failed to create pipeline '{}'", name);
         return pso;
@@ -366,7 +368,10 @@ void assignVirtualShadowFaces(Lighting::Data& state, SceneUniforms& uniforms) {
             continue;
         }
         if (!state.settings.vsmCache) dirty = true;
-        writeLightFaces(vsm, light, index, slot.faceBase, dirty);
+        // Portal lights only see casters on the receiving side of their portal plane (the other side is not their cell).
+        const bool portalLight = index >= state.firstPortalLight && index - state.firstPortalLight < state.lightApertures.size();
+        const glm::vec4 clipPlane = portalLight ? state.lightApertures[index - state.firstPortalLight].plane : glm::vec4(0.0f, 0.0f, 0.0f, 1.0f);
+        writeLightFaces(vsm, light, index, slot.faceBase, dirty, clipPlane);
         light.params.w = -2.0f - static_cast<float>(slot.faceBase);
         // Overflow priority: projected angular size of the light's range (range / distance), lights outside the
         // main frustum last (they only serve portal views and reflections).

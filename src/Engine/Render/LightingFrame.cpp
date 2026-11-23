@@ -141,6 +141,9 @@ void fillSkyUniforms(const Lighting::Data& state, const SunState& sun, SceneUnif
     // Cloud patterns live in world space: the wind offset carries the (wrapped) world origin so a rebase (local -= d, origin += d) leaves p + offset unchanged.
     const glm::vec2 cloudOrigin(static_cast<float>(std::fmod(state.worldOrigin.x, static_cast<double>(kMaxCloudOffset))), static_cast<float>(std::fmod(state.worldOrigin.z, static_cast<double>(kMaxCloudOffset))));
     uniforms.cloudParams = glm::vec4(state.cloudOffset + cloudOrigin, std::fmod(state.cloudTime, kCloudTimeWrap), settings.cloudSpeed);
+    const bool portalLights = !state.lightApertures.empty() && state.firstPortalLight < state.lightCount;
+    uniforms.cellParams = glm::vec4(-1.0f, portalLights ? static_cast<float>(state.firstPortalLight + 1) : 0.0f, 0.0f, 0.0f);
+    uniforms.cellTint = glm::vec4(1.0f, 1.0f, 1.0f, 0.0f);
     uniforms.originParams = glm::vec4(static_cast<float>(std::fmod(state.worldOrigin.x, kOriginPatternPeriod)), static_cast<float>(std::fmod(state.worldOrigin.y, kOriginPatternPeriod)), static_cast<float>(std::fmod(state.worldOrigin.z, kOriginPatternPeriod)), static_cast<float>(state.worldOrigin.y));
     uniforms.skyParams3 = glm::vec4(settings.moonIlluminance, settings.stars ? 1.0f : 0.0f, settings.godRays ? settings.godRayIntensity : 0.0f, settings.moon && settings.sky == SkyMode::Physical ? 1.0f : 0.0f);
 }

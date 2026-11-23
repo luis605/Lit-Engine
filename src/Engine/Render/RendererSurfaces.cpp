@@ -129,6 +129,7 @@ Diligent::RefCntAutoPtr<Diligent::IPipelineState> BuildSurfacePso(DiligentData& 
     const litgpu::PipelineLayout resourceLayout = SurfaceLayout(kind, vertexShader, pixelShader);
     resourceLayout.apply(createInfo.PSODesc.ResourceLayout);
     Diligent::RefCntAutoPtr<Diligent::IPipelineState> pso;
+    createInfo.pPSOCache = litgpu::pipelineCache();
     gpu.pDevice->CreateGraphicsPipelineState(createInfo, &pso);
     if (!pso) Lit::Log::Error("Failed to create surface pipeline '{}'", pipelineName);
     return pso;

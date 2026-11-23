@@ -4,12 +4,13 @@ Everything here is spatial or per-frame. No history buffers, no reprojection, no
 All options are `RenderSettings` fields, so they work from settings files (`renderScale 0.75`), the params bus, `setRenderSetting`, the Look panel (Shadows and Screen space sections) and palette commands.
 
 ## Depth convention
-Scene depth is reversed Z (near 1, far 0, `GREATER_EQUAL`, float D32) so 50-100 km views stay usable (docs/LargeWorld.md). Shaders test sky with `isSkyDepth`; the camera Hi-Z keeps the minimum, the shadow Hi-Z (standard Z) the maximum.
+Scene depth is reversed Z (near 1, far 0, `GREATER_EQUAL`, float D32) so 50-100 km views stay usable (docs/LargeWorld.md). Shaders test sky with `isSkyDepth`; the camera Hi-Z keeps the minimum, the shadow Hi-Z (standard Z) the maximum. Cascade and local shadow maps stay standard Z (clear 1, `LESS_EQUAL` in the surface shadow PSO); using the scene's `GREATER_EQUAL` there leaves every shadow map empty.
 
 ## Shadows
 - Cascades are texel-snapped in world space (stable under camera motion and floating-origin rebases) with per-texel Vogel rotation, so the noise sticks to the shadow map rather than the screen.
 - Normal-offset bias scales with cascade texel size and a clamped slope term (no huge offsets at grazing angles).
 - PCSS blocker search plus a variable filter radius (`pcss`, `shadowSoftness`). Far cascades (2 and up) use half the PCF taps.
+- Portal views share the main camera's cascades when those cover the view (`Lighting::useCascades`; `cellParams.z > 0` makes `sunShadow` pick the finest cascade containing the point instead of using the view-depth splits, no cross-fade). See docs/Portals.md, "Shared sun cascades".
 - `shadowCascadeBlend` (0..0.5): fraction of each cascade range that smoothly cross-fades into the next cascade (smoothstep). 0 disables the blend.
 - Contact shadows (`contactShadows`, `shadowContactLength` in metres): 12-step screen-space march toward the sun in the current depth buffer, thickness-limited, fading toward the ray end. Cheap blocker-search style detail for small casters the cascade cannot resolve.
 
@@ -31,6 +32,8 @@ Scene depth is reversed Z (near 1, far 0, `GREATER_EQUAL`, float D32) so 50-100 
 - Up to 32768 point/spot/area/tube lights per frame (`kMaxLights`, collector cap `kMaxSceneLights` in `Engine.cpp`), uploaded to one GPU light buffer.
 - `light_cull.comp` runs per view (main and every portal view, with that view's clipped frustum planes): a per-light pass frustum-culls with a tight cone bounding sphere for spots and compacts view-space spheres, then one 64-thread group per froxel cluster (32 x 18 screen tiles x 32 exponential depth slices) tests them against the cluster AABB and appends up to 512 indices to a variable-length list (4M index capacity). `ClusterBuffer` layout is documented in `lights.glsl` (`clusterRange`).
 - Debug view 10 shows lights per cluster (heatmap, 32 = red).
+- Portal cells: lights are filtered per view by cell (`cellParams.x`), and lights of a neighbouring cell reach a cell through its portals as images with an aperture (`lightAperture()` in `lights.glsl`, apertures after `kMaxLights` in the light buffer, VSM faces clipped at the portal plane). See docs/Portals.md, "Light through portals".
+- Cell grade: `SceneUniforms::cellTint` multiplies ambient (SH irradiance, prefiltered environment, reflection fallbacks) and the sun illuminance of a portal cell's views (docs/Portals.md, "Cell lighting grade").
 
 ## Virtual shadow maps (local lights)
 `virtualShadows` (default on, palette `render.virtualShadows`) shadows every local light; off falls back to the ranked `localShadowCount` cube/spot maps. Code: `LightingVirtualShadows.cpp`, shaders `lighting/vsm_*.comp|vert`, `include/vsm.glsl`.
@@ -43,7 +46,7 @@ Scene depth is reversed Z (near 1, far 0, `GREATER_EQUAL`, float D32) so 50-100 
 - Rendering: one group per queued page culls object spheres against the page sub-frustum, instances are bucketed per mesh LOD (prefix sum + scatter) and drawn with one indirect multi-draw into the D32 atlas (`vsmPoolSize` 2048/4096/8192 = 1024/4096/16384 pages). The vertex shader maps the face projection onto the page's atlas tile in clip space and cuts the rest with four clip distances; pages are cleared with one quad each.
 - Lookup: the page table at the pixel's mip (falling back to the finest coarser resident page), 4 rotated bilinear-compare taps (neighbouring pages looked up per tap), normal-offset and slope bias scaled with the texel size, `localShadowSoftness` widens the kernel.
 - Stats: `Lighting::virtualShadowStats()`; `LIT_VSM_STATS=1` logs faces, requests, rendered/resident pages, overflow, caster instances and moved objects every 30 frames.
-- Limits: casters have no custom vertex code or alpha test in virtual shadows; dynamic (skinned, morphed, deformed) meshes are drawn from their per-instance vertex range in the shared vertex buffer, which the skinning pass rewrites before any shadow pass, so they cast their current pose. Cluster LOD meshes are drawn from their triangle LOD chain (the renderer keeps an unpatched mesh info buffer for this; cluster LOD itself zeroes those slots for the main views). Point-sprite LODs are drawn as the coarsest mesh LOD, transparent surfaces use whatever pages opaque pixels requested (mip 0 at least), the sun keeps its cascades (not paged, redrawn every frame so they follow deformation).
+- Limits: casters have no custom vertex code or alpha test in virtual shadows; dynamic (skinned, morphed, deformed) meshes are drawn from their per-instance vertex range in the shared vertex buffer, which the skinning pass rewrites before any shadow pass, so they cast their current pose. Cluster LOD meshes are drawn from their triangle LOD chain (the renderer keeps an unpatched mesh info buffer for this; cluster LOD itself zeroes those slots for the main views). Sun cascades and the ranked local shadow maps do draw clusters, with the cut chosen from shadow-texel error (`clusterShadowTexelLod`, `clusterShadowErrorTexels`, [ClusterLod.md](ClusterLod.md)). Point-sprite LODs are drawn as the coarsest mesh LOD, transparent surfaces use whatever pages opaque pixels requested (mip 0 at least), the sun keeps its cascades (not paged, redrawn every frame so they follow deformation).
 
 ## Stress scene and measurements
 `LitShot --testscene light_stress --lights 4096` builds a 160 m field of 900 pillars, 256 bobbing spheres (moving casters) and N moving lights (3/4 point, 1/4 spot) at night; animation is driven by the frame index.
@@ -78,4 +81,4 @@ Use `vsmResolutionScale` 2..4 for thousands of visible shadowed lights.
 `render.contactShadows`, `render.bentNormals`, `render.areaLights`, `render.governor`, `render.scale` (cycles 1.0, 0.9, ... 0.5), `render.virtualShadows`, `render.vsmCache`, `render.vsmPool`.
 
 ## Verification status
-Shaders validate with `glslangValidator -V --auto-map-bindings -Iresources/shaders/include`. GPU output was not visually inspected in this environment.
+Shaders validate with `glslangValidator -V --auto-map-bindings --target-env vulkan1.1 -Iresources/shaders/include` (the cull/scatter/compaction shaders use subgroup ops, which need SPIR-V 1.3; the runtime compiles for Vulkan 1.1+). GPU output is inspected with `LitShot --testscene <name>` screenshots.

@@ -19,7 +19,7 @@ bool parseSize(const std::string& text, ShotOptions& options) {
 void printUsage() {
     std::puts(
         "LitShot: render N frames of a scene on a real device and save the final frame as PNG\n"
-        "  --testscene NAME      test scene (portal_torture, streaming_route, crowd, vista, showcase, probes, gallery, ik, light_stress, largeworld, vsm_mixed)\n"
+        "  --testscene NAME      test scene (portal_loop, portal_torture, streaming_route, crowd, vista, showcase, probes, gallery, ik, light_stress, largeworld, vsm_mixed)\n"
         "  --scene FILE          load a .litscene instead\n"
         "  --frames N            frames to render before the capture (default 30)\n"
         "  --light-intensity X   intensity of the showcase scene lights (default 3e6, photometric lumens)\n"
@@ -28,6 +28,7 @@ void printUsage() {
         "  --no-probe            probes scene: omit the reflection probe entity\n"
         "  --bake-frame N        request a reflection probe bake on frame N\n"
         "  --size WxH            window size (default 1280x720)\n"
+        "  --deterministic       fixed 1/60 s clock and a fixed-size (floating) window, for pixel comparisons between runs\n"
         "  --set KEY=VALUE       render setting, repeatable (reflectionMode=2, renderScale=0.5, ...)\n"
         "  --screenshot FILE     output PNG (default shot.png)\n"
         "  --timings FILE        write GPU pass timings (ms) of the last frame\n"
@@ -63,6 +64,8 @@ bool parseArguments(int argc, char** argv, ShotOptions& options) {
             options.bakeFrame = std::atoi(nextValue().c_str());
         } else if (argument == "--size") {
             if (!parseSize(nextValue(), options)) return false;
+        } else if (argument == "--deterministic") {
+            options.deterministic = true;
         } else if (argument == "--screenshot") {
             options.output = nextValue();
         } else if (argument == "--stats") {
