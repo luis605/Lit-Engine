@@ -135,6 +135,10 @@ void Renderer::createDevice() {
         engineInfo.Features.BindlessResources = Diligent::DEVICE_FEATURE_STATE_OPTIONAL;
         engineInfo.Features.ShaderResourceRuntimeArrays = Diligent::DEVICE_FEATURE_STATE_OPTIONAL;
     }
+    // Per-frame dynamic buffer/texture maps (light lists, VSM requests, skinning palettes, UI) overflow Diligent's 8 MB default
+    // and force the GPU to idle ("Space in dynamic heap is almost exhausted").
+    engineInfo.DynamicHeapSize = 256u << 20;
+    engineInfo.DynamicHeapPageSize = 4u << 20;
     engineInfo.ppIgnoreDebugMessageNames = kIgnoredValidationMessages;
     engineInfo.IgnoreDebugMessageCount = static_cast<Diligent::Uint32>(std::size(kIgnoredValidationMessages));
 
