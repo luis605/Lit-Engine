@@ -163,7 +163,7 @@ uint32_t Renderer::createDynamicSource(const DynamicMesh& mesh) {
 
     const size_t indexBytes = indices.size() * sizeof(uint32_t);
     growGeometryBuffers(0, indexBytes);
-    gpu.pImmediateContext->UpdateBuffer(gpu.pEBO, gTotalIndexBytes, indexBytes, indices.data(), Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
+    LIT_UP(gpu.pImmediateContext)->UpdateBuffer(gpu.pEBO, gTotalIndexBytes, indexBytes, indices.data(), Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
     source.firstIndex = static_cast<uint32_t>(gTotalIndexBytes / sizeof(unsigned int));
     gTotalIndexBytes += indexBytes;
 
@@ -311,9 +311,9 @@ void Renderer::updateDynamicMeshes() {
         uniforms.deformA = glm::vec4(deform.amplitude, deform.frequency, deform.speed, deform.time);
         uniforms.deformB = glm::vec4(deform.direction, deform.pinY);
         uniforms.deformC = glm::vec4(deform.pinRange, 0.0f, 0.0f, 0.0f);
-        context->UpdateBuffer(instance.skinUniforms, 0, sizeof(uniforms), &uniforms, Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
-        if (source.skinned) context->UpdateBuffer(instance.paletteBuffer, 0, instance.palette.size() * sizeof(glm::mat4), instance.palette.data(), Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
-        if (source.morphCount > 0) context->UpdateBuffer(instance.morphWeights, 0, instance.morph.size() * sizeof(float), instance.morph.data(), Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
+        LIT_UP(context)->UpdateBuffer(instance.skinUniforms, 0, sizeof(uniforms), &uniforms, Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
+        if (source.skinned) LIT_UP(context)->UpdateBuffer(instance.paletteBuffer, 0, instance.palette.size() * sizeof(glm::mat4), instance.palette.data(), Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
+        if (source.morphCount > 0) LIT_UP(context)->UpdateBuffer(instance.morphWeights, 0, instance.morph.size() * sizeof(float), instance.morph.data(), Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
 
         context->SetPipelineState(skinning.skinPso);
         context->CommitShaderResources(instance.skinSrb, Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
@@ -336,7 +336,7 @@ void Renderer::updateDynamicMeshes() {
                 userUniforms.vertexCount = source.vertexCount;
                 userUniforms.time = deform.time;
                 for (size_t i = 0; i < 4; ++i) userUniforms.user[i] = deform.user[i];
-                context->UpdateBuffer(instance.userUniforms, 0, sizeof(userUniforms), &userUniforms, Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
+                LIT_UP(context)->UpdateBuffer(instance.userUniforms, 0, sizeof(userUniforms), &userUniforms, Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
                 UavBarrier(context, instance.output);
                 context->SetPipelineState(skinning.userPipelines[deform.userShader]);
                 context->CommitShaderResources(instance.userSrb, Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
@@ -349,7 +349,7 @@ void Renderer::updateDynamicMeshes() {
         for (float weight : instance.morph) morphActive = morphActive || weight != 0.0f;
         if (deform.recomputeNormals && (deform.mode != DeformMode::None || morphActive)) {
             const CountUniforms count{source.vertexCount, {0, 0, 0}};
-            context->UpdateBuffer(instance.normalUniforms, 0, sizeof(count), &count, Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
+            LIT_UP(context)->UpdateBuffer(instance.normalUniforms, 0, sizeof(count), &count, Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
             UavBarrier(context, instance.output);
             context->SetPipelineState(skinning.normalsPso);
             context->CommitShaderResources(instance.normalSrb, Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
@@ -370,8 +370,8 @@ void Renderer::updateDynamicMeshes() {
     }
     if (!skinning.boundsSrb || !gpu.pCullSphereBuffer[m_currentFrame] || !gpu.pWorldMatrixBuffer[m_currentFrame] || !gpu.pRenderableBuffer[m_currentFrame] || !gpu.pShaderBounds) return;
     const CountUniforms countUniforms{count, {0, 0, 0}};
-    context->UpdateBuffer(skinning.boundsUniforms, 0, sizeof(countUniforms), &countUniforms, Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
-    context->UpdateBuffer(skinning.boundsData, 0, boundData.size() * sizeof(DynamicBoundGpu), boundData.data(), Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
+    LIT_UP(context)->UpdateBuffer(skinning.boundsUniforms, 0, sizeof(countUniforms), &countUniforms, Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
+    LIT_UP(context)->UpdateBuffer(skinning.boundsData, 0, boundData.size() * sizeof(DynamicBoundGpu), boundData.data(), Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
     auto srv = [](Diligent::IBuffer* buffer) { return buffer->GetDefaultView(Diligent::BUFFER_VIEW_SHADER_RESOURCE); };
     SetDynamicVariable(skinning.boundsSrb, "WorldMatrixBuffer", srv(gpu.pWorldMatrixBuffer[m_currentFrame]));
     SetDynamicVariable(skinning.boundsSrb, "RenderableBuffer", srv(gpu.pRenderableBuffer[m_currentFrame]));

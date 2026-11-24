@@ -1,0 +1,16 @@
+# Bent regression: shrunk counterexample for law `nasty_programs_keep_world_consistent` (tests/bent/laws/robustness.bent)
+# Found by: bent check tests/bent/laws/robustness.bent --cases 10000 --jobs 7 --seed 2 --shrink-limit 5000 (seed 2, case 3834)
+# Shrunk 239 times in 3183 attempts; tape 679 -> 123 choices
+# Replay the random case: bent replay tests/bent/laws/robustness.bent --law nasty_programs_keep_world_consistent --seed 2 --case 3834
+# Failure: property is false
+#   tests/bent/laws/robustness.bent:12:49: ["stale world cache for entity 2 parent 1 clean animOffset 0 animCount 0"] == [] is false
+# World::validate compared overflowed (inf) cached and recomputed world matrices and reported a stale cache. Fixed in src/Engine/World/WorldValidate.cpp.
+include "../laws/robustness.bent"
+
+example nasty_programs_keep_world_consistent {
+  p = [
+    spawn(dynamic: false, mass: 0.0, mesh: 0, parent: 0, pos: vec3(0.0, 0.0, 0.0), rot: quat(0.0, 0.0, 0.0, 0.0), scale: vec3(0.0, 0.0, 1.769856035710449), shape: "sphere", size: 0.0, vel: vec3(0.0, 0.0, 0.0)),
+    spawn(dynamic: false, mass: 0.0, mesh: 0, parent: 0, pos: vec3(0.0, 0.0, 0.0), rot: quat(0.0, 4831.947509765626, 8531.41552734375, 0.0), scale: vec3(0.0, 0.0, 1e+30), shape: "sphere", size: 0.0, vel: vec3(0.0, 0.0, 0.0)),
+    spawn(dynamic: false, mass: 0.0, mesh: 0, parent: 1, pos: vec3(0.0, 0.0, 0.0), rot: quat(0.0, 0.0, 0.0, 0.0), scale: vec3(0.0, 0.0, 1e-45), shape: "sphere", size: 0.0, vel: vec3(0.0, 0.0, 0.0))
+  ]
+}

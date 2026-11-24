@@ -402,7 +402,126 @@ static void testImpact() {
     CHECK(c.position().x > 1.0f);
 }
 
+// Wall-to-floor portal (docs/Physics.md, "Character"): X has a floor portal (normal +Y), Y a wall end (normal -X). Falling into the
+// floor portal comes out of Y's wall moving horizontally with up turned toward the wall; up and the view frame then turn back to
+// gravity-up (0.3 s, or at once with uprightSeconds = 0) while position, velocity and the view stay continuous.
+static const char* kTilted = R"({
+  "cells": [
+    {"name": "X", "min": [-30, -10, -30], "max": [30, 8, 30]},
+    {"name": "Y", "min": [70, -1, -30], "max": [130, 8, 30]}
+  ],
+  "portals": [
+    {"name": "drop", "a": {"cell": "X", "position": [0, 0, 0], "rotation": [0, -90, 0], "size": [1.5, 1.5]},
+                     "b": {"cell": "Y", "position": [100, 3, 0], "rotation": [-90, 0, 0], "size": [1.5, 1.5]}}
+  ]
+})";
+
+static void tiltedFall(float uprightSeconds) {
+    World w;
+    setup(w);
+    PortalSystem p;
+    CHECK(p.parseJson(kTilted));
+    installPortalPhysics(p);
+    addBox(w, glm::vec3(100.0f, -0.5f, 0.0f), glm::vec3(30.0f, 0.5f, 30.0f));
+    PhysicsSettings ps;
+    CharacterSettings cs;
+    cs.uprightSeconds = uprightSeconds;
+    CharacterController c(w, p, ps, cs);
+    const Portal& A = p.portals()[static_cast<size_t>(portalIn(p, "X"))];
+    c.spawn(glm::vec3(0.0f, 1.0f, 0.3f), 30.0f, -20.0f);
+    const float dt = 1.0f / 60.0f;
+    glm::mat4 previousView = w.camera().getViewMatrix();
+    float worstTurn = 0.0f;
+    int crossedAt = -1;
+    glm::vec3 velocityAfter(0.0f);
+    glm::vec3 upAfter(0.0f);
+    glm::vec3 gravityUpAfter(0.0f);
+    for (int i = 0; i < 240; ++i) {
+        const int before = c.crossings();
+        const glm::vec3 velocityBefore = c.velocity();
+        c.update(dt);
+        const glm::mat4 view = w.camera().getViewMatrix();
+        glm::mat4 expected = previousView;
+        if (c.crossings() != before) {
+            crossedAt = i;
+            velocityAfter = c.velocity();
+            upAfter = c.up();
+            gravityUpAfter = -glm::normalize(c.gravity());
+            expected = previousView * glm::inverse(A.transform);
+            CHECK(glm::dot(glm::normalize(velocityAfter), glm::normalize(rot(A.transform, velocityBefore))) > 0.98f);
+        }
+        // View direction continuity in the frame of the current cell (a crossing maps the previous view through the transform).
+        const glm::vec3 frontBefore = -glm::vec3(glm::transpose(glm::mat3(expected))[2]);
+        const glm::vec3 frontNow = -glm::vec3(glm::transpose(glm::mat3(view))[2]);
+        worstTurn = std::max(worstTurn, glm::degrees(std::acos(std::clamp(glm::dot(frontBefore, frontNow), -1.0f, 1.0f))));
+        previousView = view;
+    }
+    CHECK(crossedAt > 0);
+    CHECK(c.crossings() == 1);
+    CHECK(c.cell() == p.findCell("Y"));
+    // Out of the wall (gravity is blended across the portal plane, docs/Portals.md, so the fall already curved a little).
+    CHECK(glm::dot(glm::normalize(velocityAfter), glm::vec3(-1.0f, 0.0f, 0.0f)) > 0.5f);
+    if (uprightSeconds > 0.0f) CHECK(upAfter.x > 0.5f);                                     // up followed the transform
+    else CHECK(glm::dot(upAfter, gravityUpAfter) > 0.999f);                                 // immediate reorientation
+    CHECK(worstTurn < 6.0f);  // no pop of the view direction at the crossing (pitch relax is gradual)
+    CHECK(c.up().y > 0.99f);
+    CHECK(std::abs(c.roll()) < 0.5f);
+    CHECK(std::abs(w.camera().getRight().y) < 0.01f && w.camera().getUp().y > 0.0f);  // upright view, no roll
+    CHECK(c.grounded());
+}
+
+// Thrown body through a rolled (45 degree) portal: velocity and spin carried by the transform, twin while straddling.
+static void testThrownRolled() {
+    World w;
+    setup(w);
+    PortalSystem p;
+    CHECK(p.parseJson(R"({
+  "cells": [
+    {"name": "X", "min": [-30, -10, -30], "max": [30, 8, 30]},
+    {"name": "Y", "min": [70, -10, -30], "max": [130, 8, 30]}
+  ],
+  "portals": [
+    {"name": "roll", "a": {"cell": "X", "position": [10, 3, 0], "rotation": [-90, 0, 0], "size": [1.5, 1.5]},
+                     "b": {"cell": "Y", "position": [100, 3, 0], "rotation": [90, 20, 45], "size": [1.5, 1.5]}}
+  ]
+})"));
+    installPortalPhysics(p);
+    const Portal& A = p.portals()[static_cast<size_t>(portalIn(p, "X"))];
+    EntityDesc d;
+    d.mesh = kSphere;
+    d.scale = glm::vec3(0.3f);
+    d.position = A.center() + A.normal() * 4.0f + glm::vec3(0.0f, 0.3f, 0.2f);
+    const EntityHandle ball = w.create(d);
+    w.add<SphereCollider>(ball, 0.3f);
+    RigidBody* rb = w.add<RigidBody>(ball);
+    rb->velocity = -A.normal() * 10.0f;
+    p.track(w, ball);
+    PhysicsSettings ps;
+    ps.gravity = glm::vec3(0.0f);
+    bool twin = false;
+    bool crossed = false;
+    for (int i = 0; i < 240 && !crossed; ++i) {
+        const glm::vec3 vBefore = w.get<RigidBody>(ball)->velocity;
+        const int cellBefore = p.objectCell(ball);
+        stepPortalPhysics(p, w, 1.0f / 120.0f, ps);
+        const EntityHandle g = p.ghostOf(ball);
+        if (w.isAlive(g) && w.isVisible(g)) twin = true;
+        if (p.objectCell(ball) != cellBefore) {
+            crossed = true;
+            CHECK(glm::length(w.get<RigidBody>(ball)->velocity - rot(A.transform, vBefore)) < 0.3f);
+            const Portal& B = p.portals()[static_cast<size_t>(A.partner)];
+            CHECK(glm::dot(w.get<RigidBody>(ball)->velocity, B.normal()) > 9.0f);  // leaves along the rolled exit's normal
+        }
+    }
+    CHECK(twin);
+    CHECK(crossed);
+    CHECK(p.objectCell(ball) == p.findCell("Y"));
+}
+
 int main() {
+    tiltedFall(0.3f);
+    tiltedFall(0.0f);
+    testThrownRolled();
     testSweep();
     testThrown();
     testCrossings();

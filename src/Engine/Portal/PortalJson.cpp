@@ -81,6 +81,9 @@ void readSettings(const Json& root, PortalSettings& settings) {
     if (const Json* occlusion = node->get("occlusion")) settings.occlusion = occlusion->isBool() ? occlusion->asBool() : occlusion->asNumber() != 0.0;
     settings.tintLighting = numberOr(node->get("tintLighting"), settings.tintLighting);
     if (const Json* transport = node->get("lightTransport")) settings.lightTransport = transport->isBool() ? transport->asBool() : transport->asNumber() != 0.0;
+    if (const Json* upright = node->get("uprightCamera")) settings.uprightCamera = upright->isBool() ? upright->asBool() : upright->asNumber() != 0.0;
+    settings.uprightSeconds = std::max(numberOr(node->get("uprightSeconds"), settings.uprightSeconds), 0.0f);
+    settings.spill = std::max(numberOr(node->get("spill"), settings.spill), 0.0f);
 }
 
 bool readCell(const Json& node, const PortalSystem& system, PortalCell& cell) {
@@ -113,6 +116,60 @@ bool readEnd(const Json* node, PortalEnd& end) {
     return true;
 }
 
+bool flagOr(const Json* node, bool fallback) {
+    if (!node) return fallback;
+    if (node->isBool()) return node->asBool();
+    return node->isNumber() ? node->asNumber() != 0.0 : fallback;
+}
+
+PortalLook readLook(const Json& pair) {
+    PortalLook look;
+    if (const Json* shape = pair.get("shape"); shape && shape->isString()) {
+        const std::string& name = shape->asString();
+        look.shape = name == "ellipse" ? PortalShape::Ellipse : name == "rounded" ? PortalShape::Rounded : PortalShape::Rect;
+    }
+    look.cornerRadius = std::max(numberOr(pair.get("cornerRadius"), look.cornerRadius), 0.0f);
+    look.spill = std::max(numberOr(pair.get("spill"), look.spill), 0.0f);
+    if (const Json* frame = pair.get("frame")) {
+        PortalFrameStyle& style = look.frame;
+        if (frame->isBool()) {
+            style.enabled = frame->asBool();
+        } else if (frame->isObject()) {
+            style.enabled = flagOr(frame->get("enabled"), true);
+            style.width = std::max(numberOr(frame->get("width"), style.width), 0.0f);
+            style.depth = std::max(numberOr(frame->get("depth"), style.depth), 0.0f);
+            style.back = std::max(numberOr(frame->get("back"), style.back), 0.0f);
+            style.bevel = std::max(numberOr(frame->get("bevel"), style.bevel), 0.0f);
+            readVec3(frame->get("color"), style.color);
+            style.metalness = std::clamp(numberOr(frame->get("metalness"), style.metalness), 0.0f, 1.0f);
+            style.roughness = std::clamp(numberOr(frame->get("roughness"), style.roughness), 0.0f, 1.0f);
+            readVec3(frame->get("emissive"), style.emissive);
+            style.emissiveIntensity = std::max(numberOr(frame->get("emissiveIntensity"), style.emissiveIntensity), 0.0f);
+        }
+    }
+    if (const Json* edge = pair.get("edge"); edge && edge->isObject()) {
+        PortalEdgeStyle& style = look.edge;
+        style.feather = std::max(numberOr(edge->get("feather"), style.feather), 0.0f);
+        style.rim = std::max(numberOr(edge->get("rim"), style.rim), 0.0f);
+        readVec3(edge->get("rimColor"), style.rimColor);
+        style.rimWidth = std::max(numberOr(edge->get("rimWidth"), style.rimWidth), 0.0f);
+        style.fresnel = std::max(numberOr(edge->get("fresnel"), style.fresnel), 0.0f);
+        style.distortion = std::max(numberOr(edge->get("distortion"), style.distortion), 0.0f);
+        style.chroma = std::max(numberOr(edge->get("chroma"), style.chroma), 0.0f);
+        style.dissolve = std::clamp(numberOr(edge->get("dissolve"), style.dissolve), 0.0f, 1.0f);
+    }
+    return look;
+}
+
+std::string lookJson(const PortalLook& look) {
+    const PortalFrameStyle& frame = look.frame;
+    const PortalEdgeStyle& edge = look.edge;
+    return std::format("\"shape\": \"{}\", \"cornerRadius\": {}, \"spill\": {}, \"frame\": {{\"enabled\": {}, \"width\": {}, \"depth\": {}, \"back\": {}, \"bevel\": {}, \"color\": {}, \"metalness\": {}, \"roughness\": {}, \"emissive\": {}, \"emissiveIntensity\": {}}}, "
+                       "\"edge\": {{\"feather\": {}, \"rim\": {}, \"rimColor\": {}, \"rimWidth\": {}, \"fresnel\": {}, \"distortion\": {}, \"chroma\": {}, \"dissolve\": {}}}",
+                       portalShapeName(look.shape), look.cornerRadius, look.spill, frame.enabled ? "true" : "false", frame.width, frame.depth, frame.back, frame.bevel, formatVec3(frame.color), frame.metalness, frame.roughness, formatVec3(frame.emissive), frame.emissiveIntensity,
+                       edge.feather, edge.rim, formatVec3(edge.rimColor), edge.rimWidth, edge.fresnel, edge.distortion, edge.chroma, edge.dissolve);
+}
+
 bool readPairs(const Json& root, PortalSystem& system) {
     const Json* pairs = root.get("portals");
     if (!pairs || !pairs->isArray()) return true;
@@ -121,21 +178,12 @@ bool readPairs(const Json& root, PortalSystem& system) {
         PortalEnd endB;
         const Json* name = pair.get("name");
         const bool complete = readEnd(pair.get("a"), endA) && readEnd(pair.get("b"), endB);
-        if (!complete || system.addPair(name ? name->asString() : "portal", endA, endB, numberOr(pair.get("twist"), 0.0f)) < 0) {
+        if (!complete || system.addPair(name ? name->asString() : "portal", endA, endB, numberOr(pair.get("twist"), 0.0f), readLook(pair)) < 0) {
             Lit::Log::Error("Portal pair references an unknown cell or is incomplete");
             return false;
         }
     }
     return true;
-}
-
-glm::vec3 eulerOf(const Portal& portal) {
-    const glm::mat4& pose = portal.pose;
-    const glm::vec3 forward = glm::vec3(pose[2]);
-    const float yaw = std::atan2(forward.x, forward.z);
-    const float pitch = -std::asin(glm::clamp(forward.y, -1.0f, 1.0f));
-    const float roll = std::atan2(glm::vec3(pose[0]).y, glm::vec3(pose[1]).y);
-    return glm::vec3(glm::degrees(yaw), glm::degrees(pitch), glm::degrees(roll));
 }
 
 }
@@ -178,8 +226,8 @@ bool PortalSystem::loadJson(const std::string& path) {
 
 std::string PortalSystem::toJson() const {
     std::string out = "{\n";
-    out += std::format("  \"settings\": {{\"maxDepth\": {}, \"maxViews\": {}, \"blendDistance\": {}, \"minPixels\": {}, \"occlusion\": {}, \"tintLighting\": {}, \"lightTransport\": {}}},\n", m_settings.maxDepth, m_settings.maxViews, m_settings.blendDistance,
-                       m_settings.minPixels, m_settings.occlusion ? "true" : "false", m_settings.tintLighting, m_settings.lightTransport ? "true" : "false");
+    out += std::format("  \"settings\": {{\"maxDepth\": {}, \"maxViews\": {}, \"blendDistance\": {}, \"minPixels\": {}, \"occlusion\": {}, \"tintLighting\": {}, \"lightTransport\": {}, \"uprightCamera\": {}, \"uprightSeconds\": {}, \"spill\": {}}},\n", m_settings.maxDepth, m_settings.maxViews, m_settings.blendDistance,
+                       m_settings.minPixels, m_settings.occlusion ? "true" : "false", m_settings.tintLighting, m_settings.lightTransport ? "true" : "false", m_settings.uprightCamera ? "true" : "false", m_settings.uprightSeconds, m_settings.spill);
     out += "  \"cells\": [\n";
     for (size_t index = 0; index < m_cells.size(); ++index) {
         const PortalCell& cell = m_cells[index];
@@ -196,7 +244,7 @@ std::string PortalSystem::toJson() const {
         const Portal& portalA = m_portals[index];
         const Portal& portalB = m_portals[index + 1];
         const std::string name = portalA.name.substr(0, portalA.name.size() >= 2 ? portalA.name.size() - 2 : 0);
-        out += std::format("    {{\"name\": \"{}\", \"a\": {{\"cell\": \"{}\", \"position\": {}, \"rotation\": {}, \"size\": [{}, {}]}}, \"b\": {{\"cell\": \"{}\", \"position\": {}, \"rotation\": {}, \"size\": [{}, {}]}}, \"twist\": {}}}{}\n", escapeJson(name), escapeJson(m_cells[static_cast<size_t>(portalA.cell)].name), formatVec3(portalA.center()), formatVec3(eulerOf(portalA)), portalA.half.x, portalA.half.y, escapeJson(m_cells[static_cast<size_t>(portalB.cell)].name), formatVec3(portalB.center()), formatVec3(eulerOf(portalB)), portalB.half.x, portalB.half.y, portalA.twist, index + 2 < m_portals.size() ? "," : "");
+        out += std::format("    {{\"name\": \"{}\", \"a\": {{\"cell\": \"{}\", \"position\": {}, \"rotation\": {}, \"size\": [{}, {}]}}, \"b\": {{\"cell\": \"{}\", \"position\": {}, \"rotation\": {}, \"size\": [{}, {}]}}, \"twist\": {}, {}}}{}\n", escapeJson(name), escapeJson(m_cells[static_cast<size_t>(portalA.cell)].name), formatVec3(portalA.center()), formatVec3(portalA.euler), portalA.half.x, portalA.half.y, escapeJson(m_cells[static_cast<size_t>(portalB.cell)].name), formatVec3(portalB.center()), formatVec3(portalB.euler), portalB.half.x, portalB.half.y, portalA.twist, lookJson(portalA.look), index + 2 < m_portals.size() ? "," : "");
     }
     out += "  ]\n}\n";
     return out;

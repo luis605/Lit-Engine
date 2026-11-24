@@ -47,6 +47,7 @@ struct VirtualShadowGpu {
     RefCntAutoPtr<Diligent::ITexture> atlas;
     RefCntAutoPtr<Diligent::ISampler> compareSampler;
     RefCntAutoPtr<Diligent::IBuffer> noStamps;
+    RefCntAutoPtr<Diligent::IBuffer> zeroSource;  // 1 MB of zeros, GPU-side source for clearing the page table and stamps
     RefCntAutoPtr<Diligent::IBuffer> faces, pageTable, stamps, physical, counters, args, requests, renderList, faceDirty, previousObjects, moved, instances, sorted, buckets, commands, constants;
     RefCntAutoPtr<Diligent::IBuffer> readback[kVsmReadbackRing];
     uint32_t readbackFrame[kVsmReadbackRing]{};

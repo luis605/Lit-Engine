@@ -113,6 +113,13 @@ struct Lighting::Data {
     lighting_detail::RefCntAutoPtr<Diligent::ITexture> colorTextures;
     lighting_detail::RefCntAutoPtr<Diligent::ITexture> dataTextures;
     int textureCount = 0;
+    // Bindless texture table (docs/RenderGraph.md): one native-size Texture2D per slot; slot indices are what materials store.
+    bool bindlessTextures = false;
+    texslots::SlotAllocator tableSlots{kBindlessTextureCapacity};
+    std::vector<lighting_detail::RefCntAutoPtr<Diligent::ITexture>> tableTextures;
+    std::vector<uint64_t> tableSlotEpoch;
+    uint64_t tableEpoch = 0;
+    lighting_detail::RefCntAutoPtr<Diligent::ITexture> tablePlaceholder;
     int shadowResolution = 0;
     lighting_detail::RefCntAutoPtr<Diligent::ITexture> localShadowMap;
     lighting_detail::RefCntAutoPtr<Diligent::ITextureView> localShadowTargets[kMaxLocalShadowViews];

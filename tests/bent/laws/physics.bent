@@ -1,0 +1,111 @@
+# Rigid body physics: containment, tunnelling, energy, sleeping, analytic motion.
+include "../lib/prelude.bent"
+
+let H = 10.0
+let T = 1.0
+let margin = 0.25
+
+# Bodies thrown around a closed box of 2 m thick walls at up to ~26 m/s (0.43 m per tick, far below the wall thickness) never leave it.
+law no_body_escapes_arena {
+    forall (bodies: listOf(latticeBody, 1, 24), g: vec3(float(-3, 3), float(-20, 0), float(-3, 3)))
+    => always after(arena(H, T) ++ [gravity(g: g)] ++ placeBodies(bodies) ++ [step(n: 240)]) {
+        forall e in dynamicBodies(): inBox(worldPosition(e), vec3(0 - H - margin, 0 - margin, 0 - H - margin), vec3(H + margin, 2 * H + margin, H + margin))
+    }
+}
+
+# Discrete collision only (no CCD): a body moving more than half the wall thickness per tick can land past the wall's centre
+# and be pushed out of the far side. This law states the guarantee that does hold.
+law no_tunnelling_half_thickness {
+    forall (r: float(0.05, 1), speed: float(1, 60), y: float(-0.9, 0.9), z: float(-0.9, 0.9), restitution: float(0, 1))
+    where speed / 60 < 1.0
+    => always after([spawn(shape: "box", pos: vec3(10, 0, 0), size: vec3(1, 5, 5), dynamic: false, mesh: -1),
+                     gravity(g: vec3(0, 0, 0)),
+                     spawn(shape: "sphere", pos: vec3(0, y, z), size: r, vel: vec3(speed, 0, 0), restitution: restitution),
+                     step(n: 120)]) {
+        len(spawned()) < 2 or worldPosition(entity(1)).x < 9.0
+    }
+}
+
+# A sphere fired at a thick static wall at bounded speed (less than the wall thickness per tick) never ends up beyond it.
+law no_tunnelling_thick_wall {
+    forall (r: float(0.05, 1), speed: float(1, 110), y: float(-0.9, 0.9), z: float(-0.9, 0.9), restitution: float(0, 1))
+    where speed / 60 < 2.0
+    => always after([spawn(shape: "box", pos: vec3(10, 0, 0), size: vec3(1, 5, 5), dynamic: false, mesh: -1),
+                     gravity(g: vec3(0, 0, 0)),
+                     spawn(shape: "sphere", pos: vec3(0, y, z), size: r, vel: vec3(speed, 0, 0), restitution: restitution),
+                     step(n: 120)]) {
+        len(spawned()) < 2 or worldPosition(entity(1)).x < 9.0
+    }
+}
+
+# Without impulses, forces or initial overlap, collisions and friction only remove energy (small solver slack allowed).
+law energy_not_increasing {
+    forall (bodies: listOf(latticeBody, 1, 12), n: int(1, 240))
+    => let start = after(arena(H, T) ++ placeBodies(bodies)) { energy() } in
+       after(arena(H, T) ++ placeBodies(bodies) ++ [step(n: n)]) { energy() } <= start + 0.02 * abs(start) + 0.5
+}
+
+# A body that fell asleep on the floor stays exactly where it is while nothing touches it.
+law sleeping_bodies_stay_put {
+    forall (shape: elements(["sphere", "box", "capsule"]), size: float(0.2, 1.5), x: float(-5, 5), z: float(-5, 5), drop: float(0, 3))
+    => after([plane(), spawn(shape: shape, pos: vec3(x, size + drop + 0.6, z), size: size, height: 0.3), step(n: 400)]) {
+        let e = entity(1) in
+        let p = worldPosition(e) in
+        not sleeping(e) or after([plane(), spawn(shape: shape, pos: vec3(x, size + drop + 0.6, z), size: size, height: 0.3), step(n: 500)]) {
+            worldPosition(entity(1)) == p
+        }
+    }
+}
+
+# A ball dropped on a plane comes to rest on it: no sinking, no hovering, no drift.
+law ball_rests_on_plane {
+    forall (r: float(0.1, 2), h: float(0, 10), restitution: float(0, 0.6))
+    => after([plane(), spawn(shape: "sphere", pos: vec3(0, r + h, 0), size: r, restitution: restitution), step(n: 900)]) {
+        let p = worldPosition(entity(1)) in p.y >= r - 0.02 and p.y <= r + 0.05 and abs(p.x) < 1e-3 and abs(p.z) < 1e-3
+    }
+}
+
+# Free fall follows the semi-implicit Euler integrator exactly: p_n = p0 + n dt v0 + g dt^2 n (n + 1) / 2.
+law free_fall_matches_integrator {
+    forall (p0: smallVec, v0: velocityGen, g: vec3(float(-5, 5), float(-30, 0), float(-5, 5)), n: int(1, 120))
+    => let dt = 1.0 / 60.0 in
+       let expected = p0 + v0 * (n * dt) + g * (dt * dt * n * (n + 1) / 2) in
+       after([gravity(g: g), spawn(shape: "sphere", pos: p0, vel: v0, size: 0.5), step(n: n)]) {
+           worldPosition(entity(0)) ~= expected within 1e-3
+       }
+}
+
+fn raySphere(o, d, c, r) =
+    let oc = o - c in
+    let b = dot(oc, d) in
+    let disc = b * b - (dot(oc, oc) - r * r) in
+    if disc < 0 then -1.0 else (let t = 0 - b - sqrt(disc) in if t >= 0 then t else 0 - b + sqrt(disc))
+
+# physicsRaycast against a lone static sphere agrees with the analytic ray / sphere distance.
+law physics_raycast_sphere {
+    forall (c: smallVec, r: float(0.1, 3), from: vec3(float(-40, 40), float(-40, 40), float(-40, 40)))
+    where distance(from, c) > r + 0.01
+    => let d = normalize(c - from) in
+       let expected = raySphere(from, d, c, r) in
+       after([spawn(shape: "sphere", pos: c, size: r, dynamic: false, mesh: -1)]) {
+           let hit = physicsRaycast(from, from + d * (distance(from, c) + r + 10)) in hit.hit and hit.distance ~= expected within 1e-3
+       }
+}
+
+# Bodies in the arena never pass through each other's interior for long: no two sphere centres closer than half the sum of radii
+# after the solver has had a few ticks.
+law spheres_do_not_interpenetrate {
+    forall (n: int(2, 12), r: float(0.3, 1.0), vs: listOf(velocityGen, 12, 12))
+    => always after(arena(H, T) ++ map(range(n), fn(i) => spawn(shape: "sphere", size: r, pos: lattice(i), vel: vs[i])) ++ [step(n: 120)]) {
+        let balls = dynamicBodies() in
+        forall a in balls: forall b in balls: a == b or distance(worldPosition(a), worldPosition(b)) >= r
+    }
+}
+
+# Static bodies never move, whatever hits them.
+law static_bodies_stay {
+    forall (bodies: listOf(latticeBody, 1, 16))
+    => after(arena(H, T) ++ placeBodies(bodies) ++ [step(n: 200)]) {
+        forall i in range(6): worldPosition(entity(i)) == after(arena(H, T)) { worldPosition(entity(i)) }
+    }
+}

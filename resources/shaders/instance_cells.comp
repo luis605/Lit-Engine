@@ -1,0 +1,69 @@
+#version 450
+#extension GL_KHR_shader_subgroup_basic : enable
+#extension GL_KHR_shader_subgroup_ballot : enable
+#extension GL_GOOGLE_include_directive : require
+#include "instance_cull.glsl"
+
+// Level 1 of the instance cull: one thread per cell of the instance pool (64 instances of one batch, spatially sorted).
+// A cell is rejected as a whole by its batch state, frustum (camera or cascade) or local shadow faces, draw distance and,
+// for the camera, Hi-Z. Accepted cells are appended (cell, local view mask) for instance_cull.comp. The early phase also
+// clears the visibility bits of rejected cells (the cell owns two words), so the retest phase tests their instances.
+
+layout(local_size_x = 256, local_size_y = 1, local_size_z = 1) in;
+
+#ifdef INSTANCE_EARLY
+layout(std430) buffer VisibilityBuffer {
+    uint visibilityBits[];
+};
+#endif
+
+layout(std430) buffer CellCounterBuffer {
+    uint u_cellCount;
+};
+
+layout(std430) writeonly buffer CellListBuffer {
+    uvec2 u_cellList[];
+};
+
+void main() {
+    uint cell = gl_GlobalInvocationID.x;
+    if (cell >= u_counts.x) return;
+    InstanceCellGpu c = instanceCells[cell];
+    if (c.info.y == 0u) return;
+    addStat(ISTAT_CELLS, 1u);
+    bool accept = c.info.z != 0u && c.sphere.w >= 0.0;
+    InstanceBatchGpu batch = instanceBatches[c.info.x];
+    accept = accept && batchUsable(batch);
+    uint mask = 1u;
+    if (accept && (u_config.w & ICULL_CELLS) != 0u) {
+        mat4 owner = ownerWorld(batch.info.x);
+        vec3 center = (owner * vec4(c.sphere.xyz, 1.0)).xyz;
+        float radius = c.sphere.w * maxAxisScale(owner);
+        float drawDistance = drawDistanceOf(batch);
+        if (drawDistance > 0.0 && distance(center, viewPos) - radius > drawDistance) accept = false;
+#ifdef INSTANCE_LOCAL
+        mask = accept ? localMaskFor(center, radius) : 0u;
+        accept = mask != 0u;
+#else
+        accept = accept && insidePlanes(center, radius);
+#endif
+#ifdef INSTANCE_CAMERA
+        if (accept && (u_config.w & ICULL_OCCLUSION) != 0u && sphereOccluded(center, radius)) accept = false;
+#endif
+    } else if (accept) {
+#ifdef INSTANCE_LOCAL
+        mask = 0xFFFFFFFFu;
+#endif
+    }
+#ifdef INSTANCE_EARLY
+    if (!accept) {
+        uint word = u_config.x + cell * 2u;
+        visibilityBits[word] = 0u;
+        visibilityBits[word + 1u] = 0u;
+    }
+#endif
+    if (!accept) return;
+    addStat(ISTAT_CELLS_ACCEPTED, 1u);
+    uint slot = atomicAdd(u_cellCount, 1u);
+    if (slot < uint(u_params.w)) u_cellList[slot] = uvec2(cell, mask);
+}

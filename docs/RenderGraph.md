@@ -26,7 +26,7 @@ The frame is recorded as a render graph (`Engine.Render.graph`, `src/Engine/Rend
 
 - Transient placement: at its first use a transient takes the lowest free pool entry with an identical description, else a new one is created; after its last use the entry is free again for later transients of the frame. Entries survive frames (same frame structure gives the same placement, so cached bindings stay valid) and are destroyed after 8 frames without use. Diligent has no placed resources on this path, so aliasing is reuse of whole resources of the same size and format, not memory aliasing of different formats.
 - States: before each pass the backend transitions every declared resource to its declared state (`TransitionResourceStates`, tracked old state). Already-correct states are skipped (UAV keeps its write-after-write barrier). A texture that leaves an attachment state is unbound from the framebuffer first. A declaration that does not match the resource's bind flags is skipped and logged once. The pass code still calls Diligent with `RESOURCE_STATE_TRANSITION_MODE_TRANSITION`, so for declared resources those calls find the state already set and do nothing; undeclared or `None` resources keep the old behaviour.
-- Timing: consecutive passes with the same scope share one timestamp pair; a pass without a scope closes the open one. The scopes are the `GpuPass` ids, so `Engine::gpuTimings()` keeps the names of [GpuTimings.md](GpuTimings.md) (`Upload`, `Transform`, `Sky+IBL`, `Shadows`, `Cull`, `CmdGen`, `GBuffer`, `Hi-Z`, `Retest Cull`, `Retest CmdGen`, `Retest GBuffer`, `Trans Cull`, `Trans CmdGen`, `GTAO`, `SSR`, `Lighting`, `Trans Draw`, `Post`, `UI`). Portal views stay untimed per pass (they have their own per-view query, `Engine::portalStats()`), as before.
+- Timing: consecutive passes with the same scope share one timestamp pair; a pass without a scope closes the open one. The scopes are the `GpuPass` ids, so `Engine::gpuTimings()` keeps the names of [GpuTimings.md](GpuTimings.md) (`Upload`, `Transform`, `Sky+IBL`, `Shadows`, `Cull`, `CmdGen`, `GBuffer`, `Hi-Z`, `Retest Cull`, `Retest CmdGen`, `Retest GBuffer`, `Trans Cull`, `Trans CmdGen`, `GTAO`, `SSR`, `Lighting`, `Trans Draw`, `Post`, `UI`, `Instance Cull`, `Instance Retest Cull` ([Instancing.md](Instancing.md))). Portal views stay untimed per pass (they have their own per-view query, `Engine::portalStats()`), as before.
 - `LIT_GPU_LABELS=1` wraps every pass in a debug group (RenderDoc, Nsight).
 
 ### Dump
@@ -69,18 +69,15 @@ The view outputs are view-keyed transients: `view<key>/color` (HDR copy), `view<
 
 ## Bindless
 
-Groundwork only (see the audit in Verification).
+Texture table for surface materials (the lighting compute, buffers, shadow maps and probe cubes are not bindless).
 
-- `LIT_BINDLESS=1` creates the device with Diligent's `BindlessResources` and `ShaderResourceRuntimeArrays` features (optional); default off, nothing uses them yet.
-- Start-up log line `Bindless audit:` with the adapter and device feature states and the Vulkan descriptor-indexing features and limits (`VulkanAudit.cpp`, queried through the loader, no link-time Vulkan dependency).
-
-Not done: the surface shader path still samples the 16-layer 1024x1024 `u_colorTextures` / `u_dataTextures` arrays (`Lighting::loadTexture`). Exact steps to switch it:
-
-1. Texture table: keep each loaded texture as its own `Texture2D` at native size (no resize to 1024, no 16-layer cap) in `Lighting::Data`, with a free list; material `textures[4]` become table indices (same `MaterialGpu` layout).
-2. Resource signature: Diligent cannot express an unbounded array in an implicit `ResourceLayout`, so the surface PSOs (`RendererSurfaces.cpp`, G-buffer, forward, shadow, point variants) and the lighting compute move to explicit `IPipelineResourceSignature`s: one shared signature with `PipelineResourceDesc{SHADER_TYPE_VERTEX | SHADER_TYPE_PIXEL | SHADER_TYPE_COMPUTE, "u_textures", kMaxBindlessTextures, SHADER_RESOURCE_TYPE_TEXTURE_SRV, SHADER_RESOURCE_VARIABLE_TYPE_MUTABLE, PIPELINE_RESOURCE_FLAG_RUNTIME_ARRAY}` plus one immutable anisotropic sampler, and the existing per-PSO resources in a second signature (Diligent does not mix `ResourceLayout` and signatures in one PSO).
-3. Shaders: in `resources/shaders/include` add a `LIT_BINDLESS` branch of the texture sampling helpers: `#extension GL_EXT_nonuniform_qualifier : require`, `uniform texture2D u_textures[]; uniform sampler u_textureSampler;`, `texture(sampler2D(u_textures[nonuniformEXT(id)], u_textureSampler), uv)`; compile the surface variants with the macro when the device reports both features.
-4. Binding: one SRB of the shared signature; on texture load `GetVariableByName(SHADER_TYPE_PIXEL, "u_textures")->SetArray(views, first, count, SET_SHADER_RESOURCE_FLAG_ALLOW_OVERWRITE)`; bump `Lighting::bindingVersion()` only when the table grows.
-5. Verify with `scripts/render_graph_check.sh`-style A/B runs (`LIT_BINDLESS=0/1`): identical output for scenes whose textures are 1024x1024 sRGB (the array path resamples others).
+- Switch: `LIT_BINDLESS_TEXTURES=1|0` (unset: `kBindlessTexturesDefault` in `GpuHelpers.hpp`, on). The table is used only when the device was created with Diligent's `BindlessResources` and `ShaderResourceRuntimeArrays` (the device requests them whenever the switch is not `0`); otherwise the legacy 16-layer arrays are used and a warning is logged. `LIT_BINDLESS=1` still only forces the feature request and the start-up `Bindless audit:` line (`VulkanAudit.cpp`).
+- Table (`Lighting`): 1024 slots (`kBindlessTextureCapacity`), one native-size Texture2D with a full mip chain per slot (sRGB or linear chosen at load), a lowest-free-slot allocator with a free list (`TextureSlots.hpp`, unit tested), a placeholder texture for empty slots. `Engine::loadTexture` returns the slot, `Engine::releaseTexture` frees it (the texture is destroyed once no binding references it). `Material::baseColorTexture` etc. and `MaterialGpu.textures` store slot indices (layout unchanged). Terrain packs layer ids 6 bits each (63 = none), so terrain textures need slots below 63.
+- Shaders: with `LIT_BINDLESS` (a pixel macro of the G-buffer and forward surface variants) `surface.frag` declares `uniform sampler2D u_textures[]` and `litTexture(color, slot, uv)` samples `u_textures[nonuniformEXT(slot)]`; legacy builds sample the arrays. One immutable anisotropic wrap sampler is shared (combined image samplers).
+- Pipelines: Diligent cannot declare an unsized array in an implicit layout and a PSO cannot mix an implicit layout with signatures, so the bindless surface PSOs use one explicit `IPipelineResourceSignature` each, built from the shaders' reflection by `litgpu::makeBindlessSignature` (same rules as the implicit layout) plus `u_textures` (`PIPELINE_RESOURCE_FLAG_RUNTIME_ARRAY`, 1024 descriptors). Their SRBs are created through the signature. Shadow variants are unchanged.
+- Updates: every surface SRB is filled with all 1024 entries (placeholder for empty slots) when created. A load or release bumps a table epoch and a per-slot epoch; `Renderer::syncTextureTable()` (start of each frame) writes only the changed slots into the current frame slot's SRBs, whose fence has just been waited on, so a load costs one descriptor write per SRB and never rebuilds bindings or idles the GPU. The vendored Diligent Vulkan backend does not create `UPDATE_AFTER_BIND` or `PARTIALLY_BOUND` layouts (no such flags anywhere in it), so those Vulkan flags are not used: correctness relies on the frame-slot fence and the full prefill instead.
+- Limits: legacy mode resamples textures to 1024x1024 (nearest) and caps at 16 layers per array; the table keeps native sizes, so output only matches legacy for 1024x1024 sources (the `textures` scene uses such). The table has 1024 slots, and each draw commit walks all 1024 entries of each surface SRB (not measured).
+- Verification: `scripts/bindless_check.sh` (legacy a, legacy b, bindless per scene), ctest `BindlessTextureParity` (scene `textures`, requires identical pixels within legacy noise, table active, no Diligent errors) and `TextureTableTests` (allocator). See the log below.
 
 ## Verification
 
@@ -110,3 +107,17 @@ GPU timings (sum of the GpuPass scopes, ms, same runs): see [GpuTimings.md](GpuT
 Pipeline cache: the first run after building writes `.litcache/shaders/pipelines_vk.bin` (3.0 MB for the full pipeline set); later runs log `Pipeline cache: .litcache/shaders/pipelines_vk.bin (3033426 bytes loaded)`. Start-up `scene pipelines` phase: 83.5 ms (cache disabled, `LIT_NO_PIPELINE_CACHE=1`, first run) vs 43.5 ms (cache), but a second run with the cache disabled also took 46.7 ms: the NVIDIA driver keeps its own on-disk pipeline cache, so on this machine the gain of the engine cache is not separable from the driver's. It matters on drivers without one and after driver cache eviction.
 
 Bindless audit (start-up log): adapter `BindlessResources=enabled`, `ShaderResourceRuntimeArrays=optional`; the device as created reports `BindlessResources=enabled`, `ShaderResourceRuntimeArrays=disabled` (without `LIT_BINDLESS`); Vulkan 1.4.329: `runtimeDescriptorArray`, `shaderSampledImageArrayNonUniformIndexing`, `descriptorBindingPartiallyBound`, `descriptorBindingVariableDescriptorCount`, `descriptorBindingSampledImageUpdateAfterBind` all supported; `maxPerStageDescriptorSampledImages` 1048576, `maxPerStageDescriptorUpdateAfterBindSampledImages` 1048576, `maxDescriptorSetUpdateAfterBindSampledImages` 1048576. The device can host a bindless texture table far beyond the engine's needs; the remaining work is the steps above.
+
+### Bindless texture table (2026-11-24, GTX 1650, 1280x720, 30 frames, `scripts/bindless_check.sh`)
+
+Differing pixels against legacy run a:
+
+| Scene | legacy a vs b (noise) | bindless vs legacy | Diligent errors |
+|---|---|---|---|
+| textures | 14 px, max 2 | 4 px, max 1 | 0 |
+| showcase | 5 px, max 2 | 8 px, max 2 | 0 |
+| gallery | 26 px, max 1 | 26 px, max 5 | 0 |
+| terrain | 29902 px, max 51 | 46523 px, max 51 | 0 |
+| skinning | 35 px, max 2 | 37 px, max 2 | 0 |
+
+Terrain is not reproducible even legacy against legacy; bindless stays at the same maximum. `glslangValidator` accepts `surface.frag` with and without `-DLIT_BINDLESS` and `-DTRANSPARENT`.

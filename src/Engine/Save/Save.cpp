@@ -95,6 +95,14 @@ Json captureCamera(const Camera& camera, const glm::dvec3& origin) {
     json.set("origin", number3(origin.x, origin.y, origin.z));
     json.set("yaw", camera.getYaw());
     json.set("pitch", camera.getPitch());
+    // Roll and the reference frame (tilted portal crossings) only when present; saves without them load upright.
+    if (camera.getRoll() != 0.0f) json.set("roll", camera.getRoll());
+    if (camera.hasFrame()) {
+        const glm::quat frame = glm::quat_cast(camera.getFrame());
+        Json values = Json::array();
+        for (float value : {frame.w, frame.x, frame.y, frame.z}) values.push(Json(static_cast<double>(value)));
+        json.set("frame", std::move(values));
+    }
     return json;
 }
 
@@ -143,7 +151,12 @@ void applyCamera(World& world, const Json& json) {
     }
     const Json* yaw = json.get("yaw");
     const Json* pitch = json.get("pitch");
-    if (yaw && pitch) camera.setOrientation(static_cast<float>(yaw->asNumber()), static_cast<float>(pitch->asNumber()));
+    const Json* roll = json.get("roll");
+    const Json* frame = json.get("frame");
+    glm::quat frameRotation(1.0f, 0.0f, 0.0f, 0.0f);
+    if (frame && frame->items().size() == 4) frameRotation = glm::quat(static_cast<float>(frame->at(0)->asNumber()), static_cast<float>(frame->at(1)->asNumber()), static_cast<float>(frame->at(2)->asNumber()), static_cast<float>(frame->at(3)->asNumber()));
+    camera.setFrame(glm::mat3_cast(frameRotation));
+    if (yaw && pitch) camera.setOrientation(static_cast<float>(yaw->asNumber()), static_cast<float>(pitch->asNumber()), roll ? static_cast<float>(roll->asNumber()) : 0.0f);
 }
 
 bool applyRandom(World& world, const Json& json, std::string* error) {

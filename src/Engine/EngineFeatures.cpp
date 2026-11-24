@@ -54,9 +54,14 @@ import Engine.PortalBridge;
 import Engine.Render.observation;
 
 StreamingSystem& Engine::enableStreaming(const StreamingConfig& config) {
+    // The terrain streamer may hold the old manager: give it its own again before the old system dies, then attach to the new one.
+    if (m_terrain) m_terrain->detachResidency();
     m_streaming = std::make_unique<StreamingSystem>(m_portals, config);
+    if (m_terrain) m_terrain->attachResidency(m_streaming->residency());
     addSystem(Phase::PostUpdate, "streaming", [this](World& world, float) {
-        int cell = m_portals.cameraCell();
+        // Without portals nothing tracks the camera cell (addCell pins it to 0 and only PortalSystem::step moves it), so grid-only
+        // streaming locates the camera itself; otherwise the first grid cell stayed resident forever (found by bent, streaming.bent).
+        int cell = m_portals.active() ? m_portals.cameraCell() : -1;
         if (cell < 0) cell = m_portals.cellAt(world.camera().getPosition());
         m_streaming->update(cell, world.camera().getPosition());
     }, true);

@@ -174,6 +174,8 @@ bool buildTerrainTestScene(Engine& engine, const TestSceneKit&, TestSceneInfo& i
     setup.colliderMaxLevel = 0;
     setup.scatterMaxLevel = 2;
     setup.scatter.seed = 11;
+    // Scatter as InstanceBatches per tile (docs/Instancing.md); LIT_TERRAIN_INSTANCED=0 restores the merged meshes for A/B runs.
+    setup.instancedScatter = envFloat("LIT_TERRAIN_INSTANCED", 1.0f) > 0.5f;
 
     const uint32_t foliageShader = engine.loadShader("Foliage", "resources/shaders/surfaces/foliage.surface");
     Material pineMaterial;

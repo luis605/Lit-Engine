@@ -32,14 +32,14 @@ Lite solver: positional correction plus velocity impulses, `solverIterations` pa
 `Engine::enableCharacter(settings, rigSettings)` adds the `character` system (WASD, shift, space, mouse look when captured, V toggles view, T toggles capture). Headless use: construct `CharacterController`, call `setInput`, `look`, `update(dt)`.
 
 - Capsule, substepped, depenetration against colliders, step up (`stepHeight`), ground snap, slope limit, jump.
-- Gravity from `PortalSystem::sampleParams` (per cell, blended across portal planes); `up` follows the field. The camera stays upright; only physics follows `up`.
-- Crossing: the first person near-plane point (third person: eye) is tested against portal quads each substep. Position, velocity, up and yaw take the portal transform; camera cell switches in the same step. Capsule also collides with the far-side geometry through the portal (contacts behind the exit plane are ignored).
+- Gravity from `PortalSystem::sampleParams` (per cell, blended across portal planes); `up` follows the field (`upResponse`), the view frame follows `up` keeping the view direction and its leftover roll decays over `uprightSeconds` (0.3 s; 0 = up and view snap to gravity-up at once). The eye and the third person boom hang off `up`.
+- Crossing: the first person near-plane point (third person: eye) is tested against portal openings each substep, for any rigid transform (rolled, pitched, wall-to-floor, flipped). Position, velocity, up and the view frame take the portal transform (the look angles stay, so the view is continuous); camera cell switches in the same step. Capsule also collides with the far-side geometry through the portal (contacts behind the exit plane are ignored).
 - Camera via `CameraRig`: first or third person, runtime toggle keeps position. Third person sweeps a sphere back through portals; if it crosses, the camera is placed and oriented by the transformed trace.
 - Impacts (PH-5): a dynamic body hitting the character collider above `impactMinSpeed` gives a clamped velocity shove, a decaying camera kick, and `setImpactHook`.
 
 ## Limits
 
-Rolled portals are not crossable (camera is yaw/pitch). Characters are not blocked by dynamic bodies. Dynamic boxes, capsules and compounds are not rotated by collisions (only lone spheres spin). Triangle meshes are static only and two sided (a body can be pushed through a thin shell by a deep tunnel). Hull, compound and mesh colliders are not serialized (data is shared); `CapsuleCollider`, `CompoundCollider`, friction fields and angular velocity are. Capsule against mesh, heightfield and hull uses closest-point iteration or sample spheres, not exact swept capsules.
+Characters are not blocked by dynamic bodies. Dynamic boxes, capsules and compounds are not rotated by collisions (only lone spheres spin). Triangle meshes are static only and two sided (a body can be pushed through a thin shell by a deep tunnel). Hull, compound and mesh colliders are not serialized (data is shared); `CapsuleCollider`, `CompoundCollider`, friction fields and angular velocity are. Capsule against mesh, heightfield and hull uses closest-point iteration or sample spheres, not exact swept capsules.
 
 ## Tests
 

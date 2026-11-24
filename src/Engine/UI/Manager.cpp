@@ -145,7 +145,9 @@ void UIManager::render() {
     }
 
     {
+        LIT_UP_MARK(litUp4);
         Diligent::MapHelper<TextVertex> vertices(uiData->context, uiData->vertexBuffer, Diligent::MAP_WRITE, Diligent::MAP_FLAG_DISCARD);
+        LIT_UP_COMMIT(litUp4);
         std::memcpy(static_cast<TextVertex*>(vertices), uiData->vertexScratch.data(), static_cast<size_t>(numVertices) * sizeof(TextVertex));
     }
 
@@ -162,7 +164,9 @@ void UIManager::render() {
     for (const DrawBatch& batch : uiData->batches) {
         if (!colorValid || batch.color != lastColor) {
             {
+                LIT_UP_MARK(litUp5);
                 Diligent::MapHelper<TextConstantBuffer> constants(uiData->context, uiData->constants, Diligent::MAP_WRITE, Diligent::MAP_FLAG_DISCARD);
+                LIT_UP_COMMIT(litUp5);
                 constants->projection = projection;
                 constants->textColor = glm::vec4(batch.color, 1.0f);
             }

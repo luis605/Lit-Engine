@@ -58,9 +58,9 @@ void Renderer::dispatchCascadeCull(int cascadeIndex, int hizLayer, Diligent::IPi
     for (int planeIndex = 0; planeIndex < kShadowPlaneCount; ++planeIndex) constants.planes[planeIndex] = cascade.planes[planeIndex];
     constants.lod = glm::vec4(cascade.texelsPerUnit, static_cast<float>(cascadeIndex), hizValid && gpu.shadowHiZ[hizLayer] ? 1.0f : 0.0f, 0.0f);
     constants.hizViewProjection = hizViewProjection;
-    context->UpdateBuffer(gpu.pShadowCullUBO[cascadeIndex], 0, sizeof(constants), &constants, Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
+    LIT_UP(context)->UpdateBuffer(gpu.pShadowCullUBO[cascadeIndex], 0, sizeof(constants), &constants, Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
     ClearCounter(context, phase.visibleCounter);
-    context->UpdateBuffer(phase.bucketCounts, 0, sizeof(unsigned int) * ActiveBucketCount(m_numDrawingShaders), m_bucketZeros.data(), Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
+    litgpu::zeroFill(context, gpu.pZeroBuffer, phase.bucketCounts, 0, sizeof(unsigned int) * ActiveBucketCount(m_numDrawingShaders), m_bucketZeros.data());
     auto* sceneHiZ = gpu.pHiZTextures[m_currentFrame].RawPtr();
     SetDynamicVariable(binding, "u_hizTexture", sceneHiZ->GetDefaultView(Diligent::TEXTURE_VIEW_SHADER_RESOURCE));
     Diligent::ITexture* shadowHiZ = gpu.shadowHiZ[hizLayer] ? gpu.shadowHiZ[hizLayer].RawPtr() : sceneHiZ;
@@ -68,6 +68,8 @@ void Renderer::dispatchCascadeCull(int cascadeIndex, int hizLayer, Diligent::IPi
     context->SetPipelineState(pipeline);
     context->CommitShaderResources(binding, Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
     context->DispatchComputeIndirect(Diligent::DispatchComputeIndirectAttribs{dispatchArgs, Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION});
+    // Instance batches: cascade planes per cell and instance, once per cascade (early pass only; no shadow Hi-Z retest).
+    if (pipeline == gpu.pShadowCullPSO.RawPtr()) cullInstanceCascade(cascadeIndex);
     // Cluster LOD from cascade texels: orthographic, error in texels = world error * texels per unit.
     const glm::vec4 lodView(0.0f, 0.0f, 0.0f, cascade.texelsPerUnit);
     setMeshletShadowLod(std::span<const glm::vec4>(&lodView, 1), 1u);
@@ -83,7 +85,7 @@ void Renderer::renderCascade(int cascadeIndex) {
     const int earlyLayer = cascade.layer;
 
     const ShadowPassConstants pass{cascade.renderViewProjection, glm::vec4(static_cast<float>(resolution), 0.0f, 0.0f, 0.0f)};
-    context->UpdateBuffer(gpu.pShadowPassUBO[cascadeIndex], 0, sizeof(pass), &pass, Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
+    LIT_UP(context)->UpdateBuffer(gpu.pShadowPassUBO[cascadeIndex], 0, sizeof(pass), &pass, Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
     ClearCounter(context, gpu.pShadowRetestCounter);
     dispatchCascadeCull(cascadeIndex, earlyLayer, gpu.pShadowCullPSO, gpu.shadowCullSRB[m_currentFrame][cascadeIndex], gpu.pCasterDispatchArgs, gpu.shadowHiZViewProj[earlyLayer], gpu.shadowHiZValid[earlyLayer]);
 
@@ -145,7 +147,7 @@ void Renderer::drawCascadeShadows(uint32_t objectCount) {
     if (cascadeCount <= 0 || !m_viewSunShadows || m_cascadeReuse) return;
     ensureShadowHiZ();
     const CullingUniforms uniforms = MakeCullingUniforms(objectCount, m_maxObjects, 0.0f, m_lodBias, m_forcedLod, m_numDrawingShaders);
-    context->UpdateBuffer(gpu.visibility[kPhaseShadow].cullingUniforms, 0, sizeof(uniforms), &uniforms, Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
+    LIT_UP(context)->UpdateBuffer(gpu.visibility[kPhaseShadow].cullingUniforms, 0, sizeof(uniforms), &uniforms, Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
     DispatchSingleGroup(context, gpu.pDispatchArgsPSO, gpu.pCasterDispatchArgsSRB[m_currentFrame]);
     for (int cascadeIndex = 0; cascadeIndex < cascadeCount; ++cascadeIndex) {
         if (m_lighting.cascades()[static_cast<size_t>(cascadeIndex)].due) renderCascade(cascadeIndex);
@@ -161,7 +163,7 @@ void Renderer::drawLocalShadows(uint32_t objectCount) {
     auto& phase = gpu.visibility[kPhaseShadow];
     const int resolution = m_lighting.localShadowResolution();
     const CullingUniforms uniforms = MakeCullingUniforms(objectCount, m_maxObjects, 0.0f, m_lodBias, m_forcedLod, m_numDrawingShaders);
-    context->UpdateBuffer(phase.cullingUniforms, 0, sizeof(uniforms), &uniforms, Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
+    LIT_UP(context)->UpdateBuffer(phase.cullingUniforms, 0, sizeof(uniforms), &uniforms, Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
     DispatchSingleGroup(context, gpu.pDispatchArgsPSO, gpu.pLocalCasterDispatchArgsSRB[m_currentFrame]);
     Diligent::Viewport viewport;
     viewport.Width = static_cast<float>(resolution);
@@ -179,15 +181,15 @@ void Renderer::drawLocalShadows(uint32_t objectCount) {
             if (!view.active) continue;
             anyActive = true;
             const ShadowPassConstants pass{view.viewProjection, glm::vec4(static_cast<float>(resolution), view.projectionScale, 1.0f, 0.0f)};
-            context->UpdateBuffer(gpu.pShadowPassUBO[kCascadeShadowViews + first + offset], 0, sizeof(pass), &pass, Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
+            LIT_UP(context)->UpdateBuffer(gpu.pShadowPassUBO[kCascadeShadowViews + first + offset], 0, sizeof(pass), &pass, Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
         }
         if (!anyActive) continue;
         batch.info[0] = static_cast<uint32_t>(first);
         batch.info[1] = static_cast<uint32_t>(count);
         batch.info[2] = viewBuckets;
-        context->UpdateBuffer(gpu.pLocalShadowViewsUBO, 0, sizeof(batch), &batch, Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
+        LIT_UP(context)->UpdateBuffer(gpu.pLocalShadowViewsUBO, 0, sizeof(batch), &batch, Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
         ClearCounter(context, phase.visibleCounter);
-        context->UpdateBuffer(phase.bucketCounts, 0, sizeof(unsigned int) * viewBuckets * static_cast<uint32_t>(count), m_bucketZeros.data(), Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
+        litgpu::zeroFill(context, gpu.pZeroBuffer, phase.bucketCounts, 0, sizeof(unsigned int) * viewBuckets * static_cast<uint32_t>(count), m_bucketZeros.data());
         auto& binding = gpu.localCullSRB[m_currentFrame];
         auto* sceneHiZView = gpu.pHiZTextures[m_currentFrame]->GetDefaultView(Diligent::TEXTURE_VIEW_SHADER_RESOURCE);
         SetDynamicVariable(binding, "u_hizTexture", sceneHiZView);
@@ -195,6 +197,7 @@ void Renderer::drawLocalShadows(uint32_t objectCount) {
         context->SetPipelineState(gpu.pLocalShadowCullPSO);
         context->CommitShaderResources(binding, Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
         context->DispatchComputeIndirect(Diligent::DispatchComputeIndirectAttribs{gpu.pLocalCasterDispatchArgs, Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION});
+        cullInstanceLocal(static_cast<uint32_t>(first), static_cast<uint32_t>(count), std::span<const glm::vec4>(batch.origins, static_cast<size_t>(count)));
         // Cluster LOD from local shadow texels: perspective from the light, texels per unit at distance 1.
         std::array<glm::vec4, kMaxLocalShadowViews> lodViews{};
         for (int offset = 0; offset < count; ++offset) lodViews[static_cast<size_t>(offset)] = batch.origins[offset];

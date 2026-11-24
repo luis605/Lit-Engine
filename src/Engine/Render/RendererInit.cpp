@@ -62,8 +62,9 @@ bool PipelineCacheDisabled() {
 // VkPipelineCache persistence (Diligent IPipelineStateCache). Diligent validates the header (vendor, device, pipeline
 // cache UUID) and starts empty on a mismatch, so a cache from another driver or GPU is ignored, never trusted.
 bool BindlessRequested() {
+    // The bindless texture table (LIT_BINDLESS_TEXTURES, docs/RenderGraph.md) needs the same device features.
     const char* value = std::getenv("LIT_BINDLESS");
-    return value && value[0] == '1';
+    return (value && value[0] == '1') || litgpu::bindlessTexturesRequested();
 }
 
 const char* FeatureState(Diligent::DEVICE_FEATURE_STATE state) {
@@ -131,7 +132,7 @@ void Renderer::createDevice() {
     engineInfo.Features.MeshShaders = Diligent::DEVICE_FEATURE_STATE_OPTIONAL;
     engineInfo.Features.VariableRateShading = Diligent::DEVICE_FEATURE_STATE_OPTIONAL;
     if (BindlessRequested()) {
-        // Bindless groundwork (docs/RenderGraph.md): descriptor indexing + runtime arrays; nothing uses them by default.
+        // Bindless (docs/RenderGraph.md): descriptor indexing + runtime arrays for the texture table (LIT_BINDLESS_TEXTURES).
         engineInfo.Features.BindlessResources = Diligent::DEVICE_FEATURE_STATE_OPTIONAL;
         engineInfo.Features.ShaderResourceRuntimeArrays = Diligent::DEVICE_FEATURE_STATE_OPTIONAL;
     }
@@ -294,6 +295,7 @@ void Renderer::cleanup() {
     m_uiManager = nullptr;
 
     releaseMeshlets();
+    releaseInstancing();
     delete m_diligent;
     m_diligent = nullptr;
 

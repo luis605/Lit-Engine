@@ -1,0 +1,30 @@
+# Bent regression: shrunk counterexample for law `no_body_escapes_arena` (tests/bent/laws/physics.bent)
+# Found by: bent check tests/bent/laws/physics.bent --cases 10000 --jobs 7 --seed 3 --shrink-limit 4000 --no-regressions (seed 3, case 846)
+# Shrunk 876 times in 4000 attempts; tape 470 -> 288 choices
+# Replay the random case: bent replay tests/bent/laws/physics.bent --law no_body_escapes_arena --seed 3 --case 846
+# Failure: property is false
+#   tests/bent/laws/../lib/prelude.bent:25:43: -0.2500694990158081 >= -0.25 is false
+#   tests/bent/laws/physics.bent:12:9: forall e fails for e = entity(6)
+#   tests/bent/laws/physics.bent:11:8: always failed at tick 70 during action #22 step(n: 240)
+include "../laws/physics.bent"
+
+example no_body_escapes_arena known "bodies sink deep into a static floor under load: a 0.75 m box driven down at 15 m/s by a pile ends with its centre 0.25 m below the floor surface (1 m penetration) at tick 70; discrete solver with 2 iterations" {
+  bodies = [
+    spawn(friction: 0.06286970153450967, height: 0.1, mass: 0.5, restitution: 0.0, shape: "box", size: 0.3511520177125932, vel: vec3(0.0, 0.0, -6.124146699905397)),
+    spawn(friction: 0.0, height: 0.1, mass: 0.5, restitution: 0.0, shape: "sphere", size: 0.6279649436473846, vel: vec3(12.307023525238037, -2.1734839677810682, 7.666619062423707)),
+    spawn(friction: 0.8395123779773713, height: 0.1, mass: 4.288204431533814, restitution: 0.0, shape: "box", size: 0.8376516401767733, vel: vec3(-14.038377285003662, 0.0, -0.15527509897947436)),
+    spawn(friction: 0.0, height: 0.1, mass: 0.5, restitution: 0.0, shape: "sphere", size: 0.2, vel: vec3(0.0, 0.0, 0.0)),
+    spawn(friction: 0.0, height: 0.1, mass: 0.5, restitution: 0.0, shape: "sphere", size: 0.2, vel: vec3(0.0, 0.0, 0.0)),
+    spawn(friction: 0.0, height: 0.1, mass: 0.5, restitution: 0.0, shape: "sphere", size: 0.2, vel: vec3(0.0, 0.0, 0.0)),
+    spawn(friction: 0.17425941675901416, height: 0.1, mass: 4.772891283035279, restitution: 0.0, shape: "box", size: 0.7453426420688631, vel: vec3(-1.6187008023262035, -14.999996662139894, -12.934925556182863)),
+    spawn(friction: 0.0, height: 0.1, mass: 0.5, restitution: 0.0, shape: "sphere", size: 0.2, vel: vec3(1.0, 0.0, 0.0)),
+    spawn(friction: 0.0, height: 0.1, mass: 0.5, restitution: 0.0, shape: "sphere", size: 0.2, vel: vec3(0.0, 0.0, 0.0)),
+    spawn(friction: 0.0, height: 0.1, mass: 0.5, restitution: 0.0, shape: "sphere", size: 0.2, vel: vec3(0.0, 0.0, 0.0)),
+    spawn(friction: 0.0, height: 0.1, mass: 0.5, restitution: 0.0, shape: "sphere", size: 0.2, vel: vec3(0.0, 0.0, 0.0)),
+    spawn(friction: 0.0, height: 0.1, mass: 0.5, restitution: 0.0, shape: "sphere", size: 0.2, vel: vec3(0.0, 0.0, 0.0)),
+    spawn(friction: 0.0, height: 0.1, mass: 0.5, restitution: 0.0, shape: "sphere", size: 0.2, vel: vec3(0.0, 0.0, 0.0)),
+    spawn(friction: 0.0, height: 0.1, mass: 0.5, restitution: 0.0, shape: "sphere", size: 0.2, vel: vec3(0.0, 0.0, 0.0)),
+    spawn(friction: 0.0, height: 0.1, mass: 4.593182325363159, restitution: 0.0, shape: "sphere", size: 0.2, vel: vec3(-7.214581727981568, 1.6682801842689523, 0.0))
+  ],
+  g = vec3(0.7757484018802645, -16.768879459053288, -3.0)
+}

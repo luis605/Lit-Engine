@@ -74,6 +74,11 @@ void Renderer::growGeometryBuffers(size_t vertexDataSize, size_t indexDataSize) 
     m_eboSize = std::max(m_eboSize * 2, gTotalIndexBytes + indexDataSize);
 
     auto resize = [&](Diligent::RefCntAutoPtr<Diligent::IBuffer>& buffer, size_t usedBytes, Diligent::RefCntAutoPtr<Diligent::IBuffer> replacement) {
+        if (!replacement) {
+            // Out of device memory (shared GPU): keep the old buffer; the upload that needed the space fails instead of crashing on a null copy.
+            Lit::Log::Error("Geometry buffer growth to {} bytes failed (out of device memory?)", usedBytes * 2);
+            return;
+        }
         if (usedBytes > 0) gpu.pImmediateContext->CopyBuffer(buffer, 0, Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION, replacement, 0, usedBytes, Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
         buffer = replacement;
     };
@@ -108,8 +113,8 @@ uint32_t Renderer::uploadMeshSlot(const Mesh& mesh, uint32_t forcedSlot) {
         gTotalVertexBytes += vertexDataSize;
         gTotalIndexBytes += indexDataSize;
     }
-    if (vertexDataSize > 0) gpu.pImmediateContext->UpdateBuffer(gpu.pVBO, range.vertexOffset, vertexDataSize, mesh.vertices.data(), Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
-    if (indexDataSize > 0) gpu.pImmediateContext->UpdateBuffer(gpu.pEBO, range.indexOffset, indexDataSize, mesh.indices.data(), Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
+    if (vertexDataSize > 0) LIT_UP(gpu.pImmediateContext)->UpdateBuffer(gpu.pVBO, range.vertexOffset, vertexDataSize, mesh.vertices.data(), Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
+    if (indexDataSize > 0) LIT_UP(gpu.pImmediateContext)->UpdateBuffer(gpu.pEBO, range.indexOffset, indexDataSize, mesh.indices.data(), Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
 
     const MeshBounds bounds = ComputeBounds(mesh);
     const MeshInfo info{.indexCount = static_cast<unsigned int>(mesh.indices.size()), .firstIndex = static_cast<unsigned int>(range.indexOffset / sizeof(unsigned int)), .baseVertex = static_cast<unsigned int>(range.vertexOffset / (kVertexFloats * sizeof(float))), .boundingRadius = bounds.radius, .boundingCenter = glm::vec4(bounds.center, 1.0f)};

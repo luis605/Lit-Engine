@@ -67,7 +67,8 @@ int PortalSystem::step(Camera& camera) {
     }
     glm::vec3 moved = nearCenter;
     int cell = m_cameraCell;
-    const int crossedId = stepPoint(moved, cell, m_previousNear, true);
+    // Any rigid transform: Camera::transformBy carries the full orientation (rolled, pitched, floor / ceiling, flipped portals).
+    const int crossedId = stepPoint(moved, cell, m_previousNear, false);
     if (crossedId < 0) {
         m_previousNear = nearCenter;
         m_cameraCell = resolveCell(m_cameraCell, nearCenter);

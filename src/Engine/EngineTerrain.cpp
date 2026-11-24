@@ -18,9 +18,10 @@ import Engine.asset;
 import Engine.Render.material;
 import Engine.Terrain;
 import Engine.Streaming;
+import Engine.Render.component;
 
 namespace {
-constexpr uint32_t kNoLayer = 31;
+constexpr uint32_t kNoLayer = 63;  // 6 bits per layer id; a float holds 24 exact bits
 }
 
 uint32_t Engine::uploadTerrainMesh(const Mesh& mesh) { return m_renderer.initialized() ? m_renderer.uploadTerrainMesh(mesh) : 0u; }
@@ -34,7 +35,7 @@ TerrainStreamer& Engine::enableTerrain(const TerrainSetup& setup) {
     const uint32_t shader = loadShader("Terrain", setup.shaderPath);
     const int maxLevel = std::clamp(setup.stream.lod.maxLevel, 0, 20);
 
-    // Layer textures (5 bits per layer id, 31 = procedural).
+    // Layer textures (6 bits per layer id, 63 = procedural).
     const auto pack = [&](const std::array<std::string, 4>& paths, bool srgb) {
         uint32_t packed = 0;
         for (uint32_t layer = 0; layer < 4; ++layer) {
@@ -43,7 +44,7 @@ TerrainStreamer& Engine::enableTerrain(const TerrainSetup& setup) {
                 const int loaded = loadTexture(paths[layer], srgb);
                 if (loaded >= 0 && loaded < static_cast<int>(kNoLayer)) id = static_cast<uint32_t>(loaded);
             }
-            packed |= id << (layer * 5u);
+            packed |= id << (layer * 6u);
         }
         return static_cast<float>(packed);
     };
@@ -72,6 +73,18 @@ TerrainStreamer& Engine::enableTerrain(const TerrainSetup& setup) {
         return uploadProcessedMesh(processed);
     };
     loader.releaseMesh = [this](uint32_t id) { releaseMesh(id); };
+    // Instanced scatter (docs/Instancing.md): each species' geometry is uploaded once (LOD chain, point impostor) and drawn by
+    // InstanceBatches per tile; the loader caches the id.
+    loader.instancedScatter = setup.instancedScatter;
+    loader.speciesMesh = [this, species = setup.scatter.species](uint32_t index) -> uint32_t {
+        if (!m_renderer.initialized() || index >= species.size()) return NO_MESH;
+        const ScatterSpecies& source = species[index];
+        if (!source.geometry || source.geometry->vertices.empty()) return NO_MESH;
+        Mesh base = source.geometry->optimized();
+        std::vector<Mesh> lods = base.generateLODChain();
+        ProcessedMesh processed{std::move(base), std::move(lods), {}};
+        return uploadProcessedMesh(processed);
+    };
     loader.materialOfLevel = [materials](int level) -> uint32_t { return (*materials)[static_cast<size_t>(std::clamp(level, 0, static_cast<int>(materials->size()) - 1))]; };
     loader.shader = shader;
     loader.layer = setup.layer;
@@ -89,6 +102,8 @@ TerrainStreamer& Engine::enableTerrain(const TerrainSetup& setup) {
     }
     m_terrain = std::make_unique<TerrainStreamer>(m_world, std::move(loader), stream);
     m_terrain->setSharedBudget([this]() -> StreamBudget* { return m_streaming ? &m_streaming->sharedBudget() : nullptr; });
+    // One residency system: tiles use the StreamingSystem pool, metric, commit queue and byte budget (Engine::enableStreaming attaches when it comes later).
+    if (m_streaming) m_terrain->attachResidency(m_streaming->residency());
 
     const auto frame = [this](bool prime) {
         Camera& camera = m_world.camera();

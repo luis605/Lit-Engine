@@ -64,8 +64,8 @@ struct ObservationPass::Impl {
     void uploadQuery(Diligent::IDeviceContext* context, const ObservationQuery& query, uint32_t count) {
         constexpr auto kTransition = Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION;
         if (count > 0) {
-            context->UpdateBuffer(spheres, 0, count * sizeof(glm::vec4), query.spheres.data(), kTransition);
-            context->UpdateBuffer(ids, 0, count * sizeof(uint32_t), query.ids.data(), kTransition);
+            LIT_UP(context)->UpdateBuffer(spheres, 0, count * sizeof(glm::vec4), query.spheres.data(), kTransition);
+            LIT_UP(context)->UpdateBuffer(ids, 0, count * sizeof(uint32_t), query.ids.data(), kTransition);
         }
         Constants uniforms{};
         uniforms.invViewProjection = query.invViewProjection;
@@ -73,7 +73,7 @@ struct ObservationPass::Impl {
         uniforms.dims[0] = query.width;
         uniforms.dims[1] = query.height;
         uniforms.dims[2] = count;
-        context->UpdateBuffer(constants, 0, sizeof(uniforms), &uniforms, kTransition);
+        LIT_UP(context)->UpdateBuffer(constants, 0, sizeof(uniforms), &uniforms, kTransition);
     }
 };
 

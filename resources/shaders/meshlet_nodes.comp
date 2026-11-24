@@ -21,6 +21,9 @@ layout(std430) readonly buffer WorldMatrixBuffer {
     MeshletWorldRows worldRows[];
 };
 
+#define LIT_INSTANCE_OWNER_WORLD(entity) meshletWorld(worldRows[entity])
+#include "instancing.glsl"
+
 layout(std430) readonly buffer ClusterNodeBuffer {
     ClusterNode clusterNodes[];
 };
@@ -84,7 +87,8 @@ void main() {
         atomicAdd(s_nodes, 1u);
 
         uvec2 entry = sortedEntries[slot];
-        mat4 model = meshletWorld(worldRows[entry.x & 0x1FFFFFFFu]);
+        uint objectId = entry.x & 0x1FFFFFFFu;
+        mat4 model = isInstanceEntry(objectId) ? instanceWorld(instanceSlot(objectId)) : meshletWorld(worldRows[objectId]);
         float scale = max(length(model[0].xyz), max(length(model[1].xyz), length(model[2].xyz)));
         MeshletLod lod = meshletLod(commandSlot / max(u_shaderCount, 1u), scale);
         vec3 lodCenter = (model * vec4(node.lodSphere.xyz, 1.0)).xyz;

@@ -15,6 +15,7 @@ module;
 #include <fstream>
 #include <format>
 #include <functional>
+#include <map>
 #include <memory>
 #include <optional>
 #include <random>
@@ -169,6 +170,25 @@ void Application::buildPortalScene(int which) {
     kit.sphere = ctx.sphereMesh;
     if (const std::optional<uint32_t> floorShader = findNameIndex(m_engine.shaderNames(), "Checker")) kit.floorShader = *floorShader;
     kit.material = sceneMaterialFactory(m_engine, "Portal scene");
+    kit.metalMaterial = [this](const glm::vec3& color, float metalness, float roughness, const glm::vec3& emissive, float intensity) {
+        Material material;
+        material.name = "Portal frame";
+        material.baseColor = color;
+        material.metallic = metalness;
+        material.roughness = roughness;
+        material.emissive = emissive;
+        material.emissiveIntensity = intensity;
+        return m_engine.createMaterial(material);
+    };
+    // Frame meshes are uploaded once per shape key (rebuilding the scene reuses them).
+    kit.mesh = [this](const std::string& key, const std::vector<float>& vertices, const std::vector<unsigned int>& indices) {
+        static std::map<std::pair<const Engine*, std::string>, uint32_t> uploaded;
+        const auto found = uploaded.find({&m_engine, key});
+        if (found != uploaded.end()) return found->second;
+        const uint32_t id = m_engine.uploadMesh(Mesh(vertices, indices));
+        uploaded[{&m_engine, key}] = id;
+        return id;
+    };
     const PortalTestScene scene = which == 1 ? PortalTestScene::Torture : PortalTestScene::Loop;
     ::buildPortalScene(m_engine.portals(), ctx.world, kit, scene);
     float yaw = 0.0f;

@@ -80,6 +80,7 @@ target_sources(Engine
         Render/SceneDatabase.cppm
         Render/Mesh.cppm
         Render/Meshlet.cppm
+        Render/Instancing.cppm
         Render/ObservationPass.cppm
         Render/Material.cppm
         Render/RenderSettings.cppm
@@ -150,6 +151,7 @@ target_sources(Engine
         EngineRendering.cpp
         EngineFeatures.cpp
         EngineTerrain.cpp
+        EngineInstancing.cpp
         Asset/AssetManager.cpp
         Asset/AssetImport.cpp
         Asset/AssetCache.cpp
@@ -188,6 +190,8 @@ target_sources(Engine
         Render/MeshletBuild.cpp
         Render/MeshletHierarchy.cpp
         Render/RendererMeshlets.cpp
+        Render/RendererInstancing.cpp
+        Render/Instancing.cpp
         Render/ObservationPass.cpp
         Render/Reflection.cpp
         Render/Lighting.cpp
@@ -225,9 +229,12 @@ target_sources(Engine
         Portal/PortalBridge.cpp
         Streaming/Streaming.cpp
         Streaming/StreamingBatchLoader.cpp
+        Streaming/Residency.cpp
         Save/Delta.cpp
         Save/DeltaCodec.cpp
         Portal/PortalScene.cpp
+        Portal/PortalFrameMesh.cpp
+        Portal/PortalTiltScene.cpp
         Physics/Physics.cpp
         Physics/PortalPhysics.cpp
         Physics/Character.cpp
@@ -257,8 +264,10 @@ target_sources(Engine
         Tools/TestSceneSkinning.cpp
         Tools/TestSceneTerrain.cpp
         Tools/TestSceneRooms.cpp
+        Tools/TestSceneTextures.cpp
         Tools/TestSceneLights.cpp
         Tools/TestSceneDense.cpp
+        Tools/TestSceneInstancing.cpp
         Tools/TestSceneMixed.cpp
         Tools/TestSceneLargeWorld.cpp
         Tools/GalleryScene.cpp
@@ -350,3 +359,5 @@ target_link_libraries(Engine PUBLIC
     $<$<BOOL:${WIN32}>:Diligent-GraphicsEngineD3D11-static>
     $<$<BOOL:${WIN32}>:Diligent-GraphicsEngineD3D12-static>
 )
+# Bent law language and engine fuzzer (docs/Bent.md).
+add_subdirectory(Bent)

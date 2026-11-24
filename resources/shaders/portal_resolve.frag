@@ -1,10 +1,15 @@
 #version 450
+#extension GL_GOOGLE_include_directive : require
 
 // Replaces the parent's depth and G-buffer inside a portal quad with the child view's
 // depth and G-buffer, expressed in the parent's (virtual) space. Every screen-space effect
 // of the parent then sees the room behind the portal as ordinary geometry and never the
 // portal plane itself. The plane depth is only written later by portal_composite.frag, for
-// the passes that need it as an occluder (transparency).
+// the passes that need it as an occluder (transparency). Only pixels the composite covers fully
+// are spliced (portal_shape.glsl): the anti-aliased / dissolved rim keeps the parent's own data
+// (the frame reveal behind the contour), which the composite then blends the child over.
+
+#include "portal_shape.glsl"
 
 layout(std140) uniform PortalDepthData {
     mat4 projection;
@@ -18,6 +23,8 @@ layout(std140) uniform PortalDepthData {
     vec4 normal;
     vec4 camera;
     vec4 params;
+    vec4 shape;
+    vec4 edge;
 };
 
 uniform sampler2D u_childDepth;
@@ -52,16 +59,19 @@ void main() {
     vec2 uv = gl_FragCoord.xy / params.zw;
     vec2 ndc = vec2(uv.x * 2.0 - 1.0, 1.0 - uv.y * 2.0);
     vec3 dir = normalize((invView * vec4(ndc.x / params.x, ndc.y / params.y, -1.0, 0.0)).xyz);
-    float facing = dot(normal.xyz, dir);
-    float side = dot(normal.xyz, camera.xyz - center.xyz);
-    if (side > 0.0 && facing >= 0.0) discard;
-    float denom = abs(facing) < 1e-6 ? 1e-6 : facing;
-    float t = dot(normal.xyz, center.xyz - camera.xyz) / denom;
-    if (t <= 0.0) discard;
-    vec3 q = camera.xyz + dir * t - center.xyz;
-    if (abs(dot(q, axisU.xyz) * axisU.w) > 1.0 || abs(dot(q, axisV.xyz) * axisV.w) > 1.0) discard;
-    vec4 clip = viewProjection * vec4(camera.xyz + dir * t, 1.0);
-    float planeDepth = clamp(clip.z / max(clip.w, 1e-6), 0.0, 1.0);
+    float t;
+    int mode = portalRayMode(camera.xyz, dir, -invView[2].xyz, camera.w, center, normal, t);  // camera.w: near plane distance
+    if (mode == 0) discard;
+    vec2 p;
+    float sd;
+    float distancePixels;
+    vec2 outward;
+    if (portalCoverage(gl_FragCoord.xy, camera.xyz, invView, params, center, axisU, axisV, normal, shape, edge, p, sd, distancePixels, outward) < 0.999) discard;
+    float planeDepth = 1.0;  // reversed Z: nearest (mode 2, the visible segment starts behind the plane)
+    if (mode == 1) {
+        vec4 clip = viewProjection * vec4(camera.xyz + dir * t, 1.0);
+        planeDepth = clamp(clip.z / max(clip.w, 1e-6), 0.0, 1.0);
+    }
     if (texelFetch(u_sceneDepth, pixel, 0).r > planeDepth + 1e-5) discard;  // reversed Z: larger = nearer
 
     vec4 g0 = texelFetch(u_childGBuffer0, pixel, 0);

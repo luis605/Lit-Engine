@@ -1,6 +1,7 @@
 module;
 
 #include <cstdint>
+#include <iterator>
 #include <optional>
 #include <sstream>
 #include <string>
@@ -16,6 +17,7 @@ import Engine.Render.entity;
 import Engine.Render.component;
 import Engine.Render.scenedatabase;
 import Engine.glm;
+import Engine.Instancing;
 
 namespace {
 
@@ -109,6 +111,18 @@ void registerCoreComponents(World& world) {
     world.registerComponent<CameraComponent>("Camera", writeCamera, readCamera);
     world.registerComponent<ReflectionProbeComponent>("ReflectionProbe", writeReflectionProbe, readReflectionProbe);
     world.registerComponent<PlanarReflectionComponent>("PlanarReflection", writePlanarReflection, readPlanarReflection);
+    registerInstanceBatchComponent(world);
+}
+
+// GPU instancing (docs/Instancing.md): mesh id, material, shader, settings and every instance as text (scene files, snapshots,
+// prefabs, editor and DeltaStore component diffs). Mesh ids are not remapped by name.
+void registerInstanceBatchComponent(World& world) {
+    world.registerComponent<InstanceBatch>(
+        "InstanceBatch", [](const InstanceBatch& batch, std::ostream& out) { out << instanceBatchText(batch); },
+        [](std::istream& in) -> std::optional<InstanceBatch> {
+            const std::string text((std::istreambuf_iterator<char>(in)), std::istreambuf_iterator<char>());
+            return instanceBatchFromText(text);
+        });
 }
 
 std::vector<std::pair<std::string, std::string>> World::serializeScripts(Entity index) const {

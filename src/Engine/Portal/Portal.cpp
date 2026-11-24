@@ -61,11 +61,9 @@ std::array<glm::vec4, 6> extractFrustumPlanes(const glm::mat4& viewProjection) {
     return planes;
 }
 
-void applyTransformToCamera(Camera& camera, const glm::mat4& transform) {
-    const glm::vec3 front = glm::normalize(transformDirection(transform, cameraForward(camera)));
-    camera.setPos(transformPoint(transform, camera.getPosition()));
-    camera.setOrientation(glm::degrees(std::atan2(front.z, front.x)), glm::degrees(std::asin(glm::clamp(front.y, -1.0f, 1.0f))));
-}
+// Any rigid transform (rolled, pitched, floor / ceiling, flipped portals): the camera frame takes the rotation, so the view
+// matrix after the swap is the virtual camera the portal view was rendered from (docs/Portals.md, "Camera crossing").
+void applyTransformToCamera(Camera& camera, const glm::mat4& transform) { camera.transformBy(transform); }
 
 void PortalSystem::clear() {
     m_cells.clear();
@@ -113,7 +111,77 @@ const std::vector<int>& PortalSystem::portalsOf(int cell) const {
     return cell >= 0 && static_cast<size_t>(cell) < m_cellPortals.size() ? m_cellPortals[static_cast<size_t>(cell)] : none;
 }
 
-int PortalSystem::addPair(const std::string& name, const PortalEnd& endA, const PortalEnd& endB, float twistDegrees) {
+const char* portalShapeName(PortalShape shape) {
+    switch (shape) {
+        case PortalShape::Ellipse: return "ellipse";
+        case PortalShape::Rounded: return "rounded";
+        case PortalShape::Rect: break;
+    }
+    return "rect";
+}
+
+float portalShapeDistance(PortalShape shape, const glm::vec2& half, float cornerRadius, float u, float v) {
+    const float au = std::abs(u);
+    const float av = std::abs(v);
+    if (shape == PortalShape::Ellipse) {
+        // First-order distance (value over gradient length): exact on the contour, which is all the inside test needs.
+        const glm::vec2 h = glm::max(half, glm::vec2(1.0e-4f));
+        const float k = std::sqrt((au * au) / (h.x * h.x) + (av * av) / (h.y * h.y));
+        const float g = std::sqrt((au * au) / (h.x * h.x * h.x * h.x) + (av * av) / (h.y * h.y * h.y * h.y));
+        return g > 1.0e-6f ? k * (k - 1.0f) / g : -std::min(h.x, h.y);
+    }
+    const float radius = shape == PortalShape::Rounded ? std::clamp(cornerRadius, 0.0f, std::min(half.x, half.y)) : 0.0f;
+    const float qx = au - half.x + radius;
+    const float qy = av - half.y + radius;
+    const float outside = std::sqrt(std::max(qx, 0.0f) * std::max(qx, 0.0f) + std::max(qy, 0.0f) * std::max(qy, 0.0f));
+    return outside + std::min(std::max(qx, qy), 0.0f) - radius;
+}
+
+glm::vec3 PortalSystem::cellUp(int cell) const {
+    if (cell < 0 || static_cast<size_t>(cell) >= m_cells.size()) return glm::vec3(0.0f, 1.0f, 0.0f);
+    const glm::vec3 gravity = m_cells[static_cast<size_t>(cell)].params.gravity;
+    const float length = glm::length(gravity);
+    return length > 1.0e-4f ? -gravity / length : glm::vec3(0.0f, 1.0f, 0.0f);
+}
+
+void PortalSystem::setLook(int portal, const PortalLook& look) {
+    if (portal < 0 || static_cast<size_t>(portal) >= m_portals.size()) return;
+    m_portals[static_cast<size_t>(portal)].look = look;
+    const int partner = m_portals[static_cast<size_t>(portal)].partner;
+    if (partner >= 0 && static_cast<size_t>(partner) < m_portals.size()) m_portals[static_cast<size_t>(partner)].look = look;
+}
+
+glm::vec3 PortalSystem::spillIrradiance(int portal, const std::vector<glm::vec4>& packedLights, const std::vector<int32_t>& cells, const glm::vec3& sunDirection, const glm::vec3& sunIlluminance) const {
+    if (portal < 0 || static_cast<size_t>(portal) >= m_portals.size()) return glm::vec3(0.0f);
+    const Portal& source = m_portals[static_cast<size_t>(portal)];
+    if (source.look.spill <= 0.0f || m_settings.spill <= 0.0f || source.partner < 0) return glm::vec3(0.0f);
+    const Portal& far = m_portals[static_cast<size_t>(source.partner)];
+    const glm::vec3 center = far.center();
+    const glm::vec3 normal = far.normal();
+    constexpr float kMinDistanceSquared = 0.25f;
+    glm::vec3 irradiance(0.0f);
+    const size_t count = std::min(packedLights.size() / 4, cells.size());
+    for (size_t light = 0; light < count; ++light) {
+        if (cells[light] != far.cell) continue;
+        const glm::vec4 positionRange = packedLights[light * 4];
+        const glm::vec4 colorIntensity = packedLights[light * 4 + 1];
+        const glm::vec3 offset = glm::vec3(positionRange) - center;
+        const float distanceSquared = glm::dot(offset, offset);
+        const float range = positionRange.w;
+        if (range <= 0.0f || distanceSquared >= range * range) continue;
+        // Light that reaches the far room's surfaces around the opening: cosine to the far end's normal (lights behind it do not count),
+        // smooth range window like the shaders.
+        const float facing = std::max(glm::dot(normal, offset) / std::sqrt(std::max(distanceSquared, 1.0e-8f)), 0.0f);
+        const float ratio = distanceSquared / (range * range);
+        const float window = (1.0f - ratio * ratio) * (1.0f - ratio * ratio);
+        irradiance += glm::vec3(colorIntensity) * colorIntensity.w * (0.5f + 0.5f * facing) * window / std::max(distanceSquared, kMinDistanceSquared);
+    }
+    const PortalCell& farCell = m_cells[static_cast<size_t>(far.cell)];
+    if (farCell.params.sun > 0.0f && glm::dot(sunDirection, sunDirection) > 0.0f) irradiance += sunIlluminance * farCell.params.sun * 0.25f;
+    return irradiance * source.look.spill * std::max(m_settings.spill, 0.0f);
+}
+
+int PortalSystem::addPair(const std::string& name, const PortalEnd& endA, const PortalEnd& endB, float twistDegrees, const PortalLook& look) {
     const int cellA = findCell(endA.cell);
     const int cellB = findCell(endB.cell);
     if (cellA < 0 || cellB < 0) return -1;
@@ -126,6 +194,10 @@ int PortalSystem::addPair(const std::string& name, const PortalEnd& endA, const 
     portalA.pose = portalPose(endA.position, endA.eulerDegrees);
     portalB.pose = portalPose(endB.position, endB.eulerDegrees);
     portalA.half = endA.halfSize;
+    portalA.euler = endA.eulerDegrees;
+    portalB.euler = endB.eulerDegrees;
+    portalA.look = look;
+    portalB.look = look;
     portalA.twist = twistDegrees;
     portalB.twist = -twistDegrees;
     portalB.half = endB.halfSize;

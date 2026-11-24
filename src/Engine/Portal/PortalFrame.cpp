@@ -108,9 +108,13 @@ class FrameBuilder {
         m_frame.nodes.push_back(std::move(root));
     }
 
-    bool insideFrustum(const Portal& portal, const std::array<glm::vec4, 6>& planes) const {
+    // `nearPortal`: the eye is within the near-plane reach of the portal plane. Its corners may then all lie closer than the near
+    // plane (plane 5 of an extracted frustum) while near-plane pieces already pass through the opening, so that plane is skipped.
+    bool insideFrustum(const Portal& portal, const std::array<glm::vec4, 6>& planes, bool nearPortal = false) const {
         const std::array<glm::vec3, 4> corners = cornersOf(portal);
-        for (const glm::vec4& plane : planes) {
+        for (size_t index = 0; index < planes.size(); ++index) {
+            if (nearPortal && index == 5) continue;
+            const glm::vec4& plane = planes[index];
             bool anyInside = false;
             for (const glm::vec3& corner : corners) anyInside = anyInside || glm::dot(glm::vec3(plane), corner) + plane.w >= 0.0f;
             if (!anyInside) return false;
@@ -140,7 +144,7 @@ class FrameBuilder {
             const glm::vec3 offset = eye - portal.center();
             const float planeDistance = glm::dot(portal.normal(), offset);
             if (planeDistance < -m_reach) continue;
-            if (!insideFrustum(portal, node.planes)) continue;
+            if (!insideFrustum(portal, node.planes, std::abs(planeDistance) < m_reach * kNearReachFactor)) continue;
             const float distance = std::max(glm::length(offset), kMinDistance);
             const float radius = glm::length(glm::vec3(portal.half.x, portal.half.y, 0.0f));
             const float pixels = std::min(m_viewportHeight * radius / (distance * m_tanHalf), current.pixels);
@@ -196,6 +200,10 @@ class FrameBuilder {
         surface.axisV = source.up() * source.half.y;
         surface.normal = source.normal();
         surface.fallback = m_cells[static_cast<size_t>(destination.cell)].params.tint;
+        const PortalLook& look = source.look;
+        surface.shape = glm::vec4(static_cast<float>(look.shape), look.cornerRadius, look.edge.feather, look.edge.dissolve);
+        surface.edge = glm::vec4(look.edge.rim, look.edge.rimWidth, look.edge.distortion, look.edge.chroma);
+        surface.rim = glm::vec4(look.edge.rimColor, look.edge.fresnel);
         return surface;
     }
 

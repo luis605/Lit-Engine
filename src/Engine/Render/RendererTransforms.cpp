@@ -91,10 +91,12 @@ void Renderer::applyDirtyTransforms(const SceneDatabase& sceneDatabase) {
     for (size_t dirtyIndex = 0; dirtyIndex < dirtyCount; ++dirtyIndex) m_dirtyPayloadScratch[dirtyIndex] = sceneDatabase.transforms[m_dirtyIndexScratch[dirtyIndex]].localMatrix;
     for (size_t first = 0; first < dirtyCount; first += kMaxDirtyPerFrame) {
         const size_t chunk = std::min<size_t>(kMaxDirtyPerFrame, dirtyCount - first);
-        context->UpdateBuffer(gpu.pDirtyIndexBuffer[m_currentFrame], 0, chunk * sizeof(unsigned int), m_dirtyIndexScratch.data() + first, Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
-        context->UpdateBuffer(gpu.pDirtyPayloadBuffer[m_currentFrame], 0, chunk * sizeof(glm::mat4), m_dirtyPayloadScratch.data() + first, Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
+        LIT_UP(context)->UpdateBuffer(gpu.pDirtyIndexBuffer[m_currentFrame], 0, chunk * sizeof(unsigned int), m_dirtyIndexScratch.data() + first, Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
+        LIT_UP(context)->UpdateBuffer(gpu.pDirtyPayloadBuffer[m_currentFrame], 0, chunk * sizeof(glm::mat4), m_dirtyPayloadScratch.data() + first, Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
         {
+            LIT_UP_MARK(litUp6);
             Diligent::MapHelper<ApplyDirtyConstants> constants(gpu.pImmediateContext, gpu.pApplyDirtyConstants, Diligent::MAP_WRITE, Diligent::MAP_FLAG_DISCARD);
+            LIT_UP_COMMIT(litUp6);
             constants->dirtyCount = static_cast<uint32_t>(chunk);
             constants->epoch = m_transformEpoch;
         }
@@ -118,7 +120,7 @@ void Renderer::planTransformWork(SceneDatabase& sceneDatabase, TransformPlan& pl
 
     plan.sparse = !plan.forceAllLevels && collectTransformWork(sceneDatabase, m_dirtyIndexScratch);
     if (plan.sparse) {
-        m_diligent->pImmediateContext->UpdateBuffer(m_diligent->pTransformWorkBuffer, 0, m_transformWork.size() * sizeof(Entity), m_transformWork.data(), Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
+        LIT_UP(m_diligent->pImmediateContext)->UpdateBuffer(m_diligent->pTransformWorkBuffer, 0, m_transformWork.size() * sizeof(Entity), m_transformWork.data(), Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
     } else if (!plan.hierarchyChanged) {
         ensureLevelOrder(sceneDatabase);
         markDirtyLevels(sceneDatabase);
@@ -139,7 +141,7 @@ void Renderer::dispatchTransformGroup(Diligent::IShaderResourceBinding* binding,
     uniforms.animMovingCount = animationActive() ? m_animMovingCount : 0u;
     uniforms.animEntityOffset = m_animEntityOffset;
     uniforms.directEntityRange = directEntityRange ? 1u : 0u;
-    context->UpdateBuffer(gpu.pTransformUniforms, 0, sizeof(uniforms), &uniforms, Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
+    LIT_UP(context)->UpdateBuffer(gpu.pTransformUniforms, 0, sizeof(uniforms), &uniforms, Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
 
     context->SetPipelineState(gpu.pTransformPSO);
     context->CommitShaderResources(binding, Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION);

@@ -314,7 +314,7 @@ bool Renderer::uploadMeshletMeshInfo(size_t count) {
     for (const uint32_t meshId : state.meshIds) {
         for (uint32_t slot = meshId; slot < meshId + kMeshletLodSlots && slot < count; ++slot) infos[slot].indexCount = 0;
     }
-    m_diligent->pImmediateContext->UpdateBuffer(m_diligent->pMeshInfoBuffer, 0, count * sizeof(MeshInfo), infos.data(), Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
+    LIT_UPDATE_DIFF(m_diligent->pImmediateContext, m_diligent->pMeshInfoBuffer, 0, count * sizeof(MeshInfo), infos.data());
     return true;
 }
 
@@ -380,6 +380,9 @@ void Renderer::bindMeshletPhase(int phaseIndex) {
     if (keys == phase.keys[frame] && phase.cullSRB[frame]) return;
     phase.keys[frame] = keys;
     phase.instancesSRB[frame] = litgpu::makeBinding(state.instancesPSO, {
+                                                                              {"InstanceBuffer",            gpu.pInstanceBuffer            },
+                                                                              {"InstanceCellBuffer",        gpu.pInstanceCellBuffer        },
+                                                                              {"InstanceBatchBuffer",       gpu.pInstanceBatchBuffer       },
                                                                               {"SceneData",                 gpu.pSceneUBO[frame]           },
                                                                               {"MeshletConstants",          phase.constants                },
                                                                               {"AtomicCounterBuffer",       visibility.visibleCounter      },
@@ -397,6 +400,9 @@ void Renderer::bindMeshletPhase(int phaseIndex) {
     });
     if (!state.hierarchyFailed) {
         phase.nodesSRB[frame] = litgpu::makeBinding(state.nodesPSO, {
+                                                                              {"InstanceBuffer",            gpu.pInstanceBuffer            },
+                                                                              {"InstanceCellBuffer",        gpu.pInstanceCellBuffer        },
+                                                                              {"InstanceBatchBuffer",       gpu.pInstanceBatchBuffer       },
                                                                         {"SceneData",                 gpu.pSceneUBO[frame]         },
                                                                         {"MeshletConstants",          phase.constants              },
                                                                         {"SortedVisibleObjectBuffer", visibility.sortedEntries     },
@@ -424,6 +430,9 @@ void Renderer::bindMeshletPhase(int phaseIndex) {
                                                                   {"DispatchArgsBuffer", phase.cullArgs      }
     });
     phase.cullSRB[frame] = litgpu::makeBinding(state.cullPSO, {
+                                                                              {"InstanceBuffer",            gpu.pInstanceBuffer            },
+                                                                              {"InstanceCellBuffer",        gpu.pInstanceCellBuffer        },
+                                                                              {"InstanceBatchBuffer",       gpu.pInstanceBatchBuffer       },
                                                                   {"SceneData",                 gpu.pSceneUBO[frame]         },
                                                                   {"MeshletConstants",          phase.constants              },
                                                                   {"SortedVisibleObjectBuffer", visibility.sortedEntries     },
@@ -480,7 +489,7 @@ void Renderer::rollMeshletStats() {
         state.stagingFrame[slot] = state.statsFrame;
     }
     const std::array<uint32_t, kMeshletStatsWords> zeros{};
-    context->UpdateBuffer(state.statsBuffer, 0, sizeof(zeros), zeros.data(), Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
+    LIT_UP(context)->UpdateBuffer(state.statsBuffer, 0, sizeof(zeros), zeros.data(), Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
     state.statsFrame = m_frameCounter;
 }
 
@@ -513,7 +522,7 @@ void Renderer::buildMeshletDraws(int phaseIndex, uint32_t views) {
     const bool hierarchy = settings.clusterHierarchy && !state.hierarchyFailed && phase.nodesSRB[frame] && state.maxDepth > 0;
     const bool shadowTexels = phaseIndex == kPhaseShadow && settings.clusterShadowTexelLod && state.shadowLodValid;
     MeshletConstants constants{};
-    constants.maxDraws = static_cast<uint32_t>(m_maxObjects);
+    constants.maxDraws = static_cast<uint32_t>(VisibleEntryCapacity(m_maxObjects));  // size of the sorted entries (objects plus instances)
     constants.views = std::max(views, 1u);
     constants.viewBuckets = ActiveBucketCount(m_numDrawingShaders);
     constants.shaderCount = shaderCount;
@@ -535,15 +544,15 @@ void Renderer::buildMeshletDraws(int phaseIndex, uint32_t views) {
         constants.orthoMask = state.shadowOrthoMask;
         std::copy(state.shadowLodViews.begin(), state.shadowLodViews.end(), constants.lodViews);
     }
-    context->UpdateBuffer(phase.constants, 0, sizeof(constants), &constants, Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
+    LIT_UP(context)->UpdateBuffer(phase.constants, 0, sizeof(constants), &constants, Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
     if (hierarchy) {
         std::array<uint32_t, kMeshletNodeCounterWords> counters{};
         counters[0] = 0xFFFFFFFFu;  // meshlet_node_args advances it to level 0
-        context->UpdateBuffer(state.nodeCounters, 0, sizeof(counters), counters.data(), Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
+        LIT_UP(context)->UpdateBuffer(state.nodeCounters, 0, sizeof(counters), counters.data(), Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
     }
     ClearCounter(context, phase.workCounter);
     ClearCounter(context, phase.indexCounter);
-    context->UpdateBuffer(phase.drawCounters, 0, sizeof(uint32_t) * phase.slots, m_bucketZeros.data(), Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
+    litgpu::zeroFill(context, m_diligent->pZeroBuffer, phase.drawCounters, 0, sizeof(uint32_t) * phase.slots, m_bucketZeros.data());
     if (phaseIndex == kPhaseOpaque) ClearCounter(context, state.retestCounter);
 
     if (phaseIndex == kPhaseRetest && phase.retestSRB[frame]) {
@@ -628,3 +637,10 @@ void Renderer::setMeshletShadowLod(std::span<const glm::vec4> views, uint32_t or
 }
 
 void Renderer::releaseMeshlets() { m_meshlets.reset(); }
+
+void Renderer::invalidateMeshletBindings() {
+    if (!m_meshlets) return;
+    for (auto& phase : Meshlets(m_meshlets)->phases) {
+        for (auto& keys : phase.keys) keys.fill(nullptr);
+    }
+}

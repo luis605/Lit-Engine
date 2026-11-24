@@ -31,6 +31,9 @@ export constexpr int kMaxLocalShadowLights = 8;
 // stay continuous across floating-origin rebases for any pattern period that divides it (snap sizes of 1024 and below do).
 export inline constexpr double kOriginPatternPeriod = 4096.0;
 
+// Slots of the bindless texture table (the shader array size; one descriptor each in every surface binding).
+export inline constexpr uint32_t kBindlessTextureCapacity = 1024;
+
 export struct SceneUniforms {
     glm::mat4 projection;
     glm::mat4 view;
@@ -225,7 +228,18 @@ export class Lighting {
     // Portal lights: lights first .. first + apertures.size() - 1 of setLights are portal images limited to these apertures.
     void setLightApertures(uint32_t first, const std::vector<LightAperture>& apertures);
     void setDirectionalLight(bool present, const glm::vec3& direction, const glm::vec3& illuminance);
+    // Legacy mode: a layer of the 16-layer 1024x1024 color / data array. Bindless mode: a slot of the texture table (native size).
     int loadTexture(const std::string& path, bool srgb);
+    // Frees a table slot (bindless mode only; the texture is destroyed once the GPU is done with it).
+    void releaseTexture(int slot);
+    [[nodiscard]] bool bindlessTextures() const;
+    [[nodiscard]] uint32_t textureTableHighWater() const;
+    [[nodiscard]] uint32_t textureTableUsed() const;
+    // Bumped whenever a slot is filled or freed; textureSlotEpoch is the value at the slot's last change.
+    [[nodiscard]] uint64_t textureTableEpoch() const;
+    [[nodiscard]] uint64_t textureSlotEpoch(uint32_t slot) const;
+    // Shader resource view of a slot (the placeholder for an empty one).
+    [[nodiscard]] Diligent::ITextureView* textureTableView(uint32_t slot) const;
     [[nodiscard]] uint64_t bindingVersion() const;
 
     // Floating origin rebase: every position the renderer holds is in the old frame; `delta` is what Engine subtracted from local space.

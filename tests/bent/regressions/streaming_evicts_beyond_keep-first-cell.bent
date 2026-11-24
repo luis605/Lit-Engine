@@ -1,0 +1,11 @@
+# Bent regression: shrunk counterexample for law `streaming_evicts_beyond_keep` (tests/bent/laws/streaming.bent)
+# Found by: bent check tests/bent/laws/streaming.bent --cases 20 (seed 1, case 0)
+# Failure: grid cell 0 stayed resident 20.5 m beyond a 20 m keep radius. PortalSystem::addCell pins the camera cell to 0 and
+# without portals nothing moves it, so Engine's streaming system always treated cell 0 as the camera cell.
+# Fixed in src/Engine/EngineFeatures.cpp (grid-only streaming locates the camera with cellAt).
+include "../laws/streaming.bent"
+
+example streaming_evicts_beyond_keep {
+  s = streaming(cell: 20.0, keep: 0.0, load: 20.0, nx: 2, nz: 2, perCell: 1),
+  path = [vec3(40.50000190734872, 0.0, 0.0)]
+}

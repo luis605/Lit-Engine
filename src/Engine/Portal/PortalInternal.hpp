@@ -7,11 +7,7 @@ inline glm::vec3 transformPoint(const glm::mat4& matrix, const glm::vec3& point)
 
 inline glm::vec3 transformDirection(const glm::mat4& matrix, const glm::vec3& direction) { return glm::vec3(matrix * glm::vec4(direction, 0.0f)); }
 
-inline glm::vec3 cameraForward(const Camera& camera) {
-    const float yaw = glm::radians(camera.getYaw());
-    const float pitch = glm::radians(camera.getPitch());
-    return glm::normalize(glm::vec3(std::cos(yaw) * std::cos(pitch), std::sin(pitch), std::sin(yaw) * std::cos(pitch)));
-}
+inline glm::vec3 cameraForward(const Camera& camera) { return camera.getFront(); }
 
 inline std::array<glm::vec3, 4> cornersOf(const Portal& portal) {
     const glm::vec3 center = portal.center();
@@ -27,7 +23,7 @@ inline std::optional<float> crossing(const Portal& portal, const glm::vec3& orig
     const float distance = glm::dot(normal, portal.center() - origin) / denominator;
     if (distance < 0.0f || distance > maxDistance) return std::nullopt;
     const glm::vec3 offset = origin + direction * distance - portal.center();
-    if (std::abs(glm::dot(offset, portal.right())) > portal.half.x || std::abs(glm::dot(offset, portal.up())) > portal.half.y) return std::nullopt;
+    if (!portal.inside(glm::dot(offset, portal.right()), glm::dot(offset, portal.up()))) return std::nullopt;
     return distance;
 }
 

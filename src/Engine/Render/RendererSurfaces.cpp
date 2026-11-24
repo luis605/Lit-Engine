@@ -33,9 +33,10 @@ constexpr int kForwardTargetCount = 2;
 constexpr uint32_t kSurfaceVertexPositionComponents = 3;
 constexpr uint32_t kSurfaceVertexUvComponents = 2;
 
-std::pair<Macros, Macros> SurfaceMacros(const SurfaceSource& source, SurfaceKind kind, bool point) {
+std::pair<Macros, Macros> SurfaceMacros(const SurfaceSource& source, SurfaceKind kind, bool point, bool bindless) {
     Macros vertexMacros;
     Macros pixelMacros;
+    if (bindless && kind != SurfaceKind::Shadow) pixelMacros.push_back({"LIT_BINDLESS", "1"});
     if (kind == SurfaceKind::Forward) {
         vertexMacros.push_back({"TRANSPARENT", "1"});
         pixelMacros.push_back({"TRANSPARENT", "1"});
@@ -74,6 +75,11 @@ void ConfigureTargets(Diligent::GraphicsPipelineDesc& pipeline, SurfaceKind kind
     }
 }
 
+// Immutable samplers of the bindless variant: the table replaces u_colorTextures / u_dataTextures.
+std::vector<litgpu::NamedSampler> BindlessSurfaceSamplers() {
+    return {{litgpu::kBindlessTableName, litgpu::anisotropicWrap()}, {"u_prefilteredEnv", litgpu::linearClamp()}, {"u_dfgLut", litgpu::linearClamp()}, {"u_shadowMap", litgpu::shadowCompare()}, {"u_shadowDepth", litgpu::pointClamp()}, {"u_localShadowMap", litgpu::shadowCompare()}, {"u_sceneColor", litgpu::linearClamp()}};
+}
+
 litgpu::PipelineLayout SurfaceLayout(SurfaceKind kind, Diligent::IShader* vertexShader, Diligent::IShader* pixelShader) {
     if (kind == SurfaceKind::Shadow) return litgpu::makeLayout({vertexShader});
     return litgpu::makeLayout({vertexShader, pixelShader}, {{"u_colorTextures", litgpu::anisotropicWrap()}, {"u_dataTextures", litgpu::anisotropicWrap()}, {"u_prefilteredEnv", litgpu::linearClamp()}, {"u_dfgLut", litgpu::linearClamp()}, {"u_shadowMap", litgpu::shadowCompare()}, {"u_shadowDepth", litgpu::pointClamp()}, {"u_localShadowMap", litgpu::shadowCompare()}, {"u_sceneColor", litgpu::linearClamp()}});
@@ -91,7 +97,8 @@ const char* KindSuffix(SurfaceKind kind) {
 }
 
 Diligent::RefCntAutoPtr<Diligent::IPipelineState> BuildSurfacePso(DiligentData& gpu, const std::string& name, const std::string& path, const SurfaceSource& source, SurfaceKind kind, bool point, bool twoSided) {
-    const auto [vertexMacros, pixelMacros] = SurfaceMacros(source, kind, point);
+    const bool bindless = litgpu::bindlessTexturesActive(gpu.pDevice);
+    const auto [vertexMacros, pixelMacros] = SurfaceMacros(source, kind, point, bindless);
     const std::string vertexPath = point ? "resources/shaders/surface/surface_point.vert" : "resources/shaders/surface/surface.vert";
     const std::string vertexTemplate = litgpu::readText(vertexPath);
     const std::string pixelTemplate = litgpu::readText("resources/shaders/surface/surface.frag");
@@ -127,7 +134,18 @@ Diligent::RefCntAutoPtr<Diligent::IPipelineState> BuildSurfacePso(DiligentData& 
     pipeline.InputLayout.LayoutElements = layout;
     pipeline.InputLayout.NumElements = point ? 0 : static_cast<Diligent::Uint32>(std::size(layout));
     const litgpu::PipelineLayout resourceLayout = SurfaceLayout(kind, vertexShader, pixelShader);
-    resourceLayout.apply(createInfo.PSODesc.ResourceLayout);
+    Diligent::RefCntAutoPtr<Diligent::IPipelineResourceSignature> signature;
+    Diligent::IPipelineResourceSignature* signatures[1] = {};
+    if (bindless && kind != SurfaceKind::Shadow) {
+        // The texture table is a runtime-sized array: Diligent only accepts it in an explicit signature (docs/RenderGraph.md, Bindless).
+        signature = litgpu::makeBindlessSignature(gpu.pDevice, pipelineName + " resources", {vertexShader, pixelShader}, BindlessSurfaceSamplers(), kBindlessTextureCapacity);
+        if (!signature) return {};
+        signatures[0] = signature;
+        createInfo.ppResourceSignatures = signatures;
+        createInfo.ResourceSignaturesCount = 1;
+    } else {
+        resourceLayout.apply(createInfo.PSODesc.ResourceLayout);
+    }
     Diligent::RefCntAutoPtr<Diligent::IPipelineState> pso;
     createInfo.pPSOCache = litgpu::pipelineCache();
     gpu.pDevice->CreateGraphicsPipelineState(createInfo, &pso);
@@ -147,7 +165,7 @@ void UseFallbackPipelines(DiligentData::SurfaceProgram& program, const DiligentD
 void UpdateShaderBounds(DiligentData& gpu) {
     std::vector<float> bounds(kMaxSurfaceShaders, 0.0f);
     for (size_t surfaceIndex = 0; surfaceIndex < gpu.surfaces.size() && surfaceIndex < bounds.size(); ++surfaceIndex) bounds[surfaceIndex] = gpu.surfaces[surfaceIndex].bounds;
-    if (gpu.pShaderBounds) gpu.pImmediateContext->UpdateBuffer(gpu.pShaderBounds, 0, sizeof(float) * bounds.size(), bounds.data(), Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
+    if (gpu.pShaderBounds) LIT_UP(gpu.pImmediateContext)->UpdateBuffer(gpu.pShaderBounds, 0, sizeof(float) * bounds.size(), bounds.data(), Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
 }
 
 }

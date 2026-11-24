@@ -89,3 +89,7 @@ Verification (GTX 1650, `LargeWorldRenderTests`): red wall 40 m in front of a bl
 - Non-root authored data in custom components holding raw positions are not shifted (components storing world positions must listen to `originEpoch()` and apply `lastOriginShift()`).
 - Float precision of stored deltas at extreme distances (see above).
 - Renderer: VSM pages are re-rendered after a rebase (not shifted); patterns whose period does not divide 4096 m jump when the origin-mod-4096 wraps; `kMaxCloudOffset` is the noise period of cumulus, cirrus (110 km) jumps once per wrap; Hi-Z, sky and cloud shaders were verified on the Vulkan device only.
+
+## Unified residency
+
+Cell streaming, terrain tiles, GPU mesh residency and scatter batches share one residency manager (docs/Streaming.md): one priority metric (time-to-needed from distance, portal hops and camera velocity), one worker pool with cancellation, one commit/unload budget and queue, one byte budget with eviction in metric order, and per-kind stats. Floating-origin shifts do not disturb it: scores use distances and velocities, which are frame independent, and teleports above 1000 m/s reset the velocity estimate.

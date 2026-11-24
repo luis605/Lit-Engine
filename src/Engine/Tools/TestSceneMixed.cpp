@@ -35,6 +35,7 @@ uint32_t testSceneMaterial(Engine& engine, const TestSceneKit& kit, const Materi
 uint32_t testSceneRockMesh(Engine& engine, const TestSceneKit& kit, int subdivisions, float roughness, float seed);
 uint32_t testSceneDynamicSource(Engine& engine, const std::string& key, const DynamicMesh& mesh);
 uint32_t testSceneDynamicInstance(Engine& engine, uint32_t source);
+PortalSceneKit testScenePortalKit(Engine& engine, const TestSceneKit& kit);
 
 namespace {
 
@@ -73,12 +74,7 @@ bool buildMixedTestScene(Engine& engine, const TestSceneKit& kit, TestSceneInfo&
         material.emissiveIntensity = intensity;
         return testSceneMaterial(engine, kit, material);
     };
-    PortalSceneKit portalKit;
-    portalKit.cube = kit.cube;
-    portalKit.sphere = kit.sphere;
-    portalKit.floorShader = kit.floorShader;
-    portalKit.material = makeMaterial;
-    buildPortalScene(engine.portals(), world, portalKit, PortalTestScene::Loop);
+    buildPortalScene(engine.portals(), world, testScenePortalKit(engine, kit), PortalTestScene::Loop);
     // LIT_MIXED_SUN=<scale>: give every cell sun (the loop rooms are indoor, sun 0) to check portal-view cascades.
     if (const char* sun = std::getenv("LIT_MIXED_SUN")) {
         for (int cell = 0; cell < static_cast<int>(engine.portals().cells().size()); ++cell) engine.portals().cellParams(cell).sun = std::strtof(sun, nullptr);

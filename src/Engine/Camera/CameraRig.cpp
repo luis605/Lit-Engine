@@ -28,21 +28,17 @@ CameraMode CameraRig::toggle() {
 }
 
 glm::vec3 CameraRig::pivot() const {
-    if (m_world.isAlive(m_target)) return m_world.getWorldPosition(m_target) + glm::vec3(0.0f, m_settings.eyeHeight, 0.0f);
+    if (m_world.isAlive(m_target)) return m_world.getWorldPosition(m_target) + m_up * m_settings.eyeHeight;
     return m_mode == CameraMode::FirstPerson ? m_world.camera().getPosition() : m_pivot;
 }
 
-glm::vec3 CameraRig::forward() const {
-    const Camera& camera = m_world.camera();
-    const float yaw = glm::radians(camera.getYaw());
-    const float pitch = glm::radians(camera.getPitch());
-    return glm::normalize(glm::vec3(std::cos(yaw) * std::cos(pitch), std::sin(pitch), std::sin(yaw) * std::cos(pitch)));
-}
+glm::vec3 CameraRig::forward() const { return m_world.camera().getFront(); }
 
 void CameraRig::look(float yawDeltaDegrees, float pitchDeltaDegrees) {
     Camera& camera = m_world.camera();
-    const float pitch = std::clamp(camera.getPitch() + pitchDeltaDegrees, -m_settings.maxPitch, m_settings.maxPitch);
-    camera.setOrientation(camera.getYaw() + yawDeltaDegrees, pitch);
+    const float previous = camera.getPitch();
+    const float pitch = std::clamp(previous + pitchDeltaDegrees, std::min(-m_settings.maxPitch, previous), std::max(m_settings.maxPitch, previous));
+    camera.setOrientation(camera.getYaw() + yawDeltaDegrees, pitch, camera.getRoll());
 }
 
 float CameraRig::collide(const glm::vec3& pivotPoint, const glm::vec3& direction, float wanted) {
@@ -75,7 +71,8 @@ void CameraRig::update() {
         return;
     }
     const glm::vec3 forwardDirection = forward();
-    const glm::vec3 right = glm::normalize(glm::cross(forwardDirection, glm::vec3(0.0f, 1.0f, 0.0f)));
+    const glm::vec3 side = glm::cross(forwardDirection, m_up);
+    const glm::vec3 right = glm::dot(side, side) > 1.0e-10f ? glm::normalize(side) : camera.getRight();
     const glm::vec3 anchor = pivotPoint + right * m_settings.shoulderOffset;
     const glm::vec3 back = -forwardDirection;
     float distance = collide(anchor, back, m_settings.thirdDistance);

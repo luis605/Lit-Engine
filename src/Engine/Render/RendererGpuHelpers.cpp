@@ -322,7 +322,7 @@ Diligent::RefCntAutoPtr<Diligent::IPipelineState> CreateComputePipeline(Diligent
 
 void ClearCounter(Diligent::IDeviceContext* context, Diligent::IBuffer* buffer) {
     const unsigned int zero = 0;
-    context->UpdateBuffer(buffer, 0, sizeof(zero), &zero, Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
+    LIT_UP(context)->UpdateBuffer(buffer, 0, sizeof(zero), &zero, Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
 }
 
 void UnbindRenderTargets(Diligent::IDeviceContext* context) { context->SetRenderTargets(0, nullptr, nullptr, Diligent::RESOURCE_STATE_TRANSITION_MODE_NONE); }

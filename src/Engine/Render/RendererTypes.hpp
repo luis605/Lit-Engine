@@ -89,6 +89,10 @@ struct PortalSurfaceUniforms {
     glm::vec4 camera;
     glm::vec4 params;
     glm::vec4 color;
+    glm::vec4 shape;  // portal_shape.glsl: opening and edge of the surface (PortalSurface::shape / edge / rim)
+    glm::vec4 edge;
+    glm::vec4 rim;
+    glm::vec4 misc;   // x time (s), y shimmer speed
 };
 
 struct PortalDepthUniforms {
@@ -116,6 +120,8 @@ struct PortalResolveUniforms {
     glm::vec4 normal;
     glm::vec4 camera;
     glm::vec4 params;
+    glm::vec4 shape;  // same coverage as the composite (portal_shape.glsl)
+    glm::vec4 edge;
 };
 
 enum VisibilityPhaseIndex : int { kPhaseOpaque = 0, kPhaseRetest = 1, kPhaseTransparent = 2, kPhaseShadow = 3, kPhaseCount = 4 };
@@ -140,11 +146,16 @@ inline constexpr int kMaxPortalViews = 24;
 inline constexpr size_t kMaxSurfaceShaders = 16;
 inline constexpr size_t kMaxDebugVertices = 1u << 17;
 inline constexpr size_t kInitialMaxObjects = 500000;
+// GPU instancing (docs/Instancing.md): visible entries of instances per phase on top of the object capacity, and the
+// visibility words reserved after the objects' bits for the instance pool (Engine.Instancing kMaxPoolInstances / 32).
+inline constexpr size_t kInstanceDrawCapacity = 1u << 19;
+inline constexpr uint32_t kInstanceVisibilityWords = (1u << 22) / 32;
+inline size_t VisibleEntryCapacity(size_t maxObjects) { return maxObjects + kInstanceDrawCapacity; }
 inline constexpr float kPi = 3.14159265f;
 inline constexpr float kPortalAxisEpsilon = 1.0e-8f;
 
 inline constexpr size_t kGpuPassCount = static_cast<size_t>(GpuPass::Count);
-inline constexpr std::array<const char*, kGpuPassCount> kGpuPassNames = {"Upload", "Transform", "Sky+IBL", "Shadows", "Cull", "CmdGen", "GBuffer", "Hi-Z", "Retest Cull", "Retest CmdGen", "Retest GBuffer", "Trans Cull", "Trans CmdGen", "GTAO", "SSR", "Lighting", "Trans Draw", "Post", "UI"};
+inline constexpr std::array<const char*, kGpuPassCount> kGpuPassNames = {"Upload", "Transform", "Sky+IBL", "Shadows", "Cull", "CmdGen", "GBuffer", "Hi-Z", "Retest Cull", "Retest CmdGen", "Retest GBuffer", "Trans Cull", "Trans CmdGen", "GTAO", "SSR", "Lighting", "Trans Draw", "Post", "UI", "Instance Cull", "Instance Retest Cull"};
 
 inline std::vector<MeshInfo> gMeshInfos;
 inline std::vector<glm::vec4> gNormalSamples;

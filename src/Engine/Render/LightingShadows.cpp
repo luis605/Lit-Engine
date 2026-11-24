@@ -259,7 +259,7 @@ void Lighting::selectLocalShadows(SceneUniforms& uniforms, const glm::vec3& came
         assignVirtualShadowFaces(state, uniforms);
         uniforms.localShadowParams = glm::vec4(0.0f, 1.0f / resolutionF, settings.localShadowSoftness, settings.shadowNormalBias);
         uniforms.localShadowParams2 = glm::vec4(settings.shadowDepthBias, 0.0f, 0.0f, 0.0f);
-        if (!state.cpuLights.empty()) state.context->UpdateBuffer(state.lights, 0, sizeof(GpuLight) * state.cpuLights.size(), state.cpuLights.data(), Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
+        if (!state.cpuLights.empty()) LIT_UPDATE_DIFF(state.context, state.lights, 0, sizeof(GpuLight) * state.cpuLights.size(), state.cpuLights.data());
         return;
     }
     const std::vector<ShadowCandidate> candidates = rankShadowCandidates(state, uniforms, cameraPosition, maxLights);
@@ -289,7 +289,7 @@ void Lighting::selectLocalShadows(SceneUniforms& uniforms, const glm::vec3& came
     }
     uniforms.localShadowParams = glm::vec4(static_cast<float>(faces), 1.0f / resolutionF, settings.localShadowSoftness, settings.shadowNormalBias);
     uniforms.localShadowParams2 = glm::vec4(settings.shadowDepthBias, 0.0f, 0.0f, 0.0f);
-    if (!state.cpuLights.empty()) state.context->UpdateBuffer(state.lights, 0, sizeof(GpuLight) * state.cpuLights.size(), state.cpuLights.data(), Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
+    if (!state.cpuLights.empty()) LIT_UPDATE_DIFF(state.context, state.lights, 0, sizeof(GpuLight) * state.cpuLights.size(), state.cpuLights.data());
 }
 
 void Lighting::useCascades(const std::array<Cascade, 4>& cascades, SceneUniforms& uniforms) {

@@ -993,6 +993,27 @@ void registerPhysicsComponents(World& world) {
             if (!(input >> collider.radius >> collider.halfHeight)) return std::nullopt;
             return collider;
         });
+    // Hull colliders were not serialized at all, so save / load and snapshots silently dropped them (found by bent,
+    // persistence.bent save_load_then_simulate). The hull is stored as its vertices and rebuilt on load.
+    world.registerComponent<ConvexHullCollider>(
+        "ConvexHullCollider",
+        [](const ConvexHullCollider& collider, std::ostream& output) {
+            const size_t count = collider.hull ? collider.hull->points.size() : 0;
+            output << count;
+            for (size_t i = 0; i < count; ++i) output << ' ' << collider.hull->points[i].x << ' ' << collider.hull->points[i].y << ' ' << collider.hull->points[i].z;
+        },
+        [](std::istream& input) -> std::optional<ConvexHullCollider> {
+            size_t count = 0;
+            if (!(input >> count) || count > 128) return std::nullopt;
+            std::vector<glm::vec3> points(count);
+            for (glm::vec3& point : points) {
+                if (!(input >> point.x >> point.y >> point.z)) return std::nullopt;
+            }
+            ConvexHullCollider collider;
+            collider.hull = makeConvexHull(points);
+            if (!collider.hull) return std::nullopt;
+            return collider;
+        });
     world.registerComponent<CompoundCollider>(
         "CompoundCollider",
         [](const CompoundCollider& collider, std::ostream& output) {

@@ -149,7 +149,7 @@ struct World::SceneLoader {
     std::vector<std::string> componentLines;
     std::unordered_map<uint32_t, uint32_t> meshRemap;
     std::vector<std::pair<size_t, std::string>> sectionLines;
-    std::array<float, 8> cameraValues{};
+    std::array<float, 13> cameraValues{};
     bool hasCamera = false;
 
     SceneLoader(World& target, bool additiveLoad, EntityHandle parentHandle, bool trustedSource) : world(target), additive(additiveLoad), parent(parentHandle), trusted(trustedSource) {}

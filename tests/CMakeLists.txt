@@ -102,6 +102,11 @@ target_compile_features(PhysicsShapesTests PRIVATE cxx_std_23)
 target_link_libraries(PhysicsShapesTests PRIVATE Engine)
 add_test(NAME PhysicsShapesTests COMMAND PhysicsShapesTests)
 
+add_executable(InstancingTests InstancingTests.cpp)
+target_compile_features(InstancingTests PRIVATE cxx_std_23)
+target_link_libraries(InstancingTests PRIVATE Engine)
+add_test(NAME InstancingTests COMMAND InstancingTests)
+
 add_executable(TerrainTests TerrainTests.cpp)
 target_compile_features(TerrainTests PRIVATE cxx_std_23)
 target_link_libraries(TerrainTests PRIVATE Engine)
@@ -126,6 +131,11 @@ add_executable(StreamingTests StreamingTests.cpp)
 target_compile_features(StreamingTests PRIVATE cxx_std_23)
 target_link_libraries(StreamingTests PRIVATE Engine)
 add_test(NAME StreamingTests COMMAND StreamingTests)
+
+add_executable(ResidencyTests ResidencyTests.cpp)
+target_compile_features(ResidencyTests PRIVATE cxx_std_23)
+target_link_libraries(ResidencyTests PRIVATE Engine)
+add_test(NAME ResidencyTests COMMAND ResidencyTests)
 
 add_executable(LargeWorldTests LargeWorldTests.cpp)
 target_compile_features(LargeWorldTests PRIVATE cxx_std_23)
@@ -254,3 +264,23 @@ target_compile_features(EditorQualityTests PRIVATE cxx_std_23)
 target_link_libraries(EditorQualityTests PRIVATE Engine)
 target_include_directories(EditorQualityTests PRIVATE "${PROJECT_SOURCE_DIR}/src")
 add_test(NAME EditorQualityTests COMMAND EditorQualityTests)
+
+# Bent (docs/Bent.md): language unit tests, then every law in tests/bent/laws with a fixed seed and a small budget plus every
+# regression in tests/bent/regressions (examples marked `known` are expected failures).
+add_executable(BentTests BentTests.cpp)
+target_compile_features(BentTests PRIVATE cxx_std_23)
+target_link_libraries(BentTests PRIVATE BentLang)
+set_target_properties(BentTests PROPERTIES CXX_SCAN_FOR_MODULES OFF)
+add_test(NAME BentTests COMMAND BentTests)
+add_test(NAME BentLaws COMMAND bent suite --laws ${CMAKE_CURRENT_SOURCE_DIR}/bent/laws --regressions ${CMAKE_CURRENT_SOURCE_DIR}/bent/regressions --cases 25 --seed 1
+         WORKING_DIRECTORY ${CMAKE_BINARY_DIR})
+set_tests_properties(BentLaws PROPERTIES TIMEOUT 1200)
+
+# Bindless texture table (docs/RenderGraph.md): the slot allocator is tested headless; the GPU parity test renders the `textures`
+# scene with the table on and off and requires identical pixels (skipped, exit 77, without LitShot or a usable GPU).
+add_executable(TextureTableTests TextureTableTests.cpp)
+target_compile_features(TextureTableTests PRIVATE cxx_std_23)
+target_include_directories(TextureTableTests PRIVATE "${PROJECT_SOURCE_DIR}/src")
+add_test(NAME TextureTableTests COMMAND TextureTableTests)
+add_test(NAME BindlessTextureParity COMMAND ${PROJECT_SOURCE_DIR}/scripts/bindless_check.sh --assert)
+set_tests_properties(BindlessTextureParity PROPERTIES SKIP_RETURN_CODE 77 TIMEOUT 900 ENVIRONMENT "BUILD_DIR=${CMAKE_BINARY_DIR};SCENES=textures")

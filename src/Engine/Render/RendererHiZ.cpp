@@ -196,7 +196,7 @@ void Renderer::createShadowHiZArgs(Diligent::Uint32 size, Diligent::Uint32 mips)
     gpu.pShadowHiZArgs = CreateDispatchArgsBuffer(gpu.pDevice, "Shadow Hi-Z Args", mips);
     const uint32_t argsConstants[4] = {size, mips, 0u, 0u};
     gpu.pShadowHiZArgsConstants = CreateUniformBuffer(gpu.pDevice, "Shadow Hi-Z Args Constants", sizeof(argsConstants), Diligent::USAGE_DEFAULT);
-    gpu.pImmediateContext->UpdateBuffer(gpu.pShadowHiZArgsConstants, 0, sizeof(argsConstants), argsConstants, Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
+    LIT_UP(gpu.pImmediateContext)->UpdateBuffer(gpu.pShadowHiZArgsConstants, 0, sizeof(argsConstants), argsConstants, Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
     gpu.pShadowHiZArgsSRB.Release();
     CreateBoundSRB(gpu.pShadowHiZArgsPSO, gpu.pShadowHiZArgsSRB,
                    {

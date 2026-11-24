@@ -80,7 +80,7 @@ The G-buffer stores the model in the 2-bit alpha of the normal target. Toon pixe
 
 - Noise: `litHash(p)`, `litNoise(p)`, `litFbm(p, octaves)`, `litVoronoi(p)` (returns the distance to the nearest cell point and a random cell id in `[0, 1)`), `litHsvToRgb(hsv)`.
 - Normals: `litBumpNormal(i, N, height, strength)` perturbs a normal from a scalar height field using screen-space derivatives; `litPerturbNormal(N, p, uv, tangentNormal)` applies a tangent-space normal without precomputed tangents.
-- Textures: `litSample(color, layer, i, triplanar, scale)` and `litTriplanar(color, layer, p, n, scale)` read the engine texture arrays (`color = true` for sRGB albedo, `false` for data such as normal or ORM maps). Layers come from `engine.loadTexture(path, srgb)`.
+- Textures: `litSample(color, layer, i, triplanar, scale)` and `litTriplanar(color, layer, p, n, scale)` read the engine texture arrays (`color = true` for sRGB albedo, `false` for data such as normal or ORM maps). Layers come from `engine.loadTexture(path, srgb)` (with the bindless table, `LIT_BINDLESS_TEXTURES`, the same value is a table slot).
 
 Opacity below 1 (from the material or written by `surface`) sends the entity through the order-independent transparency pass automatically; the same `surface` function runs there, lit by the forward path with the same lighting model.
 
@@ -123,7 +123,7 @@ engine.loadShaderTexture("u_lut", "resources/textures/grade_warm.png", false);
 
 - `createShaderTexture(name, width, height, format)` makes a GPU texture (`RGBA8`, `RGBA16F`, `RGBA32F` or `R32F`) that a compute job writes as `layout(rgba16f) uniform image2D u_trails;` and any pass reads as `uniform sampler2D u_trails;` (bilinear, clamped). Calling it again with a different size or format recreates it.
 - `loadShaderTexture(name, path, srgb)` uploads an image file (bilinear, wrapped) for sampling.
-- The engine texture arrays from `engine.loadTexture` are available as `uniform sampler2DArray u_colorTextures;` (sRGB) and `u_dataTextures;` (linear), with anisotropic wrap sampling.
+- `vec4 litTexture(bool color, int slot, vec2 uv)` samples a texture from `engine.loadTexture` in both modes; prefer it to the uniforms below, which do not exist when the bindless table is on (`LIT_BINDLESS` macro, `uniform sampler2D u_textures[]`). Legacy: the engine texture arrays are available as `uniform sampler2DArray u_colorTextures;` (sRGB) and `u_dataTextures;` (linear), with anisotropic wrap sampling.
 
 A pass that declares a resource nobody provided logs `No resource bound to '<name>'` and is skipped until the resource exists, instead of drawing with an unbound slot. Texture contents, like buffer contents, are not saved with the scene.
 

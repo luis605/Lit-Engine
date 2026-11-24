@@ -1,5 +1,8 @@
 #version 450
 #extension GL_GOOGLE_include_directive : require
+#ifdef LIT_BINDLESS
+#extension GL_EXT_nonuniform_qualifier : require
+#endif
 #include "scene.glsl"
 #include "material.glsl"
 #include "surface_api.glsl"
@@ -29,8 +32,23 @@ layout(std430) readonly buffer ExposureBuffer {
     vec4 exposureData;
 };
 
+// Material textures. Legacy: two 16-layer arrays (sRGB color, linear data), a texture is a layer. LIT_BINDLESS: one table of native-size
+// 2D textures, a texture is a slot (Material::*Texture, MaterialData.textures); the slot's format already says sRGB or linear.
+#ifdef LIT_BINDLESS
+uniform sampler2D u_textures[];
+#else
 uniform sampler2DArray u_colorTextures;
 uniform sampler2DArray u_dataTextures;
+#endif
+
+// Samples texture `slot` (what engine.loadTexture returned). `color` selects the legacy array and is ignored by the table.
+vec4 litTexture(bool color, int slot, vec2 uv) {
+#ifdef LIT_BINDLESS
+    return texture(u_textures[nonuniformEXT(slot)], uv);
+#else
+    return color ? texture(u_colorTextures, vec3(uv, float(slot))) : texture(u_dataTextures, vec3(uv, float(slot)));
+#endif
+}
 
 layout(location = 0) in vec3 in_worldPos;
 layout(location = 1) in vec3 in_normal;
@@ -39,6 +57,7 @@ layout(location = 3) flat in uint in_entity;
 layout(location = 4) flat in uint in_material;
 layout(location = 5) in vec3 in_objectPos;
 layout(location = 6) flat in float in_alpha;
+layout(location = 9) flat in uvec2 in_instance;  // InstanceBatch colour (RGBA8) and seed
 #ifdef POINT_SPRITE
 layout(location = 7) flat in float in_pointRound;
 layout(location = 8) flat in float in_pointSize;
@@ -82,15 +101,15 @@ vec3 litBumpNormal(SurfaceInput i, vec3 N, float height, float strength) {
 vec4 litTriplanar(bool color, int layer, vec3 p, vec3 n, float scale) {
     vec3 w = pow(abs(n), vec3(4.0));
     w /= dot(w, vec3(1.0)) + 1e-5;
-    vec4 x = color ? texture(u_colorTextures, vec3(p.zy * scale, float(layer))) : texture(u_dataTextures, vec3(p.zy * scale, float(layer)));
-    vec4 y = color ? texture(u_colorTextures, vec3(p.xz * scale, float(layer))) : texture(u_dataTextures, vec3(p.xz * scale, float(layer)));
-    vec4 z = color ? texture(u_colorTextures, vec3(p.xy * scale, float(layer))) : texture(u_dataTextures, vec3(p.xy * scale, float(layer)));
+    vec4 x = litTexture(color, layer, p.zy * scale);
+    vec4 y = litTexture(color, layer, p.xz * scale);
+    vec4 z = litTexture(color, layer, p.xy * scale);
     return x * w.x + y * w.y + z * w.z;
 }
 
 vec4 litSample(bool color, int layer, SurfaceInput i, bool triplanar, float scale) {
     if (triplanar) return litTriplanar(color, layer, i.patternPosition, i.geometricNormal, scale);
-    return color ? texture(u_colorTextures, vec3(i.uv * scale, float(layer))) : texture(u_dataTextures, vec3(i.uv * scale, float(layer)));
+    return litTexture(color, layer, i.uv * scale);
 }
 
 Surface litDefaultSurface(MaterialData m, SurfaceInput i) {
@@ -160,6 +179,8 @@ void main() {
     i.custom0 = m.custom0;
     i.custom1 = m.custom1;
     i.frontFacing = gl_FrontFacing;
+    i.instanceColor = unpackUnorm4x8(in_instance.x);
+    i.instanceSeed = in_instance.y;
     Surface s = litDefaultSurface(m, i);
 #ifdef LIT_USER_SURFACE
     surface(i, s);

@@ -19,6 +19,21 @@ Per-frame budget: `StreamingSystem::sharedBudget()` is the frame's single `Strea
 
 Metrics (`StreamingStats`): rolling frame time p50/p99/max over `window` frames (recorded from `Engine::tick`), `hitches` (frames above `hitchMillis`), `updateMillis` and `updateMaxMillis` (streaming cost per frame), bytes committed, cells loaded/unloaded/cancelled, pending, resident. With `enablePerfLog`, the CSV gains `frame_p99_ms`, `stream_update_ms`, `stream_pending`, `stream_resident`, `stream_hitches`, `stream_mb`, usable with `scripts/perf_check.py` limits.
 
+## Unified residency (`ResidencyManager`)
+
+One system decides what streams in, in which order and how much. `StreamingSystem::residency()` owns it; `Engine::enableTerrain` attaches the `TerrainStreamer` (`attachResidency`, also when `enableStreaming` comes later), and `MeshResidency` mirrors its GPU meshes into it. Domains still decide *what* is wanted (portal BFS and rings, terrain quadtree, mesh LOD requests); the manager decides order and budget.
+
+Resident kinds (`ResidentKind`): `PortalCell`, `GridCell` (cell without portals), `TerrainTile`, `GpuMesh`, `ScatterBatch` (merged scatter meshes of a tile, accounted and pinned to the tile).
+
+- **One metric** (`ResidencyManager::score`, lower = sooner, "estimated seconds until needed"): `(distance metres + hops * hopMetres) / max(minSpeed, closing speed)`, plus `outOfViewSeconds` when not in view and a per-kind bias, times `residentBias` (<1, hysteresis) for items already loaded or loading, minus a tiny size term for ties. Closing speed is the camera velocity (observed per space: cells use floating-origin local coordinates, terrain absolute) projected on the direction to the item. Cells take the better of their metric distance and their portal hop reading. At rest it reduces to ordering by distance. `ResidencyConfig::deterministic` ignores velocity.
+- **One worker pool**: `AsyncJobs` of the manager, priority = `poolPriority(score)`. Cell prepares, asset loads and tile prepares compete in it. `AsyncJobs::submit(priority, fn(bool cancelled), token)`: setting the token before a worker picks the job up skips the work (the job still reports completion); `cancelledJobs()` counts them. Cells and tiles that become unwanted while preparing are cancelled this way and counted per kind.
+- **One commit queue and budget**: producers `offer(owner, kind, score, step)` resumable commit steps (cell commit/unload, asset finish, tile commit). `arrive` flushes when every producer active last frame has arrived (so whichever of streaming and terrain runs last drains one queue in metric order across kinds; unlimited budgets flush at once). The queue stops at `StreamBudget::exhausted()`; the first step of a flush always runs. `sharedBudget()` is the manager's per-frame budget. Tile unloads still draw from the same budget directly.
+- **One byte budget**: `ResidencyConfig::byteBudget` (0 = unlimited). Resident items register bytes (committed bytes of a cell or tile, mesh bytes, scatter batch bytes) with a score and a protected flag (wanted now / touched this frame). Above the budget, unprotected items are evicted least important first (highest score) across all kinds; pinned items count but are never chosen. Eviction requests the normal unload, so deltas are captured as usual.
+- **Stats**: `StreamingStats::kinds[kind]` (`ResidencyKindStats`: resident, pending, loaded, unloaded, cancelled, evictedForMemory, bytesCommitted, residentBytes, commitMillis/Max, `hitches`), plus `residentBytes`, `memoryEvictions`, `jobsCancelled`. A hitch frame (`recordFrame` above `hitchMillis`) is attributed to the kind that spent the most commit time that frame.
+- **Deterministic mode**: `StreamingConfig::deterministic` (and `TerrainStreamConfig::deterministic`): update waits for the workers and commits unlimited until nothing is pending, and the metric ignores camera velocity, so residency and commit order depend only on the camera path, not on timing or worker count (`tests/ResidencyTests.cpp`). `prime` is the same with unlimited budget.
+
+Deltas, save and floating-origin shifts are unchanged (cells and tiles keep their own delta cells; scores use frame independent distances and velocities). `AssetRequest::distance` / `MeshStreamRequest::distance` give the metric a distance; without it `priority` is read as hops.
+
 ## Spatial streaming, mesh residency (open world)
 
 `StreamingConfig::spatial` adds distance rings (load radius, keep radius, per-ring `lod`) on top of the portal graph; a cell is wanted if either criterion wants it. `MeshResidency` budgets GPU mesh uploads with LRU eviction and LOD requests. Floating origin keeps all of this consistent. See `docs/LargeWorld.md`.
@@ -56,7 +71,6 @@ Renderer.cpp changes are limited to the poll after the fence wait, one record ca
 
 ## Not done
 
-Terrain tiles and portal cells share the per-frame budget but not the worker pool or priority order (tiles are ranked by metres, cells by graph hops), and terrain deltas use their own cells (`terrain/x_z_L`, docs/Terrain.md).
-
+Terrain deltas still use their own cells (`terrain/x_z_L`, docs/Terrain.md). Tile unloads are not queued (they draw from the shared budget directly), cell and tile *selection* (what is wanted, keep radius, evict delay) stays domain specific, `maxInFlight` is per producer, and the pool size is the StreamingSystem's `workers` once terrain is attached. Memory eviction of a loading item is not attempted (only resident items count).
 
 Renderer use of `visibleCells` (per-cell lighting and shadow selection stays in Renderer.cpp, owned elsewhere), triangle-exact ID raster.

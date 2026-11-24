@@ -155,8 +155,8 @@ static void testSceneSwitching() {
 
 static void testTestScenes() {
     const std::vector<std::string> names = testSceneNames();
-    CHECK(names.size() == 15);
-    for (const char* expected : {"showcase", "probes", "light_stress", "largeworld", "vsm_mixed", "dense", "ik", "gallery"}) CHECK(std::ranges::find(names, std::string(expected)) != names.end());
+    CHECK(names.size() == 18);
+    for (const char* expected : {"showcase", "probes", "light_stress", "largeworld", "vsm_mixed", "dense", "ik", "gallery", "textures"}) CHECK(std::ranges::find(names, std::string(expected)) != names.end());
     for (const std::string& name : testSceneNames()) {
         Engine engine;
         engine.openHeadless();
@@ -173,6 +173,13 @@ static void testTestScenes() {
         } else if (name == "portal_torture") {
             CHECK(m.get("portals") >= 4.0);
             CHECK(m.get("max_view_nodes") >= 2.0);
+        } else if (name == "instancing") {
+            CHECK(m.get("instances") > 1.0e6);
+            CHECK(m.get("batches") >= 700.0);
+            CHECK(m.get("entities") < 1000.0);  // one entity per batch, not per instance
+        } else if (name == "portal_tilt") {
+            CHECK(m.get("cells") == 5.0);
+            CHECK(m.get("portals") == 8.0);
         } else if (name == "streaming_route") {
             CHECK(m.get("chunks_created") > 9.0);
             CHECK(m.get("chunks_destroyed") > 0.0);

@@ -142,7 +142,7 @@ void renderGodRays(Lighting::Data& state, Diligent::IBuffer* scene, int parity) 
     const glm::vec4 passes[kGodRayPassCount] = {glm::vec4(1.0f, 0.04f, 0.0f, 0.0f), glm::vec4(0.1f, 0.0f, 0.0f, 0.0f), glm::vec4(0.01f, 0.0f, 0.0f, 0.0f)};
     int source = 0;
     for (const glm::vec4& pass : passes) {
-        context->UpdateBuffer(state.godRayConstants, 0, sizeof(pass), &pass, Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
+        LIT_UP(context)->UpdateBuffer(state.godRayConstants, 0, sizeof(pass), &pass, Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
         litgpu::dispatch(context, state.godRayBlurPso, state.godRayBlurSrb[source], groupsX, groupsY);
         source = 1 - source;
     }
@@ -153,10 +153,10 @@ void updateExposure(Lighting::Data& state, float deltaTime, int parity) {
     const RenderSettings& settings = state.settings;
     Diligent::IDeviceContext* context = state.context;
     const ExposureConstants constants{glm::vec4(kHistogramMinLog, 1.0f / (kHistogramMaxLog - kHistogramMinLog), settings.minEV100, settings.maxEV100), glm::vec4(settings.autoExposure ? 1.0f : 0.0f, settings.manualEV100, std::clamp(deltaTime, 0.0f, kMaxExposureDeltaTime), settings.exposureCompensation - state.nightDarkening), glm::vec4(settings.adaptationUp, settings.adaptationDown, 0.5f, 0.98f)};
-    context->UpdateBuffer(state.exposureConstants, 0, sizeof(constants), &constants, Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
+    LIT_UP(context)->UpdateBuffer(state.exposureConstants, 0, sizeof(constants), &constants, Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
     if (state.snapExposure) {
         const float unset = 0.0f;
-        context->UpdateBuffer(state.exposure, kExposureEvOffset, sizeof(float), &unset, Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
+        LIT_UP(context)->UpdateBuffer(state.exposure, kExposureEvOffset, sizeof(float), &unset, Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
         state.snapExposure = false;
     }
     const uint32_t groupsX = (static_cast<uint32_t>(state.width) / kHistogramDownscale + kHistogramGroupSize - 1) / kHistogramGroupSize;
@@ -170,13 +170,13 @@ void renderBloom(Lighting::Data& state, int parity) {
     const float radius = state.settings.bloomRadius;
     for (uint32_t level = 0; level < kBloomLevels; ++level) {
         const glm::vec4 params(level == 0 ? 1.0f : 0.0f, radius, 0.0f, 0.0f);
-        context->UpdateBuffer(state.bloomConstants, 0, sizeof(params), &params, Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
+        LIT_UP(context)->UpdateBuffer(state.bloomConstants, 0, sizeof(params), &params, Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
         const auto& desc = state.bloomDown[level]->GetDesc();
         Diligent::IShaderResourceBinding* binding = level == 0 ? state.bloomSourceSrb[parity].RawPtr() : state.bloomDownSrbs[level].RawPtr();
         litgpu::dispatch(context, state.bloomDownPso, binding, groupCount(desc.Width), groupCount(desc.Height));
     }
     const glm::vec4 upParams(0.0f, radius, 0.0f, 0.0f);
-    context->UpdateBuffer(state.bloomConstants, 0, sizeof(upParams), &upParams, Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
+    LIT_UP(context)->UpdateBuffer(state.bloomConstants, 0, sizeof(upParams), &upParams, Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
     for (int level = static_cast<int>(kBloomLevels) - 2; level >= 0; --level) {
         const auto& desc = state.bloomUp[level]->GetDesc();
         litgpu::dispatch(context, state.bloomUpPso, state.bloomUpSrbs[static_cast<size_t>(level)], groupCount(desc.Width), groupCount(desc.Height));

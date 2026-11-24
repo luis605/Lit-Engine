@@ -107,7 +107,7 @@ void rebuildEnvironment(Lighting::Data& state, Diligent::IBuffer* scene) {
     }
     for (uint32_t mip = 0; mip < kEnvMips; ++mip) {
         const glm::vec4 params(static_cast<float>(mip) / static_cast<float>(kEnvMips - 1), static_cast<float>(kEnvSize), static_cast<float>(kEnvMips + 2), 0.0f);
-        context->UpdateBuffer(state.prefilterConstants, 0, sizeof(params), &params, Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
+        LIT_UP(context)->UpdateBuffer(state.prefilterConstants, 0, sizeof(params), &params, Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
         const uint32_t groups = groupCount(std::max(kEnvSize >> mip, 1u));
         litgpu::dispatch(context, state.envPrefilterPso, state.envPrefilterSrbs[mip], groups, groups, kCubeFaceCount);
     }
@@ -220,16 +220,16 @@ void Lighting::cullLights(Diligent::IBuffer* sceneUniforms) {
     if (state.lightCellsDirty && state.lightCellBuffer) {
         std::vector<int32_t> cells(std::max<size_t>(state.lightCount, 1), -1);
         for (size_t index = 0; index < cells.size() && index < state.lightCells.size(); ++index) cells[index] = state.lightCells[index];
-        state.context->UpdateBuffer(state.lightCellBuffer, 0, cells.size() * sizeof(int32_t), cells.data(), Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
+        LIT_UPDATE_DIFF(state.context, state.lightCellBuffer, 0, cells.size() * sizeof(int32_t), cells.data());
         state.lightCellsDirty = false;
     }
     if (state.lightAperturesDirty) {
-        if (!state.lightApertures.empty()) state.context->UpdateBuffer(state.lights, static_cast<Diligent::Uint64>(kMaxLights) * sizeof(GpuLight), state.lightApertures.size() * sizeof(LightAperture), state.lightApertures.data(), Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
+        if (!state.lightApertures.empty()) LIT_UP(state.context)->UpdateBuffer(state.lights, static_cast<Diligent::Uint64>(kMaxLights) * sizeof(GpuLight), state.lightApertures.size() * sizeof(LightAperture), state.lightApertures.data(), Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
         state.lightAperturesDirty = false;
     }
     // Reset the index allocation cursor and the visible-light count, then cull per light and per cluster.
     const uint32_t zeros[2] = {0u, 0u};
-    state.context->UpdateBuffer(state.clusters, static_cast<Diligent::Uint64>(kClusterCount) * 2 * sizeof(uint32_t), sizeof(zeros), zeros, Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
+    LIT_UP(state.context)->UpdateBuffer(state.clusters, static_cast<Diligent::Uint64>(kClusterCount) * 2 * sizeof(uint32_t), sizeof(zeros), zeros, Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
     litgpu::dispatch(state.context, state.lightVisiblePso, state.lightVisibleSrb, (std::max(state.lightCount, 1u) + kLightCullGroupSize - 1) / kLightCullGroupSize);
     litgpu::dispatch(state.context, state.lightCullPso, state.lightCullSrb, kClusterCount);
 }

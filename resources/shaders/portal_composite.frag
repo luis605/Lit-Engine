@@ -1,4 +1,11 @@
 #version 450
+#extension GL_GOOGLE_include_directive : require
+
+// Pastes a child view into the parent inside the portal opening (ray / shape test per pixel). Edge treatment (docs/Portals.md,
+// "Frames and edges"): anti-aliased coverage blended over the frame behind the contour, refraction and a chromatic split near
+// the rim, rim glow with a Fresnel term. All spatial: nothing reads a previous frame.
+
+#include "portal_shape.glsl"
 
 layout(std140) uniform PortalSurfaceData {
     mat4 viewProjection;
@@ -10,29 +17,58 @@ layout(std140) uniform PortalSurfaceData {
     vec4 camera;
     vec4 params;
     vec4 color;
+    vec4 shape;
+    vec4 edge;
+    vec4 rim;
+    vec4 misc;  // x time (s), y shimmer speed, z near plane distance
 };
 
 uniform sampler2D u_child;
 
 layout(location = 0) out vec4 out_color;
 
+vec3 fetchChild(vec2 pixel) {
+    ivec2 limit = ivec2(params.zw) - 1;
+    return texelFetch(u_child, clamp(ivec2(pixel), ivec2(0), limit), 0).rgb;
+}
+
 void main() {
-    vec2 uv = gl_FragCoord.xy / params.zw;
-    vec2 ndc = vec2(uv.x * 2.0 - 1.0, 1.0 - uv.y * 2.0);
-    vec3 dir = normalize((invView * vec4(ndc.x / params.x, ndc.y / params.y, -1.0, 0.0)).xyz);
     vec3 origin = camera.xyz;
+    vec3 dir = portalViewRay(gl_FragCoord.xy, invView, params);
     float facing = dot(normal.xyz, dir);
-    float side = dot(normal.xyz, origin - center.xyz);
-    if (side > 0.0 && facing >= 0.0) discard;
-    float denom = abs(facing) < 1e-6 ? 1e-6 : facing;
-    float t = dot(normal.xyz, center.xyz - origin) / denom;
-    vec3 q = origin + dir * t - center.xyz;
-    if (abs(dot(q, axisU.xyz) * axisU.w) > 1.0 || abs(dot(q, axisV.xyz) * axisV.w) > 1.0) discard;
+    float t;
+    int mode = portalRayMode(origin, dir, -invView[2].xyz, misc.z, center, normal, t);
+    if (mode == 0) discard;
+    vec2 p;
+    float sd;
+    float distancePixels;
+    vec2 outward;
+    float alpha = portalCoverage(gl_FragCoord.xy, origin, invView, params, center, axisU, axisV, normal, shape, edge, p, sd, distancePixels, outward);
+    if (alpha <= 0.0) discard;
     float depth = 1.0;  // reversed Z: nearest
-    if (t > 0.0) {
+    if (mode == 1) {
         vec4 clip = viewProjection * vec4(origin + dir * t, 1.0);
         depth = clamp(clip.z / max(clip.w, 1e-6), 0.0, 1.0);
     }
     gl_FragDepth = depth;
-    out_color = camera.w > 0.5 ? vec4(color.rgb, 1.0) : vec4(texelFetch(u_child, ivec2(gl_FragCoord.xy), 0).rgb, 1.0);
+
+    // Rim band: 1 at the contour, 0 rimWidth inside it.
+    float band = 1.0 - smoothstep(0.0, max(edge.y, 1e-4), -sd);
+    vec3 result;
+    if (camera.w > 0.5) {
+        result = color.rgb;
+    } else {
+        float phase = misc.x * misc.y;
+        vec2 inward = -outward;
+        vec2 tangent = vec2(-outward.y, outward.x);
+        float bend = portalNoise(p * 7.0 + vec2(phase, -0.7 * phase)) - 0.35;
+        float slide = portalNoise(p.yx * 9.0 - vec2(0.5 * phase, phase)) - 0.5;
+        vec2 refraction = (inward * bend + tangent * slide) * edge.z * band;
+        vec2 split = inward * edge.w * band;
+        vec2 pixel = gl_FragCoord.xy + refraction;
+        result = vec3(fetchChild(pixel + split).r, fetchChild(pixel).g, fetchChild(pixel - split).b);
+    }
+    float fresnel = pow(1.0 - clamp(abs(facing), 0.0, 1.0), 5.0) * rim.w;
+    result += rim.rgb * edge.x * (band * band + fresnel);
+    out_color = vec4(result, alpha);
 }

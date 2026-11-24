@@ -151,6 +151,11 @@ export struct RenderSettings {
     bool clusterShadowTexelLod = true;  // shadow cluster LOD from shadow-texel error (0: camera metric x4)
     float clusterShadowErrorTexels = 2.0f;  // shadow-texel error threshold of the shadow cluster LOD cut
 
+    bool instancing = true;            // draw InstanceBatch components (docs/Instancing.md)
+    bool instanceOcclusion = true;     // Hi-Z occlusion of instance cells and instances (0: frustum, distance and LOD only)
+    bool instanceCellCull = true;      // reject whole 64-instance cells first (0: every instance is tested)
+    float instanceDistanceScale = 1.0f;  // multiplies every batch's draw distance and fade start
+
     bool renderGraph = true;  // record the frame as a render graph (docs/RenderGraph.md); 0 = previous immediate path
 
     bool fxaa = true;
@@ -278,6 +283,10 @@ void visitRenderSettings(Settings& settings, Visitor&& visit) {
     visit("clusterHierarchy", settings.clusterHierarchy);
     visit("clusterShadowTexelLod", settings.clusterShadowTexelLod);
     visit("clusterShadowErrorTexels", settings.clusterShadowErrorTexels);
+    visit("instancing", settings.instancing);
+    visit("instanceOcclusion", settings.instanceOcclusion);
+    visit("instanceCellCull", settings.instanceCellCull);
+    visit("instanceDistanceScale", settings.instanceDistanceScale);
     visit("renderGraph", settings.renderGraph);
     visit("fxaa", settings.fxaa);
     visit("specularAntiAliasing", settings.specularAntiAliasing);

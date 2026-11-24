@@ -38,10 +38,21 @@ constexpr size_t kCameraKeywordLength = 7;
 constexpr int kMatrixElementCount = 16;
 constexpr std::streamsize kSceneFloatPrecision = 9;
 
+// Roll and reference frame (quaternion w x y z) follow only when the camera is not upright, so upright scenes keep the old line.
+std::vector<float> cameraOrientationTail(const Camera& camera) {
+    if (camera.getRoll() == 0.0f && !camera.hasFrame()) return {};
+    const glm::quat frame = glm::quat_cast(camera.getFrame());
+    return {camera.getRoll(), frame.w, frame.x, frame.y, frame.z};
+}
+
 std::string buildCameraLine(const Camera& camera) {
     std::string line = "camera";
     const glm::vec3 position = camera.getPosition();
     for (float value : {position.x, position.y, position.z, camera.getYaw(), camera.getPitch(), camera.getFov(), camera.getNearPlane(), camera.getFarPlane()}) {
+        line.push_back(' ');
+        appendNumber(line, value);
+    }
+    for (float value : cameraOrientationTail(camera)) {
         line.push_back(' ');
         appendNumber(line, value);
     }
@@ -293,9 +304,10 @@ void World::applySceneSections(const std::vector<std::pair<size_t, std::string>>
     }
 }
 
-void World::applyCameraValues(const std::array<float, 8>& values) {
+void World::applyCameraValues(const std::array<float, 13>& values) {
     m_camera.setPos(glm::vec3(values[0], values[1], values[2]));
-    m_camera.setOrientation(values[3], values[4]);
+    m_camera.setFrame(glm::mat3_cast(glm::quat(values[9], values[10], values[11], values[12])));
+    m_camera.setOrientation(values[3], values[4], values[8]);
     m_camera.setFov(values[5]);
     m_camera.setNearPlane(values[6]);
     m_camera.setFarPlane(values[7]);
@@ -322,7 +334,9 @@ WorldSnapshot World::captureSnapshot() const {
     std::ostringstream extras;
     extras.precision(kSceneFloatPrecision);
     const glm::vec3 position = m_camera.getPosition();
-    extras << "camera " << position.x << ' ' << position.y << ' ' << position.z << ' ' << m_camera.getYaw() << ' ' << m_camera.getPitch() << ' ' << m_camera.getFov() << ' ' << m_camera.getNearPlane() << ' ' << m_camera.getFarPlane() << '\n';
+    extras << "camera " << position.x << ' ' << position.y << ' ' << position.z << ' ' << m_camera.getYaw() << ' ' << m_camera.getPitch() << ' ' << m_camera.getFov() << ' ' << m_camera.getNearPlane() << ' ' << m_camera.getFarPlane();
+    for (float value : cameraOrientationTail(m_camera)) extras << ' ' << value;
+    extras << '\n';
     for (const SceneSection& section : m_sceneSections) {
         if (section.write) section.write(extras);
     }
@@ -359,7 +373,7 @@ void World::restoreSnapshotArrays(const WorldSnapshot& snapshot) {
 void World::restoreSnapshotExtras(const std::string& extras) {
     std::vector<std::string> extraLines;
     std::vector<std::pair<size_t, std::string>> sectionLines;
-    std::array<float, 8> cameraValues{};
+    std::array<float, 13> cameraValues{};
     bool hasCamera = false;
     std::istringstream lines(extras);
     std::string line;

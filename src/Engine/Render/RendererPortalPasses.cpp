@@ -22,6 +22,7 @@ import Engine.Render.observation;
 namespace {
 
 constexpr size_t kStatsPhaseCount = 2;
+constexpr float kPortalShimmerSpeed = 0.5f;  // rim refraction drift (spatial noise moved by time, no history)
 constexpr uint32_t kStatsReadbackBytes = kStatsPhaseCount * sizeof(uint32_t);
 
 void InitPortalPipelineInfo(Diligent::GraphicsPipelineStateCreateInfo& info, const char* name, Diligent::TEXTURE_FORMAT colorFormat, Diligent::COMPARISON_FUNCTION depthFunction) {
@@ -70,6 +71,15 @@ void Renderer::createPortalCompositePSO() {
         Diligent::GraphicsPipelineStateCreateInfo info;
         InitPortalPipelineInfo(info, writeDepth ? "Portal Composite PSO" : "Portal Composite Color PSO", Diligent::TEX_FORMAT_RGBA16_FLOAT, Diligent::COMPARISON_FUNC_GREATER);
         info.GraphicsPipeline.DepthStencilDesc.DepthWriteEnable = writeDepth;
+        // Anti-aliased / dissolved opening edge: the child is blended over what lies behind the contour (the frame reveal).
+        auto& blend = info.GraphicsPipeline.BlendDesc.RenderTargets[0];
+        blend.BlendEnable = true;
+        blend.SrcBlend = Diligent::BLEND_FACTOR_SRC_ALPHA;
+        blend.DestBlend = Diligent::BLEND_FACTOR_INV_SRC_ALPHA;
+        blend.BlendOp = Diligent::BLEND_OPERATION_ADD;
+        blend.SrcBlendAlpha = Diligent::BLEND_FACTOR_ONE;
+        blend.DestBlendAlpha = Diligent::BLEND_FACTOR_INV_SRC_ALPHA;
+        blend.BlendOpAlpha = Diligent::BLEND_OPERATION_ADD;
         info.pVS = vertexShader;
         info.pPS = pixelShader;
         UseVariables(info.PSODesc.ResourceLayout, variables);
@@ -207,8 +217,10 @@ void Renderer::resolvePortalDepth(int index) {
         uniforms.invView = parentInvView;
         uniforms.normalToParent = glm::mat4(glm::mat3(parentInvView) * glm::mat3(child.view));
         SetPortalSurfaceGeometry(surface, uniforms.center, uniforms.axisU, uniforms.axisV, uniforms.normal);
-        uniforms.camera = glm::vec4(node.position, 0.0f);
+        uniforms.camera = glm::vec4(node.position, gpu.mainInput.nearPlane);  // w: near plane distance (portalRayMode)
         uniforms.params = PortalScreenParams(node, gpu);
+        uniforms.shape = surface.shape;
+        uniforms.edge = surface.edge;
         context->UpdateBuffer(gpu.pPortalResolveUBO, 0, sizeof(uniforms), &uniforms, Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
         SetDynamicVariable(gpu.pPortalResolveSRB, "u_childDepth", gpu.portalDepth[surface.child]->GetDefaultView(Diligent::TEXTURE_VIEW_SHADER_RESOURCE), Diligent::SHADER_TYPE_PIXEL);
         SetDynamicVariable(gpu.pPortalResolveSRB, "u_sceneDepth", gpu.portalDepthScratch->GetDefaultView(Diligent::TEXTURE_VIEW_SHADER_RESOURCE), Diligent::SHADER_TYPE_PIXEL);
@@ -274,6 +286,10 @@ void Renderer::compositePortals(int index) {
         uniforms.camera = glm::vec4(node.position, hasChild ? 0.0f : 1.0f);
         uniforms.params = screenParams;
         uniforms.color = glm::vec4(surface.fallback, 1.0f);
+        uniforms.shape = surface.shape;
+        uniforms.edge = surface.edge;
+        uniforms.rim = surface.rim;
+        uniforms.misc = glm::vec4(gpu.mainInput.time, kPortalShimmerSpeed, gpu.mainInput.nearPlane, 0.0f);
         context->UpdateBuffer(gpu.pPortalUBO, 0, sizeof(uniforms), &uniforms, Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
         Diligent::ITexture* source = hasChild ? gpu.portalColor[surface.child].RawPtr() : gpu.pAccumulation.RawPtr();
         SetDynamicVariable(srb, "u_child", source->GetDefaultView(Diligent::TEXTURE_VIEW_SHADER_RESOURCE), Diligent::SHADER_TYPE_PIXEL);

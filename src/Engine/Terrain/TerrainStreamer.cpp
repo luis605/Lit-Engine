@@ -38,7 +38,13 @@ struct Tile {
     std::shared_ptr<void> payload;
     uint64_t lastWanted = 0;
     float distance = 0.0f;
+    glm::vec3 center{0.0f};
+    float radius = 0.0f;
     bool visible = false;
+    bool cancelled = false;
+    std::shared_ptr<std::atomic<bool>> cancel;
+    size_t bytes = 0;
+    bool tracked = false;
 };
 
 TileKey ancestorOf(const TileKey& key, int levels) { return TileKey{key.x >> levels, key.z >> levels, key.level + levels}; }
@@ -61,7 +67,9 @@ struct TerrainStreamer::Impl {
     glm::vec3 lastCamera{0.0f};
     glm::vec3 lastForward{0.0f, 0.0f, -1.0f};
     int nextCell = 1;
-    std::unique_ptr<AsyncJobs> jobs;
+    std::unique_ptr<ResidencyManager> ownResidency;
+    ResidencyManager* res = nullptr;
+    bool attached = false;
     std::function<StreamBudget*()> sharedProvider;
 
     Impl(World& w, TerrainLoaderConfig loaderConfig, TerrainStreamConfig streamConfig) : world(w), config(std::move(streamConfig)) {
@@ -73,12 +81,66 @@ struct TerrainStreamer::Impl {
             return it->second;
         };
         loader = std::make_unique<TerrainTileLoader>(w, std::move(loaderConfig));
-        jobs = std::make_unique<AsyncJobs>(std::max(config.workers, 1u));
+        ownResidency = std::make_unique<ResidencyManager>(std::max(config.workers, 1u));
+        res = ownResidency.get();
     }
 
     ~Impl() {
-        jobs->waitIdle();
-        jobs.reset();
+        res->dropOwner(this);
+        res->jobs().waitIdle();
+        ownResidency->jobs().waitIdle();
+        untrackAll();
+    }
+
+    [[nodiscard]] static uint64_t scatterId(int cell) { return static_cast<uint64_t>(cell); }
+
+    void untrackAll() {
+        for (auto& [key, tile] : tiles) untrackTile(tile);
+    }
+
+    void untrackTile(Tile& tile) {
+        if (!tile.tracked) return;
+        res->untrack(ResidentKind::TerrainTile, static_cast<uint64_t>(tile.cell));
+        res->untrack(ResidentKind::ScatterBatch, scatterId(tile.cell));
+        tile.tracked = false;
+    }
+
+    [[nodiscard]] float scoreOf(const Tile& tile) const {
+        ResidencyDemand demand;
+        demand.kind = ResidentKind::TerrainTile;
+        demand.space = 1;
+        demand.distance = tile.distance;
+        demand.radius = tile.radius;
+        demand.resident = true;
+        const glm::vec3 to = tile.center - lastCamera;
+        const float length = glm::length(to);
+        if (length > 1.0e-3f) demand.direction = to / length;
+        return res->score(demand);
+    }
+
+    void trackTile(Tile& tile) {
+        const TileKey key = tile.key;
+        const size_t scatter = loader->scatterBatchBytes(tile.cell);
+        res->track(ResidentKind::TerrainTile, static_cast<uint64_t>(tile.cell), tile.bytes > scatter ? tile.bytes - scatter : 0, scoreOf(tile), true, [this, key]() -> bool {
+            const auto it = tiles.find(key);
+            if (it == tiles.end() || it->second.state != TileState::Resident) return false;
+            it->second.state = TileState::Unloading;
+            ++stats.memoryEvicted;
+            return true;
+        });
+        if (scatter > 0) res->track(ResidentKind::ScatterBatch, scatterId(tile.cell), scatter, scoreOf(tile), true, nullptr);
+        tile.tracked = true;
+    }
+
+    // Moves the streamer between its own manager and a shared one: resident tiles are re-registered there. Jobs already submitted finish on their pool.
+    void rebind(ResidencyManager* target, bool isAttached) {
+        res->dropOwner(this);
+        untrackAll();
+        res = target;
+        attached = isAttached;
+        for (auto& [key, tile] : tiles) {
+            if (tile.state == TileState::Resident) trackTile(tile);
+        }
     }
 
     [[nodiscard]] uint32_t countInFlight() const {
@@ -102,7 +164,12 @@ struct TerrainStreamer::Impl {
             lod.planes = *planes;
         }
         wanted = selectTerrainTiles(loader->config().terrain, camera, lod);
-        std::stable_sort(wanted.begin(), wanted.end(), [](const SelectedTile& a, const SelectedTile& b) { return a.distance < b.distance; });
+        if (ownResidency.get() == res) res->config().deterministic = config.deterministic;
+        std::vector<std::pair<float, SelectedTile>> ranked;
+        ranked.reserve(wanted.size());
+        for (const SelectedTile& tile : wanted) ranked.emplace_back(selectedScore(tile), tile);
+        std::stable_sort(ranked.begin(), ranked.end(), [](const auto& a, const auto& b) { return a.first < b.first; });
+        for (size_t index = 0; index < wanted.size(); ++index) wanted[index] = ranked[index].second;
         stats.wanted = static_cast<uint32_t>(wanted.size());
         stats.culledByFrustum = static_cast<uint32_t>(before > wanted.size() ? before - wanted.size() : 0);
         lastCamera = camera;
@@ -114,8 +181,23 @@ struct TerrainStreamer::Impl {
             if (it != tiles.end()) {
                 it->second.lastWanted = frame;
                 it->second.distance = tile.distance;
+                it->second.center = (tile.boundsMin + tile.boundsMax) * 0.5f;
+                it->second.radius = 0.5f * glm::length(tile.boundsMax - tile.boundsMin);
             }
         }
+    }
+
+    [[nodiscard]] float selectedScore(const SelectedTile& tile) const {
+        ResidencyDemand demand;
+        demand.kind = ResidentKind::TerrainTile;
+        demand.space = 1;
+        demand.distance = tile.distance;
+        demand.radius = 0.5f * glm::length(tile.boundsMax - tile.boundsMin);
+        demand.resident = tiles.contains(tile.key);
+        const glm::vec3 to = (tile.boundsMin + tile.boundsMax) * 0.5f - lastCamera;
+        const float length = glm::length(to);
+        if (length > 1.0e-3f) demand.direction = to / length;
+        return res->score(demand);
     }
 
     void startLoads() {
@@ -132,7 +214,10 @@ struct TerrainStreamer::Impl {
             tile.key = selectedTile.key;
             tile.lastWanted = frame;
             tile.distance = selectedTile.distance;
+            tile.center = (selectedTile.boundsMin + selectedTile.boundsMax) * 0.5f;
+            tile.radius = 0.5f * glm::length(selectedTile.boundsMax - selectedTile.boundsMin);
             tile.job = std::make_shared<JobResult>();
+            tile.cancel = std::make_shared<std::atomic<bool>>(false);
             {
                 std::lock_guard lock(mutex);
                 byCell[tile.cell] = tile.key;
@@ -140,40 +225,63 @@ struct TerrainStreamer::Impl {
             auto job = tile.job;
             TerrainTileLoader* loaderPtr = loader.get();
             const int cell = tile.cell;
-            jobs->submit(static_cast<int>(selectedTile.distance), [job, loaderPtr, cell] {
-                job->payload = loaderPtr->prepare(cell);
+            res->jobs().submit(ResidencyManager::poolPriority(selectedScore(selectedTile)), [job, loaderPtr, cell](bool cancelled) {
+                if (!cancelled) job->payload = loaderPtr->prepare(cell);
                 job->done.store(true, std::memory_order_release);
-            });
+            }, tile.cancel);
             tiles.emplace(tile.key, std::move(tile));
             ++inFlight;
         }
     }
 
     void pollLoading() {
-        for (auto& [key, tile] : tiles) {
-            if (tile.state != TileState::Loading || !tile.job->done.load(std::memory_order_acquire)) continue;
+        for (auto it = tiles.begin(); it != tiles.end();) {
+            Tile& tile = it->second;
+            if (tile.state != TileState::Loading || !tile.job->done.load(std::memory_order_acquire)) {
+                ++it;
+                continue;
+            }
+            if (tile.cancelled) {
+                // Cancelled while preparing: the payload is empty, never commit it. A tile wanted again is simply requested again.
+                {
+                    std::lock_guard lock(mutex);
+                    byCell.erase(tile.cell);
+                }
+                res->noteCancelled(ResidentKind::TerrainTile);
+                ++stats.cancelled;
+                it = tiles.erase(it);
+                continue;
+            }
             tile.payload = std::move(tile.job->payload);
             tile.job.reset();
             tile.state = TileState::Ready;
+            ++it;
         }
     }
 
-    void commitReady(StreamBudget& budget) {
-        std::vector<Tile*> order;
+    // One resumable commit step of a tile, run from the shared commit queue.
+    void commitTile(const TileKey& key, StreamBudget& budget) {
+        const auto it = tiles.find(key);
+        if (it == tiles.end()) return;
+        Tile& tile = it->second;
+        if (tile.state != TileState::Ready && tile.state != TileState::Committing) return;
+        tile.state = TileState::Committing;
+        const size_t before = budget.spent;
+        const bool done = loader->commit(tile.cell, tile.payload.get(), budget);
+        tile.bytes += budget.spent - before;
+        if (!done) return;
+        tile.payload.reset();
+        tile.state = TileState::Resident;
+        ++stats.loaded;
+        res->noteLoaded(ResidentKind::TerrainTile, tile.bytes);
+        trackTile(tile);
+    }
+
+    void offerCommits() {
         for (auto& [key, tile] : tiles) {
-            if (tile.state == TileState::Ready || tile.state == TileState::Committing) order.push_back(&tile);
-        }
-        std::sort(order.begin(), order.end(), [](const Tile* a, const Tile* b) { return a->distance < b->distance; });
-        for (Tile* tile : order) {
-            // The first tile always gets a step (the budget is only checked after it) so oversized tiles still progress.
-            tile->state = TileState::Committing;
-            const bool done = loader->commit(tile->cell, tile->payload.get(), budget);
-            if (done) {
-                tile->payload.reset();
-                tile->state = TileState::Resident;
-                ++stats.loaded;
-            }
-            if (budget.exhausted()) break;
+            if (tile.state != TileState::Ready && tile.state != TileState::Committing) continue;
+            const TileKey tileKey = key;
+            res->offer(this, ResidentKind::TerrainTile, scoreOf(tile), [this, tileKey](StreamBudget& budget) { commitTile(tileKey, budget); });
         }
     }
 
@@ -231,11 +339,22 @@ struct TerrainStreamer::Impl {
             candidates.push_back(&tile);
         }
         std::sort(candidates.begin(), candidates.end(), [](const Tile* a, const Tile* b) { return a->lastWanted < b->lastWanted; });
+        for (auto& [key, tile] : tiles) {
+            if (tile.state == TileState::Resident && tile.tracked) res->update(ResidentKind::TerrainTile, static_cast<uint64_t>(tile.cell), scoreOf(tile), wantedKeys.contains(key) || protectedTiles.contains(key));
+        }
+        res->enforceByteBudget();
         for (Tile* tile : candidates) {
             const bool aged = frame - tile->lastWanted > config.evictDelay;
             const bool overCap = residentCount > config.maxResidentTiles || loader->meshCount() > config.maxGpuMeshes;
             if (!aged && !overCap) continue;
-            if (tile->state == TileState::Loading) continue;  // wait for the worker, dropped next time it is Ready
+            if (tile->state == TileState::Loading) {
+                // Not needed any more: skip the job if it has not started; the tile is dropped when the worker reports done.
+                if (!tile->cancelled) {
+                    tile->cancelled = true;
+                    if (tile->cancel) tile->cancel->store(true, std::memory_order_release);
+                }
+                continue;
+            }
             if (tile->state == TileState::Ready) {
                 tile->payload.reset();
                 // Nothing was committed yet: nothing on the GPU or in the World.
@@ -243,6 +362,8 @@ struct TerrainStreamer::Impl {
                     std::lock_guard lock(mutex);
                     byCell.erase(tile->cell);
                 }
+                res->noteCancelled(ResidentKind::TerrainTile);
+                ++stats.cancelled;
                 tiles.erase(tile->key);
                 ++stats.evicted;
                 continue;
@@ -261,6 +382,8 @@ struct TerrainStreamer::Impl {
                 continue;
             }
             if (loader->unload(tile.cell, budget)) {
+                untrackTile(tile);
+                res->noteUnloaded(ResidentKind::TerrainTile);
                 {
                     std::lock_guard lock(mutex);
                     byCell.erase(tile.cell);
@@ -276,10 +399,11 @@ struct TerrainStreamer::Impl {
     void update(const glm::vec3& camera, const glm::vec3& forward, const std::array<glm::vec4, 6>* planes, bool unlimited) {
         const auto t0 = std::chrono::steady_clock::now();
         ++frame;
+        res->observeCamera(1, camera);
         select(camera, forward, planes);
         startLoads();
         if (config.deterministic) {
-            jobs->waitIdle();
+            res->jobs().waitIdle();
             unlimited = true;
         }
         pollLoading();
@@ -292,9 +416,12 @@ struct TerrainStreamer::Impl {
         // One frame budget with the spatial StreamingSystem (portal cells, assets): both draw from the same object. Unlimited (prime/deterministic) stays unlimited.
         StreamBudget* shared = !unlimited && sharedProvider ? sharedProvider() : nullptr;
         stats.sharedBudget = shared != nullptr;
+        stats.sharedPool = attached;
         StreamBudget& budget = shared ? *shared : ownCommit;
         StreamBudget& unloadBudget = shared ? *shared : ownUnload;
-        if (loader->meshCount() < config.maxGpuMeshes + 40) commitReady(budget);
+        res->dropOwner(this);
+        if (loader->meshCount() < config.maxGpuMeshes + 40) offerCommits();
+        res->arrive(this, budget);
         std::set<TileKey> protectedTiles;
         const std::set<TileKey> visible = visibleSet(&protectedTiles);
         evictAndUnload(unloadBudget, protectedTiles);
@@ -316,6 +443,8 @@ struct TerrainStreamer::Impl {
         stats.visible = shown;
         stats.loading = loading;
         stats.gpuMeshes = static_cast<uint32_t>(loader->meshCount());
+        stats.residentBytes = res->residentBytes();
+        res->setPending(ResidentKind::TerrainTile, loading);
         uint32_t entities = 0;
         for (const auto& [key, tile] : tiles) entities += static_cast<uint32_t>(loader->entityCount(tile.cell));
         stats.entities = entities;
@@ -376,3 +505,9 @@ TerrainStreamConfig& TerrainStreamer::config() { return m_impl->config; }
 TerrainTileLoader& TerrainStreamer::loader() { return *m_impl->loader; }
 
 void TerrainStreamer::setSharedBudget(std::function<StreamBudget*()> provider) { m_impl->sharedProvider = std::move(provider); }
+
+void TerrainStreamer::attachResidency(ResidencyManager& manager) { m_impl->rebind(&manager, true); }
+
+void TerrainStreamer::detachResidency() { m_impl->rebind(m_impl->ownResidency.get(), false); }
+
+ResidencyManager& TerrainStreamer::residency() { return *m_impl->res; }

@@ -34,7 +34,7 @@ void Renderer::uploadDirtyHierarchies(SceneDatabase& sceneDatabase) {
         size_t rangeEnd = rangeBegin + 1;
         while (rangeEnd < dirty.size() && dirty[rangeEnd] == dirty[rangeEnd - 1] + 1) ++rangeEnd;
         const size_t last = std::min<size_t>(static_cast<size_t>(dirty[rangeEnd - 1]) + 1, limit);
-        if (first < last) m_diligent->pImmediateContext->UpdateBuffer(m_diligent->pHierarchyBuffer[m_currentFrame], first * sizeof(HierarchyComponent), (last - first) * sizeof(HierarchyComponent), sceneDatabase.hierarchies.data() + first, Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
+        if (first < last) LIT_UP(m_diligent->pImmediateContext)->UpdateBuffer(m_diligent->pHierarchyBuffer[m_currentFrame], first * sizeof(HierarchyComponent), (last - first) * sizeof(HierarchyComponent), sceneDatabase.hierarchies.data() + first, Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
         rangeBegin = rangeEnd;
     }
 }
@@ -43,11 +43,11 @@ void Renderer::uploadAllRenderables(const SceneDatabase& sceneDatabase) {
     const auto& renderables = sceneDatabase.renderables;
     m_packedRenderables.resize(renderables.size());
     for (size_t entityIndex = 0; entityIndex < renderables.size(); ++entityIndex) m_packedRenderables[entityIndex] = PackRenderable(renderables[entityIndex]);
-    m_diligent->pImmediateContext->UpdateBuffer(m_diligent->pRenderableBuffer[m_currentFrame], 0, m_packedRenderables.size() * sizeof(uint32_t), m_packedRenderables.data(), Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
+    LIT_UP(m_diligent->pImmediateContext)->UpdateBuffer(m_diligent->pRenderableBuffer[m_currentFrame], 0, m_packedRenderables.size() * sizeof(uint32_t), m_packedRenderables.data(), Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
 
     m_packedAlphas.assign((renderables.size() + 3) & ~size_t{3}, 0);
     for (size_t entityIndex = 0; entityIndex < renderables.size(); ++entityIndex) m_packedAlphas[entityIndex] = PackAlpha(renderables[entityIndex].alpha);
-    m_diligent->pImmediateContext->UpdateBuffer(m_diligent->pAlphaBuffer, 0, m_packedAlphas.size(), m_packedAlphas.data(), Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
+    LIT_UP(m_diligent->pImmediateContext)->UpdateBuffer(m_diligent->pAlphaBuffer, 0, m_packedAlphas.size(), m_packedAlphas.data(), Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
 }
 
 void Renderer::uploadDirtyRenderables(SceneDatabase& sceneDatabase) {
@@ -57,7 +57,7 @@ void Renderer::uploadDirtyRenderables(SceneDatabase& sceneDatabase) {
     size_t rangeStart = 0;
     size_t rangeEnd = 0;
     auto flushRange = [&] {
-        if (rangeEnd > rangeStart) context->UpdateBuffer(m_diligent->pRenderableBuffer[m_currentFrame], rangeStart * sizeof(uint32_t), (rangeEnd - rangeStart) * sizeof(uint32_t), m_packedRenderables.data() + rangeStart, Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
+        if (rangeEnd > rangeStart) LIT_UP(context)->UpdateBuffer(m_diligent->pRenderableBuffer[m_currentFrame], rangeStart * sizeof(uint32_t), (rangeEnd - rangeStart) * sizeof(uint32_t), m_packedRenderables.data() + rangeStart, Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
         rangeStart = rangeEnd = 0;
     };
     for (Entity entityIndex : dirty) {
@@ -77,7 +77,7 @@ void Renderer::uploadDirtyRenderables(SceneDatabase& sceneDatabase) {
         if (alpha == m_packedAlphas[entityIndex]) continue;
         m_packedAlphas[entityIndex] = alpha;
         const size_t wordOffset = entityIndex & ~Entity{3};
-        context->UpdateBuffer(m_diligent->pAlphaBuffer, wordOffset, kAlphaWordBytes, m_packedAlphas.data() + wordOffset, Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
+        LIT_UP(context)->UpdateBuffer(m_diligent->pAlphaBuffer, wordOffset, kAlphaWordBytes, m_packedAlphas.data() + wordOffset, Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
     }
 }
 
@@ -85,7 +85,7 @@ void Renderer::ensureLevelOrder(SceneDatabase& sceneDatabase) {
     if (m_processedStructureVersion == sceneDatabase.m_structureVersion) return;
     sceneDatabase.updateHierarchy();
     m_processedStructureVersion = sceneDatabase.m_structureVersion;
-    m_diligent->pImmediateContext->UpdateBuffer(m_diligent->pSortedHierarchyBuffer[m_currentFrame], 0, sceneDatabase.sortedHierarchyList.size() * sizeof(Entity), sceneDatabase.sortedHierarchyList.data(), Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
+    LIT_UP(m_diligent->pImmediateContext)->UpdateBuffer(m_diligent->pSortedHierarchyBuffer[m_currentFrame], 0, sceneDatabase.sortedHierarchyList.size() * sizeof(Entity), sceneDatabase.sortedHierarchyList.data(), Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
 }
 
 void Renderer::syncVersions(const SceneDatabase& sceneDatabase) {
@@ -127,7 +127,7 @@ void Renderer::uploadHierarchies(SceneDatabase& sceneDatabase) {
     if (m_hierarchyUpdateCounter > 0) {
         m_processedStructureVersion = 0;
         ensureLevelOrder(sceneDatabase);
-        m_diligent->pImmediateContext->UpdateBuffer(m_diligent->pHierarchyBuffer[m_currentFrame], 0, sceneDatabase.hierarchies.size() * sizeof(HierarchyComponent), sceneDatabase.hierarchies.data(), Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
+        LIT_UP(m_diligent->pImmediateContext)->UpdateBuffer(m_diligent->pHierarchyBuffer[m_currentFrame], 0, sceneDatabase.hierarchies.size() * sizeof(HierarchyComponent), sceneDatabase.hierarchies.data(), Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
         m_hierarchyUpdateCounter--;
     } else if (!sceneDatabase.structureDirty.list.empty()) {
         uploadDirtyHierarchies(sceneDatabase);
@@ -139,12 +139,12 @@ void Renderer::uploadTransforms(const SceneDatabase& sceneDatabase) {
     auto* context = m_diligent->pImmediateContext.RawPtr();
     auto* objectBuffer = m_diligent->pObjectBuffer[m_currentFrame].RawPtr();
     if (m_fullTransformUpdateCounter > 0) {
-        context->UpdateBuffer(objectBuffer, 0, sceneDatabase.transforms.size() * sizeof(TransformComponent), sceneDatabase.transforms.data(), Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
+        LIT_UP(context)->UpdateBuffer(objectBuffer, 0, sceneDatabase.transforms.size() * sizeof(TransformComponent), sceneDatabase.transforms.data(), Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
         m_fullTransformUpdateCounter--;
         if (m_transformUpdateCounter > 0) m_transformUpdateCounter--;
     } else if (m_transformUpdateCounter > 0) {
         const size_t count = (sceneDatabase.m_movingCount > 0) ? std::min<size_t>(sceneDatabase.m_movingCount, sceneDatabase.transforms.size()) : sceneDatabase.transforms.size();
-        context->UpdateBuffer(objectBuffer, 0, count * sizeof(TransformComponent), sceneDatabase.transforms.data(), Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
+        LIT_UP(context)->UpdateBuffer(objectBuffer, 0, count * sizeof(TransformComponent), sceneDatabase.transforms.data(), Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
         m_transformUpdateCounter--;
     }
 }
@@ -164,10 +164,10 @@ void Renderer::uploadMeshInfo() {
     if (!m_meshInfoDirty) return;
     auto& gpu = *m_diligent;
     const size_t meshInfoCount = std::min<size_t>(gMeshInfos.size(), kMaxMeshes);
-    if (!uploadMeshletMeshInfo(meshInfoCount)) gpu.pImmediateContext->UpdateBuffer(gpu.pMeshInfoBuffer, 0, meshInfoCount * sizeof(MeshInfo), gMeshInfos.data(), Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
-    if (!gNormalSamples.empty()) gpu.pImmediateContext->UpdateBuffer(gpu.pNormalSampleBuffer, 0, gNormalSamples.size() * sizeof(glm::vec4), gNormalSamples.data(), Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
+    if (!uploadMeshletMeshInfo(meshInfoCount)) LIT_UPDATE_DIFF(gpu.pImmediateContext, gpu.pMeshInfoBuffer, 0, meshInfoCount * sizeof(MeshInfo), gMeshInfos.data());
+    if (!gNormalSamples.empty()) LIT_UPDATE_DIFF(gpu.pImmediateContext, gpu.pNormalSampleBuffer, 0, std::min(gNormalSamples.size(), gMeshInfos.size() * kNormalSamples) * sizeof(glm::vec4), gNormalSamples.data());
     // Cluster LOD zeroes the triangle LOD slots of cluster meshes in the buffer above; virtual shadow casters draw those meshes from their triangle LODs.
-    if (gpu.pMeshInfoBufferFull) gpu.pImmediateContext->UpdateBuffer(gpu.pMeshInfoBufferFull, 0, meshInfoCount * sizeof(MeshInfo), gMeshInfos.data(), Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
+    if (gpu.pMeshInfoBufferFull) LIT_UPDATE_DIFF(gpu.pImmediateContext, gpu.pMeshInfoBufferFull, 0, meshInfoCount * sizeof(MeshInfo), gMeshInfos.data());
     m_meshInfoDirty = false;
 }
 

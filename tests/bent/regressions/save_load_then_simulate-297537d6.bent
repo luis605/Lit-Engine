@@ -1,0 +1,15 @@
+# Bent regression: shrunk counterexample for law `save_load_then_simulate` (tests/bent/laws/persistence.bent)
+# Found by: bent check tests/bent/laws/persistence.bent --cases 3000 --jobs 6 --seed 1 --shrink-limit 3000 (seed 1, case 22)
+# Shrunk 22 times in 341 attempts; tape 169 -> 25 choices
+# Replay the random case: bent replay tests/bent/laws/persistence.bent --law save_load_then_simulate --seed 1 --case 22
+# Failure: property is false
+#   tests/bent/laws/persistence.bent:16:51: 1940496385424468010 == 6859617366542314355 is false
+# A ConvexHullCollider was not serialized, so the loaded body lost its collider. Fixed in src/Engine/Physics/Physics.cpp (hull serializer).
+include "../laws/persistence.bent"
+
+example save_load_then_simulate {
+  p = [
+    spawn(dynamic: true, friction: 0.0, height: 0.1, mass: 0.1, mesh: 0, parent: -1, pos: vec3(0.0, 0.0, 0.0), restitution: 0.0, rot: quat(1.0, 0.0, 0.0, 0.0), scale: vec3(0.25, 0.25, 0.25), shape: "hull", size: 0.1, vel: vec3(0.0, 0.0, 0.0))
+  ],
+  n = 1
+}

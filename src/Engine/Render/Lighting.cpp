@@ -115,6 +115,23 @@ void createStaticTextures(Lighting::Data& state) {
     state.hdri = litgpu::texture(device, TextureSpec{"HDRI", Diligent::RESOURCE_DIM_TEX_2D, 4, 2, 1, 1, Diligent::TEX_FORMAT_RGBA16_FLOAT, Diligent::BIND_SHADER_RESOURCE | Diligent::BIND_UNORDERED_ACCESS});
     state.colorTextures = placeholderArray(device, "Color Textures", Diligent::TEX_FORMAT_RGBA8_UNORM_SRGB, 0xFFFFFFFFu);
     state.dataTextures = placeholderArray(device, "Data Textures", Diligent::TEX_FORMAT_RGBA8_UNORM, 0xFFFF8080u);
+    if (state.bindlessTextures) {
+        Diligent::TextureDesc desc;
+        desc.Name = "Bindless Texture Placeholder";
+        desc.Type = Diligent::RESOURCE_DIM_TEX_2D;
+        desc.Width = desc.Height = kPlaceholderSize;
+        desc.MipLevels = 1;
+        desc.Format = Diligent::TEX_FORMAT_RGBA8_UNORM_SRGB;
+        desc.BindFlags = Diligent::BIND_SHADER_RESOURCE;
+        std::vector<uint32_t> pixels(kPlaceholderSize * kPlaceholderSize, 0xFFFFFFFFu);
+        Diligent::TextureSubResData subresource;
+        subresource.pData = pixels.data();
+        subresource.Stride = kPlaceholderSize * sizeof(uint32_t);
+        Diligent::TextureData data;
+        data.NumSubresources = 1;
+        data.pSubResources = &subresource;
+        device->CreateTexture(desc, &data, &state.tablePlaceholder);
+    }
     createShadowArray(device, "Shadow Cascades", kInitialShadowResolution, kShadowLayers, state.shadowMap, state.shadowTargets);
     state.shadowResolution = kInitialShadowResolution;
     for (int cascadeIndex = 0; cascadeIndex < kCascadeSlots; ++cascadeIndex) state.cascades[cascadeIndex].layer = state.cascades[cascadeIndex].renderLayer = cascadeIndex;
@@ -268,6 +285,16 @@ Diligent::ITextureView* Lighting::prefilteredEnvironment() const { return litgpu
 Diligent::ITextureView* Lighting::dfgLut() const { return litgpu::srv(m_data->dfg); }
 Diligent::ITextureView* Lighting::colorTextures() const { return litgpu::srv(m_data->colorTextures); }
 Diligent::ITextureView* Lighting::dataTextures() const { return litgpu::srv(m_data->dataTextures); }
+bool Lighting::bindlessTextures() const { return m_data && m_data->bindlessTextures; }
+uint32_t Lighting::textureTableHighWater() const { return m_data ? m_data->tableSlots.highWater() : 0u; }
+uint32_t Lighting::textureTableUsed() const { return m_data ? m_data->tableSlots.used() : 0u; }
+uint64_t Lighting::textureTableEpoch() const { return m_data ? m_data->tableEpoch : 0u; }
+uint64_t Lighting::textureSlotEpoch(uint32_t slot) const { return m_data && slot < m_data->tableSlotEpoch.size() ? m_data->tableSlotEpoch[slot] : 0u; }
+Diligent::ITextureView* Lighting::textureTableView(uint32_t slot) const {
+    if (!m_data || !m_data->tablePlaceholder) return nullptr;
+    if (slot < m_data->tableTextures.size() && m_data->tableTextures[slot]) return litgpu::srv(m_data->tableTextures[slot]);
+    return litgpu::srv(m_data->tablePlaceholder);
+}
 float Lighting::currentEv100() const { return m_data ? m_data->lastEv : 0.0f; }
 glm::vec3 Lighting::sunDirection() const { return m_data ? m_data->sun : glm::vec3(0.0f, 1.0f, 0.0f); }
 
@@ -277,6 +304,14 @@ bool Lighting::init(Diligent::IRenderDevice* device, Diligent::IDeviceContext* c
     state.device = device;
     state.context = context;
     state.backBufferFormat = backBufferFormat;
+    state.bindlessTextures = litgpu::bindlessTexturesActive(device);
+    if (state.bindlessTextures) {
+        state.tableTextures.resize(kBindlessTextureCapacity);
+        state.tableSlotEpoch.assign(kBindlessTextureCapacity, 0);
+        Lit::Log::Info("Bindless texture table: on ({} slots, native-size Texture2D per slot)", kBindlessTextureCapacity);
+    } else if (litgpu::bindlessTexturesRequested()) {
+        Lit::Log::Warn("Bindless texture table requested but the device lacks BindlessResources / ShaderResourceRuntimeArrays; using the 16-layer texture arrays");
+    }
     createStaticBuffers(state);
     createStaticTextures(state);
     createReflectionResources(state);
@@ -305,7 +340,7 @@ void Lighting::resize(int width, int height, int outputWidth, int outputHeight) 
 void Lighting::setMaterial(uint32_t id, const Material& material) {
     if (!m_data || id >= kMaxMaterials) return;
     const MaterialGpu packed = packMaterial(material);
-    m_data->context->UpdateBuffer(m_data->materials, static_cast<Diligent::Uint64>(id) * sizeof(MaterialGpu), sizeof(MaterialGpu), &packed, Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
+    LIT_UP(m_data->context)->UpdateBuffer(m_data->materials, static_cast<Diligent::Uint64>(id) * sizeof(MaterialGpu), sizeof(MaterialGpu), &packed, Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
 }
 
 void Lighting::setLights(const std::vector<GpuLight>& lights) {
@@ -354,6 +389,40 @@ int Lighting::loadTexture(const std::string& path, bool srgb) {
         Lit::Log::Warn("Could not load texture {}", path);
         return -1;
     }
+    if (state.bindlessTextures) {
+        const int slot = state.tableSlots.allocate();
+        if (slot < 0) {
+            stbi_image_free(pixels);
+            Lit::Log::Warn("Texture table is full ({} slots); {} not loaded", kBindlessTextureCapacity, path);
+            return -1;
+        }
+        Diligent::TextureDesc desc;
+        desc.Name = path.c_str();
+        desc.Type = Diligent::RESOURCE_DIM_TEX_2D;
+        desc.Width = static_cast<uint32_t>(width);
+        desc.Height = static_cast<uint32_t>(height);
+        desc.MipLevels = static_cast<uint32_t>(std::bit_width(static_cast<uint32_t>(std::max(width, height))));
+        desc.Format = srgb ? Diligent::TEX_FORMAT_RGBA8_UNORM_SRGB : Diligent::TEX_FORMAT_RGBA8_UNORM;
+        desc.BindFlags = Diligent::BIND_SHADER_RESOURCE | Diligent::BIND_RENDER_TARGET;
+        desc.MiscFlags = Diligent::MISC_TEXTURE_FLAG_GENERATE_MIPS;
+        RefCntAutoPtr<Diligent::ITexture> texture;
+        state.device->CreateTexture(desc, nullptr, &texture);
+        if (!texture) {
+            stbi_image_free(pixels);
+            state.tableSlots.release(slot);
+            return -1;
+        }
+        const Diligent::Box fullBox(0, desc.Width, 0, desc.Height);
+        Diligent::TextureSubResData level0;
+        level0.pData = pixels;
+        level0.Stride = static_cast<Diligent::Uint64>(width) * 4;
+        LIT_UP(state.context)->UpdateTexture(texture, 0, 0, fullBox, level0, Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION, Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
+        stbi_image_free(pixels);
+        state.context->GenerateMips(litgpu::srv(texture));
+        state.tableTextures[static_cast<size_t>(slot)] = texture;
+        state.tableSlotEpoch[static_cast<size_t>(slot)] = ++state.tableEpoch;
+        return slot;
+    }
     RefCntAutoPtr<Diligent::ITexture>& target = srgb ? state.colorTextures : state.dataTextures;
     if (target->GetDesc().Width != kTextureSize) {
         Diligent::TextureDesc desc;
@@ -394,9 +463,15 @@ int Lighting::loadTexture(const std::string& path, bool srgb) {
     Diligent::TextureSubResData subresource;
     subresource.pData = resized.data();
     subresource.Stride = kTextureSize * 4;
-    state.context->UpdateTexture(target, 0, static_cast<Diligent::Uint32>(layers), box, subresource, Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION, Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
+    LIT_UP(state.context)->UpdateTexture(target, 0, static_cast<Diligent::Uint32>(layers), box, subresource, Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION, Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
     state.context->GenerateMips(litgpu::srv(target));
     return layers++;
+}
+
+void Lighting::releaseTexture(int slot) {
+    if (!m_data || !m_data->bindlessTextures || !m_data->tableSlots.release(slot)) return;
+    m_data->tableTextures[static_cast<size_t>(slot)].Release();
+    m_data->tableSlotEpoch[static_cast<size_t>(slot)] = ++m_data->tableEpoch;
 }
 
 void Lighting::shiftOrigin(const glm::vec3& delta) {

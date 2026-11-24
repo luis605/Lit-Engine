@@ -83,6 +83,7 @@ void Renderer::pollObservation() {
 
 void Renderer::beginFrame(float deltaTime) {
     auto& gpu = *m_diligent;
+    Lit::UploadStats::endFrame();
     m_currentFrame = (m_currentFrame + 1) % NUM_FRAMES_IN_FLIGHT;
 
     const double fenceWaitStart = glfwGetTime();
@@ -188,7 +189,7 @@ void Renderer::renderPortalPrepass(const SceneUniforms& sceneUniforms, uint32_t 
     viewUniforms.cellTint = glm::vec4(root.lightTint, 0.0f);
     m_viewSunShadows = root.sunScale > 0.0f;
     if (!m_viewSunShadows) viewUniforms.shadowParams.x = 0.0f;
-    gpu.pImmediateContext->UpdateBuffer(gpu.pSceneUBO[m_currentFrame], 0, sizeof(SceneUniforms), &viewUniforms, Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
+    LIT_UP(gpu.pImmediateContext)->UpdateBuffer(gpu.pSceneUBO[m_currentFrame], 0, sizeof(SceneUniforms), &viewUniforms, Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
     if (!root.surfaces.empty()) renderPortalViews(sceneUniforms, viewUniforms, objectCount);
     else m_lighting.cullLights(gpu.pSceneUBO[m_currentFrame]);  // cluster lists filtered by the camera's cell
 }
@@ -352,6 +353,7 @@ void Renderer::drawScene(SceneDatabase& sceneDatabase, const Camera& camera) {
 
     beginPass(GpuPass::Upload);
     const TransformPlan plan = uploadSceneData(sceneDatabase);
+    uploadInstances();
     endPass(GpuPass::Upload);
 
     beginPass(GpuPass::Transform);
@@ -365,8 +367,9 @@ void Renderer::drawScene(SceneDatabase& sceneDatabase, const Camera& camera) {
     m_lighting.beginFrame(frameInput, sceneUniforms);
     beginSharedCascades();
     gpu.mainInput = frameInput;
-    gpu.pImmediateContext->UpdateBuffer(gpu.pSceneUBO[m_currentFrame], 0, sizeof(SceneUniforms), &sceneUniforms, Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
+    LIT_UP(gpu.pImmediateContext)->UpdateBuffer(gpu.pSceneUBO[m_currentFrame], 0, sizeof(SceneUniforms), &sceneUniforms, Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
     if (gpu.surfaceBindingVersion != m_lighting.bindingVersion()) rebindSurfaceResources();
+    syncTextureTable();
 
     m_custom.runCompute(ComputeStage::BeforeScene, customFrame());
 

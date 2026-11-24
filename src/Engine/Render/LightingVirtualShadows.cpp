@@ -120,13 +120,25 @@ void resetPool(Lighting::Data& state) {
     const uint32_t pool = vsm.poolSide * vsm.poolSide;
     std::vector<uint32_t> physical(static_cast<size_t>(kMaxPoolPages) * 2, kInvalid);
     for (uint32_t page = 0; page < pool; ++page) physical[pool + page] = page;
-    context->UpdateBuffer(vsm.physical, 0, sizeof(uint32_t) * physical.size(), physical.data(), Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
-    const std::vector<uint32_t> zeros(static_cast<size_t>(kVsmMaxFaces) * kVsmPagesPerFace, 0u);
-    context->UpdateBuffer(vsm.pageTable, 0, sizeof(uint32_t) * zeros.size(), zeros.data(), Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
-    context->UpdateBuffer(vsm.stamps, 0, sizeof(uint32_t) * zeros.size(), zeros.data(), Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
+    LIT_UP(context)->UpdateBuffer(vsm.physical, 0, sizeof(uint32_t) * physical.size(), physical.data(), Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
+    // Clear on the GPU from a 1 MB zero buffer: a CPU upload of two ~42 MB zero tables filled the upload heap at start-up.
+    constexpr uint32_t kZeroChunkWords = 262144;
+    if (litgpu::legacyUploads()) {
+        const std::vector<uint32_t> zeros(static_cast<size_t>(kVsmMaxFaces) * kVsmPagesPerFace, 0u);
+        LIT_UP(context)->UpdateBuffer(vsm.pageTable, 0, sizeof(uint32_t) * zeros.size(), zeros.data(), Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
+        LIT_UP(context)->UpdateBuffer(vsm.stamps, 0, sizeof(uint32_t) * zeros.size(), zeros.data(), Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
+    } else {
+        if (!vsm.zeroSource) vsm.zeroSource = zeroBuffer(state.device, "VSM Zero Source", sizeof(uint32_t), kZeroChunkWords);
+        const uint64_t clearBytes = sizeof(uint32_t) * static_cast<uint64_t>(kVsmMaxFaces) * kVsmPagesPerFace;
+        for (uint64_t offset = 0; offset < clearBytes; offset += sizeof(uint32_t) * kZeroChunkWords) {
+            const uint64_t bytes = std::min<uint64_t>(sizeof(uint32_t) * kZeroChunkWords, clearBytes - offset);
+            context->CopyBuffer(vsm.zeroSource, 0, Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION, vsm.pageTable, offset, bytes, Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
+            context->CopyBuffer(vsm.zeroSource, 0, Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION, vsm.stamps, offset, bytes, Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
+        }
+    }
     std::array<uint32_t, kVsmCounterWords> counters{};
     counters[0] = pool;
-    context->UpdateBuffer(vsm.counters, 0, sizeof(counters), counters.data(), Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
+    LIT_UP(context)->UpdateBuffer(vsm.counters, 0, sizeof(counters), counters.data(), Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
     vsm.resetPending = false;
     vsm.allDirty = true;
 }
@@ -399,7 +411,7 @@ void assignVirtualShadowFaces(Lighting::Data& state, SceneUniforms& uniforms) {
     vsm.effectiveScale = std::clamp(state.settings.vsmResolutionScale * autoFactor, 0.25f, 8.0f);
     vsm.slots = std::move(next);
     vsm.faceSlots = vsm.highWater;
-    if (vsm.faceSlots > 0) state.context->UpdateBuffer(vsm.faces, 0, sizeof(VsmFaceGpu) * vsm.faceSlots, vsm.cpuFaces.data(), Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
+    if (vsm.faceSlots > 0) LIT_UPDATE_DIFF(state.context, vsm.faces, 0, sizeof(VsmFaceGpu) * vsm.faceSlots, vsm.cpuFaces.data());
 }
 
 void fillVirtualShadowUniforms(const Lighting::Data& state, SceneUniforms& uniforms) {
@@ -478,20 +490,20 @@ void Lighting::renderVirtualShadows(const VirtualShadowInputs& inputs) {
     constants.misc[0] = inputs.opaqueShaderCount;
     constants.misc[1] = pool;
     constants.tuning = glm::vec4(inputs.lodBias, 0.0f, 0.0f, 0.0f);
-    context->UpdateBuffer(vsm.constants, 0, sizeof(constants), &constants, Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
+    LIT_UP(context)->UpdateBuffer(vsm.constants, 0, sizeof(constants), &constants, Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
     // Per-run counters (request, pop, render, overflow, instance, moved, move-overflow); the free count persists.
     const uint32_t zeros[7] = {};
-    context->UpdateBuffer(vsm.counters, sizeof(uint32_t), sizeof(zeros), zeros, Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
+    LIT_UP(context)->UpdateBuffer(vsm.counters, sizeof(uint32_t), sizeof(zeros), zeros, Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
     const std::array<uint32_t, kVsmHistWords> histZeros{};
-    context->UpdateBuffer(vsm.counters, sizeof(uint32_t) * 16, sizeof(histZeros), histZeros.data(), Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
+    LIT_UP(context)->UpdateBuffer(vsm.counters, sizeof(uint32_t) * 16, sizeof(histZeros), histZeros.data(), Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
     if (firstRun) {
         const uint32_t zero = 0;
-        context->UpdateBuffer(vsm.counters, sizeof(uint32_t) * 9, sizeof(zero), &zero, Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
+        LIT_UP(context)->UpdateBuffer(vsm.counters, sizeof(uint32_t) * 9, sizeof(zero), &zero, Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
     }
     const std::vector<uint32_t> bucketZeros(kVsmBuckets, 0u);
-    context->UpdateBuffer(vsm.buckets, 0, sizeof(uint32_t) * kVsmBuckets, bucketZeros.data(), Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
+    LIT_UP(context)->UpdateBuffer(vsm.buckets, 0, sizeof(uint32_t) * kVsmBuckets, bucketZeros.data(), Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
     const uint32_t drawCount = 0;
-    context->UpdateBuffer(vsm.args, sizeof(uint32_t) * 12, sizeof(drawCount), &drawCount, Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
+    LIT_UP(context)->UpdateBuffer(vsm.args, sizeof(uint32_t) * 12, sizeof(drawCount), &drawCount, Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
 
     // Bindings: two cached sets (the renderer double-buffers its per-frame object buffers).
     Diligent::ITextureView* depthView = litgpu::srv(inputs.depth);

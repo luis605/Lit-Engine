@@ -900,6 +900,128 @@ static void testScatterDeltas() {
     CHECK(late.released.size() == 1);
 }
 
+
+// Instanced scatter (docs/Instancing.md): one InstanceBatch entity per tile and species, no merged meshes; removal marks the
+// instance dead (no rebuild), a move updates the instance in place; both survive unload/reload and save/load.
+namespace {
+struct InstancedRig {
+    World world;
+    DeltaStore deltas{world};
+    std::unique_ptr<TerrainTileLoader> loader;
+    int meshUploads = 0;
+    int scatterUploads = 0;
+
+    InstancedRig() {
+        setup(world);
+        TerrainLoaderConfig config;
+        config.terrain = makeConfig();
+        config.scatter.seed = 31;
+        ScatterSpecies tree;
+        tree.name = "tree";
+        tree.spacing = 7.0f;
+        tree.density = 0.9f;
+        tree.minNormalY = 0.0f;
+        tree.geometry = std::make_shared<const Mesh>(Mesh(std::vector<float>{0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 1, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 1}, std::vector<unsigned int>{0, 1, 2}));
+        tree.drawDistance = 400.0f;
+        ScatterSpecies rock;
+        rock.name = "rock";
+        rock.mesh = 3;
+        rock.spacing = 6.0f;
+        rock.density = 0.9f;
+        rock.minNormalY = 0.0f;
+        rock.alignToSlope = true;
+        config.scatter.species = {tree, rock};
+        config.deltas = &deltas;
+        config.instancedScatter = true;
+        config.speciesMesh = [](uint32_t species) { return species == 0 ? 70u : 0xFFFFFFFFu; };
+        config.uploadMesh = [this](const Mesh&) { return static_cast<uint32_t>(100 + meshUploads++); };
+        config.uploadScatterMesh = [this](PreparedMesh&) { return static_cast<uint32_t>(500 + scatterUploads++); };
+        config.tileOfCell = [](int) -> std::optional<TileKey> { return TileKey{0, 0, 0}; };
+        loader = std::make_unique<TerrainTileLoader>(world, std::move(config));
+    }
+    void load() {
+        auto payload = loader->prepare(0);
+        StreamBudget budget;
+        budget.unlimited = true;
+        while (!loader->commit(0, payload.get(), budget)) {}
+    }
+    void unload() {
+        StreamBudget budget;
+        budget.unlimited = true;
+        while (!loader->unload(0, budget)) {}
+    }
+    [[nodiscard]] std::vector<ScatterInstance> instances(uint32_t species) const {
+        std::vector<ScatterInstance> out;
+        for (const ScatterInstance& i : scatterTile(loader->config().terrain, loader->config().scatter, TileKey{0, 0, 0})) {
+            if (i.species == species) out.push_back(i);
+        }
+        return out;
+    }
+    [[nodiscard]] InstanceBatch* batch(uint32_t species) { return world.get<InstanceBatch>(loader->scatterBatchEntity(0, species)); }
+};
+}
+
+static void testInstancedScatter() {
+    InstancedRig rig;
+    const auto trees = rig.instances(0);
+    const auto rocks = rig.instances(1);
+    CHECK(trees.size() > 6 && rocks.size() > 6);
+    rig.load();
+    CHECK(rig.scatterUploads == 0);  // no merged meshes
+    CHECK(rig.loader->entityCount(0) == 3);  // tile + one batch per species
+    InstanceBatch* treeBatch = rig.batch(0);
+    InstanceBatch* rockBatch = rig.batch(1);
+    CHECK(treeBatch && rockBatch);
+    if (!treeBatch || !rockBatch) return;
+    CHECK(treeBatch->mesh == 70 && rockBatch->mesh == 3);
+    CHECK(treeBatch->instances.size() == trees.size() && treeBatch->keys.size() == trees.size());
+    CHECK(treeBatch->settings.drawDistance == 400.0f);
+    // Instances are relative to the tile origin with the same transform the merged path baked in.
+    const glm::vec3 origin = tileOrigin(rig.loader->config().terrain, TileKey{0, 0, 0});
+    const auto first = treeBatch->indexOfKey(scatterInstanceId(0, static_cast<int32_t>(trees[0].cellX), static_cast<int32_t>(trees[0].cellZ)));
+    CHECK(first.has_value());
+    if (first) CHECK(glm::length(treeBatch->instances[*first].position - (trees[0].position - origin)) < 1.0e-4f);
+    CHECK(glm::length(rig.world.getPosition(rig.loader->scatterBatchEntity(0, 0)) - origin) < 1.0e-4f);
+
+    rig.deltas.captureAll();
+    CHECK(rig.deltas.deltaCount() == 0);
+
+    // Remove: dead flag, nothing rebuilt or uploaded.
+    const uint64_t layout = treeBatch->layoutVersion;
+    CHECK(rig.loader->removeScatter(0, 0, static_cast<int32_t>(trees[1].cellX), static_cast<int32_t>(trees[1].cellZ)));
+    CHECK(treeBatch->aliveCount() == trees.size() - 1);
+    CHECK(treeBatch->layoutVersion == layout && treeBatch->dirty());
+    CHECK(rig.scatterUploads == 0);
+    // Move a rock: the instance changes in place.
+    const glm::vec3 to = rocks[2].position + glm::vec3(0.0f, 4.0f, 0.0f);
+    CHECK(rig.loader->moveScatter(0, 1, static_cast<int32_t>(rocks[2].cellX), static_cast<int32_t>(rocks[2].cellZ), to, glm::quat(1.0f, 0.0f, 0.0f, 0.0f), 2.0f));
+    CHECK(!rig.loader->moveScatter(0, 1, 9999, 9999, to, glm::quat(1.0f, 0.0f, 0.0f, 0.0f), 1.0f));
+    const auto rockIndex = rockBatch->indexOfKey(scatterInstanceId(1, static_cast<int32_t>(rocks[2].cellX), static_cast<int32_t>(rocks[2].cellZ)));
+    CHECK(rockIndex && rockBatch->instances[*rockIndex].scale == 2.0f);
+
+    rig.unload();
+    CHECK(rig.world.aliveCount() == 0);
+    CHECK(rig.deltas.deltaCount() >= 2);
+    rig.load();
+    treeBatch = rig.batch(0);
+    rockBatch = rig.batch(1);
+    CHECK(treeBatch && rockBatch);
+    if (!treeBatch || !rockBatch) return;
+    CHECK(treeBatch->aliveCount() == trees.size() - 1 && treeBatch->mesh == 70);
+    const auto rockAgain = rockBatch->indexOfKey(scatterInstanceId(1, static_cast<int32_t>(rocks[2].cellX), static_cast<int32_t>(rocks[2].cellZ)));
+    CHECK(rockAgain && glm::length(rockBatch->instances[*rockAgain].position - (to - origin)) < 1.0e-3f && rockBatch->instances[*rockAgain].scale == 2.0f);
+
+    // Saved deltas loaded while another session's tile is resident: syncDeltas marks the instance dead in place.
+    const Json saved = rig.deltas.toJson();
+    InstancedRig late;
+    late.load();
+    CHECK(late.batch(0) && late.batch(0)->aliveCount() == trees.size());
+    CHECK(late.deltas.fromJson(saved));
+    late.loader->syncDeltas();
+    CHECK(late.batch(0) && late.batch(0)->aliveCount() == trees.size() - 1);
+    CHECK(late.scatterUploads == 0);
+}
+
 static void testSharedBudget() {
     World w;
     setup(w);
@@ -945,6 +1067,7 @@ int main() {
     testPackedMorph();
     testStreamer();
     testScatterDeltas();
+    testInstancedScatter();
     testSharedBudget();
     return testsupport::finish();
 }

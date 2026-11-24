@@ -6,8 +6,11 @@
 #include "DiligentCore/Graphics/GraphicsEngine/interface/PipelineState.h"
 #include "DiligentCore/Graphics/GraphicsEngine/interface/ShaderResourceBinding.h"
 #include "DiligentCore/Graphics/GraphicsEngine/interface/Sampler.h"
+#include "DiligentCore/Graphics/GraphicsEngine/interface/PipelineResourceSignature.h"
+#include "DiligentCore/Graphics/GraphicsEngine/interface/RenderDevice.h"
 
 #include <algorithm>
+#include <cstdlib>
 #include <initializer_list>
 #include <string>
 #include <string_view>
@@ -15,6 +18,9 @@
 #include <vector>
 
 #include "GpuShader.hpp"
+#include "TextureSlots.hpp"
+#include "UploadStats.hpp"
+#include "DiffUpload.hpp"
 #include "PsoCache.hpp"
 
 namespace litgpu {
@@ -93,6 +99,72 @@ inline PipelineLayout makeLayout(std::initializer_list<Diligent::IShader*> shade
     layout.variables = describeVariables(shaders, dynamicVariables);
     for (const NamedSampler& sampler : samplers) layout.samplers.push_back({Diligent::SHADER_TYPE_ALL_GRAPHICS | Diligent::SHADER_TYPE_COMPUTE, sampler.name, sampler.desc});
     return layout;
+}
+
+// Bindless texture table (docs/RenderGraph.md, Bindless). LIT_BINDLESS_TEXTURES=1 asks for the table, =0 for the legacy 16-layer
+// arrays, unset takes kBindlessTexturesDefault. The table needs the device features Diligent maps to Vulkan descriptor indexing
+// (BindlessResources + ShaderResourceRuntimeArrays); without them the legacy path is used whatever was asked.
+inline constexpr bool kBindlessTexturesDefault = true;
+inline constexpr const char* kBindlessTableName = "u_textures";
+
+inline bool bindlessTexturesRequested() {
+    const char* value = std::getenv("LIT_BINDLESS_TEXTURES");
+    if (!value || !value[0]) return kBindlessTexturesDefault;
+    return value[0] != '0';
+}
+
+inline bool bindlessTexturesSupported(Diligent::IRenderDevice* device) {
+    if (!device) return false;
+    const Diligent::DeviceFeatures& features = device->GetDeviceInfo().Features;
+    return features.BindlessResources == Diligent::DEVICE_FEATURE_STATE_ENABLED && features.ShaderResourceRuntimeArrays == Diligent::DEVICE_FEATURE_STATE_ENABLED;
+}
+
+inline bool bindlessTexturesActive(Diligent::IRenderDevice* device) { return bindlessTexturesRequested() && bindlessTexturesSupported(device); }
+
+// Explicit resource signature of a graphics pipeline, built from the shaders' reflection the way Diligent builds its implicit one (one
+// resource per stage and name, every resource mutable, structured buffers without dynamic offsets, combined texture samplers, immutable
+// samplers by name) plus the runtime-sized `u_textures` array of `tableSize` descriptors. Diligent cannot declare an unsized array in an
+// implicit layout, and a PSO cannot mix an implicit layout with signatures.
+inline RefCntAutoPtr<Diligent::IPipelineResourceSignature> makeBindlessSignature(Diligent::IRenderDevice* device, const std::string& name, std::initializer_list<Diligent::IShader*> shaders, const std::vector<NamedSampler>& samplers, uint32_t tableSize) {
+    std::vector<Diligent::PipelineResourceDesc> resources;
+    for (Diligent::IShader* shader : shaders) {
+        if (!shader) continue;
+        const Diligent::SHADER_TYPE stage = shader->GetDesc().ShaderType;
+        for (Diligent::Uint32 index = 0; index < shader->GetResourceCount(); ++index) {
+            Diligent::ShaderResourceDesc resource;
+            shader->GetResourceDesc(index, resource);
+            Diligent::PipelineResourceDesc desc;
+            desc.Name = resource.Name;
+            desc.ShaderStages = stage;
+            desc.ArraySize = std::max<Diligent::Uint32>(resource.ArraySize, 1);
+            desc.ResourceType = resource.Type;
+            desc.VarType = Diligent::SHADER_RESOURCE_VARIABLE_TYPE_MUTABLE;
+            desc.Flags = Diligent::PIPELINE_RESOURCE_FLAG_NONE;
+            if (resource.Type == Diligent::SHADER_RESOURCE_TYPE_TEXTURE_SRV) desc.Flags |= Diligent::PIPELINE_RESOURCE_FLAG_COMBINED_SAMPLER;
+            if (resource.Type == Diligent::SHADER_RESOURCE_TYPE_BUFFER_SRV || resource.Type == Diligent::SHADER_RESOURCE_TYPE_BUFFER_UAV) desc.Flags |= Diligent::PIPELINE_RESOURCE_FLAG_NO_DYNAMIC_BUFFERS;
+            if (std::string_view(resource.Name) == kBindlessTableName) {
+                desc.ArraySize = tableSize;
+                desc.Flags |= Diligent::PIPELINE_RESOURCE_FLAG_RUNTIME_ARRAY;
+            }
+            resources.push_back(desc);
+        }
+    }
+    std::vector<Diligent::ImmutableSamplerDesc> immutable;
+    for (const NamedSampler& sampler : samplers) {
+        const bool used = std::any_of(resources.begin(), resources.end(), [&](const Diligent::PipelineResourceDesc& resource) { return std::string_view(resource.Name) == sampler.name; });
+        if (used) immutable.push_back({Diligent::SHADER_TYPE_ALL_GRAPHICS | Diligent::SHADER_TYPE_COMPUTE, sampler.name, sampler.desc});
+    }
+    Diligent::PipelineResourceSignatureDesc desc;
+    desc.Name = name.c_str();
+    desc.Resources = resources.data();
+    desc.NumResources = static_cast<Diligent::Uint32>(resources.size());
+    desc.ImmutableSamplers = immutable.data();
+    desc.NumImmutableSamplers = static_cast<Diligent::Uint32>(immutable.size());
+    desc.UseCombinedTextureSamplers = true;
+    RefCntAutoPtr<Diligent::IPipelineResourceSignature> signature;
+    device->CreatePipelineResourceSignature(desc, &signature);
+    if (!signature) Lit::Log::Error("Failed to create resource signature '{}'", name);
+    return signature;
 }
 
 inline RefCntAutoPtr<Diligent::IPipelineState> computePipeline(Diligent::IRenderDevice* device, const std::string& path, std::initializer_list<NamedSampler> samplers = {}, const ShaderMacros& macros = {},

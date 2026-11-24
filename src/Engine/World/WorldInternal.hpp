@@ -42,10 +42,17 @@ inline float maxAxisScale(const glm::mat4& matrix) {
     return std::max({glm::length(glm::vec3(matrix[0])), glm::length(glm::vec3(matrix[1])), glm::length(glm::vec3(matrix[2]))});
 }
 
-inline bool parseCameraValues(std::string_view values, std::array<float, 8>& out) {
-    for (float& value : out) {
-        if (!readNumber(values, value)) return false;
+// "camera x y z yaw pitch fov near far [roll qw qx qy qz]": the optional tail (camera roll and reference frame, written only when
+// they are not 0 / identity) defaults to an upright camera, so older scenes load unchanged.
+inline bool parseCameraValues(std::string_view values, std::array<float, 13>& out) {
+    for (size_t index = 0; index < 8; ++index) {
+        if (!readNumber(values, out[index])) return false;
     }
+    std::array<float, 5> tail{};
+    bool complete = true;
+    for (float& value : tail) complete = complete && readNumber(values, value);
+    if (!complete) tail = {0.0f, 1.0f, 0.0f, 0.0f, 0.0f};
+    for (size_t index = 0; index < tail.size(); ++index) out[8 + index] = tail[index];
     return true;
 }
 

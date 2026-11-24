@@ -1,0 +1,12 @@
+# Bent regression: shrunk counterexample for law `snapshot_restore_identity` (tests/bent/laws/persistence.bent)
+# Found by: bent check tests/bent/laws/persistence.bent --cases 3000 --jobs 6 --seed 1 --shrink-limit 3000 (seed 1, case 8)
+# Shrunk 12 times in 110 attempts; tape 236 -> 5 choices
+# Replay the random case: bent replay tests/bent/laws/persistence.bent --law snapshot_restore_identity --seed 1 --case 8
+# Failure: property is false
+#   tests/bent/laws/persistence.bent:22:33: 1951713124647126080 == 6461341702343246497 is false
+include "../laws/persistence.bent"
+
+example snapshot_restore_identity known "World::captureSnapshot / restoreSnapshot do not include TimeState: the frame counter (in the world hash) keeps running across a restore" {
+  p = [],
+  q = [step(n: 1)]
+}

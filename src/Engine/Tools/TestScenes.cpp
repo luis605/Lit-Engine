@@ -5,6 +5,7 @@ module;
 #include <cmath>
 #include <cstdint>
 #include <cstdio>
+#include <cstdlib>
 #include <functional>
 #include <memory>
 #include <optional>
@@ -40,11 +41,16 @@ bool buildSkinningTestScene(Engine& engine, const TestSceneKit& kit, TestSceneIn
 bool buildTerrainTestScene(Engine& engine, const TestSceneKit& kit, TestSceneInfo& info);
 bool buildShowcaseTestScene(Engine& engine, const TestSceneKit& kit, TestSceneInfo& info, const TestSceneParams& params);
 bool buildProbesTestScene(Engine& engine, const TestSceneKit& kit, TestSceneInfo& info, const TestSceneParams& params);
+bool buildTexturesTestScene(Engine& engine, const TestSceneKit& kit, TestSceneInfo& info, const TestSceneParams& params);
 bool buildLightStressTestScene(Engine& engine, const TestSceneKit& kit, TestSceneInfo& info, const TestSceneParams& params);
 bool buildDenseTestScene(Engine& engine, const TestSceneKit& kit, TestSceneInfo& info, const TestSceneParams& params);
+bool buildInstancingTestScene(Engine& engine, const TestSceneKit& kit, TestSceneInfo& info);
 bool buildMixedTestScene(Engine& engine, const TestSceneKit& kit, TestSceneInfo& info, const TestSceneParams& params);
 bool buildLargeWorldTestScene(Engine& engine, const TestSceneKit& kit, TestSceneInfo& info, const TestSceneParams& params);
 void resetLargeWorldState(Engine& engine);
+uint32_t testSceneMaterial(Engine& engine, const TestSceneKit& kit, const Material& material);
+uint32_t testSceneProceduralMesh(Engine& engine, const std::string& key, const std::vector<float>& vertices, const std::vector<unsigned int>& indices);
+PortalSceneKit testScenePortalKit(Engine& engine, const TestSceneKit& kit);
 
 namespace {
 constexpr size_t kNumberBufferSize = 64;
@@ -119,14 +125,34 @@ struct TortureState {
 constexpr float kTortureWalkSpeed = 1.5f;
 constexpr float kTortureViewportHeight = 1080.0f;
 
-// Static view of the three-room loop (portal_loop): the camera stands in room A looking through the AB portal.
-bool buildLoop(Engine& engine, const TestSceneKit& kit, TestSceneInfo& info) {
+}
+
+// Portal scene kit backed by the test scene pools: metallic frame materials and procedural frame meshes (uploaded once per key).
+PortalSceneKit testScenePortalKit(Engine& engine, const TestSceneKit& kit) {
     PortalSceneKit portalKit;
     portalKit.cube = kit.cube;
     portalKit.sphere = kit.sphere;
     portalKit.floorShader = kit.floorShader;
     portalKit.material = kit.material;
-    buildPortalScene(engine.portals(), engine.world(), portalKit, PortalTestScene::Loop);
+    portalKit.metalMaterial = [&engine, kit](const glm::vec3& color, float metalness, float roughness, const glm::vec3& emissive, float intensity) {
+        Material material;
+        material.name = "Portal frame";
+        material.baseColor = color;
+        material.metallic = metalness;
+        material.roughness = roughness;
+        material.emissive = emissive;
+        material.emissiveIntensity = intensity;
+        return testSceneMaterial(engine, kit, material);
+    };
+    portalKit.mesh = [&engine](const std::string& key, const std::vector<float>& vertices, const std::vector<unsigned int>& indices) { return testSceneProceduralMesh(engine, key, vertices, indices); };
+    return portalKit;
+}
+
+namespace {
+
+// Static view of the three-room loop (portal_loop): the camera stands in room A looking through the AB portal.
+bool buildLoop(Engine& engine, const TestSceneKit& kit, TestSceneInfo& info) {
+    buildPortalScene(engine.portals(), engine.world(), testScenePortalKit(engine, kit), PortalTestScene::Loop);
     info.start = portalSceneStart(PortalTestScene::Loop, info.yaw, info.pitch);
     info.nearPlane = 0.05f;
     info.farPlane = 300.0f;
@@ -142,12 +168,7 @@ bool buildLoop(Engine& engine, const TestSceneKit& kit, TestSceneInfo& info) {
 }
 
 bool buildTorture(Engine& engine, const TestSceneKit& kit, TestSceneInfo& info) {
-    PortalSceneKit portalKit;
-    portalKit.cube = kit.cube;
-    portalKit.sphere = kit.sphere;
-    portalKit.floorShader = kit.floorShader;
-    portalKit.material = kit.material;
-    buildPortalScene(engine.portals(), engine.world(), portalKit, PortalTestScene::Torture);
+    buildPortalScene(engine.portals(), engine.world(), testScenePortalKit(engine, kit), PortalTestScene::Torture);
     info.start = portalSceneStart(PortalTestScene::Torture, info.yaw, info.pitch);
     info.nearPlane = 0.05f;
     info.farPlane = 300.0f;
@@ -156,7 +177,10 @@ bool buildTorture(Engine& engine, const TestSceneKit& kit, TestSceneInfo& info) 
     Engine* enginePointer = &engine;
     engine.addSystem(Phase::Update, "testscene.torture", [enginePointer, state](World& world, float deltaTime) {
         Camera& camera = world.camera();
-        const glm::vec3 forward(std::cos(glm::radians(camera.getYaw())), 0.0f, std::sin(glm::radians(camera.getYaw())));
+        // Walk along the view's heading in the camera's own up frame (stays level after any crossing).
+        const glm::vec3 up = camera.getFrameUp();
+        glm::vec3 forward = camera.getFront() - up * glm::dot(camera.getFront(), up);
+        forward = glm::length(forward) > 1.0e-4f ? glm::normalize(forward) : camera.getFront();
         camera.setPos(camera.getPosition() + forward * kTortureWalkSpeed * deltaTime);
         if (enginePointer->portals().step(camera) >= 0) ++state->crossings;
         const double startMs = nowMs();
@@ -296,7 +320,7 @@ struct CrowdState {
     float distance = 0.0f;
 };
 
-constexpr int kAgents = 500;
+constexpr int kAgents = 1300;
 constexpr float kHalf = 40.0f;
 
 bool buildCrowd(Engine& engine, const TestSceneKit& kit, TestSceneInfo& info) {
@@ -463,6 +487,62 @@ bool hasSystem(Engine& engine, Phase phase, const char* name) {
     return false;
 }
 
+// portal_tilt (docs/Portals.md): hub with a wall-to-floor, a ceiling, a 45 degree rolled and a 180 degree flipped portal. The camera
+// stands still unless LIT_TILT_WALK names a portal (floor, ceiling, rolled, flip): then it starts 2.5 m before that portal's hub end
+// looking at its centre and moves along its view direction at 1.5 m/s (Engine::updatePortals crosses and turns the camera upright).
+struct TiltWalk {
+    int cell = -1;
+    uint32_t crossings = 0;
+    bool active = false;
+};
+
+bool buildTilt(Engine& engine, const TestSceneKit& kit, TestSceneInfo& info) {
+    PortalSystem& portals = engine.portals();
+    buildPortalScene(portals, engine.world(), testScenePortalKit(engine, kit), PortalTestScene::Tilt);
+    info.start = portalSceneStart(PortalTestScene::Tilt, info.yaw, info.pitch);
+    info.nearPlane = 0.05f;
+    info.farPlane = 300.0f;
+    info.suggestedTicks = 240;
+    // LIT_PORTAL_SPILL=<scale>: scale the portals' light spill (0 = off), to compare frames with and without it.
+    if (const char* spill = std::getenv("LIT_PORTAL_SPILL")) portals.settings().spill = std::strtof(spill, nullptr);
+    auto walk = std::make_shared<TiltWalk>();
+    if (const char* name = std::getenv("LIT_TILT_WALK")) {
+        for (const Portal& portal : portals.portals()) {
+            if (portal.name != std::string(name) + ".a") continue;
+            constexpr float kRunUp = 2.5f;
+            constexpr float kMaxStartPitch = 75.0f;
+            const glm::vec3 d = -portal.normal();
+            info.yaw = std::abs(d.y) > 0.9f ? -90.0f : glm::degrees(std::atan2(d.z, d.x));
+            info.pitch = std::clamp(glm::degrees(std::asin(std::clamp(d.y, -1.0f, 1.0f))), -kMaxStartPitch, kMaxStartPitch);
+            const float yawRadians = glm::radians(info.yaw);
+            const float pitchRadians = glm::radians(info.pitch);
+            const glm::vec3 view(std::cos(yawRadians) * std::cos(pitchRadians), std::sin(pitchRadians), std::sin(yawRadians) * std::cos(pitchRadians));
+            info.start = portal.center() - view * (kRunUp / std::max(glm::dot(view, d), 0.2f));
+            walk->active = true;
+        }
+    }
+    Engine* enginePointer = &engine;
+    constexpr float kTiltWalkSpeed = 1.5f;
+    engine.addSystem(Phase::Update, "testscene.tilt", [walk, enginePointer](World& world, float deltaTime) {
+        const int cell = enginePointer->portals().cameraCell();
+        if (walk->cell >= 0 && cell != walk->cell) ++walk->crossings;
+        walk->cell = cell;
+        if (!walk->active) return;
+        // Along the view: a crossing turns the view with the portal transform, the upright relax only rolls it.
+        Camera& camera = world.camera();
+        camera.setPos(camera.getPosition() + camera.getFront() * kTiltWalkSpeed * deltaTime);
+    });
+    info.metrics = [enginePointer, walk]() {
+        TestSceneMetrics metrics;
+        metrics.set("cells", static_cast<double>(enginePointer->portals().cells().size()));
+        metrics.set("portals", static_cast<double>(enginePointer->portals().portals().size()));
+        metrics.set("entities", static_cast<double>(enginePointer->world().aliveCount()));
+        metrics.set("portal_crossings", walk->crossings);
+        return metrics;
+    };
+    return true;
+}
+
 }
 
 // An Engine at a recycled address must not inherit the bookkeeping of a dead one: the marker system lives and dies with the Engine.
@@ -512,7 +592,7 @@ uint32_t testSceneDynamicInstance(Engine& engine, uint32_t source) {
 }
 
 std::vector<std::string> testSceneNames() {
-    return {"portal_loop", "portal_torture", "streaming_route", "crowd", "vista", "skinning", "terrain", "showcase", "probes", "light_stress", "largeworld", "vsm_mixed", "dense", "ik", "gallery"};
+    return {"portal_loop", "portal_torture", "portal_tilt", "streaming_route", "crowd", "vista", "skinning", "terrain", "showcase", "probes", "light_stress", "largeworld", "vsm_mixed", "dense", "ik", "gallery", "textures", "instancing"};
 }
 
 void clearTestSceneSystems(Engine& engine) {
@@ -657,6 +737,7 @@ bool buildTestScene(Engine& engine, const std::string& name, const TestSceneKit&
     bool built = false;
     if (name == "portal_loop") built = buildLoop(engine, kit, info);
     else if (name == "portal_torture") built = buildTorture(engine, kit, info);
+    else if (name == "portal_tilt") built = buildTilt(engine, kit, info);
     else if (name == "streaming_route") built = buildStreaming(engine, kit, info);
     else if (name == "crowd") built = buildCrowd(engine, kit, info);
     else if (name == "vista") built = buildVista(engine, kit, info);
@@ -664,10 +745,12 @@ bool buildTestScene(Engine& engine, const std::string& name, const TestSceneKit&
     else if (name == "terrain") built = buildTerrainTestScene(engine, kit, info);
     else if (name == "showcase") built = buildShowcaseTestScene(engine, kit, info, params);
     else if (name == "probes") built = buildProbesTestScene(engine, kit, info, params);
+    else if (name == "textures") built = buildTexturesTestScene(engine, kit, info, params);
     else if (name == "light_stress") built = buildLightStressTestScene(engine, kit, info, params);
     else if (name == "largeworld") built = buildLargeWorldTestScene(engine, kit, info, params);
     else if (name == "vsm_mixed") built = buildMixedTestScene(engine, kit, info, params);
     else if (name == "dense") built = buildDenseTestScene(engine, kit, info, params);
+    else if (name == "instancing") built = buildInstancingTestScene(engine, kit, info);
     else if (name == "ik") built = buildIkRegistry(engine, kit, info);
     else if (name == "gallery") built = buildGalleryRegistry(engine, kit, info);
     if (built && !info.metrics) {

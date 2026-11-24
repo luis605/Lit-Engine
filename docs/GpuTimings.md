@@ -95,3 +95,13 @@ Variants: baseline = default settings (reflectionMode SSRProbes, bleed, contact 
 | largeworld | 12.57 | 12.56 | 12.55 |
 
 Per pass, showcase (off a / off b / on): Sky+IBL 0.29/0.29/0.30, Shadows 0.98/1.00/1.00, GBuffer 0.21/0.20/0.20, Hi-Z 0.12/0.12/0.12, GTAO 1.11/1.75/1.12, SSR 5.71/5.76/5.02, Lighting 4.47/4.47/5.07, Trans Draw 0.23/0.23/0.23, Post 0.80/0.81/0.80; culling and command generation 0.01-0.02 each in all runs. The SSR/Lighting split moves by about 0.6 ms between runs in both modes (portal_torture off a 4.70/4.81 vs off b 5.42/4.16), their sum does not. The explicit per-pass transitions cost nothing measurable.
+
+## Upload counters (CPU to GPU traffic)
+
+`LIT_UPLOAD_STATS=1` prints, at exit, the upload-heap and dynamic-heap bytes the renderer pushed to the GPU: the average per frame once warm (frames 8 and later), a ranking of call sites (`file:line`, MB per frame, MB over the run, calls) and a second ranking by run total (this shows scene-load uploads). `LIT_UPLOAD_STATS=2` also prints one line per frame; `LIT_UPLOAD_STATS_FILE=path` writes the report to a file. `LitShot --timings FILE` turns the counters on and writes `FILE.uploads`.
+
+Mechanics: two relaxed atomic counters in Diligent's `VulkanUploadHeap::Allocate` (every `UpdateBuffer`/`UpdateTexture`/staging copy) and `VulkanDynamicHeap::Allocate` (every `MAP_FLAG_DISCARD` map). `src/Engine/Render/UploadStats.hpp` snapshots them around a call, `LIT_UP(context)->UpdateBuffer(...)` attributes the delta to the call site, `LIT_UP_MARK`/`LIT_UP_COMMIT` do the same around a `MapHelper`. New upload sites should use `LIT_UP`; the report line `unattributed` is the traffic of sites that do not (portal view code is not wrapped).
+
+Delta uploads (`src/Engine/Render/DiffUpload.hpp`): `LIT_UPDATE_DIFF(context, buffer, offset, size, data)` keeps a CPU shadow of a buffer and sends only the 256 byte blocks that changed (runs merged across gaps of up to 4 KB). Use it only for buffers that no shader writes. `litgpu::zeroFill` clears counter ranges by copying from a persistent zero buffer. `LIT_UPLOAD_LEGACY=1` restores the old full uploads for A/B comparisons.
+
+The `Upload heap of immediate context peak used/allocated frame size` line Diligent prints at shutdown is a peak over the whole run, not per frame: it was dominated by the one-off clear of the VSM page table and stamps (2 x 42.6 MB) at start-up (now a GPU copy). Diligent only recycles upload pages at `Present` (FinishFrame), so a scene that loads its geometry in the first frame (dense, terrain: 85 MB of vertices/indices) still shows that load as the peak.

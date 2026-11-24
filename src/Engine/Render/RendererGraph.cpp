@@ -284,6 +284,19 @@ void Renderer::addGeometryPasses(rg::RenderGraph& graph, FrameGraphData& frame, 
             pass.write(frame.phases[phase], Usage::None);
         }, [this, phase, objectCount, texture](rg::PassContext&) { cullVisibilityPhase(phase, objectCount, texture); });
     };
+    // Instance batches (docs/Instancing.md): cells then instances, appended to the phase's entries before its command generation.
+    auto instanceCull = [&](const char* name, GpuPass timing, int phase, rg::Handle hiz, Diligent::ITexture* texture) {
+        if (!instancingActive()) return;
+        graph.addPass(name, [&](rg::PassBuilder& pass) {
+            pass.timing(timed(timing));
+            pass.read(hiz, Usage::ShaderResource);
+            pass.read(frame.sceneUbo, Usage::None);
+            pass.read(frame.objects, Usage::None);
+            pass.read(frame.instances, Usage::None);
+            pass.write(frame.visibilityBits, Usage::None);
+            pass.write(frame.phases[phase], Usage::None);
+        }, [this, phase, texture, main](rg::PassContext&) { cullInstances(phase, texture, main ? (phase == kPhaseOpaque ? 0u : 1u) : 3u); });
+    };
     auto commands = [&](const char* name, const char* meshletName, GpuPass timing, int phase, rg::Handle hiz) {
         graph.addPass(name, [&](rg::PassBuilder& pass) {
             pass.timing(timed(timing));
@@ -321,6 +334,7 @@ void Renderer::addGeometryPasses(rg::RenderGraph& graph, FrameGraphData& frame, 
     };
 
     cull("Cull", GpuPass::Cull, kPhaseOpaque, hizPrevious, previousHiZ);
+    instanceCull("Instance Cull", GpuPass::InstanceCull, kPhaseOpaque, hizPrevious, previousHiZ);
     commands("CmdGen", "Meshlet Cull", GpuPass::CommandGen, kPhaseOpaque, hizPrevious);
     draw("GBuffer", "Meshlet GBuffer", GpuPass::OpaqueDraw, kPhaseOpaque, true);
     graph.addPass("Hi-Z", [&](rg::PassBuilder& pass) {
@@ -338,6 +352,7 @@ void Renderer::addGeometryPasses(rg::RenderGraph& graph, FrameGraphData& frame, 
         BuildHiZ(state, set.texture.RawPtr(), set.source, set.dest, m_renderWidth, m_renderHeight, m_maxMipLevel);
     });
     cull("Retest Cull", GpuPass::RetestCull, kPhaseRetest, hizCurrent, currentHiZ);
+    instanceCull("Instance Retest Cull", GpuPass::InstanceRetestCull, kPhaseRetest, hizCurrent, currentHiZ);
     commands("Retest CmdGen", "Meshlet Retest Cull", GpuPass::RetestCommandGen, kPhaseRetest, hizCurrent);
     draw("Retest GBuffer", "Meshlet Retest GBuffer", GpuPass::RetestDraw, kPhaseRetest, false);
     if (!main || frame.portalsActive) {
@@ -527,6 +542,7 @@ void Renderer::renderFrameGraph(SceneDatabase& sceneDatabase, const Camera& came
     frame.vertices = graph.importBuffer("vertices", Native(gpu.pVBO.RawPtr()));
     frame.indices = graph.importBuffer("indices", Native(gpu.pEBO.RawPtr()));
     frame.objects = graph.importBuffer("objects", Native(gpu.pWorldMatrixBuffer[slot].RawPtr()));
+    frame.instances = graph.importBuffer("instancePool", Native(gpu.pInstanceBuffer.RawPtr()));
     static constexpr const char* kPhaseNames[kPhaseCount] = {"opaque", "retest", "transparent", "shadow"};
     for (int phase = 0; phase < kPhaseCount; ++phase) {
         frame.phases[phase] = graph.importBuffer(std::format("visibility/{}", kPhaseNames[phase]), Native(gpu.visibility[phase].drawCommands.RawPtr()));
@@ -546,6 +562,11 @@ void Renderer::renderFrameGraph(SceneDatabase& sceneDatabase, const Camera& came
         pass.write(frame.objects, Usage::None);
         pass.sideEffect();
     }, [this, &plan, &sceneDatabase](rg::PassContext&) { plan = uploadSceneData(sceneDatabase); });
+    graph.addPass("Instance Upload", [&](rg::PassBuilder& pass) {
+        pass.timing(static_cast<int>(GpuPass::Upload));
+        pass.write(frame.instances, Usage::None);  // pool, cells and batch records (the pool may be re-created when it grows)
+        pass.sideEffect();
+    }, [this](rg::PassContext&) { uploadInstances(); });
     graph.addPass("Transforms", [&](rg::PassBuilder& pass) {
         pass.timing(static_cast<int>(GpuPass::Transform));
         pass.write(frame.objects, Usage::None);
@@ -568,8 +589,9 @@ void Renderer::renderFrameGraph(SceneDatabase& sceneDatabase, const Camera& came
         m_lighting.beginFrame(frame.input, frame.uniforms);
         beginSharedCascades();
         state.mainInput = frame.input;
-        state.pImmediateContext->UpdateBuffer(state.pSceneUBO[m_currentFrame], 0, sizeof(SceneUniforms), &frame.uniforms, Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
+        LIT_UP(state.pImmediateContext)->UpdateBuffer(state.pSceneUBO[m_currentFrame], 0, sizeof(SceneUniforms), &frame.uniforms, Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
         if (state.surfaceBindingVersion != m_lighting.bindingVersion()) rebindSurfaceResources();
+        syncTextureTable();
     });
     graph.addPass("Custom Before Scene", [&](rg::PassBuilder& pass) { pass.sideEffect(); }, [this](rg::PassContext&) { m_custom.runCompute(ComputeStage::BeforeScene, customFrame()); });
     const std::vector<rg::ExternalAccess> prepare = [&] {

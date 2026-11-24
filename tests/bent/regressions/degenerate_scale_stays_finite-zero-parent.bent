@@ -1,0 +1,13 @@
+# Bent regression: shrunk counterexample for law `degenerate_scale_stays_finite` (tests/bent/laws/core.bent)
+# Found by: bent check tests/bent/laws/core.bent --law degenerate_scale_stays_finite --cases 3000 (seed 1, case 54); shrunk 65 times
+# Failure: property is false (World::setParent(keepWorld) under a zero-scale parent inverted a singular matrix: NaN local matrix)
+# Fixed in src/Engine/World/World.cpp (setParent keeps the previous local matrix when the inverse is not finite).
+include "../laws/core.bent"
+
+example degenerate_scale_stays_finite {
+  p = [
+    spawn(dynamic: false, parent: -1, pos: vec3(0.0, 0.0, 0.0), rot: quat(1.0, 0.0, 0.0, 0.0), scale: vec3(0.0, 0.0, 0.0), shape: "none"),
+    spawn(dynamic: false, parent: -1, pos: vec3(0.0, 0.0, 0.0), rot: quat(1.0, 0.0, 0.0, 0.0), scale: vec3(0.0, 0.0, 0.0), shape: "none"),
+    reparent(keepWorld: true, parent: 1, target: 0)
+  ]
+}

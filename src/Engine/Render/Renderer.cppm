@@ -28,6 +28,7 @@ import Engine.Render.scenedatabase;
 import Engine.Render.entity;
 import Engine.mesh;
 import Engine.meshlet;
+import Engine.Instancing;
 import Engine.Skin;
 import Engine.UI.manager;
 import Engine.UI.imgui;
@@ -41,7 +42,7 @@ import Engine.Render.observation;
 import Engine.Render.graph;
 import Engine.glm;
 
-enum class GpuPass : uint8_t { Upload, Transform, Sky, Shadows, Cull, CommandGen, OpaqueDraw, HiZ, RetestCull, RetestCommandGen, RetestDraw, TransparentCull, TransparentCommandGen, AmbientOcclusion, Reflections, Lighting, TransparentDraw, Post, Ui, Count };
+enum class GpuPass : uint8_t { Upload, Transform, Sky, Shadows, Cull, CommandGen, OpaqueDraw, HiZ, RetestCull, RetestCommandGen, RetestDraw, TransparentCull, TransparentCommandGen, AmbientOcclusion, Reflections, Lighting, TransparentDraw, Post, Ui, InstanceCull, InstanceRetestCull, Count };
 
 export struct GpuEntityState {
     glm::mat4 world;
@@ -100,6 +101,9 @@ export class Renderer {
     [[nodiscard]] float currentEv100() const { return m_lighting.currentEv100(); }
     [[nodiscard]] glm::vec3 sunDirection() const { return m_lighting.sunDirection(); }
     int loadTexture(const std::string& path, bool srgb) { return m_lighting.loadTexture(path, srgb); }
+    void releaseTexture(int index) { m_lighting.releaseTexture(index); }
+    [[nodiscard]] bool bindlessTextures() const { return m_lighting.bindlessTextures(); }
+    [[nodiscard]] uint32_t textureTableUsed() const { return m_lighting.textureTableUsed(); }
     uint32_t loadSurfaceShader(const std::string& name, const std::string& path);
     [[nodiscard]] CustomPasses& custom() { return m_custom; }
     [[nodiscard]] std::vector<std::string> surfaceNames() const;
@@ -111,6 +115,11 @@ export class Renderer {
     // Cluster LOD (dense geometry, RendererMeshlets.cpp): attaches the cluster DAG of an uploaded mesh.
     void uploadClusterMesh(uint32_t meshId, const ClusterMesh& clusters);
     [[nodiscard]] ClusterRenderStats clusterStats() const;
+    // GPU instancing (RendererInstancing.cpp, docs/Instancing.md): Engine::syncInstanceBatches mirrors every InstanceBatch component.
+    uint32_t createInstanceBatch();
+    void syncInstanceBatch(uint32_t batch, const InstanceBatch& data, Entity owner, bool visible);
+    void destroyInstanceBatch(uint32_t batch);
+    [[nodiscard]] InstanceRenderStats instanceStats() const;
     // Dynamic meshes (skinning, morph targets, procedural deform; RendererSkinning.cpp, docs/Skinning.md).
     // A source holds the shared rest data; every instance owns a mesh id whose vertices a compute pass rewrites,
     // so culling, shadows, Hi-Z and portal views draw it like any other mesh.
@@ -142,10 +151,9 @@ export class Renderer {
     void setProfilingHud(bool enabled) { m_profilingHud = enabled; }
     void requestScreenshot(std::string path) { m_screenshotPath = std::move(path); }
     void setPortalFrame(PortalFrame frame);
-    void portalCrossed() {
-        m_lighting.snapExposure();
-        m_lighting.setPyramidValid(false);
-    }
+    // The image is continuous across a crossing (the destination was already on screen), so exposure keeps adapting instead of
+    // snapping (a snap jumps to the converged value: a visible pop). Only the colour pyramid of the previous space is dropped.
+    void portalCrossed() { m_lighting.setPyramidValid(false); }
     void setObservationQuery(ObservationQuery query);
     void clearObservationQuery();
     bool takeObservation(ObservationReadback& out);
@@ -207,6 +215,7 @@ export class Renderer {
     void bindVisibilityResources(int frameIndex);
     void bindShadowResources(int frameIndex);
     void rebindSurfaceResources();
+    void syncTextureTable();
 
     uint32_t uploadMeshSlot(const Mesh& mesh, uint32_t forcedSlot = 0xFFFFFFFFu);
     void growGeometryBuffers(size_t vertexDataSize, size_t indexDataSize);
@@ -263,6 +272,14 @@ export class Renderer {
     [[nodiscard]] bool meshletMeshInfoStale() const;
     bool uploadMeshletMeshInfo(size_t count);
     void releaseMeshlets();
+    void invalidateMeshletBindings();
+    [[nodiscard]] bool instancingActive() const;
+    void uploadInstances();
+    void dispatchInstanceCull(int mode, int phaseIndex, Diligent::ITexture* hiz, const void* constants);
+    void cullInstances(int phaseIndex, Diligent::ITexture* hiz, uint32_t statsGroup);
+    void cullInstanceCascade(int cascadeIndex);
+    void cullInstanceLocal(uint32_t firstView, uint32_t viewCount, std::span<const glm::vec4> origins);
+    void releaseInstancing();
     void releaseClusterMesh(uint32_t meshId);
     void updateDynamicMeshes();
     void planTransformWork(SceneDatabase& sceneDatabase, TransformPlan& plan);
@@ -413,5 +430,6 @@ export class Renderer {
     CustomPasses m_custom;
     DiligentData* m_diligent = nullptr;
     std::shared_ptr<void> m_meshlets;  // MeshletState, RendererMeshlets.cpp
+    std::shared_ptr<void> m_instancing;  // InstancingState, RendererInstancing.cpp
     Diligent::ITexture* m_meshletHiZ = nullptr;
 };

@@ -1,0 +1,76 @@
+# Spatial grid queries agree with brute force over every entity's bounding sphere (World::getWorldBounds).
+include "../lib/prelude.bent"
+
+gen farPos = vec3(float(-80, 80), float(-20, 20), float(-80, 80))
+gen spatialAction = frequency([
+    [6, spawn(shape: "none", dynamic: false, pos: farPos, mesh: int(-1, 7), scale: scaleGen, rot: unitQuat())],
+    [1, spawn(shape: "none", dynamic: false, pos: farPos, mesh: int(0, 7), scale: vec3(float(5, 60), float(5, 60), float(5, 60)))],
+    [1, spawn(shape: "none", dynamic: false, pos: vec3(float(-3, 3), float(-3, 3), float(-3, 3)), mesh: int(0, 7), parent: target)],
+    [3, move(target: target, delta: vec3(float(-40, 40), float(-10, 10), float(-40, 40)))],
+    [2, teleport(target: target, pos: farPos)],
+    [2, destroy(target: target)],
+    [1, setScale(target: target, scale: vec3(float(0.1, 20), float(0.1, 20), float(0.1, 20)))],
+    [1, reparent(target: target, parent: int(-1, 31))],
+    [1, setVisible(target: target, visible: bool())],
+    [1, compact()],
+    [1, step(n: 1)]
+])
+gen spatialProgram = listOf(spatialAction, 1, 40)
+
+# Hidden entities are not in the spatial index (by design: World queries are for visible geometry), so brute force skips them too.
+fn queryable(e) = visible(e) and bounds(e).radius > 0
+fn gap(e, c, r) = let b = bounds(e) in distance(b.center, c) - r - b.radius
+
+law overlap_matches_brute_force {
+    forall (p: spatialProgram, c: farPos, r: float(0, 40))
+    => after(p) {
+        let got = overlap(c, r) in
+        (forall e in entities(): (queryable(e) and gap(e, c, r) < -1e-3) ==> contains(got, e))
+        and (forall e in got: gap(e, c, r) <= 1e-3)
+        and allDistinct(got)
+    }
+}
+
+fn raySphere(o, d, c, r) =
+    let oc = o - c in
+    let b = dot(oc, d) in
+    let disc = b * b - (dot(oc, oc) - r * r) in
+    if disc < 0 then -1.0 else (let t = 0 - b - sqrt(disc) in if t >= 0 then t else 0 - b + sqrt(disc))
+
+fn bruteRay(from, to) =
+    let d = normalize(to - from) in
+    let reach = distance(from, to) in
+    fold(entities(), {hit: false, distance: 1e30, entity: -1}, fn(best, e) =>
+        let b = bounds(e) in
+        if not queryable(e) then best else (
+            let t = raySphere(from, d, b.center, b.radius) in
+            if t >= 0 and t <= reach and t < best.distance then {hit: true, distance: t, entity: e} else best))
+
+# Near-tangent rays and hits at the very end of the segment are numerically ambiguous: only clear cases are checked.
+fn ambiguous(from, to) =
+    let d = normalize(to - from) in
+    exists e in entities(): (let b = bounds(e) in queryable(e) and (
+        let oc = from - b.center in
+        let bb = dot(oc, d) in
+        let disc = bb * bb - (dot(oc, oc) - b.radius * b.radius) in
+        abs(disc) < 1e-2 * (1 + b.radius * b.radius)
+        or abs(raySphere(from, d, b.center, b.radius) - distance(from, to)) < 1e-2))
+
+law raycast_matches_brute_force {
+    forall (p: spatialProgram, from: farPos, to: farPos)
+    where distance(from, to) > 0.01
+    => after(p) {
+        ambiguous(from, to) or (
+            let got = raycast(from, to) in
+            let want = bruteRay(from, to) in
+            got.hit == want.hit and (not got.hit or got.distance ~= want.distance within 1e-3))
+    }
+}
+
+# The bounding sphere of a mesh entity follows its transform: centre at the world position, radius scaled by the largest axis.
+law bounds_follow_transform {
+    forall (p: spatialProgram)
+    => after(p) {
+        forall e in entities(): bounds(e).radius == 0 or bounds(e).center ~= worldPosition(e) within 1e-3
+    }
+}

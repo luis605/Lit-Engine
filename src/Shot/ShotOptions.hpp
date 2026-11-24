@@ -19,7 +19,7 @@ struct ShotOptions {
     std::vector<std::pair<std::string, std::string>> settings;
     float lightIntensity = kDefaultLightIntensity;
     bool hasCamera = false;
-    float cameraValues[5] = {};
+    float cameraValues[6] = {};  // x, y, z, yaw, pitch, roll (degrees, roll optional)
     bool noProbe = false;
     bool deterministic = false;  // LIT_FIXED_DT=1/60 and LIT_FIXED_WINDOW=1 (reproducible frames, fixed window size)
     int bakeFrame = 0;

@@ -40,7 +40,7 @@ void updateParams(Diligent::IDeviceContext* context, Pass& pass, const CustomFra
     ParamBlock block{};
     for (int index = 0; index < kParamCount; ++index) block.params[index] = pass.info.params[index];
     block.time = glm::vec4(frame.time, frame.deltaTime, static_cast<float>(frame.frame), 0.0f);
-    context->UpdateBuffer(pass.params, 0, sizeof(block), &block, Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
+    LIT_UP(context)->UpdateBuffer(pass.params, 0, sizeof(block), &block, Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
 }
 
 void setFrameViewport(Diligent::IDeviceContext* context, const CustomFrame& frame) {

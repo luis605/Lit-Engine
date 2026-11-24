@@ -33,7 +33,7 @@ glm::vec3 flatForward(float yawDegrees) {
     return glm::vec3(std::cos(yaw), 0.0f, std::sin(yaw));
 }
 
-float yawOf(const glm::vec3& forward) { return glm::degrees(std::atan2(forward.z, forward.x)); }
+float pitchLimit(float limit, float current) { return std::max(limit, std::abs(current)); }
 }
 
 CharacterController::CharacterController(World& world, PortalSystem& portals, const PhysicsSettings& physics, CharacterSettings settings, CameraRigSettings rig)
@@ -79,8 +79,13 @@ void CharacterController::spawn(const glm::vec3& feet, float yawDegrees, float p
     if (!finiteVec(feet) || !std::isfinite(yawDegrees) || !std::isfinite(pitchDegrees)) return;
     m_position = feet;
     m_velocity = glm::vec3(0.0f);
-    m_yaw = yawDegrees;
-    m_pitch = pitchDegrees;
+    m_view = ViewOrientation{};
+    m_view.yaw = yawDegrees;
+    m_view.pitch = pitchDegrees;
+    if (glm::length(glm::cross(m_up, glm::vec3(0.0f, 1.0f, 0.0f))) > 1.0e-5f || m_up.y < 0.0f) {
+        m_view.frame = rotationBetween(glm::vec3(0.0f, 1.0f, 0.0f), m_up);
+        m_view.framed = true;
+    }
     m_cell = std::max(m_portals.cellAt(feet + m_up * (m_settings.height * 0.5f)), 0);
     m_world.setPosition(m_entity, m_position);
     m_probe = probe();
@@ -90,8 +95,9 @@ void CharacterController::spawn(const glm::vec3& feet, float yawDegrees, float p
 
 void CharacterController::look(float yawDeltaDegrees, float pitchDeltaDegrees) {
     if (!std::isfinite(yawDeltaDegrees) || !std::isfinite(pitchDeltaDegrees)) return;
-    m_yaw += yawDeltaDegrees;
-    m_pitch = std::clamp(m_pitch + pitchDeltaDegrees, -m_rig.settings().maxPitch, m_rig.settings().maxPitch);
+    m_view.yaw += yawDeltaDegrees;
+    const float limit = pitchLimit(m_rig.settings().maxPitch, m_view.pitch);
+    m_view.pitch = std::clamp(m_view.pitch + pitchDeltaDegrees, -limit, limit);
 }
 
 glm::vec3 CharacterController::gravity() const {
@@ -99,13 +105,14 @@ glm::vec3 CharacterController::gravity() const {
     return m_portals.sampleParams(m_cell, m_position + m_up * (m_settings.height * 0.5f)).gravity;
 }
 
-glm::vec3 CharacterController::eye() const { return m_position + glm::vec3(0.0f, m_rig.settings().eyeHeight, 0.0f); }
+glm::vec3 CharacterController::eye() const { return m_position + m_up * m_rig.settings().eyeHeight; }
 
 glm::vec3 CharacterController::probe() const {
     if (m_rig.mode() != CameraMode::FirstPerson) return eye();
-    const float yaw = glm::radians(m_yaw);
-    const float pitch = glm::radians(m_pitch);
-    const glm::vec3 forward(std::cos(yaw) * std::cos(pitch), std::sin(pitch), std::sin(yaw) * std::cos(pitch));
+    glm::vec3 forward;
+    glm::vec3 up;
+    glm::vec3 right;
+    orientationBasis(m_view, forward, up, right);
     return eye() + forward * m_world.camera().getNearPlane();
 }
 
@@ -219,7 +226,7 @@ void CharacterController::checkCross(const glm::vec3& previousProbe) {
     if (!m_portals.active()) return;
     glm::vec3 moved = probe();
     int cell = m_cell;
-    const int portalId = m_portals.stepPoint(moved, cell, previousProbe, true);
+    const int portalId = m_portals.stepPoint(moved, cell, previousProbe, false);
     if (portalId < 0) {
         const int resolved = m_portals.resolveCell(m_cell, probe());
         if (resolved != m_cell) {
@@ -232,21 +239,33 @@ void CharacterController::checkCross(const glm::vec3& previousProbe) {
     m_position = place(transform, m_position);
     m_velocity = rotate(transform, m_velocity);
     m_up = glm::normalize(rotate(transform, m_up));
-    m_yaw = yawOf(rotate(transform, flatForward(m_yaw)));
+    // The view frame takes the rotation (exact view continuity); alignUp then turns it back to gravity-up.
+    rotateOrientation(m_view, glm::mat3(transform));
     m_cell = cell;
     ++m_crossings;
     m_portals.setCameraCell(cell);
 }
 
 void CharacterController::alignUp(const glm::vec3& gravityVector, float stepSeconds) {
-    if (glm::length(gravityVector) <= kMinGravity) return;
-    const glm::vec3 target = -glm::normalize(gravityVector);
-    const glm::vec3 blended = glm::mix(m_up, target, 1.0f - std::exp(-m_settings.upResponse * stepSeconds));
-    if (glm::length(blended) > kMinDirection) m_up = glm::normalize(blended);
+    if (glm::length(gravityVector) > kMinGravity) {
+        const glm::vec3 target = -glm::normalize(gravityVector);
+        if (m_settings.uprightSeconds <= 0.0f) {
+            m_up = target;
+        } else {
+            // Opposite up (180 degree flip): blend through a perpendicular so the result never collapses to zero.
+            glm::vec3 from = m_up;
+            if (glm::dot(from, target) < -0.999f) from = glm::normalize(from + glm::cross(from, glm::vec3(0.0f, 0.0f, 1.0f)) * 0.05f + glm::cross(from, glm::vec3(1.0f, 0.0f, 0.0f)) * 0.05f);
+            const glm::vec3 blended = glm::mix(from, target, 1.0f - std::exp(-m_settings.upResponse * stepSeconds));
+            if (glm::length(blended) > kMinDirection) m_up = glm::normalize(blended);
+        }
+    }
+    // The view frame follows the physics up keeping the view direction; the leftover roll decays over uprightSeconds.
+    relaxOrientation(m_view, m_up, stepSeconds, m_settings.uprightSeconds, kMaxCameraPitch);
 }
 
 glm::vec3 CharacterController::wishVelocity() const {
-    glm::vec3 forward = flatForward(m_yaw);
+    glm::vec3 forward = flatForward(m_view.yaw);
+    if (m_view.framed) forward = m_view.frame * forward;
     forward = forward - m_up * glm::dot(forward, m_up);
     forward = glm::length(forward) > kMinDirection ? glm::normalize(forward) : glm::vec3(1.0f, 0.0f, 0.0f);
     const glm::vec3 right = glm::normalize(glm::cross(forward, m_up));
@@ -304,7 +323,12 @@ void CharacterController::consumeImpacts() {
 
 void CharacterController::updateCamera() {
     Camera& camera = m_world.camera();
-    camera.setOrientation(m_yaw + m_kick.x, std::clamp(m_pitch + m_kick.y, -kMaxCameraPitch, kMaxCameraPitch));
+    ViewOrientation view = m_view;
+    view.yaw += m_kick.x;
+    const float limit = pitchLimit(kMaxCameraPitch, m_view.pitch);
+    view.pitch = std::clamp(m_view.pitch + m_kick.y, -limit, limit);
+    camera.setOrientationState(view);
+    m_rig.setUp(m_up);
     if (m_rig.mode() == CameraMode::FirstPerson) {
         m_rig.update();
         return;
@@ -315,13 +339,13 @@ void CharacterController::updateCamera() {
     int cell = m_cell;
     if (m_swept && m_lastCast.crossings > 0 && distance > 0.0f) {
         const glm::vec3 forward = m_rig.forward();
-        const glm::vec3 sideways = glm::cross(forward, glm::vec3(0.0f, 1.0f, 0.0f));
+        const glm::vec3 sideways = glm::cross(forward, m_up);
         const glm::vec3 shoulder = glm::length(sideways) > kMinDirection ? glm::normalize(sideways) : glm::vec3(0.0f);
         const glm::vec3 anchor = eye() + shoulder * m_rig.settings().shoulderOffset;
         const PortalCast trace = portalSweep(m_portals, m_world, anchor, -forward, distance, 0.0f, m_cell, {}, false);
         camera.setPos(trace.point);
-        const glm::vec3 viewForward = -trace.direction;
-        camera.setOrientation(yawOf(viewForward), glm::degrees(std::asin(glm::clamp(viewForward.y, -1.0f, 1.0f))));
+        // Orientation carried through the portals the boom crossed (any rigid transform, rolled ones included).
+        camera.rotateBy(glm::mat3(trace.transform));
         cell = trace.cell;
     }
     m_portals.setCameraCell(cell);

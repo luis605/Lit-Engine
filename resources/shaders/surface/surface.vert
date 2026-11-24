@@ -26,6 +26,9 @@ layout(std430) readonly buffer VisibleObjectBuffer {
     uvec2 visibleEntries[];
 };
 
+#define LIT_INSTANCE_OWNER_WORLD(entity) loadWorld(worldRows[entity])
+#include "instancing.glsl"
+
 #ifdef TRANSPARENT
 layout(std430) readonly buffer AlphaBuffer {
     uint packedAlphas[];
@@ -45,6 +48,7 @@ layout(location = 3) flat out uint out_entity;
 layout(location = 4) flat out uint out_material;
 layout(location = 5) out vec3 out_objectPos;
 layout(location = 6) flat out float out_alpha;
+layout(location = 9) flat out uvec2 out_instance;
 #endif
 
 #pragma lit_user_code
@@ -55,11 +59,24 @@ void main() {
     uint materialId = entry.y & 0x7FFFu;
     uint maskBit = entry.y & 0x8000u;
     
-    mat4 model = loadWorld(worldRows[objectId]);
+    // InstanceBatch entries (docs/Instancing.md): batch entity world times the instance's local transform.
+    bool instanced = isInstanceEntry(objectId);
+    uint entity = objectId;
+    uvec2 instanceData = uvec2(0xFFFFFFFFu, (objectId * 2654435761u) >> 8u);
+    mat4 model;
+    if (instanced) {
+        uint slot = instanceSlot(objectId);
+        InstanceGpu instance = instances[slot];
+        entity = instanceBatches[instanceBatchIndex(slot)].info.x;
+        model = loadWorld(worldRows[entity]) * instanceLocal(instance);
+        instanceData = uvec2(instance.packed.z, instanceSeedOf(instance));
+    } else {
+        model = loadWorld(worldRows[objectId]);
+    }
     VertexData v = VertexData(in_position, in_normal, in_uv);
 #ifdef LIT_USER_VERTEX
     MaterialData m = materials[materialId];
-    VertexContext c = VertexContext(model, objectId, materialId, sceneTime(), m.custom0, m.custom1);
+    VertexContext c = VertexContext(model, entity, materialId, sceneTime(), m.custom0, m.custom1, unpackUnorm4x8(instanceData.x), instanceData.y);
     vertex(v, c);
 #endif
     vec4 worldPos = model * vec4(v.position, 1.0);
@@ -72,11 +89,12 @@ void main() {
     out_worldPos = worldPos.xyz;
     out_normal = normalize(cofactor * v.normal) * detSign;
     out_uv = v.uv;
-    out_entity = objectId;
+    out_entity = entity;
     out_material = materialId | maskBit;
     out_objectPos = v.position;
+    out_instance = instanceData;
 #ifdef TRANSPARENT
-    out_alpha = float((packedAlphas[objectId >> 2u] >> ((objectId & 3u) * 8u)) & 0xFFu) * (1.0 / 255.0);
+    out_alpha = instanced ? 1.0 : float((packedAlphas[objectId >> 2u] >> ((objectId & 3u) * 8u)) & 0xFFu) * (1.0 / 255.0);
 #else
     out_alpha = 1.0;
 #endif

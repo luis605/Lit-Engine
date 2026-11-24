@@ -103,7 +103,9 @@ void Renderer::drawDebugDepth(const Camera& camera) {
     auto* context = gpu.pImmediateContext.RawPtr();
     const DebugDepthUniforms uniforms{camera.getNearPlane(), camera.getFarPlane(), 0.0f, 0.0f};
     {
+        LIT_UP_MARK(litUp10);
         Diligent::MapHelper<DebugDepthUniforms> mapped(gpu.pImmediateContext, gpu.pDebugDepthUniforms, Diligent::MAP_WRITE, Diligent::MAP_FLAG_DISCARD);
+        LIT_UP_COMMIT(litUp10);
         *mapped = uniforms;
     }
 
@@ -121,12 +123,14 @@ void Renderer::drawDebugLines(const Camera& camera) {
     const size_t overlayVertices = std::min(m_debugOverlayLines.size() / kFloatsPerDebugVertex, kMaxDebugVertices - depthVertices);
     auto uploadVertices = [&](const std::vector<float>& source, size_t firstVertex, size_t vertexCount) {
         if (vertexCount == 0) return;
-        context->UpdateBuffer(gpu.pDebugLineVB, firstVertex * sizeof(DebugLineVertex), vertexCount * sizeof(DebugLineVertex), source.data(), Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
+        LIT_UP(context)->UpdateBuffer(gpu.pDebugLineVB, firstVertex * sizeof(DebugLineVertex), vertexCount * sizeof(DebugLineVertex), source.data(), Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
     };
     uploadVertices(m_debugLines, 0, depthVertices);
     uploadVertices(m_debugOverlayLines, depthVertices, overlayVertices);
     {
+        LIT_UP_MARK(litUp11);
         Diligent::MapHelper<glm::mat4> viewProjection(gpu.pImmediateContext, gpu.pDebugLineUBO, Diligent::MAP_WRITE, Diligent::MAP_FLAG_DISCARD);
+        LIT_UP_COMMIT(litUp11);
         *viewProjection = camera.getProjectionMatrix() * camera.getViewMatrix();
     }
     Diligent::IBuffer* vertexBuffers[] = {gpu.pDebugLineVB};

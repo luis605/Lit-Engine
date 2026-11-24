@@ -12,6 +12,7 @@ import Engine.World;
 import Engine.Render.settings;
 import Engine.asset;
 import Engine.Portal.view;
+import Engine.Instancing;
 
 void buildScene(Engine& engine, const ShotOptions& options);
 
@@ -33,6 +34,16 @@ void writeClusterStats(Engine& engine, const std::string& path) {
     };
     view("camera", stats.camera);
     view("shadow", stats.shadow);
+    // GPU instancing (docs/Instancing.md): main-view and shadow cull counters of the last read-back frame.
+    const InstanceRenderStats instances = engine.instanceStats();
+    out << "instancingEnabled " << instances.enabled << "\ninstanceBatches " << instances.batches << "\ninstances " << instances.instances << "\ninstancePoolCells " << instances.poolCells << "\ninstanceFrame " << instances.frame << '\n';
+    auto instanceView = [&](const char* prefix, const InstanceViewStats& v) {
+        out << prefix << "CellsTested " << v.cellsTested << '\n' << prefix << "CellsAccepted " << v.cellsAccepted << '\n' << prefix << "InstancesTested " << v.instancesTested << '\n' << prefix << "Visible " << v.visible << '\n' << prefix << "Occluded " << v.occluded << '\n' << prefix << "Overflow " << v.overflow << '\n';
+    };
+    instanceView("instanceEarly", instances.early);
+    instanceView("instanceRetest", instances.retest);
+    instanceView("instanceShadow", instances.shadow);
+    for (size_t lod = 0; lod < instances.perLod.size(); ++lod) out << "instanceLod" << lod << ' ' << instances.perLod[lod] << '\n';
     for (const PortalViewStats& portal : engine.portalStats()) {
         out << "portalView " << (portal.label.empty() ? std::string("main") : portal.label) << " depth " << portal.depth << " drawn " << portal.drawn << " sunCascades " << portal.sunCascades << " sharedCascades " << portal.sharedCascades << '\n';
     }
@@ -57,6 +68,11 @@ int main(int argc, char** argv) {
     }
     // Animated scenes (testscene.* systems) advance by world time: a fixed step makes frame N identical from run to run.
     if (options.testScene == "light_stress" || options.testScene == "vsm_mixed" || options.testScene == "largeworld") setenv("LIT_FIXED_DT", "0.016666667", 0);
+    if (!options.timingsFile.empty() && !std::getenv("LIT_UPLOAD_STATS")) {
+        // Upload traffic report next to the pass timings (docs/GpuTimings.md).
+        setenv("LIT_UPLOAD_STATS", "1", 0);
+        setenv("LIT_UPLOAD_STATS_FILE", (options.timingsFile + ".uploads").c_str(), 0);
+    }
     Engine engine;
     if (!engine.open({"LitShot", options.width, options.height})) return 1;
     engine.setFullProfiling(!options.timingsFile.empty());
@@ -64,7 +80,7 @@ int main(int argc, char** argv) {
     buildScene(engine, options);
     if (options.hasCamera) {
         engine.world().camera().setPos(glm::vec3(options.cameraValues[0], options.cameraValues[1], options.cameraValues[2]));
-        engine.world().camera().setOrientation(options.cameraValues[3], options.cameraValues[4]);
+        engine.world().camera().setOrientation(options.cameraValues[3], options.cameraValues[4], options.cameraValues[5]);
     }
     applySettings(engine, options);
 

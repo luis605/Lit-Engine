@@ -16,6 +16,12 @@ export struct PortalSurface {
     glm::vec3 normal{0.0f, 0.0f, 1.0f};
     glm::vec3 fallback{0.05f};
     int child = -1;
+    // Opening and edge (PortalLook): x shape (0 rect, 1 ellipse, 2 rounded), y corner radius (m), z feather (px), w dissolve (0..1).
+    glm::vec4 shape{0.0f, 0.0f, 1.0f, 0.0f};
+    // x rim glow strength (exposed HDR), y rim width (m), z refraction (px), w chromatic split (px).
+    glm::vec4 edge{0.0f};
+    // rgb rim colour, w Fresnel strength.
+    glm::vec4 rim{0.0f};
 };
 
 export struct PortalViewNode {

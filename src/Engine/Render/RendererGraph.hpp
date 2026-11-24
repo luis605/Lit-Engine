@@ -63,6 +63,7 @@ struct FrameGraphData {
     rg::Handle vertices;
     rg::Handle indices;
     rg::Handle objects;
+    rg::Handle instances;  // instance pool (RendererInstancing.cpp)
     rg::Handle phases[kPhaseCount];
     rg::Handle meshlets[kPhaseCount];
     rg::Handle accumulation;

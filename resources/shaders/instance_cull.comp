@@ -1,0 +1,164 @@
+#version 450
+#extension GL_KHR_shader_subgroup_basic : enable
+#extension GL_KHR_shader_subgroup_ballot : enable
+#extension GL_GOOGLE_include_directive : require
+#include "instance_cull.glsl"
+#include "material.glsl"
+
+// Level 2 of the instance cull: one workgroup per cell accepted by instance_cells.comp, one thread per instance.
+// Per instance: free mask, frustum (or cascade planes / local shadow faces), draw distance with a seed-dithered fade,
+// Hi-Z (camera), LOD from the screen-space size (camera) or shadow texels (cascades, local views). Survivors are appended
+// to the phase's visible entries and draw-bucket counts exactly like objects (cull.comp), so prefix sum, scatter,
+// command_gen, the surface pipelines and the cluster LOD path draw them with one instanced draw per (shader, mesh, LOD).
+// Early phase: only instances visible last frame (their bit); failures clear the bit. Retest: the rest; survivors set it.
+
+layout(local_size_x = 64, local_size_y = 1, local_size_z = 1) in;
+
+layout(std430) readonly buffer CellCounterBuffer {
+    uint u_cellCount;
+};
+
+layout(std430) readonly buffer CellListBuffer {
+    uvec2 u_cellList[];
+};
+
+layout(std430) buffer AtomicCounterBuffer {
+    uint u_atomicCounter;
+};
+
+layout(std430) writeonly buffer VisibleObjectBuffer {
+    uvec2 u_visibleObjects[];
+};
+
+layout(std430) buffer BucketCountBuffer {
+    uint bucketCounts[];
+};
+
+#ifdef INSTANCE_CAMERA
+layout(std430) buffer VisibilityBuffer {
+    uint visibilityBits[];
+};
+#endif
+
+uint forcedLod() { return u_config.y == ICULL_FORCED_NONE ? ICULL_FORCED_NONE : min(u_config.y, POINT_LOD); }
+
+// Appends `entry` (bucket in the low 16 bits of .y) for every lane with `visible`; returns false for lanes that overflowed.
+bool appendVisible(bool visible, uvec2 entry) {
+    uvec4 ballot = subgroupBallot(visible);
+    uint total = subgroupBallotBitCount(ballot);
+    if (total == 0u) return true;
+    uint base = 0u;
+    if (subgroupElect()) base = atomicAdd(u_atomicCounter, total);
+    uint slot = subgroupBroadcastFirst(base) + subgroupBallotExclusiveBitCount(ballot);
+    bool written = visible && slot < u_counts.y;
+    if (written) u_visibleObjects[slot] = entry;
+    // Bucket counts only for written entries: a count without its entry would draw a stale one.
+    uint bucket = entry.y & 0xFFFFu;
+    bool pending = written;
+    while (subgroupBallotBitCount(subgroupBallot(pending)) > 0u) {
+        if (pending) {
+            uint key = subgroupBroadcastFirst(bucket);
+            uvec4 same = subgroupBallot(bucket == key);
+            if (subgroupElect()) atomicAdd(bucketCounts[key], subgroupBallotBitCount(same));
+            if (bucket == key) pending = false;
+        }
+    }
+    return !visible || written;
+}
+
+void main() {
+    uint group = gl_WorkGroupID.x;
+    uint lane = gl_LocalInvocationID.x;
+    bool valid = group < min(u_cellCount, uint(u_params.w));
+    uvec2 item = valid ? u_cellList[group] : uvec2(0u);
+    uint cell = item.x;
+    InstanceCellGpu c = instanceCells[cell];
+    valid = valid && lane < c.info.y;
+    uint slot = cell * INSTANCE_CELL_SIZE + lane;
+    InstanceGpu inst = instances[slot];
+    uint flags = instanceFlagsOf(inst);
+    valid = valid && (flags & INSTANCE_DEAD) == 0u;
+#if defined(INSTANCE_CASCADE) || defined(INSTANCE_LOCAL)
+    valid = valid && (flags & INSTANCE_NO_SHADOW) == 0u;
+#endif
+#ifdef INSTANCE_CAMERA
+    uint bitWord = u_config.x + (slot >> 5u);
+    uint bit = 1u << (slot & 31u);
+    bool wasVisible = valid && (visibilityBits[bitWord] & bit) != 0u;
+#ifdef INSTANCE_EARLY
+    valid = valid && wasVisible;
+#else
+    valid = valid && !wasVisible;
+#endif
+#endif
+
+    InstanceBatchGpu batch = instanceBatches[c.info.x];
+    uint renderable = batch.info.z;
+    uint material = renderableMaterial(renderable);
+    uint shader = renderableShader(renderable);
+    uint mesh = batch.info.y;
+    if (valid) {
+        bool translucent = (renderableFlags(renderable) & RENDER_TRANSLUCENT) != 0u || materialTranslucent(material);
+        if (translucent || shader >= u_counts.z || mesh >= u_counts.w || !batchUsable(batch)) valid = false;
+    }
+    if (valid) addStat(ISTAT_TESTED, 1u);
+
+    mat4 owner = ownerWorld(batch.info.x);
+    vec4 local = instanceLocalSphere(inst, batch.meshSphere);
+    vec3 center = (owner * vec4(local.xyz, 1.0)).xyz;
+    float radius = local.w * maxAxisScale(owner);
+
+    bool visible = valid;
+    float drawDistance = drawDistanceOf(batch);
+    float cameraDistance = distance(center, viewPos);
+    if (visible && drawDistance > 0.0) {
+        float fadeStart = batch.lod.y * u_params.z;
+        if (cameraDistance > drawDistance) visible = false;
+        else if (fadeStart > 0.0 && fadeStart < drawDistance && cameraDistance > fadeStart && instanceHash01(instanceSeedOf(inst)) < (cameraDistance - fadeStart) / (drawDistance - fadeStart)) visible = false;
+    }
+    uint maskedBit = (renderableFlags(renderable) & RENDER_MASKED) != 0u ? 0x80000000u : 0u;
+    uint entryId = INSTANCE_ENTRY_BIT | slot;
+    uint baseBucket = shader * u_counts.w + mesh;
+    float lodBias = u_params.x * batch.lod.x;
+
+#ifdef INSTANCE_LOCAL
+    uint views = visible ? (localMaskFor(center, radius) & item.y) : 0u;
+    for (uint v = 0u; v < u_localInfo.z; ++v) {
+        bool inView = ((views >> v) & 1u) != 0u;
+        vec4 origin = u_localOrigins[v];
+        float texelsPerUnit = origin.w / max(distance(center, origin.xyz), radius);
+        uint lod = forcedLod() != ICULL_FORCED_NONE ? forcedLod() : lodForDiameter(2.0 * radius * texelsPerUnit * lodBias * SHADOW_LOD_SCALE);
+        uvec2 entry = uvec2(entryId | (lod << 29u), (v * u_config.z + baseBucket + lod) | (material << 16u) | maskedBit);
+        bool ok = appendVisible(inView, entry);
+        if (inView) addStat(ok ? ISTAT_VISIBLE : ISTAT_OVERFLOW, 1u);
+    }
+#else
+    if (visible && !insidePlanes(center, radius)) visible = false;
+    uint lod = 0u;
+#ifdef INSTANCE_CASCADE
+    lod = forcedLod() != ICULL_FORCED_NONE ? forcedLod() : lodForDiameter(2.0 * radius * u_params.y * lodBias * SHADOW_LOD_SCALE);
+#else
+    bool occluded = false;
+    if (visible && (u_config.w & ICULL_OCCLUSION) != 0u && sphereOccluded(center, radius)) {
+        visible = false;
+        occluded = true;
+    }
+    float depth = max(-(view * vec4(center, 1.0)).z, 0.001);
+    if (forcedLod() != ICULL_FORCED_NONE) lod = forcedLod();
+    else if (depth > radius) lod = lodForDiameter(lodBias * projectedDiameterPx(radius, depth));
+    if (occluded) addStat(ISTAT_OCCLUDED, 1u);
+#endif
+    uvec2 entry = uvec2(entryId | (lod << 29u), (baseBucket + lod) | (material << 16u) | maskedBit);
+    bool ok = appendVisible(visible, entry);
+    if (visible) {
+        addStat(ok ? ISTAT_VISIBLE : ISTAT_OVERFLOW, 1u);
+        if (ok) addStat(ISTAT_LOD + lod, 1u);
+    }
+#ifdef INSTANCE_EARLY
+    if (valid && !(visible && ok)) atomicAnd(visibilityBits[bitWord], ~bit);
+#endif
+#ifdef INSTANCE_RETEST
+    if (visible && ok) atomicOr(visibilityBits[bitWord], bit);
+#endif
+#endif
+}

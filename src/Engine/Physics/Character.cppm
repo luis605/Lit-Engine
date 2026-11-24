@@ -14,6 +14,7 @@ import Engine.Portal;
 import Engine.Physics;
 import Engine.PortalPhysics;
 import Engine.CameraRig;
+import Engine.camera;
 
 export struct CharacterSettings {
     float radius = 0.35f;
@@ -26,6 +27,9 @@ export struct CharacterSettings {
     float airAcceleration = 8.0f;
     float jumpSpeed = 4.5f;
     float upResponse = 8.0f;
+    // After a tilted portal crossing (docs/Physics.md): up and the view frame turn back to gravity-up over about this many seconds
+    // (the leftover camera roll decays to 0 meanwhile); 0 = at once. Velocity, position and orientation take the transform exactly.
+    float uprightSeconds = 0.3f;
     float impactMinSpeed = 1.5f;
     float impactMaxShove = 3.0f;
     float impactKick = 1.5f;
@@ -76,8 +80,11 @@ export class CharacterController {
     [[nodiscard]] bool grounded() const { return m_grounded; }
     [[nodiscard]] int cell() const { return m_cell; }
     [[nodiscard]] int crossings() const { return m_crossings; }
-    [[nodiscard]] float yaw() const { return m_yaw; }
-    [[nodiscard]] float pitch() const { return m_pitch; }
+    // Look angles relative to the view frame (identity while upright; a tilted crossing rotates the frame, see Camera).
+    [[nodiscard]] float yaw() const { return m_view.yaw; }
+    [[nodiscard]] float pitch() const { return m_view.pitch; }
+    [[nodiscard]] float roll() const { return m_view.roll; }
+    [[nodiscard]] const ViewOrientation& view() const { return m_view; }
     [[nodiscard]] glm::vec2 kick() const { return m_kick; }
     [[nodiscard]] glm::vec3 gravity() const;
     [[nodiscard]] glm::vec3 eye() const;
@@ -112,8 +119,7 @@ export class CharacterController {
     glm::vec3 m_groundNormal{0.0f, 1.0f, 0.0f};
     glm::vec3 m_probe{0.0f};
     glm::vec2 m_kick{0.0f};
-    float m_yaw = 0.0f;
-    float m_pitch = 0.0f;
+    ViewOrientation m_view;
     bool m_grounded = false;
     bool m_swept = false;
     PortalCast m_lastCast;

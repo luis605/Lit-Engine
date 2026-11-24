@@ -21,9 +21,18 @@ import Engine.Render.observation;
 
 namespace {
 
+// Writes slots [first, first + count) of the bindless texture table into a surface binding (slots without a texture get the placeholder).
+void SetTextureTable(Diligent::IShaderResourceBinding* binding, Lighting& lighting, uint32_t first, uint32_t count) {
+    if (!binding || count == 0) return;
+    auto* variable = binding->GetVariableByName(Diligent::SHADER_TYPE_PIXEL, litgpu::kBindlessTableName);
+    if (!variable) return;
+    std::vector<Diligent::IDeviceObject*> views(count);
+    for (uint32_t index = 0; index < count; ++index) views[index] = lighting.textureTableView(first + index);
+    variable->SetArray(views.data(), first, count, Diligent::SET_SHADER_RESOURCE_FLAG_ALLOW_OVERWRITE);
+}
+
 Diligent::RefCntAutoPtr<Diligent::IShaderResourceBinding> MakeSurfaceBinding(DiligentData& gpu, Lighting& lighting, Diligent::IPipelineState* pipeline, int frameIndex, Diligent::IBuffer* visibleObjects) {
-    return litgpu::makeBinding(pipeline,
-                               {
+    const std::initializer_list<litgpu::Named> resources = {
                                    {"SceneData",             gpu.pSceneUBO[frameIndex]               },
                                    {"MaterialBuffer",        lighting.materialBuffer()             },
                                    {"WorldMatrixBuffer",     gpu.pWorldMatrixBuffer[frameIndex]      },
@@ -31,6 +40,9 @@ Diligent::RefCntAutoPtr<Diligent::IShaderResourceBinding> MakeSurfaceBinding(Dil
                                    {"CullOrientationBuffer", gpu.pCullOrientationBuffer[frameIndex]  },
                                    {"NormalSampleBuffer",    gpu.pNormalSampleBuffer                 },
                                    {"VisibleObjectBuffer",   visibleObjects                          },
+                                   {"InstanceBuffer",        gpu.pInstanceBuffer                     },
+                                   {"InstanceCellBuffer",    gpu.pInstanceCellBuffer                 },
+                                   {"InstanceBatchBuffer",   gpu.pInstanceBatchBuffer                },
                                    {"AlphaBuffer",           gpu.pAlphaBuffer                        },
                                    {"ExposureBuffer",        lighting.exposureBuffer()             },
                                    {"LightBuffer",           lighting.lightBuffer()                },
@@ -46,8 +58,17 @@ Diligent::RefCntAutoPtr<Diligent::IShaderResourceBinding> MakeSurfaceBinding(Dil
                                    {"u_vsmAtlas",            litgpu::srv(lighting.virtualShadowAtlas())},
                                    {"VsmFaceBuffer",         lighting.virtualShadowFaces()         },
                                    {"VsmPageTable",          lighting.virtualShadowPageTable()     },
-                                   {"u_sceneColor",          lighting.sceneColor()                 }
-    });
+                                   {"u_sceneColor",          lighting.sceneColor()                 },
+                                   {litgpu::kBindlessTableName, lighting.textureTableView(0)       }
+    };
+    Diligent::RefCntAutoPtr<Diligent::IShaderResourceBinding> binding;
+    if (!pipeline) return binding;
+    // Bindless pipelines use an explicit signature, whose bindings Diligent only creates through the signature.
+    if (lighting.bindlessTextures()) pipeline->GetResourceSignature(0)->CreateShaderResourceBinding(&binding, true);
+    else pipeline->CreateShaderResourceBinding(&binding, true);
+    litgpu::bind(binding.RawPtr(), resources);
+    if (lighting.bindlessTextures()) SetTextureTable(binding, lighting, 0, kBindlessTextureCapacity);
+    return binding;
 }
 
 Diligent::RefCntAutoPtr<Diligent::IShaderResourceBinding> MakeShadowBinding(DiligentData& gpu, Lighting& lighting, Diligent::IPipelineState* pipeline, int frameIndex, int view) {
@@ -60,6 +81,9 @@ Diligent::RefCntAutoPtr<Diligent::IShaderResourceBinding> MakeShadowBinding(Dili
                                    {"CullOrientationBuffer", gpu.pCullOrientationBuffer[frameIndex]    },
                                    {"NormalSampleBuffer",    gpu.pNormalSampleBuffer                   },
                                    {"VisibleObjectBuffer",   gpu.visibility[kPhaseShadow].sortedEntries},
+                                   {"InstanceBuffer",        gpu.pInstanceBuffer                       },
+                                   {"InstanceCellBuffer",    gpu.pInstanceCellBuffer                   },
+                                   {"InstanceBatchBuffer",   gpu.pInstanceBatchBuffer                  },
                                    {"ShadowPass",            gpu.pShadowPassUBO[view]                  }
     });
 }
@@ -266,9 +290,34 @@ void Renderer::bindShadowResources(int frameIndex) {
     });
 }
 
+void Renderer::syncTextureTable() {
+    auto& gpu = *m_diligent;
+    if (!m_lighting.bindlessTextures()) return;
+    const uint64_t epoch = m_lighting.textureTableEpoch();
+    const uint64_t applied = gpu.textureTableApplied[m_currentFrame];
+    if (epoch == applied) return;
+    // This frame slot's fence has been waited on, so its descriptor sets are idle: only the slots that changed since it was last
+    // brought up to date are written (a texture load or release touches one descriptor per binding, never the whole table).
+    uint32_t first = kBindlessTextureCapacity;
+    uint32_t last = 0;
+    for (uint32_t slot = 0; slot < kBindlessTextureCapacity; ++slot) {
+        if (m_lighting.textureSlotEpoch(slot) <= applied) continue;
+        first = std::min(first, slot);
+        last = slot;
+    }
+    gpu.textureTableApplied[m_currentFrame] = epoch;
+    if (first > last) return;
+    for (int phaseIndex = kPhaseOpaque; phaseIndex <= kPhaseTransparent; ++phaseIndex) {
+        auto& phase = gpu.visibility[phaseIndex];
+        for (auto& binding : phase.opaqueSRBs[m_currentFrame]) SetTextureTable(binding, m_lighting, first, last - first + 1);
+        for (auto& binding : phase.pointSRBs[m_currentFrame]) SetTextureTable(binding, m_lighting, first, last - first + 1);
+    }
+}
+
 void Renderer::rebindSurfaceResources() {
     auto& gpu = *m_diligent;
     gpu.surfaceBindingVersion = m_lighting.bindingVersion();
+    for (uint64_t& applied : gpu.textureTableApplied) applied = m_lighting.textureTableEpoch();
     for (int frameIndex = 0; frameIndex < NUM_FRAMES_IN_FLIGHT; ++frameIndex) {
         for (int phaseIndex = kPhaseOpaque; phaseIndex <= kPhaseTransparent; ++phaseIndex) {
             auto& phase = gpu.visibility[phaseIndex];

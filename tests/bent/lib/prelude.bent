@@ -1,0 +1,118 @@
+# Shared generators and helpers for the engine law library (docs/Bent.md).
+# Generators are values: builtin constructors (vec3, spawn, move, ...) applied to generators are generators themselves.
+
+# ---------------------------------------------------------------- numbers and vectors
+
+gen coord = float(-20, 20)
+gen height = float(0, 15)
+gen smallVec = vec3(coord, height, coord)
+gen offset = vec3(float(-5, 5), float(-5, 5), float(-5, 5))
+gen velocityGen = vec3(float(-15, 15), float(-15, 15), float(-15, 15))
+gen scaleGen = vec3(float(0.25, 3), float(0.25, 3), float(0.25, 3))
+gen sizeGen = float(0.1, 2)
+gen nastyNum = nasty(float(-1e4, 1e4))
+gen nastyVec = vec3(nastyNum, nastyNum, nastyNum)
+gen target = int(0, 31)
+gen shapeGen = elements(["sphere", "box", "capsule", "hull", "compound", "none"])
+
+fn clampf(x, lo, hi) = if x < lo then lo else if x > hi then hi else x
+fn sq(x) = x * x
+fn hypot2(v) = sqrt(v.x * v.x + v.z * v.z)
+fn near(a, b, eps) = distance(a, b) <= eps
+fn mapRange(xs, f) = map(xs, f)
+fn sumBy(xs, f) = fold(xs, 0.0, fn(acc, x) => acc + f(x))
+fn count2(xs, f) = count(xs, f)
+fn inBox(p, lo, hi) = p.x >= lo.x and p.y >= lo.y and p.z >= lo.z and p.x <= hi.x and p.y <= hi.y and p.z <= hi.z
+
+# Entity `k` of the spawn list the way actions address it (modulo the number spawned so far).
+fn ref(k) = let n = len(spawned()) in if n == 0 then entity(0) else entity(k % n)
+
+# ---------------------------------------------------------------- actions
+
+gen spawnAny = spawn(shape: shapeGen, pos: smallVec, size: sizeGen, height: float(0.1, 1.5), rot: unitQuat(), scale: scaleGen,
+                     dynamic: bool(), mass: float(0.1, 10), restitution: float(0, 1), friction: float(0, 1), vel: velocityGen,
+                     mesh: int(-1, 7), parent: frequency([[6, just(-1)], [1, target]]))
+gen spawnBody = spawn(shape: elements(["sphere", "box", "capsule"]), pos: smallVec, size: float(0.2, 1.5), vel: velocityGen, mass: float(0.5, 5))
+
+gen editAction = frequency([
+    [3, move(target: target, delta: offset)],
+    [3, teleport(target: target, pos: smallVec)],
+    [1, setRotation(target: target, rot: unitQuat())],
+    [1, setScale(target: target, scale: scaleGen)],
+    [1, setName(target: target, name: ident(1, 6))],
+    [1, setTag(target: target, tag: ident(1, 4))],
+    [1, setVisible(target: target, visible: bool())],
+    [2, setVelocity(target: target, vel: velocityGen)]
+])
+
+gen structuralAction = frequency([
+    [3, destroy(target: target)],
+    [2, reparent(target: target, parent: int(-1, 31), keepWorld: bool())],
+    [1, light(kind: elements(["point", "spot", "directional"]), pos: smallVec)]
+])
+
+gen stepAction = step(n: int(1, 20))
+
+# Everything a game script could do in one world, finite values only.
+gen anyAction = frequency([
+    [6, spawnAny],
+    [6, editAction],
+    [3, structuralAction],
+    [5, stepAction],
+    [1, gravity(g: vec3(float(-3, 3), float(-20, 0), float(-3, 3)))],
+    [1, impulse(target: target, j: velocityGen)],
+    [1, validate()]
+])
+
+# Persistence and large-world actions mixed in.
+gen anyActionPlus = frequency([
+    [20, anyAction],
+    [1, saveLoad()],
+    [1, snapshot(slot: int(0, 1))],
+    [1, restore(slot: int(0, 1))],
+    [1, compact()],
+    [1, rebase(delta: vec3(float(-5000, 5000), float(-100, 100), float(-5000, 5000)))]
+])
+
+# Hostile values: NaN, infinities, denormals and huge numbers in every vector slot.
+gen nastyAction = frequency([
+    [4, spawn(shape: shapeGen, pos: nastyVec, size: nastyNum, rot: oneof(unitQuat(), quat(nastyNum, nastyNum, nastyNum, nastyNum)), scale: nastyVec, dynamic: bool(), mass: nastyNum, vel: nastyVec, mesh: int(-1, 7), parent: int(-1, 8))],
+    [2, move(target: target, delta: nastyVec)],
+    [2, teleport(target: target, pos: nastyVec)],
+    [1, setScale(target: target, scale: nastyVec)],
+    [1, setRotation(target: target, rot: quat(nastyNum, nastyNum, nastyNum, nastyNum))],
+    [1, setVelocity(target: target, vel: nastyVec)],
+    [1, destroy(target: target)],
+    [1, reparent(target: target, parent: int(-1, 31))],
+    [2, step(n: int(1, 5))],
+    [1, gravity(g: nastyVec)]
+])
+
+gen program = listOf(anyAction, 0, 25)
+gen programPlus = listOf(anyActionPlus, 0, 25)
+gen nastyProgram = listOf(nastyAction, 0, 20)
+gen spawns = listOf(spawnAny, 1, 12)
+
+# ---------------------------------------------------------------- physics scenes
+
+# Closed box of thick static walls: interior x, z in [-h, h], y in [0, 2h], wall thickness 2t.
+fn wall(pos, half) = spawn(shape: "box", pos: pos, size: half, dynamic: false, mesh: -1, name: "wall")
+fn arena(h, t) = [
+    wall(vec3(0, 0 - t, 0), vec3(h + 2 * t, t, h + 2 * t)),
+    wall(vec3(0, 2 * h + t, 0), vec3(h + 2 * t, t, h + 2 * t)),
+    wall(vec3(h + t, h, 0), vec3(t, h + 2 * t, h + 2 * t)),
+    wall(vec3(0 - h - t, h, 0), vec3(t, h + 2 * t, h + 2 * t)),
+    wall(vec3(0, h, h + t), vec3(h + 2 * t, h + 2 * t, t)),
+    wall(vec3(0, h, 0 - h - t), vec3(h + 2 * t, h + 2 * t, t))
+]
+
+# Dynamic bodies placed on a 3 m lattice inside the arena, so nothing overlaps at the start.
+fn lattice(i) = vec3(-7.5 + 3 * (i % 6), 2 + 3 * ((i / 6) % 4), -7.5 + 3 * (i / 24))
+gen latticeBody = spawn(shape: elements(["sphere", "box", "capsule"]), size: float(0.2, 1.2), height: float(0.1, 0.25), vel: velocityGen, mass: float(0.5, 5),
+                        restitution: float(0, 1), friction: float(0, 1))
+fn placeBodies(bodies) = map(enumerate(bodies), fn(pair) => with_pos(pair[1], lattice(pair[0])))
+fn with_pos(action, p) = spawn(shape: action.shape, size: action.size, height: action.height, vel: action.vel, mass: action.mass,
+                              restitution: action.restitution, friction: action.friction, pos: p)
+
+fn dynamicBodies() = filter(entities(), isDynamic)
+fn lowest(es) = fold(es, 1e30, fn(m, e) => min(m, worldPosition(e).y))

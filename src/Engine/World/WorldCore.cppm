@@ -346,7 +346,7 @@ export class World {
     std::optional<std::vector<EntityHandle>> loadSceneImpl(std::istream& in, bool additive, EntityHandle parent, bool trusted = false, std::vector<EntityHandle>* remap = nullptr);
     bool claimSectionLine(const std::string& line, std::vector<std::pair<size_t, std::string>>& sectionLines) const;
     void applySceneSections(const std::vector<std::pair<size_t, std::string>>& sectionLines);
-    void applyCameraValues(const std::array<float, 8>& values);
+    void applyCameraValues(const std::array<float, 13>& values);
     void appendEntityLine(std::string& line, Entity index) const;
     void appendEntityLines(std::string& out) const;
     void appendMeshTable(std::string& out) const;

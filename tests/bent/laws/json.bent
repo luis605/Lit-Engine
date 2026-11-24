@@ -1,0 +1,74 @@
+# Engine.Json: dump / parse round trips of fuzzed documents, totality of the parser on arbitrary text.
+include "../lib/prelude.bent"
+
+gen jsonLeaf = oneof(just(unit), bool(), float(-1e15, 1e15), int(-9007199254740992, 9007199254740992), text(0, 12), nasty(float(-1e300, 1e300)))
+gen jsonKey = text(0, 6)
+
+fn jsonGen(depth) =
+    if depth <= 0 then jsonLeaf
+    else frequency([
+        [3, jsonLeaf],
+        [1, listOf(delay(fn() => jsonGen(depth - 1)), 0, 4)],
+        [1, map(listOf([jsonKey, delay(fn() => jsonGen(depth - 1))], 0, 4), fromPairs)]
+    ])
+
+fn finiteDoc(v) =
+    if kindOf(v) == "float" then isFinite(v)
+    else if kindOf(v) == "list" then all(v, finiteDoc)
+    else if kindOf(v) == "record" then all(values(v), finiteDoc)
+    else true
+
+# Invalid UTF-8 is replaced by U+FFFD on dump (JsonDump uses nlohmann's replace handler): by design, so excluded here and
+# checked separately below. text() emits a lone 0xFF byte as its only invalid sequence.
+fn validText(v) =
+    if kindOf(v) == "string" then not contains(v, "\xff")
+    else if kindOf(v) == "list" then all(v, validText)
+    else if kindOf(v) == "record" then all(values(v), validText) and all(keys(v), validText)
+    else true
+
+law json_roundtrip {
+    forall (v: jsonGen(3))
+    where finiteDoc(v) and validText(v)
+    => let r = jsonParse(jsonDump(v)) in r.ok and r.value == v
+}
+
+law json_invalid_utf8_still_parses {
+    forall (s: text(0, 20))
+    => let r = jsonParse(jsonDump(s)) in r.ok and (validText(s) ==> r.value == s)
+}
+
+law json_pretty_matches_compact {
+    forall (v: jsonGen(3))
+    where finiteDoc(v)
+    => jsonParse(jsonPretty(v)).value == jsonParse(jsonDump(v)).value
+}
+
+# Doubles survive dump / parse bit for bit (shortest round-trip formatting).
+law json_number_exact {
+    forall (x: oneof(float(-1e300, 1e300), float(-1, 1), float(-1e-300, 1e-300), int(-9007199254740992, 9007199254740992)))
+    => jsonParse(jsonDump([x])).value == [x]
+}
+
+# Non-finite numbers do not produce unparsable output.
+law json_nonfinite_dump_parses {
+    forall (x: elements([nan, inf, 0 - inf]))
+    => jsonParse(jsonDump({x: x})).ok
+}
+
+# The parser is total: any text either parses or reports an error message (never a crash or hang).
+gen jsonish = text(0, 40)
+law json_parse_total {
+    forall (s: jsonish)
+    => let r = jsonParse(s) in r.ok or len(r.error) > 0
+}
+
+# Mutated valid documents: insert, delete or replace a character of a dumped document.
+law json_mutation_total {
+    forall (v: jsonGen(3), at: int(0, 200), c: text(1, 1), mode: int(0, 2))
+    where finiteDoc(v)
+    => let s = jsonDump(v) in
+       let i = at % (len(s) + 1) in
+       let m = if mode == 0 then substr(s, 0, i) ++ c ++ substr(s, i) else if mode == 1 then substr(s, 0, i) ++ substr(s, i + 1) else substr(s, 0, i) ++ c ++ substr(s, i + 1) in
+       let r = jsonParse(m) in
+       (r.ok or len(r.error) > 0) and (not r.ok or jsonParse(jsonDump(r.value)).value == r.value)
+}

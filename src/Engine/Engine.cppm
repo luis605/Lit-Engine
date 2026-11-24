@@ -51,6 +51,7 @@ import Engine.Observation;
 import Engine.Save;
 import Engine.Render.observation;
 import Engine.Terrain;
+import Engine.Instancing;
 
 export enum class Phase { PreUpdate, FixedUpdate, Update, PostUpdate };
 
@@ -192,6 +193,19 @@ export class Engine {
     // Uploads base mesh, LOD chain and (if present) the cluster LOD DAG used for dense geometry.
     uint32_t uploadProcessedMesh(const ProcessedMesh& processed);
     [[nodiscard]] ClusterRenderStats clusterStats() const { return m_renderer.clusterStats(); }
+    // GPU instancing (docs/Instancing.md): an entity with an InstanceBatch component draws `instances` of one mesh, material and
+    // surface shader (positions relative to the entity). Per-instance GPU culling (cells, frustum, Hi-Z, LOD, distance fade),
+    // shadows and portal views included. The batch is the entity: destroy it with World::destroy or destroyInstanceBatch.
+    EntityHandle createInstanceBatch(uint32_t mesh, uint32_t material, std::span<const InstanceData> instances, const InstanceBatchSettings& settings = {}, uint32_t shader = 0, const glm::vec3& position = glm::vec3(0.0f), EntityHandle parent = NULL_ENTITY);
+    bool updateInstances(EntityHandle batch, uint32_t first, std::span<const InstanceData> instances);
+    // Free mask: the instance is no longer drawn, indices stay stable. swapRemoveInstance moves the last instance into `index` instead.
+    bool removeInstance(EntityHandle batch, uint32_t index);
+    std::optional<uint64_t> swapRemoveInstance(EntityHandle batch, uint32_t index);
+    void destroyInstanceBatch(EntityHandle batch);
+    [[nodiscard]] InstanceBatch* instanceBatch(EntityHandle batch) { return m_world.get<InstanceBatch>(batch); }
+    [[nodiscard]] InstanceRenderStats instanceStats() const { return m_renderer.instanceStats(); }
+    // Mirrors every InstanceBatch component of `world` into the renderer (called by update() before drawing).
+    void syncInstanceBatches(World& world);
     uint32_t loadMesh(const std::string& name);
     void preloadMeshes(const std::vector<std::string>& names);
     void preloadSceneMeshes(const std::string& scenePath);
@@ -218,6 +232,10 @@ export class Engine {
     [[nodiscard]] std::vector<ShaderError> shaderErrors() const { return m_renderer.surfaceErrors(); }
     [[nodiscard]] std::vector<ShaderError> takeShaderErrors() { return ::takeShaderErrors(); }
     int loadTexture(const std::string& path, bool srgb = true);
+    // Frees a texture loaded with loadTexture: its table slot is reused by a later load (bindless mode; the legacy texture arrays do not free layers).
+    void releaseTexture(int index, bool srgb = true);
+    [[nodiscard]] bool bindlessTextures() const { return m_renderer.initialized() && m_renderer.bindlessTextures(); }
+    [[nodiscard]] uint32_t textureTableUsed() const { return m_renderer.initialized() ? m_renderer.textureTableUsed() : 0u; }
     [[nodiscard]] RenderSettings& renderSettings() { return m_renderer.settings(); }
     uint32_t addCompute(const ComputeDesc& desc) { return m_renderer.custom().addCompute(desc); }
     uint32_t addDraw(const DrawDesc& desc) { return m_renderer.custom().addDraw(desc); }
@@ -361,4 +379,11 @@ export class Engine {
     float m_accumulator = 0.0f;
     std::unordered_map<std::string, uint32_t> m_meshIds;
     std::unordered_map<uint32_t, std::string> m_meshNames;
+    struct InstanceMirror {
+        uint32_t generation = 0;
+        uint32_t batch = 0xFFFFFFFFu;
+        uint64_t epoch = 0;
+    };
+    std::unordered_map<Entity, InstanceMirror> m_instanceMirrors;
+    uint64_t m_instanceEpoch = 0;
 };

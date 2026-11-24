@@ -205,7 +205,7 @@ void updateTexture(Diligent::IDeviceContext* context, ImTextureData* textureData
         Diligent::TextureSubResData subresource;
         subresource.pData = textureData->GetPixelsAt(rect.x, rect.y);
         subresource.Stride = static_cast<Diligent::Uint64>(textureData->Width) * 4;
-        context->UpdateTexture(texture, 0, 0, box, subresource, Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION, Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
+        LIT_UP(context)->UpdateTexture(texture, 0, 0, box, subresource, Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION, Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
     }
     textureData->SetStatus(ImTextureStatus_OK);
 }
@@ -231,8 +231,12 @@ bool ensureBuffer(Diligent::IRenderDevice* device, Diligent::RefCntAutoPtr<Dilig
 }
 
 void uploadGeometry(ImGuiLayer::Data& data, const ImDrawData* drawData) {
+    LIT_UP_MARK(litUp1);
     Diligent::MapHelper<ImDrawVert> vertices(data.context, data.vertexBuffer, Diligent::MAP_WRITE, Diligent::MAP_FLAG_DISCARD);
+    LIT_UP_COMMIT(litUp1);
+    LIT_UP_MARK(litUp2);
     Diligent::MapHelper<ImDrawIdx> indices(data.context, data.indexBuffer, Diligent::MAP_WRITE, Diligent::MAP_FLAG_DISCARD);
+    LIT_UP_COMMIT(litUp2);
     ImDrawVert* vertexCursor = vertices;
     ImDrawIdx* indexCursor = indices;
     for (const ImDrawList* list : drawData->CmdLists) {
@@ -249,7 +253,9 @@ void uploadProjection(ImGuiLayer::Data& data, const ImDrawData* drawData) {
     const float top = drawData->DisplayPos.y;
     const float bottom = drawData->DisplayPos.y + drawData->DisplaySize.y;
     const float projection[kProjectionFloatCount] = {2.0f / (right - left), 0.0f, 0.0f, 0.0f, 0.0f, 2.0f / (top - bottom), 0.0f, 0.0f, 0.0f, 0.0f, 0.5f, 0.0f, (right + left) / (left - right), (top + bottom) / (bottom - top), 0.5f, 1.0f};
+    LIT_UP_MARK(litUp3);
     Diligent::MapHelper<float> constants(data.context, data.constants, Diligent::MAP_WRITE, Diligent::MAP_FLAG_DISCARD);
+    LIT_UP_COMMIT(litUp3);
     std::memcpy(static_cast<float*>(constants), projection, sizeof(projection));
 }
 

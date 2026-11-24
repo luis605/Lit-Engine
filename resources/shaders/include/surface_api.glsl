@@ -20,6 +20,8 @@ struct VertexContext {
     float time;
     vec4 custom0;
     vec4 custom1;
+    vec4 instanceColor;  // per-instance tint of an InstanceBatch instance (RGBA, 1 for ordinary objects)
+    uint instanceSeed;   // per-instance 24-bit seed (ordinary objects: a hash of the entity id)
 };
 
 struct SurfaceInput {
@@ -36,7 +38,19 @@ struct SurfaceInput {
     vec4 custom0;
     vec4 custom1;
     bool frontFacing;
+    vec4 instanceColor;  // as VertexContext
+    uint instanceSeed;
 };
+
+// Wind sway for foliage (vertex()): bends the mesh-local position along `direction` (xz), growing with height above the
+// base (quadratic, `height` = mesh height at which the offset reaches `amplitude`), with a per-instance phase.
+vec3 litWindSway(vec3 position, float time, uint seed, vec2 direction, float amplitude, float height, float frequency) {
+    float h = max(position.y, 0.0) / max(height, 1e-3);
+    float phase = float(seed & 0xFFFFu) * (6.2831853 / 65536.0);
+    float gust = sin(time * frequency + phase) * 0.7 + sin(time * frequency * 2.3 + phase * 1.7) * 0.3;
+    vec2 offset = direction * (amplitude * h * h * (0.6 + 0.4 * gust));
+    return position + vec3(offset.x, -0.15 * amplitude * h * h * abs(gust), offset.y);
+}
 
 struct Surface {
     vec3 baseColor;

@@ -114,6 +114,36 @@ PortalLightPlan portalLights(const PortalSystem& portals, LightSet& lights) {
             plan.apertures.push_back(aperture);
         }
     }
+    // Light spill (docs/Portals.md, "Frames and edges"): each open portal end glows with the far room's light. A cheap proxy: a soft
+    // spot just behind the opening, aimed into the end's own cell, coloured by the far room's irradiance at the partner quad and
+    // confined to the opening by its aperture (so it lights and shadows only what is in front of the portal).
+    const std::vector<glm::vec4> collected(lights.packed.begin(), lights.packed.begin() + static_cast<std::ptrdiff_t>(count * 4));
+    const std::vector<int32_t> collectedCells(plan.cells.begin(), plan.cells.begin() + static_cast<std::ptrdiff_t>(count));
+    constexpr float kSpillReflectance = 0.25f / 3.14159265f;
+    constexpr float kSpillOuterCos = 0.17f;  // ~80 degrees
+    constexpr float kSpillInnerCos = 0.8f;
+    for (size_t id = 0; id < portals.portals().size(); ++id) {
+        const Portal& portal = portals.portals()[id];
+        if (portal.look.spill <= 0.0f || portal.cell < 0 || static_cast<size_t>(portal.cell) >= owning.size()) continue;
+        if (plan.apertures.size() >= kMaxPortalLights || count + plan.apertures.size() >= kMaxSceneLights) break;
+        const glm::vec3 irradiance = portals.spillIrradiance(static_cast<int>(id), collected, collectedCells, glm::vec3(lights.directional[0]), glm::vec3(lights.directional[1]));
+        const float peak = std::max(irradiance.x, std::max(irradiance.y, irradiance.z));
+        if (!(peak > 1.0e-3f)) continue;
+        const float minHalf = std::min(portal.half.x, portal.half.y);
+        const float setBack = 0.5f * minHalf;
+        const glm::vec3 position = portal.center() - portal.normal() * setBack;
+        images.push_back(glm::vec4(position, 3.0f * std::max(portal.half.x, portal.half.y) + setBack));
+        images.push_back(glm::vec4(irradiance / peak, kSpillReflectance * peak * 4.0f * portal.half.x * portal.half.y));
+        images.push_back(glm::vec4(portal.normal(), kSpillOuterCos));
+        images.push_back(glm::vec4(kSpillInnerCos, 1.0f, 0.6f * minHalf, 0.0f));
+        plan.cells.push_back(portal.cell);
+        LightAperture aperture;
+        aperture.center = glm::vec4(portal.center(), kApertureSoftness);
+        aperture.axisU = glm::vec4(portal.right() * portal.half.x, 0.0f);
+        aperture.axisV = glm::vec4(portal.up() * portal.half.y, 0.0f);
+        aperture.plane = glm::vec4(portal.normal(), -glm::dot(portal.normal(), portal.center()));
+        plan.apertures.push_back(aperture);
+    }
     lights.packed.insert(lights.packed.end(), images.begin(), images.end());
     lights.count = static_cast<uint32_t>(lights.packed.size() / 4);
     return plan;
@@ -451,6 +481,7 @@ void Engine::update() {
     m_renderer.setWorldOrigin(m_world.origin());
     refreshReflectionScene();
     syncWindowSize(m_world.camera());
+    syncInstanceBatches(m_world);
     m_renderer.drawScene(m_world.database(), m_world.camera());
     submitGpuObservation();
 }
@@ -463,6 +494,7 @@ void Engine::update(World& world) {
     uploadLights(m_renderer, m_portals, hasLights, lights);
     m_renderer.setWorldOrigin(world.origin());
     syncWindowSize(world.camera());
+    syncInstanceBatches(world);
     m_renderer.drawScene(world.database(), world.camera());
 }
 
@@ -475,6 +507,9 @@ void Engine::updatePortals(World& world) {
     const EntityHandle cameraEntity = world.getActiveCamera();
     if (crossed >= 0) m_renderer.portalCrossed();
     if (crossed >= 0 && world.isAlive(cameraEntity)) world.setWorldMatrix(cameraEntity, m_portals.portals()[static_cast<size_t>(crossed)].transform * world.getWorldMatrix(cameraEntity));
+    // Free camera after a tilted crossing: turn the frame back to the cell's gravity-up keeping the view, decay the roll (the
+    // character controller does this itself; docs/Portals.md "Camera crossing").
+    if (!m_character && m_portals.settings().uprightCamera) world.camera().relaxFrame(m_portals.cellUp(m_portals.cameraCell()), world.time().unscaledDeltaTime, m_portals.settings().uprightSeconds);
     m_portals.updateObjects(world);
     PortalFrame frame = m_portals.buildFrame(world.camera(), static_cast<float>(std::max(m_renderer.height(), 1)));
     m_visibleCells = ::visibleCells(frame);

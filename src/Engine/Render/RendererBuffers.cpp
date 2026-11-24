@@ -119,15 +119,19 @@ void Renderer::allocateMeshBuffers() {
     gpu.pMeshInfoBufferFull = CreateStructuredBuffer(gpu.pDevice, "Mesh Info Buffer (full)", sizeof(MeshInfo), kMaxMeshes);
     gpu.pTransformWorkBuffer = CreateStructuredBuffer(gpu.pDevice, "Transform Work Buffer", sizeof(Entity), kMaxTransformWork);
     gpu.pNormalSampleBuffer = CreateStructuredBuffer(gpu.pDevice, "Normal Sample Buffer", sizeof(glm::vec4), kMaxMeshes * kNormalSamples);
+    if (!gpu.pInstanceBuffer) gpu.pInstanceBuffer = CreateStructuredBuffer(gpu.pDevice, "Instance Pool (empty)", 32, 64);
+    if (!gpu.pInstanceCellBuffer) gpu.pInstanceCellBuffer = CreateStructuredBuffer(gpu.pDevice, "Instance Cells (empty)", 32, 1);
+    if (!gpu.pInstanceBatchBuffer) gpu.pInstanceBatchBuffer = CreateStructuredBuffer(gpu.pDevice, "Instance Batches (empty)", 64, 1);
     m_meshInfoDirty = true;
 
     const uint32_t totalBuckets = static_cast<uint32_t>(m_numDrawingShaders) * kMaxMeshes;
     m_bucketZeros.assign(std::max(totalBuckets, kShadowBucketCapacity), 0);
+    gpu.pZeroBuffer = CreateStructuredBuffer(gpu.pDevice, "Zero Source", sizeof(unsigned int), static_cast<Diligent::Uint32>(m_bucketZeros.size()), m_bucketZeros.data());
 }
 
 void Renderer::allocateVisibilityBuffers() {
     auto& gpu = *m_diligent;
-    const auto objectCapacity = static_cast<Diligent::Uint32>(m_maxObjects);
+    const auto objectCapacity = static_cast<Diligent::Uint32>(VisibleEntryCapacity(m_maxObjects));  // objects plus visible instances
     const auto shaderCount = static_cast<Diligent::Uint32>(m_numDrawingShaders);
     const uint32_t totalBuckets = shaderCount * kMaxMeshes;
     const size_t commandBytes = static_cast<size_t>(kMaxMeshes) * m_numDrawingShaders * sizeof(DrawElementsIndirectCommand);
@@ -197,7 +201,8 @@ void Renderer::allocateCandidateBuffers() {
     gpu.pEarlyCandidateDispatchArgs = CreateDispatchArgsBuffer(gpu.pDevice, "Early Candidate Dispatch Args");
     gpu.shadowHiZSourceMap = nullptr;
 
-    std::vector<uint32_t> clearedBits(static_cast<size_t>(objectCapacity + kWorkgroupSize - 1) / kWorkgroupSize * kVisibilityBitWordsPerGroup, 0u);
+    // Objects' bits, then one bit per instance pool slot (docs/Instancing.md).
+    std::vector<uint32_t> clearedBits(static_cast<size_t>(objectCapacity + kWorkgroupSize - 1) / kWorkgroupSize * kVisibilityBitWordsPerGroup + kInstanceVisibilityWords, 0u);
     gpu.pVisibilityBits = CreateStructuredBuffer(gpu.pDevice, "Visibility Bits", sizeof(uint32_t), static_cast<Diligent::Uint32>(clearedBits.size()), clearedBits.data());
     gpu.pTransparentCandidateCounter = CreateStructuredBuffer(gpu.pDevice, "Transparent Candidate Counter", sizeof(unsigned int), 1, &zero);
     gpu.pTransparentCandidateIds = CreateStructuredBuffer(gpu.pDevice, "Transparent Candidate Ids", sizeof(unsigned int), objectCapacity);
@@ -274,9 +279,9 @@ bool Renderer::reallocateBuffers(size_t numObjects) {
 
     if (gpu.pObjectDispatchArgsConstants) {
         DispatchArgsConstants dispatchArgsConstants{};
-        dispatchArgsConstants.maxCount = static_cast<uint32_t>(m_maxObjects);
+        dispatchArgsConstants.maxCount = static_cast<uint32_t>(VisibleEntryCapacity(m_maxObjects));
         dispatchArgsConstants.workgroupSize = kObjectDispatchWorkgroupSize;
-        gpu.pImmediateContext->UpdateBuffer(gpu.pObjectDispatchArgsConstants, 0, sizeof(dispatchArgsConstants), &dispatchArgsConstants, Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
+        LIT_UP(gpu.pImmediateContext)->UpdateBuffer(gpu.pObjectDispatchArgsConstants, 0, sizeof(dispatchArgsConstants), &dispatchArgsConstants, Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
     }
 
     m_fullTransformUpdateCounter = 1;

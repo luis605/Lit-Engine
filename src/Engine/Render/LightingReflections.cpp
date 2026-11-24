@@ -50,7 +50,7 @@ void uploadVoxels(Lighting::Data& state) {
     subresource.Stride = static_cast<Diligent::Uint64>(resolution) * sizeof(uint32_t);
     subresource.DepthStride = static_cast<Diligent::Uint64>(resolution) * resolution * sizeof(uint32_t);
     const Diligent::Box box(0, resolution, 0, resolution, 0, resolution);
-    state.context->UpdateTexture(reflections.voxels, 0, 0, box, subresource, Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION, Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
+    LIT_UP(state.context)->UpdateTexture(reflections.voxels, 0, 0, box, subresource, Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION, Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
     reflections.gridDirty = false;
     reflections.skyVolumeDirty = true;
 }
@@ -237,7 +237,7 @@ void updateReflectionAssets(Lighting::Data& state, Diligent::IBuffer* scene) {
     }
     const int probeCount = wantProbes ? static_cast<int>(std::min<size_t>(reflections.scene.probes.size(), kMaxReflectionProbes)) : 0;
     ReflectionConstants constants = buildConstants(state, plan, probeCount);
-    state.context->UpdateBuffer(reflections.constants, 0, sizeof(constants), &constants, Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
+    LIT_UP(state.context)->UpdateBuffer(reflections.constants, 0, sizeof(constants), &constants, Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
     if (reflections.skyVolumeDirty) buildSkyVolume(state, scene);
     const uint32_t wantedResolution = sceneProbeResolution(reflections.scene.probes);
     if (probeCount > 0 && wantedResolution != reflections.probeResolution) createProbeTexture(state, wantedResolution);

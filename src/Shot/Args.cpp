@@ -23,7 +23,7 @@ void printUsage() {
         "  --scene FILE          load a .litscene instead\n"
         "  --frames N            frames to render before the capture (default 30)\n"
         "  --light-intensity X   intensity of the showcase scene lights (default 3e6, photometric lumens)\n"
-        "  --camera X,Y,Z,YAW,PITCH   override the camera (showcase default 0,3,12,-90,-8; 0,2.5,6,-60,-6 frames walls and outdoor apron)\n"
+        "  --camera X,Y,Z,YAW,PITCH[,ROLL]   override the camera (showcase default 0,3,12,-90,-8; 0,2.5,6,-60,-6 frames walls and outdoor apron)\n"
         "  --lights N            light_stress scene: number of moving shadowed lights (default 4096)\n"
         "  --no-probe            probes scene: omit the reflection probe entity\n"
         "  --bake-frame N        request a reflection probe bake on frame N\n"
@@ -54,7 +54,8 @@ bool parseArguments(int argc, char** argv, ShotOptions& options) {
         } else if (argument == "--camera") {
             const std::string text = nextValue();
             float* values = options.cameraValues;
-            options.hasCamera = std::sscanf(text.c_str(), "%f,%f,%f,%f,%f", &values[0], &values[1], &values[2], &values[3], &values[4]) == 5;
+            const int read = std::sscanf(text.c_str(), "%f,%f,%f,%f,%f,%f", &values[0], &values[1], &values[2], &values[3], &values[4], &values[5]);
+            options.hasCamera = read == 5 || read == 6;
             if (!options.hasCamera) return false;
         } else if (argument == "--lights") {
             options.lightCount = std::atoi(nextValue().c_str());

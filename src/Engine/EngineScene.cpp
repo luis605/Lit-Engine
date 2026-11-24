@@ -217,6 +217,13 @@ int Engine::loadTexture(const std::string& path, bool srgb) {
     return index;
 }
 
+void Engine::releaseTexture(int index, bool srgb) {
+    auto& paths = m_texturePaths[srgb ? 1 : 0];
+    if (index < 0 || !m_renderer.bindlessTextures()) return;
+    if (static_cast<size_t>(index) < paths.size()) paths[static_cast<size_t>(index)].clear();
+    m_renderer.releaseTexture(index);
+}
+
 namespace {
 constexpr const char* kModelDirectory = "resources/models/";
 

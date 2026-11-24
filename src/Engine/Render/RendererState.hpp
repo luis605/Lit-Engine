@@ -47,9 +47,15 @@ struct DiligentData {
     Diligent::RefCntAutoPtr<Diligent::IBuffer> pSceneUBO[NumFrames];
 
     Diligent::RefCntAutoPtr<Diligent::IBuffer> pMeshInfoBuffer;
+    // Instance pool, cells and batch records (RendererInstancing.cpp); placeholders until the first batch, bound by the surface,
+    // shadow and cluster bindings.
+    Diligent::RefCntAutoPtr<Diligent::IBuffer> pInstanceBuffer;
+    Diligent::RefCntAutoPtr<Diligent::IBuffer> pInstanceCellBuffer;
+    Diligent::RefCntAutoPtr<Diligent::IBuffer> pInstanceBatchBuffer;
     Diligent::RefCntAutoPtr<Diligent::IBuffer> pDynamicStamps;  // per entity deform version (skin_bounds.comp writes, virtual shadows read)
     Diligent::RefCntAutoPtr<Diligent::IBuffer> pMeshInfoBufferFull;  // never patched by cluster LOD (virtual shadow casters)
     Diligent::RefCntAutoPtr<Diligent::IBuffer> pNormalSampleBuffer;
+    Diligent::RefCntAutoPtr<Diligent::IBuffer> pZeroBuffer;  // GPU-side source for zero fills (m_bucketZeros), avoids per-frame uploads of zeros
     Diligent::RefCntAutoPtr<Diligent::IPipelineState> pTransformPSO;
     Diligent::RefCntAutoPtr<Diligent::IShaderResourceBinding> pTransformSRB[NumFrames];
     Diligent::RefCntAutoPtr<Diligent::IBuffer> pTransformUniforms;
@@ -146,6 +152,7 @@ struct DiligentData {
     std::vector<Diligent::RefCntAutoPtr<Diligent::IShaderResourceBinding>> shadowSRBs[NumFrames][kShadowViews];
     std::vector<Diligent::RefCntAutoPtr<Diligent::IShaderResourceBinding>> shadowPointSRBs[NumFrames][kShadowViews];
     uint64_t surfaceBindingVersion = 0;
+    uint64_t textureTableApplied[NumFrames] = {};  // bindless table epoch each frame slot's surface bindings were last brought to
     Diligent::RefCntAutoPtr<Diligent::IBuffer> pTransparentCandidateCounter;
     Diligent::RefCntAutoPtr<Diligent::IBuffer> pTransparentCandidateIds;
     Diligent::RefCntAutoPtr<Diligent::IBuffer> pTransparentDispatchArgs;

@@ -64,7 +64,7 @@ void Renderer::resetVisibilityCounters(int phaseIndex) {
     auto& phase = gpu.visibility[phaseIndex];
     auto* context = gpu.pImmediateContext.RawPtr();
     ClearCounter(context, phase.visibleCounter);
-    context->UpdateBuffer(phase.bucketCounts, 0, sizeof(unsigned int) * ActiveBucketCount(m_numDrawingShaders), m_bucketZeros.data(), Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
+    litgpu::zeroFill(context, gpu.pZeroBuffer, phase.bucketCounts, 0, sizeof(unsigned int) * ActiveBucketCount(m_numDrawingShaders), m_bucketZeros.data());
     if (phaseIndex == kPhaseOpaque) {
         ClearCounter(context, gpu.pCasterCounter);
         ClearCounter(context, gpu.pLocalCasterCounter);
@@ -100,7 +100,7 @@ void Renderer::cullVisibilityPhase(int phaseIndex, uint32_t objectCount, Diligen
 
     resetVisibilityCounters(phaseIndex);
     const CullingUniforms uniforms = MakeCullingUniforms(objectCount, m_maxObjects, m_smallObjectThreshold, m_lodBias, m_forcedLod, m_numDrawingShaders);
-    context->UpdateBuffer(phase.cullingUniforms, 0, sizeof(uniforms), &uniforms, Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
+    LIT_UP(context)->UpdateBuffer(phase.cullingUniforms, 0, sizeof(uniforms), &uniforms, Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
     prepareCandidateDispatch(phaseIndex, objectCount);
 
     auto& binding = phase.cullSRB[m_currentFrame];
@@ -112,6 +112,8 @@ void Renderer::cullVisibilityPhase(int phaseIndex, uint32_t objectCount, Diligen
     } else {
         context->DispatchCompute(Diligent::DispatchComputeAttribs((objectCount + kWorkgroupSize - 1) / kWorkgroupSize, 1, 1));
     }
+    // Instance batches append to the same entries; the frame graph runs them as passes of their own (Instance Cull).
+    if (!renderGraphEnabled()) cullInstances(phaseIndex, hiz, phaseIndex == kPhaseOpaque ? 0u : 1u);
 }
 
 void Renderer::buildVisibilityDraws(int phaseIndex, uint32_t views, bool meshlets) {
@@ -123,7 +125,9 @@ void Renderer::buildVisibilityDraws(int phaseIndex, uint32_t views, bool meshlet
 
     context->SetPipelineState(gpu.pPrefixSumPSO);
     {
+        LIT_UP_MARK(litUp7);
         Diligent::MapHelper<PrefixSumConstants> constants(context, gpu.pPrefixSumConstants, Diligent::MAP_WRITE, Diligent::MAP_FLAG_DISCARD);
+        LIT_UP_COMMIT(litUp7);
         constants->bucketCount = totalBuckets;
     }
     context->CommitShaderResources(phase.prefixSumSRB[m_currentFrame], Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
@@ -136,19 +140,23 @@ void Renderer::buildVisibilityDraws(int phaseIndex, uint32_t views, bool meshlet
 
     context->SetPipelineState(gpu.pScatterPSO);
     {
+        LIT_UP_MARK(litUp8);
         Diligent::MapHelper<ScatterConstants> constants(context, gpu.pScatterConstants, Diligent::MAP_WRITE, Diligent::MAP_FLAG_DISCARD);
-        constants->maxDraws = static_cast<uint32_t>(m_maxObjects);
+        LIT_UP_COMMIT(litUp8);
+        constants->maxDraws = static_cast<uint32_t>(VisibleEntryCapacity(m_maxObjects));  // objects plus visible instances
     }
     context->CommitShaderResources(phase.scatterSRB[m_currentFrame], Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
     context->DispatchComputeIndirect(Diligent::DispatchComputeIndirectAttribs{phase.scatterDispatchArgs, Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION});
 
     const size_t counterBytes = sizeof(unsigned int) * m_numDrawingShaders * views;
-    context->UpdateBuffer(phase.drawCounters, 0, counterBytes, m_bucketZeros.data(), Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
-    context->UpdateBuffer(phase.pointCounters, 0, counterBytes, m_bucketZeros.data(), Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
+    litgpu::zeroFill(context, gpu.pZeroBuffer, phase.drawCounters, 0, counterBytes, m_bucketZeros.data());
+    litgpu::zeroFill(context, gpu.pZeroBuffer, phase.pointCounters, 0, counterBytes, m_bucketZeros.data());
 
     context->SetPipelineState(gpu.pCommandGenPSO);
     {
+        LIT_UP_MARK(litUp9);
         Diligent::MapHelper<CommandGenUniforms> constants(context, gpu.pCommandGenConstants, Diligent::MAP_WRITE, Diligent::MAP_FLAG_DISCARD);
+        LIT_UP_COMMIT(litUp9);
         constants->maxBucketsPerShader = kMaxMeshes;
         constants->totalBuckets = totalBuckets;
         constants->bucketSlots = BucketSlotCount();
@@ -210,7 +218,7 @@ void Renderer::uploadCascadeCull(bool empty) {
         cull.info[0] |= 1u << cascadeIndex;
         for (int planeIndex = 0; planeIndex < kFrustumPlaneCount; ++planeIndex) cull.planes[cascadeIndex * kFrustumPlaneCount + planeIndex] = cascade.planes[planeIndex];
     }
-    m_diligent->pImmediateContext->UpdateBuffer(m_diligent->pCascadeCullUBO, 0, sizeof(cull), &cull, Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
+    LIT_UP(m_diligent->pImmediateContext)->UpdateBuffer(m_diligent->pCascadeCullUBO, 0, sizeof(cull), &cull, Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
 }
 
 void Renderer::drawVisibilityPhase(int phaseIndex, bool meshlets) { drawSurfaces(phaseIndex, -1, 0, meshlets); }

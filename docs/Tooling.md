@@ -158,6 +158,7 @@ The Editor toggles it with F3 or `view.debugOverlay` (`LIT_OVERLAY=<tab>` opens 
 | --- | --- | --- | --- |
 | `portal_loop` | three-room portal loop, camera looks through the AB portal | `LIT_SCENE=portal_loop`, `scene.test.portal_loop` | `--testscene portal_loop` |
 | `portal_torture` | nested portals, camera walks through them | `scene.test.portal_torture` (`LIT_SCENE=portal_torture` opens the Editor's own torture scene) | `--testscene portal_torture` |
+| `portal_tilt` | wall-to-floor, ceiling, 45 degree rolled and 180 degree flipped portals with frames (docs/Portals.md) | `LIT_SCENE=portal_tilt`, `scene.test.portal_tilt` | `--testscene portal_tilt` (`LIT_TILT_WALK=floor\|ceiling\|rolled\|flip` walks through one) |
 | `streaming_route` | chunked world streamed along a route | `LIT_SCENE=streaming_route` | `--testscene streaming_route` |
 | `crowd` | 500 nav agents on a plane | `LIT_SCENE=crowd` | `--testscene crowd` |
 | `vista` | content out to 60 km, near 0.5 / far 4e5 | `LIT_SCENE=vista` | `--testscene vista` |
@@ -171,6 +172,8 @@ The Editor toggles it with F3 or `view.debugOverlay` (`LIT_OVERLAY=<tab>` opens 
 | `largeworld` | content 500 km from the origin, floating origin on, far plane 2e5, 20 / 50 / 100 km landmarks | `LIT_SCENE=largeworld` (fly with the free camera; the origin rebases at 400 m, leaving the scene restores origin 0) | `--testscene largeworld [--origin-km X] [--fly V] [--rebase-frame N]` |
 | `ik` | IK terrain, spider, quadruped and biped rigs (debug lines on) | `LIT_SCENE=ik`, `scene.test.ik` (the older `scene.ikTest` is the Editor's own build) | `--testscene ik` |
 | `gallery` | courtyard with material sweeps, glass, area lights, probe | `LIT_SCENE=gallery` | `--testscene gallery` |
+| `textures` | floor and six spheres with base color, normal, ORM, emissive and triplanar textures (three 1024x1024 PNGs in `resources/textures/test`); the bindless-table vs legacy-array parity scene (docs/RenderGraph.md) | `LIT_SCENE=textures` | `--testscene textures` |
+| `instancing` | 1.2M GPU instances (trees, rocks, grass tufts) in 768 `InstanceBatch`es over a 2 km plane, camera flies a 300 m circle (docs/Instancing.md); `LIT_INSTANCING_DENSITY`, `LIT_INSTANCING_SPEED` | `LIT_SCENE=instancing` | `--testscene instancing [--stats f]` |
 
 In the Editor each scene also loads from the command palette as `scene.test.<name>` (except `showcase`, above) and from autopilot scripts as `testscene <name>` / `run scene.test.<name>`. Switching scenes repeatedly is safe: the world, portals, `testscene.*` systems, floating origin and the scene's render settings (time of day, clouds, fog, reflection mode) are reset, and materials, dynamic mesh sources / instances and uploaded rock meshes are pooled per Engine, so repeated switches do not grow GPU state. LitShot sets `LIT_FIXED_DT=1/60` itself for `light_stress`, `vsm_mixed` and `largeworld` so frame N of an animated scene is repeatable without `--deterministic`.
 
@@ -178,7 +181,7 @@ In the Editor each scene also loads from the command palette as `scene.test.<nam
 Headless --testscene crowd --ticks 600 --metrics crowd.json
 ```
 
-prints `metric <name> <value>` lines and writes the JSON. Headless uses mesh id 0 and no GPU, so only simulation metrics exist there. Metrics: `portal_torture` (cells, portals, crossings, view nodes and depth, frame build time), `streaming_route` (chunks created, destroyed and resident, peak entities, stream tick time), `crowd` (agents, retargets, distance walked, agent step time), `vista` (object count, farthest object, camera near and far, forward-Z depth step in metres at 100 m to 50 km); the other scenes report at least `entities`. `ctest` runs several as `TestScene_<name>`; `ToolingTests` builds every registered scene headless, asserts on the metrics and on determinism, and switches through all of them twice on one Engine checking that nothing is left behind. The GPU path is covered by `LargeWorldRenderTests` (builds `largeworld` through `Engine.TestScenes`). In the Sandbox use `LIT_TESTSCENE=<name>`.
+prints `metric <name> <value>` lines and writes the JSON. Headless uses mesh id 0 and no GPU, so only simulation metrics exist there. Metrics: `portal_torture` (cells, portals, crossings, view nodes and depth, frame build time), `portal_tilt` (cells, portals, crossings), `streaming_route` (chunks created, destroyed and resident, peak entities, stream tick time), `crowd` (agents, retargets, distance walked, agent step time), `vista` (object count, farthest object, camera near and far, forward-Z depth step in metres at 100 m to 50 km); the other scenes report at least `entities`. `ctest` runs several as `TestScene_<name>`; `ToolingTests` builds every registered scene headless, asserts on the metrics and on determinism, and switches through all of them twice on one Engine checking that nothing is left behind. The GPU path is covered by `LargeWorldRenderTests` (builds `largeworld` through `Engine.TestScenes`). In the Sandbox use `LIT_TESTSCENE=<name>`.
 
 ## Far view distance
 

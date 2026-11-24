@@ -183,7 +183,7 @@ void CustomPasses::setBuffer(const std::string& name, uint32_t stride, uint32_t 
         userBuffer.count = count;
         return;
     }
-    if (data) m_data->context->UpdateBuffer(userBuffer.buffer, 0, static_cast<Diligent::Uint64>(stride) * count, data, Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
+    if (data) LIT_UP(m_data->context)->UpdateBuffer(userBuffer.buffer, 0, static_cast<Diligent::Uint64>(stride) * count, data, Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
 }
 
 bool CustomPasses::createTexture(const std::string& name, int width, int height, ShaderTextureFormat format) {
