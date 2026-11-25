@@ -2,6 +2,7 @@ module;
 
 #include <algorithm>
 #include <cctype>
+#include <cmath>
 #include <cstddef>
 #include <format>
 #include <string>
@@ -81,7 +82,15 @@ void addSceneFindings(const FrameFacts& facts, std::vector<FrameFinding>& out) {
 
 }
 
-std::vector<FrameFinding> explainFrame(const FrameFacts& facts) {
+std::vector<FrameFinding> explainFrame(const FrameFacts& input) {
+    // Timer queries can fail (nan / inf): drop such samples, a nan weight would also break the strict weak ordering of the sort below.
+    FrameFacts facts = input;
+    const auto finite = [](const std::pair<std::string, double>& entry) { return std::isfinite(entry.second); };
+    std::erase_if(facts.gpuPasses, [&](const auto& entry) { return !finite(entry); });
+    std::erase_if(facts.cpuScopes, [&](const auto& entry) { return !finite(entry); });
+    if (!std::isfinite(facts.cpuMs)) facts.cpuMs = 0.0;
+    if (!std::isfinite(facts.gpuMs)) facts.gpuMs = 0.0;
+    if (!std::isfinite(facts.targetMs)) facts.targetMs = 16.6;
     std::vector<FrameFinding> findings;
     addTopPass(facts, findings);
     addTopScope(facts, findings);

@@ -1,0 +1,19 @@
+# Helpers for GPU laws (tests/bent/laws/gpu/*.bent). Run them with `bent check FILE --gpu` or `bent suite --gpu --laws tests/bent/laws/gpu`.
+# rxGpuShot renders a LitShot scene (deterministic clock, fixed 320x180 window) in a child process and returns frame statistics:
+#   ok error png mean std min max blackFrac exactBlackFrac whiteFrac gradient blobScore top bottom hash logErrors logWarnings bindless
+#   uploadMB dynamicMB firstFrameMB logTail.  Results are cached per distinct spec; add `run: n` to force a second, independent render.
+# rxImageDiff(a, b) compares two shots: sameSize meanAbs maxAbs diffFrac (pixels off by more than 8 levels) blockMean blockMax (16x9 grid of mean luma).
+
+fn shot(scene, settings) = rxGpuShot({scene: scene, settings: settings})
+fn shotEnv(scene, settings, env) = rxGpuShot({scene: scene, settings: settings, env: env})
+fn shotRun(scene, settings, run) = rxGpuShot({scene: scene, settings: settings, run: run})
+fn plain(scene) = shot(scene, [])
+
+# Scenes with a sky and ordinary outdoor lighting (frames must be neither black nor blown out).
+let skyScenes = ["vista", "showcase", "gallery", "textures", "skinning", "probes"]
+let portalScenes = ["portal_loop", "portal_torture"]
+let allScenes = skyScenes ++ portalScenes ++ ["crowd", "streaming_route"]
+
+# How much two renders of the very same program differ on this GPU (run-to-run noise); comparisons add this as slack.
+fn noiseOf(scene, settings) = rxImageDiff(shotRun(scene, settings, 1), shotRun(scene, settings, 2))
+fn agrees(d, noise) = d.sameSize and d.diffFrac <= 2 * noise.diffFrac + 0.01 and d.meanAbs <= noise.meanAbs + 1.5

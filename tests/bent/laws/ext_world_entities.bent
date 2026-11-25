@@ -1,0 +1,214 @@
+# World core: entity lifecycle and handles, hierarchy links, reparenting (docs/Bent.md, "World and core laws").
+include "../lib/ext_world.bent"
+
+# ---------------------------------------------------------------- handles
+
+# A slot that is reused always gets a strictly larger generation: an old handle can never alias a newer entity.
+law handle_generation_strictly_grows_per_slot {
+    forall (p: lifeProg)
+    => after(p) {
+        let hs = map(spawned(), handle) in
+        forall i in range(0, len(hs)): forall j in range(i + 1, len(hs)): hs[i].index == hs[j].index ==> hs[i].generation < hs[j].generation
+    }
+}
+
+# Reading through a dead handle yields the neutral value, never another entity's data.
+law dead_handle_reads_neutral {
+    forall (p: lifeProg, e: hierSpawn)
+    => after(p ++ [e, setName(target: -1, name: "alive"), setTag(target: -1, tag: "t"), destroy(target: -1)]) {
+        let dead = entity(len(spawned()) - 1) in
+        (not alive(dead)) and name(dead) == "" and tag(dead) == "" and children(dead) == [] and parent(dead) == -1 and components(dead) == []
+    }
+}
+
+# Destroying an entity kills exactly its subtree and nothing else.
+law destroy_kills_exactly_subtree {
+    forall (p: lifeProg, k: target)
+    => after(p) {
+        let victim = ref(k) in
+        let doomed = subtreeOf(victim) in
+        let before = entities() in
+        after(p ++ [destroy(target: k)]) {
+            forall e in before: alive(e) == (not contains(doomed, e))
+        }
+    }
+}
+
+# Destroying twice is the same as destroying once (the second is a stale-handle no-op), world hash included.
+law destroy_is_idempotent {
+    forall (p: lifeProg, k: target)
+    => after(p ++ [destroy(target: k)]) { worldHash() } == after(p ++ [destroy(target: k), destroy(target: k)]) { worldHash() }
+}
+
+# Destroy everything, create the same number again: every slot is reused (no leak in the free list), and no old handle is revived.
+law freed_slots_are_reused {
+    forall (n: int(1, 24))
+    => let s = repeat(spawn(shape: "none", dynamic: false), n) in
+       let killAll = map(range(0, n), fn(k) => destroy(target: k)) in
+       after(s) { sortedIndices() } == after(s ++ killAll ++ s) { sortedIndices() }
+}
+
+law reused_slots_have_new_generations {
+    forall (n: int(1, 24))
+    => let s = repeat(spawn(shape: "none", dynamic: false), n) in
+       let killAll = map(range(0, n), fn(k) => destroy(target: k)) in
+       after(s ++ killAll ++ s) { allDistinct(map(spawned(), handle)) and all(entities(), fn(e) => generationOf(e) >= 1) }
+}
+
+# clear() empties the world and never lets an earlier handle come back to life, even after new entities fill the same slots.
+law clear_never_revives_handles {
+    forall (p: lifeProg, q: lifeProg)
+    => after(p ++ [clear()] ++ q) {
+        let newer = filter(spawned(), alive) in
+        allDistinct(map(spawned(), handle)) and (forall e in spawned(): alive(e) ==> contains(newer, e))
+        and len(newer) == entityCount()
+    }
+}
+
+law clear_leaves_valid_empty_world {
+    forall (p: programPlus)
+    => after(p ++ [clear()]) { entityCount() == 0 and entities() == [] and worldErrors() == [] }
+}
+
+# compact() leaves no holes: live slots are exactly 0..n-1, and nothing else about the content changes.
+law compact_leaves_dense_slots {
+    forall (p: lifeProg)
+    => after(p ++ [compact()]) { sortedIndices() == range(0, entityCount()) and worldErrors() == [] }
+}
+
+# Slot reuse never changes the observable content of surviving entities (names/transforms of survivors).
+law spawn_after_destroy_does_not_touch_survivors {
+    forall (p: lifeProg, s: hierSpawn)
+    => after(p) {
+        let live = entities() in
+        let snapshot = map(live, fn(e) => [name(e), position(e), rotation(e), scale(e), parent(e)]) in
+        after(p ++ [s, s]) { map(live, fn(e) => [name(e), position(e), rotation(e), scale(e), parent(e)]) == snapshot }
+    }
+}
+
+# ---------------------------------------------------------------- hierarchy links
+
+# parent / children are mirror images, every child has exactly one parent, roots have none.
+law hierarchy_links_are_symmetric {
+    forall (p: programPlus)
+    => after(p) {
+        (forall e in entities(): (isRoot(e) or contains(children(parent(e)), e)) and (forall c in children(e): parent(c) == e and alive(c)))
+        and allDistinct(flatten(map(entities(), children)))
+    }
+}
+
+# The traversal from the roots reaches every live entity exactly once (the intrusive child lists are consistent).
+law hierarchy_traversal_covers_world {
+    forall (p: programPlus)
+    => after(p) {
+        let roots = filter(entities(), isRoot) in
+        let reached = flatten(map(roots, subtreeOf)) in
+        len(reached) == entityCount() and allDistinct(reached)
+    }
+}
+
+# Reparenting into one's own subtree is refused (the world stays acyclic and unchanged).
+law reparent_into_own_subtree_is_rejected {
+    forall (p: hierProg, k: target)
+    => after(p) {
+        let e = ref(k) in
+        let sub = descendants(e) in
+        len(sub) == 0 or (
+            let d = last(sub) in
+            let before = worldHash() in
+            after(p ++ [reparent(target: e, parent: d, keepWorld: true)]) { worldHash() == before and parent(ref(k)) == parent(e) })
+    }
+}
+
+# Reparenting an entity to its current parent is a no-op.
+law reparent_to_same_parent_is_noop {
+    forall (p: hierProg, k: target, keep: bool())
+    => after(p) {
+        let e = ref(k) in
+        let par = parent(e) in
+        not alive(e) or after(p ++ [reparent(target: e, parent: par, keepWorld: keep)]) { contentHash() } == contentHash()
+    }
+}
+
+# keepWorld reparenting preserves every world matrix of the moved subtree (uniform scales: shear free).
+law reparent_keep_world_preserves_world_matrices {
+    forall (p: hierProg, k: target, j: int(-1, 31))
+    => after(p) {
+        let es = entities() in
+        let before = map(es, worldMatrix) in
+        after(p ++ [reparent(target: k, parent: j, keepWorld: true)]) {
+            all(zip(before, map(es, worldMatrix)), fn(pair) => pair[0] ~= pair[1] within 2e-3)
+        }
+    }
+}
+
+# Without keepWorld the local transform is what is kept.
+law reparent_without_keep_preserves_local {
+    forall (p: hierProg, k: target, j: int(-1, 31))
+    => after(p) {
+        let e = ref(k) in
+        let local = [position(e), rotation(e), scale(e)] in
+        not alive(e) or after(p ++ [reparent(target: k, parent: j, keepWorld: false)]) { [position(ref(k)), rotation(ref(k)), scale(ref(k))] ~= local within 1e-6 }
+    }
+}
+
+# Moving under a new parent and back (both keepWorld) restores the world matrix, whatever happens to the local one.
+law reparent_there_and_back_restores_world {
+    forall (p: hierProg, k: target, j: int(-1, 31))
+    => after(p) {
+        let e = ref(k) in
+        let originalParent = parent(e) in
+        let before = worldMatrix(e) in
+        not alive(e) or after(p ++ [reparent(target: k, parent: j, keepWorld: true), reparent(target: k, parent: originalParent, keepWorld: true)]) {
+            worldMatrix(ref(k)) ~= before within 5e-3
+        }
+    }
+}
+
+# Destroying a parent never leaves an orphaned child behind (children of a destroyed entity are destroyed with it).
+law destroying_parent_leaves_no_orphans {
+    forall (p: lifeProg)
+    => after(p) { forall e in spawned(): not alive(e) ==> (forall c in spawned(): alive(c) ==> parent(c) != e) }
+}
+
+# Entity events: every creation and destruction is announced exactly once (the queue is delivered by a tick).
+law entity_events_balance {
+    forall (p: lifeProg)
+    => after([eventsWatch()] ++ p ++ [step(n: 1)]) {
+        let created = filter(entityEvents(), fn(ev) => ev[0] == 0) in
+        let destroyed = filter(entityEvents(), fn(ev) => ev[0] == 1) in
+        len(created) == len(spawned()) and len(destroyed) == len(spawned()) - entityCount()
+    }
+}
+
+# Every reparent that changes the parent emits exactly one event; the parent reported is the new one.
+law reparent_events_report_new_parent {
+    forall (p: hierProg, k: target, j: int(-1, 31))
+    => after(p ++ [eventsWatch(), step(n: 1)]) {
+        let e = ref(k) in
+        let before = parent(e) in
+        not alive(e) or after(p ++ [eventsWatch(), reparent(target: k, parent: j, keepWorld: true), step(n: 1)]) {
+            let moved = filter(entityEvents(), fn(ev) => ev[0] == 2) in
+            let now = parent(ref(k)) in
+            (now == before ==> len(moved) == 0) and (now != before ==> (len(moved) == 1 and moved[0][1] == idx(ref(k)) and moved[0][3] == (if now == -1 then -1 else idx(now))))
+        }
+    }
+}
+
+gen halves = map(int(-40, 40), fn(i) => i * 0.5)
+# Batched creation and destruction are the same as one by one.
+law create_batch_equals_single_creates {
+    forall (n: int(1, 40), pos: vec3(halves, halves, halves), spacing: map(int(1, 8), fn(i) => i * 0.5), mesh: int(-1, 7))
+    => after([spawnBatch(n: n, pos: pos, spacing: spacing, mesh: mesh)]) { contentHash() } ==
+       after(map(range(0, n), fn(i) => spawn(shape: "none", dynamic: false, pos: pos + vec3(spacing * i, 0, 0), mesh: mesh, name: "batch" ++ str(i)))) { contentHash() }
+}
+
+law destroy_batch_equals_sequential_destroys {
+    forall (p: lifeProg, ks: listOf(target, 0, 8))
+    => after(p ++ [destroyBatch(targets: ks)]) { contentHash() } == after(p ++ [destroyBatch(targets: ks, each: 1)]) { contentHash() }
+}
+
+law destroy_batch_keeps_world_valid {
+    forall (p: lifeProg, ks: listOf(target, 0, 12), s: hierSpawn)
+    => always after(p ++ [destroyBatch(targets: ks), s, s, validate()]) { worldErrors() == [] and entityCount() == liveCount() }
+}

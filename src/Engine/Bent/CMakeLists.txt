@@ -19,7 +19,16 @@ set_target_properties(BentLang PROPERTIES CXX_SCAN_FOR_MODULES OFF)
 
 add_library(BentEngine STATIC
     EngineHost.cpp
-    EngineObserve.cpp)
+    EngineObserve.cpp
+    Ext_Portal.cpp
+    Ext_PortalStreaming.cpp
+    Ext_PortalTerrain.cpp
+    Ext_PortalSave.cpp
+    Ext_Render.cpp
+    Ext_Gpu.cpp
+    Ext_Physics.cpp
+    Ext_Sim.cpp
+    Ext_World.cpp)
 target_compile_features(BentEngine PUBLIC cxx_std_23)
 target_include_directories(BentEngine PRIVATE "${PROJECT_SOURCE_DIR}/src/vendors/glfw/include")
 target_link_libraries(BentEngine PUBLIC BentLang Engine)

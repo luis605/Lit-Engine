@@ -211,6 +211,7 @@ export struct WorldSnapshot {
     std::vector<Entity> freeList;
     Entity firstRoot = INVALID_ENTITY;
     size_t aliveCount = 0;
+    glm::dvec3 origin{0.0};  // floating origin the local positions are relative to
     std::string extras;
     bool valid = false;
 };

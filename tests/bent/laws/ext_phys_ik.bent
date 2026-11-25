@@ -1,0 +1,126 @@
+# Inverse kinematics (Engine.IK.Solvers): FABRIK, CCD and the analytic two bone solver on random chains, reachable and unreachable
+# targets, joint limits and degenerate input. ikSolve({points, target, algo, iterations, tolerance, limits, pole, bend}).
+include "../lib/ext_phys.bent"
+
+# A chain: root plus bones of random length in random directions (kept moderately bent so the shape is a sensible limb).
+gen boneGen = {len: float(0.3, 1.5), dir: unitVec3()}
+fn chainPoints(root, bones) = fold(bones, [root], fn(acc, b) => acc ++ [last(acc) + b.dir * b.len])
+gen chainGen = map([vec3(float(-2, 2), float(-2, 2), float(-2, 2)), listOf(boneGen, 2, 6)], fn(p) => chainPoints(p[0], p[1]))
+fn boneLengths(points) = map(zip(points, drop(points, 1)), fn(s) => distance(s[0], s[1]))
+fn reachOf(points) = sum(boneLengths(points))
+# Closest the tip can get to the root: a longest bone longer than the rest of the chain cannot fold away (dead zone around the root).
+fn deadZone(points) = max(0.0, 2.0 * maxOf(boneLengths(points)) - reachOf(points))
+# (a margin of 15% of the reach keeps clear of the dead zone, where convergence is slow)
+fn reachableDist(points, frac, top) = deadZone(points) + 0.15 * reachOf(points) + frac * ((top - 0.15) * reachOf(points) - deadZone(points))
+fn lengthsPreserved(points, out, tol) = all(zip(boneLengths(points), out.lengths), fn(p) => abs(p[0] - p[1]) <= tol * max(p[0], 1.0))
+fn solve(points, target, algo, iters) = ikSolve({points: points, target: target, algo: algo, iterations: iters, tolerance: 1e-4})
+# Straight chains cannot fold onto their own axis (FABRIK / CCD keep every bone along the line): chains must be visibly bent for the
+# convergence laws, which is how limbs sit in practice. See ik_straight_chain_folds for the degenerate case.
+fn visiblyBent(points) = all(range(len(points) - 2), fn(i) => length(cross(normalize(points[i + 1] - points[i]), normalize(points[i + 2] - points[i + 1]))) > 0.5)
+fn offAxis(points, dir) = abs(dot(dir, normalize(points[1] - points[0]))) < 0.9
+fn tipError(out, target) = distance(last(out.points), target)
+
+# Whatever the algorithm, a solved chain keeps its bone lengths, its root, and stays finite.
+law ik_solvers_preserve_bones_and_root {
+    forall (points: chainGen, algo: elements(["fabrik", "ccd", "auto"]), t: vec3(float(-6, 6), float(-6, 6), float(-6, 6)), iters: int(1, 40))
+    => let out = solve(points, t, algo, iters) in
+       lengthsPreserved(points, out, 2e-3) and distance(head(out.points), head(points)) < 1e-4 and all(out.points, finite3)
+}
+
+# Targets inside the reach are hit (within 2% of the reach after 60 FABRIK iterations; CCD 3% after 200). Targets on the line of the first
+# bone with a fully folded chain are a fixed point of both solvers, see the known regression ik_fold_singularity.
+law ik_fabrik_reaches_reachable_targets {
+    forall (points: chainGen, dir: unitVec3(), frac: float(0, 1))
+    where visiblyBent(points) and offAxis(points, dir)
+    => let target = head(points) + dir * reachableDist(points, frac, 0.9) in
+       let out = solve(points, target, "fabrik", 60) in
+       tipError(out, target) < 0.02 * reachOf(points)
+}
+
+law ik_ccd_reaches_reachable_targets {
+    forall (points: chainGen, dir: unitVec3(), frac: float(0, 1))
+    where visiblyBent(points) and offAxis(points, dir)
+    => let target = head(points) + dir * reachableDist(points, frac, 0.8) in
+       let out = solve(points, target, "ccd", 200) in
+       tipError(out, target) < 0.03 * reachOf(points)
+}
+
+# Unreachable targets: the chain stretches towards the target (tip no further from it than it started, never beyond its own reach).
+law ik_unreachable_target_stretches_towards_it {
+    forall (points: chainGen, dir: unitVec3(), extra: float(1.05, 3))
+    => let target = head(points) + dir * (extra * reachOf(points)) in
+       let out = solve(points, target, "fabrik", 40) in
+       tipError(out, target) <= distance(last(points), target) + 1e-3
+       and distance(last(out.points), head(out.points)) <= reachOf(points) * (1 + 2e-3)
+       and tipError(out, target) <= (extra - 1.0) * reachOf(points) + 0.02 * reachOf(points)
+}
+
+# More iterations never make FABRIK worse.
+law ik_more_iterations_do_not_hurt {
+    forall (points: chainGen, t: vec3(float(-5, 5), float(-5, 5), float(-5, 5)))
+    => tipError(solve(points, t, "fabrik", 25), t) <= tipError(solve(points, t, "fabrik", 3), t) + 1e-3
+}
+
+# Solving again from the solved pose does not increase the error (the solution is a fixed point).
+law ik_solution_is_stable {
+    forall (points: chainGen, t: vec3(float(-5, 5), float(-5, 5), float(-5, 5)), algo: elements(["fabrik", "ccd", "auto"]))
+    => let once = solve(points, t, algo, 30) in
+       let twice = solve(once.points, t, algo, 30) in
+       tipError(twice, t) <= tipError(once, t) + 2e-3
+}
+
+# Degenerate input never produces NaN: target on the root, on the tip, far away, collinear chains, tiny bones, and non finite targets.
+gen oddTarget = oneof(vec3(0, 0, 0), vec3(float(-1e6, 1e6), float(-1e6, 1e6), float(-1e6, 1e6)), vec3(nasty(float(-5, 5)), nasty(float(-5, 5)), nasty(float(-5, 5))))
+law ik_degenerate_targets_stay_finite {
+    forall (points: chainGen, t: oddTarget, algo: elements(["fabrik", "ccd", "auto", "two"]), collinear: bool())
+    => let pts = if collinear then fold(drop(points, 1), [head(points)], fn(acc, p) => acc ++ [last(acc) + vec3(0, 1, 0) * distance(p, last(acc))]) else points in
+       let out = solve(if algo == "two" then take(pts, 3) else pts, t, algo, 20) in
+       all(out.points, finite3)
+}
+
+law ik_zero_length_bones_stay_finite {
+    forall (points: chainGen, zero: int(0, 4), t: vec3(float(-3, 3), float(-3, 3), float(-3, 3)), algo: elements(["fabrik", "ccd", "auto"]))
+    => let i = 1 + zero % (len(points) - 1) in
+       let squashed = take(points, i) ++ map(drop(points, i), fn(p) => points[i - 1] + (p - points[i]) * (if p == points[i] then 0.0 else 1.0)) in
+       let out = solve(squashed, t, algo, 20) in
+       all(out.points, finite3)
+}
+
+# Analytic two bone: a reachable target is hit exactly, the pole vector picks the side the middle joint bends to.
+law ik_two_bone_exact_and_pole_side {
+    forall (l1: float(0.4, 1.5), l2: float(0.4, 1.5), dir: unitVec3(), frac: float(0.2, 0.95), pole: unitVec3())
+    => let total = l1 + l2 in
+       let reach = abs(l1 - l2) + 0.05 + frac * (total - abs(l1 - l2) - 0.05) in
+       let target = dir * reach in
+       let out = ikSolve({points: [vec3(0, 0, 0), vec3(0, l1, 0), vec3(0, l1 + l2, 0)], target: target, algo: "two", pole: pole * 3.0, tolerance: 1e-4}) in
+       let mid = out.points[1] in
+       let along = target * (dot(mid, target) / dot(target, target)) in
+       let off = mid - along in
+       let poleOff = pole * 3.0 - target * (dot(pole * 3.0, target) / dot(target, target)) in
+       tipError(out, target) < 2e-3 and abs(distance(vec3(0, 0, 0), mid) - l1) < 2e-3
+       and (length(off) < 1e-3 or length(poleOff) < 1e-3 or dot(off, poleOff) >= -1e-3)
+}
+
+# Joint limits: hinge joints stay inside [min, max] about the bend axis, and ball joints inside their cone, after solving.
+law ik_hinge_limits_are_respected {
+    forall (l1: float(0.5, 1.2), l2: float(0.5, 1.2), l3: float(0.5, 1.2), lo: float(-2.5, 0), hi: float(0, 2.5), t: vec3(float(-2, 2), float(-2, 2), float(0, 2)))
+    => let pts = [vec3(0, 0, 0), vec3(0, l1, 0), vec3(0, l1 + l2, 0), vec3(0, l1 + l2 + l3, 0)] in
+       let out = ikSolve({points: pts, target: t, algo: "fabrik", iterations: 30, tolerance: 1e-4, bend: vec3(0, 0, 1),
+                          limits: [{hinge: false}, {hinge: true, min: lo, max: hi}, {hinge: true, min: lo, max: hi}]}) in
+       all(out.signed, fn(a) => a >= lo - 2e-2 and a <= hi + 2e-2) and lengthsPreserved(pts, out, 2e-3)
+}
+
+law ik_cone_limits_are_respected {
+    forall (points: chainGen, cone: float(0.3, 2.5), t: vec3(float(-4, 4), float(-4, 4), float(-4, 4)))
+    => let out = ikSolve({points: points, target: t, algo: "fabrik", iterations: 30, tolerance: 1e-4, limits: map(points, fn(p) => {hinge: false, cone: cone})}) in
+       all(out.points, finite3) and lengthsPreserved(points, out, 2e-3) and all(out.angles, fn(a) => a <= cone + 3e-2)
+}
+
+# A target on the line of the first bone, closer than the first bone is long, is reachable by folding the chain. FABRIK and CCD fold it
+# a full 180 degrees onto itself (a fixed point of both solvers) and stay there with the tip back at the root.
+law ik_target_on_first_bone_line_is_reached {
+    forall (l1: float(0.4, 1.2), l2: float(0.4, 1.2), bend: float(0.6, 2.5), frac: float(0.2, 0.9), algo: elements(["fabrik", "ccd"]))
+    => let points = [vec3(0, 0, 0), vec3(0, l1, 0), vec3(0, l1, 0) + vec3(sin(bend), cos(bend), 0) * l2] in
+       let target = vec3(0, abs(l1 - l2) + 0.15 + frac * (min(l1, l2) * 2.0 - abs(l1 - l2) - 0.2), 0) in
+       tipError(solve(points, target, algo, 100), target) < 0.03 * reachOf(points)
+}

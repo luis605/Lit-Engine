@@ -1,0 +1,14 @@
+# Bent regression: shrunk counterexample for law `px_portal_ray_equals_unfolded_ray` (tests/bent/laws/ext_phys_portal.bent)
+# Found by: bent check tests/bent/laws/ext_phys_portal.bent --cases 1000 --seed 1 (seed 1, case 1)
+# Shrunk 563 times in 4000 attempts; tape 54 -> 30 choices
+# Replay the random case: bent replay tests/bent/laws/ext_phys_portal.bent --law px_portal_ray_equals_unfolded_ray --seed 1 --case 1
+# Failure: property is false
+#   tests/bent/laws/ext_phys_portal.bent:43:106: 0.0050008296966552734 < 0.005 is false
+include "../laws/ext_phys_portal.bent"
+
+example px_portal_ray_equals_unfolded_ray known "untriaged portal query/physics mismatch found by the first run: see docs/Bent.md (Physics, character and AI laws)" {
+  pair = {a: vec3(0.0, 0.0, 8.000000000000002), aEuler: vec3(0.0, 0.0, 0.0), b: vec3(0.0, 0.0, 0.0), bEuler: vec3(0.0, 0.0, 0.0), half: vec3(1.0, 1.0, 0.0), twist: 5.173638582229616},
+  from = vec3(-0.17014295607805244, 0.0, 2.0),
+  q = vec3(0.4999361783266068, 0.0, 2.0),
+  r = 0.2
+}

@@ -1,0 +1,8 @@
+# Bent regression: skin weights 3.4e38 + 3.4e38 overflow the float sum (inf); the inverse was 0 and the vertex ended with every weight 0.
+# Fixed in Skin.cpp (normalizeSkinWeights scales by the largest weight when the sum is not finite).
+include "../laws/ext_phys_anim.bent"
+
+example skin_normalize_repairs_any_weights {
+  raw = [[0, 0, 0, 0, 0.0, 3.4028234663852886e+38, 3.4028234663852886e+38, 0.0]],
+  joints = 1
+}

@@ -1,0 +1,13 @@
+# Bent regression: shrunk counterexample for law `px_every_collider_survives_save_load` (tests/bent/laws/ext_phys_dynamics.bent)
+# Found by: bent check tests/bent/laws/ext_phys_dynamics.bent --cases 200 --seed 3 (seed 3, case 14)
+# Shrunk 1 times in 109 attempts; tape 78 -> 14 choices
+# Replay the random case: bent replay tests/bent/laws/ext_phys_dynamics.bent --law px_every_collider_survives_save_load --seed 3 --case 14
+# Failure: property is false
+#   tests/bent/laws/ext_phys_dynamics.bent:209:14: true == false is false
+include "../laws/ext_phys_dynamics.bent"
+
+example px_every_collider_survives_save_load {
+  b = {cell: 0.5, dynamic: false, heights: [0.0, 0.0, 0.0, 0.0], nx: 2, nz: 2, pos: vec3(0.0, 0.0, 0.0), rot: quat(1.0, 0.0, 0.0, 0.0), scale: vec3(1.0, 1.0, 1.0), shape: "heightfield"},
+  from = vec3(0.0, 0.0, 0.0),
+  jit = vec3(0.0, 0.0, 0.0)
+}

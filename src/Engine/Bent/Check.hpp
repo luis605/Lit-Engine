@@ -19,6 +19,7 @@ struct CaseOutcome {
     std::vector<TapeSpan> spans;
     NamedArgs bindings;
     std::vector<std::string> notes;
+    std::vector<std::pair<std::string, bool>> covers;
     double millis = 0.0;
 };
 
@@ -41,6 +42,7 @@ struct CheckOptions {
     int64_t shrinkLimit = 4000;    // attempts
     double shrinkSeconds = 180.0;  // per failing law
     bool isolate = false;          // fork a process per case (crash and hang safe)
+    bool coverage = false;         // print the cover(label, cond) statistics of every law
     double caseTimeout = 120.0;    // seconds per case
     std::string regressionDir;     // write <law>-<hash>.bent here when non-empty
     std::string commandLine;       // recorded in regression headers
@@ -63,6 +65,8 @@ struct LawReport {
     std::string counterexample;  // runnable .bent text
     std::string regressionPath;
     double seconds = 0.0;
+    std::vector<std::pair<std::string, std::pair<int64_t, int64_t>>> cover;  // label -> (cases that hit it, cases that evaluated it)
+    bool showCover = false;
 };
 
 struct ExampleReport {

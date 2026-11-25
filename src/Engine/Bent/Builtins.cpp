@@ -641,6 +641,13 @@ void installBuiltins(Program& p) {
         in.note(loc.str() + ": trace " + (a[0].kind == Kind::Str ? a[0].text() : print(a[0])) + " = " + truncate(print(a[1]), 400));
         return a[1];
     });
+    // cover(label, condition): records whether the condition held in this case and returns true. `bent check` counts the cases that
+    // hit each label (--coverage prints them); a law whose label is never hit over 20 or more cases is reported VACUOUS (a failure).
+    p.native("cover", [](Interp& in, const Args& a, const NamedArgs& n, const SrcLoc& loc) {
+        arity(a, n, 2, 2, loc, "cover");
+        in.covers.emplace_back(argString(a[0], loc, "cover label"), truthy(a[1], loc));
+        return Value::boolean(true);
+    });
     p.native("approx", [](Interp&, const Args& a, const NamedArgs& n, const SrcLoc& loc) {
         arity(a, n, 2, 3, loc, "approx");
         return Value::boolean(approxEqual(a[0], a[1], a.size() == 3 ? argNumber(a[2], loc, "approx tolerance") : 1.0e-6));

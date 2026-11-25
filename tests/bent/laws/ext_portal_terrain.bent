@@ -1,0 +1,229 @@
+# Terrain (docs/Terrain.md): height function, tile heightfields and colliders, LOD tile selection (cover, balance, morph), scatter, splat
+# weights, and the streamer's visibility swaps.
+include "../lib/ext_portal.bent"
+
+gen xtCfg = {seed: int(1, 60), amplitude: float(20, 200), tileSize: elements([32, 64]), tileCells: elements([8, 16]), scatterSeed: int(1, 60),
+             spacing: float(3, 12), density: float(0.3, 1), species: int(1, 3), minNormalY: float(0, 0.9), yOffset: float(0, 1)}
+gen xtCoord = float(-3000, 3000)
+gen xtCam = vec3(float(-2000, 2000), float(-50, 300), float(-2000, 2000))
+gen xtLod = {maxLevel: int(1, 3), view: float(100, 350), splitFactor: float(1.2, 3), morphStart: float(0.4, 0.9), balance: just(true)}
+
+# ---------------------------------------------------------------- height function
+
+law terrain_height_is_deterministic_finite_and_bounded {
+    forall (c: xtCfg, x: xtCoord, z: xtCoord)
+    => let h = xtHeight(c, x, z) in h == xtHeight(c, x, z) and isFinite(h) and abs(h) <= 3 * c.amplitude
+}
+
+# Different seeds make different worlds.
+law terrain_seed_changes_the_world {
+    forall (c: xtCfg, x: float(-500, 500), z: float(-500, 500))
+    => let others = map(range(1, 6), fn(k) => xtHeight(with(c, seed: c.seed + k), x, z)) in
+       len(dedup(others ++ [xtHeight(c, x, z)])) >= 4
+}
+
+# Continuity: the height changes by a bounded slope per metre (a terrain with cliffs the size of the amplitude between neighbouring
+# samples would tear collision and mesh alike). The bound is generous (3 x amplitude / 40 m per metre); a discontinuity jumps by amplitudes.
+law terrain_height_is_lipschitz {
+    forall (c: xtCfg, x: xtCoord, z: xtCoord, dx: float(-1, 1), dz: float(-1, 1))
+    => abs(xtHeight(c, x + dx, z + dz) - xtHeight(c, x, z)) <= c.amplitude * 0.15 * sqrt(dx * dx + dz * dz) + 1e-3
+}
+
+# ---------------------------------------------------------------- tile heightfields and colliders
+
+# A tile's samples are the height function at their world positions, at every level, near and far from the origin.
+law terrain_tile_samples_are_the_height_function {
+    forall (c: xtCfg, x: int(-200, 200), z: int(-200, 200), level: int(0, 4))
+    => xtTile(c, x, z, level).sampleErr < 1e-3
+}
+
+# Neighbouring tiles of one level share their edge exactly (no crack, no step), in both directions.
+law terrain_neighbouring_tiles_share_edges {
+    forall (c: xtCfg, x: int(-200, 200), z: int(-200, 200), level: int(0, 3))
+    => let t = xtTile(c, x, z, level) in
+       t.right == xtTile(c, x + 1, z, level).left and t.far == xtTile(c, x, z + 1, level).near
+}
+
+# A coarse tile's edge samples lie on the fine tiles' edge samples (same positions, same height): no T-junction crack between levels.
+law terrain_coarse_edge_matches_fine_tile_samples {
+    forall (c: xtCfg, x: int(-100, 100), z: int(-100, 100), level: int(1, 3))
+    => let coarse = xtTile(c, x, z, level) in
+       let fine = xtTile(c, 2 * x, 2 * z, level - 1) in
+       let n = coarse.samples in
+       let half = (n - 1) / 2 in
+       forall k in range(0, half + 1): coarse.near[k] == fine.near[2 * k] and coarse.left[k] == fine.left[2 * k]
+}
+
+# The collider built from the tile samples reproduces them: a downward ray over a vertex hits at the vertex height, over an edge midpoint at
+# the average of its two end vertices (the collider triangulation is linear along grid lines), and heightfieldHeightAt agrees.
+law terrain_heightfield_collider_matches_the_samples {
+    forall (c: xtCfg, x: int(-100, 100), z: int(-100, 100), level: int(0, 2))
+    => let t = xtTile(c, x, z, level) in
+       t.hits == t.attempts and t.rayVertexErr < 2e-3 and t.rayEdgeErr < 2e-3 and t.heightAtErr < 2e-3
+       and t.minHeight <= min(t.near) and t.maxHeight >= max(t.near)
+}
+
+# ---------------------------------------------------------------- tile selection
+
+fn xtInside(t, p) = p.x >= t.min.x and p.x < t.max.x and p.z >= t.min.z and p.z < t.max.z
+fn xtTouching(a, b) =
+    let ox = min(a.max.x, b.max.x) - max(a.min.x, b.min.x) in
+    let oz = min(a.max.z, b.max.z) - max(a.min.z, b.min.z) in
+    (abs(ox) < 1e-3 and oz > 1e-3) or (abs(oz) < 1e-3 and ox > 1e-3)
+fn xtOverlap(a, b) = min(a.max.x, b.max.x) - max(a.min.x, b.min.x) > 1e-3 and min(a.max.z, b.max.z) - max(a.min.z, b.min.z) > 1e-3
+fn xtSize(c, t) = c.tileSize * pow(2, t.level)
+
+# Selected tiles never overlap, sit on their level's grid, and carry a morph factor in [0, 1].
+law terrain_select_tiles_are_disjoint_and_on_the_grid {
+    forall (c: xtCfg, lod: xtLod, cam: xtCam)
+    => let tiles = xtSelect(c, lod, cam) in
+       (forall t in tiles: t.level >= 0 and t.level <= lod.maxLevel and t.morph >= 0 and t.morph <= 1
+           and abs(t.min.x - t.x * xtSize(c, t)) < 1e-2 and abs(t.max.x - t.min.x - xtSize(c, t)) < 1e-2
+           and abs(t.min.z - t.z * xtSize(c, t)) < 1e-2 and abs(t.max.z - t.min.z - xtSize(c, t)) < 1e-2)
+       and (forall i in range(len(tiles)): forall j in range(i + 1, len(tiles)): not xtOverlap(tiles[i], tiles[j]))
+}
+
+# No holes: every point near the camera lies in exactly one selected tile (frustum culling off). "Near" is half the view distance, well
+# inside the region the quadtree is asked to cover.
+law terrain_select_covers_the_view_without_holes {
+    forall (c: xtCfg, lod: xtLod, cam: xtCam, angle: float(0, 360), r: float(0, 0.5))
+    => let tiles = xtSelect(c, lod, cam) in
+       let p = vec3(cam.x + cos(radians(angle)) * r * lod.view, 0, cam.z + sin(radians(angle)) * r * lod.view) in
+       count(tiles, fn(t) => xtInside(t, p)) == 1
+}
+
+# 2:1 balance: tiles that share an edge differ by at most one level.
+law terrain_select_neighbours_differ_by_at_most_one_level {
+    forall (c: xtCfg, lod: xtLod, cam: xtCam)
+    => let tiles = xtSelect(c, lod, cam) in
+       forall i in range(len(tiles)): forall j in range(i + 1, len(tiles)): xtTouching(tiles[i], tiles[j]) ==> abs(tiles[i].level - tiles[j].level) <= 1
+}
+
+# The tile under the camera is a finest tile of the selection (distance 0); the nearest tiles are never coarser than far ones' minimum.
+law terrain_select_finest_tile_is_under_the_camera {
+    forall (c: xtCfg, lod: xtLod, cam: xtCam)
+    => let tiles = xtSelect(c, lod, cam) in
+       let under = filter(tiles, fn(t) => xtInside(t, vec3(cam.x, 0, cam.z))) in
+       len(under) == 1 and under[0].level == min(map(tiles, fn(t) => t.level))
+}
+
+# Selection depends only on the camera relative to the tile grid: shifting the camera by a whole root tile shifts the selection by the
+# same tiles (float precision far from the origin must not change the quadtree).
+law terrain_select_is_translation_invariant {
+    forall (c: xtCfg, lod: xtLod, cam: vec3(float(-300, 300), float(0, 200), float(-300, 300)), kx: int(-50, 50), kz: int(-50, 50))
+    => let root = c.tileSize * pow(2, lod.maxLevel) in
+       let a = xtSelect(c, lod, cam) in
+       let b = xtSelect(c, lod, cam + vec3(kx * root, 0, kz * root)) in
+       let shifted = map(a, fn(t) => [t.x + kx * pow(2, lod.maxLevel - t.level), t.z + kz * pow(2, lod.maxLevel - t.level), t.level]) in
+       sort(shifted) == sort(map(b, fn(t) => [t.x, t.z, t.level]))
+}
+
+law terrain_select_is_deterministic {
+    forall (c: xtCfg, lod: xtLod, cam: xtCam)
+    => xtSelect(c, lod, cam) == xtSelect(c, lod, cam)
+}
+
+# A longer view distance never selects less ground (area covered is monotone in the view distance).
+law terrain_select_area_grows_with_view_distance {
+    forall (c: xtCfg, lod: xtLod, cam: xtCam, more: float(1, 800))
+    => let area = fn(tiles) => sum(map(tiles, fn(t) => (t.max.x - t.min.x) * (t.max.z - t.min.z))) in
+       area(xtSelect(c, lod, cam)) <= area(xtSelect(c, with(lod, view: lod.view + more), cam)) + 1
+}
+
+# ---------------------------------------------------------------- scatter
+
+# Scatter on a tile is independent of how the ground is cut: the instances of a level-1 tile are exactly those of its four level-0 tiles
+# (same keys, same positions, same species), so LOD changes never add, remove or move a tree.
+fn xtScatterOf(c, x, z, level) = xtScatter(c, x, z, level)
+fn xtKeys(s) = sort(map(s.instances, fn(i) => i.key))
+
+law terrain_scatter_is_independent_of_tiling {
+    forall (c: xtCfg, x: int(-60, 60), z: int(-60, 60))
+    => let big = xtScatterOf(c, x, z, 1) in
+       let parts = map([[0, 0], [1, 0], [0, 1], [1, 1]], fn(o) => xtScatterOf(c, 2 * x + o[0], 2 * z + o[1], 0)) in
+       let union = sort(flatten(map(parts, fn(p) => map(p.instances, fn(i) => i.key)))) in
+       xtKeys(big) == union
+       and (forall i in big.instances: exists p in parts: exists j in p.instances: j.key == i.key and j.pos ~= i.pos within 1e-3 and j.species == i.species and abs(j.scale - i.scale) < 1e-5 and abs(j.yaw - i.yaw) < 1e-5)
+}
+
+# Stable keys are unique, instances lie inside the tile, on the ground (plus the species offset), and every species index is valid.
+law terrain_scatter_instances_are_well_formed {
+    forall (c: xtCfg, x: int(-60, 60), z: int(-60, 60), level: int(0, 2))
+    => let s = xtScatter(c, x, z, level) in
+       allDistinct(map(s.instances, fn(i) => i.key))
+       and (forall i in s.instances: i.pos.x >= s.min.x - 1e-3 and i.pos.x < s.min.x + s.size + 1e-3 and i.pos.z >= s.min.z - 1e-3 and i.pos.z < s.min.z + s.size + 1e-3
+            and i.species >= 0 and i.species < c.species and isFinite(i.pos.y) and i.scale > 0 and abs(length(i.normal) - 1) < 1e-3 and i.normal.y >= c.minNormalY - 1e-3)
+       and xtScatterGround(c, x, z, level) < c.yOffset * 1.5 + 1e-2
+}
+
+# Deterministic, and a different scatter seed gives a different forest (when there is one).
+law terrain_scatter_is_deterministic_and_seed_sensitive {
+    forall (c: xtCfg, x: int(-60, 60), z: int(-60, 60))
+    where len(xtScatter(c, x, z, 1).instances) >= 6
+    => xtScatter(c, x, z, 1) == xtScatter(c, x, z, 1) and xtKeys(xtScatter(c, x, z, 1)) == xtKeys(xtScatter(c, x, z, 1))
+       and map(xtScatter(c, x, z, 1).instances, fn(i) => i.pos) != map(xtScatter(with(c, scatterSeed: c.scatterSeed + 1), x, z, 1).instances, fn(i) => i.pos)
+}
+
+# Non vacuity: the default scenario produces instances.
+law terrain_scatter_is_not_empty_for_dense_species {
+    forall (c: xtCfg, x: int(-60, 60), z: int(-60, 60))
+    where c.spacing < 6 and c.density > 0.7 and c.minNormalY < 0.3
+    => len(xtScatter(c, x, z, 1).instances) > 0
+}
+
+# ---------------------------------------------------------------- splat weights
+
+gen xtRules = {height: float(-50, 300), slope: float(0, 1)}
+law terrain_splat_weights_sum_to_one {
+    forall (r: xtRules)
+    => let w = xtSplat(r.height, r.slope, {}) in
+       abs(w.grass + w.rock + w.sand + w.snow - 1) < 1e-4 and w.grass >= -1e-6 and w.rock >= -1e-6 and w.sand >= -1e-6 and w.snow >= -1e-6
+       and w.grass <= 1 + 1e-6 and w.rock <= 1 + 1e-6 and w.sand <= 1 + 1e-6 and w.snow <= 1 + 1e-6
+}
+
+# The dominant layer is the largest weight; higher ground never gets sandier, steeper ground never gets less rocky, higher ground never
+# gets less snowy.
+law terrain_splat_is_monotone_and_dominant_is_argmax {
+    forall (r: xtRules, up: float(0, 100), steeper: float(0, 0.5))
+    => let w = xtSplat(r.height, r.slope, {}) in
+       let higher = xtSplat(r.height + up, r.slope, {}) in
+       let steep = xtSplat(r.height, min(r.slope + steeper, 1), {}) in  # slope is the normal y: flatter ground is never rockier
+       let best = max([w.grass, w.rock, w.sand, w.snow]) in
+       higher.sand <= w.sand + 5e-4 and higher.snow >= w.snow - 5e-4 and steep.rock <= w.rock + 5e-4
+       and [w.grass, w.rock, w.sand, w.snow][w.dominant] >= best - 1e-6
+}
+
+# ---------------------------------------------------------------- the streamer
+
+gen xtPath = bind(vec3(float(-300, 300), float(0, 100), float(-300, 300)), fn(start) => bind(listOf(vec3(float(-150, 150), float(-20, 20), float(-150, 150)), 1, 3), fn(steps) =>
+    just(fold(steps, [start], fn(acc, d) => acc ++ [last(acc) + d]))))
+gen xtStreamLod = {maxLevel: int(1, 3), view: float(150, 300), balance: just(true), evictDelay: int(1, 5)}
+
+fn xtTileBox(t) = {min: vec3(t.x * 64 * pow(2, t.level), 0, t.z * 64 * pow(2, t.level)), max: vec3((t.x + 1) * 64 * pow(2, t.level), 0, (t.z + 1) * 64 * pow(2, t.level)), level: t.level}
+
+# At every step, however fast the camera moves, the visible tiles never overlap (no doubled ground during a LOD swap).
+law terrain_streamer_visible_tiles_never_overlap {
+    forall (c: {seed: int(1, 30), tileSize: just(64), tileCells: just(8)}, lod: xtStreamLod, path: xtPath)
+    => let steps = xtStream(c, lod, path) in
+       forall st in steps: (let tiles = map(st.visible, xtTileBox) in forall i in range(len(tiles)): forall j in range(i + 1, len(tiles)): not xtOverlap(tiles[i], tiles[j]))
+}
+
+# Once the camera rests, the visible tiles leave no hole near it: every point within 0.4 of the view distance is in exactly one.
+law terrain_streamer_settled_view_has_no_holes {
+    forall (c: {seed: int(1, 30), tileSize: just(64), tileCells: just(8)}, lod: xtStreamLod, path: xtPath, angle: float(0, 360), r: float(0, 0.4))
+    => let cam = last(path) in
+       let steps = xtStream(c, lod, path ++ repeat(cam, 10)) in
+       let tiles = map(last(steps).visible, xtTileBox) in
+       let p = vec3(cam.x + cos(radians(angle)) * r * lod.view, 0, cam.z + sin(radians(angle)) * r * lod.view) in
+       count(tiles, fn(t) => xtInside(t, p)) == 1
+}
+
+# Resident tiles cover everything visible, and once the camera has rested for an update the wanted set is resident and the streamer is
+# settled. (An update that follows a move may still be loading the newly wanted tiles: the reselect happens in that update, the commits
+# in the next ones: at most six tiles are loaded per update, so a jump of a few hundred metres takes about four updates to settle.)
+law terrain_streamer_wanted_tiles_become_resident {
+    forall (c: {seed: int(1, 30), tileSize: just(64), tileCells: just(8)}, lod: xtStreamLod, path: xtPath)
+    => let steps = xtStream(c, lod, path ++ repeat(last(path), 10)) in
+       let s = last(steps) in
+       s.settled and (forall w in s.wanted: contains(s.resident, w)) and (forall v in s.visible: contains(s.resident, v))
+}

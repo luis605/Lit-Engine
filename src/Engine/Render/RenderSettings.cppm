@@ -321,7 +321,7 @@ namespace render_settings_detail {
 inline bool parseFloat(std::string_view& text, float& out) {
     while (!text.empty() && text.front() == ' ') text.remove_prefix(1);
     const auto [end, error] = std::from_chars(text.data(), text.data() + text.size(), out);
-    if (error != std::errc{}) return false;
+    if (error != std::errc{} || !std::isfinite(out)) return false;  // nan / inf / out of range never reach a setting
     text.remove_prefix(static_cast<size_t>(end - text.data()));
     return true;
 }
@@ -345,7 +345,7 @@ bool parseValue(std::string_view text, T& value) {
         } else if constexpr (std::is_same_v<T, float>) {
             value = number;
         } else {
-            value = static_cast<T>(static_cast<int>(number));
+            value = static_cast<T>(static_cast<int>(std::clamp(number, -2.0e9f, 2.0e9f)));  // saturate: float -> int of a huge value is undefined
         }
         return true;
     }
@@ -387,6 +387,12 @@ export inline float quantizeRenderScale(float scale) {
     return std::clamp(std::round(clamped / kRenderScaleStep) * kRenderScaleStep, kRenderScaleMin, kRenderScaleMax);
 }
 
+export inline void clampEnumSettings(RenderSettings& settings) {
+    settings.sky = static_cast<SkyMode>(std::clamp(static_cast<int>(settings.sky), 0, static_cast<int>(SkyMode::Hdri)));
+    settings.tonemapper = static_cast<Tonemapper>(std::clamp(static_cast<int>(settings.tonemapper), 0, static_cast<int>(Tonemapper::Linear)));
+    settings.debugView = static_cast<DebugView>(std::clamp(static_cast<int>(settings.debugView), 0, static_cast<int>(DebugView::Overdraw)));
+}
+
 export inline void clampQualitySettings(RenderSettings& settings) {
     settings.renderScale = quantizeRenderScale(settings.renderScale);
     settings.upscaleSharpness = std::clamp(settings.upscaleSharpness, 0.0f, 1.0f);
@@ -415,6 +421,7 @@ export inline bool setRenderSetting(RenderSettings& settings, std::string_view k
     if (found) {
         clampReflectionSettings(settings);
         clampQualitySettings(settings);
+        clampEnumSettings(settings);
     }
     return found;
 }

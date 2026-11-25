@@ -1,5 +1,6 @@
 module;
 
+#include <memory>
 #include <algorithm>
 #include <cmath>
 #include <cstdint>
@@ -1032,6 +1033,56 @@ void registerPhysicsComponents(World& world) {
                 part.kind = static_cast<CompoundPart::Kind>(kind);
                 collider.parts.push_back(part);
             }
+            return collider;
+        });
+    // Triangle mesh and height field colliders were not serialized either (found by bent, ext_phys_dynamics.bent
+    // px_every_collider_survives_save_load): save / load, snapshots and the save system silently dropped terrain and mesh colliders.
+    world.registerComponent<TriMeshCollider>(
+        "TriMeshCollider",
+        [](const TriMeshCollider& collider, std::ostream& output) {
+            const TriangleMeshData* mesh = collider.data.get();
+            output << collider.restitution << ' ' << collider.friction << ' ' << (mesh ? mesh->vertices.size() : 0) << ' ' << (mesh ? mesh->indices.size() : 0);
+            if (!mesh) return;
+            for (const glm::vec3& vertex : mesh->vertices) output << ' ' << vertex.x << ' ' << vertex.y << ' ' << vertex.z;
+            for (const uint32_t index : mesh->indices) output << ' ' << index;
+        },
+        [](std::istream& input) -> std::optional<TriMeshCollider> {
+            TriMeshCollider collider;
+            size_t vertexCount = 0;
+            size_t indexCount = 0;
+            if (!(input >> collider.restitution >> collider.friction >> vertexCount >> indexCount) || vertexCount > (1u << 24) || indexCount > (1u << 26)) return std::nullopt;
+            std::vector<glm::vec3> vertices(vertexCount);
+            for (glm::vec3& vertex : vertices) {
+                if (!(input >> vertex.x >> vertex.y >> vertex.z)) return std::nullopt;
+            }
+            std::vector<uint32_t> indices(indexCount);
+            for (uint32_t& index : indices) {
+                if (!(input >> index) || index >= vertexCount) return std::nullopt;
+            }
+            collider.data = makeTriangleMesh(std::move(vertices), std::move(indices));
+            if (!collider.data) return std::nullopt;
+            return collider;
+        });
+    world.registerComponent<HeightfieldCollider>(
+        "HeightfieldCollider",
+        [](const HeightfieldCollider& collider, std::ostream& output) {
+            const HeightfieldData* field = collider.data.get();
+            output << collider.restitution << ' ' << collider.friction << ' ' << (field ? field->samplesX : 0) << ' ' << (field ? field->samplesZ : 0) << ' ' << (field ? field->cellSize : 1.0f);
+            if (!field) return;
+            for (const float height : field->heights) output << ' ' << height;
+        },
+        [](std::istream& input) -> std::optional<HeightfieldCollider> {
+            HeightfieldCollider collider;
+            auto field = std::make_shared<HeightfieldData>();
+            if (!(input >> collider.restitution >> collider.friction >> field->samplesX >> field->samplesZ >> field->cellSize)) return std::nullopt;
+            if (field->samplesX < 0 || field->samplesZ < 0 || static_cast<int64_t>(field->samplesX) * field->samplesZ > (1 << 24)) return std::nullopt;
+            field->heights.resize(static_cast<size_t>(field->samplesX) * static_cast<size_t>(field->samplesZ));
+            for (float& height : field->heights) {
+                if (!(input >> height)) return std::nullopt;
+            }
+            if (!field->valid()) return std::nullopt;
+            field->updateBounds();
+            collider.data = std::move(field);
             return collider;
         });
 }

@@ -41,6 +41,7 @@ import Engine.camera;
 import Engine.glm;
 
 #include "Engine/Bent/EngineSim.hpp"
+#include "Engine/Bent/Ext_World.hpp"
 
 namespace bent {
 
@@ -238,6 +239,7 @@ Json valueToJson(const Value& value, const SrcLoc& loc) {
 Value EngineSim::observe(const std::string& name, Interp& interp, const ValueList& args, const NamedArgs& named, const SrcLoc& loc) {
     (void)interp;
     if (!named.empty()) throw BentError(loc, "observation '" + name + "' takes positional arguments only");
+    if (Value extResult; extWorldObserve(*this, name, args, loc, extResult)) return extResult;  // Ext_World.cpp
     World& w = world();
     const auto need = [&](size_t count) {
         if (args.size() != count) throw BentError(loc, name + "() takes " + std::to_string(count) + " argument(s), got " + std::to_string(args.size()));
@@ -570,7 +572,22 @@ namespace {
 std::atomic<uint64_t> gReplayCounter{0};
 }
 
+namespace xp {
+void registerExtPortalBuiltins(Program& program);  // Ext_Portal.cpp
+}
+
+namespace ext {
+void registerExtRenderBuiltins(Program& program);  // Ext_Render.cpp
+void registerExtGpuBuiltins(Program& program);  // Ext_Gpu.cpp
+void registerExtPhysicsBuiltins(Program& program);  // Ext_Physics.cpp
+}
+
 void EngineHost::addBuiltins(Program& program) {
+    extWorldBuiltins(program);  // Ext_World.cpp
+    ext::registerExtRenderBuiltins(program);
+    ext::registerExtGpuBuiltins(program);
+    ext::registerExtPhysicsBuiltins(program);
+    xp::registerExtPortalBuiltins(program);
     for (const ActionSpec& spec : engineActionSpecs()) {
         if (program.globals.contains(spec.name)) throw BentError(SrcLoc{"<host>", 0, 0}, "action '" + spec.name + "' shadows a builtin");
         program.native(

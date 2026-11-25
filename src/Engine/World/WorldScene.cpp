@@ -331,6 +331,7 @@ WorldSnapshot World::captureSnapshot() const {
     snapshot.freeList = m_freeList;
     snapshot.firstRoot = m_firstRoot;
     snapshot.aliveCount = m_aliveCount;
+    snapshot.origin = m_origin;
     std::ostringstream extras;
     extras.precision(kSceneFloatPrecision);
     const glm::vec3 position = m_camera.getPosition();
@@ -400,6 +401,13 @@ void World::restoreSnapshot(const WorldSnapshot& snapshot) {
     m_generationBase = std::max(m_generationBase, generationBase);
     restoreSnapshotArrays(snapshot);
     restoreSnapshotExtras(snapshot.extras);
+    // The snapshot's local positions are relative to the origin it was taken at: keep every entity (and the camera) at its absolute
+    // position when the floating origin has moved since (same convention as SaveSystem::apply).
+    const glm::vec3 originShift(m_origin - snapshot.origin);
+    if (originShift != glm::vec3(0.0f)) {
+        shiftRoots(originShift);
+        m_camera.setPos(m_camera.getPosition() - originShift);
+    }
     m_db.markTransformsDirty();
     touchStructure();
 }

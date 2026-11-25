@@ -1,0 +1,10 @@
+# Known bug: sampleParams measures the blend by the signed side of the portal plane but with the full 3D distance to the quad, so beside
+# the quad (in the plane's extension) the weight jumps across the plane. Walking around the frame of a free standing portal pops gravity,
+# tint and sun.
+include "../laws/ext_portal_query.bent"
+
+example portal_params_continuous_beside_the_opening known "blend weight jumps across the plane extension beside a portal quad (d / reach jump)" {
+    spec = {blend: 0.5, cells: [{ambient: 0.0, gravity: vec3(0.0, 0.0, 0.0), scalar: 0.0, sun: 0.5, tint: vec3(0.0, 0.0, 0.0)}, {ambient: 0.0, gravity: vec3(0.0, 0.0, 0.0), scalar: 0.0, sun: 0.0, tint: vec3(0.0, 0.0, 0.0)}], pairs: [{a: vec3(0.0, 0.0, 0.0), ae: vec3(0.0, 0.0, 0.0), b: vec3(0.0, 0.0, 0.0), be: vec3(0.0, 0.0, 0.0), cellA: 0, cellB: 1, half: vec3(0.5, 0.5, 0.0)}]},
+    out = 0.05,
+    v = 0.0
+}

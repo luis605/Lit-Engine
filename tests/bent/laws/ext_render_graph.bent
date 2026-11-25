@@ -1,0 +1,125 @@
+# Render graph (Engine.Render.graph, no Diligent): pass ordering, culling, transient aliasing and pool reuse, checked against
+# reference models written here. rxRgRun builds a random graph on a fake backend. Resource ids: 0 .. imports-1 are imported
+# textures, then the transient textures (desc id picks size / format; equal ids may alias).
+include "../lib/render.bent"
+
+gen graphSpec = bind(int(1, 7), fn(nt) =>
+    bind(int(1, 2), fn(ni) =>
+        {imports: just(ni), transients: listOf(int(0, 5), nt, nt),
+         passes: listOf({reads: listOf(int(0, nt + ni - 1), 0, 3), writes: listOf(int(0, nt + ni - 1), 0, 2),
+                         side: frequency([[1, just(true)], [8, just(false)]])}, 1, 12)}))
+
+fn nImports(s) = s.imports
+fn isImport(s, r) = r < s.imports
+fn writesOf(p) = p.writes
+fn readsOf(p) = p.reads
+fn passAt(s, i) = s.passes[i]
+fn touches(p, r) = contains(p.reads, r) or contains(p.writes, r)
+fn writes(p, r) = contains(p.writes, r)
+
+# Reference liveness: roots are side effects and imported writes; a live pass keeps alive the latest earlier writer of every resource it touches.
+fn lastWriterBefore(s, i, r) =
+    let ws = filter(range(0, i), fn(j) => writes(s.passes[j], r)) in
+    if len(ws) == 0 then -1 else last(ws)
+fn isRoot(s, i) = let p = s.passes[i] in p.side or any(p.writes, fn(r) => isImport(s, r))
+fn liveSet(s) = grow(s, filter(range(0, len(s.passes)), fn(i) => isRoot(s, i)))
+fn grow(s, live) =
+    let next = dedup(sort(live ++ flatten(map(live, fn(i) => let p = s.passes[i] in
+                filter(map(dedup(p.reads ++ p.writes), fn(r) => lastWriterBefore(s, i, r)), fn(j) => j >= 0))))) in
+    if len(next) == len(dedup(sort(live))) then next else grow(s, next)
+
+fn run(s) = rxRgRun(s).frames[0]
+fn liveOf(s, r) = filter(range(0, len(s.passes)), fn(i) => not r.culled[i])
+
+# Culling matches the reference exactly: nothing live is culled, nothing dead is kept.
+law graph_culling_matches_reference {
+    forall (s: graphSpec)
+    => let r = run(s) in cover("a pass was culled", r.culledPasses > 0) and cover("nothing culled", r.culledPasses == 0) and liveOf(s, r) == liveSet(s)
+}
+
+# A pass with a side effect or a write to an imported resource is never culled.
+law graph_roots_never_culled {
+    forall (s: graphSpec)
+    => let r = run(s) in all(range(0, len(s.passes)), fn(i) => not isRoot(s, i) or not r.culled[i])
+}
+
+# The executed passes are exactly the live ones, once each, in the compiled order.
+law graph_executes_live_passes_once {
+    forall (s: graphSpec)
+    => let r = run(s) in r.ran == r.order and sort(r.order) == liveSet(s) and allDistinct(r.order) and r.culledPasses == len(s.passes) - len(r.order)
+}
+
+# Ordering respects every conflict between live passes (read-after-write, write-after-read, write-after-write on one resource).
+law graph_order_respects_dependencies {
+    forall (s: graphSpec)
+    => let r = run(s) in
+       let pos = fn(i) => indexOf(r.order, i) in
+       all(r.order, fn(a) => all(r.order, fn(b) =>
+           a >= b or let pa = s.passes[a] in let pb = s.passes[b] in
+           not any(dedup(pa.reads ++ pa.writes), fn(res) =>
+               (contains(pb.reads, res) or contains(pb.writes, res)) and (writes(pa, res) or writes(pb, res)))
+           or pos(a) < pos(b)))
+}
+
+# Lifetime of a transient: positions in the executed order of its first and last live access.
+fn lifetime(s, r, res) =
+    let ps = filter(range(0, len(r.order)), fn(k) => touches(s.passes[r.order[k]], res)) in
+    if len(ps) == 0 then [] else [head(ps), last(ps)]
+
+# Aliasing never overlaps lifetimes: two transients that share a physical resource are never live at the same time, and only
+# when their descriptions are identical.
+law graph_aliasing_never_overlaps {
+    forall (s: graphSpec)
+    => let r = run(s) in
+       let ts = range(0, len(s.transients)) in
+       cover("two transients shared a physical resource", r.physicalTransients < r.allocatedTransients) and
+       all(ts, fn(a) => all(ts, fn(b) =>
+           a >= b or r.physical[a] < 0 or r.physical[a] != r.physical[b]
+           or (let la = lifetime(s, r, s.imports + a) in let lb = lifetime(s, r, s.imports + b) in
+               (la[1] < lb[0] or lb[1] < la[0]) and s.transients[a] == s.transients[b])))
+}
+
+# A transient used by a live pass gets a physical resource; one used by none is never allocated.
+law graph_allocation_follows_use {
+    forall (s: graphSpec)
+    => let r = run(s) in
+       all(range(0, len(s.transients)), fn(t) => (len(lifetime(s, r, s.imports + t)) > 0) == (r.physical[t] >= 0))
+       and r.allocatedTransients == count(range(0, len(s.transients)), fn(t) => len(lifetime(s, r, s.imports + t)) > 0)
+}
+
+# Aliasing never costs memory: physical resources and bytes never exceed the one-per-transient total.
+law graph_aliasing_saves_memory {
+    forall (s: graphSpec)
+    => let r = run(s) in r.physicalTransients <= r.allocatedTransients and r.physicalBytes <= r.transientBytes
+       and r.physicalTransients == len(dedup(sort(filter(r.physical, fn(p) => p >= 0))))
+}
+
+# Pool reuse across frames: re-running the same graph creates no new backend resources, and the pool never grows after the first frame.
+law graph_pool_reuses_across_frames {
+    forall (s: graphSpec)
+    => let rs = rxRgRun(with(s, frames: 3)).frames in
+       rs[1].created == rs[0].created and rs[2].created == rs[0].created and rs[1].poolSize == rs[0].poolSize and rs[2].poolSize == rs[0].poolSize
+       and rs[1].order == rs[0].order and rs[1].physical == rs[0].physical
+}
+
+# No leaks: when the pool is cleared every created backend resource has been destroyed.
+law graph_pool_no_leaks {
+    forall (s: graphSpec, retire: int(1, 4))
+    => let r = rxRgRun(with(with(s, frames: 4), retire: retire)) in r.createdTotal == r.destroyedTotal and r.poolAfterClear == 0
+}
+
+# Adding a dead pass (one that only fills a transient nobody reads) changes neither the order nor the allocation of the live passes.
+law graph_dead_pass_is_invisible {
+    forall (s: graphSpec)
+    => let fresh = len(s.transients) + s.imports in
+       let s2 = with(with(s, transients: s.transients ++ [5]), passes: s.passes ++ [{reads: [], writes: [fresh], side: false}]) in
+       let a = run(s) in
+       let b = run(s2) in
+       b.order == a.order and b.culled == a.culled ++ [true] and take(b.physical, len(s.transients)) == a.physical
+}
+
+# Compiling is deterministic: the same spec twice gives the same order, culling and physical placement.
+law graph_deterministic {
+    forall (s: graphSpec)
+    => run(s) == run(s)
+}

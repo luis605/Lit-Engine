@@ -102,8 +102,9 @@ export inline bool updateGovernor(QualityGovernor& governor, RenderSettings& set
         return false;
     }
     trackBaseline(governor, settings);
-    const float sample = std::clamp(frameMs, 0.0f, kGovernorMaxSampleMs);
-    const float dt = std::clamp(deltaSeconds, 0.0f, 0.5f);
+    // A failed timer query (nan) must not poison the smoothed time for good: it reads as "no news" (the previous estimate).
+    const float sample = !std::isnan(frameMs) ? std::clamp(frameMs, 0.0f, kGovernorMaxSampleMs) : (governor.primed ? governor.smoothedMs : 0.0f);
+    const float dt = !std::isnan(deltaSeconds) ? std::clamp(deltaSeconds, 0.0f, 0.5f) : 0.0f;
     governor.smoothedMs = governor.primed ? governor.smoothedMs + (sample - governor.smoothedMs) * kGovernorSmoothing : sample;
     governor.primed = true;
     governor.cooldown = std::max(governor.cooldown - dt, 0.0f);

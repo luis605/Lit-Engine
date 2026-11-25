@@ -1,0 +1,210 @@
+# World core: names, tags, layers, component pools (sparse sets), prefabs.
+include "../lib/ext_world.bent"
+
+# ---------------------------------------------------------------- tags, names, layers
+
+# findByTag agrees with a scan of every entity, whatever happened to the tags (retag, destroy, compact, reparent, save / load,
+# snapshot / restore): the tag index is only a cache of the per-entity tags.
+law find_by_tag_matches_scan {
+    forall (p: metaProg, t: tagGen)
+    => after(p) {
+        t == "" or sameSet(findByTag(t), filter(entities(), fn(e) => tag(e) == t))
+    }
+}
+
+law find_by_name_matches_scan {
+    forall (p: metaProg, n: elements(["n1", "n2", "n3", "x", "zzz"]))
+    => after(p) {
+        let want = filter(entities(), fn(e) => name(e) == n) in
+        sameSet(findAllNamed(n), want) and (let one = findNamed(n) in if len(want) == 0 then one == -1 else contains(want, one))
+    }
+}
+
+# inLayer(mask) is exactly the entities whose layer shares a bit with the mask.
+law in_layer_matches_scan {
+    forall (p: metaProg, mask: oneof(int(0, 255), int(0, 3), int(1, 1), int(-1, -1)))
+    => after(p) {
+        sameSet(inLayer(mask), filter(entities(), fn(e) => masksShare(layerOf(e), u32(mask))))
+    }
+}
+
+# Layers, tags and visibility are part of the persisted scene.
+law layer_tag_visibility_survive_save_load {
+    forall (p: metaProg, k: target, l: int(0, 4000000000), v: bool())
+    => after(p ++ [spawn(shape: "none", dynamic: false, tag: "keep", layer: l), setVisible(target: -1, visible: v)]) { [layerOf(entity(len(spawned()) - 1)), tag(entity(len(spawned()) - 1)), visible(entity(len(spawned()) - 1))] } ==
+       after(p ++ [spawn(shape: "none", dynamic: false, tag: "keep", layer: l), setVisible(target: -1, visible: v), saveLoad()]) { [layerOf(entity(len(spawned()) - 1)), tag(entity(len(spawned()) - 1)), visible(entity(len(spawned()) - 1))] }
+}
+
+# Names and tags are arbitrary text (spaces, quotes, tabs, NUL, UTF-8, control characters): they must come back byte for byte through
+# the scene file, the save system, snapshots and text snapshots. Newlines are the one known exception (see the known regression
+# newline_in_names_and_tags_survives_save_load): the scene format is line based and a newline truncates a name / drops a tag.
+gen safeText = filter(text(1, 12), fn(s) => not contains(s, "\n"))
+fn textSurvives(round, n, t) = after([spawn(shape: "none", dynamic: false, name: "start"), setName(target: 0, name: n), setTag(target: 0, tag: t)] ++ round) { [name(entity(0)), tag(entity(0))] } == [n, t]
+
+law names_and_tags_survive_save_load {
+    forall (n: safeText, t: safeText)
+    => textSurvives([saveLoad()], n, t)
+}
+
+law names_and_tags_survive_save_system {
+    forall (n: safeText, t: safeText)
+    => textSurvives([saveRoundtrip()], n, t)
+}
+
+law names_and_tags_survive_snapshots {
+    forall (n: text(1, 12), t: text(1, 12))
+    => textSurvives([snapshot(slot: 0), setName(target: 0, name: "x"), setTag(target: 0, tag: "y"), restore(slot: 0)], n, t)
+}
+
+law names_and_tags_survive_text_snapshots {
+    forall (n: safeText, t: safeText)
+    => textSurvives([snapshotText(slot: 0), setName(target: 0, name: "x"), setTag(target: 0, tag: "y"), restoreText(slot: 0)], n, t)
+}
+
+# Known bug: '\n' in a name or tag is lost by every text based persistence path (scene file, save system, text snapshot).
+law newline_in_names_and_tags_survives_save_load {
+    forall (a: text(0, 4), b: text(0, 4))
+    where not contains(a, "\n") and not contains(b, "\n")
+    => textSurvives([saveLoad()], a ++ "\n" ++ b, a ++ "\n" ++ b)
+}
+
+law name_read_back_is_exact {
+    forall (n: text(0, 40))
+    => after([spawn(shape: "none", dynamic: false), setName(target: 0, name: n)]) { name(entity(0)) == n }
+}
+
+# Hierarchy shape (who is whose child) survives persistence round trips.
+fn shape() = map(entities(), fn(e) => [parent(e) == -1, len(children(e))])
+law hierarchy_shape_survives_persistence {
+    forall (p: hierProg, round: elements([saveLoad(), saveRoundtrip(), compact(), snapshotText(slot: 0)]))
+    => after(p) { sort(map(entities(), fn(e) => [if parent(e) == -1 then "" else name(parent(e)), name(e), len(children(e))])) } ==
+       after(p ++ [round, restoreText(slot: 0)]) { sort(map(entities(), fn(e) => [if parent(e) == -1 then "" else name(parent(e)), name(e), len(children(e))])) }
+}
+
+# ---------------------------------------------------------------- component pools
+
+let componentNamesFixed = ["RigidBody", "SphereCollider", "BoxCollider", "CapsuleCollider", "Light", "Camera", "PlanarReflection"]
+gen compName = elements(componentNamesFixed)
+gen compEdit = frequency([
+    [3, addComponent(target: target, name: compName)],
+    [3, removeComponent(target: target, name: compName)],
+    [2, spawn(shape: "none", dynamic: false, pos: smallVec)],
+    [2, destroy(target: target)],
+    [1, compact()]
+])
+gen compProg = listOf(compEdit, 1, 40)
+
+# The sparse-set pools stay internally consistent (owners <-> sparse, no component on a dead entity) under any add / remove /
+# destroy / compact sequence. World::validate checks the pools.
+law component_pools_stay_valid {
+    forall (p: listOf(frequency([[4, spawn(shape: "none", dynamic: false)], [4, addComponent(target: target, name: compName)], [3, removeComponent(target: target, name: compName)], [2, destroy(target: target)], [1, compact()], [1, saveLoad()]]), 1, 40))
+    => always after(p) { worldErrors() == [] }
+}
+
+# Model check of component membership: add is idempotent, remove of a missing component is a no-op, destroyed entities keep nothing.
+fn hasComp(e, c) = contains(components(e), c)
+law component_membership_matches_model {
+    forall (n: int(1, 6), ops: listOf([bool(), int(0, 5), compName], 0, 25))
+    => let prog = repeat(spawn(shape: "none", dynamic: false), n) ++ map(ops, fn(op) => if op[0] then addComponent(target: op[1] % n, name: op[2]) else removeComponent(target: op[1] % n, name: op[2])) in
+       let model = fold(ops, map(range(0, n), fn(i) => []), fn(m, op) =>
+           map(enumerate(m), fn(pair) => if pair[0] != op[1] % n then pair[1] else (if op[0] then dedup(pair[1] ++ [op[2]]) else filter(pair[1], fn(c) => c != op[2])))) in
+       after(prog) { forall i in range(0, n): sameSet(filter(components(entity(i)), fn(c) => contains(componentNamesFixed, c)), model[i]) }
+}
+
+# A slot freed by destroy() hands no component to the next entity created in it.
+law reused_slot_inherits_no_components {
+    forall (c: compName, n: int(1, 5))
+    => after(repeat(spawn(shape: "none", dynamic: false), n) ++ map(range(0, n), fn(i) => addComponent(target: i, name: c)) ++ map(range(0, n), fn(i) => destroy(target: i)) ++ repeat(spawn(shape: "none", dynamic: false), n)) {
+        all(entities(), fn(e) => components(e) == [])
+    }
+}
+
+# Removing a component from one entity (a swap-remove inside the pool) never disturbs the data of the others.
+law pool_swap_remove_keeps_other_data {
+    forall (n: int(2, 8), k: int(0, 7))
+    => let setup = repeat(spawn(shape: "none", dynamic: false), n) ++ map(range(0, n), fn(i) => addComponent(target: i, name: "Light"))
+                   ++ map(range(0, n), fn(i) => setComponent(target: i, name: "Light", text: "1 1 1 1 " ++ str(1000 + i) ++ " 50")) in
+       after(setup) {
+           let before = map(range(0, n), fn(i) => componentText(entity(i), "Light")) in
+           (forall i in range(0, n): kindOf(before[i]) == "string" and contains(before[i], str(1000 + i))) and
+           after(setup ++ [removeComponent(target: k, name: "Light")]) {
+               forall i in range(0, n): if i == k % n then kindOf(componentText(entity(i), "Light")) == "unit" else componentText(entity(i), "Light") == before[i]
+           }
+       }
+}
+
+# After removing component X from e, the entity reports no X and every other entity is unchanged.
+law component_remove_affects_only_target {
+    forall (n: int(2, 8), k: int(0, 7), c: compName)
+    => let setup = repeat(spawn(shape: "none", dynamic: false), n) ++ map(range(0, n), fn(i) => addComponent(target: i, name: c)) in
+       after(setup ++ [removeComponent(target: k, name: c)]) {
+           forall i in range(0, n): hasComp(entity(i), c) == (i != k % n)
+       }
+}
+
+# setComponent writes the serialised form, componentText reads it back identical (for formats the component accepts).
+law component_text_roundtrip {
+    forall (r: float(0.05, 5), m: float(0.1, 9))
+    => after([spawn(shape: "none", dynamic: false), addComponent(target: 0, name: "SphereCollider"), setComponent(target: 0, name: "SphereCollider", text: str(r))]) {
+        let t = componentText(entity(0), "SphereCollider") in after([spawn(shape: "none", dynamic: false), setComponent(target: 0, name: "SphereCollider", text: t)]) { componentText(entity(0), "SphereCollider") == t }
+    }
+}
+
+# ---------------------------------------------------------------- prefabs
+
+gen prefabScene = listOf(frequency([[4, spawn(shape: "none", dynamic: false, pos: smallVec, rot: unitQuat(), scale: scaleGen, tag: tagGen, name: elements(["a", "b", "c"]), mesh: int(-1, 7), parent: frequency([[1, just(-1)], [3, target]]))],
+                                    [1, spawn(shape: elements(["sphere", "box"]), pos: smallVec, parent: target)]]), 1, 10)
+
+fn bigRoot() = fold(entities(), head(entities()), fn(best, e) => if len(subtreeOf(e)) > len(subtreeOf(best)) then e else best)
+
+# Instantiating a captured prefab creates an isomorphic subtree (same hash: names, tags, layers, local transforms, components).
+law prefab_instance_is_isomorphic {
+    forall (s: prefabScene)
+    => after(s) {
+        let r = bigRoot() in
+        let size = len(subtreeOf(r)) in
+        let h = subtreeHash(r) in
+        after(s ++ [prefabCapture(target: r, slot: 0), prefabInstantiate(slot: 0)]) {
+            cover("subtree has children", size > 1) and cover("single entity", size == 1) and subtreeHash(entity(len(spawned()) - size)) == h
+        }
+    }
+}
+
+law prefab_instantiate_adds_exactly_the_subtree {
+    forall (s: prefabScene)
+    => after(s) {
+        let r = bigRoot() in
+        let size = len(subtreeOf(r)) in
+        let before = entityCount() in
+        after(s ++ [prefabCapture(target: r, slot: 0), prefabInstantiate(slot: 0)]) { entityCount() == before + size and worldErrors() == [] }
+    }
+}
+
+# A prefab is data: it outlives its source, and instantiating twice gives two independent identical copies.
+law prefab_outlives_source {
+    forall (s: prefabScene)
+    => after(s) {
+        let r = bigRoot() in
+        let size = len(subtreeOf(r)) in
+        let h = subtreeHash(r) in
+        after(s ++ [prefabCapture(target: r, slot: 0), destroy(target: r), prefabInstantiate(slot: 0), prefabInstantiate(slot: 0)]) {
+            let n = len(spawned()) in
+            cover("subtree has children", size > 1) and
+            subtreeHash(entity(n - size)) == h and subtreeHash(entity(n - 2 * size)) == h and entity(n - size) != entity(n - 2 * size) and allDistinct(map(entities(), handle)) and worldErrors() == []
+        }
+    }
+}
+
+# Instantiating under a parent keeps the local transform of the prefab root.
+law prefab_under_parent_keeps_root_local {
+    forall (s: prefabScene, j: target)
+    => after(s) {
+        let r = bigRoot() in
+        let size = len(subtreeOf(r)) in
+        let local = [position(r), rotation(r), scale(r)] in
+        after(s ++ [prefabCapture(target: r, slot: 0), prefabInstantiate(slot: 0, parent: j)]) {
+            let copy = entity(len(spawned()) - size) in
+            cover("has a new parent", parent(copy) != -1) and [position(copy), rotation(copy), scale(copy)] ~= local within 1e-5
+        }
+    }
+}

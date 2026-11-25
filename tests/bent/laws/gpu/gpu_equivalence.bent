@@ -1,0 +1,46 @@
+# GPU laws: render paths that must agree. Each comparison allows the measured run-to-run noise of the GPU (rxImageDiff of two
+# renders of the same program) plus a small slack.
+include "../../lib/gpu.bent"
+
+gen scene = elements(skyScenes)
+
+# The render graph is an implementation detail: renderGraph=0 (immediate path) and 1 draw the same frame.
+law gpu_render_graph_on_off_equal {
+    forall (s: scene)
+    => let on = shot(s, [["renderGraph", 1]]) in
+       let off = shot(s, [["renderGraph", 0]]) in
+       on.ok and off.ok and agrees(rxImageDiff(on, off), noiseOf(s, [["renderGraph", 1]]))
+}
+
+# So is the bindless texture table (LIT_BINDLESS_TEXTURES): when the device supports it, on and off give the same frame.
+law gpu_bindless_on_off_equal {
+    forall (s: elements(["textures", "showcase", "gallery"]))
+    => let on = shotEnv(s, [], [["LIT_BINDLESS_TEXTURES", 1]]) in
+       let off = shotEnv(s, [], [["LIT_BINDLESS_TEXTURES", 0]]) in
+       on.ok and off.ok and (not on.bindless or agrees(rxImageDiff(on, off), noiseOf(s, [])))
+}
+
+# Render scale changes resolution, not content: the 16x9 grid of block luminances of renderScale 0.5 matches renderScale 1.
+law gpu_render_scale_preserves_structure {
+    forall (s: scene, scale: elements([0.5, 0.65, 0.8]))
+    => let full = shot(s, [["renderScale", 1.0]]) in
+       let low = shot(s, [["renderScale", scale]]) in
+       let d = rxImageDiff(full, low) in
+       full.ok and low.ok and d.sameSize and d.blockMean < 0.04 and d.blockMax < 0.25 and low.mean > 0.03
+}
+
+# Output resolution changes detail, not exposure: the same scene at 2x the window size has the same mean brightness (within 15%).
+law gpu_resolution_keeps_brightness {
+    forall (s: scene)
+    => let a = plain(s) in
+       let b = rxGpuShot({scene: s, width: 640, height: 360}) in
+       a.ok and b.ok and abs(a.mean - b.mean) < 0.15 * max(a.mean, 0.05)
+}
+
+# Instancing and cluster LOD may be switched off without changing what is on screen (structure, not pixels: LOD swaps triangles).
+law gpu_cluster_lod_on_off_structure {
+    forall (s: elements(["vista", "showcase"]))
+    => let on = shot(s, [["clusterLod", 1]]) in
+       let off = shot(s, [["clusterLod", 0]]) in
+       on.ok and off.ok and rxImageDiff(on, off).blockMean < 0.03
+}

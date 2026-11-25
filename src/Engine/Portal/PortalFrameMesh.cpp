@@ -69,10 +69,12 @@ std::vector<ContourPoint> innerContour(const glm::vec2& half, const PortalLook& 
 // elliptical portal). Its radius is at least the bevel so the inset bevel stays a proper offset.
 std::vector<ContourPoint> outerContour(const glm::vec2& half, const PortalLook& look, float offset) {
     const PortalFrameStyle& frame = look.frame;
-    float radius = frame.bevel;
+    // The same clamp buildPortalFrameMesh applies to the bevel: a bevel wider than the frame must not round the outer corners into the opening.
+    const float bevel = std::clamp(frame.bevel, 0.0f, std::min(frame.width, frame.depth) * 0.45f);
+    float radius = bevel;
     if (look.shape == PortalShape::Rounded) radius = std::clamp(look.cornerRadius, 0.0f, std::min(half.x, half.y)) + frame.width;
     if (look.shape == PortalShape::Ellipse) radius = std::min(3.0f * frame.width, std::min(half.x, half.y) + frame.width);
-    radius = std::max(radius, frame.bevel + 1.0e-3f);
+    radius = std::max(radius, bevel + 1.0e-3f);
     return roundedContour(half + glm::vec2(frame.width), radius, offset);
 }
 

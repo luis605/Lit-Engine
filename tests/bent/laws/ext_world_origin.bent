@@ -1,0 +1,114 @@
+# World core: floating origin invariants (docs/LargeWorld.md). local = absolute - origin; rebasing moves the frame, never the world.
+include "../lib/ext_world.bent"
+
+gen bigD = vec3(float(-200000, 200000), float(-1000, 1000), float(-200000, 200000))
+gen bigAbs = vec3(float(-1e6, 1e6), float(-1e4, 1e4), float(-1e6, 1e6))
+fn precision(a, d) = 1e-6 * 16 * (1 + length(a) + length(d)) + 1e-4
+
+# toWorld and toLocal are inverses (within float precision of the local coordinates), at any origin.
+law to_world_and_to_local_are_inverse {
+    forall (p: program, d: bigD, v: bigAbs, l: smallVec)
+    => after(p ++ [rebase(delta: d)]) {
+        toWorldPoint(toLocalPoint(v)) ~= v within precision(v - d, d) and toLocalPoint(toWorldPoint(l)) ~= l within precision(l, d)
+        and toWorldPoint(l) ~= origin() + l within 1e-6
+    }
+}
+
+# Rebasing by nothing changes nothing.
+law rebase_by_zero_is_a_noop {
+    forall (p: program)
+    => after(p) { worldHash() } == after(p ++ [rebase(delta: vec3(0, 0, 0))]) { worldHash() }
+}
+
+# Any sequence of rebases leaves every entity at its absolute position (a few ulps of the largest coordinate), and the origin is the
+# sum of the shifts (each shift is applied in float precision).
+law repeated_rebases_keep_world_positions {
+    forall (p: program, ds: listOf(bigD, 1, 6))
+    => after(p) {
+        let before = map(entities(), worldPosition) in
+        after(p ++ map(ds, fn(d) => rebase(delta: d))) {
+            let total = fold(ds, vec3(0, 0, 0), fn(a, d) => a + d) in
+            let worst = fold(ds, 0.0, fn(m, d) => max(m, length(d))) in
+            all(zip(before, map(entities(), worldPosition)), fn(pair) => distance(pair[0], pair[1]) <= precision(pair[0], vec3(worst * len(ds), 0, 0)) * len(ds))
+            and origin() ~= total within 0.05 * len(ds)
+        }
+    }
+}
+
+# Rebasing there and then in one go give the same final origin and the same positions (shifts commute).
+law rebases_commute {
+    forall (p: program, a: bigD, b: bigD)
+    => after(p ++ [rebase(delta: a), rebase(delta: b)]) { [origin(), map(entities(), worldPosition)] } ~=
+       after(p ++ [rebase(delta: b), rebase(delta: a)]) { [origin(), map(entities(), worldPosition)] } within 0.05
+}
+
+# Only roots move: children keep their local transform exactly, and velocities, rotations and scales are untouched.
+law rebase_moves_only_roots {
+    forall (p: program, d: bigD)
+    => after(p) {
+        let es = entities() in
+        let before = map(es, fn(e) => [parent(e) == -1, position(e), rotation(e), scale(e), velocity(e)]) in
+        after(p ++ [rebase(delta: d)]) {
+            all(zip(before, map(es, fn(e) => [parent(e) == -1, position(e), rotation(e), scale(e), velocity(e)])), fn(pair) =>
+                pair[0][0] == pair[1][0] and pair[0][2] == pair[1][2] and pair[0][3] == pair[1][3] and pair[0][4] == pair[1][4] and (pair[0][0] or pair[0][1] == pair[1][1]))
+        }
+    }
+}
+
+# Spatial queries answer the same questions after a rebase when asked in the new local frame.
+fn qgap(e, c, r) = let b = bounds(e) in distance(b.center, c) - r - b.radius
+law overlap_survives_rebase {
+    forall (p: program, d: vec3(float(-3000, 3000), float(-50, 50), float(-3000, 3000)), c: smallVec, r: float(0, 40))
+    => after(p) {
+        let es = entities() in
+        let wasIn = map(es, fn(e) => [visible(e) and bounds(e).radius > 0 and qgap(e, c, r) < -0.05, visible(e) and bounds(e).radius > 0 and qgap(e, c, r) > 0.05]) in
+        after(p ++ [rebase(delta: d)]) {
+            let got = overlap(c - d, r) in
+            all(zip(es, wasIn), fn(pair) => (pair[1][0] ==> contains(got, pair[0])) and (pair[1][1] ==> not contains(got, pair[0])))
+        }
+    }
+}
+
+law raycast_survives_rebase {
+    forall (p: hierProg, d: vec3(float(-3000, 3000), float(-50, 50), float(-3000, 3000)), from: smallVec)
+    => after(p) {
+        let to = bounds(ref(0)).center in
+        let a = raycast(from, to + normalize(to - from) * 0.5) in
+        distance(from, to) < 0.5 or after(p ++ [rebase(delta: d)]) {
+            let b = raycast(from - d, to - d + normalize(to - from) * 0.5) in
+            cover("hit", a.hit) and a.hit == b.hit and (not a.hit or abs(a.distance - b.distance) < 0.05)
+        }
+    }
+}
+
+# Scene text carries the origin: after a rebase and a save / load every entity is where it was in absolute terms.
+law save_load_keeps_rebased_positions {
+    forall (p: program, d: bigD)
+    => after(p ++ [rebase(delta: d)]) { map(entities(), worldPosition) } ~= after(p ++ [rebase(delta: d), saveLoad()]) { map(entities(), worldPosition) } within 0.05
+}
+
+# Automatic floating origin: the camera path never moves entities in absolute terms; the origin stays on the snap grid.
+law floating_origin_never_moves_entities_absolutely {
+    forall (p: hierProg, path: listOf(vec3(float(-30000, 30000), float(-50, 50), float(-30000, 30000)), 1, 5))
+    => after(p) {
+        let before = map(entities(), worldPosition) in
+        after(p ++ [floatingOrigin(threshold: 2000, snap: 1024)] ++ flatten(map(path, fn(v) => [cameraWorld(pos: v), step(n: 1)]))) {
+            all(zip(before, map(entities(), worldPosition)), fn(pair) => distance(pair[0], pair[1]) <= precision(pair[0], vec3(30000, 0, 30000)))
+        }
+    }
+}
+
+law floating_origin_stays_on_the_snap_grid {
+    forall (path: listOf(vec3(float(-30000, 30000), float(-50, 50), float(-30000, 30000)), 1, 5), snap: elements([256, 1024, 4096]))
+    => after([floatingOrigin(threshold: 2000, snap: snap)] ++ flatten(map(path, fn(v) => [cameraWorld(pos: v), step(n: 1)]))) {
+        let o = origin() in o.x % snap == 0 and o.y % snap == 0 and o.z % snap == 0
+    }
+}
+
+# The camera's absolute position is exactly what cameraWorld asked for, with floating origin on or off.
+law camera_world_position_is_exact {
+    forall (v: vec3(float(-30000, 30000), float(-50, 50), float(-30000, 30000)), on: bool())
+    => after((if on then [floatingOrigin(threshold: 2000, snap: 1024)] else []) ++ [cameraWorld(pos: v), step(n: 1)]) {
+        cameraView().pos ~= v within precision(v, vec3(0, 0, 0)) * 4
+    }
+}

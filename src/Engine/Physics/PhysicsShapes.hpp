@@ -375,9 +375,13 @@ inline std::optional<Contact> capsuleBox(const glm::vec3& s0, const glm::vec3& s
     const glm::vec3 high = bc + half;
     glm::vec3 onSegment = closestOnSegment(s0, s1, bc);
     glm::vec3 onBox = glm::clamp(onSegment, low, high);
-    for (int i = 0; i < 4; ++i) {
+    // Alternating projection between the segment and the box (distance never grows). Four rounds left oblique, long capsules up to
+    // ~0.15 m short of the true closest points, so overlaps that deep were missed (bent: ext_phys_queries.bent); iterate to convergence.
+    for (int i = 0; i < 32; ++i) {
+        const glm::vec3 previous = onBox;
         onSegment = closestOnSegment(s0, s1, onBox);
         onBox = glm::clamp(onSegment, low, high);
+        if (i >= 3 && glm::dot(onBox - previous, onBox - previous) < 1.0e-12f) break;
     }
     const glm::vec3 separation = onSegment - onBox;
     const float d2 = glm::dot(separation, separation);

@@ -1,0 +1,220 @@
+# Queries through portals (docs/Portals.md): ray casts and sphere overlaps continue on the far side of an opening; straddling objects get a
+# twin; cell parameters blend across the opening; lights shine one hop through it.
+include "../lib/ext_portal.bent"
+
+# ---------------------------------------------------------------- ray casts
+
+# Spheres scattered along the straight ray and along the transformed ray beyond the opening, so rays actually hit things.
+gen xqDir = vec3(float(-0.4, 0.4), float(-0.4, 0.4), 0)
+gen xqSphere = {t: float(0, 1), j: vec3(float(-1.2, 1.2), float(-1.2, 1.2), float(-1.2, 1.2)), beyond: bool(), mesh: int(0, 7)}
+fn xqPlaceSphere(pair, origin, dir, s) =
+    let r = xpPair(pair) in
+    let d1 = dot(r.normalA, r.centerA - origin) / dot(r.normalA, dir) in
+    let hitPoint = origin + dir * d1 in
+    let beyondOrigin = xmPoint(r.ta, hitPoint) in
+    let beyondDir = xmDir(r.ta, dir) in
+    {pos: (if s.beyond then beyondOrigin + beyondDir * (s.t * 30) else origin + dir * (s.t * d1)) + s.j, mesh: s.mesh}
+
+fn xqRay(pair, a, b, dist, u, v) =
+    let r = xpPair(pair) in
+    let origin = r.centerA + r.normalA * dist + r.rightA * (u * pair.half.x) + r.upA * (v * pair.half.y) in
+    let dir = normalize(vec3(0, 0, 0) - r.normalA + r.rightA * a + r.upA * b) in
+    {origin: origin, dir: dir}
+
+# The engine's portal ray cast equals a brute force written here: the nearest sphere on the straight ray before the opening, else the
+# nearest on the transformed ray after it, with the explicit transform and the one-millimetre nudge of the crossing.
+law portal_raycast_matches_brute_force {
+    forall (s: xpPairPlain, a: float(-0.4, 0.4), b: float(-0.4, 0.4), dist: float(0.5, 6), u: xpSignedUnit, v: xpSignedUnit, raw: listOf(xqSphere, 0, 8))
+    where distance(s.a, s.b) > 12
+    => let ray = xqRay(s, a, b, dist, u, v) in
+       let spheres = map(raw, fn(c) => xqPlaceSphere(s, ray.origin, ray.dir, c)) in
+       let r = xpRaycast(s, spheres, ray.origin, {dir: ray.dir, max: 100}) in
+       r.crossings == r.refCrossings and r.hit == r.refHit and (r.refHit < 0 or abs(r.distance - r.refDistance) < 5e-3)
+}
+
+# The same ray cast from the other end (start cell 1) goes through end B and arrives at end A.
+law portal_raycast_from_far_end_matches_brute_force {
+    forall (s: xpPairPlain, a: float(-0.4, 0.4), b: float(-0.4, 0.4), dist: float(0.5, 6), u: xpSignedUnit, v: xpSignedUnit, raw: listOf(xqSphere, 0, 8))
+    where distance(s.a, s.b) > 12
+    => let swapped = with(s, a: s.b, ae: s.be, b: s.a, be: s.ae) in
+       let ray = xqRay(swapped, a, b, dist, u, v) in
+       let spheres = map(raw, fn(c) => xqPlaceSphere(swapped, ray.origin, ray.dir, c)) in
+       let r = xpRaycast(swapped, spheres, ray.origin, {dir: ray.dir, max: 100}) in
+       r.crossings == r.refCrossings and r.hit == r.refHit and (r.refHit < 0 or abs(r.distance - r.refDistance) < 5e-3)
+}
+
+# Non vacuity: rays through the opening do cross it, and (with spheres placed along the beyond path) some hit things beyond it.
+law portal_raycast_scenarios_cross_the_opening {
+    forall (s: xpPairPlain, a: float(-0.3, 0.3), b: float(-0.3, 0.3), dist: float(0.5, 6), u: float(-0.5, 0.5), v: float(-0.5, 0.5))
+    where distance(s.a, s.b) > 12 and abs(u * s.half.x + a * dist) < 0.8 * s.half.x and abs(v * s.half.y + b * dist) < 0.8 * s.half.y
+    => let ray = xqRay(s, a, b, dist, u, v) in
+       let r = xpRaycast(s, [], ray.origin, {dir: ray.dir, max: 100}) in r.crossings == 1 and r.refCrossings == 1 and r.portalDistance > 0
+}
+
+law portal_raycast_through_opening_hits_target_beyond {
+    forall (s: xpPairPlain, a: float(-0.3, 0.3), b: float(-0.3, 0.3), dist: float(0.5, 6), u: float(-0.5, 0.5), v: float(-0.5, 0.5), t: float(4.5, 25), mesh: int(0, 7))
+    where distance(s.a, s.b) > 12 and abs(u * s.half.x + a * dist) < 0.8 * s.half.x and abs(v * s.half.y + b * dist) < 0.8 * s.half.y
+    => let ray = xqRay(s, a, b, dist, u, v) in
+       let rr = xpPair(s) in
+       let d1 = dot(rr.normalA, rr.centerA - ray.origin) / dot(rr.normalA, ray.dir) in
+       let target = xmPoint(rr.ta, ray.origin + ray.dir * d1) + xmDir(rr.ta, ray.dir) * t in
+       let r = xpRaycast(s, [{pos: target, mesh: mesh}], ray.origin, {dir: ray.dir, max: 100}) in
+       r.hit == 0 and r.crossings == 1 and abs(r.distance - (d1 + t - xqRadius(mesh))) < 0.02
+}
+
+# ---------------------------------------------------------------- overlap through portals
+
+gen xqOverlapSphere = {near: elements([0, 1]), j: vec3(float(-3, 3), float(-3, 3), float(-3, 3)), mesh: int(0, 7)}
+
+# Sphere overlap: everything that surely overlaps (with 1 cm of slack) is found, everything found plausibly overlaps, either directly or
+# through the opening (centre mapped by the transform), counted as crossing 0 / 1.
+law portal_overlap_through_opening_matches_brute_force {
+    forall (s: xpPairPlain, front: float(-0.5, 3), u: xpSignedUnit, v: xpSignedUnit, radius: float(0.5, 4), raw: listOf(xqOverlapSphere, 0, 8))
+    where distance(s.a, s.b) > 12
+    => let r = xpPair(s) in
+       let center = r.centerA + r.normalA * front + r.rightA * (u * s.half.x) + r.upA * (v * s.half.y) in
+       let mapped = xmPoint(r.ta, center) in
+       let spheres = map(raw, fn(c) => {pos: (if c.near == 0 then center else mapped) + c.j, mesh: c.mesh}) in
+       let found = xpOverlap(s, spheres, center, radius) in
+       let gateDistance = xqRectDistance(center, r.centerA, r.normalA, r.rightA, r.upA, s.half.x, s.half.y) in
+       let side = xqSide(center, r.centerA, r.normalA) in
+       let m = 0.01 in
+       let baseSure = fn(i) => distance(spheres[i].pos, center) <= radius + xqRadius(spheres[i].mesh) - m in
+       let basePossible = fn(i) => distance(spheres[i].pos, center) <= radius + xqRadius(spheres[i].mesh) + m in
+       let gateSure = gateDistance < radius - m and side >= 0 - radius + m in
+       let gatePossible = gateDistance < radius + m and side >= 0 - radius - m in
+       let farSure = fn(i) => distance(spheres[i].pos, mapped) <= radius + xqRadius(spheres[i].mesh) - m in
+       let farPossible = fn(i) => distance(spheres[i].pos, mapped) <= radius + xqRadius(spheres[i].mesh) + m in
+       let ids = map(found, fn(f) => f.index) in
+       (forall i in range(len(spheres)): (baseSure(i) or (gateSure and farSure(i))) ==> contains(ids, i))
+       and (forall f in found: basePossible(f.index) or (gatePossible and farPossible(f.index)))
+       and allDistinct(ids)
+       and (forall f in found: f.crossings == 0 or f.crossings == 1)
+}
+
+# ---------------------------------------------------------------- straddling twins
+
+law portal_twin_follows_straddling_entity {
+    forall (s: xpPairAny, u: float(-0.5, 0.5), v: float(-0.5, 0.5), mesh: int(1, 7))
+    where distance(s.a, s.b) > 14 and mesh % 4 != 0
+    => let r = xpTwin(s, {u: u, v: v, mesh: mesh}) in
+       r.noGhostFar and r.ghostAlive and r.ghostVisible and r.isGhost and r.ghostErr < 2e-3 and r.cellBefore
+       and r.crossErr < 2e-3 and r.cellAfter == 1 and r.hiddenFar
+}
+
+# ---------------------------------------------------------------- cell parameters
+
+gen xqSampleSpec = {pairs: bind(xpPairPlain, fn(p) => just([with(p, cellA: 0, cellB: 1)])), cells: listOf(xpCell, 2, 2), blend: float(0.5, 5)}
+fn xqLo(a, b) = min(a, b)
+fn xqHi(a, b) = max(a, b)
+
+# Blending is a convex combination of the cell's own parameters and its neighbours': nothing ever lies outside the range of the cells
+# involved, gravity keeps a length no larger than the larger of the two, near a portal or not.
+law portal_params_blend_is_convex {
+    forall (spec: xqSampleSpec, off: vec3(float(-8, 8), float(-8, 8), float(-8, 8)), pick: int(0, 1))
+    => let r = xpPair(spec.pairs[0]) in
+       let c0 = spec.cells[0] in
+       let c1 = spec.cells[1] in
+       let near = (if pick == 0 then r.centerA else r.centerB) + off * 0.3 in
+       let out = xpSample(spec, 0, near) in
+       out.sun >= xqLo(c0.sun, c1.sun) - 1e-4 and out.sun <= xqHi(c0.sun, c1.sun) + 1e-4
+       and out.ambient >= xqLo(c0.ambient, c1.ambient) - 1e-4 and out.ambient <= xqHi(c0.ambient, c1.ambient) + 1e-4
+       and out.tint.x >= xqLo(c0.tint.x, c1.tint.x) - 1e-4 and out.tint.x <= xqHi(c0.tint.x, c1.tint.x) + 1e-4
+       and out.tint.y >= xqLo(c0.tint.y, c1.tint.y) - 1e-4 and out.tint.y <= xqHi(c0.tint.y, c1.tint.y) + 1e-4
+       and out.scalar >= xqLo(c0.scalar, c1.scalar) - 1e-4 and out.scalar <= xqHi(c0.scalar, c1.scalar) + 1e-4
+       and length(out.gravity) <= max(length(c0.gravity), length(c1.gravity)) + 1e-3
+}
+
+# In front of an end by more than the blend distance (and not behind it) nothing of the neighbour leaks in.
+law portal_params_far_in_front_is_the_cells_own {
+    forall (spec: xqSampleSpec, extra: float(0.01, 20), u: float(-1, 1), v: float(-1, 1))
+    => let r = xpPair(spec.pairs[0]) in
+       let p = r.centerA + r.normalA * (spec.blend + extra) + r.rightA * u + r.upA * v in
+       let out = xpSample(spec, 0, p) in
+       out.sun ~= spec.cells[0].sun within 1e-5 and out.ambient ~= spec.cells[0].ambient within 1e-5 and out.gravity ~= spec.cells[0].gravity within 1e-4
+}
+
+# Walking through the opening: the parameters change smoothly (no jump) across the portal plane.
+law portal_params_continuous_across_the_opening {
+    forall (spec: xqSampleSpec, u: float(-0.5, 0.5), v: float(-0.5, 0.5), side: float(0, 3))
+    => let r = xpPair(spec.pairs[0]) in
+       let lateral = r.rightA * (u * spec.pairs[0].half.x) + r.upA * (v * spec.pairs[0].half.y) in
+       let eps = 0.001 in
+       let before = xpSample(spec, 0, r.centerA + r.normalA * eps + lateral) in
+       let past = xpSample(spec, 0, r.centerA - r.normalA * eps + lateral) in
+       abs(before.sun - past.sun) < 0.01 * (abs(spec.cells[0].sun - spec.cells[1].sun) + 0.01)
+       and abs(before.ambient - past.ambient) < 0.01 * (abs(spec.cells[0].ambient - spec.cells[1].ambient) + 0.01)
+}
+
+# Beside the opening (outside the quad, on the plane's extension) the blend must also be continuous when the plane is passed: a camera
+# that walks around the edge of a portal must not see the lighting grade jump.
+law portal_params_continuous_beside_the_opening {
+    forall (spec: xqSampleSpec, out: float(0.05, 1.5), v: float(-0.5, 0.5))
+    => let r = xpPair(spec.pairs[0]) in
+       let lateral = r.rightA * (spec.pairs[0].half.x + out) + r.upA * (v * spec.pairs[0].half.y) in
+       let eps = 0.001 in
+       let before = xpSample(spec, 0, r.centerA + r.normalA * eps + lateral) in
+       let past = xpSample(spec, 0, r.centerA - r.normalA * eps + lateral) in
+       abs(before.sun - past.sun) < 0.05 * (abs(spec.cells[0].sun - spec.cells[1].sun) + 0.01)
+}
+
+# Known: sampleParams measures the blend by the signed distance to the quad's plane side but with the full 3D distance to the rectangle,
+# so beside the quad (outside it, in the plane's extension) the weight jumps from 0.5 * (1 - d / reach) in front to 0.5 * (1 + d / reach)
+# behind, up to the whole partner cell once d >= reach. Walking around the frame of a free standing portal therefore pops gravity, tint
+# and sun. Wall mounted portals never expose that region (the wall is there), which is probably why it went unnoticed.
+
+# ---------------------------------------------------------------- light transport
+
+gen xqLightSpec = {pairs: bind(xpPairPlain, fn(p) => just([with(p, cellA: 0, cellB: 1)])), transport: just(true)}
+
+# lightImages equals a brute force over the cell's ends: a light makes an image through an end iff it is in front of it and its sphere
+# touches the quad.
+law portal_light_images_match_brute_force {
+    forall (spec: xqLightSpec, off: vec3(float(-6, 6), float(-6, 6), float(-6, 6)), reach: float(0.5, 12), pick: int(0, 1))
+    => let r = xpPair(spec.pairs[0]) in
+       let pos = (if pick == 0 then r.centerA else r.centerB) + off in
+       let cell = pick in
+       let out = xpLightImages(spec, cell, pos, reach) in
+       let mine = filter(out.portals, fn(p) => p.cell == cell) in
+       let expected = filter(range(len(out.portals)), fn(i) =>
+           out.portals[i].cell == cell and xqSide(pos, out.portals[i].center, out.portals[i].normal) > 0
+           and xqRectDistance(pos, out.portals[i].center, out.portals[i].normal, out.portals[i].right, out.portals[i].up, out.portals[i].half.x, out.portals[i].half.y) < reach) in
+       len(out.images) == len(expected)
+       and (forall k in range(len(expected)): out.images[k].portal == out.portals[expected[k]].partner and out.images[k].cell == out.portals[out.portals[expected[k]].partner].cell)
+}
+
+# The image of a light is where the opening shows it: mirrored through the far end, i.e. at the same distance behind the receiving quad
+# as the light is in front of the source quad.
+law portal_light_image_sits_behind_the_receiving_end {
+    forall (spec: xqLightSpec, front: float(0.1, 4), u: float(-0.8, 0.8), v: float(-0.8, 0.8))
+    => let r = xpPair(spec.pairs[0]) in
+       let pos = r.centerA + r.normalA * front + r.rightA * (u * spec.pairs[0].half.x) + r.upA * (v * spec.pairs[0].half.y) in
+       let out = xpLightImages(spec, 0, pos, front + 3) in
+       len(out.images) == 1 and
+       (let img = out.images[0] in
+        let p = xmPoint(img.transform, pos) in
+        abs(dot(img.normal, p - img.center) + front) < 1e-3)
+}
+
+# Transport off, range zero, or no depth: no images. Lights behind an end do not shine through it.
+law portal_light_images_respect_switches_and_side {
+    forall (spec: xqLightSpec, off: vec3(float(-4, 4), float(-4, 4), float(0.1, 4)), reach: float(0.5, 8))
+    => let r = xpPair(spec.pairs[0]) in
+       let pos = r.centerA + r.rightA * off.x + r.upA * off.y + r.normalA * off.z in
+       let behind = r.centerA + r.rightA * off.x + r.upA * off.y - r.normalA * off.z in
+       len(xpLightImages(with(spec, transport: false), 0, pos, reach).images) == 0
+       and len(xpLightImages(spec, 0, pos, 0).images) == 0
+       and len(xpLightImages(with(spec, maxDepth: 0), 0, pos, reach).images) == 0
+       and len(xpLightImages(spec, 0, behind, reach).images) == 0
+}
+
+# Light crosses one portal only (docs/Portals.md): a ring of three cells 0-1-2, a light in cell 0 reaches cell 1 and cell 2 (its direct
+# neighbours through the pairs of cell 0) but the images never chain on: every image's cell is a direct neighbour of the light's cell.
+law portal_light_crosses_one_portal_only {
+    forall (a: xpPairPlain, b: xpPairPlain, off: vec3(float(-2, 2), float(-2, 2), float(0.1, 3)))
+    => let pairs = [with(a, cellA: 0, cellB: 1), with(b, cellA: 1, cellB: 2)] in
+       let r = xpPair(pairs[0]) in
+       let pos = r.centerA + r.rightA * off.x + r.upA * off.y + r.normalA * off.z in
+       let out = xpLightImages({pairs: pairs, transport: true}, 0, pos, 40) in
+       forall img in out.images: img.cell == 1
+}

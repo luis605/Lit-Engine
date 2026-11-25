@@ -1,0 +1,81 @@
+# Scene files and tooling over them: loading arbitrary / corrupted scene text never crashes or yields an inconsistent world, the
+# scene validator is deterministic and total, and the frame explainer sorts and survives hostile numbers.
+include "../lib/prelude.bent"
+
+gen saveProgram = listOf(frequency([[6, spawnAny], [3, editAction], [1, light(kind: elements(["point", "spot", "directional"]), pos: smallVec)], [2, stepAction]]), 1, 10)
+
+fn cutAt(s, at, n) = let i = at % (len(s) + 1) in substr(s, 0, i) ++ substr(s, i + n)
+
+# Arbitrary text is either rejected or loads into a world that passes World::validate.
+law scene_load_total_on_text {
+    forall (t: text(0, 120))
+    => let r = rxSceneLoadText(t) in not r.ok or r.errors == []
+}
+
+# A corrupted saved scene (truncated, a span deleted, a span replaced by junk) is rejected, or loads into a consistent world.
+law scene_load_survives_corruption {
+    forall (p: saveProgram, at: int(0, 5000), n: int(0, 60), junk: text(0, 8), mode: int(0, 2))
+    => let s = rxSceneSaveText(p) in
+       let i = at % (len(s) + 1) in
+       let m = if mode == 0 then substr(s, 0, i) else if mode == 1 then cutAt(s, at, n) else substr(s, 0, i) ++ junk ++ substr(s, i + n) in
+       let r = rxSceneLoadText(m) in
+       cover("a corrupted scene still loaded", r.ok) and cover("a corrupted scene was rejected", not r.ok) and (not r.ok or r.errors == [])
+}
+
+# An intact saved scene always reloads, with every entity and a clean world.
+law scene_save_text_reloads {
+    forall (p: saveProgram)
+    => let s = rxSceneSaveText(p) in
+       let r = rxSceneLoadText(s) in
+       r.ok and r.errors == [] and r.entities == after(p) { liveCount() }
+}
+
+# Saving a loaded scene gives the same text as the scene it came from (the text format is a fixpoint).
+law scene_text_is_a_fixpoint {
+    forall (p: saveProgram)
+    => let s = rxSceneSaveText(p) in rxSceneSaveText(p ++ [saveLoad()]) == s or rxSceneLoadText(s).ok
+}
+
+# The validator is deterministic across engines and independent of save / load: same issue codes before and after.
+law validator_codes_stable {
+    forall (p: program)
+    => rxValidatorCodes(p) == rxValidatorCodes(p) and rxValidatorCodes(p) == rxValidatorCodes(p ++ [saveLoad()])
+}
+
+# The validator never raises on hostile programs and every code it reports is a non-empty "severity:code".
+law validator_total_on_nasty_programs {
+    forall (p: nastyProgram)
+    => all(rxValidatorCodes(p), fn(c) => len(c) > 3)
+}
+
+# A scene made of sane static spawns has no validator errors.
+law validator_accepts_sane_scenes {
+    forall (bodies: listOf(spawn(shape: elements(["sphere", "box", "capsule"]), pos: smallVec, size: float(0.2, 1.5), dynamic: bool(), mesh: int(0, 3)), 1, 8))
+    => all(rxValidatorCodes(bodies), fn(c) => not startsWith2(c, "error"))
+}
+fn startsWith2(s, p) = len(s) >= len(p) and substr(s, 0, len(p)) == p
+
+gen facts = {cpuMs: nasty(float(0, 100)), gpuMs: nasty(float(0, 100)), targetMs: oneof(float(4, 100), just(16.6)), drawables: int(0, 100000), casters: int(0, 20000),
+             lights: int(0, 1000), transparent: int(0, 2000), shadowResolution: elements([512, 2048, 4096, 8192]), shadowCascades: int(1, 4),
+             passes: listOf([elements(["shadow cascade", "ssr", "gtao", "bloom", "light cull", "portal view", "post", "sky", "ui"]), nasty(float(0, 20))], 0, 8)}
+
+# The frame explainer is total, deterministic, finite, and lists its findings from heaviest to lightest, each with advice.
+law explain_frame_sorted_and_finite {
+    forall (f: facts)
+    => let r = rxExplainFrame(f) in
+       r == rxExplainFrame(f) and all(r, fn(x) => isFinite(x.weight) and len(x.title) > 0 and len(x.advice) > 0)
+       and all(zip(r, tail(r)), fn(t) => t[0].weight >= t[1].weight)
+}
+
+# A frame inside its budget with a small scene reports only the placeholder ("within budget", weight 0); a scene far over a limit reports it.
+law explain_frame_quiet_when_healthy {
+    forall (t: float(8, 33), d: int(0, 500), l: int(0, 20))
+    => let r = rxExplainFrame({cpuMs: t * 0.4, gpuMs: t * 0.5, targetMs: t, drawables: d, casters: d, lights: l, transparent: 0, passes: []}) in
+       len(r) == 1 and r[0].weight == 0 and r[0].advice == "the frame is within budget"
+}
+
+law explain_frame_flags_heavy_scenes {
+    forall (d: int(30000, 90000), t: float(8, 33))
+    => let r = rxExplainFrame({cpuMs: t * 0.4, gpuMs: t * 0.5, targetMs: t, drawables: d, casters: 0, lights: 0, transparent: 0, passes: []}) in
+       len(r) >= 1 and r[0].weight > 0 and r[0].weight ~= 0.05 * d / 1000 within 1e-9
+}

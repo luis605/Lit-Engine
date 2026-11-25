@@ -1,0 +1,27 @@
+# GPU laws: portals. The portal quad itself must not render (no dark blobs where a portal opening is), views through it stay lit,
+# and the portal-view path agrees with the graph switch.
+include "../../lib/gpu.bent"
+
+gen scene = elements(portalScenes)
+gen cam = [float(-4, 4), float(1, 3), float(2, 10), float(-120, -60), float(-15, 10)]
+
+# blobScore: the fraction of interior 8x8 blocks that are less than half as bright as every one of their eight neighbours.
+# A portal drawn as an opaque dark quad shows up as a dark blob; a correctly ignored quad leaves the scene's own shading.
+law gpu_portal_quad_leaves_no_dark_blobs {
+    forall (s: scene, c: cam)
+    => let r = rxGpuShot({scene: s, camera: c}) in r.ok and r.mean > 0.03 and r.blobScore < 0.03
+}
+
+# The portal scenes render without errors for random cameras (looking through, past and at portals).
+law gpu_portal_views_clean {
+    forall (s: scene, c: cam)
+    => let r = rxGpuShot({scene: s, camera: c}) in r.ok and r.logErrors == 0 and r.logWarnings == 0 and r.exactBlackFrac < 0.5 and r.std > 0.01
+}
+
+# The render graph path gives the same portal frame as the immediate path.
+law gpu_portal_graph_parity {
+    forall (s: scene)
+    => let on = shot(s, [["renderGraph", 1]]) in
+       let off = shot(s, [["renderGraph", 0]]) in
+       on.ok and off.ok and agrees(rxImageDiff(on, off), noiseOf(s, [["renderGraph", 1]]))
+}

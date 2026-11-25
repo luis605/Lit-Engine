@@ -54,6 +54,7 @@ class EngineSim final : public Sim {
     [[nodiscard]] EntityHandle resolve(const Value& target, const SrcLoc& loc, bool allowNull = false) const;
     [[nodiscard]] Value refOf(EntityHandle handle);
 
+    std::shared_ptr<void> extWorld;  // per-sim state of Ext_World.cpp (declared first: destroyed after the engine)
     std::unique_ptr<Engine> m_engine;
     std::vector<EntityHandle> m_refs;
     std::map<EntityHandle, int64_t, bool (*)(const EntityHandle&, const EntityHandle&)> m_refIndex{[](const EntityHandle& a, const EntityHandle& b) { return a.index != b.index ? a.index < b.index : a.generation < b.generation; }};

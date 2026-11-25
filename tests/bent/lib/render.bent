@@ -1,0 +1,15 @@
+# Shared helpers for the ext_render_*.bent law files (render settings, governor, projection, cluster LOD, render graph, slots, params).
+# Natives (rx*) come from src/Engine/Bent/Ext_Render.cpp; every one is a pure function of its arguments.
+
+let settingNames = rxRsNames()
+gen settingKey = elements(settingNames)
+
+# Textual values a script, a file or the editor may hand to setRenderSetting.
+gen badNumberText = elements(["nan", "inf", "-inf", "1e999", "-1e999", "NaN", "Infinity", "-nan"])
+# Text with no leading number. (Trailing junk after a number, "1.2.3x" or "0x", is accepted by design: the parser reads the number prefix.)
+gen junkText = elements(["", "abc", "--", " ", "true", "e5", "x1", "."])
+gen numberText = oneof(float(-1000, 1000), float(-1e6, 1e6), int(-100, 100), bool(), elements([0, 1, 2, 3, 4, 5, 11, 12, 255]))
+gen anyText = frequency([[8, numberText], [1, badNumberText], [1, junkText], [2, nasty(float(-1e4, 1e4))]])
+gen pairGen = [settingKey, anyText]
+
+fn keysOfKind(kind) = filter(settingNames, fn(k) => rxRsKind(k) == kind)

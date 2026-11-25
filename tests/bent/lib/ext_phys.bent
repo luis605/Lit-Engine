@@ -1,0 +1,144 @@
+# Shared helpers for the physics / character / nav / AI / animation / IK / audio laws (tests/bent/laws/ext_phys_*.bent).
+# The builtins used here (pxRun, pxCast, pxChar, navEval, ...) live in src/Engine/Bent/Ext_Physics.cpp and Ext_Sim.cpp; each call builds
+# its own standalone world, so every case is independent and deterministic.
+include "prelude.bent"
+
+# ---------------------------------------------------------------- small vector helpers
+
+fn absv(v) = vec3(abs(v.x), abs(v.y), abs(v.z))
+fn pos0(v) = vec3(max(v.x, 0.0), max(v.y, 0.0), max(v.z, 0.0))
+fn flat3(v) = vec3(v.x, 0, v.z)
+fn finite3(v) = isFinite(v.x) and isFinite(v.y) and isFinite(v.z)
+fn unit3(v) = abs(length(v) - 1.0) < 3e-3
+fn maxOf(xs) = fold(xs, 0.0 - 1e30, fn(m, x) => max(m, x))
+fn minOf(xs) = fold(xs, 1e30, fn(m, x) => min(m, x))
+fn allOf(xs, f) = all(xs, f)
+fn near3(a, b, eps) = distance(a, b) <= eps
+
+# ---------------------------------------------------------------- signed distance fields of static collider specs (reference)
+
+fn sdSphere(p, c, r) = length(p - c) - r
+fn sdBox(p, c, h) = let q = absv(p - c) - h in length(pos0(q)) + min(max([q.x, q.y, q.z]), 0.0)
+fn sdCapsule(p, c, r, hh) = let y = clampf(p.y - c.y, 0.0 - hh, hh) in length(p - vec3(c.x, c.y + y, c.z)) - r
+fn sdPlane(p, c, n) = dot(p - c, normalize(n))
+fn sdPart(p, base, part) =
+    if part.kind == "sphere" then sdSphere(p, base + part.offset, part.radius)
+    else if part.kind == "box" then sdBox(p, base + part.offset, part.half)
+    else sdCapsule(p, base + part.offset, part.radius, part.height)
+fn sdBody(p, b) =
+    if b.shape == "sphere" then sdSphere(p, b.pos, b.size)
+    else if b.shape == "box" then sdBox(p, b.pos, b.size)
+    else if b.shape == "capsule" then sdCapsule(p, b.pos, b.size, b.height)
+    else if b.shape == "plane" then sdPlane(p, b.pos, b.normal)
+    else if b.shape == "compound" then fold(b.parts, 1e30, fn(m, part) => min(m, sdPart(p, b.pos, part)))
+    else 1e30
+fn sdScene(p, bodies) = fold(bodies, 1e30, fn(m, b) => min(m, sdBody(p, b)))
+
+# Sphere tracing against the union of the bodies inflated by `infl`: {t, minS} where t is the first hit distance (-1 = no hit within
+# maxd, -2 = gave up), minS the smallest clearance seen along the way.
+fn march(o, d, t, maxd, bodies, infl, n, minS) =
+    if t > maxd then {t: -1.0, minS: minS}
+    else let s = sdScene(o + d * t, bodies) - infl in
+         if s < 1e-4 then {t: t, minS: min(minS, s)}
+         else if n <= 0 then {t: -2.0, minS: minS}
+         else march(o, d, t + s, maxd, bodies, infl, n - 1, min(minS, s))
+fn marchRay(o, d, maxd, bodies, infl) = march(o, d, 0.0, maxd, bodies, infl, 400, 1e30)
+
+# ---------------------------------------------------------------- generators of static colliders
+
+gen cPos = vec3(float(-6, 6), float(-6, 6), float(-6, 6))
+gen cSphere = {shape: "sphere", pos: cPos, size: float(0.2, 2), dynamic: false}
+gen cBox = {shape: "box", pos: cPos, size: vec3(float(0.2, 2), float(0.2, 2), float(0.2, 2)), dynamic: false}
+gen cCapsule = {shape: "capsule", pos: cPos, size: float(0.2, 1), height: float(0.1, 1.5), dynamic: false}
+gen cPlane = {shape: "plane", pos: vec3(float(-2, 2), float(-4, 0), float(-2, 2)), normal: elements([vec3(0, 1, 0), vec3(0, -1, 0), vec3(1, 0, 0), vec3(0, 0, 1), vec3(0, 0, -1)]), dynamic: false}
+gen cPart = {kind: elements(["sphere", "box", "capsule"]), offset: vec3(float(-1.5, 1.5), float(-1.5, 1.5), float(-1.5, 1.5)),
+             radius: float(0.2, 1), half: vec3(float(0.2, 1), float(0.2, 1), float(0.2, 1)), height: float(0.1, 1)}
+gen cCompound = {shape: "compound", pos: cPos, parts: listOf(cPart, 1, 3), dynamic: false}
+gen cPrimitive = oneof(cSphere, cBox, cCapsule)
+gen cAny = frequency([[3, cSphere], [3, cBox], [3, cCapsule], [1, cPlane], [2, cCompound]])
+gen cBodies = listOf(cAny, 1, 4)
+gen rayFrom = vec3(float(-12, 12), float(-12, 12), float(-12, 12))
+gen jitter = vec3(float(-2, 2), float(-2, 2), float(-2, 2))
+
+# Direction from `from` to the centre of body k plus a jitter (so most rays hit something), as a unit vector.
+fn aim(from, bodies, k, jit) = let b = bodies[k % len(bodies)] in
+    let d = b.pos + jit - from in if length(d) < 1e-3 then vec3(0, 0, -1) else normalize(d)
+
+# ---------------------------------------------------------------- dynamic scenes
+
+gen dBody = {shape: elements(["sphere", "box", "capsule", "hull", "compound"]), pos: vec3(float(-4, 4), float(0.5, 6), float(-4, 4)), size: float(0.25, 0.8),
+             height: float(0.1, 0.6), mass: float(0.5, 5), restitution: float(0, 1), friction: float(0, 1), vel: vec3(float(-6, 6), float(-6, 6), float(-6, 6)),
+             parts: [{kind: "sphere", offset: vec3(-0.4, 0, 0), radius: 0.3, half: vec3(0.3, 0.3, 0.3), height: 0.3},
+                     {kind: "box", offset: vec3(0.4, 0, 0), radius: 0.3, half: vec3(0.25, 0.25, 0.25), height: 0.3}]}
+fn floorPlane() = {shape: "plane", pos: vec3(0, 0, 0), normal: vec3(0, 1, 0), dynamic: false}
+# Bodies spaced on a 3 m lattice so a scene never starts in overlap.
+fn lat(i) = vec3(-3.0 + 3.0 * (i % 3), 1.5 + 2.0 * ((i / 3) % 3), -3.0 + 3.0 * (i / 9))
+fn placed(bodies) = map(enumerate(bodies), fn(pr) => with(pr[1], pos: lat(pr[0])))
+fn kineticOf(b) = if b.dynamic then 0.5 * b.mass * dot(b.vel, b.vel) else 0.0
+fn momentumOf(bodies) = fold(bodies, vec3(0, 0, 0), fn(acc, b) => if b.dynamic then acc + b.vel * b.mass else acc)
+fn energyOf(bodies, g) = fold(bodies, 0.0, fn(acc, b) => if b.dynamic then acc + kineticOf(b) + b.mass * g * b.pos.y else acc)
+fn hasNaNBody(b) = not b.alive or not finite3(b.pos) or not finite3(b.vel) or not finite3(b.ang)
+
+# ---------------------------------------------------------------- triangle meshes and height fields (brute force references)
+
+gen triGen = [vec3(float(-3, 3), float(-1.5, 1.5), float(-3, 3)), vec3(float(-3, 3), float(-1.5, 1.5), float(-3, 3)), vec3(float(-3, 3), float(-1.5, 1.5), float(-3, 3))]
+fn meshBody(pos, rot, scale, tris) = {shape: "mesh", pos: pos, rot: rot, scale: scale, verts: flatten(tris), idx: range(3 * len(tris)), dynamic: false}
+
+# World space triangles of a mesh body: pos + rot * (scale * v).
+fn worldVert(b, v) = b.pos + rotate(b.rot, vec3(v.x * b.scale.x, v.y * b.scale.y, v.z * b.scale.z))
+fn meshTriangles(b) = map(range(len(b.idx) / 3), fn(k) => [worldVert(b, b.verts[b.idx[3 * k]]), worldVert(b, b.verts[b.idx[3 * k + 1]]), worldVert(b, b.verts[b.idx[3 * k + 2]])])
+
+# Moeller-Trumbore, two sided: distance along the unit ray direction or -1.
+fn rayTri(o, d, tri) =
+    let e1 = tri[1] - tri[0] in
+    let e2 = tri[2] - tri[0] in
+    let p = cross(d, e2) in
+    let det = dot(e1, p) in
+    if abs(det) < 1e-9 then -1.0 else (
+        let inv = 1.0 / det in
+        let tv = o - tri[0] in
+        let u = dot(tv, p) * inv in
+        if u < 0.0 or u > 1.0 then -1.0 else (
+            let q = cross(tv, e1) in
+            let v = dot(d, q) * inv in
+            if v < 0.0 or u + v > 1.0 then -1.0 else (let t = dot(e2, q) * inv in if t >= 0 then t else -1.0)))
+fn nearestTri(o, d, tris, maxd) = fold(tris, -1.0, fn(best, tri) => let t = rayTri(o, d, tri) in
+    if t >= 0 and t <= maxd and (best < 0 or t < best) then t else best)
+# A ray lying (nearly) in the plane of a triangle it passes through is degenerate for any intersection routine.
+fn grazing(d, tris) = exists tri in tris: (let n = cross(tri[1] - tri[0], tri[2] - tri[0]) in length(n) > 1e-9 and abs(dot(normalize(n), d)) < 0.03)
+# Distance of the point to the nearest triangle edge in the triangle's plane: used to skip rays that graze edges.
+fn segDist(p, a, b) = let ab = b - a in let t = clampf(dot(p - a, ab) / max(dot(ab, ab), 1e-12), 0.0, 1.0) in length(p - (a + ab * t))
+fn nearEdge(o, d, tris) = exists tri in tris: (
+    let n = cross(tri[1] - tri[0], tri[2] - tri[0]) in
+    let den = dot(n, d) in
+    abs(den) > 1e-12 and (
+        let t = dot(n, tri[0] - o) / den in
+        t >= 0 and (let p = o + d * t in
+            exists e in [[0, 1], [1, 2], [2, 0]]: segDist(p, tri[e[0]], tri[e[1]]) < 0.02)))
+
+gen hfDims = elements([2, 3, 4, 5])
+fn hfBody(pos, rot, scale, nx, nz, cell, heights) = {shape: "heightfield", pos: pos, rot: rot, scale: scale, nx: nx, nz: nz, cell: cell, heights: heights, dynamic: false}
+gen cHeightfield = bind(hfDims, fn(nx) => bind(hfDims, fn(nz) => bind(float(0.5, 2), fn(cell) => map(listOf(float(-1, 1), nx * nz, nx * nz), fn(hs) => hfBody(vec3(0, 0, 0), quat(1, 0, 0, 0), vec3(1, 1, 1), nx, nz, cell, hs)))))
+fn hfLocal(b, i, j) = vec3(i * b.cell, b.heights[j * b.nx + i], j * b.cell)
+# Terrain is solid below its surface: a ray that starts under it (inside the footprint) reports a hit at distance 0. True when the point
+# is inside the footprint and not clearly above the highest sample.
+fn underOrInHeightfield(b, p) =
+    let lp = rotate(quat(b.rot.w, 0 - b.rot.x, 0 - b.rot.y, 0 - b.rot.z), p - b.pos) in
+    let x = lp.x / b.scale.x in let y = lp.y / b.scale.y in let z = lp.z / b.scale.z in
+    x > -0.05 and x < (b.nx - 1) * b.cell + 0.05 and z > -0.05 and z < (b.nz - 1) * b.cell + 0.05 and y < maxOf(b.heights) + 0.01
+fn hfTriangles(b) = flatten(map(range((b.nx - 1) * (b.nz - 1)), fn(k) =>
+    let i = k % (b.nx - 1) in let j = k / (b.nx - 1) in
+    let v00 = worldVert(b, hfLocal(b, i, j)) in let v01 = worldVert(b, hfLocal(b, i, j + 1)) in
+    let v11 = worldVert(b, hfLocal(b, i + 1, j + 1)) in let v10 = worldVert(b, hfLocal(b, i + 1, j)) in
+    [[v00, v01, v11], [v00, v11, v10]]))
+
+# ---------------------------------------------------------------- portals (frames from pxPortalFrames)
+
+gen pxEuler = vec3(float(-180, 180), float(-60, 60), float(-180, 180))
+gen pxPortalPos = vec3(float(-12, 12), float(0, 6), float(-12, 12))
+gen pxPair = {a: pxPortalPos, aEuler: pxEuler, b: pxPortalPos, bEuler: pxEuler, half: vec3(float(1, 2.5), float(1, 2.5), 0), twist: float(-30, 30)}
+# Maps a point / direction through the portal from frame fa (entered) to frame fb (exit): right -> -right, up -> up, normal -> -normal.
+fn pxMapPoint(fa, fb, p) = let d = p - fa.center in fb.center - fb.right * dot(d, fa.right) + fb.up * dot(d, fa.up) - fb.normal * dot(d, fa.normal)
+fn pxMapDir(fa, fb, d) = fb.up * dot(d, fa.up) - fb.right * dot(d, fa.right) - fb.normal * dot(d, fa.normal)
+fn pxSide(f, p) = dot(p - f.center, f.normal)
+fn pxInside(f, p, margin) = abs(dot(p - f.center, f.right)) < f.half.x - margin and abs(dot(p - f.center, f.up)) < f.half.y - margin

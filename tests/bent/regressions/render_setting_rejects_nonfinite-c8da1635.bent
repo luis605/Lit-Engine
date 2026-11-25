@@ -5,7 +5,7 @@
 # Failure: property is false
 include "../laws/render.bent"
 
-example render_setting_rejects_nonfinite known "setRenderSetting accepts nan / inf for float settings (parseFloat does not reject non-finite values), e.g. timeOfDay = nan" {
+example render_setting_rejects_nonfinite {
   i = 1,
   v = "nan"
 }

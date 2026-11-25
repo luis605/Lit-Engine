@@ -275,6 +275,11 @@ add_test(NAME BentTests COMMAND BentTests)
 add_test(NAME BentLaws COMMAND bent suite --laws ${CMAKE_CURRENT_SOURCE_DIR}/bent/laws --regressions ${CMAKE_CURRENT_SOURCE_DIR}/bent/regressions --cases 25 --seed 1
          WORKING_DIRECTORY ${CMAKE_BINARY_DIR})
 set_tests_properties(BentLaws PROPERTIES TIMEOUT 1200)
+# GPU mode (docs/Bent.md, "GPU mode"): laws that render real frames through LitShot (320x180, deterministic). Skipped with code 77 when
+# LitShot is not built or no device works; the default BentLaws suite never runs them (they live in tests/bent/laws/gpu).
+add_test(NAME BentGpuLaws COMMAND bent suite --gpu --laws ${CMAKE_CURRENT_SOURCE_DIR}/bent/laws/gpu --cases 4 --seed 1 --jobs 1
+         WORKING_DIRECTORY ${CMAKE_BINARY_DIR})
+set_tests_properties(BentGpuLaws PROPERTIES TIMEOUT 1800 SKIP_RETURN_CODE 77)
 
 # Bindless texture table (docs/RenderGraph.md): the slot allocator is tested headless; the GPU parity test renders the `textures`
 # scene with the table on and off and requires identical pixels (skipped, exit 77, without LitShot or a usable GPU).

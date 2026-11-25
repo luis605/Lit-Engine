@@ -1,0 +1,165 @@
+# Portal world JSON, opening shapes and generated frame meshes.
+include "../lib/ext_portal.bent"
+
+gen xjLook = {shape: int(0, 2), corner: float(0, 2)}
+gen xjPair = bind(xpPairAny, fn(p) => bind(xjLook, fn(l) => bind(int(0, 2), fn(a) => bind(int(0, 2), fn(b) => just(with(p, shape: l.shape, corner: l.corner, cellA: a, cellB: b))))))
+gen xjCells = listOf({gravity: vec3(float(-12, 12), float(-12, 12), float(-12, 12)), tint: vec3(float(0, 1), float(0, 1), float(0, 1)), sun: float(0, 2), ambient: float(0, 2)}, 0, 3)
+
+# toJson -> parseJson -> toJson is a fixpoint, and the reloaded system has the same cells, pairs, partners, shapes, parameters and the
+# same transforms.
+law portal_json_roundtrip_is_a_fixpoint {
+    forall (pairs: listOf(xjPair, 0, 4), cells: xjCells)
+    => let r = xpJsonRoundTrip(pairs, cells) in r.ok and r.fixpoint and r.sameShape and r.transformErr < 1e-3 and r.paramErr < 1e-5
+}
+
+# The emitted text is real JSON the generic parser accepts and it carries the pairs.
+law portal_json_text_is_valid_json {
+    forall (pairs: listOf(xjPair, 0, 4), cells: xjCells)
+    => let text = xpJsonText(pairs, cells) in
+       let parsed = jsonParse(text) in parsed.ok and len(parsed.value.portals) == len(pairs) and len(parsed.value.cells) >= 2
+}
+
+gen xjCellDoc = {name: elements(["a", "b", "c"]), gravity: [0, -9.8, 0], tint: [0.1, 0.1, 0.1]}
+gen xjEnd = {cell: elements(["a", "b", "c", "zz"]), position: [float(-5, 5), 0, 0], rotation: [0, float(-90, 90), 0], size: [1, 1]}
+
+# What the engine accepts: an object with a non-empty array of cells with unique non-empty string names, and pairs whose two ends
+# name existing cells. Everything else is rejected and leaves the system untouched.
+fn xjCellNames(doc) = map(doc.cells, fn(c) => c.name)
+fn xjExpectedOk(doc) =
+    len(doc.cells) > 0 and allDistinct(xjCellNames(doc))
+    and (forall p in doc.portals: contains(xjCellNames(doc), p.a.cell) and contains(xjCellNames(doc), p.b.cell))
+
+law portal_json_accepts_exactly_the_consistent_documents {
+    forall (cells: listOf(xjCellDoc, 0, 4), pairs: listOf({name: ident(1, 4), a: xjEnd, b: xjEnd, twist: float(-90, 90)}, 0, 3), base: xpPairAny)
+    => let doc = {cells: cells, portals: pairs} in
+       let r = xpJsonTry([with(base, cellA: 0, cellB: 1)], jsonDump(doc)) in
+       r.ok == xjExpectedOk(doc) and (r.ok or r.unchanged) and r.consistent and r.ortho < 1e-4
+}
+
+# Truncating a valid document anywhere makes it invalid: rejected, system untouched.
+law portal_json_rejects_every_truncation {
+    forall (pairs: listOf(xjPair, 1, 3), cells: xjCells, cut: float(0, 1))
+    => let text = xpJsonText(pairs, cells) in
+       let at = toInt(floor(cut * (len(text) - 2))) in
+       let r = xpJsonTry([], substr(text, 0, at)) in
+       not r.ok and r.unchanged
+}
+
+# Arbitrary text: never crashes, almost never accepted, the existing system survives rejection.
+law portal_json_garbage_is_rejected_cleanly {
+    forall (t: text(0, 200), pairs: listOf(xjPair, 0, 2))
+    => let r = xpJsonTry(pairs, t) in (r.ok or r.unchanged) and r.consistent
+}
+
+# Wrongly typed members: numbers where strings go, scalars where arrays go. Accepted or rejected, never inconsistent, rejected means
+# untouched.
+gen xjJunk = oneof(1, "x", true, [], {}, [1, 2], {a: 1}, "")
+law portal_json_wrong_types_never_corrupt {
+    forall (j1: xjJunk, j2: xjJunk, j3: xjJunk, j4: xjJunk, which: int(0, 5))
+    => let cells = [{name: "a", min: j1, max: j2, gravity: j3, tint: j4, sun: j1, ambient: j2}, {name: "b"}] in
+       let end = fn(c) => {cell: c, position: j3, rotation: j4, size: j1} in
+       let doc = if which == 0 then {cells: cells, portals: [{name: j1, a: end("a"), b: end("b"), twist: j2}]}
+                 else if which == 1 then {cells: j1}
+                 else if which == 2 then {cells: cells, portals: j2}
+                 else if which == 3 then {cells: [j1, j2], portals: []}
+                 else if which == 4 then {settings: j1, cells: cells, portals: []}
+                 else j1 in
+       let r = xpJsonTry([], jsonDump(doc)) in (r.ok or r.unchanged) and r.consistent and r.ortho < 1e-3
+}
+
+# ---------------------------------------------------------------- opening shapes
+
+# Reference containment written from the geometry, not from the engine's signed distance formula.
+fn xjInsideRect(hx, hy, u, v) = abs(u) <= hx and abs(v) <= hy
+fn xjInsideEllipse(hx, hy, u, v) = (u / hx) * (u / hx) + (v / hy) * (v / hy) <= 1
+fn xjInsideRounded(hx, hy, r, u, v) =
+    let rr = clamp(r, 0, min(hx, hy)) in
+    let au = abs(u) in
+    let av = abs(v) in
+    xjInsideRect(hx, hy, u, v) and (au <= hx - rr or av <= hy - rr or sqrt((au - (hx - rr)) * (au - (hx - rr)) + (av - (hy - rr)) * (av - (hy - rr))) <= rr)
+
+gen xjShapePoint = {hx: float(0.3, 3), hy: float(0.3, 3), r: float(0, 3), u: float(-3.5, 3.5), v: float(-3.5, 3.5)}
+
+law portal_shape_rect_contains_the_quad {
+    forall (c: xjShapePoint) where abs(abs(c.u) - c.hx) > 1e-3 and abs(abs(c.v) - c.hy) > 1e-3
+    => (xpShapeDistance(0, c.hx, c.hy, c.r, c.u, c.v) <= 0) == xjInsideRect(c.hx, c.hy, c.u, c.v)
+}
+
+law portal_shape_ellipse_matches_the_equation {
+    forall (c: xjShapePoint) where abs((c.u / c.hx) * (c.u / c.hx) + (c.v / c.hy) * (c.v / c.hy) - 1) > 2e-3
+    => (xpShapeDistance(1, c.hx, c.hy, c.r, c.u, c.v) <= 0) == xjInsideEllipse(c.hx, c.hy, c.u, c.v)
+}
+
+law portal_shape_rounded_matches_corner_geometry {
+    forall (c: xjShapePoint) where abs(abs(c.u) - c.hx) > 1e-3 and abs(abs(c.v) - c.hy) > 1e-3
+    => let rr = clamp(c.r, 0, min(c.hx, c.hy)) in
+       let corner = sqrt((abs(c.u) - (c.hx - rr)) * (abs(c.u) - (c.hx - rr)) + (abs(c.v) - (c.hy - rr)) * (abs(c.v) - (c.hy - rr))) in
+       (abs(c.u) <= c.hx - rr or abs(c.v) <= c.hy - rr or abs(corner - rr) > 1e-3) ==>
+       ((xpShapeDistance(2, c.hx, c.hy, c.r, c.u, c.v) <= 0) == xjInsideRounded(c.hx, c.hy, c.r, c.u, c.v))
+}
+
+# Nested shapes: ellipse inside rounded inside rect (at the same size, rounded with the largest radius is the ellipse's inscribed shape
+# only when it fits: ellipse subset of rect always; rounded subset of rect always; rounded with radius 0 equals the rect).
+law portal_shape_nesting {
+    forall (c: xjShapePoint)
+    => (xpShapeDistance(1, c.hx, c.hy, c.r, c.u, c.v) <= 0 ==> xpShapeDistance(0, c.hx, c.hy, c.r, c.u, c.v) <= 1e-6)
+       and (xpShapeDistance(2, c.hx, c.hy, c.r, c.u, c.v) <= 0 ==> xpShapeDistance(0, c.hx, c.hy, c.r, c.u, c.v) <= 1e-6)
+       and abs(xpShapeDistance(2, c.hx, c.hy, 0, c.u, c.v) - xpShapeDistance(0, c.hx, c.hy, 0, c.u, c.v)) < 1e-5
+}
+
+# The signed distances of the rectangle and the rounded rectangle are exact distance fields: 1-Lipschitz, symmetric in sign of u and v.
+law portal_shape_distance_is_lipschitz_and_symmetric {
+    forall (c: xjShapePoint, du: float(-0.5, 0.5), dv: float(-0.5, 0.5), shape: elements([0, 2]))
+    => abs(xpShapeDistance(shape, c.hx, c.hy, c.r, c.u, c.v) - xpShapeDistance(shape, c.hx, c.hy, c.r, c.u + du, c.v + dv)) <= sqrt(du * du + dv * dv) + 1e-4
+       and abs(xpShapeDistance(shape, c.hx, c.hy, c.r, c.u, c.v) - xpShapeDistance(shape, c.hx, c.hy, c.r, 0 - c.u, c.v)) < 1e-5
+       and abs(xpShapeDistance(shape, c.hx, c.hy, c.r, c.u, c.v) - xpShapeDistance(shape, c.hx, c.hy, c.r, c.u, 0 - c.v)) < 1e-5
+}
+
+# The opening decides the crossing: a point walking through the quad crosses iff it passes through the shape (corners of an ellipse or
+# rounded opening let it pass by), checked with the engine's own stepPoint.
+law portal_shape_decides_crossing {
+    forall (shape: int(0, 2), hx: float(0.5, 3), hy: float(0.5, 3), r: float(0, 3), u: float(-1.05, 1.05), v: float(-1.05, 1.05), s: xpPairPlain)
+    where distance(s.a, s.b) > 12 and abs(abs(u) - 1) > 0.02 and abs(abs(v) - 1) > 0.02
+          and abs((u * u + v * v) - 1) > 0.02
+    => let spec = with(s, half: vec3(hx, hy, 0), shape: shape, corner: r) in
+       let inside = if shape == 0 then xjInsideRect(1, 1, u, v)
+                    else if shape == 1 then xjInsideEllipse(1, 1, u, v)
+                    else xjInsideRounded(hx, hy, r, u * hx, v * hy) in
+       let skip = shape == 2 and (let rr = clamp(r, 0, min(hx, hy)) in abs(sqrt((abs(u * hx) - (hx - rr)) * (abs(u * hx) - (hx - rr)) + (abs(v * hy) - (hy - rr)) * (abs(v * hy) - (hy - rr))) - rr) < 0.03) in
+       skip or ((xpRoundTrip(spec, u, v, {front: 0.3, back: 0.3}).first >= 0) == inside)
+}
+
+# ---------------------------------------------------------------- generated frame meshes
+
+gen xjFrame = {shape: int(0, 2), corner: float(0, 2), width: float(0.02, 0.6), depth: float(0.05, 0.8), back: float(0, 0.3), bevel: float(0, 0.3), half: vec3(float(0.3, 3), float(0.3, 3), 0)}
+
+# Valid mesh data for every look: finite, indices in range, whole triangles, unit normals, something to draw.
+law portal_framemesh_is_valid {
+    forall (f: xjFrame)
+    => let m = xpFrameMesh(f) in
+       m.bodyNan == 0 and m.revealNan == 0 and m.bodyBadIndex == 0 and m.revealBadIndex == 0 and m.bodyRemainder == 0 and m.revealRemainder == 0
+       and m.bodyNormalBad == 0 and m.revealNormalBad == 0 and m.bodyTriangles > 0 and m.revealTriangles > 0
+}
+
+# The frame never covers the opening and stays within the quad grown by the frame width and depth.
+law portal_framemesh_never_covers_the_opening {
+    forall (f: xjFrame)
+    => let m = xpFrameMesh(f) in
+       m.bodyMinShapeDistance > -2e-3 and m.revealMinShapeDistance > -2e-3
+       and abs(m.bodyMax.x) <= f.half.x + f.width + 1e-3 and abs(m.bodyMin.x) <= f.half.x + f.width + 1e-3
+       and abs(m.bodyMax.y) <= f.half.y + f.width + 1e-3 and abs(m.bodyMin.y) <= f.half.y + f.width + 1e-3
+       and m.bodyMax.z <= f.depth + 1e-3 and m.bodyMin.z >= 0 - f.back - 1e-3
+}
+
+# Regression: a bevel wider than the frame (bevel 0.0524 > width 0.02) rounded the outer corners with the unclamped bevel, which pulled the
+# outer ring 2 mm into a square opening's corner (PortalFrameMesh.cpp outerContour now clamps like buildPortalFrameMesh).
+example portal_framemesh_never_covers_the_opening {
+    f = {back: 0.0, bevel: 0.0523848291486502, corner: 0.0, depth: 0.05, half: vec3(0.3, 0.3, 0.0), shape: 0, width: 0.02}
+}
+
+# A different look gets a different mesh key (instances of one look share one mesh).
+law portal_framemesh_key_changes_with_the_look {
+    forall (f: xjFrame, dw: float(0.01, 0.3))
+    => xpFrameMesh(f).key == xpFrameMesh(f).key and xpFrameMesh(f).key != xpFrameMesh(with(f, width: f.width + dw)).key
+       and xpFrameMesh(f).key != xpFrameMesh(with(f, shape: (f.shape + 1) % 3)).key
+}

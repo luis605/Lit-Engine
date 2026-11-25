@@ -39,6 +39,7 @@ import Engine.camera;
 import Engine.glm;
 
 #include "Engine/Bent/EngineSim.hpp"
+#include "Engine/Bent/Ext_World.hpp"
 
 namespace bent {
 
@@ -344,6 +345,7 @@ void EngineSim::apply(const ActionV& action, const SrcLoc& loc, const std::funct
     const ArgReader a{action, loc};
     World& w = world();
     const std::string& name = action.name;
+    if (extWorldApply(*this, action, loc, onTick)) return;  // Ext_World.cpp
     if (name == "step") {
         const int64_t n = a.integer("n", 1);
         if (n < 0 || n > 1000000) throw BentError(loc, "step(n) needs 0 <= n <= 1000000");
@@ -548,13 +550,19 @@ void EngineSim::apply(const ActionV& action, const SrcLoc& loc, const std::funct
     }
     if (name == "snapshotText") {
         m_textSnapshots[a.integer("slot", 0)] = w.snapshot();
+        extWorldRecordTextSnapshot(*this, a.integer("slot", 0));
         return;
     }
     if (name == "restoreText") {
         const auto it = m_textSnapshots.find(a.integer("slot", 0));
         if (it == m_textSnapshots.end()) return;
         const std::vector<EntityHandle> before = liveHandles(w);
+        // World::restore translates the saved slot ids it finds in `remap` (in) to the new handles (out): offer every slot we know.
         std::vector<EntityHandle> remap;
+        uint32_t slotCount = 0;
+        for (const EntityHandle& known : m_refs) slotCount = std::max<uint32_t>(slotCount, known.index < INVALID_ENTITY - 1 ? known.index + 1 : 0);
+        for (const EntityHandle& known : before) slotCount = std::max<uint32_t>(slotCount, known.index + 1);
+        for (uint32_t slot = 0; slot < slotCount; ++slot) remap.push_back(EntityHandle{slot, 0});
         if (!w.restore(it->second, &remap)) throw BentError(loc, "World::restore rejected its own snapshot text");
         std::vector<EntityHandle> after;
         for (const EntityHandle h : before) after.push_back(h.index < remap.size() ? remap[h.index] : NULL_ENTITY);
@@ -563,7 +571,7 @@ void EngineSim::apply(const ActionV& action, const SrcLoc& loc, const std::funct
         m_refIndex.clear();
         for (size_t ref = 0; ref < m_refs.size(); ++ref) {
             const EntityHandle old = m_refs[ref];
-            EntityHandle mapped = old.index < remap.size() ? remap[old.index] : NULL_ENTITY;
+            EntityHandle mapped = old.index < remap.size() && extWorldAliveAtTextSnapshot(*this, a.integer("slot", 0), old.index, old.generation) ? remap[old.index] : NULL_ENTITY;
             if (!w.isAlive(mapped)) mapped = EntityHandle{INVALID_ENTITY - 1, 0xdead};
             m_refs[ref] = mapped;
             if (w.isAlive(mapped)) m_refIndex[mapped] = static_cast<int64_t>(ref);

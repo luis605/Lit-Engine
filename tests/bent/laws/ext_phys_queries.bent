@@ -1,0 +1,225 @@
+# Physics queries (raycast, sweeps, overlaps) against analytic references and against each other, for every collider kind.
+# References are signed distance fields written in Bent (tests/bent/lib/ext_phys.bent): the first ray hit is where sphere tracing stops,
+# a sphere sweep of radius r is the same trace against shapes inflated by r.
+include "../lib/ext_phys.bent"
+
+fn sceneOf(bodies) = {bodies: bodies}
+fn rayQ(from, d, dist) = {kind: "ray", from: from, dir: d, dist: dist}
+
+# The first hit of a ray is where it enters the union of the colliders: distance equals sphere tracing, a miss means the ray stays clear.
+law px_ray_matches_sdf_reference {
+    forall (bodies: cBodies, from: rayFrom, k: int(0, 3), jit: jitter)
+    where sdScene(from, bodies) > 0.05
+    => let d = aim(from, bodies, k, jit) in
+       let ref = marchRay(from, d, 60.0, bodies, 0.0) in
+       let got = pxCast(sceneOf(bodies), rayQ(from, d, 60.0)) in
+       ref.t == -2.0
+       or ((ref.t >= 0 and sdScene(from + d * (ref.t + 0.02), bodies) <= -1e-3 ==> (got.hit and abs(got.distance - ref.t) < 2e-3))
+           and (ref.t == -1.0 and ref.minS > 5e-3 ==> not got.hit))
+}
+
+# A hit normal is a unit vector facing the ray, and the hit point lies on the surface.
+law px_ray_hit_is_on_surface {
+    forall (bodies: cBodies, from: rayFrom, k: int(0, 3), jit: jitter)
+    where sdScene(from, bodies) > 0.05
+    => let d = aim(from, bodies, k, jit) in
+       let got = pxCast(sceneOf(bodies), rayQ(from, d, 60.0)) in
+       not got.hit or (unit3(got.normal) and dot(got.normal, d) < 1e-3 and abs(sdScene(from + d * got.distance, bodies)) < 2e-3
+                       and got.distance >= 0 and got.distance <= 60.0 + 1e-3)
+}
+
+# Skipping a collider equals deleting it from the scene (distance and entity), whatever the shape.
+law px_ray_skip_equals_removal {
+    forall (bodies: listOf(cAny, 2, 4), from: rayFrom, k: int(0, 3), jit: jitter, s: int(0, 3))
+    where sdScene(from, bodies) > 0.05
+    => let i = s % len(bodies) in
+       let d = aim(from, bodies, k, jit) in
+       let rest = take(bodies, i) ++ drop(bodies, i + 1) in
+       let a = pxCast(sceneOf(bodies), with(rayQ(from, d, 60.0), skip: [i])) in
+       let b = pxCast(sceneOf(rest), rayQ(from, d, 60.0)) in
+       a.hit == b.hit and (not a.hit or (abs(a.distance - b.distance) < 1e-4 and a.entity != i))
+}
+
+# Moving the whole scene and the ray by the same offset changes nothing (distances within float noise).
+law px_ray_translation_invariant {
+    forall (bodies: cBodies, from: rayFrom, k: int(0, 3), jit: jitter, t: vec3(float(-50, 50), float(-50, 50), float(-50, 50)))
+    where sdScene(from, bodies) > 0.05
+    => let d = aim(from, bodies, k, jit) in
+       let moved = map(bodies, fn(b) => with(b, pos: b.pos + t)) in
+       let a = pxCast(sceneOf(bodies), rayQ(from, d, 60.0)) in
+       let b = pxCast(sceneOf(moved), rayQ(from + t, d, 60.0)) in
+       let ref = marchRay(from, d, 60.0, bodies, 0.0) in
+       ref.minS < 5e-3 or a.hit == b.hit and (not a.hit or abs(a.distance - b.distance) < 5e-3)
+}
+
+# The order the colliders were created in does not change the nearest hit.
+law px_ray_independent_of_body_order {
+    forall (bodies: listOf(cAny, 2, 4), from: rayFrom, k: int(0, 3), jit: jitter)
+    where sdScene(from, bodies) > 0.05
+    => let d = aim(from, bodies, k, jit) in
+       let a = pxCast(sceneOf(bodies), rayQ(from, d, 60.0)) in
+       let b = pxCast(sceneOf(reverse(bodies)), rayQ(from, d, 60.0)) in
+       a.hit == b.hit and (not a.hit or abs(a.distance - b.distance) < 1e-4)
+}
+
+# A sphere sweep of radius r is a ray against the shapes grown by r. Exact for spheres, capsules, planes and compounds of those.
+gen cRound = frequency([[3, cSphere], [3, cCapsule], [1, cPlane]])
+law px_sweep_sphere_matches_inflated_sdf {
+    forall (bodies: listOf(cRound, 1, 4), from: rayFrom, k: int(0, 3), jit: jitter, r: float(0.05, 1))
+    where sdScene(from, bodies) > r + 0.05
+    => let d = aim(from, bodies, k, jit) in
+       let ref = marchRay(from, d, 60.0, bodies, r) in
+       let got = pxCast(sceneOf(bodies), {kind: "sweepSphere", from: from, dir: d, dist: 60.0, radius: r}) in
+       ref.t == -2.0
+       or ((ref.t >= 0 and sdScene(from + d * (ref.t + 0.02), bodies) - r <= -1e-3 ==> (got.hit and abs(got.distance - ref.t) < 3e-3))
+           and (ref.t == -1.0 and ref.minS > 5e-3 ==> not got.hit))
+}
+
+# Boxes are swept as boxes grown by r with square corners (a conservative approximation of the rounded shape): the sweep may stop
+# earlier than the exact answer (the stop position is at most (sqrt 3 - 1) r too far from the box), never later, never inside the
+# rounded shape, and a clear miss stays a miss.
+law px_sweep_sphere_box_is_conservative {
+    forall (bodies: listOf(cBox, 1, 3), from: rayFrom, k: int(0, 3), jit: jitter, r: float(0.05, 1))
+    where sdScene(from, bodies) > r + 0.05
+    => let d = aim(from, bodies, k, jit) in
+       let ref = marchRay(from, d, 60.0, bodies, r) in
+       let got = pxCast(sceneOf(bodies), {kind: "sweepSphere", from: from, dir: d, dist: 60.0, radius: r}) in
+       let clearance = sdScene(from + d * got.distance, bodies) in
+       ref.t == -2.0
+       or ((ref.t >= 0 and sdScene(from + d * (ref.t + 0.02), bodies) - r <= -1e-3 ==> (got.hit and got.distance <= ref.t + 3e-3))
+           and (got.hit ==> (clearance >= r - 3e-3 and clearance <= 1.74 * r + 3e-3))
+           and (ref.t == -1.0 and ref.minS > 0.74 * r + 5e-3 ==> not got.hit))
+}
+
+# A fatter sphere never travels further than a thinner one, and none travels further than the ray through its centre.
+law px_sweep_hits_no_later_than_ray {
+    forall (bodies: cBodies, from: rayFrom, k: int(0, 3), jit: jitter, r1: float(0.05, 0.5), r2: float(0.05, 0.5))
+    where sdScene(from, bodies) > 1.0
+    => let d = aim(from, bodies, k, jit) in
+       let ray = pxCast(sceneOf(bodies), rayQ(from, d, 60.0)) in
+       let thin = pxCast(sceneOf(bodies), {kind: "sweepSphere", from: from, dir: d, dist: 60.0, radius: min(r1, r2)}) in
+       let fat = pxCast(sceneOf(bodies), {kind: "sweepSphere", from: from, dir: d, dist: 60.0, radius: max(r1, r2)}) in
+       (ray.hit ==> (thin.hit and thin.distance <= ray.distance + 2e-3))
+       and (thin.hit ==> (fat.hit and fat.distance <= thin.distance + 2e-3))
+}
+
+# A capsule whose two ends coincide is a sphere.
+law px_sweep_capsule_degenerate_is_sphere {
+    forall (bodies: cBodies, from: rayFrom, k: int(0, 3), jit: jitter, r: float(0.05, 0.8))
+    where sdScene(from, bodies) > r + 0.05
+    => let d = aim(from, bodies, k, jit) in
+       let s = pxCast(sceneOf(bodies), {kind: "sweepSphere", from: from, dir: d, dist: 60.0, radius: r}) in
+       let c = pxCast(sceneOf(bodies), {kind: "sweepCapsule", a: from, b: from, dir: d, dist: 60.0, radius: r}) in
+       s.hit == c.hit and (not s.hit or abs(s.distance - c.distance) < 2e-3)
+}
+
+# A sweep never skips an overlap: the first sampled position along the path that overlaps a collider is at or after the reported hit.
+law px_sweep_agrees_with_overlap {
+    forall (bodies: cBodies, from: rayFrom, k: int(0, 3), jit: jitter, r: float(0.1, 0.8))
+    where sdScene(from, bodies) > r + 0.05
+    => let d = aim(from, bodies, k, jit) in
+       let hit = pxCast(sceneOf(bodies), {kind: "sweepSphere", from: from, dir: d, dist: 30.0, radius: r}) in
+       forall i in range(1, 31): (
+           let p = from + d * toFloat(i) in
+           let o = pxCast(sceneOf(bodies), {kind: "overlapCapsule", a: p, b: p, radius: r}) in
+           len(o.contacts) > 0 ==> (hit.hit and hit.distance <= toFloat(i) + 0.02))
+}
+
+# Overlap contacts: a collider is reported exactly when the query shape clearly intersects it, with a unit normal and positive depth.
+law px_overlap_box_matches_reference {
+    forall (bodies: listOf(oneof(cSphere, cBox), 1, 4), c: cPos, h: vec3(float(0.2, 2), float(0.2, 2), float(0.2, 2)))
+    => let got = pxCast(sceneOf(bodies), {kind: "overlapBox", from: c, half: h}) in
+       (forall e in enumerate(bodies): (
+           let b = e[1] in
+           let gap = if b.shape == "sphere" then sdBox(b.pos, c, h) - b.size else max([abs(b.pos.x - c.x) - b.size.x - h.x, abs(b.pos.y - c.y) - b.size.y - h.y, abs(b.pos.z - c.z) - b.size.z - h.z]) in
+           let seen = exists x in got.contacts: x.entity == e[0] in
+           (gap < -0.01 ==> seen) and (gap > 0.01 ==> not seen)))
+       and (forall x in got.contacts: unit3(x.normal) and x.depth > 0 - 1e-4)
+}
+
+law px_overlap_capsule_matches_reference {
+    forall (bodies: listOf(oneof(cSphere, cBox), 1, 4), a: cPos, off: vec3(float(-2, 2), float(-2, 2), float(-2, 2)), r: float(0.1, 1))
+    => let b = a + off in
+       let got = pxCast(sceneOf(bodies), {kind: "overlapCapsule", a: a, b: b, radius: r}) in
+       (forall e in enumerate(bodies): (
+           let s = e[1] in
+           let gap = minOf(map(range(41), fn(i) => let p = lerp(a, b, toFloat(i) / 40.0) in
+                                                    if s.shape == "sphere" then distance(p, s.pos) - s.size - r else sdBox(p, s.pos, s.size) - r)) in
+           let seen = exists x in got.contacts: x.entity == e[0] in
+           (gap < -0.03 ==> seen) and (gap > 0.03 ==> not seen)))
+       and (forall x in got.contacts: unit3(x.normal) and x.depth > 0 - 1e-4)
+}
+
+# ---------------------------------------------------------------- meshes, height fields and hulls: rays against brute force, rotated and scaled
+
+gen bodyXf = {pos: vec3(float(-3, 3), float(-3, 3), float(-3, 3)), rot: unitQuat(), scale: vec3(float(0.5, 2), float(0.5, 2), float(0.5, 2))}
+
+law px_ray_mesh_matches_brute_force {
+    forall (tris: listOf(triGen, 1, 5), xf: bodyXf, from: rayFrom, jit: jitter)
+    => let b = meshBody(xf.pos, xf.rot, xf.scale, tris) in
+       let all = meshTriangles(b) in
+       let d = normalize(xf.pos + jit - from) in
+       let ref = nearestTri(from, d, all, 60.0) in
+       let got = pxCast(sceneOf([b]), rayQ(from, d, 60.0)) in
+       nearEdge(from, d, all) or grazing(d, all) or (got.hit == (ref >= 0) and (ref < 0 or (abs(got.distance - ref) < 2e-3 and unit3(got.normal) and dot(got.normal, d) < 1e-3)))
+}
+
+# Height fields are one sided terrain: a hit reports the up-facing surface normal (the field's rotated +Y side) whichever side the ray
+# comes from. Rays running along the surface (y = 0 with a flat field) are skipped as degenerate.
+law px_ray_heightfield_matches_brute_force {
+    forall (hf: cHeightfield, xf: bodyXf, from: rayFrom, jit: jitter)
+    where length(from - xf.pos) > 6 and abs(from.y) > 0.7
+    => let b = with(hf, pos: xf.pos, rot: xf.rot, scale: xf.scale) in
+       let all = hfTriangles(b) in
+       let d = normalize(worldVert(b, vec3(hf.cell * 0.5 * (hf.nx - 1), 0, hf.cell * 0.5 * (hf.nz - 1))) + jit - from) in
+       let ref = nearestTri(from, d, all, 60.0) in
+       let got = pxCast(sceneOf([b]), rayQ(from, d, 60.0)) in
+       underOrInHeightfield(b, from) or nearEdge(from, d, all) or grazing(d, all)
+       or (got.hit == (ref >= 0) and (ref < 0 or (abs(got.distance - ref) < 2e-3 and unit3(got.normal) and dot(got.normal, rotate(xf.rot, vec3(0, 1, 0))) > 0)))
+}
+
+
+# A convex hull follows the entity's rotation and scale: a hull of a cube is the oriented box with scaled half extents.
+fn orientedBoxRay(o, d, c, rot, half) =
+    let q = quat(rot.w, 0 - rot.x, 0 - rot.y, 0 - rot.z) in
+    let lo = rotate(q, o - c) in
+    let ld = rotate(q, d) in
+    let t1 = fold([0, 1, 2], {lo: 0.0, hi: 1e30}, fn(acc, ax) =>
+        let og = if ax == 0 then lo.x else if ax == 1 then lo.y else lo.z in
+        let dg = if ax == 0 then ld.x else if ax == 1 then ld.y else ld.z in
+        let h = if ax == 0 then half.x else if ax == 1 then half.y else half.z in
+        if abs(dg) < 1e-12 then (if abs(og) > h then {lo: 1e30, hi: -1e30} else acc)
+        else (let a = (0 - h - og) / dg in let bb = (h - og) / dg in {lo: max(acc.lo, min(a, bb)), hi: min(acc.hi, max(a, bb))})) in
+    if t1.lo <= t1.hi then t1.lo else -1.0
+
+law px_ray_hull_is_oriented_box {
+    forall (xf: bodyXf, size: vec3(float(0.3, 1.5), float(0.3, 1.5), float(0.3, 1.5)), from: rayFrom, jit: jitter)
+    where length(from - xf.pos) > 6
+    => let b = {shape: "hull", pos: xf.pos, rot: xf.rot, scale: xf.scale, size: size, dynamic: false} in
+       let half = vec3(size.x * xf.scale.x, size.y * xf.scale.y, size.z * xf.scale.z) in
+       let d = normalize(xf.pos + jit - from) in
+       let ref = orientedBoxRay(from, d, xf.pos, xf.rot, half) in
+       let got = pxCast(sceneOf([b]), rayQ(from, d, 60.0)) in
+       got.hit == (ref > 0) and (ref <= 0 or abs(got.distance - ref) < 5e-3)
+}
+
+# Sweeps against meshes and height fields: never later than the ray through the centre (uniform scale).
+law px_sweep_mesh_hits_no_later_than_ray {
+    forall (tris: listOf(triGen, 1, 5), pos: vec3(float(-3, 3), float(-3, 3), float(-3, 3)), rot: unitQuat(), s: float(0.5, 2), from: rayFrom, jit: jitter, r: float(0.05, 0.5))
+    where length(from - pos) > 8
+    => let b = meshBody(pos, rot, vec3(s, s, s), tris) in
+       let d = normalize(pos + jit - from) in
+       let ray = pxCast(sceneOf([b]), rayQ(from, d, 60.0)) in
+       let sweep = pxCast(sceneOf([b]), {kind: "sweepSphere", from: from, dir: d, dist: 60.0, radius: r}) in
+       not ray.hit or (sweep.hit and sweep.distance <= ray.distance + 2e-3 and unit3(sweep.normal))
+}
+
+law px_sweep_heightfield_hits_no_later_than_ray {
+    forall (hf: cHeightfield, pos: vec3(float(-3, 3), float(-3, 3), float(-3, 3)), rot: unitQuat(), s: float(0.5, 2), from: rayFrom, jit: jitter, r: float(0.05, 0.5))
+    where length(from - pos) > 8
+    => let b = with(hf, pos: pos, rot: rot, scale: vec3(s, s, s)) in
+       let d = normalize(pos + jit - from) in
+       let ray = pxCast(sceneOf([b]), rayQ(from, d, 60.0)) in
+       let sweep = pxCast(sceneOf([b]), {kind: "sweepSphere", from: from, dir: d, dist: 60.0, radius: r}) in
+       not ray.hit or (sweep.hit and sweep.distance <= ray.distance + 2e-3 and unit3(sweep.normal))
+}

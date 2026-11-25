@@ -12,22 +12,25 @@
 
 #include "Engine/Bent/Check.hpp"
 #include "Engine/Bent/EngineHost.hpp"
+#include "Engine/Bent/Ext_Gpu.hpp"
 
 namespace {
 
 const char* kUsage = R"(usage:
-  bent check FILE.bent [--cases N] [--seed S] [--time SEC] [--jobs J] [--law NAME]... [--no-shrink]
+  bent check FILE.bent [--cases N] [--seed S] [--time SEC] [--jobs J] [--law NAME]... [--no-shrink] [--coverage]
                        [--shrink-limit N] [--isolate] [--case-timeout SEC] [--regressions DIR | --no-regressions]
-                       [--json] [--json-out FILE] [--verbose]
+                       [--json] [--json-out FILE] [--verbose] [--gpu]
   bent replay FILE.bent --seed S --case K [--law NAME] [--isolate]
   bent shrink FILE.bent --seed S --case K [--law NAME] [--regressions DIR] [--isolate]
   bent list FILE.bent | bent list --actions | bent list --observations | bent list --builtins
-  bent suite --laws DIR [--regressions DIR] [--cases N] [--seed S] [--jobs J] [--isolate]
+  bent suite --laws DIR [--regressions DIR] [--cases N] [--seed S] [--jobs J] [--isolate] [--gpu]
   bent eval [FILE.bent] --expr "EXPRESSION" [--seed S]
 
 check runs every law declared in FILE (all loaded laws with --law) for N cases (default 100) in parallel,
 shrinks the first failure to a minimal counterexample, prints it as a runnable .bent program and writes it to
 the regressions directory. Examples (regression files) loaded by FILE are run too.
+--gpu enables GPU mode: laws under a gpu/ directory render real frames through LitShot (tests/bent/laws/gpu, docs/Bent.md). Without it
+such laws are skipped; with it and no usable GPU or LitShot the exit status is 77 (ctest skip).
 Exit status: 0 all laws hold, 1 a law failed, 2 usage or language error.
 )";
 
@@ -90,10 +93,14 @@ Cli parse(int argc, char** argv) {
             cli.options.lawFilter.push_back(value());
         } else if (arg == "--no-shrink") {
             cli.options.shrink = false;
+        } else if (arg == "--coverage") {
+            cli.options.coverage = true;
         } else if (arg == "--shrink-limit") {
             cli.options.shrinkLimit = static_cast<int64_t>(number());
         } else if (arg == "--shrink-time") {
             cli.options.shrinkSeconds = number();
+        } else if (arg == "--gpu") {
+            bent::setGpuMode(true);
         } else if (arg == "--isolate") {
             cli.options.isolate = true;
         } else if (arg == "--case-timeout") {
@@ -172,11 +179,29 @@ const bent::LawDecl* pickLaw(const Cli& cli, const bent::Program& program) {
     return own.front();
 }
 
+// Laws under a gpu/ directory need a device: skipped without --gpu (exit 0), skipped with exit 77 when --gpu finds none.
+bool gpuFile(const std::string& path) { return path.find("/gpu/") != std::string::npos || path.rfind("gpu/", 0) == 0; }
+
+int gpuSkip() {
+    if (!bent::gpuMode()) {
+        std::fprintf(stderr, "SKIP: GPU laws only run with --gpu\n");
+        return 0;
+    }
+    if (!bent::gpuUsable()) {
+        std::fprintf(stderr, "SKIP: no usable GPU or LitShot (build the LitShot target)\n");
+        return 77;
+    }
+    return -1;
+}
+
 int runCheck(Cli& cli, bent::Host& host) {
     if (cli.files.size() != 1) usage("check needs exactly one .bent file");
     if (!cli.noRegressions && !cli.regressionsGiven) cli.options.regressionDir = defaultRegressionDir(cli.files.front());
     if (cli.noRegressions) cli.options.regressionDir.clear();
     if (cli.options.timeBudget > 0.0 && !cli.casesGiven) cli.options.cases = 1000000000;
+    if (gpuFile(cli.files.front())) {
+        if (const int skip = gpuSkip(); skip >= 0) return skip;
+    }
     const std::unique_ptr<bent::Program> program = bent::loadProgram(cli.files.front(), &host);
     const std::vector<const bent::LawDecl*> laws = bent::selectLaws(*program, cli.options.lawFilter, cli.files.front());
     if (!cli.options.lawFilter.empty() && laws.size() != cli.options.lawFilter.size()) usage("some --law names are not declared in the loaded files");
@@ -188,6 +213,7 @@ int runCheck(Cli& cli, bent::Host& host) {
         reports.push_back(bent::checkLaw(*program, *law, cli.options, lawBudget));
         std::fputs(bent::formatReport(reports.back()).c_str(), human(cli));
         std::fflush(human(cli));
+        if (reports.back().status == "vacuous") ++failures;
         if (reports.back().status == "fail" || reports.back().status == "error") {
             ++failures;
             std::fprintf(human(cli), "  counterexample program:\n");
@@ -273,6 +299,9 @@ int runList(Cli& cli, bent::Host& host) {
 
 int runSuite(Cli& cli, bent::Host& host) {
     if (cli.lawsDir.empty()) usage("suite needs --laws DIR");
+    if (gpuFile(cli.lawsDir + "/")) {
+        if (const int skip = gpuSkip(); skip >= 0) return skip;
+    }
     if (!cli.casesGiven) cli.options.cases = 30;
     cli.options.shrinkLimit = std::min<int64_t>(cli.options.shrinkLimit, 600);
     cli.options.shrinkSeconds = std::min(cli.options.shrinkSeconds, 30.0);
@@ -310,7 +339,7 @@ int runSuite(Cli& cli, bent::Host& host) {
         for (const bent::LawDecl* law : bent::selectLaws(*program, {}, file.string())) {
             reports.push_back(bent::checkLaw(*program, *law, cli.options, 0.0));
             total += reports.back().cases;
-            const bool failed = reports.back().status == "fail" || reports.back().status == "error";
+            const bool failed = reports.back().status == "fail" || reports.back().status == "error" || reports.back().status == "vacuous";
             const bool known = std::find(knownLaws.begin(), knownLaws.end(), law->name) != knownLaws.end();
             if (failed && known) {
                 ++expected;

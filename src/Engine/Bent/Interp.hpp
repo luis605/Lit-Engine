@@ -161,6 +161,7 @@ struct Interp {
     std::vector<Sim*> sims;
     bool explain = false;
     std::vector<std::string> notes;
+    std::vector<std::pair<std::string, bool>> covers;  // cover(label, condition) calls of the current case (non-vacuity statistics)
     int depth = 0;
     int quiet = 0;  // > 0 while evaluating premises (==> left, or left, not, if conditions, exists bodies): their false parts are not notes
     uint64_t steps = 0;

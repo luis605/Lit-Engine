@@ -1,0 +1,14 @@
+# Bent regression: shrunk counterexample for law `px_portal_ray_missing_the_opening_does_not_cross` (tests/bent/laws/ext_phys_portal.bent)
+# Found by: bent check tests/bent/laws/ext_phys_portal.bent --cases 1000 --seed 1 (seed 1, case 392)
+# Shrunk 490 times in 3453 attempts; tape 46 -> 44 choices
+# Replay the random case: bent replay tests/bent/laws/ext_phys_portal.bent --law px_portal_ray_missing_the_opening_does_not_cross --seed 1 --case 392
+# Failure: property is false
+#   tests/bent/laws/ext_phys_portal.bent:75:25: 1 == 0 is false
+include "../laws/ext_phys_portal.bent"
+
+example px_portal_ray_missing_the_opening_does_not_cross known "untriaged portal query/physics mismatch found by the first run: see docs/Bent.md (Physics, character and AI laws)" {
+  pair = {a: vec3(-0.26273058354854545, 2.886931777000422, -2.4370047315161214), aEuler: vec3(161.13585662841797, -26.291867256164554, 164.48715972900393), b: vec3(4.841037180279457, 0.5173922479152683, 3.249544048984494), bEuler: vec3(161.12813568115234, 0.0, 35.345724105834975), half: vec3(2.124040246009827, 1.2969529032707214, 0.0), twist: 0.0},
+  side = 1,
+  out = 2.778184851221227,
+  z = 1.0
+}

@@ -7,6 +7,7 @@
 #include <filesystem>
 #include <fstream>
 #include <map>
+#include <set>
 #include <mutex>
 #include <optional>
 #include <thread>
@@ -307,6 +308,7 @@ CaseOutcome evaluateLaw(const Program& program, const LawDecl& law, Interp& in, 
     }
     (void)program;
     outcome.notes = std::move(in.notes);
+    outcome.covers = std::move(in.covers);
     outcome.millis = std::chrono::duration<double, std::milli>(Clock::now() - start).count();
     return outcome;
 }
@@ -699,8 +701,18 @@ LawReport checkLaw(const Program& program, const LawDecl& law, const CheckOption
     std::mutex mutex;
     std::map<int64_t, CaseOutcome> failures;
     const auto overBudget = [&]() { return lawBudget > 0.0 && secondsSince(start) > lawBudget; };
+    std::map<std::string, std::pair<int64_t, int64_t>> coverage;
     const auto record = [&](int64_t k, CaseOutcome&& outcome) {
         ++ran;
+        if (!outcome.covers.empty() && outcome.status != CaseStatus::Discard) {
+            std::lock_guard lock(mutex);
+            std::set<std::string> seen;
+            for (const auto& [label, held] : outcome.covers) {
+                auto& entry = coverage[label];
+                if (seen.insert(label).second) ++entry.second;
+                if (held && seen.insert("hit:" + label).second) ++entry.first;
+            }
+        }
         if (outcome.status == CaseStatus::Pass) ++passed;
         else if (outcome.status == CaseStatus::Discard) ++discards;
         else {
@@ -750,6 +762,14 @@ LawReport checkLaw(const Program& program, const LawDecl& law, const CheckOption
         report.status = "gave-up";
     } else {
         report.status = "pass";
+    }
+    for (const auto& [label, counts] : coverage) report.cover.emplace_back(label, counts);
+    report.showCover = options.coverage;
+    // Non-vacuity: a cover() label that no case hit means the law never exercised what it claims to check.
+    if (report.status == "pass" && report.cases >= 20) {
+        for (const auto& [label, counts] : report.cover) {
+            if (counts.first == 0) report.status = "vacuous";
+        }
     }
     report.seconds = secondsSince(start);
     return report;
@@ -875,10 +895,17 @@ std::string counterexampleProgram(const LawDecl& law, const NamedArgs& bindings,
 std::string formatReport(const LawReport& report) {
     std::string out;
     char line[512];
-    std::snprintf(line, sizeof line, "%-8s %-40s %6lld cases (%lld passed, %lld discarded) %.2fs", report.status == "pass" ? "PASS" : (report.status == "gave-up" ? "GAVE-UP" : (report.status == "error" ? "ERROR" : "FAIL")), report.law.c_str(),
+    std::snprintf(line, sizeof line, "%-8s %-40s %6lld cases (%lld passed, %lld discarded) %.2fs", report.status == "pass" ? "PASS" : (report.status == "gave-up" ? "GAVE-UP" : (report.status == "error" ? "ERROR" : (report.status == "vacuous" ? "VACUOUS" : "FAIL"))), report.law.c_str(),
                   static_cast<long long>(report.cases), static_cast<long long>(report.passed), static_cast<long long>(report.discards), report.seconds);
     out += line;
     out += "\n";
+    if (report.showCover || report.status == "vacuous") {
+        for (const auto& [label, counts] : report.cover) {
+            std::snprintf(line, sizeof line, "    cover %-40s hit in %lld of %lld cases (%.1f%%)%s\n", label.c_str(), static_cast<long long>(counts.first), static_cast<long long>(counts.second),
+                          counts.second > 0 ? 100.0 * static_cast<double>(counts.first) / static_cast<double>(counts.second) : 0.0, counts.first == 0 ? "  <-- never hit: the law is vacuous" : "");
+            out += line;
+        }
+    }
     if (report.failingCase >= 0) {
         out += "  failing case " + std::to_string(report.failingCase) + " (seed " + std::to_string(report.seed) + "): " + report.original.message + "\n";
         out += "  shrunk " + std::to_string(report.shrinkAccepted) + "x in " + std::to_string(report.shrinkAttempts) + " attempts to:\n";

@@ -1,0 +1,121 @@
+# Quality governor (Engine.Render.governor): a deterministic controller from frame times to render scale, shadow resolution and
+# reflection quality. Laws: the quality ladder is monotone, steps are single, hysteresis and cooldown hold, constant load does not
+# oscillate, and the governor recovers once the load goes away. rxGovRun drives the real updateGovernor on real RenderSettings.
+include "../lib/render.bent"
+
+gen config = {scale: elements([1.0, 0.95, 0.8, 0.7, 0.55]), shadow: elements([512, 1024, 2048, 4096]), refl: int(0, 2),
+              minScale: elements([0.5, 0.6, 0.75, 0.9]), target: elements([8.0, 16.6, 33.3, 50.0]), enabled: just(true)}
+
+fn rep(sample, n) = repeat(sample, n)
+fn timeline(samples) = fold(samples, [0.0], fn(acc, s) => acc ++ [last(acc) + clamp(s[1], 0.0, 0.5)])
+
+gen randomSample = [oneof(float(0, 80), float(0, 400)), oneof(float(0.001, 0.05), float(0.05, 0.6))]
+gen randomSamples = listOf(randomSample, 1, 200)
+
+# A burst of random frame times: the level stays in [0, 8], never moves by more than one per sample, and every applied limit is
+# exactly what the ladder says for that level.
+law governor_ladder_bounds {
+    forall (c: config, samples: randomSamples)
+    => let r = rxGovRun(c, samples) in
+       cover("the governor stepped", any(r.changed, fn(x) => x)) and
+       all(r.levels, fn(l) => l >= 0 and l <= 8)
+       and all(zip(r.levels, tail(r.levels)), fn(t) => abs(t[1] - t[0]) <= 1)
+       and all(enumerate(r.levels), fn(t) => let lim = rxGovLimitsAt(t[1], r.baseScale, r.baseShadow, r.minScale, r.baseRefl) in
+                                            r.scales[t[0]] == lim.scale and r.shadows[t[0]] == lim.shadow and r.refls[t[0]] == lim.refl)
+}
+
+# The ladder is monotone: more levels never mean more quality, level 0 is the baseline, and limits never exceed the baseline or
+# fall below the floors (the minimum scale, 512 shadow texels unless the baseline is lower, reflection quality 0).
+law governor_ladder_monotone {
+    forall (c: config)
+    => let r = rxGovRun(c, [[10.0, 0.01]]) in
+       let ls = map(range(0, 9), fn(l) => rxGovLimitsAt(l, r.baseScale, r.baseShadow, r.minScale, r.baseRefl)) in
+       ls[0].scale == r.baseScale and ls[0].shadow == r.baseShadow and ls[0].refl == r.baseRefl
+       and all(zip(ls, tail(ls)), fn(t) => t[1].scale <= t[0].scale and t[1].shadow <= t[0].shadow and t[1].refl <= t[0].refl)
+       and all(ls, fn(l) => l.scale >= min(r.minScale, r.baseScale) - 1e-6 and l.scale <= r.baseScale and l.shadow <= r.baseShadow
+                            and (l.shadow >= 512 or l.shadow == r.baseShadow) and l.refl >= 0 and l.refl <= r.baseRefl and l.shadow > 0)
+}
+
+# Constant overload: the level only ever goes up (no oscillation), it does go up after the hold time, and it saturates at 8.
+law governor_constant_overload_climbs {
+    forall (c: config, load: float(1.15, 6), seconds: int(10, 90))
+    => let r = rxGovRun(c, rep([c.target * load, 0.0166667], seconds * 60)) in
+       all(zip(r.levels, tail(r.levels)), fn(t) => t[1] >= t[0]) and last(r.levels) >= 1 and last(r.levels) <= 8
+}
+
+# Constant load below the under-budget line never degrades quality.
+law governor_constant_underload_stays {
+    forall (c: config, load: float(0.0, 0.7), seconds: int(5, 60))
+    => let r = rxGovRun(c, rep([c.target * load, 0.0166667], seconds * 60)) in
+       all(r.levels, fn(l) => l == 0) and all(r.changed, fn(x) => not x) and last(r.scales) == r.baseScale
+}
+
+# Hysteresis: a load inside the dead band (between 72% and 106% of the target) never changes the level, from rest.
+law governor_dead_band_is_quiet {
+    forall (c: config, load: float(0.74, 1.04), seconds: int(5, 120))
+    => all(rxGovRun(c, rep([c.target * load, 0.0166667], seconds * 60)).levels, fn(l) => l == 0)
+}
+
+# After an overload, a dead-band load settles: the level stops moving (no hunting between two levels).
+law governor_dead_band_settles {
+    forall (c: config, load: float(0.8, 1.0))
+    => let r = rxGovRun(c, rep([c.target * 2.0, 0.0166667], 1200) ++ rep([c.target * load, 0.0166667], 7200)) in
+       let tailLevels = drop(r.levels, 1200 + 1800) in
+       all(tailLevels, fn(l) => l == head(tailLevels))
+}
+
+# Cooldown: two level changes are never closer than the 2.5 s cooldown, whatever the frame times.
+law governor_cooldown_respected {
+    forall (c: config, samples: listOf([float(0, 80), float(0.001, 0.4)], 5, 300))
+    => let r = rxGovRun(c, samples) in
+       let t = timeline(samples) in
+       let changes = filter(enumerate(zip(r.levels, [0] ++ r.levels)), fn(e) => e[1][0] != e[1][1]) in
+       let times = map(changes, fn(e) => t[e[0] + 1]) in
+       all(zip(times, tail(times)), fn(p) => p[1] - p[0] >= 2.49)
+}
+
+# Causality: the first n answers do not depend on later samples.
+law governor_prefix_causal {
+    forall (c: config, a: randomSamples, b: randomSamples)
+    => let ra = rxGovRun(c, a) in
+       let rab = rxGovRun(c, a ++ b) in
+       take(rab.levels, len(a)) == ra.levels and take(rab.scales, len(a)) == ra.scales and take(rab.shadows, len(a)) == ra.shadows
+}
+
+# A disabled governor never touches the settings.
+law governor_disabled_is_inert {
+    forall (c: config, samples: randomSamples)
+    => let r = rxGovRun(with(c, enabled: false), samples) in
+       all(r.levels, fn(l) => l == 0) and all(r.scales, fn(s) => s == r.baseScale) and all(r.changed, fn(x) => not x)
+}
+
+# Recovery: after the load disappears the governor climbs back to the baseline quality (hold 6 s x backoff per level).
+law governor_recovers_after_load {
+    forall (c: config, overload: float(1.3, 4), seconds: int(5, 30))
+    => let r = rxGovRun(c, rep([c.target * overload, 0.0166667], seconds * 60) ++ rep([c.target * 0.3, 0.1], 4000)) in
+       last(r.levels) == 0 and last(r.scales) == r.baseScale and last(r.shadows) == r.baseShadow and last(r.refls) == r.baseRefl
+}
+
+# Frame times of NaN, infinity, negative and enormous values (a failed GPU timer query) cannot poison the controller.
+gen nastySample = [nasty(float(0, 80)), oneof(nasty(float(0, 0.1)), float(0.001, 0.05))]
+law governor_survives_nonfinite_samples {
+    forall (c: config, samples: listOf(nastySample, 1, 80))
+    => let r = rxGovRun(c, samples) in
+       all(r.levels, fn(l) => l >= 0 and l <= 8) and all(r.scales, fn(s) => isFinite(s) and s >= 0.5 and s <= 1.0) and all(r.shadows, fn(s) => s > 0)
+}
+
+# Quality is a pure function of the (settings, history): the same samples twice give the same answers, and one run in two parts
+# (re-priming not allowed) equals the whole run's prefix; covered by governor_prefix_causal, so here: scaling every dt by exactly
+# the same timeline split into more samples of half dt keeps the final level within one step of the unsplit run.
+law governor_time_split_stable {
+    forall (c: config, load: float(0.5, 3), seconds: int(5, 40))
+    => let a = rxGovRun(c, rep([c.target * load, 0.02], seconds * 50)) in
+       let b = rxGovRun(c, rep([c.target * load, 0.01], seconds * 100)) in
+       abs(last(a.levels) - last(b.levels)) <= 1
+}
+
+# One garbage frame time (a failed timer query) does not kill the controller for good: after it the governor still reacts to a real overload.
+law governor_recovers_from_a_bad_sample {
+    forall (c: config, bad: elements([nan, inf, 0 - inf, 1e30]), badDt: elements([0.0166667, nan, inf]), load: float(1.3, 4))
+    => let r = rxGovRun(c, [[bad, badDt]] ++ rep([c.target * load, 0.0166667], 1800)) in last(r.levels) >= 1
+}

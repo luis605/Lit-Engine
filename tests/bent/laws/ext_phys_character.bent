@@ -1,0 +1,49 @@
+# Character controller (docs/Physics.md): collision, stepping, slopes, jumping, speed limits and portal-aware movement.
+# pxChar(scene, {feet, yaw, settings, script: [{mx, mz, ticks, jump, sprint}], portals}) drives a CharacterController one 1/60 s tick at a
+# time and reports position, velocity, grounded flag, up vector and the depth the character box overlaps static colliders.
+include "../lib/ext_phys.bent"
+
+fn floorBox() = {shape: "box", pos: vec3(0, -0.5, 0), size: vec3(60, 0.5, 60), dynamic: false}
+gen farCoord = oneof(float(-9, -2.5), float(2.5, 9))
+gen wallBox = {shape: "box", pos: vec3(farCoord, float(0.5, 1.5), farCoord),
+               size: vec3(float(0.3, 2), float(0.5, 1.5), float(0.3, 2)), dynamic: false}
+gen moveStep = {mx: float(-1, 1), mz: float(-1, 1), ticks: int(10, 90), jump: bool(), sprint: bool()}
+fn samplesOf(scene, spec) = pxChar(scene, spec).samples
+fn horizSpeed(s) = length(flat3(s.vel))
+
+# The character box never ends up inside static geometry: obstacles, floor, random walking, jumping and sprinting.
+law char_never_penetrates_static_geometry {
+    forall (walls: listOf(wallBox, 1, 6), script: listOf(moveStep, 1, 6), yaw: float(-180, 180))
+    => let ss = samplesOf({bodies: [floorBox()] ++ walls}, {feet: vec3(0, 0, 0), yaw: yaw, script: script}) in
+       forall s in ss: s.depth <= 0.1
+}
+
+# The floor holds: the feet never sink below it, and a character standing still ends up grounded on it.
+law char_stays_on_floor_and_grounds {
+    forall (script: listOf(moveStep, 1, 5), yaw: float(-180, 180), drop: float(0, 2))
+    => let ss = samplesOf({bodies: [floorBox()]}, {feet: vec3(0, drop, 0), yaw: yaw, script: script ++ [{mx: 0, mz: 0, ticks: 90}]}) in
+       (forall s in ss: s.pos.y > -0.05) and last(ss).grounded and abs(last(ss).pos.y) < 0.05
+}
+
+# Walking speed on flat ground never exceeds speed (x sprint scale), whatever the input magnitude.
+law char_speed_is_bounded {
+    forall (script: listOf(moveStep, 1, 5), yaw: float(-180, 180))
+    => let ss = samplesOf({bodies: [floorBox()]}, {feet: vec3(0, 0, 0), yaw: yaw, script: script}) in
+       forall s in ss: horizSpeed(s) <= 4.0 * 1.8 * 1.001 * 1.5 + 0.05
+}
+
+# Standing jump: the apex is v^2 / 2g above the floor (within 12%) and the character lands again.
+law char_jump_apex_matches_ballistics {
+    forall (jumpSpeed: float(3, 6))
+    => let ss = samplesOf({bodies: [floorBox()]}, {feet: vec3(0, 0, 0), yaw: 0, settings: {jumpSpeed: jumpSpeed}, script: [{ticks: 20}, {ticks: 1, jump: true}, {ticks: 150}]}) in
+       let apex = maxOf(map(ss, fn(s) => s.pos.y)) in
+       let expected = jumpSpeed * jumpSpeed / (2.0 * 9.81) in
+       abs(apex - expected) <= 0.12 * expected + 0.03 and last(ss).grounded and abs(last(ss).pos.y) < 0.05
+}
+
+# Same world and script, same trajectory.
+law char_is_deterministic {
+    forall (walls: listOf(wallBox, 0, 4), script: listOf(moveStep, 1, 5), yaw: float(-180, 180))
+    => let a = pxChar({bodies: [floorBox()] ++ walls}, {feet: vec3(0, 0, 0), yaw: yaw, script: script}) in
+       a == pxChar({bodies: [floorBox()] ++ walls}, {feet: vec3(0, 0, 0), yaw: yaw, script: script})
+}

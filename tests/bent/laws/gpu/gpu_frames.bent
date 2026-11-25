@@ -1,0 +1,40 @@
+# GPU laws: every scene renders a healthy frame, without driver or engine errors, deterministically, within an upload budget.
+include "../../lib/gpu.bent"
+
+gen scene = elements(allScenes)
+gen skyScene = elements(skyScenes)
+
+# A real frame: it rendered, is neither all black nor blown out, has structure, and no pixel storm of exact black (NaN pixels tonemap to 0).
+law gpu_frame_is_healthy {
+    forall (s: scene)
+    => let r = plain(s) in
+       r.ok and r.mean > 0.03 and r.mean < 0.97 and r.std > 0.01 and r.blackFrac < 0.85 and r.whiteFrac < 0.6 and r.exactBlackFrac < 0.5 and r.gradient > 0.0005
+}
+
+# The engine and the Vulkan validation layers say nothing: no [ERROR], no Diligent error or warning, no VUID in the log.
+law gpu_log_is_clean {
+    forall (s: scene)
+    => let r = plain(s) in r.ok and r.logErrors == 0 and r.logWarnings == 0
+}
+
+# The same program rendered twice gives the same image (fixed clock and window): equal hash, or at worst GPU-level noise.
+law gpu_render_is_deterministic {
+    forall (s: scene)
+    => let a = shotRun(s, [], 1) in
+       let b = shotRun(s, [], 2) in
+       a.ok and b.ok and (a.hash == b.hash or rxImageDiff(a, b).diffFrac < 0.002)
+}
+
+# Steady-state upload traffic is bounded (the frame must not re-upload the scene): well under 16 MB per frame on average.
+law gpu_upload_traffic_bounded {
+    forall (s: scene)
+    => let r = plain(s) in r.ok and r.uploadMB >= 0 and r.uploadMB < 16 and r.dynamicMB < 16
+}
+
+# Wherever the camera looks at the sky there is a sky: the top of an outdoor frame is lit, not black (reversed-Z: far things must not
+# fall behind the near plane or the clear value).
+law gpu_sky_visible_when_looking_up {
+    forall (s: elements(["vista", "showcase"]), pitch: int(10, 35))
+    => let r = rxGpuShot({scene: s, camera: [0, 3, 12, -90, pitch, 0]}) in
+       r.ok and r.top > 0.12 and r.top < 0.98 and r.top > r.bottom * 0.5
+}

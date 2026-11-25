@@ -1,0 +1,7 @@
+# Known bug: Pcg32::rangeInt(INT_MIN, INT_MAX) computes span = 2^32 which wraps to 0 in 32 bit arithmetic, so below(0) returns 0
+# and every draw is `low`.
+include "../laws/ext_world_services.bent"
+
+example pcg32_range_int_over_the_full_int_range_is_not_constant known "Pcg32::rangeInt span wraps to 0 for the full int range; result is constant" {
+  seed = 0
+}

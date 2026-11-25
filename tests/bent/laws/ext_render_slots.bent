@@ -1,0 +1,73 @@
+# Bindless texture slot allocator (src/Engine/Render/TextureSlots.hpp): lowest-free-slot allocation, reuse, capacity.
+# Reference model: the set of allocated slots. Ops: -1 allocates, k >= 0 releases slot k.
+include "../lib/render.bent"
+
+gen opsGen = listOf(frequency([[3, just(-1)], [2, int(0, 24)]]), 0, 80)
+gen capGen = int(0, 16)
+
+fn lowestFree(allocated, cap) =
+    let free = filter(range(0, cap), fn(s) => not contains(allocated, s)) in
+    if len(free) == 0 then -1 else head(free)
+
+# Model: [allocated sorted, results]
+fn stepModel(state, op, cap) =
+    let allocated = state[0] in
+    if op < 0 then (let s = lowestFree(allocated, cap) in [if s < 0 then allocated else sort(allocated ++ [s]), state[1] ++ [s]])
+    else if contains(allocated, op) then [filter(allocated, fn(x) => x != op), state[1] ++ [1]]
+    else [allocated, state[1] ++ [0]]
+fn model(ops, cap) = fold(ops, [[], []], fn(st, op) => stepModel(st, op, cap))
+
+# The allocator is indistinguishable from the model: same slot for every allocation, same answer for every release, same final set.
+law slots_match_model {
+    forall (cap: capGen, ops: opsGen)
+    => let r = rxSlotsRun(cap, ops) in let m = model(ops, cap) in
+       cover("an allocation failed on a full table", contains(r.results, -1)) and cover("a release succeeded", any(zip(ops, r.results), fn(t) => t[0] >= 0 and t[1] == 1)) and
+       cover("a release was refused", any(zip(ops, r.results), fn(t) => t[0] >= 0 and t[1] == 0)) and r.results == m[1] and r.allocated == m[0] and r.used == scanUsed(ops, cap)
+}
+fn scanUsed(ops, cap) = map(range(1, len(ops) + 1), fn(n) => len(model(take(ops, n), cap)[0]))
+
+# No slot is ever handed out twice while it is allocated, and never beyond the capacity.
+law slots_never_double_allocated {
+    forall (cap: capGen, ops: opsGen)
+    => let r = rxSlotsRun(cap, ops) in
+       allDistinct(r.allocated) and all(r.allocated, fn(s) => s >= 0 and s < max(cap, 1) and s < cap + 1)
+       and all(r.results, fn(x) => x >= -1 and x < cap + 1)
+}
+
+# A released slot is reused first (the lowest free one), so the table stays compact.
+law slots_reuse_released {
+    forall (cap: int(2, 16), n: int(2, 16), k: int(0, 15))
+    where n <= cap
+    => let ops = repeat(-1, n) ++ [k % n, -1] in
+       rxSlotsRun(cap, ops).results == range(0, n) ++ [1, k % n]
+}
+
+# When the table is full an allocation fails and changes nothing; releasing one slot makes exactly that slot available.
+law slots_full_table {
+    forall (cap: int(1, 12), k: int(0, 11))
+    => let r = rxSlotsRun(cap, repeat(-1, cap) ++ [-1, k % cap, -1]) in
+       r.results == range(0, cap) ++ [-1, 1, k % cap] and r.full and r.used[cap] == cap
+}
+
+# Releasing something that is not allocated (never allocated, out of range, double release) is refused and changes nothing.
+law slots_bad_release_refused {
+    forall (cap: int(1, 12), n: int(0, 12), bad: int(0, 400))
+    where n <= cap
+    => let allocated = range(0, n) in
+       let ops = repeat(-1, n) ++ [bad] in
+       let r = rxSlotsRun(cap, ops) in
+       r.results[n] == (if bad < n then 1 else 0) and r.allocated == (if bad < n then filter(allocated, fn(s) => s != bad) else allocated)
+}
+
+# The reachable part of the table (high water mark) is one past the highest slot in use, and zero when nothing is allocated.
+law slots_high_water_tracks_highest {
+    forall (cap: capGen, ops: opsGen)
+    => let r = rxSlotsRun(cap, ops) in
+       all(range(0, len(ops)), fn(i) => let m = model(take(ops, i + 1), cap) in r.highWater[i] == (if len(m[0]) == 0 then 0 else last(m[0]) + 1))
+}
+
+# Zero capacity: every allocation fails.
+law slots_zero_capacity {
+    forall (ops: opsGen)
+    => all(rxSlotsRun(0, filter(ops, fn(o) => o < 0)).results, fn(x) => x == -1)
+}

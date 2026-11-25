@@ -1,0 +1,246 @@
+# World core: the spatial grid (overlap, frustum, ray casts) against brute force, across every operation that rebuilds or shifts the
+# index (compact, save / load, snapshots, rebase, clear, worker count), and physics ray casts against analytic ray / solid tests for
+# every collider shape.
+include "../lib/ext_world.bent"
+
+gen farPos = vec3(float(-80, 80), float(-20, 20), float(-80, 80))
+gen spatialEdit = frequency([
+    [6, spawn(shape: "none", dynamic: false, pos: farPos, mesh: int(-1, 7), scale: scaleGen, rot: unitQuat())],
+    [1, spawn(shape: "none", dynamic: false, pos: farPos, mesh: int(0, 7), scale: vec3(float(5, 60), float(5, 60), float(5, 60)))],
+    [1, spawn(shape: "none", dynamic: false, pos: vec3(float(-3, 3), float(-3, 3), float(-3, 3)), mesh: int(0, 7), parent: target)],
+    [3, move(target: target, delta: vec3(float(-40, 40), float(-10, 10), float(-40, 40)))],
+    [2, teleport(target: target, pos: farPos)],
+    [2, destroy(target: target)],
+    [1, setScale(target: target, scale: vec3(float(0.1, 20), float(0.1, 20), float(0.1, 20)))],
+    [1, reparent(target: target, parent: int(-1, 31))],
+    [1, setVisible(target: target, visible: bool())],
+    [1, step(n: 1)],
+    # operations that rebuild or shift the index
+    [1, compact()],
+    [1, saveLoad()],
+    [1, snapshot(slot: 0)],
+    [1, restore(slot: 0)],
+    [1, snapshotText(slot: 0)],
+    [1, restoreText(slot: 0)],
+    [1, rebase(delta: vec3(float(-3000, 3000), float(-50, 50), float(-3000, 3000)))],
+    [1, jobWorkers(n: int(0, 4))]
+])
+gen spatialProg = map([spawn(shape: "none", dynamic: false, pos: farPos, mesh: int(0, 7)), listOf(spatialEdit, 0, 40)], fn(pair) => [pair[0]] ++ pair[1])
+
+fn queryable(e) = visible(e) and bounds(e).radius > 0
+fn gap(e, c, r) = let b = bounds(e) in distance(b.center, c) - r - b.radius
+
+# overlap(c, r) returns every visible entity whose bounding sphere intersects the query sphere (clear cases), nothing that is clearly
+# outside, no duplicates, in index order, whatever happened to the index before (rebuilds, shifts, restores, different worker counts).
+law overlap_matches_brute_force_after_index_rebuilds {
+    forall (p: spatialProg, c: farPos, r: float(0, 60))
+    => after(p) {
+        let got = overlap(c, r) in
+        cover("something overlaps", len(got) > 0) and cover("something is outside", exists e in entities(): queryable(e) and gap(e, c, r) > 1e-2) and
+        (forall e in entities(): (queryable(e) and gap(e, c, r) < -1e-3) ==> contains(got, e))
+        and (forall e in got: gap(e, c, r) <= 1e-3)
+        and allDistinct(got) and map(got, idx) == sort(map(got, idx))
+    }
+}
+
+# Larger query spheres find supersets.
+law overlap_is_monotone_in_radius {
+    forall (p: spatialProg, c: farPos, r1: float(0, 30), r2: float(0, 30))
+    => after(p) {
+        let small = overlap(c, min(r1, r2)) in
+        let big = overlap(c, max(r1, r2)) in
+        cover("non-empty", len(small) > 0) and all(small, fn(e) => contains(big, e))
+    }
+}
+
+# A query sphere centred at the entity's own centre always finds it (when it is in the index at all).
+law overlap_finds_entity_at_its_own_centre {
+    forall (p: spatialProg, k: target)
+    => after(p) {
+        let e = ref(k) in
+        not alive(e) or (not queryable(e)) or cover("tested", true) and contains(overlap(bounds(e).center, 0.01), e)
+    }
+}
+
+# Querying is observation only: it never changes the world (the lazy index refresh is not simulation state).
+law spatial_queries_do_not_mutate {
+    forall (p: spatialProg, c: farPos, r: float(0, 60))
+    => after(p) { worldHash() } == after(p) { let a = overlap(c, r) in let b = raycast(c, c + vec3(1, 1, 1)) in let f = frustumQuery() in worldHash() }
+}
+
+fn raySphere(o, d, c, r) =
+    let oc = o - c in
+    let b = dot(oc, d) in
+    let disc = b * b - (dot(oc, oc) - r * r) in
+    if disc < 0 then -1.0 else (let t = 0 - b - sqrt(disc) in if t >= 0 then t else 0 - b + sqrt(disc))
+
+fn bruteRay(from, to) =
+    let d = normalize(to - from) in
+    let reach = distance(from, to) in
+    fold(entities(), {hit: false, distance: 1e30, entity: -1}, fn(best, e) =>
+        let b = bounds(e) in
+        if not queryable(e) then best else (
+            let t = raySphere(from, d, b.center, b.radius) in
+            if t >= 0 and t <= reach and t < best.distance then {hit: true, distance: t, entity: e} else best))
+
+fn rayAmbiguous(from, to) =
+    let d = normalize(to - from) in
+    exists e in entities(): (let b = bounds(e) in queryable(e) and (
+        let oc = from - b.center in
+        let bb = dot(oc, d) in
+        let disc = bb * bb - (dot(oc, oc) - b.radius * b.radius) in
+        abs(disc) < 1e-2 * (1 + b.radius * b.radius)
+        or abs(raySphere(from, d, b.center, b.radius) - distance(from, to)) < 1e-2))
+
+# The grid ray cast finds the nearest bounding sphere along the segment, as brute force does, in the same situations.
+law raycast_matches_brute_force_after_index_rebuilds {
+    forall (p: spatialProg, from: farPos, to: farPos)
+    where distance(from, to) > 0.01
+    => after(p) {
+        rayAmbiguous(from, to) or (
+            let got = raycast(from, to) in
+            let want = bruteRay(from, to) in
+            cover("hit", want.hit) and cover("miss", not want.hit) and
+            got.hit == want.hit and (not got.hit or got.distance ~= want.distance within 1e-3))
+    }
+}
+
+# World bounds enclose every queryable entity.
+law scene_bounds_enclose_entities {
+    forall (p: spatialProg)
+    => after(p) {
+        let sb = sceneBoundsOf() in
+        let qs = filter(entities(), queryable) in
+        (sb.has == (len(qs) > 0)) and cover("non-empty", len(qs) > 0) and (forall e in qs: distance(sb.center, bounds(e).center) + bounds(e).radius <= sb.radius + 1e-2 * (1 + sb.radius))
+    }
+}
+
+# ---------------------------------------------------------------- frustum
+
+gen lookAround = [farPos, float(-180, 180), float(-80, 80), float(-30, 30)]
+
+# queryFrustum never culls a sphere that is inside the view frustum, whatever the camera orientation, and never returns one that is
+# clearly outside.
+law frustum_query_has_no_false_culls {
+    forall (p: spatialProg, view: lookAround)
+    => after(p ++ [camera(pos: view[0], yaw: view[1], pitch: view[2], roll: view[3])]) {
+        let q = frustumQuery() in
+        let inside = frustumBrute(0.0) in
+        let near = frustumBrute(0.5) in
+        cover("something visible", len(inside) > 0) and cover("something culled", len(inside) < len(filter(entities(), queryable))) and
+        (forall e in inside: contains(q, e)) and (forall e in q: contains(near, e)) and allDistinct(q)
+    }
+}
+
+# An entity placed on the view axis is inside the frustum whatever the roll (tilted frusta use the same plane maths).
+law frustum_axis_entities_visible_at_any_roll {
+    forall (p: spatialProg, pos: farPos, yaw: float(-180, 180), pitch: float(-60, 60), roll: float(-180, 180), distance: float(2, 40))
+    => after(p ++ [camera(pos: pos, yaw: yaw, pitch: pitch, roll: roll), spawn(shape: "none", dynamic: false, mesh: 1)]) {
+        let view = cameraView() in
+        let target = view.local + view.front * distance in
+        after(p ++ [camera(pos: pos, yaw: yaw, pitch: pitch, roll: roll), spawn(shape: "none", dynamic: false, mesh: 1, pos: target)]) { cover("tested", true) and contains(frustumQuery(), last(spawned())) }
+    }
+}
+
+# The ray through the centre of the screen is the camera's view ray (its origin lies on the view axis, on the near plane).
+law screen_centre_ray_is_view_ray {
+    forall (view: lookAround, w: float(64, 4000), h: float(64, 3000))
+    => after([camera(pos: view[0], yaw: view[1], pitch: view[2], roll: view[3])]) {
+        let ray = screenRayOf(w / 2, h / 2, w, h) in
+        let v = cameraView() in
+        ray.direction ~= v.front within 1e-3 and length(cross(ray.origin - v.local, v.front)) < 1e-3 and dot(ray.origin - v.local, v.front) >= -1e-4
+    }
+}
+
+# Rays through the left and right edges of the screen are mirror images about the view axis (symmetric projection).
+law screen_edge_rays_are_symmetric {
+    forall (view: lookAround, w: float(64, 4000), h: float(64, 3000), y: float(0, 1))
+    => after([camera(pos: view[0], yaw: view[1], pitch: view[2], roll: view[3])]) {
+        let left = screenRayOf(0, h * y, w, h) in
+        let right = screenRayOf(w, h * y, w, h) in
+        let v = cameraView() in
+        abs(dot(left.direction, v.front) - dot(right.direction, v.front)) < 1e-3 and abs(dot(left.direction, v.right) + dot(right.direction, v.right)) < 1e-3
+    }
+}
+
+# ---------------------------------------------------------------- physics ray casts against analytic solids
+
+gen rayPos = vec3(float(-5, 5), float(-5, 5), float(-5, 5))
+# Rays start 14 m away (outside every solid, which all lie within 9.4 m of the origin) and aim at a point inside the shape cloud.
+gen rayStart = map(unitVec3(), fn(u) => u * 14)
+gen rayAim = vec3(float(-4, 4), float(-4, 4), float(-4, 4))
+fn rayEndOf(from, aim) = from + (aim - from) * 1.7
+gen rayShape = frequency([
+    [3, spawn(shape: "sphere", pos: rayPos, size: float(0.3, 2), dynamic: false, mesh: -1, rot: just(quat(1, 0, 0, 0)), height: just(0))],
+    [3, spawn(shape: "box", pos: rayPos, size: vec3(float(0.3, 2), float(0.3, 2), float(0.3, 2)), rot: just(quat(1, 0, 0, 0)), dynamic: false, mesh: -1, height: just(0))],
+    [2, spawn(shape: "hull", pos: rayPos, size: vec3(float(0.3, 2), float(0.3, 2), float(0.3, 2)), rot: just(quat(1, 0, 0, 0)), dynamic: false, mesh: -1, height: just(0))]
+])
+
+fn invRot(q) = quat(q.w, 0 - q.x, 0 - q.y, 0 - q.z)
+# [tmin, tmax] of the ray o + t d (|d| = 1) inside a solid, or [] when it misses.
+fn sphereSpan(o, d, c, r) =
+    let oc = o - c in
+    let b = dot(oc, d) in
+    let disc = b * b - (dot(oc, oc) - r * r) in
+    if disc < 0 then [] else [0 - b - sqrt(disc), 0 - b + sqrt(disc)]
+
+fn slab(oc, dc, h) =
+    if abs(dc) < 1e-12 then (if abs(oc) <= h then [-1e30, 1e30] else [])
+    else (let t1 = (0 - h - oc) / dc in let t2 = (h - oc) / dc in [min(t1, t2), max(t1, t2)])
+fn meet(a, b) = if a == [] or b == [] then [] else (let lo = max(a[0], b[0]) in let hi = min(a[1], b[1]) in if lo > hi then [] else [lo, hi])
+
+fn boxSpan(o, d, c, q, half) =
+    let ol = rotate(invRot(q), o - c) in
+    let dl = rotate(invRot(q), d) in
+    meet(meet(slab(ol.x, dl.x, half.x), slab(ol.y, dl.y, half.y)), slab(ol.z, dl.z, half.z))
+
+fn capsuleSpan(o, d, c, q, r, hh) =
+    let ol = rotate(invRot(q), o - c) in
+    let dl = rotate(invRot(q), d) in
+    let a = dl.x * dl.x + dl.z * dl.z in
+    let b = ol.x * dl.x + ol.z * dl.z in
+    let cc = ol.x * ol.x + ol.z * ol.z - r * r in
+    let disc = b * b - a * cc in
+    let cyl = if a < 1e-12 or disc < 0 then [] else meet([(0 - b - sqrt(disc)) / a, (0 - b + sqrt(disc)) / a], slab(ol.y, dl.y, hh)) in
+    let top = sphereSpan(ol, dl, vec3(0, hh, 0), r) in
+    let bottom = sphereSpan(ol, dl, vec3(0, 0 - hh, 0), r) in
+    let parts = filter([cyl, top, bottom], fn(s) => s != []) in
+    if parts == [] then [] else [min(map(parts, fn(s) => s[0])), max(map(parts, fn(s) => s[1]))]
+
+fn spanOf(a, o, d) =
+    if a.shape == "sphere" then sphereSpan(o, d, a.pos, a.size)
+    else if a.shape == "capsule" then capsuleSpan(o, d, a.pos, a.rot, a.size, a.height)
+    else boxSpan(o, d, a.pos, a.rot, a.size)
+
+fn tooClose(spans) = let entries = sort(map(filter(spans, fn(s) => s != []), fn(s) => s[0])) in
+    any(zip(entries, tail(entries)), fn(pair) => pair[1] - pair[0] < 0.02)
+
+# physicsRaycast reports the nearest solid of every collider shape (sphere, box, capsule, convex hull) the way an analytic ray /
+# solid test does, with the same distance. Grazing rays and near ties between two solids are skipped (ambiguous).
+law physics_raycast_matches_analytic_solids {
+    forall (shapes: listOf(rayShape, 4, 9), from: rayStart, aim: rayAim)
+    => let to = rayEndOf(from, aim) in
+       let d = normalize(to - from) in
+       let reach = distance(from, to) in
+       let spans = map(shapes, fn(a) => spanOf(a, from, d)) in
+       let ambiguous = (exists s in spans: s != [] and (s[1] - s[0] < 0.02 or abs(s[0] - reach) < 0.02)) or tooClose(spans) in
+       cover("exercised", not ambiguous) and (ambiguous or after(shapes) {
+           let got = physicsRaycast(from, to) in
+           let hits = filter(enumerate(spans), fn(pair) => pair[1] != [] and pair[1][0] >= 0 and pair[1][0] <= reach) in
+           let best = fold(hits, [], fn(acc, pair) => if acc == [] or pair[1][0] < acc[1][0] then pair else acc) in
+           cover("hit", best != []) and cover("miss", best == []) and
+           cover("box is nearest", best != [] and shapes[best[0]].shape == "box") and
+           cover("sphere is nearest", best != [] and shapes[best[0]].shape == "sphere") and cover("hull is nearest", best != [] and shapes[best[0]].shape == "hull") and
+           got.hit == (best != []) and (best == [] or (got.distance ~= best[1][0] within 2e-3 and got.entity == entity(best[0])))
+       })
+}
+
+# The surface normal of a ray cast hit has unit length and faces the ray (never points away from the viewer).
+law physics_raycast_normal_faces_the_ray {
+    forall (shapes: listOf(rayShape, 4, 9), from: rayStart, aim: rayAim)
+    => let to = rayEndOf(from, aim) in
+       after(shapes) {
+           let got = physicsRaycast(from, to) in
+           cover("hit", got.hit) and (not got.hit or (abs(length(got.normal) - 1) < 1e-3 and dot(got.normal, normalize(to - from)) <= 1e-3))
+       }
+}

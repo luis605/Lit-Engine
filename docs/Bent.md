@@ -278,11 +278,37 @@ Both live in `src/Engine/Bent/`:
 * A different host (another subsystem, a fake for tests): implement `bent::Host` and `bent::Sim` (see the counter host in
   `tests/BentTests.cpp`).
 
-## GPU
+## GPU mode
 
-There is no `--gpu` mode: the laws drive the simulation headless, where the renderer is not initialised. Rendering laws (portal
-view parity by pixels, render graph invariants under fuzzed settings) would need an `EngineSim` that opens a window and reads back
-images; that is future work. Render settings are still fuzzed through `RenderSettings` (render.bent).
+`bent check FILE --gpu` / `bent suite --gpu --laws tests/bent/laws/gpu` enable the `rxGpuShot` natives (src/Engine/Bent/Ext_Gpu.cpp). A law
+asks for a frame with `rxGpuShot({scene, settings: [[key, value]], env: [["LIT_...", v]], camera: [x,y,z,yaw,pitch,roll], width, height,
+frames, run})`; the frame is rendered by LitShot (the Engine rendering path of src/Shot, `--deterministic`, 320x180 by default) in a child
+process, one at a time (shared GPU), retried on failure, and the result is a record of frame statistics (mean / std luminance, black and white
+fractions, gradient energy, blobScore, image hash, log error and warning counts, bindless on, upload MB per frame). `rxImageDiff(a, b)`
+compares two shots (diffFrac, meanAbs, 16x9 block luminance difference). Results are cached per spec; add `run: n` for an independent render.
+Persistent out-of-device-memory discards the case (the device is shared) instead of failing it. Without `--gpu` laws under a `gpu/` directory
+are skipped; with it and no LitShot / device the exit status is 77. ctest: `BentGpuLaws` (SKIP_RETURN_CODE 77); the default `BentLaws` never
+runs them. Laws: tests/bent/laws/gpu/*.bent (frame health, clean log, determinism, upload bound, sky, graph / bindless / render-scale /
+resolution / cluster-LOD equivalence, exposure monotonicity, debug views, hostile settings, feature switches, portal blobs). Thresholds there
+were set from LitShot output but could not be calibrated on a busy device; treat first GPU failures as calibration candidates.
+Build LitShot first (`ninja LitShot`): the laws use build-release/src/Shot/LitShot (or `LITSHOT=...`).
+
+## Render, settings and tooling laws (ext_render_*.bent, lib/render.bent)
+
+Natives `rx*` in src/Engine/Bent/Ext_Render.cpp drive real engine code with no GPU:
+* `ext_render_settings` (18): write / dump / reload round trips, nan / inf / junk rejection, clamp table, enum range, int saturation.
+* `ext_render_governor` (13): ladder monotone, single steps, hysteresis, cooldown, no oscillation under constant load, recovery, nan samples.
+* `ext_render_projection` (13): reversed-Z endpoints and formula, pinhole xy, frustum containment, orthographic, invariances.
+* `ext_render_material` (7): packMaterial clamps, identity, textures, NaN.
+* `ext_render_cluster` (14): meshlet DAG validity, error monotone, bounds, determinism, crack-free cuts, hierarchy == flat cut, soup fuzzing.
+* `ext_render_graph` (11): culling vs a reference, ordering, aliasing lifetimes, pool reuse and leaks (fake backend).
+* `ext_render_slots` (7): texture slot allocator vs a model.
+* `ext_render_params` (12): ParamBus loader totality, limits, convergence, curves.
+* `ext_render_scene` (11): scene text corruption, validator stability, frame explainer.
+Fixed: setRenderSetting accepted nan / inf (and UB float->int, out-of-range enums); QualityGovernor froze for good on a NaN frame time;
+packMaterial passed NaN through std::clamp; explainFrame sorted NaN weights; step response curves returned the previous value at a knot.
+Gaps: light packing, cascade fitting, Hi-Z, oblique clip, surface parser and the editor palette / autopilot are not reachable headless
+(Diligent / Editor-only code); only the GPU laws touch them indirectly.
 
 ## Findings
 
@@ -320,3 +346,97 @@ First campaign (2026-11-24): 77 laws in 12 files; seed 1 with 3,000 cases per la
 * A nav path requested from inside an obstacle starts at the requested point; walkability is per cell, so path points may lie up
   to one cell inside an obstacle footprint.
 * A ray shorter than the distance to the target misses it (law bug, fixed).
+
+## Physics, character, nav, AI, animation, IK and audio laws (ext_phys_*)
+
+Laws in `tests/bent/laws/ext_phys_{queries,dynamics,character,portal,nav,ai,anim,ik,audio}.bent`, helpers in `tests/bent/lib/ext_phys.bent`.
+They use pure builtins (`src/Engine/Bent/Ext_Physics.cpp`, `Ext_Sim.cpp`): every call builds its own standalone world or subsystem object,
+so cases stay independent and deterministic. `pxRun(scene)` (bodies of every collider kind, steps, gravity, layers matrix, kicks, portals,
+`roundtrip` save/load), `pxCast(scene, query)` (ray, sphere / capsule / box sweeps, overlaps, portal ray and sweep), `pxChar` (character
+controller script), `pxPortalFrames`, `navEval` / `navCrowd`, `aiRun`, `skelSample` / `skelBlend` / `skelModel` / `skelAnimate` /
+`skelTwoBone`, `skinCheck` / `skinNormalize`, `faceNames` / `faceMorph` / `faceClipSample` / `faceCombine`, `ikSolve`, `audioRender` /
+`audioTrace` / `audioSched`. `bent list --builtins` prints them.
+
+* Queries: ray / sweep / overlap against signed-distance references (sphere tracing), brute-force triangles for meshes and rotated, scaled
+  height fields, oriented boxes for hulls; skip equals removal; translation and order invariance; sweep never later than the ray.
+* Dynamics: determinism, finiteness, momentum and energy of elastic collisions, bounce height, friction bounds, stacking, layers, plane /
+  mesh / terrain resting, orientation policy, static bodies, contact events, sleeping, no tunnelling below the speed bound, save/load.
+* Character: no penetration, floor, speed bound, jump apex, determinism. Portal: velocity and spin carry (known), portal rays and sweeps equal
+  the unfolded world (known), missed openings.
+* Nav: path validity, endpoints, A* cost monotone under obstacles, symmetry, incremental rebuild equals fresh build, links, crowd overlap.
+* AI: behaviour trees against a reference interpreter, determinism, seed use, blackboard writes, utility trace scores, FSM tables.
+* Animation: clip sampling, looping, blends, masks, forward kinematics, crossfade, two bone IK, skinning against an independent LBS,
+  morph linearity, bounds, weight repair, ARKit mapping. IK: FABRIK / CCD / analytic, limits, degenerate input. Audio: gain bounds, mute,
+  linear bus gain, attenuation, ducking, propagation, hops, voice scheduler.
+
+Findings (fixed): `capsuleBox` (alternating projection, 4 rounds) missed overlaps up to ~0.15 m deep; `TriMeshCollider` and
+`HeightfieldCollider` were not serialized (silently dropped by save / load); `normalizeSkinWeights` left all-zero weights when the weight sum
+overflowed.
+Findings (known, regressions in `tests/bent/regressions`): static friction coefficient grows without bound as friction goes to 0
+(`px_low_friction_box_coasts`); ORCA agents can overlap 0.25 m or more (`nav_crowd_overlap_is_small`); FABRIK / CCD get stuck folded 180
+degrees when the target lies on the first bone's line (`ik_target_on_first_bone_line_is_reached`); four portal law mismatches
+(`px_portal_*`, velocity/spin carry, ray and sweep through portals differ from the unfolded world by more than 5 mm, a ray missing the
+opening can still cross), not yet triaged.
+By design: box sweeps use square-cornered inflated boxes (conservative); heightfield normals always face up; partial paths are
+direction dependent; ORCA is a soft constraint.
+
+## World and core laws (tests/bent/laws/ext_world_*.bent, helpers tests/bent/lib/ext_world.bent)
+
+206 laws (204 hold, 2 are `known` regressions). Bridge additions live in `src/Engine/Bent/Ext_World.cpp` (new actions such as
+`setWorldPosition lookAtTarget rotateBy addComponent prefabCapture timerAfter busSubscribe jobWorkers rngDraw sceneMutate spawnBatch`,
+observations such as `worldMatrix worldMatrixRef frustumQuery frustumBrute subtreeHash timerLog busLog entityEvents`, and world-free natives
+`rngSeq rngService textTableRun jobsRun asyncRun paramRun curveEval replayRoundtrip utf8Encode gizmo*`).
+`cover("label", cond)` records that a case exercised a branch; `bent check --coverage` prints the hit rates and a law whose label is never hit
+over 20+ cases is reported `VACUOUS` (a failure), so guarded laws cannot silently test nothing.
+
+| File | Laws about |
+| --- | --- |
+| ext_world_entities | handle generations, dead handle reads, destroy = exact subtree, slot reuse, clear/compact, link symmetry, acyclic reparenting, keepWorld matrices, entity events, batch create / destroy |
+| ext_world_transforms | world matrix cache vs recomputation, parent composition, rotation/scale read-back and normalisation, negative / zero / extreme scale, setWorld*, lookAt, rotateBy, bulk setPositions |
+| ext_world_meta | tag / name / layer indexes vs scan, names and tags through persistence, sparse-set component pools, prefab capture / instantiate |
+| ext_world_spatial | overlap / raycast / frustum vs brute force across index rebuilds (compact, load, restore, rebase, workers), screen rays, physics ray casts vs analytic sphere / box / hull |
+| ext_world_persist | snapshot / restore, scene text fixpoints, rebase + save, damaged and old-version scene files |
+| ext_world_hash | worldHash ignores no-ops and changes with every kind of edit; stateDump exposes hashed changes |
+| ext_world_json | depth limit 512, NUL, strict grammar and number grammar, unicode escapes, duplicate keys, jsonDiff / jsonFind |
+| ext_world_services | PCG32 (reference answers, uniformity, streams), TextTable model, JobSystem / AsyncJobs, ParamBus and curves, gizmo math, replay files |
+| ext_world_time | timers (after / every / cancel / owner / pause / scale), event bus model, pause and time scale |
+| ext_world_origin | toWorld / toLocal, repeated rebases, queries after rebase, floating origin snap grid |
+| ext_world_determinism | dumps, worker counts (incl. parallel spatial refresh and scene parse), replay with timers and streams |
+
+### Findings (world / core campaign)
+
+Fixed: `WorldSnapshot` ignored the floating origin (a restore after the origin moved shifted every entity: the editor's play / stop did this) now records
+and re-applies it; scene load accepted a `hidden` render flag inconsistent with the visible field (World::validate failed after loading a damaged file);
+bridge `restoreText` left references dead and aliased reused slots.
+Known (regressions in tests/bent/regressions/ext_world_*): `\n` in a name truncates it and in a tag drops it through scene save / load, SaveSystem and
+text snapshots (line based format); `Pcg32::rangeInt(INT_MIN, INT_MAX)` always returns the low bound (span wraps to 0).
+By design (documented in the laws): child order is not preserved by a load; rotation / scale no-op writes move the last float bit; screen ray origin
+is on the near plane; 1e400 is a JSON parse error.
+Gaps: capsule ray casts (axis convention unconfirmed), scripts, delta store, rare large-scale suites (use --cases 5000).
+
+## Portal, camera, streaming, terrain, instancing and save laws (`ext_portal_*.bent`)
+
+Natives (pure functions, each builds its own PortalSystem / Camera / ResidencyManager / StreamingSystem / World / SaveSystem; sources
+`src/Engine/Bent/Ext_Portal*.cpp`, helpers `tests/bent/lib/ext_portal.bent`): `xm*` matrices (lists of 16), `xp*` portals, `xc*` camera
+orientation, `xr*` residency and worker pool, `xs*` streaming system, `xt*` terrain, `xi*` instancing, `xd*` deltas, `xv*` save system.
+
+| File | Laws | Covers |
+| --- | --- | --- |
+| `ext_portal_transform` | 19 | pair transforms are mutual inverses, rigid, map end frames, twist is a rotation about the far normal, crossing round trip retraces, rings of n pairs compose to identity, view matrix identical after the swap for upright / tilted / rolled / floor / ceiling / half-turn pairs, real `step` crossings |
+| `ext_portal_camera` | 20 | ViewOrientation: orthonormal basis, roll about front, rotate / inverse / many rotations (no drift), canonical fold, decompose round trip, relax (keeps view, converges, no overshoot, pitch excess, at once, no-op), transformBy, setRotation |
+| `ext_portal_frame` | 15 | buildFrame: root is the camera, hard cap 24 views, soft maxViews / maxDepth for small portals, tree + unique keys, node view = transform chain, oblique clip plane, masked frusta, determinism, blocked / behind / empty cases |
+| `ext_portal_query` | 14 | raycast vs brute force (both ends), overlap, straddling twins, cell parameter blending (convex, far, continuous), light images (brute force, mirrored image, switches, one hop) |
+| `ext_portal_json` | 15 | JSON round trip fixpoint, acceptance oracle, truncations, garbage, wrong types, shape containment / nesting / Lipschitz / crossing, frame mesh validity and bounds |
+| `ext_portal_stream` | 26 | residency score (monotone, bias, at rest formula, velocity), byte budget and eviction order, commit queue budget, worker pool priority + cancellation, spatial streaming (radii, determinism across workers, prime, hysteresis, cancellation accounting, frame upload budget, byte budget, LOD bands), BFS graph distances |
+| `ext_portal_terrain` | 23 | height function, tile samples / edges / collider, tile selection (disjoint, cover, 2:1 balance, finest under camera, translation invariance), scatter (tiling independence, keys, determinism), splat, streamer visibility |
+| `ext_portal_instancing` | 18 | InstanceBatch model-based edits, versions and dirty ranges, pack / unpack, hash, LOD monotone, pool allocator (best fit, no overlap, reuse, clear), spatial cells, CPU cull (cell = flat, distance, behind camera, LOD) |
+| `ext_portal_save` | 9 | delta rebuild (also in another origin), idempotence, removed sets, save resume equals straight run, damaged files rejected, failed apply rolls back, atomic files and backups |
+
+Findings of this campaign: **fixed** `PortalFrameMesh.cpp` `outerContour` used the unclamped bevel, so a bevel wider than the frame pulled
+the outer ring into the opening corner (regression example in `ext_portal_json.bent`). **Known** (`example ... known`):
+`portal_params_continuous_beside_the_opening` (the blend weight of `sampleParams` jumps across the plane extension beside a quad, up to the
+whole partner cell: free standing portals pop gravity / tint when walked around) and `cam_relax_stays_finished` (alignment threshold 1e-5 is
+below the float error of the turn, a finished relax can restart once with 0.03 degrees of roll). **By design, documented in the laws**:
+`byteBudget 0` is unlimited; byte-budget enforcement lags the wanted set by up to two updates; the terrain streamer settles over about four
+updates after a move; twisted rectangular pairs let an object enter A outside B's frame; ceiling portal one-frame GPU difference and one-hop
+light are not headless-observable. Gaps: save-version migrations (only version 1 exists), GPU portal parity, observation GPU ids.

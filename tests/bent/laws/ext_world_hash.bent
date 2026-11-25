@@ -1,0 +1,115 @@
+# World core: the determinism hash (hashWorldState) and the state dump. The hash must change when state changes (so replays catch
+# divergence) and must not change when nothing changes; the dump must expose everything the hash looks at.
+include "../lib/ext_world.bent"
+
+# A scene with one real moving thing so hashes cover physics state too.
+gen hashProg = map([hierSpawn, listOf(frequency([[4, hierEdit], [2, spawnBody], [2, step(n: int(1, 3))]]), 0, 12)], fn(pair) => [pair[0]] ++ pair[1])
+
+# ---------------------------------------------------------------- insensitive to no-ops
+
+# Writing a value that is already there changes neither the hash nor the dump (rotation / scale writes are excluded: they go through
+# a matrix round trip that may move the last float bit, which the dump shows and the quantised hash may or may not absorb).
+law hash_ignores_noop_writes {
+    forall (p: hashProg, k: target)
+    => after(p) {
+        let e = ref(k) in
+        not alive(e) or (
+            let noops = [teleport(target: k, pos: position(e)),
+                         setName(target: k, name: name(e)), setTag(target: k, tag: tag(e)), setLayer(target: k, layer: layerOf(e)),
+                         setVisible(target: k, visible: visible(e)), move(target: k, delta: vec3(0, 0, 0)),
+                         validate(), step(n: 0)] in
+            cover("tested", true) and worldHash() == after(p ++ noops) { worldHash() })
+    }
+}
+
+# The dump is a pure function of the state.
+law state_dump_is_deterministic {
+    forall (p: hashProg)
+    => after(p) { stateDump() } == after(p) { stateDump() }
+}
+
+# ---------------------------------------------------------------- sensitive to every kind of change
+
+fn changes(p, e, edit) = after(p ++ [edit]) { worldHash() } != worldHash()
+fn dumpFollowsHash(p, edit) = let h = after(p) { worldHash() } in let d = after(p) { stateDump() } in
+    after(p ++ [edit]) { worldHash() == h or stateDump() != d }
+
+law hash_changes_when_a_name_changes {
+    forall (p: hashProg, k: target)
+    => after(p) { let e = ref(k) in not alive(e) or (cover("tested", true) and changes(p, e, setName(target: k, name: name(e) ++ "!"))) }
+}
+
+law hash_changes_when_a_tag_changes {
+    forall (p: hashProg, k: target)
+    => after(p) { let e = ref(k) in not alive(e) or (cover("tested", true) and changes(p, e, setTag(target: k, tag: tag(e) ++ "!"))) }
+}
+
+law hash_changes_when_a_layer_changes {
+    forall (p: hashProg, k: target)
+    => after(p) { let e = ref(k) in not alive(e) or (cover("tested", true) and changes(p, e, setLayer(target: k, layer: layerOf(e) + 1))) }
+}
+
+law hash_changes_when_visibility_flips {
+    forall (p: hashProg, k: target)
+    => after(p) { let e = ref(k) in not alive(e) or (cover("tested", true) and changes(p, e, setVisible(target: k, visible: not visible(e)))) }
+}
+
+# A move of 1 cm or more is always visible in the hash (quantum is 0.1 mm).
+law hash_changes_when_an_entity_moves {
+    forall (p: hashProg, k: target, axis: int(0, 2), dist: float(0.01, 5), sign: elements([-1, 1]))
+    => after(p) {
+        let e = ref(k) in
+        let delta = vec3(if axis == 0 then sign * dist else 0, if axis == 1 then sign * dist else 0, if axis == 2 then sign * dist else 0) in
+        not alive(e) or (cover("tested", true) and changes(p, e, move(target: k, delta: delta)))
+    }
+}
+
+law hash_changes_when_an_entity_turns {
+    forall (p: hashProg, k: target, axis: unitVec3(), angle: float(5, 175))
+    => after(p) { let e = ref(k) in not alive(e) or (cover("tested", true) and changes(p, e, rotateBy(target: k, axis: axis, degrees: angle))) }
+}
+
+law hash_changes_when_an_entity_is_scaled {
+    forall (p: hashProg, k: target, factor: elements([0.5, 0.8, 1.25, 2.0]))
+    => after(p) { let e = ref(k) in not alive(e) or (cover("tested", true) and changes(p, e, setScale(target: k, scale: scale(e) * factor))) }
+}
+
+law hash_changes_when_entities_are_created_or_destroyed {
+    forall (p: hashProg, k: target, s: hierSpawn)
+    => after(p) {
+        let e = ref(k) in
+        after(p ++ [s]) { worldHash() } != worldHash() and (not alive(e) or (cover("tested", true) and changes(p, e, destroy(target: k))))
+    }
+}
+
+law hash_changes_when_the_hierarchy_changes {
+    forall (p: hashProg, k: target, j: int(-1, 31))
+    => after(p) {
+        let e = ref(k) in
+        let newParent = if j == -1 then -1 else ref(j) in
+        not alive(e) or (newParent == parent(e)) or (newParent == e) or contains(descendants(e), newParent) or (not (newParent == -1) and not alive(newParent))
+        or (cover("tested", true) and changes(p, e, reparent(target: k, parent: j, keepWorld: false)))
+    }
+}
+
+law hash_changes_when_a_body_gets_velocity {
+    forall (p: hashProg, b: spawnBody, v: vec3(float(1, 9), float(1, 9), float(1, 9)))
+    => after(p ++ [b]) {
+        let cur = velocity(last(spawned())) in
+        after(p ++ [b, setVelocity(target: -1, vel: cur + v)]) { worldHash() } != worldHash()
+    }
+}
+
+law hash_changes_when_time_passes {
+    forall (p: hashProg, n: int(1, 30))
+    => after(p) { worldHash() } != after(p ++ [step(n: n)]) { worldHash() }
+}
+
+# Whatever the hash sees, the dump shows: if an edit changes the hash then it changes the dump (the dump is the debugging view of
+# the hashed state, so a hash mismatch can always be explained by diffing dumps).
+law dump_exposes_every_hashed_change {
+    forall (p: hashProg, k: target, edit: oneof(setName(target: k, name: "zz"), setTag(target: k, tag: "zz"), setLayer(target: k, layer: 77), setVisible(target: k, visible: false),
+                                              move(target: k, delta: vec3(0.5, 0.25, 0.125)), setScale(target: k, scale: vec3(2.5, 0.5, 1.5)), destroy(target: k),
+                                              rotateBy(target: k, axis: vec3(0, 1, 0), degrees: 33), setVelocity(target: k, vel: vec3(3, 4, 5))))
+    => cover("hash changed", after(p) { worldHash() } != after(p ++ [edit]) { worldHash() }) and dumpFollowsHash(p, edit)
+}

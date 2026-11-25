@@ -1,0 +1,100 @@
+# Parameter bus (Engine.Params): JSON definitions, limits, smoothing, slots and response curves. The loader must be total on
+# arbitrary text; valid documents load with unique slots; values respect their limits; curves interpolate within their data.
+include "../lib/render.bent"
+include "../lib/prelude.bent"
+
+gen paramDef = {default: float(-10, 10), min: float(-20, -10), max: float(10, 20), smooth: oneof(just(0.0), float(0, 0.8))}
+gen paramDoc = {params: {p0: paramDef, p1: paramDef, p2: paramDef}}
+gen paramName = elements(["p0", "p1", "p2"])
+
+fn cumsum(xs) = tail(fold(xs, [0.0], fn(acc, x) => acc ++ [last(acc) + x]))
+gen curvePoints = bind(int(1, 6), fn(n) => map([listOf(float(0.1, 5), n, n), listOf(float(-10, 10), n, n)], fn(t) => zip(cumsum(t[0]), t[1])))
+gen curveMode = elements(["linear", "smooth", "step"])
+fn ys(points) = map(points, fn(p) => p[1])
+
+# The loader is total on arbitrary text: it loads or reports a non-empty reason, never crashes or hangs.
+law params_load_total_on_text {
+    forall (t: text(0, 80))
+    => let r = rxParamsLoad(t) in r.ok or len(r.error) > 0
+}
+
+# Mutating a valid document (cut, duplicate or overwrite part of it) still either loads or says why not.
+law params_load_total_on_mutated_documents {
+    forall (doc: paramDoc, at: int(0, 400), len2: int(0, 30), c: text(0, 3), mode: int(0, 2))
+    => let s = jsonDump(doc) in
+       let i = at % (len(s) + 1) in
+       let m = if mode == 0 then substr(s, 0, i) else if mode == 1 then substr(s, 0, i) ++ c ++ substr(s, i + len2) else substr(s, 0, i) ++ substr(s, i, len2) ++ substr(s, i) in
+       let r = rxParamsLoad(m) in
+       r.ok or len(r.error) > 0
+}
+
+# A valid document loads, declares every parameter exactly once, keeps its limits, and gives every parameter a distinct slot < 256.
+law params_valid_document_loads {
+    forall (doc: paramDoc)
+    => let r = rxParamsLoad(jsonDump(doc)) in
+       r.ok and len(r.params) == 3 and allDistinct(map(r.params, fn(p) => p.slot)) and all(r.params, fn(p) => p.slot >= 0 and p.slot < 256)
+       and all(r.params, fn(p) => p.value >= p.min and p.value <= p.max and p.value ~= clampf(doc.params[p.name].default, p.min, p.max) within 1e-4)
+}
+
+# Explicit slots: either the document is rejected, or the slot assignment keeps parameters apart (two parameters never share a slot).
+law params_explicit_slots_never_collide {
+    forall (a: int(-3, 300), b: int(-3, 300))
+    => let doc = {params: {x: {slot: a}, y: {slot: b}}} in
+       let r = rxParamsLoad(jsonDump(doc)) in
+       not r.ok or (allDistinct(map(r.params, fn(p) => p.slot)) and all(r.params, fn(p) => p.slot >= 0 and p.slot < 256))
+}
+
+# Whatever is written, the value stays inside [min, max] (min / max of the definition), also while smoothing is in flight.
+law params_values_respect_limits {
+    forall (doc: paramDoc, ops: listOf([paramName, float(-100, 100), float(0, 1)], 1, 8))
+    => let vals = rxParamsDrive(jsonDump(doc), ops) in
+       all(zip(ops, vals), fn(t) => let d = doc.params[t[0][0]] in t[1][t[0][0]] >= d.min - 1e-4 and t[1][t[0][0]] <= d.max + 1e-4)
+}
+
+# Given long enough, a parameter reaches its (clamped) target.
+law params_converge_to_clamped_target {
+    forall (doc: paramDoc, name: paramName, v: float(-100, 100))
+    => let d = doc.params[name] in
+       let seconds = 12 * d.smooth + 0.2 in
+       rxParamsDrive(jsonDump(doc), [[name, v, seconds]])[0][name] ~= clampf(v, d.min, d.max) within 0.02
+}
+
+# Hostile numbers (NaN, infinity) written to a parameter never poison it.
+law params_nonfinite_writes_rejected {
+    forall (doc: paramDoc, name: paramName, v: nasty(float(-100, 100)), second: float(-50, 50))
+    => let d = doc.params[name] in
+       let out = rxParamsDrive(jsonDump(doc), [[name, v, 1.0], [name, second, 12 * d.smooth + 0.2]]) in
+       all(out, fn(o) => isFinite(o[name])) and out[1][name] ~= clampf(second, d.min, d.max) within 0.02
+}
+
+# A mapping evaluates its curve on the (smoothed) input: m0 = curve(p0).
+law params_mapping_follows_curve {
+    forall (v: float(-25, 25), pts: curvePoints, mode: curveMode)
+    => let doc = {params: {p0: {min: -30, max: 30}}, mappings: {m0: {input: "p0", curve: pts, mode: mode}}} in
+       rxParamsDrive(jsonDump(doc), [["p0", v, 0.5]])[0]["m0"] ~= rxCurveEval(pts, mode, v) within 1e-3
+}
+
+# A curve never leaves the range of its own samples, whatever the mode or x (also far outside the data).
+law curve_stays_within_samples {
+    forall (pts: curvePoints, mode: curveMode, x: oneof(float(-20, 40), float(-1e6, 1e6)))
+    => let y = rxCurveEval(pts, mode, x) in y >= min(ys(pts)) - 1e-4 and y <= max(ys(pts)) + 1e-4
+}
+
+# A curve passes through its points.
+law curve_hits_knots {
+    forall (pts: curvePoints, mode: curveMode, k: int(0, 5))
+    => let p = pts[k % len(pts)] in rxCurveEval(pts, mode, p[0]) ~= p[1] within 1e-3
+}
+
+# Flat outside: before the first point and after the last the curve holds the end value.
+law curve_clamps_outside {
+    forall (pts: curvePoints, mode: curveMode, e: float(0.01, 1000))
+    => rxCurveEval(pts, mode, pts[0][0] - e) ~= pts[0][1] within 1e-4 and rxCurveEval(pts, mode, last(pts)[0] + e) ~= last(pts)[1] within 1e-4
+}
+
+# Monotone data gives a monotone curve in every mode.
+law curve_monotone_for_monotone_data {
+    forall (xs: listOf(float(0.1, 5), 2, 6), ds: listOf(float(0, 5), 2, 6), mode: curveMode, a: float(-5, 40), b: float(-5, 40))
+    where len(xs) == len(ds) and a <= b
+    => let pts = zip(cumsum(xs), cumsum(ds)) in rxCurveEval(pts, mode, a) <= rxCurveEval(pts, mode, b) + 1e-4
+}

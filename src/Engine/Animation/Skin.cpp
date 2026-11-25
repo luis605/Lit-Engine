@@ -63,6 +63,17 @@ size_t normalizeSkinWeights(std::vector<SkinVertex>& skin, uint32_t jointCount) 
             }
             sum += weight;
         }
+        if (!std::isfinite(sum)) {
+            // Huge finite weights overflow the sum (inf): the inverse became 0 and left a vertex with all weights zero (found by bent,
+            // ext_phys_anim.bent skin_normalize_repairs_any_weights). Scale by the largest weight first.
+            const float largest = std::max(std::max(vertex.weights[0], vertex.weights[1]), std::max(vertex.weights[2], vertex.weights[3]));
+            sum = 0.0f;
+            for (float& weight : vertex.weights) {
+                weight /= largest;
+                sum += weight;
+            }
+            changed = true;
+        }
         if (sum <= kEpsilon) {
             vertex.weights = {1.0f, 0.0f, 0.0f, 0.0f};
             vertex.joints[0] = 0;

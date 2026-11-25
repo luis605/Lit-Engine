@@ -259,7 +259,7 @@ struct World::SceneLoader {
             world.m_db.transforms[handle.index].localMatrix = entity.local;
             world.syncPosition(handle.index);
             world.m_layer[handle.index] = entity.layer;
-            world.m_db.renderables[handle.index].flags |= entity.flags;
+            world.m_db.renderables[handle.index].flags |= entity.flags & ~RENDER_HIDDEN;  // visibility comes from the visible field only
             if (!entity.visible) {
                 world.m_visible[handle.index] = 0;
                 world.m_db.renderables[handle.index].flags |= RENDER_HIDDEN;

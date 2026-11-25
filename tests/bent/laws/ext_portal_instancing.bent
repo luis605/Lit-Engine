@@ -1,0 +1,256 @@
+# GPU instancing, CPU side (docs/Instancing.md): InstanceBatch edits, record packing, the pool sub-allocator, the spatial cell partition
+# and the CPU reference of the per-instance cull.
+include "../lib/ext_portal.bent"
+
+# ---------------------------------------------------------------- InstanceBatch edits against a model
+
+gen xiPos = vec3(float(-50, 50), float(-5, 20), float(-50, 50))
+gen xiOp = frequency([
+    [3, {op: "update", first: int(0, 10), n: int(1, 4)}],
+    [3, {op: "remove", index: int(0, 14)}],
+    [2, {op: "revive", index: int(0, 14)}],
+    [3, {op: "swapRemove", index: int(0, 14)}],
+    [2, {op: "find", key: int(100, 125)}],
+    [1, {op: "clearDirty"}]
+])
+
+# Model: instances identified by their seed (unique per written record), dead flag, optional keys.
+fn xiInit(n) = map(range(n), fn(i) => {pos: vec3(i, 0, 0), seed: 1 + i, flags: 0})
+fn xiMake(opIndex, j) = {pos: vec3(opIndex, j, 0), seed: 1000 * (opIndex + 1) + j, flags: if (opIndex + j) % 3 == 0 then 1 else 0}
+fn xiOpsConcrete(ops) = map(enumerate(ops), fn(p) => if p[1].op == "update" then with(p[1], data: map(range(p[1].n), fn(j) => xiMake(p[0], j))) else p[1])
+
+# Reference semantics (written from the documented behaviour, not from the code).
+fn xiApply(st, op) =
+    if op.op == "update" then
+        let end = op.first + len(op.data) in
+        let grown = if end > len(st.inst) then st.inst ++ map(range(end - len(st.inst)), fn(k) => {seed: 0, dead: false, pad: true}) else st.inst in
+        let keys = if len(st.keys) == 0 then [] else if end > len(st.keys) then st.keys ++ repeat(0, end - len(st.keys)) else st.keys in
+        let written = map(enumerate(grown), fn(p) => if p[0] >= op.first and p[0] < end then {seed: op.data[p[0] - op.first].seed, dead: op.data[p[0] - op.first].flags % 2 == 1} else p[1]) in
+        {inst: written, keys: keys, result: unit}
+    else if op.op == "remove" then
+        let ok = op.index < len(st.inst) and not st.inst[op.index].dead in
+        {inst: map(enumerate(st.inst), fn(p) => if ok and p[0] == op.index then with(p[1], dead: true) else p[1]), keys: st.keys, result: ok}
+    else if op.op == "revive" then
+        let ok = op.index < len(st.inst) and st.inst[op.index].dead in
+        {inst: map(enumerate(st.inst), fn(p) => if ok and p[0] == op.index then with(p[1], dead: false) else p[1]), keys: st.keys, result: ok}
+    else if op.op == "swapRemove" then
+        if op.index >= len(st.inst) then {inst: st.inst, keys: st.keys, result: unit}
+        else let lastIndex = len(st.inst) - 1 in
+             let inst = if op.index == lastIndex then take(st.inst, lastIndex) else take(map(enumerate(st.inst), fn(p) => if p[0] == op.index then st.inst[lastIndex] else p[1]), lastIndex) in
+             let keys = if len(st.keys) == 0 then [] else if op.index == lastIndex then take(st.keys, lastIndex) else take(map(enumerate(st.keys), fn(p) => if p[0] == op.index then st.keys[lastIndex] else p[1]), lastIndex) in
+             {inst: inst, keys: keys, result: if len(st.keys) > 0 and op.index != lastIndex then st.keys[lastIndex] else unit}
+    else if op.op == "find" then
+        let at = indexOf(st.keys, op.key) in {inst: st.inst, keys: st.keys, result: at}
+    else {inst: st.inst, keys: st.keys, result: unit}
+
+fn xiModelRun(init, keys, ops) =
+    fold(ops, {inst: map(init, fn(d) => {seed: d.seed, dead: false}), keys: keys, results: []}, fn(st, op) =>
+        let n = xiApply(st, op) in {inst: n.inst, keys: n.keys, results: st.results ++ [n.result]})
+
+# Every edit leaves the batch exactly as the model says: same instances in the same slots, dead flags, keys following their instances
+# through swap removes, and the per-operation results (false for a no-op remove / revive, the moved key for swapRemove, the index of a key).
+law instance_batch_matches_the_reference_model {
+    forall (n: int(0, 10), withKeys: bool(), raw: listOf(xiOp, 0, 14))
+    => let ops = xiOpsConcrete(raw) in
+       let init = xiInit(n) in
+       let keys = if withKeys then map(range(n), fn(i) => 100 + i) else [] in
+       let sim = xiBatch(init, keys, ops) in
+       let model = xiModelRun(init, keys, ops) in
+       map(sim.batch.instances, fn(i) => i.seed) == map(model.inst, fn(i) => i.seed)
+       and map(sim.batch.instances, fn(i) => i.flags % 2 == 1) == map(model.inst, fn(i) => i.dead)
+       and sim.batch.keys == model.keys
+       and sim.batch.alive == count(model.inst, fn(i) => not i.dead)
+       and (forall k in range(len(ops)): ops[k].op == "update" or sim.steps[k].result == model.results[k] or (ops[k].op == "swapRemove" and sim.steps[k].result == model.results[k]))
+}
+
+# Versions: every successful edit bumps `version`, a failed remove / revive does not, a layout change (growth or swap remove) bumps
+# `layoutVersion` and nothing else does; the dirty range of an update covers what it wrote.
+law instance_batch_versions_and_dirty_ranges {
+    forall (n: int(1, 10), index: int(0, 14), first: int(0, 12), count: int(1, 4))
+    => let init = xiInit(n) in
+       let data = map(range(count), fn(j) => {pos: vec3(0, 0, 0), seed: 7 + j, flags: 0}) in
+       let r = xiBatch(init, [], [{op: "clearDirty"}, {op: "update", first: first, data: data}, {op: "clearDirty"}, {op: "remove", index: index}, {op: "remove", index: index}, {op: "revive", index: index}, {op: "swapRemove", index: index}]) in
+       let s = r.steps in
+       let total = max(n, first + count) in
+       s[1].versionBumped and s[1].layoutBumped == (first + count > n) and s[1].dirtyFirst <= first and s[1].dirtyEnd >= first + count
+       and not s[2].versionBumped and not s[2].layoutBumped
+       and s[3].versionBumped == (index < total) and s[3].result == (index < total) and not s[3].layoutBumped
+       and s[4].result == false and not s[4].versionBumped
+       and s[5].result == (index < total) and s[5].versionBumped == (index < total)
+       and s[6].layoutBumped == (index < total) and s[6].count == total - (if index < total then 1 else 0)
+}
+
+# ---------------------------------------------------------------- packing
+
+gen xiInstance = {pos: xiPos, scale: float(0.1, 4), rot: unitQuat(), color: int(0, 4294967295), seed: int(0, 16777215), flags: int(0, 255)}
+law instance_pack_roundtrip {
+    forall (d: xiInstance)
+    => let r = xiPack(d) in r.posErr == 0 and r.scaleErr == 0 and r.rotDot > 0.99999 and r.colorSame and r.seedSame and r.flagsSame
+}
+
+# q and -q are the same rotation and pack identically.
+law instance_pack_rotation_sign_is_canonical {
+    forall (d: xiInstance)
+    => xiPack(d).out.rot ~= xiPack(with(d, rot: quat(0 - d.rot.w, 0 - d.rot.x, 0 - d.rot.y, 0 - d.rot.z))).out.rot within 1e-6
+}
+
+# The dither hash is a number in [0, 1), deterministic, and spreads a run of consecutive seeds.
+law instance_hash_is_in_unit_interval_and_spread {
+    forall (start: int(0, 16000000))
+    => let hs = map(range(256), fn(i) => xiHash01(start + i)) in
+       (forall h in hs: h >= 0 and h < 1) and abs(sum(hs) / 256 - 0.5) < 0.12 and len(dedup(hs)) > 240 and xiHash01(start) == xiHash01(start)
+}
+
+# A bigger projected diameter never gets a coarser LOD.
+law instance_lod_is_monotone_in_diameter {
+    forall (a: float(0, 200), b: float(0, 200))
+    => let la = xiLod(a) in let lb = xiLod(b) in la >= 0 and la <= 6 and (a <= b ==> lb <= la)
+}
+
+# ---------------------------------------------------------------- pool sub-allocator
+
+gen xiPoolOp = frequency([[5, {op: "alloc", cells: int(1, 6)}], [4, {op: "free", slot: int(0, 20)}], [1, {op: "alloc", cells: int(10, 30)}]])
+
+# Live ranges of the model after each step, rebuilt from the allocator's answers; checks the allocator's contract at every step: ranges never
+# overlap, stay below the high water, `used` is their total, a request takes the best fit among the free gaps (the smallest gap that fits,
+# at its start) and otherwise grows the pool at the high water, and failing (limit) changes nothing.
+fn xiGaps(live, high) =
+    let sorted = sortBy(live, fn(r) => r.first) in
+    let edges = fold(sorted, {at: 0, gaps: []}, fn(st, r) => {at: max(st.at, r.first + r.cells), gaps: if r.first > st.at then st.gaps ++ [{first: st.at, size: r.first - st.at}] else st.gaps}) in
+    if high > edges.at then edges.gaps ++ [{first: edges.at, size: high - edges.at}] else edges.gaps
+
+fn xiPoolCheck(limit, ops, r) =
+    let init = {ok: true, live: [], high: 0, nextId: 0, k: 0} in
+    let end = fold(ops, init, fn(st, op) =>
+        let step = r.steps[st.k] in
+        let ok = st.ok in
+        if op.op == "alloc" then
+            let gaps = filter(xiGaps(st.live, st.high), fn(g) => g.size >= op.cells) in
+            let best = if len(gaps) == 0 then unit else head(sortBy(gaps, fn(g) => [g.size, g.first])) in
+            let expected = if best != unit then best.first else if st.high + op.cells <= limit then st.high else -1 in
+            let got = if step.result == unit then -1 else step.result in
+            let live2 = if got >= 0 then st.live ++ [{id: st.nextId, first: got, cells: op.cells}] else st.live in
+            let overlap = exists a in live2: exists b in live2: a.id < b.id and a.first < b.first + b.cells and b.first < a.first + a.cells in
+            {ok: ok and got == expected and not overlap, live: live2, high: max(st.high, if got >= 0 then got + op.cells else 0), nextId: st.nextId + (if got >= 0 then 1 else 0), k: st.k + 1}
+        else if op.op == "free" then
+            let freed = if step.result == unit then -1 else step.result in
+            let live2 = filter(st.live, fn(a) => a.id != freed) in
+            let maxEnd = if len(live2) == 0 then 0 else max(map(live2, fn(a) => a.first + a.cells)) in
+            {ok: ok and (len(st.live) == 0 or freed >= 0), live: live2, high: maxEnd, nextId: st.nextId, k: st.k + 1}
+        else st) in
+    end.ok and r.steps[len(ops) - 1].used == sum(map(end.live, fn(a) => a.cells)) and r.steps[len(ops) - 1].high >= (if len(end.live) == 0 then 0 else max(map(end.live, fn(a) => a.first + a.cells)))
+
+law instance_pool_is_best_fit_and_never_overlaps {
+    forall (ops: listOf(xiPoolOp, 1, 24), limit: int(10, 80))
+    => xiPoolCheck(limit, ops, xiPool(limit, ops))
+}
+
+# Freeing the last range (and everything below that is free) lowers the high water again: a pool that is emptied is empty.
+law instance_pool_empties_completely {
+    forall (sizes: listOf(int(1, 6), 1, 10), order: listOf(int(0, 20), 10, 10))
+    => let allocs = map(sizes, fn(s) => {op: "alloc", cells: s}) in
+       let frees = map(range(len(sizes)), fn(i) => {op: "free", slot: order[i % len(order)]}) in
+       let r = xiPool(1000, allocs ++ frees) in
+       last(r.steps).used == 0 and last(r.steps).high == 0
+}
+
+# Free then reuse: the same size right after a free comes back at the same place (no leak of the gap).
+law instance_pool_reuses_freed_space {
+    forall (sizes: listOf(int(1, 6), 2, 8), pick: int(0, 20))
+    => let n = len(sizes) in
+       let allocs = map(sizes, fn(s) => {op: "alloc", cells: s}) in
+       let victim = pick % n in
+       let r = xiPool(1000, allocs ++ [{op: "free", slot: victim}, {op: "alloc", cells: sizes[victim]}]) in
+       r.steps[n + 1].result == r.steps[victim].result
+}
+
+# clear() forgets everything.
+law instance_pool_clear_resets {
+    forall (ops: listOf(xiPoolOp, 0, 10))
+    => let r = xiPool(100, ops ++ [{op: "clear"}]) in last(r.steps).used == 0 and last(r.steps).high == 0 and last(r.steps).ranges == 0
+}
+
+# ---------------------------------------------------------------- spatial cells
+
+gen xiCluster = {pos: vec3(float(0, 10), float(0, 10), float(0, 10)), scale: float(0.5, 2), rot: unitQuat(), flags: frequency([[6, just(0)], [1, just(1)]])}
+gen xiScattered = {pos: xiPos, scale: float(0.2, 3), rot: unitQuat(), flags: frequency([[6, just(0)], [1, just(1)]])}
+
+# Spatial cells: the order is a permutation, cells are consecutive runs of 64, each cell's sphere contains the mesh sphere of every live
+# instance in it, and the counts agree.
+law instance_cells_contain_their_instances {
+    forall (instances: listOf(xiScattered, 0, 200), c: vec3(float(-1, 1), float(-1, 1), float(-1, 1)), radius: float(0.1, 3))
+    => let r = xiCellBounds(instances, c, radius) in
+       let n = len(instances) in
+       sort(r.order) == range(n) and len(r.cells) == (n + 63) / 64
+       and (forall cell in r.cells: cell.violation <= 1e-3 and cell.live == cell.expectedLive and len(cell.members) <= 64 and cell.count == len(cell.members))
+       and sum(map(r.cells, fn(cell) => len(cell.members))) == n
+}
+
+# Morton order keeps far clusters apart: two clusters ten times further apart than wide never share a cell, except in the single cell
+# that straddles the boundary index.
+law instance_spatial_order_separates_clusters {
+    forall (a: listOf(xiCluster, 1, 150), b: listOf(xiCluster, 1, 150))
+    => let moved = map(b, fn(i) => with(i, pos: i.pos + vec3(120, 120, 120))) in
+       let r = xiCellBounds(a ++ moved, vec3(0, 0, 0), 1) in
+       let isA = fn(index) => index < len(a) in
+       let mixed = filter(r.cells, fn(cell) => any(cell.members, isA) and any(cell.members, fn(m) => not isA(m))) in
+       len(mixed) <= (if len(a) % 64 == 0 then 0 else 1)
+}
+
+# ---------------------------------------------------------------- CPU reference cull
+
+gen xiCullInstance = {pos: vec3(float(-60, 60), float(-20, 40), float(-120, 30)), scale: float(0.3, 3), rot: unitQuat(), flags: frequency([[8, just(0)], [1, just(1)]]), seed: int(0, 16777215)}
+gen xiCullBatch = {instances: listOf(xiCullInstance, 0, 150), meshCenter: vec3(float(-1, 1), float(-1, 1), float(-1, 1)), meshRadius: float(0.2, 3),
+                   drawDistance: frequency([[1, just(0)], [3, float(10, 150)]]), fadeStart: frequency([[2, just(0)], [1, float(5, 120)]]), lodBias: float(0.5, 2)}
+gen xiView = {pos: vec3(float(-10, 10), float(0, 10), float(5, 40)), forward: vec3(float(-0.3, 0.3), float(-0.3, 0.3), -1), fov: float(40, 100), aspect: float(1, 2), distanceScale: float(0.5, 2)}
+
+# The two-level cull (cells first, then instances) accepts exactly what the instance-by-instance cull accepts: culling by cell is only an
+# optimisation, never a different image.
+law instance_cell_cull_equals_flat_cull {
+    forall (b: xiCullBatch, v: xiView)
+    => xiCull(b, with(v, cellCull: true)).visible == xiCull(b, with(v, cellCull: false)).visible
+}
+
+# Visible counts split exactly across the LOD slots, dead instances are never drawn, and nothing beyond the draw distance (grown by its own
+# radius) is drawn.
+law instance_cull_accounting_and_distance {
+    forall (b: xiCullBatch, v: xiView)
+    => let r = xiCull(b, v) in
+       let live = filter(b.instances, fn(i) => i.flags % 2 == 0) in
+       let reach = fn(i) => length(i.pos + (i.rot * (b.meshCenter * i.scale)) - v.pos) - b.meshRadius * i.scale in
+       r.lodSum == r.visible and r.visible <= len(live)
+       and (b.drawDistance <= 0 or r.visible <= count(live, fn(i) => reach(i) <= b.drawDistance * v.distanceScale + 1e-3))
+}
+
+# Pushing the distance scale up never hides instances.
+law instance_cull_monotone_in_distance_scale {
+    forall (b: xiCullBatch, v: xiView, more: float(0, 3))
+    where b.drawDistance > 0 and b.fadeStart == 0
+    => xiCull(b, v).visible <= xiCull(b, with(v, distanceScale: v.distanceScale + more)).visible
+}
+
+# Instances behind the camera are never drawn.
+law instance_cull_never_draws_behind_the_camera {
+    forall (b: xiCullBatch, v: xiView)
+    => let r = xiCull(with(b, drawDistance: 0, fadeStart: 0), v) in
+       let fwd = normalize(v.forward) in
+       let infront = filter(b.instances, fn(i) => i.flags % 2 == 0 and dot(i.pos + (i.rot * (b.meshCenter * i.scale)) - v.pos, fwd) + b.meshRadius * i.scale >= 0 - 1e-3) in
+       r.visible <= len(infront)
+}
+
+# One instance straight ahead: moving the camera back never makes its LOD finer, a bigger lodBias never makes it coarser; forcing a LOD puts
+# every visible instance in that slot.
+fn xiLodOf(r) = head(filter(range(7), fn(k) => r.perLod[k] > 0))
+law instance_cull_lod_follows_distance {
+    forall (d1: float(5, 60), extra: float(0, 200), size: float(0.5, 4), bias: float(1, 2))
+    => let one = {instances: [{pos: vec3(0, 0, 0 - 1), scale: size, flags: 0}], meshCenter: vec3(0, 0, 0), meshRadius: 1, lodBias: 1} in
+       let at = fn(d, lodBias) => xiCull(with(one, instances: [{pos: vec3(0, 0, 0 - d), scale: size, flags: 0}]), {pos: vec3(0, 0, 0), forward: vec3(0, 0, -1), lodBias: lodBias, far: 1000}) in
+       let near = at(d1, 1) in
+       let far = at(d1 + extra, 1) in
+       near.visible == 1 and far.visible == 1 and xiLodOf(far) >= xiLodOf(near) and xiLodOf(at(d1, bias)) <= xiLodOf(near)
+}
+
+law instance_cull_forced_lod_buckets_everything {
+    forall (b: xiCullBatch, v: xiView, lod: int(0, 6))
+    => let r = xiCull(b, with(v, forcedLod: lod)) in r.perLod[lod] == r.visible
+}
