@@ -1,3 +1,4 @@
+#include <format>
 #include <GLFW/glfw3.h>
 #include <fstream>
 #include <functional>
@@ -382,6 +383,15 @@ void Engine::tick(float deltaTime) {
             const StreamingStats st = m_streaming->stats();
             extras = {{"frame_p99_ms", st.frameP99}, {"stream_update_ms", st.updateMillis}, {"stream_pending", static_cast<double>(st.pendingCells + st.pendingAssets)}, {"stream_resident", static_cast<double>(st.residentCells)}, {"stream_hitches", static_cast<double>(st.hitches)}, {"stream_mb", static_cast<double>(st.bytesCommitted) / 1048576.0}};
         }
+        double portalMs = 0.0;
+        bool hasPortalViews = false;
+        for (const PortalViewStats& view : m_renderer.portalStats()) {
+            if (view.depth == 0) continue;
+            hasPortalViews = true;
+            portalMs += view.gpuMilliseconds;
+            extras.push_back({std::format("portal:{} depth {}", view.label, view.depth), view.gpuMilliseconds});
+        }
+        if (hasPortalViews) extras.push_back({"portal_gpu_ms", portalMs});
         m_perf.record(m_world.time().frame, frameMs, m_lastSimMs, m_renderer.gpuTotalMilliseconds(), passes, extras);
     }
     m_lastTickStart = tickStart;

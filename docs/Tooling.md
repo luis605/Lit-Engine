@@ -96,7 +96,9 @@ Entities are ordered by slot index. `dumpWorld(world, DumpOptions)` dumps only t
 
 `engine.enablePerfLog("perf.csv")` records one row per tick; `disablePerfLog()` (or engine shutdown) writes the file. Columns: `frame, cpu_ms` (wall time between ticks), `sim_ms` (tick duration), `gpu_ms` (total), then one `gpu:<pass>` column per GPU pass (zero when a pass did not run; all zero headless).
 
-`scripts/perf_check.py perf.csv thresholds.txt [--skip n] [--baseline old.csv --tolerance pct]` exits 1 when any limit is exceeded. Threshold lines are `<column> <min|mean|median|p95|p99|max> <limit>`; `#` starts a comment. With `--baseline`, median and p95 of every shared column may not exceed the baseline by more than the tolerance (default 10 percent). Use `--skip` to drop warmup frames.
+`scripts/perf_check.py perf.csv thresholds.txt [--skip n] [--baseline old.csv --tolerance pct]` exits 1 when any limit is exceeded. Threshold lines are `<column> <min|mean|median|p95|p99|max> <limit>`; `#` starts a comment. With `--baseline`, median and p95 of every shared column may not exceed the baseline by more than the tolerance (default 10 percent). Use `--skip` to drop warmup frames. With portals, `portal:<view>` columns and their sum `portal_gpu_ms` hold the portal view GPU time, which `gpu_ms` does not include.
+
+`scripts/lag_check.sh [outdir]` renders each scene for `FRAMES` frames (default 460) with `LitShot --perf` and prints `scripts/lag_report.py`: frame time p50, p99 and max, the number of hitches (frames over both 1.5 times the median and the median plus 4 ms) and, for the worst ones, the passes that grew.
 
 ## Parameter bus
 

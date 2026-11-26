@@ -3,7 +3,7 @@ set -u
 root="$(cd "$(dirname "$0")/.." && pwd)"
 build="${BUILD_DIR:-$root/build-release}"
 out="${1:-$root/build-release/render_check}"
-frames="${FRAMES:-40}"
+frames="${FRAMES:-340}"
 scenes="${SCENES:-showcase vista crowd}"
 mkdir -p "$out"
 litshot="${LITSHOT:-$build/src/Shot/LitShot}"

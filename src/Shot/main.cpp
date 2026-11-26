@@ -1,7 +1,10 @@
 #include <GLFW/glfw3.h>
+#include <algorithm>
 #include <cstdlib>
 #include <fstream>
 #include <string>
+#include <utility>
+#include <vector>
 #include "Engine/Log/Log.hpp"
 #include "ShotOptions.hpp"
 
@@ -48,9 +51,23 @@ void writeClusterStats(Engine& engine, const std::string& path) {
     }
 }
 
-void writeTimings(Engine& engine, const std::string& path) {
+using TimingSamples = std::vector<std::pair<std::string, std::vector<double>>>;
+
+void sampleTimings(Engine& engine, TimingSamples& samples) {
+    const auto timings = engine.gpuTimings();
+    for (size_t index = 0; index < timings.size(); ++index) {
+        if (index == samples.size()) samples.push_back({std::string(timings[index].name), {}});
+        samples[index].second.push_back(timings[index].milliseconds);
+    }
+}
+
+void writeTimings(TimingSamples& samples, const std::string& path) {
     std::ofstream out(path);
-    for (const auto& timing : engine.gpuTimings()) out << timing.name << ' ' << timing.milliseconds << '\n';
+    for (auto& [name, values] : samples) {
+        const auto middle = values.begin() + static_cast<std::ptrdiff_t>(values.size() / 2);
+        std::nth_element(values.begin(), middle, values.end());
+        out << name << ' ' << *middle << '\n';
+    }
 }
 
 }
@@ -72,7 +89,7 @@ int main(int argc, char** argv) {
     }
     Engine engine;
     if (!engine.open({"LitShot", options.width, options.height})) return 1;
-    engine.setFullProfiling(!options.timingsFile.empty());
+    engine.setFullProfiling(!options.timingsFile.empty() || !options.perfFile.empty());
     engine.setProfilingHud(false);
     buildScene(engine, options);
     if (options.hasCamera) {
@@ -80,14 +97,18 @@ int main(int argc, char** argv) {
         engine.world().camera().setOrientation(options.cameraValues[3], options.cameraValues[4], options.cameraValues[5]);
     }
     applySettings(engine, options);
+    if (!options.perfFile.empty()) engine.enablePerfLog(options.perfFile);
 
     int frame = 0;
+    TimingSamples timingSamples;
     engine.run([&](float) {
         ++frame;
+        if (!options.perfFile.empty() && frame == options.frames) engine.disablePerfLog();
+        if (!options.timingsFile.empty() && frame > options.frames / 2 && frame <= options.frames) sampleTimings(engine, timingSamples);
         if (frame == options.bakeFrame) engine.bakeReflectionProbes();
         if (frame == options.frames) engine.requestScreenshot(options.output);
         if (frame == options.frames + 1) {
-            if (!options.timingsFile.empty()) writeTimings(engine, options.timingsFile);
+            if (!options.timingsFile.empty()) writeTimings(timingSamples, options.timingsFile);
             if (!options.statsFile.empty()) writeClusterStats(engine, options.statsFile);
             glfwSetWindowShouldClose(engine.window(), GLFW_TRUE);
         }

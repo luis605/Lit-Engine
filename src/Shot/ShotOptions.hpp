@@ -15,6 +15,7 @@ struct ShotOptions {
     std::string output = "shot.png";
     std::string timingsFile;
     std::string statsFile;
+    std::string perfFile;
     int denseGrid = 24;
     std::vector<std::pair<std::string, std::string>> settings;
     float lightIntensity = kDefaultLightIntensity;

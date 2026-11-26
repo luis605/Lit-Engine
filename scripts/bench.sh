@@ -9,7 +9,7 @@ if [[ "${BENCH_SKIP_BUILD:-0}" != 1 ]]; then
     cmake --build ${BENCH_BUILD_DIR:-build-release} --target Editor -j"$(nproc)" 2>&1 | grep -E "error|FAILED" || true
 fi
 
-frames="${BENCH_FRAMES:-300}"
+frames="${BENCH_FRAMES:-600}"
 views="${BENCH_VIEWS:-top inside edge}"
 baseline="$root/scripts/bench_baseline.txt"
 work="$(mktemp -d)"
