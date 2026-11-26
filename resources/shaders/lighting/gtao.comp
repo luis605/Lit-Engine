@@ -86,10 +86,14 @@ vec3 sliceBentDirection(uint occluded, float cosN, float sinN, vec3 V, vec3 orth
     return bent;
 }
 
-float toSector(float angle, float n) { return 0.5 + 0.5 * sin(clamp(angle - n, -HALF_PI, HALF_PI)); }
+float toSector(float cosAngle, float side, float cosN, float sinN) {
+    float sinAngle = side * sqrt(max(1.0 - cosAngle * cosAngle, 0.0));
+    if (cosAngle * cosN + sinAngle * sinN < 0.0) return side > 0.0 ? 1.0 : 0.0;
+    return 0.5 + 0.5 * (sinAngle * cosN - cosAngle * sinN);
+}
 
 void main() {
-    ivec2 pixel = ivec2(gl_GlobalInvocationID.xy);
+    ivec2 pixel = ivec2(gl_GlobalInvocationID.xy) + viewRect.xy / 2;
     ivec2 size = imageSize(u_output);
     if (any(greaterThanEqual(pixel, size))) return;
     ivec2 fullPixel = min(pixel * 2, ivec2(screenParams.xy) - 1);
@@ -110,11 +114,11 @@ void main() {
     float radiusPx = radius * projection[1][1] * 0.5 * screenParams.y / max(-P.z, 1e-3);
     int slices = int(aoParams.z + 0.5);
 #ifdef GI_PASS
-    slices = max(slices * 2, 6);
+    slices = max(slices, 3);
 #endif
     int steps = int(aoParams.w + 0.5);
 #ifdef GI_PASS
-    steps = max(steps * 2, 12);
+    steps = max(steps + steps / 2, 12);
 #endif
     if (radiusPx < 1.0) {
         imageStore(u_output, pixel, vec4(0.0, 0.0, 0.0, 1.0));
@@ -151,7 +155,9 @@ void main() {
         vec3 projN = N - axis * dot(N, axis);
         float projLength = length(projN);
         float cosN = saturate(dot(projN / max(projLength, 1e-4), V));
-        float n = sign(dot(orthoDir, projN)) * acos(cosN);
+        float sideN = sign(dot(orthoDir, projN));
+        float sinN = sideN * sqrt(max(1.0 - cosN * cosN, 0.0));
+        float sectorCosN = sideN == 0.0 ? 1.0 : cosN;
         uint occluded = 0u;
         for (int side = 0; side < 2; ++side) {
             float sgn = side == 0 ? 1.0 : -1.0;
@@ -166,11 +172,11 @@ void main() {
                 float reach = 1.0 - smoothstep(radius, radius * 2.0, dist);
                 if (reach <= 0.0) continue;
                 vec3 back = delta - V * thickness;
-                float front = acos(clamp(dot(delta / max(dist, 1e-4), V), -1.0, 1.0));
-                float behind = acos(clamp(dot(normalize(back), V), -1.0, 1.0));
+                float front = clamp(dot(delta / max(dist, 1e-4), V), -1.0, 1.0);
+                float behind = clamp(dot(normalize(back), V), -1.0, 1.0);
                 float open = sgn > 0.0 ? 1.0 : 0.0;
-                float a = mix(open, toSector(sgn * front, n), reach);
-                float b = mix(open, toSector(sgn * behind, n), reach);
+                float a = mix(open, toSector(front, sgn, sectorCosN, sinN), reach);
+                float b = mix(open, toSector(behind, sgn, sectorCosN, sinN), reach);
                 uint bits = sectorMask(min(a, b), max(a, b));
                 uint fresh = bits & ~occluded;
                 occluded |= bits;
@@ -184,7 +190,7 @@ void main() {
             }
         }
         visibility += 1.0 - float(bitCount(occluded)) / float(SECTORS);
-        if (bentOn) bentView += sliceBentDirection(occluded, cosN, sign(dot(orthoDir, projN)) * sqrt(max(1.0 - cosN * cosN, 0.0)), V, normalize(orthoDir));
+        if (bentOn) bentView += sliceBentDirection(occluded, cosN, sinN, V, normalize(orthoDir));
     }
     visibility = saturate(visibility / float(slices));
 #ifdef GI_PASS

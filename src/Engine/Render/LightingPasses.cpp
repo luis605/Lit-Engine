@@ -165,11 +165,16 @@ void createParityBindings(Lighting::Data& state, Diligent::IBuffer* scene, Dilig
                                                                         {"ExposureBuffer", state.exposure}});
 }
 
+uint32_t rectGroups(int rectSize, uint32_t viewSize, uint32_t divisor) {
+    const uint32_t size = rectSize > 0 ? (static_cast<uint32_t>(rectSize) + divisor - 1) / divisor : viewSize;
+    return groupCount(std::min(size, viewSize));
+}
+
 void dispatchAmbientOcclusion(Lighting::Data& state) {
     const auto& desc = state.aoRaw->GetDesc();
-    const uint32_t groupsX = groupCount(desc.Width);
-    const uint32_t groupsY = groupCount(desc.Height);
-    litgpu::dispatch(state.context, state.gtaoDepthPso, state.gtaoDepthSrb, groupsX, groupsY);
+    litgpu::dispatch(state.context, state.gtaoDepthPso, state.gtaoDepthSrb, groupCount(desc.Width), groupCount(desc.Height));
+    const uint32_t groupsX = rectGroups(state.viewRect.z, desc.Width, 2);
+    const uint32_t groupsY = rectGroups(state.viewRect.w, desc.Height, 2);
     litgpu::dispatch(state.context, state.gtaoPso, state.gtaoSrb, groupsX, groupsY);
     litgpu::dispatch(state.context, state.gtaoBlurPso, state.gtaoBlurSrb, groupsX, groupsY);
     litgpu::dispatch(state.context, state.gtaoBlurVerticalPso, state.gtaoBlurVerticalSrb, groupsX, groupsY);
@@ -179,8 +184,8 @@ bool screenGiActive(const Lighting::Data& state) { return state.settings.ssao &&
 
 void dispatchScreenGi(Lighting::Data& state, uint32_t groupsX, uint32_t groupsY) {
     const auto& desc = state.aoRaw->GetDesc();
-    const uint32_t halfX = groupCount(desc.Width);
-    const uint32_t halfY = groupCount(desc.Height);
+    const uint32_t halfX = rectGroups(state.viewRect.z, desc.Width, 2);
+    const uint32_t halfY = rectGroups(state.viewRect.w, desc.Height, 2);
     litgpu::dispatch(state.context, state.giPso, state.giSrb, halfX, halfY);
     litgpu::dispatch(state.context, state.giBlurPso, state.giBlurSrb, halfX, halfY);
     litgpu::dispatch(state.context, state.giBlurVerticalPso, state.giBlurVerticalSrb, halfX, halfY);
@@ -197,7 +202,7 @@ void dispatchScreenSpaceReflections(Lighting::Data& state) {
         litgpu::dispatch(state.context, state.ssrHizPso, state.ssrHizSrbs[mip - 1], groupCount(mipWidth), groupCount(mipHeight));
     }
     const auto& ssrDesc = state.ssr->GetDesc();
-    litgpu::dispatch(state.context, state.ssrPso, state.ssrSrb[state.hdrIndex], groupCount(ssrDesc.Width), groupCount(ssrDesc.Height));
+    litgpu::dispatch(state.context, state.ssrPso, state.ssrSrb[state.hdrIndex], rectGroups(state.viewRect.z, ssrDesc.Width, 2), rectGroups(state.viewRect.w, ssrDesc.Height, 2));
 }
 
 }
@@ -242,8 +247,8 @@ void Lighting::shade(Diligent::ITexture* depth, Diligent::IBuffer* sceneUniforms
         createScreenSpaceBindings(state, sceneUniforms, depthView);
         for (int parity = 0; parity < 2; ++parity) createParityBindings(state, sceneUniforms, depthView, parity);
     }
-    const uint32_t groupsX = groupCount(static_cast<uint32_t>(state.width));
-    const uint32_t groupsY = groupCount(static_cast<uint32_t>(state.height));
+    const uint32_t groupsX = rectGroups(state.viewRect.z, static_cast<uint32_t>(state.width), 1);
+    const uint32_t groupsY = rectGroups(state.viewRect.w, static_cast<uint32_t>(state.height), 1);
     const bool runAll = stage < 0;
     const bool reflectionsOn = reflectionPlan(state.settings).enabled();
     if (state.settings.ssao && (runAll || stage == 0)) dispatchAmbientOcclusion(state);
@@ -262,6 +267,8 @@ void Lighting::shade(Diligent::ITexture* depth, Diligent::IBuffer* sceneUniforms
         }
     }
 }
+
+void Lighting::setViewRect(const glm::ivec4& rect) { m_data->viewRect = rect; }
 
 void Lighting::captureSceneColor() {
     Data& state = *m_data;

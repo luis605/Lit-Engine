@@ -55,6 +55,7 @@ layout(std140) uniform SceneData {
     vec4 originParams;
     vec4 cellParams;
     vec4 cellTint;
+    ivec4 viewRect;
 };
 
 float projectedDiameterPx(float radius, float dist) {

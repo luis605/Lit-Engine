@@ -101,7 +101,7 @@ vec4 upsampleSsr(ivec2 pixel, float depth) {
 }
 
 void main() {
-    ivec2 pixel = ivec2(gl_GlobalInvocationID.xy);
+    ivec2 pixel = ivec2(gl_GlobalInvocationID.xy) + viewRect.xy;
     if (any(greaterThanEqual(pixel, ivec2(screenParams.xy)))) return;
     int debugMode = debugViewMode();
     if (debugMode != 0 && debugMode != DEBUG_REFLECTIONS) return;

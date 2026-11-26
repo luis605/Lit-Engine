@@ -23,6 +23,11 @@ import Engine.Render.graph;
 
 namespace {
 
+constexpr float kPortalRectMinW = 0.01f;
+constexpr int kPortalRectMargin = 48;
+constexpr int kPortalRectAlign = 16;
+
+
 constexpr int kShadeStageCount = 3;
 
 void CopyWholeTexture(Diligent::IDeviceContext* context, Diligent::ITexture* source, Diligent::ITexture* destination) {
@@ -250,6 +255,55 @@ void Renderer::renderPortalViews(const SceneUniforms& base, SceneUniforms& resto
     m_lighting.cullLights(gpu.pSceneUBO[m_currentFrame]);
 }
 
+glm::ivec4 Renderer::portalViewRect(int index) const {
+    glm::vec2 low(0.0f);
+    glm::vec2 high(static_cast<float>(m_renderWidth), static_cast<float>(m_renderHeight));
+    const glm::vec2 size = high;
+    for (int child = index; child > 0;) {
+        int parent = -1;
+        const PortalSurface* entry = nullptr;
+        for (int node = 0; node < static_cast<int>(m_portalFrame.nodes.size()) && !entry; ++node) {
+            for (const PortalSurface& surface : m_portalFrame.nodes[static_cast<size_t>(node)].surfaces) {
+                if (surface.child != child) continue;
+                parent = node;
+                entry = &surface;
+                break;
+            }
+        }
+        if (!entry) break;
+        const PortalViewNode& owner = m_portalFrame.nodes[static_cast<size_t>(parent)];
+        const glm::mat4 viewProjection = owner.projection * owner.view;
+        std::array<glm::vec4, 4> corners;
+        for (int corner = 0; corner < 4; ++corner) {
+            const float u = corner == 1 || corner == 2 ? 1.0f : -1.0f;
+            const float v = corner >= 2 ? 1.0f : -1.0f;
+            corners[static_cast<size_t>(corner)] = viewProjection * glm::vec4(entry->center + entry->axisU * u + entry->axisV * v, 1.0f);
+        }
+        glm::vec2 quadLow = size;
+        glm::vec2 quadHigh(0.0f);
+        auto include = [&](const glm::vec4& clip) {
+            const glm::vec2 pixel((clip.x / clip.w * 0.5f + 0.5f) * size.x, (0.5f - clip.y / clip.w * 0.5f) * size.y);
+            quadLow = glm::min(quadLow, pixel);
+            quadHigh = glm::max(quadHigh, pixel);
+        };
+        for (size_t corner = 0; corner < corners.size(); ++corner) {
+            const glm::vec4& from = corners[corner];
+            const glm::vec4& to = corners[(corner + 1) % corners.size()];
+            if (from.w >= kPortalRectMinW) include(from);
+            if ((from.w >= kPortalRectMinW) != (to.w >= kPortalRectMinW)) include(glm::mix(from, to, (kPortalRectMinW - from.w) / (to.w - from.w)));
+        }
+        low = glm::max(low, quadLow);
+        high = glm::min(high, quadHigh);
+        child = parent;
+    }
+    if (index <= 0) return glm::ivec4(0);
+    const glm::ivec2 limit(static_cast<int>(m_renderWidth), static_cast<int>(m_renderHeight));
+    glm::ivec2 begin = glm::clamp(glm::ivec2(glm::floor(low)) - kPortalRectMargin, glm::ivec2(0), limit - 1);
+    begin = begin / kPortalRectAlign * kPortalRectAlign;
+    const glm::ivec2 end = glm::clamp(glm::ivec2(glm::ceil(high)) + kPortalRectMargin, begin + 1, limit);
+    return glm::ivec4(begin, end - begin);
+}
+
 void Renderer::renderPortalGeometry(int index, uint32_t objectCount, PortalHistory& history) {
     auto& gpu = *m_diligent;
     HiZSet& previousHiZ = history.hiz[history.previous];
@@ -281,12 +335,14 @@ void Renderer::shadePortalView(int index) {
     Diligent::ITexture* const gbuffer[3] = {m_lighting.gbuffer(0), m_lighting.gbuffer(1), m_lighting.gbuffer(2)};
     CapturePortalGBuffer(gpu, index, gbuffer);
 
+    m_lighting.setViewRect(portalViewRect(index));
     for (int stage = 0; stage < kShadeStageCount - 1; ++stage) m_lighting.shade(gpu.pSceneDepth, gpu.pSceneUBO[m_currentFrame], stage);
     gpu.portalCompositeWritesDepth = false;
     compositePortals(index);
     gpu.portalCompositeWritesDepth = true;
     UnbindRenderTargets(context);
     m_lighting.shade(gpu.pSceneDepth, gpu.pSceneUBO[m_currentFrame], kShadeStageCount - 1);
+    m_lighting.setViewRect(glm::ivec4(0));
     compositePortals(index);
     m_lighting.captureSceneColor();
     drawTransparency();
@@ -333,6 +389,7 @@ void Renderer::renderPortalNode(int index, const SceneUniforms& base, uint32_t o
     selectViewCascades(index, node, uniforms);
     uniforms.prevViewProjection = viewProjection;
     uniforms.giParams.z = 0.0f;
+    uniforms.viewRect = portalViewRect(index);
     uploadCascadeCull();
     context->UpdateBuffer(gpu.pSceneUBO[m_currentFrame], 0, sizeof(uniforms), &uniforms, Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
     m_lighting.cullLights(gpu.pSceneUBO[m_currentFrame]);
@@ -451,6 +508,7 @@ void Renderer::addPortalNodePasses(rg::RenderGraph& graph, FrameGraphData& frame
         selectViewCascades(index, node, uniforms);
         uniforms.prevViewProjection = viewProjection;
         uniforms.giParams.z = 0.0f;
+        uniforms.viewRect = portalViewRect(index);
         uploadCascadeCull();
         context->UpdateBuffer(state.pSceneUBO[m_currentFrame], 0, sizeof(uniforms), &uniforms, Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
         m_lighting.cullLights(state.pSceneUBO[m_currentFrame]);

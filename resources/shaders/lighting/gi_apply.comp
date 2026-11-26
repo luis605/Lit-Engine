@@ -34,7 +34,7 @@ vec3 upsampleGi(ivec2 pixel, float centerDepth) {
 }
 
 void main() {
-    ivec2 pixel = ivec2(gl_GlobalInvocationID.xy);
+    ivec2 pixel = ivec2(gl_GlobalInvocationID.xy) + viewRect.xy;
     if (any(greaterThanEqual(pixel, ivec2(screenParams.xy)))) return;
     if (debugViewMode() != 0) return;
     float depth = texelFetch(u_depth, pixel, 0).r;

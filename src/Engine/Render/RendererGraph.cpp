@@ -425,8 +425,9 @@ void Renderer::addShadePasses(rg::RenderGraph& graph, FrameGraphData& frame, int
             if (surface.child >= 0 && surface.child < kMaxPortalViews && frame.views[surface.child].rendered) pass.read(frame.views[surface.child].color, Usage::ShaderResource);
         }
     };
-    auto shade = [this](int stage) {
+    auto shade = [this, viewIndex](int stage) {
         auto& state = *m_diligent;
+        m_lighting.setViewRect(viewIndex > 0 ? portalViewRect(viewIndex) : glm::ivec4(0));
         m_lighting.shade(state.pSceneDepth, state.pSceneUBO[m_currentFrame], stage);
     };
 

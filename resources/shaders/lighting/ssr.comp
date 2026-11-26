@@ -26,7 +26,7 @@ vec3 toScreen(vec3 viewPosition, vec2 size) {
 }
 
 void main() {
-    ivec2 pixel = ivec2(gl_GlobalInvocationID.xy);
+    ivec2 pixel = ivec2(gl_GlobalInvocationID.xy) + viewRect.xy / 2;
     ivec2 size = imageSize(u_output);
     if (any(greaterThanEqual(pixel, size))) return;
     ivec2 fullSize = ivec2(screenParams.xy);

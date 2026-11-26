@@ -96,7 +96,7 @@ float contactShadow(vec3 worldPos, vec3 N, vec3 L, float viewDepth, float noise)
 }
 
 void main() {
-    ivec2 pixel = ivec2(gl_GlobalInvocationID.xy);
+    ivec2 pixel = ivec2(gl_GlobalInvocationID.xy) + viewRect.xy;
     ivec2 size = ivec2(screenParams.xy);
     if (any(greaterThanEqual(pixel, size))) return;
     vec2 uv = (vec2(pixel) + 0.5) * screenParams.zw;

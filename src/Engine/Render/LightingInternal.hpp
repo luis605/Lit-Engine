@@ -48,6 +48,7 @@ struct Lighting::Data {
     Diligent::IRenderDevice* device = nullptr;
     Diligent::IDeviceContext* context = nullptr;
     Diligent::TEXTURE_FORMAT backBufferFormat = Diligent::TEX_FORMAT_RGBA8_UNORM;
+    glm::ivec4 viewRect{0};
     int width = 1;
     int height = 1;
     int outputWidth = 1;

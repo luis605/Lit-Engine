@@ -302,6 +302,7 @@ export class Renderer {
     void renderPortalNode(int index, const SceneUniforms& base, uint32_t objectCount);
     void renderPortalGeometry(int index, uint32_t objectCount, PortalHistory& history);
     void shadePortalView(int index);
+    [[nodiscard]] glm::ivec4 portalViewRect(int index) const;
     void compositePortals(int index);
     void resolvePortalDepth(int index);
     void maskPortalView(int index);

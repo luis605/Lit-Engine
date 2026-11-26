@@ -16,7 +16,7 @@ const int RADIUS_BY_QUALITY[4] = int[](0, 2, 4, 6);
 const float NORMAL_SLOPE_LIMIT = 0.5;
 
 void main() {
-    ivec2 pixel = ivec2(gl_GlobalInvocationID.xy);
+    ivec2 pixel = ivec2(gl_GlobalInvocationID.xy) + viewRect.xy / 2;
     ivec2 size = imageSize(u_output);
     if (any(greaterThanEqual(pixel, size))) return;
     float center = texelFetch(u_linearDepth, pixel, 0).r;
