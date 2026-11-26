@@ -127,6 +127,8 @@ target_sources(Engine
         Tools/TestScenes.cppm
         Tools/GalleryScene.cppm
         Tools/IkTestScene.cppm
+        Tools/OrbRunRules.cppm
+        Tools/OrbRun.cppm
         Params/Params.cppm
         Observation/Observation.cppm
         State/State.cppm
@@ -276,6 +278,16 @@ target_sources(Engine
         Tools/IkTestTerrain.cpp
         Tools/IkTestRigs.cpp
         Tools/IkTestPlay.cpp
+        Tools/OrbRunRules.cpp
+        Tools/TestSceneOrbRun.cpp
+        Tools/TestSceneOrbRunLayout.cpp
+        Tools/TestSceneOrbRunShell.cpp
+        Tools/TestSceneOrbRunRooms.cpp
+        Tools/TestSceneOrbRunCourtyard.cpp
+        Tools/TestSceneOrbRunProps.cpp
+        Tools/TestSceneOrbRunEnemies.cpp
+        Tools/TestSceneOrbRunGame.cpp
+        Tools/TestSceneOrbRunHud.cpp
         Params/Params.cpp
         Params/ParamsLoader.cpp
         Observation/Observation.cpp

@@ -44,6 +44,14 @@ cd build-release && ./src/Sandbox/Sandbox gallery
 
 `LIT_TESTSCENE=gallery` works too. First-person character with collision against floor, walls, arch, columns and boxes; the spheres are pushable rigid bodies. Controls: WASD move, mouse look, Space jump, Shift sprint, V toggle first/third person, F throw a sphere, R cycle time of day (sunrise, noon, golden hour, night), Esc release the mouse, left click recapture it. Falling off the courtyard respawns at the start. The scene lives in `Engine.GalleryScene` (`src/Engine/Tools/GalleryScene.cpp`) and is shared with `LitShot --testscene gallery`; `tests/GalleryTests.cpp` checks collisions headlessly.
 
+## Play Orb Run
+
+```bash
+cd build-release && ./src/Sandbox/Sandbox orb_run
+```
+
+`LIT_TESTSCENE=orb_run` works too. Collect the 8 glowing orbs before the 180 s clock runs out. A hub links by portals to the Ember room (wall-to-floor drop), the Frost room (ceiling portal), a 45 degree rolled porthole that returns you to the hub from another side, the Grotto (crates, a platform orb) and a terrain courtyard behind a big arch. Three IK spiders patrol Ember, Frost and the courtyard, chase you inside their room and freeze while you look at them; a touch costs one of 3 lives and sends you back to the hub. Controls: WASD, mouse, Space jump, Shift sprint, E shove a crate, R restart, Esc release the mouse. The HUD shows orbs, clock and lives; the hub's floor ring lights one socket per orb. Rules live in `Engine.OrbRunRules` (pure, unit tested), the scene in `src/Engine/Tools/TestSceneOrbRun*.cpp`, checked headlessly by `tests/OrbRunTests.cpp`. The same scene loads in the Editor (`LIT_SCENE=orb_run`, the free camera acts as the player) and LitShot (`--testscene orb_run`).
+
 ## Run headless
 
 No window or GPU is needed:

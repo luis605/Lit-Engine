@@ -298,3 +298,8 @@ set_tests_properties(BindlessTextureParity PROPERTIES SKIP_RETURN_CODE 77 TIMEOU
 # Static memory-safety scan (scripts/memsafe_scan.sh): clang-tidy ratchet against scripts/memsafe_baseline.txt; skipped with 77 without clang-tidy.
 add_test(NAME MemSafeStatic COMMAND ${CMAKE_SOURCE_DIR}/scripts/memsafe_scan.sh WORKING_DIRECTORY ${CMAKE_SOURCE_DIR})
 set_tests_properties(MemSafeStatic PROPERTIES TIMEOUT 3600 SKIP_RETURN_CODE 77 ENVIRONMENT "MEMSAFE_BUILD_DIR=${CMAKE_BINARY_DIR}")
+
+add_executable(OrbRunTests OrbRunTests.cpp)
+target_compile_features(OrbRunTests PRIVATE cxx_std_23)
+target_link_libraries(OrbRunTests PRIVATE Engine glfw)
+add_test(NAME OrbRunTests COMMAND OrbRunTests)

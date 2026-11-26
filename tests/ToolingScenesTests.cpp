@@ -153,8 +153,8 @@ static void testSceneSwitching() {
 
 static void testTestScenes() {
     const std::vector<std::string> names = testSceneNames();
-    CHECK(names.size() == 18);
-    for (const char* expected : {"showcase", "probes", "light_stress", "largeworld", "vsm_mixed", "dense", "ik", "gallery", "textures"}) CHECK(std::ranges::find(names, std::string(expected)) != names.end());
+    CHECK(names.size() == 19);
+    for (const char* expected : {"showcase", "probes", "light_stress", "largeworld", "vsm_mixed", "dense", "ik", "gallery", "textures", "orb_run"}) CHECK(std::ranges::find(names, std::string(expected)) != names.end());
     for (const std::string& name : testSceneNames()) {
         Engine engine;
         engine.openHeadless();

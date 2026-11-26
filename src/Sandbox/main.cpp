@@ -21,6 +21,7 @@ import Engine.Overlay;
 import Engine.TestScenes;
 import Engine.GalleryScene;
 import Engine.IkTestScene;
+import Engine.OrbRun;
 import Engine.Render.material;
 import Sandbox.scene;
 
@@ -152,6 +153,14 @@ void startIkTest(Engine& engine, uint32_t cubeMesh, uint32_t sphereMesh) {
     enableIkTestPlay(engine, kit);
 }
 
+void startOrbRun(Engine& engine) {
+    const TestSceneKit kit = makeTestSceneKit(engine);
+    TestSceneInfo info;
+    if (!buildTestScene(engine, "orb_run", kit, info)) return;
+    applyTestSceneCamera(engine, info);
+    enableOrbRunPlay(engine);
+}
+
 void spawnStress(World& world, const char* countText, uint32_t cubeMesh, uint32_t sphereMesh) {
     const long long requested = std::atoll(countText);
     if (requested <= 0) return;
@@ -191,7 +200,8 @@ int main(int argumentCount, char** arguments) {
     const char* requestedScene = argumentCount > 1 ? arguments[1] : std::getenv("LIT_TESTSCENE");
     const bool gallery = requestedScene && std::string(requestedScene) == "gallery";
     const bool ikTest = requestedScene && std::string(requestedScene) == "ik";
-    const bool playable = gallery || ikTest;
+    const bool orbRun = requestedScene && std::string(requestedScene) == "orb_run";
+    const bool playable = gallery || ikTest || orbRun;
     Engine engine;
     if (!engine.open({"Lit Sandbox"})) return 1;
 
@@ -207,6 +217,7 @@ int main(int argumentCount, char** arguments) {
     Scene scene({engine, world, cubeMesh, sphereMesh});
     if (gallery) startGallery(engine, cubeMesh, sphereMesh);
     else if (ikTest) startIkTest(engine, cubeMesh, sphereMesh);
+    else if (orbRun) startOrbRun(engine);
     else scene.onStart();
 
     if (requestedScene && !playable) spawnTestScene(engine, requestedScene, cubeMesh, sphereMesh);

@@ -36,6 +36,7 @@ import Engine.Terrain;
 import Engine.Streaming;
 import Engine.GalleryScene;
 import Engine.IkTestScene;
+import Engine.OrbRun;
 
 bool buildSkinningTestScene(Engine& engine, const TestSceneKit& kit, TestSceneInfo& info);
 bool buildTerrainTestScene(Engine& engine, const TestSceneKit& kit, TestSceneInfo& info);
@@ -583,7 +584,7 @@ uint32_t testSceneDynamicInstance(Engine& engine, uint32_t source) {
 }
 
 std::vector<std::string> testSceneNames() {
-    return {"portal_loop", "portal_torture", "portal_tilt", "streaming_route", "crowd", "vista", "skinning", "terrain", "showcase", "probes", "light_stress", "largeworld", "vsm_mixed", "dense", "ik", "gallery", "textures", "instancing"};
+    return {"portal_loop", "portal_torture", "portal_tilt", "streaming_route", "crowd", "vista", "skinning", "terrain", "showcase", "probes", "light_stress", "largeworld", "vsm_mixed", "dense", "ik", "gallery", "textures", "instancing", "orb_run"};
 }
 
 void clearTestSceneSystems(Engine& engine) {
@@ -597,6 +598,7 @@ void clearTestSceneSystems(Engine& engine) {
 void leaveTestScene(Engine& engine) {
     clearTestSceneSystems(engine);
     engine.removeSystem(kIkDebugSystem);
+    releaseOrbRun(engine);
     engine.portals().clear();
     if (TerrainStreamer* terrain = engine.terrain()) {
         engine.removeSystem("terrain");
@@ -700,6 +702,36 @@ bool buildGalleryRegistry(Engine& engine, const TestSceneKit& kit, TestSceneInfo
     return true;
 }
 
+bool buildOrbRunRegistry(Engine& engine, const TestSceneKit& kit, TestSceneInfo& info) {
+    OrbRunKit orbKit;
+    orbKit.portal = testScenePortalKit(engine, kit);
+    orbKit.material = [&engine, kit](const Material& material) { return testSceneMaterial(engine, kit, material); };
+    buildOrbRun(engine, orbKit);
+    const OrbRunSpawn spawn = orbRunLayout().spawn;
+    constexpr float kStartEyeHeight = 1.6f;
+    info.start = spawn.feet + glm::vec3(0.0f, kStartEyeHeight, 0.0f);
+    info.yaw = spawn.yaw;
+    info.pitch = spawn.pitch;
+    info.nearPlane = 0.05f;
+    info.farPlane = 1500.0f;
+    info.suggestedTicks = 300;
+    Engine* enginePointer = &engine;
+    info.metrics = [enginePointer]() {
+        TestSceneMetrics metrics;
+        metrics.set("entities", static_cast<double>(enginePointer->world().aliveCount()));
+        metrics.set("cells", static_cast<double>(enginePointer->portals().cells().size()));
+        metrics.set("portals", static_cast<double>(enginePointer->portals().portals().size()));
+        if (const OrbRunGame* game = orbRunGame(*enginePointer)) {
+            metrics.set("orbs_collected", game->state.collected);
+            metrics.set("lives", game->state.lives);
+            metrics.set("time_left", game->state.timeLeft);
+            metrics.set("spider_hits", game->spiderHits);
+        }
+        return metrics;
+    };
+    return true;
+}
+
 }
 
 bool buildTestScene(Engine& engine, const std::string& name, const TestSceneKit& kit, TestSceneInfo& info) { return buildTestScene(engine, name, kit, info, TestSceneParams{}); }
@@ -741,6 +773,7 @@ bool buildTestScene(Engine& engine, const std::string& name, const TestSceneKit&
     else if (name == "instancing") built = buildInstancingTestScene(engine, kit, info);
     else if (name == "ik") built = buildIkRegistry(engine, kit, info);
     else if (name == "gallery") built = buildGalleryRegistry(engine, kit, info);
+    else if (name == "orb_run") built = buildOrbRunRegistry(engine, kit, info);
     if (built && !info.metrics) {
         Engine* enginePointer = &engine;
         info.metrics = [enginePointer]() {
