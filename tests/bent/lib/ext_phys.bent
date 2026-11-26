@@ -137,8 +137,15 @@ fn hfTriangles(b) = flatten(map(range((b.nx - 1) * (b.nz - 1)), fn(k) =>
 gen pxEuler = vec3(float(-180, 180), float(-60, 60), float(-180, 180))
 gen pxPortalPos = vec3(float(-12, 12), float(0, 6), float(-12, 12))
 gen pxPair = {a: pxPortalPos, aEuler: pxEuler, b: pxPortalPos, bEuler: pxEuler, half: vec3(float(1, 2.5), float(1, 2.5), 0), twist: float(-30, 30)}
-# Maps a point / direction through the portal from frame fa (entered) to frame fb (exit): right -> -right, up -> up, normal -> -normal.
-fn pxMapPoint(fa, fb, p) = let d = p - fa.center in fb.center - fb.right * dot(d, fa.right) + fb.up * dot(d, fa.up) - fb.normal * dot(d, fa.normal)
-fn pxMapDir(fa, fb, d) = fb.up * dot(d, fa.up) - fb.right * dot(d, fa.right) - fb.normal * dot(d, fa.normal)
+# Maps a point / direction through the portal from frame fa (entered) to frame fb (exit): right -> -right, up -> up, normal -> -normal, then
+# the in-plane twist (degrees, about the exit normal) is applied. pxUnmap* are the inverses (exit to entrance).
+fn pxTwistCos(tw) = cos(tw * 0.017453292519943295)
+fn pxTwistSin(tw) = sin(tw * 0.017453292519943295)
+fn pxMapDir(fa, fb, tw, d) = let x = 0.0 - dot(d, fa.right) in let y = dot(d, fa.up) in
+    fb.right * (x * pxTwistCos(tw) - y * pxTwistSin(tw)) + fb.up * (x * pxTwistSin(tw) + y * pxTwistCos(tw)) - fb.normal * dot(d, fa.normal)
+fn pxUnmapDir(fa, fb, tw, d) = let x = dot(d, fb.right) in let y = dot(d, fb.up) in
+    fa.right * (0.0 - (x * pxTwistCos(tw) + y * pxTwistSin(tw))) + fa.up * (y * pxTwistCos(tw) - x * pxTwistSin(tw)) - fa.normal * dot(d, fb.normal)
+fn pxMapPoint(fa, fb, tw, p) = fb.center + pxMapDir(fa, fb, tw, p - fa.center)
+fn pxUnmapPoint(fa, fb, tw, p) = fa.center + pxUnmapDir(fa, fb, tw, p - fb.center)
 fn pxSide(f, p) = dot(p - f.center, f.normal)
 fn pxInside(f, p, margin) = abs(dot(p - f.center, f.right)) < f.half.x - margin and abs(dot(p - f.center, f.up)) < f.half.y - margin

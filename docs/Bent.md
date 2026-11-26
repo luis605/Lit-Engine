@@ -329,12 +329,8 @@ First campaign (2026-11-24): 77 laws in 12 files; seed 1 with 3,000 cases per la
 
 | Law | Minimal counterexample | Issue |
 | --- | --- | --- |
-| `snapshot_restore_identity`, `snapshot_then_simulate` | `p = []`, `q = [step(n: 1)]` | `World::captureSnapshot` / `restoreSnapshot` do not include `TimeState`: after a restore the frame counter and elapsed time keep their post-snapshot values, so the world hash (and anything timed) differs. Entity content does round-trip (`snapshot_then_simulate_content` holds). |
-| `no_tunnelling_thick_wall` | sphere r = 0.05 at 75 m/s (1.25 m per tick) into a 2 m static wall | No continuous collision detection: a body that lands past the wall's centre in one tick is pushed out of the far side. `no_tunnelling_half_thickness` (speed below half the thickness per tick) holds. |
 | `render_setting_rejects_nonfinite` | `render(key: "timeOfDay", value: "nan")` | `setRenderSetting` accepts nan / inf for float settings (the parser does not reject non-finite values; only some keys are clamped). |
 | `no_body_escapes_arena` | 15 lattice bodies, gravity (0.78, -16.8, -3), a 0.75 m box at 15 m/s downward | Deep transient penetration under load: at tick 70 the box's centre is 0.25 m below the floor surface (1 m inside a 2 m static wall). Discrete solver, 2 iterations. |
-| `nasty_programs_keep_world_consistent` (second case) | keepWorld reparent under a parent of scale 7.6e-10 x 1.5e-6 x 0.5 | `World::validate` reports a stale world cache for an ill-conditioned hierarchy: cached and recomputed matrices differ by rounding beyond the check's tolerance (a validator false positive, not real staleness). |
-| `nasty_programs_survive_persistence` | one entity with `scale: vec3(inf, 0, 0)`, `saveLoad()` | `World::saveScene` writes non-finite local matrices (here `-nan`) that `loadScene` rejects, so the saved file cannot be loaded back. |
 
 ### Not bugs (laws corrected, documented in the law files)
 
@@ -361,8 +357,8 @@ controller script), `pxPortalFrames`, `navEval` / `navCrowd`, `aiRun`, `skelSamp
   height fields, oriented boxes for hulls; skip equals removal; translation and order invariance; sweep never later than the ray.
 * Dynamics: determinism, finiteness, momentum and energy of elastic collisions, bounce height, friction bounds, stacking, layers, plane /
   mesh / terrain resting, orientation policy, static bodies, contact events, sleeping, no tunnelling below the speed bound, save/load.
-* Character: no penetration, floor, speed bound, jump apex, determinism. Portal: velocity and spin carry (known), portal rays and sweeps equal
-  the unfolded world (known), missed openings.
+* Character: no penetration, floor, speed bound, jump apex, determinism. Portal: velocity and spin carry, portal rays and sweeps equal
+  the unfolded world, missed openings.
 * Nav: path validity, endpoints, A* cost monotone under obstacles, symmetry, incremental rebuild equals fresh build, links, crowd overlap.
 * AI: behaviour trees against a reference interpreter, determinism, seed use, blackboard writes, utility trace scores, FSM tables.
 * Animation: clip sampling, looping, blends, masks, forward kinematics, crossfade, two bone IK, skinning against an independent LBS,
@@ -372,11 +368,7 @@ controller script), `pxPortalFrames`, `navEval` / `navCrowd`, `aiRun`, `skelSamp
 Findings (fixed): `capsuleBox` (alternating projection, 4 rounds) missed overlaps up to ~0.15 m deep; `TriMeshCollider` and
 `HeightfieldCollider` were not serialized (silently dropped by save / load); `normalizeSkinWeights` left all-zero weights when the weight sum
 overflowed.
-Findings (known, regressions in `tests/bent/regressions`): static friction coefficient grows without bound as friction goes to 0
-(`px_low_friction_box_coasts`); ORCA agents can overlap 0.25 m or more (`nav_crowd_overlap_is_small`); FABRIK / CCD get stuck folded 180
-degrees when the target lies on the first bone's line (`ik_target_on_first_bone_line_is_reached`); four portal law mismatches
-(`px_portal_*`, velocity/spin carry, ray and sweep through portals differ from the unfolded world by more than 5 mm, a ray missing the
-opening can still cross), not yet triaged.
+Findings (fixed): static friction coefficient capped at 4x dynamic (`px_low_friction_box_coasts`); FABRIK / CCD unfold a chain folded on the target line (`ik_target_on_first_bone_line_is_reached`); the `px_portal_*` mismatches were law bugs (the helpers ignored the pair twist, and rays could be blocked by the real collider). Known: ORCA agents can overlap 0.25 m or more (`nav_crowd_overlap_is_small`).
 By design: box sweeps use square-cornered inflated boxes (conservative); heightfield normals always face up; partial paths are
 direction dependent; ORCA is a soft constraint.
 
@@ -408,8 +400,7 @@ over 20+ cases is reported `VACUOUS` (a failure), so guarded laws cannot silentl
 Fixed: `WorldSnapshot` ignored the floating origin (a restore after the origin moved shifted every entity: the editor's play / stop did this) now records
 and re-applies it; scene load accepted a `hidden` render flag inconsistent with the visible field (World::validate failed after loading a damaged file);
 bridge `restoreText` left references dead and aliased reused slots.
-Known (regressions in tests/bent/regressions/ext_world_*): `\n` in a name truncates it and in a tag drops it through scene save / load, SaveSystem and
-text snapshots (line based format); `Pcg32::rangeInt(INT_MIN, INT_MAX)` always returns the low bound (span wraps to 0).
+Fixed: `\n` in names and tags is escaped in scene text (old files still load); `Pcg32::rangeInt(INT_MIN, INT_MAX)` covers the full range.
 By design (documented in the laws): child order is not preserved by a load; rotation / scale no-op writes move the last float bit; screen ray origin
 is on the near plane; 1e400 is a JSON parse error.
 Gaps: capsule ray casts (axis convention unconfirmed), scripts, delta store, rare large-scale suites (use --cases 5000).
@@ -433,10 +424,7 @@ orientation, `xr*` residency and worker pool, `xs*` streaming system, `xt*` terr
 | `ext_portal_save` | 9 | delta rebuild (also in another origin), idempotence, removed sets, save resume equals straight run, damaged files rejected, failed apply rolls back, atomic files and backups |
 
 Findings of this campaign: **fixed** `PortalFrameMesh.cpp` `outerContour` used the unclamped bevel, so a bevel wider than the frame pulled
-the outer ring into the opening corner (regression example in `ext_portal_json.bent`). **Known** (`example ... known`):
-`portal_params_continuous_beside_the_opening` (the blend weight of `sampleParams` jumps across the plane extension beside a quad, up to the
-whole partner cell: free standing portals pop gravity / tint when walked around) and `cam_relax_stays_finished` (alignment threshold 1e-5 is
-below the float error of the turn, a finished relax can restart once with 0.03 degrees of roll). **By design, documented in the laws**:
+the outer ring into the opening corner (regression example in `ext_portal_json.bent`). **Fixed**: `portal_params_continuous_beside_the_opening` and `cam_relax_stays_finished`. **By design, documented in the laws**:
 `byteBudget 0` is unlimited; byte-budget enforcement lags the wanted set by up to two updates; the terrain streamer settles over about four
 updates after a move; twisted rectangular pairs let an object enter A outside B's frame; ceiling portal one-frame GPU difference and one-hop
 light are not headless-observable. Gaps: save-version migrations (only version 1 exists), GPU portal parity, observation GPU ids.

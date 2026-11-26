@@ -6,7 +6,7 @@
 #   tests/bent/laws/../lib/ext_phys.bent:16:38: 0.0025698855167089443 <= 0.002569885432720185 is false
 include "../laws/ext_phys_portal.bent"
 
-example px_portal_carries_velocity_and_spin known "untriaged portal query/physics mismatch found by the first run: see docs/Bent.md (Physics, character and AI laws)" {
+example px_portal_carries_velocity_and_spin {
   pair = {a: vec3(0.0, 0.0, 0.0), aEuler: vec3(0.0, 0.0, 0.0), b: vec3(8.000000000000002, 0.0, 0.0), bEuler: vec3(0.0, 0.0, 0.0), half: vec3(1.0, 1.0, 0.0), twist: 0.09379257634282269},
   u = 0.0,
   v = 0.0,

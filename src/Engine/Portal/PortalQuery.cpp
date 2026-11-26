@@ -95,7 +95,8 @@ PortalCellParams PortalSystem::sampleParams(int cell, const glm::vec3& position)
         const Portal& portal = m_portals[static_cast<size_t>(id)];
         float side = 0.0f;
         const float distance = rectDistance(portal, position, side);
-        const float weight = glm::clamp(0.5f * (1.0f - (side >= 0.0f ? distance : -distance) / reach), 0.0f, 1.0f);
+        const float lateral = std::sqrt(std::max(distance * distance - side * side, 0.0f));
+        const float weight = glm::clamp(0.5f * (1.0f - side / reach), 0.0f, 1.0f) * glm::clamp(1.0f - lateral / reach, 0.0f, 1.0f);
         if (weight <= 0.0f) continue;
         const Portal& partner = m_portals[static_cast<size_t>(portal.partner)];
         const PortalCellParams& other = m_cells[static_cast<size_t>(partner.cell)].params;

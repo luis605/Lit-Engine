@@ -1,9 +1,6 @@
-# Bent regression (known): FABRIK and CCD fold a chain 180 degrees onto itself when the target lies on the line of the first bone
-# (two bones of 0.4 m, bent 34 degrees at the elbow, target on the first bone's axis): the tip ends at the root, 0.27 m from the target,
-# and stays there for any number of iterations. The analytic two bone solver (algo "auto" on three points) reaches the target.
 include "../laws/ext_phys_ik.bent"
 
-example ik_target_on_first_bone_line_is_reached known "FABRIK/CCD fixed point: target on the first bone's line leaves the chain folded 180 degrees with the tip at the root" {
+example ik_target_on_first_bone_line_is_reached {
   l1 = 0.4,
   l2 = 0.4,
   bend = 0.6,

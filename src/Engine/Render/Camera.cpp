@@ -14,7 +14,7 @@ constexpr float kDecomposeCosine = 1.0e-5f;
 constexpr float kRollSnapDegrees = 1.0e-3f;
 constexpr float kCanonicalRollSnapDegrees = 1.0e-2f;
 constexpr float kUprightSine = 1.0e-4f;
-constexpr float kAlignedSine = 1.0e-5f;
+constexpr float kAlignedSine = 5.0e-4f;
 constexpr float kRelaxRate = 9.0f;  // critically damped: (1 + 9) exp(-9) = 0.1 % left after `seconds`
 constexpr float kRelaxDoneRate = 1.0f;  // degrees per second
 constexpr float kRelaxDoneDegrees = 0.02f;

@@ -23,6 +23,38 @@ void appendNumber(std::string& buffer, T value) {
     buffer.append(digits, end);
 }
 
+inline constexpr char kEscapedTextMarker = '\x1e';
+
+inline void appendLineText(std::string& buffer, std::string_view text) {
+    const bool needsEscape = !text.empty() && (text.front() == kEscapedTextMarker || text.find_first_of("\n\r") != std::string_view::npos);
+    if (!needsEscape) {
+        buffer.append(text);
+        return;
+    }
+    buffer.push_back(kEscapedTextMarker);
+    for (const char character : text) {
+        if (character == '\\') buffer.append("\\\\");
+        else if (character == '\n') buffer.append("\\n");
+        else if (character == '\r') buffer.append("\\r");
+        else buffer.push_back(character);
+    }
+}
+
+inline std::string decodeLineText(std::string_view text) {
+    if (text.empty() || text.front() != kEscapedTextMarker) return std::string(text);
+    std::string decoded;
+    decoded.reserve(text.size());
+    for (size_t index = 1; index < text.size(); ++index) {
+        if (text[index] == '\\' && index + 1 < text.size()) {
+            const char next = text[++index];
+            decoded.push_back(next == 'n' ? '\n' : next == 'r' ? '\r' : next);
+        } else {
+            decoded.push_back(text[index]);
+        }
+    }
+    return decoded;
+}
+
 inline constexpr int kCoarseShift = 3;
 inline constexpr int kCoarseSpan = 1 << kCoarseShift;
 

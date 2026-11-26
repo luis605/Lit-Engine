@@ -2,7 +2,7 @@
 # Found by: bent check tests/bent/laws/robustness.bent --law nasty_programs_keep_world_consistent --cases 20000 --seed 2 (case 4740); shrunk 386 times
 # Failure: worldErrors() == ["stale world cache for entity 2 parent 1 clean ..."]
 include "../laws/robustness.bent"
-example nasty_programs_keep_world_consistent known "World::validate reports a stale world cache for an ill-conditioned hierarchy (parent scale 7.6e-10 x 1.5e-6 x 0.5 under an FLT_MAX-scaled root, keepWorld reparent): cached and recomputed matrices differ by rounding beyond the check tolerance" {
+example nasty_programs_keep_world_consistent {
   p = [
       spawn(dynamic: false, mass: 0.0, mesh: 0, parent: 0, pos: vec3(0.0, 0.0, 0.0), rot: quat(1.0, 0.0, 0.0, 0.0), scale: vec3(3.4028234663852886e+38, 3.0, 3.4527936065842374e-10), shape: "sphere", size: 0.0, vel: vec3(0.0, 0.0, 0.0)),
       spawn(dynamic: false, mass: 0.0, mesh: 0, parent: 0, pos: vec3(0.0, 0.0, 0.0), rot: quat(0.0, 0.0, 0.0, 0.0), scale: vec3(0.0, 0.0, 0.0), shape: "sphere", size: 0.0, vel: vec3(0.0, 0.0, 0.0)),

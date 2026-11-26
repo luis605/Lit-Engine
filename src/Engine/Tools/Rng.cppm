@@ -42,6 +42,7 @@ export class Pcg32 {
     int rangeInt(int low, int high) {
         if (high <= low) return low;
         const uint32_t span = static_cast<uint32_t>(high) - static_cast<uint32_t>(low) + 1u;
+        if (span == 0) return static_cast<int>(next());
         return static_cast<int>(static_cast<uint32_t>(low) + below(span));
     }
     bool chance(float probability) { return uniform() < probability; }

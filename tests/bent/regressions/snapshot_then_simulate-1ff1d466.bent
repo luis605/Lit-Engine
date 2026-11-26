@@ -6,7 +6,7 @@
 #   tests/bent/laws/persistence.bent:34:49: 6461341702343246497 == 4150746044340762754 is false
 include "../laws/persistence.bent"
 
-example snapshot_then_simulate known "World::captureSnapshot / restoreSnapshot do not include TimeState (frame, elapsed), so a restored world diverges in time" {
+example snapshot_then_simulate {
   p = [],
   q = [step(n: 1)],
   n = 1

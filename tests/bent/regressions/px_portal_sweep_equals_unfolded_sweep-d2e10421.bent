@@ -6,7 +6,7 @@
 #   tests/bent/laws/ext_phys_portal.bent:62:106: 0.0050008296966552734 < 0.005 is false
 include "../laws/ext_phys_portal.bent"
 
-example px_portal_sweep_equals_unfolded_sweep known "untriaged portal query/physics mismatch found by the first run: see docs/Bent.md (Physics, character and AI laws)" {
+example px_portal_sweep_equals_unfolded_sweep {
   pair = {a: vec3(0.0, 0.0, 0.0), aEuler: vec3(0.0, 0.0, 0.0), b: vec3(8.000000000000002, 0.0, 0.0), bEuler: vec3(0.0, 0.0, 0.0), half: vec3(1.0, 1.0, 0.0), twist: 20.620194435119632},
   from = vec3(0.0, 0.0, 2.0),
   q = vec3(0.0, 0.17221529036760333, 2.0),

@@ -1,9 +1,6 @@
-# Bent regression (known): body friction -> 0 makes the static coefficient blow up.
-# material.staticFriction = dynamic * (body.staticFriction / friction) = 0.6 * sqrt(0.5 / friction) (4.2 at friction 0.01), so a nearly
-# frictionless box sticks and stops dead below mu_s * g * dt per tick of speed instead of coasting along the plane.
 include "../laws/ext_phys_dynamics.bent"
 
-example px_low_friction_box_coasts known "static friction coefficient = body.staticFriction * dynamic / friction grows without bound as friction -> 0, so low friction bodies stick instead of sliding" {
+example px_low_friction_box_coasts {
   f = 0.01,
   v = 0.5
 }

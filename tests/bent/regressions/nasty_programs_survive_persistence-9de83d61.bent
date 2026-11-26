@@ -5,7 +5,7 @@
 # Failure: tests/bent/laws/robustness.bent:17:8: loadScene rejected the scene it just saved
 include "../laws/robustness.bent"
 
-example nasty_programs_survive_persistence known "World::saveScene writes non-finite local matrices (inf scale -> nan) that loadScene rejects: the saved file cannot be loaded back" {
+example nasty_programs_survive_persistence {
   p = [
     spawn(dynamic: false, mass: 0.0, mesh: 0, parent: 0, pos: vec3(0.0, 0.0, 0.0), rot: quat(1.0, 0.0, 0.0, 0.0), scale: vec3(inf, 0.0, 0.0), shape: "sphere", size: 0.0, vel: vec3(0.0, 0.0, 0.0))
   ]

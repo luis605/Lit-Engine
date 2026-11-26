@@ -7,7 +7,7 @@
 #   tests/bent/laws/physics.bent:20:8: always failed at tick 8 during action #3 step(n: 120)
 include "../laws/physics.bent"
 
-example no_tunnelling_thick_wall known "no continuous collision: a body moving more than half a wall thickness per tick (here 1.25 m/tick into a 2 m wall) is pushed out of the far side" {
+example no_tunnelling_thick_wall {
   r = 0.05,
   speed = 74.99999618530273,
   y = 0.0,

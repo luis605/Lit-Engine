@@ -36,8 +36,7 @@ law layer_tag_visibility_survive_save_load {
 }
 
 # Names and tags are arbitrary text (spaces, quotes, tabs, NUL, UTF-8, control characters): they must come back byte for byte through
-# the scene file, the save system, snapshots and text snapshots. Newlines are the one known exception (see the known regression
-# newline_in_names_and_tags_survives_save_load): the scene format is line based and a newline truncates a name / drops a tag.
+# the scene file, the save system, snapshots and text snapshots.
 gen safeText = filter(text(1, 12), fn(s) => not contains(s, "\n"))
 fn textSurvives(round, n, t) = after([spawn(shape: "none", dynamic: false, name: "start"), setName(target: 0, name: n), setTag(target: 0, tag: t)] ++ round) { [name(entity(0)), tag(entity(0))] } == [n, t]
 
@@ -61,7 +60,7 @@ law names_and_tags_survive_text_snapshots {
     => textSurvives([snapshotText(slot: 0), setName(target: 0, name: "x"), setTag(target: 0, tag: "y"), restoreText(slot: 0)], n, t)
 }
 
-# Known bug: '\n' in a name or tag is lost by every text based persistence path (scene file, save system, text snapshot).
+# Newlines in a name or tag survive every text based persistence path (scene file, save system, text snapshot).
 law newline_in_names_and_tags_survives_save_load {
     forall (a: text(0, 4), b: text(0, 4))
     where not contains(a, "\n") and not contains(b, "\n")

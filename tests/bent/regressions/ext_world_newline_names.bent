@@ -1,8 +1,6 @@
-# Known bug: a newline in an entity name truncates it and a newline in a tag drops the tag through every text based persistence path
-# (World::saveScene / loadScene, SaveSystem, World::snapshot text): the scene format is line based and has no escaping.
 include "../laws/ext_world_meta.bent"
 
-example newline_in_names_and_tags_survives_save_load known "scene text format is line based: '\n' in a name truncates it, in a tag drops it" {
+example newline_in_names_and_tags_survives_save_load {
   a = "",
   b = ""
 }

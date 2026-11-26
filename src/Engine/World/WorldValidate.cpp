@@ -200,12 +200,18 @@ struct World::Validator {
     }
 
     bool matrixDiffers(const glm::mat4& expected, const glm::mat4& cached) const {
+        float magnitude = 0.0f;
+        for (int column = 0; column < 4; ++column) {
+            for (int row = 0; row < 4; ++row) {
+                if (std::isfinite(expected[column][row])) magnitude = std::max(magnitude, std::abs(expected[column][row]));
+            }
+        }
         for (int column = 0; column < 4; ++column) {
             for (int row = 0; row < 4; ++row) {
                 // Overflowed (non-finite) matrices are not comparable: the cached and recomputed products can overflow differently
                 // (found by bent, robustness.bent nasty_programs_keep_world_consistent: scale 1e30 under an unnormalised rotation).
                 if (!std::isfinite(expected[column][row]) || !std::isfinite(cached[column][row])) continue;
-                if (std::abs(expected[column][row] - cached[column][row]) > kCacheToleranceBase * (1.0f + std::abs(expected[column][row]))) return true;
+                if (std::abs(expected[column][row] - cached[column][row]) > kCacheToleranceBase * (1.0f + magnitude)) return true;
             }
         }
         return false;

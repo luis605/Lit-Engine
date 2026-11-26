@@ -6,7 +6,7 @@
 #   tests/bent/laws/persistence.bent:22:33: 1951713124647126080 == 6461341702343246497 is false
 include "../laws/persistence.bent"
 
-example snapshot_restore_identity known "World::captureSnapshot / restoreSnapshot do not include TimeState: the frame counter (in the world hash) keeps running across a restore" {
+example snapshot_restore_identity {
   p = [],
   q = [step(n: 1)]
 }

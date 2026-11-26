@@ -100,24 +100,21 @@ law cam_relax_converges {
        not end.relaxing and abs(end.roll) < 0.05 and abs(end.pitch) <= 89.05 and end.frameUp ~= normalize(t) within 2e-3
 }
 
-# Critically damped: the roll shrinks monotonically from the moment the frame is turned, it never swings through zero. (A finished relax can
-# restart for one more frame with a leftover of a few hundredths of a degree, see cam_relax_stays_finished; hence the 0.1 degree slack.)
+# Critically damped: the roll shrinks monotonically from the moment the frame is turned, it never swings through zero.
 law cam_relax_roll_never_overshoots {
     forall (o: xcTilted, t: xcTarget, seconds: float(0.1, 2), dt: float(0.004, 0.05))
     => let s = xcRelax(o, t, dt, seconds, 120) in
        forall k in range(1, len(s) - 1): abs(s[k + 1].roll) <= abs(s[k].roll) + 0.1 and (abs(s[k].roll) < 0.1 or s[k + 1].roll * s[k].roll >= 0 or abs(s[k + 1].roll) < 0.1)
 }
 
-# Once a relax has finished it stays finished: nothing but a new crossing starts it again. Known: the frame alignment test (|frameUp x
-# target| > 1e-5) is tighter than the float error of the turn itself, so a relax whose first step already finishes the roll can restart
-# once with a 0.03 degree leftover (the one-frame `relaxing` flicker is invisible, but callers that poll relaxing() see it).
+# Once a relax has finished it stays finished: nothing but a new crossing starts it again.
 law cam_relax_stays_finished {
     forall (o: xcTilted, t: xcTarget, seconds: float(0.1, 2), dt: float(0.004, 0.05))
     => let s = xcRelax(o, t, dt, seconds, 120) in
        forall k in range(1, len(s) - 1): (not s[k].relaxing ==> not s[k + 1].relaxing)
 }
 
-example cam_relax_stays_finished known "alignment threshold 1e-5 is below float error of the turn: a finished relax restarts once" {
+example cam_relax_stays_finished {
     o = {frame: quat(-0.7914100974906848, -0.48830919374190135, 0.23324809220305, 0.28428773519192924), pitch: 0.0, roll: 179.9958724975586, yaw: 63.76904106140137},
     t = vec3(-0.22704521563066007, -0.37906294394728324, -0.8970851434424972),
     seconds = 0.1,

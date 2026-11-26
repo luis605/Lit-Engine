@@ -158,11 +158,6 @@ law portal_params_continuous_beside_the_opening {
        abs(before.sun - past.sun) < 0.05 * (abs(spec.cells[0].sun - spec.cells[1].sun) + 0.01)
 }
 
-# Known: sampleParams measures the blend by the signed distance to the quad's plane side but with the full 3D distance to the rectangle,
-# so beside the quad (outside it, in the plane's extension) the weight jumps from 0.5 * (1 - d / reach) in front to 0.5 * (1 + d / reach)
-# behind, up to the whole partner cell once d >= reach. Walking around the frame of a free standing portal therefore pops gravity, tint
-# and sun. Wall mounted portals never expose that region (the wall is there), which is probably why it went unnoticed.
-
 # ---------------------------------------------------------------- light transport
 
 gen xqLightSpec = {pairs: bind(xpPairPlain, fn(p) => just([with(p, cellA: 0, cellB: 1)])), transport: just(true)}

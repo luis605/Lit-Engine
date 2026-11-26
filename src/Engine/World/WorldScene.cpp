@@ -121,7 +121,11 @@ void World::appendEntityLine(std::string& line, Entity index) const {
     appendNumber(line, renderable.shaderId);
     line.push_back(' ');
     appendNumber(line, renderable.alpha);
+    const glm::mat4 identity(1.0f);
     const float* matrix = &m_db.transforms[index].localMatrix[0][0];
+    bool finite = true;
+    for (int element = 0; element < kMatrixElementCount; ++element) finite = finite && std::isfinite(matrix[element]);
+    if (!finite) matrix = &identity[0][0];
     for (int element = 0; element < kMatrixElementCount; ++element) {
         line.push_back(' ');
         appendNumber(line, matrix[element]);
@@ -131,7 +135,7 @@ void World::appendEntityLine(std::string& line, Entity index) const {
     line.push_back(' ');
     appendNumber(line, renderable.flags & ~RENDER_HIDDEN);
     line.push_back('\t');
-    line.append(m_names.get(index));
+    appendLineText(line, m_names.get(index));
     line.push_back('\n');
 }
 
@@ -195,7 +199,7 @@ void World::appendTags(std::string& out) const {
         out.append("tag ");
         appendNumber(out, index);
         out.push_back('\t');
-        out.append(tag);
+        appendLineText(out, tag);
         out.push_back('\n');
     }
 }
@@ -243,7 +247,7 @@ void World::applyExtraLines(const std::vector<std::string>& componentLines, cons
         if (componentLine.rfind("tag ", 0) == 0) {
             head >> keyword >> id;
             const EntityHandle handle = id < 0 ? NULL_ENTITY : context.resolve(static_cast<uint32_t>(id));
-            if (head && !handle.isNull()) setTag(handle, componentLine.substr(tab + 1));
+            if (head && !handle.isNull()) setTag(handle, decodeLineText(std::string_view(componentLine).substr(tab + 1)));
             continue;
         }
         head >> keyword >> name >> id;
@@ -332,6 +336,7 @@ WorldSnapshot World::captureSnapshot() const {
     snapshot.firstRoot = m_firstRoot;
     snapshot.aliveCount = m_aliveCount;
     snapshot.origin = m_origin;
+    snapshot.time = m_time;
     std::ostringstream extras;
     extras.precision(kSceneFloatPrecision);
     const glm::vec3 position = m_camera.getPosition();
@@ -401,6 +406,9 @@ void World::restoreSnapshot(const WorldSnapshot& snapshot) {
     m_generationBase = std::max(m_generationBase, generationBase);
     restoreSnapshotArrays(snapshot);
     restoreSnapshotExtras(snapshot.extras);
+    m_time.frame = snapshot.time.frame;
+    m_time.elapsed = snapshot.time.elapsed;
+    m_time.unscaledElapsed = snapshot.time.unscaledElapsed;
     // The snapshot's local positions are relative to the origin it was taken at: keep every entity (and the camera) at its absolute
     // position when the floating origin has moved since (same convention as SaveSystem::apply).
     const glm::vec3 originShift(m_origin - snapshot.origin);

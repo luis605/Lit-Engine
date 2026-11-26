@@ -255,7 +255,8 @@ struct World::SceneLoader {
             desc.alpha = entity.alpha;
             if (const auto remapped = meshRemap.find(desc.mesh); remapped != meshRemap.end()) desc.mesh = remapped->second;
             const EntityHandle handle = world.createImpl(desc);
-            world.m_names.set(handle.index, entity.name);
+            if (!entity.name.empty() && entity.name.front() == kEscapedTextMarker) world.m_names.set(handle.index, decodeLineText(entity.name));
+            else world.m_names.set(handle.index, entity.name);
             world.m_db.transforms[handle.index].localMatrix = entity.local;
             world.syncPosition(handle.index);
             world.m_layer[handle.index] = entity.layer;

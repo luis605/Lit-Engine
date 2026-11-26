@@ -63,7 +63,7 @@ law px_energy_non_increasing_all_shapes {
 }
 
 # Coulomb friction: a sliding box on a plane loses at most mu_d g dt of speed per tick (mu_d = sqrt(body friction * 0.5)), except on the tick
-# where static friction brings it to rest (the engine's static coefficient is 0.6 * sqrt(0.5 / friction), see the known example below).
+# where static friction brings it to rest (the static coefficient is capped at 4 times the dynamic one).
 law px_friction_decel_bounded {
     forall (f: float(0.02, 1), v: float(0.5, 8), hx: float(0.2, 0.8))
     => let box = {shape: "box", pos: vec3(0, hx, 0), size: vec3(hx, hx, hx), vel: vec3(v, 0, 0), friction: f} in

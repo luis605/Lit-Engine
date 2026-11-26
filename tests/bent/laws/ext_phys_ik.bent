@@ -27,8 +27,7 @@ law ik_solvers_preserve_bones_and_root {
        lengthsPreserved(points, out, 2e-3) and distance(head(out.points), head(points)) < 1e-4 and all(out.points, finite3)
 }
 
-# Targets inside the reach are hit (within 2% of the reach after 60 FABRIK iterations; CCD 3% after 200). Targets on the line of the first
-# bone with a fully folded chain are a fixed point of both solvers, see the known regression ik_fold_singularity.
+# Targets inside the reach are hit (within 2% of the reach after 60 FABRIK iterations; CCD 3% after 200).
 law ik_fabrik_reaches_reachable_targets {
     forall (points: chainGen, dir: unitVec3(), frac: float(0, 1))
     where visiblyBent(points) and offAxis(points, dir)
@@ -116,8 +115,7 @@ law ik_cone_limits_are_respected {
        all(out.points, finite3) and lengthsPreserved(points, out, 2e-3) and all(out.angles, fn(a) => a <= cone + 3e-2)
 }
 
-# A target on the line of the first bone, closer than the first bone is long, is reachable by folding the chain. FABRIK and CCD fold it
-# a full 180 degrees onto itself (a fixed point of both solvers) and stay there with the tip back at the root.
+# A target on the line of the first bone, closer than the first bone is long, is reachable by folding the chain.
 law ik_target_on_first_bone_line_is_reached {
     forall (l1: float(0.4, 1.2), l2: float(0.4, 1.2), bend: float(0.6, 2.5), frac: float(0.2, 0.9), algo: elements(["fabrik", "ccd"]))
     => let points = [vec3(0, 0, 0), vec3(0, l1, 0), vec3(0, l1, 0) + vec3(sin(bend), cos(bend), 0) * l2] in

@@ -281,12 +281,14 @@ Side sideOf(Body& body) {
 glm::vec3 velocityOf(const Side& side) { return side.body && side.body->body ? side.body->body->velocity : glm::vec3(0.0f); }
 glm::vec3 spinOf(const Side& side) { return side.body && side.body->body && side.spin > 0.0f ? side.body->body->angularVelocity : glm::vec3(0.0f); }
 
+constexpr float kMaxStaticFrictionRatio = 4.0f;
+
 Material surfaceMaterial(const RigidBody& body, float restitution, float friction) {
     const float surface = friction >= 0.0f ? friction : kDefaultFriction;
     Material material;
     material.restitution = std::min(body.restitution, restitution);
     material.dynamicFriction = std::sqrt(std::max(body.friction, 0.0f) * surface);
-    const float ratio = body.staticFriction / std::max(body.friction, 1.0e-6f);
+    const float ratio = std::min(body.staticFriction / std::max(body.friction, 1.0e-6f), kMaxStaticFrictionRatio);
     material.staticFriction = std::max(material.dynamicFriction, material.dynamicFriction * ratio);
     material.rolling = body.rollingResistance;
     return material;
@@ -535,6 +537,34 @@ void wakeBody(World& world, EntityHandle entity) {
     }
 }
 
+namespace {
+void advanceWithSweep(World& world, Body& body, float dt, const PhysicsSettings& settings) {
+    constexpr float kMinSweepRadius = 1.0e-3f;
+    constexpr float kGrazingCosine = 0.05f;
+    constexpr float kContactSink = 0.01f;
+    const glm::vec3 displacement = body.body->velocity * dt;
+    const float travel = glm::length(displacement);
+    if (travel <= std::max(body.boundRadius, kMinSweepRadius)) {
+        body.position += displacement;
+        return;
+    }
+    const glm::vec3 direction = displacement / travel;
+    const auto skip = [&](EntityHandle other) {
+        if (other == body.entity) return true;
+        const RigidBody* otherBody = world.get<RigidBody>(other);
+        return (otherBody && !otherBody->isStatic) || !layersCollide(settings, body.layer, world.getLayer(other));
+    };
+    const auto hit = physicsSweepSphere(world, body.position, direction, travel, std::max(body.boundRadius, kMinSweepRadius), skip);
+    if (!hit || hit->distance >= travel || glm::dot(direction, hit->normal) > -kGrazingCosine) {
+        body.position += displacement;
+        return;
+    }
+    const float sweepRadius = std::max(body.boundRadius, kMinSweepRadius);
+    body.position += direction * std::min(hit->distance + kContactSink * sweepRadius, travel);
+}
+
+}
+
 void stepPhysics(World& world, float dt, const PhysicsSettings& settings) {
     constexpr float kMinCellSize = 0.001f;
     constexpr int kNeighborRadius = 1;
@@ -545,7 +575,7 @@ void stepPhysics(World& world, float dt, const PhysicsSettings& settings) {
     for (Body& body : bodies) {
         if (!body.dynamic || body.asleep) continue;
         body.body->velocity += settings.gravity * body.body->gravityScale * dt;
-        body.position += body.body->velocity * dt;
+        advanceWithSweep(world, body, dt, settings);
     }
 
     const float cellSize = std::max(maxRadius * 2.0f, kMinCellSize);

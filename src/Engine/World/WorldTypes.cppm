@@ -212,6 +212,7 @@ export struct WorldSnapshot {
     Entity firstRoot = INVALID_ENTITY;
     size_t aliveCount = 0;
     glm::dvec3 origin{0.0};  // floating origin the local positions are relative to
+    TimeState time;
     std::string extras;
     bool valid = false;
 };

@@ -148,6 +148,19 @@ void ikApplyPole(IkChainState& chain, const glm::vec3& pole) {
     }
 }
 
+void ikUnfoldCollinear(IkChainState& chain, const glm::vec3& target) {
+    constexpr float kFoldedLateral = 1.0e-4f;
+    constexpr float kUnfoldRadians = 0.1f;
+    const glm::vec3 axis = safeNormalize(target - chain.root(), glm::vec3(0.0f, -1.0f, 0.0f));
+    if (glm::length(target - chain.root()) >= ikChainReach(chain) - kUnreachableSlack) return;
+    for (int index = 1; index + 1 < chain.count; ++index) {
+        const glm::vec3 offset = chain.points[slot(index)] - chain.root();
+        if (glm::length(offset - axis * glm::dot(offset, axis)) > kFoldedLateral * ikChainReach(chain)) continue;
+        const glm::vec3 pivot = chain.points[slot(index - 1)];
+        for (int point = index; point < chain.count; ++point) chain.points[slot(point)] = pivot + ikRotateAround(chain.points[slot(point)] - pivot, chain.bendAxis, kUnfoldRadians);
+    }
+}
+
 void ikRebuildFromDirections(IkChainState& chain, const glm::vec3* directions) {
     for (int bone = 0; bone + 1 < chain.count; ++bone) chain.points[slot(bone + 1)] = chain.points[slot(bone)] + directions[bone] * chain.lengths[slot(bone)];
 }
@@ -160,6 +173,7 @@ IkResult solveFabrik(IkChainState& chain, const glm::vec3& target, const IkSetti
     const glm::vec3 root = chain.root();
     ikResolveBendAxis(chain, target, settings);
     if (settings.hasPole) ikApplyPole(chain, settings.pole);
+    ikUnfoldCollinear(chain, target);
     const float reach = ikChainReach(chain);
     const bool unreachable = glm::length(target - root) >= reach - kUnreachableSlack;
     const int passes = unreachable ? 1 : std::max(1, settings.iterations);
@@ -219,6 +233,7 @@ IkResult solveCcd(IkChainState& chain, const glm::vec3& target, const IkSettings
     const IkSettings settings = sanitised(rawSettings);
     ikResolveBendAxis(chain, target, settings);
     if (settings.hasPole) ikApplyPole(chain, settings.pole);
+    ikUnfoldCollinear(chain, target);
     float previousError = 1.0e30f;
     for (int pass = 0; pass < std::max(1, settings.iterations); ++pass) {
         result.iterations = pass + 1;
